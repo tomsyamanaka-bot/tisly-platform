@@ -1,0 +1,59 @@
+Network1
+LD    X0
+ANI   X1
+SET   M0
+
+Network2
+LDI   X0
+RST   M0
+RST   M1
+RST   M2
+
+Network3
+LD    X1
+RST   M0
+RST   M1
+RST   M2
+RST   Y0
+RST   Y1
+RST   Y2
+RST   Y3
+RST   Y4
+
+Network4
+LD    M0
+AND   X2
+SET   M1
+
+Network5
+LD    M0
+AND   X3
+SET   M2
+
+Network6
+LD    M2
+AND   SM412
+LD    M0
+ANI   M2
+AND   SM413
+ORB
+OUT   M20
+LD    M20
+OUT   Y0
+
+Network7
+LD    M1
+OUT   Y1
+
+Network8
+LD    M1
+AND   SM413
+OUT   Y2
+
+Network9
+LD    M2
+OUT   Y3
+
+Network10
+LD    M2
+OUT   Y4

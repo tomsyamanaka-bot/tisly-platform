@@ -1,0 +1,13 @@
+{
+  "projectName": "TiSLY_HOME_Security_DEMO",
+  "description": "TiSLY HOME Security デモ用 PLC ラダープログラム",
+  "plcSeries": "Mitsubishi FX",
+  "tool": "GX Works2 / GX Works3",
+  "version": "1.0.0",
+  "files": {
+    "instructionList": "ladder/TiSLY_HOME_Security_DEMO.il",
+    "ladderDiagram": "ladder/TiSLY_HOME_Security_DEMO_LADDER.txt",
+    "ioAssignment": "ladder/IO_ASSIGNMENT.csv",
+    "readme": "README.md"
+  }
+}

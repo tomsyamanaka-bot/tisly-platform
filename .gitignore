@@ -1,0 +1,12 @@
+# GX Works
+*.gxw
+*.gxp
+*.gx3
+*.zip
+*.bak
+*.tmp
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store

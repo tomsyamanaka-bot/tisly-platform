@@ -1,0 +1,20 @@
+{
+  "project_name": "HOME_SECURITY_DEMO",
+  "created_at": "2026-05-29T22:11:32Z",
+  "plc_model": "FX5UJ-24MR/ES",
+  "gx_version": "GX Works3",
+  "spec_file": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\PLC_TEMPLATE_BUILDER\\v4\\sample_spec.txt",
+  "generated_files": [
+    "GXW3_COMMANDS.txt",
+    "IO_ASSIGNMENT.csv",
+    "WIRING_DIAGRAM.md",
+    "PROJECT_README.md",
+    "TEST_REPORT.md",
+    "PROJECT_META.json"
+  ],
+  "test_status": "PASS",
+  "builder_version": "TiSLY PLC Builder v4.7",
+  "build_command": "python build.py --sample",
+  "test_command": "python test_builder.py",
+  "last_test_status": "PASS"
+}
