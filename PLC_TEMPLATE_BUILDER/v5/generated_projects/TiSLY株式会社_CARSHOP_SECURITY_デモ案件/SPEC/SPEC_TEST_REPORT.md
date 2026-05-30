@@ -8,9 +8,9 @@
 
 | 項目 | 値 |
 |------|-----|
-| 実行日時 (UTC) | 2026-05-29T22:25:34Z |
+| 実行日時 (UTC) | 2026-05-30T15:53:29Z |
 | 案件名 | TiSLY株式会社_CARSHOP_SECURITY_デモ案件 |
-| PLC | FX5U-24MR/ES |
+| PLC | FX5UJ-24MR/ES |
 | 電源 | MeanWell HDR-60-24 |
 
 ---

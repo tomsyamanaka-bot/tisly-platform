@@ -26,7 +26,7 @@ class PowerSupply:
 
 
 PLC_MODELS: tuple[PlcModel, ...] = (
-    PlcModel("FX5U-24MR/ES", 14, 10, "小型: 入力14点 / 出力10点"),
+    PlcModel("FX5UJ-24MR/ES", 14, 10, "小型: 入力14点 / 出力10点"),
     PlcModel("FX5U-32MR/ES", 16, 16, "中型: 入力16点 / 出力16点"),
     PlcModel("FX5U-48MR/ES", 24, 24, "大型: 入力24点 / 出力24点"),
 )

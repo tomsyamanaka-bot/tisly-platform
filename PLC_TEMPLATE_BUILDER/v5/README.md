@@ -189,6 +189,41 @@ TiSLY PLC Builder v5.0 — 完成
 | **v5.0** | **見積 + 顧客入力 → 仕様書 → GX Works3 → 納品フォルダ** |
 | **v5.7** | **TOMS 見積 Excel 出力（TOMS_QUOTE.xlsx）** |
 | **v5.8** | **現調シート生成（SITE_SURVEY.md）** |
+| **v5.9** | **PLC容量自動選定強化（PLC_SELECTION.md）** |
+
+---
+
+## v5.9 PLC Capacity Selection
+
+入力/出力点数から PLC 余裕率を計算し、本体・拡張ユニットを自動提案します。
+
+```powershell
+cd PLC_TEMPLATE_BUILDER/v5
+python project_generator.py --quote-ready --estimate-file estimate_mode/estimate_sample.txt
+```
+
+追加生成物:
+
+| ファイル | 内容 |
+|----------|------|
+| PLC_SELECTION.md | 現在PLC / 入出力使用状況 / 余裕率 / 判定 / 推奨PLC / 拡張ユニット |
+
+選定ルール:
+
+| 使用率 | 判定 |
+|--------|------|
+| 70% 未満 | 現在PLCでOK |
+| 70% 以上 | 注意 |
+| 80% 以上 | 1ランク上を推奨 |
+| 90% 以上 | 不適合 — 上位機種必須 |
+
+完成時表示:
+
+```
+TiSLY PLC Builder v5.9
+PLC容量自動選定強化
+自動テスト PASS
+```
 
 ---
 
@@ -279,4 +314,4 @@ python project_generator.py --quote-ready --estimate-file estimate_mode/estimate
 
 ---
 
-**TiSLY PLC Builder v5.8**
+**TiSLY PLC Builder v5.9**

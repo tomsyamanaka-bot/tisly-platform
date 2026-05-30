@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-TiSLY PLC Builder v5.8
+TiSLY PLC Builder v5.9
 見積 + 顧客入力 → 仕様書 / GX Works3 命令 / 配線図 / 納品フォルダ 自動生成
 用途別テンプレート (--template) / 日本語文章 (--nl) / 完全自動 (--full-spec) /
 見積メモ形式 (--estimate-mode) / 見積+部材表+施工メモ (--estimate-plus) /
 TOMS見積連携準備 (--quote-ready) / TOMS見積Excel出力 (--quote-excel) /
-現調シート生成 (--site-survey) 対応
+現調シート生成 (--site-survey) / PLC容量選定 (--full-spec 他) 対応
 """
 
 from __future__ import annotations
@@ -39,7 +39,7 @@ FULL_SPEC_SAMPLE = (
     "パトライト1台。\n"
     "白色LED4台。"
 )
-VERSION = "v5.8"
+VERSION = "v5.9"
 BUILDER_NAME = f"TiSLY PLC Builder {VERSION}"
 
 VALID_TEMPLATES = (
@@ -112,6 +112,14 @@ from site_survey_generator import (  # noqa: E402
     site_survey_device_count,
     site_survey_has_device_table,
     site_survey_has_io_table,
+)
+from plc_selection_generator import (  # noqa: E402
+    generate_plc_selection_md,
+    plc_selection_has_judgment,
+    plc_selection_has_margin,
+    plc_selection_has_recommended_plc,
+    plc_selection_has_used_inputs,
+    plc_selection_has_used_outputs,
 )
 
 
@@ -1259,8 +1267,19 @@ def build_full_spec_project(
 
     write_spec_outputs(spec_result, project_dir)
 
+    _write_plc_selection_file(
+        project_dir,
+        spec_result.assignment,
+        spec_result.assignment.customer.plc_model,
+    )
+    plc_rows = audit_plc_selection_files(project_dir)
+    all_rows = all_rows + plc_rows
+
     spec_checks_pass = spec_result.all_pass
-    all_pass = all_pass and spec_checks_pass
+    all_pass = all_pass and spec_checks_pass and all(r.passed for r in plc_rows)
+
+    auto_report = _write_auto_test_report(project_dir, all_rows, all_pass)
+    (project_dir / "TEST" / "AUTO_TEST_REPORT.md").write_text(auto_report, encoding="utf-8")
 
     return FullSpecBuildResult(
         request_text=text,
@@ -1291,6 +1310,7 @@ def _print_full_spec_completion(result: FullSpecBuildResult) -> None:
     print(f"  PLC: {spec.estimation.plc_model}  電源: MeanWell {spec.estimation.power_model}")
     print("↓")
     print("PLC選定")
+    print(f"  → {result.project_dir / 'SPEC' / 'PLC_SELECTION.md'}")
     print(f"  入力 {spec.estimation.input_count}/{spec.estimation.plc.max_inputs}  "
           f"出力 {spec.estimation.output_count}/{spec.estimation.plc.max_outputs}")
     print("↓")
@@ -1332,6 +1352,64 @@ def audit_capacity_checks(assignment: IOAssignment, estimation) -> list[AuditRow
             "出力点数 PLC 容量内",
             output_count <= estimation.plc.max_outputs,
             f"使用 {output_count} / 最大 {estimation.plc.max_outputs}",
+        ),
+    ]
+
+
+def _write_plc_selection_file(
+    project_dir: Path,
+    assignment: IOAssignment,
+    current_plc_model: str,
+) -> Path:
+    """PLC_SELECTION.md を SPEC/ に書き出す。"""
+    spec_dir = project_dir / "SPEC"
+    spec_dir.mkdir(parents=True, exist_ok=True)
+    path = spec_dir / "PLC_SELECTION.md"
+    path.write_text(
+        generate_plc_selection_md(
+            current_plc_model,
+            len(assignment.inputs),
+            len(assignment.outputs),
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
+def audit_plc_selection_files(project_dir: Path) -> list[AuditRow]:
+    """PLC 容量選定ファイルを監査する。"""
+    path = project_dir / "SPEC" / "PLC_SELECTION.md"
+    text = path.read_text(encoding="utf-8") if path.is_file() else ""
+    return [
+        AuditRow(
+            "PLC_SELECTION.md 存在",
+            path.is_file(),
+            "OK" if path.is_file() else "ファイルなし",
+        ),
+        AuditRow(
+            "使用入力点数あり",
+            plc_selection_has_used_inputs(text),
+            "OK" if plc_selection_has_used_inputs(text) else "なし",
+        ),
+        AuditRow(
+            "使用出力点数あり",
+            plc_selection_has_used_outputs(text),
+            "OK" if plc_selection_has_used_outputs(text) else "なし",
+        ),
+        AuditRow(
+            "余裕率あり",
+            plc_selection_has_margin(text),
+            "OK" if plc_selection_has_margin(text) else "なし",
+        ),
+        AuditRow(
+            "判定あり",
+            plc_selection_has_judgment(text),
+            "OK" if plc_selection_has_judgment(text) else "なし",
+        ),
+        AuditRow(
+            "推奨PLCあり",
+            plc_selection_has_recommended_plc(text),
+            "OK" if plc_selection_has_recommended_plc(text) else "なし",
         ),
     ]
 
@@ -1378,11 +1456,18 @@ def build_estimate_mode_project(
         str(estimate_path),
     )
 
+    _write_plc_selection_file(
+        project_dir,
+        estimate_result.assignment,
+        estimate_result.assignment.customer.plc_model,
+    )
+
     capacity_rows = audit_capacity_checks(
         estimate_result.assignment, estimate_result.estimation
     )
     spec_rows = spec_checks_to_audit_rows(estimate_result.spec_checks)
-    all_rows = capacity_rows + all_rows + spec_rows
+    plc_rows = audit_plc_selection_files(project_dir)
+    all_rows = capacity_rows + all_rows + spec_rows + plc_rows
     all_pass = logic_pass and all(r.passed for r in all_rows)
 
     write_project_meta(
@@ -1392,6 +1477,9 @@ def build_estimate_mode_project(
         str(estimate_path),
         "PASS" if all_pass else "FAIL",
     )
+
+    auto_report = _write_auto_test_report(project_dir, all_rows, all_pass)
+    (project_dir / "TEST" / "AUTO_TEST_REPORT.md").write_text(auto_report, encoding="utf-8")
 
     return EstimateModeBuildResult(
         estimate_result=estimate_result,
@@ -1415,6 +1503,9 @@ def _print_estimate_mode_completion(result: EstimateModeBuildResult) -> None:
     print("PLC仕様")
     for line in format_plc_spec_summary(er).splitlines():
         print(f"  {line}")
+    print("↓")
+    print("PLC容量選定")
+    print(f"  → {result.project_dir / 'SPEC' / 'PLC_SELECTION.md'}")
     print("↓")
     print("I/O表")
     print(f"  → {result.project_dir / 'SPEC' / 'IO_ASSIGNMENT.csv'}")
@@ -1570,12 +1661,19 @@ def build_estimate_plus_project(
 
     _write_estimate_plus_spec_files(project_dir, estimate_result)
 
+    _write_plc_selection_file(
+        project_dir,
+        estimate_result.assignment,
+        estimate_result.assignment.customer.plc_model,
+    )
+
     capacity_rows = audit_capacity_checks(
         estimate_result.assignment, estimate_result.estimation
     )
     spec_rows = spec_checks_to_audit_rows(estimate_result.spec_checks)
     plus_rows = audit_estimate_plus_files(project_dir, estimate_result)
-    all_rows = capacity_rows + all_rows + spec_rows + plus_rows
+    plc_rows = audit_plc_selection_files(project_dir)
+    all_rows = capacity_rows + all_rows + spec_rows + plus_rows + plc_rows
     all_pass = logic_pass and all(r.passed for r in all_rows)
 
     write_project_meta(
@@ -1610,6 +1708,9 @@ def _print_estimate_plus_completion(result: EstimatePlusBuildResult) -> None:
     print("↓")
     print("PLC案件生成")
     print(f"  → {result.project_dir}/")
+    print("↓")
+    print("PLC容量選定")
+    print(f"  → {result.project_dir / 'SPEC' / 'PLC_SELECTION.md'}")
     print("↓")
     print("部材表")
     print(f"  → {result.project_dir / 'SPEC' / 'BOM.csv'}")
@@ -1744,13 +1845,20 @@ def build_quote_ready_project(
 
     _write_quote_ready_spec_files(project_dir, estimate_result)
 
+    _write_plc_selection_file(
+        project_dir,
+        estimate_result.assignment,
+        estimate_result.assignment.customer.plc_model,
+    )
+
     capacity_rows = audit_capacity_checks(
         estimate_result.assignment, estimate_result.estimation
     )
     spec_rows = spec_checks_to_audit_rows(estimate_result.spec_checks)
     plus_rows = audit_estimate_plus_files(project_dir, estimate_result)
     quote_rows = audit_quote_ready_files(project_dir)
-    all_rows = capacity_rows + all_rows + spec_rows + plus_rows + quote_rows
+    plc_rows = audit_plc_selection_files(project_dir)
+    all_rows = capacity_rows + all_rows + spec_rows + plus_rows + quote_rows + plc_rows
     all_pass = logic_pass and all(r.passed for r in all_rows)
 
     write_project_meta(
@@ -1782,6 +1890,9 @@ def _print_quote_ready_completion(result: QuoteReadyBuildResult) -> None:
     print(f"  目的: {memo.purpose}")
     for key, qty in sorted(memo.parts.items()):
         print(f"  {key}: {qty}")
+    print("↓")
+    print("PLC容量選定")
+    print(f"  → {result.project_dir / 'SPEC' / 'PLC_SELECTION.md'}")
     print("↓")
     print("BOM")
     print(f"  → {result.project_dir / 'SPEC' / 'BOM.csv'}")

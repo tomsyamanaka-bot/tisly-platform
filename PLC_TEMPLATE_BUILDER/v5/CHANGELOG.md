@@ -1,5 +1,14 @@
 # TiSLY PLC Builder v5 — CHANGELOG
 
+## v5.9 — PLC容量自動選定強化
+
+- `estimate_mode/plc_selection_generator.py` 追加
+- 入力/出力点数から余裕率（使用率・余裕点数）を自動計算
+- PLC 選定ルール強化（70% 注意 / 80% 1ランク上推奨 / 90% 不適合）
+- 拡張ユニット提案（FX5U-16EX / FX5U-16EYR）
+- `PLC_SELECTION.md` 自動生成（`--full-spec` / `--estimate-mode` / `--estimate-plus` / `--quote-ready`）
+- 監査: PLC_SELECTION 存在 / 使用点数 / 余裕率 / 判定 / 推奨PLC
+
 ## v5.8 — 現調シート生成
 
 - `estimate_mode/site_survey_generator.py` 追加

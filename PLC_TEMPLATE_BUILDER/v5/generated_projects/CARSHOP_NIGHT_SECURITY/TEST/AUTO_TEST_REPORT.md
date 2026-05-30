@@ -1,4 +1,4 @@
-# AUTO_TEST_REPORT — TiSLY PLC Builder v5.8
+# AUTO_TEST_REPORT — TiSLY PLC Builder v5.9
 
 > 全生成物存在確認 + 監査 PASS 確認
 
@@ -8,7 +8,7 @@
 
 | 項目 | 値 |
 |------|-----|
-| 実行日時 (UTC) | 2026-05-30T15:36:58Z |
+| 実行日時 (UTC) | 2026-05-30T15:53:30Z |
 | 対象 | CARSHOP_NIGHT_SECURITY |
 | テスト | 全生成物存在確認 / GX 監査 |
 
@@ -42,21 +42,12 @@
 - ✓ ORDER_MEMO.md 存在: OK
 - ✓ PLC型番あり: FX5UJ-24MR/ES
 - ✓ 電源型番あり: MeanWell HDR-60-24
-- ✓ TOMS_QUOTE_ITEMS.csv 存在: OK
-- ✓ TOMS_QUOTE_SUMMARY.md 存在: OK
-- ✓ No 連番: 8 行
-- ✓ Qty 空欄なし: OK
-- ✓ PLC項目あり: PLC
-- ✓ 24V電源項目あり: 24V電源
-- ✓ TOMS_QUOTE.xlsx 存在: OK
-- ✓ xlsx 形式有効: OK
-- ✓ 見積明細行数: 9 行（期待 9 行）
-- ✓ Excel PLC項目: PLC
-- ✓ Excel 24V電源項目: 24V電源
-- ✓ SITE_SURVEY.md 存在: OK
-- ✓ 機器チェックリスト: 5 機器
-- ✓ I/O現調表: OK
-- ✓ 機器行数一致: 5 / 期待 5
+- ✓ PLC_SELECTION.md 存在: OK
+- ✓ 使用入力点数あり: OK
+- ✓ 使用出力点数あり: OK
+- ✓ 余裕率あり: OK
+- ✓ 判定あり: OK
+- ✓ 推奨PLCあり: OK
 
 ---
 
@@ -90,24 +81,15 @@
 | ORDER_MEMO.md 存在 | PASS | OK |
 | PLC型番あり | PASS | FX5UJ-24MR/ES |
 | 電源型番あり | PASS | MeanWell HDR-60-24 |
-| TOMS_QUOTE_ITEMS.csv 存在 | PASS | OK |
-| TOMS_QUOTE_SUMMARY.md 存在 | PASS | OK |
-| No 連番 | PASS | 8 行 |
-| Qty 空欄なし | PASS | OK |
-| PLC項目あり | PASS | PLC |
-| 24V電源項目あり | PASS | 24V電源 |
-| TOMS_QUOTE.xlsx 存在 | PASS | OK |
-| xlsx 形式有効 | PASS | OK |
-| 見積明細行数 | PASS | 9 行（期待 9 行） |
-| Excel PLC項目 | PASS | PLC |
-| Excel 24V電源項目 | PASS | 24V電源 |
-| SITE_SURVEY.md 存在 | PASS | OK |
-| 機器チェックリスト | PASS | 5 機器 |
-| I/O現調表 | PASS | OK |
-| 機器行数一致 | PASS | 5 / 期待 5 |
+| PLC_SELECTION.md 存在 | PASS | OK |
+| 使用入力点数あり | PASS | OK |
+| 使用出力点数あり | PASS | OK |
+| 余裕率あり | PASS | OK |
+| 判定あり | PASS | OK |
+| 推奨PLCあり | PASS | OK |
 
 ---
 
 **総合判定: PASS**
 
-**TiSLY PLC Builder v5.8 — AUTO_TEST_REPORT**
+**TiSLY PLC Builder v5.9 — AUTO_TEST_REPORT**

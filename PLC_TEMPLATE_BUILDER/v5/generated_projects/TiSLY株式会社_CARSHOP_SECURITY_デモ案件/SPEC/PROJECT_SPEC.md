@@ -13,9 +13,9 @@
 | 会社名 | TiSLY株式会社 |
 | 現場名 | CARSHOP_SECURITY デモ案件 |
 | 担当者 | 自動生成 |
-| PLC型番 | FX5U-24MR/ES |
+| PLC型番 | FX5UJ-24MR/ES |
 | 推奨電源 | MeanWell HDR-60-24 |
-| 生成日時 | 2026-05-29 22:25 UTC |
+| 生成日時 | 2026-05-30 15:53 UTC |
 | Builder | TiSLY PLC Builder v5.3 |
 | 推定テンプレート | CARSHOP_SECURITY |
 
@@ -72,7 +72,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| 推定 PLC | FX5U-24MR/ES |
+| 推定 PLC | FX5UJ-24MR/ES |
 | 入力使用 / 最大 | 8 / 14 |
 | 出力使用 / 最大 | 5 / 10 |
 | 入力余裕 | 6 点 |

@@ -1,4 +1,4 @@
-# AUTO_TEST_REPORT — TiSLY PLC Builder v5.3
+# AUTO_TEST_REPORT — TiSLY PLC Builder v5.9
 
 > 全生成物存在確認 + 監査 PASS 確認
 
@@ -8,7 +8,7 @@
 
 | 項目 | 値 |
 |------|-----|
-| 実行日時 (UTC) | 2026-05-29T22:25:34Z |
+| 実行日時 (UTC) | 2026-05-30T15:53:29Z |
 | 対象 | TiSLY株式会社_CARSHOP_SECURITY_デモ案件 |
 | テスト | 全生成物存在確認 / GX 監査 |
 
@@ -30,6 +30,12 @@
 - ✓ DRAWING/WIRING_DIAGRAM.md 存在: OK
 - ✓ TEST/TEST_REPORT.md 存在: OK
 - ✓ PROJECT_META.json 存在: OK
+- ✓ PLC_SELECTION.md 存在: OK
+- ✓ 使用入力点数あり: OK
+- ✓ 使用出力点数あり: OK
+- ✓ 余裕率あり: OK
+- ✓ 判定あり: OK
+- ✓ 推奨PLCあり: OK
 
 ---
 
@@ -51,9 +57,15 @@
 | DRAWING/WIRING_DIAGRAM.md 存在 | PASS | OK |
 | TEST/TEST_REPORT.md 存在 | PASS | OK |
 | PROJECT_META.json 存在 | PASS | OK |
+| PLC_SELECTION.md 存在 | PASS | OK |
+| 使用入力点数あり | PASS | OK |
+| 使用出力点数あり | PASS | OK |
+| 余裕率あり | PASS | OK |
+| 判定あり | PASS | OK |
+| 推奨PLCあり | PASS | OK |
 
 ---
 
 **総合判定: PASS**
 
-**TiSLY PLC Builder v5.3 — AUTO_TEST_REPORT**
+**TiSLY PLC Builder v5.9 — AUTO_TEST_REPORT**

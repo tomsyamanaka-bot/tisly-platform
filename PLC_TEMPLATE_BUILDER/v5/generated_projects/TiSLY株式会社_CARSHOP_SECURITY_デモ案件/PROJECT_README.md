@@ -1,6 +1,6 @@
 # TiSLY株式会社_CARSHOP_SECURITY_デモ案件 — 納品 README
 
-> TiSLY PLC Builder v5.3 自動生成
+> TiSLY PLC Builder v5.9 自動生成
 
 ## テンプレート
 
@@ -18,7 +18,7 @@
 | 会社名 | TiSLY株式会社 |
 | 現場名 | CARSHOP_SECURITY デモ案件 |
 | 担当者 | 自動生成 |
-| PLC型番 | FX5U-24MR/ES |
+| PLC型番 | FX5UJ-24MR/ES |
 
 ---
 
@@ -58,7 +58,7 @@ TiSLY株式会社_CARSHOP_SECURITY_デモ案件/
 
 ## GX Works3 投入手順
 
-1. GX Works3 で新規プロジェクト（FX5U-24MR/ES）を作成
+1. GX Works3 で新規プロジェクト（FX5UJ-24MR/ES）を作成
 2. ラダーエディタを **命令入力モード** に切替
 3. `PLC_PROGRAM/GX3_COMMANDS.txt` を開き全文コピー
 4. ラダー先頭セルに貼り付け → コンパイル（F4）
@@ -74,4 +74,4 @@ TiSLY株式会社_CARSHOP_SECURITY_デモ案件/
 
 ---
 
-**TiSLY PLC Builder v5.3**
+**TiSLY PLC Builder v5.9**
