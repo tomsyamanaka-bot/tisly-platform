@@ -1,0 +1,10 @@
+Device,Name,Type,Category
+X0,ライン起動,Input,system
+X1,非常停止,Input,safety
+X2,安全カーテン,Input,赤外線
+X3,設備異常入力,Input,PIR
+Y0,パトライト,Output,パトライト
+Y1,ブザー,Output,alarm
+Y2,搬送停止,Output,zone
+Y3,安全警告灯,Output,zone
+Y4,設備異常表示,Output,zone

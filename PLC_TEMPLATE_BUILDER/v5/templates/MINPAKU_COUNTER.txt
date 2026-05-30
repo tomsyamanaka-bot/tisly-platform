@@ -1,0 +1,8 @@
+# TiSLY PLC Builder v5.1 — MINPAKU_COUNTER テンプレート
+# 用途: 入口赤外線、出口赤外線、人数カウント、満室表示、清掃モード
+
+template=MINPAKU_COUNTER
+会社名=TiSLY株式会社
+現場名=MINPAKU_COUNTER デモ案件
+担当者=自動生成
+PLC型番=FX5UJ-24MR/ES

@@ -1,0 +1,8 @@
+# TiSLY PLC Builder v5.1 — FACTORY_SAFETY テンプレート
+# 用途: 非常停止、安全カーテン、パトライト、ブザー、設備異常入力
+
+template=FACTORY_SAFETY
+会社名=TiSLY株式会社
+現場名=FACTORY_SAFETY デモ案件
+担当者=自動生成
+PLC型番=FX5UJ-24MR/ES

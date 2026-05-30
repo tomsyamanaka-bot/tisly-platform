@@ -1,0 +1,18 @@
+{
+  "project_name": "HOME_SECURITY",
+  "created_at": "2026-05-29T22:20:40Z",
+  "plc_model": "FX5UJ-24MR/ES",
+  "gx_version": "GX Works3",
+  "customer_file": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\PLC_TEMPLATE_BUILDER\\v5\\templates\\HOME_SECURITY.txt",
+  "estimate_file": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\PLC_TEMPLATE_BUILDER\\v5\\templates\\HOME_SECURITY.txt",
+  "builder_version": "TiSLY PLC Builder v5.2",
+  "test_status": "PASS",
+  "folders": [
+    "PLC_PROGRAM",
+    "SPEC",
+    "DRAWING",
+    "TEST"
+  ],
+  "template": "HOME_SECURITY",
+  "template_description": "警戒スイッチ、非常停止、外周センサー、近接センサー、赤灯、白灯4回路"
+}

@@ -1,0 +1,8 @@
+# TiSLY PLC Builder v5.1 — CARSHOP_SECURITY テンプレート
+# 用途: 夜間警戒、外周センサー、展示車エリアセンサー、赤灯、白灯、非常停止
+
+template=CARSHOP_SECURITY
+会社名=TiSLY株式会社
+現場名=CARSHOP_SECURITY デモ案件
+担当者=自動生成
+PLC型番=FX5UJ-24MR/ES

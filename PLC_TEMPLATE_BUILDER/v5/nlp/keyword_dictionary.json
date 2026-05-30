@@ -1,0 +1,98 @@
+{
+  "version": "v5.2",
+  "templates": {
+    "HOME_SECURITY": {
+      "description": "警戒スイッチ、非常停止、外周センサー、近接センサー、赤灯、白灯4回路",
+      "keywords": [
+        {"term": "自宅", "weight": 4, "label": "自宅"},
+        {"term": "住宅", "weight": 4, "label": "住宅"},
+        {"term": "ホーム", "weight": 3, "label": "ホーム"},
+        {"term": "家", "weight": 2, "label": "住宅"},
+        {"term": "警戒", "weight": 3, "label": "警戒"},
+        {"term": "警戒スイッチ", "weight": 4, "label": "警戒スイッチ"},
+        {"term": "外周", "weight": 4, "label": "外周"},
+        {"term": "外周センサー", "weight": 4, "label": "外周センサー"},
+        {"term": "近接", "weight": 3, "label": "近接センサー"},
+        {"term": "近接センサー", "weight": 4, "label": "近接センサー"},
+        {"term": "pir", "weight": 3, "label": "PIR"},
+        {"term": "赤灯", "weight": 2, "label": "赤灯"},
+        {"term": "白灯", "weight": 2, "label": "白灯"},
+        {"term": "警備", "weight": 3, "label": "警備"},
+        {"term": "非常停止", "weight": 2, "label": "非常停止"},
+        {"term": "防犯", "weight": 3, "label": "防犯"}
+      ]
+    },
+    "CARSHOP_SECURITY": {
+      "description": "夜間警戒、外周センサー、展示車エリアセンサー、赤灯、白灯、非常停止",
+      "keywords": [
+        {"term": "車屋", "weight": 5, "label": "車屋"},
+        {"term": "カーショップ", "weight": 5, "label": "カーショップ"},
+        {"term": "自動車", "weight": 3, "label": "自動車"},
+        {"term": "自動車販売", "weight": 4, "label": "自動車販売"},
+        {"term": "ディーラー", "weight": 4, "label": "ディーラー"},
+        {"term": "展示車", "weight": 5, "label": "展示車"},
+        {"term": "展示車エリア", "weight": 5, "label": "展示車エリア"},
+        {"term": "ショールーム", "weight": 4, "label": "ショールーム"},
+        {"term": "夜間警戒", "weight": 4, "label": "夜間警戒"},
+        {"term": "車両", "weight": 3, "label": "車両"},
+        {"term": "外周", "weight": 2, "label": "外周"},
+        {"term": "外周センサー", "weight": 2, "label": "外周センサー"},
+        {"term": "赤灯", "weight": 2, "label": "赤灯"},
+        {"term": "白灯", "weight": 2, "label": "白灯"},
+        {"term": "非常停止", "weight": 2, "label": "非常停止"}
+      ]
+    },
+    "WAREHOUSE_SECURITY": {
+      "description": "シャッター監視、侵入センサー、照明連動、非常停止、警報ランプ",
+      "keywords": [
+        {"term": "倉庫", "weight": 5, "label": "倉庫"},
+        {"term": "物流", "weight": 4, "label": "物流"},
+        {"term": "シャッター", "weight": 5, "label": "シャッター"},
+        {"term": "シャッター監視", "weight": 5, "label": "シャッター監視"},
+        {"term": "侵入", "weight": 4, "label": "侵入"},
+        {"term": "侵入センサー", "weight": 4, "label": "侵入センサー"},
+        {"term": "照明連動", "weight": 5, "label": "照明連動"},
+        {"term": "荷捌き", "weight": 3, "label": "荷捌き"},
+        {"term": "警報ランプ", "weight": 3, "label": "警報ランプ"},
+        {"term": "監視", "weight": 2, "label": "監視"},
+        {"term": "非常停止", "weight": 2, "label": "非常停止"}
+      ]
+    },
+    "MINPAKU_COUNTER": {
+      "description": "入口赤外線、出口赤外線、人数カウント、満室表示、清掃モード",
+      "keywords": [
+        {"term": "民泊", "weight": 5, "label": "民泊"},
+        {"term": "airbnb", "weight": 4, "label": "Airbnb"},
+        {"term": "入口", "weight": 4, "label": "入口"},
+        {"term": "出口", "weight": 4, "label": "出口"},
+        {"term": "人数カウント", "weight": 5, "label": "人数カウント"},
+        {"term": "人数", "weight": 3, "label": "人数カウント"},
+        {"term": "カウント", "weight": 2, "label": "人数カウント"},
+        {"term": "満室", "weight": 4, "label": "満室表示"},
+        {"term": "満室表示", "weight": 5, "label": "満室表示"},
+        {"term": "清掃モード", "weight": 5, "label": "清掃モード"},
+        {"term": "清掃", "weight": 3, "label": "清掃モード"},
+        {"term": "チェックイン", "weight": 3, "label": "チェックイン"},
+        {"term": "赤外線", "weight": 2, "label": "赤外線"}
+      ]
+    },
+    "FACTORY_SAFETY": {
+      "description": "非常停止、安全カーテン、パトライト、ブザー、設備異常入力",
+      "keywords": [
+        {"term": "工場", "weight": 5, "label": "工場"},
+        {"term": "製造", "weight": 4, "label": "製造"},
+        {"term": "ライン", "weight": 4, "label": "ライン"},
+        {"term": "生産ライン", "weight": 5, "label": "生産ライン"},
+        {"term": "安全カーテン", "weight": 5, "label": "安全カーテン"},
+        {"term": "搬送", "weight": 4, "label": "搬送"},
+        {"term": "搬送停止", "weight": 4, "label": "搬送停止"},
+        {"term": "設備異常", "weight": 5, "label": "設備異常"},
+        {"term": "異常", "weight": 2, "label": "設備異常"},
+        {"term": "ブザー", "weight": 4, "label": "ブザー"},
+        {"term": "パトライト", "weight": 3, "label": "パトライト"},
+        {"term": "非常停止", "weight": 2, "label": "非常停止"},
+        {"term": "安全", "weight": 2, "label": "安全"}
+      ]
+    }
+  }
+}

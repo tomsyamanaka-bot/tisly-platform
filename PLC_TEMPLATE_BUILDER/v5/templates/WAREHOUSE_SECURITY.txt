@@ -1,0 +1,8 @@
+# TiSLY PLC Builder v5.1 — WAREHOUSE_SECURITY テンプレート
+# 用途: シャッター監視、侵入センサー、照明連動、非常停止、警報ランプ
+
+template=WAREHOUSE_SECURITY
+会社名=TiSLY株式会社
+現場名=WAREHOUSE_SECURITY デモ案件
+担当者=自動生成
+PLC型番=FX5UJ-24MR/ES

@@ -1,0 +1,10 @@
+Device,Name,Type,Category
+X0,シャッター監視,Input,system
+X1,非常停止,Input,safety
+X2,シャッター開閉センサー,Input,赤外線
+X3,侵入センサー,Input,PIR
+Y0,警報ランプ,Output,パトライト
+Y1,照明連動1,Output,zone
+Y2,照明連動2,Output,zone
+Y3,照明連動3,Output,zone
+Y4,照明連動4,Output,zone

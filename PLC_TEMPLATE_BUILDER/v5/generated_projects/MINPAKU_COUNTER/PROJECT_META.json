@@ -1,0 +1,18 @@
+{
+  "project_name": "MINPAKU_COUNTER",
+  "created_at": "2026-05-29T22:20:40Z",
+  "plc_model": "FX5UJ-24MR/ES",
+  "gx_version": "GX Works3",
+  "customer_file": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\PLC_TEMPLATE_BUILDER\\v5\\templates\\MINPAKU_COUNTER.txt",
+  "estimate_file": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\PLC_TEMPLATE_BUILDER\\v5\\templates\\MINPAKU_COUNTER.txt",
+  "builder_version": "TiSLY PLC Builder v5.2",
+  "test_status": "PASS",
+  "folders": [
+    "PLC_PROGRAM",
+    "SPEC",
+    "DRAWING",
+    "TEST"
+  ],
+  "template": "MINPAKU_COUNTER",
+  "template_description": "入口赤外線、出口赤外線、人数カウント、満室表示、清掃モード"
+}

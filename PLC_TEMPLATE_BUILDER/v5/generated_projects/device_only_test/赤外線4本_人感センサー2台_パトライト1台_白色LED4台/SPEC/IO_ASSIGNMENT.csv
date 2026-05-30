@@ -1,0 +1,12 @@
+Device,Name,Type,Category
+X0,外周センサー,Input,赤外線
+X1,赤外線2,Input,赤外線
+X2,赤外線3,Input,赤外線
+X3,赤外線4,Input,赤外線
+X4,近接センサー,Input,PIR
+X5,PIR2,Input,PIR
+Y0,赤灯,Output,パトライト
+Y1,白灯1,Output,zone
+Y2,白灯2,Output,zone
+Y3,白灯3,Output,zone
+Y4,白灯4,Output,zone

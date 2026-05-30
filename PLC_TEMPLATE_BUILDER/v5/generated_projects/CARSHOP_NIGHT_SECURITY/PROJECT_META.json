@@ -1,0 +1,16 @@
+{
+  "project_name": "CARSHOP_NIGHT_SECURITY",
+  "created_at": "2026-05-30T15:36:13Z",
+  "plc_model": "FX5UJ-24MR/ES",
+  "gx_version": "GX Works3",
+  "customer_file": "(見積メモ)",
+  "estimate_file": "estimate_mode\\estimate_sample.txt",
+  "builder_version": "TiSLY PLC Builder v5.7",
+  "test_status": "PASS",
+  "folders": [
+    "PLC_PROGRAM",
+    "SPEC",
+    "DRAWING",
+    "TEST"
+  ]
+}

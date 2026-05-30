@@ -1,0 +1,8 @@
+# TiSLY PLC Builder v5.1 — HOME_SECURITY テンプレート
+# 用途: 警戒スイッチ、非常停止、外周センサー、近接センサー、赤灯、白灯4回路
+
+template=HOME_SECURITY
+会社名=TiSLY株式会社
+現場名=HOME_SECURITY デモ案件
+担当者=自動生成
+PLC型番=FX5UJ-24MR/ES

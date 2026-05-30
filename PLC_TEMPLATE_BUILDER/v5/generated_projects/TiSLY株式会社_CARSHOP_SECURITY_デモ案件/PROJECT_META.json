@@ -1,0 +1,18 @@
+{
+  "project_name": "TiSLY株式会社_CARSHOP_SECURITY_デモ案件",
+  "created_at": "2026-05-29T22:25:34Z",
+  "plc_model": "FX5UJ-24MR/ES",
+  "gx_version": "GX Works3",
+  "customer_file": "(自然文入力)",
+  "estimate_file": "(自然文入力)",
+  "builder_version": "TiSLY PLC Builder v5.3",
+  "test_status": "PASS",
+  "folders": [
+    "PLC_PROGRAM",
+    "SPEC",
+    "DRAWING",
+    "TEST"
+  ],
+  "template": "CARSHOP_SECURITY",
+  "template_description": "夜間警戒、外周センサー、展示車エリアセンサー、赤灯、白灯、非常停止"
+}
