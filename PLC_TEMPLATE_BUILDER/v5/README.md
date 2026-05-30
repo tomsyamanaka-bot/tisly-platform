@@ -245,7 +245,7 @@ python project_generator.py --quote-excel --estimate-file estimate_mode/estimate
 完成時表示:
 
 ```
-TiSLY PLC Builder v5.7
+TiSLY PLC Builder v5.8
 見積メモ
 ↓
 BOM
