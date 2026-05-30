@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """
-TiSLY PLC Builder v5.7
+TiSLY PLC Builder v5.8
 見積 + 顧客入力 → 仕様書 / GX Works3 命令 / 配線図 / 納品フォルダ 自動生成
 用途別テンプレート (--template) / 日本語文章 (--nl) / 完全自動 (--full-spec) /
 見積メモ形式 (--estimate-mode) / 見積+部材表+施工メモ (--estimate-plus) /
-TOMS見積連携準備 (--quote-ready) / TOMS見積Excel出力 (--quote-excel) 対応
+TOMS見積連携準備 (--quote-ready) / TOMS見積Excel出力 (--quote-excel) /
+現調シート生成 (--site-survey) 対応
 """
 
 from __future__ import annotations
@@ -38,7 +39,7 @@ FULL_SPEC_SAMPLE = (
     "パトライト1台。\n"
     "白色LED4台。"
 )
-VERSION = "v5.7"
+VERSION = "v5.8"
 BUILDER_NAME = f"TiSLY PLC Builder {VERSION}"
 
 VALID_TEMPLATES = (
@@ -105,6 +106,12 @@ from excel_exporter import (  # noqa: E402
     write_toms_quote_xlsx,
     xlsx_contains_text,
     xlsx_row_count,
+)
+from site_survey_generator import (  # noqa: E402
+    generate_site_survey_md,
+    site_survey_device_count,
+    site_survey_has_device_table,
+    site_survey_has_io_table,
 )
 
 
@@ -1973,6 +1980,167 @@ def run_quote_excel_pipeline(
     return 0 if result.all_pass else 1
 
 
+def _write_site_survey_file(
+    project_dir: Path,
+    estimate_result: EstimateBuildResult,
+) -> Path:
+    """SITE_SURVEY.md を SPEC/ に書き出す。"""
+    spec_dir = project_dir / "SPEC"
+    spec_dir.mkdir(parents=True, exist_ok=True)
+    path = spec_dir / "SITE_SURVEY.md"
+    path.write_text(generate_site_survey_md(estimate_result), encoding="utf-8")
+    return path
+
+
+def audit_site_survey_files(
+    project_dir: Path,
+    expected_device_count: int,
+) -> list[AuditRow]:
+    """現調シート監査。"""
+    survey_path = project_dir / "SPEC" / "SITE_SURVEY.md"
+    text = survey_path.read_text(encoding="utf-8") if survey_path.is_file() else ""
+    device_count = site_survey_device_count(text)
+
+    return [
+        AuditRow(
+            "SITE_SURVEY.md 存在",
+            survey_path.is_file(),
+            "OK" if survey_path.is_file() else "ファイルなし",
+        ),
+        AuditRow(
+            "機器チェックリスト",
+            site_survey_has_device_table(text),
+            f"{device_count} 機器" if site_survey_has_device_table(text) else "なし",
+        ),
+        AuditRow(
+            "I/O現調表",
+            site_survey_has_io_table(text),
+            "OK" if site_survey_has_io_table(text) else "なし",
+        ),
+        AuditRow(
+            "機器行数一致",
+            device_count == expected_device_count,
+            f"{device_count} / 期待 {expected_device_count}",
+        ),
+    ]
+
+
+@dataclass
+class SiteSurveyBuildResult:
+    estimate_result: EstimateBuildResult
+    project_dir: Path
+    audit_rows: list[AuditRow] = field(default_factory=list)
+    all_pass: bool = False
+
+
+def build_site_survey_project(
+    estimate_path: Path,
+    output_dir: Path,
+    *,
+    project_name: str | None = None,
+) -> SiteSurveyBuildResult:
+    """見積メモ → PLC案件 → BOM → TOMS → Excel → 現調シート。"""
+    memo = parse_estimate_file(estimate_path)
+    estimate_result = build_from_estimate_memo(memo)
+
+    if project_name:
+        estimate_result.project_name = project_name
+
+    project_dir = output_dir / estimate_result.project_name
+
+    all_rows, logic_pass, _ = _write_delivery_project(
+        estimate_result.assignment,
+        estimate_result.project_name,
+        project_dir,
+        "(見積メモ)",
+        str(estimate_path),
+    )
+
+    spec_paths = _write_quote_ready_spec_files(project_dir, estimate_result)
+    toms_items_text = spec_paths["TOMS_QUOTE_ITEMS.csv"].read_text(encoding="utf-8")
+    toms_items = parse_toms_quote_items_csv(toms_items_text)
+    _write_quote_excel_file(project_dir, toms_items_text, estimate_result)
+    _write_site_survey_file(project_dir, estimate_result)
+
+    expected_devices = sum(1 for q in memo.parts.values() if q > 0)
+    capacity_rows = audit_capacity_checks(
+        estimate_result.assignment, estimate_result.estimation
+    )
+    spec_rows = spec_checks_to_audit_rows(estimate_result.spec_checks)
+    plus_rows = audit_estimate_plus_files(project_dir, estimate_result)
+    quote_rows = audit_quote_ready_files(project_dir)
+    excel_rows = audit_quote_excel_files(project_dir, len(toms_items))
+    survey_rows = audit_site_survey_files(project_dir, expected_devices)
+    all_rows = (
+        capacity_rows + all_rows + spec_rows + plus_rows
+        + quote_rows + excel_rows + survey_rows
+    )
+    all_pass = logic_pass and all(r.passed for r in all_rows)
+
+    write_project_meta(
+        project_dir / "PROJECT_META.json",
+        estimate_result.project_name,
+        "(見積メモ)",
+        str(estimate_path),
+        "PASS" if all_pass else "FAIL",
+    )
+
+    auto_report = _write_auto_test_report(project_dir, all_rows, all_pass)
+    (project_dir / "TEST" / "AUTO_TEST_REPORT.md").write_text(auto_report, encoding="utf-8")
+
+    return SiteSurveyBuildResult(
+        estimate_result=estimate_result,
+        project_dir=project_dir,
+        audit_rows=all_rows,
+        all_pass=all_pass,
+    )
+
+
+def _print_site_survey_completion(result: SiteSurveyBuildResult) -> None:
+    er = result.estimate_result
+    memo = er.memo
+    print(BUILDER_NAME)
+    print()
+    print("見積メモ")
+    print(f"  案件名: {memo.project_title}")
+    print(f"  目的: {memo.purpose}")
+    for key, qty in sorted(memo.parts.items()):
+        print(f"  {key}: {qty}")
+    print("↓")
+    print("TOMS見積Excel")
+    print(f"  → {result.project_dir / 'SPEC' / 'TOMS_QUOTE.xlsx'}")
+    print("↓")
+    print("現調シート")
+    print(f"  → {result.project_dir / 'SPEC' / 'SITE_SURVEY.md'}")
+    print("↓")
+    print("現場調査準備")
+    print(f"  → {result.project_dir / 'SPEC'}/")
+    print()
+    for row in result.audit_rows:
+        mark = "PASS" if row.passed else "FAIL"
+        print(f"  [{mark}] {row.name}: {row.detail}")
+    print()
+    print(f"{'PASS' if result.all_pass else 'FAIL'}")
+    print()
+    print(f"{BUILDER_NAME} - 完成")
+
+
+def run_site_survey_pipeline(
+    estimate_path: Path,
+    output_dir: Path,
+    *,
+    project_name: str | None = None,
+) -> int:
+    if not estimate_path.is_file():
+        print(f"ERROR: 見積ファイルが見つかりません: {estimate_path}", file=sys.stderr)
+        return 1
+    result = build_site_survey_project(
+        estimate_path, output_dir, project_name=project_name
+    )
+    _print_site_survey_completion(result)
+    return 0 if result.all_pass else 1
+
+
 def run_full_spec_pipeline(
     text: str,
     output_dir: Path,
@@ -2076,7 +2244,19 @@ def main() -> int:
         action="store_true",
         help="見積メモ → BOM → TOMS見積CSV → TOMS_QUOTE.xlsx（Excel出力）",
     )
+    parser.add_argument(
+        "--site-survey",
+        action="store_true",
+        help="見積メモ → TOMS Excel → 現調シート（SITE_SURVEY.md）",
+    )
     args = parser.parse_args()
+
+    if args.site_survey:
+        return run_site_survey_pipeline(
+            args.estimate_file,
+            args.output_dir,
+            project_name=args.project_name,
+        )
 
     if args.quote_excel:
         return run_quote_excel_pipeline(

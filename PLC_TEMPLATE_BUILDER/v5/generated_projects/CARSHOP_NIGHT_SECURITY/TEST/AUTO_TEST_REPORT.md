@@ -1,4 +1,4 @@
-# AUTO_TEST_REPORT — TiSLY PLC Builder v5.7
+# AUTO_TEST_REPORT — TiSLY PLC Builder v5.8
 
 > 全生成物存在確認 + 監査 PASS 確認
 
@@ -8,7 +8,7 @@
 
 | 項目 | 値 |
 |------|-----|
-| 実行日時 (UTC) | 2026-05-30T15:36:13Z |
+| 実行日時 (UTC) | 2026-05-30T15:36:58Z |
 | 対象 | CARSHOP_NIGHT_SECURITY |
 | テスト | 全生成物存在確認 / GX 監査 |
 
@@ -53,6 +53,10 @@
 - ✓ 見積明細行数: 9 行（期待 9 行）
 - ✓ Excel PLC項目: PLC
 - ✓ Excel 24V電源項目: 24V電源
+- ✓ SITE_SURVEY.md 存在: OK
+- ✓ 機器チェックリスト: 5 機器
+- ✓ I/O現調表: OK
+- ✓ 機器行数一致: 5 / 期待 5
 
 ---
 
@@ -97,9 +101,13 @@
 | 見積明細行数 | PASS | 9 行（期待 9 行） |
 | Excel PLC項目 | PASS | PLC |
 | Excel 24V電源項目 | PASS | 24V電源 |
+| SITE_SURVEY.md 存在 | PASS | OK |
+| 機器チェックリスト | PASS | 5 機器 |
+| I/O現調表 | PASS | OK |
+| 機器行数一致 | PASS | 5 / 期待 5 |
 
 ---
 
 **総合判定: PASS**
 
-**TiSLY PLC Builder v5.7 — AUTO_TEST_REPORT**
+**TiSLY PLC Builder v5.8 — AUTO_TEST_REPORT**

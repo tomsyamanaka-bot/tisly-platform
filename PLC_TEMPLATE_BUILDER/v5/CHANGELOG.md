@@ -1,5 +1,12 @@
 # TiSLY PLC Builder v5 — CHANGELOG
 
+## v5.8 — 現調シート生成
+
+- `estimate_mode/site_survey_generator.py` 追加
+- `--site-survey` モード追加（見積メモ → TOMS Excel → **SITE_SURVEY.md**）
+- 機器設置チェックリスト / I/O 現調表 / 盤・電源確認項目を自動生成
+- 監査: 機器行数一致 / チェックリスト存在
+
 ## v5.7 — TOMS 見積 Excel 出力
 
 - `estimate_mode/excel_exporter.py` 追加（stdlib のみで xlsx 生成、openpyxl 不要）

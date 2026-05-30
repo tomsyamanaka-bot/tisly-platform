@@ -188,6 +188,39 @@ TiSLY PLC Builder v5.0 — 完成
 | v4 | 案件フォルダ自動生成・監査 |
 | **v5.0** | **見積 + 顧客入力 → 仕様書 → GX Works3 → 納品フォルダ** |
 | **v5.7** | **TOMS 見積 Excel 出力（TOMS_QUOTE.xlsx）** |
+| **v5.8** | **現調シート生成（SITE_SURVEY.md）** |
+
+---
+
+## v5.8 Site Survey Mode
+
+見積メモから TOMS 見積 Excel に加え、**現調シート**（`SITE_SURVEY.md`）を自動生成します。
+
+```powershell
+cd PLC_TEMPLATE_BUILDER/v5
+python project_generator.py --site-survey --estimate-file estimate_mode/estimate_sample.txt
+```
+
+追加生成物:
+
+| ファイル | 内容 |
+|----------|------|
+| SITE_SURVEY.md | 機器設置チェックリスト / I/O 現調表 / 盤・電源確認 |
+
+完成時表示:
+
+```
+TiSLY PLC Builder v5.8
+見積メモ
+↓
+TOMS見積Excel
+↓
+現調シート
+↓
+現場調査準備
+
+PASS
+```
 
 ---
 
@@ -246,4 +279,4 @@ python project_generator.py --quote-ready --estimate-file estimate_mode/estimate
 
 ---
 
-**TiSLY PLC Builder v5.7**
+**TiSLY PLC Builder v5.8**
