@@ -1,6 +1,6 @@
 # PLC 容量選定 — FX5UJ-24MR/ES
 
-> TiSLY PLC Builder v5.9 自動生成
+> TiSLY PLC Builder v5.10 自動生成
 
 ---
 
@@ -81,4 +81,4 @@
 
 ---
 
-**TiSLY PLC Builder v5.9 — PLC_SELECTION**
+**TiSLY PLC Builder v5.10 — PLC_SELECTION**

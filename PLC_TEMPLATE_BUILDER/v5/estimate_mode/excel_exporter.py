@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-TiSLY PLC Builder v5.7 — TOMS 見積 Excel エクスポーター
+TiSLY PLC Builder v5.10 — TOMS 見積 Excel エクスポーター
 TOMS_QUOTE_ITEMS.csv 相当のデータを TOMS_QUOTE.xlsx へ書き出す（openpyxl 不要・stdlib のみ）。
+PLC_SELECTION 連携で PLC容量判定シートを含む。
 """
 
 from __future__ import annotations
@@ -13,10 +14,17 @@ from pathlib import Path
 from xml.sax.saxutils import escape
 
 from parts_mapper import EstimateBuildResult
+from plc_selection_generator import (
+    VERSION,
+    PlcSelectionResult,
+    analyze_plc_selection,
+    plc_capacity_excel_rows,
+)
 from quote_mapper import TOMS_HEADER, parse_toms_quote_items_csv
 
 SHEET_NAME = "見積明細"
 INFO_SHEET_NAME = "案件情報"
+PLC_SHEET_NAME = "PLC容量判定"
 
 
 def _col_letter(index: int) -> str:
@@ -74,9 +82,15 @@ def _info_sheet_xml(result: EstimateBuildResult, item_count: int) -> str:
         ("出力点数", str(len(result.assignment.outputs))),
         ("見積項目数", str(item_count)),
         ("生成日時", now),
-        ("Builder", "TiSLY PLC Builder v5.7"),
+        ("Builder", f"TiSLY PLC Builder {VERSION}"),
     ]
     return _sheet_xml(("項目", "内容"), info_rows[1:])
+
+
+def _plc_capacity_sheet_xml(plc_selection: PlcSelectionResult) -> str:
+    """PLC容量判定シート XML を生成する。"""
+    rows = plc_capacity_excel_rows(plc_selection)
+    return _sheet_xml(("項目", "内容"), rows)
 
 
 def _workbook_xml(sheet_names: list[str]) -> str:
@@ -140,6 +154,7 @@ def _content_types_xml(sheet_count: int) -> str:
 def build_toms_quote_xlsx_bytes(
     toms_items_csv_text: str,
     result: EstimateBuildResult,
+    plc_selection: PlcSelectionResult | None = None,
 ) -> bytes:
     """TOMS 見積 xlsx をバイト列で生成する。"""
     items = parse_toms_quote_items_csv(toms_items_csv_text)
@@ -157,10 +172,18 @@ def build_toms_quote_xlsx_bytes(
             )
         )
 
-    sheet_names = [SHEET_NAME, INFO_SHEET_NAME]
+    if plc_selection is None:
+        plc_selection = analyze_plc_selection(
+            result.assignment.customer.plc_model,
+            len(result.assignment.inputs),
+            len(result.assignment.outputs),
+        )
+
+    sheet_names = [SHEET_NAME, INFO_SHEET_NAME, PLC_SHEET_NAME]
     sheet_xmls = [
         _sheet_xml(TOMS_HEADER, data_rows),
         _info_sheet_xml(result, len(items)),
+        _plc_capacity_sheet_xml(plc_selection),
     ]
 
     buffer = io.BytesIO()
@@ -216,6 +239,13 @@ def xlsx_contains_text(path: Path, text: str) -> bool:
     except (zipfile.BadZipFile, OSError):
         return False
     return False
+
+
+def xlsx_has_plc_capacity_section(path: Path) -> bool:
+    """xlsx に PLC容量判定シートがあるか（監査用）。"""
+    from plc_selection_generator import xlsx_has_plc_capacity
+
+    return xlsx_has_plc_capacity(path)
 
 
 def xlsx_row_count(path: Path) -> int:

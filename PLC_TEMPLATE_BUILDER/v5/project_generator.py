@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-TiSLY PLC Builder v5.9
+TiSLY PLC Builder v5.10
 見積 + 顧客入力 → 仕様書 / GX Works3 命令 / 配線図 / 納品フォルダ 自動生成
 用途別テンプレート (--template) / 日本語文章 (--nl) / 完全自動 (--full-spec) /
 見積メモ形式 (--estimate-mode) / 見積+部材表+施工メモ (--estimate-plus) /
 TOMS見積連携準備 (--quote-ready) / TOMS見積Excel出力 (--quote-excel) /
-現調シート生成 (--site-survey) / PLC容量選定 (--full-spec 他) 対応
+現調シート生成 (--site-survey) / PLC容量選定・連携 (--full-spec 他) 対応
 """
 
 from __future__ import annotations
@@ -39,7 +39,7 @@ FULL_SPEC_SAMPLE = (
     "パトライト1台。\n"
     "白色LED4台。"
 )
-VERSION = "v5.9"
+VERSION = "v5.10"
 BUILDER_NAME = f"TiSLY PLC Builder {VERSION}"
 
 VALID_TEMPLATES = (
@@ -105,6 +105,7 @@ from excel_exporter import (  # noqa: E402
     is_valid_xlsx,
     write_toms_quote_xlsx,
     xlsx_contains_text,
+    xlsx_has_plc_capacity_section,
     xlsx_row_count,
 )
 from site_survey_generator import (  # noqa: E402
@@ -112,14 +113,20 @@ from site_survey_generator import (  # noqa: E402
     site_survey_device_count,
     site_survey_has_device_table,
     site_survey_has_io_table,
+    site_survey_has_plc_capacity_section,
 )
 from plc_selection_generator import (  # noqa: E402
+    analyze_plc_selection,
+    format_readme_plc_section,
     generate_plc_selection_md,
     plc_selection_has_judgment,
     plc_selection_has_margin,
     plc_selection_has_recommended_plc,
     plc_selection_has_used_inputs,
     plc_selection_has_used_outputs,
+    readme_has_plc_capacity,
+    site_survey_has_plc_capacity,
+    toms_summary_has_plc_judgment,
 )
 
 
@@ -459,6 +466,7 @@ def write_test_report(
     assignment: IOAssignment,
     gx_lines: list[str],
     spec: ParsedSpec,
+    plc_integration_rows: list[AuditRow] | None = None,
 ) -> tuple[list[AuditRow], bool]:
     metrics = _collect_audit_metrics(gx_lines)
     rows: list[AuditRow] = [
@@ -478,13 +486,33 @@ def write_test_report(
         audit_io_duplicates(assignment),
     ]
 
-    all_pass = all(r.passed for r in rows)
+    integration_rows = plc_integration_rows or []
+    all_pass = all(r.passed for r in rows) and all(r.passed for r in integration_rows)
     io_table = "\n".join(
         f"| {e.device} | {e.name} | {e.io_type} |" for e in assignment.entries
     )
     audit_table = "\n".join(
         f"| {r.name} | {'PASS' if r.passed else 'FAIL'} | {r.detail} |" for r in rows
     )
+
+    plc_section = ""
+    if integration_rows:
+        plc_table = "\n".join(
+            f"| {r.name} | {'PASS' if r.passed else 'FAIL'} | {r.detail} |"
+            for r in integration_rows
+        )
+        plc_all_pass = all(r.passed for r in integration_rows)
+        plc_section = f"""
+---
+
+## PLC_SELECTION連携チェック
+
+| 項目 | 結果 | 詳細 |
+|------|:----:|------|
+{plc_table}
+
+**PLC連携判定: {'PASS' if plc_all_pass else 'FAIL'}**
+"""
 
     content = f"""# TEST_REPORT — {BUILDER_NAME}
 
@@ -505,7 +533,7 @@ def write_test_report(
 | 項目 | 結果 | 詳細 |
 |------|:----:|------|
 {audit_table}
-
+{plc_section}
 ---
 
 ## GX Works3 命令サマリー
@@ -528,6 +556,8 @@ def generate_project_readme(
     assignment: IOAssignment,
     project_name: str,
     template_name: str | None = None,
+    *,
+    include_plc_capacity: bool = True,
 ) -> str:
     c = assignment.customer
     io_rows = "\n".join(
@@ -546,6 +576,15 @@ def generate_project_readme(
 
 ---
 """
+
+    plc_section = ""
+    if include_plc_capacity:
+        plc_selection = analyze_plc_selection(
+            c.plc_model,
+            len(assignment.inputs),
+            len(assignment.outputs),
+        )
+        plc_section = format_readme_plc_section(plc_selection)
 
     return f"""# {project_name} — 納品 README
 
@@ -567,7 +606,7 @@ def generate_project_readme(
 ```
 {project_name}/
 ├── PLC_PROGRAM/     … GX Works3 命令（GX3_COMMANDS.txt）
-├── SPEC/            … 仕様書・I/O表
+├── SPEC/            … 仕様書・I/O表・PLC選定
 ├── DRAWING/         … 配線図
 ├── TEST/            … 監査レポート
 ├── PROJECT_README.md … 本ファイル
@@ -584,7 +623,7 @@ def generate_project_readme(
 
 ---
 
-## GX Works3 投入手順
+{plc_section}## GX Works3 投入手順
 
 1. GX Works3 で新規プロジェクト（{c.plc_model}）を作成
 2. ラダーエディタを **命令入力モード** に切替
@@ -694,6 +733,7 @@ def _write_delivery_project(
         (project_dir / "PROJECT_README.md").write_text(readme_content, encoding="utf-8")
     else:
         (project_dir / "README.md").write_text(readme_content, encoding="utf-8")
+        (project_dir / "PROJECT_README.md").write_text(readme_content, encoding="utf-8")
 
     audit_rows, _logic_pass = write_test_report(
         project_dir / "TEST" / "TEST_REPORT.md",
@@ -1267,16 +1307,17 @@ def build_full_spec_project(
 
     write_spec_outputs(spec_result, project_dir)
 
-    _write_plc_selection_file(
+    integration_rows = _finalize_plc_outputs(
         project_dir,
         spec_result.assignment,
-        spec_result.assignment.customer.plc_model,
+        project_name,
+        template_name=template_name,
     )
     plc_rows = audit_plc_selection_files(project_dir)
-    all_rows = all_rows + plc_rows
+    all_rows = all_rows + plc_rows + integration_rows
 
     spec_checks_pass = spec_result.all_pass
-    all_pass = all_pass and spec_checks_pass and all(r.passed for r in plc_rows)
+    all_pass = all_pass and spec_checks_pass and all(r.passed for r in plc_rows + integration_rows)
 
     auto_report = _write_auto_test_report(project_dir, all_rows, all_pass)
     (project_dir / "TEST" / "AUTO_TEST_REPORT.md").write_text(auto_report, encoding="utf-8")
@@ -1376,6 +1417,102 @@ def _write_plc_selection_file(
     return path
 
 
+def audit_plc_integration(project_dir: Path) -> list[AuditRow]:
+    """PLC_SELECTION 連携先ファイルを監査する。"""
+    spec_dir = project_dir / "SPEC"
+    plc_path = spec_dir / "PLC_SELECTION.md"
+    rows: list[AuditRow] = [
+        AuditRow(
+            "PLC_SELECTION.md が存在",
+            plc_path.is_file(),
+            "OK" if plc_path.is_file() else "ファイルなし",
+        ),
+    ]
+
+    survey_path = spec_dir / "SITE_SURVEY.md"
+    if survey_path.is_file():
+        survey_text = survey_path.read_text(encoding="utf-8")
+        rows.append(
+            AuditRow(
+                "SITE_SURVEY.md に PLC容量確認 が反映されている",
+                site_survey_has_plc_capacity(survey_text),
+                "反映済" if site_survey_has_plc_capacity(survey_text) else "未反映",
+            )
+        )
+
+    summary_path = spec_dir / "TOMS_QUOTE_SUMMARY.md"
+    if summary_path.is_file():
+        summary_text = summary_path.read_text(encoding="utf-8")
+        rows.append(
+            AuditRow(
+                "TOMS_QUOTE_SUMMARY.md に PLC容量判定 が反映されている",
+                toms_summary_has_plc_judgment(summary_text),
+                "反映済" if toms_summary_has_plc_judgment(summary_text) else "未反映",
+            )
+        )
+
+    xlsx_path = spec_dir / "TOMS_QUOTE.xlsx"
+    if xlsx_path.is_file():
+        rows.append(
+            AuditRow(
+                "TOMS_QUOTE.xlsx に PLC容量判定欄 がある",
+                xlsx_has_plc_capacity_section(xlsx_path),
+                "あり" if xlsx_has_plc_capacity_section(xlsx_path) else "なし",
+            )
+        )
+
+    readme_path = project_dir / "PROJECT_README.md"
+    if not readme_path.is_file():
+        readme_path = project_dir / "README.md"
+    readme_text = readme_path.read_text(encoding="utf-8") if readme_path.is_file() else ""
+    rows.append(
+        AuditRow(
+            "PROJECT_README.md に PLC容量・拡張判定 がある",
+            readme_has_plc_capacity(readme_text),
+            "反映済" if readme_has_plc_capacity(readme_text) else "未反映",
+        )
+    )
+    return rows
+
+
+def _finalize_plc_outputs(
+    project_dir: Path,
+    assignment: IOAssignment,
+    project_name: str,
+    template_name: str | None = None,
+) -> list[AuditRow]:
+    """PLC_SELECTION 出力・README 更新・TEST_REPORT 連携チェックを反映する。"""
+    _write_plc_selection_file(
+        project_dir,
+        assignment,
+        assignment.customer.plc_model,
+    )
+    readme_content = generate_project_readme(
+        assignment,
+        project_name,
+        template_name,
+        include_plc_capacity=True,
+    )
+    if template_name:
+        (project_dir / "PROJECT_README.md").write_text(readme_content, encoding="utf-8")
+    else:
+        (project_dir / "README.md").write_text(readme_content, encoding="utf-8")
+        (project_dir / "PROJECT_README.md").write_text(readme_content, encoding="utf-8")
+
+    gx_path = project_dir / "PLC_PROGRAM" / "GX3_COMMANDS.txt"
+    gx_lines = gx_path.read_text(encoding="utf-8").splitlines()
+    parsed = _io_assignment_to_spec(assignment)
+    integration_rows = audit_plc_integration(project_dir)
+    write_test_report(
+        project_dir / "TEST" / "TEST_REPORT.md",
+        assignment,
+        gx_lines,
+        parsed,
+        plc_integration_rows=integration_rows,
+    )
+    return integration_rows
+
+
 def audit_plc_selection_files(project_dir: Path) -> list[AuditRow]:
     """PLC 容量選定ファイルを監査する。"""
     path = project_dir / "SPEC" / "PLC_SELECTION.md"
@@ -1456,10 +1593,10 @@ def build_estimate_mode_project(
         str(estimate_path),
     )
 
-    _write_plc_selection_file(
+    _finalize_plc_outputs(
         project_dir,
         estimate_result.assignment,
-        estimate_result.assignment.customer.plc_model,
+        estimate_result.project_name,
     )
 
     capacity_rows = audit_capacity_checks(
@@ -1467,7 +1604,8 @@ def build_estimate_mode_project(
     )
     spec_rows = spec_checks_to_audit_rows(estimate_result.spec_checks)
     plc_rows = audit_plc_selection_files(project_dir)
-    all_rows = capacity_rows + all_rows + spec_rows + plc_rows
+    integration_rows = audit_plc_integration(project_dir)
+    all_rows = capacity_rows + all_rows + spec_rows + plc_rows + integration_rows
     all_pass = logic_pass and all(r.passed for r in all_rows)
 
     write_project_meta(
@@ -1661,10 +1799,10 @@ def build_estimate_plus_project(
 
     _write_estimate_plus_spec_files(project_dir, estimate_result)
 
-    _write_plc_selection_file(
+    _finalize_plc_outputs(
         project_dir,
         estimate_result.assignment,
-        estimate_result.assignment.customer.plc_model,
+        estimate_result.project_name,
     )
 
     capacity_rows = audit_capacity_checks(
@@ -1673,7 +1811,8 @@ def build_estimate_plus_project(
     spec_rows = spec_checks_to_audit_rows(estimate_result.spec_checks)
     plus_rows = audit_estimate_plus_files(project_dir, estimate_result)
     plc_rows = audit_plc_selection_files(project_dir)
-    all_rows = capacity_rows + all_rows + spec_rows + plus_rows + plc_rows
+    integration_rows = audit_plc_integration(project_dir)
+    all_rows = capacity_rows + all_rows + spec_rows + plus_rows + plc_rows + integration_rows
     all_pass = logic_pass and all(r.passed for r in all_rows)
 
     write_project_meta(
@@ -1845,10 +1984,10 @@ def build_quote_ready_project(
 
     _write_quote_ready_spec_files(project_dir, estimate_result)
 
-    _write_plc_selection_file(
+    _finalize_plc_outputs(
         project_dir,
         estimate_result.assignment,
-        estimate_result.assignment.customer.plc_model,
+        estimate_result.project_name,
     )
 
     capacity_rows = audit_capacity_checks(
@@ -1858,7 +1997,8 @@ def build_quote_ready_project(
     plus_rows = audit_estimate_plus_files(project_dir, estimate_result)
     quote_rows = audit_quote_ready_files(project_dir)
     plc_rows = audit_plc_selection_files(project_dir)
-    all_rows = capacity_rows + all_rows + spec_rows + plus_rows + quote_rows + plc_rows
+    integration_rows = audit_plc_integration(project_dir)
+    all_rows = capacity_rows + all_rows + spec_rows + plus_rows + quote_rows + plc_rows + integration_rows
     all_pass = logic_pass and all(r.passed for r in all_rows)
 
     write_project_meta(
@@ -2014,6 +2154,12 @@ def build_quote_excel_project(
     toms_items = parse_toms_quote_items_csv(toms_items_text)
     _write_quote_excel_file(project_dir, toms_items_text, estimate_result)
 
+    _finalize_plc_outputs(
+        project_dir,
+        estimate_result.assignment,
+        estimate_result.project_name,
+    )
+
     capacity_rows = audit_capacity_checks(
         estimate_result.assignment, estimate_result.estimation
     )
@@ -2021,7 +2167,12 @@ def build_quote_excel_project(
     plus_rows = audit_estimate_plus_files(project_dir, estimate_result)
     quote_rows = audit_quote_ready_files(project_dir)
     excel_rows = audit_quote_excel_files(project_dir, len(toms_items))
-    all_rows = capacity_rows + all_rows + spec_rows + plus_rows + quote_rows + excel_rows
+    plc_rows = audit_plc_selection_files(project_dir)
+    integration_rows = audit_plc_integration(project_dir)
+    all_rows = (
+        capacity_rows + all_rows + spec_rows + plus_rows
+        + quote_rows + excel_rows + plc_rows + integration_rows
+    )
     all_pass = logic_pass and all(r.passed for r in all_rows)
 
     write_project_meta(
@@ -2129,6 +2280,11 @@ def audit_site_survey_files(
             "OK" if site_survey_has_io_table(text) else "なし",
         ),
         AuditRow(
+            "PLC容量確認セクション",
+            site_survey_has_plc_capacity_section(text),
+            "反映済" if site_survey_has_plc_capacity_section(text) else "未反映",
+        ),
+        AuditRow(
             "機器行数一致",
             device_count == expected_device_count,
             f"{device_count} / 期待 {expected_device_count}",
@@ -2173,6 +2329,12 @@ def build_site_survey_project(
     _write_quote_excel_file(project_dir, toms_items_text, estimate_result)
     _write_site_survey_file(project_dir, estimate_result)
 
+    _finalize_plc_outputs(
+        project_dir,
+        estimate_result.assignment,
+        estimate_result.project_name,
+    )
+
     expected_devices = sum(1 for q in memo.parts.values() if q > 0)
     capacity_rows = audit_capacity_checks(
         estimate_result.assignment, estimate_result.estimation
@@ -2182,9 +2344,11 @@ def build_site_survey_project(
     quote_rows = audit_quote_ready_files(project_dir)
     excel_rows = audit_quote_excel_files(project_dir, len(toms_items))
     survey_rows = audit_site_survey_files(project_dir, expected_devices)
+    plc_rows = audit_plc_selection_files(project_dir)
+    integration_rows = audit_plc_integration(project_dir)
     all_rows = (
         capacity_rows + all_rows + spec_rows + plus_rows
-        + quote_rows + excel_rows + survey_rows
+        + quote_rows + excel_rows + survey_rows + plc_rows + integration_rows
     )
     all_pass = logic_pass and all(r.passed for r in all_rows)
 

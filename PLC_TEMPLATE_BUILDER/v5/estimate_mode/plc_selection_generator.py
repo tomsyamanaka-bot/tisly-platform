@@ -1,16 +1,25 @@
 #!/usr/bin/env python3
 """
-TiSLY PLC Builder v5.9 — PLC 容量自動選定
+TiSLY PLC Builder v5.10 — PLC 容量自動選定
 入力/出力点数から余裕率を計算し、PLC 本体・拡張ユニットを提案する。
+SITE_SURVEY / TOMS_QUOTE / PROJECT_README / TEST_REPORT へ連携する。
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 from device_estimator import PLC_MODELS, PlcModel, get_plc_by_model
 
-VERSION = "v5.9"
+VERSION = "v5.10"
+
+SITE_SURVEY_CONFIRM_NOTES: tuple[str, ...] = (
+    "将来増設予定があるか確認",
+    "予備入力を2点以上残す",
+    "予備出力を2点以上残す",
+    "80%以上使用時は上位PLCまたは拡張ユニットを検討",
+)
 
 EXTENSION_INPUT = "FX5U-16EX"
 EXTENSION_OUTPUT = "FX5U-16EYR"
@@ -317,3 +326,137 @@ def plc_selection_has_judgment(text: str) -> bool:
 
 def plc_selection_has_recommended_plc(text: str) -> bool:
     return "推奨本体" in text and "FX5U" in text
+
+
+def _format_extensions(extensions: tuple[str, ...]) -> str:
+    return " + ".join(extensions) if extensions else "不要"
+
+
+def format_site_survey_plc_section(result: PlcSelectionResult) -> str:
+    """SITE_SURVEY.md 用 PLC容量確認セクション。"""
+    m = result.metrics
+    ext_text = _format_extensions(result.recommended_extensions)
+    notes_text = "\n".join(f"- {note}" for note in SITE_SURVEY_CONFIRM_NOTES)
+    return f"""## PLC容量確認
+
+| 項目 | 内容 |
+|------|------|
+| 選定PLC | {result.current_plc_model} |
+| 入力使用点数 | {m.used_inputs} 点 |
+| 出力使用点数 | {m.used_outputs} 点 |
+| 入力余裕点数 | {m.spare_inputs} 点 |
+| 出力余裕点数 | {m.spare_outputs} 点 |
+| 入力使用率 | {m.input_usage_pct} % |
+| 出力使用率 | {m.output_usage_pct} % |
+| 判定 | {result.judgment} |
+| 推奨PLC | {result.recommended_plc} |
+| 推奨拡張ユニット | {ext_text} |
+
+### 現場確認メモ
+
+{notes_text}
+
+---
+"""
+
+
+def format_toms_summary_plc_section(result: PlcSelectionResult) -> str:
+    """TOMS_QUOTE_SUMMARY.md 用 PLC容量判定セクション。"""
+    m = result.metrics
+    ext_text = _format_extensions(result.recommended_extensions)
+    return f"""## PLC容量判定
+
+| 項目 | 内容 |
+|------|------|
+| 現在PLC | {result.current_plc_model} |
+| 推奨PLC | {result.recommended_plc} |
+| 入力使用率 | {m.input_usage_pct} % |
+| 出力使用率 | {m.output_usage_pct} % |
+| 判定 | {result.judgment} |
+| 拡張ユニット候補 | {ext_text} |
+
+---
+"""
+
+
+def format_readme_plc_section(result: PlcSelectionResult) -> str:
+    """PROJECT_README.md 用 PLC容量・拡張判定セクション。"""
+    m = result.metrics
+    ext_text = _format_extensions(result.recommended_extensions)
+    summary = (
+        f"選定PLC **{result.current_plc_model}** — "
+        f"入力 {m.used_inputs}/{m.max_inputs} 点（{m.input_usage_pct}%） / "
+        f"出力 {m.used_outputs}/{m.max_outputs} 点（{m.output_usage_pct}%） / "
+        f"判定: {result.judgment}"
+    )
+    return f"""## PLC容量・拡張判定
+
+> PLC_SELECTION.md の要約
+
+{summary}
+
+| 項目 | 内容 |
+|------|------|
+| 推奨PLC | {result.recommended_plc} |
+| 拡張ユニット候補 | {ext_text} |
+| 入力余裕 | {m.spare_inputs} 点（余裕率 {m.input_margin_pct}%） |
+| 出力余裕 | {m.spare_outputs} 点（余裕率 {m.output_margin_pct}%） |
+
+### 将来増設時の注意
+
+- 予備入力・出力を **2点以上** 確保してください。
+- 使用率 **80% 超** の場合は上位 PLC 本体または拡張ユニット（{ext_text}）を検討してください。
+- 詳細は `SPEC/PLC_SELECTION.md` を参照してください。
+
+---
+"""
+
+
+def plc_capacity_excel_rows(result: PlcSelectionResult) -> list[tuple[str, str]]:
+    """TOMS_QUOTE.xlsx PLC容量判定シート用行。"""
+    m = result.metrics
+    ext_text = _format_extensions(result.recommended_extensions)
+    return [
+        ("PLC型番", result.current_plc_model),
+        ("入力使用点数", f"{m.used_inputs} 点"),
+        ("出力使用点数", f"{m.used_outputs} 点"),
+        ("入力余裕率", f"{m.input_margin_pct} %"),
+        ("出力余裕率", f"{m.output_margin_pct} %"),
+        ("判定", result.judgment),
+        ("推奨PLC", result.recommended_plc),
+        ("推奨拡張ユニット", ext_text),
+    ]
+
+
+def site_survey_has_plc_capacity(text: str) -> bool:
+    return "## PLC容量確認" in text and "選定PLC" in text and "現場確認メモ" in text
+
+
+def toms_summary_has_plc_judgment(text: str) -> bool:
+    return "## PLC容量判定" in text and "現在PLC" in text and "拡張ユニット候補" in text
+
+
+def readme_has_plc_capacity(text: str) -> bool:
+    return "## PLC容量・拡張判定" in text and "PLC_SELECTION.md" in text
+
+
+def xlsx_has_plc_capacity(path: Path) -> bool:
+    """xlsx 内に PLC容量判定シートまたは欄があるか。"""
+    if not path.is_file():
+        return False
+    try:
+        import zipfile
+
+        has_sheet_name = False
+        has_content = False
+        with zipfile.ZipFile(path, "r") as zf:
+            for name in zf.namelist():
+                if name.endswith(".xml"):
+                    content = zf.read(name).decode("utf-8", errors="replace")
+                    if "PLC容量判定" in content:
+                        has_sheet_name = True
+                    if "入力余裕率" in content:
+                        has_content = True
+        return has_sheet_name and has_content
+    except (OSError, zipfile.BadZipFile):
+        return False

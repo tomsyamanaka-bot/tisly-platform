@@ -2,17 +2,17 @@
 
 現在バージョン：
 
-**TiSLY PLC Builder v5.9**
+**TiSLY PLC Builder v5.10**
 
 ---
 
 | 項目 | 値 |
 |------|-----|
-| バージョン | v5.9 |
-| 名称 | TiSLY PLC Builder v5.9 |
-| 主な機能 | PLC容量自動選定強化（PLC_SELECTION.md） |
-| ビルド | `python project_generator.py --quote-ready --estimate-file estimate_mode/estimate_sample.txt` |
-| テスト | `python project_generator.py --full-spec` |
+| バージョン | v5.10 |
+| 名称 | TiSLY PLC Builder v5.10 |
+| 主な機能 | PLC_SELECTION 連携強化（SITE_SURVEY / TOMS / README / TEST_REPORT） |
+| ビルド | `python project_generator.py --site-survey --estimate-file estimate_mode/estimate_sample.txt` |
+| テスト | `python project_generator.py --quote-ready --estimate-file estimate_mode/estimate_sample.txt` |
 
 ---
 

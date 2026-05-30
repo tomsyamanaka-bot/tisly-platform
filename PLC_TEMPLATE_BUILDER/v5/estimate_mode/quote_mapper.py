@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-TiSLY PLC Builder v5.6 — TOMS 見積連携マッパー
+TiSLY PLC Builder v5.10 — TOMS 見積連携マッパー
 BOM.csv を読み取り、TOMS 見積入力用 CSV / サマリー MD を生成する。
+PLC_SELECTION 連携で PLC容量判定セクションを含む。
 """
 
 from __future__ import annotations
@@ -11,6 +12,12 @@ import io
 from dataclasses import dataclass
 
 from parts_mapper import EstimateBuildResult
+from plc_selection_generator import (
+    VERSION,
+    PlcSelectionResult,
+    analyze_plc_selection,
+    format_toms_summary_plc_section,
+)
 
 TOMS_HEADER = ("No", "ItemName", "Model", "Qty", "UnitPrice", "Amount", "Note")
 
@@ -107,6 +114,7 @@ def generate_toms_quote_items_csv(bom_csv_text: str) -> str:
 def generate_toms_quote_summary(
     result: EstimateBuildResult,
     item_count: int,
+    plc_selection: PlcSelectionResult | None = None,
 ) -> str:
     """TOMS_QUOTE_SUMMARY.md を生成する。"""
     memo = result.memo
@@ -117,9 +125,13 @@ def generate_toms_quote_summary(
     output_count = len(result.assignment.outputs)
     project_title = memo.project_title or memo.project_name
 
+    if plc_selection is None:
+        plc_selection = analyze_plc_selection(plc_model, input_count, output_count)
+    plc_section = format_toms_summary_plc_section(plc_selection)
+
     return f"""# TOMS 見積連携サマリー — {project_title}
 
-> TiSLY PLC Builder v5.6 自動生成
+> TiSLY PLC Builder {VERSION} 自動生成
 
 ---
 
@@ -135,6 +147,8 @@ def generate_toms_quote_summary(
 | 見積項目数 | {item_count} 件 |
 
 ---
+
+{plc_section}
 
 ## TOMS 標準フォーマット転記メモ
 
@@ -160,7 +174,7 @@ TOMS 標準見積書フォーマット（TOMS_QUOTE.xlsx / 手動転記）
 
 ---
 
-**TiSLY PLC Builder v5.6 — TOMS_QUOTE_SUMMARY**
+**TiSLY PLC Builder {VERSION} — TOMS_QUOTE_SUMMARY**
 """
 
 

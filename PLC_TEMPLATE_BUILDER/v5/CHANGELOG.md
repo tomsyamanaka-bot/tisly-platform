@@ -1,5 +1,15 @@
 # TiSLY PLC Builder v5 — CHANGELOG
 
+## v5.10 — PLC_SELECTION 連携強化
+
+- PLC 容量判定結果を SITE_SURVEY / TOMS_QUOTE / PROJECT_README / TEST_REPORT へ自動反映
+- `SITE_SURVEY.md` に **PLC容量確認** セクション追加（現場確認メモ含む）
+- `TOMS_QUOTE.xlsx` に **PLC容量判定** シート追加
+- `TOMS_QUOTE_SUMMARY.md` に **PLC容量判定** セクション追加
+- `PROJECT_README.md` に **PLC容量・拡張判定** セクション追加
+- `TEST_REPORT.md` に **PLC_SELECTION連携チェック** セクション追加
+- 全見積モードで `PLC_SELECTION.md` 生成・連携監査 PASS
+
 ## v5.9 — PLC容量自動選定強化
 
 - `estimate_mode/plc_selection_generator.py` 追加

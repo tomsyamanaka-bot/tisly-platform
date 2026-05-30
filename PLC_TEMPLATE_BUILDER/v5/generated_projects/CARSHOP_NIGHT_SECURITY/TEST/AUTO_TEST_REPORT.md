@@ -1,4 +1,4 @@
-# AUTO_TEST_REPORT — TiSLY PLC Builder v5.9
+# AUTO_TEST_REPORT — TiSLY PLC Builder v5.10
 
 > 全生成物存在確認 + 監査 PASS 確認
 
@@ -8,7 +8,7 @@
 
 | 項目 | 値 |
 |------|-----|
-| 実行日時 (UTC) | 2026-05-30T15:53:30Z |
+| 実行日時 (UTC) | 2026-05-30T15:58:46Z |
 | 対象 | CARSHOP_NIGHT_SECURITY |
 | テスト | 全生成物存在確認 / GX 監査 |
 
@@ -48,6 +48,11 @@
 - ✓ 余裕率あり: OK
 - ✓ 判定あり: OK
 - ✓ 推奨PLCあり: OK
+- ✓ PLC_SELECTION.md が存在: OK
+- ✓ SITE_SURVEY.md に PLC容量確認 が反映されている: 反映済
+- ✓ TOMS_QUOTE_SUMMARY.md に PLC容量判定 が反映されている: 反映済
+- ✓ TOMS_QUOTE.xlsx に PLC容量判定欄 がある: あり
+- ✓ PROJECT_README.md に PLC容量・拡張判定 がある: 反映済
 
 ---
 
@@ -87,9 +92,14 @@
 | 余裕率あり | PASS | OK |
 | 判定あり | PASS | OK |
 | 推奨PLCあり | PASS | OK |
+| PLC_SELECTION.md が存在 | PASS | OK |
+| SITE_SURVEY.md に PLC容量確認 が反映されている | PASS | 反映済 |
+| TOMS_QUOTE_SUMMARY.md に PLC容量判定 が反映されている | PASS | 反映済 |
+| TOMS_QUOTE.xlsx に PLC容量判定欄 がある | PASS | あり |
+| PROJECT_README.md に PLC容量・拡張判定 がある | PASS | 反映済 |
 
 ---
 
 **総合判定: PASS**
 
-**TiSLY PLC Builder v5.9 — AUTO_TEST_REPORT**
+**TiSLY PLC Builder v5.10 — AUTO_TEST_REPORT**

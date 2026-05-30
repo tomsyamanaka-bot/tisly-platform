@@ -1,6 +1,6 @@
 # TOMS 見積連携サマリー — 車屋展示場 夜間監視
 
-> TiSLY PLC Builder v5.6 自動生成
+> TiSLY PLC Builder v5.10 自動生成
 
 ---
 
@@ -16,6 +16,20 @@
 | 見積項目数 | 8 件 |
 
 ---
+
+## PLC容量判定
+
+| 項目 | 内容 |
+|------|------|
+| 現在PLC | FX5UJ-24MR/ES |
+| 推奨PLC | FX5UJ-24MR/ES |
+| 入力使用率 | 57.1 % |
+| 出力使用率 | 50.0 % |
+| 判定 | OK — 現在PLCで問題なし |
+| 拡張ユニット候補 | 不要 |
+
+---
+
 
 ## TOMS 標準フォーマット転記メモ
 
@@ -41,4 +55,4 @@ TOMS 標準見積書フォーマット（TOMS_QUOTE.xlsx / 手動転記）
 
 ---
 
-**TiSLY PLC Builder v5.6 — TOMS_QUOTE_SUMMARY**
+**TiSLY PLC Builder v5.10 — TOMS_QUOTE_SUMMARY**

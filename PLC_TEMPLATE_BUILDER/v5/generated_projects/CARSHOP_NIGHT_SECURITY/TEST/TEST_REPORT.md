@@ -1,4 +1,4 @@
-# TEST_REPORT — TiSLY PLC Builder v5.9
+# TEST_REPORT — TiSLY PLC Builder v5.10
 
 > 自動監査レポート
 
@@ -39,6 +39,20 @@
 
 ---
 
+## PLC_SELECTION連携チェック
+
+| 項目 | 結果 | 詳細 |
+|------|:----:|------|
+| PLC_SELECTION.md が存在 | PASS | OK |
+| SITE_SURVEY.md に PLC容量確認 が反映されている | PASS | 反映済 |
+| TOMS_QUOTE_SUMMARY.md に PLC容量判定 が反映されている | PASS | 反映済 |
+| TOMS_QUOTE.xlsx に PLC容量判定欄 がある | PASS | あり |
+| PROJECT_README.md に PLC容量・拡張判定 がある | PASS | 反映済 |
+
+**PLC連携判定: PASS**
+
+---
+
 ## GX Works3 命令サマリー
 
 - 命令行数: 41
@@ -48,4 +62,4 @@
 
 **総合判定: PASS**
 
-**TiSLY PLC Builder v5.9 — TEST_REPORT**
+**TiSLY PLC Builder v5.10 — TEST_REPORT**

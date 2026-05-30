@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
 """
-TiSLY PLC Builder v5.8 — 現調シート生成
+TiSLY PLC Builder v5.10 — 現調シート生成
 見積メモ・I/O 割付から現場調査用チェックリスト（SITE_SURVEY.md）を生成する。
+PLC_SELECTION 連携で PLC容量確認セクションを含む。
 """
 
 from __future__ import annotations
 
 from parts_mapper import EstimateBuildResult
+from plc_selection_generator import (
+    VERSION,
+    analyze_plc_selection,
+    format_site_survey_plc_section,
+)
 
 PART_LABELS: dict[str, tuple[str, str, str]] = {
     "infrared": ("赤外線ビーム", "外周・境界", "NPN/PNP 確認"),
@@ -62,9 +68,16 @@ def generate_site_survey_md(result: EstimateBuildResult) -> str:
         for e in result.assignment.entries
     )
 
+    plc_selection = analyze_plc_selection(
+        plc_model,
+        input_count,
+        output_count,
+    )
+    plc_section = format_site_survey_plc_section(plc_selection)
+
     return f"""# 現調シート — {project_title}
 
-> TiSLY PLC Builder v5.8 自動生成
+> TiSLY PLC Builder {VERSION} 自動生成
 
 ---
 
@@ -98,6 +111,8 @@ def generate_site_survey_md(result: EstimateBuildResult) -> str:
 {io_rows}
 
 ---
+
+{plc_section}
 
 ## 盤・電源 現調項目
 
@@ -151,7 +166,7 @@ def generate_site_survey_md(result: EstimateBuildResult) -> str:
 
 ---
 
-**TiSLY PLC Builder v5.8 — SITE_SURVEY**
+**TiSLY PLC Builder {VERSION} — SITE_SURVEY**
 """
 
 
@@ -161,6 +176,12 @@ def site_survey_has_device_table(md_text: str) -> bool:
 
 def site_survey_has_io_table(md_text: str) -> bool:
     return "I/O 割付確認" in md_text and "| デバイス |" in md_text
+
+
+def site_survey_has_plc_capacity_section(md_text: str) -> bool:
+    from plc_selection_generator import site_survey_has_plc_capacity
+
+    return site_survey_has_plc_capacity(md_text)
 
 
 def site_survey_device_count(md_text: str) -> int:

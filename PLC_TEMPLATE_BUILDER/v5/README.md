@@ -190,6 +190,36 @@ TiSLY PLC Builder v5.0 — 完成
 | **v5.7** | **TOMS 見積 Excel 出力（TOMS_QUOTE.xlsx）** |
 | **v5.8** | **現調シート生成（SITE_SURVEY.md）** |
 | **v5.9** | **PLC容量自動選定強化（PLC_SELECTION.md）** |
+| **v5.10** | **PLC_SELECTION 連携強化（SITE_SURVEY / TOMS / README / TEST_REPORT）** |
+
+---
+
+## v5.10 PLC Selection Integration
+
+v5.9 で生成した `PLC_SELECTION.md` の容量判定結果を、関連ドキュメントへ自動反映します。
+
+```powershell
+cd PLC_TEMPLATE_BUILDER/v5
+python project_generator.py --site-survey --estimate-file estimate_mode/estimate_sample.txt
+```
+
+連携先:
+
+| ファイル | 追加セクション |
+|----------|---------------|
+| SITE_SURVEY.md | PLC容量確認 / 現場確認メモ |
+| TOMS_QUOTE.xlsx | PLC容量判定シート |
+| TOMS_QUOTE_SUMMARY.md | PLC容量判定 |
+| PROJECT_README.md | PLC容量・拡張判定 |
+| TEST_REPORT.md | PLC_SELECTION連携チェック |
+
+完成時表示:
+
+```
+TiSLY PLC Builder v5.10
+PLC_SELECTION integration
+自動テスト PASS
+```
 
 ---
 
@@ -314,4 +344,4 @@ python project_generator.py --quote-ready --estimate-file estimate_mode/estimate
 
 ---
 
-**TiSLY PLC Builder v5.9**
+**TiSLY PLC Builder v5.10**
