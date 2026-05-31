@@ -1,5 +1,14 @@
 # TiSLY PLC Builder v5 — CHANGELOG
 
+## v5.12 — TOMS 標準見積書自動生成
+
+- `estimate_mode/estimate_sheet_generator.py` 追加 — TOMS_QUOTE_ITEMS.csv → **TOMS_ESTIMATE.xlsx**
+- `estimate_mode/estimate_header.json` 追加（company_name / customer_name / project_name / issue_date / estimate_no / person_in_charge）
+- TOMS 標準フォーマットセルマッピング（G1 発行日 / G2 見積番号 / C6 宛名 / D9 件名 / D17・G49 税込合計 / G47 小計 / G48 消費税）
+- 備考自動生成（仮単価・現地確認・PLC容量判定・増設時再見積）
+- `--toms-estimate` モード追加
+- 監査: TOMS_ESTIMATE.xlsx 存在 / 宛名 / 件名 / 項目 / 小計 / 消費税 / 税込合計 / 備考
+
 ## v5.11 — 単価・金額自動計算
 
 - 単価マスター `estimate_mode/price_master.csv` を追加（仮単価）

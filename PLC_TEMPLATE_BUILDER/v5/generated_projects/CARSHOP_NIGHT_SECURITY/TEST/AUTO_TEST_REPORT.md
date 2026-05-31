@@ -1,4 +1,4 @@
-# AUTO_TEST_REPORT — TiSLY PLC Builder v5.11
+# AUTO_TEST_REPORT — TiSLY PLC Builder v5.12
 
 > 全生成物存在確認 + 監査 PASS 確認
 
@@ -8,7 +8,7 @@
 
 | 項目 | 値 |
 |------|-----|
-| 実行日時 (UTC) | 2026-05-31T00:12:43Z |
+| 実行日時 (UTC) | 2026-05-31T01:05:43Z |
 | 対象 | CARSHOP_NIGHT_SECURITY |
 | テスト | 全生成物存在確認 / GX 監査 |
 
@@ -66,6 +66,14 @@
 - ✓ Excel 小計・税・合計: 小計/消費税/税込合計
 - ✓ Excel PLC項目: PLC
 - ✓ Excel 24V電源項目: 24V電源
+- ✓ TOMS_ESTIMATE.xlsx 存在: OK
+- ✓ 見積書 宛名: 車屋展示場 夜間監視
+- ✓ 見積書 件名: 車屋展示場 夜間監視
+- ✓ 見積書 項目: 8 件
+- ✓ 見積書 小計: 小計
+- ✓ 見積書 消費税: 消費税
+- ✓ 見積書 税込合計: 税込合計
+- ✓ 見積書 備考: 〈備考〉
 - ✓ PLC_SELECTION.md 存在: OK
 - ✓ 使用入力点数あり: OK
 - ✓ 使用出力点数あり: OK
@@ -134,6 +142,14 @@
 | Excel 小計・税・合計 | PASS | 小計/消費税/税込合計 |
 | Excel PLC項目 | PASS | PLC |
 | Excel 24V電源項目 | PASS | 24V電源 |
+| TOMS_ESTIMATE.xlsx 存在 | PASS | OK |
+| 見積書 宛名 | PASS | 車屋展示場 夜間監視 |
+| 見積書 件名 | PASS | 車屋展示場 夜間監視 |
+| 見積書 項目 | PASS | 8 件 |
+| 見積書 小計 | PASS | 小計 |
+| 見積書 消費税 | PASS | 消費税 |
+| 見積書 税込合計 | PASS | 税込合計 |
+| 見積書 備考 | PASS | 〈備考〉 |
 | PLC_SELECTION.md 存在 | PASS | OK |
 | 使用入力点数あり | PASS | OK |
 | 使用出力点数あり | PASS | OK |
@@ -150,4 +166,4 @@
 
 **総合判定: PASS**
 
-**TiSLY PLC Builder v5.11 — AUTO_TEST_REPORT**
+**TiSLY PLC Builder v5.12 — AUTO_TEST_REPORT**

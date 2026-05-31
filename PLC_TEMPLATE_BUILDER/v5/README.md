@@ -192,6 +192,34 @@ TiSLY PLC Builder v5.0 — 完成
 | **v5.9** | **PLC容量自動選定強化（PLC_SELECTION.md）** |
 | **v5.10** | **PLC_SELECTION 連携強化（SITE_SURVEY / TOMS / README / TEST_REPORT）** |
 | **v5.11** | **単価・金額自動計算（price_master.csv / ROUGH_ESTIMATE.csv / TOMS 単価反映）** |
+| **v5.12** | **TOMS 標準見積書自動生成（TOMS_ESTIMATE.xlsx）** |
+
+---
+
+## v5.12 TOMS Estimate Mode
+
+見積メモから TOMS 標準フォーマットの見積書 Excel を自動生成します。
+
+```powershell
+cd PLC_TEMPLATE_BUILDER/v5
+python project_generator.py --toms-estimate --estimate-file estimate_mode/estimate_sample.txt
+```
+
+追加生成物:
+
+| ファイル | 内容 |
+|----------|------|
+| TOMS_ESTIMATE.xlsx | TOMS 標準見積書（宛名・件名・明細・小計・消費税・税込合計・備考） |
+| estimate_header.json | 見積ヘッダー定義（company_name / customer_name / project_name 等） |
+
+完成時表示:
+
+```
+TiSLY PLC Builder v5.12
+TOMS標準見積書生成
+自動テスト PASS
+次Version候補: v5.13 TOMS現調報告書自動生成
+```
 
 ---
 

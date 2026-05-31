@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
-TiSLY PLC Builder v5.11
+TiSLY PLC Builder v5.12
 見積 + 顧客入力 → 仕様書 / GX Works3 命令 / 配線図 / 納品フォルダ 自動生成
 用途別テンプレート (--template) / 日本語文章 (--nl) / 完全自動 (--full-spec) /
 見積メモ形式 (--estimate-mode) / 見積+部材表+施工メモ (--estimate-plus) /
 TOMS見積連携準備 (--quote-ready) / TOMS見積Excel出力 (--quote-excel) /
-現調シート生成 (--site-survey) / PLC容量選定・連携 (--full-spec 他) 対応
+TOMS標準見積書生成 (--toms-estimate) / 現調シート生成 (--site-survey) /
+PLC容量選定・連携 (--full-spec 他) 対応
 """
 
 from __future__ import annotations
@@ -39,9 +40,9 @@ FULL_SPEC_SAMPLE = (
     "パトライト1台。\n"
     "白色LED4台。"
 )
-VERSION = "v5.11"
+VERSION = "v5.12"
 BUILDER_NAME = f"TiSLY PLC Builder {VERSION}"
-NEXT_VERSION_CANDIDATE = "v5.12 正式単価マスター連携"
+NEXT_VERSION_CANDIDATE = "v5.13 TOMS現調報告書自動生成"
 
 VALID_TEMPLATES = (
     "HOME_SECURITY",
@@ -122,6 +123,13 @@ from excel_exporter import (  # noqa: E402
     xlsx_has_price_columns,
     xlsx_has_summary_totals,
     xlsx_row_count,
+)
+from estimate_sheet_generator import (  # noqa: E402
+    build_estimate_header,
+    write_toms_estimate_xlsx,
+    xlsx_has_estimate_items,
+    xlsx_has_remarks,
+    xlsx_has_summary_totals as estimate_xlsx_has_summary_totals,
 )
 from site_survey_generator import (  # noqa: E402
     generate_site_survey_md,
@@ -1890,15 +1898,21 @@ def build_estimate_plus_project(
     )
 
 
-def _print_v511_footer(all_pass: bool) -> None:
-    """v5.11 完成表示。"""
+def _print_version_footer(all_pass: bool, feature_line: str = "") -> None:
+    """バージョン完成表示。"""
     print()
     print(f"{'PASS' if all_pass else 'FAIL'}")
     print()
     print(BUILDER_NAME)
-    print("単価・金額自動計算")
+    if feature_line:
+        print(feature_line)
     print(f"自動テスト {'PASS' if all_pass else 'FAIL'}")
     print(f"次Version候補: {NEXT_VERSION_CANDIDATE}")
+
+
+def _print_v511_footer(all_pass: bool) -> None:
+    """後方互換: v5.11 完成表示。"""
+    _print_version_footer(all_pass, "単価・金額自動計算")
 
 
 def _print_estimate_plus_completion(result: EstimatePlusBuildResult) -> None:
@@ -2335,6 +2349,194 @@ def run_quote_excel_pipeline(
     return 0 if result.all_pass else 1
 
 
+def _write_toms_estimate_file(
+    project_dir: Path,
+    toms_items_text: str,
+    estimate_result: EstimateBuildResult,
+) -> Path:
+    """TOMS_ESTIMATE.xlsx を案件フォルダ直下に書き出す。"""
+    xlsx_path = project_dir / "TOMS_ESTIMATE.xlsx"
+    write_toms_estimate_xlsx(xlsx_path, toms_items_text, estimate_result)
+    return xlsx_path
+
+
+def audit_toms_estimate_files(
+    project_dir: Path,
+    estimate_result: EstimateBuildResult,
+    expected_item_count: int,
+) -> list[AuditRow]:
+    """TOMS 標準見積書 xlsx 監査。"""
+    xlsx_path = project_dir / "TOMS_ESTIMATE.xlsx"
+    header = build_estimate_header(estimate_result)
+    customer = header.get("customer_name", "")
+    project = header.get("project_name", "")
+
+    return [
+        AuditRow(
+            "TOMS_ESTIMATE.xlsx 存在",
+            xlsx_path.is_file(),
+            "OK" if xlsx_path.is_file() else "ファイルなし",
+        ),
+        AuditRow(
+            "見積書 宛名",
+            xlsx_path.is_file() and xlsx_contains_text(xlsx_path, customer),
+            customer or "なし",
+        ),
+        AuditRow(
+            "見積書 件名",
+            xlsx_path.is_file() and xlsx_contains_text(xlsx_path, project),
+            project or "なし",
+        ),
+        AuditRow(
+            "見積書 項目",
+            xlsx_has_estimate_items(xlsx_path, expected_item_count),
+            f"{expected_item_count} 件",
+        ),
+        AuditRow(
+            "見積書 小計",
+            xlsx_path.is_file() and xlsx_contains_text(xlsx_path, "小計"),
+            "小計",
+        ),
+        AuditRow(
+            "見積書 消費税",
+            xlsx_path.is_file() and xlsx_contains_text(xlsx_path, "消費税"),
+            "消費税",
+        ),
+        AuditRow(
+            "見積書 税込合計",
+            estimate_xlsx_has_summary_totals(xlsx_path),
+            "税込合計",
+        ),
+        AuditRow(
+            "見積書 備考",
+            xlsx_has_remarks(xlsx_path),
+            "〈備考〉",
+        ),
+    ]
+
+
+@dataclass
+class TomsEstimateBuildResult:
+    estimate_result: EstimateBuildResult
+    project_dir: Path
+    audit_rows: list[AuditRow] = field(default_factory=list)
+    all_pass: bool = False
+
+
+def build_toms_estimate_project(
+    estimate_path: Path,
+    output_dir: Path,
+    *,
+    project_name: str | None = None,
+) -> TomsEstimateBuildResult:
+    """見積メモ → PLC案件 → BOM → TOMS CSV → TOMS Excel → TOMS 標準見積書。"""
+    memo = parse_estimate_file(estimate_path)
+    estimate_result = build_from_estimate_memo(memo)
+
+    if project_name:
+        estimate_result.project_name = project_name
+
+    project_dir = output_dir / estimate_result.project_name
+
+    all_rows, logic_pass, _ = _write_delivery_project(
+        estimate_result.assignment,
+        estimate_result.project_name,
+        project_dir,
+        "(見積メモ)",
+        str(estimate_path),
+    )
+
+    spec_paths = _write_quote_ready_spec_files(project_dir, estimate_result)
+    toms_items_text = spec_paths["TOMS_QUOTE_ITEMS.csv"].read_text(encoding="utf-8")
+    toms_items = parse_toms_quote_items_csv(toms_items_text)
+    _write_quote_excel_file(project_dir, toms_items_text, estimate_result)
+    _write_toms_estimate_file(project_dir, toms_items_text, estimate_result)
+
+    _finalize_plc_outputs(
+        project_dir,
+        estimate_result.assignment,
+        estimate_result.project_name,
+    )
+
+    capacity_rows = audit_capacity_checks(
+        estimate_result.assignment, estimate_result.estimation
+    )
+    spec_rows = spec_checks_to_audit_rows(estimate_result.spec_checks)
+    plus_rows = audit_estimate_plus_files(project_dir, estimate_result)
+    quote_rows = audit_quote_ready_files(project_dir)
+    excel_rows = audit_quote_excel_files(project_dir, len(toms_items))
+    estimate_rows = audit_toms_estimate_files(
+        project_dir, estimate_result, len(toms_items)
+    )
+    plc_rows = audit_plc_selection_files(project_dir)
+    integration_rows = audit_plc_integration(project_dir)
+    all_rows = (
+        capacity_rows + all_rows + spec_rows + plus_rows
+        + quote_rows + excel_rows + estimate_rows + plc_rows + integration_rows
+    )
+    all_pass = logic_pass and all(r.passed for r in all_rows)
+
+    write_project_meta(
+        project_dir / "PROJECT_META.json",
+        estimate_result.project_name,
+        "(見積メモ)",
+        str(estimate_path),
+        "PASS" if all_pass else "FAIL",
+    )
+
+    auto_report = _write_auto_test_report(project_dir, all_rows, all_pass)
+    (project_dir / "TEST" / "AUTO_TEST_REPORT.md").write_text(auto_report, encoding="utf-8")
+
+    return TomsEstimateBuildResult(
+        estimate_result=estimate_result,
+        project_dir=project_dir,
+        audit_rows=all_rows,
+        all_pass=all_pass,
+    )
+
+
+def _print_toms_estimate_completion(result: TomsEstimateBuildResult) -> None:
+    er = result.estimate_result
+    memo = er.memo
+    print(BUILDER_NAME)
+    print()
+    print("見積メモ")
+    print(f"  案件名: {memo.project_title}")
+    print(f"  目的: {memo.purpose}")
+    for key, qty in sorted(memo.parts.items()):
+        print(f"  {key}: {qty}")
+    print("↓")
+    print("BOM")
+    print(f"  → {result.project_dir / 'SPEC' / 'BOM.csv'}")
+    print("↓")
+    print("概算見積")
+    print(f"  → {result.project_dir / 'SPEC' / 'TOMS_QUOTE.xlsx'}")
+    print("↓")
+    print("TOMS標準見積書")
+    print(f"  → {result.project_dir / 'TOMS_ESTIMATE.xlsx'}")
+    print()
+    for row in result.audit_rows:
+        mark = "PASS" if row.passed else "FAIL"
+        print(f"  [{mark}] {row.name}: {row.detail}")
+    _print_version_footer(result.all_pass, "TOMS標準見積書生成")
+
+
+def run_toms_estimate_pipeline(
+    estimate_path: Path,
+    output_dir: Path,
+    *,
+    project_name: str | None = None,
+) -> int:
+    if not estimate_path.is_file():
+        print(f"ERROR: 見積ファイルが見つかりません: {estimate_path}", file=sys.stderr)
+        return 1
+    result = build_toms_estimate_project(
+        estimate_path, output_dir, project_name=project_name
+    )
+    _print_toms_estimate_completion(result)
+    return 0 if result.all_pass else 1
+
+
 def _write_site_survey_file(
     project_dir: Path,
     estimate_result: EstimateBuildResult,
@@ -2595,7 +2797,7 @@ def main() -> int:
         "--estimate-file",
         type=Path,
         default=DEFAULT_ESTIMATE_SAMPLE,
-        help="--estimate-mode / --estimate-plus / --quote-ready 用の見積メモファイル（既定: estimate_mode/estimate_sample.txt）",
+        help="--estimate-mode / --estimate-plus / --quote-ready / --toms-estimate 用の見積メモファイル（既定: estimate_mode/estimate_sample.txt）",
     )
     parser.add_argument(
         "--estimate-plus",
@@ -2613,6 +2815,11 @@ def main() -> int:
         help="見積メモ → BOM → TOMS見積CSV → TOMS_QUOTE.xlsx（Excel出力）",
     )
     parser.add_argument(
+        "--toms-estimate",
+        action="store_true",
+        help="見積メモ → BOM → TOMS CSV → TOMS_ESTIMATE.xlsx（TOMS標準見積書）",
+    )
+    parser.add_argument(
         "--site-survey",
         action="store_true",
         help="見積メモ → TOMS Excel → 現調シート（SITE_SURVEY.md）",
@@ -2621,6 +2828,13 @@ def main() -> int:
 
     if args.site_survey:
         return run_site_survey_pipeline(
+            args.estimate_file,
+            args.output_dir,
+            project_name=args.project_name,
+        )
+
+    if args.toms_estimate:
+        return run_toms_estimate_pipeline(
             args.estimate_file,
             args.output_dir,
             project_name=args.project_name,
