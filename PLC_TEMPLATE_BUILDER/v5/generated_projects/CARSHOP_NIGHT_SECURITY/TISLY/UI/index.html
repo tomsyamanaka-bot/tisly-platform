@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0a1628">
+  <meta name="description" content="TiSLY Dashboard — CARSHOP_NIGHT_SECURITY">
+  <title>TiSLY — CARSHOP_NIGHT_SECURITY</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="tisly-ui" data-project="carshop-night-security">
+  <header class="app-header">
+    <div class="brand">
+      <span class="brand-mark">TiSLY</span>
+      <h1>CARSHOP_NIGHT_SECURITY</h1>
+    </div>
+    <div class="header-meta">
+      <span id="conn-status" class="conn-badge offline">MQTT 未接続</span>
+      <span class="device-id">Device 211</span>
+    </div>
+  </header>
+
+  <main class="dashboard-grid">
+    <section class="panel panel-state" aria-labelledby="state-heading">
+      <h2 id="state-heading">システム状態</h2>
+      <div id="system-state" class="state-summary">
+        <div class="state-item"><span>Broker</span><code>mqtt.tisly.local</code></div>
+        <div class="state-item"><span>Topic</span><code>tisly/device/211</code></div>
+        <div class="state-item"><span>最終更新</span><time id="last-update">—</time></div>
+      </div>
+    </section>
+
+    <section class="panel panel-alarms" aria-labelledby="alarms-heading">
+      <h2 id="alarms-heading">警報 <span class="count">5</span></h2>
+      <div class="device-grid">
+        <div class="device-card signal-alarm" data-device="EStop_01" data-plc="X1"><span class="device-name">EStop_01</span><span class="device-plc">X1</span><span class="device-status" aria-live="polite">—</span></div>
+<div class="device-card signal-alarm" data-device="Beam_01" data-plc="X2"><span class="device-name">Beam_01</span><span class="device-plc">X2</span><span class="device-status" aria-live="polite">—</span></div>
+<div class="device-card signal-alarm" data-device="Beam_02" data-plc="X3"><span class="device-name">Beam_02</span><span class="device-plc">X3</span><span class="device-status" aria-live="polite">—</span></div>
+<div class="device-card signal-alarm" data-device="Beam_03" data-plc="X4"><span class="device-name">Beam_03</span><span class="device-plc">X4</span><span class="device-status" aria-live="polite">—</span></div>
+<div class="device-card signal-alarm" data-device="Beam_04" data-plc="X5"><span class="device-name">Beam_04</span><span class="device-plc">X5</span><span class="device-status" aria-live="polite">—</span></div>
+      </div>
+    </section>
+
+    <section class="panel panel-motion" aria-labelledby="motion-heading">
+      <h2 id="motion-heading">動体検知 <span class="count">2</span></h2>
+      <div class="device-grid">
+        <div class="device-card signal-motion" data-device="PIR_01" data-plc="X6"><span class="device-name">PIR_01</span><span class="device-plc">X6</span><span class="device-status" aria-live="polite">—</span></div>
+<div class="device-card signal-motion" data-device="PIR_02" data-plc="X7"><span class="device-name">PIR_02</span><span class="device-plc">X7</span><span class="device-status" aria-live="polite">—</span></div>
+      </div>
+    </section>
+
+    <section class="panel panel-contacts" aria-labelledby="contacts-heading">
+      <h2 id="contacts-heading">接点 / スイッチ <span class="count">1</span></h2>
+      <div class="device-grid">
+        <div class="device-card signal-contact" data-device="Switch_01" data-plc="X0"><span class="device-name">Switch_01</span><span class="device-plc">X0</span><span class="device-status" aria-live="polite">—</span></div>
+      </div>
+    </section>
+
+    <section class="panel panel-outputs" aria-labelledby="outputs-heading">
+      <h2 id="outputs-heading">出力 <span class="count">5</span></h2>
+      <div class="device-grid">
+        <div class="device-card signal-output" data-device="Siren" data-plc="Y0"><span class="device-name">Siren</span><span class="device-plc">Y0</span><span class="device-status" aria-live="polite">—</span></div>
+<div class="device-card signal-output" data-device="WhiteLight_01" data-plc="Y1"><span class="device-name">WhiteLight_01</span><span class="device-plc">Y1</span><span class="device-status" aria-live="polite">—</span></div>
+<div class="device-card signal-output" data-device="WhiteLight_02" data-plc="Y2"><span class="device-name">WhiteLight_02</span><span class="device-plc">Y2</span><span class="device-status" aria-live="polite">—</span></div>
+<div class="device-card signal-output" data-device="WhiteLight_03" data-plc="Y3"><span class="device-name">WhiteLight_03</span><span class="device-plc">Y3</span><span class="device-status" aria-live="polite">—</span></div>
+<div class="device-card signal-output" data-device="WhiteLight_04" data-plc="Y4"><span class="device-name">WhiteLight_04</span><span class="device-plc">Y4</span><span class="device-status" aria-live="polite">—</span></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <span>TiSLY PLC Builder v5.16 — TiSLY UI Dashboard Template</span>
+    <span>TiSLY PRO Remote / Google TV 対応レイアウト</span>
+  </footer>
+
+  <script src="app.js" type="module"></script>
+</body>
+</html>

@@ -196,6 +196,48 @@ TiSLY PLC Builder v5.0 — 完成
 | **v5.13** | **TOMS 現調報告書自動生成（TOMS_SITE_REPORT.md）** |
 | **v5.14** | **TiSLY Integration Engine（TISLY/ MQTT / ESP / Node-RED）** |
 | **v5.15** | **Node-RED Flow Generator（TISLY_FLOWS.json）** |
+| **v5.16** | **TiSLY UI Dashboard Template（TISLY/UI/ PWA）** |
+
+---
+
+## v5.16 TiSLY UI Dashboard Template
+
+v5.14 / v5.15 で生成した TiSLY 連携設定から、  
+案件ごとに **PWA ダッシュボード**（`TISLY/UI/`）を自動生成します。
+
+```powershell
+cd PLC_TEMPLATE_BUILDER/v5
+python project_generator.py --ui-dashboard --estimate-file estimate_mode/estimate_sample.txt
+```
+
+生成ファイル（`generated_projects/<案件名>/TISLY/UI/`）:
+
+| ファイル | 内容 |
+|----------|------|
+| index.html | メインダッシュボード（警報 / 動体 / 接点 / 出力カード） |
+| app.js | MQTT / UI ロジック |
+| styles.css | TiSLY ダークテーマ（Google TV 大画面対応） |
+| manifest.webmanifest | PWA マニフェスト |
+| sw.js | Service Worker |
+| UI_CONFIG.json | ブローカー / トピック / デバイス定義 |
+| UI_README.md | デプロイ手順 |
+
+以下のモードでも `TISLY/UI/` が自動生成されます:
+
+- `--node-red-flow`
+- `--full-spec`
+- `--estimate-plus`
+- `--quote-ready`
+- `--toms-site-report`
+
+完成時表示:
+
+```
+TiSLY PLC Builder v5.16
+TiSLY UI Dashboard Template
+自動テスト PASS
+次Version候補: v5.17 Google TV Launcher Template
+```
 
 ---
 

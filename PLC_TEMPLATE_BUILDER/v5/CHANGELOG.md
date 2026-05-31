@@ -1,5 +1,16 @@
 # TiSLY PLC Builder v5 — CHANGELOG
 
+## v5.16 — TiSLY UI Dashboard Template
+
+- `estimate_mode/ui_dashboard_generator.py` 追加 — NODE_RED_CONFIG / DEVICE_MAP / MQTT_TOPICS から **TISLY/UI/** PWA 自動生成
+- 生成ファイル: `UI_CONFIG.json` / `index.html` / `app.js` / `styles.css` / `manifest.webmanifest` / `sw.js` / `UI_README.md`
+- 警報 / 動体 / 接点 / 出力のデバイスカード UI（TiSLY ダークテーマ、Google TV 大画面対応）
+- `--ui-dashboard` モード追加
+- `--node-red-flow` / `--full-spec` / `--estimate-plus` / `--quote-ready` / `--toms-site-report` でも TISLY/UI/ 自動生成
+- 監査: TISLY/UI/ 存在 / 全7ファイル / index.html / UI_CONFIG / manifest / sw.js / UI_README
+- Node-RED フローの UI プレースホルダを v5.16 PWA パスへ更新
+- 次版候補: v5.17 Google TV Launcher Template
+
 ## v5.15 — Node-RED Flow Generator
 
 - `estimate_mode/node_red_flow_generator.py` 追加 — NODE_RED_CONFIG / DEVICE_MAP / MQTT_TOPICS から **TISLY_FLOWS.json** 自動生成

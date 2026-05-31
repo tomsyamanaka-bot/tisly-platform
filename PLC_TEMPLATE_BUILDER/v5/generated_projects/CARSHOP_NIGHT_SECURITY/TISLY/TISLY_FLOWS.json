@@ -1,6 +1,6 @@
 [
   {
-    "id": "tab_e8b47429",
+    "id": "tab_53cf8ce5",
     "type": "tab",
     "label": "TiSLY — CARSHOP_NIGHT_SECURITY",
     "disabled": false,
@@ -8,7 +8,7 @@
     "env": []
   },
   {
-    "id": "broker_a80175a4",
+    "id": "broker_65d535a8",
     "type": "mqtt-broker",
     "name": "MQTT Broker",
     "broker": "mqtt.tisly.local",
@@ -33,9 +33,9 @@
     "willMsg": {}
   },
   {
-    "id": "c_a3cb30a2",
+    "id": "c_2da2ec3f",
     "type": "comment",
-    "z": "tab_e8b47429",
+    "z": "tab_53cf8ce5",
     "name": "Alarm Handler",
     "info": "Topic: tisly/device/211/alarm\nInputs: EStop_01, Beam_01, Beam_02, Beam_03, Beam_04",
     "x": 120,
@@ -43,14 +43,14 @@
     "wires": []
   },
   {
-    "id": "alarm_in_1771d54f",
+    "id": "alarm_in_ee89b2a3",
     "type": "mqtt in",
-    "z": "tab_e8b47429",
+    "z": "tab_53cf8ce5",
     "name": "MQTT Input Hub — Alarm",
     "topic": "tisly/device/211/alarm",
     "qos": "1",
     "datatype": "auto-detect",
-    "broker": "broker_a80175a4",
+    "broker": "broker_65d535a8",
     "nl": false,
     "rap": true,
     "rh": 0,
@@ -59,14 +59,14 @@
     "y": 140,
     "wires": [
       [
-        "alarm_fn_4c896419"
+        "alarm_fn_d9f7fe9f"
       ]
     ]
   },
   {
-    "id": "alarm_fn_4c896419",
+    "id": "alarm_fn_d9f7fe9f",
     "type": "function",
-    "z": "tab_e8b47429",
+    "z": "tab_53cf8ce5",
     "name": "Alarm Handler",
     "func": "// TiSLY PLC Builder v5.15 — Node-RED Flow Generator\n// Alarm Handler — inputs: EStop_01, Beam_01, Beam_02, Beam_03, Beam_04\nconst payload = typeof msg.payload === 'object'\n    ? msg.payload\n    : { value: msg.payload, source: msg.topic };\nmsg.alarm = {\n    device_id: '211',\n    topic: msg.topic,\n    timestamp: new Date().toISOString(),\n    payload\n};\nmsg.payload = msg.alarm;\nreturn msg;",
     "outputs": 1,
@@ -79,15 +79,15 @@
     "y": 140,
     "wires": [
       [
-        "alarm_dbg_b0c2e21a",
-        "alarm_push_b84c2abf"
+        "alarm_dbg_213cb893",
+        "alarm_push_79045e7b"
       ]
     ]
   },
   {
-    "id": "alarm_dbg_b0c2e21a",
+    "id": "alarm_dbg_213cb893",
     "type": "debug",
-    "z": "tab_e8b47429",
+    "z": "tab_53cf8ce5",
     "name": "Debug Logger — Alarm",
     "active": true,
     "tosidebar": true,
@@ -104,9 +104,9 @@
     ]
   },
   {
-    "id": "alarm_push_b84c2abf",
+    "id": "alarm_push_79045e7b",
     "type": "function",
-    "z": "tab_e8b47429",
+    "z": "tab_53cf8ce5",
     "name": "Push Notification Placeholder",
     "func": "// Push Notification Placeholder — TiSLY PLC Builder v5.15 — Node-RED Flow Generator\n// TODO: Firebase / Webhook 連携\nnode.warn('TiSLY Push (alarm): ' + JSON.stringify(msg.payload));\nreturn null;",
     "outputs": 1,
@@ -122,9 +122,9 @@
     ]
   },
   {
-    "id": "c_f246632a",
+    "id": "c_658bcc17",
     "type": "comment",
-    "z": "tab_e8b47429",
+    "z": "tab_53cf8ce5",
     "name": "Motion Handler",
     "info": "Topic: tisly/device/211/motion\nInputs: PIR_01, PIR_02",
     "x": 120,
@@ -132,14 +132,14 @@
     "wires": []
   },
   {
-    "id": "motion_in_d125e0b8",
+    "id": "motion_in_320da08c",
     "type": "mqtt in",
-    "z": "tab_e8b47429",
+    "z": "tab_53cf8ce5",
     "name": "MQTT Input Hub — Motion",
     "topic": "tisly/device/211/motion",
     "qos": "1",
     "datatype": "auto-detect",
-    "broker": "broker_a80175a4",
+    "broker": "broker_65d535a8",
     "nl": false,
     "rap": true,
     "rh": 0,
@@ -148,14 +148,14 @@
     "y": 320,
     "wires": [
       [
-        "motion_fn_872c0ef8"
+        "motion_fn_d28c0921"
       ]
     ]
   },
   {
-    "id": "motion_fn_872c0ef8",
+    "id": "motion_fn_d28c0921",
     "type": "function",
-    "z": "tab_e8b47429",
+    "z": "tab_53cf8ce5",
     "name": "Motion Handler",
     "func": "// TiSLY PLC Builder v5.15 — Node-RED Flow Generator\n// Motion Handler — inputs: PIR_01, PIR_02\nconst now = Date.now();\nconst last = context.get('lastMotion') || 0;\nif (now - last < 3000) { return null; }\ncontext.set('lastMotion', now);\nmsg.motion = {\n    device_id: '211',\n    topic: msg.topic,\n    timestamp: new Date().toISOString(),\n    payload: msg.payload\n};\nmsg.payload = msg.motion;\nreturn msg;",
     "outputs": 1,
@@ -168,14 +168,14 @@
     "y": 320,
     "wires": [
       [
-        "motion_dbg_417b820d"
+        "motion_dbg_35c8776b"
       ]
     ]
   },
   {
-    "id": "motion_dbg_417b820d",
+    "id": "motion_dbg_35c8776b",
     "type": "debug",
-    "z": "tab_e8b47429",
+    "z": "tab_53cf8ce5",
     "name": "Debug Logger — Motion",
     "active": true,
     "tosidebar": true,
@@ -192,9 +192,9 @@
     ]
   },
   {
-    "id": "c_b4bc405d",
+    "id": "c_418db727",
     "type": "comment",
-    "z": "tab_e8b47429",
+    "z": "tab_53cf8ce5",
     "name": "Output Control",
     "info": "Cmd: tisly/device/211/cmd\nOutput: tisly/device/211/output\nDevices: Siren, WhiteLight_01, WhiteLight_02, WhiteLight_03, WhiteLight_04",
     "x": 120,
@@ -202,14 +202,14 @@
     "wires": []
   },
   {
-    "id": "cmd_in_73c9fdb8",
+    "id": "cmd_in_f4d5df38",
     "type": "mqtt in",
-    "z": "tab_e8b47429",
+    "z": "tab_53cf8ce5",
     "name": "MQTT Input Hub — Cmd",
     "topic": "tisly/device/211/cmd",
     "qos": "1",
     "datatype": "auto-detect",
-    "broker": "broker_a80175a4",
+    "broker": "broker_65d535a8",
     "nl": false,
     "rap": true,
     "rh": 0,
@@ -218,14 +218,14 @@
     "y": 500,
     "wires": [
       [
-        "output_fn_df58276e"
+        "output_fn_f73ae279"
       ]
     ]
   },
   {
-    "id": "output_fn_df58276e",
+    "id": "output_fn_f73ae279",
     "type": "function",
-    "z": "tab_e8b47429",
+    "z": "tab_53cf8ce5",
     "name": "Output Control",
     "func": "// TiSLY PLC Builder v5.15 — Node-RED Flow Generator\n// Output Control — devices: Siren, WhiteLight_01, WhiteLight_02, WhiteLight_03, WhiteLight_04\nconst cmd = typeof msg.payload === 'object' ? msg.payload : { action: msg.payload };\nmsg.payload = {\n    device_id: '211',\n    cmd,\n    outputs: [\"Siren\", \"WhiteLight_01\", \"WhiteLight_02\", \"WhiteLight_03\", \"WhiteLight_04\"],\n    timestamp: new Date().toISOString()\n};\nreturn msg;",
     "outputs": 1,
@@ -238,15 +238,15 @@
     "y": 500,
     "wires": [
       [
-        "output_out_cf72275f",
-        "output_dbg_25747a6b"
+        "output_out_d7dff7ca",
+        "output_dbg_9b74e300"
       ]
     ]
   },
   {
-    "id": "output_out_cf72275f",
+    "id": "output_out_d7dff7ca",
     "type": "mqtt out",
-    "z": "tab_e8b47429",
+    "z": "tab_53cf8ce5",
     "name": "MQTT Out — Output",
     "topic": "tisly/device/211/output",
     "qos": "1",
@@ -256,7 +256,7 @@
     "userProps": "",
     "correl": "",
     "expiry": "",
-    "broker": "broker_a80175a4",
+    "broker": "broker_65d535a8",
     "x": 560,
     "y": 480,
     "wires": [
@@ -264,9 +264,9 @@
     ]
   },
   {
-    "id": "output_dbg_25747a6b",
+    "id": "output_dbg_9b74e300",
     "type": "debug",
-    "z": "tab_e8b47429",
+    "z": "tab_53cf8ce5",
     "name": "Debug Logger — Output",
     "active": true,
     "tosidebar": true,
@@ -283,9 +283,9 @@
     ]
   },
   {
-    "id": "c_80e8135f",
+    "id": "c_797239ec",
     "type": "comment",
-    "z": "tab_e8b47429",
+    "z": "tab_53cf8ce5",
     "name": "MQTT Status Publish",
     "info": "Topic: tisly/device/211/state\nContacts: Switch_01",
     "x": 120,
@@ -293,9 +293,9 @@
     "wires": []
   },
   {
-    "id": "state_inj_8beba715",
+    "id": "state_inj_bac845e5",
     "type": "inject",
-    "z": "tab_e8b47429",
+    "z": "tab_53cf8ce5",
     "name": "Status Tick (60s)",
     "props": [
       {
@@ -313,14 +313,14 @@
     "y": 680,
     "wires": [
       [
-        "state_fn_d6c0eb2b"
+        "state_fn_42a7041c"
       ]
     ]
   },
   {
-    "id": "state_fn_d6c0eb2b",
+    "id": "state_fn_42a7041c",
     "type": "function",
-    "z": "tab_e8b47429",
+    "z": "tab_53cf8ce5",
     "name": "MQTT Status Publish",
     "func": "// TiSLY PLC Builder v5.15 — Node-RED Flow Generator\n// MQTT Status Publish\nmsg.payload = {\n    device_id: '211',\n    project: 'CARSHOP_NIGHT_SECURITY',\n    status: 'online',\n    contacts: [\"Switch_01\"],\n    timestamp: new Date().toISOString()\n};\nreturn msg;",
     "outputs": 1,
@@ -333,15 +333,15 @@
     "y": 680,
     "wires": [
       [
-        "state_out_11493c7a",
-        "state_dbg_a27036e7"
+        "state_out_f35fefa5",
+        "state_dbg_db67e376"
       ]
     ]
   },
   {
-    "id": "state_out_11493c7a",
+    "id": "state_out_f35fefa5",
     "type": "mqtt out",
-    "z": "tab_e8b47429",
+    "z": "tab_53cf8ce5",
     "name": "MQTT Out — State",
     "topic": "tisly/device/211/state",
     "qos": "1",
@@ -351,7 +351,7 @@
     "userProps": "",
     "correl": "",
     "expiry": "",
-    "broker": "broker_a80175a4",
+    "broker": "broker_65d535a8",
     "x": 580,
     "y": 660,
     "wires": [
@@ -359,9 +359,9 @@
     ]
   },
   {
-    "id": "state_dbg_a27036e7",
+    "id": "state_dbg_db67e376",
     "type": "debug",
-    "z": "tab_e8b47429",
+    "z": "tab_53cf8ce5",
     "name": "Debug Logger — State",
     "active": true,
     "tosidebar": true,
@@ -378,21 +378,21 @@
     ]
   },
   {
-    "id": "c_f7873320",
+    "id": "c_1773b8f0",
     "type": "comment",
-    "z": "tab_e8b47429",
-    "name": "TiSLY UI Placeholder",
-    "info": "Project: CARSHOP_NIGHT_SECURITY\nDevice: 211\nDashboard template planned for v5.16",
+    "z": "tab_53cf8ce5",
+    "name": "TiSLY UI Dashboard",
+    "info": "Project: CARSHOP_NIGHT_SECURITY\nDevice: 211\nPWA: TISLY/UI/index.html",
     "x": 120,
     "y": 800,
     "wires": []
   },
   {
-    "id": "ui_fn_86da1854",
+    "id": "ui_fn_9160eef6",
     "type": "function",
-    "z": "tab_e8b47429",
-    "name": "TiSLY UI Placeholder",
-    "func": "// TiSLY UI Placeholder — TiSLY PLC Builder v5.15 — Node-RED Flow Generator\n// TODO: Dashboard / TiSLY UI 連携 (v5.16)\nnode.status({ fill: 'grey', shape: 'ring', text: 'UI placeholder' });\nreturn null;",
+    "z": "tab_53cf8ce5",
+    "name": "TiSLY UI Dashboard",
+    "func": "// TiSLY UI — TiSLY PLC Builder v5.15 — Node-RED Flow Generator\n// PWA Dashboard: TISLY/UI/index.html (v5.16 自動生成)\nnode.status({ fill: 'green', shape: 'dot', text: 'UI ready' });\nreturn null;",
     "outputs": 1,
     "timeout": 0,
     "noerr": 0,

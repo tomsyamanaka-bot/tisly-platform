@@ -466,23 +466,23 @@ def generate_status_publish_nodes(
 
 
 def generate_ui_placeholder_nodes(ctx: FlowContext, tab_id: str) -> list[dict]:
-    """TiSLY UI Placeholder: comment + function stub."""
+    """TiSLY UI: comment + function stub → TISLY/UI/ PWA へ誘導。"""
     ui_id = _new_id("ui_fn")
     ui_func = (
-        f"// TiSLY UI Placeholder — {BUILDER_LABEL}\n"
-        "// TODO: Dashboard / TiSLY UI 連携 (v5.16)\n"
-        "node.status({ fill: 'grey', shape: 'ring', text: 'UI placeholder' });\n"
+        f"// TiSLY UI — {BUILDER_LABEL}\n"
+        "// PWA Dashboard: TISLY/UI/index.html (v5.16 自動生成)\n"
+        "node.status({ fill: 'green', shape: 'dot', text: 'UI ready' });\n"
         "return null;"
     )
     return [
         _comment_node(
-            _new_id("c"), tab_id, "TiSLY UI Placeholder",
+            _new_id("c"), tab_id, "TiSLY UI Dashboard",
             f"Project: {ctx.project_name}\nDevice: {ctx.device_id}\n"
-            "Dashboard template planned for v5.16",
+            "PWA: TISLY/UI/index.html",
             120, 800,
         ),
         _function_node(
-            ui_id, tab_id, "TiSLY UI Placeholder",
+            ui_id, tab_id, "TiSLY UI Dashboard",
             ui_func, [[]], 340, 860,
         ),
     ]

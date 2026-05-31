@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-TiSLY PLC Builder v5.15
+TiSLY PLC Builder v5.16
 見積 + 顧客入力 → 仕様書 / GX Works3 命令 / 配線図 / 納品フォルダ 自動生成
 用途別テンプレート (--template) / 日本語文章 (--nl) / 完全自動 (--full-spec) /
 見積メモ形式 (--estimate-mode) / 見積+部材表+施工メモ (--estimate-plus) /
@@ -8,6 +8,7 @@ TOMS見積連携準備 (--quote-ready) / TOMS見積Excel出力 (--quote-excel) /
 TOMS標準見積書生成 (--toms-estimate) / TOMS現調報告書 (--toms-site-report) /
 TiSLY Integration Engine (--toms-site-report 他) /
 Node-RED Flow Generator (--node-red-flow / --full-spec 他) /
+TiSLY UI Dashboard PWA (--ui-dashboard / --full-spec 他) /
 現調シート生成 (--site-survey) / PLC容量選定・連携 (--full-spec 他) 対応
 """
 
@@ -42,9 +43,9 @@ FULL_SPEC_SAMPLE = (
     "パトライト1台。\n"
     "白色LED4台。"
 )
-VERSION = "v5.15"
+VERSION = "v5.16"
 BUILDER_NAME = f"TiSLY PLC Builder {VERSION}"
-NEXT_VERSION_CANDIDATE = "v5.16 TiSLY UI Dashboard Template"
+NEXT_VERSION_CANDIDATE = "v5.17 Google TV Launcher Template"
 
 VALID_TEMPLATES = (
     "HOME_SECURITY",
@@ -162,6 +163,10 @@ from tisly_integration_generator import (  # noqa: E402
 from node_red_flow_generator import (  # noqa: E402
     audit_node_red_flows,
     write_node_red_flow_file,
+)
+from ui_dashboard_generator import (  # noqa: E402
+    audit_ui_dashboard,
+    write_ui_dashboard_files,
 )
 from plc_selection_generator import (  # noqa: E402
     analyze_plc_selection,
@@ -1375,11 +1380,12 @@ def build_full_spec_project(
     plc_rows = audit_plc_selection_files(project_dir)
     tisly_rows = audit_tisly_files(project_dir)
     flow_rows = audit_node_red_flow_files(project_dir)
+    ui_rows = audit_ui_dashboard_files(project_dir)
     site_report_rows = audit_site_report_files(project_dir)
-    all_rows = all_rows + plc_rows + integration_rows + tisly_rows + flow_rows + site_report_rows
+    all_rows = all_rows + plc_rows + integration_rows + tisly_rows + flow_rows + ui_rows + site_report_rows
 
     spec_checks_pass = spec_result.all_pass
-    all_pass = all_pass and spec_checks_pass and all(r.passed for r in plc_rows + integration_rows + tisly_rows + flow_rows + site_report_rows)
+    all_pass = all_pass and spec_checks_pass and all(r.passed for r in plc_rows + integration_rows + tisly_rows + flow_rows + ui_rows + site_report_rows)
 
     auto_report = _write_auto_test_report(project_dir, all_rows, all_pass)
     (project_dir / "TEST" / "AUTO_TEST_REPORT.md").write_text(auto_report, encoding="utf-8")
@@ -1919,8 +1925,9 @@ def build_estimate_plus_project(
     integration_rows = audit_plc_integration(project_dir)
     tisly_rows = audit_tisly_files(project_dir)
     flow_rows = audit_node_red_flow_files(project_dir)
+    ui_rows = audit_ui_dashboard_files(project_dir)
     site_report_rows = audit_site_report_files(project_dir)
-    all_rows = capacity_rows + all_rows + spec_rows + plus_rows + plc_rows + integration_rows + tisly_rows + flow_rows + site_report_rows
+    all_rows = capacity_rows + all_rows + spec_rows + plus_rows + plc_rows + integration_rows + tisly_rows + flow_rows + ui_rows + site_report_rows
     all_pass = logic_pass and all(r.passed for r in all_rows)
 
     write_project_meta(
@@ -2149,8 +2156,9 @@ def build_quote_ready_project(
     integration_rows = audit_plc_integration(project_dir)
     tisly_rows = audit_tisly_files(project_dir)
     flow_rows = audit_node_red_flow_files(project_dir)
+    ui_rows = audit_ui_dashboard_files(project_dir)
     site_report_rows = audit_site_report_files(project_dir)
-    all_rows = capacity_rows + all_rows + spec_rows + plus_rows + quote_rows + plc_rows + integration_rows + tisly_rows + flow_rows + site_report_rows
+    all_rows = capacity_rows + all_rows + spec_rows + plus_rows + quote_rows + plc_rows + integration_rows + tisly_rows + flow_rows + ui_rows + site_report_rows
     all_pass = logic_pass and all(r.passed for r in all_rows)
 
     write_project_meta(
@@ -2332,10 +2340,11 @@ def build_quote_excel_project(
     integration_rows = audit_plc_integration(project_dir)
     tisly_rows = audit_tisly_files(project_dir)
     flow_rows = audit_node_red_flow_files(project_dir)
+    ui_rows = audit_ui_dashboard_files(project_dir)
     site_report_rows = audit_site_report_files(project_dir)
     all_rows = (
         capacity_rows + all_rows + spec_rows + plus_rows
-        + quote_rows + excel_rows + plc_rows + integration_rows + tisly_rows + flow_rows + site_report_rows
+        + quote_rows + excel_rows + plc_rows + integration_rows + tisly_rows + flow_rows + ui_rows + site_report_rows
     )
     all_pass = logic_pass and all(r.passed for r in all_rows)
 
@@ -2528,11 +2537,12 @@ def build_toms_estimate_project(
     integration_rows = audit_plc_integration(project_dir)
     tisly_rows = audit_tisly_files(project_dir)
     flow_rows = audit_node_red_flow_files(project_dir)
+    ui_rows = audit_ui_dashboard_files(project_dir)
     site_report_rows = audit_site_report_files(project_dir)
     all_rows = (
         capacity_rows + all_rows + spec_rows + plus_rows
         + quote_rows + excel_rows + estimate_rows + plc_rows + integration_rows
-        + tisly_rows + flow_rows + site_report_rows
+        + tisly_rows + flow_rows + ui_rows + site_report_rows
     )
     all_pass = logic_pass and all(r.passed for r in all_rows)
 
@@ -2621,6 +2631,9 @@ def _write_tisly_folder(
     if include_node_red_flow:
         flow_path = _write_node_red_flow_file(project_dir)
         files["TISLY_FLOWS.json"] = flow_path
+        ui_paths = _write_ui_dashboard_files(project_dir)
+        for name, path in ui_paths.items():
+            files[f"UI/{name}"] = path
     return files
 
 
@@ -2629,11 +2642,24 @@ def _write_node_red_flow_file(project_dir: Path) -> Path:
     return write_node_red_flow_file(project_dir)
 
 
+def _write_ui_dashboard_files(project_dir: Path) -> dict[str, Path]:
+    """TISLY/UI/ 配下に PWA ダッシュボード一式を生成する。"""
+    return write_ui_dashboard_files(project_dir)
+
+
 def audit_node_red_flow_files(project_dir: Path) -> list[AuditRow]:
     """Node-RED Flow Generator 監査。"""
     return [
         AuditRow(name, passed, detail)
         for name, passed, detail in audit_node_red_flows(project_dir)
+    ]
+
+
+def audit_ui_dashboard_files(project_dir: Path) -> list[AuditRow]:
+    """TiSLY UI Dashboard Template 監査。"""
+    return [
+        AuditRow(name, passed, detail)
+        for name, passed, detail in audit_ui_dashboard(project_dir)
     ]
 
 
@@ -2805,12 +2831,13 @@ def build_toms_site_report_project(
     )
     tisly_rows = audit_tisly_files(project_dir)
     flow_rows = audit_node_red_flow_files(project_dir)
+    ui_rows = audit_ui_dashboard_files(project_dir)
     site_report_rows = audit_site_report_files(project_dir)
     plc_rows = audit_plc_selection_files(project_dir)
     integration_rows = audit_plc_integration(project_dir)
     all_rows = (
         capacity_rows + all_rows + spec_rows + plus_rows
-        + quote_rows + excel_rows + estimate_rows + tisly_rows + flow_rows + site_report_rows
+        + quote_rows + excel_rows + estimate_rows + tisly_rows + flow_rows + ui_rows + site_report_rows
         + plc_rows + integration_rows
     )
     all_pass = logic_pass and all(r.passed for r in all_rows)
@@ -2930,7 +2957,8 @@ def build_node_red_flow_project(
     integration_rows = audit_plc_integration(project_dir)
     tisly_rows = audit_tisly_files(project_dir)
     flow_rows = audit_node_red_flow_files(project_dir)
-    all_rows = capacity_rows + all_rows + spec_rows + plc_rows + integration_rows + tisly_rows + flow_rows
+    ui_rows = audit_ui_dashboard_files(project_dir)
+    all_rows = capacity_rows + all_rows + spec_rows + plc_rows + integration_rows + tisly_rows + flow_rows + ui_rows
     all_pass = logic_pass and all(r.passed for r in all_rows)
 
     write_project_meta(
@@ -2990,6 +3018,47 @@ def run_node_red_flow_pipeline(
         estimate_path, output_dir, project_name=project_name
     )
     _print_node_red_flow_completion(result)
+    return 0 if result.all_pass else 1
+
+
+def _print_ui_dashboard_completion(result: NodeRedFlowBuildResult) -> None:
+    er = result.estimate_result
+    memo = er.memo
+    print(BUILDER_NAME)
+    print()
+    print("TiSLY UI Dashboard Template")
+    print()
+    print("見積メモ")
+    print(f"  案件名: {memo.project_title}")
+    print(f"  目的: {memo.purpose}")
+    print("↓")
+    print("TiSLY Integration + Node-RED")
+    print(f"  → {result.project_dir / 'TISLY' / 'TISLY_FLOWS.json'}")
+    print("↓")
+    print("PWA Dashboard")
+    print(f"  → {result.project_dir / 'TISLY' / 'UI' / 'index.html'}")
+    print(f"  → {result.project_dir / 'TISLY' / 'UI' / 'UI_CONFIG.json'}")
+    print(f"  → {result.project_dir / 'TISLY' / 'UI' / 'manifest.webmanifest'}")
+    print()
+    for row in result.audit_rows:
+        mark = "PASS" if row.passed else "FAIL"
+        print(f"  [{mark}] {row.name}: {row.detail}")
+    _print_version_footer(result.all_pass, "TiSLY UI Dashboard Template")
+
+
+def run_ui_dashboard_pipeline(
+    estimate_path: Path,
+    output_dir: Path,
+    *,
+    project_name: str | None = None,
+) -> int:
+    if not estimate_path.is_file():
+        print(f"ERROR: 見積ファイルが見つかりません: {estimate_path}", file=sys.stderr)
+        return 1
+    result = build_node_red_flow_project(
+        estimate_path, output_dir, project_name=project_name
+    )
+    _print_ui_dashboard_completion(result)
     return 0 if result.all_pass else 1
 
 
@@ -3253,7 +3322,7 @@ def main() -> int:
         "--estimate-file",
         type=Path,
         default=DEFAULT_ESTIMATE_SAMPLE,
-        help="--estimate-mode / --estimate-plus / --quote-ready / --toms-estimate / --toms-site-report / --node-red-flow 用の見積メモファイル（既定: estimate_mode/estimate_sample.txt）",
+        help="--estimate-mode / --estimate-plus / --quote-ready / --toms-estimate / --toms-site-report / --node-red-flow / --ui-dashboard 用の見積メモファイル（既定: estimate_mode/estimate_sample.txt）",
     )
     parser.add_argument(
         "--estimate-plus",
@@ -3283,7 +3352,12 @@ def main() -> int:
     parser.add_argument(
         "--node-red-flow",
         action="store_true",
-        help="見積メモ → TiSLY連携 → TISLY_FLOWS.json（Node-RED インポート用 flows 自動生成）",
+        help="見積メモ → TiSLY連携 → TISLY_FLOWS.json + TISLY/UI/ PWA（Node-RED + UI 自動生成）",
+    )
+    parser.add_argument(
+        "--ui-dashboard",
+        action="store_true",
+        help="見積メモ → TiSLY連携 → TISLY/UI/ PWA ダッシュボード自動生成",
     )
     parser.add_argument(
         "--site-survey",
@@ -3291,6 +3365,13 @@ def main() -> int:
         help="見積メモ → TOMS Excel → 現調シート（SITE_SURVEY.md）",
     )
     args = parser.parse_args()
+
+    if args.ui_dashboard:
+        return run_ui_dashboard_pipeline(
+            args.estimate_file,
+            args.output_dir,
+            project_name=args.project_name,
+        )
 
     if args.node_red_flow:
         return run_node_red_flow_pipeline(

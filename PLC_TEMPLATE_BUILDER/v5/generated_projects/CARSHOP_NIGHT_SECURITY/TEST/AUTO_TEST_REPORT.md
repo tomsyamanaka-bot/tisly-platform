@@ -1,4 +1,4 @@
-# AUTO_TEST_REPORT — TiSLY PLC Builder v5.15
+# AUTO_TEST_REPORT — TiSLY PLC Builder v5.16
 
 > 全生成物存在確認 + 監査 PASS 確認
 
@@ -8,7 +8,7 @@
 
 | 項目 | 値 |
 |------|-----|
-| 実行日時 (UTC) | 2026-05-31T05:55:06Z |
+| 実行日時 (UTC) | 2026-05-31T05:59:52Z |
 | 対象 | CARSHOP_NIGHT_SECURITY |
 | テスト | 全生成物存在確認 / GX 監査 |
 
@@ -71,6 +71,14 @@
 - ✓ state topic: /state
 - ✓ cmd topic: /cmd
 - ✓ ノード wires 属性: OK
+- ✓ TISLY/UI/ 存在: OK
+- ✓ UI 全ファイル (7): 7/7
+- ✓ index.html ダッシュボード: OK
+- ✓ index.html デバイスカード: OK
+- ✓ UI_CONFIG.json 妥当性: OK
+- ✓ manifest.webmanifest PWA: OK
+- ✓ sw.js Service Worker: OK
+- ✓ UI_README.md デプロイ手順: OK
 
 ---
 
@@ -133,9 +141,17 @@
 | state topic | PASS | /state |
 | cmd topic | PASS | /cmd |
 | ノード wires 属性 | PASS | OK |
+| TISLY/UI/ 存在 | PASS | OK |
+| UI 全ファイル (7) | PASS | 7/7 |
+| index.html ダッシュボード | PASS | OK |
+| index.html デバイスカード | PASS | OK |
+| UI_CONFIG.json 妥当性 | PASS | OK |
+| manifest.webmanifest PWA | PASS | OK |
+| sw.js Service Worker | PASS | OK |
+| UI_README.md デプロイ手順 | PASS | OK |
 
 ---
 
 **総合判定: PASS**
 
-**TiSLY PLC Builder v5.15 — AUTO_TEST_REPORT**
+**TiSLY PLC Builder v5.16 — AUTO_TEST_REPORT**

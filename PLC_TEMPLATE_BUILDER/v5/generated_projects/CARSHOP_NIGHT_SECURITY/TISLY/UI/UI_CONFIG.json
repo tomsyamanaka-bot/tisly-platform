@@ -1,0 +1,100 @@
+{
+  "builder_version": "TiSLY PLC Builder v5.16 — TiSLY UI Dashboard Template",
+  "project_name": "CARSHOP_NIGHT_SECURITY",
+  "device_id": "211",
+  "mqtt": {
+    "broker": "mqtt.tisly.local",
+    "port": 1883,
+    "ws_port": 9001,
+    "client_id": "tisly-ui-211"
+  },
+  "topics": {
+    "base": "tisly/device/211",
+    "state": "tisly/device/211/state",
+    "alarm": "tisly/device/211/alarm",
+    "motion": "tisly/device/211/motion",
+    "output": "tisly/device/211/output",
+    "cmd": "tisly/device/211/cmd"
+  },
+  "devices": {
+    "alarms": [
+      {
+        "name": "EStop_01",
+        "plc": "X1",
+        "topic": "tisly/device/211/alarm"
+      },
+      {
+        "name": "Beam_01",
+        "plc": "X2",
+        "topic": "tisly/device/211/alarm"
+      },
+      {
+        "name": "Beam_02",
+        "plc": "X3",
+        "topic": "tisly/device/211/alarm"
+      },
+      {
+        "name": "Beam_03",
+        "plc": "X4",
+        "topic": "tisly/device/211/alarm"
+      },
+      {
+        "name": "Beam_04",
+        "plc": "X5",
+        "topic": "tisly/device/211/alarm"
+      }
+    ],
+    "motions": [
+      {
+        "name": "PIR_01",
+        "plc": "X6",
+        "topic": "tisly/device/211/motion"
+      },
+      {
+        "name": "PIR_02",
+        "plc": "X7",
+        "topic": "tisly/device/211/motion"
+      }
+    ],
+    "contacts": [
+      {
+        "name": "Switch_01",
+        "plc": "X0",
+        "topic": "tisly/device/211/state"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "Siren",
+        "plc": "Y0",
+        "topic": "tisly/device/211/output"
+      },
+      {
+        "name": "WhiteLight_01",
+        "plc": "Y1",
+        "topic": "tisly/device/211/output"
+      },
+      {
+        "name": "WhiteLight_02",
+        "plc": "Y2",
+        "topic": "tisly/device/211/output"
+      },
+      {
+        "name": "WhiteLight_03",
+        "plc": "Y3",
+        "topic": "tisly/device/211/output"
+      },
+      {
+        "name": "WhiteLight_04",
+        "plc": "Y4",
+        "topic": "tisly/device/211/output"
+      }
+    ]
+  },
+  "ui": {
+    "theme": "tisly-dark",
+    "layout": "responsive-grid",
+    "google_tv_mode": true,
+    "pwa": true
+  }
+}
