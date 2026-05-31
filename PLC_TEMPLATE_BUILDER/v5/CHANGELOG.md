@@ -1,5 +1,16 @@
 # TiSLY PLC Builder v5 — CHANGELOG
 
+## v5.15 — Node-RED Flow Generator
+
+- `estimate_mode/node_red_flow_generator.py` 追加 — NODE_RED_CONFIG / DEVICE_MAP / MQTT_TOPICS から **TISLY_FLOWS.json** 自動生成
+- 生成ノード: MQTT Broker / MQTT Input Hub / Alarm Handler / Motion Handler / Output Control / Push Notification Placeholder / Debug Logger / MQTT Status Publish / TiSLY UI Placeholder
+- Node-RED インポート可能な配列 JSON（各ノードに id / type / name / wires）
+- トピック: alarm / motion / output / state / cmd
+- `--node-red-flow` モード追加
+- `--full-spec` / `--estimate-plus` / `--quote-ready` / `--toms-site-report` でも TISLY_FLOWS.json を自動生成
+- 監査: TISLY_FLOWS.json 存在 / JSON 妥当性 / mqtt in・out / function / debug / broker / 全トピック / 総合判定 PASS
+- 次版候補: v5.16 TiSLY UI Dashboard Template
+
 ## v5.14 — TiSLY Integration Engine
 
 - `estimate_mode/tisly_integration_generator.py` 追加 — PLC I/O → TiSLY 連携設定自動生成

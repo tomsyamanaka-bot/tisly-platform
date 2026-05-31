@@ -195,6 +195,55 @@ TiSLY PLC Builder v5.0 — 完成
 | **v5.12** | **TOMS 標準見積書自動生成（TOMS_ESTIMATE.xlsx）** |
 | **v5.13** | **TOMS 現調報告書自動生成（TOMS_SITE_REPORT.md）** |
 | **v5.14** | **TiSLY Integration Engine（TISLY/ MQTT / ESP / Node-RED）** |
+| **v5.15** | **Node-RED Flow Generator（TISLY_FLOWS.json）** |
+
+---
+
+## v5.15 Node-RED Flow Generator
+
+v5.14 で生成した `NODE_RED_CONFIG.json` / `DEVICE_MAP.csv` / `MQTT_TOPICS.md` から、  
+Node-RED へインポート可能な **TISLY_FLOWS.json** を自動生成します。
+
+```powershell
+cd PLC_TEMPLATE_BUILDER/v5
+python project_generator.py --node-red-flow --estimate-file estimate_mode/estimate_sample.txt
+```
+
+生成ノード:
+
+| ノード | 役割 |
+|--------|------|
+| MQTT Broker | ブローカー接続設定 |
+| MQTT Input Hub | alarm / motion / cmd トピック購読 |
+| Alarm Handler | 警報入力 → Push / ログ |
+| Motion Handler | 動体検知（デバウンス） |
+| Output Control | cmd → output MQTT 出力 |
+| Push Notification Placeholder | Firebase / Webhook 連携スタブ |
+| Debug Logger | デバッグ出力 |
+| MQTT Status Publish | state トピックへ定期ステータス |
+| TiSLY UI Placeholder | Dashboard 連携スタブ（v5.16 予定） |
+
+追加生成物:
+
+| ファイル | 内容 |
+|----------|------|
+| TISLY/TISLY_FLOWS.json | Node-RED インポート用 flows 配列 JSON |
+
+以下のモードでも `TISLY_FLOWS.json` が自動生成されます:
+
+- `--full-spec`
+- `--estimate-plus`
+- `--quote-ready`
+- `--toms-site-report`
+
+完成時表示:
+
+```
+TiSLY PLC Builder v5.15
+Node-RED Flow Generator
+自動テスト PASS
+次Version候補: v5.16 TiSLY UI Dashboard Template
+```
 
 ---
 

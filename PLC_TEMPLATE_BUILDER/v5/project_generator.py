@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
-TiSLY PLC Builder v5.14
+TiSLY PLC Builder v5.15
 見積 + 顧客入力 → 仕様書 / GX Works3 命令 / 配線図 / 納品フォルダ 自動生成
 用途別テンプレート (--template) / 日本語文章 (--nl) / 完全自動 (--full-spec) /
 見積メモ形式 (--estimate-mode) / 見積+部材表+施工メモ (--estimate-plus) /
 TOMS見積連携準備 (--quote-ready) / TOMS見積Excel出力 (--quote-excel) /
 TOMS標準見積書生成 (--toms-estimate) / TOMS現調報告書 (--toms-site-report) /
 TiSLY Integration Engine (--toms-site-report 他) /
+Node-RED Flow Generator (--node-red-flow / --full-spec 他) /
 現調シート生成 (--site-survey) / PLC容量選定・連携 (--full-spec 他) 対応
 """
 
@@ -41,9 +42,9 @@ FULL_SPEC_SAMPLE = (
     "パトライト1台。\n"
     "白色LED4台。"
 )
-VERSION = "v5.14"
+VERSION = "v5.15"
 BUILDER_NAME = f"TiSLY PLC Builder {VERSION}"
-NEXT_VERSION_CANDIDATE = "v5.15 TiSLY Auto Node-RED Flow Generator"
+NEXT_VERSION_CANDIDATE = "v5.16 TiSLY UI Dashboard Template"
 
 VALID_TEMPLATES = (
     "HOME_SECURITY",
@@ -157,6 +158,10 @@ from tisly_integration_generator import (  # noqa: E402
     node_red_config_valid,
     tisly_system_has_sections,
     write_tisly_integration_files,
+)
+from node_red_flow_generator import (  # noqa: E402
+    audit_node_red_flows,
+    write_node_red_flow_file,
 )
 from plc_selection_generator import (  # noqa: E402
     analyze_plc_selection,
@@ -1360,6 +1365,7 @@ def build_full_spec_project(
         project_dir,
         assignment=spec_result.assignment,
         project_name=project_name,
+        include_node_red_flow=True,
     )
     _write_site_report_file(
         project_dir,
@@ -1368,11 +1374,12 @@ def build_full_spec_project(
     )
     plc_rows = audit_plc_selection_files(project_dir)
     tisly_rows = audit_tisly_files(project_dir)
+    flow_rows = audit_node_red_flow_files(project_dir)
     site_report_rows = audit_site_report_files(project_dir)
-    all_rows = all_rows + plc_rows + integration_rows + tisly_rows + site_report_rows
+    all_rows = all_rows + plc_rows + integration_rows + tisly_rows + flow_rows + site_report_rows
 
     spec_checks_pass = spec_result.all_pass
-    all_pass = all_pass and spec_checks_pass and all(r.passed for r in plc_rows + integration_rows + tisly_rows + site_report_rows)
+    all_pass = all_pass and spec_checks_pass and all(r.passed for r in plc_rows + integration_rows + tisly_rows + flow_rows + site_report_rows)
 
     auto_report = _write_auto_test_report(project_dir, all_rows, all_pass)
     (project_dir / "TEST" / "AUTO_TEST_REPORT.md").write_text(auto_report, encoding="utf-8")
@@ -1900,7 +1907,7 @@ def build_estimate_plus_project(
         estimate_result.assignment,
         estimate_result.project_name,
     )
-    _write_tisly_folder(project_dir, estimate_result=estimate_result)
+    _write_tisly_folder(project_dir, estimate_result=estimate_result, include_node_red_flow=True)
     _write_site_report_file(project_dir, estimate_result=estimate_result)
 
     capacity_rows = audit_capacity_checks(
@@ -1911,8 +1918,9 @@ def build_estimate_plus_project(
     plc_rows = audit_plc_selection_files(project_dir)
     integration_rows = audit_plc_integration(project_dir)
     tisly_rows = audit_tisly_files(project_dir)
+    flow_rows = audit_node_red_flow_files(project_dir)
     site_report_rows = audit_site_report_files(project_dir)
-    all_rows = capacity_rows + all_rows + spec_rows + plus_rows + plc_rows + integration_rows + tisly_rows + site_report_rows
+    all_rows = capacity_rows + all_rows + spec_rows + plus_rows + plc_rows + integration_rows + tisly_rows + flow_rows + site_report_rows
     all_pass = logic_pass and all(r.passed for r in all_rows)
 
     write_project_meta(
@@ -2128,7 +2136,7 @@ def build_quote_ready_project(
         estimate_result.assignment,
         estimate_result.project_name,
     )
-    _write_tisly_folder(project_dir, estimate_result=estimate_result)
+    _write_tisly_folder(project_dir, estimate_result=estimate_result, include_node_red_flow=True)
     _write_site_report_file(project_dir, estimate_result=estimate_result)
 
     capacity_rows = audit_capacity_checks(
@@ -2140,8 +2148,9 @@ def build_quote_ready_project(
     plc_rows = audit_plc_selection_files(project_dir)
     integration_rows = audit_plc_integration(project_dir)
     tisly_rows = audit_tisly_files(project_dir)
+    flow_rows = audit_node_red_flow_files(project_dir)
     site_report_rows = audit_site_report_files(project_dir)
-    all_rows = capacity_rows + all_rows + spec_rows + plus_rows + quote_rows + plc_rows + integration_rows + tisly_rows + site_report_rows
+    all_rows = capacity_rows + all_rows + spec_rows + plus_rows + quote_rows + plc_rows + integration_rows + tisly_rows + flow_rows + site_report_rows
     all_pass = logic_pass and all(r.passed for r in all_rows)
 
     write_project_meta(
@@ -2309,7 +2318,7 @@ def build_quote_excel_project(
         estimate_result.assignment,
         estimate_result.project_name,
     )
-    _write_tisly_folder(project_dir, estimate_result=estimate_result)
+    _write_tisly_folder(project_dir, estimate_result=estimate_result, include_node_red_flow=True)
     _write_site_report_file(project_dir, estimate_result=estimate_result)
 
     capacity_rows = audit_capacity_checks(
@@ -2322,10 +2331,11 @@ def build_quote_excel_project(
     plc_rows = audit_plc_selection_files(project_dir)
     integration_rows = audit_plc_integration(project_dir)
     tisly_rows = audit_tisly_files(project_dir)
+    flow_rows = audit_node_red_flow_files(project_dir)
     site_report_rows = audit_site_report_files(project_dir)
     all_rows = (
         capacity_rows + all_rows + spec_rows + plus_rows
-        + quote_rows + excel_rows + plc_rows + integration_rows + tisly_rows + site_report_rows
+        + quote_rows + excel_rows + plc_rows + integration_rows + tisly_rows + flow_rows + site_report_rows
     )
     all_pass = logic_pass and all(r.passed for r in all_rows)
 
@@ -2501,7 +2511,7 @@ def build_toms_estimate_project(
         estimate_result.assignment,
         estimate_result.project_name,
     )
-    _write_tisly_folder(project_dir, estimate_result=estimate_result)
+    _write_tisly_folder(project_dir, estimate_result=estimate_result, include_node_red_flow=True)
     _write_site_report_file(project_dir, estimate_result=estimate_result)
 
     capacity_rows = audit_capacity_checks(
@@ -2517,11 +2527,12 @@ def build_toms_estimate_project(
     plc_rows = audit_plc_selection_files(project_dir)
     integration_rows = audit_plc_integration(project_dir)
     tisly_rows = audit_tisly_files(project_dir)
+    flow_rows = audit_node_red_flow_files(project_dir)
     site_report_rows = audit_site_report_files(project_dir)
     all_rows = (
         capacity_rows + all_rows + spec_rows + plus_rows
         + quote_rows + excel_rows + estimate_rows + plc_rows + integration_rows
-        + tisly_rows + site_report_rows
+        + tisly_rows + flow_rows + site_report_rows
     )
     all_pass = logic_pass and all(r.passed for r in all_rows)
 
@@ -2592,19 +2603,38 @@ def _write_tisly_folder(
     estimate_result: EstimateBuildResult | None = None,
     assignment: object | None = None,
     project_name: str = "",
+    include_node_red_flow: bool = False,
 ) -> dict[str, Path]:
     """TISLY/ 配下（DEVICE_MAP / MQTT / ESP / Node-RED / SYSTEM）を書き出す。"""
     if estimate_result is not None:
-        return write_tisly_integration_files(
+        files = write_tisly_integration_files(
             project_dir,
             estimate_result=estimate_result,
             project_name=project_name or estimate_result.project_name,
         )
-    return write_tisly_integration_files(
-        project_dir,
-        assignment=assignment,
-        project_name=project_name,
-    )
+    else:
+        files = write_tisly_integration_files(
+            project_dir,
+            assignment=assignment,
+            project_name=project_name,
+        )
+    if include_node_red_flow:
+        flow_path = _write_node_red_flow_file(project_dir)
+        files["TISLY_FLOWS.json"] = flow_path
+    return files
+
+
+def _write_node_red_flow_file(project_dir: Path) -> Path:
+    """TISLY/NODE_RED_CONFIG.json 等から TISLY_FLOWS.json を生成する。"""
+    return write_node_red_flow_file(project_dir)
+
+
+def audit_node_red_flow_files(project_dir: Path) -> list[AuditRow]:
+    """Node-RED Flow Generator 監査。"""
+    return [
+        AuditRow(name, passed, detail)
+        for name, passed, detail in audit_node_red_flows(project_dir)
+    ]
 
 
 def audit_tisly_files(project_dir: Path) -> list[AuditRow]:
@@ -2760,7 +2790,7 @@ def build_toms_site_report_project(
         estimate_result.assignment,
         estimate_result.project_name,
     )
-    _write_tisly_folder(project_dir, estimate_result=estimate_result)
+    _write_tisly_folder(project_dir, estimate_result=estimate_result, include_node_red_flow=True)
     _write_site_report_file(project_dir, estimate_result=estimate_result)
 
     capacity_rows = audit_capacity_checks(
@@ -2774,12 +2804,13 @@ def build_toms_site_report_project(
         project_dir, estimate_result, len(toms_items)
     )
     tisly_rows = audit_tisly_files(project_dir)
+    flow_rows = audit_node_red_flow_files(project_dir)
     site_report_rows = audit_site_report_files(project_dir)
     plc_rows = audit_plc_selection_files(project_dir)
     integration_rows = audit_plc_integration(project_dir)
     all_rows = (
         capacity_rows + all_rows + spec_rows + plus_rows
-        + quote_rows + excel_rows + estimate_rows + tisly_rows + site_report_rows
+        + quote_rows + excel_rows + estimate_rows + tisly_rows + flow_rows + site_report_rows
         + plc_rows + integration_rows
     )
     all_pass = logic_pass and all(r.passed for r in all_rows)
@@ -2850,6 +2881,115 @@ def run_toms_site_report_pipeline(
         estimate_path, output_dir, project_name=project_name
     )
     _print_toms_site_report_completion(result)
+    return 0 if result.all_pass else 1
+
+
+@dataclass
+class NodeRedFlowBuildResult:
+    estimate_result: EstimateBuildResult
+    project_dir: Path
+    audit_rows: list[AuditRow] = field(default_factory=list)
+    all_pass: bool = False
+
+
+def build_node_red_flow_project(
+    estimate_path: Path,
+    output_dir: Path,
+    *,
+    project_name: str | None = None,
+) -> NodeRedFlowBuildResult:
+    """見積メモ → PLC案件 → TiSLY連携 → TISLY_FLOWS.json。"""
+    memo = parse_estimate_file(estimate_path)
+    estimate_result = build_from_estimate_memo(memo)
+
+    if project_name:
+        estimate_result.project_name = project_name
+
+    project_dir = output_dir / estimate_result.project_name
+
+    all_rows, logic_pass, _ = _write_delivery_project(
+        estimate_result.assignment,
+        estimate_result.project_name,
+        project_dir,
+        "(見積メモ)",
+        str(estimate_path),
+    )
+
+    _finalize_plc_outputs(
+        project_dir,
+        estimate_result.assignment,
+        estimate_result.project_name,
+    )
+    _write_tisly_folder(project_dir, estimate_result=estimate_result, include_node_red_flow=True)
+
+    capacity_rows = audit_capacity_checks(
+        estimate_result.assignment, estimate_result.estimation
+    )
+    spec_rows = spec_checks_to_audit_rows(estimate_result.spec_checks)
+    plc_rows = audit_plc_selection_files(project_dir)
+    integration_rows = audit_plc_integration(project_dir)
+    tisly_rows = audit_tisly_files(project_dir)
+    flow_rows = audit_node_red_flow_files(project_dir)
+    all_rows = capacity_rows + all_rows + spec_rows + plc_rows + integration_rows + tisly_rows + flow_rows
+    all_pass = logic_pass and all(r.passed for r in all_rows)
+
+    write_project_meta(
+        project_dir / "PROJECT_META.json",
+        estimate_result.project_name,
+        "(見積メモ)",
+        str(estimate_path),
+        "PASS" if all_pass else "FAIL",
+    )
+
+    auto_report = _write_auto_test_report(project_dir, all_rows, all_pass)
+    (project_dir / "TEST" / "AUTO_TEST_REPORT.md").write_text(auto_report, encoding="utf-8")
+
+    return NodeRedFlowBuildResult(
+        estimate_result=estimate_result,
+        project_dir=project_dir,
+        audit_rows=all_rows,
+        all_pass=all_pass,
+    )
+
+
+def _print_node_red_flow_completion(result: NodeRedFlowBuildResult) -> None:
+    er = result.estimate_result
+    memo = er.memo
+    print(BUILDER_NAME)
+    print()
+    print("Node-RED Flow Generator")
+    print()
+    print("見積メモ")
+    print(f"  案件名: {memo.project_title}")
+    print(f"  目的: {memo.purpose}")
+    print("↓")
+    print("TiSLY Integration")
+    print(f"  → {result.project_dir / 'TISLY' / 'NODE_RED_CONFIG.json'}")
+    print(f"  → {result.project_dir / 'TISLY' / 'DEVICE_MAP.csv'}")
+    print(f"  → {result.project_dir / 'TISLY' / 'MQTT_TOPICS.md'}")
+    print("↓")
+    print("Node-RED flows")
+    print(f"  → {result.project_dir / 'TISLY' / 'TISLY_FLOWS.json'}")
+    print()
+    for row in result.audit_rows:
+        mark = "PASS" if row.passed else "FAIL"
+        print(f"  [{mark}] {row.name}: {row.detail}")
+    _print_version_footer(result.all_pass, "Node-RED Flow Generator")
+
+
+def run_node_red_flow_pipeline(
+    estimate_path: Path,
+    output_dir: Path,
+    *,
+    project_name: str | None = None,
+) -> int:
+    if not estimate_path.is_file():
+        print(f"ERROR: 見積ファイルが見つかりません: {estimate_path}", file=sys.stderr)
+        return 1
+    result = build_node_red_flow_project(
+        estimate_path, output_dir, project_name=project_name
+    )
+    _print_node_red_flow_completion(result)
     return 0 if result.all_pass else 1
 
 
@@ -3113,7 +3253,7 @@ def main() -> int:
         "--estimate-file",
         type=Path,
         default=DEFAULT_ESTIMATE_SAMPLE,
-        help="--estimate-mode / --estimate-plus / --quote-ready / --toms-estimate / --toms-site-report 用の見積メモファイル（既定: estimate_mode/estimate_sample.txt）",
+        help="--estimate-mode / --estimate-plus / --quote-ready / --toms-estimate / --toms-site-report / --node-red-flow 用の見積メモファイル（既定: estimate_mode/estimate_sample.txt）",
     )
     parser.add_argument(
         "--estimate-plus",
@@ -3141,11 +3281,23 @@ def main() -> int:
         help="見積メモ → BOM → TOMS → TISLY連携 → TOMS_SITE_REPORT.md（フルパイプライン）",
     )
     parser.add_argument(
+        "--node-red-flow",
+        action="store_true",
+        help="見積メモ → TiSLY連携 → TISLY_FLOWS.json（Node-RED インポート用 flows 自動生成）",
+    )
+    parser.add_argument(
         "--site-survey",
         action="store_true",
         help="見積メモ → TOMS Excel → 現調シート（SITE_SURVEY.md）",
     )
     args = parser.parse_args()
+
+    if args.node_red_flow:
+        return run_node_red_flow_pipeline(
+            args.estimate_file,
+            args.output_dir,
+            project_name=args.project_name,
+        )
 
     if args.toms_site_report:
         return run_toms_site_report_pipeline(

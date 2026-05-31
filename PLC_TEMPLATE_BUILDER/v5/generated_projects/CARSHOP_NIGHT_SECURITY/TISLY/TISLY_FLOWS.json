@@ -1,0 +1,408 @@
+[
+  {
+    "id": "tab_e8b47429",
+    "type": "tab",
+    "label": "TiSLY — CARSHOP_NIGHT_SECURITY",
+    "disabled": false,
+    "info": "TiSLY PLC Builder v5.15 — Node-RED Flow Generator\nDevice ID: 211",
+    "env": []
+  },
+  {
+    "id": "broker_a80175a4",
+    "type": "mqtt-broker",
+    "name": "MQTT Broker",
+    "broker": "mqtt.tisly.local",
+    "port": "1883",
+    "clientid": "tisly-nodered-211",
+    "autoConnect": true,
+    "usetls": false,
+    "protocolVersion": "4",
+    "keepalive": "60",
+    "cleansession": true,
+    "birthTopic": "",
+    "birthQos": "0",
+    "birthPayload": "",
+    "birthMsg": {},
+    "closeTopic": "",
+    "closeQos": "0",
+    "closePayload": "",
+    "closeMsg": {},
+    "willTopic": "",
+    "willQos": "0",
+    "willPayload": "",
+    "willMsg": {}
+  },
+  {
+    "id": "c_a3cb30a2",
+    "type": "comment",
+    "z": "tab_e8b47429",
+    "name": "Alarm Handler",
+    "info": "Topic: tisly/device/211/alarm\nInputs: EStop_01, Beam_01, Beam_02, Beam_03, Beam_04",
+    "x": 120,
+    "y": 80,
+    "wires": []
+  },
+  {
+    "id": "alarm_in_1771d54f",
+    "type": "mqtt in",
+    "z": "tab_e8b47429",
+    "name": "MQTT Input Hub — Alarm",
+    "topic": "tisly/device/211/alarm",
+    "qos": "1",
+    "datatype": "auto-detect",
+    "broker": "broker_a80175a4",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "x": 120,
+    "y": 140,
+    "wires": [
+      [
+        "alarm_fn_4c896419"
+      ]
+    ]
+  },
+  {
+    "id": "alarm_fn_4c896419",
+    "type": "function",
+    "z": "tab_e8b47429",
+    "name": "Alarm Handler",
+    "func": "// TiSLY PLC Builder v5.15 — Node-RED Flow Generator\n// Alarm Handler — inputs: EStop_01, Beam_01, Beam_02, Beam_03, Beam_04\nconst payload = typeof msg.payload === 'object'\n    ? msg.payload\n    : { value: msg.payload, source: msg.topic };\nmsg.alarm = {\n    device_id: '211',\n    topic: msg.topic,\n    timestamp: new Date().toISOString(),\n    payload\n};\nmsg.payload = msg.alarm;\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 340,
+    "y": 140,
+    "wires": [
+      [
+        "alarm_dbg_b0c2e21a",
+        "alarm_push_b84c2abf"
+      ]
+    ]
+  },
+  {
+    "id": "alarm_dbg_b0c2e21a",
+    "type": "debug",
+    "z": "tab_e8b47429",
+    "name": "Debug Logger — Alarm",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 560,
+    "y": 120,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "alarm_push_b84c2abf",
+    "type": "function",
+    "z": "tab_e8b47429",
+    "name": "Push Notification Placeholder",
+    "func": "// Push Notification Placeholder — TiSLY PLC Builder v5.15 — Node-RED Flow Generator\n// TODO: Firebase / Webhook 連携\nnode.warn('TiSLY Push (alarm): ' + JSON.stringify(msg.payload));\nreturn null;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 560,
+    "y": 180,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "c_f246632a",
+    "type": "comment",
+    "z": "tab_e8b47429",
+    "name": "Motion Handler",
+    "info": "Topic: tisly/device/211/motion\nInputs: PIR_01, PIR_02",
+    "x": 120,
+    "y": 260,
+    "wires": []
+  },
+  {
+    "id": "motion_in_d125e0b8",
+    "type": "mqtt in",
+    "z": "tab_e8b47429",
+    "name": "MQTT Input Hub — Motion",
+    "topic": "tisly/device/211/motion",
+    "qos": "1",
+    "datatype": "auto-detect",
+    "broker": "broker_a80175a4",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "x": 120,
+    "y": 320,
+    "wires": [
+      [
+        "motion_fn_872c0ef8"
+      ]
+    ]
+  },
+  {
+    "id": "motion_fn_872c0ef8",
+    "type": "function",
+    "z": "tab_e8b47429",
+    "name": "Motion Handler",
+    "func": "// TiSLY PLC Builder v5.15 — Node-RED Flow Generator\n// Motion Handler — inputs: PIR_01, PIR_02\nconst now = Date.now();\nconst last = context.get('lastMotion') || 0;\nif (now - last < 3000) { return null; }\ncontext.set('lastMotion', now);\nmsg.motion = {\n    device_id: '211',\n    topic: msg.topic,\n    timestamp: new Date().toISOString(),\n    payload: msg.payload\n};\nmsg.payload = msg.motion;\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 340,
+    "y": 320,
+    "wires": [
+      [
+        "motion_dbg_417b820d"
+      ]
+    ]
+  },
+  {
+    "id": "motion_dbg_417b820d",
+    "type": "debug",
+    "z": "tab_e8b47429",
+    "name": "Debug Logger — Motion",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 560,
+    "y": 320,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "c_b4bc405d",
+    "type": "comment",
+    "z": "tab_e8b47429",
+    "name": "Output Control",
+    "info": "Cmd: tisly/device/211/cmd\nOutput: tisly/device/211/output\nDevices: Siren, WhiteLight_01, WhiteLight_02, WhiteLight_03, WhiteLight_04",
+    "x": 120,
+    "y": 440,
+    "wires": []
+  },
+  {
+    "id": "cmd_in_73c9fdb8",
+    "type": "mqtt in",
+    "z": "tab_e8b47429",
+    "name": "MQTT Input Hub — Cmd",
+    "topic": "tisly/device/211/cmd",
+    "qos": "1",
+    "datatype": "auto-detect",
+    "broker": "broker_a80175a4",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "x": 120,
+    "y": 500,
+    "wires": [
+      [
+        "output_fn_df58276e"
+      ]
+    ]
+  },
+  {
+    "id": "output_fn_df58276e",
+    "type": "function",
+    "z": "tab_e8b47429",
+    "name": "Output Control",
+    "func": "// TiSLY PLC Builder v5.15 — Node-RED Flow Generator\n// Output Control — devices: Siren, WhiteLight_01, WhiteLight_02, WhiteLight_03, WhiteLight_04\nconst cmd = typeof msg.payload === 'object' ? msg.payload : { action: msg.payload };\nmsg.payload = {\n    device_id: '211',\n    cmd,\n    outputs: [\"Siren\", \"WhiteLight_01\", \"WhiteLight_02\", \"WhiteLight_03\", \"WhiteLight_04\"],\n    timestamp: new Date().toISOString()\n};\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 340,
+    "y": 500,
+    "wires": [
+      [
+        "output_out_cf72275f",
+        "output_dbg_25747a6b"
+      ]
+    ]
+  },
+  {
+    "id": "output_out_cf72275f",
+    "type": "mqtt out",
+    "z": "tab_e8b47429",
+    "name": "MQTT Out — Output",
+    "topic": "tisly/device/211/output",
+    "qos": "1",
+    "retain": "false",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "broker_a80175a4",
+    "x": 560,
+    "y": 480,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "output_dbg_25747a6b",
+    "type": "debug",
+    "z": "tab_e8b47429",
+    "name": "Debug Logger — Output",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 560,
+    "y": 540,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "c_80e8135f",
+    "type": "comment",
+    "z": "tab_e8b47429",
+    "name": "MQTT Status Publish",
+    "info": "Topic: tisly/device/211/state\nContacts: Switch_01",
+    "x": 120,
+    "y": 620,
+    "wires": []
+  },
+  {
+    "id": "state_inj_8beba715",
+    "type": "inject",
+    "z": "tab_e8b47429",
+    "name": "Status Tick (60s)",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "60",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "2",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 130,
+    "y": 680,
+    "wires": [
+      [
+        "state_fn_d6c0eb2b"
+      ]
+    ]
+  },
+  {
+    "id": "state_fn_d6c0eb2b",
+    "type": "function",
+    "z": "tab_e8b47429",
+    "name": "MQTT Status Publish",
+    "func": "// TiSLY PLC Builder v5.15 — Node-RED Flow Generator\n// MQTT Status Publish\nmsg.payload = {\n    device_id: '211',\n    project: 'CARSHOP_NIGHT_SECURITY',\n    status: 'online',\n    contacts: [\"Switch_01\"],\n    timestamp: new Date().toISOString()\n};\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 360,
+    "y": 680,
+    "wires": [
+      [
+        "state_out_11493c7a",
+        "state_dbg_a27036e7"
+      ]
+    ]
+  },
+  {
+    "id": "state_out_11493c7a",
+    "type": "mqtt out",
+    "z": "tab_e8b47429",
+    "name": "MQTT Out — State",
+    "topic": "tisly/device/211/state",
+    "qos": "1",
+    "retain": "false",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "broker_a80175a4",
+    "x": 580,
+    "y": 660,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "state_dbg_a27036e7",
+    "type": "debug",
+    "z": "tab_e8b47429",
+    "name": "Debug Logger — State",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 580,
+    "y": 720,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "c_f7873320",
+    "type": "comment",
+    "z": "tab_e8b47429",
+    "name": "TiSLY UI Placeholder",
+    "info": "Project: CARSHOP_NIGHT_SECURITY\nDevice: 211\nDashboard template planned for v5.16",
+    "x": 120,
+    "y": 800,
+    "wires": []
+  },
+  {
+    "id": "ui_fn_86da1854",
+    "type": "function",
+    "z": "tab_e8b47429",
+    "name": "TiSLY UI Placeholder",
+    "func": "// TiSLY UI Placeholder — TiSLY PLC Builder v5.15 — Node-RED Flow Generator\n// TODO: Dashboard / TiSLY UI 連携 (v5.16)\nnode.status({ fill: 'grey', shape: 'ring', text: 'UI placeholder' });\nreturn null;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 340,
+    "y": 860,
+    "wires": [
+      []
+    ]
+  }
+]

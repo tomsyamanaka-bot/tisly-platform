@@ -60,7 +60,7 @@
 
 - 警報（ALARM）検知時に TiSLY アプリへ Push 通知
 - 動体検知（MOTION）は設定により通知 ON/OFF 切替可能
-- Node-RED フロー経由で Firebase / APNs 連携（v5.15 で自動フロー生成予定）
+- Node-RED フロー経由で Firebase / APNs 連携（`TISLY/TISLY_FLOWS.json` — v5.15 で自動生成）
 
 ---
 
@@ -88,7 +88,7 @@
 
 - **TiSLY UI ダッシュボード**: リアルタイム状態表示・履歴
 - **クラウド録画連携**: 警報トリガーでカメラクリップ保存
-- **v5.15 Node-RED フロー自動生成**: `flows.json` を案件ごとに出力
+- **v5.15 Node-RED フロー自動生成**: `TISLY/TISLY_FLOWS.json` を案件ごとに出力
 - **リモートメンテナンス**: OTA ファームウェア更新
 
 ---
