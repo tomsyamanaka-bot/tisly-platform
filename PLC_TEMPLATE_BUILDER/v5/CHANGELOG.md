@@ -1,5 +1,13 @@
 # TiSLY PLC Builder v5 — CHANGELOG
 
+## v5.13 — TOMS 現調報告書自動生成
+
+- `estimate_mode/site_report_generator.py` 追加 — 案件情報 / I/O / PLC_SELECTION / 見積生成物 → **TOMS_SITE_REPORT.md**
+- 8 セクション構成（案件基本情報 / 現調概要 / I/O割り当て / PLC容量確認 / 配線メモ / 施工前確認 / 見積連携 / TiSLY連携予定）
+- `--toms-site-report` モード追加
+- `--full-spec` / `--estimate-plus` / `--quote-ready` / `--quote-excel` / `--toms-estimate` でも TOMS_SITE_REPORT.md を自動生成
+- 監査: TOMS_SITE_REPORT.md 存在 / 全セクション / 総合判定 PASS
+
 ## v5.12 — TOMS 標準見積書自動生成
 
 - `estimate_mode/estimate_sheet_generator.py` 追加 — TOMS_QUOTE_ITEMS.csv → **TOMS_ESTIMATE.xlsx**

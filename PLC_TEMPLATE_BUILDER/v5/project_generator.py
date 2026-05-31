@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-TiSLY PLC Builder v5.12
+TiSLY PLC Builder v5.13
 見積 + 顧客入力 → 仕様書 / GX Works3 命令 / 配線図 / 納品フォルダ 自動生成
 用途別テンプレート (--template) / 日本語文章 (--nl) / 完全自動 (--full-spec) /
 見積メモ形式 (--estimate-mode) / 見積+部材表+施工メモ (--estimate-plus) /
 TOMS見積連携準備 (--quote-ready) / TOMS見積Excel出力 (--quote-excel) /
-TOMS標準見積書生成 (--toms-estimate) / 現調シート生成 (--site-survey) /
-PLC容量選定・連携 (--full-spec 他) 対応
+TOMS標準見積書生成 (--toms-estimate) / TOMS現調報告書 (--toms-site-report) /
+現調シート生成 (--site-survey) / PLC容量選定・連携 (--full-spec 他) 対応
 """
 
 from __future__ import annotations
@@ -40,9 +40,9 @@ FULL_SPEC_SAMPLE = (
     "パトライト1台。\n"
     "白色LED4台。"
 )
-VERSION = "v5.12"
+VERSION = "v5.13"
 BUILDER_NAME = f"TiSLY PLC Builder {VERSION}"
-NEXT_VERSION_CANDIDATE = "v5.13 TOMS現調報告書自動生成"
+NEXT_VERSION_CANDIDATE = "v5.14 TiSLY MQTT / ESP連携"
 
 VALID_TEMPLATES = (
     "HOME_SECURITY",
@@ -137,6 +137,17 @@ from site_survey_generator import (  # noqa: E402
     site_survey_has_device_table,
     site_survey_has_io_table,
     site_survey_has_plc_capacity_section,
+)
+from site_report_generator import (  # noqa: E402
+    generate_site_report_md,
+    site_report_has_basic_info,
+    site_report_has_estimate_link,
+    site_report_has_io_section,
+    site_report_has_overview,
+    site_report_has_plc_capacity,
+    site_report_has_pre_construction,
+    site_report_has_tisly_integration,
+    site_report_has_wiring_notes,
 )
 from plc_selection_generator import (  # noqa: E402
     analyze_plc_selection,
@@ -1336,11 +1347,17 @@ def build_full_spec_project(
         project_name,
         template_name=template_name,
     )
+    _write_site_report_file(
+        project_dir,
+        spec_result=spec_result,
+        project_name=project_name,
+    )
     plc_rows = audit_plc_selection_files(project_dir)
-    all_rows = all_rows + plc_rows + integration_rows
+    site_report_rows = audit_site_report_files(project_dir)
+    all_rows = all_rows + plc_rows + integration_rows + site_report_rows
 
     spec_checks_pass = spec_result.all_pass
-    all_pass = all_pass and spec_checks_pass and all(r.passed for r in plc_rows + integration_rows)
+    all_pass = all_pass and spec_checks_pass and all(r.passed for r in plc_rows + integration_rows + site_report_rows)
 
     auto_report = _write_auto_test_report(project_dir, all_rows, all_pass)
     (project_dir / "TEST" / "AUTO_TEST_REPORT.md").write_text(auto_report, encoding="utf-8")
@@ -1868,6 +1885,7 @@ def build_estimate_plus_project(
         estimate_result.assignment,
         estimate_result.project_name,
     )
+    _write_site_report_file(project_dir, estimate_result=estimate_result)
 
     capacity_rows = audit_capacity_checks(
         estimate_result.assignment, estimate_result.estimation
@@ -1876,7 +1894,8 @@ def build_estimate_plus_project(
     plus_rows = audit_estimate_plus_files(project_dir, estimate_result)
     plc_rows = audit_plc_selection_files(project_dir)
     integration_rows = audit_plc_integration(project_dir)
-    all_rows = capacity_rows + all_rows + spec_rows + plus_rows + plc_rows + integration_rows
+    site_report_rows = audit_site_report_files(project_dir)
+    all_rows = capacity_rows + all_rows + spec_rows + plus_rows + plc_rows + integration_rows + site_report_rows
     all_pass = logic_pass and all(r.passed for r in all_rows)
 
     write_project_meta(
@@ -2092,6 +2111,7 @@ def build_quote_ready_project(
         estimate_result.assignment,
         estimate_result.project_name,
     )
+    _write_site_report_file(project_dir, estimate_result=estimate_result)
 
     capacity_rows = audit_capacity_checks(
         estimate_result.assignment, estimate_result.estimation
@@ -2101,7 +2121,8 @@ def build_quote_ready_project(
     quote_rows = audit_quote_ready_files(project_dir)
     plc_rows = audit_plc_selection_files(project_dir)
     integration_rows = audit_plc_integration(project_dir)
-    all_rows = capacity_rows + all_rows + spec_rows + plus_rows + quote_rows + plc_rows + integration_rows
+    site_report_rows = audit_site_report_files(project_dir)
+    all_rows = capacity_rows + all_rows + spec_rows + plus_rows + quote_rows + plc_rows + integration_rows + site_report_rows
     all_pass = logic_pass and all(r.passed for r in all_rows)
 
     write_project_meta(
@@ -2269,6 +2290,7 @@ def build_quote_excel_project(
         estimate_result.assignment,
         estimate_result.project_name,
     )
+    _write_site_report_file(project_dir, estimate_result=estimate_result)
 
     capacity_rows = audit_capacity_checks(
         estimate_result.assignment, estimate_result.estimation
@@ -2279,9 +2301,10 @@ def build_quote_excel_project(
     excel_rows = audit_quote_excel_files(project_dir, len(toms_items))
     plc_rows = audit_plc_selection_files(project_dir)
     integration_rows = audit_plc_integration(project_dir)
+    site_report_rows = audit_site_report_files(project_dir)
     all_rows = (
         capacity_rows + all_rows + spec_rows + plus_rows
-        + quote_rows + excel_rows + plc_rows + integration_rows
+        + quote_rows + excel_rows + plc_rows + integration_rows + site_report_rows
     )
     all_pass = logic_pass and all(r.passed for r in all_rows)
 
@@ -2457,6 +2480,7 @@ def build_toms_estimate_project(
         estimate_result.assignment,
         estimate_result.project_name,
     )
+    _write_site_report_file(project_dir, estimate_result=estimate_result)
 
     capacity_rows = audit_capacity_checks(
         estimate_result.assignment, estimate_result.estimation
@@ -2470,9 +2494,11 @@ def build_toms_estimate_project(
     )
     plc_rows = audit_plc_selection_files(project_dir)
     integration_rows = audit_plc_integration(project_dir)
+    site_report_rows = audit_site_report_files(project_dir)
     all_rows = (
         capacity_rows + all_rows + spec_rows + plus_rows
         + quote_rows + excel_rows + estimate_rows + plc_rows + integration_rows
+        + site_report_rows
     )
     all_pass = logic_pass and all(r.passed for r in all_rows)
 
@@ -2534,6 +2560,204 @@ def run_toms_estimate_pipeline(
         estimate_path, output_dir, project_name=project_name
     )
     _print_toms_estimate_completion(result)
+    return 0 if result.all_pass else 1
+
+
+def _write_site_report_file(
+    project_dir: Path,
+    *,
+    estimate_result: EstimateBuildResult | None = None,
+    spec_result: SpecBuildResult | None = None,
+    project_name: str = "",
+) -> Path:
+    """TOMS_SITE_REPORT.md を案件フォルダ直下に書き出す。"""
+    path = project_dir / "TOMS_SITE_REPORT.md"
+    path.write_text(
+        generate_site_report_md(
+            project_dir,
+            estimate_result=estimate_result,
+            spec_result=spec_result,
+            project_name=project_name,
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
+def audit_site_report_files(project_dir: Path) -> list[AuditRow]:
+    """TOMS 現調報告書監査。"""
+    report_path = project_dir / "TOMS_SITE_REPORT.md"
+    text = report_path.read_text(encoding="utf-8") if report_path.is_file() else ""
+
+    return [
+        AuditRow(
+            "TOMS_SITE_REPORT.md 存在",
+            report_path.is_file(),
+            "OK" if report_path.is_file() else "ファイルなし",
+        ),
+        AuditRow(
+            "案件基本情報",
+            site_report_has_basic_info(text),
+            "OK" if site_report_has_basic_info(text) else "なし",
+        ),
+        AuditRow(
+            "現調概要",
+            site_report_has_overview(text),
+            "OK" if site_report_has_overview(text) else "なし",
+        ),
+        AuditRow(
+            "I/O割り当て",
+            site_report_has_io_section(text),
+            "OK" if site_report_has_io_section(text) else "なし",
+        ),
+        AuditRow(
+            "PLC容量確認",
+            site_report_has_plc_capacity(text),
+            "OK" if site_report_has_plc_capacity(text) else "なし",
+        ),
+        AuditRow(
+            "配線メモ",
+            site_report_has_wiring_notes(text),
+            "OK" if site_report_has_wiring_notes(text) else "なし",
+        ),
+        AuditRow(
+            "施工前確認事項",
+            site_report_has_pre_construction(text),
+            "OK" if site_report_has_pre_construction(text) else "なし",
+        ),
+        AuditRow(
+            "見積連携",
+            site_report_has_estimate_link(text),
+            "OK" if site_report_has_estimate_link(text) else "なし",
+        ),
+        AuditRow(
+            "TiSLY連携予定",
+            site_report_has_tisly_integration(text),
+            "OK" if site_report_has_tisly_integration(text) else "なし",
+        ),
+    ]
+
+
+@dataclass
+class TomsSiteReportBuildResult:
+    estimate_result: EstimateBuildResult
+    project_dir: Path
+    audit_rows: list[AuditRow] = field(default_factory=list)
+    all_pass: bool = False
+
+
+def build_toms_site_report_project(
+    estimate_path: Path,
+    output_dir: Path,
+    *,
+    project_name: str | None = None,
+) -> TomsSiteReportBuildResult:
+    """見積メモ → PLC案件 → BOM → TOMS → 標準見積書 → TOMS現調報告書。"""
+    memo = parse_estimate_file(estimate_path)
+    estimate_result = build_from_estimate_memo(memo)
+
+    if project_name:
+        estimate_result.project_name = project_name
+
+    project_dir = output_dir / estimate_result.project_name
+
+    all_rows, logic_pass, _ = _write_delivery_project(
+        estimate_result.assignment,
+        estimate_result.project_name,
+        project_dir,
+        "(見積メモ)",
+        str(estimate_path),
+    )
+
+    spec_paths = _write_quote_ready_spec_files(project_dir, estimate_result)
+    toms_items_text = spec_paths["TOMS_QUOTE_ITEMS.csv"].read_text(encoding="utf-8")
+    toms_items = parse_toms_quote_items_csv(toms_items_text)
+    _write_quote_excel_file(project_dir, toms_items_text, estimate_result)
+    _write_toms_estimate_file(project_dir, toms_items_text, estimate_result)
+
+    _finalize_plc_outputs(
+        project_dir,
+        estimate_result.assignment,
+        estimate_result.project_name,
+    )
+    _write_site_report_file(project_dir, estimate_result=estimate_result)
+
+    capacity_rows = audit_capacity_checks(
+        estimate_result.assignment, estimate_result.estimation
+    )
+    spec_rows = spec_checks_to_audit_rows(estimate_result.spec_checks)
+    plus_rows = audit_estimate_plus_files(project_dir, estimate_result)
+    quote_rows = audit_quote_ready_files(project_dir)
+    excel_rows = audit_quote_excel_files(project_dir, len(toms_items))
+    estimate_rows = audit_toms_estimate_files(
+        project_dir, estimate_result, len(toms_items)
+    )
+    site_report_rows = audit_site_report_files(project_dir)
+    plc_rows = audit_plc_selection_files(project_dir)
+    integration_rows = audit_plc_integration(project_dir)
+    all_rows = (
+        capacity_rows + all_rows + spec_rows + plus_rows
+        + quote_rows + excel_rows + estimate_rows + site_report_rows
+        + plc_rows + integration_rows
+    )
+    all_pass = logic_pass and all(r.passed for r in all_rows)
+
+    write_project_meta(
+        project_dir / "PROJECT_META.json",
+        estimate_result.project_name,
+        "(見積メモ)",
+        str(estimate_path),
+        "PASS" if all_pass else "FAIL",
+    )
+
+    auto_report = _write_auto_test_report(project_dir, all_rows, all_pass)
+    (project_dir / "TEST" / "AUTO_TEST_REPORT.md").write_text(auto_report, encoding="utf-8")
+
+    return TomsSiteReportBuildResult(
+        estimate_result=estimate_result,
+        project_dir=project_dir,
+        audit_rows=all_rows,
+        all_pass=all_pass,
+    )
+
+
+def _print_toms_site_report_completion(result: TomsSiteReportBuildResult) -> None:
+    er = result.estimate_result
+    memo = er.memo
+    print(BUILDER_NAME)
+    print()
+    print("見積メモ")
+    print(f"  案件名: {memo.project_title}")
+    print(f"  目的: {memo.purpose}")
+    for key, qty in sorted(memo.parts.items()):
+        print(f"  {key}: {qty}")
+    print("↓")
+    print("BOM / 見積")
+    print(f"  → {result.project_dir / 'SPEC' / 'BOM.csv'}")
+    print(f"  → {result.project_dir / 'TOMS_ESTIMATE.xlsx'}")
+    print("↓")
+    print("TOMS現調報告書")
+    print(f"  → {result.project_dir / 'TOMS_SITE_REPORT.md'}")
+    print()
+    for row in result.audit_rows:
+        mark = "PASS" if row.passed else "FAIL"
+        print(f"  [{mark}] {row.name}: {row.detail}")
+    _print_version_footer(result.all_pass, "TOMS現調報告書自動生成")
+
+
+def run_toms_site_report_pipeline(
+    estimate_path: Path,
+    output_dir: Path,
+    *,
+    project_name: str | None = None,
+) -> int:
+    if not estimate_path.is_file():
+        print(f"ERROR: 見積ファイルが見つかりません: {estimate_path}", file=sys.stderr)
+        return 1
+    result = build_toms_site_report_project(
+        estimate_path, output_dir, project_name=project_name
+    )
+    _print_toms_site_report_completion(result)
     return 0 if result.all_pass else 1
 
 
@@ -2797,7 +3021,7 @@ def main() -> int:
         "--estimate-file",
         type=Path,
         default=DEFAULT_ESTIMATE_SAMPLE,
-        help="--estimate-mode / --estimate-plus / --quote-ready / --toms-estimate 用の見積メモファイル（既定: estimate_mode/estimate_sample.txt）",
+        help="--estimate-mode / --estimate-plus / --quote-ready / --toms-estimate / --toms-site-report 用の見積メモファイル（既定: estimate_mode/estimate_sample.txt）",
     )
     parser.add_argument(
         "--estimate-plus",
@@ -2820,11 +3044,23 @@ def main() -> int:
         help="見積メモ → BOM → TOMS CSV → TOMS_ESTIMATE.xlsx（TOMS標準見積書）",
     )
     parser.add_argument(
+        "--toms-site-report",
+        action="store_true",
+        help="見積メモ → BOM → TOMS → TOMS_SITE_REPORT.md（TOMS現調報告書）",
+    )
+    parser.add_argument(
         "--site-survey",
         action="store_true",
         help="見積メモ → TOMS Excel → 現調シート（SITE_SURVEY.md）",
     )
     args = parser.parse_args()
+
+    if args.toms_site_report:
+        return run_toms_site_report_pipeline(
+            args.estimate_file,
+            args.output_dir,
+            project_name=args.project_name,
+        )
 
     if args.site_survey:
         return run_site_survey_pipeline(

@@ -1,4 +1,4 @@
-# AUTO_TEST_REPORT — TiSLY PLC Builder v5.12
+# AUTO_TEST_REPORT — TiSLY PLC Builder v5.13
 
 > 全生成物存在確認 + 監査 PASS 確認
 
@@ -8,7 +8,7 @@
 
 | 項目 | 値 |
 |------|-----|
-| 実行日時 (UTC) | 2026-05-31T01:05:43Z |
+| 実行日時 (UTC) | 2026-05-31T03:05:15Z |
 | 対象 | CARSHOP_NIGHT_SECURITY |
 | テスト | 全生成物存在確認 / GX 監査 |
 
@@ -74,6 +74,15 @@
 - ✓ 見積書 消費税: 消費税
 - ✓ 見積書 税込合計: 税込合計
 - ✓ 見積書 備考: 〈備考〉
+- ✓ TOMS_SITE_REPORT.md 存在: OK
+- ✓ 案件基本情報: OK
+- ✓ 現調概要: OK
+- ✓ I/O割り当て: OK
+- ✓ PLC容量確認: OK
+- ✓ 配線メモ: OK
+- ✓ 施工前確認事項: OK
+- ✓ 見積連携: OK
+- ✓ TiSLY連携予定: OK
 - ✓ PLC_SELECTION.md 存在: OK
 - ✓ 使用入力点数あり: OK
 - ✓ 使用出力点数あり: OK
@@ -150,6 +159,15 @@
 | 見積書 消費税 | PASS | 消費税 |
 | 見積書 税込合計 | PASS | 税込合計 |
 | 見積書 備考 | PASS | 〈備考〉 |
+| TOMS_SITE_REPORT.md 存在 | PASS | OK |
+| 案件基本情報 | PASS | OK |
+| 現調概要 | PASS | OK |
+| I/O割り当て | PASS | OK |
+| PLC容量確認 | PASS | OK |
+| 配線メモ | PASS | OK |
+| 施工前確認事項 | PASS | OK |
+| 見積連携 | PASS | OK |
+| TiSLY連携予定 | PASS | OK |
 | PLC_SELECTION.md 存在 | PASS | OK |
 | 使用入力点数あり | PASS | OK |
 | 使用出力点数あり | PASS | OK |
@@ -166,4 +184,4 @@
 
 **総合判定: PASS**
 
-**TiSLY PLC Builder v5.12 — AUTO_TEST_REPORT**
+**TiSLY PLC Builder v5.13 — AUTO_TEST_REPORT**

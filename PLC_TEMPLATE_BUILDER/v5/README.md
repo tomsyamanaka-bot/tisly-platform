@@ -193,6 +193,41 @@ TiSLY PLC Builder v5.0 — 完成
 | **v5.10** | **PLC_SELECTION 連携強化（SITE_SURVEY / TOMS / README / TEST_REPORT）** |
 | **v5.11** | **単価・金額自動計算（price_master.csv / ROUGH_ESTIMATE.csv / TOMS 単価反映）** |
 | **v5.12** | **TOMS 標準見積書自動生成（TOMS_ESTIMATE.xlsx）** |
+| **v5.13** | **TOMS 現調報告書自動生成（TOMS_SITE_REPORT.md）** |
+
+---
+
+## v5.13 TOMS Site Report Mode
+
+見積メモ・I/O・PLC選定・見積生成物から TOMS 現調報告書 Markdown を自動生成します。
+
+```powershell
+cd PLC_TEMPLATE_BUILDER/v5
+python project_generator.py --toms-site-report --estimate-file estimate_mode/estimate_sample.txt
+```
+
+追加生成物:
+
+| ファイル | 内容 |
+|----------|------|
+| TOMS_SITE_REPORT.md | TOMS 現調報告書（案件情報 / 現調概要 / I/O / PLC容量 / 配線 / 施工確認 / 見積連携 / TiSLY連携） |
+
+以下のモードでも `TOMS_SITE_REPORT.md` が生成されます:
+
+- `--full-spec`
+- `--estimate-plus`
+- `--quote-ready`
+- `--quote-excel`
+- `--toms-estimate`
+
+完成時表示:
+
+```
+TiSLY PLC Builder v5.13
+TOMS現調報告書自動生成
+自動テスト PASS
+次Version候補: v5.14 TiSLY MQTT / ESP連携
+```
 
 ---
 
