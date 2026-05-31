@@ -1,0 +1,22 @@
+{
+  "builder_version": "TiSLY PLC Builder v5.22 — MQTT Topic Map Strengthening",
+  "project_name": "CARSHOP_NIGHT_SECURITY",
+  "device_id": "211",
+  "broker": "mqtt.tisly.local",
+  "port": 1883,
+  "topics": {
+    "base": "tisly/device/211",
+    "state": "tisly/device/211/state",
+    "alarm": "tisly/device/211/alarm",
+    "motion": "tisly/device/211/motion",
+    "output": "tisly/device/211/output",
+    "cmd": "tisly/device/211/cmd",
+    "heartbeat": "tisly/device/211/heartbeat",
+    "recovery": "tisly/device/211/recovery"
+  },
+  "qos_default": 1,
+  "retain": {
+    "state": true,
+    "heartbeat": false
+  }
+}

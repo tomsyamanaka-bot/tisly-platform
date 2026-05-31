@@ -1,0 +1,20 @@
+# I/O 表 — CARSHOP_NIGHT_SECURITY
+
+**TiSLY PLC Builder v5.26 — Installer Package**
+
+```csv
+Device,Name,Type,Category
+X0,夜間警戒,Input,system
+X1,非常停止,Input,safety
+X2,外周センサー,Input,赤外線
+X3,赤外線2,Input,赤外線
+X4,赤外線3,Input,赤外線
+X5,赤外線4,Input,赤外線
+X6,近接センサー,Input,PIR
+X7,PIR2,Input,PIR
+Y0,赤灯,Output,パトライト
+Y1,白灯1,Output,zone
+Y2,白灯2,Output,zone
+Y3,白灯3,Output,zone
+Y4,白灯4,Output,zone
+```

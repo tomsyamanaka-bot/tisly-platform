@@ -578,6 +578,31 @@ python project_generator.py --quote-ready --estimate-file estimate_mode/estimate
 
 ---
 
+## v5.26 Installer Package Mode
+
+施工者向け **INSTALLER_PACKAGE/** + お客様向け **CUSTOMER_DELIVERY/** + 営業 **DEMO_PACKAGE/** を含むフル納品パイプライン。
+
+```powershell
+cd PLC_TEMPLATE_BUILDER/v5
+python project_generator.py --installer-package --estimate-file estimate_mode/estimate_sample.txt
+```
+
+生成物:
+
+| パス | 内容 |
+|------|------|
+| TISLY/UI/ | PWA + TV + manifest + offline + icons |
+| TISLY/esp32/ | config.h + main_template.ino |
+| TISLY/MQTT_TOPICS.json | 構造化 MQTT トピック |
+| TISLY/RECOVERY_CONFIG.json | Recovery Engine 設定 |
+| TISLY/LOG_SCHEMA.json | QNAP ログスキーマ |
+| TEST/FLOW_TEST_REPORT.md | Node-RED フロー検証 |
+| DEMO_PACKAGE/ | 営業デモ一式 |
+| CUSTOMER_DELIVERY/ | お客様向け5ドキュメント |
+| INSTALLER_PACKAGE/ | 施工者向け7ドキュメント |
+
+---
+
 ## v5.17 Google TV Launcher Mode
 
 Google TV / Android TV 向け **10-foot UI** ランチャー（`TISLY/UI/tv.html`）を自動生成します。
@@ -598,4 +623,4 @@ python project_generator.py --tv-launcher --estimate-file estimate_mode/estimate
 
 ---
 
-**TiSLY PLC Builder v5.17**
+**TiSLY PLC Builder v5.26**

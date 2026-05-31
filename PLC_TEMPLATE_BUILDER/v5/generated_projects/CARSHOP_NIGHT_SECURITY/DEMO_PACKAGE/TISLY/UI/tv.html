@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#000000">
+  <meta name="description" content="TiSLY TV Launcher — CARSHOP_NIGHT_SECURITY">
+  <title>TiSLY TV — CARSHOP_NIGHT_SECURITY</title>
+  <link rel="stylesheet" href="tv.css">
+</head>
+<body class="tv-launcher" data-project="carshop-night-security">
+  <header class="tv-header">
+    <div class="tv-brand">
+      <span class="tv-logo">TiSLY</span>
+      <h1>CARSHOP_NIGHT_SECURITY</h1>
+    </div>
+    <div class="tv-status-bar">
+      <span id="tv-conn" class="tv-badge offline">未接続</span>
+      <span class="tv-device-id">Device 211</span>
+      <time id="tv-clock">—</time>
+    </div>
+  </header>
+
+  <main class="tv-main">
+    <section class="tv-row tv-row-hero" aria-label="システム概要">
+      <div class="tv-hero-card">
+        <h2>システム状態</h2>
+        <div class="tv-hero-grid">
+          <div class="tv-stat"><span>Broker</span><strong>mqtt.tisly.local</strong></div>
+          <div class="tv-stat"><span>Topic</span><strong>tisly/device/211</strong></div>
+          <div class="tv-stat"><span>警報</span><strong id="tv-alarm-count">5</strong></div>
+          <div class="tv-stat"><span>動体</span><strong id="tv-motion-count">2</strong></div>
+        </div>
+      </div>
+      <div class="tv-camera-frame" aria-label="カメラ表示枠">
+        <div class="tv-camera-placeholder">
+          <span class="tv-camera-icon">📷</span>
+          <p>カメラ映像</p>
+          <small>RTSP / WebRTC 連携予定</small>
+        </div>
+      </div>
+    </section>
+
+    <section class="tv-row" aria-labelledby="tv-alarms">
+      <h2 id="tv-alarms" class="tv-section-title">警報 <span class="tv-count">5</span></h2>
+      <div class="tv-card-row"><article class="tv-card tv-alarm" data-device="EStop_01" tabindex="0"><h3 class="tv-card-title">EStop_01</h3><span class="tv-card-plc">X1</span><span class="tv-card-status" aria-live="polite">待機中</span></article>
+<article class="tv-card tv-alarm" data-device="Beam_01" tabindex="0"><h3 class="tv-card-title">Beam_01</h3><span class="tv-card-plc">X2</span><span class="tv-card-status" aria-live="polite">待機中</span></article>
+<article class="tv-card tv-alarm" data-device="Beam_02" tabindex="0"><h3 class="tv-card-title">Beam_02</h3><span class="tv-card-plc">X3</span><span class="tv-card-status" aria-live="polite">待機中</span></article>
+<article class="tv-card tv-alarm" data-device="Beam_03" tabindex="0"><h3 class="tv-card-title">Beam_03</h3><span class="tv-card-plc">X4</span><span class="tv-card-status" aria-live="polite">待機中</span></article>
+<article class="tv-card tv-alarm" data-device="Beam_04" tabindex="0"><h3 class="tv-card-title">Beam_04</h3><span class="tv-card-plc">X5</span><span class="tv-card-status" aria-live="polite">待機中</span></article></div>
+    </section>
+
+    <section class="tv-row" aria-labelledby="tv-motion">
+      <h2 id="tv-motion" class="tv-section-title">動体検知 <span class="tv-count">2</span></h2>
+      <div class="tv-card-row"><article class="tv-card tv-motion" data-device="PIR_01" tabindex="0"><h3 class="tv-card-title">PIR_01</h3><span class="tv-card-plc">X6</span><span class="tv-card-status" aria-live="polite">待機中</span></article>
+<article class="tv-card tv-motion" data-device="PIR_02" tabindex="0"><h3 class="tv-card-title">PIR_02</h3><span class="tv-card-plc">X7</span><span class="tv-card-status" aria-live="polite">待機中</span></article></div>
+    </section>
+
+    <section class="tv-row" aria-labelledby="tv-outputs">
+      <h2 id="tv-outputs" class="tv-section-title">出力 <span class="tv-count">5</span></h2>
+      <div class="tv-card-row"><article class="tv-card tv-output" data-device="Siren" tabindex="0"><h3 class="tv-card-title">Siren</h3><span class="tv-card-plc">Y0</span><span class="tv-card-status" aria-live="polite">待機中</span></article>
+<article class="tv-card tv-output" data-device="WhiteLight_01" tabindex="0"><h3 class="tv-card-title">WhiteLight_01</h3><span class="tv-card-plc">Y1</span><span class="tv-card-status" aria-live="polite">待機中</span></article>
+<article class="tv-card tv-output" data-device="WhiteLight_02" tabindex="0"><h3 class="tv-card-title">WhiteLight_02</h3><span class="tv-card-plc">Y2</span><span class="tv-card-status" aria-live="polite">待機中</span></article>
+<article class="tv-card tv-output" data-device="WhiteLight_03" tabindex="0"><h3 class="tv-card-title">WhiteLight_03</h3><span class="tv-card-plc">Y3</span><span class="tv-card-status" aria-live="polite">待機中</span></article>
+<article class="tv-card tv-output" data-device="WhiteLight_04" tabindex="0"><h3 class="tv-card-title">WhiteLight_04</h3><span class="tv-card-plc">Y4</span><span class="tv-card-status" aria-live="polite">待機中</span></article></div>
+    </section>
+  </main>
+
+  <footer class="tv-footer">
+    <span>TiSLY PLC Builder v5.17 — Google TV Launcher Template</span>
+    <span>Google TV / Android TV Leanback 10-foot UI</span>
+  </footer>
+
+  <script src="tv.js" type="module"></script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "name": "TiSLY — CARSHOP_NIGHT_SECURITY",
+  "short_name": "TiSLY",
+  "description": "TiSLY Dashboard for CARSHOP_NIGHT_SECURITY",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0a1628",
+  "theme_color": "#0a1628",
+  "orientation": "any",
+  "lang": "ja",
+  "id": "tisly-ui-carshop-night-security",
+  "categories": [
+    "utilities",
+    "productivity"
+  ]
+}

@@ -1,0 +1,150 @@
+/* TiSLY PLC Builder v5.16 — TiSLY UI Dashboard Template */
+:root {
+  --tisly-bg: #0a1628;
+  --tisly-panel: #122038;
+  --tisly-accent: #00c8b4;
+  --tisly-alarm: #ff4757;
+  --tisly-motion: #ffa502;
+  --tisly-contact: #3742fa;
+  --tisly-output: #2ed573;
+  --tisly-text: #e8eef7;
+  --tisly-muted: #8b9cb3;
+  --grid-gap: clamp(0.75rem, 2vw, 1.5rem);
+  --font-base: clamp(14px, 1.2vw, 20px);
+  --font-title: clamp(1.25rem, 2.5vw, 2.5rem);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body.tisly-ui {
+  font-family: "Segoe UI", "Hiragino Sans", sans-serif;
+  background: var(--tisly-bg);
+  color: var(--tisly-text);
+  font-size: var(--font-base);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--grid-gap) calc(var(--grid-gap) * 1.5);
+  background: var(--tisly-panel);
+  border-bottom: 2px solid var(--tisly-accent);
+}
+
+.brand-mark {
+  color: var(--tisly-accent);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin-right: 0.75rem;
+}
+
+.brand h1 { font-size: var(--font-title); display: inline; }
+
+.header-meta { display: flex; gap: 1rem; align-items: center; }
+
+.conn-badge {
+  padding: 0.35em 0.75em;
+  border-radius: 999px;
+  font-size: 0.85em;
+  font-weight: 600;
+}
+.conn-badge.offline { background: #3d3d3d; color: #ccc; }
+.conn-badge.online { background: var(--tisly-output); color: #0a1628; }
+
+.dashboard-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: var(--grid-gap);
+  padding: var(--grid-gap);
+  max-width: 1920px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+@media (min-width: 1280px) {
+  .dashboard-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .panel-state { grid-column: 1 / -1; }
+}
+
+.panel {
+  background: var(--tisly-panel);
+  border-radius: 12px;
+  padding: var(--grid-gap);
+  border: 1px solid rgba(0, 200, 180, 0.15);
+}
+
+.panel h2 {
+  font-size: clamp(1rem, 1.8vw, 1.5rem);
+  margin-bottom: 0.75rem;
+  color: var(--tisly-accent);
+}
+
+.panel h2 .count {
+  font-size: 0.75em;
+  color: var(--tisly-muted);
+  font-weight: normal;
+}
+
+.device-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.75rem;
+}
+
+.device-card {
+  background: rgba(255,255,255,0.04);
+  border-radius: 8px;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  border-left: 4px solid var(--tisly-muted);
+}
+
+.signal-alarm { border-left-color: var(--tisly-alarm); }
+.signal-motion { border-left-color: var(--tisly-motion); }
+.signal-contact { border-left-color: var(--tisly-contact); }
+.signal-output { border-left-color: var(--tisly-output); }
+
+.device-card.active-alarm { background: rgba(255,71,87,0.2); }
+.device-card.active-motion { background: rgba(255,165,2,0.2); }
+.device-card.active-contact { background: rgba(55,66,250,0.2); }
+.device-card.active-output { background: rgba(46,213,115,0.2); }
+
+.device-name { font-weight: 600; }
+.device-plc { font-size: 0.8em; color: var(--tisly-muted); font-family: monospace; }
+.device-status { font-size: 0.85em; }
+
+.state-summary { display: flex; flex-wrap: wrap; gap: 1rem; }
+.state-item span { display: block; color: var(--tisly-muted); font-size: 0.85em; }
+.state-item code { font-family: monospace; color: var(--tisly-accent); }
+
+.empty { color: var(--tisly-muted); font-style: italic; }
+
+.app-footer {
+  text-align: center;
+  padding: 1rem;
+  color: var(--tisly-muted);
+  font-size: 0.8em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+/* Google TV / 大画面向け */
+@media (min-width: 1920px) {
+  :root {
+    --font-base: 22px;
+    --font-title: 3rem;
+  }
+  .device-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+}

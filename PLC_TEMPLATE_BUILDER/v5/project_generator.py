@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-TiSLY PLC Builder v5.17
+TiSLY PLC Builder v5.26
 見積 + 顧客入力 → 仕様書 / GX Works3 命令 / 配線図 / 納品フォルダ 自動生成
 用途別テンプレート (--template) / 日本語文章 (--nl) / 完全自動 (--full-spec) /
 見積メモ形式 (--estimate-mode) / 見積+部材表+施工メモ (--estimate-plus) /
@@ -9,7 +9,7 @@ TOMS標準見積書生成 (--toms-estimate) / TOMS現調報告書 (--toms-site-r
 TiSLY Integration Engine (--toms-site-report 他) /
 Node-RED Flow Generator (--node-red-flow / --full-spec 他) /
 TiSLY UI Dashboard PWA (--ui-dashboard / --full-spec 他) /
-Google TV Launcher (--tv-launcher / --full-spec 他) /
+Installer Package (--installer-package) /
 現調シート生成 (--site-survey) / PLC容量選定・連携 (--full-spec 他) 対応
 """
 
@@ -44,9 +44,9 @@ FULL_SPEC_SAMPLE = (
     "パトライト1台。\n"
     "白色LED4台。"
 )
-VERSION = "v5.17"
+VERSION = "v5.26"
 BUILDER_NAME = f"TiSLY PLC Builder {VERSION}"
-NEXT_VERSION_CANDIDATE = "v5.18 PWA Export Strengthening"
+NEXT_VERSION_CANDIDATE = "v5.27 Cloud Sync Template"
 
 VALID_TEMPLATES = (
     "HOME_SECURITY",
@@ -172,6 +172,42 @@ from ui_dashboard_generator import (  # noqa: E402
 from tv_launcher_generator import (  # noqa: E402
     audit_tv_launcher,
     write_tv_launcher_files,
+)
+from pwa_export_generator import (  # noqa: E402
+    audit_pwa_export,
+    write_pwa_export_files,
+)
+from demo_package_generator import (  # noqa: E402
+    audit_demo_package,
+    write_demo_package,
+)
+from flow_validation_generator import (  # noqa: E402
+    audit_flow_validation,
+    write_flow_validation,
+)
+from esp_firmware_generator import (  # noqa: E402
+    audit_esp_firmware,
+    write_esp_firmware_files,
+)
+from mqtt_topics_json_generator import (  # noqa: E402
+    audit_mqtt_topics_json,
+    write_mqtt_topics_json,
+)
+from recovery_engine_generator import (  # noqa: E402
+    audit_recovery_engine,
+    write_recovery_engine_files,
+)
+from qnap_log_generator import (  # noqa: E402
+    audit_qnap_log,
+    write_qnap_log_files,
+)
+from customer_delivery_generator import (  # noqa: E402
+    audit_customer_delivery,
+    write_customer_delivery,
+)
+from installer_package_generator import (  # noqa: E402
+    audit_installer_package,
+    write_installer_package,
 )
 from plc_selection_generator import (  # noqa: E402
     analyze_plc_selection,
@@ -1387,11 +1423,12 @@ def build_full_spec_project(
     flow_rows = audit_node_red_flow_files(project_dir)
     ui_rows = audit_ui_dashboard_files(project_dir)
     tv_rows = audit_tv_launcher_files(project_dir)
+    ext_rows = _audit_tisly_extension_rows(project_dir)
     site_report_rows = audit_site_report_files(project_dir)
-    all_rows = all_rows + plc_rows + integration_rows + tisly_rows + flow_rows + ui_rows + tv_rows + site_report_rows
+    all_rows = all_rows + plc_rows + integration_rows + tisly_rows + flow_rows + ui_rows + tv_rows + ext_rows + site_report_rows
 
     spec_checks_pass = spec_result.all_pass
-    all_pass = all_pass and spec_checks_pass and all(r.passed for r in plc_rows + integration_rows + tisly_rows + flow_rows + ui_rows + tv_rows + site_report_rows)
+    all_pass = all_pass and spec_checks_pass and all(r.passed for r in plc_rows + integration_rows + tisly_rows + flow_rows + ui_rows + tv_rows + ext_rows + site_report_rows)
 
     auto_report = _write_auto_test_report(project_dir, all_rows, all_pass)
     (project_dir / "TEST" / "AUTO_TEST_REPORT.md").write_text(auto_report, encoding="utf-8")
@@ -1933,8 +1970,9 @@ def build_estimate_plus_project(
     flow_rows = audit_node_red_flow_files(project_dir)
     ui_rows = audit_ui_dashboard_files(project_dir)
     tv_rows = audit_tv_launcher_files(project_dir)
+    ext_rows = _audit_tisly_extension_rows(project_dir)
     site_report_rows = audit_site_report_files(project_dir)
-    all_rows = capacity_rows + all_rows + spec_rows + plus_rows + plc_rows + integration_rows + tisly_rows + flow_rows + ui_rows + tv_rows + site_report_rows
+    all_rows = capacity_rows + all_rows + spec_rows + plus_rows + plc_rows + integration_rows + tisly_rows + flow_rows + ui_rows + tv_rows + ext_rows + site_report_rows
     all_pass = logic_pass and all(r.passed for r in all_rows)
 
     write_project_meta(
@@ -2165,8 +2203,9 @@ def build_quote_ready_project(
     flow_rows = audit_node_red_flow_files(project_dir)
     ui_rows = audit_ui_dashboard_files(project_dir)
     tv_rows = audit_tv_launcher_files(project_dir)
+    ext_rows = _audit_tisly_extension_rows(project_dir)
     site_report_rows = audit_site_report_files(project_dir)
-    all_rows = capacity_rows + all_rows + spec_rows + plus_rows + quote_rows + plc_rows + integration_rows + tisly_rows + flow_rows + ui_rows + tv_rows + site_report_rows
+    all_rows = capacity_rows + all_rows + spec_rows + plus_rows + quote_rows + plc_rows + integration_rows + tisly_rows + flow_rows + ui_rows + tv_rows + ext_rows + site_report_rows
     all_pass = logic_pass and all(r.passed for r in all_rows)
 
     write_project_meta(
@@ -2350,10 +2389,11 @@ def build_quote_excel_project(
     flow_rows = audit_node_red_flow_files(project_dir)
     ui_rows = audit_ui_dashboard_files(project_dir)
     tv_rows = audit_tv_launcher_files(project_dir)
+    ext_rows = _audit_tisly_extension_rows(project_dir)
     site_report_rows = audit_site_report_files(project_dir)
     all_rows = (
         capacity_rows + all_rows + spec_rows + plus_rows
-        + quote_rows + excel_rows + plc_rows + integration_rows + tisly_rows + flow_rows + ui_rows + tv_rows + site_report_rows
+        + quote_rows + excel_rows + plc_rows + integration_rows + tisly_rows + flow_rows + ui_rows + tv_rows + ext_rows + site_report_rows
     )
     all_pass = logic_pass and all(r.passed for r in all_rows)
 
@@ -2548,11 +2588,12 @@ def build_toms_estimate_project(
     flow_rows = audit_node_red_flow_files(project_dir)
     ui_rows = audit_ui_dashboard_files(project_dir)
     tv_rows = audit_tv_launcher_files(project_dir)
+    ext_rows = _audit_tisly_extension_rows(project_dir)
     site_report_rows = audit_site_report_files(project_dir)
     all_rows = (
         capacity_rows + all_rows + spec_rows + plus_rows
         + quote_rows + excel_rows + estimate_rows + plc_rows + integration_rows
-        + tisly_rows + flow_rows + ui_rows + tv_rows + site_report_rows
+        + tisly_rows + flow_rows + ui_rows + tv_rows + ext_rows + site_report_rows
     )
     all_pass = logic_pass and all(r.passed for r in all_rows)
 
@@ -2624,6 +2665,15 @@ def _write_tisly_folder(
     assignment: object | None = None,
     project_name: str = "",
     include_node_red_flow: bool = False,
+    include_pwa_export: bool = False,
+    include_mqtt_json: bool = False,
+    include_esp_firmware: bool = False,
+    include_recovery: bool = False,
+    include_qnap_log: bool = False,
+    include_flow_validation: bool = False,
+    include_demo_package: bool = False,
+    include_customer_delivery: bool = False,
+    include_installer_package: bool = False,
 ) -> dict[str, Path]:
     """TISLY/ 配下（DEVICE_MAP / MQTT / ESP / Node-RED / SYSTEM）を書き出す。"""
     if estimate_result is not None:
@@ -2647,6 +2697,41 @@ def _write_tisly_folder(
         tv_paths = _write_tv_launcher_files(project_dir)
         for name, path in tv_paths.items():
             files[f"UI/{name}"] = path
+        for name, path in write_pwa_export_files(project_dir).items():
+            files[f"UI/{name}"] = path
+        files["MQTT_TOPICS.json"] = write_mqtt_topics_json(project_dir)
+        for name, path in write_esp_firmware_files(project_dir).items():
+            files[name] = path
+        for name, path in write_recovery_engine_files(project_dir).items():
+            files[name] = path
+        for name, path in write_qnap_log_files(project_dir).items():
+            files[name] = path
+        files["TEST/FLOW_TEST_REPORT.md"] = write_flow_validation(project_dir)
+    elif include_pwa_export:
+        for name, path in write_pwa_export_files(project_dir).items():
+            files[f"UI/{name}"] = path
+    if include_mqtt_json and not include_node_red_flow:
+        files["MQTT_TOPICS.json"] = write_mqtt_topics_json(project_dir)
+    if include_esp_firmware and not include_node_red_flow:
+        for name, path in write_esp_firmware_files(project_dir).items():
+            files[name] = path
+    if include_recovery and not include_node_red_flow:
+        for name, path in write_recovery_engine_files(project_dir).items():
+            files[name] = path
+    if include_qnap_log and not include_node_red_flow:
+        for name, path in write_qnap_log_files(project_dir).items():
+            files[name] = path
+    if include_flow_validation and not include_node_red_flow:
+        files["TEST/FLOW_TEST_REPORT.md"] = write_flow_validation(project_dir)
+    if include_demo_package:
+        for name, path in write_demo_package(project_dir).items():
+            files[f"DEMO_PACKAGE/{name}"] = path
+    if include_customer_delivery:
+        for name, path in write_customer_delivery(project_dir).items():
+            files[f"CUSTOMER_DELIVERY/{name}"] = path
+    if include_installer_package:
+        for name, path in write_installer_package(project_dir).items():
+            files[f"INSTALLER_PACKAGE/{name}"] = path
     return files
 
 
@@ -2687,6 +2772,54 @@ def audit_tv_launcher_files(project_dir: Path) -> list[AuditRow]:
         AuditRow(name, passed, detail)
         for name, passed, detail in audit_tv_launcher(project_dir)
     ]
+
+
+def audit_pwa_export_files(project_dir: Path) -> list[AuditRow]:
+    return [AuditRow(n, p, d) for n, p, d in audit_pwa_export(project_dir)]
+
+
+def audit_demo_package_files(project_dir: Path) -> list[AuditRow]:
+    return [AuditRow(n, p, d) for n, p, d in audit_demo_package(project_dir)]
+
+
+def audit_flow_validation_files(project_dir: Path) -> list[AuditRow]:
+    return [AuditRow(n, p, d) for n, p, d in audit_flow_validation(project_dir)]
+
+
+def audit_esp_firmware_files(project_dir: Path) -> list[AuditRow]:
+    return [AuditRow(n, p, d) for n, p, d in audit_esp_firmware(project_dir)]
+
+
+def audit_mqtt_topics_json_files(project_dir: Path) -> list[AuditRow]:
+    return [AuditRow(n, p, d) for n, p, d in audit_mqtt_topics_json(project_dir)]
+
+
+def audit_recovery_engine_files(project_dir: Path) -> list[AuditRow]:
+    return [AuditRow(n, p, d) for n, p, d in audit_recovery_engine(project_dir)]
+
+
+def audit_qnap_log_files(project_dir: Path) -> list[AuditRow]:
+    return [AuditRow(n, p, d) for n, p, d in audit_qnap_log(project_dir)]
+
+
+def audit_customer_delivery_files(project_dir: Path) -> list[AuditRow]:
+    return [AuditRow(n, p, d) for n, p, d in audit_customer_delivery(project_dir)]
+
+
+def audit_installer_package_files(project_dir: Path) -> list[AuditRow]:
+    return [AuditRow(n, p, d) for n, p, d in audit_installer_package(project_dir)]
+
+
+def _audit_tisly_extension_rows(project_dir: Path) -> list[AuditRow]:
+    """v5.18〜v5.24 TISLY 拡張監査。"""
+    rows: list[AuditRow] = []
+    rows.extend(audit_pwa_export_files(project_dir))
+    rows.extend(audit_mqtt_topics_json_files(project_dir))
+    rows.extend(audit_esp_firmware_files(project_dir))
+    rows.extend(audit_recovery_engine_files(project_dir))
+    rows.extend(audit_qnap_log_files(project_dir))
+    rows.extend(audit_flow_validation_files(project_dir))
+    return rows
 
 
 def audit_tisly_files(project_dir: Path) -> list[AuditRow]:
@@ -2859,12 +2992,13 @@ def build_toms_site_report_project(
     flow_rows = audit_node_red_flow_files(project_dir)
     ui_rows = audit_ui_dashboard_files(project_dir)
     tv_rows = audit_tv_launcher_files(project_dir)
+    ext_rows = _audit_tisly_extension_rows(project_dir)
     site_report_rows = audit_site_report_files(project_dir)
     plc_rows = audit_plc_selection_files(project_dir)
     integration_rows = audit_plc_integration(project_dir)
     all_rows = (
         capacity_rows + all_rows + spec_rows + plus_rows
-        + quote_rows + excel_rows + estimate_rows + tisly_rows + flow_rows + ui_rows + tv_rows + site_report_rows
+        + quote_rows + excel_rows + estimate_rows + tisly_rows + flow_rows + ui_rows + tv_rows + ext_rows + site_report_rows
         + plc_rows + integration_rows
     )
     all_pass = logic_pass and all(r.passed for r in all_rows)
@@ -2986,7 +3120,8 @@ def build_node_red_flow_project(
     flow_rows = audit_node_red_flow_files(project_dir)
     ui_rows = audit_ui_dashboard_files(project_dir)
     tv_rows = audit_tv_launcher_files(project_dir)
-    all_rows = capacity_rows + all_rows + spec_rows + plc_rows + integration_rows + tisly_rows + flow_rows + ui_rows + tv_rows
+    ext_rows = _audit_tisly_extension_rows(project_dir)
+    all_rows = capacity_rows + all_rows + spec_rows + plc_rows + integration_rows + tisly_rows + flow_rows + ui_rows + tv_rows + ext_rows
     all_pass = logic_pass and all(r.passed for r in all_rows)
 
     write_project_meta(
@@ -3125,6 +3260,146 @@ def run_tv_launcher_pipeline(
         estimate_path, output_dir, project_name=project_name
     )
     _print_tv_launcher_completion(result)
+    return 0 if result.all_pass else 1
+
+
+@dataclass
+class InstallerPackageBuildResult:
+    estimate_result: EstimateBuildResult
+    project_dir: Path
+    audit_rows: list[AuditRow] = field(default_factory=list)
+    all_pass: bool = False
+
+
+def build_installer_package_project(
+    estimate_path: Path,
+    output_dir: Path,
+    *,
+    project_name: str | None = None,
+) -> InstallerPackageBuildResult:
+    """見積メモ → フルパイプライン → DEMO / CUSTOMER / INSTALLER パッケージ。"""
+    memo = parse_estimate_file(estimate_path)
+    estimate_result = build_from_estimate_memo(memo)
+
+    if project_name:
+        estimate_result.project_name = project_name
+
+    project_dir = output_dir / estimate_result.project_name
+
+    all_rows, logic_pass, _ = _write_delivery_project(
+        estimate_result.assignment,
+        estimate_result.project_name,
+        project_dir,
+        "(見積メモ)",
+        str(estimate_path),
+    )
+
+    spec_paths = _write_quote_ready_spec_files(project_dir, estimate_result)
+    toms_items_text = spec_paths["TOMS_QUOTE_ITEMS.csv"].read_text(encoding="utf-8")
+    toms_items = parse_toms_quote_items_csv(toms_items_text)
+    _write_quote_excel_file(project_dir, toms_items_text, estimate_result)
+    _write_toms_estimate_file(project_dir, toms_items_text, estimate_result)
+
+    _finalize_plc_outputs(
+        project_dir,
+        estimate_result.assignment,
+        estimate_result.project_name,
+    )
+    _write_tisly_folder(
+        project_dir,
+        estimate_result=estimate_result,
+        include_node_red_flow=True,
+        include_demo_package=True,
+        include_customer_delivery=True,
+        include_installer_package=True,
+    )
+    _write_site_report_file(project_dir, estimate_result=estimate_result)
+
+    capacity_rows = audit_capacity_checks(
+        estimate_result.assignment, estimate_result.estimation
+    )
+    spec_rows = spec_checks_to_audit_rows(estimate_result.spec_checks)
+    plus_rows = audit_estimate_plus_files(project_dir, estimate_result)
+    quote_rows = audit_quote_ready_files(project_dir)
+    excel_rows = audit_quote_excel_files(project_dir, len(toms_items))
+    estimate_rows = audit_toms_estimate_files(
+        project_dir, estimate_result, len(toms_items)
+    )
+    tisly_rows = audit_tisly_files(project_dir)
+    flow_rows = audit_node_red_flow_files(project_dir)
+    ui_rows = audit_ui_dashboard_files(project_dir)
+    tv_rows = audit_tv_launcher_files(project_dir)
+    ext_rows = _audit_tisly_extension_rows(project_dir)
+    site_report_rows = audit_site_report_files(project_dir)
+    demo_rows = audit_demo_package_files(project_dir)
+    customer_rows = audit_customer_delivery_files(project_dir)
+    installer_rows = audit_installer_package_files(project_dir)
+    plc_rows = audit_plc_selection_files(project_dir)
+    integration_rows = audit_plc_integration(project_dir)
+    all_rows = (
+        capacity_rows + all_rows + spec_rows + plus_rows
+        + quote_rows + excel_rows + estimate_rows + tisly_rows + flow_rows
+        + ui_rows + tv_rows + ext_rows + site_report_rows + demo_rows
+        + customer_rows + installer_rows + plc_rows + integration_rows
+    )
+    all_pass = logic_pass and all(r.passed for r in all_rows)
+
+    write_project_meta(
+        project_dir / "PROJECT_META.json",
+        estimate_result.project_name,
+        "(見積メモ)",
+        str(estimate_path),
+        "PASS" if all_pass else "FAIL",
+    )
+
+    auto_report = _write_auto_test_report(project_dir, all_rows, all_pass)
+    (project_dir / "TEST" / "AUTO_TEST_REPORT.md").write_text(auto_report, encoding="utf-8")
+
+    return InstallerPackageBuildResult(
+        estimate_result=estimate_result,
+        project_dir=project_dir,
+        audit_rows=all_rows,
+        all_pass=all_pass,
+    )
+
+
+def _print_installer_package_completion(result: InstallerPackageBuildResult) -> None:
+    er = result.estimate_result
+    memo = er.memo
+    print(BUILDER_NAME)
+    print()
+    print("Installer Package - 施工者向けフル納品")
+    print()
+    print("見積メモ")
+    print(f"  案件名: {memo.project_title}")
+    print("↓")
+    print("TiSLY + PWA + TV + ESP + Recovery + QNAP Log")
+    print(f"  → {result.project_dir / 'TISLY'}")
+    print("↓")
+    print("DEMO_PACKAGE / CUSTOMER_DELIVERY / INSTALLER_PACKAGE")
+    print(f"  → {result.project_dir / 'DEMO_PACKAGE'}")
+    print(f"  → {result.project_dir / 'CUSTOMER_DELIVERY'}")
+    print(f"  → {result.project_dir / 'INSTALLER_PACKAGE'}")
+    print()
+    for row in result.audit_rows:
+        mark = "PASS" if row.passed else "FAIL"
+        print(f"  [{mark}] {row.name}: {row.detail}")
+    _print_version_footer(result.all_pass, "Installer Package")
+
+
+def run_installer_package_pipeline(
+    estimate_path: Path,
+    output_dir: Path,
+    *,
+    project_name: str | None = None,
+) -> int:
+    if not estimate_path.is_file():
+        print(f"ERROR: 見積ファイルが見つかりません: {estimate_path}", file=sys.stderr)
+        return 1
+    result = build_installer_package_project(
+        estimate_path, output_dir, project_name=project_name
+    )
+    _print_installer_package_completion(result)
     return 0 if result.all_pass else 1
 
 
@@ -3431,11 +3706,23 @@ def main() -> int:
         help="見積メモ → TiSLY連携 → TISLY/UI/tv.html Google TV 10-foot UI 自動生成",
     )
     parser.add_argument(
+        "--installer-package",
+        action="store_true",
+        help="見積メモ → フルパイプライン → DEMO / CUSTOMER / INSTALLER パッケージ生成",
+    )
+    parser.add_argument(
         "--site-survey",
         action="store_true",
         help="見積メモ → TOMS Excel → 現調シート（SITE_SURVEY.md）",
     )
     args = parser.parse_args()
+
+    if args.installer_package:
+        return run_installer_package_pipeline(
+            args.estimate_file,
+            args.output_dir,
+            project_name=args.project_name,
+        )
 
     if args.tv_launcher:
         return run_tv_launcher_pipeline(

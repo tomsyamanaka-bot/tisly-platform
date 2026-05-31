@@ -1,5 +1,52 @@
 # TiSLY PLC Builder v5 — CHANGELOG
 
+## v5.26 — Installer Package
+
+- `estimate_mode/installer_package_generator.py` 追加 — **INSTALLER_PACKAGE/** 施工者向け一式
+- 生成: 配線表 / I/O表 / PLC書込み手順 / Node-REDインポート / PWA確認 / 現場チェックリスト
+- `--installer-package` モード — フルパイプライン + DEMO + CUSTOMER + INSTALLER
+- 次版候補: v5.27 Cloud Sync Template
+
+## v5.25 — Customer Delivery Package
+
+- `estimate_mode/customer_delivery_generator.py` 追加 — **CUSTOMER_DELIVERY/** お客様向け5ドキュメント
+- 説明書 / 操作説明 / 注意事項 / 保守案内 / 納品チェックリスト
+
+## v5.24 — QNAP Log Export Template
+
+- `estimate_mode/qnap_log_generator.py` 追加 — **LOG_SCHEMA.json** / **LOG_README.md**
+- alarm_log / state_log / heartbeat_log / recovery_log 形式定義
+
+## v5.23 — Recovery Engine Template
+
+- `estimate_mode/recovery_engine_generator.py` 追加 — **RECOVERY_CONFIG.json** / **RECOVERY_README.md**
+- heartbeat / offline判定 / Shelly再起動 / 通知 / 復旧ログ雛形
+
+## v5.22 — MQTT Topic Map Strengthening
+
+- `estimate_mode/mqtt_topics_json_generator.py` 追加 — **MQTT_TOPICS.json** 構造化生成
+- device_id / state / alarm / motion / output / cmd / heartbeat / recovery
+
+## v5.21 — ESP Firmware Config Export
+
+- `estimate_mode/esp_firmware_generator.py` 追加 — **esp32/config.h** / **esp32/main_template.ino**
+- Arduino IDE / PlatformIO 両対応テンプレート
+
+## v5.20 — Node-RED Flow Validation
+
+- `estimate_mode/flow_validation_generator.py` 追加 — **TEST/FLOW_TEST_REPORT.md** 詳細検査
+- ノード接続 / topic / broker / function / debug / mqtt out 検証
+
+## v5.19 — End-to-End Demo Package
+
+- `estimate_mode/demo_package_generator.py` 追加 — **DEMO_PACKAGE/** 営業デモ一式
+- PLC / Node-RED / PWA / TV / 見積 / 現調報告を集約
+
+## v5.18 — PWA Export Strengthening
+
+- `estimate_mode/pwa_export_generator.py` 追加 — manifest.json / offline.html / icons / sw.js 強化
+- スマホ PWA ホーム画面追加可能構成
+
 ## v5.17 — Google TV Launcher Template
 
 - `estimate_mode/tv_launcher_generator.py` 追加 — **TISLY/UI/tv.html** Google TV / Android TV 10-foot UI 自動生成

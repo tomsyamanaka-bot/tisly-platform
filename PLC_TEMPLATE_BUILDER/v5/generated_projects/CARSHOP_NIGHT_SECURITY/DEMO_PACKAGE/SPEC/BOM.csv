@@ -1,0 +1,9 @@
+Category,Item,Qty,Unit,Note
+PLC,FX5UJ-24MR/ES,1,台,自動選定
+Power,MeanWell HDR-60-24,1,台,24V電源
+Safety,非常停止,1,個,NC推奨
+Sensor,赤外線ビーム,4,本,外周検知
+Output,パトライト,1,台,24V
+Sensor,PIRセンサー,2,台,展示車エリア
+Output,白色LED,4,台,100V
+Relay,100V中継リレー,4,個,Y1〜Y4用

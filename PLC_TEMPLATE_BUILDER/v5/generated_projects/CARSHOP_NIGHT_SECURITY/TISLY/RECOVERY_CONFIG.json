@@ -1,0 +1,41 @@
+{
+  "builder_version": "TiSLY PLC Builder v5.23 — Recovery Engine Template",
+  "project_name": "CARSHOP_NIGHT_SECURITY",
+  "device_id": "211",
+  "heartbeat": {
+    "topic": "tisly/device/211/heartbeat",
+    "interval_sec": 30,
+    "offline_threshold_sec": 90
+  },
+  "offline_detection": {
+    "enabled": true,
+    "check_interval_sec": 60,
+    "notify_on_offline": true
+  },
+  "shelly_restart": {
+    "enabled": true,
+    "candidates": [],
+    "max_retries": 3,
+    "cooldown_sec": 300,
+    "note": "Shelly IP / デバイスID を現地設定で追加"
+  },
+  "notification": {
+    "channels": [
+      "mqtt",
+      "push_placeholder"
+    ],
+    "alarm_escalation_sec": 300,
+    "recovery_notify": true
+  },
+  "recovery_log": {
+    "topic": "tisly/device/211/recovery",
+    "format": "json",
+    "fields": [
+      "timestamp",
+      "device_id",
+      "event",
+      "action",
+      "result"
+    ]
+  }
+}

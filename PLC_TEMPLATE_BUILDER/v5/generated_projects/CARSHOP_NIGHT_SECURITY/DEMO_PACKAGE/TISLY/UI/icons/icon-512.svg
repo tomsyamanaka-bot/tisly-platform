@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#0a1628" rx="64"/>
+  <text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle"
+        font-family="Segoe UI,sans-serif" font-size="170" font-weight="700" fill="#00c8b4">TiSLY</text>
+</svg>

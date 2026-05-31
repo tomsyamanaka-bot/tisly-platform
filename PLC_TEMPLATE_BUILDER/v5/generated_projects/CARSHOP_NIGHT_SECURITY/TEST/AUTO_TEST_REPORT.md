@@ -1,4 +1,4 @@
-# AUTO_TEST_REPORT — TiSLY PLC Builder v5.17
+# AUTO_TEST_REPORT — TiSLY PLC Builder v5.26
 
 > 全生成物存在確認 + 監査 PASS 確認
 
@@ -8,7 +8,7 @@
 
 | 項目 | 値 |
 |------|-----|
-| 実行日時 (UTC) | 2026-05-31T06:03:43Z |
+| 実行日時 (UTC) | 2026-05-31T06:05:55Z |
 | 対象 | CARSHOP_NIGHT_SECURITY |
 | テスト | 全生成物存在確認 / GX 監査 |
 
@@ -85,6 +85,26 @@
 - ✓ tv.css Leanback: OK
 - ✓ tv.js リモコン操作: OK
 - ✓ TV_README.md デプロイ: OK
+- ✓ manifest.json PWA: OK
+- ✓ offline.html: OK
+- ✓ sw.js オフライン対応: OK
+- ✓ icons プレースホルダ: 192+512
+- ✓ MQTT_TOPICS.json 存在: OK
+- ✓ MQTT 構造化トピック: 8種
+- ✓ esp32/config.h 存在: OK
+- ✓ esp32/main_template.ino 存在: OK
+- ✓ config.h MQTT定義: OK
+- ✓ main.ino PubSubClient: OK
+- ✓ ESP_README.md: OK
+- ✓ RECOVERY_CONFIG.json 存在: OK
+- ✓ Recovery 設定妥当性: OK
+- ✓ RECOVERY_README.md: OK
+- ✓ LOG_SCHEMA.json 存在: OK
+- ✓ ログ4種定義: alarm/state/heartbeat/recovery
+- ✓ LOG_README.md: OK
+- ✓ FLOW_TEST_REPORT.md 存在: OK
+- ✓ フロー検査セクション: OK
+- ✓ フロー検証 PASS: PASS
 
 ---
 
@@ -161,9 +181,29 @@
 | tv.css Leanback | PASS | OK |
 | tv.js リモコン操作 | PASS | OK |
 | TV_README.md デプロイ | PASS | OK |
+| manifest.json PWA | PASS | OK |
+| offline.html | PASS | OK |
+| sw.js オフライン対応 | PASS | OK |
+| icons プレースホルダ | PASS | 192+512 |
+| MQTT_TOPICS.json 存在 | PASS | OK |
+| MQTT 構造化トピック | PASS | 8種 |
+| esp32/config.h 存在 | PASS | OK |
+| esp32/main_template.ino 存在 | PASS | OK |
+| config.h MQTT定義 | PASS | OK |
+| main.ino PubSubClient | PASS | OK |
+| ESP_README.md | PASS | OK |
+| RECOVERY_CONFIG.json 存在 | PASS | OK |
+| Recovery 設定妥当性 | PASS | OK |
+| RECOVERY_README.md | PASS | OK |
+| LOG_SCHEMA.json 存在 | PASS | OK |
+| ログ4種定義 | PASS | alarm/state/heartbeat/recovery |
+| LOG_README.md | PASS | OK |
+| FLOW_TEST_REPORT.md 存在 | PASS | OK |
+| フロー検査セクション | PASS | OK |
+| フロー検証 PASS | PASS | PASS |
 
 ---
 
 **総合判定: PASS**
 
-**TiSLY PLC Builder v5.17 — AUTO_TEST_REPORT**
+**TiSLY PLC Builder v5.26 — AUTO_TEST_REPORT**

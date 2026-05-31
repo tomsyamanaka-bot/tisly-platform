@@ -1,0 +1,53 @@
+{
+  "builder_version": "TiSLY PLC Builder v5.24 — QNAP Log Export Template",
+  "project_name": "CARSHOP_NIGHT_SECURITY",
+  "device_id": "211",
+  "storage": {
+    "type": "QNAP",
+    "base_path": "/share/TiSLY/logs/CARSHOP_NIGHT_SECURITY",
+    "rotation": "daily",
+    "retention_days": 90
+  },
+  "log_types": {
+    "alarm_log": {
+      "filename_pattern": "alarm_{date}.jsonl",
+      "fields": [
+        "timestamp",
+        "device_id",
+        "alarm_name",
+        "plc_device",
+        "value",
+        "ack"
+      ]
+    },
+    "state_log": {
+      "filename_pattern": "state_{date}.jsonl",
+      "fields": [
+        "timestamp",
+        "device_id",
+        "state_key",
+        "value"
+      ]
+    },
+    "heartbeat_log": {
+      "filename_pattern": "heartbeat_{date}.jsonl",
+      "fields": [
+        "timestamp",
+        "device_id",
+        "latency_ms",
+        "status"
+      ]
+    },
+    "recovery_log": {
+      "filename_pattern": "recovery_{date}.jsonl",
+      "fields": [
+        "timestamp",
+        "device_id",
+        "event",
+        "action",
+        "result",
+        "detail"
+      ]
+    }
+  }
+}

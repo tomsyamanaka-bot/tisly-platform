@@ -1,0 +1,42 @@
+{
+  "builder_version": "TiSLY PLC Builder v5.19 — End-to-End Demo Package",
+  "project_name": "CARSHOP_NIGHT_SECURITY",
+  "generated_at": "2026-05-31T06:05:48.746466+00:00",
+  "components": [
+    {
+      "label": "PLC",
+      "path": "PLC_PROGRAM\\GX3_COMMANDS.txt",
+      "exists": true
+    },
+    {
+      "label": "Node-RED",
+      "path": "TISLY\\TISLY_FLOWS.json",
+      "exists": true
+    },
+    {
+      "label": "PWA",
+      "path": "TISLY\\UI\\index.html",
+      "exists": true
+    },
+    {
+      "label": "TV",
+      "path": "TISLY\\UI\\tv.html",
+      "exists": true
+    },
+    {
+      "label": "見積",
+      "path": "SPEC\\TOMS_QUOTE_SUMMARY.md",
+      "exists": true
+    },
+    {
+      "label": "現調",
+      "path": "TOMS_SITE_REPORT.md",
+      "exists": true
+    },
+    {
+      "label": "仕様",
+      "path": "SPEC\\PROJECT_SPEC.md",
+      "exists": true
+    }
+  ]
+}
