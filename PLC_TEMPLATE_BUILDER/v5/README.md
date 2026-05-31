@@ -194,6 +194,53 @@ TiSLY PLC Builder v5.0 — 完成
 | **v5.11** | **単価・金額自動計算（price_master.csv / ROUGH_ESTIMATE.csv / TOMS 単価反映）** |
 | **v5.12** | **TOMS 標準見積書自動生成（TOMS_ESTIMATE.xlsx）** |
 | **v5.13** | **TOMS 現調報告書自動生成（TOMS_SITE_REPORT.md）** |
+| **v5.14** | **TiSLY Integration Engine（TISLY/ MQTT / ESP / Node-RED）** |
+
+---
+
+## v5.14 TiSLY Integration Engine
+
+PLC I/O 割付から TiSLY 連携設定（MQTT / ESP32 / Node-RED）を自動生成します。
+
+```powershell
+cd PLC_TEMPLATE_BUILDER/v5
+python project_generator.py --toms-site-report --estimate-file estimate_mode/estimate_sample.txt
+```
+
+パイプライン:
+
+```
+案件情報 → PLC設計 → TiSLY設定 → ESP設定 → MQTT設定 → Node-RED設定 → 見積 → 現調報告書
+```
+
+追加生成物（`generated_projects/<案件名>/TISLY/`）:
+
+| ファイル | 内容 |
+|----------|------|
+| DEVICE_MAP.csv | PLC デバイス ↔ TiSLY 名称 / 信号種別（ALARM / MOTION / CONTACT / OUTPUT） |
+| MQTT_TOPICS.md | MQTT トピック定義 |
+| ESP_CONFIG.json | ESP32 ゲートウェイ設定 |
+| NODE_RED_CONFIG.json | Node-RED 連携設定 |
+| TISLY_SYSTEM.md | 案件システム概要 |
+
+以下のモードでも `TISLY/` が生成されます:
+
+- `--full-spec`
+- `--estimate-plus`
+- `--quote-ready`
+- `--quote-excel`
+- `--toms-estimate`
+
+完成時表示:
+
+```
+TiSLY PLC Builder v5.14
+TiSLY Integration Engine
+自動テスト PASS
+次Version候補: v5.15 TiSLY Auto Node-RED Flow Generator
+```
+
+次版設計: [docs/V5_15_NODE_RED_FLOW_DESIGN.md](./docs/V5_15_NODE_RED_FLOW_DESIGN.md)
 
 ---
 

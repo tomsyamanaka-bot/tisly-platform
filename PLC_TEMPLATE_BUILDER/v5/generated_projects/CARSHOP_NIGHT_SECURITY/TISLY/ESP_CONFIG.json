@@ -1,0 +1,92 @@
+{
+  "device_id": "211",
+  "project_name": "CARSHOP_NIGHT_SECURITY",
+  "mqtt_enabled": true,
+  "mqtt_broker": "mqtt.tisly.local",
+  "mqtt_port": 1883,
+  "mqtt_client_id": "tisly-esp-211",
+  "plc_model": "FX5UJ-24MR/ES",
+  "inputs": [
+    {
+      "plc_device": "X0",
+      "name": "Switch_01",
+      "type": "CONTACT",
+      "mqtt_topic": "tisly/device/211/switch_01/contact"
+    },
+    {
+      "plc_device": "X1",
+      "name": "EStop_01",
+      "type": "ALARM",
+      "mqtt_topic": "tisly/device/211/estop_01/alarm"
+    },
+    {
+      "plc_device": "X2",
+      "name": "Beam_01",
+      "type": "ALARM",
+      "mqtt_topic": "tisly/device/211/beam_01/alarm"
+    },
+    {
+      "plc_device": "X3",
+      "name": "Beam_02",
+      "type": "ALARM",
+      "mqtt_topic": "tisly/device/211/beam_02/alarm"
+    },
+    {
+      "plc_device": "X4",
+      "name": "Beam_03",
+      "type": "ALARM",
+      "mqtt_topic": "tisly/device/211/beam_03/alarm"
+    },
+    {
+      "plc_device": "X5",
+      "name": "Beam_04",
+      "type": "ALARM",
+      "mqtt_topic": "tisly/device/211/beam_04/alarm"
+    },
+    {
+      "plc_device": "X6",
+      "name": "PIR_01",
+      "type": "MOTION",
+      "mqtt_topic": "tisly/device/211/pir_01/motion"
+    },
+    {
+      "plc_device": "X7",
+      "name": "PIR_02",
+      "type": "MOTION",
+      "mqtt_topic": "tisly/device/211/pir_02/motion"
+    }
+  ],
+  "outputs": [
+    {
+      "plc_device": "Y0",
+      "name": "Siren",
+      "type": "OUTPUT",
+      "mqtt_topic": "tisly/device/211/output"
+    },
+    {
+      "plc_device": "Y1",
+      "name": "WhiteLight_01",
+      "type": "OUTPUT",
+      "mqtt_topic": "tisly/device/211/output"
+    },
+    {
+      "plc_device": "Y2",
+      "name": "WhiteLight_02",
+      "type": "OUTPUT",
+      "mqtt_topic": "tisly/device/211/output"
+    },
+    {
+      "plc_device": "Y3",
+      "name": "WhiteLight_03",
+      "type": "OUTPUT",
+      "mqtt_topic": "tisly/device/211/output"
+    },
+    {
+      "plc_device": "Y4",
+      "name": "WhiteLight_04",
+      "type": "OUTPUT",
+      "mqtt_topic": "tisly/device/211/output"
+    }
+  ],
+  "builder_version": "TiSLY PLC Builder v5.14 — TiSLY Integration Engine"
+}

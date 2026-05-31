@@ -1,0 +1,86 @@
+{
+  "project_name": "CARSHOP_NIGHT_SECURITY",
+  "device_id": "211",
+  "mqtt_broker": "mqtt.tisly.local",
+  "alarm_inputs": [
+    {
+      "name": "EStop_01",
+      "topic": "tisly/device/211/alarm",
+      "plc": "X1"
+    },
+    {
+      "name": "Beam_01",
+      "topic": "tisly/device/211/alarm",
+      "plc": "X2"
+    },
+    {
+      "name": "Beam_02",
+      "topic": "tisly/device/211/alarm",
+      "plc": "X3"
+    },
+    {
+      "name": "Beam_03",
+      "topic": "tisly/device/211/alarm",
+      "plc": "X4"
+    },
+    {
+      "name": "Beam_04",
+      "topic": "tisly/device/211/alarm",
+      "plc": "X5"
+    }
+  ],
+  "motion_inputs": [
+    {
+      "name": "PIR_01",
+      "topic": "tisly/device/211/motion",
+      "plc": "X6"
+    },
+    {
+      "name": "PIR_02",
+      "topic": "tisly/device/211/motion",
+      "plc": "X7"
+    }
+  ],
+  "contact_inputs": [
+    {
+      "name": "Switch_01",
+      "topic": "tisly/device/211/state",
+      "plc": "X0"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "Siren",
+      "topic": "tisly/device/211/output",
+      "plc": "Y0"
+    },
+    {
+      "name": "WhiteLight_01",
+      "topic": "tisly/device/211/output",
+      "plc": "Y1"
+    },
+    {
+      "name": "WhiteLight_02",
+      "topic": "tisly/device/211/output",
+      "plc": "Y2"
+    },
+    {
+      "name": "WhiteLight_03",
+      "topic": "tisly/device/211/output",
+      "plc": "Y3"
+    },
+    {
+      "name": "WhiteLight_04",
+      "topic": "tisly/device/211/output",
+      "plc": "Y4"
+    }
+  ],
+  "push_notification": {
+    "enabled": true,
+    "channels": [
+      "alarm",
+      "motion"
+    ]
+  },
+  "builder_version": "TiSLY PLC Builder v5.14 — TiSLY Integration Engine"
+}

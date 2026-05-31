@@ -1,5 +1,19 @@
 # TiSLY PLC Builder v5 — CHANGELOG
 
+## v5.14 — TiSLY Integration Engine
+
+- `estimate_mode/tisly_integration_generator.py` 追加 — PLC I/O → TiSLY 連携設定自動生成
+- `generated_projects/<案件名>/TISLY/` 配下に 5 ファイル出力:
+  - `DEVICE_MAP.csv` — PLC デバイス ↔ TiSLY 名称 / 信号種別
+  - `MQTT_TOPICS.md` — MQTT トピック定義
+  - `ESP_CONFIG.json` — ESP32 ゲートウェイ設定
+  - `NODE_RED_CONFIG.json` — Node-RED 連携設定
+  - `TISLY_SYSTEM.md` — 案件システム概要（PLC / ESP / MQTT / Node-RED / Push / 将来連携）
+- パイプライン拡張: 案件情報 → PLC設計 → **TiSLY設定** → **ESP設定** → **MQTT設定** → **Node-RED設定** → 見積 → 現調報告書
+- `--toms-site-report` / `--full-spec` / `--estimate-plus` / `--quote-ready` / `--quote-excel` / `--toms-estimate` で TISLY/ 自動生成
+- 監査: TISLY/ 5 ファイル存在 / 内容検証 / 総合判定 PASS
+- v5.15 設計書: `docs/V5_15_NODE_RED_FLOW_DESIGN.md`
+
 ## v5.13 — TOMS 現調報告書自動生成
 
 - `estimate_mode/site_report_generator.py` 追加 — 案件情報 / I/O / PLC_SELECTION / 見積生成物 → **TOMS_SITE_REPORT.md**
