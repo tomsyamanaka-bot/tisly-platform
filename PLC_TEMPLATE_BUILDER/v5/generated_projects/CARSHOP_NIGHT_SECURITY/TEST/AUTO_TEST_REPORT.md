@@ -1,4 +1,4 @@
-# AUTO_TEST_REPORT — TiSLY PLC Builder v5.16
+# AUTO_TEST_REPORT — TiSLY PLC Builder v5.17
 
 > 全生成物存在確認 + 監査 PASS 確認
 
@@ -8,7 +8,7 @@
 
 | 項目 | 値 |
 |------|-----|
-| 実行日時 (UTC) | 2026-05-31T05:59:52Z |
+| 実行日時 (UTC) | 2026-05-31T06:03:43Z |
 | 対象 | CARSHOP_NIGHT_SECURITY |
 | テスト | 全生成物存在確認 / GX 監査 |
 
@@ -79,6 +79,12 @@
 - ✓ manifest.webmanifest PWA: OK
 - ✓ sw.js Service Worker: OK
 - ✓ UI_README.md デプロイ手順: OK
+- ✓ TISLY/UI/tv.html 存在: OK
+- ✓ TV 全ファイル (4): 4/4
+- ✓ tv.html 10-foot UI: OK
+- ✓ tv.css Leanback: OK
+- ✓ tv.js リモコン操作: OK
+- ✓ TV_README.md デプロイ: OK
 
 ---
 
@@ -149,9 +155,15 @@
 | manifest.webmanifest PWA | PASS | OK |
 | sw.js Service Worker | PASS | OK |
 | UI_README.md デプロイ手順 | PASS | OK |
+| TISLY/UI/tv.html 存在 | PASS | OK |
+| TV 全ファイル (4) | PASS | 4/4 |
+| tv.html 10-foot UI | PASS | OK |
+| tv.css Leanback | PASS | OK |
+| tv.js リモコン操作 | PASS | OK |
+| TV_README.md デプロイ | PASS | OK |
 
 ---
 
 **総合判定: PASS**
 
-**TiSLY PLC Builder v5.16 — AUTO_TEST_REPORT**
+**TiSLY PLC Builder v5.17 — AUTO_TEST_REPORT**

@@ -1,5 +1,11 @@
 # TiSLY PLC Builder — CHANGELOG
 
+## v5.17 — Google TV Launcher Template (2026-05-31)
+
+- Google TV / Android TV 向け 10-foot UI（TISLY/UI/tv.html）自動生成
+- `--tv-launcher` CLI モード追加
+- 詳細: [PLC_TEMPLATE_BUILDER/v5/CHANGELOG.md](./PLC_TEMPLATE_BUILDER/v5/CHANGELOG.md)
+
 ## v5.16 — TiSLY UI Dashboard Template (2026-05-31)
 
 - PWA ダッシュボード自動生成（TISLY/UI/）

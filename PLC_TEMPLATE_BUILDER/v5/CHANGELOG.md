@@ -1,5 +1,15 @@
 # TiSLY PLC Builder v5 — CHANGELOG
 
+## v5.17 — Google TV Launcher Template
+
+- `estimate_mode/tv_launcher_generator.py` 追加 — **TISLY/UI/tv.html** Google TV / Android TV 10-foot UI 自動生成
+- 生成ファイル: `tv.html` / `tv.css` / `tv.js` / `TV_README.md`
+- Leanback 風・黒背景・大きいカード・警報表示・カメラ表示枠
+- `--tv-launcher` モード追加
+- `--node-red-flow` / `--ui-dashboard` / `--full-spec` / `--toms-site-report` でも tv.html 自動生成
+- 監査: tv.html / tv.css / tv.js / TV_README / 10-foot UI / Leanback
+- 次版候補: v5.18 PWA Export Strengthening
+
 ## v5.16 — TiSLY UI Dashboard Template
 
 - `estimate_mode/ui_dashboard_generator.py` 追加 — NODE_RED_CONFIG / DEVICE_MAP / MQTT_TOPICS から **TISLY/UI/** PWA 自動生成

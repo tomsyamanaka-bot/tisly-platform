@@ -1,0 +1,189 @@
+/* TiSLY PLC Builder v5.17 — Google TV Launcher Template — Leanback 10-foot UI */
+:root {
+  --tv-bg: #000000;
+  --tv-surface: #1a1a1a;
+  --tv-card: #222222;
+  --tv-focus: #00c8b4;
+  --tv-alarm: #ff4757;
+  --tv-motion: #ffa502;
+  --tv-output: #2ed573;
+  --tv-text: #ffffff;
+  --tv-muted: #888888;
+  --tv-gap: clamp(1rem, 2vw, 2rem);
+  --tv-font: clamp(18px, 2vw, 28px);
+  --tv-title: clamp(2rem, 4vw, 4rem);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body.tv-launcher {
+  font-family: "Roboto", "Segoe UI", "Hiragino Sans", sans-serif;
+  background: var(--tv-bg);
+  color: var(--tv-text);
+  font-size: var(--tv-font);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.tv-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--tv-gap) calc(var(--tv-gap) * 1.5);
+  background: var(--tv-surface);
+  border-bottom: 3px solid var(--tv-focus);
+}
+
+.tv-logo {
+  color: var(--tv-focus);
+  font-weight: 700;
+  font-size: 1.2em;
+  letter-spacing: 0.1em;
+  margin-right: 1rem;
+}
+
+.tv-header h1 { font-size: var(--tv-title); display: inline; }
+
+.tv-status-bar { display: flex; gap: 1.5rem; align-items: center; font-size: 0.9em; }
+
+.tv-badge {
+  padding: 0.4em 1em;
+  border-radius: 4px;
+  font-weight: 600;
+}
+.tv-badge.offline { background: #333; color: #aaa; }
+.tv-badge.online { background: var(--tv-output); color: #000; }
+
+.tv-main {
+  flex: 1;
+  padding: var(--tv-gap);
+  max-width: 3840px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.tv-row { margin-bottom: calc(var(--tv-gap) * 1.5); }
+
+.tv-row-hero {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--tv-gap);
+}
+
+@media (max-width: 1280px) {
+  .tv-row-hero { grid-template-columns: 1fr; }
+}
+
+.tv-hero-card {
+  background: var(--tv-surface);
+  border-radius: 16px;
+  padding: var(--tv-gap);
+  border: 2px solid rgba(0, 200, 180, 0.2);
+}
+
+.tv-hero-card h2 {
+  color: var(--tv-focus);
+  font-size: 1.5em;
+  margin-bottom: 1rem;
+}
+
+.tv-hero-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.tv-stat span { display: block; color: var(--tv-muted); font-size: 0.85em; }
+.tv-stat strong { font-size: 1.3em; font-family: monospace; color: var(--tv-focus); }
+
+.tv-camera-frame {
+  background: var(--tv-surface);
+  border-radius: 16px;
+  overflow: hidden;
+  border: 2px solid #333;
+  min-height: 280px;
+}
+
+.tv-camera-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 280px;
+  color: var(--tv-muted);
+  gap: 0.5rem;
+}
+
+.tv-camera-icon { font-size: 4rem; opacity: 0.5; }
+
+.tv-section-title {
+  font-size: 1.8em;
+  color: var(--tv-focus);
+  margin-bottom: 1rem;
+}
+
+.tv-section-title .tv-count {
+  font-size: 0.6em;
+  color: var(--tv-muted);
+  font-weight: normal;
+}
+
+.tv-card-row {
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+  scroll-snap-type: x mandatory;
+}
+
+.tv-card {
+  flex: 0 0 min(320px, 40vw);
+  background: var(--tv-card);
+  border-radius: 12px;
+  padding: 1.5rem;
+  border-left: 6px solid var(--tv-muted);
+  scroll-snap-align: start;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.tv-card:focus {
+  outline: 3px solid var(--tv-focus);
+  transform: scale(1.03);
+  box-shadow: 0 8px 32px rgba(0, 200, 180, 0.3);
+}
+
+.tv-alarm { border-left-color: var(--tv-alarm); }
+.tv-motion { border-left-color: var(--tv-motion); }
+.tv-output { border-left-color: var(--tv-output); }
+
+.tv-card.active { background: rgba(255, 71, 87, 0.25); }
+.tv-motion.active { background: rgba(255, 165, 2, 0.25); }
+.tv-output.active { background: rgba(46, 213, 115, 0.25); }
+
+.tv-card-title { font-size: 1.2em; margin-bottom: 0.5rem; }
+.tv-card-plc { font-size: 0.8em; color: var(--tv-muted); font-family: monospace; }
+.tv-card-status { display: block; margin-top: 0.75rem; font-weight: 600; }
+
+.tv-empty { color: var(--tv-muted); font-style: italic; }
+
+.tv-footer {
+  text-align: center;
+  padding: 1rem;
+  color: var(--tv-muted);
+  font-size: 0.75em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+/* 1920px+ 10-foot UI */
+@media (min-width: 1920px) {
+  :root {
+    --tv-font: 26px;
+    --tv-title: 3.5rem;
+  }
+  .tv-card { flex: 0 0 380px; padding: 2rem; }
+  .tv-camera-frame { min-height: 400px; }
+}

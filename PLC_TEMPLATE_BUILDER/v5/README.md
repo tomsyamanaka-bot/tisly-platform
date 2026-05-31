@@ -578,4 +578,24 @@ python project_generator.py --quote-ready --estimate-file estimate_mode/estimate
 
 ---
 
-**TiSLY PLC Builder v5.11**
+## v5.17 Google TV Launcher Mode
+
+Google TV / Android TV 向け **10-foot UI** ランチャー（`TISLY/UI/tv.html`）を自動生成します。
+
+```powershell
+cd PLC_TEMPLATE_BUILDER/v5
+python project_generator.py --tv-launcher --estimate-file estimate_mode/estimate_sample.txt
+```
+
+追加生成物（`generated_projects/<案件名>/TISLY/UI/`）:
+
+| ファイル | 内容 |
+|----------|------|
+| tv.html | Google TV ランチャー（Leanback 10-foot UI） |
+| tv.css | 黒背景・大カード・カメラ枠スタイル |
+| tv.js | D-pad 操作 / MQTT 連携 |
+| TV_README.md | TV デプロイ手順 |
+
+---
+
+**TiSLY PLC Builder v5.17**
