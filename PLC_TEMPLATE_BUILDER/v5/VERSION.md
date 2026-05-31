@@ -2,16 +2,16 @@
 
 現在バージョン：
 
-**TiSLY PLC Builder v5.10**
+**TiSLY PLC Builder v5.11**
 
 ---
 
 | 項目 | 値 |
 |------|-----|
-| バージョン | v5.10 |
-| 名称 | TiSLY PLC Builder v5.10 |
-| 主な機能 | PLC_SELECTION 連携強化（SITE_SURVEY / TOMS / README / TEST_REPORT） |
-| ビルド | `python project_generator.py --site-survey --estimate-file estimate_mode/estimate_sample.txt` |
+| バージョン | v5.11 |
+| 名称 | TiSLY PLC Builder v5.11 |
+| 主な機能 | 単価マスター price_master.csv / ROUGH_ESTIMATE.csv / TOMS 単価・金額自動反映 |
+| ビルド | `python project_generator.py --quote-excel --estimate-file estimate_mode/estimate_sample.txt` |
 | テスト | `python project_generator.py --quote-ready --estimate-file estimate_mode/estimate_sample.txt` |
 
 ---

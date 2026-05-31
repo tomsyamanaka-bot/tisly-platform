@@ -1,4 +1,4 @@
-# AUTO_TEST_REPORT — TiSLY PLC Builder v5.10
+# AUTO_TEST_REPORT — TiSLY PLC Builder v5.11
 
 > 全生成物存在確認 + 監査 PASS 確認
 
@@ -8,7 +8,7 @@
 
 | 項目 | 値 |
 |------|-----|
-| 実行日時 (UTC) | 2026-05-30T15:58:46Z |
+| 実行日時 (UTC) | 2026-05-31T00:12:43Z |
 | 対象 | CARSHOP_NIGHT_SECURITY |
 | テスト | 全生成物存在確認 / GX 監査 |
 
@@ -36,12 +36,36 @@
 - ✓ 入力 I/O 不足: 8 点割付済
 - ✓ 出力 I/O 不足: 5 点割付済
 - ✓ 未使用点: 入力余裕 6 点 / 出力余裕 5 点（合計 11 点）
+- ✓ price_master.csv 存在: OK
 - ✓ BOM.csv 存在: OK
 - ✓ ROUGH_ESTIMATE.md 存在: OK
+- ✓ ROUGH_ESTIMATE.csv 存在: OK
+- ✓ 概算単価あり: 小計 213,000 円
+- ✓ 小計計算: 213,000 円
+- ✓ 消費税計算: 21,300 円
+- ✓ 税込合計計算: 234,300 円
+- ✓ ROUGH_ESTIMATE.csv 合計行: Subtotal/Tax/Total
 - ✓ INSTALL_NOTES.md 存在: OK
 - ✓ ORDER_MEMO.md 存在: OK
 - ✓ PLC型番あり: FX5UJ-24MR/ES
 - ✓ 電源型番あり: MeanWell HDR-60-24
+- ✓ TOMS_QUOTE_ITEMS.csv 存在: OK
+- ✓ TOMS_QUOTE_SUMMARY.md 存在: OK
+- ✓ No 連番: 8 行
+- ✓ Qty 空欄なし: OK
+- ✓ UnitPrice 入力: OK
+- ✓ Amount 入力: OK
+- ✓ Amount 計算: Qty×UnitPrice
+- ✓ TOMS 概算金額: 概算金額セクション
+- ✓ PLC項目あり: PLC
+- ✓ 24V電源項目あり: 24V電源
+- ✓ TOMS_QUOTE.xlsx 存在: OK
+- ✓ xlsx 形式有効: OK
+- ✓ 見積明細行数: 12 行（期待 12 行）
+- ✓ Excel 単価・金額欄: UnitPrice/Amount
+- ✓ Excel 小計・税・合計: 小計/消費税/税込合計
+- ✓ Excel PLC項目: PLC
+- ✓ Excel 24V電源項目: 24V電源
 - ✓ PLC_SELECTION.md 存在: OK
 - ✓ 使用入力点数あり: OK
 - ✓ 使用出力点数あり: OK
@@ -80,12 +104,36 @@
 | 入力 I/O 不足 | PASS | 8 点割付済 |
 | 出力 I/O 不足 | PASS | 5 点割付済 |
 | 未使用点 | PASS | 入力余裕 6 点 / 出力余裕 5 点（合計 11 点） |
+| price_master.csv 存在 | PASS | OK |
 | BOM.csv 存在 | PASS | OK |
 | ROUGH_ESTIMATE.md 存在 | PASS | OK |
+| ROUGH_ESTIMATE.csv 存在 | PASS | OK |
+| 概算単価あり | PASS | 小計 213,000 円 |
+| 小計計算 | PASS | 213,000 円 |
+| 消費税計算 | PASS | 21,300 円 |
+| 税込合計計算 | PASS | 234,300 円 |
+| ROUGH_ESTIMATE.csv 合計行 | PASS | Subtotal/Tax/Total |
 | INSTALL_NOTES.md 存在 | PASS | OK |
 | ORDER_MEMO.md 存在 | PASS | OK |
 | PLC型番あり | PASS | FX5UJ-24MR/ES |
 | 電源型番あり | PASS | MeanWell HDR-60-24 |
+| TOMS_QUOTE_ITEMS.csv 存在 | PASS | OK |
+| TOMS_QUOTE_SUMMARY.md 存在 | PASS | OK |
+| No 連番 | PASS | 8 行 |
+| Qty 空欄なし | PASS | OK |
+| UnitPrice 入力 | PASS | OK |
+| Amount 入力 | PASS | OK |
+| Amount 計算 | PASS | Qty×UnitPrice |
+| TOMS 概算金額 | PASS | 概算金額セクション |
+| PLC項目あり | PASS | PLC |
+| 24V電源項目あり | PASS | 24V電源 |
+| TOMS_QUOTE.xlsx 存在 | PASS | OK |
+| xlsx 形式有効 | PASS | OK |
+| 見積明細行数 | PASS | 12 行（期待 12 行） |
+| Excel 単価・金額欄 | PASS | UnitPrice/Amount |
+| Excel 小計・税・合計 | PASS | 小計/消費税/税込合計 |
+| Excel PLC項目 | PASS | PLC |
+| Excel 24V電源項目 | PASS | 24V電源 |
 | PLC_SELECTION.md 存在 | PASS | OK |
 | 使用入力点数あり | PASS | OK |
 | 使用出力点数あり | PASS | OK |
@@ -102,4 +150,4 @@
 
 **総合判定: PASS**
 
-**TiSLY PLC Builder v5.10 — AUTO_TEST_REPORT**
+**TiSLY PLC Builder v5.11 — AUTO_TEST_REPORT**

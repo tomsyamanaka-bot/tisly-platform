@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-TiSLY PLC Builder v5.10
+TiSLY PLC Builder v5.11
 見積 + 顧客入力 → 仕様書 / GX Works3 命令 / 配線図 / 納品フォルダ 自動生成
 用途別テンプレート (--template) / 日本語文章 (--nl) / 完全自動 (--full-spec) /
 見積メモ形式 (--estimate-mode) / 見積+部材表+施工メモ (--estimate-plus) /
@@ -39,8 +39,9 @@ FULL_SPEC_SAMPLE = (
     "パトライト1台。\n"
     "白色LED4台。"
 )
-VERSION = "v5.10"
+VERSION = "v5.11"
 BUILDER_NAME = f"TiSLY PLC Builder {VERSION}"
+NEXT_VERSION_CANDIDATE = "v5.12 正式単価マスター連携"
 
 VALID_TEMPLATES = (
     "HOME_SECURITY",
@@ -87,7 +88,15 @@ from bom_generator import (  # noqa: E402
     bom_contains_power,
     generate_bom_csv,
 )
-from cost_estimator import generate_rough_estimate  # noqa: E402
+from cost_estimator import (  # noqa: E402
+    build_price_summary,
+    generate_rough_estimate,
+    generate_rough_estimate_csv,
+    price_master_exists,
+    rough_estimate_csv_has_totals,
+    summary_has_priced_lines,
+    summary_totals_valid,
+)
 from install_note_generator import (  # noqa: E402
     generate_install_notes,
     generate_order_memo,
@@ -96,16 +105,22 @@ from quote_mapper import (  # noqa: E402
     generate_toms_quote_items_csv,
     generate_toms_quote_summary,
     parse_toms_quote_items_csv,
+    toms_items_all_amounts_valid,
     toms_items_all_qty_filled,
+    toms_items_have_amounts,
     toms_items_have_plc,
     toms_items_have_power,
+    toms_items_have_unit_prices,
     toms_items_sequential_nos,
+    toms_summary_has_price_section,
 )
 from excel_exporter import (  # noqa: E402
     is_valid_xlsx,
     write_toms_quote_xlsx,
     xlsx_contains_text,
     xlsx_has_plc_capacity_section,
+    xlsx_has_price_columns,
+    xlsx_has_summary_totals,
     xlsx_row_count,
 )
 from site_survey_generator import (  # noqa: E402
@@ -1699,17 +1714,20 @@ def _write_estimate_plus_spec_files(
 
     bom_text = generate_bom_csv(estimate_result)
     rough_text = generate_rough_estimate(estimate_result)
+    rough_csv_text = generate_rough_estimate_csv(estimate_result)
     install_text = generate_install_notes(estimate_result)
     order_text = generate_order_memo(estimate_result)
 
     paths = {
         "BOM.csv": spec_dir / "BOM.csv",
         "ROUGH_ESTIMATE.md": spec_dir / "ROUGH_ESTIMATE.md",
+        "ROUGH_ESTIMATE.csv": spec_dir / "ROUGH_ESTIMATE.csv",
         "INSTALL_NOTES.md": spec_dir / "INSTALL_NOTES.md",
         "ORDER_MEMO.md": spec_dir / "ORDER_MEMO.md",
     }
     paths["BOM.csv"].write_text(bom_text, encoding="utf-8")
     paths["ROUGH_ESTIMATE.md"].write_text(rough_text, encoding="utf-8")
+    paths["ROUGH_ESTIMATE.csv"].write_text(rough_csv_text, encoding="utf-8")
     paths["INSTALL_NOTES.md"].write_text(install_text, encoding="utf-8")
     paths["ORDER_MEMO.md"].write_text(order_text, encoding="utf-8")
 
@@ -1724,6 +1742,7 @@ def audit_estimate_plus_files(
     spec_dir = project_dir / "SPEC"
     bom_path = spec_dir / "BOM.csv"
     rough_path = spec_dir / "ROUGH_ESTIMATE.md"
+    rough_csv_path = spec_dir / "ROUGH_ESTIMATE.csv"
     install_path = spec_dir / "INSTALL_NOTES.md"
     order_path = spec_dir / "ORDER_MEMO.md"
 
@@ -1731,8 +1750,15 @@ def audit_estimate_plus_files(
     power_model = estimate_result.estimation.power_model
 
     bom_text = bom_path.read_text(encoding="utf-8") if bom_path.is_file() else ""
+    rough_csv_text = rough_csv_path.read_text(encoding="utf-8") if rough_csv_path.is_file() else ""
+    price_summary = build_price_summary(estimate_result)
 
     return [
+        AuditRow(
+            "price_master.csv 存在",
+            price_master_exists(),
+            "OK" if price_master_exists() else "ファイルなし",
+        ),
         AuditRow(
             "BOM.csv 存在",
             bom_path.is_file(),
@@ -1742,6 +1768,36 @@ def audit_estimate_plus_files(
             "ROUGH_ESTIMATE.md 存在",
             rough_path.is_file(),
             "OK" if rough_path.is_file() else "ファイルなし",
+        ),
+        AuditRow(
+            "ROUGH_ESTIMATE.csv 存在",
+            rough_csv_path.is_file(),
+            "OK" if rough_csv_path.is_file() else "ファイルなし",
+        ),
+        AuditRow(
+            "概算単価あり",
+            summary_has_priced_lines(price_summary),
+            f"小計 {price_summary.subtotal:,} 円",
+        ),
+        AuditRow(
+            "小計計算",
+            summary_totals_valid(price_summary),
+            f"{price_summary.subtotal:,} 円",
+        ),
+        AuditRow(
+            "消費税計算",
+            summary_totals_valid(price_summary),
+            f"{price_summary.tax:,} 円",
+        ),
+        AuditRow(
+            "税込合計計算",
+            summary_totals_valid(price_summary),
+            f"{price_summary.total:,} 円",
+        ),
+        AuditRow(
+            "ROUGH_ESTIMATE.csv 合計行",
+            rough_estimate_csv_has_totals(rough_csv_text),
+            "Subtotal/Tax/Total",
         ),
         AuditRow(
             "INSTALL_NOTES.md 存在",
@@ -1834,6 +1890,17 @@ def build_estimate_plus_project(
     )
 
 
+def _print_v511_footer(all_pass: bool) -> None:
+    """v5.11 完成表示。"""
+    print()
+    print(f"{'PASS' if all_pass else 'FAIL'}")
+    print()
+    print(BUILDER_NAME)
+    print("単価・金額自動計算")
+    print(f"自動テスト {'PASS' if all_pass else 'FAIL'}")
+    print(f"次Version候補: {NEXT_VERSION_CANDIDATE}")
+
+
 def _print_estimate_plus_completion(result: EstimatePlusBuildResult) -> None:
     er = result.estimate_result
     memo = er.memo
@@ -1856,6 +1923,7 @@ def _print_estimate_plus_completion(result: EstimatePlusBuildResult) -> None:
     print("↓")
     print("概算見積")
     print(f"  → {result.project_dir / 'SPEC' / 'ROUGH_ESTIMATE.md'}")
+    print(f"  → {result.project_dir / 'SPEC' / 'ROUGH_ESTIMATE.csv'}")
     print("↓")
     print("施工メモ")
     print(f"  → {result.project_dir / 'SPEC' / 'INSTALL_NOTES.md'}")
@@ -1866,10 +1934,7 @@ def _print_estimate_plus_completion(result: EstimatePlusBuildResult) -> None:
     for row in result.audit_rows:
         mark = "PASS" if row.passed else "FAIL"
         print(f"  [{mark}] {row.name}: {row.detail}")
-    print()
-    print(f"{'PASS' if result.all_pass else 'FAIL'}")
-    print()
-    print(f"{BUILDER_NAME} - 完成")
+    _print_v511_footer(result.all_pass)
 
 
 def run_estimate_plus_pipeline(
@@ -1898,7 +1963,10 @@ def _write_quote_ready_spec_files(
     bom_text = paths["BOM.csv"].read_text(encoding="utf-8")
     toms_items_text = generate_toms_quote_items_csv(bom_text)
     toms_items = parse_toms_quote_items_csv(toms_items_text)
-    toms_summary_text = generate_toms_quote_summary(estimate_result, len(toms_items))
+    price_summary = build_price_summary(estimate_result)
+    toms_summary_text = generate_toms_quote_summary(
+        estimate_result, len(toms_items), price_summary=price_summary
+    )
 
     paths["TOMS_QUOTE_ITEMS.csv"] = project_dir / "SPEC" / "TOMS_QUOTE_ITEMS.csv"
     paths["TOMS_QUOTE_SUMMARY.md"] = project_dir / "SPEC" / "TOMS_QUOTE_SUMMARY.md"
@@ -1915,6 +1983,7 @@ def audit_quote_ready_files(project_dir: Path) -> list[AuditRow]:
     summary_path = spec_dir / "TOMS_QUOTE_SUMMARY.md"
 
     items_text = items_path.read_text(encoding="utf-8") if items_path.is_file() else ""
+    summary_text = summary_path.read_text(encoding="utf-8") if summary_path.is_file() else ""
     items = parse_toms_quote_items_csv(items_text) if items_text else []
 
     return [
@@ -1937,6 +2006,26 @@ def audit_quote_ready_files(project_dir: Path) -> list[AuditRow]:
             "Qty 空欄なし",
             toms_items_all_qty_filled(items),
             "OK" if toms_items_all_qty_filled(items) else "空欄あり",
+        ),
+        AuditRow(
+            "UnitPrice 入力",
+            toms_items_have_unit_prices(items),
+            "OK" if toms_items_have_unit_prices(items) else "空欄",
+        ),
+        AuditRow(
+            "Amount 入力",
+            toms_items_have_amounts(items),
+            "OK" if toms_items_have_amounts(items) else "空欄",
+        ),
+        AuditRow(
+            "Amount 計算",
+            toms_items_all_amounts_valid(items),
+            "Qty×UnitPrice",
+        ),
+        AuditRow(
+            "TOMS 概算金額",
+            toms_summary_has_price_section(summary_text),
+            "概算金額セクション",
         ),
         AuditRow(
             "PLC項目あり",
@@ -2047,10 +2136,7 @@ def _print_quote_ready_completion(result: QuoteReadyBuildResult) -> None:
     for row in result.audit_rows:
         mark = "PASS" if row.passed else "FAIL"
         print(f"  [{mark}] {row.name}: {row.detail}")
-    print()
-    print(f"{'PASS' if result.all_pass else 'FAIL'}")
-    print()
-    print(f"{BUILDER_NAME} - 完成")
+    _print_v511_footer(result.all_pass)
 
 
 def run_quote_ready_pipeline(
@@ -2087,7 +2173,7 @@ def audit_quote_excel_files(
     """Quote Excel モード用の xlsx 監査。"""
     xlsx_path = project_dir / "SPEC" / "TOMS_QUOTE.xlsx"
     row_count = xlsx_row_count(xlsx_path)
-    expected_rows = expected_item_count + 1  # header + items
+    expected_rows = expected_item_count + 1 + 3  # header + items + 小計/消費税/合計
 
     return [
         AuditRow(
@@ -2104,6 +2190,16 @@ def audit_quote_excel_files(
             "見積明細行数",
             row_count == expected_rows,
             f"{row_count} 行（期待 {expected_rows} 行）",
+        ),
+        AuditRow(
+            "Excel 単価・金額欄",
+            xlsx_has_price_columns(xlsx_path),
+            "UnitPrice/Amount",
+        ),
+        AuditRow(
+            "Excel 小計・税・合計",
+            xlsx_has_summary_totals(xlsx_path),
+            "小計/消費税/税込合計",
         ),
         AuditRow(
             "Excel PLC項目",
@@ -2220,10 +2316,7 @@ def _print_quote_excel_completion(result: QuoteExcelBuildResult) -> None:
     for row in result.audit_rows:
         mark = "PASS" if row.passed else "FAIL"
         print(f"  [{mark}] {row.name}: {row.detail}")
-    print()
-    print(f"{'PASS' if result.all_pass else 'FAIL'}")
-    print()
-    print(f"{BUILDER_NAME} - 完成")
+    _print_v511_footer(result.all_pass)
 
 
 def run_quote_excel_pipeline(

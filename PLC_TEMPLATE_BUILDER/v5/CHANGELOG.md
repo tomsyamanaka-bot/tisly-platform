@@ -1,5 +1,16 @@
 # TiSLY PLC Builder v5 — CHANGELOG
 
+## v5.11 — 単価・金額自動計算
+
+- 単価マスター `estimate_mode/price_master.csv` を追加（仮単価）
+- `cost_estimator.py` 強化 — BOM.csv と price_master.csv を突合し単価・金額・税込合計を自動計算
+- `SPEC/ROUGH_ESTIMATE.csv` 生成（Subtotal / Tax / Total 行付き）
+- `TOMS_QUOTE_ITEMS.csv` に UnitPrice / Amount を自動入力
+- `TOMS_QUOTE_SUMMARY.md` に **概算金額** セクション追加
+- `TOMS_QUOTE.xlsx` に単価・金額・小計・消費税・税込合計を反映
+- 監査: price_master 存在 / ROUGH_ESTIMATE.csv / UnitPrice / Amount / 小計・税・合計 / Excel 合計行
+- **仮単価注意**: 正式見積前に部材単価を必ず確認すること
+
 ## v5.10 — PLC_SELECTION 連携強化
 
 - PLC 容量判定結果を SITE_SURVEY / TOMS_QUOTE / PROJECT_README / TEST_REPORT へ自動反映

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-TiSLY PLC Builder v5.10 — TOMS 見積連携マッパー
+TiSLY PLC Builder v5.11 — TOMS 見積連携マッパー
 BOM.csv を読み取り、TOMS 見積入力用 CSV / サマリー MD を生成する。
-PLC_SELECTION 連携で PLC容量判定セクションを含む。
+price_master.csv から単価・金額を自動反映する。
 """
 
 from __future__ import annotations
@@ -11,9 +11,15 @@ import csv
 import io
 from dataclasses import dataclass
 
+from cost_estimator import (
+    BUILDER_VERSION,
+    PriceSummary,
+    build_price_summary,
+    match_unit_price,
+    load_price_master,
+)
 from parts_mapper import EstimateBuildResult
 from plc_selection_generator import (
-    VERSION,
     PlcSelectionResult,
     analyze_plc_selection,
     format_toms_summary_plc_section,
@@ -56,10 +62,22 @@ class TomsQuoteItem:
     item_name: str
     model: str
     qty: str
+    unit_price: int | None
+    amount: int | None
     note: str
 
     def to_csv_row(self, no: int) -> tuple[str, str, str, str, str, str, str]:
-        return (str(no), self.item_name, self.model, self.qty, "", "", self.note)
+        unit_price_str = str(self.unit_price) if self.unit_price is not None else ""
+        amount_str = str(self.amount) if self.amount is not None else ""
+        return (
+            str(no),
+            self.item_name,
+            self.model,
+            self.qty,
+            unit_price_str,
+            amount_str,
+            self.note,
+        )
 
 
 def parse_bom_csv(csv_text: str) -> list[BomCsvRow]:
@@ -79,13 +97,13 @@ def parse_bom_csv(csv_text: str) -> list[BomCsvRow]:
     return rows
 
 
-def _bom_row_to_toms(row: BomCsvRow) -> TomsQuoteItem:
+def _bom_row_to_toms(row: BomCsvRow, unit_price: int | None, amount: int | None) -> TomsQuoteItem:
     """BOM 行を TOMS 見積行に変換する。"""
     if row.category == "PLC":
-        return TomsQuoteItem("PLC", row.item, row.qty, row.note)
+        return TomsQuoteItem("PLC", row.item, row.qty, unit_price, amount, row.note)
     if row.category == "Power":
-        return TomsQuoteItem("24V電源", row.item, row.qty, row.note)
-    return TomsQuoteItem(row.item, "", row.qty, row.note)
+        return TomsQuoteItem("24V電源", row.item, row.qty, unit_price, amount, row.note)
+    return TomsQuoteItem(row.item, "", row.qty, unit_price, amount, row.note)
 
 
 def _sort_key(item: TomsQuoteItem) -> tuple[int, int, str]:
@@ -93,9 +111,21 @@ def _sort_key(item: TomsQuoteItem) -> tuple[int, int, str]:
     return (order, CATEGORY_ORDER.get("Sensor", 99), item.item_name)
 
 
-def bom_rows_to_toms_items(rows: list[BomCsvRow]) -> list[TomsQuoteItem]:
-    """BOM 行リストを TOMS 見積行リストへ変換（並び替え付き）。"""
-    items = [_bom_row_to_toms(row) for row in rows]
+def bom_rows_to_toms_items(
+    rows: list[BomCsvRow],
+    price_rows: list | None = None,
+) -> list[TomsQuoteItem]:
+    """BOM 行リストを TOMS 見積行リストへ変換（単価付与・並び替え付き）。"""
+    if price_rows is None:
+        price_rows = load_price_master()
+
+    items: list[TomsQuoteItem] = []
+    for row in rows:
+        unit_price = match_unit_price(row.category, row.item, price_rows)
+        qty_int = int(row.qty) if row.qty.isdigit() else 0
+        amount = unit_price * qty_int if unit_price is not None else None
+        items.append(_bom_row_to_toms(row, unit_price, amount))
+
     return sorted(items, key=_sort_key)
 
 
@@ -111,10 +141,15 @@ def generate_toms_quote_items_csv(bom_csv_text: str) -> str:
     return buffer.getvalue()
 
 
+def _format_yen(value: int) -> str:
+    return f"{value:,}"
+
+
 def generate_toms_quote_summary(
     result: EstimateBuildResult,
     item_count: int,
     plc_selection: PlcSelectionResult | None = None,
+    price_summary: PriceSummary | None = None,
 ) -> str:
     """TOMS_QUOTE_SUMMARY.md を生成する。"""
     memo = result.memo
@@ -127,11 +162,13 @@ def generate_toms_quote_summary(
 
     if plc_selection is None:
         plc_selection = analyze_plc_selection(plc_model, input_count, output_count)
+    if price_summary is None:
+        price_summary = build_price_summary(result)
     plc_section = format_toms_summary_plc_section(plc_selection)
 
     return f"""# TOMS 見積連携サマリー — {project_title}
 
-> TiSLY PLC Builder {VERSION} 自動生成
+> {BUILDER_VERSION} 自動生成
 
 ---
 
@@ -148,12 +185,27 @@ def generate_toms_quote_summary(
 
 ---
 
+## 概算金額
+
+| 項目 | 金額 |
+|------|------|
+| 小計 | {_format_yen(price_summary.subtotal)} 円 |
+| 消費税（10%） | {_format_yen(price_summary.tax)} 円 |
+| **税込合計** | **{_format_yen(price_summary.total)} 円** |
+
+> **仮単価です。正式見積前に部材単価を必ず確認してください。**
+
+- `price_master.csv` の仮単価を BOM と突合して自動計算しています。
+- 正式見積前に部材単価・数量・型番を現場条件に合わせて確認してください。
+
+---
+
 {plc_section}
 
 ## TOMS 標準フォーマット転記メモ
 
 - `TOMS_QUOTE_ITEMS.csv` の各行を TOMS 標準見積書の明細行へ転記してください。
-- **UnitPrice** / **Amount** は本 CSV では空欄です。TOMS 側で単価・金額を入力してください。
+- **UnitPrice** / **Amount** は price_master.csv から自動入力済みです（仮単価）。
 - **Model** が空欄の行は、現場条件に合わせて型番を追記してください。
 - PLC・24V電源は BOM から型番を自動転記済みです。
 - 100V 白灯は中継リレー経由のため、リレー・接点ブロックを別途見積に含めてください。
@@ -165,7 +217,7 @@ def generate_toms_quote_summary(
 ```
 見積メモ
     ↓
-BOM.csv / ROUGH_ESTIMATE.md
+BOM.csv / ROUGH_ESTIMATE.md / ROUGH_ESTIMATE.csv
     ↓
 TOMS_QUOTE_ITEMS.csv（本ファイル群）
     ↓
@@ -174,7 +226,7 @@ TOMS 標準見積書フォーマット（TOMS_QUOTE.xlsx / 手動転記）
 
 ---
 
-**TiSLY PLC Builder {VERSION} — TOMS_QUOTE_SUMMARY**
+**{BUILDER_VERSION} — TOMS_QUOTE_SUMMARY**
 """
 
 
@@ -203,3 +255,33 @@ def toms_items_sequential_nos(items: list[dict[str, str]]) -> bool:
 
 def toms_items_all_qty_filled(items: list[dict[str, str]]) -> bool:
     return bool(items) and all((row.get("Qty") or "").strip() for row in items)
+
+
+def toms_items_have_unit_prices(items: list[dict[str, str]]) -> bool:
+    """少なくとも1行に UnitPrice が入っているか（監査用）。"""
+    return any((row.get("UnitPrice") or "").strip().isdigit() for row in items)
+
+
+def toms_items_have_amounts(items: list[dict[str, str]]) -> bool:
+    """少なくとも1行に Amount が入っているか（監査用）。"""
+    return any((row.get("Amount") or "").strip().isdigit() for row in items)
+
+
+def toms_items_all_amounts_valid(items: list[dict[str, str]]) -> bool:
+    """UnitPrice と Qty がある行は Amount = Qty × UnitPrice か（監査用）。"""
+    for row in items:
+        qty_str = (row.get("Qty") or "").strip()
+        price_str = (row.get("UnitPrice") or "").strip()
+        amount_str = (row.get("Amount") or "").strip()
+        if not qty_str.isdigit() or not price_str.isdigit():
+            continue
+        expected = int(qty_str) * int(price_str)
+        if amount_str.isdigit() and int(amount_str) == expected:
+            continue
+        return False
+    return True
+
+
+def toms_summary_has_price_section(summary_text: str) -> bool:
+    """TOMS_QUOTE_SUMMARY.md に概算金額セクションがあるか（監査用）。"""
+    return "概算金額" in summary_text and "税込合計" in summary_text

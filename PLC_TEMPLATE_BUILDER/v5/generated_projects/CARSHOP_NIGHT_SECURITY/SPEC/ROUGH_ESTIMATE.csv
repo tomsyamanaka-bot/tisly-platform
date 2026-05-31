@@ -1,0 +1,12 @@
+No,Category,Item,Model,Qty,UnitPrice,Amount,Note
+1,PLC,FX5UJ-24MR/ES,FX5UJ-24MR/ES,1,65000,65000,自動選定
+2,Power,MeanWell HDR-60-24,MeanWell HDR-60-24,1,6500,6500,24V電源
+3,Safety,非常停止,,1,3500,3500,NC推奨
+4,Sensor,赤外線ビーム,,4,18000,72000,外周検知
+5,Output,パトライト,,1,12000,12000,24V
+6,Sensor,PIRセンサー,,2,6000,12000,展示車エリア
+7,Output,白色LED,,4,8000,32000,100V
+8,Relay,100V中継リレー,,4,2500,10000,Y1〜Y4用
+,,Subtotal,,,,213000,
+,,Tax,,,,21300,
+,,Total,,,,234300,

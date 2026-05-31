@@ -1,0 +1,13 @@
+Category,Keyword,Model,UnitPrice,Note
+PLC,FX5UJ-24MR/ES,FX5UJ-24MR/ES,65000,PLC本体 仮単価
+PLC,FX5U-32MR,FX5U-32MR,95000,PLC本体 仮単価
+PLC,FX5U-48MR,FX5U-48MR,130000,PLC本体 仮単価
+Power,HDR-30-24,MeanWell HDR-30-24,4500,24V電源 仮単価
+Power,HDR-60-24,MeanWell HDR-60-24,6500,24V電源 仮単価
+Power,HDR-100-24,MeanWell HDR-100-24,9500,24V電源 仮単価
+Sensor,赤外線ビーム,,18000,赤外線ビーム 仮単価
+Sensor,PIR,,6000,PIRセンサー 仮単価
+Output,パトライト,,12000,パトライト 仮単価
+Output,白色LED,,8000,100V白色LED 仮単価
+Safety,非常停止,,3500,非常停止 仮単価
+Relay,100V中継リレー,,2500,中継リレー 仮単価

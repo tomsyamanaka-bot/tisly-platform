@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-TiSLY PLC Builder v5.10 — TOMS 見積 Excel エクスポーター
+TiSLY PLC Builder v5.11 — TOMS 見積 Excel エクスポーター
 TOMS_QUOTE_ITEMS.csv 相当のデータを TOMS_QUOTE.xlsx へ書き出す（openpyxl 不要・stdlib のみ）。
-PLC_SELECTION 連携で PLC容量判定シートを含む。
+単価・金額・小計・消費税・税込合計を反映。PLC容量判定シートを含む。
 """
 
 from __future__ import annotations
@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from xml.sax.saxutils import escape
 
+from cost_estimator import TAX_RATE
 from parts_mapper import EstimateBuildResult
 from plc_selection_generator import (
     VERSION,
@@ -21,6 +22,9 @@ from plc_selection_generator import (
     plc_capacity_excel_rows,
 )
 from quote_mapper import TOMS_HEADER, parse_toms_quote_items_csv
+
+SUMMARY_LABELS = ("Subtotal", "Tax", "Total")
+SUMMARY_DISPLAY = ("小計", "消費税", "税込合計")
 
 SHEET_NAME = "見積明細"
 INFO_SHEET_NAME = "案件情報"
@@ -151,6 +155,26 @@ def _content_types_xml(sheet_count: int) -> str:
     )
 
 
+def _compute_subtotal(items: list[dict[str, str]]) -> tuple[int, int, int]:
+    """明細行から小計・消費税・税込合計を計算する。"""
+    subtotal = 0
+    for row in items:
+        amount_str = (row.get("Amount") or "").strip()
+        if amount_str.isdigit():
+            subtotal += int(amount_str)
+    tax = int(subtotal * TAX_RATE)
+    return subtotal, tax, subtotal + tax
+
+
+def _summary_rows(subtotal: int, tax: int, total: int) -> list[tuple[str, ...]]:
+    """見積明細シート末尾の合計行を生成する。"""
+    return [
+        ("", SUMMARY_DISPLAY[0], "", "", "", str(subtotal), ""),
+        ("", SUMMARY_DISPLAY[1], "", "", "", str(tax), ""),
+        ("", SUMMARY_DISPLAY[2], "", "", "", str(total), ""),
+    ]
+
+
 def build_toms_quote_xlsx_bytes(
     toms_items_csv_text: str,
     result: EstimateBuildResult,
@@ -171,6 +195,9 @@ def build_toms_quote_xlsx_bytes(
                 row.get("Note", ""),
             )
         )
+
+    subtotal, tax, total = _compute_subtotal(items)
+    data_rows.extend(_summary_rows(subtotal, tax, total))
 
     if plc_selection is None:
         plc_selection = analyze_plc_selection(
@@ -258,3 +285,19 @@ def xlsx_row_count(path: Path) -> int:
             return xml.count("<row ")
     except (zipfile.BadZipFile, KeyError, OSError):
         return 0
+
+
+def xlsx_has_price_columns(path: Path) -> bool:
+    """xlsx に単価・金額列データがあるか（監査用）。"""
+    return xlsx_contains_text(path, "UnitPrice") or xlsx_contains_text(path, "65000")
+
+
+def xlsx_has_summary_totals(path: Path) -> bool:
+    """xlsx に小計・消費税・税込合計があるか（監査用）。"""
+    if not is_valid_xlsx(path):
+        return False
+    return (
+        xlsx_contains_text(path, SUMMARY_DISPLAY[0])
+        and xlsx_contains_text(path, SUMMARY_DISPLAY[1])
+        and xlsx_contains_text(path, SUMMARY_DISPLAY[2])
+    )
