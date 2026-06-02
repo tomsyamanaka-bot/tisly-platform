@@ -4,57 +4,84 @@ import path from "path";
 dotenv.config({ path: path.join(process.cwd(), ".env") });
 dotenv.config({ path: path.join(process.cwd(), "..", ".env") });
 
+function env(key: string, fallback = ""): string {
+  return process.env[key] ?? fallback;
+}
+
 export const config = {
-  nodeEnv: process.env.NODE_ENV ?? "development",
-  port: Number(process.env.TISLY_PORT ?? process.env.PORT ?? 3080),
-  host: process.env.TISLY_HOST ?? "0.0.0.0",
-  publicUrl:
-    process.env.TISLY_PUBLIC_URL ??
-    process.env.PUBLIC_BASE_URL ??
-    "https://tisly.jp",
-  dbPath:
-    process.env.TISLY_DB_PATH ??
-    (process.env.DATABASE_URL?.startsWith("sqlite://")
-      ? process.env.DATABASE_URL.replace("sqlite://", "")
-      : "./data/tisly_notifications.db"),
-  defaultTenantId: process.env.DEFAULT_TENANT_ID ?? "default",
-  ingestSecret: process.env.INGEST_SECRET ?? "",
+  nodeEnv: env("NODE_ENV", "development"),
+  port: Number(env("TISLY_PORT") || env("PORT") || "3080"),
+  host: env("TISLY_HOST", "0.0.0.0"),
+  get publicUrl() {
+    return env("TISLY_PUBLIC_URL") || env("PUBLIC_BASE_URL") || "https://tisly.jp";
+  },
+  get dbPath() {
+    const url = env("DATABASE_URL");
+    if (url.startsWith("sqlite://")) return url.replace("sqlite://", "");
+    return env("TISLY_DB_PATH", "./data/tisly_notifications.db");
+  },
+  defaultTenantId: env("DEFAULT_TENANT_ID", "default"),
+  get ingestSecret() {
+    return env("INGEST_SECRET");
+  },
   mqtt: {
-    url: process.env.MQTT_URL ?? "mqtt://127.0.0.1:1883",
-    username: process.env.MQTT_USERNAME ?? "",
-    password: process.env.MQTT_PASSWORD ?? "",
-    topicPrefix: process.env.MQTT_TOPIC_PREFIX ?? "tisly/#",
-    clientId: process.env.MQTT_CLIENT_ID ?? "tisly-notification-core",
+    url: env("MQTT_URL", "mqtt://127.0.0.1:1883"),
+    username: env("MQTT_USERNAME"),
+    password: env("MQTT_PASSWORD"),
+    topicPrefix: env("MQTT_TOPIC_PREFIX", "tisly/#"),
+    clientId: env("MQTT_CLIENT_ID", "tisly-notification-core"),
   },
   vapid: {
-    publicKey: process.env.VAPID_PUBLIC_KEY ?? "",
-    privateKey: process.env.VAPID_PRIVATE_KEY ?? "",
-    subject: process.env.VAPID_SUBJECT ?? "mailto:admin@tisly.jp",
+    publicKey: env("VAPID_PUBLIC_KEY"),
+    privateKey: env("VAPID_PRIVATE_KEY"),
+    subject: env("VAPID_SUBJECT", "mailto:admin@tisly.jp"),
   },
   discord: {
-    webhookUrl: process.env.DISCORD_WEBHOOK_URL ?? "",
+    get webhookUrl() {
+      return env("DISCORD_WEBHOOK_URL");
+    },
   },
   smtp: {
-    host: process.env.SMTP_HOST ?? "smtp.gmail.com",
-    port: Number(process.env.SMTP_PORT ?? 587),
-    user: process.env.SMTP_USER ?? "",
-    pass: process.env.SMTP_PASS ?? process.env.SMTP_PASSWORD ?? "",
-    from: process.env.SMTP_FROM ?? "noreply@tisly.jp",
-    adminEmail: process.env.ADMIN_EMAIL ?? "",
+    host: env("SMTP_HOST", "smtp.gmail.com"),
+    port: Number(env("SMTP_PORT", "587")),
+    user: env("SMTP_USER"),
+    pass: env("SMTP_PASS") || env("SMTP_PASSWORD"),
+    from: env("SMTP_FROM", "noreply@tisly.jp"),
+    adminEmail: env("ADMIN_EMAIL"),
   },
   heartbeat: {
-    warnSec: Number(process.env.HEARTBEAT_WARN_SEC ?? 30),
-    alarmSec: Number(process.env.HEARTBEAT_ALARM_SEC ?? 300),
+    warnSec: Number(env("HEARTBEAT_WARN_SEC", "30")),
+    alarmSec: Number(env("HEARTBEAT_ALARM_SEC", "300")),
   },
-  demoMode: process.env.TISLY_DEMO_MODE === "true",
-  demoAutoStart: process.env.TISLY_DEMO_AUTO_START === "true",
+  get demoMode() {
+    return env("TISLY_DEMO_MODE") === "true";
+  },
+  get demoAutoStart() {
+    return env("TISLY_DEMO_AUTO_START") === "true";
+  },
   qnap: {
-    mode: (process.env.QNAP_MODE ?? "mock") as "mock" | "real",
-    host: process.env.QNAP_HOST ?? "",
-    share: process.env.QNAP_SHARE ?? "TiSLY",
-    username: process.env.QNAP_USERNAME ?? "",
-    password: process.env.QNAP_PASSWORD ?? "",
-    basePath: process.env.QNAP_BASE_PATH ?? "/TiSLY",
+    get mode() {
+      return (env("QNAP_MODE", "mock") as "mock" | "real");
+    },
+    host: env("QNAP_HOST"),
+    share: env("QNAP_SHARE", "TiSLY"),
+    username: env("QNAP_USERNAME"),
+    password: env("QNAP_PASSWORD"),
+    basePath: env("QNAP_BASE_PATH", "/TiSLY"),
   },
-  rc1Phase: "141-160-rc1",
+  rc1Phase: "161-180-security-rc1",
+  auth: {
+    get jwtSecret() {
+      return env("JWT_SECRET");
+    },
+    get adminUsername() {
+      return env("ADMIN_USERNAME", "admin");
+    },
+    get adminPasswordHash() {
+      return env("ADMIN_PASSWORD_HASH");
+    },
+    get sessionExpiresMinutes() {
+      return Number(env("SESSION_EXPIRES_MINUTES", "480"));
+    },
+  },
 };

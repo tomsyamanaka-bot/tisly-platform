@@ -6,8 +6,19 @@ import { recordHeartbeat } from "../../notification/heartbeat-monitor.js";
 import { getNotificationService } from "../../notification/notification-service.js";
 import { runDeviceRecovery } from "../../recovery/device-recovery.js";
 import { broadcast } from "../../ws/hub.js";
+import { requireIngestOrDeviceAuth } from "../../auth/device-auth.js";
+import { rateLimit } from "../../security/rate-limit.js";
 
 export const testRouter = Router();
+
+const testLimiter = rateLimit({
+  keyPrefix: "test-api",
+  max: 60,
+  windowMs: 60 * 1000,
+});
+
+testRouter.use(testLimiter);
+testRouter.use(requireIngestOrDeviceAuth);
 
 function baseBody(overrides: Record<string, unknown> = {}) {
   return {

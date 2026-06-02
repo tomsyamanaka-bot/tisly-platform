@@ -1,5 +1,12 @@
 import { apiGet, apiPost } from "./api.js";
 
+const RECOVERY_CONFIRM_ACTIONS = {
+  restart_device: "デバイスを再起動要求します。現場の通信が一時停止する可能性があります。",
+  restart_mqtt: "MQTT ブローカー再起動を記録します。全デバイスの接続に影響します。",
+  restart_node_red: "Node-RED 再起動を記録します。ingest が一時停止します。",
+  escalate: "エスカレーションを実行します。上位担当者へ通知されます。",
+};
+
 async function loadConsole() {
   const data = await apiGet("/api/recovery/console");
   document.getElementById("recovery-overview").innerHTML = `
@@ -30,6 +37,15 @@ document.querySelectorAll("[data-action]").forEach((btn) => {
   btn.addEventListener("click", async () => {
     const action = btn.dataset.action;
     const deviceId = document.getElementById("action-device").value;
+    const message = RECOVERY_CONFIRM_ACTIONS[action] ?? "この操作を実行します。";
+    const label = btn.textContent?.trim() ?? action;
+    const ok = window.confirm(
+      `【確認】${label}\n\n${message}\n\n本当に実行しますか？`
+    );
+    if (!ok) {
+      document.getElementById("action-result").textContent = "キャンセルしました";
+      return;
+    }
     const body = { action, reason: "recovery_console" };
     if (action === "restart_device" || action === "escalate") {
       if (!deviceId) {

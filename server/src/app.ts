@@ -3,6 +3,7 @@ import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 import { analyticsRouter } from "./api/routes/analytics.js";
+import { authRouter } from "./api/routes/auth.js";
 import { dashboardRouter } from "./api/routes/dashboard.js";
 import { demoRouter } from "./api/routes/demo.js";
 import { devicesRouter } from "./api/routes/devices.js";
@@ -21,6 +22,8 @@ import { tenantsRouter } from "./api/routes/tenants.js";
 import { reportsRouter } from "./api/routes/reports.js";
 import { healthFullRouter } from "./api/routes/health-full.js";
 import { notificationRulesRouter } from "./api/routes/notification-rules.js";
+import { securityRouter } from "./api/routes/security.js";
+import { requireAdminAuth } from "./auth/auth-middleware.js";
 import { config } from "./config.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -31,25 +34,30 @@ export function createApp(): express.Application {
   app.use(cors());
   app.use(express.json());
 
+  app.use("/api/auth", authRouter);
+
   app.use("/api/events", eventsRouter);
   app.use("/api/notifications", notificationsRouter);
   app.use("/api/devices", devicesRouter);
   app.use("/api/heartbeat", heartbeatRouter);
   app.use("/api/dashboard", dashboardRouter);
-  app.use("/api/settings", settingsRouter);
   app.use("/api/demo", demoRouter);
   app.use("/api/analytics", analyticsRouter);
-  app.use("/api/recovery", recoveryRouter);
-  app.use("/api/qnap", qnapRouter);
-  app.use("/api/ops", socNocRouter);
   app.use("/api/test", testRouter);
+
+  app.use("/api/settings", requireAdminAuth, settingsRouter);
+  app.use("/api/recovery", requireAdminAuth, recoveryRouter);
+  app.use("/api/qnap", requireAdminAuth, qnapRouter);
+  app.use("/api/ops", requireAdminAuth, socNocRouter);
+  app.use("/api/sites", requireAdminAuth, sitesRouter);
+  app.use("/api/provisioning", requireAdminAuth, provisioningRouter);
+  app.use("/api/tenants", requireAdminAuth, tenantsRouter);
+  app.use("/api/reports", requireAdminAuth, reportsRouter);
+  app.use("/api/notification-rules", requireAdminAuth, notificationRulesRouter);
+  app.use("/api/security", securityRouter);
+
   app.use("/api/tv", tvRouter);
-  app.use("/api/sites", sitesRouter);
-  app.use("/api/provisioning", provisioningRouter);
-  app.use("/api/tenants", tenantsRouter);
-  app.use("/api/reports", reportsRouter);
   app.use("/api/health", healthFullRouter);
-  app.use("/api/notification-rules", notificationRulesRouter);
 
   app.get("/setup", (_req, res) => {
     res.sendFile(path.join(publicDir, "setup.html"));
@@ -98,25 +106,23 @@ export function createApp(): express.Application {
     res.json({
       status: "ok",
       service: "tisly-notification-platform",
-      phase: "141-160-rc1",
-      platform: "rc1-production-candidate",
+      phase: "161-180-security-rc1",
+      platform: "security-hardened-rc1",
       demoMode: config.demoMode,
       features: [
-        "site-provisioning",
-        "device-provisioning",
-        "qr-onboarding",
-        "pwa-setup-wizard",
-        "multi-site-tenant",
-        "recovery-console",
-        "notification-rule-builder",
-        "audit-log",
-        "operations-reports",
-        "qnap-mode-switch",
-        "ai-analytics",
-        "recovery-engine",
-        "qnap-archive",
-        "tv-pairing",
-        "unified-mqtt",
+        "admin-jwt-auth",
+        "device-secret-validation",
+        "ingest-secret-validation",
+        "audit-log-enhanced",
+        "secret-rotation",
+        "tv-pairing-limits",
+        "qnap-retention-purge",
+        "scheduled-backup",
+        "api-rate-limiting",
+        "health-monitor-full",
+        "operations-security-tab",
+        "recovery-confirm-guard",
+        "report-export-audit",
       ],
     });
   });

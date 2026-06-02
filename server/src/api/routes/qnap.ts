@@ -12,6 +12,13 @@ import {
   generateCustomerReport,
 } from "../../qnap/qnap-client.js";
 import { config } from "../../config.js";
+import {
+  getRetentionPolicy,
+  purgeArchives,
+  type RetentionDays,
+} from "../../qnap/retention-manager.js";
+import { auditContextFromRequest, logAudit } from "../../provisioning/audit-log.js";
+import type { AuthedRequest } from "../../auth/auth-middleware.js";
 
 export const qnapRouter = Router();
 
@@ -133,6 +140,29 @@ qnapRouter.post("/export", (req, res) => {
     return;
   }
   res.json({ ...autoExport(format, days), mock: !process.env.QNAP_HOST });
+});
+
+qnapRouter.get("/retention", (_req, res) => {
+  res.json(getRetentionPolicy());
+});
+
+qnapRouter.post("/purge/dry-run", (req: AuthedRequest, res) => {
+  const days = Number(req.body?.retentionDays ?? req.body?.days ?? 90) as RetentionDays;
+  const result = purgeArchives({ retentionDays: days, dryRun: true });
+  res.json(result);
+});
+
+qnapRouter.post("/purge", (req: AuthedRequest, res) => {
+  const days = Number(req.body?.retentionDays ?? req.body?.days ?? 90) as RetentionDays;
+  const result = purgeArchives({ retentionDays: days, dryRun: false });
+  logAudit({
+    action: "qnap.purge",
+    targetType: "archive",
+    targetId: String(days),
+    afterJson: result as unknown as Record<string, unknown>,
+    ...auditContextFromRequest(req),
+  });
+  res.json(result);
 });
 
 qnapRouter.get("/report/:type", (req, res) => {

@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from "./api.js";
+import { apiGet, apiPost, apiLogin, apiLogout, getAdminToken } from "./api.js";
 import { mountSiteSelector, mountTenantSelector, getSelectedSiteId } from "./selectors.js";
 
 const panels = document.querySelectorAll(".ops-panel");
@@ -258,6 +258,57 @@ async function loadTv() {
     .join("") || "<tr><td colspan='5'>TV 未登録</td></tr>";
 }
 
+async function loadSecurity() {
+  const statusEl = document.getElementById("security-auth-status");
+  const grid = document.getElementById("security-grid");
+  const auditEl = document.getElementById("security-audit-body");
+  const token = getAdminToken();
+  if (!token) {
+    if (statusEl) statusEl.textContent = "未ログイン — 管理 API は認証が必要です";
+    if (grid) grid.innerHTML = "";
+    if (auditEl) auditEl.innerHTML = "<tr><td colspan='4'>ログイン後に表示</td></tr>";
+    return;
+  }
+  try {
+    const data = await apiGet("/api/security/overview");
+    if (statusEl) {
+      statusEl.textContent = data.auth?.configured
+        ? `ログイン中: ${data.auth.user?.username ?? "admin"}`
+        : "認証未設定（.env に JWT_SECRET を設定）";
+    }
+    if (grid) {
+      grid.innerHTML = `
+        <div class="health-card"><h3>認証</h3><p>${data.auth?.configured ? "OK" : "未設定"}</p><p>失敗ログイン: ${data.auth?.failedLoginCount ?? 0}</p></div>
+        <div class="health-card"><h3>Device Secrets</h3><p>有効: ${data.deviceSecrets?.active ?? 0}</p><p>Ingest: ${data.deviceSecrets?.ingestConfigured ? "設定済" : "未設定"}</p></div>
+        <div class="health-card"><h3>TV</h3><p>ペアリング中: ${data.tvPairing?.pairing ?? 0}</p><p>無効化: ${data.tvPairing?.revoked ?? 0}</p></div>
+        <div class="health-card"><h3>Ingest エラー</h3><p>${data.ingestErrors ?? 0}</p></div>`;
+    }
+    if (auditEl) {
+      auditEl.innerHTML = (data.auditLogSample ?? [])
+        .map(
+          (a) =>
+            `<tr><td>${a.createdAt}</td><td>${a.action}</td><td>${a.targetType ?? ""} ${a.targetId ?? ""}</td><td>${a.userId ?? a.actorLabel}</td></tr>`
+        )
+        .join("") || "<tr><td colspan='4'>なし</td></tr>";
+    }
+  } catch (e) {
+    if (statusEl) statusEl.textContent = e.message;
+  }
+}
+
+document.getElementById("btn-sec-login")?.addEventListener("click", async () => {
+  const username = document.getElementById("sec-username")?.value || "admin";
+  const password = document.getElementById("sec-password")?.value || "";
+  await apiLogin(username, password);
+  await loadSecurity();
+  await refreshAll();
+});
+
+document.getElementById("btn-sec-logout")?.addEventListener("click", async () => {
+  await apiLogout();
+  await loadSecurity();
+});
+
 async function loadRecoveryOps() {
   const data = await apiGet("/api/recovery/console");
   const el = document.getElementById("recovery-ops-summary");
@@ -363,6 +414,7 @@ async function refreshAll() {
     loadSites(),
     loadTv(),
     loadRecoveryOps(),
+    loadSecurity(),
   ]);
   renderCameras(4);
 }

@@ -3,23 +3,53 @@
 TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。  
 三菱電機 **FX 系** PLC と **GX Works2 / GX Works3** を想定しています。
 
+## TiSLY Platform — Security Hardened RC1（Phase 161–180）
+
+**営業デモ → 実証運用（安全寄り）** — 管理 API JWT 認証、device/ingest secret 検証、監査ログ強化、QNAP 保持・purge、バックアップ、レート制限。
+
+| 領域 | パス / URL |
+|------|------------|
+| 管理者認証 | `POST /api/auth/login` · `JWT_SECRET` + `ADMIN_PASSWORD_HASH` |
+| Device secret | ヘッダ `x-tisly-device-id` / `x-tisly-device-secret` |
+| Ingest secret | ヘッダ `x-tisly-ingest-secret` · `POST /api/events/ingest` |
+| Secret ローテーション | `docs/secret_rotation.md` |
+| 監査ログ | `audit_logs` · `/operations` Security タブ |
+| QNAP retention | `GET /api/qnap/retention` · `POST /api/qnap/purge` |
+| バックアップ | `docs/backup_strategy.md` · `POST /api/security/backup/run` |
+| MQTT TLS/ACL | `server/deploy/mosquitto/` · `docs/mqtt_security_acl_tls.md` |
+| セキュリティチェックリスト | `docs/rc1_security_checklist.md` |
+| PostgreSQL 移行準備 | `docs/postgresql_migration.md` |
+| E2E + Security テスト | `server/test/e2e.test.ts` · `server/test/security.test.ts` |
+
+```bash
+cd server && npm run build && npm run test
+# パスワードハッシュ生成（ビルド後）:
+# node -e "import('./dist/auth/password.js').then(m=>console.log(m.hashPassword('your-pass')))"
+# http://localhost:3080/operations — Security タブでログイン
+```
+
+**本番投入前**: `docs/rc1_security_checklist.md` をすべて確認。
+
+---
+
 ## TiSLY Platform — RC1 Production Candidate（Phase 141–160）
 
 **営業デモ → 実証運用** — 現場プロビジョニング、PWA セットアップウィザード、Recovery Console、マルチ現場/顧客、運用レポート。
 
 | 領域 | パス / URL |
 |------|------------|
-| Site Provisioning | `server/src/provisioning/` · `POST /api/sites/create` |
+| Site Provisioning | `server/src/provisioning/` · `POST /api/sites/create`（要認証） |
 | テンプレート 7 種 | `GET /api/sites/templates` |
 | Device + QR | `POST /api/provisioning/devices` · `/setup` |
-| Recovery Console | `/recovery` · `POST /api/recovery/actions` |
-| 運用レポート | `GET /api/reports/operations?format=csv\|json\|pdf` |
+| Recovery Console | `/recovery` · confirm 付き手動実行 |
+| 運用レポート | `GET /api/reports/operations?format=csv\|json\|pdf`（export_id 記録） |
 | RC1 チェックリスト | `docs/rc1_checklist.md` |
 | 営業デモ Runbook | `docs/demo_runbook.md` |
 | 本番前 TODO | `docs/production_todo.md` |
 
 ```bash
 cd server && npm run build && npm run test
+cd tv-app && npx tsc --noEmit
 # http://localhost:3080/setup  — 初回ウィザード
 # http://localhost:3080/operations
 ```

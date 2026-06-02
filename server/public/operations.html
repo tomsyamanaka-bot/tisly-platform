@@ -31,7 +31,7 @@
     </div>
 
     <div class="demo-banner">
-      <strong>RC1 Phase 141–160</strong> — Site Provisioning + Operations —
+      <strong>RC1 Phase 161–180</strong> — Security Hardened Operations —
       <span id="demo-status">読込中…</span>
       <button class="btn" id="btn-demo-start" type="button">デモ開始</button>
       <button class="btn secondary" id="btn-demo-stop" type="button">停止</button>
@@ -63,6 +63,7 @@
         <button type="button" data-panel="tv">TV</button>
         <button type="button" data-panel="recovery">Recovery</button>
         <button type="button" data-panel="health">Health Monitor</button>
+        <button type="button" data-panel="security">Security</button>
         <button type="button" data-panel="cameras">Demo Camera</button>
       </aside>
 
@@ -156,9 +157,26 @@
           <h2>Health Monitor</h2>
           <div class="health-grid" id="health-grid"></div>
           <p style="margin-top:1rem">
-            <a href="/api/reports/operations?format=csv">運用レポート CSV</a> ·
-            <a href="/api/reports/operations?format=json">JSON</a>
+            <a href="/api/reports/operations?format=csv" id="link-report-csv">運用レポート CSV</a> ·
+            <a href="/api/reports/operations?format=json" id="link-report-json">JSON</a>
           </p>
+        </section>
+
+        <section id="panel-security" class="ops-panel card">
+          <h2>Security</h2>
+          <div id="security-login" style="margin-bottom:1rem">
+            <input id="sec-username" placeholder="管理者ユーザー" style="padding:0.4rem;margin-right:0.5rem" />
+            <input id="sec-password" type="password" placeholder="パスワード" style="padding:0.4rem;margin-right:0.5rem" />
+            <button class="btn" type="button" id="btn-sec-login">ログイン</button>
+            <button class="btn secondary" type="button" id="btn-sec-logout">ログアウト</button>
+          </div>
+          <p id="security-auth-status"></p>
+          <div class="health-grid" id="security-grid"></div>
+          <h3>監査ログ（直近）</h3>
+          <table>
+            <thead><tr><th>時刻</th><th>操作</th><th>対象</th><th>ユーザー</th></tr></thead>
+            <tbody id="security-audit-body"></tbody>
+          </table>
         </section>
 
         <section id="panel-cameras" class="ops-panel card">

@@ -1,3 +1,11 @@
+process.env.JWT_SECRET = "e2e-test-jwt-secret-32-characters-long!!";
+process.env.ADMIN_USERNAME = "admin";
+process.env.INGEST_SECRET = "e2e-ingest-secret";
+
+import { hashPassword } from "../src/auth/password.js";
+
+process.env.ADMIN_PASSWORD_HASH = hashPassword("e2epass");
+
 import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import request from "supertest";
@@ -6,26 +14,39 @@ import { getDatabase } from "../src/db/database.js";
 
 const app = createApp();
 
+async function adminHeaders(): Promise<Record<string, string>> {
+  const login = await request(app)
+    .post("/api/auth/login")
+    .send({ username: "admin", password: "e2epass" });
+  assert.equal(login.status, 200);
+  return { Authorization: `Bearer ${login.body.token}` };
+}
+
 before(() => {
   getDatabase();
 });
 
-describe("TiSLY E2E API (Phase 141-160 RC1)", () => {
-  it("GET /health returns phase 141-160-rc1", async () => {
+describe("TiSLY E2E API (Phase 161-180 Security RC1)", () => {
+  it("GET /health returns phase 161-180-security-rc1", async () => {
     const res = await request(app).get("/health");
     assert.equal(res.status, 200);
-    assert.equal(res.body.phase, "141-160-rc1");
+    assert.equal(res.body.phase, "161-180-security-rc1");
   });
 
-  it("GET /api/sites/templates", async () => {
-    const res = await request(app).get("/api/sites/templates");
+  it("GET /api/sites/templates requires auth", async () => {
+    const denied = await request(app).get("/api/sites/templates");
+    assert.equal(denied.status, 401);
+    const auth = await adminHeaders();
+    const res = await request(app).get("/api/sites/templates").set(auth);
     assert.equal(res.status, 200);
     assert.ok(res.body.templates.length >= 7);
   });
 
   it("POST /api/sites/create with template", async () => {
+    const auth = await adminHeaders();
     const res = await request(app)
       .post("/api/sites/create")
+      .set(auth)
       .send({ name: "E2E RC1 Site", templateId: "kodate" });
     assert.equal(res.status, 201);
     assert.ok(res.body.site.id);
@@ -33,12 +54,15 @@ describe("TiSLY E2E API (Phase 141-160 RC1)", () => {
   });
 
   it("POST /api/provisioning/devices", async () => {
+    const auth = await adminHeaders();
     const site = await request(app)
       .post("/api/sites/create")
+      .set(auth)
       .send({ name: "E2E Provision Site", templateId: "warehouse" });
     const siteId = site.body.site.id;
     const res = await request(app)
       .post("/api/provisioning/devices")
+      .set(auth)
       .send({ siteId, deviceType: "gateway" });
     assert.equal(res.status, 201);
     assert.ok(res.body.deviceId);
@@ -50,11 +74,13 @@ describe("TiSLY E2E API (Phase 141-160 RC1)", () => {
     const res = await request(app).get("/api/health");
     assert.equal(res.status, 200);
     assert.ok(res.body.components.server);
+    assert.ok(res.body.components.auth);
   });
 
-  it("POST /api/devices/register", async () => {
+  it("POST /api/devices/register with ingest secret", async () => {
     const res = await request(app)
       .post("/api/devices/register")
+      .set("x-tisly-ingest-secret", "e2e-ingest-secret")
       .send({
         deviceId: "E2E-TEST-DEVICE",
         deviceType: "gateway",
@@ -65,16 +91,20 @@ describe("TiSLY E2E API (Phase 141-160 RC1)", () => {
     assert.equal(res.body.deviceId, "E2E-TEST-DEVICE");
   });
 
-  it("POST /api/test/event", async () => {
+  it("POST /api/test/event with ingest secret", async () => {
     const res = await request(app)
       .post("/api/test/event")
+      .set("x-tisly-ingest-secret", "e2e-ingest-secret")
       .send({ message: "e2e test event" });
     assert.equal(res.status, 201);
     assert.equal(res.body.ok, true);
   });
 
-  it("POST /api/test/alarm", async () => {
-    const res = await request(app).post("/api/test/alarm").send({});
+  it("POST /api/test/alarm with ingest secret", async () => {
+    const res = await request(app)
+      .post("/api/test/alarm")
+      .set("x-tisly-ingest-secret", "e2e-ingest-secret")
+      .send({});
     assert.equal(res.status, 201);
     assert.equal(res.body.ok, true);
   });
@@ -99,7 +129,8 @@ describe("TiSLY E2E API (Phase 141-160 RC1)", () => {
   });
 
   it("GET /api/qnap/status", async () => {
-    const res = await request(app).get("/api/qnap/status");
+    const auth = await adminHeaders();
+    const res = await request(app).get("/api/qnap/status").set(auth);
     assert.equal(res.status, 200);
     assert.ok(res.body);
   });

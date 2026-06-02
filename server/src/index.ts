@@ -8,8 +8,10 @@ import { startMqttSubscriber } from "./mqtt/mqtt-subscriber.js";
 import { getNotificationService } from "./notification/notification-service.js";
 import { startRecoveryEngine } from "./recovery/recovery-engine.js";
 import { registerWsClient } from "./ws/hub.js";
+import { startBackupScheduler } from "./backup/backup-scheduler.js";
 
 getDatabase();
+startBackupScheduler();
 
 const app = createApp();
 

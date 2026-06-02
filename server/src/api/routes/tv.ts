@@ -8,10 +8,28 @@ import {
 } from "../../event/unified-event.js";
 import { getNotificationService } from "../../notification/notification-service.js";
 import { broadcast } from "../../ws/hub.js";
+import { requireAdminAuth, type AuthedRequest } from "../../auth/auth-middleware.js";
+import { auditContextFromRequest, logAudit } from "../../provisioning/audit-log.js";
+import { rateLimit } from "../../security/rate-limit.js";
 
 export const tvRouter = Router();
 
 const PAIRING_TTL_MS = 10 * 60 * 1000;
+const MAX_PAIRING_ATTEMPTS = 5;
+const PAIRING_LOCK_MS = 15 * 60 * 1000;
+
+const pairingStartLimiter = rateLimit({
+  keyPrefix: "tv-pairing-start",
+  max: 20,
+  windowMs: 15 * 60 * 1000,
+  keyFn: (req) => (req.body as { deviceId?: string })?.deviceId ?? "",
+});
+
+const pairingConfirmLimiter = rateLimit({
+  keyPrefix: "tv-pairing-confirm",
+  max: 30,
+  windowMs: 15 * 60 * 1000,
+});
 
 interface TvDeviceRow {
   id: string;
@@ -25,6 +43,7 @@ interface TvDeviceRow {
   last_seen_at: string | null;
   status: string | null;
   settings_json: string | null;
+  revoked_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -48,6 +67,7 @@ function formatTvDevice(row: TvDeviceRow) {
     pairedAt: row.paired_at,
     lastSeenAt: row.last_seen_at,
     status: row.status ?? "pending",
+    revokedAt: row.revoked_at,
     settings: parseSettings(row.settings_json),
     hasActivePairingCode: !!(
       row.pairing_code &&
@@ -74,7 +94,63 @@ function generatePairingCode(): string {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
 
-tvRouter.post("/pairing/start", (req, res) => {
+function expireStalePairingCodes(): void {
+  getDatabase().prepare(
+    `UPDATE tv_devices SET
+       pairing_code = NULL,
+       pairing_expires_at = NULL,
+       status = CASE WHEN paired_at IS NULL THEN 'expired' ELSE status END,
+       updated_at = datetime('now')
+     WHERE pairing_expires_at IS NOT NULL AND pairing_expires_at < datetime('now')`
+  ).run();
+}
+
+function getPairingLock(deviceId: string, ip: string): { locked: boolean; attempts: number } {
+  const db = getDatabase();
+  const row = db
+    .prepare(
+      `SELECT attempt_count, locked_until FROM tv_pairing_attempts
+       WHERE device_id = ? AND ip_address = ?`
+    )
+    .get(deviceId, ip) as { attempt_count: number; locked_until: string | null } | undefined;
+  if (!row) return { locked: false, attempts: 0 };
+  if (row.locked_until && new Date(row.locked_until).getTime() > Date.now()) {
+    return { locked: true, attempts: row.attempt_count };
+  }
+  return { locked: false, attempts: row.attempt_count };
+}
+
+function recordPairingFailure(deviceId: string, ip: string): number {
+  const db = getDatabase();
+  const row = db
+    .prepare(
+      `SELECT attempt_count FROM tv_pairing_attempts WHERE device_id = ? AND ip_address = ?`
+    )
+    .get(deviceId, ip) as { attempt_count: number } | undefined;
+  const next = (row?.attempt_count ?? 0) + 1;
+  const lockedUntil =
+    next >= MAX_PAIRING_ATTEMPTS
+      ? new Date(Date.now() + PAIRING_LOCK_MS).toISOString()
+      : null;
+  db.prepare(
+    `INSERT INTO tv_pairing_attempts (device_id, ip_address, attempt_count, locked_until, updated_at)
+     VALUES (?, ?, ?, ?, datetime('now'))
+     ON CONFLICT(device_id, ip_address) DO UPDATE SET
+       attempt_count = excluded.attempt_count,
+       locked_until = excluded.locked_until,
+       updated_at = datetime('now')`
+  ).run(deviceId, ip, next, lockedUntil);
+  return next;
+}
+
+function clearPairingAttempts(deviceId: string, ip: string): void {
+  getDatabase()
+    .prepare("DELETE FROM tv_pairing_attempts WHERE device_id = ? AND ip_address = ?")
+    .run(deviceId, ip);
+}
+
+tvRouter.post("/pairing/start", pairingStartLimiter, (req, res) => {
+  expireStalePairingCodes();
   const {
     deviceId,
     tvDeviceId,
@@ -92,6 +168,13 @@ tvRouter.post("/pairing/start", (req, res) => {
     (typeof deviceId === "string" && deviceId) ||
     `TV-${uuid().slice(0, 8).toUpperCase()}`;
 
+  const ip = (typeof req.ip === "string" ? req.ip : req.ip?.[0]) ?? "unknown";
+  const lock = getPairingLock(logicalId, ip);
+  if (lock.locked) {
+    res.status(429).json({ error: "ペアリング試行回数上限 — しばらく待って再試行してください" });
+    return;
+  }
+
   const code = generatePairingCode();
   const expiresAt = new Date(Date.now() + PAIRING_TTL_MS).toISOString();
   const tenant = tenantId ?? config.defaultTenantId;
@@ -100,6 +183,11 @@ tvRouter.post("/pairing/start", (req, res) => {
   const existing = db
     .prepare("SELECT * FROM tv_devices WHERE device_id = ?")
     .get(logicalId) as TvDeviceRow | undefined;
+
+  if (existing?.status === "revoked") {
+    res.status(403).json({ error: "この TV は無効化されています" });
+    return;
+  }
 
   if (existing) {
     db.prepare(
@@ -113,6 +201,12 @@ tvRouter.post("/pairing/start", (req, res) => {
        WHERE device_id = ?`
     ).run(code, expiresAt, tenant, displayName ?? null, logicalId);
     const row = findTvRow(logicalId)!;
+    logAudit({
+      action: "tv.pairing_start",
+      targetType: "tv_device",
+      targetId: logicalId,
+      ...auditContextFromRequest(req),
+    });
     res.json({
       ok: true,
       deviceId: row.device_id,
@@ -141,6 +235,12 @@ tvRouter.post("/pairing/start", (req, res) => {
   );
 
   const row = findTvRow(id)!;
+  logAudit({
+    action: "tv.pairing_start",
+    targetType: "tv_device",
+    targetId: logicalId,
+    ...auditContextFromRequest(req),
+  });
   res.status(201).json({
     ok: true,
     deviceId: row.device_id,
@@ -151,7 +251,8 @@ tvRouter.post("/pairing/start", (req, res) => {
   });
 });
 
-tvRouter.post("/pairing/confirm", async (req, res) => {
+tvRouter.post("/pairing/confirm", pairingConfirmLimiter, (req, res) => {
+  expireStalePairingCodes();
   const {
     pairingCode,
     code,
@@ -185,12 +286,35 @@ tvRouter.post("/pairing/confirm", async (req, res) => {
     .get(entered) as TvDeviceRow | undefined;
 
   if (!row) {
-    res.status(404).json({ error: "無効なペアリングコードです" });
+    const attempts = recordPairingFailure(
+      tvDeviceId ?? deviceId ?? "unknown",
+      (typeof req.ip === "string" ? req.ip : req.ip?.[0]) ?? "unknown"
+    );
+    res.status(404).json({
+      error: "無効なペアリングコードです",
+      attemptsRemaining: Math.max(0, MAX_PAIRING_ATTEMPTS - attempts),
+    });
+    return;
+  }
+
+  if (row.status === "revoked") {
+    res.status(403).json({ error: "この TV は無効化されています" });
     return;
   }
 
   if (row.pairing_expires_at && new Date(row.pairing_expires_at).getTime() < Date.now()) {
+    db.prepare(
+      `UPDATE tv_devices SET pairing_code = NULL, pairing_expires_at = NULL, status = 'expired'
+       WHERE id = ?`
+    ).run(row.id);
     res.status(410).json({ error: "ペアリングコードの有効期限が切れています（10分）" });
+    return;
+  }
+
+  const ip = (typeof req.ip === "string" ? req.ip : req.ip?.[0]) ?? "unknown";
+  const lock = getPairingLock(row.device_id, ip);
+  if (lock.locked) {
+    res.status(429).json({ error: "試行回数上限 — しばらく待って再試行してください" });
     return;
   }
 
@@ -235,7 +359,19 @@ tvRouter.post("/pairing/confirm", async (req, res) => {
     row.id
   );
 
+  clearPairingAttempts(row.device_id, ip);
+
   const updated = findTvRow(row.id)!;
+  logAudit({
+    action: "tv.pairing_confirm",
+    targetType: "tv_device",
+    targetId: finalDeviceId,
+    siteId: site,
+    tenantId: tenant,
+    afterJson: { siteId: site, pairedAt },
+    ...auditContextFromRequest(req),
+  });
+
   broadcast({
     type: "event",
     payload: {
@@ -252,6 +388,31 @@ tvRouter.post("/pairing/confirm", async (req, res) => {
     tv: formatTvDevice(updated),
   });
 });
+
+tvRouter.get("/config/:deviceId", (req, res) => {
+  const row = findTvRow(req.params.deviceId);
+  if (!row) {
+    res.status(404).json({ error: "TV device not found" });
+    return;
+  }
+  if (row.status === "revoked") {
+    res.status(403).json({ error: "TV revoked" });
+    return;
+  }
+  const settings = parseSettings(row.settings_json);
+  res.json({
+    deviceId: row.device_id,
+    siteId: row.site_id,
+    tenantId: row.tenant_id ?? config.defaultTenantId,
+    status: row.status,
+    paired: row.status === "paired" && !!row.paired_at,
+    displayMode: (settings.display_mode as string) ?? "dashboard",
+    cameraMode: (settings.camera_mode as string) ?? "placeholder",
+    settings,
+  });
+});
+
+tvRouter.use(requireAdminAuth);
 
 tvRouter.get("/devices", (req, res) => {
   const db = getDatabase();
@@ -328,8 +489,43 @@ tvRouter.patch("/devices/:id", (req, res) => {
   res.json(formatTvDevice(findTvRow(row.id)!));
 });
 
-tvRouter.delete("/devices/:id", (req, res) => {
-  const row = findTvRow(req.params.id);
+tvRouter.post("/devices/:id/revoke", (req: AuthedRequest, res) => {
+  const row = findTvRow(String(req.params.id));
+  if (!row) {
+    res.status(404).json({ error: "TV device not found" });
+    return;
+  }
+
+  const db = getDatabase();
+  const revokedAt = new Date().toISOString();
+  db.prepare(
+    `UPDATE tv_devices SET
+       site_id = NULL,
+       pairing_code = NULL,
+       pairing_expires_at = NULL,
+       paired_at = NULL,
+       status = 'revoked',
+       revoked_at = ?,
+       updated_at = datetime('now')
+     WHERE id = ?`
+  ).run(revokedAt, row.id);
+
+  logAudit({
+    userId: req.admin?.userId,
+    actorLabel: req.admin?.username,
+    action: "tv.revoke",
+    targetType: "tv_device",
+    targetId: row.device_id,
+    beforeJson: { status: row.status, siteId: row.site_id },
+    afterJson: { status: "revoked", revokedAt },
+    ...auditContextFromRequest(req),
+  });
+
+  res.json({ ok: true, deviceId: row.device_id, status: "revoked", revokedAt });
+});
+
+tvRouter.delete("/devices/:id", (req: AuthedRequest, res) => {
+  const row = findTvRow(String(req.params.id));
   if (!row) {
     res.status(404).json({ error: "TV device not found" });
     return;
@@ -346,6 +542,15 @@ tvRouter.delete("/devices/:id", (req, res) => {
        updated_at = datetime('now')
      WHERE id = ?`
   ).run(row.id);
+
+  logAudit({
+    userId: req.admin?.userId,
+    actorLabel: req.admin?.username,
+    action: "tv.unpair",
+    targetType: "tv_device",
+    targetId: row.device_id,
+    ...auditContextFromRequest(req),
+  });
 
   res.json({ ok: true, deviceId: row.device_id, status: "unpaired" });
 });
@@ -388,23 +593,4 @@ tvRouter.post("/devices/:id/test-alert", async (req, res) => {
   ).run(row.id);
 
   res.status(201).json({ ok: true, eventId: id, tvDeviceId: row.device_id });
-});
-
-tvRouter.get("/config/:deviceId", (req, res) => {
-  const row = findTvRow(req.params.deviceId);
-  if (!row) {
-    res.status(404).json({ error: "TV device not found" });
-    return;
-  }
-  const settings = parseSettings(row.settings_json);
-  res.json({
-    deviceId: row.device_id,
-    siteId: row.site_id,
-    tenantId: row.tenant_id ?? config.defaultTenantId,
-    status: row.status,
-    paired: row.status === "paired" && !!row.paired_at,
-    displayMode: (settings.display_mode as string) ?? "dashboard",
-    cameraMode: (settings.camera_mode as string) ?? "placeholder",
-    settings,
-  });
 });

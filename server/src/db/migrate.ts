@@ -14,6 +14,17 @@ const TV_DEVICE_COLUMNS: Array<{ name: string; ddl: string }> = [
   { name: "display_name", ddl: "ALTER TABLE tv_devices ADD COLUMN display_name TEXT" },
   { name: "paired_at", ddl: "ALTER TABLE tv_devices ADD COLUMN paired_at TEXT" },
   { name: "status", ddl: "ALTER TABLE tv_devices ADD COLUMN status TEXT DEFAULT 'pending'" },
+  { name: "revoked_at", ddl: "ALTER TABLE tv_devices ADD COLUMN revoked_at TEXT" },
+];
+
+const AUDIT_COLUMNS: Array<{ name: string; ddl: string }> = [
+  { name: "user_id", ddl: "ALTER TABLE audit_logs ADD COLUMN user_id TEXT" },
+  { name: "target_type", ddl: "ALTER TABLE audit_logs ADD COLUMN target_type TEXT" },
+  { name: "target_id", ddl: "ALTER TABLE audit_logs ADD COLUMN target_id TEXT" },
+  { name: "before_json", ddl: "ALTER TABLE audit_logs ADD COLUMN before_json TEXT" },
+  { name: "after_json", ddl: "ALTER TABLE audit_logs ADD COLUMN after_json TEXT" },
+  { name: "ip_address", ddl: "ALTER TABLE audit_logs ADD COLUMN ip_address TEXT" },
+  { name: "user_agent", ddl: "ALTER TABLE audit_logs ADD COLUMN user_agent TEXT" },
 ];
 
 export function runMigrations(database: Database.Database): void {
@@ -45,4 +56,15 @@ export function runMigrations(database: Database.Database): void {
   database.exec(
     "CREATE INDEX IF NOT EXISTS idx_tv_devices_pairing ON tv_devices(pairing_code)"
   );
+
+  const auditCols = new Set(
+    (database.prepare("PRAGMA table_info(audit_logs)").all() as Array<{ name: string }>).map(
+      (r) => r.name
+    )
+  );
+  for (const col of AUDIT_COLUMNS) {
+    if (!auditCols.has(col.name)) {
+      database.exec(col.ddl);
+    }
+  }
 }

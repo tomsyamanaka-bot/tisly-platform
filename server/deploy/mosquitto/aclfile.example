@@ -1,0 +1,16 @@
+# TiSLY per-device ACL example
+# Replace TENANT, SITE, DEVICE_ID for each gateway
+
+user tisly-server
+topic read tisly/+/+/+/event
+topic read tisly/+/+/+/heartbeat
+topic read tisly/+/+/+/recovery
+topic read tisly/+/+/+/state
+topic write tisly/+/+/+/cmd
+
+user DEVICE_ID
+topic read tisly/TENANT/SITE/DEVICE_ID/cmd
+topic write tisly/TENANT/SITE/DEVICE_ID/event
+topic write tisly/TENANT/SITE/DEVICE_ID/heartbeat
+topic write tisly/TENANT/SITE/DEVICE_ID/state
+topic read tisly/TENANT/SITE/DEVICE_ID/state

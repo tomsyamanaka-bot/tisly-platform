@@ -10,7 +10,7 @@
     "dev": "tsx watch src/index.ts",
     "db:init": "tsx src/db/init.ts",
     "demo": "tsx src/demo/run-demo.ts",
-    "test": "tsx --test test/e2e.test.ts"
+    "test": "tsx --test test/e2e.test.ts test/security.test.ts"
   },
   "engines": {
     "node": ">=20"

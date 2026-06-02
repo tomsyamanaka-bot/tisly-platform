@@ -1,4 +1,4 @@
-# MQTT セキュリティ — ACL / TLS 設計（Phase 121–140）
+# MQTT セキュリティ — ACL / TLS 設計（Phase 161–180 強化）
 
 ## 原則
 
@@ -35,6 +35,14 @@ topic write tisly/+/+/+/cmd
 - デバイス: 必要に応じて **クライアント証明書**（高セキュリティ拠点）
 - ローテーション: 90 日ごと、漏洩時は即時失効
 
+## デプロイ用サンプル（リポジトリ内）
+
+| ファイル | 説明 |
+|----------|------|
+| `server/deploy/mosquitto/mosquitto.conf.example` | listener 1883 (localhost) + 8883 TLS |
+| `server/deploy/mosquitto/aclfile.example` | per-device ACL |
+| `server/deploy/mosquitto/passwordfile.README.md` | `mosquitto_passwd` 手順 |
+
 ## Mosquitto 設定例（抜粋）
 
 ```conf
@@ -43,16 +51,24 @@ allow_anonymous false
 password_file /etc/mosquitto/passwd
 acl_file /etc/mosquitto/acl
 
-listener 8883
+listener 8883 0.0.0.0
 cafile /etc/mosquitto/certs/ca.crt
 certfile /etc/mosquitto/certs/server.crt
 keyfile /etc/mosquitto/certs/server.key
 require_certificate false
+password_file /etc/mosquitto/passwd
+acl_file /etc/mosquitto/acl
 ```
+
+## TiSLY Server 連携
+
+- `MQTT_USERNAME` / `MQTT_PASSWORD` — `tisly-server` ユーザー推奨
+- Subscriber は read-only ACL で event/heartbeat を購読
+- cmd トピックへの write はサーバーのみ
 
 ## 漏洩時
 
 1. 該当 `device_id` の MQTT ユーザーを passwd から削除
 2. ACL を再生成・reload
 3. デバイス側 `mqtt.json` を新パスワードで再フラッシュ
-4. `docs/device_auth_rotation.md` の手順に従い INGEST_SECRET 等も必要ならローテーション
+4. `docs/secret_rotation.md` の手順に従い INGEST_SECRET / device secret もローテーション

@@ -8,8 +8,16 @@ import {
 } from "../../event/unified-event.js";
 import { getNotificationService } from "../../notification/notification-service.js";
 import { broadcast } from "../../ws/hub.js";
+import { requireIngestOrDeviceAuth } from "../../auth/device-auth.js";
+import { rateLimit } from "../../security/rate-limit.js";
 
 export const eventsRouter = Router();
+
+const ingestLimiter = rateLimit({
+  keyPrefix: "ingest",
+  max: 120,
+  windowMs: 60 * 1000,
+});
 
 eventsRouter.get("/", (req, res) => {
   const db = getDatabase();
@@ -34,16 +42,7 @@ eventsRouter.get("/", (req, res) => {
   res.json({ events: rows });
 });
 
-eventsRouter.post("/ingest", async (req, res) => {
-  if (!config.ingestSecret) {
-    res.status(503).json({ error: "INGEST_SECRET not configured on server" });
-    return;
-  }
-  const secret = req.header("x-tisly-ingest-secret");
-  if (secret !== config.ingestSecret) {
-    res.status(403).json({ error: "Invalid ingest secret" });
-    return;
-  }
+eventsRouter.post("/ingest", ingestLimiter, requireIngestOrDeviceAuth, async (req, res) => {
   try {
     const unified = normalizeUnifiedInput(req.body, config.defaultTenantId);
     const event = unifiedToTislyEvent(unified);

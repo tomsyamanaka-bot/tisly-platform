@@ -9,6 +9,11 @@ import {
 import { recordHeartbeat } from "../../notification/heartbeat-monitor.js";
 import { getNotificationService } from "../../notification/notification-service.js";
 import { broadcast } from "../../ws/hub.js";
+import { requireIngestOrDeviceAuth } from "../../auth/device-auth.js";
+import { requireAdminAuth, type AuthedRequest } from "../../auth/auth-middleware.js";
+import { randomBytes } from "crypto";
+import { hashSecret } from "../../provisioning/site-provisioner.js";
+import { auditContextFromRequest, logAudit } from "../../provisioning/audit-log.js";
 
 export const devicesRouter = Router();
 
@@ -89,7 +94,7 @@ devicesRouter.get("/", (req, res) => {
   res.json({ devices, count: devices.length });
 });
 
-devicesRouter.post("/register", (req, res) => {
+devicesRouter.post("/register", requireIngestOrDeviceAuth, (req, res) => {
   const {
     deviceId,
     deviceType,
@@ -286,4 +291,46 @@ devicesRouter.post("/:id/restart-request", (req, res) => {
 devicesRouter.post("/:deviceId/heartbeat", (req, res) => {
   recordHeartbeat(req.params.deviceId, req.body?.platform);
   res.json({ ok: true, deviceId: req.params.deviceId });
+});
+
+function generateDeviceSecret(): string {
+  return randomBytes(24).toString("base64url");
+}
+
+devicesRouter.post("/:id/rotate-secret", requireAdminAuth, (req: AuthedRequest, res) => {
+  const deviceId = String(req.params.id);
+  const db = getDatabase();
+  const cred = db
+    .prepare(
+      `SELECT site_id, tenant_id FROM device_credentials
+       WHERE device_id = ? AND status = 'active'`
+    )
+    .get(deviceId) as { site_id: string; tenant_id: string } | undefined;
+  if (!cred) {
+    res.status(404).json({ error: "device credentials not found" });
+    return;
+  }
+  const newSecret = generateDeviceSecret();
+  db.prepare(
+    `UPDATE device_credentials SET secret_hash = ?, rotated_at = datetime('now')
+     WHERE device_id = ?`
+  ).run(hashSecret(newSecret), deviceId);
+
+  logAudit({
+    userId: req.admin?.userId,
+    actorLabel: req.admin?.username,
+    siteId: cred.site_id,
+    tenantId: cred.tenant_id,
+    action: "device.rotate_secret",
+    targetType: "device",
+    targetId: deviceId,
+    ...auditContextFromRequest(req),
+  });
+
+  res.json({
+    ok: true,
+    deviceId,
+    secret: newSecret,
+    warning: "Secret shown once — update device configuration",
+  });
 });

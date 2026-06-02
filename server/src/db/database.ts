@@ -32,6 +32,10 @@ export function getDatabase(): Database.Database {
   if (fs.existsSync(phaseRc1)) {
     db.exec(fs.readFileSync(phaseRc1, "utf-8"));
   }
+  const phaseSecurity = path.join(__dirname, "schema-phase-security.sql");
+  if (fs.existsSync(phaseSecurity)) {
+    db.exec(fs.readFileSync(phaseSecurity, "utf-8"));
+  }
   runMigrations(db);
   seedDefaults(db);
   ensureTenant(config.defaultTenantId, "Default Tenant");
