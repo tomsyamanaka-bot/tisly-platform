@@ -2,17 +2,19 @@
 
 実機未到着・未検証項目。完了したら `[x]` に更新。
 
-## 実機到着後（必須）
+## 実機到着後（必須）— Phase 101–120
 
 - [ ] **Waveshare公式ピン番号確認** — Wiki `01_GPIO` / シルクと `config/gpio_map.json` の `gpio_pin` を記入
-- [ ] **リレーON/OFF論理確認** — RO 出力のアクティブ High/Low を実測（`relay_map.json` に記録）
-- [ ] **DI入力のプルアップ/プルダウン確認** — NPN/PNP・NC/NO と `device.json` の `active_low` を一致
-- [ ] **Ethernetライブラリ確認** — 公式 `02_MQTT` から `firmware/ethernet_mqtt.py` を移植・動作確認
+- [ ] **Ethernetライブラリ確定** — 公式 `02_MQTT` から `firmware/ethernet_mqtt.py` を移植・動作確認
 - [ ] **MQTTライブラリ確定** — 同梱 `umqtt` / Waveshare サンプルとの互換
-- [ ] **実機でDI/RO単体テスト** — 負荷なしで DI 反応・RO クリック音/LED
-- [ ] **100Vライト接続前のテスター確認** — RO1/RO2 の COM/NO 導通のみ
-- [ ] **Node-RED実機連携確認** — `tisly_rp2350_v1.json` + heartbeat 30s
-- [ ] **Web UI実機連携確認** — `state` / `event` / `alarm` の表示
+- [ ] **DI/RO論理確認** — NPN/PNP・NC/NO と `device.json` の `active_low`、RO 極性を実測
+- [ ] **リレーON/OFF実測** — `relay_map.json` にアクティブ High/Low を記録
+- [ ] **100V接続前テスター確認** — RO1/RO2 の COM/NO 導通のみ（負荷未接続）
+- [ ] **config/gpio_map.json 差し替え** — 公式ピン表に合わせ全チャネル更新
+- [ ] **統一 MQTT トピック** — `docs/mqtt_unified_topics.md`（`RP-HOME-001` 等）
+- [ ] **Node-RED** — `node-red/tisly_real_device_ingest_v1.json` + heartbeat 30s
+- [ ] **server 登録** — `POST /api/devices/register` — `RP-HOME-001`
+- [ ] **Web UI実機連携** — `state` / `event` の表示
 
 ## ハードウェア
 

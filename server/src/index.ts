@@ -15,6 +15,7 @@ import { analyticsRouter } from "./api/routes/analytics.js";
 import { recoveryRouter } from "./api/routes/recovery.js";
 import { qnapRouter } from "./api/routes/qnap.js";
 import { socNocRouter } from "./api/routes/soc-noc.js";
+import { testRouter } from "./api/routes/test.js";
 import { startDemoRunner } from "./demo/demo-runner.js";
 import { startRecoveryEngine } from "./recovery/recovery-engine.js";
 import { config } from "./config.js";
@@ -42,6 +43,7 @@ app.use("/api/analytics", analyticsRouter);
 app.use("/api/recovery", recoveryRouter);
 app.use("/api/qnap", qnapRouter);
 app.use("/api/ops", socNocRouter);
+app.use("/api/test", testRouter);
 
 app.get("/operations", (_req, res) => {
   res.sendFile(path.join(publicDir, "operations.html"));
@@ -82,10 +84,18 @@ app.get("/health", (_req, res) => {
   res.json({
     status: "ok",
     service: "tisly-notification-platform",
-    phase: config.demoMode ? "81-100" : "81-100",
-    platform: "operations-recovery",
+    phase: "101-120",
+    platform: "real-device-integration",
     demoMode: config.demoMode,
-    features: ["ai-analytics", "recovery-engine", "qnap-archive", "soc-noc"],
+    features: [
+      "ai-analytics",
+      "recovery-engine",
+      "qnap-archive",
+      "soc-noc",
+      "device-registry",
+      "test-api",
+      "unified-mqtt",
+    ],
   });
 });
 

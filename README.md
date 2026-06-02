@@ -3,6 +3,58 @@
 TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。  
 三菱電機 **FX 系** PLC と **GX Works2 / GX Works3** を想定しています。
 
+## TiSLY Platform — Real Device Integration（Phase 101–120）
+
+**実機統合準備** — 実機がなくても営業デモ可能。実機到着後すぐ接続・検証できる状態を整備。
+
+| 対象 | パス / 内容 |
+|------|-------------|
+| 実機チェックリスト | `docs/real_device_integration_checklist.md` |
+| デバイス ID ルール | `docs/device_id_rules.md` |
+| 統一 MQTT | `docs/mqtt_unified_topics.md` |
+| Node-RED ingest | `node-red/tisly_real_device_ingest_v1.json` |
+| PLC 連携 | `docs/plc_integration.md` |
+| ESP32 準備 | `esp32/TODO.md` |
+| RP2350 準備 | `rp2350/TODO.md` |
+| Google TV ペアリング設計 | `docs/google_tv_pairing.md` |
+| PWA 実機デモ | `docs/pwa_real_demo.md` |
+| 現場テンプレ | `docs/site_templates.md` |
+| 営業デモ完成度 | `docs/sales_demo_readiness.md` |
+
+### API（実機・デモ共通）
+
+| API | 説明 |
+|-----|------|
+| `POST /api/devices/register` | デバイス登録（tenant/site/metadata） |
+| `GET/PATCH /api/devices/:id` | 参照・更新 |
+| `POST /api/devices/:id/test` | テストイベント送信 |
+| `POST /api/devices/:id/restart-request` | 再起動要求記録 |
+| `POST /api/test/*` | 実機なしスモーク（event/alarm/heartbeat/recovery/tv-alert） |
+| `POST /api/qnap/archive/event` | イベント単体アーカイブ（mock 可） |
+| `GET /api/qnap/status` | QNAP 連携状態 |
+
+### 統一イベント + MQTT
+
+```
+tisly/{tenant_id}/{site_id}/{device_id}/{state|event|heartbeat|cmd|recovery}
+```
+
+Node-RED → `POST /api/events/ingest`（`INGEST_SECRET`）。詳細は `docs/unified_event_format.md`。
+
+### 営業デモ確認手順
+
+```bash
+npm run build
+npm run demo
+# http://localhost:3080/operations
+curl -X POST http://localhost:3080/api/test/alarm
+curl http://localhost:3080/api/test/help
+```
+
+完成度チェック: `docs/sales_demo_readiness.md`
+
+---
+
 ## TiSLY Platform — AI Analytics + Recovery（Phase 81–100）
 
 TiSLY は次の進化段階に入りました。
@@ -130,9 +182,11 @@ tv-app (Expo RN)
 ```
 TiSLY_HOME_Security_DEMO/
 ├── README.md
-├── server/          … 通知 + AI Analytics + Recovery + PWA
+├── server/          … 通知 + AI Analytics + Recovery + PWA + 実機 API
 ├── tv-app/          … Google TV ネイティブ（Risk / Critical 表示）
-├── docs/            … ai_analytics.md, recovery_engine.md, qnap_integration.md, soc_noc.md 他
+├── docs/            … 実機統合・MQTT・PLC・PWA・営業デモ 他
+├── node-red/        … tisly_real_device_ingest_v1.json
+├── esp32/           … 実機差し替え TODO
 ├── rp2350/          … RP2350 Edition
 └── ladder/
     ├── TiSLY_HOME_Security_DEMO.txt         … 命令語リスト (IL) + 段コメント
@@ -325,4 +379,4 @@ tishly/home/security/event/alarm      ← 立上りイベント
 
 **プロジェクト名:** TiSLY_HOME_Security_DEMO  
 **バージョン:** 1.0.0  
-**更新日:** 2026-05-28
+**更新日:** 2026-06-03（Phase 101–120 実機統合準備）
