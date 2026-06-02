@@ -1,0 +1,30 @@
+{
+  "relays": {
+    "1": {
+      "name": "100Vライト①",
+      "role": "light_100v_1",
+      "triggered_by": ["DI1"],
+      "description": "赤外線ビーム①検知時 ON（alarm中は safety_manager が全RO制御）"
+    },
+    "2": {
+      "name": "100Vライト②",
+      "role": "light_100v_2",
+      "triggered_by": ["DI2"]
+    },
+    "3": {
+      "name": "パトライト",
+      "role": "patlite",
+      "triggered_by": ["DI5", "DI6"]
+    },
+    "4": {
+      "name": "ブザー",
+      "role": "buzzer",
+      "triggered_by": ["DI5", "DI6"]
+    },
+    "5": { "name": "予備", "role": "spare_5", "triggered_by": [] },
+    "6": { "name": "予備", "role": "spare_6", "triggered_by": [] },
+    "7": { "name": "予備", "role": "spare_7", "triggered_by": [] },
+    "8": { "name": "予備", "role": "spare_8", "triggered_by": [] }
+  },
+  "_todo_relay_logic": "実機到着後、リレーON/OFFの論理（アクティブHigh/Low）を公式資料と実測で確認"
+}

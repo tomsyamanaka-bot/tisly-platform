@@ -1,0 +1,631 @@
+[
+    {
+        "id": "tisly_tab_main",
+        "type": "tab",
+        "label": "TiSLY RP2350 v1",
+        "disabled": false,
+        "info": "RP2350 Edition — MQTT state/event/alarm/heartbeat"
+    },
+    {
+        "id": "tisly_mqtt_broker",
+        "type": "mqtt-broker",
+        "name": "TiSLY MQTT",
+        "broker": "192.168.1.10",
+        "port": "1883",
+        "clientid": "node-red-tisly",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true
+    },
+    {
+        "id": "tisly_ui_base",
+        "type": "ui_base",
+        "theme": {
+            "name": "theme-light",
+            "lightTheme": {
+                "default": "#0094CE",
+                "baseColor": "#0094CE",
+                "baseFont": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen-Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif"
+            },
+            "darkTheme": {
+                "default": "#097479",
+                "baseColor": "#097479",
+                "baseFont": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen-Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif"
+            },
+            "customTheme": {
+                "name": "TiSLY",
+                "default": "#1a7f37",
+                "baseColor": "#1a7f37",
+                "baseFont": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif"
+            }
+        },
+        "site": {
+            "name": "TiSLY RP2350 Security",
+            "hideToolbar": "false",
+            "allowSwipe": "true"
+        }
+    },
+    {
+        "id": "tisly_ui_tab_dash",
+        "type": "ui_tab",
+        "name": "ダッシュボード",
+        "icon": "dashboard",
+        "order": 1,
+        "disabled": false,
+        "hidden": false
+    },
+    {
+        "id": "tisly_ui_grp_di",
+        "type": "ui_group",
+        "name": "センサー入力 DI",
+        "tab": "tisly_ui_tab_dash",
+        "order": 1,
+        "disp": true,
+        "width": "6",
+        "collapse": false
+    },
+    {
+        "id": "tisly_ui_grp_ro",
+        "type": "ui_group",
+        "name": "リレー出力 RO",
+        "tab": "tisly_ui_tab_dash",
+        "order": 2,
+        "disp": true,
+        "width": "6",
+        "collapse": false
+    },
+    {
+        "id": "tisly_ui_grp_sys",
+        "type": "ui_group",
+        "name": "システム",
+        "tab": "tisly_ui_tab_dash",
+        "order": 3,
+        "disp": true,
+        "width": "12",
+        "collapse": false
+    },
+    {
+        "id": "tisly_mqtt_in_all",
+        "type": "mqtt in",
+        "z": "tisly_tab_main",
+        "name": "tisly/rp2350/rp2350-home-01/#",
+        "topic": "tisly/rp2350/rp2350-home-01/#",
+        "qos": "1",
+        "datatype": "auto",
+        "broker": "tisly_mqtt_broker",
+        "nl": false,
+        "rap": false,
+        "inputs": 0,
+        "x": 130,
+        "y": 100,
+        "wires": [
+            [
+                "tisly_fn_route",
+                "tisly_fn_event_log",
+                "tisly_fn_heartbeat",
+                "tisly_fn_alarm"
+            ]
+        ]
+    },
+    {
+        "id": "tisly_fn_route",
+        "type": "function",
+        "z": "tisly_tab_main",
+        "name": "Parse state / relay",
+        "func": "const topic = msg.topic || \"\";\nconst parts = topic.split(\"/\");\nconst labels = {\n  di: [\"赤外①\",\"赤外②\",\"人感①\",\"人感②\",\"窓①\",\"窓②\",\"非常\",\"予備\"],\n  relay: [\"100V①\",\"100V②\",\"パト\",\"ブザー\",\"予備5\",\"予備6\",\"予備7\",\"予備8\"]\n};\nif (parts.length >= 5 && parts[4] === \"state\") {\n  let o; try { o = JSON.parse(msg.payload); } catch(e) { return null; }\n  const diOut = [], roOut = [];\n  (o.di || []).forEach((v, i) => {\n    if (i < 8) diOut.push({ ui_update: { type: \"di\", ch: i+1, label: labels.di[i], val: v ? 1 : 0 }});\n  });\n  (o.relay || []).forEach((v, i) => {\n    if (i < 8) roOut.push({ ui_update: { type: \"relay\", ch: i+1, label: labels.relay[i], val: v ? 1 : 0 }});\n  });\n  return [diOut, roOut];\n}\nif (parts.length >= 6 && parts[4] === \"relay\" && parts[6] === \"set\") {\n  const ch = parseInt(parts[5], 10);\n  const val = parseInt(String(msg.payload).trim(), 10) ? 1 : 0;\n  if (ch >= 1 && ch <= 8) return [null, [{ ui_update: { type: \"relay\", ch, label: labels.relay[ch-1], val }}]];\n}\nreturn null;",
+        "outputs": 2,
+        "x": 380,
+        "y": 100,
+        "wires": [
+            [
+                "tisly_fn_di_ui"
+            ],
+            [
+                "tisly_fn_ro_ui"
+            ]
+        ]
+    },
+    {
+        "id": "tisly_fn_di_ui",
+        "type": "function",
+        "z": "tisly_tab_main",
+        "name": "DI → ui_text",
+        "func": "const list = Array.isArray(msg) ? msg : [msg];\nconst outs = [[],[],[],[],[],[],[],[]];\nlist.forEach(m => {\n  if (!m || !m.ui_update) return;\n  const u = m.ui_update;\n  const color = u.val ? \"#c62828\" : \"#2e7d32\";\n  const text = u.label + \": \" + (u.val ? \"検知\" : \"正常\");\n  const o = { payload: \"<span style='font-size:18px;color:\"+color+\"'>\"+text+\"</span>\" };\n  outs[u.ch-1] = [o];\n});\nreturn outs;",
+        "outputs": 8,
+        "x": 620,
+        "y": 60,
+        "wires": [
+            [
+                "tisly_ui_di1"
+            ],
+            [
+                "tisly_ui_di2"
+            ],
+            [
+                "tisly_ui_di3"
+            ],
+            [
+                "tisly_ui_di4"
+            ],
+            [
+                "tisly_ui_di5"
+            ],
+            [
+                "tisly_ui_di6"
+            ],
+            [
+                "tisly_ui_di7"
+            ],
+            [
+                "tisly_ui_di8"
+            ]
+        ]
+    },
+    {
+        "id": "tisly_fn_ro_ui",
+        "type": "function",
+        "z": "tisly_tab_main",
+        "name": "RO → ui_text",
+        "func": "const list = Array.isArray(msg) ? msg : [msg];\nconst outs = [[],[],[],[],[],[],[],[]];\nlist.forEach(m => {\n  if (!m || !m.ui_update) return;\n  const u = m.ui_update;\n  const color = u.val ? \"#f9a825\" : \"#616161\";\n  const text = u.label + \": \" + (u.val ? \"ON\" : \"OFF\");\n  const o = { payload: \"<span style='font-size:18px;color:\"+color+\"'>\"+text+\"</span>\" };\n  outs[u.ch-1] = [o];\n});\nreturn outs;",
+        "outputs": 8,
+        "x": 620,
+        "y": 160,
+        "wires": [
+            [
+                "tisly_ui_ro1"
+            ],
+            [
+                "tisly_ui_ro2"
+            ],
+            [
+                "tisly_ui_ro3"
+            ],
+            [
+                "tisly_ui_ro4"
+            ],
+            [
+                "tisly_ui_ro5"
+            ],
+            [
+                "tisly_ui_ro6"
+            ],
+            [
+                "tisly_ui_ro7"
+            ],
+            [
+                "tisly_ui_ro8"
+            ]
+        ]
+    },
+    {
+        "id": "tisly_ui_di1",
+        "type": "ui_text",
+        "z": "tisly_tab_main",
+        "group": "tisly_ui_grp_di",
+        "order": 1,
+        "width": 6,
+        "height": 1,
+        "name": "DI1",
+        "label": "DI1 赤外線①",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "x": 860,
+        "y": 20
+    },
+    {
+        "id": "tisly_ui_di2",
+        "type": "ui_text",
+        "z": "tisly_tab_main",
+        "group": "tisly_ui_grp_di",
+        "order": 2,
+        "width": 6,
+        "height": 1,
+        "name": "DI2",
+        "label": "DI2 赤外線②",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "x": 860,
+        "y": 50
+    },
+    {
+        "id": "tisly_ui_di3",
+        "type": "ui_text",
+        "z": "tisly_tab_main",
+        "group": "tisly_ui_grp_di",
+        "order": 3,
+        "width": 6,
+        "height": 1,
+        "name": "DI3",
+        "label": "DI3 人感①",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "x": 860,
+        "y": 80
+    },
+    {
+        "id": "tisly_ui_di4",
+        "type": "ui_text",
+        "z": "tisly_tab_main",
+        "group": "tisly_ui_grp_di",
+        "order": 4,
+        "width": 6,
+        "height": 1,
+        "name": "DI4",
+        "label": "DI4 人感②",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "x": 860,
+        "y": 110
+    },
+    {
+        "id": "tisly_ui_di5",
+        "type": "ui_text",
+        "z": "tisly_tab_main",
+        "group": "tisly_ui_grp_di",
+        "order": 5,
+        "width": 6,
+        "height": 1,
+        "name": "DI5",
+        "label": "DI5 窓①",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "x": 860,
+        "y": 140
+    },
+    {
+        "id": "tisly_ui_di6",
+        "type": "ui_text",
+        "z": "tisly_tab_main",
+        "group": "tisly_ui_grp_di",
+        "order": 6,
+        "width": 6,
+        "height": 1,
+        "name": "DI6",
+        "label": "DI6 窓②",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "x": 860,
+        "y": 170
+    },
+    {
+        "id": "tisly_ui_di7",
+        "type": "ui_text",
+        "z": "tisly_tab_main",
+        "group": "tisly_ui_grp_di",
+        "order": 7,
+        "width": 6,
+        "height": 1,
+        "name": "DI7",
+        "label": "DI7 非常",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "x": 860,
+        "y": 200
+    },
+    {
+        "id": "tisly_ui_di8",
+        "type": "ui_text",
+        "z": "tisly_tab_main",
+        "group": "tisly_ui_grp_di",
+        "order": 8,
+        "width": 6,
+        "height": 1,
+        "name": "DI8",
+        "label": "DI8 予備",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "x": 860,
+        "y": 230
+    },
+    {
+        "id": "tisly_ui_ro1",
+        "type": "ui_text",
+        "z": "tisly_tab_main",
+        "group": "tisly_ui_grp_ro",
+        "order": 1,
+        "width": 6,
+        "height": 1,
+        "name": "RO1",
+        "label": "RO1 外灯①",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "x": 860,
+        "y": 300
+    },
+    {
+        "id": "tisly_ui_ro2",
+        "type": "ui_text",
+        "z": "tisly_tab_main",
+        "group": "tisly_ui_grp_ro",
+        "order": 2,
+        "width": 6,
+        "height": 1,
+        "name": "RO2",
+        "label": "RO2 外灯②",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "x": 860,
+        "y": 330
+    },
+    {
+        "id": "tisly_ui_ro3",
+        "type": "ui_text",
+        "z": "tisly_tab_main",
+        "group": "tisly_ui_grp_ro",
+        "order": 3,
+        "width": 6,
+        "height": 1,
+        "name": "RO3",
+        "label": "RO3 パトライト",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "x": 860,
+        "y": 360
+    },
+    {
+        "id": "tisly_ui_ro4",
+        "type": "ui_text",
+        "z": "tisly_tab_main",
+        "group": "tisly_ui_grp_ro",
+        "order": 4,
+        "width": 6,
+        "height": 1,
+        "name": "RO4",
+        "label": "RO4 ブザー",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "x": 860,
+        "y": 390
+    },
+    {
+        "id": "tisly_ui_ro5",
+        "type": "ui_text",
+        "z": "tisly_tab_main",
+        "group": "tisly_ui_grp_ro",
+        "order": 5,
+        "width": 6,
+        "height": 1,
+        "name": "RO5",
+        "label": "RO5 電光",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "x": 860,
+        "y": 420
+    },
+    {
+        "id": "tisly_ui_ro6",
+        "type": "ui_text",
+        "z": "tisly_tab_main",
+        "group": "tisly_ui_grp_ro",
+        "order": 6,
+        "width": 6,
+        "height": 1,
+        "name": "RO6",
+        "label": "RO6 予備",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "x": 860,
+        "y": 450
+    },
+    {
+        "id": "tisly_ui_ro7",
+        "type": "ui_text",
+        "z": "tisly_tab_main",
+        "group": "tisly_ui_grp_ro",
+        "order": 7,
+        "width": 6,
+        "height": 1,
+        "name": "RO7",
+        "label": "RO7 予備",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "x": 860,
+        "y": 480
+    },
+    {
+        "id": "tisly_ui_ro8",
+        "type": "ui_text",
+        "z": "tisly_tab_main",
+        "group": "tisly_ui_grp_ro",
+        "order": 8,
+        "width": 6,
+        "height": 1,
+        "name": "RO8",
+        "label": "RO8 予備",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "x": 860,
+        "y": 510
+    },
+    {
+        "id": "tisly_fn_event_log",
+        "type": "function",
+        "z": "tisly_tab_main",
+        "name": "Event log filter",
+        "func": "if (!msg.topic || !msg.topic.endsWith(\"/event\")) return null;\nlet line;\ntry {\n  const o = typeof msg.payload === \"string\" ? JSON.parse(msg.payload) : msg.payload;\n  line = new Date().toISOString() + \" \" + JSON.stringify(o);\n} catch (e) {\n  line = new Date().toISOString() + \" \" + msg.payload;\n}\nmsg.payload = line + \"\\n\";\nreturn msg;",
+        "outputs": 1,
+        "x": 380,
+        "y": 220,
+        "wires": [
+            [
+                "tisly_file_log",
+                "tisly_ui_event",
+                "tisly_fn_notify"
+            ]
+        ]
+    },
+    {
+        "id": "tisly_file_log",
+        "type": "file",
+        "z": "tisly_tab_main",
+        "name": "tisly_events.log",
+        "filename": "/data/tisly_events.log",
+        "appendNewline": true,
+        "createDir": true,
+        "overwriteFile": "false",
+        "encoding": "utf8",
+        "x": 620,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "tisly_ui_event",
+        "type": "ui_text",
+        "z": "tisly_tab_main",
+        "group": "tisly_ui_grp_sys",
+        "order": 2,
+        "width": 12,
+        "height": 3,
+        "name": "最新イベント",
+        "label": "イベント",
+        "format": "<pre style='font-size:12px'>{{msg.payload}}</pre>",
+        "layout": "col-center",
+        "x": 620,
+        "y": 240,
+        "wires": []
+    },
+    {
+        "id": "tisly_fn_notify",
+        "type": "function",
+        "z": "tisly_tab_main",
+        "name": "通知雛形",
+        "func": "// PLACEHOLDER: LINE / Email / Push ノードへ接続\nlet o;\ntry { o = typeof msg.payload === 'object' ? msg.payload : JSON.parse(msg.payload); } catch(e) { return null; }\nif (!o || !o.type) return null;\nconst urgent = [\"window_alarm\",\"emergency\",\"window\"].includes(o.type);\nif (!urgent) return null;\nmsg.payload = \"【TiSLY RP2350】\" + (o.message || o.type);\nreturn msg;",
+        "outputs": 1,
+        "x": 620,
+        "y": 280,
+        "wires": [
+            [
+                "tisly_debug_notify"
+            ]
+        ]
+    },
+    {
+        "id": "tisly_debug_notify",
+        "type": "debug",
+        "z": "tisly_tab_main",
+        "name": "通知（雛形→debug）",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "complete": "payload",
+        "x": 860,
+        "y": 280,
+        "wires": []
+    },
+    {
+        "id": "tisly_fn_heartbeat",
+        "type": "function",
+        "z": "tisly_tab_main",
+        "name": "Heartbeat 更新",
+        "func": "if (!msg.topic || !msg.topic.endsWith(\"/heartbeat\")) return null;\nflow.set(\"hb_last\", Date.now());\nlet o;\ntry { o = JSON.parse(msg.payload); } catch(e) { o = {}; }\nconst color = \"#2e7d32\";\nmsg.payload = \"<span style='font-size:18px;color:\"+color+\"'>通信正常 — uptime \" + (o.uptime||\"?\") + \"s</span>\";\nreturn msg;",
+        "outputs": 1,
+        "x": 380,
+        "y": 340,
+        "wires": [
+            [
+                "tisly_ui_hb"
+            ]
+        ]
+    },
+    {
+        "id": "tisly_inject_hb_check",
+        "type": "inject",
+        "z": "tisly_tab_main",
+        "name": "HB check 30s",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "30",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 5,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 150,
+        "y": 400,
+        "wires": [
+            [
+                "tisly_fn_hb_watch"
+            ]
+        ]
+    },
+    {
+        "id": "tisly_fn_hb_watch",
+        "type": "function",
+        "z": "tisly_tab_main",
+        "name": "Heartbeat 監視",
+        "func": "const last = flow.get(\"hb_last\") || 0;\nconst age = (Date.now() - last) / 1000;\nlet color, text;\nif (last === 0) {\n  color = \"#f9a825\"; text = \"待機中（未受信）\";\n} else if (age > 90) {\n  color = \"#c62828\"; text = \"異常 — \" + Math.round(age) + \"秒無応答\";\n} else if (age > 45) {\n  color = \"#f9a825\"; text = \"注意 — \" + Math.round(age) + \"秒\";\n} else {\n  color = \"#2e7d32\"; text = \"正常 — \" + Math.round(age) + \"秒前\";\n}\nmsg.payload = \"<span style='font-size:20px;color:\"+color+\"'>\" + text + \"</span>\";\nreturn msg;",
+        "outputs": 1,
+        "x": 380,
+        "y": 400,
+        "wires": [
+            [
+                "tisly_ui_hb"
+            ]
+        ]
+    },
+    {
+        "id": "tisly_ui_hb",
+        "type": "ui_text",
+        "z": "tisly_tab_main",
+        "group": "tisly_ui_grp_sys",
+        "order": 1,
+        "width": 12,
+        "height": 1,
+        "name": "通信状態",
+        "label": "Heartbeat",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "x": 620,
+        "y": 380,
+        "wires": []
+    },
+    {
+        "id": "tisly_fn_alarm",
+        "type": "function",
+        "z": "tisly_tab_main",
+        "name": "アラーム監視",
+        "func": "if (!msg.topic || !msg.topic.endsWith(\"/alarm\")) return null;\nlet o;\ntry { o = JSON.parse(msg.payload); } catch(e) { return null; }\nconst on = o.active === 1 || o.active === true || o.alarm_mode === true;\nconst color = on ? \"#c62828\" : \"#2e7d32\";\nconst text = on ? \"アラーム発生中\" : \"通常\";\nmsg.payload = \"<span style='font-size:22px;font-weight:bold;color:\"+color+\"'>\"+text+\"</span>\";\nif (on) {\n  const n = { payload: \"【TiSLY RP2350】アラーム発生\", topic: \"alarm\" };\n  return [msg, n];\n}\nreturn [msg, null];",
+        "outputs": 2,
+        "x": 380,
+        "y": 460,
+        "wires": [
+            [
+                "tisly_ui_alarm"
+            ],
+            [
+                "tisly_debug_notify"
+            ]
+        ]
+    },
+    {
+        "id": "tisly_ui_alarm",
+        "type": "ui_text",
+        "z": "tisly_tab_main",
+        "group": "tisly_ui_grp_sys",
+        "order": 3,
+        "width": 12,
+        "height": 1,
+        "name": "アラーム",
+        "label": "Alarm",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "x": 620,
+        "y": 460,
+        "wires": []
+    },
+    {
+        "id": "tisly_comment_notify",
+        "type": "comment",
+        "z": "tisly_tab_main",
+        "name": "通知: debug の先に HTTP/LINE/Email ノードを接続",
+        "info": "",
+        "x": 200,
+        "y": 280
+    }
+]

@@ -1,0 +1,22 @@
+{
+  "broker_host": "192.168.1.10",
+  "broker_port": 1883,
+  "client_id": "tisly-rp2350-home-01",
+  "username": "",
+  "password": "",
+  "keepalive": 60,
+  "qos": 1,
+  "device_id": "rp2350-home-01",
+  "topic_prefix": "tisly/rp2350/rp2350-home-01",
+  "topics": {
+    "state": "tisly/rp2350/rp2350-home-01/state",
+    "event": "tisly/rp2350/rp2350-home-01/event",
+    "alarm": "tisly/rp2350/rp2350-home-01/alarm",
+    "heartbeat": "tisly/rp2350/rp2350-home-01/heartbeat",
+    "cmd": "tisly/rp2350/rp2350-home-01/cmd",
+    "relay_set": "tisly/rp2350/rp2350-home-01/relay/{n}/set"
+  },
+  "retain_state": true,
+  "retain_alarm": true,
+  "retain_relay": true
+}

@@ -1,0 +1,10 @@
+{
+  "product": "TiSLY Home Security",
+  "edition": "RP2350",
+  "device_id": "rp2350-home-01",
+  "board": "Waveshare RP2350-POE-ETH-8DI-8RO",
+  "debounce_ms": 50,
+  "heartbeat_interval_sec": 30,
+  "active_low": true,
+  "_note_active_low": "実機到着後、DIのプルアップ/プルダウンと照合して修正（TODO.md）"
+}

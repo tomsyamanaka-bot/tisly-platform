@@ -1,0 +1,9 @@
+{
+  "dhcp": true,
+  "static_ip": "192.168.1.50",
+  "subnet": "255.255.255.0",
+  "gateway": "192.168.1.1",
+  "dns": "192.168.1.1",
+  "mac": null,
+  "comment": "実機到着後、現場LANに合わせて編集。EthernetはWaveshare公式02_MQTTサンプルの初期化手順に従う（TODO.md）"
+}
