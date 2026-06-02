@@ -18,12 +18,20 @@
       <a href="/sales">営業モード</a>
       <a href="/notifications">通知センター</a>
       <a href="/settings">Platform Settings</a>
+      <a href="/setup">セットアップ</a>
       <a href="/tv">TV</a>
     </nav>
   </header>
   <main>
+    <div id="setup-banner" class="demo-banner" style="display:none;background:rgba(26,127,55,0.12);border:1px solid var(--tisly-green);border-radius:8px;padding:0.75rem;margin-bottom:1rem">
+      初回セットアップ: <a href="/setup">セットアップウィザード →</a>
+    </div>
+    <div style="margin-bottom:1rem;display:flex;gap:1rem;flex-wrap:wrap">
+      <span id="tenant-selector"></span>
+      <span id="site-selector"></span>
+    </div>
     <div class="demo-banner" style="background:rgba(26,127,55,0.12);border:1px solid var(--tisly-green);border-radius:8px;padding:0.75rem;margin-bottom:1rem">
-      営業デモ: <code>npm run demo</code> で仮想現場・30秒イベント生成が有効になります。
+      <strong>RC1</strong> 営業デモ: <code>npm run demo</code> · 現場作成: <a href="/setup">/setup</a>
       <a href="/operations">運用コンソール →</a>
     </div>
     <section class="grid" id="summary"></section>

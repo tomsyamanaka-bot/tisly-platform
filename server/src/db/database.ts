@@ -3,6 +3,7 @@ import fs from "fs";
 import path, { dirname } from "path";
 import { fileURLToPath } from "url";
 import { config } from "../config.js";
+import { ensureTenant } from "../provisioning/site-provisioner.js";
 import { runMigrations } from "./migrate.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -27,8 +28,13 @@ export function getDatabase(): Database.Database {
   if (fs.existsSync(phase81)) {
     db.exec(fs.readFileSync(phase81, "utf-8"));
   }
+  const phaseRc1 = path.join(__dirname, "schema-phase-rc1.sql");
+  if (fs.existsSync(phaseRc1)) {
+    db.exec(fs.readFileSync(phaseRc1, "utf-8"));
+  }
   runMigrations(db);
   seedDefaults(db);
+  ensureTenant(config.defaultTenantId, "Default Tenant");
   return db;
 }
 
@@ -83,6 +89,18 @@ function seedDefaults(database: Database.Database): void {
     {
       key: "heartbeat",
       value: { warnSec: 30, alarmSec: 300 },
+    },
+    {
+      key: "retention",
+      value: { days: 90, options: [30, 90, 365] },
+    },
+    {
+      key: "backup",
+      value: { schedules: ["daily", "weekly", "monthly"], enabled: true },
+    },
+    {
+      key: "qnap",
+      value: { mode: process.env.QNAP_MODE ?? "mock" },
     },
   ];
 

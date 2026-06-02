@@ -15,6 +15,12 @@ import { settingsRouter } from "./api/routes/settings.js";
 import { socNocRouter } from "./api/routes/soc-noc.js";
 import { testRouter } from "./api/routes/test.js";
 import { tvRouter } from "./api/routes/tv.js";
+import { sitesRouter } from "./api/routes/sites.js";
+import { provisioningRouter } from "./api/routes/provisioning.js";
+import { tenantsRouter } from "./api/routes/tenants.js";
+import { reportsRouter } from "./api/routes/reports.js";
+import { healthFullRouter } from "./api/routes/health-full.js";
+import { notificationRulesRouter } from "./api/routes/notification-rules.js";
 import { config } from "./config.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -38,6 +44,20 @@ export function createApp(): express.Application {
   app.use("/api/ops", socNocRouter);
   app.use("/api/test", testRouter);
   app.use("/api/tv", tvRouter);
+  app.use("/api/sites", sitesRouter);
+  app.use("/api/provisioning", provisioningRouter);
+  app.use("/api/tenants", tenantsRouter);
+  app.use("/api/reports", reportsRouter);
+  app.use("/api/health", healthFullRouter);
+  app.use("/api/notification-rules", notificationRulesRouter);
+
+  app.get("/setup", (_req, res) => {
+    res.sendFile(path.join(publicDir, "setup.html"));
+  });
+
+  app.get("/recovery", (_req, res) => {
+    res.sendFile(path.join(publicDir, "recovery.html"));
+  });
 
   app.get("/operations", (_req, res) => {
     res.sendFile(path.join(publicDir, "operations.html"));
@@ -78,20 +98,25 @@ export function createApp(): express.Application {
     res.json({
       status: "ok",
       service: "tisly-notification-platform",
-      phase: "121-140",
-      platform: "production-device-connection",
+      phase: "141-160-rc1",
+      platform: "rc1-production-candidate",
       demoMode: config.demoMode,
       features: [
+        "site-provisioning",
+        "device-provisioning",
+        "qr-onboarding",
+        "pwa-setup-wizard",
+        "multi-site-tenant",
+        "recovery-console",
+        "notification-rule-builder",
+        "audit-log",
+        "operations-reports",
+        "qnap-mode-switch",
         "ai-analytics",
         "recovery-engine",
         "qnap-archive",
-        "soc-noc",
-        "device-registry",
-        "test-api",
-        "unified-mqtt",
         "tv-pairing",
-        "mqtt-subscriber",
-        "plc-modbus-map",
+        "unified-mqtt",
       ],
     });
   });

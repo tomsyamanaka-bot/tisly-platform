@@ -49,10 +49,12 @@ export const config = {
   demoMode: process.env.TISLY_DEMO_MODE === "true",
   demoAutoStart: process.env.TISLY_DEMO_AUTO_START === "true",
   qnap: {
+    mode: (process.env.QNAP_MODE ?? "mock") as "mock" | "real",
     host: process.env.QNAP_HOST ?? "",
     share: process.env.QNAP_SHARE ?? "TiSLY",
     username: process.env.QNAP_USERNAME ?? "",
     password: process.env.QNAP_PASSWORD ?? "",
     basePath: process.env.QNAP_BASE_PATH ?? "/TiSLY",
   },
+  rc1Phase: "141-160-rc1",
 };

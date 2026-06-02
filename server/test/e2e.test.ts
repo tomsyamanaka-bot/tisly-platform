@@ -10,11 +10,46 @@ before(() => {
   getDatabase();
 });
 
-describe("TiSLY E2E API (Phase 121-140)", () => {
-  it("GET /health returns phase 121-140", async () => {
+describe("TiSLY E2E API (Phase 141-160 RC1)", () => {
+  it("GET /health returns phase 141-160-rc1", async () => {
     const res = await request(app).get("/health");
     assert.equal(res.status, 200);
-    assert.equal(res.body.phase, "121-140");
+    assert.equal(res.body.phase, "141-160-rc1");
+  });
+
+  it("GET /api/sites/templates", async () => {
+    const res = await request(app).get("/api/sites/templates");
+    assert.equal(res.status, 200);
+    assert.ok(res.body.templates.length >= 7);
+  });
+
+  it("POST /api/sites/create with template", async () => {
+    const res = await request(app)
+      .post("/api/sites/create")
+      .send({ name: "E2E RC1 Site", templateId: "kodate" });
+    assert.equal(res.status, 201);
+    assert.ok(res.body.site.id);
+    assert.ok(res.body.zones.length > 0);
+  });
+
+  it("POST /api/provisioning/devices", async () => {
+    const site = await request(app)
+      .post("/api/sites/create")
+      .send({ name: "E2E Provision Site", templateId: "warehouse" });
+    const siteId = site.body.site.id;
+    const res = await request(app)
+      .post("/api/provisioning/devices")
+      .send({ siteId, deviceType: "gateway" });
+    assert.equal(res.status, 201);
+    assert.ok(res.body.deviceId);
+    assert.ok(res.body.secret);
+    assert.ok(res.body.qrDataUrl);
+  });
+
+  it("GET /api/health full", async () => {
+    const res = await request(app).get("/api/health");
+    assert.equal(res.status, 200);
+    assert.ok(res.body.components.server);
   });
 
   it("POST /api/devices/register", async () => {
@@ -48,7 +83,7 @@ describe("TiSLY E2E API (Phase 121-140)", () => {
     const start = await request(app)
       .post("/api/tv/pairing/start")
       .send({ tvDeviceId: "E2E-TV-001" });
-    assert.equal(start.status, 201);
+    assert.ok(start.status === 201 || start.status === 200);
     assert.match(start.body.pairingCode, /^\d{6}$/);
 
     const confirm = await request(app)

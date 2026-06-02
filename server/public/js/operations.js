@@ -1,4 +1,5 @@
 import { apiGet, apiPost } from "./api.js";
+import { mountSiteSelector, mountTenantSelector, getSelectedSiteId } from "./selectors.js";
 
 const panels = document.querySelectorAll(".ops-panel");
 const navButtons = document.querySelectorAll(".ops-nav button");
@@ -215,20 +216,86 @@ async function loadSocNoc(mode) {
 }
 
 async function loadHealth() {
-  const data = await apiGet("/api/demo/health");
+  const data = await apiGet("/api/health");
   const el = document.getElementById("health-grid");
   if (!el) return;
-  el.innerHTML = data.components
+  const comps = data.components ?? {};
+  el.innerHTML = Object.entries(comps)
     .map(
-      (c) =>
+      ([name, c]) =>
         `<div class="card health-card">
-          <h3>${c.name}</h3>
-          <p class="status-${c.status === "ok" ? "ok" : c.status === "stopped" ? "stopped" : "degraded"}">${c.status}</p>
-          <p style="font-size:0.85rem;color:var(--tisly-muted)">${typeof c.detail === "object" ? JSON.stringify(c.detail) : c.detail}</p>
+          <h3>${name}</h3>
+          <p class="status-${c.status === "ok" ? "ok" : "degraded"}">${c.status}</p>
+          <p style="font-size:0.85rem;color:var(--tisly-muted)">${JSON.stringify(c)}</p>
         </div>`
     )
     .join("");
 }
+
+async function loadSites() {
+  const data = await apiGet("/api/sites");
+  const el = document.getElementById("sites-list");
+  if (!el) return;
+  el.innerHTML = `<table><thead><tr><th>名称</th><th>テンプレ</th><th>状態</th></tr></thead><tbody>${data.sites
+    .map((s) => `<tr><td>${s.name}</td><td>${s.templateId ?? "—"}</td><td>${s.status}</td></tr>`)
+    .join("")}</tbody></table>`;
+  const tpl = await apiGet("/api/sites/templates");
+  const sel = document.getElementById("new-site-template");
+  if (sel) {
+    sel.innerHTML = tpl.templates.map((t) => `<option value="${t.id}">${t.label}</option>`).join("");
+  }
+}
+
+async function loadTv() {
+  const data = await apiGet("/api/tv/devices");
+  const el = document.getElementById("tv-body");
+  if (!el) return;
+  el.innerHTML = (data.devices ?? [])
+    .map(
+      (t) =>
+        `<tr><td>${t.displayName}</td><td>${t.siteId ?? "—"}</td><td>${t.status}</td><td>${t.lastSeenAt ?? "—"}</td><td>${t.pairedAt ? "済" : t.hasActivePairingCode ? "コード発行中" : "未"}</td></tr>`
+    )
+    .join("") || "<tr><td colspan='5'>TV 未登録</td></tr>";
+}
+
+async function loadRecoveryOps() {
+  const data = await apiGet("/api/recovery/console");
+  const el = document.getElementById("recovery-ops-summary");
+  if (!el) return;
+  el.innerHTML = `<p>アクティブ: ${data.overview?.activeIncidents ?? 0} / 直近 Run: ${(data.recentRuns ?? []).length}</p>`;
+}
+
+async function loadRealDevices() {
+  const siteId = getSelectedSiteId();
+  const q = siteId ? `?siteId=${encodeURIComponent(siteId)}` : "";
+  const data = await apiGet(`/api/devices${q}`);
+  const el = document.getElementById("devices-body");
+  if (!el || !data.devices?.length) return;
+  const merged = data.devices.map((d) => ({
+    label: d.label,
+    siteName: d.siteId,
+    zone: d.metadata?.zone_name ?? "—",
+    status: d.heartbeatStatus,
+    lastSeen: d.lastHeartbeatAt ?? "—",
+    anomalies: 0,
+  }));
+  if (merged.length) {
+    el.innerHTML = merged
+      .map(
+        (d) =>
+          `<tr><td>${d.label}</td><td>${d.siteName}</td><td>${d.zone}</td><td>${d.status}</td><td>${d.lastSeen}</td><td>${d.anomalies}</td></tr>`
+      )
+      .join("");
+  }
+}
+
+document.getElementById("btn-create-site-ops")?.addEventListener("click", async () => {
+  const name = document.getElementById("new-site-name")?.value || "新規現場";
+  const templateId = document.getElementById("new-site-template")?.value;
+  await apiPost("/api/sites/create", { name, templateId });
+  await loadSites();
+  await loadMap();
+});
 
 function renderCameras(grid) {
   const n = grid === 8 ? 8 : 4;
@@ -288,13 +355,20 @@ async function refreshAll() {
     loadMap(),
     loadZones(),
     loadDevices(),
+    loadRealDevices(),
     loadAlarms(),
     loadReplay(),
     loadAnalytics(),
     loadHealth(),
+    loadSites(),
+    loadTv(),
+    loadRecoveryOps(),
   ]);
   renderCameras(4);
 }
+
+mountTenantSelector("tenant-selector", () => refreshAll().catch(console.error));
+mountSiteSelector("site-selector", () => refreshAll().catch(console.error));
 
 refreshAll().catch(console.error);
 setInterval(() => {

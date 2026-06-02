@@ -17,6 +17,10 @@ export interface SmbWriteResult {
   message?: string;
 }
 
+export function getQnapMode(): "mock" | "real" {
+  return config.qnap.mode === "real" ? "real" : "mock";
+}
+
 export function isQnapSmbConfigured(): boolean {
   return Boolean(
     config.qnap.host && config.qnap.share && config.qnap.username && config.qnap.password
@@ -24,12 +28,12 @@ export function isQnapSmbConfigured(): boolean {
 }
 
 export async function smbWritePlaceholder(req: SmbWriteRequest): Promise<SmbWriteResult> {
-  if (!isQnapSmbConfigured()) {
+  if (getQnapMode() === "mock" || !isQnapSmbConfigured()) {
     return {
       ok: true,
       remotePath: req.remotePath,
       mode: "local-mock",
-      message: "QNAP SMB 未設定 — ローカル mock のみ（data/qnap-archive/）",
+      message: `QNAP_MODE=${getQnapMode()} — ローカル mock（data/qnap-archive/）`,
     };
   }
 
@@ -37,6 +41,6 @@ export async function smbWritePlaceholder(req: SmbWriteRequest): Promise<SmbWrit
     ok: false,
     remotePath: req.remotePath,
     mode: "smb",
-    message: `SMB write pending: //${config.qnap.host}/${config.qnap.share}${req.remotePath}`,
+    message: `SMB write pending (real mode): //${config.qnap.host}/${config.qnap.share}${req.remotePath}`,
   };
 }

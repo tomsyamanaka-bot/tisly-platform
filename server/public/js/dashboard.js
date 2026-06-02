@@ -1,5 +1,13 @@
 import { apiGet } from "./api.js";
 import { registerWebPush, testPush } from "./push.js";
+import { mountSiteSelector, mountTenantSelector } from "./selectors.js";
+
+if (!localStorage.getItem("tisly.setupComplete")) {
+  const banner = document.getElementById("setup-banner");
+  if (banner) banner.style.display = "block";
+}
+mountTenantSelector("tenant-selector").catch(console.error);
+mountSiteSelector("site-selector").catch(console.error);
 
 async function loadDashboard() {
   const data = await apiGet("/api/dashboard");

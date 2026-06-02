@@ -3,6 +3,29 @@
 TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。  
 三菱電機 **FX 系** PLC と **GX Works2 / GX Works3** を想定しています。
 
+## TiSLY Platform — RC1 Production Candidate（Phase 141–160）
+
+**営業デモ → 実証運用** — 現場プロビジョニング、PWA セットアップウィザード、Recovery Console、マルチ現場/顧客、運用レポート。
+
+| 領域 | パス / URL |
+|------|------------|
+| Site Provisioning | `server/src/provisioning/` · `POST /api/sites/create` |
+| テンプレート 7 種 | `GET /api/sites/templates` |
+| Device + QR | `POST /api/provisioning/devices` · `/setup` |
+| Recovery Console | `/recovery` · `POST /api/recovery/actions` |
+| 運用レポート | `GET /api/reports/operations?format=csv\|json\|pdf` |
+| RC1 チェックリスト | `docs/rc1_checklist.md` |
+| 営業デモ Runbook | `docs/demo_runbook.md` |
+| 本番前 TODO | `docs/production_todo.md` |
+
+```bash
+cd server && npm run build && npm run test
+# http://localhost:3080/setup  — 初回ウィザード
+# http://localhost:3080/operations
+```
+
+---
+
 ## TiSLY Platform — Production Device Connection（Phase 121–140）
 
 **実機接続前の最終段階** — TV ペアリング、MQTT 実運用準備、QNAP SMB、PLC/RP2350/ESP 接続仕様。

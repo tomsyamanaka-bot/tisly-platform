@@ -45,6 +45,33 @@ function renderForms() {
   document.querySelector(".form-heartbeat").innerHTML =
     field("Warning 秒", "hb-warn", h.warnSec, "number") +
     field("Alarm 秒", "hb-alarm", h.alarmSec, "number");
+
+  const r = settings.retention ?? { days: 90 };
+  document.querySelector(".form-retention").innerHTML = `
+    <label>保持日数
+      <select id="retention-days">
+        <option value="30" ${r.days === 30 ? "selected" : ""}>30日</option>
+        <option value="90" ${r.days === 90 ? "selected" : ""}>90日</option>
+        <option value="365" ${r.days === 365 ? "selected" : ""}>365日</option>
+      </select>
+    </label>`;
+
+  const b = settings.backup ?? { schedules: ["daily", "weekly", "monthly"] };
+  const sched = b.schedules ?? [];
+  document.querySelector(".form-backup").innerHTML =
+    field("日次", "backup-daily", sched.includes("daily"), "checkbox") +
+    field("週次", "backup-weekly", sched.includes("weekly"), "checkbox") +
+    field("月次", "backup-monthly", sched.includes("monthly"), "checkbox");
+
+  const q = settings.qnap ?? { mode: "mock" };
+  document.querySelector(".form-qnap").innerHTML = `
+    <label>QNAP_MODE
+      <select id="qnap-mode">
+        <option value="mock" ${q.mode === "mock" ? "selected" : ""}>mock（ローカル）</option>
+        <option value="real" ${q.mode === "real" ? "selected" : ""}>real（SMB）</option>
+      </select>
+    </label>
+    <p style="font-size:0.85rem;color:var(--tisly-muted)">本番は .env の QNAP_MODE と資格情報を設定</p>`;
 }
 
 function collect(key) {
@@ -78,15 +105,36 @@ function collect(key) {
       };
     case "heartbeat":
       return { warnSec: Number(g("hb-warn").value), alarmSec: Number(g("hb-alarm").value) };
+    case "retention":
+      return { days: Number(g("retention-days").value), options: [30, 90, 365] };
+    case "backup": {
+      const s = [];
+      if (chk("backup-daily")) s.push("daily");
+      if (chk("backup-weekly")) s.push("weekly");
+      if (chk("backup-monthly")) s.push("monthly");
+      return { schedules: s, enabled: s.length > 0 };
+    }
+    case "qnap":
+      return { mode: g("qnap-mode").value };
     default:
       return {};
   }
+}
+
+async function loadAudit() {
+  const data = await apiGet("/api/provisioning/audit?limit=20");
+  const el = document.getElementById("audit-list");
+  if (!el) return;
+  el.innerHTML = (data.entries ?? [])
+    .map((e) => `<li>${e.createdAt} — <strong>${e.actorLabel}</strong> ${e.action} (${e.entityType ?? ""} ${e.entityId ?? ""})</li>`)
+    .join("") || "<li>監査ログなし</li>";
 }
 
 async function load() {
   const data = await apiGet("/api/settings/platform");
   settings = data.settings;
   renderForms();
+  await loadAudit();
 }
 
 document.querySelectorAll("[data-save]").forEach((btn) => {

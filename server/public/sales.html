@@ -4,23 +4,51 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#1a7f37" />
-  <title>TiSLY — 営業デモ（AI分析）</title>
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <title>TiSLY — 営業デモ（RC1）</title>
   <link rel="stylesheet" href="/css/admin.css" />
   <style>
-    body { max-width: 900px; margin: 0 auto; padding: 1rem; }
-    .hero { background: linear-gradient(135deg, #1a7f37, #116329); color: #fff; padding: 2rem; border-radius: 12px; }
-    .insight { background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 1.25rem; margin: 1rem 0; }
+    body { max-width: 960px; margin: 0 auto; padding: 1rem; font-family: system-ui, sans-serif; }
+    .hero { background: linear-gradient(135deg, #1a7f37 0%, #0d4d1f 100%); color: #fff; padding: 2.5rem; border-radius: 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+    .hero h1 { margin: 0 0 0.5rem; font-size: 1.75rem; }
+    .hero p { opacity: 0.95; margin: 0; }
+    .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin: 1.5rem 0; }
+    .feature-card { background: #fff; border: 1px solid #d0d7de; border-radius: 12px; padding: 1.25rem; }
+    .feature-card h3 { margin: 0 0 0.5rem; color: #1a7f37; font-size: 1rem; }
+    .insight { background: #fff; border: 1px solid #d0d7de; border-radius: 12px; padding: 1.5rem; margin: 1rem 0; }
     .priority-critical { border-left: 4px solid #cf222e; }
     .priority-alarm { border-left: 4px solid #d29922; }
+    .cta { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.5rem; }
+    .cta a { padding: 0.6rem 1.2rem; border-radius: 8px; text-decoration: none; font-weight: 600; }
+    .cta .primary { background: #1a7f37; color: #fff; }
+    .cta .secondary { background: #f6f8fa; color: #24292f; border: 1px solid #d0d7de; }
+    .badge-rc1 { display: inline-block; background: rgba(255,255,255,0.2); padding: 0.25rem 0.6rem; border-radius: 4px; font-size: 0.8rem; margin-bottom: 0.75rem; }
   </style>
 </head>
 <body>
   <div class="hero">
-    <h1>TiSLY AI 分析結果</h1>
-    <p>通知 → 運用 → 自律復旧へ進化したプラットフォームのデモ</p>
+    <span class="badge-rc1">RC1 Production Candidate</span>
+    <h1>TiSLY セキュリティプラットフォーム</h1>
+    <p>設計 → 営業デモ → 実証運用まで、一つのプラットフォームで。</p>
   </div>
+
+  <div class="grid-3">
+    <div class="feature-card">
+      <h3>現場プロビジョニング</h3>
+      <p>7種テンプレ（戸建・民泊・工場ほか）でワンクリック現場作成</p>
+    </div>
+    <div class="feature-card">
+      <h3>AI + 自律復旧</h3>
+      <p>リスクスコアと Recovery Engine で SLA を守る</p>
+    </div>
+    <div class="feature-card">
+      <h3>マルチチャネル</h3>
+      <p>PWA · Google TV · MQTT · QNAP まで統合</p>
+    </div>
+  </div>
+
   <section class="insight" id="nl-insight">
-    <h2>AI インサイト（自然言語）</h2>
+    <h2>AI インサイト</h2>
     <p id="nl-text">読込中…</p>
   </section>
   <section class="insight">
@@ -28,27 +56,27 @@
     <ul id="sales-bullets"></ul>
   </section>
   <section class="insight">
-    <h2>差別化ポイント</h2>
+    <h2>顧客向け価値</h2>
     <ul>
-      <li>AI リスクスコア（0–100）と優先度自動調整</li>
-      <li>Recovery Engine — デバイス別自動復旧</li>
-      <li>QNAP 連携 — イベント・カメラアーカイブ</li>
+      <li>窓センサ × 夜間 × critical など、直感的な通知ルール</li>
+      <li>QR コードで現場機器を数分で登録</li>
+      <li>運用レポート（PDF / CSV / JSON）をその場で出力</li>
     </ul>
+    <p><a href="/api/reports/sales" target="_blank">営業レポート JSON →</a></p>
   </section>
-  <p><a href="/analytics">詳細 Analytics 画面 →</a> · <a href="/operations">運用コンソール →</a></p>
+  <div class="cta">
+    <a class="primary" href="/operations">運用コンソールを見る</a>
+    <a class="secondary" href="/setup">セットアップデモ</a>
+    <a class="secondary" href="/analytics">AI Analytics</a>
+  </div>
   <script type="module">
     import { apiGet } from "./js/api.js";
     const data = await apiGet("/api/analytics/overview");
     document.getElementById("nl-text").textContent =
-      data.naturalLanguage.today.paragraphs.join(" ");
-    document.getElementById("sales-bullets").innerHTML = data.summary.today.bullets
+      data.naturalLanguage?.today?.paragraphs?.join(" ") ?? "AI 分析データを読み込み中…";
+    document.getElementById("sales-bullets").innerHTML = (data.summary?.today?.bullets ?? [])
       .map((b) => {
-        const cls =
-          b.priority === "critical"
-            ? "priority-critical"
-            : b.priority === "alarm"
-              ? "priority-alarm"
-              : "";
+        const cls = b.priority === "critical" ? "priority-critical" : b.priority === "alarm" ? "priority-alarm" : "";
         return `<li class="${cls}">${b.text}</li>`;
       })
       .join("");

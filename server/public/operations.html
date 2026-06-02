@@ -23,8 +23,15 @@
     </nav>
   </header>
   <main>
+    <div class="card" style="margin-bottom:1rem;display:flex;flex-wrap:wrap;gap:1rem;align-items:center">
+      <span id="tenant-selector"></span>
+      <span id="site-selector"></span>
+      <a href="/setup" class="btn secondary">セットアップウィザード</a>
+      <a href="/recovery" class="btn secondary">Recovery Console</a>
+    </div>
+
     <div class="demo-banner">
-      <strong>Phase 81–100</strong> — AI Analytics + Recovery —
+      <strong>RC1 Phase 141–160</strong> — Site Provisioning + Operations —
       <span id="demo-status">読込中…</span>
       <button class="btn" id="btn-demo-start" type="button">デモ開始</button>
       <button class="btn secondary" id="btn-demo-stop" type="button">停止</button>
@@ -52,6 +59,9 @@
         <button type="button" data-panel="alarms">Alarm Center</button>
         <button type="button" data-panel="replay">Event Replay</button>
         <button type="button" data-panel="analytics">Analytics</button>
+        <button type="button" data-panel="sites">Site</button>
+        <button type="button" data-panel="tv">TV</button>
+        <button type="button" data-panel="recovery">Recovery</button>
         <button type="button" data-panel="health">Health Monitor</button>
         <button type="button" data-panel="cameras">Demo Camera</button>
       </aside>
@@ -119,9 +129,36 @@
           <div id="noc-content"></div>
         </section>
 
+        <section id="panel-sites" class="ops-panel card">
+          <h2>Site 管理</h2>
+          <div id="sites-list"></div>
+          <h3>テンプレートから作成</h3>
+          <input id="new-site-name" placeholder="現場名" style="padding:0.5rem;margin-right:0.5rem" />
+          <select id="new-site-template"></select>
+          <button class="btn" id="btn-create-site-ops" type="button">作成</button>
+        </section>
+
+        <section id="panel-tv" class="ops-panel card">
+          <h2>TV 管理</h2>
+          <table>
+            <thead><tr><th>名称</th><th>現場</th><th>状態</th><th>最終接続</th><th>ペアリング</th></tr></thead>
+            <tbody id="tv-body"></tbody>
+          </table>
+        </section>
+
+        <section id="panel-recovery" class="ops-panel card">
+          <h2>Recovery</h2>
+          <p><a href="/recovery">Recovery Console（詳細）→</a></p>
+          <div id="recovery-ops-summary"></div>
+        </section>
+
         <section id="panel-health" class="ops-panel card">
           <h2>Health Monitor</h2>
           <div class="health-grid" id="health-grid"></div>
+          <p style="margin-top:1rem">
+            <a href="/api/reports/operations?format=csv">運用レポート CSV</a> ·
+            <a href="/api/reports/operations?format=json">JSON</a>
+          </p>
         </section>
 
         <section id="panel-cameras" class="ops-panel card">
