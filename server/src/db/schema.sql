@@ -1,4 +1,5 @@
--- TiSLY Notification Platform — Phase 21-40
+-- TiSLY Notification Platform — Phase 21-60 (SQLite)
+-- PostgreSQL migration: TODO (see docs/unified_event_format.md)
 
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
@@ -27,6 +28,34 @@ CREATE TABLE IF NOT EXISTS devices (
 CREATE INDEX IF NOT EXISTS idx_devices_device_id ON devices(device_id);
 CREATE INDEX IF NOT EXISTS idx_devices_heartbeat ON devices(last_heartbeat_at);
 
+CREATE TABLE IF NOT EXISTS device_heartbeats (
+  id TEXT PRIMARY KEY,
+  device_id TEXT NOT NULL,
+  tenant_id TEXT,
+  site_id TEXT,
+  source_type TEXT,
+  status TEXT DEFAULT 'ok',
+  payload_json TEXT,
+  received_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_device_heartbeats_device ON device_heartbeats(device_id);
+CREATE INDEX IF NOT EXISTS idx_device_heartbeats_received ON device_heartbeats(received_at);
+
+CREATE TABLE IF NOT EXISTS tv_devices (
+  id TEXT PRIMARY KEY,
+  device_id TEXT NOT NULL UNIQUE,
+  site_id TEXT,
+  pairing_code TEXT,
+  pairing_expires_at TEXT,
+  display_mode TEXT,
+  camera_mode TEXT,
+  settings_json TEXT,
+  last_seen_at TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS notification_tokens (
   id TEXT PRIMARY KEY,
   user_id TEXT,
@@ -44,6 +73,21 @@ CREATE TABLE IF NOT EXISTS notification_tokens (
 
 CREATE INDEX IF NOT EXISTS idx_notification_tokens_user ON notification_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_notification_tokens_channel ON notification_tokens(channel);
+
+-- PWA Web Push subscriptions (mirrors web_push rows in notification_tokens)
+CREATE TABLE IF NOT EXISTS pwa_subscriptions (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  endpoint TEXT NOT NULL UNIQUE,
+  keys_json TEXT NOT NULL,
+  user_agent TEXT,
+  active INTEGER DEFAULT 1,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_pwa_subscriptions_user ON pwa_subscriptions(user_id);
 
 CREATE TABLE IF NOT EXISTS notification_rules (
   id TEXT PRIMARY KEY,
@@ -103,9 +147,15 @@ CREATE TABLE IF NOT EXISTS platform_settings (
 
 CREATE TABLE IF NOT EXISTS events (
   id TEXT PRIMARY KEY,
+  event_id TEXT,
+  tenant_id TEXT,
+  site_id TEXT,
   device_id TEXT NOT NULL,
+  source_type TEXT,
   event_type TEXT NOT NULL,
   severity TEXT DEFAULT 'info',
+  zone TEXT,
+  message TEXT,
   title TEXT,
   body TEXT,
   payload_json TEXT,
@@ -115,3 +165,5 @@ CREATE TABLE IF NOT EXISTS events (
 CREATE INDEX IF NOT EXISTS idx_events_device ON events(device_id);
 CREATE INDEX IF NOT EXISTS idx_events_type ON events(event_type);
 CREATE INDEX IF NOT EXISTS idx_events_created ON events(created_at);
+CREATE INDEX IF NOT EXISTS idx_events_event_id ON events(event_id);
+CREATE INDEX IF NOT EXISTS idx_events_tenant ON events(tenant_id);

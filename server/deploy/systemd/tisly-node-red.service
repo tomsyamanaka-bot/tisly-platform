@@ -1,0 +1,21 @@
+[Unit]
+Description=Node-RED for TiSLY MQTT flows
+After=network.target mosquitto.service
+Wants=mosquitto.service
+
+[Service]
+Type=simple
+User=tisly
+Group=tisly
+WorkingDirectory=/home/tisly
+Environment=NODE_ENV=production
+Environment=NODE_RED_HOME=/home/tisly/.node-red
+ExecStart=/usr/bin/node-red --userDir /home/tisly/.node-red
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tisly-node-red
+
+[Install]
+WantedBy=multi-user.target

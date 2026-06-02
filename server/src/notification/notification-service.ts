@@ -6,6 +6,7 @@ import { sendDiscord } from "./channels/discord.js";
 import { sendEmail, queueFailedDelivery } from "./channels/email.js";
 import { configureWebPush, sendWebPush } from "./channels/web-push.js";
 import { persistEvent, parseMqttPayload, shouldNotify } from "./event-processor.js";
+import { broadcastFromMqtt } from "../ws/hub.js";
 import { recordHeartbeat, startHeartbeatMonitor } from "./heartbeat-monitor.js";
 import type {
   DeliveryResult,
@@ -36,10 +37,15 @@ export class NotificationService {
 
   private connectMqtt(): void {
     if (!config.mqtt.url) return;
-    this.mqttClient = mqtt.connect(config.mqtt.url, {
+    const opts: mqtt.IClientOptions = {
       clientId: config.mqtt.clientId,
       reconnectPeriod: 5000,
-    });
+    };
+    if (config.mqtt.username) {
+      opts.username = config.mqtt.username;
+      opts.password = config.mqtt.password;
+    }
+    this.mqttClient = mqtt.connect(config.mqtt.url, opts);
 
     this.mqttClient.on("connect", () => {
       console.log("[MQTT] Connected:", config.mqtt.url);
@@ -51,6 +57,7 @@ export class NotificationService {
 
     this.mqttClient.on("message", (topic, buf) => {
       const raw = buf.toString();
+      broadcastFromMqtt(topic, raw);
       const parsed = parseMqttPayload(topic, raw);
       if (!parsed) return;
       if (parsed.eventType === "heartbeat") {

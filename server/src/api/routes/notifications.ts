@@ -29,18 +29,40 @@ notificationsRouter.get("/", (req, res) => {
   res.json({ notifications: db.prepare(sql).all(...params) });
 });
 
-notificationsRouter.patch("/:id/read", (req, res) => {
+function markRead(id: string, res: import("express").Response): void {
   const db = getDatabase();
   const r = db
     .prepare(
       `UPDATE notification_logs SET read_at = datetime('now') WHERE id = ?`
     )
-    .run(req.params.id);
+    .run(id);
   if (r.changes === 0) {
     res.status(404).json({ error: "Not found" });
     return;
   }
   res.json({ ok: true });
+}
+
+notificationsRouter.patch("/:id/read", (req, res) => {
+  markRead(req.params.id, res);
+});
+
+notificationsRouter.post("/:id/read", (req, res) => {
+  if (req.params.id === "read-all") {
+    res.status(400).json({ error: "Use POST /api/notifications/read-all" });
+    return;
+  }
+  markRead(req.params.id, res);
+});
+
+notificationsRouter.post("/read-all", (_req, res) => {
+  const db = getDatabase();
+  const r = db
+    .prepare(
+      `UPDATE notification_logs SET read_at = datetime('now') WHERE read_at IS NULL`
+    )
+    .run();
+  res.json({ ok: true, updated: r.changes });
 });
 
 notificationsRouter.post("/subscribe", (req, res) => {
@@ -51,11 +73,17 @@ notificationsRouter.post("/subscribe", (req, res) => {
   }
   const uid = userId ?? "admin-default";
   const tokenId = savePushSubscription(uid, subscription, deviceId);
-  res.status(201).json({ tokenId });
+  res.status(201).json({ tokenId, ok: true });
 });
 
 notificationsRouter.get("/vapid-public-key", (_req, res) => {
   res.json({ publicKey: config.vapid.publicKey });
+});
+
+notificationsRouter.post("/test", async (req, res) => {
+  const channel = (req.body?.channel ?? "web_push") as NotificationChannel;
+  const result = await getNotificationService().sendTest(channel);
+  res.json(result);
 });
 
 notificationsRouter.post("/test/:channel", async (req, res) => {

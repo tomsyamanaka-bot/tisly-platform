@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TiSLY TV Preview</title>
+  <link rel="stylesheet" href="/css/admin.css" />
+  <style>
+    body { background: #0d1117; color: #e6edf3; }
+    .tv-frame { max-width: 960px; margin: 2rem auto; padding: 2rem; border: 4px solid #1a7f37; border-radius: 12px; }
+    .alarm { color: #ff4444; font-size: 2rem; font-weight: 800; }
+    #ws-status { margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <div class="tv-frame">
+    <h1>Google TV 表示確認</h1>
+    <p>本番は <code>tv-app</code> ネイティブアプリ。ここでは WebSocket 受信の簡易プレビューです。</p>
+    <p id="ws-status">WebSocket: 接続中…</p>
+    <pre id="last-msg" style="font-size:14px;overflow:auto;max-height:240px;"></pre>
+  </div>
+  <script>
+    const statusEl = document.getElementById("ws-status");
+    const msgEl = document.getElementById("last-msg");
+    const proto = location.protocol === "https:" ? "wss:" : "ws:";
+    const ws = new WebSocket(proto + "//" + location.host + "/ws");
+    ws.onopen = () => { statusEl.textContent = "WebSocket: 接続済み"; };
+    ws.onclose = () => { statusEl.textContent = "WebSocket: 切断"; };
+    ws.onerror = () => { statusEl.textContent = "WebSocket: エラー"; };
+    ws.onmessage = (ev) => {
+      try {
+        const data = JSON.parse(ev.data);
+        if (data.type === "alarm") statusEl.innerHTML = '<span class="alarm">警報受信</span>';
+        msgEl.textContent = JSON.stringify(data, null, 2);
+      } catch {
+        msgEl.textContent = ev.data;
+      }
+    };
+  </script>
+</body>
+</html>

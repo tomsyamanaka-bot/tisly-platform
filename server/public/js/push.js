@@ -17,7 +17,7 @@ export async function registerWebPush(userId = "admin-default") {
   if (!publicKey) {
     throw new Error("VAPID 公開鍵が未設定です（サーバー .env を確認）");
   }
-  const reg = await navigator.serviceWorker.register("/sw.js");
+  const reg = await navigator.serviceWorker.register("/service-worker.js");
   await navigator.serviceWorker.ready;
   const permission = await Notification.requestPermission();
   if (permission !== "granted") {
@@ -35,5 +35,5 @@ export async function registerWebPush(userId = "admin-default") {
 }
 
 export async function testPush() {
-  return apiPost("/api/notifications/test/web_push");
+  return apiPost("/api/notifications/test", { channel: "web_push" });
 }

@@ -4,9 +4,13 @@ export type EventSeverity = "info" | "warning" | "alarm" | "critical";
 
 export interface TislyEvent {
   id?: string;
+  tenantId?: string;
+  siteId?: string;
+  sourceType?: string;
   deviceId: string;
   eventType: string;
   severity?: EventSeverity;
+  zone?: string;
   title: string;
   body?: string;
   payload?: Record<string, unknown>;

@@ -1,0 +1,21 @@
+[Unit]
+Description=TiSLY Notification Platform API and PWA
+After=network.target mosquitto.service
+Wants=mosquitto.service
+
+[Service]
+Type=simple
+User=tisly
+Group=tisly
+WorkingDirectory=/opt/tisly/server
+EnvironmentFile=/opt/tisly/server/.env
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node dist/index.js
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tisly-server
+
+[Install]
+WantedBy=multi-user.target

@@ -2,13 +2,16 @@ import Database from "better-sqlite3";
 import fs from "fs";
 import path, { dirname } from "path";
 import { fileURLToPath } from "url";
+import { config } from "../config.js";
+import { runMigrations } from "./migrate.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 let db: Database.Database | null = null;
 
 export function getDbPath(): string {
-  return process.env.TISLY_DB_PATH ?? path.join(process.cwd(), "data", "tisly_notifications.db");
+  const p = config.dbPath;
+  return path.isAbsolute(p) ? p : path.join(process.cwd(), p);
 }
 
 export function getDatabase(): Database.Database {
@@ -20,6 +23,7 @@ export function getDatabase(): Database.Database {
   db.pragma("foreign_keys = ON");
   const schema = fs.readFileSync(path.join(__dirname, "schema.sql"), "utf-8");
   db.exec(schema);
+  runMigrations(db);
   seedDefaults(db);
   return db;
 }

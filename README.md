@@ -3,7 +3,31 @@
 TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。  
 三菱電機 **FX 系** PLC と **GX Works2 / GX Works3** を想定しています。
 
-## TiSLY Notification Platform + Google TV（Phase 21–40）
+## TiSLY Notification Platform + Google TV（Phase 41–60）
+
+**ConoHa VPS + tisly.jp** 本番化準備フェーズ。通知は VPS に統一。スマホは **PWA（Web Push）**、**Google TV のみ**ネイティブアプリ。  
+MQTT は **VPS 内部のみ**。Node-RED は **HTTP ingest**（`POST /api/events/ingest`）で server へ渡す。
+
+| ドキュメント | 内容 |
+|-------------|------|
+| `docs/vps_production_deploy.md` | VPS デプロイ手順 |
+| `docs/web_push_setup.md` | VAPID / PWA Push |
+| `docs/node_red_http_ingest.md` | Node-RED → server |
+| `docs/unified_event_format.md` | 統一イベント JSON |
+| `docs/security_baseline.md` | セキュリティ基準 |
+
+### ローカル確認（実機連携前）
+
+```bash
+cd server && cp .env.example .env && npm install && npm run db:init && npm run build && npm run dev
+# http://localhost:3080/  — Push 登録・/tv WebSocket プレビュー
+cd tv-app && npm install && npx expo start
+# EXPO_PUBLIC_MQTT_MOCK=true で WS なし開発可
+```
+
+---
+
+## TiSLY Notification Platform（Phase 21–40 基盤）
 
 通知は **ConoHa VPS / tisly.jp** に統一。スマホは **PWA**、**Google TV のみ**ネイティブアプリ。
 

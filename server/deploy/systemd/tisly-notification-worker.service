@@ -1,0 +1,22 @@
+[Unit]
+Description=TiSLY Notification Queue Worker (optional split)
+After=network.target tisly-server.service
+Wants=tisly-server.service
+
+[Service]
+Type=simple
+User=tisly
+Group=tisly
+WorkingDirectory=/opt/tisly/server
+EnvironmentFile=/opt/tisly/server/.env
+Environment=NODE_ENV=production
+# Phase 41-60: worker script is future; enable when queue worker is split from main server
+ExecStart=/usr/bin/node dist/worker/notification-worker.js
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tisly-notification-worker
+
+[Install]
+WantedBy=multi-user.target

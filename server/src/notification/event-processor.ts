@@ -14,6 +14,7 @@ const ALARM_TYPES = new Set([
 const WARNING_TYPES = new Set(["heartbeat_warning", "motion", "warning"]);
 
 export function classifySeverity(eventType: string): EventSeverity {
+  if (eventType === "critical" || eventType.endsWith("_critical")) return "critical";
   if (ALARM_TYPES.has(eventType) || eventType.endsWith("_alarm")) return "alarm";
   if (WARNING_TYPES.has(eventType) || eventType.endsWith("_warning")) return "warning";
   return "info";
@@ -30,17 +31,45 @@ export function persistEvent(event: TislyEvent): string {
   const id = event.id ?? uuid();
   const db = getDatabase();
   const severity = event.severity ?? classifySeverity(event.eventType);
+  const tenantId =
+    event.tenantId ?? (event.payload?.tenant_id as string | undefined) ?? null;
+  const siteId = event.siteId ?? (event.payload?.site_id as string | undefined) ?? null;
+  const sourceType =
+    event.sourceType ?? (event.payload?.source_type as string | undefined) ?? null;
   db.prepare(
-    `INSERT INTO events (id, device_id, event_type, severity, title, body, payload_json)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO events (
+      id, event_id, tenant_id, site_id, device_id, source_type, event_type, severity,
+      zone, message, title, body, payload_json, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      event_id = excluded.event_id,
+      tenant_id = excluded.tenant_id,
+      site_id = excluded.site_id,
+      device_id = excluded.device_id,
+      source_type = excluded.source_type,
+      event_type = excluded.event_type,
+      severity = excluded.severity,
+      zone = excluded.zone,
+      message = excluded.message,
+      title = excluded.title,
+      body = excluded.body,
+      payload_json = excluded.payload_json,
+      created_at = excluded.created_at`
   ).run(
     id,
+    id,
+    tenantId,
+    siteId,
     event.deviceId,
+    sourceType,
     event.eventType,
     severity,
+    event.zone ?? null,
+    event.title,
     event.title,
     event.body ?? null,
-    event.payload ? JSON.stringify(event.payload) : null
+    event.payload ? JSON.stringify(event.payload) : null,
+    event.timestamp ?? new Date().toISOString()
   );
   return id;
 }

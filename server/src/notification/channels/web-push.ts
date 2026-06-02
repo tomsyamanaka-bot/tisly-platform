@@ -94,5 +94,13 @@ export function savePushSubscription(
     subscription.endpoint,
     JSON.stringify(subscription.keys)
   );
+  db.prepare(
+    `INSERT INTO pwa_subscriptions (id, user_id, endpoint, keys_json, active)
+     VALUES (?, ?, ?, ?, 1)
+     ON CONFLICT(endpoint) DO UPDATE SET
+       keys_json = excluded.keys_json,
+       active = 1,
+       updated_at = datetime('now')`
+  ).run(id, userId, subscription.endpoint, JSON.stringify(subscription.keys));
   return id;
 }

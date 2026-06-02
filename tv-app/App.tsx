@@ -12,6 +12,7 @@ import { StatusScreen } from "./src/screens/StatusScreen";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { AlarmOverlay } from "./src/components/AlarmOverlay";
 import { useTislyApi } from "./src/hooks/useTislyApi";
+import { useMqtt } from "./src/hooks/useMqtt";
 import { useKioskMode } from "./src/hooks/useKioskMode";
 
 export type RootStackParamList = {
@@ -27,7 +28,25 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
   const { dashboard, alarmActive, clearAlarm } = useTislyApi();
+  const { activeAlarm, clearAlarm: clearMqttAlarm } = useMqtt();
   useKioskMode();
+
+  const overlayVisible = alarmActive || !!activeAlarm;
+  const overlayAlarm =
+    activeAlarm ??
+    (alarmActive
+      ? {
+          deviceName: `警報 ${dashboard?.summary?.alarmDevices ?? 0} 件`,
+          eventType: dashboard?.summary?.systemStatus ?? "alarm",
+          severity: "alarm",
+          message: "API ダッシュボードから警報を検知",
+          occurredAt: new Date().toISOString(),
+        }
+      : null);
+  const dismissOverlay = () => {
+    clearAlarm();
+    clearMqttAlarm();
+  };
 
   useEffect(() => {
     void activateKeepAwakeAsync();
@@ -52,9 +71,9 @@ export default function App() {
         <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: "設定" }} />
       </Stack.Navigator>
       <AlarmOverlay
-        visible={alarmActive}
-        summary={dashboard?.summary}
-        onDismiss={clearAlarm}
+        visible={overlayVisible}
+        alarm={overlayAlarm}
+        onDismiss={dismissOverlay}
         durationSec={10}
       />
     </NavigationContainer>

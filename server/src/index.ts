@@ -1,7 +1,9 @@
 import cors from "cors";
 import express from "express";
+import http from "http";
 import path from "path";
 import { fileURLToPath } from "url";
+import { WebSocketServer } from "ws";
 import { config } from "./config.js";
 import { dashboardRouter } from "./api/routes/dashboard.js";
 import { devicesRouter } from "./api/routes/devices.js";
@@ -11,6 +13,7 @@ import { notificationsRouter } from "./api/routes/notifications.js";
 import { settingsRouter } from "./api/routes/settings.js";
 import { getDatabase } from "./db/database.js";
 import { getNotificationService } from "./notification/notification-service.js";
+import { registerWsClient } from "./ws/hub.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(__dirname, "..", "public");
@@ -28,6 +31,15 @@ app.use("/api/heartbeat", heartbeatRouter);
 app.use("/api/dashboard", dashboardRouter);
 app.use("/api/settings", settingsRouter);
 
+app.get("/manifest.webmanifest", (_req, res) => {
+  res.sendFile(path.join(publicDir, "manifest.webmanifest"));
+});
+
+app.get("/service-worker.js", (_req, res) => {
+  res.setHeader("Service-Worker-Allowed", "/");
+  res.sendFile(path.join(publicDir, "service-worker.js"));
+});
+
 app.use(express.static(publicDir));
 
 app.get("/notifications", (_req, res) => {
@@ -38,13 +50,30 @@ app.get("/settings", (_req, res) => {
   res.sendFile(path.join(publicDir, "settings.html"));
 });
 
+app.get("/tv", (_req, res) => {
+  res.sendFile(path.join(publicDir, "tv-preview.html"));
+});
+
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok", service: "tisly-notification-platform" });
+  res.json({
+    status: "ok",
+    service: "tisly-notification-platform",
+    phase: "41-60",
+  });
 });
 
 const service = getNotificationService();
 service.start();
 
-app.listen(config.port, config.host, () => {
-  console.log(`[TiSLY] https://tisly.jp — listening on http://${config.host}:${config.port}`);
+const server = http.createServer(app);
+const wss = new WebSocketServer({ server, path: "/ws" });
+
+wss.on("connection", (socket) => {
+  registerWsClient(socket);
+});
+
+server.listen(config.port, config.host, () => {
+  console.log(
+    `[TiSLY] ${config.publicUrl} — listening on http://${config.host}:${config.port} (ws: /ws)`
+  );
 });
