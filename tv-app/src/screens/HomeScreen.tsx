@@ -80,6 +80,18 @@ export function HomeScreen({ navigation }: Props) {
         />
       </View>
       <View style={styles.row}>
+        <TvCard
+          title="AI Risk"
+          subtitle={`${s?.riskScoreAvg24h ?? 0} / 100`}
+          onPress={() => navigation.navigate("Security")}
+        />
+        <TvCard
+          title="Critical"
+          subtitle={`${s?.criticalCount24h ?? 0} 件 (24h)`}
+          onPress={() => navigation.navigate("Security")}
+        />
+      </View>
+      <View style={styles.row}>
         <TvCard title="セキュリティ" onPress={() => navigation.navigate("Security")} />
         <TvCard title="カメラ" subtitle={`${getTvSettings().cameraGrid}分割デモ`} onPress={() => navigation.navigate("Cameras")} />
         <TvCard title="設定" onPress={() => navigation.navigate("Settings")} />

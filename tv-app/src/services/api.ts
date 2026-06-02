@@ -2,10 +2,13 @@ const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? "https://tisly.jp";
 
 export interface DashboardSummary {
   deviceCount: number;
+  siteCount?: number;
   eventCount24h: number;
   unreadNotifications: number;
   alarmDevices: number;
   systemStatus: string;
+  riskScoreAvg24h?: number;
+  criticalCount24h?: number;
 }
 
 export interface DashboardResponse {

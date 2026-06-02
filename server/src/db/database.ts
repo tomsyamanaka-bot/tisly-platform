@@ -23,6 +23,10 @@ export function getDatabase(): Database.Database {
   db.pragma("foreign_keys = ON");
   const schema = fs.readFileSync(path.join(__dirname, "schema.sql"), "utf-8");
   db.exec(schema);
+  const phase81 = path.join(__dirname, "schema-phase81.sql");
+  if (fs.existsSync(phase81)) {
+    db.exec(fs.readFileSync(phase81, "utf-8"));
+  }
   runMigrations(db);
   seedDefaults(db);
   return db;

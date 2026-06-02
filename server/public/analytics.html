@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#1a7f37" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <title>TiSLY — AI Analytics & Recovery</title>
+  <link rel="stylesheet" href="/css/admin.css" />
+  <link rel="stylesheet" href="/css/operations.css" />
+  <style>
+    .risk-high { color: #cf222e; font-weight: 700; }
+    .risk-mid { color: #d29922; }
+    .nl-report { background: #f6f8fa; padding: 1rem; border-radius: 8px; margin: 0.5rem 0; }
+    .timeline-item { border-left: 3px solid #1a7f37; padding-left: 0.75rem; margin: 0.5rem 0; }
+  </style>
+</head>
+<body class="ui-professional">
+  <header>
+    <h1>TiSLY Analytics & Recovery</h1>
+    <nav>
+      <a href="/">ダッシュボード</a>
+      <a href="/operations">運用コンソール</a>
+      <a href="/analytics" class="active">AI Analytics</a>
+      <a href="/sales">営業モード</a>
+      <a href="/notifications">通知</a>
+      <a href="/tv">TV</a>
+    </nav>
+  </header>
+  <main>
+    <div class="demo-banner">
+      <strong>Phase 81–100</strong> — AI Analytics + Recovery Engine + QNAP
+    </div>
+
+    <section class="grid" id="kpi-grid"></section>
+
+    <div class="ops-layout">
+      <aside class="ops-nav">
+        <button type="button" data-panel="risk" class="active">Risk</button>
+        <button type="button" data-panel="trend">Trend</button>
+        <button type="button" data-panel="recovery">Recovery</button>
+        <button type="button" data-panel="incident">Incident</button>
+        <button type="button" data-panel="sla">SLA / MTTR</button>
+        <button type="button" data-panel="qnap">QNAP</button>
+      </aside>
+      <div class="ops-content">
+        <section id="panel-risk" class="ops-panel active card">
+          <h2>AI Risk Score</h2>
+          <p id="risk-summary"></p>
+          <h3>本日サマリー</h3>
+          <ul id="ai-bullets"></ul>
+          <h3>自然言語レポート</h3>
+          <div id="nl-report" class="nl-report"></div>
+        </section>
+        <section id="panel-trend" class="ops-panel card">
+          <h2>Trend（今日 / 週 / 月）</h2>
+          <div class="mode-bar">
+            <button class="chip active" data-period="today">今日</button>
+            <button class="chip" data-period="week">今週</button>
+            <button class="chip" data-period="month">今月</button>
+          </div>
+          <table><thead><tr><th>種別</th><th>件数</th></tr></thead><tbody id="trend-types"></tbody></table>
+        </section>
+        <section id="panel-recovery" class="ops-panel card">
+          <h2>Recovery Engine</h2>
+          <div id="recovery-rules"></div>
+          <h3>直近復旧実行</h3>
+          <table><thead><tr><th>デバイス</th><th>ルール</th><th>状態</th></tr></thead><tbody id="recovery-runs"></tbody></table>
+        </section>
+        <section id="panel-incident" class="ops-panel card">
+          <h2>Incident Timeline</h2>
+          <div id="incident-timeline"></div>
+        </section>
+        <section id="panel-sla" class="ops-panel card">
+          <h2>SLA Monitor / MTTR</h2>
+          <div id="sla-metrics" class="grid"></div>
+        </section>
+        <section id="panel-qnap" class="ops-panel card">
+          <h2>QNAP Integration</h2>
+          <p id="qnap-status"></p>
+          <button class="btn" id="btn-archive" type="button">イベントアーカイブ (JSON)</button>
+          <button class="btn secondary" id="btn-backup-daily" type="button">日次バックアップ</button>
+        </section>
+      </div>
+    </div>
+  </main>
+  <script type="module" src="/js/analytics-page.js"></script>
+</body>
+</html>

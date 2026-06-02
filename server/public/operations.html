@@ -16,13 +16,15 @@
       <a href="/">ダッシュボード</a>
       <a href="/operations" class="active">運用コンソール</a>
       <a href="/notifications">通知センター</a>
+      <a href="/analytics">AI Analytics</a>
+      <a href="/sales">営業モード</a>
       <a href="/settings">Settings</a>
       <a href="/tv">TV プレビュー</a>
     </nav>
   </header>
   <main>
     <div class="demo-banner">
-      <strong>Phase 61–80 デモ層</strong> —
+      <strong>Phase 81–100</strong> — AI Analytics + Recovery —
       <span id="demo-status">読込中…</span>
       <button class="btn" id="btn-demo-start" type="button">デモ開始</button>
       <button class="btn secondary" id="btn-demo-stop" type="button">停止</button>
@@ -99,12 +101,22 @@
         </section>
 
         <section id="panel-analytics" class="ops-panel card">
-          <h2>Analytics</h2>
+          <h2>AI Analytics</h2>
+          <p><a href="/analytics">詳細画面 →</a></p>
           <section class="grid" id="analytics-summary"></section>
+          <div id="analytics-ai-summary"></div>
           <table>
             <thead><tr><th>イベント種別</th><th>件数</th></tr></thead>
             <tbody id="analytics-types"></tbody>
           </table>
+        </section>
+        <section id="panel-soc" class="ops-panel card" style="display:none">
+          <h2>SOC Dashboard</h2>
+          <div id="soc-content"></div>
+        </section>
+        <section id="panel-noc" class="ops-panel card" style="display:none">
+          <h2>NOC Dashboard</h2>
+          <div id="noc-content"></div>
         </section>
 
         <section id="panel-health" class="ops-panel card">

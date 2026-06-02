@@ -3,6 +3,37 @@
 TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。  
 三菱電機 **FX 系** PLC と **GX Works2 / GX Works3** を想定しています。
 
+## TiSLY Platform — AI Analytics + Recovery（Phase 81–100）
+
+TiSLY は次の進化段階に入りました。
+
+| 段階 | 内容 |
+|------|------|
+| **Notification Platform** | Web Push / Discord / Email（Phase 21–60） |
+| **Operations Platform** | デモ・運用コンソール・SOC/NOC（Phase 61–80） |
+| **Recovery Platform** | AI 分析・自律復旧・QNAP・アーカイブ（Phase 81–100） |
+
+**差別化:** AI Analytics + Recovery Engine + QNAP 連携
+
+| 機能 | パス / URL |
+|------|------------|
+| AI Analytics Engine | `server/src/analytics/` |
+| Recovery Engine | `server/src/recovery/` |
+| QNAP Integration | `server/src/qnap/` |
+| Analytics 画面 | http://localhost:3080/analytics |
+| 営業モード（AI分析） | http://localhost:3080/sales |
+| API | `/api/analytics/*` `/api/recovery/*` `/api/qnap/*` `/api/ops/soc` `/api/ops/noc` |
+| 設計ドキュメント | `docs/ai_analytics.md` `docs/recovery_engine.md` `docs/qnap_integration.md` `docs/soc_noc.md` |
+
+```bash
+npm run demo
+# デモイベント → AI リスク算出 → Recovery タイムライン → 通知優先度調整
+```
+
+Google TV: ホームに **AI Risk** / **Critical (24h)** カード表示。
+
+---
+
 ## TiSLY Platform — Demo & Operations（Phase 61–80）
 
 **営業デモ最優先**。実機未接続でも「TiSLYが動いている」状態を再現します。
@@ -99,9 +130,9 @@ tv-app (Expo RN)
 ```
 TiSLY_HOME_Security_DEMO/
 ├── README.md
-├── server/          … 通知プラットフォーム + PWA
-├── tv-app/          … Google TV ネイティブ
-├── docs/            … notification_architecture.md 等
+├── server/          … 通知 + AI Analytics + Recovery + PWA
+├── tv-app/          … Google TV ネイティブ（Risk / Critical 表示）
+├── docs/            … ai_analytics.md, recovery_engine.md, qnap_integration.md, soc_noc.md 他
 ├── rp2350/          … RP2350 Edition
 └── ladder/
     ├── TiSLY_HOME_Security_DEMO.txt         … 命令語リスト (IL) + 段コメント

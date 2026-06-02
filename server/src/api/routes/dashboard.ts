@@ -69,6 +69,23 @@ dashboardRouter.get("/", (_req, res) => {
     .prepare(`SELECT * FROM events ORDER BY created_at DESC LIMIT 20`)
     .all();
 
+  const avgRisk = (
+    db
+      .prepare(
+        `SELECT AVG(risk_score) as avg FROM analytics_snapshots
+         WHERE created_at >= datetime('now', '-1 day')`
+      )
+      .get() as { avg: number | null }
+  ).avg;
+  const criticalCount = (
+    db
+      .prepare(
+        `SELECT COUNT(*) as c FROM analytics_snapshots
+         WHERE priority = 'critical' AND created_at >= datetime('now', '-1 day')`
+      )
+      .get() as { c: number }
+  ).c;
+
   res.json({
     summary: {
       siteCount: effectiveSiteCount,
@@ -82,6 +99,8 @@ dashboardRouter.get("/", (_req, res) => {
       alarmDevices,
       systemStatus: alarmDevices > 0 ? "alarm" : "normal",
       demoRunnerActive: isDemoRunnerActive(),
+      riskScoreAvg24h: Math.round(avgRisk ?? 0),
+      criticalCount24h: criticalCount,
     },
     recentAlarms,
     recentEvents,

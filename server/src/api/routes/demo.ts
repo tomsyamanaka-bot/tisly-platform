@@ -19,7 +19,7 @@ export const demoRouter = Router();
 
 demoRouter.get("/status", (_req, res) => {
   res.json({
-    phase: "61-80",
+    phase: "81-100",
     demoMode: config.demoMode,
     runner: getDemoRunnerStats(),
     sites: DEMO_SITES.length,

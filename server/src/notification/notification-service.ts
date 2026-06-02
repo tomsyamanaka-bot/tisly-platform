@@ -6,6 +6,11 @@ import { sendDiscord } from "./channels/discord.js";
 import { sendEmail, queueFailedDelivery } from "./channels/email.js";
 import { configureWebPush, sendWebPush } from "./channels/web-push.js";
 import { persistEvent, parseMqttPayload, shouldNotify } from "./event-processor.js";
+import { processEventAnalytics } from "../analytics/analytics-engine.js";
+import {
+  applyAiPriorityToEvent,
+  handleEventRecovery,
+} from "../recovery/recovery-engine.js";
 import { broadcastFromMqtt } from "../ws/hub.js";
 import { recordHeartbeat, startHeartbeatMonitor } from "./heartbeat-monitor.js";
 import type {
@@ -71,18 +76,35 @@ export class NotificationService {
   }
 
   async processEvent(event: TislyEvent, channels?: ChannelFlags): Promise<string> {
-    persistEvent(event);
-    if (!shouldNotify(event.eventType)) {
-      return event.id ?? "";
+    const analytics = processEventAnalytics(event);
+    const enriched = applyAiPriorityToEvent(event, analytics.priority);
+    enriched.severity = analytics.priority;
+    const id = persistEvent(enriched);
+    enriched.id = id;
+    void handleEventRecovery(enriched, {
+      riskScore: analytics.riskScore,
+      priority: analytics.priority,
+    });
+
+    if (!shouldNotify(enriched.eventType)) {
+      return id;
     }
 
+    const priorityLabel =
+      analytics.priority === "critical"
+        ? "【重大】"
+        : analytics.priority === "alarm"
+          ? "【警報】"
+          : analytics.priority === "warning"
+            ? "【注意】"
+            : "";
     const payload: NotificationPayload = {
-      title: event.title,
-      body: event.body ?? "",
-      eventType: event.eventType,
-      deviceId: event.deviceId,
+      title: `${priorityLabel}${enriched.title}`,
+      body: `${enriched.body ?? ""} (Risk: ${analytics.riskScore})`.trim(),
+      eventType: enriched.eventType,
+      deviceId: enriched.deviceId,
       url: `${config.publicUrl}/notifications`,
-      data: event.payload,
+      data: { ...enriched.payload, aiPriority: analytics.priority, riskScore: analytics.riskScore },
     };
 
     const flags = channels ?? this.getEnabledChannels();
@@ -93,10 +115,10 @@ export class NotificationService {
     if (flags.email) results.push(await sendEmail(payload));
 
     for (const r of results) {
-      this.logDelivery(event, payload, r);
+      this.logDelivery(enriched, payload, r);
     }
 
-    return event.id ?? uuid();
+    return id;
   }
 
   private getEnabledChannels(): ChannelFlags {

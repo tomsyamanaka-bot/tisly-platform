@@ -169,18 +169,48 @@ document.getElementById("btn-replay-play")?.addEventListener("click", () => {
 });
 
 async function loadAnalytics() {
-  const data = await apiGet("/api/demo/analytics");
+  const [data, ai] = await Promise.all([
+    apiGet("/api/demo/analytics"),
+    apiGet("/api/analytics/overview").catch(() => null),
+  ]);
+  const riskAvg = ai?.risk?.avg24h ?? "—";
   document.getElementById("analytics-summary").innerHTML = `
     <div class="card stat"><div class="value">${data.eventCount}</div><div class="label">総イベント</div></div>
     <div class="card stat"><div class="value">${data.anomalyRate}%</div><div class="label">異常率</div></div>
-    <div class="card stat"><div class="value">${data.deviceUptimeRate}%</div><div class="label">機器稼働率</div></div>
+    <div class="card stat"><div class="value">${riskAvg}</div><div class="label">AI Risk (24h)</div></div>
     <div class="card stat"><div class="value">${data.events24h}</div><div class="label">24h イベント</div></div>
   `;
+  const aiEl = document.getElementById("analytics-ai-summary");
+  if (aiEl && ai?.summary?.today) {
+    aiEl.innerHTML = `<p><strong>AI:</strong> ${ai.summary.today.bullets.map((b) => b.text).join(" / ")}</p>`;
+  }
   const types = document.getElementById("analytics-types");
   if (types) {
     types.innerHTML = (data.byType ?? [])
       .map((t) => `<tr><td>${t.event_type}</td><td>${t.count}</td></tr>`)
       .join("");
+  }
+}
+
+async function loadSocNoc(mode) {
+  const endpoint = mode === "soc" ? "/api/ops/soc" : "/api/ops/noc";
+  const data = await apiGet(endpoint);
+  const socPanel = document.getElementById("panel-soc");
+  const nocPanel = document.getElementById("panel-noc");
+  if (mode === "soc") {
+    socPanel.style.display = "block";
+    nocPanel.style.display = "none";
+    document.getElementById("soc-content").innerHTML = `
+      <p>${data.nlReport?.paragraphs?.join("<br>") ?? ""}</p>
+      <ul>${(data.summary?.bullets ?? []).map((b) => `<li>${b.text}</li>`).join("")}</ul>
+    `;
+  } else {
+    socPanel.style.display = "none";
+    nocPanel.style.display = "block";
+    document.getElementById("noc-content").innerHTML = `
+      <p>稼働率 ${data.sla?.uptimePercent}% / MTTR ${data.mttr} 分</p>
+      <p>オフライン: ${(data.offlineDevices ?? []).length} 台</p>
+    `;
   }
 }
 
@@ -227,6 +257,7 @@ function applyOperatorMode(mode) {
   localStorage.setItem("tisly.operatorMode", mode);
   document.getElementById("operator-label").textContent =
     mode === "soc" ? "SOC — セキュリティ運用" : "NOC — ネットワーク運用";
+  void loadSocNoc(mode);
 }
 
 document.querySelectorAll("[data-ui-mode]").forEach((btn) => {
