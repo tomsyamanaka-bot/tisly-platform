@@ -1,30 +1,138 @@
 {
-  "_todo": "実機到着後、Waveshare RP2350-POE-ETH-8DI-8RO 公式Wiki（01_GPIO / 02_MQTT）とシルク表示を照合し、gpio_pin を差し替える。確定前はピン番号を仮定しない。",
+  "_todo": "実機到着後、Waveshare RP2350-POE-ETH-8DI-8RO 公式Wikiとシルク表示を照合し gpio_pin を確定する",
   "board": "Waveshare RP2350-POE-ETH-8DI-8RO",
   "wiki": "https://www.waveshare.com/wiki/RP2350-ETH-8DI-8RO",
   "digital_inputs": {
-    "DI1": { "gpio_pin": null, "label": "赤外線ビーム①", "role": "ir_beam_1" },
-    "DI2": { "gpio_pin": null, "label": "赤外線ビーム②", "role": "ir_beam_2" },
-    "DI3": { "gpio_pin": null, "label": "人感①", "role": "pir_1" },
-    "DI4": { "gpio_pin": null, "label": "人感②", "role": "pir_2" },
-    "DI5": { "gpio_pin": null, "label": "窓マグネット①", "role": "window_1" },
-    "DI6": { "gpio_pin": null, "label": "窓マグネット②", "role": "window_2" },
-    "DI7": { "gpio_pin": null, "label": "非常停止", "role": "emergency" },
-    "DI8": { "gpio_pin": null, "label": "予備", "role": "spare" }
+    "DI1": {
+      "logical_name": "ir_beam_1",
+      "role": "security_input",
+      "gpio_pin": null,
+      "active_low": true,
+      "debounce_ms": 30,
+      "hardware_note": "赤外線ビーム① — 公式01_GPIO 未確定",
+      "verify_status": "pending"
+    },
+    "DI2": {
+      "logical_name": "ir_beam_2",
+      "role": "security_input",
+      "gpio_pin": null,
+      "active_low": true,
+      "debounce_ms": 30,
+      "hardware_note": "赤外線ビーム②",
+      "verify_status": "pending"
+    },
+    "DI3": {
+      "logical_name": "pir_1",
+      "role": "security_input",
+      "gpio_pin": null,
+      "active_low": true,
+      "debounce_ms": 50,
+      "hardware_note": "人感①",
+      "verify_status": "pending"
+    },
+    "DI4": {
+      "logical_name": "pir_2",
+      "role": "security_input",
+      "gpio_pin": null,
+      "active_low": true,
+      "debounce_ms": 50,
+      "hardware_note": "人感②",
+      "verify_status": "pending"
+    },
+    "DI5": {
+      "logical_name": "window_1",
+      "role": "security_input",
+      "gpio_pin": null,
+      "active_low": true,
+      "debounce_ms": 30,
+      "hardware_note": "窓マグネット①",
+      "verify_status": "pending"
+    },
+    "DI6": {
+      "logical_name": "window_2",
+      "role": "security_input",
+      "gpio_pin": null,
+      "active_low": true,
+      "debounce_ms": 30,
+      "hardware_note": "窓マグネット②",
+      "verify_status": "pending"
+    },
+    "DI7": {
+      "logical_name": "emergency",
+      "role": "safety_input",
+      "gpio_pin": null,
+      "active_low": true,
+      "debounce_ms": 10,
+      "hardware_note": "非常停止",
+      "verify_status": "pending"
+    },
+    "DI8": {
+      "logical_name": "spare_di",
+      "role": "spare",
+      "gpio_pin": null,
+      "active_low": true,
+      "debounce_ms": 30,
+      "hardware_note": "予備 DI",
+      "verify_status": "pending"
+    }
   },
   "relay_outputs": {
-    "RO1": { "gpio_pin": null, "label": "100Vライト①", "role": "light_100v_1" },
-    "RO2": { "gpio_pin": null, "label": "100Vライト②", "role": "light_100v_2" },
-    "RO3": { "gpio_pin": null, "label": "パトライト", "role": "patlite" },
-    "RO4": { "gpio_pin": null, "label": "ブザー", "role": "buzzer" },
-    "RO5": { "gpio_pin": null, "label": "予備", "role": "spare_5" },
-    "RO6": { "gpio_pin": null, "label": "予備", "role": "spare_6" },
-    "RO7": { "gpio_pin": null, "label": "予備", "role": "spare_7" },
-    "RO8": { "gpio_pin": null, "label": "予備", "role": "spare_8" }
+    "RO1": {
+      "logical_name": "light_100v_1",
+      "role": "relay_output",
+      "gpio_pin": null,
+      "active_low": false,
+      "debounce_ms": 0,
+      "hardware_note": "100Vライト①",
+      "verify_status": "pending"
+    },
+    "RO2": {
+      "logical_name": "light_100v_2",
+      "role": "relay_output",
+      "gpio_pin": null,
+      "active_low": false,
+      "debounce_ms": 0,
+      "hardware_note": "100Vライト②",
+      "verify_status": "pending"
+    },
+    "RO3": {
+      "logical_name": "patlite",
+      "role": "relay_output",
+      "gpio_pin": null,
+      "active_low": false,
+      "debounce_ms": 0,
+      "hardware_note": "パトライト",
+      "verify_status": "pending"
+    },
+    "RO4": {
+      "logical_name": "buzzer",
+      "role": "relay_output",
+      "gpio_pin": null,
+      "active_low": false,
+      "debounce_ms": 0,
+      "hardware_note": "ブザー",
+      "verify_status": "pending"
+    },
+    "RO5": { "logical_name": "spare_ro_5", "role": "spare", "gpio_pin": null, "active_low": false, "debounce_ms": 0, "hardware_note": "予備", "verify_status": "pending" },
+    "RO6": { "logical_name": "spare_ro_6", "role": "spare", "gpio_pin": null, "active_low": false, "debounce_ms": 0, "hardware_note": "予備", "verify_status": "pending" },
+    "RO7": { "logical_name": "spare_ro_7", "role": "spare", "gpio_pin": null, "active_low": false, "debounce_ms": 0, "hardware_note": "予備", "verify_status": "pending" },
+    "RO8": { "logical_name": "spare_ro_8", "role": "spare", "gpio_pin": null, "active_low": false, "debounce_ms": 0, "hardware_note": "予備", "verify_status": "pending" }
   },
-  "onboard_buzzer": { "gpio_pin": null, "_todo": "公式資料で確認" },
+  "onboard_buzzer": {
+    "logical_name": "onboard_buzzer",
+    "role": "indicator",
+    "gpio_pin": null,
+    "active_low": false,
+    "debounce_ms": 0,
+    "hardware_note": "基板ブザー — 公式資料で確認",
+    "verify_status": "pending"
+  },
   "w5500_spi": {
-    "_todo": "公式02_MQTTサンプルのSPIピン定義を転記",
+    "logical_name": "ethernet_spi",
+    "role": "bus",
+    "gpio_pin": null,
+    "hardware_note": "公式02_MQTTサンプルのSPI定義を転記",
+    "verify_status": "pending",
     "sck": null,
     "mosi": null,
     "miso": null,

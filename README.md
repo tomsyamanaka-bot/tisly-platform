@@ -3,6 +3,33 @@
 TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。  
 三菱電機 **FX 系** PLC と **GX Works2 / GX Works3** を想定しています。
 
+## TiSLY Platform — Production Device Connection（Phase 121–140）
+
+**実機接続前の最終段階** — TV ペアリング、MQTT 実運用準備、QNAP SMB、PLC/RP2350/ESP 接続仕様。
+
+| 領域 | パス / 内容 |
+|------|-------------|
+| TV ペアリング API | `server/src/api/routes/tv.ts` — `/api/tv/pairing/*` |
+| TV アプリ | `tv-app/src/screens/PairingScreen.tsx` |
+| MQTT Subscriber | `server/src/mqtt/`（mock + 本番 broker） |
+| PLC Modbus | `server/src/plc/` — `docs/plc_modbus_map.md` |
+| RP2350 GPIO | `rp2350/config/gpio_map.json` — `docs/rp2350_pin_verification.md` |
+| ESP32 テンプレ | `esp32/config/*.example.json` — `docs/esp32_real_device_setup.md` |
+| QNAP SMB | `server/src/qnap/smb-client.ts` — `docs/qnap_smb_archive.md` |
+| MQTT セキュリティ | `docs/mqtt_security_acl_tls.md` |
+| トピック移行 | `docs/mqtt_topic_migration.md` |
+| 認証ローテーション | `docs/device_auth_rotation.md` |
+| Node-RED | `node-red/tisly_real_device_ingest_v1.json` |
+| E2E テスト | `server/test/e2e.test.ts` — `npm run test` |
+| 本番チェックリスト | `docs/production_readiness_checklist.md` |
+
+```bash
+cd server && npm run build && npm run test
+cd tv-app && npx tsc --noEmit
+```
+
+---
+
 ## TiSLY Platform — Real Device Integration（Phase 101–120）
 
 **実機統合準備** — 実機がなくても営業デモ可能。実機到着後すぐ接続・検証できる状態を整備。

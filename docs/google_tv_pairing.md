@@ -3,7 +3,7 @@
 ## 概要
 
 TV 端末を **site_id** と **tv_device_id**（例: `TV-LOBBY-001`）に安全に紐付ける。  
-現状は DB スキーマ（`tv_devices`）と設計のみ。API 実装は Phase 121–140。
+**Phase 121–140 で API 実装済み**（`server/src/api/routes/tv.ts`）。
 
 ---
 
@@ -68,14 +68,17 @@ sequenceDiagram
 
 ---
 
-## 将来 API（Phase 121+）
+## API（Phase 121–140）
 
 | メソッド | パス | 説明 |
 |----------|------|------|
-| POST | `/api/tv/pairing/request` | TV がセッション開始 |
-| POST | `/api/tv/pairing/confirm` | 管理画面がコード確定 |
+| POST | `/api/tv/pairing/start` | TV が 6 桁コード発行（10 分有効） |
+| POST | `/api/tv/pairing/confirm` | 管理画面がコード + site_id で確定 |
+| GET | `/api/tv/devices` | TV 一覧 |
+| PATCH | `/api/tv/devices/:id` | 設定更新 |
+| DELETE | `/api/tv/devices/:id` | ペアリング解除 |
+| POST | `/api/tv/devices/:id/test-alert` | TV テスト警報 |
 | GET | `/api/tv/config/:deviceId` | TV 設定取得 |
-| DELETE | `/api/tv/pairing/:deviceId` | 紐付け解除 |
 
 ---
 

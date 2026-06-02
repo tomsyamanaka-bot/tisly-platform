@@ -8,6 +8,7 @@ export type OperatorMode = "soc" | "noc";
 
 export interface TvSettings {
   serverUrl: string;
+  deviceId: string;
   pairingCode: string;
   siteId: string;
   displayMode: "dashboard" | "security" | "cameras";
@@ -25,6 +26,7 @@ const STORAGE_KEY = "tisly.tv.settings";
 
 const defaults: TvSettings = {
   serverUrl: process.env.EXPO_PUBLIC_API_URL ?? "https://tisly.jp",
+  deviceId: "",
   pairingCode: "",
   siteId: "default",
   displayMode: "dashboard",

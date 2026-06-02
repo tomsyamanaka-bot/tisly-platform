@@ -48,4 +48,11 @@ export const config = {
   },
   demoMode: process.env.TISLY_DEMO_MODE === "true",
   demoAutoStart: process.env.TISLY_DEMO_AUTO_START === "true",
+  qnap: {
+    host: process.env.QNAP_HOST ?? "",
+    share: process.env.QNAP_SHARE ?? "TiSLY",
+    username: process.env.QNAP_USERNAME ?? "",
+    password: process.env.QNAP_PASSWORD ?? "",
+    basePath: process.env.QNAP_BASE_PATH ?? "/TiSLY",
+  },
 };

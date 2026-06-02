@@ -1,0 +1,9 @@
+{
+  "wifi": {
+    "ssid": "YOUR_SSID",
+    "password": "YOUR_WIFI_PASSWORD",
+    "hostname": "tisly-esp-gate-001"
+  },
+  "static_ip": null,
+  "ntp_server": "pool.ntp.org"
+}

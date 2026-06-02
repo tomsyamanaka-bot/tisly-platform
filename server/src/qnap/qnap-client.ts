@@ -5,10 +5,19 @@ import {
   exportAsExcelCompatible,
   generateCustomerReport,
 } from "./auto-export.js";
+import { buildQnapArchivePath } from "./archive-path-builder.js";
+import { isQnapSmbConfigured } from "./smb-client.js";
+import { runExportJob } from "./export-manager.js";
 
 export function getQnapIntegrationOverview() {
   return {
     status: getQnapStatus(),
+    smbConfigured: isQnapSmbConfigured(),
+    pathTemplates: {
+      events: buildQnapArchivePath("events", "tenant", "site"),
+      reports: buildQnapArchivePath("reports", "tenant", "site"),
+      cameras: buildQnapArchivePath("cameras", "tenant", "site"),
+    },
     schedules: BACKUP_SCHEDULES,
     archives: listArchives(),
     futureIntegrations: [
@@ -29,4 +38,7 @@ export {
   autoExport,
   exportAsExcelCompatible,
   generateCustomerReport,
+  buildQnapArchivePath,
+  isQnapSmbConfigured,
+  runExportJob,
 };

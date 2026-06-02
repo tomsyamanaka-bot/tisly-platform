@@ -1,0 +1,8 @@
+{
+  "device_id": "ESP-GATE-001",
+  "tenant_id": "default",
+  "site_id": "moriya-home",
+  "label": "玄関ゲートウェイ",
+  "source_type": "esp32",
+  "firmware_version": "0.0.0-placeholder"
+}

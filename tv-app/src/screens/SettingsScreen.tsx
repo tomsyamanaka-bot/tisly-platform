@@ -8,6 +8,8 @@ import {
   TextInput,
   View,
 } from "react-native";
+import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import type { RootStackParamList } from "../../App";
 import {
   getTvSettings,
   loadTvSettings,
@@ -18,7 +20,9 @@ import {
 } from "../services/tvSettings";
 import { tvTheme } from "../theme/tvTheme";
 
-export function SettingsScreen() {
+type Props = NativeStackScreenProps<RootStackParamList, "Settings">;
+
+export function SettingsScreen({ navigation }: Props) {
   const [settings, setSettings] = useState<TvSettings>(getTvSettings());
   const [saved, setSaved] = useState(false);
 
@@ -70,15 +74,9 @@ export function SettingsScreen() {
         />
       </Field>
 
-      <Field label="Pairing Code">
-        <TextInput
-          style={styles.input}
-          value={settings.pairingCode}
-          onChangeText={(v) => update({ pairingCode: v })}
-          placeholder="6桁コード"
-          placeholderTextColor={tvTheme.colors.muted}
-        />
-      </Field>
+      <Pressable style={styles.linkBtn} onPress={() => navigation.navigate("Pairing")}>
+        <Text style={styles.linkText}>ペアリング画面を開く（6桁コード）</Text>
+      </Pressable>
 
       <Field label="Site ID">
         <TextInput
@@ -174,4 +172,12 @@ const styles = StyleSheet.create({
   },
   saveText: { fontSize: 28, color: "#fff", fontWeight: "700" },
   ok: { fontSize: 24, color: tvTheme.colors.primary, marginTop: 12 },
+  linkBtn: {
+    marginBottom: 20,
+    padding: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: tvTheme.colors.primary,
+  },
+  linkText: { fontSize: 26, color: tvTheme.colors.primary },
 });

@@ -4,7 +4,7 @@
         "type": "tab",
         "label": "TiSLY Real Device Ingest v1",
         "disabled": false,
-        "info": "Phase 101-120 — 統一 MQTT → HTTP ingest / heartbeat / retry"
+        "info": "Phase 121-140 — 統一 MQTT → unified event → POST /api/events/ingest (INGEST_SECRET) / heartbeat / retry / error log / debug dashboard"
     },
     {
         "id": "rd_mqtt_broker",
@@ -61,8 +61,8 @@
         "id": "rd_fn_future_notify",
         "type": "function",
         "z": "rd_tab_main",
-        "name": "将来: 通知分岐 (stub)",
-        "func": "// Phase 121+: severity/alarm 時に Discord 直送など\nif (msg.payload && (msg.payload.severity === \"alarm\" || msg.payload.severity === \"critical\")) {\n  node.warn(\"[将来] 通知分岐: \" + msg.payload.event_type);\n}\nreturn null;",
+        "name": "Alarm notify + error log",
+        "func": "const evt = msg.payload;\nif (evt && (evt.severity === \"alarm\" || evt.severity === \"critical\")) {\n  node.warn(\"[TiSLY] ALARM ingest: \" + evt.event_type + \" @ \" + evt.site_id);\n}\nreturn null;",
         "outputs": 0,
         "x": 780,
         "y": 120,

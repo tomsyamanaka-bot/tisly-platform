@@ -44,17 +44,22 @@ CREATE INDEX IF NOT EXISTS idx_device_heartbeats_received ON device_heartbeats(r
 
 CREATE TABLE IF NOT EXISTS tv_devices (
   id TEXT PRIMARY KEY,
-  device_id TEXT NOT NULL UNIQUE,
+  tenant_id TEXT,
   site_id TEXT,
+  device_id TEXT NOT NULL UNIQUE,
+  display_name TEXT,
   pairing_code TEXT,
   pairing_expires_at TEXT,
-  display_mode TEXT,
-  camera_mode TEXT,
-  settings_json TEXT,
+  paired_at TEXT,
   last_seen_at TEXT,
+  status TEXT DEFAULT 'pending',
+  settings_json TEXT,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now'))
 );
+
+CREATE INDEX IF NOT EXISTS idx_tv_devices_site ON tv_devices(site_id);
+CREATE INDEX IF NOT EXISTS idx_tv_devices_pairing ON tv_devices(pairing_code);
 
 CREATE TABLE IF NOT EXISTS notification_tokens (
   id TEXT PRIMARY KEY,

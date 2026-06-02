@@ -10,6 +10,7 @@ import { EventsScreen } from "./src/screens/EventsScreen";
 import { CamerasScreen } from "./src/screens/CamerasScreen";
 import { StatusScreen } from "./src/screens/StatusScreen";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
+import { PairingScreen } from "./src/screens/PairingScreen";
 import { AlarmOverlay } from "./src/components/AlarmOverlay";
 import { useTislyApi } from "./src/hooks/useTislyApi";
 import { useMqtt } from "./src/hooks/useMqtt";
@@ -22,6 +23,7 @@ export type RootStackParamList = {
   Cameras: undefined;
   Status: undefined;
   Settings: undefined;
+  Pairing: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -69,6 +71,7 @@ export default function App() {
         <Stack.Screen name="Cameras" component={CamerasScreen} options={{ title: "カメラ" }} />
         <Stack.Screen name="Status" component={StatusScreen} options={{ title: "状態" }} />
         <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: "設定" }} />
+        <Stack.Screen name="Pairing" component={PairingScreen} options={{ title: "ペアリング" }} />
       </Stack.Navigator>
       <AlarmOverlay
         visible={overlayVisible}

@@ -1,0 +1,19 @@
+{
+  "inputs": [
+    {
+      "logical_name": "door_contact",
+      "gpio_pin": 4,
+      "active_low": true,
+      "debounce_ms": 50,
+      "role": "security_input"
+    }
+  ],
+  "outputs": [
+    {
+      "logical_name": "relay_light",
+      "gpio_pin": 26,
+      "active_low": false,
+      "role": "relay"
+    }
+  ]
+}
