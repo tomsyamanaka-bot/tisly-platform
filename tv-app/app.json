@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "TiSLY Security TV",
+    "slug": "tisly-google-tv",
+    "version": "1.0.0",
+    "orientation": "landscape",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "android": {
+      "package": "jp.tisly.security.tv",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0d1117"
+      },
+      "intentFilters": [
+        {
+          "action": "android.intent.action.MAIN",
+          "category": ["android.intent.category.LEANBACK_LAUNCHER"]
+        }
+      ]
+    },
+    "extra": {
+      "apiBaseUrl": "https://tisly.jp",
+      "mqttWsUrl": "wss://mqtt.tisly.jp:9001"
+    }
+  }
+}

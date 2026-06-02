@@ -1,0 +1,11 @@
+type=0 pos=875000.0 rowsize=1
+V1:6:1:1:3:3:3:1:b:X:MOV:K_1:111:D:cb{fg=fg{dim=4x1:es=[e{s=ce{op=ct{op=#:ct=a:as=[as{vt=Abl}]}:args=[d{s=#:a=0:vt=nn}]}:pos=0,0}:e{s=ce{op=cl{op=#:ct=a:as=[as{vt=A16}:as{vt=A16}]}:args=[c{s=#:v=111:t=#:si=s}:d{s=#:a=10:vt=nn}]}:pos=1,0}]}}
+
+type=0 pos=937500.0 rowsize=1
+V1:4:1:1:3:26:a:X:INC:_lid/7958634494070565342/1:cb{fg=fg{dim=3x1:es=[e{s=ce{op=ct{op=#:ct=a:as=[as{vt=Abl}]}:args=[d{s=#:a=0:vt=nn}]}:pos=0,0}:e{s=ce{op=cl{op=#:ct=a:as=[as{vt=A16s}]}:args=[l{id=#}]}:pos=1,0}]}}
+
+type=0 pos=968750.0 rowsize=1
+V1:4:1:1:3:1:a:X:INC:D:cb{fg=fg{dim=3x1:es=[e{s=ce{op=ct{op=#:ct=a:as=[as{vt=Abl}]}:args=[d{s=#:a=0:vt=nn}]}:pos=0,0}:e{s=ce{op=cl{op=#:ct=a:as=[as{vt=A16s}]}:args=[d{s=#:a=100:vt=nn}]}:pos=1,0}]}}
+
+type=5 pos=1000000.0 rowsize=1
+V1:0:end{type=end:dim=1x1}

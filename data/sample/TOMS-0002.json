@@ -1,0 +1,37 @@
+{
+  "case_number": "TOMS-0002",
+  "case_name": "つくば事務所",
+  "customer_name": "株式会社ABC建設",
+  "customer_folder": "ABC建設",
+  "person_in_charge": "智紀",
+  "address": "茨城県つくば市○○",
+  "status": "見積提出",
+  "estimate_no": "EST-20260520-0002",
+  "issue_date": "2026-05-20",
+  "order_date": "",
+  "invoice_no": "",
+  "invoice_date": "",
+  "payment_confirmed": false,
+  "items": [
+    {
+      "location": "1F受付",
+      "category": "照明",
+      "work_type": "交換",
+      "model": "ダウンライト",
+      "quantity": 4,
+      "unit_price": 12000,
+      "amount": 48000,
+      "include_in_estimate": true
+    },
+    {
+      "location": "2F会議室",
+      "category": "LAN",
+      "work_type": "新設",
+      "model": "1点",
+      "quantity": 2,
+      "unit_price": 12000,
+      "amount": 24000,
+      "include_in_estimate": true
+    }
+  ]
+}

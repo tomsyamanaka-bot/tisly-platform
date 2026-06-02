@@ -1,0 +1,106 @@
+import Database from "better-sqlite3";
+import fs from "fs";
+import path, { dirname } from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+let db: Database.Database | null = null;
+
+export function getDbPath(): string {
+  return process.env.TISLY_DB_PATH ?? path.join(process.cwd(), "data", "tisly_notifications.db");
+}
+
+export function getDatabase(): Database.Database {
+  if (db) return db;
+  const dbPath = getDbPath();
+  fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+  db = new Database(dbPath);
+  db.pragma("journal_mode = WAL");
+  db.pragma("foreign_keys = ON");
+  const schema = fs.readFileSync(path.join(__dirname, "schema.sql"), "utf-8");
+  db.exec(schema);
+  seedDefaults(db);
+  return db;
+}
+
+function seedDefaults(database: Database.Database): void {
+  const admin = database
+    .prepare("SELECT id FROM users WHERE id = ?")
+    .get("admin-default");
+  if (!admin) {
+    database
+      .prepare(
+        `INSERT INTO users (id, email, display_name, role) VALUES (?, ?, ?, ?)`
+      )
+      .run("admin-default", "admin@tisly.jp", "TiSLY Admin", "admin");
+  }
+
+  const settings = [
+    {
+      key: "pwa",
+      value: { enabled: true, name: "TiSLY Home Security", themeColor: "#1a7f37" },
+    },
+    {
+      key: "push",
+      value: {
+        enabled: false,
+        vapidPublicKey: process.env.VAPID_PUBLIC_KEY ?? "",
+        vapidPrivateKey: process.env.VAPID_PRIVATE_KEY ? "[set]" : "",
+      },
+    },
+    {
+      key: "discord",
+      value: {
+        enabled: false,
+        webhookUrl: "",
+        eventTypes: ["alarm", "heartbeat_alarm", "heartbeat_warning"],
+      },
+    },
+    {
+      key: "email",
+      value: {
+        enabled: false,
+        smtpHost: process.env.SMTP_HOST ?? "smtp.gmail.com",
+        smtpPort: Number(process.env.SMTP_PORT ?? 587),
+        smtpUser: process.env.SMTP_USER ?? "",
+        fromAddress: process.env.SMTP_FROM ?? "noreply@tisly.jp",
+        adminEmail: process.env.ADMIN_EMAIL ?? "",
+      },
+    },
+    {
+      key: "tv",
+      value: { enabled: true, kioskMode: true, alarmFullscreenSec: 10 },
+    },
+    {
+      key: "heartbeat",
+      value: { warnSec: 30, alarmSec: 300 },
+    },
+  ];
+
+  const upsert = database.prepare(
+    `INSERT INTO platform_settings (key, value_json) VALUES (?, ?)
+     ON CONFLICT(key) DO NOTHING`
+  );
+  for (const s of settings) {
+    upsert.run(s.key, JSON.stringify(s.value));
+  }
+}
+
+export function getPlatformSetting<T>(key: string): T | null {
+  const row = getDatabase()
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get(key) as { value_json: string } | undefined;
+  if (!row) return null;
+  return JSON.parse(row.value_json) as T;
+}
+
+export function setPlatformSetting(key: string, value: unknown): void {
+  getDatabase()
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at)
+       VALUES (?, ?, datetime('now'))
+       ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = datetime('now')`
+    )
+    .run(key, JSON.stringify(value));
+}

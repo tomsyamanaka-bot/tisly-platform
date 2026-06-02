@@ -1,0 +1,68 @@
+{
+  "case_number": "TOMS-0001",
+  "case_name": "土浦寮",
+  "customer_name": "株式会社伝元",
+  "customer_folder": "伝元",
+  "person_in_charge": "智紀",
+  "address": "茨城県土浦市○○",
+  "status": "完了",
+  "estimate_no": "EST-20260531-0001",
+  "issue_date": "2026-05-31",
+  "order_date": "2026-05-15",
+  "invoice_no": "INV-2026-0002",
+  "invoice_date": "2026-05-31",
+  "payment_confirmed": true,
+  "remarks": [
+    "・価格は税抜単価に基づき算出しています",
+    "・正式見積前に現地確認が必要な場合があります",
+    "・案件番号: TOMS-0001"
+  ],
+  "photos": [],
+  "items": [
+    {
+      "location": "1Fトイレ",
+      "category": "換気",
+      "work_type": "交換",
+      "model": "φ100",
+      "quantity": 2,
+      "unit_price": 55000,
+      "amount": 110000,
+      "include_in_estimate": true,
+      "remarks": "換気扇交換"
+    },
+    {
+      "location": "2Fトイレ",
+      "category": "換気",
+      "work_type": "交換",
+      "model": "φ100",
+      "quantity": 2,
+      "unit_price": 55000,
+      "amount": 110000,
+      "include_in_estimate": true,
+      "remarks": "換気扇交換"
+    },
+    {
+      "location": "2F廊下",
+      "category": "照明",
+      "work_type": "新設",
+      "model": "ダウンライト",
+      "quantity": 6,
+      "unit_price": 18000,
+      "amount": 108000,
+      "include_in_estimate": true,
+      "remarks": "廊下照明新設"
+    },
+    {
+      "location": "1F電気室",
+      "category": "分電盤",
+      "work_type": "交換",
+      "model": "20+2",
+      "quantity": 1,
+      "unit_price": 180000,
+      "amount": 180000,
+      "include_in_estimate": true,
+      "remarks": "分電盤更新"
+    }
+  ],
+  "payment_date": "2026-05-31"
+}

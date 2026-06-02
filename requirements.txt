@@ -1,0 +1,8 @@
+# TOMS Phase 2-1 依存パッケージ
+openpyxl>=3.1.0
+reportlab>=4.0.0
+python-dotenv>=1.0.0
+requests>=2.31.0
+
+# Windows で Excel COM による PDF 変換を使う場合（任意）
+# pywin32>=306

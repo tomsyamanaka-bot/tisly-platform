@@ -10,3 +10,19 @@
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+# TOMS
+.env
+output/**/*
+!output/.gitkeep
+templates/*.xlsx
+
+# TiSLY Notification Platform
+server/node_modules/
+server/dist/
+server/data/*.db
+server/data/*.db-*
+server/.env
+tv-app/node_modules/
+tv-app/.expo/
+tv-app/dist/

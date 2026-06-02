@@ -1,0 +1,16 @@
+{
+  "case_number": "TOMS-0004",
+  "case_name": "牛久倉庫",
+  "customer_name": "株式会社物流センター",
+  "customer_folder": "物流センター",
+  "person_in_charge": "智紀",
+  "address": "茨城県牛久市○○",
+  "status": "現調前",
+  "estimate_no": "",
+  "issue_date": "",
+  "order_date": "",
+  "invoice_no": "",
+  "invoice_date": "",
+  "payment_confirmed": false,
+  "items": []
+}

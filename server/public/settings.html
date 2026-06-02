@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TiSLY — Platform Settings</title>
+  <link rel="stylesheet" href="/css/admin.css" />
+</head>
+<body>
+  <header>
+    <h1>Platform Settings</h1>
+    <nav>
+      <a href="/">ダッシュボード</a>
+      <a href="/notifications">通知センター</a>
+      <a href="/settings" class="active">Platform Settings</a>
+    </nav>
+  </header>
+  <main>
+    <div class="card" id="sec-pwa"><h2>PWA</h2><div class="form-pwa"></div><button class="btn" data-save="pwa">保存</button></div>
+    <div class="card" id="sec-push"><h2>Web Push</h2><div class="form-push"></div>
+      <button class="btn" data-save="push">保存</button>
+      <button class="btn secondary" data-test="web_push">Push テスト</button>
+    </div>
+    <div class="card" id="sec-discord"><h2>Discord</h2><div class="form-discord"></div>
+      <button class="btn" data-save="discord">保存</button>
+      <button class="btn secondary" data-test="discord">Discord テスト</button>
+    </div>
+    <div class="card" id="sec-email"><h2>Email (SMTP)</h2><div class="form-email"></div>
+      <button class="btn" data-save="email">保存</button>
+      <button class="btn secondary" data-test="email">メールテスト</button>
+    </div>
+    <div class="card" id="sec-tv"><h2>Google TV</h2><div class="form-tv"></div><button class="btn" data-save="tv">保存</button></div>
+    <div class="card" id="sec-heartbeat"><h2>Heartbeat 監視</h2><div class="form-heartbeat"></div><button class="btn" data-save="heartbeat">保存</button></div>
+    <div id="settings-msg"></div>
+  </main>
+  <script type="module" src="/js/settings-page.js"></script>
+</body>
+</html>

@@ -3,11 +3,54 @@
 TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。  
 三菱電機 **FX 系** PLC と **GX Works2 / GX Works3** を想定しています。
 
+## TiSLY Notification Platform + Google TV（Phase 21–40）
+
+通知は **ConoHa VPS / tisly.jp** に統一。スマホは **PWA**、**Google TV のみ**ネイティブアプリ。
+
+| コンポーネント | パス |
+|---------------|------|
+| 通知コア | `server/notification/notification-service.ts` |
+| tisly.jp API + 管理 UI | `server/` |
+| PWA | `server/public/` |
+| Google TV App | `tv-app/` |
+| 設計ドキュメント | `docs/notification_architecture.md` 他 |
+
+### 通知構成図
+
+```
+[ESP / RP2350 / PLC] → MQTT (VPS) → Node-RED
+                          ↓
+              notification-service.ts
+                          ↓
+            Web Push | Discord | Email
+                          ↓
+                 PWA (スマホ) / TV App
+```
+
+### Google TV 構成図
+
+```
+tv-app (Expo RN)
+  Home ─┬─ Security / Events / Status
+        ├─ Cameras (将来 RTSP/WebRTC)
+        └─ Settings (キオスク)
+              ↕ HTTPS
+         tisly.jp /api/*
+```
+
+起動: `cd server && npm install && npm run dev` → http://localhost:3080/
+
+---
+
 ## プロジェクト構成
 
 ```
 TiSLY_HOME_Security_DEMO/
 ├── README.md
+├── server/          … 通知プラットフォーム + PWA
+├── tv-app/          … Google TV ネイティブ
+├── docs/            … notification_architecture.md 等
+├── rp2350/          … RP2350 Edition
 └── ladder/
     ├── TiSLY_HOME_Security_DEMO.txt         … 命令語リスト (IL) + 段コメント
     └── TiSLY_HOME_Security_DEMO_LADDER.txt  … ラダー図テキスト参考

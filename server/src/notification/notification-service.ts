@@ -1,0 +1,159 @@
+import { v4 as uuid } from "uuid";
+import mqtt from "mqtt";
+import { config } from "../config.js";
+import { getDatabase, getPlatformSetting } from "../db/database.js";
+import { sendDiscord } from "./channels/discord.js";
+import { sendEmail, queueFailedDelivery } from "./channels/email.js";
+import { configureWebPush, sendWebPush } from "./channels/web-push.js";
+import { persistEvent, parseMqttPayload, shouldNotify } from "./event-processor.js";
+import { recordHeartbeat, startHeartbeatMonitor } from "./heartbeat-monitor.js";
+import type {
+  DeliveryResult,
+  NotificationChannel,
+  NotificationPayload,
+  TislyEvent,
+} from "./types.js";
+
+interface ChannelFlags {
+  push?: boolean;
+  discord?: boolean;
+  email?: boolean;
+}
+
+export class NotificationService {
+  private mqttClient: mqtt.MqttClient | null = null;
+
+  start(): void {
+    configureWebPush();
+    this.connectMqtt();
+    startHeartbeatMonitor(this);
+    console.log("[TiSLY Notification] Service started");
+  }
+
+  stop(): void {
+    this.mqttClient?.end();
+  }
+
+  private connectMqtt(): void {
+    if (!config.mqtt.url) return;
+    this.mqttClient = mqtt.connect(config.mqtt.url, {
+      clientId: config.mqtt.clientId,
+      reconnectPeriod: 5000,
+    });
+
+    this.mqttClient.on("connect", () => {
+      console.log("[MQTT] Connected:", config.mqtt.url);
+      this.mqttClient?.subscribe(config.mqtt.topicPrefix, (err) => {
+        if (err) console.error("[MQTT] Subscribe error:", err);
+        else console.log("[MQTT] Subscribed:", config.mqtt.topicPrefix);
+      });
+    });
+
+    this.mqttClient.on("message", (topic, buf) => {
+      const raw = buf.toString();
+      const parsed = parseMqttPayload(topic, raw);
+      if (!parsed) return;
+      if (parsed.eventType === "heartbeat") {
+        recordHeartbeat(parsed.deviceId, parsed.payload?.platform as string);
+        return;
+      }
+      void this.processEvent(parsed);
+    });
+
+    this.mqttClient.on("error", (err) => console.error("[MQTT]", err.message));
+  }
+
+  async processEvent(event: TislyEvent, channels?: ChannelFlags): Promise<string> {
+    persistEvent(event);
+    if (!shouldNotify(event.eventType)) {
+      return event.id ?? "";
+    }
+
+    const payload: NotificationPayload = {
+      title: event.title,
+      body: event.body ?? "",
+      eventType: event.eventType,
+      deviceId: event.deviceId,
+      url: `${config.publicUrl}/notifications`,
+      data: event.payload,
+    };
+
+    const flags = channels ?? this.getEnabledChannels();
+    const results: DeliveryResult[] = [];
+
+    if (flags.push) results.push(await sendWebPush(payload));
+    if (flags.discord) results.push(await sendDiscord(payload));
+    if (flags.email) results.push(await sendEmail(payload));
+
+    for (const r of results) {
+      this.logDelivery(event, payload, r);
+    }
+
+    return event.id ?? uuid();
+  }
+
+  private getEnabledChannels(): ChannelFlags {
+    const push = getPlatformSetting<{ enabled: boolean }>("push");
+    const discord = getPlatformSetting<{ enabled: boolean }>("discord");
+    const email = getPlatformSetting<{ enabled: boolean }>("email");
+    return {
+      push: push?.enabled ?? false,
+      discord: discord?.enabled ?? false,
+      email: email?.enabled ?? false,
+    };
+  }
+
+  private logDelivery(
+    event: TislyEvent,
+    payload: NotificationPayload,
+    result: DeliveryResult
+  ): void {
+    const logId = uuid();
+    const db = getDatabase();
+    db.prepare(
+      `INSERT INTO notification_logs (id, device_id, event_type, channel, title, body, payload_json, status, sent_at, error_message)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      logId,
+      event.deviceId,
+      event.eventType,
+      result.channel,
+      payload.title,
+      payload.body,
+      JSON.stringify(payload),
+      result.success ? "sent" : "failed",
+      result.success ? new Date().toISOString() : null,
+      result.error ?? null
+    );
+
+    if (!result.success) {
+      queueFailedDelivery(logId, result.channel, payload);
+    }
+  }
+
+  async sendTest(channel: NotificationChannel): Promise<DeliveryResult> {
+    const payload: NotificationPayload = {
+      title: "TiSLY テスト通知",
+      body: "通知基盤のテスト送信です。",
+      eventType: "test",
+      deviceId: "tisly-platform",
+    };
+    switch (channel) {
+      case "web_push":
+        return sendWebPush(payload);
+      case "discord":
+        return sendDiscord(payload);
+      case "email":
+        return sendEmail(payload);
+      default:
+        return { channel, success: false, error: "Channel not implemented" };
+    }
+  }
+}
+
+let instance: NotificationService | null = null;
+
+export function getNotificationService(): NotificationService {
+  if (!instance) instance = new NotificationService();
+  return instance;
+}

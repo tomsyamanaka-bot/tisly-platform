@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#1a7f37" />
+  <link rel="manifest" href="/manifest.json" />
+  <title>TiSLY — 管理ダッシュボード</title>
+  <link rel="stylesheet" href="/css/admin.css" />
+</head>
+<body>
+  <header>
+    <h1>TiSLY Platform</h1>
+    <nav>
+      <a href="/" class="active">ダッシュボード</a>
+      <a href="/notifications">通知センター</a>
+      <a href="/settings">Platform Settings</a>
+    </nav>
+  </header>
+  <main>
+    <section class="grid" id="summary"></section>
+    <div class="card">
+      <h2>通知・PWA</h2>
+      <p>スマホは PWA としてホーム画面に追加し、Web Push を登録してください。</p>
+      <button class="btn" id="btn-push-register">Push 登録</button>
+      <button class="btn secondary" id="btn-push-test">通知テスト</button>
+      <div id="push-msg"></div>
+    </div>
+    <div class="card">
+      <h2>直近イベント</h2>
+      <table>
+        <thead><tr><th>時刻</th><th>デバイス</th><th>種別</th><th>内容</th></tr></thead>
+        <tbody id="events-body"></tbody>
+      </table>
+    </div>
+  </main>
+  <script type="module" src="/js/dashboard.js"></script>
+</body>
+</html>

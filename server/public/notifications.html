@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#1a7f37" />
+  <link rel="manifest" href="/manifest.json" />
+  <title>TiSLY — 通知センター</title>
+  <link rel="stylesheet" href="/css/admin.css" />
+</head>
+<body>
+  <header>
+    <h1>TiSLY Notification Center</h1>
+    <nav>
+      <a href="/">ダッシュボード</a>
+      <a href="/notifications" class="active">通知センター</a>
+      <a href="/settings">Platform Settings</a>
+    </nav>
+  </header>
+  <main>
+    <div class="filters">
+      <label><input type="checkbox" id="filter-unread" /> 未読のみ</label>
+      <label>イベント種別
+        <select id="filter-event">
+          <option value="">すべて</option>
+          <option value="alarm">alarm</option>
+          <option value="heartbeat_warning">heartbeat_warning</option>
+          <option value="heartbeat_alarm">heartbeat_alarm</option>
+          <option value="motion">motion</option>
+          <option value="test">test</option>
+        </select>
+      </label>
+      <button class="btn secondary" id="btn-refresh">更新</button>
+    </div>
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>時刻</th><th>チャネル</th><th>イベント</th><th>タイトル</th><th>状態</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="notif-body"></tbody>
+      </table>
+    </div>
+  </main>
+  <script type="module" src="/js/notifications.js"></script>
+</body>
+</html>

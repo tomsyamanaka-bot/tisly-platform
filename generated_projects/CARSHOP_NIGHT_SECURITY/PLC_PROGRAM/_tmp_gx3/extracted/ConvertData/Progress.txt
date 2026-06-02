@@ -1,0 +1,8 @@
+﻿080J
+C:\Users\bilimsoft\Desktop\IgnitionScada\GXWorks3\GXExample1.gx3
+------ ConvertStart  Start Time: 2023/04/11 11:26:17 ------
+Checking program (ProgPou)...
+Error:0,Warning:0
+Converting program (ProgPou)...
+Error:0,Warning:0
+========== Convert End  Error: 0, Warning: 0, End Time: 2023/04/11 11:26:17, Processing Time (Second):  0.516 ==========
