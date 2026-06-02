@@ -11,7 +11,9 @@ export const notificationsRouter = Router();
 notificationsRouter.get("/", (req, res) => {
   const db = getDatabase();
   const unreadOnly = req.query.unread === "true";
+  const readOnly = req.query.read === "true";
   const eventType = req.query.eventType as string | undefined;
+  const q = (req.query.q as string | undefined)?.trim();
   const limit = Math.min(Number(req.query.limit ?? 100), 500);
 
   let sql = "SELECT * FROM notification_logs WHERE 1=1";
@@ -19,9 +21,17 @@ notificationsRouter.get("/", (req, res) => {
   if (unreadOnly) {
     sql += " AND read_at IS NULL";
   }
+  if (readOnly) {
+    sql += " AND read_at IS NOT NULL";
+  }
   if (eventType) {
     sql += " AND event_type = ?";
     params.push(eventType);
+  }
+  if (q) {
+    sql += " AND (title LIKE ? OR body LIKE ? OR event_type LIKE ?)";
+    const like = `%${q}%`;
+    params.push(like, like, like);
   }
   sql += " ORDER BY created_at DESC LIMIT ?";
   params.push(limit);

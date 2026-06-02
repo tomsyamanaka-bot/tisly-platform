@@ -1,5 +1,7 @@
 import { Router } from "express";
 import { getDatabase } from "../../db/database.js";
+import { DEMO_SITES } from "../../demo/demo-sites.js";
+import { isDemoRunnerActive } from "../../demo/demo-runner.js";
 
 export const dashboardRouter = Router();
 
@@ -8,10 +10,30 @@ dashboardRouter.get("/", (_req, res) => {
   const deviceCount = (
     db.prepare("SELECT COUNT(*) as c FROM devices").get() as { c: number }
   ).c;
+  const siteCount = (
+    db
+      .prepare(`SELECT COUNT(DISTINCT site_id) as c FROM events WHERE site_id IS NOT NULL`)
+      .get() as { c: number }
+  ).c;
+  const effectiveSiteCount = Math.max(siteCount, DEMO_SITES.length);
   const eventCount24h = (
     db
       .prepare(
         `SELECT COUNT(*) as c FROM events WHERE created_at >= datetime('now', '-1 day')`
+      )
+      .get() as { c: number }
+  ).c;
+  const eventCountToday = (
+    db
+      .prepare(
+        `SELECT COUNT(*) as c FROM events WHERE date(created_at) = date('now')`
+      )
+      .get() as { c: number }
+  ).c;
+  const eventCountMonth = (
+    db
+      .prepare(
+        `SELECT COUNT(*) as c FROM events WHERE created_at >= datetime('now', 'start of month')`
       )
       .get() as { c: number }
   ).c;
@@ -29,6 +51,14 @@ dashboardRouter.get("/", (_req, res) => {
       )
       .get() as { c: number }
   ).c;
+  const anomalyCount = (
+    db
+      .prepare(
+        `SELECT COUNT(*) as c FROM events WHERE severity IN ('alarm', 'critical', 'warning')
+         AND created_at >= datetime('now', '-1 day')`
+      )
+      .get() as { c: number }
+  ).c;
   const recentAlarms = db
     .prepare(
       `SELECT * FROM events WHERE severity IN ('alarm', 'critical')
@@ -41,11 +71,17 @@ dashboardRouter.get("/", (_req, res) => {
 
   res.json({
     summary: {
+      siteCount: effectiveSiteCount,
       deviceCount,
+      connectedDeviceCount: deviceCount,
+      anomalyCount,
       eventCount24h,
+      eventCountToday,
+      eventCountMonth,
       unreadNotifications,
       alarmDevices,
       systemStatus: alarmDevices > 0 ? "alarm" : "normal",
+      demoRunnerActive: isDemoRunnerActive(),
     },
     recentAlarms,
     recentEvents,

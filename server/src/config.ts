@@ -46,4 +46,6 @@ export const config = {
     warnSec: Number(process.env.HEARTBEAT_WARN_SEC ?? 30),
     alarmSec: Number(process.env.HEARTBEAT_ALARM_SEC ?? 300),
   },
+  demoMode: process.env.TISLY_DEMO_MODE === "true",
+  demoAutoStart: process.env.TISLY_DEMO_AUTO_START === "true",
 };

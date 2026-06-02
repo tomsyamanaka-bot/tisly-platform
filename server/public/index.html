@@ -13,11 +13,17 @@
     <h1>TiSLY Platform</h1>
     <nav>
       <a href="/" class="active">ダッシュボード</a>
+      <a href="/operations">運用コンソール</a>
       <a href="/notifications">通知センター</a>
       <a href="/settings">Platform Settings</a>
+      <a href="/tv">TV</a>
     </nav>
   </header>
   <main>
+    <div class="demo-banner" style="background:rgba(26,127,55,0.12);border:1px solid var(--tisly-green);border-radius:8px;padding:0.75rem;margin-bottom:1rem">
+      営業デモ: <code>npm run demo</code> で仮想現場・30秒イベント生成が有効になります。
+      <a href="/operations">運用コンソール →</a>
+    </div>
     <section class="grid" id="summary"></section>
     <div class="card">
       <h2>通知・PWA</h2>
@@ -29,7 +35,7 @@
     <div class="card">
       <h2>直近イベント</h2>
       <table>
-        <thead><tr><th>時刻</th><th>デバイス</th><th>種別</th><th>内容</th></tr></thead>
+        <thead><tr><th>時刻</th><th>現場</th><th>デバイス</th><th>種別</th><th>内容</th></tr></thead>
         <tbody id="events-body"></tbody>
       </table>
     </div>

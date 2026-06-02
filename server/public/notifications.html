@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#1a7f37" />
-  <link rel="manifest" href="/manifest.json" />
+  <link rel="manifest" href="/manifest.webmanifest" />
   <title>TiSLY — 通知センター</title>
   <link rel="stylesheet" href="/css/admin.css" />
 </head>
@@ -13,24 +13,31 @@
     <h1>TiSLY Notification Center</h1>
     <nav>
       <a href="/">ダッシュボード</a>
+      <a href="/operations">運用コンソール</a>
       <a href="/notifications" class="active">通知センター</a>
       <a href="/settings">Platform Settings</a>
     </nav>
   </header>
   <main>
     <div class="filters">
+      <label>検索
+        <input type="search" id="filter-search" placeholder="タイトル・種別" />
+      </label>
       <label><input type="checkbox" id="filter-unread" /> 未読のみ</label>
+      <label><input type="checkbox" id="filter-read" /> 既読のみ</label>
       <label>イベント種別
         <select id="filter-event">
           <option value="">すべて</option>
           <option value="alarm">alarm</option>
-          <option value="heartbeat_warning">heartbeat_warning</option>
-          <option value="heartbeat_alarm">heartbeat_alarm</option>
+          <option value="intrusion">intrusion</option>
           <option value="motion">motion</option>
+          <option value="heartbeat">heartbeat</option>
+          <option value="recovery">recovery</option>
           <option value="test">test</option>
         </select>
       </label>
       <button class="btn secondary" id="btn-refresh">更新</button>
+      <button class="btn secondary" id="btn-read-all">すべて既読</button>
     </div>
     <div class="card">
       <table>

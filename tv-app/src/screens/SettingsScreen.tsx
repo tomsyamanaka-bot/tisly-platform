@@ -12,6 +12,8 @@ import {
   getTvSettings,
   loadTvSettings,
   saveTvSettings,
+  SIGNAGE_LABELS,
+  type SignageMode,
   type TvSettings,
 } from "../services/tvSettings";
 import { tvTheme } from "../theme/tvTheme";
@@ -37,16 +39,33 @@ export function SettingsScreen() {
   return (
     <ScrollView style={styles.root} contentContainerStyle={styles.content}>
       <Text style={styles.title}>設定</Text>
-      <Text style={styles.todo}>
-        TODO: TV ペアリング API（短時間コード検証）とサーバー同期
-      </Text>
+
+      <Field label="Demo Mode（営業デモ）">
+        <Switch value={settings.demoMode} onValueChange={(v) => update({ demoMode: v })} />
+        <Text style={styles.hint}>ON: サーバー WS イベントを優先表示</Text>
+      </Field>
+
+      <Field label="TV サイネージモード">
+        <View style={styles.row}>
+          {(Object.keys(SIGNAGE_LABELS) as SignageMode[]).map((m) => (
+            <Pressable
+              key={m}
+              style={[styles.chip, settings.signageMode === m && styles.chipActive]}
+              onPress={() => update({ signageMode: m })}
+            >
+              <Text style={styles.chipText}>{m}</Text>
+            </Pressable>
+          ))}
+        </View>
+        <Text style={styles.hint}>{SIGNAGE_LABELS[settings.signageMode]}</Text>
+      </Field>
 
       <Field label="Server URL">
         <TextInput
           style={styles.input}
           value={settings.serverUrl}
           onChangeText={(v) => update({ serverUrl: v })}
-          placeholder="https://tisly.jp"
+          placeholder="http://localhost:3080"
           placeholderTextColor={tvTheme.colors.muted}
         />
       </Field>
@@ -71,7 +90,6 @@ export function SettingsScreen() {
       </Field>
 
       <Field label="Display Mode">
-        <Text style={styles.value}>{settings.displayMode}</Text>
         <View style={styles.row}>
           {(["dashboard", "security", "cameras"] as const).map((m) => (
             <Pressable key={m} style={styles.chip} onPress={() => update({ displayMode: m })}>
@@ -81,18 +99,21 @@ export function SettingsScreen() {
         </View>
       </Field>
 
-      <Field label="Camera Mode">
-        <Text style={styles.value}>{settings.cameraMode}</Text>
+      <Field label="Camera Grid（デモ）">
         <View style={styles.row}>
-          {(["placeholder", "rtsp", "webrtc"] as const).map((m) => (
-            <Pressable key={m} style={styles.chip} onPress={() => update({ cameraMode: m })}>
-              <Text style={styles.chipText}>{m}</Text>
+          {([4, 8] as const).map((g) => (
+            <Pressable
+              key={g}
+              style={[styles.chip, settings.cameraGrid === g && styles.chipActive]}
+              onPress={() => update({ cameraGrid: g })}
+            >
+              <Text style={styles.chipText}>{g}分割</Text>
             </Pressable>
           ))}
         </View>
       </Field>
 
-      <Field label="Sound ON/OFF">
+      <Field label="Sound ON/OFF（警報音）">
         <Switch value={settings.soundOn} onValueChange={(v) => update({ soundOn: v })} />
       </Field>
 
@@ -124,7 +145,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: tvTheme.colors.background },
   content: { padding: tvTheme.spacing.screen, paddingBottom: 48 },
   title: { fontSize: tvTheme.fontSize.hero, color: tvTheme.colors.text, marginBottom: 8 },
-  todo: { fontSize: 22, color: tvTheme.colors.muted, marginBottom: 24 },
+  hint: { fontSize: 22, color: tvTheme.colors.muted, marginTop: 8 },
   field: { marginBottom: 28 },
   label: { fontSize: tvTheme.fontSize.body, color: tvTheme.colors.muted, marginBottom: 8 },
   input: {
@@ -135,7 +156,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
   },
-  value: { fontSize: tvTheme.fontSize.body, color: tvTheme.colors.text, marginBottom: 8 },
   row: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: {
     paddingHorizontal: 16,
@@ -143,6 +163,7 @@ const styles = StyleSheet.create({
     backgroundColor: tvTheme.colors.card,
     borderRadius: 8,
   },
+  chipActive: { borderWidth: 2, borderColor: tvTheme.colors.primary },
   chipText: { fontSize: 24, color: tvTheme.colors.text },
   saveBtn: {
     marginTop: 16,

@@ -1,0 +1,10 @@
+{
+  "name": "tisly-home-security-demo",
+  "private": true,
+  "description": "TiSLY HOME Security DEMO — monorepo scripts",
+  "scripts": {
+    "demo": "npm run demo --prefix server",
+    "dev": "npm run dev --prefix server",
+    "build": "npm run build --prefix server"
+  }
+}

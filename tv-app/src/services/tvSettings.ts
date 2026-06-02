@@ -1,7 +1,10 @@
 /**
  * TV ローカル設定（AsyncStorage 相当 — メモリ + 永続化フック用）
- * TODO: サーバー TV ペアリング API と同期
  */
+
+export type SignageMode = "security" | "facility" | "factory" | "hotel";
+export type UiMode = "simple" | "professional";
+export type OperatorMode = "soc" | "noc";
 
 export interface TvSettings {
   serverUrl: string;
@@ -11,6 +14,11 @@ export interface TvSettings {
   cameraMode: "placeholder" | "rtsp" | "webrtc";
   soundOn: boolean;
   autoRecoverOn: boolean;
+  /** Phase 61–80: サーバー側デモイベントを積極表示 */
+  demoMode: boolean;
+  /** TV サイネージテーマ */
+  signageMode: SignageMode;
+  cameraGrid: 4 | 8;
 }
 
 const STORAGE_KEY = "tisly.tv.settings";
@@ -23,11 +31,13 @@ const defaults: TvSettings = {
   cameraMode: "placeholder",
   soundOn: true,
   autoRecoverOn: true,
+  demoMode: process.env.EXPO_PUBLIC_DEMO_MODE === "true",
+  signageMode: "security",
+  cameraGrid: 4,
 };
 
 let cache: TvSettings = { ...defaults };
 
-/** 起動時に呼ぶ — 将来 AsyncStorage 読み込みに差し替え */
 export async function loadTvSettings(): Promise<TvSettings> {
   try {
     if (typeof globalThis !== "undefined") {
@@ -63,3 +73,10 @@ export function getWsUrlFromSettings(settings: TvSettings): string {
   if (base.startsWith("http://")) return base.replace("http://", "ws://") + "/ws";
   return `wss://${base}/ws`;
 }
+
+export const SIGNAGE_LABELS: Record<SignageMode, string> = {
+  security: "Security — セキュリティ監視",
+  facility: "Facility — 施設管理",
+  factory: "Factory — 工場ライン",
+  hotel: "Hotel — 民泊・ホテル",
+};

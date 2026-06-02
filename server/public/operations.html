@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#1a7f37" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <title>TiSLY — 運用コンソール（デモ）</title>
+  <link rel="stylesheet" href="/css/admin.css" />
+  <link rel="stylesheet" href="/css/operations.css" />
+</head>
+<body class="ui-professional">
+  <header>
+    <h1>TiSLY Operations</h1>
+    <nav>
+      <a href="/">ダッシュボード</a>
+      <a href="/operations" class="active">運用コンソール</a>
+      <a href="/notifications">通知センター</a>
+      <a href="/settings">Settings</a>
+      <a href="/tv">TV プレビュー</a>
+    </nav>
+  </header>
+  <main>
+    <div class="demo-banner">
+      <strong>Phase 61–80 デモ層</strong> —
+      <span id="demo-status">読込中…</span>
+      <button class="btn" id="btn-demo-start" type="button">デモ開始</button>
+      <button class="btn secondary" id="btn-demo-stop" type="button">停止</button>
+      <button class="btn secondary" id="btn-demo-trigger" type="button">即時イベント</button>
+    </div>
+
+    <div class="card">
+      <h2>表示モード</h2>
+      <p id="operator-label">SOC — セキュリティ運用</p>
+      <div class="mode-bar">
+        <span>顧客向け:</span>
+        <button type="button" class="chip" data-ui-mode="simple">Simple UI</button>
+        <button type="button" class="chip active" data-ui-mode="professional">Professional UI</button>
+        <span style="margin-left:1rem">運用者:</span>
+        <button type="button" class="chip active" data-operator-mode="soc">SOC モード</button>
+        <button type="button" class="chip" data-operator-mode="noc">NOC モード</button>
+      </div>
+    </div>
+
+    <div class="ops-layout">
+      <aside class="ops-nav">
+        <button type="button" data-panel="map" class="active">施設マップ</button>
+        <button type="button" data-panel="zones">Zone 管理</button>
+        <button type="button" data-panel="devices">デバイス管理</button>
+        <button type="button" data-panel="alarms">Alarm Center</button>
+        <button type="button" data-panel="replay">Event Replay</button>
+        <button type="button" data-panel="analytics">Analytics</button>
+        <button type="button" data-panel="health">Health Monitor</button>
+        <button type="button" data-panel="cameras">Demo Camera</button>
+      </aside>
+
+      <div class="ops-content">
+        <section id="panel-map" class="ops-panel active card">
+          <h2>施設マップ（将来図面連携）</h2>
+          <div id="map-canvas" class="map-canvas"></div>
+        </section>
+
+        <section id="panel-zones" class="ops-panel card">
+          <h2>Zone 管理</h2>
+          <table>
+            <thead><tr><th>名称</th><th>ID</th><th>紐付け現場</th></tr></thead>
+            <tbody id="zones-list"></tbody>
+          </table>
+        </section>
+
+        <section id="panel-devices" class="ops-panel card">
+          <h2>デバイス管理</h2>
+          <table>
+            <thead>
+              <tr><th>名称</th><th>現場</th><th>Zone</th><th>状態</th><th>最終通信</th><th>異常回数</th></tr>
+            </thead>
+            <tbody id="devices-body"></tbody>
+          </table>
+        </section>
+
+        <section id="panel-alarms" class="ops-panel card">
+          <h2>Alarm Center</h2>
+          <p id="alarm-counts"></p>
+          <table>
+            <thead><tr><th>分類</th><th>時刻</th><th>現場</th><th>種別</th><th>内容</th></tr></thead>
+            <tbody id="alarms-body"></tbody>
+          </table>
+        </section>
+
+        <section id="panel-replay" class="ops-panel card">
+          <h2>Event Replay</h2>
+          <div class="replay-controls">
+            <button class="btn secondary" id="btn-replay-prev" type="button">◀ 前</button>
+            <button class="btn" id="btn-replay-play" type="button">再生</button>
+            <button class="btn secondary" id="btn-replay-next" type="button">次 ▶</button>
+          </div>
+          <div class="replay-timeline" id="replay-timeline"></div>
+          <pre id="replay-detail" style="margin-top:1rem;font-size:0.8rem;overflow:auto"></pre>
+        </section>
+
+        <section id="panel-analytics" class="ops-panel card">
+          <h2>Analytics</h2>
+          <section class="grid" id="analytics-summary"></section>
+          <table>
+            <thead><tr><th>イベント種別</th><th>件数</th></tr></thead>
+            <tbody id="analytics-types"></tbody>
+          </table>
+        </section>
+
+        <section id="panel-health" class="ops-panel card">
+          <h2>Health Monitor</h2>
+          <div class="health-grid" id="health-grid"></div>
+        </section>
+
+        <section id="panel-cameras" class="ops-panel card">
+          <h2>Demo Camera</h2>
+          <div class="mode-bar">
+            <button type="button" class="chip active" data-camera-grid="4">4 分割</button>
+            <button type="button" class="chip" data-camera-grid="8">8 分割</button>
+          </div>
+          <div id="camera-grid" class="camera-grid g4"></div>
+        </section>
+      </div>
+    </div>
+  </main>
+  <script type="module" src="/js/operations.js"></script>
+</body>
+</html>

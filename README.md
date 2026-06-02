@@ -3,6 +3,33 @@
 TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。  
 三菱電機 **FX 系** PLC と **GX Works2 / GX Works3** を想定しています。
 
+## TiSLY Platform — Demo & Operations（Phase 61–80）
+
+**営業デモ最優先**。実機未接続でも「TiSLYが動いている」状態を再現します。
+
+| 機能 | パス / URL |
+|------|------------|
+| Demo Data Engine | `server/src/demo/` |
+| 運用コンソール（マップ・Zone・デバイス・Alarm・Replay・Analytics・Health・カメラ） | http://localhost:3080/operations |
+| デモ API | `/api/demo/*` |
+| 営業デモ手順 | `docs/demo_sales_guide.md` |
+
+### 営業デモ起動（推奨）
+
+```bash
+npm run demo
+# 仮想現場5拠点・35仮想機器をシードし、30秒毎にイベント生成
+# http://localhost:3080/  — ダッシュボード
+# http://localhost:3080/operations — 運用コンソール
+# http://localhost:3080/tv — TV 警報プレビュー（WebSocket）
+cd tv-app && EXPO_PUBLIC_API_URL=http://<PC-IP>:3080 npx expo start
+```
+
+仮想現場: 守谷住宅 / 工場A / 倉庫A / 民泊A / 車屋A  
+Google TV: 設定 → **Demo Mode** / **サイネージ**（Security・Facility・Factory・Hotel）
+
+---
+
 ## TiSLY Notification Platform + Google TV（Phase 41–60）
 
 **ConoHa VPS + tisly.jp** 本番化準備フェーズ。通知は VPS に統一。スマホは **PWA（Web Push）**、**Google TV のみ**ネイティブアプリ。  
@@ -15,6 +42,7 @@ MQTT は **VPS 内部のみ**。Node-RED は **HTTP ingest**（`POST /api/events
 | `docs/node_red_http_ingest.md` | Node-RED → server |
 | `docs/unified_event_format.md` | 統一イベント JSON |
 | `docs/security_baseline.md` | セキュリティ基準 |
+| `docs/demo_sales_guide.md` | 営業デモ手順（Phase 61–80） |
 
 ### ローカル確認（実機連携前）
 
