@@ -1,5 +1,6 @@
 import { getDatabase } from "../db/database.js";
 import { config } from "../config.js";
+import { probeMqttRtt, mqttBrokerConfigured } from "./mqtt-rtt-probe.js";
 
 export type DeviceTestKind = "heartbeat" | "event" | "relay" | "notification";
 
@@ -143,23 +144,28 @@ export function runDeviceConnectivityTest(
 export interface MqttRttResult {
   ok: boolean;
   roundTripMs: number | null;
+  rtt_ms: number | null;
   timeout: boolean;
   message: string;
   at: string;
+  tested_at: string;
   mock: boolean;
+  broker_status: string;
+  topic: string;
 }
 
-export function runMqttRttTest(customerId: string, deviceId: string): MqttRttResult {
+export async function runMqttRttTest(customerId: string, deviceId: string): Promise<MqttRttResult> {
   const db = getDatabase();
   const dev = db
     .prepare(`SELECT device_id, site_id FROM devices WHERE device_id = ? AND customer_id = ?`)
-    .get(deviceId, customerId);
+    .get(deviceId, customerId) as { device_id: string; site_id: string | null } | undefined;
   if (!dev) throw new Error("Device not found");
 
   const at = new Date().toISOString();
-  const brokerConfigured = !!config.mqtt.url;
+  const siteId = dev.site_id ?? "unknown";
+  const topic = `tisly/${siteId}/${deviceId}/test/rtt`;
 
-  if (!brokerConfigured) {
+  if (!mqttBrokerConfigured()) {
     const mockMs = 42 + Math.floor(Math.random() * 30);
     saveTestJson(deviceId, customerId, {
       mqttRttMs: mockMs,
@@ -169,36 +175,62 @@ export function runMqttRttTest(customerId: string, deviceId: string): MqttRttRes
     return {
       ok: true,
       roundTripMs: mockMs,
+      rtt_ms: mockMs,
       timeout: false,
-      message: "MQTT RTT simulated (broker unconfigured)",
+      message: "MQTT RTT simulated (broker unconfigured or mock mode)",
       at,
+      tested_at: at,
       mock: true,
+      broker_status: "unconfigured",
+      topic,
     };
   }
 
-  const start = Date.now();
-  const timeoutMs = 5000;
-  const elapsed = Date.now() - start;
-  if (elapsed > timeoutMs) {
+  const probe = await probeMqttRtt(topic);
+  if (probe.brokerStatus === "connected" && probe.rttMs != null) {
+    saveTestJson(deviceId, customerId, { mqttRttMs: probe.rttMs, mqttRttMock: false, mqttRttAt: at });
+    return {
+      ok: true,
+      roundTripMs: probe.rttMs,
+      rtt_ms: probe.rttMs,
+      timeout: false,
+      message: probe.message,
+      at,
+      tested_at: at,
+      mock: false,
+      broker_status: "connected",
+      topic: probe.topic,
+    };
+  }
+
+  if (probe.timeout) {
     return {
       ok: false,
       roundTripMs: null,
+      rtt_ms: null,
       timeout: true,
-      message: "MQTT RTT timeout — publish/ack not received",
+      message: probe.message,
       at,
+      tested_at: at,
       mock: false,
+      broker_status: probe.brokerStatus,
+      topic: probe.topic,
     };
   }
 
-  const roundTripMs = 80 + Math.floor(Math.random() * 40);
-  saveTestJson(deviceId, customerId, { mqttRttMs: roundTripMs, mqttRttMock: false, mqttRttAt: at });
+  const mockMs = 55 + Math.floor(Math.random() * 25);
+  saveTestJson(deviceId, customerId, { mqttRttMs: mockMs, mqttRttMock: true, mqttRttAt: at });
   return {
     ok: true,
-    roundTripMs,
+    roundTripMs: mockMs,
+    rtt_ms: mockMs,
     timeout: false,
-    message: "MQTT test message published — ack placeholder",
+    message: `${probe.message} — fallback mock RTT`,
     at,
+    tested_at: at,
     mock: true,
+    broker_status: probe.brokerStatus,
+    topic: probe.topic,
   };
 }
 
@@ -234,7 +266,7 @@ export function getMqttDiagnostic(customerId: string, deviceId: string) {
     status: dev.heartbeat_status ?? "unknown",
     latencyMs: tests.mqttRttMs ?? null,
     latencyPlaceholder: tests.mqttRttMs ? undefined : "mock until broker RTT wired",
-    brokerStatus: config.mqtt.url ? "configured" : "unconfigured",
+    brokerStatus: mqttBrokerConfigured() ? "configured" : "unconfigured",
     brokerUrl: config.mqtt.url.replace(/:[^:@]+@/, ":***@"),
   };
 }

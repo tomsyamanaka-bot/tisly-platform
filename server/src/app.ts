@@ -120,6 +120,14 @@ export function createApp(): express.Application {
     "/uploads/floorplans",
     express.static(path.join(process.cwd(), "uploads", "floorplans"))
   );
+  app.use(
+    "/uploads/install_photos",
+    express.static(path.join(process.cwd(), "uploads", "install_photos"))
+  );
+  app.use(
+    "/uploads/install-photos",
+    express.static(path.join(process.cwd(), "uploads", "install-photos"))
+  );
   app.get("/tv/:customerCode", (_req, res) => {
     res.sendFile(tvDashboardHtml);
   });

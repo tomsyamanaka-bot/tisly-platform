@@ -1,12 +1,18 @@
 {
   "app.title": "Field Install PWA",
-  "status.ready": "Installer PWA ready",
+  "status.ready": "Installer PWA ready (Phase 381-400)",
   "offline.queue": "Offline queue",
+  "offline.empty": "Offline queue: empty",
   "dry.run": "DRY RUN",
   "qr.scan": "Scan QR (camera)",
   "qr.manual": "Manual JSON entry",
   "nfc.read": "Read NFC tag",
   "nfc.manual": "Enter NFC UID manually",
   "completion.report": "Completion report",
-  "sync.now": "Sync offline queue"
+  "sync.now": "Sync",
+  "sync.empty": "No items to sync",
+  "sync.offline": "Offline — sync when back online",
+  "sync.done": "Sync complete",
+  "sync.partial": "Sync partial",
+  "sync.online_hint": "Back online — tap Sync"
 }

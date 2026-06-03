@@ -148,4 +148,18 @@ export const config = {
       return env("NODE_RED_URL", "");
     },
   },
+  storage: {
+    get provider() {
+      return (env("STORAGE_PROVIDER", "local") as "local" | "s3");
+    },
+    s3: {
+      endpoint: env("S3_ENDPOINT"),
+      bucket: env("S3_BUCKET"),
+      accessKey: env("S3_ACCESS_KEY"),
+      secretKey: env("S3_SECRET_KEY"),
+    },
+  },
+  get mqttUrlConfigured() {
+    return !!process.env.MQTT_URL?.trim();
+  },
 };

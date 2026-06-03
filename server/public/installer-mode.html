@@ -13,12 +13,24 @@
 </head>
 <body class="customer-portal">
   <header class="portal-header">
-    <div class="brand"><h1>施工 PWA</h1><p id="install-code"></p></div>
+    <div class="brand"><h1 data-i18n="app.title" data-i18n-fallback="施工 PWA">施工 PWA</h1><p id="install-code"></p></div>
     <nav class="portal-nav">
+      <select id="locale-select" aria-label="Language">
+        <option value="ja">日本語</option>
+        <option value="en">English</option>
+      </select>
       <a id="link-map" href="#">Map</a>
       <a id="link-portal" href="#">ポータル</a>
     </nav>
   </header>
+  <div id="offline-status-bar" class="offline-status-bar" role="status">
+    <span id="offline-online-dot" class="dot online">●</span>
+    <span id="offline-state-text">online</span>
+    <span id="offline-queue-count">queue: 0</span>
+    <span id="offline-last-sync">sync: —</span>
+    <button type="button" class="btn secondary btn-sm" id="btn-offline-flush" data-i18n="sync.now" data-i18n-fallback="同期">同期</button>
+  </div>
+  <p id="offline-sync-errors" class="hint offline-sync-errors" hidden></p>
   <div id="dry-run-banner" class="dry-run-banner" hidden>DRY RUN — 実DBは更新しません</div>
   <main class="card portal-card installer-pwa" style="margin:0.75rem">
     <p id="install-status" class="installer-status">読み込み中…</p>
@@ -26,8 +38,29 @@
     <label class="installer-dry-toggle"><input type="checkbox" id="dry-run-toggle" /> ドライラン（営業デモ・練習）</label>
     <button type="button" class="btn secondary" id="btn-offline-sync">オフラインキュー同期</button>
 
+    <section id="install-dashboard" class="install-dashboard" aria-label="施工ダッシュボード">
+      <h2>ダッシュボード</h2>
+      <div class="dashboard-grid" id="dashboard-stats">
+        <div><strong id="dash-registered">—</strong><small>登録済</small></div>
+        <div><strong id="dash-unplaced">—</strong><small>未配置</small></div>
+        <div><strong id="dash-untested">—</strong><small>未テスト</small></div>
+        <div><strong id="dash-comm-ok">—</strong><small>通信OK</small></div>
+        <div><strong id="dash-comm-ng">—</strong><small>通信NG</small></div>
+        <div><strong id="dash-completion">—</strong><small>完了率%</small></div>
+      </div>
+    </section>
+
+    <section id="offline-conflict-panel" class="offline-conflict-panel" hidden>
+      <h3>オフライン競合（手動マージ）</h3>
+      <p class="hint">conflict / rejected / skipped / merged のプレースホルダ UI</p>
+      <ul id="offline-conflict-list"></ul>
+      <button type="button" class="btn secondary" id="btn-conflict-merge">選択を merged としてマーク</button>
+      <button type="button" class="btn secondary" id="btn-conflict-skip">skipped</button>
+    </section>
+
     <nav class="installer-tabs" id="installer-tabs" aria-label="施工ステップ">
-      <button type="button" data-panel="site" class="active">現場</button>
+      <button type="button" data-panel="dash" class="active">概要</button>
+      <button type="button" data-panel="site">現場</button>
       <button type="button" data-panel="floor">フロア</button>
       <button type="button" data-panel="device">登録</button>
       <button type="button" data-panel="qr">QR</button>
@@ -35,10 +68,17 @@
       <button type="button" data-panel="comm">通信</button>
       <button type="button" data-panel="map">配置</button>
       <button type="button" data-panel="mqtt">MQTT</button>
+      <button type="button" data-panel="photos">写真</button>
       <button type="button" data-panel="done">完了</button>
     </nav>
 
-    <section id="panel-site" class="installer-panel active">
+    <section id="panel-dash" class="installer-panel active">
+      <h2>概要</h2>
+      <p class="hint">ダッシュボードとオフライン状態は上部に常時表示されます。</p>
+      <button type="button" class="btn secondary" id="btn-refresh-dashboard">統計を更新</button>
+    </section>
+
+    <section id="panel-site" class="installer-panel">
       <h2>現場選択</h2>
       <label>現場 <select id="site-select"></select></label>
       <button type="button" class="btn secondary" id="btn-new-site">現場作成</button>
@@ -112,8 +152,22 @@
       <h2>MQTT Test</h2>
       <label>設備 <select id="mqtt-device-select"></select></label>
       <button type="button" class="btn secondary" id="btn-mqtt-refresh">診断更新</button>
-      <button type="button" class="btn secondary" id="btn-mqtt-rtt">RTT実測（mock可）</button>
+      <button type="button" class="btn secondary" id="btn-mqtt-rtt">RTT実測</button>
       <pre id="mqtt-diag" class="hint"></pre>
+      <h3>証明書 (CSR)</h3>
+      <label>CSR PEM <textarea id="csr-pem" rows="3" placeholder="-----BEGIN CERTIFICATE REQUEST-----"></textarea></label>
+      <button type="button" class="btn secondary" id="btn-csr-register">CSR登録</button>
+      <button type="button" class="btn secondary" id="btn-cert-issue">証明書発行</button>
+      <button type="button" class="btn secondary" id="btn-cert-status">状態確認</button>
+      <pre id="cert-result" class="hint"></pre>
+    </section>
+
+    <section id="panel-photos" class="installer-panel">
+      <h2>施工写真</h2>
+      <label>設備 <select id="photo-device-select"></select></label>
+      <label>写真 <input type="file" id="photo-file" accept="image/*" capture="environment" /></label>
+      <button type="button" class="btn" id="btn-photo-upload">アップロード</button>
+      <ul id="photo-list"></ul>
     </section>
 
     <section id="panel-done" class="installer-panel">
@@ -124,6 +178,7 @@
       <button type="button" class="btn secondary" id="btn-completion-pdf">完了レポート (PDF)</button>
       <button type="button" class="btn secondary" id="btn-label">ラベルデータ</button>
       <a class="btn secondary" id="link-labels-csv" href="#">ラベル CSV</a>
+      <a class="btn secondary" id="link-label-json" href="#">ラベル JSON</a>
     </section>
 
     <h2>設備一覧</h2>

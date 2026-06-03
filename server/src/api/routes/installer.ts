@@ -48,6 +48,15 @@ import {
 } from "../../provisioning/device-certificates.js";
 import { archiveFloorplanToQnap } from "../../qnap/floorplan-archive.js";
 import { getFloorById } from "../../site-builder/floor-store.js";
+import {
+  registerDeviceCsr,
+  issueDeviceCertFromCsr,
+  revokeDeviceCert,
+  getDeviceCertStatus,
+} from "../../provisioning/device-csr.js";
+import { saveInstallPhoto, listInstallPhotos, deleteInstallPhoto } from "../../installer/install-photos.js";
+import { getInstallDashboard } from "../../installer/install-dashboard.js";
+import { getDeviceLabelJson } from "../../installer/device-label-export.js";
 
 export const customerInstallerRouter = Router();
 
@@ -408,53 +417,103 @@ customerInstallerRouter.post(
       res.status(400).json({ error: "imageBase64 required" });
       return;
     }
-    const dir = path.join(process.cwd(), "uploads", "install-photos", customer.customer_code);
-    fs.mkdirSync(dir, { recursive: true });
-    const fname = fileName ?? `${uuid()}.jpg`;
-    const full = path.join(dir, fname);
-    const buf = Buffer.from(imageBase64, "base64");
-    fs.writeFileSync(full, buf);
-    const rel = path.join(customer.customer_code, fname).replace(/\\/g, "/");
     if (isDryRunRequest(req)) {
-      logDryRun(customer.customer_code, "installer.photo.upload", { deviceId, fileName: fname });
+      logDryRun(customer.customer_code, "installer.photo.upload", { deviceId, fileName });
       logAudit({
         ...auditContextFromRequest(req),
         tenantId: customer.tenant_id ?? customer.customer_id,
         action: "installer.photo.upload",
         entityType: "device",
         entityId: deviceId ?? "site",
-        details: { dryRun: true, photoPath: rel },
+        details: { dryRun: true },
       });
-      res.status(201).json({ ok: true, dryRun: true, photoPath: rel });
+      res.status(201).json({ ok: true, dryRun: true, photoPath: "dry-run/placeholder.jpg" });
       return;
     }
-    getDatabase()
-      .prepare(
-        `INSERT INTO install_photos (id, customer_id, device_id, site_id, photo_path, photo_type, uploaded_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`
-      )
-      .run(
-        uuid(),
-        customer.customer_id,
-        deviceId ?? null,
-        siteId ?? null,
-        rel,
-        photoType ?? "install",
-        req.admin?.username ?? null
-      );
+    const saved = saveInstallPhoto({
+      customerId: customer.customer_id,
+      customerCode: customer.customer_code,
+      deviceId,
+      siteId,
+      photoType,
+      imageBase64,
+      fileName,
+      uploadedBy: req.admin?.username,
+    });
     logAudit({
       ...auditContextFromRequest(req),
       tenantId: customer.tenant_id ?? customer.customer_id,
       action: "installer.photo.upload",
       entityType: "device",
       entityId: deviceId ?? "site",
-      details: { photoPath: rel },
+      details: { photoPath: saved.photoPath, photoId: saved.id },
     });
     res.status(201).json({
       ok: true,
-      photoPath: rel,
-      placeholder: "local mock storage",
+      id: saved.id,
+      photoPath: saved.photoPath,
+      url: `/uploads/install_photos/${saved.photoPath}`,
+      storage: "local",
     });
+  }
+);
+
+customerInstallerRouter.get(
+  "/:customerCode/install/photos",
+  ...portalViewAuth,
+  (req: AuthedRequest, res) => {
+    const customer = resolveCustomer(req, String(req.params.customerCode));
+    if (!customer) {
+      res.status(req.admin ? 403 : 404).json({ error: "Not found" });
+      return;
+    }
+    const photos = listInstallPhotos(customer.customer_id).map((p) => ({
+      ...p,
+      url: `/uploads/install_photos/${p.photoPath}`,
+    }));
+    res.json({ photos });
+  }
+);
+
+customerInstallerRouter.delete(
+  "/:customerCode/install/photos/:id",
+  ...installAuth,
+  (req: AuthedRequest, res) => {
+    const customer = resolveCustomer(req, String(req.params.customerCode));
+    if (!customer) {
+      res.status(req.admin ? 403 : 404).json({ error: "Not found" });
+      return;
+    }
+    if (isDryRunRequest(req)) {
+      res.json({ ok: true, dryRun: true });
+      return;
+    }
+    const ok = deleteInstallPhoto(customer.customer_id, String(req.params.id));
+    if (!ok) {
+      res.status(404).json({ error: "Photo not found" });
+      return;
+    }
+    logAudit({
+      ...auditContextFromRequest(req),
+      tenantId: customer.tenant_id ?? customer.customer_id,
+      action: "installer.photo.delete",
+      entityType: "install_photo",
+      entityId: String(req.params.id),
+    });
+    res.json({ ok: true });
+  }
+);
+
+customerInstallerRouter.get(
+  "/:customerCode/install/dashboard",
+  ...portalViewAuth,
+  (req: AuthedRequest, res) => {
+    const customer = resolveCustomer(req, String(req.params.customerCode));
+    if (!customer) {
+      res.status(req.admin ? 403 : 404).json({ error: "Not found" });
+      return;
+    }
+    res.json(getInstallDashboard(customer.customer_id));
   }
 );
 
@@ -672,7 +731,8 @@ customerInstallerRouter.get(
 customerInstallerRouter.post(
   "/:customerCode/devices/:id/test/mqtt-rtt",
   ...installAuth,
-  (req: AuthedRequest, res) => {
+  provisionRateLimit,
+  async (req: AuthedRequest, res) => {
     const customer = resolveCustomer(req, String(req.params.customerCode));
     if (!customer) {
       res.status(req.admin ? 403 : 404).json({ error: "Not found" });
@@ -681,22 +741,162 @@ customerInstallerRouter.post(
     const deviceId = String(req.params.id);
     if (isDryRunRequest(req)) {
       logDryRun(customer.customer_code, "installer.test.mqtt_rtt", { deviceId });
-      res.json({ ok: true, dryRun: true, roundTripMs: 55, mock: true });
+      res.json({
+        ok: true,
+        dryRun: true,
+        roundTripMs: 55,
+        rtt_ms: 55,
+        mock: true,
+        timeout: false,
+        broker_status: "dry_run",
+        topic: `tisly/dry/${deviceId}/test/rtt`,
+        tested_at: new Date().toISOString(),
+      });
       return;
     }
     try {
-      const result = runMqttRttTest(customer.customer_id, deviceId);
+      const result = await runMqttRttTest(customer.customer_id, deviceId);
       logAudit({
         ...auditContextFromRequest(req),
         tenantId: customer.tenant_id ?? customer.customer_id,
         action: "installer.test.mqtt_rtt",
         entityType: "device",
         entityId: deviceId,
-        details: { roundTripMs: result.roundTripMs, mock: result.mock },
+        details: { rtt_ms: result.rtt_ms, mock: result.mock, timeout: result.timeout },
       });
       res.json(result);
     } catch (e) {
       res.status(400).json({ error: String(e) });
+    }
+  }
+);
+
+customerInstallerRouter.post(
+  "/:customerCode/devices/:id/csr",
+  ...installAuth,
+  provisionRateLimit,
+  (req: AuthedRequest, res) => {
+    const customer = resolveCustomer(req, String(req.params.customerCode));
+    if (!customer) {
+      res.status(req.admin ? 403 : 404).json({ error: "Not found" });
+      return;
+    }
+    const deviceId = String(req.params.id);
+    const { csrPem } = req.body as { csrPem?: string };
+    if (isDryRunRequest(req)) {
+      logDryRun(customer.customer_code, "installer.csr.register", { deviceId });
+      res.json({ ok: true, dryRun: true, deviceId });
+      return;
+    }
+    try {
+      const record = registerDeviceCsr(customer.customer_id, deviceId, csrPem ?? "", req.admin?.username);
+      logAudit({
+        ...auditContextFromRequest(req),
+        tenantId: customer.tenant_id ?? customer.customer_id,
+        action: "installer.csr.register",
+        entityType: "device",
+        entityId: deviceId,
+      });
+      res.status(201).json(record);
+    } catch (e) {
+      res.status(400).json({ error: String(e) });
+    }
+  }
+);
+
+customerInstallerRouter.post(
+  "/:customerCode/devices/:id/cert/issue",
+  ...installAuth,
+  provisionRateLimit,
+  (req: AuthedRequest, res) => {
+    const customer = resolveCustomer(req, String(req.params.customerCode));
+    if (!customer) {
+      res.status(req.admin ? 403 : 404).json({ error: "Not found" });
+      return;
+    }
+    const deviceId = String(req.params.id);
+    if (isDryRunRequest(req)) {
+      logDryRun(customer.customer_code, "installer.cert.issue", { deviceId });
+      res.json({ ok: true, dryRun: true, deviceId, placeholder: true });
+      return;
+    }
+    try {
+      const cert = issueDeviceCertFromCsr(customer.customer_id, deviceId);
+      logAudit({
+        ...auditContextFromRequest(req),
+        tenantId: customer.tenant_id ?? customer.customer_id,
+        action: "installer.cert.issue",
+        entityType: "device",
+        entityId: deviceId,
+      });
+      res.json({ ...cert, placeholder: true });
+    } catch (e) {
+      res.status(400).json({ error: String(e) });
+    }
+  }
+);
+
+customerInstallerRouter.post(
+  "/:customerCode/devices/:id/cert/revoke",
+  ...installAuth,
+  provisionRateLimit,
+  (req: AuthedRequest, res) => {
+    const customer = resolveCustomer(req, String(req.params.customerCode));
+    if (!customer) {
+      res.status(req.admin ? 403 : 404).json({ error: "Not found" });
+      return;
+    }
+    const deviceId = String(req.params.id);
+    if (isDryRunRequest(req)) {
+      res.json({ ok: true, dryRun: true, deviceId, certStatus: "revoked" });
+      return;
+    }
+    try {
+      const revoked = revokeDeviceCert(customer.customer_id, deviceId);
+      logAudit({
+        ...auditContextFromRequest(req),
+        tenantId: customer.tenant_id ?? customer.customer_id,
+        action: "installer.cert.revoke",
+        entityType: "device",
+        entityId: deviceId,
+      });
+      res.json(revoked);
+    } catch (e) {
+      res.status(400).json({ error: String(e) });
+    }
+  }
+);
+
+customerInstallerRouter.get(
+  "/:customerCode/devices/:id/cert/status",
+  ...portalViewAuth,
+  (req: AuthedRequest, res) => {
+    const customer = resolveCustomer(req, String(req.params.customerCode));
+    if (!customer) {
+      res.status(req.admin ? 403 : 404).json({ error: "Not found" });
+      return;
+    }
+    try {
+      res.json(getDeviceCertStatus(customer.customer_id, String(req.params.id)));
+    } catch (e) {
+      res.status(404).json({ error: String(e) });
+    }
+  }
+);
+
+customerInstallerRouter.get(
+  "/:customerCode/devices/:id/label.json",
+  ...portalViewAuth,
+  (req: AuthedRequest, res) => {
+    const customer = resolveCustomer(req, String(req.params.customerCode));
+    if (!customer) {
+      res.status(req.admin ? 403 : 404).json({ error: "Not found" });
+      return;
+    }
+    try {
+      res.json(getDeviceLabelJson(customer.customer_id, customer.customer_code, String(req.params.id)));
+    } catch (e) {
+      res.status(404).json({ error: String(e) });
     }
   }
 );

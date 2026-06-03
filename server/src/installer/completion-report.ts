@@ -2,6 +2,8 @@ import { v4 as uuid } from "uuid";
 import { getCustomerByCode } from "../customer/customer-store.js";
 import { getCustomerInstallChecklist } from "./install-checklist.js";
 import { getDatabase } from "../db/database.js";
+import { listInstallPhotos } from "./install-photos.js";
+import { getDeviceCertStatus } from "../provisioning/device-csr.js";
 
 export interface CompletionReportMeta {
   exportId: string;
@@ -77,6 +79,70 @@ export function buildInstallCompletionReportHtml(
   const siteName = meta.siteName ?? siteRow?.name ?? "—";
 
   const openList = checklist.summary.openItems.map((o) => `<li>${escapeHtml(o)}</li>`).join("");
+  const photos = listInstallPhotos(customer.customer_id);
+  const photoList = photos
+    .map(
+      (p) =>
+        `<li>${escapeHtml(p.photoPath)} — ${escapeHtml(p.deviceId ?? "site")} (${escapeHtml(p.photoType)})</li>`
+    )
+    .join("");
+
+  const provisionLogs = db
+    .prepare(
+      `SELECT action, entity_id, created_at FROM audit_logs
+       WHERE tenant_id = ? AND action IN ('installer.qr.claim','installer.nfc.claim')
+       ORDER BY created_at DESC LIMIT 20`
+    )
+    .all(customer.tenant_id ?? customer.customer_id) as Array<{
+    action: string;
+    entity_id: string | null;
+    created_at: string;
+  }>;
+  const provList = provisionLogs
+    .map((l) => `<li>${escapeHtml(l.action)} — ${escapeHtml(l.entity_id ?? "")} @ ${escapeHtml(l.created_at)}</li>`)
+    .join("");
+
+  const rttRows = devices
+    .map((d) => {
+      let tests: Record<string, unknown> = {};
+      const row = db
+        .prepare(`SELECT last_test_result FROM devices WHERE device_id = ? AND customer_id = ?`)
+        .get(d.device_id, customer.customer_id) as { last_test_result: string | null } | undefined;
+      if (row?.last_test_result) {
+        try {
+          tests = JSON.parse(row.last_test_result) as Record<string, unknown>;
+        } catch {
+          /* */
+        }
+      }
+      const ms = tests.mqttRttMs ?? "—";
+      const mock = tests.mqttRttMock ? " (mock)" : "";
+      return `<tr><td>${escapeHtml(d.device_id)}</td><td>${escapeHtml(String(ms))}${mock}</td><td>${escapeHtml(String(tests.mqttRttAt ?? "—"))}</td></tr>`;
+    })
+    .join("");
+
+  const certRows = devices
+    .map((d) => {
+      try {
+        const st = getDeviceCertStatus(customer.customer_id, d.device_id);
+        return `<tr><td>${escapeHtml(d.device_id)}</td><td>${escapeHtml(st.certStatus)}</td><td>${st.csrRegistered ? "CSR✓" : "—"}</td><td>${st.certIssued ? "issued" : "—"}</td></tr>`;
+      } catch {
+        return `<tr><td>${escapeHtml(d.device_id)}</td><td colspan="3">—</td></tr>`;
+      }
+    })
+    .join("");
+
+  const warnings: string[] = [];
+  if (checklist.summary.openItems.length) {
+    warnings.push(`${checklist.summary.openItems.length} 件の未完了チェック項目`);
+  }
+  if (devices.some((d) => !d.commissioning_status || d.commissioning_status === "draft")) {
+    warnings.push("未テスト / draft の設備があります");
+  }
+  const warnHtml = warnings.length
+    ? `<ul>${warnings.map((w) => `<li class="open">${escapeHtml(w)}</li>`).join("")}</ul>`
+    : "<p>未完了警告なし</p>";
+
   const deviceRows = devices
     .map(
       (d) =>
@@ -124,8 +190,16 @@ ${dryBanner}
 ${checklistDevices || "<p>—</p>"}
 <h2>設備一覧</h2>
 <table><thead><tr><th>Device ID</th><th>Label</th><th>Type</th><th>Status</th><th>Cert</th></tr></thead><tbody>${deviceRows}</tbody></table>
-<h2>施工写真</h2>
-<p class="hint">placeholder — ${meta.photoCount} 件登録済（実機アップロードは install/photos/upload）</p>
+<h2>未完了警告</h2>
+${warnHtml}
+<h2>施工写真（${photos.length} 件）</h2>
+<ul>${photoList || "<li>写真なし</li>"}</ul>
+<h2>MQTT RTT 結果</h2>
+<table><thead><tr><th>Device</th><th>RTT ms</th><th>Tested at</th></tr></thead><tbody>${rttRows}</tbody></table>
+<h2>証明書状態</h2>
+<table><thead><tr><th>Device</th><th>Status</th><th>CSR</th><th>Cert</th></tr></thead><tbody>${certRows}</tbody></table>
+<h2>QR / NFC 登録履歴</h2>
+<ul>${provList || "<li>履歴なし</li>"}</ul>
 <p class="hint">PDF: Puppeteer 未インストール時は HTML フォールバック</p>
 </body></html>`;
 }

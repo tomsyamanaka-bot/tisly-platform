@@ -3,6 +3,31 @@
 TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。  
 三菱電機 **FX 系** PLC と **GX Works2 / GX Works3** を想定しています。
 
+## TiSLY Platform — Field Installer Production Sync（Phase 381–400）
+
+**Service Worker同期 · 実MQTT RTT · CSR/証明書 · 施工写真 · 多言語 · Dashboard**
+
+| 領域 | パス / URL |
+|------|------------|
+| Service Worker | `server/public/service-worker.js` · `docs/service_worker_offline_sync.md` |
+| オフライン同期 | `POST .../install/sync` · Offline Status バー |
+| MQTT RTT | `POST .../devices/:id/test/mqtt-rtt`（`rtt_ms`, `broker_status`） |
+| CSR / 証明書 | `POST .../csr` · `.../cert/issue` · `docs/device_certificate_pipeline.md` |
+| 施工写真 | `POST/GET/DELETE .../install/photos` |
+| ストレージ | `STORAGE_PROVIDER` · `server/src/storage/s3-client.ts` |
+| 多言語 | `installer-i18n.js` · ja/en |
+| Dashboard | `GET .../install/dashboard` |
+| ラベル | `labels.csv` · `label.svg` · `label.json` |
+| テスト | `server/test/installer-production-sync.test.ts` |
+| ドキュメント | `docs/phase381_400_status.md` |
+
+```bash
+cd server && npm run build && npm run test
+cd tv-app && npx tsc --noEmit
+```
+
+---
+
 ## TiSLY Platform — Field Installer Hardening（Phase 361–380）
 
 **QRカメラ · オフライン同期 · 完了PDF · ラベルCSV · MQTT RTT · mTLS準備 · Dry Run · 施工セッション**

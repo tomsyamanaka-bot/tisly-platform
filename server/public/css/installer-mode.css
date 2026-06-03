@@ -86,6 +86,61 @@
 .checklist-item.done {
   color: #166534;
 }
+.offline-status-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #1e293b;
+  color: #f8fafc;
+  font-size: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+.offline-status-bar .dot.offline {
+  color: #f87171;
+}
+.offline-status-bar .dot.online {
+  color: #4ade80;
+}
+.offline-status-bar .btn-sm {
+  min-height: 32px;
+  padding: 4px 10px;
+  font-size: 12px;
+}
+.offline-sync-errors {
+  color: #b45309;
+  padding: 0 12px;
+}
+.install-dashboard .dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  text-align: center;
+  margin-bottom: 1rem;
+}
+.install-dashboard .dashboard-grid strong {
+  display: block;
+  font-size: 1.25rem;
+}
+.offline-conflict-panel {
+  border: 1px solid #f59e0b;
+  border-radius: 8px;
+  padding: 10px;
+  margin: 0.5rem 0;
+  background: #fffbeb;
+}
+.offline-conflict-panel li.conflict {
+  color: #b45309;
+}
+.offline-conflict-panel li.rejected {
+  color: #dc2626;
+}
+.offline-conflict-panel li.merged {
+  color: #166534;
+}
 @media (min-width: 481px) {
   .installer-pwa {
     max-width: 520px;

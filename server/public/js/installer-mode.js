@@ -1,11 +1,14 @@
 import { apiGet, getAdminToken } from "./api.js";
-import { loadInstallerI18n } from "./installer-i18n.js";
+import { loadInstallerI18n, setInstallerLocale, applyInstallerI18n, t, getLocale } from "./installer-i18n.js";
 
 const pathMatch = location.pathname.match(/\/customer\/([^/]+)/i);
 const customerCode = pathMatch ? pathMatch[1].toUpperCase() : "";
 const OFFLINE_KEY = `tisly_installer_queue_${customerCode}`;
 const DRY_RUN_KEY = `tisly_installer_dry_run_${customerCode}`;
+const LAST_SYNC_KEY = `tisly_installer_last_sync_${customerCode}`;
+const CONFLICT_KEY = `tisly_installer_conflicts_${customerCode}`;
 const IDB_NAME = "tisly_installer_offline_v1";
+let lastSyncReport = null;
 
 document.getElementById("install-code").textContent = customerCode;
 document.getElementById("link-map").href = `/customer/${customerCode}/map`;
@@ -88,18 +91,70 @@ async function touchIdbPlaceholder() {
   tx.objectStore("meta").put({ at: new Date().toISOString() }, "last_touch");
 }
 
-function loadOfflineQueue() {
+function getQueueLength() {
   try {
     const raw = localStorage.getItem(OFFLINE_KEY);
-    const q = raw ? JSON.parse(raw) : [];
-    document.getElementById("offline-hint").textContent =
-      q.length > 0
-        ? `オフラインキュー: ${q.length} 件（IndexedDB placeholder + localStorage）`
-        : "オフライン: localStorage + IndexedDB placeholder（空）";
-    touchIdbPlaceholder().catch(() => {});
+    return raw ? JSON.parse(raw).length : 0;
   } catch {
-    /* */
+    return 0;
   }
+}
+
+function updateOfflineStatusBar() {
+  const online = navigator.onLine;
+  const dot = document.getElementById("offline-online-dot");
+  const state = document.getElementById("offline-state-text");
+  if (dot) {
+    dot.classList.toggle("online", online);
+    dot.classList.toggle("offline", !online);
+  }
+  if (state) state.textContent = online ? "online" : "offline";
+  const qc = document.getElementById("offline-queue-count");
+  if (qc) qc.textContent = `queue: ${getQueueLength()}`;
+  const ls = document.getElementById("offline-last-sync");
+  if (ls) ls.textContent = `sync: ${localStorage.getItem(LAST_SYNC_KEY) ?? "—"}`;
+  const hint = document.getElementById("offline-hint");
+  if (hint) {
+    hint.textContent =
+      getQueueLength() > 0
+        ? t("offline.queue", `オフラインキュー: ${getQueueLength()} 件`)
+        : t("offline.empty", "オフラインキュー: 空");
+  }
+}
+
+function notifyServiceWorkerQueue() {
+  if (navigator.serviceWorker?.controller) {
+    navigator.serviceWorker.controller.postMessage({ type: "QUEUE_UPDATED" });
+  }
+}
+
+function loadOfflineQueue() {
+  updateOfflineStatusBar();
+  touchIdbPlaceholder().catch(() => {});
+  notifyServiceWorkerQueue();
+}
+
+function saveConflictResults(results) {
+  if (!results?.length) return;
+  const conflicts = results.filter((r) =>
+    ["conflict", "rejected", "skipped"].includes(r.status)
+  );
+  if (!conflicts.length) return;
+  localStorage.setItem(CONFLICT_KEY, JSON.stringify(conflicts));
+  renderConflictPanel(conflicts);
+}
+
+function renderConflictPanel(items) {
+  const panel = document.getElementById("offline-conflict-panel");
+  const list = document.getElementById("offline-conflict-list");
+  if (!panel || !list) return;
+  panel.hidden = !items.length;
+  list.innerHTML = items
+    .map(
+      (r) =>
+        `<li class="${r.status}"><label><input type="checkbox" data-id="${r.id}" /> [${r.status}] ${r.action}: ${r.message}</label></li>`
+    )
+    .join("");
 }
 
 function queueOffline(action, body) {
@@ -133,23 +188,39 @@ async function flushOfflineQueue() {
   const raw = localStorage.getItem(OFFLINE_KEY);
   const q = raw ? JSON.parse(raw) : [];
   if (!q.length) {
-    setStatus("同期するキューがありません");
+    setStatus(t("sync.empty", "同期するキューがありません"));
     return;
   }
   if (!navigator.onLine) {
-    setStatus("オフライン — 復帰後に同期してください");
+    setStatus(t("sync.offline", "オフライン — 復帰後に同期してください"));
     return;
   }
   const entries = mapQueueToSyncEntries(q);
   const report = await installPost(`/api/customer/${customerCode}/install/sync`, { entries });
-  if (report.rejected > 0) {
-    setStatus(`同期: 適用 ${report.applied} / 拒否 ${report.rejected} / 警告 ${report.warnings}`);
+  lastSyncReport = report;
+  localStorage.setItem(LAST_SYNC_KEY, new Date().toISOString());
+  const errEl = document.getElementById("offline-sync-errors");
+  if (report.results) saveConflictResults(report.results);
+  if (report.rejected > 0 || report.warnings > 0) {
+    const msg = `適用 ${report.applied} / 拒否 ${report.rejected} / 警告 ${report.warnings}`;
+    setStatus(t("sync.partial", `同期: ${msg}`));
+    if (errEl) {
+      errEl.hidden = false;
+      errEl.textContent = (report.results ?? [])
+        .filter((r) => r.status !== "applied")
+        .map((r) => `${r.status}: ${r.message}`)
+        .join(" · ");
+    }
   } else {
     localStorage.removeItem(OFFLINE_KEY);
-    setStatus(`同期完了: ${report.applied} 件適用`);
+    localStorage.removeItem(CONFLICT_KEY);
+    document.getElementById("offline-conflict-panel")?.setAttribute("hidden", "");
+    if (errEl) errEl.hidden = true;
+    setStatus(t("sync.done", `同期完了: ${report.applied} 件適用`));
   }
   loadOfflineQueue();
   await loadDevices();
+  await loadDashboard();
 }
 
 document.querySelectorAll("#installer-tabs button").forEach((btn) => {
@@ -171,9 +242,45 @@ function fillSelect(sel, items, valueKey, labelFn) {
   }
 }
 
+async function loadDashboard() {
+  try {
+    const d = await apiGet(`/api/customer/${customerCode}/install/dashboard`);
+    document.getElementById("dash-registered").textContent = String(d.registered ?? "—");
+    document.getElementById("dash-unplaced").textContent = String(d.unplaced ?? "—");
+    document.getElementById("dash-untested").textContent = String(d.untested ?? "—");
+    document.getElementById("dash-comm-ok").textContent = String(d.commOk ?? "—");
+    document.getElementById("dash-comm-ng").textContent = String(d.commNg ?? "—");
+    document.getElementById("dash-completion").textContent = String(d.completionRate ?? "—");
+  } catch {
+    /* */
+  }
+}
+
+async function loadPhotos() {
+  const data = await installGet(`/api/customer/${customerCode}/install/photos`);
+  const list = document.getElementById("photo-list");
+  if (!list) return;
+  list.innerHTML = (data.photos ?? [])
+    .map(
+      (p) =>
+        `<li>${p.deviceId ?? "site"} — <a href="${p.url}" target="_blank">${p.photoPath}</a>
+         <button type="button" data-photo-id="${p.id}" class="btn secondary btn-sm btn-photo-del">削除</button></li>`
+    )
+    .join("");
+  list.querySelectorAll(".btn-photo-del").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      await fetch(`/api/customer/${customerCode}/install/photos/${btn.dataset.photoId}`, {
+        method: "DELETE",
+        headers: installHeaders(),
+      });
+      await loadPhotos();
+    });
+  });
+}
+
 function syncDeviceSelects() {
   const opts = devices.map((d) => ({ id: d.deviceId, label: d.label || d.deviceId }));
-  for (const id of ["test-device-select", "mqtt-device-select", "check-device-select"]) {
+  for (const id of ["test-device-select", "mqtt-device-select", "check-device-select", "photo-device-select"]) {
     const sel = document.getElementById(id);
     if (sel) fillSelect(sel, opts, "id", (o) => o.label);
   }
@@ -373,6 +480,74 @@ document.getElementById("dry-run-toggle")?.addEventListener("change", (e) => {
 });
 
 document.getElementById("btn-offline-sync")?.addEventListener("click", () => flushOfflineQueue().catch((err) => setStatus(String(err)));
+document.getElementById("btn-offline-flush")?.addEventListener("click", () => flushOfflineQueue().catch((err) => setStatus(String(err)));
+document.getElementById("btn-refresh-dashboard")?.addEventListener("click", () => loadDashboard());
+
+document.getElementById("btn-conflict-merge")?.addEventListener("click", () => {
+  const checked = [...document.querySelectorAll("#offline-conflict-list input:checked")].map((el) => el.dataset.id);
+  if (!checked.length) return;
+  const raw = localStorage.getItem(CONFLICT_KEY);
+  const items = raw ? JSON.parse(raw) : [];
+  const merged = items.map((r) =>
+    checked.includes(r.id) ? { ...r, status: "merged", message: `${r.message} (manual merge)` } : r
+  );
+  localStorage.setItem(CONFLICT_KEY, JSON.stringify(merged));
+  renderConflictPanel(merged);
+  setStatus("merged としてマークしました（サーバー再同期は別途）");
+});
+
+document.getElementById("btn-conflict-skip")?.addEventListener("click", () => {
+  localStorage.removeItem(CONFLICT_KEY);
+  document.getElementById("offline-conflict-panel")?.setAttribute("hidden", "");
+  setStatus("競合を skipped 扱いでクリア");
+});
+
+document.getElementById("locale-select")?.addEventListener("change", (e) => {
+  setInstallerLocale(e.target.value);
+  applyInstallerI18n();
+  updateOfflineStatusBar();
+});
+
+document.getElementById("btn-photo-upload")?.addEventListener("click", async () => {
+  const file = document.getElementById("photo-file")?.files?.[0];
+  if (!file) return;
+  const buf = await file.arrayBuffer();
+  const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+  const deviceId = document.getElementById("photo-device-select")?.value;
+  if (!navigator.onLine) {
+    queueOffline("photo", { deviceId, fileName: file.name, imageBase64: b64 });
+    setStatus("オフライン: 写真をキューに保存");
+    return;
+  }
+  await installPost(`/api/customer/${customerCode}/install/photos/upload`, {
+    deviceId,
+    imageBase64: b64,
+    fileName: file.name,
+    photoType: "install",
+  });
+  await loadPhotos();
+  setStatus("写真アップロード完了");
+});
+
+document.getElementById("btn-csr-register")?.addEventListener("click", async () => {
+  const id = document.getElementById("mqtt-device-select").value;
+  const csrPem = document.getElementById("csr-pem").value;
+  const res = await installPost(`/api/customer/${customerCode}/devices/${encodeURIComponent(id)}/csr`, { csrPem });
+  document.getElementById("cert-result").textContent = JSON.stringify(res, null, 2);
+});
+
+document.getElementById("btn-cert-issue")?.addEventListener("click", async () => {
+  const id = document.getElementById("mqtt-device-select").value;
+  const res = await installPost(`/api/customer/${customerCode}/devices/${encodeURIComponent(id)}/cert/issue`, {});
+  document.getElementById("cert-result").textContent = JSON.stringify(res, null, 2);
+  await loadDevices();
+});
+
+document.getElementById("btn-cert-status")?.addEventListener("click", async () => {
+  const id = document.getElementById("mqtt-device-select").value;
+  const res = await installGet(`/api/customer/${customerCode}/devices/${encodeURIComponent(id)}/cert/status`);
+  document.getElementById("cert-result").textContent = JSON.stringify(res, null, 2);
+});
 
 document.getElementById("btn-new-site")?.addEventListener("click", async () => {
   const name = prompt("現場名");
@@ -574,28 +749,53 @@ document.getElementById("btn-label")?.addEventListener("click", async () => {
   alert(res.labelText + "\n\nQR payload length: " + (res.qrPayload?.length ?? 0));
 });
 
+function updateLabelLinks() {
+  const id = document.getElementById("check-device-select")?.value;
+  const json = document.getElementById("link-label-json");
+  if (json && id) {
+    json.href = `/api/customer/${customerCode}/devices/${encodeURIComponent(id)}/label.json`;
+  }
+}
+document.getElementById("check-device-select")?.addEventListener("change", updateLabelLinks);
+
 async function init() {
   if (!getAdminToken()) {
     location.href = `/customer/${customerCode}`;
     return;
   }
   await loadInstallerI18n();
+  const locSel = document.getElementById("locale-select");
+  if (locSel) locSel.value = getLocale();
+  applyInstallerI18n();
   updateDryRunUi();
   setupNfcUi();
   loadOfflineQueue();
-  await Promise.all([loadSites(), loadDevices(), loadTemplates()]);
-  setStatus("施工 PWA 準備完了（Phase 361–380）");
+  const savedConflicts = localStorage.getItem(CONFLICT_KEY);
+  if (savedConflicts) renderConflictPanel(JSON.parse(savedConflicts));
+  await Promise.all([loadSites(), loadDevices(), loadTemplates(), loadDashboard(), loadPhotos()]);
+  updateLabelLinks();
+  setStatus(t("status.ready", "施工 PWA 準備完了（Phase 381–400）"));
   await loadChecklist();
 }
 
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("/service-worker.js").catch(() => {});
+  navigator.serviceWorker.register("/service-worker.js").then((reg) => {
+    reg.sync?.register?.("tisly-installer-sync").catch(() => {});
+    reg.active?.postMessage?.({ type: "REGISTER_SYNC" });
+  }).catch(() => {});
 }
 
-window.addEventListener("online", () => {
-  const raw = localStorage.getItem(OFFLINE_KEY);
-  const q = raw ? JSON.parse(raw) : [];
-  if (q.length) setStatus("オンライン復帰 — 「オフラインキュー同期」で送信できます");
+navigator.serviceWorker?.addEventListener("message", (ev) => {
+  if (ev.data?.type === "FLUSH_OFFLINE_QUEUE") {
+    flushOfflineQueue().catch((e) => setStatus(String(e)));
+  }
 });
+
+window.addEventListener("online", () => {
+  updateOfflineStatusBar();
+  const q = getQueueLength();
+  if (q) setStatus(t("sync.online_hint", "オンライン復帰 — 同期ボタンで送信できます"));
+});
+window.addEventListener("offline", () => updateOfflineStatusBar());
 
 init().catch((e) => setStatus(String(e)));

@@ -1,4 +1,4 @@
-# MQTT 現場診断（Phase 361–380）
+# MQTT 現場診断（Phase 381–400）
 
 ## 診断取得
 
@@ -6,24 +6,27 @@
 GET /api/customer/:code/install/mqtt/:deviceId
 ```
 
-トピック・最終 heartbeat・`latencyMs`（RTT 実測後に反映）
-
-## RTT 実測（placeholder）
+## RTT 実測
 
 ```
 POST /api/customer/:code/devices/:id/test/mqtt-rtt
 ```
 
-| 項目 | 説明 |
-|------|------|
-| publish | テストメッセージ送信（mock） |
-| ack | ブローカー未設定時はシミュレーション |
-| `roundTripMs` | 往復 ms |
-| `timeout` | 5s 超過時 `false` |
-| `mock` | ブローカー未接続時 `true` |
+| フィールド | 説明 |
+|------------|------|
+| `rtt_ms` / `roundTripMs` | 往復 ms |
+| `timeout` | タイムアウト時 true |
+| `broker_status` | `connected` / `unconfigured` / `error` |
+| `topic` | テスト publish トピック |
+| `tested_at` | ISO 時刻 |
+| `mock` | `MQTT_URL` 未設定または probe 失敗時 true |
 
-実装: `server/src/installer/device-connectivity-test.ts` — `runMqttRttTest`
+## 動作
+
+- `MQTT_URL` が .env にあり `MQTT_MOCK_MODE` が true でない → `mqtt-rtt-probe.ts` で publish/ack 計測
+- 未設定 → 従来どおり mock RTT
+- 実装: `device-connectivity-test.ts` · `mqtt-rtt-probe.ts`
 
 ## 施工 PWA
 
-MQTT タブ → **RTT実測（mock可）**
+MQTT タブ → **RTT実測**

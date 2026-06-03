@@ -25,11 +25,6 @@
 
 TOMS001 / HOTEL001 / PLANT001 — installer ユーザー維持
 
-## Phase 381–400 候補
+## Phase 381–400
 
-- Service Worker バックグラウンド同期
-- 実 MQTT RTT / ブローカー ACL
-- テプラ / Brother 自動印刷
-- 証明書 CSR 本番 API
-- 施工写真の S3 / QNAP 本番
-- 英語 UI 切替
+→ `docs/phase381_400_status.md` を参照（本フェーズで実装済み）

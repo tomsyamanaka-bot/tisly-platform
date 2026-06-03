@@ -23,7 +23,7 @@ export interface OfflineSyncEntry {
 export interface OfflineSyncResultItem {
   id: string;
   action: OfflineSyncAction;
-  status: "applied" | "skipped" | "rejected" | "warning";
+  status: "applied" | "skipped" | "rejected" | "warning" | "conflict" | "merged";
   message: string;
 }
 
@@ -95,10 +95,12 @@ export function processOfflineSync(
             results.push({
               id,
               action: entry.action,
-              status: "warning",
-              message: "Server record newer than client — review manually",
+              status: "conflict",
+              message: "Server record newer than client — manual merge required",
             });
             warnings++;
+            rejected++;
+            break;
           }
           claimQrProvisioning({
             customerId,
@@ -154,8 +156,8 @@ export function processOfflineSync(
             results.push({
               id,
               action: entry.action,
-              status: "warning",
-              message: "Server map position newer — skipped overwrite",
+              status: "conflict",
+              message: "Server map position newer — manual merge required",
             });
             warnings++;
             break;

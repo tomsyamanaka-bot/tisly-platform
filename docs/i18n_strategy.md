@@ -1,20 +1,23 @@
-# Installer PWA 多言語戦略（placeholder）
+# Installer PWA 多言語戦略
 
-## 現状（Phase 361–380）
+## 現状（Phase 381–400）
 
-- UI 文言: **日本語固定**
-- 英語辞書: `server/public/js/i18n/installer-en.json`
-- ローダー: `server/public/js/installer-i18n.js`（`t(key, fallbackJa)`）
+- 対応: **ja** / **en**
+- 保存: `localStorage` `tisly_installer_locale`
+- ローダー: `server/public/js/installer-i18n.js`
+- 辞書: `server/public/js/i18n/installer-en.json`
+- UI: ヘッダ `<select id="locale-select">` + `data-i18n` 属性
 
-## 対応言語
+## 使い方
 
-| コード | 状態 |
-|--------|------|
-| `ja` | 本番 UI |
-| `en` | 辞書のみ（切替 UI は Phase 381+） |
+```javascript
+import { t, setInstallerLocale, applyInstallerI18n } from "./installer-i18n.js";
+setInstallerLocale("en");
+applyInstallerI18n();
+```
 
 ## 将来
 
-- `localStorage` / プロファイルで `locale` 選択
-- 施工チェックリスト・完了レポートの locale パラメータ
-- 右から左（RTL）は対象外
+- 完了レポート HTML の locale クエリ
+- チェックリスト項目の翻訳テーブル
+- RTL は対象外
