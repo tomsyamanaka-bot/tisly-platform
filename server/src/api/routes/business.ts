@@ -965,6 +965,13 @@ businessRouter.post("/google/gmail/send", ...businessAuth, async (req: AuthedReq
     res.status(400).json({ error: "to, subject, body required" });
     return;
   }
+  const { enqueueGmailSend } = await import("../../business/gmail-send-queue.js");
+  const queued = enqueueGmailSend({
+    projectId: body.projectId,
+    toAddress: body.to,
+    subject: body.subject,
+    bodyPreview: body.body,
+  });
   const result = await sendGmailPlaceholder({
     projectId: body.projectId,
     to: body.to,
@@ -972,7 +979,7 @@ businessRouter.post("/google/gmail/send", ...businessAuth, async (req: AuthedReq
     body: body.body,
     confirmed: body.confirmed,
   });
-  res.json(result);
+  res.json({ ...result, queueItem: queued });
 });
 
 businessRouter.post("/qnap/test-connection", ...businessAuth, async (req: AuthedRequest, res) => {

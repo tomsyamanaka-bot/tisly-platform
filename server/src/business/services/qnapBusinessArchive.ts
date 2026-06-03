@@ -8,6 +8,7 @@ import {
   type QnapMockSaveResult,
 } from "./qnapService.js";
 import { QnapWebDavClient } from "./qnapWebDav.js";
+import { enqueueIntegrationRetry } from "../integration-retry-queue.js";
 
 export type QnapUploadMode = "mock" | "real";
 
@@ -149,13 +150,21 @@ export async function uploadBusinessToQnapReal(
       status: "synced",
     };
   } catch (e) {
+    const errMsg = (e as Error).message;
     logBusinessIntegration({
       projectId: project.id,
       type: "qnap",
       provider: "webdav",
       status: "error",
       request: { planId: p.id, basePath: p.basePath },
-      errorMessage: (e as Error).message,
+      errorMessage: errMsg,
+    });
+    enqueueIntegrationRetry({
+      projectId: project.id,
+      channel: "qnap",
+      sendMode: "realSend",
+      errorMessage: errMsg,
+      payload: { planId: p.id, basePath: p.basePath, pdfs: ["specification", "estimate", "completion_report"] },
     });
     return {
       mode: "real",
@@ -165,6 +174,56 @@ export async function uploadBusinessToQnapReal(
       status: "failed",
     };
   }
+}
+
+/** 仕様書・見積・完了報告 PDF を WebDAV へ自動 PUT（real モード） */
+export async function uploadQnapAutoPdfs(
+  project: BusinessProject,
+  files: Array<{ localPath: string; remoteSubfolder: string; label: string }>
+): Promise<{ uploaded: number; failed: string[] }> {
+  const cfg = getQnapUploadConfig();
+  if (cfg.mode !== "real") {
+    return { uploaded: 0, failed: ["QNAP_UPLOAD_MODE is not real"] };
+  }
+  const client = new QnapWebDavClient(cfg);
+  const remoteBase = `${cfg.basePath.replace(/\/+$/, "")}/${project.id}`;
+  const failed: string[] = [];
+  let uploaded = 0;
+  try {
+    await client.mkcol(remoteBase);
+    for (const f of files) {
+      if (!fs.existsSync(f.localPath)) {
+        failed.push(f.label);
+        continue;
+      }
+      const remotePath = `${remoteBase}/${f.remoteSubfolder}/${path.basename(f.localPath)}`;
+      try {
+        await client.mkcol(`${remoteBase}/${f.remoteSubfolder}`);
+        await client.putFile(f.localPath, remotePath);
+        uploaded += 1;
+      } catch {
+        failed.push(f.label);
+      }
+    }
+    if (failed.length) {
+      enqueueIntegrationRetry({
+        projectId: project.id,
+        channel: "qnap",
+        sendMode: "realSend",
+        errorMessage: `partial upload failed: ${failed.join(", ")}`,
+        payload: { failed },
+      });
+    }
+  } catch (e) {
+    enqueueIntegrationRetry({
+      projectId: project.id,
+      channel: "qnap",
+      sendMode: "realSend",
+      errorMessage: (e as Error).message,
+    });
+    return { uploaded, failed: files.map((f) => f.label) };
+  }
+  return { uploaded, failed };
 }
 
 export async function testQnapWebDavConnection(): Promise<{

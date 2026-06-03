@@ -4,6 +4,7 @@ import { getBusinessProject } from "../business/business-store.js";
 import { listDrawingPlans } from "../business/drawing-store.js";
 import { saveAiCandidate } from "../business/business-store.js";
 import type { AiEstimateCandidate } from "../business/business-types.js";
+import { applyLearningToAiEstimateCandidate } from "./ai-feedback-learning.js";
 
 export interface AiEstimateV3Result {
   id: string;
@@ -71,18 +72,22 @@ export function generateAiEstimateV3(projectId: string): AiEstimateV3Result {
     { description: "施工費（人工）", quantity: constructionDays, unit: "日", unitPrice: 55000 },
   ];
 
-  const recommended: AiV3Recommended = {
-    version: "v3",
-    summary: `ESP ${espCount} / 照明 ${lightCount} / カメラ ${cameraCount} / LAN ${lanDistanceM}m / ${constructionDays}日`,
-    espCount,
-    lightCount,
-    cameraCount,
-    lanDistanceM,
-    constructionDays,
-    recommendedLines: lines,
-    confidence: photoCount > 2 ? 0.82 : 0.65,
-    notes: checklist.join("; "),
-  };
+  const recommended = applyLearningToAiEstimateCandidate(
+    {
+      version: "v3",
+      summary: `ESP ${espCount} / 照明 ${lightCount} / カメラ ${cameraCount} / LAN ${lanDistanceM}m / ${constructionDays}日`,
+      espCount,
+      lightCount,
+      cameraCount,
+      lanDistanceM,
+      constructionDays,
+      recommendedLines: lines,
+      lineItems: lines,
+      confidence: photoCount > 2 ? 0.82 : 0.65,
+      notes: checklist.join("; "),
+    },
+    projectId
+  ) as AiV3Recommended;
 
   const candidate = saveAiCandidate(projectId, recommended, "manual");
 

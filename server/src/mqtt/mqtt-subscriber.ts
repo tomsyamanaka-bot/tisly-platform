@@ -6,6 +6,14 @@ import { getNotificationService } from "../notification/notification-service.js"
 import { broadcast } from "../ws/hub.js";
 import { getMqttSubscriberConfig } from "./mqtt-config.js";
 import { mqttPayloadToUnified, parseMqttTopic } from "./topic-router.js";
+import {
+  isMqttMockMode,
+  onMqttBridgeAuthError,
+  onMqttBridgeConnect,
+  onMqttBridgeDisconnect,
+  onMqttBridgeInvalidTopic,
+  routeMqttToLivePush,
+} from "../toms/mqtt-live-push-bridge.js";
 
 let client: MqttClient | null = null;
 let mockTimer: ReturnType<typeof setInterval> | null = null;
@@ -31,8 +39,15 @@ export function startMqttSubscriber(): void {
 
   client.on("connect", () => {
     console.log(`[MQTT] connected ${cfg.url}`);
+    onMqttBridgeConnect(cfg.url);
     client?.subscribe(cfg.topicPrefix, (err) => {
-      if (err) console.error("[MQTT] subscribe error", err);
+      if (err) {
+        console.error("[MQTT] subscribe error", err);
+        onMqttBridgeAuthError(err.message);
+      }
+    });
+    client?.subscribe("tisly/project/#", (err) => {
+      if (err) onMqttBridgeAuthError(`project subscribe: ${err.message}`);
     });
   });
 
@@ -42,6 +57,17 @@ export function startMqttSubscriber(): void {
 
   client.on("error", (err) => {
     console.error("[MQTT] error", err.message);
+    if (/auth|not authorized|connack/i.test(err.message)) {
+      onMqttBridgeAuthError(err.message);
+    }
+  });
+
+  client.on("close", () => {
+    onMqttBridgeDisconnect("mqtt client closed");
+  });
+
+  client.on("offline", () => {
+    onMqttBridgeDisconnect("mqtt offline");
   });
 }
 
@@ -57,8 +83,13 @@ export function stopMqttSubscriber(): void {
 }
 
 async function handleMessage(topic: string, raw: string): Promise<void> {
+  if (routeMqttToLivePush(topic, raw)) return;
+
   const parsed = parseMqttTopic(topic);
-  if (!parsed) return;
+  if (!parsed) {
+    onMqttBridgeInvalidTopic(topic);
+    return;
+  }
 
   let body: Record<string, unknown> = {};
   try {
@@ -91,7 +122,7 @@ async function handleMessage(topic: string, raw: string): Promise<void> {
 }
 
 function startMockSubscriber(): void {
-  console.log("[MQTT] mock subscriber active (local/demo)");
+  console.log(`[MQTT] mock subscriber active (MQTT_MOCK_MODE=${isMqttMockMode()})`);
   mockTimer = setInterval(() => {
     const tenant = config.defaultTenantId;
     const topic = `tisly/${tenant}/demo-test-site/MOCK-MQTT-001/heartbeat`;

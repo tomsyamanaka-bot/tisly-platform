@@ -72,7 +72,17 @@ async function loadDetail(id) {
     <h3>通知履歴</h3>
     <ul>${(c.notificationHistory || [])
       .map((n) => `<li>${n.title} (<a href="/project/${n.projectId}">案件</a>)</li>`)
-      .join("")}</ul>`;
+      .join("")}</ul>
+    <p><button type="button" id="btn-cm-kpi-csv" class="btn-sync-touch">顧客KPI CSV</button></p>`;
+  document.getElementById("btn-cm-kpi-csv")?.addEventListener("click", async () => {
+    const res = await fetch(`/api/toms/customer-master/${id}/kpi/csv`, { headers: authHeaders() });
+    if (!res.ok) return;
+    const blob = await res.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `kpi-${id}.csv`;
+    a.click();
+  });
 }
 
 document.getElementById("cm-search")?.addEventListener("input", async (ev) => {

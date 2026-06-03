@@ -1,4 +1,5 @@
 import { renderPwaTopbar } from "./tisly-pwa-shell.js";
+import { highlightAnomalyCard } from "./connection-badges.js";
 
 const TOKEN_KEY = "tisly_token";
 const projectId = window.location.pathname.split("/project/")[1]?.split("/")[0] ?? "";
@@ -68,6 +69,18 @@ function bindUserInteractionPause() {
   stack.addEventListener("touchstart", pause, { passive: true });
   stack.addEventListener("mousedown", pause);
   stack.addEventListener("keydown", pause);
+  stack.querySelectorAll(".floor-layer").forEach((layer) => {
+    layer.addEventListener("click", () => {
+      const tier = layer.dataset.tier;
+      if (tier) sendProRemote("floor_nav", { tier });
+    });
+  });
+  stack.querySelectorAll(".floor-pin").forEach((pin) => {
+    pin.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      sendProRemote("pin_select", { pinId: pin.dataset.pinId });
+    });
+  });
 }
 
 function jumpToFloorTier(tier, opts = {}) {
@@ -151,6 +164,7 @@ function renderNotifications(notifications) {
       await api(`/api/toms/projects/${projectId}/notifications/${btn.dataset.ack}/ack`, {
         method: "POST",
       });
+      sendProRemote("ack", { notificationId: btn.dataset.ack });
       loadDashboard();
     });
   });
@@ -401,6 +415,19 @@ async function loadDashboard(jumpOpts) {
   await loadRetryQueue();
 }
 
+function sendProRemote(action, extra = {}) {
+  if (!ws || ws.readyState !== 1 || !projectId) return;
+  ws.send(
+    JSON.stringify({
+      type: "pro_remote",
+      projectId,
+      action,
+      actor: sessionStorage.getItem("tisly_username") || "dashboard",
+      ...extra,
+    })
+  );
+}
+
 function connectWebSocket() {
   if (!projectId) return;
   const proto = location.protocol === "https:" ? "wss:" : "ws:";
@@ -448,6 +475,20 @@ function connectWebSocket() {
           blink: payload.blinkPins,
           force: msg.type === "alarm",
         });
+        highlightAnomalyCard(`#floor-${payload.tier}`);
+      }
+      if (payload.channel === "pro_mirror" && payload.action) {
+        if (payload.action === "floor_nav" && payload.tier) {
+          jumpToFloorTier(payload.tier, { force: true, blink: true });
+        }
+        if (payload.action === "pin_select" && payload.pinId) {
+          document
+            .querySelector(`[data-pin-id="${payload.pinId}"]`)
+            ?.classList.add("pin-blink");
+        }
+        if (payload.action === "escalate") {
+          highlightAnomalyCard("#dash-notifications");
+        }
       }
     } catch {
       /* */

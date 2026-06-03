@@ -20,7 +20,7 @@ export function getPdfRenderMode(): PdfRenderMode {
   return "html";
 }
 
-async function htmlToPdfBuffer(html: string): Promise<Buffer | null> {
+export async function htmlToPdfBuffer(html: string): Promise<Buffer | null> {
   if (getPdfRenderMode() !== "puppeteer") return null;
   try {
     const puppeteer = (await import("puppeteer" as string)) as {
@@ -40,9 +40,32 @@ async function htmlToPdfBuffer(html: string): Promise<Buffer | null> {
     const buf = await page.pdf({ format: "A4", printBackground: true });
     await browser.close();
     return Buffer.from(buf);
-  } catch {
+  } catch (e) {
+    logBusinessIntegration({
+      type: "pdf",
+      provider: "puppeteer",
+      status: "error",
+      errorMessage: (e as Error).message,
+      response: { fallback: "html" },
+    });
     return null;
   }
+}
+
+/** Puppeteer 失敗時は HTML のみ保存して minimal PDF にフォールバック */
+export async function renderWithPdfFallback(
+  html: string,
+  title: string
+): Promise<{ pdfBuf: Buffer; usedFallback: boolean; renderMode: PdfRenderMode }> {
+  const puppeteerBuf = await htmlToPdfBuffer(html);
+  if (puppeteerBuf) {
+    return { pdfBuf: puppeteerBuf, usedFallback: false, renderMode: "puppeteer" };
+  }
+  return {
+    pdfBuf: minimalPdfBuffer(title),
+    usedFallback: true,
+    renderMode: getPdfRenderMode() === "puppeteer" ? "html" : getPdfRenderMode(),
+  };
 }
 
 function writeHtmlFile(projectId: string, name: string, html: string): string {
@@ -89,15 +112,23 @@ export async function renderBusinessPdf(
         : renderCompletionReportHtml(project, doc as CompletionReport);
   const htmlName = `${kind}-toms.html`;
   const htmlPath = writeHtmlFile(project.id, htmlName, html);
-  const pdfBuf =
-    (await htmlToPdfBuffer(html)) ??
-    minimalPdfBuffer(
-      kind === "estimate"
-        ? `見積 ${(doc as Estimate).estimateNo}`
-        : kind === "invoice"
-          ? `請求 ${(doc as Invoice).invoiceNo}`
-          : `完了報告`
-    );
+  const title =
+    kind === "estimate"
+      ? `見積 ${(doc as Estimate).estimateNo}`
+      : kind === "invoice"
+        ? `請求 ${(doc as Invoice).invoiceNo}`
+        : `完了報告`;
+  const { pdfBuf, usedFallback } = await renderWithPdfFallback(html, title);
+  if (usedFallback) {
+    logBusinessIntegration({
+      projectId: project.id,
+      type: "pdf",
+      provider: "html-fallback",
+      status: "success",
+      request: { kind, note: "puppeteer unavailable — HTML saved" },
+      response: { htmlPath },
+    });
+  }
   const pdfDir = businessUploadsDir(project.id, "pdfs");
   const pdfName = `${kind}-${project.id.slice(-4)}.pdf`;
   const localPdf = path.join(pdfDir, pdfName);
@@ -144,8 +175,17 @@ export async function renderSpecificationPdf(
 ): Promise<RenderedBusinessPdf> {
   const html = renderSpecificationHtml(project, specNo, title);
   const htmlPath = writeHtmlFile(project.id, "specification-toms.html", html);
-  const pdfBuf =
-    (await htmlToPdfBuffer(html)) ?? minimalPdfBuffer(`仕様書 ${specNo}`);
+  const { pdfBuf, usedFallback } = await renderWithPdfFallback(html, `仕様書 ${specNo}`);
+  if (usedFallback) {
+    logBusinessIntegration({
+      projectId: project.id,
+      type: "pdf",
+      provider: "html-fallback",
+      status: "success",
+      request: { kind: "specification" },
+      response: { htmlPath },
+    });
+  }
   const pdfDir = businessUploadsDir(project.id, "specifications");
   const pdfName = `${specNo.replace(/[^\w-]/g, "_")}.pdf`;
   const localPdf = path.join(pdfDir, pdfName);

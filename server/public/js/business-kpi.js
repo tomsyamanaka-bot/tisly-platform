@@ -55,5 +55,18 @@ async function loadKpi() {
   }
 }
 
+document.getElementById("btn-kpi-csv")?.addEventListener("click", async () => {
+  const token = sessionStorage.getItem(TOKEN_KEY);
+  const res = await fetch("/api/toms/kpi/csv", {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) return;
+  const blob = await res.blob();
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "toms-kpi.csv";
+  a.click();
+});
+
 loadKpi().catch(console.error);
 renderPwaTopbar("business", "KPI Dashboard");

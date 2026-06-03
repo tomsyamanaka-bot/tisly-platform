@@ -48,6 +48,21 @@ import {
 } from "../../business/integration-retry-queue.js";
 import { saveAiEstimateFeedback, listAiEstimateFeedback } from "../../toms/ai-estimate-feedback.js";
 import { getWsClientCount } from "../../ws/hub.js";
+import { buildLiveConnectionStatus } from "../../toms/live-connection-status.js";
+import {
+  isLiveOpsMockPushEnabled,
+  isMqttMockMode,
+  listMqttBridgeLogs,
+} from "../../toms/mqtt-live-push-bridge.js";
+import { stopLiveOperationsMockPush } from "../../toms/live-push-mock.js";
+import { isLiveOpsMockPushRunning } from "../../toms/live-push-mock-control.js";
+import { buildHubOfflineSnapshot } from "../../toms/hub-offline-snapshot.js";
+import {
+  aggregateAiFeedbackLearning,
+  buildAiLearningCandidateHints,
+} from "../../toms/ai-feedback-learning.js";
+import { exportTomsKpiCsv, exportCustomerKpiCsv } from "../../toms/toms-kpi-csv.js";
+import { listGmailSendQueue } from "../../business/gmail-send-queue.js";
 
 export const tomsRouter = Router();
 
@@ -62,6 +77,26 @@ tomsRouter.get("/kpi", (_req, res) => {
   res.json(buildTomsKpi());
 });
 
+tomsRouter.get("/kpi/csv", (_req, res) => {
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", 'attachment; filename="toms-kpi.csv"');
+  res.send(exportTomsKpiCsv());
+});
+
+tomsRouter.get("/customer-master/:customerId/kpi/csv", (req, res) => {
+  const csv = exportCustomerKpiCsv(String(req.params.customerId));
+  if (!csv) {
+    res.status(404).json({ error: "customer kpi not found" });
+    return;
+  }
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="kpi-${req.params.customerId}.csv"`
+  );
+  res.send(csv);
+});
+
 tomsRouter.get("/hub/operations", (req: AuthedRequest, res) => {
   const code = (req.admin?.customerCode ?? "TOMS001").toUpperCase();
   res.json(buildHubOperations(code));
@@ -71,9 +106,47 @@ tomsRouter.get("/live/ws-status", (_req, res) => {
   res.json({
     path: "/ws",
     clients: getWsClientCount(),
-    mockPush: true,
+    mockPush: isLiveOpsMockPushEnabled(),
+    mockPushRunning: isLiveOpsMockPushRunning(),
+    mqttMock: isMqttMockMode(),
     mqttReady: true,
   });
+});
+
+tomsRouter.get("/live/connection-status", (_req, res) => {
+  res.json(buildLiveConnectionStatus());
+});
+
+tomsRouter.get("/live/mqtt-logs", (_req, res) => {
+  res.json({ logs: listMqttBridgeLogs(50) });
+});
+
+tomsRouter.post("/live/mock-push/stop", (_req, res) => {
+  stopLiveOperationsMockPush();
+  res.json({ ok: true, mockPushRunning: false });
+});
+
+tomsRouter.get("/hub/snapshot", (req: AuthedRequest, res) => {
+  const code = (req.admin?.customerCode ?? "TOMS001").toUpperCase();
+  res.json(buildHubOfflineSnapshot(code));
+});
+
+tomsRouter.post("/hub/snapshot/sync", (req: AuthedRequest, res) => {
+  const code = (req.admin?.customerCode ?? "TOMS001").toUpperCase();
+  const snapshot = buildHubOfflineSnapshot(code);
+  res.json({ ok: true, snapshot, message: "snapshot ready for client IndexedDB" });
+});
+
+tomsRouter.get("/ai-feedback/learning", (req, res) => {
+  const projectId = req.query.projectId ? String(req.query.projectId) : undefined;
+  res.json({
+    stats: aggregateAiFeedbackLearning(projectId),
+    hints: buildAiLearningCandidateHints(projectId),
+  });
+});
+
+tomsRouter.get("/gmail-send-queue", (_req, res) => {
+  res.json({ items: listGmailSendQueue({ limit: 30 }) });
 });
 
 tomsRouter.get("/projects/:projectId/retry-queue", (req, res) => {

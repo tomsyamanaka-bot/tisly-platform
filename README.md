@@ -3,6 +3,29 @@
 TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。  
 三菱電機 **FX 系** PLC と **GX Works2 / GX Works3** を想定しています。
 
+## TiSLY Platform — Real Connection & Operator Polish（Phase 741–780）
+
+**MQTT 実接続 · Gmail retry worker · QNAP WebDAV · AI学習 · オフライン司令塔 · 双方向 WS · KPI CSV**
+
+| 領域 | パス / API |
+|------|------------|
+| 接続状態 | `GET /api/toms/live/connection-status` |
+| MQTT bridge | `docs/mqtt_live_push_bridge.md` · `LIVE_OPS_MOCK_PUSH=false` |
+| Gmail worker | `docs/gmail_oauth_retry_worker.md` · `GET /api/toms/gmail-send-queue` |
+| QNAP real | `docs/qnap_webdav_real_upload.md` · `QNAP_UPLOAD_MODE=real` |
+| AI learning | `GET /api/toms/ai-feedback/learning` |
+| Offline Hub | `docs/offline_snapshot.md` · IndexedDB |
+| PRO Remote WS | `docs/pro_remote_bidirectional_ws.md` |
+| KPI CSV | `GET /api/toms/kpi/csv` · `GET /api/toms/customer-master/:id/kpi/csv` |
+| テスト | `server/test/business-phase741.test.ts` |
+| ドキュメント | `docs/phase741_780_status.md` |
+
+```bash
+cd server && npm run build && npx tsc --noEmit && npm run test
+```
+
+---
+
 ## TiSLY Platform — Live Operations & PRO Remote Polish（Phase 701–740）
 
 **WebSocket ライブ更新 · フロア自動ジャンプ · Gmail/QNAP 復旧キュー · PDF v1 · AI feedback · KPI 多テナント**

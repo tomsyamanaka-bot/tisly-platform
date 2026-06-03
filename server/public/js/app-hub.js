@@ -1,4 +1,6 @@
 import { renderPwaTopbar } from "./tisly-pwa-shell.js";
+import { syncHubSnapshot, renderHubFromCache } from "./hub-offline-snapshot.js";
+import { highlightAnomalyCard } from "./connection-badges.js";
 
 const TOKEN_KEY = "tisly_token";
 
@@ -71,7 +73,7 @@ async function loadHubApps() {
         <a class="hub-workflow-card" href="/business/projects?status=estimate_created">未送信見積 <strong>${ops.unsentEstimates ?? 0}</strong></a>
         <a class="hub-workflow-card" href="/business/projects?status=invoice_created">未送信請求 <strong>${ops.unsentInvoices ?? 0}</strong></a>
         <a class="hub-workflow-card" href="/business/projects?status=invoice_sent">未入金 <strong>${ops.unpaid}</strong></a>
-        <a class="hub-workflow-card" href="/app">異常デバイス <strong>${ops.abnormalDevices ?? ops.espAnomaly + ops.shellyAnomaly}</strong></a>
+        <a class="hub-workflow-card${(ops.abnormalDevices ?? ops.espAnomaly + ops.shellyAnomaly) > 0 ? " anomaly-card" : ""}" href="/app" id="hub-anomaly-card">異常デバイス <strong>${ops.abnormalDevices ?? ops.espAnomaly + ops.shellyAnomaly}</strong></a>
         <a class="hub-workflow-card" href="/business/settings">同期待ち <strong>${ops.pendingSync ?? 0}</strong></a>
         <a class="hub-workflow-card" href="/business/projects">AI見積待ち <strong>${ops.aiEstimatePending ?? 0}</strong></a>
         <div class="hub-workflow-card">未請求 <strong>${ops.uninvoiced}</strong></div>
@@ -80,7 +82,14 @@ async function loadHubApps() {
         <div class="hub-workflow-card">ESP異常 <strong>${ops.espAnomaly}</strong></div>
         <div class="hub-workflow-card">Shelly異常 <strong>${ops.shellyAnomaly}</strong></div>
       </div>
-      ${scheduleHtml ? `<h4 style="margin-top:1rem">今日のスケジュール</h4><ul>${scheduleHtml}</ul>` : ""}`;
+      ${scheduleHtml ? `<h4 style="margin-top:1rem">今日のスケジュール</h4><ul>${scheduleHtml}</ul>` : ""}
+      <button type="button" id="btn-hub-sync-inline" class="btn-sync-touch">手動同期</button>`;
+    if ((ops.abnormalDevices ?? ops.espAnomaly) > 0) {
+      highlightAnomalyCard("#hub-anomaly-card");
+    }
+    if ((ops.maintenanceOverdue ?? 0) > 0) {
+      highlightAnomalyCard('a[href="/maintenance"].warn-card');
+    }
   }
 }
 
@@ -100,8 +109,19 @@ document.getElementById("btn-hub-login")?.addEventListener("click", async () => 
   await loadHubApps();
 });
 
+document.getElementById("btn-hub-sync-inline")?.addEventListener("click", () => {
+  syncHubSnapshot().then(() => loadHubApps());
+});
+
 if (sessionStorage.getItem(TOKEN_KEY)) {
-  loadHubApps();
+  if (!navigator.onLine) {
+    const code = sessionStorage.getItem("tisly_customer_code") || "TOMS001";
+    renderHubFromCache(code).then((ok) => {
+      if (!ok) loadHubApps();
+    });
+  } else {
+    loadHubApps();
+  }
 }
 
 renderPwaTopbar("hub", "App Hub");

@@ -142,6 +142,8 @@ export function renderPwaTopbar(currentApp, title) {
       <span id="tisly-online-dot" class="dot online">●</span>
       <span id="tisly-online-text">online</span>
       <span id="tisly-sync-status">同期: —</span>
+      <span id="tisly-connection-badges" class="tisly-connection-badges"></span>
+      <button type="button" id="btn-hub-sync" class="btn-sync-touch" hidden>同期</button>
     </div>
     <div id="tisly-pwa-update-banner" class="tisly-pwa-update-banner" hidden>
       新しいバージョンがあります。<button type="button">再読み込み</button>
@@ -150,6 +152,15 @@ export function renderPwaTopbar(currentApp, title) {
   wireOnlineStatus();
   wireSwitcherToggle();
   loadPwaSwitcher(currentApp);
+  if (currentApp === "hub") {
+    document.getElementById("btn-hub-sync")?.removeAttribute("hidden");
+  }
+  import("./connection-badges.js").then((m) => m.loadConnectionBadges()).catch(() => {});
+  if (currentApp === "hub") {
+    import("./hub-offline-snapshot.js")
+      .then((m) => m.wireHubSyncButton())
+      .catch(() => {});
+  }
 }
 
 wireServiceWorkerUpdate();

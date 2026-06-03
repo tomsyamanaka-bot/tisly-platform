@@ -1,0 +1,41 @@
+<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"/><title>見積 EST-2026-0001</title><style>
+body{font-family:"Hiragino Sans","Yu Gothic",sans-serif;margin:0;padding:2rem;color:#0f172a;background:#fff}
+.doc{max-width:800px;margin:0 auto}
+header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #0d9488;padding-bottom:1rem;margin-bottom:1.5rem}
+.logo{max-height:48px;opacity:0.85}
+.company{font-size:0.85rem;color:#475569;line-height:1.5;text-align:right}
+h1{font-size:1.5rem;margin:0 0 0.25rem}
+.meta{color:#64748b;font-size:0.9rem}
+table.items{width:100%;border-collapse:collapse;margin:1rem 0}
+table.items th,table.items td{border:1px solid #e2e8f0;padding:0.5rem 0.65rem;font-size:0.9rem}
+table.items th{background:#f1f5f9;text-align:left}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.totals{margin-left:auto;width:280px}
+.totals div{display:flex;justify-content:space-between;padding:0.25rem 0}
+.totals .grand{font-weight:bold;font-size:1.1rem;border-top:2px solid #0d9488;margin-top:0.5rem;padding-top:0.5rem}
+.notes{margin-top:1.5rem;padding:1rem;background:#f8fafc;border-radius:8px;font-size:0.9rem}
+.photos{display:grid;grid-template-columns:repeat(3,1fr);gap:0.5rem;margin-top:1rem}
+.photo-slot{border:1px dashed #cbd5e1;min-height:80px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:0.75rem}
+.bank-block{margin-top:1.5rem;padding:1rem;border:1px solid #e2e8f0;border-radius:8px;position:relative}
+.qr-placeholder{position:absolute;right:1rem;top:1rem;width:72px;height:72px;border:2px dashed #94a3b8;display:flex;align-items:center;justify-content:center;font-size:0.7rem;color:#64748b}
+.seal-placeholder{position:absolute;right:2rem;bottom:2rem;width:64px;height:64px;border:2px solid #cbd5e1;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:0.85rem}
+.doc-footer{position:relative;min-height:100px;margin-top:2rem}
+</style></head><body>
+<div class="doc">
+<header>
+  <div><img class="logo" src="/assets/toms-logo-placeholder.svg" alt="TOMS"/><h1>御見積書</h1><p class="meta">EST-2026-0001</p></div>
+  <div class="company">{{TOMS_COMPANY_NAME}}<br/>〒{{POSTAL_CODE}} {{COMPANY_ADDRESS}}<br/>TEL {{COMPANY_PHONE}}<br/>{{COMPANY_EMAIL}}<br/>登録番号 {{REGISTRATION_NO}}</div>
+</header>
+<p><strong>宛名</strong> Phase581 E2E現調 様</p>
+<p><strong>件名</strong> Phase581 E2E現調</p>
+<p class="meta">住所: 東京都 · 案件番号 PRJ-2026-0001</p>
+<table class="items"><thead><tr><th>品名</th><th>数量</th><th>単位</th><th>税区分</th><th>単価</th><th>金額</th></tr></thead><tbody><tr><td>設置</td><td class="num">1</td><td>式</td><td>課税10%</td><td class="num">¥50,000</td><td class="num">¥50,000</td></tr></tbody></table>
+<div class="totals">
+  <div><span>小計（税抜）</span><span>¥50,000</span></div>
+  <div><span>消費税</span><span>¥5,000</span></div>
+  <div class="grand"><span>税込合計</span><span>¥55,000</span></div>
+</div>
+<div class="notes"><strong>備考</strong><br/>Survey連携 (SVY-2731B085)</div>
+
+<div class="doc-footer"><div class="seal-placeholder" title="印影 placeholder">印</div></div>
+</div></body></html>

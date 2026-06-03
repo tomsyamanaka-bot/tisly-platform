@@ -72,6 +72,52 @@
 .tisly-pwa-status-bar .dot.online {
   color: #3fb950;
 }
+.tisly-connection-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-left: 8px;
+}
+.conn-badge {
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #21262d;
+  border: 1px solid #30363d;
+}
+.conn-badge.conn-live,
+.conn-badge.conn-real {
+  background: #1a7f37;
+  border-color: #238636;
+}
+.conn-badge.conn-mock,
+.conn-badge.conn-mockOnly {
+  background: #9e6a03;
+}
+.conn-badge.conn-offline {
+  background: #6e7681;
+}
+.btn-sync-touch {
+  min-height: 44px;
+  min-width: 88px;
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+  border-radius: 8px;
+  background: #1f6feb;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+}
+.anomaly-highlight {
+  animation: anomaly-card-flash 1s ease-in-out 10;
+  outline: 2px solid #f85149;
+}
+@keyframes anomaly-card-flash {
+  50% {
+    box-shadow: 0 0 16px #f85149;
+    background: rgba(248, 81, 73, 0.15);
+  }
+}
 .tisly-pwa-status-bar .dot.offline {
   color: #f85149;
 }

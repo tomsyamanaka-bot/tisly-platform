@@ -373,6 +373,7 @@ function migratePhase421(database: Database.Database): void {
   migratePhase621(database);
   migratePhase661(database);
   migratePhase701(database);
+  migratePhase741(database);
 }
 
 function migratePhase621(database: Database.Database): void {
@@ -564,6 +565,42 @@ function migratePhase661(database: Database.Database): void {
     )
     .run(
       "migration:phase661_command_center",
+      JSON.stringify({ at: new Date().toISOString() })
+    );
+}
+
+function migratePhase741(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:phase741_real_connection") as { value_json: string } | undefined;
+  if (marker) return;
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS gmail_send_queue (
+      id TEXT PRIMARY KEY,
+      project_id TEXT,
+      to_address TEXT NOT NULL,
+      subject TEXT NOT NULL,
+      body_preview TEXT DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending','retrying','sent','failed')),
+      send_mode TEXT NOT NULL DEFAULT 'mockOnly',
+      attempt_count INTEGER NOT NULL DEFAULT 0,
+      last_error TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES business_projects(id) ON DELETE SET NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_gmail_send_queue_status
+      ON gmail_send_queue(status, updated_at);
+  `);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run(
+      "migration:phase741_real_connection",
       JSON.stringify({ at: new Date().toISOString() })
     );
 }

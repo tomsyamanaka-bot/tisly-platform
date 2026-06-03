@@ -1,6 +1,15 @@
 import type { WebSocket } from "ws";
+import { appendProjectTimeline } from "../toms/project-timeline.js";
+import { pushProjectTimelineLive } from "../toms/live-push-bridge.js";
 
 export type WsMessageType = "heartbeat" | "event" | "alarm" | "connected";
+
+export type ProRemoteWsAction =
+  | "floor_nav"
+  | "pin_select"
+  | "ack"
+  | "close"
+  | "escalate";
 
 export interface WsOutboundMessage {
   type: WsMessageType;
@@ -28,9 +37,18 @@ export function registerWsClient(socket: WebSocket): void {
 }
 
 export function handleWsClientMessage(socket: WebSocket, raw: string): void {
-  let msg: { type?: string; projectId?: string; ping?: boolean };
+  let msg: {
+    type?: string;
+    projectId?: string;
+    ping?: boolean;
+    action?: ProRemoteWsAction;
+    tier?: string;
+    pinId?: string;
+    notificationId?: string;
+    actor?: string;
+  };
   try {
-    msg = JSON.parse(raw) as { type?: string; projectId?: string; ping?: boolean };
+    msg = JSON.parse(raw) as typeof msg;
   } catch {
     return;
   }
@@ -54,6 +72,52 @@ export function handleWsClientMessage(socket: WebSocket, raw: string): void {
       at: new Date().toISOString(),
     });
   }
+  if (msg.type === "pro_remote" && msg.projectId && msg.action) {
+    handleProRemoteInbound(msg.projectId, msg.action, msg, msg.actor ?? "remote");
+  }
+}
+
+function handleProRemoteInbound(
+  projectId: string,
+  action: ProRemoteWsAction,
+  msg: Record<string, unknown>,
+  actor: string
+): void {
+  const titles: Record<ProRemoteWsAction, string> = {
+    floor_nav: "PRO Remote フロア操作",
+    pin_select: "PRO Remote ピン選択",
+    ack: "PRO Remote 確認",
+    close: "PRO Remote クローズ",
+    escalate: "PRO Remote エスカレーション",
+  };
+  const entry = appendProjectTimeline({
+    projectId,
+    eventType: "pro_operations",
+    title: titles[action],
+    detail: JSON.stringify({
+      tier: msg.tier,
+      pinId: msg.pinId,
+      notificationId: msg.notificationId,
+    }),
+    actor,
+    metadata: { action, ...msg },
+  });
+  pushProjectTimelineLive(projectId, entry);
+
+  broadcast({
+    type: action === "escalate" ? "alarm" : "event",
+    topic: `toms/project/${projectId}/pro_mirror`,
+    payload: {
+      projectId,
+      channel: "pro_mirror",
+      action,
+      tier: msg.tier,
+      pinId: msg.pinId,
+      notificationId: msg.notificationId,
+      actor,
+    },
+    at: new Date().toISOString(),
+  });
 }
 
 function sendToClient(socket: WebSocket, message: WsOutboundMessage): void {

@@ -8,11 +8,18 @@ import {
   pushProjectNotificationsLive,
 } from "./live-push-bridge.js";
 import { buildProjectFloorStack } from "./floor-stack-project.js";
+import { isLiveOpsMockPushEnabled } from "./mqtt-live-push-bridge.js";
+import { setLiveOpsMockPushRunning } from "./live-push-mock-control.js";
 
 let timer: ReturnType<typeof setInterval> | null = null;
 
 export function startLiveOperationsMockPush(intervalMs = 12000): void {
+  if (!isLiveOpsMockPushEnabled()) {
+    console.log("[LiveOps] mock push disabled (LIVE_OPS_MOCK_PUSH=false or MQTT real)");
+    return;
+  }
   if (timer) return;
+  setLiveOpsMockPushRunning(true);
   timer = setInterval(() => {
     broadcastHeartbeat();
     const projects = listBusinessProjects().slice(0, 5);
@@ -43,4 +50,5 @@ export function stopLiveOperationsMockPush(): void {
     clearInterval(timer);
     timer = null;
   }
+  setLiveOpsMockPushRunning(false);
 }
