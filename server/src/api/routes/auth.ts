@@ -5,6 +5,13 @@ import {
   loginAdmin,
   logoutAdmin,
 } from "../../auth/admin-auth.js";
+import { loginCustomer } from "../../auth/customer-auth.js";
+import {
+  getCustomerFailedLoginCount,
+  isCustomerUserLocked,
+} from "../../auth/customer-login-security.js";
+import { getDatabase } from "../../db/database.js";
+import { getCustomerByCode, customerUrls } from "../../customer/customer-store.js";
 import { requireAdminAuth, type AuthedRequest } from "../../auth/auth-middleware.js";
 import { createRateLimit } from "../../security/rate-limit-redis.js";
 import {
@@ -69,6 +76,66 @@ authRouter.post("/login", loginLimiter, (req, res) => {
       username: session.username,
       role: session.role,
     },
+    scope: "platform",
+    expiresInMinutes: Number(process.env.SESSION_EXPIRES_MINUTES ?? 480),
+  });
+});
+
+authRouter.post("/customer/login", loginLimiter, (req, res) => {
+  if (!isAuthConfigured()) {
+    res.status(503).json({ error: "Authentication not configured" });
+    return;
+  }
+  const { customerCode, username, password } = req.body as {
+    customerCode?: string;
+    username?: string;
+    password?: string;
+  };
+  if (!customerCode || !username || !password) {
+    res.status(400).json({ error: "customerCode, username, password required" });
+    return;
+  }
+  const customer = getCustomerByCode(customerCode);
+  if (!customer) {
+    res.status(404).json({ error: "Customer not found" });
+    return;
+  }
+  const userRow = getDatabase()
+    .prepare(
+      `SELECT id FROM customer_users WHERE customer_id = ? AND username = ? AND status = 'active'`
+    )
+    .get(customer.customer_id, username) as { id: string } | undefined;
+  if (userRow && isCustomerUserLocked(userRow.id)) {
+    res.status(423).json({
+      error: "Account locked — too many failed attempts",
+      lockMinutes: Number(process.env.CUSTOMER_LOGIN_LOCK_MINUTES ?? 15),
+    });
+    return;
+  }
+
+  const session = loginCustomer(customerCode, username, password, {
+    ip: req.ip,
+    userAgent: req.header("user-agent") ?? undefined,
+  });
+  if (!session) {
+    res.status(401).json({
+      error: "Invalid credentials",
+      failedAttempts: userRow ? getCustomerFailedLoginCount(userRow.id) : 0,
+    });
+    return;
+  }
+  res.json({
+    ok: true,
+    token: session.token,
+    user: {
+      id: session.userId,
+      username: session.username,
+      role: session.role,
+      customerId: session.customerId,
+      customerCode: session.customerCode,
+    },
+    scope: "customer",
+    urls: customerUrls(customer.customer_code),
     expiresInMinutes: Number(process.env.SESSION_EXPIRES_MINUTES ?? 480),
   });
 });

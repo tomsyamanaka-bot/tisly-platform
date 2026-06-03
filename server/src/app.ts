@@ -21,10 +21,13 @@ import { provisioningRouter } from "./api/routes/provisioning.js";
 import { tenantsRouter } from "./api/routes/tenants.js";
 import { reportsRouter } from "./api/routes/reports.js";
 import { healthFullRouter } from "./api/routes/health-full.js";
+import { customersRouter } from "./api/routes/customers.js";
+import { customerPortalRouter } from "./api/routes/customer-portal.js";
 import { dbRouter } from "./api/routes/db.js";
 import { notificationRulesRouter } from "./api/routes/notification-rules.js";
 import { securityRouter } from "./api/routes/security.js";
 import { requireAdminAuth } from "./auth/auth-middleware.js";
+import { tenantQueryGuard } from "./auth/tenant-guard.js";
 import { config } from "./config.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -43,9 +46,9 @@ export function createApp(): express.Application {
 
   app.use("/api/auth", authRouter);
 
-  app.use("/api/events", eventsRouter);
-  app.use("/api/notifications", notificationsRouter);
-  app.use("/api/devices", devicesRouter);
+  app.use("/api/events", tenantQueryGuard, eventsRouter);
+  app.use("/api/notifications", tenantQueryGuard, notificationsRouter);
+  app.use("/api/devices", tenantQueryGuard, devicesRouter);
   app.use("/api/heartbeat", heartbeatRouter);
   app.use("/api/dashboard", dashboardRouter);
   app.use("/api/demo", demoRouter);
@@ -53,8 +56,8 @@ export function createApp(): express.Application {
   app.use("/api/test", testRouter);
 
   app.use("/api/settings", requireAdminAuth, settingsRouter);
-  app.use("/api/recovery", requireAdminAuth, recoveryRouter);
-  app.use("/api/qnap", requireAdminAuth, qnapRouter);
+  app.use("/api/recovery", requireAdminAuth, tenantQueryGuard, recoveryRouter);
+  app.use("/api/qnap", requireAdminAuth, tenantQueryGuard, qnapRouter);
   app.use("/api/ops", requireAdminAuth, socNocRouter);
   app.use("/api/sites", requireAdminAuth, sitesRouter);
   app.use("/api/provisioning", requireAdminAuth, provisioningRouter);
@@ -63,9 +66,28 @@ export function createApp(): express.Application {
   app.use("/api/notification-rules", requireAdminAuth, notificationRulesRouter);
   app.use("/api/security", securityRouter);
 
-  app.use("/api/tv", tvRouter);
+  app.use("/api/tv", tenantQueryGuard, tvRouter);
   app.use("/api/health", healthFullRouter);
+  app.use("/api/customers", customersRouter);
+  app.use("/api/customer", customerPortalRouter);
   app.use("/api/db", dbRouter);
+
+  const customerPortalHtml = path.join(publicDir, "customer-portal.html");
+  const tvDashboardHtml = path.join(publicDir, "tv-dashboard.html");
+  const adminCustomerHtml = path.join(publicDir, "admin-customer.html");
+
+  app.get("/customer/:customerCode", (_req, res) => {
+    res.sendFile(customerPortalHtml);
+  });
+  app.get("/tv/:customerCode", (_req, res) => {
+    res.sendFile(tvDashboardHtml);
+  });
+  app.get("/admin/:customerCode", (_req, res) => {
+    res.sendFile(adminCustomerHtml);
+  });
+  app.get("/customer", (_req, res) => {
+    res.sendFile(path.join(publicDir, "customer-index.html"));
+  });
 
   app.get("/setup", (_req, res) => {
     res.sendFile(path.join(publicDir, "setup.html"));
@@ -118,6 +140,11 @@ export function createApp(): express.Application {
       platform: "production-infrastructure-foundation",
       demoMode: config.demoMode,
       features: [
+        "pro-remote-customers",
+        "customer-portal-urls",
+        "customer-jwt-rbac",
+        "google-tv-dashboard-web",
+        "infrastructure-health-full-api",
         "admin-jwt-auth",
         "session-revocation",
         "device-secret-validation",

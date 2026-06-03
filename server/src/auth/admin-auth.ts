@@ -44,7 +44,7 @@ export function loginAdmin(
     }
   }
   clearFailedLogins(username);
-  const { token, jti } = signToken({ sub: userId, username, role: "admin" });
+  const { token, jti } = signToken({ sub: userId, username, role: "super_admin", scope: "platform" });
   createSession({
     userId,
     tokenId: jti,
@@ -67,7 +67,7 @@ export function loginAdmin(
     sourceIp: meta?.ip,
     message: `Admin login: ${username}`,
   });
-  return { userId, username, role: "admin", token, tokenId: jti };
+  return { userId, username, role: "super_admin", token, tokenId: jti };
 }
 
 export function resolveSession(token: string | undefined): AdminSession | null {

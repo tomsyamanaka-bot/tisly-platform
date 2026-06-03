@@ -1,7 +1,21 @@
 const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? "https://tisly.jp";
 
+/** Certificate pinning placeholder — set EXPO_PUBLIC_TV_CERT_PINNING_ENABLED=true before production. */
+export const TV_CERT_PINNING_ENABLED =
+  process.env.EXPO_PUBLIC_TV_CERT_PINNING_ENABLED === "true";
+export const TV_CERT_FINGERPRINT =
+  process.env.EXPO_PUBLIC_TV_CERT_FINGERPRINT ??
+  "sha256/PLACEHOLDER_REPLACE_BEFORE_PRODUCTION";
+
 function baseUrl(override?: string): string {
   return (override ?? API_BASE).replace(/\/$/, "");
+}
+
+/** When pinning is enabled, native layer should validate TLS fingerprint (TODO: native module). */
+export function assertCertPinningConfigured(): void {
+  if (TV_CERT_PINNING_ENABLED && TV_CERT_FINGERPRINT.includes("PLACEHOLDER")) {
+    console.warn("[TV] Certificate fingerprint is still a placeholder");
+  }
 }
 
 export interface DashboardSummary {

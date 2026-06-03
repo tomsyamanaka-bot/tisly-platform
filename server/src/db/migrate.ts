@@ -39,6 +39,36 @@ const DEVICE_CREDENTIAL_COLUMNS: Array<{ name: string; ddl: string }> = [
   { name: "secret_encrypted", ddl: "ALTER TABLE device_credentials ADD COLUMN secret_encrypted TEXT" },
 ];
 
+const SITE_COLUMNS: Array<{ name: string; ddl: string }> = [
+  { name: "customer_id", ddl: "ALTER TABLE sites ADD COLUMN customer_id TEXT" },
+  { name: "timezone", ddl: "ALTER TABLE sites ADD COLUMN timezone TEXT DEFAULT 'Asia/Tokyo'" },
+];
+
+const DEVICE_COLUMNS: Array<{ name: string; ddl: string }> = [
+  { name: "customer_id", ddl: "ALTER TABLE devices ADD COLUMN customer_id TEXT" },
+  { name: "site_id", ddl: "ALTER TABLE devices ADD COLUMN site_id TEXT" },
+  { name: "serial_number", ddl: "ALTER TABLE devices ADD COLUMN serial_number TEXT" },
+  { name: "firmware_version", ddl: "ALTER TABLE devices ADD COLUMN firmware_version TEXT" },
+  { name: "last_seen", ddl: "ALTER TABLE devices ADD COLUMN last_seen TEXT" },
+];
+
+function addColumnsIfMissing(
+  database: Database.Database,
+  table: string,
+  columns: Array<{ name: string; ddl: string }>
+): void {
+  const existing = new Set(
+    (database.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).map(
+      (r) => r.name
+    )
+  );
+  for (const col of columns) {
+    if (!existing.has(col.name)) {
+      database.exec(col.ddl);
+    }
+  }
+}
+
 export function runMigrations(database: Database.Database): void {
   const existing = new Set(
     (database.prepare("PRAGMA table_info(events)").all() as Array<{ name: string }>).map(
@@ -89,5 +119,78 @@ export function runMigrations(database: Database.Database): void {
     if (!credCols.has(col.name)) {
       database.exec(col.ddl);
     }
+  }
+
+  addColumnsIfMissing(database, "sites", SITE_COLUMNS);
+  addColumnsIfMissing(database, "devices", DEVICE_COLUMNS);
+  database.exec("CREATE INDEX IF NOT EXISTS idx_sites_customer ON sites(customer_id)");
+  database.exec("CREATE INDEX IF NOT EXISTS idx_devices_customer ON devices(customer_id)");
+  database.exec("CREATE INDEX IF NOT EXISTS idx_devices_site ON devices(site_id)");
+
+  migrateCustomerUsersPhase241(database);
+}
+
+const CUSTOMER_USER_COLUMNS: Array<{ name: string; ddl: string }> = [
+  { name: "last_login_at", ddl: "ALTER TABLE customer_users ADD COLUMN last_login_at TEXT" },
+  {
+    name: "failed_login_count",
+    ddl: "ALTER TABLE customer_users ADD COLUMN failed_login_count INTEGER DEFAULT 0",
+  },
+  { name: "locked_until", ddl: "ALTER TABLE customer_users ADD COLUMN locked_until TEXT" },
+];
+
+function migrateCustomerUsersPhase241(database: Database.Database): void {
+  addColumnsIfMissing(database, "customer_users", CUSTOMER_USER_COLUMNS);
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:customer_users_owner_role") as { value_json: string } | undefined;
+  if (marker) return;
+
+  try {
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS customer_users_phase241 (
+        id TEXT PRIMARY KEY,
+        customer_id TEXT NOT NULL,
+        username TEXT NOT NULL,
+        password_hash TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'viewer' CHECK (role IN ('owner', 'admin', 'manager', 'viewer', 'super_admin')),
+        status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'suspended', 'deleted')),
+        last_login_at TEXT,
+        failed_login_count INTEGER DEFAULT 0,
+        locked_until TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        UNIQUE (customer_id, username),
+        FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
+      );
+    `);
+    const cols = new Set(
+      (database.prepare("PRAGMA table_info(customer_users)").all() as Array<{ name: string }>).map(
+        (r) => r.name
+      )
+    );
+    const hasLock = cols.has("failed_login_count");
+    database.exec(`
+      INSERT OR REPLACE INTO customer_users_phase241
+        (id, customer_id, username, password_hash, role, status, last_login_at, failed_login_count, locked_until, created_at, updated_at)
+      SELECT id, customer_id, username, password_hash,
+        CASE WHEN role = 'super_admin' THEN 'owner' ELSE role END,
+        status,
+        ${hasLock ? "last_login_at" : "NULL"},
+        ${hasLock ? "COALESCE(failed_login_count, 0)" : "0"},
+        ${hasLock ? "locked_until" : "NULL"},
+        created_at, updated_at
+      FROM customer_users;
+    `);
+    database.exec("DROP TABLE customer_users");
+    database.exec("ALTER TABLE customer_users_phase241 RENAME TO customer_users");
+    database.exec(
+      "CREATE INDEX IF NOT EXISTS idx_customer_users_customer ON customer_users(customer_id)"
+    );
+    database.prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    ).run("migration:customer_users_owner_role", JSON.stringify({ at: new Date().toISOString() }));
+  } catch {
+    /* table may already support owner role */
   }
 }

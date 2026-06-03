@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TiSLY — 顧客ダッシュボード</title>
+  <link rel="stylesheet" href="/css/admin.css" />
+  <link rel="stylesheet" href="/css/customer-portal.css" />
+</head>
+<body class="customer-portal" id="portal-root">
+  <header class="portal-header">
+    <div class="brand" id="brand-block">
+      <img id="brand-logo" alt="" hidden />
+      <div>
+        <h1 id="brand-name">TiSLY</h1>
+        <p id="brand-code"></p>
+      </div>
+    </div>
+    <nav class="portal-nav">
+      <a id="link-tv" href="#">TV</a>
+      <a id="link-admin" href="#">管理</a>
+      <button type="button" class="btn secondary" id="btn-logout" hidden>ログアウト</button>
+    </nav>
+  </header>
+
+  <section id="login-panel" class="card login-card">
+    <h2>顧客ログイン</h2>
+    <p class="hint">デモ: <code id="demo-user-hint"></code> / <code>demo-remote-2026</code></p>
+    <label>ユーザー名 <input id="login-username" autocomplete="username" /></label>
+    <label>パスワード <input id="login-password" type="password" autocomplete="current-password" /></label>
+    <button type="button" class="btn" id="btn-login">ログイン</button>
+    <p id="login-error" class="error"></p>
+  </section>
+
+  <main id="dashboard-panel" hidden>
+    <div class="status-banner" id="overall-status">読込中…</div>
+    <section class="metric-cards" id="metric-cards"></section>
+
+    <section class="card portal-card">
+      <h2>現場一覧</h2>
+      <div id="sites-list" class="card-grid"></div>
+    </section>
+
+    <section class="card portal-card">
+      <h2>設備一覧</h2>
+      <div id="devices-by-type"></div>
+    </section>
+
+    <section class="card portal-card">
+      <h2>最新イベント</h2>
+      <ul id="events-list" class="simple-list"></ul>
+    </section>
+
+    <section class="card portal-card">
+      <h2>警報履歴</h2>
+      <ul id="alarms-list" class="simple-list"></ul>
+    </section>
+
+    <section class="card portal-card">
+      <h2>稼働率 · TV · Recovery</h2>
+      <div id="ops-cards" class="card-grid"></div>
+    </section>
+
+    <section class="card portal-card">
+      <h2>AIサマリー</h2>
+      <p id="ai-summary">—</p>
+    </section>
+
+    <section class="card portal-card">
+      <h2>Recovery履歴</h2>
+      <ul id="recovery-list" class="simple-list"></ul>
+    </section>
+  </main>
+  <script type="module" src="/js/customer-portal.js"></script>
+</body>
+</html>

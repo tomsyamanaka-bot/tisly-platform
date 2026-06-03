@@ -240,7 +240,7 @@ async function loadHealth() {
 
 async function loadInfrastructure() {
   const [health, dbStatus] = await Promise.all([
-    apiGet("/api/health"),
+    apiGet("/api/health/full"),
     apiGet("/api/db/status"),
   ]);
   const el = document.getElementById("infrastructure-grid");

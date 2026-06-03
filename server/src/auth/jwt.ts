@@ -6,6 +6,9 @@ export interface JwtPayload {
   username: string;
   role: string;
   jti?: string;
+  customerId?: string;
+  customerCode?: string;
+  scope?: "platform" | "customer";
 }
 
 function b64url(data: string): string {
@@ -53,5 +56,8 @@ export function verifyToken(token: string): JwtPayload | null {
     username: parsed.username,
     role: parsed.role,
     jti: parsed.jti,
+    customerId: parsed.customerId,
+    customerCode: parsed.customerCode,
+    scope: parsed.scope,
   };
 }

@@ -3,6 +3,53 @@
 TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。  
 三菱電機 **FX 系** PLC と **GX Works2 / GX Works3** を想定しています。
 
+## TiSLY Platform — PRO Remote Production（Phase 241–260）
+
+**テナント分離強化・顧客ポータル UX・プラン制限・ブランディング・顧客別 TV・営業レポート・ログインロックアウト**
+
+| 領域 | パス / URL |
+|------|------------|
+| テナントガード | `server/src/auth/tenant-guard.ts` |
+| プラン制限 | `server/src/customer/plan-guard.ts` |
+| 顧客ポータル | `/customer/TOMS001` — 現場・警報・AI・Recovery |
+| 顧客別 TV | `/tv/TOMS001` — 15s / 警報 10s 全画面 |
+| 営業レポート | `GET /api/customer/:code/sales-report` |
+| ロール | owner / admin / manager / viewer — `docs/customer_roles.md` |
+| ドキュメント | `docs/pro_remote_customer_operations.md` · `docs/plan_feature_matrix.md` |
+| テスト | `server/test/customer-tenant.test.ts` |
+
+```bash
+cd server && npm run build && npm run test
+cd tv-app && npx tsc --noEmit
+# デモ: toms001.viewer / demo-remote-2026
+```
+
+---
+
+## TiSLY Platform — PRO Remote（Phase 221–240）
+
+**顧客管理・マルチテナント・顧客別 URL・RBAC・Google TV Web ダッシュボード・Infrastructure 統合ヘルス**
+
+| 領域 | パス / URL |
+|------|------------|
+| 顧客 DB | `server/src/db/schema-phase-221.sql` · `customers` / `customer_branding` / `customer_users` |
+| 顧客 API | `GET /api/customers` · `POST /api/auth/customer/login` |
+| 顧客ポータル | `/customer` · `/customer/TOMS001` |
+| Google TV Web | `/tv/TOMS001`（全画面・15秒更新・アラート10秒） |
+| 顧客管理 UI | `/admin/TOMS001` |
+| Infrastructure | `/operations` · `GET /api/health/full` |
+| ドキュメント | `docs/phase221-240_pro_remote.md` · `docs/er_phase221.md` |
+| テスト | `server/test/customer.test.ts` · `health.test.ts` |
+
+```bash
+cd server && npm install && npm run build && npm run test
+# 顧客ログイン例: toms001.viewer / demo-remote-2026
+# http://localhost:3080/customer/TOMS001
+# http://localhost:3080/tv/TOMS001
+```
+
+---
+
 ## TiSLY Platform — Production Infrastructure Foundation（Phase 201–220）
 
 **VPS 投入前提の本番基盤** — PostgreSQL Pool、Redis、本番 2FA（otplib）、SIEM マルチプロバイダ、TV 証明書プレースホルダ、Infrastructure ヘルス。

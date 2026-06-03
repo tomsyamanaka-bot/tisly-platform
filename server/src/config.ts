@@ -69,7 +69,7 @@ export const config = {
     password: env("QNAP_PASSWORD"),
     basePath: env("QNAP_BASE_PATH", "/TiSLY"),
   },
-  rc1Phase: "201-220-production-infrastructure",
+  rc1Phase: "241-260-pro-remote-production",
   get dbProvider() {
     return (env("DB_PROVIDER", "sqlite") as "sqlite" | "postgres");
   },
@@ -115,6 +115,12 @@ export const config = {
     get require2fa() {
       return env("REQUIRE_2FA", "false") === "true";
     },
+    get customerLoginLockMinutes() {
+      return Number(env("CUSTOMER_LOGIN_LOCK_MINUTES", "15"));
+    },
+    get customerLoginMaxAttempts() {
+      return Number(env("CUSTOMER_LOGIN_MAX_ATTEMPTS", "5"));
+    },
   },
   siem: {
     get provider() {
@@ -129,6 +135,9 @@ export const config = {
   tv: {
     get certPinningEnabled() {
       return env("TV_CERT_PINNING_ENABLED", "false") === "true";
+    },
+    get certFingerprint() {
+      return env("TV_CERT_FINGERPRINT", "sha256/PLACEHOLDER_REPLACE_BEFORE_PRODUCTION");
     },
   },
   infrastructure: {

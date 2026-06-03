@@ -5,7 +5,13 @@ import { createApp } from "../src/app.js";
 
 const app = createApp();
 
-describe("Health API extended (Phase 201-220)", () => {
+describe("Health API extended (Phase 221-240)", () => {
+  it("GET /api/health/full matches extended payload", async () => {
+    const res = await request(app).get("/api/health/full");
+    assert.equal(res.status, 200);
+    assert.equal(res.body.endpoint, "/api/health/full");
+  });
+
   it("GET /api/health includes postgres redis mqtt tv qnap disk memory", async () => {
     const res = await request(app).get("/api/health");
     assert.equal(res.status, 200);
@@ -17,13 +23,13 @@ describe("Health API extended (Phase 201-220)", () => {
     assert.ok(res.body.disk);
     assert.ok(res.body.memory);
     assert.ok(Array.isArray(res.body.infrastructure));
-    assert.equal(res.body.phase, "201-220-production-infrastructure");
+    assert.equal(res.body.phase, "241-260-pro-remote-production");
   });
 
   it("GET /health reflects new phase", async () => {
     const res = await request(app).get("/health");
     assert.equal(res.status, 200);
-    assert.equal(res.body.phase, "201-220-production-infrastructure");
+    assert.equal(res.body.phase, "241-260-pro-remote-production");
     assert.ok(res.body.features.includes("totp-2fa-otplib"));
   });
 

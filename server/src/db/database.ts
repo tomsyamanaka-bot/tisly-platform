@@ -3,6 +3,7 @@ import fs from "fs";
 import path, { dirname } from "path";
 import { fileURLToPath } from "url";
 import { config } from "../config.js";
+import { seedProRemoteCustomers } from "../customer/seed-customers.js";
 import { ensureTenant } from "../provisioning/site-provisioner.js";
 import { runMigrations } from "./migrate.js";
 
@@ -40,8 +41,13 @@ export function getDatabase(): Database.Database {
   if (fs.existsSync(phaseProduction)) {
     db.exec(fs.readFileSync(phaseProduction, "utf-8"));
   }
+  const phase221 = path.join(__dirname, "schema-phase-221.sql");
+  if (fs.existsSync(phase221)) {
+    db.exec(fs.readFileSync(phase221, "utf-8"));
+  }
   runMigrations(db);
   seedDefaults(db);
+  seedProRemoteCustomers();
   ensureTenant(config.defaultTenantId, "Default Tenant");
   return db;
 }

@@ -23,7 +23,7 @@ import { getInfrastructureStatuses } from "../../infrastructure/status.js";
 
 export const healthFullRouter = Router();
 
-healthFullRouter.get("/", async (_req, res) => {
+async function buildFullHealthResponse() {
   const db = getDatabase();
   let dbOk = true;
   try {
@@ -91,7 +91,7 @@ healthFullRouter.get("/", async (_req, res) => {
 
   const memFreePct = (os.freemem() / os.totalmem()) * 100;
 
-  res.json({
+  return {
     status: dbOk ? "ok" : "degraded",
     phase: config.rc1Phase,
     db_provider: providerInfo.provider,
@@ -180,5 +180,14 @@ healthFullRouter.get("/", async (_req, res) => {
       },
     },
     demoMode: config.demoMode,
-  });
+  };
+}
+
+healthFullRouter.get("/", async (_req, res) => {
+  res.json(await buildFullHealthResponse());
+});
+
+healthFullRouter.get("/full", async (_req, res) => {
+  const body = await buildFullHealthResponse();
+  res.json({ ...body, endpoint: "/api/health/full" });
 });

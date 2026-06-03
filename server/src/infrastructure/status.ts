@@ -14,16 +14,36 @@ export interface InfraComponentStatus {
   detail: string;
 }
 
-function diskStatus(): InfraComponentStatus {
+function gatewayStatus(deviceType: string): InfraComponentStatus {
   try {
-    const free = os.freemem();
-    const total = os.totalmem();
-    const pct = (free / total) * 100;
-    if (pct < 10) return { name: "disk", status: "RED", detail: `Memory free ${pct.toFixed(0)}%` };
-    if (pct < 20) return { name: "disk", status: "YELLOW", detail: `Memory free ${pct.toFixed(0)}%` };
-    return { name: "disk", status: "GREEN", detail: `Memory free ${pct.toFixed(0)}%` };
+    const db = getDatabase();
+    const total = (
+      db
+        .prepare(
+          `SELECT COUNT(*) as c FROM devices WHERE UPPER(device_type) = ?`
+        )
+        .get(deviceType) as { c: number }
+    ).c;
+    const offline = (
+      db
+        .prepare(
+          `SELECT COUNT(*) as c FROM devices WHERE UPPER(device_type) = ?
+           AND heartbeat_status NOT IN ('ok', 'online')`
+        )
+        .get(deviceType) as { c: number }
+    ).c;
+    if (total === 0) {
+      return { name: deviceType, status: "YELLOW", detail: "no devices registered" };
+    }
+    if (offline > total / 2) {
+      return { name: deviceType, status: "RED", detail: `${offline}/${total} offline` };
+    }
+    if (offline > 0) {
+      return { name: deviceType, status: "YELLOW", detail: `${offline}/${total} offline` };
+    }
+    return { name: deviceType, status: "GREEN", detail: `${total} device(s) online` };
   } catch {
-    return { name: "disk", status: "YELLOW", detail: "unknown" };
+    return { name: deviceType, status: "YELLOW", detail: "unavailable" };
   }
 }
 
@@ -46,7 +66,7 @@ export async function getInfrastructureStatuses(): Promise<InfraComponentStatus[
   const mqttMock = process.env.MQTT_MOCK_MODE === "true";
 
   let tvStatus: InfraStatus = "GREEN";
-  let tvDetail = "paired devices ok";
+  let tvDetail = "Google TV paired";
   try {
     const db = getDatabase();
     const pairing = (
@@ -54,9 +74,21 @@ export async function getInfrastructureStatuses(): Promise<InfraComponentStatus[
         c: number;
       }
     ).c;
+    const paired = (
+      db
+        .prepare(
+          "SELECT COUNT(*) as c FROM tv_devices WHERE paired_at IS NOT NULL AND status = 'paired'"
+        )
+        .get() as { c: number }
+    ).c;
     if (pairing > 10) {
       tvStatus = "YELLOW";
-      tvDetail = `${pairing} active pairing sessions`;
+      tvDetail = `${pairing} pairing sessions`;
+    } else if (paired === 0) {
+      tvStatus = "YELLOW";
+      tvDetail = "no paired TVs";
+    } else {
+      tvDetail = `${paired} paired`;
     }
   } catch {
     tvStatus = "YELLOW";
@@ -64,73 +96,120 @@ export async function getInfrastructureStatuses(): Promise<InfraComponentStatus[
   }
 
   const qnapReal = getQnapMode() === "real" && isQnapSmbConfigured();
+  const memPct = (os.freemem() / os.totalmem()) * 100;
+  let vpsStatus: InfraStatus = "GREEN";
+  let vpsDetail = config.infrastructure.vpsLabel;
+  if (memPct < 10 || os.loadavg()[0]! > os.cpus().length * 2) {
+    vpsStatus = memPct < 10 ? "RED" : "YELLOW";
+    vpsDetail = `mem ${memPct.toFixed(0)}% · load ${os.loadavg()[0]?.toFixed(2)}`;
+  }
+
+  const plcGw = gatewayStatus("PLC");
+  const rpGw = gatewayStatus("RP2350");
+  plcGw.name = "PLC Gateway";
+  rpGw.name = "RP2350 Gateway";
+
+  let customerCount = 0;
+  let activeSites = 0;
+  let tvOnline = 0;
+  let portalStatus: InfraStatus = "GREEN";
+  let portalDetail = "PRO Remote portals ready";
+  let tenantIsolation: InfraStatus = "GREEN";
+  let tenantDetail = "tenant-guard active on customer APIs";
+  try {
+    const db = getDatabase();
+    customerCount = (db.prepare("SELECT COUNT(*) as c FROM customers WHERE status = 'active'").get() as { c: number }).c;
+    activeSites = (db.prepare("SELECT COUNT(*) as c FROM sites WHERE status = 'active' OR status IS NULL").get() as { c: number }).c;
+    tvOnline = (
+      db
+        .prepare(
+          `SELECT COUNT(*) as c FROM devices WHERE UPPER(device_type) = 'TV' AND heartbeat_status IN ('ok','online')`
+        )
+        .get() as { c: number }
+    ).c;
+    const proRemote = (
+      db.prepare("SELECT COUNT(*) as c FROM customers WHERE plan = 'PRO_REMOTE' AND status = 'active'").get() as {
+        c: number;
+      }
+    ).c;
+    portalDetail = `${customerCount} customers · ${proRemote} PRO_REMOTE`;
+    if (customerCount === 0) {
+      portalStatus = "YELLOW";
+      portalDetail = "no customers seeded";
+    }
+  } catch {
+    portalStatus = "YELLOW";
+    portalDetail = "customer tables unavailable";
+    tenantIsolation = "YELLOW";
+    tenantDetail = "customer schema missing";
+  }
 
   return [
     {
-      name: "DB",
-      status: dbReachable ? "GREEN" : "RED",
-      detail: `${config.dbProvider} ${dbReachable ? "reachable" : "down"}`,
+      name: "PRO Remote",
+      status: portalStatus,
+      detail: portalDetail,
     },
     {
-      name: "PostgreSQL",
+      name: "Tenant isolation",
+      status: tenantIsolation,
+      detail: tenantDetail,
+    },
+    {
+      name: "Customer portal",
+      status: portalStatus,
+      detail: `${customerCount} tenants · ${activeSites} sites`,
+    },
+    {
+      name: "TV online",
+      status: tvOnline > 0 ? "GREEN" : "YELLOW",
+      detail: `${tvOnline} TV device(s) online`,
+    },
+    { name: "VPS", status: vpsStatus, detail: vpsDetail },
+    {
+      name: "Postgres",
       status:
-        config.dbProvider === "postgres"
-          ? dbReachable
-            ? "GREEN"
-            : "RED"
-          : "YELLOW",
+        config.dbProvider === "postgres" ? (dbReachable ? "GREEN" : "RED") : "YELLOW",
       detail:
         config.dbProvider === "postgres"
           ? dbReachable
-            ? "active"
+            ? "reachable"
             : "unreachable"
-          : "sqlite mode (standby)",
+          : "sqlite standby",
     },
     {
       name: "Redis",
       status:
-        config.rateLimitProvider === "redis"
-          ? redisOk
-            ? "GREEN"
-            : "RED"
-          : "YELLOW",
+        config.rateLimitProvider === "redis" ? (redisOk ? "GREEN" : "RED") : "YELLOW",
       detail:
         config.rateLimitProvider === "redis"
           ? redisOk
             ? "connected"
-            : "unreachable"
-          : "memory provider",
+            : "down"
+          : "memory fallback",
     },
     {
       name: "MQTT",
       status: mqttEnabled ? "GREEN" : mqttMock ? "YELLOW" : "YELLOW",
-      detail: mqttEnabled ? "subscriber enabled" : mqttMock ? "mock mode" : "standby",
+      detail: mqttEnabled ? "subscriber on" : mqttMock ? "mock" : "standby",
     },
     {
       name: "Node-RED",
       status: config.ingestSecret ? "GREEN" : "RED",
-      detail: config.infrastructure.nodeRedUrl || "/api/events/ingest",
+      detail: config.infrastructure.nodeRedUrl || "ingest configured",
     },
-    {
-      name: "TV",
-      status: tvStatus,
-      detail: tvDetail,
-    },
+    { name: "Google TV", status: tvStatus, detail: tvDetail },
     {
       name: "QNAP",
       status: qnapReal ? "GREEN" : "YELLOW",
-      detail: qnapReal ? "SMB real" : "mock archive",
+      detail: qnapReal ? "SMB archive" : "mock",
     },
+    plcGw,
+    rpGw,
     {
-      name: "VPS",
-      status: "GREEN",
-      detail: config.infrastructure.vpsLabel,
-    },
-    diskStatus(),
-    {
-      name: "memory",
-      status: os.loadavg()[0]! > os.cpus().length * 2 ? "YELLOW" : "GREEN",
-      detail: `load ${os.loadavg()[0]?.toFixed(2) ?? "?"}`,
+      name: "DB",
+      status: dbReachable ? "GREEN" : "RED",
+      detail: `${config.dbProvider} ${dbReachable ? "ok" : "error"}`,
     },
   ];
 }
