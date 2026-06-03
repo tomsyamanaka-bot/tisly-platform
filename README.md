@@ -3,6 +3,32 @@
 TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。  
 三菱電機 **FX 系** PLC と **GX Works2 / GX Works3** を想定しています。
 
+## TiSLY Platform — Billing, Workers & Real Operations（Phase 301–320）
+
+**Stripe 請求準備 · 配信ワーカー · Operations 実データ · PostgreSQL 移行 Runbook · 契約ガード**
+
+| 領域 | パス / URL |
+|------|------------|
+| Stripe Billing | `server/src/billing/` · `POST /api/billing/stripe/webhook` |
+| 管理 Billing タブ | `/admin/TOMS001` — 請求 placeholder |
+| ワーカー | `server/src/workers/` · `WORKERS_ENABLED` |
+| Webhook 再送 | `webhook-retry-queue.ts` · `GET/POST .../webhooks/deliveries` |
+| レポートメールキュー | `report-email-queue.ts` · `POST .../reports/send-email` |
+| Operations 実データ | `GET /api/ops/map|alarms|devices|tv|qnap?customerCode=` |
+| 地図ビルダー | `server/src/ops/map-builder.ts` |
+| 契約ガード | `server/src/customer/contract-guard.ts` |
+| ポータル Audit | `/customer/TOMS001` タブ Audit |
+| PostgreSQL 移行 | `docs/postgres_migration_runbook.md` |
+| テスト | `server/test/billing-worker.test.ts` |
+| ドキュメント | `docs/phase301_320_status.md` |
+
+```bash
+cd server && npm run build && npm run test
+cd tv-app && npx tsc --noEmit
+```
+
+---
+
 ## TiSLY Platform — PRO Remote Unified Operations（Phase 281–300）
 
 **顧客通知ルール · Incidents 統一 · Operations 顧客スコープ · PDF/メールレポート · RLS 準備 · Webhook 署名/再送 · TV ピン留め**

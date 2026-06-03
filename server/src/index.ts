@@ -9,9 +9,11 @@ import { getNotificationService } from "./notification/notification-service.js";
 import { startRecoveryEngine } from "./recovery/recovery-engine.js";
 import { registerWsClient } from "./ws/hub.js";
 import { startBackupScheduler } from "./backup/backup-scheduler.js";
+import { startWorkers } from "./workers/worker-runner.js";
 
 getDatabase();
 startBackupScheduler();
+startWorkers();
 
 const app = createApp();
 

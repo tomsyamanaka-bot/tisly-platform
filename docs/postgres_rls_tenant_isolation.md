@@ -8,6 +8,24 @@
 - セッション変数 `app.current_customer_id` を RLS で参照
 - `super_admin` は `BYPASSRLS` ロールまたは policy で READ/WRITE 全件
 
+## セッション変数（Phase 301–320）
+
+トランザクション開始直後に設定:
+
+```sql
+BEGIN;
+SET LOCAL app.current_customer_id = 'cust_toms001';
+SET LOCAL app.current_tenant_id = 'tenant_toms001';
+-- クエリ ...
+COMMIT;
+```
+
+| ロール | 用途 |
+|--------|------|
+| `tisly_app` | 顧客 JWT 接続 — RLS 適用 |
+| `tisly_service` | ワーカー・移行 — `BYPASSRLS` または service policy |
+| `tisly_platform_admin` | super_admin — bypass policy |
+
 ## 例: customers スコープ events
 
 ```sql
@@ -33,8 +51,21 @@ CREATE POLICY customer_users_self_tenant ON customer_users
 
 1. 既存行に `customer_id` をバックフィルしてから RLS 有効化
 2. インデックス `(customer_id)`, `(tenant_id)` を先に作成
-3. アプリ接続は顧客 JWT ごとに `SET app.current_customer_id = ...` を transaction 開始時に実行
-4. バッチ・移行ジョブは専用ロールで BYPASSRLS
+3. アプリ接続は顧客 JWT ごとに `SET LOCAL app.current_customer_id = ...` を transaction 開始時に実行
+4. バッチ・移行ジョブは `tisly_service` で BYPASSRLS — **移行完了まで RLS を有効化しない**
+5. `migrate-customers.ts` / `migrate-events.ts` 実行中は単一 service 接続のみ
+
+## テスト SQL
+
+```sql
+-- 顧客 A のコンテキスト
+SET LOCAL app.current_customer_id = (SELECT customer_id FROM customers WHERE customer_code = 'TOMS001');
+SELECT COUNT(*) FROM events;  -- TOMS のみ
+
+-- 他顧客は 0 件になること
+SET LOCAL app.current_customer_id = (SELECT customer_id FROM customers WHERE customer_code = 'PLANT001');
+SELECT COUNT(*) FROM events WHERE tenant_id IS NOT NULL;
+```
 
 ## 監査
 

@@ -23,13 +23,13 @@ describe("Health API extended (Phase 221-240)", () => {
     assert.ok(res.body.disk);
     assert.ok(res.body.memory);
     assert.ok(Array.isArray(res.body.infrastructure));
-    assert.equal(res.body.phase, "281-300-pro-remote-unified-operations");
+    assert.equal(res.body.phase, "301-320-billing-workers-real-operations");
   });
 
   it("GET /health reflects new phase", async () => {
     const res = await request(app).get("/health");
     assert.equal(res.status, 200);
-    assert.equal(res.body.phase, "281-300-pro-remote-unified-operations");
+    assert.equal(res.body.phase, "301-320-billing-workers-real-operations");
     assert.ok(res.body.features.includes("totp-2fa-otplib"));
   });
 

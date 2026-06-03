@@ -47,62 +47,78 @@ document.getElementById("btn-demo-trigger")?.addEventListener("click", async () 
   await loadDevices();
 });
 
+function opsCustomerQuery() {
+  const scope = getSelectedCustomerScope();
+  return scope === "ALL" ? null : `?customerCode=${encodeURIComponent(scope)}`;
+}
+
 async function loadMap() {
-  const data = await apiGet("/api/demo/map");
   const canvas = document.getElementById("map-canvas");
   if (!canvas) return;
   canvas.innerHTML = "";
-  const positions = [
-    { left: "22%", top: "35%" },
-    { left: "48%", top: "28%" },
-    { left: "72%", top: "42%" },
-    { left: "35%", top: "62%" },
-    { left: "58%", top: "68%" },
-  ];
-  data.markers.forEach((m, i) => {
+  const q = opsCustomerQuery();
+  const data = q
+    ? await apiGet(`/api/ops/map${q}`)
+    : await apiGet("/api/demo/map");
+  const markers = q ? data.sites : data.markers;
+  markers.forEach((m, i) => {
     const pin = document.createElement("div");
-    pin.className = `map-pin ${m.status === "warning" ? "warning" : ""}`;
-    pin.style.left = positions[i]?.left ?? "50%";
-    pin.style.top = positions[i]?.top ?? "50%";
-    pin.title = m.address;
-    pin.textContent = `${m.name} (${m.deviceCount})`;
+    const status = m.status ?? (m.severity === "critical" ? "alarm" : m.severity === "warning" ? "warning" : "ok");
+    pin.className = `map-pin ${status === "warning" || status === "alarm" ? "warning" : ""}`;
+    const lat = m.lat ?? 35.68 + i * 0.02;
+    const lng = m.lng ?? 139.76 + i * 0.015;
+    pin.style.left = `${20 + (i % 4) * 18}%`;
+    pin.style.top = `${25 + Math.floor(i / 4) * 20}%`;
+    pin.title = m.address ?? m.name;
+    pin.textContent = `${m.name} (${m.deviceCount ?? 0})`;
     canvas.appendChild(pin);
   });
 }
 
 async function loadZones() {
-  const data = await apiGet("/api/demo/zones");
+  const q = opsCustomerQuery();
+  const data = q
+    ? await apiGet(`/api/ops/map${q}`)
+    : await apiGet("/api/demo/zones");
+  const zones = q ? data.zones : data.zones;
   const el = document.getElementById("zones-list");
   if (!el) return;
-  el.innerHTML = data.zones
-    .map(
-      (z) =>
-        `<tr><td>${z.name}</td><td>${z.id}</td><td>${z.siteIds.length} 現場</td></tr>`
+  el.innerHTML = zones
+    .map((z) =>
+      q
+        ? `<tr><td>${z.name}</td><td>${z.zoneId}</td><td>${z.siteName}</td><td>${z.deviceCount}</td></tr>`
+        : `<tr><td>${z.name}</td><td>${z.id}</td><td>${z.siteIds?.length ?? 0} 現場</td></tr>`
     )
     .join("");
 }
 
 async function loadDevices() {
-  const data = await apiGet("/api/demo/devices");
+  const q = opsCustomerQuery();
+  const data = q
+    ? await apiGet(`/api/ops/devices${q}`)
+    : await apiGet("/api/demo/devices");
   const el = document.getElementById("devices-body");
   if (!el) return;
   el.innerHTML = data.devices
     .map(
       (d) =>
         `<tr>
-          <td>${d.label}</td>
+          <td>${d.label ?? d.deviceId}</td>
           <td>${d.siteName ?? "—"}</td>
           <td>${d.zone ?? "—"}</td>
           <td><span class="badge ${d.heartbeatStatus}">${d.heartbeatStatus}</span></td>
-          <td>${d.lastHeartbeatAt ?? "—"}</td>
-          <td>${d.anomalyCount}</td>
+          <td>${d.lastHeartbeatAt ?? d.lastSeen ?? "—"}</td>
+          <td>${d.anomalyCount ?? 0}</td>
         </tr>`
     )
     .join("");
 }
 
 async function loadAlarms() {
-  const data = await apiGet("/api/demo/alarms");
+  const q = opsCustomerQuery();
+  const data = q
+    ? await apiGet(`/api/ops/alarms${q}`)
+    : await apiGet("/api/demo/alarms");
   const el = document.getElementById("alarms-body");
   if (!el) return;
   el.innerHTML = data.alarms
@@ -110,7 +126,7 @@ async function loadAlarms() {
     .map(
       (a) =>
         `<tr>
-          <td><span class="badge ${a.severity}">${a.severity}</span></td>
+          <td><span class="badge ${a.severity ?? "warning"}">${a.severity ?? "—"}</span></td>
           <td>${a.created_at}</td>
           <td>${a.site_id ?? ""}</td>
           <td>${a.event_type}</td>
@@ -118,8 +134,9 @@ async function loadAlarms() {
         </tr>`
     )
     .join("");
+  const counts = data.counts ?? { critical: 0, alarm: 0, warning: 0 };
   document.getElementById("alarm-counts").textContent =
-    `重大 ${data.counts.critical} / 警報 ${data.counts.alarm} / 警告 ${data.counts.warning}`;
+    `重大 ${counts.critical} / 警報 ${counts.alarm} / 警告 ${counts.warning}`;
 }
 
 let replayEvents = [];
@@ -284,15 +301,45 @@ async function loadSites() {
 }
 
 async function loadTv() {
-  const data = await apiGet("/api/tv/devices");
+  const q = opsCustomerQuery();
+  let rows = [];
+  if (q) {
+    const data = await apiGet(`/api/ops/tv${q}`);
+    rows = (data.devices ?? []).map((t) => ({
+      displayName: t.display_name ?? t.device_id ?? t.id,
+      siteId: t.site_id,
+      status: t.status,
+      lastSeenAt: t.last_seen_at,
+      pairedAt: t.paired_at,
+      hasActivePairingCode: t.status === "pairing",
+    }));
+  } else {
+    const data = await apiGet("/api/tv/devices");
+    rows = data.devices ?? [];
+  }
   const el = document.getElementById("tv-body");
   if (!el) return;
-  el.innerHTML = (data.devices ?? [])
+  el.innerHTML = rows
     .map(
       (t) =>
         `<tr><td>${t.displayName}</td><td>${t.siteId ?? "—"}</td><td>${t.status}</td><td>${t.lastSeenAt ?? "—"}</td><td>${t.pairedAt ? "済" : t.hasActivePairingCode ? "コード発行中" : "未"}</td></tr>`
     )
     .join("") || "<tr><td colspan='5'>TV 未登録</td></tr>";
+}
+
+async function loadQnapOps() {
+  const q = opsCustomerQuery();
+  if (!q) return;
+  const el = document.getElementById("qnap-ops-body");
+  if (!el) return;
+  try {
+    const data = await apiGet(`/api/ops/qnap${q}`);
+    el.innerHTML = (data.archives ?? [])
+      .map((a) => `<tr><td>${a.id ?? "—"}</td><td>${a.status ?? "—"}</td><td>${a.created_at ?? ""}</td></tr>`)
+      .join("") || `<tr><td colspan="3">アーカイブなし (${data.mode})</td></tr>`;
+  } catch (e) {
+    el.innerHTML = `<tr><td colspan="3">${e}</td></tr>`;
+  }
 }
 
 async function loadSecurity() {
@@ -562,6 +609,7 @@ async function refreshAll() {
     loadInfrastructure(),
     loadSites(),
     loadTv(),
+    loadQnapOps(),
     loadIncidents(),
     loadRecoveryOps(),
     loadSecurity(),

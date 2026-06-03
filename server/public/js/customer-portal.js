@@ -260,6 +260,18 @@ document.getElementById("btn-rule-save")?.addEventListener("click", async () => 
   await loadNotificationRulesTab();
 });
 
+async function loadAuditTab() {
+  const data = await apiGet(`/api/customer/${customerCode}/audit`);
+  const el = document.getElementById("audit-activity-list");
+  if (!el) return;
+  el.innerHTML = (data.entries ?? data.logs ?? [])
+    .map(
+      (a) =>
+        `<li><time>${a.createdAt}</time> <strong>${a.action}</strong> — ${a.actorLabel ?? a.userId ?? ""} ${a.targetType ? `(${a.targetType})` : ""}</li>`
+    )
+    .join("") || "<li>該当する監査ログはありません</li>";
+}
+
 document.querySelectorAll(".portal-tabs .tab").forEach((tab) => {
   tab.addEventListener("click", () => {
     document.querySelectorAll(".portal-tabs .tab").forEach((t) => t.classList.remove("active"));
@@ -268,8 +280,10 @@ document.querySelectorAll(".portal-tabs .tab").forEach((tab) => {
     document.getElementById("tab-overview").hidden = id !== "overview";
     document.getElementById("tab-users").hidden = id !== "users";
     document.getElementById("tab-notifications").hidden = id !== "notifications";
+    document.getElementById("tab-audit").hidden = id !== "audit";
     if (id === "users" && getAdminToken()) loadUsersTab().catch(console.error);
     if (id === "notifications" && getAdminToken()) loadNotificationRulesTab().catch(console.error);
+    if (id === "audit" && getAdminToken()) loadAuditTab().catch(console.error);
   });
 });
 

@@ -12,6 +12,11 @@ import { requireAuth, type AuthedRequest } from "../../auth/auth-middleware.js";
 import { requireTenantMatch } from "../../auth/tenant-guard.js";
 import { canAccessCustomer } from "../../auth/customer-auth.js";
 import { logAudit } from "../../provisioning/audit-log.js";
+import {
+  listDeliveriesForCustomer,
+  retryDeliveryById,
+} from "../../notification/webhook-retry-queue.js";
+import { requireActiveContract, notificationsAllowedForContract, getContractStatus } from "../../customer/contract-guard.js";
 
 export const customerWebhooksRouter = Router();
 
@@ -33,6 +38,11 @@ customerWebhooksRouter.post(
       return;
     }
     if (!requireNotificationChannel(customer.plan, "webhook", res)) return;
+    if (!notificationsAllowedForContract(getContractStatus(customer))) {
+      res.status(403).json({ error: "Notifications disabled for contract status" });
+      return;
+    }
+    if (!requireActiveContract(customer, res)) return;
     const { url, secret } = req.body as { url?: string; secret?: string };
     if (!url?.trim()) {
       res.status(400).json({ error: "url required" });
@@ -131,5 +141,53 @@ customerWebhooksRouter.delete(
       ipAddress: req.ip,
     });
     res.json({ ok: true });
+  }
+);
+
+customerWebhooksRouter.get(
+  "/:customerCode/webhooks/deliveries",
+  requireAuth("manager"),
+  requireTenantMatch("customerCode"),
+  (req: AuthedRequest, res) => {
+    const customer = resolve(req, String(req.params.customerCode));
+    if (!customer) {
+      res.status(403).json({ error: "Denied" });
+      return;
+    }
+    if (!requireNotificationChannel(customer.plan, "webhook", res)) return;
+    const deliveries = listDeliveriesForCustomer(
+      customer.customer_id,
+      Number(req.query.limit ?? 50)
+    );
+    res.json({ deliveries });
+  }
+);
+
+customerWebhooksRouter.post(
+  "/:customerCode/webhooks/deliveries/:id/retry",
+  requireAuth("admin"),
+  requireTenantMatch("customerCode"),
+  (req: AuthedRequest, res) => {
+    const customer = resolve(req, String(req.params.customerCode));
+    if (!customer) {
+      res.status(403).json({ error: "Denied" });
+      return;
+    }
+    if (!requireNotificationChannel(customer.plan, "webhook", res)) return;
+    const updated = retryDeliveryById(String(req.params.id), customer.customer_id);
+    if (!updated) {
+      res.status(404).json({ error: "Delivery not found" });
+      return;
+    }
+    logAudit({
+      tenantId: customer.customer_id,
+      userId: req.admin!.userId,
+      actorLabel: req.admin!.username,
+      action: "webhook.delivery_retry",
+      targetType: "webhook_delivery",
+      targetId: updated.id,
+      ipAddress: req.ip,
+    });
+    res.json({ delivery: updated });
   }
 );

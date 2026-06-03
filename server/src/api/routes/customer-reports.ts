@@ -9,7 +9,8 @@ import { buildCustomerWeeklyReport } from "../../reports/customer-weekly-report.
 import { recordReportExport } from "../../reports/report-exporter.js";
 import { renderReportPdf } from "../../reports/pdf/pdf-renderer.js";
 import { logAudit } from "../../provisioning/audit-log.js";
-import { sendReportEmail } from "../../notification/channels/email.js";
+import { enqueueReportEmail } from "../../reports/report-email-queue.js";
+import { requireActiveContract } from "../../customer/contract-guard.js";
 
 export const customerReportsRouter = Router();
 const auth = [requireAuth("viewer"), requireTenantMatch("customerCode")] as const;
@@ -110,6 +111,7 @@ customerReportsRouter.post(
       return;
     }
     if (!requirePlanFeature(customer.plan, "sales_report", res)) return;
+    if (!requireActiveContract(customer, res)) return;
     const reportType = (req.body as { reportType?: string }).reportType ?? "monthly";
     const report =
       reportType === "weekly"
@@ -120,19 +122,22 @@ customerReportsRouter.post(
       return;
     }
     const record = recordReportExport(report);
-    const pdf = await renderReportPdf(report.html, `${customer.customer_name} レポート`);
+    const pdf = await renderReportPdf(
+      report.html,
+      `${customer.customer_name} レポート`,
+      {},
+      { exportId: record.export_id, customerId: customer.customer_id, reportType }
+    );
     const to = (req.body as { to?: string }).to ?? process.env.ADMIN_EMAIL ?? "admin@tisly.jp";
     const htmlBody = `<p>${customer.customer_name} の${reportType === "weekly" ? "週報" : "月報"}をお送りします。</p>${report.html}`;
-    const emailResult = await sendReportEmail({
+    const job = enqueueReportEmail({
+      customerId: customer.customer_id,
+      exportId: record.export_id,
       to,
       subject: `[TiSLY] ${customer.customer_name} ${reportType} report`,
       html: htmlBody,
-      attachments: [
-        {
-          filename: pdf.format === "pdf" ? `${record.export_id}.pdf` : `${record.export_id}.html`,
-          content: pdf.buffer,
-        },
-      ],
+      attachmentName: pdf.format === "pdf" ? `${record.export_id}.pdf` : `${record.export_id}.html`,
+      attachmentFormat: pdf.format,
     });
     logAudit({
       tenantId: customer.customer_id,
@@ -141,17 +146,17 @@ customerReportsRouter.post(
       action: "report.send_email",
       targetType: "report_export",
       targetId: record.export_id,
-      afterJson: { to, reportType, emailOk: emailResult.ok, pdfEngine: pdf.engine },
+      afterJson: { to, reportType, queueId: job.id, pdfEngine: pdf.engine },
       ipAddress: req.ip,
     });
     res.status(202).json({
       export_id: record.export_id,
+      queue_id: job.id,
       to,
-      htmlBodyLength: htmlBody.length,
+      status: "queued",
       pdfAttachment: pdf.format,
       pdfEngine: pdf.engine,
       pdfTodo: pdf.pdfTodo,
-      email: emailResult,
       auditLogged: true,
     });
   }

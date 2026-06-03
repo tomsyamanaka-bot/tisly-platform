@@ -82,6 +82,19 @@ async function loadAdmin() {
   document.getElementById("admin-plan").value = c.plan;
   document.getElementById("admin-status").value = c.status;
 
+  const bill = info.billing;
+  document.getElementById("admin-billing-info").innerHTML = bill
+    ? `<ul class="simple-list">
+        <li>プラン: <strong>${bill.plan}</strong></li>
+        <li>契約状態: ${bill.contract_status ?? "active"}</li>
+        <li>サブスク: ${bill.subscription_status ?? "none"}</li>
+        <li>次回請求: ${bill.next_billing_date ?? "—"}</li>
+        <li>Stripe Customer: ${bill.stripe_customer_id ?? "—"}</li>
+        <li>Stripe Subscription: ${bill.stripe_subscription_id ?? "—"}</li>
+        <li>直近請求: ${bill.last_invoice_status ?? "—"}</li>
+      </ul>`
+    : "<p>請求情報なし</p>";
+
   const b = info.branding;
   if (b) {
     document.getElementById("admin-company-name").value = b.company_name ?? "";

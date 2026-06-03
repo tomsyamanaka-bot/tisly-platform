@@ -185,6 +185,56 @@ function migratePhase261(database: Database.Database): void {
   );
   migrateCustomerUsersInviteStatus(database);
   migratePhase281(database);
+  migratePhase301(database);
+}
+
+function migratePhase301(database: Database.Database): void {
+  const customerCols: Array<{ name: string; ddl: string }> = [
+    { name: "stripe_customer_id", ddl: "ALTER TABLE customers ADD COLUMN stripe_customer_id TEXT" },
+    { name: "stripe_subscription_id", ddl: "ALTER TABLE customers ADD COLUMN stripe_subscription_id TEXT" },
+    { name: "subscription_status", ddl: "ALTER TABLE customers ADD COLUMN subscription_status TEXT DEFAULT 'none'" },
+    { name: "next_billing_date", ddl: "ALTER TABLE customers ADD COLUMN next_billing_date TEXT" },
+    { name: "last_invoice_status", ddl: "ALTER TABLE customers ADD COLUMN last_invoice_status TEXT" },
+    {
+      name: "contract_status",
+      ddl: "ALTER TABLE customers ADD COLUMN contract_status TEXT DEFAULT 'active'",
+    },
+  ];
+  addColumnsIfMissing(database, "customers", customerCols);
+
+  const webhookCols: Array<{ name: string; ddl: string }> = [
+    { name: "delivered_at", ddl: "ALTER TABLE webhook_delivery_logs ADD COLUMN delivered_at TEXT" },
+  ];
+  addColumnsIfMissing(database, "webhook_delivery_logs", webhookCols);
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS report_email_queue (
+      id TEXT PRIMARY KEY,
+      customer_id TEXT NOT NULL,
+      export_id TEXT,
+      to_address TEXT NOT NULL,
+      subject TEXT NOT NULL,
+      body_html TEXT NOT NULL,
+      attachment_name TEXT,
+      attachment_format TEXT DEFAULT 'html',
+      status TEXT NOT NULL DEFAULT 'pending',
+      attempts INTEGER NOT NULL DEFAULT 0,
+      max_attempts INTEGER NOT NULL DEFAULT 5,
+      next_retry_at TEXT,
+      last_error TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      sent_at TEXT,
+      FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
+    );
+  `);
+  database.exec(
+    "CREATE INDEX IF NOT EXISTS idx_report_email_queue_pending ON report_email_queue(status, next_retry_at)"
+  );
+
+  addColumnsIfMissing(database, "notification_queue", [
+    { name: "last_error", ddl: "ALTER TABLE notification_queue ADD COLUMN last_error TEXT" },
+  ]);
 }
 
 function migratePhase281(database: Database.Database): void {

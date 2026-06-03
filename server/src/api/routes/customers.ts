@@ -16,6 +16,7 @@ import { canChangeCustomerSettings } from "../../auth/roles.js";
 import { canAccessCustomer } from "../../auth/customer-auth.js";
 import { logAudit } from "../../provisioning/audit-log.js";
 import { listPlanFeatures } from "../../customer/plan-guard.js";
+import { getBillingByCustomerId } from "../../billing/billing-store.js";
 
 export const customersRouter = Router();
 
@@ -30,12 +31,25 @@ customersRouter.get("/by-code/:customerCode", requireAuth("viewer"), requireTena
     return;
   }
   const branding = getBranding(customer.customer_id);
+  const billing = getBillingByCustomerId(customer.customer_id);
   res.json({
     customer,
     branding,
     urls: customerUrls(customer.customer_code),
     sites: listSitesForCustomer(customer.customer_id),
     planFeatures: listPlanFeatures(customer.plan),
+    billing: billing
+      ? {
+          plan: billing.plan,
+          subscription_status: billing.subscription_status ?? "none",
+          next_billing_date: billing.next_billing_date,
+          stripe_customer_id: billing.stripe_customer_id,
+          stripe_subscription_id: billing.stripe_subscription_id,
+          last_invoice_status: billing.last_invoice_status,
+          contract_status: billing.contract_status ?? "active",
+          placeholder: "Billing charges not live until Stripe keys configured",
+        }
+      : null,
   });
 });
 
@@ -195,4 +209,4 @@ customersRouter.get(
     res.json({ devices: listDevicesForCustomer(customer.customer_id) });
   }
 );
-
+

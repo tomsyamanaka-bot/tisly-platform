@@ -16,6 +16,7 @@ export interface WebhookDeliveryLog {
   max_attempts: number;
   next_retry_at: string | null;
   last_error: string | null;
+  delivered_at: string | null;
   payload_json: string;
   created_at: string;
   updated_at: string;
@@ -80,7 +81,7 @@ export async function processDelivery(
   if (result.ok) {
     db.prepare(
       `UPDATE webhook_delivery_logs SET status = 'delivered', attempt_count = ?,
-       last_error = NULL, updated_at = datetime('now') WHERE id = ?`
+       last_error = NULL, delivered_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`
     ).run(attempt, log.id);
   } else if (attempt >= log.max_attempts) {
     db.prepare(
@@ -94,4 +95,29 @@ export async function processDelivery(
     ).run(attempt, nextRetryIso(attempt), result.retryTodo, log.id);
   }
   return getDeliveryLog(log.id)!;
+}
+
+export function listDeliveriesForCustomer(
+  customerId: string,
+  limit = 50
+): WebhookDeliveryLog[] {
+  return getDatabase()
+    .prepare(
+      `SELECT * FROM webhook_delivery_logs WHERE customer_id = ?
+       ORDER BY created_at DESC LIMIT ?`
+    )
+    .all(customerId, limit) as WebhookDeliveryLog[];
+}
+
+export function retryDeliveryById(deliveryId: string, customerId: string): WebhookDeliveryLog | null {
+  const log = getDeliveryLog(deliveryId);
+  if (!log || log.customer_id !== customerId) return null;
+  if (log.status === "delivered") return log;
+  getDatabase()
+    .prepare(
+      `UPDATE webhook_delivery_logs SET status = 'pending', next_retry_at = NULL,
+       updated_at = datetime('now') WHERE id = ? AND customer_id = ?`
+    )
+    .run(deliveryId, customerId);
+  return getDeliveryLog(deliveryId);
 }

@@ -14,6 +14,9 @@ import { requireTenantMatch } from "../../auth/tenant-guard.js";
 import { canAccessCustomer } from "../../auth/customer-auth.js";
 import { config } from "../../config.js";
 import { countOpenIncidents, listRecoveryHistory } from "../../incidents/incident-store.js";
+import { listAuditLogs } from "../../provisioning/audit-log.js";
+import { contractWarningBanner, getContractStatus } from "../../customer/contract-guard.js";
+import { getBillingByCustomerId } from "../../billing/billing-store.js";
 
 export const customerPortalRouter = Router();
 const portalAuth = [requireAuth("viewer"), requireTenantMatch("customerCode")] as const;
@@ -53,9 +56,23 @@ customerPortalRouter.get("/:customerCode/dashboard", ...portalAuth, (req: Authed
     contract: {
       plan: customer.plan,
       status: customer.status,
+      contractStatus: getContractStatus(customer),
+      warning: contractWarningBanner(customer),
       enabledFeatures: listPlanFeatures(customer.plan),
       contractNote: "PRO Remote 契約詳細は営業担当へ — placeholder",
     },
+    billing: (() => {
+      const b = getBillingByCustomerId(customer.customer_id);
+      return b
+        ? {
+            subscription_status: b.subscription_status,
+            next_billing_date: b.next_billing_date,
+            last_invoice_status: b.last_invoice_status,
+            stripe_customer_id: b.stripe_customer_id,
+            stripe_subscription_id: b.stripe_subscription_id,
+          }
+        : null;
+    })(),
     cards: {
       deviceCount: summary.deviceCount,
       onlineCount: summary.onlineCount,
@@ -272,5 +289,32 @@ customerPortalRouter.get("/:customerCode/tv", ...portalAuth, (req: AuthedRequest
     },
     refreshSec: 15,
     alertFullscreenSec: 10,
+  });
+});
+
+customerPortalRouter.get("/:customerCode/audit", ...portalAuth, (req: AuthedRequest, res) => {
+  const customer = resolveCustomer(req, String(req.params.customerCode));
+  if (!customer) {
+    res.status(req.admin ? 403 : 404).json({ error: "Not found or denied" });
+    return;
+  }
+  if (!requirePlanFeature(customer.plan, "customer_portal", res)) return;
+  const filtered = listAuditLogs({ tenantId: customer.customer_id, limit: 100 }).filter((l) => {
+    const a = l.action.toLowerCase();
+    return (
+      a.includes("login") ||
+      a.includes("invite") ||
+      a.includes("role") ||
+      a.includes("report") ||
+      a.includes("webhook") ||
+      a.includes("incident") ||
+      a.includes("recovery")
+    );
+  });
+  res.json({
+    customerCode: customer.customer_code,
+    viewerOnly: true,
+    entries: filtered,
+    logs: filtered,
   });
 });

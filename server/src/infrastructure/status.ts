@@ -3,6 +3,9 @@ import { config } from "../config.js";
 import { getDbProvider } from "../db/db-provider.js";
 import { PostgresProvider } from "../db/postgres-provider.js";
 import { getDatabase } from "../db/database.js";
+import { billingPublicStatus } from "../billing/stripe-client.js";
+import { getWorkerStatus } from "../workers/worker-status.js";
+import { isPdfPuppeteerEnabled } from "../reports/pdf/pdf-options.js";
 import { pingRedis } from "../redis/redis-client.js";
 import { isQnapSmbConfigured, getQnapMode } from "../qnap/smb-client.js";
 
@@ -211,5 +214,47 @@ export async function getInfrastructureStatuses(): Promise<InfraComponentStatus[
       status: dbReachable ? "GREEN" : "RED",
       detail: `${config.dbProvider} ${dbReachable ? "ok" : "error"}`,
     },
+    workerStatusCard(),
+    billingStatusCard(),
+    smtpStatusCard(),
+    pdfStatusCard(),
   ];
+}
+
+function workerStatusCard(): InfraComponentStatus {
+  const ws = getWorkerStatus();
+  const pending =
+    ws.queues.notification + ws.queues.webhook + ws.queues.reportEmail;
+  return {
+    name: "Workers",
+    status: ws.running ? (pending > 100 ? "YELLOW" : "GREEN") : "YELLOW",
+    detail: `running=${ws.running} · notify=${ws.queues.notification} · webhook=${ws.queues.webhook} · email=${ws.queues.reportEmail}`,
+  };
+}
+
+function billingStatusCard(): InfraComponentStatus {
+  const b = billingPublicStatus();
+  return {
+    name: "Stripe Billing",
+    status: b.configured ? "GREEN" : "YELLOW",
+    detail: b.configured ? "configured" : "mock mode (no STRIPE_* keys)",
+  };
+}
+
+function smtpStatusCard(): InfraComponentStatus {
+  const configured = Boolean(process.env.SMTP_USER || process.env.SMTP_HOST);
+  return {
+    name: "SMTP",
+    status: configured ? "GREEN" : "YELLOW",
+    detail: configured ? "configured" : "mock / disabled",
+  };
+}
+
+function pdfStatusCard(): InfraComponentStatus {
+  const on = isPdfPuppeteerEnabled();
+  return {
+    name: "PDF Engine",
+    status: on ? "GREEN" : "YELLOW",
+    detail: on ? "Puppeteer enabled" : "HTML fallback",
+  };
 }

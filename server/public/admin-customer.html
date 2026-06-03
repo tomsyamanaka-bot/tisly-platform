@@ -1,65 +1,70 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>TiSLY — 顧客管理</title>
-  <link rel="stylesheet" href="/css/admin.css" />
-  <link rel="stylesheet" href="/css/customer-portal.css" />
-</head>
-<body class="customer-portal admin-customer">
-  <header class="portal-header">
-    <h1 id="admin-title">顧客管理</h1>
-    <a href="/operations">運用コンソール</a>
-  </header>
-  <section class="card" id="admin-login">
-    <h2>管理者 / 顧客管理者ログイン</h2>
-    <input id="admin-user" placeholder="ユーザー名" />
-    <input id="admin-pass" type="password" placeholder="パスワード" />
-    <button type="button" class="btn" id="admin-btn-login">ログイン</button>
-  </section>
-  <main id="admin-content" hidden>
-    <div class="card" id="admin-customer-info"></div>
-    <div class="card">
-      <h2>プラン・状態</h2>
-      <label>プラン
-        <select id="admin-plan">
-          <option>Lite</option><option>Standard</option><option>PRO</option><option>PRO_REMOTE</option>
-        </select>
-      </label>
-      <label>状態
-        <select id="admin-status"><option>active</option><option>suspended</option></select>
-      </label>
-      <button type="button" class="btn" id="admin-save">保存（admin以上）</button>
-      <p id="admin-save-msg"></p>
-    </div>
-    <div class="card">
-      <h2>ブランディング</h2>
-      <label>社名 <input id="admin-company-name" /></label>
-      <label>カラー <input id="admin-company-color" type="color" /></label>
-      <label>ロゴURL <input id="admin-logo-url" /></label>
-    </div>
-    <div class="card">
-      <h2>現場</h2>
-      <ul id="admin-sites"></ul>
-    </div>
-    <div class="card">
-      <h2>顧客ユーザー</h2>
-      <table><thead><tr><th>ユーザー</th><th>ロール</th><th>最終ログイン</th></tr></thead>
-      <tbody id="admin-users"></tbody></table>
-    </div>
-    <div class="card">
-      <h2>設備 · TV</h2>
-      <table><thead><tr><th>種別</th><th>名称</th><th>状態</th></tr></thead>
-      <tbody id="admin-devices"></tbody></table>
-      <h3>TV一覧</h3>
-      <pre id="admin-tv-list"></pre>
-    </div>
-    <div class="card">
-      <h2>監査ログ</h2>
-      <ul id="admin-audit" class="simple-list"></ul>
-    </div>
-  </main>
-  <script type="module" src="/js/admin-customer.js"></script>
-</body>
-</html>
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TiSLY — 顧客管理</title>
+  <link rel="stylesheet" href="/css/admin.css" />
+  <link rel="stylesheet" href="/css/customer-portal.css" />
+</head>
+<body class="customer-portal admin-customer">
+  <header class="portal-header">
+    <h1 id="admin-title">顧客管理</h1>
+    <a href="/operations">運用コンソール</a>
+  </header>
+  <section class="card" id="admin-login">
+    <h2>管理者 / 顧客管理者ログイン</h2>
+    <input id="admin-user" placeholder="ユーザー名" />
+    <input id="admin-pass" type="password" placeholder="パスワード" />
+    <button type="button" class="btn" id="admin-btn-login">ログイン</button>
+  </section>
+  <main id="admin-content" hidden>
+    <div class="card" id="admin-customer-info"></div>
+    <div class="card" id="admin-billing-card">
+      <h2>Billing（請求）</h2>
+      <div id="admin-billing-info" class="hint">読込中…</div>
+      <p class="hint">実請求は Stripe 連携後に有効化 — 現状は placeholder</p>
+    </div>
+    <div class="card">
+      <h2>プラン・状態</h2>
+      <label>プラン
+        <select id="admin-plan">
+          <option>Lite</option><option>Standard</option><option>PRO</option><option>PRO_REMOTE</option>
+        </select>
+      </label>
+      <label>状態
+        <select id="admin-status"><option>active</option><option>suspended</option></select>
+      </label>
+      <button type="button" class="btn" id="admin-save">保存（admin以上）</button>
+      <p id="admin-save-msg"></p>
+    </div>
+    <div class="card">
+      <h2>ブランディング</h2>
+      <label>社名 <input id="admin-company-name" /></label>
+      <label>カラー <input id="admin-company-color" type="color" /></label>
+      <label>ロゴURL <input id="admin-logo-url" /></label>
+    </div>
+    <div class="card">
+      <h2>現場</h2>
+      <ul id="admin-sites"></ul>
+    </div>
+    <div class="card">
+      <h2>顧客ユーザー</h2>
+      <table><thead><tr><th>ユーザー</th><th>ロール</th><th>最終ログイン</th></tr></thead>
+      <tbody id="admin-users"></tbody></table>
+    </div>
+    <div class="card">
+      <h2>設備 · TV</h2>
+      <table><thead><tr><th>種別</th><th>名称</th><th>状態</th></tr></thead>
+      <tbody id="admin-devices"></tbody></table>
+      <h3>TV一覧</h3>
+      <pre id="admin-tv-list"></pre>
+    </div>
+    <div class="card">
+      <h2>監査ログ</h2>
+      <ul id="admin-audit" class="simple-list"></ul>
+    </div>
+  </main>
+  <script type="module" src="/js/admin-customer.js"></script>
+</body>
+</html>

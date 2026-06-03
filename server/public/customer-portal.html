@@ -42,6 +42,7 @@
       <button type="button" class="tab active" data-tab="overview">概要</button>
       <button type="button" class="tab" data-tab="users">ユーザー</button>
       <button type="button" class="tab" data-tab="notifications">通知ルール</button>
+      <button type="button" class="tab" data-tab="audit">Audit / Activity</button>
     </nav>
     <div id="tab-overview">
     <section class="metric-cards" id="metric-cards"></section>
@@ -101,6 +102,13 @@
           <thead><tr><th>名前</th><th>ON</th><th>イベント</th><th>Severity</th><th>チャネル</th><th>時間</th><th></th></tr></thead>
           <tbody id="notif-rules-body"></tbody>
         </table>
+      </section>
+    </div>
+    <div id="tab-audit" hidden>
+      <section class="card portal-card">
+        <h2>Audit / Activity（閲覧のみ）</h2>
+        <p class="hint">ログイン・招待・ロール変更・レポート・Webhook・インシデント・Recovery</p>
+        <ul id="audit-activity-list" class="simple-list"></ul>
       </section>
     </div>
     <div id="tab-users" hidden>

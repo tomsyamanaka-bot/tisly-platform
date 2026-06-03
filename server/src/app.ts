@@ -14,6 +14,8 @@ import { qnapRouter } from "./api/routes/qnap.js";
 import { recoveryRouter } from "./api/routes/recovery.js";
 import { settingsRouter } from "./api/routes/settings.js";
 import { socNocRouter } from "./api/routes/soc-noc.js";
+import { opsDataRouter } from "./api/routes/ops-data.js";
+import { billingRouter } from "./api/routes/billing.js";
 import { testRouter } from "./api/routes/test.js";
 import { tvRouter } from "./api/routes/tv.js";
 import { sitesRouter } from "./api/routes/sites.js";
@@ -67,6 +69,8 @@ export function createApp(): express.Application {
   app.use("/api/recovery", requireAdminAuth, opsCustomerScopeMiddleware, tenantQueryGuard, recoveryRouter);
   app.use("/api/qnap", requireAdminAuth, opsCustomerScopeMiddleware, tenantQueryGuard, qnapRouter);
   app.use("/api/ops", requireAdminAuth, socNocRouter);
+  app.use("/api/ops", requireAdminAuth, opsDataRouter);
+  app.use("/api/billing", billingRouter);
   app.use("/api/sites", requireAdminAuth, sitesRouter);
   app.use("/api/provisioning", requireAdminAuth, provisioningRouter);
   app.use("/api/tenants", requireAdminAuth, tenantsRouter);

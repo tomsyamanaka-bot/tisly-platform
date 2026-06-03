@@ -37,7 +37,7 @@ describe("Phase 221-240 PRO Remote", () => {
     const res = await request(app).get("/api/health/full");
     assert.equal(res.status, 200);
     assert.equal(res.body.endpoint, "/api/health/full");
-    assert.equal(res.body.phase, "281-300-pro-remote-unified-operations");
+    assert.equal(res.body.phase, "301-320-billing-workers-real-operations");
     const names = res.body.infrastructure.map((c: { name: string }) => c.name);
     assert.ok(names.includes("VPS"));
     assert.ok(names.includes("Postgres"));
