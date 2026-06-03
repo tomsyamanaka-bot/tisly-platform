@@ -3,6 +3,7 @@ import { getGoogleOAuthConfig, getGoogleOAuthStatus } from "../services/googleOA
 import { getQnapUploadConfig } from "./services/qnapBusinessArchive.js";
 import { getPdfRenderMode } from "./pdf/render.js";
 import { getTomsCompanyInfo } from "./pdf/company.js";
+import { getBusinessRealSendSettings } from "./business-real-send-guard.js";
 
 export function getBusinessSettingsPayload() {
   const google = getGoogleOAuthStatus();
@@ -10,6 +11,7 @@ export function getBusinessSettingsPayload() {
   const qnap = getQnapUploadConfig();
   const pdfMode = getPdfRenderMode();
   const company = getTomsCompanyInfo();
+  const realSend = getBusinessRealSendSettings();
   return {
     googleOAuth: google,
     googleCalendar: {
@@ -24,7 +26,7 @@ export function getBusinessSettingsPayload() {
       provider: oauth.mode === "mock" ? "MockGmailProvider" : "GmailApiProvider",
     },
     qnap: {
-      connected: qnap.mode === "mock",
+      connected: qnap.mode === "mock" || Boolean(qnap.webdavUrl),
       mode: qnap.mode,
       baseRoot: qnap.basePath,
       webdavUrl: qnap.webdavUrl || null,
@@ -33,11 +35,12 @@ export function getBusinessSettingsPayload() {
       mode: pdfMode,
       puppeteerAvailable: pdfMode === "puppeteer",
       templates: {
-        estimate: "toms_standard_v1",
-        invoice: "toms_standard_v1",
-        completion_report: "toms_standard_v1",
+        estimate: "toms_standard_v2",
+        invoice: "toms_standard_v2",
+        completion_report: "toms_standard_v2",
       },
     },
+    realSend,
     company,
     mailTo: process.env.BUSINESS_MAIL_TO ?? DEFAULT_MAIL_TO,
   };

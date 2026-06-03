@@ -187,11 +187,12 @@ export function updateBusinessProject(
     estimateId: string | null;
     completionReportId: string | null;
     invoiceId: string | null;
-  }>
+  }>,
+  opts?: { skipTransitionCheck?: boolean }
 ): BusinessProject {
   const current = getBusinessProject(id);
   if (!current) throw new Error("project not found");
-  if (patch.status && patch.status !== current.status) {
+  if (patch.status && patch.status !== current.status && !opts?.skipTransitionCheck) {
     assertTransition(current.status, patch.status);
   }
   const now = new Date().toISOString();

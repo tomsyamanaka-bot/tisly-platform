@@ -71,6 +71,9 @@ import {
 import {
   createQnapSavePlan,
   uploadBusinessToQnap,
+  uploadBusinessToQnapReal,
+  testQnapWebDavConnection,
+  getQnapUploadConfig,
   getQnapProjectUploadStatus,
 } from "../../business/services/qnapBusinessArchive.js";
 import { getGoogleCalendarProvider } from "../../business/services/googleCalendarService.js";
@@ -80,15 +83,33 @@ import {
   getGoogleOAuthStatus,
   handleGoogleOAuthCallback,
   testGoogleOAuthConnection,
+  createGoogleCalendarEvent,
+  createGmailDraft,
+  sendGmailPlaceholder,
 } from "../../services/googleOAuthService.js";
-import { logBusinessIntegration, listBusinessIntegrationLogs } from "../../business/business-integration-log.js";
+import {
+  logBusinessIntegration,
+  listBusinessIntegrationLogs,
+  exportIntegrationLogsCsv,
+  purgeIntegrationLogsOlderThan,
+} from "../../business/business-integration-log.js";
+import {
+  assertRealSendAllowed,
+  saveBusinessRealSendSettings,
+} from "../../business/business-real-send-guard.js";
+import {
+  collectBusinessAlerts,
+  sendBusinessMockNotifications,
+} from "../../business/business-notifications.js";
 import { getBusinessSettingsPayload } from "../../business/business-settings.js";
 import {
   exportPricingRulesCsv,
   importPricingRulesCsv,
+  previewPricingRulesCsv,
 } from "../../business/business-pricing-csv.js";
 import {
   buildAccountingExportCsv,
+  buildAccountingExportByFormat,
   createBusinessPayment,
   listBusinessPayments,
 } from "../../business/business-payments.js";
@@ -804,20 +825,218 @@ businessRouter.post("/google/test", ...businessAuth, async (req: AuthedRequest, 
   res.json(result);
 });
 
+businessRouter.post("/google/calendar/create", ...businessAuth, async (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  const body = req.body as {
+    projectId?: string;
+    title?: string;
+    start?: string;
+    end?: string;
+    location?: string;
+    description?: string;
+    confirmed?: boolean;
+  };
+  const cfg = getGoogleOAuthStatus();
+  const guard = assertRealSendAllowed("calendar_create", {
+    confirmed: body.confirmed,
+    mode: cfg.mode,
+  });
+  if (!guard.allowed && cfg.mode === "real") {
+    res.status(403).json({ error: guard.reason, dryRun: guard.dryRun });
+    return;
+  }
+  if (!body.title || !body.start || !body.end) {
+    res.status(400).json({ error: "title, start, end required" });
+    return;
+  }
+  try {
+    const result = await createGoogleCalendarEvent({
+      projectId: body.projectId,
+      title: body.title,
+      start: body.start,
+      end: body.end,
+      location: body.location,
+      description: body.description,
+    });
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: (e as Error).message });
+  }
+});
+
+businessRouter.post("/google/gmail/draft", ...businessAuth, async (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  const body = req.body as {
+    projectId?: string;
+    to?: string;
+    subject?: string;
+    body?: string;
+    confirmed?: boolean;
+  };
+  const cfg = getGoogleOAuthStatus();
+  const guard = assertRealSendAllowed("gmail_send", {
+    confirmed: body.confirmed,
+    mode: cfg.mode,
+  });
+  if (!guard.allowed && cfg.mode === "real") {
+    res.status(403).json({ error: guard.reason, dryRun: guard.dryRun });
+    return;
+  }
+  if (!body.to || !body.subject || body.body == null) {
+    res.status(400).json({ error: "to, subject, body required" });
+    return;
+  }
+  try {
+    const result = await createGmailDraft({
+      projectId: body.projectId,
+      to: body.to,
+      subject: body.subject,
+      body: body.body,
+    });
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: (e as Error).message });
+  }
+});
+
+businessRouter.post("/google/gmail/send", ...businessAuth, async (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  const body = req.body as {
+    projectId?: string;
+    to?: string;
+    subject?: string;
+    body?: string;
+    confirmed?: boolean;
+  };
+  const cfg = getGoogleOAuthStatus();
+  const guard = assertRealSendAllowed("gmail_send", {
+    confirmed: body.confirmed,
+    mode: cfg.mode,
+  });
+  if (!guard.allowed && cfg.mode === "real") {
+    res.status(403).json({ error: guard.reason, dryRun: guard.dryRun });
+    return;
+  }
+  if (!body.to || !body.subject || body.body == null) {
+    res.status(400).json({ error: "to, subject, body required" });
+    return;
+  }
+  const result = await sendGmailPlaceholder({
+    projectId: body.projectId,
+    to: body.to,
+    subject: body.subject,
+    body: body.body,
+    confirmed: body.confirmed,
+  });
+  res.json(result);
+});
+
+businessRouter.post("/qnap/test-connection", ...businessAuth, async (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  const result = await testQnapWebDavConnection();
+  res.json(result);
+});
+
+businessRouter.post(
+  "/projects/:projectId/qnap/upload-real",
+  ...businessAuth,
+  async (req: AuthedRequest, res) => {
+    if (!assertBusinessRole(req, res)) return;
+    const body = req.body as { confirmed?: boolean };
+    const cfg = getQnapUploadConfig();
+    const guard = assertRealSendAllowed("qnap_real_upload", {
+      confirmed: body.confirmed,
+      mode: cfg.mode,
+    });
+    if (!guard.allowed && cfg.mode === "real") {
+      res.status(403).json({ error: guard.reason, dryRun: guard.dryRun });
+      return;
+    }
+    const project = getBusinessProject(String(req.params.projectId));
+    if (!project) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    const plan = getQnapPlan(project.id) ?? createQnapSavePlan(project);
+    saveQnapPlan(plan);
+    const result = await uploadBusinessToQnapReal(project, plan);
+    res.json({ qnapPlan: plan, upload: result });
+  }
+);
+
 businessRouter.get("/integration-logs", ...businessAuth, (req: AuthedRequest, res) => {
   if (!assertBusinessRole(req, res)) return;
   const projectId = req.query.projectId ? String(req.query.projectId) : undefined;
-  res.json({ logs: listBusinessIntegrationLogs({ projectId, limit: 100 }) });
+  const type = req.query.type ? String(req.query.type) : undefined;
+  res.json({
+    logs: listBusinessIntegrationLogs({
+      projectId,
+      ...(type ? { type: type as import("../../business/business-integration-log.js").IntegrationLogType } : {}),
+      limit: Number(req.query.limit ?? 100),
+    }),
+  });
 });
 
-businessRouter.post("/pricing/import-csv", ...businessAuth, (req: AuthedRequest, res) => {
+businessRouter.get("/integration-logs/export-csv", ...businessAuth, (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  const projectId = req.query.projectId ? String(req.query.projectId) : undefined;
+  const csv = exportIntegrationLogsCsv({ projectId, limit: 500 });
+  res.type("text/csv; charset=utf-8");
+  res.send(csv);
+});
+
+businessRouter.delete("/integration-logs/purge", ...businessAuth, (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  const days = Number(req.query.days ?? 90);
+  res.json(purgeIntegrationLogsOlderThan(days));
+});
+
+businessRouter.get("/notifications/alerts", ...businessAuth, (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  res.json({ alerts: collectBusinessAlerts() });
+});
+
+businessRouter.post("/notifications/push-mock", ...businessAuth, async (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  const body = req.body as { confirmed?: boolean };
+  const guard = assertRealSendAllowed("web_push", { confirmed: body.confirmed, mode: "mock" });
+  if (!guard.allowed && body.confirmed) {
+    res.status(403).json({ error: guard.reason });
+    return;
+  }
+  res.json(await sendBusinessMockNotifications());
+});
+
+businessRouter.patch("/settings/real-send", ...businessAuth, (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  const body = req.body as {
+    dryRun?: boolean;
+    mockOnly?: boolean;
+    realSendEnabled?: boolean;
+  };
+  const saved = saveBusinessRealSendSettings(body);
+  res.json(saved);
+});
+
+businessRouter.post("/pricing/preview-csv", ...businessAuth, (req: AuthedRequest, res) => {
   if (!assertBusinessRole(req, res)) return;
   const body = req.body as { csv?: string };
   if (!body.csv) {
     res.status(400).json({ error: "csv required" });
     return;
   }
-  const result = importPricingRulesCsv(body.csv);
+  res.json(previewPricingRulesCsv(body.csv));
+});
+
+businessRouter.post("/pricing/import-csv", ...businessAuth, (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  const body = req.body as { csv?: string; mode?: "append" | "replace" };
+  if (!body.csv) {
+    res.status(400).json({ error: "csv required" });
+    return;
+  }
+  const mode = body.mode === "replace" ? "replace" : "append";
+  const result = importPricingRulesCsv(body.csv, { mode });
   logBusinessIntegration({
     type: "status_flow",
     provider: "pricing_csv",
@@ -868,7 +1087,7 @@ businessRouter.post("/projects/:projectId/payment", ...businessAuth, (req: Authe
       request: body,
       response: payment,
     });
-    res.status(201).json({ payment });
+    res.status(201).json({ payment, statusUpdate: payment.statusUpdate });
   } catch (e) {
     res.status(400).json({ error: (e as Error).message });
   }
@@ -882,7 +1101,11 @@ businessRouter.get("/payments", ...businessAuth, (req: AuthedRequest, res) => {
 
 businessRouter.get("/accounting/export-csv", ...businessAuth, (req: AuthedRequest, res) => {
   if (!assertBusinessRole(req, res)) return;
-  const csv = buildAccountingExportCsv();
+  const format = String(req.query.format ?? "standard");
+  const csv =
+    format === "standard"
+      ? buildAccountingExportCsv()
+      : buildAccountingExportByFormat(format as "freee" | "yayoi" | "standard");
   res.type("text/csv; charset=utf-8");
   res.send(csv);
 });

@@ -67,6 +67,7 @@ describe("Phase 561-580 payments and accounting CSV", () => {
       .set("Authorization", `Bearer ${token}`)
       .send({ amount: 11000, paymentDate: "2026-06-15", method: "bank_transfer" });
     assert.equal(pay.status, 201);
+    assert.ok(pay.body.statusUpdate);
 
     const list = await request(app)
       .get("/api/business/payments")
@@ -80,5 +81,10 @@ describe("Phase 561-580 payments and accounting CSV", () => {
     assert.equal(csv.status, 200);
     assert.match(csv.text, /顧客名/);
     assert.match(csv.text, /入金試験/);
+
+    const freee = await request(app)
+      .get("/api/business/accounting/export-csv?format=freee")
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(freee.status, 200);
   });
 });

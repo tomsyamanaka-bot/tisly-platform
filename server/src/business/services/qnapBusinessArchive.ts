@@ -7,6 +7,7 @@ import {
   mockSaveToQnap,
   type QnapMockSaveResult,
 } from "./qnapService.js";
+import { QnapWebDavClient } from "./qnapWebDav.js";
 
 export type QnapUploadMode = "mock" | "real";
 
@@ -44,24 +45,21 @@ function mirrorDirForProject(projectId: string): string {
   return dir;
 }
 
-/** WebDAV 実アップロード用インターフェース（real 時に差し替え） */
 export interface QnapWebDavUploader {
   upload(localPath: string, remotePath: string): Promise<void>;
   testConnection(): Promise<{ ok: boolean; message: string }>;
 }
 
-export class QnapWebDavUploaderStub implements QnapWebDavUploader {
-  constructor(private readonly cfg: QnapUploadConfig) {}
-
-  async upload(_localPath: string, _remotePath: string): Promise<void> {
-    throw new Error("QNAP WebDAV real upload not implemented (TODO Phase581+)");
+export class QnapWebDavUploaderReal implements QnapWebDavUploader {
+  private client: QnapWebDavClient;
+  constructor(private readonly cfg: QnapUploadConfig) {
+    this.client = new QnapWebDavClient(cfg);
   }
-
+  async upload(localPath: string, remotePath: string): Promise<void> {
+    await this.client.putFile(localPath, remotePath);
+  }
   async testConnection(): Promise<{ ok: boolean; message: string }> {
-    if (!this.cfg.webdavUrl) {
-      return { ok: false, message: "QNAP_WEBDAV_URL not set" };
-    }
-    return { ok: false, message: "WebDAV connection test TODO" };
+    return this.client.testConnection();
   }
 }
 
@@ -104,15 +102,60 @@ export function uploadBusinessToQnap(
     return { mode: "mock", ...result, status: "synced" as const };
   }
 
+  return {
+    mode: "real",
+    planId: p.id,
+    basePath: p.basePath,
+    savedFiles: [],
+    status: "failed",
+  };
+}
+
+export async function uploadBusinessToQnapReal(
+  project: BusinessProject,
+  plan?: QnapSavePlan
+): Promise<QnapUploadResult> {
+  const cfg = getQnapUploadConfig();
+  const p = plan ?? createQnapSavePlan(project);
+  if (cfg.mode !== "real") {
+    return uploadBusinessToQnap(project, p);
+  }
+  const mockResult = mockSaveToQnap(project, p);
+  const client = new QnapWebDavClient(cfg);
+  const remoteBase = `${cfg.basePath.replace(/\/+$/, "")}/${project.id}`;
   try {
-    const uploader = new QnapWebDavUploaderStub(cfg);
+    await client.mkcol(remoteBase);
+    const uploads: Array<{ localPath: string; remotePath: string }> = [];
+    for (const f of mockResult.savedFiles) {
+      if (!f.localMirror) continue;
+      const localPath = path.join(process.cwd(), f.localMirror.replace(/^\//, ""));
+      const remotePath = `${remoteBase}/${path.basename(f.path)}`;
+      uploads.push({ localPath, remotePath });
+    }
+    const count = await client.uploadLocalFiles(uploads);
+    logBusinessIntegration({
+      projectId: project.id,
+      type: "qnap",
+      provider: "webdav",
+      status: "success",
+      request: { planId: p.id, basePath: remoteBase },
+      response: { uploaded: count },
+    });
+    return {
+      mode: "real",
+      planId: p.id,
+      basePath: remoteBase,
+      savedFiles: mockResult.savedFiles,
+      status: "synced",
+    };
+  } catch (e) {
     logBusinessIntegration({
       projectId: project.id,
       type: "qnap",
       provider: "webdav",
       status: "error",
-      request: { basePath: p.basePath },
-      errorMessage: "real WebDAV upload not implemented",
+      request: { planId: p.id, basePath: p.basePath },
+      errorMessage: (e as Error).message,
     });
     return {
       mode: "real",
@@ -121,17 +164,29 @@ export function uploadBusinessToQnap(
       savedFiles: [],
       status: "failed",
     };
-  } catch (e) {
-    logBusinessIntegration({
-      projectId: project.id,
-      type: "qnap",
-      provider: "webdav",
-      status: "error",
-      request: { basePath: p.basePath },
-      errorMessage: (e as Error).message,
-    });
-    throw e;
   }
+}
+
+export async function testQnapWebDavConnection(): Promise<{
+  mode: QnapUploadMode;
+  ok: boolean;
+  message: string;
+}> {
+  const cfg = getQnapUploadConfig();
+  if (cfg.mode === "mock") {
+    return { mode: "mock", ok: true, message: "QNAP mock mode — no WebDAV test required" };
+  }
+  const client = new QnapWebDavClient(cfg);
+  const result = await client.testConnection();
+  logBusinessIntegration({
+    type: "qnap",
+    provider: "webdav",
+    status: result.ok ? "success" : "error",
+    request: { op: "test_connection" },
+    response: result,
+    errorMessage: result.ok ? undefined : result.message,
+  });
+  return { mode: "real", ...result };
 }
 
 export interface QnapProjectUploadStatus {

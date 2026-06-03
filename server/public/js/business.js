@@ -642,6 +642,10 @@ async function renderCustomers() {
   `;
 }
 
+function confirmRealSend(label) {
+  return window.confirm(`【本番送信確認】\n${label}\n\n本当に実行しますか？`);
+}
+
 async function renderPricing() {
   const params = new URLSearchParams(window.location.search);
   const customerFilter = params.get("customer_code") || "";
@@ -663,7 +667,12 @@ async function renderPricing() {
       <label>元請けコード <input id="csv-contractor" value="${contractorFilter}" /></label>
       <button type="button" class="biz-btn secondary" id="csv-export">CSV出力</button>
       <label>CSV取込 <textarea id="csv-import" rows="4" placeholder="customer_code,contractor_code,..."></textarea></label>
+      <label>取込モード
+        <select id="csv-import-mode"><option value="append">追加</option><option value="replace">上書き</option></select>
+      </label>
+      <button type="button" class="biz-btn secondary" id="csv-preview-btn">プレビュー</button>
       <button type="button" class="biz-btn" id="csv-import-btn">CSV取込</button>
+      <div id="csv-preview-table"></div>
       <pre class="biz-preview" id="csv-result"></pre>
     </section>
     <section class="biz-card">
@@ -709,9 +718,28 @@ async function renderPricing() {
     if (k) q.set("contractor_code", k);
     window.open(`/api/business/pricing/export-csv?${q}`, "_blank");
   });
+  document.getElementById("csv-preview-btn")?.addEventListener("click", async () => {
+    const csv = document.getElementById("csv-import").value;
+    const { body: r } = await api("/pricing/preview-csv", { method: "POST", body: JSON.stringify({ csv }) });
+    const errRows = (r.errors || []).join("\n");
+    const table = (r.rows || [])
+      .map(
+        (row) =>
+          `<tr class="${row._error ? "biz-error-row" : ""}"><td>${row.line}</td><td>${row.scope}</td><td>${row.item_name}</td><td>${row.unit_price}</td><td>${row.customer_code || "—"}</td><td>${row.contractor_code || "—"}</td><td>${row.active}</td></tr>`
+      )
+      .join("");
+    document.getElementById("csv-preview-table").innerHTML = `<p>有効 ${r.validCount} / 無効 ${r.invalidCount}</p>
+      <table class="items"><thead><tr><th>行</th><th>区分</th><th>品名</th><th>単価</th><th>顧客</th><th>元請</th><th>有効</th></tr></thead><tbody>${table}</tbody></table>
+      ${errRows ? `<pre class="biz-preview">${errRows}</pre>` : ""}`;
+  });
   document.getElementById("csv-import-btn")?.addEventListener("click", async () => {
     const csv = document.getElementById("csv-import").value;
-    const { body: r } = await api("/pricing/import-csv", { method: "POST", body: JSON.stringify({ csv }) });
+    const mode = document.getElementById("csv-import-mode").value;
+    if (mode === "replace" && !confirmRealSend("単価CSVを上書き取込します")) return;
+    const { body: r } = await api("/pricing/import-csv", {
+      method: "POST",
+      body: JSON.stringify({ csv, mode }),
+    });
     document.getElementById("csv-result").textContent = JSON.stringify(r, null, 2);
     render();
   });
@@ -719,24 +747,68 @@ async function renderPricing() {
 
 async function renderSettings() {
   const { body } = await api("/settings");
+  const rs = body.realSend || {};
   document.getElementById("biz-page-title").textContent = "連携設定";
   document.getElementById("biz-root").innerHTML = `
     <section class="biz-card">
       <div class="biz-integration-row"><span>Google/Gmail</span><span class="mock">${body.googleOAuth?.mode ?? body.googleCalendar?.mode} / ${body.googleOAuth?.connected ? "接続済" : "未接続"}</span></div>
       <div class="biz-integration-row"><span>QNAP</span><span class="mock">${body.qnap?.mode} — ${body.qnap?.baseRoot}</span></div>
-      <div class="biz-integration-row"><span>PDF</span><span class="mock">${body.pdf?.mode}</span></div>
+      <div class="biz-integration-row"><span>PDF</span><span class="mock">${body.pdf?.mode} (${body.pdf?.templates?.estimate})</span></div>
       <div class="biz-integration-row"><span>送信先メール</span><span>${body.mailTo ?? body.gmail?.defaultTo}</span></div>
+      <h3>real送信ガード</h3>
+      <label><input type="checkbox" id="rs-dry" ${rs.dryRun ? "checked" : ""}/> dry-run</label>
+      <label><input type="checkbox" id="rs-mock" ${rs.mockOnly ? "checked" : ""}/> mock only</label>
+      <label><input type="checkbox" id="rs-real" ${rs.realSendEnabled ? "checked" : ""}/> real send enabled</label>
+      <button type="button" class="biz-btn secondary" id="btn-save-real-send">ガード設定を保存</button>
       <h3>TOMS会社情報</h3>
       <p class="hint">${body.company?.name}<br/>${body.company?.address}<br/>${body.company?.phone}</p>
       <button type="button" class="biz-btn secondary" id="btn-google-test">Google接続テスト</button>
-      <a class="biz-btn secondary" href="/api/business/accounting/export-csv" style="display:block;text-align:center;text-decoration:none;margin-top:0.5rem">会計CSV出力</a>
+      <button type="button" class="biz-btn secondary" id="btn-qnap-test">QNAP接続テスト</button>
+      <button type="button" class="biz-btn secondary" id="btn-push-mock">Business通知（mock）</button>
+      <a class="biz-btn secondary" href="/api/business/accounting/export-csv?format=standard" style="display:block;text-align:center;text-decoration:none;margin-top:0.5rem">会計CSV（標準）</a>
+      <a class="biz-btn secondary" href="/api/business/accounting/export-csv?format=freee" style="display:block;text-align:center;text-decoration:none;margin-top:0.35rem">会計CSV（freee）</a>
+      <a class="biz-btn secondary" href="/api/business/accounting/export-csv?format=yayoi" style="display:block;text-align:center;text-decoration:none;margin-top:0.35rem">会計CSV（弥生）</a>
+      <a class="biz-btn secondary" href="/api/business/integration-logs/export-csv" style="display:block;text-align:center;text-decoration:none;margin-top:0.35rem">integration logs CSV</a>
     </section>
-    <pre class="biz-preview">${JSON.stringify(body, null, 2)}</pre>
+    <section class="biz-card">
+      <h3>integration logs（直近）</h3>
+      <div id="integration-logs-list" class="hint">読込中…</div>
+    </section>
   `;
+  document.getElementById("btn-save-real-send")?.addEventListener("click", async () => {
+    await api("/settings/real-send", {
+      method: "PATCH",
+      body: JSON.stringify({
+        dryRun: document.getElementById("rs-dry").checked,
+        mockOnly: document.getElementById("rs-mock").checked,
+        realSendEnabled: document.getElementById("rs-real").checked,
+      }),
+    });
+    render();
+  });
   document.getElementById("btn-google-test")?.addEventListener("click", async () => {
     const { body: t } = await api("/google/test", { method: "POST", body: "{}" });
     alert(JSON.stringify(t, null, 2));
   });
+  document.getElementById("btn-qnap-test")?.addEventListener("click", async () => {
+    const { body: t } = await api("/qnap/test-connection", { method: "POST", body: "{}" });
+    alert(JSON.stringify(t, null, 2));
+  });
+  document.getElementById("btn-push-mock")?.addEventListener("click", async () => {
+    if (!confirmRealSend("Business Web Push（mock）を送信")) return;
+    const { body: t } = await api("/notifications/push-mock", {
+      method: "POST",
+      body: JSON.stringify({ confirmed: true }),
+    });
+    alert(JSON.stringify(t, null, 2));
+  });
+  const { body: logs } = await api("/integration-logs?limit=20");
+  document.getElementById("integration-logs-list").innerHTML = (logs.logs || [])
+    .map(
+      (l) =>
+        `<div style="margin-bottom:0.35rem"><code>${l.createdAt?.slice(0, 19)}</code> [${l.type}/${l.provider}] ${l.status}${l.errorMessage ? " — " + l.errorMessage : ""}</div>`
+    )
+    .join("") || "ログなし";
 }
 
 function fileToBase64(file) {

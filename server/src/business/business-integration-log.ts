@@ -95,3 +95,36 @@ export function listBusinessIntegrationLogs(opts?: {
     .all(...params, limit)
     .map((r) => rowToLog(r as Record<string, unknown>));
 }
+
+function csvEscape(v: string | number): string {
+  const s = String(v);
+  if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+export function exportIntegrationLogsCsv(opts?: {
+  projectId?: string;
+  type?: IntegrationLogType;
+  limit?: number;
+}): string {
+  const logs = listBusinessIntegrationLogs(opts);
+  const header = ["id", "projectId", "type", "provider", "status", "errorMessage", "createdAt"];
+  const lines = [header.join(",")];
+  for (const l of logs) {
+    lines.push(
+      [l.id, l.projectId ?? "", l.type, l.provider, l.status, l.errorMessage ?? "", l.createdAt]
+        .map(csvEscape)
+        .join(",")
+    );
+  }
+  return lines.join("\n");
+}
+
+export function purgeIntegrationLogsOlderThan(days: number): { deleted: number } {
+  const db = getDatabase();
+  const cutoff = new Date(Date.now() - days * 86400000).toISOString();
+  const result = db
+    .prepare(`DELETE FROM business_integration_logs WHERE created_at < ?`)
+    .run(cutoff);
+  return { deleted: result.changes };
+}

@@ -28,7 +28,8 @@ const NEXT_ACTIONS: Partial<Record<BusinessProjectStatus, NextAction>> = {
   construction_done: { label: "完了報告書を作る", hrefSuffix: "/completion-report" },
   completion_report_created: { label: "請求書を作る", hrefSuffix: "/invoice" },
   invoice_created: { label: "請求送付メールを作る", hrefSuffix: "/invoice" },
-  invoice_sent: { label: "入金済みにする", hrefSuffix: "/payment" },
+  invoice_sent: { label: "入金を記録する", hrefSuffix: "/payment" },
+  partial_paid: { label: "残入金を記録する", hrefSuffix: "/payment" },
   paid: { label: "案件をクローズ", hrefSuffix: "/payment" },
 };
 
@@ -42,7 +43,8 @@ const ALLOWED_TRANSITIONS: Partial<Record<BusinessProjectStatus, BusinessProject
   construction_done: ["completion_report_created", "invoice_created"],
   completion_report_created: ["invoice_created"],
   invoice_created: ["invoice_sent", "invoice_created"],
-  invoice_sent: ["paid"],
+  invoice_sent: ["partial_paid", "paid"],
+  partial_paid: ["paid", "partial_paid", "invoice_sent"],
   paid: ["closed"],
   closed: [],
 };

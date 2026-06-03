@@ -1,3 +1,4 @@
+import { getDatabase } from "../db/database.js";
 import { createPricingRule, listPricingRules } from "./business-pricing.js";
 import type { PricingScopeType } from "./business-types.js";
 
@@ -77,11 +78,64 @@ export function exportPricingRulesCsv(opts?: {
   return lines.join("\n");
 }
 
-export function importPricingRulesCsv(csvText: string): {
+export function previewPricingRulesCsv(csvText: string): {
+  rows: Array<Record<string, string>>;
+  errors: string[];
+  validCount: number;
+  invalidCount: number;
+} {
+  const lines = csvText
+    .trim()
+    .split(/\r?\n/)
+    .filter((l) => l.trim());
+  const errors: string[] = [];
+  const rows: Array<Record<string, string>> = [];
+  if (!lines.length) return { rows, errors: ["empty csv"], validCount: 0, invalidCount: 0 };
+  const header = parseCsvLine(lines[0]).map((h) => h.trim().toLowerCase());
+  const col = (name: string) => header.indexOf(name);
+  let validCount = 0;
+  let invalidCount = 0;
+  for (let i = 1; i < lines.length; i++) {
+    const cells = parseCsvLine(lines[i]);
+    const itemName = cells[col("item_name")]?.trim();
+    const unitPrice = Number(cells[col("unit_price")] ?? NaN);
+    const row: Record<string, string> = {
+      line: String(i + 1),
+      item_name: itemName ?? "",
+      unit_price: cells[col("unit_price")] ?? "",
+      customer_code: cells[col("customer_code")]?.trim() ?? "",
+      contractor_code: cells[col("contractor_code")]?.trim() ?? "",
+      scope:
+        cells[col("customer_code")]?.trim()
+          ? "customer"
+          : cells[col("contractor_code")]?.trim()
+            ? "contractor"
+            : "standard",
+      active: cells[col("active")]?.trim() || "true",
+    };
+    if (!itemName || Number.isNaN(unitPrice)) {
+      invalidCount++;
+      errors.push(`line ${i + 1}: missing item_name or unit_price`);
+      row._error = "invalid";
+    } else {
+      validCount++;
+    }
+    rows.push(row);
+  }
+  return { rows, errors, validCount, invalidCount };
+}
+
+export function importPricingRulesCsv(
+  csvText: string,
+  opts?: { mode?: "append" | "replace" }
+): {
   imported: number;
   skipped: number;
   errors: string[];
 } {
+  if (opts?.mode === "replace") {
+    getDatabase().prepare(`DELETE FROM business_pricing_rules`).run();
+  }
   const lines = csvText
     .trim()
     .split(/\r?\n/)

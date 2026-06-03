@@ -9,6 +9,7 @@ export const BUSINESS_PROJECT_STATUSES = [
   "completion_report_created",
   "invoice_created",
   "invoice_sent",
+  "partial_paid",
   "paid",
   "closed",
   /** @deprecated Phase521 legacy — normalizeProjectStatus で正規化 */
