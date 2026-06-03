@@ -1,6 +1,12 @@
 export type CustomerPlan = "Lite" | "Standard" | "PRO" | "PRO_REMOTE";
 export type CustomerStatus = "active" | "suspended" | "deleted";
-export type CustomerRole = "owner" | "admin" | "manager" | "viewer" | "super_admin";
+export type CustomerRole =
+  | "owner"
+  | "admin"
+  | "manager"
+  | "installer"
+  | "viewer"
+  | "super_admin";
 export type DeviceTypePro = "PLC" | "RP2350" | "ESP32" | "TV" | "Gateway";
 
 export interface CustomerRow {

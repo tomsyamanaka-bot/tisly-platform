@@ -28,6 +28,15 @@
       <label>図面アップロード
         <input type="file" id="floor-upload" accept="image/png,image/jpeg,image/webp" />
       </label>
+      <label><input type="checkbox" id="snap-grid" checked /> グリッドスナップ</label>
+      <label>フィルタ
+        <select id="placement-filter">
+          <option value="all">すべて</option>
+          <option value="placed">配置済み</option>
+          <option value="unplaced">未配置</option>
+        </select>
+      </label>
+      <label>アイコン回転° <input type="number" id="pin-rotation" min="0" max="359" value="0" /></label>
       <h3>配置する設備</h3>
       <ul id="palette-devices" class="palette-list"></ul>
       <h3>カメラ / TV</h3>
@@ -38,6 +47,7 @@
         <img id="floor-bg" alt="" hidden />
       </div>
       <p id="map-status" class="hint"></p>
+      <p id="map-save-toast" class="map-save-toast" hidden>保存しました</p>
     </section>
   </main>
   <script type="module" src="/js/map-editor.js"></script>

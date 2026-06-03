@@ -40,6 +40,26 @@
 .map-pin-device.offline {
   background: #b45309;
 }
+.map-pin-device.icon-tv {
+  background: #2563eb;
+}
+.map-pin-device.icon-camera {
+  background: #7c3aed;
+}
+.map-pin-device.icon-sensor {
+  background: var(--customer-accent, #1a7f37);
+}
+.map-save-toast {
+  color: #166534;
+  font-weight: 600;
+  padding: 6px;
+}
+.map-canvas.show-grid {
+  background-image:
+    linear-gradient(#94a3b844 1px, transparent 1px),
+    linear-gradient(90deg, #94a3b844 1px, transparent 1px);
+  background-size: 5% 5%;
+}
 .palette-list {
   list-style: none;
   padding: 0;

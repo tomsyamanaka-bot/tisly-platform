@@ -36,6 +36,7 @@ import {
   siteApiRouter,
   zoneApiRouter,
 } from "./api/routes/site-builder.js";
+import { customerInstallerRouter } from "./api/routes/installer.js";
 import { incidentsRouter } from "./api/routes/incidents.js";
 import { opsCustomerScopeMiddleware } from "./ops/ops-customer-scope.js";
 import { attachCustomerFromSubdomain } from "./customer/subdomain-resolver.js";
@@ -98,6 +99,7 @@ export function createApp(): express.Application {
   app.use("/api/customer", customerWebhooksRouter);
   app.use("/api/customer", customerNotificationRulesRouter);
   app.use("/api/customer", customerSiteBuilderRouter);
+  app.use("/api/customer", customerInstallerRouter);
   app.use("/api/incidents", incidentsRouter);
   app.use("/api/db", dbRouter);
 

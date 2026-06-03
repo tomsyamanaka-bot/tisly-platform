@@ -26,11 +26,6 @@
 3. 本番 Stripe / SMTP（Phase 301–320 継続）
 4. `DB_PROVIDER=postgres` + RLS 適用
 
-## Phase 341–360 提案
+## Phase 341–360
 
-- Stripe Customer Portal リンク
-- ワーカー Redis キュー
-- 図面の QNAP SMB 自動同期
-- 顧客向け請求履歴 UI
-- Map Editor: 回転ハンドル・スナップグリッド
-- モバイル施工アプリ（PWA offline）
+→ `docs/phase341_360_status.md`（Installer PWA / QR / NFC 完了）

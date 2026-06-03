@@ -88,7 +88,7 @@ export function seedProRemoteCustomers(): void {
       });
     }
 
-    for (const role of ["owner", "admin", "manager", "viewer"] as const) {
+    for (const role of ["owner", "admin", "manager", "installer", "viewer"] as const) {
       const userId = `cu-${c.customerCode}-${role}`;
       db.prepare(
         `INSERT INTO customer_users (id, customer_id, username, password_hash, role, status)

@@ -2,38 +2,115 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>TiSLY — 施工モード</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#1a7f37" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <title>TiSLY — 施工 PWA</title>
   <link rel="stylesheet" href="/css/admin.css" />
   <link rel="stylesheet" href="/css/customer-portal.css" />
+  <link rel="stylesheet" href="/css/installer-mode.css" />
 </head>
 <body class="customer-portal">
   <header class="portal-header">
-    <div class="brand"><h1>施工モード</h1><p id="install-code"></p></div>
+    <div class="brand"><h1>施工 PWA</h1><p id="install-code"></p></div>
     <nav class="portal-nav">
-      <a id="link-map" href="#">Map Editor</a>
+      <a id="link-map" href="#">Map</a>
       <a id="link-portal" href="#">ポータル</a>
     </nav>
   </header>
-  <main class="card portal-card" style="margin:1rem">
-    <h2>デバイス追加ウィザード</h2>
-    <form id="device-wizard" class="wizard-form">
-      <label>シリアル <input name="serial" required /></label>
-      <label>種別 <input name="type" value="ESP" required /></label>
-      <label>フロア ID <input name="floor" /></label>
-      <label>部屋 <input name="room" /></label>
-      <label>アイコン <input name="icon" value="sensor" /></label>
-      <label>現場 ID <input name="siteId" /></label>
-      <button type="submit" class="btn">登録</button>
-    </form>
-    <p id="wizard-result" class="hint"></p>
+  <main class="card portal-card installer-pwa" style="margin:0.75rem">
+    <p id="install-status" class="installer-status">読み込み中…</p>
+    <p class="installer-offline-queue hint" id="offline-hint">オフライン一時保存: localStorage placeholder</p>
+
+    <nav class="installer-tabs" id="installer-tabs" aria-label="施工ステップ">
+      <button type="button" data-panel="site" class="active">現場</button>
+      <button type="button" data-panel="floor">フロア</button>
+      <button type="button" data-panel="device">登録</button>
+      <button type="button" data-panel="qr">QR</button>
+      <button type="button" data-panel="nfc">NFC</button>
+      <button type="button" data-panel="comm">通信</button>
+      <button type="button" data-panel="map">配置</button>
+      <button type="button" data-panel="mqtt">MQTT</button>
+      <button type="button" data-panel="done">完了</button>
+    </nav>
+
+    <section id="panel-site" class="installer-panel active">
+      <h2>現場選択</h2>
+      <label>現場 <select id="site-select"></select></label>
+      <button type="button" class="btn secondary" id="btn-new-site">現場作成</button>
+    </section>
+
+    <section id="panel-floor" class="installer-panel">
+      <h2>フロア / 図面</h2>
+      <label>フロア <select id="floor-select"></select></label>
+      <label>図面 <input type="file" id="floor-upload" accept="image/*" /></label>
+      <button type="button" class="btn secondary" id="btn-archive-floor">QNAPアーカイブ</button>
+    </section>
+
+    <section id="panel-device" class="installer-panel">
+      <h2>デバイス登録</h2>
+      <form id="device-wizard" class="wizard-form">
+        <label>シリアル <input name="serial" required /></label>
+        <label>種別 <select name="type" id="device-type-select"></select></label>
+        <label>ゾーン名 <input name="room" /></label>
+        <button type="submit" class="btn">ウィザード登録</button>
+      </form>
+    </section>
+
+    <section id="panel-qr" class="installer-panel">
+      <h2>QR読み取り</h2>
+      <label>Device ID <input id="qr-device-id" /></label>
+      <label>種別 <input id="qr-device-type" value="ESP32" /></label>
+      <label>Serial <input id="qr-serial" /></label>
+      <button type="button" class="btn secondary" id="btn-qr-create">QR発行</button>
+      <label>QR JSON（読取結果）<textarea id="qr-payload" rows="4" placeholder='{"device_id":...}'></textarea></label>
+      <button type="button" class="btn" id="btn-qr-claim">QR Claim</button>
+      <pre id="qr-result" class="hint"></pre>
+    </section>
+
+    <section id="panel-nfc" class="installer-panel">
+      <h2>NFC（placeholder）</h2>
+      <label>NFC UID <input id="nfc-uid" placeholder="04:A1:B2:C3" /></label>
+      <button type="button" class="btn" id="btn-nfc-claim">NFC Claim</button>
+      <p class="hint">スマホ NFC 読取は将来対応 — docs/nfc_device_provisioning.md</p>
+    </section>
+
+    <section id="panel-comm" class="installer-panel">
+      <h2>通信確認</h2>
+      <label>設備 <select id="test-device-select"></select></label>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        <button type="button" class="btn secondary" data-test="heartbeat">Heartbeat</button>
+        <button type="button" class="btn secondary" data-test="event">Event</button>
+        <button type="button" class="btn secondary" data-test="relay">Relay</button>
+        <button type="button" class="btn secondary" data-test="notification">Notify</button>
+      </div>
+      <pre id="test-result" class="hint"></pre>
+    </section>
+
+    <section id="panel-map" class="installer-panel">
+      <h2>配置確認</h2>
+      <p>Map Editor でピン配置（スナップ・回転対応）</p>
+      <a id="link-map-full" class="btn" href="#">Map Editor を開く</a>
+      <ul id="device-placement-list"></ul>
+    </section>
+
+    <section id="panel-mqtt" class="installer-panel">
+      <h2>MQTT Test</h2>
+      <label>設備 <select id="mqtt-device-select"></select></label>
+      <button type="button" class="btn secondary" id="btn-mqtt-refresh">診断更新</button>
+      <pre id="mqtt-diag" class="hint"></pre>
+    </section>
+
+    <section id="panel-done" class="installer-panel">
+      <h2>完了チェック</h2>
+      <label>設備 <select id="check-device-select"></select></label>
+      <div id="checklist-items"></div>
+      <button type="button" class="btn" id="btn-completion-report">完了レポート</button>
+      <button type="button" class="btn secondary" id="btn-label">ラベルデータ</button>
+    </section>
+
     <h2>設備一覧</h2>
-    <table class="users-table">
-      <thead>
-        <tr><th>ID</th><th>種別</th><th>RSSI</th><th>Last Seen</th><th>Firmware</th><th>状態</th></tr>
-      </thead>
-      <tbody id="install-devices"></tbody>
-    </table>
+    <div id="install-devices" class="palette-list"></div>
   </main>
   <script type="module" src="/js/installer-mode.js"></script>
 </body>

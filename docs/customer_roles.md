@@ -6,7 +6,8 @@
 |--------|------|
 | **owner** | 全権限（ユーザー管理・設定・ポータル・TV） |
 | **admin** | 設定変更（プラン・ブランディング・status） |
-| **manager** | 運用確認（ユーザー一覧・監査ログ・設備） |
+| **manager** | 運用確認（ユーザー一覧・監査ログ・設備）・請求閲覧 |
+| **installer** | 施工 PWA・QR/NFC claim・Map 配置・疎通テスト（設定・請求・ユーザー管理不可） |
 | **viewer** | 閲覧のみ（ダッシュボード・イベント・TV） |
 
 `super_admin` はレガシー互換で **owner** と同ランク。
@@ -15,7 +16,7 @@
 
 | 顧客 | ユーザー例 | パスワード |
 |------|------------|------------|
-| TOMS001 | `toms001.owner` / `.admin` / `.manager` / `.viewer` | `CUSTOMER_DEMO_PASSWORD` |
+| TOMS001 | `toms001.owner` / `.admin` / `.manager` / `.installer` / `.viewer` | `CUSTOMER_DEMO_PASSWORD` |
 | HOTEL001 | `hotel001.*` | 同上 |
 | PLANT001 | `plant001.*` | 同上 |
 
@@ -27,4 +28,4 @@
 
 ## DB
 
-`customer_users.role` CHECK: `owner`, `admin`, `manager`, `viewer`, `super_admin`
+`customer_users.role` CHECK: `owner`, `admin`, `manager`, `installer`, `viewer`, `super_admin`

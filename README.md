@@ -3,6 +3,32 @@
 TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。  
 三菱電機 **FX 系** PLC と **GX Works2 / GX Works3** を想定しています。
 
+## TiSLY Platform — Installer PWA, QR/NFC & Field Setup（Phase 341–360）
+
+**施工 PWA · QR プロビジョニング · NFC placeholder · Commissioning · MQTT 診断 · チェックリスト**
+
+| 領域 | パス / URL |
+|------|------------|
+| 施工 PWA | `/customer/TOMS001/install` |
+| QR API | `POST .../devices/qr/create` · `.../claim` |
+| NFC API | `POST .../devices/nfc/claim` |
+| チェックリスト | `GET/POST .../install/checklist` |
+| 疎通テスト | `POST .../devices/:id/test/{heartbeat,event,relay,notification}` |
+| MQTT 診断 | `GET .../install/mqtt/:deviceId` |
+| 図面 QNAP | `POST .../floorplans/:id/archive` |
+| ラベル | `GET .../devices/:id/label` |
+| 完了レポート | `GET .../install/completion-report` |
+| installer ロール | `toms001.installer` 等 |
+| テスト | `server/test/installer-provisioning.test.ts` |
+| ドキュメント | `docs/phase341_360_status.md` · `docs/installer_pwa.md` |
+
+```bash
+cd server && npm run build && npm run test
+cd tv-app && npx tsc --noEmit
+```
+
+---
+
 ## TiSLY Platform — Site Builder, Map Editor & Deployment Foundation（Phase 321–340）
 
 **営業・施工向けノーコード設定 · 図面配置 · カメラ/TV 登録 · Recovery/Schedule GUI**

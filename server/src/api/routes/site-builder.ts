@@ -451,7 +451,8 @@ customerSiteBuilderRouter.get("/:customerCode/install", ...portalAuth, (req: Aut
   const enriched = devices.map((d) => {
     const row = db
       .prepare(
-        `SELECT rssi, firmware_version, serial_number, last_seen, pos_x, pos_y, floor_id, zone_id FROM devices WHERE device_id = ? OR id = ? LIMIT 1`
+        `SELECT rssi, firmware_version, serial_number, last_seen, pos_x, pos_y, floor_id, zone_id,
+                commissioning_status, last_test_result FROM devices WHERE device_id = ? OR id = ? LIMIT 1`
       )
       .get(d.deviceId, d.deviceId) as {
       rssi: number | null;
@@ -462,6 +463,8 @@ customerSiteBuilderRouter.get("/:customerCode/install", ...portalAuth, (req: Aut
       pos_y: number | null;
       floor_id: string | null;
       zone_id: string | null;
+      commissioning_status: string | null;
+      last_test_result: string | null;
     } | undefined;
     return {
       ...d,
@@ -470,6 +473,8 @@ customerSiteBuilderRouter.get("/:customerCode/install", ...portalAuth, (req: Aut
       serialNumber: row?.serial_number ?? null,
       floorId: row?.floor_id ?? null,
       zoneId: row?.zone_id ?? null,
+      commissioningStatus: row?.commissioning_status ?? "draft",
+      lastTestResult: row?.last_test_result ?? null,
       mapPosition: row?.pos_x != null ? { x: row.pos_x, y: row.pos_y } : null,
     };
   });

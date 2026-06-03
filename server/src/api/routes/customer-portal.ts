@@ -17,6 +17,7 @@ import { countOpenIncidents, listRecoveryHistory } from "../../incidents/inciden
 import { listAuditLogs } from "../../provisioning/audit-log.js";
 import { contractWarningBanner, getContractStatus } from "../../customer/contract-guard.js";
 import { getBillingByCustomerId } from "../../billing/billing-store.js";
+import { canViewBilling } from "../../auth/roles.js";
 
 export const customerPortalRouter = Router();
 const portalAuth = [requireAuth("viewer"), requireTenantMatch("customerCode")] as const;
@@ -62,6 +63,8 @@ customerPortalRouter.get("/:customerCode/dashboard", ...portalAuth, (req: Authed
       contractNote: "PRO Remote 契約詳細は営業担当へ — placeholder",
     },
     billing: (() => {
+      const role = req.admin?.role ?? "viewer";
+      if (!canViewBilling(role)) return null;
       const b = getBillingByCustomerId(customer.customer_id);
       return b
         ? {

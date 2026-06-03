@@ -1,0 +1,65 @@
+.installer-pwa {
+  max-width: 480px;
+  margin: 0 auto;
+  padding-bottom: 5rem;
+}
+.installer-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0.75rem 0;
+}
+.installer-tabs button {
+  flex: 1 1 30%;
+  min-width: 90px;
+  font-size: 12px;
+  padding: 8px 4px;
+}
+.installer-tabs button.active {
+  background: var(--customer-accent, #1a7f37);
+  color: #fff;
+}
+.installer-panel {
+  display: none;
+}
+.installer-panel.active {
+  display: block;
+}
+.installer-panel label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 14px;
+}
+.installer-panel input,
+.installer-panel select,
+.installer-panel textarea {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 4px;
+}
+.installer-status {
+  padding: 8px;
+  border-radius: 6px;
+  background: #f0fdf4;
+  font-size: 13px;
+  margin: 0.5rem 0;
+}
+.installer-offline-queue {
+  font-size: 12px;
+  color: #64748b;
+}
+.checklist-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 13px;
+}
+.checklist-item.done {
+  color: #166534;
+}
+@media (min-width: 481px) {
+  .installer-pwa {
+    max-width: 520px;
+  }
+}

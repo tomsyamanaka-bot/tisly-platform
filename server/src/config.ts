@@ -69,7 +69,7 @@ export const config = {
     password: env("QNAP_PASSWORD"),
     basePath: env("QNAP_BASE_PATH", "/TiSLY"),
   },
-  rc1Phase: "321-340-site-builder-map-editor",
+  rc1Phase: "341-360-installer-pwa-qr-nfc-provisioning",
   get dbProvider() {
     return (env("DB_PROVIDER", "sqlite") as "sqlite" | "postgres");
   },
