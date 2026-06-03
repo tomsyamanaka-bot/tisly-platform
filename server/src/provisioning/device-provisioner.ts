@@ -4,6 +4,7 @@ import { config } from "../config.js";
 import { getDatabase } from "../db/database.js";
 import { logAudit } from "./audit-log.js";
 import { hashSecret } from "./site-provisioner.js";
+import { encryptDeviceSecret } from "../security/secret-crypto.js";
 
 export interface ProvisionDeviceInput {
   siteId: string;
@@ -81,9 +82,9 @@ export function provisionDevice(input: ProvisionDeviceInput): ProvisionedDeviceR
   );
 
   db.prepare(
-    `INSERT INTO device_credentials (id, device_id, secret_hash, site_id, zone_id, tenant_id, status)
-     VALUES (?, ?, ?, ?, ?, ?, 'active')`
-  ).run(id, deviceId, hashSecret(secret), input.siteId, zoneId, tenantId);
+    `INSERT INTO device_credentials (id, device_id, secret_hash, secret_encrypted, site_id, zone_id, tenant_id, status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'active')`
+  ).run(id, deviceId, hashSecret(secret), encryptDeviceSecret(secret), input.siteId, zoneId, tenantId);
 
   const registrationUrl = `${config.publicUrl}/setup?device=${encodeURIComponent(deviceId)}&token=${encodeURIComponent(secret)}`;
   const qrPayload = JSON.stringify({

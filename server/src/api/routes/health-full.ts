@@ -1,11 +1,21 @@
 import { Router } from "express";
 import { config } from "../../config.js";
 import { getDatabase } from "../../db/database.js";
+import { getDbProvider } from "../../db/db-provider.js";
 import { isAuthConfigured } from "../../auth/admin-auth.js";
 import { getFailedLoginCount, getIngestErrorCount } from "../../auth/admin-auth.js";
+import { getSessionStoreStatus } from "../../auth/session-store.js";
 import { isQnapSmbConfigured, getQnapMode } from "../../qnap/smb-client.js";
 import { getLatestBackupStatus, listRecentBackups } from "../../backup/backup-status.js";
 import { getRetentionPolicy } from "../../qnap/retention-manager.js";
+import { getIngestDuplicateCount } from "../../security/event-idempotency.js";
+import {
+  getSignatureErrorCount,
+  getRateLimitProviderStatus,
+} from "../../security/security-metrics.js";
+import { getReplayBlockedCount } from "../../security/replay-protection.js";
+import { getSiemExportStatus } from "../../security/siem-exporter.js";
+import { isRedisReachable, getRateLimitProviderName } from "../../security/rate-limit-redis.js";
 
 export const healthFullRouter = Router();
 
@@ -17,6 +27,9 @@ healthFullRouter.get("/", (_req, res) => {
   } catch {
     dbOk = false;
   }
+
+  const dbProvider = getDbProvider();
+  const providerInfo = dbProvider.info();
 
   const tvCount = (
     db.prepare("SELECT COUNT(*) as c FROM tv_devices").get() as { c: number }
@@ -54,13 +67,28 @@ healthFullRouter.get("/", (_req, res) => {
 
   const backupLatest = getLatestBackupStatus();
   const retention = getRetentionPolicy();
+  const sessionStore = getSessionStoreStatus();
+  const rateLimitStatus = getRateLimitProviderStatus();
+  const siemStatus = getSiemExportStatus();
 
   res.json({
     status: dbOk ? "ok" : "degraded",
-    phase: "161-180-security-rc1",
+    phase: config.rc1Phase,
+    db_provider: providerInfo.provider,
+    postgres_reachable: providerInfo.provider === "postgres" ? providerInfo.reachable : null,
+    redis_reachable: isRedisReachable(),
+    session_store: sessionStore,
+    rate_limit_provider: getRateLimitProviderName(),
+    signature_check_enabled: config.security.signatureCheckEnabled,
+    replay_protection_enabled: config.security.replayProtectionEnabled,
+    siem_export_status: siemStatus,
     components: {
       server: { status: "ok", port: config.port, nodeEnv: config.nodeEnv },
-      database: { status: dbOk ? "ok" : "error", path: config.dbPath },
+      database: {
+        status: dbOk ? "ok" : "error",
+        path: config.dbPath,
+        provider: providerInfo.provider,
+      },
       mqtt: {
         status: process.env.MQTT_SUBSCRIBER_ENABLED === "true" ? "enabled" : "standby",
         url: config.mqtt.url,
@@ -96,6 +124,10 @@ healthFullRouter.get("/", (_req, res) => {
       },
       security: {
         ingestErrors: getIngestErrorCount(),
+        ingestDuplicates: getIngestDuplicateCount(),
+        signatureErrors: getSignatureErrorCount(),
+        replayBlocked: getReplayBlockedCount(),
+        rateLimit: rateLimitStatus,
       },
     },
     demoMode: config.demoMode,

@@ -27,10 +27,10 @@ before(() => {
 });
 
 describe("TiSLY E2E API (Phase 161-180 Security RC1)", () => {
-  it("GET /health returns phase 161-180-security-rc1", async () => {
+  it("GET /health returns phase 181-200-production-security", async () => {
     const res = await request(app).get("/health");
     assert.equal(res.status, 200);
-    assert.equal(res.body.phase, "161-180-security-rc1");
+    assert.equal(res.body.phase, "181-200-production-security");
   });
 
   it("GET /api/sites/templates requires auth", async () => {

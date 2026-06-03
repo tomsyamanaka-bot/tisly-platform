@@ -31,7 +31,7 @@
     </div>
 
     <div class="demo-banner">
-      <strong>RC1 Phase 161–180</strong> — Security Hardened Operations —
+      <strong>Phase 181–200</strong> — Production Security & Database Foundation —
       <span id="demo-status">読込中…</span>
       <button class="btn" id="btn-demo-start" type="button">デモ開始</button>
       <button class="btn secondary" id="btn-demo-stop" type="button">停止</button>
@@ -172,6 +172,11 @@
           </div>
           <p id="security-auth-status"></p>
           <div class="health-grid" id="security-grid"></div>
+          <h3>アクティブセッション</h3>
+          <table>
+            <thead><tr><th>Session ID</th><th>IP</th><th>作成</th><th>期限</th></tr></thead>
+            <tbody id="security-sessions-body"></tbody>
+          </table>
           <h3>監査ログ（直近）</h3>
           <table>
             <thead><tr><th>時刻</th><th>操作</th><th>対象</th><th>ユーザー</th></tr></thead>

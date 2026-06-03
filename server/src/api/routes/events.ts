@@ -4,16 +4,16 @@ import { config } from "../../config.js";
 import { getDatabase } from "../../db/database.js";
 import {
   normalizeUnifiedInput,
-  unifiedToTislyEvent,
 } from "../../event/unified-event.js";
-import { getNotificationService } from "../../notification/notification-service.js";
-import { broadcast } from "../../ws/hub.js";
 import { requireIngestOrDeviceAuth } from "../../auth/device-auth.js";
-import { rateLimit } from "../../security/rate-limit.js";
+import { createRateLimit } from "../../security/rate-limit-redis.js";
+import { requireEventSignature } from "../../security/event-signature.js";
+import { requireReplayProtection } from "../../security/replay-middleware.js";
+import { ingestUnifiedEvent } from "../../security/ingest-handler.js";
 
 export const eventsRouter = Router();
 
-const ingestLimiter = rateLimit({
+const ingestLimiter = createRateLimit({
   keyPrefix: "ingest",
   max: 120,
   windowMs: 60 * 1000,
@@ -42,28 +42,23 @@ eventsRouter.get("/", (req, res) => {
   res.json({ events: rows });
 });
 
-eventsRouter.post("/ingest", ingestLimiter, requireIngestOrDeviceAuth, async (req, res) => {
-  try {
-    const unified = normalizeUnifiedInput(req.body, config.defaultTenantId);
-    const event = unifiedToTislyEvent(unified);
-    const service = getNotificationService();
-    const id = await service.processEvent(event);
-    const wsType =
-      unified.severity === "alarm" || unified.severity === "critical"
-        ? "alarm"
-        : "event";
-    broadcast({
-      type: wsType,
-      payload: { ...unified, id },
-      at: unified.created_at,
-    });
-    res.status(201).json({ id, event_id: unified.event_id });
-  } catch (e) {
-    res.status(400).json({
-      error: e instanceof Error ? e.message : "Invalid ingest payload",
-    });
+eventsRouter.post(
+  "/ingest",
+  ingestLimiter,
+  requireIngestOrDeviceAuth,
+  requireEventSignature,
+  requireReplayProtection,
+  async (req, res) => {
+    try {
+      const unified = normalizeUnifiedInput(req.body, config.defaultTenantId);
+      await ingestUnifiedEvent(unified, res, { sourceIp: req.ip });
+    } catch (e) {
+      res.status(400).json({
+        error: e instanceof Error ? e.message : "Invalid ingest payload",
+      });
+    }
   }
-});
+);
 
 eventsRouter.post("/", async (req, res) => {
   const { deviceId, eventType, title, body, payload, severity } = req.body;
@@ -71,6 +66,7 @@ eventsRouter.post("/", async (req, res) => {
     res.status(400).json({ error: "deviceId, eventType, title required" });
     return;
   }
+  const { getNotificationService } = await import("../../notification/notification-service.js");
   const service = getNotificationService();
   const id = await service.processEvent({
     id: uuid(),

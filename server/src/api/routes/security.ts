@@ -15,6 +15,14 @@ import { hashSecret } from "../../provisioning/site-provisioner.js";
 import { listAuditLogs } from "../../provisioning/audit-log.js";
 import { runBackup } from "../../backup/backup-manager.js";
 import { listRecentBackups } from "../../backup/backup-status.js";
+import { encryptDeviceSecret } from "../../security/secret-crypto.js";
+import { getIngestDuplicateCount } from "../../security/event-idempotency.js";
+import { getSignatureErrorCount, getRateLimitProviderStatus } from "../../security/security-metrics.js";
+import { getReplayBlockedCount } from "../../security/replay-protection.js";
+import { getSiemExportStatus } from "../../security/siem-exporter.js";
+import { getDbProvider } from "../../db/db-provider.js";
+import { listActiveSessions } from "../../auth/session-store.js";
+import { getRateLimitProviderName } from "../../security/rate-limit-redis.js";
 
 export const securityRouter = Router();
 
@@ -78,6 +86,7 @@ securityRouter.get("/overview", (req: AuthedRequest, res) => {
       user: req.admin,
       failedLoginCount: getFailedLoginCount(),
     },
+    sessions: listActiveSessions(req.admin?.userId),
     deviceSecrets: {
       active: deviceCreds,
       ingestConfigured: Boolean(config.ingestSecret),
@@ -89,6 +98,12 @@ securityRouter.get("/overview", (req: AuthedRequest, res) => {
       revoked: tvRevoked,
     },
     ingestErrors: getIngestErrorCount(),
+    ingestDuplicates: getIngestDuplicateCount(),
+    signatureErrors: getSignatureErrorCount(),
+    replayBlocked: getReplayBlockedCount(),
+    rateLimit: { ...getRateLimitProviderStatus(), provider: getRateLimitProviderName() },
+    siemExport: getSiemExportStatus(),
+    dbProvider: getDbProvider().info(),
     auditLogSample: listAuditLogs({ limit: 20 }),
   });
 });
@@ -111,9 +126,9 @@ securityRouter.post("/devices/:id/rotate-secret", (req: AuthedRequest, res) => {
   const newSecret = generateSecret();
   const newHash = hashSecret(newSecret);
   db.prepare(
-    `UPDATE device_credentials SET secret_hash = ?, rotated_at = datetime('now')
+    `UPDATE device_credentials SET secret_hash = ?, secret_encrypted = ?, rotated_at = datetime('now')
      WHERE device_id = ?`
-  ).run(newHash, deviceId);
+  ).run(newHash, encryptDeviceSecret(newSecret), deviceId);
 
   logAudit({
     userId: req.admin?.userId,

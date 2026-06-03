@@ -1,11 +1,13 @@
 import type { NextFunction, Request, Response } from "express";
 import { isAuthConfigured, resolveSession } from "./admin-auth.js";
+import { isSessionRevoked } from "./session-store.js";
 
 export interface AuthedRequest extends Request {
   admin?: {
     userId: string;
     username: string;
     role: string;
+    tokenId?: string;
   };
 }
 
@@ -29,10 +31,15 @@ export function requireAdminAuth(req: AuthedRequest, res: Response, next: NextFu
     res.status(401).json({ error: "Unauthorized — admin token required" });
     return;
   }
+  if (session.tokenId && isSessionRevoked(session.tokenId)) {
+    res.status(401).json({ error: "Session revoked or expired" });
+    return;
+  }
   req.admin = {
     userId: session.userId,
     username: session.username,
     role: session.role,
+    tokenId: session.tokenId,
   };
   next();
 }

@@ -32,7 +32,13 @@ const publicDir = path.join(__dirname, "..", "public");
 export function createApp(): express.Application {
   const app = express();
   app.use(cors());
-  app.use(express.json());
+  app.use(
+    express.json({
+      verify: (req, _res, buf) => {
+        (req as express.Request & { rawBody?: string }).rawBody = buf.toString("utf8");
+      },
+    })
+  );
 
   app.use("/api/auth", authRouter);
 
@@ -106,12 +112,20 @@ export function createApp(): express.Application {
     res.json({
       status: "ok",
       service: "tisly-notification-platform",
-      phase: "161-180-security-rc1",
-      platform: "security-hardened-rc1",
+      phase: config.rc1Phase,
+      platform: "production-security-foundation",
       demoMode: config.demoMode,
       features: [
         "admin-jwt-auth",
+        "session-revocation",
         "device-secret-validation",
+        "ingest-idempotency",
+        "hmac-event-signature",
+        "replay-protection",
+        "redis-rate-limit-ready",
+        "totp-2fa-ready",
+        "siem-export",
+        "db-provider-sqlite-postgres",
         "ingest-secret-validation",
         "audit-log-enhanced",
         "secret-rotation",

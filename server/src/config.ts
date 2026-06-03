@@ -69,7 +69,36 @@ export const config = {
     password: env("QNAP_PASSWORD"),
     basePath: env("QNAP_BASE_PATH", "/TiSLY"),
   },
-  rc1Phase: "161-180-security-rc1",
+  rc1Phase: "181-200-production-security",
+  get dbProvider() {
+    return (env("DB_PROVIDER", "sqlite") as "sqlite" | "postgres");
+  },
+  postgres: {
+    host: env("POSTGRES_HOST", "127.0.0.1"),
+    port: Number(env("POSTGRES_PORT", "5432")),
+    database: env("POSTGRES_DB", "tisly"),
+    user: env("POSTGRES_USER", "tisly"),
+    password: env("POSTGRES_PASSWORD"),
+    ssl: env("POSTGRES_SSL", "false") === "true",
+  },
+  get rateLimitProvider() {
+    return (env("RATE_LIMIT_PROVIDER", "memory") as "memory" | "redis");
+  },
+  redis: {
+    url: env("REDIS_URL", "redis://127.0.0.1:6379"),
+  },
+  security: {
+    get signatureCheckEnabled() {
+      return env("SIGNATURE_CHECK_ENABLED", "false") === "true";
+    },
+    get replayProtectionEnabled() {
+      return env("REPLAY_PROTECTION_ENABLED", "true") === "true";
+    },
+    get siemExportEnabled() {
+      return env("SIEM_EXPORT_ENABLED", "true") === "true";
+    },
+    signatureMaxAgeSec: Number(env("SIGNATURE_MAX_AGE_SEC", "300")),
+  },
   auth: {
     get jwtSecret() {
       return env("JWT_SECRET");

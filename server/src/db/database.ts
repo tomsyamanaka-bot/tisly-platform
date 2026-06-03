@@ -36,6 +36,10 @@ export function getDatabase(): Database.Database {
   if (fs.existsSync(phaseSecurity)) {
     db.exec(fs.readFileSync(phaseSecurity, "utf-8"));
   }
+  const phaseProduction = path.join(__dirname, "schema-phase-production.sql");
+  if (fs.existsSync(phaseProduction)) {
+    db.exec(fs.readFileSync(phaseProduction, "utf-8"));
+  }
   runMigrations(db);
   seedDefaults(db);
   ensureTenant(config.defaultTenantId, "Default Tenant");

@@ -27,6 +27,10 @@ const AUDIT_COLUMNS: Array<{ name: string; ddl: string }> = [
   { name: "user_agent", ddl: "ALTER TABLE audit_logs ADD COLUMN user_agent TEXT" },
 ];
 
+const DEVICE_CREDENTIAL_COLUMNS: Array<{ name: string; ddl: string }> = [
+  { name: "secret_encrypted", ddl: "ALTER TABLE device_credentials ADD COLUMN secret_encrypted TEXT" },
+];
+
 export function runMigrations(database: Database.Database): void {
   const existing = new Set(
     (database.prepare("PRAGMA table_info(events)").all() as Array<{ name: string }>).map(
@@ -64,6 +68,17 @@ export function runMigrations(database: Database.Database): void {
   );
   for (const col of AUDIT_COLUMNS) {
     if (!auditCols.has(col.name)) {
+      database.exec(col.ddl);
+    }
+  }
+
+  const credCols = new Set(
+    (database.prepare("PRAGMA table_info(device_credentials)").all() as Array<{ name: string }>).map(
+      (r) => r.name
+    )
+  );
+  for (const col of DEVICE_CREDENTIAL_COLUMNS) {
+    if (!credCols.has(col.name)) {
       database.exec(col.ddl);
     }
   }

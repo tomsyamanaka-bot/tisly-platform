@@ -1,17 +1,18 @@
 import { Router } from "express";
 import { v4 as uuid } from "uuid";
 import { config } from "../../config.js";
-import { normalizeUnifiedInput, unifiedToTislyEvent } from "../../event/unified-event.js";
+import { normalizeUnifiedInput } from "../../event/unified-event.js";
 import { recordHeartbeat } from "../../notification/heartbeat-monitor.js";
-import { getNotificationService } from "../../notification/notification-service.js";
 import { runDeviceRecovery } from "../../recovery/device-recovery.js";
-import { broadcast } from "../../ws/hub.js";
 import { requireIngestOrDeviceAuth } from "../../auth/device-auth.js";
-import { rateLimit } from "../../security/rate-limit.js";
+import { createRateLimit } from "../../security/rate-limit-redis.js";
+import { requireEventSignature } from "../../security/event-signature.js";
+import { requireReplayProtection } from "../../security/replay-middleware.js";
+import { ingestUnifiedEvent } from "../../security/ingest-handler.js";
 
 export const testRouter = Router();
 
-const testLimiter = rateLimit({
+const testLimiter = createRateLimit({
   keyPrefix: "test-api",
   max: 60,
   windowMs: 60 * 1000,
@@ -19,6 +20,8 @@ const testLimiter = rateLimit({
 
 testRouter.use(testLimiter);
 testRouter.use(requireIngestOrDeviceAuth);
+testRouter.use(requireEventSignature);
+testRouter.use(requireReplayProtection);
 
 function baseBody(overrides: Record<string, unknown> = {}) {
   return {
@@ -34,7 +37,7 @@ function baseBody(overrides: Record<string, unknown> = {}) {
 testRouter.post("/event", async (req, res) => {
   const unified = normalizeUnifiedInput(
     baseBody({
-      event_id: `test-evt-${uuid()}`,
+      event_id: (req.body?.event_id as string) ?? (req.body?.eventId as string) ?? `test-evt-${uuid()}`,
       event_type: req.body?.eventType ?? "test_event",
       severity: req.body?.severity ?? "info",
       zone: req.body?.zone ?? "lab",
@@ -47,16 +50,13 @@ testRouter.post("/event", async (req, res) => {
     config.defaultTenantId
   );
 
-  const service = getNotificationService();
-  const id = await service.processEvent(unifiedToTislyEvent(unified));
-  broadcast({ type: "event", payload: { ...unified, id }, at: unified.created_at });
-  res.status(201).json({ ok: true, id, unified });
+  await ingestUnifiedEvent(unified, res, { sourceIp: req.ip });
 });
 
 testRouter.post("/alarm", async (req, res) => {
   const unified = normalizeUnifiedInput(
     baseBody({
-      event_id: `test-alarm-${uuid()}`,
+      event_id: (req.body?.event_id as string) ?? `test-alarm-${uuid()}`,
       event_type: req.body?.eventType ?? "intrusion",
       severity: req.body?.severity ?? "alarm",
       zone: req.body?.zone ?? "perimeter",
@@ -68,10 +68,7 @@ testRouter.post("/alarm", async (req, res) => {
     config.defaultTenantId
   );
 
-  const service = getNotificationService();
-  const id = await service.processEvent(unifiedToTislyEvent(unified));
-  broadcast({ type: "alarm", payload: { ...unified, id }, at: unified.created_at });
-  res.status(201).json({ ok: true, id, severity: unified.severity });
+  await ingestUnifiedEvent(unified, res, { sourceIp: req.ip });
 });
 
 testRouter.post("/heartbeat", (req, res) => {
@@ -100,7 +97,7 @@ testRouter.post("/recovery", async (req, res) => {
 testRouter.post("/tv-alert", async (req, res) => {
   const unified = normalizeUnifiedInput(
     baseBody({
-      event_id: `test-tv-${uuid()}`,
+      event_id: (req.body?.event_id as string) ?? `test-tv-${uuid()}`,
       event_type: "tv_alert",
       severity: req.body?.severity ?? "alarm",
       message: req.body?.message ?? "【TVテスト】警報オーバーレイ",
@@ -115,19 +112,12 @@ testRouter.post("/tv-alert", async (req, res) => {
     config.defaultTenantId
   );
 
-  const service = getNotificationService();
-  const id = await service.processEvent(unifiedToTislyEvent(unified));
-  broadcast({
-    type: "alarm",
-    payload: { ...unified, id, target: "tv" },
-    at: unified.created_at,
-  });
-  res.status(201).json({ ok: true, id, tvDeviceId: unified.device_id });
+  await ingestUnifiedEvent(unified, res, { sourceIp: req.ip });
 });
 
 testRouter.get("/help", (_req, res) => {
   res.json({
-    phase: "101-120",
+    phase: "181-200",
     endpoints: [
       "POST /api/test/event",
       "POST /api/test/alarm",

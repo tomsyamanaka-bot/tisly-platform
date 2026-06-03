@@ -3,6 +3,39 @@
 TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。  
 三菱電機 **FX 系** PLC と **GX Works2 / GX Works3** を想定しています。
 
+## TiSLY Platform — Production Security & Database Foundation（Phase 181–200）
+
+**Security Hardened RC1 → 本番運用基盤** — PostgreSQL 準備、ingest 冪等性、HMAC 署名、Replay 対策、Session revoke、2FA/SIEM/WAF 準備。
+
+| 領域 | パス / URL |
+|------|------------|
+| DB Provider | `DB_PROVIDER=sqlite\|postgres` · `server/src/db/db-provider.ts` |
+| PostgreSQL スキーマ | `server/src/db/postgres/` |
+| DB CLI | `npm run db:migrate` · `db:status` · `db:backup` |
+| Ingest 冪等 | `tenant+site+device+event_id` · 重複時 `200 duplicate:true` |
+| HMAC 署名 | `x-tisly-signature` · `docs/event_signature.md` |
+| Replay 対策 | `server/src/security/replay-protection.ts` |
+| Redis 準備 | `RATE_LIMIT_PROVIDER=memory\|redis` |
+| Session revoke | `GET/POST /api/auth/sessions` |
+| 2FA 準備 | `POST /api/auth/2fa/*` · `docs/two_factor_auth.md` |
+| SIEM Export | `data/siem/*.ndjson` · `docs/siem_log_format.md` |
+| WAF/nginx | `server/deploy/nginx/security-snippets.conf` |
+| TLS/OCSP | `docs/tls_ocsp_pinning.md` |
+| インシデント対応 | `docs/security_incident_response.md` |
+| PenTest | `docs/pentest_notes.md` |
+| 本番チェックリスト | `docs/production_security_checklist.md` |
+| テスト | `server/test/production-security.test.ts` |
+
+```bash
+cd server && npm run build && npm run test
+cd tv-app && npx tsc --noEmit
+# http://localhost:3080/operations — Security タブ（セッション・SIEM・DB provider）
+```
+
+**本番投入前**: `docs/production_security_checklist.md` をすべて確認。
+
+---
+
 ## TiSLY Platform — Security Hardened RC1（Phase 161–180）
 
 **営業デモ → 実証運用（安全寄り）** — 管理 API JWT 認証、device/ingest secret 検証、監査ログ強化、QNAP 保持・purge、バックアップ、レート制限。

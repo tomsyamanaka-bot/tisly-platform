@@ -4,12 +4,15 @@ import { getDatabase } from "../db/database.js";
 import { logAudit } from "../provisioning/audit-log.js";
 import { signToken, verifyToken } from "./jwt.js";
 import { verifyPassword } from "./password.js";
+import { createSession, revokeSessionByTokenId } from "./session-store.js";
+import { siemFromAudit } from "../security/siem-exporter.js";
 
 export interface AdminSession {
   userId: string;
   username: string;
   role: string;
   token: string;
+  tokenId?: string;
 }
 
 export function isAuthConfigured(): boolean {
@@ -29,7 +32,13 @@ export function loginAdmin(
   }
   clearFailedLogins(username);
   const userId = "admin-default";
-  const token = signToken({ sub: userId, username, role: "admin" });
+  const { token, jti } = signToken({ sub: userId, username, role: "admin" });
+  createSession({
+    userId,
+    tokenId: jti,
+    ipAddress: meta?.ip,
+    userAgent: meta?.userAgent,
+  });
   logAudit({
     userId,
     actorLabel: username,
@@ -40,7 +49,13 @@ export function loginAdmin(
     userAgent: meta?.userAgent,
     details: { success: true },
   });
-  return { userId, username, role: "admin", token };
+  siemFromAudit({
+    action: "auth.login",
+    userId,
+    sourceIp: meta?.ip,
+    message: `Admin login: ${username}`,
+  });
+  return { userId, username, role: "admin", token, tokenId: jti };
 }
 
 export function resolveSession(token: string | undefined): AdminSession | null {
@@ -52,6 +67,7 @@ export function resolveSession(token: string | undefined): AdminSession | null {
     username: payload.username,
     role: payload.role,
     token,
+    tokenId: payload.jti,
   };
 }
 
@@ -121,8 +137,9 @@ export function getIngestErrorCount(): number {
 
 export function logoutAdmin(
   userId: string,
-  meta?: { ip?: string; userAgent?: string }
+  meta?: { ip?: string; userAgent?: string; tokenId?: string }
 ): void {
+  revokeSessionByTokenId(meta?.tokenId);
   logAudit({
     userId,
     action: "auth.logout",

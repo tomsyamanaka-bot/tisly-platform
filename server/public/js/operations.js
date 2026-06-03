@@ -262,11 +262,13 @@ async function loadSecurity() {
   const statusEl = document.getElementById("security-auth-status");
   const grid = document.getElementById("security-grid");
   const auditEl = document.getElementById("security-audit-body");
+  const sessionsEl = document.getElementById("security-sessions-body");
   const token = getAdminToken();
   if (!token) {
     if (statusEl) statusEl.textContent = "未ログイン — 管理 API は認証が必要です";
     if (grid) grid.innerHTML = "";
     if (auditEl) auditEl.innerHTML = "<tr><td colspan='4'>ログイン後に表示</td></tr>";
+    if (sessionsEl) sessionsEl.innerHTML = "<tr><td colspan='4'>ログイン後に表示</td></tr>";
     return;
   }
   try {
@@ -279,9 +281,24 @@ async function loadSecurity() {
     if (grid) {
       grid.innerHTML = `
         <div class="health-card"><h3>認証</h3><p>${data.auth?.configured ? "OK" : "未設定"}</p><p>失敗ログイン: ${data.auth?.failedLoginCount ?? 0}</p></div>
+        <div class="health-card"><h3>セッション</h3><p>アクティブ: ${data.sessions?.length ?? 0}</p></div>
+        <div class="health-card"><h3>Rate Limit</h3><p>${data.rateLimit?.provider ?? "memory"}</p></div>
+        <div class="health-card"><h3>DB Provider</h3><p>${data.dbProvider?.provider ?? "sqlite"}</p></div>
+        <div class="health-card"><h3>Ingest 重複</h3><p>${data.ingestDuplicates ?? 0}</p></div>
+        <div class="health-card"><h3>署名エラー</h3><p>${data.signatureErrors ?? 0}</p></div>
+        <div class="health-card"><h3>Replay 拒否</h3><p>${data.replayBlocked ?? 0}</p></div>
+        <div class="health-card"><h3>SIEM Export</h3><p>${data.siemExport?.enabled ? "有効" : "無効"} (${data.siemExport?.exportCount ?? 0})</p></div>
         <div class="health-card"><h3>Device Secrets</h3><p>有効: ${data.deviceSecrets?.active ?? 0}</p><p>Ingest: ${data.deviceSecrets?.ingestConfigured ? "設定済" : "未設定"}</p></div>
         <div class="health-card"><h3>TV</h3><p>ペアリング中: ${data.tvPairing?.pairing ?? 0}</p><p>無効化: ${data.tvPairing?.revoked ?? 0}</p></div>
         <div class="health-card"><h3>Ingest エラー</h3><p>${data.ingestErrors ?? 0}</p></div>`;
+    }
+    if (sessionsEl) {
+      sessionsEl.innerHTML = (data.sessions ?? [])
+        .map(
+          (s) =>
+            `<tr><td>${s.id.slice(0, 8)}…</td><td>${s.ipAddress ?? "—"}</td><td>${s.createdAt}</td><td>${s.expiresAt}</td></tr>`
+        )
+        .join("") || "<tr><td colspan='4'>アクティブセッションなし</td></tr>";
     }
     if (auditEl) {
       auditEl.innerHTML = (data.auditLogSample ?? [])
