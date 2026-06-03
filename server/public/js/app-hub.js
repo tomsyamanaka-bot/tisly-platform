@@ -33,6 +33,19 @@ async function loadHubApps() {
         </a>`
     )
     .join("");
+  const wf = document.getElementById("hub-workflow-grid");
+  if (wf && data.workflows?.length) {
+    wf.hidden = false;
+    wf.innerHTML = data.workflows
+      .map(
+        (w) =>
+          `<a class="hub-workflow-card" href="${w.href}">
+            <div class="label">${w.label}${w.count != null ? ` (${w.count})` : ""}</div>
+            <div class="desc">${w.description}</div>
+          </a>`
+      )
+      .join("");
+  }
 }
 
 document.getElementById("btn-hub-login")?.addEventListener("click", async () => {

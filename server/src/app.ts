@@ -52,6 +52,7 @@ import { pwaHubRouter } from "./api/routes/pwa-hub.js";
 import { surveyRouter } from "./api/routes/survey.js";
 import { maintenanceProductionRouter } from "./api/routes/maintenance-production.js";
 import { proRemoteFloorMapRouter } from "./api/routes/pro-remote-floor-map.js";
+import { buildSurveyReportHtml } from "./survey/survey-report.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(__dirname, "..", "public");
@@ -167,6 +168,14 @@ export function createApp(): express.Application {
   });
   app.get("/survey", (_req, res) => {
     res.sendFile(path.join(publicDir, "survey.html"));
+  });
+  app.get("/survey/:projectId/report", (req, res) => {
+    try {
+      const html = buildSurveyReportHtml(String(req.params.projectId));
+      res.type("html").send(html);
+    } catch {
+      res.status(404).send("Report not found");
+    }
   });
   app.get("/maintenance", (_req, res) => {
     res.sendFile(path.join(publicDir, "maintenance.html"));

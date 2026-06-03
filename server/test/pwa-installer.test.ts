@@ -77,7 +77,7 @@ describe("Phase 441-460 installer PWA app shell", () => {
     const res = await request(app).get("/survey");
     assert.equal(res.status, 200);
     assert.ok(res.text.includes("現調 Survey"));
-    assert.ok(res.text.includes("AI見積候補"));
+    assert.ok(res.text.includes("見積候補"));
     assert.ok(res.text.includes("案件管理"));
   });
 

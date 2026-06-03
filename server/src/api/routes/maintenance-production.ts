@@ -13,6 +13,7 @@ import {
   listRecoveryHistoryForCustomer,
 } from "../../maintenance/maintenance-store.js";
 import { listShellyDevices, rebootShellyDevice } from "../../maintenance/shelly-manager.js";
+import { createMaintenanceFromSurvey } from "../../survey/survey-maintenance-bridge.js";
 
 export const maintenanceProductionRouter = Router();
 
@@ -33,6 +34,20 @@ function resolveCustomerCode(req: AuthedRequest, code: string) {
   if (req.admin && !canAccessCustomer(req.admin, customer.customer_id)) return null;
   return customer;
 }
+
+maintenanceProductionRouter.post(
+  "/from-survey/:projectId",
+  ...maintAuth,
+  (req: AuthedRequest, res) => {
+    if (!assertMaintenanceRole(req, res)) return;
+    try {
+      const result = createMaintenanceFromSurvey(String(req.params.projectId));
+      res.status(201).json(result);
+    } catch (e) {
+      res.status(404).json({ error: String(e) });
+    }
+  }
+);
 
 maintenanceProductionRouter.get("/cases", ...maintAuth, (req: AuthedRequest, res) => {
   if (!assertMaintenanceRole(req, res)) return;

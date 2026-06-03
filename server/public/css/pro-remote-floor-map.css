@@ -69,6 +69,51 @@
   text-align: center;
 }
 
+.floor-map-layer-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.floor-map-name-input {
+  flex: 1;
+  min-width: 120px;
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #4c1d95;
+  background: #0f172a;
+  color: #e2e8f0;
+  font-size: 0.85rem;
+}
+
+.floor-map-zoom-bar {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.floor-map-zoom-bar button {
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid #6366f1;
+  background: #312e81;
+  color: #e0e7ff;
+  cursor: pointer;
+}
+
+.floor-map-zoom-inner {
+  transform-origin: center center;
+  transition: transform 0.15s ease;
+  width: 100%;
+}
+
+.floor-map-svg-hint {
+  font-size: 0.75rem;
+  margin: 0 0 0.5rem;
+  color: #94a3b8;
+}
+
 .floor-map-overlay {
   position: absolute;
   inset: 0;

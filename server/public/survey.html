@@ -17,8 +17,8 @@
   <div id="tisly-pwa-topbar-root"></div>
   <header class="survey-page-header">
     <h1>現調 Survey</h1>
-    <p class="hint">Phase 481–500 — 案件・写真・図面・チェックリスト・AI見積</p>
-    <p class="survey-project-badge">案件: <span id="survey-project-id">未作成</span></p>
+    <p class="hint">Phase 501–520 — AI Intake · 図面OCR · 同期 · PRO Map</p>
+    <p class="survey-project-badge">案件: <span id="survey-project-id">未作成</span> <span id="survey-offline-badge" class="offline-badge"></span></p>
   </header>
   <main class="survey-sections">
     <section class="survey-card" data-section="case">
@@ -57,6 +57,28 @@
       <h2>ネット回線写真</h2>
       <input type="file" accept="image/*" id="survey-network" />
     </section>
+    <section class="survey-card" data-section="electrical">
+      <h2>電気設備</h2>
+      <input type="file" accept="image/*" id="survey-electrical" />
+    </section>
+    <section class="survey-card" data-section="camera">
+      <h2>カメラ設置候補</h2>
+      <input type="file" accept="image/*" capture="environment" id="survey-camera" />
+    </section>
+    <section class="survey-card" data-section="sensor">
+      <h2>センサー候補</h2>
+      <input type="file" accept="image/*" id="survey-sensor" />
+    </section>
+    <section class="survey-card" data-section="route">
+      <h2>配線経路</h2>
+      <input type="file" accept="image/*" id="survey-route" />
+    </section>
+    <section class="survey-card" data-section="photos">
+      <h2>写真分類</h2>
+      <p class="hint">アップロード後、種別を変更できます</p>
+      <ul id="survey-photo-list" class="survey-photo-list"></ul>
+      <button type="button" class="btn-survey secondary" id="btn-survey-sync">オフライン同期</button>
+    </section>
     <section class="survey-card" data-section="checklist">
       <h2>現調チェックリスト</h2>
       <label><input type="checkbox" data-check-key="line" data-check-label="回線" /> 回線</label>
@@ -74,10 +96,14 @@
     <section class="survey-card" data-section="memo">
       <h2>メモ</h2>
       <textarea id="survey-memo" rows="4" placeholder="現調メモ"></textarea>
+      <button type="button" class="btn-survey secondary" id="btn-survey-memo">メモ保存</button>
     </section>
     <section class="survey-card" data-section="ai">
-      <h2>AI見積候補</h2>
-      <button type="button" class="btn-survey" id="btn-survey-ai">見積候補を生成</button>
+      <h2>AI Intake / 見積候補</h2>
+      <button type="button" class="btn-survey" id="btn-survey-ai-intake">AI Intake 実行</button>
+      <button type="button" class="btn-survey" id="btn-survey-ai">見積候補 v2</button>
+      <button type="button" class="btn-survey secondary" id="btn-survey-floor-map">PRO Floor Map 生成</button>
+      <button type="button" class="btn-survey secondary" id="btn-survey-report">HTMLレポート</button>
       <div id="survey-ai-result" class="survey-ai-result"></div>
     </section>
   </main>

@@ -365,6 +365,7 @@ function migratePhase421(database: Database.Database): void {
   migrateCustomerUsersPwaRoles461(database);
   seedPwaRoleDemoUsers(database);
   migratePhase481(database);
+  migratePhase501(database);
 }
 
 function migratePhase481(database: Database.Database): void {
@@ -494,6 +495,58 @@ function migratePhase481(database: Database.Database): void {
       `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
     )
     .run("migration:phase481_survey_maintenance_floor", JSON.stringify({ at: new Date().toISOString() }));
+}
+
+function migratePhase501(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:phase501_survey_ai_sync") as { value_json: string } | undefined;
+  if (marker) return;
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS survey_ai_intakes (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      input_json TEXT,
+      result_json TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES survey_projects(project_id) ON DELETE CASCADE
+    );
+  `);
+  database.exec(
+    "CREATE INDEX IF NOT EXISTS idx_survey_ai_intakes_project ON survey_ai_intakes(project_id)"
+  );
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS survey_drawing_ocr (
+      id TEXT PRIMARY KEY,
+      drawing_id TEXT NOT NULL,
+      result_json TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (drawing_id) REFERENCES survey_drawings(id) ON DELETE CASCADE
+    );
+  `);
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS survey_project_notes (
+      project_id TEXT PRIMARY KEY,
+      notes TEXT NOT NULL DEFAULT '',
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES survey_projects(project_id) ON DELETE CASCADE
+    );
+  `);
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS survey_floor_map_links (
+      project_id TEXT PRIMARY KEY,
+      customer_code TEXT NOT NULL,
+      linked_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES survey_projects(project_id) ON DELETE CASCADE
+    );
+  `);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:phase501_survey_ai_sync", JSON.stringify({ at: new Date().toISOString() }));
 }
 
 function migrateCustomerUsersPwaRoles461(database: Database.Database): void {

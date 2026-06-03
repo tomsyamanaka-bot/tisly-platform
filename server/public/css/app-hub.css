@@ -84,3 +84,32 @@
   font-size: 0.65rem;
   color: #a78bfa;
 }
+.hub-workflows-title {
+  font-size: 0.95rem;
+  color: #8b949e;
+  margin: 1rem 0 0.5rem;
+}
+.hub-workflow-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin-bottom: 1rem;
+}
+.hub-workflow-card {
+  display: block;
+  padding: 10px 12px;
+  background: #1c2128;
+  border: 1px dashed #30363d;
+  border-radius: 8px;
+  text-decoration: none;
+  color: #e6edf3;
+}
+.hub-workflow-card .label {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.hub-workflow-card .desc {
+  font-size: 0.72rem;
+  color: #8b949e;
+  margin-top: 4px;
+}

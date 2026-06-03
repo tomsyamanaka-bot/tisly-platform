@@ -226,6 +226,39 @@ export function deleteProMapPin(pinId: string): boolean {
   return r.changes > 0;
 }
 
+export function moveProMapPin(pinId: string, posX: number, posY: number): ProMapPinView | null {
+  const row = getDatabase()
+    .prepare(`SELECT layer_id, pin_type, label, device_id FROM pro_map_pins WHERE id = ?`)
+    .get(pinId) as
+    | { layer_id: string; pin_type: string; label: string | null; device_id: string | null }
+    | undefined;
+  if (!row) return null;
+  const layer = getDatabase()
+    .prepare(`SELECT customer_id FROM pro_floor_layers WHERE id = ?`)
+    .get(row.layer_id) as { customer_id: string } | undefined;
+  if (!layer) return null;
+  const status = pinStatusFromDevice(row.device_id, layer.customer_id);
+  getDatabase()
+    .prepare(`UPDATE pro_map_pins SET pos_x = ?, pos_y = ?, updated_at = datetime('now') WHERE id = ?`)
+    .run(posX, posY, pinId);
+  return {
+    id: pinId,
+    pinType: row.pin_type,
+    label: row.label,
+    posX,
+    posY,
+    deviceId: row.device_id,
+    status,
+  };
+}
+
+export function updateProFloorLayerDisplayName(layerId: string, displayName: string): boolean {
+  const r = getDatabase()
+    .prepare(`UPDATE pro_floor_layers SET display_name = ?, updated_at = datetime('now') WHERE id = ?`)
+    .run(displayName.trim(), layerId);
+  return r.changes > 0;
+}
+
 export function findAlertFloorTier(customerCode: string): {
   tier: string | null;
   layerId: string | null;

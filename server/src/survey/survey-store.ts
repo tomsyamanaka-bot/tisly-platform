@@ -6,12 +6,14 @@ import { getDatabase } from "../db/database.js";
 export const SURVEY_PHOTO_TYPES = [
   "outside",
   "inside",
-  "network",
+  "drawing",
+  "aerial",
   "electrical",
+  "network",
   "panel",
   "camera",
   "sensor",
-  "drawing",
+  "route",
   "other",
 ] as const;
 
@@ -332,6 +334,39 @@ export function saveSurveyChecklist(projectId: string, checklist: Record<string,
     .run(projectId, json);
 }
 
+export function getSurveyProjectNotes(projectId: string): string | null {
+  const row = getDatabase()
+    .prepare(`SELECT notes FROM survey_project_notes WHERE project_id = ?`)
+    .get(projectId) as { notes: string } | undefined;
+  return row?.notes ?? null;
+}
+
+export function updateSurveyPhotoType(photoId: string, photoType: string): boolean {
+  if (!isValidSurveyPhotoType(photoType)) return false;
+  const r = getDatabase()
+    .prepare(`UPDATE survey_photos SET photo_type = ? WHERE id = ?`)
+    .run(photoType, photoId);
+  return r.changes > 0;
+}
+
+export function getLatestAiEstimate(projectId: string): {
+  id: string;
+  recommended: Record<string, unknown>;
+} | null {
+  const row = getDatabase()
+    .prepare(
+      `SELECT id, result_json FROM survey_ai_estimates WHERE project_id = ? ORDER BY created_at DESC LIMIT 1`
+    )
+    .get(projectId) as { id: string; result_json: string } | undefined;
+  if (!row) return null;
+  try {
+    const parsed = JSON.parse(row.result_json) as { recommended?: Record<string, unknown> };
+    return { id: row.id, recommended: parsed.recommended ?? parsed };
+  } catch {
+    return null;
+  }
+}
+
 export function createAiEstimatePlaceholder(projectId: string): {
   id: string;
   recommended: Record<string, unknown>;
@@ -345,30 +380,48 @@ export function createAiEstimatePlaceholder(projectId: string): {
   ).length;
   const diffNoteLen =
     (checklist.install_difficulty as { note?: string } | undefined)?.note?.length ?? 0;
-  const difficulty = diffNoteLen > 20 ? "high" : checked >= 6 ? "medium" : "low";
-  const result = {
+  const difficultyScore = diffNoteLen > 40 ? 8 : diffNoteLen > 20 ? 6 : checked >= 6 ? 4 : 3;
+  const sensorPhotos = photos.filter((p) => p.photoType === "sensor");
+  const cameraPhotos = photos.filter((p) => p.photoType === "camera");
+  const panelPhotos = photos.filter((p) => p.photoType === "panel" || p.photoType === "electrical");
+
+  const recommended = {
+    kind: "survey_candidate",
     placeholder: true,
-    phase: "481-500",
+    phase: "501-520",
+    espCount: Math.max(1, Math.ceil(sensorPhotos.length / 2) + 1),
+    sensors: [
+      { type: "pir", qty: Math.max(2, sensorPhotos.length + 1) },
+      { type: "door", qty: 2 },
+      { type: "beam", qty: drawings.length > 0 ? 2 : 1 },
+    ],
+    cameras: [
+      { type: "outdoor", qty: Math.max(1, cameraPhotos.length) },
+      { type: "indoor", qty: Math.max(1, Math.floor(photos.filter((p) => p.photoType === "inside").length / 3)) },
+    ],
+    lights: [{ type: "shelly_dimmer", qty: Math.max(1, panelPhotos.length) }],
+    shelly: [{ type: "plus_1pm", qty: Math.max(1, panelPhotos.length) }],
+    estimatedWorkDays: Math.max(1, Math.ceil((photos.length + drawings.length) / 8)),
+    difficultyScore,
+    estimatedCostJpy: 180000 + photos.length * 12000 + drawings.length * 25000,
+    estimatedSellJpy: 320000 + photos.length * 22000 + drawings.length * 45000,
+    cautions: [
+      checked < 5 ? "チェックリスト未完了 — 再現調推奨" : null,
+      panelPhotos.length === 0 ? "分電盤写真なし — 電源設計要確認" : null,
+    ].filter(Boolean),
     inputSummary: {
       photoCount: photos.length,
       drawingCount: drawings.length,
       checklistItemsChecked: checked,
     },
-    recommended: {
-      espCount: Math.max(1, Math.ceil(photos.filter((p) => p.photoType === "sensor").length / 2)),
-      sensorCount: Math.max(2, photos.filter((p) => p.photoType === "sensor").length + 2),
-      cameraCount: Math.max(1, photos.filter((p) => p.photoType === "camera").length),
-      estimatedCostJpy: 180000 + photos.length * 12000,
-      estimatedSellJpy: 320000 + photos.length * 22000,
-      difficulty,
-      configuration: "TiSLY Standard + field sensors",
-    },
   };
+
+  const result = { placeholder: true, phase: "501-520", recommended };
   const id = uuid();
   getDatabase()
     .prepare(`INSERT INTO survey_ai_estimates (id, project_id, result_json) VALUES (?, ?, ?)`)
     .run(id, projectId, JSON.stringify(result));
-  return { id, recommended: result.recommended };
+  return { id, recommended };
 }
 
 export function linkDrawingToProFloor(drawingId: string, proFloorId: string): boolean {

@@ -17,7 +17,14 @@ import {
   createAiEstimatePlaceholder,
   importSurveyDrawingToProLayer,
   isValidSurveyPhotoType,
+  updateSurveyPhotoType,
+  SURVEY_PHOTO_TYPES,
 } from "../../survey/survey-store.js";
+import { runSurveyAiIntake } from "../../survey/ai-intake.js";
+import { runDrawingOcr } from "../../survey/drawing-ocr.js";
+import { processSurveySync } from "../../survey/survey-sync.js";
+import { generateFloorMapFromSurvey } from "../../survey/survey-to-pro-map.js";
+import { buildSurveyReportHtml } from "../../survey/survey-report.js";
 
 export const surveyRouter = Router();
 
@@ -108,7 +115,7 @@ surveyRouter.post("/projects/:projectId/photos", ...surveyAuth, (req: AuthedRequ
     return;
   }
   if (!isValidSurveyPhotoType(body.photoType)) {
-    res.status(400).json({ error: "Invalid photoType", allowed: ["outside", "inside", "network", "etc."] });
+    res.status(400).json({ error: "Invalid photoType", allowed: SURVEY_PHOTO_TYPES });
     return;
   }
   try {
@@ -125,9 +132,23 @@ surveyRouter.post("/projects/:projectId/photos", ...surveyAuth, (req: AuthedRequ
   }
 });
 
+surveyRouter.patch("/photos/:photoId", ...surveyAuth, (req: AuthedRequest, res) => {
+  if (!assertSurveyRole(req, res)) return;
+  const photoType = (req.body as { photoType?: string }).photoType;
+  if (!photoType || !isValidSurveyPhotoType(photoType)) {
+    res.status(400).json({ error: "Valid photoType required", allowed: SURVEY_PHOTO_TYPES });
+    return;
+  }
+  if (!updateSurveyPhotoType(String(req.params.photoId), photoType)) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  res.json({ ok: true, photoType });
+});
+
 surveyRouter.get("/projects/:projectId/photos", ...surveyAuth, (req: AuthedRequest, res) => {
   if (!assertSurveyRole(req, res)) return;
-  res.json({ photos: listSurveyPhotos(String(req.params.projectId)) });
+  res.json({ photos: listSurveyPhotos(String(req.params.projectId)), photoTypes: SURVEY_PHOTO_TYPES });
 });
 
 surveyRouter.post("/drawing", ...surveyAuth, (req: AuthedRequest, res) => {
@@ -153,6 +174,16 @@ surveyRouter.post("/drawing", ...surveyAuth, (req: AuthedRequest, res) => {
     res.status(201).json(saved);
   } catch (e) {
     res.status(400).json({ error: String(e) });
+  }
+});
+
+surveyRouter.post("/drawing/:drawingId/ocr", ...surveyAuth, (req: AuthedRequest, res) => {
+  if (!assertSurveyRole(req, res)) return;
+  try {
+    const result = runDrawingOcr(String(req.params.drawingId));
+    res.json(result);
+  } catch (e) {
+    res.status(404).json({ error: String(e) });
   }
 });
 
@@ -195,11 +226,63 @@ surveyRouter.put("/projects/:projectId/checklist", ...surveyAuth, (req: AuthedRe
   }
 });
 
+surveyRouter.post("/projects/:projectId/ai/intake", ...surveyAuth, (req: AuthedRequest, res) => {
+  if (!assertSurveyRole(req, res)) return;
+  const body = req.body as { notes?: string; gps?: { lat?: number; lng?: number } };
+  try {
+    const result = runSurveyAiIntake(String(req.params.projectId), {
+      notes: body.notes,
+      gps: body.gps,
+    });
+    res.status(201).json(result);
+  } catch (e) {
+    res.status(404).json({ error: String(e) });
+  }
+});
+
 surveyRouter.post("/projects/:projectId/ai-estimate", ...surveyAuth, (req: AuthedRequest, res) => {
   if (!assertSurveyRole(req, res)) return;
   try {
     const result = createAiEstimatePlaceholder(String(req.params.projectId));
     res.status(201).json(result);
+  } catch (e) {
+    res.status(404).json({ error: String(e) });
+  }
+});
+
+surveyRouter.post("/projects/:projectId/generate-floor-map", ...surveyAuth, (req: AuthedRequest, res) => {
+  if (!assertSurveyRole(req, res)) return;
+  try {
+    const result = generateFloorMapFromSurvey(String(req.params.projectId));
+    res.status(201).json(result);
+  } catch (e) {
+    res.status(400).json({ error: String(e) });
+  }
+});
+
+surveyRouter.post("/sync", ...surveyAuth, (req: AuthedRequest, res) => {
+  if (!assertSurveyRole(req, res)) return;
+  const body = req.body as { projectId?: string; items?: unknown[] };
+  if (!body.projectId || !Array.isArray(body.items)) {
+    res.status(400).json({ error: "projectId and items[] required" });
+    return;
+  }
+  try {
+    const result = processSurveySync(
+      { projectId: body.projectId, items: body.items as Parameters<typeof processSurveySync>[0]["items"] },
+      req.admin?.username
+    );
+    res.json(result);
+  } catch (e) {
+    res.status(404).json({ error: String(e) });
+  }
+});
+
+surveyRouter.get("/projects/:projectId/report.html", ...surveyAuth, (req: AuthedRequest, res) => {
+  if (!assertSurveyRole(req, res)) return;
+  try {
+    const html = buildSurveyReportHtml(String(req.params.projectId));
+    res.type("html").send(html);
   } catch (e) {
     res.status(404).json({ error: String(e) });
   }
