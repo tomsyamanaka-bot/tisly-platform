@@ -374,6 +374,68 @@ function migratePhase421(database: Database.Database): void {
   migratePhase661(database);
   migratePhase701(database);
   migratePhase741(database);
+  migratePhase781(database);
+}
+
+function migratePhase781(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:phase781_production_reliability") as { value_json: string } | undefined;
+  if (marker) return;
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS gmail_send_dlq (
+      id TEXT PRIMARY KEY,
+      project_id TEXT,
+      queue_id TEXT,
+      to_address TEXT NOT NULL,
+      subject TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'dead_letter',
+      attempt_count INTEGER NOT NULL DEFAULT 0,
+      last_error TEXT,
+      payload_json TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES business_projects(id) ON DELETE SET NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_gmail_send_dlq_created
+      ON gmail_send_dlq(created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS qnap_upload_manifest (
+      project_id TEXT NOT NULL,
+      remote_path TEXT NOT NULL,
+      local_path TEXT NOT NULL,
+      checksum TEXT NOT NULL,
+      size INTEGER NOT NULL,
+      modified_at TEXT NOT NULL,
+      updated_at TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY (project_id, remote_path),
+      FOREIGN KEY (project_id) REFERENCES business_projects(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS pro_operations (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      action TEXT NOT NULL,
+      tier TEXT,
+      pin_id TEXT,
+      notification_id TEXT,
+      actor TEXT DEFAULT 'remote',
+      payload_json TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES business_projects(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_pro_operations_project
+      ON pro_operations(project_id, created_at DESC);
+  `);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run(
+      "migration:phase781_production_reliability",
+      JSON.stringify({ at: new Date().toISOString() })
+    );
 }
 
 function migratePhase621(database: Database.Database): void {

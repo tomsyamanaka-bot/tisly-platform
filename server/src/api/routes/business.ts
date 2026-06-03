@@ -1247,6 +1247,34 @@ businessRouter.delete("/integration-logs/purge", ...businessAuth, (req: AuthedRe
   res.json(purgeIntegrationLogsOlderThan(days));
 });
 
+businessRouter.get("/gmail/dlq", ...businessAuth, async (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  const { listGmailDlq } = await import("../../business/gmail-dlq.js");
+  const projectId = req.query.projectId ? String(req.query.projectId) : undefined;
+  res.json({
+    items: listGmailDlq({
+      projectId,
+      limit: Number(req.query.limit ?? 50),
+    }),
+  });
+});
+
+businessRouter.post("/qnap/sync-diff", ...businessAuth, async (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  const body = req.body as {
+    projectId?: string;
+    files?: Array<{ localPath: string; remotePath: string }>;
+  };
+  const projectId = body.projectId ? String(body.projectId) : "";
+  if (!projectId || !getBusinessProject(projectId)) {
+    res.status(400).json({ error: "projectId required" });
+    return;
+  }
+  const { syncQnapDiff } = await import("../../business/qnap-diff-sync.js");
+  const files = body.files ?? [];
+  res.json(await syncQnapDiff(projectId, files));
+});
+
 businessRouter.get("/notifications/alerts", ...businessAuth, (req: AuthedRequest, res) => {
   if (!assertBusinessRole(req, res)) return;
   res.json({ alerts: collectBusinessAlerts() });

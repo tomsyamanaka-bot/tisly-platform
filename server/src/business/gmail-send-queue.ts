@@ -3,6 +3,8 @@ import { getDatabase } from "../db/database.js";
 import { appendProjectTimeline } from "../toms/project-timeline.js";
 import { pushProjectTimelineLive } from "../toms/live-push-bridge.js";
 import { getGoogleOAuthStatus } from "../services/googleOAuthService.js";
+import { enqueueGmailDeadLetter } from "./gmail-dlq.js";
+import { logBusinessIntegration } from "./business-integration-log.js";
 
 export type GmailQueueStatus = "pending" | "retrying" | "sent" | "failed";
 
@@ -134,9 +136,36 @@ export function processGmailQueueItem(id: string): GmailSendQueueItem | null {
 
   const oauth = getGoogleOAuthStatus();
   const mockOnly = item.sendMode === "mockOnly" || oauth.mode === "mock" || !oauth.connected;
-  const ok = mockOnly || attempts >= 2;
-  const finalStatus: GmailQueueStatus = ok ? "sent" : "failed";
-  const lastError = ok ? null : "OAuth not connected or real send blocked";
+  const maxAttempts = Number(process.env.GMAIL_QUEUE_MAX_ATTEMPTS ?? 3);
+  const finalStatus: GmailQueueStatus = mockOnly
+    ? "sent"
+    : attempts >= maxAttempts
+      ? "failed"
+      : "retrying";
+  const lastError = mockOnly ? null : "OAuth not connected or real send blocked";
+
+  if (finalStatus === "retrying") {
+    logBusinessIntegration({
+      projectId: item.projectId,
+      type: "gmail",
+      provider: "google",
+      status: "error",
+      request: { op: "retry", queueId: id, attempt: attempts },
+      errorMessage: lastError ?? "retry scheduled",
+    });
+  }
+
+  if (finalStatus === "failed") {
+    enqueueGmailDeadLetter({
+      projectId: item.projectId,
+      queueId: id,
+      toAddress: item.toAddress,
+      subject: item.subject,
+      attemptCount: attempts,
+      lastError: lastError ?? undefined,
+      payload: { sendMode: item.sendMode },
+    });
+  }
 
   getDatabase()
     .prepare(

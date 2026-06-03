@@ -47,10 +47,12 @@ import {
   getIntegrationRetryLog,
 } from "../../business/integration-retry-queue.js";
 import { saveAiEstimateFeedback, listAiEstimateFeedback } from "../../toms/ai-estimate-feedback.js";
+import { runAiFeedbackWeeklyBatch } from "../../toms/ai-feedback-weekly-batch.js";
 import { getWsClientCount } from "../../ws/hub.js";
 import { buildLiveConnectionStatus } from "../../toms/live-connection-status.js";
 import {
   isLiveOpsMockPushEnabled,
+  getMqttBridgeCertStatus,
   isMqttMockMode,
   listMqttBridgeLogs,
 } from "../../toms/mqtt-live-push-bridge.js";
@@ -118,7 +120,7 @@ tomsRouter.get("/live/connection-status", (_req, res) => {
 });
 
 tomsRouter.get("/live/mqtt-logs", (_req, res) => {
-  res.json({ logs: listMqttBridgeLogs(50) });
+  res.json({ logs: listMqttBridgeLogs(50), certStatus: getMqttBridgeCertStatus() });
 });
 
 tomsRouter.post("/live/mock-push/stop", (_req, res) => {
@@ -143,6 +145,10 @@ tomsRouter.get("/ai-feedback/learning", (req, res) => {
     stats: aggregateAiFeedbackLearning(projectId),
     hints: buildAiLearningCandidateHints(projectId),
   });
+});
+
+tomsRouter.get("/ai-feedback/weekly-batch", (_req, res) => {
+  res.json(runAiFeedbackWeeklyBatch());
 });
 
 tomsRouter.get("/gmail-send-queue", (_req, res) => {

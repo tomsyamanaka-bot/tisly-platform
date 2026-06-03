@@ -1,4 +1,5 @@
 import { apiGet, getAdminToken } from "./api.js";
+import { loadConnectionBadges } from "./connection-badges.js";
 import { loadInstallerI18n, setInstallerLocale, applyInstallerI18n, t, getLocale } from "./installer-i18n.js";
 
 const pathMatch = location.pathname.match(/\/customer\/([^/]+)/i);
@@ -24,6 +25,8 @@ const NEXT_STEP_LABELS = {
 };
 
 document.getElementById("install-code").textContent = customerCode;
+loadConnectionBadges("tisly-installer-badges").catch(() => {});
+setInterval(() => loadConnectionBadges("tisly-installer-badges").catch(() => {}), 30000);
 document.getElementById("link-map").href = `/customer/${customerCode}/map`;
 document.getElementById("link-portal").href = `/customer/${customerCode}`;
 document.getElementById("link-home")?.setAttribute("href", `/customer/${customerCode}/install/home`);

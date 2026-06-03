@@ -3,6 +3,28 @@
 TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。  
 三菱電機 **FX 系** PLC と **GX Works2 / GX Works3** を想定しています。
 
+## TiSLY Platform — Production Real Connection & Reliability（Phase 781–820）
+
+**MQTT TLS · Gmail DLQ · QNAP差分同期 · AI週次バッチ · WS再接続 · PDF回帰 · 共通状態バッジ**
+
+| 領域 | パス / API |
+|------|------------|
+| MQTT TLS | `MQTT_TLS_ENABLED` · `docs/mqtt_tls_client_cert.md` |
+| Gmail DLQ | `GET /api/business/gmail/dlq` |
+| QNAP diff | `POST /api/business/qnap/sync-diff` |
+| AI weekly | `GET /api/toms/ai-feedback/weekly-batch` |
+| PRO WS | `docs/pro_remote_ws_reliability.md` · `pro_operations` |
+| PDF regression | `docs/pdf_regression_pixelmatch.md` |
+| 状態バッジ | `connection-badges.js` · Installer / Hub / Business |
+| テスト | `server/test/business-phase781.test.ts` |
+| ドキュメント | `docs/phase781_820_status.md` |
+
+```bash
+cd server && npm run build && npx tsc --noEmit && npm run test
+```
+
+---
+
 ## TiSLY Platform — Real Connection & Operator Polish（Phase 741–780）
 
 **MQTT 実接続 · Gmail retry worker · QNAP WebDAV · AI学習 · オフライン司令塔 · 双方向 WS · KPI CSV**

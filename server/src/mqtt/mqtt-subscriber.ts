@@ -5,6 +5,7 @@ import { recordHeartbeat } from "../notification/heartbeat-monitor.js";
 import { getNotificationService } from "../notification/notification-service.js";
 import { broadcast } from "../ws/hub.js";
 import { getMqttSubscriberConfig } from "./mqtt-config.js";
+import { buildMqttConnectOptions, mqttUrlWithTls, getMqttTlsStatus } from "./mqtt-tls.js";
 import { mqttPayloadToUnified, parseMqttTopic } from "./topic-router.js";
 import {
   isMqttMockMode,
@@ -30,12 +31,20 @@ export function startMqttSubscriber(): void {
     return;
   }
 
-  client = mqtt.connect(cfg.url, {
-    clientId: cfg.clientId,
-    username: cfg.username || undefined,
-    password: cfg.password || undefined,
-    reconnectPeriod: 5000,
-  });
+  const connectUrl = mqttUrlWithTls(cfg.url, cfg.mockMode);
+  const connectOpts = buildMqttConnectOptions(
+    {
+      clientId: cfg.clientId,
+      username: cfg.username,
+      password: cfg.password,
+    },
+    cfg.mockMode
+  );
+  const tlsStatus = getMqttTlsStatus(cfg.mockMode);
+  if (tlsStatus.ready) {
+    console.log("[MQTT] connecting with TLS client certificates");
+  }
+  client = mqtt.connect(connectUrl, connectOpts);
 
   client.on("connect", () => {
     console.log(`[MQTT] connected ${cfg.url}`);

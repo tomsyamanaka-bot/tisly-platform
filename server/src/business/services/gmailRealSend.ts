@@ -134,7 +134,7 @@ export async function sendGmailRealWithDraft(
       ...logBase,
       provider: "mock",
       status: "skipped",
-      response: { note: "mock mode — no delivery" },
+      response: { note: "mock mode — no delivery", guard: "mock" },
     });
     return { processedMode: "mock", status: "skipped", message: "Mock: メールは送信されません" };
   }
@@ -197,6 +197,7 @@ export async function sendGmailRealWithDraft(
       provider: "google",
       status: "error",
       errorMessage: msg,
+      response: { retryable: res.status >= 500 || res.status === 429 },
     });
     throw new Error(msg);
   }
@@ -204,7 +205,7 @@ export async function sendGmailRealWithDraft(
     ...logBase,
     provider: "google",
     status: "success",
-    response: { messageId: json.id, attachmentCount: attachments.length },
+    response: { messageId: json.id, attachmentCount: attachments.length, guard: "real" },
   });
   return {
     processedMode: "real",

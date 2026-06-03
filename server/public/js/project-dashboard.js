@@ -1,5 +1,5 @@
 import { renderPwaTopbar } from "./tisly-pwa-shell.js";
-import { highlightAnomalyCard } from "./connection-badges.js";
+import { highlightAnomalyCard, setWsDisconnectedBadge } from "./connection-badges.js";
 
 const TOKEN_KEY = "tisly_token";
 const projectId = window.location.pathname.split("/project/")[1]?.split("/")[0] ?? "";
@@ -443,6 +443,7 @@ function connectWebSocket() {
   ws = new WebSocket(url);
   ws.onopen = () => {
     setWsStatus("online");
+    setWsDisconnectedBadge(false);
     ws.send(JSON.stringify({ type: "subscribe", projectId }));
   };
   ws.onmessage = (ev) => {
@@ -496,10 +497,14 @@ function connectWebSocket() {
   };
   ws.onclose = () => {
     setWsStatus("reconnecting");
+    setWsDisconnectedBadge(true);
     clearTimeout(wsReconnectTimer);
     wsReconnectTimer = setTimeout(connectWebSocket, 4000);
   };
-  ws.onerror = () => setWsStatus("offline");
+  ws.onerror = () => {
+    setWsStatus("offline");
+    setWsDisconnectedBadge(true);
+  };
 }
 
 loadDashboard().catch(console.error);

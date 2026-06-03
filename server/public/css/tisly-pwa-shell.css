@@ -79,23 +79,37 @@
   margin-left: 8px;
 }
 .conn-badge {
-  font-size: 0.7rem;
-  padding: 2px 6px;
-  border-radius: 4px;
+  font-size: clamp(0.72rem, 2.8vw, 0.85rem);
+  padding: 4px 8px;
+  min-height: 28px;
+  line-height: 1.2;
+  border-radius: 6px;
   background: #21262d;
   border: 1px solid #30363d;
+  display: inline-flex;
+  align-items: center;
 }
 .conn-badge.conn-live,
 .conn-badge.conn-real {
   background: #1a7f37;
   border-color: #238636;
+  color: #fff;
 }
 .conn-badge.conn-mock,
-.conn-badge.conn-mockOnly {
+.conn-badge.conn-mockOnly,
+.conn-badge.conn-dryRun {
   background: #9e6a03;
+  color: #fff;
 }
-.conn-badge.conn-offline {
+.conn-badge.conn-warning {
+  background: #bb800926;
+  border-color: #d29922;
+  color: #e3b341;
+}
+.conn-badge.conn-offline,
+.conn-badge.conn-disabled {
   background: #6e7681;
+  color: #fff;
 }
 .btn-sync-touch {
   min-height: 44px;

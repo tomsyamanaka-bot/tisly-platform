@@ -8,6 +8,7 @@ import {
 } from "./live-push-bridge.js";
 import { listProjectLiveDevices } from "./realtime-devices.js";
 import { listProjectNotifications } from "./project-notifications.js";
+import { getMqttTlsStatus } from "../mqtt/mqtt-tls.js";
 
 export type MqttBridgeLogLevel = "info" | "warn" | "error";
 
@@ -55,6 +56,10 @@ export function mqttBridgeLog(
 
 export function listMqttBridgeLogs(limit = 50): MqttBridgeLogEntry[] {
   return logRing.slice(-limit);
+}
+
+export function getMqttBridgeCertStatus() {
+  return getMqttTlsStatus(isMqttMockMode());
 }
 
 const PROJECT_TOPIC_RE =

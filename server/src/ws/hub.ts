@@ -1,6 +1,7 @@
 import type { WebSocket } from "ws";
 import { appendProjectTimeline } from "../toms/project-timeline.js";
 import { pushProjectTimelineLive } from "../toms/live-push-bridge.js";
+import { getProRemoteState, recordProRemoteState } from "../toms/pro-remote-state.js";
 
 export type WsMessageType = "heartbeat" | "event" | "alarm" | "connected";
 
@@ -55,12 +56,14 @@ export function handleWsClientMessage(socket: WebSocket, raw: string): void {
   const state = clients.get(socket);
   if (!state) return;
   if (msg.type === "subscribe" && msg.projectId) {
-    state.projectIds.add(String(msg.projectId));
+    const projectId = String(msg.projectId);
+    state.projectIds.add(projectId);
     sendToClient(socket, {
       type: "event",
-      payload: { subscribed: msg.projectId },
+      payload: { subscribed: projectId },
       at: new Date().toISOString(),
     });
+    replayProRemoteState(socket, projectId);
   }
   if (msg.type === "unsubscribe" && msg.projectId) {
     state.projectIds.delete(String(msg.projectId));
@@ -104,6 +107,15 @@ function handleProRemoteInbound(
   });
   pushProjectTimelineLive(projectId, entry);
 
+  recordProRemoteState({
+    projectId,
+    action,
+    tier: msg.tier as string | undefined,
+    pinId: msg.pinId as string | undefined,
+    notificationId: msg.notificationId as string | undefined,
+    actor,
+  });
+
   broadcast({
     type: action === "escalate" ? "alarm" : "event",
     topic: `toms/project/${projectId}/pro_mirror`,
@@ -117,6 +129,26 @@ function handleProRemoteInbound(
       actor,
     },
     at: new Date().toISOString(),
+  });
+}
+
+function replayProRemoteState(socket: WebSocket, projectId: string): void {
+  const snap = getProRemoteState(projectId);
+  if (!snap) return;
+  sendToClient(socket, {
+    type: "event",
+    topic: `toms/project/${projectId}/pro_mirror`,
+    payload: {
+      projectId,
+      channel: "pro_mirror",
+      action: snap.lastAction,
+      tier: snap.tier,
+      pinId: snap.pinId,
+      notificationId: snap.notificationId,
+      actor: snap.actor,
+      replay: true,
+    },
+    at: snap.at,
   });
 }
 
