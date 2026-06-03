@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+  <meta name="theme-color" content="#1a7f37" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="TiSLY施工" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+  <link rel="manifest" id="installer-manifest" href="/manifest-installer.webmanifest" />
+  <title>TiSLY — 施工ホーム</title>
+  <link rel="stylesheet" href="/css/admin.css" />
+  <link rel="stylesheet" href="/css/installer-mode.css" />
+  <link rel="stylesheet" href="/css/installer-home.css" />
+</head>
+<body class="installer-home-body">
+  <header class="installer-home-header">
+    <h1>TiSLY 施工</h1>
+    <p id="home-customer-code"></p>
+    <div id="pwa-install-bar" class="pwa-install-bar" hidden>
+      <button type="button" class="btn btn-sm btn-field" id="btn-pwa-install">ホーム画面に追加</button>
+      <a href="#" id="link-install-guide" class="hint-link">手順</a>
+    </div>
+  </header>
+  <div id="offline-status-bar" class="offline-status-bar" role="status">
+    <span id="offline-online-dot" class="dot online">●</span>
+    <span id="offline-state-text">online</span>
+    <span id="offline-saved-label">保存済み</span>
+    <span id="offline-queue-count">未同期: 0</span>
+    <button type="button" class="btn btn-field btn-sm" id="btn-offline-flush">同期</button>
+    <span id="offline-last-sync" class="last-sync">最終同期: —</span>
+  </div>
+  <main class="installer-home-grid">
+    <a class="home-tile" id="tile-today" href="#">
+      <span class="tile-label">今日の現場</span>
+      <span class="tile-value" id="tile-today-value">—</span>
+    </a>
+    <a class="home-tile" id="tile-incomplete" href="#">
+      <span class="tile-label">未完了チェック</span>
+      <span class="tile-value" id="tile-incomplete-value">—</span>
+    </a>
+    <a class="home-tile" id="tile-qr" href="#">
+      <span class="tile-label">QR登録</span>
+    </a>
+    <a class="home-tile" id="tile-map" href="#">
+      <span class="tile-label">Map配置</span>
+    </a>
+    <a class="home-tile" id="tile-mqtt" href="#">
+      <span class="tile-label">MQTT診断</span>
+    </a>
+    <a class="home-tile" id="tile-report" href="#">
+      <span class="tile-label">完了レポート</span>
+    </a>
+    <section class="home-tile home-tile-static" aria-label="オフライン同期">
+      <span class="tile-label">オフライン同期</span>
+      <span class="tile-value" id="tile-sync-status">—</span>
+    </section>
+  </main>
+  <nav class="installer-home-nav">
+    <a id="link-full-install" class="btn btn-field" href="#">施工 PWA を開く</a>
+    <a id="link-portal" class="btn secondary" href="#">ログイン</a>
+  </nav>
+  <script type="module" src="/js/installer-pwa.js"></script>
+  <script type="module" src="/js/installer-home.js"></script>
+</body>
+</html>

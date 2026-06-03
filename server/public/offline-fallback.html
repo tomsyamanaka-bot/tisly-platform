@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#1a7f37" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>TiSLY — オフライン</title>
+  <link rel="stylesheet" href="/css/installer-mode.css" />
+  <style>
+    body { font-family: system-ui, sans-serif; background: #0d1117; color: #e6edf3; margin: 0; padding: 1.5rem; }
+    .card { max-width: 420px; margin: 2rem auto; padding: 1.25rem; border-radius: 12px; background: #161b22; border: 1px solid #30363d; }
+    h1 { font-size: 1.25rem; color: #3fb950; margin: 0 0 0.75rem; }
+    .btn { display: inline-block; margin-top: 1rem; padding: 12px 20px; background: #1a7f37; color: #fff; border: none; border-radius: 8px; text-decoration: none; min-height: 44px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>オフライン中</h1>
+    <p>ネットワークに接続できません。キャッシュ済みの施工画面から作業を続けられます。</p>
+    <p id="offline-queue-hint" class="hint">未同期データは接続復帰後に「同期」から送信してください。</p>
+    <a class="btn" href="/installer-mode.html" id="btn-retry">再試行</a>
+    <a class="btn secondary" href="#" id="btn-sync" style="margin-left:8px;background:#30363d">同期を試す</a>
+  </div>
+  <script>
+    const m = location.pathname.match(/\/customer\/([^/]+)/i);
+    const code = m ? m[1].toUpperCase() : "";
+    if (code) {
+      document.getElementById("btn-retry").href = `/customer/${code}/install`;
+      const key = `tisly_installer_queue_${code}`;
+      try {
+        const q = JSON.parse(localStorage.getItem(key) || "[]");
+        document.getElementById("offline-queue-hint").textContent =
+          `未同期: ${q.length} 件 — 接続後に施工 PWA の同期ボタンを押してください。`;
+      } catch { /* */ }
+    }
+    document.getElementById("btn-sync").addEventListener("click", (e) => {
+      e.preventDefault();
+      if (code) location.href = `/customer/${code}/install`;
+      else location.reload();
+    });
+  </script>
+</body>
+</html>

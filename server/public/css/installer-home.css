@@ -1,0 +1,77 @@
+.installer-home-body {
+  background: #0d1117;
+  color: #e6edf3;
+  min-height: 100dvh;
+  padding-bottom: 5rem;
+}
+.installer-home-header {
+  padding: 1rem 1rem 0.5rem;
+  border-bottom: 1px solid #30363d;
+}
+.installer-home-header h1 {
+  margin: 0;
+  font-size: 1.4rem;
+  color: #3fb950;
+}
+.pwa-install-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+.hint-link {
+  font-size: 13px;
+  color: #58a6ff;
+}
+.installer-home-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 1rem;
+  max-width: 480px;
+  margin: 0 auto;
+}
+.home-tile {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 88px;
+  padding: 12px;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 12px;
+  text-decoration: none;
+  color: inherit;
+  box-sizing: border-box;
+}
+.home-tile-static {
+  grid-column: 1 / -1;
+}
+.home-tile .tile-label {
+  font-size: 13px;
+  color: #8b949e;
+}
+.home-tile .tile-value {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #3fb950;
+  margin-top: 4px;
+}
+.installer-home-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  background: #161b22ee;
+  border-top: 1px solid #30363d;
+  max-width: 480px;
+  margin: 0 auto;
+}
+.installer-home-nav .btn {
+  flex: 1;
+  min-height: 44px;
+  text-align: center;
+}

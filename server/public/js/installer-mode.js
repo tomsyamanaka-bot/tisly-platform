@@ -26,6 +26,8 @@ const NEXT_STEP_LABELS = {
 document.getElementById("install-code").textContent = customerCode;
 document.getElementById("link-map").href = `/customer/${customerCode}/map`;
 document.getElementById("link-portal").href = `/customer/${customerCode}`;
+document.getElementById("link-home")?.setAttribute("href", `/customer/${customerCode}/install/home`);
+document.getElementById("link-install-guide")?.setAttribute("href", `/customer/${customerCode}/install/guide`);
 document.getElementById("link-map-full").href = `/customer/${customerCode}/map`;
 document.getElementById("link-labels-csv").href = `/api/customer/${customerCode}/devices/labels.csv`;
 
@@ -121,11 +123,12 @@ function updateOfflineStatusBar() {
     dot.classList.toggle("online", online);
     dot.classList.toggle("offline", !online);
   }
-  if (state) state.textContent = online ? "online" : "offline";
+  if (state) state.textContent = online ? "オンライン" : "オフライン中";
   const qc = document.getElementById("offline-queue-count");
-  if (qc) qc.textContent = `queue: ${getQueueLength()}`;
+  if (qc) qc.textContent = `未同期: ${getQueueLength()}`;
   const ls = document.getElementById("offline-last-sync");
-  if (ls) ls.textContent = `sync: ${localStorage.getItem(LAST_SYNC_KEY) ?? "—"}`;
+  const last = localStorage.getItem(LAST_SYNC_KEY);
+  if (ls) ls.textContent = `最終同期: ${last ? new Date(last).toLocaleString("ja-JP") : "—"}`;
   const hint = document.getElementById("offline-hint");
   if (hint) {
     hint.textContent =
@@ -942,7 +945,7 @@ async function init() {
     loadFieldLiveStatus(),
   ]);
   updateLabelLinks();
-  setStatus(t("status.ready", "施工 PWA 準備完了（Phase 401–420）"));
+  setStatus(t("status.ready", "施工 PWA 準備完了（Phase 441–460）"));
   await loadChecklist();
 }
 

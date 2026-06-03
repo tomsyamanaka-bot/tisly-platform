@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#2563eb" />
+  <link rel="manifest" href="/manifest-survey.webmanifest" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+  <title>TiSLY — 現調 Survey PWA</title>
+  <link rel="stylesheet" href="/css/survey.css" />
+</head>
+<body class="survey-body">
+  <header>
+    <h1>現調 Survey PWA</h1>
+    <p class="hint">Phase 441–460 placeholder — 本番機能は今後の Phase で実装</p>
+  </header>
+  <main>
+    <ul class="survey-todo-list">
+      <li data-status="todo">案件作成</li>
+      <li data-status="todo">航空写真登録</li>
+      <li data-status="todo">外観写真</li>
+      <li data-status="todo">室内写真</li>
+      <li data-status="todo">手書き図面</li>
+      <li data-status="todo-ai">AI解析 TODO</li>
+      <li data-status="todo-ai">見積候補 TODO</li>
+    </ul>
+    <p class="hint">ドキュメント: <code>docs/tisly_survey_pwa.md</code></p>
+  </main>
+  <script type="module" src="/js/survey.js"></script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#1a7f37" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="TiSLY施工" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+  <link rel="manifest" href="/manifest-installer.webmanifest" />
+  <title>TiSLY — ホーム画面に追加</title>
+  <link rel="stylesheet" href="/css/installer-mode.css" />
+  <link rel="stylesheet" href="/css/install-guide.css" />
+</head>
+<body class="install-guide-body">
+  <header class="guide-header">
+    <h1>施工 PWA をインストール</h1>
+    <p class="hint">App Store / Google Play 不要 — URL からホーム画面に追加して使います（施工員専用）。</p>
+  </header>
+  <main class="guide-main">
+    <section id="guide-ios" class="guide-section">
+      <h2>iPhone（Safari）</h2>
+      <ol>
+        <li>Safari で施工 URL を開く</li>
+        <li>共有 <strong>□↑</strong> → <strong>ホーム画面に追加</strong></li>
+        <li>名前「TiSLY施工」で追加</li>
+        <li>ホーム画面のアイコンから起動（フルスクリーン）</li>
+      </ol>
+      <p class="hint">詳細: <code>docs/ios_pwa_install_guide.md</code></p>
+    </section>
+    <section id="guide-android" class="guide-section">
+      <h2>Android（Chrome）</h2>
+      <ol>
+        <li>Chrome で施工 URL を開く</li>
+        <li>メニュー → <strong>アプリをインストール</strong> または下部のプロンプト</li>
+        <li>QR スキャン時はカメラ権限を許可</li>
+      </ol>
+      <button type="button" class="btn btn-field" id="btn-android-install" hidden>アプリをインストール</button>
+      <p id="android-standalone-hint" class="hint" hidden>すでにスタンドアロンで起動しています。</p>
+      <p class="hint">詳細: <code>docs/android_pwa_install_guide.md</code></p>
+    </section>
+    <p><a id="link-install-app" class="btn" href="#">施工アプリを開く</a></p>
+  </main>
+  <script type="module" src="/js/installer-pwa.js"></script>
+</body>
+</html>

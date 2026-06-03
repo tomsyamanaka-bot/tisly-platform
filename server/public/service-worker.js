@@ -1,12 +1,26 @@
-/* TiSLY Installer PWA — offline sync + push (Phase 401–420) */
-const SW_VERSION = "tisly-installer-v401";
-const OFFLINE_CACHE = "tisly-installer-shell-v1";
+/* TiSLY Installer PWA — Phase 441–460 app shell */
+const SW_VERSION = "tisly-installer-v441";
+const OFFLINE_CACHE = "tisly-installer-shell-v441";
 const SHELL_URLS = [
   "/installer-mode.html",
+  "/installer-home.html",
+  "/install-guide.html",
+  "/offline-fallback.html",
+  "/survey.html",
   "/css/installer-mode.css",
+  "/css/installer-home.css",
+  "/css/install-guide.css",
+  "/css/survey.css",
   "/js/installer-mode.js",
+  "/js/installer-home.js",
+  "/js/installer-pwa.js",
   "/js/installer-i18n.js",
   "/js/api.js",
+  "/js/survey.js",
+  "/icons/icon-192.png",
+  "/icons/icon-512.png",
+  "/manifest-installer.webmanifest",
+  "/manifest-survey.webmanifest",
 ];
 
 self.addEventListener("install", (event) => {
@@ -25,8 +39,15 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
+function isShellPath(pathname) {
+  return SHELL_URLS.some(
+    (p) => pathname === p || pathname.endsWith(p.replace(/^\//, ""))
+  );
+}
+
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith("/api/")) return;
   if (event.request.method !== "GET") return;
   event.respondWith(
@@ -34,18 +55,22 @@ self.addEventListener("fetch", (event) => {
       if (cached) return cached;
       return fetch(event.request)
         .then((res) => {
-          if (res.ok && SHELL_URLS.some((p) => url.pathname.endsWith(p.replace(/^\//, "")) || url.pathname === p)) {
+          if (res.ok && isShellPath(url.pathname)) {
             const clone = res.clone();
             caches.open(OFFLINE_CACHE).then((c) => c.put(event.request, clone));
           }
           return res;
         })
-        .catch(() => caches.match("/installer-mode.html"));
+        .catch(async () => {
+          const fb =
+            (await caches.match("/offline-fallback.html")) ||
+            (await caches.match("/installer-mode.html"));
+          return fb || new Response("Offline", { status: 503 });
+        });
     })
   );
 });
 
-/** Background Sync placeholder — notifies open clients to flush queue */
 self.addEventListener("sync", (event) => {
   if (event.tag === "tisly-installer-sync") {
     event.waitUntil(notifyClientsFlush());

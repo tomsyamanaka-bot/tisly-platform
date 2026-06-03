@@ -8,7 +8,7 @@
 | `icon-512.png` | 512×512 |
 
 `manifest.json` / `manifest.webmanifest` から参照されます。  
-未配置時はブラウザ既定アイコンが使われます。
+Phase 441–460 で placeholder PNG を同梱（`node server/scripts/gen-pwa-icons.mjs` で再生成可）。
 
 生成例（ImageMagick）:
 

@@ -3,6 +3,34 @@
 TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。  
 三菱電機 **FX 系** PLC と **GX Works2 / GX Works3** を想定しています。
 
+## TiSLY Platform — Installer Only PWA & Survey Placeholder（Phase 441–460）
+
+**施工員専用 PWA App Shell · iPhone/Android 対応 · 権限制限 · Survey 入口**
+
+| 領域 | パス / URL |
+|------|------------|
+| 施工 PWA | `/customer/:code/install` |
+| 施工ホーム | `/customer/:code/install/home` |
+| インストール手順 | `/customer/:code/install/guide` |
+| Manifest（顧客別） | `/customer/:code/install/manifest.webmanifest` |
+| Service Worker | `/service-worker.js`（v441） |
+| オフライン fallback | `/offline` |
+| Survey placeholder | `/survey` |
+| PWA アイコン | `server/public/icons/icon-192.png` · `icon-512.png` |
+| 権限ガード | `server/src/auth/installer-restricted-guard.ts` |
+| PWA 戦略 | `docs/tisly_pwa_strategy.md` |
+| iOS / Android 手順 | `docs/ios_pwa_install_guide.md` · `docs/android_pwa_install_guide.md` |
+| テスト | `server/test/pwa-installer.test.ts` |
+| ドキュメント | `docs/phase441_460_status.md` |
+
+```bash
+cd server && npm run build && npm run test
+cd tv-app && npx tsc --noEmit
+node server/scripts/gen-pwa-icons.mjs   # アイコン再生成時
+```
+
+---
+
 ## TiSLY Platform — First Device Commissioning & Demo Kit（Phase 421–440）
 
 **実機1台接続 · Device State · Heartbeat Monitor · Map/TV Live · Demo Kit · Health Dashboard**

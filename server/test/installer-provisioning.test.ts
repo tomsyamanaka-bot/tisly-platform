@@ -186,6 +186,6 @@ describe("Phase 341-360 installer provisioning", () => {
       .set("Authorization", `Bearer ${tomsInstaller}`)
       .set("Accept", "application/json");
     assert.equal(res.status, 200);
-    assert.ok(res.body.html.includes("施工完了レポート"));
+    assert.ok(res.body.html.includes("現場セットアップ完了レポート"));
   });
 });

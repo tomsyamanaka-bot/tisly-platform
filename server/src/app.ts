@@ -47,6 +47,7 @@ import { securityRouter } from "./api/routes/security.js";
 import { requireAdminAuth } from "./auth/auth-middleware.js";
 import { tenantQueryGuard } from "./auth/tenant-guard.js";
 import { config } from "./config.js";
+import { rejectInstallerRestricted } from "./auth/installer-restricted-guard.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(__dirname, "..", "public");
@@ -94,6 +95,7 @@ export function createApp(): express.Application {
   app.use("/api/tv", opsCustomerScopeMiddleware, tenantQueryGuard, tvRouter);
   app.use("/api/health", healthFullRouter);
   app.use("/api/customers", customersRouter);
+  app.use("/api/customer", rejectInstallerRestricted);
   app.use("/api/customer", customerPortalRouter);
   app.use("/api/customer", customerUsersRouter);
   app.use("/api/customer", customerReportsRouter);
@@ -118,8 +120,48 @@ export function createApp(): express.Application {
   app.get("/customer/:customerCode/install", (_req, res) => {
     res.sendFile(path.join(publicDir, "installer-mode.html"));
   });
+  app.get("/customer/:customerCode/install/home", (_req, res) => {
+    res.sendFile(path.join(publicDir, "installer-home.html"));
+  });
+  app.get("/customer/:customerCode/install/guide", (_req, res) => {
+    res.sendFile(path.join(publicDir, "install-guide.html"));
+  });
+  app.get("/customer/:customerCode/install/manifest.webmanifest", (req, res) => {
+    const code = String(req.params.customerCode).toUpperCase();
+    res.type("application/manifest+json");
+    res.send(
+      JSON.stringify(
+        {
+          name: "TiSLY 施工 PWA",
+          short_name: "TiSLY施工",
+          description: "TiSLY 施工員専用 — 現場設置・QR・Map・オフライン同期",
+          start_url: `/customer/${code}/install/home`,
+          scope: "/",
+          display: "standalone",
+          background_color: "#0d1117",
+          theme_color: "#1a7f37",
+          orientation: "portrait-primary",
+          icons: [
+            { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+            { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" },
+          ],
+        },
+        null,
+        2
+      )
+    );
+  });
   app.get("/customer/:customerCode/install/device-onboard", (_req, res) => {
     res.sendFile(path.join(publicDir, "device-onboard.html"));
+  });
+  app.get("/survey", (_req, res) => {
+    res.sendFile(path.join(publicDir, "survey.html"));
+  });
+  app.get("/offline", (_req, res) => {
+    res.sendFile(path.join(publicDir, "offline-fallback.html"));
+  });
+  app.get("/install-guide", (_req, res) => {
+    res.sendFile(path.join(publicDir, "install-guide.html"));
   });
   app.get("/customer/:customerCode/health", (_req, res) => {
     res.sendFile(path.join(publicDir, "customer-health.html"));

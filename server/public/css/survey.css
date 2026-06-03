@@ -1,0 +1,27 @@
+.survey-body {
+  font-family: system-ui, sans-serif;
+  background: #0f172a;
+  color: #e2e8f0;
+  margin: 0;
+  padding: 1rem;
+  max-width: 480px;
+  margin-inline: auto;
+}
+.survey-body header h1 {
+  color: #60a5fa;
+  font-size: 1.35rem;
+}
+.survey-todo-list {
+  list-style: none;
+  padding: 0;
+}
+.survey-todo-list li {
+  padding: 12px;
+  margin-bottom: 8px;
+  background: #1e293b;
+  border-radius: 8px;
+  border-left: 4px solid #64748b;
+}
+.survey-todo-list li[data-status="todo-ai"] {
+  border-left-color: #a78bfa;
+}

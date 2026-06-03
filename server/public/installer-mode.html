@@ -2,9 +2,14 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
   <meta name="theme-color" content="#1a7f37" />
-  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="TiSLY施工" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+  <link rel="manifest" id="installer-manifest" href="/manifest-installer.webmanifest" />
   <title>TiSLY — 施工 PWA</title>
   <link rel="stylesheet" href="/css/admin.css" />
   <link rel="stylesheet" href="/css/customer-portal.css" />
@@ -19,16 +24,23 @@
         <option value="ja">日本語</option>
         <option value="en">English</option>
       </select>
+      <a id="link-home" href="#">ホーム</a>
+      <a id="link-install-guide" href="#">追加</a>
       <a id="link-map" href="#">Map</a>
       <a id="link-portal" href="#">ポータル</a>
     </nav>
   </header>
   <div id="field-mode-banner" class="field-mode-banner" role="status">—</div>
+  <div id="pwa-install-bar" class="pwa-install-bar" hidden>
+    <button type="button" class="btn btn-field btn-sm" id="btn-pwa-install">ホーム画面に追加</button>
+    <span id="pwa-standalone-hint" class="hint" hidden>スタンドアロン起動中</span>
+  </div>
   <div id="offline-status-bar" class="offline-status-bar" role="status">
     <span id="offline-online-dot" class="dot online">●</span>
-    <span id="offline-state-text">online</span>
-    <span id="offline-queue-count">queue: 0</span>
-    <span id="offline-last-sync">sync: —</span>
+    <span id="offline-state-text">オンライン</span>
+    <span id="offline-saved-label">保存済み</span>
+    <span id="offline-queue-count">未同期: 0</span>
+    <span id="offline-last-sync">最終同期: —</span>
     <button type="button" class="btn btn-field btn-sm" id="btn-offline-flush" data-i18n="sync.now" data-i18n-fallback="同期">同期</button>
   </div>
   <ul id="offline-sync-list" class="offline-sync-list" hidden></ul>
@@ -115,7 +127,7 @@
       <div id="qr-reader" class="qr-reader-box"></div>
       <button type="button" class="btn" id="btn-qr-scan-start">カメラでスキャン</button>
       <button type="button" class="btn secondary" id="btn-qr-scan-stop" hidden>スキャン停止</button>
-      <p id="qr-scan-hint" class="hint">カメラ不可時は下の JSON を手入力</p>
+      <p id="qr-scan-hint" class="hint">カメラ不可時は下の JSON を手入力。Android では QR スキャンにカメラ権限が必要です。</p>
       <label>Device ID <input id="qr-device-id" /></label>
       <label>種別 <input id="qr-device-type" value="ESP32" /></label>
       <label>Serial <input id="qr-serial" /></label>
@@ -209,6 +221,7 @@
     <h2>設備一覧</h2>
     <div id="install-devices" class="palette-list"></div>
   </main>
+  <script type="module" src="/js/installer-pwa.js"></script>
   <script type="module" src="/js/installer-mode.js"></script>
 </body>
 </html>

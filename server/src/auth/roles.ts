@@ -54,3 +54,8 @@ export function canManageCustomerUsers(role: string): boolean {
   const r = role === "super_admin" ? "owner" : normalizeRole(role);
   return r === "owner" || r === "admin";
 }
+
+/** Installer-only role — field PWA; no billing, user admin, plan, or settings. */
+export function isInstallerOnlyRole(role: string): boolean {
+  return normalizeRole(role) === "installer";
+}

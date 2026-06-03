@@ -1,0 +1,24 @@
+.install-guide-body {
+  font-family: system-ui, sans-serif;
+  background: #0d1117;
+  color: #e6edf3;
+  margin: 0;
+  padding: 1rem;
+  max-width: 480px;
+  margin-inline: auto;
+}
+.guide-header h1 {
+  font-size: 1.35rem;
+  color: #3fb950;
+}
+.guide-section {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 10px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+.guide-section ol {
+  padding-left: 1.25rem;
+  line-height: 1.6;
+}

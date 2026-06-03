@@ -141,7 +141,7 @@ describe("Phase 361-380 installer field hardening", () => {
       .set("Authorization", `Bearer ${tomsInstaller}`);
     assert.equal(res.status, 200);
     assert.match(res.text, /export_id/);
-    assert.match(res.text, /施工完了レポート/);
+    assert.match(res.text, /現場セットアップ完了レポート/);
   });
 
   it("label CSV export", async () => {
