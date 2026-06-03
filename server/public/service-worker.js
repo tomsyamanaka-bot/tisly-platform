@@ -1,5 +1,5 @@
-/* TiSLY Installer PWA — offline sync + push (Phase 381–400) */
-const SW_VERSION = "tisly-installer-v381";
+/* TiSLY Installer PWA — offline sync + push (Phase 401–420) */
+const SW_VERSION = "tisly-installer-v401";
 const OFFLINE_CACHE = "tisly-installer-shell-v1";
 const SHELL_URLS = [
   "/installer-mode.html",

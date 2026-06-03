@@ -4,6 +4,7 @@ import { claimQrProvisioning } from "../provisioning/qr-provisioning.js";
 import { claimNfcProvisioning } from "../provisioning/nfc-provisioning.js";
 import { completeChecklistItem, type ChecklistItemId } from "./install-checklist.js";
 import { runDeviceConnectivityTest, type DeviceTestKind } from "./device-connectivity-test.js";
+import { saveInstallPhoto, INSTALL_PHOTO_TYPES, isValidInstallPhotoType } from "./install-photos.js";
 
 export type OfflineSyncAction =
   | "qr_claim"
@@ -11,7 +12,8 @@ export type OfflineSyncAction =
   | "map_placement"
   | "checklist_complete"
   | "photo_upload"
-  | "test_result";
+  | "test_result"
+  | "mqtt_test_result";
 
 export interface OfflineSyncEntry {
   id?: string;
@@ -205,13 +207,82 @@ export function processOfflineSync(
             skipped++;
             break;
           }
+          const imageBase64 = String(body.imageBase64 ?? "");
+          const customerCode = String(body.customerCode ?? "");
+          if (imageBase64 && customerCode) {
+            const photoType = String(body.photoType ?? "install");
+            if (!isValidInstallPhotoType(photoType) && photoType !== "install") {
+              results.push({
+                id,
+                action: entry.action,
+                status: "rejected",
+                message: `Invalid photoType: ${photoType}`,
+              });
+              rejected++;
+              break;
+            }
+            saveInstallPhoto({
+              customerId,
+              customerCode,
+              deviceId: body.deviceId as string | undefined,
+              siteId: body.siteId as string | undefined,
+              photoType: isValidInstallPhotoType(photoType) ? photoType : "install",
+              imageBase64,
+              fileName,
+              uploadedBy: actor,
+            });
+            results.push({
+              id,
+              action: entry.action,
+              status: "applied",
+              message: "Install photo synced from offline queue",
+            });
+            applied++;
+            break;
+          }
           results.push({
             id,
             action: entry.action,
             status: "skipped",
-            message: "Photo upload placeholder — use live upload endpoint",
+            message: "Photo missing imageBase64 — use live upload endpoint",
           });
           skipped++;
+          break;
+        }
+        case "mqtt_test_result": {
+          const deviceId = String(body.deviceId ?? "");
+          const row = getDatabase()
+            .prepare(`SELECT id, last_test_result FROM devices WHERE device_id = ? AND customer_id = ?`)
+            .get(deviceId, customerId) as { id: string; last_test_result: string | null } | undefined;
+          if (!row) {
+            results.push({ id, action: entry.action, status: "rejected", message: "Device not found" });
+            rejected++;
+            break;
+          }
+          let merged: Record<string, unknown> = {};
+          if (row.last_test_result) {
+            try {
+              merged = JSON.parse(row.last_test_result) as Record<string, unknown>;
+            } catch {
+              /* */
+            }
+          }
+          merged = {
+            ...merged,
+            mqttLiveRttMs: body.rtt_ms != null ? Number(body.rtt_ms) : merged.mqttLiveRttMs,
+            mqttLiveAt: entry.clientAt ?? new Date().toISOString(),
+            mqttLiveMock: body.mock ?? true,
+          };
+          getDatabase()
+            .prepare(`UPDATE devices SET last_test_result = ?, updated_at = datetime('now') WHERE id = ?`)
+            .run(JSON.stringify(merged), row.id);
+          results.push({
+            id,
+            action: entry.action,
+            status: "applied",
+            message: "MQTT test result synced",
+          });
+          applied++;
           break;
         }
         case "test_result": {

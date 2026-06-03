@@ -9,6 +9,8 @@ export interface InstallDashboardStats {
   commNg: number;
   completionRate: number;
   totalDevices: number;
+  nextSteps: string[];
+  incompleteOnly: Array<{ deviceId: string; reason: string }>;
 }
 
 export function getInstallDashboard(customerId: string): InstallDashboardStats {
@@ -59,6 +61,24 @@ export function getInstallDashboard(customerId: string): InstallDashboardStats {
       ? Math.round((checklist.summary.fullyComplete / checklist.summary.totalDevices) * 100)
       : 0;
 
+  const nextSteps: string[] = [];
+  const incompleteOnly: Array<{ deviceId: string; reason: string }> = [];
+
+  if (devices.length === 0) nextSteps.push("register_device");
+  if (unplaced > 0) nextSteps.push("map_placement");
+  if (untested > 0) nextSteps.push("connectivity_test");
+  if (commNg > 0) nextSteps.push("mqtt_live_test");
+  if (checklist.summary.openItems.length) nextSteps.push("checklist_complete");
+  nextSteps.push("install_photos", "completion_report");
+
+  for (const d of devices) {
+    const reasons: string[] = [];
+    if (d.pos_x == null) reasons.push("unplaced");
+    const status = d.commissioning_status ?? "draft";
+    if (status === "draft" || status === "claimed") reasons.push("untested");
+    if (reasons.length) incompleteOnly.push({ deviceId: d.device_id, reason: reasons.join(",") });
+  }
+
   return {
     registered: devices.length,
     unplaced,
@@ -67,5 +87,7 @@ export function getInstallDashboard(customerId: string): InstallDashboardStats {
     commNg,
     completionRate,
     totalDevices: devices.length,
+    nextSteps,
+    incompleteOnly,
   };
 }

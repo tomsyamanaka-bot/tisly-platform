@@ -1,24 +1,34 @@
-# ラベルプリンタ / テプラ連携準備（Phase 361–380）
+# ラベルプリンタ / テプラ・Brother 連携（Phase 401–420）
 
 ## API
 
 | 用途 | エンドポイント |
 |------|----------------|
-| 一括 CSV | `GET /api/customer/:code/devices/labels.csv` |
-| 単体 SVG | `GET /api/customer/:code/devices/:id/label.svg` |
-| JSON + QR payload | `GET /api/customer/:code/devices/:id/label` |
+| 一括 CSV（汎用） | `GET /api/customer/:code/devices/labels.csv` |
+| **テプラ WebLink 向け** | `GET /api/customer/:code/devices/labels/tepra.csv` |
+| **Brother b-PAC 向け** | `GET /api/customer/:code/devices/labels/brother.csv` |
+| 単体ラベル SVG | `GET /api/customer/:code/devices/:id/label.svg` |
+| **QR 中心 SVG** | `GET /api/customer/:code/devices/:id/qr.svg` |
+| JSON + QR payload | `GET /api/customer/:code/devices/:id/label.json` |
 
-## 対応候補（将来）
+## テプラ CSV 列
 
-- テプラ PC ソフト — CSV インポート
-- Brother P-touch — CSV / 画像
-- QR 画像 — SVG / PNG エクスポート
-- クラウド印刷 API — 未接続
+`tape_width_mm, line1, line2, qr_payload, device_id`
 
-## CSV 列
+## Brother CSV 列
 
-`device_id, serial, label, device_type, site_id, zone_id, cert_status, trust_level`
+`ObjectName, Text, QRData, Serial, Site, Zone`
+
+## 施工 PWA
+
+完了タブから **テプラ CSV** / **Brother CSV** / **QR SVG** リンクを開けます。
+
+## 対応候補（Phase 421+）
+
+- テプラ WebLink SDK — ブラウザから直接印刷
+- Brother b-PAC — ActiveX / ローカルエージェント
+- QR 実画像 — `qrcode` ライブラリで SVG 埋め込み
 
 ## 実装
 
-- `server/src/installer/device-label-export.ts`
+- `server/src/installer/device-label-export.ts` — `buildTepraLabelsCsv`, `buildBrotherLabelsCsv`, `buildDeviceQrSvg`

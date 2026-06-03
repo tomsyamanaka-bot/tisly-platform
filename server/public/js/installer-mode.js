@@ -7,8 +7,21 @@ const OFFLINE_KEY = `tisly_installer_queue_${customerCode}`;
 const DRY_RUN_KEY = `tisly_installer_dry_run_${customerCode}`;
 const LAST_SYNC_KEY = `tisly_installer_last_sync_${customerCode}`;
 const CONFLICT_KEY = `tisly_installer_conflicts_${customerCode}`;
+const SYNC_UI_KEY = `tisly_installer_sync_ui_${customerCode}`;
 const IDB_NAME = "tisly_installer_offline_v1";
 let lastSyncReport = null;
+let fieldLiveStatus = null;
+let dashboardData = null;
+
+const NEXT_STEP_LABELS = {
+  register_device: "設備を登録",
+  map_placement: "マップに配置",
+  connectivity_test: "通信テスト",
+  mqtt_live_test: "Live MQTT (ACK)",
+  checklist_complete: "チェックリスト完了",
+  install_photos: "施工写真",
+  completion_report: "完了レポート",
+};
 
 document.getElementById("install-code").textContent = customerCode;
 document.getElementById("link-map").href = `/customer/${customerCode}/map`;
@@ -160,8 +173,11 @@ function renderConflictPanel(items) {
 function queueOffline(action, body) {
   const raw = localStorage.getItem(OFFLINE_KEY);
   const q = raw ? JSON.parse(raw) : [];
-  q.push({ action, body, at: new Date().toISOString(), id: `q-${Date.now()}` });
+  const id = `q-${Date.now()}`;
+  q.push({ action, body, at: new Date().toISOString(), id });
   localStorage.setItem(OFFLINE_KEY, JSON.stringify(q));
+  const ui = q.map((item) => ({ id: item.id, action: item.action, status: "pending", message: "queued offline" }));
+  persistSyncUiState(ui);
   loadOfflineQueue();
 }
 
@@ -175,13 +191,61 @@ function mapQueueToSyncEntries(queue) {
     test: "test_result",
     wizard: "test_result",
     createSite: "test_result",
+    mqttTest: "mqtt_test_result",
   };
-  return queue.map((item) => ({
-    id: item.id,
-    action: actionMap[item.action] ?? "test_result",
-    clientAt: item.at,
-    body: item.body ?? {},
-  }));
+  return queue.map((item) => {
+    const body = { ...(item.body ?? {}) };
+    if (item.action === "photo" && body.imageBase64) {
+      body.customerCode = customerCode;
+    }
+    return {
+      id: item.id,
+      action: actionMap[item.action] ?? "test_result",
+      clientAt: item.at,
+      body,
+    };
+  });
+}
+
+function persistSyncUiState(entries) {
+  localStorage.setItem(SYNC_UI_KEY, JSON.stringify(entries));
+  renderSyncStatusList(entries);
+}
+
+function renderSyncStatusList(entries) {
+  const list = document.getElementById("offline-sync-list");
+  if (!list) return;
+  if (!entries?.length) {
+    list.hidden = true;
+    list.innerHTML = "";
+    return;
+  }
+  list.hidden = false;
+  list.innerHTML = entries
+    .map((e) => `<li class="sync-${e.status}"><span>${e.action}</span> <em>${e.status}</em> — ${e.message ?? ""}</li>`)
+    .join("");
+}
+
+function buildQueueSyncUiFromReport(report, queue) {
+  const statusMap = {
+    applied: "synced",
+    skipped: "pending",
+    rejected: "failed",
+    conflict: "conflict",
+    warning: "failed",
+    merged: "synced",
+  };
+  const byId = new Map((report.results ?? []).map((r) => [r.id, r]));
+  return queue.map((item) => {
+    const r = byId.get(item.id);
+    const status = r ? statusMap[r.status] ?? r.status : "pending";
+    return {
+      id: item.id,
+      action: item.action,
+      status,
+      message: r?.message ?? "pending",
+    };
+  });
 }
 
 async function flushOfflineQueue() {
@@ -199,6 +263,7 @@ async function flushOfflineQueue() {
   const report = await installPost(`/api/customer/${customerCode}/install/sync`, { entries });
   lastSyncReport = report;
   localStorage.setItem(LAST_SYNC_KEY, new Date().toISOString());
+  persistSyncUiState(buildQueueSyncUiFromReport(report, q));
   const errEl = document.getElementById("offline-sync-errors");
   if (report.results) saveConflictResults(report.results);
   if (report.rejected > 0 || report.warnings > 0) {
@@ -242,15 +307,70 @@ function fillSelect(sel, items, valueKey, labelFn) {
   }
 }
 
+function renderNextSteps(d) {
+  const ul = document.getElementById("next-steps-list");
+  if (!ul) return;
+  const steps = d?.nextSteps ?? [];
+  ul.innerHTML = steps
+    .map((s) => `<li><button type="button" class="btn secondary btn-sm btn-next-step" data-step="${s}">${NEXT_STEP_LABELS[s] ?? s}</button></li>`)
+    .join("");
+  ul.querySelectorAll(".btn-next-step").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const map = {
+        register_device: "device",
+        map_placement: "map",
+        connectivity_test: "comm",
+        mqtt_live_test: "mqtt",
+        checklist_complete: "done",
+        install_photos: "photos",
+        completion_report: "done",
+      };
+      const panel = map[btn.dataset.step] ?? "dash";
+      document.querySelector(`#installer-tabs button[data-panel="${panel}"]`)?.click();
+    });
+  });
+}
+
+function renderIncompleteDevices(d) {
+  const list = document.getElementById("incomplete-devices-list");
+  const only = document.getElementById("show-incomplete-only")?.checked;
+  if (!list) return;
+  const items = d?.incompleteOnly ?? [];
+  list.hidden = !only || !items.length;
+  if (!only) {
+    list.innerHTML = "";
+    return;
+  }
+  list.innerHTML = items.map((i) => `<li class="status-warn">${i.deviceId} — ${i.reason}</li>`).join("");
+}
+
+async function loadFieldLiveStatus() {
+  try {
+    fieldLiveStatus = await apiGet(`/api/customer/${customerCode}/install/field-live-status`);
+    const banner = document.getElementById("field-mode-banner");
+    if (banner && fieldLiveStatus) {
+      const live = fieldLiveStatus.field_live_mode ? "LIVE" : "MOCK";
+      banner.textContent = `Field: ${live} · MQTT ACK: ${fieldLiveStatus.mqtt_ack_required ? "required" : "off"} · Cert: ${fieldLiveStatus.cert_provisioning_mode} · Storage: ${fieldLiveStatus.storage_provider}`;
+      banner.classList.toggle("mode-live", fieldLiveStatus.field_live_mode);
+      banner.classList.toggle("mode-mock", !fieldLiveStatus.field_live_mode);
+    }
+  } catch {
+    /* */
+  }
+}
+
 async function loadDashboard() {
   try {
     const d = await apiGet(`/api/customer/${customerCode}/install/dashboard`);
+    dashboardData = d;
     document.getElementById("dash-registered").textContent = String(d.registered ?? "—");
     document.getElementById("dash-unplaced").textContent = String(d.unplaced ?? "—");
     document.getElementById("dash-untested").textContent = String(d.untested ?? "—");
     document.getElementById("dash-comm-ok").textContent = String(d.commOk ?? "—");
     document.getElementById("dash-comm-ng").textContent = String(d.commNg ?? "—");
     document.getElementById("dash-completion").textContent = String(d.completionRate ?? "—");
+    renderNextSteps(d);
+    renderIncompleteDevices(d);
   } catch {
     /* */
   }
@@ -514,8 +634,9 @@ document.getElementById("btn-photo-upload")?.addEventListener("click", async () 
   const buf = await file.arrayBuffer();
   const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
   const deviceId = document.getElementById("photo-device-select")?.value;
+  const photoType = document.getElementById("photo-type-select")?.value ?? "install";
   if (!navigator.onLine) {
-    queueOffline("photo", { deviceId, fileName: file.name, imageBase64: b64 });
+    queueOffline("photo", { deviceId, fileName: file.name, imageBase64: b64, photoType, customerCode });
     setStatus("オフライン: 写真をキューに保存");
     return;
   }
@@ -523,7 +644,7 @@ document.getElementById("btn-photo-upload")?.addEventListener("click", async () 
     deviceId,
     imageBase64: b64,
     fileName: file.name,
-    photoType: "install",
+    photoType,
   });
   await loadPhotos();
   setStatus("写真アップロード完了");
@@ -697,6 +818,32 @@ document.getElementById("btn-mqtt-rtt")?.addEventListener("click", async () => {
     `/api/customer/${customerCode}/devices/${encodeURIComponent(id)}/test/mqtt-rtt`,
     {}
   );
+  const el = document.getElementById("mqtt-diag");
+  el.textContent = JSON.stringify(res, null, 2);
+  el.classList.toggle("result-ok", res.ok);
+  el.classList.toggle("result-fail", !res.ok);
+});
+
+document.getElementById("btn-mqtt-live")?.addEventListener("click", async () => {
+  const id = document.getElementById("mqtt-device-select").value;
+  if (!navigator.onLine) {
+    queueOffline("mqttTest", { deviceId: id, rtt_ms: 50, mock: true });
+    setStatus("オフライン: MQTT テスト結果をキューに保存");
+    return;
+  }
+  const res = await installPost(
+    `/api/customer/${customerCode}/devices/${encodeURIComponent(id)}/test/live-mqtt`,
+    {}
+  );
+  const el = document.getElementById("mqtt-diag");
+  el.textContent = JSON.stringify(res, null, 2);
+  el.classList.toggle("result-ok", res.ok);
+  el.classList.toggle("result-fail", !res.ok);
+});
+
+document.getElementById("btn-firmware-config")?.addEventListener("click", async () => {
+  const id = document.getElementById("mqtt-device-select").value;
+  const res = await installGet(`/api/customer/${customerCode}/devices/${encodeURIComponent(id)}/firmware-config`);
   document.getElementById("mqtt-diag").textContent = JSON.stringify(res, null, 2);
 });
 
@@ -716,9 +863,10 @@ async function loadChecklist() {
 
 document.getElementById("check-device-select")?.addEventListener("change", loadChecklist);
 
-function openReport(format) {
+function openReport(format, locale = "ja") {
   const dry = isDryRun() ? "&dryRun=1" : "";
-  const url = `/api/customer/${customerCode}/install/completion-report?format=${format}${dry}`;
+  const loc = locale === "en" ? "&locale=en" : "&locale=ja";
+  const url = `/api/customer/${customerCode}/install/completion-report?format=${format}${loc}${dry}`;
   if (format === "pdf") {
     fetch(url, { headers: installHeaders() })
       .then((res) =>
@@ -739,8 +887,13 @@ function openReport(format) {
   window.open(url, "_blank");
 }
 
-document.getElementById("btn-completion-report")?.addEventListener("click", () => openReport("html"));
-document.getElementById("btn-completion-pdf")?.addEventListener("click", () => openReport("pdf"));
+document.getElementById("btn-completion-report")?.addEventListener("click", () => openReport("html", "ja"));
+document.getElementById("btn-completion-pdf")?.addEventListener("click", () => openReport("pdf", "ja"));
+document.getElementById("btn-completion-report-en")?.addEventListener("click", () => openReport("html", "en"));
+
+document.getElementById("show-incomplete-only")?.addEventListener("change", () => {
+  if (dashboardData) renderIncompleteDevices(dashboardData);
+});
 
 document.getElementById("btn-label")?.addEventListener("click", async () => {
   const id = document.getElementById("check-device-select").value;
@@ -751,10 +904,16 @@ document.getElementById("btn-label")?.addEventListener("click", async () => {
 
 function updateLabelLinks() {
   const id = document.getElementById("check-device-select")?.value;
+  const enc = id ? encodeURIComponent(id) : "";
+  const base = `/api/customer/${customerCode}/devices`;
   const json = document.getElementById("link-label-json");
-  if (json && id) {
-    json.href = `/api/customer/${customerCode}/devices/${encodeURIComponent(id)}/label.json`;
-  }
+  const qr = document.getElementById("link-qr-svg");
+  const tepra = document.getElementById("link-label-tepra");
+  const brother = document.getElementById("link-label-brother");
+  if (json && id) json.href = `${base}/${enc}/label.json`;
+  if (qr && id) qr.href = `${base}/${enc}/qr.svg`;
+  if (tepra) tepra.href = `/api/customer/${customerCode}/devices/labels/tepra.csv`;
+  if (brother) brother.href = `/api/customer/${customerCode}/devices/labels/brother.csv`;
 }
 document.getElementById("check-device-select")?.addEventListener("change", updateLabelLinks);
 
@@ -772,9 +931,18 @@ async function init() {
   loadOfflineQueue();
   const savedConflicts = localStorage.getItem(CONFLICT_KEY);
   if (savedConflicts) renderConflictPanel(JSON.parse(savedConflicts));
-  await Promise.all([loadSites(), loadDevices(), loadTemplates(), loadDashboard(), loadPhotos()]);
+  const savedSyncUi = localStorage.getItem(SYNC_UI_KEY);
+  if (savedSyncUi) renderSyncStatusList(JSON.parse(savedSyncUi));
+  await Promise.all([
+    loadSites(),
+    loadDevices(),
+    loadTemplates(),
+    loadDashboard(),
+    loadPhotos(),
+    loadFieldLiveStatus(),
+  ]);
   updateLabelLinks();
-  setStatus(t("status.ready", "施工 PWA 準備完了（Phase 381–400）"));
+  setStatus(t("status.ready", "施工 PWA 準備完了（Phase 401–420）"));
   await loadChecklist();
 }
 

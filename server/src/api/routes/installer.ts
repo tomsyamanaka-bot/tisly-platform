@@ -34,7 +34,16 @@ import { getDeviceLabelData } from "../../installer/device-label.js";
 import {
   buildDevicesLabelsCsv,
   buildDeviceLabelSvg,
+  buildTepraLabelsCsv,
+  buildBrotherLabelsCsv,
+  buildDeviceQrSvg,
 } from "../../installer/device-label-export.js";
+import { buildFirmwareConfig } from "../../installer/firmware-config.js";
+import { getFieldLiveStatus } from "../../installer/field-live-status.js";
+import { runLiveMqttAckTest } from "../../mqtt/ack-tracker.js";
+import { INSTALL_PHOTO_TYPES, isValidInstallPhotoType } from "../../installer/install-photos.js";
+import { config } from "../../config.js";
+import type { CompletionReportLocale } from "../../installer/completion-report.js";
 import { processOfflineSync, type OfflineSyncEntry } from "../../installer/offline-sync.js";
 import {
   startInstallSession,
@@ -417,6 +426,12 @@ customerInstallerRouter.post(
       res.status(400).json({ error: "imageBase64 required" });
       return;
     }
+    if (photoType && !isValidInstallPhotoType(photoType)) {
+      res.status(400).json({
+        error: `Invalid photoType. Allowed: ${INSTALL_PHOTO_TYPES.join(", ")}`,
+      });
+      return;
+    }
     if (isDryRunRequest(req)) {
       logDryRun(customer.customer_code, "installer.photo.upload", { deviceId, fileName });
       logAudit({
@@ -452,8 +467,10 @@ customerInstallerRouter.post(
       ok: true,
       id: saved.id,
       photoPath: saved.photoPath,
+      photoType: saved.photoType,
       url: `/uploads/install_photos/${saved.photoPath}`,
-      storage: "local",
+      storage: config.storage.provider,
+      allowedTypes: INSTALL_PHOTO_TYPES,
     });
   }
 );
@@ -549,8 +566,11 @@ customerInstallerRouter.get(
     }
     const dryRun = isDryRunRequest(req);
     const format = String(req.query.format ?? "html").toLowerCase();
+    const localeRaw = String(req.query.locale ?? "ja").toLowerCase();
+    const locale: CompletionReportLocale = localeRaw === "en" ? "en" : "ja";
     const html = buildInstallCompletionReportHtml(customer.customer_code, req.admin?.username, {
       dryRun,
+      locale,
     });
     const meta = buildCompletionReportMeta(customer.customer_code, req.admin?.username, { dryRun });
 
@@ -923,6 +943,124 @@ customerInstallerRouter.get(
       });
     }
     res.json({ ...cert, dryRun: isDryRunRequest(req) });
+  }
+);
+
+customerInstallerRouter.get(
+  "/:customerCode/install/field-live-status",
+  ...portalViewAuth,
+  (req: AuthedRequest, res) => {
+    const customer = resolveCustomer(req, String(req.params.customerCode));
+    if (!customer) {
+      res.status(req.admin ? 403 : 404).json({ error: "Not found" });
+      return;
+    }
+    res.json({ customer: customer.customer_code, ...getFieldLiveStatus() });
+  }
+);
+
+customerInstallerRouter.get(
+  "/:customerCode/devices/:id/firmware-config",
+  ...portalViewAuth,
+  (req: AuthedRequest, res) => {
+    const customer = resolveCustomer(req, String(req.params.customerCode));
+    if (!customer) {
+      res.status(req.admin ? 403 : 404).json({ error: "Not found" });
+      return;
+    }
+    try {
+      res.json(buildFirmwareConfig(customer.customer_id, String(req.params.id)));
+    } catch (e) {
+      res.status(404).json({ error: String(e) });
+    }
+  }
+);
+
+customerInstallerRouter.post(
+  "/:customerCode/devices/:id/test/live-mqtt",
+  ...installAuth,
+  provisionRateLimit,
+  async (req: AuthedRequest, res) => {
+    const customer = resolveCustomer(req, String(req.params.customerCode));
+    if (!customer) {
+      res.status(req.admin ? 403 : 404).json({ error: "Not found" });
+      return;
+    }
+    const deviceId = String(req.params.id);
+    if (isDryRunRequest(req)) {
+      logDryRun(customer.customer_code, "installer.test.live_mqtt", { deviceId });
+      res.json({
+        ok: true,
+        dryRun: true,
+        rtt_ms: 52,
+        ack_received: true,
+        mock: true,
+        topic: `tisly/dry/${deviceId}/test/live`,
+      });
+      return;
+    }
+    try {
+      const result = await runLiveMqttAckTest(customer.customer_id, deviceId);
+      logAudit({
+        ...auditContextFromRequest(req),
+        tenantId: customer.tenant_id ?? customer.customer_id,
+        action: "installer.test.live_mqtt",
+        entityType: "device",
+        entityId: deviceId,
+        details: { rtt_ms: result.rtt_ms, mock: result.mock, timeout: result.timeout },
+      });
+      res.json(result);
+    } catch (e) {
+      res.status(400).json({ error: String(e) });
+    }
+  }
+);
+
+customerInstallerRouter.get(
+  "/:customerCode/devices/labels/tepra.csv",
+  ...portalViewAuth,
+  (req: AuthedRequest, res) => {
+    const customer = resolveCustomer(req, String(req.params.customerCode));
+    if (!customer) {
+      res.status(req.admin ? 403 : 404).json({ error: "Not found" });
+      return;
+    }
+    const csv = buildTepraLabelsCsv(customer.customer_id);
+    res.type("text/csv").setHeader("Content-Disposition", 'attachment; filename="device-labels-tepra.csv"');
+    res.send(csv);
+  }
+);
+
+customerInstallerRouter.get(
+  "/:customerCode/devices/labels/brother.csv",
+  ...portalViewAuth,
+  (req: AuthedRequest, res) => {
+    const customer = resolveCustomer(req, String(req.params.customerCode));
+    if (!customer) {
+      res.status(req.admin ? 403 : 404).json({ error: "Not found" });
+      return;
+    }
+    const csv = buildBrotherLabelsCsv(customer.customer_id);
+    res.type("text/csv").setHeader("Content-Disposition", 'attachment; filename="device-labels-brother.csv"');
+    res.send(csv);
+  }
+);
+
+customerInstallerRouter.get(
+  "/:customerCode/devices/:id/qr.svg",
+  ...portalViewAuth,
+  (req: AuthedRequest, res) => {
+    const customer = resolveCustomer(req, String(req.params.customerCode));
+    if (!customer) {
+      res.status(req.admin ? 403 : 404).json({ error: "Not found" });
+      return;
+    }
+    try {
+      const svg = buildDeviceQrSvg(customer.customer_id, String(req.params.id));
+      res.type("image/svg+xml").send(svg);
+    } catch (e) {
+      res.status(404).json({ error: String(e) });
+    }
   }
 );
 

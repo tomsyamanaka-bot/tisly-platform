@@ -23,13 +23,15 @@
       <a id="link-portal" href="#">ポータル</a>
     </nav>
   </header>
+  <div id="field-mode-banner" class="field-mode-banner" role="status">—</div>
   <div id="offline-status-bar" class="offline-status-bar" role="status">
     <span id="offline-online-dot" class="dot online">●</span>
     <span id="offline-state-text">online</span>
     <span id="offline-queue-count">queue: 0</span>
     <span id="offline-last-sync">sync: —</span>
-    <button type="button" class="btn secondary btn-sm" id="btn-offline-flush" data-i18n="sync.now" data-i18n-fallback="同期">同期</button>
+    <button type="button" class="btn btn-field btn-sm" id="btn-offline-flush" data-i18n="sync.now" data-i18n-fallback="同期">同期</button>
   </div>
+  <ul id="offline-sync-list" class="offline-sync-list" hidden></ul>
   <p id="offline-sync-errors" class="hint offline-sync-errors" hidden></p>
   <div id="dry-run-banner" class="dry-run-banner" hidden>DRY RUN — 実DBは更新しません</div>
   <main class="card portal-card installer-pwa" style="margin:0.75rem">
@@ -40,6 +42,12 @@
 
     <section id="install-dashboard" class="install-dashboard" aria-label="施工ダッシュボード">
       <h2>ダッシュボード</h2>
+      <div id="next-steps-panel" class="next-steps-panel">
+        <h3>次にやること</h3>
+        <ul id="next-steps-list"></ul>
+      </div>
+      <label class="incomplete-only-toggle"><input type="checkbox" id="show-incomplete-only" /> 未完了だけ表示</label>
+      <ul id="incomplete-devices-list" class="incomplete-devices-list"></ul>
       <div class="dashboard-grid" id="dashboard-stats">
         <div><strong id="dash-registered">—</strong><small>登録済</small></div>
         <div><strong id="dash-unplaced">—</strong><small>未配置</small></div>
@@ -152,8 +160,10 @@
       <h2>MQTT Test</h2>
       <label>設備 <select id="mqtt-device-select"></select></label>
       <button type="button" class="btn secondary" id="btn-mqtt-refresh">診断更新</button>
-      <button type="button" class="btn secondary" id="btn-mqtt-rtt">RTT実測</button>
-      <pre id="mqtt-diag" class="hint"></pre>
+      <button type="button" class="btn btn-field" id="btn-mqtt-rtt">RTT実測</button>
+      <button type="button" class="btn btn-field" id="btn-mqtt-live">Live MQTT (ACK)</button>
+      <button type="button" class="btn secondary btn-field" id="btn-firmware-config">ファーム設定 JSON</button>
+      <pre id="mqtt-diag" class="hint mqtt-result"></pre>
       <h3>証明書 (CSR)</h3>
       <label>CSR PEM <textarea id="csr-pem" rows="3" placeholder="-----BEGIN CERTIFICATE REQUEST-----"></textarea></label>
       <button type="button" class="btn secondary" id="btn-csr-register">CSR登録</button>
@@ -165,8 +175,19 @@
     <section id="panel-photos" class="installer-panel">
       <h2>施工写真</h2>
       <label>設備 <select id="photo-device-select"></select></label>
+      <label>種別
+        <select id="photo-type-select">
+          <option value="before">施工前 (before)</option>
+          <option value="after">施工後 (after)</option>
+          <option value="wiring">配線 (wiring)</option>
+          <option value="device_label">機器ラベル (device_label)</option>
+          <option value="panel">盤 (panel)</option>
+          <option value="test_result">試験結果 (test_result)</option>
+          <option value="install">その他 (install)</option>
+        </select>
+      </label>
       <label>写真 <input type="file" id="photo-file" accept="image/*" capture="environment" /></label>
-      <button type="button" class="btn" id="btn-photo-upload">アップロード</button>
+      <button type="button" class="btn btn-field" id="btn-photo-upload">アップロード</button>
       <ul id="photo-list"></ul>
     </section>
 
@@ -174,11 +195,15 @@
       <h2>完了チェック</h2>
       <label>設備 <select id="check-device-select"></select></label>
       <div id="checklist-items"></div>
-      <button type="button" class="btn" id="btn-completion-report">完了レポート (HTML)</button>
-      <button type="button" class="btn secondary" id="btn-completion-pdf">完了レポート (PDF)</button>
+      <button type="button" class="btn btn-field" id="btn-completion-report">完了レポート (HTML)</button>
+      <button type="button" class="btn secondary btn-field" id="btn-completion-pdf">完了レポート (PDF)</button>
+      <button type="button" class="btn secondary" id="btn-completion-report-en">Report (EN)</button>
       <button type="button" class="btn secondary" id="btn-label">ラベルデータ</button>
       <a class="btn secondary" id="link-labels-csv" href="#">ラベル CSV</a>
+      <a class="btn secondary" id="link-label-tepra" href="#">テプラ CSV</a>
+      <a class="btn secondary" id="link-label-brother" href="#">Brother CSV</a>
       <a class="btn secondary" id="link-label-json" href="#">ラベル JSON</a>
+      <a class="btn secondary" id="link-qr-svg" href="#">QR SVG</a>
     </section>
 
     <h2>設備一覧</h2>

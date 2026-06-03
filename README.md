@@ -3,6 +3,31 @@
 TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。  
 三菱電機 **FX 系** PLC と **GX Works2 / GX Works3** を想定しています。
 
+## TiSLY Platform — Field Device Live Connection（Phase 401–420）
+
+**実機接続準備 · MQTT ACK · ファーム設定 · ラベル印刷 CSV · 施工写真本番 · 完了レポート EN**
+
+| 領域 | パス / URL |
+|------|------------|
+| Field モード | `FIELD_LIVE_MODE` · `GET .../install/field-live-status` |
+| Live MQTT ACK | `POST .../devices/:id/test/live-mqtt` · `server/src/mqtt/ack-tracker.ts` |
+| Firmware config | `GET .../devices/:id/firmware-config` |
+| ラベル | `labels/tepra.csv` · `labels/brother.csv` · `qr.svg` |
+| 完了レポート | `?locale=ja` · `?locale=en` |
+| 施工写真 | `before` / `after` / `wiring` / `device_label` / `panel` / `test_result` |
+| SW 同期 UI | pending / synced / failed / conflict |
+| ランブック | `docs/first_real_device_connection_runbook.md` |
+| チェックリスト | `docs/installer_final_checklist.md` |
+| テスト | `server/test/field-live-connection.test.ts` |
+| ドキュメント | `docs/phase401_420_status.md` |
+
+```bash
+cd server && npm run build && npm run test
+cd tv-app && npx tsc --noEmit
+```
+
+---
+
 ## TiSLY Platform — Field Installer Production Sync（Phase 381–400）
 
 **Service Worker同期 · 実MQTT RTT · CSR/証明書 · 施工写真 · 多言語 · Dashboard**

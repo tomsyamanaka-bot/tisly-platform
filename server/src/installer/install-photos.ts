@@ -2,7 +2,25 @@ import fs from "fs";
 import path from "path";
 import { v4 as uuid } from "uuid";
 import { getDatabase } from "../db/database.js";
-import { installPhotosDir, resolveInstallPhotoPath } from "../qnap/install-photo-archive.js";
+import { archiveInstallPhotoToRemote, installPhotosDir } from "../qnap/install-photo-archive.js";
+
+/** Field install photo categories (Phase 401–420). */
+export const INSTALL_PHOTO_TYPES = [
+  "before",
+  "after",
+  "wiring",
+  "device_label",
+  "panel",
+  "test_result",
+  "install",
+] as const;
+
+export type InstallPhotoType = (typeof INSTALL_PHOTO_TYPES)[number];
+
+export function isValidInstallPhotoType(t: string | undefined): t is InstallPhotoType {
+  if (!t) return false;
+  return (INSTALL_PHOTO_TYPES as readonly string[]).includes(t);
+}
 
 export interface InstallPhotoRow {
   id: string;
@@ -24,12 +42,19 @@ export function saveInstallPhoto(params: {
   imageBase64: string;
   fileName?: string;
   uploadedBy?: string;
-}): { id: string; photoPath: string } {
+}): { id: string; photoPath: string; photoType: string; storage: string } {
+  const photoType = isValidInstallPhotoType(params.photoType)
+    ? params.photoType
+    : params.photoType
+      ? "install"
+      : "install";
+  const subdir = photoType;
   const fname = params.fileName ?? `${uuid()}.jpg`;
-  const full = resolveInstallPhotoPath(params.customerCode, fname);
+  const full = path.join(installPhotosDir(params.customerCode), subdir, fname);
+  fs.mkdirSync(path.dirname(full), { recursive: true });
   const buf = Buffer.from(params.imageBase64, "base64");
   fs.writeFileSync(full, buf);
-  const rel = path.join(params.customerCode, fname).replace(/\\/g, "/");
+  const rel = path.join(params.customerCode, subdir, fname).replace(/\\/g, "/");
   const id = uuid();
   getDatabase()
     .prepare(
@@ -42,10 +67,11 @@ export function saveInstallPhoto(params: {
       params.deviceId ?? null,
       params.siteId ?? null,
       rel,
-      params.photoType ?? "install",
+      photoType,
       params.uploadedBy ?? null
     );
-  return { id, photoPath: rel };
+  void archiveInstallPhotoToRemote(params.customerCode, rel);
+  return { id, photoPath: rel, photoType, storage: "local" };
 }
 
 export function listInstallPhotos(customerId: string): InstallPhotoRow[] {

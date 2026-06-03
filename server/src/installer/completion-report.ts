@@ -42,11 +42,83 @@ export function buildCompletionReportMeta(
   };
 }
 
+export type CompletionReportLocale = "ja" | "en";
+
+const REPORT_I18N: Record<
+  CompletionReportLocale,
+  {
+    title: string;
+    customer: string;
+    site: string;
+    devices: string;
+    completedAt: string;
+    installer: string;
+    openItems: string;
+    checklist: string;
+    deviceList: string;
+    warnings: string;
+    photos: string;
+    mqttRtt: string;
+    certs: string;
+    provHistory: string;
+    noOpen: string;
+    noPhotos: string;
+    noHistory: string;
+    dryRun: string;
+    reportTitle: string;
+  }
+> = {
+  ja: {
+    reportTitle: "現場セットアップ完了レポート",
+    title: "現場セットアップ完了レポート",
+    customer: "顧客",
+    site: "現場名",
+    devices: "登録機器",
+    completedAt: "完了日時",
+    installer: "施工担当者",
+    openItems: "未完了項目",
+    checklist: "チェックリスト",
+    deviceList: "設備一覧",
+    warnings: "未完了警告",
+    photos: "施工写真",
+    mqttRtt: "MQTT RTT 結果",
+    certs: "証明書状態",
+    provHistory: "QR / NFC 登録履歴",
+    noOpen: "未完了項目なし",
+    noPhotos: "写真なし",
+    noHistory: "履歴なし",
+    dryRun: "DRY RUN — デモ用レポート（DB未更新）",
+  },
+  en: {
+    reportTitle: "Field Installation Completion Report",
+    title: "Field Installation Completion Report",
+    customer: "Customer",
+    site: "Site",
+    devices: "Registered devices",
+    completedAt: "Completed at",
+    installer: "Installer",
+    openItems: "Open items",
+    checklist: "Checklist",
+    deviceList: "Device list",
+    warnings: "Warnings",
+    photos: "Install photos",
+    mqttRtt: "MQTT RTT results",
+    certs: "Certificate status",
+    provHistory: "QR / NFC provisioning history",
+    noOpen: "No open items",
+    noPhotos: "No photos",
+    noHistory: "No history",
+    dryRun: "DRY RUN — demo report (DB not updated)",
+  },
+};
+
 export function buildInstallCompletionReportHtml(
   customerCode: string,
   actor?: string,
-  opts?: { dryRun?: boolean; siteName?: string | null }
+  opts?: { dryRun?: boolean; siteName?: string | null; locale?: CompletionReportLocale }
 ): string {
+  const locale: CompletionReportLocale = opts?.locale === "en" ? "en" : "ja";
+  const L = REPORT_I18N[locale];
   const customer = getCustomerByCode(customerCode);
   if (!customer) throw new Error("Customer not found");
 
@@ -134,14 +206,18 @@ export function buildInstallCompletionReportHtml(
 
   const warnings: string[] = [];
   if (checklist.summary.openItems.length) {
-    warnings.push(`${checklist.summary.openItems.length} 件の未完了チェック項目`);
+    warnings.push(
+      locale === "en"
+        ? `${checklist.summary.openItems.length} open checklist item(s)`
+        : `${checklist.summary.openItems.length} 件の未完了チェック項目`
+    );
   }
   if (devices.some((d) => !d.commissioning_status || d.commissioning_status === "draft")) {
-    warnings.push("未テスト / draft の設備があります");
+    warnings.push(locale === "en" ? "Devices still in draft / untested" : "未テスト / draft の設備があります");
   }
   const warnHtml = warnings.length
     ? `<ul>${warnings.map((w) => `<li class="open">${escapeHtml(w)}</li>`).join("")}</ul>`
-    : "<p>未完了警告なし</p>";
+    : `<p>${locale === "en" ? "No warnings" : "未完了警告なし"}</p>`;
 
   const deviceRows = devices
     .map(
@@ -162,12 +238,14 @@ export function buildInstallCompletionReportHtml(
     })
     .join("");
 
-  const dryBanner = meta.dryRun
-    ? `<div class="dry-run">DRY RUN — デモ用レポート（DB未更新）</div>`
-    : "";
+  const dryBanner = meta.dryRun ? `<div class="dry-run">${escapeHtml(L.dryRun)}</div>` : "";
+  const completeLabel =
+    locale === "en"
+      ? `complete ${checklist.summary.fullyComplete} / ${checklist.summary.totalDevices}`
+      : `完了 ${checklist.summary.fullyComplete} / ${checklist.summary.totalDevices}`;
 
   return `<!DOCTYPE html>
-<html lang="ja"><head><meta charset="utf-8"/><title>施工完了レポート — ${escapeHtml(customer.customer_name)}</title>
+<html lang="${locale}"><head><meta charset="utf-8"/><title>${escapeHtml(L.title)} — ${escapeHtml(customer.customer_name)}</title>
 <style>
 body{font-family:sans-serif;margin:2rem}
 table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:6px}
@@ -177,30 +255,30 @@ table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:6p
 </style>
 </head><body>
 ${dryBanner}
-<h1>現場セットアップ完了レポート</h1>
-<p><strong>顧客:</strong> ${escapeHtml(customer.customer_name)} (${escapeHtml(customer.customer_code)})</p>
-<p><strong>現場名:</strong> ${escapeHtml(siteName)}</p>
-<p><strong>登録機器:</strong> ${devices.length} 台（完了 ${checklist.summary.fullyComplete} / ${checklist.summary.totalDevices}）</p>
-<p><strong>完了日時:</strong> ${meta.generatedAt}</p>
-<p><strong>施工担当者:</strong> ${escapeHtml(meta.actor ?? "—")}</p>
+<h1>${escapeHtml(L.reportTitle)}</h1>
+<p><strong>${escapeHtml(L.customer)}:</strong> ${escapeHtml(customer.customer_name)} (${escapeHtml(customer.customer_code)})</p>
+<p><strong>${escapeHtml(L.site)}:</strong> ${escapeHtml(siteName)}</p>
+<p><strong>${escapeHtml(L.devices)}:</strong> ${devices.length} (${completeLabel})</p>
+<p><strong>${escapeHtml(L.completedAt)}:</strong> ${meta.generatedAt}</p>
+<p><strong>${escapeHtml(L.installer)}:</strong> ${escapeHtml(meta.actor ?? "—")}</p>
 <p><strong>export_id:</strong> ${escapeHtml(meta.exportId)}</p>
-<h2>未完了項目</h2>
-<ul>${openList || "<li>未完了項目なし</li>"}</ul>
-<h2>チェックリスト</h2>
+<h2>${escapeHtml(L.openItems)}</h2>
+<ul>${openList || `<li>${escapeHtml(L.noOpen)}</li>`}</ul>
+<h2>${escapeHtml(L.checklist)}</h2>
 ${checklistDevices || "<p>—</p>"}
-<h2>設備一覧</h2>
+<h2>${escapeHtml(L.deviceList)}</h2>
 <table><thead><tr><th>Device ID</th><th>Label</th><th>Type</th><th>Status</th><th>Cert</th></tr></thead><tbody>${deviceRows}</tbody></table>
-<h2>未完了警告</h2>
+<h2>${escapeHtml(L.warnings)}</h2>
 ${warnHtml}
-<h2>施工写真（${photos.length} 件）</h2>
-<ul>${photoList || "<li>写真なし</li>"}</ul>
-<h2>MQTT RTT 結果</h2>
+<h2>${escapeHtml(L.photos)} (${photos.length})</h2>
+<ul>${photoList || `<li>${escapeHtml(L.noPhotos)}</li>`}</ul>
+<h2>${escapeHtml(L.mqttRtt)}</h2>
 <table><thead><tr><th>Device</th><th>RTT ms</th><th>Tested at</th></tr></thead><tbody>${rttRows}</tbody></table>
-<h2>証明書状態</h2>
+<h2>${escapeHtml(L.certs)}</h2>
 <table><thead><tr><th>Device</th><th>Status</th><th>CSR</th><th>Cert</th></tr></thead><tbody>${certRows}</tbody></table>
-<h2>QR / NFC 登録履歴</h2>
-<ul>${provList || "<li>履歴なし</li>"}</ul>
-<p class="hint">PDF: Puppeteer 未インストール時は HTML フォールバック</p>
+<h2>${escapeHtml(L.provHistory)}</h2>
+<ul>${provList || `<li>${escapeHtml(L.noHistory)}</li>`}</ul>
+<p class="hint">PDF: ${locale === "en" ? "HTML fallback when Puppeteer unavailable" : "Puppeteer 未インストール時は HTML フォールバック"}</p>
 </body></html>`;
 }
 

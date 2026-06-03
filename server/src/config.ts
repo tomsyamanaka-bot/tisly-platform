@@ -162,4 +162,17 @@ export const config = {
   get mqttUrlConfigured() {
     return !!process.env.MQTT_URL?.trim();
   },
+  field: {
+    get liveMode() {
+      return env("FIELD_LIVE_MODE", "false") === "true";
+    },
+    get mqttAckRequired() {
+      return env("MQTT_ACK_REQUIRED", "false") === "true";
+    },
+    get certProvisioningMode() {
+      const mode = env("CERT_PROVISIONING_MODE", "mock");
+      if (mode === "ca" || mode === "acme") return mode;
+      return "mock" as const;
+    },
+  },
 };

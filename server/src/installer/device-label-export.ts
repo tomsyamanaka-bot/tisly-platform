@@ -96,3 +96,57 @@ export function buildDeviceLabelSvg(customerId: string, deviceId: string): strin
 function escapeXml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
+
+/** King Jim テプラ用 CSV（WebLink インポート向けプレースホルダ） */
+export function buildTepraLabelsCsv(customerId: string): string {
+  const rows = getDatabase()
+    .prepare(`SELECT device_id FROM devices WHERE customer_id = ? ORDER BY device_id`)
+    .all(customerId) as Array<{ device_id: string }>;
+  const header = "tape_width_mm,line1,line2,qr_payload,device_id";
+  const lines = rows.map((r) => {
+    const data = getDeviceLabelData(customerId, r.device_id);
+    const parts = data.labelText.split(" · ");
+    return [
+      csvEscape("24"),
+      csvEscape(parts[0] ?? data.deviceId),
+      csvEscape(parts.slice(1).join(" ") || data.serial),
+      csvEscape(data.qrPayload),
+      csvEscape(data.deviceId),
+    ].join(",");
+  });
+  return [header, ...lines].join("\n") + "\n";
+}
+
+/** Brother b-PAC / P-touch 向け CSV */
+export function buildBrotherLabelsCsv(customerId: string): string {
+  const rows = getDatabase()
+    .prepare(`SELECT device_id FROM devices WHERE customer_id = ? ORDER BY device_id`)
+    .all(customerId) as Array<{ device_id: string }>;
+  const header = "ObjectName,Text,QRData,Serial,Site,Zone";
+  const lines = rows.map((r) => {
+    const data = getDeviceLabelData(customerId, r.device_id);
+    return [
+      csvEscape(`TiSLY-${data.deviceId}`),
+      csvEscape(data.labelText),
+      csvEscape(data.qrPayload),
+      csvEscape(data.serial),
+      csvEscape(data.site ?? ""),
+      csvEscape(data.zone ?? ""),
+    ].join(",");
+  });
+  return [header, ...lines].join("\n") + "\n";
+}
+
+/** QR 中心 SVG（ラベルプリンタ / 現場印刷用） */
+export function buildDeviceQrSvg(customerId: string, deviceId: string): string {
+  const data = getDeviceLabelData(customerId, deviceId);
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="240">
+  <rect width="100%" height="100%" fill="#fff"/>
+  <text x="10" y="20" font-size="11" fill="#1a7f37" font-weight="bold">TiSLY QR</text>
+  <text x="10" y="38" font-size="10" fill="#333">${escapeXml(data.deviceId)}</text>
+  <rect x="40" y="50" width="120" height="120" fill="#f3f4f6" stroke="#1a7f37" stroke-width="2"/>
+  <text x="48" y="115" font-size="8" fill="#666">QR: ${escapeXml(data.qrPayload.slice(0, 24))}…</text>
+  <text x="10" y="230" font-size="8" fill="#999">Use label.json for full payload</text>
+</svg>`;
+}
