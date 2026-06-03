@@ -451,6 +451,12 @@ tvRouter.get("/devices", (req, res) => {
 
   let sql = "SELECT * FROM tv_devices WHERE 1=1";
   const params: unknown[] = [];
+  const ops = (req as import("express").Request & { opsScope?: { customerId?: string; tenantId?: string } })
+    .opsScope;
+  if (ops?.customerId) {
+    sql += " AND (tenant_id = ? OR site_id IN (SELECT id FROM sites WHERE customer_id = ?))";
+    params.push(ops.tenantId ?? ops.customerId, ops.customerId);
+  }
   if (siteId) {
     sql += " AND site_id = ?";
     params.push(siteId);

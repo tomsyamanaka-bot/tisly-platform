@@ -53,6 +53,37 @@ export async function sendEmail(payload: NotificationPayload): Promise<DeliveryR
   }
 }
 
+export async function sendReportEmail(input: {
+  to: string;
+  subject: string;
+  html: string;
+  attachments?: Array<{ filename: string; content: Buffer }>;
+}): Promise<{ ok: boolean; error?: string }> {
+  const settings = getPlatformSetting<EmailSettings>("email");
+  if (!settings?.enabled) {
+    return { ok: false, error: "Email disabled — placeholder only" };
+  }
+  try {
+    const transporter = getTransporter({
+      ...settings,
+      smtpPassword: process.env.SMTP_PASSWORD,
+    });
+    await transporter.sendMail({
+      from: settings.fromAddress,
+      to: input.to,
+      subject: input.subject,
+      html: input.html,
+      attachments: input.attachments?.map((a) => ({
+        filename: a.filename,
+        content: a.content,
+      })),
+    });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 export async function resendNotificationLog(logId: string): Promise<DeliveryResult> {
   const db = getDatabase();
   const log = db

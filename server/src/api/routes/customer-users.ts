@@ -5,6 +5,7 @@ import {
   disableCustomerUser,
   inviteCustomerUser,
   listCustomerUsers,
+  reinviteCustomerUser,
   updateCustomerUserRole,
 } from "../../customer/customer-invite.js";
 import { getCustomerByCode } from "../../customer/customer-store.js";
@@ -69,6 +70,42 @@ customerUsersRouter.post(
     }
     res.status(201).json({
       userId: result.userId,
+      inviteToken: result.inviteToken,
+      expiresAt: result.expiresAt,
+      acceptUrl: result.acceptUrl,
+      emailPreview: result.emailPreview,
+      emailSent: result.emailSent,
+    });
+  }
+);
+
+customerUsersRouter.post(
+  "/:customerCode/users/:id/reinvite",
+  requireAuth("admin"),
+  requireTenantMatch("customerCode"),
+  (req: AuthedRequest, res) => {
+    const customer = resolve(req, String(req.params.customerCode));
+    if (!customer) {
+      res.status(403).json({ error: "Denied" });
+      return;
+    }
+    if (!req.admin || !canInviteUsers(req.admin.role)) {
+      res.status(403).json({ error: "Only owner/admin may reinvite users" });
+      return;
+    }
+    const result = reinviteCustomerUser({
+      customerId: customer.customer_id,
+      userId: String(req.params.id),
+      invitedByUserId: req.admin.userId,
+      invitedByLabel: req.admin.username,
+      ip: req.ip,
+    });
+    if ("error" in result) {
+      res.status(400).json(result);
+      return;
+    }
+    res.json({
+      ok: true,
       inviteToken: result.inviteToken,
       expiresAt: result.expiresAt,
       acceptUrl: `/customer/${customer.customer_code}?invite=${result.inviteToken}`,

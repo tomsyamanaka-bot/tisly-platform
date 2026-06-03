@@ -11,11 +11,43 @@ function baseUrl(override?: string): string {
   return (override ?? API_BASE).replace(/\/$/, "");
 }
 
+export type CertVerificationStatus = "ok" | "mismatch" | "skipped" | "placeholder";
+
+let lastVerificationStatus: CertVerificationStatus = TV_CERT_PINNING_ENABLED
+  ? TV_CERT_FINGERPRINT.includes("PLACEHOLDER")
+    ? "placeholder"
+    : "skipped"
+  : "skipped";
+
+export function getCertPinningStatus(): {
+  enabled: boolean;
+  fingerprint: string;
+  lastVerification: CertVerificationStatus;
+} {
+  return {
+    enabled: TV_CERT_PINNING_ENABLED,
+    fingerprint: TV_CERT_FINGERPRINT,
+    lastVerification: lastVerificationStatus,
+  };
+}
+
+export function recordCertVerification(status: CertVerificationStatus): void {
+  lastVerificationStatus = status;
+}
+
 /** When pinning is enabled, native layer should validate TLS fingerprint (TODO: native module). */
-export function assertCertPinningConfigured(): void {
-  if (TV_CERT_PINNING_ENABLED && TV_CERT_FINGERPRINT.includes("PLACEHOLDER")) {
-    console.warn("[TV] Certificate fingerprint is still a placeholder");
+export function assertCertPinningConfigured(): CertVerificationStatus {
+  if (!TV_CERT_PINNING_ENABLED) {
+    lastVerificationStatus = "skipped";
+    return lastVerificationStatus;
   }
+  if (TV_CERT_FINGERPRINT.includes("PLACEHOLDER")) {
+    console.warn("[TV] Certificate fingerprint is still a placeholder");
+    lastVerificationStatus = "placeholder";
+    return lastVerificationStatus;
+  }
+  lastVerificationStatus = "ok";
+  return lastVerificationStatus;
 }
 
 export interface DashboardSummary {

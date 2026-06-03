@@ -150,6 +150,7 @@ async function showDashboard() {
   `;
 
   await loadUsersTab();
+  await loadNotificationRulesTab().catch(() => {});
 }
 
 let currentUserRole = "viewer";
@@ -165,8 +166,13 @@ async function loadUsersTab() {
 
   document.getElementById("users-body").innerHTML = (data.users ?? [])
     .map((u) => {
-      const actions = canManage && u.status === "active"
-        ? `<button type="button" class="btn secondary btn-disable-user" data-id="${u.id}">停止</button>
+      const reinviteBtn =
+        canManage && (u.status === "invited" || u.status === "suspended")
+          ? `<button type="button" class="btn secondary btn-reinvite-user" data-id="${u.id}">再招待</button>`
+          : "";
+      const actions = canManage
+        ? `${reinviteBtn}
+           ${u.status === "active" ? `<button type="button" class="btn secondary btn-disable-user" data-id="${u.id}">停止</button>` : ""}
            <select class="user-role-select" data-id="${u.id}">
              ${["viewer", "manager", "admin", "owner"]
                .map((r) => `<option value="${r}" ${r === u.role ? "selected" : ""}>${r}</option>`)
@@ -192,7 +198,67 @@ async function loadUsersTab() {
       });
     });
   });
+  document.querySelectorAll(".btn-reinvite-user").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const res = await apiPost(`/api/customer/${customerCode}/users/${btn.dataset.id}/reinvite`, {});
+      alert(`再招待: ${res.acceptUrl ?? res.inviteToken}`);
+      await loadUsersTab();
+    });
+  });
 }
+
+async function loadNotificationRulesTab() {
+  const data = await apiGet(`/api/customer/${customerCode}/notification-rules`).catch(() => ({
+    rules: [],
+    planLimits: { allowed: [], blocked: [] },
+  });
+  document.getElementById("notif-plan-hint").textContent =
+    `プラン制限 — 利用可: ${(data.planLimits?.allowed ?? []).join(", ") || "なし"} / 不可: ${(data.planLimits?.blocked ?? []).join(", ") || "—"}`;
+  const canManage = ["owner", "admin", "manager", "super_admin"].includes(currentUserRole);
+  document.getElementById("notif-rule-form").hidden = !canManage;
+  document.getElementById("notif-rules-body").innerHTML = (data.rules ?? [])
+    .map(
+      (r) =>
+        `<tr>
+          <td>${r.name}</td>
+          <td>${r.enabled ? "ON" : "OFF"}</td>
+          <td>${(r.eventTypes ?? []).join(", ")}</td>
+          <td>${r.severity}</td>
+          <td>${(r.channels ?? []).join(", ")}</td>
+          <td>${r.timeStart ?? "—"} – ${r.timeEnd ?? "—"}</td>
+          <td>${canManage ? `<button type="button" class="btn secondary btn-rule-del" data-id="${r.id}">削除</button>` : ""}</td>
+        </tr>`
+    )
+    .join("");
+  document.querySelectorAll(".btn-rule-del").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      await fetch(`/api/customer/${customerCode}/notification-rules/${btn.dataset.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${getAdminToken()}` },
+      });
+      await loadNotificationRulesTab();
+    });
+  });
+}
+
+document.getElementById("btn-rule-save")?.addEventListener("click", async () => {
+  const days = document
+    .getElementById("rule-days")
+    .value.split(",")
+    .map((d) => Number(d.trim()))
+    .filter((n) => !Number.isNaN(n));
+  await apiPost(`/api/customer/${customerCode}/notification-rules`, {
+    name: document.getElementById("rule-name").value.trim() || "ルール",
+    enabled: document.getElementById("rule-enabled").checked,
+    eventTypes: document.getElementById("rule-events").value.split(",").map((s) => s.trim()),
+    severity: document.getElementById("rule-severity").value.trim(),
+    channels: document.getElementById("rule-channels").value.split(",").map((s) => s.trim()),
+    timeStart: document.getElementById("rule-time-start").value || null,
+    timeEnd: document.getElementById("rule-time-end").value || null,
+    daysOfWeek: days.length ? days : [0, 1, 2, 3, 4, 5, 6],
+  });
+  await loadNotificationRulesTab();
+});
 
 document.querySelectorAll(".portal-tabs .tab").forEach((tab) => {
   tab.addEventListener("click", () => {
@@ -201,7 +267,9 @@ document.querySelectorAll(".portal-tabs .tab").forEach((tab) => {
     const id = tab.dataset.tab;
     document.getElementById("tab-overview").hidden = id !== "overview";
     document.getElementById("tab-users").hidden = id !== "users";
+    document.getElementById("tab-notifications").hidden = id !== "notifications";
     if (id === "users" && getAdminToken()) loadUsersTab().catch(console.error);
+    if (id === "notifications" && getAdminToken()) loadNotificationRulesTab().catch(console.error);
   });
 });
 

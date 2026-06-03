@@ -13,6 +13,7 @@ import { requireAuth, type AuthedRequest } from "../../auth/auth-middleware.js";
 import { requireTenantMatch } from "../../auth/tenant-guard.js";
 import { canAccessCustomer } from "../../auth/customer-auth.js";
 import { config } from "../../config.js";
+import { countOpenIncidents, listRecoveryHistory } from "../../incidents/incident-store.js";
 
 export const customerPortalRouter = Router();
 const portalAuth = [requireAuth("viewer"), requireTenantMatch("customerCode")] as const;
@@ -154,18 +155,7 @@ customerPortalRouter.get("/:customerCode/recovery", ...portalAuth, (req: AuthedR
   }
   if (!requirePlanFeature(customer.plan, "recovery", res)) return;
   const tid = tenantScope(customer);
-  let history: unknown[] = [];
-  try {
-    history = getDatabase()
-      .prepare(
-        `SELECT id, created_at, status, playbook_id, site_id, device_id
-         FROM recovery_incidents WHERE tenant_id = ?
-         ORDER BY created_at DESC LIMIT 20`
-      )
-      .all(tid);
-  } catch {
-    history = [];
-  }
+  const history = listRecoveryHistory(tid, 20);
   res.json({ recoveryHistory: history });
 });
 
@@ -256,17 +246,11 @@ customerPortalRouter.get("/:customerCode/tv", ...portalAuth, (req: AuthedRequest
     message: string;
   }>;
 
-  let recoveryStatus = "idle";
-  try {
-    const open = db
-      .prepare(
-        `SELECT COUNT(*) as c FROM recovery_incidents WHERE tenant_id = ? AND status IN ('open','running')`
-      )
-      .get(tid) as { c: number };
-    if (open.c > 0) recoveryStatus = "active";
-  } catch {
-    recoveryStatus = "n/a";
-  }
+  const openCount = countOpenIncidents({
+    customerId: customer.customer_id,
+    tenantId: tid,
+  });
+  const recoveryStatus = openCount > 0 ? "active" : "idle";
 
   res.json({
     customer,

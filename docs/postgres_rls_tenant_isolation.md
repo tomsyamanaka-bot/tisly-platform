@@ -1,6 +1,6 @@
 # PostgreSQL Row Level Security — テナント分離設計
 
-**実装は設計のみ（Phase 261–280）。** SQLite デモはアプリ層ガードを継続。
+**実装 SQL:** `server/src/db/postgres/rls.sql`（Phase 281–300）。**DB への適用は TODO。** SQLite デモは `customer-context.ts` のアプリ層ガードを継続。
 
 ## 方針
 

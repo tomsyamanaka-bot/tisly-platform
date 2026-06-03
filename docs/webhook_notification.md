@@ -1,4 +1,4 @@
-# Webhook 通知（Phase 261–280）
+# Webhook 通知（Phase 261–300）
 
 ## プラン制限
 
@@ -23,8 +23,10 @@
 ## 実装
 
 - `server/src/notification/channels/webhook.ts`
-- シークレットヘッダ: `X-TiSLY-Webhook-Secret`
-- リトライ: placeholder（キュー未実装）
+- 署名（Phase 281+）: `server/src/notification/webhook-signature.ts`
+  - `x-tisly-webhook-timestamp` — Unix 秒
+  - `x-tisly-webhook-signature` — `v1=<hmac-sha256(timestamp.body)>`
+- 再送: `webhook_delivery_logs` · `webhook-retry-queue.ts`（max 5、指数バックオフ）
 
 ## 監査
 

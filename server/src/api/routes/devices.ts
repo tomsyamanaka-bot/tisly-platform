@@ -77,6 +77,12 @@ devicesRouter.get("/", (req, res) => {
 
   let sql = "SELECT * FROM devices WHERE 1=1";
   const params: unknown[] = [];
+  const ops = (req as import("express").Request & { opsScope?: { customerId?: string; tenantId?: string } })
+    .opsScope;
+  if (ops?.customerId) {
+    sql += " AND (customer_id = ? OR tenant_id = ?)";
+    params.push(ops.customerId, ops.tenantId ?? ops.customerId);
+  }
   if (deviceType) {
     sql += " AND device_type = ?";
     params.push(deviceType);

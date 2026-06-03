@@ -26,7 +26,9 @@ import { customerPortalRouter } from "./api/routes/customer-portal.js";
 import { customerUsersRouter } from "./api/routes/customer-users.js";
 import { customerReportsRouter } from "./api/routes/customer-reports.js";
 import { customerWebhooksRouter } from "./api/routes/customer-webhooks.js";
+import { customerNotificationRulesRouter } from "./api/routes/customer-notification-rules.js";
 import { incidentsRouter } from "./api/routes/incidents.js";
+import { opsCustomerScopeMiddleware } from "./ops/ops-customer-scope.js";
 import { attachCustomerFromSubdomain } from "./customer/subdomain-resolver.js";
 import { dbRouter } from "./api/routes/db.js";
 import { notificationRulesRouter } from "./api/routes/notification-rules.js";
@@ -52,18 +54,18 @@ export function createApp(): express.Application {
 
   app.use("/api/auth", authRouter);
 
-  app.use("/api/events", tenantQueryGuard, eventsRouter);
-  app.use("/api/notifications", tenantQueryGuard, notificationsRouter);
-  app.use("/api/devices", tenantQueryGuard, devicesRouter);
+  app.use("/api/events", opsCustomerScopeMiddleware, tenantQueryGuard, eventsRouter);
+  app.use("/api/notifications", opsCustomerScopeMiddleware, tenantQueryGuard, notificationsRouter);
+  app.use("/api/devices", opsCustomerScopeMiddleware, tenantQueryGuard, devicesRouter);
   app.use("/api/heartbeat", heartbeatRouter);
   app.use("/api/dashboard", dashboardRouter);
   app.use("/api/demo", demoRouter);
-  app.use("/api/analytics", analyticsRouter);
+  app.use("/api/analytics", opsCustomerScopeMiddleware, analyticsRouter);
   app.use("/api/test", testRouter);
 
   app.use("/api/settings", requireAdminAuth, settingsRouter);
-  app.use("/api/recovery", requireAdminAuth, tenantQueryGuard, recoveryRouter);
-  app.use("/api/qnap", requireAdminAuth, tenantQueryGuard, qnapRouter);
+  app.use("/api/recovery", requireAdminAuth, opsCustomerScopeMiddleware, tenantQueryGuard, recoveryRouter);
+  app.use("/api/qnap", requireAdminAuth, opsCustomerScopeMiddleware, tenantQueryGuard, qnapRouter);
   app.use("/api/ops", requireAdminAuth, socNocRouter);
   app.use("/api/sites", requireAdminAuth, sitesRouter);
   app.use("/api/provisioning", requireAdminAuth, provisioningRouter);
@@ -72,13 +74,14 @@ export function createApp(): express.Application {
   app.use("/api/notification-rules", requireAdminAuth, notificationRulesRouter);
   app.use("/api/security", securityRouter);
 
-  app.use("/api/tv", tenantQueryGuard, tvRouter);
+  app.use("/api/tv", opsCustomerScopeMiddleware, tenantQueryGuard, tvRouter);
   app.use("/api/health", healthFullRouter);
   app.use("/api/customers", customersRouter);
   app.use("/api/customer", customerPortalRouter);
   app.use("/api/customer", customerUsersRouter);
   app.use("/api/customer", customerReportsRouter);
   app.use("/api/customer", customerWebhooksRouter);
+  app.use("/api/customer", customerNotificationRulesRouter);
   app.use("/api/incidents", incidentsRouter);
   app.use("/api/db", dbRouter);
 

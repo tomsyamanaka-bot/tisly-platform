@@ -184,6 +184,49 @@ function migratePhase261(database: Database.Database): void {
     "CREATE INDEX IF NOT EXISTS idx_customer_report_exports_customer ON customer_report_exports(customer_id)"
   );
   migrateCustomerUsersInviteStatus(database);
+  migratePhase281(database);
+}
+
+function migratePhase281(database: Database.Database): void {
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS customer_notification_rules (
+      id TEXT PRIMARY KEY,
+      customer_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      event_types_json TEXT NOT NULL DEFAULT '["*"]',
+      severity TEXT NOT NULL DEFAULT '*',
+      channels_json TEXT NOT NULL DEFAULT '["email"]',
+      time_start TEXT,
+      time_end TEXT,
+      days_of_week_json TEXT NOT NULL DEFAULT '[0,1,2,3,4,5,6]',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
+    );
+  `);
+  database.exec(
+    "CREATE INDEX IF NOT EXISTS idx_customer_notification_rules_customer ON customer_notification_rules(customer_id)"
+  );
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS webhook_delivery_logs (
+      id TEXT PRIMARY KEY,
+      webhook_id TEXT NOT NULL,
+      customer_id TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      attempt_count INTEGER NOT NULL DEFAULT 0,
+      max_attempts INTEGER NOT NULL DEFAULT 5,
+      next_retry_at TEXT,
+      last_error TEXT,
+      payload_json TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (webhook_id) REFERENCES customer_webhooks(id)
+    );
+  `);
+  database.exec(
+    "CREATE INDEX IF NOT EXISTS idx_webhook_delivery_pending ON webhook_delivery_logs(status, next_retry_at)"
+  );
 }
 
 function migrateCustomerUsersInviteStatus(database: Database.Database): void {

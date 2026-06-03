@@ -27,6 +27,12 @@ eventsRouter.get("/", (req, res) => {
 
   let sql = "SELECT * FROM events WHERE 1=1";
   const params: unknown[] = [];
+  const ops = (req as import("express").Request & { opsScope?: { customerId?: string; tenantId?: string } })
+    .opsScope;
+  if (ops?.customerId) {
+    sql += " AND (tenant_id = ? OR site_id IN (SELECT id FROM sites WHERE customer_id = ?))";
+    params.push(ops.tenantId ?? ops.customerId, ops.customerId);
+  }
   if (deviceId) {
     sql += " AND device_id = ?";
     params.push(deviceId);

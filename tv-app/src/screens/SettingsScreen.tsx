@@ -19,6 +19,7 @@ import {
   type TvSettings,
 } from "../services/tvSettings";
 import { tvTheme } from "../theme/tvTheme";
+import { assertCertPinningConfigured, getCertPinningStatus } from "../services/api";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Settings">;
 
@@ -62,6 +63,25 @@ export function SettingsScreen({ navigation }: Props) {
           ))}
         </View>
         <Text style={styles.hint}>{SIGNAGE_LABELS[settings.signageMode]}</Text>
+      </Field>
+
+      <Field label="TLS 証明書ピン留め">
+        {(() => {
+          const st = getCertPinningStatus();
+          void assertCertPinningConfigured();
+          return (
+            <>
+              <Text style={styles.hint}>有効: {st.enabled ? "ON" : "OFF"}</Text>
+              <Text style={styles.hint}>Fingerprint: {st.fingerprint}</Text>
+              <Text style={styles.hint}>最終検証: {st.lastVerification}</Text>
+              {st.lastVerification === "mismatch" ? (
+                <Text style={[styles.hint, { color: "#ffb4b4" }]}>
+                  不一致 — CertPinWarning 画面を表示（placeholder）
+                </Text>
+              ) : null}
+            </>
+          );
+        })()}
       </Field>
 
       <Field label="Server URL">

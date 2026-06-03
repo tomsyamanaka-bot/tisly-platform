@@ -201,7 +201,7 @@ async function loadAnalytics() {
 
 async function loadSocNoc(mode) {
   const endpoint = mode === "soc" ? "/api/ops/soc" : "/api/ops/noc";
-  const data = await apiGet(endpoint);
+  const data = await apiGet(`${endpoint}${scopedQuery()}`);
   const socPanel = document.getElementById("panel-soc");
   const nocPanel = document.getElementById("panel-noc");
   if (mode === "soc") {
@@ -363,6 +363,35 @@ document.getElementById("btn-sec-logout")?.addEventListener("click", async () =>
   await loadSecurity();
 });
 
+async function loadOpsScopeSummary() {
+  const scope = getSelectedCustomerScope();
+  const q = scope === "ALL" ? "" : `?customerCode=${encodeURIComponent(scope)}`;
+  const el = document.getElementById("ops-scope-summary");
+  if (!el || !getAdminToken()) {
+    if (el) el.innerHTML = "";
+    return;
+  }
+  try {
+    const s = await apiGet(`/api/ops/summary${q}`);
+    el.innerHTML = `
+      <h2>顧客スコープ: ${s.customerScope}</h2>
+      <div class="metric-cards" style="display:flex;gap:1rem;flex-wrap:wrap">
+        <div class="metric-card"><h3>Open Incidents</h3><div class="value">${s.openIncidents}</div></div>
+        <div class="metric-card"><h3>Critical</h3><div class="value">${s.criticalCount}</div></div>
+        <div class="metric-card"><h3>Recovery pending</h3><div class="value">${s.recoveryPending}</div></div>
+        <div class="metric-card"><h3>TV offline</h3><div class="value">${s.tvOffline}</div></div>
+        <div class="metric-card"><h3>QNAP warning</h3><div class="value">${s.qnapWarning}</div></div>
+      </div>`;
+  } catch (e) {
+    el.innerHTML = `<p class="error">${e}</p>`;
+  }
+}
+
+function scopedQuery() {
+  const scope = getSelectedCustomerScope();
+  return scope === "ALL" ? "" : `?customerCode=${encodeURIComponent(scope)}`;
+}
+
 async function loadIncidents() {
   const scope = getSelectedCustomerScope();
   const hint = document.getElementById("incidents-scope-hint");
@@ -432,7 +461,11 @@ async function loadRecoveryOps() {
 
 async function loadRealDevices() {
   const siteId = getSelectedSiteId();
-  const q = siteId ? `?siteId=${encodeURIComponent(siteId)}` : "";
+  const parts = [];
+  const scope = getSelectedCustomerScope();
+  if (scope !== "ALL") parts.push(`customerCode=${encodeURIComponent(scope)}`);
+  if (siteId) parts.push(`siteId=${encodeURIComponent(siteId)}`);
+  const q = parts.length ? `?${parts.join("&")}` : "";
   const data = await apiGet(`/api/devices${q}`);
   const el = document.getElementById("devices-body");
   if (!el || !data.devices?.length) return;
@@ -515,6 +548,7 @@ document.querySelector(`[data-ui-mode="${savedUi}"]`)?.classList.add("active");
 document.querySelector(`[data-operator-mode="${savedOp}"]`)?.classList.add("active");
 
 async function refreshAll() {
+  await loadOpsScopeSummary();
   await Promise.all([
     loadDemoStatus(),
     loadMap(),

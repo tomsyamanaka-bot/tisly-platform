@@ -41,6 +41,7 @@
     <nav class="portal-tabs">
       <button type="button" class="tab active" data-tab="overview">概要</button>
       <button type="button" class="tab" data-tab="users">ユーザー</button>
+      <button type="button" class="tab" data-tab="notifications">通知ルール</button>
     </nav>
     <div id="tab-overview">
     <section class="metric-cards" id="metric-cards"></section>
@@ -79,6 +80,28 @@
       <h2>Recovery履歴</h2>
       <ul id="recovery-list" class="simple-list"></ul>
     </section>
+    </div>
+    <div id="tab-notifications" hidden>
+      <section class="card portal-card">
+        <h2>通知ルール</h2>
+        <p id="notif-plan-hint" class="hint"></p>
+        <div id="notif-limits" class="hint"></div>
+        <div id="notif-rule-form" hidden>
+          <label>名前 <input id="rule-name" /></label>
+          <label>有効 <input type="checkbox" id="rule-enabled" checked /></label>
+          <label>イベント種別（カンマ区切り、*可） <input id="rule-events" value="*" /></label>
+          <label>Severity <input id="rule-severity" value="*" /></label>
+          <label>チャネル（カンマ） <input id="rule-channels" value="email" /></label>
+          <label>時間帯 開始 <input id="rule-time-start" placeholder="09:00" /></label>
+          <label>終了 <input id="rule-time-end" placeholder="18:00" /></label>
+          <label>曜日（0=日..6=土、カンマ） <input id="rule-days" value="1,2,3,4,5" /></label>
+          <button type="button" class="btn" id="btn-rule-save">ルール追加</button>
+        </div>
+        <table class="users-table">
+          <thead><tr><th>名前</th><th>ON</th><th>イベント</th><th>Severity</th><th>チャネル</th><th>時間</th><th></th></tr></thead>
+          <tbody id="notif-rules-body"></tbody>
+        </table>
+      </section>
     </div>
     <div id="tab-users" hidden>
       <section class="card portal-card">

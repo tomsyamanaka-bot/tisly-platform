@@ -4,8 +4,10 @@ import { getCustomerByCode } from "../customer/customer-store.js";
 import { canAccessCustomer, resolveAnySession } from "./customer-auth.js";
 import { isSessionRevoked } from "./session-store.js";
 import { roleMeetsRequirement, type AppRole } from "./roles.js";
+import type { OpsScopeLocals } from "../ops/ops-customer-scope.js";
 
 export interface AuthedRequest extends Request {
+  opsScope?: OpsScopeLocals;
   admin?: {
     userId: string;
     username: string;

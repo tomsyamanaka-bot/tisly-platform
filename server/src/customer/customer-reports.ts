@@ -37,19 +37,14 @@ export function buildCustomerSalesReport(customerId: string): {
       .get(tenantId, customerId, monthStart) as { c: number }
   ).c;
 
-  let recoveryCount = 0;
-  try {
-    recoveryCount = (
-      db
-        .prepare(
-          `SELECT COUNT(*) as c FROM recovery_incidents
-           WHERE tenant_id = ? AND created_at >= ?`
-        )
-        .get(tenantId, monthStart) as { c: number }
-    ).c;
-  } catch {
-    recoveryCount = 0;
-  }
+  const recoveryCount = (
+    db
+      .prepare(
+        `SELECT COUNT(*) as c FROM incidents
+         WHERE (customer_id = ? OR tenant_id = ?) AND created_at >= ?`
+      )
+      .get(customerId, tenantId, monthStart) as { c: number }
+  ).c;
 
   const summary = getDashboardSummary(customerId);
   const devices = listDevicesForCustomer(customerId);

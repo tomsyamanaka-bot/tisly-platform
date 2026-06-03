@@ -3,6 +3,33 @@
 TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。  
 三菱電機 **FX 系** PLC と **GX Works2 / GX Works3** を想定しています。
 
+## TiSLY Platform — PRO Remote Unified Operations（Phase 281–300）
+
+**顧客通知ルール · Incidents 統一 · Operations 顧客スコープ · PDF/メールレポート · RLS 準備 · Webhook 署名/再送 · TV ピン留め**
+
+| 領域 | パス / URL |
+|------|------------|
+| 通知ルール UI | `/customer/TOMS001` タブ「通知ルール」 · `GET/POST /api/customer/:code/notification-rules` |
+| プラン連動 | `server/src/notification/customer-rule-engine.ts` · Webhook/QNAP は PRO_REMOTE のみ |
+| Incidents 統一 | `server/src/incidents/` · `recovery_incidents` → `incidents` クエリ |
+| Operations スコープ | `/operations` · `GET /api/ops/summary?customerCode=` |
+| PDF レポート | `server/src/reports/pdf/` · `TISLY_PDF_PUPPETEER=true` で Puppeteer |
+| メールレポート | `POST /api/customer/:code/reports/send-email` |
+| PostgreSQL RLS | `server/src/db/postgres/rls.sql`（適用は TODO） |
+| 顧客コンテキスト | `server/src/auth/customer-context.ts` |
+| Webhook 署名 | `x-tisly-webhook-timestamp` · `x-tisly-webhook-signature` |
+| Webhook 再送 | `webhook_delivery_logs` · `webhook-retry-queue.ts` |
+| 招待メール | `server/src/customer/invite-email-template.ts` |
+| テスト | `server/test/pro-remote-operations.test.ts` |
+| ドキュメント | `docs/phase281_300_status.md` · `docs/pro_remote_operations.md` |
+
+```bash
+cd server && npm run build && npm run test
+cd tv-app && npx tsc --noEmit
+```
+
+---
+
 ## TiSLY Platform — PRO Remote Invite & Reporting（Phase 261–280）
 
 **顧客招待・レポート出力・SOC/NOC 顧客スコープ・Webhook・サブドメイン設計**
