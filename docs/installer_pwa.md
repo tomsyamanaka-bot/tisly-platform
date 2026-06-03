@@ -1,31 +1,24 @@
-# Installer PWA（施工モード）
+# Installer PWA（施工）
 
 ## URL
 
-`/customer/TOMS001/install`（PRO_REMOTE 顧客）
-
-## 画面タブ
-
-| タブ | 内容 |
+| 画面 | パス |
 |------|------|
-| 現場 | 現場選択・作成 |
-| フロア | フロア選択・図面 upload・QNAP archive |
-| 登録 | デバイスウィザード |
-| QR | QR 発行 / JSON claim |
-| NFC | UID 入力 claim（placeholder） |
-| 通信 | heartbeat / event / relay / notification テスト |
-| 配置 | Map Editor リンク・配置状況 |
-| MQTT | ブローカー診断 |
-| 完了 | チェックリスト・レポート・ラベル |
+| 施工モード | `/customer/:code/install` |
+| 施工ホーム | `/customer/:code/install/home` |
+| インストール手順 | `/customer/:code/install/guide` |
+| Manifest | `/customer/:code/install/manifest.webmanifest` |
 
-## 認証
+## App Hub
 
-顧客 JWT（`tisly_admin_token`）。推奨ロール: **installer** 以上。
+installer ロールは App Hub で **施工** カードのみ表示されます。
 
-## PWA
+## 権限
 
-`manifest.webmanifest` + `service-worker.js` を登録（キャッシュは既存 SW に依存）。
+- API: `requireAuth("installer")` 以上
+- 請求・ユーザー管理は `installer-restricted-guard` で 403
 
-## オフライン
+## 関連
 
-`localStorage` キュー placeholder — 詳細は `docs/offline_installer_pwa.md`。
+- Phase 441–460: `docs/phase441_460_status.md`
+- オフライン: `docs/offline_installer_pwa.md`（存在する場合）

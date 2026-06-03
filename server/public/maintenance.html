@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#b45309" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="TiSLY保守" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+  <link rel="manifest" href="/manifest-maintenance.webmanifest" />
+  <title>TiSLY — 保守 PWA</title>
+  <link rel="stylesheet" href="/css/tisly-pwa-shell.css" />
+  <link rel="stylesheet" href="/css/maintenance.css" />
+</head>
+<body class="maintenance-body">
+  <div id="tisly-pwa-topbar-root"></div>
+  <header class="maintenance-header">
+    <h1>保守 Maintenance</h1>
+    <p class="hint">デバイス状態・通知・Recovery を現場で確認</p>
+  </header>
+  <main class="maintenance-sections">
+    <section class="maint-card">
+      <h2>顧客選択</h2>
+      <select id="maint-customer">
+        <option value="TOMS001">TOMS001 — トムズ設備デモ</option>
+        <option value="HOTEL001">HOTEL001</option>
+        <option value="DEMO001">DEMO001</option>
+      </select>
+    </section>
+    <section class="maint-card">
+      <h2>現場選択</h2>
+      <select id="maint-site"><option value="">読込中…</option></select>
+    </section>
+    <section class="maint-card">
+      <h2>Device 状態</h2>
+      <ul id="maint-devices" class="maint-list"></ul>
+    </section>
+    <section class="maint-card">
+      <h2>Heartbeat</h2>
+      <div id="maint-heartbeat" class="maint-metrics">—</div>
+    </section>
+    <section class="maint-card">
+      <h2>MQTT</h2>
+      <div id="maint-mqtt" class="maint-metrics">接続状態: 読込中…</div>
+    </section>
+    <section class="maint-card">
+      <h2>通知履歴</h2>
+      <ul id="maint-notifications" class="maint-list"></ul>
+    </section>
+    <section class="maint-card">
+      <h2>Recovery 履歴</h2>
+      <ul id="maint-recovery" class="maint-list"></ul>
+    </section>
+    <section class="maint-card placeholder">
+      <h2>Shelly 再起動</h2>
+      <p class="placeholder-tag">placeholder — 今後の Phase</p>
+    </section>
+    <section class="maint-card">
+      <h2>保守メモ</h2>
+      <textarea id="maint-memo" rows="3" placeholder="保守メモ（ローカル保存）"></textarea>
+      <button type="button" class="btn-maint" id="btn-maint-save-memo">保存</button>
+    </section>
+    <a class="maint-link-history" id="link-install-history" href="#">施工履歴を開く</a>
+  </main>
+  <script type="module" src="/js/tisly-pwa-shell.js"></script>
+  <script type="module" src="/js/maintenance.js"></script>
+</body>
+</html>

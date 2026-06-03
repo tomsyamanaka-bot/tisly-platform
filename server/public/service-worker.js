@@ -1,26 +1,41 @@
-/* TiSLY Installer PWA — Phase 441–460 app shell */
-const SW_VERSION = "tisly-installer-v441";
-const OFFLINE_CACHE = "tisly-installer-shell-v441";
+/* TiSLY Multi PWA app shell — Phase 461–480 */
+const SW_VERSION = "tisly-pwa-v461";
+const OFFLINE_CACHE = "tisly-pwa-shell-v461";
 const SHELL_URLS = [
+  "/app-hub.html",
   "/installer-mode.html",
   "/installer-home.html",
   "/install-guide.html",
   "/offline-fallback.html",
   "/survey.html",
+  "/maintenance.html",
+  "/pro-remote.html",
+  "/customer-overview.html",
   "/css/installer-mode.css",
   "/css/installer-home.css",
   "/css/install-guide.css",
   "/css/survey.css",
+  "/css/maintenance.css",
+  "/css/app-hub.css",
+  "/css/tisly-pwa-shell.css",
+  "/css/pro-remote-pwa.css",
   "/js/installer-mode.js",
   "/js/installer-home.js",
   "/js/installer-pwa.js",
   "/js/installer-i18n.js",
-  "/js/api.js",
+  "/js/tisly-pwa-shell.js",
+  "/js/app-hub.js",
   "/js/survey.js",
+  "/js/maintenance.js",
+  "/js/pro-remote-pwa.js",
+  "/js/api.js",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
   "/manifest-installer.webmanifest",
   "/manifest-survey.webmanifest",
+  "/manifest-maintenance.webmanifest",
+  "/manifest-pro-remote.webmanifest",
+  "/manifest-customer.webmanifest",
 ];
 
 self.addEventListener("install", (event) => {

@@ -48,6 +48,7 @@ import { requireAdminAuth } from "./auth/auth-middleware.js";
 import { tenantQueryGuard } from "./auth/tenant-guard.js";
 import { config } from "./config.js";
 import { rejectInstallerRestricted } from "./auth/installer-restricted-guard.js";
+import { pwaHubRouter } from "./api/routes/pwa-hub.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(__dirname, "..", "public");
@@ -65,6 +66,7 @@ export function createApp(): express.Application {
   );
 
   app.use("/api/auth", authRouter);
+  app.use("/api/pwa", pwaHubRouter);
 
   app.use("/api/events", opsCustomerScopeMiddleware, tenantQueryGuard, eventsRouter);
   app.use("/api/notifications", opsCustomerScopeMiddleware, tenantQueryGuard, notificationsRouter);
@@ -154,8 +156,70 @@ export function createApp(): express.Application {
   app.get("/customer/:customerCode/install/device-onboard", (_req, res) => {
     res.sendFile(path.join(publicDir, "device-onboard.html"));
   });
+  app.get("/app", (_req, res) => {
+    res.sendFile(path.join(publicDir, "app-hub.html"));
+  });
   app.get("/survey", (_req, res) => {
     res.sendFile(path.join(publicDir, "survey.html"));
+  });
+  app.get("/maintenance", (_req, res) => {
+    res.sendFile(path.join(publicDir, "maintenance.html"));
+  });
+  app.get("/customer/:customerCode/pro-remote", (_req, res) => {
+    res.sendFile(path.join(publicDir, "pro-remote.html"));
+  });
+  app.get("/customer/:customerCode/overview", (_req, res) => {
+    res.sendFile(path.join(publicDir, "customer-overview.html"));
+  });
+  app.get("/customer/:customerCode/manifest.webmanifest", (req, res) => {
+    const code = String(req.params.customerCode).toUpperCase();
+    res.type("application/manifest+json");
+    res.send(
+      JSON.stringify(
+        {
+          name: "TiSLY 顧客ポータル",
+          short_name: "TiSLY顧客",
+          description: "TiSLY 顧客ポータル PWA",
+          start_url: `/customer/${code}`,
+          scope: `/customer/${code}`,
+          display: "standalone",
+          background_color: "#0f172a",
+          theme_color: "#0ea5e9",
+          orientation: "any",
+          icons: [
+            { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+            { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" },
+          ],
+        },
+        null,
+        2
+      )
+    );
+  });
+  app.get("/customer/:customerCode/pro-remote/manifest.webmanifest", (req, res) => {
+    const code = String(req.params.customerCode).toUpperCase();
+    res.type("application/manifest+json");
+    res.send(
+      JSON.stringify(
+        {
+          name: "TiSLY PRO Remote",
+          short_name: "TiSLY監視",
+          description: "TiSLY PRO Remote 監視 PWA",
+          start_url: `/customer/${code}/pro-remote`,
+          scope: `/customer/${code}`,
+          display: "standalone",
+          background_color: "#0f172a",
+          theme_color: "#7c3aed",
+          orientation: "any",
+          icons: [
+            { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+            { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" },
+          ],
+        },
+        null,
+        2
+      )
+    );
   });
   app.get("/offline", (_req, res) => {
     res.sendFile(path.join(publicDir, "offline-fallback.html"));

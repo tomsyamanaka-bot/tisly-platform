@@ -1,34 +1,37 @@
-# TiSLY PWA 戦略（Phase 441–460）
+# TiSLY PWA 戦略（Phase 461–480 更新）
 
-施工員・現調・PRO Remote・メンテナンス・顧客ポータルを PWA 化し、App Store / Google Play なしで URL + ホーム画面追加で配布する。
+施工員・現調・PRO Remote・メンテナンス・顧客ポータルを PWA 化し、**App Hub**（`/app`）でロール別に入口を統合する。
 
-## PWA 化する画面
+## PWA 一覧
 
-| PWA | URL 例 | 対象ユーザー | 状態 |
-|-----|--------|--------------|------|
-| **Installer PWA** | `/customer/:code/install` · `/install/home` | 施工員のみ | Phase 441–460 本実装 |
-| **Survey PWA** | `/survey` | 現調担当 | placeholder |
-| **PRO Remote PWA** | `/operations` · 顧客ポータル | オペレーター | 既存 + manifest 共用 |
-| **Maintenance PWA** | （今後） | メンテ担当 | 未着手 |
-| **Customer Portal PWA** | `/customer/:code` | 顧客管理者 | 既存 HTML |
-| **TV** | `/tv/:code` | 店舗ディスプレイ | **PWA ではなく Google TV 専用アプリ**（`tv-app/`） |
+| PWA | URL 例 | 対象ロール | 状態 |
+|-----|--------|------------|------|
+| **Installer** | `/customer/:code/install/home` | installer, maintenance, admin | 本実装 |
+| **Survey** | `/survey` | surveyor, admin | Phase 461–480 強化 |
+| **PRO Remote** | `/customer/:code/pro-remote` | viewer, admin | manifest 分離 |
+| **Maintenance** | `/maintenance` | maintenance, admin | 新規 |
+| **Customer Portal** | `/customer/:code` | viewer+, admin | manifest 追加 |
+| **App Hub** | `/app` | 全員（ログイン後） | 新規 |
+| **TV** | `/tv/:code` | 店舗 | **PWA 外** — `tv-app/` |
 
-## Installer PWA の設計原則
+## 共通 App Shell
 
-- 一般顧客向けアプリではない。installer ロール専用。
-- iPhone Safari / Android Chrome 両対応。
-- `manifest.webmanifest`（顧客別動的 manifest）+ `service-worker.js` でシェルオフライン。
-- 請求・ユーザー管理・プラン変更は API ガードで拒否（`installer-restricted-guard.ts`）。
+- `js/tisly-pwa-shell.js` — オフライン表示・インストール・更新通知・同期ステータス・アプリ切替
+- `service-worker.js` — `tisly-pwa-v461`
+- `/offline` — オフラインフォールバック
+- `/install-guide` — iOS / Android 手順
 
-## 技術スタック
+## ロールナビゲーション
 
-- 素の HTML/CSS/JS（Workbox は未導入、Phase 461+ で検討可）
-- オフラインキュー: localStorage + `POST .../install/sync`
-- Background Sync: SW タグ `tisly-installer-sync`（クライアント flush 連携）
+`docs/pwa_role_navigation.md` を参照。
 
 ## 関連ドキュメント
 
+- `docs/installer_pwa.md`
+- `docs/tisly_survey_pwa.md`
+- `docs/maintenance_pwa.md`
+- `docs/pro_remote_pwa.md`
+- `docs/customer_portal_pwa.md`
 - `docs/ios_pwa_install_guide.md`
 - `docs/android_pwa_install_guide.md`
-- `docs/tisly_survey_pwa.md`
-- `docs/offline_installer_pwa.md`
+- `docs/phase461_480_status.md`

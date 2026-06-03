@@ -1,0 +1,86 @@
+.app-hub-body {
+  font-family: system-ui, sans-serif;
+  background: #0d1117;
+  color: #e6edf3;
+  margin: 0;
+  padding: 1rem;
+  max-width: 520px;
+  margin-inline: auto;
+}
+.app-hub-header h1 {
+  color: #58a6ff;
+  font-size: 1.4rem;
+}
+.hint {
+  color: #8b949e;
+  font-size: 0.85rem;
+}
+.card {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 10px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+.card label {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 0.9rem;
+}
+.card input {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 4px;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #30363d;
+  background: #0d1117;
+  color: #e6edf3;
+}
+.btn {
+  background: #238636;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 16px;
+  cursor: pointer;
+  width: 100%;
+}
+.error {
+  color: #f85149;
+  font-size: 0.85rem;
+}
+.hub-app-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.hub-app-card {
+  display: block;
+  padding: 14px;
+  background: #21262d;
+  border: 1px solid #30363d;
+  border-radius: 10px;
+  text-decoration: none;
+  color: #e6edf3;
+  min-height: 88px;
+}
+.hub-app-card:hover {
+  border-color: #58a6ff;
+}
+.hub-app-card .label {
+  font-weight: 700;
+  font-size: 1rem;
+}
+.hub-app-card .desc {
+  font-size: 0.75rem;
+  color: #8b949e;
+  margin-top: 6px;
+}
+.hub-app-card.optional::after {
+  content: "optional";
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 0.65rem;
+  color: #a78bfa;
+}

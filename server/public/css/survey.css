@@ -3,25 +3,66 @@
   background: #0f172a;
   color: #e2e8f0;
   margin: 0;
-  padding: 1rem;
+  padding: 0 0 2rem;
   max-width: 480px;
   margin-inline: auto;
 }
-.survey-body header h1 {
+.survey-page-header {
+  padding: 1rem;
+}
+.survey-page-header h1 {
   color: #60a5fa;
   font-size: 1.35rem;
+  margin: 0;
 }
-.survey-todo-list {
-  list-style: none;
-  padding: 0;
+.survey-sections {
+  padding: 0 1rem;
 }
-.survey-todo-list li {
+.survey-card {
   padding: 12px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   background: #1e293b;
   border-radius: 8px;
-  border-left: 4px solid #64748b;
+  border-left: 4px solid #3b82f6;
 }
-.survey-todo-list li[data-status="todo-ai"] {
+.survey-card h2 {
+  font-size: 0.95rem;
+  margin: 0 0 8px;
+}
+.survey-card label {
+  display: block;
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+}
+.survey-card input,
+.survey-card textarea {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 4px;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #334155;
+  background: #0f172a;
+  color: #e2e8f0;
+}
+.survey-card.placeholder-ai {
   border-left-color: #a78bfa;
+}
+.placeholder-tag {
+  color: #a78bfa;
+  font-size: 0.8rem;
+  margin: 0;
+}
+.btn-survey {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+  width: 100%;
+}
+.hint {
+  color: #94a3b8;
+  font-size: 0.8rem;
 }

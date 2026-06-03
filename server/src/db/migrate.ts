@@ -362,6 +362,95 @@ function migratePhase421(database: Database.Database): void {
   database.exec(
     "CREATE INDEX IF NOT EXISTS idx_device_timeline_device ON device_timeline(device_id, created_at)"
   );
+  migrateCustomerUsersPwaRoles461(database);
+  seedPwaRoleDemoUsers(database);
+}
+
+function migrateCustomerUsersPwaRoles461(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:customer_users_pwa_roles_461") as { value_json: string } | undefined;
+  if (marker) return;
+  try {
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS customer_users_phase461 (
+        id TEXT PRIMARY KEY,
+        customer_id TEXT NOT NULL,
+        username TEXT NOT NULL,
+        password_hash TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'viewer' CHECK (role IN ('owner', 'admin', 'manager', 'viewer', 'installer', 'surveyor', 'maintenance', 'super_admin')),
+        status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'suspended', 'deleted', 'invited')),
+        last_login_at TEXT,
+        failed_login_count INTEGER DEFAULT 0,
+        locked_until TEXT,
+        invite_token TEXT,
+        invite_expires_at TEXT,
+        invited_by TEXT,
+        invited_at TEXT,
+        accepted_at TEXT,
+        disabled_at TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        UNIQUE (customer_id, username),
+        FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
+      );
+    `);
+    const cols = new Set(
+      (database.prepare("PRAGMA table_info(customer_users)").all() as Array<{ name: string }>).map(
+        (r) => r.name
+      )
+    );
+    database.exec(`
+      INSERT OR REPLACE INTO customer_users_phase461
+        (id, customer_id, username, password_hash, role, status, last_login_at, failed_login_count, locked_until,
+         invite_token, invite_expires_at, invited_by, invited_at, accepted_at, disabled_at, created_at, updated_at)
+      SELECT id, customer_id, username, password_hash, role, status,
+        ${cols.has("last_login_at") ? "last_login_at" : "NULL"},
+        ${cols.has("failed_login_count") ? "COALESCE(failed_login_count, 0)" : "0"},
+        ${cols.has("locked_until") ? "locked_until" : "NULL"},
+        ${cols.has("invite_token") ? "invite_token" : "NULL"},
+        ${cols.has("invite_expires_at") ? "invite_expires_at" : "NULL"},
+        ${cols.has("invited_by") ? "invited_by" : "NULL"},
+        ${cols.has("invited_at") ? "invited_at" : "NULL"},
+        ${cols.has("accepted_at") ? "accepted_at" : "NULL"},
+        ${cols.has("disabled_at") ? "disabled_at" : "NULL"},
+        created_at, updated_at
+      FROM customer_users;
+    `);
+    database.exec("DROP TABLE customer_users");
+    database.exec("ALTER TABLE customer_users_phase461 RENAME TO customer_users");
+    database.exec(
+      "CREATE INDEX IF NOT EXISTS idx_customer_users_customer ON customer_users(customer_id)"
+    );
+    database.prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    ).run("migration:customer_users_pwa_roles_461", JSON.stringify({ at: new Date().toISOString() }));
+  } catch {
+    /* CHECK may already include surveyor/maintenance */
+  }
+}
+
+function seedPwaRoleDemoUsers(database: Database.Database): void {
+  const customers = database
+    .prepare(`SELECT customer_id, customer_code FROM customers WHERE customer_code IN ('TOMS001', 'HOTEL001', 'PLANT001')`)
+    .all() as Array<{ customer_id: string; customer_code: string }>;
+  for (const c of customers) {
+    const owner = database
+      .prepare(`SELECT password_hash FROM customer_users WHERE customer_id = ? AND role = 'owner' LIMIT 1`)
+      .get(c.customer_id) as { password_hash: string } | undefined;
+    if (!owner) continue;
+    for (const role of ["surveyor", "maintenance"] as const) {
+      const userId = `cu-${c.customer_code}-${role}`;
+      const username = `${c.customer_code.toLowerCase()}.${role}`;
+      database
+        .prepare(
+          `INSERT INTO customer_users (id, customer_id, username, password_hash, role, status)
+           VALUES (?, ?, ?, ?, ?, 'active')
+           ON CONFLICT(customer_id, username) DO NOTHING`
+        )
+        .run(userId, c.customer_id, username, owner.password_hash, role);
+    }
+  }
 }
 
 function seedInstallerDemoUsers(database: Database.Database): void {

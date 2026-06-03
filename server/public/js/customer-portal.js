@@ -1,4 +1,5 @@
 import { apiGet, apiPost, getAdminToken, setAdminToken } from "./api.js";
+import { renderPwaTopbar } from "./tisly-pwa-shell.js";
 
 const pathMatch = location.pathname.match(/\/customer\/([^/]+)/i);
 const customerCode = pathMatch ? pathMatch[1].toUpperCase() : "";
@@ -378,3 +379,7 @@ document.getElementById("btn-invite")?.addEventListener("click", async () => {
 if (getAdminToken()) {
   showDashboard().catch(() => setAdminToken(""));
 }
+
+const man = document.getElementById("customer-portal-manifest");
+if (man && customerCode) man.href = `/customer/${customerCode}/manifest.webmanifest`;
+renderPwaTopbar("customer_portal", "顧客ポータル");

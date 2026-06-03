@@ -1,25 +1,29 @@
-# Survey PWA（現調）— placeholder
-
-Phase 441–460 では入口のみ。本番機能は後続 Phase で実装。
+# Survey PWA（現調）
 
 ## URL
 
 - `/survey`
-- manifest: `/manifest-survey.webmanifest`
+- Manifest: `/manifest-survey.webmanifest`
 
-## 予定機能（TODO）
+## 機能（Phase 461–480）
 
-| 機能 | 状態 |
-|------|------|
-| 案件作成 | TODO |
-| 航空写真登録 | TODO |
-| 外観写真 | TODO |
-| 室内写真 | TODO |
-| 手書き図面 | TODO |
-| AI解析 | TODO |
-| 見積候補 | TODO |
+- 案件作成（ローカル保存）
+- 航空写真・外観・室内・手書き図面・分電盤・ネット回線写真
+- メモ
+- AI解析（placeholder）
+- 見積候補（placeholder）
 
-## 関連
+## ロール
 
-- PWA 一覧: `docs/tisly_pwa_strategy.md`
-- 施工 PWA（別アプリ）: `/customer/:code/install`
+- **surveyor**: App Hub で現調のみ
+- **admin / owner / manager**: 現調カードあり
+
+## クライアント
+
+- `server/public/survey.html`
+- `server/public/js/survey.js`
+- ロールガード: `GET /api/pwa/access/survey`
+
+## 今後
+
+Phase 501+ で API 連携・写真アップロード・AI 解析本実装。

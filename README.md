@@ -3,6 +3,32 @@
 TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。  
 三菱電機 **FX 系** PLC と **GX Works2 / GX Works3** を想定しています。
 
+## TiSLY Platform — Multi PWA App Hub & Role Based Navigation（Phase 461–480）
+
+**App Hub · ロール別 PWA 表示 · Survey/保守/PRO Remote/顧客ポータル manifest · 共通 App Shell**
+
+| 領域 | パス / URL |
+|------|------------|
+| App Hub | `/app` |
+| PWA Hub API | `GET /api/pwa/hub` · `GET /api/pwa/access/:pwaId` |
+| 施工 PWA | `/customer/:code/install/home` |
+| 現調 PWA | `/survey` |
+| 保守 PWA | `/maintenance` |
+| PRO Remote PWA | `/customer/:code/pro-remote` · `manifest-pro-remote.webmanifest` |
+| 顧客ポータル PWA | `/customer/:code` · `manifest-customer.webmanifest` |
+| 共通 Shell | `js/tisly-pwa-shell.js` · `css/tisly-pwa-shell.css` |
+| Service Worker | `/service-worker.js`（v461） |
+| ロール | `installer` · `surveyor` · `maintenance` · `viewer` · `admin` |
+| テスト | `server/test/multi-pwa-app-hub.test.ts` |
+| ドキュメント | `docs/phase461_480_status.md` · `docs/pwa_role_navigation.md` |
+
+```bash
+cd server && npm run build && npm run test
+cd tv-app && npx tsc --noEmit
+```
+
+---
+
 ## TiSLY Platform — Installer Only PWA & Survey Placeholder（Phase 441–460）
 
 **施工員専用 PWA App Shell · iPhone/Android 対応 · 権限制限 · Survey 入口**

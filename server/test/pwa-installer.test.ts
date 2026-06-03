@@ -63,7 +63,7 @@ describe("Phase 441-460 installer PWA app shell", () => {
   it("serves service-worker.js", async () => {
     const res = await request(app).get("/service-worker.js");
     assert.equal(res.status, 200);
-    assert.ok(res.text.includes("tisly-installer-v441"));
+    assert.ok(res.text.includes("tisly-pwa-v461"));
     assert.ok(res.headers["service-worker-allowed"] === "/");
   });
 
@@ -77,7 +77,8 @@ describe("Phase 441-460 installer PWA app shell", () => {
     const res = await request(app).get("/survey");
     assert.equal(res.status, 200);
     assert.ok(res.text.includes("現調 Survey"));
-    assert.ok(res.text.includes("AI解析 TODO"));
+    assert.ok(res.text.includes("AI解析"));
+    assert.ok(res.text.includes("案件作成"));
   });
 
   it("installer home page has iOS meta and Android install UI", async () => {

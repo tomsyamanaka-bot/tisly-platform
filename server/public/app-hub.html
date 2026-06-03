@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0d1117" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="TiSLY Hub" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <title>TiSLY — App Hub</title>
+  <link rel="stylesheet" href="/css/tisly-pwa-shell.css" />
+  <link rel="stylesheet" href="/css/app-hub.css" />
+</head>
+<body class="app-hub-body">
+  <header class="app-hub-header">
+    <h1>TiSLY App Hub</h1>
+    <p class="hint">ログイン後、権限に応じて使える PWA を表示します</p>
+  </header>
+  <section id="login-panel" class="card">
+    <h2>ログイン</h2>
+    <label>顧客コード <input id="hub-customer-code" value="TOMS001" autocomplete="organization" /></label>
+    <label>ユーザー名 <input id="hub-username" autocomplete="username" /></label>
+    <label>パスワード <input id="hub-password" type="password" autocomplete="current-password" /></label>
+    <button type="button" class="btn" id="btn-hub-login">ログイン</button>
+    <p id="hub-login-error" class="error"></p>
+  </section>
+  <main id="hub-apps-panel" hidden>
+    <p id="hub-role-label"></p>
+    <div id="hub-app-grid" class="hub-app-grid"></div>
+    <p class="hint">Google TV は PWA ではなく TV 専用アプリ（<code>/tv/:code</code>）です。</p>
+  </main>
+  <script type="module" src="/js/tisly-pwa-shell.js"></script>
+  <script type="module" src="/js/app-hub.js"></script>
+</body>
+</html>

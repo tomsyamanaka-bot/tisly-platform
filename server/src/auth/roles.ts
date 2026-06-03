@@ -4,6 +4,8 @@ export const CUSTOMER_ROLES = [
   "admin",
   "manager",
   "installer",
+  "surveyor",
+  "maintenance",
   "viewer",
   "super_admin",
 ] as const;
@@ -11,12 +13,24 @@ export type AppRole = (typeof CUSTOMER_ROLES)[number];
 
 const ROLE_RANK: Record<string, number> = {
   viewer: 1,
+  surveyor: 1,
+  maintenance: 2,
   installer: 2,
   manager: 3,
   admin: 4,
   owner: 5,
   super_admin: 5,
 };
+
+/** Field surveyor — Survey PWA only. */
+export function isSurveyorRole(role: string): boolean {
+  return normalizeRole(role) === "surveyor";
+}
+
+/** Maintenance technician — Maintenance PWA + install history. */
+export function isMaintenanceRole(role: string): boolean {
+  return normalizeRole(role) === "maintenance";
+}
 
 /** Roles that may change customer settings (portal admin actions). */
 export function canChangeCustomerSettings(role: string): boolean {

@@ -1,0 +1,71 @@
+.maintenance-body {
+  font-family: system-ui, sans-serif;
+  background: #0f172a;
+  color: #e2e8f0;
+  margin: 0;
+  max-width: 520px;
+  margin-inline: auto;
+}
+.maintenance-header {
+  padding: 1rem;
+}
+.maintenance-header h1 {
+  color: #f59e0b;
+  margin: 0;
+}
+.maintenance-sections {
+  padding: 0 1rem 2rem;
+}
+.maint-card {
+  background: #1e293b;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 10px;
+  border-left: 4px solid #b45309;
+}
+.maint-card h2 {
+  font-size: 0.95rem;
+  margin: 0 0 8px;
+}
+.maint-card select,
+.maint-card textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #334155;
+  background: #0f172a;
+  color: #e2e8f0;
+}
+.maint-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 0.85rem;
+}
+.maint-list li {
+  padding: 6px 0;
+  border-bottom: 1px solid #334155;
+}
+.maint-metrics {
+  font-size: 0.85rem;
+}
+.btn-maint {
+  margin-top: 8px;
+  background: #b45309;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+.maint-link-history {
+  display: block;
+  text-align: center;
+  color: #60a5fa;
+  padding: 1rem;
+}
+.placeholder-tag {
+  color: #94a3b8;
+  font-size: 0.8rem;
+}

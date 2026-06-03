@@ -1,0 +1,15 @@
+{
+  "name": "TiSLY 保守 PWA",
+  "short_name": "TiSLY保守",
+  "description": "TiSLY 保守・メンテナンス PWA",
+  "start_url": "/maintenance",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#b45309",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

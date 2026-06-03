@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0ea5e9" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+  <link rel="manifest" id="customer-portal-manifest" href="/manifest-customer.webmanifest" />
+  <title>TiSLY — 顧客概要</title>
+  <link rel="stylesheet" href="/css/tisly-pwa-shell.css" />
+  <link rel="stylesheet" href="/css/admin.css" />
+</head>
+<body>
+  <div id="tisly-pwa-topbar-root"></div>
+  <main style="padding:1rem;max-width:640px;margin:auto">
+    <h1>顧客概要</h1>
+    <p id="overview-customer-code"></p>
+    <p><a id="link-portal-full" href="#">顧客ポータルを開く</a></p>
+    <p class="hint">PRO Remote PWA の概要タブ相当 — 詳細は顧客ポータルへ。</p>
+  </main>
+  <script type="module" src="/js/tisly-pwa-shell.js"></script>
+  <script type="module">
+    import { renderPwaTopbar } from "./tisly-pwa-shell.js";
+    const m = location.pathname.match(/\/customer\/([^/]+)/i);
+    const code = m ? m[1].toUpperCase() : "TOMS001";
+    document.getElementById("overview-customer-code").textContent = code;
+    document.getElementById("link-portal-full").href = `/customer/${code}`;
+    const man = document.getElementById("customer-portal-manifest");
+    if (man) man.href = `/customer/${code}/manifest.webmanifest`;
+    renderPwaTopbar("customer_portal", "概要");
+  </script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+.pro-remote-pwa-body {
+  font-family: system-ui, sans-serif;
+  background: #0f172a;
+  color: #e2e8f0;
+  margin: 0;
+}
+.pro-remote-pwa-body header {
+  padding: 1rem;
+}
+.pro-remote-pwa-body h1 {
+  color: #a78bfa;
+  margin: 0;
+}
+.pro-remote-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 1rem 1rem;
+}
+.pro-remote-nav a {
+  background: #312e81;
+  color: #e9d5ff;
+  padding: 8px 12px;
+  border-radius: 8px;
+  text-decoration: none;
+  font-size: 0.85rem;
+}
+.pro-remote-tiles {
+  padding: 0 1rem 2rem;
+  max-width: 640px;
+}
