@@ -367,6 +367,7 @@ function migratePhase421(database: Database.Database): void {
   migratePhase481(database);
   migratePhase501(database);
   migratePhase521(database);
+  migratePhase541(database);
 }
 
 function migratePhase481(database: Database.Database): void {
@@ -649,6 +650,38 @@ function migratePhase521(database: Database.Database): void {
       `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
     )
     .run("migration:phase521_toms_business_pwa", JSON.stringify({ at: new Date().toISOString() }));
+}
+
+function migratePhase541(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:phase541_business_workflow") as { value_json: string } | undefined;
+  if (marker) return;
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS business_pricing_rules (
+      id TEXT PRIMARY KEY,
+      scope_type TEXT NOT NULL CHECK (scope_type IN ('customer','contractor','work_item','standard')),
+      scope_ref TEXT,
+      work_category TEXT NOT NULL DEFAULT 'other',
+      name TEXT NOT NULL,
+      unit TEXT NOT NULL DEFAULT '式',
+      unit_price INTEGER NOT NULL DEFAULT 0,
+      cost_price INTEGER NOT NULL DEFAULT 0,
+      tax_type TEXT NOT NULL DEFAULT 'standard',
+      memo TEXT DEFAULT '',
+      active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_business_pricing_rules_scope ON business_pricing_rules(scope_type, scope_ref);
+  `);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:phase541_business_workflow", JSON.stringify({ at: new Date().toISOString() }));
 }
 
 function migratePhase501(database: Database.Database): void {

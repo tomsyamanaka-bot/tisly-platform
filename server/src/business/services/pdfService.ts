@@ -3,6 +3,11 @@ import path from "path";
 import type { BusinessProject, CompletionReport, Estimate, Invoice } from "../business-types.js";
 import { businessUploadsDir } from "../business-store.js";
 import { generateQnapFilePath } from "./qnapService.js";
+import {
+  getPdfTemplateMeta,
+  renderPdfPlaceholderHtml,
+  type PdfDocumentKind,
+} from "./pdf-templates.js";
 
 function minimalPdfBuffer(title: string, lines: string[]): Buffer {
   const text = [title, "", ...lines].join("\n");
@@ -36,45 +41,124 @@ function writePdf(projectId: string, folder: string, fileName: string, buf: Buff
   return `/uploads/business/${projectId}/${folder}/${fileName}`;
 }
 
+function writeHtml(projectId: string, folder: string, fileName: string, html: string): string {
+  const dir = businessUploadsDir(projectId, folder);
+  const full = path.join(dir, fileName);
+  fs.writeFileSync(full, html, "utf8");
+  return `/uploads/business/${projectId}/${folder}/${fileName}`;
+}
+
+function renderWithTemplate(
+  kind: PdfDocumentKind,
+  project: BusinessProject,
+  doc: Estimate | Invoice | CompletionReport,
+  pdfLines: string[]
+): { pdfPath: string; htmlPath: string; template: ReturnType<typeof getPdfTemplateMeta> } {
+  const meta = getPdfTemplateMeta(kind);
+  const html = renderPdfPlaceholderHtml(kind, project, doc);
+  const htmlName = `${kind}-placeholder.html`;
+  const htmlPath = writeHtml(project.id, "pdf-html", htmlName, html);
+  const fileName = path.basename(
+    generateQnapFilePath(
+      project,
+      kind === "completion_report" ? "completion_report" : kind,
+      kind === "estimate"
+        ? (doc as Estimate).estimateNo
+        : kind === "invoice"
+          ? (doc as Invoice).invoiceNo
+          : undefined
+    )
+  );
+  const pdfPath = writePdf(
+    project.id,
+    "pdfs",
+    fileName,
+    minimalPdfBuffer(meta.description, [...pdfLines, `template: ${meta.provider}/${meta.version}`])
+  );
+  return { pdfPath, htmlPath, template: meta };
+}
+
 export function generateEstimatePdf(project: BusinessProject, estimate: Estimate): string {
-  const buf = minimalPdfBuffer(`見積書 ${estimate.estimateNo}`, [
+  const { pdfPath } = renderWithTemplate("estimate", project, estimate, [
+    `見積書 ${estimate.estimateNo}`,
     `お客様: ${estimate.customerName}`,
     `件名: ${estimate.title}`,
     `小計: ¥${estimate.subtotal}`,
     `税: ¥${estimate.tax}`,
     `合計: ¥${estimate.total}`,
     `粗利: ¥${estimate.grossProfit} (${estimate.grossProfitRate}%)`,
-    "— TiSLY TOMS 簡易PDF (Phase521-540)",
   ]);
-  const fileName = path.basename(generateQnapFilePath(project, "estimate", estimate.estimateNo));
-  return writePdf(project.id, "pdfs", fileName, buf);
+  return pdfPath;
 }
 
 export function generateInvoicePdf(project: BusinessProject, invoice: Invoice): string {
-  const buf = minimalPdfBuffer(`請求書 ${invoice.invoiceNo}`, [
+  const { pdfPath } = renderWithTemplate("invoice", project, invoice, [
+    `請求書 ${invoice.invoiceNo}`,
     `お客様: ${invoice.customerName}`,
     `件名: ${invoice.title}`,
     `合計: ¥${invoice.total}`,
     `支払期限: ${invoice.paymentDueDate ?? ""}`,
     invoice.bankInfo,
-    "— TiSLY TOMS 簡易PDF (Phase521-540)",
   ]);
-  const fileName = path.basename(generateQnapFilePath(project, "invoice", invoice.invoiceNo));
-  return writePdf(project.id, "pdfs", fileName, buf);
+  return pdfPath;
 }
 
 export function generateCompletionReportPdf(
   project: BusinessProject,
   report: CompletionReport
 ): string {
-  const buf = minimalPdfBuffer(`完了報告 ${report.title}`, [
+  const { pdfPath } = renderWithTemplate("completion_report", project, report, [
+    `完了報告 ${report.title}`,
     `案件: ${project.title}`,
     `お客様: ${project.customerName}`,
     report.workMemo,
     `施工前写真: ${report.beforePhotos.length}枚`,
     `施工後写真: ${report.afterPhotos.length}枚`,
-    "— TiSLY TOMS 簡易PDF (Phase521-540)",
   ]);
-  const fileName = path.basename(generateQnapFilePath(project, "completion_report"));
-  return writePdf(project.id, "pdfs", fileName, buf);
+  return pdfPath;
+}
+
+export function getEstimatePdfOrPlaceholder(
+  project: BusinessProject,
+  estimate: Estimate
+): { contentType: string; path: string } {
+  if (estimate.pdfPath) {
+    const local = path.join(process.cwd(), estimate.pdfPath.replace(/^\//, ""));
+    if (fs.existsSync(local)) return { contentType: "application/pdf", path: local };
+  }
+  const html = renderPdfPlaceholderHtml("estimate", project, estimate);
+  const tmp = businessUploadsDir(project.id, "pdf-html");
+  const p = path.join(tmp, "estimate-live.html");
+  fs.writeFileSync(p, html);
+  return { contentType: "text/html; charset=utf-8", path: p };
+}
+
+export function getInvoicePdfOrPlaceholder(
+  project: BusinessProject,
+  invoice: Invoice
+): { contentType: string; path: string } {
+  if (invoice.pdfPath) {
+    const local = path.join(process.cwd(), invoice.pdfPath.replace(/^\//, ""));
+    if (fs.existsSync(local)) return { contentType: "application/pdf", path: local };
+  }
+  const html = renderPdfPlaceholderHtml("invoice", project, invoice);
+  const tmp = businessUploadsDir(project.id, "pdf-html");
+  const p = path.join(tmp, "invoice-live.html");
+  fs.writeFileSync(p, html);
+  return { contentType: "text/html; charset=utf-8", path: p };
+}
+
+export function getCompletionReportPdfOrPlaceholder(
+  project: BusinessProject,
+  report: CompletionReport
+): { contentType: string; path: string } {
+  if (report.pdfPath) {
+    const local = path.join(process.cwd(), report.pdfPath.replace(/^\//, ""));
+    if (fs.existsSync(local)) return { contentType: "application/pdf", path: local };
+  }
+  const html = renderPdfPlaceholderHtml("completion_report", project, report);
+  const tmp = businessUploadsDir(project.id, "pdf-html");
+  const p = path.join(tmp, "completion-report-live.html");
+  fs.writeFileSync(p, html);
+  return { contentType: "text/html; charset=utf-8", path: p };
 }

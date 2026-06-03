@@ -76,15 +76,16 @@ describe("Phase 521-540 TOMS business PWA foundation", () => {
 
   it("generates QNAP project and file paths", () => {
     const project = {
+      id: "BIZ-TEST",
       projectNo: "PRJ-2026-0015",
       customerName: "山田様",
       title: "防犯カメラ設置工事",
       createdAt: "2026-06-01T00:00:00.000Z",
     };
     const base = generateQnapProjectPath(project);
-    assert.match(base, /^\/TOMS\/案件\/2026\/PRJ-2026-0015_山田様_防犯カメラ設置工事\/$/);
+    assert.match(base, /^\/TOMS\/business\/山田様\/BIZ-TEST\/$/);
     const est = generateQnapFilePath(project, "estimate", "EST-2026-0015");
-    assert.ok(est.includes("02_見積書"));
+    assert.ok(est.includes("/estimate/"));
     assert.ok(est.endsWith(".pdf"));
   });
 
@@ -148,7 +149,7 @@ describe("Phase 521-540 TOMS business PWA foundation", () => {
     };
     const mail2 = createInvoiceAndReportMailDraft(detail.body.project, inv, rep);
     assert.equal(mail2.to, DEFAULT_MAIL_TO);
-    assert.equal(mail2.type, "invoice_and_report_to_owner");
+    assert.ok(["invoice_and_report_to_owner", "invoice_ready"].includes(mail2.type));
   });
 
   it("calculates estimate totals", () => {

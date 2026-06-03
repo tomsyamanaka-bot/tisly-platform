@@ -3,15 +3,19 @@ export const BUSINESS_PROJECT_STATUSES = [
   "survey_scheduled",
   "survey_done",
   "estimate_created",
-  "estimate_sent_to_owner",
-  "accepted",
+  "estimate_sent",
   "construction_scheduled",
   "construction_done",
   "completion_report_created",
   "invoice_created",
+  "invoice_sent",
+  "paid",
+  "closed",
+  /** @deprecated Phase521 legacy — normalizeProjectStatus で正規化 */
+  "estimate_sent_to_owner",
+  "accepted",
   "invoice_sent_to_owner",
   "payment_scheduled",
-  "paid",
   "archived",
 ] as const;
 
@@ -35,8 +39,34 @@ export type PricingCategory = (typeof PRICING_CATEGORIES)[number];
 export const CALENDAR_DRAFT_TYPES = ["survey", "construction", "payment"] as const;
 export type CalendarDraftType = (typeof CALENDAR_DRAFT_TYPES)[number];
 
-export const MAIL_DRAFT_TYPES = ["estimate_to_owner", "invoice_and_report_to_owner"] as const;
+export const MAIL_DRAFT_TYPES = [
+  "estimate_ready",
+  "completion_ready",
+  "invoice_ready",
+  /** legacy */
+  "estimate_to_owner",
+  "invoice_and_report_to_owner",
+] as const;
 export type MailDraftType = (typeof MAIL_DRAFT_TYPES)[number];
+
+export const PRICING_SCOPE_TYPES = ["customer", "contractor", "work_item", "standard"] as const;
+export type PricingScopeType = (typeof PRICING_SCOPE_TYPES)[number];
+
+export interface PricingRule {
+  id: string;
+  scopeType: PricingScopeType;
+  scopeRef: string | null;
+  workCategory: PricingCategory | string;
+  name: string;
+  unit: string;
+  unitPrice: number;
+  costPrice: number;
+  taxType: string;
+  memo: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export const DEFAULT_MAIL_TO = "toms.yamanaka@gmail.com";
 

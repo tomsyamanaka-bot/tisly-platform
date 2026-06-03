@@ -1,6 +1,7 @@
 import { renderPwaTopbar } from "./tisly-pwa-shell.js";
 
 const TOKEN_KEY = "tisly_token";
+const OFFLINE_QUEUE_KEY = "tisly_business_offline_queue_v541";
 const TINY_PNG =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 
@@ -9,25 +10,82 @@ const STATUS_LABELS = {
   survey_scheduled: "現調予定",
   survey_done: "現調完了",
   estimate_created: "見積作成済",
+  estimate_sent: "見積送付済",
   estimate_sent_to_owner: "見積送付済",
   accepted: "受注",
   construction_scheduled: "工事予定",
   construction_done: "工事完了",
   completion_report_created: "完了報告済",
   invoice_created: "請求作成済",
+  invoice_sent: "請求送付済",
   invoice_sent_to_owner: "請求送付済",
   payment_scheduled: "入金予定",
   paid: "入金済",
-  archived: "保管",
+  closed: "クローズ",
+  archived: "クローズ",
 };
 
 function token() {
   return sessionStorage.getItem(TOKEN_KEY);
 }
 
+function updateOfflineBar() {
+  const el = document.getElementById("biz-offline-bar");
+  if (!el) return;
+  const q = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || "[]");
+  const offline = !navigator.onLine;
+  if (!offline && !q.length) {
+    el.hidden = true;
+    return;
+  }
+  el.hidden = false;
+  el.textContent = offline
+    ? `オフライン — 未同期 ${q.length} 件`
+    : `未同期 ${q.length} 件 — タップで同期`;
+}
+
+function queueOffline(item) {
+  const q = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || "[]");
+  q.push({ ...item, at: new Date().toISOString() });
+  localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(q));
+  updateOfflineBar();
+}
+
+async function flushOfflineQueue() {
+  if (!navigator.onLine) return;
+  const q = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || "[]");
+  if (!q.length) return;
+  const remain = [];
+  for (const item of q) {
+    try {
+      const { path, method, body } = item;
+      const headers = { "Content-Type": "application/json" };
+      if (token()) headers.Authorization = `Bearer ${token()}`;
+      const res = await fetch(`/api/business${path}`, {
+        method: method || "POST",
+        headers,
+        body: body != null ? JSON.stringify(body) : undefined,
+      });
+      if (!res.ok) remain.push(item);
+    } catch {
+      remain.push(item);
+    }
+  }
+  localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(remain));
+  updateOfflineBar();
+}
+
 async function api(path, opts = {}) {
   const headers = { "Content-Type": "application/json", ...(opts.headers || {}) };
   if (token()) headers.Authorization = `Bearer ${token()}`;
+  if (!navigator.onLine && (opts.method === "POST" || opts.method === "PATCH" || opts.method === "DELETE")) {
+    queueOffline({
+      path,
+      method: opts.method || "POST",
+      body: opts.body ? JSON.parse(opts.body) : undefined,
+    });
+    return { ok: true, status: 202, body: { queued: true } };
+  }
   const res = await fetch(`/api/business${path}`, { ...opts, headers });
   const body = await res.json().catch(() => ({}));
   return { ok: res.ok, status: res.status, body };
@@ -101,23 +159,49 @@ async function ensureLogin() {
 }
 
 async function renderHome() {
-  const { body } = await api("/hub-counts");
+  const [{ body }, { body: settings }] = await Promise.all([api("/hub-counts"), api("/settings")]);
+  const today = body.todaySchedules || [];
   document.getElementById("biz-page-title").textContent = "TOMS業務ホーム";
   document.getElementById("biz-root").innerHTML = `
     <section class="biz-card">
-      <h2>進捗サマリー</h2>
-      <div class="biz-stats">
-        <div class="biz-stat"><div class="n">${body.newProjects ?? 0}</div><div class="l">新規案件</div></div>
-        <div class="biz-stat"><div class="n">${body.surveyScheduled ?? 0}</div><div class="l">現調予定</div></div>
-        <div class="biz-stat"><div class="n">${body.estimatePending ?? 0}</div><div class="l">見積待ち</div></div>
-        <div class="biz-stat"><div class="n">${body.constructionScheduled ?? 0}</div><div class="l">工事予定</div></div>
-        <div class="biz-stat"><div class="n">${body.invoicePending ?? 0}</div><div class="l">請求待ち</div></div>
-        <div class="biz-stat"><div class="n">${body.paymentPending ?? 0}</div><div class="l">入金待ち</div></div>
+      <h2>今日の予定 (${today.length})</h2>
+      ${
+        today.length
+          ? today
+              .map(
+                (t) =>
+                  `<a class="biz-list-item" href="/business/projects/${t.projectId}">
+                    <strong>${t.kind === "site_survey" ? "現調" : t.kind === "construction" ? "工事" : "入金"}</strong>
+                    ${t.customerName} — ${t.title}<br/><span class="hint">${t.date} ${t.startTime || ""}</span>
+                  </a>`
+              )
+              .join("")
+          : '<p class="hint">本日の予定はありません</p>'
+      }
+    </section>
+    <section class="biz-card">
+      <h2>ダッシュボード</h2>
+      <div class="biz-dash-grid">
+        <a class="biz-dash-card" href="/business/projects?status=survey_scheduled"><div class="n">${body.surveyScheduled ?? 0}</div><div class="l">現調予定</div></a>
+        <a class="biz-dash-card" href="/business/projects?status=survey_done"><div class="n">${body.estimatePending ?? 0}</div><div class="l">見積待ち</div></a>
+        <a class="biz-dash-card" href="/business/projects?status=construction_scheduled"><div class="n">${body.constructionScheduled ?? 0}</div><div class="l">工事予定</div></a>
+        <a class="biz-dash-card" href="/business/projects?status=invoice_created"><div class="n">${body.invoicePending ?? 0}</div><div class="l">請求待ち</div></a>
+        <a class="biz-dash-card" href="/business/projects?status=invoice_sent"><div class="n">${body.paymentPending ?? 0}</div><div class="l">入金待ち</div></a>
+        <a class="biz-dash-card" href="/business/projects?status=new"><div class="n">${body.newProjects ?? 0}</div><div class="l">新規案件</div></a>
       </div>
     </section>
+    <section class="biz-card">
+      <h2>連携状態</h2>
+      <div class="biz-integration-row"><span>Google Calendar</span><span class="mock">${settings.googleCalendar?.mode || "mock"}</span></div>
+      <div class="biz-integration-row"><span>Gmail</span><span class="mock">${settings.gmail?.defaultTo || ""}</span></div>
+      <div class="biz-integration-row"><span>QNAP</span><span class="mock">${settings.qnap?.baseRoot || ""}</span></div>
+      <a class="biz-btn secondary" href="/business/settings" style="margin-top:0.5rem;text-align:center;text-decoration:none">設定詳細</a>
+    </section>
     <a class="biz-btn" href="/business/projects/new">新規案件を登録</a>
+    <a class="biz-btn secondary" href="/business/pricing" style="text-align:center;text-decoration:none">顧客別単価</a>
     <a class="biz-btn secondary" href="/business/projects" style="text-align:center;text-decoration:none">案件一覧</a>
   `;
+  document.getElementById("biz-offline-bar")?.addEventListener("click", () => flushOfflineQueue().then(render));
 }
 
 async function renderProjects() {
@@ -227,12 +311,13 @@ async function renderProjectDetail(id) {
       <a class="biz-list-item" href="/business/projects/${id}/invoice">請求</a>
       <a class="biz-list-item" href="/business/projects/${id}/payment">入金</a>
     </section>
-    ${data.qnapPlan ? `<section class="biz-card"><h2>QNAP保存予定</h2>${previewBlock("", data.qnapPlan.basePath + "\n" + (data.qnapPlan.folders || []).join("\n"))}</section>` : `<section class="biz-card"><button type="button" class="biz-btn secondary" id="btn-qnap">QNAPパスを表示</button></section>`}
+    ${data.qnapPlan ? `<section class="biz-card"><h2>QNAP保存予定</h2>${previewBlock("", data.qnapPlan.basePath + "\n" + (data.qnapPlan.folders || []).join("\n"))}</section>` : ""}
+    <section class="biz-card"><button type="button" class="biz-btn secondary" id="btn-qnap">QNAP mock保存</button></section>
     ${(data.calendarDrafts || []).length ? `<section class="biz-card"><h2>カレンダー下書き</h2>${data.calendarDrafts.map((d) => previewBlock(d.title, `${d.start}\n${d.description}`)).join("")}</section>` : ""}
     ${(data.mailDrafts || []).length ? `<section class="biz-card"><h2>メール下書き</h2>${data.mailDrafts.map((m) => previewBlock(m.subject, `To: ${m.to}\n\n${m.body}\n\n添付: ${(m.attachmentPaths || []).join(", ")}`)).join("")}</section>` : ""}
   `;
   document.getElementById("btn-qnap")?.addEventListener("click", async () => {
-    await api(`/projects/${id}/qnap-plan`, { method: "POST" });
+    await api(`/projects/${id}/qnap/save`, { method: "POST", body: "{}" });
     render();
   });
 }
@@ -302,7 +387,7 @@ async function renderEstimate(id) {
       <button type="button" class="biz-btn secondary" id="btn-ai">AI候補を取得</button>
       <button type="button" class="biz-btn" id="btn-est">見積を作成（AI候補を反映）</button>
       <button type="button" class="biz-btn secondary" id="btn-est-pdf">見積PDFを再生成</button>
-      <button type="button" class="biz-btn" id="btn-mail">確認用メール下書き</button>
+      <button type="button" class="biz-btn" id="btn-mail">見積送付メール（mock）</button>
       <button type="button" class="biz-btn secondary" id="btn-accept">受注にする</button>
       <pre class="biz-preview" id="est-out"></pre>
     </section>
@@ -331,8 +416,8 @@ async function renderEstimate(id) {
     document.getElementById("est-out").textContent = JSON.stringify(body, null, 2);
   });
   document.getElementById("btn-mail")?.addEventListener("click", async () => {
-    const { body } = await api(`/projects/${id}/estimate-mail`, { method: "POST", body: "{}" });
-    document.getElementById("est-out").textContent = JSON.stringify(body.mail, null, 2);
+    const { body } = await api(`/projects/${id}/mail/estimate-ready`, { method: "POST", body: "{}" });
+    document.getElementById("est-out").textContent = JSON.stringify(body.mail ?? body, null, 2);
     render();
   });
   document.getElementById("btn-accept")?.addEventListener("click", async () => {
@@ -426,8 +511,8 @@ async function renderInvoice(id) {
     document.getElementById("inv-out").textContent = JSON.stringify(body, null, 2);
   });
   document.getElementById("inv-mail")?.addEventListener("click", async () => {
-    const { body } = await api(`/projects/${id}/invoice-mail`, { method: "POST", body: "{}" });
-    document.getElementById("inv-out").textContent = JSON.stringify(body.mail, null, 2);
+    const { body } = await api(`/projects/${id}/mail/invoice-ready`, { method: "POST", body: "{}" });
+    document.getElementById("inv-out").textContent = JSON.stringify(body.mail ?? body, null, 2);
   });
 }
 
@@ -468,22 +553,59 @@ async function renderCustomers() {
 
 async function renderPricing() {
   const { body } = await api("/pricing");
-  document.getElementById("biz-page-title").textContent = "顧客別単価表";
-  const tiers = body.tiers || [];
-  document.getElementById("biz-root").innerHTML = tiers
-    .map(
-      (t) =>
-        `<section class="biz-card"><h2>${t.name}</h2>${(t.items || [])
-          .map((i) => `<div>${i.name}: ¥${i.defaultUnitPrice}/${i.unit}</div>`)
-          .join("")}</section>`
-    )
-    .join("");
+  document.getElementById("biz-page-title").textContent = "顧客別単価";
+  const rules = body.rules || [];
+  const scopeLabel = { customer: "顧客別", contractor: "元請け別", work_item: "工事項目", standard: "標準" };
+  document.getElementById("biz-root").innerHTML = `
+    <section class="biz-card">
+      <h2>単価ルール (${rules.length})</h2>
+      ${rules
+        .map(
+          (r) =>
+            `<div class="biz-list-item" style="cursor:default">
+              <strong>${r.name}</strong>
+              <span class="biz-status">${scopeLabel[r.scopeType] || r.scopeType}${r.active ? "" : " · 無効"}</span><br/>
+              ¥${r.unitPrice}/${r.unit} · ${r.workCategory}
+            </div>`
+        )
+        .join("")}
+    </section>
+    <section class="biz-card">
+      <h2>新規ルール</h2>
+      <label>区分
+        <select id="pr-scope"><option value="standard">標準</option><option value="customer">顧客別</option><option value="contractor">元請け別</option><option value="work_item">工事項目</option></select>
+      </label>
+      <label>名称 <input id="pr-name" /></label>
+      <label>単価 <input id="pr-price" type="number" /></label>
+      <button type="button" class="biz-btn" id="pr-add">追加</button>
+    </section>
+  `;
+  document.getElementById("pr-add")?.addEventListener("click", async () => {
+    await api("/pricing", {
+      method: "POST",
+      body: JSON.stringify({
+        scopeType: document.getElementById("pr-scope").value,
+        name: document.getElementById("pr-name").value,
+        unitPrice: Number(document.getElementById("pr-price").value),
+        workCategory: "other",
+      }),
+    });
+    render();
+  });
 }
 
 async function renderSettings() {
   const { body } = await api("/settings");
-  document.getElementById("biz-page-title").textContent = "連携設定（予定）";
-  document.getElementById("biz-root").innerHTML = `<pre class="biz-preview">${JSON.stringify(body, null, 2)}</pre>`;
+  document.getElementById("biz-page-title").textContent = "連携設定";
+  document.getElementById("biz-root").innerHTML = `
+    <section class="biz-card">
+      <div class="biz-integration-row"><span>Google Calendar</span><span class="mock">${body.googleCalendar?.provider} (${body.googleCalendar?.mode})</span></div>
+      <div class="biz-integration-row"><span>Gmail 宛先</span><span>${body.gmail?.defaultTo}</span></div>
+      <div class="biz-integration-row"><span>QNAP</span><span class="mock">${body.qnap?.baseRoot}</span></div>
+      <div class="biz-integration-row"><span>PDFテンプレ</span><span class="mock">見積 ${body.pdfTemplates?.estimate}</span></div>
+    </section>
+    <pre class="biz-preview">${JSON.stringify(body, null, 2)}</pre>
+  `;
 }
 
 function fileToBase64(file) {
@@ -550,4 +672,10 @@ async function render() {
 
 renderPwaTopbar("business", "TOMS業務");
 render();
+updateOfflineBar();
 window.addEventListener("popstate", render);
+window.addEventListener("online", () => {
+  flushOfflineQueue().then(render);
+  updateOfflineBar();
+});
+window.addEventListener("offline", updateOfflineBar);

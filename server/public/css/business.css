@@ -63,6 +63,60 @@
   font-size: 1rem;
 }
 
+.biz-offline-bar {
+  margin: 0.5rem 0 0;
+  font-size: 0.8rem;
+  background: rgba(0, 0, 0, 0.15);
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
+}
+
+.biz-dash-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.65rem;
+}
+
+.biz-dash-card {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.75rem;
+}
+
+.biz-dash-card .n {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0f766e;
+}
+
+.biz-dash-card .l {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-top: 0.25rem;
+}
+
+.biz-integration-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 0.85rem;
+}
+
+.biz-integration-row .ok {
+  color: #0d9488;
+  font-weight: 600;
+}
+
+.biz-integration-row .mock {
+  color: #94a3b8;
+}
+
 .biz-card label {
   display: block;
   margin-bottom: 0.5rem;

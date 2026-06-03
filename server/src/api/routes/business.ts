@@ -1,7 +1,15 @@
+import fs from "fs";
 import { Router, type Response } from "express";
 import { requireAuth, type AuthedRequest } from "../../auth/auth-middleware.js";
 import { roleMeetsRequirement } from "../../auth/roles.js";
 import { getNextAction } from "../../business/business-status.js";
+import { transitionProjectStatus } from "../../business/business-workflow.js";
+import {
+  createPricingRule,
+  deletePricingRule,
+  listPricingRules,
+  updatePricingRule,
+} from "../../business/business-pricing.js";
 import {
   buildEstimateDraftFromAi,
   countProjectsByStatus,
@@ -22,6 +30,7 @@ import {
   listCustomers,
   listMailDrafts,
   listPricingTiers,
+  listTodaySchedules,
   markAccepted,
   markConstructionDone,
   markPaid,
@@ -43,18 +52,26 @@ import { createBusinessProjectFromSurveyProject } from "../../business/services/
 import {
   createConstructionCalendarDraft,
   createPaymentCalendarDraft,
-  createSurveyCalendarDraft,
+  createSiteSurveyCalendarDraft,
 } from "../../business/services/googleCalendarService.js";
 import {
+  createCompletionMailDraft,
   createEstimateMailDraft,
   createInvoiceAndReportMailDraft,
+  createInvoiceMailDraft,
 } from "../../business/services/gmailService.js";
 import {
   generateCompletionReportPdf,
   generateEstimatePdf,
   generateInvoicePdf,
+  getCompletionReportPdfOrPlaceholder,
+  getEstimatePdfOrPlaceholder,
+  getInvoicePdfOrPlaceholder,
 } from "../../business/services/pdfService.js";
-import { createQnapSavePlan } from "../../business/services/qnapService.js";
+import { createQnapSavePlan, mockSaveToQnap } from "../../business/services/qnapService.js";
+import { getGoogleCalendarProvider } from "../../business/services/googleCalendarService.js";
+import { getGmailProvider } from "../../business/services/gmailService.js";
+import type { PricingScopeType } from "../../business/business-types.js";
 import { createAiEstimatePlaceholder, getLatestAiEstimate } from "../../survey/survey-store.js";
 import type { EstimateLineItem } from "../../business/business-types.js";
 import { statusAfterEstimateMail, statusAfterInvoiceSent } from "../../business/business-status.js";
@@ -141,7 +158,7 @@ businessRouter.patch("/projects/:projectId", ...businessAuth, (req: AuthedReques
 businessRouter.post("/projects/:projectId/survey-schedule", ...businessAuth, (req: AuthedRequest, res) => {
   if (!assertBusinessRole(req, res)) return;
   const project = setSurveySchedule(String(req.params.projectId), req.body);
-  const draft = createSurveyCalendarDraft(project);
+  const draft = createSiteSurveyCalendarDraft(project);
   saveCalendarDraft(draft);
   res.json({ project, calendarDraft: draft });
 });
@@ -255,7 +272,64 @@ businessRouter.get("/customers/:customerId", ...businessAuth, (req: AuthedReques
 
 businessRouter.get("/pricing", ...businessAuth, (req: AuthedRequest, res) => {
   if (!assertBusinessRole(req, res)) return;
-  res.json({ tiers: listPricingTiers() });
+  res.json({ rules: listPricingRules(), tiers: listPricingTiers() });
+});
+
+businessRouter.post("/pricing", ...businessAuth, (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  const body = req.body as {
+    scopeType?: PricingScopeType;
+    scopeRef?: string | null;
+    workCategory?: string;
+    name?: string;
+    unit?: string;
+    unitPrice?: number;
+    costPrice?: number;
+    taxType?: string;
+    memo?: string;
+    active?: boolean;
+  };
+  if (!body.scopeType || !body.name || body.unitPrice == null) {
+    res.status(400).json({ error: "scopeType, name, unitPrice required" });
+    return;
+  }
+  try {
+    const rule = createPricingRule({
+      scopeType: body.scopeType,
+      scopeRef: body.scopeRef,
+      workCategory: body.workCategory,
+      name: body.name,
+      unit: body.unit,
+      unitPrice: Number(body.unitPrice),
+      costPrice: body.costPrice != null ? Number(body.costPrice) : undefined,
+      taxType: body.taxType,
+      memo: body.memo,
+      active: body.active,
+    });
+    res.status(201).json({ rule });
+  } catch (e) {
+    res.status(400).json({ error: (e as Error).message });
+  }
+});
+
+businessRouter.patch("/pricing/:id", ...businessAuth, (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  try {
+    const rule = updatePricingRule(String(req.params.id), req.body);
+    res.json({ rule });
+  } catch (e) {
+    res.status(400).json({ error: (e as Error).message });
+  }
+});
+
+businessRouter.delete("/pricing/:id", ...businessAuth, (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  try {
+    deletePricingRule(String(req.params.id));
+    res.status(204).send();
+  } catch (e) {
+    res.status(404).json({ error: (e as Error).message });
+  }
 });
 
 businessRouter.post("/projects/:projectId/ai-candidate", ...businessAuth, (req: AuthedRequest, res) => {
@@ -363,24 +437,204 @@ businessRouter.post("/projects/:projectId/invoice-mail", ...businessAuth, (req: 
   res.json({ mail });
 });
 
+function calendarRouteHandler(kind: "site-survey" | "construction" | "payment") {
+  return (req: AuthedRequest, res: Response) => {
+    if (!assertBusinessRole(req, res)) return;
+    const project = getBusinessProject(String(req.params.projectId));
+    if (!project) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    const body = req.body as { date?: string; startTime?: string; endTime?: string; memo?: string };
+    let updated = project;
+    if (kind === "site-survey" && body.date) {
+      updated = setSurveySchedule(project.id, {
+        date: body.date,
+        startTime: body.startTime,
+        endTime: body.endTime,
+        memo: body.memo,
+      });
+    } else if (kind === "construction" && body.date) {
+      updated = setConstructionSchedule(
+        project.id,
+        { date: body.date, startTime: body.startTime, endTime: body.endTime },
+        undefined,
+        body.memo
+      );
+    } else if (kind === "payment" && body.date) {
+      updated = setPaymentDue(project.id, body.date);
+    }
+    const draft =
+      kind === "site-survey"
+        ? createSiteSurveyCalendarDraft(updated)
+        : kind === "construction"
+          ? createConstructionCalendarDraft(updated)
+          : createPaymentCalendarDraft(updated);
+    saveCalendarDraft(draft);
+    res.json({ project: updated, calendarDraft: draft });
+  };
+}
+
+businessRouter.post(
+  "/projects/:projectId/calendar/site-survey",
+  ...businessAuth,
+  calendarRouteHandler("site-survey")
+);
+businessRouter.post(
+  "/projects/:projectId/calendar/construction",
+  ...businessAuth,
+  calendarRouteHandler("construction")
+);
+businessRouter.post(
+  "/projects/:projectId/calendar/payment",
+  ...businessAuth,
+  calendarRouteHandler("payment")
+);
+
 businessRouter.post("/projects/:projectId/calendar/:type", ...businessAuth, (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  const type = String(req.params.type);
+  if (type === "site-survey" || type === "construction" || type === "payment") {
+    res.status(400).json({
+      error: "use dedicated endpoints: calendar/site-survey, calendar/construction, calendar/payment",
+    });
+    return;
+  }
+  const project = getBusinessProject(String(req.params.projectId));
+  if (!project) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  let draft;
+  if (type === "survey") draft = createSiteSurveyCalendarDraft(project);
+  else {
+    res.status(400).json({ error: "type must be survey" });
+    return;
+  }
+  saveCalendarDraft(draft);
+  res.json({ calendarDraft: draft });
+});
+
+businessRouter.post(
+  "/projects/:projectId/mail/estimate-ready",
+  ...businessAuth,
+  mailRouteHandler("estimate")
+);
+businessRouter.post(
+  "/projects/:projectId/mail/completion-ready",
+  ...businessAuth,
+  mailRouteHandler("completion")
+);
+businessRouter.post(
+  "/projects/:projectId/mail/invoice-ready",
+  ...businessAuth,
+  mailRouteHandler("invoice")
+);
+
+function mailRouteHandler(kind: "estimate" | "completion" | "invoice") {
+  return (req: AuthedRequest, res: Response) => {
+    if (!assertBusinessRole(req, res)) return;
+    const projectId = String(req.params.projectId);
+    const project = getBusinessProject(projectId);
+    if (!project) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    let mail;
+    if (kind === "estimate") {
+      if (!project.estimateId) {
+        res.status(400).json({ error: "estimate required" });
+        return;
+      }
+      mail = createEstimateMailDraft(project, getEstimate(project.estimateId)!);
+      updateBusinessProject(projectId, { status: statusAfterEstimateMail() });
+    } else if (kind === "completion") {
+      if (!project.completionReportId) {
+        res.status(400).json({ error: "completion report required" });
+        return;
+      }
+      mail = createCompletionMailDraft(project, getCompletionReport(project.completionReportId)!);
+    } else {
+      if (!project.invoiceId) {
+        res.status(400).json({ error: "invoice required" });
+        return;
+      }
+      mail = createInvoiceMailDraft(project, getInvoice(project.invoiceId)!);
+      updateBusinessProject(projectId, { status: statusAfterInvoiceSent() });
+    }
+    saveMailDraft(mail);
+    res.json({ mail });
+  };
+}
+
+businessRouter.post("/projects/:projectId/qnap/save", ...businessAuth, (req: AuthedRequest, res) => {
   if (!assertBusinessRole(req, res)) return;
   const project = getBusinessProject(String(req.params.projectId));
   if (!project) {
     res.status(404).json({ error: "Not found" });
     return;
   }
-  const type = String(req.params.type);
-  let draft;
-  if (type === "survey") draft = createSurveyCalendarDraft(project);
-  else if (type === "construction") draft = createConstructionCalendarDraft(project);
-  else if (type === "payment") draft = createPaymentCalendarDraft(project);
-  else {
-    res.status(400).json({ error: "type must be survey|construction|payment" });
+  const plan = createQnapSavePlan(project);
+  saveQnapPlan(plan);
+  const result = mockSaveToQnap(project, plan);
+  res.json({ qnapPlan: plan, saveResult: result });
+});
+
+businessRouter.get("/projects/:projectId/estimate.pdf", ...businessAuth, servePdf("estimate"));
+businessRouter.get("/projects/:projectId/invoice.pdf", ...businessAuth, servePdf("invoice"));
+businessRouter.get(
+  "/projects/:projectId/completion-report.pdf",
+  ...businessAuth,
+  servePdf("completion_report")
+);
+
+function servePdf(kind: "estimate" | "invoice" | "completion_report") {
+  return (req: AuthedRequest, res: Response) => {
+    if (!assertBusinessRole(req, res)) return;
+    const project = getBusinessProject(String(req.params.projectId));
+    if (!project) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    try {
+      if (kind === "estimate") {
+        if (!project.estimateId) throw new Error("No estimate");
+        const est = getEstimate(project.estimateId)!;
+        const { contentType, path: filePath } = getEstimatePdfOrPlaceholder(project, est);
+        res.type(contentType);
+        return res.send(fs.readFileSync(filePath));
+      }
+      if (kind === "invoice") {
+        if (!project.invoiceId) throw new Error("No invoice");
+        const inv = getInvoice(project.invoiceId)!;
+        const { contentType, path: filePath } = getInvoicePdfOrPlaceholder(project, inv);
+        res.type(contentType);
+        return res.send(fs.readFileSync(filePath));
+      }
+      if (!project.completionReportId) throw new Error("No completion report");
+      const rep = getCompletionReport(project.completionReportId)!;
+      const { contentType, path: filePath } = getCompletionReportPdfOrPlaceholder(project, rep);
+      res.type(contentType);
+      return res.send(fs.readFileSync(filePath));
+    } catch (e) {
+      res.status(404).json({ error: (e as Error).message });
+    }
+  };
+}
+
+businessRouter.post("/projects/:projectId/status", ...businessAuth, (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  const body = req.body as { status?: string };
+  if (!body.status) {
+    res.status(400).json({ error: "status required" });
     return;
   }
-  saveCalendarDraft(draft);
-  res.json({ calendarDraft: draft });
+  try {
+    const result = transitionProjectStatus(String(req.params.projectId), body.status);
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: (e as Error).message });
+  }
 });
 
 businessRouter.post("/projects/:projectId/qnap-plan", ...businessAuth, (req: AuthedRequest, res) => {
@@ -409,25 +663,45 @@ businessRouter.post("/from-survey/:surveyProjectId", ...businessAuth, (req: Auth
 
 businessRouter.get("/hub-counts", ...businessAuth, (req: AuthedRequest, res) => {
   if (!assertBusinessRole(req, res)) return;
+  const today = new Date().toISOString().slice(0, 10);
   res.json({
+    todaySchedules: listTodaySchedules(today),
     newProjects: countProjectsByStatus(["new"]),
     surveyScheduled: countProjectsByStatus(["survey_scheduled"]),
     estimatePending: countProjectsByStatus(["survey_done"]),
-    constructionScheduled: countProjectsByStatus(["construction_scheduled", "accepted"]),
+    constructionScheduled: countProjectsByStatus(["construction_scheduled"]),
     invoicePending: countProjectsByStatus([
       "construction_done",
       "completion_report_created",
       "invoice_created",
     ]),
-    paymentPending: countProjectsByStatus(["payment_scheduled", "invoice_sent_to_owner"]),
+    paymentPending: countProjectsByStatus(["invoice_sent"]),
   });
 });
 
 businessRouter.get("/settings", ...businessAuth, (req: AuthedRequest, res) => {
   if (!assertBusinessRole(req, res)) return;
   res.json({
-    googleCalendar: { connected: false, phase: "541+ 予定" },
-    gmail: { connected: false, defaultTo: "toms.yamanaka@gmail.com", phase: "541+ 予定" },
-    qnap: { connected: false, baseRoot: "/TOMS/案件/", phase: "541+ 予定" },
+    googleCalendar: {
+      connected: false,
+      mode: "mock",
+      provider: getGoogleCalendarProvider().constructor.name,
+    },
+    gmail: {
+      connected: false,
+      mode: "mock",
+      defaultTo: "toms.yamanaka@gmail.com",
+      provider: getGmailProvider().constructor.name,
+    },
+    qnap: {
+      connected: false,
+      mode: "mock",
+      baseRoot: "/TOMS/business/",
+    },
+    pdfTemplates: {
+      estimate: "placeholder-1",
+      invoice: "placeholder-1",
+      completion_report: "placeholder-1",
+    },
   });
 });

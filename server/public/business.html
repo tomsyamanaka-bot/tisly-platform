@@ -16,12 +16,18 @@
   <div id="tisly-pwa-topbar-root"></div>
   <header class="business-header">
     <h1 id="biz-page-title">TOMS業務</h1>
-    <p class="hint">Phase 521–540 — 見積・工事・請求の土台</p>
+    <p class="hint">Phase 541–560 — 現調〜入金ワークフロー</p>
+    <p class="biz-offline-bar" id="biz-offline-bar" hidden></p>
   </header>
   <nav class="business-nav" id="biz-nav"></nav>
   <main class="business-main" id="biz-root">
     <p>読み込み中…</p>
   </main>
   <script type="module" src="/js/business.js"></script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw-business.js", { scope: "/business" }).catch(() => {});
+    }
+  </script>
 </body>
 </html>

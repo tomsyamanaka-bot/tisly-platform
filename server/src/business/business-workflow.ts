@@ -1,0 +1,112 @@
+import {
+  getBusinessProject,
+  getCompletionReport,
+  getEstimate,
+  getInvoice,
+  saveCalendarDraft,
+  saveMailDraft,
+  saveQnapPlan,
+  updateBusinessProject,
+} from "./business-store.js";
+import {
+  assertTransition,
+  normalizeProjectStatus,
+  statusAfterClosed,
+} from "./business-status.js";
+import type { BusinessProject, BusinessProjectStatus } from "./business-types.js";
+import {
+  createConstructionCalendarDraft,
+  createPaymentCalendarDraft,
+  createSiteSurveyCalendarDraft,
+} from "./services/googleCalendarService.js";
+import {
+  createCompletionMailDraft,
+  createEstimateMailDraft,
+  createInvoiceMailDraft,
+} from "./services/gmailService.js";
+import { createQnapSavePlan, mockSaveToQnap } from "./services/qnapService.js";
+
+export interface StatusTransitionResult {
+  project: BusinessProject;
+  calendarDraft?: unknown;
+  mailDraft?: unknown;
+  qnapSave?: unknown;
+}
+
+function runSideEffects(
+  project: BusinessProject,
+  to: BusinessProjectStatus
+): Omit<StatusTransitionResult, "project"> {
+  const out: Omit<StatusTransitionResult, "project"> = {};
+  const normalized = normalizeProjectStatus(to);
+
+  if (normalized === "survey_scheduled") {
+    const draft = createSiteSurveyCalendarDraft(project);
+    saveCalendarDraft(draft);
+    out.calendarDraft = draft;
+  }
+  if (normalized === "construction_scheduled") {
+    const draft = createConstructionCalendarDraft(project);
+    saveCalendarDraft(draft);
+    out.calendarDraft = draft;
+  }
+  if (normalized === "invoice_sent" && project.paymentDueDate) {
+    const draft = createPaymentCalendarDraft(project);
+    saveCalendarDraft(draft);
+    out.calendarDraft = draft;
+  }
+
+  if (normalized === "estimate_sent" && project.estimateId) {
+    const estimate = getEstimate(project.estimateId);
+    if (estimate) {
+      const mail = createEstimateMailDraft(project, estimate);
+      saveMailDraft(mail);
+      out.mailDraft = mail;
+    }
+  }
+  if (normalized === "completion_report_created" && project.completionReportId) {
+    const report = getCompletionReport(project.completionReportId);
+    if (report) {
+      const mail = createCompletionMailDraft(project, report);
+      saveMailDraft(mail);
+      out.mailDraft = mail;
+    }
+  }
+  if (normalized === "invoice_sent" && project.invoiceId) {
+    const invoice = getInvoice(project.invoiceId);
+    if (invoice) {
+      const mail = createInvoiceMailDraft(project, invoice);
+      saveMailDraft(mail);
+      out.mailDraft = mail;
+    }
+  }
+
+  if (
+    ["estimate_created", "completion_report_created", "invoice_created", "paid"].includes(
+      normalized
+    )
+  ) {
+    const plan = createQnapSavePlan(project);
+    saveQnapPlan(plan);
+    out.qnapSave = mockSaveToQnap(project, plan);
+  }
+
+  return out;
+}
+
+export function transitionProjectStatus(
+  projectId: string,
+  to: BusinessProjectStatus | string
+): StatusTransitionResult {
+  const project = getBusinessProject(projectId);
+  if (!project) throw new Error("project not found");
+  const target = normalizeProjectStatus(String(to)) as BusinessProjectStatus;
+  assertTransition(project.status, target);
+  const updated = updateBusinessProject(projectId, { status: target });
+  const side = runSideEffects(updated, target);
+  return { project: updated, ...side };
+}
+
+export function closeProject(projectId: string): BusinessProject {
+  return transitionProjectStatus(projectId, statusAfterClosed()).project;
+}

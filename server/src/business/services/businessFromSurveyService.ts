@@ -3,15 +3,30 @@ import {
   getSurveyProject,
   getLatestAiEstimate,
   listSurveyPhotos,
+  getSurveyChecklist,
 } from "../../survey/survey-store.js";
 import {
   createBusinessProject,
   getBusinessProject,
   saveAiCandidate,
+  saveBusinessPhoto,
   updateBusinessProject,
 } from "../business-store.js";
 import { statusAfterSurveyDone } from "../business-status.js";
-import type { BusinessProject } from "../business-types.js";
+import type { BusinessProject, BusinessPhoto } from "../business-types.js";
+import fs from "fs";
+import path from "path";
+
+function copySurveyPhotoToBusiness(
+  projectId: string,
+  photo: { photoPath: string }
+): BusinessPhoto | null {
+  const rel = photo.photoPath.replace(/^\/+/, "");
+  const src = path.join(process.cwd(), "uploads", "survey", rel);
+  if (!fs.existsSync(src)) return null;
+  const buf = fs.readFileSync(src);
+  return saveBusinessPhoto(projectId, "survey", buf.toString("base64"), path.basename(src));
+}
 
 export function createBusinessProjectFromSurveyProject(surveyProjectId: string): BusinessProject {
   const survey = getSurveyProject(surveyProjectId);
@@ -26,11 +41,18 @@ export function createBusinessProjectFromSurveyProject(surveyProjectId: string):
   }
 
   const photos = listSurveyPhotos(surveyProjectId);
+  const checklist = getSurveyChecklist(surveyProjectId);
+  const checklistSummary = Object.entries(checklist)
+    .filter(([, v]) => v && typeof v === "object" && (v as { checked?: boolean }).checked)
+    .map(([k]) => k)
+    .join(", ");
+
   const project = createBusinessProject({
     customerId: `BCU-SVY-${survey.customerCode}`,
     customerName: survey.siteName,
     title: survey.siteName,
     address: survey.address ?? "",
+    phone: (survey as { phone?: string }).phone ?? "",
     surveyProjectId,
   });
 
@@ -39,12 +61,28 @@ export function createBusinessProjectFromSurveyProject(surveyProjectId: string):
     saveAiCandidate(project.id, ai.recommended as Record<string, unknown>, "survey_ai");
   }
 
-  if (photos.length > 0) {
-    return updateBusinessProject(project.id, {
-      surveyMemo: `Survey連携: 写真${photos.length}枚`,
-      status: statusAfterSurveyDone(),
-    });
+  const surveyPhotos: BusinessPhoto[] = [];
+  for (const ph of photos.slice(0, 20)) {
+    const copied = copySurveyPhotoToBusiness(project.id, ph);
+    if (copied) surveyPhotos.push(copied);
   }
 
-  return getBusinessProject(project.id)!;
+  const gpsNote =
+    survey.gpsLat != null && survey.gpsLng != null
+      ? `GPS: ${survey.gpsLat}, ${survey.gpsLng}`
+      : "";
+
+  const memoParts = [
+    `Survey連携 (${surveyProjectId})`,
+    photos.length ? `写真${photos.length}枚` : "",
+    checklistSummary ? `チェックリスト: ${checklistSummary}` : "",
+    gpsNote,
+  ].filter(Boolean);
+
+  return updateBusinessProject(project.id, {
+    surveyMemo: memoParts.join(" / "),
+    address: survey.address ?? project.address,
+    status: photos.length > 0 ? statusAfterSurveyDone() : project.status,
+    surveyPhotos: surveyPhotos.length ? surveyPhotos : undefined,
+  });
 }

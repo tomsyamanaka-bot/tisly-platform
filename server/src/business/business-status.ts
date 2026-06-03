@@ -5,60 +5,75 @@ export interface NextAction {
   hrefSuffix: string;
 }
 
+/** DBに残る旧ステータス → Phase541 正規ステータス */
+const LEGACY_STATUS_MAP: Record<string, BusinessProjectStatus> = {
+  estimate_sent_to_owner: "estimate_sent",
+  accepted: "estimate_sent",
+  invoice_sent_to_owner: "invoice_sent",
+  payment_scheduled: "invoice_sent",
+  archived: "closed",
+};
+
+export function normalizeProjectStatus(raw: string): BusinessProjectStatus {
+  return (LEGACY_STATUS_MAP[raw] ?? raw) as BusinessProjectStatus;
+}
+
 const NEXT_ACTIONS: Partial<Record<BusinessProjectStatus, NextAction>> = {
   new: { label: "現調予定を入れる", hrefSuffix: "/survey" },
   survey_scheduled: { label: "現調内容を入力する", hrefSuffix: "/survey" },
   survey_done: { label: "見積を作る", hrefSuffix: "/estimate" },
-  estimate_created: { label: "確認用メールを作る", hrefSuffix: "/estimate" },
-  estimate_sent_to_owner: { label: "受注にする", hrefSuffix: "" },
-  accepted: { label: "工事日を入れる", hrefSuffix: "/construction" },
+  estimate_created: { label: "見積送付メールを作る", hrefSuffix: "/estimate" },
+  estimate_sent: { label: "工事日を入れる", hrefSuffix: "/construction" },
   construction_scheduled: { label: "施工写真を撮る", hrefSuffix: "/construction" },
-  construction_done: { label: "完了報告書と請求書を作る", hrefSuffix: "/completion-report" },
+  construction_done: { label: "完了報告書を作る", hrefSuffix: "/completion-report" },
   completion_report_created: { label: "請求書を作る", hrefSuffix: "/invoice" },
-  invoice_created: { label: "入金予定日を入れる", hrefSuffix: "/payment" },
-  invoice_sent_to_owner: { label: "入金予定日を入れる", hrefSuffix: "/payment" },
-  payment_scheduled: { label: "入金済みにする", hrefSuffix: "/payment" },
+  invoice_created: { label: "請求送付メールを作る", hrefSuffix: "/invoice" },
+  invoice_sent: { label: "入金済みにする", hrefSuffix: "/payment" },
+  paid: { label: "案件をクローズ", hrefSuffix: "/payment" },
 };
 
 const ALLOWED_TRANSITIONS: Partial<Record<BusinessProjectStatus, BusinessProjectStatus[]>> = {
-  new: ["survey_scheduled", "archived"],
-  survey_scheduled: ["survey_done", "survey_scheduled", "archived"],
+  new: ["survey_scheduled", "closed"],
+  survey_scheduled: ["survey_done", "survey_scheduled", "closed"],
   survey_done: ["estimate_created", "survey_scheduled"],
-  estimate_created: ["estimate_sent_to_owner", "accepted", "estimate_created"],
-  estimate_sent_to_owner: ["accepted", "estimate_created"],
-  accepted: ["construction_scheduled"],
+  estimate_created: ["estimate_sent", "estimate_created", "construction_scheduled"],
+  estimate_sent: ["construction_scheduled", "estimate_created"],
   construction_scheduled: ["construction_done", "construction_scheduled"],
   construction_done: ["completion_report_created", "invoice_created"],
   completion_report_created: ["invoice_created"],
-  invoice_created: ["invoice_sent_to_owner", "payment_scheduled", "invoice_created"],
-  invoice_sent_to_owner: ["payment_scheduled"],
-  payment_scheduled: ["paid"],
-  paid: ["archived"],
-  archived: [],
+  invoice_created: ["invoice_sent", "invoice_created"],
+  invoice_sent: ["paid"],
+  paid: ["closed"],
+  closed: [],
 };
 
 export function getNextAction(project: BusinessProject): NextAction | null {
   const base = `/business/projects/${project.id}`;
-  const action = NEXT_ACTIONS[project.status];
+  const status = normalizeProjectStatus(project.status);
+  const action = NEXT_ACTIONS[status];
   if (!action) return null;
   return { label: action.label, hrefSuffix: `${base}${action.hrefSuffix}` };
 }
 
 export function canTransitionStatus(
-  from: BusinessProjectStatus,
-  to: BusinessProjectStatus
+  from: BusinessProjectStatus | string,
+  to: BusinessProjectStatus | string
 ): boolean {
-  if (from === to) return true;
-  const allowed = ALLOWED_TRANSITIONS[from];
-  return allowed?.includes(to) ?? false;
+  const f = normalizeProjectStatus(String(from));
+  const t = normalizeProjectStatus(String(to));
+  if (f === t) return true;
+  const allowed = ALLOWED_TRANSITIONS[f];
+  return allowed?.includes(t) ?? false;
 }
 
 export function assertTransition(
-  from: BusinessProjectStatus,
-  to: BusinessProjectStatus
+  from: BusinessProjectStatus | string,
+  to: BusinessProjectStatus | string
 ): void {
-  if (!canTransitionStatus(from, to)) {
-    throw new Error(`Invalid status transition: ${from} → ${to}`);
+  const f = normalizeProjectStatus(String(from));
+  const t = normalizeProjectStatus(String(to));
+  if (!canTransitionStatus(f, t)) {
+    throw new Error(`Invalid status transition: ${f} → ${t}`);
   }
 }
 
@@ -75,11 +90,11 @@ export function statusAfterEstimateCreated(): BusinessProjectStatus {
 }
 
 export function statusAfterEstimateMail(): BusinessProjectStatus {
-  return "estimate_sent_to_owner";
+  return "estimate_sent";
 }
 
 export function statusAfterAccepted(): BusinessProjectStatus {
-  return "accepted";
+  return "estimate_sent";
 }
 
 export function statusAfterConstructionSchedule(): BusinessProjectStatus {
@@ -99,13 +114,34 @@ export function statusAfterInvoiceCreated(): BusinessProjectStatus {
 }
 
 export function statusAfterInvoiceSent(): BusinessProjectStatus {
-  return "invoice_sent_to_owner";
+  return "invoice_sent";
 }
 
 export function statusAfterPaymentScheduled(): BusinessProjectStatus {
-  return "payment_scheduled";
+  return "invoice_sent";
 }
 
 export function statusAfterPaid(): BusinessProjectStatus {
   return "paid";
+}
+
+export function statusAfterClosed(): BusinessProjectStatus {
+  return "closed";
+}
+
+/** hub-counts / フィルタ用: 正規＋旧ステータスを展開 */
+export function expandStatusAliases(statuses: BusinessProjectStatus[]): string[] {
+  const out = new Set<string>(statuses);
+  for (const s of statuses) {
+    if (s === "estimate_sent") {
+      out.add("estimate_sent_to_owner");
+      out.add("accepted");
+    }
+    if (s === "invoice_sent") {
+      out.add("invoice_sent_to_owner");
+      out.add("payment_scheduled");
+    }
+    if (s === "closed") out.add("archived");
+  }
+  return [...out];
 }

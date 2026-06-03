@@ -5,6 +5,8 @@ import { getDatabase } from "../db/database.js";
 import {
   assertTransition,
   canTransitionStatus,
+  expandStatusAliases,
+  normalizeProjectStatus,
   statusAfterAccepted,
   statusAfterCompletionReport,
   statusAfterConstructionDone,
@@ -71,7 +73,7 @@ function rowToProject(r: Record<string, unknown>): BusinessProject {
     title: String(r.title),
     address: String(r.address ?? ""),
     phone: String(r.phone ?? ""),
-    status: String(r.status) as BusinessProjectStatus,
+    status: normalizeProjectStatus(String(r.status)),
     surveySchedule: parseJson<SurveySchedule | null>(r.survey_schedule_json as string, null),
     surveyMemo: String(r.survey_memo ?? ""),
     surveyPhotos: parseJson<BusinessPhoto[]>(r.survey_photos_json as string, []),
@@ -318,6 +320,11 @@ export function markConstructionDone(projectId: string): BusinessProject {
 }
 
 export function markAccepted(projectId: string): BusinessProject {
+  const p = getBusinessProject(projectId);
+  if (!p) throw new Error("project not found");
+  if (canTransitionStatus(p.status, statusAfterConstructionSchedule())) {
+    return updateBusinessProject(projectId, { status: statusAfterConstructionSchedule() });
+  }
   return updateBusinessProject(projectId, { status: statusAfterAccepted() });
 }
 
@@ -331,7 +338,6 @@ export function markPaid(projectId: string, paidDate?: string): BusinessProject 
 export function setPaymentDue(projectId: string, dueDate: string): BusinessProject {
   return updateBusinessProject(projectId, {
     paymentDueDate: dueDate,
-    status: statusAfterPaymentScheduled(),
   });
 }
 
@@ -562,7 +568,7 @@ function ensureInvoiceReadyStatus(projectId: string): void {
   const chain: BusinessProjectStatus[] = [
     "survey_done",
     "estimate_created",
-    "accepted",
+    "estimate_sent",
     "construction_scheduled",
     "construction_done",
   ];
@@ -865,11 +871,66 @@ export function buildEstimateDraftFromAi(projectId: string): EstimateLineItem[] 
 }
 
 export function countProjectsByStatus(statuses: BusinessProjectStatus[]): number {
-  const placeholders = statuses.map(() => "?").join(",");
+  const expanded = expandStatusAliases(statuses);
+  const placeholders = expanded.map(() => "?").join(",");
   const row = getDatabase()
     .prepare(`SELECT COUNT(*) as c FROM business_projects WHERE status IN (${placeholders})`)
-    .get(...statuses) as { c: number };
+    .get(...expanded) as { c: number };
   return row.c;
+}
+
+export interface TodayScheduleItem {
+  projectId: string;
+  projectNo: string;
+  title: string;
+  customerName: string;
+  kind: "site_survey" | "construction" | "payment";
+  date: string;
+  startTime?: string;
+  endTime?: string;
+}
+
+export function listTodaySchedules(today?: string): TodayScheduleItem[] {
+  const d = today ?? new Date().toISOString().slice(0, 10);
+  const projects = listBusinessProjects();
+  const out: TodayScheduleItem[] = [];
+  for (const p of projects) {
+    if (p.surveySchedule?.date === d) {
+      out.push({
+        projectId: p.id,
+        projectNo: p.projectNo,
+        title: p.title,
+        customerName: p.customerName,
+        kind: "site_survey",
+        date: d,
+        startTime: p.surveySchedule.startTime,
+        endTime: p.surveySchedule.endTime,
+      });
+    }
+    if (p.constructionSchedule?.date === d) {
+      out.push({
+        projectId: p.id,
+        projectNo: p.projectNo,
+        title: p.title,
+        customerName: p.customerName,
+        kind: "construction",
+        date: d,
+        startTime: p.constructionSchedule.startTime,
+        endTime: p.constructionSchedule.endTime,
+      });
+    }
+    if (p.paymentDueDate === d) {
+      out.push({
+        projectId: p.id,
+        projectNo: p.projectNo,
+        title: p.title,
+        customerName: p.customerName,
+        kind: "payment",
+        date: d,
+      });
+    }
+  }
+  return out.sort((a, b) => a.kind.localeCompare(b.kind));
 }
 
 export function seedBusinessDefaults(): void {
