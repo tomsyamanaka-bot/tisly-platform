@@ -17,6 +17,8 @@ export interface TomsKpiDashboard {
   uninvoiced: number;
   unpaid: number;
   maintenanceContracts: number;
+  avgConstructionDays: number;
+  estimateApprovalRate: number;
   monthly: TomsKpiMonth[];
 }
 
@@ -82,6 +84,41 @@ export function buildTomsKpi(): TomsKpiDashboard {
 
   const monthly = [...monthMap.values()].sort((a, b) => a.month.localeCompare(b.month));
 
+  const constructionRows = getDatabase()
+    .prepare(
+      `SELECT project_id,
+        MIN(CASE WHEN to_state = 'construction' THEN created_at END) as started,
+        MIN(CASE WHEN to_state = 'completed' THEN created_at END) as done
+       FROM toms_workflow_history
+       GROUP BY project_id
+       HAVING started IS NOT NULL AND done IS NOT NULL`
+    )
+    .all() as Array<{ started: string; done: string }>;
+  let avgConstructionDays = 0;
+  if (constructionRows.length > 0) {
+    const totalDays = constructionRows.reduce((sum, r) => {
+      const start = new Date(r.started).getTime();
+      const end = new Date(r.done).getTime();
+      return sum + Math.max(1, Math.round((end - start) / 86400000));
+    }, 0);
+    avgConstructionDays = Math.round(totalDays / constructionRows.length);
+  }
+
+  const estimateSent = (
+    getDatabase()
+      .prepare(`SELECT COUNT(*) as c FROM business_projects WHERE status IN ('estimate_sent','construction_scheduled','construction_done','paid','closed')`)
+      .get() as { c: number }
+  ).c;
+  const estimateTotal = (
+    getDatabase()
+      .prepare(
+        `SELECT COUNT(*) as c FROM business_projects WHERE status NOT IN ('draft','survey_scheduled','survey_done')`
+      )
+      .get() as { c: number }
+  ).c;
+  const estimateApprovalRate =
+    estimateTotal > 0 ? Math.round((estimateSent / estimateTotal) * 100) : 0;
+
   return {
     revenue,
     grossProfit: revenue - costBasis,
@@ -89,6 +126,8 @@ export function buildTomsKpi(): TomsKpiDashboard {
     uninvoiced,
     unpaid,
     maintenanceContracts,
+    avgConstructionDays,
+    estimateApprovalRate,
     monthly,
   };
 }

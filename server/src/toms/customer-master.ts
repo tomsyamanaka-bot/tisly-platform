@@ -1,6 +1,8 @@
 import { v4 as uuid } from "uuid";
 import { getDatabase } from "../db/database.js";
 import { listBusinessProjects, listCustomers } from "../business/business-store.js";
+import { listMapDevicesForCustomer } from "../site-builder/map-store.js";
+import { getCustomerByCode } from "../customer/customer-store.js";
 import type { BusinessProject } from "../business/business-types.js";
 
 export interface CustomerMasterRecord {
@@ -22,6 +24,8 @@ export interface CustomerMasterDetail extends CustomerMasterRecord {
   invoiceHistory: Array<{ projectId: string; invoiceNo: string; total: number }>;
   paymentHistory: Array<{ projectId: string; amount: number; date: string }>;
   maintenanceHistory: unknown[];
+  devices: ReturnType<typeof listMapDevicesForCustomer>;
+  notificationHistory: Array<{ id: string; title: string; kind: string; projectId: string }>;
 }
 
 function parseSites(raw: string): Array<{ name: string; address: string }> {
@@ -135,6 +139,36 @@ export function getCustomerMaster(id: string): CustomerMasterDetail | null {
     )
     .all(`%${base.name.slice(0, 4)}%`, `%${base.name}%`) as unknown[];
 
+  let devices: CustomerMasterDetail["devices"] = [];
+  const custRow = bizId
+    ? getDatabase()
+        .prepare(`SELECT customer_code FROM customers WHERE customer_id = ?`)
+        .get(bizId) as { customer_code: string } | undefined
+    : undefined;
+  const code = custRow?.customer_code ?? "TOMS001";
+  const customerEntity = getCustomerByCode(code);
+  if (customerEntity) {
+    devices = listMapDevicesForCustomer(customerEntity.customer_id);
+  }
+
+  const notificationHistory: CustomerMasterDetail["notificationHistory"] = [];
+  for (const p of projects.slice(0, 20)) {
+    const rows = getDatabase()
+      .prepare(
+        `SELECT id, kind, title FROM toms_project_notifications WHERE project_id = ?
+         ORDER BY created_at DESC LIMIT 5`
+      )
+      .all(p.id) as Array<{ id: string; kind: string; title: string }>;
+    for (const n of rows) {
+      notificationHistory.push({
+        id: n.id,
+        title: n.title,
+        kind: n.kind,
+        projectId: p.id,
+      });
+    }
+  }
+
   return {
     ...base,
     projects,
@@ -144,6 +178,8 @@ export function getCustomerMaster(id: string): CustomerMasterDetail | null {
     invoiceHistory,
     paymentHistory,
     maintenanceHistory: maint,
+    devices,
+    notificationHistory,
   };
 }
 

@@ -28,6 +28,18 @@ import { dispatchTomsPushAlerts } from "../../toms/toms-push.js";
 import { buildHubOperations } from "../../toms/hub-operations.js";
 import { getBusinessProject } from "../../business/business-store.js";
 import { TOMS_WORKFLOW_STATES } from "../../toms/toms-types.js";
+import { listProjectLiveDevices } from "../../toms/realtime-devices.js";
+import {
+  listProjectNotifications,
+  acknowledgeProjectNotification,
+} from "../../toms/project-notifications.js";
+import {
+  listProjectMaintenance,
+  createProjectMaintenance,
+  closeProjectMaintenance,
+} from "../../toms/maintenance-flow.js";
+import { compareDrawingVersions } from "../../toms/drawing-diff.js";
+import { buildProjectFloorStack } from "../../toms/floor-stack-project.js";
 
 export const tomsRouter = Router();
 
@@ -59,6 +71,96 @@ tomsRouter.get("/projects/:projectId/dashboard", (req, res) => {
     return;
   }
   res.json(dash);
+});
+
+tomsRouter.get("/projects/:projectId/devices/live", (req, res) => {
+  const projectId = String(req.params.projectId);
+  if (!getBusinessProject(projectId)) {
+    res.status(404).json({ error: "project not found" });
+    return;
+  }
+  res.json({ devices: listProjectLiveDevices(projectId) });
+});
+
+tomsRouter.get("/projects/:projectId/floor-stack", (req, res) => {
+  const stack = buildProjectFloorStack(String(req.params.projectId));
+  if (!stack) {
+    res.status(404).json({ error: "project not found" });
+    return;
+  }
+  res.json(stack);
+});
+
+tomsRouter.get("/projects/:projectId/notifications", (req, res) => {
+  const projectId = String(req.params.projectId);
+  if (!getBusinessProject(projectId)) {
+    res.status(404).json({ error: "project not found" });
+    return;
+  }
+  res.json({ notifications: listProjectNotifications(projectId) });
+});
+
+tomsRouter.post(
+  "/projects/:projectId/notifications/:notificationId/ack",
+  (req: AuthedRequest, res) => {
+    const n = acknowledgeProjectNotification(
+      String(req.params.projectId),
+      String(req.params.notificationId),
+      req.admin?.username ?? "user"
+    );
+    if (!n) {
+      res.status(404).json({ error: "notification not found" });
+      return;
+    }
+    res.json({ notification: n });
+  }
+);
+
+tomsRouter.get("/projects/:projectId/maintenance", (req, res) => {
+  const projectId = String(req.params.projectId);
+  if (!getBusinessProject(projectId)) {
+    res.status(404).json({ error: "project not found" });
+    return;
+  }
+  res.json({ cases: listProjectMaintenance(projectId) });
+});
+
+tomsRouter.post("/projects/:projectId/maintenance/create", (req, res) => {
+  try {
+    const c = createProjectMaintenance({
+      projectId: String(req.params.projectId),
+      scheduledDate: String(req.body.scheduledDate ?? new Date().toISOString().slice(0, 10)),
+      content: req.body.content,
+      targetDevices: req.body.targetDevices,
+      photos: req.body.photos,
+      assignee: req.body.assignee,
+    });
+    res.status(201).json({ case: c });
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : String(e) });
+  }
+});
+
+tomsRouter.post("/projects/:projectId/maintenance/:caseId/close", (req: AuthedRequest, res) => {
+  const c = closeProjectMaintenance(
+    String(req.params.projectId),
+    String(req.params.caseId),
+    req.admin?.username
+  );
+  if (!c) {
+    res.status(404).json({ error: "case not found" });
+    return;
+  }
+  res.json({ case: c });
+});
+
+tomsRouter.get("/projects/:projectId/drawing-diff", (req, res) => {
+  const projectId = String(req.params.projectId);
+  if (!getBusinessProject(projectId)) {
+    res.status(404).json({ error: "project not found" });
+    return;
+  }
+  res.json(compareDrawingVersions(projectId));
 });
 
 tomsRouter.get("/projects/:projectId/timeline", (req, res) => {
@@ -163,6 +265,7 @@ tomsRouter.post("/projects/:projectId/drawing-versions", (req, res) => {
     filePath: req.body.filePath,
     drawingPlanId: req.body.drawingPlanId,
     notes: req.body.notes,
+    devices: req.body.devices,
   });
   res.status(201).json({ version });
 });

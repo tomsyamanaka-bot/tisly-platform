@@ -12,6 +12,7 @@ export interface DrawingVersion {
   filePath: string;
   drawingPlanId: string | null;
   notes: string;
+  devices: Array<{ id: string; label: string; assetType: string; posX?: number; posY?: number }>;
   createdAt: string;
 }
 
@@ -22,6 +23,7 @@ export function createDrawingVersion(input: {
   filePath?: string;
   drawingPlanId?: string;
   notes?: string;
+  devices?: Array<{ id: string; label: string; assetType: string; posX?: number; posY?: number }>;
 }): DrawingVersion {
   const max = (
     getDatabase()
@@ -37,8 +39,8 @@ export function createDrawingVersion(input: {
   getDatabase()
     .prepare(
       `INSERT INTO business_drawing_versions
-       (id, project_id, version_kind, version_no, title, file_path, drawing_plan_id, notes, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       (id, project_id, version_kind, version_no, title, file_path, drawing_plan_id, notes, devices_json, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       id,
@@ -49,6 +51,7 @@ export function createDrawingVersion(input: {
       input.filePath ?? "",
       input.drawingPlanId ?? null,
       input.notes ?? "",
+      JSON.stringify(input.devices ?? []),
       now
     );
   return getDrawingVersion(id)!;
@@ -72,6 +75,12 @@ export function listDrawingVersions(projectId: string): DrawingVersion[] {
 }
 
 function rowToVersion(r: Record<string, unknown>): DrawingVersion {
+  let devices: DrawingVersion["devices"] = [];
+  try {
+    devices = JSON.parse(String(r.devices_json ?? "[]")) as DrawingVersion["devices"];
+  } catch {
+    devices = [];
+  }
   return {
     id: String(r.id),
     projectId: String(r.project_id),
@@ -81,6 +90,7 @@ function rowToVersion(r: Record<string, unknown>): DrawingVersion {
     filePath: String(r.file_path ?? ""),
     drawingPlanId: r.drawing_plan_id != null ? String(r.drawing_plan_id) : null,
     notes: String(r.notes ?? ""),
+    devices,
     createdAt: String(r.created_at),
   };
 }

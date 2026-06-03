@@ -1,6 +1,8 @@
 import { renderPwaTopbar } from "./tisly-pwa-shell.js";
 
 const TOKEN_KEY = "tisly_token";
+const detailId =
+  window.location.pathname.split("/customer-master/")[1]?.split("/")[0] || "";
 
 function authHeaders() {
   const token = sessionStorage.getItem(TOKEN_KEY);
@@ -22,7 +24,9 @@ async function loadList() {
     )
     .join("");
   list.querySelectorAll(".row").forEach((el) => {
-    el.addEventListener("click", () => loadDetail(el.dataset.id));
+    el.addEventListener("click", () => {
+      window.location.href = `/customer-master/${el.dataset.id}`;
+    });
   });
 }
 
@@ -34,21 +38,40 @@ async function loadDetail(id) {
   panel.hidden = false;
   panel.innerHTML = `
     <h2>${c.name}</h2>
-    <p>${c.company} · ${c.email} · ${c.phone}</p>
-    <h3>施工履歴 (${c.constructionHistory?.length ?? 0})</h3>
-    <ul>${(c.constructionHistory || [])
-      .map((p) => `<li><a href="/project/${p.id}">${p.title}</a></li>`)
+    <p>${c.company} · ${c.email} · ${c.phone}<br>${c.address}</p>
+    <h3>現場一覧</h3>
+    <ul>${(c.sites || []).map((s) => `<li>${s.name} — ${s.address}</li>`).join("") || "<li>—</li>"}</ul>
+    <h3>案件一覧 (${c.projects?.length ?? 0})</h3>
+    <ul>${(c.projects || [])
+      .map((p) => `<li><a href="/project/${p.id}">${p.title}</a> (${p.status})</li>`)
+      .join("")}</ul>
+    <h3>設備 (${c.devices?.length ?? 0})</h3>
+    <ul>${(c.devices || [])
+      .slice(0, 20)
+      .map((d) => `<li>${d.label || d.deviceId} — ${d.deviceStatus}</li>`)
       .join("")}</ul>
     <h3>請求履歴</h3>
     <ul>${(c.invoiceHistory || [])
       .map((i) => `<li>${i.invoiceNo} ¥${i.total}</li>`)
+      .join("")}</ul>
+    <h3>入金履歴</h3>
+    <ul>${(c.paymentHistory || [])
+      .map((i) => `<li>¥${i.amount} (${i.date}) — <a href="/project/${i.projectId}">案件</a></li>`)
+      .join("")}</ul>
+    <h3>保守履歴</h3>
+    <ul>${(c.maintenanceHistory || [])
+      .map((m) => `<li>${m.site_name || m.case_id} — ${m.status}</li>`)
+      .join("")}</ul>
+    <h3>通知履歴</h3>
+    <ul>${(c.notificationHistory || [])
+      .map((n) => `<li>${n.title} (<a href="/project/${n.projectId}">案件</a>)</li>`)
       .join("")}</ul>`;
 }
 
 document.getElementById("cm-search")?.addEventListener("input", async (ev) => {
   const q = ev.target.value.trim();
   if (q.length < 2) {
-    loadList();
+    if (!detailId) loadList();
     return;
   }
   const res = await fetch(`/api/toms/search?q=${encodeURIComponent(q)}`, {
@@ -64,5 +87,9 @@ document.getElementById("cm-search")?.addEventListener("input", async (ev) => {
     .join("");
 });
 
-loadList().catch(console.error);
+if (detailId) {
+  loadDetail(detailId).catch(console.error);
+} else {
+  loadList().catch(console.error);
+}
 renderPwaTopbar("business", "顧客台帳");

@@ -6,11 +6,17 @@ import type { BusinessProjectStatus } from "../business/business-types.js";
 export interface HubOperationsSnapshot {
   todaySurveys: number;
   todayConstruction: number;
+  todayMaintenance: number;
   uninvoiced: number;
   unpaid: number;
+  unsentEstimates: number;
+  unsentInvoices: number;
   maintenanceDue: number;
   espAnomaly: number;
   shellyAnomaly: number;
+  abnormalDevices: number;
+  pendingSync: number;
+  aiEstimatePending: number;
   schedules: ReturnType<typeof listTodaySchedules>;
 }
 
@@ -19,6 +25,20 @@ export function buildHubOperations(customerCode: string): HubOperationsSnapshot 
   const schedules = listTodaySchedules();
   const todaySurveys = schedules.filter((s) => s.kind === "site_survey").length;
   const todayConstruction = schedules.filter((s) => s.kind === "construction").length;
+  const todayStr = new Date().toISOString().slice(0, 10);
+  let todayMaintenance = 0;
+  try {
+    todayMaintenance = (
+      getDatabase()
+        .prepare(
+          `SELECT COUNT(*) as c FROM toms_project_maintenance
+           WHERE scheduled_date = ? AND status != 'closed'`
+        )
+        .get(todayStr) as { c: number }
+    ).c;
+  } catch {
+    todayMaintenance = 0;
+  }
 
   const uninvoiced = countProjectsByStatus(
     expandStatusAliases([
@@ -29,6 +49,14 @@ export function buildHubOperations(customerCode: string): HubOperationsSnapshot 
 
   const unpaid = countProjectsByStatus(
     expandStatusAliases(["invoice_sent", "partial_paid"]) as BusinessProjectStatus[]
+  );
+
+  const unsentEstimates = countProjectsByStatus(
+    expandStatusAliases(["estimate_created"]) as BusinessProjectStatus[]
+  );
+
+  const unsentInvoices = countProjectsByStatus(
+    expandStatusAliases(["invoice_created"]) as BusinessProjectStatus[]
   );
 
   const maintenanceDue = (
@@ -54,24 +82,51 @@ export function buildHubOperations(customerCode: string): HubOperationsSnapshot 
   const now = Date.now();
   let espAnomaly = 0;
   let shellyAnomaly = 0;
+  let abnormalDevices = 0;
   for (const d of devices) {
     const last = d.last_seen ? new Date(d.last_seen).getTime() : 0;
     const stale = !last || now - last > staleMs;
     const t = String(d.device_type ?? "").toLowerCase();
     if (stale) {
+      abnormalDevices++;
       if (t.includes("esp") || t.includes("controller")) espAnomaly++;
       if (t.includes("shelly")) shellyAnomaly++;
     }
   }
 
+  const pendingSync = (
+    getDatabase()
+      .prepare(
+        `SELECT COUNT(*) as c FROM business_integration_logs
+         WHERE status = 'skipped' AND created_at > datetime('now', '-7 days')`
+      )
+      .get() as { c: number }
+  ).c;
+
+  const aiEstimatePending = (
+    getDatabase()
+      .prepare(
+        `SELECT COUNT(*) as c FROM business_projects p
+         WHERE p.status IN ('survey_done','estimate_draft')
+         AND NOT EXISTS (SELECT 1 FROM toms_ai_estimate_v3 v WHERE v.project_id = p.id)`
+      )
+      .get() as { c: number }
+  ).c;
+
   return {
     todaySurveys,
     todayConstruction,
+    todayMaintenance,
     uninvoiced,
     unpaid,
+    unsentEstimates,
+    unsentInvoices,
     maintenanceDue,
     espAnomaly,
     shellyAnomaly,
+    abnormalDevices,
+    pendingSync,
+    aiEstimatePending,
     schedules,
   };
 }

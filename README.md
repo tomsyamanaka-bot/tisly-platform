@@ -3,6 +3,29 @@
 TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。  
 三菱電機 **FX 系** PLC と **GX Works2 / GX Works3** を想定しています。
 
+## TiSLY Platform — Project Dashboard v2 & Command Center（Phase 661–700）
+
+**毎日使う司令塔ダッシュボード · Floor Stack · ライブ設備 · 通知 · 保守 · KPI · CRM**
+
+| 領域 | パス / API |
+|------|------------|
+| 案件司令塔 | `/project/:projectId` · `GET /api/toms/projects/:id/dashboard` |
+| ライブ設備 | `GET /api/toms/projects/:id/devices/live` |
+| 通知 | `GET/POST .../notifications` · ack |
+| 保守 | `GET/POST .../maintenance` |
+| 図面差分 | `GET .../drawing-diff` |
+| KPI | `/business/kpi` · `GET /api/toms/kpi` |
+| 顧客 CRM | `/customer-master/:customerId` |
+| App Hub Today | `/app` — 拡張オペレーション KPI |
+| テスト | `server/test/business-phase661.test.ts` |
+| ドキュメント | `docs/phase661_700_status.md` 他 |
+
+```bash
+cd server && npm run build && npx tsc --noEmit && npm run test
+```
+
+---
+
 ## TiSLY Platform — Multi PWA App Hub & Role Based Navigation（Phase 461–480）
 
 **App Hub · ロール別 PWA 表示 · Survey/保守/PRO Remote/顧客ポータル manifest · 共通 App Shell**

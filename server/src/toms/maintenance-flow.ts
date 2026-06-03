@@ -1,0 +1,129 @@
+import { v4 as uuid } from "uuid";
+import { getDatabase } from "../db/database.js";
+import { getBusinessProject } from "../business/business-store.js";
+import { appendProjectTimeline } from "./project-timeline.js";
+
+export interface ProjectMaintenanceCase {
+  caseId: string;
+  projectId: string;
+  scheduledDate: string;
+  content: string;
+  targetDevices: string[];
+  photos: string[];
+  assignee: string;
+  status: "open" | "in_progress" | "closed";
+  closedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+function rowToCase(r: Record<string, unknown>): ProjectMaintenanceCase {
+  let targetDevices: string[] = [];
+  let photos: string[] = [];
+  try {
+    targetDevices = JSON.parse(String(r.target_devices_json ?? "[]")) as string[];
+  } catch {
+    targetDevices = [];
+  }
+  try {
+    photos = JSON.parse(String(r.photos_json ?? "[]")) as string[];
+  } catch {
+    photos = [];
+  }
+  return {
+    caseId: String(r.case_id),
+    projectId: String(r.project_id),
+    scheduledDate: String(r.scheduled_date),
+    content: String(r.content ?? ""),
+    targetDevices,
+    photos,
+    assignee: String(r.assignee ?? ""),
+    status: String(r.status) as ProjectMaintenanceCase["status"],
+    closedAt: r.closed_at != null ? String(r.closed_at) : null,
+    createdAt: String(r.created_at),
+    updatedAt: String(r.updated_at),
+  };
+}
+
+export function listProjectMaintenance(projectId: string): ProjectMaintenanceCase[] {
+  const rows = getDatabase()
+    .prepare(
+      `SELECT * FROM toms_project_maintenance WHERE project_id = ?
+       ORDER BY scheduled_date ASC`
+    )
+    .all(projectId) as Array<Record<string, unknown>>;
+  return rows.map(rowToCase);
+}
+
+export function createProjectMaintenance(input: {
+  projectId: string;
+  scheduledDate: string;
+  content?: string;
+  targetDevices?: string[];
+  photos?: string[];
+  assignee?: string;
+}): ProjectMaintenanceCase {
+  if (!getBusinessProject(input.projectId)) {
+    throw new Error("project not found");
+  }
+  const caseId = `PMC-${uuid().slice(0, 8).toUpperCase()}`;
+  const now = new Date().toISOString();
+  getDatabase()
+    .prepare(
+      `INSERT INTO toms_project_maintenance
+       (case_id, project_id, scheduled_date, content, target_devices_json, photos_json,
+        assignee, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)`
+    )
+    .run(
+      caseId,
+      input.projectId,
+      input.scheduledDate,
+      input.content ?? "",
+      JSON.stringify(input.targetDevices ?? []),
+      JSON.stringify(input.photos ?? []),
+      input.assignee ?? "",
+      now,
+      now
+    );
+  appendProjectTimeline({
+    projectId: input.projectId,
+    eventType: "maintenance_start",
+    detail: input.content ?? "保守案件を登録しました",
+    actor: input.assignee ?? "system",
+  });
+  return rowToCase(
+    getDatabase()
+      .prepare(`SELECT * FROM toms_project_maintenance WHERE case_id = ?`)
+      .get(caseId) as Record<string, unknown>
+  );
+}
+
+export function closeProjectMaintenance(
+  projectId: string,
+  caseId: string,
+  actor?: string
+): ProjectMaintenanceCase | null {
+  const row = getDatabase()
+    .prepare(`SELECT * FROM toms_project_maintenance WHERE case_id = ? AND project_id = ?`)
+    .get(caseId, projectId) as Record<string, unknown> | undefined;
+  if (!row) return null;
+  const now = new Date().toISOString();
+  getDatabase()
+    .prepare(
+      `UPDATE toms_project_maintenance SET status = 'closed', closed_at = ?, updated_at = ?
+       WHERE case_id = ?`
+    )
+    .run(now, now, caseId);
+  appendProjectTimeline({
+    projectId,
+    eventType: "maintenance_complete",
+    detail: "保守案件を完了しました",
+    actor: actor ?? "system",
+  });
+  return rowToCase(
+    getDatabase()
+      .prepare(`SELECT * FROM toms_project_maintenance WHERE case_id = ?`)
+      .get(caseId) as Record<string, unknown>
+  );
+}

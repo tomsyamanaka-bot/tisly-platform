@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0d1117" />
+  <title>TOMS KPI — TiSLY</title>
+  <link rel="stylesheet" href="/css/tisly-pwa-shell.css" />
+  <style>
+    .kpi-grid { display: grid; gap: 1rem; max-width: 960px; margin: 0 auto; padding: 1rem;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+    .kpi-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1rem; text-align: center; }
+    .kpi-card strong { display: block; font-size: 1.5rem; margin-top: 0.5rem; }
+    table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+    th, td { padding: 0.5rem; border-bottom: 1px solid #30363d; text-align: left; }
+  </style>
+</head>
+<body>
+  <div class="kpi-grid" id="kpi-cards"></div>
+  <div style="max-width:960px;margin:0 auto;padding:1rem">
+    <h2>月別推移</h2>
+    <table id="kpi-monthly"><thead><tr><th>月</th><th>売上</th><th>粗利</th><th>案件数</th></tr></thead><tbody></tbody></table>
+  </div>
+  <script type="module" src="/js/tisly-pwa-shell.js"></script>
+  <script type="module" src="/js/business-kpi.js"></script>
+</body>
+</html>

@@ -55,17 +55,31 @@ async function loadHubApps() {
       opsEl.className = "hub-ops-panel";
       document.getElementById("hub-apps-panel")?.appendChild(opsEl);
     }
+    const scheduleHtml = (ops.schedules || [])
+      .slice(0, 8)
+      .map(
+        (s) =>
+          `<li><a href="/project/${s.projectId}">${s.title}</a> <small>${s.date} ${s.startTime || ""}</small></li>`
+      )
+      .join("");
     opsEl.innerHTML = `
       <h3 class="hub-workflows-title">今日のオペレーション</h3>
       <div class="hub-workflow-grid">
-        <div class="hub-workflow-card">今日の現調 <strong>${ops.todaySurveys}</strong></div>
-        <div class="hub-workflow-card">今日の工事 <strong>${ops.todayConstruction}</strong></div>
+        <a class="hub-workflow-card" href="/survey">今日の現調 <strong>${ops.todaySurveys}</strong></a>
+        <a class="hub-workflow-card" href="/business/projects">今日の工事 <strong>${ops.todayConstruction}</strong></a>
+        <a class="hub-workflow-card" href="/maintenance">今日の保守 <strong>${ops.todayMaintenance ?? 0}</strong></a>
+        <a class="hub-workflow-card" href="/business/projects?status=estimate_created">未送信見積 <strong>${ops.unsentEstimates ?? 0}</strong></a>
+        <a class="hub-workflow-card" href="/business/projects?status=invoice_created">未送信請求 <strong>${ops.unsentInvoices ?? 0}</strong></a>
+        <a class="hub-workflow-card" href="/business/projects?status=invoice_sent">未入金 <strong>${ops.unpaid}</strong></a>
+        <a class="hub-workflow-card" href="/app">異常デバイス <strong>${ops.abnormalDevices ?? ops.espAnomaly + ops.shellyAnomaly}</strong></a>
+        <a class="hub-workflow-card" href="/business/settings">同期待ち <strong>${ops.pendingSync ?? 0}</strong></a>
+        <a class="hub-workflow-card" href="/business/projects">AI見積待ち <strong>${ops.aiEstimatePending ?? 0}</strong></a>
         <div class="hub-workflow-card">未請求 <strong>${ops.uninvoiced}</strong></div>
-        <div class="hub-workflow-card">未入金 <strong>${ops.unpaid}</strong></div>
         <div class="hub-workflow-card">保守期限 <strong>${ops.maintenanceDue}</strong></div>
         <div class="hub-workflow-card">ESP異常 <strong>${ops.espAnomaly}</strong></div>
         <div class="hub-workflow-card">Shelly異常 <strong>${ops.shellyAnomaly}</strong></div>
-      </div>`;
+      </div>
+      ${scheduleHtml ? `<h4 style="margin-top:1rem">今日のスケジュール</h4><ul>${scheduleHtml}</ul>` : ""}`;
   }
 }
 

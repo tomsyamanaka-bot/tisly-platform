@@ -162,6 +162,6 @@ describe("Phase 621-660 TOMS unified workflow", () => {
   it("serves project dashboard HTML route", async () => {
     const res = await request(app).get(`/project/${projectId}`);
     assert.equal(res.status, 200);
-    assert.match(res.text, /案件ダッシュボード/);
+    assert.match(res.text, /案件司令塔|案件ダッシュボード/);
   });
 });

@@ -1,5 +1,6 @@
 import { v4 as uuid } from "uuid";
 import { getDatabase } from "../db/database.js";
+import { appendProjectTimeline } from "../toms/project-timeline.js";
 
 export type IntegrationLogType =
   | "calendar"
@@ -64,11 +65,48 @@ export function logBusinessIntegration(input: {
       input.errorMessage ?? null,
       now
     );
-  return rowToLog(
+  const log = rowToLog(
     getDatabase()
       .prepare(`SELECT * FROM business_integration_logs WHERE id = ?`)
       .get(id) as Record<string, unknown>
   );
+  if (input.projectId) {
+    syncIntegrationLogToTimeline(log);
+  }
+  return log;
+}
+
+function syncIntegrationLogToTimeline(log: BusinessIntegrationLog): void {
+  if (!log.projectId) return;
+  let title = `${log.provider} ${log.type}`;
+  if (log.type === "pdf") title = "PDF生成";
+  if (log.type === "gmail") title = "Gmail送信";
+  if (log.type === "qnap") title = "QNAP保存";
+  const detailParts: string[] = [log.status];
+  if (log.requestJson) {
+    try {
+      const req = JSON.parse(log.requestJson) as Record<string, unknown>;
+      if (req.dryRun) detailParts.push("dryRun");
+      if (req.mockOnly) detailParts.push("mockOnly");
+      if (req.realSend) detailParts.push("realSend");
+    } catch {
+      /* */
+    }
+  }
+  if (log.errorMessage) detailParts.push(log.errorMessage);
+  appendProjectTimeline({
+    projectId: log.projectId,
+    eventType: "pro_operations",
+    title: `${title} (${log.status})`,
+    detail: detailParts.join(" · "),
+    actor: log.provider,
+    metadata: {
+      integrationLogId: log.id,
+      type: log.type,
+      provider: log.provider,
+      status: log.status,
+    },
+  });
 }
 
 export function listBusinessIntegrationLogs(opts?: {

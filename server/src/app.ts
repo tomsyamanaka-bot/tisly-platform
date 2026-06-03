@@ -176,6 +176,12 @@ export function createApp(): express.Application {
   app.get("/customer-master", (_req, res) => {
     res.sendFile(path.join(publicDir, "customer-master.html"));
   });
+  app.get("/customer-master/:customerId", (_req, res) => {
+    res.sendFile(path.join(publicDir, "customer-master.html"));
+  });
+  app.get("/business/kpi", (_req, res) => {
+    res.sendFile(path.join(publicDir, "business-kpi.html"));
+  });
   app.get("/asset/:assetId", (_req, res) => {
     res.sendFile(path.join(publicDir, "asset-detail.html"));
   });

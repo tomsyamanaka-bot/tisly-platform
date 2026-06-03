@@ -172,7 +172,7 @@ export function buildHubWorkflowLinks(customerCode: string, role: string): HubWo
       id: "toms_kpi",
       label: "TOMS KPI",
       description: "売上・未請求・未入金",
-      href: "/business",
+      href: "/business/kpi",
     });
   }
 

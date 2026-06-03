@@ -371,6 +371,7 @@ function migratePhase421(database: Database.Database): void {
   migratePhase561(database);
   migratePhase601(database);
   migratePhase621(database);
+  migratePhase661(database);
 }
 
 function migratePhase621(database: Database.Database): void {
@@ -502,6 +503,66 @@ function migratePhase621(database: Database.Database): void {
     )
     .run(
       "migration:phase621_toms_unified_workflow",
+      JSON.stringify({ at: new Date().toISOString() })
+    );
+}
+
+function migratePhase661(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:phase661_command_center") as { value_json: string } | undefined;
+  if (marker) return;
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS toms_project_notifications (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      title TEXT NOT NULL,
+      body TEXT NOT NULL,
+      severity TEXT NOT NULL DEFAULT 'info' CHECK (severity IN ('info','warning','critical')),
+      href TEXT DEFAULT '',
+      acknowledged INTEGER NOT NULL DEFAULT 0,
+      acknowledged_at TEXT,
+      acknowledged_by TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES business_projects(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_toms_project_notifications_project
+      ON toms_project_notifications(project_id, acknowledged, created_at);
+
+    CREATE TABLE IF NOT EXISTS toms_project_maintenance (
+      case_id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      scheduled_date TEXT NOT NULL,
+      content TEXT NOT NULL DEFAULT '',
+      target_devices_json TEXT NOT NULL DEFAULT '[]',
+      photos_json TEXT NOT NULL DEFAULT '[]',
+      assignee TEXT DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','in_progress','closed')),
+      closed_at TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES business_projects(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_toms_project_maintenance_project
+      ON toms_project_maintenance(project_id, status);
+  `);
+
+  try {
+    database.exec(
+      `ALTER TABLE business_drawing_versions ADD COLUMN devices_json TEXT NOT NULL DEFAULT '[]'`
+    );
+  } catch {
+    /* column may exist */
+  }
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run(
+      "migration:phase661_command_center",
       JSON.stringify({ at: new Date().toISOString() })
     );
 }

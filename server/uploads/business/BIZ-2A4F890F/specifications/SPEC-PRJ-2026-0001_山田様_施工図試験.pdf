@@ -1,0 +1,45 @@
+%PDF-1.4
+1 0 obj<< /Type /Catalog /Pages 2 0 R >>endobj
+2 0 obj<< /Type /Pages /Kids [3 0 R] /Count 1 >>endobj
+3 0 obj<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources<< /Font<< /F1<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> >>endobj
+4 0 obj<< /Length 324 >>stream
+BT /F1 11 Tf 40 750 Td (仕様書 — 施工図試験
+
+【表紙】
+仕様書 — 施工図試験
+案件番号: PRJ-2026-0001
+顧客: 山田様
+件名: 施工図試験
+
+【工事概要】
+山田様様向け 施工図試験 工事仕様書
+
+【機器配置】
+記号 1 点 / ルート 0 本
+- LAN配線 \(50,50\)
+
+【使用部材】
+カメラ 1台
+
+【配線・配管ルート】
+
+【施工内容】
+別紙施工図に基づく施工
+
+【注意事項】
+現場条件により変更の可能性があります
+
+QNAP予定: /TOMS/案件/2026/PRJ-2026-0001_山田様_施工図試験/07_仕様書/
+template: specification_v1) Tj ET
+endstream endobj
+xref
+0 5
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000274 00000 n 
+trailer<< /Size 5 /Root 1 0 R >>
+startxref
+400
+%%EOF
