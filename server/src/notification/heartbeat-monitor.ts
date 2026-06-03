@@ -1,6 +1,6 @@
-import { v4 as uuid } from "uuid";
 import { config } from "../config.js";
 import { getDatabase, getPlatformSetting } from "../db/database.js";
+import { recordDeviceHeartbeat } from "../device/device-heartbeat.js";
 import type { NotificationService } from "./notification-service.js";
 
 interface HeartbeatSettings {
@@ -11,23 +11,7 @@ interface HeartbeatSettings {
 const deviceLastState = new Map<string, string>();
 
 export function recordHeartbeat(deviceId: string, platform?: string): void {
-  const db = getDatabase();
-  const now = new Date().toISOString();
-  const existing = db
-    .prepare("SELECT id FROM devices WHERE device_id = ?")
-    .get(deviceId) as { id: string } | undefined;
-
-  if (existing) {
-    db.prepare(
-      `UPDATE devices SET last_heartbeat_at = ?, heartbeat_status = 'ok', platform = COALESCE(?, platform), updated_at = datetime('now') WHERE device_id = ?`
-    ).run(now, platform ?? null, deviceId);
-  } else {
-    const id = uuid();
-    db.prepare(
-      `INSERT INTO devices (id, device_id, device_type, platform, label, last_heartbeat_at, heartbeat_status)
-       VALUES (?, ?, 'gateway', ?, ?, ?, 'ok')`
-    ).run(id, deviceId, platform ?? "unknown", deviceId, now);
-  }
+  recordDeviceHeartbeat(deviceId, platform);
   deviceLastState.set(deviceId, "ok");
 }
 

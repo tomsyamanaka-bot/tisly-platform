@@ -1,4 +1,5 @@
 import { getDatabase } from "../db/database.js";
+import { normalizeDeviceStatus } from "../device/device-state.js";
 import { getFloorById } from "./floor-store.js";
 import { getSiteById } from "./site-store.js";
 
@@ -15,6 +16,7 @@ export interface MapDevicePosition {
   rotation: number | null;
   online: boolean;
   heartbeatStatus: string;
+  deviceStatus: string;
 }
 
 export interface FloorMapView {
@@ -37,7 +39,7 @@ export function listMapDevicesForCustomer(customerId: string, tenantId?: string 
   const rows = db
     .prepare(
       `SELECT d.id, d.device_id, d.label, d.device_type, d.site_id, d.zone_id, d.floor_id,
-              d.pos_x, d.pos_y, d.icon_type, d.rotation, d.last_seen, d.heartbeat_status
+              d.pos_x, d.pos_y, d.icon_type, d.rotation, d.last_seen, d.heartbeat_status, d.device_status
        FROM devices d
        WHERE d.customer_id = ? OR d.site_id IN (SELECT id FROM sites WHERE customer_id = ? OR tenant_id = ?)
        ORDER BY d.label, d.device_id`
@@ -56,22 +58,30 @@ export function listMapDevicesForCustomer(customerId: string, tenantId?: string 
     rotation: number | null;
     last_seen: string | null;
     heartbeat_status: string | null;
+    device_status: string | null;
   }>;
 
-  return rows.map((r) => ({
-    deviceId: r.device_id || r.id,
-    label: r.label,
-    deviceType: r.device_type,
-    siteId: r.site_id,
-    zoneId: r.zone_id,
-    floorId: r.floor_id,
-    posX: r.pos_x,
-    posY: r.pos_y,
-    iconType: r.icon_type,
-    rotation: r.rotation,
-    online: deviceOnline(r.last_seen, r.heartbeat_status),
-    heartbeatStatus: r.heartbeat_status ?? "unknown",
-  }));
+  return rows.map((r) => {
+    const deviceStatus = normalizeDeviceStatus(r.device_status);
+    const online =
+      deviceStatus === "ONLINE" ||
+      (deviceStatus !== "OFFLINE" && deviceOnline(r.last_seen, r.heartbeat_status));
+    return {
+      deviceId: r.device_id || r.id,
+      label: r.label,
+      deviceType: r.device_type,
+      siteId: r.site_id,
+      zoneId: r.zone_id,
+      floorId: r.floor_id,
+      posX: r.pos_x,
+      posY: r.pos_y,
+      iconType: r.icon_type,
+      rotation: r.rotation,
+      online,
+      heartbeatStatus: r.heartbeat_status ?? "unknown",
+      deviceStatus,
+    };
+  });
 }
 
 export function updateDeviceMapPosition(
@@ -146,7 +156,7 @@ export function getFloorMapView(floorId: string): FloorMapView | null {
   const rows = db
     .prepare(
       `SELECT d.id, d.device_id, d.label, d.device_type, d.site_id, d.zone_id, d.floor_id,
-              d.pos_x, d.pos_y, d.icon_type, d.rotation, d.last_seen, d.heartbeat_status
+              d.pos_x, d.pos_y, d.icon_type, d.rotation, d.last_seen, d.heartbeat_status, d.device_status
        FROM devices d WHERE d.floor_id = ? OR (d.site_id = ? AND d.pos_x IS NOT NULL)`
     )
     .all(floorId, floor.site_id) as Array<{
@@ -163,6 +173,7 @@ export function getFloorMapView(floorId: string): FloorMapView | null {
     rotation: number | null;
     last_seen: string | null;
     heartbeat_status: string | null;
+    device_status: string | null;
   }>;
 
   const imagePath = floor.floor_plan_path;
@@ -176,20 +187,27 @@ export function getFloorMapView(floorId: string): FloorMapView | null {
     imagePath,
     devices: rows
       .filter((r) => r.floor_id === floorId || r.pos_x != null)
-      .map((r) => ({
-        deviceId: r.device_id || r.id,
-        label: r.label,
-        deviceType: r.device_type,
-        siteId: r.site_id,
-        zoneId: r.zone_id,
-        floorId: r.floor_id,
-        posX: r.pos_x,
-        posY: r.pos_y,
-        iconType: r.icon_type,
-        rotation: r.rotation,
-        online: deviceOnline(r.last_seen, r.heartbeat_status),
-        heartbeatStatus: r.heartbeat_status ?? "unknown",
-      })),
+      .map((r) => {
+        const deviceStatus = normalizeDeviceStatus(r.device_status);
+        const online =
+          deviceStatus === "ONLINE" ||
+          (deviceStatus !== "OFFLINE" && deviceOnline(r.last_seen, r.heartbeat_status));
+        return {
+          deviceId: r.device_id || r.id,
+          label: r.label,
+          deviceType: r.device_type,
+          siteId: r.site_id,
+          zoneId: r.zone_id,
+          floorId: r.floor_id,
+          posX: r.pos_x,
+          posY: r.pos_y,
+          iconType: r.icon_type,
+          rotation: r.rotation,
+          online,
+          heartbeatStatus: r.heartbeat_status ?? "unknown",
+          deviceStatus,
+        };
+      }),
   };
 }
 

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TiSLY — First Device Wizard</title>
+  <link rel="stylesheet" href="/css/admin.css" />
+  <link rel="stylesheet" href="/css/customer-portal.css" />
+  <link rel="stylesheet" href="/css/device-onboard.css" />
+</head>
+<body class="customer-portal">
+  <header class="portal-header">
+    <div class="brand"><h1>First Device Wizard</h1><p id="onboard-code"></p></div>
+    <nav class="portal-nav">
+      <a id="link-install" href="#">施工 PWA</a>
+      <a id="link-portal" href="#">ポータル</a>
+    </nav>
+  </header>
+  <main class="card portal-card onboard-wizard">
+    <ol class="wizard-steps" id="wizard-steps">
+      <li data-step="1" class="active">Device作成</li>
+      <li data-step="2">QR発行</li>
+      <li data-step="3">Claim</li>
+      <li data-step="4">Firmware</li>
+      <li data-step="5">Heartbeat</li>
+      <li data-step="6">完了</li>
+    </ol>
+    <section id="step-1" class="wizard-panel">
+      <h2>Step 1 — Device 作成</h2>
+      <label>Device ID <input id="device-id" placeholder="TOMS-ESP-01" /></label>
+      <label>種別 <select id="device-type"><option>ESP32</option><option>RP2350</option><option>Gateway</option></select></label>
+      <label>シリアル <input id="serial-number" /></label>
+      <button type="button" class="btn btn-primary" id="btn-step1">作成</button>
+    </section>
+    <section id="step-2" class="wizard-panel" hidden>
+      <h2>Step 2 — QR 発行</h2>
+      <pre id="qr-payload" class="qr-box"></pre>
+      <button type="button" class="btn btn-primary" id="btn-step2">QR 発行</button>
+    </section>
+    <section id="step-3" class="wizard-panel" hidden>
+      <h2>Step 3 — Claim</h2>
+      <p class="hint">QR ペイロードを貼り付け（または Step2 から自動）</p>
+      <textarea id="claim-json" rows="6"></textarea>
+      <button type="button" class="btn btn-primary" id="btn-step3">Claim</button>
+    </section>
+    <section id="step-4" class="wizard-panel" hidden>
+      <h2>Step 4 — Firmware Config Export</h2>
+      <pre id="firmware-json" class="qr-box"></pre>
+      <a class="btn btn-secondary" id="link-firmware-dl" href="#" target="_blank">API で再取得</a>
+      <button type="button" class="btn btn-primary" id="btn-step4">次へ</button>
+    </section>
+    <section id="step-5" class="wizard-panel" hidden>
+      <h2>Step 5 — Heartbeat 確認</h2>
+      <p id="heartbeat-status">待機中…</p>
+      <button type="button" class="btn btn-secondary" id="btn-send-hb">テスト Heartbeat 送信</button>
+      <button type="button" class="btn btn-primary" id="btn-step5">確認</button>
+    </section>
+    <section id="step-6" class="wizard-panel" hidden>
+      <h2>Step 6 — 完了</h2>
+      <p>初回デバイス導入が完了しました。</p>
+      <a class="btn btn-primary" id="link-report" href="#">Provisioning Report (PDF)</a>
+      <a class="btn btn-secondary" id="link-map" href="#">Map で位置確認</a>
+    </section>
+    <p id="onboard-status" class="hint"></p>
+  </main>
+  <script type="module" src="/js/device-onboard.js"></script>
+</body>
+</html>

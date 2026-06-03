@@ -37,8 +37,22 @@
   user-select: none;
   z-index: 2;
 }
-.map-pin-device.offline {
-  background: #b45309;
+.map-pin-device.offline,
+.map-pin-device.status-offline {
+  background: #dc2626;
+  animation: map-pin-blink 1.2s ease-in-out infinite;
+}
+.map-pin-device.status-warning {
+  background: #eab308;
+  color: #1e293b;
+  animation: map-pin-blink 1.5s ease-in-out infinite;
+}
+.map-pin-device.status-online {
+  background: #22c55e;
+}
+@keyframes map-pin-blink {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
+  50% { opacity: 0.75; box-shadow: 0 0 12px 4px rgba(239, 68, 68, 0.35); }
 }
 .map-pin-device.icon-tv {
   background: #2563eb;

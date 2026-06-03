@@ -2,6 +2,7 @@ import http from "http";
 import { WebSocketServer } from "ws";
 import { createApp } from "./app.js";
 import { startDemoRunner } from "./demo/demo-runner.js";
+import { startDemoModeVirtualEspRunner } from "./demo/demo-mode-esp.js";
 import { config } from "./config.js";
 import { getDatabase } from "./db/database.js";
 import { startMqttSubscriber } from "./mqtt/mqtt-subscriber.js";
@@ -33,8 +34,11 @@ server.listen(config.port, config.host, () => {
   console.log(
     `[TiSLY] ${config.publicUrl} — listening on http://${config.host}:${config.port} (ws: /ws) phase 121-140`
   );
-  if (config.demoMode && config.demoAutoStart) {
-    void startDemoRunner();
+  if (config.demoMode) {
+    startDemoModeVirtualEspRunner();
+    if (config.demoAutoStart) {
+      void startDemoRunner();
+    }
   }
 });
 

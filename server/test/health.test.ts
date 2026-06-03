@@ -23,13 +23,13 @@ describe("Health API extended (Phase 221-240)", () => {
     assert.ok(res.body.disk);
     assert.ok(res.body.memory);
     assert.ok(Array.isArray(res.body.infrastructure));
-    assert.equal(res.body.phase, "341-360-installer-pwa-qr-nfc-provisioning");
+    assert.equal(res.body.phase, "421-440-first-device-commissioning");
   });
 
   it("GET /health reflects new phase", async () => {
     const res = await request(app).get("/health");
     assert.equal(res.status, 200);
-    assert.equal(res.body.phase, "341-360-installer-pwa-qr-nfc-provisioning");
+    assert.equal(res.body.phase, "421-440-first-device-commissioning");
     assert.ok(res.body.features.includes("totp-2fa-otplib"));
   });
 

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TiSLY — Health Dashboard</title>
+  <link rel="stylesheet" href="/css/admin.css" />
+  <link rel="stylesheet" href="/css/customer-portal.css" />
+</head>
+<body class="customer-portal">
+  <header class="portal-header">
+    <div class="brand"><h1>Health Dashboard</h1><p id="health-code"></p></div>
+    <nav class="portal-nav">
+      <a id="link-portal" href="#">ポータル</a>
+      <a id="link-onboard" href="#">Device Wizard</a>
+      <a id="link-simulator" href="#">Simulator</a>
+    </nav>
+  </header>
+  <main class="card portal-card" style="margin:1rem">
+    <div id="health-grid" class="health-grid"></div>
+    <section class="card" style="margin-top:1rem">
+      <h2>Device Timeline</h2>
+      <ul id="timeline-list"></ul>
+    </section>
+    <section class="card" style="margin-top:1rem">
+      <h2>Notification Test Center</h2>
+      <button type="button" class="btn btn-primary" id="btn-notify-test">一括送信</button>
+      <pre id="notify-result" class="hint"></pre>
+    </section>
+    <section class="card" style="margin-top:1rem">
+      <h2>Event Simulator</h2>
+      <div class="sim-buttons">
+        <button data-scenario="intrusion">侵入</button>
+        <button data-scenario="recovery">復旧</button>
+        <button data-scenario="power_loss">停電</button>
+        <button data-scenario="comm_loss">通信断</button>
+        <button data-scenario="motion">人感</button>
+        <button data-scenario="window_open">窓開</button>
+      </div>
+      <pre id="sim-result" class="hint"></pre>
+    </section>
+  </main>
+  <style>
+    .health-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 0.75rem; }
+    .health-tile { padding: 1rem; border-radius: 8px; background: #f1f5f9; }
+    .health-tile.ok { border-left: 4px solid #22c55e; }
+    .health-tile.warn { border-left: 4px solid #eab308; }
+    .sim-buttons { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  </style>
+  <script type="module" src="/js/customer-health.js"></script>
+</body>
+</html>

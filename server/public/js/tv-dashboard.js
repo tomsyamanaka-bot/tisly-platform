@@ -77,6 +77,19 @@ function render(data) {
     }</div></div>
   `;
 
+  const dh = data.deviceHealth ?? {};
+  const healthEl = document.getElementById("tv-device-health");
+  if (healthEl) {
+    healthEl.innerHTML = `
+      <h2 class="tv-section-title">Device Health</h2>
+      <div class="tv-summary">
+        <div class="tv-metric"><div class="label">総数</div><div class="value">${dh.total ?? s.deviceCount}</div></div>
+        <div class="tv-metric online"><div class="label">ONLINE</div><div class="value">${dh.online ?? s.onlineCount}</div></div>
+        <div class="tv-metric warn"><div class="label">WARNING</div><div class="value">${dh.warning ?? 0}</div></div>
+        <div class="tv-metric offline"><div class="label">OFFLINE</div><div class="value">${dh.offline ?? s.offlineCount}</div></div>
+      </div>`;
+  }
+
   document.getElementById("tv-cameras").innerHTML = (data.cameras ?? [])
     .slice(0, 4)
     .map(

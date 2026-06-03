@@ -64,7 +64,9 @@ export interface CustomerDeviceView {
   serialNumber: string | null;
   firmwareVersion: string | null;
   lastSeen: string | null;
+  firstSeen?: string | null;
   heartbeatStatus: string;
+  deviceStatus?: string;
   online: boolean;
 }
 
@@ -82,7 +84,8 @@ export function listDevicesForCustomer(customerId: string): CustomerDeviceView[]
   const rows = getDatabase()
     .prepare(
       `SELECT id, device_id, device_type, label, site_id, customer_id, serial_number,
-              firmware_version, last_seen, last_heartbeat_at, heartbeat_status, metadata_json
+              firmware_version, last_seen, last_heartbeat_at, first_seen, heartbeat_status,
+              device_status, metadata_json
        FROM devices
        WHERE customer_id = ? OR json_extract(metadata_json, '$.tenant_id') = ?
        ORDER BY device_type, label`
@@ -98,12 +101,18 @@ export function listDevicesForCustomer(customerId: string): CustomerDeviceView[]
     firmware_version: string | null;
     last_seen: string | null;
     last_heartbeat_at: string | null;
+    first_seen: string | null;
     heartbeat_status: string;
+    device_status: string | null;
     metadata_json: string | null;
   }>;
 
   return rows.map((r) => {
     const lastSeen = r.last_seen ?? r.last_heartbeat_at;
+    const deviceStatus = (r.device_status ?? "UNKNOWN").toUpperCase();
+    const online =
+      deviceStatus === "ONLINE" ||
+      (deviceStatus !== "OFFLINE" && isOnline(lastSeen, r.heartbeat_status));
     return {
       id: r.id,
       deviceId: r.device_id,
@@ -113,8 +122,10 @@ export function listDevicesForCustomer(customerId: string): CustomerDeviceView[]
       serialNumber: r.serial_number,
       firmwareVersion: r.firmware_version,
       lastSeen,
+      firstSeen: r.first_seen,
       heartbeatStatus: r.heartbeat_status,
-      online: isOnline(lastSeen, r.heartbeat_status),
+      deviceStatus,
+      online,
     };
   });
 }

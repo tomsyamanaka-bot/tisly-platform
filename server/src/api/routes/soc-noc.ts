@@ -38,8 +38,16 @@ function networkHealth(customerId?: string, tenantId?: string) {
   const db = getDatabase();
   if (customerId) {
     const devices = db
-      .prepare(`SELECT * FROM devices WHERE customer_id = ? OR tenant_id = ? ORDER BY updated_at DESC`)
-      .all(customerId, tenantId ?? customerId);
+      .prepare(
+        `SELECT device_id, device_type, label, device_status, last_heartbeat_at, last_seen,
+                heartbeat_status, customer_id, site_id,
+                (SELECT event_type FROM events e WHERE e.device_id = devices.device_id
+                 ORDER BY created_at DESC LIMIT 1) as last_event_type,
+                (SELECT created_at FROM events e WHERE e.device_id = devices.device_id
+                 ORDER BY created_at DESC LIMIT 1) as last_event_at
+         FROM devices WHERE customer_id = ? ORDER BY updated_at DESC`
+      )
+      .all(customerId);
     return { devices, heartbeats: [] };
   }
   const devices = db.prepare("SELECT * FROM devices ORDER BY updated_at DESC").all();

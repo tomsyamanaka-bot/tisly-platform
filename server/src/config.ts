@@ -54,7 +54,7 @@ export const config = {
     alarmSec: Number(env("HEARTBEAT_ALARM_SEC", "300")),
   },
   get demoMode() {
-    return env("TISLY_DEMO_MODE") === "true";
+    return env("TISLY_DEMO_MODE") === "true" || env("DEMO_MODE") === "true";
   },
   get demoAutoStart() {
     return env("TISLY_DEMO_AUTO_START") === "true";
@@ -69,7 +69,7 @@ export const config = {
     password: env("QNAP_PASSWORD"),
     basePath: env("QNAP_BASE_PATH", "/TiSLY"),
   },
-  rc1Phase: "341-360-installer-pwa-qr-nfc-provisioning",
+  rc1Phase: "421-440-first-device-commissioning",
   get dbProvider() {
     return (env("DB_PROVIDER", "sqlite") as "sqlite" | "postgres");
   },

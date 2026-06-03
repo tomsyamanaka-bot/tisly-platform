@@ -53,6 +53,14 @@ function iconClassForDevice(d) {
   return "icon-sensor";
 }
 
+function statusClassForDevice(d) {
+  const s = (d.deviceStatus ?? (d.online ? "ONLINE" : "OFFLINE")).toUpperCase();
+  if (s === "ONLINE") return "status-online";
+  if (s === "WARNING") return "status-warning";
+  if (s === "OFFLINE") return "status-offline";
+  return d.online ? "status-online" : "offline";
+}
+
 function snapPos(x, y) {
   if (!snapGrid?.checked) return { x, y };
   const step = gridStep();
@@ -108,7 +116,7 @@ function renderPins(floorView) {
   for (const d of list) {
     if (d.posX == null && d.posY == null) continue;
     const pin = document.createElement("div");
-    pin.className = `map-pin-device ${d.online ? "" : "offline"} ${iconClassForDevice(d)}`;
+    pin.className = `map-pin-device ${statusClassForDevice(d)} ${iconClassForDevice(d)}`;
     pin.textContent = (d.deviceType ?? "").includes("TV") ? "TV" : d.label?.slice(0, 6) || d.deviceId;
     pin.style.left = `${(d.posX ?? 0) * 100}%`;
     pin.style.top = `${(d.posY ?? 0) * 100}%`;
@@ -282,6 +290,25 @@ async function init() {
     showSaveToast();
   });
 }
+
+async function pollMapLive() {
+  try {
+    const live = await apiGet(`/api/customer/${customerCode}/map/live`);
+    const byId = new Map((live.devices ?? []).map((d) => [d.deviceId, d]));
+    for (const d of allDevices) {
+      const m = byId.get(d.deviceId);
+      if (m) {
+        d.deviceStatus = m.deviceStatus;
+        d.online = m.online;
+      }
+    }
+    if (currentFloorId) await loadFloor(currentFloorId);
+  } catch {
+    /* ignore poll errors */
+  }
+}
+
+setInterval(() => pollMapLive(), 20_000);
 
 init().catch((e) => {
   statusEl.textContent = String(e);

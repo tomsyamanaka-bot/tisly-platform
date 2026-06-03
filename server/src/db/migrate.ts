@@ -330,6 +330,38 @@ function migratePhase361(database: Database.Database): void {
   database.exec(
     "CREATE INDEX IF NOT EXISTS idx_install_sessions_customer ON install_sessions(customer_id)"
   );
+  migratePhase421(database);
+}
+
+const DEVICE_PHASE421_COLUMNS: Array<{ name: string; ddl: string }> = [
+  {
+    name: "device_status",
+    ddl: "ALTER TABLE devices ADD COLUMN device_status TEXT DEFAULT 'UNKNOWN'",
+  },
+  { name: "first_seen", ddl: "ALTER TABLE devices ADD COLUMN first_seen TEXT" },
+];
+
+function migratePhase421(database: Database.Database): void {
+  addColumnsIfMissing(database, "devices", DEVICE_PHASE421_COLUMNS);
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS device_timeline (
+      id TEXT PRIMARY KEY,
+      customer_id TEXT,
+      device_id TEXT NOT NULL,
+      event_type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      detail TEXT,
+      actor TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
+    );
+  `);
+  database.exec(
+    "CREATE INDEX IF NOT EXISTS idx_device_timeline_customer ON device_timeline(customer_id, created_at)"
+  );
+  database.exec(
+    "CREATE INDEX IF NOT EXISTS idx_device_timeline_device ON device_timeline(device_id, created_at)"
+  );
 }
 
 function seedInstallerDemoUsers(database: Database.Database): void {

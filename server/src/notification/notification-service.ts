@@ -13,6 +13,7 @@ import {
 } from "../recovery/recovery-engine.js";
 import { broadcastFromMqtt } from "../ws/hub.js";
 import { recordHeartbeat, startHeartbeatMonitor } from "./heartbeat-monitor.js";
+import { startDeviceHeartbeatMonitor } from "../device/device-heartbeat.js";
 import type {
   DeliveryResult,
   NotificationChannel,
@@ -33,6 +34,20 @@ export class NotificationService {
     configureWebPush();
     this.connectMqtt();
     startHeartbeatMonitor(this);
+    startDeviceHeartbeatMonitor((change) => {
+      if (change.status === "OFFLINE" || change.status === "WARNING") {
+        void this.processEvent({
+          deviceId: change.deviceId,
+          eventType: change.status === "OFFLINE" ? "heartbeat_alarm" : "heartbeat_warning",
+          title:
+            change.status === "OFFLINE"
+              ? `通信断 — ${change.deviceId}`
+              : `通信遅延 — ${change.deviceId}`,
+          body: `Device status: ${change.status}`,
+          severity: change.status === "OFFLINE" ? "alarm" : "warning",
+        });
+      }
+    });
     console.log("[TiSLY Notification] Service started");
   }
 

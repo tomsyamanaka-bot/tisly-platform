@@ -3,6 +3,33 @@
 TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。  
 三菱電機 **FX 系** PLC と **GX Works2 / GX Works3** を想定しています。
 
+## TiSLY Platform — First Device Commissioning & Demo Kit（Phase 421–440）
+
+**実機1台接続 · Device State · Heartbeat Monitor · Map/TV Live · Demo Kit · Health Dashboard**
+
+| 領域 | パス / URL |
+|------|------------|
+| First Device Wizard | `/customer/:code/install/device-onboard` |
+| Device Status | `UNKNOWN` / `ONLINE` / `OFFLINE` / `WARNING` / `COMMISSIONING` |
+| Heartbeat Monitor | `server/src/device/device-heartbeat.ts`（5分 WARNING / 15分 OFFLINE） |
+| Device Timeline | `GET /api/customer/:code/devices/timeline` |
+| Map Live | `GET /api/customer/:code/map/live` · 緑/黄/赤ピン |
+| TV Device Health | `/tv/:code` · `deviceHealth` in TV API |
+| Demo Kit | `docs/demo_kit_v1.md` · 顧客 `DEMO001` / `DEMO-HOUSE` |
+| Demo Mode | `DEMO_MODE=true` または `TISLY_DEMO_MODE=true` |
+| Simulator | `POST /api/customer/:code/simulator/event` |
+| Notification Test | `POST /api/customer/:code/notifications/test-all` |
+| Provisioning Report PDF | `GET .../devices/:id/provisioning-report?format=pdf` |
+| Health Dashboard | `/customer/:code/health` |
+| テスト | `device-onboarding.test.ts` · `device-heartbeat.test.ts` · `device-map-live.test.ts` · `demo-mode.test.ts` |
+
+```bash
+cd server && npm run build && npm run test
+cd tv-app && npx tsc --noEmit
+```
+
+---
+
 ## TiSLY Platform — Field Device Live Connection（Phase 401–420）
 
 **実機接続準備 · MQTT ACK · ファーム設定 · ラベル印刷 CSV · 施工写真本番 · 完了レポート EN**

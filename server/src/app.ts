@@ -37,6 +37,7 @@ import {
   zoneApiRouter,
 } from "./api/routes/site-builder.js";
 import { customerInstallerRouter } from "./api/routes/installer.js";
+import { deviceCommissioningRouter } from "./api/routes/device-commissioning.js";
 import { incidentsRouter } from "./api/routes/incidents.js";
 import { opsCustomerScopeMiddleware } from "./ops/ops-customer-scope.js";
 import { attachCustomerFromSubdomain } from "./customer/subdomain-resolver.js";
@@ -100,6 +101,7 @@ export function createApp(): express.Application {
   app.use("/api/customer", customerNotificationRulesRouter);
   app.use("/api/customer", customerSiteBuilderRouter);
   app.use("/api/customer", customerInstallerRouter);
+  app.use("/api/customer", deviceCommissioningRouter);
   app.use("/api/incidents", incidentsRouter);
   app.use("/api/db", dbRouter);
 
@@ -115,6 +117,12 @@ export function createApp(): express.Application {
   });
   app.get("/customer/:customerCode/install", (_req, res) => {
     res.sendFile(path.join(publicDir, "installer-mode.html"));
+  });
+  app.get("/customer/:customerCode/install/device-onboard", (_req, res) => {
+    res.sendFile(path.join(publicDir, "device-onboard.html"));
+  });
+  app.get("/customer/:customerCode/health", (_req, res) => {
+    res.sendFile(path.join(publicDir, "customer-health.html"));
   });
   app.use(
     "/uploads/floorplans",

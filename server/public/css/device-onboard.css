@@ -1,0 +1,8 @@
+.onboard-wizard { max-width: 720px; margin: 1rem auto; }
+.wizard-steps { display: flex; flex-wrap: wrap; gap: 0.5rem; list-style: none; padding: 0; margin: 0 0 1rem; }
+.wizard-steps li { padding: 0.35rem 0.75rem; border-radius: 999px; background: #e2e8f0; font-size: 0.85rem; }
+.wizard-steps li.active { background: var(--customer-accent, #1a7f37); color: #fff; }
+.wizard-steps li.done { background: #86efac; }
+.wizard-panel label { display: block; margin: 0.5rem 0; }
+.wizard-panel input, .wizard-panel select, .wizard-panel textarea { width: 100%; max-width: 480px; }
+.qr-box { background: #0f172a; color: #e2e8f0; padding: 0.75rem; overflow: auto; font-size: 12px; border-radius: 8px; }

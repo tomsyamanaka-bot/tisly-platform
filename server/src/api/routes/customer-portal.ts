@@ -13,6 +13,7 @@ import { requireAuth, type AuthedRequest } from "../../auth/auth-middleware.js";
 import { requireTenantMatch } from "../../auth/tenant-guard.js";
 import { canAccessCustomer } from "../../auth/customer-auth.js";
 import { config } from "../../config.js";
+import { getDeviceStatusSummary } from "../../device/device-state.js";
 import { countOpenIncidents, listRecoveryHistory } from "../../incidents/incident-store.js";
 import { listAuditLogs } from "../../provisioning/audit-log.js";
 import { contractWarningBanner, getContractStatus } from "../../customer/contract-guard.js";
@@ -245,6 +246,7 @@ customerPortalRouter.get("/:customerCode/tv", ...portalAuth, (req: AuthedRequest
   }
   if (!requirePlanFeature(customer.plan, "tv_dashboard", res)) return;
   const devices = listDevicesForCustomer(customer.customer_id);
+  const deviceHealth = getDeviceStatusSummary(customer.customer_id);
   const summary = getDashboardSummary(customer.customer_id);
   const branding = getBranding(customer.customer_id);
   const sites = listSitesForCustomer(customer.customer_id);
@@ -278,6 +280,7 @@ customerPortalRouter.get("/:customerCode/tv", ...portalAuth, (req: AuthedRequest
     summary,
     sites: sites.map((s) => ({ ...s, status: "normal" })),
     devices,
+    deviceHealth,
     tvDevices: devices.filter((d) => d.deviceType.toUpperCase() === "TV"),
     cameras: devices.filter((d) => ["ESP32", "PLC"].includes(d.deviceType.toUpperCase())),
     alerts,

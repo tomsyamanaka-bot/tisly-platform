@@ -39,7 +39,7 @@ describe("TiSLY E2E API (Phase 161-180 Security RC1)", () => {
   it("GET /health returns phase 261-280", async () => {
     const res = await request(app).get("/health");
     assert.equal(res.status, 200);
-    assert.equal(res.body.phase, "341-360-installer-pwa-qr-nfc-provisioning");
+    assert.equal(res.body.phase, "421-440-first-device-commissioning");
   });
 
   it("GET /api/sites/templates requires auth", async () => {
