@@ -5,81 +5,116 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#1a7f37" />
   <link rel="manifest" href="/manifest.webmanifest" />
-  <title>TiSLY — 営業デモ（RC1）</title>
+  <title>TiSLY — 営業プレゼンモード（Phase 821-860）</title>
   <link rel="stylesheet" href="/css/admin.css" />
   <style>
-    body { max-width: 960px; margin: 0 auto; padding: 1rem; font-family: system-ui, sans-serif; }
-    .hero { background: linear-gradient(135deg, #1a7f37 0%, #0d4d1f 100%); color: #fff; padding: 2.5rem; border-radius: 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+    body { max-width: 1100px; margin: 0 auto; padding: 1rem; font-family: system-ui, sans-serif; }
+    .hero { background: linear-gradient(135deg, #1a7f37 0%, #0d4d1f 100%); color: #fff; padding: 2rem; border-radius: 16px; }
     .hero h1 { margin: 0 0 0.5rem; font-size: 1.75rem; }
-    .hero p { opacity: 0.95; margin: 0; }
-    .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin: 1.5rem 0; }
-    .feature-card { background: #fff; border: 1px solid #d0d7de; border-radius: 12px; padding: 1.25rem; }
-    .feature-card h3 { margin: 0 0 0.5rem; color: #1a7f37; font-size: 1rem; }
-    .insight { background: #fff; border: 1px solid #d0d7de; border-radius: 12px; padding: 1.5rem; margin: 1rem 0; }
-    .priority-critical { border-left: 4px solid #cf222e; }
-    .priority-alarm { border-left: 4px solid #d29922; }
-    .cta { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.5rem; }
-    .cta a { padding: 0.6rem 1.2rem; border-radius: 8px; text-decoration: none; font-weight: 600; }
-    .cta .primary { background: #1a7f37; color: #fff; }
-    .cta .secondary { background: #f6f8fa; color: #24292f; border: 1px solid #d0d7de; }
-    .badge-rc1 { display: inline-block; background: rgba(255,255,255,0.2); padding: 0.25rem 0.6rem; border-radius: 4px; font-size: 0.8rem; margin-bottom: 0.75rem; }
+    .badge { display: inline-block; background: rgba(255,255,255,0.2); padding: 0.25rem 0.6rem; border-radius: 4px; font-size: 0.8rem; margin-bottom: 0.75rem; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin: 1.25rem 0; }
+    .card { background: #fff; border: 1px solid #d0d7de; border-radius: 12px; padding: 1.25rem; }
+    .card h3 { margin: 0 0 0.5rem; color: #1a7f37; font-size: 1rem; }
+    .card p { margin: 0 0 0.75rem; color: #444; font-size: 0.92rem; line-height: 1.45; }
+    .card a, .card button { display: inline-block; margin-top: 0.25rem; padding: 0.45rem 0.9rem; border-radius: 8px; text-decoration: none; font-size: 0.88rem; cursor: pointer; border: 1px solid #d0d7de; background: #f6f8fa; color: #24292f; }
+    .card button.primary, .card a.primary { background: #1a7f37; color: #fff; border-color: #1a7f37; }
+    .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem; }
+    .kpi { background: #f6f8fa; border-radius: 10px; padding: 0.75rem; text-align: center; }
+    .kpi .val { font-size: 1.15rem; font-weight: 700; color: #1a7f37; }
+    .kpi .lbl { font-size: 0.75rem; color: #666; margin-top: 0.25rem; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 1rem 0; }
+    .toolbar select { padding: 0.4rem 0.6rem; border-radius: 6px; border: 1px solid #ccc; }
+    #action-log { font-size: 0.85rem; color: #555; min-height: 1.2em; margin-top: 0.5rem; }
+    .nav { margin-bottom: 1rem; }
+    .nav a { margin-right: 1rem; color: #1a7f37; }
   </style>
 </head>
 <body>
+  <nav class="nav">
+    <a href="/">司令塔</a>
+    <a href="/business">TOMS</a>
+    <a href="/operations">運用</a>
+  </nav>
+
   <div class="hero">
-    <span class="badge-rc1">RC1 Production Candidate</span>
-    <h1>TiSLY セキュリティプラットフォーム</h1>
-    <p>設計 → 営業デモ → 実証運用まで、一つのプラットフォームで。</p>
+    <span class="badge">Phase 821–860 — Sales Ready Mode</span>
+    <h1>TiSLY 営業プレゼンモード</h1>
+    <p>営業 → デモ → 現調 → 見積 → 施工 → 保守まで、一連の流れをこの画面から見せられます。</p>
   </div>
 
-  <div class="grid-3">
-    <div class="feature-card">
-      <h3>現場プロビジョニング</h3>
-      <p>7種テンプレ（戸建・民泊・工場ほか）でワンクリック現場作成</p>
+  <section class="card" style="margin-top:1.25rem">
+    <h3>デモ KPI（自動生成）</h3>
+    <div class="kpi-row">
+      <div class="kpi"><div class="val" id="kpi-revenue">—</div><div class="lbl">月次売上</div></div>
+      <div class="kpi"><div class="val" id="kpi-gross">—</div><div class="lbl">月次粗利</div></div>
+      <div class="kpi"><div class="val" id="kpi-maintenance">—</div><div class="lbl">保守件数</div></div>
+      <div class="kpi"><div class="val" id="kpi-unpaid">—</div><div class="lbl">未入金</div></div>
+      <div class="kpi"><div class="val" id="kpi-contracts">—</div><div class="lbl">契約数</div></div>
     </div>
-    <div class="feature-card">
-      <h3>AI + 自律復旧</h3>
-      <p>リスクスコアと Recovery Engine で SLA を守る</p>
+    <p id="timeline-badge" style="margin-top:0.75rem;font-size:0.85rem;color:#666"></p>
+  </section>
+
+  <div class="toolbar">
+    <label>デモ顧客 <select id="demo-customer-select">
+      <option value="TOMS001">TOMS001</option>
+      <option value="TOMS002">TOMS002</option>
+      <option value="TISLY-DEMO">TISLY-DEMO</option>
+      <option value="MINPAKU-DEMO">MINPAKU-DEMO</option>
+      <option value="FACTORY-DEMO">FACTORY-DEMO</option>
+    </select></label>
+    <button type="button" class="primary" id="btn-reset">デモを初期化</button>
+  </div>
+  <div id="action-log"></div>
+
+  <div class="grid">
+    <div class="card">
+      <h3>TiSLY 概要</h3>
+      <p>設計・営業・現調・施工・保守・遠隔監視を一つのプラットフォームで。</p>
+      <a href="/app">アプリハブ →</a>
     </div>
-    <div class="feature-card">
-      <h3>マルチチャネル</h3>
-      <p>PWA · Google TV · MQTT · QNAP まで統合</p>
+    <div class="card">
+      <h3>導入効果</h3>
+      <p>QR プロビジョニング、PRO Remote、自動復旧で SLA を改善。</p>
+      <a href="/customer/TOMS001">顧客ポータル →</a>
+    </div>
+    <div class="card">
+      <h3>削減効果</h3>
+      <p>保守工数・再訪問・見積作成時間の削減を KPI で可視化。</p>
+      <a href="/business/kpi">KPI ダッシュボード →</a>
+    </div>
+    <div class="card">
+      <h3>通知デモ</h3>
+      <p>WebPush / Timeline / PRO Remote へ即時反映。</p>
+      <button type="button" data-notify="intrusion">侵入</button>
+      <button type="button" data-notify="power_outage">停電</button>
+      <button type="button" data-notify="esp_fault">ESP異常</button>
+      <button type="button" data-notify="shelly_fault">Shelly異常</button>
+      <button type="button" data-notify="maintenance_due">保守期限</button>
+    </div>
+    <div class="card">
+      <h3>現調デモ</h3>
+      <p>現調写真・図面が seed 済み。現調アプリから確認できます。</p>
+      <a href="/business/survey" class="primary">現調 →</a>
+    </div>
+    <div class="card">
+      <h3>保守デモ</h3>
+      <p>30日タイムラインに保守・復旧履歴を表示。</p>
+      <a href="/customer/TOMS001/pro-remote">PRO Remote →</a>
+    </div>
+    <div class="card">
+      <h3>AI 見積デモ</h3>
+      <p>現調写真 → AI 候補 → 採用 → 見積反映（mock）。</p>
+      <button type="button" class="primary" id="btn-ai-estimate">AI 見積を実行</button>
+    </div>
+    <div class="card">
+      <h3>デモ顧客パック</h3>
+      <ul id="demo-customers" style="margin:0;padding-left:1.2rem;font-size:0.88rem"></ul>
     </div>
   </div>
 
-  <section class="insight" id="nl-insight">
-    <h2>AI インサイト</h2>
-    <p id="nl-text">読込中…</p>
-  </section>
-  <section class="insight">
-    <h2>本日のハイライト</h2>
-    <ul id="sales-bullets"></ul>
-  </section>
-  <section class="insight">
-    <h2>顧客向け価値</h2>
-    <ul>
-      <li>窓センサ × 夜間 × critical など、直感的な通知ルール</li>
-      <li>QR コードで現場機器を数分で登録</li>
-      <li>運用レポート（PDF / CSV / JSON）をその場で出力</li>
-    </ul>
-    <p><a href="/api/reports/sales" target="_blank">営業レポート JSON →</a></p>
-  </section>
-  <div class="cta">
-    <a class="primary" href="/operations">運用コンソールを見る</a>
-    <a class="secondary" href="/setup">セットアップデモ</a>
-    <a class="secondary" href="/analytics">AI Analytics</a>
-  </div>
   <script type="module">
-    import { apiGet } from "./js/api.js";
-    const data = await apiGet("/api/analytics/overview");
-    document.getElementById("nl-text").textContent =
-      data.naturalLanguage?.today?.paragraphs?.join(" ") ?? "AI 分析データを読み込み中…";
-    document.getElementById("sales-bullets").innerHTML = (data.summary?.today?.bullets ?? [])
-      .map((b) => {
-        const cls = b.priority === "critical" ? "priority-critical" : b.priority === "alarm" ? "priority-alarm" : "";
-        return `<li class="${cls}">${b.text}</li>`;
-      })
-      .join("");
+    import { wireSalesDemo } from "./js/sales-demo.js";
+    wireSalesDemo();
   </script>
 </body>
 </html>

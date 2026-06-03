@@ -5,6 +5,7 @@ import { startDemoRunner } from "./demo/demo-runner.js";
 import { startDemoModeVirtualEspRunner } from "./demo/demo-mode-esp.js";
 import { config } from "./config.js";
 import { getDatabase } from "./db/database.js";
+import { ensureDemoKit } from "./demo-kit/index.js";
 import { startMqttSubscriber } from "./mqtt/mqtt-subscriber.js";
 import { getNotificationService } from "./notification/notification-service.js";
 import { startRecoveryEngine } from "./recovery/recovery-engine.js";
@@ -14,6 +15,7 @@ import { startBackupScheduler } from "./backup/backup-scheduler.js";
 import { startWorkers } from "./workers/worker-runner.js";
 
 getDatabase();
+ensureDemoKit();
 startBackupScheduler();
 startWorkers();
 
