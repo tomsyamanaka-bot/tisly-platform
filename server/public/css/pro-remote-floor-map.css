@@ -1,0 +1,100 @@
+.pro-remote-main {
+  padding: 0 0 2rem;
+}
+
+.floor-map-controls {
+  margin: 0.75rem;
+  padding: 1rem;
+  border-radius: 12px;
+  background: #1e1b4b;
+  border: 1px solid #4c1d95;
+}
+
+.floor-map-alert {
+  color: #fbbf24;
+  font-size: 0.9rem;
+  margin: 0.5rem 0;
+}
+
+.floor-map-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  scroll-snap-type: y mandatory;
+  max-height: none;
+}
+
+.floor-map-layer {
+  min-height: 85vh;
+  scroll-snap-align: start;
+  padding: 0.75rem;
+  border-bottom: 2px solid #312e81;
+}
+
+.floor-map-layer h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.25rem;
+  color: #c4b5fd;
+}
+
+.floor-map-canvas {
+  position: relative;
+  width: 100%;
+}
+
+.floor-map-plan {
+  position: relative;
+  width: 100%;
+  min-height: 60vh;
+  background: #0f172a;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.floor-map-image {
+  width: 100%;
+  height: auto;
+  display: block;
+  min-height: 50vh;
+  object-fit: contain;
+}
+
+.floor-map-placeholder {
+  min-height: 50vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  padding: 2rem;
+  text-align: center;
+}
+
+.floor-map-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.floor-map-pin {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #fff;
+  pointer-events: auto;
+  cursor: default;
+  padding: 0;
+}
+
+.btn-pro {
+  margin-top: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: #7c3aed;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+}

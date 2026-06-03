@@ -1,6 +1,6 @@
 /* TiSLY Multi PWA app shell — Phase 461–480 */
-const SW_VERSION = "tisly-pwa-v461";
-const OFFLINE_CACHE = "tisly-pwa-shell-v461";
+const SW_VERSION = "tisly-pwa-v481";
+const OFFLINE_CACHE = "tisly-pwa-shell-v481";
 const SHELL_URLS = [
   "/app-hub.html",
   "/installer-mode.html",
@@ -28,6 +28,8 @@ const SHELL_URLS = [
   "/js/survey.js",
   "/js/maintenance.js",
   "/js/pro-remote-pwa.js",
+  "/js/pro-remote-floor-map.js",
+  "/css/pro-remote-floor-map.css",
   "/js/api.js",
   "/icons/icon-192.png",
   "/icons/icon-512.png",

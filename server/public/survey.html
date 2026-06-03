@@ -17,19 +17,25 @@
   <div id="tisly-pwa-topbar-root"></div>
   <header class="survey-page-header">
     <h1>現調 Survey</h1>
-    <p class="hint">案件・写真・図面を現場で記録（Phase 461–480）</p>
+    <p class="hint">Phase 481–500 — 案件・写真・図面・チェックリスト・AI見積</p>
+    <p class="survey-project-badge">案件: <span id="survey-project-id">未作成</span></p>
   </header>
   <main class="survey-sections">
     <section class="survey-card" data-section="case">
-      <h2>案件作成</h2>
+      <h2>案件管理</h2>
+      <label>顧客 <select id="survey-customer">
+        <option value="TOMS001">TOMS001</option>
+        <option value="HOTEL001">HOTEL001</option>
+      </select></label>
       <label>案件名 <input id="survey-case-name" placeholder="例: 本社ビル 新規" /></label>
       <label>住所 <input id="survey-address" placeholder="現場住所" /></label>
-      <button type="button" class="btn-survey" id="btn-survey-save-case">保存（ローカル）</button>
+      <button type="button" class="btn-survey" id="btn-survey-save-case">サーバーに保存</button>
+      <button type="button" class="btn-survey secondary" id="btn-survey-gps">現在地 GPS 保存</button>
+      <p id="survey-gps" class="hint">GPS: 未取得</p>
     </section>
     <section class="survey-card" data-section="aerial">
-      <h2>航空写真登録</h2>
+      <h2>外観 / 航空</h2>
       <input type="file" accept="image/*" id="survey-aerial" />
-      <p class="hint">地図・航空写真を添付</p>
     </section>
     <section class="survey-card" data-section="exterior">
       <h2>外観写真</h2>
@@ -40,8 +46,8 @@
       <input type="file" accept="image/*" capture="environment" multiple id="survey-interior" />
     </section>
     <section class="survey-card" data-section="sketch">
-      <h2>手書き図面</h2>
-      <input type="file" accept="image/*" id="survey-sketch" />
+      <h2>手書き図面 (jpg/png/pdf)</h2>
+      <input type="file" accept="image/*,application/pdf" id="survey-sketch" />
     </section>
     <section class="survey-card" data-section="panel">
       <h2>分電盤写真</h2>
@@ -51,17 +57,28 @@
       <h2>ネット回線写真</h2>
       <input type="file" accept="image/*" id="survey-network" />
     </section>
+    <section class="survey-card" data-section="checklist">
+      <h2>現調チェックリスト</h2>
+      <label><input type="checkbox" data-check-key="line" data-check-label="回線" /> 回線</label>
+      <label><input type="checkbox" data-check-key="wifi" data-check-label="WiFi" /> WiFi</label>
+      <label><input type="checkbox" data-check-key="camera" data-check-label="カメラ" /> カメラ</label>
+      <label><input type="checkbox" data-check-key="power" data-check-label="電源" /> 電源</label>
+      <label><input type="checkbox" data-check-key="panel" data-check-label="分電盤" /> 分電盤</label>
+      <label><input type="checkbox" data-check-key="lan_route" data-check-label="LAN経路" /> LAN経路</label>
+      <label><input type="checkbox" data-check-key="sensor_candidates" data-check-label="センサー候補" /> センサー候補</label>
+      <label>通知先 <input data-check-key="notify_targets" data-check-label="通知先" data-check-note="1" placeholder="メモ" /></label>
+      <label>危険箇所 <input data-check-key="hazard_zones" data-check-label="危険箇所" data-check-note="1" placeholder="メモ" /></label>
+      <label>施工難易度 <input data-check-key="install_difficulty" data-check-label="施工難易度" data-check-note="1" placeholder="低/中/高" /></label>
+      <button type="button" class="btn-survey" id="btn-survey-checklist">チェックリスト保存</button>
+    </section>
     <section class="survey-card" data-section="memo">
       <h2>メモ</h2>
       <textarea id="survey-memo" rows="4" placeholder="現調メモ"></textarea>
     </section>
-    <section class="survey-card placeholder-ai" data-section="ai">
-      <h2>AI解析</h2>
-      <p class="placeholder-tag">placeholder — Phase 501+</p>
-    </section>
-    <section class="survey-card placeholder-ai" data-section="estimate">
-      <h2>見積候補</h2>
-      <p class="placeholder-tag">placeholder — Phase 501+</p>
+    <section class="survey-card" data-section="ai">
+      <h2>AI見積候補</h2>
+      <button type="button" class="btn-survey" id="btn-survey-ai">見積候補を生成</button>
+      <div id="survey-ai-result" class="survey-ai-result"></div>
     </section>
   </main>
   <script type="module" src="/js/tisly-pwa-shell.js"></script>

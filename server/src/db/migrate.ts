@@ -364,6 +364,136 @@ function migratePhase421(database: Database.Database): void {
   );
   migrateCustomerUsersPwaRoles461(database);
   seedPwaRoleDemoUsers(database);
+  migratePhase481(database);
+}
+
+function migratePhase481(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:phase481_survey_maintenance_floor") as { value_json: string } | undefined;
+  if (marker) return;
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS survey_projects (
+      project_id TEXT PRIMARY KEY,
+      customer_code TEXT NOT NULL,
+      site_name TEXT NOT NULL,
+      address TEXT,
+      gps_lat REAL,
+      gps_lng REAL,
+      status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'active', 'completed', 'archived')),
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+  `);
+  database.exec(
+    "CREATE INDEX IF NOT EXISTS idx_survey_projects_customer ON survey_projects(customer_code)"
+  );
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS survey_photos (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      photo_type TEXT NOT NULL,
+      photo_path TEXT NOT NULL,
+      uploaded_by TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES survey_projects(project_id) ON DELETE CASCADE
+    );
+  `);
+  database.exec(
+    "CREATE INDEX IF NOT EXISTS idx_survey_photos_project ON survey_photos(project_id)"
+  );
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS survey_drawings (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      file_path TEXT NOT NULL,
+      file_name TEXT,
+      mime_type TEXT,
+      pro_floor_id TEXT,
+      uploaded_by TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES survey_projects(project_id) ON DELETE CASCADE
+    );
+  `);
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS survey_checklists (
+      project_id TEXT PRIMARY KEY,
+      checklist_json TEXT NOT NULL,
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES survey_projects(project_id) ON DELETE CASCADE
+    );
+  `);
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS survey_ai_estimates (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      result_json TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES survey_projects(project_id) ON DELETE CASCADE
+    );
+  `);
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS maintenance_cases (
+      case_id TEXT PRIMARY KEY,
+      customer_code TEXT NOT NULL,
+      site_id TEXT,
+      site_name TEXT,
+      device_ids_json TEXT NOT NULL DEFAULT '[]',
+      status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'in_progress', 'resolved', 'closed')),
+      notes TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+  `);
+  database.exec(
+    "CREATE INDEX IF NOT EXISTS idx_maintenance_cases_customer ON maintenance_cases(customer_code)"
+  );
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS pro_floor_layers (
+      id TEXT PRIMARY KEY,
+      customer_id TEXT NOT NULL,
+      site_id TEXT NOT NULL,
+      tier TEXT NOT NULL CHECK (tier IN ('perimeter', '1f', '2f')),
+      display_name TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      floor_id TEXT,
+      image_path TEXT,
+      image_kind TEXT DEFAULT 'png' CHECK (image_kind IN ('png', 'svg', 'jpg', 'jpeg')),
+      survey_drawing_id TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (customer_id) REFERENCES customers(customer_id),
+      FOREIGN KEY (floor_id) REFERENCES floors(id)
+    );
+  `);
+  database.exec(
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_pro_floor_layers_site_tier ON pro_floor_layers(site_id, tier)"
+  );
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS pro_map_pins (
+      id TEXT PRIMARY KEY,
+      layer_id TEXT NOT NULL,
+      pin_type TEXT NOT NULL,
+      label TEXT,
+      pos_x REAL NOT NULL,
+      pos_y REAL NOT NULL,
+      device_id TEXT,
+      status TEXT NOT NULL DEFAULT 'OFFLINE' CHECK (status IN ('ONLINE', 'WARNING', 'OFFLINE')),
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (layer_id) REFERENCES pro_floor_layers(id) ON DELETE CASCADE
+    );
+  `);
+  database.exec(
+    "CREATE INDEX IF NOT EXISTS idx_pro_map_pins_layer ON pro_map_pins(layer_id)"
+  );
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:phase481_survey_maintenance_floor", JSON.stringify({ at: new Date().toISOString() }));
 }
 
 function migrateCustomerUsersPwaRoles461(database: Database.Database): void {

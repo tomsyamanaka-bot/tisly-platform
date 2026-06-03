@@ -48,6 +48,23 @@
 .survey-card.placeholder-ai {
   border-left-color: #a78bfa;
 }
+.survey-project-badge {
+  font-size: 0.85rem;
+  color: #93c5fd;
+  margin-top: 0.25rem;
+}
+
+.survey-ai-result {
+  margin-top: 0.75rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.btn-survey.secondary {
+  background: #1e40af;
+  margin-top: 0.35rem;
+}
+
 .placeholder-tag {
   color: #a78bfa;
   font-size: 0.8rem;

@@ -11,8 +11,8 @@
   <link rel="manifest" id="pro-remote-manifest" href="/manifest-pro-remote.webmanifest" />
   <title>TiSLY — PRO Remote</title>
   <link rel="stylesheet" href="/css/tisly-pwa-shell.css" />
-  <link rel="stylesheet" href="/css/admin.css" />
   <link rel="stylesheet" href="/css/pro-remote-pwa.css" />
+  <link rel="stylesheet" href="/css/pro-remote-floor-map.css" />
 </head>
 <body class="pro-remote-pwa-body">
   <div id="tisly-pwa-topbar-root"></div>
@@ -26,12 +26,31 @@
     <a id="link-pro-health" href="#">Health</a>
     <a id="link-pro-tv" href="#">TV（非PWA）</a>
   </nav>
-  <main class="pro-remote-tiles">
-    <section class="card">
+  <main class="pro-remote-main">
+    <section class="card floor-map-controls">
+      <h2>フロアマップ</h2>
+      <p id="floor-map-alert" class="floor-map-alert" hidden></p>
+      <label>ピン種類
+        <select id="floor-pin-type">
+          <option value="camera">camera</option>
+          <option value="beam">beam</option>
+          <option value="pir">pir</option>
+          <option value="door">door</option>
+          <option value="window">window</option>
+          <option value="relay">relay</option>
+          <option value="esp">esp</option>
+          <option value="shelly">shelly</option>
+          <option value="speaker">speaker</option>
+          <option value="light">light</option>
+        </select>
+      </label>
+      <button type="button" class="btn-pro" id="btn-floor-alert-jump">異常階へジャンプ</button>
+      <p class="hint">縦スワイプ: 外周 → 1F → 2F。図面をタップでピン配置。</p>
+    </section>
+    <div id="floor-map-stack" class="floor-map-stack"></div>
+    <section class="card pro-remote-shortcuts">
       <h2>監視ショートカット</h2>
-      <p>顧客スコープ付き PRO Remote PWA 入口です。</p>
-      <iframe id="pro-remote-embed" title="operations preview" src="" hidden></iframe>
-      <p class="hint">フル機能は <a id="link-operations-full" href="/operations">/operations</a> でも利用できます。</p>
+      <p class="hint">フル機能は <a id="link-operations-full" href="/operations">/operations</a></p>
     </section>
   </main>
   <script type="module" src="/js/tisly-pwa-shell.js"></script>

@@ -13,4 +13,7 @@ document.getElementById("link-operations-full").href = `/operations?customer=${c
 const man = document.getElementById("pro-remote-manifest");
 if (man) man.href = `/customer/${code}/pro-remote/manifest.webmanifest`;
 
+import { initProRemoteFloorMap } from "./pro-remote-floor-map.js";
+
 renderPwaTopbar("pro_remote", "監視");
+initProRemoteFloorMap();

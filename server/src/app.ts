@@ -49,6 +49,9 @@ import { tenantQueryGuard } from "./auth/tenant-guard.js";
 import { config } from "./config.js";
 import { rejectInstallerRestricted } from "./auth/installer-restricted-guard.js";
 import { pwaHubRouter } from "./api/routes/pwa-hub.js";
+import { surveyRouter } from "./api/routes/survey.js";
+import { maintenanceProductionRouter } from "./api/routes/maintenance-production.js";
+import { proRemoteFloorMapRouter } from "./api/routes/pro-remote-floor-map.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(__dirname, "..", "public");
@@ -67,6 +70,8 @@ export function createApp(): express.Application {
 
   app.use("/api/auth", authRouter);
   app.use("/api/pwa", pwaHubRouter);
+  app.use("/api/survey", surveyRouter);
+  app.use("/api/maintenance", maintenanceProductionRouter);
 
   app.use("/api/events", opsCustomerScopeMiddleware, tenantQueryGuard, eventsRouter);
   app.use("/api/notifications", opsCustomerScopeMiddleware, tenantQueryGuard, notificationsRouter);
@@ -105,6 +110,7 @@ export function createApp(): express.Application {
   app.use("/api/customer", customerNotificationRulesRouter);
   app.use("/api/customer", customerSiteBuilderRouter);
   app.use("/api/customer", customerInstallerRouter);
+  app.use("/api/customer", proRemoteFloorMapRouter);
   app.use("/api/customer", deviceCommissioningRouter);
   app.use("/api/incidents", incidentsRouter);
   app.use("/api/db", dbRouter);
@@ -242,6 +248,7 @@ export function createApp(): express.Application {
     "/uploads/install-photos",
     express.static(path.join(process.cwd(), "uploads", "install-photos"))
   );
+  app.use("/uploads/survey", express.static(path.join(process.cwd(), "uploads", "survey")));
   app.get("/tv/:customerCode", (_req, res) => {
     res.sendFile(tvDashboardHtml);
   });

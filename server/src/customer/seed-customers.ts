@@ -5,6 +5,7 @@ import {
   ensureDemoSite,
   upsertCustomer,
 } from "./customer-store.js";
+import { ensureProFloorLayersSeed } from "../pro-remote/floor-map-stack.js";
 
 const DEMO_CUSTOMERS = [
   {
@@ -112,6 +113,7 @@ export function seedProRemoteCustomers(): void {
   const has = db.prepare("SELECT customer_id FROM customers LIMIT 1").get();
   if (has) {
     ensureDemo001Kit();
+    ensureProFloorLayersSeed();
     return;
   }
 
@@ -177,4 +179,5 @@ export function seedProRemoteCustomers(): void {
     }
   }
   ensureDemo001Kit();
+  ensureProFloorLayersSeed();
 }
