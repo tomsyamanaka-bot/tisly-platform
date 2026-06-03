@@ -68,13 +68,13 @@ describe("Phase 461-480 multi PWA app hub", () => {
     assert.deepEqual(ids, ["installer"]);
   });
 
-  it("surveyor hub shows survey only", async () => {
+  it("surveyor hub shows survey and business", async () => {
     const res = await request(app)
       .get("/api/pwa/hub")
       .set("Authorization", `Bearer ${surveyorToken}`);
     assert.equal(res.status, 200);
     const ids = res.body.apps.map((a: { id: string }) => a.id);
-    assert.deepEqual(ids, ["survey"]);
+    assert.deepEqual(ids, ["survey", "business"]);
   });
 
   it("admin hub shows all PWAs", async () => {
@@ -89,7 +89,8 @@ describe("Phase 461-480 multi PWA app hub", () => {
     assert.ok(ids.includes("maintenance"));
     assert.ok(ids.includes("customer_portal"));
     assert.ok(ids.includes("admin"));
-    assert.equal(ids.length, 6);
+    assert.ok(ids.includes("business"));
+    assert.equal(ids.length, 7);
   });
 
   it("serves PWA manifests", async () => {

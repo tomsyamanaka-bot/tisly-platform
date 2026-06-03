@@ -50,6 +50,7 @@ import { config } from "./config.js";
 import { rejectInstallerRestricted } from "./auth/installer-restricted-guard.js";
 import { pwaHubRouter } from "./api/routes/pwa-hub.js";
 import { surveyRouter } from "./api/routes/survey.js";
+import { businessRouter } from "./api/routes/business.js";
 import { maintenanceProductionRouter } from "./api/routes/maintenance-production.js";
 import { proRemoteFloorMapRouter } from "./api/routes/pro-remote-floor-map.js";
 import { buildSurveyReportHtml } from "./survey/survey-report.js";
@@ -72,6 +73,7 @@ export function createApp(): express.Application {
   app.use("/api/auth", authRouter);
   app.use("/api/pwa", pwaHubRouter);
   app.use("/api/survey", surveyRouter);
+  app.use("/api/business", businessRouter);
   app.use("/api/maintenance", maintenanceProductionRouter);
 
   app.use("/api/events", opsCustomerScopeMiddleware, tenantQueryGuard, eventsRouter);
@@ -180,6 +182,31 @@ export function createApp(): express.Application {
   app.get("/maintenance", (_req, res) => {
     res.sendFile(path.join(publicDir, "maintenance.html"));
   });
+  const businessHtml = path.join(publicDir, "business.html");
+  const businessRoutes = [
+    "/business",
+    "/business/projects",
+    "/business/projects/new",
+    "/business/customers",
+    "/business/pricing",
+    "/business/settings",
+  ];
+  for (const route of businessRoutes) {
+    app.get(route, (_req, res) => res.sendFile(businessHtml));
+  }
+  app.get("/business/projects/:projectId", (_req, res) => res.sendFile(businessHtml));
+  app.get("/business/projects/:projectId/survey", (_req, res) => res.sendFile(businessHtml));
+  app.get("/business/projects/:projectId/estimate", (_req, res) => res.sendFile(businessHtml));
+  app.get("/business/projects/:projectId/construction", (_req, res) => res.sendFile(businessHtml));
+  app.get("/business/projects/:projectId/completion-report", (_req, res) =>
+    res.sendFile(businessHtml)
+  );
+  app.get("/business/projects/:projectId/invoice", (_req, res) => res.sendFile(businessHtml));
+  app.get("/business/projects/:projectId/payment", (_req, res) => res.sendFile(businessHtml));
+  app.get("/business/manifest.webmanifest", (_req, res) => {
+    res.type("application/manifest+json");
+    res.sendFile(path.join(publicDir, "manifest-business.webmanifest"));
+  });
   app.get("/customer/:customerCode/pro-remote", (_req, res) => {
     res.sendFile(path.join(publicDir, "pro-remote.html"));
   });
@@ -258,6 +285,7 @@ export function createApp(): express.Application {
     express.static(path.join(process.cwd(), "uploads", "install-photos"))
   );
   app.use("/uploads/survey", express.static(path.join(process.cwd(), "uploads", "survey")));
+  app.use("/uploads/business", express.static(path.join(process.cwd(), "uploads", "business")));
   app.get("/tv/:customerCode", (_req, res) => {
     res.sendFile(tvDashboardHtml);
   });

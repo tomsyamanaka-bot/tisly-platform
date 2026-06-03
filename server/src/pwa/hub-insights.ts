@@ -1,4 +1,5 @@
 import { getDatabase } from "../db/database.js";
+import { countProjectsByStatus } from "../business/business-store.js";
 
 export interface HubWorkflowLink {
   id: string;
@@ -84,6 +85,61 @@ export function buildHubWorkflowLinks(customerCode: string, role: string): HubWo
     });
   }
 
+  if (roleMeetsBusiness(role)) {
+    links.push({
+      id: "business_pwa",
+      label: "TOMS業務PWA",
+      description: "案件・見積・工事・請求の業務フロー",
+      href: "/business",
+    });
+    links.push({
+      id: "business_new",
+      label: "新規案件あり",
+      description: "現調予定の入力が必要",
+      href: "/business/projects?status=new",
+      count: countProjectsByStatus(["new"]),
+    });
+    links.push({
+      id: "business_survey_scheduled",
+      label: "現調予定あり",
+      description: "現調当日の準備・入力",
+      href: "/business/projects?status=survey_scheduled",
+      count: countProjectsByStatus(["survey_scheduled"]),
+    });
+    links.push({
+      id: "business_estimate_pending",
+      label: "見積作成待ち",
+      description: "現調完了 — 見積作成",
+      href: "/business/projects?status=survey_done",
+      count: countProjectsByStatus(["survey_done"]),
+    });
+    links.push({
+      id: "business_construction",
+      label: "工事予定あり",
+      description: "工事日程・施工写真",
+      href: "/business/projects?status=construction_scheduled",
+      count: countProjectsByStatus(["construction_scheduled", "accepted"]),
+    });
+    links.push({
+      id: "business_invoice_pending",
+      label: "請求待ち",
+      description: "完了報告・請求書作成",
+      href: "/business/projects",
+      count: countProjectsByStatus([
+        "construction_done",
+        "completion_report_created",
+        "invoice_created",
+      ]),
+    });
+    links.push({
+      id: "business_payment_pending",
+      label: "入金待ち",
+      description: "入金予定・入金確認",
+      href: "/business/projects?status=payment_scheduled",
+      count: countProjectsByStatus(["payment_scheduled", "invoice_sent_to_owner"]),
+    });
+  }
+
   return links;
 }
 
@@ -93,4 +149,8 @@ function roleMeetsSurvey(role: string): boolean {
 
 function roleMeetsMaintenance(role: string): boolean {
   return ["maintenance", "manager", "owner", "admin", "super_admin"].includes(role);
+}
+
+function roleMeetsBusiness(role: string): boolean {
+  return ["surveyor", "manager", "owner", "admin", "super_admin"].includes(role);
 }

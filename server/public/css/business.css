@@ -1,0 +1,174 @@
+.business-body {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  margin: 0;
+  padding: 0 0 5rem;
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.business-header {
+  padding: 1rem 1rem 0.5rem;
+  background: linear-gradient(135deg, #0d9488, #0f766e);
+  color: #fff;
+}
+
+.business-header h1 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.business-header .hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  opacity: 0.9;
+}
+
+.business-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.business-nav a {
+  text-decoration: none;
+  color: #0f766e;
+  font-size: 0.85rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  background: #ccfbf1;
+}
+
+.business-main {
+  padding: 1rem;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.biz-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+.biz-card h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+}
+
+.biz-card label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.biz-card input,
+.biz-card textarea,
+.biz-card select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.5rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 1rem;
+}
+
+.biz-btn {
+  display: inline-block;
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: 10px;
+  background: #0d9488;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.biz-btn.secondary {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.biz-btn.next {
+  background: #f59e0b;
+  color: #1e293b;
+}
+
+.biz-list-item {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.biz-list-item:last-child {
+  border-bottom: none;
+}
+
+.biz-status {
+  display: inline-block;
+  font-size: 0.75rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.biz-preview {
+  font-size: 0.8rem;
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 0.75rem;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.biz-ai-badge {
+  display: inline-block;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  margin-bottom: 0.5rem;
+}
+
+.biz-error {
+  color: #b91c1c;
+  font-size: 0.85rem;
+}
+
+.biz-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.biz-stat {
+  background: #ecfdf5;
+  border-radius: 10px;
+  padding: 0.75rem;
+  text-align: center;
+}
+
+.biz-stat .n {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0f766e;
+}
+
+.biz-stat .l {
+  font-size: 0.75rem;
+  color: #64748b;
+}

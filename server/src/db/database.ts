@@ -6,6 +6,7 @@ import { config } from "../config.js";
 import { seedProRemoteCustomers } from "../customer/seed-customers.js";
 import { ensureTenant } from "../provisioning/site-provisioner.js";
 import { runMigrations } from "./migrate.js";
+import { seedBusinessDefaults } from "../business/business-store.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -59,6 +60,7 @@ export function getDatabase(): Database.Database {
   }
   runMigrations(db);
   seedDefaults(db);
+  seedBusinessDefaults();
   seedProRemoteCustomers();
   ensureTenant(config.defaultTenantId, "Default Tenant");
   return db;

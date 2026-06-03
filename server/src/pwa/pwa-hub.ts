@@ -10,6 +10,7 @@ function normalizePwaRole(role: string): string {
 export type PwaAppId =
   | "installer"
   | "survey"
+  | "business"
   | "pro_remote"
   | "maintenance"
   | "customer_portal"
@@ -38,6 +39,13 @@ export const PWA_APP_CATALOG: Record<PwaAppId, PwaAppCard> = {
     description: "案件・写真・図面・見積候補",
     href: () => "/survey",
     themeColor: "#2563eb",
+  },
+  business: {
+    id: "business",
+    label: "TOMS業務",
+    description: "案件・見積・工事・請求・入金",
+    href: () => "/business",
+    themeColor: "#0d9488",
   },
   pro_remote: {
     id: "pro_remote",
@@ -78,17 +86,25 @@ export function getPwaAppsForRole(role: string, opts?: { installerSurveyOptional
       if (opts?.installerSurveyOptional) return ["installer", "survey"];
       return ["installer"];
     case "surveyor":
-      return ["survey"];
+      return ["survey", "business"];
     case "maintenance":
       return ["maintenance", "installer"];
     case "viewer":
       return ["pro_remote", "customer_portal"];
     case "manager":
-      return ["installer", "survey", "pro_remote", "maintenance", "customer_portal"];
+      return ["installer", "survey", "business", "pro_remote", "maintenance", "customer_portal"];
     case "owner":
     case "admin":
     case "super_admin":
-      return ["installer", "survey", "pro_remote", "maintenance", "customer_portal", "admin"];
+      return [
+        "installer",
+        "survey",
+        "business",
+        "pro_remote",
+        "maintenance",
+        "customer_portal",
+        "admin",
+      ];
     default:
       return ["customer_portal"];
   }

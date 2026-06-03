@@ -366,6 +366,7 @@ function migratePhase421(database: Database.Database): void {
   seedPwaRoleDemoUsers(database);
   migratePhase481(database);
   migratePhase501(database);
+  migratePhase521(database);
 }
 
 function migratePhase481(database: Database.Database): void {
@@ -495,6 +496,159 @@ function migratePhase481(database: Database.Database): void {
       `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
     )
     .run("migration:phase481_survey_maintenance_floor", JSON.stringify({ at: new Date().toISOString() }));
+}
+
+function migratePhase521(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:phase521_toms_business_pwa") as { value_json: string } | undefined;
+  if (marker) return;
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS business_customers (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      type TEXT NOT NULL DEFAULT 'individual',
+      contact_name TEXT DEFAULT '',
+      phone TEXT DEFAULT '',
+      email TEXT DEFAULT '',
+      address TEXT DEFAULT '',
+      pricing_tier_id TEXT,
+      payment_terms TEXT DEFAULT '',
+      invoice_closing_day INTEGER,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS business_pricing_tiers (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      customer_id TEXT,
+      items_json TEXT NOT NULL DEFAULT '[]',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS business_projects (
+      id TEXT PRIMARY KEY,
+      project_no TEXT NOT NULL UNIQUE,
+      customer_id TEXT NOT NULL,
+      customer_name TEXT NOT NULL,
+      title TEXT NOT NULL,
+      address TEXT DEFAULT '',
+      phone TEXT DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'new',
+      survey_schedule_json TEXT,
+      survey_memo TEXT DEFAULT '',
+      survey_photos_json TEXT DEFAULT '[]',
+      estimate_id TEXT,
+      construction_schedule_json TEXT,
+      required_materials TEXT DEFAULT '',
+      construction_memo TEXT DEFAULT '',
+      construction_photos_json TEXT DEFAULT '[]',
+      completion_report_id TEXT,
+      invoice_id TEXT,
+      payment_due_date TEXT,
+      paid_date TEXT,
+      qnap_base_path TEXT DEFAULT '',
+      survey_project_id TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_business_projects_status ON business_projects(status);
+    CREATE TABLE IF NOT EXISTS business_estimates (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      estimate_no TEXT NOT NULL,
+      customer_name TEXT NOT NULL,
+      title TEXT NOT NULL,
+      items_json TEXT NOT NULL,
+      subtotal INTEGER NOT NULL DEFAULT 0,
+      tax INTEGER NOT NULL DEFAULT 0,
+      total INTEGER NOT NULL DEFAULT 0,
+      internal_cost INTEGER NOT NULL DEFAULT 0,
+      gross_profit INTEGER NOT NULL DEFAULT 0,
+      gross_profit_rate REAL NOT NULL DEFAULT 0,
+      pdf_path TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES business_projects(id) ON DELETE CASCADE
+    );
+    CREATE TABLE IF NOT EXISTS business_invoices (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      invoice_no TEXT NOT NULL,
+      customer_name TEXT NOT NULL,
+      title TEXT NOT NULL,
+      items_json TEXT NOT NULL,
+      subtotal INTEGER NOT NULL DEFAULT 0,
+      tax INTEGER NOT NULL DEFAULT 0,
+      total INTEGER NOT NULL DEFAULT 0,
+      payment_due_date TEXT,
+      bank_info TEXT DEFAULT '',
+      pdf_path TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES business_projects(id) ON DELETE CASCADE
+    );
+    CREATE TABLE IF NOT EXISTS business_completion_reports (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      title TEXT NOT NULL,
+      before_photos_json TEXT DEFAULT '[]',
+      after_photos_json TEXT DEFAULT '[]',
+      work_memo TEXT DEFAULT '',
+      pdf_path TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES business_projects(id) ON DELETE CASCADE
+    );
+    CREATE TABLE IF NOT EXISTS business_calendar_drafts (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      start_at TEXT NOT NULL,
+      end_at TEXT NOT NULL,
+      location TEXT DEFAULT '',
+      description TEXT DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'draft',
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS business_mail_drafts (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      type TEXT NOT NULL,
+      mail_to TEXT NOT NULL,
+      subject TEXT NOT NULL,
+      body TEXT NOT NULL,
+      attachment_paths_json TEXT DEFAULT '[]',
+      status TEXT NOT NULL DEFAULT 'draft',
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS business_qnap_plans (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      base_path TEXT NOT NULL,
+      folders_json TEXT NOT NULL,
+      files_json TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'planned',
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS business_ai_candidates (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      source TEXT NOT NULL DEFAULT 'survey_ai',
+      recommended_json TEXT NOT NULL,
+      applied INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES business_projects(id) ON DELETE CASCADE
+    );
+  `);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:phase521_toms_business_pwa", JSON.stringify({ at: new Date().toISOString() }));
 }
 
 function migratePhase501(database: Database.Database): void {
