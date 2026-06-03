@@ -2,10 +2,11 @@ import { Router } from "express";
 import { getDatabase } from "../../db/database.js";
 import { DEMO_SITES } from "../../demo/demo-sites.js";
 import { isDemoRunnerActive } from "../../demo/demo-runner.js";
+import { getInfrastructureStatuses } from "../../infrastructure/status.js";
 
 export const dashboardRouter = Router();
 
-dashboardRouter.get("/", (_req, res) => {
+dashboardRouter.get("/", async (_req, res) => {
   const db = getDatabase();
   const deviceCount = (
     db.prepare("SELECT COUNT(*) as c FROM devices").get() as { c: number }
@@ -86,7 +87,18 @@ dashboardRouter.get("/", (_req, res) => {
       .get() as { c: number }
   ).c;
 
+  const infrastructure = await getInfrastructureStatuses();
+  const infrastructureHealth = ["DB", "Redis", "MQTT", "TV", "QNAP"].map((name) => {
+    const c = infrastructure.find((x) => x.name === name);
+    return {
+      name,
+      status: c?.status ?? "YELLOW",
+      detail: c?.detail ?? "unknown",
+    };
+  });
+
   res.json({
+    infrastructureHealth,
     summary: {
       siteCount: effectiveSiteCount,
       deviceCount,

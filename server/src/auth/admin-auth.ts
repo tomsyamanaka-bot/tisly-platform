@@ -6,6 +6,11 @@ import { signToken, verifyToken } from "./jwt.js";
 import { verifyPassword } from "./password.js";
 import { createSession, revokeSessionByTokenId } from "./session-store.js";
 import { siemFromAudit } from "../security/siem-exporter.js";
+import {
+  isTotpEnabled,
+  verifyTotpCode,
+  adminRequires2fa,
+} from "./totp.js";
 
 export interface AdminSession {
   userId: string;
@@ -22,7 +27,7 @@ export function isAuthConfigured(): boolean {
 export function loginAdmin(
   username: string,
   password: string,
-  meta?: { ip?: string; userAgent?: string }
+  meta?: { ip?: string; userAgent?: string; totpCode?: string }
 ): AdminSession | null {
   if (!isAuthConfigured()) return null;
   if (username !== config.auth.adminUsername) return null;
@@ -30,8 +35,15 @@ export function loginAdmin(
     recordFailedLogin(username, meta);
     return null;
   }
-  clearFailedLogins(username);
   const userId = "admin-default";
+  const needsTotp = isTotpEnabled(userId) || adminRequires2fa(userId);
+  if (needsTotp) {
+    if (!meta?.totpCode || !verifyTotpCode(userId, meta.totpCode)) {
+      recordFailedLogin(username, meta);
+      return null;
+    }
+  }
+  clearFailedLogins(username);
   const { token, jti } = signToken({ sub: userId, username, role: "admin" });
   createSession({
     userId,

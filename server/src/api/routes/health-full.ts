@@ -1,7 +1,9 @@
 import { Router } from "express";
+import os from "os";
 import { config } from "../../config.js";
 import { getDatabase } from "../../db/database.js";
 import { getDbProvider } from "../../db/db-provider.js";
+import { PostgresProvider } from "../../db/postgres-provider.js";
 import { isAuthConfigured } from "../../auth/admin-auth.js";
 import { getFailedLoginCount, getIngestErrorCount } from "../../auth/admin-auth.js";
 import { getSessionStoreStatus } from "../../auth/session-store.js";
@@ -15,11 +17,13 @@ import {
 } from "../../security/security-metrics.js";
 import { getReplayBlockedCount } from "../../security/replay-protection.js";
 import { getSiemExportStatus } from "../../security/siem-exporter.js";
-import { isRedisReachable, getRateLimitProviderName } from "../../security/rate-limit-redis.js";
+import { pingRedis } from "../../redis/redis-client.js";
+import { getRateLimitProviderName } from "../../redis/rate-limit-redis.js";
+import { getInfrastructureStatuses } from "../../infrastructure/status.js";
 
 export const healthFullRouter = Router();
 
-healthFullRouter.get("/", (_req, res) => {
+healthFullRouter.get("/", async (_req, res) => {
   const db = getDatabase();
   let dbOk = true;
   try {
@@ -30,6 +34,12 @@ healthFullRouter.get("/", (_req, res) => {
 
   const dbProvider = getDbProvider();
   const providerInfo = dbProvider.info();
+  let postgresReachable = providerInfo.provider === "postgres" ? providerInfo.reachable : null;
+  if (dbProvider instanceof PostgresProvider) {
+    postgresReachable = await dbProvider.pingAsync();
+  }
+
+  const redisReachable = await pingRedis();
 
   const tvCount = (
     db.prepare("SELECT COUNT(*) as c FROM tv_devices").get() as { c: number }
@@ -70,18 +80,57 @@ healthFullRouter.get("/", (_req, res) => {
   const sessionStore = getSessionStoreStatus();
   const rateLimitStatus = getRateLimitProviderStatus();
   const siemStatus = getSiemExportStatus();
+  const infrastructure = await getInfrastructureStatuses();
+
+  const mqttStatus =
+    process.env.MQTT_SUBSCRIBER_ENABLED === "true"
+      ? "ok"
+      : process.env.MQTT_MOCK_MODE === "true"
+        ? "mock"
+        : "standby";
+
+  const memFreePct = (os.freemem() / os.totalmem()) * 100;
 
   res.json({
     status: dbOk ? "ok" : "degraded",
     phase: config.rc1Phase,
     db_provider: providerInfo.provider,
-    postgres_reachable: providerInfo.provider === "postgres" ? providerInfo.reachable : null,
-    redis_reachable: isRedisReachable(),
+    postgres: {
+      reachable: postgresReachable,
+      configured: config.dbProvider === "postgres",
+    },
+    redis: {
+      reachable: redisReachable,
+      provider: getRateLimitProviderName(),
+    },
+    mqtt: {
+      status: mqttStatus,
+      url: config.mqtt.url,
+      subscriberEnabled: process.env.MQTT_SUBSCRIBER_ENABLED === "true",
+    },
+    tv: {
+      status: tvPairing > 10 ? "busy" : "ok",
+      registered: tvCount,
+      paired: pairedTv,
+      pairingActive: tvPairing,
+    },
+    qnap: {
+      status: getQnapMode() === "real" && isQnapSmbConfigured() ? "real-ready" : "mock",
+      mode: getQnapMode(),
+    },
+    disk: { status: memFreePct < 10 ? "low" : "ok", memoryFreePercent: Math.round(memFreePct) },
+    memory: {
+      status: os.loadavg()[0]! > os.cpus().length * 2 ? "high-load" : "ok",
+      loadAvg: os.loadavg()[0],
+    },
+    postgres_reachable: postgresReachable,
+    redis_reachable: redisReachable,
     session_store: sessionStore,
     rate_limit_provider: getRateLimitProviderName(),
     signature_check_enabled: config.security.signatureCheckEnabled,
     replay_protection_enabled: config.security.replayProtectionEnabled,
     siem_export_status: siemStatus,
+    infrastructure,
     components: {
       server: { status: "ok", port: config.port, nodeEnv: config.nodeEnv },
       database: {
@@ -90,7 +139,7 @@ healthFullRouter.get("/", (_req, res) => {
         provider: providerInfo.provider,
       },
       mqtt: {
-        status: process.env.MQTT_SUBSCRIBER_ENABLED === "true" ? "enabled" : "standby",
+        status: mqttStatus,
         url: config.mqtt.url,
         mockMode: process.env.MQTT_MOCK_MODE === "true",
         tlsRecommended: true,

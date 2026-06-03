@@ -31,7 +31,7 @@
     </div>
 
     <div class="demo-banner">
-      <strong>Phase 181–200</strong> — Production Security & Database Foundation —
+      <strong>Phase 201–220</strong> — Production Infrastructure Foundation —
       <span id="demo-status">読込中…</span>
       <button class="btn" id="btn-demo-start" type="button">デモ開始</button>
       <button class="btn secondary" id="btn-demo-stop" type="button">停止</button>
@@ -63,6 +63,7 @@
         <button type="button" data-panel="tv">TV</button>
         <button type="button" data-panel="recovery">Recovery</button>
         <button type="button" data-panel="health">Health Monitor</button>
+        <button type="button" data-panel="infrastructure">Infrastructure</button>
         <button type="button" data-panel="security">Security</button>
         <button type="button" data-panel="cameras">Demo Camera</button>
       </aside>
@@ -156,10 +157,17 @@
         <section id="panel-health" class="ops-panel card">
           <h2>Health Monitor</h2>
           <div class="health-grid" id="health-grid"></div>
+          <p style="margin-top:0.5rem;font-size:0.9rem"><a href="/api/db/status" target="_blank">DB Status API</a></p>
           <p style="margin-top:1rem">
             <a href="/api/reports/operations?format=csv" id="link-report-csv">運用レポート CSV</a> ·
             <a href="/api/reports/operations?format=json" id="link-report-json">JSON</a>
           </p>
+        </section>
+
+        <section id="panel-infrastructure" class="ops-panel card">
+          <h2>Infrastructure</h2>
+          <p>VPS 投入前の DB / Redis / MQTT / Node-RED / TV / QNAP / PostgreSQL 状態</p>
+          <div class="health-grid" id="infrastructure-grid"></div>
         </section>
 
         <section id="panel-security" class="ops-panel card">

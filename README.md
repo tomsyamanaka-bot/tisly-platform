@@ -3,6 +3,31 @@
 TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。  
 三菱電機 **FX 系** PLC と **GX Works2 / GX Works3** を想定しています。
 
+## TiSLY Platform — Production Infrastructure Foundation（Phase 201–220）
+
+**VPS 投入前提の本番基盤** — PostgreSQL Pool、Redis、本番 2FA（otplib）、SIEM マルチプロバイダ、TV 証明書プレースホルダ、Infrastructure ヘルス。
+
+| 領域 | パス / URL |
+|------|------------|
+| PostgreSQL | `server/src/db/postgres/` · `GET /api/db/status` |
+| SQLite→PG 移行 | `npm run migrate:sqlite-to-postgres` |
+| Redis | `server/src/redis/` · `RATE_LIMIT_PROVIDER=redis` |
+| 2FA 本番 | `POST /api/auth/2fa/*` · `REQUIRE_2FA=true` |
+| SIEM | `SIEM_PROVIDER=none\|loki\|elastic\|syslog` |
+| TV Security | `docs/tv_security.md` |
+| Infrastructure | `/operations` Infrastructure タブ · `/api/health` |
+| テスト | `server/test/postgres.test.ts` · `redis.test.ts` · `2fa.test.ts` · `health.test.ts` |
+
+```bash
+cd server && npm install && npm run build && npm run test
+cd tv-app && npx tsc --noEmit
+# http://localhost:3080/operations — Infrastructure タブ
+```
+
+**VPS 投入前**: PostgreSQL / Redis / MQTT TLS / `REQUIRE_2FA` / SIEM エンドポイントを `.env` で設定。
+
+---
+
 ## TiSLY Platform — Production Security & Database Foundation（Phase 181–200）
 
 **Security Hardened RC1 → 本番運用基盤** — PostgreSQL 準備、ingest 冪等性、HMAC 署名、Replay 対策、Session revoke、2FA/SIEM/WAF 準備。

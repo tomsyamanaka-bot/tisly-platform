@@ -1,5 +1,16 @@
--- TiSLY Platform — PostgreSQL schema (Phase 181-200)
--- Apply: psql -f schema.postgres.sql && psql -f indexes.postgres.sql
+-- TiSLY Platform — PostgreSQL schema (Phase 201-220)
+-- Apply: npm run db:migrate (DB_PROVIDER=postgres) or psql -f schema.postgres.sql
+
+CREATE TABLE IF NOT EXISTS schema_migrations (
+  version TEXT PRIMARY KEY,
+  applied_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS platform_settings (
+  key TEXT PRIMARY KEY,
+  value_json JSONB,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
 
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
@@ -37,6 +48,8 @@ CREATE TABLE IF NOT EXISTS tv_devices (
   status TEXT DEFAULT 'pending',
   settings_json JSONB,
   revoked_at TIMESTAMPTZ,
+  certificate_fingerprint TEXT,
+  device_certificate_placeholder TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );

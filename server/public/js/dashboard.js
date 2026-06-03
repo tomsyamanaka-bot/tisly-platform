@@ -12,7 +12,22 @@ mountSiteSelector("site-selector").catch(console.error);
 async function loadDashboard() {
   const data = await apiGet("/api/dashboard");
   const s = data.summary;
+  const infra = data.infrastructureHealth ?? [];
+  const infraHtml = infra.length
+    ? `<div class="card" style="grid-column:1/-1">
+        <h2>Infrastructure Health</h2>
+        <div style="display:flex;flex-wrap:wrap;gap:0.75rem">
+          ${infra
+            .map(
+              (c) =>
+                `<span class="badge ${c.status === "GREEN" ? "ok" : c.status === "RED" ? "alarm" : "warning"}">${c.name}: ${c.status}</span>`
+            )
+            .join("")}
+        </div>
+      </div>`
+    : "";
   document.getElementById("summary").innerHTML = `
+    ${infraHtml}
     <div class="card stat"><div class="value">${s.siteCount ?? 0}</div><div class="label">現場数</div></div>
     <div class="card stat"><div class="value">${s.deviceCount}</div><div class="label">接続機器</div></div>
     <div class="card stat"><div class="value" style="color:var(--tisly-alarm)">${s.anomalyCount ?? 0}</div><div class="label">異常（24h）</div></div>

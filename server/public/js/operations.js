@@ -215,6 +215,12 @@ async function loadSocNoc(mode) {
   }
 }
 
+function statusClass(s) {
+  if (s === "GREEN" || s === "ok") return "ok";
+  if (s === "RED" || s === "error") return "alarm";
+  return "degraded";
+}
+
 async function loadHealth() {
   const data = await apiGet("/api/health");
   const el = document.getElementById("health-grid");
@@ -225,11 +231,36 @@ async function loadHealth() {
       ([name, c]) =>
         `<div class="card health-card">
           <h3>${name}</h3>
-          <p class="status-${c.status === "ok" ? "ok" : "degraded"}">${c.status}</p>
+          <p class="status-${statusClass(c.status)}">${c.status}</p>
           <p style="font-size:0.85rem;color:var(--tisly-muted)">${JSON.stringify(c)}</p>
         </div>`
     )
     .join("");
+}
+
+async function loadInfrastructure() {
+  const [health, dbStatus] = await Promise.all([
+    apiGet("/api/health"),
+    apiGet("/api/db/status"),
+  ]);
+  const el = document.getElementById("infrastructure-grid");
+  if (!el) return;
+  const items = health.infrastructure ?? [];
+  el.innerHTML = items
+    .map(
+      (c) =>
+        `<div class="card health-card">
+          <h3>${c.name}</h3>
+          <p class="status-${statusClass(c.status)}">${c.status}</p>
+          <p style="font-size:0.85rem;color:var(--tisly-muted)">${c.detail}</p>
+        </div>`
+    )
+    .join("");
+  el.innerHTML += `<div class="card health-card">
+    <h3>DB API</h3>
+    <p class="status-${dbStatus.reachable ? "ok" : "alarm"}">${dbStatus.provider}</p>
+    <p style="font-size:0.85rem;color:var(--tisly-muted)">tables: ${dbStatus.table_count ?? "—"} · migration: ${dbStatus.migration ?? "—"}</p>
+  </div>`;
 }
 
 async function loadSites() {
@@ -428,6 +459,7 @@ async function refreshAll() {
     loadReplay(),
     loadAnalytics(),
     loadHealth(),
+    loadInfrastructure(),
     loadSites(),
     loadTv(),
     loadRecoveryOps(),

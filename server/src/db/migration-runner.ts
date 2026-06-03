@@ -6,6 +6,9 @@ import { config } from "../config.js";
 import { getDatabase } from "./database.js";
 import { runMigrations } from "./migrate.js";
 import type { DbProviderType } from "./db-provider.js";
+import { pingPostgres } from "./postgres/pool.js";
+import { pgQuery } from "./postgres/query.js";
+import { getAppliedMigrations, recordMigration } from "./postgres/migration-version.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -36,22 +39,51 @@ export function runSqliteMigrations(db: Database.Database = getDatabase()): Migr
   return { provider: "sqlite", applied, pending: [], ok: true };
 }
 
-export function runPostgresMigrations(): MigrationStatus {
-  // TODO: connect pg Pool, apply postgres/schema.postgres.sql + indexes.postgres.sql
+export async function runPostgresMigrations(): Promise<MigrationStatus> {
   const postgresDir = path.join(__dirname, "postgres");
+  const files = ["schema.postgres.sql", "indexes.postgres.sql"];
   const pending: string[] = [];
-  for (const file of ["schema.postgres.sql", "indexes.postgres.sql"]) {
-    if (fs.existsSync(path.join(postgresDir, file))) pending.push(file);
+  const applied: string[] = [];
+
+  if (!(await pingPostgres())) {
+    for (const file of files) {
+      if (fs.existsSync(path.join(postgresDir, file))) pending.push(file);
+    }
+    return { provider: "postgres", applied, pending, ok: false };
   }
-  return {
-    provider: "postgres",
-    applied: [],
-    pending,
-    ok: false,
-  };
+
+  const already = new Set(await getAppliedMigrations());
+
+  for (const file of files) {
+    const full = path.join(postgresDir, file);
+    if (!fs.existsSync(full)) continue;
+    if (already.has(file)) {
+      applied.push(file);
+      continue;
+    }
+    const sql = fs.readFileSync(full, "utf-8");
+    const statements = sql
+      .split(";")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0 && !s.startsWith("--"));
+    for (const statement of statements) {
+      await pgQuery(statement);
+    }
+    await recordMigration(file);
+    applied.push(file);
+  }
+
+  return { provider: "postgres", applied, pending, ok: pending.length === 0 };
 }
 
 export function runMigrationsForProvider(): MigrationStatus {
+  if (config.dbProvider === "postgres") {
+    return { provider: "postgres", applied: [], pending: [], ok: false };
+  }
+  return runSqliteMigrations();
+}
+
+export async function runMigrationsForProviderAsync(): Promise<MigrationStatus> {
   if (config.dbProvider === "postgres") {
     return runPostgresMigrations();
   }

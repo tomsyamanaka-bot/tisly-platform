@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import {
-  isReplay,
-  recordReplay,
+  isReplayAsync,
+  recordReplayAsync,
   recordReplayBlocked,
 } from "./replay-protection.js";
 
@@ -25,12 +25,13 @@ export function requireReplayProtection(
     return;
   }
 
-  if (isReplay(signature, eventId, timestamp ?? undefined)) {
-    recordReplayBlocked();
-    res.status(409).json({ error: "Replay detected", replay: true });
-    return;
-  }
-
-  recordReplay(signature, eventId, timestamp ?? undefined);
-  next();
+  void (async () => {
+    if (await isReplayAsync(signature, eventId, timestamp ?? undefined)) {
+      recordReplayBlocked();
+      res.status(409).json({ error: "Replay detected", replay: true });
+      return;
+    }
+    await recordReplayAsync(signature, eventId, timestamp ?? undefined);
+    next();
+  })();
 }

@@ -13,10 +13,24 @@ export function getSignatureErrorCount(): number {
   return getPlatformSetting<{ count: number }>("security:signature-errors")?.count ?? 0;
 }
 
-export function getRateLimitProviderStatus(): { provider: string; redisReachable: boolean } {
-  const provider = process.env.RATE_LIMIT_PROVIDER ?? "memory";
+import { pingRedis } from "../redis/redis-client.js";
+import { config } from "../config.js";
+
+export async function getRateLimitProviderStatusAsync(): Promise<{
+  provider: string;
+  redisReachable: boolean;
+}> {
+  const provider = config.rateLimitProvider;
   return {
     provider,
-    redisReachable: false, // TODO: ping Redis when RATE_LIMIT_PROVIDER=redis
+    redisReachable: provider === "redis" ? await pingRedis() : false,
+  };
+}
+
+export function getRateLimitProviderStatus(): { provider: string; redisReachable: boolean } {
+  const provider = config.rateLimitProvider;
+  return {
+    provider,
+    redisReachable: false,
   };
 }

@@ -10,10 +10,11 @@
     "dev": "tsx watch src/index.ts",
     "db:init": "tsx src/db/init.ts",
     "demo": "tsx src/demo/run-demo.ts",
-    "test": "tsx --test test/e2e.test.ts test/security.test.ts test/production-security.test.ts",
+    "test": "tsx --test test/e2e.test.ts test/security.test.ts test/production-security.test.ts test/postgres.test.ts test/redis.test.ts test/2fa.test.ts test/health.test.ts",
     "db:migrate": "tsx src/db/migrate-cli.ts migrate",
     "db:status": "tsx src/db/migrate-cli.ts status",
-    "db:backup": "tsx src/db/migrate-cli.ts backup"
+    "db:backup": "tsx src/db/migrate-cli.ts backup",
+    "migrate:sqlite-to-postgres": "tsx src/db/migration/run-sqlite-to-postgres.ts"
   },
   "engines": {
     "node": ">=20"
@@ -23,14 +24,20 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "ioredis": "^5.4.2",
     "mqtt": "^5.10.3",
     "nodemailer": "^6.9.16",
+    "otplib": "^12.0.1",
+    "pg": "^8.13.1",
+    "qrcode": "^1.5.4",
     "uuid": "^11.0.3",
     "web-push": "^3.6.7",
     "ws": "^8.18.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",
+    "@types/pg": "^8.11.10",
+    "@types/qrcode": "^1.5.5",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.2",

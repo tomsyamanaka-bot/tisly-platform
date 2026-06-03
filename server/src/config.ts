@@ -69,7 +69,7 @@ export const config = {
     password: env("QNAP_PASSWORD"),
     basePath: env("QNAP_BASE_PATH", "/TiSLY"),
   },
-  rc1Phase: "181-200-production-security",
+  rc1Phase: "201-220-production-infrastructure",
   get dbProvider() {
     return (env("DB_PROVIDER", "sqlite") as "sqlite" | "postgres");
   },
@@ -111,6 +111,32 @@ export const config = {
     },
     get sessionExpiresMinutes() {
       return Number(env("SESSION_EXPIRES_MINUTES", "480"));
+    },
+    get require2fa() {
+      return env("REQUIRE_2FA", "false") === "true";
+    },
+  },
+  siem: {
+    get provider() {
+      return (env("SIEM_PROVIDER", "none") as "none" | "loki" | "elastic" | "syslog");
+    },
+    lokiUrl: env("SIEM_LOKI_URL"),
+    elasticUrl: env("SIEM_ELASTIC_URL"),
+    elasticIndex: env("SIEM_ELASTIC_INDEX", "tisly-security"),
+    syslogHost: env("SIEM_SYSLOG_HOST", "127.0.0.1"),
+    syslogPort: Number(env("SIEM_SYSLOG_PORT", "514")),
+  },
+  tv: {
+    get certPinningEnabled() {
+      return env("TV_CERT_PINNING_ENABLED", "false") === "true";
+    },
+  },
+  infrastructure: {
+    get vpsLabel() {
+      return env("VPS_LABEL", "ConoHa VPS");
+    },
+    get nodeRedUrl() {
+      return env("NODE_RED_URL", "");
     },
   },
 };

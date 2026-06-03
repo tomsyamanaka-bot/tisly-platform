@@ -21,6 +21,7 @@ import { provisioningRouter } from "./api/routes/provisioning.js";
 import { tenantsRouter } from "./api/routes/tenants.js";
 import { reportsRouter } from "./api/routes/reports.js";
 import { healthFullRouter } from "./api/routes/health-full.js";
+import { dbRouter } from "./api/routes/db.js";
 import { notificationRulesRouter } from "./api/routes/notification-rules.js";
 import { securityRouter } from "./api/routes/security.js";
 import { requireAdminAuth } from "./auth/auth-middleware.js";
@@ -64,6 +65,7 @@ export function createApp(): express.Application {
 
   app.use("/api/tv", tvRouter);
   app.use("/api/health", healthFullRouter);
+  app.use("/api/db", dbRouter);
 
   app.get("/setup", (_req, res) => {
     res.sendFile(path.join(publicDir, "setup.html"));
@@ -113,7 +115,7 @@ export function createApp(): express.Application {
       status: "ok",
       service: "tisly-notification-platform",
       phase: config.rc1Phase,
-      platform: "production-security-foundation",
+      platform: "production-infrastructure-foundation",
       demoMode: config.demoMode,
       features: [
         "admin-jwt-auth",
@@ -122,10 +124,13 @@ export function createApp(): express.Application {
         "ingest-idempotency",
         "hmac-event-signature",
         "replay-protection",
-        "redis-rate-limit-ready",
-        "totp-2fa-ready",
-        "siem-export",
+        "postgres-pool-reconnect",
+        "redis-rate-limit-replay-cache",
+        "totp-2fa-otplib",
+        "siem-loki-elastic-syslog",
         "db-provider-sqlite-postgres",
+        "sqlite-to-postgres-migrate",
+        "infrastructure-health-tab",
         "ingest-secret-validation",
         "audit-log-enhanced",
         "secret-rotation",

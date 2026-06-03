@@ -4,6 +4,8 @@ process.env.INGEST_SECRET = "test-ingest-secret";
 process.env.SESSION_EXPIRES_MINUTES = "60";
 process.env.REPLAY_PROTECTION_ENABLED = "true";
 process.env.SIGNATURE_CHECK_ENABLED = "false";
+process.env.REQUIRE_2FA = "false";
+process.env.RATE_LIMIT_PROVIDER = "memory";
 
 import { hashPassword } from "../src/auth/password.js";
 
@@ -16,11 +18,13 @@ import { createApp } from "../src/app.js";
 import { getDatabase } from "../src/db/database.js";
 import { resetRateLimitsForTests } from "../src/security/rate-limit.js";
 import { resetReplayStoreForTests } from "../src/security/replay-protection.js";
+import { disableTotp } from "../src/auth/totp.js";
 import { hmacSha256 } from "../src/security/event-signature.js";
 
 const app = createApp();
 
 async function loginToken(): Promise<string> {
+  resetRateLimitsForTests();
   const res = await request(app)
     .post("/api/auth/login")
     .send({ username: "admin", password: "testpass" });
@@ -39,6 +43,7 @@ before(() => {
   resetRateLimitsForTests();
   resetReplayStoreForTests();
   getDatabase();
+  disableTotp("admin-default");
 });
 
 describe("TiSLY Production Security (Phase 181-200)", () => {

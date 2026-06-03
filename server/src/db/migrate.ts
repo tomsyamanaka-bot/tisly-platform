@@ -15,6 +15,14 @@ const TV_DEVICE_COLUMNS: Array<{ name: string; ddl: string }> = [
   { name: "paired_at", ddl: "ALTER TABLE tv_devices ADD COLUMN paired_at TEXT" },
   { name: "status", ddl: "ALTER TABLE tv_devices ADD COLUMN status TEXT DEFAULT 'pending'" },
   { name: "revoked_at", ddl: "ALTER TABLE tv_devices ADD COLUMN revoked_at TEXT" },
+  {
+    name: "certificate_fingerprint",
+    ddl: "ALTER TABLE tv_devices ADD COLUMN certificate_fingerprint TEXT",
+  },
+  {
+    name: "device_certificate_placeholder",
+    ddl: "ALTER TABLE tv_devices ADD COLUMN device_certificate_placeholder TEXT",
+  },
 ];
 
 const AUDIT_COLUMNS: Array<{ name: string; ddl: string }> = [

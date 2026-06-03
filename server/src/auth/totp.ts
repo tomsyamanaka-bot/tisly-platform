@@ -1,15 +1,21 @@
 import { randomBytes } from "crypto";
+import { authenticator } from "otplib";
+import QRCode from "qrcode";
 import { getDatabase } from "../db/database.js";
+import { config } from "../config.js";
 
 export interface TotpSetupResult {
   secret: string;
   otpauthUrl: string;
-  mock: true;
+  qrDataUrl: string;
+  mock: false;
 }
 
-/** Mock TOTP — Phase 201+ replace with otplib/speakeasy */
-export function setupTotp(userId: string): TotpSetupResult {
-  const secret = randomBytes(10).toString("base64url");
+authenticator.options = { window: 1 };
+
+export function setupTotp(userId: string): Promise<TotpSetupResult> {
+  const secret = authenticator.generateSecret();
+  const otpauthUrl = authenticator.keyuri(userId, "TiSLY", secret);
   getDatabase()
     .prepare(
       `INSERT INTO totp_secrets (user_id, secret, enabled)
@@ -17,25 +23,24 @@ export function setupTotp(userId: string): TotpSetupResult {
        ON CONFLICT(user_id) DO UPDATE SET secret = excluded.secret, enabled = 0`
     )
     .run(userId, secret);
-  return {
+  return QRCode.toDataURL(otpauthUrl).then((qrDataUrl) => ({
     secret,
-    otpauthUrl: `otpauth://totp/TiSLY:${userId}?secret=${secret}&issuer=TiSLY`,
-    mock: true,
-  };
+    otpauthUrl,
+    qrDataUrl,
+    mock: false as const,
+  }));
 }
 
-export function verifyTotp(userId: string, code: string): boolean {
+export function verifyTotpCode(userId: string, code: string): boolean {
   const row = getDatabase()
     .prepare(`SELECT secret, enabled FROM totp_secrets WHERE user_id = ?`)
     .get(userId) as { secret: string; enabled: number } | undefined;
   if (!row) return false;
-  // Mock: accept code "000000" or last 6 chars of secret base32-ish
-  const mockCode = row.secret.slice(-6).replace(/[^0-9]/g, "0").padStart(6, "0").slice(-6);
-  return code === "000000" || code === mockCode;
+  return authenticator.verify({ token: code, secret: row.secret });
 }
 
 export function enableTotp(userId: string, code: string): boolean {
-  if (!verifyTotp(userId, code)) return false;
+  if (!verifyTotpCode(userId, code)) return false;
   getDatabase()
     .prepare(
       `UPDATE totp_secrets SET enabled = 1, verified_at = datetime('now') WHERE user_id = ?`
@@ -44,8 +49,10 @@ export function enableTotp(userId: string, code: string): boolean {
   return true;
 }
 
-export function disableTotp(userId: string): void {
+export function disableTotp(userId: string, code?: string): boolean {
+  if (code && !verifyTotpCode(userId, code)) return false;
   getDatabase().prepare(`DELETE FROM totp_secrets WHERE user_id = ?`).run(userId);
+  return true;
 }
 
 export function isTotpEnabled(userId: string): boolean {
@@ -53,4 +60,18 @@ export function isTotpEnabled(userId: string): boolean {
     .prepare(`SELECT enabled FROM totp_secrets WHERE user_id = ?`)
     .get(userId) as { enabled: number } | undefined;
   return Boolean(row?.enabled);
+}
+
+export function isRequire2fa(): boolean {
+  return process.env.REQUIRE_2FA === "true";
+}
+
+export function adminRequires2fa(userId: string): boolean {
+  if (!isRequire2fa()) return false;
+  return userId === "admin-default" || userId === config.auth.adminUsername;
+}
+
+/** @deprecated use verifyTotpCode */
+export function verifyTotp(userId: string, code: string): boolean {
+  return verifyTotpCode(userId, code);
 }

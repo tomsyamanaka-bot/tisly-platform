@@ -10,7 +10,9 @@ import { getNotificationService } from "../../notification/notification-service.
 import { broadcast } from "../../ws/hub.js";
 import { requireAdminAuth, type AuthedRequest } from "../../auth/auth-middleware.js";
 import { auditContextFromRequest, logAudit } from "../../provisioning/audit-log.js";
-import { rateLimit } from "../../security/rate-limit.js";
+import { createRateLimit } from "../../security/rate-limit-redis.js";
+import { cacheSet, cacheGet } from "../../redis/cache.js";
+import { createHash } from "crypto";
 
 export const tvRouter = Router();
 
@@ -18,14 +20,14 @@ const PAIRING_TTL_MS = 10 * 60 * 1000;
 const MAX_PAIRING_ATTEMPTS = 5;
 const PAIRING_LOCK_MS = 15 * 60 * 1000;
 
-const pairingStartLimiter = rateLimit({
+const pairingStartLimiter = createRateLimit({
   keyPrefix: "tv-pairing-start",
   max: 20,
   windowMs: 15 * 60 * 1000,
   keyFn: (req) => (req.body as { deviceId?: string })?.deviceId ?? "",
 });
 
-const pairingConfirmLimiter = rateLimit({
+const pairingConfirmLimiter = createRateLimit({
   keyPrefix: "tv-pairing-confirm",
   max: 30,
   windowMs: 15 * 60 * 1000,
@@ -44,6 +46,8 @@ interface TvDeviceRow {
   status: string | null;
   settings_json: string | null;
   revoked_at: string | null;
+  certificate_fingerprint: string | null;
+  device_certificate_placeholder: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -74,6 +78,8 @@ function formatTvDevice(row: TvDeviceRow) {
       row.pairing_expires_at &&
       new Date(row.pairing_expires_at).getTime() > Date.now()
     ),
+    certificateFingerprint: row.certificate_fingerprint ?? undefined,
+    deviceCertificatePlaceholder: row.device_certificate_placeholder ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -92,6 +98,13 @@ function findTvRow(param: string): TvDeviceRow | undefined {
 
 function generatePairingCode(): string {
   return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+function normalizeCertFingerprint(input?: string): string | null {
+  if (!input?.trim()) return null;
+  const trimmed = input.trim().replace(/[^a-fA-F0-9:]/g, "");
+  if (trimmed.length < 8) return null;
+  return createHash("sha256").update(trimmed).digest("hex");
 }
 
 function expireStalePairingCodes(): void {
@@ -177,6 +190,7 @@ tvRouter.post("/pairing/start", pairingStartLimiter, (req, res) => {
 
   const code = generatePairingCode();
   const expiresAt = new Date(Date.now() + PAIRING_TTL_MS).toISOString();
+  void cacheSet(`tv:pairing:${code}`, logicalId, PAIRING_TTL_MS / 1000);
   const tenant = tenantId ?? config.defaultTenantId;
   const db = getDatabase();
 
@@ -251,7 +265,7 @@ tvRouter.post("/pairing/start", pairingStartLimiter, (req, res) => {
   });
 });
 
-tvRouter.post("/pairing/confirm", pairingConfirmLimiter, (req, res) => {
+tvRouter.post("/pairing/confirm", pairingConfirmLimiter, async (req, res) => {
   expireStalePairingCodes();
   const {
     pairingCode,
@@ -262,6 +276,8 @@ tvRouter.post("/pairing/confirm", pairingConfirmLimiter, (req, res) => {
     deviceId,
     displayName,
     tenantId,
+    certificateFingerprint,
+    deviceCertificate,
   } = req.body as Record<string, string | undefined>;
 
   const entered = (pairingCode ?? code ?? "").trim();
@@ -333,8 +349,18 @@ tvRouter.post("/pairing/confirm", pairingConfirmLimiter, (req, res) => {
     }
   }
 
+  const cachedDevice = await cacheGet(`tv:pairing:${entered}`);
+  if (cachedDevice && cachedDevice !== row.device_id) {
+    res.status(409).json({ error: "ペアリングコードの整合性エラー" });
+    return;
+  }
+
   const pairedAt = new Date().toISOString();
   const tenant = tenantId ?? row.tenant_id ?? config.defaultTenantId;
+  const certFp = normalizeCertFingerprint(certificateFingerprint);
+  const certPlaceholder =
+    deviceCertificate?.trim() ||
+    (config.tv.certPinningEnabled ? "pending-device-cert" : null);
 
   db.prepare(
     `UPDATE tv_devices SET
@@ -347,6 +373,8 @@ tvRouter.post("/pairing/confirm", pairingConfirmLimiter, (req, res) => {
        paired_at = ?,
        status = 'paired',
        last_seen_at = ?,
+       certificate_fingerprint = COALESCE(?, certificate_fingerprint),
+       device_certificate_placeholder = COALESCE(?, device_certificate_placeholder),
        updated_at = datetime('now')
      WHERE id = ?`
   ).run(
@@ -356,6 +384,8 @@ tvRouter.post("/pairing/confirm", pairingConfirmLimiter, (req, res) => {
     displayName ?? null,
     pairedAt,
     pairedAt,
+    certFp,
+    certPlaceholder,
     row.id
   );
 

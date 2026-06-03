@@ -2,6 +2,9 @@ process.env.JWT_SECRET = "test-jwt-secret-32-characters-long!!";
 process.env.ADMIN_USERNAME = "admin";
 process.env.INGEST_SECRET = "test-ingest-secret";
 process.env.SESSION_EXPIRES_MINUTES = "60";
+process.env.REQUIRE_2FA = "false";
+process.env.RATE_LIMIT_PROVIDER = "memory";
+process.env.NODE_ENV = "test";
 
 import { hashPassword } from "../src/auth/password.js";
 
@@ -13,10 +16,13 @@ import request from "supertest";
 import { createApp } from "../src/app.js";
 import { getDatabase } from "../src/db/database.js";
 import { resetRateLimitsForTests } from "../src/security/rate-limit.js";
+import { disableTotp } from "../src/auth/totp.js";
 
 const app = createApp();
 
 async function loginToken(): Promise<string> {
+  resetRateLimitsForTests();
+  disableTotp("admin-default");
   const res = await request(app)
     .post("/api/auth/login")
     .send({ username: "admin", password: "testpass" });
@@ -27,6 +33,12 @@ async function loginToken(): Promise<string> {
 before(() => {
   resetRateLimitsForTests();
   getDatabase();
+  disableTotp("admin-default");
+});
+
+after(() => {
+  resetRateLimitsForTests();
+  disableTotp("admin-default");
 });
 
 describe("TiSLY Security (Phase 161-180)", () => {

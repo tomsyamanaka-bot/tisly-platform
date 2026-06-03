@@ -4,7 +4,6 @@ import {
   isAuthConfigured,
   loginAdmin,
   logoutAdmin,
-  resolveSession,
 } from "../../auth/admin-auth.js";
 import { requireAdminAuth, type AuthedRequest } from "../../auth/auth-middleware.js";
 import { createRateLimit } from "../../security/rate-limit-redis.js";
@@ -14,10 +13,11 @@ import {
 } from "../../auth/session-store.js";
 import {
   setupTotp,
-  verifyTotp,
+  verifyTotpCode,
   enableTotp,
   disableTotp,
   isTotpEnabled,
+  isRequire2fa,
 } from "../../auth/totp.js";
 import { logAudit } from "../../provisioning/audit-log.js";
 
@@ -25,7 +25,7 @@ export const authRouter = Router();
 
 const loginLimiter = createRateLimit({
   keyPrefix: "auth-login",
-  max: 10,
+  max: process.env.NODE_ENV === "test" ? 1000 : 10,
   windowMs: 15 * 60 * 1000,
 });
 
@@ -37,7 +37,11 @@ authRouter.post("/login", loginLimiter, (req, res) => {
     });
     return;
   }
-  const { username, password } = req.body as { username?: string; password?: string };
+  const { username, password, totpCode } = req.body as {
+    username?: string;
+    password?: string;
+    totpCode?: string;
+  };
   if (!username || !password) {
     res.status(400).json({ error: "username and password required" });
     return;
@@ -45,11 +49,15 @@ authRouter.post("/login", loginLimiter, (req, res) => {
   const session = loginAdmin(username, password, {
     ip: req.ip,
     userAgent: req.header("user-agent") ?? undefined,
+    totpCode,
   });
   if (!session) {
+    const needs2fa = isRequire2fa() || isTotpEnabled("admin-default");
     res.status(401).json({
-      error: "Invalid credentials",
+      error: needs2fa && !totpCode ? "TOTP code required" : "Invalid credentials",
       failedAttempts: getFailedLoginCount(username),
+      require2fa: isRequire2fa(),
+      totpRequired: needs2fa,
     });
     return;
   }
@@ -82,6 +90,7 @@ authRouter.get("/me", requireAdminAuth, (req: AuthedRequest, res) => {
     user: req.admin,
     authConfigured: isAuthConfigured(),
     totpEnabled: req.admin ? isTotpEnabled(req.admin.userId) : false,
+    require2fa: isRequire2fa(),
   });
 });
 
@@ -89,6 +98,7 @@ authRouter.get("/status", (_req, res) => {
   res.json({
     configured: isAuthConfigured(),
     failedLoginCount: getFailedLoginCount(),
+    require2fa: isRequire2fa(),
   });
 });
 
@@ -116,16 +126,30 @@ authRouter.post("/sessions/:id/revoke", requireAdminAuth, (req: AuthedRequest, r
   res.json({ ok: true, revoked: sessionId });
 });
 
-authRouter.post("/2fa/setup", requireAdminAuth, (req: AuthedRequest, res) => {
+authRouter.post("/2fa/setup", requireAdminAuth, async (req: AuthedRequest, res) => {
   if (!req.admin) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const result = setupTotp(req.admin.userId);
-  res.json({ ok: true, ...result, note: "Mock TOTP — use code 000000 to verify in PoC" });
+  const result = await setupTotp(req.admin.userId);
+  res.json({ ok: true, ...result });
 });
 
 authRouter.post("/2fa/verify", requireAdminAuth, (req: AuthedRequest, res) => {
+  const code = (req.body as { code?: string }).code;
+  if (!req.admin || !code) {
+    res.status(400).json({ error: "code required" });
+    return;
+  }
+  const ok = verifyTotpCode(req.admin.userId, code);
+  if (!ok) {
+    res.status(401).json({ error: "Invalid TOTP code" });
+    return;
+  }
+  res.json({ ok: true, verified: true });
+});
+
+authRouter.post("/2fa/enable", requireAdminAuth, (req: AuthedRequest, res) => {
   const code = (req.body as { code?: string }).code;
   if (!req.admin || !code) {
     res.status(400).json({ error: "code required" });
@@ -144,6 +168,11 @@ authRouter.post("/2fa/disable", requireAdminAuth, (req: AuthedRequest, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  disableTotp(req.admin.userId);
+  const code = (req.body as { code?: string }).code;
+  const ok = disableTotp(req.admin.userId, code);
+  if (!ok) {
+    res.status(401).json({ error: "Invalid TOTP code — required when 2FA is enabled" });
+    return;
+  }
   res.json({ ok: true, enabled: false });
 });

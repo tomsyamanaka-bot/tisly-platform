@@ -1,36 +1,45 @@
-process.env.JWT_SECRET = "e2e-test-jwt-secret-32-characters-long!!";
+process.env.JWT_SECRET = "test-jwt-secret-32-characters-long!!";
 process.env.ADMIN_USERNAME = "admin";
 process.env.INGEST_SECRET = "e2e-ingest-secret";
+process.env.REQUIRE_2FA = "false";
+process.env.RATE_LIMIT_PROVIDER = "memory";
+process.env.NODE_ENV = "test";
 
 import { hashPassword } from "../src/auth/password.js";
 
-process.env.ADMIN_PASSWORD_HASH = hashPassword("e2epass");
+process.env.ADMIN_PASSWORD_HASH = hashPassword("testpass");
 
 import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import request from "supertest";
 import { createApp } from "../src/app.js";
 import { getDatabase } from "../src/db/database.js";
+import { disableTotp } from "../src/auth/totp.js";
+import { resetRateLimitsForTests } from "../src/security/rate-limit.js";
 
 const app = createApp();
 
 async function adminHeaders(): Promise<Record<string, string>> {
+  resetRateLimitsForTests();
+  disableTotp("admin-default");
   const login = await request(app)
     .post("/api/auth/login")
-    .send({ username: "admin", password: "e2epass" });
+    .send({ username: "admin", password: "testpass" });
   assert.equal(login.status, 200);
   return { Authorization: `Bearer ${login.body.token}` };
 }
 
 before(() => {
   getDatabase();
+  disableTotp("admin-default");
+  resetRateLimitsForTests();
 });
 
 describe("TiSLY E2E API (Phase 161-180 Security RC1)", () => {
-  it("GET /health returns phase 181-200-production-security", async () => {
+  it("GET /health returns phase 201-220-production-infrastructure", async () => {
     const res = await request(app).get("/health");
     assert.equal(res.status, 200);
-    assert.equal(res.body.phase, "181-200-production-security");
+    assert.equal(res.body.phase, "201-220-production-infrastructure");
   });
 
   it("GET /api/sites/templates requires auth", async () => {
