@@ -8,7 +8,8 @@ import { getDatabase } from "./db/database.js";
 import { startMqttSubscriber } from "./mqtt/mqtt-subscriber.js";
 import { getNotificationService } from "./notification/notification-service.js";
 import { startRecoveryEngine } from "./recovery/recovery-engine.js";
-import { registerWsClient } from "./ws/hub.js";
+import { handleWsClientMessage, registerWsClient } from "./ws/hub.js";
+import { startLiveOperationsMockPush } from "./toms/live-push-mock.js";
 import { startBackupScheduler } from "./backup/backup-scheduler.js";
 import { startWorkers } from "./workers/worker-runner.js";
 
@@ -28,7 +29,12 @@ const wss = new WebSocketServer({ server, path: "/ws" });
 
 wss.on("connection", (socket) => {
   registerWsClient(socket);
+  socket.on("message", (data) => {
+    handleWsClientMessage(socket, String(data));
+  });
 });
+
+startLiveOperationsMockPush();
 
 server.listen(config.port, config.host, () => {
   console.log(

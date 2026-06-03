@@ -2,6 +2,7 @@ import { v4 as uuid } from "uuid";
 import { getDatabase } from "../db/database.js";
 import { getBusinessProject } from "../business/business-store.js";
 import { appendProjectTimeline } from "./project-timeline.js";
+import { transitionTomsWorkflow } from "./workflow-engine.js";
 
 export interface ProjectMaintenanceCase {
   caseId: string;
@@ -43,6 +44,26 @@ function rowToCase(r: Record<string, unknown>): ProjectMaintenanceCase {
     createdAt: String(r.created_at),
     updatedAt: String(r.updated_at),
   };
+}
+
+export function listMaintenanceDueSoon(daysAhead = 14): Array<
+  ProjectMaintenanceCase & { daysUntil: number; overdue: boolean }
+> {
+  const today = new Date();
+  const rows = getDatabase()
+    .prepare(
+      `SELECT * FROM toms_project_maintenance WHERE status != 'closed'
+       ORDER BY scheduled_date ASC`
+    )
+    .all() as Array<Record<string, unknown>>;
+  return rows
+    .map((r) => {
+      const c = rowToCase(r);
+      const sched = new Date(c.scheduledDate);
+      const daysUntil = Math.ceil((sched.getTime() - today.getTime()) / 86400000);
+      return { ...c, daysUntil, overdue: daysUntil < 0 };
+    })
+    .filter((c) => c.daysUntil <= daysAhead);
 }
 
 export function listProjectMaintenance(projectId: string): ProjectMaintenanceCase[] {
@@ -121,6 +142,14 @@ export function closeProjectMaintenance(
     detail: "保守案件を完了しました",
     actor: actor ?? "system",
   });
+  try {
+    transitionTomsWorkflow(projectId, "closed", {
+      actor: actor ?? "system",
+      note: "保守完了により案件をクローズ",
+    });
+  } catch {
+    /* workflow may already be closed */
+  }
   return rowToCase(
     getDatabase()
       .prepare(`SELECT * FROM toms_project_maintenance WHERE case_id = ?`)

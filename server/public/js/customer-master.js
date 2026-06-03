@@ -39,6 +39,13 @@ async function loadDetail(id) {
   panel.innerHTML = `
     <h2>${c.name}</h2>
     <p>${c.company} · ${c.email} · ${c.phone}<br>${c.address}</p>
+    ${c.kpi ? `<div class="kpi-inline">
+      <span>売上 ¥${c.kpi.revenue.toLocaleString()}</span>
+      <span>粗利 ¥${c.kpi.grossProfit.toLocaleString()}</span>
+      <span>未請求 ${c.kpi.uninvoiced}</span>
+      <span>未入金 ${c.kpi.unpaid}</span>
+      <span>異常 ${c.kpi.anomalyCount}</span>
+    </div>` : ""}
     <h3>現場一覧</h3>
     <ul>${(c.sites || []).map((s) => `<li>${s.name} — ${s.address}</li>`).join("") || "<li>—</li>"}</ul>
     <h3>案件一覧 (${c.projects?.length ?? 0})</h3>

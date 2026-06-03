@@ -9,6 +9,17 @@ export interface DrawingDeviceRef {
   posY?: number;
 }
 
+export type DrawingDiffChangeType = "added" | "removed" | "moved";
+
+export interface DrawingDiffItem {
+  changeType: DrawingDiffChangeType;
+  device: DrawingDeviceRef;
+  from?: DrawingDeviceRef;
+  to?: DrawingDeviceRef;
+  posX?: number;
+  posY?: number;
+}
+
 export interface DrawingDiffResult {
   survey: DrawingDeviceRef[];
   construction: DrawingDeviceRef[];
@@ -16,6 +27,7 @@ export interface DrawingDiffResult {
   added: DrawingDeviceRef[];
   removed: DrawingDeviceRef[];
   moved: Array<{ from: DrawingDeviceRef; to: DrawingDeviceRef }>;
+  items: DrawingDiffItem[];
 }
 
 function parseDevicesJson(raw: string | null | undefined): DrawingDeviceRef[] {
@@ -79,5 +91,28 @@ export function compareDrawingVersions(projectId: string): DrawingDiffResult {
     if (!targetMap.has(k)) removed.push(b);
   }
 
-  return { survey, construction, as_built, added, removed, moved };
+  const items: DrawingDiffItem[] = [
+    ...added.map((device) => ({
+      changeType: "added" as const,
+      device,
+      posX: device.posX,
+      posY: device.posY,
+    })),
+    ...removed.map((device) => ({
+      changeType: "removed" as const,
+      device,
+      posX: device.posX,
+      posY: device.posY,
+    })),
+    ...moved.map((m) => ({
+      changeType: "moved" as const,
+      device: m.to,
+      from: m.from,
+      to: m.to,
+      posX: m.to.posX,
+      posY: m.to.posY,
+    })),
+  ];
+
+  return { survey, construction, as_built, added, removed, moved, items };
 }

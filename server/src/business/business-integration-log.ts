@@ -1,6 +1,7 @@
 import { v4 as uuid } from "uuid";
 import { getDatabase } from "../db/database.js";
 import { appendProjectTimeline } from "../toms/project-timeline.js";
+import { enqueueIntegrationRetry, type SendMode } from "./integration-retry-queue.js";
 
 export type IntegrationLogType =
   | "calendar"
@@ -72,6 +73,21 @@ export function logBusinessIntegration(input: {
   );
   if (input.projectId) {
     syncIntegrationLogToTimeline(log);
+    if (input.status === "error" && ["gmail", "qnap", "pdf"].includes(input.type)) {
+      let sendMode: SendMode = "mockOnly";
+      if (input.request && typeof input.request === "object") {
+        const req = input.request as Record<string, unknown>;
+        if (req.realSend) sendMode = "realSend";
+        else if (req.dryRun) sendMode = "dryRun";
+      }
+      enqueueIntegrationRetry({
+        projectId: input.projectId,
+        channel: input.type as "gmail" | "qnap" | "pdf",
+        payload: { provider: input.provider, request: input.request },
+        sendMode,
+        errorMessage: input.errorMessage,
+      });
+    }
   }
   return log;
 }

@@ -40,6 +40,14 @@ import {
 } from "../../toms/maintenance-flow.js";
 import { compareDrawingVersions } from "../../toms/drawing-diff.js";
 import { buildProjectFloorStack } from "../../toms/floor-stack-project.js";
+import {
+  listIntegrationRetryQueue,
+  retryIntegrationQueueItem,
+  cancelIntegrationRetry,
+  getIntegrationRetryLog,
+} from "../../business/integration-retry-queue.js";
+import { saveAiEstimateFeedback, listAiEstimateFeedback } from "../../toms/ai-estimate-feedback.js";
+import { getWsClientCount } from "../../ws/hub.js";
 
 export const tomsRouter = Router();
 
@@ -57,6 +65,70 @@ tomsRouter.get("/kpi", (_req, res) => {
 tomsRouter.get("/hub/operations", (req: AuthedRequest, res) => {
   const code = (req.admin?.customerCode ?? "TOMS001").toUpperCase();
   res.json(buildHubOperations(code));
+});
+
+tomsRouter.get("/live/ws-status", (_req, res) => {
+  res.json({
+    path: "/ws",
+    clients: getWsClientCount(),
+    mockPush: true,
+    mqttReady: true,
+  });
+});
+
+tomsRouter.get("/projects/:projectId/retry-queue", (req, res) => {
+  const projectId = String(req.params.projectId);
+  if (!getBusinessProject(projectId)) {
+    res.status(404).json({ error: "project not found" });
+    return;
+  }
+  res.json({ items: listIntegrationRetryQueue({ projectId }) });
+});
+
+tomsRouter.post("/projects/:projectId/retry-queue/:itemId/retry", (req, res) => {
+  const item = retryIntegrationQueueItem(String(req.params.itemId));
+  if (!item) {
+    res.status(404).json({ error: "not found" });
+    return;
+  }
+  res.json({ item });
+});
+
+tomsRouter.post("/projects/:projectId/retry-queue/:itemId/cancel", (req, res) => {
+  const item = cancelIntegrationRetry(String(req.params.itemId));
+  if (!item) {
+    res.status(404).json({ error: "not found" });
+    return;
+  }
+  res.json({ item });
+});
+
+tomsRouter.get("/projects/:projectId/retry-queue/:itemId/log", (req, res) => {
+  const item = getIntegrationRetryLog(String(req.params.itemId));
+  if (!item) {
+    res.status(404).json({ error: "not found" });
+    return;
+  }
+  res.json({ item });
+});
+
+tomsRouter.post("/projects/:projectId/ai-estimate-v3/feedback", (req, res) => {
+  try {
+    const record = saveAiEstimateFeedback({
+      projectId: String(req.params.projectId),
+      estimateV3Id: req.body.estimateV3Id,
+      action: req.body.action,
+      notes: req.body.notes,
+      candidate: req.body.candidate,
+    });
+    res.status(201).json({ feedback: record });
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : String(e) });
+  }
+});
+
+tomsRouter.get("/projects/:projectId/ai-estimate-v3/feedback", (req, res) => {
+  res.json({ feedback: listAiEstimateFeedback(String(req.params.projectId)) });
 });
 
 tomsRouter.post("/push/dispatch", async (_req, res) => {

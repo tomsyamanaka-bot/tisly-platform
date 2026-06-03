@@ -1,5 +1,6 @@
 import { getDatabase } from "../db/database.js";
 import { countProjectsByStatus, listTodaySchedules } from "../business/business-store.js";
+import { listMaintenanceDueSoon } from "./maintenance-flow.js";
 import { expandStatusAliases } from "../business/business-status.js";
 import type { BusinessProjectStatus } from "../business/business-types.js";
 
@@ -17,7 +18,11 @@ export interface HubOperationsSnapshot {
   abnormalDevices: number;
   pendingSync: number;
   aiEstimatePending: number;
+  maintenanceDueSoon: number;
+  maintenanceOverdue: number;
+  retryQueuePending: number;
   schedules: ReturnType<typeof listTodaySchedules>;
+  maintenanceDueList: ReturnType<typeof listMaintenanceDueSoon>;
 }
 
 export function buildHubOperations(customerCode: string): HubOperationsSnapshot {
@@ -59,14 +64,10 @@ export function buildHubOperations(customerCode: string): HubOperationsSnapshot 
     expandStatusAliases(["invoice_created"]) as BusinessProjectStatus[]
   );
 
-  const maintenanceDue = (
-    getDatabase()
-      .prepare(
-        `SELECT COUNT(*) as c FROM maintenance_cases
-         WHERE customer_code = ? AND status IN ('open','in_progress')`
-      )
-      .get(code) as { c: number }
-  ).c;
+  const dueList = listMaintenanceDueSoon(14);
+  const maintenanceDueSoon = dueList.filter((d) => !d.overdue).length;
+  const maintenanceOverdue = dueList.filter((d) => d.overdue).length;
+  const maintenanceDue = maintenanceDueSoon + maintenanceOverdue;
 
   const devices = getDatabase()
     .prepare(
@@ -103,6 +104,20 @@ export function buildHubOperations(customerCode: string): HubOperationsSnapshot 
       .get() as { c: number }
   ).c;
 
+  let retryQueuePending = 0;
+  try {
+    retryQueuePending = (
+      getDatabase()
+        .prepare(
+          `SELECT COUNT(*) as c FROM business_integration_retry_queue
+           WHERE status IN ('pending','retrying','failed')`
+        )
+        .get() as { c: number }
+    ).c;
+  } catch {
+    retryQueuePending = 0;
+  }
+
   const aiEstimatePending = (
     getDatabase()
       .prepare(
@@ -127,6 +142,10 @@ export function buildHubOperations(customerCode: string): HubOperationsSnapshot 
     abnormalDevices,
     pendingSync,
     aiEstimatePending,
+    maintenanceDueSoon,
+    maintenanceOverdue,
+    retryQueuePending,
     schedules,
+    maintenanceDueList: dueList.slice(0, 10),
   };
 }

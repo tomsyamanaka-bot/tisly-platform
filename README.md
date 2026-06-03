@@ -3,6 +3,26 @@
 TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。  
 三菱電機 **FX 系** PLC と **GX Works2 / GX Works3** を想定しています。
 
+## TiSLY Platform — Live Operations & PRO Remote Polish（Phase 701–740）
+
+**WebSocket ライブ更新 · フロア自動ジャンプ · Gmail/QNAP 復旧キュー · PDF v1 · AI feedback · KPI 多テナント**
+
+| 領域 | パス / API |
+|------|------------|
+| WebSocket | `wss://host/ws` · `GET /api/toms/live/ws-status` |
+| 復旧キュー | `GET/POST .../retry-queue` · `/api/business/retry-queue` |
+| AI feedback | `POST .../ai-estimate-v3/feedback` |
+| PDF v1 | `docs/pdf_template_standard.md` · `TISLY_PDF_PUPPETEER=true` |
+| PWA SW | `/service-worker.js` v701 · `docs/pwa_cache_strategy.md` |
+| テスト | `server/test/business-phase701.test.ts` |
+| ドキュメント | `docs/phase701_740_status.md` 他 |
+
+```bash
+cd server && npm run build && npx tsc --noEmit && npm run test
+```
+
+---
+
 ## TiSLY Platform — Project Dashboard v2 & Command Center（Phase 661–700）
 
 **毎日使う司令塔ダッシュボード · Floor Stack · ライブ設備 · 通知 · 保守 · KPI · CRM**

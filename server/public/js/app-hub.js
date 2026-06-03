@@ -75,7 +75,8 @@ async function loadHubApps() {
         <a class="hub-workflow-card" href="/business/settings">同期待ち <strong>${ops.pendingSync ?? 0}</strong></a>
         <a class="hub-workflow-card" href="/business/projects">AI見積待ち <strong>${ops.aiEstimatePending ?? 0}</strong></a>
         <div class="hub-workflow-card">未請求 <strong>${ops.uninvoiced}</strong></div>
-        <div class="hub-workflow-card">保守期限 <strong>${ops.maintenanceDue}</strong></div>
+        <a class="hub-workflow-card${ops.maintenanceOverdue ? " warn-card" : ""}" href="/maintenance">保守期限 <strong>${ops.maintenanceDue}</strong>${ops.maintenanceOverdue ? ` <span class="warn">(${ops.maintenanceOverdue} 期限切れ)</span>` : ""}</a>
+        <a class="hub-workflow-card" href="/business/projects">再送キュー <strong>${ops.retryQueuePending ?? 0}</strong></a>
         <div class="hub-workflow-card">ESP異常 <strong>${ops.espAnomaly}</strong></div>
         <div class="hub-workflow-card">Shelly異常 <strong>${ops.shellyAnomaly}</strong></div>
       </div>

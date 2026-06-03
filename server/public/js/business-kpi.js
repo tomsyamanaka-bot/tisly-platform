@@ -15,7 +15,8 @@ async function loadKpi() {
     ["案件数", k.projectCount],
     ["未請求", k.uninvoiced],
     ["未入金", k.unpaid],
-    ["保守契約", k.maintenanceContracts],
+    ["保守件数", k.maintenanceCases ?? k.maintenanceContracts],
+    ["異常件数", k.anomalyCount ?? 0],
     ["平均施工日数", k.avgConstructionDays],
     ["見積承認率", `${k.estimateApprovalRate}%`],
   ];
@@ -29,6 +30,29 @@ async function loadKpi() {
         `<tr><td>${m.month}</td><td>¥${m.revenue.toLocaleString()}</td><td>¥${m.grossProfit.toLocaleString()}</td><td>${m.projectCount}</td></tr>`
     )
     .join("");
+
+  const custEl = document.getElementById("kpi-by-customer");
+  if (custEl) {
+    custEl.querySelector("tbody").innerHTML = (k.byCustomer || [])
+      .slice(0, 20)
+      .map(
+        (c) =>
+          `<tr><td>${c.customerName}</td><td>¥${c.revenue.toLocaleString()}</td><td>¥${c.grossProfit.toLocaleString()}</td>
+          <td>${c.uninvoiced}</td><td>${c.unpaid}</td><td>${c.maintenanceCount}</td><td>${c.anomalyCount}</td></tr>`
+      )
+      .join("");
+  }
+  const siteEl = document.getElementById("kpi-by-site");
+  if (siteEl) {
+    siteEl.querySelector("tbody").innerHTML = (k.bySite || [])
+      .slice(0, 20)
+      .map(
+        (s) =>
+          `<tr><td>${s.siteName}</td><td>${s.address}</td><td>${s.projectCount}</td>
+          <td>¥${s.revenue.toLocaleString()}</td><td>${s.anomalyCount}</td></tr>`
+      )
+      .join("");
+  }
 }
 
 loadKpi().catch(console.error);

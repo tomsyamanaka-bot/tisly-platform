@@ -372,6 +372,7 @@ function migratePhase421(database: Database.Database): void {
   migratePhase601(database);
   migratePhase621(database);
   migratePhase661(database);
+  migratePhase701(database);
 }
 
 function migratePhase621(database: Database.Database): void {
@@ -563,6 +564,55 @@ function migratePhase661(database: Database.Database): void {
     )
     .run(
       "migration:phase661_command_center",
+      JSON.stringify({ at: new Date().toISOString() })
+    );
+}
+
+function migratePhase701(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:phase701_live_operations") as { value_json: string } | undefined;
+  if (marker) return;
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS business_integration_retry_queue (
+      id TEXT PRIMARY KEY,
+      project_id TEXT,
+      channel TEXT NOT NULL CHECK (channel IN ('gmail','qnap','pdf')),
+      status TEXT NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending','retrying','success','failed','cancelled')),
+      payload_json TEXT NOT NULL DEFAULT '{}',
+      send_mode TEXT NOT NULL DEFAULT 'mockOnly',
+      attempt_count INTEGER NOT NULL DEFAULT 0,
+      last_error TEXT,
+      log_json TEXT NOT NULL DEFAULT '[]',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES business_projects(id) ON DELETE SET NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_integration_retry_status
+      ON business_integration_retry_queue(status, updated_at);
+
+    CREATE TABLE IF NOT EXISTS ai_estimate_feedback (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      estimate_v3_id TEXT,
+      action TEXT NOT NULL CHECK (action IN ('adopted','revised','rejected')),
+      notes TEXT DEFAULT '',
+      candidate_json TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES business_projects(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_ai_estimate_feedback_project
+      ON ai_estimate_feedback(project_id, created_at);
+  `);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run(
+      "migration:phase701_live_operations",
       JSON.stringify({ at: new Date().toISOString() })
     );
 }

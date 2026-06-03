@@ -4,6 +4,14 @@ const TOKEN_KEY = "tisly_token";
 const projectId = window.location.pathname.split("/project/")[1]?.split("/")[0] ?? "";
 
 const PIN_COLORS = { ONLINE: "#3fb950", WARNING: "#d29922", OFFLINE: "#f85149" };
+const DIFF_COLORS = { added: "#1f6feb", removed: "#da3633", moved: "#d29922" };
+
+let ws = null;
+let wsReconnectTimer = null;
+let userInteracting = false;
+let interactionPauseUntil = 0;
+let lastDashboard = null;
+let blinkTimer = null;
 
 async function api(path, opts = {}) {
   const token = sessionStorage.getItem(TOKEN_KEY);
@@ -23,7 +31,64 @@ function statusClass(s) {
   return "status-offline";
 }
 
-function renderFloorStack(stack) {
+function setWsStatus(state, detail = "") {
+  const el = document.getElementById("dash-ws-status");
+  if (!el) return;
+  el.className = `ws-badge ws-${state}`;
+  const labels = {
+    connecting: "接続中…",
+    online: "Live",
+    offline: "オフライン",
+    reconnecting: "再接続…",
+  };
+  el.textContent = `${labels[state] || state}${detail ? ` · ${detail}` : ""}`;
+}
+
+function isAutoJumpPaused() {
+  return userInteracting || Date.now() < interactionPauseUntil;
+}
+
+function pauseAutoJump(ms = 30000) {
+  interactionPauseUntil = Date.now() + ms;
+}
+
+function bindUserInteractionPause() {
+  const stack = document.getElementById("dash-floor-stack");
+  if (!stack || stack.dataset.pauseBound) return;
+  stack.dataset.pauseBound = "1";
+  const pause = () => {
+    userInteracting = true;
+    pauseAutoJump(45000);
+    clearTimeout(stack._pauseTimer);
+    stack._pauseTimer = setTimeout(() => {
+      userInteracting = false;
+    }, 2000);
+  };
+  stack.addEventListener("wheel", pause, { passive: true });
+  stack.addEventListener("touchstart", pause, { passive: true });
+  stack.addEventListener("mousedown", pause);
+  stack.addEventListener("keydown", pause);
+}
+
+function jumpToFloorTier(tier, opts = {}) {
+  if (!tier) return;
+  const target = document.getElementById(`floor-${tier}`);
+  if (!target) return;
+  if (opts.force || !isAutoJumpPaused()) {
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+  if (opts.blink) {
+    target.querySelectorAll(".floor-pin").forEach((pin) => {
+      pin.classList.add("pin-blink");
+    });
+    clearTimeout(blinkTimer);
+    blinkTimer = setTimeout(() => {
+      target.querySelectorAll(".floor-pin").forEach((pin) => pin.classList.remove("pin-blink"));
+    }, 10000);
+  }
+}
+
+function renderFloorStack(stack, jumpOpts) {
   const el = document.getElementById("dash-floor-stack");
   if (!stack?.layers?.length) {
     el.innerHTML = "<p>フロアデータがありません</p>";
@@ -35,7 +100,7 @@ function renderFloorStack(stack) {
       const pinHtml = pins
         .map(
           (p) =>
-            `<span class="floor-pin" style="left:${p.posX}%;top:${p.posY}%;background:${PIN_COLORS[p.status] || PIN_COLORS.OFFLINE}" title="${p.label || p.pinType} (${p.status})">${(p.pinType || "?").slice(0, 2)}</span>`
+            `<span class="floor-pin" data-pin-id="${p.id || p.deviceId || ""}" style="left:${p.posX}%;top:${p.posY}%;background:${PIN_COLORS[p.status] || PIN_COLORS.OFFLINE}" title="${p.label || p.pinType} (${p.status})">${(p.pinType || "?").slice(0, 2)}</span>`
         )
         .join("");
       return `<div class="floor-layer${layer.scrollTarget ? " anomaly" : ""}" id="floor-${layer.tier}" data-tier="${layer.tier}">
@@ -44,9 +109,10 @@ function renderFloorStack(stack) {
       </div>`;
     })
     .join("");
-  if (stack.firstAnomalyTier) {
-    const target = document.getElementById(`floor-${stack.firstAnomalyTier}`);
-    target?.scrollIntoView({ behavior: "smooth", block: "center" });
+  bindUserInteractionPause();
+  const tier = jumpOpts?.tier ?? stack.firstAnomalyTier;
+  if (tier) {
+    jumpToFloorTier(tier, { blink: jumpOpts?.blink, force: jumpOpts?.force });
   }
 }
 
@@ -74,7 +140,7 @@ function renderNotifications(notifications) {
     ${(notifications || [])
       .map(
         (n) =>
-          `<div class="notif-item">
+          `<div class="notif-item${n.severity === "critical" ? " critical" : ""}">
             <div><strong>${n.title}</strong><br><small>${n.body}</small></div>
             ${!n.acknowledged ? `<button type="button" data-ack="${n.id}">確認</button>` : "<small>確認済</small>"}
           </div>`
@@ -90,6 +156,25 @@ function renderNotifications(notifications) {
   });
 }
 
+function scrollDiffPin(item) {
+  const tier = lastDashboard?.floorStack?.firstAnomalyTier ?? "perimeter";
+  jumpToFloorTier(tier, { force: true, blink: true });
+  const layer = document.getElementById(`floor-${tier}`);
+  if (!layer || item.posX == null) return;
+  let pin = layer.querySelector(`[data-pin-id="${item.device?.id}"]`);
+  if (!pin) {
+    pin = document.createElement("span");
+    pin.className = "floor-pin diff-highlight";
+    pin.style.left = `${(item.posX ?? 0.5) * 100}%`;
+    pin.style.top = `${(item.posY ?? 0.5) * 100}%`;
+    pin.style.background = DIFF_COLORS[item.changeType] || "#fff";
+    pin.title = item.device?.label || "";
+    layer.querySelector(".floor-canvas")?.appendChild(pin);
+  }
+  pin.classList.add("pin-blink");
+  setTimeout(() => pin.classList.remove("pin-blink"), 10000);
+}
+
 function renderDrawingDiff(diff) {
   const el = document.getElementById("dash-drawing-diff");
   if (!diff) {
@@ -98,48 +183,139 @@ function renderDrawingDiff(diff) {
   }
   const tabs = ["survey", "construction", "as_built"];
   const labels = { survey: "現調", construction: "施工", as_built: "完成" };
+  const items = diff.items || [];
   el.innerHTML = `
     <div class="diff-tabs">${tabs.map((t, i) => `<button type="button" data-tab="${t}" class="${i === 0 ? "active" : ""}">${labels[t]}</button>`).join("")}</div>
     <div id="diff-list"></div>
-    <h3 style="margin-top:1rem">差分一覧</h3>
-    <p><strong>追加</strong>: ${(diff.added || []).map((d) => d.label).join(", ") || "—"}</p>
-    <p><strong>削除</strong>: ${(diff.removed || []).map((d) => d.label).join(", ") || "—"}</p>
-    <p><strong>位置変更</strong>: ${(diff.moved || []).map((m) => `${m.from.label}→${m.to.label}`).join(", ") || "—"}</p>`;
+    <h3 style="margin-top:1rem">差分一覧 v2</h3>
+    <ul class="diff-items-list">
+      ${items
+        .map(
+          (item) =>
+            `<li><button type="button" class="diff-item-btn diff-${item.changeType}" data-change="${item.changeType}">
+              <span class="diff-dot" style="background:${DIFF_COLORS[item.changeType]}"></span>
+              ${item.changeType === "moved" ? `${item.from?.label}→${item.to?.label}` : item.device?.label}
+              <small>(${item.changeType})</small>
+            </button></li>`
+        )
+        .join("") || "<li>差分なし</li>"}
+    </ul>`;
   const listEl = document.getElementById("diff-list");
   function showTab(t) {
     el.querySelectorAll(".diff-tabs button").forEach((b) => {
       b.classList.toggle("active", b.dataset.tab === t);
     });
-    const items = diff[t] || [];
-    listEl.innerHTML = items.length
-      ? `<ul>${items.map((d) => `<li>${d.label} (${d.assetType})</li>`).join("")}</ul>`
+    const tabItems = (diff[t] || []).map((d) => ({
+      changeType: "added",
+      device: d,
+      posX: d.posX,
+      posY: d.posY,
+    }));
+    listEl.innerHTML = tabItems.length
+      ? `<ul>${tabItems.map((d) => `<li>${d.device.label}</li>`).join("")}</ul>`
       : "<p>機器なし</p>";
   }
   el.querySelectorAll(".diff-tabs button").forEach((b) => {
     b.addEventListener("click", () => showTab(b.dataset.tab));
   });
+  el.querySelectorAll(".diff-item-btn").forEach((btn, idx) => {
+    btn.addEventListener("click", () => scrollDiffPin(items[idx]));
+  });
   showTab("survey");
+}
+
+function renderRetryQueue(items) {
+  const el = document.getElementById("dash-retry-queue");
+  if (!el) return;
+  const modeLabel = (m) =>
+    m === "realSend" ? "realSend" : m === "dryRun" ? "dryRun" : "mockOnly";
+  el.innerHTML = `<h2>Gmail / QNAP 復旧キュー</h2>
+    ${(items || [])
+      .map(
+        (it) =>
+          `<div class="retry-item">
+            <div><strong>${it.channel}</strong> · ${it.status} · <span class="send-mode">${modeLabel(it.sendMode)}</span>
+            <br><small>${it.lastError || "—"} · 試行 ${it.attemptCount}</small></div>
+            <div class="retry-actions">
+              ${it.status !== "success" && it.status !== "cancelled" ? `<button type="button" data-retry="${it.id}">再送</button>` : ""}
+              ${it.status !== "cancelled" ? `<button type="button" data-cancel="${it.id}">取消</button>` : ""}
+              <button type="button" data-log="${it.id}">ログ</button>
+            </div>
+          </div>`
+      )
+      .join("") || "<p>キューなし</p>"}`;
+  el.querySelectorAll("[data-retry]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      await api(`/api/toms/projects/${projectId}/retry-queue/${btn.dataset.retry}/retry`, {
+        method: "POST",
+      });
+      loadDashboard();
+    });
+  });
+  el.querySelectorAll("[data-cancel]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      await api(`/api/toms/projects/${projectId}/retry-queue/${btn.dataset.cancel}/cancel`, {
+        method: "POST",
+      });
+      loadDashboard();
+    });
+  });
+  el.querySelectorAll("[data-log]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const res = await api(`/api/toms/projects/${projectId}/retry-queue/${btn.dataset.log}/log`);
+      const body = await res.json();
+      alert((body.item?.log || []).map((l) => `${l.at}: ${l.message}`).join("\n") || "ログなし");
+    });
+  });
+}
+
+function renderAiEstimateSection(latest) {
+  const el = document.getElementById("dash-ai-estimate");
+  if (!el) return;
+  if (!latest) {
+    el.innerHTML = `<h2>AI見積 v3</h2><p>候補なし</p>
+      <button type="button" id="btn-ai-gen">候補を生成</button>`;
+  } else {
+    el.innerHTML = `<h2>AI見積 v3</h2>
+      <p>${latest.candidate?.recommended?.summary || latest.checklist?.join(" · ")}</p>
+      <div class="ai-feedback-btns">
+        <button type="button" data-feedback="adopted">採用</button>
+        <button type="button" data-feedback="revised">修正</button>
+        <button type="button" data-feedback="rejected">却下</button>
+      </div>`;
+  }
+  document.getElementById("btn-ai-gen")?.addEventListener("click", async () => {
+    await api(`/api/toms/projects/${projectId}/ai-estimate-v3`, { method: "POST" });
+    loadDashboard();
+  });
+  el.querySelectorAll("[data-feedback]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      await api(`/api/toms/projects/${projectId}/ai-estimate-v3/feedback`, {
+        method: "POST",
+        body: JSON.stringify({
+          action: btn.dataset.feedback,
+          estimateV3Id: latest?.id,
+          candidate: latest?.candidate?.recommended,
+        }),
+      });
+      loadDashboard();
+    });
+  });
 }
 
 function renderMaintenance(cases) {
   const el = document.getElementById("dash-maintenance");
   el.innerHTML = `${(cases || [])
-    .map(
-      (c) =>
-        `<div class="notif-item"><div><strong>${c.scheduledDate}</strong> ${c.content}<br>
-        <small>${c.assignee || "—"} · ${c.status} · 設備: ${(c.targetDevices || []).join(", ") || "—"}</small></div></div>`
-    )
+    .map((c) => {
+      const overdue = c.scheduledDate < new Date().toISOString().slice(0, 10) && c.status !== "closed";
+      return `<div class="notif-item${overdue ? " critical" : ""}"><div><strong>${c.scheduledDate}</strong> ${c.content}<br>
+        <small>${c.assignee || "—"} · ${c.status}${overdue ? " · 期限切れ" : ""} · 設備: ${(c.targetDevices || []).join(", ") || "—"}</small></div></div>`;
+    })
     .join("") || "<p>保守案件なし</p>"}`;
 }
 
-async function loadDashboard() {
-  if (!projectId) return;
-  const res = await api(`/api/toms/projects/${projectId}/dashboard`);
-  if (!res.ok) {
-    document.getElementById("dash-title").textContent = "案件が見つかりません";
-    return;
-  }
-  const data = await res.json();
+function applyDashboardData(data, jumpOpts) {
+  lastDashboard = data;
   const p = data.project;
   document.getElementById("dash-title").textContent = `${p.projectNo} ${p.title}`;
   document.getElementById("dash-state").textContent = `TOMS: ${data.tomsState} / ${p.status}`;
@@ -164,10 +340,11 @@ async function loadDashboard() {
     <p><a href="${data.links?.proRemote}">PRO Remote を開く</a></p>`;
 
   renderNotifications(data.notifications);
-  renderFloorStack(data.floorStack);
+  renderFloorStack(data.floorStack, jumpOpts);
   renderDevices(data.liveDevices);
   renderDrawingDiff(data.drawingDiff);
   renderMaintenance(data.maintenance);
+  renderAiEstimateSection(data.aiEstimateV3);
 
   const timeline = [...(data.timeline || [])];
   document.getElementById("dash-timeline").innerHTML = timeline
@@ -195,5 +372,95 @@ async function loadDashboard() {
     <a href="/customer-master">顧客台帳</a></p>`;
 }
 
+async function loadRetryQueue() {
+  const res = await api(`/api/toms/projects/${projectId}/retry-queue`);
+  if (res.ok) {
+    const body = await res.json();
+    renderRetryQueue(body.items);
+  }
+}
+
+async function loadAiEstimate() {
+  const res = await api(`/api/toms/projects/${projectId}/ai-estimate-v3/latest`);
+  if (res.ok) {
+    return res.json();
+  }
+  return null;
+}
+
+async function loadDashboard(jumpOpts) {
+  if (!projectId) return;
+  const res = await api(`/api/toms/projects/${projectId}/dashboard`);
+  if (!res.ok) {
+    document.getElementById("dash-title").textContent = "案件が見つかりません";
+    return;
+  }
+  const data = await res.json();
+  data.aiEstimateV3 = await loadAiEstimate();
+  applyDashboardData(data, jumpOpts);
+  await loadRetryQueue();
+}
+
+function connectWebSocket() {
+  if (!projectId) return;
+  const proto = location.protocol === "https:" ? "wss:" : "ws:";
+  const url = `${proto}//${location.host}/ws`;
+  setWsStatus("connecting");
+  if (ws) {
+    try {
+      ws.close();
+    } catch {
+      /* */
+    }
+  }
+  ws = new WebSocket(url);
+  ws.onopen = () => {
+    setWsStatus("online");
+    ws.send(JSON.stringify({ type: "subscribe", projectId }));
+  };
+  ws.onmessage = (ev) => {
+    try {
+      const msg = JSON.parse(ev.data);
+      if (msg.type === "heartbeat") return;
+      const payload = msg.payload || {};
+      if (payload.projectId && payload.projectId !== projectId) return;
+      if (payload.channel === "devices" && payload.devices) {
+        renderDevices(payload.devices);
+        if (payload.scrollTier) {
+          jumpToFloorTier(payload.scrollTier, {
+            blink: true,
+            force: msg.type === "alarm",
+          });
+        }
+      }
+      if (payload.channel === "notifications" && payload.notifications) {
+        renderNotifications(payload.notifications);
+      }
+      if (payload.channel === "timeline" && payload.entry) {
+        const ul = document.getElementById("dash-timeline");
+        const e = payload.entry;
+        const li = document.createElement("li");
+        li.innerHTML = `<strong>${e.title}</strong> <small>${e.createdAt}</small><br>${e.detail || ""}`;
+        ul.prepend(li);
+      }
+      if (payload.channel === "floor_alert" && payload.tier) {
+        jumpToFloorTier(payload.tier, {
+          blink: payload.blinkPins,
+          force: msg.type === "alarm",
+        });
+      }
+    } catch {
+      /* */
+    }
+  };
+  ws.onclose = () => {
+    setWsStatus("reconnecting");
+    clearTimeout(wsReconnectTimer);
+    wsReconnectTimer = setTimeout(connectWebSocket, 4000);
+  };
+  ws.onerror = () => setWsStatus("offline");
+}
+
 loadDashboard().catch(console.error);
+connectWebSocket();
 renderPwaTopbar("business", "案件司令塔");

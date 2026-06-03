@@ -4,6 +4,7 @@ import { listBusinessProjects, listCustomers } from "../business/business-store.
 import { listMapDevicesForCustomer } from "../site-builder/map-store.js";
 import { getCustomerByCode } from "../customer/customer-store.js";
 import type { BusinessProject } from "../business/business-types.js";
+import { buildCustomerKpi, type TomsKpiByCustomer } from "./toms-kpi.js";
 
 export interface CustomerMasterRecord {
   id: string;
@@ -26,6 +27,7 @@ export interface CustomerMasterDetail extends CustomerMasterRecord {
   maintenanceHistory: unknown[];
   devices: ReturnType<typeof listMapDevicesForCustomer>;
   notificationHistory: Array<{ id: string; title: string; kind: string; projectId: string }>;
+  kpi: TomsKpiByCustomer;
 }
 
 function parseSites(raw: string): Array<{ name: string; address: string }> {
@@ -169,8 +171,11 @@ export function getCustomerMaster(id: string): CustomerMasterDetail | null {
     }
   }
 
+  const kpi = buildCustomerKpi(bizId ?? base.id, base.name);
+
   return {
     ...base,
+    kpi,
     projects,
     constructionHistory: projects.filter((p) =>
       ["construction_scheduled", "construction_done", "paid", "closed"].includes(p.status)

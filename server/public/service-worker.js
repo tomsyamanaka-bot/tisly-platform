@@ -1,8 +1,12 @@
-/* TiSLY Multi PWA app shell — Phase 461–480 */
-const SW_VERSION = "tisly-pwa-v481";
-const OFFLINE_CACHE = "tisly-pwa-shell-v481";
+/* TiSLY Multi PWA — Phase 701 shared cache strategy */
+const SW_VERSION = "tisly-pwa-v701";
+const OFFLINE_CACHE = "tisly-pwa-shell-v701";
+const PRIORITY_CACHE = "tisly-pwa-priority-v701";
 const SHELL_URLS = [
   "/app-hub.html",
+  "/project-dashboard.html",
+  "/business-kpi.html",
+  "/customer-master.html",
   "/installer-mode.html",
   "/installer-home.html",
   "/install-guide.html",
@@ -25,6 +29,9 @@ const SHELL_URLS = [
   "/js/installer-i18n.js",
   "/js/tisly-pwa-shell.js",
   "/js/app-hub.js",
+  "/js/project-dashboard.js",
+  "/js/business-kpi.js",
+  "/js/customer-master.js",
   "/js/survey.js",
   "/js/maintenance.js",
   "/js/pro-remote-pwa.js",
@@ -40,9 +47,14 @@ const SHELL_URLS = [
   "/manifest-customer.webmanifest",
 ];
 
+const PRIORITY_URLS = ["/app-hub.html", "/offline-fallback.html"];
+
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(OFFLINE_CACHE).then((cache) => cache.addAll(SHELL_URLS).catch(() => {}))
+    Promise.all([
+      caches.open(PRIORITY_CACHE).then((c) => c.addAll(PRIORITY_URLS).catch(() => {})),
+      caches.open(OFFLINE_CACHE).then((cache) => cache.addAll(SHELL_URLS).catch(() => {})),
+    ])
   );
   self.skipWaiting();
 });
@@ -50,7 +62,11 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== OFFLINE_CACHE).map((k) => caches.delete(k)))
+      Promise.all(
+        keys
+          .filter((k) => k !== OFFLINE_CACHE && k !== PRIORITY_CACHE)
+          .map((k) => caches.delete(k))
+      )
     )
   );
   self.clients.claim();
@@ -67,8 +83,14 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith("/api/")) return;
   if (event.request.method !== "GET") return;
+  const isHubOrProject =
+    url.pathname.startsWith("/app") ||
+    url.pathname.startsWith("/project/") ||
+    url.pathname === "/business/kpi";
   event.respondWith(
-    caches.match(event.request).then((cached) => {
+    (isHubOrProject ? caches.match(event.request, { cacheName: PRIORITY_CACHE }) : null).then(
+      (priority) => priority || caches.match(event.request)
+    ).then((cached) => {
       if (cached) return cached;
       return fetch(event.request)
         .then((res) => {

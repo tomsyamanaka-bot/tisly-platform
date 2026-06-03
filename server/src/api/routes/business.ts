@@ -98,6 +98,13 @@ import {
   purgeIntegrationLogsOlderThan,
 } from "../../business/business-integration-log.js";
 import {
+  listIntegrationRetryQueue,
+  retryIntegrationQueueItem,
+  cancelIntegrationRetry,
+  getIntegrationRetryLog,
+  enqueueIntegrationRetry,
+} from "../../business/integration-retry-queue.js";
+import {
   assertRealSendAllowed,
   saveBusinessRealSendSettings,
 } from "../../business/business-real-send-guard.js";
@@ -1152,6 +1159,59 @@ businessRouter.post(
     res.json({ qnapPlan: plan, upload: result });
   }
 );
+
+businessRouter.get("/retry-queue", ...businessAuth, (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  const projectId = req.query.projectId ? String(req.query.projectId) : undefined;
+  res.json({
+    items: listIntegrationRetryQueue({
+      projectId,
+      limit: Number(req.query.limit ?? 50),
+    }),
+  });
+});
+
+businessRouter.post("/retry-queue/:itemId/retry", ...businessAuth, (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  const item = retryIntegrationQueueItem(String(req.params.itemId));
+  if (!item) {
+    res.status(404).json({ error: "not found" });
+    return;
+  }
+  res.json({ item });
+});
+
+businessRouter.post("/retry-queue/:itemId/cancel", ...businessAuth, (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  const item = cancelIntegrationRetry(String(req.params.itemId));
+  if (!item) {
+    res.status(404).json({ error: "not found" });
+    return;
+  }
+  res.json({ item });
+});
+
+businessRouter.get("/retry-queue/:itemId/log", ...businessAuth, (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  const item = getIntegrationRetryLog(String(req.params.itemId));
+  if (!item) {
+    res.status(404).json({ error: "not found" });
+    return;
+  }
+  res.json({ item });
+});
+
+businessRouter.post("/retry-queue/enqueue-mock", ...businessAuth, (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  const item = enqueueIntegrationRetry({
+    projectId: req.body.projectId,
+    channel: req.body.channel ?? "gmail",
+    payload: req.body.payload,
+    sendMode: req.body.sendMode ?? "mockOnly",
+    errorMessage: req.body.errorMessage ?? "mock failure",
+  });
+  res.status(201).json({ item });
+});
 
 businessRouter.get("/integration-logs", ...businessAuth, (req: AuthedRequest, res) => {
   if (!assertBusinessRole(req, res)) return;
