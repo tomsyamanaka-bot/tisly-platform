@@ -1,20 +1,33 @@
-# NFC デバイスプロビジョニング（placeholder）
+# NFC デバイスプロビジョニング（Phase 361–380）
 
-## 現状
+## 対応ブラウザ
 
-施工 PWA で **NFC UID 文字列**を手入力し claim します。
+`window.NDEFReader` が利用可能な場合（主に Android Chrome）:
+
+- 施工 PWA に **NFCタグを読む** ボタンを表示
+- 読み取った `serialNumber` を UID として claim
+
+非対応端末:
+
+- **NFC UID 手入力**（mock UID 可）
+
+## API
 
 ```
 POST /api/customer/:code/devices/nfc/claim
-{ "nfcUid": "04:A1:B2:C3", "siteId": "...", "floorId": "..." }
+{ "nfcUid": "04:A1:B2:C3", "siteId", "floorId", "deviceId?", ... }
 ```
 
-## 将来 TODO
+## ドライラン
 
-- Web NFC API（Android Chrome）
-- NTAG / Mifare UID と device_id のマッピングテーブル
-- タップで QR 相当の claim フロー
+ヘッダ `X-TiSLY-Dry-Run: 1` または PWA のドライラン — DB 更新なし、audit のみ。
 
 ## 実装
 
-`server/src/provisioning/nfc-provisioning.ts`
+- `server/src/provisioning/nfc-provisioning.ts`
+- `server/public/js/installer-mode.js` — `setupNfcUi()` / `readNfcTag()`
+
+## 将来
+
+- NTAG マッピングテーブル
+- タップ → QR 相当ワンショット claim

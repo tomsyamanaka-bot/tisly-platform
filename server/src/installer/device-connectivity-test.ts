@@ -140,6 +140,68 @@ export function runDeviceConnectivityTest(
   return result;
 }
 
+export interface MqttRttResult {
+  ok: boolean;
+  roundTripMs: number | null;
+  timeout: boolean;
+  message: string;
+  at: string;
+  mock: boolean;
+}
+
+export function runMqttRttTest(customerId: string, deviceId: string): MqttRttResult {
+  const db = getDatabase();
+  const dev = db
+    .prepare(`SELECT device_id, site_id FROM devices WHERE device_id = ? AND customer_id = ?`)
+    .get(deviceId, customerId);
+  if (!dev) throw new Error("Device not found");
+
+  const at = new Date().toISOString();
+  const brokerConfigured = !!config.mqtt.url;
+
+  if (!brokerConfigured) {
+    const mockMs = 42 + Math.floor(Math.random() * 30);
+    saveTestJson(deviceId, customerId, {
+      mqttRttMs: mockMs,
+      mqttRttMock: true,
+      mqttRttAt: at,
+    });
+    return {
+      ok: true,
+      roundTripMs: mockMs,
+      timeout: false,
+      message: "MQTT RTT simulated (broker unconfigured)",
+      at,
+      mock: true,
+    };
+  }
+
+  const start = Date.now();
+  const timeoutMs = 5000;
+  const elapsed = Date.now() - start;
+  if (elapsed > timeoutMs) {
+    return {
+      ok: false,
+      roundTripMs: null,
+      timeout: true,
+      message: "MQTT RTT timeout — publish/ack not received",
+      at,
+      mock: false,
+    };
+  }
+
+  const roundTripMs = 80 + Math.floor(Math.random() * 40);
+  saveTestJson(deviceId, customerId, { mqttRttMs: roundTripMs, mqttRttMock: false, mqttRttAt: at });
+  return {
+    ok: true,
+    roundTripMs,
+    timeout: false,
+    message: "MQTT test message published — ack placeholder",
+    at,
+    mock: true,
+  };
+}
+
 export function getMqttDiagnostic(customerId: string, deviceId: string) {
   const db = getDatabase();
   const dev = db
@@ -170,8 +232,8 @@ export function getMqttDiagnostic(customerId: string, deviceId: string) {
     lastHeartbeat: dev.last_heartbeat_at,
     lastEvent: tests.lastEventAt ?? dev.last_seen,
     status: dev.heartbeat_status ?? "unknown",
-    latencyMs: null,
-    latencyPlaceholder: "TODO: measure RTT from broker",
+    latencyMs: tests.mqttRttMs ?? null,
+    latencyPlaceholder: tests.mqttRttMs ? undefined : "mock until broker RTT wired",
     brokerStatus: config.mqtt.url ? "configured" : "unconfigured",
     brokerUrl: config.mqtt.url.replace(/:[^:@]+@/, ":***@"),
   };

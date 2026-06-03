@@ -3,6 +3,31 @@
 TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。  
 三菱電機 **FX 系** PLC と **GX Works2 / GX Works3** を想定しています。
 
+## TiSLY Platform — Field Installer Hardening（Phase 361–380）
+
+**QRカメラ · オフライン同期 · 完了PDF · ラベルCSV · MQTT RTT · mTLS準備 · Dry Run · 施工セッション**
+
+| 領域 | パス / URL |
+|------|------------|
+| QR カメラ | 施工 PWA QR タブ · `docs/qr_camera_scan.md` |
+| オフライン同期 | `POST .../install/sync` · `docs/offline_conflict_resolution.md` |
+| 完了レポート | `GET .../install/completion-report?format=html\|pdf` |
+| ラベル | `GET .../devices/labels.csv` · `.../:id/label.svg` |
+| MQTT RTT | `POST .../devices/:id/test/mqtt-rtt` |
+| mTLS placeholder | `server/src/provisioning/device-certificates.ts` |
+| Dry Run | ヘッダ `X-TiSLY-Dry-Run: 1` |
+| 施工セッション | `POST .../install/session/start\|complete` |
+| Map Undo/Redo | `/customer/:code/map` |
+| テスト | `server/test/installer-field-hardening.test.ts` |
+| ドキュメント | `docs/phase361_380_status.md` |
+
+```bash
+cd server && npm run build && npm run test
+cd tv-app && npx tsc --noEmit
+```
+
+---
+
 ## TiSLY Platform — Installer PWA, QR/NFC & Field Setup（Phase 341–360）
 
 **施工 PWA · QR プロビジョニング · NFC placeholder · Commissioning · MQTT 診断 · チェックリスト**

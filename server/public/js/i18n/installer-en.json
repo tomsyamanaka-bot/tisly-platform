@@ -1,0 +1,12 @@
+{
+  "app.title": "Field Install PWA",
+  "status.ready": "Installer PWA ready",
+  "offline.queue": "Offline queue",
+  "dry.run": "DRY RUN",
+  "qr.scan": "Scan QR (camera)",
+  "qr.manual": "Manual JSON entry",
+  "nfc.read": "Read NFC tag",
+  "nfc.manual": "Enter NFC UID manually",
+  "completion.report": "Completion report",
+  "sync.now": "Sync offline queue"
+}

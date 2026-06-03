@@ -17,15 +17,34 @@ const floorBg = document.getElementById("floor-bg");
 const statusEl = document.getElementById("map-status");
 const palette = document.getElementById("palette-devices");
 const snapGrid = document.getElementById("snap-grid");
+const showGrid = document.getElementById("show-grid");
+const gridSizeSel = document.getElementById("grid-size");
 const placementFilter = document.getElementById("placement-filter");
 const pinRotation = document.getElementById("pin-rotation");
 const saveToast = document.getElementById("map-save-toast");
+const btnUndo = document.getElementById("btn-undo");
+const btnRedo = document.getElementById("btn-redo");
 
 let sites = [];
 let devices = [];
 let allDevices = [];
 let selectedDeviceId = null;
 let currentFloorId = null;
+const undoStack = [];
+const redoStack = [];
+const MAX_HISTORY = 40;
+
+function gridStep() {
+  return Number(gridSizeSel?.value ?? 0.05);
+}
+
+function pushHistory(entry) {
+  undoStack.push(entry);
+  if (undoStack.length > MAX_HISTORY) undoStack.shift();
+  redoStack.length = 0;
+  btnUndo.disabled = undoStack.length === 0;
+  btnRedo.disabled = true;
+}
 
 function iconClassForDevice(d) {
   const t = (d.deviceType ?? d.iconType ?? "").toUpperCase();
@@ -36,7 +55,7 @@ function iconClassForDevice(d) {
 
 function snapPos(x, y) {
   if (!snapGrid?.checked) return { x, y };
-  const step = 0.05;
+  const step = gridStep();
   return {
     x: Math.round(x / step) * step,
     y: Math.round(y / step) * step,
@@ -105,23 +124,52 @@ function renderPins(floorView) {
     }
     canvas.appendChild(pin);
   }
-  if (snapGrid?.checked) canvas.classList.add("show-grid");
-  else canvas.classList.remove("show-grid");
+  if (showGrid?.checked && snapGrid?.checked) {
+    canvas.classList.add("show-grid");
+    canvas.style.setProperty("--grid-step", `${gridStep() * 100}%`);
+  } else {
+    canvas.classList.remove("show-grid");
+  }
 }
 
-async function savePosition(id, pos) {
+async function savePosition(id, pos, opts = {}) {
   const dev = allDevices.find((d) => d.deviceId === id);
-  await apiPut(`/api/customer/${customerCode}/map/devices/${encodeURIComponent(id)}`, {
+  const before = {
+    posX: dev?.posX ?? null,
+    posY: dev?.posY ?? null,
+    floorId: dev?.floorId ?? currentFloorId,
+    rotation: dev?.rotation ?? 0,
+    iconType: dev?.iconType ?? iconClassForDevice(dev ?? {}).replace("icon-", ""),
+  };
+  const body = {
     posX: pos.x,
     posY: pos.y,
     floorId: currentFloorId,
     iconType: iconClassForDevice(dev ?? {}).replace("icon-", ""),
     rotation: Number(pinRotation?.value ?? 0),
-  });
+  };
+  if (!opts.skipHistory) {
+    pushHistory({ type: "move", deviceId: id, before, after: { ...body } });
+  }
+  await apiPut(`/api/customer/${customerCode}/map/devices/${encodeURIComponent(id)}`, body);
   showSaveToast();
   const all = await apiGet(`/api/customer/${customerCode}/map/devices`);
   allDevices = all.devices ?? [];
   renderPalette();
+  await loadFloor(currentFloorId);
+}
+
+async function applyHistoryEntry(entry, useBefore) {
+  const data = useBefore ? entry.before : entry.after;
+  await apiPut(`/api/customer/${customerCode}/map/devices/${encodeURIComponent(entry.deviceId)}`, {
+    posX: data.posX,
+    posY: data.posY,
+    floorId: data.floorId,
+    iconType: data.iconType,
+    rotation: data.rotation,
+  });
+  const all = await apiGet(`/api/customer/${customerCode}/map/devices`);
+  allDevices = all.devices ?? [];
   await loadFloor(currentFloorId);
 }
 
@@ -161,6 +209,28 @@ async function init() {
 
   placementFilter?.addEventListener("change", renderPalette);
   snapGrid?.addEventListener("change", () => renderPins({ devices }));
+  showGrid?.addEventListener("change", () => renderPins({ devices }));
+  gridSizeSel?.addEventListener("change", () => renderPins({ devices }));
+
+  btnUndo?.addEventListener("click", async () => {
+    const entry = undoStack.pop();
+    if (!entry) return;
+    redoStack.push(entry);
+    await applyHistoryEntry(entry, true);
+    btnUndo.disabled = undoStack.length === 0;
+    btnRedo.disabled = redoStack.length === 0;
+    showSaveToast();
+  });
+
+  btnRedo?.addEventListener("click", async () => {
+    const entry = redoStack.pop();
+    if (!entry) return;
+    undoStack.push(entry);
+    await applyHistoryEntry(entry, false);
+    btnUndo.disabled = undoStack.length === 0;
+    btnRedo.disabled = redoStack.length === 0;
+    showSaveToast();
+  });
 
   if (floorSelect.options.length) {
     floorSelect.value = jumpFloor || floorSelect.options[0].value;

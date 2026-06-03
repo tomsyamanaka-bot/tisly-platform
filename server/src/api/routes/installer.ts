@@ -22,10 +22,30 @@ import {
 import {
   runDeviceConnectivityTest,
   getMqttDiagnostic,
+  runMqttRttTest,
   type DeviceTestKind,
 } from "../../installer/device-connectivity-test.js";
-import { buildInstallCompletionReportHtml } from "../../installer/completion-report.js";
+import {
+  buildInstallCompletionReportHtml,
+  buildInstallCompletionReportPdf,
+  buildCompletionReportMeta,
+} from "../../installer/completion-report.js";
 import { getDeviceLabelData } from "../../installer/device-label.js";
+import {
+  buildDevicesLabelsCsv,
+  buildDeviceLabelSvg,
+} from "../../installer/device-label-export.js";
+import { processOfflineSync, type OfflineSyncEntry } from "../../installer/offline-sync.js";
+import {
+  startInstallSession,
+  completeInstallSession,
+  listInstallSessions,
+} from "../../installer/install-session.js";
+import { isDryRunRequest, logDryRun } from "../../installer/dry-run.js";
+import {
+  issueDeviceCertificatePlaceholder,
+  applyTrustToDeviceRow,
+} from "../../provisioning/device-certificates.js";
 import { archiveFloorplanToQnap } from "../../qnap/floorplan-archive.js";
 import { getFloorById } from "../../site-builder/floor-store.js";
 
@@ -115,6 +135,19 @@ customerInstallerRouter.post(
       res.status(400).json({ error: "device_id, device_type, serial_number, provisioning_token required" });
       return;
     }
+    if (isDryRunRequest(req)) {
+      logDryRun(customer.customer_code, "installer.qr.claim", body as Record<string, unknown>);
+      logAudit({
+        ...auditContextFromRequest(req),
+        tenantId: customer.tenant_id ?? customer.customer_id,
+        action: "installer.qr.claim",
+        entityType: "device",
+        entityId: body.device_id,
+        details: { dryRun: true },
+      });
+      res.json({ ok: true, dryRun: true, deviceId: body.device_id });
+      return;
+    }
     try {
       const claimed = claimQrProvisioning({
         customerId: customer.customer_id,
@@ -165,6 +198,19 @@ customerInstallerRouter.post(
       res.status(400).json({ error: "nfcUid required" });
       return;
     }
+    if (isDryRunRequest(req)) {
+      logDryRun(customer.customer_code, "installer.nfc.claim", { nfcUid, deviceId });
+      logAudit({
+        ...auditContextFromRequest(req),
+        tenantId: customer.tenant_id ?? customer.customer_id,
+        action: "installer.nfc.claim",
+        entityType: "device",
+        entityId: deviceId ?? nfcUid,
+        details: { dryRun: true, nfcUid },
+      });
+      res.json({ ok: true, dryRun: true, deviceId: deviceId ?? `NFC-${nfcUid.replace(/:/g, "")}` });
+      return;
+    }
     try {
       const claimed = claimNfcProvisioning({
         customerId: customer.customer_id,
@@ -184,7 +230,7 @@ customerInstallerRouter.post(
         entityType: "device",
         entityId: claimed.deviceId,
       });
-      res.json({ ok: true, ...claimed, placeholder: "smartphone NFC read TODO" });
+      res.json({ ok: true, ...claimed, nfcReadMode: "manual_uid" });
     } catch (e) {
       res.status(400).json({ error: String(e) });
     }
@@ -216,6 +262,19 @@ customerInstallerRouter.post(
       res.status(400).json({ error: "deviceId required in body" });
       return;
     }
+    if (isDryRunRequest(req)) {
+      logDryRun(customer.customer_code, "installer.checklist.complete", { deviceId, item });
+      logAudit({
+        ...auditContextFromRequest(req),
+        tenantId: customer.tenant_id ?? customer.customer_id,
+        action: "installer.checklist.complete",
+        entityType: "device",
+        entityId: deviceId,
+        details: { item, dryRun: true },
+      });
+      res.json({ item: { id: item, completed: true, dryRun: true } });
+      return;
+    }
     try {
       const completed = completeChecklistItem(
         customer.customer_id,
@@ -223,6 +282,14 @@ customerInstallerRouter.post(
         item,
         req.admin?.username
       );
+      logAudit({
+        ...auditContextFromRequest(req),
+        tenantId: customer.tenant_id ?? customer.customer_id,
+        action: "installer.checklist.complete",
+        entityType: "device",
+        entityId: deviceId,
+        details: { item },
+      });
       res.json({ item: completed });
     } catch (e) {
       res.status(400).json({ error: String(e) });
@@ -348,6 +415,19 @@ customerInstallerRouter.post(
     const buf = Buffer.from(imageBase64, "base64");
     fs.writeFileSync(full, buf);
     const rel = path.join(customer.customer_code, fname).replace(/\\/g, "/");
+    if (isDryRunRequest(req)) {
+      logDryRun(customer.customer_code, "installer.photo.upload", { deviceId, fileName: fname });
+      logAudit({
+        ...auditContextFromRequest(req),
+        tenantId: customer.tenant_id ?? customer.customer_id,
+        action: "installer.photo.upload",
+        entityType: "device",
+        entityId: deviceId ?? "site",
+        details: { dryRun: true, photoPath: rel },
+      });
+      res.status(201).json({ ok: true, dryRun: true, photoPath: rel });
+      return;
+    }
     getDatabase()
       .prepare(
         `INSERT INTO install_photos (id, customer_id, device_id, site_id, photo_path, photo_type, uploaded_by)
@@ -362,6 +442,14 @@ customerInstallerRouter.post(
         photoType ?? "install",
         req.admin?.username ?? null
       );
+    logAudit({
+      ...auditContextFromRequest(req),
+      tenantId: customer.tenant_id ?? customer.customer_id,
+      action: "installer.photo.upload",
+      entityType: "device",
+      entityId: deviceId ?? "site",
+      details: { photoPath: rel },
+    });
     res.status(201).json({
       ok: true,
       photoPath: rel,
@@ -394,26 +482,247 @@ customerInstallerRouter.get("/:customerCode/device-templates", ...portalViewAuth
 customerInstallerRouter.get(
   "/:customerCode/install/completion-report",
   ...portalViewAuth,
+  async (req: AuthedRequest, res) => {
+    const customer = resolveCustomer(req, String(req.params.customerCode));
+    if (!customer) {
+      res.status(req.admin ? 403 : 404).json({ error: "Not found" });
+      return;
+    }
+    const dryRun = isDryRunRequest(req);
+    const format = String(req.query.format ?? "html").toLowerCase();
+    const html = buildInstallCompletionReportHtml(customer.customer_code, req.admin?.username, {
+      dryRun,
+    });
+    const meta = buildCompletionReportMeta(customer.customer_code, req.admin?.username, { dryRun });
+
+    logAudit({
+      ...auditContextFromRequest(req),
+      tenantId: customer.tenant_id ?? customer.customer_id,
+      action: "installer.completion_report.export",
+      entityType: "customer",
+      entityId: customer.customer_code,
+      details: { format, exportId: meta.exportId, dryRun },
+    });
+
+    const accept = req.header("accept") ?? "";
+    if (accept.includes("application/json") && format !== "pdf") {
+      res.json({
+        customer: customer.customer_code,
+        html,
+        meta,
+        generatedAt: meta.generatedAt,
+      });
+      return;
+    }
+
+    if (format === "pdf") {
+      const pdf = await buildInstallCompletionReportPdf(html);
+      if (pdf) {
+        res.type("application/pdf");
+        res.setHeader("Content-Disposition", `attachment; filename="install-report-${meta.exportId}.pdf"`);
+        res.send(pdf);
+        return;
+      }
+      res.setHeader("X-TiSLY-Pdf-Fallback", "html");
+      res.type("html").send(html);
+      return;
+    }
+
+    res.type("html").send(html);
+  }
+);
+
+customerInstallerRouter.post(
+  "/:customerCode/install/sync",
+  ...installAuth,
   (req: AuthedRequest, res) => {
     const customer = resolveCustomer(req, String(req.params.customerCode));
     if (!customer) {
       res.status(req.admin ? 403 : 404).json({ error: "Not found" });
       return;
     }
-    const html = buildInstallCompletionReportHtml(
-      customer.customer_code,
-      req.admin?.username
-    );
-    const accept = req.header("accept") ?? "";
-    if (accept.includes("application/json")) {
-      res.json({
-        customer: customer.customer_code,
-        html,
-        generatedAt: new Date().toISOString(),
-      });
+    if (isDryRunRequest(req)) {
+      logDryRun(customer.customer_code, "installer.offline.sync", { count: (req.body.entries ?? []).length });
+      res.json({ ok: true, dryRun: true, applied: 0, message: "Dry run — sync not applied" });
       return;
     }
-    res.type("html").send(html);
+    const { entries } = req.body as { entries?: OfflineSyncEntry[] };
+    const report = processOfflineSync(
+      customer.customer_id,
+      entries ?? [],
+      req.admin?.username
+    );
+    logAudit({
+      ...auditContextFromRequest(req),
+      tenantId: customer.tenant_id ?? customer.customer_id,
+      action: "installer.offline.sync",
+      entityType: "customer",
+      entityId: customer.customer_code,
+      details: { applied: report.applied, rejected: report.rejected },
+    });
+    res.json(report);
+  }
+);
+
+customerInstallerRouter.post(
+  "/:customerCode/install/session/start",
+  ...installAuth,
+  (req: AuthedRequest, res) => {
+    const customer = resolveCustomer(req, String(req.params.customerCode));
+    if (!customer) {
+      res.status(req.admin ? 403 : 404).json({ error: "Not found" });
+      return;
+    }
+    const { siteId, mode } = req.body as { siteId?: string; mode?: "live" | "dry_run" | "practice" };
+    const sessionMode = isDryRunRequest(req) ? "dry_run" : (mode ?? "live");
+    const session = startInstallSession({
+      customerId: customer.customer_id,
+      siteId,
+      installerUserId: req.admin?.userId,
+      mode: sessionMode,
+    });
+    logAudit({
+      ...auditContextFromRequest(req),
+      tenantId: customer.tenant_id ?? customer.customer_id,
+      action: "installer.session.start",
+      entityType: "install_session",
+      entityId: session.id,
+      details: { mode: session.mode },
+    });
+    res.status(201).json(session);
+  }
+);
+
+customerInstallerRouter.post(
+  "/:customerCode/install/session/complete",
+  ...installAuth,
+  (req: AuthedRequest, res) => {
+    const customer = resolveCustomer(req, String(req.params.customerCode));
+    if (!customer) {
+      res.status(req.admin ? 403 : 404).json({ error: "Not found" });
+      return;
+    }
+    const { sessionId } = req.body as { sessionId?: string };
+    if (!sessionId) {
+      res.status(400).json({ error: "sessionId required" });
+      return;
+    }
+    try {
+      const session = completeInstallSession(sessionId, customer.customer_id);
+      logAudit({
+        ...auditContextFromRequest(req),
+        tenantId: customer.tenant_id ?? customer.customer_id,
+        action: "installer.session.complete",
+        entityType: "install_session",
+        entityId: session.id,
+      });
+      res.json(session);
+    } catch (e) {
+      res.status(400).json({ error: String(e) });
+    }
+  }
+);
+
+customerInstallerRouter.get(
+  "/:customerCode/install/sessions",
+  ...portalViewAuth,
+  (req: AuthedRequest, res) => {
+    const customer = resolveCustomer(req, String(req.params.customerCode));
+    if (!customer) {
+      res.status(req.admin ? 403 : 404).json({ error: "Not found" });
+      return;
+    }
+    res.json({ sessions: listInstallSessions(customer.customer_id) });
+  }
+);
+
+customerInstallerRouter.get(
+  "/:customerCode/devices/labels.csv",
+  ...portalViewAuth,
+  (req: AuthedRequest, res) => {
+    const customer = resolveCustomer(req, String(req.params.customerCode));
+    if (!customer) {
+      res.status(req.admin ? 403 : 404).json({ error: "Not found" });
+      return;
+    }
+    const csv = buildDevicesLabelsCsv(customer.customer_id);
+    res.type("text/csv").setHeader("Content-Disposition", 'attachment; filename="device-labels.csv"');
+    res.send(csv);
+  }
+);
+
+customerInstallerRouter.get(
+  "/:customerCode/devices/:id/label.svg",
+  ...portalViewAuth,
+  (req: AuthedRequest, res) => {
+    const customer = resolveCustomer(req, String(req.params.customerCode));
+    if (!customer) {
+      res.status(req.admin ? 403 : 404).json({ error: "Not found" });
+      return;
+    }
+    try {
+      const svg = buildDeviceLabelSvg(customer.customer_id, String(req.params.id));
+      res.type("image/svg+xml").send(svg);
+    } catch (e) {
+      res.status(404).json({ error: String(e) });
+    }
+  }
+);
+
+customerInstallerRouter.post(
+  "/:customerCode/devices/:id/test/mqtt-rtt",
+  ...installAuth,
+  (req: AuthedRequest, res) => {
+    const customer = resolveCustomer(req, String(req.params.customerCode));
+    if (!customer) {
+      res.status(req.admin ? 403 : 404).json({ error: "Not found" });
+      return;
+    }
+    const deviceId = String(req.params.id);
+    if (isDryRunRequest(req)) {
+      logDryRun(customer.customer_code, "installer.test.mqtt_rtt", { deviceId });
+      res.json({ ok: true, dryRun: true, roundTripMs: 55, mock: true });
+      return;
+    }
+    try {
+      const result = runMqttRttTest(customer.customer_id, deviceId);
+      logAudit({
+        ...auditContextFromRequest(req),
+        tenantId: customer.tenant_id ?? customer.customer_id,
+        action: "installer.test.mqtt_rtt",
+        entityType: "device",
+        entityId: deviceId,
+        details: { roundTripMs: result.roundTripMs, mock: result.mock },
+      });
+      res.json(result);
+    } catch (e) {
+      res.status(400).json({ error: String(e) });
+    }
+  }
+);
+
+customerInstallerRouter.get(
+  "/:customerCode/devices/:id/cert-placeholder",
+  ...installAuth,
+  (req: AuthedRequest, res) => {
+    const customer = resolveCustomer(req, String(req.params.customerCode));
+    if (!customer) {
+      res.status(req.admin ? 403 : 404).json({ error: "Not found" });
+      return;
+    }
+    const deviceId = String(req.params.id);
+    const cert = issueDeviceCertificatePlaceholder(deviceId);
+    if (!isDryRunRequest(req)) {
+      applyTrustToDeviceRow(deviceId, customer.customer_id, cert);
+      logAudit({
+        ...auditContextFromRequest(req),
+        tenantId: customer.tenant_id ?? customer.customer_id,
+        action: "installer.cert.placeholder",
+        entityType: "device",
+        entityId: deviceId,
+      });
+    }
+    res.json({ ...cert, dryRun: isDryRunRequest(req) });
   }
 );
 

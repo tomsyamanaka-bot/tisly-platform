@@ -74,6 +74,13 @@ const DEVICE_COMMISSIONING_COLUMNS: Array<{ name: string; ddl: string }> = [
   { name: "install_note", ddl: "ALTER TABLE devices ADD COLUMN install_note TEXT" },
 ];
 
+const DEVICE_TRUST_COLUMNS: Array<{ name: string; ddl: string }> = [
+  { name: "cert_status", ddl: "ALTER TABLE devices ADD COLUMN cert_status TEXT DEFAULT 'none'" },
+  { name: "cert_fingerprint", ddl: "ALTER TABLE devices ADD COLUMN cert_fingerprint TEXT" },
+  { name: "trust_level", ddl: "ALTER TABLE devices ADD COLUMN trust_level TEXT DEFAULT 'none'" },
+  { name: "last_cert_rotated_at", ddl: "ALTER TABLE devices ADD COLUMN last_cert_rotated_at TEXT" },
+];
+
 const ZONE_COLUMNS: Array<{ name: string; ddl: string }> = [
   { name: "floor_id", ddl: "ALTER TABLE zones ADD COLUMN floor_id TEXT" },
 ];
@@ -302,6 +309,27 @@ function migratePhase341(database: Database.Database): void {
   );
   migrateCustomerUsersInstallerRole(database);
   seedInstallerDemoUsers(database);
+  migratePhase361(database);
+}
+
+function migratePhase361(database: Database.Database): void {
+  addColumnsIfMissing(database, "devices", DEVICE_TRUST_COLUMNS);
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS install_sessions (
+      id TEXT PRIMARY KEY,
+      customer_id TEXT NOT NULL,
+      site_id TEXT,
+      installer_user_id TEXT,
+      mode TEXT NOT NULL DEFAULT 'live',
+      status TEXT NOT NULL DEFAULT 'active',
+      started_at TEXT DEFAULT (datetime('now')),
+      completed_at TEXT,
+      FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
+    );
+  `);
+  database.exec(
+    "CREATE INDEX IF NOT EXISTS idx_install_sessions_customer ON install_sessions(customer_id)"
+  );
 }
 
 function seedInstallerDemoUsers(database: Database.Database): void {

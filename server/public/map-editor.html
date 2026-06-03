@@ -28,7 +28,19 @@
       <label>図面アップロード
         <input type="file" id="floor-upload" accept="image/png,image/jpeg,image/webp" />
       </label>
-      <label><input type="checkbox" id="snap-grid" checked /> グリッドスナップ</label>
+      <label><input type="checkbox" id="snap-grid" checked /> スナップ ON</label>
+      <label><input type="checkbox" id="show-grid" checked /> グリッド表示</label>
+      <label>グリッドサイズ
+        <select id="grid-size">
+          <option value="0.05" selected>標準 (5%)</option>
+          <option value="0.1">大 (10%)</option>
+          <option value="0.02">細 (2%)</option>
+        </select>
+      </label>
+      <div class="map-undo-row">
+        <button type="button" class="btn secondary" id="btn-undo" disabled>元に戻す</button>
+        <button type="button" class="btn secondary" id="btn-redo" disabled>やり直し</button>
+      </div>
       <label>フィルタ
         <select id="placement-filter">
           <option value="all">すべて</option>

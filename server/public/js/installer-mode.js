@@ -1,21 +1,91 @@
-import { apiGet, apiPost, getAdminToken } from "./api.js";
+import { apiGet, getAdminToken } from "./api.js";
+import { loadInstallerI18n } from "./installer-i18n.js";
 
 const pathMatch = location.pathname.match(/\/customer\/([^/]+)/i);
 const customerCode = pathMatch ? pathMatch[1].toUpperCase() : "";
 const OFFLINE_KEY = `tisly_installer_queue_${customerCode}`;
+const DRY_RUN_KEY = `tisly_installer_dry_run_${customerCode}`;
+const IDB_NAME = "tisly_installer_offline_v1";
 
 document.getElementById("install-code").textContent = customerCode;
 document.getElementById("link-map").href = `/customer/${customerCode}/map`;
 document.getElementById("link-portal").href = `/customer/${customerCode}`;
 document.getElementById("link-map-full").href = `/customer/${customerCode}/map`;
+document.getElementById("link-labels-csv").href = `/api/customer/${customerCode}/devices/labels.csv`;
 
 let sites = [];
 let devices = [];
 let selectedSiteId = null;
 let selectedFloorId = null;
+let qrScanner = null;
+let installSessionId = null;
+
+function isDryRun() {
+  return localStorage.getItem(DRY_RUN_KEY) === "1";
+}
+
+function updateDryRunUi() {
+  const on = isDryRun();
+  document.getElementById("dry-run-banner").hidden = !on;
+  document.getElementById("dry-run-toggle").checked = on;
+}
+
+function installHeaders(extra = {}) {
+  const headers = { ...extra };
+  const token = getAdminToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  if (isDryRun()) headers["X-TiSLY-Dry-Run"] = "1";
+  return headers;
+}
+
+async function installPost(path, body) {
+  const payload = { ...(body ?? {}) };
+  if (isDryRun()) payload.dryRun = true;
+  const res = await fetch(path, {
+    method: "POST",
+    headers: installHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(payload),
+  });
+  if (res.status === 401) throw new Error("認証が必要です — ログインしてください");
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+async function installGet(path) {
+  const url = isDryRun() && !path.includes("?") ? `${path}?dryRun=1` : path;
+  const res = await fetch(url, { headers: installHeaders() });
+  if (res.status === 401) throw new Error("認証が必要です — ログインしてください");
+  if (!res.ok) throw new Error(await res.text());
+  const ct = res.headers.get("content-type") ?? "";
+  if (ct.includes("application/json")) return res.json();
+  return res.text();
+}
 
 function setStatus(msg) {
   document.getElementById("install-status").textContent = msg;
+}
+
+function openOfflineIdb() {
+  return new Promise((resolve, reject) => {
+    if (!globalThis.indexedDB) {
+      resolve(null);
+      return;
+    }
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onerror = () => reject(req.error);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains("meta")) db.createObjectStore("meta");
+    };
+    req.onsuccess = () => resolve(req.result);
+  });
+}
+
+async function touchIdbPlaceholder() {
+  const db = await openOfflineIdb();
+  if (!db) return;
+  const tx = db.transaction("meta", "readwrite");
+  tx.objectStore("meta").put({ at: new Date().toISOString() }, "last_touch");
 }
 
 function loadOfflineQueue() {
@@ -23,7 +93,10 @@ function loadOfflineQueue() {
     const raw = localStorage.getItem(OFFLINE_KEY);
     const q = raw ? JSON.parse(raw) : [];
     document.getElementById("offline-hint").textContent =
-      q.length > 0 ? `オフラインキュー: ${q.length} 件（復帰後同期 TODO）` : "オフライン一時保存: localStorage placeholder（空）";
+      q.length > 0
+        ? `オフラインキュー: ${q.length} 件（IndexedDB placeholder + localStorage）`
+        : "オフライン: localStorage + IndexedDB placeholder（空）";
+    touchIdbPlaceholder().catch(() => {});
   } catch {
     /* */
   }
@@ -32,9 +105,51 @@ function loadOfflineQueue() {
 function queueOffline(action, body) {
   const raw = localStorage.getItem(OFFLINE_KEY);
   const q = raw ? JSON.parse(raw) : [];
-  q.push({ action, body, at: new Date().toISOString() });
+  q.push({ action, body, at: new Date().toISOString(), id: `q-${Date.now()}` });
   localStorage.setItem(OFFLINE_KEY, JSON.stringify(q));
   loadOfflineQueue();
+}
+
+function mapQueueToSyncEntries(queue) {
+  const actionMap = {
+    qrClaim: "qr_claim",
+    nfcClaim: "nfc_claim",
+    mapPlacement: "map_placement",
+    checklist: "checklist_complete",
+    photo: "photo_upload",
+    test: "test_result",
+    wizard: "test_result",
+    createSite: "test_result",
+  };
+  return queue.map((item) => ({
+    id: item.id,
+    action: actionMap[item.action] ?? "test_result",
+    clientAt: item.at,
+    body: item.body ?? {},
+  }));
+}
+
+async function flushOfflineQueue() {
+  const raw = localStorage.getItem(OFFLINE_KEY);
+  const q = raw ? JSON.parse(raw) : [];
+  if (!q.length) {
+    setStatus("同期するキューがありません");
+    return;
+  }
+  if (!navigator.onLine) {
+    setStatus("オフライン — 復帰後に同期してください");
+    return;
+  }
+  const entries = mapQueueToSyncEntries(q);
+  const report = await installPost(`/api/customer/${customerCode}/install/sync`, { entries });
+  if (report.rejected > 0) {
+    setStatus(`同期: 適用 ${report.applied} / 拒否 ${report.rejected} / 警告 ${report.warnings}`);
+  } else {
+    localStorage.removeItem(OFFLINE_KEY);
+    setStatus(`同期完了: ${report.applied} 件適用`);
+  }
+  loadOfflineQueue();
+  await loadDevices();
 }
 
 document.querySelectorAll("#installer-tabs button").forEach((btn) => {
@@ -67,7 +182,7 @@ function syncDeviceSelects() {
     list.innerHTML = devices
       .map(
         (d) =>
-          `<li>${d.label || d.deviceId} — ${d.mapPosition ? "配置済" : "未配置"} / ${d.commissioningStatus ?? "draft"}</li>`
+          `<li>${d.label || d.deviceId} — ${d.mapPosition ? "配置済" : "未配置"} / ${d.commissioningStatus ?? "draft"} / cert:${d.certStatus ?? "none"}</li>`
       )
       .join("");
   }
@@ -115,6 +230,7 @@ async function loadDevices() {
   devices = (data.devices ?? []).map((d) => ({
     ...d,
     commissioningStatus: d.commissioningStatus ?? d.commissioning_status,
+    certStatus: d.certStatus ?? d.cert_status,
   }));
   syncDeviceSelects();
 }
@@ -127,22 +243,157 @@ async function loadTemplates() {
     .join("");
 }
 
+function setupNfcUi() {
+  const hasNdef = typeof window.NDEFReader !== "undefined";
+  document.getElementById("nfc-web-section").hidden = !hasNdef;
+  document.getElementById("nfc-manual-section").hidden = hasNdef ? false : false;
+}
+
+async function readNfcTag() {
+  const status = document.getElementById("nfc-read-status");
+  try {
+    const reader = new window.NDEFReader();
+    status.textContent = "タグを端末に近づけてください…";
+    await reader.scan();
+    reader.addEventListener(
+      "reading",
+      (ev) => {
+        const uid = ev.serialNumber ?? "";
+        document.getElementById("nfc-uid").value = uid;
+        status.textContent = `読取: ${uid}`;
+      },
+      { once: true }
+    );
+  } catch (e) {
+    status.textContent = `NFC失敗: ${e} — UID手入力を使用`;
+  }
+}
+
+function onQrDecoded(text) {
+  document.getElementById("qr-payload").value = text;
+  try {
+    const p = JSON.parse(text);
+    if (p.device_id) document.getElementById("qr-device-id").value = p.device_id;
+    if (p.device_type) document.getElementById("qr-device-type").value = p.device_type;
+    if (p.serial_number) document.getElementById("qr-serial").value = p.serial_number;
+  } catch {
+    /* manual */
+  }
+  setStatus("QR読取完了 — Claim を実行できます");
+}
+
+async function startQrCamera() {
+  const hint = document.getElementById("qr-scan-hint");
+  document.getElementById("btn-qr-scan-stop").hidden = false;
+
+  if ("BarcodeDetector" in window) {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+      });
+      const video = document.createElement("video");
+      video.setAttribute("playsinline", "true");
+      video.srcObject = stream;
+      await video.play();
+      const region = document.getElementById("qr-reader");
+      region.innerHTML = "";
+      region.appendChild(video);
+      const detector = new window.BarcodeDetector({ formats: ["qr_code"] });
+      const tick = async () => {
+        if (!video.srcObject) return;
+        try {
+          const codes = await detector.detect(video);
+          if (codes[0]?.rawValue) {
+            onQrDecoded(codes[0].rawValue);
+            stopQrCamera();
+            return;
+          }
+        } catch {
+          /* */
+        }
+        requestAnimationFrame(tick);
+      };
+      hint.textContent = "BarcodeDetector API でスキャン中";
+      requestAnimationFrame(tick);
+      qrScanner = { stop: () => stream.getTracks().forEach((t) => t.stop()) };
+      return;
+    } catch {
+      hint.textContent = "BarcodeDetector 失敗 — html5-qrcode にフォールバック";
+    }
+  }
+
+  if (typeof window.Html5Qrcode !== "undefined") {
+    qrScanner = new window.Html5Qrcode("qr-reader");
+    await qrScanner.start(
+      { facingMode: "environment" },
+      { fps: 8, qrbox: { width: 200, height: 200 } },
+      (decoded) => {
+        onQrDecoded(decoded);
+        stopQrCamera();
+      },
+      () => {}
+    );
+    hint.textContent = "html5-qrcode でスキャン中";
+    return;
+  }
+
+  hint.textContent = "カメラライブラリ不可 — JSON 手入力を使用";
+  document.getElementById("btn-qr-scan-stop").hidden = true;
+}
+
+async function stopQrCamera() {
+  document.getElementById("btn-qr-scan-stop").hidden = true;
+  if (qrScanner?.stop) {
+    try {
+      if (qrScanner.stop instanceof Function) await qrScanner.stop();
+      else await qrScanner.stop();
+    } catch {
+      /* */
+    }
+    try {
+      await qrScanner.clear?.();
+    } catch {
+      /* */
+    }
+  }
+  qrScanner = null;
+  const region = document.getElementById("qr-reader");
+  if (region) region.innerHTML = "";
+}
+
 document.getElementById("site-select")?.addEventListener("change", (e) => {
   selectedSiteId = e.target.value;
   refreshFloors();
 });
 
+document.getElementById("dry-run-toggle")?.addEventListener("change", (e) => {
+  if (e.target.checked) localStorage.setItem(DRY_RUN_KEY, "1");
+  else localStorage.removeItem(DRY_RUN_KEY);
+  updateDryRunUi();
+});
+
+document.getElementById("btn-offline-sync")?.addEventListener("click", () => flushOfflineQueue().catch((err) => setStatus(String(err)));
+
 document.getElementById("btn-new-site")?.addEventListener("click", async () => {
   const name = prompt("現場名");
   if (!name) return;
-  if (!navigator.onLine) {
+  if (!navigator.onLine || isDryRun()) {
     queueOffline("createSite", { name });
-    setStatus("オフライン: 現場作成をキューに保存");
+    setStatus(isDryRun() ? "ドライラン: 現場作成ログのみ" : "オフライン: 現場作成をキューに保存");
     return;
   }
-  await apiPost(`/api/customer/${customerCode}/sites`, { name });
+  await installPost(`/api/customer/${customerCode}/sites`, { name });
   await loadSites();
   setStatus(`現場作成: ${name}`);
+});
+
+document.getElementById("btn-session-start")?.addEventListener("click", async () => {
+  const res = await installPost(`/api/customer/${customerCode}/install/session/start`, {
+    siteId: selectedSiteId,
+    mode: isDryRun() ? "dry_run" : "live",
+  });
+  installSessionId = res.id;
+  setStatus(`施工セッション開始: ${res.id}`);
 });
 
 document.getElementById("floor-upload")?.addEventListener("change", async (ev) => {
@@ -150,7 +401,7 @@ document.getElementById("floor-upload")?.addEventListener("change", async (ev) =
   if (!file || !selectedFloorId) return;
   const buf = await file.arrayBuffer();
   const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
-  await apiPost(`/api/customer/${customerCode}/floors/upload`, {
+  await installPost(`/api/customer/${customerCode}/floors/upload`, {
     floorId: selectedFloorId,
     fileName: file.name,
     mimeType: file.type,
@@ -161,7 +412,7 @@ document.getElementById("floor-upload")?.addEventListener("change", async (ev) =
 
 document.getElementById("btn-archive-floor")?.addEventListener("click", async () => {
   if (!selectedFloorId) return;
-  const res = await apiPost(`/api/customer/${customerCode}/floorplans/${selectedFloorId}/archive`, {});
+  const res = await installPost(`/api/customer/${customerCode}/floorplans/${selectedFloorId}/archive`, {});
   setStatus(res.message ?? "アーカイブ完了");
 });
 
@@ -175,12 +426,12 @@ document.getElementById("device-wizard")?.addEventListener("submit", async (e) =
     siteId: selectedSiteId || undefined,
     floor: selectedFloorId || undefined,
   };
-  if (!navigator.onLine) {
+  if (!navigator.onLine || isDryRun()) {
     queueOffline("wizard", body);
-    setStatus("オフライン: 登録をキューに保存");
+    setStatus(isDryRun() ? "ドライラン: 登録ログのみ" : "オフライン: 登録をキューに保存");
     return;
   }
-  const res = await apiPost(`/api/customer/${customerCode}/devices/wizard`, body);
+  const res = await installPost(`/api/customer/${customerCode}/devices/wizard`, body);
   setStatus(`登録: ${res.deviceId}`);
   await loadDevices();
 });
@@ -189,7 +440,7 @@ document.getElementById("btn-qr-create")?.addEventListener("click", async () => 
   const deviceId = document.getElementById("qr-device-id").value.trim();
   const deviceType = document.getElementById("qr-device-type").value.trim();
   const serialNumber = document.getElementById("qr-serial").value.trim();
-  const res = await apiPost(`/api/customer/${customerCode}/devices/qr/create`, {
+  const res = await installPost(`/api/customer/${customerCode}/devices/qr/create`, {
     deviceId,
     deviceType,
     serialNumber,
@@ -206,7 +457,12 @@ document.getElementById("btn-qr-claim")?.addEventListener("click", async () => {
     setStatus("QR JSON が不正です");
     return;
   }
-  const res = await apiPost(`/api/customer/${customerCode}/devices/qr/claim`, {
+  if (!navigator.onLine) {
+    queueOffline("qrClaim", { ...payload, siteId: selectedSiteId, floorId: selectedFloorId });
+    setStatus("オフライン: QR claim をキューに保存");
+    return;
+  }
+  const res = await installPost(`/api/customer/${customerCode}/devices/qr/claim`, {
     device_id: payload.device_id,
     device_type: payload.device_type,
     serial_number: payload.serial_number,
@@ -215,34 +471,57 @@ document.getElementById("btn-qr-claim")?.addEventListener("click", async () => {
     floorId: selectedFloorId,
   });
   document.getElementById("qr-result").textContent = JSON.stringify(res, null, 2);
-  await loadDevices();
-  setStatus("QR Claim 完了");
+  if (!isDryRun()) await loadDevices();
+  setStatus(res.dryRun ? "ドライラン QR Claim（DB未更新）" : "QR Claim 完了");
 });
 
+document.getElementById("btn-qr-scan-start")?.addEventListener("click", () => {
+  startQrCamera().catch((e) => setStatus(`カメラ: ${e} — 手入力へ`));
+});
+document.getElementById("btn-qr-scan-stop")?.addEventListener("click", () => stopQrCamera());
+
+document.getElementById("btn-nfc-read")?.addEventListener("click", () => readNfcTag());
 document.getElementById("btn-nfc-claim")?.addEventListener("click", async () => {
   const nfcUid = document.getElementById("nfc-uid").value.trim();
-  const res = await apiPost(`/api/customer/${customerCode}/devices/nfc/claim`, {
+  if (!navigator.onLine) {
+    queueOffline("nfcClaim", { nfcUid, siteId: selectedSiteId, floorId: selectedFloorId });
+    setStatus("オフライン: NFC claim をキュー");
+    return;
+  }
+  const res = await installPost(`/api/customer/${customerCode}/devices/nfc/claim`, {
     nfcUid,
     siteId: selectedSiteId,
     floorId: selectedFloorId,
   });
-  setStatus(`NFC: ${res.deviceId}`);
-  await loadDevices();
+  setStatus(res.dryRun ? "ドライラン NFC Claim" : `NFC: ${res.deviceId}`);
+  if (!isDryRun()) await loadDevices();
 });
 
 document.querySelectorAll("[data-test]").forEach((btn) => {
   btn.addEventListener("click", async () => {
     const kind = btn.dataset.test;
     const id = document.getElementById("test-device-select").value;
-    const res = await apiPost(`/api/customer/${customerCode}/devices/${encodeURIComponent(id)}/test/${kind}`, {});
+    const res = await installPost(
+      `/api/customer/${customerCode}/devices/${encodeURIComponent(id)}/test/${kind}`,
+      {}
+    );
     document.getElementById("test-result").textContent = JSON.stringify(res, null, 2);
-    await loadDevices();
+    if (!isDryRun()) await loadDevices();
   });
 });
 
 document.getElementById("btn-mqtt-refresh")?.addEventListener("click", async () => {
   const id = document.getElementById("mqtt-device-select").value;
   const res = await apiGet(`/api/customer/${customerCode}/install/mqtt/${encodeURIComponent(id)}`);
+  document.getElementById("mqtt-diag").textContent = JSON.stringify(res, null, 2);
+});
+
+document.getElementById("btn-mqtt-rtt")?.addEventListener("click", async () => {
+  const id = document.getElementById("mqtt-device-select").value;
+  const res = await installPost(
+    `/api/customer/${customerCode}/devices/${encodeURIComponent(id)}/test/mqtt-rtt`,
+    {}
+  );
   document.getElementById("mqtt-diag").textContent = JSON.stringify(res, null, 2);
 });
 
@@ -262,13 +541,36 @@ async function loadChecklist() {
 
 document.getElementById("check-device-select")?.addEventListener("change", loadChecklist);
 
-document.getElementById("btn-completion-report")?.addEventListener("click", () => {
-  window.open(`/api/customer/${customerCode}/install/completion-report`, "_blank");
-});
+function openReport(format) {
+  const dry = isDryRun() ? "&dryRun=1" : "";
+  const url = `/api/customer/${customerCode}/install/completion-report?format=${format}${dry}`;
+  if (format === "pdf") {
+    fetch(url, { headers: installHeaders() })
+      .then((res) =>
+        res.blob().then((blob) => ({
+          blob,
+          isPdf: (res.headers.get("content-type") ?? "").includes("pdf"),
+        }))
+      )
+      .then(({ blob, isPdf }) => {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `install-report.${isPdf ? "pdf" : "html"}`;
+        a.click();
+      })
+      .catch(() => window.open(url, "_blank"));
+    return;
+  }
+  window.open(url, "_blank");
+}
+
+document.getElementById("btn-completion-report")?.addEventListener("click", () => openReport("html"));
+document.getElementById("btn-completion-pdf")?.addEventListener("click", () => openReport("pdf"));
 
 document.getElementById("btn-label")?.addEventListener("click", async () => {
   const id = document.getElementById("check-device-select").value;
   const res = await apiGet(`/api/customer/${customerCode}/devices/${encodeURIComponent(id)}/label`);
+  window.open(`/api/customer/${customerCode}/devices/${encodeURIComponent(id)}/label.svg`, "_blank");
   alert(res.labelText + "\n\nQR payload length: " + (res.qrPayload?.length ?? 0));
 });
 
@@ -277,14 +579,23 @@ async function init() {
     location.href = `/customer/${customerCode}`;
     return;
   }
+  await loadInstallerI18n();
+  updateDryRunUi();
+  setupNfcUi();
   loadOfflineQueue();
   await Promise.all([loadSites(), loadDevices(), loadTemplates()]);
-  setStatus("施工 PWA 準備完了");
+  setStatus("施工 PWA 準備完了（Phase 361–380）");
   await loadChecklist();
 }
 
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("/service-worker.js").catch(() => {});
 }
+
+window.addEventListener("online", () => {
+  const raw = localStorage.getItem(OFFLINE_KEY);
+  const q = raw ? JSON.parse(raw) : [];
+  if (q.length) setStatus("オンライン復帰 — 「オフラインキュー同期」で送信できます");
+});
 
 init().catch((e) => setStatus(String(e)));

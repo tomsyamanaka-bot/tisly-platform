@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireAdminAuth, requireAuth, type AuthedRequest } from "../../auth/auth-middleware.js";
+import { auditContextFromRequest, logAudit } from "../../provisioning/audit-log.js";
 import { getCustomerByCode } from "../../customer/customer-store.js";
 import {
   createSite,
@@ -333,11 +334,24 @@ customerSiteBuilderRouter.put("/:customerCode/map/devices/:deviceId", ...portalA
     res.status(req.admin ? 403 : 404).json({ error: "Not found" });
     return;
   }
-  const ok = updateDeviceMapPosition(String(req.params.deviceId), req.body);
+  const deviceId = String(req.params.deviceId);
+  const ok = updateDeviceMapPosition(deviceId, req.body);
   if (!ok) {
     res.status(404).json({ error: "Device not found" });
     return;
   }
+  logAudit({
+    ...auditContextFromRequest(req),
+    tenantId: customer.tenant_id ?? customer.customer_id,
+    action: "installer.map.placement",
+    entityType: "device",
+    entityId: deviceId,
+    details: {
+      posX: (req.body as { posX?: number }).posX,
+      posY: (req.body as { posY?: number }).posY,
+      floorId: (req.body as { floorId?: string }).floorId,
+    },
+  });
   res.json({ ok: true });
 });
 
@@ -350,7 +364,15 @@ customerSiteBuilderRouter.delete(
       res.status(req.admin ? 403 : 404).json({ error: "Not found" });
       return;
     }
-    clearDeviceMapPosition(String(req.params.deviceId));
+    const deviceId = String(req.params.deviceId);
+    clearDeviceMapPosition(deviceId);
+    logAudit({
+      ...auditContextFromRequest(req),
+      tenantId: customer.tenant_id ?? customer.customer_id,
+      action: "installer.map.delete",
+      entityType: "device",
+      entityId: deviceId,
+    });
     res.json({ ok: true });
   }
 );

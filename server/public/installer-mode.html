@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="/css/admin.css" />
   <link rel="stylesheet" href="/css/customer-portal.css" />
   <link rel="stylesheet" href="/css/installer-mode.css" />
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" defer></script>
 </head>
 <body class="customer-portal">
   <header class="portal-header">
@@ -18,9 +19,12 @@
       <a id="link-portal" href="#">ポータル</a>
     </nav>
   </header>
+  <div id="dry-run-banner" class="dry-run-banner" hidden>DRY RUN — 実DBは更新しません</div>
   <main class="card portal-card installer-pwa" style="margin:0.75rem">
     <p id="install-status" class="installer-status">読み込み中…</p>
-    <p class="installer-offline-queue hint" id="offline-hint">オフライン一時保存: localStorage placeholder</p>
+    <p class="installer-offline-queue hint" id="offline-hint">オフライン一時保存</p>
+    <label class="installer-dry-toggle"><input type="checkbox" id="dry-run-toggle" /> ドライラン（営業デモ・練習）</label>
+    <button type="button" class="btn secondary" id="btn-offline-sync">オフラインキュー同期</button>
 
     <nav class="installer-tabs" id="installer-tabs" aria-label="施工ステップ">
       <button type="button" data-panel="site" class="active">現場</button>
@@ -38,6 +42,7 @@
       <h2>現場選択</h2>
       <label>現場 <select id="site-select"></select></label>
       <button type="button" class="btn secondary" id="btn-new-site">現場作成</button>
+      <button type="button" class="btn secondary" id="btn-session-start">施工セッション開始</button>
     </section>
 
     <section id="panel-floor" class="installer-panel">
@@ -59,6 +64,10 @@
 
     <section id="panel-qr" class="installer-panel">
       <h2>QR読み取り</h2>
+      <div id="qr-reader" class="qr-reader-box"></div>
+      <button type="button" class="btn" id="btn-qr-scan-start">カメラでスキャン</button>
+      <button type="button" class="btn secondary" id="btn-qr-scan-stop" hidden>スキャン停止</button>
+      <p id="qr-scan-hint" class="hint">カメラ不可時は下の JSON を手入力</p>
       <label>Device ID <input id="qr-device-id" /></label>
       <label>種別 <input id="qr-device-type" value="ESP32" /></label>
       <label>Serial <input id="qr-serial" /></label>
@@ -69,10 +78,15 @@
     </section>
 
     <section id="panel-nfc" class="installer-panel">
-      <h2>NFC（placeholder）</h2>
-      <label>NFC UID <input id="nfc-uid" placeholder="04:A1:B2:C3" /></label>
+      <h2>NFC</h2>
+      <div id="nfc-web-section" hidden>
+        <button type="button" class="btn" id="btn-nfc-read">NFCタグを読む</button>
+        <p id="nfc-read-status" class="hint"></p>
+      </div>
+      <div id="nfc-manual-section">
+        <label>NFC UID（手入力 / mock）<input id="nfc-uid" placeholder="04:A1:B2:C3" /></label>
+      </div>
       <button type="button" class="btn" id="btn-nfc-claim">NFC Claim</button>
-      <p class="hint">スマホ NFC 読取は将来対応 — docs/nfc_device_provisioning.md</p>
     </section>
 
     <section id="panel-comm" class="installer-panel">
@@ -89,7 +103,7 @@
 
     <section id="panel-map" class="installer-panel">
       <h2>配置確認</h2>
-      <p>Map Editor でピン配置（スナップ・回転対応）</p>
+      <p>Map Editor でピン配置（スナップ・回転・Undo/Redo）</p>
       <a id="link-map-full" class="btn" href="#">Map Editor を開く</a>
       <ul id="device-placement-list"></ul>
     </section>
@@ -98,6 +112,7 @@
       <h2>MQTT Test</h2>
       <label>設備 <select id="mqtt-device-select"></select></label>
       <button type="button" class="btn secondary" id="btn-mqtt-refresh">診断更新</button>
+      <button type="button" class="btn secondary" id="btn-mqtt-rtt">RTT実測（mock可）</button>
       <pre id="mqtt-diag" class="hint"></pre>
     </section>
 
@@ -105,8 +120,10 @@
       <h2>完了チェック</h2>
       <label>設備 <select id="check-device-select"></select></label>
       <div id="checklist-items"></div>
-      <button type="button" class="btn" id="btn-completion-report">完了レポート</button>
+      <button type="button" class="btn" id="btn-completion-report">完了レポート (HTML)</button>
+      <button type="button" class="btn secondary" id="btn-completion-pdf">完了レポート (PDF)</button>
       <button type="button" class="btn secondary" id="btn-label">ラベルデータ</button>
+      <a class="btn secondary" id="link-labels-csv" href="#">ラベル CSV</a>
     </section>
 
     <h2>設備一覧</h2>

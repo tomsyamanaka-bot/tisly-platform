@@ -58,7 +58,19 @@
   background-image:
     linear-gradient(#94a3b844 1px, transparent 1px),
     linear-gradient(90deg, #94a3b844 1px, transparent 1px);
-  background-size: 5% 5%;
+  background-size: var(--grid-step, 5%) var(--grid-step, 5%);
+}
+.map-undo-row {
+  display: flex;
+  gap: 8px;
+  margin: 0.5rem 0;
+}
+.map-undo-row .btn {
+  flex: 1;
+  min-height: 44px;
+}
+.map-sidebar label {
+  margin-bottom: 0.5rem;
 }
 .palette-list {
   list-style: none;
