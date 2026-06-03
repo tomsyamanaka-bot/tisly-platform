@@ -10,7 +10,7 @@
     "dev": "tsx watch src/index.ts",
     "db:init": "tsx src/db/init.ts",
     "demo": "tsx src/demo/run-demo.ts",
-    "test": "tsx --test test/e2e.test.ts test/security.test.ts test/production-security.test.ts test/postgres.test.ts test/redis.test.ts test/2fa.test.ts test/health.test.ts test/customer.test.ts test/customer-tenant.test.ts",
+    "test": "tsx --test test/e2e.test.ts test/security.test.ts test/production-security.test.ts test/postgres.test.ts test/redis.test.ts test/2fa.test.ts test/health.test.ts test/customer.test.ts test/customer-tenant.test.ts test/customer-invite.test.ts",
     "db:migrate": "tsx src/db/migrate-cli.ts migrate",
     "db:status": "tsx src/db/migrate-cli.ts status",
     "db:backup": "tsx src/db/migrate-cli.ts backup",

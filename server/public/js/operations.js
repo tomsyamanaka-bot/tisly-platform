@@ -1,5 +1,11 @@
 import { apiGet, apiPost, apiLogin, apiLogout, getAdminToken } from "./api.js";
-import { mountSiteSelector, mountTenantSelector, getSelectedSiteId } from "./selectors.js";
+import {
+  mountSiteSelector,
+  mountTenantSelector,
+  mountCustomerScopeSelector,
+  getSelectedSiteId,
+  getSelectedCustomerScope,
+} from "./selectors.js";
 
 const panels = document.querySelectorAll(".ops-panel");
 const navButtons = document.querySelectorAll(".ops-nav button");
@@ -357,6 +363,66 @@ document.getElementById("btn-sec-logout")?.addEventListener("click", async () =>
   await loadSecurity();
 });
 
+async function loadIncidents() {
+  const scope = getSelectedCustomerScope();
+  const hint = document.getElementById("incidents-scope-hint");
+  if (hint) {
+    hint.textContent =
+      scope === "ALL"
+        ? "全顧客のインシデント"
+        : `${scope} にスコープ限定`;
+  }
+  if (!getAdminToken()) {
+    const el = document.getElementById("incidents-body");
+    if (el) el.innerHTML = "<tr><td colspan='5'>管理者ログインが必要です</td></tr>";
+    return;
+  }
+  try {
+    const q =
+      scope === "ALL" ? "" : `?customerCode=${encodeURIComponent(scope)}`;
+    const data = await apiGet(`/api/incidents${q}`);
+    const el = document.getElementById("incidents-body");
+    if (!el) return;
+    el.innerHTML = (data.incidents ?? [])
+      .map(
+        (inc) =>
+          `<tr>
+            <td><span class="badge ${inc.severity}">${inc.severity}</span></td>
+            <td>${inc.status}</td>
+            <td>${inc.title ?? inc.id}</td>
+            <td>${inc.site_id ?? "—"}</td>
+            <td>
+              <button type="button" class="btn secondary btn-inc-ack" data-id="${inc.id}">ACK</button>
+              <button type="button" class="btn secondary btn-inc-esc" data-id="${inc.id}">Esc</button>
+              <button type="button" class="btn secondary btn-inc-close" data-id="${inc.id}">Close</button>
+            </td>
+          </tr>`
+      )
+      .join("");
+    el.querySelectorAll(".btn-inc-ack").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        await apiPost(`/api/incidents/${btn.dataset.id}/ack`, {});
+        await loadIncidents();
+      });
+    });
+    el.querySelectorAll(".btn-inc-esc").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        await apiPost(`/api/incidents/${btn.dataset.id}/escalate`, {});
+        await loadIncidents();
+      });
+    });
+    el.querySelectorAll(".btn-inc-close").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        await apiPost(`/api/incidents/${btn.dataset.id}/close`, {});
+        await loadIncidents();
+      });
+    });
+  } catch (e) {
+    const el = document.getElementById("incidents-body");
+    if (el) el.innerHTML = `<tr><td colspan="5">${e}</td></tr>`;
+  }
+}
+
 async function loadRecoveryOps() {
   const data = await apiGet("/api/recovery/console");
   const el = document.getElementById("recovery-ops-summary");
@@ -462,12 +528,14 @@ async function refreshAll() {
     loadInfrastructure(),
     loadSites(),
     loadTv(),
+    loadIncidents(),
     loadRecoveryOps(),
     loadSecurity(),
   ]);
   renderCameras(4);
 }
 
+mountCustomerScopeSelector("customer-scope-selector", () => refreshAll().catch(console.error));
 mountTenantSelector("tenant-selector", () => refreshAll().catch(console.error));
 mountSiteSelector("site-selector", () => refreshAll().catch(console.error));
 

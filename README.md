@@ -3,6 +3,30 @@
 TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。  
 三菱電機 **FX 系** PLC と **GX Works2 / GX Works3** を想定しています。
 
+## TiSLY Platform — PRO Remote Invite & Reporting（Phase 261–280）
+
+**顧客招待・レポート出力・SOC/NOC 顧客スコープ・Webhook・サブドメイン設計**
+
+| 領域 | パス / URL |
+|------|------------|
+| ユーザー招待 | `POST /api/customer/:code/users/invite` · `accept-invite` |
+| ポータル Users タブ | `/customer/TOMS001` — 一覧・招待・ロール・停止 |
+| レポート | `GET .../reports/monthly` · `weekly` · `POST .../reports/export` |
+| QNAP レポート | `/TiSLY/{code}/{site}/reports/YYYY/MM/`（mock 可） |
+| サブドメイン | `server/src/customer/subdomain-resolver.ts` · `deploy/nginx/customer-subdomains.conf` |
+| SOC/NOC | `/operations` Customer Scope · `GET /api/incidents` |
+| Webhook | `POST /api/customer/:code/webhooks`（PRO_REMOTE のみ） |
+| 通知プラン | `server/src/notification/channel-plan-guard.ts` |
+| PostgreSQL RLS | 設計のみ `docs/postgres_rls_tenant_isolation.md` |
+| テスト | `server/test/customer-invite.test.ts` |
+
+```bash
+cd server && npm run build && npm run test
+cd tv-app && npx tsc --noEmit
+```
+
+---
+
 ## TiSLY Platform — PRO Remote Production（Phase 241–260）
 
 **テナント分離強化・顧客ポータル UX・プラン制限・ブランディング・顧客別 TV・営業レポート・ログインロックアウト**

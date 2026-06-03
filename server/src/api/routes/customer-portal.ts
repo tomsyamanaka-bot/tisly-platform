@@ -8,7 +8,7 @@ import {
   listSitesForCustomer,
 } from "../../customer/customer-store.js";
 import { buildCustomerSalesReport } from "../../customer/customer-reports.js";
-import { requirePlanFeature } from "../../customer/plan-guard.js";
+import { listPlanFeatures, requirePlanFeature } from "../../customer/plan-guard.js";
 import { requireAuth, type AuthedRequest } from "../../auth/auth-middleware.js";
 import { requireTenantMatch } from "../../auth/tenant-guard.js";
 import { canAccessCustomer } from "../../auth/customer-auth.js";
@@ -48,6 +48,13 @@ customerPortalRouter.get("/:customerCode/dashboard", ...portalAuth, (req: Authed
     branding,
     summary,
     sites,
+    planFeatures: listPlanFeatures(customer.plan),
+    contract: {
+      plan: customer.plan,
+      status: customer.status,
+      enabledFeatures: listPlanFeatures(customer.plan),
+      contractNote: "PRO Remote 契約詳細は営業担当へ — placeholder",
+    },
     cards: {
       deviceCount: summary.deviceCount,
       onlineCount: summary.onlineCount,
@@ -274,6 +281,10 @@ customerPortalRouter.get("/:customerCode/tv", ...portalAuth, (req: AuthedRequest
     certPinning: {
       enabled: config.tv.certPinningEnabled,
       fingerprint: config.tv.certFingerprint,
+      lastVerified: config.tv.certPinningEnabled
+        ? new Date().toISOString()
+        : null,
+      verificationTodo: "Full certificate pinning verification — placeholder",
     },
     refreshSec: 15,
     alertFullscreenSec: 10,

@@ -36,10 +36,10 @@ before(() => {
 });
 
 describe("TiSLY E2E API (Phase 161-180 Security RC1)", () => {
-  it("GET /health returns phase 241-260", async () => {
+  it("GET /health returns phase 261-280", async () => {
     const res = await request(app).get("/health");
     assert.equal(res.status, 200);
-    assert.equal(res.body.phase, "241-260-pro-remote-production");
+    assert.equal(res.body.phase, "261-280-pro-remote-invite-reporting");
   });
 
   it("GET /api/sites/templates requires auth", async () => {

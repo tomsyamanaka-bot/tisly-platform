@@ -101,6 +101,12 @@ function render(data) {
 
   document.getElementById("tv-recovery").textContent = `Recovery: ${data.recoveryStatus ?? "—"}`;
 
+  const pin = data.certPinning ?? {};
+  const pinEl = document.getElementById("tv-pinning-info");
+  if (pinEl) {
+    pinEl.innerHTML = `証明書ピン: ${pin.enabled ? "ON" : "OFF"} · FP: ${(pin.fingerprint ?? "—").slice(0, 24)}… · 最終確認: ${pin.lastVerified ?? "未検証"}`;
+  }
+
   const alert = data.alerts?.[0];
   if (alert && alert.id !== lastAlertId) {
     showAlert(alert);

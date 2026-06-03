@@ -1,4 +1,4 @@
-# 顧客別サブドメイン戦略（Phase 241–260）
+# 顧客別サブドメイン戦略（Phase 261–280 更新）
 
 ## 目的
 
@@ -38,9 +38,21 @@ server {
 
 ## テナント code 解決
 
+実装: `server/src/customer/subdomain-resolver.ts`
+
+| ホスト | 解決コード |
+|--------|------------|
+| `toms001.tisly.jp` | TOMS001 |
+| `hotel001.tisly.jp` | HOTEL001 |
+| `plant001.tisly.jp` | PLANT001 |
+
+ローカル開発: `X-TiSLY-Customer-Code` ヘッダまたは `?customerCode=TOMS001`
+
 1. サブドメイン → `customer_code`（大文字化）
 2. JWT `scope=customer` → `customerId` 固定
 3. API パス `:customerCode` → `canAccessCustomer`
+
+nginx テンプレート: `server/deploy/nginx/customer-subdomains.conf`
 
 ## WAF / SSL
 

@@ -128,6 +128,125 @@ export function runMigrations(database: Database.Database): void {
   database.exec("CREATE INDEX IF NOT EXISTS idx_devices_site ON devices(site_id)");
 
   migrateCustomerUsersPhase241(database);
+  migratePhase261(database);
+}
+
+const CUSTOMER_INVITE_COLUMNS: Array<{ name: string; ddl: string }> = [
+  { name: "invite_token", ddl: "ALTER TABLE customer_users ADD COLUMN invite_token TEXT" },
+  { name: "invite_expires_at", ddl: "ALTER TABLE customer_users ADD COLUMN invite_expires_at TEXT" },
+  { name: "invited_by", ddl: "ALTER TABLE customer_users ADD COLUMN invited_by TEXT" },
+  { name: "invited_at", ddl: "ALTER TABLE customer_users ADD COLUMN invited_at TEXT" },
+  { name: "accepted_at", ddl: "ALTER TABLE customer_users ADD COLUMN accepted_at TEXT" },
+  { name: "disabled_at", ddl: "ALTER TABLE customer_users ADD COLUMN disabled_at TEXT" },
+];
+
+const INCIDENT_SOC_COLUMNS: Array<{ name: string; ddl: string }> = [
+  { name: "tenant_id", ddl: "ALTER TABLE incidents ADD COLUMN tenant_id TEXT" },
+  { name: "customer_id", ddl: "ALTER TABLE incidents ADD COLUMN customer_id TEXT" },
+  { name: "severity", ddl: "ALTER TABLE incidents ADD COLUMN severity TEXT DEFAULT 'info'" },
+  { name: "title", ddl: "ALTER TABLE incidents ADD COLUMN title TEXT" },
+];
+
+function migratePhase261(database: Database.Database): void {
+  addColumnsIfMissing(database, "customer_users", CUSTOMER_INVITE_COLUMNS);
+  addColumnsIfMissing(database, "incidents", INCIDENT_SOC_COLUMNS);
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS customer_report_exports (
+      export_id TEXT PRIMARY KEY,
+      customer_id TEXT NOT NULL,
+      site_id TEXT,
+      generated_by TEXT NOT NULL,
+      generated_at TEXT NOT NULL,
+      format TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'generated',
+      report_type TEXT NOT NULL,
+      archive_path TEXT,
+      html_snapshot TEXT,
+      FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
+    );
+  `);
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS customer_webhooks (
+      id TEXT PRIMARY KEY,
+      customer_id TEXT NOT NULL,
+      url TEXT NOT NULL,
+      secret TEXT,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
+    );
+  `);
+  database.exec(
+    "CREATE INDEX IF NOT EXISTS idx_customer_webhooks_customer ON customer_webhooks(customer_id)"
+  );
+  database.exec(
+    "CREATE INDEX IF NOT EXISTS idx_customer_report_exports_customer ON customer_report_exports(customer_id)"
+  );
+  migrateCustomerUsersInviteStatus(database);
+}
+
+function migrateCustomerUsersInviteStatus(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:customer_users_invited_status") as { value_json: string } | undefined;
+  if (marker) return;
+
+  try {
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS customer_users_phase261 (
+        id TEXT PRIMARY KEY,
+        customer_id TEXT NOT NULL,
+        username TEXT NOT NULL,
+        password_hash TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'viewer',
+        status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'invited', 'suspended', 'deleted')),
+        last_login_at TEXT,
+        failed_login_count INTEGER DEFAULT 0,
+        locked_until TEXT,
+        invite_token TEXT,
+        invite_expires_at TEXT,
+        invited_by TEXT,
+        invited_at TEXT,
+        accepted_at TEXT,
+        disabled_at TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        UNIQUE (customer_id, username),
+        FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
+      );
+    `);
+    const cols = new Set(
+      (database.prepare("PRAGMA table_info(customer_users)").all() as Array<{ name: string }>).map(
+        (r) => r.name
+      )
+    );
+    const pick = (name: string, fallback: string) => (cols.has(name) ? name : fallback);
+    database.exec(`
+      INSERT OR REPLACE INTO customer_users_phase261
+        (id, customer_id, username, password_hash, role, status,
+         last_login_at, failed_login_count, locked_until,
+         invite_token, invite_expires_at, invited_by, invited_at, accepted_at, disabled_at,
+         created_at, updated_at)
+      SELECT id, customer_id, username, password_hash, role, status,
+        ${pick("last_login_at", "NULL")}, ${pick("failed_login_count", "0")}, ${pick("locked_until", "NULL")},
+        ${pick("invite_token", "NULL")}, ${pick("invite_expires_at", "NULL")},
+        ${pick("invited_by", "NULL")}, ${pick("invited_at", "NULL")},
+        ${pick("accepted_at", "NULL")}, ${pick("disabled_at", "NULL")},
+        created_at, updated_at
+      FROM customer_users;
+    `);
+    database.exec("DROP TABLE customer_users");
+    database.exec("ALTER TABLE customer_users_phase261 RENAME TO customer_users");
+    database.exec(
+      "CREATE INDEX IF NOT EXISTS idx_customer_users_customer ON customer_users(customer_id)"
+    );
+    database.prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    ).run("migration:customer_users_invited_status", JSON.stringify({ at: new Date().toISOString() }));
+  } catch {
+    /* already migrated */
+  }
 }
 
 const CUSTOMER_USER_COLUMNS: Array<{ name: string; ddl: string }> = [

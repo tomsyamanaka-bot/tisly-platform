@@ -1,3 +1,32 @@
+.portal-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin: 1rem 1.5rem 0;
+}
+.portal-tabs .tab {
+  padding: 0.5rem 1rem;
+  border: 1px solid #ccc;
+  background: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.portal-tabs .tab.active {
+  background: var(--customer-accent, #1a7f37);
+  color: #fff;
+  border-color: var(--customer-accent, #1a7f37);
+}
+.users-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.5rem;
+}
+.users-table th,
+.users-table td {
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid #e0e0e0;
+  text-align: left;
+}
+
 .customer-portal {
   --customer-accent: #1a7f37;
   min-height: 100vh;

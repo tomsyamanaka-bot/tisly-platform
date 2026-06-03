@@ -21,6 +21,10 @@ export interface AdminSession {
 }
 
 export function isAuthConfigured(): boolean {
+  return Boolean(config.auth.jwtSecret);
+}
+
+export function isAdminPasswordConfigured(): boolean {
   return Boolean(config.auth.jwtSecret && config.auth.adminPasswordHash);
 }
 
@@ -29,7 +33,7 @@ export function loginAdmin(
   password: string,
   meta?: { ip?: string; userAgent?: string; totpCode?: string }
 ): AdminSession | null {
-  if (!isAuthConfigured()) return null;
+  if (!isAdminPasswordConfigured()) return null;
   if (username !== config.auth.adminUsername) return null;
   if (!verifyPassword(password, config.auth.adminPasswordHash)) {
     recordFailedLogin(username, meta);

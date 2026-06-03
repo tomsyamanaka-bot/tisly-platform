@@ -5,6 +5,7 @@ process.env.SESSION_EXPIRES_MINUTES = "60";
 process.env.REQUIRE_2FA = "false";
 process.env.RATE_LIMIT_PROVIDER = "memory";
 process.env.NODE_ENV = "test";
+process.env.TEST_LOGIN_RATE_MAX = "10";
 
 import { hashPassword } from "../src/auth/password.js";
 
@@ -141,6 +142,9 @@ describe("TiSLY Security (Phase 161-180)", () => {
   });
 
   it("rate limits auth login after many failures", async () => {
+    process.env.TEST_LOGIN_RATE_MAX = "10";
+    const { resetLoginLimiterForTests } = await import("../src/api/routes/auth.js");
+    resetLoginLimiterForTests();
     resetRateLimitsForTests();
     let lastStatus = 0;
     for (let i = 0; i < 12; i++) {

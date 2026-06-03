@@ -14,6 +14,7 @@ import { getDatabase } from "../../db/database.js";
 import { getCustomerByCode, customerUrls } from "../../customer/customer-store.js";
 import { requireAdminAuth, type AuthedRequest } from "../../auth/auth-middleware.js";
 import { createRateLimit } from "../../security/rate-limit-redis.js";
+import { rateLimit as memoryRateLimit } from "../../security/rate-limit.js";
 import {
   listActiveSessions,
   revokeSession,
@@ -27,16 +28,39 @@ import {
   isRequire2fa,
 } from "../../auth/totp.js";
 import { logAudit } from "../../provisioning/audit-log.js";
+import { config } from "../../config.js";
 
 export const authRouter = Router();
 
-const loginLimiter = createRateLimit({
-  keyPrefix: "auth-login",
-  max: process.env.NODE_ENV === "test" ? 1000 : 10,
-  windowMs: 15 * 60 * 1000,
-});
+function buildLoginLimiter() {
+  return process.env.NODE_ENV === "test"
+    ? memoryRateLimit({
+        keyPrefix: "auth-login",
+        max: Number(process.env.TEST_LOGIN_RATE_MAX ?? 1000),
+        windowMs: 15 * 60 * 1000,
+      })
+    : createRateLimit({
+        keyPrefix: "auth-login",
+        max: 10,
+        windowMs: 15 * 60 * 1000,
+      });
+}
 
-authRouter.post("/login", loginLimiter, (req, res) => {
+let loginLimiter = buildLoginLimiter();
+
+export function resetLoginLimiterForTests(): void {
+  loginLimiter = buildLoginLimiter();
+}
+
+function applyLoginLimiter(
+  req: Parameters<ReturnType<typeof buildLoginLimiter>>[0],
+  res: Parameters<ReturnType<typeof buildLoginLimiter>>[1],
+  next: Parameters<ReturnType<typeof buildLoginLimiter>>[2]
+): void {
+  loginLimiter(req, res, next);
+}
+
+authRouter.post("/login", applyLoginLimiter, (req, res) => {
   if (!isAuthConfigured()) {
     res.status(503).json({
       error: "Admin authentication not configured",
@@ -81,9 +105,9 @@ authRouter.post("/login", loginLimiter, (req, res) => {
   });
 });
 
-authRouter.post("/customer/login", loginLimiter, (req, res) => {
-  if (!isAuthConfigured()) {
-    res.status(503).json({ error: "Authentication not configured" });
+authRouter.post("/customer/login", applyLoginLimiter, (req, res) => {
+  if (!config.auth.jwtSecret) {
+    res.status(503).json({ error: "Authentication not configured — set JWT_SECRET" });
     return;
   }
   const { customerCode, username, password } = req.body as {

@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import { isAuthConfigured, resolveSession } from "./admin-auth.js";
+import { isAdminPasswordConfigured, isAuthConfigured, resolveSession } from "./admin-auth.js";
 import { getCustomerByCode } from "../customer/customer-store.js";
 import { canAccessCustomer, resolveAnySession } from "./customer-auth.js";
 import { isSessionRevoked } from "./session-store.js";
@@ -24,7 +24,7 @@ function extractBearer(req: Request): string | undefined {
 }
 
 export function requireAdminAuth(req: AuthedRequest, res: Response, next: NextFunction): void {
-  if (!isAuthConfigured()) {
+  if (!isAdminPasswordConfigured()) {
     res.status(503).json({
       error: "Admin authentication not configured",
       hint: "Set JWT_SECRET and ADMIN_PASSWORD_HASH in .env",

@@ -23,6 +23,11 @@ import { reportsRouter } from "./api/routes/reports.js";
 import { healthFullRouter } from "./api/routes/health-full.js";
 import { customersRouter } from "./api/routes/customers.js";
 import { customerPortalRouter } from "./api/routes/customer-portal.js";
+import { customerUsersRouter } from "./api/routes/customer-users.js";
+import { customerReportsRouter } from "./api/routes/customer-reports.js";
+import { customerWebhooksRouter } from "./api/routes/customer-webhooks.js";
+import { incidentsRouter } from "./api/routes/incidents.js";
+import { attachCustomerFromSubdomain } from "./customer/subdomain-resolver.js";
 import { dbRouter } from "./api/routes/db.js";
 import { notificationRulesRouter } from "./api/routes/notification-rules.js";
 import { securityRouter } from "./api/routes/security.js";
@@ -36,6 +41,7 @@ const publicDir = path.join(__dirname, "..", "public");
 export function createApp(): express.Application {
   const app = express();
   app.use(cors());
+  app.use(attachCustomerFromSubdomain);
   app.use(
     express.json({
       verify: (req, _res, buf) => {
@@ -70,6 +76,10 @@ export function createApp(): express.Application {
   app.use("/api/health", healthFullRouter);
   app.use("/api/customers", customersRouter);
   app.use("/api/customer", customerPortalRouter);
+  app.use("/api/customer", customerUsersRouter);
+  app.use("/api/customer", customerReportsRouter);
+  app.use("/api/customer", customerWebhooksRouter);
+  app.use("/api/incidents", incidentsRouter);
   app.use("/api/db", dbRouter);
 
   const customerPortalHtml = path.join(publicDir, "customer-portal.html");

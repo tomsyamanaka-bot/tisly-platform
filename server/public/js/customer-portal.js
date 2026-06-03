@@ -1,4 +1,4 @@
-import { apiGet, getAdminToken, setAdminToken } from "./api.js";
+import { apiGet, apiPost, getAdminToken, setAdminToken } from "./api.js";
 
 const pathMatch = location.pathname.match(/\/customer\/([^/]+)/i);
 const customerCode = pathMatch ? pathMatch[1].toUpperCase() : "";
@@ -140,7 +140,85 @@ async function showDashboard() {
     <div class="mini-card"><h3>TV状態</h3><p>${tvStatus}</p></div>
     <div class="mini-card"><h3>プラン</h3><p>${dash.customer.plan}</p></div>
   `;
+
+  const contract = dash.contract ?? {};
+  document.getElementById("contract-info").innerHTML = `
+    <p><strong>プラン:</strong> ${contract.plan ?? dash.customer.plan}
+     · <strong>状態:</strong> ${contract.status ?? "active"}</p>
+    <p><strong>有効機能:</strong> ${(contract.enabledFeatures ?? dash.planFeatures ?? []).join(", ") || "—"}</p>
+    <p class="hint">${contract.contractNote ?? ""}</p>
+  `;
+
+  await loadUsersTab();
 }
+
+let currentUserRole = "viewer";
+
+async function loadUsersTab() {
+  const data = await apiGet(`/api/customer/${customerCode}/users`).catch(() => ({ users: [] }));
+  currentUserRole = data.currentRole ?? currentUserRole;
+  const canManage = ["owner", "admin", "super_admin"].includes(currentUserRole);
+  document.getElementById("users-role-hint").textContent = canManage
+    ? "owner/admin: 招待・ロール変更・停止が可能"
+    : "viewer: 一覧表示のみ";
+  document.getElementById("users-invite-form").hidden = !canManage;
+
+  document.getElementById("users-body").innerHTML = (data.users ?? [])
+    .map((u) => {
+      const actions = canManage && u.status === "active"
+        ? `<button type="button" class="btn secondary btn-disable-user" data-id="${u.id}">停止</button>
+           <select class="user-role-select" data-id="${u.id}">
+             ${["viewer", "manager", "admin", "owner"]
+               .map((r) => `<option value="${r}" ${r === u.role ? "selected" : ""}>${r}</option>`)
+               .join("")}
+           </select>`
+        : "";
+      return `<tr>
+        <td>${u.username}</td><td>${u.role}</td><td>${u.status}</td>
+        <td>${u.last_login_at ?? "—"}</td><td>${actions}</td></tr>`;
+    })
+    .join("");
+
+  document.querySelectorAll(".btn-disable-user").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      await apiPost(`/api/customer/${customerCode}/users/${btn.dataset.id}/disable`, {});
+      await loadUsersTab();
+    });
+  });
+  document.querySelectorAll(".user-role-select").forEach((sel) => {
+    sel.addEventListener("change", async () => {
+      await apiPost(`/api/customer/${customerCode}/users/${sel.dataset.id}/role`, {
+        role: sel.value,
+      });
+    });
+  });
+}
+
+document.querySelectorAll(".portal-tabs .tab").forEach((tab) => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".portal-tabs .tab").forEach((t) => t.classList.remove("active"));
+    tab.classList.add("active");
+    const id = tab.dataset.tab;
+    document.getElementById("tab-overview").hidden = id !== "overview";
+    document.getElementById("tab-users").hidden = id !== "users";
+    if (id === "users" && getAdminToken()) loadUsersTab().catch(console.error);
+  });
+});
+
+document.getElementById("btn-invite")?.addEventListener("click", async () => {
+  const el = document.getElementById("invite-result");
+  el.textContent = "";
+  try {
+    const res = await apiPost(`/api/customer/${customerCode}/users/invite`, {
+      username: document.getElementById("invite-username").value.trim(),
+      role: document.getElementById("invite-role").value,
+    });
+    el.textContent = `招待トークン: ${res.inviteToken?.slice(0, 12)}… (有効期限 ${res.expiresAt})`;
+    await loadUsersTab();
+  } catch (e) {
+    el.textContent = String(e);
+  }
+});
 
 if (getAdminToken()) {
   showDashboard().catch(() => setAdminToken(""));

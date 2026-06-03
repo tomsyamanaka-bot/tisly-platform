@@ -75,6 +75,8 @@ async function loadAdmin() {
   document.getElementById("admin-customer-info").innerHTML = `
     <h2>${c.customer_name}</h2>
     <p>コード: ${c.customer_code} · プラン: ${c.plan} · ${c.status}</p>
+    <p><strong>有効機能:</strong> ${(info.planFeatures ?? []).join(", ")}</p>
+    <p class="hint">${users.contractNote ?? "契約メモ placeholder"}</p>
     <p><a href="${info.urls.customer}">ポータル</a> · <a href="${info.urls.tv}">TV</a></p>
   `;
   document.getElementById("admin-plan").value = c.plan;
@@ -94,7 +96,7 @@ async function loadAdmin() {
   document.getElementById("admin-users").innerHTML = (users.users ?? [])
     .map(
       (u) =>
-        `<tr><td>${u.username}</td><td>${u.role}</td><td>${u.last_login_at ?? "—"}</td></tr>`
+        `<tr><td>${u.username}</td><td>${u.role}</td><td>${u.status}</td><td>${u.last_login_at ?? "—"}</td></tr>`
     )
     .join("");
 

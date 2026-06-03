@@ -40,3 +40,33 @@ export function getSelectedSiteId() {
 export function getSelectedTenantId() {
   return localStorage.getItem("tisly.selectedTenantId") ?? "default";
 }
+
+const CUSTOMER_SCOPE_OPTIONS = [
+  { code: "ALL", label: "全顧客" },
+  { code: "TOMS001", label: "TOMS001" },
+  { code: "HOTEL001", label: "HOTEL001" },
+  { code: "PLANT001", label: "PLANT001" },
+];
+
+export function mountCustomerScopeSelector(containerId, onChange) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const saved = localStorage.getItem("tisly.selectedCustomerScope") ?? "ALL";
+  el.innerHTML = `
+    <label>Customer Scope
+      <select id="customer-scope-select">
+        ${CUSTOMER_SCOPE_OPTIONS.map(
+          (o) =>
+            `<option value="${o.code}" ${o.code === saved ? "selected" : ""}>${o.label}</option>`
+        ).join("")}
+      </select>
+    </label>`;
+  el.querySelector("select")?.addEventListener("change", (e) => {
+    localStorage.setItem("tisly.selectedCustomerScope", e.target.value);
+    onChange?.(e.target.value);
+  });
+}
+
+export function getSelectedCustomerScope() {
+  return localStorage.getItem("tisly.selectedCustomerScope") ?? "ALL";
+}

@@ -1,76 +1,108 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>TiSLY — 顧客ダッシュボード</title>
-  <link rel="stylesheet" href="/css/admin.css" />
-  <link rel="stylesheet" href="/css/customer-portal.css" />
-</head>
-<body class="customer-portal" id="portal-root">
-  <header class="portal-header">
-    <div class="brand" id="brand-block">
-      <img id="brand-logo" alt="" hidden />
-      <div>
-        <h1 id="brand-name">TiSLY</h1>
-        <p id="brand-code"></p>
-      </div>
-    </div>
-    <nav class="portal-nav">
-      <a id="link-tv" href="#">TV</a>
-      <a id="link-admin" href="#">管理</a>
-      <button type="button" class="btn secondary" id="btn-logout" hidden>ログアウト</button>
-    </nav>
-  </header>
-
-  <section id="login-panel" class="card login-card">
-    <h2>顧客ログイン</h2>
-    <p class="hint">デモ: <code id="demo-user-hint"></code> / <code>demo-remote-2026</code></p>
-    <label>ユーザー名 <input id="login-username" autocomplete="username" /></label>
-    <label>パスワード <input id="login-password" type="password" autocomplete="current-password" /></label>
-    <button type="button" class="btn" id="btn-login">ログイン</button>
-    <p id="login-error" class="error"></p>
-  </section>
-
-  <main id="dashboard-panel" hidden>
-    <div class="status-banner" id="overall-status">読込中…</div>
-    <section class="metric-cards" id="metric-cards"></section>
-
-    <section class="card portal-card">
-      <h2>現場一覧</h2>
-      <div id="sites-list" class="card-grid"></div>
-    </section>
-
-    <section class="card portal-card">
-      <h2>設備一覧</h2>
-      <div id="devices-by-type"></div>
-    </section>
-
-    <section class="card portal-card">
-      <h2>最新イベント</h2>
-      <ul id="events-list" class="simple-list"></ul>
-    </section>
-
-    <section class="card portal-card">
-      <h2>警報履歴</h2>
-      <ul id="alarms-list" class="simple-list"></ul>
-    </section>
-
-    <section class="card portal-card">
-      <h2>稼働率 · TV · Recovery</h2>
-      <div id="ops-cards" class="card-grid"></div>
-    </section>
-
-    <section class="card portal-card">
-      <h2>AIサマリー</h2>
-      <p id="ai-summary">—</p>
-    </section>
-
-    <section class="card portal-card">
-      <h2>Recovery履歴</h2>
-      <ul id="recovery-list" class="simple-list"></ul>
-    </section>
-  </main>
-  <script type="module" src="/js/customer-portal.js"></script>
-</body>
-</html>
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TiSLY — 顧客ダッシュボード</title>
+  <link rel="stylesheet" href="/css/admin.css" />
+  <link rel="stylesheet" href="/css/customer-portal.css" />
+</head>
+<body class="customer-portal" id="portal-root">
+  <header class="portal-header">
+    <div class="brand" id="brand-block">
+      <img id="brand-logo" alt="" hidden />
+      <div>
+        <h1 id="brand-name">TiSLY</h1>
+        <p id="brand-code"></p>
+      </div>
+    </div>
+    <nav class="portal-nav">
+      <a id="link-tv" href="#">TV</a>
+      <a id="link-admin" href="#">管理</a>
+      <button type="button" class="btn secondary" id="btn-logout" hidden>ログアウト</button>
+    </nav>
+  </header>
+
+  <section id="login-panel" class="card login-card">
+    <h2>顧客ログイン</h2>
+    <p class="hint">デモ: <code id="demo-user-hint"></code> / <code>demo-remote-2026</code></p>
+    <label>ユーザー名 <input id="login-username" autocomplete="username" /></label>
+    <label>パスワード <input id="login-password" type="password" autocomplete="current-password" /></label>
+    <button type="button" class="btn" id="btn-login">ログイン</button>
+    <p id="login-error" class="error"></p>
+  </section>
+
+  <main id="dashboard-panel" hidden>
+    <div class="status-banner" id="overall-status">読込中…</div>
+    <section class="card portal-card" id="contract-card">
+      <h2>契約・プラン</h2>
+      <div id="contract-info"></div>
+    </section>
+    <nav class="portal-tabs">
+      <button type="button" class="tab active" data-tab="overview">概要</button>
+      <button type="button" class="tab" data-tab="users">ユーザー</button>
+    </nav>
+    <div id="tab-overview">
+    <section class="metric-cards" id="metric-cards"></section>
+
+    <section class="card portal-card">
+      <h2>現場一覧</h2>
+      <div id="sites-list" class="card-grid"></div>
+    </section>
+
+    <section class="card portal-card">
+      <h2>設備一覧</h2>
+      <div id="devices-by-type"></div>
+    </section>
+
+    <section class="card portal-card">
+      <h2>最新イベント</h2>
+      <ul id="events-list" class="simple-list"></ul>
+    </section>
+
+    <section class="card portal-card">
+      <h2>警報履歴</h2>
+      <ul id="alarms-list" class="simple-list"></ul>
+    </section>
+
+    <section class="card portal-card">
+      <h2>稼働率 · TV · Recovery</h2>
+      <div id="ops-cards" class="card-grid"></div>
+    </section>
+
+    <section class="card portal-card">
+      <h2>AIサマリー</h2>
+      <p id="ai-summary">—</p>
+    </section>
+
+    <section class="card portal-card">
+      <h2>Recovery履歴</h2>
+      <ul id="recovery-list" class="simple-list"></ul>
+    </section>
+    </div>
+    <div id="tab-users" hidden>
+      <section class="card portal-card">
+        <h2>ユーザー管理</h2>
+        <p id="users-role-hint" class="hint"></p>
+        <div id="users-invite-form" hidden>
+          <label>ユーザー名 <input id="invite-username" /></label>
+          <label>ロール
+            <select id="invite-role">
+              <option value="viewer">viewer</option>
+              <option value="manager">manager</option>
+              <option value="admin">admin</option>
+            </select>
+          </label>
+          <button type="button" class="btn" id="btn-invite">招待</button>
+          <p id="invite-result" class="hint"></p>
+        </div>
+        <table class="users-table">
+          <thead><tr><th>ユーザー</th><th>ロール</th><th>状態</th><th>最終ログイン</th><th></th></tr></thead>
+          <tbody id="users-body"></tbody>
+        </table>
+      </section>
+    </div>
+  </main>
+  <script type="module" src="/js/customer-portal.js"></script>
+</body>
+</html>

@@ -11,6 +11,14 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 let db: Database.Database | null = null;
 
+/** Close SQLite handle (for isolated tests). */
+export function closeDatabase(): void {
+  if (db) {
+    db.close();
+    db = null;
+  }
+}
+
 export function getDbPath(): string {
   const p = config.dbPath;
   return path.isAbsolute(p) ? p : path.join(process.cwd(), p);

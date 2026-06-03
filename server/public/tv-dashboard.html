@@ -1,36 +1,37 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>TiSLY TV Dashboard</title>
-  <link rel="stylesheet" href="/css/tv-dashboard.css" />
-</head>
-<body class="tv-dashboard">
-  <div id="tv-normal">
-    <header class="tv-header">
-      <div class="tv-brand">
-        <img id="tv-logo" alt="" hidden />
-        <div>
-          <h1 id="tv-company">TiSLY</h1>
-          <span id="tv-code"></span>
-        </div>
-      </div>
-      <div class="tv-clock" id="tv-clock">--:--:--</div>
-    </header>
-    <section class="tv-sites" id="tv-sites"></section>
-    <section class="tv-summary" id="tv-summary"></section>
-    <section class="tv-cameras" id="tv-cameras"></section>
-    <section class="tv-devices" id="tv-devices"></section>
-    <p class="tv-recovery" id="tv-recovery"></p>
-  </div>
-  <div id="tv-alert-overlay" class="tv-alert-overlay" hidden>
-    <div class="tv-alert-content">
-      <h2>アラート</h2>
-      <p id="tv-alert-message"></p>
-      <p class="tv-alert-timer" id="tv-alert-timer">10</p>
-    </div>
-  </div>
-  <script type="module" src="/js/tv-dashboard.js"></script>
-</body>
-</html>
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TiSLY TV Dashboard</title>
+  <link rel="stylesheet" href="/css/tv-dashboard.css" />
+</head>
+<body class="tv-dashboard">
+  <div id="tv-normal">
+    <header class="tv-header">
+      <div class="tv-brand">
+        <img id="tv-logo" alt="" hidden />
+        <div>
+          <h1 id="tv-company">TiSLY</h1>
+          <span id="tv-code"></span>
+        </div>
+      </div>
+      <div class="tv-clock" id="tv-clock">--:--:--</div>
+    </header>
+    <section class="tv-sites" id="tv-sites"></section>
+    <section class="tv-summary" id="tv-summary"></section>
+    <section class="tv-cameras" id="tv-cameras"></section>
+    <section class="tv-devices" id="tv-devices"></section>
+    <p class="tv-recovery" id="tv-recovery"></p>
+    <footer class="tv-security-footer" id="tv-pinning-info"></footer>
+  </div>
+  <div id="tv-alert-overlay" class="tv-alert-overlay" hidden>
+    <div class="tv-alert-content">
+      <h2>アラート</h2>
+      <p id="tv-alert-message"></p>
+      <p class="tv-alert-timer" id="tv-alert-timer">10</p>
+    </div>
+  </div>
+  <script type="module" src="/js/tv-dashboard.js"></script>
+</body>
+</html>

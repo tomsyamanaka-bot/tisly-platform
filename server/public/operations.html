@@ -24,6 +24,7 @@
   </header>
   <main>
     <div class="card" style="margin-bottom:1rem;display:flex;flex-wrap:wrap;gap:1rem;align-items:center">
+      <span id="customer-scope-selector"></span>
       <span id="tenant-selector"></span>
       <span id="site-selector"></span>
       <a href="/setup" class="btn secondary">セットアップウィザード</a>
@@ -31,7 +32,7 @@
     </div>
 
     <div class="demo-banner">
-      <strong>Phase 221–240</strong> — TiSLY PRO Remote · Customer / TV / Infrastructure —
+      <strong>Phase 261–280</strong> — PRO Remote · Customer Scope · Incidents · Invite / Reports —
       <span id="demo-status">読込中…</span>
       <button class="btn" id="btn-demo-start" type="button">デモ開始</button>
       <button class="btn secondary" id="btn-demo-stop" type="button">停止</button>
@@ -61,6 +62,7 @@
         <button type="button" data-panel="analytics">Analytics</button>
         <button type="button" data-panel="sites">Site</button>
         <button type="button" data-panel="tv">TV</button>
+        <button type="button" data-panel="incidents">Incidents</button>
         <button type="button" data-panel="recovery">Recovery</button>
         <button type="button" data-panel="health">Health Monitor</button>
         <button type="button" data-panel="infrastructure">Infrastructure</button>
@@ -145,6 +147,15 @@
           <table>
             <thead><tr><th>名称</th><th>現場</th><th>状態</th><th>最終接続</th><th>ペアリング</th></tr></thead>
             <tbody id="tv-body"></tbody>
+          </table>
+        </section>
+
+        <section id="panel-incidents" class="ops-panel card">
+          <h2>インシデント一覧</h2>
+          <p id="incidents-scope-hint" class="hint"></p>
+          <table>
+            <thead><tr><th>重要度</th><th>状態</th><th>タイトル</th><th>現場</th><th>操作</th></tr></thead>
+            <tbody id="incidents-body"></tbody>
           </table>
         </section>
 
