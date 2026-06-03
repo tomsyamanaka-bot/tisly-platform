@@ -17,6 +17,7 @@ import { canAccessCustomer } from "../../auth/customer-auth.js";
 import { logAudit } from "../../provisioning/audit-log.js";
 import { listPlanFeatures } from "../../customer/plan-guard.js";
 import { getBillingByCustomerId } from "../../billing/billing-store.js";
+import { createSite } from "../../site-builder/site-store.js";
 
 export const customersRouter = Router();
 
@@ -50,6 +51,40 @@ customersRouter.get("/by-code/:customerCode", requireAuth("viewer"), requireTena
           placeholder: "Billing charges not live until Stripe keys configured",
         }
       : null,
+  });
+});
+
+customersRouter.post("/wizard", requireAdminAuth, (req, res) => {
+  const body = req.body as {
+    company?: { customerId: string; customerCode: string; customerName: string; plan?: CustomerPlan };
+    plan?: CustomerPlan;
+    site?: { name: string; address?: string; timezone?: string };
+    user?: { username: string; password: string; role?: string };
+    complete?: boolean;
+  };
+  if (body.complete && body.company) {
+    const row = upsertCustomer({
+      customerId: body.company.customerId,
+      customerCode: body.company.customerCode,
+      customerName: body.company.customerName,
+      plan: body.plan ?? body.company.plan ?? "Standard",
+    });
+    let site = null;
+    if (body.site?.name) {
+      site = createSite({
+        tenantId: row.tenant_id ?? row.customer_id,
+        customerId: row.customer_id,
+        name: body.site.name,
+        address: body.site.address,
+        timezone: body.site.timezone,
+      });
+    }
+    res.status(201).json({ step: 5, customer: row, site, urls: customerUrls(row.customer_code) });
+    return;
+  }
+  res.json({
+    steps: ["company", "plan", "site", "contacts", "complete"],
+    message: "Send complete:true with company, plan, site, user to finalize",
   });
 });
 

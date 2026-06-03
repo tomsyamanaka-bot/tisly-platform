@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TiSLY — 施工モード</title>
+  <link rel="stylesheet" href="/css/admin.css" />
+  <link rel="stylesheet" href="/css/customer-portal.css" />
+</head>
+<body class="customer-portal">
+  <header class="portal-header">
+    <div class="brand"><h1>施工モード</h1><p id="install-code"></p></div>
+    <nav class="portal-nav">
+      <a id="link-map" href="#">Map Editor</a>
+      <a id="link-portal" href="#">ポータル</a>
+    </nav>
+  </header>
+  <main class="card portal-card" style="margin:1rem">
+    <h2>デバイス追加ウィザード</h2>
+    <form id="device-wizard" class="wizard-form">
+      <label>シリアル <input name="serial" required /></label>
+      <label>種別 <input name="type" value="ESP" required /></label>
+      <label>フロア ID <input name="floor" /></label>
+      <label>部屋 <input name="room" /></label>
+      <label>アイコン <input name="icon" value="sensor" /></label>
+      <label>現場 ID <input name="siteId" /></label>
+      <button type="submit" class="btn">登録</button>
+    </form>
+    <p id="wizard-result" class="hint"></p>
+    <h2>設備一覧</h2>
+    <table class="users-table">
+      <thead>
+        <tr><th>ID</th><th>種別</th><th>RSSI</th><th>Last Seen</th><th>Firmware</th><th>状態</th></tr>
+      </thead>
+      <tbody id="install-devices"></tbody>
+    </table>
+  </main>
+  <script type="module" src="/js/installer-mode.js"></script>
+</body>
+</html>

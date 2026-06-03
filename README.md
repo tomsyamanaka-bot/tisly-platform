@@ -3,6 +3,33 @@
 TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。  
 三菱電機 **FX 系** PLC と **GX Works2 / GX Works3** を想定しています。
 
+## TiSLY Platform — Site Builder, Map Editor & Deployment Foundation（Phase 321–340）
+
+**営業・施工向けノーコード設定 · 図面配置 · カメラ/TV 登録 · Recovery/Schedule GUI**
+
+| 領域 | パス / URL |
+|------|------------|
+| Site Builder | `server/src/site-builder/` |
+| 管理 API | `GET/POST /api/site` · `/api/floor` · `/api/zone` · `/api/map` |
+| 顧客 Map API | `GET/POST/PUT /api/customer/:code/map/devices` |
+| 図面 Upload | `POST /api/customer/:code/floors/upload` → `uploads/floorplans` |
+| Map Editor | `/customer/TOMS001/map` |
+| 施工モード | `/customer/TOMS001/install` |
+| 顧客ウィザード | `POST /api/customers/wizard` |
+| カメラ/TV | `camera_devices` · `tv_devices.cert_status` |
+| スケジュール | `customer_schedules` · Armed/Business/Night |
+| Recovery GUI | `customer_recovery_rules` |
+| PostgreSQL | `server/src/db/postgres/schema-phase-321.postgres.sql` |
+| テスト | `server/test/site-builder.test.ts` |
+| ドキュメント | `docs/phase321_340_status.md` |
+
+```bash
+cd server && npm run build && npm run test
+cd tv-app && npx tsc --noEmit
+```
+
+---
+
 ## TiSLY Platform — Billing, Workers & Real Operations（Phase 301–320）
 
 **Stripe 請求準備 · 配信ワーカー · Operations 実データ · PostgreSQL 移行 Runbook · 契約ガード**

@@ -11,6 +11,8 @@ document.getElementById("demo-user-hint").textContent = `${customerCode.toLowerC
 document.getElementById("brand-code").textContent = customerCode;
 document.getElementById("link-tv").href = `/tv/${customerCode}`;
 document.getElementById("link-admin").href = `/admin/${customerCode}`;
+document.getElementById("link-map")?.setAttribute("href", `/customer/${customerCode}/map`);
+document.getElementById("link-install")?.setAttribute("href", `/customer/${customerCode}/install`);
 
 document.getElementById("btn-login")?.addEventListener("click", async () => {
   loginError.textContent = "";
@@ -151,7 +153,74 @@ async function showDashboard() {
 
   await loadUsersTab();
   await loadNotificationRulesTab().catch(() => {});
+  document.getElementById("link-map-inline")?.setAttribute("href", `/customer/${customerCode}/map`);
 }
+
+async function loadSiteBuilderTab() {
+  const data = await apiGet(`/api/customer/${customerCode}/sites/builder`).catch(() => ({ sites: [] }));
+  const el = document.getElementById("site-builder-tree");
+  if (!el) return;
+  el.innerHTML = (data.sites ?? [])
+    .map(
+      (s) =>
+        `<div class="mini-card"><strong>${s.name}</strong> — ${s.address ?? ""}
+         <ul>${(s.floors ?? []).map((f) => `<li>フロア: ${f.name}</li>`).join("") || "<li>フロア未登録</li>"}
+         <ul>${(s.zones ?? []).map((z) => `<li>部屋: ${z.name} (${z.zone_type})</li>`).join("")}</ul></div>`
+    )
+    .join("") || "<p>現場なし — 下のフォームから追加</p>";
+}
+
+document.getElementById("btn-add-site")?.addEventListener("click", async () => {
+  const name = document.getElementById("new-site-name")?.value.trim();
+  const address = document.getElementById("new-site-address")?.value.trim();
+  if (!name) return;
+  await apiPost(`/api/customer/${customerCode}/sites`, { name, address });
+  await loadSiteBuilderTab();
+});
+
+async function loadRecoveryTab() {
+  const rules = await apiGet(`/api/customer/${customerCode}/recovery-rules`).catch(() => ({ rules: [] }));
+  document.getElementById("recovery-rules-body").innerHTML = (rules.rules ?? [])
+    .map(
+      (r) =>
+        `<tr><td>${r.name}</td><td>${r.condition_type}</td><td>${r.action_type}</td>
+         <td><button type="button" class="btn secondary btn-rec-del" data-id="${r.id}">削除</button></td></tr>`
+    )
+    .join("");
+  document.querySelectorAll(".btn-rec-del").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      await fetch(`/api/customer/${customerCode}/recovery-rules/${btn.dataset.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${getAdminToken()}` },
+      });
+      await loadRecoveryTab();
+    });
+  });
+  const sched = await apiGet(`/api/customer/${customerCode}/schedules`).catch(() => ({ schedules: [] }));
+  document.getElementById("schedules-list").innerHTML = (sched.schedules ?? [])
+    .map((s) => `<li>${s.name} — ${s.mode} ${s.time_start ?? ""}-${s.time_end ?? ""}</li>`)
+    .join("") || "<li>スケジュールなし</li>";
+}
+
+document.getElementById("btn-recovery-save")?.addEventListener("click", async () => {
+  await apiPost(`/api/customer/${customerCode}/recovery-rules`, {
+    name: document.getElementById("recovery-name").value,
+    conditionType: document.getElementById("recovery-condition").value,
+    conditionDeviceType: document.getElementById("recovery-device-type").value,
+    actionType: document.getElementById("recovery-action").value,
+  });
+  await loadRecoveryTab();
+});
+
+document.getElementById("btn-sched-save")?.addEventListener("click", async () => {
+  await apiPost(`/api/customer/${customerCode}/schedules`, {
+    name: document.getElementById("sched-name").value,
+    mode: document.getElementById("sched-mode").value,
+    timeStart: document.getElementById("sched-start").value,
+    timeEnd: document.getElementById("sched-end").value,
+  });
+  await loadRecoveryTab();
+});
 
 let currentUserRole = "viewer";
 
@@ -278,11 +347,15 @@ document.querySelectorAll(".portal-tabs .tab").forEach((tab) => {
     tab.classList.add("active");
     const id = tab.dataset.tab;
     document.getElementById("tab-overview").hidden = id !== "overview";
+    document.getElementById("tab-sites").hidden = id !== "sites";
     document.getElementById("tab-users").hidden = id !== "users";
     document.getElementById("tab-notifications").hidden = id !== "notifications";
+    document.getElementById("tab-recovery").hidden = id !== "recovery";
     document.getElementById("tab-audit").hidden = id !== "audit";
+    if (id === "sites" && getAdminToken()) loadSiteBuilderTab().catch(console.error);
     if (id === "users" && getAdminToken()) loadUsersTab().catch(console.error);
     if (id === "notifications" && getAdminToken()) loadNotificationRulesTab().catch(console.error);
+    if (id === "recovery" && getAdminToken()) loadRecoveryTab().catch(console.error);
     if (id === "audit" && getAdminToken()) loadAuditTab().catch(console.error);
   });
 });

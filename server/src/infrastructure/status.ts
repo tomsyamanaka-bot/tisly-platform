@@ -170,15 +170,15 @@ export async function getInfrastructureStatuses(): Promise<InfraComponentStatus[
     },
     { name: "VPS", status: vpsStatus, detail: vpsDetail },
     {
-      name: "Postgres",
+      name: "PostgreSQL",
       status:
         config.dbProvider === "postgres" ? (dbReachable ? "GREEN" : "RED") : "YELLOW",
       detail:
         config.dbProvider === "postgres"
           ? dbReachable
-            ? "reachable"
+            ? "first-class · RLS ready"
             : "unreachable"
-          : "sqlite standby",
+          : `sqlite mode · set DB_PROVIDER=postgres for production`,
     },
     {
       name: "Redis",

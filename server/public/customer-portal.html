@@ -17,6 +17,8 @@
       </div>
     </div>
     <nav class="portal-nav">
+      <a id="link-map" href="#">Map Editor</a>
+      <a id="link-install" href="#">施工</a>
       <a id="link-tv" href="#">TV</a>
       <a id="link-admin" href="#">管理</a>
       <button type="button" class="btn secondary" id="btn-logout" hidden>ログアウト</button>
@@ -40,8 +42,10 @@
     </section>
     <nav class="portal-tabs">
       <button type="button" class="tab active" data-tab="overview">概要</button>
+      <button type="button" class="tab" data-tab="sites">現場設定</button>
       <button type="button" class="tab" data-tab="users">ユーザー</button>
       <button type="button" class="tab" data-tab="notifications">通知ルール</button>
+      <button type="button" class="tab" data-tab="recovery">Recovery</button>
       <button type="button" class="tab" data-tab="audit">Audit / Activity</button>
     </nav>
     <div id="tab-overview">
@@ -82,6 +86,18 @@
       <ul id="recovery-list" class="simple-list"></ul>
     </section>
     </div>
+    <div id="tab-sites" hidden>
+      <section class="card portal-card">
+        <h2>現場 · フロア · 部屋</h2>
+        <p class="hint">営業・施工担当向け Site Builder — 詳細配置は <a id="link-map-inline" href="#">Map Editor</a></p>
+        <div id="site-builder-tree"></div>
+        <form id="site-add-form" class="wizard-form">
+          <label>現場名 <input id="new-site-name" /></label>
+          <label>住所 <input id="new-site-address" /></label>
+          <button type="button" class="btn" id="btn-add-site">現場追加</button>
+        </form>
+      </section>
+    </div>
     <div id="tab-notifications" hidden>
       <section class="card portal-card">
         <h2>通知ルール</h2>
@@ -90,7 +106,7 @@
         <div id="notif-rule-form" hidden>
           <label>名前 <input id="rule-name" /></label>
           <label>有効 <input type="checkbox" id="rule-enabled" checked /></label>
-          <label>イベント種別（カンマ区切り、*可） <input id="rule-events" value="*" /></label>
+          <label>センサー/イベント（カンマ、*可） <input id="rule-events" value="*" placeholder="motion,door_open" /></label>
           <label>Severity <input id="rule-severity" value="*" /></label>
           <label>チャネル（カンマ） <input id="rule-channels" value="email" /></label>
           <label>時間帯 開始 <input id="rule-time-start" placeholder="09:00" /></label>
@@ -102,6 +118,41 @@
           <thead><tr><th>名前</th><th>ON</th><th>イベント</th><th>Severity</th><th>チャネル</th><th>時間</th><th></th></tr></thead>
           <tbody id="notif-rules-body"></tbody>
         </table>
+      </section>
+    </div>
+    <div id="tab-recovery" hidden>
+      <section class="card portal-card">
+        <h2>Recovery Rule Builder</h2>
+        <p class="hint">条件 → 自動復旧アクション（例: ESP Offline → Shelly再起動）</p>
+        <form id="recovery-rule-form" class="wizard-form">
+          <label>名前 <input id="recovery-name" value="ESP Offline → Shelly reboot" /></label>
+          <label>条件 <select id="recovery-condition"><option value="device_offline">device_offline</option></select></label>
+          <label>デバイス種別 <input id="recovery-device-type" value="ESP" /></label>
+          <label>アクション <select id="recovery-action"><option value="shelly_reboot">shelly_reboot</option></select></label>
+          <button type="button" class="btn" id="btn-recovery-save">ルール追加</button>
+        </form>
+        <table class="users-table">
+          <thead><tr><th>名前</th><th>条件</th><th>アクション</th><th></th></tr></thead>
+          <tbody id="recovery-rules-body"></tbody>
+        </table>
+      </section>
+      <section class="card portal-card">
+        <h2>スケジュール（Armed / Business / Night）</h2>
+        <form id="schedule-form" class="wizard-form">
+          <label>名前 <input id="sched-name" value="営業時間 Business" /></label>
+          <label>モード
+            <select id="sched-mode">
+              <option value="business">business</option>
+              <option value="armed">armed</option>
+              <option value="disarmed">disarmed</option>
+              <option value="night">night</option>
+            </select>
+          </label>
+          <label>開始 <input id="sched-start" value="09:00" /></label>
+          <label>終了 <input id="sched-end" value="18:00" /></label>
+          <button type="button" class="btn" id="btn-sched-save">追加</button>
+        </form>
+        <ul id="schedules-list" class="simple-list"></ul>
       </section>
     </div>
     <div id="tab-audit" hidden>

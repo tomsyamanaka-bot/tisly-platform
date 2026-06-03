@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TiSLY — Map Editor</title>
+  <link rel="stylesheet" href="/css/admin.css" />
+  <link rel="stylesheet" href="/css/customer-portal.css" />
+  <link rel="stylesheet" href="/css/map-editor.css" />
+</head>
+<body class="customer-portal map-editor-page">
+  <header class="portal-header">
+    <div class="brand">
+      <h1>Map Editor</h1>
+      <p id="editor-customer-code"></p>
+    </div>
+    <nav class="portal-nav">
+      <a id="link-portal" href="#">ポータル</a>
+      <a id="link-install" href="#">施工モード</a>
+      <button type="button" class="btn secondary" id="btn-save-map">保存</button>
+    </nav>
+  </header>
+  <main class="map-editor-layout">
+    <aside class="map-sidebar card">
+      <label>フロア
+        <select id="floor-select"></select>
+      </label>
+      <label>図面アップロード
+        <input type="file" id="floor-upload" accept="image/png,image/jpeg,image/webp" />
+      </label>
+      <h3>配置する設備</h3>
+      <ul id="palette-devices" class="palette-list"></ul>
+      <h3>カメラ / TV</h3>
+      <button type="button" class="btn secondary" id="btn-add-camera">カメラ追加</button>
+    </aside>
+    <section class="map-canvas-wrap card">
+      <div id="map-canvas" class="map-canvas">
+        <img id="floor-bg" alt="" hidden />
+      </div>
+      <p id="map-status" class="hint"></p>
+    </section>
+  </main>
+  <script type="module" src="/js/map-editor.js"></script>
+</body>
+</html>

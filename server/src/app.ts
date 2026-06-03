@@ -29,6 +29,13 @@ import { customerUsersRouter } from "./api/routes/customer-users.js";
 import { customerReportsRouter } from "./api/routes/customer-reports.js";
 import { customerWebhooksRouter } from "./api/routes/customer-webhooks.js";
 import { customerNotificationRulesRouter } from "./api/routes/customer-notification-rules.js";
+import {
+  customerSiteBuilderRouter,
+  floorApiRouter,
+  mapApiRouter,
+  siteApiRouter,
+  zoneApiRouter,
+} from "./api/routes/site-builder.js";
 import { incidentsRouter } from "./api/routes/incidents.js";
 import { opsCustomerScopeMiddleware } from "./ops/ops-customer-scope.js";
 import { attachCustomerFromSubdomain } from "./customer/subdomain-resolver.js";
@@ -72,6 +79,10 @@ export function createApp(): express.Application {
   app.use("/api/ops", requireAdminAuth, opsDataRouter);
   app.use("/api/billing", billingRouter);
   app.use("/api/sites", requireAdminAuth, sitesRouter);
+  app.use("/api/site", requireAdminAuth, siteApiRouter);
+  app.use("/api/floor", requireAdminAuth, floorApiRouter);
+  app.use("/api/zone", requireAdminAuth, zoneApiRouter);
+  app.use("/api/map", requireAdminAuth, mapApiRouter);
   app.use("/api/provisioning", requireAdminAuth, provisioningRouter);
   app.use("/api/tenants", requireAdminAuth, tenantsRouter);
   app.use("/api/reports", requireAdminAuth, reportsRouter);
@@ -86,6 +97,7 @@ export function createApp(): express.Application {
   app.use("/api/customer", customerReportsRouter);
   app.use("/api/customer", customerWebhooksRouter);
   app.use("/api/customer", customerNotificationRulesRouter);
+  app.use("/api/customer", customerSiteBuilderRouter);
   app.use("/api/incidents", incidentsRouter);
   app.use("/api/db", dbRouter);
 
@@ -96,6 +108,16 @@ export function createApp(): express.Application {
   app.get("/customer/:customerCode", (_req, res) => {
     res.sendFile(customerPortalHtml);
   });
+  app.get("/customer/:customerCode/map", (_req, res) => {
+    res.sendFile(path.join(publicDir, "map-editor.html"));
+  });
+  app.get("/customer/:customerCode/install", (_req, res) => {
+    res.sendFile(path.join(publicDir, "installer-mode.html"));
+  });
+  app.use(
+    "/uploads/floorplans",
+    express.static(path.join(process.cwd(), "uploads", "floorplans"))
+  );
   app.get("/tv/:customerCode", (_req, res) => {
     res.sendFile(tvDashboardHtml);
   });

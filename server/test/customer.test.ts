@@ -37,10 +37,10 @@ describe("Phase 221-240 PRO Remote", () => {
     const res = await request(app).get("/api/health/full");
     assert.equal(res.status, 200);
     assert.equal(res.body.endpoint, "/api/health/full");
-    assert.equal(res.body.phase, "301-320-billing-workers-real-operations");
+    assert.equal(res.body.phase, "321-340-site-builder-map-editor");
     const names = res.body.infrastructure.map((c: { name: string }) => c.name);
     assert.ok(names.includes("VPS"));
-    assert.ok(names.includes("Postgres"));
+    assert.ok(names.includes("PostgreSQL") || names.includes("Postgres"));
     assert.ok(names.includes("PLC Gateway"));
     assert.ok(names.includes("RP2350 Gateway"));
   });

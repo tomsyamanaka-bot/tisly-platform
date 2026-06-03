@@ -50,6 +50,29 @@ const DEVICE_COLUMNS: Array<{ name: string; ddl: string }> = [
   { name: "serial_number", ddl: "ALTER TABLE devices ADD COLUMN serial_number TEXT" },
   { name: "firmware_version", ddl: "ALTER TABLE devices ADD COLUMN firmware_version TEXT" },
   { name: "last_seen", ddl: "ALTER TABLE devices ADD COLUMN last_seen TEXT" },
+  { name: "zone_id", ddl: "ALTER TABLE devices ADD COLUMN zone_id TEXT" },
+  { name: "floor_id", ddl: "ALTER TABLE devices ADD COLUMN floor_id TEXT" },
+  { name: "pos_x", ddl: "ALTER TABLE devices ADD COLUMN pos_x REAL" },
+  { name: "pos_y", ddl: "ALTER TABLE devices ADD COLUMN pos_y REAL" },
+  { name: "icon_type", ddl: "ALTER TABLE devices ADD COLUMN icon_type TEXT" },
+  { name: "rotation", ddl: "ALTER TABLE devices ADD COLUMN rotation REAL DEFAULT 0" },
+  { name: "rssi", ddl: "ALTER TABLE devices ADD COLUMN rssi INTEGER" },
+];
+
+const ZONE_COLUMNS: Array<{ name: string; ddl: string }> = [
+  { name: "floor_id", ddl: "ALTER TABLE zones ADD COLUMN floor_id TEXT" },
+];
+
+const TV_DEVICE_PHASE321: Array<{ name: string; ddl: string }> = [
+  { name: "cert_status", ddl: "ALTER TABLE tv_devices ADD COLUMN cert_status TEXT DEFAULT 'unknown'" },
+  { name: "serial", ddl: "ALTER TABLE tv_devices ADD COLUMN serial TEXT" },
+];
+
+const INCIDENT_LOCATION_COLUMNS: Array<{ name: string; ddl: string }> = [
+  { name: "floor_id", ddl: "ALTER TABLE incidents ADD COLUMN floor_id TEXT" },
+  { name: "pos_x", ddl: "ALTER TABLE incidents ADD COLUMN pos_x REAL" },
+  { name: "pos_y", ddl: "ALTER TABLE incidents ADD COLUMN pos_y REAL" },
+  { name: "device_id", ddl: "ALTER TABLE incidents ADD COLUMN device_id TEXT" },
 ];
 
 function addColumnsIfMissing(
@@ -186,6 +209,40 @@ function migratePhase261(database: Database.Database): void {
   migrateCustomerUsersInviteStatus(database);
   migratePhase281(database);
   migratePhase301(database);
+  migratePhase321(database);
+}
+
+function migratePhase321(database: Database.Database): void {
+  addColumnsIfMissing(database, "devices", DEVICE_COLUMNS);
+  addColumnsIfMissing(database, "zones", ZONE_COLUMNS);
+  addColumnsIfMissing(database, "tv_devices", TV_DEVICE_PHASE321);
+  addColumnsIfMissing(database, "incidents", INCIDENT_LOCATION_COLUMNS);
+  database.exec("CREATE INDEX IF NOT EXISTS idx_devices_floor ON devices(floor_id)");
+  database.exec("CREATE INDEX IF NOT EXISTS idx_zones_floor ON zones(floor_id)");
+
+  const customers = database
+    .prepare(`SELECT customer_id FROM customers WHERE customer_code IN ('TOMS001', 'HOTEL001', 'PLANT001')`)
+    .all() as Array<{ customer_id: string }>;
+  for (const c of customers) {
+    const exists = database
+      .prepare(`SELECT 1 FROM customer_recovery_rules WHERE customer_id = ? LIMIT 1`)
+      .get(c.customer_id);
+    if (exists) continue;
+    database
+      .prepare(
+        `INSERT INTO customer_recovery_rules (id, customer_id, name, condition_type, condition_device_type, action_type, action_target, enabled, priority)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 1, 10)`
+      )
+      .run(
+        `seed-esp-offline-${c.customer_id}`,
+        c.customer_id,
+        "ESP Offline → Shelly reboot",
+        "device_offline",
+        "ESP",
+        "shelly_reboot",
+        "auto"
+      );
+  }
 }
 
 function migratePhase301(database: Database.Database): void {

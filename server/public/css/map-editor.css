@@ -1,0 +1,65 @@
+.map-editor-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 1rem;
+  padding: 1rem;
+  min-height: calc(100vh - 80px);
+}
+.map-canvas-wrap {
+  position: relative;
+  min-height: 480px;
+}
+.map-canvas {
+  position: relative;
+  width: 100%;
+  min-height: 480px;
+  background: #1e293b22;
+  border: 1px dashed var(--customer-accent, #1a7f37);
+  overflow: hidden;
+}
+.map-canvas img#floor-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+.map-pin-device {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  cursor: grab;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--customer-accent, #1a7f37);
+  color: #fff;
+  font-size: 12px;
+  user-select: none;
+  z-index: 2;
+}
+.map-pin-device.offline {
+  background: #b45309;
+}
+.palette-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 240px;
+  overflow: auto;
+}
+.palette-list li {
+  padding: 6px 8px;
+  margin-bottom: 4px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.palette-list li:hover {
+  background: #f0fdf4;
+}
+@media (max-width: 900px) {
+  .map-editor-layout {
+    grid-template-columns: 1fr;
+  }
+}

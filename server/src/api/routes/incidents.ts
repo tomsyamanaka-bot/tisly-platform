@@ -9,6 +9,7 @@ import {
 } from "../../incidents/incident-store.js";
 import type { IncidentStatus } from "../../incidents/incident-status.js";
 import { getDatabase } from "../../db/database.js";
+import { resolveIncidentMapLocation } from "../../ops/map-builder.js";
 
 export const incidentsRouter = Router();
 
@@ -45,7 +46,16 @@ incidentsRouter.get("/:id", (req, res) => {
   } catch {
     timeline = [];
   }
-  res.json({ incident: row, timeline });
+  const mapLocation = resolveIncidentMapLocation({
+    device_id: (row as { device_id?: string }).device_id,
+    floor_id: (row as { floor_id?: string }).floor_id,
+    pos_x: (row as { pos_x?: number }).pos_x,
+    pos_y: (row as { pos_y?: number }).pos_y,
+    site_id: (row as { site_id?: string }).site_id,
+  });
+  res.json({ incident: row, timeline, mapLocation, mapJumpUrl: mapLocation.floorId
+    ? `/customer/${customerCode}/map?floor=${mapLocation.floorId}&x=${mapLocation.x}&y=${mapLocation.y}`
+    : null });
 });
 
 function act(
