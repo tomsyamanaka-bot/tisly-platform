@@ -190,6 +190,7 @@ export function createApp(): express.Application {
     "/business/customers",
     "/business/pricing",
     "/business/settings",
+    "/business/drawing-symbols",
   ];
   for (const route of businessRoutes) {
     app.get(route, (_req, res) => res.sendFile(businessHtml));
@@ -203,6 +204,10 @@ export function createApp(): express.Application {
   );
   app.get("/business/projects/:projectId/invoice", (_req, res) => res.sendFile(businessHtml));
   app.get("/business/projects/:projectId/payment", (_req, res) => res.sendFile(businessHtml));
+  app.get("/business/projects/:projectId/drawing", (_req, res) => res.sendFile(businessHtml));
+  app.get("/business/projects/:projectId/specification", (_req, res) =>
+    res.sendFile(businessHtml)
+  );
   app.get("/business/manifest.webmanifest", (_req, res) => {
     res.type("application/manifest+json");
     res.sendFile(path.join(publicDir, "manifest-business.webmanifest"));

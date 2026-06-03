@@ -226,3 +226,53 @@
   font-size: 0.75rem;
   color: #64748b;
 }
+
+.biz-drawing-canvas {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  overflow: hidden;
+  touch-action: none;
+}
+
+.biz-placed-symbol {
+  position: absolute;
+  padding: 2px 6px;
+  background: rgba(37, 99, 235, 0.85);
+  color: #fff;
+  font-size: 0.7rem;
+  border-radius: 4px;
+  cursor: grab;
+  user-select: none;
+}
+
+.biz-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.biz-palette-btn {
+  font-size: 0.75rem;
+  padding: 0.35rem 0.5rem;
+  border: 2px solid #94a3b8;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.biz-palette-btn.active {
+  background: #ecfdf5;
+}
+
+.biz-symbol-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.5rem;
+}
+
+.biz-symbol-chip {
+  padding: 0.5rem;
+  background: #f8fafc;
+  border-radius: 8px;
+  font-size: 0.8rem;
+}

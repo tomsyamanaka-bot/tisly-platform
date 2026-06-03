@@ -83,9 +83,9 @@ describe("Phase 521-540 TOMS business PWA foundation", () => {
       createdAt: "2026-06-01T00:00:00.000Z",
     };
     const base = generateQnapProjectPath(project);
-    assert.match(base, /^\/TOMS\/business\/山田様\/BIZ-TEST\/$/);
+    assert.match(base, /^\/TOMS\/案件\/2026\/PRJ-2026-0015_山田様_防犯カメラ設置工事\/$/);
     const est = generateQnapFilePath(project, "estimate", "EST-2026-0015");
-    assert.ok(est.includes("/estimate/"));
+    assert.ok(est.includes("/02_見積書/"));
     assert.ok(est.endsWith(".pdf"));
   });
 

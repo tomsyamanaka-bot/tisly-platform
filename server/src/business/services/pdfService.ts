@@ -8,6 +8,7 @@ import {
   renderPdfPlaceholderHtml,
   type PdfDocumentKind,
 } from "./pdf-templates.js";
+/** Phase601+ v3: HTML templates live in estimatePdfTemplate / invoicePdfTemplate / completionReportPdfTemplate */
 
 function minimalPdfBuffer(title: string, lines: string[]): Buffer {
   const text = [title, "", ...lines].join("\n");

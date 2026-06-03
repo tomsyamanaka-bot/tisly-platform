@@ -1,4 +1,5 @@
 import fs from "fs";
+import path from "path";
 import { Router, type Response } from "express";
 import { requireAuth, type AuthedRequest } from "../../auth/auth-middleware.js";
 import { roleMeetsRequirement } from "../../auth/roles.js";
@@ -24,6 +25,8 @@ import {
   getEstimate,
   getInvoice,
   getLatestAiCandidate,
+  getMailDraftById,
+  updateMailDraftStatus,
   getQnapPlan,
   listBusinessProjects,
   listCalendarDrafts,
@@ -37,6 +40,7 @@ import {
   markSurveyDone,
   saveAiCandidate,
   saveBusinessPhoto,
+  businessUploadsDir,
   saveCalendarDraft,
   saveMailDraft,
   saveQnapPlan,
@@ -122,6 +126,33 @@ import type { PricingScopeType } from "../../business/business-types.js";
 import { createAiEstimatePlaceholder, getLatestAiEstimate } from "../../survey/survey-store.js";
 import type { EstimateLineItem } from "../../business/business-types.js";
 import { statusAfterEstimateMail, statusAfterInvoiceSent } from "../../business/business-status.js";
+import {
+  createDrawingPlan,
+  getDrawingPlan,
+  listDrawingPlans,
+  listDrawingSymbols,
+  listSpecificationDocuments,
+  saveSpecificationDocument,
+  updateDrawingPlan,
+  countDrawingPlansInProgress,
+  countProjectsWithoutSpecification,
+  countDrawingEstimateNotApplied,
+} from "../../business/drawing-store.js";
+import { createEstimateCandidateFromDrawingPlan } from "../../business/services/estimateFromDrawingService.js";
+import {
+  createSpecificationDocumentFromPlan,
+  generateSpecificationPdf,
+} from "../../business/services/specificationPdfService.js";
+import {
+  getGmailSendMode,
+  previewGmailRealSend,
+  sendGmailRealWithDraft,
+} from "../../business/services/gmailRealSend.js";
+import {
+  createQnapProjectFolders,
+  uploadQnapFileReal,
+} from "../../business/services/qnapProjectFolders.js";
+import { generateQnapSpecificationFilePath } from "../../business/services/qnapService.js";
 
 export const businessRouter = Router();
 
@@ -142,6 +173,7 @@ function assertBusinessRole(req: AuthedRequest, res: Response): boolean {
 function projectPayload(id: string) {
   const project = getBusinessProject(id);
   if (!project) return null;
+  const drawingPlans = listDrawingPlans(id);
   return {
     project,
     nextAction: getNextAction(project),
@@ -149,6 +181,8 @@ function projectPayload(id: string) {
     mailDrafts: listMailDrafts(id),
     qnapPlan: getQnapPlan(id),
     aiCandidate: getLatestAiCandidate(id),
+    drawingPlans,
+    specifications: listSpecificationDocuments(id),
   };
 }
 
@@ -769,6 +803,9 @@ businessRouter.get("/hub-counts", ...businessAuth, (req: AuthedRequest, res) => 
     pdfStatus: { mode: settings.pdf.mode, recentSuccess: pdfOk },
     qnapRecentSuccess: qnapOk,
     offlineQueueHint: "client localStorage",
+    drawingInProgress: countDrawingPlansInProgress(),
+    specificationPending: countProjectsWithoutSpecification(),
+    drawingEstimatePending: countDrawingEstimateNotApplied(),
   });
 });
 
@@ -933,8 +970,160 @@ businessRouter.post("/google/gmail/send", ...businessAuth, async (req: AuthedReq
 
 businessRouter.post("/qnap/test-connection", ...businessAuth, async (req: AuthedRequest, res) => {
   if (!assertBusinessRole(req, res)) return;
+  const body = req.body as { confirmed?: boolean; mode?: "mock" | "dryRun" | "real" };
+  const cfg = getQnapUploadConfig();
+  const mode = body.mode ?? (cfg.mode === "real" ? "real" : "mock");
+  if (mode === "real") {
+    const guard = assertRealSendAllowed("qnap_real_upload", {
+      confirmed: body.confirmed,
+      mode: "real",
+    });
+    if (!guard.allowed) {
+      res.status(403).json({ error: guard.reason, dryRun: guard.dryRun });
+      return;
+    }
+  }
   const result = await testQnapWebDavConnection();
+  res.json({ ...result, mode });
+});
+
+businessRouter.post("/qnap/create-project-folders", ...businessAuth, async (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  const body = req.body as {
+    projectId?: string;
+    confirmed?: boolean;
+    mode?: "mock" | "dryRun" | "real";
+  };
+  if (!body.projectId) {
+    res.status(400).json({ error: "projectId required" });
+    return;
+  }
+  const project = getBusinessProject(body.projectId);
+  if (!project) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  const mode = body.mode ?? (getQnapUploadConfig().mode === "real" ? "real" : "mock");
+  if (mode === "real") {
+    const guard = assertRealSendAllowed("qnap_real_upload", {
+      confirmed: body.confirmed,
+      mode: "real",
+    });
+    if (!guard.allowed) {
+      res.status(403).json({ error: guard.reason, dryRun: guard.dryRun });
+      return;
+    }
+  }
+  try {
+    const result = await createQnapProjectFolders(project, {
+      mode,
+      confirmed: body.confirmed,
+    });
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: (e as Error).message });
+  }
+});
+
+businessRouter.post("/qnap/upload-file-real", ...businessAuth, async (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  const body = req.body as {
+    projectId?: string;
+    localPath?: string;
+    remotePath?: string;
+    confirmed?: boolean;
+    mode?: "mock" | "dryRun" | "real";
+  };
+  if (!body.projectId || !body.remotePath) {
+    res.status(400).json({ error: "projectId and remotePath required" });
+    return;
+  }
+  const project = getBusinessProject(body.projectId);
+  if (!project) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  const mode = body.mode ?? (getQnapUploadConfig().mode === "real" ? "real" : "mock");
+  if (mode === "real") {
+    const guard = assertRealSendAllowed("qnap_real_upload", {
+      confirmed: body.confirmed,
+      mode: "real",
+    });
+    if (!guard.allowed) {
+      res.status(403).json({ error: guard.reason, dryRun: guard.dryRun });
+      return;
+    }
+  }
+  const localPath =
+    body.localPath ??
+    (project.estimateId
+      ? (() => {
+          const est = getEstimate(project.estimateId!);
+          return est?.pdfPath
+            ? path.join(process.cwd(), est.pdfPath.replace(/^\//, ""))
+            : "";
+        })()
+      : "");
+  if (!localPath) {
+    res.status(400).json({ error: "localPath required or estimate pdf missing" });
+    return;
+  }
+  const result = await uploadQnapFileReal({
+    project,
+    localPath,
+    remotePath: body.remotePath,
+    mode,
+    confirmed: body.confirmed,
+  });
   res.json(result);
+});
+
+businessRouter.post("/google/gmail/send-real", ...businessAuth, async (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  const body = req.body as {
+    projectId?: string;
+    mailDraftId?: string;
+    confirmed?: boolean;
+    mode?: "mock" | "dryRun" | "real";
+  };
+  if (!body.projectId || !body.mailDraftId) {
+    res.status(400).json({ error: "projectId and mailDraftId required" });
+    return;
+  }
+  const draft = getMailDraftById(body.mailDraftId);
+  if (!draft || draft.projectId !== body.projectId) {
+    res.status(404).json({ error: "Mail draft not found" });
+    return;
+  }
+  const mode = body.mode ?? getGmailSendMode();
+  if (mode === "real") {
+    const guard = assertRealSendAllowed("gmail_send", {
+      confirmed: body.confirmed,
+      mode: "real",
+    });
+    if (!guard.allowed) {
+      res.status(403).json({ error: guard.reason, dryRun: guard.dryRun });
+      return;
+    }
+    if (!body.confirmed) {
+      res.status(403).json({ error: "confirmed=true required for real send" });
+      return;
+    }
+  }
+  const preview = previewGmailRealSend(draft);
+  try {
+    const result = await sendGmailRealWithDraft(draft, {
+      mode,
+      confirmed: body.confirmed,
+      projectId: body.projectId,
+    });
+    if (result.status === "sent") {
+      updateMailDraftStatus(body.mailDraftId, "sent");
+    }
+    res.json({ ...result, preview });
+  } catch (e) {
+    res.status(400).json({ error: (e as Error).message, preview });
+  }
 });
 
 businessRouter.post(
@@ -1181,6 +1370,145 @@ function servePdfDocument(kind: "estimate" | "invoice" | "completion_report") {
     }
   };
 }
+
+businessRouter.get("/drawing-symbols", ...businessAuth, (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  const tradeType = req.query.tradeType
+    ? (String(req.query.tradeType) as import("../../business/drawing-types.js").DrawingTradeType)
+    : undefined;
+  res.json({ symbols: listDrawingSymbols(tradeType) });
+});
+
+businessRouter.get("/projects/:projectId/drawing-plans", ...businessAuth, (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  res.json({ plans: listDrawingPlans(String(req.params.projectId)) });
+});
+
+businessRouter.post("/projects/:projectId/drawing-plans", ...businessAuth, (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  const body = req.body as {
+    title?: string;
+    sourceType?: import("../../business/drawing-types.js").DrawingSourceType;
+    tradeType?: import("../../business/drawing-types.js").DrawingTradeType;
+  };
+  const plan = createDrawingPlan({
+    projectId: String(req.params.projectId),
+    title: body.title,
+    sourceType: body.sourceType,
+    tradeType: body.tradeType,
+  });
+  res.status(201).json({ plan });
+});
+
+businessRouter.get("/drawing-plans/:planId", ...businessAuth, (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  const plan = getDrawingPlan(String(req.params.planId));
+  if (!plan) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  res.json({ plan, symbols: listDrawingSymbols(plan.tradeType) });
+});
+
+businessRouter.patch("/drawing-plans/:planId", ...businessAuth, (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  try {
+    const plan = updateDrawingPlan(String(req.params.planId), req.body);
+    res.json({ plan });
+  } catch (e) {
+    res.status(400).json({ error: (e as Error).message });
+  }
+});
+
+businessRouter.post(
+  "/projects/:projectId/drawing-plans/:planId/background",
+  ...businessAuth,
+  (req: AuthedRequest, res) => {
+    if (!assertBusinessRole(req, res)) return;
+    const body = req.body as { imageBase64?: string; fileName?: string };
+    if (!body.imageBase64) {
+      res.status(400).json({ error: "imageBase64 required" });
+      return;
+    }
+    const projectId = String(req.params.projectId);
+    const planId = String(req.params.planId);
+    const plan = getDrawingPlan(planId);
+    if (!plan || plan.projectId !== projectId) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    const dir = businessUploadsDir(projectId, "drawing");
+    const name = body.fileName ?? `bg-${Date.now()}.jpg`;
+    const full = path.join(dir, name);
+    fs.writeFileSync(full, Buffer.from(body.imageBase64, "base64"));
+    const urlPath = `/uploads/business/${projectId}/drawing/${name}`;
+    const updated = updateDrawingPlan(planId, {
+      backgroundImagePath: urlPath,
+      sourceType: "photo",
+    });
+    res.json({ plan: updated });
+  }
+);
+
+businessRouter.post(
+  "/projects/:projectId/drawing-plans/:planId/estimate-candidate",
+  ...businessAuth,
+  (req: AuthedRequest, res) => {
+    if (!assertBusinessRole(req, res)) return;
+    const plan = getDrawingPlan(String(req.params.planId));
+    if (!plan || plan.projectId !== String(req.params.projectId)) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    res.json({ candidate: createEstimateCandidateFromDrawingPlan(plan) });
+  }
+);
+
+businessRouter.get(
+  "/projects/:projectId/specification",
+  ...businessAuth,
+  (req: AuthedRequest, res) => {
+    if (!assertBusinessRole(req, res)) return;
+    res.json({ documents: listSpecificationDocuments(String(req.params.projectId)) });
+  }
+);
+
+businessRouter.post(
+  "/projects/:projectId/specification/generate-pdf",
+  ...businessAuth,
+  (req: AuthedRequest, res) => {
+    if (!assertBusinessRole(req, res)) return;
+    const body = req.body as { drawingPlanId?: string; title?: string; overview?: string };
+    const project = getBusinessProject(String(req.params.projectId));
+    if (!project) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    const plans = listDrawingPlans(project.id);
+    const plan = body.drawingPlanId
+      ? getDrawingPlan(body.drawingPlanId)
+      : plans[0] ?? createDrawingPlan({ projectId: project.id });
+    if (!plan || plan.projectId !== project.id) {
+      res.status(404).json({ error: "Drawing plan not found" });
+      return;
+    }
+    const doc = createSpecificationDocumentFromPlan(project, plan, {
+      title: body.title,
+      overview: body.overview,
+    });
+    saveSpecificationDocument(doc);
+    const qnapPath = generateQnapSpecificationFilePath(project);
+    logBusinessIntegration({
+      projectId: project.id,
+      type: "pdf",
+      provider: "specification",
+      status: "success",
+      request: { drawingPlanId: plan.id },
+      response: { pdfPath: doc.pdfPath, qnapPath },
+    });
+    res.status(201).json({ document: doc, qnapPath });
+  }
+);
 
 businessRouter.get("/projects/:projectId/pdf/estimate", ...businessAuth, servePdfDocument("estimate"));
 businessRouter.get("/projects/:projectId/pdf/invoice", ...businessAuth, servePdfDocument("invoice"));

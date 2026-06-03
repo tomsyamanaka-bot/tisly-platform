@@ -54,9 +54,14 @@ describe("Phase 541-560 business QNAP API", () => {
 
   after(() => closeDatabase());
 
-  it("generates QNAP business path", () => {
-    const root = generateQnapBusinessRoot({ id: projectId, customerName: "山田様" });
-    assert.match(root, /^\/TOMS\/business\/山田様\/.+\/$/);
+  it("generates QNAP business path", async () => {
+    const proj = (
+      await request(app)
+        .get(`/api/business/projects/${projectId}`)
+        .set("Authorization", `Bearer ${token}`)
+    ).body.project;
+    const root = generateQnapBusinessRoot(proj);
+    assert.match(root, /^\/TOMS\/案件\/\d{4}\/PRJ-/);
   });
 
   it("POST qnap/save mock persists files", async () => {

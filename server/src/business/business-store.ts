@@ -783,6 +783,30 @@ export function saveMailDraft(draft: MailDraft): void {
   });
 }
 
+export function getMailDraftById(mailDraftId: string): MailDraft | null {
+  const row = getDatabase()
+    .prepare(`SELECT * FROM business_mail_drafts WHERE id = ?`)
+    .get(mailDraftId) as Record<string, unknown> | undefined;
+  if (!row) return null;
+  return {
+    id: String(row.id),
+    projectId: String(row.project_id),
+    type: String(row.type) as MailDraft["type"],
+    to: String(row.mail_to),
+    subject: String(row.subject),
+    body: String(row.body),
+    attachmentPaths: parseJson<string[]>(row.attachment_paths_json as string, []),
+    status: String(row.status) as MailDraft["status"],
+    createdAt: String(row.created_at),
+  };
+}
+
+export function updateMailDraftStatus(mailDraftId: string, status: MailDraft["status"]): void {
+  getDatabase()
+    .prepare(`UPDATE business_mail_drafts SET status = ? WHERE id = ?`)
+    .run(status, mailDraftId);
+}
+
 export function listMailDrafts(projectId: string): MailDraft[] {
   return getDatabase()
     .prepare(`SELECT * FROM business_mail_drafts WHERE project_id = ? ORDER BY created_at DESC`)

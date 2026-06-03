@@ -369,6 +369,7 @@ function migratePhase421(database: Database.Database): void {
   migratePhase521(database);
   migratePhase541(database);
   migratePhase561(database);
+  migratePhase601(database);
 }
 
 function migratePhase481(database: Database.Database): void {
@@ -651,6 +652,68 @@ function migratePhase521(database: Database.Database): void {
       `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
     )
     .run("migration:phase521_toms_business_pwa", JSON.stringify({ at: new Date().toISOString() }));
+}
+
+function migratePhase601(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:phase601_drawing_pwa") as { value_json: string } | undefined;
+  if (marker) return;
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS business_drawing_symbols (
+      id TEXT PRIMARY KEY,
+      trade_type TEXT NOT NULL,
+      symbol_type TEXT NOT NULL,
+      label TEXT NOT NULL,
+      icon TEXT NOT NULL DEFAULT '',
+      color TEXT NOT NULL DEFAULT '#2563eb',
+      default_estimate_item_id TEXT,
+      memo TEXT DEFAULT '',
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_business_drawing_symbols_trade ON business_drawing_symbols(trade_type);
+
+    CREATE TABLE IF NOT EXISTS business_drawing_plans (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      title TEXT NOT NULL DEFAULT '施工図',
+      source_type TEXT NOT NULL DEFAULT 'blank',
+      background_image_path TEXT DEFAULT '',
+      clean_image_path TEXT DEFAULT '',
+      trade_type TEXT NOT NULL DEFAULT 'security_camera',
+      symbols_json TEXT NOT NULL DEFAULT '[]',
+      routes_json TEXT NOT NULL DEFAULT '[]',
+      notes TEXT DEFAULT '',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES business_projects(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_business_drawing_plans_project ON business_drawing_plans(project_id, updated_at);
+
+    CREATE TABLE IF NOT EXISTS business_specification_docs (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      drawing_plan_id TEXT NOT NULL,
+      title TEXT NOT NULL,
+      overview TEXT DEFAULT '',
+      included_trades_json TEXT DEFAULT '[]',
+      material_summary TEXT DEFAULT '',
+      work_summary TEXT DEFAULT '',
+      notes TEXT DEFAULT '',
+      pdf_path TEXT DEFAULT '',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES business_projects(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_business_spec_docs_project ON business_specification_docs(project_id);
+  `);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:phase601_drawing_pwa", JSON.stringify({ at: new Date().toISOString() }));
 }
 
 function migratePhase561(database: Database.Database): void {

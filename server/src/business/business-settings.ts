@@ -4,6 +4,7 @@ import { getQnapUploadConfig } from "./services/qnapBusinessArchive.js";
 import { getPdfRenderMode } from "./pdf/render.js";
 import { getTomsCompanyInfo } from "./pdf/company.js";
 import { getBusinessRealSendSettings } from "./business-real-send-guard.js";
+import { getGmailSendMode } from "./services/gmailRealSend.js";
 
 export function getBusinessSettingsPayload() {
   const google = getGoogleOAuthStatus();
@@ -22,6 +23,7 @@ export function getBusinessSettingsPayload() {
     gmail: {
       connected: google.gmail.ready,
       mode: oauth.mode,
+      sendMode: getGmailSendMode(),
       defaultTo: process.env.BUSINESS_MAIL_TO ?? DEFAULT_MAIL_TO,
       provider: oauth.mode === "mock" ? "MockGmailProvider" : "GmailApiProvider",
     },
@@ -35,9 +37,9 @@ export function getBusinessSettingsPayload() {
       mode: pdfMode,
       puppeteerAvailable: pdfMode === "puppeteer",
       templates: {
-        estimate: "toms_standard_v2",
-        invoice: "toms_standard_v2",
-        completion_report: "toms_standard_v2",
+        estimate: "toms_standard_v3",
+        invoice: "toms_standard_v3",
+        completion_report: "toms_standard_v3",
       },
     },
     realSend,

@@ -164,6 +164,7 @@ function route() {
   if (parts[1] === "customers") return { view: "customers" };
   if (parts[1] === "pricing") return { view: "pricing" };
   if (parts[1] === "settings") return { view: "settings" };
+  if (parts[1] === "drawing-symbols") return { view: "drawing_symbols" };
   return { view: "home" };
 }
 
@@ -174,6 +175,7 @@ function navHtml() {
     <a href="/business/projects/new">新規</a>
     <a href="/business/customers">顧客</a>
     <a href="/business/pricing">単価</a>
+    <a href="/business/drawing-symbols">記号ライブラリ</a>
     <a href="/business/settings">設定</a>
     <a href="/app">App Hub</a>
   `;
@@ -235,6 +237,9 @@ async function renderHome() {
         <a class="biz-dash-card" href="/business/projects?status=invoice_sent"><div class="n">${body.paymentPending ?? 0}</div><div class="l">入金待ち</div></a>
         <div class="biz-dash-card" style="cursor:default"><div class="n">${body.todaySurvey ?? 0}</div><div class="l">今日の現調</div></div>
         <div class="biz-dash-card" style="cursor:default"><div class="n">${body.todayConstruction ?? 0}</div><div class="l">今日の工事</div></div>
+        <a class="biz-dash-card" href="/business/projects"><div class="n">${body.drawingInProgress ?? 0}</div><div class="l">施工図作成中</div></a>
+        <a class="biz-dash-card" href="/business/projects"><div class="n">${body.specificationPending ?? 0}</div><div class="l">仕様書未作成</div></a>
+        <a class="biz-dash-card" href="/business/projects"><div class="n">${body.drawingEstimatePending ?? 0}</div><div class="l">図面あり見積未反映</div></a>
         <div class="biz-dash-card" id="biz-queue-card" style="cursor:pointer"><div class="n">${queueLen}</div><div class="l">未送信キュー</div></div>
       </div>
     </section>
@@ -386,6 +391,9 @@ async function renderProjectDetail(id) {
       <a class="biz-list-item" href="/business/projects/${id}/completion-report">完了報告</a>
       <a class="biz-list-item" href="/business/projects/${id}/invoice">請求</a>
       <a class="biz-list-item" href="/business/projects/${id}/payment">入金</a>
+      <a class="biz-list-item" href="/business/projects/${id}/drawing">施工図を作る</a>
+      <a class="biz-list-item" href="/business/projects/${id}/specification">仕様書を作る</a>
+      <button type="button" class="biz-list-item" id="btn-est-from-drawing" style="width:100%;text-align:left;border:none;background:transparent;cursor:pointer">図面から見積候補を作る</button>
     </section>
     ${data.qnapPlan ? `<section class="biz-card"><h2>QNAP保存予定</h2>${previewBlock("", data.qnapPlan.basePath + "\n" + (data.qnapPlan.folders || []).join("\n"))}</section>` : ""}
     <section class="biz-card"><button type="button" class="biz-btn secondary" id="btn-qnap">QNAP mock保存</button></section>
@@ -395,6 +403,194 @@ async function renderProjectDetail(id) {
   document.getElementById("btn-qnap")?.addEventListener("click", async () => {
     await api(`/projects/${id}/qnap/save`, { method: "POST", body: "{}" });
     render();
+  });
+  document.getElementById("btn-est-from-drawing")?.addEventListener("click", async () => {
+    const plans = data.drawingPlans || [];
+    if (!plans.length) {
+      alert("先に施工図を作成してください");
+      return;
+    }
+    const { body } = await api(
+      `/projects/${id}/drawing-plans/${plans[0].id}/estimate-candidate`,
+      { method: "POST", body: "{}" }
+    );
+    alert(`見積候補:\n${body.candidate?.summary || JSON.stringify(body)}`);
+  });
+}
+
+async function renderDrawingSymbols() {
+  const { body } = await api("/drawing-symbols");
+  document.getElementById("biz-page-title").textContent = "記号ライブラリ";
+  document.getElementById("biz-root").innerHTML = `
+    <section class="biz-card">
+      <h2>業種別記号</h2>
+      <div class="biz-symbol-grid">
+        ${(body.symbols || [])
+          .map(
+            (s) =>
+              `<div class="biz-symbol-chip" style="border-left:4px solid ${s.color}"><strong>${s.label}</strong><br/><small>${s.tradeType} / ${s.symbolType}</small></div>`
+          )
+          .join("")}
+      </div>
+      <a class="biz-btn secondary" href="/business">ホーム</a>
+    </section>`;
+}
+
+async function renderDrawing(projectId) {
+  const data = await loadProject(projectId);
+  let plan = (data.drawingPlans || [])[0];
+  if (!plan) {
+    const created = await api(`/projects/${projectId}/drawing-plans`, {
+      method: "POST",
+      body: JSON.stringify({ title: "施工図", tradeType: "security_camera" }),
+    });
+    plan = created.body.plan;
+  }
+  const symRes = await api(`/drawing-plans/${plan.id}`);
+  const palette = symRes.body.symbols || [];
+  document.getElementById("biz-page-title").textContent = "施工図編集";
+  const bgStyle = plan.backgroundImagePath
+    ? `background-image:url(${plan.backgroundImagePath});background-size:contain;background-repeat:no-repeat;background-position:center;`
+    : "background:#1e293b;";
+  document.getElementById("biz-root").innerHTML = `
+    <section class="biz-card">
+      <label>業種
+        <select id="dr-trade">
+          ${["security_camera", "aircon", "lighting", "electrical", "internet", "tv_antenna", "ventilation", "other"]
+            .map((t) => `<option value="${t}" ${plan.tradeType === t ? "selected" : ""}>${t}</option>`)
+            .join("")}
+        </select>
+      </label>
+      <label>ルート種別 <select id="dr-route-type">
+        ${["lan", "vvf", "coaxial", "refrigerant_pipe", "drain", "duct", "other"]
+          .map((t) => `<option value="${t}">${t}</option>`)
+          .join("")}
+      </select></label>
+      <input type="file" accept="image/*" id="dr-bg-file" />
+      <button type="button" class="biz-btn secondary" id="dr-bg-upload">背景画像</button>
+      <button type="button" class="biz-btn secondary" id="dr-save">保存</button>
+    </section>
+    <section class="biz-card">
+      <h2>記号パレット（クリックで配置）</h2>
+      <div class="biz-palette">${palette.map((s) => `<button type="button" class="biz-palette-btn" data-sid="${s.id}" data-label="${s.label}" style="border-color:${s.color}">${s.icon} ${s.label}</button>`).join("")}</div>
+    </section>
+    <section class="biz-card">
+      <div id="dr-canvas" class="biz-drawing-canvas" style="${bgStyle}min-height:320px;position:relative;">
+        ${(plan.symbols || [])
+          .map(
+            (s, i) =>
+              `<div class="biz-placed-symbol" data-idx="${i}" style="left:${s.x}px;top:${s.y}px">${s.label || "●"}</div>`
+          )
+          .join("")}
+      </div>
+      <p class="hint">キャンバスをクリックして選択中の記号を配置。記号をドラッグで移動。</p>
+      <label>ルート概算長(m) <input type="number" id="dr-route-len" value="10" min="1" /></label>
+      <button type="button" class="biz-btn secondary" id="dr-add-route">ルートを追加</button>
+    </section>
+    <label>メモ <textarea id="dr-notes">${plan.notes || ""}</textarea></label>
+    <a class="biz-btn secondary" href="/business/projects/${projectId}">案件に戻る</a>
+  `;
+  let selectedSymbol = palette[0] || null;
+  let symbols = [...(plan.symbols || [])];
+  let routes = [...(plan.routes || [])];
+  document.querySelectorAll(".biz-palette-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      selectedSymbol = palette.find((x) => x.id === btn.dataset.sid) || null;
+      document.querySelectorAll(".biz-palette-btn").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+    });
+  });
+  const canvas = document.getElementById("dr-canvas");
+  canvas?.addEventListener("click", (ev) => {
+    if (!selectedSymbol || ev.target !== canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    symbols.push({
+      id: `ps-${Date.now()}`,
+      symbolId: selectedSymbol.id,
+      x: ev.clientX - rect.left - 12,
+      y: ev.clientY - rect.top - 12,
+      rotation: 0,
+      label: selectedSymbol.label,
+      memo: "",
+      linkedPhotoIds: [],
+    });
+    const el = document.createElement("div");
+    el.className = "biz-placed-symbol";
+    el.style.left = `${symbols[symbols.length - 1].x}px`;
+    el.style.top = `${symbols[symbols.length - 1].y}px`;
+    el.textContent = selectedSymbol.label;
+    canvas.appendChild(el);
+  });
+  document.getElementById("dr-add-route")?.addEventListener("click", () => {
+    const routeType = document.getElementById("dr-route-type").value;
+    const estimatedLength = Number(document.getElementById("dr-route-len").value) || 1;
+    routes.push({
+      id: `rt-${Date.now()}`,
+      routeType,
+      points: [
+        { x: 40, y: 40 },
+        { x: 200, y: 120 },
+      ],
+      color: "#22c55e",
+      lineStyle: "solid",
+      estimatedLength,
+      memo: "",
+    });
+    alert(`ルート追加: ${routeType} ${estimatedLength}m`);
+  });
+  document.getElementById("dr-save")?.addEventListener("click", async () => {
+    await api(`/drawing-plans/${plan.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        tradeType: document.getElementById("dr-trade").value,
+        symbols,
+        routes,
+        notes: document.getElementById("dr-notes").value,
+      }),
+    });
+    alert("施工図を保存しました");
+  });
+  document.getElementById("dr-bg-upload")?.addEventListener("click", async () => {
+    const file = document.getElementById("dr-bg-file").files?.[0];
+    if (!file) return;
+    const b64 = await fileToBase64(file);
+    await api(`/projects/${projectId}/drawing-plans/${plan.id}/background`, {
+      method: "POST",
+      body: JSON.stringify({ imageBase64: b64, fileName: file.name }),
+    });
+    render();
+  });
+}
+
+async function renderSpecification(projectId) {
+  const data = await loadProject(projectId);
+  const plan = (data.drawingPlans || [])[0];
+  document.getElementById("biz-page-title").textContent = "仕様書作成";
+  document.getElementById("biz-root").innerHTML = `
+    <section class="biz-card">
+      <h2>仕様書PDF</h2>
+      <p>施工図: ${plan ? plan.title : "未作成 — 施工図画面で作成してください"}</p>
+      <label>概要 <textarea id="spec-overview">${data.project.title} 工事仕様</textarea></label>
+      <button type="button" class="biz-btn" id="spec-pdf">仕様書PDFを生成</button>
+      <pre class="biz-preview" id="spec-out"></pre>
+    </section>
+    ${(data.specifications || [])
+      .map((d) => `<section class="biz-card"><a href="${d.pdfPath}" target="_blank">${d.title}</a></section>`)
+      .join("")}
+    <a href="/business/projects/${projectId}">戻る</a>
+  `;
+  document.getElementById("spec-pdf")?.addEventListener("click", async () => {
+    const { ok, body } = await api(`/projects/${projectId}/specification/generate-pdf`, {
+      method: "POST",
+      body: JSON.stringify({
+        drawingPlanId: plan?.id,
+        overview: document.getElementById("spec-overview").value,
+      }),
+    });
+    document.getElementById("spec-out").textContent = ok
+      ? JSON.stringify(body, null, 2)
+      : body.error || "failed";
+    if (ok) render();
   });
 }
 
@@ -864,6 +1060,15 @@ async function render() {
         break;
       case "settings":
         await renderSettings();
+        break;
+      case "drawing_symbols":
+        await renderDrawingSymbols();
+        break;
+      case "drawing":
+        await renderDrawing(r.projectId);
+        break;
+      case "specification":
+        await renderSpecification(r.projectId);
         break;
       default:
         await renderHome();

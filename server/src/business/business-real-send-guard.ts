@@ -48,11 +48,11 @@ export function saveBusinessRealSendSettings(
 
 export function assertRealSendAllowed(
   operation: RealSendOperation,
-  opts?: { confirmed?: boolean; mode?: "mock" | "real" }
+  opts?: { confirmed?: boolean; mode?: "mock" | "dryRun" | "real" }
 ): { allowed: boolean; dryRun: boolean; reason?: string } {
   const settings = getBusinessRealSendSettings();
-  if (opts?.mode === "mock") {
-    return { allowed: true, dryRun: false };
+  if (opts?.mode === "mock" || opts?.mode === "dryRun") {
+    return { allowed: true, dryRun: opts.mode === "dryRun" };
   }
   if (settings.mockOnly) {
     return { allowed: false, dryRun: true, reason: "mock_only mode — enable real send in settings" };

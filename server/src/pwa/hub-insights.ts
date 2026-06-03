@@ -138,6 +138,24 @@ export function buildHubWorkflowLinks(customerCode: string, role: string): HubWo
       href: "/business/projects?status=payment_scheduled",
       count: countProjectsByStatus(["payment_scheduled", "invoice_sent_to_owner"]),
     });
+    links.push({
+      id: "business_drawing_pwa",
+      label: "Drawing PWA",
+      description: "施工図・記号配置・ルート描画",
+      href: "/business",
+    });
+    links.push({
+      id: "business_specification_pdf",
+      label: "Specification PDF",
+      description: "仕様書PDF生成",
+      href: "/business",
+    });
+    links.push({
+      id: "business_drawing_estimate",
+      label: "Drawing → Estimate Candidate",
+      description: "施工図から見積候補を作成",
+      href: "/business",
+    });
   }
 
   return links;
