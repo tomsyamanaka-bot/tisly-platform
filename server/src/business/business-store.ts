@@ -43,6 +43,7 @@ import type {
   SurveySchedule,
 } from "./business-types.js";
 import { generateQnapProjectPath } from "./services/qnapService.js";
+import { appendProjectTimeline } from "../toms/project-timeline.js";
 
 let projectNoSeq = 0;
 
@@ -164,7 +165,14 @@ export function createBusinessProject(input: {
       now,
       now
     );
-  return getBusinessProject(id)!;
+  const created = getBusinessProject(id)!;
+  appendProjectTimeline({
+    projectId: id,
+    eventType: "project_created",
+    detail: `${created.projectNo} ${created.title}`,
+    actor: "business",
+  });
+  return created;
 }
 
 export function updateBusinessProject(

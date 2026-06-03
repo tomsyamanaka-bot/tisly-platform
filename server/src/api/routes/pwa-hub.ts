@@ -8,6 +8,7 @@ import {
   PWA_APP_CATALOG,
 } from "../../pwa/pwa-hub.js";
 import { buildHubWorkflowLinks } from "../../pwa/hub-insights.js";
+import { buildHubOperations } from "../../toms/hub-operations.js";
 
 export const pwaHubRouter = Router();
 
@@ -22,6 +23,7 @@ pwaHubRouter.get("/hub", requireAuth("viewer"), (req: AuthedRequest, res) => {
     customerCode,
     apps: cards,
     workflows: buildHubWorkflowLinks(customerCode, role),
+    operations: buildHubOperations(customerCode),
     switcher: Object.values(PWA_APP_CATALOG).map((c) => ({
       id: c.id,
       label: c.label,

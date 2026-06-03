@@ -26,6 +26,8 @@ import {
 } from "./services/gmailService.js";
 import { logBusinessIntegration } from "./business-integration-log.js";
 import { createQnapSavePlan, uploadBusinessToQnap } from "./services/qnapBusinessArchive.js";
+import { recordWorkflowFromBusinessStatus } from "../toms/workflow-engine.js";
+import { appendProjectTimeline, timelineTitleFor } from "../toms/project-timeline.js";
 
 export interface StatusTransitionResult {
   project: BusinessProject;
@@ -104,6 +106,25 @@ export function transitionProjectStatus(
   const target = normalizeProjectStatus(String(to)) as BusinessProjectStatus;
   assertTransition(project.status, target);
   const updated = updateBusinessProject(projectId, { status: target });
+  recordWorkflowFromBusinessStatus(projectId, project.status, target);
+  const timelineMap: Partial<Record<typeof target, string>> = {
+    survey_done: "survey",
+    estimate_sent: "estimate_sent",
+    construction_scheduled: "construction_start",
+    construction_done: "construction_complete",
+    completion_report_created: "completion_report",
+    invoice_sent: "invoice",
+    paid: "payment",
+  };
+  const tl = timelineMap[target];
+  if (tl) {
+    appendProjectTimeline({
+      projectId,
+      eventType: tl,
+      title: timelineTitleFor(tl),
+      actor: "business_workflow",
+    });
+  }
   const side = runSideEffects(updated, target);
   logBusinessIntegration({
     projectId,

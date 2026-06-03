@@ -51,6 +51,7 @@ import { rejectInstallerRestricted } from "./auth/installer-restricted-guard.js"
 import { pwaHubRouter } from "./api/routes/pwa-hub.js";
 import { surveyRouter } from "./api/routes/survey.js";
 import { businessRouter } from "./api/routes/business.js";
+import { tomsRouter } from "./api/routes/toms.js";
 import { maintenanceProductionRouter } from "./api/routes/maintenance-production.js";
 import { proRemoteFloorMapRouter } from "./api/routes/pro-remote-floor-map.js";
 import { buildSurveyReportHtml } from "./survey/survey-report.js";
@@ -74,6 +75,7 @@ export function createApp(): express.Application {
   app.use("/api/pwa", pwaHubRouter);
   app.use("/api/survey", surveyRouter);
   app.use("/api/business", businessRouter);
+  app.use("/api/toms", tomsRouter);
   app.use("/api/maintenance", maintenanceProductionRouter);
 
   app.use("/api/events", opsCustomerScopeMiddleware, tenantQueryGuard, eventsRouter);
@@ -167,6 +169,15 @@ export function createApp(): express.Application {
   });
   app.get("/app", (_req, res) => {
     res.sendFile(path.join(publicDir, "app-hub.html"));
+  });
+  app.get("/project/:projectId", (_req, res) => {
+    res.sendFile(path.join(publicDir, "project-dashboard.html"));
+  });
+  app.get("/customer-master", (_req, res) => {
+    res.sendFile(path.join(publicDir, "customer-master.html"));
+  });
+  app.get("/asset/:assetId", (_req, res) => {
+    res.sendFile(path.join(publicDir, "asset-detail.html"));
   });
   app.get("/survey", (_req, res) => {
     res.sendFile(path.join(publicDir, "survey.html"));

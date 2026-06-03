@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>顧客台帳 — TiSLY TOMS</title>
+  <link rel="stylesheet" href="/css/tisly-pwa-shell.css" />
+  <style>
+    main { max-width: 900px; margin: 0 auto; padding: 1rem; }
+    .row { padding: 0.75rem; border-bottom: 1px solid #30363d; cursor: pointer; }
+    .row:hover { background: #161b22; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>顧客台帳</h1>
+    <input type="search" id="cm-search" placeholder="全体検索..." style="width:100%;margin:1rem 0;padding:0.5rem;" />
+    <div id="cm-list"></div>
+    <section id="cm-detail" hidden class="card" style="margin-top:1rem;padding:1rem;"></section>
+  </main>
+  <script type="module" src="/js/tisly-pwa-shell.js"></script>
+  <script type="module" src="/js/customer-master.js"></script>
+</body>
+</html>

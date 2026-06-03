@@ -370,6 +370,140 @@ function migratePhase421(database: Database.Database): void {
   migratePhase541(database);
   migratePhase561(database);
   migratePhase601(database);
+  migratePhase621(database);
+}
+
+function migratePhase621(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:phase621_toms_unified_workflow") as { value_json: string } | undefined;
+  if (marker) return;
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS business_project_timeline (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      event_type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      detail TEXT DEFAULT '',
+      actor TEXT DEFAULT '',
+      metadata_json TEXT DEFAULT '{}',
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES business_projects(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_business_project_timeline_project
+      ON business_project_timeline(project_id, created_at);
+
+    CREATE TABLE IF NOT EXISTS toms_workflow_history (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      from_state TEXT NOT NULL,
+      to_state TEXT NOT NULL,
+      note TEXT DEFAULT '',
+      actor TEXT DEFAULT '',
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES business_projects(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_toms_workflow_history_project
+      ON toms_workflow_history(project_id, created_at);
+
+    CREATE TABLE IF NOT EXISTS toms_customer_master (
+      id TEXT PRIMARY KEY,
+      business_customer_id TEXT,
+      name TEXT NOT NULL,
+      company TEXT DEFAULT '',
+      address TEXT DEFAULT '',
+      phone TEXT DEFAULT '',
+      email TEXT DEFAULT '',
+      sites_json TEXT DEFAULT '[]',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_toms_customer_master_name ON toms_customer_master(name);
+
+    CREATE TABLE IF NOT EXISTS toms_assets (
+      id TEXT PRIMARY KEY,
+      project_id TEXT,
+      customer_id TEXT,
+      asset_type TEXT NOT NULL,
+      label TEXT NOT NULL,
+      serial_number TEXT DEFAULT '',
+      install_date TEXT,
+      warranty_until TEXT,
+      maintenance_until TEXT,
+      qr_token TEXT UNIQUE,
+      metadata_json TEXT DEFAULT '{}',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES business_projects(id) ON DELETE SET NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_toms_assets_project ON toms_assets(project_id);
+    CREATE INDEX IF NOT EXISTS idx_toms_assets_qr ON toms_assets(qr_token);
+
+    CREATE TABLE IF NOT EXISTS business_construction_photos (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      category TEXT NOT NULL,
+      file_path TEXT NOT NULL,
+      auto_classified INTEGER NOT NULL DEFAULT 0,
+      caption TEXT DEFAULT '',
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES business_projects(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_business_construction_photos_project
+      ON business_construction_photos(project_id, category);
+
+    CREATE TABLE IF NOT EXISTS business_drawing_versions (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      version_kind TEXT NOT NULL CHECK (version_kind IN ('survey','construction','as_built')),
+      version_no INTEGER NOT NULL DEFAULT 1,
+      title TEXT NOT NULL,
+      file_path TEXT DEFAULT '',
+      drawing_plan_id TEXT,
+      notes TEXT DEFAULT '',
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES business_projects(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_business_drawing_versions_project
+      ON business_drawing_versions(project_id, version_kind, version_no);
+
+    CREATE TABLE IF NOT EXISTS toms_ai_estimate_v3 (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      esp_count INTEGER DEFAULT 0,
+      light_count INTEGER DEFAULT 0,
+      camera_count INTEGER DEFAULT 0,
+      lan_distance_m INTEGER DEFAULT 0,
+      construction_days INTEGER DEFAULT 0,
+      checklist_json TEXT DEFAULT '[]',
+      candidate_json TEXT DEFAULT '{}',
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES business_projects(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_toms_ai_estimate_v3_project ON toms_ai_estimate_v3(project_id, created_at);
+
+    CREATE TABLE IF NOT EXISTS toms_push_alerts (
+      id TEXT PRIMARY KEY,
+      project_id TEXT,
+      alert_kind TEXT NOT NULL,
+      title TEXT NOT NULL,
+      body TEXT NOT NULL,
+      href TEXT DEFAULT '',
+      sent_at TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_toms_push_alerts_kind ON toms_push_alerts(alert_kind, created_at);
+  `);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run(
+      "migration:phase621_toms_unified_workflow",
+      JSON.stringify({ at: new Date().toISOString() })
+    );
 }
 
 function migratePhase481(database: Database.Database): void {

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0d1117" />
+  <title>案件ダッシュボード — TiSLY TOMS</title>
+  <link rel="stylesheet" href="/css/tisly-pwa-shell.css" />
+  <style>
+    .dash-grid { display: grid; gap: 1rem; max-width: 960px; margin: 0 auto; padding: 1rem; }
+    .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1rem; }
+    .timeline li { border-left: 3px solid #1a7f37; padding-left: 0.75rem; margin: 0.5rem 0; list-style: none; }
+    .badge { display: inline-block; padding: 0.2rem 0.5rem; background: #1a7f37; border-radius: 4px; font-size: 0.85rem; }
+    .photo-grid { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    .photo-grid img { max-width: 120px; max-height: 90px; object-fit: cover; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <div class="dash-grid">
+    <header>
+      <h1 id="dash-title">案件ダッシュボード</h1>
+      <p id="dash-state" class="badge"></p>
+    </header>
+    <section class="card" id="dash-customer"></section>
+    <section class="card" id="dash-finance"></section>
+    <section class="card">
+      <h2>タイムライン</h2>
+      <ul id="dash-timeline" class="timeline"></ul>
+    </section>
+    <section class="card">
+      <h2>写真</h2>
+      <div id="dash-photos" class="photo-grid"></div>
+    </section>
+    <section class="card" id="dash-links"></section>
+  </div>
+  <script type="module" src="/js/tisly-pwa-shell.js"></script>
+  <script type="module" src="/js/project-dashboard.js"></script>
+</body>
+</html>

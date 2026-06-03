@@ -156,6 +156,24 @@ export function buildHubWorkflowLinks(customerCode: string, role: string): HubWo
       description: "施工図から見積候補を作成",
       href: "/business",
     });
+    links.push({
+      id: "toms_unified_dashboard",
+      label: "案件ダッシュボード",
+      description: "案件中心の統合ビュー /project/:id",
+      href: "/business/projects",
+    });
+    links.push({
+      id: "toms_customer_master",
+      label: "顧客台帳",
+      description: "Customer Master /customer-master",
+      href: "/customer-master",
+    });
+    links.push({
+      id: "toms_kpi",
+      label: "TOMS KPI",
+      description: "売上・未請求・未入金",
+      href: "/business",
+    });
   }
 
   return links;

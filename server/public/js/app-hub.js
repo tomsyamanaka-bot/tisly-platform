@@ -46,6 +46,27 @@ async function loadHubApps() {
       )
       .join("");
   }
+  const ops = data.operations;
+  if (ops) {
+    let opsEl = document.getElementById("hub-ops-panel");
+    if (!opsEl) {
+      opsEl = document.createElement("section");
+      opsEl.id = "hub-ops-panel";
+      opsEl.className = "hub-ops-panel";
+      document.getElementById("hub-apps-panel")?.appendChild(opsEl);
+    }
+    opsEl.innerHTML = `
+      <h3 class="hub-workflows-title">今日のオペレーション</h3>
+      <div class="hub-workflow-grid">
+        <div class="hub-workflow-card">今日の現調 <strong>${ops.todaySurveys}</strong></div>
+        <div class="hub-workflow-card">今日の工事 <strong>${ops.todayConstruction}</strong></div>
+        <div class="hub-workflow-card">未請求 <strong>${ops.uninvoiced}</strong></div>
+        <div class="hub-workflow-card">未入金 <strong>${ops.unpaid}</strong></div>
+        <div class="hub-workflow-card">保守期限 <strong>${ops.maintenanceDue}</strong></div>
+        <div class="hub-workflow-card">ESP異常 <strong>${ops.espAnomaly}</strong></div>
+        <div class="hub-workflow-card">Shelly異常 <strong>${ops.shellyAnomaly}</strong></div>
+      </div>`;
+  }
 }
 
 document.getElementById("btn-hub-login")?.addEventListener("click", async () => {
