@@ -68,9 +68,35 @@ import {
   getEstimatePdfOrPlaceholder,
   getInvoicePdfOrPlaceholder,
 } from "../../business/services/pdfService.js";
-import { createQnapSavePlan, mockSaveToQnap } from "../../business/services/qnapService.js";
+import {
+  createQnapSavePlan,
+  uploadBusinessToQnap,
+  getQnapProjectUploadStatus,
+} from "../../business/services/qnapBusinessArchive.js";
 import { getGoogleCalendarProvider } from "../../business/services/googleCalendarService.js";
 import { getGmailProvider } from "../../business/services/gmailService.js";
+import {
+  getGoogleAuthUrl,
+  getGoogleOAuthStatus,
+  handleGoogleOAuthCallback,
+  testGoogleOAuthConnection,
+} from "../../services/googleOAuthService.js";
+import { logBusinessIntegration, listBusinessIntegrationLogs } from "../../business/business-integration-log.js";
+import { getBusinessSettingsPayload } from "../../business/business-settings.js";
+import {
+  exportPricingRulesCsv,
+  importPricingRulesCsv,
+} from "../../business/business-pricing-csv.js";
+import {
+  buildAccountingExportCsv,
+  createBusinessPayment,
+  listBusinessPayments,
+} from "../../business/business-payments.js";
+import { processBusinessOfflineSync } from "../../business/business-offline-sync.js";
+import { renderBusinessPdf, getRenderedHtmlPath } from "../../business/pdf/render.js";
+import { renderEstimateHtml } from "../../business/pdf/estimate-template.js";
+import { renderInvoiceHtml } from "../../business/pdf/invoice-template.js";
+import { renderCompletionReportHtml } from "../../business/pdf/completion-report-template.js";
 import type { PricingScopeType } from "../../business/business-types.js";
 import { createAiEstimatePlaceholder, getLatestAiEstimate } from "../../survey/survey-store.js";
 import type { EstimateLineItem } from "../../business/business-types.js";
@@ -576,9 +602,41 @@ businessRouter.post("/projects/:projectId/qnap/save", ...businessAuth, (req: Aut
   }
   const plan = createQnapSavePlan(project);
   saveQnapPlan(plan);
-  const result = mockSaveToQnap(project, plan);
+  const result = uploadBusinessToQnap(project, plan);
   res.json({ qnapPlan: plan, saveResult: result });
 });
+
+businessRouter.post(
+  "/projects/:projectId/qnap/upload",
+  ...businessAuth,
+  (req: AuthedRequest, res) => {
+    if (!assertBusinessRole(req, res)) return;
+    const project = getBusinessProject(String(req.params.projectId));
+    if (!project) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    const plan = getQnapPlan(project.id) ?? createQnapSavePlan(project);
+    saveQnapPlan(plan);
+    const result = uploadBusinessToQnap(project, plan);
+    res.json({ qnapPlan: plan, upload: result });
+  }
+);
+
+businessRouter.get(
+  "/projects/:projectId/qnap/status",
+  ...businessAuth,
+  (req: AuthedRequest, res) => {
+    if (!assertBusinessRole(req, res)) return;
+    const project = getBusinessProject(String(req.params.projectId));
+    if (!project) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    const plan = getQnapPlan(project.id);
+    res.json(getQnapProjectUploadStatus(project, plan));
+  }
+);
 
 businessRouter.get("/projects/:projectId/estimate.pdf", ...businessAuth, servePdf("estimate"));
 businessRouter.get("/projects/:projectId/invoice.pdf", ...businessAuth, servePdf("invoice"));
@@ -664,8 +722,16 @@ businessRouter.post("/from-survey/:surveyProjectId", ...businessAuth, (req: Auth
 businessRouter.get("/hub-counts", ...businessAuth, (req: AuthedRequest, res) => {
   if (!assertBusinessRole(req, res)) return;
   const today = new Date().toISOString().slice(0, 10);
+  const schedules = listTodaySchedules(today);
+  const google = getGoogleOAuthStatus();
+  const settings = getBusinessSettingsPayload();
+  const recentLogs = listBusinessIntegrationLogs({ limit: 20 });
+  const pdfOk = recentLogs.filter((l) => l.type === "pdf" && l.status === "success").length;
+  const qnapOk = recentLogs.filter((l) => l.type === "qnap" && l.status === "success").length;
   res.json({
-    todaySchedules: listTodaySchedules(today),
+    todaySchedules: schedules,
+    todaySurvey: schedules.filter((t) => t.kind === "site_survey").length,
+    todayConstruction: schedules.filter((t) => t.kind === "construction").length,
     newProjects: countProjectsByStatus(["new"]),
     surveyScheduled: countProjectsByStatus(["survey_scheduled"]),
     estimatePending: countProjectsByStatus(["survey_done"]),
@@ -675,33 +741,228 @@ businessRouter.get("/hub-counts", ...businessAuth, (req: AuthedRequest, res) => 
       "completion_report_created",
       "invoice_created",
     ]),
-    paymentPending: countProjectsByStatus(["invoice_sent"]),
+    paymentPending: countProjectsByStatus(["invoice_sent", "invoice_sent_to_owner"]),
+    googleStatus: google,
+    gmailStatus: settings.gmail,
+    qnapStatus: settings.qnap,
+    pdfStatus: { mode: settings.pdf.mode, recentSuccess: pdfOk },
+    qnapRecentSuccess: qnapOk,
+    offlineQueueHint: "client localStorage",
   });
 });
 
 businessRouter.get("/settings", ...businessAuth, (req: AuthedRequest, res) => {
   if (!assertBusinessRole(req, res)) return;
+  const payload = getBusinessSettingsPayload();
   res.json({
-    googleCalendar: {
-      connected: false,
-      mode: "mock",
-      provider: getGoogleCalendarProvider().constructor.name,
-    },
-    gmail: {
-      connected: false,
-      mode: "mock",
-      defaultTo: "toms.yamanaka@gmail.com",
-      provider: getGmailProvider().constructor.name,
-    },
-    qnap: {
-      connected: false,
-      mode: "mock",
-      baseRoot: "/TOMS/business/",
-    },
-    pdfTemplates: {
-      estimate: "placeholder-1",
-      invoice: "placeholder-1",
-      completion_report: "placeholder-1",
+    ...payload,
+    googleCalendar: payload.googleCalendar,
+    gmail: payload.gmail,
+    qnap: payload.qnap,
+    pdfTemplates: payload.pdf.templates,
+    providers: {
+      calendar: getGoogleCalendarProvider().constructor.name,
+      gmail: getGmailProvider().constructor.name,
     },
   });
 });
+
+businessRouter.get("/google/status", ...businessAuth, (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  res.json(getGoogleOAuthStatus());
+});
+
+businessRouter.get("/google/auth-url", ...businessAuth, (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  res.json(getGoogleAuthUrl(String(req.query.state ?? "business")));
+});
+
+businessRouter.post("/google/callback", ...businessAuth, async (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  const result = await handleGoogleOAuthCallback(req.body as { code?: string; error?: string });
+  logBusinessIntegration({
+    type: "gmail",
+    provider: result.mode,
+    status: result.ok ? "success" : "error",
+    request: { op: "oauth_callback" },
+    response: result,
+    errorMessage: result.ok ? undefined : result.message,
+  });
+  res.json(result);
+});
+
+businessRouter.post("/google/test", ...businessAuth, async (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  const result = await testGoogleOAuthConnection();
+  logBusinessIntegration({
+    type: "calendar",
+    provider: result.mode,
+    status: result.ok ? "success" : "skipped",
+    request: { op: "test" },
+    response: result,
+  });
+  res.json(result);
+});
+
+businessRouter.get("/integration-logs", ...businessAuth, (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  const projectId = req.query.projectId ? String(req.query.projectId) : undefined;
+  res.json({ logs: listBusinessIntegrationLogs({ projectId, limit: 100 }) });
+});
+
+businessRouter.post("/pricing/import-csv", ...businessAuth, (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  const body = req.body as { csv?: string };
+  if (!body.csv) {
+    res.status(400).json({ error: "csv required" });
+    return;
+  }
+  const result = importPricingRulesCsv(body.csv);
+  logBusinessIntegration({
+    type: "status_flow",
+    provider: "pricing_csv",
+    status: result.errors.length ? "error" : "success",
+    request: { bytes: body.csv.length },
+    response: result,
+  });
+  res.json(result);
+});
+
+businessRouter.get("/pricing/export-csv", ...businessAuth, (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  const csv = exportPricingRulesCsv({
+    customerCode: req.query.customer_code ? String(req.query.customer_code) : undefined,
+    contractorCode: req.query.contractor_code ? String(req.query.contractor_code) : undefined,
+  });
+  res.type("text/csv; charset=utf-8");
+  res.send(csv);
+});
+
+businessRouter.post("/projects/:projectId/payment", ...businessAuth, (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  const body = req.body as {
+    amount?: number;
+    paymentDate?: string;
+    method?: string;
+    memo?: string;
+    invoiceId?: string;
+  };
+  if (body.amount == null || !body.paymentDate) {
+    res.status(400).json({ error: "amount and paymentDate required" });
+    return;
+  }
+  try {
+    const payment = createBusinessPayment({
+      projectId: String(req.params.projectId),
+      amount: Number(body.amount),
+      paymentDate: body.paymentDate,
+      method: body.method,
+      memo: body.memo,
+      invoiceId: body.invoiceId,
+    });
+    logBusinessIntegration({
+      projectId: String(req.params.projectId),
+      type: "status_flow",
+      provider: "payment",
+      status: "success",
+      request: body,
+      response: payment,
+    });
+    res.status(201).json({ payment });
+  } catch (e) {
+    res.status(400).json({ error: (e as Error).message });
+  }
+});
+
+businessRouter.get("/payments", ...businessAuth, (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  const projectId = req.query.projectId ? String(req.query.projectId) : undefined;
+  res.json({ payments: listBusinessPayments(projectId ? { projectId } : undefined) });
+});
+
+businessRouter.get("/accounting/export-csv", ...businessAuth, (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  const csv = buildAccountingExportCsv();
+  res.type("text/csv; charset=utf-8");
+  res.send(csv);
+});
+
+businessRouter.post("/offline/sync", ...businessAuth, (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  const body = req.body as { items?: unknown[] };
+  const items = (body.items ?? []) as Parameters<typeof processBusinessOfflineSync>[0];
+  res.json(processBusinessOfflineSync(items));
+});
+
+function servePdfDocument(kind: "estimate" | "invoice" | "completion_report") {
+  return async (req: AuthedRequest, res: Response) => {
+    if (!assertBusinessRole(req, res)) return;
+    const projectId = String(req.params.projectId);
+    const project = getBusinessProject(projectId);
+    if (!project) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    try {
+      if (kind === "estimate") {
+        if (!project.estimateId) throw new Error("No estimate");
+        const est = getEstimate(project.estimateId)!;
+        const rendered = await renderBusinessPdf("estimate", project, est);
+        if (req.query.format === "json") {
+          return res.json({ htmlPath: rendered.htmlPath, pdfPath: rendered.pdfPath });
+        }
+        const accept = req.headers.accept ?? "";
+        if (accept.includes("application/pdf") && rendered.localPath) {
+          res.type("application/pdf");
+          return res.send(fs.readFileSync(rendered.localPath));
+        }
+        const htmlPath = getRenderedHtmlPath(projectId, "estimate");
+        const html = htmlPath
+          ? fs.readFileSync(htmlPath, "utf8")
+          : renderEstimateHtml(project, est);
+        res.type("text/html; charset=utf-8");
+        return res.send(html);
+      }
+      if (kind === "invoice") {
+        if (!project.invoiceId) throw new Error("No invoice");
+        const inv = getInvoice(project.invoiceId)!;
+        const rendered = await renderBusinessPdf("invoice", project, inv);
+        if (req.query.format === "json") {
+          return res.json({ htmlPath: rendered.htmlPath, pdfPath: rendered.pdfPath });
+        }
+        const accept = req.headers.accept ?? "";
+        if (accept.includes("application/pdf") && rendered.localPath) {
+          res.type("application/pdf");
+          return res.send(fs.readFileSync(rendered.localPath));
+        }
+        const html = renderInvoiceHtml(project, inv);
+        res.type("text/html; charset=utf-8");
+        return res.send(html);
+      }
+      if (!project.completionReportId) throw new Error("No completion report");
+      const rep = getCompletionReport(project.completionReportId)!;
+      const rendered = await renderBusinessPdf("completion_report", project, rep);
+      if (req.query.format === "json") {
+        return res.json({ htmlPath: rendered.htmlPath, pdfPath: rendered.pdfPath });
+      }
+      const accept = req.headers.accept ?? "";
+      if (accept.includes("application/pdf") && rendered.localPath) {
+        res.type("application/pdf");
+        return res.send(fs.readFileSync(rendered.localPath));
+      }
+      const html = renderCompletionReportHtml(project, rep);
+      res.type("text/html; charset=utf-8");
+      return res.send(html);
+    } catch (e) {
+      res.status(404).json({ error: (e as Error).message });
+    }
+  };
+}
+
+businessRouter.get("/projects/:projectId/pdf/estimate", ...businessAuth, servePdfDocument("estimate"));
+businessRouter.get("/projects/:projectId/pdf/invoice", ...businessAuth, servePdfDocument("invoice"));
+businessRouter.get(
+  "/projects/:projectId/pdf/completion-report",
+  ...businessAuth,
+  servePdfDocument("completion_report")
+);

@@ -368,6 +368,7 @@ function migratePhase421(database: Database.Database): void {
   migratePhase501(database);
   migratePhase521(database);
   migratePhase541(database);
+  migratePhase561(database);
 }
 
 function migratePhase481(database: Database.Database): void {
@@ -650,6 +651,47 @@ function migratePhase521(database: Database.Database): void {
       `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
     )
     .run("migration:phase521_toms_business_pwa", JSON.stringify({ at: new Date().toISOString() }));
+}
+
+function migratePhase561(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:phase561_business_production") as { value_json: string } | undefined;
+  if (marker) return;
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS business_integration_logs (
+      id TEXT PRIMARY KEY,
+      project_id TEXT,
+      type TEXT NOT NULL CHECK (type IN ('calendar','gmail','qnap','pdf','status_flow')),
+      provider TEXT NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('success','error','skipped')),
+      request_json TEXT,
+      response_json TEXT,
+      error_message TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES business_projects(id) ON DELETE SET NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_business_integration_logs_project ON business_integration_logs(project_id, created_at);
+    CREATE TABLE IF NOT EXISTS business_payments (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      invoice_id TEXT,
+      amount INTEGER NOT NULL DEFAULT 0,
+      payment_date TEXT NOT NULL,
+      method TEXT DEFAULT 'bank_transfer',
+      memo TEXT DEFAULT '',
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES business_projects(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_business_payments_project ON business_payments(project_id, payment_date);
+  `);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:phase561_business_production", JSON.stringify({ at: new Date().toISOString() }));
 }
 
 function migratePhase541(database: Database.Database): void {

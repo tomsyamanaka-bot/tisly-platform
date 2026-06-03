@@ -51,10 +51,70 @@ function queueOffline(item) {
   updateOfflineBar();
 }
 
+function queueItemToSyncOp(item) {
+  const path = item.path || "";
+  const body = item.body || {};
+  if (path === "/projects" && (item.method || "POST") === "POST") {
+    return { type: "project_create", payload: body, clientId: item.at };
+  }
+  const photoMatch = path.match(/^\/projects\/([^/]+)\/(survey-photo|construction-photo)$/);
+  if (photoMatch) {
+    return {
+      type: "photo_memo",
+      projectId: photoMatch[1],
+      payload: {
+        ...body,
+        kind: photoMatch[2] === "construction-photo" ? "construction" : "survey",
+      },
+      clientId: item.at,
+    };
+  }
+  const statusMatch = path.match(/^\/projects\/([^/]+)\/status$/);
+  if (statusMatch) {
+    return { type: "status_change", projectId: statusMatch[1], payload: body, clientId: item.at };
+  }
+  const estMatch = path.match(/^\/projects\/([^/]+)\/estimate$/);
+  if (estMatch) {
+    return { type: "estimate_item", projectId: estMatch[1], payload: body, clientId: item.at };
+  }
+  const invMatch = path.match(/^\/projects\/([^/]+)\/invoice$/);
+  if (invMatch) {
+    return { type: "invoice_memo", projectId: invMatch[1], payload: body, clientId: item.at };
+  }
+  const payMatch = path.match(/^\/projects\/([^/]+)\/payment$/);
+  if (payMatch) {
+    return { type: "payment_memo", projectId: payMatch[1], payload: body, clientId: item.at };
+  }
+  return null;
+}
+
 async function flushOfflineQueue() {
   if (!navigator.onLine) return;
   const q = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || "[]");
   if (!q.length) return;
+  const items = q.map(queueItemToSyncOp).filter(Boolean);
+  if (items.length) {
+    const headers = { "Content-Type": "application/json" };
+    if (token()) headers.Authorization = `Bearer ${token()}`;
+    const res = await fetch("/api/business/offline/sync", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ items }),
+    });
+    if (res.ok) {
+      const body = await res.json();
+      const failed = (body.failed || []).length;
+      const synced = (body.synced || []).length;
+      if (!failed) {
+        localStorage.setItem(OFFLINE_QUEUE_KEY, "[]");
+        updateOfflineBar();
+        return;
+      }
+      localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(q.slice(synced)));
+      updateOfflineBar();
+      return;
+    }
+  }
   const remain = [];
   for (const item of q) {
     try {
@@ -161,8 +221,23 @@ async function ensureLogin() {
 async function renderHome() {
   const [{ body }, { body: settings }] = await Promise.all([api("/hub-counts"), api("/settings")]);
   const today = body.todaySchedules || [];
+  const queueLen = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || "[]").length;
+  const g = body.googleStatus || settings.googleOAuth || {};
   document.getElementById("biz-page-title").textContent = "TOMS業務ホーム";
   document.getElementById("biz-root").innerHTML = `
+    <section class="biz-card">
+      <h2>連携ダッシュボード</h2>
+      <div class="biz-dash-grid">
+        <div class="biz-dash-card" style="cursor:default"><div class="n">${g.connected ? "OK" : "—"}</div><div class="l">Google連携</div></div>
+        <div class="biz-dash-card" style="cursor:default"><div class="n">${settings.gmail?.connected ? "OK" : "—"}</div><div class="l">Gmail</div></div>
+        <div class="biz-dash-card" style="cursor:default"><div class="n">${body.qnapRecentSuccess ?? 0}</div><div class="l">QNAP保存</div></div>
+        <div class="biz-dash-card" style="cursor:default"><div class="n">${body.pdfStatus?.recentSuccess ?? 0}</div><div class="l">PDF生成</div></div>
+        <a class="biz-dash-card" href="/business/projects?status=invoice_sent"><div class="n">${body.paymentPending ?? 0}</div><div class="l">入金待ち</div></a>
+        <div class="biz-dash-card" style="cursor:default"><div class="n">${body.todaySurvey ?? 0}</div><div class="l">今日の現調</div></div>
+        <div class="biz-dash-card" style="cursor:default"><div class="n">${body.todayConstruction ?? 0}</div><div class="l">今日の工事</div></div>
+        <div class="biz-dash-card" id="biz-queue-card" style="cursor:pointer"><div class="n">${queueLen}</div><div class="l">未送信キュー</div></div>
+      </div>
+    </section>
     <section class="biz-card">
       <h2>今日の予定 (${today.length})</h2>
       ${
@@ -202,6 +277,7 @@ async function renderHome() {
     <a class="biz-btn secondary" href="/business/projects" style="text-align:center;text-decoration:none">案件一覧</a>
   `;
   document.getElementById("biz-offline-bar")?.addEventListener("click", () => flushOfflineQueue().then(render));
+  document.getElementById("biz-queue-card")?.addEventListener("click", () => flushOfflineQueue().then(render));
 }
 
 async function renderProjects() {
@@ -522,10 +598,25 @@ async function renderPayment(id) {
     <section class="biz-card">
       <label>入金予定日 <input type="date" id="pay-due" /></label>
       <button type="button" class="biz-btn" id="pay-sched">入金予定を登録（カレンダー下書き）</button>
+      <label>入金額 <input type="number" id="pay-amount" /></label>
+      <label>入金日 <input type="date" id="pay-date" /></label>
+      <label>方法 <input id="pay-method" value="bank_transfer" /></label>
+      <button type="button" class="biz-btn" id="pay-record">入金を記録</button>
       <button type="button" class="biz-btn" id="pay-done">入金済みにする</button>
     </section>
     <a href="/business/projects/${id}">戻る</a>
   `;
+  document.getElementById("pay-record")?.addEventListener("click", async () => {
+    await api(`/projects/${id}/payment`, {
+      method: "POST",
+      body: JSON.stringify({
+        amount: Number(document.getElementById("pay-amount").value),
+        paymentDate: document.getElementById("pay-date").value,
+        method: document.getElementById("pay-method").value,
+      }),
+    });
+    render();
+  });
   document.getElementById("pay-sched")?.addEventListener("click", async () => {
     await api(`/projects/${id}/payment-due`, {
       method: "POST",
@@ -552,11 +643,29 @@ async function renderCustomers() {
 }
 
 async function renderPricing() {
+  const params = new URLSearchParams(window.location.search);
+  const customerFilter = params.get("customer_code") || "";
+  const contractorFilter = params.get("contractor_code") || "";
   const { body } = await api("/pricing");
   document.getElementById("biz-page-title").textContent = "顧客別単価";
-  const rules = body.rules || [];
+  let rules = body.rules || [];
+  if (customerFilter) {
+    rules = rules.filter((r) => r.scopeType === "customer" && r.scopeRef === customerFilter);
+  }
+  if (contractorFilter) {
+    rules = rules.filter((r) => r.scopeType === "contractor" && r.scopeRef === contractorFilter);
+  }
   const scopeLabel = { customer: "顧客別", contractor: "元請け別", work_item: "工事項目", standard: "標準" };
   document.getElementById("biz-root").innerHTML = `
+    <section class="biz-card">
+      <h2>CSV</h2>
+      <label>顧客コードでフィルタ <input id="csv-customer" value="${customerFilter}" placeholder="TOMS001" /></label>
+      <label>元請けコード <input id="csv-contractor" value="${contractorFilter}" /></label>
+      <button type="button" class="biz-btn secondary" id="csv-export">CSV出力</button>
+      <label>CSV取込 <textarea id="csv-import" rows="4" placeholder="customer_code,contractor_code,..."></textarea></label>
+      <button type="button" class="biz-btn" id="csv-import-btn">CSV取込</button>
+      <pre class="biz-preview" id="csv-result"></pre>
+    </section>
     <section class="biz-card">
       <h2>単価ルール (${rules.length})</h2>
       ${rules
@@ -592,6 +701,20 @@ async function renderPricing() {
     });
     render();
   });
+  document.getElementById("csv-export")?.addEventListener("click", () => {
+    const q = new URLSearchParams();
+    const c = document.getElementById("csv-customer").value.trim();
+    const k = document.getElementById("csv-contractor").value.trim();
+    if (c) q.set("customer_code", c);
+    if (k) q.set("contractor_code", k);
+    window.open(`/api/business/pricing/export-csv?${q}`, "_blank");
+  });
+  document.getElementById("csv-import-btn")?.addEventListener("click", async () => {
+    const csv = document.getElementById("csv-import").value;
+    const { body: r } = await api("/pricing/import-csv", { method: "POST", body: JSON.stringify({ csv }) });
+    document.getElementById("csv-result").textContent = JSON.stringify(r, null, 2);
+    render();
+  });
 }
 
 async function renderSettings() {
@@ -599,13 +722,21 @@ async function renderSettings() {
   document.getElementById("biz-page-title").textContent = "連携設定";
   document.getElementById("biz-root").innerHTML = `
     <section class="biz-card">
-      <div class="biz-integration-row"><span>Google Calendar</span><span class="mock">${body.googleCalendar?.provider} (${body.googleCalendar?.mode})</span></div>
-      <div class="biz-integration-row"><span>Gmail 宛先</span><span>${body.gmail?.defaultTo}</span></div>
-      <div class="biz-integration-row"><span>QNAP</span><span class="mock">${body.qnap?.baseRoot}</span></div>
-      <div class="biz-integration-row"><span>PDFテンプレ</span><span class="mock">見積 ${body.pdfTemplates?.estimate}</span></div>
+      <div class="biz-integration-row"><span>Google/Gmail</span><span class="mock">${body.googleOAuth?.mode ?? body.googleCalendar?.mode} / ${body.googleOAuth?.connected ? "接続済" : "未接続"}</span></div>
+      <div class="biz-integration-row"><span>QNAP</span><span class="mock">${body.qnap?.mode} — ${body.qnap?.baseRoot}</span></div>
+      <div class="biz-integration-row"><span>PDF</span><span class="mock">${body.pdf?.mode}</span></div>
+      <div class="biz-integration-row"><span>送信先メール</span><span>${body.mailTo ?? body.gmail?.defaultTo}</span></div>
+      <h3>TOMS会社情報</h3>
+      <p class="hint">${body.company?.name}<br/>${body.company?.address}<br/>${body.company?.phone}</p>
+      <button type="button" class="biz-btn secondary" id="btn-google-test">Google接続テスト</button>
+      <a class="biz-btn secondary" href="/api/business/accounting/export-csv" style="display:block;text-align:center;text-decoration:none;margin-top:0.5rem">会計CSV出力</a>
     </section>
     <pre class="biz-preview">${JSON.stringify(body, null, 2)}</pre>
   `;
+  document.getElementById("btn-google-test")?.addEventListener("click", async () => {
+    const { body: t } = await api("/google/test", { method: "POST", body: "{}" });
+    alert(JSON.stringify(t, null, 2));
+  });
 }
 
 function fileToBase64(file) {

@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import { v4 as uuid } from "uuid";
 import { getDatabase } from "../db/database.js";
+import { logBusinessIntegration } from "./business-integration-log.js";
 import {
   assertTransition,
   canTransitionStatus,
@@ -725,6 +726,14 @@ export function saveCalendarDraft(draft: CalendarDraft): void {
       draft.status,
       draft.createdAt
     );
+  logBusinessIntegration({
+    projectId: draft.projectId,
+    type: "calendar",
+    provider: process.env.GOOGLE_OAUTH_ENABLED === "true" ? "google" : "mock",
+    status: "success",
+    request: { draftId: draft.id, type: draft.type, title: draft.title },
+    response: { status: draft.status },
+  });
 }
 
 export function listCalendarDrafts(projectId: string): CalendarDraft[] {
@@ -763,6 +772,14 @@ export function saveMailDraft(draft: MailDraft): void {
       draft.status,
       draft.createdAt
     );
+  logBusinessIntegration({
+    projectId: draft.projectId,
+    type: "gmail",
+    provider: process.env.GOOGLE_OAUTH_ENABLED === "true" ? "google" : "mock",
+    status: "success",
+    request: { draftId: draft.id, type: draft.type, subject: draft.subject },
+    response: { to: draft.to, status: draft.status },
+  });
 }
 
 export function listMailDrafts(projectId: string): MailDraft[] {

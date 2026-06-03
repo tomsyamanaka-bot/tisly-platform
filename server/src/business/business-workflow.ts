@@ -24,7 +24,8 @@ import {
   createEstimateMailDraft,
   createInvoiceMailDraft,
 } from "./services/gmailService.js";
-import { createQnapSavePlan, mockSaveToQnap } from "./services/qnapService.js";
+import { logBusinessIntegration } from "./business-integration-log.js";
+import { createQnapSavePlan, uploadBusinessToQnap } from "./services/qnapBusinessArchive.js";
 
 export interface StatusTransitionResult {
   project: BusinessProject;
@@ -88,7 +89,7 @@ function runSideEffects(
   ) {
     const plan = createQnapSavePlan(project);
     saveQnapPlan(plan);
-    out.qnapSave = mockSaveToQnap(project, plan);
+    out.qnapSave = uploadBusinessToQnap(project, plan);
   }
 
   return out;
@@ -104,6 +105,14 @@ export function transitionProjectStatus(
   assertTransition(project.status, target);
   const updated = updateBusinessProject(projectId, { status: target });
   const side = runSideEffects(updated, target);
+  logBusinessIntegration({
+    projectId,
+    type: "status_flow",
+    provider: "workflow",
+    status: "success",
+    request: { from: project.status, to: target },
+    response: side,
+  });
   return { project: updated, ...side };
 }
 

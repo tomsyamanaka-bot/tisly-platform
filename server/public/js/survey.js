@@ -321,6 +321,32 @@ async function generateFloorMap() {
   window.open(`/customer/${code}/pro-remote`, "_blank");
 }
 
+document.getElementById("btn-survey-create-toms")?.addEventListener("click", async () => {
+  const pid = activeProjectId || (await ensureProject());
+  if (!pid) {
+    alert("先に案件を保存してください");
+    return;
+  }
+  const token = sessionStorage.getItem("tisly_token");
+  if (!token) {
+    alert("TOMS案件作成には App Hub から manager でログインしてください");
+    return;
+  }
+  const res = await fetch(`/api/business/from-survey/${pid}`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: "{}",
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    alert(body.error || "TOMS案件の作成に失敗しました");
+    return;
+  }
+  const bizId = body.project?.id;
+  if (bizId) location.href = `/business/projects/${bizId}`;
+  else alert("案件は作成されましたが ID を取得できませんでした");
+});
+
 document.getElementById("btn-survey-save-case")?.addEventListener("click", async () => {
   try {
     await ensureProject();
