@@ -38,6 +38,8 @@ function connectSalesWs(refreshFn) {
       if (msg.type === "heartbeat" && msg.payload?.pong) return;
       if (msg.payload?.channel === "sales" || msg.topic === "sales/demo") {
         if (msg.payload?.liveBadge) setLiveBadge(msg.payload.liveBadge);
+        if (msg.payload?.shellyEnvBadge) setShellyEnvBadge(msg.payload.shellyEnvBadge);
+        flashAnomalyHighlight(kind);
         if (typeof refreshFn === "function") refreshFn(kind);
       }
     } catch {
@@ -71,12 +73,28 @@ function stopPolling() {
   }
 }
 
+const ANOMALY_KINDS = new Set(["intrusion", "esp_fault", "shelly_fault", "notification", "alarm"]);
+
 export function setLiveBadge(state) {
   const el = document.getElementById("live-status-badge");
   if (!el) return;
-  const labels = { live: "Live", mock: "Mock", offline: "Offline" };
+  const labels = { live: "LIVE", mock: "MOCK", offline: "OFFLINE" };
   el.textContent = labels[state] ?? state;
   el.className = `live-badge live-badge--${state ?? "offline"}`;
+}
+
+export function setShellyEnvBadge(state) {
+  const el = document.getElementById("shelly-env-badge");
+  if (!el) return;
+  const labels = { real: "REAL", mock: "MOCK" };
+  el.textContent = labels[state] ?? state;
+  el.className = `live-badge live-badge--${state === "real" ? "real" : "mock"}`;
+}
+
+export function flashAnomalyHighlight(kind) {
+  if (!kind || !ANOMALY_KINDS.has(kind)) return;
+  document.body.classList.add("sales-anomaly-flash");
+  setTimeout(() => document.body.classList.remove("sales-anomaly-flash"), 10000);
 }
 
 function updateConnBadge(mode) {

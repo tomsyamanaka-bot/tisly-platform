@@ -3,6 +3,7 @@
  */
 import { broadcast } from "../ws/hub.js";
 import { getDeviceMode } from "../device/device-mode-store.js";
+import { getShellyEnvMode } from "../device/shelly-real-client.js";
 
 export type SalesWsEventKind =
   | "status"
@@ -21,6 +22,7 @@ export function broadcastSalesDemoEvent(
   const at = new Date().toISOString();
   const deviceMode = getDeviceMode();
   const liveBadge = getSalesLiveBadge();
+  const shellyEnvBadge = getSalesShellyEnvBadge();
 
   broadcast({
     type: "event",
@@ -30,6 +32,7 @@ export function broadcastSalesDemoEvent(
       kind,
       deviceMode,
       liveBadge,
+      shellyEnvBadge,
       ...payload,
     },
     at,
@@ -59,4 +62,8 @@ export function getSalesLiveBadge(): "live" | "mock" | "offline" {
   if (mode === "mock") return "mock";
   if (mode === "esp" || mode === "shelly" || mode === "mixed") return "live";
   return "offline";
+}
+
+export function getSalesShellyEnvBadge(): "real" | "mock" {
+  return getShellyEnvMode();
 }

@@ -35,7 +35,7 @@ describe("Phase 861-900 sales demo polish", () => {
   it("GET /api/demo-kit/status returns phase 861-900 and dispatch estimate", async () => {
     const res = await request(app).get("/api/demo-kit/status");
     assert.equal(res.status, 200);
-    assert.equal(res.body.phase, "901-940");
+    assert.equal(res.body.phase, "981-1000");
     assert.ok(typeof res.body.kpi.dispatchReductionEstimate === "number");
     assert.ok(res.body.estimateTypes?.length >= 3);
   });

@@ -1,10 +1,12 @@
 /**
- * Phase903 — Shelly Gen3 実機ブリッジ（mock 切替対応）
+ * Phase903 / Phase981 — Shelly Gen3 実機ブリッジ（SHELLY_MODE mock/real 連携）
  */
 import { v4 as uuid } from "uuid";
 import { getDatabase } from "../db/database.js";
 import { deviceModeUsesMock, deviceModeUsesShelly } from "./device-mode-store.js";
 import { recordDeviceHeartbeat } from "./device-heartbeat.js";
+import { getShellyEnvMode, fetchShellyDeviceStatus } from "./shelly-real-client.js";
+import { config } from "../config.js";
 
 export interface ShellyBridgeConfig {
   id: string;
@@ -16,12 +18,18 @@ export interface ShellyBridgeConfig {
 }
 
 export interface ShellyTelemetry {
+  online: boolean;
   relay: boolean;
   voltage: number;
   current: number;
   powerW: number;
+  uptimeSec?: number;
+  wifiRssi?: number;
+  temperatureC?: number;
   fetchedAt: string;
   mock: boolean;
+  connectionError?: string;
+  envMode?: "mock" | "real";
 }
 
 const configs = new Map<string, ShellyBridgeConfig>();
@@ -123,33 +131,143 @@ async function fetchRealShellyRpc(ip: string): Promise<Partial<ShellyTelemetry> 
   }
 }
 
-export function fetchShellyTelemetry(deviceId: string): ShellyTelemetry | null {
+function statusToTelemetry(
+  status: Awaited<ReturnType<typeof fetchShellyDeviceStatus>>,
+  baseUrl?: string
+): ShellyTelemetry {
+  const now = new Date().toISOString();
+  return {
+    online: status.online,
+    relay: status.relay ?? false,
+    voltage: status.voltage ?? 0,
+    current: status.current ?? 0,
+    powerW: status.powerW ?? 0,
+    uptimeSec: status.uptimeSec,
+    wifiRssi: status.wifiRssi,
+    temperatureC: status.temperatureC,
+    fetchedAt: now,
+    mock: status.mock,
+    connectionError: status.connectionError,
+    envMode: status.mode,
+  };
+}
+
+export async function fetchShellyTelemetryAsync(deviceId: string): Promise<ShellyTelemetry | null> {
   const cfg = listShellyBridgeConfigs().find((c) => c.deviceId === deviceId && c.enabled);
   const now = new Date().toISOString();
+  const envMode = getShellyEnvMode();
 
-  if (deviceModeUsesMock() && !deviceModeUsesShelly()) {
+  if (envMode === "mock" || (deviceModeUsesMock() && !deviceModeUsesShelly())) {
     return {
+      online: true,
       relay: true,
       voltage: 100.1,
       current: 0.38,
       powerW: 38,
       fetchedAt: now,
       mock: true,
+      envMode: "mock",
     };
   }
 
-  if (!cfg) {
+  if (!cfg && !config.shelly.baseUrl) {
     if (deviceModeUsesMock()) {
-      return { relay: true, voltage: 100, current: 0.4, powerW: 40, fetchedAt: now, mock: true };
+      return {
+        online: true,
+        relay: true,
+        voltage: 100,
+        current: 0.4,
+        powerW: 40,
+        fetchedAt: now,
+        mock: true,
+        envMode: "mock",
+      };
     }
     return null;
   }
 
-  if (deviceModeUsesMock()) {
-    return { relay: true, voltage: 100.2, current: 0.42, powerW: 42, fetchedAt: now, mock: true };
+  const baseUrl = cfg ? `http://${cfg.ip}` : config.shelly.baseUrl;
+  const status = await fetchShellyDeviceStatus(baseUrl ?? undefined);
+  if (!status.online && !status.mock) {
+    return {
+      online: false,
+      relay: false,
+      voltage: 0,
+      current: 0,
+      powerW: 0,
+      fetchedAt: now,
+      mock: false,
+      connectionError: status.connectionError ?? "real接続失敗",
+      envMode: "real",
+    };
+  }
+  return statusToTelemetry(status, baseUrl ?? undefined);
+}
+
+/** 同期 API 互換（キャッシュ / mock のみ即返却） */
+export function fetchShellyTelemetry(deviceId: string): ShellyTelemetry | null {
+  const envMode = getShellyEnvMode();
+  const now = new Date().toISOString();
+
+  if (envMode === "mock" || (deviceModeUsesMock() && !deviceModeUsesShelly())) {
+    return {
+      online: true,
+      relay: true,
+      voltage: 100.1,
+      current: 0.38,
+      powerW: 38,
+      fetchedAt: now,
+      mock: true,
+      envMode: "mock",
+    };
   }
 
-  return null;
+  const cfg = listShellyBridgeConfigs().find((c) => c.deviceId === deviceId && c.enabled);
+  if (!cfg && !config.shelly.baseUrl) {
+    return deviceModeUsesMock()
+      ? { online: true, relay: true, voltage: 100, current: 0.4, powerW: 40, fetchedAt: now, mock: true, envMode: "mock" }
+      : null;
+  }
+
+  return {
+    online: false,
+    relay: false,
+    voltage: 0,
+    current: 0,
+    powerW: 0,
+    fetchedAt: now,
+    mock: false,
+    connectionError: "real接続失敗（POST /api/demo-kit/shelly/poll で更新）",
+    envMode: "real",
+  };
+}
+
+export async function getShellyConnectionSummary(): Promise<{
+  envMode: "mock" | "real";
+  online: boolean;
+  message: string;
+  telemetry: ShellyTelemetry | null;
+}> {
+  const envMode = getShellyEnvMode();
+  if (envMode === "mock") {
+    const tel = await fetchShellyTelemetryAsync("lab");
+    return { envMode, online: true, message: "SHELLY_MODE=mock", telemetry: tel };
+  }
+  const status = await fetchShellyDeviceStatus();
+  if (!status.online) {
+    return {
+      envMode: "real",
+      online: false,
+      message: status.connectionError ?? "real接続失敗",
+      telemetry: statusToTelemetry(status),
+    };
+  }
+  return {
+    envMode: "real",
+    online: true,
+    message: `real 接続 OK (${status.baseUrl ?? "—"})`,
+    telemetry: statusToTelemetry(status),
+  };
 }
 
 export async function pollShellyDevices(): Promise<Array<{ deviceId: string; telemetry: ShellyTelemetry }>> {
@@ -161,17 +279,59 @@ export async function pollShellyDevices(): Promise<Array<{ deviceId: string; tel
     let tel: ShellyTelemetry;
 
     if (deviceModeUsesMock() && !deviceModeUsesShelly()) {
-      tel = { relay: true, voltage: 100, current: 0.4, powerW: 40, fetchedAt: now, mock: true };
+      tel = { online: true, relay: true, voltage: 100, current: 0.4, powerW: 40, fetchedAt: now, mock: true };
     } else if (deviceModeUsesShelly()) {
-      const real = await fetchRealShellyRpc(cfg.ip);
-      if (real) {
-        tel = { ...real, relay: real.relay ?? false, voltage: real.voltage ?? 0, current: real.current ?? 0, powerW: real.powerW ?? 0, fetchedAt: now, mock: false };
-        recordDeviceHeartbeat(cfg.deviceId, "shelly-gen3");
+      const envMode = getShellyEnvMode();
+      if (envMode === "real") {
+        const baseUrl = `http://${cfg.ip}`;
+        const status = await fetchShellyDeviceStatus(baseUrl);
+        if (status.online) {
+          tel = statusToTelemetry(status, baseUrl);
+          recordDeviceHeartbeat(cfg.deviceId, "shelly-gen3");
+        } else {
+          tel = {
+            online: false,
+            relay: false,
+            voltage: 0,
+            current: 0,
+            powerW: 0,
+            fetchedAt: now,
+            mock: false,
+            connectionError: status.connectionError ?? "real接続失敗",
+            envMode: "real",
+          };
+        }
       } else {
-        tel = { relay: false, voltage: 0, current: 0, powerW: 0, fetchedAt: now, mock: false };
+        const real = await fetchRealShellyRpc(cfg.ip);
+        if (real) {
+          tel = {
+            online: true,
+            ...real,
+            relay: real.relay ?? false,
+            voltage: real.voltage ?? 0,
+            current: real.current ?? 0,
+            powerW: real.powerW ?? 0,
+            fetchedAt: now,
+            mock: false,
+            envMode: "mock",
+          };
+          recordDeviceHeartbeat(cfg.deviceId, "shelly-gen3");
+        } else {
+          tel = {
+            online: false,
+            relay: false,
+            voltage: 0,
+            current: 0,
+            powerW: 0,
+            fetchedAt: now,
+            mock: false,
+            connectionError: "real接続失敗",
+            envMode: "real",
+          };
+        }
       }
     } else {
-      tel = { relay: true, voltage: 100, current: 0.4, powerW: 40, fetchedAt: now, mock: true };
+      tel = { online: true, relay: true, voltage: 100, current: 0.4, powerW: 40, fetchedAt: now, mock: true };
     }
 
     const db = getDatabase();

@@ -14,10 +14,12 @@ const app = createApp();
 describe("Shelly real mode guard", () => {
   after(() => closeDatabase());
 
-  it("GET /api/shelly/status returns mock when no base url", async () => {
+  it("GET /api/shelly/status returns failure when no base url in real mode", async () => {
     const res = await request(app).get("/api/shelly/status");
     assert.equal(res.status, 200);
     assert.ok(res.body.fetchedAt);
+    assert.equal(res.body.online, false);
+    assert.match(res.body.connectionError ?? "", /SHELLY_BASE_URL|real接続失敗/);
   });
 
   it("POST reboot without confirm returns 403 in real mode", async () => {

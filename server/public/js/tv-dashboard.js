@@ -10,6 +10,11 @@ let lastAlertId = null;
 let alertTimer = null;
 let focusIndex = 0;
 let focusables = [];
+let lastTvData = null;
+let lastDemoAlert = null;
+let tvViewIndex = 0;
+const TV_VIEWS = ["overview", "cameras", "devices"];
+const TV_VIEW_LABELS = { overview: "概要", cameras: "カメラ", devices: "設備" };
 
 function authHeaders() {
   const token = getAdminToken();
@@ -50,7 +55,68 @@ function tickClock() {
   });
 }
 
+function applyTvView() {
+  const normal = document.getElementById("tv-normal");
+  if (!normal) return;
+  const sections = {
+    overview: ["tv-sites", "tv-summary", "tv-device-health", "tv-recovery"],
+    cameras: ["tv-cameras"],
+    devices: ["tv-devices"],
+  };
+  for (const id of ["tv-sites", "tv-summary", "tv-device-health", "tv-cameras", "tv-devices", "tv-recovery"]) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    const view = TV_VIEWS[tvViewIndex];
+    const show =
+      view === "overview"
+        ? sections.overview.includes(id)
+        : view === "cameras"
+          ? id === "tv-cameras"
+          : id === "tv-devices";
+    el.style.display = show ? "" : "none";
+  }
+  const label = document.getElementById("tv-view-label");
+  if (label) label.textContent = `表示: ${TV_VIEW_LABELS[TV_VIEWS[tvViewIndex]] ?? ""}`;
+}
+
+function showTvDetail() {
+  const overlay = document.getElementById("tv-detail-overlay");
+  const body = document.getElementById("tv-detail-body");
+  if (!overlay || !body) return;
+  const lines = [];
+  if (lastDemoAlert) {
+    lines.push(`通知: ${lastDemoAlert.severity ?? ""} — ${lastDemoAlert.message ?? ""}`);
+  }
+  if (lastTvData?.summary) {
+    const s = lastTvData.summary;
+    lines.push(`設備 ${s.deviceCount} / オンライン ${s.onlineCount} / オフライン ${s.offlineCount}`);
+  }
+  if (lastTvData?.alerts?.[0]) {
+    const a = lastTvData.alerts[0];
+    lines.push(`最新アラート: ${a.message ?? a.event_type}`);
+  }
+  body.textContent = lines.join("\n") || "詳細情報なし";
+  overlay.hidden = false;
+}
+
+function hideTvDetail() {
+  const overlay = document.getElementById("tv-detail-overlay");
+  if (overlay) overlay.hidden = true;
+}
+
+function hideDemoAlertOverlay() {
+  const overlay = document.getElementById("tv-alert-overlay");
+  const normal = document.getElementById("tv-normal");
+  if (overlay) {
+    overlay.hidden = true;
+    overlay.classList.remove("tv-alert-overlay--demo");
+  }
+  if (normal) normal.style.visibility = "visible";
+  clearInterval(alertTimer);
+}
+
 function render(data) {
+  lastTvData = data;
   const color = data.branding?.company_color ?? "#1a7f37";
   document.documentElement.style.setProperty("--tv-accent", color);
   document.getElementById("tv-company").textContent =
@@ -134,15 +200,18 @@ function render(data) {
   }
 
   refreshFocusables();
+  applyTvView();
 }
 
 export function showDemoAlert(alert) {
+  lastDemoAlert = alert;
   const overlay = document.getElementById("tv-alert-overlay");
   const normal = document.getElementById("tv-normal");
   const msg = document.getElementById("tv-alert-message");
-  const titleEl = overlay?.querySelector("h2");
+  const titleEl = document.getElementById("tv-alert-title");
   const timer = document.getElementById("tv-alert-timer");
   if (!overlay || !normal || !msg) return;
+  hideTvDetail();
   if (titleEl) titleEl.textContent = alert.title ?? "デモ通知";
   overlay.hidden = false;
   overlay.classList.add("tv-alert-overlay--demo");
@@ -155,12 +224,7 @@ export function showDemoAlert(alert) {
   alertTimer = setInterval(() => {
     sec -= 1;
     if (timer) timer.textContent = String(sec);
-    if (sec <= 0) {
-      clearInterval(alertTimer);
-      overlay.hidden = true;
-      overlay.classList.remove("tv-alert-overlay--demo");
-      normal.style.visibility = "visible";
-    }
+    if (sec <= 0) hideDemoAlertOverlay();
   }, 1000);
 }
 
@@ -185,27 +249,37 @@ function moveFocus(dx, dy) {
 
 function wireTvRemote() {
   document.addEventListener("keydown", (e) => {
+    const alertOverlay = document.getElementById("tv-alert-overlay");
+    const alertOpen = alertOverlay && !alertOverlay.hidden;
+
     if (e.key === "ArrowUp") {
       e.preventDefault();
-      moveFocus(0, -1);
-    } else if (e.key === "ArrowDown") {
+      if (alertOpen) return;
+      tvViewIndex = (tvViewIndex + TV_VIEWS.length - 1) % TV_VIEWS.length;
+      applyTvView();
+      return;
+    }
+    if (e.key === "ArrowDown") {
       e.preventDefault();
-      moveFocus(0, 1);
-    } else if (e.key === "ArrowLeft") {
+      if (alertOpen) return;
+      tvViewIndex = (tvViewIndex + 1) % TV_VIEWS.length;
+      applyTvView();
+      return;
+    }
+    if (e.key === "ArrowLeft") {
       e.preventDefault();
       moveFocus(-1, 0);
     } else if (e.key === "ArrowRight") {
       e.preventDefault();
       moveFocus(1, 0);
     } else if (e.key === "Enter") {
-      focusables[focusIndex]?.click?.();
+      e.preventDefault();
+      if (alertOpen || lastDemoAlert) showTvDetail();
+      else focusables[focusIndex]?.click?.();
     } else if (e.key === "Escape" || e.key === "Backspace" || e.key === "BrowserBack") {
-      const overlay = document.getElementById("tv-alert-overlay");
-      if (overlay && !overlay.hidden) {
-        overlay.hidden = true;
-        document.getElementById("tv-normal").style.visibility = "visible";
-        clearInterval(alertTimer);
-      }
+      e.preventDefault();
+      if (alertOpen) hideDemoAlertOverlay();
+      else hideTvDetail();
     }
   });
 }

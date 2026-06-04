@@ -53,7 +53,7 @@ export {
   pollShellyDevices,
 } from "../device/shelly-bridge.js";
 export { getEspHeartbeatKpi, refreshEspHeartbeatKpi } from "../device/esp-heartbeat-mqtt.js";
-export { broadcastSalesDemoEvent, getSalesLiveBadge } from "./sales-ws-bridge.js";
+export { broadcastSalesDemoEvent, getSalesLiveBadge, getSalesShellyEnvBadge } from "./sales-ws-bridge.js";
 export { buildEspMqttTopic, parseEspMqttTopic, DEMO_ESP_DEVICE_IDS } from "../mqtt/esp-topic-standard.js";
 export {
   getShellyEnvMode,

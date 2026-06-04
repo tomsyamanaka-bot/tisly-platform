@@ -10,6 +10,25 @@ html, body {
 
 .tv-dashboard { width: 100vw; height: 100vh; }
 
+.tv-view-label {
+  position: fixed;
+  bottom: 1rem;
+  right: 1.5rem;
+  font-size: 0.95rem;
+  color: #8b949e;
+  z-index: 5;
+}
+
+.tv-remote-hint {
+  margin-top: 1rem;
+  font-size: 0.9rem;
+  opacity: 0.85;
+}
+
+.tv-detail-overlay .tv-alert-content {
+  max-width: 80vw;
+}
+
 .tv-header {
   display: flex;
   justify-content: space-between;

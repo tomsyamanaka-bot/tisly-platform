@@ -23,9 +23,11 @@
 </head>
 <body>
   <nav><a href="/sales">営業デモ</a> · <a href="/">司令塔</a></nav>
-  <h1>デバイス一覧 <small style="font-weight:400;color:var(--muted)">Phase 902</small></h1>
+  <h1>デバイス一覧 <small style="font-weight:400;color:var(--muted)">Phase 981–1000</small></h1>
   <div class="toolbar">
     <label>接続モード: <strong id="device-mode">—</strong></label>
+    <label>Shelly env: <strong id="shelly-env">—</strong></label>
+    <span id="shelly-lab-status" style="font-size:0.88rem"></span>
     <label>顧客フィルタ
       <select id="customer-filter">
         <option value="">すべて</option>
@@ -46,6 +48,8 @@
         <th>状態</th>
         <th>最後の通信</th>
         <th>ソース</th>
+        <th>MQTT topic（本番）</th>
+        <th>Shelly</th>
       </tr>
     </thead>
     <tbody id="device-rows"></tbody>

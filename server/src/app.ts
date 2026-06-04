@@ -312,6 +312,7 @@ export function createApp(): express.Application {
   );
   app.use("/uploads/survey", express.static(path.join(process.cwd(), "uploads", "survey")));
   app.use("/uploads/business", express.static(path.join(process.cwd(), "uploads", "business")));
+  app.use("/uploads/sales-demo", express.static(path.join(process.cwd(), "uploads", "sales-demo")));
   app.get("/tv/:customerCode", (_req, res) => {
     res.sendFile(tvDashboardHtml);
   });
@@ -340,6 +341,10 @@ export function createApp(): express.Application {
 
   app.get("/sales", (_req, res) => {
     res.sendFile(path.join(publicDir, "sales.html"));
+  });
+
+  app.get("/sales/checklist", (_req, res) => {
+    res.sendFile(path.join(publicDir, "sales-checklist.html"));
   });
 
   app.get("/sales/floor-preview", (_req, res) => {

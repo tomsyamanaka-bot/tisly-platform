@@ -40,10 +40,25 @@ function setLog(msg) {
   if (el) el.textContent = msg;
 }
 
-export async function loadSalesDashboard(_reason) {
+export async function loadSalesDashboard(reason) {
   const status = await apiGet("/api/demo-kit/status");
-  const { setLiveBadge } = await import("./sales-realtime.js");
+  const { setLiveBadge, setShellyEnvBadge, flashAnomalyHighlight } = await import("./sales-realtime.js");
   if (status.liveBadge) setLiveBadge(status.liveBadge);
+  if (status.shellyEnvBadge) setShellyEnvBadge(status.shellyEnvBadge);
+  if (reason && ["intrusion", "esp_fault", "shelly_fault", "notification"].includes(reason)) {
+    flashAnomalyHighlight(reason);
+  }
+
+  try {
+    const shelly = await apiGet("/api/demo-kit/shelly/lab-status");
+    const el = document.getElementById("shelly-connection-status");
+    if (el) {
+      el.textContent = shelly.message ?? "—";
+      el.className = shelly.online ? "shelly-ok" : "shelly-fail";
+    }
+  } catch {
+    /* */
+  }
   const kpi = status.kpi ?? {};
   document.getElementById("kpi-revenue").textContent = fmtYen(kpi.revenue ?? 0);
   document.getElementById("kpi-gross").textContent = fmtYen(kpi.grossProfit ?? 0);
@@ -111,6 +126,33 @@ export async function resetDemo() {
     btn.disabled = false;
     btn.textContent = "デモを初期化";
   }
+}
+
+export async function pushToTv() {
+  const code = selectedCustomer();
+  const title = document.getElementById("tv-push-title")?.value?.trim() || "営業デモ通知";
+  const message = document.getElementById("tv-push-message")?.value?.trim() || "Google TV に表示します";
+  const data = await apiPost("/api/demo-kit/tv/push", {
+    customerCode: code,
+    title,
+    message,
+    severity: "alarm",
+  });
+  setLog(`TV (${data.tvUrl}) に送信しました`);
+}
+
+export async function openSalesPdfCheck() {
+  const data = await apiGet("/api/demo-kit/sales-pdf/archive");
+  const lines = (data.entries ?? [])
+    .map((e) => {
+      const pdf = e.pdfUrl ? `PDF: ${e.pdfUrl}` : "PDF: HTML fallback（TISLY_PDF_PUPPETEER=true で生成）";
+      const qnap = e.qnapMockPath ? `QNAP mock: ${e.qnapMockPath}` : "";
+      return `${e.type}: ${e.htmlUrl} · ${pdf} ${qnap}`;
+    })
+    .join("\n");
+  setLog(`PDF確認 — render=${data.renderMode} · QNAP=${data.qnapMockRoot}`);
+  window.open((data.entries?.[0]?.htmlUrl) ?? "/api/demo-kit/estimate-html/house", "_blank", "noopener");
+  if (lines) console.info("[sales-pdf]", lines);
 }
 
 export async function triggerNotification(kind) {
@@ -254,6 +296,13 @@ export function wireSalesDemo() {
       window.open(`/api/demo-kit/estimate-html/${type}`, "_blank", "noopener");
     });
   });
+
+  document.getElementById("btn-pdf-check")?.addEventListener("click", () =>
+    openSalesPdfCheck().catch((e) => setLog(e.message))
+  );
+  document.getElementById("btn-tv-push")?.addEventListener("click", () =>
+    pushToTv().catch((e) => setLog(e.message))
+  );
 
   loadSalesDashboard().catch((e) => setLog(e.message));
 

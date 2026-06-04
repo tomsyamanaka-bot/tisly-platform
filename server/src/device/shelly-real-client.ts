@@ -12,6 +12,10 @@ export interface ShellyStatusResult {
   voltage?: number;
   current?: number;
   powerW?: number;
+  uptimeSec?: number;
+  wifiRssi?: number;
+  temperatureC?: number;
+  connectionError?: string;
   raw?: Record<string, unknown>;
   mock: boolean;
   baseUrl: string | null;
@@ -75,7 +79,7 @@ export async function fetchShellyDeviceStatus(baseOverride?: string): Promise<Sh
   const mode = getShellyEnvMode();
   const baseUrl = resolveBaseUrl(baseOverride);
 
-  if (mode === "mock" || !baseUrl) {
+  if (mode === "mock") {
     return {
       mode,
       online: true,
@@ -89,12 +93,43 @@ export async function fetchShellyDeviceStatus(baseOverride?: string): Promise<Sh
     };
   }
 
+  if (!baseUrl) {
+    return {
+      mode,
+      online: false,
+      mock: false,
+      baseUrl,
+      fetchedAt: now,
+      connectionError: "real接続失敗 — SHELLY_BASE_URL required",
+    };
+  }
+
   const data = await shellyRpc("Shelly.GetStatus", {}, baseUrl);
   if (!data) {
-    return { mode, online: false, mock: false, baseUrl, fetchedAt: now };
+    return {
+      mode,
+      online: false,
+      mock: false,
+      baseUrl,
+      fetchedAt: now,
+      connectionError: "real接続失敗",
+    };
   }
   const sw = (data["switch:0"] ?? data.switch0) as Record<string, unknown> | undefined;
   const em = (data["em:0"] ?? data.em0) as Record<string, unknown> | undefined;
+  const wifi = (data.wifi ?? data["wifi:0"]) as Record<string, unknown> | undefined;
+  const sys = (data.sys ?? data["sys:0"]) as Record<string, unknown> | undefined;
+  const temp = (data.temperature ?? data["temperature:0"]) as Record<string, unknown> | undefined;
+  const uptime = Number(sys?.uptime ?? data.uptime ?? 0);
+  const rssi = wifi?.rssi != null ? Number(wifi.rssi) : undefined;
+  const tempC =
+    temp?.tC != null
+      ? Number(temp.tC)
+      : temp?.value != null
+        ? Number(temp.value)
+        : data.temperature != null
+          ? Number(data.temperature)
+          : undefined;
   return {
     mode,
     online: true,
@@ -102,6 +137,9 @@ export async function fetchShellyDeviceStatus(baseOverride?: string): Promise<Sh
     voltage: Number(em?.voltage ?? sw?.voltage ?? 0),
     current: Number(em?.current ?? 0),
     powerW: Number(em?.act_power ?? em?.power ?? 0),
+    uptimeSec: uptime > 0 ? uptime : undefined,
+    wifiRssi: rssi,
+    temperatureC: tempC,
     raw: data,
     mock: false,
     baseUrl,

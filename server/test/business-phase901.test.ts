@@ -35,7 +35,7 @@ describe("Phase 901-940 live device bridge RC1", () => {
   it("GET /api/demo-kit/status returns phase 901-940 and deviceMode", async () => {
     const res = await request(app).get("/api/demo-kit/status");
     assert.equal(res.status, 200);
-    assert.equal(res.body.phase, "941-980");
+    assert.equal(res.body.phase, "981-1000");
     assert.ok(res.body.deviceMode);
     assert.ok(res.body.deviceBridge);
     assert.ok(res.body.espHeartbeat);
@@ -50,7 +50,7 @@ describe("Phase 901-940 live device bridge RC1", () => {
   it("GET devices/registry lists devices", async () => {
     const res = await request(app).get("/api/demo-kit/devices/registry");
     assert.equal(res.status, 200);
-    assert.equal(res.body.phase, "941-980");
+    assert.equal(res.body.phase, "981-1000");
     assert.ok(Array.isArray(res.body.devices));
   });
 

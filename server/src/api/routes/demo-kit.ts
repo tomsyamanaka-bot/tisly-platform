@@ -43,8 +43,12 @@ import {
   type DemoPackageType,
   DEMO_PACKAGE_TYPES,
   getSalesLiveBadge,
+  getSalesShellyEnvBadge,
   broadcastSalesDemoEvent,
 } from "../../demo-kit/index.js";
+import { buildSalesDemoChecklist } from "../../demo-kit/sales-demo-checklist.js";
+import { buildSalesPdfArchive } from "../../demo-kit/sales-pdf-archive.js";
+import { getShellyConnectionSummary } from "../../device/shelly-bridge.js";
 
 export const demoKitRouter = Router();
 
@@ -52,8 +56,9 @@ demoKitRouter.get("/status", (_req, res) => {
   const kpi = buildTomsKpi();
   const adapter = getDeviceAdapterStatus();
   res.json({
-    phase: "941-980",
+    phase: "981-1000",
     liveBadge: getSalesLiveBadge(),
+    shellyEnvBadge: getSalesShellyEnvBadge(),
     deviceMode: adapter.deviceMode,
     deviceBridge: adapter,
     espHeartbeat: getEspHeartbeatKpi(),
@@ -110,13 +115,41 @@ demoKitRouter.put("/shelly/config", (req, res) => {
   }
 });
 
-demoKitRouter.get("/shelly/telemetry/:deviceId", (req, res) => {
-  const tel = fetchShellyTelemetry(String(req.params.deviceId));
+demoKitRouter.get("/shelly/telemetry/:deviceId", async (req, res) => {
+  const { fetchShellyTelemetryAsync } = await import("../../device/shelly-bridge.js");
+  const tel = await fetchShellyTelemetryAsync(String(req.params.deviceId));
   if (!tel) {
     res.status(404).json({ error: "No telemetry" });
     return;
   }
   res.json(tel);
+});
+
+demoKitRouter.get("/shelly/lab-status", async (_req, res) => {
+  res.json(await getShellyConnectionSummary());
+});
+
+demoKitRouter.get("/sales/checklist", async (_req, res) => {
+  res.json(await buildSalesDemoChecklist());
+});
+
+demoKitRouter.get("/sales-pdf/archive", async (_req, res) => {
+  res.json(await buildSalesPdfArchive());
+});
+
+demoKitRouter.post("/tv/push", (req, res) => {
+  const customerCode = String(req.body?.customerCode ?? "TOMS001").toUpperCase();
+  const title = String(req.body?.title ?? "営業デモ通知");
+  const message = String(req.body?.message ?? req.body?.body ?? "");
+  const severity = String(req.body?.severity ?? "alarm");
+  broadcastSalesDemoEvent("notification", {
+    customerCode,
+    title,
+    message,
+    severity,
+    body: message,
+  });
+  res.json({ ok: true, customerCode, tvUrl: `/tv/${customerCode}` });
 });
 
 demoKitRouter.post("/shelly/poll", async (_req, res) => {
