@@ -2,6 +2,8 @@ import mqtt, { type MqttClient } from "mqtt";
 import { config } from "../config.js";
 import { unifiedToTislyEvent } from "../event/unified-event.js";
 import { recordHeartbeat } from "../notification/heartbeat-monitor.js";
+import { handleEspMqttHeartbeat } from "../device/esp-heartbeat-mqtt.js";
+import { ingestDeviceSignal } from "../device/device-adapter.js";
 import { getNotificationService } from "../notification/notification-service.js";
 import { broadcast } from "../ws/hub.js";
 import { getMqttSubscriberConfig } from "./mqtt-config.js";
@@ -109,6 +111,12 @@ async function handleMessage(topic: string, raw: string): Promise<void> {
 
   if (parsed.channel === "heartbeat") {
     recordHeartbeat(parsed.deviceId, (body.platform as string) ?? "mqtt");
+    handleEspMqttHeartbeat(parsed.deviceId, {
+      platform: (body.platform as string) ?? "mqtt",
+      rssi: body.rssi as number | undefined,
+      uptime: body.uptime as number | undefined,
+    });
+    ingestDeviceSignal(parsed.deviceId, (body.platform as string) ?? "mqtt", body);
     broadcast({
       type: "heartbeat",
       payload: { deviceId: parsed.deviceId, ...body },

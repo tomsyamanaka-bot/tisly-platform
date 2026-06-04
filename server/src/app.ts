@@ -344,6 +344,10 @@ export function createApp(): express.Application {
     res.sendFile(path.join(publicDir, "sales-floor-preview.html"));
   });
 
+  app.get("/devices", (_req, res) => {
+    res.sendFile(path.join(publicDir, "devices.html"));
+  });
+
   app.get("/manifest.webmanifest", (_req, res) => {
     res.sendFile(path.join(publicDir, "manifest.webmanifest"));
   });

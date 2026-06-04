@@ -66,6 +66,21 @@ export async function loadSalesDashboard() {
     badge.textContent = status.timelineSeeded ? "過去30日の履歴：表示できます" : "過去30日の履歴：未準備（初期化してください）";
   }
 
+  const mode = status.deviceMode ?? "mock";
+  const modeLabel = document.getElementById("device-mode-label");
+  if (modeLabel) modeLabel.textContent = `現在: ${mode.toUpperCase()}`;
+  document.querySelectorAll(".device-mode-btn").forEach((btn) => {
+    btn.classList.toggle("primary", btn.dataset.deviceMode === mode);
+  });
+
+  const movie = status.demoMovie ?? {};
+  const movieEl = document.getElementById("movie-status");
+  if (movieEl) {
+    movieEl.textContent = movie.running
+      ? `再生中 — ${movie.currentScene ?? ""} (${movie.step + 1}/${movie.totalSteps})`
+      : "停止中";
+  }
+
   const sched = status.resetSchedule ?? {};
   const modeEl = document.getElementById("reset-schedule-mode");
   const enEl = document.getElementById("reset-schedule-enabled");
@@ -125,7 +140,76 @@ export async function saveResetSchedule() {
   setLog(enabled ? "自動リセットの予定を保存しました（実際の実行は mock）" : "手動リセットのみに設定しました");
 }
 
+export async function setDeviceMode(mode) {
+  await apiPut("/api/demo-kit/device-mode", { deviceMode: mode });
+  await loadSalesDashboard();
+  setLog(`接続モードを ${mode} に切り替えました`);
+}
+
+function drawRoiChart(chart) {
+  const canvas = document.getElementById("roi-chart");
+  if (!canvas || !chart?.length) return;
+  const ctx = canvas.getContext("2d");
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  const max = Math.max(...chart.map((c) => c.value), 1);
+  const barW = w / chart.length - 20;
+  chart.forEach((c, i) => {
+    const barH = (c.value / max) * (h - 40);
+    const x = 20 + i * (barW + 10);
+    ctx.fillStyle = i === 1 ? "#1a7f37" : "#94a3b8";
+    ctx.fillRect(x, h - 30 - barH, barW, barH);
+    ctx.fillStyle = "#24292f";
+    ctx.font = "11px system-ui";
+    ctx.fillText(c.label.slice(0, 8), x, h - 8);
+  });
+}
+
+export async function calcRoi() {
+  const body = {
+    siteCount: Number(document.getElementById("roi-sites")?.value ?? 1),
+    dispatchCountPerYear: Number(document.getElementById("roi-dispatch")?.value ?? 0),
+    laborCostPerDispatch: Number(document.getElementById("roi-labor")?.value ?? 0),
+    vehicleCostPerDispatch: Number(document.getElementById("roi-vehicle")?.value ?? 0),
+  };
+  const data = await apiPost("/api/demo-kit/roi-simulator", body);
+  const el = document.getElementById("roi-result");
+  if (el) {
+    el.textContent = `年間削減見込み: ${fmtYen(data.annualReductionJpy)}（月 ${fmtYen(data.monthlyReductionJpy)}）`;
+  }
+  drawRoiChart(data.chart);
+}
+
+export async function launchPackage(type) {
+  const data = await apiPost(`/api/demo-kit/demo-packages/${type}/launch`, {});
+  setLog(`${data.package?.label ?? type} デモを開始しました`);
+  await loadSalesDashboard();
+  if (data.package?.customerCode) {
+    const sel = document.getElementById("demo-customer-select");
+    if (sel) sel.value = data.package.customerCode;
+  }
+}
+
 export function wireSalesDemo() {
+  document.querySelectorAll(".device-mode-btn").forEach((btn) => {
+    btn.addEventListener("click", () => setDeviceMode(btn.dataset.deviceMode).catch((e) => setLog(e.message)));
+  });
+  document.querySelectorAll("[data-demo-package]").forEach((btn) => {
+    btn.addEventListener("click", () => launchPackage(btn.dataset.demoPackage).catch((e) => setLog(e.message)));
+  });
+  document.getElementById("btn-roi-calc")?.addEventListener("click", () => calcRoi().catch((e) => setLog(e.message)));
+  document.getElementById("btn-movie-start")?.addEventListener("click", async () => {
+    await apiPost("/api/demo-kit/demo-movie/start", { customerCode: selectedCustomer(), intervalMs: 8000 });
+    await loadSalesDashboard();
+    setLog("デモムービーを開始しました");
+  });
+  document.getElementById("btn-movie-stop")?.addEventListener("click", async () => {
+    await apiPost("/api/demo-kit/demo-movie/stop", {});
+    await loadSalesDashboard();
+    setLog("デモムービーを停止しました");
+  });
+
   document.getElementById("btn-reset")?.addEventListener("click", () => resetDemo());
   document.getElementById("btn-save-schedule")?.addEventListener("click", () => saveResetSchedule().catch((e) => setLog(e.message)));
 

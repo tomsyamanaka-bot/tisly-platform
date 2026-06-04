@@ -32,3 +32,32 @@ export {
 } from "./demo-reset-schedule.js";
 export { runDemoShellyReboot } from "./demo-shelly-reboot.js";
 export { getDemoFloorPreview } from "./demo-floor-preview.js";
+export { getProRemoteLiveFloorPreview } from "./demo-pro-remote-live.js";
+export {
+  DEVICE_MODES,
+  getDeviceMode,
+  setDeviceMode,
+  type DeviceMode,
+} from "../device/device-mode-store.js";
+export {
+  getDeviceAdapterStatus,
+  listUnifiedDevices,
+  ingestDeviceSignal,
+  type UnifiedDeviceView,
+} from "../device/device-adapter.js";
+export { getDeviceRegistry } from "../device/device-registry.js";
+export {
+  listShellyBridgeConfigs,
+  upsertShellyBridgeConfig,
+  fetchShellyTelemetry,
+  pollShellyDevices,
+} from "../device/shelly-bridge.js";
+export { getEspHeartbeatKpi, refreshEspHeartbeatKpi } from "../device/esp-heartbeat-mqtt.js";
+export { listDemoPackages, launchDemoPackage, DEMO_PACKAGE_TYPES, type DemoPackageType } from "./demo-customer-packages.js";
+export { calculateRoiV2, type RoiSimulatorInput, type RoiSimulatorResult } from "./demo-roi-simulator.js";
+export {
+  startDemoMovie,
+  stopDemoMovie,
+  getDemoMovieStatus,
+  type DemoMovieScene,
+} from "./demo-movie-mode.js";

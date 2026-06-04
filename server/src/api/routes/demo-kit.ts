@@ -19,28 +19,153 @@ import {
   listDemoResetScheduleModes,
   runDemoShellyReboot,
   getDemoFloorPreview,
+  getProRemoteLiveFloorPreview,
+  getDeviceMode,
+  setDeviceMode,
+  DEVICE_MODES,
+  getDeviceAdapterStatus,
+  getDeviceRegistry,
+  listShellyBridgeConfigs,
+  upsertShellyBridgeConfig,
+  fetchShellyTelemetry,
+  pollShellyDevices,
+  getEspHeartbeatKpi,
+  listDemoPackages,
+  launchDemoPackage,
+  calculateRoiV2,
+  startDemoMovie,
+  stopDemoMovie,
+  getDemoMovieStatus,
   type DemoNotificationKind,
   type DemoEstimateType,
   type DemoResetScheduleMode,
+  type DeviceMode,
+  type DemoPackageType,
+  DEMO_PACKAGE_TYPES,
 } from "../../demo-kit/index.js";
 
 export const demoKitRouter = Router();
 
 demoKitRouter.get("/status", (_req, res) => {
   const kpi = buildTomsKpi();
+  const adapter = getDeviceAdapterStatus();
   res.json({
-    phase: "861-900",
+    phase: "901-940",
+    deviceMode: adapter.deviceMode,
+    deviceBridge: adapter,
+    espHeartbeat: getEspHeartbeatKpi(),
     customers: getDemoPackStatus(),
     floorMaps: getDemoFloorMapStatus(),
     timelineSeeded: hasDemoTimelineSeed(),
     notificationKinds: listDemoNotificationKinds(),
     estimateTypes: listDemoEstimateTypes(),
     resetSchedule: getDemoResetSchedule(),
+    demoPackages: listDemoPackages(),
+    demoMovie: getDemoMovieStatus(),
     kpi: {
       ...kpi,
       dispatchReductionEstimate: estimateDispatchReductionJpy(kpi.anomalyCount),
     },
   });
+});
+
+demoKitRouter.get("/device-mode", (_req, res) => {
+  res.json({ deviceMode: getDeviceMode(), modes: DEVICE_MODES, bridge: getDeviceAdapterStatus() });
+});
+
+demoKitRouter.put("/device-mode", (req, res) => {
+  const mode = String(req.body?.deviceMode ?? req.body?.mode) as DeviceMode;
+  if (!DEVICE_MODES.includes(mode)) {
+    res.status(400).json({ error: "Invalid device mode", modes: DEVICE_MODES });
+    return;
+  }
+  res.json({ deviceMode: setDeviceMode(mode), bridge: getDeviceAdapterStatus() });
+});
+
+demoKitRouter.get("/devices/registry", (req, res) => {
+  const customerCode = req.query.customerCode ? String(req.query.customerCode) : undefined;
+  res.json(getDeviceRegistry(customerCode));
+});
+
+demoKitRouter.get("/shelly/configs", (_req, res) => {
+  res.json({ configs: listShellyBridgeConfigs() });
+});
+
+demoKitRouter.put("/shelly/config", (req, res) => {
+  const { deviceId, ip, name, location, enabled } = req.body ?? {};
+  if (!deviceId || !ip || !name) {
+    res.status(400).json({ error: "deviceId, ip, name required" });
+    return;
+  }
+  try {
+    const cfg = upsertShellyBridgeConfig({ deviceId: String(deviceId), ip: String(ip), name: String(name), location: location ? String(location) : "", enabled });
+    res.json(cfg);
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : String(e) });
+  }
+});
+
+demoKitRouter.get("/shelly/telemetry/:deviceId", (req, res) => {
+  const tel = fetchShellyTelemetry(String(req.params.deviceId));
+  if (!tel) {
+    res.status(404).json({ error: "No telemetry" });
+    return;
+  }
+  res.json(tel);
+});
+
+demoKitRouter.post("/shelly/poll", async (_req, res) => {
+  const results = await pollShellyDevices();
+  res.json({ polled: results.length, results });
+});
+
+demoKitRouter.get("/esp-heartbeat/kpi", (_req, res) => {
+  res.json(getEspHeartbeatKpi());
+});
+
+demoKitRouter.get("/floor-preview-live/:customerCode", (req, res) => {
+  try {
+    res.json(getProRemoteLiveFloorPreview(String(req.params.customerCode)));
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : String(e) });
+  }
+});
+
+demoKitRouter.get("/demo-packages", (_req, res) => {
+  res.json({ packages: listDemoPackages() });
+});
+
+demoKitRouter.post("/demo-packages/:type/launch", async (req, res) => {
+  const type = String(req.params.type) as DemoPackageType;
+  if (!DEMO_PACKAGE_TYPES.includes(type)) {
+    res.status(400).json({ error: "Unknown package", types: DEMO_PACKAGE_TYPES });
+    return;
+  }
+  try {
+    const result = await launchDemoPackage(type);
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : String(e) });
+  }
+});
+
+demoKitRouter.post("/roi-simulator", (req, res) => {
+  res.json(calculateRoiV2(req.body ?? {}));
+});
+
+demoKitRouter.get("/demo-movie", (_req, res) => {
+  res.json(getDemoMovieStatus());
+});
+
+demoKitRouter.post("/demo-movie/start", (req, res) => {
+  const customerCode = String(req.body?.customerCode ?? "TOMS001");
+  const intervalMs = Number(req.body?.intervalMs ?? 8000);
+  res.json(startDemoMovie(customerCode, intervalMs));
+});
+
+demoKitRouter.post("/demo-movie/stop", (_req, res) => {
+  stopDemoMovie();
+  res.json(getDemoMovieStatus());
 });
 
 demoKitRouter.post("/reset", (_req, res) => {

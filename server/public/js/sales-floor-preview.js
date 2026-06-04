@@ -72,7 +72,7 @@ async function loadPreview() {
   root.innerHTML = "";
 
   try {
-    const data = await fetch(`/api/demo-kit/floor-preview/${customer}`).then((r) => {
+    const data = await fetch(`/api/demo-kit/floor-preview-live/${customer}`).then((r) => {
       if (!r.ok) throw new Error("図面の読み込みに失敗しました");
       return r.json();
     });
@@ -107,3 +107,4 @@ document.getElementById("btn-intrusion")?.addEventListener("click", async () => 
 });
 
 loadPreview();
+setInterval(() => loadPreview().catch(() => {}), 15000);

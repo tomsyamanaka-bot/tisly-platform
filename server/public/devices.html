@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TiSLY — デバイス一覧</title>
+  <style>
+    :root { --green: #1a7f37; --border: #d0d7de; --muted: #57606a; }
+    body { max-width: 1200px; margin: 0 auto; padding: 1rem; font-family: system-ui, sans-serif; }
+    h1 { color: var(--green); }
+    table { width: 100%; border-collapse: collapse; background: #fff; }
+    th, td { border: 1px solid var(--border); padding: 0.5rem 0.65rem; text-align: left; font-size: 0.9rem; }
+    th { background: #f6f8fa; }
+    .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.78rem; font-weight: 600; }
+    .ONLINE { background: #dcfce7; color: #166534; }
+    .WARNING { background: #fef3c7; color: #92400e; }
+    .OFFLINE { background: #fee2e2; color: #991b1b; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; align-items: center; }
+    .summary { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+    .summary span { background: #f6f8fa; padding: 0.5rem 0.75rem; border-radius: 8px; border: 1px solid var(--border); }
+    a { color: var(--green); }
+  </style>
+</head>
+<body>
+  <nav><a href="/sales">営業デモ</a> · <a href="/">司令塔</a></nav>
+  <h1>デバイス一覧 <small style="font-weight:400;color:var(--muted)">Phase 902</small></h1>
+  <div class="toolbar">
+    <label>接続モード: <strong id="device-mode">—</strong></label>
+    <label>顧客フィルタ
+      <select id="customer-filter">
+        <option value="">すべて</option>
+        <option value="TOMS001">TOMS001</option>
+        <option value="MINPAKU-DEMO">MINPAKU-DEMO</option>
+        <option value="FACTORY-DEMO">FACTORY-DEMO</option>
+      </select>
+    </label>
+    <button type="button" id="btn-refresh">更新</button>
+  </div>
+  <div class="summary" id="summary"></div>
+  <table>
+    <thead>
+      <tr>
+        <th>Device ID</th>
+        <th>名称</th>
+        <th>種別</th>
+        <th>状態</th>
+        <th>最後の通信</th>
+        <th>ソース</th>
+      </tr>
+    </thead>
+    <tbody id="device-rows"></tbody>
+  </table>
+  <script type="module" src="/js/devices.js"></script>
+</body>
+</html>

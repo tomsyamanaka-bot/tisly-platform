@@ -3,20 +3,22 @@
 TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。  
 三菱電機 **FX 系** PLC と **GX Works2 / GX Works3** を想定しています。
 
-## TiSLY Platform — Sales Demo Polish & Real Device Preview（Phase 861–900）
+## TiSLY Platform — Live Device Bridge & Sales Ready RC1（Phase 901–940）
 
-**営業デモ `/sales` · 図面プレビュー · 見積HTML · KPI CSV · PWA/TV導線 · 自動リセット mock**
+**mock↔実機 ESP/Shelly · デバイス Registry · 営業デモ RC1 · ROI v2 · 展示会ムービー**
 
 | 領域 | パス / API |
 |------|------------|
-| 営業トップ | `/sales` |
-| 図面プレビュー | `/sales/floor-preview` · `GET /api/demo-kit/floor-preview/:code` |
-| デモ操作 | `POST /api/demo-kit/notifications/*` · `shelly-reboot` |
-| 見積サンプル | `GET /api/demo-kit/estimate-html/{house,minpaku,factory}` |
-| KPI CSV | `GET /api/demo-kit/kpi/csv` |
-| リセット schedule | `GET/PUT /api/demo-kit/reset-schedule` |
-| テスト | `server/test/business-phase861.test.ts` |
-| ドキュメント | `docs/phase861_900_status.md` |
+| 営業トップ | `/sales` — Mock / Real / Mixed 切替 · ROI · デモムービー |
+| デバイス一覧 | `/devices` · `GET /api/demo-kit/devices/registry` |
+| 接続モード | `GET/PUT /api/demo-kit/device-mode` |
+| Shelly 実機 | `PUT /api/demo-kit/shelly/config` · `GET .../telemetry/:id` |
+| 図面ライブ | `/sales/floor-preview` · `GET /api/demo-kit/floor-preview-live/:code` |
+| ワンクリックデモ | `POST /api/demo-kit/demo-packages/{house,minpaku,...}/launch` |
+| ROI v2 | `POST /api/demo-kit/roi-simulator` |
+| デモムービー | `POST /api/demo-kit/demo-movie/start` |
+| テスト | `server/test/business-phase901.test.ts` |
+| ドキュメント | `docs/phase901_940_status.md` |
 
 ```bash
 cd server && npm run build && npx tsc --noEmit && npm run test

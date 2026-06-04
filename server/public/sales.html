@@ -85,7 +85,7 @@
   </nav>
 
   <div class="hero">
-    <span class="badge">Phase 861–900 — 営業デモ</span>
+    <span class="badge">Phase 901–940 — Live Device Bridge RC1</span>
     <h1>TiSLY を、お客様に分かりやすくお見せする</h1>
     <p>見積・施工・監視・保守まで、スマホやタブレットからそのまま操作できるデモです。専門用語は使わず、日常の言葉でご説明できます。</p>
   </div>
@@ -113,6 +113,53 @@
       <div class="card"><h3>出動を減らす</h3><p>自動復旧や遠隔確認で、夜間の駆けつけを減らす想定です（下の数値はデモ用の目安）。</p></div>
       <div class="card"><h3>経営の数字</h3><p>売上・未入金・保守件数を一覧。CSV でそのまま資料に使えます。</p></div>
       <div class="card"><h3>大画面表示</h3><p>Google TV 用の画面で、来客や商談中に「見える化」できます。</p></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>実機 / モック切替</h2>
+    <p style="color:var(--muted);font-size:0.92rem;margin-top:0">営業デモ・現場 PoC・初回導入まで同じ API で接続します。</p>
+    <div class="toolbar" style="margin-top:0.75rem">
+      <button type="button" class="demo-btn device-mode-btn" data-device-mode="mock" style="min-height:44px">Mock</button>
+      <button type="button" class="demo-btn device-mode-btn primary" data-device-mode="esp" style="min-height:44px">Real (ESP)</button>
+      <button type="button" class="demo-btn device-mode-btn" data-device-mode="shelly" style="min-height:44px">Real (Shelly)</button>
+      <button type="button" class="demo-btn device-mode-btn" data-device-mode="mixed" style="min-height:44px">Mixed</button>
+      <span id="device-mode-label" style="font-weight:600;margin-left:0.5rem">現在: —</span>
+      <a class="text-link" href="/devices" style="margin-left:auto">デバイス一覧 →</a>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>ワンクリックデモ（業種テンプレ）</h2>
+    <div class="estimate-btns">
+      <button type="button" data-demo-package="house">戸建て</button>
+      <button type="button" data-demo-package="minpaku">民泊</button>
+      <button type="button" data-demo-package="factory">工場</button>
+      <button type="button" data-demo-package="warehouse">倉庫</button>
+      <button type="button" data-demo-package="care">介護</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>ROI シミュレータ v2</h2>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:0.5rem">
+      <label>件数（拠点）<input type="number" id="roi-sites" value="1" min="1" style="width:100%;padding:0.4rem" /></label>
+      <label>年間出動回数<input type="number" id="roi-dispatch" value="48" min="0" style="width:100%;padding:0.4rem" /></label>
+      <label>人件費/回<input type="number" id="roi-labor" value="18000" min="0" style="width:100%;padding:0.4rem" /></label>
+      <label>車両費/回<input type="number" id="roi-vehicle" value="8000" min="0" style="width:100%;padding:0.4rem" /></label>
+    </div>
+    <button type="button" id="btn-roi-calc" class="demo-btn" style="margin-top:0.75rem;max-width:280px;min-height:44px">年間削減額を計算</button>
+    <p id="roi-result" style="margin-top:0.75rem;font-weight:600;color:var(--green)"></p>
+    <canvas id="roi-chart" width="600" height="160" style="max-width:100%;margin-top:0.5rem"></canvas>
+  </section>
+
+  <section class="card">
+    <h2>デモムービー（展示会自動再生）</h2>
+    <p style="color:var(--muted);font-size:0.9rem">通知 → 侵入 → 復旧 → 保守 を自動で順に再生します。</p>
+    <div class="toolbar">
+      <button type="button" id="btn-movie-start" class="demo-btn primary" style="min-height:44px">再生開始</button>
+      <button type="button" id="btn-movie-stop" class="demo-btn" style="min-height:44px">停止</button>
+      <span id="movie-status" style="font-size:0.88rem;color:var(--muted)"></span>
     </div>
   </section>
 

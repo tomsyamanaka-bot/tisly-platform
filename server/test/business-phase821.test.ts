@@ -46,7 +46,7 @@ describe("Phase 821-860 demo kit and sales ready mode", () => {
   it("GET /api/demo-kit/status returns pack and KPI", async () => {
     const res = await request(app).get("/api/demo-kit/status");
     assert.equal(res.status, 200);
-    assert.equal(res.body.phase, "861-900");
+    assert.equal(res.body.phase, "901-940");
     assert.equal(res.body.customers.length, 5);
     assert.ok(res.body.kpi);
   });
