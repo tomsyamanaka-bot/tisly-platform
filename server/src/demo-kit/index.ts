@@ -53,6 +53,14 @@ export {
   pollShellyDevices,
 } from "../device/shelly-bridge.js";
 export { getEspHeartbeatKpi, refreshEspHeartbeatKpi } from "../device/esp-heartbeat-mqtt.js";
+export { broadcastSalesDemoEvent, getSalesLiveBadge } from "./sales-ws-bridge.js";
+export { buildEspMqttTopic, parseEspMqttTopic, DEMO_ESP_DEVICE_IDS } from "../mqtt/esp-topic-standard.js";
+export {
+  getShellyEnvMode,
+  fetchShellyDeviceStatus,
+  shellyReboot,
+  shellyToggle,
+} from "../device/shelly-real-client.js";
 export { listDemoPackages, launchDemoPackage, DEMO_PACKAGE_TYPES, type DemoPackageType } from "./demo-customer-packages.js";
 export { calculateRoiV2, type RoiSimulatorInput, type RoiSimulatorResult } from "./demo-roi-simulator.js";
 export {

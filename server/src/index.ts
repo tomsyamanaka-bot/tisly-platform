@@ -13,9 +13,12 @@ import { handleWsClientMessage, registerWsClient } from "./ws/hub.js";
 import { startLiveOperationsMockPush } from "./toms/live-push-mock.js";
 import { startBackupScheduler } from "./backup/backup-scheduler.js";
 import { startWorkers } from "./workers/worker-runner.js";
+import { startDemoResetCron, syncDemoResetFromEnv } from "./demo-kit/demo-reset-cron.js";
 
 getDatabase();
 ensureDemoKit();
+syncDemoResetFromEnv();
+startDemoResetCron();
 startBackupScheduler();
 startWorkers();
 

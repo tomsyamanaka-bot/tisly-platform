@@ -42,6 +42,8 @@ import {
   type DeviceMode,
   type DemoPackageType,
   DEMO_PACKAGE_TYPES,
+  getSalesLiveBadge,
+  broadcastSalesDemoEvent,
 } from "../../demo-kit/index.js";
 
 export const demoKitRouter = Router();
@@ -50,7 +52,8 @@ demoKitRouter.get("/status", (_req, res) => {
   const kpi = buildTomsKpi();
   const adapter = getDeviceAdapterStatus();
   res.json({
-    phase: "901-940",
+    phase: "941-980",
+    liveBadge: getSalesLiveBadge(),
     deviceMode: adapter.deviceMode,
     deviceBridge: adapter,
     espHeartbeat: getEspHeartbeatKpi(),
@@ -79,7 +82,9 @@ demoKitRouter.put("/device-mode", (req, res) => {
     res.status(400).json({ error: "Invalid device mode", modes: DEVICE_MODES });
     return;
   }
-  res.json({ deviceMode: setDeviceMode(mode), bridge: getDeviceAdapterStatus() });
+  const deviceMode = setDeviceMode(mode);
+  broadcastSalesDemoEvent("device_mode", { deviceMode });
+  res.json({ deviceMode, bridge: getDeviceAdapterStatus() });
 });
 
 demoKitRouter.get("/devices/registry", (req, res) => {
@@ -171,6 +176,7 @@ demoKitRouter.post("/demo-movie/stop", (_req, res) => {
 demoKitRouter.post("/reset", (_req, res) => {
   try {
     const result = resetDemoKit();
+    broadcastSalesDemoEvent("reset", { at: result.at });
     res.json(result);
   } catch (e) {
     res.status(500).json({ error: e instanceof Error ? e.message : String(e) });
@@ -256,11 +262,14 @@ demoKitRouter.get("/reset-schedule", (_req, res) => {
   res.json(getDemoResetSchedule());
 });
 
-demoKitRouter.put("/reset-schedule", (req, res) => {
+demoKitRouter.put("/reset-schedule", async (req, res) => {
   const body = req.body as { mode?: DemoResetScheduleMode; enabled?: boolean };
   if (body.mode && !listDemoResetScheduleModes().includes(body.mode)) {
     res.status(400).json({ error: "Invalid mode", modes: listDemoResetScheduleModes() });
     return;
   }
-  res.json(setDemoResetSchedule(body));
+  const result = setDemoResetSchedule(body);
+  const { refreshDemoResetCron } = await import("../../demo-kit/demo-reset-cron.js");
+  refreshDemoResetCron();
+  res.json(result);
 });

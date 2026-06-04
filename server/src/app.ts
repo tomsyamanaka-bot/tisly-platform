@@ -7,6 +7,7 @@ import { authRouter } from "./api/routes/auth.js";
 import { dashboardRouter } from "./api/routes/dashboard.js";
 import { demoRouter } from "./api/routes/demo.js";
 import { demoKitRouter } from "./api/routes/demo-kit.js";
+import { shellyRouter } from "./api/routes/shelly.js";
 import { devicesRouter } from "./api/routes/devices.js";
 import { eventsRouter } from "./api/routes/events.js";
 import { heartbeatRouter } from "./api/routes/heartbeat.js";
@@ -86,6 +87,7 @@ export function createApp(): express.Application {
   app.use("/api/dashboard", dashboardRouter);
   app.use("/api/demo", demoRouter);
   app.use("/api/demo-kit", demoKitRouter);
+  app.use("/api/shelly", shellyRouter);
   app.use("/api/analytics", opsCustomerScopeMiddleware, analyticsRouter);
   app.use("/api/test", testRouter);
 

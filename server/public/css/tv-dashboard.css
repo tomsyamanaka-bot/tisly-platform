@@ -118,3 +118,22 @@ html, body {
   padding: 0 2rem 1rem;
   color: #8b949e;
 }
+
+.tv-focus {
+  outline: 3px solid var(--tv-accent, #3fb950);
+  outline-offset: 2px;
+}
+
+.tv-alert-overlay--demo .tv-alert-content {
+  transform: scale(1.08);
+  border: 4px solid #f85149;
+}
+
+.tv-alert-overlay--demo h2 {
+  font-size: 2.5rem;
+  color: #f85149;
+}
+
+.tv-alert-overlay--demo #tv-alert-message {
+  font-size: 1.75rem;
+}

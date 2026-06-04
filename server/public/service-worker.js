@@ -1,8 +1,25 @@
 /* TiSLY Multi PWA — Phase 701 shared cache strategy */
-const SW_VERSION = "tisly-pwa-v701";
-const OFFLINE_CACHE = "tisly-pwa-shell-v701";
-const PRIORITY_CACHE = "tisly-pwa-priority-v701";
+const SW_VERSION = "tisly-pwa-v941";
+const OFFLINE_CACHE = "tisly-pwa-shell-v941";
+const PRIORITY_CACHE = "tisly-pwa-priority-v941";
 const SHELL_URLS = [
+  "/sales",
+  "/sales.html",
+  "/sales/floor-preview",
+  "/sales-floor-preview.html",
+  "/devices",
+  "/devices.html",
+  "/tv/TOMS001",
+  "/tv-dashboard.html",
+  "/tv-preview.html",
+  "/js/sales-demo.js",
+  "/js/sales-realtime.js",
+  "/js/sales-i18n.js",
+  "/js/sales-floor-preview.js",
+  "/js/devices.js",
+  "/js/tv-dashboard.js",
+  "/js/i18n/sales-en.json",
+  "/css/tv-dashboard.css",
   "/app-hub.html",
   "/project-dashboard.html",
   "/business-kpi.html",

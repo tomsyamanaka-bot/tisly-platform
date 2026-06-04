@@ -8,6 +8,7 @@ import { findAlertFloorTier } from "../pro-remote/floor-map-stack.js";
 import { getCustomerByCode } from "../customer/customer-store.js";
 import { DEMO_PACK_CODES } from "./demo-customer-pack.js";
 import { DEMO_KPI_PREFIX } from "./demo-kpi-seed.js";
+import { broadcastSalesDemoEvent } from "./sales-ws-bridge.js";
 
 export type DemoNotificationKind =
   | "intrusion"
@@ -145,6 +146,23 @@ export async function triggerDemoNotification(
       actor: "demo-kit",
     });
   }
+
+  const wsKind =
+    kind === "intrusion"
+      ? "intrusion"
+      : kind === "maintenance_due"
+        ? "maintenance"
+        : "notification";
+  broadcastSalesDemoEvent(wsKind, {
+    customerCode: code,
+    kind,
+    title: cfg.title,
+    body: cfg.body,
+    message: cfg.body,
+    severity: cfg.severity,
+    eventId,
+    proRemote: { tier: floor.tier, layerId: floor.layerId },
+  });
 
   return {
     ok: true,

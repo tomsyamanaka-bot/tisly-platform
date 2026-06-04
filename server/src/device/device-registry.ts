@@ -29,7 +29,7 @@ export function getDeviceRegistry(customerCode?: string): {
     source: d.source,
   }));
   return {
-    phase: "901-940",
+    phase: "941-980",
     devices,
     summary: getDeviceAdapterStatus(),
   };

@@ -40,8 +40,10 @@ function setLog(msg) {
   if (el) el.textContent = msg;
 }
 
-export async function loadSalesDashboard() {
+export async function loadSalesDashboard(_reason) {
   const status = await apiGet("/api/demo-kit/status");
+  const { setLiveBadge } = await import("./sales-realtime.js");
+  if (status.liveBadge) setLiveBadge(status.liveBadge);
   const kpi = status.kpi ?? {};
   document.getElementById("kpi-revenue").textContent = fmtYen(kpi.revenue ?? 0);
   document.getElementById("kpi-gross").textContent = fmtYen(kpi.grossProfit ?? 0);
@@ -88,8 +90,9 @@ export async function loadSalesDashboard() {
   if (enEl) enEl.checked = !!sched.enabled;
   const schedInfo = document.getElementById("reset-schedule-info");
   if (schedInfo) {
-    schedInfo.textContent = sched.enabled
-      ? `自動リセット（準備中）: ${sched.description} / 次回 ${sched.nextRunAt ? new Date(sched.nextRunAt).toLocaleString("ja-JP") : "—"}`
+    const cronNote = sched.cronActive ? "cron 有効" : sched.envEnabled ? "env cron 有効" : "手動";
+    schedInfo.textContent = sched.enabled || sched.envEnabled
+      ? `自動リセット（${cronNote}）: ${sched.description} / cron ${sched.cronExpr ?? "—"} / 次回 ${sched.nextRunAt ? new Date(sched.nextRunAt).toLocaleString("ja-JP") : "—"}`
       : `手動リセットのみ（${sched.description ?? ""}）`;
   }
 }
@@ -137,7 +140,7 @@ export async function saveResetSchedule() {
   const enabled = !!document.getElementById("reset-schedule-enabled")?.checked;
   await apiPut("/api/demo-kit/reset-schedule", { mode, enabled });
   await loadSalesDashboard();
-  setLog(enabled ? "自動リセットの予定を保存しました（実際の実行は mock）" : "手動リセットのみに設定しました");
+  setLog(enabled ? "自動リセットの予定を保存しました（node-cron）" : "手動リセットのみに設定しました");
 }
 
 export async function setDeviceMode(mode) {
@@ -253,4 +256,17 @@ export function wireSalesDemo() {
   });
 
   loadSalesDashboard().catch((e) => setLog(e.message));
+
+  import("./sales-realtime.js").then(({ wireSalesRealtime }) => {
+    wireSalesRealtime((kind) => loadSalesDashboard(kind).catch(() => {}));
+  });
+  import("./sales-i18n.js").then(async (i18n) => {
+    await i18n.loadSalesI18n();
+    i18n.applySalesI18n();
+    i18n.wireSalesI18nToggle();
+  });
+
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/service-worker.js", { scope: "/" }).catch(() => {});
+  }
 }

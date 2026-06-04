@@ -8,7 +8,9 @@ import { getNotificationService } from "../notification/notification-service.js"
 import { broadcast } from "../ws/hub.js";
 import { getMqttSubscriberConfig } from "./mqtt-config.js";
 import { buildMqttConnectOptions, mqttUrlWithTls, getMqttTlsStatus } from "./mqtt-tls.js";
+import { buildDemoLegacyHeartbeatTopic } from "./esp-topic-standard.js";
 import { mqttPayloadToUnified, parseMqttTopic } from "./topic-router.js";
+import { broadcastSalesDemoEvent } from "../demo-kit/sales-ws-bridge.js";
 import {
   isMqttMockMode,
   onMqttBridgeAuthError,
@@ -122,6 +124,7 @@ async function handleMessage(topic: string, raw: string): Promise<void> {
       payload: { deviceId: parsed.deviceId, ...body },
       at: new Date().toISOString(),
     });
+    broadcastSalesDemoEvent("status", { deviceId: parsed.deviceId, heartbeat: true });
     return;
   }
 
@@ -142,7 +145,7 @@ function startMockSubscriber(): void {
   console.log(`[MQTT] mock subscriber active (MQTT_MOCK_MODE=${isMqttMockMode()})`);
   mockTimer = setInterval(() => {
     const tenant = config.defaultTenantId;
-    const topic = `tisly/${tenant}/demo-test-site/MOCK-MQTT-001/heartbeat`;
+    const topic = buildDemoLegacyHeartbeatTopic(tenant);
     void handleMessage(
       topic,
       JSON.stringify({ status: "ok", platform: "mock", ts: Date.now() })

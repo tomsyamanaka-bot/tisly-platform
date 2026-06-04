@@ -162,6 +162,21 @@ export const config = {
   get mqttUrlConfigured() {
     return !!process.env.MQTT_URL?.trim();
   },
+  shelly: {
+    get mode() {
+      const m = env("SHELLY_MODE", "mock").toLowerCase();
+      return m === "real" ? ("real" as const) : ("mock" as const);
+    },
+    baseUrl: env("SHELLY_BASE_URL"),
+    authToken: env("SHELLY_AUTH_TOKEN"),
+  },
+  demoReset: {
+    get enabled() {
+      return env("DEMO_RESET_ENABLED", "false") === "true";
+    },
+    cronExpr: env("DEMO_RESET_CRON", "0 6 * * *"),
+    timezone: env("DEMO_RESET_TZ", "Asia/Tokyo"),
+  },
   field: {
     get liveMode() {
       return env("FIELD_LIVE_MODE", "false") === "true";

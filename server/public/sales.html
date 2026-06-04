@@ -75,6 +75,15 @@
     .schedule-row label { font-size: 0.9rem; }
     #reset-schedule-info { font-size: 0.85rem; color: var(--muted); margin-top: 0.35rem; }
     .text-link { color: var(--green); font-weight: 600; }
+    .top-bar { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem; }
+    .live-badge { font-size: 0.78rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 6px; }
+    .live-badge--live { background: #dafbe1; color: #116329; }
+    .live-badge--mock { background: #fff8c5; color: #7d4e00; }
+    .live-badge--offline { background: #ffebe9; color: #82071e; }
+    #conn-mode-badge { font-size: 0.72rem; color: var(--muted); }
+    #offline-banner { background: #fff8c5; border: 1px solid #d4a72c; padding: 0.6rem 1rem; border-radius: 8px; margin-bottom: 1rem; font-size: 0.9rem; }
+    .locale-btns button { min-height: 36px; padding: 0.35rem 0.75rem; border-radius: 8px; border: 1px solid var(--border); background: #fff; cursor: pointer; }
+    .locale-btns button.primary { background: var(--green); color: #fff; border-color: var(--green); }
   </style>
 </head>
 <body>
@@ -84,10 +93,21 @@
     <a href="/operations">運用</a>
   </nav>
 
+  <div id="offline-banner" hidden data-i18n="offline.banner" data-i18n-fallback="オフライン: デモ表示は可能・実データ更新は停止しています"></div>
+
+  <div class="top-bar">
+    <span id="live-status-badge" class="live-badge live-badge--mock">Mock</span>
+    <span id="conn-mode-badge">—</span>
+    <span class="locale-btns">
+      <button type="button" data-locale="ja" class="primary">日本語</button>
+      <button type="button" data-locale="en">English</button>
+    </span>
+  </div>
+
   <div class="hero">
-    <span class="badge">Phase 901–940 — Live Device Bridge RC1</span>
-    <h1>TiSLY を、お客様に分かりやすくお見せする</h1>
-    <p>見積・施工・監視・保守まで、スマホやタブレットからそのまま操作できるデモです。専門用語は使わず、日常の言葉でご説明できます。</p>
+    <span class="badge" data-i18n="badge.phase" data-i18n-fallback="Phase 941–980 — Real Device / Google TV Polish">Phase 941–980 — Real Device / Google TV Polish</span>
+    <h1 data-i18n="hero.title" data-i18n-fallback="TiSLY を、お客様に分かりやすくお見せする">TiSLY を、お客様に分かりやすくお見せする</h1>
+    <p data-i18n="hero.sub" data-i18n-fallback="見積・施工・監視・保守まで、スマホやタブレットからそのまま操作できるデモです。">見積・施工・監視・保守まで、スマホやタブレットからそのまま操作できるデモです。専門用語は使わず、日常の言葉でご説明できます。</p>
   </div>
 
   <section class="card">
@@ -117,7 +137,7 @@
   </section>
 
   <section class="card">
-    <h2>実機 / モック切替</h2>
+    <h2 data-i18n="section.device_mode" data-i18n-fallback="実機 / モック切替">実機 / モック切替</h2>
     <p style="color:var(--muted);font-size:0.92rem;margin-top:0">営業デモ・現場 PoC・初回導入まで同じ API で接続します。</p>
     <div class="toolbar" style="margin-top:0.75rem">
       <button type="button" class="demo-btn device-mode-btn" data-device-mode="mock" style="min-height:44px">Mock</button>
@@ -181,7 +201,7 @@
   </section>
 
   <section>
-    <h2>デモ操作（タップしやすい大きめボタン）</h2>
+    <h2 data-i18n="section.demo_actions" data-i18n-fallback="デモ操作（タップしやすい大きめボタン）">デモ操作（タップしやすい大きめボタン）</h2>
     <div class="toolbar">
       <label>お客様の例
         <select id="demo-customer-select">
@@ -237,7 +257,7 @@
     </div>
     <div class="card">
       <h3>自動でデモを戻す（準備）</h3>
-      <p>毎朝・営業前の自動リセットは mock です。本番ではサーバー側のスケジュールに接続予定。</p>
+      <p>DEMO_RESET_ENABLED=true で node-cron が毎朝 6:00（または DEMO_RESET_CRON）に実行します。</p>
       <div class="schedule-row">
         <label><input type="checkbox" id="reset-schedule-enabled" /> 自動リセットを有効</label>
         <select id="reset-schedule-mode">

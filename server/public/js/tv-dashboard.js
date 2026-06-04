@@ -4,9 +4,12 @@ const pathMatch = location.pathname.match(/\/tv\/([^/]+)/i);
 const customerCode = pathMatch ? pathMatch[1].toUpperCase() : "";
 const REFRESH_MS = 15000;
 const ALERT_SEC = 10;
+const WS_PATH = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`;
 
 let lastAlertId = null;
 let alertTimer = null;
+let focusIndex = 0;
+let focusables = [];
 
 function authHeaders() {
   const token = getAdminToken();
@@ -62,17 +65,17 @@ function render(data) {
   document.getElementById("tv-sites").innerHTML = (data.sites ?? [])
     .map(
       (s) =>
-        `<div class="tv-site-chip"><span>${s.site_name}</span>
+        `<div class="tv-site-chip" tabindex="0"><span>${s.site_name}</span>
          <span class="${s.status === "alarm" ? "offline" : ""}">${s.status === "alarm" ? "警報" : "正常"}</span></div>`
     )
     .join("");
 
   const s = data.summary;
   document.getElementById("tv-summary").innerHTML = `
-    <div class="tv-metric"><div class="label">設備</div><div class="value">${s.deviceCount}</div></div>
-    <div class="tv-metric"><div class="label">オンライン</div><div class="value">${s.onlineCount}</div></div>
-    <div class="tv-metric"><div class="label">オフライン</div><div class="value">${s.offlineCount}</div></div>
-    <div class="tv-metric"><div class="label">状態</div><div class="value">${
+    <div class="tv-metric" tabindex="0"><div class="label">設備</div><div class="value">${s.deviceCount}</div></div>
+    <div class="tv-metric" tabindex="0"><div class="label">オンライン</div><div class="value">${s.onlineCount}</div></div>
+    <div class="tv-metric" tabindex="0"><div class="label">オフライン</div><div class="value">${s.offlineCount}</div></div>
+    <div class="tv-metric" tabindex="0"><div class="label">状態</div><div class="value">${
       s.overallStatus === "normal" ? "正常" : s.overallStatus === "warning" ? "警告" : "異常"
     }</div></div>
   `;
@@ -94,7 +97,7 @@ function render(data) {
     .slice(0, 4)
     .map(
       (d) =>
-        `<div class="tv-camera-frame ${d.online ? "" : "offline"}">
+        `<div class="tv-camera-frame ${d.online ? "" : "offline"}" tabindex="0">
           <div class="cam-label">${d.label ?? d.deviceId}</div>
           <div class="cam-placeholder">カメラ枠</div>
         </div>`
@@ -104,7 +107,7 @@ function render(data) {
   document.getElementById("tv-devices").innerHTML = (data.devices ?? [])
     .map(
       (d) =>
-        `<div class="tv-device ${d.online ? "" : "offline"}">
+        `<div class="tv-device ${d.online ? "" : "offline"}" tabindex="0">
           <div>${d.deviceType}</div>
           <strong>${d.label ?? d.deviceId}</strong>
           <div>${d.online ? "ONLINE" : "OFFLINE"}</div>
@@ -122,32 +125,114 @@ function render(data) {
 
   const alert = data.alerts?.[0];
   if (alert && alert.id !== lastAlertId) {
-    showAlert(alert);
+    showDemoAlert({
+      severity: alert.severity,
+      message: alert.message || alert.event_type,
+      title: "アラート",
+    });
     lastAlertId = alert.id;
   }
+
+  refreshFocusables();
 }
 
-function showAlert(alert) {
+export function showDemoAlert(alert) {
   const overlay = document.getElementById("tv-alert-overlay");
   const normal = document.getElementById("tv-normal");
   const msg = document.getElementById("tv-alert-message");
+  const titleEl = overlay?.querySelector("h2");
   const timer = document.getElementById("tv-alert-timer");
+  if (!overlay || !normal || !msg) return;
+  if (titleEl) titleEl.textContent = alert.title ?? "デモ通知";
   overlay.hidden = false;
+  overlay.classList.add("tv-alert-overlay--demo");
   normal.style.visibility = "hidden";
-  msg.textContent = `${alert.severity}: ${alert.message || alert.event_type}`;
+  msg.textContent = `${alert.severity ?? "ALARM"}: ${alert.message ?? alert.body ?? ""}`;
 
   let sec = ALERT_SEC;
-  timer.textContent = String(sec);
+  if (timer) timer.textContent = String(sec);
   clearInterval(alertTimer);
   alertTimer = setInterval(() => {
     sec -= 1;
-    timer.textContent = String(sec);
+    if (timer) timer.textContent = String(sec);
     if (sec <= 0) {
       clearInterval(alertTimer);
       overlay.hidden = true;
+      overlay.classList.remove("tv-alert-overlay--demo");
       normal.style.visibility = "visible";
     }
   }, 1000);
+}
+
+function refreshFocusables() {
+  focusables = [...document.querySelectorAll("#tv-normal [tabindex='0'], #tv-normal a")];
+  focusables.forEach((el, i) => {
+    el.classList.toggle("tv-focus", i === focusIndex);
+  });
+}
+
+function moveFocus(dx, dy) {
+  if (!focusables.length) return;
+  const cols = 2;
+  if (dy !== 0) {
+    focusIndex = (focusIndex + dy * cols + focusables.length) % focusables.length;
+  } else if (dx !== 0) {
+    focusIndex = (focusIndex + dx + focusables.length) % focusables.length;
+  }
+  refreshFocusables();
+  focusables[focusIndex]?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+}
+
+function wireTvRemote() {
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      moveFocus(0, -1);
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      moveFocus(0, 1);
+    } else if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      moveFocus(-1, 0);
+    } else if (e.key === "ArrowRight") {
+      e.preventDefault();
+      moveFocus(1, 0);
+    } else if (e.key === "Enter") {
+      focusables[focusIndex]?.click?.();
+    } else if (e.key === "Escape" || e.key === "Backspace" || e.key === "BrowserBack") {
+      const overlay = document.getElementById("tv-alert-overlay");
+      if (overlay && !overlay.hidden) {
+        overlay.hidden = true;
+        document.getElementById("tv-normal").style.visibility = "visible";
+        clearInterval(alertTimer);
+      }
+    }
+  });
+}
+
+function connectTvWs() {
+  if (!customerCode || typeof WebSocket === "undefined") return;
+  const ws = new WebSocket(WS_PATH);
+  ws.onopen = () => {
+    ws.send(
+      JSON.stringify({ type: "subscribe", channel: "tv", customerCode })
+    );
+  };
+  ws.onmessage = (ev) => {
+    try {
+      const msg = JSON.parse(ev.data);
+      if (msg.payload?.channel === "tv_mirror" || msg.topic?.includes(`/tv/${customerCode}`)) {
+        showDemoAlert({
+          title: msg.payload.title ?? "営業デモ通知",
+          severity: msg.payload.severity ?? "alarm",
+          message: msg.payload.message ?? msg.payload.body,
+        });
+        void refresh();
+      }
+    } catch {
+      /* */
+    }
+  };
 }
 
 async function refresh() {
@@ -162,5 +247,7 @@ async function refresh() {
 
 tickClock();
 setInterval(tickClock, 1000);
+wireTvRemote();
+connectTvWs();
 refresh();
 setInterval(refresh, REFRESH_MS);

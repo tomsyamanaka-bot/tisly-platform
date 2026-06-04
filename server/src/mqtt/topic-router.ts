@@ -2,7 +2,9 @@ import type { UnifiedEvent } from "../event/unified-event.js";
 import { normalizeUnifiedInput } from "../event/unified-event.js";
 import { config } from "../config.js";
 
-export type MqttChannel = "event" | "state" | "heartbeat" | "recovery" | "cmd" | "unknown";
+import { parseEspMqttTopic, type EspMqttChannel } from "./esp-topic-standard.js";
+
+export type MqttChannel = EspMqttChannel | "unknown";
 
 export interface ParsedTopic {
   tenantId: string;
@@ -10,20 +12,19 @@ export interface ParsedTopic {
   deviceId: string;
   channel: MqttChannel;
   rawTopic: string;
+  topicFormat?: "production" | "legacy" | "demo";
 }
 
-const TOPIC_RE =
-  /^tisly\/([^/]+)\/([^/]+)\/([^/]+)\/(event|state|heartbeat|recovery|cmd)$/;
-
 export function parseMqttTopic(topic: string): ParsedTopic | null {
-  const m = topic.match(TOPIC_RE);
-  if (!m) return null;
+  const esp = parseEspMqttTopic(topic);
+  if (!esp) return null;
   return {
-    tenantId: m[1],
-    siteId: m[2],
-    deviceId: m[3],
-    channel: m[4] as MqttChannel,
-    rawTopic: topic,
+    tenantId: esp.customerCode,
+    siteId: esp.siteId,
+    deviceId: esp.deviceId,
+    channel: esp.channel,
+    rawTopic: esp.rawTopic,
+    topicFormat: esp.format,
   };
 }
 
@@ -31,7 +32,7 @@ export function mqttPayloadToUnified(
   parsed: ParsedTopic,
   payload: Record<string, unknown>
 ): UnifiedEvent | null {
-  if (parsed.channel === "state" || parsed.channel === "cmd") {
+  if (parsed.channel === "state" || parsed.channel === "cmd" || parsed.channel === "ack") {
     return null;
   }
 

@@ -22,12 +22,14 @@ export interface WsOutboundMessage {
 interface WsClientState {
   socket: WebSocket;
   projectIds: Set<string>;
+  /** sales | tv:CODE */
+  channels: Set<string>;
 }
 
 const clients = new Map<WebSocket, WsClientState>();
 
 export function registerWsClient(socket: WebSocket): void {
-  clients.set(socket, { socket, projectIds: new Set() });
+  clients.set(socket, { socket, projectIds: new Set(), channels: new Set() });
   socket.on("close", () => clients.delete(socket));
   socket.on("error", () => clients.delete(socket));
   sendToClient(socket, {
@@ -41,6 +43,8 @@ export function handleWsClientMessage(socket: WebSocket, raw: string): void {
   let msg: {
     type?: string;
     projectId?: string;
+    channel?: string;
+    customerCode?: string;
     ping?: boolean;
     action?: ProRemoteWsAction;
     tier?: string;
@@ -67,6 +71,29 @@ export function handleWsClientMessage(socket: WebSocket, raw: string): void {
   }
   if (msg.type === "unsubscribe" && msg.projectId) {
     state.projectIds.delete(String(msg.projectId));
+  }
+  if (msg.type === "subscribe" && msg.channel === "sales") {
+    state.channels.add("sales");
+    sendToClient(socket, {
+      type: "event",
+      payload: { subscribed: "sales", channel: "sales" },
+      at: new Date().toISOString(),
+    });
+  }
+  if (msg.type === "subscribe" && msg.channel === "tv" && msg.customerCode) {
+    const code = String(msg.customerCode).toUpperCase();
+    state.channels.add(`tv:${code}`);
+    sendToClient(socket, {
+      type: "event",
+      payload: { subscribed: `tv:${code}`, channel: "tv_mirror", customerCode: code },
+      at: new Date().toISOString(),
+    });
+  }
+  if (msg.type === "unsubscribe" && msg.channel === "sales") {
+    state.channels.delete("sales");
+  }
+  if (msg.type === "unsubscribe" && msg.channel === "tv" && msg.customerCode) {
+    state.channels.delete(`tv:${String(msg.customerCode).toUpperCase()}`);
   }
   if (msg.ping || msg.type === "ping") {
     sendToClient(socket, {
@@ -159,6 +186,16 @@ function sendToClient(socket: WebSocket, message: WsOutboundMessage): void {
 }
 
 function shouldReceive(state: WsClientState, message: WsOutboundMessage): boolean {
+  const topic = message.topic ?? "";
+  if (topic.startsWith("sales/demo/tv/")) {
+    const code = topic.split("/").pop()?.toUpperCase();
+    if (state.channels.size === 0 && state.projectIds.size === 0) return true;
+    return state.channels.has(`tv:${code}`);
+  }
+  if (topic === "sales/demo" || message.payload?.channel === "sales") {
+    if (state.channels.size === 0 && state.projectIds.size === 0) return true;
+    return state.channels.has("sales");
+  }
   const projectId = message.payload?.projectId as string | undefined;
   if (!projectId) return true;
   if (state.projectIds.size === 0) return true;
