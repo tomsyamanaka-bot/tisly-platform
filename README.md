@@ -3,6 +3,27 @@
 TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。  
 三菱電機 **FX 系** PLC と **GX Works2 / GX Works3** を想定しています。
 
+## TiSLY Platform — Sales Demo Polish & Real Device Preview（Phase 861–900）
+
+**営業デモ `/sales` · 図面プレビュー · 見積HTML · KPI CSV · PWA/TV導線 · 自動リセット mock**
+
+| 領域 | パス / API |
+|------|------------|
+| 営業トップ | `/sales` |
+| 図面プレビュー | `/sales/floor-preview` · `GET /api/demo-kit/floor-preview/:code` |
+| デモ操作 | `POST /api/demo-kit/notifications/*` · `shelly-reboot` |
+| 見積サンプル | `GET /api/demo-kit/estimate-html/{house,minpaku,factory}` |
+| KPI CSV | `GET /api/demo-kit/kpi/csv` |
+| リセット schedule | `GET/PUT /api/demo-kit/reset-schedule` |
+| テスト | `server/test/business-phase861.test.ts` |
+| ドキュメント | `docs/phase861_900_status.md` |
+
+```bash
+cd server && npm run build && npx tsc --noEmit && npm run test
+```
+
+---
+
 ## TiSLY Platform — Production Real Connection & Reliability（Phase 781–820）
 
 **MQTT TLS · Gmail DLQ · QNAP差分同期 · AI週次バッチ · WS再接続 · PDF回帰 · 共通状態バッジ**

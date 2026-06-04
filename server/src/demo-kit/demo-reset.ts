@@ -7,6 +7,7 @@ import {
 import { clearDemoTimeline, seedDemoTimeline30Days } from "./demo-timeline-generator.js";
 import { clearDemoFloorMaps, ensureDemoFloorMapsForAllCustomers } from "./demo-floor-maps.js";
 import { clearDemoKpiProjects, seedDemoKpiProjects } from "./demo-kpi-seed.js";
+import { markDemoResetScheduleRan } from "./demo-reset-schedule.js";
 
 export interface DemoResetResult {
   ok: boolean;
@@ -61,7 +62,9 @@ export function clearDemoKitData(): void {
 /** デモデータを削除して再生成（営業前ワンクリックリセット） */
 export function resetDemoKit(): DemoResetResult {
   clearDemoKitData();
-  return runDemoKitSeed();
+  const result = runDemoKitSeed();
+  markDemoResetScheduleRan();
+  return result;
 }
 
 /** 起動時 idempotent シード（フルリセットは POST /api/demo-kit/reset のみ） */

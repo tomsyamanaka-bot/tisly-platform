@@ -1,8 +1,12 @@
-# Sales Presentation Mode（Phase 821–860）
+# Sales Presentation Mode（Phase 861–900）
 
 ## URL
 
-**`/sales`** — 営業専用プレゼン画面
+**`/sales`** — 営業専用プレゼン画面（お客様向けの平易な文言・大きめボタン）
+
+**`/sales/floor-preview`** — 建物の見取り図（外周・1階・2階）
+
+詳細: [sales_demo_operation.md](./sales_demo_operation.md)
 
 ## カード構成
 

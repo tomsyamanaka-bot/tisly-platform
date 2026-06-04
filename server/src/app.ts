@@ -340,6 +340,10 @@ export function createApp(): express.Application {
     res.sendFile(path.join(publicDir, "sales.html"));
   });
 
+  app.get("/sales/floor-preview", (_req, res) => {
+    res.sendFile(path.join(publicDir, "sales-floor-preview.html"));
+  });
+
   app.get("/manifest.webmanifest", (_req, res) => {
     res.sendFile(path.join(publicDir, "manifest.webmanifest"));
   });
