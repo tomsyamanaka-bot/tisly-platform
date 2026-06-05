@@ -1,5 +1,5 @@
 /**
- * Phase 1321–1340 — TiSLY Security Automation types
+ * Phase 1321–1360 — TiSLY Security Automation types
  */
 
 export type SecurityMode = "armed" | "disarmed" | "pending_arm" | "pending_disarm";
@@ -72,12 +72,15 @@ export interface PresenceSummary {
   anyHome: boolean;
 }
 
+export type SwitchBotLockState = "locked" | "unlocked" | "unknown" | "offline";
+
 export interface SwitchBotLockStatus {
   deviceId: string;
-  lockState: "locked" | "unlocked" | "unknown";
+  lockState: SwitchBotLockState;
   battery?: number;
   mode: "mock" | "dryRun" | "real";
   fetchedAt: string;
+  error?: string;
 }
 
 export interface SecurityAutomationSettings {
@@ -86,4 +89,35 @@ export interface SecurityAutomationSettings {
   autoDisarmEnabled: boolean;
   delaySeconds: number;
   unknownDevicePolicy: UnknownDevicePolicy;
+  /** 手動オーバーライド — true の間は自動警戒ONをブロック */
+  manualOverride: boolean;
+  /** real モードで自動警戒を許可するか（UI で明示確認後のみ true） */
+  realExecutionConfirmed: boolean;
+}
+
+/** 在宅判定ゲート — 警戒ON条件チェックリスト */
+export interface SecurityArmGateCheck {
+  registeredDevicesAllAway: boolean;
+  switchBotLocked: boolean;
+  lastUnlockWithinSec: number | null;
+  doorOpenedAfterUnlock: boolean;
+  unknownDeviceDetected: boolean;
+  manualOverride: boolean;
+  autoArmEnabled: boolean;
+  autoDisarmEnabled: boolean;
+  confirmed: boolean;
+  switchbotIntegrationEnabled: boolean;
+  canArm: boolean;
+  canDisarm: boolean;
+  armReasons: string[];
+  disarmReasons: string[];
+}
+
+export interface SwitchBotBridgeWorkerState {
+  lastPollAt: string | null;
+  lastLockState: SwitchBotLockState | null;
+  lastUnlockAt: string | null;
+  lastError: string | null;
+  pollCount: number;
+  changeCount: number;
 }

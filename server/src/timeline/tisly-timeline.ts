@@ -134,6 +134,31 @@ export function buildUnifiedTimeline(filters?: {
   }
 
   try {
+    const securityRows = db
+      .prepare(
+        `SELECT id, event_type, message, source, created_at, metadata_json
+         FROM security_event_logs
+         WHERE event_type LIKE 'switchbot_%' OR event_type IN ('auto_armed', 'auto_disarmed', 'auto_arm_blocked')
+         ORDER BY created_at DESC LIMIT ?`
+      )
+      .all(Math.min(limit, 30)) as Array<Record<string, unknown>>;
+    for (const r of securityRows) {
+      events.push({
+        id: `SEC-${String(r.id)}`,
+        category: "Alert",
+        title: String(r.event_type),
+        detail: String(r.message ?? ""),
+        projectId: null,
+        customerCode: filters?.customerCode?.toUpperCase() ?? null,
+        createdAt: String(r.created_at),
+        metadata: { source: r.source, security: true },
+      });
+    }
+  } catch {
+    /* security_event_logs optional */
+  }
+
+  try {
     const alertRows = db
       .prepare(
         `SELECT id, event_type, message, severity, created_at, customer_id, site_id

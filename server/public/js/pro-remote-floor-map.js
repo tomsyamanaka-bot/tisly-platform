@@ -281,12 +281,21 @@ function showPinActions(pin, layer) {
   }
 }
 
+function renderSecurityBadge(security) {
+  const el = document.getElementById("pro-remote-security-badge");
+  if (!el || !security) return;
+  el.hidden = false;
+  el.className = `pro-security-badge${security.armed ? " pro-security-badge--armed" : ""}`;
+  el.textContent = `${security.label} · ${security.lockState} · ${security.switchbotMode}`;
+}
+
 async function loadStack() {
   const root = document.getElementById("floor-map-stack");
   if (!root) return;
   root.innerHTML = "<p class='hint'>読込中…</p>";
   try {
     stackData = await apiGet(`/api/customer/${CODE}/pro-remote/floor-stack?rc=2`);
+    renderSecurityBadge(stackData.security);
     root.innerHTML = "";
     const sorted = [...(stackData.layers || [])].sort(
       (a, b) => TIER_ORDER.indexOf(a.tier) - TIER_ORDER.indexOf(b.tier)
@@ -321,7 +330,29 @@ document.getElementById("btn-floor-alert-jump")?.addEventListener("click", () =>
   else alert("異常階はありません");
 });
 
+function connectSecurityWs() {
+  if (typeof WebSocket === "undefined") return;
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  const ws = new WebSocket(`${proto}://${location.host}/ws`);
+  ws.onmessage = (ev) => {
+    try {
+      const msg = JSON.parse(ev.data);
+      const payload = msg.payload ?? msg;
+      if (msg.type === "security_focus" || payload.event?.startsWith("switchbot_")) {
+        if (!payload.customerCode || payload.customerCode.toUpperCase() === CODE) {
+          const floor = payload.floor ?? (payload.event === "switchbot_locked" ? "perimeter" : "1f");
+          scrollToTier(floor);
+          void loadStack();
+        }
+      }
+    } catch {
+      /* */
+    }
+  };
+}
+
 export function initProRemoteFloorMap() {
   loadStack();
+  connectSecurityWs();
   setInterval(loadStack, 30000);
 }

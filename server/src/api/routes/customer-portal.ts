@@ -240,7 +240,7 @@ customerPortalRouter.get(
   }
 );
 
-customerPortalRouter.get("/:customerCode/tv", ...portalAuth, (req: AuthedRequest, res) => {
+customerPortalRouter.get("/:customerCode/tv", ...portalAuth, async (req: AuthedRequest, res) => {
   const customer = resolveCustomer(req, String(req.params.customerCode));
   if (!customer) {
     res.status(403).json({ error: "Denied" });
@@ -276,6 +276,25 @@ customerPortalRouter.get("/:customerCode/tv", ...portalAuth, (req: AuthedRequest
   });
   const recoveryStatus = openCount > 0 ? "active" : "idle";
 
+  let securityState: Record<string, unknown> = { mode: "disarmed", switchbotMode: "mock" };
+  try {
+    const { getSecurityState } = await import("../../services/securityAutomationService.js");
+    const { getSwitchBotLockStatus, getSwitchBotMode } = await import(
+      "../../services/switchbotService.js"
+    );
+    const state = getSecurityState();
+    const lockStatus = await getSwitchBotLockStatus();
+    securityState = {
+      mode: state.mode,
+      reason: state.reason,
+      switchbotMode: getSwitchBotMode(),
+      lockState: lockStatus.lockState,
+      lastChangedAt: state.lastChangedAt,
+    };
+  } catch {
+    /* security automation optional */
+  }
+
   res.json({
     customer,
     branding,
@@ -287,6 +306,7 @@ customerPortalRouter.get("/:customerCode/tv", ...portalAuth, (req: AuthedRequest
     cameras: devices.filter((d) => ["ESP32", "PLC"].includes(d.deviceType.toUpperCase())),
     alerts,
     recoveryStatus,
+    security: securityState,
     certPinning: {
       enabled: config.tv.certPinningEnabled,
       fingerprint: config.tv.certFingerprint,

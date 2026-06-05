@@ -1,8 +1,10 @@
 /**
- * Phase 1321–1340 — Registered device presence for security automation
+ * Phase 1321–1360 — Registered device presence for security automation
  */
+import { config } from "../config.js";
 import {
   getRegisteredDevices,
+  getAutomationSettings,
   updateDevicePresenceInStore,
   upsertPresenceDevice,
 } from "../security-automation/security-automation-store.js";
@@ -10,7 +12,14 @@ import type {
   PresenceStatus,
   PresenceSummary,
   RegisteredPresenceDevice,
+  SecurityArmGateCheck,
+  SwitchBotLockStatus,
 } from "../security-automation/security-automation-types.js";
+import {
+  getSwitchBotLastUnlockAt,
+  getSwitchBotLockStateSync,
+  getSwitchBotMode,
+} from "./switchbotService.js";
 
 export { getRegisteredDevices };
 
@@ -42,6 +51,12 @@ export function isAnyRegisteredDeviceHome(): boolean {
     .some((d) => d.presenceStatus === "home");
 }
 
+export function hasUnknownRegisteredDevices(): boolean {
+  return getRegisteredDevices()
+    .filter((d) => d.enabled)
+    .some((d) => d.presenceStatus === "unknown");
+}
+
 export function getPresenceSummary(): PresenceSummary {
   const devices = getRegisteredDevices();
   const enabled = devices.filter((d) => d.enabled);
@@ -57,6 +72,20 @@ export function getPresenceSummary(): PresenceSummary {
     allAway: enabled.length > 0 && home === 0 && unknown === 0,
     anyHome: home > 0,
   };
+}
+
+export function getLastUnlockWithinSec(): number | null {
+  const lastUnlock = getSwitchBotLastUnlockAt();
+  if (!lastUnlock) return null;
+  const sec = Math.floor((Date.now() - new Date(lastUnlock).getTime()) / 1000);
+  return sec >= 0 ? sec : null;
+}
+
+/** 解錠直後のドア開放検知（Phase1341 mock — 将来センサー連携） */
+export function isDoorOpenedAfterUnlock(): boolean {
+  const within = getLastUnlockWithinSec();
+  if (within === null) return false;
+  return within < 60;
 }
 
 /** unknown 端末をポリシーに従って評価 */
@@ -89,4 +118,63 @@ export function evaluatePresenceForAutoArm(
     return { canArm: false, reason: "Auto arm blocked: not all away" };
   }
   return { canArm: true };
+}
+
+/** 在宅判定ゲート — 警戒ON/OFF 条件チェックリスト */
+export function evaluateSecurityArmGate(lockStatus?: SwitchBotLockStatus): SecurityArmGateCheck {
+  const settings = getAutomationSettings();
+  const mode = getSwitchBotMode();
+  const confirmed =
+    mode === "mock" || mode === "dryRun" ? true : settings.realExecutionConfirmed;
+  const lockState = lockStatus?.lockState ?? getSwitchBotLockStateSync();
+  const switchBotLocked = lockState === "locked";
+  const switchBotUnlocked = lockState === "unlocked";
+  const registeredDevicesAllAway = areAllRegisteredDevicesAway();
+  const unknownDeviceDetected = hasUnknownRegisteredDevices();
+  const lastUnlockWithinSec = getLastUnlockWithinSec();
+  const doorOpenedAfterUnlock = isDoorOpenedAfterUnlock();
+  const unlockCooldown = config.securityAutomation.unlockCooldownSec;
+
+  const armReasons: string[] = [];
+  const disarmReasons: string[] = [];
+
+  if (!settings.switchbotIntegrationEnabled) armReasons.push("SwitchBot連携が無効");
+  if (!settings.autoArmEnabled) armReasons.push("自動警戒ONが無効（AUTO_ARM=false）");
+  if (!switchBotLocked) armReasons.push("SwitchBotが施錠されていない");
+  if (!registeredDevicesAllAway) armReasons.push("登録端末が全不在ではない");
+  if (unknownDeviceDetected) armReasons.push("unknown 端末が検出されている");
+  if (settings.manualOverride) armReasons.push("手動オーバーライドが有効");
+  if (!confirmed) armReasons.push("real 実行許可（confirmed）が未設定");
+  // 施錠済みなら解錠クールダウン・ドア開放は適用しない（施錠後の警戒ONを妨げない）
+  if (!switchBotLocked) {
+    if (lastUnlockWithinSec !== null && lastUnlockWithinSec < unlockCooldown) {
+      armReasons.push(`解錠後 ${lastUnlockWithinSec}秒 — クールダウン ${unlockCooldown}秒`);
+    }
+    if (doorOpenedAfterUnlock) armReasons.push("解錠後にドア開放を検知（mock）");
+  }
+
+  if (!settings.switchbotIntegrationEnabled) disarmReasons.push("SwitchBot連携が無効");
+  if (!settings.autoDisarmEnabled) disarmReasons.push("自動警戒OFFが無効（AUTO_DISARM=false）");
+  if (!switchBotUnlocked) disarmReasons.push("SwitchBotが解錠されていない");
+  if (!confirmed) disarmReasons.push("real 実行許可（confirmed）が未設定");
+
+  const canArm = armReasons.length === 0;
+  const canDisarm = disarmReasons.length === 0;
+
+  return {
+    registeredDevicesAllAway,
+    switchBotLocked,
+    lastUnlockWithinSec,
+    doorOpenedAfterUnlock,
+    unknownDeviceDetected,
+    manualOverride: settings.manualOverride,
+    autoArmEnabled: settings.autoArmEnabled,
+    autoDisarmEnabled: settings.autoDisarmEnabled,
+    confirmed,
+    switchbotIntegrationEnabled: settings.switchbotIntegrationEnabled,
+    canArm,
+    canDisarm,
+    armReasons,
+    disarmReasons,
+  };
 }

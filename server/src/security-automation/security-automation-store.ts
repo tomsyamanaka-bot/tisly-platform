@@ -21,6 +21,8 @@ const DEFAULT_SETTINGS: SecurityAutomationSettings = {
   autoDisarmEnabled: false,
   delaySeconds: 300,
   unknownDevicePolicy: "block_auto_arm",
+  manualOverride: false,
+  realExecutionConfirmed: false,
 };
 
 const DEFAULT_RULES: Omit<SecurityAutomationRule, "id">[] = [
@@ -142,7 +144,10 @@ export function saveSecurityState(
 
 export function createSecurityEventLogEntry(
   event: Omit<SecurityEventLog, "id" | "createdAt">
-): SecurityEventLog {
+): SecurityEventLog | null {
+  if (!config.securityAutomation.eventLogEnabled) {
+    return null;
+  }
   const id = uuid();
   const createdAt = new Date().toISOString();
   getDatabase()
@@ -348,7 +353,13 @@ export function getAutomationSettings(): SecurityAutomationSettings {
     .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
     .get("security_automation_settings") as { value_json: string };
   try {
-    return { ...DEFAULT_SETTINGS, ...(JSON.parse(row.value_json) as SecurityAutomationSettings) };
+    const parsed = JSON.parse(row.value_json) as Partial<SecurityAutomationSettings>;
+    return {
+      ...DEFAULT_SETTINGS,
+      ...parsed,
+      manualOverride: parsed.manualOverride ?? false,
+      realExecutionConfirmed: parsed.realExecutionConfirmed ?? false,
+    };
   } catch {
     return DEFAULT_SETTINGS;
   }

@@ -13,6 +13,7 @@ import { handleWsClientMessage, registerWsClient } from "./ws/hub.js";
 import { startLiveOperationsMockPush } from "./toms/live-push-mock.js";
 import { startBackupScheduler } from "./backup/backup-scheduler.js";
 import { startWorkers } from "./workers/worker-runner.js";
+import { startSwitchBotBridgeWorker } from "./workers/switchbot-bridge-worker.js";
 import { startDemoResetCron, syncDemoResetFromEnv } from "./demo-kit/demo-reset-cron.js";
 import { logProductionEnvWarnings } from "./config/production-env-checker.js";
 
@@ -24,6 +25,7 @@ syncDemoResetFromEnv();
 startDemoResetCron();
 startBackupScheduler();
 startWorkers();
+startSwitchBotBridgeWorker();
 
 const app = createApp();
 

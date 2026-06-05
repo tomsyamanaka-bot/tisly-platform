@@ -216,10 +216,24 @@ export const config = {
     get autoDisarmEnabled() {
       return env("SWITCHBOT_AUTO_DISARM_ENABLED", "false") === "true";
     },
+    get pollIntervalMs() {
+      return Number(env("SWITCHBOT_POLL_INTERVAL_MS", "30000"));
+    },
+    get focusCustomerCode() {
+      return env("SECURITY_FOCUS_CUSTOMER_CODE", "TOMS001").toUpperCase();
+    },
   },
   securityAutomation: {
     get eventLogEnabled() {
       return env("SECURITY_EVENT_LOG_ENABLED", "true") === "true";
+    },
+    get unknownDevicePolicy() {
+      const p = env("SECURITY_UNKNOWN_DEVICE_POLICY", "block_auto_arm");
+      if (p === "unknown_as_away" || p === "unknown_as_home") return p;
+      return "block_auto_arm" as const;
+    },
+    get unlockCooldownSec() {
+      return Number(env("SECURITY_UNLOCK_COOLDOWN_SEC", "120"));
     },
   },
 };

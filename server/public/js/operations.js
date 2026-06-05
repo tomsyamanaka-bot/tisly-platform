@@ -342,12 +342,115 @@ async function loadQnapOps() {
   }
 }
 
+function modeBadgeClass(mode) {
+  if (mode === "real") return "sb-badge--real";
+  if (mode === "dryRun") return "sb-badge--dryRun";
+  return "sb-badge--mock";
+}
+
+function renderSecurityAutomationCard(data) {
+  const card = document.getElementById("security-automation-card");
+  if (!card) return;
+  const gate = data.armGate ?? {};
+  const checks = [
+    { ok: gate.switchBotLocked, label: "SwitchBot 施錠" },
+    { ok: gate.registeredDevicesAllAway, label: "登録端末が全不在" },
+    { ok: !gate.unknownDeviceDetected, label: "unknown 端末なし" },
+    { ok: !gate.manualOverride, label: "手動オーバーライドなし" },
+    { ok: gate.autoArmEnabled, label: "AUTO_ARM 有効" },
+    { ok: gate.confirmed, label: "real 実行許可（confirmed）" },
+  ];
+  const gateHtml = checks
+    .map((c) => `<li class="${c.ok ? "ok" : "ng"}">${c.ok ? "✓" : "✗"} ${c.label}</li>`)
+    .join("");
+  const autoOff =
+    !data.settings?.autoArmEnabled && !data.settings?.autoDisarmEnabled;
+  const lockState = data.switchbotStatus?.lockState ?? "—";
+  const lastPoll = data.worker?.lastPollAt ?? "未ポーリング";
+  card.className = `security-automation-card${data.dangerousSettings ? " security-danger" : ""}`;
+  card.innerHTML = `
+    <h3>SwitchBot / 自動警戒 <span class="sb-badge ${modeBadgeClass(data.switchbotMode)}">${data.switchbotMode}</span>
+      <span class="sb-badge" style="background:#1e3a5f;color:#93c5fd">警戒: ${data.securityState?.mode ?? "—"}</span>
+    </h3>
+    ${data.dangerousSettings ? '<p style="color:#ef4444;font-weight:600">⚠ 危険設定: real + 自動ON/OFF + confirmed 有効</p>' : ""}
+    ${autoOff ? '<div class="security-auto-off-banner">自動ON/OFFは現在OFF（AUTO_ARM / AUTO_DISARM = false）</div>' : ""}
+    <div class="health-grid" style="margin-top:0.75rem">
+      <div class="health-card"><h3>ロック状態</h3><p>${lockState}</p></div>
+      <div class="health-card"><h3>最終取得</h3><p style="font-size:0.8rem">${lastPoll}</p></div>
+      <div class="health-card"><h3>ポーリング</h3><p>${data.worker?.pollCount ?? 0} 回 / 変化 ${data.worker?.changeCount ?? 0}</p></div>
+      <div class="health-card"><h3>在宅</h3><p>home ${data.presence?.home ?? 0} / away ${data.presence?.away ?? 0} / unknown ${data.presence?.unknown ?? 0}</p></div>
+    </div>
+    <h4>警戒ON 条件チェックリスト</h4>
+    <ul class="security-gate-list">${gateHtml}</ul>
+    <div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:0.75rem">
+      <button type="button" class="btn secondary" id="btn-sb-dryrun">dryRun確認</button>
+      <button type="button" class="btn" id="btn-sb-real-confirm">real実行許可</button>
+      <button type="button" class="btn secondary" id="btn-sb-real-revoke">real許可取消</button>
+      <button type="button" class="btn secondary" id="btn-sb-poll">手動ポーリング</button>
+      <a href="/security" class="btn secondary">警戒ダッシュボード</a>
+      <a href="/security/settings/automation" class="btn secondary">自動化設定</a>
+    </div>
+    <p id="sb-ops-message" class="hint" style="margin-top:0.5rem"></p>`;
+
+  document.getElementById("btn-sb-dryrun")?.addEventListener("click", async () => {
+    const msg = document.getElementById("sb-ops-message");
+    try {
+      const r = await apiPost("/api/security/operations/dry-run-verify", {});
+      if (msg) msg.textContent = r.message ?? (r.ok ? "OK" : "失敗");
+    } catch (e) {
+      if (msg) msg.textContent = String(e);
+    }
+  });
+  document.getElementById("btn-sb-real-confirm")?.addEventListener("click", async () => {
+    if (!window.confirm("real モードで自動警戒の実行を許可しますか？\n誤作動防止のため、現場確認後のみ実行してください。")) return;
+    try {
+      await apiPost("/api/security/operations/real-confirm", { confirmed: true });
+      await loadSecurityAutomationCard();
+    } catch (e) {
+      alert(String(e));
+    }
+  });
+  document.getElementById("btn-sb-real-revoke")?.addEventListener("click", async () => {
+    try {
+      await apiPost("/api/security/operations/real-revoke", {});
+      await loadSecurityAutomationCard();
+    } catch (e) {
+      alert(String(e));
+    }
+  });
+  document.getElementById("btn-sb-poll")?.addEventListener("click", async () => {
+    const msg = document.getElementById("sb-ops-message");
+    try {
+      const r = await apiPost("/api/security/operations/poll", {});
+      if (msg) msg.textContent = `poll: changed=${r.changed} lock=${r.status?.lockState}`;
+      await loadSecurityAutomationCard();
+    } catch (e) {
+      if (msg) msg.textContent = String(e);
+    }
+  });
+}
+
+async function loadSecurityAutomationCard() {
+  const card = document.getElementById("security-automation-card");
+  if (!getAdminToken()) {
+    if (card) card.innerHTML = "<p class='hint'>SwitchBot 状態 — ログイン後に表示</p>";
+    return;
+  }
+  try {
+    const data = await apiGet("/api/security/operations/overview");
+    renderSecurityAutomationCard(data);
+  } catch (e) {
+    if (card) card.innerHTML = `<p class="hint">自動警戒: ${e.message ?? e}</p>`;
+  }
+}
+
 async function loadSecurity() {
   const statusEl = document.getElementById("security-auth-status");
   const grid = document.getElementById("security-grid");
   const auditEl = document.getElementById("security-audit-body");
   const sessionsEl = document.getElementById("security-sessions-body");
   const token = getAdminToken();
+  await loadSecurityAutomationCard();
   if (!token) {
     if (statusEl) statusEl.textContent = "未ログイン — 管理 API は認証が必要です";
     if (grid) grid.innerHTML = "";

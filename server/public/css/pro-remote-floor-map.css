@@ -1,3 +1,18 @@
+.pro-security-badge {
+  display: inline-block;
+  margin-top: 0.35rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  background: #374151;
+  color: #e5e7eb;
+}
+.pro-security-badge--armed {
+  background: #991b1b;
+  color: #fecaca;
+  font-weight: 600;
+}
+
 .pro-remote-main {
   padding: 0 0 2rem;
 }

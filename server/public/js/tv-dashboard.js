@@ -193,6 +193,14 @@ function render(data) {
     .join("");
 
   const s = data.summary;
+  const sec = data.security ?? {};
+  const secLabel =
+    sec.mode === "armed"
+      ? "警戒ON"
+      : sec.mode === "pending_arm"
+        ? "警戒準備"
+        : "警戒OFF";
+  const lockLabel = sec.lockState === "locked" ? "施錠" : sec.lockState === "unlocked" ? "解錠" : sec.lockState ?? "—";
   document.getElementById("tv-summary").innerHTML = `
     <div class="tv-metric" tabindex="0"><div class="label">設備</div><div class="value">${s.deviceCount}</div></div>
     <div class="tv-metric" tabindex="0"><div class="label">オンライン</div><div class="value">${s.onlineCount}</div></div>
@@ -200,6 +208,8 @@ function render(data) {
     <div class="tv-metric" tabindex="0"><div class="label">状態</div><div class="value">${
       s.overallStatus === "normal" ? "正常" : s.overallStatus === "warning" ? "警告" : "異常"
     }</div></div>
+    <div class="tv-metric ${sec.mode === "armed" ? "warn" : ""}" tabindex="0"><div class="label">警戒</div><div class="value">${secLabel}</div></div>
+    <div class="tv-metric" tabindex="0"><div class="label">SwitchBot</div><div class="value">${lockLabel}</div></div>
   `;
 
   const dh = data.deviceHealth ?? {};
@@ -352,6 +362,17 @@ function connectTvWs() {
     try {
       const msg = JSON.parse(ev.data);
       const payload = msg.payload ?? msg;
+      if (msg.type === "security_focus" || payload.event?.startsWith("switchbot_")) {
+        if (!payload.customerCode || payload.customerCode.toUpperCase() === customerCode) {
+          void refresh();
+          if (!payload.cameraAutoSwitch) {
+            const floor = payload.floor ?? "1f";
+            const hint = document.getElementById("tv-view-label");
+            if (hint) hint.textContent = `Security focus: ${floor}（カメラ自動切替は mock）`;
+          }
+        }
+        return;
+      }
       if (
         msg.type === "camera_focus" ||
         payload.event === "camera_focus" ||

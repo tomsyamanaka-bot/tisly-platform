@@ -10,6 +10,7 @@ import {
   confirmPendingArmCheck,
   createSecurityEventLog,
   evaluatePresenceOnlyChange,
+  evaluateSecurityArmGate,
   getAutomationRules,
   getLastSecurityEventLog,
   getSecurityState,
@@ -25,13 +26,16 @@ import {
   updateDevicePresence,
 } from "../../services/securityPresenceService.js";
 import {
+  getSwitchBotBridgeWorkerState,
   handleSwitchBotLocked,
   handleSwitchBotUnlocked,
+  pollSwitchBotAndBridge,
 } from "../../services/switchBotSecurityBridge.js";
 import {
   getSwitchBotLockStatus,
   getSwitchBotMode,
   isRealUnlockGuarded,
+  verifySwitchBotDryRunConnection,
 } from "../../services/switchbotService.js";
 
 export const securityAutomationRouter = Router();
@@ -219,4 +223,101 @@ securityAutomationRouter.get("/automation/release-check", (_req, res) => {
     settings: getAutomationSettings(),
     state: getSecurityState(),
   });
+});
+
+/** Operations Security タブ — SwitchBot 状態カード用 */
+securityAutomationRouter.get("/operations/overview", async (_req, res) => {
+  const status = await getSwitchBotLockStatus();
+  const gate = evaluateSecurityArmGate(status);
+  const settings = getAutomationSettings();
+  const mode = getSwitchBotMode();
+  const worker = getSwitchBotBridgeWorkerState();
+  const dangerous =
+    mode === "real" &&
+    (settings.autoArmEnabled || settings.autoDisarmEnabled) &&
+    settings.realExecutionConfirmed;
+
+  res.json({
+    phase: "1341-1360",
+    switchbotMode: mode,
+    switchbotStatus: status,
+    worker,
+    securityState: getSecurityState(),
+    settings: {
+      autoArmEnabled: settings.autoArmEnabled,
+      autoDisarmEnabled: settings.autoDisarmEnabled,
+      manualOverride: settings.manualOverride,
+      realExecutionConfirmed: settings.realExecutionConfirmed,
+      switchbotIntegrationEnabled: settings.switchbotIntegrationEnabled,
+    },
+    armGate: gate,
+    presence: getPresenceSummary(),
+    notifications: collectSecurityNotificationCandidates(),
+    dangerousSettings: dangerous,
+    envAutoArm: config.switchbot.autoArmEnabled,
+    envAutoDisarm: config.switchbot.autoDisarmEnabled,
+  });
+});
+
+securityAutomationRouter.post("/operations/dry-run-verify", async (_req, res) => {
+  const result = await verifySwitchBotDryRunConnection();
+  if (!result.ok) {
+    createSecurityEventLog({
+      eventType: "switchbot_status_failed",
+      source: "switchbot",
+      message: result.message,
+      beforeMode: getSecurityState().mode,
+      afterMode: getSecurityState().mode,
+      metadata: { dryRunVerify: true },
+    });
+  }
+  res.json(result);
+});
+
+securityAutomationRouter.post("/operations/real-confirm", (req: AuthedRequest, res) => {
+  const body = req.body ?? {};
+  if (body.confirmed !== true) {
+    res.status(400).json({ error: "confirmed=true required" });
+    return;
+  }
+  if (getSwitchBotMode() !== "real") {
+    res.status(400).json({ error: "SWITCHBOT_MODE must be real" });
+    return;
+  }
+  const settings = saveAutomationSettings({ realExecutionConfirmed: true });
+  createSecurityEventLog({
+    eventType: "real_execution_confirmed",
+    source: "manual",
+    message: `Real execution confirmed by ${req.admin?.username ?? "admin"}`,
+    beforeMode: getSecurityState().mode,
+    afterMode: getSecurityState().mode,
+    metadata: { confirmedBy: req.admin?.username },
+  });
+  res.json({ ok: true, settings });
+});
+
+securityAutomationRouter.post("/operations/real-revoke", (req: AuthedRequest, res) => {
+  const settings = saveAutomationSettings({ realExecutionConfirmed: false });
+  createSecurityEventLog({
+    eventType: "real_execution_revoked",
+    source: "manual",
+    message: `Real execution revoked by ${req.admin?.username ?? "admin"}`,
+    beforeMode: getSecurityState().mode,
+    afterMode: getSecurityState().mode,
+    metadata: {},
+  });
+  res.json({ ok: true, settings });
+});
+
+securityAutomationRouter.post("/operations/poll", async (_req, res) => {
+  const result = await pollSwitchBotAndBridge();
+  res.json(result);
+});
+
+securityAutomationRouter.patch("/operations/manual-override", (req, res) => {
+  const body = req.body ?? {};
+  const settings = saveAutomationSettings({
+    manualOverride: body.enabled === true,
+  });
+  res.json(settings);
 });

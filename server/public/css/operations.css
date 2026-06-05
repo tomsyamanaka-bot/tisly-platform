@@ -99,3 +99,37 @@ body.ui-simple .ops-nav button:not([data-panel="devices"]):not([data-panel="alar
   margin-bottom: 1rem;
   font-size: 0.9rem;
 }
+
+.security-automation-card {
+  border: 1px solid var(--tisly-border);
+  border-radius: 12px;
+  padding: 1rem;
+  background: var(--tisly-card);
+}
+.security-automation-card.security-danger {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+}
+.security-automation-card .sb-badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-right: 0.5rem;
+}
+.sb-badge--mock { background: #374151; color: #e5e7eb; }
+.sb-badge--dryRun { background: #854d0e; color: #fef3c7; }
+.sb-badge--real { background: #991b1b; color: #fecaca; }
+.security-gate-list { list-style: none; padding: 0; margin: 0.75rem 0; }
+.security-gate-list li { padding: 0.25rem 0; font-size: 0.9rem; }
+.security-gate-list li.ok { color: var(--tisly-green); }
+.security-gate-list li.ng { color: #f87171; }
+.security-auto-off-banner {
+  background: rgba(234, 179, 8, 0.15);
+  border: 1px solid #eab308;
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  margin: 0.75rem 0;
+  font-size: 0.85rem;
+}
