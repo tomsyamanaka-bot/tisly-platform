@@ -53,6 +53,14 @@ import {
   updateBusinessProject,
 } from "../../business/business-store.js";
 import { createBusinessProjectFromSurveyProject } from "../../business/services/businessFromSurveyService.js";
+import { generateEstimateFromSurvey } from "../../business/services/estimateGenerateService.js";
+import {
+  createEstimateDraftV2,
+  getEstimateDraftV2,
+  getLatestEstimateDraftV2,
+  patchEstimateDraftV2,
+  type EstimateDraftLineV2,
+} from "../../business/estimate-draft-v2.js";
 import {
   createConstructionCalendarDraft,
   createPaymentCalendarDraft,
@@ -779,6 +787,81 @@ businessRouter.post("/from-survey/:surveyProjectId", ...businessAuth, (req: Auth
   } catch (e) {
     res.status(400).json({ error: (e as Error).message });
   }
+});
+
+businessRouter.post("/estimate/generate", ...businessAuth, (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  const body = req.body as {
+    projectId?: string;
+    surveyProjectId?: string;
+    runAnalysis?: boolean;
+  };
+  if (!body.projectId) {
+    res.status(400).json({ error: "projectId required" });
+    return;
+  }
+  try {
+    const result = generateEstimateFromSurvey({
+      projectId: body.projectId,
+      surveyProjectId: body.surveyProjectId,
+      runAnalysis: body.runAnalysis,
+    });
+    res.status(201).json({
+      phase: "1121-1160",
+      estimate: result.estimate,
+      analysis: result.analysis,
+      tomsFormat: result.tomsFormat,
+    });
+  } catch (e) {
+    res.status(400).json({ error: (e as Error).message });
+  }
+});
+
+businessRouter.post("/projects/:projectId/estimate-draft", ...businessAuth, (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  const body = req.body as { runAnalysis?: boolean };
+  try {
+    const draft = createEstimateDraftV2(String(req.params.projectId), {
+      runAnalysis: body.runAnalysis,
+    });
+    res.status(201).json({ phase: "1161-1200", version: "v2", draft });
+  } catch (e) {
+    res.status(400).json({ error: (e as Error).message });
+  }
+});
+
+businessRouter.get("/projects/:projectId/estimate-draft", ...businessAuth, (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  const draft = getLatestEstimateDraftV2(String(req.params.projectId));
+  if (!draft) {
+    res.status(404).json({ error: "Draft not found" });
+    return;
+  }
+  res.json({ phase: "1161-1200", draft });
+});
+
+businessRouter.patch("/estimate-draft/:id", ...businessAuth, (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  const body = req.body as {
+    lines?: EstimateDraftLineV2[];
+    status?: "draft" | "finalized";
+  };
+  const draft = patchEstimateDraftV2(String(req.params.id), body);
+  if (!draft) {
+    res.status(404).json({ error: "Draft not found" });
+    return;
+  }
+  res.json({ phase: "1161-1200", draft });
+});
+
+businessRouter.get("/estimate-draft/:id", ...businessAuth, (req: AuthedRequest, res) => {
+  if (!assertBusinessRole(req, res)) return;
+  const draft = getEstimateDraftV2(String(req.params.id));
+  if (!draft) {
+    res.status(404).json({ error: "Draft not found" });
+    return;
+  }
+  res.json({ phase: "1161-1200", draft });
 });
 
 businessRouter.get("/hub-counts", ...businessAuth, (req: AuthedRequest, res) => {

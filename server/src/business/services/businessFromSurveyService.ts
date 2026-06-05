@@ -12,7 +12,7 @@ import {
   saveBusinessPhoto,
   updateBusinessProject,
 } from "../business-store.js";
-import { statusAfterSurveyDone } from "../business-status.js";
+import { statusAfterSurveyDone, statusAfterSurveySchedule } from "../business-status.js";
 import type { BusinessProject, BusinessPhoto } from "../business-types.js";
 import fs from "fs";
 import path from "path";
@@ -79,10 +79,16 @@ export function createBusinessProjectFromSurveyProject(surveyProjectId: string):
     gpsNote,
   ].filter(Boolean);
 
-  return updateBusinessProject(project.id, {
+  const patch = {
     surveyMemo: memoParts.join(" / "),
     address: survey.address ?? project.address,
-    status: photos.length > 0 ? statusAfterSurveyDone() : project.status,
     surveyPhotos: surveyPhotos.length ? surveyPhotos : undefined,
-  });
+  };
+
+  if (photos.length > 0 && project.status === "new") {
+    updateBusinessProject(project.id, { ...patch, status: statusAfterSurveySchedule() });
+    return updateBusinessProject(project.id, { status: statusAfterSurveyDone() });
+  }
+
+  return updateBusinessProject(project.id, patch);
 }

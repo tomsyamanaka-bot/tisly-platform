@@ -55,6 +55,7 @@
       <button type="button" class="tab" data-tab="notifications">通知ルール</button>
       <button type="button" class="tab" data-tab="recovery">Recovery</button>
       <button type="button" class="tab" data-tab="audit">Audit / Activity</button>
+      <button type="button" class="tab" data-tab="field" id="tab-field-btn" hidden>導入ビュー v1</button>
     </nav>
     <div id="tab-overview">
     <section class="metric-cards" id="metric-cards"></section>
@@ -161,6 +162,13 @@
           <button type="button" class="btn" id="btn-sched-save">追加</button>
         </form>
         <ul id="schedules-list" class="simple-list"></ul>
+      </section>
+    </div>
+    <div id="tab-field" hidden>
+      <section class="card portal-card">
+        <h2>顧客ポータル v1（owner のみ）</h2>
+        <p class="hint">設備 · カメラ · QR · 完了報告書 · 保守 · 通知履歴</p>
+        <div id="field-view-root">読込中…</div>
       </section>
     </div>
     <div id="tab-audit" hidden>

@@ -387,6 +387,7 @@ async function renderProjectDetail(id) {
       <h2>メニュー</h2>
       <a class="biz-list-item" href="/business/projects/${id}/survey">現調</a>
       <a class="biz-list-item" href="/business/projects/${id}/estimate">見積</a>
+      <a class="biz-list-item" href="/business/projects/${id}/estimate-draft">見積ドラフト v2</a>
       <a class="biz-list-item" href="/business/projects/${id}/construction">工事</a>
       <a class="biz-list-item" href="/business/projects/${id}/completion-report">完了報告</a>
       <a class="biz-list-item" href="/business/projects/${id}/invoice">請求</a>
@@ -645,6 +646,46 @@ async function renderSurvey(id) {
       body: JSON.stringify({ imageBase64: b64, fileName: file.name }),
     });
     render();
+  });
+}
+
+async function renderEstimateDraft(id) {
+  document.getElementById("biz-page-title").textContent = "見積ドラフト v2";
+  document.getElementById("biz-root").innerHTML = `
+    <section class="biz-card">
+      <h2>TOMS見積ドラフト v2</h2>
+      <p class="hint">Survey AI v2 から材料・工事・粗利率付きドラフトを生成</p>
+      <button type="button" class="biz-btn" id="btn-draft-gen">ドラフト生成</button>
+      <button type="button" class="biz-btn secondary" id="btn-draft-load">最新を読込</button>
+      <div id="draft-table" class="hint" style="margin-top:1rem">—</div>
+      <pre class="biz-preview" id="draft-out"></pre>
+    </section>
+    <a href="/business/projects/${id}">戻る</a>
+  `;
+  const renderTable = (draft) => {
+    if (!draft?.lines?.length) {
+      document.getElementById("draft-table").textContent = "行なし";
+      return;
+    }
+    const rows = draft.lines
+      .map(
+        (l) =>
+          `<tr><td>${l.materialCategory || l.laborCategory}</td><td>${l.name}</td><td>${l.quantity}${l.unit}</td><td>¥${l.unitPrice}</td><td>¥${l.costPrice}</td><td>${l.grossProfitRate}%</td><td>${l.customerDescription?.slice(0, 30)}…</td></tr>`
+      )
+      .join("");
+    document.getElementById("draft-table").innerHTML = `
+      <p>粗利率 ${draft.grossProfitRate}% / 小計 ¥${draft.subtotal}</p>
+      <table class="items"><thead><tr><th>区分</th><th>品名</th><th>数量</th><th>単価</th><th>原価</th><th>粗利</th><th>説明</th></tr></thead><tbody>${rows}</tbody></table>`;
+  };
+  document.getElementById("btn-draft-gen")?.addEventListener("click", async () => {
+    const { body } = await api(`/projects/${id}/estimate-draft`, { method: "POST", body: "{}" });
+    document.getElementById("draft-out").textContent = JSON.stringify(body.draft, null, 2);
+    renderTable(body.draft);
+  });
+  document.getElementById("btn-draft-load")?.addEventListener("click", async () => {
+    const { body } = await api(`/projects/${id}/estimate-draft`);
+    document.getElementById("draft-out").textContent = JSON.stringify(body.draft, null, 2);
+    renderTable(body.draft);
   });
 }
 
@@ -1039,6 +1080,9 @@ async function render() {
         break;
       case "estimate":
         await renderEstimate(r.projectId);
+        break;
+      case "estimate-draft":
+        await renderEstimateDraft(r.projectId);
         break;
       case "construction":
         await renderConstruction(r.projectId);

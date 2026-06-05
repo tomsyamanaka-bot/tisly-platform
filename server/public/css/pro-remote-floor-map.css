@@ -135,6 +135,17 @@
   padding: 0;
 }
 
+.floor-map-pin--blink,
+.floor-map-pin--blink-active {
+  animation: floor-pin-blink 0.8s ease-in-out infinite;
+  box-shadow: 0 0 12px #fbbf24;
+}
+
+@keyframes floor-pin-blink {
+  0%, 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  50% { opacity: 0.35; transform: translate(-50%, -50%) scale(1.25); }
+}
+
 .btn-pro {
   margin-top: 0.5rem;
   padding: 0.5rem 1rem;

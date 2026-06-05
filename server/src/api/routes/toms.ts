@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requireAuth, type AuthedRequest } from "../../auth/auth-middleware.js";
 import { buildProjectDashboard } from "../../toms/project-dashboard.js";
+import { buildProjectDashboardRc } from "../../toms/project-dashboard-rc.js";
 import { listProjectTimeline, appendProjectTimeline } from "../../toms/project-timeline.js";
 import {
   getTomsWorkflowState,
@@ -216,7 +217,9 @@ tomsRouter.post("/push/dispatch", async (_req, res) => {
 });
 
 tomsRouter.get("/projects/:projectId/dashboard", (req, res) => {
-  const dash = buildProjectDashboard(String(req.params.projectId));
+  const useRc = req.query.rc === "1" || req.query.version === "rc";
+  const projectId = String(req.params.projectId);
+  const dash = useRc ? buildProjectDashboardRc(projectId) : buildProjectDashboard(projectId);
   if (!dash) {
     res.status(404).json({ error: "project not found" });
     return;

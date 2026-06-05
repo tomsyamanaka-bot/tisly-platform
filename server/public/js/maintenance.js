@@ -161,6 +161,86 @@ async function createMaintenanceCase() {
   }
 }
 
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result).split(",")[1] || "");
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
+async function loadSchedules() {
+  const code = customerCode();
+  const list = document.getElementById("maint-schedule-list");
+  try {
+    const data = await apiGet(`/api/maintenance/schedule?customerCode=${code}`);
+    const items = data.schedules ?? [];
+    const overdue = new Set((data.overdue ?? []).map((s) => s.scheduleId));
+    list.innerHTML =
+      items
+        .map(
+          (s) =>
+            `<li data-schedule-id="${s.scheduleId}" class="${overdue.has(s.scheduleId) ? "overdue" : ""}">
+              ${s.title} — 期限 ${s.dueDate} [${s.status}]
+            </li>`
+        )
+        .join("") || "<li>点検予定なし</li>";
+  } catch {
+    list.innerHTML = "<li>要ログイン</li>";
+  }
+}
+
+async function loadReports() {
+  const code = customerCode();
+  const list = document.getElementById("maint-report-list");
+  try {
+    const data = await apiGet(`/api/maintenance/reports/${code}`);
+    list.innerHTML =
+      (data.reports ?? [])
+        .map(
+          (r) =>
+            `<li>${r.completedAt?.slice(0, 10)} — ${r.comment || "（コメントなし）"} 写真${r.photos?.length ?? 0}枚</li>`
+        )
+        .join("") || "<li>報告履歴なし</li>";
+  } catch {
+    list.innerHTML = "<li>要ログイン</li>";
+  }
+}
+
+async function addSchedule() {
+  const code = customerCode();
+  const title = document.getElementById("maint-schedule-title")?.value;
+  const dueDate = document.getElementById("maint-schedule-due")?.value;
+  if (!title || !dueDate) {
+    alert("タイトルと期限を入力してください");
+    return;
+  }
+  await apiPost("/api/maintenance/schedule", {
+    customerCode: code,
+    siteId: document.getElementById("maint-site")?.value,
+    title,
+    dueDate,
+  });
+  await loadSchedules();
+}
+
+async function submitReport() {
+  const code = customerCode();
+  const comment = document.getElementById("maint-report-comment")?.value;
+  const files = [...(document.getElementById("maint-report-photos")?.files || [])];
+  const photos = [];
+  for (const f of files) {
+    photos.push({ imageBase64: await fileToBase64(f), fileName: f.name });
+  }
+  await apiPost("/api/maintenance/report", { customerCode: code, comment, photos });
+  document.getElementById("maint-report-comment").value = "";
+  document.getElementById("maint-report-photos").value = "";
+  await loadReports();
+  await loadSchedules();
+  alert("完了報告を送信しました");
+}
+
 async function flushOfflineCases() {
   if (!navigator.onLine) return;
   const q = JSON.parse(localStorage.getItem(OFFLINE_CASES_KEY) || "[]");
@@ -185,7 +265,16 @@ document.getElementById("maint-customer")?.addEventListener("change", () => {
   loadNotifications();
   loadRecovery();
   loadShelly();
+  loadSchedules();
+  loadReports();
 });
+
+document.getElementById("btn-maint-add-schedule")?.addEventListener("click", () =>
+  addSchedule().catch((e) => alert(e.message))
+);
+document.getElementById("btn-maint-submit-report")?.addEventListener("click", () =>
+  submitReport().catch((e) => alert(e.message))
+);
 
 document.getElementById("btn-maint-save-memo")?.addEventListener("click", () => {
   localStorage.setItem(MEMO_KEY, document.getElementById("maint-memo")?.value ?? "");
@@ -209,5 +298,7 @@ loadHeartbeat();
 loadNotifications();
 loadRecovery();
 loadShelly();
+loadSchedules();
+loadReports();
 flushOfflineCases();
 window.addEventListener("online", flushOfflineCases);

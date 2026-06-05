@@ -3,7 +3,7 @@ import { appendProjectTimeline } from "../toms/project-timeline.js";
 import { pushProjectTimelineLive } from "../toms/live-push-bridge.js";
 import { getProRemoteState, recordProRemoteState } from "../toms/pro-remote-state.js";
 
-export type WsMessageType = "heartbeat" | "event" | "alarm" | "connected";
+export type WsMessageType = "heartbeat" | "event" | "alarm" | "connected" | "camera_focus";
 
 export type ProRemoteWsAction =
   | "floor_nav"

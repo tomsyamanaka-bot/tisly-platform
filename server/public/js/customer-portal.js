@@ -225,9 +225,36 @@ document.getElementById("btn-sched-save")?.addEventListener("click", async () =>
 
 let currentUserRole = "viewer";
 
+async function loadFieldViewTab() {
+  const root = document.getElementById("field-view-root");
+  const tabBtn = document.getElementById("tab-field-btn");
+  const isOwner = currentUserRole === "owner" || currentUserRole === "super_admin";
+  if (tabBtn) tabBtn.hidden = !isOwner;
+  if (!isOwner || !root) return;
+  try {
+    const data = await apiGet(`/api/customer/${customerCode}/field-view`);
+    root.innerHTML = `
+      <h3>設備 (${data.devices?.length ?? 0})</h3>
+      <ul class="simple-list">${(data.devices ?? []).slice(0, 12).map((d) => `<li>${d.label} — ${d.deviceType} [${d.status}]</li>`).join("")}</ul>
+      <h3>カメラ (${data.cameras?.length ?? 0})</h3>
+      <ul class="simple-list">${(data.cameras ?? []).map((c) => `<li>${c.label} [${c.status}]</li>`).join("") || "<li>なし</li>"}</ul>
+      <h3>QR資産 (${data.qrAssets?.length ?? 0})</h3>
+      <ul class="simple-list">${(data.qrAssets ?? []).slice(0, 8).map((q) => `<li>${q.deviceKind} ${q.deviceId} — ${q.action}</li>`).join("") || "<li>なし</li>"}</ul>
+      <h3>完了報告書</h3>
+      <ul class="simple-list">${(data.completionReports ?? []).map((r) => `<li>${r.title} ${r.pdfPath ? `<a href="${r.pdfPath}">PDF</a>` : ""}</li>`).join("") || "<li>なし</li>"}</ul>
+      <h3>保守履歴</h3>
+      <ul class="simple-list">${(data.maintenanceHistory ?? []).slice(0, 8).map((m) => `<li>${m.completedAt?.slice(0, 10)} — ${m.comment || "—"}</li>`).join("") || "<li>なし</li>"}</ul>
+      <h3>通知履歴</h3>
+      <ul class="simple-list">${(data.notificationHistory ?? []).slice(0, 10).map((n) => `<li>${n.severity}: ${n.message}</li>`).join("") || "<li>なし</li>"}</ul>`;
+  } catch {
+    root.textContent = "owner 権限が必要です";
+  }
+}
+
 async function loadUsersTab() {
   const data = await apiGet(`/api/customer/${customerCode}/users`).catch(() => ({ users: [] }));
   currentUserRole = data.currentRole ?? currentUserRole;
+  await loadFieldViewTab();
   const canManage = ["owner", "admin", "super_admin"].includes(currentUserRole);
   document.getElementById("users-role-hint").textContent = canManage
     ? "owner/admin: 招待・ロール変更・停止が可能"
@@ -353,7 +380,9 @@ document.querySelectorAll(".portal-tabs .tab").forEach((tab) => {
     document.getElementById("tab-notifications").hidden = id !== "notifications";
     document.getElementById("tab-recovery").hidden = id !== "recovery";
     document.getElementById("tab-audit").hidden = id !== "audit";
+    document.getElementById("tab-field").hidden = id !== "field";
     if (id === "sites" && getAdminToken()) loadSiteBuilderTab().catch(console.error);
+    if (id === "field" && getAdminToken()) loadFieldViewTab().catch(console.error);
     if (id === "users" && getAdminToken()) loadUsersTab().catch(console.error);
     if (id === "notifications" && getAdminToken()) loadNotificationRulesTab().catch(console.error);
     if (id === "recovery" && getAdminToken()) loadRecoveryTab().catch(console.error);

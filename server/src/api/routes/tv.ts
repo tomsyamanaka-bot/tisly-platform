@@ -13,6 +13,11 @@ import { auditContextFromRequest, logAudit } from "../../provisioning/audit-log.
 import { createRateLimit } from "../../security/rate-limit-redis.js";
 import { cacheSet, cacheGet } from "../../redis/cache.js";
 import { createHash } from "crypto";
+import {
+  getTvFocusState,
+  setTvFocusState,
+  clearTvFocusState,
+} from "../../tv/tv-focus-state.js";
 
 export const tvRouter = Router();
 
@@ -440,6 +445,78 @@ tvRouter.get("/config/:deviceId", (req, res) => {
     cameraMode: (settings.camera_mode as string) ?? "placeholder",
     settings,
   });
+});
+
+/** Phase 1161–1200 — Google TV camera focus RC2 (no admin auth — field/MQTT trigger) */
+tvRouter.post("/focus-camera", (req, res) => {
+  const body = req.body as {
+    customerCode?: string;
+    siteId?: string;
+    cameraId?: string;
+    deviceId?: string;
+    floor?: "perimeter" | "1f" | "2f" | string;
+    trigger?: string;
+    durationSec?: number;
+  };
+  const cameraId = body.cameraId ?? body.deviceId;
+  if (!cameraId) {
+    res.status(400).json({ error: "cameraId or deviceId required" });
+    return;
+  }
+  const floor = body.floor ?? "1f";
+  const fixedViews: Record<string, string> = {
+    perimeter: "外周",
+    "1f": "1F",
+    "2f": "2F",
+  };
+  const viewLabel = fixedViews[floor] ?? floor;
+  const durationSec = body.durationSec ?? 10;
+  const customerCode = body.customerCode?.toUpperCase() ?? null;
+
+  if (customerCode) {
+    setTvFocusState({
+      customerCode,
+      cameraId,
+      floor,
+      trigger: body.trigger ?? "sensor",
+    });
+  }
+
+  broadcast({
+    type: "camera_focus",
+    payload: {
+      event: "focusCamera",
+      customerCode,
+      siteId: body.siteId ?? null,
+      cameraId,
+      floor,
+      viewLabel,
+      trigger: body.trigger ?? "sensor",
+      durationSec,
+      fixedViews: ["perimeter", "1f", "2f"],
+    },
+    at: new Date().toISOString(),
+  });
+
+  res.status(201).json({
+    ok: true,
+    event: "focusCamera",
+    cameraId,
+    floor,
+    viewLabel,
+    durationSec,
+    message: `TV focus: ${viewLabel} → ${cameraId} (${durationSec}s)`,
+  });
+});
+
+tvRouter.get("/:code/state", (req, res) => {
+  const state = getTvFocusState(String(req.params.code));
+  res.json({ phase: "1161-1200", ...state });
+});
+
+tvRouter.post("/:code/clear-focus", (req, res) => {
+  clearTvFocusState(String(req.params.code));
+  res.json({ ok: true, cleared: true });
 });
 
 tvRouter.use(requireAdminAuth);

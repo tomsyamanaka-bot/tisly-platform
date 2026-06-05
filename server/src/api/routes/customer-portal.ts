@@ -18,7 +18,9 @@ import { countOpenIncidents, listRecoveryHistory } from "../../incidents/inciden
 import { listAuditLogs } from "../../provisioning/audit-log.js";
 import { contractWarningBanner, getContractStatus } from "../../customer/contract-guard.js";
 import { getBillingByCustomerId } from "../../billing/billing-store.js";
-import { canViewBilling } from "../../auth/roles.js";
+import { canViewBilling, roleMeetsRequirement } from "../../auth/roles.js";
+import { buildCustomerPortalFieldView } from "../../customer/customer-portal-field.js";
+import { buildCustomerHandoverPackage } from "../../customer/customer-handover.js";
 
 export const customerPortalRouter = Router();
 const portalAuth = [requireAuth("viewer"), requireTenantMatch("customerCode")] as const;
@@ -296,6 +298,39 @@ customerPortalRouter.get("/:customerCode/tv", ...portalAuth, (req: AuthedRequest
     refreshSec: 15,
     alertFullscreenSec: 10,
   });
+});
+
+customerPortalRouter.get("/:customerCode/handover", ...portalAuth, (req: AuthedRequest, res) => {
+  const customer = resolveCustomer(req, String(req.params.customerCode));
+  if (!customer) {
+    res.status(req.admin ? 403 : 404).json({ error: "Not found or denied" });
+    return;
+  }
+  const pkg = buildCustomerHandoverPackage(customer.customer_code);
+  if (!pkg) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  res.json({ phase: "1161-1200", handover: pkg });
+});
+
+customerPortalRouter.get("/:customerCode/field-view", ...portalAuth, (req: AuthedRequest, res) => {
+  const customer = resolveCustomer(req, String(req.params.customerCode));
+  if (!customer) {
+    res.status(req.admin ? 403 : 404).json({ error: "Not found or denied" });
+    return;
+  }
+  const role = req.admin?.role ?? "viewer";
+  if (!roleMeetsRequirement(role, "owner") && role !== "super_admin") {
+    res.status(403).json({ error: "Owner role required for field deployment view" });
+    return;
+  }
+  const view = buildCustomerPortalFieldView(customer.customer_code);
+  if (!view) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  res.json(view);
 });
 
 customerPortalRouter.get("/:customerCode/audit", ...portalAuth, (req: AuthedRequest, res) => {

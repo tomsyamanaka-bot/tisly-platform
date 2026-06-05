@@ -9,8 +9,14 @@ import {
 } from "../../pwa/pwa-hub.js";
 import { buildHubWorkflowLinks } from "../../pwa/hub-insights.js";
 import { buildHubOperations } from "../../toms/hub-operations.js";
+import { buildPwaPublishAudit } from "../../pwa/pwa-publish-audit.js";
 
 export const pwaHubRouter = Router();
+
+/** Phase 1241–1280 — 本番公開前 PWA 監査（認証不要・秘密情報は含まない） */
+pwaHubRouter.get("/publish-audit", (_req, res) => {
+  res.json(buildPwaPublishAudit());
+});
 
 pwaHubRouter.get("/hub", requireAuth("viewer"), (req: AuthedRequest, res) => {
   const role = req.admin?.role ?? "viewer";

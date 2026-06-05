@@ -176,6 +176,8 @@ export function runMigrations(database: Database.Database): void {
   migratePhase261(database);
   migratePhase1001(database);
   migratePhase1041(database);
+  migratePhase1121(database);
+  migratePhase1161(database);
 }
 
 const CUSTOMER_INVITE_COLUMNS: Array<{ name: string; ddl: string }> = [
@@ -441,6 +443,185 @@ function migratePhase781(database: Database.Database): void {
 
   migratePhase1001(database);
   migratePhase1041(database);
+  migratePhase1121(database);
+  migratePhase1161(database);
+}
+
+function migratePhase1121(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:phase1121_field_deployment_rc1") as { value_json: string } | undefined;
+  if (marker) return;
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS survey_audio_memos (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      audio_path TEXT NOT NULL,
+      mime_type TEXT,
+      duration_sec REAL,
+      transcript TEXT,
+      uploaded_by TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES survey_projects(project_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_survey_audio_project ON survey_audio_memos(project_id);
+
+    CREATE TABLE IF NOT EXISTS survey_sketch_memos (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      image_path TEXT NOT NULL,
+      uploaded_by TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES survey_projects(project_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_survey_sketch_project ON survey_sketch_memos(project_id);
+
+    CREATE TABLE IF NOT EXISTS survey_analysis_v4 (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      result_json TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES survey_projects(project_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_survey_analysis_v4_project ON survey_analysis_v4(project_id);
+
+    CREATE TABLE IF NOT EXISTS asset_qr_tokens (
+      asset_id TEXT PRIMARY KEY,
+      customer_code TEXT NOT NULL,
+      site_id TEXT,
+      device_id TEXT NOT NULL UNIQUE,
+      device_kind TEXT NOT NULL,
+      label TEXT NOT NULL,
+      qr_token TEXT NOT NULL,
+      reissued_at TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_asset_qr_customer ON asset_qr_tokens(customer_code);
+    CREATE INDEX IF NOT EXISTS idx_asset_qr_token ON asset_qr_tokens(qr_token);
+
+    CREATE TABLE IF NOT EXISTS asset_qr_history (
+      id TEXT PRIMARY KEY,
+      asset_id TEXT NOT NULL,
+      qr_token TEXT NOT NULL,
+      action TEXT NOT NULL CHECK (action IN ('create', 'reissue')),
+      device_kind TEXT NOT NULL,
+      device_id TEXT NOT NULL,
+      customer_code TEXT NOT NULL,
+      actor TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_asset_qr_history_asset ON asset_qr_history(asset_id, created_at);
+
+    CREATE TABLE IF NOT EXISTS maintenance_schedules (
+      schedule_id TEXT PRIMARY KEY,
+      customer_code TEXT NOT NULL,
+      site_id TEXT,
+      title TEXT NOT NULL,
+      due_date TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_maint_schedules_customer ON maintenance_schedules(customer_code, due_date);
+
+    CREATE TABLE IF NOT EXISTS maintenance_reports (
+      report_id TEXT PRIMARY KEY,
+      schedule_id TEXT,
+      case_id TEXT,
+      customer_code TEXT NOT NULL,
+      comment TEXT,
+      photo_paths_json TEXT NOT NULL DEFAULT '[]',
+      completed_at TEXT NOT NULL,
+      reported_by TEXT,
+      FOREIGN KEY (schedule_id) REFERENCES maintenance_schedules(schedule_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_maint_reports_customer ON maintenance_reports(customer_code, completed_at);
+  `);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run(
+      "migration:phase1121_field_deployment_rc1",
+      JSON.stringify({ at: new Date().toISOString(), phase: "1121-1160" })
+    );
+}
+
+function migratePhase1161(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:phase1161_field_deployment_rc2") as { value_json: string } | undefined;
+  if (marker) return;
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS field_projects (
+      id TEXT PRIMARY KEY,
+      customer_code TEXT NOT NULL,
+      customer_name TEXT NOT NULL,
+      address TEXT NOT NULL DEFAULT '',
+      building_type TEXT NOT NULL DEFAULT 'other',
+      plan_candidates_json TEXT NOT NULL DEFAULT '[]',
+      survey_staff TEXT NOT NULL DEFAULT '',
+      scheduled_date TEXT NOT NULL DEFAULT '',
+      memo TEXT NOT NULL DEFAULT '',
+      survey_project_id TEXT NOT NULL,
+      business_project_id TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_field_projects_survey ON field_projects(survey_project_id);
+    CREATE INDEX IF NOT EXISTS idx_field_projects_business ON field_projects(business_project_id);
+
+    CREATE TABLE IF NOT EXISTS survey_analysis_v2 (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      result_json TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES survey_projects(project_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_survey_analysis_v2_project ON survey_analysis_v2(project_id);
+
+    CREATE TABLE IF NOT EXISTS business_estimate_drafts_v2 (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      version TEXT NOT NULL DEFAULT 'v2',
+      lines_json TEXT NOT NULL DEFAULT '[]',
+      subtotal REAL NOT NULL DEFAULT 0,
+      total_cost REAL NOT NULL DEFAULT 0,
+      gross_profit REAL NOT NULL DEFAULT 0,
+      gross_profit_rate REAL NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'finalized')),
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES business_projects(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_estimate_drafts_v2_project ON business_estimate_drafts_v2(project_id);
+
+    CREATE TABLE IF NOT EXISTS deployment_checklist_rc2 (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      item_id TEXT NOT NULL,
+      completed INTEGER NOT NULL DEFAULT 0,
+      completed_at TEXT,
+      completed_by TEXT,
+      note TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(project_id, item_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_deployment_checklist_rc2_project ON deployment_checklist_rc2(project_id);
+  `);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run(
+      "migration:phase1161_field_deployment_rc2",
+      JSON.stringify({ at: new Date().toISOString(), phase: "1161-1200" })
+    );
 }
 
 function migratePhase1041(database: Database.Database): void {

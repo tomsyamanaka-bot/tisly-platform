@@ -17,7 +17,7 @@
   <div id="tisly-pwa-topbar-root"></div>
   <header class="maintenance-header">
     <h1>保守 Maintenance</h1>
-    <p class="hint">デバイス状態・通知・Recovery を現場で確認</p>
+    <p class="hint">Phase 1121–1160 — 点検予定 · 完了報告 · 写真添付</p>
   </header>
   <main class="maintenance-sections">
     <section class="maint-card">
@@ -55,6 +55,20 @@
     <section class="maint-card">
       <h2>Shelly 管理</h2>
       <ul id="maint-shelly-list" class="maint-list"></ul>
+    </section>
+    <section class="maint-card">
+      <h2>点検予定</h2>
+      <ul id="maint-schedule-list" class="maint-list"></ul>
+      <label>タイトル <input id="maint-schedule-title" placeholder="月次点検" /></label>
+      <label>期限 <input id="maint-schedule-due" type="date" /></label>
+      <button type="button" class="btn-maint" id="btn-maint-add-schedule">予定を追加</button>
+    </section>
+    <section class="maint-card">
+      <h2>完了報告</h2>
+      <textarea id="maint-report-comment" rows="3" placeholder="点検コメント"></textarea>
+      <input type="file" accept="image/*" capture="environment" multiple id="maint-report-photos" />
+      <button type="button" class="btn-maint" id="btn-maint-submit-report">完了報告を送信</button>
+      <ul id="maint-report-list" class="maint-list"></ul>
     </section>
     <section class="maint-card">
       <h2>保守案件</h2>

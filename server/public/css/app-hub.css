@@ -113,3 +113,103 @@
   color: #8b949e;
   margin-top: 4px;
 }
+
+/* Phase 1241–1280 — 本番公開チェック */
+.publish-audit-card h2 {
+  font-size: 1rem;
+  margin: 0 0 0.5rem;
+  color: #58a6ff;
+}
+.publish-audit-env {
+  font-size: 0.78rem;
+  color: #8b949e;
+  margin-bottom: 0.75rem;
+  line-height: 1.5;
+}
+.publish-audit-grid {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 0.75rem;
+}
+.publish-audit-item {
+  padding: 10px 12px;
+  background: #1c2128;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  font-size: 0.8rem;
+}
+.publish-audit-item.status-ok {
+  border-left: 3px solid #3fb950;
+}
+.publish-audit-item.status-caution {
+  border-left: 3px solid #d29922;
+}
+.publish-audit-item.status-not_ready {
+  border-left: 3px solid #f85149;
+}
+.publish-audit-item .pa-name {
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.publish-audit-item .pa-badge {
+  font-size: 0.65rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+.pa-badge.ok {
+  background: #238636;
+  color: #fff;
+}
+.pa-badge.caution {
+  background: #9e6a03;
+  color: #fff;
+}
+.pa-badge.not_ready {
+  background: #da3633;
+  color: #fff;
+}
+.publish-audit-item .pa-detail {
+  color: #8b949e;
+  font-size: 0.72rem;
+  margin-top: 4px;
+  word-break: break-all;
+}
+.publish-audit-item .pa-actions {
+  margin-top: 6px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.btn-copy-url,
+.btn-secondary {
+  background: #21262d;
+  color: #58a6ff;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+.btn-secondary {
+  width: 100%;
+  padding: 8px;
+  margin-top: 4px;
+}
+.mock-real-chip {
+  display: inline-block;
+  margin: 2px 4px 2px 0;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.68rem;
+  background: #30363d;
+}
+.mock-real-chip.mode-mock {
+  color: #3fb950;
+}
+.mock-real-chip.mode-real {
+  color: #f85149;
+}

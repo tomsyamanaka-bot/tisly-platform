@@ -4,6 +4,8 @@ const pathMatch = location.pathname.match(/\/tv\/([^/]+)/i);
 const customerCode = pathMatch ? pathMatch[1].toUpperCase() : "";
 const REFRESH_MS = 15000;
 const ALERT_SEC = 10;
+const FOCUS_SEC = 10;
+let focusTimer = null;
 const WS_PATH = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`;
 
 let lastAlertId = null;
@@ -102,6 +104,60 @@ function showTvDetail() {
 function hideTvDetail() {
   const overlay = document.getElementById("tv-detail-overlay");
   if (overlay) overlay.hidden = true;
+}
+
+function hideFocusOverlay() {
+  const overlay = document.getElementById("tv-focus-overlay");
+  const normal = document.getElementById("tv-normal");
+  if (overlay) overlay.hidden = true;
+  if (normal) normal.style.visibility = "visible";
+  clearInterval(focusTimer);
+}
+
+function showFocusCamera(payload) {
+  const overlay = document.getElementById("tv-focus-overlay");
+  const normal = document.getElementById("tv-normal");
+  const title = document.getElementById("tv-focus-title");
+  const floorEl = document.getElementById("tv-focus-floor");
+  const camLabel = document.getElementById("tv-focus-cam-label");
+  const timer = document.getElementById("tv-focus-timer");
+  if (!overlay || !normal) return;
+  hideDemoAlertOverlay();
+  hideTvDetail();
+  const viewLabel = payload.viewLabel ?? payload.floor ?? "1F";
+  const cameraId = payload.cameraId ?? payload.deviceId ?? "CAM";
+  if (title) title.textContent = "センサー反応 — カメラ拡大";
+  if (floorEl) floorEl.textContent = `階: ${viewLabel}`;
+  if (camLabel) camLabel.textContent = cameraId;
+  overlay.hidden = false;
+  normal.style.visibility = "hidden";
+  let sec = payload.durationSec ?? FOCUS_SEC;
+  if (timer) timer.textContent = String(sec);
+  clearInterval(focusTimer);
+  focusTimer = setInterval(() => {
+    sec -= 1;
+    if (timer) timer.textContent = String(sec);
+    if (sec <= 0) hideFocusOverlay();
+  }, 1000);
+}
+
+async function pollTvState() {
+  if (!customerCode) return;
+  try {
+    const res = await fetch(`/api/tv/${customerCode}/state`);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.focusCamera?.active && data.focusCamera.cameraId) {
+      showFocusCamera({
+        cameraId: data.focusCamera.cameraId,
+        floor: data.focusCamera.floor,
+        viewLabel: data.focusCamera.viewLabel,
+        durationSec: data.focusCamera.remainingSec || FOCUS_SEC,
+      });
+    }
+  } catch {
+    /* */
+  }
 }
 
 function hideDemoAlertOverlay() {
@@ -295,6 +351,17 @@ function connectTvWs() {
   ws.onmessage = (ev) => {
     try {
       const msg = JSON.parse(ev.data);
+      const payload = msg.payload ?? msg;
+      if (
+        msg.type === "camera_focus" ||
+        payload.event === "camera_focus" ||
+        payload.event === "focusCamera"
+      ) {
+        if (!payload.customerCode || payload.customerCode.toUpperCase() === customerCode) {
+          showFocusCamera(payload);
+        }
+        return;
+      }
       if (msg.payload?.channel === "tv_mirror" || msg.topic?.includes(`/tv/${customerCode}`)) {
         showDemoAlert({
           title: msg.payload.title ?? "営業デモ通知",
@@ -308,6 +375,20 @@ function connectTvWs() {
     }
   };
 }
+
+document.getElementById("tv-demo-focus-btn")?.addEventListener("click", () => {
+  void fetch("/api/tv/focus-camera", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      customerCode,
+      cameraId: "CAM-DEMO-01",
+      floor: "perimeter",
+      trigger: "demo_button",
+      durationSec: FOCUS_SEC,
+    }),
+  }).then(() => pollTvState());
+});
 
 async function refresh() {
   try {
@@ -325,3 +406,5 @@ wireTvRemote();
 connectTvWs();
 refresh();
 setInterval(refresh, REFRESH_MS);
+setInterval(pollTvState, 2000);
+pollTvState();

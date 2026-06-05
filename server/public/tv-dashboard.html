@@ -41,7 +41,19 @@
       <p class="tv-remote-hint">Back で通常画面へ</p>
     </div>
   </div>
+  <div id="tv-focus-overlay" class="tv-focus-overlay" hidden>
+    <div class="tv-focus-content">
+      <h2 id="tv-focus-title">カメラフォーカス</h2>
+      <p id="tv-focus-floor"></p>
+      <div class="tv-focus-camera-frame" id="tv-focus-camera">
+        <div class="cam-label" id="tv-focus-cam-label">—</div>
+        <div class="cam-placeholder">拡大表示（10秒）</div>
+      </div>
+      <p class="tv-focus-timer" id="tv-focus-timer">10</p>
+    </div>
+  </div>
   <p class="tv-view-label" id="tv-view-label">表示: 概要</p>
+  <button type="button" id="tv-demo-focus-btn" class="tv-demo-focus-btn" title="デモ: カメラフォーカス">デモ focus</button>
   <script type="module" src="/js/tv-dashboard.js"></script>
 </body>
 </html>

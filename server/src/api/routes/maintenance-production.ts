@@ -14,6 +14,12 @@ import {
 } from "../../maintenance/maintenance-store.js";
 import { listShellyDevices, rebootShellyDevice } from "../../maintenance/shelly-manager.js";
 import { createMaintenanceFromSurvey } from "../../survey/survey-maintenance-bridge.js";
+import {
+  createMaintenanceReport,
+  createMaintenanceSchedule,
+  listMaintenanceSchedules,
+  listMaintenanceReports,
+} from "../../maintenance/maintenance-schedule.js";
 
 export const maintenanceProductionRouter = Router();
 
@@ -135,6 +141,85 @@ maintenanceProductionRouter.get(
       return;
     }
     res.json({ devices: listShellyDevices(customer.customer_code) });
+  }
+);
+
+maintenanceProductionRouter.get("/schedule", ...maintAuth, (req: AuthedRequest, res) => {
+  if (!assertMaintenanceRole(req, res)) return;
+  const customerCode = req.query.customerCode as string | undefined;
+  const schedules = listMaintenanceSchedules(customerCode);
+  const now = new Date().toISOString().slice(0, 10);
+  res.json({
+    schedules,
+    overdue: schedules.filter((s) => s.status === "pending" && s.dueDate < now),
+  });
+});
+
+maintenanceProductionRouter.post("/schedule", ...maintAuth, (req: AuthedRequest, res) => {
+  if (!assertMaintenanceRole(req, res)) return;
+  const body = req.body as {
+    customerCode?: string;
+    siteId?: string;
+    title?: string;
+    dueDate?: string;
+  };
+  if (!body.customerCode || !body.title || !body.dueDate) {
+    res.status(400).json({ error: "customerCode, title, dueDate required" });
+    return;
+  }
+  try {
+    const schedule = createMaintenanceSchedule({
+      customerCode: body.customerCode,
+      siteId: body.siteId,
+      title: body.title,
+      dueDate: body.dueDate,
+    });
+    res.status(201).json(schedule);
+  } catch (e) {
+    res.status(400).json({ error: String(e) });
+  }
+});
+
+maintenanceProductionRouter.post("/report", ...maintAuth, (req: AuthedRequest, res) => {
+  if (!assertMaintenanceRole(req, res)) return;
+  const body = req.body as {
+    customerCode?: string;
+    scheduleId?: string;
+    caseId?: string;
+    comment?: string;
+    photos?: Array<{ imageBase64: string; fileName?: string }>;
+  };
+  if (!body.customerCode) {
+    res.status(400).json({ error: "customerCode required" });
+    return;
+  }
+  try {
+    const report = createMaintenanceReport({
+      customerCode: body.customerCode,
+      scheduleId: body.scheduleId,
+      caseId: body.caseId,
+      comment: body.comment,
+      photos: body.photos,
+      reportedBy: req.admin?.username,
+    });
+    res.status(201).json(report);
+  } catch (e) {
+    res.status(400).json({ error: String(e) });
+  }
+});
+
+maintenanceProductionRouter.get(
+  "/reports/:customerCode",
+  ...maintAuth,
+  requireTenantMatch("customerCode"),
+  (req: AuthedRequest, res) => {
+    if (!assertMaintenanceRole(req, res)) return;
+    const customer = resolveCustomerCode(req, String(req.params.customerCode));
+    if (!customer) {
+      res.status(req.admin ? 403 : 404).json({ error: "Not found" });
+      return;
+    }
+    res.json({ reports: listMaintenanceReports(customer.customer_code) });
   }
 );
 

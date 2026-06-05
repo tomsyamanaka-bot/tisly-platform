@@ -25,6 +25,13 @@ import { runDrawingOcr } from "../../survey/drawing-ocr.js";
 import { processSurveySync } from "../../survey/survey-sync.js";
 import { generateFloorMapFromSurvey } from "../../survey/survey-to-pro-map.js";
 import { buildSurveyReportHtml } from "../../survey/survey-report.js";
+import {
+  reverseGeocodeAddress,
+  saveSurveyAudio,
+  saveSurveySketch,
+  listSurveyAudio,
+  listSurveySketches,
+} from "../../survey/survey-field-media.js";
 
 export const surveyRouter = Router();
 
@@ -105,6 +112,117 @@ surveyRouter.delete("/projects/:projectId", ...surveyAuth, (req: AuthedRequest, 
     return;
   }
   res.json({ ok: true });
+});
+
+surveyRouter.post("/photo", ...surveyAuth, (req: AuthedRequest, res) => {
+  if (!assertSurveyRole(req, res)) return;
+  const body = req.body as {
+    projectId?: string;
+    photoType?: string;
+    imageBase64?: string;
+    fileName?: string;
+    photos?: Array<{ photoType?: string; imageBase64: string; fileName?: string }>;
+  };
+  if (!body.projectId) {
+    res.status(400).json({ error: "projectId required" });
+    return;
+  }
+  const items =
+    body.photos ??
+    (body.imageBase64 && body.photoType
+      ? [{ photoType: body.photoType, imageBase64: body.imageBase64, fileName: body.fileName }]
+      : []);
+  if (!items.length) {
+    res.status(400).json({ error: "photoType+imageBase64 or photos[] required" });
+    return;
+  }
+  try {
+    const saved = items.map((p) =>
+      saveSurveyPhoto({
+        projectId: body.projectId!,
+        photoType: p.photoType ?? "other",
+        imageBase64: p.imageBase64,
+        fileName: p.fileName,
+        uploadedBy: req.admin?.username,
+      })
+    );
+    res.status(201).json({ photos: saved, count: saved.length });
+  } catch (e) {
+    res.status(400).json({ error: String(e) });
+  }
+});
+
+surveyRouter.post("/audio", ...surveyAuth, (req: AuthedRequest, res) => {
+  if (!assertSurveyRole(req, res)) return;
+  const body = req.body as {
+    projectId?: string;
+    audioBase64?: string;
+    fileName?: string;
+    mimeType?: string;
+    durationSec?: number;
+    transcript?: string;
+  };
+  if (!body.projectId || !body.audioBase64) {
+    res.status(400).json({ error: "projectId and audioBase64 required" });
+    return;
+  }
+  try {
+    const saved = saveSurveyAudio({
+      projectId: body.projectId,
+      audioBase64: body.audioBase64,
+      fileName: body.fileName,
+      mimeType: body.mimeType,
+      durationSec: body.durationSec,
+      transcript: body.transcript,
+      uploadedBy: req.admin?.username,
+    });
+    res.status(201).json(saved);
+  } catch (e) {
+    res.status(400).json({ error: String(e) });
+  }
+});
+
+surveyRouter.get("/projects/:projectId/audio", ...surveyAuth, (req: AuthedRequest, res) => {
+  if (!assertSurveyRole(req, res)) return;
+  res.json({ audio: listSurveyAudio(String(req.params.projectId)) });
+});
+
+surveyRouter.post("/projects/:projectId/sketch", ...surveyAuth, (req: AuthedRequest, res) => {
+  if (!assertSurveyRole(req, res)) return;
+  const body = req.body as { imageBase64?: string };
+  if (!body.imageBase64) {
+    res.status(400).json({ error: "imageBase64 required" });
+    return;
+  }
+  try {
+    const saved = saveSurveySketch({
+      projectId: String(req.params.projectId),
+      imageBase64: body.imageBase64,
+      uploadedBy: req.admin?.username,
+    });
+    res.status(201).json(saved);
+  } catch (e) {
+    res.status(400).json({ error: String(e) });
+  }
+});
+
+surveyRouter.get("/projects/:projectId/sketches", ...surveyAuth, (req: AuthedRequest, res) => {
+  if (!assertSurveyRole(req, res)) return;
+  res.json({ sketches: listSurveySketches(String(req.params.projectId)) });
+});
+
+surveyRouter.post("/reverse-geocode", ...surveyAuth, (req: AuthedRequest, res) => {
+  if (!assertSurveyRole(req, res)) return;
+  const body = req.body as { lat?: number; lng?: number; projectId?: string };
+  if (body.lat == null || body.lng == null) {
+    res.status(400).json({ error: "lat and lng required" });
+    return;
+  }
+  const geo = reverseGeocodeAddress(body.lat, body.lng);
+  if (body.projectId) {
+    updateSurveyProject(body.projectId, { address: geo.address, gpsLat: body.lat, gpsLng: body.lng });
+  }
+  res.json(geo);
 });
 
 surveyRouter.post("/projects/:projectId/photos", ...surveyAuth, (req: AuthedRequest, res) => {

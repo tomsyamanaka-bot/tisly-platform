@@ -58,7 +58,12 @@ import { surveyRouter } from "./api/routes/survey.js";
 import { businessRouter } from "./api/routes/business.js";
 import { tomsRouter } from "./api/routes/toms.js";
 import { maintenanceProductionRouter } from "./api/routes/maintenance-production.js";
+import { aiRouter } from "./api/routes/ai.js";
+import { assetsRouter } from "./api/routes/assets.js";
+import { timelineRouter } from "./api/routes/timeline.js";
 import { proRemoteFloorMapRouter } from "./api/routes/pro-remote-floor-map.js";
+import { fieldRouter } from "./api/routes/field.js";
+import { deploymentRc2Router } from "./api/routes/deployment-rc2.js";
 import { buildSurveyReportHtml } from "./survey/survey-report.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -82,6 +87,11 @@ export function createApp(): express.Application {
   app.use("/api/business", businessRouter);
   app.use("/api/toms", tomsRouter);
   app.use("/api/maintenance", maintenanceProductionRouter);
+  app.use("/api/ai", aiRouter);
+  app.use("/api/assets", assetsRouter);
+  app.use("/api/timeline", timelineRouter);
+  app.use("/api/field", fieldRouter);
+  app.use("/api/deployment", deploymentRc2Router);
 
   app.use("/api/events", opsCustomerScopeMiddleware, tenantQueryGuard, eventsRouter);
   app.use("/api/notifications", opsCustomerScopeMiddleware, tenantQueryGuard, notificationsRouter);
@@ -133,6 +143,13 @@ export function createApp(): express.Application {
   const customerPortalHtml = path.join(publicDir, "customer-portal.html");
   const tvDashboardHtml = path.join(publicDir, "tv-dashboard.html");
   const adminCustomerHtml = path.join(publicDir, "admin-customer.html");
+
+  app.get("/customer-portal", (_req, res) => {
+    res.redirect("/customer/TOMS001");
+  });
+  app.get("/customer-portal/:customerCode", (req, res) => {
+    res.redirect(`/customer/${String(req.params.customerCode)}`);
+  });
 
   app.get("/customer/new", (_req, res) => {
     res.sendFile(path.join(publicDir, "customer-new.html"));
@@ -206,6 +223,9 @@ export function createApp(): express.Application {
   app.get("/asset/:assetId", (_req, res) => {
     res.sendFile(path.join(publicDir, "asset-detail.html"));
   });
+  app.get("/field/new", (_req, res) => {
+    res.sendFile(path.join(publicDir, "field-new.html"));
+  });
   app.get("/survey", (_req, res) => {
     res.sendFile(path.join(publicDir, "survey.html"));
   });
@@ -236,6 +256,7 @@ export function createApp(): express.Application {
   app.get("/business/projects/:projectId", (_req, res) => res.sendFile(businessHtml));
   app.get("/business/projects/:projectId/survey", (_req, res) => res.sendFile(businessHtml));
   app.get("/business/projects/:projectId/estimate", (_req, res) => res.sendFile(businessHtml));
+  app.get("/business/projects/:projectId/estimate-draft", (_req, res) => res.sendFile(businessHtml));
   app.get("/business/projects/:projectId/construction", (_req, res) => res.sendFile(businessHtml));
   app.get("/business/projects/:projectId/completion-report", (_req, res) =>
     res.sendFile(businessHtml)
@@ -252,6 +273,9 @@ export function createApp(): express.Application {
   });
   app.get("/customer/:customerCode/pro-remote", (_req, res) => {
     res.sendFile(path.join(publicDir, "pro-remote.html"));
+  });
+  app.get("/customer/:customerCode/handover", (_req, res) => {
+    res.sendFile(path.join(publicDir, "customer-handover.html"));
   });
   app.get("/customer/:customerCode/overview", (_req, res) => {
     res.sendFile(path.join(publicDir, "customer-overview.html"));
@@ -350,6 +374,9 @@ export function createApp(): express.Application {
 
   app.get("/deployment/checklist", (_req, res) => {
     res.sendFile(path.join(publicDir, "deployment-checklist.html"));
+  });
+  app.get("/deployment/checklist/:projectId", (_req, res) => {
+    res.sendFile(path.join(publicDir, "deployment-checklist-rc2.html"));
   });
 
   app.get("/setup", (_req, res) => {

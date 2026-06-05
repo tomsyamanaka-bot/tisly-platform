@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TiSLY — 引渡しパッケージ</title>
+  <link rel="stylesheet" href="/css/tisly-pwa-shell.css" />
+  <style>
+    body { max-width: 800px; margin: 0 auto; padding: 1rem; font-family: system-ui, sans-serif; }
+    h1 { color: #1a7f37; }
+    section { border: 1px solid #d0d7de; border-radius: 8px; padding: 1rem; margin: 1rem 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th, td { border: 1px solid #d0d7de; padding: 0.4rem; text-align: left; }
+    th { background: #f6f8fa; }
+    .url-box { background: #f6f8fa; padding: 0.75rem; border-radius: 6px; word-break: break-all; }
+  </style>
+</head>
+<body>
+  <div id="tisly-pwa-topbar-root"></div>
+  <h1>引渡しパッケージ</h1>
+  <p id="handover-meta">読込中…</p>
+  <div id="handover-root"></div>
+  <script type="module" src="/js/tisly-pwa-shell.js"></script>
+  <script type="module" src="/js/customer-handover.js"></script>
+</body>
+</html>

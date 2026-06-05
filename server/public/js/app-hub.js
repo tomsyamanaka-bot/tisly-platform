@@ -4,6 +4,97 @@ import { highlightAnomalyCard } from "./connection-badges.js";
 
 const TOKEN_KEY = "tisly_token";
 
+const STATUS_LABELS = {
+  ok: "OK",
+  caution: "注意",
+  not_ready: "未対応",
+};
+
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function loadPublishAudit() {
+  const meta = document.getElementById("publish-audit-meta");
+  const envEl = document.getElementById("publish-audit-env");
+  const grid = document.getElementById("publish-audit-grid");
+  if (!meta || !grid) return;
+
+  meta.textContent = "読み込み中…";
+  grid.innerHTML = "";
+
+  try {
+    const res = await fetch("/api/pwa/publish-audit");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    const prodFlag = data.isProductionUrl
+      ? "TISLY_PUBLIC_URL ✓ 本番"
+      : "TISLY_PUBLIC_URL ⚠ 未設定または localhost";
+    meta.textContent = `${prodFlag} · ${data.summary.installReady}/${data.pwAs.filter((p) => p.isPwa).length} PWA インストール準備完了`;
+
+    if (envEl) {
+      const mockChips = (data.mockReal || [])
+        .map((m) => {
+          const cls = m.mode === "real" ? "mode-real" : "mode-mock";
+          return `<span class="mock-real-chip ${cls}">${m.service}: ${m.mode}</span>`;
+        })
+        .join("");
+      const envWarn = data.hasBlockingEnvErrors ? " · env エラーあり" : "";
+      envEl.innerHTML = `<div>NODE_ENV=${data.nodeEnv} · ${data.tislyPublicUrl}${envWarn}</div><div>${mockChips}</div>`;
+    }
+
+    grid.innerHTML = (data.pwAs || [])
+      .map((p) => {
+        const badge = STATUS_LABELS[p.status] || p.status;
+        const swLine = p.isPwa
+          ? `manifest: ${p.manifestUrl || "—"} · SW: ${p.serviceWorker} · scope: ${p.scope}`
+          : "PWA 対象外";
+        const missing =
+          p.missingItems?.length > 0
+            ? `<div class="pa-detail">不足: ${p.missingItems.join(", ")}</div>`
+            : "";
+        const copyBtn = p.productionUrl
+          ? `<button type="button" class="btn-copy-url" data-copy="${p.productionUrl}">本番URLコピー</button>`
+          : "";
+        return `<div class="publish-audit-item status-${p.status}">
+          <div class="pa-name">${p.pwaName}
+            <span class="pa-badge ${p.status === "ok" ? "ok" : p.status === "caution" ? "caution" : "not_ready"}">${badge}</span>
+            ${p.installReady ? '<span class="pa-badge ok">installReady</span>' : ""}
+          </div>
+          <div class="pa-detail">${swLine}</div>
+          ${missing}
+          <div class="pa-detail">${p.recommendedAction}</div>
+          <div class="pa-actions">${copyBtn}</div>
+        </div>`;
+      })
+      .join("");
+
+    grid.querySelectorAll(".btn-copy-url").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const ok = await copyText(btn.dataset.copy || "");
+        btn.textContent = ok ? "コピー済み" : "コピー失敗";
+        setTimeout(() => {
+          btn.textContent = "本番URLコピー";
+        }, 1500);
+      });
+    });
+  } catch (e) {
+    meta.textContent = `公開チェック取得失敗: ${e.message || e}`;
+  }
+}
+
+document.getElementById("btn-publish-audit-refresh")?.addEventListener("click", () => {
+  loadPublishAudit();
+});
+
+loadPublishAudit();
+
 async function customerLogin(code, username, password) {
   const res = await fetch("/api/auth/customer/login", {
     method: "POST",

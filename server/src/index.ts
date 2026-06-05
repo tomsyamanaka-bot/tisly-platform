@@ -14,6 +14,9 @@ import { startLiveOperationsMockPush } from "./toms/live-push-mock.js";
 import { startBackupScheduler } from "./backup/backup-scheduler.js";
 import { startWorkers } from "./workers/worker-runner.js";
 import { startDemoResetCron, syncDemoResetFromEnv } from "./demo-kit/demo-reset-cron.js";
+import { logProductionEnvWarnings } from "./config/production-env-checker.js";
+
+logProductionEnvWarnings();
 
 getDatabase();
 ensureDemoKit();
@@ -43,7 +46,7 @@ startLiveOperationsMockPush();
 
 server.listen(config.port, config.host, () => {
   console.log(
-    `[TiSLY] ${config.publicUrl} — listening on http://${config.host}:${config.port} (ws: /ws) phase 121-140`
+    `[TiSLY] ${config.publicUrl} — listening on http://${config.host}:${config.port} (ws: /ws) phase 1201-1240`
   );
   if (config.demoMode) {
     startDemoModeVirtualEspRunner();

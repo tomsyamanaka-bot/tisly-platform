@@ -156,8 +156,9 @@ function renderLayer(layer) {
   for (const pin of allPins) {
     const el = document.createElement("button");
     el.type = "button";
-    el.className = "floor-map-pin";
+    el.className = "floor-map-pin" + (pin.blink ? " floor-map-pin--blink" : "");
     el.dataset.pinId = pin.id;
+    el.dataset.cameraId = pin.cameraId || pin.deviceId || "";
     el.style.left = `${Math.min(98, Math.max(2, pin.posX))}%`;
     el.style.top = `${Math.min(98, Math.max(2, pin.posY))}%`;
     el.style.background = PIN_COLORS[pin.status] || PIN_COLORS.OFFLINE;
@@ -167,6 +168,10 @@ function renderLayer(layer) {
     if (pin.draggable !== false && pin.id && layer.pins?.some((p) => p.id === pin.id)) {
       setupPinDrag(el, pin, layer.layerId, plan);
     }
+    el.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      showPinActions(pin, layer);
+    });
     overlay.appendChild(el);
   }
 
@@ -233,12 +238,55 @@ function scrollToTier(tier) {
   if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
+function showPinActions(pin, layer) {
+  const cameraId = pin.cameraId || (pin.pinType === "camera" ? pin.deviceId : null);
+  const actions = [];
+  if (cameraId) {
+    actions.push(`カメラ: ${pin.linkedCameraLabel || cameraId}`);
+  }
+  const choice = window.prompt(
+    `${pin.label || pin.id} (${layer.displayName})\n` +
+      (actions.length ? actions.join("\n") + "\n\n" : "") +
+      "1=TVへ送る  2=施工写真  3=フォーカス",
+    "1"
+  );
+  if (choice === "1" && cameraId) {
+    void apiPost(`/api/customer/${CODE}/pro-remote/focus`, {
+      floor: layer.tier,
+      pinId: pin.id,
+      cameraId,
+      trigger: "pro_remote_ui",
+    });
+    void fetch("/api/tv/focus-camera", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        customerCode: CODE,
+        cameraId,
+        floor: layer.tier,
+        trigger: "pro_remote",
+      }),
+    });
+    alert(`TVへ送信中: ${cameraId}`);
+  } else if (choice === "2" && pin.constructionPhotoUrl) {
+    window.open(pin.constructionPhotoUrl, "_blank");
+  } else if (choice === "3") {
+    scrollToTier(layer.tier);
+    void apiPost(`/api/customer/${CODE}/pro-remote/focus`, {
+      floor: layer.tier,
+      pinId: pin.id,
+      cameraId,
+      trigger: "manual",
+    });
+  }
+}
+
 async function loadStack() {
   const root = document.getElementById("floor-map-stack");
   if (!root) return;
   root.innerHTML = "<p class='hint'>読込中…</p>";
   try {
-    stackData = await apiGet(`/api/customer/${CODE}/pro-remote/floor-stack`);
+    stackData = await apiGet(`/api/customer/${CODE}/pro-remote/floor-stack?rc=2`);
     root.innerHTML = "";
     const sorted = [...(stackData.layers || [])].sort(
       (a, b) => TIER_ORDER.indexOf(a.tier) - TIER_ORDER.indexOf(b.tier)
@@ -252,10 +300,11 @@ async function loadStack() {
       if (alert?.tier) {
         alertEl.textContent = `異常検知: ${alert.tier} へジャンプ可能`;
         alertEl.hidden = false;
-        if (!activeTier) {
-          scrollToTier(alert.tier);
-          activeTier = alert.tier;
-        }
+        scrollToTier(alert.tier);
+        activeTier = alert.tier;
+        document.querySelectorAll(".floor-map-pin--blink").forEach((el) => {
+          el.classList.add("floor-map-pin--blink-active");
+        });
       } else {
         alertEl.textContent = "全階正常（外周 → 1F → 2F）";
         alertEl.hidden = false;

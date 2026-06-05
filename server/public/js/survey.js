@@ -132,22 +132,33 @@ async function ensureProject() {
   return activeProjectId;
 }
 
-async function saveGps() {
+async function applyGpsPosition(pos, opts = {}) {
+  const pid = await ensureProject();
+  const body = { gpsLat: pos.coords.latitude, gpsLng: pos.coords.longitude };
+  try {
+    await api(`/api/survey/projects/${pid}`, { method: "PATCH", body: JSON.stringify(body) });
+    document.getElementById("survey-gps").textContent = `${body.gpsLat.toFixed(5)}, ${body.gpsLng.toFixed(5)}`;
+    if (opts.reverseGeocode) {
+      const geo = await api("/api/survey/reverse-geocode", {
+        method: "POST",
+        body: JSON.stringify({ lat: body.gpsLat, lng: body.gpsLng, projectId: pid }),
+      });
+      const addrEl = document.getElementById("survey-address");
+      if (addrEl) addrEl.value = geo.address;
+      document.getElementById("survey-gps").textContent += ` — ${geo.address}`;
+    }
+  } catch {
+    queueOffline({ type: "gps", projectId: pid, gpsLat: body.gpsLat, gpsLng: body.gpsLng });
+    document.getElementById("survey-gps").textContent = "オフライン保存待ち";
+  }
+}
+
+async function saveGps(opts = {}) {
   if (!navigator.geolocation) {
     alert("GPS 非対応");
     return;
   }
-  navigator.geolocation.getCurrentPosition(async (pos) => {
-    const pid = await ensureProject();
-    const body = { gpsLat: pos.coords.latitude, gpsLng: pos.coords.longitude };
-    try {
-      await api(`/api/survey/projects/${pid}`, { method: "PATCH", body: JSON.stringify(body) });
-      document.getElementById("survey-gps").textContent = `${body.gpsLat.toFixed(5)}, ${body.gpsLng.toFixed(5)}`;
-    } catch {
-      queueOffline({ type: "gps", projectId: pid, gpsLat: body.gpsLat, gpsLng: body.gpsLng });
-      document.getElementById("survey-gps").textContent = "オフライン保存待ち";
-    }
-  });
+  navigator.geolocation.getCurrentPosition((pos) => applyGpsPosition(pos, opts));
 }
 
 async function uploadPhoto(inputId, photoType) {
@@ -365,7 +376,162 @@ document.getElementById("btn-survey-save-case")?.addEventListener("click", async
   }
 });
 
+let mediaRecorder = null;
+let audioChunks = [];
+
+async function uploadBulkPhotos(files, photoType) {
+  const pid = await ensureProject();
+  const photos = [];
+  for (const file of files) {
+    photos.push({ photoType, imageBase64: await fileToBase64(file), fileName: file.name });
+  }
+  await api("/api/survey/photo", {
+    method: "POST",
+    body: JSON.stringify({ projectId: pid, photos }),
+  });
+  await refreshPhotoList();
+}
+
+async function refreshAudioList() {
+  if (!activeProjectId) return;
+  try {
+    const data = await api(`/api/survey/projects/${activeProjectId}/audio`);
+    const list = document.getElementById("survey-audio-list");
+    if (!list) return;
+    list.innerHTML = (data.audio || [])
+      .map((a) => `<li><a href="${a.url}">音声 ${a.id.slice(0, 6)}</a> ${a.durationSec ? `${a.durationSec}s` : ""}</li>`)
+      .join("");
+  } catch {
+    /* */
+  }
+}
+
+async function refreshSketchList() {
+  if (!activeProjectId) return;
+  try {
+    const data = await api(`/api/survey/projects/${activeProjectId}/sketches`);
+    const list = document.getElementById("survey-sketch-list");
+    if (!list) return;
+    list.innerHTML = (data.sketches || [])
+      .map((s) => `<li><img src="${s.url}" alt="" width="64" height="48" /></li>`)
+      .join("");
+  } catch {
+    /* */
+  }
+}
+
+function initSketchCanvas() {
+  const canvas = document.getElementById("survey-sketch-canvas");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  let drawing = false;
+  const pos = (ev) => {
+    const r = canvas.getBoundingClientRect();
+    const t = ev.touches?.[0] ?? ev;
+    return { x: t.clientX - r.left, y: t.clientY - r.top };
+  };
+  const start = (ev) => {
+    drawing = true;
+    const p = pos(ev);
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+    ev.preventDefault();
+  };
+  const move = (ev) => {
+    if (!drawing) return;
+    const p = pos(ev);
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "#111";
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+    ev.preventDefault();
+  };
+  const end = () => {
+    drawing = false;
+  };
+  canvas.addEventListener("mousedown", start);
+  canvas.addEventListener("mousemove", move);
+  canvas.addEventListener("mouseup", end);
+  canvas.addEventListener("touchstart", start, { passive: false });
+  canvas.addEventListener("touchmove", move, { passive: false });
+  canvas.addEventListener("touchend", end);
+}
+
+async function runAiV4() {
+  const pid = await ensureProject();
+  const data = await api("/api/ai/survey-analysis", {
+    method: "POST",
+    body: JSON.stringify({ surveyProjectId: pid }),
+  });
+  const a = data.analysis || {};
+  const el = document.getElementById("survey-ai-result");
+  el.innerHTML = `
+    <p><strong>AI Estimate v4</strong></p>
+    <p>カメラ: ${a.cameraCount} 台 / ESP: ${a.espCount} 台</p>
+    <p>LAN: ${a.lanDistanceM}m / PoE: ${a.poeCount} 本</p>
+    <p>分電盤: ${a.hasPanel ? "あり" : "なし"} / 施工 ${a.crewCount} 名 / 工数 ${a.manHours}h</p>
+    <p>信頼度: ${Math.round((a.confidence || 0) * 100)}%</p>`;
+}
+
 document.getElementById("btn-survey-gps")?.addEventListener("click", () => saveGps());
+document.getElementById("btn-survey-gps-auto")?.addEventListener("click", () => saveGps({ reverseGeocode: true }));
+document.getElementById("btn-survey-reverse-geocode")?.addEventListener("click", async () => {
+  await saveGps({ reverseGeocode: true });
+});
+document.getElementById("survey-bulk-photos")?.addEventListener("change", async (ev) => {
+  const files = [...(ev.target.files || [])];
+  if (!files.length) return;
+  const photoType = document.getElementById("survey-bulk-type")?.value || "other";
+  try {
+    await uploadBulkPhotos(files, photoType);
+    alert(`${files.length} 枚を保存しました`);
+  } catch {
+    alert("一括アップロードに失敗しました");
+  }
+  ev.target.value = "";
+});
+document.getElementById("btn-survey-audio-start")?.addEventListener("click", async () => {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioChunks = [];
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
+    mediaRecorder.start();
+    document.getElementById("btn-survey-audio-stop").disabled = false;
+    document.getElementById("survey-audio-status").textContent = "録音中…";
+  } catch {
+    alert("マイク権限が必要です");
+  }
+});
+document.getElementById("btn-survey-audio-stop")?.addEventListener("click", async () => {
+  if (!mediaRecorder) return;
+  mediaRecorder.onstop = async () => {
+    const blob = new Blob(audioChunks, { type: "audio/webm" });
+    const b64 = await fileToBase64(new File([blob], "memo.webm"));
+    const pid = await ensureProject();
+    await api("/api/survey/audio", {
+      method: "POST",
+      body: JSON.stringify({ projectId: pid, audioBase64: b64, mimeType: "audio/webm", durationSec: blob.size / 1000 }),
+    });
+    document.getElementById("survey-audio-status").textContent = "保存しました";
+    document.getElementById("btn-survey-audio-stop").disabled = true;
+    await refreshAudioList();
+  };
+  mediaRecorder.stop();
+  mediaRecorder.stream.getTracks().forEach((t) => t.stop());
+});
+document.getElementById("btn-survey-sketch-save")?.addEventListener("click", async () => {
+  const canvas = document.getElementById("survey-sketch-canvas");
+  const pid = await ensureProject();
+  const dataUrl = canvas.toDataURL("image/png");
+  const b64 = dataUrl.split(",")[1];
+  await api(`/api/survey/projects/${pid}/sketch`, { method: "POST", body: JSON.stringify({ imageBase64: b64 }) });
+  await refreshSketchList();
+  alert("手書きメモを保存しました");
+});
+document.getElementById("btn-survey-ai-v4")?.addEventListener("click", () => runAiV4().catch((e) => alert(e.message)));
+initSketchCanvas();
 document.getElementById("btn-survey-checklist")?.addEventListener("click", () =>
   saveChecklist().then(() => alert("チェックリスト保存"))
 );
@@ -408,6 +574,8 @@ guardSurveyAccess().then(() => {
     document.getElementById("survey-project-id").textContent = activeProjectId;
     loadChecklist();
     refreshPhotoList();
+    refreshAudioList();
+    refreshSketchList();
   }
   updateOfflineBadge();
   flushOfflineQueue();

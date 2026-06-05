@@ -3,6 +3,93 @@
 TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。  
 三菱電機 **FX 系** PLC と **GX Works2 / GX Works3** を想定しています。
 
+## TiSLY Platform — RC2 Pre-Production Deploy Foundation（Phase 1201–1240）
+
+**tisly.jp 本番公開前 — デプロイ・環境変数・権限・テスト・手順書の確立**
+
+1案件フロー（現調 → AI見積 → Business → 施工 → PRO Remote → Google TV → 引き渡し）完了後、
+本番投入に必要な基盤を固めます。
+
+| 領域 | パス / 成果物 |
+|------|----------------|
+| 本番 URL 構成 | `docs/production_routes.md` — `/app` `/survey` `/business` `/sales` 等 |
+| VPS デプロイ Runbook | `docs/tisly_jp_deploy_runbook.md` — nginx · SSL · systemd · rollback |
+| 起動前 env checker | `server/src/config/production-env-checker.ts` — 不足時 warning |
+| Mock/Real 切替一覧 | `docs/mock_real_modes.md` — Gmail/QNAP/Shelly/MQTT/Google TV |
+| RC2 公開前チェックリスト | `docs/rc2_pre_deploy_checklist.md` |
+| 本番ルート定義 | `server/src/config/production-routes.ts` |
+| テスト | `server/test/phase1201-1240.test.ts` |
+| ステータス | `docs/phase1201_1240_status.md` |
+
+### tisly.jp 公開前に必要な手順
+
+1. `server/.env` を `.env.example` から作成し、**必須項目**を設定（下表）
+2. `cd server && npm run build && npx tsc --noEmit && npm run test`
+3. VPS へデプロイ（`docs/tisly_jp_deploy_runbook.md`）
+4. Let's Encrypt SSL · nginx · systemd 常駐
+5. `docs/rc2_pre_deploy_checklist.md` の URL / API を人手確認
+6. 初回は **mock 維持**（`MQTT_MODE` `SHELLY_MODE` `QNAP_UPLOAD_MODE` `GMAIL_SEND_MODE`）
+
+| 人間が設定する .env（必須） | 生成例 |
+|-----------------------------|--------|
+| `JWT_SECRET` | `openssl rand -hex 32` |
+| `ADMIN_PASSWORD_HASH` | `hashPassword('your-password')` |
+| `TISLY_PUBLIC_URL` | `https://tisly.jp` |
+| `INGEST_SECRET` | `openssl rand -hex 24` |
+| `NODE_ENV` | `production` |
+
+```bash
+cd server && npm run build && npx tsc --noEmit && npm run test
+```
+
+---
+
+## TiSLY Platform — Field Deployment RC2 / First Real Customer Trial（Phase 1161–1200）
+
+**初回顧客導入トライアル — 1案件を最初から最後まで追える RC2**
+
+| 領域 | パス / API |
+|------|------------|
+| Field Project Wizard | `/field/new` · `POST /api/field/projects/create` · `GET /api/field/projects/:id` |
+| AI現調解析 v2 | `POST /api/ai/survey-analysis-v2` |
+| 見積ドラフト v2 | `/business/projects/:id/estimate-draft` · `POST/PATCH /api/business/.../estimate-draft` |
+| Deployment Checklist RC2 | `/deployment/checklist/:projectId` · `GET/POST /api/deployment/checklist/*` |
+| PRO Remote Floor Stack RC2 | `GET /api/customer/:code/pro-remote/floor-stack?rc=2` · `POST .../focus` |
+| Google TV Focus RC2 | `/tv/:code` · `POST /api/tv/focus-camera` · `GET /api/tv/:code/state` |
+| Customer Handover | `/customer/:code/handover` · `GET /api/customer/:code/handover` |
+| テスト | `server/test/phase1161-1200.test.ts` |
+| ドキュメント | `docs/phase1161_1200_status.md` · `docs/first_customer_trial_runbook.md` |
+
+```bash
+cd server && npm run build && npx tsc --noEmit && npm run test
+```
+
+---
+
+## TiSLY Platform — Field Deployment RC1 & Operations Automation（Phase 1121–1160）
+
+**初回導入可能レベル — 営業→現調→見積→施工→引渡し→保守の統合ワークフロー**
+
+| 領域 | パス / API |
+|------|------------|
+| 現調PWA強化 | `/survey` · `POST /api/survey/photo` · `/audio` · `/drawing` · GPS逆引き |
+| AI現調解析 v4 | `POST /api/ai/survey-analysis` |
+| TOMS見積自動生成 | `POST /api/business/estimate/generate` |
+| QR資産管理 | `POST /api/assets/qr/create` · `GET /api/assets/qr/history` |
+| 保守PWA | `/maintenance` · `GET/POST /api/maintenance/schedule` · `POST /api/maintenance/report` |
+| 顧客ポータル v1 | `/customer-portal` · `GET /api/customer/:code/field-view` (owner) |
+| 統合タイムライン | `GET /api/timeline` |
+| 案件司令塔 RC | `/project/:id` · `GET /api/toms/projects/:id/dashboard?rc=1` |
+| Google TV focus | `POST /api/tv/focus-camera` |
+| テスト | `server/test/phase1121-1160.test.ts` |
+| ドキュメント | `docs/phase1121_1160_status.md` |
+
+```bash
+cd server && npm run build && npx tsc --noEmit && npm run test
+```
+
+---
+
 ## TiSLY Platform — Production Device Connection & Onboarding（Phase 1041–1080）
 
 **実機接続準備 · Shelly プロビジョニング · 施工 PWA ファイナライズ · 顧客オンボーディング一括化**

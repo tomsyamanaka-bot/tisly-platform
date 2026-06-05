@@ -328,8 +328,30 @@ function renderMaintenance(cases) {
     .join("") || "<p>保守案件なし</p>"}`;
 }
 
+function renderRcCards(cards) {
+  const el = document.getElementById("dash-rc-grid");
+  if (!el) return;
+  if (!cards?.length) {
+    el.innerHTML = "<p>RCカードなし</p>";
+    return;
+  }
+  const statusClass = { ok: "badge", warn: "badge warn", pending: "badge warn", none: "badge err" };
+  el.innerHTML = cards
+    .map(
+      (c) =>
+        `<div class="card rc-card">
+          <h3>${c.title} <span class="${statusClass[c.status] || "badge"}">${c.status}</span></h3>
+          <p>${c.summary}</p>
+          ${c.count != null ? `<p class="hint">${c.count} 件</p>` : ""}
+          ${c.href ? `<a href="${c.href}">開く</a>` : ""}
+        </div>`
+    )
+    .join("");
+}
+
 function applyDashboardData(data, jumpOpts) {
   lastDashboard = data;
+  renderRcCards(data.rcCards);
   const p = data.project;
   document.getElementById("dash-title").textContent = `${p.projectNo} ${p.title}`;
   document.getElementById("dash-state").textContent = `TOMS: ${data.tomsState} / ${p.status}`;
@@ -360,13 +382,13 @@ function applyDashboardData(data, jumpOpts) {
   renderMaintenance(data.maintenance);
   renderAiEstimateSection(data.aiEstimateV3);
 
-  const timeline = [...(data.timeline || [])];
+  const timeline = [...(data.unifiedTimeline || data.timeline || [])];
   document.getElementById("dash-timeline").innerHTML = timeline
     .slice()
     .reverse()
     .map(
       (e) =>
-        `<li><strong>${e.title}</strong> <small>${e.createdAt}</small><br>${e.detail || ""}</li>`
+        `<li><strong>[${e.category || ""}] ${e.title}</strong> <small>${e.createdAt}</small><br>${e.detail || ""}</li>`
     )
     .join("");
 
@@ -404,7 +426,7 @@ async function loadAiEstimate() {
 
 async function loadDashboard(jumpOpts) {
   if (!projectId) return;
-  const res = await api(`/api/toms/projects/${projectId}/dashboard`);
+  const res = await api(`/api/toms/projects/${projectId}/dashboard?rc=1`);
   if (!res.ok) {
     document.getElementById("dash-title").textContent = "案件が見つかりません";
     return;

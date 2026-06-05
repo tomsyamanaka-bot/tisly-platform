@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TiSLY — 現調案件ウィザード</title>
+  <style>
+    :root { --green: #1a7f37; --border: #d0d7de; }
+    body { max-width: 720px; margin: 0 auto; padding: 1.5rem; font-family: system-ui, sans-serif; }
+    h1 { color: var(--green); }
+    label { display: block; margin: 0.75rem 0; }
+    input, select, textarea { width: 100%; padding: 0.5rem; box-sizing: border-box; }
+    button { background: var(--green); color: #fff; border: none; padding: 0.6rem 1.2rem; border-radius: 8px; cursor: pointer; margin-top: 1rem; }
+    .result { background: #dafbe1; border: 1px solid var(--green); padding: 1rem; border-radius: 8px; margin-top: 1rem; }
+    .error { color: #cf222e; }
+  </style>
+</head>
+<body>
+  <nav><a href="/app">App Hub</a> · <a href="/survey">現調PWA</a> · <a href="/business">Business</a></nav>
+  <h1>Field Project Wizard</h1>
+  <p>Phase 1161–1200 — 現調開始前に案件を作成（Survey + Business + Timeline 同時生成）</p>
+  <form id="field-form">
+    <label>顧客コード <input name="customerCode" value="TOMS001" /></label>
+    <label>顧客名 <input name="customerName" required placeholder="山田様邸" /></label>
+    <label>住所 <input name="address" required placeholder="東京都..." /></label>
+    <label>建物種別
+      <select name="buildingType">
+        <option value="detached_house">戸建</option>
+        <option value="apartment">マンション</option>
+        <option value="office">オフィス</option>
+        <option value="store">店舗</option>
+        <option value="warehouse">倉庫</option>
+        <option value="other">その他</option>
+      </select>
+    </label>
+    <label>プラン候補（カンマ区切り）<input name="planCandidates" value="standard,premium" /></label>
+    <label>現調担当 <input name="surveyStaff" required placeholder="担当者名" /></label>
+    <label>予定日 <input name="scheduledDate" type="date" required /></label>
+    <label>備考 <textarea name="memo" rows="3"></textarea></label>
+    <button type="submit">案件を作成</button>
+  </form>
+  <div id="result"></div>
+  <script type="module" src="/js/field-new.js"></script>
+</body>
+</html>

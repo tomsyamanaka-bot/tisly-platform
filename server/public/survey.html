@@ -17,7 +17,7 @@
   <div id="tisly-pwa-topbar-root"></div>
   <header class="survey-page-header">
     <h1>現調 Survey</h1>
-    <p class="hint">Phase 501–520 — AI Intake · 図面OCR · 同期 · PRO Map</p>
+    <p class="hint">Phase 1121–1160 — GPS逆引き · 複数写真 · 音声/手書きメモ · AI v4</p>
     <p class="survey-project-badge">案件: <span id="survey-project-id">未作成</span> <span id="survey-offline-badge" class="offline-badge"></span></p>
   </header>
   <main class="survey-sections">
@@ -32,6 +32,8 @@
       <button type="button" class="btn-survey" id="btn-survey-save-case">サーバーに保存</button>
       <button type="button" class="btn-survey secondary" id="btn-survey-create-toms">TOMS案件を作成</button>
       <button type="button" class="btn-survey secondary" id="btn-survey-gps">現在地 GPS 保存</button>
+      <button type="button" class="btn-survey secondary" id="btn-survey-gps-auto">GPS 自動取得</button>
+      <button type="button" class="btn-survey secondary" id="btn-survey-reverse-geocode">住所逆引き</button>
       <p id="survey-gps" class="hint">GPS: 未取得</p>
     </section>
     <section class="survey-card" data-section="aerial">
@@ -74,6 +76,29 @@
       <h2>配線経路</h2>
       <input type="file" accept="image/*" id="survey-route" />
     </section>
+    <section class="survey-card" data-section="bulk-photos">
+      <h2>写真一括添付</h2>
+      <input type="file" accept="image/*" capture="environment" multiple id="survey-bulk-photos" />
+      <label>種別 <select id="survey-bulk-type">
+        <option value="other">other</option>
+        <option value="outside">outside</option>
+        <option value="inside">inside</option>
+        <option value="camera">camera</option>
+      </select></label>
+    </section>
+    <section class="survey-card" data-section="audio">
+      <h2>音声メモ</h2>
+      <button type="button" class="btn-survey" id="btn-survey-audio-start">録音開始</button>
+      <button type="button" class="btn-survey secondary" id="btn-survey-audio-stop" disabled>録音停止・保存</button>
+      <p id="survey-audio-status" class="hint">未録音</p>
+      <ul id="survey-audio-list" class="survey-photo-list"></ul>
+    </section>
+    <section class="survey-card" data-section="handwriting">
+      <h2>手書きメモ</h2>
+      <canvas id="survey-sketch-canvas" width="320" height="200" style="border:1px solid #ccc;background:#fff;touch-action:none"></canvas>
+      <button type="button" class="btn-survey" id="btn-survey-sketch-save">手書き保存</button>
+      <ul id="survey-sketch-list" class="survey-photo-list"></ul>
+    </section>
     <section class="survey-card" data-section="photos">
       <h2>写真分類</h2>
       <p class="hint">アップロード後、種別を変更できます</p>
@@ -103,6 +128,7 @@
       <h2>AI Intake / 見積候補</h2>
       <button type="button" class="btn-survey" id="btn-survey-ai-intake">AI Intake 実行</button>
       <button type="button" class="btn-survey" id="btn-survey-ai">見積候補 v2</button>
+      <button type="button" class="btn-survey" id="btn-survey-ai-v4">AI 現調解析 v4</button>
       <button type="button" class="btn-survey secondary" id="btn-survey-floor-map">PRO Floor Map 生成</button>
       <button type="button" class="btn-survey secondary" id="btn-survey-report">HTMLレポート</button>
       <div id="survey-ai-result" class="survey-ai-result"></div>
