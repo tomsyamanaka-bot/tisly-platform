@@ -234,10 +234,12 @@ describe("Phase 1241-1280 Production Deploy Package", () => {
       assert.ok(res.text.includes("本番公開チェック"));
     });
 
-    it("app-hub.js loads publish audit", () => {
+    it("app-hub.js loads publish audit or release gate", () => {
       const js = fs.readFileSync(path.join(serverRoot, "public/js/app-hub.js"), "utf8");
       assert.ok(js.includes("publish-audit"));
-      assert.ok(js.includes("/api/pwa/publish-audit"));
+      assert.ok(
+        js.includes("/api/deploy/release-gate") || js.includes("/api/pwa/publish-audit")
+      );
       assert.ok(js.includes("btn-copy-url"));
     });
   });

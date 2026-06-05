@@ -96,6 +96,19 @@ export const MOCK_REAL_GUARDS: MockRealGuard[] = [
     guardLocation: "server/src/mqtt/mqtt-config.ts + mqtt-tls.ts fallback",
   },
   {
+    service: "SwitchBot Lock",
+    envKeys: ["SWITCHBOT_MODE", "SWITCHBOT_TOKEN", "SWITCHBOT_SECRET", "SWITCHBOT_LOCK_DEVICE_ID"],
+    mockDefault: "SWITCHBOT_MODE=mock",
+    realValue: "SWITCHBOT_MODE=real + TOKEN + SECRET + LOCK_DEVICE_ID",
+    demoSafe: "mock — 施錠/解錠シミュレーション",
+    realRisks: [
+      "玄関ロックの遠隔解錠",
+      "自動警戒ON/OFF の誤動作",
+      "token/secret 漏洩",
+    ],
+    guardLocation: "switchbotService.ts — confirmed=true required for real commands",
+  },
+  {
     service: "Google TV (Web)",
     envKeys: ["TISLY_PUBLIC_URL"],
     mockDefault: "ローカル API + focus-camera mock state",

@@ -178,6 +178,7 @@ export function runMigrations(database: Database.Database): void {
   migratePhase1041(database);
   migratePhase1121(database);
   migratePhase1161(database);
+  migratePhase1321(database);
 }
 
 const CUSTOMER_INVITE_COLUMNS: Array<{ name: string; ddl: string }> = [
@@ -445,6 +446,7 @@ function migratePhase781(database: Database.Database): void {
   migratePhase1041(database);
   migratePhase1121(database);
   migratePhase1161(database);
+  migratePhase1321(database);
 }
 
 function migratePhase1121(database: Database.Database): void {
@@ -546,6 +548,73 @@ function migratePhase1121(database: Database.Database): void {
     .run(
       "migration:phase1121_field_deployment_rc1",
       JSON.stringify({ at: new Date().toISOString(), phase: "1121-1160" })
+    );
+}
+
+function migratePhase1321(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:phase1321_security_automation") as { value_json: string } | undefined;
+  if (marker) return;
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS security_state (
+      id TEXT PRIMARY KEY,
+      mode TEXT NOT NULL DEFAULT 'disarmed' CHECK (mode IN ('armed', 'disarmed', 'pending_arm', 'pending_disarm')),
+      reason TEXT NOT NULL DEFAULT '',
+      source TEXT NOT NULL DEFAULT 'system' CHECK (source IN ('manual', 'switchbot', 'presence', 'system')),
+      last_changed_at TEXT NOT NULL,
+      last_changed_by TEXT NOT NULL DEFAULT 'system'
+    );
+    CREATE INDEX IF NOT EXISTS idx_security_state_changed ON security_state(last_changed_at);
+
+    CREATE TABLE IF NOT EXISTS registered_presence_devices (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      type TEXT NOT NULL DEFAULT 'other' CHECK (type IN ('iphone', 'android', 'tablet', 'pc', 'other')),
+      owner_name TEXT NOT NULL DEFAULT '',
+      mac_address TEXT,
+      ip_address TEXT,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      last_seen_at TEXT,
+      presence_status TEXT NOT NULL DEFAULT 'unknown' CHECK (presence_status IN ('home', 'away', 'unknown')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_presence_devices_status ON registered_presence_devices(presence_status);
+
+    CREATE TABLE IF NOT EXISTS security_automation_rules (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      trigger_type TEXT NOT NULL CHECK (trigger_type IN ('switchbot_locked', 'switchbot_unlocked')),
+      required_presence TEXT NOT NULL DEFAULT 'all_away' CHECK (required_presence IN ('all_away', 'ignore')),
+      action TEXT NOT NULL CHECK (action IN ('arm', 'disarm', 'create_candidate')),
+      delay_seconds INTEGER NOT NULL DEFAULT 300,
+      unknown_device_policy TEXT NOT NULL DEFAULT 'block_auto_arm'
+        CHECK (unknown_device_policy IN ('block_auto_arm', 'unknown_as_away', 'unknown_as_home')),
+      require_confirmation INTEGER NOT NULL DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS security_event_logs (
+      id TEXT PRIMARY KEY,
+      event_type TEXT NOT NULL,
+      source TEXT NOT NULL DEFAULT 'system',
+      message TEXT NOT NULL,
+      before_mode TEXT,
+      after_mode TEXT,
+      metadata_json TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_security_event_logs_created ON security_event_logs(created_at);
+  `);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run(
+      "migration:phase1321_security_automation",
+      JSON.stringify({ at: new Date().toISOString(), phase: "1321-1340" })
     );
 }
 

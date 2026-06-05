@@ -194,4 +194,32 @@ export const config = {
       return "mock" as const;
     },
   },
+  switchbot: {
+    get mode() {
+      const m = env("SWITCHBOT_MODE", "mock").toLowerCase();
+      if (m === "real") return "real" as const;
+      if (m === "dryrun") return "dryRun" as const;
+      return "mock" as const;
+    },
+    get token() {
+      return env("SWITCHBOT_TOKEN");
+    },
+    get secret() {
+      return env("SWITCHBOT_SECRET");
+    },
+    get lockDeviceId() {
+      return env("SWITCHBOT_LOCK_DEVICE_ID");
+    },
+    get autoArmEnabled() {
+      return env("SWITCHBOT_AUTO_ARM_ENABLED", "false") === "true";
+    },
+    get autoDisarmEnabled() {
+      return env("SWITCHBOT_AUTO_DISARM_ENABLED", "false") === "true";
+    },
+  },
+  securityAutomation: {
+    get eventLogEnabled() {
+      return env("SECURITY_EVENT_LOG_ENABLED", "true") === "true";
+    },
+  },
 };

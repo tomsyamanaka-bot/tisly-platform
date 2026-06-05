@@ -19,37 +19,124 @@ async function copyText(text) {
   }
 }
 
+function formatIsoShort(iso) {
+  if (!iso) return "未実行";
+  try {
+    return new Date(iso).toLocaleString("ja-JP", { hour12: false });
+  } catch {
+    return iso;
+  }
+}
+
+function renderGateBanner(gate) {
+  const el = document.getElementById("release-gate-banner");
+  if (!el || !gate) return;
+  const cls = gate.status === "pass" ? "gate-pass" : "gate-fail";
+  el.className = `release-gate-banner ${cls}`;
+  el.textContent =
+    gate.status === "pass"
+      ? "Release Gate: 合格 — VPS デプロイ手順へ進める"
+      : "Release Gate: 不合格 — 修正して npm run release:gate を再実行";
+}
+
+function renderGateSummary(data) {
+  const el = document.getElementById("publish-gate-summary");
+  if (!el) return;
+  const leak = data.secretLeakCheck?.passed ? "✓ 漏洩なし" : "✗ 漏洩疑い";
+  const uploads = data.uploadsGitignore?.passed ? "✓ gitignore" : "✗ uploads 未除外";
+  const pwaTotal = (data.pwaAudit?.pwAs || []).filter((p) => p.isPwa).length;
+  el.innerHTML = `
+    <div class="gate-summary-row">
+      <span class="gate-chip">Production URL: <strong>${data.tislyPublicUrl || "—"}</strong></span>
+      <span class="gate-chip">installReady: <strong>${data.pwaInstallReady ?? 0}/${pwaTotal}</strong></span>
+      <span class="gate-chip">Secret leak: <strong>${leak}</strong></span>
+      <span class="gate-chip">uploads: <strong>${uploads}</strong></span>
+    </div>
+    <div class="gate-tv-caution">${data.googleTvCaution || ""}</div>
+  `;
+}
+
+async function renderSecurityGate(data) {
+  const el = document.getElementById("publish-security-gate");
+  if (!el) return;
+  try {
+    const sec = await fetch("/api/deploy/security-automation-status").then((r) =>
+      r.ok ? r.json() : null
+    );
+    const sbChecks = (data.checks || []).filter((c) => c.id?.startsWith("switchbot") || c.id?.startsWith("security_"));
+    const sbHtml = sbChecks
+      .map(
+        (c) =>
+          `<div class="gate-check status-${c.status}"><span class="gate-check-name">${c.name}</span><span class="gate-check-msg">${c.message}</span></div>`
+      )
+      .join("");
+    el.innerHTML = `
+      <h3>SwitchBot / Security Automation</h3>
+      <p>mode: <strong>${sec?.switchbotMode ?? "—"}</strong> · state: <strong>${sec?.securityState ?? "—"}</strong> · real unlock guard: <strong>${sec?.realUnlockGuarded ? "✓" : "✗"}</strong></p>
+      ${sbHtml}`;
+  } catch {
+    el.innerHTML = "";
+  }
+}
+
+function renderGateChecks(checks) {
+  const el = document.getElementById("publish-gate-checks");
+  if (!el) return;
+  if (!checks?.length) {
+    el.innerHTML = "";
+    return;
+  }
+  el.innerHTML = checks
+    .map((c) => {
+      const label = STATUS_LABELS[c.status === "pass" ? "ok" : c.status === "warn" ? "caution" : "not_ready"] || c.status;
+      return `<div class="gate-check status-${c.status}"><span class="gate-check-name">${c.name}</span><span class="gate-check-badge">${label}</span><span class="gate-check-msg">${c.message}</span></div>`;
+    })
+    .join("");
+}
+
 async function loadPublishAudit() {
   const meta = document.getElementById("publish-audit-meta");
   const envEl = document.getElementById("publish-audit-env");
   const grid = document.getElementById("publish-audit-grid");
+  const lastEl = document.getElementById("publish-dry-run-last");
   if (!meta || !grid) return;
 
   meta.textContent = "読み込み中…";
   grid.innerHTML = "";
+  if (lastEl) lastEl.textContent = "";
 
   try {
-    const res = await fetch("/api/pwa/publish-audit");
+    const res = await fetch("/api/deploy/release-gate");
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
+
+    renderGateBanner(data.releaseGate);
+    renderGateSummary(data);
+    renderGateChecks(data.checks);
+    renderSecurityGate(data);
 
     const prodFlag = data.isProductionUrl
       ? "TISLY_PUBLIC_URL ✓ 本番"
       : "TISLY_PUBLIC_URL ⚠ 未設定または localhost";
-    meta.textContent = `${prodFlag} · ${data.summary.installReady}/${data.pwAs.filter((p) => p.isPwa).length} PWA インストール準備完了`;
+    meta.textContent = `${prodFlag} · dry-run ${data.passed ? "合格" : "不合格"} (${data.summary?.pass ?? 0} pass / ${data.summary?.warn ?? 0} warn / ${data.summary?.fail ?? 0} fail)`;
 
     if (envEl) {
-      const mockChips = (data.mockReal || [])
+      const mockChips = (data.pwaAudit?.mockReal || [])
         .map((m) => {
           const cls = m.mode === "real" ? "mode-real" : "mode-mock";
           return `<span class="mock-real-chip ${cls}">${m.service}: ${m.mode}</span>`;
         })
         .join("");
-      const envWarn = data.hasBlockingEnvErrors ? " · env エラーあり" : "";
-      envEl.innerHTML = `<div>NODE_ENV=${data.nodeEnv} · ${data.tislyPublicUrl}${envWarn}</div><div>${mockChips}</div>`;
+      envEl.innerHTML = `<div>mock/real 状態</div><div>${mockChips}</div>`;
     }
 
-    grid.innerHTML = (data.pwAs || [])
+    if (lastEl) {
+      const last = data.lastDryRunAt || data.generatedAt;
+      const lastResult = data.lastDryRunAt ? (data.passed ? "合格" : "不合格") : "（API ライブ評価）";
+      lastEl.textContent = `最後の dry-run: ${formatIsoShort(last)} · ${lastResult}`;
+    }
+
+    grid.innerHTML = (data.pwaAudit?.pwAs || [])
       .map((p) => {
         const badge = STATUS_LABELS[p.status] || p.status;
         const swLine = p.isPwa

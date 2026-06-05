@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TiSLY — セキュリティ自動化設定</title>
+  <link rel="stylesheet" href="/css/admin.css" />
+  <link rel="stylesheet" href="/css/security-dashboard.css" />
+  <style>
+    .settings-grid label { display: block; margin: 0.75rem 0; }
+    .device-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    .device-table th, .device-table td { border: 1px solid #d0d7de; padding: 0.4rem 0.6rem; text-align: left; }
+    .test-row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <header class="sec-header">
+    <h1>セキュリティ自動化設定</h1>
+    <nav><a href="/security">警戒ダッシュボード</a> · <a href="/app">App Hub</a></nav>
+  </header>
+  <main class="sec-main">
+    <section class="sec-card settings-grid">
+      <h2>SwitchBot 連携</h2>
+      <label><input type="checkbox" id="switchbot-enabled" /> SwitchBot連携 ON</label>
+      <label><input type="checkbox" id="auto-arm" /> 自動警戒ON</label>
+      <label><input type="checkbox" id="auto-disarm" /> 自動警戒OFF</label>
+      <label>delaySeconds <input type="number" id="delay-seconds" min="0" step="30" value="300" /></label>
+      <label>unknownDevicePolicy
+        <select id="unknown-policy">
+          <option value="block_auto_arm">block_auto_arm</option>
+          <option value="unknown_as_away">unknown_as_away</option>
+          <option value="unknown_as_home">unknown_as_home</option>
+        </select>
+      </label>
+      <button type="button" class="btn" id="btn-save-settings">設定保存</button>
+      <p id="settings-status" class="sec-meta"></p>
+    </section>
+    <section class="sec-card">
+      <h2>登録端末・在宅判定</h2>
+      <div id="presence-summary" class="sec-meta"></div>
+      <table class="device-table" id="device-table">
+        <thead><tr><th>名前</th><th>種別</th><th>状態</th><th>操作</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="test-row">
+        <button type="button" class="btn secondary" id="btn-add-device">端末追加（テスト）</button>
+      </div>
+    </section>
+    <section class="sec-card">
+      <h2>SwitchBot テスト</h2>
+      <p id="switchbot-status" class="sec-meta">—</p>
+      <div class="test-row">
+        <button type="button" class="btn secondary" id="btn-lock-status">状態取得</button>
+        <button type="button" class="btn secondary" id="btn-mock-locked">mock locked</button>
+        <button type="button" class="btn secondary" id="btn-mock-unlocked">mock unlocked</button>
+      </div>
+    </section>
+  </main>
+  <script type="module" src="/js/security-automation-settings.js"></script>
+</body>
+</html>

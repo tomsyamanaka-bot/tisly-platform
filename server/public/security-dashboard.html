@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TiSLY — セキュリティ警戒</title>
+  <link rel="stylesheet" href="/css/admin.css" />
+  <link rel="stylesheet" href="/css/security-dashboard.css" />
+</head>
+<body>
+  <header class="sec-header">
+    <h1>TiSLY セキュリティ警戒</h1>
+    <nav>
+      <a href="/security/settings/automation">自動化設定</a> ·
+      <a href="/app">App Hub</a>
+    </nav>
+  </header>
+  <main class="sec-main">
+    <section class="sec-card" id="state-card">
+      <h2>現在の警戒状態</h2>
+      <div id="security-mode-badge" class="mode-badge disarmed">読み込み中…</div>
+      <p id="security-reason" class="sec-reason"></p>
+      <p id="security-meta" class="sec-meta"></p>
+      <div class="sec-actions">
+        <button type="button" class="btn" id="btn-arm">警戒ON</button>
+        <button type="button" class="btn secondary" id="btn-disarm">警戒OFF</button>
+      </div>
+    </section>
+    <section class="sec-card">
+      <h2>最終ログ</h2>
+      <pre id="last-log" class="log-pre">—</pre>
+    </section>
+    <section class="sec-card">
+      <h2>直近イベント</h2>
+      <ul id="event-log-list" class="event-list"></ul>
+    </section>
+  </main>
+  <script type="module" src="/js/security-dashboard.js"></script>
+</body>
+</html>

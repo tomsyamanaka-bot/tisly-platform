@@ -64,6 +64,9 @@ import { timelineRouter } from "./api/routes/timeline.js";
 import { proRemoteFloorMapRouter } from "./api/routes/pro-remote-floor-map.js";
 import { fieldRouter } from "./api/routes/field.js";
 import { deploymentRc2Router } from "./api/routes/deployment-rc2.js";
+import { deployRouter } from "./api/routes/deploy.js";
+import { switchbotIntegrationRouter } from "./api/routes/switchbot-integration.js";
+import { securityAutomationRouter } from "./api/routes/security-automation.js";
 import { buildSurveyReportHtml } from "./survey/survey-report.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -92,6 +95,8 @@ export function createApp(): express.Application {
   app.use("/api/timeline", timelineRouter);
   app.use("/api/field", fieldRouter);
   app.use("/api/deployment", deploymentRc2Router);
+  app.use("/api/deploy", deployRouter);
+  app.use("/api/integrations/switchbot", switchbotIntegrationRouter);
 
   app.use("/api/events", opsCustomerScopeMiddleware, tenantQueryGuard, eventsRouter);
   app.use("/api/notifications", opsCustomerScopeMiddleware, tenantQueryGuard, notificationsRouter);
@@ -122,6 +127,7 @@ export function createApp(): express.Application {
   app.use("/api/tenants", requireAdminAuth, tenantsRouter);
   app.use("/api/reports", requireAdminAuth, reportsRouter);
   app.use("/api/notification-rules", requireAdminAuth, notificationRulesRouter);
+  app.use("/api/security", securityAutomationRouter);
   app.use("/api/security", securityRouter);
 
   app.use("/api/tv", opsCustomerScopeMiddleware, tenantQueryGuard, tvRouter);
@@ -207,6 +213,12 @@ export function createApp(): express.Application {
   });
   app.get("/app", (_req, res) => {
     res.sendFile(path.join(publicDir, "app-hub.html"));
+  });
+  app.get("/security", (_req, res) => {
+    res.sendFile(path.join(publicDir, "security-dashboard.html"));
+  });
+  app.get("/security/settings/automation", (_req, res) => {
+    res.sendFile(path.join(publicDir, "security-automation-settings.html"));
   });
   app.get("/project/:projectId", (_req, res) => {
     res.sendFile(path.join(publicDir, "project-dashboard.html"));

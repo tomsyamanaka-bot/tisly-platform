@@ -1,0 +1,305 @@
+{
+  "generatedAt": "2026-06-05T17:51:47.069Z",
+  "passed": true,
+  "summary": {
+    "pass": 9,
+    "fail": 0,
+    "warn": 0
+  },
+  "checks": [
+    {
+      "id": "env_example_exists",
+      "name": ".env.production.example 存在",
+      "status": "pass",
+      "message": "テンプレートファイルあり"
+    },
+    {
+      "id": "env_required_keys",
+      "name": "必須 env キー",
+      "status": "pass",
+      "message": "必須 19 キー揃い"
+    },
+    {
+      "id": "env_template_secrets",
+      "name": "テンプレ secret 空許可",
+      "status": "pass",
+      "message": "JWT_SECRET / ADMIN_PASSWORD_HASH は空テンプレ（VPS で設定）"
+    },
+    {
+      "id": "tisly_public_url",
+      "name": "TISLY_PUBLIC_URL 想定",
+      "status": "pass",
+      "message": "TISLY_PUBLIC_URL=https://tisly.jp",
+      "hint": "https://tisly.jp を設定"
+    },
+    {
+      "id": "secret_leak",
+      "name": "secret leak 防止",
+      "status": "pass",
+      "message": "git diff に実値 secret なし",
+      "hint": "秘密情報は .env のみ — git に含めない"
+    },
+    {
+      "id": "uploads_gitignore",
+      "name": "uploads gitignore",
+      "status": "pass",
+      "message": "server/uploads は .gitignore 対象",
+      "hint": ".gitignore に server/uploads/ を追加"
+    },
+    {
+      "id": "nginx_conf",
+      "name": "nginx 設定",
+      "status": "pass",
+      "message": "tisly.jp.conf — 12 接頭辞確認"
+    },
+    {
+      "id": "pwa_urls_match",
+      "name": "PWA URL 一覧一致",
+      "status": "pass",
+      "message": "publish-audit と RC2 9 URL 一致"
+    },
+    {
+      "id": "pwa_assets",
+      "name": "SW / manifest / icons",
+      "status": "pass",
+      "message": "全 PWA の SW / manifest / icons 参照 OK（7 件）"
+    }
+  ],
+  "productionUrls": [
+    "https://tisly.jp/app",
+    "https://tisly.jp/survey",
+    "https://tisly.jp/business",
+    "https://tisly.jp/sales",
+    "https://tisly.jp/customer/TOMS001",
+    "https://tisly.jp/customer/TOMS001/pro-remote",
+    "https://tisly.jp/customer/TOMS001/install/home",
+    "https://tisly.jp/tv/TOMS001",
+    "https://tisly.jp/deployment/checklist"
+  ],
+  "mockItems": [
+    "Gmail / Google OAuth — mock — 接続済み扱い・実送信なし",
+    "QNAP Business WebDAV — mock — server/uploads/qnap-mock へ保存",
+    "QNAP SMB Archive — mock — data/qnap-archive ローカル",
+    "Shelly — mock — シミュレーション RPC",
+    "MQTT — mock — heartbeat シミュレーション・LIVE_OPS_MOCK_PUSH 可",
+    "Google TV (Web) — POST /api/tv/focus-camera は DB/WS のみ・実テレビ操作なし"
+  ],
+  "realSwitchItems": [],
+  "tislyPublicUrl": "https://tisly.jp",
+  "isProductionUrl": true,
+  "pwaInstallReady": 7,
+  "googleTvCaution": "PWA ではなく TV 専用 Web — Chrome Cast / TV ブラウザで表示確認",
+  "secretLeakCheck": {
+    "passed": true,
+    "findings": []
+  },
+  "uploadsGitignore": {
+    "passed": true,
+    "message": "server/uploads は .gitignore 対象"
+  },
+  "pwaAudit": {
+    "summary": {
+      "ok": 7,
+      "caution": 2,
+      "notReady": 0,
+      "installReady": 7
+    },
+    "mockReal": [
+      {
+        "service": "Gmail / Google OAuth",
+        "mode": "unknown",
+        "envKeys": [
+          "GOOGLE_OAUTH_ENABLED",
+          "GMAIL_SEND_MODE"
+        ],
+        "demoSafe": "mock — 接続済み扱い・実送信なし"
+      },
+      {
+        "service": "QNAP Business WebDAV",
+        "mode": "unknown",
+        "envKeys": [
+          "QNAP_UPLOAD_MODE",
+          "QNAP_WEBDAV_URL"
+        ],
+        "demoSafe": "mock — server/uploads/qnap-mock へ保存"
+      },
+      {
+        "service": "QNAP SMB Archive",
+        "mode": "unknown",
+        "envKeys": [
+          "QNAP_MODE",
+          "QNAP_HOST"
+        ],
+        "demoSafe": "mock — data/qnap-archive ローカル"
+      },
+      {
+        "service": "Shelly",
+        "mode": "unknown",
+        "envKeys": [
+          "SHELLY_MODE",
+          "SHELLY_BASE_URL",
+          "SHELLY_AUTH_TOKEN"
+        ],
+        "demoSafe": "mock — シミュレーション RPC"
+      },
+      {
+        "service": "MQTT",
+        "mode": "unknown",
+        "envKeys": [
+          "MQTT_MODE",
+          "MQTT_URL",
+          "MQTT_SUBSCRIBER_ENABLED"
+        ],
+        "demoSafe": "mock — heartbeat シミュレーション・LIVE_OPS_MOCK_PUSH 可"
+      },
+      {
+        "service": "Google TV (Web)",
+        "mode": "unknown",
+        "envKeys": [
+          "TISLY_PUBLIC_URL"
+        ],
+        "demoSafe": "POST /api/tv/focus-camera は DB/WS のみ・実テレビ操作なし"
+      }
+    ],
+    "pwAs": [
+      {
+        "pwaName": "App Hub",
+        "id": "app_hub",
+        "productionUrl": "https://tisly.jp/app",
+        "localUrl": "http://localhost:3080/app",
+        "manifestUrl": "https://tisly.jp/manifest.webmanifest",
+        "scope": "/",
+        "startUrl": "/app",
+        "serviceWorker": "/service-worker.js",
+        "installReady": true,
+        "missingItems": [],
+        "recommendedAction": "本番公開準備 OK — nginx 反映後に実機でホーム画面追加を確認",
+        "status": "ok",
+        "isPwa": true
+      },
+      {
+        "pwaName": "現調 PWA",
+        "id": "survey",
+        "productionUrl": "https://tisly.jp/survey",
+        "localUrl": "http://localhost:3080/survey",
+        "manifestUrl": "https://tisly.jp/manifest-survey.webmanifest",
+        "scope": "/",
+        "startUrl": "/survey",
+        "serviceWorker": "/service-worker.js",
+        "installReady": true,
+        "missingItems": [],
+        "recommendedAction": "本番公開準備 OK — nginx 反映後に実機でホーム画面追加を確認",
+        "status": "ok",
+        "isPwa": true
+      },
+      {
+        "pwaName": "TOMS Business",
+        "id": "business",
+        "productionUrl": "https://tisly.jp/business",
+        "localUrl": "http://localhost:3080/business",
+        "manifestUrl": "https://tisly.jp/business/manifest.webmanifest",
+        "scope": "/business",
+        "startUrl": "/business",
+        "serviceWorker": "/sw-business.js",
+        "installReady": true,
+        "missingItems": [],
+        "recommendedAction": "本番公開準備 OK — nginx 反映後に実機でホーム画面追加を確認",
+        "status": "ok",
+        "isPwa": true
+      },
+      {
+        "pwaName": "営業デモ",
+        "id": "sales",
+        "productionUrl": "https://tisly.jp/sales",
+        "localUrl": "http://localhost:3080/sales",
+        "manifestUrl": "https://tisly.jp/manifest.webmanifest",
+        "scope": "/",
+        "startUrl": "/sales",
+        "serviceWorker": "/service-worker.js",
+        "installReady": true,
+        "missingItems": [],
+        "recommendedAction": "本番公開準備 OK — nginx 反映後に実機でホーム画面追加を確認",
+        "status": "ok",
+        "isPwa": true
+      },
+      {
+        "pwaName": "顧客ポータル",
+        "id": "customer_portal",
+        "productionUrl": "https://tisly.jp/customer/TOMS001",
+        "localUrl": "http://localhost:3080/customer/TOMS001",
+        "manifestUrl": "https://tisly.jp/customer/TOMS001/manifest.webmanifest",
+        "scope": "/customer/TOMS001",
+        "startUrl": "/customer/TOMS001",
+        "serviceWorker": "/service-worker.js",
+        "installReady": true,
+        "missingItems": [],
+        "recommendedAction": "本番公開準備 OK — nginx 反映後に実機でホーム画面追加を確認",
+        "status": "ok",
+        "isPwa": true
+      },
+      {
+        "pwaName": "PRO Remote",
+        "id": "pro_remote",
+        "productionUrl": "https://tisly.jp/customer/TOMS001/pro-remote",
+        "localUrl": "http://localhost:3080/customer/TOMS001/pro-remote",
+        "manifestUrl": "https://tisly.jp/customer/TOMS001/pro-remote/manifest.webmanifest",
+        "scope": "/customer/TOMS001",
+        "startUrl": "/customer/TOMS001/pro-remote",
+        "serviceWorker": "/service-worker.js",
+        "installReady": true,
+        "missingItems": [],
+        "recommendedAction": "本番公開準備 OK — nginx 反映後に実機でホーム画面追加を確認",
+        "status": "ok",
+        "isPwa": true
+      },
+      {
+        "pwaName": "施工 PWA",
+        "id": "installer",
+        "productionUrl": "https://tisly.jp/customer/TOMS001/install/home",
+        "localUrl": "http://localhost:3080/customer/TOMS001/install/home",
+        "manifestUrl": "https://tisly.jp/customer/TOMS001/install/manifest.webmanifest",
+        "scope": "/",
+        "startUrl": "/customer/TOMS001/install/home",
+        "serviceWorker": "/service-worker.js",
+        "installReady": true,
+        "missingItems": [],
+        "recommendedAction": "本番公開準備 OK — nginx 反映後に実機でホーム画面追加を確認",
+        "status": "ok",
+        "isPwa": true
+      },
+      {
+        "pwaName": "Google TV Web",
+        "id": "google_tv",
+        "productionUrl": "https://tisly.jp/tv/TOMS001",
+        "localUrl": "http://localhost:3080/tv/TOMS001",
+        "manifestUrl": "",
+        "scope": "n/a",
+        "startUrl": "/tv/TOMS001",
+        "serviceWorker": "n/a",
+        "installReady": false,
+        "missingItems": [],
+        "recommendedAction": "PWA ではなく TV 専用 Web — Chrome Cast / TV ブラウザで表示確認",
+        "status": "caution",
+        "isPwa": false
+      },
+      {
+        "pwaName": "導入チェックリスト",
+        "id": "deployment_checklist",
+        "productionUrl": "https://tisly.jp/deployment/checklist",
+        "localUrl": "http://localhost:3080/deployment/checklist",
+        "manifestUrl": "",
+        "scope": "n/a",
+        "startUrl": "/deployment/checklist",
+        "serviceWorker": "n/a",
+        "installReady": false,
+        "missingItems": [],
+        "recommendedAction": "Web ページ — ホーム画面追加は不要",
+        "status": "caution",
+        "isPwa": false
+      }
+    ],
+    "isProductionUrl": true,
+    "tislyPublicUrl": "https://tisly.jp"
+  },
+  "lastDryRunAt": "2026-06-05T17:50:24.361Z"
+}

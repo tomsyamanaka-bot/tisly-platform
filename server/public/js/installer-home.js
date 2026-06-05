@@ -128,6 +128,47 @@ async function flushQueue() {
   await loadHomeData();
 }
 
+async function loadSecurityInstallSummary() {
+  try {
+    const [stateRes, presenceRes, rulesRes] = await Promise.all([
+      fetch("/api/security/state", { headers: installHeaders() }).then((r) =>
+        r.ok ? r.json() : null
+      ),
+      fetch("/api/security/presence/devices", { headers: installHeaders() }).then((r) =>
+        r.ok ? r.json() : null
+      ),
+      fetch("/api/security/automation/rules", { headers: installHeaders() }).then((r) =>
+        r.ok ? r.json() : null
+      ),
+    ]);
+    if (stateRes?.state) {
+      const modeLabels = {
+        armed: "警戒ON",
+        disarmed: "警戒OFF",
+        pending_arm: "警戒ON待機",
+        pending_disarm: "警戒OFF待機",
+      };
+      const el = document.getElementById("tile-security-mode");
+      if (el) el.textContent = modeLabels[stateRes.state.mode] || stateRes.state.mode;
+    }
+    const settings = rulesRes?.settings;
+    if (settings) {
+      const arm = document.getElementById("install-auto-arm");
+      const dis = document.getElementById("install-auto-disarm");
+      if (arm) arm.textContent = settings.autoArmEnabled ? "ON" : "OFF";
+      if (dis) dis.textContent = settings.autoDisarmEnabled ? "ON" : "OFF";
+    }
+    if (presenceRes?.summary) {
+      const pc = document.getElementById("install-presence-count");
+      if (pc) {
+        pc.textContent = `${presenceRes.summary.enabled} 台（home ${presenceRes.summary.home} / away ${presenceRes.summary.away}）`;
+      }
+    }
+  } catch {
+    /* optional panel */
+  }
+}
+
 async function loadHomeData() {
   if (!getAdminToken()) {
     location.href = base;
@@ -163,6 +204,7 @@ async function loadHomeData() {
       (dash.incompleteOnly ?? []).length
     );
   }
+  await loadSecurityInstallSummary();
 }
 
 document.getElementById("home-customer-code").textContent = customerCode;

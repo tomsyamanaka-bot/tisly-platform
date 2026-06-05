@@ -1,0 +1,16 @@
+.sec-header { padding: 1rem 1.5rem; border-bottom: 1px solid #d0d7de; }
+.sec-header h1 { margin: 0 0 0.5rem; color: #1a7f37; }
+.sec-main { max-width: 720px; margin: 0 auto; padding: 1rem; }
+.sec-card { border: 1px solid #d0d7de; border-radius: 12px; padding: 1rem; margin-bottom: 1rem; }
+.mode-badge { display: inline-block; font-size: 1.25rem; font-weight: 700; padding: 0.5rem 1rem; border-radius: 8px; }
+.mode-badge.armed { background: #ffebe9; color: #cf222e; }
+.mode-badge.disarmed { background: #dafbe1; color: #1a7f37; }
+.mode-badge.pending_arm { background: #fff8c5; color: #9a6700; }
+.mode-badge.pending_disarm { background: #ddf4ff; color: #0969da; }
+.sec-reason { color: #57606a; margin: 0.5rem 0; }
+.sec-meta { font-size: 0.85rem; color: #656d76; }
+.sec-actions { display: flex; gap: 0.5rem; margin-top: 1rem; }
+.log-pre { background: #f6f8fa; padding: 0.75rem; border-radius: 8px; font-size: 0.85rem; overflow-x: auto; }
+.event-list { list-style: none; padding: 0; margin: 0; }
+.event-list li { border-bottom: 1px solid #eee; padding: 0.5rem 0; font-size: 0.9rem; }
+.event-list small { color: #656d76; display: block; }

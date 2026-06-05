@@ -114,6 +114,90 @@
   margin-top: 4px;
 }
 
+/* Phase 1291–1320 — Release Gate バナー */
+.release-gate-banner {
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+}
+.release-gate-banner.gate-pass {
+  background: #23863633;
+  border: 1px solid #3fb950;
+  color: #3fb950;
+}
+.release-gate-banner.gate-fail {
+  background: #da363333;
+  border: 1px solid #f85149;
+  color: #f85149;
+}
+.publish-gate-summary {
+  font-size: 0.78rem;
+  margin-bottom: 0.75rem;
+}
+.gate-summary-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.gate-chip {
+  background: #1c2128;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+.gate-tv-caution {
+  color: #d29922;
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+.publish-gate-checks {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 0.75rem;
+}
+.gate-check {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: 8px;
+  align-items: start;
+  padding: 8px 10px;
+  background: #161b22;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  border-left: 3px solid #30363d;
+}
+.gate-check.status-pass {
+  border-left-color: #3fb950;
+}
+.gate-check.status-warn {
+  border-left-color: #d29922;
+}
+.gate-check.status-fail {
+  border-left-color: #f85149;
+}
+.gate-check-name {
+  font-weight: 700;
+  white-space: nowrap;
+}
+.gate-check-badge {
+  font-size: 0.65rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #30363d;
+}
+.gate-check-msg {
+  color: #8b949e;
+  word-break: break-all;
+}
+.publish-dry-run-last {
+  font-size: 0.72rem;
+  color: #8b949e;
+  margin: 0.5rem 0 0;
+}
+
 /* Phase 1241–1280 — 本番公開チェック */
 .publish-audit-card h2 {
   font-size: 1rem;

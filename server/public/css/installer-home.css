@@ -44,6 +44,10 @@
   color: inherit;
   box-sizing: border-box;
 }
+.tile-hint { font-size: 0.75rem; color: #656d76; margin: 0.25rem 0; }
+.install-test-steps { font-size: 0.85rem; color: #57606a; padding-left: 1.25rem; }
+.security-link-tile { grid-column: span 2; }
+
 .home-tile-static {
   grid-column: 1 / -1;
 }

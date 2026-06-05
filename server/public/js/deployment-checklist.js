@@ -17,7 +17,7 @@ async function loadChecklist(code) {
     banner.textContent = "未完了項目あり";
     completeBtn.style.display = "none";
   }
-  list.innerHTML = data.items
+  let html = data.items
     .map(
       (i) => `<li>
         <span class="${i.ok ? "ok" : "ng"}">${i.ok ? "✓" : "—"}</span> ${i.label}
@@ -26,6 +26,21 @@ async function loadChecklist(code) {
       </li>`
     )
     .join("");
+  try {
+    const sb = await fetch("/api/deploy/switchbot-checklist").then((r) => r.json());
+    if (sb.items?.length) {
+      html += `<li><strong>SwitchBot / Security Automation（Phase 1321–1340）</strong></li>`;
+      html += sb.items
+        .map(
+          (i) =>
+            `<li><span class="${i.ok ? "ok" : "ng"}">${i.ok ? "✓" : "—"}</span> ${i.label}<small>${i.detail}</small></li>`
+        )
+        .join("");
+    }
+  } catch {
+    /* optional */
+  }
+  list.innerHTML = html;
   list.querySelectorAll("button[data-id]").forEach((btn) => {
     btn.addEventListener("click", async () => {
       await apiPut(`/api/deployment-kit/checklist/${code}/${btn.dataset.id}`, {

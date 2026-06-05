@@ -69,6 +69,26 @@
       <span class="tile-label">オフライン同期</span>
       <span class="tile-value" id="tile-sync-status">—</span>
     </section>
+    <section class="home-tile home-tile-static security-link-tile" aria-label="玄関ロック連動">
+      <span class="tile-label">玄関ロック連動</span>
+      <span class="tile-value" id="tile-security-mode">—</span>
+      <p class="tile-hint" id="tile-security-hint">SwitchBot × 自動警戒</p>
+      <a href="/security/settings/automation" class="btn btn-sm btn-field">設定・テスト</a>
+    </section>
+    <section class="field-checklist-section" id="security-install-section" aria-label="玄関ロック連動テスト">
+      <h2>玄関ロック連動</h2>
+      <ul class="field-checklist-list" id="security-install-list">
+        <li class="checklist-item"><span class="check-label">自動警戒ON</span><span id="install-auto-arm">—</span></li>
+        <li class="checklist-item"><span class="check-label">自動警戒OFF</span><span id="install-auto-disarm">—</span></li>
+        <li class="checklist-item"><span class="check-label">登録端末</span><span id="install-presence-count">—</span></li>
+      </ul>
+      <ol class="install-test-steps">
+        <li>全登録端末を away に設定</li>
+        <li>mock locked イベントを実行</li>
+        <li>delay 後に警戒ONになることを確認</li>
+        <li>mock unlocked で警戒OFFを確認</li>
+      </ol>
+    </section>
     <section class="field-checklist-section" id="checklist" aria-label="施工チェックリスト">
       <h2>施工チェックリスト</h2>
       <ul id="field-checklist-list" class="field-checklist-list"></ul>

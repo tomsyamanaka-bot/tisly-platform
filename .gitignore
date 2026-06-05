@@ -25,6 +25,7 @@ server/data/*.db-*
 server/data/siem/
 server/data/backups/
 server/.env
+server/uploads/
 tv-app/node_modules/
 tv-app/.expo/
 tv-app/dist/

@@ -20,9 +20,14 @@
   </header>
   <section id="publish-audit-panel" class="card publish-audit-card">
     <h2>本番公開チェック</h2>
+    <div id="release-gate-banner" class="release-gate-banner">読み込み中…</div>
+    <div id="publish-gate-summary" class="publish-gate-summary"></div>
     <p id="publish-audit-meta" class="hint">読み込み中…</p>
     <div id="publish-audit-env" class="publish-audit-env"></div>
+    <div id="publish-gate-checks" class="publish-gate-checks"></div>
+    <div id="publish-security-gate" class="publish-security-gate"></div>
     <div id="publish-audit-grid" class="publish-audit-grid"></div>
+    <p id="publish-dry-run-last" class="publish-dry-run-last"></p>
     <button type="button" class="btn btn-secondary" id="btn-publish-audit-refresh">再読み込み</button>
   </section>
   <section id="login-panel" class="card">
