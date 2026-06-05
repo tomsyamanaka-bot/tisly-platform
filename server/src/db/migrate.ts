@@ -179,6 +179,7 @@ export function runMigrations(database: Database.Database): void {
   migratePhase1121(database);
   migratePhase1161(database);
   migratePhase1321(database);
+  migratePhase1361(database);
 }
 
 const CUSTOMER_INVITE_COLUMNS: Array<{ name: string; ddl: string }> = [
@@ -447,6 +448,7 @@ function migratePhase781(database: Database.Database): void {
   migratePhase1121(database);
   migratePhase1161(database);
   migratePhase1321(database);
+  migratePhase1361(database);
 }
 
 function migratePhase1121(database: Database.Database): void {
@@ -615,6 +617,71 @@ function migratePhase1321(database: Database.Database): void {
     .run(
       "migration:phase1321_security_automation",
       JSON.stringify({ at: new Date().toISOString(), phase: "1321-1340" })
+    );
+}
+
+function migratePhase1361(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:phase1361_lock_provider") as { value_json: string } | undefined;
+  if (marker) return;
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS lock_users (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      role TEXT NOT NULL CHECK (role IN ('adult', 'child', 'guest')),
+      enabled INTEGER NOT NULL DEFAULT 1,
+      notification_enabled INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_lock_users_role ON lock_users(role);
+
+    CREATE TABLE IF NOT EXISTS lock_events (
+      id TEXT PRIMARY KEY,
+      provider TEXT NOT NULL CHECK (provider IN ('switchbot', 'sesame', 'mock')),
+      device_id TEXT NOT NULL,
+      event_type TEXT NOT NULL CHECK (event_type IN (
+        'lock', 'unlock', 'face_unlock', 'fingerprint_unlock', 'nfc_unlock', 'manual_unlock', 'unknown'
+      )),
+      user_id TEXT,
+      user_name TEXT,
+      success INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_lock_events_created ON lock_events(created_at);
+    CREATE INDEX IF NOT EXISTS idx_lock_events_type ON lock_events(event_type);
+
+    CREATE TABLE IF NOT EXISTS presence_users (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      device_ids TEXT NOT NULL DEFAULT '[]',
+      role TEXT NOT NULL CHECK (role IN ('adult', 'child', 'guest')),
+      notification_enabled INTEGER NOT NULL DEFAULT 1
+    );
+
+    CREATE TABLE IF NOT EXISTS family_notifications (
+      id TEXT PRIMARY KEY,
+      kind TEXT NOT NULL CHECK (kind IN (
+        'child_arrived_home', 'child_left_home', 'guest_unlock', 'unknown_unlock'
+      )),
+      user_name TEXT NOT NULL,
+      provider TEXT NOT NULL,
+      method TEXT NOT NULL,
+      message TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_family_notifications_created ON family_notifications(created_at);
+    CREATE INDEX IF NOT EXISTS idx_family_notifications_kind ON family_notifications(kind);
+  `);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run(
+      "migration:phase1361_lock_provider",
+      JSON.stringify({ at: new Date().toISOString(), phase: "1361-1380" })
     );
 }
 

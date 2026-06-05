@@ -21,7 +21,7 @@ import type {
 import { dispatchSecurityEventNotification } from "../security-automation/security-notifications.js";
 import { evaluatePresenceForAutoArm, evaluateSecurityArmGate } from "./securityPresenceService.js";
 import { config } from "../config.js";
-import { getSwitchBotMode } from "./switchbotService.js";
+import { getLockProvider } from "../providers/lock/index.js";
 
 export { listSecurityEventLogs, getAutomationRules, updateAutomationRule, getAutomationSettings };
 export { evaluateSecurityArmGate } from "./securityPresenceService.js";
@@ -67,7 +67,7 @@ export function clearPendingArmTimer(): void {
 }
 
 function isRealModeConfirmed(): boolean {
-  const mode = getSwitchBotMode();
+  const mode = getLockProvider().getMode?.() ?? "mock";
   if (mode !== "real") return true;
   return getAutomationSettings().realExecutionConfirmed;
 }
@@ -189,7 +189,7 @@ export function confirmPendingArmCheck(): SecurityState {
   const gate = evaluateSecurityArmGate({
     deviceId: config.switchbot.lockDeviceId || "mock-lock-001",
     lockState: "locked",
-    mode: getSwitchBotMode(),
+    mode: getLockProvider().getMode?.() ?? "mock",
     fetchedAt: new Date().toISOString(),
   });
 

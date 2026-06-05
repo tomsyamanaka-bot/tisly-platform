@@ -225,7 +225,8 @@ describe("Phase 1341-1360 SwitchBot Real Bridge & Security Polish", () => {
         .get("/api/security/operations/overview")
         .set("Authorization", `Bearer ${token}`);
       assert.equal(res.status, 200);
-      assert.equal(res.body.phase, "1341-1360");
+      assert.equal(res.body.phase, "1361-1380");
+      assert.ok(res.body.lockProvider);
       assert.ok(res.body.switchbotMode);
       assert.ok(res.body.armGate);
       assert.ok(res.body.switchbotStatus);

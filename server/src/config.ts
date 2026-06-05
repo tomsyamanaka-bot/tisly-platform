@@ -194,6 +194,13 @@ export const config = {
       return "mock" as const;
     },
   },
+  lock: {
+    get provider() {
+      const p = env("LOCK_PROVIDER", "switchbot").toLowerCase();
+      if (p === "sesame" || p === "mock") return p as "sesame" | "mock";
+      return "switchbot" as const;
+    },
+  },
   switchbot: {
     get mode() {
       const m = env("SWITCHBOT_MODE", "mock").toLowerCase();

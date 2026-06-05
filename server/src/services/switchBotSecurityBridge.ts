@@ -16,7 +16,7 @@ import {
   evaluateSwitchBotUnlockedEvent,
   getSecurityState,
 } from "./securityAutomationService.js";
-import { getSwitchBotLockStatus } from "./switchbotService.js";
+import { getLockProvider } from "../providers/lock/index.js";
 
 export async function handleSwitchBotLockStatusChanged(
   status: SwitchBotLockStatus
@@ -128,10 +128,18 @@ export async function pollSwitchBotAndBridge(deviceId?: string): Promise<{
 
   let status: SwitchBotLockStatus;
   try {
-    status = await getSwitchBotLockStatus(deviceId);
+    const raw = await getLockProvider().getStatus(deviceId);
+    status = {
+      deviceId: raw.deviceId,
+      lockState: raw.lockState,
+      battery: raw.battery,
+      mode: raw.mode ?? config.switchbot.mode,
+      fetchedAt: raw.fetchedAt,
+      error: raw.error,
+    };
     workerState.lastError = status.error ?? null;
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "SwitchBot poll failed";
+    const msg = err instanceof Error ? err.message : "Lock provider poll failed";
     workerState.lastError = msg;
     const id = deviceId || config.switchbot.lockDeviceId || "mock-lock-001";
     status = {

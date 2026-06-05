@@ -403,6 +403,10 @@ export function createApp(): express.Application {
     res.sendFile(path.join(publicDir, "operations.html"));
   });
 
+  app.get("/operations/security", (_req, res) => {
+    res.sendFile(path.join(publicDir, "operations-security.html"));
+  });
+
   app.get("/analytics", (_req, res) => {
     res.sendFile(path.join(publicDir, "analytics.html"));
   });

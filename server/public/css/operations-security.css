@@ -1,0 +1,8 @@
+.ops-sec-header { padding: 1rem 1.5rem; border-bottom: 1px solid #d0d7de; }
+.ops-sec-header h1 { margin: 0 0 0.5rem; color: #1a7f37; font-size: 1.25rem; }
+.ops-sec-main { max-width: 960px; margin: 0 auto; padding: 1rem; }
+.ops-sec-main .card { border: 1px solid #d0d7de; border-radius: 12px; padding: 1rem; margin-bottom: 1rem; }
+.mock-btn-row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.5rem; }
+.arrival-list { list-style: none; padding: 0; margin: 0; }
+.arrival-list li { border-bottom: 1px solid #eee; padding: 0.5rem 0; font-size: 0.9rem; }
+.arrival-list small { color: #656d76; display: block; }

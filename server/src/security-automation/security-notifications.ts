@@ -3,7 +3,7 @@
  */
 import { listSecurityEventLogs } from "../security-automation/security-automation-store.js";
 import { getSecurityState } from "../services/securityAutomationService.js";
-import { getSwitchBotMode } from "../services/switchbotService.js";
+import { getLockProvider } from "../providers/lock/index.js";
 import { sendDiscord } from "../notification/channels/discord.js";
 import { sendWebPush } from "../notification/channels/web-push.js";
 import { sendEmail } from "../notification/channels/email.js";
@@ -21,7 +21,11 @@ export type SecurityNotificationKind =
   | "unknown_device_blocked"
   | "real_command_rejected"
   | "switchbot_api_error"
-  | "switchbot_token_error";
+  | "switchbot_token_error"
+  | "child_arrived_home"
+  | "child_left_home"
+  | "guest_unlock"
+  | "unknown_unlock";
 
 export interface SecurityNotificationCandidate {
   id: string;
@@ -47,6 +51,10 @@ const KIND_META: Record<
   real_command_rejected: { title: "real実行拒否（confirmed未設定）", href: "/operations#security" },
   switchbot_api_error: { title: "SwitchBot APIエラー", href: "/operations#security" },
   switchbot_token_error: { title: "SwitchBot認証エラー", href: "/operations#security" },
+  child_arrived_home: { title: "子ども帰宅", href: "/operations/security" },
+  child_left_home: { title: "子ども外出", href: "/operations/security" },
+  guest_unlock: { title: "ゲスト解錠", href: "/operations/security" },
+  unknown_unlock: { title: "不明な解錠", href: "/operations/security" },
 };
 
 const dispatchedIds = new Set<string>();
@@ -103,6 +111,9 @@ export function collectSecurityNotificationCandidates(): SecurityNotificationCan
     switchbot_status_failed: "switchbot_status_failed",
     auto_armed: "security_armed",
     auto_disarmed: "security_disarmed",
+    child_arrived_home: "child_arrived_home",
+    guest_unlock: "guest_unlock",
+    unknown_unlock: "unknown_unlock",
   };
 
   for (const log of recent) {
@@ -146,7 +157,8 @@ export function collectSecurityNotificationCandidates(): SecurityNotificationCan
     }
   }
 
-  if (getSwitchBotMode() === "real") {
+  const lockMode = getLockProvider().getMode?.() ?? "mock";
+  if (lockMode === "real") {
     const tokenErr = recent.find((e) =>
       e.message.includes("TOKEN") || e.message.includes("SECRET")
     );

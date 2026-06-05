@@ -31,9 +31,19 @@ import {
   handleSwitchBotUnlocked,
   pollSwitchBotAndBridge,
 } from "../../services/switchBotSecurityBridge.js";
+import { getLockProvider, resolveLockProviderId } from "../../providers/lock/index.js";
 import {
-  getSwitchBotLockStatus,
-  getSwitchBotMode,
+  generateMockLockEvent,
+  getLockProviderDashboardAsync,
+  listFaceLockEvents,
+  listLockEvents,
+} from "../../services/lockEventService.js";
+import {
+  getFamilyPresenceOverview,
+  listChildArrivalNotifications,
+  listPresenceUsers,
+} from "../../services/familyPresenceService.js";
+import {
   isRealUnlockGuarded,
   verifySwitchBotDryRunConnection,
 } from "../../services/switchbotService.js";
@@ -42,13 +52,17 @@ export const securityAutomationRouter = Router();
 
 securityAutomationRouter.use(requireAdminAuth);
 
-securityAutomationRouter.get("/state", (_req, res) => {
+securityAutomationRouter.get("/state", async (_req, res) => {
   const state = getSecurityState();
   const lastLog = getLastSecurityEventLog();
+  const provider = getLockProvider();
+  const lockDashboard = await getLockProviderDashboardAsync();
   res.json({
     state,
     lastLog,
-    switchbotMode: getSwitchBotMode(),
+    lockProvider: resolveLockProviderId(),
+    switchbotMode: provider.getMode?.() ?? "mock",
+    lock: lockDashboard,
     notifications: collectSecurityNotificationCandidates(),
   });
 });
@@ -165,7 +179,7 @@ securityAutomationRouter.post("/automation/switchbot/unlocked", (_req, res) => {
 });
 
 securityAutomationRouter.post("/automation/evaluate", async (_req, res) => {
-  const status = await getSwitchBotLockStatus();
+  const status = await getLockProvider().getStatus();
   res.json({ status, state: getSecurityState() });
 });
 
@@ -217,7 +231,8 @@ securityAutomationRouter.get("/automation/logs", (req, res) => {
 
 securityAutomationRouter.get("/automation/release-check", (_req, res) => {
   res.json({
-    switchbotMode: getSwitchBotMode(),
+    lockProvider: resolveLockProviderId(),
+    switchbotMode: getLockProvider().getMode?.() ?? "mock",
     realUnlockGuarded: isRealUnlockGuarded(),
     eventLogEnabled: config.securityAutomation.eventLogEnabled,
     settings: getAutomationSettings(),
@@ -227,19 +242,30 @@ securityAutomationRouter.get("/automation/release-check", (_req, res) => {
 
 /** Operations Security タブ — SwitchBot 状態カード用 */
 securityAutomationRouter.get("/operations/overview", async (_req, res) => {
-  const status = await getSwitchBotLockStatus();
+  const rawStatus = await getLockProvider().getStatus();
+  const status = {
+    deviceId: rawStatus.deviceId,
+    lockState: rawStatus.lockState,
+    battery: rawStatus.battery,
+    mode: rawStatus.mode ?? getLockProvider().getMode?.() ?? "mock",
+    fetchedAt: rawStatus.fetchedAt,
+    error: rawStatus.error,
+  };
   const gate = evaluateSecurityArmGate(status);
   const settings = getAutomationSettings();
-  const mode = getSwitchBotMode();
+  const mode = getLockProvider().getMode?.() ?? "mock";
   const worker = getSwitchBotBridgeWorkerState();
   const dangerous =
     mode === "real" &&
     (settings.autoArmEnabled || settings.autoDisarmEnabled) &&
     settings.realExecutionConfirmed;
 
+  const lockDashboard = await getLockProviderDashboardAsync();
   res.json({
-    phase: "1341-1360",
+    phase: "1361-1380",
+    lockProvider: resolveLockProviderId(),
     switchbotMode: mode,
+    lock: lockDashboard,
     switchbotStatus: status,
     worker,
     securityState: getSecurityState(),
@@ -280,7 +306,7 @@ securityAutomationRouter.post("/operations/real-confirm", (req: AuthedRequest, r
     res.status(400).json({ error: "confirmed=true required" });
     return;
   }
-  if (getSwitchBotMode() !== "real") {
+  if ((getLockProvider().getMode?.() ?? "mock") !== "real") {
     res.status(400).json({ error: "SWITCHBOT_MODE must be real" });
     return;
   }
@@ -320,4 +346,53 @@ securityAutomationRouter.patch("/operations/manual-override", (req, res) => {
     manualOverride: body.enabled === true,
   });
   res.json(settings);
+});
+
+/** Phase 1361–1380 — Lock events & family presence */
+securityAutomationRouter.get("/lock/overview", async (_req, res) => {
+  res.json(await getLockProviderDashboardAsync());
+});
+
+securityAutomationRouter.get("/lock/events", (req, res) => {
+  const limit = req.query.limit ? Number(req.query.limit) : 50;
+  res.json({ events: listLockEvents(limit) });
+});
+
+securityAutomationRouter.get("/lock/face-events", (req, res) => {
+  const limit = req.query.limit ? Number(req.query.limit) : 50;
+  res.json({ events: listFaceLockEvents(limit) });
+});
+
+securityAutomationRouter.get("/presence/users", (_req, res) => {
+  res.json({ users: listPresenceUsers(), overview: getFamilyPresenceOverview() });
+});
+
+securityAutomationRouter.get("/family/notifications", (req, res) => {
+  const limit = req.query.limit ? Number(req.query.limit) : 50;
+  res.json({ notifications: getFamilyPresenceOverview().recentNotifications.slice(0, limit) });
+});
+
+securityAutomationRouter.get("/family/child-arrivals", (req, res) => {
+  const limit = req.query.limit ? Number(req.query.limit) : 50;
+  res.json({ arrivals: listChildArrivalNotifications(limit) });
+});
+
+securityAutomationRouter.post("/lock/mock/:scenario", (req, res) => {
+  const scenario = String(req.params.scenario) as
+    | "child_arrival"
+    | "father_arrival"
+    | "guest_unlock"
+    | "unknown_unlock";
+  const valid = ["child_arrival", "father_arrival", "guest_unlock", "unknown_unlock"];
+  if (!valid.includes(scenario)) {
+    res.status(400).json({ error: `scenario must be one of: ${valid.join(", ")}` });
+    return;
+  }
+  const event = generateMockLockEvent(scenario);
+  res.json({
+    ok: true,
+    event,
+    state: getSecurityState(),
+    family: getFamilyPresenceOverview(),
+  });
 });

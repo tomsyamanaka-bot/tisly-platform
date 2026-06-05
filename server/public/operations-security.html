@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TiSLY Operations — Security Lock Events</title>
+  <link rel="stylesheet" href="/css/admin.css" />
+  <link rel="stylesheet" href="/css/operations.css" />
+  <link rel="stylesheet" href="/css/operations-security.css" />
+</head>
+<body>
+  <header class="ops-sec-header">
+    <h1>Operations — Lock &amp; Family Presence</h1>
+    <nav>
+      <a href="/operations#security">← Operations Security</a> ·
+      <a href="/security">警戒ダッシュボード</a>
+    </nav>
+  </header>
+  <main class="ops-sec-main">
+    <section class="card">
+      <h2>Mock Event 生成</h2>
+      <div class="mock-btn-row">
+        <button type="button" class="btn" data-mock="child_arrival">長女帰宅 (SESAME Face)</button>
+        <button type="button" class="btn" data-mock="father_arrival">父帰宅 (SESAME Face)</button>
+        <button type="button" class="btn secondary" data-mock="guest_unlock">ゲスト解錠</button>
+        <button type="button" class="btn secondary" data-mock="unknown_unlock">Unknown解錠</button>
+      </div>
+      <p id="mock-result" class="hint"></p>
+    </section>
+
+    <section class="card">
+      <h2>Lock Event 一覧</h2>
+      <table>
+        <thead><tr><th>時刻</th><th>Provider</th><th>種別</th><th>ユーザー</th><th>結果</th></tr></thead>
+        <tbody id="lock-events-body"></tbody>
+      </table>
+    </section>
+
+    <section class="card">
+      <h2>Face Event 一覧</h2>
+      <table>
+        <thead><tr><th>時刻</th><th>ユーザー</th><th>Provider</th><th>結果</th></tr></thead>
+        <tbody id="face-events-body"></tbody>
+      </table>
+    </section>
+
+    <section class="card">
+      <h2>Presence 一覧</h2>
+      <table>
+        <thead><tr><th>名前</th><th>役割</th><th>端末数</th><th>通知</th></tr></thead>
+        <tbody id="presence-users-body"></tbody>
+      </table>
+    </section>
+
+    <section class="card">
+      <h2>Child Arrival 通知履歴</h2>
+      <ul id="child-arrivals-list" class="arrival-list"></ul>
+    </section>
+  </main>
+  <script type="module" src="/js/operations-security.js"></script>
+</body>
+</html>

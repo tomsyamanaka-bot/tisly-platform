@@ -50,9 +50,32 @@ async function loadLogs() {
     .join("");
 }
 
+function renderLockProvider(data) {
+  const el = document.getElementById("lock-provider-info");
+  if (!el || !data.lock) return;
+  const l = data.lock;
+  const caps = l.capabilities || {};
+  const capBadge = (label, on) =>
+    `<span class="${on ? "on" : ""}">${label}: ${on ? "対応" : "—"}</span>`;
+  el.innerHTML = `
+    <div><strong>Provider</strong><br>${data.lockProvider ?? l.provider}</div>
+    <div><strong>ロック状態</strong><br>${l.lockState ?? "—"}</div>
+    <div><strong>バッテリー</strong><br>${l.battery != null ? l.battery + "%" : "—"}</div>
+    <div><strong>モード</strong><br>${l.mode ?? "—"}</div>
+    <div><strong>最後の施錠者</strong><br>${l.lastLocker ?? "—"}</div>
+    <div><strong>最後の解錠者</strong><br>${l.lastUnlocker ?? "—"}</div>
+    <div class="lock-cap-badges" style="grid-column:1/-1">
+      ${capBadge("Face", caps.faceRecognition)}
+      ${capBadge("Fingerprint", caps.fingerprint)}
+      ${capBadge("NFC", caps.nfc)}
+      ${capBadge("Remote Unlock", caps.remoteUnlock)}
+    </div>`;
+}
+
 async function refresh() {
   const data = await apiGet("/api/security/state");
   renderState(data);
+  renderLockProvider(data);
   await loadLogs();
 }
 

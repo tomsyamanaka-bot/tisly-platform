@@ -15,11 +15,7 @@ import type {
   SecurityArmGateCheck,
   SwitchBotLockStatus,
 } from "../security-automation/security-automation-types.js";
-import {
-  getSwitchBotLastUnlockAt,
-  getSwitchBotLockStateSync,
-  getSwitchBotMode,
-} from "./switchbotService.js";
+import { getLockProvider } from "../providers/lock/index.js";
 
 export { getRegisteredDevices };
 
@@ -75,7 +71,16 @@ export function getPresenceSummary(): PresenceSummary {
 }
 
 export function getLastUnlockWithinSec(): number | null {
-  const lastUnlock = getSwitchBotLastUnlockAt();
+  const lastOp = getLockProvider().getLastOperation();
+  if (!lastOp) return null;
+  const lastUnlock =
+    lastOp.operation === "unlock" ||
+    lastOp.operation === "face_unlock" ||
+    lastOp.operation === "fingerprint_unlock" ||
+    lastOp.operation === "nfc_unlock" ||
+    lastOp.operation === "manual_unlock"
+      ? lastOp.at
+      : null;
   if (!lastUnlock) return null;
   const sec = Math.floor((Date.now() - new Date(lastUnlock).getTime()) / 1000);
   return sec >= 0 ? sec : null;
@@ -123,10 +128,11 @@ export function evaluatePresenceForAutoArm(
 /** 在宅判定ゲート — 警戒ON/OFF 条件チェックリスト */
 export function evaluateSecurityArmGate(lockStatus?: SwitchBotLockStatus): SecurityArmGateCheck {
   const settings = getAutomationSettings();
-  const mode = getSwitchBotMode();
+  const provider = getLockProvider();
+  const mode = provider.getMode?.() ?? "mock";
   const confirmed =
     mode === "mock" || mode === "dryRun" ? true : settings.realExecutionConfirmed;
-  const lockState = lockStatus?.lockState ?? getSwitchBotLockStateSync();
+  const lockState = lockStatus?.lockState ?? provider.getLockStateSync?.() ?? "unknown";
   const switchBotLocked = lockState === "locked";
   const switchBotUnlocked = lockState === "unlocked";
   const registeredDevicesAllAway = areAllRegisteredDevicesAway();
