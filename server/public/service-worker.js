@@ -1,10 +1,13 @@
 /* TiSLY Multi PWA — Phase 701 shared cache strategy */
-const SW_VERSION = "tisly-pwa-v1001";
-const OFFLINE_CACHE = "tisly-pwa-shell-v1001";
-const PRIORITY_CACHE = "tisly-pwa-priority-v1001";
+const SW_VERSION = "tisly-pwa-v1041";
+const OFFLINE_CACHE = "tisly-pwa-shell-v1041";
+const PRIORITY_CACHE = "tisly-pwa-priority-v1041";
 const SHELL_URLS = [
   "/customer/new",
   "/customer-new.html",
+  "/onboarding/new",
+  "/onboarding-new.html",
+  "/js/onboarding-wizard.js",
   "/site/new",
   "/site-new.html",
   "/device/provision",

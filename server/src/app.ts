@@ -8,6 +8,8 @@ import { dashboardRouter } from "./api/routes/dashboard.js";
 import { demoRouter } from "./api/routes/demo.js";
 import { demoKitRouter } from "./api/routes/demo-kit.js";
 import { deploymentKitRouter } from "./api/routes/deployment-kit.js";
+import { deploymentMqttRouter } from "./api/routes/deployment-mqtt.js";
+import { customerOnboardingRouter } from "./api/routes/customer-onboarding.js";
 import { shellyRouter } from "./api/routes/shelly.js";
 import { devicesRouter } from "./api/routes/devices.js";
 import { eventsRouter } from "./api/routes/events.js";
@@ -89,6 +91,8 @@ export function createApp(): express.Application {
   app.use("/api/demo", demoRouter);
   app.use("/api/demo-kit", demoKitRouter);
   app.use("/api/deployment-kit", deploymentKitRouter);
+  app.use("/api/deployment/mqtt", deploymentMqttRouter);
+  app.use("/api/customer-onboarding", customerOnboardingRouter);
   app.use("/api/shelly", shellyRouter);
   app.use("/api/analytics", opsCustomerScopeMiddleware, analyticsRouter);
   app.use("/api/test", testRouter);
@@ -132,6 +136,10 @@ export function createApp(): express.Application {
 
   app.get("/customer/new", (_req, res) => {
     res.sendFile(path.join(publicDir, "customer-new.html"));
+  });
+
+  app.get("/onboarding/new", (_req, res) => {
+    res.sendFile(path.join(publicDir, "onboarding-new.html"));
   });
 
   app.get("/customer/:customerCode", (_req, res) => {

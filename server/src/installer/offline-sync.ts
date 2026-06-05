@@ -3,6 +3,11 @@ import { getDatabase } from "../db/database.js";
 import { claimQrProvisioning } from "../provisioning/qr-provisioning.js";
 import { claimNfcProvisioning } from "../provisioning/nfc-provisioning.js";
 import { completeChecklistItem, type ChecklistItemId } from "./install-checklist.js";
+import {
+  updateFieldChecklistItem,
+  type FieldChecklistItemId,
+  type FieldChecklistStatus,
+} from "./installer-field-checklist.js";
 import { runDeviceConnectivityTest, type DeviceTestKind } from "./device-connectivity-test.js";
 import { saveInstallPhoto, INSTALL_PHOTO_TYPES, isValidInstallPhotoType } from "./install-photos.js";
 
@@ -13,7 +18,8 @@ export type OfflineSyncAction =
   | "checklist_complete"
   | "photo_upload"
   | "test_result"
-  | "mqtt_test_result";
+  | "mqtt_test_result"
+  | "field_checklist_update";
 
 export interface OfflineSyncEntry {
   id?: string;
@@ -290,6 +296,27 @@ export function processOfflineSync(
           const deviceId = String(body.deviceId ?? "");
           runDeviceConnectivityTest(customerId, deviceId, kind);
           results.push({ id, action: entry.action, status: "applied", message: `Test ${kind} synced` });
+          applied++;
+          break;
+        }
+        case "field_checklist_update": {
+          const customer = getDatabase()
+            .prepare(`SELECT customer_code FROM customers WHERE customer_id = ?`)
+            .get(customerId) as { customer_code: string } | undefined;
+          if (!customer) {
+            results.push({ id, action: entry.action, status: "rejected", message: "Customer not found" });
+            rejected++;
+            break;
+          }
+          const itemId = String(body.itemId ?? "") as FieldChecklistItemId;
+          const status = String(body.status ?? "pending") as FieldChecklistStatus;
+          updateFieldChecklistItem(customer.customer_code, itemId, status);
+          results.push({
+            id,
+            action: entry.action,
+            status: "applied",
+            message: `Field checklist ${itemId} → ${status}`,
+          });
           applied++;
           break;
         }

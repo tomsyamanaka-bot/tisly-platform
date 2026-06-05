@@ -175,6 +175,7 @@ export function runMigrations(database: Database.Database): void {
   migrateCustomerUsersPhase241(database);
   migratePhase261(database);
   migratePhase1001(database);
+  migratePhase1041(database);
 }
 
 const CUSTOMER_INVITE_COLUMNS: Array<{ name: string; ddl: string }> = [
@@ -439,6 +440,32 @@ function migratePhase781(database: Database.Database): void {
     );
 
   migratePhase1001(database);
+  migratePhase1041(database);
+}
+
+function migratePhase1041(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:phase1041_installer_field_checklist") as { value_json: string } | undefined;
+  if (marker) return;
+
+  const cols = database.prepare(`PRAGMA table_info(deployment_checklist)`).all() as Array<{
+    name: string;
+  }>;
+  if (!cols.some((c) => c.name === "installer_items_json")) {
+    database.exec(
+      `ALTER TABLE deployment_checklist ADD COLUMN installer_items_json TEXT NOT NULL DEFAULT '{}'`
+    );
+  }
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run(
+      "migration:phase1041_installer_field_checklist",
+      JSON.stringify({ at: new Date().toISOString() })
+    );
 }
 
 function migratePhase1001(database: Database.Database): void {

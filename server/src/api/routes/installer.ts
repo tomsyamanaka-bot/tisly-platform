@@ -65,6 +65,13 @@ import {
 } from "../../provisioning/device-csr.js";
 import { saveInstallPhoto, listInstallPhotos, deleteInstallPhoto } from "../../installer/install-photos.js";
 import { getInstallDashboard } from "../../installer/install-dashboard.js";
+import {
+  evaluateFieldChecklist,
+  updateFieldChecklistItem,
+  getInstallerHomeCards,
+  type FieldChecklistItemId,
+  type FieldChecklistStatus,
+} from "../../installer/installer-field-checklist.js";
 import { getDeviceLabelJson } from "../../installer/device-label-export.js";
 
 export const customerInstallerRouter = Router();
@@ -531,6 +538,64 @@ customerInstallerRouter.get(
       return;
     }
     res.json(getInstallDashboard(customer.customer_id));
+  }
+);
+
+customerInstallerRouter.get(
+  "/:customerCode/install/home-cards",
+  ...portalViewAuth,
+  async (req: AuthedRequest, res) => {
+    const customer = resolveCustomer(req, String(req.params.customerCode));
+    if (!customer) {
+      res.status(req.admin ? 403 : 404).json({ error: "Not found" });
+      return;
+    }
+    try {
+      const cards = await getInstallerHomeCards(customer.customer_code);
+      res.json(cards);
+    } catch (e) {
+      res.status(500).json({ error: String(e) });
+    }
+  }
+);
+
+customerInstallerRouter.get(
+  "/:customerCode/install/field-checklist",
+  ...portalViewAuth,
+  (req: AuthedRequest, res) => {
+    const customer = resolveCustomer(req, String(req.params.customerCode));
+    if (!customer) {
+      res.status(req.admin ? 403 : 404).json({ error: "Not found" });
+      return;
+    }
+    try {
+      res.json(evaluateFieldChecklist(customer.customer_code));
+    } catch (e) {
+      res.status(404).json({ error: String(e) });
+    }
+  }
+);
+
+customerInstallerRouter.put(
+  "/:customerCode/install/field-checklist/:itemId",
+  ...installAuth,
+  (req: AuthedRequest, res) => {
+    const customer = resolveCustomer(req, String(req.params.customerCode));
+    if (!customer) {
+      res.status(req.admin ? 403 : 404).json({ error: "Not found" });
+      return;
+    }
+    const status = (req.body?.status ?? "done") as FieldChecklistStatus;
+    try {
+      const item = updateFieldChecklistItem(
+        customer.customer_code,
+        String(req.params.itemId) as FieldChecklistItemId,
+        status
+      );
+      res.json(item);
+    } catch (e) {
+      res.status(400).json({ error: String(e) });
+    }
   }
 );
 

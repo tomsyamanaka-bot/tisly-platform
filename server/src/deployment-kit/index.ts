@@ -7,3 +7,6 @@ export * from "./maintenance-ticket.js";
 export * from "./customer-package.js";
 export * from "./deployment-checklist.js";
 export * from "./deployment-kpi.js";
+export * from "./deployment-mqtt.js";
+export * from "./shelly-provisioning.js";
+export * from "./customer-onboarding.js";

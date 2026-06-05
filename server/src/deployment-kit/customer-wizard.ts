@@ -22,6 +22,7 @@ export interface CustomerWizardInput {
   email?: string;
   plan?: CustomerPlan;
   codePrefix?: string;
+  customerCode?: string;
 }
 
 export interface CustomerWizardResult {
@@ -61,7 +62,7 @@ function generateInitialPassword(): string {
 
 export function createCustomerWizard(input: CustomerWizardInput): CustomerWizardResult {
   const prefix = input.codePrefix ?? "TOMS";
-  const customerCode = generateNextCustomerCode(prefix);
+  const customerCode = input.customerCode?.toUpperCase().trim() ?? generateNextCustomerCode(prefix);
   if (getCustomerByCode(customerCode)) {
     throw new Error(`customer code ${customerCode} already exists`);
   }

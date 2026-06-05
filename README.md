@@ -3,6 +3,27 @@
 TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。  
 三菱電機 **FX 系** PLC と **GX Works2 / GX Works3** を想定しています。
 
+## TiSLY Platform — Production Device Connection & Onboarding（Phase 1041–1080）
+
+**実機接続準備 · Shelly プロビジョニング · 施工 PWA ファイナライズ · 顧客オンボーディング一括化**
+
+| 領域 | パス / API |
+|------|------------|
+| MQTT 接続チェック | `MQTT_MODE=mock\|real` · `GET /api/deployment/mqtt/status` |
+| MQTT heartbeat テスト | `POST /api/deployment/mqtt/test-heartbeat` |
+| Shelly 登録 | `SHELLY_MODE=mock\|real` · `POST /api/shelly/register` |
+| Shelly テスト | `POST /api/shelly/test` |
+| 施工 PWA 強化 | `/customer/:code/install/home` · 8項目チェックリスト |
+| 新規導入ウィザード | `/onboarding/new` · `POST /api/customer-onboarding/create` |
+| テスト | `deployment-mqtt.test.ts` · `shelly-provisioning.test.ts` · `customer-onboarding.test.ts` · `installer-finalize.test.ts` |
+| ドキュメント | `docs/phase1041_1080_status.md` · `docs/mqtt_real_connection.md` · `docs/shelly_gen3_provisioning.md` · `docs/customer_onboarding_runbook.md` |
+
+```bash
+cd server && npm run build && npx tsc --noEmit && npm run test
+```
+
+---
+
 ## TiSLY Platform — First Customer Deployment Kit（Phase 1001–1040）
 
 **初回導入キット — 営業デモではなく実案件運用を開始できる状態**

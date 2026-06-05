@@ -2,6 +2,7 @@
  * Phase981–1000 — 営業デモ完成チェック
  */
 import { getShellyEnvMode, fetchShellyDeviceStatus } from "../device/shelly-real-client.js";
+import { getShellyProvisioningStatus } from "../deployment-kit/shelly-provisioning.js";
 import { getDeviceMode } from "../device/device-mode-store.js";
 import { getDemoResetSchedule } from "./demo-reset-schedule.js";
 import { buildEspMqttTopic, DEMO_ESP_DEVICE_IDS } from "../mqtt/esp-topic-standard.js";
@@ -39,6 +40,7 @@ export async function buildSalesDemoChecklist(): Promise<{
   });
 
   const shellyMode = getShellyEnvMode();
+  const shellyProv = getShellyProvisioningStatus();
   const shellyStatus = await fetchShellyDeviceStatus();
   const shellyOk =
     shellyMode === "mock" ||
@@ -49,9 +51,9 @@ export async function buildSalesDemoChecklist(): Promise<{
     ok: shellyOk,
     detail:
       shellyMode === "mock"
-        ? "SHELLY_MODE=mock — デモ用シミュレーション"
+        ? `SHELLY_MODE=mock — POST /api/shelly/register で遠隔電源登録`
         : shellyStatus.online
-          ? `real 接続 OK (${shellyStatus.baseUrl ?? "—"})`
+          ? `real 接続 OK · prov=${shellyProv.phase}`
           : "real接続失敗 — SHELLY_BASE_URL / ネットワークを確認",
   });
 

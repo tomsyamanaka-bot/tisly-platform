@@ -34,12 +34,24 @@
   </div>
   <main class="installer-home-grid">
     <a class="home-tile" id="tile-today" href="#">
-      <span class="tile-label">今日の現場</span>
+      <span class="tile-label">今日の作業</span>
       <span class="tile-value" id="tile-today-value">—</span>
     </a>
-    <a class="home-tile" id="tile-incomplete" href="#">
-      <span class="tile-label">未完了チェック</span>
+    <a class="home-tile" id="tile-incomplete" href="#checklist">
+      <span class="tile-label">未完了</span>
       <span class="tile-value" id="tile-incomplete-value">—</span>
+    </a>
+    <a class="home-tile" id="tile-photo" href="#">
+      <span class="tile-label">写真不足</span>
+      <span class="tile-value warn" id="tile-photo-value">—</span>
+    </a>
+    <a class="home-tile" id="tile-mqtt-unconfirmed" href="#">
+      <span class="tile-label">MQTT未確認</span>
+      <span class="tile-value warn" id="tile-mqtt-unconfirmed-value">—</span>
+    </a>
+    <a class="home-tile" id="tile-shelly-unconfirmed" href="#">
+      <span class="tile-label">Shelly未確認</span>
+      <span class="tile-value warn" id="tile-shelly-unconfirmed-value">—</span>
     </a>
     <a class="home-tile" id="tile-qr" href="#">
       <span class="tile-label">QR登録</span>
@@ -56,6 +68,10 @@
     <section class="home-tile home-tile-static" aria-label="オフライン同期">
       <span class="tile-label">オフライン同期</span>
       <span class="tile-value" id="tile-sync-status">—</span>
+    </section>
+    <section class="field-checklist-section" id="checklist" aria-label="施工チェックリスト">
+      <h2>施工チェックリスト</h2>
+      <ul id="field-checklist-list" class="field-checklist-list"></ul>
     </section>
   </main>
   <nav class="installer-home-nav">

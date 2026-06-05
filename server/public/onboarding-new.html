@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TiSLY — 新規導入ウィザード</title>
+  <style>
+    :root { --green: #1a7f37; --border: #d0d7de; --warn: #bf8700; }
+    body { max-width: 720px; margin: 0 auto; padding: 1.5rem; font-family: system-ui, sans-serif; }
+    h1 { color: var(--green); }
+    .steps { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .step-badge { padding: 0.35rem 0.75rem; border-radius: 999px; background: #f6f8fa; border: 1px solid var(--border); font-size: 13px; }
+    .step-badge.active { background: #dafbe1; border-color: var(--green); font-weight: 600; }
+    .step-badge.done { background: #ddf4ff; }
+    fieldset { border: 1px solid var(--border); border-radius: 12px; padding: 1rem; margin-bottom: 1rem; }
+    fieldset[hidden] { display: none; }
+    legend { font-weight: 700; color: var(--green); }
+    label { display: block; margin-top: 0.75rem; font-weight: 600; }
+    input, select { width: 100%; padding: 0.5rem; margin-top: 0.25rem; box-sizing: border-box; }
+    .device-row { border: 1px dashed var(--border); padding: 0.75rem; border-radius: 8px; margin-top: 0.5rem; }
+    button { margin-top: 1rem; background: var(--green); color: #fff; border: none; padding: 0.75rem 1.5rem; border-radius: 8px; cursor: pointer; font-size: 1rem; }
+    button.secondary { background: #f6f8fa; color: #24292f; border: 1px solid var(--border); }
+    .btn-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .result { background: #dafbe1; border: 2px solid var(--green); padding: 1rem; border-radius: 12px; margin-top: 1rem; display: none; }
+    .err { color: #cf222e; }
+    nav a { color: var(--green); }
+    .hint { font-size: 13px; color: #656d76; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/">← ダッシュボード</a> ·
+    <a href="/customer/new">顧客のみ登録</a> ·
+    <a href="/deployment/checklist">導入チェックリスト</a>
+  </nav>
+  <h1>新規導入ウィザード</h1>
+  <p class="hint">Phase 1071–1080 — 顧客作成 → 現場作成 → 設備登録 → QR発行 → チェックリスト生成を一括実行</p>
+  <div class="steps" id="step-badges">
+    <span class="step-badge active" data-step="1">1. 顧客</span>
+    <span class="step-badge" data-step="2">2. 現場</span>
+    <span class="step-badge" data-step="3">3. 設備</span>
+    <span class="step-badge" data-step="4">4. 確認</span>
+  </div>
+  <form id="wizard-form">
+    <fieldset id="step-1">
+      <legend>顧客情報</legend>
+      <label>顧客名 <input name="customerName" required placeholder="株式会社トムズ設備" /></label>
+      <label>顧客コード（任意・空欄で自動採番）
+        <input name="customerCode" placeholder="TOMS002" pattern="[A-Za-z0-9]+" />
+      </label>
+      <label>プラン
+        <select name="plan">
+          <option value="PRO_REMOTE">PRO Remote</option>
+          <option value="BASIC">Basic</option>
+          <option value="ENTERPRISE">Enterprise</option>
+        </select>
+      </label>
+      <div class="btn-row"><button type="button" class="next-btn" data-next="2">次へ →</button></div>
+    </fieldset>
+    <fieldset id="step-2" hidden>
+      <legend>現場情報</legend>
+      <label>現場名 <input name="siteName" required placeholder="本社ビル" /></label>
+      <label>住所 <input name="address" placeholder="茨城県つくば市..." /></label>
+      <label>現場種別
+        <select name="siteType">
+          <option value="kodate">戸建</option>
+          <option value="minpaku">民泊</option>
+          <option value="factory">工場</option>
+          <option value="warehouse">倉庫</option>
+          <option value="kaigo">介護</option>
+          <option value="other">その他</option>
+        </select>
+      </label>
+      <div class="btn-row">
+        <button type="button" class="secondary prev-btn" data-prev="1">← 戻る</button>
+        <button type="button" class="next-btn" data-next="3">次へ →</button>
+      </div>
+    </fieldset>
+    <fieldset id="step-3" hidden>
+      <legend>設備登録</legend>
+      <p class="hint">最低1台（ESP推奨）。Shelly は遠隔電源装置として登録されます。</p>
+      <div id="device-list">
+        <div class="device-row">
+          <label>名称 <input name="devName0" value="リビングESP" required /></label>
+          <label>設置場所 <input name="devLoc0" value="1F リビング" required /></label>
+          <label>種別
+            <select name="devKind0">
+              <option value="ESP">ESP</option>
+              <option value="Shelly">Shelly</option>
+              <option value="Camera">Camera</option>
+              <option value="PLC">PLC</option>
+            </select>
+          </label>
+        </div>
+        <div class="device-row">
+          <label>名称 <input name="devName1" value="電源盤Shelly" /></label>
+          <label>設置場所 <input name="devLoc1" value="1F 電源盤" /></label>
+          <label>種別
+            <select name="devKind1">
+              <option value="Shelly">Shelly</option>
+              <option value="ESP">ESP</option>
+              <option value="Camera">Camera</option>
+              <option value="PLC">PLC</option>
+            </select>
+          </label>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button type="button" class="secondary prev-btn" data-prev="2">← 戻る</button>
+        <button type="button" class="next-btn" data-next="4">次へ →</button>
+      </div>
+    </fieldset>
+    <fieldset id="step-4" hidden>
+      <legend>確認・一括登録</legend>
+      <pre id="summary-preview" class="hint"></pre>
+      <div class="btn-row">
+        <button type="button" class="secondary prev-btn" data-prev="3">← 戻る</button>
+        <button type="submit">一括登録する</button>
+      </div>
+    </fieldset>
+  </form>
+  <p id="error" class="err"></p>
+  <div id="result" class="result"></div>
+  <script type="module" src="/js/onboarding-wizard.js"></script>
+</body>
+</html>

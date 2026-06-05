@@ -25,10 +25,14 @@ export const config = {
     return env("INGEST_SECRET");
   },
   mqtt: {
+    get mode() {
+      const m = env("MQTT_MODE", "mock").toLowerCase();
+      return m === "real" ? ("real" as const) : ("mock" as const);
+    },
     url: env("MQTT_URL", "mqtt://127.0.0.1:1883"),
     username: env("MQTT_USERNAME"),
     password: env("MQTT_PASSWORD"),
-    topicPrefix: env("MQTT_TOPIC_PREFIX", "tisly/#"),
+    topicPrefix: env("MQTT_TOPIC_PREFIX", "tisly"),
     clientId: env("MQTT_CLIENT_ID", "tisly-notification-core"),
   },
   vapid: {

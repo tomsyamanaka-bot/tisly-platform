@@ -17,10 +17,15 @@ export interface MqttSubscriberConfig {
 }
 
 export function getMqttSubscriberConfig(): MqttSubscriberConfig {
-  let mockMode =
-    process.env.MQTT_MOCK_MODE === "true" ||
-    (process.env.MQTT_SUBSCRIBER_ENABLED !== "true" &&
-      process.env.NODE_ENV !== "production");
+  let mockMode: boolean;
+  if (process.env.MQTT_MODE) {
+    mockMode = config.mqtt.mode === "mock";
+  } else {
+    mockMode =
+      process.env.MQTT_MOCK_MODE === "true" ||
+      (process.env.MQTT_SUBSCRIBER_ENABLED !== "true" &&
+        process.env.NODE_ENV !== "production");
+  }
 
   const tls = getMqttTlsStatus(mockMode);
   if (isMqttTlsEnvEnabled() && shouldFallbackMqttTls(mockMode)) {

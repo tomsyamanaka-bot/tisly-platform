@@ -4,6 +4,7 @@ import { installerCustomerCode, isStandalonePwa } from "./installer-pwa.js";
 const customerCode = installerCustomerCode;
 const OFFLINE_KEY = `tisly_installer_queue_${customerCode}`;
 const LAST_SYNC_KEY = `tisly_installer_last_sync_${customerCode}`;
+const CHECKLIST_CACHE_KEY = `tisly_field_checklist_${customerCode}`;
 const base = `/customer/${customerCode}`;
 
 function installHeaders() {
@@ -40,6 +41,78 @@ function updateOfflineBar() {
   if (tile) tile.textContent = online ? (q ? `${q} 件待ち` : "同期済み") : `オフライン · ${q} 件`;
 }
 
+function enqueueFieldChecklistUpdate(itemId, status) {
+  const q = JSON.parse(localStorage.getItem(OFFLINE_KEY) || "[]");
+  q.push({
+    id: `fc-${itemId}-${Date.now()}`,
+    action: "field_checklist_update",
+    clientAt: new Date().toISOString(),
+    body: { itemId, status },
+  });
+  localStorage.setItem(OFFLINE_KEY, JSON.stringify(q));
+  updateOfflineBar();
+}
+
+function statusClass(status) {
+  if (status === "done") return "status-done";
+  if (status === "needs_review") return "status-review";
+  return "status-pending";
+}
+
+function renderFieldChecklist(items) {
+  const list = document.getElementById("field-checklist-list");
+  if (!list) return;
+  list.innerHTML = "";
+  for (const item of items) {
+    const li = document.createElement("li");
+    li.className = `checklist-item ${statusClass(item.status)}`;
+    li.innerHTML = `
+      <span class="check-label">${item.label}</span>
+      <span class="check-status">${item.statusLabel}</span>
+      <span class="check-detail">${item.detail}</span>
+      <div class="check-actions">
+        <button type="button" data-id="${item.id}" data-status="done" class="btn btn-sm">済</button>
+        <button type="button" data-id="${item.id}" data-status="needs_review" class="btn btn-sm secondary">要確認</button>
+        <button type="button" data-id="${item.id}" data-status="pending" class="btn btn-sm secondary">未</button>
+      </div>`;
+    list.appendChild(li);
+  }
+  list.querySelectorAll("button[data-id]").forEach((btn) => {
+    btn.addEventListener("click", () => updateChecklistItem(btn.dataset.id, btn.dataset.status));
+  });
+}
+
+async function updateChecklistItem(itemId, status) {
+  if (!navigator.onLine) {
+    enqueueFieldChecklistUpdate(itemId, status);
+    const cached = JSON.parse(localStorage.getItem(CHECKLIST_CACHE_KEY) || "{}");
+    if (cached.items) {
+      const item = cached.items.find((i) => i.id === itemId);
+      if (item) {
+        item.status = status;
+        item.statusLabel = status === "done" ? "済" : status === "needs_review" ? "要確認" : "未";
+        localStorage.setItem(CHECKLIST_CACHE_KEY, JSON.stringify(cached));
+        renderFieldChecklist(cached.items);
+      }
+    }
+    return;
+  }
+  const res = await fetch(
+    `/api/customer/${customerCode}/install/field-checklist/${itemId}`,
+    {
+      method: "PUT",
+      headers: { ...installHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    }
+  );
+  if (!res.ok) {
+    enqueueFieldChecklistUpdate(itemId, status);
+    alert("オフラインキューに保存しました");
+    return;
+  }
+  await loadHomeData();
+}
+
 async function flushQueue() {
   const q = JSON.parse(localStorage.getItem(OFFLINE_KEY) || "[]");
   if (!q.length || !navigator.onLine) return;
@@ -52,6 +125,7 @@ async function flushQueue() {
   localStorage.setItem(OFFLINE_KEY, "[]");
   localStorage.setItem(LAST_SYNC_KEY, new Date().toISOString());
   updateOfflineBar();
+  await loadHomeData();
 }
 
 async function loadHomeData() {
@@ -59,14 +133,35 @@ async function loadHomeData() {
     location.href = base;
     return;
   }
-  const dash = await fetch(`/api/customer/${customerCode}/install/dashboard`, {
-    headers: installHeaders(),
-  }).then((r) => (r.ok ? r.json() : null));
-  if (dash) {
+  const [dash, cards] = await Promise.all([
+    fetch(`/api/customer/${customerCode}/install/dashboard`, { headers: installHeaders() }).then(
+      (r) => (r.ok ? r.json() : null)
+    ),
+    fetch(`/api/customer/${customerCode}/install/home-cards`, { headers: installHeaders() }).then(
+      (r) => (r.ok ? r.json() : null)
+    ),
+  ]);
+
+  if (cards) {
+    document.getElementById("tile-today-value").textContent = cards.todayWork ?? "—";
+    document.getElementById("tile-incomplete-value").textContent = String(cards.incompleteCount ?? 0);
+    document.getElementById("tile-photo-value").textContent = String(cards.photoShortage ?? 0);
+    document.getElementById("tile-mqtt-unconfirmed-value").textContent = String(
+      cards.mqttUnconfirmed ?? 0
+    );
+    document.getElementById("tile-shelly-unconfirmed-value").textContent = String(
+      cards.shellyUnconfirmed ?? 0
+    );
+    if (cards.fieldChecklist?.items) {
+      localStorage.setItem(CHECKLIST_CACHE_KEY, JSON.stringify(cards.fieldChecklist));
+      renderFieldChecklist(cards.fieldChecklist.items);
+    }
+  } else if (dash) {
     document.getElementById("tile-today-value").textContent =
       dash.registered != null ? `${dash.registered} 台登録` : "—";
-    const inc = (dash.incompleteOnly ?? []).length;
-    document.getElementById("tile-incomplete-value").textContent = String(inc);
+    document.getElementById("tile-incomplete-value").textContent = String(
+      (dash.incompleteOnly ?? []).length
+    );
   }
 }
 
@@ -74,7 +169,10 @@ document.getElementById("home-customer-code").textContent = customerCode;
 document.getElementById("link-full-install").href = `${base}/install`;
 document.getElementById("link-portal").href = base;
 document.getElementById("tile-today").href = `${base}/install#site`;
-document.getElementById("tile-incomplete").href = `${base}/install#dash`;
+document.getElementById("tile-incomplete").href = "#checklist";
+document.getElementById("tile-photo").href = `${base}/install#photos`;
+document.getElementById("tile-mqtt-unconfirmed").href = `${base}/install#mqtt`;
+document.getElementById("tile-shelly-unconfirmed").href = `${base}/install#shelly`;
 document.getElementById("tile-qr").href = `${base}/install#qr`;
 document.getElementById("tile-map").href = `${base}/map`;
 document.getElementById("tile-mqtt").href = `${base}/install#mqtt`;
@@ -84,12 +182,18 @@ document.getElementById("btn-offline-flush")?.addEventListener("click", () => {
   flushQueue().catch((e) => alert(String(e)));
 });
 
-window.addEventListener("online", updateOfflineBar);
+window.addEventListener("online", () => {
+  updateOfflineBar();
+  flushQueue().catch(() => {});
+});
 window.addEventListener("offline", updateOfflineBar);
 
 updateOfflineBar();
 if (!isStandalonePwa()) {
   document.getElementById("pwa-install-bar")?.removeAttribute("hidden");
 }
+
+const cached = JSON.parse(localStorage.getItem(CHECKLIST_CACHE_KEY) || "null");
+if (cached?.items) renderFieldChecklist(cached.items);
 
 loadHomeData().catch(() => {});
