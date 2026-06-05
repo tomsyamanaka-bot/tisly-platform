@@ -117,7 +117,7 @@ describe("Phase 461-480 multi PWA app hub", () => {
     assert.equal(off.status, 200);
     assert.ok(off.text.includes("オフライン"));
     const sw = await request(app).get("/service-worker.js");
-    assert.ok(sw.text.includes("tisly-pwa-v981"));
+    assert.ok(sw.text.includes("tisly-pwa-v1001"));
   });
 
   it("unauthorized PWA access returns 403", async () => {

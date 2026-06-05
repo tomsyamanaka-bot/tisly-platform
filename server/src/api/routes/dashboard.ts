@@ -3,6 +3,7 @@ import { getDatabase } from "../../db/database.js";
 import { DEMO_SITES } from "../../demo/demo-sites.js";
 import { isDemoRunnerActive } from "../../demo/demo-runner.js";
 import { getInfrastructureStatuses } from "../../infrastructure/status.js";
+import { buildDeploymentKpi } from "../../deployment-kit/deployment-kpi.js";
 
 export const dashboardRouter = Router();
 
@@ -97,6 +98,8 @@ dashboardRouter.get("/", async (_req, res) => {
     };
   });
 
+  const deploymentKpi = buildDeploymentKpi();
+
   res.json({
     infrastructureHealth,
     summary: {
@@ -113,7 +116,13 @@ dashboardRouter.get("/", async (_req, res) => {
       demoRunnerActive: isDemoRunnerActive(),
       riskScoreAvg24h: Math.round(avgRisk ?? 0),
       criticalCount24h: criticalCount,
+      customerCount: deploymentKpi.customerCount,
+      maintenanceCount: deploymentKpi.maintenanceCount,
+      monthlyContractCount: deploymentKpi.monthlyContractCount,
+      deploymentCompleteCount: deploymentKpi.deploymentCompleteCount,
+      assetQrCount: deploymentKpi.assetQrCount,
     },
+    deploymentKpi,
     recentAlarms,
     recentEvents,
     timestamp: new Date().toISOString(),

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TiSLY — 導入チェックリスト</title>
+  <style>
+    :root { --green: #1a7f37; --border: #d0d7de; }
+    body { max-width: 720px; margin: 0 auto; padding: 1.5rem; font-family: system-ui, sans-serif; }
+    h1 { color: var(--green); }
+    .ok { color: #1a7f37; font-weight: 700; }
+    .ng { color: #cf222e; font-weight: 700; }
+    .ready { background: #dafbe1; border: 2px solid var(--green); padding: 1rem; border-radius: 12px; margin: 1rem 0; font-weight: 700; text-align: center; }
+    .pending { background: #fff8c5; border: 2px solid #d4a72c; padding: 1rem; border-radius: 12px; margin: 1rem 0; }
+    ul { list-style: none; padding: 0; }
+    li { border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 0.5rem; }
+    li small { display: block; color: #57606a; margin-top: 0.25rem; }
+    input[type=text] { padding: 0.4rem; width: 10rem; }
+    button { background: var(--green); color: #fff; border: none; padding: 0.4rem 0.8rem; border-radius: 6px; cursor: pointer; margin-left: 0.5rem; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/customer/new">顧客登録</a> ·
+    <a href="/site/new">現場作成</a> ·
+    <a href="/device/provision">設備登録</a>
+  </nav>
+  <h1>導入チェックリスト</h1>
+  <p>Phase 1001–1040 — 全項目OKで導入完了</p>
+  <p>顧客コード: <input type="text" id="customerCode" placeholder="TOMS003" />
+    <button type="button" id="load-btn">読み込み</button></p>
+  <div id="ready-banner" class="pending">顧客コードを入力してください</div>
+  <ul id="checklist-items"></ul>
+  <button type="button" id="complete-btn" style="display:none">導入完了を確定</button>
+  <script type="module" src="/js/deployment-checklist.js"></script>
+</body>
+</html>

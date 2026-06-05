@@ -7,6 +7,7 @@ import { authRouter } from "./api/routes/auth.js";
 import { dashboardRouter } from "./api/routes/dashboard.js";
 import { demoRouter } from "./api/routes/demo.js";
 import { demoKitRouter } from "./api/routes/demo-kit.js";
+import { deploymentKitRouter } from "./api/routes/deployment-kit.js";
 import { shellyRouter } from "./api/routes/shelly.js";
 import { devicesRouter } from "./api/routes/devices.js";
 import { eventsRouter } from "./api/routes/events.js";
@@ -87,6 +88,7 @@ export function createApp(): express.Application {
   app.use("/api/dashboard", dashboardRouter);
   app.use("/api/demo", demoRouter);
   app.use("/api/demo-kit", demoKitRouter);
+  app.use("/api/deployment-kit", deploymentKitRouter);
   app.use("/api/shelly", shellyRouter);
   app.use("/api/analytics", opsCustomerScopeMiddleware, analyticsRouter);
   app.use("/api/test", testRouter);
@@ -128,11 +130,18 @@ export function createApp(): express.Application {
   const tvDashboardHtml = path.join(publicDir, "tv-dashboard.html");
   const adminCustomerHtml = path.join(publicDir, "admin-customer.html");
 
+  app.get("/customer/new", (_req, res) => {
+    res.sendFile(path.join(publicDir, "customer-new.html"));
+  });
+
   app.get("/customer/:customerCode", (_req, res) => {
     res.sendFile(customerPortalHtml);
   });
   app.get("/customer/:customerCode/map", (_req, res) => {
     res.sendFile(path.join(publicDir, "map-editor.html"));
+  });
+  app.get("/customer/:customerCode/deploy", (_req, res) => {
+    res.sendFile(path.join(publicDir, "customer-deploy.html"));
   });
   app.get("/customer/:customerCode/install", (_req, res) => {
     res.sendFile(path.join(publicDir, "installer-mode.html"));
@@ -321,6 +330,18 @@ export function createApp(): express.Application {
   });
   app.get("/customer", (_req, res) => {
     res.sendFile(path.join(publicDir, "customer-index.html"));
+  });
+
+  app.get("/site/new", (_req, res) => {
+    res.sendFile(path.join(publicDir, "site-new.html"));
+  });
+
+  app.get("/device/provision", (_req, res) => {
+    res.sendFile(path.join(publicDir, "device-provision.html"));
+  });
+
+  app.get("/deployment/checklist", (_req, res) => {
+    res.sendFile(path.join(publicDir, "deployment-checklist.html"));
   });
 
   app.get("/setup", (_req, res) => {

@@ -5,6 +5,8 @@ export type SiteTemplateId =
   | "minpaku"
   | "factory"
   | "warehouse"
+  | "kaigo"
+  | "other"
   | "garage"
   | "aquaculture"
   | "ready-mix";
@@ -134,6 +136,33 @@ export const SITE_TEMPLATES: Record<SiteTemplateId, SiteTemplate> = {
       { kind: "esp32", suffix: "gw", labelPrefix: "Gateway", platform: "esp-idf", zoneName: "管理棟" },
     ],
     dashboard: { layout: "aquaculture", widgets: ["water-quality", "alarms"] },
+  },
+  kaigo: {
+    id: "kaigo",
+    label: "介護",
+    siteType: "care",
+    zones: [
+      { name: "共用部", zoneType: "common" },
+      { name: "居室", zoneType: "room" },
+      { name: "外周", zoneType: "perimeter" },
+    ],
+    devices: [
+      { kind: "esp32", suffix: "gw", labelPrefix: "Gateway", platform: "esp-idf", zoneName: "共用部" },
+      { kind: "sensor", suffix: "mot", labelPrefix: "見守りセンサ", platform: "pir", zoneName: "居室" },
+      { kind: "camera", suffix: "cam", labelPrefix: "カメラ", platform: "onvif", zoneName: "外周" },
+      { kind: "alarm", suffix: "alm", labelPrefix: "緊急通報", platform: "siren", zoneName: "共用部" },
+    ],
+    dashboard: { layout: "care", widgets: ["alarms", "rooms", "heartbeat"] },
+  },
+  other: {
+    id: "other",
+    label: "その他",
+    siteType: "custom",
+    zones: [{ name: "デフォルト", zoneType: "default" }],
+    devices: [
+      { kind: "esp32", suffix: "gw", labelPrefix: "Gateway", platform: "esp-idf", zoneName: "デフォルト" },
+    ],
+    dashboard: { layout: "default", widgets: ["alarms", "events", "devices"] },
   },
   "ready-mix": {
     id: "ready-mix",

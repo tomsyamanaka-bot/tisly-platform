@@ -3,6 +3,30 @@
 TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。  
 三菱電機 **FX 系** PLC と **GX Works2 / GX Works3** を想定しています。
 
+## TiSLY Platform — First Customer Deployment Kit（Phase 1001–1040）
+
+**初回導入キット — 営業デモではなく実案件運用を開始できる状態**
+
+| 領域 | パス / API |
+|------|------------|
+| 顧客登録 | `/customer/new` · `POST /api/deployment-kit/customers/wizard` |
+| 現場作成 | `/site/new` · `POST /api/deployment-kit/sites/wizard` |
+| 設備登録 | `/device/provision` · `POST /api/deployment-kit/devices/provision` |
+| QR管理 | `/asset/:assetId` · `GET /api/deployment-kit/assets/:id` |
+| 施工強化 | `POST /api/deployment-kit/install/step` |
+| 保守案件 | `/customer/:code/deploy` · `/api/deployment-kit/maintenance/*` |
+| 引渡し資料 | `GET /api/deployment-kit/package/:code/pdf` |
+| 導入チェック | `/deployment/checklist` |
+| KPI | `GET /api/deployment-kit/kpi` · `/api/dashboard` |
+| テスト | `server/test/deployment-kit.test.ts` |
+| ドキュメント | `docs/phase1001_1040_status.md` |
+
+```bash
+cd server && npm run build && npx tsc --noEmit && npm run test
+```
+
+---
+
 ## TiSLY Platform — Live Device Bridge & Sales Ready RC1（Phase 901–940）
 
 **mock↔実機 ESP/Shelly · デバイス Registry · 営業デモ RC1 · ROI v2 · 展示会ムービー**

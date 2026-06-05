@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TiSLY — 新規顧客登録</title>
+  <style>
+    :root { --green: #1a7f37; --border: #d0d7de; }
+    body { max-width: 640px; margin: 0 auto; padding: 1.5rem; font-family: system-ui, sans-serif; }
+    h1 { color: var(--green); }
+    label { display: block; margin-top: 0.75rem; font-weight: 600; }
+    input { width: 100%; padding: 0.5rem; margin-top: 0.25rem; box-sizing: border-box; }
+    button { margin-top: 1.5rem; background: var(--green); color: #fff; border: none; padding: 0.75rem 1.5rem; border-radius: 8px; cursor: pointer; font-size: 1rem; }
+    .result { background: #dafbe1; border: 2px solid var(--green); padding: 1rem; border-radius: 12px; margin-top: 1rem; display: none; }
+    .err { color: #cf222e; }
+    nav a { color: var(--green); }
+  </style>
+</head>
+<body>
+  <nav><a href="/">← ダッシュボード</a> · <a href="/deployment/checklist">導入チェックリスト</a></nav>
+  <h1>新規顧客登録ウィザード</h1>
+  <p>Phase 1001–1040 — First Customer Deployment Kit</p>
+  <form id="wizard-form">
+    <label>顧客名 <input name="customerName" required placeholder="株式会社トムズ設備" /></label>
+    <label>現場名 <input name="siteName" required placeholder="本社ビル" /></label>
+    <label>住所 <input name="address" placeholder="茨城県つくば市..." /></label>
+    <label>担当者 <input name="contactName" placeholder="山田太郎" /></label>
+    <label>電話番号 <input name="phone" type="tel" placeholder="029-000-0000" /></label>
+    <label>メール <input name="email" type="email" placeholder="yamada@example.com" /></label>
+    <p>顧客コード（自動）: <strong id="next-code">—</strong></p>
+    <button type="submit">登録する</button>
+  </form>
+  <p id="error" class="err"></p>
+  <div id="result" class="result"></div>
+  <script type="module" src="/js/customer-wizard.js"></script>
+</body>
+</html>

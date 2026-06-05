@@ -174,6 +174,7 @@ export function runMigrations(database: Database.Database): void {
 
   migrateCustomerUsersPhase241(database);
   migratePhase261(database);
+  migratePhase1001(database);
 }
 
 const CUSTOMER_INVITE_COLUMNS: Array<{ name: string; ddl: string }> = [
@@ -436,6 +437,75 @@ function migratePhase781(database: Database.Database): void {
       "migration:phase781_production_reliability",
       JSON.stringify({ at: new Date().toISOString() })
     );
+
+  migratePhase1001(database);
+}
+
+function migratePhase1001(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:phase1001_deployment_kit") as { value_json: string } | undefined;
+  if (marker) return;
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS deployment_customer_contacts (
+      customer_id TEXT PRIMARY KEY,
+      customer_code TEXT NOT NULL,
+      site_name TEXT NOT NULL,
+      address TEXT,
+      contact_name TEXT,
+      phone TEXT,
+      email TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS deployment_assets (
+      asset_id TEXT PRIMARY KEY,
+      customer_code TEXT NOT NULL,
+      site_id TEXT NOT NULL,
+      device_id TEXT NOT NULL UNIQUE,
+      label TEXT NOT NULL,
+      location TEXT,
+      kind TEXT,
+      scan_count INTEGER NOT NULL DEFAULT 0,
+      last_scan_at TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_deployment_assets_customer ON deployment_assets(customer_code);
+    CREATE INDEX IF NOT EXISTS idx_deployment_assets_device ON deployment_assets(device_id);
+
+    CREATE TABLE IF NOT EXISTS deployment_checklist (
+      customer_id TEXT PRIMARY KEY,
+      customer_code TEXT NOT NULL,
+      items_json TEXT NOT NULL DEFAULT '{}',
+      deployment_complete INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS deployment_install_records (
+      id TEXT PRIMARY KEY,
+      customer_id TEXT NOT NULL,
+      customer_code TEXT NOT NULL,
+      site_id TEXT,
+      device_id TEXT,
+      step TEXT NOT NULL,
+      photo_path TEXT,
+      signature_data TEXT,
+      gps_lat REAL,
+      gps_lng REAL,
+      notes TEXT,
+      installer_user_id TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_deployment_install_customer ON deployment_install_records(customer_code);
+  `);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:phase1001_deployment_kit", JSON.stringify({ at: new Date().toISOString() }));
 }
 
 function migratePhase621(database: Database.Database): void {

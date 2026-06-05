@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TiSLY — ESP/設備登録</title>
+  <style>
+    :root { --green: #1a7f37; }
+    body { max-width: 720px; margin: 0 auto; padding: 1.5rem; font-family: system-ui, sans-serif; }
+    h1 { color: var(--green); }
+    label { display: block; margin-top: 0.75rem; font-weight: 600; }
+    input, select { width: 100%; padding: 0.5rem; margin-top: 0.25rem; box-sizing: border-box; }
+    button { margin-top: 1.5rem; background: var(--green); color: #fff; border: none; padding: 0.75rem 1.5rem; border-radius: 8px; cursor: pointer; }
+    #qr-preview { margin-top: 1rem; max-width: 240px; }
+    .err { color: #cf222e; }
+  </style>
+</head>
+<body>
+  <nav><a href="/site/new">← 現場作成</a></nav>
+  <h1>設備プロビジョニング</h1>
+  <form id="provision-form">
+    <label>顧客コード <input name="customerCode" id="customerCode" required /></label>
+    <label>現場ID <input name="siteId" id="siteId" required /></label>
+    <label>設備ID（任意） <input name="deviceId" placeholder="自動生成可" /></label>
+    <label>名称 <input name="name" required placeholder="リビング ESP" /></label>
+    <label>設置場所 <input name="location" required placeholder="1F リビング" /></label>
+    <label>種類
+      <select name="kind" required>
+        <option value="ESP">ESP</option>
+        <option value="Shelly">Shelly</option>
+        <option value="Camera">Camera</option>
+        <option value="PLC">PLC</option>
+      </select>
+    </label>
+    <button type="submit">保存してQR生成</button>
+  </form>
+  <p id="error" class="err"></p>
+  <div id="result"></div>
+  <script type="module" src="/js/device-provision.js"></script>
+</body>
+</html>

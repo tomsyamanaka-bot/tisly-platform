@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TiSLY — 現場作成</title>
+  <style>
+    :root { --green: #1a7f37; }
+    body { max-width: 640px; margin: 0 auto; padding: 1.5rem; font-family: system-ui, sans-serif; }
+    h1 { color: var(--green); }
+    label { display: block; margin-top: 0.75rem; font-weight: 600; }
+    input, select { width: 100%; padding: 0.5rem; margin-top: 0.25rem; box-sizing: border-box; }
+    button { margin-top: 1.5rem; background: var(--green); color: #fff; border: none; padding: 0.75rem 1.5rem; border-radius: 8px; cursor: pointer; }
+    .result { background: #dafbe1; border: 2px solid var(--green); padding: 1rem; border-radius: 12px; margin-top: 1rem; display: none; }
+    .err { color: #cf222e; }
+  </style>
+</head>
+<body>
+  <nav><a href="/customer/new">← 顧客登録</a></nav>
+  <h1>現場作成ウィザード</h1>
+  <p>標準テンプレートを自動投入します</p>
+  <form id="site-form">
+    <label>顧客コード <input name="customerCode" id="customerCode" required placeholder="TOMS003" /></label>
+    <label>現場種別
+      <select name="siteType" id="siteType" required></select>
+    </label>
+    <label>現場名（任意） <input name="name" placeholder="自動: 種別名 — 顧客名" /></label>
+    <label>住所（任意） <input name="address" /></label>
+    <button type="submit">現場を作成</button>
+  </form>
+  <p id="error" class="err"></p>
+  <div id="result" class="result"></div>
+  <script type="module" src="/js/site-wizard.js"></script>
+</body>
+</html>
