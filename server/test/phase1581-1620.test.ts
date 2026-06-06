@@ -174,7 +174,7 @@ describe("Phase 1581-1620 Production Deployment Rehearsal", () => {
     });
 
     it("calculateReadyScore labels 97+ as READY FOR PRODUCTION", () => {
-      const dryRun = buildDeployDryRun();
+      const dryRun = buildDeployDryRun(process.env, { gitDiff: "" });
       const urlCheck = buildUrlCheck();
       const pwaAudit = buildPwaRehearsalAudit();
       const tvAudit = buildTvRehearsalAudit();

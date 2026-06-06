@@ -52,7 +52,7 @@ describe("Phase 1761-1800 VPS Production Deploy Rehearsal", () => {
     it("GET /api/deploy/rehearsal-checklist returns status rows and env table", async () => {
       const res = await request(app).get("/api/deploy/rehearsal-checklist");
       assert.equal(res.status, 200);
-      assert.equal(res.body.phase, "1801-1840");
+      assert.equal(res.body.phase, "1841-1880");
       const ids = res.body.statusRows.map((r: { id: string }) => r.id);
       for (const id of [
         "github",
@@ -121,7 +121,7 @@ describe("Phase 1761-1800 VPS Production Deploy Rehearsal", () => {
     it("GET /deployment/checklist includes Phase 1761 rehearsal UI", async () => {
       const res = await request(app).get("/deployment/checklist");
       assert.equal(res.status, 200);
-      assert.ok(res.text.includes("Phase 1801") || res.text.includes("1801"));
+      assert.ok(res.text.includes("Phase 1841") || res.text.includes("1841"));
       assert.ok(res.text.includes("VPS Production Rehearsal"));
       assert.ok(res.text.includes("VPS投入コマンドを見る"));
       assert.ok(res.text.includes("env 入力チェック表"));

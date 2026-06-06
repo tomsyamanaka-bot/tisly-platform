@@ -1,6 +1,6 @@
 /**
- * Phase 1801–1840 — VPS Production Start Command Finalize
- * （Phase 1761–1800 リハーサルチェックリストを拡張）
+ * Phase 1841–1880 — VPS Production Launch Support & Env Final Check
+ * （Phase 1801–1840 本番起動コマンド確定を拡張）
  */
 
 import { execSync } from "child_process";
@@ -57,6 +57,29 @@ export interface ProductionStartInfo {
   note: string;
 }
 
+export interface VpsFailureBranch {
+  id: string;
+  symptom: string;
+  likelyCause: string;
+  checkCommands: string[];
+  fix: string;
+}
+
+export interface ProductionLaunchGuide {
+  phase: string;
+  title: string;
+  sectionA_now: string;
+  sectionB_vpsCommands: string;
+  sectionC_envExample: string;
+  sectionD_success: string;
+  sectionE_failure: string;
+  sectionF_urls: string[];
+  envPrepBlock: string[];
+  startBlock: string[];
+  verifyBlock: string[];
+  failureBranches: VpsFailureBranch[];
+}
+
 export interface DeployRehearsalChecklistReport {
   phase: string;
   title: string;
@@ -67,6 +90,7 @@ export interface DeployRehearsalChecklistReport {
   envChecklist: EnvChecklistRow[];
   vpsCommands: VpsCommandStep[];
   productionStart: ProductionStartInfo;
+  productionLaunch: ProductionLaunchGuide;
   pwaInstallReady: { ready: number; total: number; label: string };
 }
 
@@ -233,11 +257,33 @@ function buildEnvChecklist(source: NodeJS.ProcessEnv = process.env): EnvChecklis
   });
 }
 
-/** VNC コンソールへ貼る本番起動コマンド（1 ブロック · 秘密値なし） */
-export const VPS_PRODUCTION_START_ONE_BLOCK: string[] = [
+/** .env 準備（秘密生成 · プレースホルダのみ · VNC 用） */
+export const VPS_ENV_PREP_ONE_BLOCK: string[] = [
   "cd /opt/tisly/server",
   "test -f .env || cp .env.production.example .env && chmod 600 .env",
-  "test -f .env && grep -qE '^JWT_SECRET=.+$' .env && grep -qE '^ADMIN_PASSWORD_HASH=.+$' .env || { echo '✋ .env 未完了 — docs/env_fill_in_guide.md を参照'; exit 1; }",
+  "# JWT_SECRET（出力を .env の JWT_SECRET= に貼り付け）",
+  "openssl rand -base64 48",
+  "# INGEST_SECRET（JWT と別値）",
+  "openssl rand -base64 48",
+  "# DEPLOY_OPS_TOKEN",
+  "openssl rand -hex 32",
+  "# ADMIN_PASSWORD_HASH（build 後 · 'YOUR_STRONG_PASSWORD' を自分の強力なパスワードに置換）",
+  "npm run build",
+  "node -e \"import { hashPassword } from './dist/auth/password.js'; console.log(hashPassword(process.argv[1]));\" 'YOUR_STRONG_PASSWORD'",
+  "nano .env",
+  "# 必須: JWT_SECRET · ADMIN_PASSWORD_HASH · INGEST_SECRET · DEPLOY_OPS_TOKEN · NODE_ENV=production · TISLY_PUBLIC_URL=https://tisly.jp",
+];
+
+/** VNC コンソールへ貼る本番起動コマンド（.env 完了後 · 1 ブロック） */
+export const VPS_PRODUCTION_START_ONE_BLOCK: string[] = [
+  "cd /opt/tisly",
+  "bash scripts/vps-production-start.sh",
+];
+
+/** 手動起動（スクリプト不可時の代替 · 秘密値なし） */
+export const VPS_PRODUCTION_START_MANUAL_BLOCK: string[] = [
+  "cd /opt/tisly/server",
+  "test -f .env && grep -qE '^JWT_SECRET=.+$' .env && grep -qE '^ADMIN_PASSWORD_HASH=.+$' .env && grep -qE '^INGEST_SECRET=.+$' .env && grep -qE '^DEPLOY_OPS_TOKEN=.+$' .env || { echo '✋ .env 未完了 — docs/env_fill_in_guide.md を参照'; exit 1; }",
   "npm ci",
   "npm run build",
   "npm run release:gate",
@@ -251,10 +297,101 @@ export const VPS_PRODUCTION_START_ONE_BLOCK: string[] = [
   "ln -sf /etc/nginx/sites-available/tisly.jp /etc/nginx/sites-enabled/",
   "rm -f /etc/nginx/sites-enabled/default",
   "nginx -t && systemctl reload nginx",
-  "curl -sS http://127.0.0.1:3080/api/health",
-  "curl -sI https://tisly.jp/app | head -5",
-  "curl -sS https://tisly.jp/api/health",
 ];
+
+/** 起動後の確認コマンド（Phase 1841–1880） */
+export const VPS_PRODUCTION_VERIFY_ONE_BLOCK: string[] = [
+  "systemctl status tisly-server",
+  "journalctl -u tisly-server -n 80 --no-pager",
+  "nginx -t",
+  "curl -s http://127.0.0.1:3080/api/health",
+  "curl -I https://tisly.jp/app",
+];
+
+/** 失敗時の分岐表 */
+export const VPS_FAILURE_BRANCHES: VpsFailureBranch[] = [
+  {
+    id: "env_missing",
+    symptom: "スクリプトが .env 不足で exit 1",
+    likelyCause: "JWT_SECRET / ADMIN_PASSWORD_HASH / INGEST_SECRET / DEPLOY_OPS_TOKEN 等が空",
+    checkCommands: [
+      "cd /opt/tisly/server && bash ../scripts/vps-first-deploy-check.sh",
+      "grep -E '^(JWT_SECRET|ADMIN_PASSWORD_HASH|INGEST_SECRET|DEPLOY_OPS_TOKEN)=' .env | sed 's/=.*/=***/'",
+    ],
+    fix: "VPS_ENV_PREP_ONE_BLOCK の openssl / hashPassword を実行し nano .env で必須項目を埋めてから再実行",
+  },
+  {
+    id: "port_3080_down",
+    symptom: "curl http://127.0.0.1:3080/api/health が失敗 · systemctl inactive",
+    likelyCause: "Node 起動エラー · .env 構文 · 権限 · dist 未ビルド",
+    checkCommands: [
+      "systemctl status tisly-server",
+      "journalctl -u tisly-server -n 80 --no-pager",
+      "ss -tlnp | grep 3080",
+      "test -f /opt/tisly/server/dist/index.js && echo dist OK",
+    ],
+    fix: "journalctl のエラーを修正 → cd /opt/tisly/server && npm run build && systemctl restart tisly-server",
+  },
+  {
+    id: "nginx_error",
+    symptom: "nginx -t が syntax error / failed",
+    likelyCause: "設定ファイル破損 · 別サイトとの server_name 競合",
+    checkCommands: [
+      "nginx -t",
+      "ls -la /etc/nginx/sites-enabled/",
+      "cat /etc/nginx/sites-available/tisly.jp | head -40",
+    ],
+    fix: "cp /opt/tisly/server/deploy/nginx/tisly.jp.conf /etc/nginx/sites-available/tisly.jp && nginx -t && systemctl reload nginx",
+  },
+  {
+    id: "certbot_missing",
+    symptom: "https://tisly.jp が接続不可 · curl -I https が失敗",
+    likelyCause: "certbot 未実施 · DNS 未反映 · ファイアウォール",
+    checkCommands: [
+      "certbot certificates",
+      "curl -sI http://tisly.jp/app | head -5",
+      "ufw status",
+    ],
+    fix: "certbot --nginx -d tisly.jp -d www.tisly.jp を実行（メール・規約同意）→ nginx -t && systemctl reload nginx",
+  },
+  {
+    id: "bad_gateway_502",
+    symptom: "ブラウザで 502 Bad Gateway · nginx は動くが API が死んでいる",
+    likelyCause: "tisly-server 停止 · 3080 未リッスン · upstream タイムアウト",
+    checkCommands: [
+      "systemctl is-active tisly-server",
+      "curl -s http://127.0.0.1:3080/api/health",
+      "journalctl -u tisly-server -n 50 --no-pager",
+    ],
+    fix: "systemctl restart tisly-server → localhost health OK を確認してから nginx reload",
+  },
+];
+
+/** .env 入力例（実値なし · プレースホルダのみ） */
+export const PRODUCTION_ENV_EXAMPLE_PLACEHOLDER = `# --- 必須（✋ 智紀さんが入力） ---
+NODE_ENV=production
+TISLY_PUBLIC_URL=https://tisly.jp
+
+# JWT_SECRET ← openssl rand -base64 48
+JWT_SECRET=ここに入れる
+# ADMIN_PASSWORD_HASH ← hashPassword（scrypt:... 形式）
+ADMIN_PASSWORD_HASH=ここに入れる
+# INGEST_SECRET ← openssl rand -base64 48（JWT と別値）
+INGEST_SECRET=ここに入れる
+# DEPLOY_OPS_TOKEN ← openssl rand -hex 32
+DEPLOY_OPS_TOKEN=ここに入れる
+
+# --- 初回公開は mock 安全値（テンプレのまま可） ---
+PORT=3080
+TISLY_PORT=3080
+DB_PROVIDER=sqlite
+MQTT_MODE=mock
+MQTT_MOCK_MODE=true
+SHELLY_MODE=mock
+QNAP_MODE=mock
+GMAIL_SEND_MODE=mock
+DEMO_RESET_ENABLED=false
+ADMIN_USERNAME=admin`;
 
 /** VPS 投入コマンド（秘密値はすべてプレースホルダ） */
 export const VPS_DEPLOY_COMMAND_STEPS: VpsCommandStep[] = [
@@ -370,11 +507,23 @@ export const VPS_DEPLOY_COMMAND_STEPS: VpsCommandStep[] = [
     note: "詳細は docs/rollback_guide.md",
   },
   {
+    id: "env_prep",
+    title: ".env 準備（秘密生成 · プレースホルダのみ）",
+    commands: VPS_ENV_PREP_ONE_BLOCK,
+    note: "✋ openssl 出力と hashPassword 出力を nano .env に貼り付け。詳細 docs/vps_phase1841_launch.md",
+  },
+  {
     id: "production_start",
-    title: "本番起動（一本化 · VNC コンソール用）",
+    title: "本番起動（.env 完了後 · 1 ブロック）",
     commands: VPS_PRODUCTION_START_ONE_BLOCK,
     note:
-      "起動方式は systemd（公式）。PM2 は代替のみ — 本番では使いません。秘密値は表示しません。",
+      "起動方式は systemd（公式）。PM2 は代替のみ。scripts/vps-production-start.sh が build · release:gate · db:init · systemd · nginx まで実行します。",
+  },
+  {
+    id: "production_verify",
+    title: "起動後確認",
+    commands: VPS_PRODUCTION_VERIFY_ONE_BLOCK,
+    note: "すべて OK なら https://tisly.jp/app をブラウザで開く",
   },
 ];
 
@@ -390,7 +539,68 @@ export function buildProductionStartInfo(): ProductionStartInfo {
     envTemplate: "/opt/tisly/server/.env.production.example",
     oneBlock: VPS_PRODUCTION_START_ONE_BLOCK,
     note:
-      "正式 .env テンプレートは server/.env.production.example。ルート .env.production.example は参照用。",
+      "正式 .env テンプレートは server/.env.production.example。.env 完了後に bash scripts/vps-production-start.sh を 1 回実行。",
+  };
+}
+
+export function buildProductionLaunchGuide(): ProductionLaunchGuide {
+  const envPrep = VPS_ENV_PREP_ONE_BLOCK.join("\n");
+  const start = VPS_PRODUCTION_START_ONE_BLOCK.join("\n");
+  const verify = VPS_PRODUCTION_VERIFY_ONE_BLOCK.join("\n");
+  const failureTable = VPS_FAILURE_BRANCHES.map(
+    (b) =>
+      `| ${b.symptom} | ${b.likelyCause} | ${b.checkCommands.join(" · ")} | ${b.fix} |`,
+  ).join("\n");
+
+  return {
+    phase: "1841-1880",
+    title: "VPS Production Launch Support & Env Final Check",
+    sectionA_now: [
+      "1. VNC コンソールで root ログイン（/opt/tisly は clone 済み）",
+      "2. .env 準備ブロックで秘密を生成し nano .env に貼り付け",
+      "3. 本番起動ブロック: bash scripts/vps-production-start.sh",
+      "4. 確認ブロックで systemctl · journalctl · nginx · curl を実行",
+      "5. SSL 未設定なら certbot --nginx -d tisly.jp -d www.tisly.jp",
+      "6. ブラウザで https://tisly.jp/app を開く",
+    ].join("\n"),
+    sectionB_vpsCommands: [
+      "## .env 準備",
+      envPrep,
+      "",
+      "## 本番起動（.env 完了後）",
+      start,
+      "",
+      "## 起動後確認",
+      verify,
+      "",
+      "## SSL 未設定時のみ",
+      "certbot --nginx -d tisly.jp -d www.tisly.jp",
+    ].join("\n"),
+    sectionC_envExample: PRODUCTION_ENV_EXAMPLE_PLACEHOLDER,
+    sectionD_success: [
+      "systemctl is-active tisly-server → active",
+      'curl -s http://127.0.0.1:3080/api/health → {"ok":true,...}',
+      "nginx -t → syntax is ok · test is successful",
+      "curl -I https://tisly.jp/app → HTTP/2 200（または 304）",
+      "/deployment/checklist で VPS DEPLOYED · PWA installReady が緑",
+    ].join("\n"),
+    sectionE_failure: [
+      "| 症状 | 原因 | 確認 | 対処 |",
+      "|------|------|------|------|",
+      failureTable,
+    ].join("\n"),
+    sectionF_urls: [
+      "https://tisly.jp/app",
+      "https://tisly.jp/survey",
+      "https://tisly.jp/business",
+      "https://tisly.jp/sales",
+      "https://tisly.jp/deployment/checklist",
+      "https://tisly.jp/api/health",
+    ],
+    envPrepBlock: VPS_ENV_PREP_ONE_BLOCK,
+    startBlock: VPS_PRODUCTION_START_ONE_BLOCK,
+    verifyBlock: VPS_PRODUCTION_VERIFY_ONE_BLOCK,
+    failureBranches: VPS_FAILURE_BRANCHES,
   };
 }
 
@@ -505,8 +715,8 @@ export function buildDeployRehearsalChecklist(
     securityReady;
 
   return {
-    phase: "1801-1840",
-    title: "VPS Production Start Command Finalize",
+    phase: "1841-1880",
+    title: "VPS Production Launch Support & Env Final Check",
     generatedAt: new Date().toISOString(),
     rehearsalReady,
     rehearsalReadyLabel: rehearsalReady ? "REHEARSAL READY" : "REHEARSAL NOT READY",
@@ -514,6 +724,7 @@ export function buildDeployRehearsalChecklist(
     envChecklist,
     vpsCommands: VPS_DEPLOY_COMMAND_STEPS,
     productionStart: buildProductionStartInfo(),
+    productionLaunch: buildProductionLaunchGuide(),
     pwaInstallReady: {
       ready: pwaAudit.readyCount,
       total: pwaAudit.totalPwa,

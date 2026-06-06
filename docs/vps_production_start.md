@@ -1,6 +1,8 @@
 # VPS 本番起動コマンド確定版 — 智紀さん向け
 
-**Phase 1801–1840 — VPS Production Start Command Finalize**
+**Phase 1841–1880 — VPS Production Launch（本番起動コマンド確定版）**
+
+> 最新の A–F 手順: [`vps_phase1841_launch.md`](./vps_phase1841_launch.md)
 
 > VNC コンソールから貼り付けて実行します。SSH 不要。秘密値は表示しません。
 
@@ -44,12 +46,14 @@ ln -sf /etc/nginx/sites-available/tisly.jp /etc/nginx/sites-enabled/tisly.jp
 
 ---
 
-## 方法 A — スクリプト（推奨）
+## 方法 A — スクリプト（推奨 · .env 完了後）
 
 ```bash
 cd /opt/tisly
 bash scripts/vps-production-start.sh
 ```
+
+`.env` 未完了の場合は先に [`vps_phase1841_launch.md`](./vps_phase1841_launch.md) の **B-1** を実行してください。
 
 ---
 

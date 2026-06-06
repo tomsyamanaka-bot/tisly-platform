@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Phase 1801–1840 — VPS 本番プロセス起動（systemd 推奨 · PM2 は使わない）
+# Phase 1841–1880 — VPS 本番プロセス起動（systemd 推奨 · PM2 は使わない）
 # 使い方: bash scripts/vps-production-start.sh
 # 前提: /opt/tisly に clone 済み · VNC コンソールから root で実行
 set -euo pipefail
@@ -27,7 +27,7 @@ check_env_key() {
   fi
 }
 
-log "=== VPS 本番起動 Phase 1801–1840 ==="
+log "=== VPS 本番起動 Phase 1841–1880 ==="
 log "REPO_ROOT=${REPO_ROOT}"
 log "起動方式: systemd（公式）— PM2 は使用しません"
 

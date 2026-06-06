@@ -132,7 +132,7 @@ console.log(hashPassword(process.argv[1]));
 " 'あなたの強力なパスワード'
 ```
 
-出力（`$2b$...` で始まる長い文字列）を `.env` に:
+出力（`scrypt:` で始まる長い文字列）を `.env` に:
 
 ```env
 ADMIN_PASSWORD_HASH=ここに貼り付け

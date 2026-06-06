@@ -1,5 +1,5 @@
 /**
- * Phase 1801–1840 — 本番公開チェックリスト (/deployment/checklist)
+ * Phase 1841–1880 — 本番公開チェックリスト (/deployment/checklist)
  */
 
 const PRODUCTION_URLS = [
@@ -41,6 +41,7 @@ const STORAGE_KEY = "tisly_deploy_checklist_manual";
 let lastCheckState = { urlResults: [], gate: null, audit: null, preflight: null, rehearsal: null };
 let cachedVpsCommands = [];
 let cachedProductionStart = null;
+let cachedProductionLaunch = null;
 
 function loadManualChecks() {
   try {
@@ -149,8 +150,42 @@ function renderVpsCommandModal(steps) {
 function openVpsModal(mode = "deploy") {
   const modal = document.getElementById("vps-modal");
   const title = document.getElementById("vps-modal-title");
-  if (mode === "production_start" && cachedProductionStart?.oneBlock?.length) {
-    title.textContent = "本番起動コマンド（systemd · 秘密値なし）";
+  if (mode === "env_prep" && cachedProductionLaunch?.envPrepBlock?.length) {
+    title.textContent = ".env 準備コマンド（openssl · hashPassword · プレースホルダのみ）";
+    renderVpsCommandModal([
+      {
+        title: "VNC コンソール — .env 準備（秘密生成）",
+        commands: cachedProductionLaunch.envPrepBlock,
+        note: "✋ openssl 出力と hashPassword 出力を nano .env に貼り付け。docs/vps_phase1841_launch.md 参照",
+      },
+      {
+        title: ".env 入力例（実値なし）",
+        commands: (cachedProductionLaunch.sectionC_envExample || "").split("\n"),
+        note: "プレースホルダを実値に置き換えてください",
+      },
+    ]);
+  } else if (mode === "production_verify" && cachedProductionLaunch?.verifyBlock?.length) {
+    title.textContent = "起動後確認コマンド";
+    renderVpsCommandModal([
+      {
+        title: "systemd · nginx · health 確認",
+        commands: cachedProductionLaunch.verifyBlock,
+        note: "すべて OK なら https://tisly.jp/app をブラウザで開く",
+      },
+      ...(cachedProductionLaunch.failureBranches?.length
+        ? [
+            {
+              title: "失敗時の分岐（症状 → 確認 → 対処）",
+              commands: cachedProductionLaunch.failureBranches.map(
+                (b) => `# ${b.symptom}\n# 確認: ${b.checkCommands.join(" · ")}\n# 対処: ${b.fix}`
+              ),
+              note: "詳細 docs/vps_phase1841_launch.md § E",
+            },
+          ]
+        : []),
+    ]);
+  } else if (mode === "production_start" && cachedProductionStart?.oneBlock?.length) {
+    title.textContent = "本番起動コマンド（.env 完了後 · systemd）";
     renderVpsCommandModal([
       {
         title: "VNC コンソールへ貼り付け（1 ブロック）",
@@ -365,6 +400,7 @@ async function loadAll() {
 
   cachedVpsCommands = rehearsal?.vpsCommands || [];
   cachedProductionStart = rehearsal?.productionStart || null;
+  cachedProductionLaunch = rehearsal?.productionLaunch || null;
   renderRehearsalGrid(rehearsal);
   renderEnvTable(rehearsal);
 
@@ -451,7 +487,9 @@ async function loadAll() {
 
 document.getElementById("refresh-btn").addEventListener("click", () => loadAll().catch(console.error));
 document.getElementById("vps-cmd-btn").addEventListener("click", () => openVpsModal("deploy"));
+document.getElementById("env-prep-btn")?.addEventListener("click", () => openVpsModal("env_prep"));
 document.getElementById("prod-start-btn")?.addEventListener("click", () => openVpsModal("production_start"));
+document.getElementById("prod-verify-btn")?.addEventListener("click", () => openVpsModal("production_verify"));
 document.getElementById("vps-modal-close").addEventListener("click", closeVpsModal);
 document.getElementById("vps-modal").addEventListener("click", (e) => {
   if (e.target.id === "vps-modal") closeVpsModal();

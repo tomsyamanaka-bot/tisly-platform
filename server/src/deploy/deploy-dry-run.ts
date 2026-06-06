@@ -133,6 +133,8 @@ const TEMPLATE_VALUES = new Set([
   "change-me",
   "change-me-before-production",
   "change-me-use-openssl-rand-hex-32",
+  "ここに入れる",
+  "ここに貼り付け",
 ]);
 
 function readGitignore(): string {

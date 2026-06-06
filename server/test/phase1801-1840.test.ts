@@ -9,6 +9,7 @@ import {
   buildDeployRehearsalChecklist,
   buildProductionStartInfo,
   VPS_DEPLOY_COMMAND_STEPS,
+  VPS_PRODUCTION_START_MANUAL_BLOCK,
   VPS_PRODUCTION_START_ONE_BLOCK,
 } from "../src/deploy/deploy-rehearsal-checklist.js";
 
@@ -63,21 +64,19 @@ describe("Phase 1801-1840 VPS Production Start Command Finalize", () => {
       assert.ok(info.startScript.includes("dist/index.js"));
     });
 
-    it("VPS_PRODUCTION_START_ONE_BLOCK has no secrets and covers startup", () => {
-      const text = VPS_PRODUCTION_START_ONE_BLOCK.join("\n");
-      assert.ok(!REAL_SECRET_PATTERN.test(text));
+    it("VPS_PRODUCTION_START_ONE_BLOCK uses script; manual block covers full startup", () => {
+      const script = VPS_PRODUCTION_START_ONE_BLOCK.join("\n");
+      assert.ok(script.includes("vps-production-start.sh"));
+      assert.ok(!REAL_SECRET_PATTERN.test(script));
+      const manual = VPS_PRODUCTION_START_MANUAL_BLOCK.join("\n");
       for (const needle of [
-        "cd /opt/tisly/server",
-        ".env.production.example",
         "npm run release:gate",
         "systemctl enable tisly-server",
         "nginx -t",
-        "127.0.0.1:3080/api/health",
-        "https://tisly.jp/app",
       ]) {
-        assert.ok(text.includes(needle), `missing: ${needle}`);
+        assert.ok(manual.includes(needle), `manual missing: ${needle}`);
       }
-      assert.ok(!text.includes("pm2"), "production start must not use pm2");
+      assert.ok(!manual.includes("pm2"), "production start must not use pm2");
     });
 
     it("vps-production-start.sh exists and uses systemd", () => {
@@ -94,10 +93,15 @@ describe("Phase 1801-1840 VPS Production Start Command Finalize", () => {
     it("GET /api/deploy/rehearsal-checklist returns productionStart", async () => {
       const res = await request(app).get("/api/deploy/rehearsal-checklist");
       assert.equal(res.status, 200);
-      assert.equal(res.body.phase, "1801-1840");
+      assert.equal(res.body.phase, "1841-1880");
       assert.ok(res.body.productionStart);
       assert.equal(res.body.productionStart.method, "systemd");
-      assert.ok(res.body.productionStart.oneBlock.length >= 10);
+      assert.ok(res.body.productionStart.oneBlock.length >= 1);
+      assert.ok(
+        res.body.productionStart.oneBlock.join("\n").includes("vps-production-start.sh"),
+      );
+      assert.ok(res.body.productionLaunch);
+      assert.equal(res.body.productionLaunch.phase, "1841-1880");
       assert.ok(
         VPS_DEPLOY_COMMAND_STEPS.some((s) => s.id === "production_start"),
         "missing production_start step",
@@ -147,7 +151,7 @@ describe("Phase 1801-1840 VPS Production Start Command Finalize", () => {
     it("GET /deployment/checklist includes production start UI", async () => {
       const res = await request(app).get("/deployment/checklist");
       assert.equal(res.status, 200);
-      assert.ok(res.text.includes("Phase 1801") || res.text.includes("1801"));
+      assert.ok(res.text.includes("Phase 1841") || res.text.includes("1841"));
       assert.ok(res.text.includes("本番起動コマンド"));
     });
 
