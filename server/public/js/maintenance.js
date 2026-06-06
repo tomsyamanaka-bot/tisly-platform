@@ -1,11 +1,18 @@
 import { renderPwaTopbar } from "./tisly-pwa-shell.js";
+import {
+  getCustomerToken,
+  requireCustomerLogin,
+  customerCodeFromPath,
+} from "./customer-auth.js";
 
-const TOKEN_KEY = "tisly_token";
 const MEMO_KEY = "tisly_maint_memo";
 const OFFLINE_CASES_KEY = "tisly_maint_offline_cases";
 
+const pathCustomerMatch = location.pathname.match(/\/customer\/([^/]+)\/maintenance/i);
+const lockedCustomerCode = pathCustomerMatch ? pathCustomerMatch[1].toUpperCase() : null;
+
 function apiHeaders() {
-  const token = sessionStorage.getItem(TOKEN_KEY);
+  const token = getCustomerToken();
   return token
     ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
     : { "Content-Type": "application/json" };
@@ -335,19 +342,36 @@ document.getElementById("maint-memo")?.value = localStorage.getItem(MEMO_KEY) ??
 document.getElementById("maint-mqtt").textContent =
   navigator.onLine ? "MQTT: オンライン（ゲートウェイ経由）" : "MQTT: オフライン";
 
-const code = sessionStorage.getItem("tisly_customer_code") || "TOMS001";
-document.getElementById("maint-customer").value = code;
-document.getElementById("link-install-history").href = `/customer/${code}/install/home`;
+async function bootMaintenance() {
+  const code = lockedCustomerCode || customerCodeFromPath();
+  const sel = document.getElementById("maint-customer");
+  if (sel) {
+    sel.value = code;
+    if (lockedCustomerCode) {
+      sel.disabled = true;
+      document.getElementById("link-back-portal")?.removeAttribute("hidden");
+      document.getElementById("link-back-portal").href = `/customer/${code}`;
+    }
+  }
+  document.getElementById("link-install-history").href = `/customer/${code}/install/home`;
 
-renderPwaTopbar("maintenance", "保守");
-loadSites();
-loadDevices();
-loadHeartbeat();
-loadNotifications();
-loadRecovery();
-loadShelly();
-loadSchedules();
-loadReports();
-loadPartsHistory();
-flushOfflineCases();
+  if (lockedCustomerCode) {
+    const session = await requireCustomerLogin(code);
+    if (!session) return;
+  }
+
+  renderPwaTopbar("maintenance", "保守");
+  loadSites();
+  loadDevices();
+  loadHeartbeat();
+  loadNotifications();
+  loadRecovery();
+  loadShelly();
+  loadSchedules();
+  loadReports();
+  loadPartsHistory();
+  flushOfflineCases();
+}
+
+bootMaintenance();
 window.addEventListener("online", flushOfflineCases);

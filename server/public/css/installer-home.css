@@ -2,7 +2,23 @@
   background: #0d1117;
   color: #e6edf3;
   min-height: 100dvh;
-  padding-bottom: 5rem;
+  overflow-x: hidden;
+  max-width: 100vw;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 5rem);
+  box-sizing: border-box;
+}
+.install-login-gate {
+  max-width: 420px;
+  margin: 2rem auto;
+  padding: 1.25rem;
+}
+.install-login-gate .btn {
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin-top: 0.75rem;
 }
 .installer-home-header {
   padding: 1rem 1rem 0.5rem;

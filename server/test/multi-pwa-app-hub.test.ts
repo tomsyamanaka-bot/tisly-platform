@@ -191,7 +191,7 @@ describe("Phase 461-480 multi PWA app hub", () => {
   it("serves maintenance and survey pages", async () => {
     const m = await request(app).get("/maintenance");
     assert.equal(m.status, 200);
-    assert.ok(m.text.includes("保守 Maintenance"));
+    assert.ok(m.text.includes("保守 PWA") || m.text.includes("保守 Maintenance"));
     const s = await request(app).get("/survey");
     assert.equal(s.status, 200);
     assert.ok(s.text.includes("案件管理"));

@@ -10,178 +10,122 @@
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2001" />
   <link rel="apple-touch-icon" href="/icons/icon-192.png?v=2001" />
   <link rel="manifest" id="customer-portal-manifest" href="/manifest-customer.webmanifest" />
-  <title>TiSLY — 顧客ダッシュボード</title>
+  <title>TiSLY — 顧客ポータル</title>
   <link rel="stylesheet" href="/css/tisly-pwa-shell.css" />
   <link rel="stylesheet" href="/css/admin.css" />
   <link rel="stylesheet" href="/css/customer-portal.css" />
 </head>
 <body class="customer-portal" id="portal-root">
   <div id="tisly-pwa-topbar-root"></div>
-  <header class="portal-header">
+  <header class="portal-header" id="portal-header">
     <div class="brand" id="brand-block">
       <img id="brand-logo" alt="" hidden />
       <div>
-        <h1 id="brand-name">TiSLY</h1>
+        <h1 id="brand-name">TiSLY 顧客ポータル</h1>
         <p id="brand-code"></p>
       </div>
     </div>
-    <nav class="portal-nav">
-      <a id="link-map" href="#">Map Editor</a>
-      <a id="link-install" href="#">施工</a>
-      <a id="link-tv" href="#">TV</a>
-      <a id="link-admin" href="#">管理</a>
-      <button type="button" class="btn secondary" id="btn-logout" hidden>ログアウト</button>
+    <nav class="portal-nav" id="portal-nav" hidden>
+      <button type="button" class="btn secondary btn-portal-logout" id="btn-logout">ログアウト</button>
     </nav>
   </header>
 
   <section id="login-panel" class="card login-card">
     <h2>顧客ログイン</h2>
-    <p class="hint">デモ: <code id="demo-user-hint"></code> / <code>demo-remote-2026</code></p>
-    <label>ユーザー名 <input id="login-username" autocomplete="username" /></label>
-    <label>パスワード <input id="login-password" type="password" autocomplete="current-password" /></label>
-    <button type="button" class="btn" id="btn-login">ログイン</button>
+    <p id="login-required-msg" class="login-required-msg" hidden>ログインが必要です</p>
+    <label class="login-field">顧客コード
+      <input id="login-customer-code" readonly autocomplete="organization" />
+    </label>
+    <label class="login-field">ユーザー名
+      <input id="login-username" autocomplete="username" inputmode="email" />
+    </label>
+    <label class="login-field">パスワード
+      <input id="login-password" type="password" autocomplete="current-password" />
+    </label>
+    <p class="hint demo-hint">デモ: ユーザー名 <code id="demo-user-hint">toms001.owner</code> / パスワード <code>demo-remote-2026</code></p>
+    <button type="button" class="btn btn-login-touch" id="btn-login">ログイン</button>
     <p id="login-error" class="error"></p>
   </section>
 
-  <main id="dashboard-panel" hidden>
-    <div class="status-banner" id="overall-status">読込中…</div>
+  <main id="portal-hub" hidden>
+    <section class="portal-summary card">
+      <h2 id="portal-customer-name">—</h2>
+      <dl class="portal-meta">
+        <div><dt>プラン</dt><dd id="portal-plan">—</dd></div>
+        <div><dt>契約状態</dt><dd id="portal-contract-status">—</dd></div>
+      </dl>
+      <div class="status-banner portal-status" id="overall-status">読込中…</div>
+    </section>
+
+    <nav class="portal-hub-cards" id="portal-hub-cards" aria-label="顧客ポータルメニュー">
+      <a class="portal-hub-card" id="card-overview" href="#">
+        <span class="portal-hub-icon">📋</span>
+        <span class="portal-hub-label">顧客概要</span>
+        <span class="portal-hub-desc">契約・現場サマリー</span>
+      </a>
+      <a class="portal-hub-card" id="card-devices" href="#">
+        <span class="portal-hub-icon">🔧</span>
+        <span class="portal-hub-label">設備一覧</span>
+        <span class="portal-hub-desc">PLC · ESP · Gateway</span>
+      </a>
+      <a class="portal-hub-card" id="card-events" href="#">
+        <span class="portal-hub-icon">🔔</span>
+        <span class="portal-hub-label">通知履歴</span>
+        <span class="portal-hub-desc">イベント・警報</span>
+      </a>
+      <a class="portal-hub-card" id="card-maintenance" href="#">
+        <span class="portal-hub-icon">🛠</span>
+        <span class="portal-hub-label">保守履歴</span>
+        <span class="portal-hub-desc">点検・部材・Shelly</span>
+      </a>
+      <a class="portal-hub-card portal-hub-card-accent" id="card-pro-remote" href="#">
+        <span class="portal-hub-icon">📡</span>
+        <span class="portal-hub-label">PRO Remote</span>
+        <span class="portal-hub-desc">フロアマップ監視</span>
+      </a>
+      <a class="portal-hub-card" id="card-tv" href="#">
+        <span class="portal-hub-icon">📺</span>
+        <span class="portal-hub-label">TV表示</span>
+        <span class="portal-hub-desc">ダッシュボード</span>
+      </a>
+      <a class="portal-hub-card" id="card-billing" href="#">
+        <span class="portal-hub-icon">💳</span>
+        <span class="portal-hub-label">請求情報</span>
+        <span class="portal-hub-desc">契約・請求ステータス</span>
+      </a>
+    </nav>
+
+    <section id="portal-section-view" class="portal-section-view card" hidden>
+      <button type="button" class="btn secondary btn-section-back" id="btn-section-back">← ポータルへ戻る</button>
+      <div id="portal-section-content"></div>
+    </section>
+  </main>
+
+  <details id="portal-advanced" class="portal-advanced" hidden>
+    <summary>詳細管理（引渡し・ユーザー・通知ルール・Recovery）</summary>
     <section class="card portal-card handover-card" id="handover-card">
       <h2>引渡し確認</h2>
       <div id="handover-summary">読込中…</div>
       <a id="handover-detail-link" class="btn secondary" href="#">引渡しパッケージを開く</a>
     </section>
-    <section class="card portal-card" id="contract-card">
-      <h2>契約・プラン</h2>
-      <div id="contract-info"></div>
-    </section>
     <nav class="portal-tabs">
-      <button type="button" class="tab active" data-tab="overview">概要</button>
-      <button type="button" class="tab" data-tab="sites">現場設定</button>
+      <button type="button" class="tab active" data-tab="sites">現場設定</button>
       <button type="button" class="tab" data-tab="users">ユーザー</button>
       <button type="button" class="tab" data-tab="notifications">通知ルール</button>
       <button type="button" class="tab" data-tab="recovery">Recovery</button>
-      <button type="button" class="tab" data-tab="audit">Audit / Activity</button>
-      <button type="button" class="tab" data-tab="field" id="tab-field-btn" hidden>導入ビュー v1</button>
+      <button type="button" class="tab" data-tab="audit">Audit</button>
+      <button type="button" class="tab" data-tab="field" id="tab-field-btn" hidden>導入ビュー</button>
     </nav>
-    <div id="tab-overview">
-    <section class="metric-cards" id="metric-cards"></section>
-
-    <section class="card portal-card">
-      <h2>現場一覧</h2>
-      <div id="sites-list" class="card-grid"></div>
-    </section>
-
-    <section class="card portal-card">
-      <h2>設備一覧</h2>
-      <div id="devices-by-type"></div>
-    </section>
-
-    <section class="card portal-card">
-      <h2>最新イベント</h2>
-      <ul id="events-list" class="simple-list"></ul>
-    </section>
-
-    <section class="card portal-card">
-      <h2>警報履歴</h2>
-      <ul id="alarms-list" class="simple-list"></ul>
-    </section>
-
-    <section class="card portal-card">
-      <h2>稼働率 · TV · Recovery</h2>
-      <div id="ops-cards" class="card-grid"></div>
-    </section>
-
-    <section class="card portal-card">
-      <h2>AIサマリー</h2>
-      <p id="ai-summary">—</p>
-    </section>
-
-    <section class="card portal-card">
-      <h2>Recovery履歴</h2>
-      <ul id="recovery-list" class="simple-list"></ul>
-    </section>
-    </div>
     <div id="tab-sites" hidden>
       <section class="card portal-card">
         <h2>現場 · フロア · 部屋</h2>
-        <p class="hint">営業・施工担当向け Site Builder — 詳細配置は <a id="link-map-inline" href="#">Map Editor</a></p>
+        <p class="hint">詳細配置は <a id="link-map-inline" href="#">Map Editor</a></p>
         <div id="site-builder-tree"></div>
         <form id="site-add-form" class="wizard-form">
           <label>現場名 <input id="new-site-name" /></label>
           <label>住所 <input id="new-site-address" /></label>
           <button type="button" class="btn" id="btn-add-site">現場追加</button>
         </form>
-      </section>
-    </div>
-    <div id="tab-notifications" hidden>
-      <section class="card portal-card">
-        <h2>通知ルール</h2>
-        <p id="notif-plan-hint" class="hint"></p>
-        <div id="notif-limits" class="hint"></div>
-        <div id="notif-rule-form" hidden>
-          <label>名前 <input id="rule-name" /></label>
-          <label>有効 <input type="checkbox" id="rule-enabled" checked /></label>
-          <label>センサー/イベント（カンマ、*可） <input id="rule-events" value="*" placeholder="motion,door_open" /></label>
-          <label>Severity <input id="rule-severity" value="*" /></label>
-          <label>チャネル（カンマ） <input id="rule-channels" value="email" /></label>
-          <label>時間帯 開始 <input id="rule-time-start" placeholder="09:00" /></label>
-          <label>終了 <input id="rule-time-end" placeholder="18:00" /></label>
-          <label>曜日（0=日..6=土、カンマ） <input id="rule-days" value="1,2,3,4,5" /></label>
-          <button type="button" class="btn" id="btn-rule-save">ルール追加</button>
-        </div>
-        <table class="users-table">
-          <thead><tr><th>名前</th><th>ON</th><th>イベント</th><th>Severity</th><th>チャネル</th><th>時間</th><th></th></tr></thead>
-          <tbody id="notif-rules-body"></tbody>
-        </table>
-      </section>
-    </div>
-    <div id="tab-recovery" hidden>
-      <section class="card portal-card">
-        <h2>Recovery Rule Builder</h2>
-        <p class="hint">条件 → 自動復旧アクション（例: ESP Offline → Shelly再起動）</p>
-        <form id="recovery-rule-form" class="wizard-form">
-          <label>名前 <input id="recovery-name" value="ESP Offline → Shelly reboot" /></label>
-          <label>条件 <select id="recovery-condition"><option value="device_offline">device_offline</option></select></label>
-          <label>デバイス種別 <input id="recovery-device-type" value="ESP" /></label>
-          <label>アクション <select id="recovery-action"><option value="shelly_reboot">shelly_reboot</option></select></label>
-          <button type="button" class="btn" id="btn-recovery-save">ルール追加</button>
-        </form>
-        <table class="users-table">
-          <thead><tr><th>名前</th><th>条件</th><th>アクション</th><th></th></tr></thead>
-          <tbody id="recovery-rules-body"></tbody>
-        </table>
-      </section>
-      <section class="card portal-card">
-        <h2>スケジュール（Armed / Business / Night）</h2>
-        <form id="schedule-form" class="wizard-form">
-          <label>名前 <input id="sched-name" value="営業時間 Business" /></label>
-          <label>モード
-            <select id="sched-mode">
-              <option value="business">business</option>
-              <option value="armed">armed</option>
-              <option value="disarmed">disarmed</option>
-              <option value="night">night</option>
-            </select>
-          </label>
-          <label>開始 <input id="sched-start" value="09:00" /></label>
-          <label>終了 <input id="sched-end" value="18:00" /></label>
-          <button type="button" class="btn" id="btn-sched-save">追加</button>
-        </form>
-        <ul id="schedules-list" class="simple-list"></ul>
-      </section>
-    </div>
-    <div id="tab-field" hidden>
-      <section class="card portal-card">
-        <h2>顧客ポータル v1（owner のみ）</h2>
-        <p class="hint">設備 · カメラ · QR · 完了報告書 · 保守 · 通知履歴</p>
-        <div id="field-view-root">読込中…</div>
-      </section>
-    </div>
-    <div id="tab-audit" hidden>
-      <section class="card portal-card">
-        <h2>Audit / Activity（閲覧のみ）</h2>
-        <p class="hint">ログイン・招待・ロール変更・レポート・Webhook・インシデント・Recovery</p>
-        <ul id="audit-activity-list" class="simple-list"></ul>
       </section>
     </div>
     <div id="tab-users" hidden>
@@ -200,13 +144,54 @@
           <button type="button" class="btn" id="btn-invite">招待</button>
           <p id="invite-result" class="hint"></p>
         </div>
-        <table class="users-table">
-          <thead><tr><th>ユーザー</th><th>ロール</th><th>状態</th><th>最終ログイン</th><th></th></tr></thead>
-          <tbody id="users-body"></tbody>
-        </table>
+        <div id="users-table-wrap" class="responsive-table-wrap">
+          <table class="users-table">
+            <thead><tr><th>ユーザー</th><th>ロール</th><th>状態</th><th>最終ログイン</th><th></th></tr></thead>
+            <tbody id="users-body"></tbody>
+          </table>
+        </div>
       </section>
     </div>
-  </main>
+    <div id="tab-notifications" hidden>
+      <section class="card portal-card">
+        <h2>通知ルール</h2>
+        <p id="notif-plan-hint" class="hint"></p>
+        <div id="notif-limits" class="hint"></div>
+        <div id="notif-rule-form" hidden>
+          <label>名前 <input id="rule-name" /></label>
+          <label>有効 <input type="checkbox" id="rule-enabled" checked /></label>
+          <label>イベント <input id="rule-events" value="*" /></label>
+          <label>Severity <input id="rule-severity" value="*" /></label>
+          <label>チャネル <input id="rule-channels" value="email" /></label>
+          <button type="button" class="btn" id="btn-rule-save">ルール追加</button>
+        </div>
+        <div id="notif-rules-cards" class="responsive-cards"></div>
+      </section>
+    </div>
+    <div id="tab-recovery" hidden>
+      <section class="card portal-card">
+        <h2>Recovery Rule Builder</h2>
+        <form id="recovery-rule-form" class="wizard-form">
+          <label>名前 <input id="recovery-name" value="ESP Offline → Shelly reboot" /></label>
+          <button type="button" class="btn" id="btn-recovery-save">ルール追加</button>
+        </form>
+        <div id="recovery-rules-cards" class="responsive-cards"></div>
+      </section>
+    </div>
+    <div id="tab-field" hidden>
+      <section class="card portal-card">
+        <h2>導入ビュー（owner）</h2>
+        <div id="field-view-root">読込中…</div>
+      </section>
+    </div>
+    <div id="tab-audit" hidden>
+      <section class="card portal-card">
+        <h2>Audit / Activity</h2>
+        <ul id="audit-activity-list" class="simple-list"></ul>
+      </section>
+    </div>
+  </details>
+
   <script type="module" src="/js/customer-portal.js"></script>
 </body>
 </html>

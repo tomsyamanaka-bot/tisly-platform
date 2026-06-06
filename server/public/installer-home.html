@@ -17,9 +17,14 @@
   <link rel="stylesheet" href="/css/installer-home.css" />
 </head>
 <body class="installer-home-body">
-  <header class="installer-home-header">
-    <h1>TiSLY 施工</h1>
-    <p class="hint">Phase 1681–1720 — 施工員が迷わない縦並びフロー</p>
+  <section id="install-login-gate" class="install-login-gate card" hidden>
+    <h2>施工 PWA — ログインが必要です</h2>
+    <p class="hint">installer / owner / admin で顧客ポータルからログインしてください。</p>
+    <a id="install-login-link" class="btn btn-field" href="#">顧客ポータルでログイン</a>
+  </section>
+  <header class="installer-home-header" id="installer-home-header">
+    <h1>TiSLY 施工 PWA</h1>
+    <p class="hint">現場設置 · QR · 写真 · 動作確認 · 完了報告</p>
     <p id="home-customer-code"></p>
     <div id="pwa-install-bar" class="pwa-install-bar" hidden>
       <button type="button" class="btn btn-sm btn-field" id="btn-pwa-install">ホーム画面に追加</button>
@@ -93,8 +98,8 @@
     </details>
   </main>
   <nav class="installer-home-nav">
-    <a id="link-full-install" class="btn btn-field" href="#">施工 PWA を開く</a>
-    <a id="link-portal" class="btn secondary" href="#">ログイン</a>
+    <a id="link-full-install" class="btn btn-field" href="#">施工モードを開く</a>
+    <a id="link-portal" class="btn secondary" href="#">顧客ポータルへ戻る</a>
   </nav>
   <script type="module" src="/js/installer-pwa.js"></script>
   <script type="module" src="/js/installer-home.js"></script>

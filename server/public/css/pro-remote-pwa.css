@@ -3,9 +3,25 @@
   background: #0f172a;
   color: #e2e8f0;
   margin: 0;
+  overflow-x: hidden;
+  max-width: 100vw;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 5rem);
+  box-sizing: border-box;
 }
 .pro-remote-pwa-body header {
   padding: 1rem;
+  padding-top: calc(env(safe-area-inset-top, 0px) + 1rem);
+}
+.pro-remote-header-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+.btn-back-portal {
+  min-height: 44px;
+  white-space: nowrap;
 }
 .pro-remote-pwa-body h1 {
   color: #a78bfa;

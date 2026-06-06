@@ -1,7 +1,8 @@
 import { getAdminToken } from "./api.js";
+import { requireInstallAccess, customerCodeFromPath } from "./customer-auth.js";
 import { installerCustomerCode, isStandalonePwa } from "./installer-pwa.js";
 
-const customerCode = installerCustomerCode;
+const customerCode = installerCustomerCode || customerCodeFromPath();
 const OFFLINE_KEY = `tisly_installer_queue_${customerCode}`;
 const LAST_SYNC_KEY = `tisly_installer_last_sync_${customerCode}`;
 const CHECKLIST_CACHE_KEY = `tisly_field_checklist_${customerCode}`;
@@ -207,9 +208,24 @@ async function loadHomeData() {
   await loadSecurityInstallSummary();
 }
 
-document.getElementById("home-customer-code").textContent = customerCode;
+document.getElementById("home-customer-code").textContent = `顧客: ${customerCode}`;
 document.getElementById("link-full-install").href = `${base}/install`;
 document.getElementById("link-portal").href = base;
+document.getElementById("install-login-link").href = `${base}?login=required&return=${encodeURIComponent(location.pathname)}`;
+
+async function guardInstallHome() {
+  const session = await requireInstallAccess(customerCode);
+  if (!session) {
+    document.getElementById("install-login-gate")?.removeAttribute("hidden");
+    document.getElementById("installer-home-header")?.setAttribute("hidden", "");
+    document.querySelector(".installer-workflow")?.setAttribute("hidden", "");
+    document.querySelector(".installer-home-nav")?.setAttribute("hidden", "");
+    document.getElementById("offline-status-bar")?.setAttribute("hidden", "");
+    return false;
+  }
+  document.getElementById("install-login-gate")?.setAttribute("hidden", "");
+  return true;
+}
 document.getElementById("card-today").href = `${base}/install#site`;
 document.getElementById("card-photo").href = `${base}/install#photos`;
 document.getElementById("card-verify").href = `${base}/install#mqtt`;
@@ -235,4 +251,6 @@ if (!isStandalonePwa()) {
 const cached = JSON.parse(localStorage.getItem(CHECKLIST_CACHE_KEY) || "null");
 if (cached?.items) renderFieldChecklist(cached.items);
 
-loadHomeData().catch(() => {});
+guardInstallHome().then((ok) => {
+  if (ok) loadHomeData().catch(() => {});
+});

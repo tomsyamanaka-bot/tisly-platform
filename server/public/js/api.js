@@ -7,8 +7,13 @@ export function getAdminToken() {
 }
 
 export function setAdminToken(token) {
-  if (token) localStorage.setItem(TOKEN_KEY, token);
-  else localStorage.removeItem(TOKEN_KEY);
+  if (token) {
+    localStorage.setItem(TOKEN_KEY, token);
+    sessionStorage.setItem("tisly_token", token);
+  } else {
+    localStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem("tisly_token");
+  }
 }
 
 function authHeaders(extra = {}) {

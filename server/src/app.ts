@@ -261,6 +261,9 @@ export function createApp(): express.Application {
   app.get("/maintenance", (_req, res) => {
     res.sendFile(path.join(publicDir, "maintenance.html"));
   });
+  app.get("/customer/:customerCode/maintenance", (_req, res) => {
+    res.sendFile(path.join(publicDir, "maintenance.html"));
+  });
   app.get("/assets", (_req, res) => {
     res.sendFile(path.join(publicDir, "assets.html"));
   });

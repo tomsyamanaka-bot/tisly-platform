@@ -18,9 +18,14 @@
 <body class="pro-remote-pwa-body">
   <div id="tisly-pwa-topbar-root"></div>
   <header>
-    <h1>PRO Remote</h1>
-    <p id="pro-remote-customer"></p>
-    <p id="pro-remote-security-badge" class="pro-security-badge" hidden></p>
+    <div class="pro-remote-header-row">
+      <div>
+        <h1>PRO Remote</h1>
+        <p id="pro-remote-customer"></p>
+        <p id="pro-remote-security-badge" class="pro-security-badge" hidden></p>
+      </div>
+      <a id="link-back-portal" class="btn-pro btn-back-portal" href="#">顧客ポータルへ戻る</a>
+    </div>
   </header>
   <nav class="pro-remote-nav">
     <a id="link-pro-ops" href="#">運用コンソール</a>
@@ -55,7 +60,6 @@
       <p class="hint">フル機能は <a id="link-operations-full" href="/operations">/operations</a></p>
     </section>
   </main>
-  <script type="module" src="/js/tisly-pwa-shell.js"></script>
   <script type="module" src="/js/pro-remote-pwa.js"></script>
 </body>
 </html>
