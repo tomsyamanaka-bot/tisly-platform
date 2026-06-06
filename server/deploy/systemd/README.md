@@ -33,8 +33,12 @@ journalctl -u tisly-node-red -f
 
 ## ユーザー
 
-`User=tisly` / `Group=tisly` を推奨。初回:
+`tisly-server.service` は **User/Group 未指定**（root 起動の VPS 向け）。  
+`systemctl` を root で実行するとプロセスも root で動作します。
+
+専用ユーザーで運用する場合のみ `User=tisly` / `Group=tisly` を追加し、初回:
 
 ```bash
+sudo useradd -r -s /usr/sbin/nologin tisly
 sudo chown -R tisly:tisly /opt/tisly
 ```

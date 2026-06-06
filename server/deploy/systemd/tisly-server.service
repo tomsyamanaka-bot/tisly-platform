@@ -5,8 +5,6 @@ Wants=mosquitto.service
 
 [Service]
 Type=simple
-User=tisly
-Group=tisly
 WorkingDirectory=/opt/tisly/server
 EnvironmentFile=/opt/tisly/server/.env
 Environment=NODE_ENV=production
