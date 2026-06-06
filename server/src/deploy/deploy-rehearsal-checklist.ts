@@ -1,6 +1,6 @@
 /**
- * Phase 1841–1880 — VPS Production Launch Support & Env Final Check
- * （Phase 1801–1840 本番起動コマンド確定を拡張）
+ * Phase 1921–1960 — Production Launch Verification & Browser Test
+ * （Phase 1881–1920 本番起動後の確認手順を拡張）
  */
 
 import { execSync } from "child_process";
@@ -80,6 +80,20 @@ export interface ProductionLaunchGuide {
   failureBranches: VpsFailureBranch[];
 }
 
+export interface ProductionVerificationGuide {
+  phase: string;
+  title: string;
+  sectionA_urls: string[];
+  sectionB_success: string;
+  sectionC_failure: string;
+  sectionD_nextPhase: string;
+  gitPullStartBlock: string[];
+  postDeployVerifyBlock: string[];
+  checklistStatusVerifyBlock: string[];
+  browserTestUrls: { path: string; label: string; priority: number }[];
+  failureBranches: VpsFailureBranch[];
+}
+
 export interface DeployRehearsalChecklistReport {
   phase: string;
   title: string;
@@ -91,6 +105,7 @@ export interface DeployRehearsalChecklistReport {
   vpsCommands: VpsCommandStep[];
   productionStart: ProductionStartInfo;
   productionLaunch: ProductionLaunchGuide;
+  productionVerification: ProductionVerificationGuide;
   pwaInstallReady: { ready: number; total: number; label: string };
 }
 
@@ -299,13 +314,37 @@ export const VPS_PRODUCTION_START_MANUAL_BLOCK: string[] = [
   "nginx -t && systemctl reload nginx",
 ];
 
-/** 起動後の確認コマンド（Phase 1841–1880） */
+/** git pull 後の本番起動（.env 入力済み · Phase 1881–1920） */
+export const VPS_GIT_PULL_START_ONE_BLOCK: string[] = [
+  "cd /opt/tisly && git pull && test -f scripts/vps-production-start.sh || { echo \"ERROR: scripts/vps-production-start.sh なし — git remote/branch を確認\"; ls -la scripts/ 2>/dev/null; exit 1; } && bash scripts/vps-production-start.sh",
+];
+
+/** 起動後の確認コマンド（Phase 1961–2000） */
 export const VPS_PRODUCTION_VERIFY_ONE_BLOCK: string[] = [
-  "systemctl status tisly-server",
-  "journalctl -u tisly-server -n 80 --no-pager",
-  "nginx -t",
+  "systemctl is-active tisly-server",
   "curl -s http://127.0.0.1:3080/api/health",
-  "curl -I https://tisly.jp/app",
+  "nginx -t",
+  "curl -sI https://tisly.jp/app | head -5",
+  "curl -sI https://tisly.jp/deployment/checklist | head -3",
+];
+
+/** /deployment/checklist ステータス行の VPS / SSL / PWA 確認（VPS 上） */
+export const VPS_CHECKLIST_STATUS_VERIFY_BLOCK: string[] = [
+  "curl -s https://tisly.jp/api/deploy/rehearsal-checklist | grep -E '\"id\":\"(vps|ssl|pwa)\"' -A3",
+  "# 期待: vps → displayLabel VPS DEPLOYED · status deployed",
+  "# 期待: ssl → displayLabel SSL READY · status checked",
+  "# 期待: pwa → displayLabel PWA installReady N/N · status ready",
+  "curl -s https://tisly.jp/api/health",
+  "curl -s https://tisly.jp/api/deploy/preflight | head -c 300",
+];
+
+/** 9 URL 一括 HTTP 確認（PC または VPS） */
+export const VPS_BROWSER_SMOKE_ONE_BLOCK: string[] = [
+  "BASE=https://tisly.jp",
+  "for path in /app /survey /business /sales /customer/TOMS001 /customer/TOMS001/pro-remote /customer/TOMS001/install/home /tv/TOMS001 /deployment/checklist; do",
+  "  code=$(curl -sI -o /dev/null -w \"%{http_code}\" \"${BASE}${path}\")",
+  "  echo \"${path} → HTTP ${code}\"",
+  "done",
 ];
 
 /** 失敗時の分岐表 */
@@ -513,6 +552,12 @@ export const VPS_DEPLOY_COMMAND_STEPS: VpsCommandStep[] = [
     note: "✋ openssl 出力と hashPassword 出力を nano .env に貼り付け。詳細 docs/vps_phase1841_launch.md",
   },
   {
+    id: "git_pull_start",
+    title: "git pull + 本番起動（.env 入力済み · 1 ブロック）",
+    commands: VPS_GIT_PULL_START_ONE_BLOCK,
+    note: "Phase 1881–1920。scripts/vps-production-start.sh が GitHub 上に存在することを git pull で確認してから起動します。",
+  },
+  {
     id: "production_start",
     title: "本番起動（.env 完了後 · 1 ブロック）",
     commands: VPS_PRODUCTION_START_ONE_BLOCK,
@@ -524,6 +569,18 @@ export const VPS_DEPLOY_COMMAND_STEPS: VpsCommandStep[] = [
     title: "起動後確認",
     commands: VPS_PRODUCTION_VERIFY_ONE_BLOCK,
     note: "すべて OK なら https://tisly.jp/app をブラウザで開く",
+  },
+  {
+    id: "checklist_status_verify",
+    title: "チェックリスト VPS / SSL / PWA 確認",
+    commands: VPS_CHECKLIST_STATUS_VERIFY_BLOCK,
+    note: "/deployment/checklist の Rehearsal グリッドで VPS DEPLOYED · SSL READY · PWA installReady が緑になることを確認",
+  },
+  {
+    id: "browser_smoke",
+    title: "9 URL 一括スモーク",
+    commands: VPS_BROWSER_SMOKE_ONE_BLOCK,
+    note: "各 path が HTTP 200（または 301→200）であること。詳細 docs/vps_phase1921_launch.md",
   },
 ];
 
@@ -543,9 +600,63 @@ export function buildProductionStartInfo(): ProductionStartInfo {
   };
 }
 
+export const PRODUCTION_BROWSER_TEST_URLS: { path: string; label: string; priority: number }[] = [
+  { path: "/app", label: "App Hub（最優先）", priority: 1 },
+  { path: "/deployment/checklist", label: "本番公開チェックリスト", priority: 2 },
+  { path: "/api/health", label: "API Health", priority: 3 },
+  { path: "/survey", label: "現調 PWA", priority: 4 },
+  { path: "/business", label: "TOMS Business", priority: 5 },
+  { path: "/sales", label: "営業デモ", priority: 6 },
+  { path: "/customer/TOMS001", label: "顧客ポータル", priority: 7 },
+  { path: "/customer/TOMS001/pro-remote", label: "PRO Remote", priority: 8 },
+  { path: "/customer/TOMS001/install/home", label: "施工 PWA", priority: 9 },
+  { path: "/tv/TOMS001", label: "Google TV Web", priority: 10 },
+];
+
+export function buildProductionVerificationGuide(): ProductionVerificationGuide {
+  const failureTable = VPS_FAILURE_BRANCHES.map(
+    (b) =>
+      `| ${b.symptom} | ${b.likelyCause} | ${b.checkCommands.join(" · ")} | ${b.fix} |`,
+  ).join("\n");
+
+  return {
+    phase: "1921-1960",
+    title: "Production Launch Verification & Browser Test",
+    sectionA_urls: PRODUCTION_BROWSER_TEST_URLS.map(
+      (u) => `https://tisly.jp${u.path} — ${u.label}`,
+    ),
+    sectionB_success: [
+      "スクリプト末尾: [TiSLY start] === 本番起動完了 ===",
+      "systemctl is-active tisly-server → active",
+      'curl -s http://127.0.0.1:3080/api/health → {"ok":true,...}',
+      "curl -sI https://tisly.jp/app → HTTP/2 200（または 304）",
+      "/deployment/checklist Rehearsal グリッド: VPS DEPLOYED · SSL READY · PWA installReady N/N（緑）",
+      "9 URL 一覧: すべて HTTP 200 · 白画面なし · コンソールに連続 500 なし",
+      "https://tisly.jp/app: App Hub · Production Readiness カードが表示される",
+    ].join("\n"),
+    sectionC_failure: [
+      "| 症状 | 原因 | 確認 | 対処 |",
+      "|------|------|------|------|",
+      failureTable,
+    ].join("\n"),
+    sectionD_nextPhase: [
+      "Phase 1961–2000: iPhone Safari / Android Chrome で PWA 追加・standalone 起動の実機確認",
+      "Phase 1961–2000: Google TV ブラウザで /tv/TOMS001 のリモコン操作確認",
+      "初回顧客トライアル: docs/first_customer_trial_runbook.md",
+      "監視: journalctl -u tisly-server -f · certbot renew --dry-run の定期確認",
+      "real 連携切替計画: MQTT / QNAP / Gmail（mock → real）は別フェーズで実施",
+    ].join("\n"),
+    gitPullStartBlock: VPS_GIT_PULL_START_ONE_BLOCK,
+    postDeployVerifyBlock: VPS_PRODUCTION_VERIFY_ONE_BLOCK,
+    checklistStatusVerifyBlock: VPS_CHECKLIST_STATUS_VERIFY_BLOCK,
+    browserTestUrls: PRODUCTION_BROWSER_TEST_URLS,
+    failureBranches: VPS_FAILURE_BRANCHES,
+  };
+}
+
 export function buildProductionLaunchGuide(): ProductionLaunchGuide {
   const envPrep = VPS_ENV_PREP_ONE_BLOCK.join("\n");
-  const start = VPS_PRODUCTION_START_ONE_BLOCK.join("\n");
+  const start = VPS_GIT_PULL_START_ONE_BLOCK.join("\n");
   const verify = VPS_PRODUCTION_VERIFY_ONE_BLOCK.join("\n");
   const failureTable = VPS_FAILURE_BRANCHES.map(
     (b) =>
@@ -553,15 +664,16 @@ export function buildProductionLaunchGuide(): ProductionLaunchGuide {
   ).join("\n");
 
   return {
-    phase: "1841-1880",
-    title: "VPS Production Launch Support & Env Final Check",
+    phase: "1921-1960",
+    title: "Production Launch Verification & Browser Test",
     sectionA_now: [
-      "1. VNC コンソールで root ログイン（/opt/tisly は clone 済み）",
-      "2. .env 準備ブロックで秘密を生成し nano .env に貼り付け",
-      "3. 本番起動ブロック: bash scripts/vps-production-start.sh",
-      "4. 確認ブロックで systemctl · journalctl · nginx · curl を実行",
-      "5. SSL 未設定なら certbot --nginx -d tisly.jp -d www.tisly.jp",
-      "6. ブラウザで https://tisly.jp/app を開く",
+      "1. VNC コンソールで root ログイン（/opt/tisly · .env 入力済み）",
+      "2. git pull + 本番起動: bash scripts/vps-production-start.sh（A ブロック 1 行）",
+      "3. 起動後確認: systemctl · journalctl · nginx · curl health",
+      "4. SSL 未設定なら certbot --nginx -d tisly.jp -d www.tisly.jp",
+      "5. https://tisly.jp/deployment/checklist を開き「再確認」",
+      "6. VPS DEPLOYED · SSL READY · PWA installReady が緑であることを確認",
+      "7. 最優先 https://tisly.jp/app をブラウザで開く",
     ].join("\n"),
     sectionB_vpsCommands: [
       "## .env 準備",
@@ -581,24 +693,17 @@ export function buildProductionLaunchGuide(): ProductionLaunchGuide {
       "systemctl is-active tisly-server → active",
       'curl -s http://127.0.0.1:3080/api/health → {"ok":true,...}',
       "nginx -t → syntax is ok · test is successful",
-      "curl -I https://tisly.jp/app → HTTP/2 200（または 304）",
-      "/deployment/checklist で VPS DEPLOYED · PWA installReady が緑",
+      "curl -sI https://tisly.jp/app → HTTP/2 200（または 304）",
+      "/deployment/checklist Rehearsal: VPS DEPLOYED · SSL READY · PWA installReady N/N が緑",
     ].join("\n"),
     sectionE_failure: [
       "| 症状 | 原因 | 確認 | 対処 |",
       "|------|------|------|------|",
       failureTable,
     ].join("\n"),
-    sectionF_urls: [
-      "https://tisly.jp/app",
-      "https://tisly.jp/survey",
-      "https://tisly.jp/business",
-      "https://tisly.jp/sales",
-      "https://tisly.jp/deployment/checklist",
-      "https://tisly.jp/api/health",
-    ],
+    sectionF_urls: PRODUCTION_BROWSER_TEST_URLS.map((u) => `https://tisly.jp${u.path}`),
     envPrepBlock: VPS_ENV_PREP_ONE_BLOCK,
-    startBlock: VPS_PRODUCTION_START_ONE_BLOCK,
+    startBlock: VPS_GIT_PULL_START_ONE_BLOCK,
     verifyBlock: VPS_PRODUCTION_VERIFY_ONE_BLOCK,
     failureBranches: VPS_FAILURE_BRANCHES,
   };
@@ -715,8 +820,8 @@ export function buildDeployRehearsalChecklist(
     securityReady;
 
   return {
-    phase: "1841-1880",
-    title: "VPS Production Launch Support & Env Final Check",
+    phase: "1921-1960",
+    title: "Production Launch Verification & Browser Test",
     generatedAt: new Date().toISOString(),
     rehearsalReady,
     rehearsalReadyLabel: rehearsalReady ? "REHEARSAL READY" : "REHEARSAL NOT READY",
@@ -725,6 +830,7 @@ export function buildDeployRehearsalChecklist(
     vpsCommands: VPS_DEPLOY_COMMAND_STEPS,
     productionStart: buildProductionStartInfo(),
     productionLaunch: buildProductionLaunchGuide(),
+    productionVerification: buildProductionVerificationGuide(),
     pwaInstallReady: {
       ready: pwaAudit.readyCount,
       total: pwaAudit.totalPwa,

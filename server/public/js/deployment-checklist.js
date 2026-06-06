@@ -1,5 +1,5 @@
 /**
- * Phase 1841–1880 — 本番公開チェックリスト (/deployment/checklist)
+ * Phase 1921–1960 — 本番公開チェックリスト (/deployment/checklist)
  */
 
 const PRODUCTION_URLS = [
@@ -42,6 +42,7 @@ let lastCheckState = { urlResults: [], gate: null, audit: null, preflight: null,
 let cachedVpsCommands = [];
 let cachedProductionStart = null;
 let cachedProductionLaunch = null;
+let cachedProductionVerification = null;
 
 function loadManualChecks() {
   try {
@@ -179,10 +180,31 @@ function openVpsModal(mode = "deploy") {
               commands: cachedProductionLaunch.failureBranches.map(
                 (b) => `# ${b.symptom}\n# 確認: ${b.checkCommands.join(" · ")}\n# 対処: ${b.fix}`
               ),
-              note: "詳細 docs/vps_phase1841_launch.md § E",
+              note: "詳細 docs/vps_phase1921_launch.md § C",
             },
           ]
         : []),
+    ]);
+  } else if (mode === "checklist_verify" && cachedProductionVerification?.checklistStatusVerifyBlock?.length) {
+    title.textContent = "VPS DEPLOYED · SSL READY · PWA installReady 確認";
+    renderVpsCommandModal([
+      {
+        title: "Rehearsal API で vps / ssl / pwa 行を確認",
+        commands: cachedProductionVerification.checklistStatusVerifyBlock,
+        note: "ブラウザでは本ページの Rehearsal グリッドで 3 行が緑であること",
+      },
+      {
+        title: "9 URL 一括スモーク",
+        commands: cachedProductionVerification.browserTestUrls
+          ? [
+              "BASE=https://tisly.jp",
+              ...cachedProductionVerification.browserTestUrls.map(
+                (u) => `# ${u.priority}. ${u.label} → ${u.path}`
+              ),
+            ]
+          : ["docs/vps_phase1921_launch.md § C-3 参照"],
+        note: "docs/vps_phase1921_launch.md",
+      },
     ]);
   } else if (mode === "production_start" && cachedProductionStart?.oneBlock?.length) {
     title.textContent = "本番起動コマンド（.env 完了後 · systemd）";
@@ -401,6 +423,7 @@ async function loadAll() {
   cachedVpsCommands = rehearsal?.vpsCommands || [];
   cachedProductionStart = rehearsal?.productionStart || null;
   cachedProductionLaunch = rehearsal?.productionLaunch || null;
+  cachedProductionVerification = rehearsal?.productionVerification || null;
   renderRehearsalGrid(rehearsal);
   renderEnvTable(rehearsal);
 
@@ -490,6 +513,7 @@ document.getElementById("vps-cmd-btn").addEventListener("click", () => openVpsMo
 document.getElementById("env-prep-btn")?.addEventListener("click", () => openVpsModal("env_prep"));
 document.getElementById("prod-start-btn")?.addEventListener("click", () => openVpsModal("production_start"));
 document.getElementById("prod-verify-btn")?.addEventListener("click", () => openVpsModal("production_verify"));
+document.getElementById("checklist-verify-btn")?.addEventListener("click", () => openVpsModal("checklist_verify"));
 document.getElementById("vps-modal-close").addEventListener("click", closeVpsModal);
 document.getElementById("vps-modal").addEventListener("click", (e) => {
   if (e.target.id === "vps-modal") closeVpsModal();

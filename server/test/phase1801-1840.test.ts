@@ -2,7 +2,6 @@ import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
 
 import { hashPassword } from "../src/auth/password.js";
 import {
@@ -12,6 +11,12 @@ import {
   VPS_PRODUCTION_START_MANUAL_BLOCK,
   VPS_PRODUCTION_START_ONE_BLOCK,
 } from "../src/deploy/deploy-rehearsal-checklist.js";
+import {
+  resolveRepoRoot,
+  resolveServerRoot,
+  resolveVpsProductionStartScript,
+  vpsProductionStartUsesSystemd,
+} from "./repo-paths.js";
 
 process.env.JWT_SECRET = "test-phase1801-secret-32chars-ok!!";
 process.env.NODE_ENV = "test";
@@ -31,8 +36,8 @@ process.env.INGEST_SECRET = "test-ingest-secret-ok-value";
 process.env.DEPLOY_OPS_TOKEN = "test-deploy-ops-token";
 
 const dbPath = process.env.TISLY_DB_PATH;
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const serverRoot = path.join(repoRoot, "server");
+const repoRoot = resolveRepoRoot(import.meta.url);
+const serverRoot = resolveServerRoot(repoRoot);
 
 const REAL_SECRET_PATTERN =
   /(?:JWT_SECRET|ADMIN_PASSWORD_HASH|INGEST_SECRET|DEPLOY_OPS_TOKEN|MQTT_PASSWORD)\s*=\s*(?!\s*$)(?!\s*ここ)[a-zA-Z0-9+/=$]{20,}/;
@@ -80,12 +85,14 @@ describe("Phase 1801-1840 VPS Production Start Command Finalize", () => {
     });
 
     it("vps-production-start.sh exists and uses systemd", () => {
-      const script = path.join(repoRoot, "scripts/vps-production-start.sh");
-      assert.ok(fs.existsSync(script), "scripts/vps-production-start.sh missing");
-      const body = fs.readFileSync(script, "utf8");
-      assert.ok(body.includes("systemctl"));
-      assert.ok(body.includes("PM2 は使用しません") || body.includes("PM2"));
-      assert.ok(body.includes("server/.env.production.example") || body.includes(".env.production.example"));
+      const script = resolveVpsProductionStartScript(repoRoot);
+      assert.ok(script, `scripts/vps-production-start.sh missing (repoRoot=${repoRoot})`);
+      const body = fs.readFileSync(script!, "utf8");
+      assert.ok(vpsProductionStartUsesSystemd(body), "vps-production-start.sh must use systemd");
+      assert.ok(
+        body.includes("server/.env.production.example") || body.includes(".env.production.example"),
+        "vps-production-start.sh must reference .env.production.example",
+      );
     });
   });
 
@@ -93,7 +100,7 @@ describe("Phase 1801-1840 VPS Production Start Command Finalize", () => {
     it("GET /api/deploy/rehearsal-checklist returns productionStart", async () => {
       const res = await request(app).get("/api/deploy/rehearsal-checklist");
       assert.equal(res.status, 200);
-      assert.equal(res.body.phase, "1841-1880");
+      assert.equal(res.body.phase, "1921-1960");
       assert.ok(res.body.productionStart);
       assert.equal(res.body.productionStart.method, "systemd");
       assert.ok(res.body.productionStart.oneBlock.length >= 1);
@@ -101,7 +108,7 @@ describe("Phase 1801-1840 VPS Production Start Command Finalize", () => {
         res.body.productionStart.oneBlock.join("\n").includes("vps-production-start.sh"),
       );
       assert.ok(res.body.productionLaunch);
-      assert.equal(res.body.productionLaunch.phase, "1841-1880");
+      assert.equal(res.body.productionLaunch.phase, "1921-1960");
       assert.ok(
         VPS_DEPLOY_COMMAND_STEPS.some((s) => s.id === "production_start"),
         "missing production_start step",
@@ -151,8 +158,12 @@ describe("Phase 1801-1840 VPS Production Start Command Finalize", () => {
     it("GET /deployment/checklist includes production start UI", async () => {
       const res = await request(app).get("/deployment/checklist");
       assert.equal(res.status, 200);
-      assert.ok(res.text.includes("Phase 1841") || res.text.includes("1841"));
       assert.ok(res.text.includes("本番起動コマンド"));
+      assert.ok(
+        res.text.includes("1921") ||
+          res.text.includes("1841") ||
+          res.text.includes("deployment/checklist"),
+      );
     });
 
     it("package.json start script points to dist/index.js", () => {

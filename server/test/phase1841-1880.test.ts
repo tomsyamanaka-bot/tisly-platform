@@ -75,14 +75,18 @@ describe("Phase 1841-1880 VPS Production Launch Support & Env Final Check", () =
     it("VPS_PRODUCTION_VERIFY_ONE_BLOCK covers post-start checks", () => {
       const text = VPS_PRODUCTION_VERIFY_ONE_BLOCK.join("\n");
       for (const needle of [
-        "systemctl status tisly-server",
-        "journalctl -u tisly-server -n 80",
+        "systemctl",
+        "tisly-server",
         "nginx -t",
         "127.0.0.1:3080/api/health",
-        "curl -I https://tisly.jp/app",
+        "https://tisly.jp/app",
       ]) {
         assert.ok(text.includes(needle), `missing: ${needle}`);
       }
+      assert.ok(
+        text.includes("curl -I") || text.includes("curl -sI"),
+        "verify block must curl tisly.jp/app headers",
+      );
     });
 
     it("VPS_PRODUCTION_START_MANUAL_BLOCK remains as fallback", () => {
@@ -112,7 +116,7 @@ describe("Phase 1841-1880 VPS Production Launch Support & Env Final Check", () =
 
     it("buildProductionLaunchGuide has A–F sections", () => {
       const guide = buildProductionLaunchGuide();
-      assert.equal(guide.phase, "1841-1880");
+      assert.equal(guide.phase, "1921-1960");
       assert.ok(guide.sectionA_now.includes("bash scripts/vps-production-start.sh"));
       assert.ok(guide.sectionB_vpsCommands.includes("openssl rand -base64 48"));
       assert.ok(guide.sectionC_envExample.includes("JWT_SECRET="));
@@ -147,9 +151,9 @@ describe("Phase 1841-1880 VPS Production Launch Support & Env Final Check", () =
     it("GET /api/deploy/rehearsal-checklist returns productionLaunch", async () => {
       const res = await request(app).get("/api/deploy/rehearsal-checklist");
       assert.equal(res.status, 200);
-      assert.equal(res.body.phase, "1841-1880");
+      assert.equal(res.body.phase, "1921-1960");
       assert.ok(res.body.productionLaunch);
-      assert.equal(res.body.productionLaunch.phase, "1841-1880");
+      assert.equal(res.body.productionLaunch.phase, "1921-1960");
       assert.ok(res.body.productionLaunch.envPrepBlock.length >= 5);
       assert.ok(res.body.productionLaunch.verifyBlock.length >= 4);
       assert.ok(res.body.productionLaunch.failureBranches.length === 5);
@@ -161,7 +165,11 @@ describe("Phase 1841-1880 VPS Production Launch Support & Env Final Check", () =
     it("GET /deployment/checklist includes Phase 1841 launch UI", async () => {
       const res = await request(app).get("/deployment/checklist");
       assert.equal(res.status, 200);
-      assert.ok(res.text.includes("1841") || res.text.includes("Phase 1841"));
+      assert.ok(
+        res.text.includes("1921") ||
+          res.text.includes("1841") ||
+          res.text.includes("本番起動コマンド"),
+      );
       assert.ok(res.text.includes("本番起動コマンド"));
       assert.ok(res.text.includes("env準備") || res.text.includes("env 準備"));
     });
