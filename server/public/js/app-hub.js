@@ -28,6 +28,29 @@ function formatIsoShort(iso) {
   }
 }
 
+function renderProductionReadiness(readiness) {
+  const verdict = document.getElementById("production-readiness-verdict");
+  const grid = document.getElementById("production-readiness-grid");
+  if (!verdict || !grid || !readiness) return;
+
+  const allPass = readiness.publishable === true;
+  verdict.className = `readiness-verdict ${allPass ? "readiness-pass" : "readiness-pending"}`;
+  verdict.textContent = readiness.publishableLabel || (allPass ? "公開準備完了" : "公開準備中");
+
+  grid.innerHTML = (readiness.items || [])
+    .map((item) => {
+      const cls =
+        item.status === "pass" ? "ready-pass" : item.status === "warn" ? "ready-warn" : "ready-fail";
+      const icon = item.status === "pass" ? "✓" : item.status === "warn" ? "!" : "✗";
+      return `<div class="readiness-item ${cls}">
+        <span class="readiness-icon">${icon}</span>
+        <span class="readiness-label">${item.label}</span>
+        <span class="readiness-msg">${item.message}</span>
+      </div>`;
+    })
+    .join("");
+}
+
 function renderGateBanner(gate) {
   const el = document.getElementById("release-gate-banner");
   if (!el || !gate) return;
@@ -110,6 +133,7 @@ async function loadPublishAudit() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
 
+    renderProductionReadiness(data.productionReadiness);
     renderGateBanner(data.releaseGate);
     renderGateSummary(data);
     renderGateChecks(data.checks);

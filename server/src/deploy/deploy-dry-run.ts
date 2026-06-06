@@ -18,6 +18,7 @@ import {
   type PwaPublishAuditReport,
 } from "../pwa/pwa-publish-audit.js";
 import { buildSwitchBotReleaseGateChecks } from "../security-automation/switchbot-release-gate.js";
+import { buildProductionUrlAudit } from "./production-url-audit.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const serverRoot = path.join(__dirname, "..", "..");
@@ -99,21 +100,32 @@ export const REQUIRED_ENV_KEYS = [
   "SECURITY_EVENT_LOG_ENABLED",
   "SECURITY_UNKNOWN_DEVICE_POLICY",
   "RATE_LIMIT_PROVIDER",
+  "MQTT_URL",
+  "MQTT_USERNAME",
+  "MQTT_PASSWORD",
+  "POSTGRES_URL",
 ];
 
-const SECRET_DIFF_PATTERNS: { key: string; pattern: RegExp; allowEmpty: boolean }[] = [
-  { key: "JWT_SECRET", pattern: /^\+.*JWT_SECRET=(.+)$/m, allowEmpty: true },
-  { key: "ADMIN_PASSWORD_HASH", pattern: /^\+.*ADMIN_PASSWORD_HASH=(.+)$/m, allowEmpty: true },
-  { key: "INGEST_SECRET", pattern: /^\+.*INGEST_SECRET=(.+)$/m, allowEmpty: true },
-  { key: "GOOGLE_CLIENT_SECRET", pattern: /^\+.*GOOGLE_CLIENT_SECRET=(.+)$/m, allowEmpty: true },
-  { key: "GOOGLE_REFRESH_TOKEN", pattern: /^\+.*GOOGLE_REFRESH_TOKEN=(.+)$/m, allowEmpty: true },
-  { key: "MQTT_PASSWORD", pattern: /^\+.*MQTT_PASSWORD=(.+)$/m, allowEmpty: true },
-  { key: "QNAP_PASSWORD", pattern: /^\+.*QNAP_PASSWORD=(.+)$/m, allowEmpty: true },
-  { key: "POSTGRES_PASSWORD", pattern: /^\+.*POSTGRES_PASSWORD=(.+)$/m, allowEmpty: true },
-  { key: "SHELLY_AUTH_TOKEN", pattern: /^\+.*SHELLY_AUTH_TOKEN=(.+)$/m, allowEmpty: true },
-  { key: "SWITCHBOT_TOKEN", pattern: /^\+.*SWITCHBOT_TOKEN=(.+)$/m, allowEmpty: true },
-  { key: "SWITCHBOT_SECRET", pattern: /^\+.*SWITCHBOT_SECRET=(.+)$/m, allowEmpty: true },
-];
+const SECRET_ENV_KEYS = [
+  "JWT_SECRET",
+  "ADMIN_PASSWORD_HASH",
+  "INGEST_SECRET",
+  "GOOGLE_CLIENT_SECRET",
+  "GOOGLE_REFRESH_TOKEN",
+  "MQTT_PASSWORD",
+  "QNAP_PASSWORD",
+  "POSTGRES_PASSWORD",
+  "SHELLY_AUTH_TOKEN",
+  "SWITCHBOT_TOKEN",
+  "SWITCHBOT_SECRET",
+] as const;
+
+const SECRET_DIFF_PATTERNS: { key: string; pattern: RegExp; allowEmpty: boolean }[] =
+  SECRET_ENV_KEYS.map((key) => ({
+    key,
+    pattern: new RegExp(`^\\+${key}=(.*)$`, "m"),
+    allowEmpty: true,
+  }));
 
 const TEMPLATE_VALUES = new Set([
   "",
@@ -152,10 +164,14 @@ function gitDiffText(): string {
   }
 }
 
+function diffTouchesRealEnvProduction(diffText: string): boolean {
+  return /^\+\+\+ b\/(?:server\/)?\.env\.production(?:\r)?$/m.test(diffText);
+}
+
 export function checkSecretLeakInGitDiff(diffText = gitDiffText()): SecretLeakCheck {
   const findings: string[] = [];
 
-  if (diffText.includes(".env.production") && /^\+\s*[^#].*=/m.test(diffText)) {
+  if (diffTouchesRealEnvProduction(diffText) && /^\+\s*[^#].*=/m.test(diffText)) {
     findings.push(".env.production 相当の実値が git diff に含まれています");
   }
   if (/^\+\s*server\/\.env/m.test(diffText)) {
@@ -311,6 +327,23 @@ function checkPwaUrlConsistency(pwaAudit: PwaPublishAuditReport): DryRunCheckIte
   };
 }
 
+function checkProductionUrlClean(): DryRunCheckItem {
+  const audit = buildProductionUrlAudit();
+  return {
+    id: "production_url_audit",
+    name: "本番 URL 監査",
+    status: audit.publicFacingClean ? "pass" : "fail",
+    message: audit.publicFacingClean
+      ? "公開 PWA コードに localhost / ws:// 違反なし"
+      : `違反 ${audit.blockingCount} 件（公開コード）`,
+    hint: audit.violations
+      .filter((v) => v.blocking)
+      .slice(0, 3)
+      .map((v) => `${v.file}:${v.line}`)
+      .join(" · "),
+  };
+}
+
 function checkPwaAssets(pwaAudit: PwaPublishAuditReport): DryRunCheckItem {
   const pwaItems = pwaAudit.pwAs.filter((p) => p.isPwa);
   const notReady = pwaItems.filter((p) => p.status === "not_ready");
@@ -432,6 +465,7 @@ export function buildDeployDryRun(
     checkNginxConf(),
     checkPwaUrlConsistency(pwaAudit),
     checkPwaAssets(pwaAudit),
+    checkProductionUrlClean(),
     ...buildSwitchBotReleaseGateChecks(auditEnv),
   ];
 

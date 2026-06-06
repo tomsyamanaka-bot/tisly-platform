@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-06-05T17:51:47.069Z",
+  "generatedAt": "2026-06-06T00:02:21.727Z",
   "passed": true,
   "summary": {
-    "pass": 9,
+    "pass": 17,
     "fail": 0,
     "warn": 0
   },
@@ -17,7 +17,7 @@
       "id": "env_required_keys",
       "name": "必須 env キー",
       "status": "pass",
-      "message": "必須 19 キー揃い"
+      "message": "必須 28 キー揃い"
     },
     {
       "id": "env_template_secrets",
@@ -63,6 +63,56 @@
       "name": "SW / manifest / icons",
       "status": "pass",
       "message": "全 PWA の SW / manifest / icons 参照 OK（7 件）"
+    },
+    {
+      "id": "production_url_audit",
+      "name": "本番 URL 監査",
+      "status": "pass",
+      "message": "公開 PWA コードに localhost / ws:// 違反なし",
+      "hint": ""
+    },
+    {
+      "id": "switchbot_mode",
+      "name": "SwitchBot mode",
+      "status": "pass",
+      "message": "mock — 初回公開OK",
+      "hint": "初回公開は mock 維持"
+    },
+    {
+      "id": "switchbot_credentials",
+      "name": "SwitchBot credentials",
+      "status": "pass",
+      "message": "mock モード — token/secret 不要"
+    },
+    {
+      "id": "switchbot_auto_disarm_event_log",
+      "name": "auto disarm + event log",
+      "status": "pass",
+      "message": "auto disarm 無効（デモ安全）"
+    },
+    {
+      "id": "switchbot_real_unlock_guard",
+      "name": "real unlock guard",
+      "status": "pass",
+      "message": "confirmed=true 必須 — real unlock guard 有効"
+    },
+    {
+      "id": "security_unknown_device_policy",
+      "name": "unknownDevicePolicy",
+      "status": "pass",
+      "message": "設定: block_auto_arm"
+    },
+    {
+      "id": "switchbot_auto_arm",
+      "name": "SWITCHBOT_AUTO_ARM_ENABLED",
+      "status": "pass",
+      "message": "自動警戒ON 無効（デモ安全）"
+    },
+    {
+      "id": "switchbot_auto_disarm",
+      "name": "SWITCHBOT_AUTO_DISARM_ENABLED",
+      "status": "pass",
+      "message": "自動警戒OFF 無効（デモ安全）"
     }
   ],
   "productionUrls": [
@@ -82,6 +132,7 @@
     "QNAP SMB Archive — mock — data/qnap-archive ローカル",
     "Shelly — mock — シミュレーション RPC",
     "MQTT — mock — heartbeat シミュレーション・LIVE_OPS_MOCK_PUSH 可",
+    "SwitchBot Lock — mock — 施錠/解錠シミュレーション",
     "Google TV (Web) — POST /api/tv/focus-camera は DB/WS のみ・実テレビ操作なし"
   ],
   "realSwitchItems": [],
@@ -151,6 +202,17 @@
           "MQTT_SUBSCRIBER_ENABLED"
         ],
         "demoSafe": "mock — heartbeat シミュレーション・LIVE_OPS_MOCK_PUSH 可"
+      },
+      {
+        "service": "SwitchBot Lock",
+        "mode": "unknown",
+        "envKeys": [
+          "SWITCHBOT_MODE",
+          "SWITCHBOT_TOKEN",
+          "SWITCHBOT_SECRET",
+          "SWITCHBOT_LOCK_DEVICE_ID"
+        ],
+        "demoSafe": "mock — 施錠/解錠シミュレーション"
       },
       {
         "service": "Google TV (Web)",
@@ -301,5 +363,5 @@
     "isProductionUrl": true,
     "tislyPublicUrl": "https://tisly.jp"
   },
-  "lastDryRunAt": "2026-06-05T17:50:24.361Z"
+  "lastDryRunAt": "2026-06-06T00:01:31.010Z"
 }

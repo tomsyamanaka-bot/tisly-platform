@@ -119,6 +119,17 @@ describe("Phase 1291-1320 VPS Deploy Dry Run & Release Gate", () => {
       const result = checkSecretLeakInGitDiff(diff);
       assert.equal(result.passed, false);
     });
+
+    it("passes when .env.production.example template is updated", () => {
+      const diff = [
+        "+++ b/server/.env.production.example",
+        "+JWT_SECRET=",
+        "+ADMIN_PASSWORD_HASH=",
+        "+# 使い方: cp .env.production.example .env.production",
+      ].join("\n");
+      const result = checkSecretLeakInGitDiff(diff);
+      assert.equal(result.passed, true);
+    });
   });
 
   describe("uploads gitignore", () => {

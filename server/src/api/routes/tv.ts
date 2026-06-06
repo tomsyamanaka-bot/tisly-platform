@@ -271,7 +271,6 @@ tvRouter.post("/pairing/start", pairingStartLimiter, (req, res) => {
 });
 
 tvRouter.post("/pairing/confirm", pairingConfirmLimiter, async (req, res) => {
-  expireStalePairingCodes();
   const {
     pairingCode,
     code,

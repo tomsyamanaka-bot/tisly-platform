@@ -3,6 +3,9 @@ import {
   buildDeployDryRun,
   buildReleaseGateInfo,
 } from "../../deploy/deploy-dry-run.js";
+import { buildProductionReadiness } from "../../deploy/production-readiness.js";
+import { buildProductionUrlAudit } from "../../deploy/production-url-audit.js";
+import { buildPwaInstallAudit } from "../../pwa/pwa-install-audit.js";
 import { buildSwitchBotDeploymentChecklist } from "../../security-automation/switchbot-release-gate.js";
 import { getSecurityState } from "../../services/securityAutomationService.js";
 import { getSwitchBotMode, isRealUnlockGuarded } from "../../services/switchbotService.js";
@@ -32,11 +35,28 @@ deployRouter.get("/security-automation-status", (_req, res) => {
   });
 });
 
+/** Phase 1381–1400 — 本番 URL 監査 */
+deployRouter.get("/url-audit", (_req, res) => {
+  res.json(buildProductionUrlAudit());
+});
+
+/** Phase 1381–1400 — PWA インストール監査 */
+deployRouter.get("/pwa-install-audit", (_req, res) => {
+  res.json(buildPwaInstallAudit());
+});
+
 /** Phase 1291–1320 — Release Gate 状態（dry-run 構造 + gate メタ） */
 deployRouter.get("/release-gate", (_req, res) => {
-  const dryRun = buildDeployDryRun();
+  const dryRun = buildDeployDryRun(undefined, { includeReleaseGate: true });
+  const readiness = buildProductionReadiness({
+    ...dryRun,
+    releaseGate: buildReleaseGateInfo(dryRun),
+  });
   res.json({
     ...dryRun,
     releaseGate: buildReleaseGateInfo(dryRun),
+    productionReadiness: readiness,
+    urlAudit: buildProductionUrlAudit(),
+    pwaInstallAudit: buildPwaInstallAudit(),
   });
 });

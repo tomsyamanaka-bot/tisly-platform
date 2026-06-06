@@ -114,6 +114,66 @@
   margin-top: 4px;
 }
 
+/* Phase 1381–1400 — Production Readiness */
+.production-readiness-card h2 {
+  font-size: 1rem;
+  margin: 0 0 0.5rem;
+  color: #3fb950;
+}
+.readiness-verdict {
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+  text-align: center;
+}
+.readiness-verdict.readiness-pass {
+  background: #23863633;
+  border: 2px solid #3fb950;
+  color: #3fb950;
+}
+.readiness-verdict.readiness-pending {
+  background: #9e6a0333;
+  border: 2px solid #d29922;
+  color: #d29922;
+}
+.readiness-grid {
+  display: grid;
+  gap: 6px;
+}
+.readiness-item {
+  display: grid;
+  grid-template-columns: 1.2rem auto 1fr;
+  gap: 8px;
+  align-items: start;
+  padding: 8px 10px;
+  background: #1c2128;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  border-left: 3px solid #30363d;
+}
+.readiness-item.ready-pass {
+  border-left-color: #3fb950;
+}
+.readiness-item.ready-warn {
+  border-left-color: #d29922;
+}
+.readiness-item.ready-fail {
+  border-left-color: #f85149;
+}
+.readiness-icon {
+  font-weight: 700;
+}
+.readiness-label {
+  font-weight: 700;
+  white-space: nowrap;
+}
+.readiness-msg {
+  color: #8b949e;
+  word-break: break-all;
+}
+
 /* Phase 1291–1320 — Release Gate バナー */
 .release-gate-banner {
   padding: 10px 12px;
