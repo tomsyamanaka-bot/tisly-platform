@@ -162,3 +162,14 @@
 }
 
 .simple-list li { margin-bottom: 0.35rem; }
+
+.handover-card { border-left: 4px solid #0ea5e9; }
+.handover-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  margin-bottom: 1rem;
+}
+.handover-block h3 { font-size: 0.9rem; margin: 0 0 0.35rem; color: #475569; }
+.handover-photos { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.handover-photos img { width: 72px; height: 54px; object-fit: cover; border-radius: 6px; }

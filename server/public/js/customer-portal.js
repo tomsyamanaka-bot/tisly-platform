@@ -154,7 +154,34 @@ async function showDashboard() {
 
   await loadUsersTab();
   await loadNotificationRulesTab().catch(() => {});
+  await loadHandoverCard();
   document.getElementById("link-map-inline")?.setAttribute("href", `/customer/${customerCode}/map`);
+}
+
+async function loadHandoverCard() {
+  const root = document.getElementById("handover-summary");
+  const link = document.getElementById("handover-detail-link");
+  if (!root) return;
+  link.href = `/customer/${customerCode}/handover`;
+  try {
+    const raw = await apiGet(`/api/customer/${customerCode}/handover`);
+    const data = raw.handover ?? raw;
+    const equip = (data.equipment ?? []).slice(0, 6);
+    const photos = (data.constructionPhotos ?? []).slice(0, 4);
+    const maint = (data.maintenanceSchedule ?? []).slice(0, 3);
+    const qrCount = (data.qrList ?? []).length;
+    root.innerHTML = `
+      <div class="handover-grid">
+        <div class="handover-block"><h3>導入機器</h3><ul class="simple-list">${equip.map((d) => `<li>${d.label} (${d.kind})</li>`).join("") || "<li>—</li>"}</ul></div>
+        <div class="handover-block"><h3>設置写真</h3><div class="handover-photos">${photos.map((p) => `<img src="${p.url}" alt="${p.caption}" loading="lazy" />`).join("") || "<p class='hint'>写真なし</p>"}</div></div>
+        <div class="handover-block"><h3>保守内容</h3><ul class="simple-list">${maint.map((m) => `<li>${m.title} — ${m.dueDate}</li>`).join("") || "<li>—</li>"}</ul></div>
+        <div class="handover-block"><h3>通知先</h3><p>${data.emergencyContact?.email || "—"}<br>${data.emergencyContact?.phone || "—"}</p></div>
+        <div class="handover-block"><h3>緊急時の流れ</h3><p class="hint">1. PRO Remote で状況確認 → 2. 通知先へ連絡 → 3. 保守 PWA で報告</p></div>
+        <div class="handover-block"><h3>QR / PWA案内</h3><p>QR ${qrCount} 件 · <a href="${data.proRemoteUrl}">PRO Remote</a> · <a href="${data.loginUrl}">顧客ポータル</a></p></div>
+      </div>`;
+  } catch {
+    root.innerHTML = "<p class='hint'>引渡し情報の読込にはログインが必要です</p>";
+  }
 }
 
 async function loadSiteBuilderTab() {
@@ -232,9 +259,14 @@ async function loadFieldViewTab() {
   if (tabBtn) tabBtn.hidden = !isOwner;
   if (!isOwner || !root) return;
   try {
-    const data = await apiGet(`/api/customer/${customerCode}/field-view`);
+    const [data, sites] = await Promise.all([
+      apiGet(`/api/customer/${customerCode}/field-view`),
+      apiGet(`/api/customer/${customerCode}/sites`).catch(() => ({ sites: [] })),
+    ]);
     root.innerHTML = `
-      <h3>設備 (${data.devices?.length ?? 0})</h3>
+      <h3>現場情報</h3>
+      <ul class="simple-list">${(sites.sites ?? []).map((s) => `<li>${s.name ?? s.id} — ${s.address ?? "—"}</li>`).join("") || "<li>サイト未登録</li>"}</ul>
+      <h3>導入機器 (${data.devices?.length ?? 0})</h3>
       <ul class="simple-list">${(data.devices ?? []).slice(0, 12).map((d) => `<li>${d.label} — ${d.deviceType} [${d.status}]</li>`).join("")}</ul>
       <h3>カメラ (${data.cameras?.length ?? 0})</h3>
       <ul class="simple-list">${(data.cameras ?? []).map((c) => `<li>${c.label} [${c.status}]</li>`).join("") || "<li>なし</li>"}</ul>

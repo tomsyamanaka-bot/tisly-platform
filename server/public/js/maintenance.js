@@ -186,6 +186,43 @@ async function loadSchedules() {
             </li>`
         )
         .join("") || "<li>点検予定なし</li>";
+    updateNextInspection(items);
+  } catch {
+    list.innerHTML = "<li>要ログイン</li>";
+    updateNextInspection([]);
+  }
+}
+
+function updateNextInspection(schedules) {
+  const pending = (schedules || [])
+    .filter((s) => s.status === "pending" || s.status === "open")
+    .sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate)));
+  const next = pending[0];
+  const dateEl = document.getElementById("maint-next-date");
+  const titleEl = document.getElementById("maint-next-title");
+  if (dateEl) dateEl.textContent = next?.dueDate ?? "予定なし";
+  if (titleEl) titleEl.textContent = next ? next.title : "点検予定を追加してください";
+}
+
+async function loadPartsHistory() {
+  const code = customerCode();
+  const list = document.getElementById("maint-parts-list");
+  if (!list) return;
+  try {
+    const reports = await apiGet(`/api/maintenance/reports/${code}`);
+    const parts = [];
+    for (const r of (reports.reports ?? []).slice(0, 5)) {
+      if (!r.reportId) continue;
+      try {
+        const p = await apiGet(`/api/field-operations/maintenance/reports/${r.reportId}/parts`);
+        for (const part of p.parts ?? []) {
+          parts.push(`${part.partName} ×${part.quantity} (${r.completedAt?.slice(0, 10) || ""})`);
+        }
+      } catch {
+        /* */
+      }
+    }
+    list.innerHTML = parts.map((p) => `<li>${p}</li>`).join("") || "<li>交換部材の記録なし</li>";
   } catch {
     list.innerHTML = "<li>要ログイン</li>";
   }
@@ -233,12 +270,22 @@ async function submitReport() {
   for (const f of files) {
     photos.push({ imageBase64: await fileToBase64(f), fileName: f.name });
   }
-  await apiPost("/api/maintenance/report", { customerCode: code, comment, photos });
+  const report = await apiPost("/api/maintenance/report", { customerCode: code, comment, photos });
+  const partName = document.getElementById("maint-part-name")?.value?.trim();
+  const qty = Number(document.getElementById("maint-part-qty")?.value || 1);
+  if (partName && report.reportId) {
+    await apiPost(`/api/field-operations/maintenance/reports/${report.reportId}/parts`, {
+      customerCode: code,
+      parts: [{ partName, quantity: qty, unit: "個" }],
+    });
+  }
   document.getElementById("maint-report-comment").value = "";
   document.getElementById("maint-report-photos").value = "";
+  document.getElementById("maint-part-name").value = "";
   await loadReports();
   await loadSchedules();
-  alert("完了報告を送信しました");
+  await loadPartsHistory();
+  alert("点検完了・報告を送信しました");
 }
 
 async function flushOfflineCases() {
@@ -267,6 +314,7 @@ document.getElementById("maint-customer")?.addEventListener("change", () => {
   loadShelly();
   loadSchedules();
   loadReports();
+  loadPartsHistory();
 });
 
 document.getElementById("btn-maint-add-schedule")?.addEventListener("click", () =>
@@ -300,5 +348,6 @@ loadRecovery();
 loadShelly();
 loadSchedules();
 loadReports();
+loadPartsHistory();
 flushOfflineCases();
 window.addEventListener("online", flushOfflineCases);

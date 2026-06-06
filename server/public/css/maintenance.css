@@ -50,6 +50,45 @@
 .maint-metrics {
   font-size: 0.85rem;
 }
+.maint-dashboard {
+  padding: 0 1rem 2rem;
+}
+.maint-customer-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.maint-customer-row select {
+  flex: 1;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #334155;
+  background: #0f172a;
+  color: #e2e8f0;
+}
+.maint-card-highlight {
+  border-left-color: #f59e0b;
+}
+.maint-card-next .maint-next-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #fbbf24;
+  margin: 0.25rem 0;
+}
+.maint-expand summary,
+.maint-advanced summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: #94a3b8;
+  margin-bottom: 0.5rem;
+}
+.maint-photo-input {
+  width: 100%;
+  margin-top: 0.5rem;
+}
+.maint-sub { margin-top: 0.5rem; font-size: 0.8rem; }
+.maint-list li.overdue { color: #f87171; font-weight: 600; }
+.btn-maint.secondary { background: #92400e; }
 .btn-maint {
   margin-top: 8px;
   background: #b45309;
@@ -58,6 +97,8 @@
   border-radius: 6px;
   padding: 8px 12px;
   cursor: pointer;
+  min-height: 44px;
+  width: 100%;
 }
 .maint-link-history {
   display: block;

@@ -37,11 +37,19 @@ export function generateEstimateFromSurvey(input: EstimateGenerateInput): Estima
       : getLatestSurveyAnalysisV4(surveyProjectId);
   if (!analysis) throw new Error("survey analysis not found — run analysis first");
 
+  const shellyCount = Math.max(1, Math.ceil(analysis.espCount / 2));
   const materials = [
     { name: "防犯カメラ（PoE）", quantity: analysis.cameraCount, unit: "台", unitPrice: 45000 },
     { name: "ESP32 制御盤", quantity: analysis.espCount, unit: "式", unitPrice: 85000 },
+    { name: "Shelly Pro 4PM", quantity: shellyCount, unit: "台", unitPrice: 12000 },
     { name: "PoE スイッチ", quantity: Math.ceil(analysis.poeCount / 8), unit: "台", unitPrice: 28000 },
     { name: "LAN 配線工事", quantity: Math.ceil(analysis.lanDistanceM / 10), unit: "10m", unitPrice: 8000 },
+    {
+      name: "PoE 電源ユニット",
+      quantity: analysis.hasPanel ? 2 : 1,
+      unit: "式",
+      unitPrice: analysis.hasPanel ? 35000 : 18000,
+    },
   ];
   if (analysis.hasPanel) {
     materials.push({ name: "分電盤取付・配線", quantity: 1, unit: "式", unitPrice: 35000 });
@@ -78,7 +86,7 @@ export function generateEstimateFromSurvey(input: EstimateGenerateInput): Estima
 
   saveAiCandidate(input.projectId, {
     version: "v4",
-    summary: `カメラ${analysis.cameraCount} / ESP${analysis.espCount} / LAN${analysis.lanDistanceM}m`,
+    summary: `カメラ${analysis.cameraCount} / ESP${analysis.espCount} / Shelly${shellyCount} / LAN${analysis.lanDistanceM}m`,
     cameraCount: analysis.cameraCount,
     espCount: analysis.espCount,
     lanDistanceM: analysis.lanDistanceM,

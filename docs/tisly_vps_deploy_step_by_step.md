@@ -1,9 +1,18 @@
-# TiSLY VPS デプロイ手順 — 超初心者向け（Phase 1381–1400）
+# TiSLY VPS デプロイ手順 — 超初心者向け（Phase 1501–1540）
 
 ConoHa VPS に TiSLY を **コピペだけ** で公開する手順です。  
 対象ドメイン: **https://tisly.jp**
 
 > 各ブロックを上から順に、そのままターミナルに貼り付けて実行してください。
+
+**Phase 1501 追加スクリプト（投入支援）:**
+
+| スクリプト | 用途 |
+|------------|------|
+| `scripts/vps-first-deploy-check.sh` | 初回投入前の環境・.env・build・nginx・port・HTTPS 確認 |
+| `scripts/vps-deploy-one-command.sh` | git pull → build → release:gate → restart → URL 確認を一本化 |
+
+`.env` 詳細: [`env_production_setup.md`](./env_production_setup.md)
 
 ---
 
@@ -71,28 +80,24 @@ cd server
 ```bash
 cd /opt/tisly/server
 cp .env.production.example .env
+chmod 600 .env
 nano .env
 ```
 
-**必ず設定する項目:**
+必須項目の一覧・生成方法は **[`env_production_setup.md`](./env_production_setup.md)** を参照（秘密値は docs に書かない）。
 
-```env
-NODE_ENV=production
-TISLY_PUBLIC_URL=https://tisly.jp
-JWT_SECRET=<openssl rand -hex 32 の結果>
-ADMIN_PASSWORD_HASH=<node で bcrypt ハッシュ>
-MQTT_URL=mqtt://127.0.0.1:1883
-MQTT_USERNAME=tisly_mqtt
-MQTT_PASSWORD=<任意の強力なパスワード>
-```
+初回公開の最低限（値の生成方法は [`env_production_setup.md`](./env_production_setup.md)）:
+
+- `NODE_ENV` → `production`
+- `TISLY_PUBLIC_URL` → `https://tisly.jp`
+- `JWT_SECRET` → `openssl rand -hex 32`
+- `ADMIN_PASSWORD_HASH` → `hashPassword()` で生成
+- `INGEST_SECRET` / `DEPLOY_OPS_TOKEN` → `openssl rand -hex 24`
+- `MQTT_MODE` → `mock` · `MQTT_SUBSCRIBER_ENABLED` → `false`
+- `SHELLY_MODE` / `QNAP_UPLOAD_MODE` / `GMAIL_SEND_MODE` → `mock`
+- `GOOGLE_OAUTH_ENABLED` → `false` · `DEMO_RESET_ENABLED` → `false`
 
 保存: `Ctrl+O` → Enter → `Ctrl+X`
-
-JWT 生成例:
-
-```bash
-openssl rand -hex 32
-```
 
 ---
 
@@ -186,23 +191,55 @@ certbot renew --dry-run
 
 ---
 
-## 13. 公開確認
+## 13. 初回投入チェック（Phase 1501）
 
 ```bash
-curl -s https://tisly.jp/health
+cd /opt/tisly
+bash scripts/vps-first-deploy-check.sh
+```
+
+`判定: READY FOR DEPLOY` になるまで ✗ を解消します。
+
+---
+
+## 14. 一本化デプロイ（更新時・初回 build 後）
+
+```bash
+cd /opt/tisly
+bash scripts/vps-deploy-one-command.sh
+```
+
+流れ: `git pull` → `npm ci` → `build` → `release:gate` → `db:init` → `systemctl restart` → `nginx reload` → URL 確認
+
+---
+
+## 15. 公開確認
+
+```bash
+curl -s https://tisly.jp/api/health
 curl -sI https://tisly.jp/app | head -5
 curl -sI https://tisly.jp/survey | head -5
 ```
 
-ブラウザで以下を開く:
+ブラウザで **本番公開チェックリスト** を開く:
+
+```
+https://tisly.jp/deployment/checklist
+```
+
+9 URL・API health・Release Gate・nginx/systemd・PWA installReady・実機確認項目が一覧表示されます。
+
+本番 URL 9 件:
 
 ```
 https://tisly.jp/app
 https://tisly.jp/survey
 https://tisly.jp/business
+https://tisly.jp/sales
 https://tisly.jp/customer/TOMS001
-https://tisly.jp/customer/TOMS001/install/home
 https://tisly.jp/customer/TOMS001/pro-remote
+https://tisly.jp/customer/TOMS001/install/home
+https://tisly.jp/tv/TOMS001
 https://tisly.jp/deployment/checklist
 ```
 
@@ -210,7 +247,7 @@ https://tisly.jp/deployment/checklist
 
 ---
 
-## 14. Release Gate（開発マシンで事前確認）
+## 16. Release Gate（開発マシンで事前確認）
 
 VPS 投入前にローカルで:
 
@@ -223,11 +260,26 @@ build → tsc → test → dry-run がすべて合格すること。
 
 ---
 
+## 失敗時の戻し方（ロールバック）
+
+```bash
+# 前回コミットへ戻す（VPS）
+cd /opt/tisly
+bash scripts/rollback.sh
+sudo systemctl restart tisly-server
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+または `/app` Deploy Center からロールバック（`DEPLOY_OPS_TOKEN` 必要）。
+
+---
+
 ## トラブルシュート
 
 | 症状 | 対処 |
 |------|------|
 | 502 Bad Gateway | `systemctl status tisly-server` — Node が起動しているか |
+| vps-first-deploy-check FAIL | 出力の ✗ 行を順に解消 |
 | PWA インストール不可 | `https://tisly.jp/icons/icon-192.png` が 200 か確認 |
 | WebSocket 切断 | nginx の `/ws` ブロックと `wss://tisly.jp/ws` |
 | 証明書エラー | `certbot certificates` で期限確認 |
@@ -239,3 +291,4 @@ build → tsc → test → dry-run がすべて合格すること。
 - nginx 詳細: [`nginx_tisly_production.md`](./nginx_tisly_production.md)
 - URL 一覧: [`production_routes.md`](./production_routes.md)
 - RC2 チェックリスト: [`rc2_pre_deploy_checklist.md`](./rc2_pre_deploy_checklist.md)
+- .env 本番ガイド: [`env_production_setup.md`](./env_production_setup.md)

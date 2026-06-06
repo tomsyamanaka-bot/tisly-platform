@@ -1,67 +1,703 @@
-import { apiPut, apiPost } from "./api.js";
+/**
 
-const banner = document.getElementById("ready-banner");
-const list = document.getElementById("checklist-items");
-const codeInput = document.getElementById("customerCode");
-const completeBtn = document.getElementById("complete-btn");
+ * Phase 1541–1580 — 本番公開チェックリスト (/deployment/checklist)
 
-async function loadChecklist(code) {
-  const q = code ? `?customerCode=${encodeURIComponent(code)}` : "";
-  const data = await fetch(`/api/deployment-kit/checklist${q}`).then((r) => r.json());
-  if (data.deploymentComplete || data.ready) {
-    banner.className = "ready";
-    banner.textContent = data.deploymentComplete ? "✓ 導入完了" : "✓ 全項目OK — 導入完了可能";
-    completeBtn.style.display = data.ready && !data.deploymentComplete ? "inline-block" : "none";
-  } else {
-    banner.className = "pending";
-    banner.textContent = "未完了項目あり";
-    completeBtn.style.display = "none";
-  }
-  let html = data.items
-    .map(
-      (i) => `<li>
-        <span class="${i.ok ? "ok" : "ng"}">${i.ok ? "✓" : "—"}</span> ${i.label}
-        <small>${i.detail}</small>
-        ${code ? `<button type="button" data-id="${i.id}" data-ok="${!i.ok}">${i.ok ? "NGにする" : "OKにする"}</button>` : ""}
-      </li>`
-    )
-    .join("");
+ */
+
+
+
+const PRODUCTION_URLS = [
+
+  { path: "/app", label: "App Hub" },
+
+  { path: "/survey", label: "現調 PWA" },
+
+  { path: "/business", label: "TOMS Business" },
+
+  { path: "/sales", label: "営業デモ" },
+
+  { path: "/customer/TOMS001", label: "顧客ポータル" },
+
+  { path: "/customer/TOMS001/pro-remote", label: "PRO Remote" },
+
+  { path: "/customer/TOMS001/install/home", label: "施工 PWA" },
+
+  { path: "/tv/TOMS001", label: "Google TV Web" },
+
+  { path: "/deployment/checklist", label: "本チェックリスト" },
+
+];
+
+
+
+const INTEGRATION_SERVICES = ["Gmail", "QNAP", "MQTT", "Shelly"];
+
+
+
+const IPHONE_CHECKS = [
+
+  { id: "iphone-survey-open", label: "Safari で /survey を開く", detail: "https://tisly.jp/survey が HTTPS で表示される" },
+
+  { id: "iphone-survey-add", label: "共有 → ホーム画面に追加", detail: "PWA として追加できる" },
+
+  { id: "iphone-survey-standalone", label: "standalone 起動", detail: "アドレスバーなしで起動できる" },
+
+  { id: "iphone-survey-offline", label: "オフライン表示", detail: "機内モードでもシェルが表示される（任意）" },
+
+];
+
+
+
+const ANDROID_CHECKS = [
+
+  { id: "android-app-open", label: "Chrome で /app を開く", detail: "https://tisly.jp/app · VPS Deploy Status 表示" },
+
+  { id: "android-app-install", label: "ホーム画面に追加 / インストール", detail: "PWA インストールバナーまたはメニューから追加" },
+
+  { id: "android-app-standalone", label: "standalone 起動", detail: "追加後にアプリアイコンから起動" },
+
+  { id: "android-checklist-card", label: "本番公開チェックカード", detail: "Production Readiness が表示される" },
+
+];
+
+
+
+const GOOGLE_TV_CHECKS = [
+
+  { id: "gtv-open", label: "TV ブラウザで /tv/TOMS001 を開く", detail: "https://tisly.jp/tv/TOMS001 · フルスクリーン表示" },
+
+  { id: "gtv-focus", label: "フォーカス / リモコン操作", detail: "カメラ切替・フロア表示が操作できる" },
+
+  { id: "gtv-ws", label: "リアルタイム更新", detail: "WebSocket 切断なくデモが動く（mock 可）" },
+
+  { id: "gtv-checklist", label: "本チェックリストで Google TV にチェック", detail: "上記確認後にチェックを入れる" },
+
+];
+
+
+
+const STORAGE_KEY = "tisly_deploy_checklist_manual";
+
+let lastCheckState = { urlResults: [], gate: null, audit: null, preflight: null };
+
+
+
+function loadManualChecks() {
+
   try {
-    const sb = await fetch("/api/deploy/switchbot-checklist").then((r) => r.json());
-    if (sb.items?.length) {
-      html += `<li><strong>SwitchBot / Security Automation（Phase 1321–1340）</strong></li>`;
-      html += sb.items
-        .map(
-          (i) =>
-            `<li><span class="${i.ok ? "ok" : "ng"}">${i.ok ? "✓" : "—"}</span> ${i.label}<small>${i.detail}</small></li>`
-        )
-        .join("");
-    }
+
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+
   } catch {
-    /* optional */
+
+    return {};
+
   }
-  list.innerHTML = html;
-  list.querySelectorAll("button[data-id]").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      await apiPut(`/api/deployment-kit/checklist/${code}/${btn.dataset.id}`, {
-        ok: btn.dataset.ok === "true",
-      });
-      loadChecklist(code);
-    });
-  });
+
 }
 
-document.getElementById("load-btn").addEventListener("click", () => {
-  const code = codeInput.value.trim();
-  if (code) loadChecklist(code).catch(console.error);
-});
 
-completeBtn.addEventListener("click", async () => {
-  const code = codeInput.value.trim();
+
+function saveManualCheck(id, checked) {
+
+  const data = loadManualChecks();
+
+  data[id] = checked;
+
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+
+}
+
+
+
+function statusBadge(status) {
+
+  const map = {
+
+    pass: "合格",
+
+    warn: "注意",
+
+    fail: "未達",
+
+    ok: "合格",
+
+    missing: "不足",
+
+    pending: "確認中",
+
+    mock: "mock",
+
+    real: "real",
+
+    unknown: "不明",
+
+  };
+
+  return `<span class="badge ${status}">${map[status] || status}</span>`;
+
+}
+
+
+
+function renderCard(label, status, message) {
+
+  return `<div class="card ${status}">
+
+    <div class="card-head">
+
+      <span class="card-label">${label}</span>
+
+      ${statusBadge(status)}
+
+    </div>
+
+    <div class="card-msg">${message}</div>
+
+  </div>`;
+
+}
+
+
+
+async function probeUrl(path) {
+
+  const url = `${window.location.origin}${path}`;
+
   try {
-    await apiPost(`/api/deployment-kit/checklist/${code}/complete`, {});
-    loadChecklist(code);
-  } catch (err) {
-    alert(String(err.message ?? err));
+
+    const res = await fetch(url, { method: "GET", cache: "no-store" });
+
+    return { url, status: res.ok ? "pass" : "fail", code: res.status };
+
+  } catch (e) {
+
+    return { url, status: "fail", code: 0, error: String(e.message || e) };
+
   }
-});
+
+}
+
+
+
+async function probeAsset(path) {
+
+  const url = `${window.location.origin}${path}`;
+
+  try {
+
+    const res = await fetch(url, { method: "GET", cache: "no-store" });
+
+    return res.ok;
+
+  } catch {
+
+    return false;
+
+  }
+
+}
+
+
+
+function renderDeviceChecks(containerId, items) {
+
+  const manual = loadManualChecks();
+
+  const ul = document.getElementById(containerId);
+
+  ul.innerHTML = "";
+
+  for (const item of items) {
+
+    const li = document.createElement("li");
+
+    if (manual[item.id]) li.classList.add("done");
+
+    const checked = !!manual[item.id];
+
+    li.innerHTML = `
+
+      <label>
+
+        <input type="checkbox" data-id="${item.id}" ${checked ? "checked" : ""} />
+
+        <span><strong>${item.label}</strong><small>${item.detail}</small></span>
+
+      </label>`;
+
+    li.querySelector("input").addEventListener("change", (e) => {
+
+      saveManualCheck(item.id, e.target.checked);
+
+      renderDeviceChecks(containerId, items);
+
+      updateVerdict(
+        lastCheckState.urlResults,
+        lastCheckState.gate,
+        lastCheckState.audit,
+        lastCheckState.preflight
+      );
+
+    });
+
+    ul.appendChild(li);
+
+  }
+
+}
+
+
+
+function allManualDone() {
+
+  const manual = loadManualChecks();
+
+  return [...IPHONE_CHECKS, ...ANDROID_CHECKS, ...GOOGLE_TV_CHECKS].every((c) => manual[c.id]);
+
+}
+
+
+
+function updateVerdict(urlResults, gate, audit, preflight) {
+
+  const verdict = document.getElementById("verdict");
+
+  const urlFails = (urlResults || []).filter((r) => r.status !== "pass").length;
+
+  const gateReady = gate?.vpsDeployStatus?.ready === true;
+
+  const auditReady = audit?.ready === true;
+
+  const preflightReady = preflight?.ready === true;
+
+  const manualDone = allManualDone();
+
+  const httpsOk = gate?.tislyPublicUrl?.startsWith("https://tisly.jp");
+
+  const releasePass = gate?.releaseGate?.status === "pass" || gate?.passed === true;
+
+
+
+  const autoOk = urlFails === 0 && gateReady && httpsOk && releasePass;
+
+  const fullyReady = autoOk && auditReady && preflightReady && manualDone;
+
+
+
+  if (fullyReady) {
+
+    verdict.className = "verdict pass";
+
+    verdict.innerHTML = `本番公開チェック完了<span class="verdict-big">READY</span>`;
+
+  } else if (urlFails > 0 || !gateReady || !httpsOk) {
+
+    verdict.className = "verdict fail";
+
+    const parts = [];
+
+    if (urlFails > 0) parts.push(`URL ${urlFails} 件未達`);
+
+    if (!gateReady) parts.push("Release Gate 未合格");
+
+    if (!httpsOk) parts.push("HTTPS / TISLY_PUBLIC_URL");
+
+    verdict.innerHTML = `${parts.join(" · ")}<span class="verdict-big">NOT READY</span>`;
+
+  } else {
+
+    verdict.className = "verdict pending";
+
+    const hint = manualDone
+
+      ? "自動チェック OK — preflight / audit の警告を確認"
+
+      : "自動チェック OK — iPhone / Android / Google TV の手動確認が残っています";
+
+    verdict.innerHTML = `${hint}<span class="verdict-big">READY（手動確認残）</span>`;
+
+  }
+
+}
+
+
+
+function resolveIntegrationMode(service, preflight, mockReal) {
+
+  const catMap = {
+
+    Gmail: "GMAIL",
+
+    QNAP: "QNAP",
+
+    MQTT: "MQTT",
+
+    Shelly: "SHELLY",
+
+  };
+
+  const cat = preflight?.categories?.find((c) => c.id === catMap[service]);
+
+  if (cat?.message) {
+
+    const m = cat.message.match(/=(mock|real)/i);
+
+    if (m) return m[1].toLowerCase();
+
+  }
+
+  const entry = (mockReal || []).find((m) => {
+
+    const s = (m.service || "").toLowerCase();
+
+    return s.includes(service.toLowerCase());
+
+  });
+
+  return entry?.mode || "unknown";
+
+}
+
+
+
+function renderMockReal(gate, preflight) {
+
+  const grid = document.getElementById("mock-real-grid");
+
+  const mockReal = gate?.pwaAudit?.mockReal || [];
+
+  const chips = INTEGRATION_SERVICES.map((svc) => {
+
+    const mode = resolveIntegrationMode(svc, preflight, mockReal);
+
+    const cls = mode === "real" ? "real" : mode === "mock" ? "mock" : "unknown";
+
+    return `<span class="mock-chip ${cls}">${svc}: ${mode}</span>`;
+
+  }).join("");
+
+
+
+  const demoSafe = mockReal.every((m) => m.mode !== "real" || m.demoSafe);
+
+  const cards = INTEGRATION_SERVICES.map((svc) => {
+
+    const mode = resolveIntegrationMode(svc, preflight, mockReal);
+
+    const status = mode === "mock" ? "pass" : mode === "real" ? "warn" : "warn";
+
+    const msg =
+
+      mode === "mock"
+
+        ? `${svc} は mock — 初回公開安全`
+
+        : mode === "real"
+
+          ? `${svc} は real — 本番データに接続中`
+
+          : `${svc} モード不明 — .env を確認`;
+
+    return renderCard(svc, status, msg);
+
+  });
+
+
+
+  grid.innerHTML =
+
+    renderCard(
+
+      "初回公開推奨",
+
+      demoSafe ? "pass" : "warn",
+
+      demoSafe ? "主要連携は mock または安全設定" : "real 連携が有効 — mock 推奨か確認"
+
+    ) +
+
+    `<div class="card pass"><div class="card-label">連携一覧</div><div class="mock-grid">${chips}</div></div>` +
+
+    cards.join("");
+
+}
+
+
+
+function renderPwaSection(gate, swOk) {
+
+  const pwaGrid = document.getElementById("pwa-grid");
+
+  const pwaAudit = gate?.pwaInstallAudit;
+
+  const pwAs = gate?.pwaAudit?.pwAs || [];
+
+  let html = "";
+
+
+
+  if (pwaAudit?.entries) {
+
+    html += pwaAudit.entries
+
+      .map((e) => {
+
+        const manifestOk = e.checks?.some((c) => c.id === "manifest" && c.ok) ?? !!e.manifestFile;
+
+        const swCheck = e.checks?.find((c) => c.id === "service_worker" || c.id === "sw");
+
+        const swLine = swCheck ? (swCheck.ok ? "SW OK" : "SW 要確認") : "SW 監査";
+
+        return renderCard(
+
+          e.label || e.route,
+
+          e.installReady ? "pass" : "fail",
+
+          `installReady: ${e.installReady ? "yes" : "no"} · manifest: ${e.manifestFile || "—"} · ${swLine}`
+
+        );
+
+      })
+
+      .join("");
+
+    html += renderCard(
+
+      "PWA 合計",
+
+      pwaAudit.readyCount === pwaAudit.totalPwa ? "pass" : "warn",
+
+      `${pwaAudit.readyCount}/${pwaAudit.totalPwa} installReady`
+
+    );
+
+  }
+
+
+
+  const mainPwa = pwAs.filter((p) => p.isPwa);
+
+  if (mainPwa.length > 0) {
+
+    html += mainPwa
+
+      .map((p) =>
+
+        renderCard(
+
+          `${p.pwaName} — manifest / SW`,
+
+          p.installReady && p.manifestUrl ? "pass" : "warn",
+
+          `manifest: ${p.manifestUrl || "—"} · SW: ${p.serviceWorker || "—"} · scope: ${p.scope || "—"}`
+
+        )
+
+      )
+
+      .join("");
+
+  }
+
+
+
+  html += renderCard(
+
+    "Service Worker（/service-worker.js）",
+
+    swOk ? "pass" : "fail",
+
+    swOk ? "200 OK — ルート SW 取得可能" : "取得失敗 — nginx / ビルドを確認"
+
+  );
+
+
+
+  pwaGrid.innerHTML = html || renderCard("PWA installReady", "warn", "pwaInstallAudit 未取得");
+
+}
+
+
+
+async function loadAll() {
+
+  const btn = document.getElementById("refresh-btn");
+
+  btn.disabled = true;
+
+
+
+  const [health, gate, audit, preflight, swOk] = await Promise.all([
+
+    fetch("/api/health").then((r) => r.json()).catch(() => ({ ok: false })),
+
+    fetch("/api/deploy/release-gate").then((r) => r.json()).catch(() => null),
+
+    fetch("/api/deploy/audit").then((r) => r.json()).catch(() => null),
+
+    fetch("/api/deploy/preflight").then((r) => r.json()).catch(() => null),
+
+    probeAsset("/service-worker.js"),
+
+  ]);
+
+
+
+  const urlResults = await Promise.all(PRODUCTION_URLS.map((u) => probeUrl(u.path)));
+
+  const urlList = document.getElementById("url-list");
+
+  urlList.innerHTML = urlResults
+
+    .map((r, i) => {
+
+      const label = PRODUCTION_URLS[i].label;
+
+      const st = r.status;
+
+      return `<li class="${st}">
+
+        <div><strong>${label}</strong><br><a href="${r.url}" target="_blank" rel="noopener">${r.url}</a></div>
+
+        ${statusBadge(st)} <span class="meta">HTTP ${r.code || "—"}</span>
+
+      </li>`;
+
+    })
+
+    .join("");
+
+
+
+  const apiGrid = document.getElementById("api-grid");
+
+  const gateItems = gate?.vpsDeployStatus?.items || [];
+
+  const readiness = gate?.productionReadiness;
+
+  apiGrid.innerHTML = [
+
+    renderCard(
+
+      "API Health",
+
+      health.ok ? "pass" : "fail",
+
+      health.ok ? `ok · uptime ${health.uptimeSec ?? "—"}s` : "GET /api/health 失敗"
+
+    ),
+
+    renderCard(
+
+      "Preflight (.env)",
+
+      preflight?.ready ? "pass" : preflight ? "fail" : "warn",
+
+      preflight?.ready
+
+        ? "ready — 不足なし"
+
+        : preflight?.missing?.length
+
+          ? `不足: ${preflight.missing.slice(0, 5).join(", ")}${preflight.missing.length > 5 ? "…" : ""}`
+
+          : "preflight 未取得"
+
+    ),
+
+    renderCard(
+
+      "Release Gate",
+
+      gate?.releaseGate?.status === "pass" || gate?.passed ? "pass" : gate?.releaseGate ? "fail" : "warn",
+
+      gate?.releaseGate?.message || gate?.vpsDeployStatus?.readyLabel || "—"
+
+    ),
+
+    renderCard(
+
+      "Production Readiness",
+
+      readiness?.publishable ? "pass" : "warn",
+
+      readiness?.publishableLabel || "—"
+
+    ),
+
+    ...gateItems.slice(0, 3).map((i) => renderCard(i.label, i.status, i.message)),
+
+  ].join("");
+
+
+
+  const infraGrid = document.getElementById("infra-grid");
+
+  const auditItems = audit?.items || [];
+
+  const nginx = auditItems.find((i) => i.id === "nginx");
+
+  const systemd = auditItems.find((i) => i.id === "systemd");
+
+  const wss = auditItems.find((i) => i.id === "wss" || i.id === "websocket");
+
+  const httpsItem = auditItems.find((i) => i.id === "https");
+
+  const httpsFromGate = gate?.tislyPublicUrl?.startsWith("https://tisly.jp");
+
+  infraGrid.innerHTML = [
+
+    renderCard(
+
+      "HTTPS",
+
+      httpsFromGate && (httpsItem?.status !== "fail") ? "pass" : "fail",
+
+      gate?.tislyPublicUrl || httpsItem?.message || "TISLY_PUBLIC_URL 未設定"
+
+    ),
+
+    wss
+
+      ? renderCard("WebSocket /ws", wss.status, wss.message)
+
+      : renderCard("WebSocket /ws", gateItems.find((i) => i.id === "websocket")?.status || "warn", "監査または gate で確認"),
+
+    nginx ? renderCard("nginx 想定", nginx.status, nginx.message) : renderCard("nginx", "warn", "監査未取得"),
+
+    systemd ? renderCard("systemd 想定", systemd.status, systemd.message) : renderCard("systemd", "warn", "監査未取得"),
+
+  ].join("");
+
+
+
+  renderMockReal(gate, preflight);
+
+  renderPwaSection(gate, swOk);
+
+
+
+  lastCheckState = { urlResults, gate, audit, preflight };
+
+  renderDeviceChecks("iphone-checks", IPHONE_CHECKS);
+
+  renderDeviceChecks("android-checks", ANDROID_CHECKS);
+
+  renderDeviceChecks("google-tv-checks", GOOGLE_TV_CHECKS);
+
+  updateVerdict(urlResults, gate, audit, preflight);
+
+
+
+  btn.disabled = false;
+
+}
+
+
+
+document.getElementById("refresh-btn").addEventListener("click", () => loadAll().catch(console.error));
+
+loadAll().catch(console.error);
+

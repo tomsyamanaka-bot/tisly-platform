@@ -12,6 +12,7 @@ import { startRecoveryEngine } from "./recovery/recovery-engine.js";
 import { handleWsClientMessage, registerWsClient } from "./ws/hub.js";
 import { startLiveOperationsMockPush } from "./toms/live-push-mock.js";
 import { startBackupScheduler } from "./backup/backup-scheduler.js";
+import { startHealthMonitor } from "./deploy/health-monitor.js";
 import { startWorkers } from "./workers/worker-runner.js";
 import { startSwitchBotBridgeWorker } from "./workers/switchbot-bridge-worker.js";
 import { startDemoResetCron, syncDemoResetFromEnv } from "./demo-kit/demo-reset-cron.js";
@@ -28,6 +29,7 @@ ensureDemoKit();
 syncDemoResetFromEnv();
 startDemoResetCron();
 startBackupScheduler();
+startHealthMonitor();
 startWorkers();
 startSwitchBotBridgeWorker();
 

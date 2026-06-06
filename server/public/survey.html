@@ -17,11 +17,20 @@
   <div id="tisly-pwa-topbar-root"></div>
   <header class="survey-page-header">
     <h1>現調 Survey</h1>
-    <p class="hint">Phase 1121–1160 — GPS逆引き · 複数写真 · 音声/手書きメモ · AI v4</p>
-    <p class="survey-project-badge">案件: <span id="survey-project-id">未作成</span> <span id="survey-offline-badge" class="offline-badge"></span></p>
+    <p class="hint">Phase 1681–1720 — 現場で迷わないスマホUI</p>
+    <div class="survey-top-actions">
+      <button type="button" class="btn-survey btn-survey-primary" id="btn-survey-new-case">新規現調開始</button>
+      <span id="survey-offline-badge" class="offline-badge"></span>
+    </div>
+    <p class="survey-project-badge">案件: <span id="survey-project-id">未作成</span></p>
+    <div class="survey-gps-pill" id="survey-gps-pill">
+      <span class="gps-dot" id="survey-gps-dot"></span>
+      <span id="survey-gps">GPS: 未取得</span>
+    </div>
+    <p class="hint" id="survey-business-link"></p>
   </header>
   <main class="survey-sections">
-    <section class="survey-card" data-section="case">
+    <section class="survey-card survey-card-compact" data-section="case">
       <h2>案件管理</h2>
       <label>顧客 <select id="survey-customer">
         <option value="TOMS001">TOMS001</option>
@@ -29,81 +38,55 @@
       </select></label>
       <label>案件名 <input id="survey-case-name" placeholder="例: 本社ビル 新規" /></label>
       <label>住所 <input id="survey-address" placeholder="現場住所" /></label>
-      <button type="button" class="btn-survey" id="btn-survey-save-case">サーバーに保存</button>
+      <div class="survey-btn-row">
+        <button type="button" class="btn-survey" id="btn-survey-save-case">保存</button>
+        <button type="button" class="btn-survey secondary" id="btn-survey-gps-auto">GPS自動</button>
+        <button type="button" class="btn-survey secondary" id="btn-survey-reverse-geocode">逆引き</button>
+      </div>
       <button type="button" class="btn-survey secondary" id="btn-survey-create-toms">TOMS案件を作成</button>
-      <button type="button" class="btn-survey secondary" id="btn-survey-gps">現在地 GPS 保存</button>
-      <button type="button" class="btn-survey secondary" id="btn-survey-gps-auto">GPS 自動取得</button>
-      <button type="button" class="btn-survey secondary" id="btn-survey-reverse-geocode">住所逆引き</button>
-      <p id="survey-gps" class="hint">GPS: 未取得</p>
-    </section>
-    <section class="survey-card" data-section="aerial">
-      <h2>外観 / 航空</h2>
-      <input type="file" accept="image/*" id="survey-aerial" />
-    </section>
-    <section class="survey-card" data-section="exterior">
-      <h2>外観写真</h2>
-      <input type="file" accept="image/*" capture="environment" multiple id="survey-exterior" />
-    </section>
-    <section class="survey-card" data-section="interior">
-      <h2>室内写真</h2>
-      <input type="file" accept="image/*" capture="environment" multiple id="survey-interior" />
-    </section>
-    <section class="survey-card" data-section="sketch">
-      <h2>手書き図面 (jpg/png/pdf)</h2>
-      <input type="file" accept="image/*,application/pdf" id="survey-sketch" />
-    </section>
-    <section class="survey-card" data-section="panel">
-      <h2>分電盤写真</h2>
-      <input type="file" accept="image/*" capture="environment" id="survey-panel" />
-    </section>
-    <section class="survey-card" data-section="network">
-      <h2>ネット回線写真</h2>
-      <input type="file" accept="image/*" id="survey-network" />
-    </section>
-    <section class="survey-card" data-section="electrical">
-      <h2>電気設備</h2>
-      <input type="file" accept="image/*" id="survey-electrical" />
-    </section>
-    <section class="survey-card" data-section="camera">
-      <h2>カメラ設置候補</h2>
-      <input type="file" accept="image/*" capture="environment" id="survey-camera" />
-    </section>
-    <section class="survey-card" data-section="sensor">
-      <h2>センサー候補</h2>
-      <input type="file" accept="image/*" id="survey-sensor" />
-    </section>
-    <section class="survey-card" data-section="route">
-      <h2>配線経路</h2>
-      <input type="file" accept="image/*" id="survey-route" />
-    </section>
-    <section class="survey-card" data-section="bulk-photos">
-      <h2>写真一括添付</h2>
-      <input type="file" accept="image/*" capture="environment" multiple id="survey-bulk-photos" />
-      <label>種別 <select id="survey-bulk-type">
-        <option value="other">other</option>
-        <option value="outside">outside</option>
-        <option value="inside">inside</option>
-        <option value="camera">camera</option>
-      </select></label>
-    </section>
-    <section class="survey-card" data-section="audio">
-      <h2>音声メモ</h2>
-      <button type="button" class="btn-survey" id="btn-survey-audio-start">録音開始</button>
-      <button type="button" class="btn-survey secondary" id="btn-survey-audio-stop" disabled>録音停止・保存</button>
-      <p id="survey-audio-status" class="hint">未録音</p>
-      <ul id="survey-audio-list" class="survey-photo-list"></ul>
+      <input type="file" accept="image/*" capture="environment" multiple id="survey-photo-picker" hidden />
+      <button type="button" class="btn-survey-photo-lg" id="btn-survey-photo-add">📷 写真を追加</button>
+      <div class="survey-category-bar" id="survey-category-bar">
+        <button type="button" class="cat-btn active" data-cat="outside">外観</button>
+        <button type="button" class="cat-btn" data-cat="inside">室内</button>
+        <button type="button" class="cat-btn" data-cat="drawing">図面</button>
+        <button type="button" class="cat-btn" data-cat="electrical">電気</button>
+        <button type="button" class="cat-btn" data-cat="network">LAN</button>
+        <button type="button" class="cat-btn" data-cat="camera">カメラ</button>
+        <button type="button" class="cat-btn" data-cat="sensor">センサー</button>
+      </div>
+      <input type="file" accept="image/*" capture="environment" multiple id="survey-exterior" hidden />
+      <input type="file" accept="image/*" capture="environment" multiple id="survey-interior" hidden />
+      <input type="file" accept="image/*,application/pdf" id="survey-sketch" hidden />
+      <input type="file" accept="image/*" id="survey-electrical" hidden />
+      <input type="file" accept="image/*" id="survey-network" hidden />
+      <input type="file" accept="image/*" capture="environment" id="survey-camera" hidden />
+      <input type="file" accept="image/*" id="survey-sensor" hidden />
+      <input type="file" accept="image/*" id="survey-aerial" hidden />
+      <input type="file" accept="image/*" capture="environment" id="survey-panel" hidden />
+      <input type="file" accept="image/*" id="survey-route" hidden />
     </section>
     <section class="survey-card" data-section="handwriting">
-      <h2>手書きメモ</h2>
-      <canvas id="survey-sketch-canvas" width="320" height="200" style="border:1px solid #ccc;background:#fff;touch-action:none"></canvas>
+      <h2>手書き図面</h2>
+      <p class="hint">キャンバスに描くか、jpg/png/pdf をアップロード</p>
+      <button type="button" class="btn-survey secondary" id="btn-survey-sketch-upload">図面ファイルを選択</button>
+      <canvas id="survey-sketch-canvas" width="320" height="200"></canvas>
       <button type="button" class="btn-survey" id="btn-survey-sketch-save">手書き保存</button>
       <ul id="survey-sketch-list" class="survey-photo-list"></ul>
     </section>
+    <section class="survey-card" data-section="audio">
+      <h2>音声メモ</h2>
+      <textarea id="survey-audio-placeholder" rows="2" readonly placeholder="録音ボタンで現場メモを残せます（例: 分電盤は2F北側、LAN経路は外壁沿い）"></textarea>
+      <div class="survey-btn-row">
+        <button type="button" class="btn-survey" id="btn-survey-audio-start">録音開始</button>
+        <button type="button" class="btn-survey secondary" id="btn-survey-audio-stop" disabled>停止・保存</button>
+      </div>
+      <p id="survey-audio-status" class="hint">未録音</p>
+      <ul id="survey-audio-list" class="survey-photo-list"></ul>
+    </section>
     <section class="survey-card" data-section="photos">
-      <h2>写真分類</h2>
-      <p class="hint">アップロード後、種別を変更できます</p>
+      <h2>写真一覧 <button type="button" class="btn-survey secondary btn-inline" id="btn-survey-sync">同期</button></h2>
       <ul id="survey-photo-list" class="survey-photo-list"></ul>
-      <button type="button" class="btn-survey secondary" id="btn-survey-sync">オフライン同期</button>
     </section>
     <section class="survey-card" data-section="checklist">
       <h2>現調チェックリスト</h2>
@@ -124,15 +107,19 @@
       <textarea id="survey-memo" rows="4" placeholder="現調メモ"></textarea>
       <button type="button" class="btn-survey secondary" id="btn-survey-memo">メモ保存</button>
     </section>
-    <section class="survey-card" data-section="ai">
-      <h2>AI Intake / 見積候補</h2>
-      <button type="button" class="btn-survey" id="btn-survey-ai-intake">AI Intake 実行</button>
-      <button type="button" class="btn-survey" id="btn-survey-ai">見積候補 v2</button>
-      <button type="button" class="btn-survey" id="btn-survey-ai-v4">AI 現調解析 v4</button>
+    <section class="survey-card survey-card-ai" data-section="ai">
+      <h2>AI見積候補</h2>
+      <button type="button" class="btn-survey btn-survey-ai" id="btn-survey-ai-estimate">AI見積候補を生成</button>
+      <button type="button" class="btn-survey secondary" id="btn-survey-ai-v4">AI 現調解析 v4</button>
       <button type="button" class="btn-survey secondary" id="btn-survey-floor-map">PRO Floor Map 生成</button>
       <button type="button" class="btn-survey secondary" id="btn-survey-report">HTMLレポート</button>
+      <button type="button" class="btn-survey secondary" id="btn-survey-ai-intake" hidden>AI Intake</button>
+      <button type="button" class="btn-survey secondary" id="btn-survey-ai" hidden>見積候補 v2</button>
       <div id="survey-ai-result" class="survey-ai-result"></div>
     </section>
+    <input type="file" accept="image/*" capture="environment" multiple id="survey-bulk-photos" hidden />
+    <select id="survey-bulk-type" hidden><option value="other">other</option></select>
+    <button type="button" id="btn-survey-gps" hidden></button>
   </main>
   <script type="module" src="/js/tisly-pwa-shell.js"></script>
   <script type="module" src="/js/survey.js"></script>

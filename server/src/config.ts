@@ -73,7 +73,7 @@ export const config = {
     password: env("QNAP_PASSWORD"),
     basePath: env("QNAP_BASE_PATH", "/TiSLY"),
   },
-  rc1Phase: "421-440-first-device-commissioning",
+  rc1Phase: "1461-1500-conoha-vps-auto-deploy",
   get dbProvider() {
     return (env("DB_PROVIDER", "sqlite") as "sqlite" | "postgres");
   },

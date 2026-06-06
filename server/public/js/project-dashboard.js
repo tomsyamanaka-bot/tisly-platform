@@ -368,7 +368,35 @@ function applyDashboardData(data, jumpOpts) {
     <p>見積: ${data.estimate?.estimateNo ?? "—"}</p>
     <p>請求: ${data.invoice?.invoiceNo ?? "—"}</p>
     <p>入金: ${(data.payments || []).map((pay) => `¥${pay.amount} (${pay.date})`).join("<br>") || "—"}</p>
-    <p>施工履歴: ${(data.constructionHistory || []).length} 件</p>`;
+    <p>施工履歴: ${(data.constructionHistory || []).length} 件</p>
+    <button type="button" id="btn-estimate-v4" class="ai-feedback-btns" style="margin-top:0.5rem">見積作成（AI v4）</button>
+    <div id="dash-estimate-v4-result"></div>`;
+  document.getElementById("btn-estimate-v4")?.addEventListener("click", async () => {
+    const btn = document.getElementById("btn-estimate-v4");
+    btn.disabled = true;
+    btn.textContent = "生成中…";
+    try {
+      const res = await api(`/api/field-operations/projects/${projectId}/estimate-v4`, {
+        method: "POST",
+        body: JSON.stringify({ runAnalysis: true }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || res.status);
+      const cats = (body.candidates || [])
+        .map((c) => `${c.category}: ${c.name} ×${c.quantity}`)
+        .join("<br>");
+      document.getElementById("dash-estimate-v4-result").innerHTML = `
+        <p><strong>${body.estimate.estimateNo}</strong> 生成完了</p>
+        <p class="hint">${cats}</p>
+        <a href="/business/projects/${projectId}/estimate">見積を開く</a>`;
+      loadDashboard();
+    } catch (e) {
+      document.getElementById("dash-estimate-v4-result").textContent = String(e.message || e);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "見積作成（AI v4）";
+    }
+  });
 
   document.getElementById("dash-pro-remote").innerHTML = `
     <h2>PRO Remote</h2>
@@ -406,6 +434,57 @@ function applyDashboardData(data, jumpOpts) {
     <a href="${data.links.drawing}">施工図</a> ·
     <a href="${data.links.proRemote}">PRO Remote</a> ·
     <a href="/customer-master">顧客台帳</a></p>`;
+
+  bindFieldActionButtons(data);
+}
+
+function bindFieldActionButtons(data) {
+  const bar = document.getElementById("dash-field-actions");
+  if (!bar || bar.dataset.bound) return;
+  bar.dataset.bound = "1";
+
+  const customerCode = data.project?.customerId?.startsWith("BCU-")
+    ? "TOMS001"
+    : data.project?.customerId || "TOMS001";
+
+  document.getElementById("btn-field-estimate")?.addEventListener("click", () => {
+    document.getElementById("btn-estimate-v4")?.click();
+  });
+
+  document.getElementById("btn-field-install")?.addEventListener("click", () => {
+    window.open(`/customer/${customerCode}/install/home`, "_blank");
+  });
+
+  document.getElementById("btn-field-share")?.addEventListener("click", () => {
+    const url = `${location.origin}/customer/${customerCode}`;
+    if (navigator.share) {
+      navigator.share({ title: "TiSLY 顧客ポータル", url }).catch(() => window.open(url, "_blank"));
+    } else {
+      window.open(url, "_blank");
+    }
+  });
+
+  document.getElementById("btn-field-pro-remote")?.addEventListener("click", async () => {
+    const btn = document.getElementById("btn-field-pro-remote");
+    btn.disabled = true;
+    btn.textContent = "反映中…";
+    try {
+      const res = await api(`/api/field-operations/projects/${projectId}/pro-remote-sync`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || res.status);
+      alert(`PRO Remote に反映しました: ${(body.tiers || []).join(" / ")}`);
+      window.open(lastDashboard?.links?.proRemote || `/customer/${customerCode}/pro-remote`, "_blank");
+      loadDashboard();
+    } catch (e) {
+      alert(`PRO Remote 反映: ${e.message || e}`);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "PRO Remoteへ反映";
+    }
+  });
 }
 
 async function loadRetryQueue() {

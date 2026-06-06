@@ -8,6 +8,10 @@ import {
   type ProFloorLayerView,
   type ProMapPinView,
 } from "./floor-map-stack.js";
+import {
+  buildFieldMediaByTier,
+  type ProRemoteFieldMediaItem,
+} from "./pro-remote-field-media.js";
 
 export interface FloorStackPinRC2 extends ProMapPinView {
   cameraId: string | null;
@@ -18,6 +22,7 @@ export interface FloorStackPinRC2 extends ProMapPinView {
 
 export interface FloorStackLayerRC2 extends Omit<ProFloorLayerView, "pins"> {
   pins: FloorStackPinRC2[];
+  fieldMedia: ProRemoteFieldMediaItem[];
 }
 
 export interface ProRemoteSecurityBadge {
@@ -61,9 +66,11 @@ export function buildProRemoteFloorStackRC2(customerCode: string): ProRemoteFloo
   const layers = listProFloorLayers(customerCode);
   const alert = findAlertFloorTier(customerCode);
   const alertTier = alert.tier;
+  const fieldMediaByTier = buildFieldMediaByTier(customerCode);
 
   const enriched: FloorStackLayerRC2[] = layers.map((layer) => ({
     ...layer,
+    fieldMedia: (fieldMediaByTier[layer.tier] ?? []).slice(0, 8),
     pins: layer.pins.map((pin) => {
       const cam = resolveCameraForPin(pin, layer);
       const isAlert =
@@ -116,8 +123,10 @@ export async function buildProRemoteFloorStackRC2Async(
   const layers = listProFloorLayers(customerCode);
   const alert = findAlertFloorTier(customerCode);
   const alertTier = alert.tier;
+  const fieldMediaByTier = buildFieldMediaByTier(customerCode);
   const enriched: FloorStackLayerRC2[] = layers.map((layer) => ({
     ...layer,
+    fieldMedia: (fieldMediaByTier[layer.tier] ?? []).slice(0, 8),
     pins: layer.pins.map((pin) => {
       const cam = resolveCameraForPin(pin, layer);
       const isAlert =

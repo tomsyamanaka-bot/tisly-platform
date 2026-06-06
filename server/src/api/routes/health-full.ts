@@ -20,6 +20,21 @@ import { getSiemExportStatus } from "../../security/siem-exporter.js";
 import { pingRedis } from "../../redis/redis-client.js";
 import { getRateLimitProviderName } from "../../redis/rate-limit-redis.js";
 import { getInfrastructureStatuses } from "../../infrastructure/status.js";
+import { getBuildVersion } from "../../deploy/build-version.js";
+import { getWsClientCount } from "../../ws/hub.js";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const serverRoot = path.join(__dirname, "..", "..", "..");
+
+function nginxHasWebSocket(): boolean {
+  const confPath = path.join(serverRoot, "deploy/nginx/tisly.jp.conf");
+  if (!fs.existsSync(confPath)) return false;
+  const conf = fs.readFileSync(confPath, "utf8");
+  return conf.includes("location /ws") && conf.includes("Upgrade");
+}
 
 export const healthFullRouter = Router();
 
@@ -90,9 +105,25 @@ async function buildFullHealthResponse() {
         : "standby";
 
   const memFreePct = (os.freemem() / os.totalmem()) * 100;
+  const buildVersion = getBuildVersion();
+  const wsReady = nginxHasWebSocket();
+  const publicUrl = config.publicUrl;
 
   return {
     status: dbOk ? "ok" : "degraded",
+    buildVersion,
+    uptime: Math.round(process.uptime()),
+    database: {
+      status: dbOk ? "ok" : "error",
+      provider: providerInfo.provider,
+    },
+    websocket: {
+      status: wsReady ? "ok" : "not-configured",
+      path: "/ws",
+      clients: getWsClientCount(),
+      nginxReady: wsReady,
+    },
+    productionUrl: publicUrl,
     phase: config.rc1Phase,
     db_provider: providerInfo.provider,
     postgres: {

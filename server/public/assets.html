@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#1a7f37" />
+  <title>TiSLY — 資産管理</title>
+  <link rel="stylesheet" href="/css/tisly-pwa-shell.css" />
+  <style>
+    .assets-grid { max-width: 960px; margin: 0 auto; padding: 1rem; display: grid; gap: 1rem; }
+    .assets-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1rem; }
+    .assets-card h2 { margin: 0 0 0.75rem; font-size: 1rem; color: #8b949e; }
+    .assets-kpi { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 0.5rem; }
+    .assets-kpi div { background: #21262d; border-radius: 6px; padding: 0.5rem; text-align: center; }
+    .assets-kpi strong { display: block; font-size: 1.2rem; }
+    .assets-table { width: 100%; font-size: 0.85rem; border-collapse: collapse; }
+    .assets-table th, .assets-table td { padding: 0.4rem; border-bottom: 1px solid #30363d; text-align: left; }
+    .health-normal { color: #3fb950; }
+    .health-warning { color: #d29922; }
+    .health-abnormal { color: #f85149; }
+    .assets-filters { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem; }
+    .assets-filters select, .assets-filters button { padding: 0.4rem 0.6rem; border-radius: 4px; border: 1px solid #30363d; background: #21262d; color: #c9d1d9; }
+  </style>
+</head>
+<body>
+  <div id="tisly-pwa-topbar-root"></div>
+  <div class="assets-grid">
+    <header>
+      <h1>資産管理</h1>
+      <p class="hint">Phase 1621–1680 — ESP / Shelly / Camera / SwitchBot / Sensor</p>
+    </header>
+    <section class="assets-card">
+      <h2>サマリ</h2>
+      <div class="assets-kpi" id="assets-summary">読込中…</div>
+    </section>
+    <section class="assets-card">
+      <h2>フィルタ</h2>
+      <div class="assets-filters">
+        <select id="assets-customer">
+          <option value="TOMS001">TOMS001</option>
+          <option value="HOTEL001">HOTEL001</option>
+          <option value="DEMO001">DEMO001</option>
+        </select>
+        <select id="assets-kind">
+          <option value="">全種別</option>
+          <option value="ESP">ESP</option>
+          <option value="Shelly">Shelly</option>
+          <option value="Camera">Camera</option>
+          <option value="SwitchBot">SwitchBot</option>
+          <option value="Sensor">Sensor</option>
+        </select>
+        <select id="assets-health">
+          <option value="">全状態</option>
+          <option value="normal">正常</option>
+          <option value="warning">注意</option>
+          <option value="abnormal">異常</option>
+        </select>
+        <button type="button" id="btn-assets-refresh">更新</button>
+      </div>
+      <table class="assets-table">
+        <thead><tr><th>種別</th><th>ラベル</th><th>ID</th><th>状態</th><th>最終</th></tr></thead>
+        <tbody id="assets-tbody"></tbody>
+      </table>
+    </section>
+  </div>
+  <script type="module" src="/js/tisly-pwa-shell.js"></script>
+  <script type="module" src="/js/assets.js"></script>
+</body>
+</html>

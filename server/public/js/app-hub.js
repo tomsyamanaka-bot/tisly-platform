@@ -28,6 +28,101 @@ function formatIsoShort(iso) {
   }
 }
 
+function renderVpsDeployStatus(vps) {
+  const verdict = document.getElementById("vps-deploy-verdict");
+  const grid = document.getElementById("vps-deploy-grid");
+  if (!verdict || !grid || !vps) return;
+
+  const allPass = vps.ready === true;
+  verdict.className = `vps-deploy-verdict ${allPass ? "vps-deploy-pass" : "vps-deploy-pending"}`;
+  verdict.textContent = vps.readyLabel || (allPass ? "READY FOR DEPLOY" : "NOT READY");
+
+  grid.innerHTML = (vps.items || [])
+    .map((item) => {
+      const cls =
+        item.status === "pass" ? "vps-pass" : item.status === "warn" ? "vps-warn" : "vps-fail";
+      const icon = item.status === "pass" ? "✓" : item.status === "warn" ? "!" : "✗";
+      return `<div class="vps-deploy-item ${cls}">
+        <span class="vps-deploy-icon">${icon}</span>
+        <span class="vps-deploy-label">${item.label}</span>
+        <span class="vps-deploy-msg">${item.message}</span>
+      </div>`;
+    })
+    .join("");
+}
+
+function renderDeployCenter(center) {
+  const statusEl = document.getElementById("deploy-center-status");
+  const factsEl = document.getElementById("deploy-center-facts");
+  const rollbackBtn = document.getElementById("btn-deploy-rollback");
+  if (!statusEl || !factsEl || !center) return;
+
+  const statusMap = {
+    success: { cls: "deploy-status-success", label: "SUCCESS" },
+    failed: { cls: "deploy-status-fail", label: "FAILED" },
+    pending: { cls: "deploy-status-pending", label: "PENDING" },
+    rolled_back: { cls: "deploy-status-warn", label: "ROLLED BACK" },
+    never: { cls: "deploy-status-pending", label: "NOT DEPLOYED" },
+  };
+  const st = statusMap[center.deployStatus] || statusMap.never;
+  statusEl.className = `deploy-center-status ${st.cls}`;
+  statusEl.textContent = `${st.label} — ${center.deployMessage || ""}`;
+
+  factsEl.innerHTML = [
+    ["Current Commit", center.currentCommitShort || center.currentCommit || "—"],
+    ["Current Build", center.currentBuild || "—"],
+    ["Deploy Date", center.deployDate ? formatIsoShort(center.deployDate) : "—"],
+    ["Deploy Status", st.label],
+  ]
+    .map(
+      ([label, value]) =>
+        `<div class="deploy-fact"><dt>${label}</dt><dd>${value}</dd></div>`
+    )
+    .join("");
+
+  if (rollbackBtn) {
+    rollbackBtn.disabled = !center.rollbackAvailable;
+  }
+}
+
+async function requestRollback() {
+  const token = window.prompt("DEPLOY_OPS_TOKEN を入力してください");
+  if (!token) return;
+  const rollbackBtn = document.getElementById("btn-deploy-rollback");
+  if (rollbackBtn) rollbackBtn.disabled = true;
+  try {
+    const res = await fetch("/api/deploy/rollback", {
+      method: "POST",
+      headers: { "X-Deploy-Ops-Token": token },
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    alert(
+      body.executed
+        ? "ロールバックを実行しました"
+        : `ロールバックを記録しました。VPS では scripts/rollback.sh を実行してください。`
+    );
+    await loadPublishAudit();
+  } catch (e) {
+    alert(`ロールバック失敗: ${e.message || e}`);
+  } finally {
+    const rollbackBtn2 = document.getElementById("btn-deploy-rollback");
+    if (rollbackBtn2) rollbackBtn2.disabled = false;
+  }
+}
+
+function renderBuildVersion(version) {
+  if (!version) return;
+  const buildEl = document.getElementById("version-build");
+  const commitEl = document.getElementById("version-commit");
+  const dateEl = document.getElementById("version-date");
+  const labelEl = document.querySelector("#app-version-footer .version-label");
+  if (labelEl) labelEl.textContent = version.label || "TiSLY RC2";
+  if (buildEl) buildEl.textContent = `Build ${version.build || "—"}`;
+  if (commitEl) commitEl.textContent = `Commit ${version.commitShort || version.commit || "—"}`;
+  if (dateEl) dateEl.textContent = `Date ${version.date || "—"}`;
+}
+
 function renderProductionReadiness(readiness) {
   const verdict = document.getElementById("production-readiness-verdict");
   const grid = document.getElementById("production-readiness-grid");
@@ -49,6 +144,60 @@ function renderProductionReadiness(readiness) {
       </div>`;
     })
     .join("");
+}
+
+function renderRehearsalSummary(sim) {
+  const verdictEl = document.getElementById("rehearsal-score-verdict");
+  const scoreEl = document.getElementById("rehearsal-score-display");
+  const gridEl = document.getElementById("rehearsal-summary-grid");
+  const ngEl = document.getElementById("rehearsal-ng-list");
+  if (!verdictEl || !scoreEl || !gridEl || !sim) return;
+
+  const score = sim.readyScore || {};
+  const ready = score.verdict === "READY";
+  verdictEl.className = `rehearsal-score-verdict ${ready ? "rehearsal-ready" : "rehearsal-not-ready"}`;
+  verdictEl.textContent = `${score.total ?? 0}/${score.maxTotal ?? 100} — ${score.label || sim.verdict}`;
+
+  scoreEl.innerHTML = (score.categories || [])
+    .map(
+      (c) =>
+        `<div class="rehearsal-cat ${c.status === "pass" ? "cat-pass" : c.status === "warn" ? "cat-warn" : "cat-fail"}">
+          <span class="rehearsal-cat-label">${c.label}</span>
+          <span class="rehearsal-cat-score">${c.score}/${c.maxPoints}</span>
+        </div>`
+    )
+    .join("");
+
+  const summary = sim.summary || {};
+  const sections = sim.sections || {};
+  const items = [
+    { label: "Build", msg: summary.build || sections.build?.message },
+    { label: "Health", msg: summary.health || sections.health?.message },
+    { label: "Release Gate", msg: summary.releaseGate || sections.releaseGate?.message },
+    { label: "PWA", msg: summary.pwa || sections.pwa?.message },
+    { label: "TV", msg: summary.tv || sim.tvAudit?.verdict },
+    { label: "Security", msg: summary.security || sim.securityAudit?.verdict },
+    { label: "URL", msg: summary.url },
+    { label: "READY率", msg: `${summary.readyRate ?? 0}%` },
+  ];
+
+  gridEl.innerHTML = items
+    .map(
+      (item) =>
+        `<div class="rehearsal-summary-item">
+          <span class="rehearsal-summary-label">${item.label}</span>
+          <span class="rehearsal-summary-msg">${item.msg || "—"}</span>
+        </div>`
+    )
+    .join("");
+
+  if (ngEl) {
+    const ng = score.ngItems || [];
+    ngEl.innerHTML =
+      ng.length > 0
+        ? `<h3>NG 項目</h3><ul>${ng.map((n) => `<li>${n}</li>`).join("")}</ul>`
+        : "<p class=\"hint\">NG 項目なし — VPS 投入前の最終確認へ進めます</p>";
+  }
 }
 
 function renderGateBanner(gate) {
@@ -129,10 +278,21 @@ async function loadPublishAudit() {
   if (lastEl) lastEl.textContent = "";
 
   try {
-    const res = await fetch("/api/deploy/release-gate");
+    const [res, simRes] = await Promise.all([
+      fetch("/api/deploy/release-gate"),
+      fetch("/api/deploy/simulate").catch(() => null),
+    ]);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
 
+    if (simRes?.ok) {
+      const sim = await simRes.json();
+      renderRehearsalSummary(sim);
+    }
+
+    renderDeployCenter(data.deployCenter);
+    renderVpsDeployStatus(data.vpsDeployStatus);
+    renderBuildVersion(data.buildVersion);
     renderProductionReadiness(data.productionReadiness);
     renderGateBanner(data.releaseGate);
     renderGateSummary(data);
@@ -202,6 +362,20 @@ async function loadPublishAudit() {
 
 document.getElementById("btn-publish-audit-refresh")?.addEventListener("click", () => {
   loadPublishAudit();
+});
+
+document.getElementById("btn-rehearsal-refresh")?.addEventListener("click", () => {
+  loadPublishAudit();
+});
+
+document.getElementById("btn-deploy-center-refresh")?.addEventListener("click", () => {
+  loadPublishAudit();
+});
+
+document.getElementById("btn-deploy-rollback")?.addEventListener("click", () => {
+  if (window.confirm("前回デプロイをロールバックしますか？")) {
+    void requestRollback();
+  }
 });
 
 loadPublishAudit();

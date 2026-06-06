@@ -210,15 +210,12 @@ async function loadHomeData() {
 document.getElementById("home-customer-code").textContent = customerCode;
 document.getElementById("link-full-install").href = `${base}/install`;
 document.getElementById("link-portal").href = base;
-document.getElementById("tile-today").href = `${base}/install#site`;
-document.getElementById("tile-incomplete").href = "#checklist";
-document.getElementById("tile-photo").href = `${base}/install#photos`;
-document.getElementById("tile-mqtt-unconfirmed").href = `${base}/install#mqtt`;
-document.getElementById("tile-shelly-unconfirmed").href = `${base}/install#shelly`;
-document.getElementById("tile-qr").href = `${base}/install#qr`;
-document.getElementById("tile-map").href = `${base}/map`;
-document.getElementById("tile-mqtt").href = `${base}/install#mqtt`;
-document.getElementById("tile-report").href = `${base}/install#done`;
+document.getElementById("card-today").href = `${base}/install#site`;
+document.getElementById("card-photo").href = `${base}/install#photos`;
+document.getElementById("card-verify").href = `${base}/install#mqtt`;
+document.getElementById("card-qr").href = `${base}/install#qr`;
+document.getElementById("card-device").href = `${base}/install/device-onboard`;
+document.getElementById("card-report").href = `${base}/install#done`;
 
 document.getElementById("btn-offline-flush")?.addEventListener("click", () => {
   flushQueue().catch((e) => alert(String(e)));

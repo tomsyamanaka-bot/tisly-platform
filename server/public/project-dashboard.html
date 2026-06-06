@@ -46,6 +46,11 @@
     .notif-item.critical { border-left: 3px solid #da3633; padding-left: 0.5rem; }
     .ai-feedback-btns { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
     .ai-feedback-btns button { background: #21262d; border: 1px solid #30363d; color: #c9d1d9; padding: 0.35rem 0.75rem; border-radius: 4px; cursor: pointer; }
+    .field-action-bar { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; }
+    .field-action-btn { background: #1f6feb; border: none; color: #fff; padding: 0.6rem 1rem; border-radius: 8px; cursor: pointer; font-size: 0.9rem; min-height: 44px; flex: 1 1 calc(50% - 0.5rem); }
+    .field-action-btn:hover { background: #388bfd; }
+    .rc-card h3 { font-size: 0.95rem; margin: 0 0 0.5rem; color: #c9d1d9; }
+    .rc-card a { color: #58a6ff; font-size: 0.85rem; }
   </style>
 </head>
 <body>
@@ -56,7 +61,13 @@
       <p><span id="dash-state" class="badge"></span><span id="dash-ws-status" class="ws-badge ws-connecting">接続中…</span></p>
     </header>
     <section class="card" id="dash-rc-cards">
-      <h2>ワークフロー（現調→見積→施工→保守）</h2>
+      <h2>現場フロー（現調→見積→施工→保守→引渡し）</h2>
+      <div class="field-action-bar" id="dash-field-actions">
+        <button type="button" class="field-action-btn" id="btn-field-estimate">見積作成</button>
+        <button type="button" class="field-action-btn" id="btn-field-install">施工へ進む</button>
+        <button type="button" class="field-action-btn" id="btn-field-share">顧客に共有</button>
+        <button type="button" class="field-action-btn" id="btn-field-pro-remote">PRO Remoteへ反映</button>
+      </div>
       <div id="dash-rc-grid" class="grid-2"></div>
     </section>
     <div class="grid-2">

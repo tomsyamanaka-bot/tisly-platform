@@ -26,6 +26,10 @@ server/data/siem/
 server/data/backups/
 server/.env
 server/uploads/
+server/data/deploy-dry-run-last.json
+server/data/release-gate-last.json
+server/data/deploy-history.json
+backup/
 tv-app/node_modules/
 tv-app/.expo/
 tv-app/dist/

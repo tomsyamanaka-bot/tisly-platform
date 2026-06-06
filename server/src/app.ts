@@ -63,6 +63,7 @@ import { assetsRouter } from "./api/routes/assets.js";
 import { timelineRouter } from "./api/routes/timeline.js";
 import { proRemoteFloorMapRouter } from "./api/routes/pro-remote-floor-map.js";
 import { fieldRouter } from "./api/routes/field.js";
+import { fieldOperationsRouter } from "./api/routes/field-operations.js";
 import { deploymentRc2Router } from "./api/routes/deployment-rc2.js";
 import { deployRouter } from "./api/routes/deploy.js";
 import { switchbotIntegrationRouter } from "./api/routes/switchbot-integration.js";
@@ -94,6 +95,7 @@ export function createApp(): express.Application {
   app.use("/api/assets", assetsRouter);
   app.use("/api/timeline", timelineRouter);
   app.use("/api/field", fieldRouter);
+  app.use("/api/field-operations", fieldOperationsRouter);
   app.use("/api/deployment", deploymentRc2Router);
   app.use("/api/deploy", deployRouter);
   app.use("/api/integrations/switchbot", switchbotIntegrationRouter);
@@ -214,6 +216,9 @@ export function createApp(): express.Application {
   app.get("/app", (_req, res) => {
     res.sendFile(path.join(publicDir, "app-hub.html"));
   });
+  app.get("/app/version", (_req, res) => {
+    res.sendFile(path.join(publicDir, "app-version.html"));
+  });
   app.get("/security", (_req, res) => {
     res.sendFile(path.join(publicDir, "security-dashboard.html"));
   });
@@ -251,6 +256,12 @@ export function createApp(): express.Application {
   });
   app.get("/maintenance", (_req, res) => {
     res.sendFile(path.join(publicDir, "maintenance.html"));
+  });
+  app.get("/assets", (_req, res) => {
+    res.sendFile(path.join(publicDir, "assets.html"));
+  });
+  app.get("/install", (_req, res) => {
+    res.sendFile(path.join(publicDir, "install-hub.html"));
   });
   const businessHtml = path.join(publicDir, "business.html");
   const businessRoutes = [

@@ -18,6 +18,30 @@
     <h1>TiSLY App Hub</h1>
     <p class="hint">ログイン後、権限に応じて使える PWA を表示します</p>
   </header>
+  <section id="rehearsal-summary-card" class="card rehearsal-summary-card">
+    <h2>Deployment Summary</h2>
+    <p class="hint">Phase 1581–1620 Production Deployment Rehearsal</p>
+    <div id="rehearsal-score-verdict" class="rehearsal-score-verdict">読み込み中…</div>
+    <div id="rehearsal-score-display" class="rehearsal-score-display"></div>
+    <div id="rehearsal-summary-grid" class="rehearsal-summary-grid"></div>
+    <div id="rehearsal-ng-list" class="rehearsal-ng-list"></div>
+    <button type="button" class="btn btn-secondary" id="btn-rehearsal-refresh">リハーサル再実行</button>
+  </section>
+  <section id="deploy-center-card" class="card deploy-center-card">
+    <h2>Deploy Center</h2>
+    <div id="deploy-center-status" class="deploy-center-status">読み込み中…</div>
+    <dl id="deploy-center-facts" class="deploy-center-facts"></dl>
+    <div class="deploy-center-actions">
+      <button type="button" class="btn btn-secondary" id="btn-deploy-center-refresh">更新</button>
+      <button type="button" class="btn btn-danger" id="btn-deploy-rollback" disabled>Rollback</button>
+    </div>
+    <p class="hint"><a href="/app/version">Version History →</a></p>
+  </section>
+  <section id="vps-deploy-status-card" class="card vps-deploy-status-card">
+    <h2>VPS Deploy Status</h2>
+    <div id="vps-deploy-verdict" class="vps-deploy-verdict">読み込み中…</div>
+    <div id="vps-deploy-grid" class="vps-deploy-grid"></div>
+  </section>
   <section id="production-readiness-card" class="card production-readiness-card">
     <h2>Production Readiness</h2>
     <div id="production-readiness-verdict" class="readiness-verdict">読み込み中…</div>
@@ -50,6 +74,12 @@
     <div id="hub-workflow-grid" class="hub-workflow-grid" hidden></div>
     <p class="hint">Google TV は PWA ではなく TV 専用アプリ（<code>/tv/:code</code>）です。</p>
   </main>
+  <footer id="app-version-footer" class="app-version-footer" aria-label="ビルド情報">
+    <span class="version-label">TiSLY RC2</span>
+    <span id="version-build">Build —</span>
+    <span id="version-commit">Commit —</span>
+    <span id="version-date">Date —</span>
+  </footer>
   <script type="module" src="/js/tisly-pwa-shell.js"></script>
   <script type="module" src="/js/app-hub.js"></script>
 </body>

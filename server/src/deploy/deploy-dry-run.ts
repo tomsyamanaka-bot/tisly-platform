@@ -18,6 +18,7 @@ import {
   type PwaPublishAuditReport,
 } from "../pwa/pwa-publish-audit.js";
 import { buildSwitchBotReleaseGateChecks } from "../security-automation/switchbot-release-gate.js";
+import { buildDeployLayoutAudit } from "./deploy-layout-audit.js";
 import { buildProductionUrlAudit } from "./production-url-audit.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -276,6 +277,23 @@ function checkEnvProductionExample(): DryRunCheckItem[] {
   return checks;
 }
 
+function checkDeployLayout(): DryRunCheckItem {
+  const layout = buildDeployLayoutAudit();
+  const missing = layout.checks
+    .filter((c) => c.required && !c.exists)
+    .map((c) => c.path);
+  return {
+    id: "deploy_layout",
+    name: "デプロイレイアウト",
+    status: layout.verdict === "READY" ? "pass" : "fail",
+    message:
+      layout.verdict === "READY"
+        ? `server/public 含む ${layout.totalRequired} 必須パス OK（web/ 不要）`
+        : `不足: ${missing.join(", ")}`,
+    hint: "フロントは server/public/ — ルート web/ は不要",
+  };
+}
+
 function checkNginxConf(): DryRunCheckItem {
   const confPath = path.join(serverRoot, "deploy/nginx/tisly.jp.conf");
   if (!fs.existsSync(confPath)) {
@@ -445,6 +463,7 @@ export function buildDeployDryRun(
   const uploadsGit = checkUploadsGitignore();
 
   const checks: DryRunCheckItem[] = [
+    checkDeployLayout(),
     ...checkEnvProductionExample(),
     {
       id: "secret_leak",

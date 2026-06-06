@@ -220,8 +220,24 @@ async function ensureLogin() {
   return false;
 }
 
+async function loadFieldKpi() {
+  try {
+    const res = await fetch("/api/field-operations/kpi", {
+      headers: token() ? { Authorization: `Bearer ${token()}` } : {},
+    });
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
+}
+
 async function renderHome() {
-  const [{ body }, { body: settings }] = await Promise.all([api("/hub-counts"), api("/settings")]);
+  const [{ body }, { body: settings }, fieldKpi] = await Promise.all([
+    api("/hub-counts"),
+    api("/settings"),
+    loadFieldKpi(),
+  ]);
   const today = body.todaySchedules || [];
   const queueLen = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || "[]").length;
   const g = body.googleStatus || settings.googleOAuth || {};
@@ -259,6 +275,21 @@ async function renderHome() {
           : '<p class="hint">本日の予定はありません</p>'
       }
     </section>
+    ${
+      fieldKpi
+        ? `<section class="biz-card">
+      <h2>現場運用 KPI（Phase 1621–1680）</h2>
+      <div class="biz-dash-grid">
+        <div class="biz-dash-card" style="cursor:default"><div class="n">¥${(fieldKpi.revenue ?? 0).toLocaleString()}</div><div class="l">売上</div></div>
+        <div class="biz-dash-card" style="cursor:default"><div class="n">¥${(fieldKpi.grossProfit ?? 0).toLocaleString()}</div><div class="l">粗利</div></div>
+        <div class="biz-dash-card" style="cursor:default"><div class="n">${fieldKpi.maintenanceContracts ?? 0}</div><div class="l">保守契約</div></div>
+        <div class="biz-dash-card" style="cursor:default"><div class="n">${fieldKpi.uninvoiced ?? 0}</div><div class="l">未請求</div></div>
+        <a class="biz-dash-card" href="/business/kpi"><div class="n">${fieldKpi.projectCount ?? 0}</div><div class="l">案件数</div></a>
+      </div>
+      <p class="hint">月別: ${(fieldKpi.monthlyProjects ?? []).slice(-3).map((m) => `${m.month} ¥${m.revenue?.toLocaleString()}`).join(" · ") || "—"}</p>
+    </section>`
+        : ""
+    }
     <section class="biz-card">
       <h2>ダッシュボード</h2>
       <div class="biz-dash-grid">

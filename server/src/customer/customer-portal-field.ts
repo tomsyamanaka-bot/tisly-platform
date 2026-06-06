@@ -56,9 +56,12 @@ export function buildCustomerPortalFieldView(customerCode: string): CustomerPort
   const notificationRows = getDatabase()
     .prepare(
       `SELECT id, message, severity, created_at FROM events
-       WHERE customer_id = ? ORDER BY created_at DESC LIMIT 30`
+       WHERE tenant_id = ? OR site_id IN (SELECT id FROM sites WHERE customer_id = ?)
+       ORDER BY created_at DESC LIMIT 30`
     )
-    .all(customer.customer_id) as Array<Record<string, unknown>>;
+    .all(customer.tenant_id ?? customer.customer_id, customer.customer_id) as Array<
+    Record<string, unknown>
+  >;
 
   const notificationHistory = notificationRows.map((r) => ({
     id: String(r.id),

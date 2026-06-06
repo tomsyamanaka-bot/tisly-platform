@@ -1,9 +1,18 @@
-# RC2 本番公開前チェックリスト（Phase 1281–1290）
+# RC2 本番公開前チェックリスト（Phase 1501–1540）
 
 tisly.jp **初回公開**前に人が手で確認する項目です。  
 初回公開は **mock 安全状態** で固定します（real 接続は次フェーズ）。
 
-自動テスト: `server/test/phase1241-1280.test.ts` · 状態ドキュメント: `docs/phase1281_1290_status.md`
+**Web UI**: `https://tisly.jp/deployment/checklist` — 9 URL・API・Release Gate・PWA・実機項目を自動表示
+
+**VPS CLI**:
+
+```bash
+bash /opt/tisly/scripts/vps-first-deploy-check.sh   # 投入前
+bash /opt/tisly/scripts/vps-deploy-one-command.sh     # 一本化デプロイ
+```
+
+自動テスト: `server/test/phase1501-1540.test.ts` · `.env` ガイド: `docs/env_production_setup.md`
 
 ---
 
@@ -18,7 +27,9 @@ npm run test
 
 - [ ] `npm run build` 成功
 - [ ] `npx tsc --noEmit` エラーなし
-- [ ] `npm run test` — **356 pass / 0 fail**
+- [ ] `npm run test` — **全 pass / 0 fail**
+- [ ] `npm run release:gate` 合格
+- [ ] `npm run deploy:dry-run` 合格
 
 ---
 
@@ -41,7 +52,7 @@ npm run test
 | `/customer/TOMS001/pro-remote` | PRO Remote · floor stack UI |
 | `/customer/TOMS001/install/home` | 施工 PWA（**リロード 404 なし**） |
 | `/tv/TOMS001` | Google TV Web ダッシュボード |
-| `/deployment/checklist` | 導入チェックリスト |
+| `/deployment/checklist` | **本番公開チェックリスト**（9 URL・API・PWA・実機） |
 
 - [ ] 上記 URL が HTTPS で 200（または SPA として正常表示）
 - [ ] HTTP → HTTPS リダイレクト動作
@@ -83,8 +94,11 @@ npm run test
 - [ ] `JWT_SECRET` — `openssl rand -hex 32`
 - [ ] `ADMIN_PASSWORD_HASH` — hashPassword() で生成
 - [ ] `INGEST_SECRET` — デフォルト値でない
+- [ ] `DEPLOY_OPS_TOKEN` — ロールバック用（`openssl rand -hex 24`）
 - [ ] `TISLY_DEMO_MODE=false`
 - [ ] `DEMO_RESET_ENABLED=false`
+
+詳細: [`env_production_setup.md`](./env_production_setup.md)
 
 **mock 維持（必須）:**
 
@@ -119,6 +133,7 @@ curl -s https://tisly.jp/api/pwa/publish-audit | jq .
 
 ## E. インフラ反映
 
+- [ ] `bash scripts/vps-first-deploy-check.sh` — READY FOR DEPLOY
 - [ ] `server/deploy/nginx/tisly.jp.conf` を VPS に配置
 - [ ] `sudo nginx -t` OK
 - [ ] `sudo systemctl reload nginx`

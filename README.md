@@ -3,6 +3,94 @@
 TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。  
 三菱電機 **FX 系** PLC と **GX Works2 / GX Works3** を想定しています。
 
+## リポジトリ構成について（Phase 1681–1720）
+
+| 項目 | 説明 |
+|------|------|
+| **GitHub リポジトリ名** | [`tisly-platform`](https://github.com/tomsyamanaka-bot/tisly-platform) |
+| **ローカルフォルダ名** | `TiSLY_HOME_Security_DEMO`（PLC デモ等を含む混在構成） |
+| **本番デプロイ対象** | `server/` 配下の **TiSLY Platform** 本体 |
+| **VPS 配置** | `/opt/tisly/server` をアプリ本体として扱う |
+| **フロントエンド** | `server/public/`（ルート `web/` は**不要**） |
+| **本番 .env テンプレ** | `server/.env.production.example`（正式版） |
+
+> **本番公開する場合はまず [`docs/vps_first_launch_for_tomonori.md`](docs/vps_first_launch_for_tomonori.md) を見る**
+
+## TiSLY Platform — VPS Deploy Final Human Guide（Phase 1541–1580）
+
+**智紀さん向け — 初回公開の最終ガイド・安全確認・失敗時復旧（新機能追加なし）**
+
+| 領域 | パス / 成果物 |
+|------|----------------|
+| 超初心者 VPS 手順 | `docs/vps_first_launch_for_tomonori.md` |
+| .env ウィザード | `docs/env_fill_in_guide.md` |
+| 公開後 curl 確認 | `docs/production_check_commands.md` |
+| ロールバック手順 | `docs/rollback_guide.md` · `scripts/rollback.sh` |
+| 投入前チェック CLI | `scripts/vps-first-deploy-check.sh`（色付き · 次アクション表示） |
+| 本番公開チェックページ | `https://tisly.jp/deployment/checklist`（mock/real · Google TV 追加） |
+| テスト | `server/test/phase1541-1580.test.ts` |
+
+### VPS で実行する最小コマンド（智紀さん向け）
+
+```bash
+cd /opt/tisly && bash scripts/vps-first-deploy-check.sh
+cd /opt/tisly && bash scripts/vps-deploy-one-command.sh
+```
+
+失敗時: `bash /opt/tisly/scripts/rollback.sh`
+
+---
+
+## TiSLY Platform — VPS Deploy Execution & First Production Open（Phase 1501–1540）
+
+**tisly.jp 初回公開 — 投入支援・確認・復旧の強化（新機能追加なし）**
+
+| 領域 | パス / 成果物 |
+|------|----------------|
+| VPS 初回投入チェック CLI | `scripts/vps-first-deploy-check.sh` |
+| VPS 一本化デプロイ | `scripts/vps-deploy-one-command.sh` |
+| .env 本番ガイド | `docs/env_production_setup.md` |
+| nginx 本番最終版 | `server/deploy/nginx/tisly.jp.conf` |
+| 本番公開チェックページ | `https://tisly.jp/deployment/checklist` |
+| VPS 手順書 | `docs/tisly_vps_deploy_step_by_step.md` |
+| RC2 公開前チェック | `docs/rc2_pre_deploy_checklist.md` |
+| テスト | `server/test/phase1501-1540.test.ts` |
+
+### 本番 URL（9 件）
+
+```
+https://tisly.jp/app
+https://tisly.jp/survey
+https://tisly.jp/business
+https://tisly.jp/sales
+https://tisly.jp/customer/TOMS001
+https://tisly.jp/customer/TOMS001/pro-remote
+https://tisly.jp/customer/TOMS001/install/home
+https://tisly.jp/tv/TOMS001
+https://tisly.jp/deployment/checklist
+```
+
+### VPS で実行するコマンド（智紀さん向け）
+
+```bash
+# 1. 初回投入前チェック
+cd /opt/tisly && bash scripts/vps-first-deploy-check.sh
+
+# 2. 一本化デプロイ
+cd /opt/tisly && bash scripts/vps-deploy-one-command.sh
+
+# 3. 公開確認（ブラウザ）
+# https://tisly.jp/deployment/checklist
+```
+
+失敗時: `bash /opt/tisly/scripts/rollback.sh` → `sudo systemctl restart tisly-server`
+
+```bash
+cd server && npm run build && npx tsc --noEmit && npm run test && npm run release:gate && npm run deploy:dry-run
+```
+
+---
+
 ## TiSLY Platform — RC2 Pre-Production Deploy Foundation（Phase 1201–1240）
 
 **tisly.jp 本番公開前 — デプロイ・環境変数・権限・テスト・手順書の確立**

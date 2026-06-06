@@ -18,6 +18,7 @@
 <body class="installer-home-body">
   <header class="installer-home-header">
     <h1>TiSLY 施工</h1>
+    <p class="hint">Phase 1681–1720 — 施工員が迷わない縦並びフロー</p>
     <p id="home-customer-code"></p>
     <div id="pwa-install-bar" class="pwa-install-bar" hidden>
       <button type="button" class="btn btn-sm btn-field" id="btn-pwa-install">ホーム画面に追加</button>
@@ -32,83 +33,63 @@
     <button type="button" class="btn btn-field btn-sm" id="btn-offline-flush">同期</button>
     <span id="offline-last-sync" class="last-sync">最終同期: —</span>
   </div>
-  <main class="installer-home-grid">
-    <a class="home-tile" id="tile-today" href="#">
-      <span class="tile-label">今日の作業</span>
-      <span class="tile-value" id="tile-today-value">—</span>
+  <main class="installer-workflow">
+    <a class="workflow-card" id="card-today" href="#">
+      <span class="workflow-step">1</span>
+      <div class="workflow-body">
+        <span class="workflow-label">今日やること</span>
+        <span class="workflow-value" id="tile-today-value">—</span>
+      </div>
     </a>
-    <a class="home-tile" id="tile-incomplete" href="#checklist">
-      <span class="tile-label">未完了</span>
-      <span class="tile-value" id="tile-incomplete-value">—</span>
-    </a>
-    <a class="home-tile" id="tile-photo" href="#">
-      <span class="tile-label">写真不足</span>
-      <span class="tile-value warn" id="tile-photo-value">—</span>
-    </a>
-    <a class="home-tile" id="tile-mqtt-unconfirmed" href="#">
-      <span class="tile-label">MQTT未確認</span>
-      <span class="tile-value warn" id="tile-mqtt-unconfirmed-value">—</span>
-    </a>
-    <a class="home-tile" id="tile-shelly-unconfirmed" href="#">
-      <span class="tile-label">Shelly未確認</span>
-      <span class="tile-value warn" id="tile-shelly-unconfirmed-value">—</span>
-    </a>
-    <a class="home-tile" id="tile-qr" href="#">
-      <span class="tile-label">QR登録</span>
-    </a>
-    <a class="home-tile" id="tile-map" href="#">
-      <span class="tile-label">Map配置</span>
-    </a>
-    <a class="home-tile" id="tile-mqtt" href="#">
-      <span class="tile-label">MQTT診断</span>
-    </a>
-    <a class="home-tile" id="tile-report" href="#">
-      <span class="tile-label">完了レポート</span>
-    </a>
-    <section class="home-tile home-tile-static" aria-label="オフライン同期">
-      <span class="tile-label">オフライン同期</span>
-      <span class="tile-value" id="tile-sync-status">—</span>
-    </section>
-    <section class="home-tile home-tile-static security-link-tile" aria-label="玄関ロック連動">
-      <span class="tile-label">玄関ロック連動</span>
-      <span class="tile-value" id="tile-security-mode">—</span>
-      <p class="tile-hint" id="tile-security-hint">SESAME Face × 自動警戒</p>
-      <a href="/security/settings/automation" class="btn btn-sm btn-field">設定・テスト</a>
-    </section>
-    <section class="field-checklist-section" id="home-standard-section" aria-label="戸建て推奨構成">
-      <h2>戸建て推奨構成</h2>
-      <div class="home-standard-diagram" id="home-standard-diagram">
-        <div class="hsd-row">
-          <span class="hsd-item sesame-face">SESAME Face</span>
-          <span class="hsd-arrow">→</span>
-          <span class="hsd-item sesame-lock">SESAME Lock</span>
-        </div>
-        <div class="hsd-row">
-          <span class="hsd-item tisly-sec">TiSLY Security</span>
-          <span class="hsd-plus">+</span>
-          <span class="hsd-item family-notif">Family Notification</span>
-        </div>
-        <p class="hsd-flow">施錠 + 全員不在 → 警戒ON · Face解錠 → 警戒OFF · 子ども帰宅通知</p>
+    <section class="workflow-card workflow-card-static" id="card-checklist">
+      <span class="workflow-step">2</span>
+      <div class="workflow-body">
+        <span class="workflow-label">施工チェックリスト</span>
+        <ul id="field-checklist-list" class="field-checklist-list"></ul>
       </div>
     </section>
-    <section class="field-checklist-section" id="security-install-section" aria-label="玄関ロック連動テスト">
-      <h2>玄関ロック連動</h2>
-      <ul class="field-checklist-list" id="security-install-list">
-        <li class="checklist-item"><span class="check-label">自動警戒ON</span><span id="install-auto-arm">—</span></li>
-        <li class="checklist-item"><span class="check-label">自動警戒OFF</span><span id="install-auto-disarm">—</span></li>
-        <li class="checklist-item"><span class="check-label">登録端末</span><span id="install-presence-count">—</span></li>
-      </ul>
-      <ol class="install-test-steps">
-        <li>全登録端末を away に設定</li>
-        <li>mock locked イベントを実行</li>
-        <li>delay 後に警戒ONになることを確認</li>
-        <li>mock unlocked で警戒OFFを確認</li>
-      </ol>
-    </section>
-    <section class="field-checklist-section" id="checklist" aria-label="施工チェックリスト">
-      <h2>施工チェックリスト</h2>
-      <ul id="field-checklist-list" class="field-checklist-list"></ul>
-    </section>
+    <a class="workflow-card" id="card-qr" href="#">
+      <span class="workflow-step">3</span>
+      <div class="workflow-body">
+        <span class="workflow-label">QR読取</span>
+        <span class="workflow-hint">機器ラベルをスキャン</span>
+      </div>
+    </a>
+    <a class="workflow-card" id="card-device" href="#">
+      <span class="workflow-step">4</span>
+      <div class="workflow-body">
+        <span class="workflow-label">機器登録</span>
+        <span class="workflow-hint">オンボード・MQTT設定</span>
+      </div>
+    </a>
+    <a class="workflow-card" id="card-photo" href="#">
+      <span class="workflow-step">5</span>
+      <div class="workflow-body">
+        <span class="workflow-label">写真登録</span>
+        <span class="workflow-value warn" id="tile-photo-value">—</span>
+      </div>
+    </a>
+    <a class="workflow-card" id="card-verify" href="#">
+      <span class="workflow-step">6</span>
+      <div class="workflow-body">
+        <span class="workflow-label">動作確認</span>
+        <span class="workflow-hint">MQTT未確認 <span id="tile-mqtt-unconfirmed-value">—</span> · Shelly未確認 <span id="tile-shelly-unconfirmed-value">—</span></span>
+      </div>
+    </a>
+    <a class="workflow-card workflow-card-done" id="card-report" href="#">
+      <span class="workflow-step">7</span>
+      <div class="workflow-body">
+        <span class="workflow-label">完了報告</span>
+        <span class="workflow-hint">作業完了・顧客引渡し</span>
+      </div>
+    </a>
+    <details class="workflow-details">
+      <summary>詳細・ステータス</summary>
+      <div class="workflow-meta">
+        <span>未完了: <strong id="tile-incomplete-value">—</strong></span>
+        <span>同期: <strong id="tile-sync-status">—</strong></span>
+      </div>
+    </details>
   </main>
   <nav class="installer-home-nav">
     <a id="link-full-install" class="btn btn-field" href="#">施工 PWA を開く</a>

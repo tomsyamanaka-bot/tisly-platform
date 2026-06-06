@@ -128,7 +128,7 @@ describe("Phase 1001-1040 First Customer Deployment Kit", () => {
   it("GET /deployment/checklist page", async () => {
     const res = await request(app).get("/deployment/checklist");
     assert.equal(res.status, 200);
-    assert.match(res.text, /導入チェックリスト/);
+    assert.match(res.text, /本番公開チェックリスト/);
   });
 
   it("GET deployment KPI", async () => {

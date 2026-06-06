@@ -1,0 +1,95 @@
+name: TiSLY Deploy
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: tisly-deploy-master
+  cancel-in-progress: true
+
+jobs:
+  release-gate:
+    name: Build · Test · Release Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install dependencies
+        working-directory: server
+        run: npm ci
+
+      - name: Release gate
+        working-directory: server
+        env:
+          NODE_ENV: test
+          JWT_SECRET: ci-release-gate-secret-32chars-ok!!
+          TISLY_DB_PATH: ./data/ci-release-gate.db
+          RATE_LIMIT_PROVIDER: memory
+          MQTT_MODE: mock
+          MQTT_MOCK_MODE: "true"
+          SHELLY_MODE: mock
+          QNAP_MODE: mock
+          QNAP_UPLOAD_MODE: mock
+          GOOGLE_OAUTH_ENABLED: "false"
+          GMAIL_SEND_MODE: mock
+          SWITCHBOT_MODE: mock
+          DB_PROVIDER: sqlite
+          TISLY_DEMO_MODE: "false"
+          DEMO_RESET_ENABLED: "false"
+          INGEST_SECRET: ci-ingest-secret-ok-value
+          TISLY_PUBLIC_URL: https://tisly.jp
+        run: npm run release:gate
+
+      - name: Upload release gate marker
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-gate-marker
+          path: server/data/release-gate-last.json
+          retention-days: 14
+
+  deploy:
+    name: Deploy to ConoHa VPS
+    needs: release-gate
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check deploy secrets
+        id: secrets
+        run: |
+          if [ -z "${{ secrets.VPS_HOST }}" ] || [ -z "${{ secrets.VPS_SSH_KEY }}" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "VPS secrets not configured — deploy skipped (release gate passed)"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy via SSH
+        if: steps.secrets.outputs.skip == 'false'
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER || 'tisly' }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_SSH_PORT || 22 }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd /opt/tisly
+            bash scripts/deploy.sh
+
+      - name: Deploy skipped notice
+        if: steps.secrets.outputs.skip == 'true'
+        run: echo "Deploy skipped — configure VPS_HOST and VPS_SSH_KEY secrets to enable auto deploy"

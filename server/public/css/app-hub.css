@@ -114,6 +114,306 @@
   margin-top: 4px;
 }
 
+/* Phase 1441–1460 — VPS Deploy Status */
+/* Phase 1461–1500 — Deploy Center */
+.deploy-center-card h2 {
+  font-size: 1rem;
+  margin: 0 0 0.5rem;
+  color: #a371f7;
+}
+.deploy-center-status {
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 8px 10px;
+  border-radius: 8px;
+  margin-bottom: 0.75rem;
+}
+.deploy-center-status.deploy-status-success {
+  background: #1a3d2a;
+  color: #3fb950;
+  border: 1px solid #238636;
+}
+.deploy-center-status.deploy-status-fail {
+  background: #3d1a1a;
+  color: #f85149;
+  border: 1px solid #da3633;
+}
+.deploy-center-status.deploy-status-pending,
+.deploy-center-status.deploy-status-warn {
+  background: #3d2e1a;
+  color: #d29922;
+  border: 1px solid #9e6a03;
+}
+.deploy-center-facts {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 0.75rem;
+}
+.deploy-fact {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.8rem;
+  padding: 6px 8px;
+  background: #1c2128;
+  border-radius: 6px;
+}
+.deploy-fact dt {
+  color: #8b949e;
+  margin: 0;
+}
+.deploy-fact dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+  word-break: break-all;
+}
+.deploy-center-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.btn-danger {
+  background: #da3633;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 16px;
+  cursor: pointer;
+}
+.btn-danger:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.version-history-card h2 {
+  font-size: 0.95rem;
+  margin: 0 0 0.5rem;
+  color: #58a6ff;
+}
+.version-history-list {
+  display: grid;
+  gap: 8px;
+}
+.version-history-item {
+  padding: 10px 12px;
+  background: #1c2128;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  font-size: 0.78rem;
+}
+.version-history-item.status-success {
+  border-left: 3px solid #3fb950;
+}
+.version-history-item.status-failed {
+  border-left: 3px solid #f85149;
+}
+.version-history-item.status-rolled_back,
+.version-history-item.status-pending {
+  border-left: 3px solid #d29922;
+}
+.vh-row {
+  margin-bottom: 2px;
+}
+.vh-meta {
+  color: #8b949e;
+  font-size: 0.72rem;
+}
+.vh-badge {
+  font-size: 0.65rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #30363d;
+  margin-left: 6px;
+}
+.vh-msg {
+  color: #8b949e;
+  margin-top: 4px;
+}
+
+.vps-deploy-status-card h2 {
+  font-size: 1rem;
+  margin: 0 0 0.5rem;
+  color: #58a6ff;
+}
+.vps-deploy-verdict {
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 800;
+  margin-bottom: 0.75rem;
+  text-align: center;
+  letter-spacing: 0.04em;
+}
+.vps-deploy-verdict.vps-deploy-pass {
+  background: #23863644;
+  border: 2px solid #3fb950;
+  color: #3fb950;
+}
+.vps-deploy-verdict.vps-deploy-pending {
+  background: #da363344;
+  border: 2px solid #f85149;
+  color: #f85149;
+}
+.vps-deploy-grid {
+  display: grid;
+  gap: 6px;
+}
+.vps-deploy-item {
+  display: grid;
+  grid-template-columns: 1.2rem auto 1fr;
+  gap: 8px;
+  align-items: start;
+  padding: 8px 10px;
+  background: #1c2128;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  border-left: 3px solid #30363d;
+}
+.vps-deploy-item.vps-pass {
+  border-left-color: #3fb950;
+}
+.vps-deploy-item.vps-warn {
+  border-left-color: #d29922;
+}
+.vps-deploy-item.vps-fail {
+  border-left-color: #f85149;
+}
+.vps-deploy-icon {
+  font-weight: 700;
+  color: #3fb950;
+}
+.vps-deploy-item.vps-fail .vps-deploy-icon {
+  color: #f85149;
+}
+.vps-deploy-item.vps-warn .vps-deploy-icon {
+  color: #d29922;
+}
+.vps-deploy-label {
+  font-weight: 700;
+  white-space: nowrap;
+}
+.vps-deploy-msg {
+  color: #8b949e;
+  word-break: break-all;
+}
+
+/* Phase 1441–1460 — バージョン表示（右下固定） */
+.app-version-footer {
+  position: fixed;
+  right: 10px;
+  bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 8px 10px;
+  background: #161b22ee;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  font-size: 0.65rem;
+  color: #8b949e;
+  z-index: 100;
+  pointer-events: none;
+  line-height: 1.35;
+}
+.app-version-footer .version-label {
+  font-weight: 700;
+  color: #58a6ff;
+  font-size: 0.72rem;
+}
+
+/* Phase 1581–1620 — Production Deployment Rehearsal */
+.rehearsal-summary-card h2 {
+  font-size: 1rem;
+  margin: 0 0 0.25rem;
+  color: #58a6ff;
+}
+.rehearsal-score-verdict {
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 0.75rem;
+}
+.rehearsal-score-verdict.rehearsal-ready {
+  background: #23863633;
+  border: 2px solid #3fb950;
+  color: #3fb950;
+}
+.rehearsal-score-verdict.rehearsal-not-ready {
+  background: #da363333;
+  border: 2px solid #f85149;
+  color: #f85149;
+}
+.rehearsal-score-display {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 0.75rem;
+}
+.rehearsal-cat {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  border: 1px solid #30363d;
+  background: #1c2128;
+}
+.rehearsal-cat.cat-pass {
+  border-color: #3fb95055;
+}
+.rehearsal-cat.cat-warn {
+  border-color: #d2992255;
+}
+.rehearsal-cat.cat-fail {
+  border-color: #f8514955;
+}
+.rehearsal-cat-label {
+  font-weight: 700;
+}
+.rehearsal-cat-score {
+  color: #8b949e;
+}
+.rehearsal-summary-grid {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 0.75rem;
+}
+.rehearsal-summary-item {
+  display: grid;
+  grid-template-columns: 7rem 1fr;
+  gap: 8px;
+  padding: 8px 10px;
+  background: #1c2128;
+  border-radius: 6px;
+  font-size: 0.72rem;
+}
+.rehearsal-summary-label {
+  font-weight: 700;
+  color: #58a6ff;
+}
+.rehearsal-summary-msg {
+  color: #8b949e;
+  word-break: break-all;
+}
+.rehearsal-ng-list {
+  font-size: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+.rehearsal-ng-list h3 {
+  font-size: 0.8rem;
+  margin: 0 0 0.35rem;
+  color: #f85149;
+}
+.rehearsal-ng-list ul {
+  margin: 0;
+  padding-left: 1.2rem;
+  color: #8b949e;
+}
+
 /* Phase 1381–1400 — Production Readiness */
 .production-readiness-card h2 {
   font-size: 1rem;

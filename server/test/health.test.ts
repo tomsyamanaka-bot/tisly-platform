@@ -23,13 +23,18 @@ describe("Health API extended (Phase 221-240)", () => {
     assert.ok(res.body.disk);
     assert.ok(res.body.memory);
     assert.ok(Array.isArray(res.body.infrastructure));
-    assert.equal(res.body.phase, "421-440-first-device-commissioning");
+    assert.equal(res.body.phase, "1461-1500-conoha-vps-auto-deploy");
+    assert.ok(res.body.buildVersion);
+    assert.ok(typeof res.body.uptime === "number");
+    assert.ok(res.body.database);
+    assert.ok(res.body.websocket);
+    assert.ok(res.body.productionUrl);
   });
 
   it("GET /health reflects new phase", async () => {
     const res = await request(app).get("/health");
     assert.equal(res.status, 200);
-    assert.equal(res.body.phase, "421-440-first-device-commissioning");
+    assert.equal(res.body.phase, "1461-1500-conoha-vps-auto-deploy");
     assert.ok(res.body.features.includes("totp-2fa-otplib"));
   });
 

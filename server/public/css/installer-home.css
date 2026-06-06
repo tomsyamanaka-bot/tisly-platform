@@ -23,13 +23,53 @@
   font-size: 13px;
   color: #58a6ff;
 }
-.installer-home-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+.installer-home-grid,
+.installer-workflow {
+  display: flex;
+  flex-direction: column;
   gap: 10px;
   padding: 1rem;
   max-width: 480px;
   margin: 0 auto;
+}
+.workflow-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 12px;
+  text-decoration: none;
+  color: inherit;
+  min-height: 64px;
+}
+.workflow-card-static { cursor: default; }
+.workflow-card-done { border-left: 4px solid #3fb950; }
+.workflow-step {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #1f6feb;
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.workflow-body { flex: 1; min-width: 0; }
+.workflow-label { display: block; font-size: 1rem; font-weight: 600; }
+.workflow-value { display: block; font-size: 1.1rem; color: #3fb950; margin-top: 4px; }
+.workflow-value.warn { color: #d29922; }
+.workflow-hint { display: block; font-size: 0.8rem; color: #8b949e; margin-top: 4px; }
+.workflow-details { padding: 0 0.25rem; font-size: 0.85rem; color: #8b949e; }
+.workflow-meta { display: flex; gap: 1rem; margin-top: 0.5rem; }
+.installer-home-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
 }
 .home-tile {
   display: flex;

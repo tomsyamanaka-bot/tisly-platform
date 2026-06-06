@@ -43,6 +43,87 @@ function updateOfflineBadge() {
   if (el) el.textContent = q.length ? `未同期 ${q.length} 件` : "";
 }
 
+function setGpsStatus(state, text) {
+  const pill = document.getElementById("survey-gps-pill");
+  const gpsEl = document.getElementById("survey-gps");
+  if (pill) pill.className = `survey-gps-pill gps-${state}`;
+  if (gpsEl) gpsEl.textContent = text;
+}
+
+let activePhotoCategory = "outside";
+
+const CATEGORY_INPUT_MAP = {
+  outside: "survey-exterior",
+  inside: "survey-interior",
+  drawing: "survey-sketch",
+  electrical: "survey-electrical",
+  network: "survey-network",
+  camera: "survey-camera",
+  sensor: "survey-sensor",
+};
+
+const CATEGORY_LABELS = {
+  outside: "外観",
+  inside: "室内",
+  drawing: "図面",
+  electrical: "電気",
+  network: "LAN",
+  camera: "カメラ",
+  sensor: "センサー",
+};
+
+function initCategoryBar() {
+  document.querySelectorAll(".cat-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      activePhotoCategory = btn.dataset.cat || "outside";
+      document.querySelectorAll(".cat-btn").forEach((b) => b.classList.toggle("active", b === btn));
+    });
+  });
+  document.getElementById("btn-survey-photo-add")?.addEventListener("click", () => {
+    const inputId = CATEGORY_INPUT_MAP[activePhotoCategory];
+    if (activePhotoCategory === "drawing") {
+      document.getElementById("survey-sketch")?.click();
+      return;
+    }
+    document.getElementById(inputId || "survey-photo-picker")?.click();
+  });
+  document.getElementById("btn-survey-sketch-upload")?.addEventListener("click", () => {
+    document.getElementById("survey-sketch")?.click();
+  });
+  document.getElementById("survey-photo-picker")?.addEventListener("change", async (ev) => {
+    const files = [...(ev.target.files || [])];
+    if (!files.length) return;
+    try {
+      await uploadBulkPhotos(files, activePhotoCategory === "drawing" ? "drawing" : activePhotoCategory);
+      alert(`${files.length} 枚（${CATEGORY_LABELS[activePhotoCategory] || activePhotoCategory}）を保存`);
+    } catch {
+      alert("写真アップロードに失敗しました");
+    }
+    ev.target.value = "";
+  });
+}
+
+async function startNewSurveyCase() {
+  activeProjectId = "";
+  localStorage.removeItem("tisly_survey_active_project");
+  document.getElementById("survey-project-id").textContent = "新規作成中…";
+  document.getElementById("survey-case-name").value = "";
+  document.getElementById("survey-address").value = "";
+  document.getElementById("survey-memo").value = "";
+  document.getElementById("survey-photo-list").innerHTML = "";
+  document.getElementById("survey-business-link").textContent = "";
+  setGpsStatus("wait", "GPS: 取得中…");
+  try {
+    await ensureProject();
+    document.getElementById("survey-project-id").textContent = activeProjectId;
+    autoGpsOnLoad();
+    alert("新規現調を開始しました");
+  } catch {
+    alert("新規現調の作成にはログインが必要です");
+    setGpsStatus("off", "GPS: 未取得");
+  }
+}
+
 async function flushOfflineQueue() {
   if (!navigator.onLine) return;
   const q = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || "[]");
@@ -137,7 +218,7 @@ async function applyGpsPosition(pos, opts = {}) {
   const body = { gpsLat: pos.coords.latitude, gpsLng: pos.coords.longitude };
   try {
     await api(`/api/survey/projects/${pid}`, { method: "PATCH", body: JSON.stringify(body) });
-    document.getElementById("survey-gps").textContent = `${body.gpsLat.toFixed(5)}, ${body.gpsLng.toFixed(5)}`;
+    let gpsText = `${body.gpsLat.toFixed(5)}, ${body.gpsLng.toFixed(5)}`;
     if (opts.reverseGeocode) {
       const geo = await api("/api/survey/reverse-geocode", {
         method: "POST",
@@ -145,11 +226,12 @@ async function applyGpsPosition(pos, opts = {}) {
       });
       const addrEl = document.getElementById("survey-address");
       if (addrEl) addrEl.value = geo.address;
-      document.getElementById("survey-gps").textContent += ` — ${geo.address}`;
+      gpsText += ` — ${geo.address}`;
     }
+    setGpsStatus("ok", `GPS: ${gpsText}`);
   } catch {
     queueOffline({ type: "gps", projectId: pid, gpsLat: body.gpsLat, gpsLng: body.gpsLng });
-    document.getElementById("survey-gps").textContent = "オフライン保存待ち";
+    setGpsStatus("wait", "GPS: オフライン保存待ち");
   }
 }
 
@@ -531,7 +613,11 @@ document.getElementById("btn-survey-sketch-save")?.addEventListener("click", asy
   alert("手書きメモを保存しました");
 });
 document.getElementById("btn-survey-ai-v4")?.addEventListener("click", () => runAiV4().catch((e) => alert(e.message)));
+document.getElementById("btn-survey-ai-estimate")?.addEventListener("click", () => runAiV4().catch((e) => alert(e.message)));
+document.getElementById("btn-survey-new-case")?.addEventListener("click", () => startNewSurveyCase());
+initCategoryBar();
 initSketchCanvas();
+setGpsStatus("off", "GPS: 未取得");
 document.getElementById("btn-survey-checklist")?.addEventListener("click", () =>
   saveChecklist().then(() => alert("チェックリスト保存"))
 );
@@ -568,16 +654,54 @@ document.getElementById("survey-sketch")?.addEventListener("change", async (ev) 
   ev.target.value = "";
 });
 
+async function linkBusinessProject() {
+  if (!activeProjectId) return;
+  try {
+    const data = await api(`/api/field-operations/survey/${activeProjectId}/business-link`);
+    const el = document.getElementById("survey-business-link");
+    if (!el) return;
+    if (data.businessProjectId) {
+      el.innerHTML = `案件紐付け: <a href="/project/${data.businessProjectId}">${data.businessProjectId}</a>`;
+    } else {
+      el.textContent = "案件未紐付け — Business から現調取込を実行";
+    }
+  } catch {
+    /* */
+  }
+}
+
+function initFromUrl() {
+  const params = new URLSearchParams(location.search);
+  const pid = params.get("projectId");
+  if (pid) {
+    activeProjectId = pid;
+    localStorage.setItem("tisly_survey_active_project", pid);
+    document.getElementById("survey-project-id").textContent = pid;
+  }
+}
+
+function autoGpsOnLoad() {
+  if (!navigator.geolocation || !sessionStorage.getItem(TOKEN_KEY)) return;
+  navigator.geolocation.getCurrentPosition(
+    (pos) => applyGpsPosition(pos, { reverseGeocode: true }),
+    () => {},
+    { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
+  );
+}
+
 renderPwaTopbar("survey", "現調");
 guardSurveyAccess().then(() => {
+  initFromUrl();
   if (activeProjectId) {
     document.getElementById("survey-project-id").textContent = activeProjectId;
     loadChecklist();
     refreshPhotoList();
     refreshAudioList();
     refreshSketchList();
+    linkBusinessProject();
   }
   updateOfflineBadge();
   flushOfflineQueue();
+  autoGpsOnLoad();
 });
 window.addEventListener("online", flushOfflineQueue);

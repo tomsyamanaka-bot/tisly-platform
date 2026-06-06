@@ -180,6 +180,7 @@ export function runMigrations(database: Database.Database): void {
   migratePhase1161(database);
   migratePhase1321(database);
   migratePhase1361(database);
+  migratePhase1621(database);
 }
 
 const CUSTOMER_INVITE_COLUMNS: Array<{ name: string; ddl: string }> = [
@@ -682,6 +683,38 @@ function migratePhase1361(database: Database.Database): void {
     .run(
       "migration:phase1361_lock_provider",
       JSON.stringify({ at: new Date().toISOString(), phase: "1361-1380" })
+    );
+}
+
+function migratePhase1621(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:phase1621_field_operations") as { value_json: string } | undefined;
+  if (marker) return;
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS maintenance_replacement_parts (
+      part_id TEXT PRIMARY KEY,
+      report_id TEXT NOT NULL,
+      customer_code TEXT NOT NULL,
+      part_name TEXT NOT NULL,
+      quantity REAL NOT NULL DEFAULT 1,
+      unit TEXT NOT NULL DEFAULT '個',
+      notes TEXT,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (report_id) REFERENCES maintenance_reports(report_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_maint_parts_report ON maintenance_replacement_parts(report_id);
+    CREATE INDEX IF NOT EXISTS idx_maint_parts_customer ON maintenance_replacement_parts(customer_code);
+  `);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run(
+      "migration:phase1621_field_operations",
+      JSON.stringify({ at: new Date().toISOString(), phase: "1621-1680" })
     );
 }
 

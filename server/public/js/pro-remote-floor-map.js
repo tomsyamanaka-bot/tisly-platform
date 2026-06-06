@@ -180,6 +180,29 @@ function renderLayer(layer) {
   canvas.appendChild(plan);
   section.appendChild(canvas);
 
+  if (layer.fieldMedia?.length) {
+    const mediaBar = document.createElement("div");
+    mediaBar.className = "floor-map-field-media";
+    for (const m of layer.fieldMedia.slice(0, 6)) {
+      const thumb = document.createElement("button");
+      thumb.type = "button";
+      thumb.className = "floor-map-media-thumb";
+      thumb.title = `${m.source}: ${m.label}`;
+      const img = document.createElement("img");
+      img.src = m.url;
+      img.alt = m.label;
+      img.loading = "lazy";
+      thumb.appendChild(img);
+      const badge = document.createElement("span");
+      badge.className = "floor-map-media-badge";
+      badge.textContent = m.source === "drawing" ? "図" : m.source === "install" ? "施" : "調";
+      thumb.appendChild(badge);
+      thumb.addEventListener("click", () => window.open(m.url, "_blank"));
+      mediaBar.appendChild(thumb);
+    }
+    section.appendChild(mediaBar);
+  }
+
   plan.addEventListener("click", async (ev) => {
     if (ev.target.closest(".floor-map-pin")) return;
     if (!ev.target.classList.contains("floor-map-plan") && !ev.target.classList.contains("floor-map-image") && !ev.target.classList.contains("floor-map-placeholder") && !ev.target.closest(".floor-map-zoom-inner")) return;
