@@ -4,18 +4,21 @@ import {
   setCustomerToken,
   clearCustomerToken,
 } from "./customer-auth.js";
-import { renderPwaTopbar } from "./tisly-pwa-shell.js";
+import { renderPwaTopbar, setPwaTopbarVisible } from "./tisly-pwa-shell.js";
 
 const customerCode = customerCodeFromPath();
 
 const loginPanel = document.getElementById("login-panel");
 const portalHub = document.getElementById("portal-hub");
 const loginError = document.getElementById("login-error");
+const loginStatus = document.getElementById("login-status");
+const loginForm = document.getElementById("login-form");
 const portalNav = document.getElementById("portal-nav");
 const portalAdvanced = document.getElementById("portal-advanced");
 
 let portalData = null;
 let currentUserRole = "viewer";
+let loginBusy = false;
 
 document.getElementById("login-customer-code").value = customerCode;
 document.getElementById("demo-user-hint").textContent = `${customerCode.toLowerCase()}.owner`;
@@ -37,6 +40,8 @@ function showLogin() {
   portalHub.hidden = true;
   portalNav.hidden = true;
   portalAdvanced.hidden = true;
+  setPwaTopbarVisible(false);
+  if (loginStatus) loginStatus.textContent = "";
 }
 
 function showHub() {
@@ -46,6 +51,8 @@ function showHub() {
   portalAdvanced.hidden = false;
   document.getElementById("portal-section-view").hidden = true;
   document.getElementById("portal-hub-cards").hidden = false;
+  wirePortalNav();
+  renderPwaTopbar("customer_portal", "顧客ポータル");
 }
 
 function applyBranding(branding, customer) {
@@ -60,6 +67,14 @@ function applyBranding(branding, customer) {
   }
 }
 
+function wirePortalNav() {
+  const base = `/customer/${customerCode}`;
+  document.getElementById("nav-map")?.setAttribute("href", `${base}/map`);
+  document.getElementById("nav-install")?.setAttribute("href", `${base}/install/home`);
+  document.getElementById("nav-tv")?.setAttribute("href", `/tv/${customerCode}`);
+  document.getElementById("nav-admin")?.setAttribute("href", `/admin/${customerCode}`);
+}
+
 function wireHubLinks() {
   const base = `/customer/${customerCode}`;
   document.getElementById("card-overview").href = `${base}/overview`;
@@ -72,24 +87,38 @@ function wireHubLinks() {
   document.getElementById("link-map-inline")?.setAttribute("href", `${base}/map`);
 }
 
-document.getElementById("btn-login")?.addEventListener("click", async () => {
-  loginError.textContent = "";
+function setLoginStatus(msg) {
+  if (loginStatus) loginStatus.textContent = msg;
+}
+
+async function performLogin() {
+  if (loginBusy) return;
+  loginBusy = true;
+  const btn = document.getElementById("btn-login");
+  if (btn) btn.disabled = true;
+  if (loginError) loginError.textContent = "";
+  setLoginStatus("通信を開始しています…");
+  const username = document.getElementById("login-username")?.value.trim() ?? "";
+  const password = document.getElementById("login-password")?.value ?? "";
+  const payload = { customerCode, username, password };
+  console.log("[customer-portal] login start", { customerCode, username });
   try {
     const res = await fetch("/api/auth/customer/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        customerCode,
-        username: document.getElementById("login-username").value.trim(),
-        password: document.getElementById("login-password").value,
-      }),
+      body: JSON.stringify(payload),
     });
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      loginError.textContent =
-        data.error + (data.failedAttempts ? ` (失敗 ${data.failedAttempts} 回)` : "");
+      const reason = data.error ?? res.statusText ?? "不明なエラー";
+      const extra = data.failedAttempts ? ` (失敗 ${data.failedAttempts} 回)` : "";
+      const msg = `ログイン失敗：${reason}${extra}`;
+      if (loginError) loginError.textContent = msg;
+      setLoginStatus("");
+      console.error("[customer-portal] login failed", { status: res.status, data });
       return;
     }
+    setLoginStatus("ログイン成功 — 遷移中…");
     setAdminToken(data.token);
     setCustomerToken(data.token, customerCode);
     currentUserRole = data.user?.role ?? "viewer";
@@ -98,10 +127,26 @@ document.getElementById("btn-login")?.addEventListener("click", async () => {
       location.href = ret;
       return;
     }
-    await showDashboard();
+    location.replace(`/customer/${customerCode}`);
   } catch (e) {
-    loginError.textContent = String(e);
+    const msg = `ログイン失敗：${String(e)}`;
+    if (loginError) loginError.textContent = msg;
+    setLoginStatus("");
+    console.error("[customer-portal] login error", e);
+  } finally {
+    loginBusy = false;
+    if (btn) btn.disabled = false;
   }
+}
+
+loginForm?.addEventListener("submit", (e) => {
+  e.preventDefault();
+  performLogin();
+});
+
+document.getElementById("btn-login")?.addEventListener("click", (e) => {
+  e.preventDefault();
+  performLogin();
 });
 
 document.getElementById("btn-logout")?.addEventListener("click", () => {
@@ -110,6 +155,8 @@ document.getElementById("btn-logout")?.addEventListener("click", () => {
   portalData = null;
   showLogin();
   history.replaceState(null, "", `/customer/${customerCode}`);
+  if (loginError) loginError.textContent = "";
+  setLoginStatus("");
 });
 
 document.getElementById("btn-section-back")?.addEventListener("click", () => {
@@ -440,4 +487,3 @@ if (getAdminToken()) {
 
 const man = document.getElementById("customer-portal-manifest");
 if (man && customerCode) man.href = `/customer/${customerCode}/manifest.webmanifest`;
-renderPwaTopbar("customer_portal", "顧客ポータル");

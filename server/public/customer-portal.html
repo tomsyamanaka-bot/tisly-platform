@@ -26,6 +26,10 @@
       </div>
     </div>
     <nav class="portal-nav" id="portal-nav" hidden>
+      <a id="nav-map" href="#">Map Editor</a>
+      <a id="nav-install" href="#">施工</a>
+      <a id="nav-tv" href="#">TV</a>
+      <a id="nav-admin" href="#">管理</a>
       <button type="button" class="btn secondary btn-portal-logout" id="btn-logout">ログアウト</button>
     </nav>
   </header>
@@ -33,18 +37,21 @@
   <section id="login-panel" class="card login-card">
     <h2>顧客ログイン</h2>
     <p id="login-required-msg" class="login-required-msg" hidden>ログインが必要です</p>
-    <label class="login-field">顧客コード
-      <input id="login-customer-code" readonly autocomplete="organization" />
-    </label>
-    <label class="login-field">ユーザー名
-      <input id="login-username" autocomplete="username" inputmode="email" />
-    </label>
-    <label class="login-field">パスワード
-      <input id="login-password" type="password" autocomplete="current-password" />
-    </label>
-    <p class="hint demo-hint">デモ: ユーザー名 <code id="demo-user-hint">toms001.owner</code> / パスワード <code>demo-remote-2026</code></p>
-    <button type="button" class="btn btn-login-touch" id="btn-login">ログイン</button>
-    <p id="login-error" class="error"></p>
+    <form id="login-form" class="login-form" action="#" method="post" novalidate>
+      <label class="login-field">顧客コード
+        <input id="login-customer-code" readonly autocomplete="organization" />
+      </label>
+      <label class="login-field">ユーザー名
+        <input id="login-username" autocomplete="username" inputmode="email" required />
+      </label>
+      <label class="login-field">パスワード
+        <input id="login-password" type="password" autocomplete="current-password" required />
+      </label>
+      <p class="hint demo-hint">デモ: ユーザー名 <code id="demo-user-hint">toms001.owner</code> / パスワード <code>demo-remote-2026</code></p>
+      <button type="submit" class="btn btn-login-touch" id="btn-login">ログイン</button>
+      <p id="login-status" class="login-status" aria-live="polite"></p>
+      <p id="login-error" class="error" role="alert"></p>
+    </form>
   </section>
 
   <main id="portal-hub" hidden>

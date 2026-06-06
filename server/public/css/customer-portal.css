@@ -73,9 +73,41 @@
   margin: 0;
 }
 
+.portal-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.portal-nav[hidden] {
+  display: none !important;
+}
+
+.portal-nav a {
+  color: #fff;
+  text-decoration: none;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.15);
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.9rem;
+}
+
+.portal-nav a:hover,
+.portal-nav a:focus {
+  background: rgba(255, 255, 255, 0.28);
+}
+
 .portal-nav .btn-portal-logout {
   min-height: 44px;
   min-width: 44px;
+}
+
+#tisly-pwa-topbar-root[hidden] {
+  display: none !important;
 }
 
 .status-banner {
@@ -95,6 +127,13 @@
   margin: 1.5rem auto;
   padding: 1.25rem;
   box-sizing: border-box;
+  position: relative;
+  z-index: 10;
+}
+
+.login-form {
+  position: relative;
+  z-index: 20;
 }
 
 .login-field {
@@ -126,9 +165,19 @@
   min-height: 48px;
   font-size: 1rem;
   margin-top: 0.5rem;
+  pointer-events: auto;
+  cursor: pointer;
+  position: relative;
+  z-index: 21;
 }
 
 .login-card .error { color: #b91c1c; }
+.login-status {
+  color: #475569;
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+  min-height: 1.25rem;
+}
 .login-required-msg {
   color: #b45309;
   background: #fffbeb;

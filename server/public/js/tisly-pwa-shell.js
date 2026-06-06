@@ -127,9 +127,21 @@ export function wireSwitcherToggle() {
   });
 }
 
+export function setPwaTopbarVisible(visible) {
+  const root = document.getElementById("tisly-pwa-topbar-root");
+  if (!root) return;
+  if (visible) {
+    root.removeAttribute("hidden");
+  } else {
+    root.setAttribute("hidden", "");
+    root.innerHTML = "";
+  }
+}
+
 export function renderPwaTopbar(currentApp, title) {
   const root = document.getElementById("tisly-pwa-topbar-root");
   if (!root) return;
+  root.removeAttribute("hidden");
   root.innerHTML = `
     <nav class="tisly-pwa-topbar" aria-label="TiSLY PWA">
       <a class="brand-link" href="/app">TiSLY</a>
