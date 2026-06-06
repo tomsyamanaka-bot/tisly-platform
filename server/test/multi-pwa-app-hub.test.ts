@@ -93,6 +93,52 @@ describe("Phase 461-480 multi PWA app hub", () => {
     assert.equal(ids.length, 7);
   });
 
+  it("admin hub shows notification menu links", async () => {
+    const res = await request(app)
+      .get("/api/pwa/hub")
+      .set("Authorization", `Bearer ${adminToken}`);
+    assert.equal(res.status, 200);
+    const ids = (res.body.notifications || []).map((n: { id: string }) => n.id);
+    assert.deepEqual(ids, ["notification_center", "push_register", "notification_test"]);
+    const hrefs = (res.body.notifications || []).map((n: { href: string }) => n.href);
+    assert.ok(hrefs.includes("/app/notifications"));
+    assert.ok(hrefs.includes("/app/push"));
+    assert.ok(hrefs.includes("/app/push#notification-test"));
+  });
+
+  it("installer hub hides notification menu links", async () => {
+    const res = await request(app)
+      .get("/api/pwa/hub")
+      .set("Authorization", `Bearer ${installerToken}`);
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body.notifications || [], []);
+  });
+
+  it("serves Phase2001 hex shield icons", async () => {
+    for (const size of [64, 128, 192, 256, 384, 512]) {
+      const res = await request(app).get(`/icons/icon-${size}.png`);
+      assert.equal(res.status, 200, `icon-${size}.png`);
+      assert.ok(res.headers["content-type"]?.includes("image"));
+    }
+    const manifest = await request(app).get("/manifest.webmanifest");
+    const sizes = (manifest.body.icons || []).map((i: { sizes: string }) => i.sizes);
+    assert.ok(sizes.includes("64x64"));
+    assert.ok(sizes.includes("512x512"));
+  });
+
+  it("serves RC2 push and notification PWA pages", async () => {
+    const push = await request(app).get("/app/push");
+    assert.equal(push.status, 200);
+    assert.ok(push.text.includes("btn-push-register"));
+    assert.ok(push.text.includes("status-sw-registration"));
+    assert.ok(push.text.includes("apple-mobile-web-app-capable"));
+    assert.ok(push.text.includes("ios-pwa-guide"));
+    const notif = await request(app).get("/app/notifications");
+    assert.equal(notif.status, 200);
+    assert.ok(notif.text.includes("通知センター"));
+    assert.ok(notif.text.includes("hub-notif-nav"));
+  });
+
   it("serves PWA manifests", async () => {
     for (const path of [
       "/manifest-survey.webmanifest",
@@ -117,7 +163,7 @@ describe("Phase 461-480 multi PWA app hub", () => {
     assert.equal(off.status, 200);
     assert.ok(off.text.includes("オフライン"));
     const sw = await request(app).get("/service-worker.js");
-    assert.ok(sw.text.includes("tisly-pwa-v1041"));
+    assert.ok(sw.text.includes("tisly-pwa-v2001"));
   });
 
   it("unauthorized PWA access returns 403", async () => {

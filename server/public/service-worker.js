@@ -1,7 +1,7 @@
-/* TiSLY Multi PWA — Phase 701 shared cache strategy */
-const SW_VERSION = "tisly-pwa-v1041";
-const OFFLINE_CACHE = "tisly-pwa-shell-v1041";
-const PRIORITY_CACHE = "tisly-pwa-priority-v1041";
+/* TiSLY Multi PWA — Phase 2001 hex shield icon + push navigation */
+const SW_VERSION = "tisly-pwa-v2001";
+const OFFLINE_CACHE = "tisly-pwa-shell-v2001";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2001";
 const SHELL_URLS = [
   "/customer/new",
   "/customer-new.html",
@@ -66,6 +66,11 @@ const SHELL_URLS = [
   "/js/installer-i18n.js",
   "/js/tisly-pwa-shell.js",
   "/js/app-hub.js",
+  "/app-push.html",
+  "/app-notifications.html",
+  "/js/app-push.js",
+  "/js/app-notifications.js",
+  "/js/push.js",
   "/js/project-dashboard.js",
   "/js/business-kpi.js",
   "/js/customer-master.js",
@@ -75,7 +80,11 @@ const SHELL_URLS = [
   "/js/pro-remote-floor-map.js",
   "/css/pro-remote-floor-map.css",
   "/js/api.js",
+  "/icons/icon-64.png",
+  "/icons/icon-128.png",
   "/icons/icon-192.png",
+  "/icons/icon-256.png",
+  "/icons/icon-384.png",
   "/icons/icon-512.png",
   "/manifest-installer.webmanifest",
   "/manifest-survey.webmanifest",
@@ -173,7 +182,7 @@ self.addEventListener("message", (event) => {
 });
 
 self.addEventListener("push", (event) => {
-  let data = { title: "TiSLY", body: "", url: "/notifications" };
+  let data = { title: "TiSLY", body: "", url: "/app/notifications" };
   try {
     if (event.data) data = { ...data, ...event.data.json() };
   } catch {
@@ -191,6 +200,6 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url = event.notification.data?.url ?? "/notifications";
+  const url = event.notification.data?.url ?? "/app/notifications";
   event.waitUntil(clients.openWindow(url));
 });

@@ -88,6 +88,11 @@ export async function loadPwaSwitcher(currentApp) {
     if (data.customerCode) sessionStorage.setItem("tisly_customer_code", data.customerCode);
     const items = [
       { id: "hub", label: "App Hub", url: "/app" },
+      ...(data.notifications || []).map((n) => ({
+        id: n.id,
+        label: n.label,
+        url: n.href,
+      })),
       ...(data.apps || []),
     ];
     menu.innerHTML = items

@@ -1,5 +1,5 @@
 /* TOMS Business PWA — offline shell (Phase541–560) */
-const CACHE = "tisly-business-v541";
+const CACHE = "tisly-business-v2001";
 const PRECACHE = ["/business", "/css/business.css", "/css/tisly-pwa-shell.css", "/js/business.js"];
 
 self.addEventListener("install", (event) => {

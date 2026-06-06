@@ -118,7 +118,7 @@ export class NotificationService {
       body: `${enriched.body ?? ""} (Risk: ${analytics.riskScore})`.trim(),
       eventType: enriched.eventType,
       deviceId: enriched.deviceId,
-      url: `${config.publicUrl}/notifications`,
+      url: `${config.publicUrl}/app/notifications`,
       data: { ...enriched.payload, aiPriority: analytics.priority, riskScore: analytics.riskScore },
     };
 

@@ -15,6 +15,7 @@ import { devicesRouter } from "./api/routes/devices.js";
 import { eventsRouter } from "./api/routes/events.js";
 import { heartbeatRouter } from "./api/routes/heartbeat.js";
 import { notificationsRouter } from "./api/routes/notifications.js";
+import { PWA_MANIFEST_ICONS } from "./pwa/pwa-manifest-icons.js";
 import { qnapRouter } from "./api/routes/qnap.js";
 import { recoveryRouter } from "./api/routes/recovery.js";
 import { settingsRouter } from "./api/routes/settings.js";
@@ -200,10 +201,7 @@ export function createApp(): express.Application {
           background_color: "#0d1117",
           theme_color: "#1a7f37",
           orientation: "portrait-primary",
-          icons: [
-            { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
-            { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" },
-          ],
+          icons: [...PWA_MANIFEST_ICONS],
         },
         null,
         2
@@ -215,6 +213,12 @@ export function createApp(): express.Application {
   });
   app.get("/app", (_req, res) => {
     res.sendFile(path.join(publicDir, "app-hub.html"));
+  });
+  app.get("/app/push", (_req, res) => {
+    res.sendFile(path.join(publicDir, "app-push.html"));
+  });
+  app.get("/app/notifications", (_req, res) => {
+    res.sendFile(path.join(publicDir, "app-notifications.html"));
   });
   app.get("/app/version", (_req, res) => {
     res.sendFile(path.join(publicDir, "app-version.html"));
@@ -318,10 +322,7 @@ export function createApp(): express.Application {
           background_color: "#0f172a",
           theme_color: "#0ea5e9",
           orientation: "any",
-          icons: [
-            { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
-            { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" },
-          ],
+          icons: [...PWA_MANIFEST_ICONS],
         },
         null,
         2
@@ -343,10 +344,7 @@ export function createApp(): express.Application {
           background_color: "#0f172a",
           theme_color: "#7c3aed",
           orientation: "any",
-          icons: [
-            { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
-            { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" },
-          ],
+          icons: [...PWA_MANIFEST_ICONS],
         },
         null,
         2

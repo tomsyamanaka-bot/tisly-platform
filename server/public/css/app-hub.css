@@ -657,3 +657,148 @@
 .mock-real-chip.mode-real {
   color: #f85149;
 }
+
+.hub-notif-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.hub-notif-nav a {
+  font-size: 0.8rem;
+  color: #58a6ff;
+  text-decoration: none;
+  padding: 6px 10px;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  background: #21262d;
+}
+.hub-notif-nav a[aria-current="page"] {
+  border-color: #58a6ff;
+  font-weight: 700;
+}
+.hub-notif-card .label::before {
+  content: "🔔 ";
+}
+
+.push-status-dl {
+  margin: 0 0 12px;
+  font-size: 0.85rem;
+}
+.push-status-dl dt {
+  color: #8b949e;
+  margin-top: 8px;
+}
+.push-status-dl dd {
+  margin: 2px 0 0;
+  word-break: break-all;
+}
+.push-status-dl .status-ok {
+  color: #3fb950;
+}
+.push-status-dl .status-ng {
+  color: #f85149;
+}
+
+.push-msg {
+  margin-top: 10px;
+  font-size: 0.85rem;
+  min-height: 1.2em;
+}
+.push-msg.ok {
+  color: #3fb950;
+}
+.push-msg.err {
+  color: #f85149;
+}
+
+.btn-secondary {
+  background: #21262d;
+  color: #e6edf3;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 10px 16px;
+  cursor: pointer;
+  width: 100%;
+  margin-top: 6px;
+}
+
+.notif-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.notif-filters input,
+.notif-filters select {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 4px;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #30363d;
+  background: #0d1117;
+  color: #e6edf3;
+}
+.notif-filter-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.notif-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.notif-item {
+  padding: 10px;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  background: #21262d;
+}
+.notif-item.unread {
+  border-color: #58a6ff;
+}
+.notif-item-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: #8b949e;
+}
+.notif-title {
+  font-weight: 600;
+  margin-top: 4px;
+}
+.notif-meta {
+  font-size: 0.75rem;
+  color: #8b949e;
+  margin-top: 4px;
+}
+.notif-badge.status-ok {
+  color: #3fb950;
+}
+.notif-badge.status-ng {
+  color: #f85149;
+}
+.notif-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.notif-actions .btn-secondary {
+  width: auto;
+  margin-top: 0;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+}
+.ios-pwa-steps {
+  margin: 0.5rem 0 0;
+  padding-left: 1.25rem;
+  line-height: 1.6;
+}
+.ios-pwa-steps li + li {
+  margin-top: 0.35rem;
+}
+.push-unsupported-card {
+  border-left: 4px solid #f85149;
+}

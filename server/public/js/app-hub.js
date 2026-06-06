@@ -411,6 +411,25 @@ async function loadHubApps() {
         </a>`
     )
     .join("");
+  const notifTitle = document.getElementById("hub-notif-title");
+  const notifGrid = document.getElementById("hub-notif-grid");
+  if (notifGrid && data.notifications?.length) {
+    notifTitle?.removeAttribute("hidden");
+    notifGrid.removeAttribute("hidden");
+    notifGrid.innerHTML = data.notifications
+      .map(
+        (n) =>
+          `<a class="hub-app-card hub-notif-card" href="${n.href}" style="border-left: 4px solid ${n.themeColor}">
+            <div class="label">${n.label}</div>
+            <div class="desc">${n.description}</div>
+          </a>`
+      )
+      .join("");
+  } else {
+    notifTitle?.setAttribute("hidden", "");
+    notifGrid?.setAttribute("hidden", "");
+    if (notifGrid) notifGrid.innerHTML = "";
+  }
   const wf = document.getElementById("hub-workflow-grid");
   if (wf && data.workflows?.length) {
     wf.hidden = false;

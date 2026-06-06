@@ -1,0 +1,19 @@
+/** Phase 2001 — 全 PWA 共通 manifest icons */
+export const PWA_MANIFEST_ICONS = [
+  { src: "/icons/icon-64.png", sizes: "64x64", type: "image/png", purpose: "any" },
+  { src: "/icons/icon-128.png", sizes: "128x128", type: "image/png", purpose: "any" },
+  {
+    src: "/icons/icon-192.png",
+    sizes: "192x192",
+    type: "image/png",
+    purpose: "any maskable",
+  },
+  { src: "/icons/icon-256.png", sizes: "256x256", type: "image/png", purpose: "any" },
+  { src: "/icons/icon-384.png", sizes: "384x384", type: "image/png", purpose: "any" },
+  {
+    src: "/icons/icon-512.png",
+    sizes: "512x512",
+    type: "image/png",
+    purpose: "any maskable",
+  },
+] as const;

@@ -1,17 +1,26 @@
-# PWA Icons
+# PWA Icons — TiSLY 六角シールド（Phase 2001）
 
-本番デプロイ前に以下を配置してください。
+公式 PWA アイコン。緑十字プレースホルダは廃止済み。
 
-| ファイル | サイズ |
-|----------|--------|
-| `icon-192.png` | 192×192 |
-| `icon-512.png` | 512×512 |
-
-`manifest.json` / `manifest.webmanifest` から参照されます。  
-Phase 441–460 で placeholder PNG を同梱（`node server/scripts/gen-pwa-icons.mjs` で再生成可）。
-
-生成例（ImageMagick）:
+## 生成
 
 ```bash
-convert -size 192x192 xc:#1a7f37 -fill white -gravity center -pointsize 48 -annotate 0 "T" icon-192.png
+node server/scripts/gen-pwa-icons.mjs
 ```
+
+## ファイル
+
+| ファイル | サイズ | 用途 |
+|---------|--------|------|
+| `icon-64.png` | 64×64 | favicon |
+| `icon-128.png` | 128×128 | favicon / タブ |
+| `icon-192.png` | 192×192 | apple-touch-icon / manifest |
+| `icon-256.png` | 256×256 | manifest |
+| `icon-384.png` | 384×384 | manifest |
+| `icon-512.png` | 512×512 | manifest maskable |
+
+`manifest-icons.json` は静的マニフェスト更新時の参照用。
+
+## 反映
+
+Service Worker キャッシュバージョン `tisly-pwa-v2001` を更新すると既存 PWA に新アイコンが配信されます。iOS ホーム画面アイコンは再インストール（削除→追加）が必要な場合があります。

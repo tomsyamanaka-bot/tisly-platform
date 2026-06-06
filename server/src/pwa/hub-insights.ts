@@ -9,6 +9,14 @@ export interface HubWorkflowLink {
   count?: number;
 }
 
+export interface HubNotificationLink {
+  id: string;
+  label: string;
+  description: string;
+  href: string;
+  themeColor: string;
+}
+
 export function buildHubWorkflowLinks(customerCode: string, role: string): HubWorkflowLink[] {
   const code = customerCode.toUpperCase();
   const links: HubWorkflowLink[] = [];
@@ -177,6 +185,38 @@ export function buildHubWorkflowLinks(customerCode: string, role: string): HubWo
   }
 
   return links;
+}
+
+/** owner / admin 向け Push・通知導線（RC2 App Hub） */
+export function buildHubNotificationLinks(role: string): HubNotificationLink[] {
+  if (!roleMeetsNotification(role)) return [];
+  return [
+    {
+      id: "notification_center",
+      label: "通知センター",
+      description: "送信ログ・既読・再送",
+      href: "/app/notifications",
+      themeColor: "#1a7f37",
+    },
+    {
+      id: "push_register",
+      label: "Push登録",
+      description: "Web Push 購読・SW 状態確認",
+      href: "/app/push",
+      themeColor: "#7c3aed",
+    },
+    {
+      id: "notification_test",
+      label: "通知テスト",
+      description: "テスト Push をこの端末へ送信",
+      href: "/app/push#notification-test",
+      themeColor: "#0ea5e9",
+    },
+  ];
+}
+
+function roleMeetsNotification(role: string): boolean {
+  return ["owner", "admin", "super_admin"].includes(role);
 }
 
 function roleMeetsSurvey(role: string): boolean {

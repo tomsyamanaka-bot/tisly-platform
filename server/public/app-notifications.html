@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#1a7f37" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="TiSLY 通知" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <title>TiSLY — 通知センター</title>
+  <link rel="stylesheet" href="/css/tisly-pwa-shell.css" />
+  <link rel="stylesheet" href="/css/app-hub.css" />
+</head>
+<body class="app-hub-body">
+  <div id="tisly-pwa-topbar-root"></div>
+  <header class="app-hub-header">
+    <h1>通知センター</h1>
+    <p class="hint">送信ログの確認・既読・再送</p>
+    <nav class="hub-notif-nav" aria-label="通知メニュー">
+      <a href="/app">App Hub</a>
+      <a href="/app/notifications" aria-current="page">通知センター</a>
+      <a href="/app/push">Push登録</a>
+      <a href="/app/push#notification-test">通知テスト</a>
+    </nav>
+  </header>
+  <main>
+    <section class="card">
+      <div class="notif-filters">
+        <label>検索
+          <input type="search" id="filter-search" placeholder="タイトル・種別" />
+        </label>
+        <label class="notif-filter-check"><input type="checkbox" id="filter-unread" /> 未読のみ</label>
+        <label class="notif-filter-check"><input type="checkbox" id="filter-read" /> 既読のみ</label>
+        <label>イベント種別
+          <select id="filter-event">
+            <option value="">すべて</option>
+            <option value="alarm">alarm</option>
+            <option value="intrusion">intrusion</option>
+            <option value="motion">motion</option>
+            <option value="heartbeat">heartbeat</option>
+            <option value="recovery">recovery</option>
+            <option value="test">test</option>
+          </select>
+        </label>
+        <button type="button" class="btn btn-secondary" id="btn-refresh">更新</button>
+        <button type="button" class="btn btn-secondary" id="btn-read-all">すべて既読</button>
+      </div>
+      <div id="notif-error" class="error"></div>
+      <div class="notif-list" id="notif-list">読み込み中…</div>
+    </section>
+  </main>
+  <script type="module" src="/js/tisly-pwa-shell.js"></script>
+  <script type="module" src="/js/app-notifications.js"></script>
+</body>
+</html>
