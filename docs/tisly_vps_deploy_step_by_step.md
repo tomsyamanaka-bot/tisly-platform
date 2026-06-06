@@ -73,6 +73,22 @@ sudo -u tisly git pull
 cd server
 ```
 
+**PWA アイコン更新時（Phase 2041–2080）** — 智紀さん向け最短手順:
+
+```bash
+cd /opt/tisly
+git pull origin master
+cd server
+npm ci
+npm run build
+systemctl restart tisly-server
+curl -sI https://tisly.jp/icons/icon-192.png?v=2001 | head -3
+curl -sI https://tisly.jp/apple-touch-icon.png | head -3
+curl -s https://tisly.jp/api/deploy/pwa-icon-check | head -c 400
+```
+
+詳細: [`vps_phase2041_launch.md`](./vps_phase2041_launch.md) · `/deployment/checklist` の「PWAアイコン本番確認」
+
 ---
 
 ## 5. 本番 .env 作成

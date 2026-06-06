@@ -20,6 +20,7 @@ import {
 import { buildProductionAudit } from "../../deploy/production-audit.js";
 import { getHealthMonitorLogTail, probeHealth } from "../../deploy/health-monitor.js";
 import { buildPwaInstallAudit } from "../../pwa/pwa-install-audit.js";
+import { buildPwaIconCheck } from "../../pwa/pwa-icon-check.js";
 import { buildSwitchBotDeploymentChecklist } from "../../security-automation/switchbot-release-gate.js";
 import { getSecurityState } from "../../services/securityAutomationService.js";
 import { getSwitchBotMode, isRealUnlockGuarded } from "../../services/switchbotService.js";
@@ -69,6 +70,11 @@ deployRouter.get("/url-audit", (_req, res) => {
 /** Phase 1381–1400 — PWA インストール監査 */
 deployRouter.get("/pwa-install-audit", (_req, res) => {
   res.json(buildPwaInstallAudit());
+});
+
+/** Phase 2041–2080 — PWA アイコン本番確認（新アイコン URL / manifest バージョン） */
+deployRouter.get("/pwa-icon-check", (_req, res) => {
+  res.json(buildPwaIconCheck());
 });
 
 /** Phase 1441–1460 — 本番設定監査（不足一覧） */

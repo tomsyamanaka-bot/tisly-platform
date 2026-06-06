@@ -1,5 +1,5 @@
 /**
- * Phase 1921–1960 — 本番公開チェックリスト (/deployment/checklist)
+ * Phase 2041–2080 — 本番公開チェックリスト (/deployment/checklist)
  */
 
 const PRODUCTION_URLS = [
@@ -37,12 +37,17 @@ const GOOGLE_TV_CHECKS = [
   { id: "gtv-checklist", label: "本チェックリストで Google TV にチェック", detail: "上記確認後にチェックを入れる" },
 ];
 
+const PWA_ICON_MANUAL_CHECKS = [
+  { id: "pwa-icon-safari-reinstall", label: "Safari再追加手順 OK", detail: "削除 → https://tisly.jp/app → 共有 → ホーム画面に追加 → 六角シールド確認" },
+];
+
 const STORAGE_KEY = "tisly_deploy_checklist_manual";
 let lastCheckState = { urlResults: [], gate: null, audit: null, preflight: null, rehearsal: null };
 let cachedVpsCommands = [];
 let cachedProductionStart = null;
 let cachedProductionLaunch = null;
 let cachedProductionVerification = null;
+let cachedPwaIconCheck = null;
 
 function loadManualChecks() {
   try {
@@ -215,6 +220,27 @@ function openVpsModal(mode = "deploy") {
         note: cachedProductionStart.note || cachedProductionStart.methodLabel,
       },
     ]);
+  } else if (mode === "pwa_icon_deploy" && cachedPwaIconCheck?.curlVerifyBlock?.length) {
+    title.textContent = "PWA アイコン本番反映（git pull → build → restart）";
+    renderVpsCommandModal([
+      {
+        title: "VPS 反映（智紀さんが実行）",
+        commands: [
+          "cd /opt/tisly",
+          "git pull origin master",
+          "cd server",
+          "npm ci",
+          "npm run build",
+          "systemctl restart tisly-server",
+        ],
+        note: "docs/vps_phase2041_launch.md 参照",
+      },
+      {
+        title: "curl 確認（新アイコン配信）",
+        commands: cachedPwaIconCheck.curlVerifyBlock,
+        note: `期待: icon-192 / apple-touch-icon が HTTP 200 · manifest icons に ?v=${cachedPwaIconCheck.iconVersion || "2001"}`,
+      },
+    ]);
   } else if (cachedVpsCommands.length) {
     title.textContent = "VPS 投入コマンド（プレースホルダのみ）";
     renderVpsCommandModal(cachedVpsCommands);
@@ -276,7 +302,71 @@ function renderDeviceChecks(containerId, items) {
 
 function allManualDone() {
   const manual = loadManualChecks();
-  return [...IPHONE_CHECKS, ...ANDROID_CHECKS, ...GOOGLE_TV_CHECKS].every((c) => manual[c.id]);
+  return [...IPHONE_CHECKS, ...ANDROID_CHECKS, ...GOOGLE_TV_CHECKS, ...PWA_ICON_MANUAL_CHECKS].every(
+    (c) => manual[c.id]
+  );
+}
+
+function renderIphoneReinstallSteps(steps) {
+  const ol = document.getElementById("iphone-reinstall-steps");
+  if (!steps?.length) {
+    ol.innerHTML = "<li class='meta'>手順未取得</li>";
+    return;
+  }
+  ol.innerHTML = steps.map((s) => `<li>${s}</li>`).join("");
+}
+
+async function renderPwaIconSection(iconCheck) {
+  const grid = document.getElementById("pwa-icon-grid");
+  if (!iconCheck) {
+    grid.innerHTML = renderCard("PWAアイコン", "warn", "pwa-icon-check 未取得");
+    return;
+  }
+
+  const probeResults = await Promise.all(
+    (iconCheck.checks || []).map(async (c) => {
+      const ok = await probeAsset(c.url);
+      return { ...c, liveOk: ok };
+    })
+  );
+
+  let html = probeResults
+    .map((c) => {
+      const status = c.liveOk && c.ok ? "pass" : "fail";
+      const msg = `${c.url} · file=${c.ok ? "yes" : "no"} · HTTP=${c.liveOk ? "200" : "fail"}`;
+      return renderCard(c.label, status, msg);
+    })
+    .join("");
+
+  html += renderCard(
+    "manifest icons v=" + (iconCheck.iconVersion || "2001"),
+    iconCheck.manifestIconsVersioned && iconCheck.manifestNoOldIconUrls ? "pass" : "fail",
+    iconCheck.manifestIconsVersioned && iconCheck.manifestNoOldIconUrls
+      ? "全 manifest が新アイコン URL（?v=）のみ参照"
+      : "旧アイコン URL またはバージョン不一致あり"
+  );
+
+  html += renderCard(
+    "apple-touch-icon",
+    iconCheck.appleTouchIconExists ? "pass" : "fail",
+    iconCheck.appleTouchIconExists ? "/apple-touch-icon.png 存在" : "apple-touch-icon.png 未配置"
+  );
+
+  html += renderCard(
+    "app-hub apple-touch-icon",
+    iconCheck.appHubHasAppleTouchIcon ? "pass" : "fail",
+    iconCheck.appHubHasAppleTouchIcon ? "app-hub.html に apple-touch-icon リンクあり" : "リンクなし"
+  );
+
+  const allAuto =
+    iconCheck.ready && probeResults.every((c) => c.liveOk && c.ok);
+  html += renderCard(
+    "PWAアイコン本番確認 合計",
+    allAuto ? "pass" : "warn",
+    allAuto ? "自動チェック合格 — Safari 再追加手順を実機で確認" : "未達項目あり — VPS 反映またはキャッシュ消去"
+  );
+
+  grid.innerHTML = html;
 }
 
 function updateVerdict(urlResults, gate, audit, preflight, rehearsal) {
@@ -411,14 +501,17 @@ async function loadAll() {
   const btn = document.getElementById("refresh-btn");
   btn.disabled = true;
 
-  const [health, gate, audit, preflight, rehearsal, swOk] = await Promise.all([
+  const [health, gate, audit, preflight, rehearsal, swOk, iconCheck] = await Promise.all([
     fetch("/api/health").then((r) => r.json()).catch(() => ({ ok: false })),
     fetch("/api/deploy/release-gate").then((r) => r.json()).catch(() => null),
     fetch("/api/deploy/audit").then((r) => r.json()).catch(() => null),
     fetch("/api/deploy/preflight").then((r) => r.json()).catch(() => null),
     fetch("/api/deploy/rehearsal-checklist").then((r) => r.json()).catch(() => null),
     probeAsset("/service-worker.js"),
+    fetch("/api/deploy/pwa-icon-check").then((r) => r.json()).catch(() => null),
   ]);
+
+  cachedPwaIconCheck = iconCheck;
 
   cachedVpsCommands = rehearsal?.vpsCommands || [];
   cachedProductionStart = rehearsal?.productionStart || null;
@@ -498,8 +591,11 @@ async function loadAll() {
 
   renderMockReal(gate, preflight);
   renderPwaSection(gate, swOk);
+  renderIphoneReinstallSteps(iconCheck?.safariReinstallSteps);
+  await renderPwaIconSection(iconCheck);
 
   lastCheckState = { urlResults, gate, audit, preflight, rehearsal };
+  renderDeviceChecks("pwa-icon-checks", PWA_ICON_MANUAL_CHECKS);
   renderDeviceChecks("iphone-checks", IPHONE_CHECKS);
   renderDeviceChecks("android-checks", ANDROID_CHECKS);
   renderDeviceChecks("google-tv-checks", GOOGLE_TV_CHECKS);
@@ -514,6 +610,7 @@ document.getElementById("env-prep-btn")?.addEventListener("click", () => openVps
 document.getElementById("prod-start-btn")?.addEventListener("click", () => openVpsModal("production_start"));
 document.getElementById("prod-verify-btn")?.addEventListener("click", () => openVpsModal("production_verify"));
 document.getElementById("checklist-verify-btn")?.addEventListener("click", () => openVpsModal("checklist_verify"));
+document.getElementById("pwa-icon-deploy-btn")?.addEventListener("click", () => openVpsModal("pwa_icon_deploy"));
 document.getElementById("vps-modal-close").addEventListener("click", closeVpsModal);
 document.getElementById("vps-modal").addEventListener("click", (e) => {
   if (e.target.id === "vps-modal") closeVpsModal();

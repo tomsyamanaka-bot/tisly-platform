@@ -93,7 +93,7 @@
   </nav>
 
   <h1>本番公開チェックリスト</h1>
-  <p class="meta">Phase 1921–1960 — Production Launch Verification & Browser Test · tisly.jp · 9 URL · API · PWA · mock/real · 実機確認</p>
+  <p class="meta">Phase 2041–2080 — PWA アイコン本番確認 & iPhone 再追加手順 · tisly.jp · 9 URL · API · PWA · mock/real · 実機確認</p>
 
   <div class="safety-note">
     <strong>安全ガード:</strong> この Phase はローカル確認と手順整備のみです。本番送信・本番アップロード・実機操作は実行しません。
@@ -107,6 +107,7 @@
   <button type="button" id="prod-start-btn" class="vps-cmd-btn">本番起動コマンドを見る</button>
   <button type="button" id="prod-verify-btn" class="vps-cmd-btn">起動後確認を見る</button>
   <button type="button" id="checklist-verify-btn" class="vps-cmd-btn">VPS/SSL/PWA確認を見る</button>
+  <button type="button" id="pwa-icon-deploy-btn" class="vps-cmd-btn">PWAアイコン反映を見る</button>
 
   <h2>VPS Production Rehearsal ステータス</h2>
   <div id="rehearsal-grid" class="rehearsal-grid"></div>
@@ -114,7 +115,7 @@
   <h2>env 入力チェック表</h2>
   <div id="env-table-wrap"></div>
 
-  <p class="meta doc-links">関連ドキュメント（リポジトリ <code>docs/</code>）: vps_phase1921_launch.md · vps_phase1881_launch.md · env_fill_in_guide.md · rollback_guide.md</p>
+  <p class="meta doc-links">関連ドキュメント（リポジトリ <code>docs/</code>）: vps_phase2041_launch.md · vps_phase1921_launch.md · vps_phase1881_launch.md · env_fill_in_guide.md · rollback_guide.md</p>
 
   <h2>9 本番 URL 公開状態</h2>
   <ul id="url-list" class="url-list"></ul>
@@ -130,6 +131,15 @@
 
   <h2>PWA installReady · manifest · service worker</h2>
   <div id="pwa-grid" class="grid"></div>
+
+  <h2>PWAアイコン本番確認</h2>
+  <p class="meta">六角シールド（Phase 2001）が本番で配信されているか。API: <code>/api/deploy/pwa-icon-check</code></p>
+  <div id="pwa-icon-grid" class="grid"></div>
+
+  <h2>iPhone Safari — PWA 再追加手順（旧アイコン対策）</h2>
+  <p class="meta">ホーム画面に緑十字が残る場合は、削除 → Safari キャッシュ消去 → 再追加してください。</p>
+  <ol id="iphone-reinstall-steps" class="device-list"></ol>
+  <ul id="pwa-icon-checks" class="device-list"></ul>
 
   <h2>iPhone Safari 確認項目</h2>
   <ul id="iphone-checks" class="device-list"></ul>

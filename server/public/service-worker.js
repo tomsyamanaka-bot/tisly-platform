@@ -87,7 +87,7 @@ const SHELL_URLS = [
   `/icons/icon-256.png${ICON_V}`,
   `/icons/icon-384.png${ICON_V}`,
   `/icons/icon-512.png${ICON_V}`,
-  "/apple-touch-icon.png",
+  `/apple-touch-icon.png${ICON_V}`,
   "/manifest-installer.webmanifest",
   "/manifest-survey.webmanifest",
   "/manifest-maintenance.webmanifest",

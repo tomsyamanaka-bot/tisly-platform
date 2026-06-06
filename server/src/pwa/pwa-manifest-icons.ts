@@ -1,8 +1,11 @@
-/** Phase 2001 — 全 PWA 共通 manifest icons + キャッシュバスト */
-export const PWA_ICON_VERSION = "2001";
+/** Phase 2001 / 2041 — 全 PWA 共通アイコンキャッシュバスト（変更時はここだけ更新） */
+export const APP_ICON_VERSION = "2001";
+
+/** @deprecated APP_ICON_VERSION を使用 */
+export const PWA_ICON_VERSION = APP_ICON_VERSION;
 
 export function pwaIconSrc(path: string): string {
-  return path.includes("?v=") ? path : `${path}?v=${PWA_ICON_VERSION}`;
+  return path.includes("?v=") ? path : `${path}?v=${APP_ICON_VERSION}`;
 }
 
 export const PWA_APPLE_TOUCH_ICON = pwaIconSrc("/icons/icon-192.png");
