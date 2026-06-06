@@ -63,7 +63,13 @@ import {
   revokeDeviceCert,
   getDeviceCertStatus,
 } from "../../provisioning/device-csr.js";
-import { saveInstallPhoto, listInstallPhotos, deleteInstallPhoto } from "../../installer/install-photos.js";
+import {
+  saveInstallPhoto,
+  listInstallPhotos,
+  deleteInstallPhoto,
+  isAllowedInstallPhotoFile,
+  getInstallPhotoUrl,
+} from "../../installer/install-photos.js";
 import { getInstallDashboard } from "../../installer/install-dashboard.js";
 import {
   evaluateFieldChecklist,
@@ -439,6 +445,10 @@ customerInstallerRouter.post(
       });
       return;
     }
+    if (fileName && !isAllowedInstallPhotoFile(fileName)) {
+      res.status(400).json({ error: "Only jpg and png images are allowed" });
+      return;
+    }
     if (isDryRunRequest(req)) {
       logDryRun(customer.customer_code, "installer.photo.upload", { deviceId, fileName });
       logAudit({
@@ -475,9 +485,10 @@ customerInstallerRouter.post(
       id: saved.id,
       photoPath: saved.photoPath,
       photoType: saved.photoType,
-      url: `/uploads/install_photos/${saved.photoPath}`,
-      storage: config.storage.provider,
+      url: getInstallPhotoUrl(saved.photoPath),
+      storage: "customer-files",
       allowedTypes: INSTALL_PHOTO_TYPES,
+      allowedFormats: ["jpg", "png"],
     });
   }
 );
@@ -493,7 +504,7 @@ customerInstallerRouter.get(
     }
     const photos = listInstallPhotos(customer.customer_id).map((p) => ({
       ...p,
-      url: `/uploads/install_photos/${p.photoPath}`,
+      url: getInstallPhotoUrl(p.photoPath),
     }));
     res.json({ photos });
   }

@@ -11,6 +11,8 @@ import {
   exportAsExcelCompatible,
   generateCustomerReport,
 } from "../../qnap/qnap-client.js";
+import { getQnapConnector } from "../../qnap/qnap-connector.js";
+import { getQnapSendStats, listQnapSendLogs } from "../../qnap/qnap-send-log.js";
 import { config } from "../../config.js";
 import {
   getRetentionPolicy,
@@ -31,30 +33,57 @@ function ensureArchiveDir(): string {
 
 qnapRouter.get("/status", (_req, res) => {
   const overview = getQnapIntegrationOverview();
+  const connector = getQnapConnector();
+  const sendStats = getQnapSendStats();
   res.json({
     ...overview,
-    mockMode: !process.env.QNAP_HOST,
-    phase: "101-120",
+    mode: connector.mode,
+    mockMode: connector.mode === "mock",
+    sendStats,
+    phase: "2251-2300",
   });
 });
 
-qnapRouter.post("/test", (_req, res) => {
-  const host = process.env.QNAP_HOST ?? "";
-  const connected = Boolean(host);
+qnapRouter.post("/test", async (_req, res) => {
+  const connector = getQnapConnector();
+  const result = await connector.testConnection();
   res.json({
-    ok: true,
-    connected,
-    mock: !connected,
-    host: connected ? host : "(未設定)",
-    latencyMs: connected ? null : 8,
-    smbReachable: false,
-    message: connected
-      ? "QNAP_HOST 設定あり — 実機 SMB/API 検証は Phase 121 以降"
-      : "モック: ローカル data/qnap-archive に保存します",
+    ok: result.ok,
+    mock: result.mock,
+    mode: connector.mode,
+    message: result.message,
     archiveDir: path.join(process.cwd(), "data", "qnap-archive"),
     publicUrl: config.publicUrl,
   });
 });
+
+qnapRouter.get("/send-logs", (req, res) => {
+  const limit = Number(req.query.limit ?? 50);
+  res.json({ phase: "2251-2300", logs: listQnapSendLogs(limit), stats: getQnapSendStats() });
+});
+
+async function qnapSendRoute(
+  type: "event" | "alarm" | "maintenance" | "photo",
+  req: import("express").Request,
+  res: import("express").Response
+): Promise<void> {
+  const payload = req.body?.payload ?? req.body;
+  if (!payload || typeof payload !== "object") {
+    res.status(400).json({ error: "payload object required" });
+    return;
+  }
+  const connector = getQnapConnector();
+  const result = await connector.send(type, payload as Record<string, unknown>, {
+    customerCode: req.body?.customerCode as string | undefined,
+    deviceId: (payload.deviceId as string) ?? (payload.device_id as string),
+  });
+  res.status(result.ok ? 201 : 500).json({ phase: "2251-2300", type, ...result });
+}
+
+qnapRouter.post("/send/event", (req, res) => void qnapSendRoute("event", req, res));
+qnapRouter.post("/send/alarm", (req, res) => void qnapSendRoute("alarm", req, res));
+qnapRouter.post("/send/maintenance", (req, res) => void qnapSendRoute("maintenance", req, res));
+qnapRouter.post("/send/photo", (req, res) => void qnapSendRoute("photo", req, res));
 
 qnapRouter.post("/archive/event", (req, res) => {
   const event = req.body?.event ?? req.body;

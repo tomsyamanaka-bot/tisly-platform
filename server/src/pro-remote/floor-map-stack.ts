@@ -1,3 +1,4 @@
+import path from "path";
 import { v4 as uuid } from "uuid";
 import { getDatabase } from "../db/database.js";
 import { getCustomerByCode } from "../customer/customer-store.js";
@@ -49,6 +50,16 @@ export interface ProMapPinView {
 
 export function isValidProPinType(t: string): t is ProPinType {
   return (PRO_PIN_TYPES as readonly string[]).includes(t);
+}
+
+/** Resolve DB image_path to a browser-loadable URL (assets vs uploads). */
+export function resolveProFloorImageUrl(imagePath: string): string {
+  const normalized = imagePath.replace(/\\/g, "/");
+  if (normalized.startsWith("/assets/") || normalized.startsWith("/uploads/")) {
+    return normalized;
+  }
+  const base = path.basename(normalized);
+  return `/uploads/floorplans/${base}`;
 }
 
 /** Idempotent demo seed — run after customer/site seed. */
@@ -155,7 +166,7 @@ export function listProFloorLayers(customerCode: string): ProFloorLayerView[] {
     let floorDevices: ProFloorLayerView["devices"] = [];
     let imageUrl: string | null = null;
     if (layer.image_path) {
-      imageUrl = `/uploads/floorplans/${layer.image_path.replace(/^.*[/\\]/, "")}`;
+      imageUrl = resolveProFloorImageUrl(layer.image_path);
     }
     if (layer.floor_id) {
       const view = getFloorMapView(layer.floor_id);

@@ -82,7 +82,7 @@ export function buildProRemoteFloorStackRC2(customerCode: string): ProRemoteFloo
         linkedCameraLabel: cam.label,
         blink: isAlert,
         constructionPhotoUrl: pin.deviceId
-          ? `/uploads/install_photos/${customerCode}/${pin.deviceId}.jpg`
+          ? `/customer-files/${customerCode}/install/${pin.deviceId}.jpg`
           : null,
       };
     }),
@@ -138,7 +138,7 @@ export async function buildProRemoteFloorStackRC2Async(
         linkedCameraLabel: cam.label,
         blink: isAlert,
         constructionPhotoUrl: pin.deviceId
-          ? `/uploads/install_photos/${customerCode}/${pin.deviceId}.jpg`
+          ? `/customer-files/${customerCode}/install/${pin.deviceId}.jpg`
           : null,
       };
     }),

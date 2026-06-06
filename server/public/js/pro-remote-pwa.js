@@ -16,11 +16,13 @@ const man = document.getElementById("pro-remote-manifest");
 if (man) man.href = `/customer/${code}/pro-remote/manifest.webmanifest`;
 
 import { initProRemoteFloorMap } from "./pro-remote-floor-map.js";
+import { startProRemoteMqttPolling } from "./pro-remote-mqtt-panel.js";
 
 async function boot() {
   const session = await requireCustomerLogin(code);
   if (!session) return;
   renderPwaTopbar("pro_remote", "監視");
+  startProRemoteMqttPolling();
   initProRemoteFloorMap();
 }
 

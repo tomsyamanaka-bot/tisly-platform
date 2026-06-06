@@ -20,7 +20,8 @@ export function setWorkerRunning(running: boolean): void {
 export function getWorkerStatus() {
   const emailSettings = getPlatformSetting<{ enabled?: boolean; smtpHost?: string }>("email");
   const smtpConfigured = Boolean(
-    process.env.SMTP_USER || emailSettings?.enabled || process.env.SMTP_HOST
+    process.env.SMTP_USER?.trim() &&
+      (process.env.SMTP_PASS?.trim() || process.env.SMTP_PASSWORD?.trim())
   );
   return {
     running: workerRunning,

@@ -3,6 +3,7 @@ import { getRecoveryOverview, getPlaybook, getSlaMetrics } from "../../recovery/
 import { runDeviceRecovery } from "../../recovery/device-recovery.js";
 import { getIncidentTimeline } from "../../recovery/incident-timeline.js";
 import { executeRecoveryAction } from "../../recovery/recovery-actions.js";
+import { executeShellyReboot, listShellyRecoveryHistory } from "../../recovery/shelly-recovery.js";
 import { getDatabase } from "../../db/database.js";
 
 export const recoveryRouter = Router();
@@ -68,4 +69,34 @@ recoveryRouter.post("/actions", async (req, res) => {
   } catch (e) {
     res.status(400).json({ error: String(e) });
   }
+});
+
+/** Phase 2251–2300 — Shelly 再起動 */
+recoveryRouter.post("/shelly/reboot", async (req, res) => {
+  try {
+    const { deviceId, customerCode, confirm, dryRun } = req.body ?? {};
+    if (!deviceId || typeof deviceId !== "string") {
+      res.status(400).json({ error: "deviceId required" });
+      return;
+    }
+    const result = await executeShellyReboot({
+      deviceId,
+      customerCode,
+      confirm: confirm === true,
+      dryRun: dryRun === true,
+      actorId: (req as { admin?: { sub?: string } }).admin?.sub ?? "recovery_api",
+    });
+    res.json({ phase: "2251-2300", ...result });
+  } catch (e) {
+    res.status(400).json({ error: String(e) });
+  }
+});
+
+recoveryRouter.get("/shelly/history", (req, res) => {
+  const customerCode = req.query.customerCode as string | undefined;
+  const limit = Number(req.query.limit ?? 50);
+  res.json({
+    phase: "2251-2300",
+    entries: listShellyRecoveryHistory(customerCode, limit),
+  });
 });

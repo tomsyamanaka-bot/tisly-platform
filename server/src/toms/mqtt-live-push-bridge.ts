@@ -23,7 +23,56 @@ export interface MqttBridgeLogEntry {
 const LOG_RING_MAX = 200;
 const logRing: MqttBridgeLogEntry[] = [];
 
+let mqttBridgeConnected = false;
+let mqttBridgeBrokerUrl = "";
+let mqttMessageCount = 0;
+let mqttLastReceivedAt: string | null = null;
+let mqttLastReceivedTopic: string | null = null;
+const mqttReceivedTopics = new Set<string>();
+
+export interface MqttBridgeStats {
+  connected: boolean;
+  brokerHost: string;
+  brokerUrl: string;
+  mode: "mock" | "real";
+  messageCount: number;
+  topicCount: number;
+  lastReceivedAt: string | null;
+  lastReceivedTopic: string | null;
+}
+
+export function recordMqttMessageReceived(topic: string): void {
+  mqttMessageCount += 1;
+  mqttReceivedTopics.add(topic);
+  mqttLastReceivedAt = new Date().toISOString();
+  mqttLastReceivedTopic = topic;
+}
+
+export function getMqttBridgeStats(): MqttBridgeStats {
+  let brokerHost = "mqtt.tisly.jp";
+  try {
+    const u = new URL(mqttBridgeBrokerUrl.replace(/^mqtts?:\/\//, "http://"));
+    brokerHost = u.hostname || brokerHost;
+  } catch {
+    /* keep default */
+  }
+  return {
+    connected: mqttBridgeConnected,
+    brokerHost,
+    brokerUrl: mqttBridgeBrokerUrl,
+    mode: isMqttMockMode() ? "mock" : "real",
+    messageCount: mqttMessageCount,
+    topicCount: mqttReceivedTopics.size,
+    lastReceivedAt: mqttLastReceivedAt,
+    lastReceivedTopic: mqttLastReceivedTopic,
+  };
+}
+
+/** Phase 2251–2300 — MQTT_MODE を単一の真実源に */
 export function isMqttMockMode(): boolean {
+  const mode = (process.env.MQTT_MODE ?? "").toLowerCase();
+  if (mode === "real") return false;
+  if (mode === "mock") return true;
   return process.env.MQTT_MOCK_MODE !== "false";
 }
 
@@ -116,10 +165,13 @@ export function routeMqttToLivePush(topic: string, raw: string): boolean {
 }
 
 export function onMqttBridgeConnect(url: string): void {
+  mqttBridgeConnected = true;
+  mqttBridgeBrokerUrl = url;
   mqttBridgeLog("info", "CONNECTED", `MQTT connected ${url}`);
 }
 
 export function onMqttBridgeDisconnect(reason?: string): void {
+  mqttBridgeConnected = false;
   mqttBridgeLog("error", "DISCONNECTED", reason ?? "connection closed");
   broadcast({
     type: "event",

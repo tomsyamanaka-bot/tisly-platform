@@ -33,6 +33,24 @@
   gap: 8px;
   padding: 0 1rem 1rem;
 }
+.pro-remote-mqtt-panel .pro-mqtt-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.5rem 1rem;
+  margin: 0;
+}
+.pro-remote-mqtt-panel .pro-mqtt-stats dt {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin: 0;
+}
+.pro-remote-mqtt-panel .pro-mqtt-stats dd {
+  margin: 0.15rem 0 0;
+  font-weight: 600;
+}
+.pro-remote-mqtt-panel .mqtt-live { color: #4ade80; }
+.pro-remote-mqtt-panel .mqtt-mock { color: #fbbf24; }
+.pro-remote-mqtt-panel .mqtt-off { color: #f87171; }
 .pro-remote-nav a {
   background: #312e81;
   color: #e9d5ff;

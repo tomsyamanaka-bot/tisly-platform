@@ -13,10 +13,12 @@ import { mqttPayloadToUnified, parseMqttTopic } from "./topic-router.js";
 import { broadcastSalesDemoEvent } from "../demo-kit/sales-ws-bridge.js";
 import {
   isMqttMockMode,
+  mqttBridgeLog,
   onMqttBridgeAuthError,
   onMqttBridgeConnect,
   onMqttBridgeDisconnect,
   onMqttBridgeInvalidTopic,
+  recordMqttMessageReceived,
   routeMqttToLivePush,
 } from "../toms/mqtt-live-push-bridge.js";
 
@@ -48,20 +50,32 @@ export function startMqttSubscriber(): void {
   if (tlsStatus.ready) {
     console.log("[MQTT] connecting with TLS client certificates");
   }
-  client = mqtt.connect(connectUrl, connectOpts);
+  const wildcardTopic = `${cfg.topicPrefix}/#`;
+  client = mqtt.connect(connectUrl, { ...connectOpts, reconnectPeriod: 5000 });
 
-  client.on("connect", () => {
-    console.log(`[MQTT] connected ${cfg.url}`);
-    onMqttBridgeConnect(cfg.url);
-    client?.subscribe(cfg.topicPrefix, (err) => {
+  const subscribeAll = () => {
+    client?.subscribe(wildcardTopic, (err) => {
       if (err) {
         console.error("[MQTT] subscribe error", err);
         onMqttBridgeAuthError(err.message);
+      } else {
+        console.log(`[MQTT] subscribed ${wildcardTopic}`);
       }
     });
     client?.subscribe("tisly/project/#", (err) => {
       if (err) onMqttBridgeAuthError(`project subscribe: ${err.message}`);
     });
+  };
+
+  client.on("connect", () => {
+    console.log(`[MQTT] connected ${cfg.url}`);
+    onMqttBridgeConnect(cfg.url);
+    subscribeAll();
+  });
+
+  client.on("reconnect", () => {
+    console.log("[MQTT] reconnecting…");
+    mqttBridgeLog("warn", "RECONNECTING", "broker reconnect in progress");
   });
 
   client.on("message", (topic, buf) => {
@@ -96,6 +110,7 @@ export function stopMqttSubscriber(): void {
 }
 
 async function handleMessage(topic: string, raw: string): Promise<void> {
+  recordMqttMessageReceived(topic);
   if (routeMqttToLivePush(topic, raw)) return;
 
   const parsed = parseMqttTopic(topic);
@@ -143,6 +158,7 @@ async function handleMessage(topic: string, raw: string): Promise<void> {
 
 function startMockSubscriber(): void {
   console.log(`[MQTT] mock subscriber active (MQTT_MOCK_MODE=${isMqttMockMode()})`);
+  onMqttBridgeConnect(config.mqtt.url || "mqtt://mqtt.tisly.jp:1883");
   mockTimer = setInterval(() => {
     const tenant = config.defaultTenantId;
     const topic = buildDemoLegacyHeartbeatTopic(tenant);

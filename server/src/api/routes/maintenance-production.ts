@@ -20,6 +20,10 @@ import {
   listMaintenanceSchedules,
   listMaintenanceReports,
 } from "../../maintenance/maintenance-schedule.js";
+import {
+  getMaintenanceInspectionNote,
+  saveMaintenanceInspectionNote,
+} from "../../maintenance/maintenance-inspection-notes.js";
 
 export const maintenanceProductionRouter = Router();
 
@@ -143,6 +147,40 @@ maintenanceProductionRouter.get(
     res.json({ devices: listShellyDevices(customer.customer_code) });
   }
 );
+
+maintenanceProductionRouter.get(
+  "/inspection/:customerCode",
+  ...maintAuth,
+  requireTenantMatch("customerCode"),
+  (req: AuthedRequest, res) => {
+    if (!assertMaintenanceRole(req, res)) return;
+    const customer = resolveCustomerCode(req, String(req.params.customerCode));
+    if (!customer) {
+      res.status(req.admin ? 403 : 404).json({ error: "Not found" });
+      return;
+    }
+    res.json(getMaintenanceInspectionNote(customer.customer_code));
+  }
+);
+
+maintenanceProductionRouter.post("/inspection", ...maintAuth, (req: AuthedRequest, res) => {
+  if (!assertMaintenanceRole(req, res)) return;
+  const body = req.body as { customerCode?: string; memo?: string };
+  if (!body.customerCode) {
+    res.status(400).json({ error: "customerCode required" });
+    return;
+  }
+  try {
+    const note = saveMaintenanceInspectionNote({
+      customerCode: body.customerCode,
+      memo: body.memo ?? "",
+      updatedBy: req.admin?.username,
+    });
+    res.json(note);
+  } catch (e) {
+    res.status(400).json({ error: String(e) });
+  }
+});
 
 maintenanceProductionRouter.get("/schedule", ...maintAuth, (req: AuthedRequest, res) => {
   if (!assertMaintenanceRole(req, res)) return;

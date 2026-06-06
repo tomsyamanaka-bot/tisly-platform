@@ -63,7 +63,7 @@ describe("Phase 1041-1050 Deployment MQTT", () => {
       .get(`/api/deployment/mqtt/status?customerCode=${customerCode}`);
     assert.equal(res.status, 200);
     assert.equal(res.body.mode, "mock");
-    assert.equal(res.body.phase, "1041-1050");
+    assert.equal(res.body.phase, "2251-2300");
     assert.ok(Array.isArray(res.body.devices));
     const dev = res.body.devices.find((d: { device_id: string }) => d.device_id === deviceId);
     assert.ok(dev);

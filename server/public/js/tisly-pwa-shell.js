@@ -155,6 +155,9 @@ export function renderPwaTopbar(currentApp, title) {
       <button type="button" id="btn-tisly-pwa-install">ホーム画面に追加</button>
       <a id="link-tisly-install-guide" href="/install-guide">インストール手順</a>
     </div>
+    <div id="tisly-mock-real-banner" class="tisly-mock-real-banner" role="status" hidden>
+      <span id="tisly-mock-real-label">—</span>
+    </div>
     <div class="tisly-pwa-status-bar" role="status">
       <span id="tisly-online-dot" class="dot online">●</span>
       <span id="tisly-online-text">online</span>
@@ -173,10 +176,35 @@ export function renderPwaTopbar(currentApp, title) {
     document.getElementById("btn-hub-sync")?.removeAttribute("hidden");
   }
   import("./connection-badges.js").then((m) => m.loadConnectionBadges()).catch(() => {});
+  loadMockRealBanner().catch(() => {});
   if (currentApp === "hub") {
     import("./hub-offline-snapshot.js")
       .then((m) => m.wireHubSyncButton())
       .catch(() => {});
+  }
+}
+
+async function loadMockRealBanner() {
+  const banner = document.getElementById("tisly-mock-real-banner");
+  const label = document.getElementById("tisly-mock-real-label");
+  if (!banner || !label) return;
+  const token = sessionStorage.getItem("tisly_token");
+  try {
+    const res = await fetch("/api/toms/live/connection-status", {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error("status");
+    const s = await res.json();
+    const isMock = s.live === "mock" || s.mqtt?.mode === "mock";
+    banner.hidden = false;
+    banner.className = `tisly-mock-real-banner ${isMock ? "mode-mock" : "mode-real"}`;
+    label.textContent = isMock
+      ? "Mock モード — デモデータで動作中"
+      : "Real モード — 実データで動作中";
+  } catch {
+    banner.hidden = false;
+    banner.className = "tisly-mock-real-banner mode-unknown";
+    label.textContent = "データモード: 不明（オフライン）";
   }
 }
 

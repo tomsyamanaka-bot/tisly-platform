@@ -378,7 +378,110 @@ document.getElementById("btn-deploy-rollback")?.addEventListener("click", () => 
   }
 });
 
+async function loadGmailTestCard() {
+  const statusEl = document.getElementById("gmail-test-status");
+  const detailEl = document.getElementById("gmail-test-detail");
+  const resultEl = document.getElementById("gmail-test-result");
+  const sendBtn = document.getElementById("btn-gmail-test-send");
+  if (!statusEl || !detailEl || !sendBtn) return;
+
+  try {
+    const res = await fetch("/api/notifications/stats");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const mode = data.gmailMode ?? "mock";
+    const configured = data.smtpConfigured === true;
+    let badgeClass = "gmail-status-mock";
+    let badgeText = "MOCK";
+
+    if (mode === "real" && !configured) {
+      badgeClass = "gmail-status-warn";
+      badgeText = "YELLOW — Gmail not configured";
+    } else if (mode === "real" && configured) {
+      badgeClass = "gmail-status-ok";
+      badgeText = "GREEN — Gmail SMTP ready";
+    }
+
+    statusEl.className = `gmail-status-badge ${badgeClass}`;
+    statusEl.textContent = badgeText;
+
+    const last = data.lastSendStatus;
+    const lastLine = last?.status
+      ? `最終送信: ${last.status} · ${formatIsoShort(last.createdAt)}`
+      : "最終送信: なし";
+    detailEl.textContent = [
+      `emailMode=${data.emailMode ?? "—"} · gmailMode=${mode}`,
+      data.maskedCredentials || "SMTP credentials masked",
+      lastLine,
+    ].join(" · ");
+
+    sendBtn.disabled = mode === "real" && !configured;
+    if (resultEl) resultEl.textContent = "";
+  } catch (e) {
+    statusEl.className = "gmail-status-badge gmail-status-warn";
+    statusEl.textContent = "状態取得失敗";
+    if (detailEl) detailEl.textContent = String(e.message || e);
+    sendBtn.disabled = true;
+  }
+}
+
+async function sendGmailTest() {
+  const resultEl = document.getElementById("gmail-test-result");
+  const sendBtn = document.getElementById("btn-gmail-test-send");
+  if (sendBtn) sendBtn.disabled = true;
+  if (resultEl) resultEl.textContent = "送信中…";
+
+  const username = window.prompt("管理者ユーザー名（admin）");
+  if (!username) {
+    if (resultEl) resultEl.textContent = "";
+    if (sendBtn) sendBtn.disabled = false;
+    return;
+  }
+  const password = window.prompt("管理者パスワード");
+  if (!password) {
+    if (resultEl) resultEl.textContent = "";
+    if (sendBtn) sendBtn.disabled = false;
+    return;
+  }
+
+  try {
+    const login = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    const loginBody = await login.json().catch(() => ({}));
+    if (!login.ok) throw new Error(loginBody.error || "管理者ログイン失敗");
+
+    const res = await fetch("/api/notifications/test-email", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${loginBody.token}`,
+        "Content-Type": "application/json",
+      },
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    if (resultEl) {
+      resultEl.textContent = body.mock
+        ? `Mock 送信記録 OK（logId=${body.logId ?? "—"}）`
+        : `送信成功（logId=${body.logId ?? "—"}）`;
+    }
+    await loadGmailTestCard();
+  } catch (e) {
+    if (resultEl) resultEl.textContent = `送信失敗: ${e.message || e}`;
+  } finally {
+    if (sendBtn) sendBtn.disabled = false;
+    await loadGmailTestCard();
+  }
+}
+
+document.getElementById("btn-gmail-test-send")?.addEventListener("click", () => {
+  void sendGmailTest();
+});
+
 loadPublishAudit();
+loadGmailTestCard();
 
 async function customerLogin(code, username, password) {
   const res = await fetch("/api/auth/customer/login", {

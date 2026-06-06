@@ -17,10 +17,12 @@ import { startWorkers } from "./workers/worker-runner.js";
 import { startSwitchBotBridgeWorker } from "./workers/switchbot-bridge-worker.js";
 import { startDemoResetCron, syncDemoResetFromEnv } from "./demo-kit/demo-reset-cron.js";
 import { logProductionEnvWarnings } from "./config/production-env-checker.js";
+import { logGmailStartupStatus } from "./notification/smtp-gmail.js";
 import { initLockProvider } from "./providers/lock/index.js";
 import { ensureLockProviderSeed } from "./lock-provider/lock-provider-store.js";
 
 logProductionEnvWarnings();
+logGmailStartupStatus();
 initLockProvider();
 
 getDatabase();

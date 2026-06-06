@@ -21,6 +21,7 @@ import { getBillingByCustomerId } from "../../billing/billing-store.js";
 import { canViewBilling, roleMeetsRequirement } from "../../auth/roles.js";
 import { buildCustomerPortalFieldView } from "../../customer/customer-portal-field.js";
 import { buildCustomerHandoverPackage } from "../../customer/customer-handover.js";
+import { listShellyRecoveryHistory } from "../../recovery/shelly-recovery.js";
 
 export const customerPortalRouter = Router();
 const portalAuth = [requireAuth("viewer"), requireTenantMatch("customerCode")] as const;
@@ -179,7 +180,8 @@ customerPortalRouter.get("/:customerCode/recovery", ...portalAuth, (req: AuthedR
   if (!requirePlanFeature(customer.plan, "recovery", res)) return;
   const tid = tenantScope(customer);
   const history = listRecoveryHistory(tid, 20);
-  res.json({ recoveryHistory: history });
+  const shellyHistory = listShellyRecoveryHistory(customer.customer_code, 20);
+  res.json({ recoveryHistory: history, shellyRecoveryHistory: shellyHistory });
 });
 
 customerPortalRouter.get("/:customerCode/ai-summary", ...portalAuth, (req: AuthedRequest, res) => {

@@ -18,6 +18,7 @@ import {
   buildProRemoteFloorStackRC2,
   focusProRemoteFloor,
 } from "../../pro-remote/floor-stack-rc2.js";
+import { getDeploymentMqttStatus } from "../../deployment-kit/deployment-mqtt.js";
 
 export const proRemoteFloorMapRouter = Router();
 
@@ -186,5 +187,30 @@ proRemoteFloorMapRouter.get(
       return;
     }
     res.json(findAlertFloorTier(customer.customer_code));
+  }
+);
+
+/** Phase 2201–2250 — PRO Remote MQTT 接続ステータス */
+proRemoteFloorMapRouter.get(
+  "/:customerCode/pro-remote/mqtt-status",
+  ...proAuth,
+  (req: AuthedRequest, res) => {
+    const customer = resolveCustomer(req, String(req.params.customerCode));
+    if (!customer) {
+      res.status(req.admin ? 403 : 404).json({ error: "Not found" });
+      return;
+    }
+    const status = getDeploymentMqttStatus(customer.customer_code);
+    res.json({
+      customerCode: customer.customer_code,
+      broker: status.brokerHost,
+      connectionState: status.connected ? "connected" : status.mode === "mock" ? "mock" : "disconnected",
+      mode: status.mode,
+      messageCount: status.messageCount,
+      topicCount: status.topicCount,
+      lastReceivedAt: status.lastReceivedAt,
+      lastReceivedTopic: status.lastReceivedTopic,
+      subscriberEnabled: status.subscriberEnabled,
+    });
   }
 );

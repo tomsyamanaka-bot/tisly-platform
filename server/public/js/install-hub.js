@@ -70,11 +70,21 @@ function fileToBase64(file) {
   });
 }
 
+function isAllowedPhoto(file) {
+  const ext = (file.name.split(".").pop() || "").toLowerCase();
+  return ext === "jpg" || ext === "jpeg" || ext === "png";
+}
+
 async function uploadPhotos() {
   const code = customerCode();
   const files = [...(document.getElementById("install-photos")?.files || [])];
   if (!files.length) {
     alert("写真を選択してください");
+    return;
+  }
+  const invalid = files.filter((f) => !isAllowedPhoto(f));
+  if (invalid.length) {
+    alert("jpg / png のみアップロードできます");
     return;
   }
   for (const file of files) {

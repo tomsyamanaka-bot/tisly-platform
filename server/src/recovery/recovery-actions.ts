@@ -5,6 +5,7 @@ import { appendTimeline, ensureIncident } from "./incident-timeline.js";
 import { runDeviceRecovery } from "./device-recovery.js";
 import { logAudit } from "../provisioning/audit-log.js";
 import { broadcast } from "../ws/hub.js";
+import { stopMqttSubscriber, startMqttSubscriber } from "../mqtt/mqtt-subscriber.js";
 
 export type RecoveryActionType =
   | "restart_device"
@@ -70,12 +71,14 @@ export async function executeRecoveryAction(input: RecoveryActionInput) {
     }
 
     case "restart_mqtt": {
+      stopMqttSubscriber();
+      startMqttSubscriber();
       logAudit({ action: "recovery.restart_mqtt", details: { actionId, reason } });
       return {
         ok: true,
         actionId,
         action: input.action,
-        note: "MQTT ブローカー再起動はインフラ側で実行。サブスクライバー再接続をトリガー記録。",
+        note: "MQTT サブスクライバーを再起動しました。",
         reconnectHint: config.mqtt.url,
       };
     }

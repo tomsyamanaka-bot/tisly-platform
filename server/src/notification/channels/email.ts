@@ -26,31 +26,8 @@ function getTransporter(settings: EmailSettings) {
 }
 
 export async function sendEmail(payload: NotificationPayload): Promise<DeliveryResult> {
-  const settings = getPlatformSetting<EmailSettings>("email");
-  if (!settings?.enabled || !settings.adminEmail) {
-    return { channel: "email", success: false, error: "Email disabled or no recipient" };
-  }
-
-  try {
-    const transporter = getTransporter({
-      ...settings,
-      smtpPassword: process.env.SMTP_PASSWORD,
-    });
-    await transporter.sendMail({
-      from: settings.fromAddress,
-      to: settings.adminEmail,
-      subject: `[TiSLY] ${payload.title}`,
-      text: `${payload.body}\n\nイベント: ${payload.eventType}\nデバイス: ${payload.deviceId ?? "-"}`,
-      html: `<h2>${payload.title}</h2><p>${payload.body ?? ""}</p><p><b>イベント:</b> ${payload.eventType}<br><b>デバイス:</b> ${payload.deviceId ?? "-"}</p>`,
-    });
-    return { channel: "email", success: true };
-  } catch (err) {
-    return {
-      channel: "email",
-      success: false,
-      error: err instanceof Error ? err.message : String(err),
-    };
-  }
+  const { sendEmailViaProvider } = await import("../email-provider.js");
+  return sendEmailViaProvider(payload);
 }
 
 export async function sendReportEmail(input: {

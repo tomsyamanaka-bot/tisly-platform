@@ -265,12 +265,39 @@ export function checkProductionEnv(
 
   const googleOAuth = get("GOOGLE_OAUTH_ENABLED").toLowerCase() === "true";
   const gmailMode = get("GMAIL_SEND_MODE", "mock").toLowerCase();
-  if (gmailMode === "real" || (googleOAuth && gmailMode !== "mock")) {
-    if (!googleOAuth) {
+  const notificationEmailMode = get("NOTIFICATION_EMAIL_MODE", "mock").toLowerCase();
+  const smtpUser = get("SMTP_USER");
+  const smtpPass = get("SMTP_PASS") || get("SMTP_PASSWORD");
+
+  if (notificationEmailMode === "gmail" && gmailMode === "real") {
+    if (!smtpUser) {
+      items.push({
+        key: "SMTP_USER",
+        level: levelForMissing(prod),
+        message: "NOTIFICATION_EMAIL_MODE=gmail だが SMTP_USER 未設定",
+      });
+    }
+    if (!smtpPass) {
+      items.push({
+        key: "SMTP_PASS",
+        level: prod ? "warning" : "info",
+        message: "Gmail not configured — SMTP_PASS（アプリパスワード）未設定",
+        hint: "起動は継続しますが実送信はできません",
+      });
+    }
+    if (gmailMode === "real" && smtpUser && smtpPass) {
+      items.push({
+        key: "GMAIL_SEND_MODE",
+        level: "warning",
+        message: "Gmail SMTP real — 通知メールの実送信が有効",
+      });
+    }
+  } else if (gmailMode === "real" || (googleOAuth && gmailMode !== "mock")) {
+    if (!googleOAuth && notificationEmailMode !== "gmail") {
       items.push({
         key: "GOOGLE_OAUTH_ENABLED",
         level: "error",
-        message: "GMAIL_SEND_MODE=real には GOOGLE_OAUTH_ENABLED=true が必要",
+        message: "GMAIL_SEND_MODE=real（Business Gmail）には GOOGLE_OAUTH_ENABLED=true が必要",
       });
     }
     if (googleOAuth && !get("GOOGLE_CLIENT_ID")) {
@@ -284,7 +311,7 @@ export function checkProductionEnv(
       items.push({
         key: "GMAIL_SEND_MODE",
         level: "warning",
-        message: "GMAIL_SEND_MODE=real — 顧客への実メール送信が可能",
+        message: "GMAIL_SEND_MODE=real — Business メール送信が可能",
         hint: "Business settings で realSendEnabled + confirmed も必要",
       });
     }

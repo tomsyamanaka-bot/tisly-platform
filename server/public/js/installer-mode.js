@@ -637,6 +637,11 @@ document.getElementById("locale-select")?.addEventListener("change", (e) => {
 document.getElementById("btn-photo-upload")?.addEventListener("click", async () => {
   const file = document.getElementById("photo-file")?.files?.[0];
   if (!file) return;
+  const ext = (file.name.split(".").pop() || "").toLowerCase();
+  if (ext !== "jpg" && ext !== "jpeg" && ext !== "png") {
+    setStatus("jpg / png のみアップロードできます");
+    return;
+  }
   const buf = await file.arrayBuffer();
   const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
   const deviceId = document.getElementById("photo-device-select")?.value;

@@ -242,11 +242,28 @@ function billingStatusCard(): InfraComponentStatus {
 }
 
 function smtpStatusCard(): InfraComponentStatus {
-  const configured = Boolean(process.env.SMTP_USER || process.env.SMTP_HOST);
+  const gmailMode = (process.env.GMAIL_SEND_MODE ?? "mock").toLowerCase();
+  const user = (process.env.SMTP_USER ?? "").trim();
+  const pass = (process.env.SMTP_PASS ?? process.env.SMTP_PASSWORD ?? "").trim();
+  const configured = Boolean(user && pass);
+  if (gmailMode === "real" && !configured) {
+    return {
+      name: "Gmail SMTP",
+      status: "YELLOW",
+      detail: "Gmail not configured",
+    };
+  }
+  if (gmailMode === "mock") {
+    return {
+      name: "Gmail SMTP",
+      status: "YELLOW",
+      detail: "mock mode",
+    };
+  }
   return {
-    name: "SMTP",
-    status: configured ? "GREEN" : "YELLOW",
-    detail: configured ? "configured" : "mock / disabled",
+    name: "Gmail SMTP",
+    status: "GREEN",
+    detail: `real · SMTP_USER=${user}`,
   };
 }
 

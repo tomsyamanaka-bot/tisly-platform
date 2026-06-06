@@ -58,6 +58,25 @@
   color: #484f58;
   pointer-events: none;
 }
+.tisly-mock-real-banner {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: center;
+  border-bottom: 1px solid #30363d;
+}
+.tisly-mock-real-banner.mode-mock {
+  background: #9e6a03;
+  color: #fff;
+}
+.tisly-mock-real-banner.mode-real {
+  background: #1a7f37;
+  color: #fff;
+}
+.tisly-mock-real-banner.mode-unknown {
+  background: #484f58;
+  color: #fff;
+}
 .tisly-pwa-status-bar {
   display: flex;
   flex-wrap: wrap;

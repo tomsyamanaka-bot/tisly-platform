@@ -181,6 +181,27 @@ export function runMigrations(database: Database.Database): void {
   migratePhase1321(database);
   migratePhase1361(database);
   migratePhase1621(database);
+  migratePhase2201(database);
+}
+
+function migratePhase2201(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:phase2201_real_data") as { value_json: string } | undefined;
+  if (marker) return;
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS maintenance_inspection_notes (
+      customer_code TEXT PRIMARY KEY,
+      memo TEXT NOT NULL DEFAULT '',
+      updated_at TEXT,
+      updated_by TEXT
+    );
+  `);
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:phase2201_real_data", JSON.stringify({ at: new Date().toISOString() }));
 }
 
 const CUSTOMER_INVITE_COLUMNS: Array<{ name: string; ddl: string }> = [

@@ -37,6 +37,23 @@ async function apiPatch(path, body) {
 }
 
 const PIN_COLORS = { ONLINE: "#22c55e", WARNING: "#eab308", OFFLINE: "#ef4444" };
+const PIN_ABBR = {
+  camera: "CA",
+  beam: "BE",
+  pir: "PI",
+  door: "DO",
+  window: "WI",
+  relay: "RE",
+  esp: "ES",
+  shelly: "SH",
+  speaker: "SP",
+  light: "LI",
+};
+
+function pinLabel(pin) {
+  const t = (pin.pinType || pin.iconType || pin.deviceType || "esp").toLowerCase();
+  return PIN_ABBR[t] || t.slice(0, 2).toUpperCase();
+}
 const CODE = customerCodeFromPath();
 const TIER_ORDER = ["perimeter", "1f", "2f"];
 
@@ -127,6 +144,21 @@ function renderLayer(layer) {
     img.src = layer.imageUrl;
     img.alt = layer.displayName;
     img.className = "floor-map-image";
+    img.addEventListener("load", () => {
+      console.log("[floor-map] SVG loaded", { tier: layer.tier, url: layer.imageUrl });
+    });
+    img.addEventListener("error", () => {
+      console.error("[floor-map] SVG load failed", {
+        tier: layer.tier,
+        layerId: layer.layerId,
+        url: layer.imageUrl,
+        displayName: layer.displayName,
+      });
+      const err = document.createElement("p");
+      err.className = "floor-map-svg-error hint";
+      err.textContent = `図面読込失敗: ${layer.imageUrl}`;
+      section.appendChild(err);
+    });
     zoomInner.appendChild(img);
   } else {
     const ph = document.createElement("div");
@@ -163,7 +195,7 @@ function renderLayer(layer) {
     el.style.top = `${Math.min(98, Math.max(2, pin.posY))}%`;
     el.style.background = PIN_COLORS[pin.status] || PIN_COLORS.OFFLINE;
     el.title = `${pin.pinType}: ${pin.label || pin.id} (${pin.status}) — ドラッグで移動`;
-    el.textContent = (pin.pinType || "?").slice(0, 2).toUpperCase();
+    el.textContent = pinLabel(pin);
     overlay.style.pointerEvents = "auto";
     if (pin.draggable !== false && pin.id && layer.pins?.some((p) => p.id === pin.id)) {
       setupPinDrag(el, pin, layer.layerId, plan);

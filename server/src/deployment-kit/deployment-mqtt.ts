@@ -7,6 +7,7 @@ import { getCustomerByCode } from "../customer/customer-store.js";
 import { buildEspMqttTopic } from "../mqtt/esp-topic-standard.js";
 import { handleEspMqttHeartbeat } from "../device/esp-heartbeat-mqtt.js";
 import { getMqttSubscriberConfig } from "../mqtt/mqtt-config.js";
+import { getMqttBridgeStats } from "../toms/mqtt-live-push-bridge.js";
 
 export type MqttDeploymentMode = "mock" | "real";
 
@@ -23,8 +24,15 @@ export interface DeploymentMqttStatus {
   phase: string;
   mode: MqttDeploymentMode;
   brokerConfigured: boolean;
+  brokerHost: string;
+  brokerUrl: string;
   topicPrefix: string;
   subscriberEnabled: boolean;
+  connected: boolean;
+  messageCount: number;
+  topicCount: number;
+  lastReceivedAt: string | null;
+  lastReceivedTopic: string | null;
   devices: MqttDeviceStatus[];
 }
 
@@ -80,12 +88,20 @@ export function getDeploymentMqttStatus(customerCode?: string): DeploymentMqttSt
     heartbeat_status: r.heartbeat_status,
   }));
 
+  const bridge = getMqttBridgeStats();
   return {
-    phase: "1041-1050",
+    phase: "2251-2300",
     mode,
     brokerConfigured: !!config.mqtt.url?.trim(),
+    brokerHost: bridge.brokerHost,
+    brokerUrl: sanitizeBrokerUrl(config.mqtt.url),
     topicPrefix: config.mqtt.topicPrefix,
     subscriberEnabled: sub.enabled && !sub.mockMode,
+    connected: bridge.connected,
+    messageCount: bridge.messageCount,
+    topicCount: bridge.topicCount,
+    lastReceivedAt: bridge.lastReceivedAt,
+    lastReceivedTopic: bridge.lastReceivedTopic,
     devices,
   };
 }

@@ -34,6 +34,17 @@
     <a id="link-pro-tv" href="#">TV（非PWA）</a>
   </nav>
   <main class="pro-remote-main">
+    <section class="card pro-remote-mqtt-panel" id="pro-remote-mqtt-panel">
+      <h2>MQTT 接続</h2>
+      <dl class="pro-mqtt-stats">
+        <div><dt>Broker</dt><dd id="pro-mqtt-broker">—</dd></div>
+        <div><dt>接続状態</dt><dd id="pro-mqtt-connection">—</dd></div>
+        <div><dt>受信件数</dt><dd id="pro-mqtt-count">—</dd></div>
+        <div><dt>受信トピック数</dt><dd id="pro-mqtt-topics">—</dd></div>
+        <div><dt>最終受信</dt><dd id="pro-mqtt-last">—</dd></div>
+      </dl>
+      <p class="hint" id="pro-mqtt-mode-hint"></p>
+    </section>
     <section class="card floor-map-controls">
       <h2>フロアマップ</h2>
       <p id="floor-map-alert" class="floor-map-alert" hidden></p>

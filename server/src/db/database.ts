@@ -59,6 +59,14 @@ export function getDatabase(): Database.Database {
   if (fs.existsSync(phase321)) {
     db.exec(fs.readFileSync(phase321, "utf-8"));
   }
+  const phase2300 = path.join(__dirname, "schema-phase-2300.sql");
+  if (fs.existsSync(phase2300)) {
+    db.exec(fs.readFileSync(phase2300, "utf-8"));
+  }
+  const phase2350 = path.join(__dirname, "schema-phase-2350.sql");
+  if (fs.existsSync(phase2350)) {
+    db.exec(fs.readFileSync(phase2350, "utf-8"));
+  }
   runMigrations(db);
   seedDefaults(db);
   seedBusinessDefaults();

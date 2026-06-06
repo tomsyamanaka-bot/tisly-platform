@@ -170,7 +170,7 @@ describe("Phase 461-480 multi PWA app hub", () => {
     assert.equal(off.status, 200);
     assert.ok(off.text.includes("オフライン"));
     const sw = await request(app).get("/service-worker.js");
-    assert.ok(sw.text.includes("tisly-pwa-v2200-customer-login"));
+    assert.ok(sw.text.includes("tisly-pwa-v2350-production"));
     assert.ok(sw.text.includes("customer-portal.html"));
   });
 

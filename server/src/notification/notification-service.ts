@@ -56,6 +56,13 @@ export class NotificationService {
   }
 
   private connectMqtt(): void {
+    // Phase 2251–2300 — mqtt-subscriber に一本化（二重購読防止）
+    const subEnabled =
+      process.env.MQTT_SUBSCRIBER_ENABLED === "true" || process.env.MQTT_MODE === "real";
+    if (subEnabled) {
+      console.log("[MQTT] notification-service: subscriber handles MQTT — skip duplicate connect");
+      return;
+    }
     if (!config.mqtt.url) return;
     const opts: mqtt.IClientOptions = {
       clientId: config.mqtt.clientId,

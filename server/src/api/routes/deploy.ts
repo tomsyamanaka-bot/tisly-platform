@@ -22,6 +22,9 @@ import { getHealthMonitorLogTail, probeHealth } from "../../deploy/health-monito
 import { buildPwaInstallAudit } from "../../pwa/pwa-install-audit.js";
 import { buildPwaIconCheck } from "../../pwa/pwa-icon-check.js";
 import { buildCustomerLoginCheck } from "../../deploy/customer-login-check.js";
+import { buildRealDataMigrationCheck } from "../../deploy/real-data-migration-check.js";
+import { buildPhase2300ProductionCheck } from "../../deploy/phase2300-production-check.js";
+import { buildPhase2350ProductionCheck } from "../../deploy/phase2350-production-check.js";
 import { buildSwitchBotDeploymentChecklist } from "../../security-automation/switchbot-release-gate.js";
 import { getSecurityState } from "../../services/securityAutomationService.js";
 import { getSwitchBotMode, isRealUnlockGuarded } from "../../services/switchbotService.js";
@@ -81,6 +84,21 @@ deployRouter.get("/pwa-icon-check", (_req, res) => {
 /** Phase 2161–2200 — 顧客ログイン本番確認 */
 deployRouter.get("/customer-login-check", (_req, res) => {
   res.json(buildCustomerLoginCheck());
+});
+
+/** Phase 2201–2250 — 実データ移行チェック */
+deployRouter.get("/real-data-check", (_req, res) => {
+  res.json(buildRealDataMigrationCheck());
+});
+
+/** Phase 2251–2300 — 本番化完了チェック（レガシー） */
+deployRouter.get("/production-check-2300", (_req, res) => {
+  res.json(buildPhase2300ProductionCheck());
+});
+
+/** Phase 2301–2350 — Gmail SMTP 実運用チェック */
+deployRouter.get("/production-check", (_req, res) => {
+  res.json(buildPhase2350ProductionCheck());
 });
 
 /** Phase 1441–1460 — 本番設定監査（不足一覧） */

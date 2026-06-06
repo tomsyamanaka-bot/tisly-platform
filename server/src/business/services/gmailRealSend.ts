@@ -214,3 +214,45 @@ export async function sendGmailRealWithDraft(
     message: "Gmail送信完了",
   };
 }
+
+/** Phase 2251–2300 — イベント通知用 Gmail 簡易送信 */
+export async function sendGmailNotification(input: {
+  to: string;
+  subject: string;
+  body: string;
+  confirmed?: boolean;
+}): Promise<{ ok: boolean; error?: string }> {
+  const mode = getGmailSendMode();
+  if (mode === "mock") return { ok: true };
+  if (mode === "dryRun") return { ok: true };
+  const gate = canGmailRealSend(input.confirmed ?? true);
+  if (!gate.ok) return { ok: false, error: gate.reason };
+  const subjectB64 = Buffer.from(input.subject).toString("base64");
+  const rawMime = [
+    `To: ${input.to}`,
+    `Subject: =?UTF-8?B?${subjectB64}?=`,
+    "MIME-Version: 1.0",
+    "Content-Type: text/plain; charset=UTF-8",
+    "",
+    input.body,
+  ].join("\r\n");
+  const raw = base64UrlEncode(Buffer.from(rawMime, "utf8"));
+  try {
+    const token = await refreshGoogleAccessToken();
+    const res = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ raw }),
+    });
+    const json = (await res.json()) as { id?: string; error?: { message?: string } };
+    if (!res.ok || !json.id) {
+      return { ok: false, error: json.error?.message ?? `Gmail send failed (${res.status})` };
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}

@@ -371,6 +371,7 @@ export function createApp(): express.Application {
     "/uploads/install_photos",
     express.static(path.join(process.cwd(), "uploads", "install_photos"))
   );
+  app.use("/customer-files", express.static(path.join(process.cwd(), "customer-files")));
   app.use(
     "/uploads/install-photos",
     express.static(path.join(process.cwd(), "uploads", "install-photos"))

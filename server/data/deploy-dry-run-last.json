@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-06T20:43:49.762Z",
+  "generatedAt": "2026-06-06T22:03:19.913Z",
   "passed": true,
   "summary": {
     "pass": 18,
@@ -370,5 +370,5 @@
     "isProductionUrl": true,
     "tislyPublicUrl": "https://tisly.jp"
   },
-  "lastDryRunAt": "2026-06-06T20:34:50.788Z"
+  "lastDryRunAt": "2026-06-06T20:43:49.762Z"
 }

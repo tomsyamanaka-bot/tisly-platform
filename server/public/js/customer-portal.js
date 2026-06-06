@@ -6,8 +6,8 @@ import {
 } from "./customer-auth.js";
 import { isStandalonePwa, renderPwaTopbar, setPwaTopbarVisible } from "./tisly-pwa-shell.js";
 
-const EXPECTED_SHELL_VERSION = "2200";
-const EXPECTED_SW_TAG = "v2200-customer-login";
+const EXPECTED_SHELL_VERSION = "2350";
+const EXPECTED_SW_TAG = "v2350-production";
 
 const customerCode = customerCodeFromPath();
 
@@ -187,18 +187,29 @@ function renderDevicesSection(devices) {
       .join("") || "<p>設備なし</p>"}`;
 }
 
-function renderEventsSection(events, alarms) {
+function renderEventsSection(events, alarms, meta = {}) {
+  const source = meta.source ?? "api";
+  const err = meta.error ? `<p class="hint portal-events-error">${meta.error}</p>` : "";
   return `
-    <h2>通知履歴</h2>
+    <h2>通知履歴 <span class="portal-data-source" data-source="api">API</span></h2>
+    ${err}
     <h3>最新イベント</h3>
-    <ul class="simple-list">${(events.events ?? [])
+    <ul class="simple-list" id="portal-events-list">${(events.events ?? [])
       .map((e) => `<li>${e.created_at?.slice(0, 16)} — ${e.event_type}: ${e.message}</li>`)
       .join("") || "<li>イベントなし</li>"}</ul>
     <h3>警報履歴</h3>
-    <ul class="simple-list">${(alarms.alarms ?? [])
+    <ul class="simple-list" id="portal-alarms-list">${(alarms.alarms ?? [])
       .slice(0, 15)
       .map((a) => `<li><strong>${a.severity}</strong> ${a.message || a.event_type}</li>`)
       .join("") || "<li>警報なし</li>"}</ul>`;
+}
+
+async function fetchPortalEvents() {
+  const [eventsRes, alarmsRes] = await Promise.all([
+    apiGet(`/api/customer/${customerCode}/events?limit=12`),
+    apiGet(`/api/customer/${customerCode}/alarms`),
+  ]);
+  return { events: eventsRes, alarms: alarmsRes, source: "api" };
 }
 
 function renderBillingSection(dash) {
@@ -232,11 +243,17 @@ async function showSection(hash) {
     const devices = await apiGet(`/api/customer/${customerCode}/devices`).catch(() => ({ grouped: {} }));
     content.innerHTML = renderDevicesSection(devices);
   } else if (hash === "events") {
-    const [events, alarms] = await Promise.all([
-      apiGet(`/api/customer/${customerCode}/events?limit=12`).catch(() => ({ events: [] })),
-      apiGet(`/api/customer/${customerCode}/alarms`).catch(() => ({ alarms: [] })),
-    ]);
-    content.innerHTML = renderEventsSection(events, alarms);
+    let events = { events: [] };
+    let alarms = { alarms: [] };
+    let meta = { source: "api" };
+    try {
+      const data = await fetchPortalEvents();
+      events = data.events;
+      alarms = data.alarms;
+    } catch (e) {
+      meta = { source: "api", error: `API取得失敗: ${e}` };
+    }
+    content.innerHTML = renderEventsSection(events, alarms, meta);
   } else if (hash === "billing") {
     content.innerHTML = renderBillingSection(portalData);
   }
@@ -263,12 +280,17 @@ async function showDashboard() {
   showHub();
   wireHubLinks();
 
-  const [dash, devices, events, alarms] = await Promise.all([
+  const [dash, devices, eventsData] = await Promise.all([
     apiGet(`/api/customer/${customerCode}/dashboard`),
     apiGet(`/api/customer/${customerCode}/devices`).catch(() => ({ grouped: {} })),
-    apiGet(`/api/customer/${customerCode}/events?limit=8`).catch(() => ({ events: [] })),
-    apiGet(`/api/customer/${customerCode}/alarms`).catch(() => ({ alarms: [] })),
+    fetchPortalEvents().catch(() => ({
+      events: { events: [] },
+      alarms: { alarms: [] },
+      source: "api",
+    })),
   ]);
+  const events = eventsData.events;
+  const alarms = eventsData.alarms;
 
   portalData = { ...dash, devices, events, alarms };
   applyBranding(dash.branding, dash.customer);
@@ -347,6 +369,24 @@ async function loadRecoveryTab() {
         await loadRecoveryTab();
       });
     });
+  }
+  const histEl = document.getElementById("recovery-history-cards");
+  if (histEl) {
+    try {
+      const hist = await apiGet(`/api/customer/${customerCode}/recovery`).catch(() => ({}));
+      histEl.innerHTML = (hist.shellyRecoveryHistory ?? [])
+        .map(
+          (e) =>
+            `<div class="responsive-card-item recovery-history-item">
+               <strong>${e.deviceId}</strong>
+               <span>${new Date(e.startedAt).toLocaleString("ja-JP")}</span>
+               <span class="recovery-status">${e.status}</span>
+             </div>`
+        )
+        .join("") || "<p>復旧履歴なし</p>";
+    } catch {
+      histEl.textContent = "履歴の取得に失敗しました";
+    }
   }
 }
 

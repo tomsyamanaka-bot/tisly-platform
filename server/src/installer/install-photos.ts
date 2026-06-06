@@ -2,7 +2,21 @@ import fs from "fs";
 import path from "path";
 import { v4 as uuid } from "uuid";
 import { getDatabase } from "../db/database.js";
-import { archiveInstallPhotoToRemote, installPhotosDir } from "../qnap/install-photo-archive.js";
+import { archiveInstallPhotoToRemote } from "../qnap/install-photo-archive.js";
+
+const ALLOWED_PHOTO_EXTS = new Set([".jpg", ".jpeg", ".png"]);
+
+export function customerFilesDir(customerCode: string): string {
+  const dir = path.join(process.cwd(), "customer-files", customerCode);
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+export function isAllowedInstallPhotoFile(fileName?: string): boolean {
+  if (!fileName) return true;
+  const ext = path.extname(fileName).toLowerCase();
+  return ALLOWED_PHOTO_EXTS.has(ext);
+}
 
 /** Field install photo categories (Phase 401–420). */
 export const INSTALL_PHOTO_TYPES = [
@@ -13,6 +27,7 @@ export const INSTALL_PHOTO_TYPES = [
   "panel",
   "test_result",
   "install",
+  "construction",
 ] as const;
 
 export type InstallPhotoType = (typeof INSTALL_PHOTO_TYPES)[number];
@@ -48,9 +63,14 @@ export function saveInstallPhoto(params: {
     : params.photoType
       ? "install"
       : "install";
+  if (params.fileName && !isAllowedInstallPhotoFile(params.fileName)) {
+    throw new Error("Only jpg and png images are allowed");
+  }
   const subdir = photoType;
-  const fname = params.fileName ?? `${uuid()}.jpg`;
-  const full = path.join(installPhotosDir(params.customerCode), subdir, fname);
+  const ext = path.extname(params.fileName ?? ".jpg").toLowerCase() || ".jpg";
+  const safeExt = ALLOWED_PHOTO_EXTS.has(ext) ? ext : ".jpg";
+  const fname = params.fileName ? path.basename(params.fileName) : `${uuid()}${safeExt}`;
+  const full = path.join(customerFilesDir(params.customerCode), subdir, fname);
   fs.mkdirSync(path.dirname(full), { recursive: true });
   const buf = Buffer.from(params.imageBase64, "base64");
   fs.writeFileSync(full, buf);
@@ -110,8 +130,12 @@ export function deleteInstallPhoto(customerId: string, photoId: string): boolean
     .get(photoId, customerId) as { photo_path: string } | undefined;
   if (!row) return false;
 
-  for (const base of ["install_photos", "install-photos"]) {
-    const full = path.join(process.cwd(), "uploads", base, row.photo_path);
+  const paths = [
+    path.join(process.cwd(), "customer-files", row.photo_path),
+    path.join(process.cwd(), "uploads", "install_photos", row.photo_path),
+    path.join(process.cwd(), "uploads", "install-photos", row.photo_path),
+  ];
+  for (const full of paths) {
     try {
       if (fs.existsSync(full)) fs.unlinkSync(full);
     } catch {
@@ -123,5 +147,9 @@ export function deleteInstallPhoto(customerId: string, photoId: string): boolean
 }
 
 export function getInstallPhotoUrl(photoPath: string): string {
+  if (photoPath.startsWith("/customer-files/")) return photoPath;
+  if (fs.existsSync(path.join(process.cwd(), "customer-files", photoPath))) {
+    return `/customer-files/${photoPath}`;
+  }
   return `/uploads/install_photos/${photoPath}`;
 }

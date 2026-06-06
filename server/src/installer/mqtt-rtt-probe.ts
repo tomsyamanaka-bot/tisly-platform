@@ -1,5 +1,6 @@
 import mqtt from "mqtt";
 import { config } from "../config.js";
+import { isMqttMockMode } from "../toms/mqtt-live-push-bridge.js";
 
 export interface MqttRttProbeResult {
   ok: boolean;
@@ -11,7 +12,7 @@ export interface MqttRttProbeResult {
 }
 
 export function mqttBrokerConfigured(): boolean {
-  return config.mqttUrlConfigured && env("MQTT_MOCK_MODE") !== "true";
+  return config.mqttUrlConfigured && !isMqttMockMode();
 }
 
 function env(key: string): string {

@@ -5,7 +5,6 @@ import {
   customerCodeFromPath,
 } from "./customer-auth.js";
 
-const MEMO_KEY = "tisly_maint_memo";
 const OFFLINE_CASES_KEY = "tisly_maint_offline_cases";
 
 const pathCustomerMatch = location.pathname.match(/\/customer\/([^/]+)\/maintenance/i);
@@ -322,6 +321,7 @@ document.getElementById("maint-customer")?.addEventListener("change", () => {
   loadSchedules();
   loadReports();
   loadPartsHistory();
+  loadInspectionMemo();
 });
 
 document.getElementById("btn-maint-add-schedule")?.addEventListener("click", () =>
@@ -331,13 +331,30 @@ document.getElementById("btn-maint-submit-report")?.addEventListener("click", ()
   submitReport().catch((e) => alert(e.message))
 );
 
-document.getElementById("btn-maint-save-memo")?.addEventListener("click", () => {
-  localStorage.setItem(MEMO_KEY, document.getElementById("maint-memo")?.value ?? "");
-});
+async function loadInspectionMemo() {
+  const code = customerCode();
+  const el = document.getElementById("maint-memo");
+  if (!el) return;
+  try {
+    const data = await apiGet(`/api/maintenance/inspection/${code}`);
+    el.value = data.memo ?? "";
+  } catch {
+    el.placeholder = "要ログイン（App Hub maintenance）";
+  }
+}
+
+async function saveInspectionMemo() {
+  const code = customerCode();
+  const memo = document.getElementById("maint-memo")?.value ?? "";
+  await apiPost("/api/maintenance/inspection", { customerCode: code, memo });
+  alert("点検メモを保存しました");
+}
+
+document.getElementById("btn-maint-save-memo")?.addEventListener("click", () =>
+  saveInspectionMemo().catch((e) => alert(e.message))
+);
 
 document.getElementById("btn-maint-create-case")?.addEventListener("click", () => createMaintenanceCase());
-
-document.getElementById("maint-memo")?.value = localStorage.getItem(MEMO_KEY) ?? "";
 
 document.getElementById("maint-mqtt").textContent =
   navigator.onLine ? "MQTT: オンライン（ゲートウェイ経由）" : "MQTT: オフライン";
@@ -370,6 +387,7 @@ async function bootMaintenance() {
   loadSchedules();
   loadReports();
   loadPartsHistory();
+  loadInspectionMemo();
   flushOfflineCases();
 }
 
