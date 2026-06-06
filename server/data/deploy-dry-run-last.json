@@ -1,12 +1,19 @@
 {
-  "generatedAt": "2026-06-06T00:02:21.727Z",
+  "generatedAt": "2026-06-06T09:06:56.144Z",
   "passed": true,
   "summary": {
-    "pass": 17,
+    "pass": 18,
     "fail": 0,
     "warn": 0
   },
   "checks": [
+    {
+      "id": "deploy_layout",
+      "name": "デプロイレイアウト",
+      "status": "pass",
+      "message": "server/public 含む 8 必須パス OK（web/ 不要）",
+      "hint": "フロントは server/public/ — ルート web/ は不要"
+    },
     {
       "id": "env_example_exists",
       "name": ".env.production.example 存在",
@@ -363,5 +370,5 @@
     "isProductionUrl": true,
     "tislyPublicUrl": "https://tisly.jp"
   },
-  "lastDryRunAt": "2026-06-06T00:01:31.010Z"
+  "lastDryRunAt": "2026-06-06T09:05:46.046Z"
 }

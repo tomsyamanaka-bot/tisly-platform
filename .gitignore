@@ -25,6 +25,8 @@ server/data/*.db-*
 server/data/siem/
 server/data/backups/
 server/.env
+server/.env.production
+.env.production
 server/uploads/
 server/data/deploy-dry-run-last.json
 server/data/release-gate-last.json

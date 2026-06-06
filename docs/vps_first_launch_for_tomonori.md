@@ -1,13 +1,16 @@
 # TiSLY 本番初回公開 — 智紀さん向け VPS 手順書
 
-**Phase 1541–1580** · ConoHa VPS へ **https://tisly.jp** の PWA 群を公開するための、コピペ専用ガイドです。
+**Phase 1721–1760 — VPS Deploy Final Safety Check & Launch Guide**  
+ConoHa VPS へ **https://tisly.jp** の PWA 群を公開するための手順書です。本番アプリは **`/opt/tisly/server`**（`server/public` 内包）を標準とします。
 
 > 上から順にブロックをターミナルへ貼り付けて実行してください。  
 > **「✋ 智紀さんが入力」** と書いてある箇所だけ、ご自身の値を入れます。
 
 関連:
 
+- **コピペだけで進めたいとき** → [`vps_copy_paste_commands.md`](./vps_copy_paste_commands.md)（上からブロック順に貼り付け）
 - `.env` の値の作り方 → [`env_fill_in_guide.md`](./env_fill_in_guide.md)
+- 公開後 URL チェック表 → [`production_url_checklist.md`](./production_url_checklist.md)
 - 公開後の curl 確認 → [`production_check_commands.md`](./production_check_commands.md)
 - 失敗時の戻し方 → [`rollback_guide.md`](./rollback_guide.md)
 
@@ -222,25 +225,23 @@ bash scripts/vps-deploy-one-command.sh
 
 ## 15. 公開確認（9 URL）
 
-ブラウザで開く:
+まずブラウザで **https://tisly.jp/app** を開き、App Hub が表示されることを確認します。
 
-```
-https://tisly.jp/deployment/checklist
-```
+チェック表（表示 OK · PWA · API · 404/500 · 各端末）→ **[`production_url_checklist.md`](./production_url_checklist.md)**
 
 9 本番 URL:
 
-```
-https://tisly.jp/app
-https://tisly.jp/survey
-https://tisly.jp/business
-https://tisly.jp/sales
-https://tisly.jp/customer/TOMS001
-https://tisly.jp/customer/TOMS001/pro-remote
-https://tisly.jp/customer/TOMS001/install/home
-https://tisly.jp/tv/TOMS001
-https://tisly.jp/deployment/checklist
-```
+| # | URL |
+|---|-----|
+| 1 | https://tisly.jp/app |
+| 2 | https://tisly.jp/survey |
+| 3 | https://tisly.jp/business |
+| 4 | https://tisly.jp/sales |
+| 5 | https://tisly.jp/customer/TOMS001 |
+| 6 | https://tisly.jp/customer/TOMS001/pro-remote |
+| 7 | https://tisly.jp/customer/TOMS001/install/home |
+| 8 | https://tisly.jp/tv/TOMS001 |
+| 9 | https://tisly.jp/deployment/checklist |
 
 ターミナルでも確認できます → [`production_check_commands.md`](./production_check_commands.md)
 

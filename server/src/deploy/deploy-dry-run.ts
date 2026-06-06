@@ -175,7 +175,7 @@ export function checkSecretLeakInGitDiff(diffText = gitDiffText()): SecretLeakCh
   if (diffTouchesRealEnvProduction(diffText) && /^\+\s*[^#].*=/m.test(diffText)) {
     findings.push(".env.production 相当の実値が git diff に含まれています");
   }
-  if (/^\+\s*server\/\.env/m.test(diffText)) {
+  if (/^\+\+\+ b\/server\/\.env(?:\r)?$/m.test(diffText)) {
     findings.push("server/.env が git diff に追加されています");
   }
 
