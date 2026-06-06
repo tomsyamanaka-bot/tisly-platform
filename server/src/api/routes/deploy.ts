@@ -143,7 +143,7 @@ deployRouter.get("/layout-audit", (_req, res) => {
   res.json(buildDeployLayoutAudit());
 });
 
-/** Phase 1761–1800 — VPS Production Deploy Rehearsal チェックリスト */
+/** Phase 1801–1840 — VPS Production Start Command Finalize（リハーサルチェックリスト） */
 deployRouter.get("/rehearsal-checklist", (_req, res) => {
   res.json(buildDeployRehearsalChecklist());
 });

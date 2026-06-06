@@ -93,7 +93,7 @@
   </nav>
 
   <h1>本番公開チェックリスト</h1>
-  <p class="meta">Phase 1761–1800 — VPS Production Deploy Rehearsal & Human Checklist · tisly.jp · 9 URL · API · PWA · mock/real · 実機確認</p>
+  <p class="meta">Phase 1801–1840 — VPS Production Start Command Finalize · tisly.jp · 9 URL · API · PWA · mock/real · 実機確認</p>
 
   <div class="safety-note">
     <strong>安全ガード:</strong> この Phase はローカル確認と手順整備のみです。本番送信・本番アップロード・実機操作は実行しません。
@@ -103,6 +103,7 @@
 
   <button type="button" id="refresh-btn" class="refresh">再確認</button>
   <button type="button" id="vps-cmd-btn" class="vps-cmd-btn">VPS投入コマンドを見る</button>
+  <button type="button" id="prod-start-btn" class="vps-cmd-btn">本番起動コマンドを見る</button>
 
   <h2>VPS Production Rehearsal ステータス</h2>
   <div id="rehearsal-grid" class="rehearsal-grid"></div>
@@ -110,7 +111,7 @@
   <h2>env 入力チェック表</h2>
   <div id="env-table-wrap"></div>
 
-  <p class="meta doc-links">関連ドキュメント（リポジトリ <code>docs/</code>）: vps_first_launch_for_tomonori.md · vps_copy_paste_commands.md · production_url_checklist.md · rollback_guide.md</p>
+  <p class="meta doc-links">関連ドキュメント（リポジトリ <code>docs/</code>）: vps_production_start.md · vps_first_launch_for_tomonori.md · vps_copy_paste_commands.md · production_url_checklist.md · rollback_guide.md</p>
 
   <h2>9 本番 URL 公開状態</h2>
   <ul id="url-list" class="url-list"></ul>
@@ -139,7 +140,7 @@
   <div id="vps-modal" class="modal-overlay" role="dialog" aria-labelledby="vps-modal-title">
     <div class="modal">
       <button type="button" class="modal-close" id="vps-modal-close" aria-label="閉じる">&times;</button>
-      <h3 id="vps-modal-title">VPS 投入コマンド（プレースホルダのみ）</h3>
+      <h3 id="vps-modal-title">VPS コマンド（プレースホルダのみ）</h3>
       <p class="meta">秘密値は表示しません。✋ マークの箇所だけ智紀さんが入力してください。</p>
       <div id="vps-cmd-steps"></div>
     </div>

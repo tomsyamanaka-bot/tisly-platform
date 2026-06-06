@@ -1,5 +1,5 @@
 /**
- * Phase 1761–1800 — 本番公開チェックリスト (/deployment/checklist)
+ * Phase 1801–1840 — 本番公開チェックリスト (/deployment/checklist)
  */
 
 const PRODUCTION_URLS = [
@@ -40,6 +40,7 @@ const GOOGLE_TV_CHECKS = [
 const STORAGE_KEY = "tisly_deploy_checklist_manual";
 let lastCheckState = { urlResults: [], gate: null, audit: null, preflight: null, rehearsal: null };
 let cachedVpsCommands = [];
+let cachedProductionStart = null;
 
 function loadManualChecks() {
   try {
@@ -145,9 +146,20 @@ function renderVpsCommandModal(steps) {
     .join("");
 }
 
-function openVpsModal() {
+function openVpsModal(mode = "deploy") {
   const modal = document.getElementById("vps-modal");
-  if (cachedVpsCommands.length) {
+  const title = document.getElementById("vps-modal-title");
+  if (mode === "production_start" && cachedProductionStart?.oneBlock?.length) {
+    title.textContent = "本番起動コマンド（systemd · 秘密値なし）";
+    renderVpsCommandModal([
+      {
+        title: "VNC コンソールへ貼り付け（1 ブロック）",
+        commands: cachedProductionStart.oneBlock,
+        note: cachedProductionStart.note || cachedProductionStart.methodLabel,
+      },
+    ]);
+  } else if (cachedVpsCommands.length) {
+    title.textContent = "VPS 投入コマンド（プレースホルダのみ）";
     renderVpsCommandModal(cachedVpsCommands);
   }
   modal.classList.add("open");
@@ -352,6 +364,7 @@ async function loadAll() {
   ]);
 
   cachedVpsCommands = rehearsal?.vpsCommands || [];
+  cachedProductionStart = rehearsal?.productionStart || null;
   renderRehearsalGrid(rehearsal);
   renderEnvTable(rehearsal);
 
@@ -437,7 +450,8 @@ async function loadAll() {
 }
 
 document.getElementById("refresh-btn").addEventListener("click", () => loadAll().catch(console.error));
-document.getElementById("vps-cmd-btn").addEventListener("click", openVpsModal);
+document.getElementById("vps-cmd-btn").addEventListener("click", () => openVpsModal("deploy"));
+document.getElementById("prod-start-btn")?.addEventListener("click", () => openVpsModal("production_start"));
 document.getElementById("vps-modal-close").addEventListener("click", closeVpsModal);
 document.getElementById("vps-modal").addEventListener("click", (e) => {
   if (e.target.id === "vps-modal") closeVpsModal();

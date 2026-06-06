@@ -1,5 +1,6 @@
 /**
- * Phase 1761–1800 — VPS Production Deploy Rehearsal & Human Checklist
+ * Phase 1801–1840 — VPS Production Start Command Finalize
+ * （Phase 1761–1800 リハーサルチェックリストを拡張）
  */
 
 import { execSync } from "child_process";
@@ -43,6 +44,19 @@ export interface VpsCommandStep {
   note?: string;
 }
 
+export interface ProductionStartInfo {
+  method: "systemd";
+  methodLabel: string;
+  packageJson: string;
+  startScript: string;
+  entryPoint: string;
+  systemdUnit: string;
+  nginxConf: string;
+  envTemplate: string;
+  oneBlock: string[];
+  note: string;
+}
+
 export interface DeployRehearsalChecklistReport {
   phase: string;
   title: string;
@@ -52,6 +66,7 @@ export interface DeployRehearsalChecklistReport {
   statusRows: RehearsalStatusRow[];
   envChecklist: EnvChecklistRow[];
   vpsCommands: VpsCommandStep[];
+  productionStart: ProductionStartInfo;
   pwaInstallReady: { ready: number; total: number; label: string };
 }
 
@@ -218,6 +233,29 @@ function buildEnvChecklist(source: NodeJS.ProcessEnv = process.env): EnvChecklis
   });
 }
 
+/** VNC コンソールへ貼る本番起動コマンド（1 ブロック · 秘密値なし） */
+export const VPS_PRODUCTION_START_ONE_BLOCK: string[] = [
+  "cd /opt/tisly/server",
+  "test -f .env || cp .env.production.example .env && chmod 600 .env",
+  "test -f .env && grep -qE '^JWT_SECRET=.+$' .env && grep -qE '^ADMIN_PASSWORD_HASH=.+$' .env || { echo '✋ .env 未完了 — docs/env_fill_in_guide.md を参照'; exit 1; }",
+  "npm ci",
+  "npm run build",
+  "npm run release:gate",
+  "npm run db:init",
+  "cp deploy/systemd/tisly-server.service /etc/systemd/system/",
+  "systemctl daemon-reload",
+  "systemctl enable tisly-server",
+  "systemctl restart tisly-server",
+  "systemctl is-active tisly-server",
+  "cp deploy/nginx/tisly.jp.conf /etc/nginx/sites-available/tisly.jp",
+  "ln -sf /etc/nginx/sites-available/tisly.jp /etc/nginx/sites-enabled/",
+  "rm -f /etc/nginx/sites-enabled/default",
+  "nginx -t && systemctl reload nginx",
+  "curl -sS http://127.0.0.1:3080/api/health",
+  "curl -sI https://tisly.jp/app | head -5",
+  "curl -sS https://tisly.jp/api/health",
+];
+
 /** VPS 投入コマンド（秘密値はすべてプレースホルダ） */
 export const VPS_DEPLOY_COMMAND_STEPS: VpsCommandStep[] = [
   {
@@ -331,7 +369,30 @@ export const VPS_DEPLOY_COMMAND_STEPS: VpsCommandStep[] = [
     commands: ["cd /opt/tisly", "bash scripts/rollback.sh"],
     note: "詳細は docs/rollback_guide.md",
   },
+  {
+    id: "production_start",
+    title: "本番起動（一本化 · VNC コンソール用）",
+    commands: VPS_PRODUCTION_START_ONE_BLOCK,
+    note:
+      "起動方式は systemd（公式）。PM2 は代替のみ — 本番では使いません。秘密値は表示しません。",
+  },
 ];
+
+export function buildProductionStartInfo(): ProductionStartInfo {
+  return {
+    method: "systemd",
+    methodLabel: "systemd（推奨 · 公式）— PM2 は代替のみ",
+    packageJson: "/opt/tisly/server/package.json",
+    startScript: "npm start → node dist/index.js",
+    entryPoint: "/opt/tisly/server/dist/index.js",
+    systemdUnit: "/etc/systemd/system/tisly-server.service",
+    nginxConf: "/etc/nginx/sites-available/tisly.jp",
+    envTemplate: "/opt/tisly/server/.env.production.example",
+    oneBlock: VPS_PRODUCTION_START_ONE_BLOCK,
+    note:
+      "正式 .env テンプレートは server/.env.production.example。ルート .env.production.example は参照用。",
+  };
+}
 
 export function buildDeployRehearsalChecklist(
   source: NodeJS.ProcessEnv = process.env
@@ -444,14 +505,15 @@ export function buildDeployRehearsalChecklist(
     securityReady;
 
   return {
-    phase: "1761-1800",
-    title: "VPS Production Deploy Rehearsal & Human Checklist",
+    phase: "1801-1840",
+    title: "VPS Production Start Command Finalize",
     generatedAt: new Date().toISOString(),
     rehearsalReady,
     rehearsalReadyLabel: rehearsalReady ? "REHEARSAL READY" : "REHEARSAL NOT READY",
     statusRows,
     envChecklist,
     vpsCommands: VPS_DEPLOY_COMMAND_STEPS,
+    productionStart: buildProductionStartInfo(),
     pwaInstallReady: {
       ready: pwaAudit.readyCount,
       total: pwaAudit.totalPwa,

@@ -61,6 +61,11 @@ const REQUIRED_LAYOUT: { id: string; label: string; rel: string }[] = [
     label: "vps-deploy-one-command.sh",
     rel: "scripts/vps-deploy-one-command.sh",
   },
+  {
+    id: "vps_production_start",
+    label: "vps-production-start.sh",
+    rel: "scripts/vps-production-start.sh",
+  },
   { id: "github_workflows", label: ".github/workflows", rel: ".github/workflows" },
 ];
 
