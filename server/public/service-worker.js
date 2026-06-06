@@ -1,7 +1,8 @@
 /* TiSLY Multi PWA — Phase 2001 hex shield icon + push navigation */
-const SW_VERSION = "tisly-pwa-v2001";
-const OFFLINE_CACHE = "tisly-pwa-shell-v2001";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2001";
+const SW_VERSION = "tisly-pwa-v2001-icon";
+const OFFLINE_CACHE = "tisly-pwa-shell-v2001-icon";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2001-icon";
+const ICON_V = "?v=2001";
 const SHELL_URLS = [
   "/customer/new",
   "/customer-new.html",
@@ -80,12 +81,13 @@ const SHELL_URLS = [
   "/js/pro-remote-floor-map.js",
   "/css/pro-remote-floor-map.css",
   "/js/api.js",
-  "/icons/icon-64.png",
-  "/icons/icon-128.png",
-  "/icons/icon-192.png",
-  "/icons/icon-256.png",
-  "/icons/icon-384.png",
-  "/icons/icon-512.png",
+  `/icons/icon-64.png${ICON_V}`,
+  `/icons/icon-128.png${ICON_V}`,
+  `/icons/icon-192.png${ICON_V}`,
+  `/icons/icon-256.png${ICON_V}`,
+  `/icons/icon-384.png${ICON_V}`,
+  `/icons/icon-512.png${ICON_V}`,
+  "/apple-touch-icon.png",
   "/manifest-installer.webmanifest",
   "/manifest-survey.webmanifest",
   "/manifest-maintenance.webmanifest",
@@ -191,8 +193,8 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
-      icon: "/icons/icon-192.png",
-      badge: "/icons/icon-192.png",
+      icon: `/icons/icon-192.png${ICON_V}`,
+      badge: `/icons/icon-192.png${ICON_V}`,
       data: { url: data.url },
     })
   );

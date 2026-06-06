@@ -23,4 +23,4 @@ node server/scripts/gen-pwa-icons.mjs
 
 ## 反映
 
-Service Worker キャッシュバージョン `tisly-pwa-v2001` を更新すると既存 PWA に新アイコンが配信されます。iOS ホーム画面アイコンは再インストール（削除→追加）が必要な場合があります。
+manifest / HTML / apple-touch-icon の URL に `?v=2001` を付与し、Service Worker キャッシュ `tisly-pwa-v2001-icon` で旧アイコンを無効化します。iOS ホーム画面アイコンは再インストール（削除→追加）が必要な場合があります。

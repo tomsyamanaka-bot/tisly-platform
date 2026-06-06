@@ -124,6 +124,13 @@ describe("Phase 461-480 multi PWA app hub", () => {
     const sizes = (manifest.body.icons || []).map((i: { sizes: string }) => i.sizes);
     assert.ok(sizes.includes("64x64"));
     assert.ok(sizes.includes("512x512"));
+    const iconSrcs = (manifest.body.icons || []).map((i: { src: string }) => i.src);
+    assert.ok(iconSrcs.every((s: string) => s.includes("?v=2001")));
+    const apple = await request(app).get("/apple-touch-icon.png");
+    assert.equal(apple.status, 200);
+    const hub = await request(app).get("/app");
+    assert.ok(hub.text.includes("icon-192.png?v=2001"));
+    assert.ok(hub.text.includes("manifest.webmanifest?v=2001"));
   });
 
   it("serves RC2 push and notification PWA pages", async () => {
@@ -163,7 +170,7 @@ describe("Phase 461-480 multi PWA app hub", () => {
     assert.equal(off.status, 200);
     assert.ok(off.text.includes("オフライン"));
     const sw = await request(app).get("/service-worker.js");
-    assert.ok(sw.text.includes("tisly-pwa-v2001"));
+    assert.ok(sw.text.includes("tisly-pwa-v2001-icon"));
   });
 
   it("unauthorized PWA access returns 403", async () => {
