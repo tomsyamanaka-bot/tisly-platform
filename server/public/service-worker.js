@@ -1,9 +1,12 @@
-/* TiSLY Multi PWA — Phase 2001 hex shield icon + push navigation */
-const SW_VERSION = "tisly-pwa-v2001-icon";
-const OFFLINE_CACHE = "tisly-pwa-shell-v2001-icon";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2001-icon";
+/* TiSLY Multi PWA — Phase 2161 customer portal shell + hex shield icon */
+const SW_VERSION = "tisly-pwa-v2200-customer-login";
+const OFFLINE_CACHE = "tisly-pwa-shell-v2200-customer-login";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2200-customer-login";
 const ICON_V = "?v=2001";
 const SHELL_URLS = [
+  "/customer-portal.html",
+  "/js/customer-portal.js",
+  "/css/customer-portal.css",
   "/customer/new",
   "/customer-new.html",
   "/onboarding/new",

@@ -4,7 +4,10 @@ import {
   setCustomerToken,
   clearCustomerToken,
 } from "./customer-auth.js";
-import { renderPwaTopbar, setPwaTopbarVisible } from "./tisly-pwa-shell.js";
+import { isStandalonePwa, renderPwaTopbar, setPwaTopbarVisible } from "./tisly-pwa-shell.js";
+
+const EXPECTED_SHELL_VERSION = "2200";
+const EXPECTED_SW_TAG = "v2200-customer-login";
 
 const customerCode = customerCodeFromPath();
 
@@ -97,7 +100,7 @@ async function performLogin() {
   const btn = document.getElementById("btn-login");
   if (btn) btn.disabled = true;
   if (loginError) loginError.textContent = "";
-  setLoginStatus("通信を開始しています…");
+  setLoginStatus("通信開始");
   const username = document.getElementById("login-username")?.value.trim() ?? "";
   const password = document.getElementById("login-password")?.value ?? "";
   const payload = { customerCode, username, password };
@@ -112,13 +115,12 @@ async function performLogin() {
     if (!res.ok) {
       const reason = data.error ?? res.statusText ?? "不明なエラー";
       const extra = data.failedAttempts ? ` (失敗 ${data.failedAttempts} 回)` : "";
-      const msg = `ログイン失敗：${reason}${extra}`;
-      if (loginError) loginError.textContent = msg;
-      setLoginStatus("");
+      if (loginError) loginError.textContent = `${reason}${extra}`;
+      setLoginStatus(`ログイン失敗：HTTP ${res.status}`);
       console.error("[customer-portal] login failed", { status: res.status, data });
       return;
     }
-    setLoginStatus("ログイン成功 — 遷移中…");
+    setLoginStatus("ログイン成功、移動中");
     setAdminToken(data.token);
     setCustomerToken(data.token, customerCode);
     currentUserRole = data.user?.role ?? "viewer";
@@ -129,9 +131,8 @@ async function performLogin() {
     }
     location.replace(`/customer/${customerCode}`);
   } catch (e) {
-    const msg = `ログイン失敗：${String(e)}`;
-    if (loginError) loginError.textContent = msg;
-    setLoginStatus("");
+    if (loginError) loginError.textContent = String(e);
+    setLoginStatus("ログイン処理エラー");
     console.error("[customer-portal] login error", e);
   } finally {
     loginBusy = false;
@@ -487,3 +488,52 @@ if (getAdminToken()) {
 
 const man = document.getElementById("customer-portal-manifest");
 if (man && customerCode) man.href = `/customer/${customerCode}/manifest.webmanifest`;
+
+function renderPwaDisplayMode() {
+  const el = document.getElementById("pwa-display-mode");
+  if (!el) return;
+  const mode = isStandalonePwa() ? "standalone" : "browser";
+  el.textContent = `PWA: ${mode}`;
+  el.title = `表示モード: ${mode}`;
+}
+
+function showPortalUpdateBanner() {
+  const banner = document.getElementById("customer-portal-update-banner");
+  if (!banner) return;
+  banner.hidden = false;
+  document.getElementById("btn-portal-reload")?.addEventListener("click", () => location.reload(), {
+    once: true,
+  });
+}
+
+async function detectStalePortalCache() {
+  const htmlVersion = document.documentElement.dataset.shellVersion || "";
+  let stale = htmlVersion && htmlVersion !== EXPECTED_SHELL_VERSION;
+  if ("serviceWorker" in navigator) {
+    try {
+      const res = await fetch(`/service-worker.js?check=${Date.now()}`, { cache: "no-store" });
+      if (res.ok) {
+        const text = await res.text();
+        if (!text.includes(EXPECTED_SW_TAG)) stale = true;
+      }
+    } catch {
+      /* offline — skip */
+    }
+    try {
+      const reg = await navigator.serviceWorker.getRegistration("/");
+      if (reg?.waiting || reg?.installing) stale = true;
+    } catch {
+      /* ignore */
+    }
+  }
+  if (stale) showPortalUpdateBanner();
+}
+
+renderPwaDisplayMode();
+detectStalePortalCache().catch(() => {});
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/service-worker.js").catch(() => {});
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (isStandalonePwa()) showPortalUpdateBanner();
+  });
+}

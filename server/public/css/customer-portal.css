@@ -361,3 +361,37 @@
   color: inherit;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
+
+.pwa-display-mode {
+  position: fixed;
+  right: 0.5rem;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 0.5rem);
+  z-index: 90;
+  font-size: 0.65rem;
+  line-height: 1.2;
+  padding: 0.2rem 0.45rem;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+.customer-portal-update-banner {
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.85rem;
+  background: #fff8c5;
+  border-bottom: 1px solid #d4a72c;
+  color: #4d3800;
+  font-size: 0.85rem;
+}
+
+.customer-portal-update-banner[hidden] {
+  display: none !important;
+}

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="ja" data-shell-version="2200">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -16,6 +16,11 @@
   <link rel="stylesheet" href="/css/customer-portal.css" />
 </head>
 <body class="customer-portal" id="portal-root">
+  <div id="pwa-display-mode" class="pwa-display-mode" aria-label="表示モード"></div>
+  <div id="customer-portal-update-banner" class="customer-portal-update-banner" hidden role="status">
+    古いキャッシュを検出しました。最新版を反映するには再読み込みしてください。
+    <button type="button" class="btn secondary" id="btn-portal-reload">再読み込み</button>
+  </div>
   <div id="tisly-pwa-topbar-root"></div>
   <header class="portal-header" id="portal-header">
     <div class="brand" id="brand-block">

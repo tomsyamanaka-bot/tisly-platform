@@ -93,7 +93,7 @@
   </nav>
 
   <h1>本番公開チェックリスト</h1>
-  <p class="meta">Phase 2041–2080 — PWA アイコン本番確認 & iPhone 再追加手順 · tisly.jp · 9 URL · API · PWA · mock/real · 実機確認</p>
+  <p class="meta">Phase 2161–2200 — 顧客ログイン本番確認 · PWA アイコン · tisly.jp · 9 URL · API · PWA · mock/real · 実機確認</p>
 
   <div class="safety-note">
     <strong>安全ガード:</strong> この Phase はローカル確認と手順整備のみです。本番送信・本番アップロード・実機操作は実行しません。
@@ -108,6 +108,7 @@
   <button type="button" id="prod-verify-btn" class="vps-cmd-btn">起動後確認を見る</button>
   <button type="button" id="checklist-verify-btn" class="vps-cmd-btn">VPS/SSL/PWA確認を見る</button>
   <button type="button" id="pwa-icon-deploy-btn" class="vps-cmd-btn">PWAアイコン反映を見る</button>
+  <button type="button" id="customer-login-deploy-btn" class="vps-cmd-btn">顧客ログイン反映を見る</button>
 
   <h2>VPS Production Rehearsal ステータス</h2>
   <div id="rehearsal-grid" class="rehearsal-grid"></div>
@@ -131,6 +132,10 @@
 
   <h2>PWA installReady · manifest · service worker</h2>
   <div id="pwa-grid" class="grid"></div>
+
+  <h2>顧客ログイン確認</h2>
+  <p class="meta">Safari / PWA で <code>/customer/TOMS001</code> ログインが動作するか。API: <code>/api/deploy/customer-login-check</code></p>
+  <div id="customer-login-grid" class="grid"></div>
 
   <h2>PWAアイコン本番確認</h2>
   <p class="meta">六角シールド（Phase 2001）が本番で配信されているか。API: <code>/api/deploy/pwa-icon-check</code></p>

@@ -75,7 +75,9 @@ describe("Phase 2121-2160 customer login button and nav", () => {
     assert.match(js, /location\.replace/);
     assert.match(js, /setPwaTopbarVisible\(false\)/);
     assert.match(js, /portalNav\.hidden = true/);
-    assert.match(js, /console\.error\("\[customer-portal\] login failed"/);
+    assert.match(js, /setLoginStatus\(`ログイン失敗：HTTP \$\{res\.status\}`\)/);
+    assert.match(js, /setLoginStatus\("通信開始"\)/);
+    assert.match(js, /setLoginStatus\("ログイン成功、移動中"\)/);
   });
 
   it("toms001.owner login succeeds via API", async () => {

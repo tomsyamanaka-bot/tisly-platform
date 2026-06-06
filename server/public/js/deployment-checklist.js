@@ -48,6 +48,7 @@ let cachedProductionStart = null;
 let cachedProductionLaunch = null;
 let cachedProductionVerification = null;
 let cachedPwaIconCheck = null;
+let cachedCustomerLoginCheck = null;
 
 function loadManualChecks() {
   try {
@@ -220,6 +221,34 @@ function openVpsModal(mode = "deploy") {
         note: cachedProductionStart.note || cachedProductionStart.methodLabel,
       },
     ]);
+  } else if (mode === "customer_login_deploy" && cachedCustomerLoginCheck?.curlVerifyBlock?.length) {
+    title.textContent = "顧客ログイン本番反映（git pull → release:gate → restart）";
+    renderVpsCommandModal([
+      {
+        title: "VPS 反映（智紀さんが実行）",
+        commands: [
+          "cd /opt/tisly",
+          "git pull origin master",
+          "cd server",
+          "npm ci",
+          "npm run build",
+          "npm run release:gate",
+          "npm run db:init",
+          "systemctl restart tisly-server",
+          "nginx -t && systemctl reload nginx",
+        ],
+        note: "docs/tisly_vps_deploy_step_by_step.md Phase 2161–2200 参照",
+      },
+      {
+        title: "curl 確認",
+        commands: [
+          "curl -s https://tisly.jp/api/health",
+          "curl -sI https://tisly.jp/customer/TOMS001 | head -20",
+          ...cachedCustomerLoginCheck.curlVerifyBlock,
+        ],
+        note: `期待: customer-login-check ready=true · shell v${cachedCustomerLoginCheck.shellVersion || "2200"}`,
+      },
+    ]);
   } else if (mode === "pwa_icon_deploy" && cachedPwaIconCheck?.curlVerifyBlock?.length) {
     title.textContent = "PWA アイコン本番反映（git pull → build → restart）";
     renderVpsCommandModal([
@@ -314,6 +343,69 @@ function renderIphoneReinstallSteps(steps) {
     return;
   }
   ol.innerHTML = steps.map((s) => `<li>${s}</li>`).join("");
+}
+
+async function renderCustomerLoginSection(loginCheck) {
+  const grid = document.getElementById("customer-login-grid");
+  if (!loginCheck) {
+    grid.innerHTML = renderCard("顧客ログイン", "warn", "customer-login-check 未取得");
+    return;
+  }
+
+  const customerReachable = await probeUrl("/customer/TOMS001");
+  const cards = [
+    {
+      label: "/customer/TOMS001 reachable",
+      ok: customerReachable.status === "pass",
+      msg: `HTTP ${customerReachable.code || "—"}`,
+    },
+    {
+      label: "login form OK",
+      ok: loginCheck.loginFormExists && loginCheck.submitButtonExists,
+      msg: loginCheck.loginFormExists ? "login-form + btn-login" : "フォーム要素不足",
+    },
+    {
+      label: "nav hidden before login",
+      ok: loginCheck.portalNavHiddenBeforeLogin,
+      msg: loginCheck.portalNavHiddenBeforeLogin ? "portal-nav hidden" : "未ログイン時に nav 表示",
+    },
+    {
+      label: "submit handler OK",
+      ok: loginCheck.submitHandlerOk,
+      msg: loginCheck.submitHandlerOk ? "form submit → performLogin" : "ハンドラ未検出",
+    },
+    {
+      label: "auth API OK",
+      ok: loginCheck.authApiOk,
+      msg: loginCheck.authApiOk ? "POST /api/auth/customer/login" : "auth 未検出",
+    },
+    {
+      label: "demo account OK",
+      ok: loginCheck.demoAccountOk && loginCheck.demoPasswordConfigured,
+      msg: loginCheck.demoPasswordConfigured
+        ? `demo users: ${(loginCheck.demoUsers || []).slice(0, 3).join(", ")}…`
+        : "CUSTOMER_DEMO_PASSWORD 未設定",
+    },
+    {
+      label: "post-login redirect OK",
+      ok: loginCheck.postLoginRedirectOk,
+      msg: loginCheck.postLoginRedirectOk ? "location.replace → /customer/:code" : "リダイレクト未検出",
+    },
+  ];
+
+  let html = cards
+    .map((c) => renderCard(c.label, c.ok ? "pass" : "fail", c.msg))
+    .join("");
+
+  html += renderCard(
+    "顧客ログイン確認 合計",
+    loginCheck.ready && customerReachable.status === "pass" ? "pass" : "warn",
+    loginCheck.ready
+      ? `shell v${loginCheck.shellVersion} · API ready`
+      : "静的チェック未達 — VPS 反映またはビルドを確認"
+  );
+
+  grid.innerHTML = html;
 }
 
 async function renderPwaIconSection(iconCheck) {
@@ -501,7 +593,7 @@ async function loadAll() {
   const btn = document.getElementById("refresh-btn");
   btn.disabled = true;
 
-  const [health, gate, audit, preflight, rehearsal, swOk, iconCheck] = await Promise.all([
+  const [health, gate, audit, preflight, rehearsal, swOk, iconCheck, loginCheck] = await Promise.all([
     fetch("/api/health").then((r) => r.json()).catch(() => ({ ok: false })),
     fetch("/api/deploy/release-gate").then((r) => r.json()).catch(() => null),
     fetch("/api/deploy/audit").then((r) => r.json()).catch(() => null),
@@ -509,9 +601,11 @@ async function loadAll() {
     fetch("/api/deploy/rehearsal-checklist").then((r) => r.json()).catch(() => null),
     probeAsset("/service-worker.js"),
     fetch("/api/deploy/pwa-icon-check").then((r) => r.json()).catch(() => null),
+    fetch("/api/deploy/customer-login-check").then((r) => r.json()).catch(() => null),
   ]);
 
   cachedPwaIconCheck = iconCheck;
+  cachedCustomerLoginCheck = loginCheck;
 
   cachedVpsCommands = rehearsal?.vpsCommands || [];
   cachedProductionStart = rehearsal?.productionStart || null;
@@ -592,6 +686,7 @@ async function loadAll() {
   renderMockReal(gate, preflight);
   renderPwaSection(gate, swOk);
   renderIphoneReinstallSteps(iconCheck?.safariReinstallSteps);
+  await renderCustomerLoginSection(loginCheck);
   await renderPwaIconSection(iconCheck);
 
   lastCheckState = { urlResults, gate, audit, preflight, rehearsal };
@@ -611,6 +706,7 @@ document.getElementById("prod-start-btn")?.addEventListener("click", () => openV
 document.getElementById("prod-verify-btn")?.addEventListener("click", () => openVpsModal("production_verify"));
 document.getElementById("checklist-verify-btn")?.addEventListener("click", () => openVpsModal("checklist_verify"));
 document.getElementById("pwa-icon-deploy-btn")?.addEventListener("click", () => openVpsModal("pwa_icon_deploy"));
+document.getElementById("customer-login-deploy-btn")?.addEventListener("click", () => openVpsModal("customer_login_deploy"));
 document.getElementById("vps-modal-close").addEventListener("click", closeVpsModal);
 document.getElementById("vps-modal").addEventListener("click", (e) => {
   if (e.target.id === "vps-modal") closeVpsModal();

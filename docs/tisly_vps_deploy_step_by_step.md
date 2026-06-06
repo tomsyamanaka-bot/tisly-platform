@@ -89,6 +89,29 @@ curl -s https://tisly.jp/api/deploy/pwa-icon-check | head -c 400
 
 詳細: [`vps_phase2041_launch.md`](./vps_phase2041_launch.md) · `/deployment/checklist` の「PWAアイコン本番確認」
 
+**顧客ログイン反映時（Phase 2161–2200）** — Safari / PWA でログイン確認まで:
+
+```bash
+cd /opt/tisly
+git pull origin master
+cd server
+npm ci
+npm run build
+npm run release:gate
+npm run db:init
+systemctl restart tisly-server
+nginx -t && systemctl reload nginx
+curl -s https://tisly.jp/api/health
+curl -sI https://tisly.jp/customer/TOMS001 | head -20
+curl -s https://tisly.jp/api/deploy/customer-login-check | head -c 600
+```
+
+ブラウザ確認:
+
+- https://tisly.jp/customer/TOMS001 — ログインフォーム表示
+- https://tisly.jp/deployment/checklist —「顧客ログイン確認」カードが緑
+- iPhone Safari / PWA: `toms001.owner` + `CUSTOMER_DEMO_PASSWORD` でログイン → ポータルハブ表示
+
 ---
 
 ## 5. 本番 .env 作成
