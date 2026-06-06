@@ -1,6 +1,8 @@
 # VPS コピペ用コマンド集 — 智紀さん向け
 
-**Phase 1721–1760** · ConoHa VPS へ **https://tisly.jp** を初回公開するとき、上から順にブロックを貼り付けて実行してください。
+**Phase 1761–1800** · ConoHa VPS へ **https://tisly.jp** を初回公開するとき、上から順にブロックを貼り付けて実行してください。
+
+> **Web UI:** `/deployment/checklist` の「VPS投入コマンドを見る」ボタンでも同じ内容を確認できます（秘密値はプレースホルダのみ）。
 
 > **秘密情報の実値はこのファイルに書きません。**  
 > `JWT_SECRET` · `ADMIN_PASSWORD_HASH` · `INGEST_SECRET` · `DEPLOY_OPS_TOKEN` · MQTT 関連は **「✋ ここに入れる」** と明記した箇所だけ、ご自身の値を入力します。

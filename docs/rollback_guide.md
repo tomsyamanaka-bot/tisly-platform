@@ -1,6 +1,19 @@
 # ロールバック手順 — tisly.jp 本番
 
-**Phase 1541–1580** · デプロイ後に不具合が出たとき、**直前の git コミット**へ戻す手順です。
+**Phase 1761–1800** · デプロイ後に不具合が出たとき、**直前の git コミット**へ戻す手順です。
+
+---
+
+## 失敗時に最初に打つコマンド
+
+問題が出たら、**まずこれを 1 行コピペして実行**してください。
+
+```bash
+cd /opt/tisly && bash scripts/rollback.sh
+```
+
+> 502 · 白画面 · API エラー · 意図しない `git pull` · PWA 破損 — いずれも上記 1 行から始めます。  
+> スクリプトが失敗したときだけ、下の「方法 B」へ進んでください。
 
 ---
 
@@ -62,7 +75,7 @@ curl -sS -X POST "https://tisly.jp/api/deploy/rollback" \
 **✋ 智紀さんが入力:** `<DEPLOY_OPS_TOKEN>` は `.env` の値（他人に見せない）。
 
 VPS では `DEPLOY_ROLLBACK_EXEC=true` を `.env` に設定しないと API は記録のみでスクリプトは実行されません。  
-本番では **方法 A** を推奨します。
+本番では **方法 A**（上記 1 行）を推奨します。
 
 ---
 
@@ -113,4 +126,6 @@ sudo nginx -t && sudo systemctl reload nginx
 ## 関連
 
 - 初回投入: [`vps_first_launch_for_tomonori.md`](./vps_first_launch_for_tomonori.md)
+- コピペコマンド: [`vps_copy_paste_commands.md`](./vps_copy_paste_commands.md)
+- Web チェックリスト: `/deployment/checklist`
 - 確認コマンド: [`production_check_commands.md`](./production_check_commands.md)

@@ -1,7 +1,10 @@
 # TiSLY 本番初回公開 — 智紀さん向け VPS 手順書
 
-**Phase 1721–1760 — VPS Deploy Final Safety Check & Launch Guide**  
+**Phase 1761–1800 — VPS Production Deploy Rehearsal & Human Checklist**  
 ConoHa VPS へ **https://tisly.jp** の PWA 群を公開するための手順書です。本番アプリは **`/opt/tisly/server`**（`server/public` 内包）を標準とします。
+
+> **ローカル確認:** 投入前に `https://tisly.jp/deployment/checklist`（またはローカル `http://localhost:3080/deployment/checklist`）で **VPS Production Rehearsal ステータス** が REHEARSAL READY であることを確認してください。  
+> **VPS 投入コマンド** はチェックリスト画面の「VPS投入コマンドを見る」ボタンからも参照できます（秘密値はプレースホルダのみ）。
 
 > 上から順にブロックをターミナルへ貼り付けて実行してください。  
 > **「✋ 智紀さんが入力」** と書いてある箇所だけ、ご自身の値を入れます。
@@ -12,7 +15,8 @@ ConoHa VPS へ **https://tisly.jp** の PWA 群を公開するための手順書
 - `.env` の値の作り方 → [`env_fill_in_guide.md`](./env_fill_in_guide.md)
 - 公開後 URL チェック表 → [`production_url_checklist.md`](./production_url_checklist.md)
 - 公開後の curl 確認 → [`production_check_commands.md`](./production_check_commands.md)
-- 失敗時の戻し方 → [`rollback_guide.md`](./rollback_guide.md)
+- 失敗時の戻し方 → [`rollback_guide.md`](./rollback_guide.md)（**最初に打つコマンド**を大きく記載）
+- Web チェックリスト → `/deployment/checklist`（Phase 1761–1800）
 
 ---
 

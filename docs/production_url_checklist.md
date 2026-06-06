@@ -1,6 +1,8 @@
 # 本番公開 URL チェック表 — tisly.jp
 
-**Phase 1721–1760** · VPS 投入後、各 URL をブラウザ・端末で確認するためのチェックリストです。
+**Phase 1761–1800** · VPS 投入後、各 URL をブラウザ・端末で確認するためのチェックリストです。
+
+> **事前確認:** `/deployment/checklist` の **VPS Production Rehearsal ステータス** で GitHub / Build / Test / Release Gate / Security が READY であることを確認してから VPS 投入してください。
 
 > チェック欄は手動で `[x]` に書き換えてください。  
 > curl 一括確認は [`production_check_commands.md`](./production_check_commands.md) を参照。

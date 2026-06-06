@@ -26,6 +26,7 @@ import { getSwitchBotMode, isRealUnlockGuarded } from "../../services/switchbotS
 import { getAutomationSettings } from "../../security-automation/security-automation-store.js";
 import { config } from "../../config.js";
 import { buildDeployLayoutAudit } from "../../deploy/deploy-layout-audit.js";
+import { buildDeployRehearsalChecklist } from "../../deploy/deploy-rehearsal-checklist.js";
 import {
   buildProductionSimulation,
   buildPwaRehearsalAudit,
@@ -140,6 +141,11 @@ function verifyDeployOpsToken(req: { header: (n: string) => string | undefined }
 /** Phase 1681–1720 — リポジトリ構成監査（server/public 標準 · web/ 不要） */
 deployRouter.get("/layout-audit", (_req, res) => {
   res.json(buildDeployLayoutAudit());
+});
+
+/** Phase 1761–1800 — VPS Production Deploy Rehearsal チェックリスト */
+deployRouter.get("/rehearsal-checklist", (_req, res) => {
+  res.json(buildDeployRehearsalChecklist());
 });
 
 /** Phase 1581–1620 — Production Deployment Rehearsal（総合シミュレーション） */

@@ -49,12 +49,12 @@ describe("Phase 1721-1760 VPS Deploy Final Safety Check", () => {
       });
     }
 
-    it("vps_first_launch_for_tomonori.md references Phase 1721", () => {
+    it("vps_first_launch_for_tomonori.md references Phase 1721 or 1761", () => {
       const doc = fs.readFileSync(
         path.join(repoRoot, "docs/vps_first_launch_for_tomonori.md"),
         "utf8",
       );
-      assert.ok(doc.includes("1721"));
+      assert.ok(doc.includes("1721") || doc.includes("1761"));
       assert.ok(doc.includes("/opt/tisly/server"));
       assert.ok(doc.includes("rollback"));
     });
