@@ -82,5 +82,15 @@ describe("Remote Test PoC API", () => {
     const res = await request(app).get("/remote-test");
     assert.equal(res.status, 200);
     assert.match(res.text, /TiSLY Remote Test/);
+    assert.match(res.text, /\/remote-test\/app\.js/);
+    assert.match(res.text, /id="btn-save-token" disabled/);
+    assert.match(res.text, /maxlength="128"/);
+  });
+
+  it("GET /remote-test/app.js serves in-scope script", async () => {
+    const res = await request(app).get("/remote-test/app.js");
+    assert.equal(res.status, 200);
+    assert.match(res.headers["content-type"] ?? "", /javascript/);
+    assert.match(res.text, /syncSaveButton/);
   });
 });

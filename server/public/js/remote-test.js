@@ -1,12 +1,22 @@
 const TOKEN_KEY = "tisly_remote_test_token";
 
 function getToken() {
-  return localStorage.getItem(TOKEN_KEY)?.trim() ?? "";
+  try {
+    const raw = localStorage.getItem(TOKEN_KEY);
+    return raw ? raw.trim() : "";
+  } catch {
+    return "";
+  }
 }
 
 function setToken(value) {
-  if (value) localStorage.setItem(TOKEN_KEY, value);
-  else localStorage.removeItem(TOKEN_KEY);
+  try {
+    if (value) localStorage.setItem(TOKEN_KEY, value);
+    else localStorage.removeItem(TOKEN_KEY);
+    return true;
+  } catch (err) {
+    return err instanceof Error ? err.message : String(err);
+  }
 }
 
 function authHeaders(extra = {}) {
@@ -45,10 +55,20 @@ async function api(method, path, body) {
 
 const logEl = document.getElementById("log");
 const tokenInput = document.getElementById("token-input");
+const saveTokenBtn = document.getElementById("btn-save-token");
 
 function appendLog(label, payload) {
   const line = `[${new Date().toLocaleTimeString("ja-JP")}] ${label}\n${JSON.stringify(payload, null, 2)}\n\n`;
   logEl.textContent = line + logEl.textContent;
+}
+
+function tokenFromInput() {
+  return (tokenInput?.value ?? "").trim();
+}
+
+function syncSaveButton() {
+  if (!saveTokenBtn || !tokenInput) return;
+  saveTokenBtn.disabled = tokenFromInput().length === 0;
 }
 
 function fmtTime(iso) {
@@ -74,6 +94,15 @@ function renderStatus(data) {
   document.getElementById("dbg-poll").textContent = fmtTime(data.lastPollAt);
 }
 
+let pollTimer = null;
+
+function startPolling() {
+  if (pollTimer) return;
+  pollTimer = setInterval(() => {
+    refreshStatus(true).catch(() => {});
+  }, 5000);
+}
+
 async function refreshStatus(silent = false) {
   const data = await api("GET", "/api/remote-test/status");
   renderStatus(data);
@@ -91,24 +120,42 @@ async function runAction(label, fn) {
   }
 }
 
-document.getElementById("btn-save-token").addEventListener("click", () => {
-  const v = tokenInput.value.trim();
+function bindTokenInputEvents() {
+  if (!tokenInput) return;
+  ["input", "change", "keyup", "paste", "blur"].forEach((evt) => {
+    tokenInput.addEventListener(evt, () => {
+      if (evt === "paste") setTimeout(syncSaveButton, 0);
+      else syncSaveButton();
+    });
+  });
+}
+
+saveTokenBtn?.addEventListener("click", () => {
+  const v = tokenFromInput();
   if (!v) {
     appendLog("トークン", { error: "空のトークンは保存できません" });
+    syncSaveButton();
     return;
   }
-  setToken(v);
+  const result = setToken(v);
+  if (result !== true) {
+    appendLog("トークン保存 ERROR", { error: `localStorage 不可: ${result}` });
+    return;
+  }
   appendLog("トークン保存", { ok: true });
+  syncSaveButton();
+  startPolling();
+  refreshStatus(true).catch((err) => appendLog("起動時状態取得", { error: err.message }));
 });
 
-document.getElementById("btn-status").addEventListener("click", () => runAction("状態確認", refreshStatus));
-document.getElementById("btn-notify").addEventListener("click", () =>
+document.getElementById("btn-status")?.addEventListener("click", () => runAction("状態確認", refreshStatus));
+document.getElementById("btn-notify")?.addEventListener("click", () =>
   runAction("通知テスト", () => api("POST", "/api/remote-test/notify"))
 );
-document.getElementById("btn-ch1-on").addEventListener("click", () =>
+document.getElementById("btn-ch1-on")?.addEventListener("click", () =>
   runAction("CH1 ON", () => api("POST", "/api/remote-test/ch1/on"))
 );
-document.getElementById("btn-ch1-off").addEventListener("click", () =>
+document.getElementById("btn-ch1-off")?.addEventListener("click", () =>
   runAction("CH1 OFF", () => api("POST", "/api/remote-test/ch1/off"))
 );
 
@@ -121,7 +168,7 @@ function urlBase64ToUint8Array(base64String) {
   return arr;
 }
 
-document.getElementById("btn-push-register").addEventListener("click", () =>
+document.getElementById("btn-push-register")?.addEventListener("click", () =>
   runAction("Push 登録", async () => {
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
       throw new Error("Web Push 非対応ブラウザ");
@@ -148,21 +195,19 @@ document.getElementById("btn-push-register").addEventListener("click", () =>
   })
 );
 
-document.getElementById("btn-push-test").addEventListener("click", () =>
+document.getElementById("btn-push-test")?.addEventListener("click", () =>
   runAction("Push テスト", () => api("POST", "/api/remote-test/notify"))
 );
 
-const saved = getToken();
-if (saved) tokenInput.value = saved;
-if (saved) {
-  refreshStatus(true).catch((err) => appendLog("起動時状態取得", { error: err.message }));
-  setInterval(() => {
-    refreshStatus(true).catch(() => {});
-  }, 5000);
-} else {
-  logEl.textContent = "トークンを入力して保存してください。\n";
-}
+bindTokenInputEvents();
 
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("/service-worker.js").catch(() => {});
+const saved = getToken();
+if (saved && tokenInput) tokenInput.value = saved;
+syncSaveButton();
+
+if (saved) {
+  startPolling();
+  refreshStatus(true).catch((err) => appendLog("起動時状態取得", { error: err.message }));
+} else if (logEl) {
+  logEl.textContent = "トークンを入力して保存してください。\n";
 }

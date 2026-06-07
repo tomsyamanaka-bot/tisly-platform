@@ -116,9 +116,18 @@
   <section class="card" id="token-card">
     <h2>認証トークン</h2>
     <label for="token-input">REMOTE_TEST_TOKEN</label>
-    <input id="token-input" type="password" autocomplete="off" placeholder="サーバー .env と同じ値" />
+    <input
+      id="token-input"
+      type="password"
+      autocomplete="off"
+      autocapitalize="off"
+      autocorrect="off"
+      spellcheck="false"
+      maxlength="128"
+      placeholder="サーバー .env と同じ値"
+    />
     <div class="btn-row single" style="margin-top:0.75rem">
-      <button type="button" id="btn-save-token">トークンを保存</button>
+      <button type="button" id="btn-save-token" disabled>トークンを保存</button>
     </div>
     <p class="hint">初回のみ入力。localStorage に保存されます。</p>
   </section>
@@ -172,6 +181,6 @@
     <pre id="log" aria-live="polite">待機中…</pre>
   </section>
 
-  <script type="module" src="/js/remote-test.js"></script>
+  <script src="/remote-test/app.js" defer></script>
 </body>
 </html>

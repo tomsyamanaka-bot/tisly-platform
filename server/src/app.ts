@@ -222,6 +222,10 @@ export function createApp(): express.Application {
   app.get("/remote-test", (_req, res) => {
     res.sendFile(path.join(publicDir, "remote-test.html"));
   });
+  app.get("/remote-test/app.js", (_req, res) => {
+    res.type("application/javascript");
+    res.sendFile(path.join(publicDir, "js", "remote-test.js"));
+  });
   app.get("/remote-test/manifest.webmanifest", (_req, res) => {
     res.type("application/manifest+json");
     res.send(
