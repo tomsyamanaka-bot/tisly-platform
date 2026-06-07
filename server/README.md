@@ -69,3 +69,50 @@ npx web-push generate-vapid-keys
 ## 環境変数
 
 `/.env.example` に全項目のテンプレートあり。
+
+## Remote Test PoC（Phase 2）
+
+通信PoC — iPhone から通知 & CH1 遠隔操作。
+
+| URL | 説明 |
+|-----|------|
+| https://tisly.jp/remote-test | 本番 Web UI |
+| http://localhost:3080/remote-test | ローカル |
+
+### 最小 .env 設定
+
+```bash
+cp .env.sample .env
+# REMOTE_TEST_TOKEN=（openssl rand -hex 16）
+# DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
+```
+
+### 起動
+
+```bash
+npm install
+npm run build
+npm run dev   # 開発
+npm start     # 本番ビルド後
+```
+
+### 本番デプロイ
+
+詳細: [`docs/remote-test-phase2-deploy.md`](../docs/remote-test-phase2-deploy.md)
+
+```bash
+cd /opt/tisly && bash scripts/deploy.sh
+sudo systemctl restart tisly-server
+```
+
+### API
+
+| パス | 説明 |
+|------|------|
+| `GET /api/remote-test/status` | 状態・デバッグ情報 |
+| `POST /api/remote-test/notify` | 通知テスト |
+| `POST /api/remote-test/ch1/on` | CH1 ON キュー |
+| `POST /api/remote-test/ch1/off` | CH1 OFF キュー |
+| `GET /api/remote-test/command` | RP2350 ポーリング |
+
+認証: ヘッダ `X-Remote-Test-Token` または `Authorization: Bearer`

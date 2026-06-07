@@ -16,6 +16,19 @@ TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。
 
 > **本番公開する場合はまず [`docs/vps_first_launch_for_tomonori.md`](docs/vps_first_launch_for_tomonori.md) を見る**
 
+## TiSLY Platform — Remote Test PoC（Phase 2）
+
+**iPhone から通知 & RP2350 CH1 遠隔操作**
+
+| 領域 | パス / URL |
+|------|------------|
+| 本番 Web UI | https://tisly.jp/remote-test |
+| デプロイ手順 | [`docs/remote-test-phase2-deploy.md`](docs/remote-test-phase2-deploy.md) |
+| 最小 .env | `server/.env.sample` |
+| RP2350 スクリプト | `rp2350/firmware/remote_test_poll.py` |
+
+---
+
 ## TiSLY Platform — Admin Password Recovery（Phase 2381–2400）
 
 **本番 admin ログイン復旧 · Gmail test-email 認証 · `ADMIN_PASSWORD_HASH=temp` 廃止**

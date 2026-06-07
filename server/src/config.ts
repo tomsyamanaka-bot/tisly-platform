@@ -230,6 +230,11 @@ export const config = {
       return env("SECURITY_FOCUS_CUSTOMER_CODE", "TOMS001").toUpperCase();
     },
   },
+  remoteTest: {
+    get token() {
+      return env("REMOTE_TEST_TOKEN");
+    },
+  },
   securityAutomation: {
     get eventLogEnabled() {
       return env("SECURITY_EVENT_LOG_ENABLED", "true") === "true";

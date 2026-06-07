@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#1a7f37" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="TiSLY Remote" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2001" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png?v=2001" />
+  <link rel="manifest" href="/remote-test/manifest.webmanifest" />
+  <title>TiSLY Remote Test</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0d1117;
+      --card: #161b22;
+      --border: #30363d;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --accent: #1a7f37;
+      --danger: #da3633;
+      --warn: #d29922;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 1rem;
+      padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+    }
+    h1 { font-size: 1.35rem; margin: 0 0 0.25rem; }
+    .subtitle { color: var(--muted); font-size: 0.9rem; margin-bottom: 1rem; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+    .card h2 { font-size: 1rem; margin: 0 0 0.75rem; }
+    label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.35rem; }
+    input[type="password"], input[type="text"] {
+      width: 100%;
+      padding: 0.65rem 0.75rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 1rem;
+    }
+    .btn-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.6rem;
+      margin-top: 0.75rem;
+    }
+    .btn-row.single { grid-template-columns: 1fr; }
+    button {
+      appearance: none;
+      border: none;
+      border-radius: 10px;
+      padding: 0.85rem 1rem;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      color: #fff;
+      background: var(--accent);
+    }
+    button.secondary { background: #21262d; border: 1px solid var(--border); color: var(--text); }
+    button.danger { background: var(--danger); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .status-grid {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.35rem 0.75rem;
+      font-size: 0.9rem;
+    }
+    .status-grid dt { color: var(--muted); }
+    .status-grid dd { margin: 0; word-break: break-all; }
+    #log {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.78rem;
+      max-height: 220px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.75rem;
+      margin: 0;
+    }
+    .hint { color: var(--muted); font-size: 0.82rem; margin: 0.5rem 0 0; }
+    .badge {
+      display: inline-block;
+      padding: 0.15rem 0.45rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .badge.on { background: rgba(26,127,55,0.25); color: #3fb950; }
+    .badge.off { background: rgba(139,148,158,0.2); color: var(--muted); }
+    .badge.warn { background: rgba(210,153,34,0.2); color: var(--warn); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>TiSLY Remote Test</h1>
+    <p class="subtitle">通信PoC — 通知 &amp; CH1 遠隔操作</p>
+  </header>
+
+  <section class="card" id="token-card">
+    <h2>認証トークン</h2>
+    <label for="token-input">REMOTE_TEST_TOKEN</label>
+    <input id="token-input" type="password" autocomplete="off" placeholder="サーバー .env と同じ値" />
+    <div class="btn-row single" style="margin-top:0.75rem">
+      <button type="button" id="btn-save-token">トークンを保存</button>
+    </div>
+    <p class="hint">初回のみ入力。localStorage に保存されます。</p>
+  </section>
+
+  <section class="card">
+    <h2>状態</h2>
+    <dl class="status-grid">
+      <dt>CH1</dt><dd id="st-ch1"><span class="badge off">off</span></dd>
+      <dt>待機コマンド</dt><dd id="st-pending">—</dd>
+      <dt>最終通知</dt><dd id="st-notify">—</dd>
+      <dt>最終ポーリング</dt><dd id="st-poll">—</dd>
+    </dl>
+    <div class="btn-row single">
+      <button type="button" class="secondary" id="btn-status">状態確認</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>操作</h2>
+    <div class="btn-row single">
+      <button type="button" id="btn-notify">通知テスト送信</button>
+    </div>
+    <div class="btn-row">
+      <button type="button" id="btn-ch1-on">CH1 ON</button>
+      <button type="button" class="danger" id="btn-ch1-off">CH1 OFF</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Web Push（任意）</h2>
+    <p class="hint">iPhone: Safari → ホーム画面に追加 → この画面から Push 登録</p>
+    <div class="btn-row">
+      <button type="button" class="secondary" id="btn-push-register">Push 登録</button>
+      <button type="button" class="secondary" id="btn-push-test">Push テスト</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>デバッグ情報</h2>
+    <dl class="status-grid">
+      <dt>通知送信時刻</dt><dd id="dbg-notify">—</dd>
+      <dt>最後のCH1命令</dt><dd id="dbg-command">—</dd>
+      <dt>最後のアクセスIP</dt><dd id="dbg-ip">—</dd>
+      <dt>RP2350接続時刻</dt><dd id="dbg-poll">—</dd>
+    </dl>
+    <p class="hint">5秒ごとに自動更新</p>
+  </section>
+
+  <section class="card">
+    <h2>操作ログ</h2>
+    <pre id="log" aria-live="polite">待機中…</pre>
+  </section>
+
+  <script type="module" src="/js/remote-test.js"></script>
+</body>
+</html>

@@ -17,6 +17,7 @@ MicroPython（Waveshare RP2350-POE-ETH-8DI-8RO 向け）で **TiSLY Home Securit
 | `hardware_board.py` | GPIO / リレー制御 |
 | `mqtt_client.py` | トピック publish / 購読 |
 | `config_store.py` | `/config` JSON 読込（初回は PC からアップロード） |
+| `remote_test_poll.py` | Phase 2 通信PoC — HTTP ポーリング & CH1 制御 |
 
 ## 書き込み手順（実機到着後）
 

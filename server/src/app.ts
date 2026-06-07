@@ -70,6 +70,7 @@ import { deployRouter } from "./api/routes/deploy.js";
 import { switchbotIntegrationRouter } from "./api/routes/switchbot-integration.js";
 import { securityAutomationRouter } from "./api/routes/security-automation.js";
 import { buildSurveyReportHtml } from "./survey/survey-report.js";
+import { remoteTestRouter } from "./api/routes/remote-test.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(__dirname, "..", "public");
@@ -114,6 +115,7 @@ export function createApp(): express.Application {
   app.use("/api/shelly", shellyRouter);
   app.use("/api/analytics", opsCustomerScopeMiddleware, analyticsRouter);
   app.use("/api/test", testRouter);
+  app.use("/api/remote-test", remoteTestRouter);
 
   app.use("/api/settings", requireAdminAuth, settingsRouter);
   app.use("/api/recovery", requireAdminAuth, opsCustomerScopeMiddleware, tenantQueryGuard, recoveryRouter);
@@ -216,6 +218,30 @@ export function createApp(): express.Application {
   });
   app.get("/app/push", (_req, res) => {
     res.sendFile(path.join(publicDir, "app-push.html"));
+  });
+  app.get("/remote-test", (_req, res) => {
+    res.sendFile(path.join(publicDir, "remote-test.html"));
+  });
+  app.get("/remote-test/manifest.webmanifest", (_req, res) => {
+    res.type("application/manifest+json");
+    res.send(
+      JSON.stringify(
+        {
+          name: "TiSLY Remote Test",
+          short_name: "Remote Test",
+          description: "TiSLY 通信PoC — 通知 & 遠隔操作テスト",
+          start_url: "/remote-test",
+          scope: "/remote-test",
+          display: "standalone",
+          background_color: "#0d1117",
+          theme_color: "#1a7f37",
+          orientation: "portrait-primary",
+          icons: [...PWA_MANIFEST_ICONS],
+        },
+        null,
+        2
+      )
+    );
   });
   app.get("/app/notifications", (_req, res) => {
     res.sendFile(path.join(publicDir, "app-notifications.html"));
