@@ -12,6 +12,9 @@ import {
   resolveAdminPasswordStatus,
 } from "../src/deploy/phase2381-production-check.js";
 import { buildPhase2383ProductionCheck } from "../src/deploy/phase2383-production-check.js";
+import { buildPhase2384ProductionCheck } from "../src/deploy/phase2384-production-check.js";
+import { buildPhase2385ProductionCheck } from "../src/deploy/phase2385-production-check.js";
+import { buildPhase2386ProductionCheck } from "../src/deploy/phase2386-production-check.js";
 import { checkProductionEnv } from "../src/config/production-env-checker.js";
 import { PWA_SHELL_TAG, PWA_SHELL_VERSION } from "../src/pwa/pwa-shell-version.js";
 import { resetEmailNotificationProvider } from "../src/notification/email-provider.js";
@@ -199,12 +202,102 @@ describe("Phase 2381-2400 admin password recovery", () => {
     });
   });
 
+  describe("buildPhase2384ProductionCheck", () => {
+    it("reports Gmail send verified when last status is sent", () => {
+      const report = buildPhase2384ProductionCheck({
+        ...process.env,
+        ADMIN_PASSWORD_HASH: hashPassword("testpass"),
+        GMAIL_SEND_MODE: "real",
+        NOTIFICATION_EMAIL_MODE: "gmail",
+        SMTP_USER: "test@gmail.com",
+        SMTP_PASS: "app-password",
+        NOTIFICATION_TEST_TO: "test-recipient@example.com",
+      });
+      assert.equal(report.phase, "2384");
+      assert.equal(report.gmailMode, "real");
+      const sentCheck = report.checks.find((c) => c.id === "gmail-test-email-sent");
+      assert.ok(sentCheck);
+    });
+  });
+
+  describe("buildPhase2385ProductionCheck", () => {
+    it("reports PDF attachment and safe email body", () => {
+      const report = buildPhase2385ProductionCheck({
+        ...process.env,
+        ADMIN_PASSWORD_HASH: hashPassword("testpass"),
+        GMAIL_SEND_MODE: "real",
+        NOTIFICATION_EMAIL_MODE: "gmail",
+        SMTP_USER: "test@gmail.com",
+        SMTP_PASS: "app-password",
+        NOTIFICATION_TEST_TO: "test-recipient@example.com",
+      });
+      assert.equal(report.phase, "2385");
+      assert.equal(report.pdfAttachmentEnabled, true);
+      assert.equal(report.testEmailBodySafe, true);
+      assert.equal(report.attachmentFileName, "tisly-gmail-test.pdf");
+      const pdfCheck = report.checks.find((c) => c.id === "gmail-test-pdf-attachment");
+      assert.ok(pdfCheck?.ok);
+      const safeCheck = report.checks.find((c) => c.id === "gmail-test-email-body-safe");
+      assert.ok(safeCheck?.ok);
+    });
+  });
+
+  describe("buildPhase2386ProductionCheck", () => {
+    it("reports Gmail test modal UI with admin fixed", () => {
+      const report = buildPhase2386ProductionCheck({
+        ...process.env,
+        ADMIN_PASSWORD_HASH: hashPassword("testpass"),
+        GMAIL_SEND_MODE: "real",
+        NOTIFICATION_EMAIL_MODE: "gmail",
+        SMTP_USER: "test@gmail.com",
+        SMTP_PASS: "app-password",
+        NOTIFICATION_TEST_TO: "test-recipient@example.com",
+      });
+      assert.equal(report.phase, "2386");
+      assert.equal(report.gmailTestModalUi, true);
+      assert.equal(report.pdfAttachmentEnabled, true);
+      assert.equal(report.testEmailBodySafe, true);
+      const modalCheck = report.checks.find((c) => c.id === "app-hub-gmail-auth-modal");
+      assert.ok(modalCheck?.ok);
+    });
+  });
+
   describe("GET /api/deploy/production-check", () => {
-    it("returns phase 2383 report JSON", async () => {
+    it("returns phase 2386 report JSON", async () => {
       const res = await request(app).get("/api/deploy/production-check");
       assert.equal(res.status, 200);
-      assert.equal(res.body.phase, "2383");
+      assert.equal(res.body.phase, "2386");
       assert.equal(res.body.adminPasswordStatus, "GREEN");
+      assert.ok(res.body.checks.some((c: { id: string }) => c.id === "gmail-test-pdf-attachment"));
+      assert.ok(res.body.checks.some((c: { id: string }) => c.id === "gmail-test-email-body-safe"));
+      assert.ok(res.body.checks.some((c: { id: string }) => c.id === "app-hub-gmail-auth-modal"));
+    });
+  });
+
+  describe("GET /api/deploy/production-check-2385", () => {
+    it("returns legacy phase 2385 report JSON", async () => {
+      const res = await request(app).get("/api/deploy/production-check-2385");
+      assert.equal(res.status, 200);
+      assert.equal(res.body.phase, "2385");
+      assert.ok(res.body.checks.some((c: { id: string }) => c.id === "gmail-test-pdf-attachment"));
+      assert.ok(res.body.checks.some((c: { id: string }) => c.id === "gmail-test-email-body-safe"));
+    });
+  });
+
+  describe("GET /api/deploy/production-check-2384", () => {
+    it("returns legacy phase 2384 report JSON", async () => {
+      const res = await request(app).get("/api/deploy/production-check-2384");
+      assert.equal(res.status, 200);
+      assert.equal(res.body.phase, "2384");
+      assert.ok(res.body.checks.some((c: { id: string }) => c.id === "gmail-real-send-verified"));
+    });
+  });
+
+  describe("GET /api/deploy/production-check-2383", () => {
+    it("returns legacy phase 2383 report JSON", async () => {
+      const res = await request(app).get("/api/deploy/production-check-2383");
+      assert.equal(res.status, 200);
+      assert.equal(res.body.phase, "2383");
       assert.ok(res.body.checks.some((c: { id: string }) => c.id === "gmail-smtp-runtime"));
     });
   });
@@ -265,6 +358,8 @@ describe("Phase 2381-2400 admin password recovery", () => {
         .set("Authorization", `Bearer ${login.body.token}`);
       assert.equal(res.status, 200);
       assert.equal(res.body.ok, true);
+      assert.equal(res.body.attachmentIncluded, true);
+      assert.equal(res.body.attachmentFileName, "tisly-gmail-test.pdf");
     });
   });
 });

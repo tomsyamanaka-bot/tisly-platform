@@ -89,11 +89,35 @@ export function logGmailStartupStatus(): void {
   console.log("[TiSLY/Gmail] mock mode — notification emails are not delivered");
 }
 
+/** Phase 2385 — テスト送信用ミニマル PDF */
+export function buildGmailTestAttachmentPdf(): Buffer {
+  const text = "TiSLY Gmail Notification Test PDF";
+  const pdf = `%PDF-1.4
+1 0 obj<< /Type /Catalog /Pages 2 0 R >>endobj
+2 0 obj<< /Type /Pages /Kids [3 0 R] /Count 1 >>endobj
+3 0 obj<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources<< /Font<< /F1 5 0 R >> >> >>endobj
+4 0 obj<< /Length ${text.length + 50} >>stream
+BT /F1 12 Tf 50 700 Td (${text}) Tj ET
+endstream
+endobj
+5 0 obj<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>endobj
+xref
+0 6
+trailer<< /Size 6 /Root 1 0 R >>
+startxref
+0
+%%EOF`;
+  return Buffer.from(pdf, "utf8");
+}
+
+export const GMAIL_TEST_ATTACHMENT_FILENAME = "tisly-gmail-test.pdf";
+
 export async function sendSmtpGmailMail(input: {
   to: string;
   subject: string;
   text: string;
   html?: string;
+  attachments?: Array<{ filename: string; content: Buffer; contentType?: string }>;
   sendType?: string;
   skipLog?: boolean;
 }): Promise<{ ok: boolean; error?: string; messageId?: string; logId?: string; mock?: boolean }> {
@@ -101,7 +125,10 @@ export async function sendSmtpGmailMail(input: {
   const sendType = input.sendType ?? "notification";
 
   if (mode === "mock") {
-    console.log(`[Gmail/mock] ${maskSmtpCredentials()} → ${input.to}: ${input.subject}`);
+    const attNote = input.attachments?.length
+      ? ` (+${input.attachments.length} attachment(s))`
+      : "";
+    console.log(`[Gmail/mock] → ${input.to}: ${input.subject}${attNote}`);
     const logId = input.skipLog
       ? undefined
       : logGmailSend({
@@ -142,8 +169,16 @@ export async function sendSmtpGmailMail(input: {
       subject: input.subject,
       text: input.text,
       html: input.html,
+      attachments: input.attachments?.map((a) => ({
+        filename: a.filename,
+        content: a.content,
+        contentType: a.contentType ?? "application/pdf",
+      })),
     });
-    console.log(`[Gmail/real] ${maskSmtpCredentials()} → ${input.to}: sent`);
+    const attNote = input.attachments?.length
+      ? ` (+${input.attachments.length} attachment(s))`
+      : "";
+    console.log(`[Gmail/real] → ${input.to}: sent${attNote}`);
     const logId = input.skipLog
       ? undefined
       : logGmailSend({
@@ -155,7 +190,7 @@ export async function sendSmtpGmailMail(input: {
     return { ok: true, messageId: info.messageId, logId };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error(`[Gmail/real] ${maskSmtpCredentials()} → ${input.to}: failed`);
+    console.error(`[Gmail/real] → ${input.to}: failed`);
     const logId = input.skipLog
       ? undefined
       : logGmailSend({
@@ -177,6 +212,8 @@ export async function sendGmailTestEmail(to: string): Promise<{
   gmailMode: GmailNotificationMode;
   smtpConfigured: boolean;
   maskedCredentials: string;
+  attachmentFileName: string;
+  attachmentIncluded: boolean;
 }> {
   const status = getGmailSmtpStatus();
   const subject = "[TiSLY] Gmail 通知テスト";
@@ -185,7 +222,6 @@ export async function sendGmailTestEmail(to: string): Promise<{
     "",
     `送信時刻: ${new Date().toISOString()}`,
     `モード: ${status.gmailMode}`,
-    `SMTP: ${status.maskedCredentials}`,
   ].join("\n");
 
   const result = await sendSmtpGmailMail({
@@ -193,6 +229,13 @@ export async function sendGmailTestEmail(to: string): Promise<{
     subject,
     text,
     sendType: "test",
+    attachments: [
+      {
+        filename: GMAIL_TEST_ATTACHMENT_FILENAME,
+        content: buildGmailTestAttachmentPdf(),
+        contentType: "application/pdf",
+      },
+    ],
   });
 
   return {
@@ -203,5 +246,7 @@ export async function sendGmailTestEmail(to: string): Promise<{
     gmailMode: status.gmailMode,
     smtpConfigured: status.smtpConfigured,
     maskedCredentials: status.maskedCredentials,
+    attachmentFileName: GMAIL_TEST_ATTACHMENT_FILENAME,
+    attachmentIncluded: true,
   };
 }

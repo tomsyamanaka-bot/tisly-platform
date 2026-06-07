@@ -425,30 +425,61 @@ async function loadGmailTestCard() {
   }
 }
 
-async function sendGmailTest() {
+const GMAIL_TEST_ADMIN_USER = "admin";
+
+function openGmailAuthModal() {
+  const modal = document.getElementById("gmail-auth-modal");
+  const usernameEl = document.getElementById("gmail-auth-username");
+  const passwordEl = document.getElementById("gmail-auth-password");
+  const errorEl = document.getElementById("gmail-auth-error");
+  if (!modal || !usernameEl || !passwordEl) return;
+  usernameEl.value = GMAIL_TEST_ADMIN_USER;
+  passwordEl.value = "";
+  if (errorEl) {
+    errorEl.textContent = "";
+    errorEl.hidden = true;
+  }
+  modal.hidden = false;
+  passwordEl.focus();
+}
+
+function closeGmailAuthModal() {
+  const modal = document.getElementById("gmail-auth-modal");
+  const passwordEl = document.getElementById("gmail-auth-password");
+  if (passwordEl) passwordEl.value = "";
+  if (modal) modal.hidden = true;
+}
+
+async function submitGmailTestFromModal() {
   const resultEl = document.getElementById("gmail-test-result");
   const sendBtn = document.getElementById("btn-gmail-test-send");
-  if (sendBtn) sendBtn.disabled = true;
-  if (resultEl) resultEl.textContent = "送信中…";
+  const submitBtn = document.getElementById("btn-gmail-auth-submit");
+  const passwordEl = document.getElementById("gmail-auth-password");
+  const errorEl = document.getElementById("gmail-auth-error");
+  const password = passwordEl?.value?.trim() ?? "";
 
-  const username = window.prompt("管理者ユーザー名（admin）");
-  if (!username) {
-    if (resultEl) resultEl.textContent = "";
-    if (sendBtn) sendBtn.disabled = false;
+  if (!password) {
+    if (errorEl) {
+      errorEl.textContent = "管理者パスワードを入力してください";
+      errorEl.hidden = false;
+    }
+    passwordEl?.focus();
     return;
   }
-  const password = window.prompt("管理者パスワード");
-  if (!password) {
-    if (resultEl) resultEl.textContent = "";
-    if (sendBtn) sendBtn.disabled = false;
-    return;
+
+  if (submitBtn) submitBtn.disabled = true;
+  if (sendBtn) sendBtn.disabled = true;
+  if (resultEl) resultEl.textContent = "送信中…";
+  if (errorEl) {
+    errorEl.textContent = "";
+    errorEl.hidden = true;
   }
 
   try {
     const login = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ username: GMAIL_TEST_ADMIN_USER, password }),
     });
     const loginBody = await login.json().catch(() => ({}));
     if (!login.ok) throw new Error(loginBody.error || "管理者ログイン失敗");
@@ -462,22 +493,51 @@ async function sendGmailTest() {
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+
+    closeGmailAuthModal();
     if (resultEl) {
+      const attNote = body.attachmentIncluded ? ` · PDF=${body.attachmentFileName ?? "—"}` : "";
       resultEl.textContent = body.mock
-        ? `Mock 送信記録 OK（logId=${body.logId ?? "—"}）`
-        : `送信成功（logId=${body.logId ?? "—"}）`;
+        ? `Mock 送信記録 OK（logId=${body.logId ?? "—"}${attNote}）`
+        : `送信成功（logId=${body.logId ?? "—"}${attNote}）`;
     }
     await loadGmailTestCard();
   } catch (e) {
-    if (resultEl) resultEl.textContent = `送信失敗: ${e.message || e}`;
+    const msg = e.message || String(e);
+    if (errorEl) {
+      errorEl.textContent = msg;
+      errorEl.hidden = false;
+    } else if (resultEl) {
+      resultEl.textContent = `送信失敗: ${msg}`;
+    }
   } finally {
+    if (submitBtn) submitBtn.disabled = false;
     if (sendBtn) sendBtn.disabled = false;
     await loadGmailTestCard();
   }
 }
 
 document.getElementById("btn-gmail-test-send")?.addEventListener("click", () => {
-  void sendGmailTest();
+  openGmailAuthModal();
+});
+
+document.getElementById("btn-gmail-auth-cancel")?.addEventListener("click", () => {
+  closeGmailAuthModal();
+});
+
+document.getElementById("btn-gmail-auth-submit")?.addEventListener("click", () => {
+  void submitGmailTestFromModal();
+});
+
+document.getElementById("gmail-auth-password")?.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    void submitGmailTestFromModal();
+  }
+});
+
+document.getElementById("gmail-auth-modal")?.addEventListener("click", (e) => {
+  if (e.target.id === "gmail-auth-modal") closeGmailAuthModal();
 });
 
 loadPublishAudit();

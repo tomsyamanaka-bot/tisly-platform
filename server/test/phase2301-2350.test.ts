@@ -12,8 +12,11 @@ import {
   resetEmailNotificationProvider,
 } from "../src/notification/email-provider.js";
 import {
+  buildGmailTestAttachmentPdf,
   getGmailSmtpStatus,
+  GMAIL_TEST_ATTACHMENT_FILENAME,
   maskSmtpCredentials,
+  sendGmailTestEmail,
 } from "../src/notification/smtp-gmail.js";
 import { getLastGmailSendStatus, listGmailSendLogs } from "../src/notification/gmail-send-log.js";
 
@@ -87,6 +90,21 @@ describe("Phase 2301-2350 Gmail SMTP production", () => {
       assert.ok(!masked.includes("app-password"));
     });
 
+    it("builds test PDF attachment", () => {
+      const pdf = buildGmailTestAttachmentPdf();
+      assert.ok(Buffer.isBuffer(pdf));
+      assert.ok(pdf.toString("utf8").startsWith("%PDF-1.4"));
+    });
+
+    it("test email body excludes SMTP credentials and includes PDF", async () => {
+      process.env.GMAIL_SEND_MODE = "mock";
+      const result = await sendGmailTestEmail("test-recipient@example.com");
+      assert.equal(result.ok, true);
+      assert.equal(result.attachmentIncluded, true);
+      assert.equal(result.attachmentFileName, GMAIL_TEST_ATTACHMENT_FILENAME);
+      assert.ok(result.maskedCredentials.includes("SMTP_PASS=****"));
+    });
+
     it("YELLOW when real mode without SMTP_PASS", () => {
       process.env.GMAIL_SEND_MODE = "real";
       process.env.NOTIFICATION_EMAIL_MODE = "gmail";
@@ -125,6 +143,8 @@ describe("Phase 2301-2350 Gmail SMTP production", () => {
       assert.equal(res.body.ok, true);
       assert.ok(res.body.logId);
       assert.equal(res.body.mock, true);
+      assert.equal(res.body.attachmentIncluded, true);
+      assert.equal(res.body.attachmentFileName, "tisly-gmail-test.pdf");
 
       const logs = listGmailSendLogs(5);
       assert.ok(logs.some((l) => l.id === res.body.logId));
@@ -157,15 +177,21 @@ describe("Phase 2301-2350 Gmail SMTP production", () => {
   });
 
   describe("UI assets", () => {
-    it("app hub has Gmail test card", () => {
+    it("app hub has Gmail test card and auth modal", () => {
       const html = fs.readFileSync(path.join(publicDir, "app-hub.html"), "utf8");
       const js = fs.readFileSync(path.join(publicDir, "js/app-hub.js"), "utf8");
       const css = fs.readFileSync(path.join(publicDir, "css/app-hub.css"), "utf8");
       assert.ok(html.includes("gmail-test-card"));
       assert.ok(html.includes("Gmail通知テスト"));
+      assert.ok(html.includes("gmail-auth-modal"));
+      assert.ok(html.includes("管理者パスワード"));
       assert.ok(js.includes("loadGmailTestCard"));
+      assert.ok(js.includes("openGmailAuthModal"));
+      assert.ok(js.includes('const GMAIL_TEST_ADMIN_USER = "admin"'));
+      assert.ok(!js.includes('window.prompt("管理者'));
       assert.ok(js.includes("/api/notifications/test-email"));
       assert.ok(css.includes("gmail-status-warn"));
+      assert.ok(css.includes("gmail-auth-modal"));
     });
 
     it(".env.production.example has SMTP vars", () => {

@@ -833,3 +833,46 @@
 #gmail-test-card .btn-secondary {
   margin-top: 0.5rem;
 }
+
+.gmail-auth-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(1, 4, 9, 0.72);
+}
+.gmail-auth-modal[hidden] {
+  display: none;
+}
+.gmail-auth-modal-panel {
+  width: 100%;
+  max-width: 400px;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 10px;
+  padding: 1rem;
+}
+.gmail-auth-modal-panel h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+  color: #58a6ff;
+}
+.gmail-auth-modal-panel input[readonly] {
+  color: #8b949e;
+  background: #21262d;
+  cursor: default;
+}
+.gmail-auth-modal-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+.gmail-auth-modal-actions .btn,
+.gmail-auth-modal-actions .btn-secondary {
+  width: auto;
+  flex: 1;
+  margin-top: 0;
+}

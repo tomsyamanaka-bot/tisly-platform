@@ -56,6 +56,23 @@
     <button type="button" class="btn btn-secondary" id="btn-gmail-test-send" disabled>テスト送信</button>
     <p id="gmail-test-result" class="hint"></p>
   </section>
+  <div id="gmail-auth-modal" class="gmail-auth-modal" role="dialog" aria-labelledby="gmail-auth-modal-title" aria-modal="true" hidden>
+    <div class="gmail-auth-modal-panel">
+      <h3 id="gmail-auth-modal-title">Gmail テスト送信 — 管理者認証</h3>
+      <p class="hint">テストメール送信には管理者ログインが必要です。</p>
+      <label>管理者ユーザー名
+        <input id="gmail-auth-username" type="text" value="admin" readonly aria-readonly="true" />
+      </label>
+      <label>管理者パスワード
+        <input id="gmail-auth-password" type="password" autocomplete="current-password" />
+      </label>
+      <p id="gmail-auth-error" class="error" hidden></p>
+      <div class="gmail-auth-modal-actions">
+        <button type="button" class="btn btn-secondary" id="btn-gmail-auth-cancel">キャンセル</button>
+        <button type="button" class="btn" id="btn-gmail-auth-submit">送信</button>
+      </div>
+    </div>
+  </div>
   <section id="publish-audit-panel" class="card publish-audit-card">
     <h2>本番公開チェック</h2>
     <div id="release-gate-banner" class="release-gate-banner">読み込み中…</div>

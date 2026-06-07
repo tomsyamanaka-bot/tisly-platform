@@ -28,6 +28,9 @@ import { buildPhase2350ProductionCheck } from "../../deploy/phase2350-production
 import { buildPhase2380ProductionCheck } from "../../deploy/phase2380-production-check.js";
 import { buildPhase2381ProductionCheck } from "../../deploy/phase2381-production-check.js";
 import { buildPhase2383ProductionCheck } from "../../deploy/phase2383-production-check.js";
+import { buildPhase2384ProductionCheck } from "../../deploy/phase2384-production-check.js";
+import { buildPhase2385ProductionCheck } from "../../deploy/phase2385-production-check.js";
+import { buildPhase2386ProductionCheck } from "../../deploy/phase2386-production-check.js";
 import { buildSwitchBotDeploymentChecklist } from "../../security-automation/switchbot-release-gate.js";
 import { getSecurityState } from "../../services/securityAutomationService.js";
 import { getSwitchBotMode, isRealUnlockGuarded } from "../../services/switchbotService.js";
@@ -114,9 +117,24 @@ deployRouter.get("/production-check-2381", (_req, res) => {
   res.json(buildPhase2381ProductionCheck());
 });
 
-/** Phase 2383 — Gmail 通知経路（SMTP + test-email 準備） */
-deployRouter.get("/production-check", (_req, res) => {
+/** Phase 2383 — Gmail 通知経路（SMTP + test-email 準備）レガシー */
+deployRouter.get("/production-check-2383", (_req, res) => {
   res.json(buildPhase2383ProductionCheck());
+});
+
+/** Phase 2384 — Gmail 実送信確認（test-email 成功 + lastSendStatus=sent）レガシー */
+deployRouter.get("/production-check-2384", (_req, res) => {
+  res.json(buildPhase2384ProductionCheck());
+});
+
+/** Phase 2385 — Gmail PDF 添付テストメール（本文に認証情報なし）レガシー */
+deployRouter.get("/production-check-2385", (_req, res) => {
+  res.json(buildPhase2385ProductionCheck());
+});
+
+/** Phase 2386 — App Hub Gmail テスト UI（単一モーダル） */
+deployRouter.get("/production-check", (_req, res) => {
+  res.json(buildPhase2386ProductionCheck());
 });
 
 /** Phase 1441–1460 — 本番設定監査（不足一覧） */
