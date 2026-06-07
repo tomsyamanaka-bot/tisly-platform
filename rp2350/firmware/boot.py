@@ -1,7 +1,16 @@
-"""RP2350 boot — minimal setup before main.py."""
+"""
+TiSLY Remote Test — boot.py
+
+PoE / USB 起動時に MicroPython が最初に実行します。
+続けて同じ階層の main.py が自動実行されます。
+"""
 
 import gc
 
 gc.collect()
 
-# 実機: Waveshare同梱MicroPythonでは config/ をボード直下に配置すること
+print("")
+print("=" * 40)
+print("           TISLY BOOT")
+print("=" * 40)
+print("")

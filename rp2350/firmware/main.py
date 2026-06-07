@@ -1,97 +1,224 @@
-"""TiSLY RP2350 Edition — main loop."""
+"""
+TiSLY Remote Test — 最小ファームウェア
 
+Waveshare RP2350-POE-ETH-8DI-8RO / MicroPython v1.28.0
+PoE 起動 → Ethernet 初期化 → 3 秒ごとに VPS へポーリング → CH1 ON/OFF 実行
+"""
+
+import json
 import time
 
-from config_loader import load_device, load_mqtt
-from event_manager import EventManager
-from hardware_board import Board
-from heartbeat import Heartbeat
-from input_manager import InputManager
-from mqtt_client import (
-    cmd_alarm_clear_topic,
-    init_mqtt_client,
-    publish_alarm,
-    publish_event,
-    publish_heartbeat,
-    publish_relay,
-    publish_state,
-)
-from relay_manager import RelayManager
-from safety_manager import SafetyManager
+from machine import Pin
+
+import config
 
 try:
-    from ethernet_mqtt import connect_network_and_mqtt
+    import urequests
 except ImportError:
-    connect_network_and_mqtt = None
+    urequests = None
+
+# --- W5500 SPI ピン（Waveshare 02_MQTT サンプル準拠・要 lib/） ---
+W5500_SPI_ID = 0
+W5500_SCK = 34
+W5500_MOSI = 35
+W5500_MISO = 36
+W5500_CS = 33
+W5500_RST = 25
+
+CH1 = Pin(config.CH1_GPIO, Pin.OUT)
+CH1.value(0)
+
+_lan = None
 
 
-def _handle_mqtt_message(topic, msg, safety, relays, events, inputs):
+def log(msg):
+    print("[tisly]", msg)
+
+
+def log_error(msg):
+    print("[tisly] error:", msg)
+
+
+def _wait_lan(lan, timeout_sec=15):
+    deadline = time.ticks_add(time.ticks_ms(), int(timeout_sec * 1000))
+    while time.ticks_diff(deadline, time.ticks_ms()) > 0:
+        if lan.isconnected():
+            return True
+        time.sleep_ms(200)
+    return lan.isconnected()
+
+
+def init_ethernet():
+    """W5500 / network.LAN / WIZNET5K の順で Ethernet を初期化。"""
+    global _lan
+
+    log("Ethernet init")
+
+    # 1) Waveshare 同梱 MicroPython の network.LAN()（推奨）
     try:
-        t = topic.decode() if isinstance(topic, bytes) else topic
-        m = msg.decode() if isinstance(msg, bytes) else msg
-    except Exception:
-        return
-    if t == cmd_alarm_clear_topic() and m.strip().lower() in ("1", "true", "clear"):
-        ev = safety.clear_alarm()
-        publish_alarm(False, alarm_mode=False)
-        events.emit(ev)
-        relays.sync_mqtt(inputs.stable_states(), safety.alarm_mode)
+        import network
+
+        if hasattr(network, "LAN"):
+            lan = network.LAN()
+            if not lan.isconnected():
+                lan.active(True)
+                _wait_lan(lan)
+            if lan.isconnected():
+                _lan = lan
+                return lan.ifconfig()
+    except Exception as e:
+        log_error("network.LAN: {}".format(e))
+
+    # 2) MicroPython network.WIZNET5K + W5500 SPI
+    try:
+        import network
+        from machine import SPI
+
+        if hasattr(network, "WIZNET5K"):
+            spi = SPI(
+                W5500_SPI_ID,
+                baudrate=20_000_000,
+                polarity=0,
+                phase=0,
+                sck=Pin(W5500_SCK),
+                mosi=Pin(W5500_MOSI),
+                miso=Pin(W5500_MISO),
+            )
+            nic = network.WIZNET5K(spi, Pin(W5500_CS), Pin(W5500_RST))
+            nic.active(True)
+            try:
+                nic.ifconfig("dhcp")
+            except TypeError:
+                nic.ifconfig(["0.0.0.0", "255.255.255.0", "0.0.0.0", "8.8.8.8"])
+            _wait_lan(nic)
+            if nic.isconnected():
+                _lan = nic
+                return nic.ifconfig()
+    except Exception as e:
+        log_error("network.WIZNET5K: {}".format(e))
+
+    # 3) Waveshare lib/ の ethernet_init（02_MQTT サンプル）
+    try:
+        from ethernet_init import ethernet_init  # noqa: F401 — lib/ 内モジュール
+
+        ifconfig = ethernet_init()
+        if ifconfig and ifconfig[0] and ifconfig[0] != "0.0.0.0":
+            return ifconfig
+    except ImportError:
+        pass
+    except Exception as e:
+        log_error("ethernet_init: {}".format(e))
+
+    return None
+
+
+def get_ip():
+    if _lan is not None:
+        try:
+            if _lan.isconnected():
+                cfg = _lan.ifconfig()
+                if cfg and cfg[0] and cfg[0] != "0.0.0.0":
+                    return cfg[0]
+        except Exception:
+            pass
+
+    try:
+        import socket
+
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+            if ip and ip != "0.0.0.0":
+                return ip
+        finally:
+            s.close()
+    except Exception as e:
+        log_error("IP detect: {}".format(e))
+
+    return None
+
+
+def http_get(path):
+    if urequests is None:
+        log_error("urequests 未インストール — Thonny ツール → パッケージ → urequests")
+        return None, 0
+
+    url = config.API_BASE.rstrip("/") + path
+    headers = {"X-Remote-Test-Token": config.REMOTE_TEST_TOKEN}
+    try:
+        res = urequests.get(url, headers=headers)
+        status = res.status_code
+        body = res.text
+        res.close()
+        return body, status
+    except OSError as e:
+        log_error("HTTP: {}".format(e))
+        return None, 0
+    except Exception as e:
+        log_error("HTTP: {}".format(e))
+        return None, 0
+
+
+def poll_command():
+    path = "/api/remote-test/command?firmware={}".format(config.FIRMWARE_VERSION)
+    body, status = http_get(path)
+
+    if status == 403:
+        log_error("AUTH 403 — config.REMOTE_TEST_TOKEN を VPS .env と一致させてください")
+        return None
+    if status != 200:
+        log_error("poll HTTP {} — {}".format(status, (body or "")[:120]))
+        return None
+
+    try:
+        data = json.loads(body)
+    except Exception as e:
+        log_error("JSON parse: {} — {}".format(e, (body or "")[:120]))
+        return None
+
+    log("heartbeat sent")
+    return data.get("command")
+
+
+def exec_command(cmd):
+    if cmd == "ch1_on":
+        log("command received: ch1_on")
+        CH1.value(1)
+        log("EXEC CH1 ON")
+    elif cmd == "ch1_off":
+        log("command received: ch1_off")
+        CH1.value(0)
+        log("EXEC CH1 OFF")
+    elif cmd:
+        log_error("unknown command: {}".format(cmd))
 
 
 def run():
-    print("TiSLY RP2350 Edition — boot")
-    dev_cfg = load_device()
-    mqtt_cfg = load_mqtt()
-    board = Board()
-    relays = RelayManager(board, publish_relay, publish_state)
-    events = EventManager(publish_event)
-    safety = SafetyManager(relays)
-    debounce_ms = dev_cfg.get("debounce_ms", 50)
-    inputs = InputManager(board, debounce_ms)
-    hb = Heartbeat(dev_cfg.get("heartbeat_interval_sec", 30), publish_heartbeat)
+    log("device: {}  fw: {}".format(config.DEVICE_ID, config.FIRMWARE_VERSION))
+    log("CH1 GPIO{} → OFF".format(config.CH1_GPIO))
 
-    client = None
-    if connect_network_and_mqtt:
-        client = connect_network_and_mqtt(mqtt_cfg)
-        if client:
-            init_mqtt_client(client)
-            try:
-                client.set_callback(
-                    lambda t, m: _handle_mqtt_message(t, m, safety, relays, events, inputs)
-                )
-                client.subscribe(cmd_alarm_clear_topic())
-            except Exception as e:
-                print("MQTT subscribe err:", e)
+    ifconfig = init_ethernet()
+    ip = get_ip()
+    if ip:
+        log("IP address: {}".format(ip))
+        if ifconfig:
+            log("  netmask: {}  gw: {}  dns: {}".format(ifconfig[1], ifconfig[2], ifconfig[3]))
     else:
-        print("WARN: ethernet_mqtt not ready — offline (see docs/rp2350_first_setup.md)")
+        log_error("Ethernet 未接続 — PoE/LAN ケーブル・lib/・DHCP を確認")
 
-    inputs.seed_from_hardware()
-    relays.sync_mqtt(inputs.stable_states(), safety.alarm_mode)
-    publish_alarm(False, alarm_mode=False)
+    if not config.REMOTE_TEST_TOKEN:
+        log_error("REMOTE_TEST_TOKEN が空です — config.py を編集してください")
+        return
+
+    log("polling start ({} sec)".format(config.POLL_INTERVAL_SEC))
+    print("")
 
     while True:
-        if client:
-            try:
-                client.check_msg()
-            except Exception:
-                pass
-
-        for i, prev, cur in inputs.poll():
-            if cur == 1:
-                evs = safety.on_di_active(i)
-                events.emit_many(evs)
-                if safety.alarm_mode:
-                    publish_alarm(True, "emergency", alarm_mode=True)
-                elif any(e.get("alarm") for e in evs):
-                    publish_alarm(True, "window", alarm_mode=False)
-            else:
-                events.emit_many(safety.on_di_inactive(i))
-
-            relays.sync_mqtt(inputs.stable_states(), safety.alarm_mode)
-
-        hb.tick()
-        time.sleep_ms(10)
+        cmd = poll_command()
+        if cmd:
+            exec_command(cmd)
+        time.sleep(config.POLL_INTERVAL_SEC)
 
 
-if __name__ == "__main__":
-    run()
+run()
