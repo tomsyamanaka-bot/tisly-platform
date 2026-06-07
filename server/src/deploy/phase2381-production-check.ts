@@ -3,13 +3,13 @@
  */
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
 import { PWA_SHELL_TAG, PWA_SHELL_VERSION } from "../pwa/pwa-shell-version.js";
 import { isValidScryptPasswordHash, normalizeStoredPasswordHash, verifyPassword } from "../auth/password.js";
+import { getRepoRoot, getServerRoot, getServerSrcDir } from "./server-paths.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const serverRoot = path.join(__dirname, "..", "..");
-const repoRoot = path.join(serverRoot, "..");
+const serverRoot = getServerRoot();
+const repoRoot = getRepoRoot();
+const serverSrcDir = getServerSrcDir();
 
 export type ProductionCheckStatus = "GREEN" | "YELLOW" | "RED";
 
@@ -94,8 +94,8 @@ export function buildPhase2381ProductionCheck(
 ): Phase2381ProductionReport {
   const packageJson = readText(path.join(serverRoot, "package.json")) ?? "";
   const hashScript = readText(path.join(serverRoot, "scripts/hash-admin-password.mjs")) ?? "";
-  const adminAuth = readText(path.join(__dirname, "..", "auth/admin-auth.ts")) ?? "";
-  const notificationsRoute = readText(path.join(__dirname, "..", "api/routes/notifications.ts")) ?? "";
+  const adminAuth = readText(path.join(serverSrcDir, "auth/admin-auth.ts")) ?? "";
+  const notificationsRoute = readText(path.join(serverSrcDir, "api/routes/notifications.ts")) ?? "";
   const recoveryDoc = readText(path.join(repoRoot, "docs/admin-password-recovery.md")) ?? "";
   const invalidHashRejected = !verifyPassword("temp", "temp");
   const runtimeAdmin = resolveAdminPasswordStatus(undefined, env);

@@ -3,12 +3,11 @@
  */
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
 import { PWA_SHELL_TAG, PWA_SHELL_VERSION } from "../pwa/pwa-shell-version.js";
+import { getPublicDir, getServerSrcDir } from "./server-paths.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const publicDir = path.join(__dirname, "..", "..", "public");
-const serverSrcDir = path.join(__dirname, "..");
+const publicDir = getPublicDir();
+const serverSrcDir = getServerSrcDir();
 
 export interface ProductionCheckItem {
   id: string;

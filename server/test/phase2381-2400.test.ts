@@ -11,6 +11,7 @@ import {
   isInsecureAdminPasswordHash,
   resolveAdminPasswordStatus,
 } from "../src/deploy/phase2381-production-check.js";
+import { buildPhase2383ProductionCheck } from "../src/deploy/phase2383-production-check.js";
 import { checkProductionEnv } from "../src/config/production-env-checker.js";
 import { PWA_SHELL_TAG, PWA_SHELL_VERSION } from "../src/pwa/pwa-shell-version.js";
 import { resetEmailNotificationProvider } from "../src/notification/email-provider.js";
@@ -178,9 +179,39 @@ describe("Phase 2381-2400 admin password recovery", () => {
     });
   });
 
+  describe("buildPhase2383ProductionCheck", () => {
+    it("reports Gmail runtime when SMTP and TEST_TO configured", () => {
+      const report = buildPhase2383ProductionCheck({
+        ...process.env,
+        ADMIN_PASSWORD_HASH: hashPassword("testpass"),
+        GMAIL_SEND_MODE: "real",
+        NOTIFICATION_EMAIL_MODE: "gmail",
+        SMTP_USER: "test@gmail.com",
+        SMTP_PASS: "app-password",
+        NOTIFICATION_TEST_TO: "test-recipient@example.com",
+      });
+      assert.equal(report.phase, "2383");
+      assert.equal(report.gmailMode, "real");
+      assert.equal(report.smtpConfigured, true);
+      assert.equal(report.notificationTestToConfigured, true);
+      const srcCheck = report.checks.find((c) => c.id === "admin-auth-verify-password");
+      assert.ok(srcCheck?.ok);
+    });
+  });
+
   describe("GET /api/deploy/production-check", () => {
-    it("returns phase 2381 report JSON", async () => {
+    it("returns phase 2383 report JSON", async () => {
       const res = await request(app).get("/api/deploy/production-check");
+      assert.equal(res.status, 200);
+      assert.equal(res.body.phase, "2383");
+      assert.equal(res.body.adminPasswordStatus, "GREEN");
+      assert.ok(res.body.checks.some((c: { id: string }) => c.id === "gmail-smtp-runtime"));
+    });
+  });
+
+  describe("GET /api/deploy/production-check-2381", () => {
+    it("returns legacy phase 2381 report JSON", async () => {
+      const res = await request(app).get("/api/deploy/production-check-2381");
       assert.equal(res.status, 200);
       assert.equal(res.body.phase, "2381-2400");
       assert.equal(res.body.adminPasswordStatus, "GREEN");

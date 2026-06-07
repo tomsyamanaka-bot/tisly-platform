@@ -3,12 +3,12 @@
  */
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
 import { PWA_SHELL_TAG, PWA_SHELL_VERSION } from "../pwa/pwa-shell-version.js";
+import { getPublicDir, getServerRoot, getServerSrcDir } from "./server-paths.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const publicDir = path.join(__dirname, "..", "..", "public");
-const serverSrcDir = path.join(__dirname, "..");
+const publicDir = getPublicDir();
+const serverRoot = getServerRoot();
+const serverSrcDir = getServerSrcDir();
 
 export interface ProductionCheckItem {
   id: string;
@@ -55,8 +55,8 @@ export function buildPhase2350ProductionCheck(): Phase2350ProductionReport {
     : "";
   const appHubHtml = readText("app-hub.html") ?? "";
   const appHubJs = readText("js/app-hub.js") ?? "";
-  const envExample = fs.existsSync(path.join(serverSrcDir, "..", ".env.production.example"))
-    ? fs.readFileSync(path.join(serverSrcDir, "..", ".env.production.example"), "utf8")
+  const envExample = fs.existsSync(path.join(serverRoot, ".env.production.example"))
+    ? fs.readFileSync(path.join(serverRoot, ".env.production.example"), "utf8")
     : "";
 
   const checks: ProductionCheckItem[] = [

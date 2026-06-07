@@ -6,46 +6,46 @@ import { logGmailSend } from "./gmail-send-log.js";
 
 export type GmailNotificationMode = "mock" | "real";
 
-function smtpHost(): string {
-  return (process.env.SMTP_HOST ?? "smtp.gmail.com").trim();
+function smtpHost(env: NodeJS.ProcessEnv = process.env): string {
+  return (env.SMTP_HOST ?? "smtp.gmail.com").trim();
 }
 
-function smtpPort(): number {
-  return Number(process.env.SMTP_PORT ?? "587");
+function smtpPort(env: NodeJS.ProcessEnv = process.env): number {
+  return Number(env.SMTP_PORT ?? "587");
 }
 
-function smtpUser(): string {
-  return (process.env.SMTP_USER ?? "").trim();
+function smtpUser(env: NodeJS.ProcessEnv = process.env): string {
+  return (env.SMTP_USER ?? "").trim();
 }
 
-function smtpPass(): string {
-  return (process.env.SMTP_PASS ?? process.env.SMTP_PASSWORD ?? "").trim();
+function smtpPass(env: NodeJS.ProcessEnv = process.env): string {
+  return (env.SMTP_PASS ?? env.SMTP_PASSWORD ?? "").trim();
 }
 
-export function getGmailNotificationMode(): GmailNotificationMode {
-  const raw = (process.env.GMAIL_SEND_MODE ?? "mock").toLowerCase();
+export function getGmailNotificationMode(env: NodeJS.ProcessEnv = process.env): GmailNotificationMode {
+  const raw = (env.GMAIL_SEND_MODE ?? "mock").toLowerCase();
   return raw === "real" ? "real" : "mock";
 }
 
-export function isSmtpGmailConfigured(): boolean {
-  return Boolean(smtpUser() && smtpPass() && smtpHost());
+export function isSmtpGmailConfigured(env: NodeJS.ProcessEnv = process.env): boolean {
+  return Boolean(smtpUser(env) && smtpPass(env) && smtpHost(env));
 }
 
-export function maskSmtpCredentials(): string {
-  const user = smtpUser() || "(unset)";
+export function maskSmtpCredentials(env: NodeJS.ProcessEnv = process.env): string {
+  const user = smtpUser(env) || "(unset)";
   return `SMTP_USER=${user} / SMTP_PASS=****`;
 }
 
-export function getGmailSmtpStatus(): {
+export function getGmailSmtpStatus(env: NodeJS.ProcessEnv = process.env): {
   gmailMode: GmailNotificationMode;
   smtpConfigured: boolean;
   statusLabel: string;
   infraStatus: "GREEN" | "YELLOW" | "RED";
   maskedCredentials: string;
 } {
-  const gmailMode = getGmailNotificationMode();
-  const smtpConfigured = isSmtpGmailConfigured();
-  const maskedCredentials = maskSmtpCredentials();
+  const gmailMode = getGmailNotificationMode(env);
+  const smtpConfigured = isSmtpGmailConfigured(env);
+  const maskedCredentials = maskSmtpCredentials(env);
 
   if (gmailMode === "mock") {
     return {
