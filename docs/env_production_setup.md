@@ -24,7 +24,7 @@ nano .env
 |------|------|----------------|
 | `NODE_ENV` | 本番モード | `production` |
 | `JWT_SECRET` | API 認証署名鍵 | `openssl rand -hex 32` |
-| `ADMIN_PASSWORD_HASH` | 管理者パスワード（bcrypt） | `hashPassword()` で生成（下記） |
+| `ADMIN_PASSWORD_HASH` | 管理者パスワード（scrypt） | `npm run hash:admin-password` で生成（下記） |
 | `INGEST_SECRET` | デバイス ingest 認証 | `openssl rand -hex 24` |
 | `TISLY_PUBLIC_URL` | 公開ベース URL | `https://tisly.jp` |
 | `DEPLOY_OPS_TOKEN` | ロールバック API 用 | `openssl rand -hex 24` |
@@ -39,17 +39,29 @@ nano .env
 
 ### ADMIN_PASSWORD_HASH の生成
 
-リポジトリの `server` ディレクトリで:
+リポジトリの `server` ディレクトリで（**build 不要**）:
 
 ```bash
 cd /opt/tisly/server
-node -e "
-import { hashPassword } from './dist/auth/password.js';
-console.log(hashPassword(process.argv[1]));
-" 'あなたの強力なパスワード'
+npm run hash:admin-password -- 'あなたの強力なパスワード'
 ```
 
-`npm run build` 済みであること。生成したハッシュのみ `.env` に貼り付け、**平文パスワードは .env に書かない**。
+出力行（`ADMIN_PASSWORD_HASH=scrypt:…`）を `.env` に貼り付け、**平文パスワードは .env に書かない**。
+
+```bash
+sudo systemctl restart tisly-server
+```
+
+### Gmail test-email 確認（SMTP 設定済みの場合）
+
+```bash
+TOKEN=$(curl -s -X POST https://tisly.jp/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"admin","password":"あなたの強力なパスワード"}' | jq -r .token)
+
+curl -s -X POST https://tisly.jp/api/notifications/test-email \
+  -H "Authorization: Bearer $TOKEN" | jq .
+```
 
 ---
 

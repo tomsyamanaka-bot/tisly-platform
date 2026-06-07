@@ -154,7 +154,21 @@ export function checkProductionEnv(
       key: "ADMIN_PASSWORD_HASH",
       level: levelForMissing(prod),
       message: "ADMIN_PASSWORD_HASH が未設定 — 管理者ログイン不可",
-      hint: "npm run build 後 hashPassword() で生成",
+      hint: "npm run hash:admin-password — docs/admin-password-recovery.md",
+    });
+  } else if (adminHash === "temp") {
+    items.push({
+      key: "ADMIN_PASSWORD_HASH",
+      level: "error",
+      message: "ADMIN_PASSWORD_HASH=temp — 平文は使用不可（ログイン不可）",
+      hint: "npm run hash:admin-password — docs/admin-password-recovery.md",
+    });
+  } else if (!adminHash.startsWith("scrypt:")) {
+    items.push({
+      key: "ADMIN_PASSWORD_HASH",
+      level: prod ? "error" : "warning",
+      message: "ADMIN_PASSWORD_HASH が scrypt 形式ではありません",
+      hint: "npm run hash:admin-password — docs/admin-password-recovery.md",
     });
   }
 

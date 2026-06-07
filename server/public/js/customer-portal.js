@@ -6,8 +6,8 @@ import {
 } from "./customer-auth.js";
 import { isStandalonePwa, renderPwaTopbar, setPwaTopbarVisible } from "./tisly-pwa-shell.js";
 
-const EXPECTED_SHELL_VERSION = "2350";
-const EXPECTED_SW_TAG = "v2350-production";
+const EXPECTED_SHELL_VERSION = "2381";
+const EXPECTED_SW_TAG = "v2381-production";
 
 const customerCode = customerCodeFromPath();
 

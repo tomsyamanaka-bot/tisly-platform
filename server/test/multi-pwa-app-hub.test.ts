@@ -13,6 +13,7 @@ const { default: request } = await import("supertest");
 const { createApp } = await import("../src/app.js");
 const { closeDatabase, getDatabase } = await import("../src/db/database.js");
 const { resetRateLimitsForTests } = await import("../src/security/rate-limit.js");
+const { PWA_SHELL_VERSION } = await import("../src/pwa/pwa-shell-version.js");
 
 const app = createApp();
 
@@ -170,7 +171,7 @@ describe("Phase 461-480 multi PWA app hub", () => {
     assert.equal(off.status, 200);
     assert.ok(off.text.includes("オフライン"));
     const sw = await request(app).get("/service-worker.js");
-    assert.ok(sw.text.includes("tisly-pwa-v2350-production"));
+    assert.ok(sw.text.includes(`tisly-pwa-v${PWA_SHELL_VERSION}-production`));
     assert.ok(sw.text.includes("customer-portal.html"));
   });
 

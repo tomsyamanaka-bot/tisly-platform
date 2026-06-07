@@ -119,7 +119,7 @@ describe("Phase 2161-2200 customer login production verification", () => {
       assert.equal(res.status, 200);
       assert.match(res.text, /id="portal-nav"[^>]*hidden/);
       assert.match(res.text, /id="login-form"/);
-      assert.match(res.text, /data-shell-version="2350"/);
+      assert.match(res.text, new RegExp(`data-shell-version="${PWA_SHELL_VERSION}"`));
     });
 
     it("PWA display mode and stale cache detection present", () => {
@@ -136,7 +136,7 @@ describe("Phase 2161-2200 customer login production verification", () => {
   describe("PWA shell cache version", () => {
     it("service-worker precaches customer portal assets with new version", () => {
       const sw = fs.readFileSync(path.join(publicDir, "service-worker.js"), "utf8");
-      assert.match(sw, /v2350-production/);
+      assert.match(sw, new RegExp(`v${PWA_SHELL_VERSION}-production`));
       assert.ok(sw.includes("customer-portal.html"));
       assert.ok(sw.includes("customer-portal.js"));
       assert.ok(sw.includes("customer-portal.css"));

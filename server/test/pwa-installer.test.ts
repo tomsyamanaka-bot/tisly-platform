@@ -13,6 +13,7 @@ const { default: request } = await import("supertest");
 const { createApp } = await import("../src/app.js");
 const { closeDatabase, getDatabase } = await import("../src/db/database.js");
 const { resetRateLimitsForTests } = await import("../src/security/rate-limit.js");
+const { PWA_SHELL_VERSION } = await import("../src/pwa/pwa-shell-version.js");
 
 const app = createApp();
 
@@ -63,7 +64,7 @@ describe("Phase 441-460 installer PWA app shell", () => {
   it("serves service-worker.js", async () => {
     const res = await request(app).get("/service-worker.js");
     assert.equal(res.status, 200);
-    assert.ok(res.text.includes("tisly-pwa-v2350-production"));
+    assert.ok(res.text.includes(`tisly-pwa-v${PWA_SHELL_VERSION}-production`));
     assert.ok(res.headers["service-worker-allowed"] === "/");
   });
 

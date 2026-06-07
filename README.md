@@ -16,6 +16,26 @@ TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。
 
 > **本番公開する場合はまず [`docs/vps_first_launch_for_tomonori.md`](docs/vps_first_launch_for_tomonori.md) を見る**
 
+## TiSLY Platform — Admin Password Recovery（Phase 2381–2400）
+
+**本番 admin ログイン復旧 · Gmail test-email 認証 · `ADMIN_PASSWORD_HASH=temp` 廃止**
+
+| 領域 | パス / 成果物 |
+|------|----------------|
+| パスワード復旧手順 | `docs/admin-password-recovery.md` |
+| ハッシュ生成 CLI | `npm run hash:admin-password`（`server/scripts/hash-admin-password.mjs`） |
+| production-check | `GET /api/deploy/production-check` — `adminPasswordStatus: GREEN\|RED` |
+| temp 検知 | `ADMIN_PASSWORD_HASH=temp` → **RED** · `operationalReady: false` |
+| env checker | `server/src/config/production-env-checker.ts` — temp は error |
+| テスト | `server/test/phase2381-2400.test.ts` |
+
+```bash
+cd server && npm run hash:admin-password -- 'your-strong-password'
+cd server && npm run test:phase2381
+```
+
+---
+
 ## TiSLY Platform — VPS Deploy Final Human Guide（Phase 1541–1580）
 
 **智紀さん向け — 初回公開の最終ガイド・安全確認・失敗時復旧（新機能追加なし）**
@@ -121,7 +141,7 @@ cd server && npm run build && npx tsc --noEmit && npm run test && npm run releas
 | 人間が設定する .env（必須） | 生成例 |
 |-----------------------------|--------|
 | `JWT_SECRET` | `openssl rand -hex 32` |
-| `ADMIN_PASSWORD_HASH` | `hashPassword('your-password')` |
+| `ADMIN_PASSWORD_HASH` | `npm run hash:admin-password` — [`docs/admin-password-recovery.md`](docs/admin-password-recovery.md) |
 | `TISLY_PUBLIC_URL` | `https://tisly.jp` |
 | `INGEST_SECRET` | `openssl rand -hex 24` |
 | `NODE_ENV` | `production` |
@@ -745,8 +765,8 @@ cd tv-app && npx tsc --noEmit
 
 ```bash
 cd server && npm run build && npm run test
-# パスワードハッシュ生成（ビルド後）:
-# node -e "import('./dist/auth/password.js').then(m=>console.log(m.hashPassword('your-pass')))"
+# パスワードハッシュ生成（build 不要）:
+# npm run hash:admin-password -- 'your-pass'
 # http://localhost:3080/operations — Security タブでログイン
 ```
 

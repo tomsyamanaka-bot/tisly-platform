@@ -1,7 +1,7 @@
 /* TiSLY Multi PWA — Phase 2161 customer portal shell + hex shield icon */
-const SW_VERSION = "tisly-pwa-v2350-production";
-const OFFLINE_CACHE = "tisly-pwa-shell-v2350-production";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2350-production";
+const SW_VERSION = "tisly-pwa-v2381-production";
+const OFFLINE_CACHE = "tisly-pwa-shell-v2381-production";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2381-production";
 const ICON_V = "?v=2001";
 const SHELL_URLS = [
   "/customer-portal.html",

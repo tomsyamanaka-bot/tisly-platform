@@ -111,7 +111,7 @@ export function buildPhase2350ProductionCheck(): Phase2350ProductionReport {
     {
       id: "shell-version-2350",
       label: "PWA shell v2350",
-      ok: PWA_SHELL_VERSION === "2350" && PWA_SHELL_TAG.includes("production"),
+      ok: Number(PWA_SHELL_VERSION) >= 2350 && PWA_SHELL_TAG.includes("production"),
     },
   ];
 

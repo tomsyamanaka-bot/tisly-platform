@@ -68,9 +68,9 @@ describe("Phase 2301-2350 Gmail SMTP production", () => {
     });
   });
 
-  describe("GET /api/deploy/production-check", () => {
-    it("returns phase 2350 report JSON", async () => {
-      const res = await request(app).get("/api/deploy/production-check");
+  describe("GET /api/deploy/production-check-2350", () => {
+    it("returns phase 2350 legacy report JSON", async () => {
+      const res = await request(app).get("/api/deploy/production-check-2350");
       assert.equal(res.status, 200);
       assert.equal(res.body.phase, "2301-2350");
       assert.ok(res.body.operationalReady);

@@ -145,7 +145,16 @@ if [ -f "${ENV_FILE}" ]; then
   log_pass ".env 存在: ${ENV_FILE}"
   check_env_key "NODE_ENV"
   check_env_key "JWT_SECRET" 1 "openssl rand -base64 48 で生成 → docs/env_fill_in_guide.md"
-  check_env_key "ADMIN_PASSWORD_HASH" 1 "npm run build 後 hashPassword() で生成 → docs/env_fill_in_guide.md"
+  check_env_key "ADMIN_PASSWORD_HASH" 1 "npm run hash:admin-password で生成（scrypt:... 形式）→ docs/admin-password-recovery.md"
+  admin_hash_val="$(grep -E '^ADMIN_PASSWORD_HASH=' "${ENV_FILE}" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'" || true)"
+  if [ -n "${admin_hash_val}" ]; then
+    if [ "${admin_hash_val}" = "temp" ] || [[ ! "${admin_hash_val}" =~ ^scrypt: ]]; then
+      log_fail ".env: ADMIN_PASSWORD_HASH が平文または temp（ログイン不可）"
+      add_fix "docs/admin-password-recovery.md — npm run hash:admin-password で scrypt 形式を生成"
+    else
+      log_pass ".env: ADMIN_PASSWORD_HASH scrypt 形式 OK"
+    fi
+  fi
   check_env_key "INGEST_SECRET" 1 "openssl rand -base64 48 で生成"
   check_env_key "TISLY_PUBLIC_URL"
   check_env_key "DEPLOY_OPS_TOKEN" 1 "openssl rand -hex 32 で生成"

@@ -113,32 +113,53 @@ DEPLOY_OPS_TOKEN=ここに貼り付け
 
 **何に使うか:** 管理画面ログイン用。**平文パスワードは .env に書きません。**
 
-### 5-a. まず build 済みであること
+平文や `temp` を `.env` に置くと **ログインできません**（`scrypt:` 形式が必須）。  
+復旧手順: [`admin-password-recovery.md`](./admin-password-recovery.md)  
+`npm run hash:admin-password` は loginAdmin と同じ `hashPassword()`（scrypt 形式）でハッシュを生成します。
 
-```bash
-cd /opt/tisly/server
-npm run build
-```
-
-### 5-b. ハッシュ生成
+### 5-a. ハッシュ生成
 
 **✋ 智紀さんが入力:** `'あなたの強力なパスワード'` を自分だけが知る強力なパスワードに置き換えます。
 
 ```bash
 cd /opt/tisly/server
-node -e "
-import { hashPassword } from './dist/auth/password.js';
-console.log(hashPassword(process.argv[1]));
-" 'あなたの強力なパスワード'
+npm run hash:admin-password -- 'あなたの強力なパスワード'
 ```
 
-出力（`scrypt:` で始まる長い文字列）を `.env` に:
+出力（`scrypt:` で始まる長い文字列）を `.env` に貼り付け:
 
 ```env
 ADMIN_PASSWORD_HASH=ここに貼り付け
 ```
 
 **注意:** シングルクォート内のパスワードはシェル履歴に残る場合があります。作業後 `history -c` するか、対話式で別途検討してください。
+
+### 5-b. サーバー再起動
+
+```bash
+sudo systemctl restart tisly-server
+sudo systemctl status tisly-server --no-pager
+```
+
+---
+
+## ステップ 5-c — admin ログイン確認 & Gmail test-email（任意）
+
+Gmail SMTP 設定済みの場合、以下で test-email を実行できます。
+
+```bash
+# 1) admin トークン取得
+TOKEN=$(curl -s -X POST https://tisly.jp/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"admin","password":"あなたの強力なパスワード"}' \
+  | jq -r .token)
+
+# 2) Gmail テスト送信
+curl -s -X POST https://tisly.jp/api/notifications/test-email \
+  -H "Authorization: Bearer $TOKEN" | jq .
+```
+
+`ok: true` が返れば成功。App Hub の「Gmail通知テスト」カードからも同様に実行できます。
 
 ---
 
@@ -168,7 +189,7 @@ curl -s https://tisly.jp/api/deploy/preflight | head -c 500
 | `JWT_SECRET` | `openssl rand -base64 48` | ☐ |
 | `INGEST_SECRET` | `openssl rand -base64 48`（JWT と別値） | ☐ |
 | `DEPLOY_OPS_TOKEN` | `openssl rand -hex 32` | ☐ |
-| `ADMIN_PASSWORD_HASH` | `hashPassword()` | ☐ |
+| `ADMIN_PASSWORD_HASH` | `npm run hash:admin-password` | ☐ |
 | `TISLY_PUBLIC_URL` | `https://tisly.jp` 固定 | ☐ |
 | mock 群 | 上記ステップ 1 のとおり | ☐ |
 | `DEMO_RESET_ENABLED` | **`false`** | ☐ |

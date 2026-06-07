@@ -198,9 +198,9 @@ describe("Phase 2201-2250 real data migration", () => {
       assert.match(shell, /tisly-mock-real-banner/);
     });
 
-    it("service worker uses v2350-production tag", () => {
+    it("service worker uses current production tag", () => {
       const sw = fs.readFileSync(path.join(publicDir, "service-worker.js"), "utf8");
-      assert.match(sw, /v2350-production/);
+      assert.match(sw, new RegExp(`v${PWA_SHELL_VERSION}-production`));
     });
   });
 });

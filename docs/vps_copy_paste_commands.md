@@ -141,16 +141,12 @@ openssl rand -hex 32
 ```
 
 ```bash
-# ADMIN_PASSWORD_HASH（先に build が必要 — ブロック 7 の後でも可）
+# ADMIN_PASSWORD_HASH（build 不要）
 cd /opt/tisly/server
-npm run build
-node -e "
-import { hashPassword } from './dist/auth/password.js';
-console.log(hashPassword(process.argv[1]));
-" 'あなたの強力なパスワード'
+npm run hash:admin-password -- 'あなたの強力なパスワード'
 ```
 
-**✋ ここに入れる:** `'あなたの強力なパスワード'` を管理用の強力なパスワードに置き換えます。
+**✋ ここに入れる:** `'あなたの強力なパスワード'` を管理用の強力なパスワードに置き換えます。出力行を `.env` の `ADMIN_PASSWORD_HASH=` に貼り付け、`systemctl restart tisly-server`。
 
 ---
 
@@ -295,7 +291,7 @@ bash scripts/rollback.sh
 | `NODE_ENV` | `production` | |
 | `TISLY_PUBLIC_URL` | `https://tisly.jp` | |
 | `JWT_SECRET` | ✋ ここに入れる | `openssl rand -base64 48` |
-| `ADMIN_PASSWORD_HASH` | ✋ ここに入れる | `hashPassword()` |
+| `ADMIN_PASSWORD_HASH` | ✋ ここに入れる | `npm run hash:admin-password` |
 | `INGEST_SECRET` | ✋ ここに入れる | JWT と別値 |
 | `DEPLOY_OPS_TOKEN` | ✋ ここに入れる | `openssl rand -hex 32` |
 | `MQTT_MODE` | `mock` | 初回 |

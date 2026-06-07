@@ -25,6 +25,8 @@ import { buildCustomerLoginCheck } from "../../deploy/customer-login-check.js";
 import { buildRealDataMigrationCheck } from "../../deploy/real-data-migration-check.js";
 import { buildPhase2300ProductionCheck } from "../../deploy/phase2300-production-check.js";
 import { buildPhase2350ProductionCheck } from "../../deploy/phase2350-production-check.js";
+import { buildPhase2380ProductionCheck } from "../../deploy/phase2380-production-check.js";
+import { buildPhase2381ProductionCheck } from "../../deploy/phase2381-production-check.js";
 import { buildSwitchBotDeploymentChecklist } from "../../security-automation/switchbot-release-gate.js";
 import { getSecurityState } from "../../services/securityAutomationService.js";
 import { getSwitchBotMode, isRealUnlockGuarded } from "../../services/switchbotService.js";
@@ -96,9 +98,19 @@ deployRouter.get("/production-check-2300", (_req, res) => {
   res.json(buildPhase2300ProductionCheck());
 });
 
-/** Phase 2301–2350 — Gmail SMTP 実運用チェック */
-deployRouter.get("/production-check", (_req, res) => {
+/** Phase 2301–2350 — Gmail SMTP 実運用チェック（レガシー） */
+deployRouter.get("/production-check-2350", (_req, res) => {
   res.json(buildPhase2350ProductionCheck());
+});
+
+/** Phase 2351–2380 — 管理者パスワードハッシュ整備（レガシー） */
+deployRouter.get("/production-check-2380", (_req, res) => {
+  res.json(buildPhase2380ProductionCheck());
+});
+
+/** Phase 2381–2400 — 管理者パスワード復旧（temp → RED） */
+deployRouter.get("/production-check", (_req, res) => {
+  res.json(buildPhase2381ProductionCheck());
 });
 
 /** Phase 1441–1460 — 本番設定監査（不足一覧） */
