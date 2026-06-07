@@ -3,7 +3,7 @@ import { config } from "../config.js";
 import { getDatabase } from "../db/database.js";
 import { logAudit } from "../provisioning/audit-log.js";
 import { signToken, verifyToken } from "./jwt.js";
-import { verifyPassword } from "./password.js";
+import { isValidScryptPasswordHash, verifyPassword } from "./password.js";
 import { createSession, revokeSessionByTokenId } from "./session-store.js";
 import { siemFromAudit } from "../security/siem-exporter.js";
 import {
@@ -25,7 +25,9 @@ export function isAuthConfigured(): boolean {
 }
 
 export function isAdminPasswordConfigured(): boolean {
-  return Boolean(config.auth.jwtSecret && config.auth.adminPasswordHash);
+  return Boolean(
+    config.auth.jwtSecret && isValidScryptPasswordHash(config.auth.adminPasswordHash)
+  );
 }
 
 export function loginAdmin(

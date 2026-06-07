@@ -5,7 +5,7 @@ import path from "path";
 import { execSync } from "node:child_process";
 import { fileURLToPath } from "url";
 
-import { hashPassword, verifyPassword } from "../src/auth/password.js";
+import { hashPassword, verifyPassword, isValidScryptPasswordHash, normalizeStoredPasswordHash } from "../src/auth/password.js";
 import {
   buildPhase2381ProductionCheck,
   isInsecureAdminPasswordHash,
@@ -57,6 +57,25 @@ describe("Phase 2381-2400 admin password recovery", () => {
       assert.equal(isInsecureAdminPasswordHash("plaintext"), true);
       assert.equal(isInsecureAdminPasswordHash(""), true);
       assert.equal(isInsecureAdminPasswordHash(hashPassword("ok")), false);
+    });
+
+    it("flags truncated scrypt hash (122 hex chars)", () => {
+      const truncated =
+        "scrypt:0ab2548e75ab2ea7c501765685b86933:5496bc2d4817d8c4d25c210dcb65874907aa54322199d69a8e5ab6abbot46aa706fee706c9672a59b7079454b1e23c8a14cab15e83d64c4407e79c330";
+      assert.equal(isValidScryptPasswordHash(truncated), false);
+      assert.equal(isInsecureAdminPasswordHash(truncated), true);
+      const r = resolveAdminPasswordStatus(truncated);
+      assert.equal(r.ok, false);
+      assert.equal(r.status, "RED");
+      assert.match(r.detail, /128 文字/);
+    });
+  });
+
+  describe("normalizeStoredPasswordHash", () => {
+    it("strips quotes and CRLF", () => {
+      const hash = hashPassword("secure");
+      assert.equal(isValidScryptPasswordHash(`"${hash}"`), true);
+      assert.equal(normalizeStoredPasswordHash(`${hash}\r`), hash);
     });
   });
 
@@ -144,6 +163,18 @@ describe("Phase 2381-2400 admin password recovery", () => {
       assert.ok(runtime);
       assert.equal(runtime!.ok, false);
       assert.equal(runtime!.status, "RED");
+    });
+
+    it("reports RED when scrypt hash is truncated", () => {
+      const report = buildPhase2381ProductionCheck({
+        ...process.env,
+        ADMIN_PASSWORD_HASH:
+          "scrypt:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      });
+      assert.equal(report.adminPasswordStatus, "RED");
+      const runtime = report.checks.find((c) => c.id === "admin-password-hash-runtime");
+      assert.ok(runtime);
+      assert.equal(runtime!.ok, false);
     });
   });
 

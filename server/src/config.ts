@@ -1,11 +1,11 @@
 import dotenv from "dotenv";
 import path from "path";
 
-dotenv.config({ path: path.join(process.cwd(), ".env") });
-dotenv.config({ path: path.join(process.cwd(), "..", ".env") });
+dotenv.config({ path: path.join(process.cwd(), ".env"), override: true });
+dotenv.config({ path: path.join(process.cwd(), "..", ".env"), override: true });
 
 function env(key: string, fallback = ""): string {
-  return process.env[key] ?? fallback;
+  return (process.env[key] ?? fallback).trim();
 }
 
 export const config = {

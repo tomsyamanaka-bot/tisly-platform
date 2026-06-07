@@ -5,7 +5,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { PWA_SHELL_TAG, PWA_SHELL_VERSION } from "../pwa/pwa-shell-version.js";
-import { verifyPassword } from "../auth/password.js";
+import { isValidScryptPasswordHash, normalizeStoredPasswordHash, verifyPassword } from "../auth/password.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const serverRoot = path.join(__dirname, "..", "..");
@@ -45,17 +45,17 @@ export function isInsecureAdminPasswordHash(
   hash: string | undefined,
   env: NodeJS.ProcessEnv = process.env
 ): boolean {
-  const value = (hash ?? env.ADMIN_PASSWORD_HASH ?? "").trim();
+  const value = normalizeStoredPasswordHash(hash ?? env.ADMIN_PASSWORD_HASH ?? "");
   if (!value) return true;
   if (value === "temp") return true;
-  return !value.startsWith("scrypt:");
+  return !isValidScryptPasswordHash(value);
 }
 
 export function resolveAdminPasswordStatus(
   hash: string | undefined,
   env: NodeJS.ProcessEnv = process.env
 ): { ok: boolean; status: ProductionCheckStatus; detail: string } {
-  const value = (hash ?? env.ADMIN_PASSWORD_HASH ?? "").trim();
+  const value = normalizeStoredPasswordHash(hash ?? env.ADMIN_PASSWORD_HASH ?? "");
   if (!value) {
     return {
       ok: false,
@@ -75,6 +75,15 @@ export function resolveAdminPasswordStatus(
       ok: false,
       status: "RED",
       detail: "平文または不正形式 — npm run hash:admin-password で scrypt 形式を生成",
+    };
+  }
+  if (!isValidScryptPasswordHash(value)) {
+    const parts = value.split(":");
+    const hashLen = parts[2]?.length ?? 0;
+    return {
+      ok: false,
+      status: "RED",
+      detail: `scrypt ハッシュが不正（hash 部 ${hashLen}/128 文字）— npm run hash:admin-password を再実行`,
     };
   }
   return { ok: true, status: "GREEN", detail: "scrypt 形式（実行時 .env）" };

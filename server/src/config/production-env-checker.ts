@@ -1,6 +1,7 @@
 /**
  * Phase 1201–1240 — 本番 .env 起動前チェック（不足時 warning / production 時 error）
  */
+import { isValidScryptPasswordHash } from "../auth/password.js";
 
 export type EnvCheckLevel = "info" | "warning" | "error";
 
@@ -169,6 +170,13 @@ export function checkProductionEnv(
       level: prod ? "error" : "warning",
       message: "ADMIN_PASSWORD_HASH が scrypt 形式ではありません",
       hint: "npm run hash:admin-password — docs/admin-password-recovery.md",
+    });
+  } else if (!isValidScryptPasswordHash(adminHash)) {
+    items.push({
+      key: "ADMIN_PASSWORD_HASH",
+      level: "error",
+      message: "ADMIN_PASSWORD_HASH が不正（128 文字 hex 不足または非 hex 文字）— ログイン不可",
+      hint: "npm run hash:admin-password を再実行 — docs/admin-password-recovery.md",
     });
   }
 
