@@ -28,6 +28,7 @@ export interface Phase2386ProductionReport {
   gmailSendVerified: boolean;
   pdfAttachmentEnabled: boolean;
   testEmailBodySafe: boolean;
+  distRuntimeAligned: boolean;
   gmailTestModalUi: boolean;
   lastTestEmailOk: boolean;
   maskedCredentials: string;
@@ -87,6 +88,9 @@ export function buildPhase2386ProductionCheck(
     "gmail-real-send-verified",
     "gmail-test-pdf-attachment",
     "gmail-test-email-body-safe",
+    "gmail-dist-runtime-pdf-attachment",
+    "gmail-dist-runtime-body-safe",
+    "gmail-dist-runtime-aligned",
     "app-hub-gmail-auth-modal",
   ];
   const criticalOk = checks.filter((c) => criticalIds.includes(c.id)).every((c) => c.ok);
@@ -113,6 +117,7 @@ export function buildPhase2386ProductionCheck(
     gmailSendVerified: base2385.gmailSendVerified,
     pdfAttachmentEnabled: base2385.pdfAttachmentEnabled,
     testEmailBodySafe: base2385.testEmailBodySafe,
+    distRuntimeAligned: base2385.distRuntimeAligned,
     gmailTestModalUi,
     lastTestEmailOk: base2385.lastTestEmailOk,
     maskedCredentials: base2385.maskedCredentials,

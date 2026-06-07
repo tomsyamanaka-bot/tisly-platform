@@ -234,11 +234,14 @@ describe("Phase 2381-2400 admin password recovery", () => {
       assert.equal(report.phase, "2385");
       assert.equal(report.pdfAttachmentEnabled, true);
       assert.equal(report.testEmailBodySafe, true);
+      assert.equal(report.distRuntimeAligned, true);
       assert.equal(report.attachmentFileName, "tisly-gmail-test.pdf");
       const pdfCheck = report.checks.find((c) => c.id === "gmail-test-pdf-attachment");
       assert.ok(pdfCheck?.ok);
       const safeCheck = report.checks.find((c) => c.id === "gmail-test-email-body-safe");
       assert.ok(safeCheck?.ok);
+      const distAligned = report.checks.find((c) => c.id === "gmail-dist-runtime-aligned");
+      assert.ok(distAligned?.ok);
     });
   });
 
@@ -270,6 +273,7 @@ describe("Phase 2381-2400 admin password recovery", () => {
       assert.equal(res.body.adminPasswordStatus, "GREEN");
       assert.ok(res.body.checks.some((c: { id: string }) => c.id === "gmail-test-pdf-attachment"));
       assert.ok(res.body.checks.some((c: { id: string }) => c.id === "gmail-test-email-body-safe"));
+      assert.ok(res.body.checks.some((c: { id: string }) => c.id === "gmail-dist-runtime-aligned"));
       assert.ok(res.body.checks.some((c: { id: string }) => c.id === "app-hub-gmail-auth-modal"));
     });
   });
