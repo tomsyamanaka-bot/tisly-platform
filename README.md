@@ -16,6 +16,20 @@ TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。
 
 > **本番公開する場合はまず [`docs/vps_first_launch_for_tomonori.md`](docs/vps_first_launch_for_tomonori.md) を見る**
 
+## TiSLY Platform — PWA First Architecture
+
+**TiSLY は PWA 中心。他社 SaaS に依存しない。**
+
+| 領域 | パス / URL |
+|------|------------|
+| 正式方針 | [`docs/tisly_core_policy.md`](docs/tisly_core_policy.md) |
+| TiSLY App | `/tisly-app/home` — Home / Devices / Events / Settings |
+| Remote Test | https://tisly.jp/remote-test |
+| VAPID 自動設定 | `cd server && npm run vapid:setup` |
+| server README | [`server/README.md`](server/README.md) |
+
+---
+
 ## TiSLY Platform — Remote Test PoC（Phase 2）
 
 **iPhone から通知 & RP2350 CH1 遠隔操作**

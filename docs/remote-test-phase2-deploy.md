@@ -1,6 +1,6 @@
 # Phase 2 — Remote Test 本番デプロイ & 操作ガイド
 
-**目的:** iPhone から `https://tisly.jp/remote-test` で通知・CH1 遠隔操作し、RP2350 GPIO17 を制御する。
+**目的:** iPhone PWA 単体で `https://tisly.jp/remote-test` から Web Push 通知・CH1 遠隔操作し、RP2350 GPIO17 を制御する。
 
 ---
 
@@ -25,22 +25,18 @@ nano .env
 
 ```env
 REMOTE_TEST_TOKEN=（上で生成した値）
-DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
 ```
 
-Discord Webhook の取得: Discord サーバー → チャンネル設定 → 連携サービス → Webhook → URL をコピー。
+### 1-3. VAPID 鍵の自動設定（必須）
 
-**iPhone に Push 通知も欲しい場合（任意）:**
-
-```env
-VAPID_PUBLIC_KEY=...
-VAPID_PRIVATE_KEY=...
-VAPID_SUBJECT=mailto:admin@tisly.jp
+```bash
+cd /opt/tisly/server
+npm run vapid:setup
 ```
 
-生成: `cd /opt/tisly/server && npx web-push generate-vapid-keys`
+`server/.env` に VAPID 鍵 3 行が書き込まれます。詳細: `docs/vapid_env_setup.md`
 
-### 1-3. コード反映 & 再起動
+### 1-4. コード反映 & 再起動
 
 ```bash
 cd /opt/tisly
@@ -58,7 +54,7 @@ sudo nginx -t && sudo systemctl reload nginx
 cd /opt/tisly && bash scripts/deploy.sh
 ```
 
-### 1-4. 動作確認（VPS）
+### 1-5. 動作確認（VPS）
 
 ```bash
 TOKEN="あなたのREMOTE_TEST_TOKEN"
@@ -68,6 +64,10 @@ curl -sI https://tisly.jp/remote-test | head -1
 
 # API
 curl -s -H "X-Remote-Test-Token: $TOKEN" https://tisly.jp/api/remote-test/status | jq .
+
+# VAPID
+npm run vapid:generate -- --check
+curl -s https://tisly.jp/api/notifications/vapid-public-key | jq .
 ```
 
 ---
@@ -77,7 +77,8 @@ curl -s -H "X-Remote-Test-Token: $TOKEN" https://tisly.jp/api/remote-test/status
 ```powershell
 cd C:\Users\yaman\TiSLY_HOME_Security_DEMO\server
 cp .env.sample .env
-# .env に REMOTE_TEST_TOKEN と DISCORD_WEBHOOK_URL を記入
+# .env に REMOTE_TEST_TOKEN を記入
+npm run vapid:setup
 npm install
 npm run build
 npm run dev
@@ -94,15 +95,21 @@ npm run test -- test/remote-test.test.ts
 
 ---
 
-## 3. iPhone での操作
+## 3. iPhone での操作（PWA フロー）
+
+```
+Safari → ホーム画面追加 → Push 登録 → Push テスト → 遠隔操作
+```
 
 1. Safari で **https://tisly.jp/remote-test** を開く
 2. **REMOTE_TEST_TOKEN** を入力 →「トークンを保存」
-3. **Push 登録**（任意）: ホーム画面に追加 → Push 登録 → 通知許可
-4. **通知テスト送信** → Discord / Push に「TiSLY 通知テスト成功」
-5. **CH1 ON** → RP2350 の GPIO17 が ON
-6. **CH1 OFF** → GPIO17 が OFF
-7. **デバッグ情報** で RP2350 接続時刻が更新されることを確認
+3. 共有ボタン → **ホーム画面に追加**（iOS 16.4+）
+4. ホーム画面の **TiSLY Remote** から起動
+5. **Push 登録** → 通知を許可
+6. **Push テスト** → iPhone に「TiSLY 通知テスト成功」
+7. **CH1 ON** → RP2350 の GPIO17 が ON
+8. **CH1 OFF** → GPIO17 が OFF
+9. 画面の **Push 登録状態 / Push 送信結果 / Push 成功時刻** を確認
 
 ---
 
@@ -145,9 +152,10 @@ iPhone で CH1 OFF → シリアルに `EXEC CH1 OFF → GPIO17 = LOW`
 | # | 条件 | 確認方法 |
 |---|------|----------|
 | ① | iPhone で `/remote-test` が開ける | Safari で URL を開く |
-| ② | 通知ボタンでスマホへ通知 | Discord または Push |
-| ③ | CH1 ON → GPIO17 ON | リレー動作 / シリアルログ |
-| ④ | CH1 OFF → GPIO17 OFF | リレー動作 / シリアルログ |
+| ② | ホーム画面 PWA から Push 登録 | 登録状態が「登録済み」 |
+| ③ | Push テストで iPhone に通知 | Push 成功時刻が更新 |
+| ④ | CH1 ON → GPIO17 ON | リレー動作 / シリアルログ |
+| ⑤ | CH1 OFF → GPIO17 OFF | リレー動作 / シリアルログ |
 
 ---
 
@@ -157,7 +165,9 @@ iPhone で CH1 OFF → シリアルに `EXEC CH1 OFF → GPIO17 = LOW`
 |------|------|
 | 503 トークン未設定 | VPS `.env` に `REMOTE_TEST_TOKEN` を追加 → restart |
 | 403 トークン不一致 | iPhone / RP2350 / VPS で同じ値か確認 |
-| 通知が届かない | `DISCORD_WEBHOOK_URL` 確認 / Push は VAPID + 登録必要 |
+| Push 登録不可 | ホーム画面 PWA から起動（通常 Safari タブ不可） |
+| Push が届かない | `npm run vapid:setup` → 再起動 / Push 登録を再実行 |
+| VAPID 未設定 | `npm run vapid:setup` → `npm run vapid:generate -- --check` |
 | RP2350 が反応しない | Ethernet IP 確認 / トークン / `urequests` インストール |
 | RP2350接続時刻が更新されない | `remote_test_poll.py` が動いているか確認 |
 
@@ -167,7 +177,7 @@ iPhone で CH1 OFF → シリアルに `EXEC CH1 OFF → GPIO17 = LOW`
 
 | ファイル | 説明 |
 |----------|------|
-| `server/.env.sample` | 最小 env テンプレート |
+| `server/.env.sample` | PWA 最小 env テンプレート |
 | `server/public/remote-test.html` | Web UI |
 | `server/src/api/routes/remote-test.ts` | API |
 | `rp2350/firmware/remote_test_poll.py` | RP2350 ポーリング |

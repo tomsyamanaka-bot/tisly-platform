@@ -7,6 +7,9 @@ export interface RemoteTestLogEntry {
   source?: "web" | "device";
 }
 
+/** RP2350 が応答しないと offline とみなす秒数（ポーリング 3 秒 × 5） */
+export const DEVICE_OFFLINE_THRESHOLD_SEC = 15;
+
 interface RemoteTestState {
   pendingCommand: RemoteTestCommand | null;
   ch1State: "on" | "off";
@@ -14,7 +17,10 @@ interface RemoteTestState {
   lastCommandAt: string | null;
   lastPollAt: string | null;
   lastNotifyAt: string | null;
+  lastPushSuccessAt: string | null;
+  lastPushResult: { success: boolean; error?: string } | null;
   lastAccessIp: string | null;
+  firmwareVersion: string | null;
   logs: RemoteTestLogEntry[];
 }
 
@@ -27,7 +33,10 @@ const state: RemoteTestState = {
   lastCommandAt: null,
   lastPollAt: null,
   lastNotifyAt: null,
+  lastPushSuccessAt: null,
+  lastPushResult: null,
   lastAccessIp: null,
+  firmwareVersion: null,
   logs: [],
 };
 
@@ -48,6 +57,8 @@ export function getRemoteTestStatus() {
     lastCommandAt: state.lastCommandAt,
     lastPollAt: state.lastPollAt,
     lastNotifyAt: state.lastNotifyAt,
+    lastPushSuccessAt: state.lastPushSuccessAt,
+    lastPushResult: state.lastPushResult,
     lastAccessIp: state.lastAccessIp,
     logs: [...state.logs],
   };
@@ -61,8 +72,30 @@ export function queueCh1Command(command: RemoteTestCommand): void {
   pushLog(command, `CH1 → ${state.ch1State.toUpperCase()}`);
 }
 
-export function consumePendingCommand(): RemoteTestCommand | null {
+export function recordDevicePoll(firmwareVersion?: string): void {
   state.lastPollAt = new Date().toISOString();
+  if (firmwareVersion) {
+    state.firmwareVersion = firmwareVersion;
+  }
+}
+
+export function getDeviceStatus() {
+  const lastSeen = state.lastPollAt;
+  let online = false;
+  if (lastSeen) {
+    const elapsed = (Date.now() - new Date(lastSeen).getTime()) / 1000;
+    online = elapsed <= DEVICE_OFFLINE_THRESHOLD_SEC;
+  }
+  return {
+    online,
+    offline: !online,
+    lastSeen,
+    firmwareVersion: state.firmwareVersion,
+  };
+}
+
+export function consumePendingCommand(firmwareVersion?: string): RemoteTestCommand | null {
+  recordDevicePoll(firmwareVersion);
   const cmd = state.pendingCommand;
   if (cmd) {
     state.pendingCommand = null;
@@ -71,9 +104,16 @@ export function consumePendingCommand(): RemoteTestCommand | null {
   return cmd;
 }
 
-export function markNotifySent(): void {
-  state.lastNotifyAt = new Date().toISOString();
-  pushLog("notify_sent", "TiSLY 通知テスト成功");
+export function markPushResult(success: boolean, error?: string): void {
+  state.lastPushResult = { success, error };
+  if (success) {
+    const at = new Date().toISOString();
+    state.lastPushSuccessAt = at;
+    state.lastNotifyAt = at;
+    pushLog("push_sent", "TiSLY Push 通知成功");
+  } else {
+    pushLog("push_failed", error ?? "Push 送信失敗");
+  }
 }
 
 export function resetRemoteTestState(): void {
@@ -83,6 +123,9 @@ export function resetRemoteTestState(): void {
   state.lastCommandAt = null;
   state.lastPollAt = null;
   state.lastNotifyAt = null;
+  state.lastPushSuccessAt = null;
+  state.lastPushResult = null;
   state.lastAccessIp = null;
+  state.firmwareVersion = null;
   state.logs = [];
 }

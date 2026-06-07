@@ -43,6 +43,7 @@
       margin-bottom: 1rem;
     }
     .card h2 { font-size: 1rem; margin: 0 0 0.75rem; }
+    .card.highlight { border-color: var(--accent); }
     label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.35rem; }
     input[type="password"], input[type="text"] {
       width: 100%;
@@ -82,18 +83,37 @@
     }
     .status-grid dt { color: var(--muted); }
     .status-grid dd { margin: 0; word-break: break-all; }
+    .status-ok { color: #3fb950; font-weight: 600; }
+    .status-ng { color: var(--danger); font-weight: 600; }
     #log {
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       font-size: 0.78rem;
-      max-height: 220px;
+      max-height: 280px;
       overflow-y: auto;
-      white-space: pre-wrap;
       background: var(--bg);
       border: 1px solid var(--border);
       border-radius: 8px;
       padding: 0.75rem;
       margin: 0;
     }
+    .log-entry {
+      margin-bottom: 0.65rem;
+      padding-bottom: 0.65rem;
+      border-bottom: 1px solid var(--border);
+      white-space: pre-wrap;
+    }
+    .log-entry:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+    .log-entry.success {
+      border-left: 3px solid #3fb950;
+      padding-left: 0.6rem;
+      background: rgba(26, 127, 55, 0.08);
+      border-radius: 6px;
+    }
+    .log-time { color: var(--muted); }
+    .log-label { font-weight: 600; }
+    .status-success { color: #3fb950; font-weight: 700; }
+    .status-fail { color: var(--danger); font-weight: 600; }
+    .status-muted { color: var(--muted); }
     .hint { color: var(--muted); font-size: 0.82rem; margin: 0.5rem 0 0; }
     .badge {
       display: inline-block;
@@ -105,12 +125,28 @@
     .badge.on { background: rgba(26,127,55,0.25); color: #3fb950; }
     .badge.off { background: rgba(139,148,158,0.2); color: var(--muted); }
     .badge.warn { background: rgba(210,153,34,0.2); color: var(--warn); }
+    .ios-pwa-steps { margin: 0.5rem 0 0; padding-left: 1.25rem; font-size: 0.9rem; }
+    .ios-pwa-steps li { margin-bottom: 0.35rem; }
+    .flow-steps {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      align-items: center;
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin: 0 0 0.75rem;
+    }
+    .flow-steps span { color: var(--text); font-weight: 600; }
+    .flow-steps .arrow { color: var(--muted); }
+    #push-msg { margin-top: 0.75rem; font-size: 0.9rem; }
+    #push-msg.ok { color: #3fb950; }
+    #push-msg.err { color: var(--danger); }
   </style>
 </head>
 <body>
   <header>
     <h1>TiSLY Remote Test</h1>
-    <p class="subtitle">通信PoC — 通知 &amp; CH1 遠隔操作</p>
+    <p class="subtitle">PWA — Web Push 通知 &amp; CH1 遠隔操作</p>
   </header>
 
   <section class="card" id="token-card">
@@ -132,12 +168,74 @@
     <p class="hint">初回のみ入力。localStorage に保存されます。</p>
   </section>
 
+  <section class="card highlight" id="ios-pwa-guide" hidden>
+    <h2>iPhone セットアップ手順</h2>
+    <div class="flow-steps">
+      <span>Safari</span><span class="arrow">↓</span>
+      <span>ホーム画面追加</span><span class="arrow">↓</span>
+      <span>Push 登録</span><span class="arrow">↓</span>
+      <span>Push テスト</span>
+    </div>
+    <ol class="ios-pwa-steps">
+      <li>Safari でこのページ（<strong>/remote-test</strong>）を開く</li>
+      <li>共有ボタン → <strong>ホーム画面に追加</strong></li>
+      <li>ホーム画面の <strong>TiSLY Remote</strong> から起動</li>
+      <li><strong>Push 登録</strong> → 通知を許可</li>
+      <li><strong>Push テスト</strong> で通知を確認</li>
+    </ol>
+    <p class="hint">iOS 16.4 以降、ホーム画面 PWA のみ Web Push に対応します。</p>
+  </section>
+
+  <section class="card" id="push-unsupported" hidden>
+    <h2>Web Push 非対応</h2>
+    <p id="push-unsupported-reason" class="hint"></p>
+  </section>
+
+  <section class="card">
+    <h2>Push 登録状態</h2>
+    <dl class="status-grid">
+      <dt>表示モード</dt><dd id="status-display-mode">確認中…</dd>
+      <dt>ブラウザ</dt><dd id="status-browser">確認中…</dd>
+      <dt>ブラウザ対応</dt><dd id="status-push-support">確認中…</dd>
+      <dt>通知許可</dt><dd id="status-notification-permission">確認中…</dd>
+      <dt>Service Worker</dt><dd id="status-sw-registration">確認中…</dd>
+      <dt>Push 購読</dt><dd id="status-push-subscription">確認中…</dd>
+      <dt>サーバー登録数</dt><dd id="status-server-subscriptions">—</dd>
+      <dt>VAPID 設定</dt><dd id="status-vapid">—</dd>
+    </dl>
+    <div class="btn-row">
+      <button type="button" class="secondary" id="btn-push-register">Push 登録</button>
+      <button type="button" class="secondary" id="btn-push-status-refresh">状態を更新</button>
+    </div>
+    <div id="push-msg" role="status"></div>
+  </section>
+
+  <section class="card">
+    <h2>Push 送信結果</h2>
+    <dl class="status-grid">
+      <dt>最終送信結果</dt><dd id="st-push-result">—</dd>
+      <dt>Push 成功時刻</dt><dd id="st-push-success">—</dd>
+      <dt>最終通知</dt><dd id="st-notify">—</dd>
+    </dl>
+    <div class="btn-row single">
+      <button type="button" id="btn-push-test">Push テスト</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>RP2350 接続</h2>
+    <dl class="status-grid">
+      <dt>状態</dt><dd id="st-device-online">—</dd>
+      <dt>最終接続</dt><dd id="st-device-lastseen">—</dd>
+      <dt>ファームウェア</dt><dd id="st-device-firmware">—</dd>
+    </dl>
+  </section>
+
   <section class="card">
     <h2>状態</h2>
     <dl class="status-grid">
       <dt>CH1</dt><dd id="st-ch1"><span class="badge off">off</span></dd>
       <dt>待機コマンド</dt><dd id="st-pending">—</dd>
-      <dt>最終通知</dt><dd id="st-notify">—</dd>
       <dt>最終ポーリング</dt><dd id="st-poll">—</dd>
     </dl>
     <div class="btn-row single">
@@ -146,10 +244,8 @@
   </section>
 
   <section class="card">
-    <h2>操作</h2>
-    <div class="btn-row single">
-      <button type="button" id="btn-notify">通知テスト送信</button>
-    </div>
+    <h2>遠隔操作</h2>
+    <p class="hint">Push 通知を受け取った後、この画面から CH1 を操作できます。</p>
     <div class="btn-row">
       <button type="button" id="btn-ch1-on">CH1 ON</button>
       <button type="button" class="danger" id="btn-ch1-off">CH1 OFF</button>
@@ -157,18 +253,8 @@
   </section>
 
   <section class="card">
-    <h2>Web Push（任意）</h2>
-    <p class="hint">iPhone: Safari → ホーム画面に追加 → この画面から Push 登録</p>
-    <div class="btn-row">
-      <button type="button" class="secondary" id="btn-push-register">Push 登録</button>
-      <button type="button" class="secondary" id="btn-push-test">Push テスト</button>
-    </div>
-  </section>
-
-  <section class="card">
     <h2>デバッグ情報</h2>
     <dl class="status-grid">
-      <dt>通知送信時刻</dt><dd id="dbg-notify">—</dd>
       <dt>最後のCH1命令</dt><dd id="dbg-command">—</dd>
       <dt>最後のアクセスIP</dt><dd id="dbg-ip">—</dd>
       <dt>RP2350接続時刻</dt><dd id="dbg-poll">—</dd>
@@ -178,7 +264,7 @@
 
   <section class="card">
     <h2>操作ログ</h2>
-    <pre id="log" aria-live="polite">待機中…</pre>
+    <div id="log" aria-live="polite"><div class="log-entry"><span class="log-time">—</span> 待機中…</div></div>
   </section>
 
   <script src="/remote-test/app.js" defer></script>

@@ -134,7 +134,7 @@ def check_server():
 
 
 def fetch_command():
-    body, status = http_get("/api/remote-test/command")
+    body, status = http_get("/api/remote-test/command?firmware=1.0.0-poc")
     if status == 403:
         log("AUTH FAIL 403 — REMOTE_TEST_TOKEN を確認")
         return None

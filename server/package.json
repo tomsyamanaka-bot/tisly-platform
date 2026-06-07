@@ -7,6 +7,8 @@
   "scripts": {
     "build": "tsc && node scripts/copy-db-assets.mjs",
     "hash:admin-password": "node scripts/hash-admin-password.mjs",
+    "vapid:generate": "node scripts/generate-vapid-keys.mjs",
+    "vapid:setup": "node scripts/generate-vapid-keys.mjs --setup",
     "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts",
     "db:init": "tsx src/db/init.ts",

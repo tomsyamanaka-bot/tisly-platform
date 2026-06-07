@@ -1,17 +1,21 @@
 import { Router, type NextFunction, type Request, type Response } from "express";
 import { config } from "../../config.js";
-import { sendWebPush } from "../../notification/channels/web-push.js";
-import { sendDiscord } from "../../notification/channels/discord.js";
+import {
+  countPushSubscriptions,
+  sendWebPush,
+} from "../../notification/channels/web-push.js";
 import {
   consumePendingCommand,
+  getDeviceStatus,
   getRemoteTestStatus,
-  markNotifySent,
+  markPushResult,
   queueCh1Command,
   recordWebAccess,
 } from "../../remote-test/remote-test-state.js";
 
 export const remoteTestRouter = Router();
 
+const REMOTE_TEST_USER_ID = "remote-test";
 const NOTIFY_BODY = "TiSLY 通知テスト成功";
 const NOTIFY_TITLE = "TiSLY Remote Test";
 
@@ -51,32 +55,29 @@ function trackWebAccess(req: Request): void {
   recordWebAccess(clientIp(req));
 }
 
-async function sendDiscordDirect(body: string): Promise<{ ok: boolean; error?: string }> {
-  const webhook = config.discord.webhookUrl;
-  if (!webhook) {
-    return { ok: false, error: "DISCORD_WEBHOOK_URL not set" };
-  }
+function safeSubscriptionCount(): number {
   try {
-    const res = await fetch(webhook, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: body }),
-    });
-    if (!res.ok) {
-      const text = await res.text();
-      return { ok: false, error: `HTTP ${res.status}: ${text}` };
-    }
-    return { ok: true };
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    return countPushSubscriptions(REMOTE_TEST_USER_ID);
+  } catch {
+    return 0;
   }
+}
+
+function pushStatusExtras() {
+  const vapidConfigured = !!(config.vapid.publicKey && config.vapid.privateKey);
+  return {
+    push: {
+      vapidConfigured,
+      subscriptionCount: safeSubscriptionCount(),
+    },
+  };
 }
 
 remoteTestRouter.use(requireRemoteTestToken);
 
 remoteTestRouter.get("/status", (req, res) => {
   trackWebAccess(req);
-  res.json({ ok: true, ...getRemoteTestStatus() });
+  res.json({ ok: true, ...getRemoteTestStatus(), ...pushStatusExtras() });
 });
 
 remoteTestRouter.post("/notify", async (req, res) => {
@@ -94,14 +95,8 @@ remoteTestRouter.post("/notify", async (req, res) => {
     success: false,
     error: "not attempted",
   };
-  let discordPlatform: Awaited<ReturnType<typeof sendDiscord>> = {
-    channel: "discord",
-    success: false,
-    error: "not attempted",
-  };
-
   try {
-    webPush = await sendWebPush(payload, "remote-test");
+    webPush = await sendWebPush(payload, REMOTE_TEST_USER_ID);
   } catch (err) {
     webPush = {
       channel: "web_push",
@@ -110,57 +105,59 @@ remoteTestRouter.post("/notify", async (req, res) => {
     };
   }
 
-  const discordDirect = await sendDiscordDirect(NOTIFY_BODY);
+  markPushResult(webPush.success, webPush.error);
 
-  if (!discordDirect.ok) {
-    try {
-      discordPlatform = await sendDiscord(payload);
-    } catch (err) {
-      discordPlatform = {
-        channel: "discord",
-        success: false,
-        error: err instanceof Error ? err.message : String(err),
-      };
+  const vapidConfigured = !!(config.vapid.publicKey && config.vapid.privateKey);
+  const subscriptionCount = safeSubscriptionCount();
+
+  let hint: string | undefined;
+  if (!webPush.success) {
+    if (!vapidConfigured) {
+      hint = "VAPID 未設定 — server で npm run vapid:setup を実行して再起動";
+    } else if (subscriptionCount === 0) {
+      hint = "Push 未登録 — iPhone: Safari → ホーム画面に追加 → Push 登録";
+    } else {
+      hint = webPush.error ?? "Push 送信失敗";
     }
   }
 
-  const channels = {
-    web_push: webPush,
-    discord_direct: discordDirect,
-    discord_platform: discordPlatform,
-  };
-
-  const anySuccess =
-    webPush.success || discordDirect.ok || discordPlatform.success;
-
-  if (anySuccess) {
-    markNotifySent();
-  }
-
   res.json({
-    ok: anySuccess,
+    ok: webPush.success,
     message: NOTIFY_BODY,
-    channels,
-    hint: anySuccess
-      ? undefined
-      : "Web Push: PWA登録(userId=remote-test) + VAPID / Discord: DISCORD_WEBHOOK_URL を .env に設定",
+    primaryChannel: webPush.success ? "web_push" : null,
+    channels: { web_push: webPush },
+    lastPushSuccessAt: getRemoteTestStatus().lastPushSuccessAt,
+    push: {
+      vapidConfigured,
+      subscriptionCount,
+      lastResult: getRemoteTestStatus().lastPushResult,
+      lastSuccessAt: getRemoteTestStatus().lastPushSuccessAt,
+    },
+    hint,
   });
 });
 
 remoteTestRouter.post("/ch1/on", (req, res) => {
   trackWebAccess(req);
   queueCh1Command("ch1_on");
-  res.json({ ok: true, command: "ch1_on", ...getRemoteTestStatus() });
+  res.json({ ok: true, command: "ch1_on", ...getRemoteTestStatus(), ...pushStatusExtras() });
 });
 
 remoteTestRouter.post("/ch1/off", (req, res) => {
   trackWebAccess(req);
   queueCh1Command("ch1_off");
-  res.json({ ok: true, command: "ch1_off", ...getRemoteTestStatus() });
+  res.json({ ok: true, command: "ch1_off", ...getRemoteTestStatus(), ...pushStatusExtras() });
 });
 
-remoteTestRouter.get("/command", (_req, res) => {
-  const command = consumePendingCommand();
+remoteTestRouter.get("/device", (req, res) => {
+  trackWebAccess(req);
+  res.json({ ok: true, ...getDeviceStatus() });
+});
+
+remoteTestRouter.get("/command", (req, res) => {
+  const firmware =
+    typeof req.query.firmware === "string" ? req.query.firmware.trim() : undefined;
+  const command = consumePendingCommand(firmware || undefined);
   res.json({
     ok: true,
     command,

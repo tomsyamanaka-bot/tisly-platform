@@ -22,7 +22,16 @@ export async function sendWebPush(
     return { channel: "web_push", success: false, error: "VAPID keys not configured" };
   }
   configureWebPush();
-  const db = getDatabase();
+  let db;
+  try {
+    db = getDatabase();
+  } catch (err) {
+    return {
+      channel: "web_push",
+      success: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
   const tokens = userId
     ? db
         .prepare(
@@ -74,6 +83,29 @@ export async function sendWebPush(
     success: sent > 0,
     error: sent > 0 ? undefined : lastError ?? "All subscriptions failed",
   };
+}
+
+export function countPushSubscriptions(userId?: string): number {
+  let db;
+  try {
+    db = getDatabase();
+  } catch {
+    return 0;
+  }
+  if (userId) {
+    const row = db
+      .prepare(
+        `SELECT COUNT(*) AS n FROM notification_tokens WHERE channel = 'web_push' AND active = 1 AND user_id = ?`
+      )
+      .get(userId) as { n: number };
+    return row.n;
+  }
+  const row = db
+    .prepare(
+      `SELECT COUNT(*) AS n FROM notification_tokens WHERE channel = 'web_push' AND active = 1`
+    )
+    .get() as { n: number };
+  return row.n;
 }
 
 export function savePushSubscription(

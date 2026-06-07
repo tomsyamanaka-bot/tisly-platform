@@ -247,6 +247,47 @@ export function createApp(): express.Application {
       )
     );
   });
+  const tislyAppHtml = path.join(publicDir, "tisly-app.html");
+  app.get("/tisly-app", (_req, res) => {
+    res.redirect("/tisly-app/home");
+  });
+  app.get("/tisly-app/home", (_req, res) => {
+    res.sendFile(tislyAppHtml);
+  });
+  app.get("/tisly-app/devices", (_req, res) => {
+    res.sendFile(tislyAppHtml);
+  });
+  app.get("/tisly-app/events", (_req, res) => {
+    res.sendFile(tislyAppHtml);
+  });
+  app.get("/tisly-app/settings", (_req, res) => {
+    res.sendFile(tislyAppHtml);
+  });
+  app.get("/tisly-app/app.js", (_req, res) => {
+    res.type("application/javascript");
+    res.sendFile(path.join(publicDir, "js", "tisly-app.js"));
+  });
+  app.get("/tisly-app/manifest.webmanifest", (_req, res) => {
+    res.type("application/manifest+json");
+    res.send(
+      JSON.stringify(
+        {
+          name: "TiSLY App",
+          short_name: "TiSLY",
+          description: "TiSLY PWA — Home / Devices / Events / Settings",
+          start_url: "/tisly-app/home",
+          scope: "/tisly-app",
+          display: "standalone",
+          background_color: "#0d1117",
+          theme_color: "#1a7f37",
+          orientation: "portrait-primary",
+          icons: [...PWA_MANIFEST_ICONS],
+        },
+        null,
+        2
+      )
+    );
+  });
   app.get("/app/notifications", (_req, res) => {
     res.sendFile(path.join(publicDir, "app-notifications.html"));
   });

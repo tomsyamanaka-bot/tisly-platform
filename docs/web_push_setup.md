@@ -9,17 +9,28 @@ TiSLY PWA がブラウザ通知を受け取るための手順です。
 
 ## 鍵の発行
 
+**自動設定（推奨）:**
+
+```bash
+cd server
+npm run vapid:setup
+```
+
+**手動生成（stdout 出力）:**
+
+```bash
+cd server
+npm run vapid:generate
+```
+
+従来の方法（同等）:
+
 ```bash
 cd server
 npx web-push generate-vapid-keys
 ```
 
-出力例:
-
-```
-Public Key:  BNx...
-Private Key: abc...
-```
+詳細手順: **`docs/vapid_env_setup.md`**
 
 ## `.env` への設定
 
@@ -59,6 +70,16 @@ VAPID_SUBJECT=mailto:admin@tisly.jp
 
 ブラウザ開発者ツール → Application → Service Workers / Notifications  
 またはダッシュボードの Push 登録ボタン実行後、成功メッセージを確認。
+
+## Remote Test（iPhone PWA PoC）
+
+`/remote-test` は **Web Push 最優先** — Discord 不要で iPhone PWA 単体で通知・遠隔操作が成立します。
+
+```
+Safari → ホーム画面追加 → Push 登録 → Push テスト → CH1 遠隔操作
+```
+
+詳細: `docs/remote-test-phase2-deploy.md` / `docs/vapid_env_setup.md`
 
 ## テスト通知 API
 
