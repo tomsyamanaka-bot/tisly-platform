@@ -181,6 +181,7 @@ export interface Estimate {
   grossProfit: number;
   grossProfitRate: number;
   pdfPath: string | null;
+  header?: import("./toms-document-format.js").TomsEstimateHeader | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -197,6 +198,7 @@ export interface Invoice {
   total: number;
   paymentDueDate: string | null;
   bankInfo: string;
+  estimateRefNo?: string | null;
   pdfPath: string | null;
   createdAt: string;
   updatedAt: string;

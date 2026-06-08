@@ -9,6 +9,8 @@ import {
   type PdfDocumentKind,
 } from "./pdf-templates.js";
 import { renderEstimateHtml } from "./estimatePdfTemplate.js";
+import { renderInvoiceHtml } from "./invoicePdfTemplate.js";
+import type { TomsEstimateHeader } from "../toms-document-format.js";
 /** Phase601+ v3: HTML templates live in estimatePdfTemplate / invoicePdfTemplate / completionReportPdfTemplate */
 
 function minimalPdfBuffer(title: string, lines: string[]): Buffer {
@@ -85,7 +87,14 @@ export function generateEstimatePdf(
   estimate: Estimate,
   ctx?: EstimatePdfRenderContext
 ): string {
-  const html = renderEstimateHtml(project, estimate, ctx);
+  const html = renderEstimateHtml(project, estimate, {
+    siteName: ctx?.siteName,
+    workLocation: ctx?.workLocation,
+    staffName: ctx?.staffName,
+    notes: ctx?.notes,
+    header: ctx?.header ?? estimate.header,
+    includePhotos: ctx?.includePhotos,
+  });
   const htmlPath = writeHtml(project.id, "pdf-html", `estimate-${estimate.estimateNo}.html`, html);
   const { pdfPath } = renderWithTemplate("estimate", project, estimate, [
     `見積書 ${estimate.estimateNo}`,
@@ -100,14 +109,24 @@ export function generateEstimatePdf(
   return pdfPath;
 }
 
-export function generateInvoicePdf(project: BusinessProject, invoice: Invoice): string {
+export function generateInvoicePdf(
+  project: BusinessProject,
+  invoice: Invoice,
+  estimate: Estimate
+): string {
+  const html = renderInvoiceHtml(project, invoice, estimate, {
+    estimateRefNo: invoice.estimateRefNo ?? estimate.estimateNo,
+  });
+  const htmlPath = writeHtml(project.id, "pdf-html", `invoice-${invoice.invoiceNo}.html`, html);
   const { pdfPath } = renderWithTemplate("invoice", project, invoice, [
-    `請求書 ${invoice.invoiceNo}`,
+    `御請求書 ${invoice.invoiceNo}`,
     `お客様: ${invoice.customerName}`,
     `件名: ${invoice.title}`,
+    `見積参照: ${invoice.estimateRefNo ?? estimate.estimateNo}`,
     `合計: ¥${invoice.total}`,
     `支払期限: ${invoice.paymentDueDate ?? ""}`,
     invoice.bankInfo,
+    `html: ${htmlPath}`,
   ]);
   return pdfPath;
 }
@@ -129,11 +148,15 @@ export function generateCompletionReportPdf(
 
 export interface EstimatePdfRenderContext {
   siteName?: string | null;
+  workLocation?: string | null;
   customerAddress?: string | null;
   contactName?: string | null;
   phone?: string | null;
   email?: string | null;
+  staffName?: string | null;
   notes?: string | null;
+  header?: TomsEstimateHeader | null;
+  includePhotos?: boolean;
 }
 
 export function getEstimatePdfOrPlaceholder(
@@ -145,7 +168,14 @@ export function getEstimatePdfOrPlaceholder(
     const local = path.join(process.cwd(), estimate.pdfPath.replace(/^\//, ""));
     if (fs.existsSync(local)) return { contentType: "application/pdf", path: local };
   }
-  const html = renderEstimateHtml(project, estimate, ctx);
+  const html = renderEstimateHtml(project, estimate, {
+    siteName: ctx?.siteName,
+    workLocation: ctx?.workLocation ?? project.address,
+    staffName: ctx?.staffName,
+    notes: ctx?.notes,
+    header: ctx?.header ?? estimate.header,
+    includePhotos: ctx?.includePhotos,
+  });
   const tmp = businessUploadsDir(project.id, "pdf-html");
   const p = path.join(tmp, "estimate-live.html");
   fs.writeFileSync(p, html);
@@ -154,13 +184,16 @@ export function getEstimatePdfOrPlaceholder(
 
 export function getInvoicePdfOrPlaceholder(
   project: BusinessProject,
-  invoice: Invoice
+  invoice: Invoice,
+  estimate: Estimate
 ): { contentType: string; path: string } {
   if (invoice.pdfPath) {
     const local = path.join(process.cwd(), invoice.pdfPath.replace(/^\//, ""));
     if (fs.existsSync(local)) return { contentType: "application/pdf", path: local };
   }
-  const html = renderPdfPlaceholderHtml("invoice", project, invoice);
+  const html = renderInvoiceHtml(project, invoice, estimate, {
+    estimateRefNo: invoice.estimateRefNo ?? estimate.estimateNo,
+  });
   const tmp = businessUploadsDir(project.id, "pdf-html");
   const p = path.join(tmp, "invoice-live.html");
   fs.writeFileSync(p, html);

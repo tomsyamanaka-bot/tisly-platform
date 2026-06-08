@@ -34,6 +34,21 @@
         <p id="detail-customer-info" class="section-hint"></p>
       </div>
 
+      <p class="section-label">📋 見積ヘッダー（TOMS標準）</p>
+      <p class="section-hint">お客様へ提出する見積書の表紙情報です</p>
+      <div class="friendly-card" id="header-card">
+        <label class="friendly-label">宛名 <input type="text" id="hdr-addressee" placeholder="株式会社〇〇 御中" /></label>
+        <label class="friendly-label">件名 <input type="text" id="hdr-subject" placeholder="工事件名" /></label>
+        <div class="line-qty-price">
+          <label class="friendly-label">発行日 <input type="text" id="hdr-issue-date" readonly /></label>
+          <label class="friendly-label">見積番号 <input type="text" id="hdr-estimate-no" readonly /></label>
+        </div>
+        <label class="friendly-label">担当者 <input type="text" id="hdr-staff" /></label>
+        <label class="friendly-label">現場名 <input type="text" id="hdr-site-name" /></label>
+        <label class="friendly-label">工事場所 <input type="text" id="hdr-work-location" /></label>
+        <button type="button" class="btn-sub blue" id="btn-save-header">ヘッダーを保存</button>
+      </div>
+
       <p class="section-label">🧾 お見積りの内訳</p>
       <p class="section-hint">項目を追加・並べ替え・削除できます</p>
       <div class="friendly-card" id="lines-card">
@@ -48,9 +63,16 @@
 
       <label class="friendly-label">備考 <textarea id="estimate-notes" rows="3" placeholder="見積書に記載する備考"></textarea></label>
 
+      <p class="section-label">📷 写真の出力</p>
+      <div class="friendly-card photo-toggle-row">
+        <label class="photo-toggle"><input type="radio" name="photo-mode" id="photo-with" value="with" checked /> 写真あり版（参考写真を添付）</label>
+        <label class="photo-toggle"><input type="radio" name="photo-mode" id="photo-without" value="without" /> 写真なし版（1ページに収める）</label>
+      </div>
+
       <button type="button" class="btn-sub blue" id="btn-save-items">内訳を保存</button>
       <button type="button" class="btn-sub blue" id="btn-preview-pdf">PDFプレビュー</button>
       <button type="button" class="btn-main blue" id="btn-finalize">見積を確定</button>
+      <button type="button" class="btn-sub blue" id="btn-invoice">請求書を作成</button>
 
       <p class="section-label">📄 PDFプレビュー</p>
       <p class="section-hint">確定前でもプレビューできます（TOMS形式レイアウト）</p>
@@ -59,8 +81,14 @@
         <a id="link-pdf" class="btn-sub blue" href="#" target="_blank" rel="noopener" style="margin-top:0.5rem;display:block;text-align:center;text-decoration:none;">別のタブで開く</a>
       </div>
 
+      <p class="section-label">📄 請求書プレビュー</p>
+      <div id="invoice-section" class="friendly-card hidden">
+        <iframe id="invoice-preview" class="pdf-preview-frame" title="請求書プレビュー"></iframe>
+        <a id="link-invoice-pdf" class="btn-sub blue" href="#" target="_blank" rel="noopener" style="margin-top:0.5rem;display:block;text-align:center;text-decoration:none;">請求書を別タブで開く</a>
+      </div>
+
       <p class="section-label">📤 TOMS形式で確認</p>
-      <p class="section-hint">社内システム用のデータです（お客様には見せません）</p>
+      <p class="section-hint">Excel出力用データ構造（TOMS_見積もり書_フォーマット.xlsx 連携準備）</p>
       <button type="button" class="btn-sub blue" id="btn-toms">TOMS形式で確認</button>
       <div id="toms-section" class="friendly-card hidden">
         <p style="font-size:0.85rem;color:var(--tisly-muted);margin:0 0 0.5rem;">形式の確認用です。本番接続はこれから整えます。</p>

@@ -14,6 +14,7 @@ const API = "/api/estimate/v1";
 let currentProjectId = null;
 let currentLines = [];
 let lastTomsData = null;
+let invoiceBlobUrl = null;
 
 const $ = (id) => document.getElementById(id);
 
@@ -46,11 +47,37 @@ function newEmptyLine() {
     id: `line-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     category: "other",
     name: "",
+    memo: "",
     unit: "式",
     quantity: 1,
     unitPrice: 0,
     amount: 0,
   };
+}
+
+function includePhotosSelected() {
+  return $("photo-with")?.checked !== false;
+}
+
+function photoQuery() {
+  return includePhotosSelected() ? "" : "?includePhotos=0";
+}
+
+function splitDescription(name, memo) {
+  const n = String(name || "").trim();
+  const m = String(memo || "").trim();
+  if (n && m) return `${n}\n${m}`;
+  return n || m;
+}
+
+function parseDescription(text) {
+  const lines = String(text || "")
+    .split(/\n/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (!lines.length) return { name: "", memo: "" };
+  if (lines.length === 1) return { name: lines[0], memo: "" };
+  return { name: lines[0], memo: lines.slice(1).join("\n") };
 }
 
 async function api(path, opts = {}) {
@@ -152,7 +179,7 @@ async function onPendingClick(node) {
 }
 
 function bindLineInputs() {
-  $("line-list").querySelectorAll(".qty-input, .price-input, .name-input").forEach((inp) => {
+  $("line-list").querySelectorAll(".qty-input, .price-input, .desc-input").forEach((inp) => {
     inp.addEventListener("input", () => recalcLocal());
     inp.addEventListener("change", () => recalcLocal());
   });
@@ -189,8 +216,8 @@ function renderLines(items) {
     .map(
       (it, i) => `
     <div class="line-card" data-idx="${i}">
-      <label class="friendly-label" style="margin:0 0 0.35rem;">項目名</label>
-      <input type="text" class="name-input line-name-input" data-idx="${i}" value="${escapeHtml(it.name)}" placeholder="工事項目名" />
+      <label class="friendly-label" style="margin:0 0 0.35rem;">適用（複数行可）</label>
+      <textarea class="desc-input line-desc-input" data-idx="${i}" rows="3" placeholder="小上がり既存換気扇3台設置&#10;清掃・修理配線">${escapeHtml(splitDescription(it.name, it.memo))}</textarea>
       <div class="line-qty-price">
         <div>
           <label class="friendly-label" style="margin:0;">数量</label>
@@ -219,11 +246,13 @@ function recalcLocal() {
     const i = Number(row.dataset.idx);
     const qty = Number(row.querySelector(".qty-input")?.value || 1);
     const price = Number(row.querySelector(".price-input")?.value || 0);
-    const name = row.querySelector(".name-input")?.value?.trim() || "";
+    const desc = row.querySelector(".desc-input")?.value || "";
+    const parsed = parseDescription(desc);
     if (currentLines[i]) {
       currentLines[i].quantity = qty;
       currentLines[i].unitPrice = price;
-      currentLines[i].name = name || currentLines[i].name;
+      currentLines[i].name = parsed.name;
+      currentLines[i].memo = parsed.memo;
       currentLines[i].amount = Math.round(qty * price);
       const amtEl = row.querySelector(".line-amount");
       if (amtEl) amtEl.textContent = `金額 ${yen(currentLines[i].amount)}`;
@@ -252,9 +281,39 @@ function hidePdfPreview() {
   }
 }
 
+function fillHeaderForm(header) {
+  if (!header) return;
+  $("hdr-addressee").value = header.addressee || "";
+  $("hdr-subject").value = header.subject || "";
+  $("hdr-issue-date").value = header.issueDate || "";
+  $("hdr-estimate-no").value = header.estimateNo || "";
+  $("hdr-staff").value = header.staffName || "";
+  $("hdr-site-name").value = header.siteName || "";
+  $("hdr-work-location").value = header.workLocation || "";
+}
+
+function readHeaderForm() {
+  return {
+    addressee: $("hdr-addressee").value.trim(),
+    subject: $("hdr-subject").value.trim(),
+    issueDate: $("hdr-issue-date").value.trim(),
+    estimateNo: $("hdr-estimate-no").value.trim(),
+    staffName: $("hdr-staff").value.trim(),
+    siteName: $("hdr-site-name").value.trim(),
+    workLocation: $("hdr-work-location").value.trim(),
+  };
+}
+
+async function saveHeader() {
+  return api(`/projects/${currentProjectId}/header`, {
+    method: "PATCH",
+    body: JSON.stringify(readHeaderForm()),
+  });
+}
+
 async function showPdfPreview(projectId) {
   const token = getCustomerToken();
-  const url = `/api/estimate/v1/projects/${projectId}/pdf`;
+  const url = `/api/estimate/v1/projects/${projectId}/pdf${photoQuery()}`;
   try {
     toast("PDFを読み込み中…");
     const res = await fetch(url, {
@@ -268,7 +327,7 @@ async function showPdfPreview(projectId) {
     if (pdfBlobUrl) URL.revokeObjectURL(pdfBlobUrl);
     pdfBlobUrl = URL.createObjectURL(blob);
     $("pdf-preview").src = pdfBlobUrl;
-    $("link-pdf").href = `${url}?access_token=${encodeURIComponent(token)}`;
+    $("link-pdf").href = `${url}${url.includes("?") ? "&" : "?"}access_token=${encodeURIComponent(token)}`;
     $("pdf-section").classList.remove("hidden");
     toast("プレビューを表示しました");
   } catch (e) {
@@ -315,11 +374,34 @@ async function openDetail(projectId) {
     }
     $("detail-meta").innerHTML = metaParts.join(" · ");
     $("estimate-notes").value = p.estimateNotes || "";
+    fillHeaderForm(p.header);
     renderLines(p.estimate?.items || []);
+    if (p.invoice) {
+      await showInvoicePreview(projectId);
+    } else {
+      $("invoice-section").classList.add("hidden");
+    }
     updateTotalsFromEstimate(p.estimate);
   } catch (e) {
     toastError(e, e.status);
     showView("list");
+  }
+}
+
+async function showInvoicePreview(projectId) {
+  const token = getCustomerToken();
+  const url = `/api/estimate/v1/projects/${projectId}/invoice/pdf`;
+  try {
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) return;
+    const blob = await res.blob();
+    if (invoiceBlobUrl) URL.revokeObjectURL(invoiceBlobUrl);
+    invoiceBlobUrl = URL.createObjectURL(blob);
+    $("invoice-preview").src = invoiceBlobUrl;
+    $("link-invoice-pdf").href = `${url}?access_token=${encodeURIComponent(token)}`;
+    $("invoice-section").classList.remove("hidden");
+  } catch {
+    /* optional preview */
   }
 }
 
@@ -382,6 +464,17 @@ async function init() {
   $("tab-pending").addEventListener("click", () => setListTab("pending"));
   $("tab-projects").addEventListener("click", () => setListTab("projects"));
 
+  $("btn-save-header").addEventListener("click", async () => {
+    if (!currentProjectId) return;
+    try {
+      await saveHeader();
+      toast("ヘッダーを保存しました");
+      hidePdfPreview();
+    } catch (e) {
+      toastError(e, e.status);
+    }
+  });
+
   $("btn-add-line").addEventListener("click", () => {
     currentLines.push(newEmptyLine());
     renderLines(currentLines);
@@ -401,9 +494,13 @@ async function init() {
     }
   });
 
+  $("photo-with").addEventListener("change", () => hidePdfPreview());
+  $("photo-without").addEventListener("change", () => hidePdfPreview());
+
   $("btn-preview-pdf").addEventListener("click", async () => {
     if (!currentProjectId) return;
     try {
+      await saveHeader().catch(() => ({}));
       await saveItems();
       await showPdfPreview(currentProjectId);
     } catch (e) {
@@ -415,8 +512,12 @@ async function init() {
     if (!currentProjectId) return;
     if (!confirm("見積を確定しますか？\n確定すると見積書（PDF）が作れます。")) return;
     try {
+      await saveHeader().catch(() => ({}));
       await saveItems();
-      const result = await api(`/projects/${currentProjectId}/finalize`, { method: "POST", body: "{}" });
+      const result = await api(`/projects/${currentProjectId}/finalize`, {
+        method: "POST",
+        body: JSON.stringify({ includePhotos: includePhotosSelected() }),
+      });
       toast("見積を確定しました");
       await showPdfPreview(currentProjectId);
       $("detail-status").textContent = "見積書の準備ができました";
@@ -428,10 +529,24 @@ async function init() {
     }
   });
 
+  $("btn-invoice").addEventListener("click", async () => {
+    if (!currentProjectId) return;
+    if (!confirm("見積をもとに請求書を作成しますか？")) return;
+    try {
+      await saveHeader().catch(() => ({}));
+      await saveItems();
+      await api(`/projects/${currentProjectId}/invoice`, { method: "POST", body: "{}" });
+      toast("請求書を作成しました");
+      await showInvoicePreview(currentProjectId);
+    } catch (e) {
+      toastError(e, e.status);
+    }
+  });
+
   $("btn-toms").addEventListener("click", async () => {
     if (!currentProjectId) return;
     try {
-      const data = await api(`/projects/${currentProjectId}/toms-format`);
+      const data = await api(`/projects/${currentProjectId}/toms-format${photoQuery()}`);
       lastTomsData = data;
       $("toms-preview").textContent = JSON.stringify(data, null, 2);
       $("toms-section").classList.remove("hidden");

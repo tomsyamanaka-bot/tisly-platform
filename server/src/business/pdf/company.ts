@@ -6,16 +6,18 @@ export interface TomsCompanyInfo {
   email: string;
   logoUrl: string;
   registrationNo: string;
+  representativeName: string;
 }
 
 export function getTomsCompanyInfo(): TomsCompanyInfo {
   return {
-    name: process.env.TOMS_COMPANY_NAME ?? "{{TOMS_COMPANY_NAME}}",
-    postalCode: process.env.TOMS_COMPANY_POSTAL ?? "{{POSTAL_CODE}}",
-    address: process.env.TOMS_COMPANY_ADDRESS ?? "{{COMPANY_ADDRESS}}",
-    phone: process.env.TOMS_COMPANY_PHONE ?? "{{COMPANY_PHONE}}",
-    email: process.env.TOMS_COMPANY_EMAIL ?? "{{COMPANY_EMAIL}}",
+    name: process.env.TOMS_COMPANY_NAME ?? "株式会社TOMS",
+    postalCode: process.env.TOMS_COMPANY_POSTAL ?? "302-0102",
+    address: process.env.TOMS_COMPANY_ADDRESS ?? "茨城県守谷市松前台7丁目24番地9",
+    phone: process.env.TOMS_COMPANY_PHONE ?? "080-2710-4483",
+    email: process.env.TOMS_COMPANY_EMAIL ?? "",
     logoUrl: process.env.TOMS_LOGO_URL ?? "/assets/toms-logo-placeholder.svg",
-    registrationNo: process.env.TOMS_REGISTRATION_NO ?? "{{REGISTRATION_NO}}",
+    registrationNo: process.env.TOMS_REGISTRATION_NO ?? "T-2030001139320",
+    representativeName: process.env.TOMS_REPRESENTATIVE_NAME ?? "山中 智紀",
   };
 }

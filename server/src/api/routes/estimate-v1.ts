@@ -4,16 +4,22 @@ import { roleMeetsRequirement } from "../../auth/roles.js";
 import {
   buildTomsFormatPreviewV1,
   createEstimateFromSurveyV1,
+  createInvoiceFromEstimateV1,
   finalizeEstimateV1,
   getEstimatePdfContextV1,
   getEstimateProjectV1Detail,
   listEstimateProjectsV1,
   listPendingSurveysV1,
+  updateEstimateHeaderV1,
   updateEstimateItemsV1,
 } from "../../estimate/estimate-v1-store.js";
-import { getEstimatePdfOrPlaceholder } from "../../business/services/pdfService.js";
-import { getBusinessProject } from "../../business/business-store.js";
+import {
+  getEstimatePdfOrPlaceholder,
+  getInvoicePdfOrPlaceholder,
+} from "../../business/services/pdfService.js";
+import { getBusinessProject, getEstimate, getInvoice } from "../../business/business-store.js";
 import type { EstimateLineItem } from "../../business/business-types.js";
+import type { EstimateHeaderInputV1 } from "../../estimate/estimate-v1-types.js";
 
 export const estimateV1Router = Router();
 
@@ -29,6 +35,12 @@ function assertEstimateV1Role(req: AuthedRequest, res: Response): boolean {
     res.status(403).json({ error: "Surveyor, manager or admin role required" });
     return false;
   }
+  return true;
+}
+
+function parseIncludePhotos(query: Record<string, unknown>): boolean {
+  const raw = query.includePhotos ?? query.photos;
+  if (raw === "0" || raw === "false" || raw === "no") return false;
   return true;
 }
 
@@ -74,6 +86,18 @@ estimateV1Router.get("/projects/:id", ...estimateV1Auth, (req: AuthedRequest, re
   res.json(detail);
 });
 
+estimateV1Router.patch("/projects/:id/header", ...estimateV1Auth, (req: AuthedRequest, res) => {
+  if (!assertEstimateV1Role(req, res)) return;
+  const body = req.body as EstimateHeaderInputV1;
+  try {
+    const header = updateEstimateHeaderV1(String(req.params.id), body);
+    res.json({ header });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "update failed";
+    res.status(msg === "estimate not found" ? 404 : 400).json({ error: msg });
+  }
+});
+
 estimateV1Router.patch("/projects/:id/items", ...estimateV1Auth, (req: AuthedRequest, res) => {
   if (!assertEstimateV1Role(req, res)) return;
   const body = req.body as { items?: Partial<EstimateLineItem>[]; notes?: string };
@@ -94,8 +118,11 @@ estimateV1Router.patch("/projects/:id/items", ...estimateV1Auth, (req: AuthedReq
 
 estimateV1Router.post("/projects/:id/finalize", ...estimateV1Auth, (req: AuthedRequest, res) => {
   if (!assertEstimateV1Role(req, res)) return;
+  const body = (req.body ?? {}) as { includePhotos?: boolean };
   try {
-    const result = finalizeEstimateV1(String(req.params.id));
+    const result = finalizeEstimateV1(String(req.params.id), {
+      includePhotos: body.includePhotos !== false,
+    });
     res.json(result);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "finalize failed";
@@ -115,15 +142,45 @@ estimateV1Router.get("/projects/:id/pdf", ...estimateV1Auth, (req: AuthedRequest
     res.status(404).json({ error: "No estimate" });
     return;
   }
-  const pdfCtx = getEstimatePdfContextV1(project.id) ?? undefined;
+  const includePhotos = parseIncludePhotos(req.query as Record<string, unknown>);
+  const pdfCtx = getEstimatePdfContextV1(project.id, { includePhotos }) ?? undefined;
   const { contentType, path: filePath } = getEstimatePdfOrPlaceholder(project, estimate, pdfCtx);
+  res.type(contentType).sendFile(filePath);
+});
+
+estimateV1Router.post("/projects/:id/invoice", ...estimateV1Auth, (req: AuthedRequest, res) => {
+  if (!assertEstimateV1Role(req, res)) return;
+  try {
+    const result = createInvoiceFromEstimateV1(String(req.params.id));
+    res.status(201).json(result);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "invoice failed";
+    res.status(msg === "estimate not found" ? 404 : 400).json({ error: msg });
+  }
+});
+
+estimateV1Router.get("/projects/:id/invoice/pdf", ...estimateV1Auth, (req: AuthedRequest, res) => {
+  if (!assertEstimateV1Role(req, res)) return;
+  const project = getBusinessProject(String(req.params.id));
+  if (!project?.invoiceId || !project.estimateId) {
+    res.status(404).json({ error: "No invoice" });
+    return;
+  }
+  const invoice = getInvoice(project.invoiceId);
+  const estimate = getEstimate(project.estimateId);
+  if (!invoice || !estimate) {
+    res.status(404).json({ error: "No invoice" });
+    return;
+  }
+  const { contentType, path: filePath } = getInvoicePdfOrPlaceholder(project, invoice, estimate);
   res.type(contentType).sendFile(filePath);
 });
 
 estimateV1Router.get("/projects/:id/toms-format", ...estimateV1Auth, (req: AuthedRequest, res) => {
   if (!assertEstimateV1Role(req, res)) return;
   try {
-    res.json(buildTomsFormatPreviewV1(String(req.params.id)));
+    const includePhotos = parseIncludePhotos(req.query as Record<string, unknown>);
+    res.json(buildTomsFormatPreviewV1(String(req.params.id), { includePhotos }));
   } catch (e) {
     const msg = e instanceof Error ? e.message : "toms format failed";
     res.status(msg === "estimate not found" ? 404 : 400).json({ error: msg });

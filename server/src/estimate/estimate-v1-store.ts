@@ -4,12 +4,22 @@ import { getDatabase } from "../db/database.js";
 import {
   createBusinessProject,
   createEstimate,
+  createInvoiceFromEstimate,
   getBusinessProject,
   getEstimate,
+  getInvoice,
   saveBusinessPhoto,
   setEstimatePdfPath,
+  setInvoicePdfPath,
   updateBusinessProject,
+  updateEstimateHeader,
 } from "../business/business-store.js";
+import {
+  buildTomsEstimateDocument,
+  mergeEstimateHeader,
+  type TomsEstimateHeader,
+} from "../business/toms-document-format.js";
+import { generateInvoicePdf } from "../business/services/pdfService.js";
 import { listPricingRules } from "../business/business-pricing.js";
 import type { Estimate, EstimateLineItem, PricingCategory, PricingItem } from "../business/business-types.js";
 import { applyPricingTierToItems, calcTotals, normalizeLineItems } from "../business/estimate-math.js";
@@ -28,6 +38,7 @@ import {
   type SurveyWorkflowStatus,
 } from "../survey/survey-v1-types.js";
 import type {
+  EstimateHeaderInputV1,
   EstimatePendingSurveyV1,
   EstimateProjectV1Detail,
   EstimateProjectV1Summary,
@@ -181,7 +192,18 @@ export function getEstimateProjectV1Detail(businessProjectId: string): EstimateP
   const project = getBusinessProject(businessProjectId);
   if (!project) return null;
   const estimate = project.estimateId ? getEstimate(project.estimateId) : null;
+  const invoice = project.invoiceId ? getInvoice(project.invoiceId) : null;
   const survey = project.surveyProjectId ? getSurveyProjectV1(project.surveyProjectId) : null;
+  const pdfCtx = estimate
+    ? {
+        siteName: survey?.siteName ?? project.title,
+        workLocation: survey?.address ?? project.address,
+      }
+    : null;
+  const header =
+    estimate && pdfCtx
+      ? mergeEstimateHeader(estimate, estimate.header ?? null, pdfCtx)
+      : null;
   return {
     businessProjectId: project.id,
     projectNo: project.projectNo,
@@ -194,9 +216,11 @@ export function getEstimateProjectV1Detail(businessProjectId: string): EstimateP
     contactName: survey?.assignee ?? null,
     email: survey?.email ?? null,
     estimateNotes: project.surveyMemo || null,
+    header,
     surveyProjectId: project.surveyProjectId,
     surveyWorkflowStatus: survey?.workflowStatus ?? null,
     estimate,
+    invoice,
     pdfPath: estimate?.pdfPath ?? null,
     tomsFormatReady: Boolean(estimate),
   };
@@ -262,6 +286,12 @@ export function createEstimateFromSurveyV1(
     const items = applyPricingTierToItems(seedRows, pricingItems);
     createEstimate(project.id, items);
     project = getBusinessProject(project.id)!;
+    updateEstimateHeader(project.estimateId!, {
+      addressee: detail.customerName,
+      subject: detail.siteName || detail.customerName,
+      siteName: detail.siteName || detail.customerName,
+      workLocation: detail.address ?? project.address,
+    });
   }
 
   return getEstimateProjectV1Detail(project.id)!;
@@ -303,21 +333,41 @@ export function updateEstimateItemsV1(
   return { estimate, totals };
 }
 
-export function getEstimatePdfContextV1(businessProjectId: string) {
+export function getEstimatePdfContextV1(
+  businessProjectId: string,
+  opts?: { includePhotos?: boolean }
+) {
   const project = getBusinessProject(businessProjectId);
   if (!project) return null;
   const survey = project.surveyProjectId ? getSurveyProjectV1(project.surveyProjectId) : null;
+  const estimate = project.estimateId ? getEstimate(project.estimateId) : null;
   return {
     siteName: survey?.siteName ?? project.title,
+    workLocation: survey?.address ?? project.address,
     customerAddress: survey?.customerAddress ?? null,
     contactName: survey?.assignee ?? null,
     phone: survey?.phone ?? project.phone,
     email: survey?.email ?? null,
     notes: project.surveyMemo || null,
+    header: estimate?.header ?? null,
+    includePhotos: opts?.includePhotos,
   };
 }
 
-export function finalizeEstimateV1(businessProjectId: string): {
+export function updateEstimateHeaderV1(
+  businessProjectId: string,
+  header: EstimateHeaderInputV1
+): TomsEstimateHeader {
+  const project = getBusinessProject(businessProjectId);
+  if (!project?.estimateId) throw new Error("estimate not found");
+  const updated = updateEstimateHeader(project.estimateId, header);
+  return updated.header!;
+}
+
+export function finalizeEstimateV1(
+  businessProjectId: string,
+  opts?: { includePhotos?: boolean }
+): {
   estimate: Estimate;
   pdfPath: string;
   surveyWorkflowStatus: SurveyWorkflowStatus;
@@ -325,7 +375,9 @@ export function finalizeEstimateV1(businessProjectId: string): {
   const project = getBusinessProject(businessProjectId);
   if (!project?.estimateId) throw new Error("estimate not found");
   const estimate = getEstimate(project.estimateId)!;
-  const pdfCtx = getEstimatePdfContextV1(businessProjectId) ?? undefined;
+  const pdfCtx = getEstimatePdfContextV1(businessProjectId, {
+    includePhotos: opts?.includePhotos !== false,
+  }) ?? undefined;
   const pdfPath = generateEstimatePdf(project, estimate, pdfCtx);
   setEstimatePdfPath(estimate.id, pdfPath);
 
@@ -340,37 +392,31 @@ export function finalizeEstimateV1(businessProjectId: string): {
   };
 }
 
-export function buildTomsFormatPreviewV1(businessProjectId: string): TomsEstimateFormatV1 {
+export function buildTomsFormatPreviewV1(
+  businessProjectId: string,
+  opts?: { includePhotos?: boolean }
+): TomsEstimateFormatV1 {
+  const project = getBusinessProject(businessProjectId);
   const detail = getEstimateProjectV1Detail(businessProjectId);
-  if (!detail?.estimate) throw new Error("estimate not found");
-  const est = detail.estimate;
-  const survey = detail.surveyProjectId ? getSurveyProjectV1(detail.surveyProjectId) : null;
-  return {
-    version: "toms-standard-v1-stub",
-    projectNo: detail.projectNo,
-    customerName: detail.customerName,
-    customerAddress: survey?.customerAddress ?? null,
-    siteName: survey?.siteName ?? detail.title,
-    siteAddress: survey?.address ?? detail.address,
-    contactName: survey?.assignee ?? null,
-    phone: survey?.phone ?? detail.phone,
-    email: survey?.email ?? null,
-    title: detail.title,
-    notes: getBusinessProject(businessProjectId)?.surveyMemo ?? "",
-    lines: est.items.map((item, i) => ({
-      lineNo: i + 1,
-      category: item.category,
-      name: item.name,
-      unit: item.unit,
-      quantity: item.quantity,
-      unitPrice: item.unitPrice,
-      amount: item.amount,
-      memo: item.memo,
-    })),
-    subtotal: est.subtotal,
-    tax: est.tax,
-    total: est.total,
-    generatedAt: new Date().toISOString(),
-    note: "TOMS標準フォーマット連携準備用スタブ。本番連携時に estimateGenerateService へ接続予定。",
-  };
+  if (!project || !detail?.estimate || !detail.header) throw new Error("estimate not found");
+  return buildTomsEstimateDocument(project, detail.estimate, detail.header, {
+    notes: project.surveyMemo ?? "",
+    photosIncluded: opts?.includePhotos !== false,
+  });
+}
+
+export function createInvoiceFromEstimateV1(businessProjectId: string): {
+  invoice: NonNullable<ReturnType<typeof getInvoice>>;
+  pdfPath: string;
+} {
+  const project = getBusinessProject(businessProjectId);
+  if (!project?.estimateId) throw new Error("estimate not found");
+  const estimate = getEstimate(project.estimateId)!;
+  let invoice = project.invoiceId ? getInvoice(project.invoiceId) : null;
+  if (!invoice) {
+    invoice = createInvoiceFromEstimate(businessProjectId);
+  }
+  const pdfPath = generateInvoicePdf(project, invoice, estimate);
+  setInvoicePdfPath(invoice.id, pdfPath);
+  return { invoice: getInvoice(invoice.id)!, pdfPath };
 }

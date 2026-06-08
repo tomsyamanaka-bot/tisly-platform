@@ -503,7 +503,8 @@ businessRouter.post("/projects/:projectId/invoice", ...businessAuth, (req: Authe
   const body = req.body as { paymentDueDate?: string };
   const invoice = createInvoiceFromEstimate(String(req.params.projectId), body.paymentDueDate);
   const project = getBusinessProject(String(req.params.projectId))!;
-  const pdfPath = generateInvoicePdf(project, invoice);
+  const estimate = getEstimate(project.estimateId!)!;
+  const pdfPath = generateInvoicePdf(project, invoice, estimate);
   setInvoicePdfPath(invoice.id, pdfPath);
   res.json({ invoice: getInvoice(invoice.id), pdfPath });
 });
@@ -735,7 +736,9 @@ function servePdf(kind: "estimate" | "invoice" | "completion_report") {
       if (kind === "invoice") {
         if (!project.invoiceId) throw new Error("No invoice");
         const inv = getInvoice(project.invoiceId)!;
-        const { contentType, path: filePath } = getInvoicePdfOrPlaceholder(project, inv);
+        const est = project.estimateId ? getEstimate(project.estimateId)! : null;
+        if (!est) throw new Error("No estimate for invoice");
+        const { contentType, path: filePath } = getInvoicePdfOrPlaceholder(project, inv, est);
         res.type(contentType);
         return res.send(fs.readFileSync(filePath));
       }
@@ -1525,7 +1528,9 @@ function servePdfDocument(kind: "estimate" | "invoice" | "completion_report") {
           res.type("application/pdf");
           return res.send(fs.readFileSync(rendered.localPath));
         }
-        const html = renderInvoiceHtml(project, inv);
+        const estForInv = project.estimateId ? getEstimate(project.estimateId) : null;
+        if (!estForInv) throw new Error("No estimate for invoice");
+        const html = renderInvoiceHtml(project, inv, estForInv);
         res.type("text/html; charset=utf-8");
         return res.send(html);
       }

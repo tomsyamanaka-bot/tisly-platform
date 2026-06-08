@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import type { BusinessProject, CompletionReport, Estimate, Invoice } from "../business-types.js";
-import { businessUploadsDir } from "../business-store.js";
+import { businessUploadsDir, getEstimate } from "../business-store.js";
 import { logBusinessIntegration } from "../business-integration-log.js";
 import { renderCompletionReportHtml } from "./completion-report-template.js";
 import { renderEstimateHtml } from "./estimate-template.js";
@@ -108,7 +108,12 @@ export async function renderBusinessPdf(
     kind === "estimate"
       ? renderEstimateHtml(project, doc as Estimate)
       : kind === "invoice"
-        ? renderInvoiceHtml(project, doc as Invoice)
+        ? (() => {
+            if (!project.estimateId) throw new Error("estimate required for invoice pdf");
+            const estimate = getEstimate(project.estimateId);
+            if (!estimate) throw new Error("estimate required for invoice pdf");
+            return renderInvoiceHtml(project, doc as Invoice, estimate);
+          })()
         : renderCompletionReportHtml(project, doc as CompletionReport);
   const htmlName = `${kind}-toms.html`;
   const htmlPath = writeHtmlFile(project.id, htmlName, html);

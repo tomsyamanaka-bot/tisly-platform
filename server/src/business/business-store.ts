@@ -24,6 +24,13 @@ import {
   calcTotals,
   normalizeLineItems,
 } from "./estimate-math.js";
+import {
+  buildDefaultEstimateHeader,
+  generateTomsDailyDocNo,
+  parseEstimateHeaderJson,
+  TOMS_DEFAULT_BANK_INFO,
+  type TomsEstimateHeader,
+} from "./toms-document-format.js";
 import type {
   AiEstimateCandidate,
   BusinessPhoto,
@@ -454,6 +461,7 @@ export function getPricingItemsForCustomer(customerId: string): PricingItem[] {
 
 function rowToEstimate(r: Record<string, unknown>): Estimate {
   const items = parseJson<Estimate["items"]>(r.items_json as string, []);
+  const headerRaw = r.header_json != null ? String(r.header_json) : null;
   return {
     id: String(r.id),
     projectId: String(r.project_id),
@@ -468,6 +476,7 @@ function rowToEstimate(r: Record<string, unknown>): Estimate {
     grossProfit: Number(r.gross_profit),
     grossProfitRate: Number(r.gross_profit_rate),
     pdfPath: r.pdf_path != null ? String(r.pdf_path) : null,
+    header: parseEstimateHeaderJson(headerRaw),
     createdAt: String(r.created_at),
     updatedAt: String(r.updated_at),
   };
@@ -525,21 +534,36 @@ export function createEstimate(
   const normalized = normalizeLineItems(items);
   const totals = calcTotals(normalized);
   const id = uuid();
-  const year = new Date().getFullYear();
-  const count = (
-    getDatabase()
-      .prepare(`SELECT COUNT(*) as c FROM business_estimates`)
-      .get() as { c: number }
-  ).c;
-  const estimateNo = `EST-${year}-${String(count + 1).padStart(4, "0")}`;
+  const estimateNo = generateTomsDailyDocNo("business_estimates", "estimate_no");
   const now = new Date().toISOString();
+  const draftEstimate: Estimate = {
+    id,
+    projectId,
+    estimateNo,
+    customerName: project.customerName,
+    title: project.title,
+    items: normalized,
+    subtotal: totals.subtotal,
+    tax: totals.tax,
+    total: totals.total,
+    internalCost: totals.internalCost,
+    grossProfit: totals.grossProfit,
+    grossProfitRate: totals.grossProfitRate,
+    pdfPath: null,
+    createdAt: now,
+    updatedAt: now,
+  };
+  const header = buildDefaultEstimateHeader(draftEstimate, {
+    siteName: project.title,
+    workLocation: project.address,
+  });
   getDatabase()
     .prepare(
       `INSERT INTO business_estimates (
         id, project_id, estimate_no, customer_name, title, items_json,
         subtotal, tax, total, internal_cost, gross_profit, gross_profit_rate,
-        pdf_path, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`
+        pdf_path, header_json, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)`
     )
     .run(
       id,
@@ -554,6 +578,7 @@ export function createEstimate(
       totals.internalCost,
       totals.grossProfit,
       totals.grossProfitRate,
+      JSON.stringify(header),
       now,
       now
     );
@@ -599,20 +624,14 @@ export function createInvoiceFromEstimate(projectId: string, paymentDueDate?: st
   const est = getEstimate(project.estimateId);
   if (!est) throw new Error("estimate not found");
   const id = uuid();
-  const year = new Date().getFullYear();
-  const count = (
-    getDatabase()
-      .prepare(`SELECT COUNT(*) as c FROM business_invoices`)
-      .get() as { c: number }
-  ).c;
-  const invoiceNo = `INV-${year}-${String(count + 1).padStart(4, "0")}`;
+  const invoiceNo = generateTomsDailyDocNo("business_invoices", "invoice_no");
   const now = new Date().toISOString();
   getDatabase()
     .prepare(
       `INSERT INTO business_invoices (
         id, project_id, invoice_no, customer_name, title, items_json,
-        subtotal, tax, total, payment_due_date, bank_info, pdf_path, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`
+        subtotal, tax, total, payment_due_date, bank_info, estimate_ref_no, pdf_path, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`
     )
     .run(
       id,
@@ -625,7 +644,8 @@ export function createInvoiceFromEstimate(projectId: string, paymentDueDate?: st
       est.tax,
       est.total,
       paymentDueDate ?? project.paymentDueDate,
-      "三菱UFJ銀行 〇〇支店 普通 1234567 カ）ヤマナカ（スタブ）",
+      TOMS_DEFAULT_BANK_INFO,
+      est.estimateNo,
       now,
       now
     );
@@ -634,6 +654,23 @@ export function createInvoiceFromEstimate(projectId: string, paymentDueDate?: st
     status: statusAfterInvoiceCreated(),
   });
   return getInvoice(id)!;
+}
+
+export function updateEstimateHeader(estimateId: string, header: Partial<TomsEstimateHeader>): Estimate {
+  const existing = getEstimate(estimateId);
+  if (!existing) throw new Error("estimate not found");
+  const merged = {
+    ...(existing.header ??
+      buildDefaultEstimateHeader(existing, {
+        siteName: existing.title,
+        workLocation: "",
+      })),
+    ...header,
+  };
+  getDatabase()
+    .prepare(`UPDATE business_estimates SET header_json = ?, updated_at = datetime('now') WHERE id = ?`)
+    .run(JSON.stringify(merged), estimateId);
+  return getEstimate(estimateId)!;
 }
 
 function rowToInvoice(r: Record<string, unknown>): Invoice {
@@ -649,6 +686,7 @@ function rowToInvoice(r: Record<string, unknown>): Invoice {
     total: Number(r.total),
     paymentDueDate: r.payment_due_date != null ? String(r.payment_due_date) : null,
     bankInfo: String(r.bank_info ?? ""),
+    estimateRefNo: r.estimate_ref_no != null ? String(r.estimate_ref_no) : null,
     pdfPath: r.pdf_path != null ? String(r.pdf_path) : null,
     createdAt: String(r.created_at),
     updatedAt: String(r.updated_at),

@@ -1,6 +1,7 @@
 /** TiSLY 見積PWA v1 — 型・定数 */
 
-import type { Estimate, EstimateLineItem } from "../business/business-types.js";
+import type { Estimate, EstimateLineItem, Invoice } from "../business/business-types.js";
+import type { TomsEstimateDocumentV1, TomsEstimateHeader } from "../business/toms-document-format.js";
 import type { SurveyWorkflowStatus } from "../survey/survey-v1-types.js";
 
 export interface EstimatePendingSurveyV1 {
@@ -44,9 +45,11 @@ export interface EstimateProjectV1Detail {
   contactName?: string | null;
   email?: string | null;
   estimateNotes?: string | null;
+  header?: TomsEstimateHeader | null;
   surveyProjectId: string | null;
   surveyWorkflowStatus: SurveyWorkflowStatus | null;
   estimate: Estimate | null;
+  invoice: Invoice | null;
   pdfPath: string | null;
   tomsFormatReady: boolean;
 }
@@ -60,36 +63,9 @@ export interface EstimateTotalsV1 {
   grossProfitRate: number;
 }
 
-/** TOMS 標準フォーマット連携準備用（スタブ） */
-export interface TomsEstimateLineV1 {
-  lineNo: number;
-  category: string;
-  name: string;
-  unit: string;
-  quantity: number;
-  unitPrice: number;
-  amount: number;
-  memo?: string;
-}
-
-export interface TomsEstimateFormatV1 {
-  version: "toms-standard-v1-stub";
-  projectNo: string;
-  customerName: string;
-  customerAddress?: string | null;
-  siteName?: string | null;
-  siteAddress?: string | null;
-  contactName?: string | null;
-  phone?: string | null;
-  email?: string | null;
-  title: string;
-  notes?: string;
-  lines: TomsEstimateLineV1[];
-  subtotal: number;
-  tax: number;
-  total: number;
-  generatedAt: string;
-  note: string;
-}
+/** @deprecated use TomsEstimateDocumentV1 */
+export type TomsEstimateFormatV1 = TomsEstimateDocumentV1;
 
 export type EstimateLineInputV1 = Partial<EstimateLineItem>;
+
+export type EstimateHeaderInputV1 = Partial<TomsEstimateHeader>;

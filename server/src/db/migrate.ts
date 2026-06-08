@@ -186,6 +186,32 @@ export function runMigrations(database: Database.Database): void {
   migrateSurveyMaterialAntennaCategory(database);
   migrateFieldEstimatePwaV1(database);
   migrateSurveyCustomerSiteV2(database);
+  migrateTomsEstimateStandardFormat(database);
+}
+
+const BUSINESS_ESTIMATE_COLUMNS: Array<{ name: string; ddl: string }> = [
+  { name: "header_json", ddl: "ALTER TABLE business_estimates ADD COLUMN header_json TEXT" },
+];
+
+const BUSINESS_INVOICE_COLUMNS: Array<{ name: string; ddl: string }> = [
+  { name: "estimate_ref_no", ddl: "ALTER TABLE business_invoices ADD COLUMN estimate_ref_no TEXT" },
+];
+
+function migrateTomsEstimateStandardFormat(database: Database.Database): void {
+  addColumnsIfMissing(database, "business_estimates", BUSINESS_ESTIMATE_COLUMNS);
+  addColumnsIfMissing(database, "business_invoices", BUSINESS_INVOICE_COLUMNS);
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:toms_estimate_standard_format_v1") as { value_json: string } | undefined;
+  if (marker) return;
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run(
+      "migration:toms_estimate_standard_format_v1",
+      JSON.stringify({ at: new Date().toISOString() })
+    );
 }
 
 /** 現調PWA — 依頼主住所（顧客と現場の分離） */

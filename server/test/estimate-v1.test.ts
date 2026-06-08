@@ -128,7 +128,7 @@ describe("見積PWA v1 API", () => {
       .get(`/api/estimate/v1/projects/${businessProjectId}/toms-format`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(res.status, 200);
-    assert.equal(res.body.version, "toms-standard-v1-stub");
+    assert.equal(res.body.version, "toms-standard-v1");
     assert.ok(Array.isArray(res.body.lines));
   });
 
@@ -141,6 +141,8 @@ describe("見積PWA v1 API", () => {
     assert.ok(ct.includes("pdf") || ct.includes("html"));
     if (ct.includes("html")) {
       assert.ok(res.text.includes("御見積書"));
+      assert.ok(res.text.includes("株式会社TOMS"));
+      assert.ok(res.text.includes("適用"));
     } else {
       assert.ok(Buffer.isBuffer(res.body) ? res.body.length > 50 : true);
     }
