@@ -38,22 +38,30 @@ TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。
 |------|------------|
 | 本番 Web UI | https://tisly.jp/remote-test |
 | デプロイ手順 | [`docs/remote-test-phase2-deploy.md`](docs/remote-test-phase2-deploy.md) |
+| **実機確認手順（RESET のみ）** | [`docs/rp2350-phase2-poc-verification.md`](docs/rp2350-phase2-poc-verification.md) |
 | 最小 .env | `server/.env.sample` |
 | RP2350 ファームウェア | `rp2350/firmware/main.py` · `config.py` |
 | RP2350 スクリプト（単体） | `rp2350/firmware/remote_test_poll.py` |
 | ファームウェア版 | **v1.1.0-poc-success** |
 
-### 【実機確認済み】RP2350-ETH-8DI-8RO
+### 現在のフェーズ: VPS heartbeat 404 修正後の実機再確認
 
-| 項目 | 結果 |
-|------|------|
-| Ethernet 接続 | 成功（W5500 / DHCP） |
-| PWA 制御 | 成功（PWA → VPS → RP2350） |
-| CH1 ON/OFF | 成功（リレー実機動作確認済み） |
-| heartbeat | 成功（60 秒間隔・接続時刻更新） |
-| 命令取得 | 成功（3 秒間隔ポーリング） |
+VPS 側 `/api/remote-test/heartbeat` は commit `d133aaa` で 404 修正済み（curl 200 OK 確認済み）。  
+**RP2350 ファームウェアの再変更は不要** — Thonny で **RESET** のみ行い、Shell で `heartbeat HTTP 404` が消えることを確認する。
 
-通信間隔: **poll 3 秒** / **heartbeat 60 秒**（`rp2350/firmware/config.py`）
+**智紀さん向け手順（初心者向け）:** [`docs/rp2350-phase2-poc-verification.md`](docs/rp2350-phase2-poc-verification.md)
+
+| 項目 | 前回 PoC | 今回の再確認ポイント |
+|------|----------|----------------------|
+| Ethernet 接続 | 成功（`192.168.1.227`） | RESET 後 `IP address:` が表示される |
+| heartbeat | 404 発生（VPS 側） | Shell に `heartbeat sent` · **404 エラーなし** |
+| PWA 接続時刻 | 更新されない時期あり | **online** · 接続時刻が RESET 後に更新 |
+| CH1 ON/OFF | 成功（3 秒以内） | 再度 3 秒以内 · リレー目視 |
+| poll | 3 秒間隔 | `polling start (poll 3 sec / heartbeat 60 sec)` |
+
+通信間隔: **poll 3 秒** / **heartbeat 60 秒**（`rp2350/firmware/config.py` · fw `1.1.0-poc-success`）
+
+全項目 OK 後 → **Phase 2 RP2350 PoC 完了**（完了記録は上記ドキュメント §6）
 
 ### VPS 本番反映（PoC 成功後・最優先）
 

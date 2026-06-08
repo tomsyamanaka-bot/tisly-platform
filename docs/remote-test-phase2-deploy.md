@@ -4,6 +4,8 @@
 
 **前提:** RP2350 実機 PoC 成功済み（W5500 / DHCP / heartbeat 60 秒 / poll 3 秒 / CH1 ON/OFF 確認済み）
 
+**VPS heartbeat 404 修正後の実機再確認:** [`rp2350-phase2-poc-verification.md`](rp2350-phase2-poc-verification.md)（RESET のみ・ファーム再アップロード不要）
+
 ---
 
 ## 0. PoC 成功後の VPS 本番反映（最優先・智紀さん向け）
