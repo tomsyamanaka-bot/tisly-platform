@@ -2,6 +2,58 @@
 
 **目的:** iPhone PWA 単体で `https://tisly.jp/remote-test` から Web Push 通知・CH1 遠隔操作し、RP2350 GPIO17 を制御する。
 
+**前提:** RP2350 実機 PoC 成功済み（W5500 / DHCP / heartbeat 60 秒 / poll 3 秒 / CH1 ON/OFF 確認済み）
+
+---
+
+## 0. PoC 成功後の VPS 本番反映（最優先・智紀さん向け）
+
+RP2350 実機で動作確認が取れたら、VPS にコードを反映します。**以下 5 ステップを順番に実行**してください。
+
+```bash
+# 1. 最新コード取得
+cd /opt/tisly
+git pull origin master
+
+# 2. ビルド
+cd /opt/tisly/server
+npm run build
+
+# 3. VAPID 鍵（未設定・更新時のみ。既に .env に 3 行あればスキップ可）
+npm run vapid:setup
+
+# 4. サービス再起動
+sudo systemctl restart tisly-server
+
+# 5. heartbeat API 確認（REMOTE_TEST_TOKEN を .env と同じ値に置換）
+TOKEN="あなたのREMOTE_TEST_TOKEN"
+curl -s -H "X-Remote-Test-Token: $TOKEN" \
+  "https://tisly.jp/api/remote-test/heartbeat?firmware=1.1.0-poc-success" | jq .
+```
+
+**期待レスポンス例:**
+
+```json
+{
+  "ok": true,
+  "online": true,
+  "offline": false,
+  "lastSeen": "2026-06-08T12:34:56.789Z",
+  "firmwareVersion": "1.1.0-poc-success",
+  "heartbeatAt": "2026-06-08T12:34:56.789Z"
+}
+```
+
+| ステップ | 失敗時の確認 |
+|----------|--------------|
+| `git pull` | `git status` でコンフリクト有無 |
+| `npm run build` | `node -v`（18+）/ `npm ci` を試す |
+| `vapid:setup` | `.env` に `VAPID_*` 3 行が書き込まれたか |
+| `systemctl restart` | `sudo systemctl status tisly-server` |
+| heartbeat curl | 403 → トークン不一致 / 503 → `.env` 未設定 |
+
+反映後の動作確認は README「VPS 反映後の確認項目」を参照。
+
 ---
 
 ## 1. VPS で必要な設定

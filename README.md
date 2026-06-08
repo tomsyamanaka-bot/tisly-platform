@@ -55,6 +55,38 @@ TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。
 
 通信間隔: **poll 3 秒** / **heartbeat 60 秒**（`rp2350/firmware/config.py`）
 
+### VPS 本番反映（PoC 成功後・最優先）
+
+智紀さん向け手順: [`docs/remote-test-phase2-deploy.md`](docs/remote-test-phase2-deploy.md) §0
+
+```bash
+cd /opt/tisly && git pull origin master
+cd /opt/tisly/server && npm run build
+cd /opt/tisly/server && npm run vapid:setup    # 初回 or VAPID 未設定時
+sudo systemctl restart tisly-server
+curl -s -H "X-Remote-Test-Token: $TOKEN" \
+  "https://tisly.jp/api/remote-test/heartbeat?firmware=1.1.0-poc-success"
+```
+
+### VPS 反映後の確認項目
+
+| # | 確認内容 | 合格基準 |
+|---|----------|----------|
+| 1 | `/remote-test` で状態確認 | https://tisly.jp/remote-test が開き、トークン保存後にステータスが表示される |
+| 2 | RP2350 接続時刻の更新 | RP2350 起動後、画面の **RP2350接続時刻**（`lastSeen`）が更新される |
+| 3 | heartbeat 間隔 | 約 **60 秒**に 1 回更新（RP2350 シリアルに `heartbeat sent` が 60 秒ごと） |
+| 4 | CH1 ON/OFF 応答 | PWA 操作から **3 秒以内**にリレーが反応（poll 3 秒方針） |
+| 5 | offline 判定 | RP2350 電源 OFF または LAN 切断後、約 **90 秒**で offline 表示（`DEVICE_OFFLINE_THRESHOLD_SEC=90`） |
+
+**確認手順（実機）**
+
+1. RP2350 を PoE/LAN 接続して起動 → `/remote-test` で online・接続時刻を確認
+2. CH1 ON → 3 秒以内にリレー ON → CH1 OFF → 3 秒以内に OFF
+3. RP2350 の電源を切る → 90 秒待つ → 画面が offline になることを確認
+4. 電源を戻す → 60 秒以内に online・接続時刻が再更新されること
+
+次フェーズ設計（実装は未着手）: [`docs/rp2350_phase3_design.md`](docs/rp2350_phase3_design.md)
+
 ---
 
 ## TiSLY Platform — Admin Password Recovery（Phase 2381–2400）
