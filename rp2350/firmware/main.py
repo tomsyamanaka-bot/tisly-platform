@@ -414,6 +414,8 @@ def send_heartbeat():
 
     }
 
+    log("heartbeat payload={}".format(json.dumps(payload)))
+
     body, status = http_post(path, payload)
 
 
@@ -431,6 +433,8 @@ def send_heartbeat():
         return False
 
 
+
+    log("heartbeat status={}".format(status))
 
     log("heartbeat sent")
 
