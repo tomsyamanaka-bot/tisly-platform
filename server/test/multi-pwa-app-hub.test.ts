@@ -62,7 +62,10 @@ describe("Phase 461-480 multi PWA app hub", () => {
     assert.ok(res.text.includes("tisly-practical-nav"));
   });
 
-  it("serves survey-v1 and estimate-v1 with practical nav", async () => {
+  it("serves schedule-v1, survey-v1 and estimate-v1 with practical nav", async () => {
+    const sc = await request(app).get("/schedule-v1");
+    assert.equal(sc.status, 200);
+    assert.ok(sc.text.includes("日程調整"));
     const sv = await request(app).get("/survey-v1");
     assert.equal(sv.status, 200);
     assert.ok(sv.text.includes("tisly-practical-nav"));
@@ -79,9 +82,11 @@ describe("Phase 461-480 multi PWA app hub", () => {
       .set("Authorization", `Bearer ${surveyorToken}`);
     assert.equal(res.status, 200);
     const apps = res.body.practicalApps || [];
-    assert.ok(apps.length >= 5);
+    assert.ok(apps.length >= 6);
+    const schedule = apps.find((a: { id: string }) => a.id === "schedule_v1");
     const survey = apps.find((a: { id: string }) => a.id === "survey_v1");
     const estimate = apps.find((a: { id: string }) => a.id === "estimate_v1");
+    assert.equal(schedule?.status, "ready");
     assert.equal(survey?.status, "ready");
     assert.equal(estimate?.status, "ready");
     const work = apps.find((a: { id: string }) => a.id === "work_report");
@@ -104,7 +109,7 @@ describe("Phase 461-480 multi PWA app hub", () => {
       .set("Authorization", `Bearer ${surveyorToken}`);
     assert.equal(res.status, 200);
     const ids = res.body.apps.map((a: { id: string }) => a.id);
-    assert.deepEqual(ids, ["survey_v1", "estimate_v1", "survey", "business"]);
+    assert.deepEqual(ids, ["schedule_v1", "survey_v1", "estimate_v1", "survey", "business"]);
   });
 
   it("admin hub shows all PWAs", async () => {
@@ -120,9 +125,10 @@ describe("Phase 461-480 multi PWA app hub", () => {
     assert.ok(ids.includes("customer_portal"));
     assert.ok(ids.includes("admin"));
     assert.ok(ids.includes("business"));
+    assert.ok(ids.includes("schedule_v1"));
     assert.ok(ids.includes("survey_v1"));
     assert.ok(ids.includes("estimate_v1"));
-    assert.equal(ids.length, 9);
+    assert.equal(ids.length, 10);
   });
 
   it("admin hub shows notification menu links", async () => {

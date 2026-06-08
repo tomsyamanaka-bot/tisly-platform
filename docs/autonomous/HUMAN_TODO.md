@@ -29,6 +29,7 @@ sudo systemctl status tisly-server --no-pager
 **反映確認（どちらか）**
 
 ```bash
+curl -I https://tisly.jp/schedule-v1
 curl -I https://tisly.jp/survey-v1
 curl -I https://tisly.jp/estimate-v1
 curl -I https://tisly.jp/app
@@ -142,12 +143,30 @@ Safari → 共有 → **ホーム画面に追加**
 - [ ] **PDFプレビュー** が 401 にならず表示される（確定前でも可）
 - [ ] **内訳を保存** → **見積を確定** の流れができる
 - [ ] 確定後 **PDFプレビュー** が表示される（別タブで開くも可）
-- [ ] **TOMS形式で確認** で JSON が見える
+- [ ] **社内用データを確認** で JSON が見える（お客様には見せない旨の表示）
+- [ ] 見積番号が `YYMMDD-001` 形式になっている
+- [ ] ヘッダーに「工事場所」のみ（現場名ラベルなし）
 - [ ] 「← 現調の内容を見る」リンクが使える
 - [ ] 下部ナビで現調アプリに戻れる
 
-### 共通（3アプリ）
+### 日程調整PWA（/schedule-v1）
 
+- [ ] 下部ナビの **日程調整** が最初のタブになっている
+- [ ] 週間カードに空き度（★）と予定件数が出る
+- [ ] ＜ 今週 ＞ で前週・来週に切り替えられる
+- [ ] 3週間モードで工事件数サマリーが見える
+- [ ] 月間でカテゴリ色（🟫工事 🟦事務 🟩家族 🟥重要）が見える
+- [ ] 現場不可日を登録・解除できる
+
+### 現調PWA — 写真（再確認）
+
+- [ ] iPhone Safari でカメラ撮影・ライブラリ複数選択ができる
+- [ ] 選択直後にプレビューが出る
+- [ ] 保存後リロードしても写真が残る
+
+### 共通（実務PWA）
+
+- [ ] 下部ナビ順: 日程調整 → 現調 → 見積 → 請求 → 案件一覧
 - [ ] 文字だらけではなくカード中心の見た目
 - [ ] 専門用語（API・workflow 等）が画面に出ていない
 - [ ] スタンドアロン（ホーム画面追加）でもログインが維持される
@@ -165,7 +184,15 @@ Safari → 共有 → **ホーム画面に追加**
 ## できれば早め
 
 7. TOMS 標準フォーマット仕様書の共有 → 見積エクスポート本番接続
-8. Google Calendar OAuth（Business カレンダー連携を使う場合）
+8. **Google Calendar API**（日程調整PWA本接続）
+   - Google Cloud Console でプロジェクト作成
+   - Calendar API を有効化
+   - OAuth 2.0 クライアント ID / シークレット取得
+   - `.env` に設定:
+     - `GOOGLE_CALENDAR_CLIENT_ID`
+     - `GOOGLE_CALENDAR_CLIENT_SECRET`
+     - `GOOGLE_CALENDAR_REDIRECT_URI`（例: `https://tisly.jp/api/schedule/v1/oauth/callback`）
+     - `GOOGLE_CALENDAR_ID`（例: `primary`）
 
 ## やらなくていい（Cursor が進める）
 

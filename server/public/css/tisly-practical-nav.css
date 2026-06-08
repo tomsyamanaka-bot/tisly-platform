@@ -38,6 +38,15 @@ body.has-practical-nav #ops-panels-wrap {
   background: var(--tisly-blue, #4a90d9);
 }
 
+.tisly-practical-topbar.theme-orange {
+  background: #e8a54b;
+}
+
+.tisly-practical-bottomnav a.theme-orange.active,
+.tisly-practical-bottomnav button.theme-orange.active {
+  color: #c47d12;
+}
+
 .tisly-practical-topbar.theme-hub {
   background: #fff;
   color: var(--tisly-text, #24292f);

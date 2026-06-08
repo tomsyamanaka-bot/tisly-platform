@@ -290,8 +290,10 @@ function fillHeaderForm(header) {
   $("hdr-issue-date").value = header.issueDate || "";
   $("hdr-estimate-no").value = header.estimateNo || "";
   $("hdr-staff").value = header.staffName || "";
-  $("hdr-site-name").value = header.siteName || "";
-  $("hdr-work-location").value = header.workLocation || "";
+  $("hdr-work-location").value = header.workLocation || header.siteName || "";
+  $("hdr-address").value = header.address || "";
+  $("hdr-phone").value = header.phone || "";
+  $("hdr-email").value = header.email || "";
 }
 
 function readHeaderForm() {
@@ -301,8 +303,10 @@ function readHeaderForm() {
     issueDate: $("hdr-issue-date").value.trim(),
     estimateNo: $("hdr-estimate-no").value.trim(),
     staffName: $("hdr-staff").value.trim(),
-    siteName: $("hdr-site-name").value.trim(),
     workLocation: $("hdr-work-location").value.trim(),
+    address: $("hdr-address").value.trim(),
+    phone: $("hdr-phone").value.trim(),
+    email: $("hdr-email").value.trim(),
   };
 }
 

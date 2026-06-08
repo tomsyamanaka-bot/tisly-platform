@@ -187,11 +187,51 @@ export function runMigrations(database: Database.Database): void {
   migrateFieldEstimatePwaV1(database);
   migrateSurveyCustomerSiteV2(database);
   migrateTomsEstimateStandardFormat(database);
+  migrateSchedulePlannerV1(database);
+  migratePracticalSearchIndex(database);
 }
 
 const BUSINESS_ESTIMATE_COLUMNS: Array<{ name: string; ddl: string }> = [
   { name: "header_json", ddl: "ALTER TABLE business_estimates ADD COLUMN header_json TEXT" },
+  { name: "search_index_json", ddl: "ALTER TABLE business_estimates ADD COLUMN search_index_json TEXT" },
 ];
+
+/** 日程調整 PWA v1 — 現場不可日 */
+function migrateSchedulePlannerV1(database: Database.Database): void {
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS schedule_unavailable_days (
+      id TEXT PRIMARY KEY,
+      unavailable_date TEXT NOT NULL UNIQUE,
+      reason TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_schedule_unavailable_date ON schedule_unavailable_days(unavailable_date);
+  `);
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:schedule_planner_v1") as { value_json: string } | undefined;
+  if (marker) return;
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:schedule_planner_v1", JSON.stringify({ at: new Date().toISOString() }));
+}
+
+/** 見積・請求検索用メタデータ */
+function migratePracticalSearchIndex(database: Database.Database): void {
+  addColumnsIfMissing(database, "business_estimates", BUSINESS_ESTIMATE_COLUMNS.filter((c) => c.name === "search_index_json"));
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:practical_search_index_v1") as { value_json: string } | undefined;
+  if (marker) return;
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:practical_search_index_v1", JSON.stringify({ at: new Date().toISOString() }));
+}
 
 const BUSINESS_INVOICE_COLUMNS: Array<{ name: string; ddl: string }> = [
   { name: "estimate_ref_no", ddl: "ALTER TABLE business_invoices ADD COLUMN estimate_ref_no TEXT" },

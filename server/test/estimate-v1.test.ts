@@ -81,6 +81,7 @@ describe("見積PWA v1 API", () => {
     assert.ok(res.body.businessProjectId);
     assert.ok(res.body.estimate);
     assert.ok(res.body.estimate.items.length >= 1);
+    assert.match(res.body.estimate.estimateNo, /^\d{6}-\d{3}$/);
     businessProjectId = res.body.businessProjectId;
 
     const handoff = getDatabase()
@@ -199,5 +200,8 @@ describe("見積PWA v1 API", () => {
     const res = await request(app).get("/estimate-v1");
     assert.equal(res.status, 200);
     assert.ok(res.text.includes("見積を確定") || res.text.includes("TiSLY — 見積"));
+    assert.ok(res.text.includes("社内用データを確認"));
+    assert.ok(res.text.includes("工事場所"));
+    assert.ok(!res.text.includes("現場名"));
   });
 });

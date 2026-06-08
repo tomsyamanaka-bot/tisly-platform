@@ -96,7 +96,6 @@ export function renderTomsCustomerSiteBlock(input: TomsCustomerSiteBlockInput): 
   }
   rows.push('<div class="site-block">');
   rows.push("<strong>工事内容</strong>");
-  if (input.siteName) rows.push(`<p>現場名: ${escapeHtml(input.siteName)}</p>`);
   if (input.siteAddress) rows.push(`<p>工事場所: ${escapeHtml(input.siteAddress)}</p>`);
   if (input.contactName) rows.push(`<p>ご担当: ${escapeHtml(input.contactName)}</p>`);
   if (input.phone) rows.push(`<p>TEL: ${escapeHtml(input.phone)}</p>`);
@@ -119,9 +118,11 @@ export function renderTomsEstimateHeaderTable(header: TomsEstimateHeader): strin
     ["発行日", header.issueDate],
     ["見積番号", header.estimateNo],
     ["担当者", header.staffName],
-    ["現場名", header.siteName],
     ["工事場所", header.workLocation],
-  ];
+    ["住所", header.address ?? ""],
+    ["電話", header.phone ?? ""],
+    ["メール", header.email ?? ""],
+  ].filter(([, value]) => value !== "");
   const body = rows
     .map(
       ([label, value]) =>
@@ -139,9 +140,11 @@ export function renderTomsInvoiceHeaderTable(header: TomsInvoiceHeader): string 
     ["請求番号", header.invoiceNo],
     ["見積参照番号", header.estimateRefNo],
     ["担当者", header.staffName],
-    ["現場名", header.siteName],
     ["工事場所", header.workLocation],
-  ];
+    ["住所", header.address ?? ""],
+    ["電話", header.phone ?? ""],
+    ["メール", header.email ?? ""],
+  ].filter(([, value]) => value !== "");
   const body = rows
     .map(
       ([label, value]) =>

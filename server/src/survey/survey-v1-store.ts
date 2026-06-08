@@ -283,6 +283,8 @@ export function listSurveyPhotosV1(projectId: string): SurveyPhotoV1[] {
   return rows.map(rowToPhoto);
 }
 
+const MAX_SURVEY_PHOTOS_V1 = 30;
+
 export function addSurveyPhotoMemoV1(
   projectId: string,
   input: {
@@ -294,6 +296,16 @@ export function addSurveyPhotoMemoV1(
   }
 ): SurveyPhotoV1 {
   if (!getSurveyProjectV1(projectId)) throw new Error("project not found");
+  if (input.imageBase64) {
+    const countRow = getDatabase()
+      .prepare(
+        `SELECT COUNT(*) as c FROM survey_photos WHERE project_id = ? AND photo_path NOT LIKE '_memo:%'`
+      )
+      .get(projectId) as { c: number };
+    if ((countRow?.c ?? 0) >= MAX_SURVEY_PHOTOS_V1) {
+      throw new Error("photo limit reached (max 30)");
+    }
+  }
   const id = uuid();
   const now = new Date().toISOString();
   const takenAt = input.takenAt ?? now;

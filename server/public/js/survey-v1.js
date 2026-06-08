@@ -35,8 +35,10 @@ let selectedMaterialCategory = "camera";
 const API = "/api/survey/v1";
 let currentProjectId = null;
 let cachedPhotos = [];
-let photoDisplayLimit = 36;
-const PHOTO_BATCH = 36;
+let pendingPreviewUrls = [];
+let photoDisplayLimit = 12;
+const PHOTO_BATCH = 12;
+const MAX_PHOTOS = 30;
 
 const $ = (id) => document.getElementById(id);
 
@@ -184,14 +186,7 @@ function paintPhotoGrid() {
     return;
   }
   const visible = cachedPhotos.slice(0, photoDisplayLimit);
-  el.innerHTML = `<div class="photo-grid">${visible
-    .map((ph) => {
-      const img = ph.url
-        ? `<img src="${ph.url}" alt="" loading="lazy" decoding="async" />`
-        : '<div style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;background:#eee;font-size:2rem;">📝</div>';
-      return `<div class="photo-card">${img}<div class="photo-caption">${escapeHtml(ph.comment || "（説明なし）")}<br><small>${escapeHtml(ph.takenAt || ph.createdAt || "")}</small></div></div>`;
-    })
-    .join("")}</div>`;
+  el.innerHTML = `<div class="photo-grid">${paintPhotoGridHtml(visible)}</div>`;
   countEl.textContent = `写真 ${cachedPhotos.length} 枚（${visible.length} 枚表示）`;
   countEl.classList.remove("hidden");
   if (cachedPhotos.length > photoDisplayLimit) {
@@ -278,33 +273,67 @@ async function openDetail(projectId) {
 }
 
 async function compressImage(file, maxWidth = 1600, quality = 0.82) {
-  if (!file.type.startsWith("image/")) {
+  const isImage = !file.type || file.type.startsWith("image/");
+  if (!isImage) {
     return fileToBase64(file);
   }
-  const dataUrl = await new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-  const img = await new Promise((resolve, reject) => {
-    const el = new Image();
-    el.onload = () => resolve(el);
-    el.onerror = reject;
-    el.src = String(dataUrl);
-  });
-  let { width, height } = img;
-  if (width > maxWidth) {
-    height = Math.round((height * maxWidth) / width);
-    width = maxWidth;
+  try {
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    let bitmap = null;
+    if (typeof createImageBitmap === "function") {
+      try {
+        bitmap = await createImageBitmap(file);
+      } catch {
+        bitmap = null;
+      }
+    }
+    let width;
+    let height;
+    if (bitmap) {
+      width = bitmap.width;
+      height = bitmap.height;
+    } else {
+      const img = await new Promise((resolve, reject) => {
+        const el = new Image();
+        el.onload = () => resolve(el);
+        el.onerror = reject;
+        el.src = String(dataUrl);
+      });
+      width = img.width;
+      height = img.height;
+    }
+    if (width > maxWidth) {
+      height = Math.round((height * maxWidth) / width);
+      width = maxWidth;
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("canvas unavailable");
+    if (bitmap) {
+      ctx.drawImage(bitmap, 0, 0, width, height);
+      bitmap.close?.();
+    } else {
+      const img = await new Promise((resolve, reject) => {
+        const el = new Image();
+        el.onload = () => resolve(el);
+        el.onerror = reject;
+        el.src = String(dataUrl);
+      });
+      ctx.drawImage(img, 0, 0, width, height);
+    }
+    const out = canvas.toDataURL("image/jpeg", quality);
+    if (!out || out.length < 32) throw new Error("compression failed");
+    return out.split(",")[1];
+  } catch {
+    return fileToBase64(file);
   }
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext("2d");
-  ctx.drawImage(img, 0, 0, width, height);
-  const out = canvas.toDataURL("image/jpeg", quality);
-  return out.split(",")[1];
 }
 
 function fileToBase64(file) {
@@ -320,14 +349,63 @@ function fileToBase64(file) {
   });
 }
 
+function revokePendingPreviews() {
+  pendingPreviewUrls.forEach((u) => URL.revokeObjectURL(u));
+  pendingPreviewUrls = [];
+}
+
+function showPhotoPreviews(files) {
+  revokePendingPreviews();
+  const el = $("photo-list");
+  const previews = files
+    .map((file) => {
+      const url = URL.createObjectURL(file);
+      pendingPreviewUrls.push(url);
+      return `<div class="photo-card photo-pending"><img src="${url}" alt="" /><div class="photo-caption">送信中…</div></div>`;
+    })
+    .join("");
+  const existing = cachedPhotos.length
+    ? paintPhotoGridHtml(cachedPhotos.slice(0, photoDisplayLimit))
+    : "";
+  el.innerHTML = `<div class="photo-grid">${previews}${existing}</div>`;
+}
+
+function paintPhotoGridHtml(visible) {
+  return visible
+    .map((ph) => {
+      const img = ph.url
+        ? `<img src="${ph.url}" alt="" loading="lazy" decoding="async" />`
+        : '<div style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;background:#eee;font-size:2rem;">📝</div>';
+      return `<div class="photo-card">${img}<div class="photo-caption">${escapeHtml(ph.comment || "（説明なし）")}<br><small>${escapeHtml(ph.takenAt || ph.createdAt || "")}</small></div></div>`;
+    })
+    .join("");
+}
+
 async function uploadPhotos(files) {
   if (!currentProjectId || !files?.length) return;
+  const imageFiles = [...files].filter((f) => !f.type || f.type.startsWith("image/"));
+  if (!imageFiles.length) {
+    toast("写真を追加できませんでした。もう一度選んでください");
+    return;
+  }
+  const currentImageCount = cachedPhotos.filter((p) => p.url).length;
+  const room = MAX_PHOTOS - currentImageCount;
+  if (room <= 0) {
+    toast(`写真は最大${MAX_PHOTOS}枚までです`);
+    return;
+  }
+  const batch = imageFiles.slice(0, room);
+  if (batch.length < imageFiles.length) {
+    toast(`残り${room}枚分だけ追加します（上限${MAX_PHOTOS}枚）`);
+  }
+  showPhotoPreviews(batch);
   const comment = $("photo-comment").value || undefined;
   const progress = $("photo-upload-progress");
   progress.classList.remove("hidden");
   let done = 0;
-  for (const file of files) {
-    progress.textContent = `アップロード中… ${done + 1} / ${files.length}`;
+  let failed = false;
+  for (const file of batch) {
+    progress.textContent = `アップロード中… ${done + 1} / ${batch.length}`;
     try {
       const imageBase64 = await compressImage(file);
       await api(`/projects/${currentProjectId}/photos`, {
@@ -335,19 +413,27 @@ async function uploadPhotos(files) {
         body: JSON.stringify({
           comment,
           imageBase64,
-          fileName: file.name.replace(/\.[^.]+$/, ".jpg"),
+          fileName: (file.name || "photo").replace(/\.[^.]+$/, ".jpg"),
           takenAt: new Date().toISOString(),
         }),
       });
       done += 1;
     } catch (e) {
-      toastError(e, e.status);
+      failed = true;
+      if (e.status === 401) {
+        toast("ログインが切れました。もう一度ログインしてください");
+      } else {
+        toast("写真を追加できませんでした。もう一度選んでください");
+      }
       break;
     }
   }
+  revokePendingPreviews();
   progress.classList.add("hidden");
   $("photo-comment").value = "";
-  toast(done === files.length ? `写真を${done}枚追加しました` : `${done}枚追加（途中でエラー）`);
+  if (!failed && done === batch.length) {
+    toast(`写真を${done}枚追加しました`);
+  }
   await openDetail(currentProjectId);
 }
 

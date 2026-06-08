@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#e8a54b" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="TiSLY日程" />
+  <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2001" />
+  <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192.png?v=2001" />
+  <title>TiSLY — 日程調整</title>
+  <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
+  <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
+</head>
+<body class="tisly-friendly">
+  <main class="app-main">
+    <p class="section-hint" id="page-hint">いつ空いてる？にすぐ答えられます</p>
+
+    <div class="schedule-mode-tabs tab-row" role="tablist">
+      <button type="button" class="tab-btn active" id="mode-week" role="tab">週間</button>
+      <button type="button" class="tab-btn" id="mode-three" role="tab">3週間</button>
+      <button type="button" class="tab-btn" id="mode-month" role="tab">月間</button>
+    </div>
+
+    <div id="view-week">
+      <div class="schedule-week-nav">
+        <button type="button" id="btn-prev-week" aria-label="前週">＜</button>
+        <div>
+          <div class="schedule-week-label" id="week-label">今週</div>
+          <div class="section-hint" id="week-range" style="text-align:center;margin:0;"></div>
+        </div>
+        <button type="button" id="btn-next-week" aria-label="来週">＞</button>
+      </div>
+      <button type="button" class="btn-sub" id="btn-this-week" style="width:100%;margin-bottom:0.75rem;">今週に戻る</button>
+      <div id="week-summary" class="schedule-summary-grid"></div>
+      <div id="week-days"></div>
+    </div>
+
+    <div id="view-three" class="hidden">
+      <div class="schedule-week-nav">
+        <button type="button" id="btn-prev-three">＜</button>
+        <div class="schedule-week-label" id="three-label">3週間</div>
+        <button type="button" id="btn-next-three">＞</button>
+      </div>
+      <div id="three-blocks"></div>
+    </div>
+
+    <div id="view-month" class="hidden">
+      <div class="schedule-week-nav">
+        <button type="button" id="btn-prev-month">＜</button>
+        <div class="schedule-week-label" id="month-label">—</div>
+        <button type="button" id="btn-next-month">＞</button>
+      </div>
+      <div class="schedule-month-wd schedule-month-grid">
+        <span>日</span><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span>土</span>
+      </div>
+      <div id="month-grid" class="schedule-month-grid"></div>
+    </div>
+
+    <div id="day-detail" class="friendly-card hidden">
+      <h3 id="day-detail-title">—</h3>
+      <div id="day-detail-body"></div>
+      <button type="button" class="btn-sub" id="btn-close-day">閉じる</button>
+    </div>
+
+    <div id="unavail-form" class="friendly-card hidden">
+      <p class="section-label">🚫 現場不可にする</p>
+      <label class="friendly-label">日付 <input type="date" id="unavail-date" /></label>
+      <label class="friendly-label">理由
+        <select id="unavail-reason">
+          <option value="事務処理">事務処理</option>
+          <option value="家族予定">家族予定</option>
+          <option value="材料待ち">材料待ち</option>
+          <option value="移動不可">移動不可</option>
+          <option value="電話対応のみ">電話対応のみ</option>
+        </select>
+      </label>
+      <button type="button" class="btn-main" id="btn-save-unavail">登録する</button>
+      <button type="button" class="btn-sub" id="btn-cancel-unavail">やめる</button>
+    </div>
+  </main>
+
+  <div id="toast" class="toast" role="status"></div>
+  <script type="module" src="/js/schedule-v1.js"></script>
+</body>
+</html>

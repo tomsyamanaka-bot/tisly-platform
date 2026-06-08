@@ -519,6 +519,40 @@ cd server && npm run build && npx tsc --noEmit && npm run test
 
 ---
 
+## TiSLY Platform — 実務PWA導線（日程調整 → 現調 → 見積 → 請求）
+
+**既存 App Hub 内に統合。新規PWAは作らず、下部ナビで実務導線を強化。**
+
+| 順 | PWA | URL |
+|----|-----|-----|
+| 1 | 日程調整 | `/schedule-v1` |
+| 2 | 現調 v1 | `/survey-v1` |
+| 3 | 見積 v1 | `/estimate-v1` |
+| 4 | 請求 | `/estimate-v1`（見積PWA内で請求書作成） |
+| 5 | 案件一覧 | `/app` |
+
+| API | 説明 |
+|-----|------|
+| `/api/schedule/v1/*` | 週間・月間・現場不可日（モックカレンダー） |
+| `/api/survey/v1/*` | 現調案件・写真・部材 |
+| `/api/estimate/v1/*` | 見積・PDF・請求 |
+
+| ドキュメント | |
+|-------------|--|
+| Schedule Planner | [`docs/schedule-planner-v1.md`](docs/schedule-planner-v1.md) |
+| 自走管理 | [`docs/autonomous/CURRENT_STATUS.md`](docs/autonomous/CURRENT_STATUS.md) |
+
+```bash
+cd server
+npm run build
+npx tsx --test test/schedule-v1.test.ts
+npx tsx --test test/survey-v1.test.ts
+npx tsx --test test/estimate-v1.test.ts
+npx tsx --test test/multi-pwa-app-hub.test.ts
+```
+
+---
+
 ## TiSLY Platform — Multi PWA App Hub & Role Based Navigation（Phase 461–480）
 
 **App Hub · ロール別 PWA 表示 · Survey/保守/PRO Remote/顧客ポータル manifest · 共通 App Shell**

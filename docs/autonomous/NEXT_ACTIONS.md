@@ -4,6 +4,8 @@ Cursor が人間の確認なしで進められるタスクです。
 
 ## すぐ着手可能
 
+- [ ] **見積・請求検索PWA** — `search_index_json` を使った横断検索 UI（宛名・番号・電話・メール）
+- [ ] 日程調整 — Google Calendar API 本接続（OAuth 取得後）
 - [ ] 見積PWA — Puppeteer 本番 PDF 生成（HTML → 高品質 PDF）
 - [ ] 見積PDF — 現場名・工事場所を帳票フッターまたは備考連携で表示
 - [ ] 現調PWA — 写真・部材の個別削除 UI
@@ -29,11 +31,12 @@ Cursor が人間の確認なしで進められるタスクです。
 ```bash
 cd server
 npm run build
-npx tsx --test test/toms-estimate-format.test.ts
-npx tsx --test test/estimate-v1.test.ts
-npx tsx --test test/business-pdf-template.test.ts
+npx tsx --test test/schedule-v1.test.ts
 npx tsx --test test/survey-v1.test.ts
+npx tsx --test test/estimate-v1.test.ts
 npx tsx --test test/multi-pwa-app-hub.test.ts
+npx tsx --test test/toms-estimate-format.test.ts
+npx tsx --test test/business-pdf-template.test.ts
 ```
 
 ## 完了したら記録

@@ -10,8 +10,12 @@ export interface TomsEstimateHeader {
   issueDate: string;
   estimateNo: string;
   staffName: string;
-  siteName: string;
+  /** @deprecated 後方互換のみ。UI・PDFでは工事場所を使用 */
+  siteName?: string;
   workLocation: string;
+  address?: string;
+  phone?: string;
+  email?: string;
 }
 
 export interface TomsInvoiceHeader {
@@ -20,8 +24,12 @@ export interface TomsInvoiceHeader {
   invoiceDate: string;
   invoiceNo: string;
   staffName: string;
-  siteName: string;
+  /** @deprecated 後方互換のみ */
+  siteName?: string;
   workLocation: string;
+  address?: string;
+  phone?: string;
+  email?: string;
   estimateRefNo: string;
   bankInfo: string;
 }
@@ -138,6 +146,9 @@ export function buildDefaultEstimateHeader(
     siteName?: string | null;
     workLocation?: string | null;
     staffName?: string | null;
+    address?: string | null;
+    phone?: string | null;
+    email?: string | null;
   } = {}
 ): TomsEstimateHeader {
   return {
@@ -148,6 +159,9 @@ export function buildDefaultEstimateHeader(
     staffName: ctx.staffName ?? TOMS_DEFAULT_STAFF,
     siteName: ctx.siteName ?? estimate.title,
     workLocation: ctx.workLocation ?? "",
+    address: ctx.address ?? "",
+    phone: ctx.phone ?? "",
+    email: ctx.email ?? "",
   };
 }
 
@@ -167,6 +181,9 @@ export function mergeEstimateHeader(
     siteName?: string | null;
     workLocation?: string | null;
     staffName?: string | null;
+    address?: string | null;
+    phone?: string | null;
+    email?: string | null;
   } = {}
 ): TomsEstimateHeader {
   const defaults = buildDefaultEstimateHeader(estimate, ctx);
@@ -179,6 +196,9 @@ export function mergeEstimateHeader(
     staffName: stored.staffName || defaults.staffName,
     siteName: stored.siteName || defaults.siteName,
     workLocation: stored.workLocation || defaults.workLocation,
+    address: stored.address || defaults.address,
+    phone: stored.phone || defaults.phone,
+    email: stored.email || defaults.email,
   };
 }
 

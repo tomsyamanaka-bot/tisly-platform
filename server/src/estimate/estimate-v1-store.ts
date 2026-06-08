@@ -197,7 +197,10 @@ export function getEstimateProjectV1Detail(businessProjectId: string): EstimateP
   const pdfCtx = estimate
     ? {
         siteName: survey?.siteName ?? project.title,
-        workLocation: survey?.address ?? project.address,
+        workLocation: survey?.siteName || survey?.address || project.address,
+        address: survey?.address ?? project.address,
+        phone: survey?.phone ?? project.phone,
+        email: survey?.email ?? "",
       }
     : null;
   const header =
@@ -289,8 +292,10 @@ export function createEstimateFromSurveyV1(
     updateEstimateHeader(project.estimateId!, {
       addressee: detail.customerName,
       subject: detail.siteName || detail.customerName,
-      siteName: detail.siteName || detail.customerName,
-      workLocation: detail.address ?? project.address,
+      workLocation: detail.siteName || detail.address || project.address,
+      address: detail.address ?? project.address,
+      phone: detail.phone ?? project.phone,
+      email: detail.email ?? "",
     });
   }
 

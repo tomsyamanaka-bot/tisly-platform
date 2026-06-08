@@ -31,6 +31,7 @@ import {
   TOMS_DEFAULT_BANK_INFO,
   type TomsEstimateHeader,
 } from "./toms-document-format.js";
+import { buildPracticalSearchIndex } from "../estimate/estimate-v1-search.js";
 import type {
   AiEstimateCandidate,
   BusinessPhoto,
@@ -659,17 +660,29 @@ export function createInvoiceFromEstimate(projectId: string, paymentDueDate?: st
 export function updateEstimateHeader(estimateId: string, header: Partial<TomsEstimateHeader>): Estimate {
   const existing = getEstimate(estimateId);
   if (!existing) throw new Error("estimate not found");
+  const project = getDatabase()
+    .prepare(`SELECT project_id FROM business_estimates WHERE id = ?`)
+    .get(estimateId) as { project_id: string } | undefined;
+  const bp = project ? getBusinessProject(project.project_id) : null;
   const merged = {
     ...(existing.header ??
       buildDefaultEstimateHeader(existing, {
         siteName: existing.title,
-        workLocation: "",
+        workLocation: bp?.address ?? "",
+        address: bp?.address ?? "",
+        phone: bp?.phone ?? "",
       })),
     ...header,
   };
+  const invoice = bp?.invoiceId ? getInvoice(bp.invoiceId) : null;
+  const searchIndex = bp
+    ? buildPracticalSearchIndex(bp, { ...existing, header: merged }, merged, invoice)
+    : null;
   getDatabase()
-    .prepare(`UPDATE business_estimates SET header_json = ?, updated_at = datetime('now') WHERE id = ?`)
-    .run(JSON.stringify(merged), estimateId);
+    .prepare(
+      `UPDATE business_estimates SET header_json = ?, search_index_json = ?, updated_at = datetime('now') WHERE id = ?`
+    )
+    .run(JSON.stringify(merged), searchIndex ? JSON.stringify(searchIndex) : null, estimateId);
   return getEstimate(estimateId)!;
 }
 

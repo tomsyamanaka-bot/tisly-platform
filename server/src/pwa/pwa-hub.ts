@@ -10,6 +10,7 @@ function normalizePwaRole(role: string): string {
 export type PwaAppId =
   | "installer"
   | "survey"
+  | "schedule_v1"
   | "survey_v1"
   | "estimate_v1"
   | "business"
@@ -41,6 +42,13 @@ export const PWA_APP_CATALOG: Record<PwaAppId, PwaAppCard> = {
     description: "案件・写真・図面・見積候補（レガシー）",
     href: () => "/survey",
     themeColor: "#2563eb",
+  },
+  schedule_v1: {
+    id: "schedule_v1",
+    label: "日程調整",
+    description: "空き日をすぐ確認 — 週間・月間カレンダー",
+    href: () => "/schedule-v1",
+    themeColor: "#e8a54b",
   },
   survey_v1: {
     id: "survey_v1",
@@ -102,7 +110,7 @@ export function getPwaAppsForRole(role: string, opts?: { installerSurveyOptional
       if (opts?.installerSurveyOptional) return ["installer", "survey"];
       return ["installer"];
     case "surveyor":
-      return ["survey_v1", "estimate_v1", "survey", "business"];
+      return ["schedule_v1", "survey_v1", "estimate_v1", "survey", "business"];
     case "maintenance":
       return ["maintenance", "installer"];
     case "viewer":
@@ -110,6 +118,7 @@ export function getPwaAppsForRole(role: string, opts?: { installerSurveyOptional
     case "manager":
       return [
         "installer",
+        "schedule_v1",
         "survey_v1",
         "estimate_v1",
         "survey",
@@ -123,6 +132,7 @@ export function getPwaAppsForRole(role: string, opts?: { installerSurveyOptional
     case "super_admin":
       return [
         "installer",
+        "schedule_v1",
         "survey_v1",
         "estimate_v1",
         "survey",
@@ -173,6 +183,16 @@ const PRACTICAL_PWA_DEFS: Array<
     readyRoles: string[];
   }
 > = [
+  {
+    id: "schedule_v1",
+    label: "日程を調整する",
+    subtitle: "空き日をすぐ確認",
+    icon: "📅",
+    features: ["週間カード", "3週間サマリー", "月間表示", "現場不可の登録"],
+    href: "/schedule-v1",
+    themeColor: "#e8a54b",
+    readyRoles: ["surveyor", "manager", "owner", "admin", "super_admin"],
+  },
   {
     id: "survey_v1",
     label: "現調する",

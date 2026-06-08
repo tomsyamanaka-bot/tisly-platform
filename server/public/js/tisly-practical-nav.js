@@ -1,12 +1,11 @@
 /** TiSLY 実務 PWA 共通ナビ — 戻る/進む/アプリ一覧 + 下部タブ */
 
 const BOTTOM_ITEMS = [
-  { id: "hub", label: "アプリ一覧", icon: "🏠", href: "/app" },
+  { id: "schedule_v1", label: "日程調整", icon: "📅", href: "/schedule-v1" },
   { id: "survey_v1", label: "現調", icon: "📋", href: "/survey-v1" },
   { id: "estimate_v1", label: "見積", icon: "💰", href: "/estimate-v1" },
-  { id: "work_report", label: "作業報告", icon: "📝", href: null, comingSoon: true },
-  { id: "customer_mgmt", label: "顧客", icon: "👥", href: null, comingSoon: true },
-  { id: "inventory", label: "在庫", icon: "📦", href: null, comingSoon: true },
+  { id: "billing_v1", label: "請求", icon: "🧾", href: "/estimate-v1" },
+  { id: "projects", label: "案件一覧", icon: "📂", href: "/app" },
 ];
 
 let toastFn = null;
@@ -21,7 +20,7 @@ function defaultToast(msg) {
 }
 
 /**
- * @param {{ appId: string; appName: string; theme?: 'green'|'blue'|'hub'; onBack?: () => void }} opts
+ * @param {{ appId: string; appName: string; theme?: 'green'|'blue'|'hub'|'orange'; onBack?: () => void }} opts
  */
 export function initPracticalNav(opts) {
   const { appId, appName, theme = "green", onBack } = opts;
@@ -46,7 +45,8 @@ export function initPracticalNav(opts) {
   bottomRoot.setAttribute("aria-label", "アプリ切替");
   bottomRoot.innerHTML = BOTTOM_ITEMS.map((item) => {
     const active = item.id === appId ? " active" : "";
-    const themeCls = theme === "blue" && item.id === appId ? " theme-blue" : "";
+    const themeCls =
+      (theme === "blue" || theme === "orange") && item.id === appId ? ` theme-${theme}` : "";
     if (item.comingSoon || !item.href) {
       return `<button type="button" class="coming-soon${active}${themeCls}" data-coming-soon="1" aria-label="${item.label}（準備中）">
         <span class="nav-icon">${item.icon}</span><span>${item.label}</span><span class="nav-soon-badge">準備中</span></button>`;
