@@ -8,6 +8,7 @@ import { friendlyHttpError, renderFriendlyErrorHtml } from "./tisly-friendly-err
 
 let practicalNav = null;
 let currentSurveyProjectId = null;
+let pdfBlobUrl = null;
 
 const API = "/api/estimate/v1";
 let currentProjectId = null;
@@ -38,6 +39,18 @@ function escapeHtml(s) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+function newEmptyLine() {
+  return {
+    id: `line-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    category: "other",
+    name: "",
+    unit: "式",
+    quantity: 1,
+    unitPrice: 0,
+    amount: 0,
+  };
 }
 
 async function api(path, opts = {}) {
@@ -138,19 +151,46 @@ async function onPendingClick(node) {
   }
 }
 
+function bindLineInputs() {
+  $("line-list").querySelectorAll(".qty-input, .price-input, .name-input").forEach((inp) => {
+    inp.addEventListener("input", () => recalcLocal());
+    inp.addEventListener("change", () => recalcLocal());
+  });
+  $("line-list").querySelectorAll("[data-action]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const i = Number(btn.dataset.idx);
+      const action = btn.dataset.action;
+      if (action === "delete") {
+        if (currentLines.length <= 1) {
+          toast("最低1項目は残してください");
+          return;
+        }
+        currentLines.splice(i, 1);
+        renderLines(currentLines);
+        return;
+      }
+      if (action === "up" && i > 0) {
+        [currentLines[i - 1], currentLines[i]] = [currentLines[i], currentLines[i - 1]];
+        renderLines(currentLines);
+      }
+      if (action === "down" && i < currentLines.length - 1) {
+        [currentLines[i + 1], currentLines[i]] = [currentLines[i], currentLines[i + 1]];
+        renderLines(currentLines);
+      }
+    });
+  });
+}
+
 function renderLines(items) {
   currentLines = (items || []).map((it) => ({ ...it }));
+  if (!currentLines.length) currentLines = [newEmptyLine()];
   const el = $("line-list");
-  if (!currentLines.length) {
-    el.innerHTML = '<p style="color:var(--tisly-muted);">まだ内訳がありません</p>';
-    return;
-  }
   el.innerHTML = currentLines
     .map(
       (it, i) => `
     <div class="line-card" data-idx="${i}">
       <label class="friendly-label" style="margin:0 0 0.35rem;">項目名</label>
-      <input type="text" class="name-input line-name-input" data-idx="${i}" value="${escapeHtml(it.name)}" />
+      <input type="text" class="name-input line-name-input" data-idx="${i}" value="${escapeHtml(it.name)}" placeholder="工事項目名" />
       <div class="line-qty-price">
         <div>
           <label class="friendly-label" style="margin:0;">数量</label>
@@ -162,13 +202,16 @@ function renderLines(items) {
         </div>
       </div>
       <div class="line-amount">金額 ${yen((it.quantity || 0) * (it.unitPrice || 0))}</div>
+      <div class="line-actions">
+        <button type="button" data-action="up" data-idx="${i}" ${i === 0 ? "disabled" : ""}>↑ 上へ</button>
+        <button type="button" data-action="down" data-idx="${i}" ${i === currentLines.length - 1 ? "disabled" : ""}>↓ 下へ</button>
+        <button type="button" class="btn-line-delete" data-action="delete" data-idx="${i}">削除</button>
+      </div>
     </div>`
     )
     .join("");
-  el.querySelectorAll(".qty-input, .price-input, .name-input").forEach((inp) => {
-    inp.addEventListener("input", () => recalcLocal());
-    inp.addEventListener("change", () => recalcLocal());
-  });
+  bindLineInputs();
+  recalcLocal();
 }
 
 function recalcLocal() {
@@ -200,16 +243,48 @@ function updateTotalsFromEstimate(est) {
   $("total-grand").textContent = yen(est.total);
 }
 
-function showPdfPreview(projectId) {
-  const url = `/api/estimate/v1/projects/${projectId}/pdf`;
-  $("pdf-preview").src = url;
-  $("link-pdf").href = url;
-  $("pdf-section").classList.remove("hidden");
-}
-
 function hidePdfPreview() {
   $("pdf-section").classList.add("hidden");
   $("pdf-preview").src = "about:blank";
+  if (pdfBlobUrl) {
+    URL.revokeObjectURL(pdfBlobUrl);
+    pdfBlobUrl = null;
+  }
+}
+
+async function showPdfPreview(projectId) {
+  const token = getCustomerToken();
+  const url = `/api/estimate/v1/projects/${projectId}/pdf`;
+  try {
+    toast("PDFを読み込み中…");
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw Object.assign(new Error(data.error || `HTTP ${res.status}`), { status: res.status });
+    }
+    const blob = await res.blob();
+    if (pdfBlobUrl) URL.revokeObjectURL(pdfBlobUrl);
+    pdfBlobUrl = URL.createObjectURL(blob);
+    $("pdf-preview").src = pdfBlobUrl;
+    $("link-pdf").href = `${url}?access_token=${encodeURIComponent(token)}`;
+    $("pdf-section").classList.remove("hidden");
+    toast("プレビューを表示しました");
+  } catch (e) {
+    toastError(e, e.status);
+  }
+}
+
+function renderCustomerInfo(p) {
+  const parts = [
+    p.siteName && `現場: ${p.siteName}`,
+    p.address && `工事場所: ${p.address}`,
+    p.contactName && `担当: ${p.contactName}`,
+    p.phone && `TEL: ${p.phone}`,
+    p.email && `Email: ${p.email}`,
+  ].filter(Boolean);
+  $("detail-customer-info").innerHTML = parts.map((x) => escapeHtml(x)).join(" · ");
 }
 
 async function openDetail(projectId) {
@@ -220,11 +295,12 @@ async function openDetail(projectId) {
   try {
     const p = await api(`/projects/${projectId}`);
     $("detail-name").textContent = p.customerName || p.title;
+    renderCustomerInfo(p);
     const statusEl = $("detail-status");
     if (p.pdfPath) {
       statusEl.textContent = "見積書の準備ができました";
       statusEl.className = "status-badge done";
-      showPdfPreview(projectId);
+      await showPdfPreview(projectId);
     } else {
       statusEl.textContent = p.estimate ? "下書き" : "未作成";
       statusEl.className = "status-badge orange";
@@ -238,12 +314,24 @@ async function openDetail(projectId) {
       );
     }
     $("detail-meta").innerHTML = metaParts.join(" · ");
+    $("estimate-notes").value = p.estimateNotes || "";
     renderLines(p.estimate?.items || []);
     updateTotalsFromEstimate(p.estimate);
   } catch (e) {
     toastError(e, e.status);
     showView("list");
   }
+}
+
+async function saveItems() {
+  recalcLocal();
+  return api(`/projects/${currentProjectId}/items`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      items: currentLines,
+      notes: $("estimate-notes").value.trim(),
+    }),
+  });
 }
 
 async function loadPending() {
@@ -294,14 +382,15 @@ async function init() {
   $("tab-pending").addEventListener("click", () => setListTab("pending"));
   $("tab-projects").addEventListener("click", () => setListTab("projects"));
 
+  $("btn-add-line").addEventListener("click", () => {
+    currentLines.push(newEmptyLine());
+    renderLines(currentLines);
+  });
+
   $("btn-save-items").addEventListener("click", async () => {
     if (!currentProjectId) return;
-    recalcLocal();
     try {
-      const result = await api(`/projects/${currentProjectId}/items`, {
-        method: "PATCH",
-        body: JSON.stringify({ items: currentLines }),
-      });
+      const result = await saveItems();
       toast("内訳を保存しました");
       updateTotalsFromEstimate(result.estimate);
       hidePdfPreview();
@@ -312,18 +401,24 @@ async function init() {
     }
   });
 
+  $("btn-preview-pdf").addEventListener("click", async () => {
+    if (!currentProjectId) return;
+    try {
+      await saveItems();
+      await showPdfPreview(currentProjectId);
+    } catch (e) {
+      toastError(e, e.status);
+    }
+  });
+
   $("btn-finalize").addEventListener("click", async () => {
     if (!currentProjectId) return;
     if (!confirm("見積を確定しますか？\n確定すると見積書（PDF）が作れます。")) return;
     try {
-      recalcLocal();
-      await api(`/projects/${currentProjectId}/items`, {
-        method: "PATCH",
-        body: JSON.stringify({ items: currentLines }),
-      });
+      await saveItems();
       const result = await api(`/projects/${currentProjectId}/finalize`, { method: "POST", body: "{}" });
       toast("見積を確定しました");
-      showPdfPreview(currentProjectId);
+      await showPdfPreview(currentProjectId);
       $("detail-status").textContent = "見積書の準備ができました";
       $("detail-status").className = "status-badge done";
       updateTotalsFromEstimate(result.estimate);

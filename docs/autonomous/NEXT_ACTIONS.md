@@ -4,25 +4,24 @@ Cursor が人間の確認なしで進められるタスクです。
 
 ## すぐ着手可能
 
-- [ ] 現調PWA v1 — 写真・部材の編集・削除 UI
-- [ ] 現調PWA v1 — オフライン下書き（localStorage）
-- [ ] 見積PWA v1 — 確定前でも PDF ドラフトプレビュー
+- [ ] 現調PWA — 写真・部材の個別削除 UI
+- [ ] 現調PWA — オフライン下書き（localStorage）
+- [ ] 見積PWA — Puppeteer 本番 PDF 生成（HTML → PDF）
 - [ ] 作業報告 PWA の画面モック（仮データ・カード UI）
-- [ ] 共有 CSS を business / survey（レガシー）へ展開
 - [ ] App Hub — surveyor 向け「今日のオペレーション」を折りたたみ化
 
-## API・DB（仮値 OK）
+## API・DB
 
 - [ ] TOMS 出力 — `toms_export_log` テーブル（監査用）
 - [ ] 見積確定時に TOMS プレビューを自動保存
-- [ ] 部材マスタの仮シードデータ
+- [ ] サーバー側サムネイル生成（sharp 導入検討）
 
 ## 本番反映後の確認（人間がデプロイしたら Cursor も再確認可）
 
 - [ ] `curl -I https://tisly.jp/survey-v1` が 200
-- [ ] 本番で部材カード「アンテナ」が追加できるか
-- [ ] 見積 PDF が iPhone で表示できるか
-- [ ] [HUMAN_TODO.md](./HUMAN_TODO.md) のスマホチェックリストをすべて確認
+- [ ] iPhone で写真ライブラリ複数選択が動くか
+- [ ] 見積 PDF プレビューが 401 にならないか
+- [ ] [HUMAN_TODO.md](./HUMAN_TODO.md) のスマホチェックリスト
 
 ## テスト
 

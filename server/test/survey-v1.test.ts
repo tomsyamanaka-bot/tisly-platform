@@ -63,7 +63,27 @@ describe("現調PWA v1 API", () => {
     assert.ok(res.body.projectNo?.startsWith("G"));
     assert.equal(res.body.workflowStatus, "surveying");
     assert.equal(res.body.customerName, "テスト顧客");
+    assert.equal(res.body.customerAddress, null);
     projectId = res.body.projectId;
+  });
+
+  it("依頼主と現場を分けて更新できる", async () => {
+    const res = await request(app)
+      .patch(`/api/survey/v1/projects/${projectId}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        customerName: "株式会社テスト",
+        customerAddress: "大阪府大阪市北区1-1",
+        siteName: "テストビル3F",
+        address: "大阪府大阪市中央区2-2",
+        assignee: "現場担当",
+      });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.customerName, "株式会社テスト");
+    assert.equal(res.body.customerAddress, "大阪府大阪市北区1-1");
+    assert.equal(res.body.siteName, "テストビル3F");
+    assert.equal(res.body.address, "大阪府大阪市中央区2-2");
+    assert.equal(res.body.assignee, "現場担当");
   });
 
   it("一覧取得できる", async () => {
@@ -118,6 +138,24 @@ describe("現調PWA v1 API", () => {
     assert.equal(detail.body.photos.length, 2);
   });
 
+  it("写真を複数枚まとめて追加できる", async () => {
+    for (let i = 0; i < 3; i++) {
+      const res = await request(app)
+        .post(`/api/survey/v1/projects/${projectId}/photos`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          comment: `一括${i + 1}`,
+          imageBase64: TINY_PNG,
+          fileName: `batch-${i}.jpg`,
+        });
+      assert.equal(res.status, 201);
+    }
+    const detail = await request(app)
+      .get(`/api/survey/v1/projects/${projectId}`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.ok(detail.body.photos.length >= 5);
+  });
+
   it("部材を追加できる", async () => {
     const res = await request(app)
       .post(`/api/survey/v1/projects/${projectId}/materials`)
@@ -150,7 +188,7 @@ describe("現調PWA v1 API", () => {
     assert.ok(row);
     const payload = JSON.parse(row!.payload_json) as { materialCount: number; photoCount: number };
     assert.equal(payload.materialCount, 1);
-    assert.equal(payload.photoCount, 2);
+    assert.ok(payload.photoCount >= 2);
 
     const detail = await request(app)
       .get(`/api/survey/v1/projects/${projectId}`)

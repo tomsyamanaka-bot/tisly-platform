@@ -34,6 +34,9 @@ let selectedMaterialCategory = "camera";
 
 const API = "/api/survey/v1";
 let currentProjectId = null;
+let cachedPhotos = [];
+let photoDisplayLimit = 36;
+const PHOTO_BATCH = 36;
 
 const $ = (id) => document.getElementById(id);
 
@@ -83,15 +86,15 @@ function showView(name) {
     list: "現調",
     form: "新しい現調",
     detail: "現調の内容",
-    edit: "お客様情報",
+    edit: "お客様・現場情報",
   };
   practicalNav?.setTitle(titles[name] || "現調");
   practicalNav?.setBackVisible(name !== "list");
   const hints = {
     list: "お客様の現場を見に行く記録を残します",
-    form: "まずはお名前だけ入れれば大丈夫です",
+    form: "依頼主と現場を分けて入力できます",
     detail: "写真・部材・メモを確認して、見積へ送れます",
-    edit: "お客様の連絡先などを直せます",
+    edit: "依頼主と現場の情報を直せます",
   };
   $("page-hint").textContent = hints[name] || "";
 }
@@ -101,6 +104,14 @@ function statusBadgeClass(status) {
   if (status === "estimate_done" || status === "ordered" || status === "completed")
     return "status-badge done";
   return "status-badge green";
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function renderProjectList(projects) {
@@ -117,8 +128,8 @@ function renderProjectList(projects) {
       (p) => `
     <div class="friendly-card list-card" data-id="${p.projectId}">
       <span class="${statusBadgeClass(p.workflowStatus)}">${WORKFLOW_LABELS[p.workflowStatus] || p.workflowStatus}</span>
-      <h2>${escapeHtml(p.customerName || p.siteName)}</h2>
-      <p>${escapeHtml(p.projectNo || p.projectId)} · ${escapeHtml(p.surveyDate || "日付未設定")}</p>
+      <h2>${escapeHtml(p.siteName || p.customerName)}</h2>
+      <p>${escapeHtml(p.customerName)} · ${escapeHtml(p.projectNo || p.projectId)}</p>
       <p>${escapeHtml(p.address || "")}</p>
     </div>`
     )
@@ -126,14 +137,6 @@ function renderProjectList(projects) {
   el.querySelectorAll(".list-card").forEach((node) => {
     node.addEventListener("click", () => openDetail(node.dataset.id));
   });
-}
-
-function escapeHtml(s) {
-  return String(s)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }
 
 async function loadList() {
@@ -165,19 +168,38 @@ function renderMaterialPicker() {
 }
 
 function renderPhotos(photos) {
+  cachedPhotos = photos || [];
+  photoDisplayLimit = Math.min(PHOTO_BATCH, cachedPhotos.length || PHOTO_BATCH);
+  paintPhotoGrid();
+}
+
+function paintPhotoGrid() {
   const el = $("photo-list");
-  if (!photos?.length) {
+  const countEl = $("photo-count");
+  const moreBtn = $("btn-load-more-photos");
+  if (!cachedPhotos.length) {
     el.innerHTML = "";
+    countEl.classList.add("hidden");
+    moreBtn.classList.add("hidden");
     return;
   }
-  el.innerHTML = `<div class="photo-grid">${photos
+  const visible = cachedPhotos.slice(0, photoDisplayLimit);
+  el.innerHTML = `<div class="photo-grid">${visible
     .map((ph) => {
       const img = ph.url
-        ? `<img src="${ph.url}" alt="" loading="lazy" />`
+        ? `<img src="${ph.url}" alt="" loading="lazy" decoding="async" />`
         : '<div style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;background:#eee;font-size:2rem;">📝</div>';
       return `<div class="photo-card">${img}<div class="photo-caption">${escapeHtml(ph.comment || "（説明なし）")}<br><small>${escapeHtml(ph.takenAt || ph.createdAt || "")}</small></div></div>`;
     })
     .join("")}</div>`;
+  countEl.textContent = `写真 ${cachedPhotos.length} 枚（${visible.length} 枚表示）`;
+  countEl.classList.remove("hidden");
+  if (cachedPhotos.length > photoDisplayLimit) {
+    moreBtn.classList.remove("hidden");
+    moreBtn.textContent = `さらに表示（残り ${cachedPhotos.length - photoDisplayLimit} 枚）`;
+  } else {
+    moreBtn.classList.add("hidden");
+  }
 }
 
 function renderMaterials(materials) {
@@ -201,25 +223,31 @@ function renderMaterials(materials) {
     .join("");
 }
 
+function formatCustomerSiteMeta(p) {
+  const parts = [
+    p.projectNo,
+    p.customerName && `依頼主: ${p.customerName}`,
+    p.siteName && `現場: ${p.siteName}`,
+    p.address && `工事場所: ${p.address}`,
+    p.assignee && `担当: ${p.assignee}`,
+    p.phone,
+    p.email,
+    p.surveyDate && `現調日: ${p.surveyDate}`,
+  ].filter(Boolean);
+  return parts.map((x) => escapeHtml(x)).join("<br>");
+}
+
 async function openDetail(projectId) {
   currentProjectId = projectId;
+  photoDisplayLimit = PHOTO_BATCH;
   showView("detail");
   try {
     const p = await api(`/projects/${projectId}`);
-    $("detail-name").textContent = p.customerName || p.siteName;
+    $("detail-name").textContent = p.siteName || p.customerName;
     const statusEl = $("detail-status");
     statusEl.textContent = WORKFLOW_LABELS[p.workflowStatus] || p.workflowStatus;
     statusEl.className = statusBadgeClass(p.workflowStatus);
-    $("detail-meta").innerHTML = [
-      p.projectNo,
-      p.assignee && `担当: ${escapeHtml(p.assignee)}`,
-      p.phone,
-      p.address,
-      p.surveyDate && `現調日: ${p.surveyDate}`,
-    ]
-      .filter(Boolean)
-      .map((x) => escapeHtml(x))
-      .join(" · ");
+    $("detail-meta").innerHTML = formatCustomerSiteMeta(p);
     const notesEl = $("detail-notes");
     if (p.notes) {
       notesEl.textContent = `📝 ${p.notes}`;
@@ -249,6 +277,36 @@ async function openDetail(projectId) {
   }
 }
 
+async function compressImage(file, maxWidth = 1600, quality = 0.82) {
+  if (!file.type.startsWith("image/")) {
+    return fileToBase64(file);
+  }
+  const dataUrl = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+  const img = await new Promise((resolve, reject) => {
+    const el = new Image();
+    el.onload = () => resolve(el);
+    el.onerror = reject;
+    el.src = String(dataUrl);
+  });
+  let { width, height } = img;
+  if (width > maxWidth) {
+    height = Math.round((height * maxWidth) / width);
+    width = maxWidth;
+  }
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(img, 0, 0, width, height);
+  const out = canvas.toDataURL("image/jpeg", quality);
+  return out.split(",")[1];
+}
+
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -260,6 +318,37 @@ function fileToBase64(file) {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+}
+
+async function uploadPhotos(files) {
+  if (!currentProjectId || !files?.length) return;
+  const comment = $("photo-comment").value || undefined;
+  const progress = $("photo-upload-progress");
+  progress.classList.remove("hidden");
+  let done = 0;
+  for (const file of files) {
+    progress.textContent = `アップロード中… ${done + 1} / ${files.length}`;
+    try {
+      const imageBase64 = await compressImage(file);
+      await api(`/projects/${currentProjectId}/photos`, {
+        method: "POST",
+        body: JSON.stringify({
+          comment,
+          imageBase64,
+          fileName: file.name.replace(/\.[^.]+$/, ".jpg"),
+          takenAt: new Date().toISOString(),
+        }),
+      });
+      done += 1;
+    } catch (e) {
+      toastError(e, e.status);
+      break;
+    }
+  }
+  progress.classList.add("hidden");
+  $("photo-comment").value = "";
+  toast(done === files.length ? `写真を${done}枚追加しました` : `${done}枚追加（途中でエラー）`);
+  await openDetail(currentProjectId);
 }
 
 function handleBack() {
@@ -279,6 +368,21 @@ function handleBack() {
   showView("list");
 }
 
+function projectBodyFromForm(fd) {
+  return {
+    customerCode: customerCodeFromPath(),
+    customerName: fd.get("customerName"),
+    customerAddress: fd.get("customerAddress") || undefined,
+    siteName: fd.get("siteName") || undefined,
+    address: fd.get("address") || undefined,
+    phone: fd.get("phone") || undefined,
+    email: fd.get("email") || undefined,
+    assignee: fd.get("assignee") || undefined,
+    surveyDate: fd.get("surveyDate") || undefined,
+    notes: fd.get("notes") || undefined,
+  };
+}
+
 async function init() {
   await requireCustomerLogin(customerCodeFromPath());
   practicalNav = initPracticalNav({
@@ -289,7 +393,6 @@ async function init() {
   });
   practicalNav.setToast(toast);
   renderMaterialPicker();
-  $("photo-upload-zone")?.addEventListener("click", () => $("file-input").click());
   showView("list");
   await loadList();
 
@@ -307,16 +410,8 @@ async function init() {
   $("project-form").addEventListener("submit", async (ev) => {
     ev.preventDefault();
     const fd = new FormData(ev.target);
-    const body = {
-      customerCode: customerCodeFromPath(),
-      customerName: fd.get("customerName"),
-      phone: fd.get("phone") || undefined,
-      address: fd.get("address") || undefined,
-      surveyDate: fd.get("surveyDate") || undefined,
-      notes: fd.get("notes") || undefined,
-    };
     try {
-      const created = await api("/projects", { method: "POST", body: JSON.stringify(body) });
+      const created = await api("/projects", { method: "POST", body: JSON.stringify(projectBodyFromForm(fd)) });
       toast("保存しました");
       await openDetail(created.projectId);
     } catch (e) {
@@ -324,29 +419,24 @@ async function init() {
     }
   });
 
-  $("btn-camera").addEventListener("click", () => $("file-input").click());
+  $("btn-camera").addEventListener("click", () => $("file-input-camera").click());
+  $("btn-library").addEventListener("click", () => $("file-input-library").click());
 
-  $("file-input").addEventListener("change", async (ev) => {
-    const file = ev.target.files?.[0];
-    if (!file || !currentProjectId) return;
-    try {
-      const imageBase64 = await fileToBase64(file);
-      await api(`/projects/${currentProjectId}/photos`, {
-        method: "POST",
-        body: JSON.stringify({
-          comment: $("photo-comment").value || undefined,
-          imageBase64,
-          fileName: file.name,
-          takenAt: new Date().toISOString(),
-        }),
-      });
-      $("photo-comment").value = "";
-      ev.target.value = "";
-      toast("写真を追加しました");
-      await openDetail(currentProjectId);
-    } catch (e) {
-      toastError(e, e.status);
-    }
+  $("file-input-camera").addEventListener("change", async (ev) => {
+    const files = [...(ev.target.files || [])];
+    ev.target.value = "";
+    await uploadPhotos(files);
+  });
+
+  $("file-input-library").addEventListener("change", async (ev) => {
+    const files = [...(ev.target.files || [])];
+    ev.target.value = "";
+    await uploadPhotos(files);
+  });
+
+  $("btn-load-more-photos").addEventListener("click", () => {
+    photoDisplayLimit = Math.min(photoDisplayLimit + PHOTO_BATCH, cachedPhotos.length);
+    paintPhotoGrid();
   });
 
   $("btn-photo-memo").addEventListener("click", async () => {
@@ -397,8 +487,12 @@ async function init() {
       const p = await api(`/projects/${currentProjectId}`);
       const form = $("edit-form");
       form.customerName.value = p.customerName || "";
+      form.customerAddress.value = p.customerAddress || "";
+      form.siteName.value = p.siteName || "";
       form.address.value = p.address || "";
       form.phone.value = p.phone || "";
+      form.email.value = p.email || "";
+      form.assignee.value = p.assignee || "";
       form.surveyDate.value = p.surveyDate || "";
       form.notes.value = p.notes || "";
       $("edit-error").classList.add("hidden");
@@ -412,16 +506,12 @@ async function init() {
     ev.preventDefault();
     if (!currentProjectId) return;
     const fd = new FormData(ev.target);
+    const body = projectBodyFromForm(fd);
+    delete body.customerCode;
     try {
       await api(`/projects/${currentProjectId}`, {
         method: "PATCH",
-        body: JSON.stringify({
-          customerName: fd.get("customerName"),
-          address: fd.get("address") || undefined,
-          phone: fd.get("phone") || undefined,
-          surveyDate: fd.get("surveyDate") || undefined,
-          notes: fd.get("notes") || undefined,
-        }),
+        body: JSON.stringify(body),
       });
       toast("変更を保存しました");
       await openDetail(currentProjectId);

@@ -132,6 +132,67 @@ describe("見積PWA v1 API", () => {
     assert.ok(Array.isArray(res.body.lines));
   });
 
+  it("PDFプレビューはJWT（Bearer）で取得できる", async () => {
+    const res = await request(app)
+      .get(`/api/estimate/v1/projects/${businessProjectId}/pdf`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(res.status, 200);
+    const ct = String(res.headers["content-type"] || "");
+    assert.ok(ct.includes("pdf") || ct.includes("html"));
+    if (ct.includes("html")) {
+      assert.ok(res.text.includes("御見積書"));
+    } else {
+      assert.ok(Buffer.isBuffer(res.body) ? res.body.length > 50 : true);
+    }
+  });
+
+  it("PDFプレビューはaccess_tokenクエリでも取得できる", async () => {
+    const res = await request(app).get(
+      `/api/estimate/v1/projects/${businessProjectId}/pdf?access_token=${encodeURIComponent(token)}`
+    );
+    assert.equal(res.status, 200);
+  });
+
+  it("見積項目を複数行追加・更新できる", async () => {
+    const items = [
+      { name: "防犯カメラ設置", unit: "台", quantity: 2, unitPrice: 30000, amount: 60000, category: "camera" },
+      { name: "配線工事", unit: "式", quantity: 1, unitPrice: 50000, amount: 50000, category: "other" },
+      { name: "試験・調整", unit: "式", quantity: 1, unitPrice: 10000, amount: 10000, category: "other" },
+    ];
+    const res = await request(app)
+      .patch(`/api/estimate/v1/projects/${businessProjectId}/items`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ items, notes: "納期2週間程度" });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.estimate.items.length, 3);
+    assert.equal(res.body.totals.subtotal, 120000);
+  });
+
+  it("確定前でもPDFプレビュー（HTML）が返る", async () => {
+    const survey2 = await request(app)
+      .post("/api/survey/v1/projects")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        customerCode: "TOMS001",
+        customerName: "ドラフトPDF顧客",
+        siteName: "ドラフト現場",
+        address: "東京都",
+      });
+    await request(app)
+      .post(`/api/survey/v1/projects/${survey2.body.projectId}/estimate-pending`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({});
+    const draft = await request(app)
+      .post(`/api/estimate/v1/from-survey/${survey2.body.projectId}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({});
+    const res = await request(app)
+      .get(`/api/estimate/v1/projects/${draft.body.businessProjectId}/pdf`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(res.status, 200);
+    assert.ok(res.text.includes("御見積書") || res.text.includes("小計"));
+  });
+
   it("GET /estimate-v1 ページを配信できる", async () => {
     const res = await request(app).get("/estimate-v1");
     assert.equal(res.status, 200);

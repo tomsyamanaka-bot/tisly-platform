@@ -31,12 +31,14 @@
         <span id="detail-status" class="status-badge orange">—</span>
         <h2 id="detail-name">—</h2>
         <p id="detail-meta"></p>
+        <p id="detail-customer-info" class="section-hint"></p>
       </div>
 
       <p class="section-label">🧾 お見積りの内訳</p>
-      <p class="section-hint">項目名・数量・単価を直せます</p>
+      <p class="section-hint">項目を追加・並べ替え・削除できます</p>
       <div class="friendly-card" id="lines-card">
         <div id="line-list"></div>
+        <button type="button" class="btn-sub blue" id="btn-add-line" style="margin-top:0.5rem;">＋ 項目を追加</button>
         <div class="totals-box" id="totals-box">
           <div>小計 <span id="total-sub">¥0</span></div>
           <div>消費税（10%） <span id="total-tax">¥0</span></div>
@@ -44,11 +46,14 @@
         </div>
       </div>
 
+      <label class="friendly-label">備考 <textarea id="estimate-notes" rows="3" placeholder="見積書に記載する備考"></textarea></label>
+
       <button type="button" class="btn-sub blue" id="btn-save-items">内訳を保存</button>
+      <button type="button" class="btn-sub blue" id="btn-preview-pdf">PDFプレビュー</button>
       <button type="button" class="btn-main blue" id="btn-finalize">見積を確定</button>
 
       <p class="section-label">📄 PDFプレビュー</p>
-      <p class="section-hint">確定すると見積書が表示されます</p>
+      <p class="section-hint">確定前でもプレビューできます（TOMS形式レイアウト）</p>
       <div id="pdf-section" class="friendly-card hidden">
         <iframe id="pdf-preview" class="pdf-preview-frame" title="見積書プレビュー"></iframe>
         <a id="link-pdf" class="btn-sub blue" href="#" target="_blank" rel="noopener" style="margin-top:0.5rem;display:block;text-align:center;text-decoration:none;">別のタブで開く</a>

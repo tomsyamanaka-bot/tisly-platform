@@ -6,6 +6,10 @@ header{display:flex;justify-content:space-between;align-items:flex-start;border-
 .company{font-size:0.85rem;color:#475569;line-height:1.5;text-align:right}
 h1{font-size:1.5rem;margin:0 0 0.25rem}
 .meta{color:#64748b;font-size:0.9rem}
+.recipient{font-size:1.15rem;margin:0.5rem 0}
+.site-block{margin:1rem 0;padding:0.85rem 1rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;font-size:0.92rem;line-height:1.55}
+.site-block p{margin:0.2rem 0}
+.intro{margin:1rem 0 0.5rem;font-size:0.95rem}
 table.items{width:100%;border-collapse:collapse;margin:1rem 0}
 table.items th,table.items td{border:1px solid #e2e8f0;padding:0.5rem 0.65rem;font-size:0.9rem}
 table.items th{background:#f1f5f9;text-align:left}

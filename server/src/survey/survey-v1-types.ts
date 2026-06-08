@@ -58,8 +58,13 @@ export interface SurveyProjectV1 {
   projectId: string;
   projectNo: string | null;
   customerCode: string;
+  /** 依頼主 */
   customerName: string;
+  /** 依頼主住所 */
+  customerAddress: string | null;
+  /** 現場名 */
   siteName: string;
+  /** 工事場所 */
   address: string | null;
   phone: string | null;
   email: string | null;

@@ -50,6 +50,7 @@ surveyV1Router.post("/projects", ...surveyV1Auth, (req: AuthedRequest, res) => {
   const body = req.body as {
     customerCode?: string;
     customerName?: string;
+    customerAddress?: string;
     siteName?: string;
     address?: string;
     phone?: string;
@@ -68,6 +69,7 @@ surveyV1Router.post("/projects", ...surveyV1Auth, (req: AuthedRequest, res) => {
     const project = createSurveyProjectV1({
       customerCode,
       customerName: body.customerName,
+      customerAddress: body.customerAddress,
       siteName: body.siteName,
       address: body.address,
       phone: body.phone,
@@ -97,6 +99,7 @@ surveyV1Router.patch("/projects/:id", ...surveyV1Auth, (req: AuthedRequest, res)
   if (!assertSurveyRole(req, res)) return;
   const body = req.body as {
     customerName?: string;
+    customerAddress?: string;
     siteName?: string;
     address?: string;
     phone?: string;
@@ -114,6 +117,7 @@ surveyV1Router.patch("/projects/:id", ...surveyV1Auth, (req: AuthedRequest, res)
   try {
     const updated = updateSurveyProjectV1(String(req.params.id), {
       customerName: body.customerName,
+      customerAddress: body.customerAddress,
       siteName: body.siteName,
       address: body.address,
       phone: body.phone,

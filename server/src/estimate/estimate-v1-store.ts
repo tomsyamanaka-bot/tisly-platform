@@ -189,6 +189,11 @@ export function getEstimateProjectV1Detail(businessProjectId: string): EstimateP
     title: project.title,
     address: project.address,
     phone: project.phone,
+    siteName: survey?.siteName ?? project.title,
+    customerAddress: survey?.customerAddress ?? null,
+    contactName: survey?.assignee ?? null,
+    email: survey?.email ?? null,
+    estimateNotes: project.surveyMemo || null,
     surveyProjectId: project.surveyProjectId,
     surveyWorkflowStatus: survey?.workflowStatus ?? null,
     estimate,
@@ -223,7 +228,7 @@ export function createEstimateFromSurveyV1(
     project = createBusinessProject({
       customerId: `BCU-SVY-${detail.customerCode}`,
       customerName: detail.customerName,
-      title: detail.customerName,
+      title: detail.siteName || detail.customerName,
       address: detail.address ?? "",
       phone: detail.phone ?? "",
       surveyProjectId,
@@ -264,7 +269,8 @@ export function createEstimateFromSurveyV1(
 
 export function updateEstimateItemsV1(
   businessProjectId: string,
-  items: Partial<EstimateLineItem>[]
+  items: Partial<EstimateLineItem>[],
+  opts?: { notes?: string }
 ): { estimate: Estimate; totals: EstimateTotalsV1 } {
   const project = getBusinessProject(businessProjectId);
   if (!project?.estimateId) throw new Error("estimate not found");
@@ -290,8 +296,25 @@ export function updateEstimateItemsV1(
       now,
       project.estimateId
     );
+  if (opts?.notes !== undefined) {
+    updateBusinessProject(businessProjectId, { surveyMemo: opts.notes });
+  }
   const estimate = getEstimate(project.estimateId)!;
   return { estimate, totals };
+}
+
+export function getEstimatePdfContextV1(businessProjectId: string) {
+  const project = getBusinessProject(businessProjectId);
+  if (!project) return null;
+  const survey = project.surveyProjectId ? getSurveyProjectV1(project.surveyProjectId) : null;
+  return {
+    siteName: survey?.siteName ?? project.title,
+    customerAddress: survey?.customerAddress ?? null,
+    contactName: survey?.assignee ?? null,
+    phone: survey?.phone ?? project.phone,
+    email: survey?.email ?? null,
+    notes: project.surveyMemo || null,
+  };
 }
 
 export function finalizeEstimateV1(businessProjectId: string): {
@@ -302,7 +325,8 @@ export function finalizeEstimateV1(businessProjectId: string): {
   const project = getBusinessProject(businessProjectId);
   if (!project?.estimateId) throw new Error("estimate not found");
   const estimate = getEstimate(project.estimateId)!;
-  const pdfPath = generateEstimatePdf(project, estimate);
+  const pdfCtx = getEstimatePdfContextV1(businessProjectId) ?? undefined;
+  const pdfPath = generateEstimatePdf(project, estimate, pdfCtx);
   setEstimatePdfPath(estimate.id, pdfPath);
 
   if (project.surveyProjectId) {
@@ -320,11 +344,19 @@ export function buildTomsFormatPreviewV1(businessProjectId: string): TomsEstimat
   const detail = getEstimateProjectV1Detail(businessProjectId);
   if (!detail?.estimate) throw new Error("estimate not found");
   const est = detail.estimate;
+  const survey = detail.surveyProjectId ? getSurveyProjectV1(detail.surveyProjectId) : null;
   return {
     version: "toms-standard-v1-stub",
     projectNo: detail.projectNo,
     customerName: detail.customerName,
+    customerAddress: survey?.customerAddress ?? null,
+    siteName: survey?.siteName ?? detail.title,
+    siteAddress: survey?.address ?? detail.address,
+    contactName: survey?.assignee ?? null,
+    phone: survey?.phone ?? detail.phone,
+    email: survey?.email ?? null,
     title: detail.title,
+    notes: getBusinessProject(businessProjectId)?.surveyMemo ?? "",
     lines: est.items.map((item, i) => ({
       lineNo: i + 1,
       category: item.category,

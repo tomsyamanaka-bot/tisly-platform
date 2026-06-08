@@ -39,6 +39,11 @@ export interface EstimateProjectV1Detail {
   title: string;
   address: string;
   phone: string;
+  siteName?: string | null;
+  customerAddress?: string | null;
+  contactName?: string | null;
+  email?: string | null;
+  estimateNotes?: string | null;
   surveyProjectId: string | null;
   surveyWorkflowStatus: SurveyWorkflowStatus | null;
   estimate: Estimate | null;
@@ -71,7 +76,14 @@ export interface TomsEstimateFormatV1 {
   version: "toms-standard-v1-stub";
   projectNo: string;
   customerName: string;
+  customerAddress?: string | null;
+  siteName?: string | null;
+  siteAddress?: string | null;
+  contactName?: string | null;
+  phone?: string | null;
+  email?: string | null;
   title: string;
+  notes?: string;
   lines: TomsEstimateLineV1[];
   subtotal: number;
   tax: number;

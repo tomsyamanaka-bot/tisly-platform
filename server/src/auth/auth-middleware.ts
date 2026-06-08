@@ -22,6 +22,8 @@ export interface AuthedRequest extends Request {
 function extractBearer(req: Request): string | undefined {
   const auth = req.header("authorization");
   if (auth?.startsWith("Bearer ")) return auth.slice(7).trim();
+  const queryToken = req.query.access_token;
+  if (typeof queryToken === "string" && queryToken.trim()) return queryToken.trim();
   return req.header("x-tisly-admin-token") ?? undefined;
 }
 

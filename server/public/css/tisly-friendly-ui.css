@@ -208,10 +208,28 @@ body.tisly-friendly {
   box-shadow: 0 0 0 2px var(--tisly-green);
 }
 
+.tisly-friendly .photo-scroll-container {
+  max-height: 420px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  content-visibility: auto;
+  contain-intrinsic-size: 0 320px;
+}
+
 .tisly-friendly .photo-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
   gap: 0.65rem;
+}
+
+.tisly-friendly .photo-action-row {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+
+.tisly-friendly .photo-action-row .btn-sub {
+  flex: 1;
 }
 
 .tisly-friendly .photo-card {
@@ -327,6 +345,27 @@ body.tisly-friendly {
 
 .tisly-friendly .line-card:last-child {
   border-bottom: none;
+}
+
+.tisly-friendly .line-actions {
+  display: flex;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.tisly-friendly .line-actions button {
+  padding: 0.35rem 0.6rem;
+  font-size: 0.8rem;
+  border: 1px solid var(--tisly-border);
+  border-radius: 6px;
+  background: var(--tisly-bg);
+  cursor: pointer;
+}
+
+.tisly-friendly .line-actions .btn-line-delete {
+  color: var(--tisly-red);
+  border-color: var(--tisly-red-light);
 }
 
 .tisly-friendly .totals-box {

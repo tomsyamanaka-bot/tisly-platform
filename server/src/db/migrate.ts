@@ -185,6 +185,25 @@ export function runMigrations(database: Database.Database): void {
   migrateFieldSurveyPwaV1(database);
   migrateSurveyMaterialAntennaCategory(database);
   migrateFieldEstimatePwaV1(database);
+  migrateSurveyCustomerSiteV2(database);
+}
+
+/** 現調PWA — 依頼主住所（顧客と現場の分離） */
+function migrateSurveyCustomerSiteV2(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:survey_customer_site_v2") as { value_json: string } | undefined;
+  if (marker) return;
+
+  addColumnsIfMissing(database, "survey_projects", [
+    { name: "customer_address", ddl: "ALTER TABLE survey_projects ADD COLUMN customer_address TEXT" },
+  ]);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:survey_customer_site_v2", JSON.stringify({ at: new Date().toISOString() }));
 }
 
 const SURVEY_PROJECT_V1_COLUMNS: Array<{ name: string; ddl: string }> = [

@@ -35,3 +35,27 @@
 
 - 標準手順: `git pull` → `npm run build` → `systemctl restart tisly-server`
 - Cursor 環境から VPS SSH が不通のため、人間によるデプロイ確認が必要
+
+## 2026-06-08 — 実務投入 v2（TOMS 向け）
+
+### PDF 認証
+
+- iframe は `fetch` + `Authorization: Bearer` → Blob URL（401 回避）
+- 別タブ用に `?access_token=` を `extractBearer` で受理（PDF のみの用途）
+
+### 顧客と現場
+
+- DB: `customer_address` 列を追加（依頼主住所）
+- `address` = 工事場所、`site_name` = 現場名、`customer_name` = 依頼主
+
+### 写真
+
+- カメラ (`capture=environment`) とライブラリ (`multiple`) をボタン分離
+- アップロード前に Canvas で JPEG 圧縮（最大幅 1600px）
+- 一覧は 36 枚ずつ段階表示 + `loading=lazy`
+
+### 見積
+
+- 項目は無制限追加。並び替えはフロント配列 swap → PATCH
+- PDF は `renderEstimateHtml`（TOMS ブロック）を正本に。placeholder は廃止方向
+- 備考は `survey_memo` に保存（PATCH items の `notes`）

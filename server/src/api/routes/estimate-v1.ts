@@ -5,6 +5,7 @@ import {
   buildTomsFormatPreviewV1,
   createEstimateFromSurveyV1,
   finalizeEstimateV1,
+  getEstimatePdfContextV1,
   getEstimateProjectV1Detail,
   listEstimateProjectsV1,
   listPendingSurveysV1,
@@ -75,13 +76,15 @@ estimateV1Router.get("/projects/:id", ...estimateV1Auth, (req: AuthedRequest, re
 
 estimateV1Router.patch("/projects/:id/items", ...estimateV1Auth, (req: AuthedRequest, res) => {
   if (!assertEstimateV1Role(req, res)) return;
-  const body = req.body as { items?: Partial<EstimateLineItem>[] };
+  const body = req.body as { items?: Partial<EstimateLineItem>[]; notes?: string };
   if (!Array.isArray(body.items)) {
     res.status(400).json({ error: "items array required" });
     return;
   }
   try {
-    const result = updateEstimateItemsV1(String(req.params.id), body.items);
+    const result = updateEstimateItemsV1(String(req.params.id), body.items, {
+      notes: body.notes,
+    });
     res.json(result);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "update failed";
@@ -112,7 +115,8 @@ estimateV1Router.get("/projects/:id/pdf", ...estimateV1Auth, (req: AuthedRequest
     res.status(404).json({ error: "No estimate" });
     return;
   }
-  const { contentType, path: filePath } = getEstimatePdfOrPlaceholder(project, estimate);
+  const pdfCtx = getEstimatePdfContextV1(project.id) ?? undefined;
+  const { contentType, path: filePath } = getEstimatePdfOrPlaceholder(project, estimate, pdfCtx);
   res.type(contentType).sendFile(filePath);
 });
 

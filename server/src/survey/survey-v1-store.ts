@@ -52,6 +52,7 @@ function rowToProject(r: Record<string, unknown>): SurveyProjectV1 {
     projectNo: r.project_no != null ? String(r.project_no) : null,
     customerCode: String(r.customer_code),
     customerName: String(r.customer_name ?? r.site_name ?? ""),
+    customerAddress: r.customer_address != null ? String(r.customer_address) : null,
     siteName: String(r.site_name),
     address: r.address != null ? String(r.address) : null,
     phone: r.phone != null ? String(r.phone) : null,
@@ -146,6 +147,7 @@ export function listSurveyProjectsV1(opts?: {
 export function createSurveyProjectV1(input: {
   customerCode: string;
   customerName: string;
+  customerAddress?: string;
   siteName?: string;
   address?: string;
   phone?: string;
@@ -162,16 +164,17 @@ export function createSurveyProjectV1(input: {
   getDatabase()
     .prepare(
       `INSERT INTO survey_projects (
-        project_id, project_no, customer_code, customer_name, site_name,
+        project_id, project_no, customer_code, customer_name, customer_address, site_name,
         address, phone, email, survey_date, assignee,
         status, workflow_status, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 'surveying', ?, ?)`
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 'surveying', ?, ?)`
     )
     .run(
       projectId,
       projectNo,
       input.customerCode.toUpperCase(),
       input.customerName.trim(),
+      input.customerAddress?.trim() ?? null,
       siteName,
       input.address?.trim() ?? null,
       input.phone?.trim() ?? null,
@@ -225,6 +228,7 @@ export function updateSurveyProjectV1(
   projectId: string,
   patch: Partial<{
     customerName: string;
+    customerAddress: string;
     siteName: string;
     address: string;
     phone: string;
@@ -244,7 +248,7 @@ export function updateSurveyProjectV1(
   getDatabase()
     .prepare(
       `UPDATE survey_projects SET
-        customer_name = ?, site_name = ?, address = ?, phone = ?, email = ?,
+        customer_name = ?, customer_address = ?, site_name = ?, address = ?, phone = ?, email = ?,
         survey_date = ?, assignee = ?,
         workflow_status = COALESCE(?, workflow_status),
         updated_at = ?
@@ -252,6 +256,7 @@ export function updateSurveyProjectV1(
     )
     .run(
       patch.customerName ?? existing.customerName,
+      patch.customerAddress !== undefined ? patch.customerAddress : existing.customerAddress,
       patch.siteName ?? existing.siteName,
       patch.address !== undefined ? patch.address : existing.address,
       patch.phone !== undefined ? patch.phone : existing.phone,

@@ -8,6 +8,7 @@ import {
   renderPdfPlaceholderHtml,
   type PdfDocumentKind,
 } from "./pdf-templates.js";
+import { renderEstimateHtml } from "./estimatePdfTemplate.js";
 /** Phase601+ v3: HTML templates live in estimatePdfTemplate / invoicePdfTemplate / completionReportPdfTemplate */
 
 function minimalPdfBuffer(title: string, lines: string[]): Buffer {
@@ -79,7 +80,13 @@ function renderWithTemplate(
   return { pdfPath, htmlPath, template: meta };
 }
 
-export function generateEstimatePdf(project: BusinessProject, estimate: Estimate): string {
+export function generateEstimatePdf(
+  project: BusinessProject,
+  estimate: Estimate,
+  ctx?: EstimatePdfRenderContext
+): string {
+  const html = renderEstimateHtml(project, estimate, ctx);
+  const htmlPath = writeHtml(project.id, "pdf-html", `estimate-${estimate.estimateNo}.html`, html);
   const { pdfPath } = renderWithTemplate("estimate", project, estimate, [
     `見積書 ${estimate.estimateNo}`,
     `お客様: ${estimate.customerName}`,
@@ -88,6 +95,7 @@ export function generateEstimatePdf(project: BusinessProject, estimate: Estimate
     `税: ¥${estimate.tax}`,
     `合計: ¥${estimate.total}`,
     `粗利: ¥${estimate.grossProfit} (${estimate.grossProfitRate}%)`,
+    `html: ${htmlPath}`,
   ]);
   return pdfPath;
 }
@@ -119,15 +127,25 @@ export function generateCompletionReportPdf(
   return pdfPath;
 }
 
+export interface EstimatePdfRenderContext {
+  siteName?: string | null;
+  customerAddress?: string | null;
+  contactName?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  notes?: string | null;
+}
+
 export function getEstimatePdfOrPlaceholder(
   project: BusinessProject,
-  estimate: Estimate
+  estimate: Estimate,
+  ctx?: EstimatePdfRenderContext
 ): { contentType: string; path: string } {
   if (estimate.pdfPath) {
     const local = path.join(process.cwd(), estimate.pdfPath.replace(/^\//, ""));
     if (fs.existsSync(local)) return { contentType: "application/pdf", path: local };
   }
-  const html = renderPdfPlaceholderHtml("estimate", project, estimate);
+  const html = renderEstimateHtml(project, estimate, ctx);
   const tmp = businessUploadsDir(project.id, "pdf-html");
   const p = path.join(tmp, "estimate-live.html");
   fs.writeFileSync(p, html);

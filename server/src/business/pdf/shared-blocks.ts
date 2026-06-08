@@ -17,9 +17,48 @@ export function renderPdfHeader(docTitle: string, docNo: string): string {
 }
 
 export function renderCustomerBlock(customerName: string, title: string, address: string, projectNo: string): string {
-  return `<p><strong>宛名</strong> ${escapeHtml(customerName)} 様</p>
-<p><strong>件名</strong> ${escapeHtml(title)}</p>
-<p class="meta">住所: ${escapeHtml(address || "—")} · 案件番号 ${escapeHtml(projectNo)}</p>`;
+  return renderTomsCustomerSiteBlock({
+    customerName,
+    siteName: title,
+    siteAddress: address,
+    projectNo,
+  });
+}
+
+export interface TomsCustomerSiteBlockInput {
+  customerName: string;
+  customerAddress?: string | null;
+  siteName?: string | null;
+  siteAddress?: string | null;
+  contactName?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  projectNo: string;
+  estimateDate?: string | null;
+}
+
+export function renderTomsCustomerSiteBlock(input: TomsCustomerSiteBlockInput): string {
+  const rows: string[] = [];
+  rows.push(`<p class="recipient"><strong>${escapeHtml(input.customerName)}</strong> 様</p>`);
+  if (input.customerAddress) {
+    rows.push(`<p class="meta">ご住所: ${escapeHtml(input.customerAddress)}</p>`);
+  }
+  rows.push('<div class="site-block">');
+  rows.push("<strong>工事内容</strong>");
+  if (input.siteName) rows.push(`<p>現場名: ${escapeHtml(input.siteName)}</p>`);
+  if (input.siteAddress) rows.push(`<p>工事場所: ${escapeHtml(input.siteAddress)}</p>`);
+  if (input.contactName) rows.push(`<p>ご担当: ${escapeHtml(input.contactName)}</p>`);
+  if (input.phone) rows.push(`<p>TEL: ${escapeHtml(input.phone)}</p>`);
+  if (input.email) rows.push(`<p>Email: ${escapeHtml(input.email)}</p>`);
+  rows.push("</div>");
+  const meta = [
+    input.estimateDate ? `見積日: ${escapeHtml(input.estimateDate)}` : "",
+    `案件番号 ${escapeHtml(input.projectNo)}`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  rows.push(`<p class="meta">${meta}</p>`);
+  return rows.join("\n");
 }
 
 export function renderLineItemsTable(
