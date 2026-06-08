@@ -30,6 +30,29 @@ TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。
 
 ---
 
+## TiSLY Lite Security Demo Mode — **完了**（2026-06-08）
+
+**営業デモ用の防犯システムモード**（Remote Test を拡張）
+
+| 領域 | パス / URL |
+|------|------------|
+| 本番 Web UI | https://tisly.jp/remote-test |
+| 設計・画面構成・状態遷移 | [`docs/security-demo-mode.md`](docs/security-demo-mode.md) |
+| センサー名称設定 | `server/config/security-demo.json` |
+| 警戒状態永続化 | `server/data/remote-test-security-demo.json` |
+
+| 機能 | 説明 |
+|------|------|
+| 警戒 ON/OFF | `POST /api/remote-test/arm` · `/disarm` — サーバー保持・再起動後も維持 |
+| DI センサー連動 | **警戒 ON 中のみ** Push 通知（用途名で通知） |
+| イベント履歴 | `eventHistory` 最大100件（PWA は最新20件表示） |
+| 通知履歴 | Push 送信分のみ（警戒 ON/OFF · センサー · CH） |
+| 侵入シミュレーション | 配線なしで DI1 ON を疑似発生 |
+
+**営業デモ手順:** PWA で Push 登録 → **警戒ON** → **侵入シミュレーション** → Push「侵入検知 / 玄関ビーム」を確認 → **警戒OFF**
+
+---
+
 ## TiSLY Platform — Remote Test PoC（Phase 2 完了 → Phase 3 着手）
 
 **iPhone から通知 & RP2350 CH1〜CH8 遠隔操作**
@@ -73,7 +96,17 @@ TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。
 
 **完了レポート:** [`docs/remote-test-final-report.md`](docs/remote-test-final-report.md)
 
-### 現在のフェーズ: Phase 6 候補 — MQTT 本格移行
+### Phase 6 — 8DI 実機確認 **完了**（2026-06-08）
+
+| 到達点 | 状態 |
+|--------|------|
+| DI1〜DI8 heartbeat | ✅ |
+| PWA DI 状態表示 | ✅ |
+| Security Demo Mode | ✅ [`docs/security-demo-mode.md`](docs/security-demo-mode.md) |
+
+**8DI 構成図:** [`docs/phase6-8di-configuration.md`](docs/phase6-8di-configuration.md)
+
+### 現在のフェーズ: MQTT 本格移行（候補）
 
 | 実装対象 | 内容 |
 |----------|------|

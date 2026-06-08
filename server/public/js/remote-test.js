@@ -102,6 +102,8 @@ async function api(method, path, body) {
 
 const logEl = document.getElementById("log");
 const notifyHistoryEl = document.getElementById("notify-history");
+const eventHistoryEl = document.getElementById("event-history");
+const securityStatusCard = document.getElementById("security-status-card");
 const tokenInput = document.getElementById("token-input");
 const saveTokenBtn = document.getElementById("btn-save-token");
 
@@ -246,6 +248,24 @@ function getChannelState(data, ch) {
   return "off";
 }
 
+function getInputState(data, di) {
+  const key = String(di);
+  const deviceStates = data.device?.inputStates;
+  if (deviceStates && deviceStates[key] !== undefined) {
+    return deviceStates[key];
+  }
+  if (data.inputStates && data.inputStates[key] !== undefined) {
+    return data.inputStates[key];
+  }
+  return "off";
+}
+
+function renderInputBadge(di, state) {
+  const el = document.getElementById(`st-di${di}`);
+  if (!el) return;
+  el.innerHTML = `<span class="badge ${state === "on" ? "on" : "off"}">${state}</span>`;
+}
+
 function renderChannelBadge(ch, state, pending) {
   const el = document.getElementById(`st-ch${ch}`);
   if (!el) return;
@@ -254,6 +274,14 @@ function renderChannelBadge(ch, state, pending) {
   } else {
     el.innerHTML = `<span class="badge ${state === "on" ? "on" : "off"}">${state}</span>`;
   }
+}
+
+function notificationKindLabel(kind) {
+  if (kind === "arm") return "警戒ON";
+  if (kind === "disarm") return "警戒OFF";
+  if (kind === "security") return "センサー";
+  if (kind === "di") return "DI";
+  return "CH";
 }
 
 function renderNotificationHistory(history) {
@@ -266,19 +294,63 @@ function renderNotificationHistory(history) {
   }
   notifyHistoryEl.innerHTML = items
     .map((entry) => {
-      const time = fmtTime(entry.at);
-      const label = entry.body || `CH${entry.channel} ${(entry.to || "").toUpperCase()}`;
-      const cls = entry.to === "on" ? "on" : "off";
+      const time = fmtTime(entry.at ?? entry.timestamp);
+      const kindLabel = notificationKindLabel(entry.kind);
+      const label =
+        entry.body ||
+        (entry.kind === "arm" || entry.kind === "disarm"
+          ? entry.to
+          : `${kindLabel}${entry.channel} ${(entry.to || "").toUpperCase()}`);
+      const cls =
+        entry.to === "on" || entry.to === "ARM" || entry.kind === "arm" ? "on" : "off";
       const pushStatus = entry.pushSuccess
         ? '<span class="status-success">Push OK</span>'
         : `<span class="status-fail">Push NG${entry.pushError ? ` — ${entry.pushError}` : ""}</span>`;
       const entryCls = entry.pushSuccess ? "log-entry success" : "log-entry notify-fail";
       return `<div class="${entryCls}">
         <div><span class="log-time">${time}</span> <span class="notify-label ${cls}">${label}</span></div>
-        <div class="status-muted">${entry.title ?? ""} · ${pushStatus}</div>
+        <div class="status-muted">${entry.title ?? ""} · ${kindLabel} · ${pushStatus}</div>
       </div>`;
     })
     .join("");
+}
+
+function renderEventHistory(history) {
+  if (!eventHistoryEl) return;
+  const items = Array.isArray(history) ? history : [];
+  if (items.length === 0) {
+    eventHistoryEl.innerHTML =
+      '<div class="log-entry"><span class="log-time">—</span> まだイベントはありません</div>';
+    return;
+  }
+  eventHistoryEl.innerHTML = items
+    .map((entry) => {
+      const time = fmtTime(entry.timestamp);
+      return `<div class="log-entry">
+        <div><span class="log-time">${time}</span> <span class="log-label">${entry.type}</span></div>
+        <div class="status-muted">${entry.device} · ${entry.input} · ${entry.state}</div>
+      </div>`;
+    })
+    .join("");
+}
+
+function renderSecurityStatus(data) {
+  const mode = data.securityMode ?? "DISARM";
+  const armed = mode === "ARM";
+  const modeEl = document.getElementById("st-security-mode");
+  if (modeEl) {
+    modeEl.innerHTML = `<span class="badge ${armed ? "arm" : "disarm"}">${mode}</span>`;
+  }
+  const deviceEl = document.getElementById("st-security-device");
+  if (deviceEl) deviceEl.textContent = data.deviceName ?? data.securityDemoConfig?.deviceName ?? "—";
+  const armEl = document.getElementById("st-last-arm");
+  if (armEl) armEl.textContent = fmtTime(data.lastArmAt);
+  const disarmEl = document.getElementById("st-last-disarm");
+  if (disarmEl) disarmEl.textContent = fmtTime(data.lastDisarmAt);
+  if (securityStatusCard) {
+    securityStatusCard.classList.toggle("security-armed", armed);
+    securityStatusCard.classList.toggle("security-disarmed", !armed);
+  }
 }
 
 function renderStatus(data) {
@@ -286,6 +358,9 @@ function renderStatus(data) {
   const pendingMatch = data.pendingCommand ? data.pendingCommand.match(/^ch(\d+)_(on|off)$/) : null;
   const pendingCh = pendingMatch ? Number(pendingMatch[1]) : null;
 
+  for (let di = 1; di <= CHANNEL_COUNT; di++) {
+    renderInputBadge(di, getInputState(data, di));
+  }
   for (let ch = 1; ch <= CHANNEL_COUNT; ch++) {
     renderChannelBadge(ch, getChannelState(data, ch), ch === pendingCh);
   }
@@ -299,6 +374,8 @@ function renderStatus(data) {
 
   renderPushServerStatus(data);
   renderDeviceStatus(data.device);
+  renderSecurityStatus(data);
+  renderEventHistory(data.eventHistoryDisplay ?? data.eventHistory);
   renderNotificationHistory(data.notificationHistory);
 }
 
@@ -467,6 +544,9 @@ async function refreshStatus(silent = false) {
     if (device.chStates) {
       data.chStates = device.chStates;
     }
+    if (device.inputStates) {
+      data.inputStates = device.inputStates;
+    }
   }
   renderStatus(data);
   if (!silent) appendLog("状態確認", data);
@@ -525,6 +605,18 @@ saveTokenBtn?.addEventListener("click", () => {
 });
 
 document.getElementById("btn-status")?.addEventListener("click", () => runAction("状態確認", refreshStatus));
+
+document.getElementById("btn-arm")?.addEventListener("click", () =>
+  runAction("警戒ON", () => api("POST", "/api/remote-test/arm"), { successOnOk: true })
+);
+document.getElementById("btn-disarm")?.addEventListener("click", () =>
+  runAction("警戒OFF", () => api("POST", "/api/remote-test/disarm"), { successOnOk: true })
+);
+document.getElementById("btn-intrusion-sim")?.addEventListener("click", () =>
+  runAction("侵入シミュレーション", () => api("POST", "/api/remote-test/demo/intrusion-simulation"), {
+    successOnOk: true,
+  })
+);
 document.getElementById("btn-push-test")?.addEventListener("click", () =>
   runAction("Push テスト", () => api("POST", "/api/push/test"), { format: "notify" })
 );

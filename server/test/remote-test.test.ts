@@ -1,5 +1,8 @@
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
+import fs from "fs";
+import os from "os";
+import path from "path";
 
 process.env.REMOTE_TEST_TOKEN = process.env.REMOTE_TEST_TOKEN || "test-remote-token-abc123";
 
@@ -7,22 +10,38 @@ import request from "supertest";
 import { createApp } from "../src/app.js";
 import {
   detectChStateChanges,
+  detectInputStateChanges,
   resetRemoteTestState,
 } from "../src/remote-test/remote-test-state.js";
+import { setSecurityDemoStatePathForTests } from "../src/remote-test/security-demo-state.js";
+import { resetSecurityDemoConfigCache } from "../src/remote-test/security-demo-config.js";
 
 const TEST_TOKEN = "test-remote-token-abc123";
+const TEST_STATE_FILE = path.join(os.tmpdir(), `tisly-security-demo-test-${process.pid}.json`);
 
 describe("Remote Test PoC API", () => {
   before(() => {
     process.env.REMOTE_TEST_TOKEN = TEST_TOKEN;
+    setSecurityDemoStatePathForTests(TEST_STATE_FILE);
+    resetSecurityDemoConfigCache();
     resetRemoteTestState();
   });
 
   after(() => {
     resetRemoteTestState();
+    try {
+      if (fs.existsSync(TEST_STATE_FILE)) fs.unlinkSync(TEST_STATE_FILE);
+    } catch {
+      /* ignore */
+    }
+    setSecurityDemoStatePathForTests(null);
   });
 
   const app = createApp();
+
+  async function armSystem() {
+    await request(app).post("/api/remote-test/arm").set("X-Remote-Test-Token", TEST_TOKEN);
+  }
 
   it("rejects requests without token", async () => {
     const res = await request(app).get("/api/remote-test/status");
@@ -483,7 +502,7 @@ describe("Remote Test PoC API", () => {
   it("GET /remote-test serves HTML page", async () => {
     const res = await request(app).get("/remote-test");
     assert.equal(res.status, 200);
-    assert.match(res.text, /TiSLY Remote Test/);
+    assert.match(res.text, /TiSLY Lite Security Demo/);
     assert.match(res.text, /\/remote-test\/app\.js/);
     assert.match(res.text, /id="btn-save-token" disabled/);
     assert.match(res.text, /maxlength="128"/);
@@ -495,6 +514,10 @@ describe("Remote Test PoC API", () => {
     assert.match(res.text, /btn-ch-on/);
     assert.match(res.text, /通知履歴/);
     assert.match(res.text, /id="notify-history"/);
+    assert.match(res.text, /システム状態/);
+    assert.match(res.text, /id="btn-arm"/);
+    assert.match(res.text, /侵入シミュレーション/);
+    assert.match(res.text, /id="event-history"/);
   });
 
   it("GET /remote-test/app.js serves in-scope script", async () => {
@@ -699,5 +722,359 @@ describe("Remote Test PoC API", () => {
       .get("/api/remote-test/status")
       .set("X-Remote-Test-Token", TEST_TOKEN);
     assert.equal(statusAfter.body.notificationHistory.length, countBefore, "同一状態の連続heartbeatでは通知なし");
+  });
+
+  // ---- Phase 6: DI1〜DI8 inputStates ----
+
+  const allInputOff = {
+    "1": "off",
+    "2": "off",
+    "3": "off",
+    "4": "off",
+    "5": "off",
+    "6": "off",
+    "7": "off",
+    "8": "off",
+  };
+
+  const allChOff = {
+    "1": "off",
+    "2": "off",
+    "3": "off",
+    "4": "off",
+    "5": "off",
+    "6": "off",
+    "7": "off",
+    "8": "off",
+  };
+
+  function heartbeatPayload(inputOverrides: Record<string, string> = {}, chOverrides: Record<string, string> = {}) {
+    return {
+      chStates: { ...allChOff, ...chOverrides },
+      inputStates: { ...allInputOff, ...inputOverrides },
+    };
+  }
+
+  it("GET /status returns initial inputStates all off", async () => {
+    resetRemoteTestState();
+    const res = await request(app)
+      .get("/api/remote-test/status")
+      .set("X-Remote-Test-Token", TEST_TOKEN);
+    assert.deepEqual(res.body.inputStates, allInputOff);
+  });
+
+  it("detectInputStateChanges finds OFF→ON and ON→OFF only", () => {
+    const prev = { ...allInputOff, "1": "off", "4": "on", "8": "off" };
+    const next = { ...allInputOff, "1": "on", "4": "off", "8": "on" };
+    const changes = detectInputStateChanges(prev, next);
+    assert.equal(changes.length, 3);
+    assert.deepEqual(changes.find((c) => c.input === 1), { input: 1, from: "off", to: "on" });
+    assert.deepEqual(changes.find((c) => c.input === 4), { input: 4, from: "on", to: "off" });
+    assert.deepEqual(changes.find((c) => c.input === 8), { input: 8, from: "off", to: "on" });
+  });
+
+  it("first heartbeat baselines inputStates without notifications", async () => {
+    resetRemoteTestState();
+    await request(app)
+      .post("/api/remote-test/heartbeat")
+      .query({ token: TEST_TOKEN })
+      .send(heartbeatPayload({ "1": "on" }));
+
+    const status = await request(app)
+      .get("/api/remote-test/status")
+      .set("X-Remote-Test-Token", TEST_TOKEN);
+    assert.equal(status.body.inputStates["1"], "on");
+    assert.equal(status.body.notificationHistory.length, 0);
+  });
+
+  it("heartbeat DI1 OFF→ON sends notification when armed", async () => {
+    resetRemoteTestState();
+    await request(app)
+      .post("/api/remote-test/heartbeat")
+      .query({ token: TEST_TOKEN })
+      .send(heartbeatPayload());
+    await armSystem();
+
+    const onRes = await request(app)
+      .post("/api/remote-test/heartbeat")
+      .query({ token: TEST_TOKEN })
+      .send(heartbeatPayload({ "1": "on" }));
+    assert.equal(onRes.body.inputStateChanges?.length, 1);
+    assert.equal(onRes.body.inputStateChanges[0].input, 1);
+    assert.equal(onRes.body.inputStateChanges[0].to, "on");
+
+    const status = await request(app)
+      .get("/api/remote-test/status")
+      .set("X-Remote-Test-Token", TEST_TOKEN);
+    assert.equal(status.body.notificationHistory[0].kind, "security");
+    assert.equal(status.body.notificationHistory[0].body, "玄関ビーム");
+    assert.equal(status.body.notificationHistory[0].title, "侵入検知");
+    assert.ok(status.body.eventHistory.length >= 1);
+    assert.equal(status.body.eventHistory[0].type, "intrusion");
+    assert.equal(status.body.eventHistory[0].input, "DI1");
+    assert.equal(status.body.eventHistory[0].state, "ON");
+  });
+
+  it("heartbeat DI1 ON→OFF sends notification when armed", async () => {
+    resetRemoteTestState();
+    await request(app)
+      .post("/api/remote-test/heartbeat")
+      .query({ token: TEST_TOKEN })
+      .send(heartbeatPayload());
+    await armSystem();
+    await request(app)
+      .post("/api/remote-test/heartbeat")
+      .query({ token: TEST_TOKEN })
+      .send(heartbeatPayload({ "1": "on" }));
+
+    const offRes = await request(app)
+      .post("/api/remote-test/heartbeat")
+      .query({ token: TEST_TOKEN })
+      .send(heartbeatPayload());
+    assert.equal(offRes.body.inputStateChanges?.length, 1);
+    assert.equal(offRes.body.inputStateChanges[0].to, "off");
+
+    const status = await request(app)
+      .get("/api/remote-test/status")
+      .set("X-Remote-Test-Token", TEST_TOKEN);
+    assert.equal(status.body.notificationHistory[0].body, "玄関ビーム");
+    assert.equal(status.body.notificationHistory[0].kind, "security");
+    assert.equal(status.body.notificationHistory[0].title, "侵入検知（復帰）");
+  });
+
+  it("heartbeat DI4 ON/OFF sends notifications when armed", async () => {
+    resetRemoteTestState();
+    await request(app)
+      .post("/api/remote-test/heartbeat")
+      .query({ token: TEST_TOKEN })
+      .send(heartbeatPayload());
+    await armSystem();
+    await request(app)
+      .post("/api/remote-test/heartbeat")
+      .query({ token: TEST_TOKEN })
+      .send(heartbeatPayload({ "4": "on" }));
+    await request(app)
+      .post("/api/remote-test/heartbeat")
+      .query({ token: TEST_TOKEN })
+      .send(heartbeatPayload());
+
+    const status = await request(app)
+      .get("/api/remote-test/status")
+      .set("X-Remote-Test-Token", TEST_TOKEN);
+    const di4 = status.body.notificationHistory.filter(
+      (h: { kind?: string; channel: number }) => h.kind === "security" && h.channel === 4
+    );
+    assert.equal(di4.length, 2);
+    assert.equal(di4[0].body, "非常ボタン");
+    assert.equal(di4[1].body, "非常ボタン");
+    assert.equal(di4[1].title, "非常ボタン押下");
+  });
+
+  it("heartbeat DI8 ON/OFF sends notifications when armed", async () => {
+    resetRemoteTestState();
+    await request(app)
+      .post("/api/remote-test/heartbeat")
+      .query({ token: TEST_TOKEN })
+      .send(heartbeatPayload());
+    await armSystem();
+    await request(app)
+      .post("/api/remote-test/heartbeat")
+      .query({ token: TEST_TOKEN })
+      .send(heartbeatPayload({ "8": "on" }));
+    await request(app)
+      .post("/api/remote-test/heartbeat")
+      .query({ token: TEST_TOKEN })
+      .send(heartbeatPayload());
+
+    const status = await request(app)
+      .get("/api/remote-test/status")
+      .set("X-Remote-Test-Token", TEST_TOKEN);
+    const di8 = status.body.notificationHistory.filter(
+      (h: { kind?: string; channel: number }) => h.kind === "security" && h.channel === 8
+    );
+    assert.equal(di8.length, 2);
+    assert.equal(di8[0].body, "予備入力8");
+    assert.equal(di8[1].body, "予備入力8");
+  });
+
+  it("GET /device returns inputStates after heartbeat", async () => {
+    resetRemoteTestState();
+    await request(app)
+      .post("/api/remote-test/heartbeat")
+      .query({ token: TEST_TOKEN })
+      .send(heartbeatPayload({ "3": "on" }));
+
+    const device = await request(app)
+      .get("/api/remote-test/device")
+      .set("X-Remote-Test-Token", TEST_TOKEN);
+    assert.deepEqual(device.body.inputStates, { ...allInputOff, "3": "on" });
+  });
+
+  it("GET /remote-test serves DI input status section", async () => {
+    const res = await request(app).get("/remote-test");
+    assert.match(res.text, /デジタル入力状態/);
+    assert.match(res.text, /id="st-di1"/);
+    assert.match(res.text, /id="st-di8"/);
+  });
+
+  it("CH and DI notifications coexist in notificationHistory when armed", async () => {
+    resetRemoteTestState();
+    await request(app)
+      .post("/api/remote-test/heartbeat")
+      .query({ token: TEST_TOKEN })
+      .send(heartbeatPayload());
+    await armSystem();
+    await request(app)
+      .post("/api/remote-test/heartbeat")
+      .query({ token: TEST_TOKEN })
+      .send(heartbeatPayload({ "1": "on" }, { "8": "on" }));
+
+    const status = await request(app)
+      .get("/api/remote-test/status")
+      .set("X-Remote-Test-Token", TEST_TOKEN);
+    const sensorKinds = status.body.notificationHistory
+      .filter((h: { kind: string }) => h.kind === "ch" || h.kind === "security")
+      .map((h: { kind: string }) => h.kind)
+      .sort();
+    assert.deepEqual(sensorKinds, ["ch", "security"]);
+  });
+
+  // ---- Security Demo Mode ----
+
+  it("GET /status returns DISARM by default with eventHistory", async () => {
+    resetRemoteTestState();
+    const res = await request(app)
+      .get("/api/remote-test/status")
+      .set("X-Remote-Test-Token", TEST_TOKEN);
+    assert.equal(res.body.securityMode, "DISARM");
+    assert.equal(res.body.armed, false);
+    assert.ok(Array.isArray(res.body.eventHistory));
+    assert.ok(res.body.securityDemoConfig?.inputs["1"]);
+  });
+
+  it("POST /arm sets ARM and records notificationHistory", async () => {
+    resetRemoteTestState();
+    const res = await request(app)
+      .post("/api/remote-test/arm")
+      .set("X-Remote-Test-Token", TEST_TOKEN);
+    assert.equal(res.status, 200);
+    assert.equal(res.body.securityMode, "ARM");
+    assert.equal(res.body.changed, true);
+    assert.equal(res.body.notificationHistory[0].kind, "arm");
+    assert.equal(res.body.notificationHistory[0].title, "警戒ON");
+    assert.equal(res.body.eventHistory[0].type, "arm");
+    assert.equal(res.body.eventHistory[0].state, "ARM");
+  });
+
+  it("POST /disarm sets DISARM and records notificationHistory", async () => {
+    resetRemoteTestState();
+    await armSystem();
+    const res = await request(app)
+      .post("/api/remote-test/disarm")
+      .set("X-Remote-Test-Token", TEST_TOKEN);
+    assert.equal(res.body.securityMode, "DISARM");
+    assert.equal(res.body.notificationHistory[0].kind, "disarm");
+    assert.equal(res.body.notificationHistory[0].title, "警戒OFF");
+  });
+
+  it("armed: DI1 ON generates event, push history, and notification", async () => {
+    resetRemoteTestState();
+    await request(app)
+      .post("/api/remote-test/heartbeat")
+      .query({ token: TEST_TOKEN })
+      .send(heartbeatPayload());
+    await armSystem();
+
+    await request(app)
+      .post("/api/remote-test/heartbeat")
+      .query({ token: TEST_TOKEN })
+      .send(heartbeatPayload({ "1": "on" }));
+
+    const status = await request(app)
+      .get("/api/remote-test/status")
+      .set("X-Remote-Test-Token", TEST_TOKEN);
+    const intrusionEvents = status.body.eventHistory.filter(
+      (e: { type: string; input: string }) => e.type === "intrusion" && e.input === "DI1"
+    );
+    assert.equal(intrusionEvents.length, 1);
+    assert.equal(intrusionEvents[0].state, "ON");
+    const securityNotify = status.body.notificationHistory.find(
+      (h: { kind: string; channel: number }) => h.kind === "security" && h.channel === 1
+    );
+    assert.ok(securityNotify);
+    assert.equal(securityNotify.title, "侵入検知");
+  });
+
+  it("disarmed: DI1 ON records eventHistory only without push notification", async () => {
+    resetRemoteTestState();
+    await request(app)
+      .post("/api/remote-test/heartbeat")
+      .query({ token: TEST_TOKEN })
+      .send(heartbeatPayload());
+
+    await request(app)
+      .post("/api/remote-test/heartbeat")
+      .query({ token: TEST_TOKEN })
+      .send(heartbeatPayload({ "1": "on" }));
+
+    const status = await request(app)
+      .get("/api/remote-test/status")
+      .set("X-Remote-Test-Token", TEST_TOKEN);
+    assert.equal(status.body.securityMode, "DISARM");
+    const inputEvents = status.body.eventHistory.filter(
+      (e: { input: string }) => e.input === "DI1"
+    );
+    assert.equal(inputEvents.length, 1);
+    assert.equal(inputEvents[0].type, "input");
+    assert.equal(inputEvents[0].state, "ON");
+    const securityNotify = status.body.notificationHistory.find(
+      (h: { kind: string }) => h.kind === "security"
+    );
+    assert.equal(securityNotify, undefined);
+  });
+
+  it("POST /demo/intrusion-simulation triggers DI1 ON when armed", async () => {
+    resetRemoteTestState();
+    await armSystem();
+    const res = await request(app)
+      .post("/api/remote-test/demo/intrusion-simulation")
+      .set("X-Remote-Test-Token", TEST_TOKEN);
+    assert.equal(res.status, 200);
+    assert.equal(res.body.simulated.input, 1);
+    assert.equal(res.body.simulated.to, "on");
+    assert.equal(res.body.inputStates["1"], "on");
+    const intrusion = res.body.eventHistory.find(
+      (e: { type: string; input: string }) => e.type === "intrusion" && e.input === "DI1"
+    );
+    assert.ok(intrusion);
+    assert.equal(res.body.notificationHistory[0].kind, "security");
+  });
+
+  it("security mode persists across state reload", async () => {
+    resetRemoteTestState();
+    await request(app).post("/api/remote-test/arm").set("X-Remote-Test-Token", TEST_TOKEN);
+    assert.ok(fs.existsSync(TEST_STATE_FILE));
+    const raw = JSON.parse(fs.readFileSync(TEST_STATE_FILE, "utf-8"));
+    assert.equal(raw.securityMode, "ARM");
+  });
+
+  it("eventHistory keeps at most 100 entries", async () => {
+    resetRemoteTestState();
+    await request(app)
+      .post("/api/remote-test/heartbeat")
+      .query({ token: TEST_TOKEN })
+      .send(heartbeatPayload());
+
+    for (let i = 0; i < 105; i++) {
+      await request(app)
+        .post("/api/remote-test/heartbeat")
+        .query({ token: TEST_TOKEN })
+        .send(heartbeatPayload({ "1": i % 2 === 0 ? "on" : "off" }));
+    }
+
+    const status = await request(app)
+      .get("/api/remote-test/status")
+      .set("X-Remote-Test-Token", TEST_TOKEN);
+    assert.ok(status.body.eventHistory.length <= 100);
   });
 });

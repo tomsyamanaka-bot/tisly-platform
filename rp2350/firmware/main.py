@@ -6,7 +6,7 @@ TiSLY Remote Test — 最小ファームウェア
 
 Waveshare RP2350-POE-ETH-8DI-8RO / MicroPython v1.28.0
 
-PoE 起動 → Ethernet 初期化 → 3 秒ごとに命令取得 / 60 秒ごとに heartbeat → CH1〜CH8 ON/OFF 実行
+PoE 起動 → Ethernet 初期化 → 3 秒ごとに命令取得・DI読取 / 60 秒ごとに heartbeat → CH1〜CH8 ON/OFF 実行
 
 """
 
@@ -64,7 +64,41 @@ for ch, gpio in config.CH_GPIO.items():
 
 
 
+DI_PINS = {}
+
+_di_active_low = bool(getattr(config, "DI_ACTIVE_LOW", True))
+
+_di_pull = Pin.PULL_UP if _di_active_low else Pin.PULL_DOWN
+
+for di, gpio in config.DI_GPIO.items():
+
+    DI_PINS[di] = Pin(gpio, Pin.IN, _di_pull)
+
+
+
 ch_states = {
+
+    "1": "off",
+
+    "2": "off",
+
+    "3": "off",
+
+    "4": "off",
+
+    "5": "off",
+
+    "6": "off",
+
+    "7": "off",
+
+    "8": "off",
+
+}
+
+
+
+input_states = {
 
     "1": "off",
 
@@ -402,6 +436,46 @@ def http_post(path, payload):
 
 
 
+def read_di_state(di):
+
+    raw = DI_PINS[di].value()
+
+    if _di_active_low:
+
+        return "on" if raw == 0 else "off"
+
+    return "on" if raw == 1 else "off"
+
+
+
+
+
+def poll_inputs():
+
+    """DI1〜DI8 を読み取り input_states を更新。変化があれば True。"""
+
+    changed = False
+
+    for di in sorted(DI_PINS.keys()):
+
+        state = read_di_state(di)
+
+        key = str(di)
+
+        if input_states[key] != state:
+
+            input_states[key] = state
+
+            changed = True
+
+            log("DI{} {}".format(di, state.upper()))
+
+    return changed
+
+
+
+
+
 def send_heartbeat():
 
     path = "/api/remote-test/heartbeat"
@@ -411,6 +485,8 @@ def send_heartbeat():
         "firmware": config.FIRMWARE_VERSION,
 
         "chStates": dict(ch_states),
+
+        "inputStates": dict(input_states),
 
     }
 
@@ -580,6 +656,14 @@ def run():
 
 
 
+    for di in sorted(DI_PINS.keys()):
+
+        input_states[str(di)] = read_di_state(di)
+
+        log("DI{} GPIO{} → {}".format(di, config.DI_GPIO[di], input_states[str(di)].upper()))
+
+
+
     ifconfig = init_ethernet()
 
     ip = get_ip()
@@ -655,6 +739,12 @@ def run():
         if cmd:
 
             exec_command(cmd)
+
+
+
+        if poll_inputs():
+
+            send_heartbeat()
 
 
 

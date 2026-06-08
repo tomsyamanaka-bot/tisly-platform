@@ -1,3 +1,5 @@
+import { resetSecurityDemoState } from "./security-demo-state.js";
+
 export const CHANNEL_COUNT = 8;
 
 export type ChannelState = "on" | "off";
@@ -13,6 +15,9 @@ export type RemoteTestCommand =
   | "ch8_on" | "ch8_off";
 
 export type ChStates = Record<string, ChannelState>;
+export type InputStates = Record<string, ChannelState>;
+
+export type RemoteTestNotificationKind = "ch" | "di" | "arm" | "disarm" | "security";
 
 export interface RemoteTestLogEntry {
   at: string;
@@ -27,18 +32,31 @@ export interface ChStateChange {
   to: ChannelState;
 }
 
+export interface InputStateChange {
+  input: number;
+  from: ChannelState;
+  to: ChannelState;
+}
+
 export interface RemoteTestNotificationEntry {
   id: string;
   /** @deprecated use timestamp */
   at: string;
   timestamp: string;
+  kind: RemoteTestNotificationKind;
   channel: number;
-  from: ChannelState;
-  to: ChannelState;
+  from: ChannelState | string;
+  to: ChannelState | string;
   title: string;
   body: string;
   pushSuccess: boolean;
   pushError?: string;
+  eventType?: string;
+}
+
+export interface HeartbeatRecordResult {
+  chChanges: ChStateChange[];
+  inputChanges: InputStateChange[];
 }
 
 export interface HeartbeatDebugSnapshot {
@@ -50,10 +68,18 @@ export interface HeartbeatDebugSnapshot {
 /** RP2350 が応答しないと offline とみなす秒数（heartbeat 60 秒 + 余裕） */
 export const DEVICE_OFFLINE_THRESHOLD_SEC = 90;
 
-function createDefaultChStates(): ChStates {
+function createDefaultChannelStates(): ChStates {
   const states: ChStates = {};
   for (let ch = 1; ch <= CHANNEL_COUNT; ch++) {
     states[String(ch)] = "off";
+  }
+  return states;
+}
+
+function createDefaultInputStates(): InputStates {
+  const states: InputStates = {};
+  for (let di = 1; di <= CHANNEL_COUNT; di++) {
+    states[String(di)] = "off";
   }
   return states;
 }
@@ -65,13 +91,13 @@ function normalizeChannelValue(val: unknown): ChannelState | null {
   return null;
 }
 
-export function normalizeDeviceChStates(input: unknown): ChStates | null {
+function normalizeDeviceStates(input: unknown, prefix: "ch" | "di" = "ch"): ChStates | null {
   if (!input || typeof input !== "object") return null;
   const obj = input as Record<string, unknown>;
-  const states = createDefaultChStates();
+  const states = prefix === "di" ? createDefaultInputStates() : createDefaultChannelStates();
   let recognized = 0;
-  for (let ch = 1; ch <= CHANNEL_COUNT; ch++) {
-    const key = String(ch);
+  for (let n = 1; n <= CHANNEL_COUNT; n++) {
+    const key = String(n);
     const val = normalizeChannelValue(obj[key]);
     if (val) {
       states[key] = val;
@@ -81,6 +107,14 @@ export function normalizeDeviceChStates(input: unknown): ChStates | null {
   return recognized > 0 ? states : null;
 }
 
+export function normalizeDeviceChStates(input: unknown): ChStates | null {
+  return normalizeDeviceStates(input, "ch");
+}
+
+export function normalizeDeviceInputStates(input: unknown): InputStates | null {
+  return normalizeDeviceStates(input, "di");
+}
+
 interface RemoteTestState {
   pendingCommand: RemoteTestCommand | null;
   /** heartbeat で確定した実機 chStates（PWA 楽観更新は含まない） */
@@ -88,6 +122,10 @@ interface RemoteTestState {
   /** 前回 heartbeat 時の confirmedChStates（差分検出用） */
   lastDeviceChStates: ChStates;
   deviceChStatesBaselined: boolean;
+  /** heartbeat で確定した実機 inputStates */
+  confirmedInputStates: InputStates;
+  lastDeviceInputStates: InputStates;
+  deviceInputStatesBaselined: boolean;
   lastCommand: RemoteTestCommand | null;
   lastCommandAt: string | null;
   lastPollAt: string | null;
@@ -105,9 +143,12 @@ const MAX_NOTIFICATION_HISTORY = 50;
 
 const state: RemoteTestState = {
   pendingCommand: null,
-  confirmedChStates: createDefaultChStates(),
-  lastDeviceChStates: createDefaultChStates(),
+  confirmedChStates: createDefaultChannelStates(),
+  lastDeviceChStates: createDefaultChannelStates(),
   deviceChStatesBaselined: false,
+  confirmedInputStates: createDefaultInputStates(),
+  lastDeviceInputStates: createDefaultInputStates(),
+  deviceInputStatesBaselined: false,
   lastCommand: null,
   lastCommandAt: null,
   lastPollAt: null,
@@ -144,6 +185,7 @@ export function getRemoteTestDebugInfo() {
     heartbeatBody: heartbeatDebug.heartbeatBody,
     lastHeartbeatAt: heartbeatDebug.lastHeartbeatAt,
     confirmedChStates: { ...state.confirmedChStates },
+    confirmedInputStates: { ...state.confirmedInputStates },
     notificationHistory: [...state.notificationHistory],
     lastPushResult: state.lastPushResult,
   };
@@ -157,6 +199,19 @@ export function detectChStateChanges(prev: ChStates, next: ChStates): ChStateCha
     const to = next[key] ?? "off";
     if (from !== to) {
       changes.push({ channel: ch, from, to });
+    }
+  }
+  return changes;
+}
+
+export function detectInputStateChanges(prev: InputStates, next: InputStates): InputStateChange[] {
+  const changes: InputStateChange[] = [];
+  for (let di = 1; di <= CHANNEL_COUNT; di++) {
+    const key = String(di);
+    const from = prev[key] ?? "off";
+    const to = next[key] ?? "off";
+    if (from !== to) {
+      changes.push({ input: di, from, to });
     }
   }
   return changes;
@@ -186,10 +241,20 @@ export function recordWebAccess(ip: string): void {
   state.lastAccessIp = ip;
 }
 
+export function applySimulatedInputChange(change: InputStateChange): void {
+  const key = String(change.input);
+  state.confirmedInputStates[key] = change.to;
+  state.lastDeviceInputStates[key] = change.to;
+  if (!state.deviceInputStatesBaselined) {
+    state.deviceInputStatesBaselined = true;
+  }
+}
+
 export function getRemoteTestStatus() {
   return {
     pendingCommand: state.pendingCommand,
     chStates: { ...state.confirmedChStates },
+    inputStates: { ...state.confirmedInputStates },
     ch1State: getChState(1),
     lastCommand: state.lastCommand,
     lastCommandAt: state.lastCommandAt,
@@ -237,17 +302,11 @@ export function getDeviceStatus() {
     lastSeen,
     firmwareVersion: state.firmwareVersion,
     chStates: { ...state.confirmedChStates },
+    inputStates: { ...state.confirmedInputStates },
   };
 }
 
-export function recordDeviceHeartbeat(firmwareVersion?: string, chStates?: ChStates): ChStateChange[] {
-  recordDevicePoll(firmwareVersion);
-  if (!chStates) {
-    console.log("[remote-test] heartbeat: chStates missing — skip diff (lastPollAt only)");
-    return [];
-  }
-
-  // 比較は confirmedChStates 上書き前に行う（prev = 前回確定状態）
+function recordChStatesFromHeartbeat(chStates: ChStates): ChStateChange[] {
   const prev = { ...state.confirmedChStates };
   for (let ch = 1; ch <= CHANNEL_COUNT; ch++) {
     const key = String(ch);
@@ -260,7 +319,7 @@ export function recordDeviceHeartbeat(firmwareVersion?: string, chStates?: ChSta
     state.deviceChStatesBaselined = true;
     state.confirmedChStates = { ...chStates };
     state.lastDeviceChStates = { ...chStates };
-    console.log("[remote-test] heartbeat: baseline established — notification skipped");
+    console.log("[remote-test] heartbeat: chStates baseline established — notification skipped");
     return [];
   }
 
@@ -271,14 +330,71 @@ export function recordDeviceHeartbeat(firmwareVersion?: string, chStates?: ChSta
         `[remote-test] notification condition MET CH${change.channel} prev=${change.from} current=${change.to}`
       );
     }
-  } else {
-    console.log("[remote-test] notification condition not met (no state changes)");
   }
 
   state.confirmedChStates = { ...chStates };
   state.lastDeviceChStates = { ...chStates };
-
   return changes;
+}
+
+function recordInputStatesFromHeartbeat(inputStates: InputStates): InputStateChange[] {
+  const prev = { ...state.confirmedInputStates };
+  for (let di = 1; di <= CHANNEL_COUNT; di++) {
+    const key = String(di);
+    const prevState = prev[key] ?? "off";
+    const currentState = inputStates[key] ?? "off";
+    console.log(`[remote-test] heartbeat DI${di} prev=${prevState} current=${currentState}`);
+  }
+
+  if (!state.deviceInputStatesBaselined) {
+    state.deviceInputStatesBaselined = true;
+    state.confirmedInputStates = { ...inputStates };
+    state.lastDeviceInputStates = { ...inputStates };
+    console.log("[remote-test] heartbeat: inputStates baseline established — notification skipped");
+    return [];
+  }
+
+  const changes = detectInputStateChanges(prev, inputStates);
+  if (changes.length > 0) {
+    for (const change of changes) {
+      console.log(
+        `[remote-test] notification condition MET DI${change.input} prev=${change.from} current=${change.to}`
+      );
+    }
+  }
+
+  state.confirmedInputStates = { ...inputStates };
+  state.lastDeviceInputStates = { ...inputStates };
+  return changes;
+}
+
+export function recordDeviceHeartbeat(
+  firmwareVersion?: string,
+  chStates?: ChStates,
+  inputStates?: InputStates
+): HeartbeatRecordResult {
+  recordDevicePoll(firmwareVersion);
+
+  const chChanges: ChStateChange[] = [];
+  const inputChanges: InputStateChange[] = [];
+
+  if (!chStates) {
+    console.log("[remote-test] heartbeat: chStates missing — skip ch diff");
+  } else {
+    chChanges.push(...recordChStatesFromHeartbeat(chStates));
+  }
+
+  if (!inputStates) {
+    console.log("[remote-test] heartbeat: inputStates missing — skip input diff");
+  } else {
+    inputChanges.push(...recordInputStatesFromHeartbeat(inputStates));
+  }
+
+  if (chChanges.length === 0 && inputChanges.length === 0 && chStates && inputStates) {
+    console.log("[remote-test] notification condition not met (no state changes)");
+  }
+
+  return { chChanges, inputChanges };
 }
 
 export function recordChStateNotification(
@@ -302,6 +418,7 @@ export function recordChStateNotification(
     id: logId,
     at: timestamp,
     timestamp,
+    kind: "ch",
     channel: change.channel,
     from: change.from,
     to: change.to,
@@ -309,6 +426,83 @@ export function recordChStateNotification(
     body: payload.body,
     pushSuccess: result.success,
     pushError: result.error,
+  });
+  if (state.notificationHistory.length > MAX_NOTIFICATION_HISTORY) {
+    state.notificationHistory.length = MAX_NOTIFICATION_HISTORY;
+  }
+}
+
+export function recordInputStateNotification(
+  change: InputStateChange,
+  payload: { title: string; body: string },
+  result: { success: boolean; error?: string },
+  logId: string
+): void {
+  const label = `DI${change.input} ${change.to.toUpperCase()}`;
+  const timestamp = new Date().toISOString();
+  console.log(
+    `[remote-test] notificationHistory add DI${change.input} from=${change.from} to=${change.to} pushSuccess=${result.success}`,
+    result.error ? { error: result.error } : ""
+  );
+  pushLog(
+    "input_state_change",
+    `${label} (${change.from}→${change.to})${result.success ? "" : ` — ${result.error ?? "failed"}`}`,
+    "device"
+  );
+  state.notificationHistory.unshift({
+    id: logId,
+    at: timestamp,
+    timestamp,
+    kind: "di",
+    channel: change.input,
+    from: change.from,
+    to: change.to,
+    title: payload.title,
+    body: payload.body,
+    pushSuccess: result.success,
+    pushError: result.error,
+  });
+  if (state.notificationHistory.length > MAX_NOTIFICATION_HISTORY) {
+    state.notificationHistory.length = MAX_NOTIFICATION_HISTORY;
+  }
+}
+
+export function recordSecurityNotification(
+  entry: {
+    kind: "arm" | "disarm" | "security";
+    channel: number;
+    from: string;
+    to: string;
+    title: string;
+    body: string;
+    eventType?: string;
+  },
+  result: { success: boolean; error?: string },
+  logId: string
+): void {
+  const timestamp = new Date().toISOString();
+  console.log(
+    `[security-demo] notificationHistory add ${entry.kind} pushSuccess=${result.success}`,
+    result.error ? { error: result.error } : ""
+  );
+  pushLog(
+    entry.kind === "arm" || entry.kind === "disarm" ? entry.kind : "security_event",
+    `${entry.title} — ${entry.body}${result.success ? "" : ` — ${result.error ?? "failed"}`}`,
+    "web"
+  );
+  state.notificationHistory.unshift({
+    id: logId,
+    at: timestamp,
+    timestamp,
+    kind: entry.kind,
+    channel: entry.channel,
+    from: entry.from,
+    to: entry.to,
+    title: entry.title,
+    body: entry.body,
+    pushSuccess: result.success,
+    pushError: result.error,
+    eventType: entry.eventType,
   });
   if (state.notificationHistory.length > MAX_NOTIFICATION_HISTORY) {
     state.notificationHistory.length = MAX_NOTIFICATION_HISTORY;
@@ -343,9 +537,12 @@ export function resetRemoteTestState(): void {
     lastHeartbeatAt: null,
   };
   state.pendingCommand = null;
-  state.confirmedChStates = createDefaultChStates();
-  state.lastDeviceChStates = createDefaultChStates();
+  state.confirmedChStates = createDefaultChannelStates();
+  state.lastDeviceChStates = createDefaultChannelStates();
   state.deviceChStatesBaselined = false;
+  state.confirmedInputStates = createDefaultInputStates();
+  state.lastDeviceInputStates = createDefaultInputStates();
+  state.deviceInputStatesBaselined = false;
   state.lastCommand = null;
   state.lastCommandAt = null;
   state.lastPollAt = null;
@@ -356,4 +553,7 @@ export function resetRemoteTestState(): void {
   state.firmwareVersion = null;
   state.logs = [];
   state.notificationHistory = [];
+  resetSecurityDemoState();
 }
+
+export { resetSecurityDemoState };

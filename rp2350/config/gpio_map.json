@@ -6,16 +6,16 @@
     "DI1": {
       "logical_name": "ir_beam_1",
       "role": "security_input",
-      "gpio_pin": null,
+      "gpio_pin": 9,
       "active_low": true,
       "debounce_ms": 30,
-      "hardware_note": "赤外線ビーム① — 公式01_GPIO 未確定",
-      "verify_status": "pending"
+      "hardware_note": "赤外線ビーム① — Waveshare 02_MQTT サンプル GPIO9",
+      "verify_status": "wiki_confirmed"
     },
     "DI2": {
       "logical_name": "ir_beam_2",
       "role": "security_input",
-      "gpio_pin": null,
+      "gpio_pin": 10,
       "active_low": true,
       "debounce_ms": 30,
       "hardware_note": "赤外線ビーム②",
@@ -24,7 +24,7 @@
     "DI3": {
       "logical_name": "pir_1",
       "role": "security_input",
-      "gpio_pin": null,
+      "gpio_pin": 11,
       "active_low": true,
       "debounce_ms": 50,
       "hardware_note": "人感①",
@@ -33,7 +33,7 @@
     "DI4": {
       "logical_name": "pir_2",
       "role": "security_input",
-      "gpio_pin": null,
+      "gpio_pin": 12,
       "active_low": true,
       "debounce_ms": 50,
       "hardware_note": "人感②",
@@ -42,7 +42,7 @@
     "DI5": {
       "logical_name": "window_1",
       "role": "security_input",
-      "gpio_pin": null,
+      "gpio_pin": 13,
       "active_low": true,
       "debounce_ms": 30,
       "hardware_note": "窓マグネット①",
@@ -51,7 +51,7 @@
     "DI6": {
       "logical_name": "window_2",
       "role": "security_input",
-      "gpio_pin": null,
+      "gpio_pin": 14,
       "active_low": true,
       "debounce_ms": 30,
       "hardware_note": "窓マグネット②",
@@ -60,7 +60,7 @@
     "DI7": {
       "logical_name": "emergency",
       "role": "safety_input",
-      "gpio_pin": null,
+      "gpio_pin": 15,
       "active_low": true,
       "debounce_ms": 10,
       "hardware_note": "非常停止",
@@ -69,11 +69,11 @@
     "DI8": {
       "logical_name": "spare_di",
       "role": "spare",
-      "gpio_pin": null,
+      "gpio_pin": 16,
       "active_low": true,
       "debounce_ms": 30,
-      "hardware_note": "予備 DI",
-      "verify_status": "pending"
+      "hardware_note": "予備 DI — Waveshare 02_MQTT サンプル GPIO16",
+      "verify_status": "wiki_confirmed"
     }
   },
   "relay_outputs": {

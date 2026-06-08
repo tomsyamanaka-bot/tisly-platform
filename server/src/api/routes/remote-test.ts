@@ -6,13 +6,24 @@ import {
 } from "../../notification/channels/web-push.js";
 import { notifyChStateChanges } from "../../remote-test/remote-test-ch-notify.js";
 import {
+  processSecurityInputChanges,
+  notifySecurityModeChange,
+} from "../../remote-test/security-demo-notify.js";
+import {
+  getSecurityDemoStatus,
+  setSecurityMode,
+} from "../../remote-test/security-demo-state.js";
+import { loadSecurityDemoConfig } from "../../remote-test/security-demo-config.js";
+import {
   CHANNEL_COUNT,
+  applySimulatedInputChange,
   consumePendingCommand,
   getDeviceStatus,
   getRemoteTestDebugInfo,
   getRemoteTestStatus,
   markPushResult,
   normalizeDeviceChStates,
+  normalizeDeviceInputStates,
   queueChCommand,
   recordDeviceHeartbeat,
   recordHeartbeatDebug,
@@ -81,9 +92,46 @@ function pushStatusExtras() {
 
 remoteTestRouter.use(requireRemoteTestToken);
 
+function securityDemoExtras() {
+  return {
+    ...getSecurityDemoStatus(),
+    securityDemoConfig: {
+      deviceName: loadSecurityDemoConfig().deviceName,
+      inputs: loadSecurityDemoConfig().inputs,
+    },
+  };
+}
+
 remoteTestRouter.get("/status", (req, res) => {
   trackWebAccess(req);
-  res.json({ ok: true, ...getRemoteTestStatus(), ...pushStatusExtras() });
+  res.json({ ok: true, ...getRemoteTestStatus(), ...pushStatusExtras(), ...securityDemoExtras() });
+});
+
+remoteTestRouter.post("/arm", async (req, res) => {
+  trackWebAccess(req);
+  const { mode, changed } = setSecurityMode("ARM");
+  if (changed) await notifySecurityModeChange(mode);
+  res.json({ ok: true, changed, ...getRemoteTestStatus(), ...securityDemoExtras() });
+});
+
+remoteTestRouter.post("/disarm", async (req, res) => {
+  trackWebAccess(req);
+  const { mode, changed } = setSecurityMode("DISARM");
+  if (changed) await notifySecurityModeChange(mode);
+  res.json({ ok: true, changed, ...getRemoteTestStatus(), ...securityDemoExtras() });
+});
+
+remoteTestRouter.post("/demo/intrusion-simulation", async (req, res) => {
+  trackWebAccess(req);
+  const change = { input: 1, from: "off" as const, to: "on" as const };
+  applySimulatedInputChange(change);
+  await processSecurityInputChanges([change]);
+  res.json({
+    ok: true,
+    simulated: change,
+    ...getRemoteTestStatus(),
+    ...securityDemoExtras(),
+  });
 });
 
 remoteTestRouter.post("/notify", async (req, res) => {
@@ -266,27 +314,61 @@ function extractHeartbeatChStates(req: Request) {
   return null;
 }
 
+function extractHeartbeatInputStates(req: Request) {
+  const fromNested = normalizeDeviceInputStates(req.body?.inputStates);
+  if (fromNested) return fromNested;
+
+  const raw = (req as Request & { rawBody?: string }).rawBody;
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      const fromRaw = normalizeDeviceInputStates(parsed.inputStates);
+      if (fromRaw) return fromRaw;
+    } catch {
+      /* invalid JSON body */
+    }
+  }
+
+  if (typeof req.query.inputStates === "string") {
+    try {
+      const fromQuery = normalizeDeviceInputStates(JSON.parse(req.query.inputStates));
+      if (fromQuery) return fromQuery;
+    } catch {
+      /* invalid query JSON */
+    }
+  }
+
+  return null;
+}
+
 async function handleDeviceHeartbeat(req: Request, res: Response): Promise<void> {
   logHeartbeatRequest(req);
   recordHeartbeatDebug(req.method, req.body ?? null);
 
   const firmware = extractHeartbeatFirmware(req);
   const chStates = extractHeartbeatChStates(req);
-  if (!chStates) {
-    console.log("[remote-test] heartbeat: chStates missing — skip diff (lastPollAt only)");
+  const inputStates = extractHeartbeatInputStates(req);
+  const { chChanges, inputChanges } = recordDeviceHeartbeat(
+    firmware || undefined,
+    chStates ?? undefined,
+    inputStates ?? undefined
+  );
+  const notificationTriggered = chChanges.length > 0 || inputChanges.length > 0;
+  if (chChanges.length > 0) {
+    console.log("[remote-test] heartbeat: invoking notifyChStateChanges", chChanges);
+    await notifyChStateChanges(chChanges);
   }
-  const changes = recordDeviceHeartbeat(firmware || undefined, chStates ?? undefined);
-  const notificationTriggered = changes.length > 0;
-  if (notificationTriggered) {
-    console.log("[remote-test] heartbeat: invoking notifyChStateChanges", changes);
-    await notifyChStateChanges(changes);
+  if (inputChanges.length > 0) {
+    console.log("[remote-test] heartbeat: invoking processSecurityInputChanges", inputChanges);
+    await processSecurityInputChanges(inputChanges);
   }
   const status = getRemoteTestStatus();
   res.json({
     ok: true,
     ...getDeviceStatus(),
     heartbeatAt: new Date().toISOString(),
-    chStateChanges: changes,
+    chStateChanges: chChanges,
+    inputStateChanges: inputChanges,
     notificationTriggered,
     notificationHistoryCount: status.notificationHistory.length,
     lastPushResult: status.lastPushResult,

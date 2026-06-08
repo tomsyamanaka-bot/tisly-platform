@@ -41,9 +41,12 @@ npm run vapid:generate -- --check
 
 詳細: [`docs/vapid_env_setup.md`](../docs/vapid_env_setup.md)
 
-## Remote Test PoC
+## Remote Test / TiSLY Lite Security Demo
 
-通信 PoC — iPhone PWA Push 通知 & RP2350 CH1 遠隔操作。
+通信 PoC — iPhone PWA Push 通知 & RP2350 CH1〜CH8 遠隔操作。  
+**Security Demo Mode** で警戒 ON/OFF · センサー連動 Push · 侵入シミュレーションに対応。
+
+詳細: [`docs/security-demo-mode.md`](../docs/security-demo-mode.md)
 
 | Phase | 内容 |
 |-------|------|
@@ -68,11 +71,13 @@ npm run vapid:setup
 
 | パス | 説明 |
 |------|------|
-| `GET /api/remote-test/status` | 状態・Push メタデータ |
+| `GET /api/remote-test/status` | 状態 · `securityMode` · `eventHistory` · Push メタデータ |
 | `GET /api/remote-test/device` | RP2350 接続状態（online/offline/lastSeen/firmwareVersion） |
+| `POST /api/remote-test/arm` | 警戒 ON（永続化 · Push） |
+| `POST /api/remote-test/disarm` | 警戒 OFF（永続化 · Push） |
+| `POST /api/remote-test/demo/intrusion-simulation` | DI1 侵入シミュレーション |
 | `POST /api/remote-test/notify` | Push テスト送信 |
-| `POST /api/remote-test/ch1/on` | CH1 ON キュー |
-| `POST /api/remote-test/ch1/off` | CH1 OFF キュー |
+| `POST /api/remote-test/ch{N}/on\|off` | CH N ON/OFF キュー（N=1..8） |
 | `GET /api/remote-test/command` | RP2350 ポーリング |
 
 認証: ヘッダ `X-Remote-Test-Token` または `Authorization: Bearer`

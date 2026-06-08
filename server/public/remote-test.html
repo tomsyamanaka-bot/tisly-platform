@@ -10,7 +10,7 @@
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2001" />
   <link rel="apple-touch-icon" href="/icons/icon-192.png?v=2001" />
   <link rel="manifest" href="/remote-test/manifest.webmanifest" />
-  <title>TiSLY Remote Test</title>
+  <title>TiSLY Lite Security Demo</title>
   <style>
     :root {
       color-scheme: dark;
@@ -148,6 +148,13 @@
     .badge.off { background: rgba(139,148,158,0.2); color: var(--muted); }
     .badge.warn { background: rgba(210,153,34,0.2); color: var(--warn); }
     .badge.pending { background: rgba(210,153,34,0.25); color: var(--warn); font-style: italic; }
+    .badge.arm { background: rgba(218,54,51,0.25); color: #f85149; }
+    .badge.disarm { background: rgba(26,127,55,0.25); color: #3fb950; }
+    .card.security-armed { border-color: #f85149; }
+    .card.security-disarmed { border-color: var(--accent); }
+    .btn-arm { background: #da3633; }
+    .btn-disarm { background: var(--accent); }
+    .btn-demo { background: #8957e5; }
     .ios-pwa-steps { margin: 0.5rem 0 0; padding-left: 1.25rem; font-size: 0.9rem; }
     .ios-pwa-steps li { margin-bottom: 0.35rem; }
     .flow-steps {
@@ -168,8 +175,8 @@
 </head>
 <body>
   <header>
-    <h1>TiSLY Remote Test</h1>
-    <p class="subtitle">PWA — Web Push 通知 &amp; CH1〜CH8 遠隔操作</p>
+    <h1>TiSLY Lite Security Demo</h1>
+    <p class="subtitle">防犯デモ — 警戒 ON/OFF · DI センサー連動 · Push 通知 · CH1〜CH8 遠隔操作</p>
   </header>
 
   <section class="card" id="token-card">
@@ -247,12 +254,45 @@
     </div>
   </section>
 
+  <section class="card highlight" id="security-status-card">
+    <h2>システム状態</h2>
+    <dl class="status-grid">
+      <dt>警戒モード</dt><dd id="st-security-mode"><span class="badge disarm">DISARM</span></dd>
+      <dt>デバイス</dt><dd id="st-security-device">—</dd>
+      <dt>最終警戒ON</dt><dd id="st-last-arm">—</dd>
+      <dt>最終警戒OFF</dt><dd id="st-last-disarm">—</dd>
+    </dl>
+    <div class="btn-row">
+      <button type="button" class="btn-arm" id="btn-arm">警戒ON</button>
+      <button type="button" class="btn-disarm" id="btn-disarm">警戒OFF</button>
+    </div>
+    <div class="btn-row single" style="margin-top:0.6rem">
+      <button type="button" class="btn-demo" id="btn-intrusion-sim">侵入シミュレーション</button>
+    </div>
+    <p class="hint">警戒ON中のみ DI センサー変化で Push 通知。シミュレーションは DI1（玄関ビーム）の ON を疑似発生します。</p>
+  </section>
+
   <section class="card">
     <h2>RP2350 接続</h2>
     <dl class="status-grid">
       <dt>状態</dt><dd id="st-device-online">—</dd>
       <dt>最終接続</dt><dd id="st-device-lastseen">—</dd>
       <dt>ファームウェア</dt><dd id="st-device-firmware">—</dd>
+    </dl>
+  </section>
+
+  <section class="card">
+    <h2>デジタル入力状態</h2>
+    <p class="hint">DI1〜DI8 の接点状態（読み取り専用）。ON=緑 · OFF=グレー。</p>
+    <dl class="status-grid" id="input-status-grid">
+      <dt>DI1</dt><dd id="st-di1"><span class="badge off">off</span></dd>
+      <dt>DI2</dt><dd id="st-di2"><span class="badge off">off</span></dd>
+      <dt>DI3</dt><dd id="st-di3"><span class="badge off">off</span></dd>
+      <dt>DI4</dt><dd id="st-di4"><span class="badge off">off</span></dd>
+      <dt>DI5</dt><dd id="st-di5"><span class="badge off">off</span></dd>
+      <dt>DI6</dt><dd id="st-di6"><span class="badge off">off</span></dd>
+      <dt>DI7</dt><dd id="st-di7"><span class="badge off">off</span></dd>
+      <dt>DI8</dt><dd id="st-di8"><span class="badge off">off</span></dd>
     </dl>
   </section>
 
@@ -333,8 +373,14 @@
   </section>
 
   <section class="card highlight">
+    <h2>イベント履歴</h2>
+    <p class="hint">セキュリティイベント（最新20件）。警戒 ON/OFF · センサー反応を記録（最大100件保持）。</p>
+    <div id="event-history" aria-live="polite"><div class="log-entry"><span class="log-time">—</span> 待機中…</div></div>
+  </section>
+
+  <section class="card">
     <h2>通知履歴</h2>
-    <p class="hint">RP2350 の chStates 変化（OFF→ON / ON→OFF）で Push 送信。同一状態は通知しません。</p>
+    <p class="hint">Push 送信した通知のみ（警戒 ON/OFF · 警戒中のセンサー反応 · CH 状態変化）。</p>
     <div id="notify-history" aria-live="polite"><div class="log-entry"><span class="log-time">—</span> 待機中…</div></div>
   </section>
 

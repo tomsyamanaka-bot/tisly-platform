@@ -35,5 +35,20 @@ CH_GPIO = {
     8: 24,
 }
 
+# DI1〜DI8 デジタル入力 GPIO（Waveshare サンプル: GPIO9〜16）
+DI_GPIO = {
+    1: 9,
+    2: 10,
+    3: 11,
+    4: 12,
+    5: 13,
+    6: 14,
+    7: 15,
+    8: 16,
+}
+
+# 入力は active-low（接点 ON = GPIO LOW）
+DI_ACTIVE_LOW = True
+
 # ファームウェア版（PWA「RP2350接続時刻」画面に表示）
-FIRMWARE_VERSION = "1.3.0-remote-test-rc1"
+FIRMWARE_VERSION = "1.4.0-remote-test-phase6"

@@ -1,0 +1,78 @@
+{
+  "deviceId": "rp2350-remote-test-01",
+  "deviceName": "TiSLY Lite Demo",
+  "inputs": {
+    "1": {
+      "label": "玄関ビーム",
+      "eventType": "intrusion",
+      "notifyTitleOn": "侵入検知",
+      "notifyBodyOn": "玄関ビーム",
+      "notifyTitleOff": "侵入検知（復帰）",
+      "notifyBodyOff": "玄関ビーム"
+    },
+    "2": {
+      "label": "リビング窓",
+      "eventType": "window",
+      "notifyTitleOn": "窓開放検知",
+      "notifyBodyOn": "リビング窓",
+      "notifyTitleOff": "窓開放検知（復帰）",
+      "notifyBodyOff": "リビング窓"
+    },
+    "3": {
+      "label": "勝手口",
+      "eventType": "intrusion",
+      "notifyTitleOn": "侵入検知",
+      "notifyBodyOn": "勝手口",
+      "notifyTitleOff": "侵入検知（復帰）",
+      "notifyBodyOff": "勝手口"
+    },
+    "4": {
+      "label": "非常ボタン",
+      "eventType": "emergency",
+      "notifyTitleOn": "非常ボタン押下",
+      "notifyBodyOn": "非常ボタン",
+      "notifyTitleOff": "非常ボタン（復帰）",
+      "notifyBodyOff": "非常ボタン"
+    },
+    "5": {
+      "label": "予備5",
+      "eventType": "spare",
+      "notifyTitleOn": "センサー反応",
+      "notifyBodyOn": "予備入力5",
+      "notifyTitleOff": "センサー復帰",
+      "notifyBodyOff": "予備入力5"
+    },
+    "6": {
+      "label": "予備6",
+      "eventType": "spare",
+      "notifyTitleOn": "センサー反応",
+      "notifyBodyOn": "予備入力6",
+      "notifyTitleOff": "センサー復帰",
+      "notifyBodyOff": "予備入力6"
+    },
+    "7": {
+      "label": "予備7",
+      "eventType": "spare",
+      "notifyTitleOn": "センサー反応",
+      "notifyBodyOn": "予備入力7",
+      "notifyTitleOff": "センサー復帰",
+      "notifyBodyOff": "予備入力7"
+    },
+    "8": {
+      "label": "予備8",
+      "eventType": "spare",
+      "notifyTitleOn": "センサー反応",
+      "notifyBodyOn": "予備入力8",
+      "notifyTitleOff": "センサー復帰",
+      "notifyBodyOff": "予備入力8"
+    }
+  },
+  "armNotify": {
+    "title": "警戒ON",
+    "body": "システムが警戒モードになりました"
+  },
+  "disarmNotify": {
+    "title": "警戒OFF",
+    "body": "システムが解除モードになりました"
+  }
+}
