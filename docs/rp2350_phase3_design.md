@@ -64,6 +64,25 @@ CH_GPIO = {1: 17, 2: 18, 3: 19, 4: 20, 5: 21, 6: 22, 7: 23, 8: 24}
 
 - PWA から CH1〜CH8 それぞれ 3 秒以内に反応
 - VPS status API に全 CH 状態が含まれる
+- RP2350 再起動後、heartbeat 経由で VPS/PWA の `chStates` が実機（全 OFF）と一致
+
+### チャンネル状態同期（2026-06-08 追加）
+
+| 原則 | 内容 |
+|------|------|
+| **正** | RP2350 実機の GPIO / リレー LED 状態 |
+| **RP 再起動** | 全 CH OFF（GPIO 初期化）。VPS/PWA の過去 ON を RP へ復元しない |
+| **同期経路** | RP2350 `send_heartbeat()` → `POST /api/remote-test/heartbeat` body `{ chStates }` |
+| **VPS** | heartbeat 受信時 `state.chStates` を RP から届いた値で上書き |
+| **PWA** | `/device` / status ポーリングで `chStates` を表示（device 側を優先） |
+
+**ファームウェア（RP2350）— heartbeat 例**
+
+```python
+ch_states = {"1": "off", ..., "8": "off"}  # 起動時・exec_command で更新
+payload = {"chStates": ch_states}
+http_post("/api/remote-test/heartbeat?firmware=...", payload)
+```
 
 ---
 

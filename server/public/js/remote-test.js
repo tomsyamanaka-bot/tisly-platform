@@ -230,6 +230,10 @@ const CHANNEL_COUNT = 8;
 
 function getChannelState(data, ch) {
   const key = String(ch);
+  const deviceStates = data.device?.chStates;
+  if (deviceStates && deviceStates[key] !== undefined) {
+    return deviceStates[key];
+  }
   if (data.chStates && data.chStates[key] !== undefined) {
     return data.chStates[key];
   }
@@ -390,7 +394,12 @@ async function refreshStatus(silent = false) {
     api("GET", "/api/remote-test/status"),
     api("GET", "/api/remote-test/device").catch(() => null),
   ]);
-  if (device) data.device = device;
+  if (device) {
+    data.device = device;
+    if (device.chStates) {
+      data.chStates = device.chStates;
+    }
+  }
   renderStatus(data);
   if (!silent) appendLog("状態確認", data);
   return data;

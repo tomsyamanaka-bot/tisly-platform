@@ -32,6 +32,20 @@ function createDefaultChStates(): ChStates {
   return states;
 }
 
+export function normalizeDeviceChStates(input: unknown): ChStates | null {
+  if (!input || typeof input !== "object") return null;
+  const obj = input as Record<string, unknown>;
+  const states = createDefaultChStates();
+  for (let ch = 1; ch <= CHANNEL_COUNT; ch++) {
+    const key = String(ch);
+    const val = obj[key];
+    if (val === "on" || val === "off") {
+      states[key] = val;
+    }
+  }
+  return states;
+}
+
 interface RemoteTestState {
   pendingCommand: RemoteTestCommand | null;
   chStates: ChStates;
@@ -139,8 +153,11 @@ export function getDeviceStatus() {
   };
 }
 
-export function recordDeviceHeartbeat(firmwareVersion?: string): void {
+export function recordDeviceHeartbeat(firmwareVersion?: string, chStates?: ChStates): void {
   recordDevicePoll(firmwareVersion);
+  if (chStates) {
+    state.chStates = { ...chStates };
+  }
 }
 
 export function consumePendingCommand(_firmwareVersion?: string): RemoteTestCommand | null {

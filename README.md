@@ -66,8 +66,13 @@ TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。
 | VPS API | `POST /api/remote-test/ch{N}/on\|off`（N=1..8）· `chStates` で全 CH 保持 |
 | PWA | CH1 と同 UI パターンで CH2〜8 ボタン追加 |
 | RP2350 | `CH_GPIO` マップ（GPIO17〜24）· `exec_command()` 一般化 |
+| **状態同期** | RP2350 実機の `chStates` を heartbeat で VPS/PWA へ反映（正は RP 側） |
 
-**完了条件:** PWA から CH1〜CH8 それぞれ **3 秒以内**に制御可能
+**チャンネル状態の正:** RP2350 実機側。RP 再起動時は全 CH OFF を正とし、VPS/PWA の過去 ON 状態を RP へ自動復元しない。
+
+**同期フロー:** RP2350 が `POST /api/remote-test/heartbeat` で `chStates` を送信 → VPS がサーバー側 `chStates` を上書き → PWA が `/device` / status ポーリングで表示更新。
+
+**完了条件:** PWA から CH1〜CH8 それぞれ **3 秒以内**に制御可能。RP RESET 後 **60 秒以内**に PWA 表示も全 CH OFF と一致。
 
 ### VPS 本番反映（PoC 成功後・最優先）
 
@@ -79,7 +84,9 @@ cd /opt/tisly/server && npm run build
 cd /opt/tisly/server && npm run vapid:setup    # 初回 or VAPID 未設定時
 sudo systemctl restart tisly-server
 curl -s -H "X-Remote-Test-Token: $TOKEN" \
-  "https://tisly.jp/api/remote-test/heartbeat?firmware=1.1.0-poc-success"
+  -H "Content-Type: application/json" \
+  -d '{"chStates":{"1":"off","2":"off","3":"off","4":"off","5":"off","6":"off","7":"off","8":"off"}}' \
+  "https://tisly.jp/api/remote-test/heartbeat?firmware=1.2.0-ch8"
 ```
 
 ### VPS 反映後の確認項目
@@ -91,6 +98,7 @@ curl -s -H "X-Remote-Test-Token: $TOKEN" \
 | 3 | heartbeat 間隔 | 約 **60 秒**に 1 回更新（RP2350 シリアルに `heartbeat sent` が 60 秒ごと） |
 | 4 | CH1 ON/OFF 応答 | PWA 操作から **3 秒以内**にリレーが反応（poll 3 秒方針） |
 | 5 | offline 判定 | RP2350 電源 OFF または LAN 切断後、約 **90 秒**で offline 表示（`DEVICE_OFFLINE_THRESHOLD_SEC=90`） |
+| 6 | 再起動後 chStates 同期 | CH2/3/8 等を ON → RP RESET → 実機 LED 全 OFF → **60 秒以内**に PWA も全 CH OFF 表示 |
 
 **確認手順（実機）**
 

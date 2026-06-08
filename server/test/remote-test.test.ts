@@ -124,8 +124,20 @@ describe("Remote Test PoC API", () => {
 
   it("GET /device returns online after heartbeat", async () => {
     await request(app)
-      .get("/api/remote-test/heartbeat")
-      .query({ token: TEST_TOKEN, firmware: "1.1.0-poc-success" });
+      .post("/api/remote-test/heartbeat")
+      .query({ token: TEST_TOKEN, firmware: "1.1.0-poc-success" })
+      .send({
+        chStates: {
+          "1": "off",
+          "2": "off",
+          "3": "off",
+          "4": "off",
+          "5": "off",
+          "6": "off",
+          "7": "off",
+          "8": "off",
+        },
+      });
 
     const res = await request(app)
       .get("/api/remote-test/device")
@@ -139,11 +151,68 @@ describe("Remote Test PoC API", () => {
     assert.equal(typeof res.body.chStates["1"], "string");
   });
 
+  it("POST /heartbeat overwrites stale chStates from RP2350", async () => {
+    resetRemoteTestState();
+    await request(app)
+      .post("/api/remote-test/ch2/on")
+      .set("X-Remote-Test-Token", TEST_TOKEN);
+    await request(app)
+      .post("/api/remote-test/ch3/on")
+      .set("X-Remote-Test-Token", TEST_TOKEN);
+    await request(app)
+      .post("/api/remote-test/ch8/on")
+      .set("X-Remote-Test-Token", TEST_TOKEN);
+
+    const before = await request(app)
+      .get("/api/remote-test/status")
+      .set("X-Remote-Test-Token", TEST_TOKEN);
+    assert.equal(before.body.chStates["2"], "on");
+    assert.equal(before.body.chStates["3"], "on");
+    assert.equal(before.body.chStates["8"], "on");
+
+    await request(app)
+      .post("/api/remote-test/heartbeat")
+      .query({ token: TEST_TOKEN, firmware: "1.2.0-ch8" })
+      .send({
+        chStates: {
+          "1": "off",
+          "2": "off",
+          "3": "off",
+          "4": "off",
+          "5": "off",
+          "6": "off",
+          "7": "off",
+          "8": "off",
+        },
+      });
+
+    const status = await request(app)
+      .get("/api/remote-test/status")
+      .set("X-Remote-Test-Token", TEST_TOKEN);
+    assert.deepEqual(status.body.chStates, {
+      "1": "off",
+      "2": "off",
+      "3": "off",
+      "4": "off",
+      "5": "off",
+      "6": "off",
+      "7": "off",
+      "8": "off",
+    });
+
+    const device = await request(app)
+      .get("/api/remote-test/device")
+      .set("X-Remote-Test-Token", TEST_TOKEN);
+    assert.deepEqual(device.body.chStates, status.body.chStates);
+    assert.equal(device.body.firmwareVersion, "1.2.0-ch8");
+  });
+
   it("GET /command poll does not update device lastSeen", async () => {
     resetRemoteTestState();
     await request(app)
-      .get("/api/remote-test/heartbeat")
-      .query({ token: TEST_TOKEN, firmware: "1.1.0-poc-success" });
+      .post("/api/remote-test/heartbeat")
+      .query({ token: TEST_TOKEN, firmware: "1.1.0-poc-success" })
+      .send({ chStates: { "1": "off", "2": "off", "3": "off", "4": "off", "5": "off", "6": "off", "7": "off", "8": "off" } });
 
     const before = await request(app)
       .get("/api/remote-test/device")
