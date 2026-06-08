@@ -71,6 +71,7 @@ import { switchbotIntegrationRouter } from "./api/routes/switchbot-integration.j
 import { securityAutomationRouter } from "./api/routes/security-automation.js";
 import { buildSurveyReportHtml } from "./survey/survey-report.js";
 import { remoteTestRouter } from "./api/routes/remote-test.js";
+import { pushRouter } from "./api/routes/push.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(__dirname, "..", "public");
@@ -116,6 +117,7 @@ export function createApp(): express.Application {
   app.use("/api/analytics", opsCustomerScopeMiddleware, analyticsRouter);
   app.use("/api/test", testRouter);
   app.use("/api/remote-test", remoteTestRouter);
+  app.use("/api/push", pushRouter);
 
   app.use("/api/settings", requireAdminAuth, settingsRouter);
   app.use("/api/recovery", requireAdminAuth, opsCustomerScopeMiddleware, tenantQueryGuard, recoveryRouter);
@@ -225,6 +227,11 @@ export function createApp(): express.Application {
   app.get("/remote-test/app.js", (_req, res) => {
     res.type("application/javascript");
     res.sendFile(path.join(publicDir, "js", "remote-test.js"));
+  });
+  app.get("/remote-test/service-worker.js", (_req, res) => {
+    res.setHeader("Service-Worker-Allowed", "/remote-test/");
+    res.type("application/javascript");
+    res.sendFile(path.join(publicDir, "remote-test", "service-worker.js"));
   });
   app.get("/remote-test/manifest.webmanifest", (_req, res) => {
     res.type("application/manifest+json");

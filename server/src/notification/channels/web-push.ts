@@ -108,6 +108,23 @@ export function countPushSubscriptions(userId?: string): number {
   return row.n;
 }
 
+function ensurePushUserExists(userId: string): void {
+  const db = getDatabase();
+  const row = db.prepare("SELECT id FROM users WHERE id = ?").get(userId);
+  if (row) return;
+  if (userId === "remote-test") {
+    db.prepare(
+      `INSERT INTO users (id, email, display_name, role) VALUES (?, ?, ?, ?)`
+    ).run("remote-test", "remote-test@tisly.jp", "TiSLY Remote Test", "viewer");
+    return;
+  }
+  if (userId === "admin-default") {
+    db.prepare(
+      `INSERT INTO users (id, email, display_name, role) VALUES (?, ?, ?, ?)`
+    ).run("admin-default", "admin@tisly.jp", "TiSLY Admin", "admin");
+  }
+}
+
 export function savePushSubscription(
   userId: string,
   subscription: { endpoint: string; keys: { p256dh: string; auth: string } },
@@ -115,6 +132,7 @@ export function savePushSubscription(
 ): string {
   const id = uuid();
   const db = getDatabase();
+  ensurePushUserExists(userId);
   db.prepare(
     `INSERT INTO notification_tokens (id, user_id, device_id, channel, token, endpoint, keys_json)
      VALUES (?, ?, ?, 'web_push', ?, ?, ?)`

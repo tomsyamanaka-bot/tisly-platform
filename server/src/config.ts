@@ -36,9 +36,15 @@ export const config = {
     clientId: env("MQTT_CLIENT_ID", "tisly-notification-core"),
   },
   vapid: {
-    publicKey: env("VAPID_PUBLIC_KEY"),
-    privateKey: env("VAPID_PRIVATE_KEY"),
-    subject: env("VAPID_SUBJECT", "mailto:admin@tisly.jp"),
+    get publicKey() {
+      return env("VAPID_PUBLIC_KEY");
+    },
+    get privateKey() {
+      return env("VAPID_PRIVATE_KEY");
+    },
+    get subject() {
+      return env("VAPID_SUBJECT", "mailto:admin@tisly.jp");
+    },
   },
   discord: {
     get webhookUrl() {

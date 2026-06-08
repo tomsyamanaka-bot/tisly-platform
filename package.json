@@ -6,6 +6,8 @@
     "demo": "npm run demo --prefix server",
     "dev": "npm run dev --prefix server",
     "build": "npm run build --prefix server",
-    "hash:admin-password": "npm run hash:admin-password --prefix server"
+    "hash:admin-password": "npm run hash:admin-password --prefix server",
+    "vapid:setup": "npm run vapid:setup --prefix server",
+    "vapid:generate": "npm run vapid:generate --prefix server"
   }
 }

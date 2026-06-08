@@ -88,6 +88,17 @@ function seedDefaults(database: Database.Database): void {
       .run("admin-default", "admin@tisly.jp", "TiSLY Admin", "admin");
   }
 
+  const remoteTestUser = database
+    .prepare("SELECT id FROM users WHERE id = ?")
+    .get("remote-test");
+  if (!remoteTestUser) {
+    database
+      .prepare(
+        `INSERT INTO users (id, email, display_name, role) VALUES (?, ?, ?, ?)`
+      )
+      .run("remote-test", "remote-test@tisly.jp", "TiSLY Remote Test", "viewer");
+  }
+
   const settings = [
     {
       key: "pwa",

@@ -1,5 +1,7 @@
 const TOKEN_KEY = "tisly_remote_test_token";
 const PUSH_USER_ID = "remote-test";
+const REMOTE_TEST_SW_URL = "/remote-test/service-worker.js";
+const REMOTE_TEST_SW_SCOPE = "/remote-test/";
 
 function isStandalonePwa() {
   return (
@@ -283,12 +285,19 @@ function renderDeviceStatus(device) {
   if (fwEl) fwEl.textContent = dev.firmwareVersion ?? "—";
 }
 
+function canUsePushActions() {
+  return isStandalonePwa() && isPushSupported() && !!getToken();
+}
+
 function refreshPlatformGuidance() {
   const iosGuide = document.getElementById("ios-pwa-guide");
+  const browserHint = document.getElementById("browser-mode-hint");
   const unsupported = document.getElementById("push-unsupported");
   const reasonEl = document.getElementById("push-unsupported-reason");
   const standalone = isStandalonePwa();
   const ios = isIos();
+  const registerBtn = document.getElementById("btn-push-register");
+  const testBtn = document.getElementById("btn-push-test");
 
   if (ios && !standalone) {
     iosGuide?.removeAttribute("hidden");
@@ -296,41 +305,39 @@ function refreshPlatformGuidance() {
     iosGuide?.setAttribute("hidden", "");
   }
 
+  if (!standalone && isPushSupported()) {
+    browserHint?.removeAttribute("hidden");
+  } else {
+    browserHint?.setAttribute("hidden", "");
+  }
+
   const reason = pushUnsupportedReason();
   if (!isPushSupported() && reason) {
     unsupported?.removeAttribute("hidden");
     if (reasonEl) reasonEl.textContent = reason;
-    document.getElementById("btn-push-register")?.setAttribute("disabled", "true");
-    document.getElementById("btn-push-test")?.setAttribute("disabled", "true");
+    registerBtn?.setAttribute("disabled", "true");
+    testBtn?.setAttribute("disabled", "true");
+    return;
+  }
+
+  unsupported?.setAttribute("hidden", "");
+  if (canUsePushActions()) {
+    registerBtn?.removeAttribute("disabled");
+    testBtn?.removeAttribute("disabled");
   } else {
-    unsupported?.setAttribute("hidden", "");
-    if (getToken()) {
-      document.getElementById("btn-push-register")?.removeAttribute("disabled");
-      document.getElementById("btn-push-test")?.removeAttribute("disabled");
-    }
+    registerBtn?.setAttribute("disabled", "true");
+    testBtn?.setAttribute("disabled", "true");
   }
 }
 
 async function refreshPushStatus() {
-  const supported = isPushSupported();
-  const reason = pushUnsupportedReason();
-  setStatus(
-    "status-push-support",
-    supported ? "対応" : reason || "非対応",
-    supported
-  );
-
   const perm = typeof Notification !== "undefined" ? Notification.permission : "unsupported";
   const permLabel =
-    perm === "granted" ? "許可済み" : perm === "denied" ? "拒否" : perm === "default" ? "未設定" : perm;
+    perm === "granted" || perm === "denied" || perm === "default" ? perm : perm;
   setStatus("status-notification-permission", permLabel, perm === "granted");
 
   const standalone = isStandalonePwa();
-  setStatus(
-    "status-display-mode",
-    standalone ? "PWA（スタンドアロン）" : "ブラウザ",
-    standalone
-  );
+  setStatus("status-display-mode", standalone ? "PWA" : "ブラウザ", standalone);
 
   const safari = isSafari();
   const ios = isIos();
@@ -349,15 +356,16 @@ async function refreshPushStatus() {
   }
 
   try {
-    const reg = await navigator.serviceWorker.getRegistration("/service-worker.js");
+    const reg =
+      (await navigator.serviceWorker.getRegistration(REMOTE_TEST_SW_SCOPE)) ||
+      (await navigator.serviceWorker.getRegistration(REMOTE_TEST_SW_URL));
     if (!reg) {
       setStatus("status-sw-registration", "未登録", false);
-      setStatus("status-push-subscription", "未登録（SW なし）", false);
+      setStatus("status-push-subscription", "未登録", false);
       refreshPlatformGuidance();
       return;
     }
-    const swState = reg.active?.state || reg.installing?.state || reg.waiting?.state || "unknown";
-    setStatus("status-sw-registration", `登録済み (${swState})`, true);
+    setStatus("status-sw-registration", "登録済み", true);
 
     if (!reg.pushManager) {
       setStatus("status-push-subscription", "PushManager なし", false);
@@ -365,16 +373,41 @@ async function refreshPushStatus() {
       return;
     }
     const sub = await reg.pushManager.getSubscription();
-    if (!sub) {
-      setStatus("status-push-subscription", "未登録", false);
-    } else {
-      const endpoint = sub.endpoint || "";
-      const short = endpoint.length > 40 ? `${endpoint.slice(0, 40)}…` : endpoint;
-      setStatus("status-push-subscription", `登録済み · ${short}`, true);
-    }
+    setStatus("status-push-subscription", sub ? "登録済み" : "未登録", !!sub);
   } catch (e) {
     setStatus("status-sw-registration", e.message || String(e), false);
     setStatus("status-push-subscription", "確認失敗", false);
+  }
+
+  try {
+    const vapidRes = await fetch("/api/push/vapid-public-key");
+    const vapidData = await vapidRes.json();
+    const configured = vapidRes.ok && !!vapidData.publicKey;
+    setStatus("status-vapid", configured ? "設定済み" : "未設定", configured);
+  } catch {
+    setStatus("status-vapid", "確認失敗", false);
+  }
+
+  if (getToken()) {
+    try {
+      const pushStatus = await api("GET", "/api/push/status");
+      setStatus(
+        "status-server-subscriptions",
+        typeof pushStatus.subscriptionCount === "number"
+          ? `${pushStatus.subscriptionCount} 件`
+          : "—",
+        pushStatus.subscriptionCount > 0
+      );
+      if (typeof pushStatus.vapidConfigured === "boolean") {
+        setStatus(
+          "status-vapid",
+          pushStatus.vapidConfigured ? "設定済み" : "未設定",
+          pushStatus.vapidConfigured
+        );
+      }
+    } catch {
+      /* token or server error — vapid-public-key result remains */
+    }
   }
 
   refreshPlatformGuidance();
@@ -458,7 +491,7 @@ saveTokenBtn?.addEventListener("click", () => {
 
 document.getElementById("btn-status")?.addEventListener("click", () => runAction("状態確認", refreshStatus));
 document.getElementById("btn-push-test")?.addEventListener("click", () =>
-  runAction("Push テスト", () => api("POST", "/api/remote-test/notify"), { format: "notify" })
+  runAction("Push テスト", () => api("POST", "/api/push/test"), { format: "notify" })
 );
 document.querySelectorAll(".btn-ch-on").forEach((btn) => {
   btn.addEventListener("click", () => {
@@ -491,28 +524,31 @@ function urlBase64ToUint8Array(base64String) {
 
 document.getElementById("btn-push-register")?.addEventListener("click", () =>
   runAction("Push 登録", async () => {
+    if (!isStandalonePwa()) {
+      throw new Error("PWA（ホーム画面追加）からのみ Push 登録できます");
+    }
     if (!isPushSupported()) {
       throw new Error(pushUnsupportedReason() ?? "Web Push 非対応");
     }
-    const { publicKey } = await fetch("/api/notifications/vapid-public-key").then((r) => r.json());
-    if (!publicKey) throw new Error("VAPID 未設定 — サーバーで npm run vapid:setup");
-    const reg = await navigator.serviceWorker.register("/service-worker.js");
+    const vapidRes = await fetch("/api/push/vapid-public-key");
+    const vapidData = await vapidRes.json();
+    if (!vapidRes.ok || !vapidData.publicKey) {
+      throw new Error(vapidData.error ?? vapidData.hint ?? "VAPID 未設定 — サーバーで npm run vapid:setup");
+    }
+    const reg = await navigator.serviceWorker.register(REMOTE_TEST_SW_URL, {
+      scope: REMOTE_TEST_SW_SCOPE,
+    });
     await navigator.serviceWorker.ready;
     const permission = await Notification.requestPermission();
     if (permission !== "granted") throw new Error("通知が拒否されました");
     const sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(publicKey),
+      applicationServerKey: urlBase64ToUint8Array(vapidData.publicKey),
     });
     const json = sub.toJSON();
-    const result = await fetch("/api/notifications/subscribe", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        userId: PUSH_USER_ID,
-        subscription: { endpoint: json.endpoint, keys: json.keys },
-      }),
-    }).then((r) => r.json());
+    const result = await api("POST", "/api/push/subscribe", {
+      subscription: { endpoint: json.endpoint, keys: json.keys },
+    });
     showPushMsg(true, "Push 登録完了");
     await refreshPushStatus();
     if (getToken()) {

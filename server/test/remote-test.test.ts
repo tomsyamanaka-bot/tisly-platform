@@ -274,6 +274,7 @@ describe("Remote Test PoC API", () => {
     assert.match(res.text, /id="btn-save-token" disabled/);
     assert.match(res.text, /maxlength="128"/);
     assert.match(res.text, /Push 登録状態/);
+    assert.match(res.text, /id="browser-mode-hint"/);
     assert.match(res.text, /id="ios-pwa-guide"/);
     assert.match(res.text, /Push 成功時刻/);
     assert.match(res.text, /CH8/);
@@ -285,6 +286,8 @@ describe("Remote Test PoC API", () => {
     assert.equal(res.status, 200);
     assert.match(res.headers["content-type"] ?? "", /javascript/);
     assert.match(res.text, /syncSaveButton/);
+    assert.match(res.text, /\/api\/push\/test/);
+    assert.match(res.text, /REMOTE_TEST_SW_URL/);
   });
 
   it("GET /tisly-app redirects to home", async () => {

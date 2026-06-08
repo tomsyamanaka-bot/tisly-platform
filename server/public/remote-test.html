@@ -209,15 +209,17 @@
     <dl class="status-grid">
       <dt>表示モード</dt><dd id="status-display-mode">確認中…</dd>
       <dt>ブラウザ</dt><dd id="status-browser">確認中…</dd>
-      <dt>ブラウザ対応</dt><dd id="status-push-support">確認中…</dd>
       <dt>通知許可</dt><dd id="status-notification-permission">確認中…</dd>
       <dt>Service Worker</dt><dd id="status-sw-registration">確認中…</dd>
       <dt>Push 購読</dt><dd id="status-push-subscription">確認中…</dd>
       <dt>サーバー登録数</dt><dd id="status-server-subscriptions">—</dd>
       <dt>VAPID 設定</dt><dd id="status-vapid">—</dd>
     </dl>
+    <p class="hint" id="browser-mode-hint" hidden>
+      ブラウザ表示のため Push は利用できません。<strong>ホーム画面に追加</strong>して PWA から開いてください。
+    </p>
     <div class="btn-row">
-      <button type="button" class="secondary" id="btn-push-register">Push 登録</button>
+      <button type="button" class="secondary" id="btn-push-register" disabled>Push 登録</button>
       <button type="button" class="secondary" id="btn-push-status-refresh">状態を更新</button>
     </div>
     <div id="push-msg" role="status"></div>
@@ -231,7 +233,7 @@
       <dt>最終通知</dt><dd id="st-notify">—</dd>
     </dl>
     <div class="btn-row single">
-      <button type="button" id="btn-push-test">Push テスト</button>
+      <button type="button" id="btn-push-test" disabled>Push テスト</button>
     </div>
   </section>
 
