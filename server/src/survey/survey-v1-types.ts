@@ -20,12 +20,12 @@ export const SURVEY_WORKFLOW_LABELS: Record<SurveyWorkflowStatus, string> = {
 
 export const SURVEY_MATERIAL_CATEGORIES = [
   "camera",
-  "lan",
   "wifi",
+  "intercom",
   "electrical",
   "lighting",
-  "intercom",
-  "aircon",
+  "lan",
+  "antenna",
   "other",
 ] as const;
 
@@ -33,24 +33,24 @@ export type SurveyMaterialCategory = (typeof SURVEY_MATERIAL_CATEGORIES)[number]
 
 export const SURVEY_MATERIAL_LABELS: Record<SurveyMaterialCategory, string> = {
   camera: "防犯カメラ",
-  lan: "LAN",
-  wifi: "WiFi",
-  electrical: "電気",
-  lighting: "照明",
+  wifi: "Wi-Fi",
   intercom: "インターホン",
-  aircon: "エアコン",
+  electrical: "コンセント",
+  lighting: "照明",
+  lan: "LAN配線",
+  antenna: "アンテナ",
   other: "その他",
 };
 
 /** 見積PWA（business PRICING_CATEGORIES）へのマッピング */
 export const SURVEY_TO_ESTIMATE_CATEGORY: Record<SurveyMaterialCategory, string> = {
   camera: "camera",
-  lan: "lan",
   wifi: "ap",
+  intercom: "intercom",
   electrical: "outlet",
   lighting: "lighting",
-  intercom: "intercom",
-  aircon: "aircon",
+  lan: "lan",
+  antenna: "other",
   other: "other",
 };
 

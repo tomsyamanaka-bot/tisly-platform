@@ -224,15 +224,16 @@
 .hub-app-card {
   display: block;
   padding: 14px;
-  background: #21262d;
-  border: 1px solid #30363d;
-  border-radius: 10px;
+  background: #fff;
+  border: 1px solid #e1e4e8;
+  border-radius: 12px;
   text-decoration: none;
-  color: #e6edf3;
+  color: #24292f;
   min-height: 88px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
 }
 .hub-app-card:hover {
-  border-color: #58a6ff;
+  border-color: #4a90d9;
 }
 .hub-app-card .label {
   font-weight: 700;
@@ -240,7 +241,7 @@
 }
 .hub-app-card .desc {
   font-size: 0.75rem;
-  color: #8b949e;
+  color: #6a737d;
   margin-top: 6px;
 }
 .hub-app-card.optional::after {
@@ -264,11 +265,12 @@
 .hub-workflow-card {
   display: block;
   padding: 10px 12px;
-  background: #1c2128;
-  border: 1px dashed #30363d;
-  border-radius: 8px;
+  background: #fff;
+  border: 1px solid #e1e4e8;
+  border-radius: 10px;
   text-decoration: none;
-  color: #e6edf3;
+  color: #24292f;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
 }
 .hub-workflow-card .label {
   font-weight: 600;
@@ -276,7 +278,7 @@
 }
 .hub-workflow-card .desc {
   font-size: 0.72rem;
-  color: #8b949e;
+  color: #6a737d;
   margin-top: 4px;
 }
 

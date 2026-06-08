@@ -18,21 +18,22 @@
     <p class="section-hint" id="page-hint">お客様の現場を見に行く記録を残します</p>
 
     <div id="view-list">
-      <button type="button" class="btn-main" id="btn-new">＋ 新しい現調をはじめる</button>
-      <p class="section-label">📋 案件一覧</p>
+      <button type="button" class="btn-hero" id="btn-new">＋ 新しい現調を作る</button>
+      <p class="section-label">📋 これまでの現調</p>
       <div id="project-list" class="empty-state">読み込み中…</div>
     </div>
 
     <div id="view-form" class="hidden">
       <div class="friendly-card">
         <h2>新しい現調</h2>
-        <p>まずはお客様のお名前だけ入れればOKです</p>
+        <p>お名前だけ入れても、あとから直せます</p>
       </div>
       <form id="project-form">
         <label class="friendly-label">お客様のお名前 <input name="customerName" required placeholder="山田様邸" /></label>
-        <label class="friendly-label">住所 <input name="address" placeholder="あとからでも入れられます" /></label>
+        <label class="friendly-label">電話番号 <input name="phone" type="tel" inputmode="tel" placeholder="090-0000-0000" /></label>
+        <label class="friendly-label">住所 <input name="address" placeholder="市区町村からでOK" /></label>
         <label class="friendly-label">現調日 <input name="surveyDate" type="date" /></label>
-        <label class="friendly-label">メモ <textarea name="notes" rows="3" placeholder="気づいたことをメモ"></textarea></label>
+        <label class="friendly-label">現調メモ <textarea name="notes" rows="3" placeholder="気づいたこと、お客様のご要望など"></textarea></label>
         <button type="submit" class="btn-main" id="btn-save">保存する</button>
       </form>
       <div id="form-error" class="error-friendly hidden"></div>
@@ -41,12 +42,10 @@
     <div id="view-edit" class="hidden">
       <form id="edit-form">
         <label class="friendly-label">お客様のお名前 <input name="customerName" required /></label>
-        <label class="friendly-label">住所 <input name="address" /></label>
         <label class="friendly-label">電話番号 <input name="phone" type="tel" inputmode="tel" /></label>
-        <label class="friendly-label">メール <input name="email" type="email" inputmode="email" /></label>
+        <label class="friendly-label">住所 <input name="address" /></label>
         <label class="friendly-label">現調日 <input name="surveyDate" type="date" /></label>
-        <label class="friendly-label">担当者 <input name="assignee" /></label>
-        <label class="friendly-label">メモ <textarea name="notes" rows="3"></textarea></label>
+        <label class="friendly-label">現調メモ <textarea name="notes" rows="3"></textarea></label>
         <button type="submit" class="btn-main">変更を保存</button>
       </form>
       <div id="edit-error" class="error-friendly hidden"></div>
@@ -61,27 +60,30 @@
         <button type="button" class="btn-sub" id="btn-edit" style="margin-top:0.5rem;">お客様情報を直す</button>
       </div>
 
-      <p class="section-label">📷 写真</p>
-      <p class="section-hint">現場の様子を写真で残します</p>
+      <p class="section-label">📷 現場の写真</p>
+      <p class="section-hint">撮った写真や、メモだけでも残せます</p>
       <div class="friendly-card">
         <div id="photo-list"></div>
-        <label class="friendly-label">写真の説明 <textarea id="photo-comment" rows="2" placeholder="どこを撮ったか"></textarea></label>
+        <div class="photo-upload-zone" id="photo-upload-zone">
+          <span class="photo-upload-icon">📷</span>
+          <p>ここに写真を追加できます</p>
+          <p class="photo-upload-hint">カメラで撮るか、メモだけでもOK</p>
+        </div>
+        <label class="friendly-label">写真の説明 <textarea id="photo-comment" rows="2" placeholder="どこを撮ったか（例：玄関横）"></textarea></label>
         <input type="file" id="file-input" accept="image/*" capture="environment" style="display:none" />
-        <button type="button" class="btn-sub" id="btn-camera">📷 写真を撮る</button>
+        <button type="button" class="btn-sub" id="btn-camera">📷 写真を撮る・選ぶ</button>
         <button type="button" class="btn-sub" id="btn-photo-memo">📝 文字だけメモ</button>
       </div>
 
       <p class="section-label">🔧 使う部材</p>
-      <p class="section-hint">カメラや配線など、使うものを選びます</p>
+      <p class="section-hint">タップして選びます（複数選べます）</p>
       <div class="friendly-card">
         <div id="material-list"></div>
-        <label class="friendly-label">種類
-          <select id="material-category"></select>
-        </label>
-        <label class="friendly-label">品名 <input id="material-label" placeholder="例: 屋外カメラ" /></label>
+        <div id="material-picker" class="material-picker-grid" role="group" aria-label="部材の種類"></div>
+        <label class="friendly-label">品名・型番（任意） <input id="material-label" placeholder="例：屋外カメラ 2台目" /></label>
         <label class="friendly-label">数量 <input id="material-qty" type="number" min="1" value="1" inputmode="numeric" /></label>
-        <label class="friendly-label">補足 <input id="material-memo" placeholder="設置場所など" /></label>
-        <button type="button" class="btn-sub" id="btn-add-material">部材を追加</button>
+        <label class="friendly-label">設置場所など <input id="material-memo" placeholder="玄関・駐車場など" /></label>
+        <button type="button" class="btn-sub" id="btn-add-material">選んだ部材を追加</button>
       </div>
 
       <button type="button" class="btn-main blue" id="btn-handoff">見積へ送る</button>

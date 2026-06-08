@@ -15,27 +15,21 @@ const WORKFLOW_LABELS = {
   completed: "完了",
 };
 
-const MATERIAL_ICONS = {
-  camera: "📷",
-  lan: "🔌",
-  wifi: "📶",
-  electrical: "⚡",
-  lighting: "💡",
-  intercom: "🔔",
-  aircon: "❄️",
-  other: "📦",
-};
+const MATERIAL_PICKER = [
+  { key: "camera", icon: "📷", label: "防犯カメラ" },
+  { key: "wifi", icon: "📶", label: "Wi-Fi" },
+  { key: "intercom", icon: "🔔", label: "インターホン" },
+  { key: "electrical", icon: "🔌", label: "コンセント" },
+  { key: "lighting", icon: "💡", label: "照明" },
+  { key: "lan", icon: "🌐", label: "LAN配線" },
+  { key: "antenna", icon: "📡", label: "アンテナ" },
+  { key: "other", icon: "📦", label: "その他" },
+];
 
-const MATERIAL_LABELS = {
-  camera: "防犯カメラ",
-  lan: "LAN配線",
-  wifi: "WiFi",
-  electrical: "電気工事",
-  lighting: "照明",
-  intercom: "インターホン",
-  aircon: "エアコン",
-  other: "その他",
-};
+const MATERIAL_ICONS = Object.fromEntries(MATERIAL_PICKER.map((m) => [m.key, m.icon]));
+const MATERIAL_LABELS = Object.fromEntries(MATERIAL_PICKER.map((m) => [m.key, m.label]));
+
+let selectedMaterialCategory = "camera";
 
 const API = "/api/survey/v1";
 let currentProjectId = null;
@@ -104,7 +98,7 @@ function renderProjectList(projects) {
   if (!projects.length) {
     el.className = "empty-state";
     el.innerHTML =
-      '<div class="empty-icon">📋</div><p>まだ案件がありません</p><p>「＋ 新しい現調をはじめる」から作れます</p>';
+      '<div class="empty-icon">📋</div><p>まだ現調がありません</p><p>上の「＋ 新しい現調を作る」から始められます</p>';
     return;
   }
   el.className = "";
@@ -142,17 +136,28 @@ async function loadList() {
   }
 }
 
-function fillMaterialSelect() {
-  const sel = $("material-category");
-  sel.innerHTML = Object.entries(MATERIAL_LABELS)
-    .map(([k, v]) => `<option value="${k}">${MATERIAL_ICONS[k] || ""} ${v}</option>`)
-    .join("");
+function renderMaterialPicker() {
+  const grid = $("material-picker");
+  if (!grid) return;
+  grid.innerHTML = MATERIAL_PICKER.map(
+    (m) =>
+      `<button type="button" class="material-pick-card${m.key === selectedMaterialCategory ? " selected" : ""}" data-cat="${m.key}" aria-pressed="${m.key === selectedMaterialCategory}">
+        <span class="material-pick-icon">${m.icon}</span>
+        <span class="material-pick-label">${m.label}</span>
+      </button>`
+  ).join("");
+  grid.querySelectorAll(".material-pick-card").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      selectedMaterialCategory = btn.dataset.cat;
+      renderMaterialPicker();
+    });
+  });
 }
 
 function renderPhotos(photos) {
   const el = $("photo-list");
   if (!photos?.length) {
-    el.innerHTML = '<p style="color:var(--tisly-muted);font-size:0.9rem;">まだ写真がありません</p>';
+    el.innerHTML = "";
     return;
   }
   el.innerHTML = `<div class="photo-grid">${photos
@@ -273,7 +278,8 @@ async function init() {
     onBack: handleBack,
   });
   practicalNav.setToast(toast);
-  fillMaterialSelect();
+  renderMaterialPicker();
+  $("photo-upload-zone")?.addEventListener("click", () => $("file-input").click());
   showView("list");
   await loadList();
 
@@ -294,6 +300,7 @@ async function init() {
     const body = {
       customerCode: customerCodeFromPath(),
       customerName: fd.get("customerName"),
+      phone: fd.get("phone") || undefined,
       address: fd.get("address") || undefined,
       surveyDate: fd.get("surveyDate") || undefined,
       notes: fd.get("notes") || undefined,
@@ -358,7 +365,7 @@ async function init() {
       await api(`/projects/${currentProjectId}/materials`, {
         method: "POST",
         body: JSON.stringify({
-          category: $("material-category").value,
+          category: selectedMaterialCategory,
           itemLabel: $("material-label").value,
           quantity: Number($("material-qty").value) || 1,
           memo: $("material-memo").value,
@@ -382,9 +389,7 @@ async function init() {
       form.customerName.value = p.customerName || "";
       form.address.value = p.address || "";
       form.phone.value = p.phone || "";
-      form.email.value = p.email || "";
       form.surveyDate.value = p.surveyDate || "";
-      form.assignee.value = p.assignee || "";
       form.notes.value = p.notes || "";
       $("edit-error").classList.add("hidden");
       showView("edit");
@@ -404,9 +409,7 @@ async function init() {
           customerName: fd.get("customerName"),
           address: fd.get("address") || undefined,
           phone: fd.get("phone") || undefined,
-          email: fd.get("email") || undefined,
           surveyDate: fd.get("surveyDate") || undefined,
-          assignee: fd.get("assignee") || undefined,
           notes: fd.get("notes") || undefined,
         }),
       });

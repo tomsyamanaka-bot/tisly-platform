@@ -63,7 +63,7 @@ function renderPendingList(surveys) {
   if (!surveys.length) {
     el.className = "empty-state";
     el.innerHTML =
-      '<div class="empty-icon">💰</div><p>見積もり作成待ちの案件はありません</p><p>現調アプリで「見積へ送る」を押すと、ここに表示されます</p>';
+      '<div class="empty-icon">💰</div><p>見積待ちの案件はありません</p><p>現調で「見積へ送る」を押すと、ここに表示されます</p>';
     return;
   }
   el.className = "";
@@ -71,7 +71,7 @@ function renderPendingList(surveys) {
     .map(
       (s) => `
     <div class="friendly-card list-card" data-survey-id="${s.surveyProjectId}" data-has-estimate="${s.hasEstimate ? "1" : "0"}" data-biz-id="${s.businessProjectId || ""}">
-      <span class="status-badge orange">見積もり作成待ち</span>
+      <span class="status-badge orange">見積待ち</span>
       <h2>${escapeHtml(s.customerName)}</h2>
       <p>${escapeHtml(s.projectNo || s.surveyProjectId)} · 部材${s.materialCount}件 · 写真${s.photoCount}枚</p>
       <p style="color:var(--tisly-blue);font-size:0.9rem;margin-top:0.35rem;">
@@ -139,21 +139,24 @@ function renderLines(items) {
     .map(
       (it, i) => `
     <div class="line-card" data-idx="${i}">
-      <div style="font-weight:600;margin-bottom:0.35rem;">🔧 ${escapeHtml(it.name)}</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
+      <label class="friendly-label" style="margin:0 0 0.35rem;">項目名</label>
+      <input type="text" class="name-input line-name-input" data-idx="${i}" value="${escapeHtml(it.name)}" />
+      <div class="line-qty-price">
         <div>
           <label class="friendly-label" style="margin:0;">数量</label>
           <input type="number" min="1" class="qty-input" data-idx="${i}" value="${it.quantity}" inputmode="numeric" />
         </div>
         <div>
-          <label class="friendly-label" style="margin:0;">単価</label>
+          <label class="friendly-label" style="margin:0;">単価（円）</label>
           <input type="number" min="0" class="price-input" data-idx="${i}" value="${it.unitPrice}" inputmode="numeric" />
         </div>
       </div>
+      <div class="line-amount">金額 ${yen((it.quantity || 0) * (it.unitPrice || 0))}</div>
     </div>`
     )
     .join("");
-  el.querySelectorAll(".qty-input, .price-input").forEach((inp) => {
+  el.querySelectorAll(".qty-input, .price-input, .name-input").forEach((inp) => {
+    inp.addEventListener("input", () => recalcLocal());
     inp.addEventListener("change", () => recalcLocal());
   });
 }
@@ -163,10 +166,14 @@ function recalcLocal() {
     const i = Number(row.dataset.idx);
     const qty = Number(row.querySelector(".qty-input")?.value || 1);
     const price = Number(row.querySelector(".price-input")?.value || 0);
+    const name = row.querySelector(".name-input")?.value?.trim() || "";
     if (currentLines[i]) {
       currentLines[i].quantity = qty;
       currentLines[i].unitPrice = price;
+      currentLines[i].name = name || currentLines[i].name;
       currentLines[i].amount = Math.round(qty * price);
+      const amtEl = row.querySelector(".line-amount");
+      if (amtEl) amtEl.textContent = `金額 ${yen(currentLines[i].amount)}`;
     }
   });
   const subtotal = currentLines.reduce((s, it) => s + (it.amount || 0), 0);
@@ -297,7 +304,7 @@ async function init() {
 
   $("btn-finalize").addEventListener("click", async () => {
     if (!currentProjectId) return;
-    if (!confirm("見積もりを確定しますか？\n確定すると見積書が作れます。")) return;
+    if (!confirm("見積を確定しますか？\n確定すると見積書（PDF）が作れます。")) return;
     try {
       recalcLocal();
       await api(`/projects/${currentProjectId}/items`, {
@@ -305,7 +312,7 @@ async function init() {
         body: JSON.stringify({ items: currentLines }),
       });
       const result = await api(`/projects/${currentProjectId}/finalize`, { method: "POST", body: "{}" });
-      toast("見積もりを確定しました");
+      toast("見積を確定しました");
       showPdfPreview(currentProjectId);
       $("detail-status").textContent = "見積書の準備ができました";
       $("detail-status").className = "status-badge done";

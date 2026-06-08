@@ -183,6 +183,7 @@ export function runMigrations(database: Database.Database): void {
   migratePhase1621(database);
   migratePhase2201(database);
   migrateFieldSurveyPwaV1(database);
+  migrateSurveyMaterialAntennaCategory(database);
   migrateFieldEstimatePwaV1(database);
 }
 
@@ -228,8 +229,8 @@ function migrateFieldSurveyPwaV1(database: Database.Database): void {
       id TEXT PRIMARY KEY,
       project_id TEXT NOT NULL,
       category TEXT NOT NULL CHECK (category IN (
-        'camera', 'lan', 'wifi', 'electrical',
-        'lighting', 'intercom', 'aircon', 'other'
+        'camera', 'wifi', 'intercom', 'electrical',
+        'lighting', 'lan', 'antenna', 'other'
       )),
       item_label TEXT DEFAULT '',
       quantity INTEGER NOT NULL DEFAULT 1,
@@ -261,6 +262,72 @@ function migrateFieldSurveyPwaV1(database: Database.Database): void {
       `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
     )
     .run("migration:field_survey_pwa_v1", JSON.stringify({ at: new Date().toISOString() }));
+}
+
+/** 部材カテゴリに antenna を追加（aircon を廃止） */
+function migrateSurveyMaterialAntennaCategory(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:survey_material_antenna") as { value_json: string } | undefined;
+  if (marker) return;
+
+  const tableRow = database
+    .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='survey_materials'")
+    .get() as { name: string } | undefined;
+  if (!tableRow) {
+    database
+      .prepare(
+        `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+      )
+      .run("migration:survey_material_antenna", JSON.stringify({ skipped: "no_table" }));
+    return;
+  }
+
+  try {
+    database.exec(`
+      CREATE TABLE survey_materials_antenna (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        category TEXT NOT NULL CHECK (category IN (
+          'camera', 'wifi', 'intercom', 'electrical',
+          'lighting', 'lan', 'antenna', 'other'
+        )),
+        item_label TEXT DEFAULT '',
+        quantity INTEGER NOT NULL DEFAULT 1,
+        memo TEXT DEFAULT '',
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (project_id) REFERENCES survey_projects(project_id) ON DELETE CASCADE
+      );
+    `);
+    database.exec(`
+      INSERT INTO survey_materials_antenna
+        (id, project_id, category, item_label, quantity, memo, sort_order, created_at, updated_at)
+      SELECT
+        id, project_id,
+        CASE
+          WHEN category = 'aircon' THEN 'antenna'
+          WHEN category IN ('camera','wifi','intercom','electrical','lighting','lan','antenna','other') THEN category
+          ELSE 'other'
+        END,
+        item_label, quantity, memo, sort_order, created_at, updated_at
+      FROM survey_materials;
+    `);
+    database.exec("DROP TABLE survey_materials");
+    database.exec("ALTER TABLE survey_materials_antenna RENAME TO survey_materials");
+    database.exec(
+      "CREATE INDEX IF NOT EXISTS idx_survey_materials_project ON survey_materials(project_id)"
+    );
+  } catch {
+    /* 新規 DB または既に antenna 対応済み */
+  }
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:survey_material_antenna", JSON.stringify({ at: new Date().toISOString() }));
 }
 
 /** TiSLY 見積PWA v1 — インデックス追加（既存 business テーブル利用） */

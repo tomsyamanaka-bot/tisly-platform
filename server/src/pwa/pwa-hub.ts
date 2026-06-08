@@ -175,7 +175,7 @@ const PRACTICAL_PWA_DEFS: Array<
 > = [
   {
     id: "survey_v1",
-    label: "現調アプリ",
+    label: "現調する",
     subtitle: "お客様の現場を見に行く記録",
     icon: "📋",
     features: ["写真を撮る", "メモする", "部材を選ぶ", "見積へ送る"],
@@ -185,17 +185,17 @@ const PRACTICAL_PWA_DEFS: Array<
   },
   {
     id: "estimate_v1",
-    label: "見積アプリ",
+    label: "見積を作る",
     subtitle: "お仕事の料金をまとめる",
     icon: "💰",
-    features: ["現調から見積作成", "部材を編集", "PDF確認", "TOMS形式へ出力"],
+    features: ["現調から見積作成", "数量・単価を直す", "PDFプレビュー", "見積を確定"],
     href: "/estimate-v1",
     themeColor: "#4a90d9",
     readyRoles: ["surveyor", "manager", "owner", "admin", "super_admin"],
   },
   {
     id: "work_report",
-    label: "作業報告アプリ",
+    label: "作業報告する",
     subtitle: "工事が終わったあとの報告",
     icon: "📝",
     features: ["写真で報告", "お客様へ送る", "履歴を見る"],
@@ -205,7 +205,7 @@ const PRACTICAL_PWA_DEFS: Array<
   },
   {
     id: "customer_mgmt",
-    label: "顧客管理",
+    label: "顧客を見る",
     subtitle: "お客様の情報をまとめて見る",
     icon: "👥",
     features: ["お客様一覧", "連絡先", "案件の履歴"],
@@ -215,7 +215,7 @@ const PRACTICAL_PWA_DEFS: Array<
   },
   {
     id: "inventory",
-    label: "在庫管理",
+    label: "在庫を見る",
     subtitle: "部材の残り数を確認",
     icon: "📦",
     features: ["在庫一覧", "入出庫", "発注の目安"],

@@ -19,8 +19,8 @@
 
     <div id="view-list">
       <div class="tab-row">
-        <button type="button" class="tab-btn active" id="tab-pending">見積もり作成待ち</button>
-        <button type="button" class="tab-btn" id="tab-projects">見積一覧</button>
+        <button type="button" class="tab-btn active" id="tab-pending">見積待ち一覧</button>
+        <button type="button" class="tab-btn" id="tab-projects">確定した見積</button>
       </div>
       <div id="pending-list" class="empty-state">読み込み中…</div>
       <div id="project-list" class="empty-state hidden">読み込み中…</div>
@@ -33,34 +33,34 @@
         <p id="detail-meta"></p>
       </div>
 
-      <p class="section-label">🔧 使う部材・作業の内訳</p>
-      <p class="section-hint">数量と単価を直せます</p>
+      <p class="section-label">🧾 お見積りの内訳</p>
+      <p class="section-hint">項目名・数量・単価を直せます</p>
       <div class="friendly-card" id="lines-card">
         <div id="line-list"></div>
         <div class="totals-box" id="totals-box">
-          <div>小計: <span id="total-sub">¥0</span></div>
-          <div>消費税(10%): <span id="total-tax">¥0</span></div>
-          <div class="grand-total">税込合計: <span id="total-grand">¥0</span></div>
+          <div>小計 <span id="total-sub">¥0</span></div>
+          <div>消費税（10%） <span id="total-tax">¥0</span></div>
+          <div class="grand-total">税込合計 <span id="total-grand">¥0</span></div>
         </div>
       </div>
 
       <button type="button" class="btn-sub blue" id="btn-save-items">内訳を保存</button>
-      <button type="button" class="btn-main blue" id="btn-finalize">見積もりを確定</button>
+      <button type="button" class="btn-main blue" id="btn-finalize">見積を確定</button>
 
-      <p class="section-label">📄 見積書プレビュー</p>
-      <p class="section-hint">確定すると見積書ができます</p>
+      <p class="section-label">📄 PDFプレビュー</p>
+      <p class="section-hint">確定すると見積書が表示されます</p>
       <div id="pdf-section" class="friendly-card hidden">
         <iframe id="pdf-preview" class="pdf-preview-frame" title="見積書プレビュー"></iframe>
         <a id="link-pdf" class="btn-sub blue" href="#" target="_blank" rel="noopener" style="margin-top:0.5rem;display:block;text-align:center;text-decoration:none;">別のタブで開く</a>
       </div>
 
-      <p class="section-label">📤 TOMS形式へ出力</p>
-      <p class="section-hint">社内システム用のデータ形式です（お客様には見せません）</p>
-      <button type="button" class="btn-sub blue" id="btn-toms">TOMS形式を確認</button>
+      <p class="section-label">📤 TOMS形式で確認</p>
+      <p class="section-hint">社内システム用のデータです（お客様には見せません）</p>
+      <button type="button" class="btn-sub blue" id="btn-toms">TOMS形式で確認</button>
       <div id="toms-section" class="friendly-card hidden">
-        <p style="font-size:0.85rem;color:var(--tisly-muted);margin:0 0 0.5rem;">本番接続前のプレビューです。形式だけ確認できます。</p>
+        <p style="font-size:0.85rem;color:var(--tisly-muted);margin:0 0 0.5rem;">形式の確認用です。本番接続はこれから整えます。</p>
         <pre id="toms-preview" style="font-size:0.75rem;overflow:auto;max-height:200px;margin:0;background:#f6f8fa;padding:0.75rem;border-radius:8px;"></pre>
-        <button type="button" class="btn-sub blue" id="btn-toms-download" style="margin-top:0.5rem;">JSONをコピー</button>
+        <button type="button" class="btn-sub blue" id="btn-toms-download" style="margin-top:0.5rem;">内容をコピー</button>
       </div>
     </div>
   </main>

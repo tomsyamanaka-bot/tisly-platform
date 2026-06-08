@@ -70,7 +70,7 @@ describe("Phase 461-480 multi PWA app hub", () => {
     const es = await request(app).get("/estimate-v1");
     assert.equal(es.status, 200);
     assert.ok(es.text.includes("tisly-practical-nav"));
-    assert.ok(es.text.includes("見積もり作成待ち"));
+    assert.ok(es.text.includes("見積待ち一覧"));
   });
 
   it("surveyor hub includes practicalApps cards", async () => {

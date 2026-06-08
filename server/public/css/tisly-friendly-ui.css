@@ -137,6 +137,26 @@ body.tisly-friendly {
   margin: -0.25rem 0 0.5rem;
 }
 
+.tisly-friendly .btn-hero {
+  width: 100%;
+  background: linear-gradient(135deg, var(--tisly-green) 0%, #4aa86a 100%);
+  color: #fff;
+  border: none;
+  padding: 1.1rem 1.25rem;
+  border-radius: 16px;
+  font-size: 1.2rem;
+  font-weight: 700;
+  min-height: 60px;
+  cursor: pointer;
+  margin: 0.5rem 0 1.25rem;
+  box-shadow: 0 4px 16px rgba(92, 184, 122, 0.35);
+  letter-spacing: 0.02em;
+}
+
+.tisly-friendly .btn-hero:active {
+  transform: scale(0.98);
+}
+
 .tisly-friendly .btn-main {
   width: 100%;
   background: var(--tisly-green);
@@ -350,4 +370,86 @@ body.tisly-friendly {
   border: 1px solid var(--tisly-border);
   border-radius: var(--tisly-radius);
   background: #fff;
+}
+
+.tisly-friendly .material-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+}
+
+.tisly-friendly .material-pick-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  padding: 0.75rem 0.5rem;
+  min-height: 72px;
+  border: 2px solid var(--tisly-border);
+  border-radius: var(--tisly-radius);
+  background: var(--tisly-bg);
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--tisly-text);
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.tisly-friendly .material-pick-card.selected {
+  border-color: var(--tisly-green);
+  background: var(--tisly-green-light);
+  color: var(--tisly-green);
+}
+
+.tisly-friendly .material-pick-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.tisly-friendly .photo-upload-zone {
+  border: 2px dashed var(--tisly-border);
+  border-radius: var(--tisly-radius);
+  background: var(--tisly-blue-light);
+  padding: 1.25rem 1rem;
+  text-align: center;
+  margin: 0.75rem 0;
+  cursor: pointer;
+}
+
+.tisly-friendly .photo-upload-zone p {
+  margin: 0.25rem 0;
+  font-size: 0.9rem;
+  color: var(--tisly-text);
+}
+
+.tisly-friendly .photo-upload-icon {
+  font-size: 2rem;
+  display: block;
+  margin-bottom: 0.35rem;
+}
+
+.tisly-friendly .photo-upload-hint {
+  font-size: 0.78rem !important;
+  color: var(--tisly-muted) !important;
+}
+
+.tisly-friendly .line-qty-price {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.tisly-friendly .line-name-input {
+  font-weight: 600;
+}
+
+.tisly-friendly .line-amount {
+  margin-top: 0.35rem;
+  font-size: 0.88rem;
+  color: var(--tisly-blue);
+  font-weight: 600;
+  text-align: right;
 }
