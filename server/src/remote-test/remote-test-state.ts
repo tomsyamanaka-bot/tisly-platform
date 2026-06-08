@@ -50,18 +50,27 @@ function createDefaultChStates(): ChStates {
   return states;
 }
 
+function normalizeChannelValue(val: unknown): ChannelState | null {
+  if (val === "on" || val === "off") return val;
+  if (val === true || val === 1 || val === "1" || val === "ON") return "on";
+  if (val === false || val === 0 || val === "0" || val === "OFF") return "off";
+  return null;
+}
+
 export function normalizeDeviceChStates(input: unknown): ChStates | null {
   if (!input || typeof input !== "object") return null;
   const obj = input as Record<string, unknown>;
   const states = createDefaultChStates();
+  let recognized = 0;
   for (let ch = 1; ch <= CHANNEL_COUNT; ch++) {
     const key = String(ch);
-    const val = obj[key];
-    if (val === "on" || val === "off") {
+    const val = normalizeChannelValue(obj[key]);
+    if (val) {
       states[key] = val;
+      recognized++;
     }
   }
-  return states;
+  return recognized > 0 ? states : null;
 }
 
 interface RemoteTestState {
@@ -196,19 +205,38 @@ export function getDeviceStatus() {
 
 export function recordDeviceHeartbeat(firmwareVersion?: string, chStates?: ChStates): ChStateChange[] {
   recordDevicePoll(firmwareVersion);
-  if (!chStates) return [];
-
-  const prev = { ...state.lastDeviceChStates };
-  // confirmedChStates は heartbeat でのみ更新する
-  state.confirmedChStates = { ...chStates };
-  state.lastDeviceChStates = { ...chStates };
-
-  if (!state.deviceChStatesBaselined) {
-    state.deviceChStatesBaselined = true;
+  if (!chStates) {
+    console.log("[remote-test] heartbeat: chStates missing — skip diff (lastPollAt only)");
     return [];
   }
 
-  return detectChStateChanges(prev, chStates);
+  // 比較は confirmedChStates 上書き前に行う（prev = 前回確定状態）
+  const prev = { ...state.confirmedChStates };
+  for (let ch = 1; ch <= CHANNEL_COUNT; ch++) {
+    const key = String(ch);
+    const prevState = prev[key] ?? "off";
+    const currentState = chStates[key] ?? "off";
+    console.log(`[remote-test] heartbeat CH${ch} prev=${prevState} current=${currentState}`);
+  }
+
+  if (!state.deviceChStatesBaselined) {
+    state.deviceChStatesBaselined = true;
+    state.confirmedChStates = { ...chStates };
+    state.lastDeviceChStates = { ...chStates };
+    console.log("[remote-test] heartbeat: baseline established — notification skipped");
+    return [];
+  }
+
+  const changes = detectChStateChanges(prev, chStates);
+  console.log(
+    `[remote-test] heartbeat: notification condition ${changes.length > 0 ? "MET" : "not met"} (${changes.length} change(s))`,
+    changes.length > 0 ? changes : ""
+  );
+
+  state.confirmedChStates = { ...chStates };
+  state.lastDeviceChStates = { ...chStates };
+
+  return changes;
 }
 
 export function recordChStateNotification(
@@ -218,6 +246,10 @@ export function recordChStateNotification(
   logId: string
 ): void {
   const label = `CH${change.channel} ${change.to.toUpperCase()}`;
+  console.log(
+    `[remote-test] notificationHistory: add CH${change.channel} ${change.from}→${change.to} pushSuccess=${result.success}`,
+    result.error ? { error: result.error } : ""
+  );
   pushLog(
     "ch_state_change",
     `${label} (${change.from}→${change.to})${result.success ? "" : ` — ${result.error ?? "failed"}`}`,

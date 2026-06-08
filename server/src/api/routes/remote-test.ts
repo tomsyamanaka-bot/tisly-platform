@@ -197,19 +197,60 @@ remoteTestRouter.get("/device", (req, res) => {
   res.json({ ok: true, ...getDeviceStatus() });
 });
 
+function extractHeartbeatChStates(req: Request) {
+  const fromNested = normalizeDeviceChStates(req.body?.chStates);
+  if (fromNested) return fromNested;
+
+  const raw = (req as Request & { rawBody?: string }).rawBody;
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      const fromRaw = normalizeDeviceChStates(parsed.chStates ?? parsed);
+      if (fromRaw) return fromRaw;
+    } catch {
+      /* invalid JSON body */
+    }
+  }
+
+  if (typeof req.query.chStates === "string") {
+    try {
+      const fromQuery = normalizeDeviceChStates(JSON.parse(req.query.chStates));
+      if (fromQuery) return fromQuery;
+    } catch {
+      /* invalid query JSON */
+    }
+  }
+
+  return null;
+}
+
 async function handleDeviceHeartbeat(req: Request, res: Response): Promise<void> {
   const firmware =
     typeof req.query.firmware === "string" ? req.query.firmware.trim() : undefined;
-  const chStates = normalizeDeviceChStates(req.body?.chStates);
+  const chStates = extractHeartbeatChStates(req);
+  if (!chStates) {
+    console.log("[remote-test] heartbeat: could not parse chStates", {
+      method: req.method,
+      hasBody: !!req.body,
+      bodyKeys: req.body && typeof req.body === "object" ? Object.keys(req.body) : [],
+      hasRawBody: !!(req as Request & { rawBody?: string }).rawBody,
+    });
+  }
   const changes = recordDeviceHeartbeat(firmware || undefined, chStates ?? undefined);
-  if (changes.length > 0) {
+  const notificationTriggered = changes.length > 0;
+  if (notificationTriggered) {
+    console.log("[remote-test] heartbeat: invoking notifyChStateChanges", changes);
     await notifyChStateChanges(changes);
   }
+  const status = getRemoteTestStatus();
   res.json({
     ok: true,
     ...getDeviceStatus(),
     heartbeatAt: new Date().toISOString(),
     chStateChanges: changes,
+    notificationTriggered,
+    notificationHistoryCount: status.notificationHistory.length,
+    lastPushResult: status.lastPushResult,
   });
 }
 
