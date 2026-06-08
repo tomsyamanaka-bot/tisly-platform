@@ -55,8 +55,9 @@ function showView(name) {
   $("view-list").classList.toggle("hidden", name !== "list");
   $("view-form").classList.toggle("hidden", name !== "form");
   $("view-detail").classList.toggle("hidden", name !== "detail");
+  $("view-edit").classList.toggle("hidden", name !== "edit");
   $("btn-back").classList.toggle("hidden", name === "list");
-  const titles = { list: "現調案件", form: "新規案件", detail: "案件詳細" };
+  const titles = { list: "現調案件", form: "新規案件", detail: "案件詳細", edit: "案件編集" };
   $("page-title").textContent = titles[name] || "現調案件";
 }
 
@@ -180,9 +181,12 @@ async function openDetail(projectId) {
       handoffBtn.disabled = true;
       handoffBtn.textContent = "見積待ち（引き渡し済）";
       handoffInfo.classList.remove("hidden");
-      handoffInfo.textContent = p.handoff
-        ? `引き渡し: ${p.handoff.handoffAt}`
-        : "見積PWA連携は次フェーズで実装予定";
+      const bizId = p.handoff?.businessProjectId;
+      handoffInfo.innerHTML = p.handoff
+        ? bizId
+          ? `引き渡し: ${escapeHtml(p.handoff.handoffAt)} · <a href="/estimate-v1">見積PWA v1で開く</a>`
+          : `引き渡し: ${escapeHtml(p.handoff.handoffAt)} · <a href="/estimate-v1">見積PWA v1</a>`
+        : "";
     } else {
       handoffBtn.disabled = false;
       handoffBtn.textContent = "見積へ渡す";
@@ -221,12 +225,16 @@ async function init() {
   });
 
   $("btn-back").addEventListener("click", () => {
-    if ($("view-detail").classList.contains("hidden") === false) {
+    if (!$("view-edit").classList.contains("hidden") && currentProjectId) {
+      openDetail(currentProjectId);
+      return;
+    }
+    if (!$("view-detail").classList.contains("hidden")) {
       showView("list");
       loadList();
-    } else {
-      showView("list");
+      return;
     }
+    showView("list");
   });
 
   $("project-form").addEventListener("submit", async (ev) => {
@@ -317,6 +325,51 @@ async function init() {
       await openDetail(currentProjectId);
     } catch (e) {
       toast(e.message);
+    }
+  });
+
+  $("btn-edit").addEventListener("click", async () => {
+    if (!currentProjectId) return;
+    try {
+      const p = await api(`/projects/${currentProjectId}`);
+      const form = $("edit-form");
+      form.customerName.value = p.customerName || "";
+      form.address.value = p.address || "";
+      form.phone.value = p.phone || "";
+      form.email.value = p.email || "";
+      form.surveyDate.value = p.surveyDate || "";
+      form.assignee.value = p.assignee || "";
+      form.notes.value = p.notes || "";
+      $("edit-error").classList.add("hidden");
+      showView("edit");
+    } catch (e) {
+      toast(e.message);
+    }
+  });
+
+  $("edit-form").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    if (!currentProjectId) return;
+    const fd = new FormData(ev.target);
+    try {
+      await api(`/projects/${currentProjectId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          customerName: fd.get("customerName"),
+          address: fd.get("address") || undefined,
+          phone: fd.get("phone") || undefined,
+          email: fd.get("email") || undefined,
+          surveyDate: fd.get("surveyDate") || undefined,
+          assignee: fd.get("assignee") || undefined,
+          notes: fd.get("notes") || undefined,
+        }),
+      });
+      toast("案件を更新しました");
+      await openDetail(currentProjectId);
+    } catch (e) {
+      const err = $("edit-error");
+      err.textContent = e.message;
+      err.classList.remove("hidden");
     }
   });
 

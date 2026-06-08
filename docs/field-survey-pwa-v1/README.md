@@ -63,8 +63,11 @@
 5. **写真メモ** — カメラ撮影 or テキストのみ登録
 6. **部材** — カテゴリ・品名・数量を追加
 7. **見積へ渡す** — `workflow_status` を `estimate_pending` に変更
+8. **案件を編集** — 詳細画面から顧客情報・メモを PATCH 更新
 
-## 見積PWAへの連携予定
+App Hub `/app` に「現調 v1」カードあり。PWA マニフェスト: `manifest-survey-v1.webmanifest`
+
+## 見積PWA v1 への連携
 
 連携チェーン:
 
@@ -74,27 +77,17 @@ survey_projects.project_id
   → business_estimates
 ```
 
-v1 現時点では **入口のみ** 実装:
+- 「見積へ渡す」→ `workflow_status = estimate_pending` + `survey_handoff_log`
+- 見積PWA v1（`/estimate-v1`）で案件取り込み → `business_project_id` 設定・部材シード
+- 見積確定時 → `workflow_status = estimate_done`
 
-- 「見積へ渡す」→ `workflow_status = estimate_pending`
-- `survey_handoff_log` にスナップショット記録（`business_project_id` は空文字・次フェーズで設定）
-
-次フェーズで実装予定:
-
-- `POST /api/business/from-survey/:surveyProjectId` 連携
-- `survey_materials` → `business_estimates.items_json` シード
-- `survey_photos` / メモ → `business_projects` へのコピー
-- 見積PWA からの `workflow_status` コールバック
-
-カテゴリマッピングは `survey-v1-types.ts` の `SURVEY_TO_ESTIMATE_CATEGORY` を参照。
+詳細: [見積PWA v1 README](../field-estimate-pwa-v1/README.md)
 
 ## 次フェーズ作業
 
-1. 見積PWA 連携 — `business_projects` 自動作成 + `handoff_log.business_project_id` 設定
-2. 案件編集 UI（詳細画面からの PATCH）
-3. オフライン同期（Service Worker キュー）
-4. 音声メモ（`survey_audio_memos`）
-5. App Hub カードに `/survey-v1` リンク追加
+1. オフライン同期（Service Worker キュー）
+2. 音声メモ（`survey_audio_memos`）
+3. 部材・写真の編集/削除 UI
 
 ## テスト
 

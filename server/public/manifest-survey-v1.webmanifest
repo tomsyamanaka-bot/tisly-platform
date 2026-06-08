@@ -1,0 +1,17 @@
+{
+  "name": "TiSLY 現調PWA v1",
+  "short_name": "現調v1",
+  "description": "TiSLY 実務現調PWA — 案件・写真・部材・見積引き渡し",
+  "start_url": "/survey-v1",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f6f8fa",
+  "theme_color": "#1a7f37",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "/icons/icon-64.png?v=2001", "sizes": "64x64", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-128.png?v=2001", "sizes": "128x128", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-192.png?v=2001", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/icon-512.png?v=2001", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

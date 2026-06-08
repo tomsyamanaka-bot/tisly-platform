@@ -4,6 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#1a7f37" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="TiSLY現調" />
+  <link rel="manifest" href="/manifest-survey-v1.webmanifest" />
+  <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2001" />
+  <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192.png?v=2001" />
   <title>TiSLY — 現調PWA v1</title>
   <style>
     :root {
@@ -180,12 +185,27 @@
       <p id="form-error" class="error hidden"></p>
     </div>
 
+    <div id="view-edit" class="hidden">
+      <form id="edit-form">
+        <label>顧客名 <input name="customerName" required /></label>
+        <label>住所 <input name="address" /></label>
+        <label>電話番号 <input name="phone" type="tel" inputmode="tel" /></label>
+        <label>メール <input name="email" type="email" inputmode="email" /></label>
+        <label>現調日 <input name="surveyDate" type="date" /></label>
+        <label>担当者 <input name="assignee" /></label>
+        <label>メモ <textarea name="notes"></textarea></label>
+        <button type="submit" class="btn-primary">更新を保存</button>
+      </form>
+      <p id="edit-error" class="error hidden"></p>
+    </div>
+
     <div id="view-detail" class="hidden">
       <div class="card">
         <div id="detail-status" class="badge">現調中</div>
         <h2 id="detail-name">—</h2>
         <p id="detail-meta"></p>
         <p id="detail-notes" class="hidden"></p>
+        <button type="button" class="btn-secondary" id="btn-edit" style="margin-top:0.75rem;">案件を編集</button>
       </div>
 
       <p class="section-title">写真メモ</p>
