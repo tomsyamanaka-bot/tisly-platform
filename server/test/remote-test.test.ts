@@ -33,6 +33,16 @@ describe("Remote Test PoC API", () => {
     assert.equal(res.status, 200);
     assert.equal(res.body.ok, true);
     assert.equal(res.body.ch1State, "off");
+    assert.deepEqual(res.body.chStates, {
+      "1": "off",
+      "2": "off",
+      "3": "off",
+      "4": "off",
+      "5": "off",
+      "6": "off",
+      "7": "off",
+      "8": "off",
+    });
     assert.equal(res.body.pendingCommand, null);
     assert.equal(res.body.lastCommand, null);
     assert.ok(res.body.lastAccessIp);
@@ -49,6 +59,16 @@ describe("Remote Test PoC API", () => {
     assert.equal(res.body.offline, true);
     assert.equal(res.body.lastSeen, null);
     assert.equal(res.body.firmwareVersion, null);
+    assert.deepEqual(res.body.chStates, {
+      "1": "off",
+      "2": "off",
+      "3": "off",
+      "4": "off",
+      "5": "off",
+      "6": "off",
+      "7": "off",
+      "8": "off",
+    });
   });
 
   it("POST /ch1/on queues command", async () => {
@@ -69,11 +89,37 @@ describe("Remote Test PoC API", () => {
     assert.equal(res.status, 200);
     assert.equal(res.body.command, "ch1_on");
     assert.equal(res.body.ch1State, "on");
+    assert.equal(res.body.chStates["1"], "on");
 
     const status = await request(app)
       .get("/api/remote-test/status")
       .set("X-Remote-Test-Token", TEST_TOKEN);
     assert.equal(status.body.pendingCommand, null);
+  });
+
+  it("POST /ch3/on queues ch3_on and updates chStates", async () => {
+    resetRemoteTestState();
+    const res = await request(app)
+      .post("/api/remote-test/ch3/on")
+      .set("X-Remote-Test-Token", TEST_TOKEN);
+    assert.equal(res.status, 200);
+    assert.equal(res.body.command, "ch3_on");
+    assert.equal(res.body.channel, 3);
+    assert.equal(res.body.chStates["3"], "on");
+    assert.equal(res.body.ch1State, "off");
+    assert.equal(res.body.pendingCommand, "ch3_on");
+  });
+
+  it("POST /ch8/off updates ch8 state", async () => {
+    await request(app)
+      .post("/api/remote-test/ch8/on")
+      .set("X-Remote-Test-Token", TEST_TOKEN);
+    const res = await request(app)
+      .post("/api/remote-test/ch8/off")
+      .set("X-Remote-Test-Token", TEST_TOKEN);
+    assert.equal(res.status, 200);
+    assert.equal(res.body.command, "ch8_off");
+    assert.equal(res.body.chStates["8"], "off");
   });
 
   it("GET /device returns online after heartbeat", async () => {
@@ -89,6 +135,8 @@ describe("Remote Test PoC API", () => {
     assert.equal(res.body.offline, false);
     assert.ok(res.body.lastSeen);
     assert.equal(res.body.firmwareVersion, "1.1.0-poc-success");
+    assert.ok(res.body.chStates);
+    assert.equal(typeof res.body.chStates["1"], "string");
   });
 
   it("GET /command poll does not update device lastSeen", async () => {
@@ -159,6 +207,8 @@ describe("Remote Test PoC API", () => {
     assert.match(res.text, /Push 登録状態/);
     assert.match(res.text, /id="ios-pwa-guide"/);
     assert.match(res.text, /Push 成功時刻/);
+    assert.match(res.text, /CH8/);
+    assert.match(res.text, /btn-ch-on/);
   });
 
   it("GET /remote-test/app.js serves in-scope script", async () => {

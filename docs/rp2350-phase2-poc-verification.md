@@ -1,8 +1,8 @@
 # Phase 2 — RP2350 最終確認手順（PoC 完了判定）
 
 **対象:** 智紀さん（初心者向け）  
-**フェーズ:** Phase 2 最終確認（commit `102e920` push 済み · VPS heartbeat 404 修正済み）  
-**目的:** **ファームウェア再変更なし**で Thonny RESET のみ行い、合格条件 5 項目をすべて満たしたら **Phase 2 RP2350 PoC 完了** と記録する。
+**フェーズ:** Phase 2 **PoC 完了**（2026-06-08 実機確認済み）  
+**目的:** Thonny RESET のみで合格条件 5 項目を満たし **Phase 2 RP2350 PoC 完了** と記録する（**達成済み**）。
 
 | 項目 | 値 |
 |------|-----|
@@ -271,34 +271,34 @@ curl -s -H "X-Remote-Test-Token: $TOKEN" \
 
 | # | 項目 | 確認者 | 日時 | 結果 |
 |---|------|--------|------|------|
-| 1 | VPS heartbeat curl 200 OK（トークンあり） | | | ☐ |
-| 2 | RESET 後 Shell に `heartbeat sent`（**404 なし**） | | | ☐ |
-| 3 | `heartbeat sent` が約 60 秒間隔（3 秒ごとでない） | | | ☐ |
-| 4 | PWA **online** · **lastSeen** 更新 · fw `1.1.0-poc-success` | | | ☐ |
-| 5 | CH1 ON → 3 秒以内 · リレー ON（カチッと音） | | | ☐ |
-| 6 | CH1 OFF → 3 秒以内 · リレー OFF（カチッと音） | | | ☐ |
-| 7 | （任意）Push テスト成功 | | | ☐ |
-| 8 | （任意）offline 90 秒判定 | | | ☐ |
+| 1 | VPS heartbeat curl 200 OK（トークンあり） | 智紀 | 2026-06-08 | ✅ |
+| 2 | RESET 後 Shell に `heartbeat sent`（**404 なし**） | 智紀 | 2026-06-08 | ✅ |
+| 3 | `heartbeat sent` が約 60 秒間隔（3 秒ごとでない） | 智紀 | 2026-06-08 | ✅ |
+| 4 | PWA **online** · **lastSeen** 更新 · fw `1.1.0-poc-success` | 智紀 | 2026-06-08 | ✅ |
+| 5 | CH1 ON → 3 秒以内 · リレー ON（カチッと音） | 智紀 | 2026-06-08 | ✅ |
+| 6 | CH1 OFF → 3 秒以内 · リレー OFF（カチッと音） | 智紀 | 2026-06-08 | ✅ |
+| 7 | （任意）Push テスト成功 | — | — | — |
+| 8 | （任意）offline 90 秒判定 | — | — | — |
 
-**完了宣言（全必須項目 OK 後に記入）:**
+**完了宣言:**
 
 ```
 Phase 2 RP2350 PoC 完了
-確認日: ____年__月__日
+確認日: 2026年6月8日
 確認者: 智紀
 RP2350 IP: 192.168.1.227
 ファームウェア: 1.1.0-poc-success
 VPS commit: 102e920（heartbeat 404 修正: d133aaa）
-備考:
+備考: heartbeat HTTP404 なし · heartbeat 約60秒間隔 · PWA online OK · CH1 ON/OFF・リレー動作確認済み
 ```
 
-> 記入後、担当者が README の Phase 2 セクションを「PoC 完了」に更新する。
+> README の Phase 2 セクションを「PoC 完了」に更新済み。次フェーズ: **Phase 3 CH2〜CH8 拡張**（[`docs/rp2350_phase3_design.md`](rp2350_phase3_design.md)）。
 
 ---
 
-## 7. 次フェーズ — CH2〜CH8 拡張（実装準備のみ・コード変更なし）
+## 7. 次フェーズ — CH2〜CH8 拡張（Phase 3 着手）
 
-Phase 2 完了後に着手。**コード変更はまだ行いません。** 詳細設計: [`docs/rp2350_phase3_design.md`](rp2350_phase3_design.md)
+Phase 2 完了後に着手。**Phase 3 実装を開始しました。** 詳細設計: [`docs/rp2350_phase3_design.md`](rp2350_phase3_design.md)
 
 ### 実装前タスク（ハードウェア）
 
@@ -308,13 +308,15 @@ Phase 2 完了後に着手。**コード変更はまだ行いません。** 詳�
 | 2 | `rp2350/config/gpio_map.json` の RO2〜RO8 `gpio_pin` を埋める | | ☐ |
 | 3 | 各 RO を 1 点ずつ Thonny で ON/OFF 実測（CH1=GPIO17 は済） | | ☐ |
 
-### 実装タスク（ソフトウェア・Phase 3 着手時）
+### 実装タスク（ソフトウェア — **実装済み** 2026-06-08）
 
-| 層 | ファイル / エンドポイント | やること |
-|----|---------------------------|----------|
-| **VPS API** | `server/src/routes/remote-test-*.ts` | `POST /api/remote-test/ch{N}/on\|off`（N=1..8）· `command` を `ch3_on` 等に一般化 · `chStates` で全 CH 保持 |
-| **PWA** | `server/public/remote-test/` | CH1 と同 UI パターンで CH2〜8 ボタンを縦リスト追加 |
-| **RP2350** | `rp2350/firmware/config.py` · `main.py` | `CH_GPIO` マップ · `exec_command()` 一般化 · `relay_manager.py` 段階統合 |
+| 層 | ファイル / エンドポイント | 状態 |
+|----|---------------------------|------|
+| **VPS API** | `server/src/api/routes/remote-test.ts` | ✅ `POST /ch{N}/on\|off`（N=1..8）· `chStates` |
+| **PWA** | `server/public/remote-test.html` · `js/remote-test.js` | ✅ CH1〜8 ボタン・バッジ |
+| **RP2350** | `rp2350/firmware/config.py` · `main.py` | ✅ `CH_GPIO` 17〜24 · `exec_command()` 一般化 · fw `1.2.0-ch8` |
+
+**残作業:** VPS デプロイ · RP2350 へ `config.py` / `main.py` 上書き · 実機で CH2〜8 動作確認
 
 ### 完了条件（次フェーズ）
 

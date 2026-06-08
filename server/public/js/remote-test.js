@@ -226,10 +226,29 @@ function renderPushServerStatus(data) {
   }
 }
 
+const CHANNEL_COUNT = 8;
+
+function getChannelState(data, ch) {
+  const key = String(ch);
+  if (data.chStates && data.chStates[key] !== undefined) {
+    return data.chStates[key];
+  }
+  if (ch === 1 && data.ch1State !== undefined) {
+    return data.ch1State;
+  }
+  return "off";
+}
+
+function renderChannelBadge(ch, state) {
+  const el = document.getElementById(`st-ch${ch}`);
+  if (!el) return;
+  el.innerHTML = `<span class="badge ${state === "on" ? "on" : "off"}">${state}</span>`;
+}
+
 function renderStatus(data) {
-  const ch1 = data.ch1State ?? "off";
-  document.getElementById("st-ch1").innerHTML =
-    `<span class="badge ${ch1 === "on" ? "on" : "off"}">${ch1}</span>`;
+  for (let ch = 1; ch <= CHANNEL_COUNT; ch++) {
+    renderChannelBadge(ch, getChannelState(data, ch));
+  }
   document.getElementById("st-pending").textContent = data.pendingCommand ?? "なし";
   document.getElementById("st-notify").textContent = fmtTime(data.lastNotifyAt);
   document.getElementById("st-poll").textContent = fmtTime(data.lastPollAt);
@@ -380,7 +399,9 @@ async function refreshStatus(silent = false) {
 async function runAction(label, fn, options = {}) {
   try {
     const data = await fn();
-    if (data.ch1State !== undefined || data.push !== undefined) renderStatus(data);
+    if (data.chStates !== undefined || data.ch1State !== undefined || data.push !== undefined) {
+      renderStatus(data);
+    }
     const pushOk = data.channels?.web_push?.success === true || data.ok === true;
     appendLog(label, data, {
       format: options.format,
@@ -430,12 +451,21 @@ document.getElementById("btn-status")?.addEventListener("click", () => runAction
 document.getElementById("btn-push-test")?.addEventListener("click", () =>
   runAction("Push テスト", () => api("POST", "/api/remote-test/notify"), { format: "notify" })
 );
-document.getElementById("btn-ch1-on")?.addEventListener("click", () =>
-  runAction("CH1 ON", () => api("POST", "/api/remote-test/ch1/on"))
-);
-document.getElementById("btn-ch1-off")?.addEventListener("click", () =>
-  runAction("CH1 OFF", () => api("POST", "/api/remote-test/ch1/off"))
-);
+document.querySelectorAll(".btn-ch-on").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const ch = Number(btn.getAttribute("data-channel"));
+    if (!ch) return;
+    runAction(`CH${ch} ON`, () => api("POST", `/api/remote-test/ch${ch}/on`));
+  });
+});
+
+document.querySelectorAll(".btn-ch-off").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const ch = Number(btn.getAttribute("data-channel"));
+    if (!ch) return;
+    runAction(`CH${ch} OFF`, () => api("POST", `/api/remote-test/ch${ch}/off`));
+  });
+});
 
 document.getElementById("btn-push-status-refresh")?.addEventListener("click", () => {
   refreshPushStatus();

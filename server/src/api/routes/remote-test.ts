@@ -5,11 +5,12 @@ import {
   sendWebPush,
 } from "../../notification/channels/web-push.js";
 import {
+  CHANNEL_COUNT,
   consumePendingCommand,
   getDeviceStatus,
   getRemoteTestStatus,
   markPushResult,
-  queueCh1Command,
+  queueChCommand,
   recordDeviceHeartbeat,
   recordWebAccess,
 } from "../../remote-test/remote-test-state.js";
@@ -138,17 +139,31 @@ remoteTestRouter.post("/notify", async (req, res) => {
   });
 });
 
-remoteTestRouter.post("/ch1/on", (req, res) => {
-  trackWebAccess(req);
-  queueCh1Command("ch1_on");
-  res.json({ ok: true, command: "ch1_on", ...getRemoteTestStatus(), ...pushStatusExtras() });
-});
+for (let ch = 1; ch <= CHANNEL_COUNT; ch++) {
+  remoteTestRouter.post(`/ch${ch}/on`, (req, res) => {
+    trackWebAccess(req);
+    queueChCommand(ch, true);
+    res.json({
+      ok: true,
+      command: `ch${ch}_on`,
+      channel: ch,
+      ...getRemoteTestStatus(),
+      ...pushStatusExtras(),
+    });
+  });
 
-remoteTestRouter.post("/ch1/off", (req, res) => {
-  trackWebAccess(req);
-  queueCh1Command("ch1_off");
-  res.json({ ok: true, command: "ch1_off", ...getRemoteTestStatus(), ...pushStatusExtras() });
-});
+  remoteTestRouter.post(`/ch${ch}/off`, (req, res) => {
+    trackWebAccess(req);
+    queueChCommand(ch, false);
+    res.json({
+      ok: true,
+      command: `ch${ch}_off`,
+      channel: ch,
+      ...getRemoteTestStatus(),
+      ...pushStatusExtras(),
+    });
+  });
+}
 
 remoteTestRouter.get("/device", (req, res) => {
   trackWebAccess(req);
@@ -168,10 +183,12 @@ remoteTestRouter.get("/heartbeat", (req, res) => {
 
 remoteTestRouter.get("/command", (req, res) => {
   const command = consumePendingCommand();
+  const status = getRemoteTestStatus();
   res.json({
     ok: true,
     command,
-    ch1State: getRemoteTestStatus().ch1State,
+    chStates: status.chStates,
+    ch1State: status.ch1State,
     polledAt: new Date().toISOString(),
   });
 });

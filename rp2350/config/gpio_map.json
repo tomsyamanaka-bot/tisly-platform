@@ -80,43 +80,43 @@
     "RO1": {
       "logical_name": "light_100v_1",
       "role": "relay_output",
-      "gpio_pin": null,
+      "gpio_pin": 17,
       "active_low": false,
       "debounce_ms": 0,
-      "hardware_note": "100Vライト①",
-      "verify_status": "pending"
+      "hardware_note": "100Vライト① — CH1 実機確認済み (2026-06-08)",
+      "verify_status": "verified"
     },
     "RO2": {
       "logical_name": "light_100v_2",
       "role": "relay_output",
-      "gpio_pin": null,
+      "gpio_pin": 18,
       "active_low": false,
       "debounce_ms": 0,
-      "hardware_note": "100Vライト②",
-      "verify_status": "pending"
+      "hardware_note": "100Vライト② — Waveshare 02_MQTT サンプル GPIO18",
+      "verify_status": "wiki_confirmed"
     },
     "RO3": {
       "logical_name": "patlite",
       "role": "relay_output",
-      "gpio_pin": null,
+      "gpio_pin": 19,
       "active_low": false,
       "debounce_ms": 0,
-      "hardware_note": "パトライト",
-      "verify_status": "pending"
+      "hardware_note": "パトライト — Waveshare 02_MQTT サンプル GPIO19",
+      "verify_status": "wiki_confirmed"
     },
     "RO4": {
       "logical_name": "buzzer",
       "role": "relay_output",
-      "gpio_pin": null,
+      "gpio_pin": 20,
       "active_low": false,
       "debounce_ms": 0,
-      "hardware_note": "ブザー",
-      "verify_status": "pending"
+      "hardware_note": "ブザー — Waveshare 02_MQTT サンプル GPIO20",
+      "verify_status": "wiki_confirmed"
     },
-    "RO5": { "logical_name": "spare_ro_5", "role": "spare", "gpio_pin": null, "active_low": false, "debounce_ms": 0, "hardware_note": "予備", "verify_status": "pending" },
-    "RO6": { "logical_name": "spare_ro_6", "role": "spare", "gpio_pin": null, "active_low": false, "debounce_ms": 0, "hardware_note": "予備", "verify_status": "pending" },
-    "RO7": { "logical_name": "spare_ro_7", "role": "spare", "gpio_pin": null, "active_low": false, "debounce_ms": 0, "hardware_note": "予備", "verify_status": "pending" },
-    "RO8": { "logical_name": "spare_ro_8", "role": "spare", "gpio_pin": null, "active_low": false, "debounce_ms": 0, "hardware_note": "予備", "verify_status": "pending" }
+    "RO5": { "logical_name": "spare_ro_5", "role": "spare", "gpio_pin": 21, "active_low": false, "debounce_ms": 0, "hardware_note": "予備 — GPIO21", "verify_status": "wiki_confirmed" },
+    "RO6": { "logical_name": "spare_ro_6", "role": "spare", "gpio_pin": 22, "active_low": false, "debounce_ms": 0, "hardware_note": "予備 — GPIO22", "verify_status": "wiki_confirmed" },
+    "RO7": { "logical_name": "spare_ro_7", "role": "spare", "gpio_pin": 23, "active_low": false, "debounce_ms": 0, "hardware_note": "予備 — GPIO23", "verify_status": "wiki_confirmed" },
+    "RO8": { "logical_name": "spare_ro_8", "role": "spare", "gpio_pin": 24, "active_low": false, "debounce_ms": 0, "hardware_note": "予備 — GPIO24", "verify_status": "wiki_confirmed" }
   },
   "onboard_buzzer": {
     "logical_name": "onboard_buzzer",

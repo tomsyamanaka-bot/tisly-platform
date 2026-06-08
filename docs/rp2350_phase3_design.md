@@ -1,8 +1,8 @@
-# RP2350 Phase 3 — 次フェーズ設計（設計のみ・未実装）
+# RP2350 Phase 3 — 次フェーズ設計（CH2〜CH8 実装中）
 
-**前提:** Phase 2 PoC 完了（HTTP poll / heartbeat / CH1 / W5500 DHCP）
+**前提:** Phase 2 PoC 完了（2026-06-08 実機確認済み）
 
-**本ドキュメントの範囲:** 優先順位付きの設計方針のみ。コード変更・MQTT 本格移行・QNAP 連携・認証作り込み・UI 大改造は **含まない**。
+**本ドキュメントの範囲:** 優先順位付きの設計方針。**CH2〜CH8 拡張は実装着手済み**（ファームウェア `1.2.0-ch8`）。MQTT 本格移行・QNAP 連携・認証作り込み・UI 大改造は **含まない**。
 
 ---
 
@@ -18,15 +18,19 @@
 
 ---
 
-## 1. CH2〜CH8 拡張
+## 1. CH2〜CH8 拡張 — **実装中**
 
-### 現状
+### 実装済み（2026-06-08）
 
-- `main.py` は CH1（GPIO17 / RO1）のみ
-- API: `POST /api/remote-test/ch1/on|off` のみ
-- `remote-test-state.ts` は `ch1State` のみ保持
+| 層 | ファイル | 内容 |
+|----|----------|------|
+| VPS API | `server/src/api/routes/remote-test.ts` | `POST /ch{N}/on\|off`（N=1..8） |
+| 状態 | `server/src/remote-test/remote-test-state.ts` | `chStates`（全 CH 保持）· `ch1State` 互換 |
+| PWA | `server/public/remote-test.html` · `js/remote-test.js` | CH1〜8 ボタン・バッジ |
+| ファーム | `rp2350/firmware/main.py` · `config.py` | `CH_GPIO` 17〜24 · `exec_command()` 一般化 |
+| GPIO | `rp2350/config/gpio_map.json` | RO1〜RO8 = GPIO17〜24 |
 
-### 設計方針
+### 設計方針（変更なし）
 
 **API（VPS）**
 
@@ -43,8 +47,8 @@ GET  /api/remote-test/command      # 返却: { command: "ch3_on" | "ch5_off" | n
 **ファームウェア（RP2350）**
 
 ```python
-# config.py に追加（RO1=17 は実機確認済み。RO2〜8 は Wiki + 実測で確定）
-CH_GPIO = {1: 17, 2: None, 3: None, ...}  # gpio_map.json 確定後に埋める
+# config.py — Waveshare 02_MQTT サンプル準拠（RO1=17 は実機確認済み）
+CH_GPIO = {1: 17, 2: 18, 3: 19, 4: 20, 5: 21, 6: 22, 7: 23, 8: 24}
 ```
 
 - `exec_command()` を `ch{N}_on|off` パターンに一般化

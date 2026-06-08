@@ -61,6 +61,19 @@
       margin-top: 0.75rem;
     }
     .btn-row.single { grid-template-columns: 1fr; }
+    .channel-list { display: flex; flex-direction: column; gap: 0.75rem; }
+    .channel-row {
+      display: grid;
+      grid-template-columns: auto 1fr 1fr;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    .channel-label {
+      font-size: 0.9rem;
+      font-weight: 600;
+      min-width: 3.5rem;
+    }
+    .channel-row .btn-row { margin-top: 0; }
     button {
       appearance: none;
       border: none;
@@ -146,7 +159,7 @@
 <body>
   <header>
     <h1>TiSLY Remote Test</h1>
-    <p class="subtitle">PWA — Web Push 通知 &amp; CH1 遠隔操作</p>
+    <p class="subtitle">PWA — Web Push 通知 &amp; CH1〜CH8 遠隔操作</p>
   </header>
 
   <section class="card" id="token-card">
@@ -232,9 +245,16 @@
   </section>
 
   <section class="card">
-    <h2>状態</h2>
-    <dl class="status-grid">
+    <h2>チャンネル状態</h2>
+    <dl class="status-grid" id="channel-status-grid">
       <dt>CH1</dt><dd id="st-ch1"><span class="badge off">off</span></dd>
+      <dt>CH2</dt><dd id="st-ch2"><span class="badge off">off</span></dd>
+      <dt>CH3</dt><dd id="st-ch3"><span class="badge off">off</span></dd>
+      <dt>CH4</dt><dd id="st-ch4"><span class="badge off">off</span></dd>
+      <dt>CH5</dt><dd id="st-ch5"><span class="badge off">off</span></dd>
+      <dt>CH6</dt><dd id="st-ch6"><span class="badge off">off</span></dd>
+      <dt>CH7</dt><dd id="st-ch7"><span class="badge off">off</span></dd>
+      <dt>CH8</dt><dd id="st-ch8"><span class="badge off">off</span></dd>
       <dt>待機コマンド</dt><dd id="st-pending">—</dd>
       <dt>最終ポーリング</dt><dd id="st-poll">—</dd>
     </dl>
@@ -245,17 +265,55 @@
 
   <section class="card">
     <h2>遠隔操作</h2>
-    <p class="hint">Push 通知を受け取った後、この画面から CH1 を操作できます。</p>
-    <div class="btn-row">
-      <button type="button" id="btn-ch1-on">CH1 ON</button>
-      <button type="button" class="danger" id="btn-ch1-off">CH1 OFF</button>
+    <p class="hint">各チャンネルを ON/OFF できます（poll 3 秒 · 最大 3 秒以内に反応）。</p>
+    <div class="channel-list" id="channel-controls">
+      <div class="channel-row" data-channel="1">
+        <span class="channel-label">CH1</span>
+        <button type="button" class="btn-ch-on" data-channel="1">ON</button>
+        <button type="button" class="danger btn-ch-off" data-channel="1">OFF</button>
+      </div>
+      <div class="channel-row" data-channel="2">
+        <span class="channel-label">CH2</span>
+        <button type="button" class="btn-ch-on" data-channel="2">ON</button>
+        <button type="button" class="danger btn-ch-off" data-channel="2">OFF</button>
+      </div>
+      <div class="channel-row" data-channel="3">
+        <span class="channel-label">CH3</span>
+        <button type="button" class="btn-ch-on" data-channel="3">ON</button>
+        <button type="button" class="danger btn-ch-off" data-channel="3">OFF</button>
+      </div>
+      <div class="channel-row" data-channel="4">
+        <span class="channel-label">CH4</span>
+        <button type="button" class="btn-ch-on" data-channel="4">ON</button>
+        <button type="button" class="danger btn-ch-off" data-channel="4">OFF</button>
+      </div>
+      <div class="channel-row" data-channel="5">
+        <span class="channel-label">CH5</span>
+        <button type="button" class="btn-ch-on" data-channel="5">ON</button>
+        <button type="button" class="danger btn-ch-off" data-channel="5">OFF</button>
+      </div>
+      <div class="channel-row" data-channel="6">
+        <span class="channel-label">CH6</span>
+        <button type="button" class="btn-ch-on" data-channel="6">ON</button>
+        <button type="button" class="danger btn-ch-off" data-channel="6">OFF</button>
+      </div>
+      <div class="channel-row" data-channel="7">
+        <span class="channel-label">CH7</span>
+        <button type="button" class="btn-ch-on" data-channel="7">ON</button>
+        <button type="button" class="danger btn-ch-off" data-channel="7">OFF</button>
+      </div>
+      <div class="channel-row" data-channel="8">
+        <span class="channel-label">CH8</span>
+        <button type="button" class="btn-ch-on" data-channel="8">ON</button>
+        <button type="button" class="danger btn-ch-off" data-channel="8">OFF</button>
+      </div>
     </div>
   </section>
 
   <section class="card">
     <h2>デバッグ情報</h2>
     <dl class="status-grid">
-      <dt>最後のCH1命令</dt><dd id="dbg-command">—</dd>
+      <dt>最後の命令</dt><dd id="dbg-command">—</dd>
       <dt>最後のアクセスIP</dt><dd id="dbg-ip">—</dd>
       <dt>RP2350接続時刻</dt><dd id="dbg-poll">—</dd>
     </dl>

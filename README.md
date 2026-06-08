@@ -30,43 +30,44 @@ TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。
 
 ---
 
-## TiSLY Platform — Remote Test PoC（Phase 2）
+## TiSLY Platform — Remote Test PoC（Phase 2 完了 → Phase 3 着手）
 
-**iPhone から通知 & RP2350 CH1 遠隔操作**
+**iPhone から通知 & RP2350 CH1〜CH8 遠隔操作**
 
 | 領域 | パス / URL |
 |------|------------|
 | 本番 Web UI | https://tisly.jp/remote-test |
 | デプロイ手順 | [`docs/remote-test-phase2-deploy.md`](docs/remote-test-phase2-deploy.md) |
-| **実機確認手順（RESET のみ）** | [`docs/rp2350-phase2-poc-verification.md`](docs/rp2350-phase2-poc-verification.md) |
+| **Phase 2 完了記録** | [`docs/rp2350-phase2-poc-verification.md`](docs/rp2350-phase2-poc-verification.md) |
+| **Phase 3 設計** | [`docs/rp2350_phase3_design.md`](docs/rp2350_phase3_design.md) |
 | 最小 .env | `server/.env.sample` |
 | RP2350 ファームウェア | `rp2350/firmware/main.py` · `config.py` |
 | RP2350 スクリプト（単体） | `rp2350/firmware/remote_test_poll.py` |
-| ファームウェア版 | **v1.1.0-poc-success** |
+| ファームウェア版（Phase 2 確認済み） | **v1.1.0-poc-success** |
+| ファームウェア版（Phase 3） | **v1.2.0-ch8** |
 
-### 現在のフェーズ: Phase 2 最終確認（PoC 完了判定待ち）
+### Phase 2 RP2350 PoC — **完了**（2026-06-08）
 
 | 到達点 | 状態 |
 |--------|------|
-| VPS heartbeat 404 修正 | ✅ commit `d133aaa` · ルート存在確認済み（トークンなし curl → **403**、404 ではない） |
-| 確認手順ドキュメント | ✅ commit `102e920` push 済み |
-| RP2350 ファームウェア | `1.1.0-poc-success`（**再アップロード不要**） |
-| 実機 IP | `192.168.1.227` · poll **3 秒** · heartbeat **60 秒** |
+| VPS heartbeat 404 修正 | ✅ commit `d133aaa` |
+| 実機最終確認 | ✅ 2026-06-08 · 智紀さん確認済み |
+| heartbeat HTTP 404 | ✅ なし |
+| heartbeat 間隔 | ✅ 約 60 秒に 1 回 |
+| PWA online / firmwareVersion | ✅ `1.1.0-poc-success` |
+| CH1 ON/OFF · リレー | ✅ 3 秒以内に反応 |
 
-**次の作業（智紀さん）:** Thonny で **RESET 1 回** のみ → 合格条件 5 項目を確認 → 完了記録 §6 に記入。
+**完了記録:** [`docs/rp2350-phase2-poc-verification.md`](docs/rp2350-phase2-poc-verification.md) §6
 
-**手順書:** [`docs/rp2350-phase2-poc-verification.md`](docs/rp2350-phase2-poc-verification.md)（冒頭の「最終確認クイック手順」）
+### 現在のフェーズ: Phase 3 — CH2〜CH8 拡張（実装中）
 
-| 合格項目 | 確認方法 |
-|----------|----------|
-| heartbeat 404 なし | Shell に `error: heartbeat HTTP 404` が出ない |
-| heartbeat 60 秒 | `heartbeat sent` が約 60 秒に 1 回（3 秒ごとでない） |
-| PWA 状態更新 | **online** · **lastSeen** · fw `1.1.0-poc-success` |
-| CH1 遠隔操作 | PWA ON/OFF → **3 秒以内** · リレーがカチッと動く |
+| 実装対象 | 内容 |
+|----------|------|
+| VPS API | `POST /api/remote-test/ch{N}/on\|off`（N=1..8）· `chStates` で全 CH 保持 |
+| PWA | CH1 と同 UI パターンで CH2〜8 ボタン追加 |
+| RP2350 | `CH_GPIO` マップ（GPIO17〜24）· `exec_command()` 一般化 |
 
-全項目 OK 後 → **Phase 2 RP2350 PoC 完了**（記録: 上記ドキュメント §6）
-
-**次フェーズ（未着手）:** CH2〜CH8 拡張 — 実装準備は [`docs/rp2350_phase3_design.md`](docs/rp2350_phase3_design.md) · 確認手順書 §7
+**完了条件:** PWA から CH1〜CH8 それぞれ **3 秒以内**に制御可能
 
 ### VPS 本番反映（PoC 成功後・最優先）
 
@@ -121,7 +122,7 @@ curl -s -H "X-Remote-Test-Token: $TOKEN" \
 | CH1 無反応 | `poll_command` · トークン · VPS command API |
 | heartbeat 不出力 | heartbeat API · トークン · LAN · DHCP |
 
-次フェーズ設計（実装は未着手）: [`docs/rp2350_phase3_design.md`](docs/rp2350_phase3_design.md)
+Phase 3 設計・実装: [`docs/rp2350_phase3_design.md`](docs/rp2350_phase3_design.md)
 
 ---
 

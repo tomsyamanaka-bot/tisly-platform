@@ -1,4 +1,18 @@
-export type RemoteTestCommand = "ch1_on" | "ch1_off";
+export const CHANNEL_COUNT = 8;
+
+export type ChannelState = "on" | "off";
+
+export type RemoteTestCommand =
+  | "ch1_on" | "ch1_off"
+  | "ch2_on" | "ch2_off"
+  | "ch3_on" | "ch3_off"
+  | "ch4_on" | "ch4_off"
+  | "ch5_on" | "ch5_off"
+  | "ch6_on" | "ch6_off"
+  | "ch7_on" | "ch7_off"
+  | "ch8_on" | "ch8_off";
+
+export type ChStates = Record<string, ChannelState>;
 
 export interface RemoteTestLogEntry {
   at: string;
@@ -10,9 +24,17 @@ export interface RemoteTestLogEntry {
 /** RP2350 が応答しないと offline とみなす秒数（heartbeat 60 秒 + 余裕） */
 export const DEVICE_OFFLINE_THRESHOLD_SEC = 90;
 
+function createDefaultChStates(): ChStates {
+  const states: ChStates = {};
+  for (let ch = 1; ch <= CHANNEL_COUNT; ch++) {
+    states[String(ch)] = "off";
+  }
+  return states;
+}
+
 interface RemoteTestState {
   pendingCommand: RemoteTestCommand | null;
-  ch1State: "on" | "off";
+  chStates: ChStates;
   lastCommand: RemoteTestCommand | null;
   lastCommandAt: string | null;
   lastPollAt: string | null;
@@ -28,7 +50,7 @@ const MAX_LOGS = 50;
 
 const state: RemoteTestState = {
   pendingCommand: null,
-  ch1State: "off",
+  chStates: createDefaultChStates(),
   lastCommand: null,
   lastCommandAt: null,
   lastPollAt: null,
@@ -45,6 +67,21 @@ function pushLog(action: string, detail?: string, source: RemoteTestLogEntry["so
   if (state.logs.length > MAX_LOGS) state.logs.length = MAX_LOGS;
 }
 
+export function isValidChannel(channel: number): boolean {
+  return Number.isInteger(channel) && channel >= 1 && channel <= CHANNEL_COUNT;
+}
+
+export function buildChCommand(channel: number, on: boolean): RemoteTestCommand {
+  if (!isValidChannel(channel)) {
+    throw new Error(`Invalid channel: ${channel}`);
+  }
+  return `ch${channel}_${on ? "on" : "off"}` as RemoteTestCommand;
+}
+
+function getChState(channel: number): ChannelState {
+  return state.chStates[String(channel)] ?? "off";
+}
+
 export function recordWebAccess(ip: string): void {
   state.lastAccessIp = ip;
 }
@@ -52,7 +89,8 @@ export function recordWebAccess(ip: string): void {
 export function getRemoteTestStatus() {
   return {
     pendingCommand: state.pendingCommand,
-    ch1State: state.ch1State,
+    chStates: { ...state.chStates },
+    ch1State: getChState(1),
     lastCommand: state.lastCommand,
     lastCommandAt: state.lastCommandAt,
     lastPollAt: state.lastPollAt,
@@ -64,12 +102,18 @@ export function getRemoteTestStatus() {
   };
 }
 
-export function queueCh1Command(command: RemoteTestCommand): void {
+export function queueChCommand(channel: number, on: boolean): void {
+  const command = buildChCommand(channel, on);
   state.pendingCommand = command;
-  state.ch1State = command === "ch1_on" ? "on" : "off";
+  state.chStates[String(channel)] = on ? "on" : "off";
   state.lastCommand = command;
   state.lastCommandAt = new Date().toISOString();
-  pushLog(command, `CH1 → ${state.ch1State.toUpperCase()}`);
+  pushLog(command, `CH${channel} → ${state.chStates[String(channel)].toUpperCase()}`);
+}
+
+/** @deprecated Use queueChCommand(1, on) */
+export function queueCh1Command(command: "ch1_on" | "ch1_off"): void {
+  queueChCommand(1, command === "ch1_on");
 }
 
 export function recordDevicePoll(firmwareVersion?: string): void {
@@ -91,6 +135,7 @@ export function getDeviceStatus() {
     offline: !online,
     lastSeen,
     firmwareVersion: state.firmwareVersion,
+    chStates: { ...state.chStates },
   };
 }
 
@@ -121,7 +166,7 @@ export function markPushResult(success: boolean, error?: string): void {
 
 export function resetRemoteTestState(): void {
   state.pendingCommand = null;
-  state.ch1State = "off";
+  state.chStates = createDefaultChStates();
   state.lastCommand = null;
   state.lastCommandAt = null;
   state.lastPollAt = null;
