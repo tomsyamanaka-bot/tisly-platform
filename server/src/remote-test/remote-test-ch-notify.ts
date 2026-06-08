@@ -61,7 +61,7 @@ export async function notifyChStateChanges(changes: ChStateChange[]): Promise<vo
   for (const change of changes) {
     const payload = buildChStatePayload(change);
     console.log(
-      `[remote-test] sendPushNotification() CH${change.channel} ${change.from}→${change.to}`,
+      `[remote-test] sendPushNotification start CH${change.channel} prev=${change.from} current=${change.to}`,
       { title: payload.title, body: payload.body }
     );
     let result: DeliveryResult = {
@@ -79,7 +79,7 @@ export async function notifyChStateChanges(changes: ChStateChange[]): Promise<vo
       };
     }
     console.log(
-      `[remote-test] sendPushNotification() result CH${change.channel}: success=${result.success}`,
+      `[remote-test] sendPushNotification result CH${change.channel}: success=${result.success}`,
       result.error ? { error: result.error } : ""
     );
 

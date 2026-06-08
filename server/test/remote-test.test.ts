@@ -616,8 +616,68 @@ describe("Remote Test PoC API", () => {
     assert.match(after.body.notificationHistory[0].title, /TiSLY CH4 ON/);
   });
 
+  it("GET /debug returns heartbeat and state snapshot", async () => {
+    resetRemoteTestState();
+    await request(app)
+      .post("/api/remote-test/heartbeat")
+      .set("X-Remote-Test-Token", TEST_TOKEN)
+      .send({
+        firmware: "1.2.1-notify-fix",
+        chStates: { "1": "off", "2": "off", "3": "off", "4": "off", "5": "off", "6": "off", "7": "off", "8": "off" },
+      });
+
+    const res = await request(app)
+      .get("/api/remote-test/debug")
+      .set("X-Remote-Test-Token", TEST_TOKEN);
+    assert.equal(res.status, 200);
+    assert.equal(res.body.ok, true);
+    assert.equal(res.body.heartbeatMethod, "POST");
+    assert.ok(res.body.lastHeartbeatAt);
+    assert.equal(typeof res.body.subscriptionCount, "number");
+    assert.deepEqual(res.body.confirmedChStates["1"], "off");
+  });
+
+  it("notification: CH1 ON/OFF via heartbeat triggers notifications", async () => {
+    resetRemoteTestState();
+    const allOff = { "1": "off", "2": "off", "3": "off", "4": "off", "5": "off", "6": "off", "7": "off", "8": "off" };
+
+    await request(app)
+      .post("/api/remote-test/heartbeat")
+      .query({ token: TEST_TOKEN })
+      .send({ chStates: allOff });
+
+    await request(app)
+      .post("/api/remote-test/heartbeat")
+      .query({ token: TEST_TOKEN })
+      .send({ chStates: { ...allOff, "1": "on" } });
+
+    await request(app)
+      .post("/api/remote-test/heartbeat")
+      .query({ token: TEST_TOKEN })
+      .send({ chStates: allOff });
+
+    const status = await request(app)
+      .get("/api/remote-test/status")
+      .set("X-Remote-Test-Token", TEST_TOKEN);
+    assert.equal(status.body.notificationHistory.length, 2);
+    assert.equal(status.body.notificationHistory[0].channel, 1);
+    assert.equal(status.body.notificationHistory[0].to, "off");
+    assert.equal(status.body.notificationHistory[1].channel, 1);
+    assert.equal(status.body.notificationHistory[1].to, "on");
+    assert.ok(status.body.notificationHistory[0].timestamp);
+  });
+
   it("notification: 同じheartbeatが連続しても通知しない", async () => {
+    resetRemoteTestState();
     const currentChStates = { "1":"off","2":"off","3":"off","4":"on","5":"off","6":"off","7":"off","8":"off" };
+    await request(app)
+      .post("/api/remote-test/heartbeat")
+      .query({ token: TEST_TOKEN })
+      .send({ chStates: { "1":"off","2":"off","3":"off","4":"off","5":"off","6":"off","7":"off","8":"off" } });
+    await request(app)
+      .post("/api/remote-test/heartbeat")
+      .query({ token: TEST_TOKEN })
+      .send({ chStates: currentChStates });
     const statusBefore = await request(app)
       .get("/api/remote-test/status")
       .set("X-Remote-Test-Token", TEST_TOKEN);

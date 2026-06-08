@@ -29,7 +29,9 @@ export interface ChStateChange {
 
 export interface RemoteTestNotificationEntry {
   id: string;
+  /** @deprecated use timestamp */
   at: string;
+  timestamp: string;
   channel: number;
   from: ChannelState;
   to: ChannelState;
@@ -37,6 +39,12 @@ export interface RemoteTestNotificationEntry {
   body: string;
   pushSuccess: boolean;
   pushError?: string;
+}
+
+export interface HeartbeatDebugSnapshot {
+  heartbeatMethod: string | null;
+  heartbeatBody: unknown;
+  lastHeartbeatAt: string | null;
 }
 
 /** RP2350 が応答しないと offline とみなす秒数（heartbeat 60 秒 + 余裕） */
@@ -111,6 +119,35 @@ const state: RemoteTestState = {
   logs: [],
   notificationHistory: [],
 };
+
+let heartbeatDebug: HeartbeatDebugSnapshot = {
+  heartbeatMethod: null,
+  heartbeatBody: null,
+  lastHeartbeatAt: null,
+};
+
+export function recordHeartbeatDebug(method: string, body: unknown): void {
+  heartbeatDebug = {
+    heartbeatMethod: method,
+    heartbeatBody: body,
+    lastHeartbeatAt: new Date().toISOString(),
+  };
+}
+
+export function getHeartbeatDebugSnapshot(): HeartbeatDebugSnapshot {
+  return { ...heartbeatDebug };
+}
+
+export function getRemoteTestDebugInfo() {
+  return {
+    heartbeatMethod: heartbeatDebug.heartbeatMethod,
+    heartbeatBody: heartbeatDebug.heartbeatBody,
+    lastHeartbeatAt: heartbeatDebug.lastHeartbeatAt,
+    confirmedChStates: { ...state.confirmedChStates },
+    notificationHistoryCount: state.notificationHistory.length,
+    lastPushResult: state.lastPushResult,
+  };
+}
 
 export function detectChStateChanges(prev: ChStates, next: ChStates): ChStateChange[] {
   const changes: ChStateChange[] = [];
@@ -228,10 +265,15 @@ export function recordDeviceHeartbeat(firmwareVersion?: string, chStates?: ChSta
   }
 
   const changes = detectChStateChanges(prev, chStates);
-  console.log(
-    `[remote-test] heartbeat: notification condition ${changes.length > 0 ? "MET" : "not met"} (${changes.length} change(s))`,
-    changes.length > 0 ? changes : ""
-  );
+  if (changes.length > 0) {
+    for (const change of changes) {
+      console.log(
+        `[remote-test] notification condition MET CH${change.channel} prev=${change.from} current=${change.to}`
+      );
+    }
+  } else {
+    console.log("[remote-test] notification condition not met (no state changes)");
+  }
 
   state.confirmedChStates = { ...chStates };
   state.lastDeviceChStates = { ...chStates };
@@ -246,8 +288,9 @@ export function recordChStateNotification(
   logId: string
 ): void {
   const label = `CH${change.channel} ${change.to.toUpperCase()}`;
+  const timestamp = new Date().toISOString();
   console.log(
-    `[remote-test] notificationHistory: add CH${change.channel} ${change.from}→${change.to} pushSuccess=${result.success}`,
+    `[remote-test] notificationHistory add CH${change.channel} from=${change.from} to=${change.to} pushSuccess=${result.success}`,
     result.error ? { error: result.error } : ""
   );
   pushLog(
@@ -257,7 +300,8 @@ export function recordChStateNotification(
   );
   state.notificationHistory.unshift({
     id: logId,
-    at: new Date().toISOString(),
+    at: timestamp,
+    timestamp,
     channel: change.channel,
     from: change.from,
     to: change.to,
@@ -293,6 +337,11 @@ export function markPushResult(success: boolean, error?: string): void {
 }
 
 export function resetRemoteTestState(): void {
+  heartbeatDebug = {
+    heartbeatMethod: null,
+    heartbeatBody: null,
+    lastHeartbeatAt: null,
+  };
   state.pendingCommand = null;
   state.confirmedChStates = createDefaultChStates();
   state.lastDeviceChStates = createDefaultChStates();

@@ -36,4 +36,4 @@ CH_GPIO = {
 }
 
 # ファームウェア版（PWA「RP2350接続時刻」画面に表示）
-FIRMWARE_VERSION = "1.2.0-ch8"
+FIRMWARE_VERSION = "1.2.1-notify-fix"

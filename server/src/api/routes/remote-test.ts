@@ -9,11 +9,13 @@ import {
   CHANNEL_COUNT,
   consumePendingCommand,
   getDeviceStatus,
+  getRemoteTestDebugInfo,
   getRemoteTestStatus,
   markPushResult,
   normalizeDeviceChStates,
   queueChCommand,
   recordDeviceHeartbeat,
+  recordHeartbeatDebug,
   recordWebAccess,
 } from "../../remote-test/remote-test-state.js";
 
@@ -197,6 +199,46 @@ remoteTestRouter.get("/device", (req, res) => {
   res.json({ ok: true, ...getDeviceStatus() });
 });
 
+remoteTestRouter.get("/debug", (req, res) => {
+  trackWebAccess(req);
+  res.json({
+    ok: true,
+    ...getRemoteTestDebugInfo(),
+    subscriptionCount: safeSubscriptionCount(),
+  });
+});
+
+function logHeartbeatRequest(req: Request): void {
+  const rawBody = (req as Request & { rawBody?: string }).rawBody;
+  console.log("[heartbeat]");
+  console.log(`[heartbeat] method=${req.method}`);
+  console.log("[heartbeat] headers=", JSON.stringify(req.headers));
+  console.log("[heartbeat] query=", JSON.stringify(req.query));
+  console.log("[heartbeat] body=", JSON.stringify(req.body ?? null));
+  console.log(`[heartbeat] rawBody=${rawBody ?? ""}`);
+}
+
+function extractHeartbeatFirmware(req: Request): string | undefined {
+  const fromQuery = typeof req.query.firmware === "string" ? req.query.firmware.trim() : "";
+  if (fromQuery) return fromQuery;
+  const body = req.body;
+  if (body && typeof body === "object" && typeof (body as Record<string, unknown>).firmware === "string") {
+    return ((body as Record<string, unknown>).firmware as string).trim();
+  }
+  const raw = (req as Request & { rawBody?: string }).rawBody;
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      if (typeof parsed.firmware === "string" && parsed.firmware.trim()) {
+        return parsed.firmware.trim();
+      }
+    } catch {
+      /* invalid JSON */
+    }
+  }
+  return undefined;
+}
+
 function extractHeartbeatChStates(req: Request) {
   const fromNested = normalizeDeviceChStates(req.body?.chStates);
   if (fromNested) return fromNested;
@@ -225,16 +267,13 @@ function extractHeartbeatChStates(req: Request) {
 }
 
 async function handleDeviceHeartbeat(req: Request, res: Response): Promise<void> {
-  const firmware =
-    typeof req.query.firmware === "string" ? req.query.firmware.trim() : undefined;
+  logHeartbeatRequest(req);
+  recordHeartbeatDebug(req.method, req.body ?? null);
+
+  const firmware = extractHeartbeatFirmware(req);
   const chStates = extractHeartbeatChStates(req);
   if (!chStates) {
-    console.log("[remote-test] heartbeat: could not parse chStates", {
-      method: req.method,
-      hasBody: !!req.body,
-      bodyKeys: req.body && typeof req.body === "object" ? Object.keys(req.body) : [],
-      hasRawBody: !!(req as Request & { rawBody?: string }).rawBody,
-    });
+    console.log("[remote-test] heartbeat: chStates missing — skip diff (lastPollAt only)");
   }
   const changes = recordDeviceHeartbeat(firmware || undefined, chStates ?? undefined);
   const notificationTriggered = changes.length > 0;

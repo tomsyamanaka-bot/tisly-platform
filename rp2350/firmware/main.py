@@ -404,9 +404,15 @@ def http_post(path, payload):
 
 def send_heartbeat():
 
-    path = "/api/remote-test/heartbeat?firmware={}".format(config.FIRMWARE_VERSION)
+    path = "/api/remote-test/heartbeat"
 
-    payload = {"chStates": ch_states}
+    payload = {
+
+        "firmware": config.FIRMWARE_VERSION,
+
+        "chStates": dict(ch_states),
+
+    }
 
     body, status = http_post(path, payload)
 
@@ -545,6 +551,8 @@ def exec_command(cmd):
         ch_states[str(channel)] = "on" if on else "off"
 
         log("EXEC CH{} {}".format(channel, "ON" if on else "OFF"))
+
+        send_heartbeat()
 
     elif cmd:
 
