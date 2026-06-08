@@ -21,6 +21,73 @@
 
 ---
 
+## 実機反映前 — 最終確認（heartbeat / poll 分離）
+
+**対象変更:** `poll` 3 秒 / `heartbeat` 60 秒を分離（`config.py` · `main.py` · `remote_test_poll.py`）  
+**今回の実機アップロード:** `config.py` と `main.py` のみ（`lib/` は変更なし）
+
+### 実機アップロード用チェックリスト
+
+Thonny で **RP2350 直下**（`Raspberry Pi Pico 2/` ルート）へ上書きするファイル:
+
+| # | PC 側（リポジトリ） | RP2350 側 | 必須 |
+|---|---------------------|-----------|------|
+| 1 | `rp2350/firmware/config.py` | `config.py` | ✅ |
+| 2 | `rp2350/firmware/main.py` | `main.py` | ✅ |
+
+**今回アップロード不要:**
+
+| ファイル / フォルダ | 理由 |
+|---------------------|------|
+| `lib/` | 変更なし |
+| `boot.py` | 変更なし |
+
+手順:
+
+- [ ] Thonny で RP2350 に接続（Shell に `>>>` が出る）
+- [ ] 左ペイン: `rp2350/firmware/` を開く
+- [ ] 右ペイン: RP2350 **直下** を選択（`firmware/` サブフォルダは作らない）
+- [ ] `config.py` を右クリック → **アップロード to /**（上書き）
+- [ ] `main.py` を右クリック → **アップロード to /**（上書き）
+- [ ] `config.py` の `REMOTE_TEST_TOKEN` が VPS `server/.env` と一致していることを確認
+- [ ] RP2350 の **RESET** ボタンを押す
+
+### 実機確認手順（Shell ログ）
+
+1. Thonny で `config.py` と `main.py` を RP2350 直下へ上書き
+2. RP2350 を **RESET**
+3. Shell ログで以下を確認:
+
+**期待ログ（起動直後）:**
+
+```
+[tisly] polling start (poll 3 sec / heartbeat 60 sec)
+[tisly] heartbeat sent
+```
+
+4. 以降、`heartbeat sent` が **約 60 秒に 1 回だけ** 出ること（3 秒ごとに出たら NG）
+5. `https://tisly.jp/remote-test` でトークン保存後、**RP2350接続時刻** が更新されること
+
+### CH1 確認
+
+| # | 操作 | 合格基準 |
+|---|------|----------|
+| 1 | PWA で **CH1 ON** | **3 秒以内**に Shell に `[tisly] EXEC CH1 ON` |
+| 2 | PWA で **CH1 OFF** | **3 秒以内**に Shell に `[tisly] EXEC CH1 OFF` |
+
+リレー（GPIO17）の物理動作も目視で確認してください。
+
+### トラブル時の切り分け
+
+| 症状 | 想定原因 | 確認・対処 |
+|------|----------|------------|
+| `heartbeat sent` が **3 秒ごと**に出る | RP2350 側 `main.py` が古い（heartbeat が poll と同期） | `main.py` を再アップロード → RESET |
+| `polling start` の表示が古い（例: 間隔表記なし） | `main.py` 未上書き | Thonny 右ペインの `main.py` を開き、リポジトリ版と差分確認 → 再アップロード |
+| CH1 が反応しない | `poll_command` 側・トークン・VPS command API | Shell に `command received` / `EXEC` が出るか · `REMOTE_TEST_TOKEN` 一致 · `curl` で `GET /api/remote-test/command` |
+| `heartbeat sent` が出ない | heartbeat API・トークン・LAN・DHCP | `error: heartbeat HTTP` の有無 · トークン · PoE/LAN · `lib/` 配置 · IP 取得ログ |
+
+---
+
 ## RP2350 ボードへコピーするファイル
 
 Thonny の「ファイル」左ペイン（PC）から **右ペイン（RP2350 直下）** へ、次の **3 ファイルだけ** をコピーします。
@@ -149,6 +216,10 @@ mip.install("urequests")
 
 | 症状 | 確認 |
 |------|------|
+| `heartbeat sent` が 3 秒ごと | `main.py` が古い → 再アップロードして RESET |
+| `polling start` が古い表記 | `main.py` 未上書き → 再アップロード |
+| CH1 が反応しない | `poll_command` · トークン · VPS `GET /api/remote-test/command` |
+| `heartbeat sent` が出ない | heartbeat API · トークン · LAN · DHCP · `lib/` |
 | RP2350接続時刻が更新されない | Shell で `heartbeat sent` が出ているか / トークン一致 / VPS 稼働 |
 | `error: AUTH 403` | `config.py` のトークン = VPS `REMOTE_TEST_TOKEN` |
 | `error: urequests 未インストール` | 上記 mip 手順 |

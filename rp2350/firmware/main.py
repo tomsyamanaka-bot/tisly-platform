@@ -225,26 +225,38 @@ def run():
         log_error("REMOTE_TEST_TOKEN が空です — config.py を編集してください")
         return
 
+    poll_interval_sec = int(config.POLL_INTERVAL_SEC)
+    heartbeat_interval_sec = int(getattr(config, "HEARTBEAT_INTERVAL_SEC", 60))
+    if heartbeat_interval_sec < poll_interval_sec:
+        log_error(
+            "HEARTBEAT_INTERVAL_SEC={} < POLL_INTERVAL_SEC={} — clamping heartbeat".format(
+                heartbeat_interval_sec, poll_interval_sec
+            )
+        )
+        heartbeat_interval_sec = poll_interval_sec
+    heartbeat_interval_ms = heartbeat_interval_sec * 1000
+
     log(
         "polling start (poll {} sec / heartbeat {} sec)".format(
-            config.POLL_INTERVAL_SEC, config.HEARTBEAT_INTERVAL_SEC
+            poll_interval_sec, heartbeat_interval_sec
         )
     )
     print("")
 
-    last_heartbeat = time.ticks_ms() - int(config.HEARTBEAT_INTERVAL_SEC * 1000)
+    # 初回ループで 1 回だけ即時 heartbeat（以降は heartbeat_interval_sec 周期）
+    next_heartbeat_ms = time.ticks_ms()
 
     while True:
-        now = time.ticks_ms()
-        if time.ticks_diff(now, last_heartbeat) >= int(config.HEARTBEAT_INTERVAL_SEC * 1000):
-            send_heartbeat()
-            last_heartbeat = now
-
         cmd = poll_command()
         if cmd:
             exec_command(cmd)
 
-        time.sleep(config.POLL_INTERVAL_SEC)
+        now = time.ticks_ms()
+        if time.ticks_diff(now, next_heartbeat_ms) >= 0:
+            if send_heartbeat():
+                next_heartbeat_ms = time.ticks_add(now, heartbeat_interval_ms)
+
+        time.sleep(poll_interval_sec)
 
 
 run()

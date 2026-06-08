@@ -207,26 +207,37 @@ def main():
     if not srv_ok:
         log("警告: サーバ未接続 — 3秒後にリトライします")
 
+    poll_interval_sec = int(POLL_INTERVAL_SEC)
+    heartbeat_interval_sec = int(HEARTBEAT_INTERVAL_SEC)
+    if heartbeat_interval_sec < poll_interval_sec:
+        log(
+            "警告: HEARTBEAT_INTERVAL_SEC={} < POLL={} — heartbeat を {}秒に補正".format(
+                heartbeat_interval_sec, poll_interval_sec, poll_interval_sec
+            )
+        )
+        heartbeat_interval_sec = poll_interval_sec
+    heartbeat_interval_ms = heartbeat_interval_sec * 1000
+
     log(
         "ポーリング開始 (poll {}秒 / heartbeat {}秒)".format(
-            POLL_INTERVAL_SEC, HEARTBEAT_INTERVAL_SEC
+            poll_interval_sec, heartbeat_interval_sec
         )
     )
     print("")
 
-    last_heartbeat = time.ticks_ms() - int(HEARTBEAT_INTERVAL_SEC * 1000)
+    next_heartbeat_ms = time.ticks_ms()
 
     while True:
-        now = time.ticks_ms()
-        if time.ticks_diff(now, last_heartbeat) >= int(HEARTBEAT_INTERVAL_SEC * 1000):
-            send_heartbeat()
-            last_heartbeat = now
-
         cmd = fetch_command()
         if cmd:
             apply_command(cmd)
 
-        time.sleep(POLL_INTERVAL_SEC)
+        now = time.ticks_ms()
+        if time.ticks_diff(now, next_heartbeat_ms) >= 0:
+            if send_heartbeat():
+                next_heartbeat_ms = time.ticks_add(now, heartbeat_interval_ms)
+
+        time.sleep(poll_interval_sec)
 
 
 if __name__ == "__main__":

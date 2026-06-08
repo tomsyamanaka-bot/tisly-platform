@@ -85,6 +85,29 @@ curl -s -H "X-Remote-Test-Token: $TOKEN" \
 3. RP2350 の電源を切る → 90 秒待つ → 画面が offline になることを確認
 4. 電源を戻す → 60 秒以内に online・接続時刻が再更新されること
 
+### 実機反映前 — 最終確認（heartbeat / poll 分離）
+
+詳細チェックリスト・トラブル切り分け: [`rp2350/firmware/README.md`](rp2350/firmware/README.md) §「実機反映前 — 最終確認」
+
+**Thonny で RP2350 直下へ上書き（今回）:** `config.py` · `main.py`（`lib/` は変更不要）
+
+| 手順 | 内容 |
+|------|------|
+| 1 | Thonny で `config.py` と `main.py` を RP2350 直下へ上書き |
+| 2 | RP2350 を **RESET** |
+| 3 | Shell で `[tisly] polling start (poll 3 sec / heartbeat 60 sec)` と `[tisly] heartbeat sent` を確認 |
+| 4 | 以降 `heartbeat sent` が **約 60 秒に 1 回** のみ出ること |
+| 5 | PWA で CH1 ON/OFF → 各 **3 秒以内**に `EXEC CH1 ON` / `EXEC CH1 OFF` |
+
+**トラブル切り分け（要約）**
+
+| 症状 | 対処 |
+|------|------|
+| `heartbeat sent` が 3 秒ごと | RP2350 側 `main.py` が古い → 再アップロード |
+| `polling start` 表記が古い | `main.py` 未上書き |
+| CH1 無反応 | `poll_command` · トークン · VPS command API |
+| heartbeat 不出力 | heartbeat API · トークン · LAN · DHCP |
+
 次フェーズ設計（実装は未着手）: [`docs/rp2350_phase3_design.md`](docs/rp2350_phase3_design.md)
 
 ---
