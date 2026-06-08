@@ -7,11 +7,11 @@ import {
 import { TOMS_PDF_STYLES } from "./styles.js";
 import {
   escapeHtml,
+  renderAmountBanner,
   renderNotes,
-  renderPdfHeader,
   renderPhotoGrid,
   renderSealPlaceholder,
-  renderTomsEstimateHeaderTable,
+  renderTomsDocLayoutHeader,
   renderTomsLineItemsTable,
   renderTotals,
 } from "./shared-blocks.js";
@@ -37,17 +37,25 @@ export function renderEstimateHtml(
   });
   const lines = itemsToTomsLines(estimate.items);
   const notes = opts?.notes ?? project.surveyMemo ?? "";
-  const includePhotos = opts?.includePhotos !== false;
+  const includePhotos = opts?.includePhotos === true;
   const photoBlock =
     includePhotos && project.surveyPhotos?.length
       ? renderPhotoGrid(project.surveyPhotos, true)
       : "";
   const pageClass = includePhotos ? "doc with-photos" : "doc single-page";
 
-  return `<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"/><title>御見積書 ${escapeHtml(header.estimateNo)}</title><style>${TOMS_PDF_STYLES}</style></head><body>
+  return `<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"/><title>お見積書 ${escapeHtml(header.estimateNo)}</title><style>${TOMS_PDF_STYLES}</style></head><body>
 <div class="${pageClass}">
-${renderPdfHeader("御見積書", header.estimateNo)}
-${renderTomsEstimateHeaderTable(header)}
+${renderTomsDocLayoutHeader({
+  docTitle: "お見積書",
+  addressee: header.addressee,
+  subject: header.subject,
+  issueDateLabel: "発行日",
+  issueDate: header.issueDate,
+  docNoLabel: "見積番号",
+  docNo: header.estimateNo,
+})}
+${renderAmountBanner(estimate.total)}
 <p class="intro">下記の通りお見積り申し上げます。</p>
 ${renderTomsLineItemsTable(lines)}
 ${renderTotals(estimate.subtotal, estimate.tax, estimate.total)}

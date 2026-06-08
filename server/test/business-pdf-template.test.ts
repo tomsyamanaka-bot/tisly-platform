@@ -62,9 +62,9 @@ describe("Phase 561-580 TOMS PDF templates", () => {
       .get(`/api/business/projects/${projectId}/pdf/estimate`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(html.status, 200);
-    assert.match(html.text, /御見積書/);
+    assert.match(html.text, /お見積書/);
     assert.match(html.text, /税込合計/);
-    assert.match(html.text, /株式会社TOMS/);
+    assert.match(html.text, /株式会社 TOMS/);
     assert.match(html.text, /適用/);
   });
 });

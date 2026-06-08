@@ -40,8 +40,8 @@ function assertEstimateV1Role(req: AuthedRequest, res: Response): boolean {
 
 function parseIncludePhotos(query: Record<string, unknown>): boolean {
   const raw = query.includePhotos ?? query.photos;
-  if (raw === "0" || raw === "false" || raw === "no") return false;
-  return true;
+  if (raw === "1" || raw === "true" || raw === "yes") return true;
+  return false;
 }
 
 estimateV1Router.get("/pending-surveys", ...estimateV1Auth, (req: AuthedRequest, res) => {
@@ -121,7 +121,7 @@ estimateV1Router.post("/projects/:id/finalize", ...estimateV1Auth, (req: AuthedR
   const body = (req.body ?? {}) as { includePhotos?: boolean };
   try {
     const result = finalizeEstimateV1(String(req.params.id), {
-      includePhotos: body.includePhotos !== false,
+      includePhotos: body.includePhotos === true,
     });
     res.json(result);
   } catch (e) {
@@ -172,7 +172,12 @@ estimateV1Router.get("/projects/:id/invoice/pdf", ...estimateV1Auth, (req: Authe
     res.status(404).json({ error: "No invoice" });
     return;
   }
-  const { contentType, path: filePath } = getInvoicePdfOrPlaceholder(project, invoice, estimate);
+  const includePhotos = parseIncludePhotos(req.query as Record<string, unknown>);
+  const pdfCtx = getEstimatePdfContextV1(project.id, { includePhotos }) ?? undefined;
+  const { contentType, path: filePath } = getInvoicePdfOrPlaceholder(project, invoice, estimate, {
+    notes: pdfCtx?.notes,
+    includePhotos: pdfCtx?.includePhotos,
+  });
   res.type(contentType).sendFile(filePath);
 });
 

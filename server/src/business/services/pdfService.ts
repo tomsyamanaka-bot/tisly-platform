@@ -109,13 +109,22 @@ export function generateEstimatePdf(
   return pdfPath;
 }
 
+export interface InvoicePdfRenderContext {
+  estimateRefNo?: string;
+  notes?: string | null;
+  includePhotos?: boolean;
+}
+
 export function generateInvoicePdf(
   project: BusinessProject,
   invoice: Invoice,
-  estimate: Estimate
+  estimate: Estimate,
+  ctx?: InvoicePdfRenderContext
 ): string {
   const html = renderInvoiceHtml(project, invoice, estimate, {
-    estimateRefNo: invoice.estimateRefNo ?? estimate.estimateNo,
+    estimateRefNo: ctx?.estimateRefNo ?? invoice.estimateRefNo ?? estimate.estimateNo,
+    notes: ctx?.notes,
+    includePhotos: ctx?.includePhotos,
   });
   const htmlPath = writeHtml(project.id, "pdf-html", `invoice-${invoice.invoiceNo}.html`, html);
   const { pdfPath } = renderWithTemplate("invoice", project, invoice, [
@@ -164,10 +173,6 @@ export function getEstimatePdfOrPlaceholder(
   estimate: Estimate,
   ctx?: EstimatePdfRenderContext
 ): { contentType: string; path: string } {
-  if (estimate.pdfPath) {
-    const local = path.join(process.cwd(), estimate.pdfPath.replace(/^\//, ""));
-    if (fs.existsSync(local)) return { contentType: "application/pdf", path: local };
-  }
   const html = renderEstimateHtml(project, estimate, {
     siteName: ctx?.siteName,
     workLocation: ctx?.workLocation ?? project.address,
@@ -185,14 +190,13 @@ export function getEstimatePdfOrPlaceholder(
 export function getInvoicePdfOrPlaceholder(
   project: BusinessProject,
   invoice: Invoice,
-  estimate: Estimate
+  estimate: Estimate,
+  ctx?: InvoicePdfRenderContext
 ): { contentType: string; path: string } {
-  if (invoice.pdfPath) {
-    const local = path.join(process.cwd(), invoice.pdfPath.replace(/^\//, ""));
-    if (fs.existsSync(local)) return { contentType: "application/pdf", path: local };
-  }
   const html = renderInvoiceHtml(project, invoice, estimate, {
-    estimateRefNo: invoice.estimateRefNo ?? estimate.estimateNo,
+    estimateRefNo: ctx?.estimateRefNo ?? invoice.estimateRefNo ?? estimate.estimateNo,
+    notes: ctx?.notes,
+    includePhotos: ctx?.includePhotos,
   });
   const tmp = businessUploadsDir(project.id, "pdf-html");
   const p = path.join(tmp, "invoice-live.html");

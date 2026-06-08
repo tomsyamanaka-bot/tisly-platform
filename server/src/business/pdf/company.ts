@@ -11,7 +11,7 @@ export interface TomsCompanyInfo {
 
 export function getTomsCompanyInfo(): TomsCompanyInfo {
   return {
-    name: process.env.TOMS_COMPANY_NAME ?? "株式会社TOMS",
+    name: process.env.TOMS_COMPANY_NAME ?? "株式会社 TOMS",
     postalCode: process.env.TOMS_COMPANY_POSTAL ?? "302-0102",
     address: process.env.TOMS_COMPANY_ADDRESS ?? "茨城県守谷市松前台7丁目24番地9",
     phone: process.env.TOMS_COMPANY_PHONE ?? "080-2710-4483",

@@ -14,7 +14,7 @@ const API = "/api/estimate/v1";
 let currentProjectId = null;
 let currentLines = [];
 let lastTomsData = null;
-let invoiceBlobUrl = null;
+let hasInvoice = false;
 
 const $ = (id) => document.getElementById(id);
 
@@ -27,6 +27,10 @@ function toast(msg) {
 
 function toastError(err, status) {
   const f = friendlyHttpError(err?.message || err, status);
+  if (status === 401 || /unauthorized/i.test(String(err?.message || ""))) {
+    toast("ログインが切れました。もう一度ログインしてください");
+    return;
+  }
   toast(`${f.title} — ${f.action}`);
 }
 
@@ -55,12 +59,8 @@ function newEmptyLine() {
   };
 }
 
-function includePhotosSelected() {
-  return $("photo-with")?.checked !== false;
-}
-
-function photoQuery() {
-  return includePhotosSelected() ? "" : "?includePhotos=0";
+function photoQuery(includePhotos) {
+  return includePhotos ? "?includePhotos=1" : "";
 }
 
 function splitDescription(name, memo) {
@@ -275,6 +275,8 @@ function updateTotalsFromEstimate(est) {
 function hidePdfPreview() {
   $("pdf-section").classList.add("hidden");
   $("pdf-preview").src = "about:blank";
+  $("pdf-error").classList.remove("visible");
+  $("pdf-error").innerHTML = "";
   if (pdfBlobUrl) {
     URL.revokeObjectURL(pdfBlobUrl);
     pdfBlobUrl = null;
@@ -311,26 +313,73 @@ async function saveHeader() {
   });
 }
 
-async function showPdfPreview(projectId) {
+function buildPdfUrl(kind, includePhotos) {
+  const base =
+    kind === "invoice"
+      ? `/api/estimate/v1/projects/${currentProjectId}/invoice/pdf`
+      : `/api/estimate/v1/projects/${currentProjectId}/pdf`;
+  return `${base}${photoQuery(includePhotos)}`;
+}
+
+function buildPdfTabUrl(kind, includePhotos, token) {
+  const url = buildPdfUrl(kind, includePhotos);
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}access_token=${encodeURIComponent(token)}`;
+}
+
+async function showDocumentPreview(kind, includePhotos) {
+  if (!currentProjectId) return;
+  if (kind === "invoice" && !hasInvoice) {
+    toast("先に請求書を作成してください");
+    return;
+  }
   const token = getCustomerToken();
-  const url = `/api/estimate/v1/projects/${projectId}/pdf${photoQuery()}`;
+  const url = buildPdfUrl(kind, includePhotos);
+  const errEl = $("pdf-error");
+  errEl.classList.remove("visible");
+  errEl.innerHTML = "";
   try {
-    toast("PDFを読み込み中…");
+    toast("書類を読み込み中…");
+    await saveHeader().catch(() => ({}));
+    await saveItems().catch(() => ({}));
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      throw Object.assign(new Error(data.error || `HTTP ${res.status}`), { status: res.status });
+      const status = res.status;
+      if (status === 401) {
+        errEl.innerHTML = "<strong>ログインが切れました。もう一度ログインしてください</strong>";
+        errEl.classList.add("visible");
+        $("pdf-section").classList.remove("hidden");
+        toast("ログインが切れました。もう一度ログインしてください");
+        return;
+      }
+      throw Object.assign(new Error(data.error || `HTTP ${status}`), { status });
     }
     const blob = await res.blob();
     if (pdfBlobUrl) URL.revokeObjectURL(pdfBlobUrl);
     pdfBlobUrl = URL.createObjectURL(blob);
     $("pdf-preview").src = pdfBlobUrl;
-    $("link-pdf").href = `${url}${url.includes("?") ? "&" : "?"}access_token=${encodeURIComponent(token)}`;
+    $("link-pdf").href = buildPdfTabUrl(kind, includePhotos, token);
     $("pdf-section").classList.remove("hidden");
-    toast("プレビューを表示しました");
+    const label =
+      kind === "invoice"
+        ? includePhotos
+          ? "請求書（写真付き）"
+          : "請求書（写真なし）"
+        : includePhotos
+          ? "見積書（写真付き）"
+          : "見積書（写真なし）";
+    toast(`${label}を表示しました`);
   } catch (e) {
+    if (e.status === 401) {
+      errEl.innerHTML = "<strong>ログインが切れました。もう一度ログインしてください</strong>";
+      errEl.classList.add("visible");
+      $("pdf-section").classList.remove("hidden");
+      toast("ログインが切れました。もう一度ログインしてください");
+      return;
+    }
     toastError(e, e.status);
   }
 }
@@ -351,6 +400,7 @@ async function openDetail(projectId) {
   showView("detail");
   $("toms-section").classList.add("hidden");
   lastTomsData = null;
+  hidePdfPreview();
   try {
     const p = await api(`/projects/${projectId}`);
     $("detail-name").textContent = p.customerName || p.title;
@@ -359,12 +409,11 @@ async function openDetail(projectId) {
     if (p.pdfPath) {
       statusEl.textContent = "見積書の準備ができました";
       statusEl.className = "status-badge done";
-      await showPdfPreview(projectId);
     } else {
       statusEl.textContent = p.estimate ? "下書き" : "未作成";
       statusEl.className = "status-badge orange";
-      hidePdfPreview();
     }
+    hasInvoice = Boolean(p.invoice);
     currentSurveyProjectId = p.surveyProjectId || null;
     const metaParts = [p.projectNo, p.estimate?.estimateNo].filter(Boolean);
     if (p.surveyProjectId) {
@@ -376,32 +425,10 @@ async function openDetail(projectId) {
     $("estimate-notes").value = p.estimateNotes || "";
     fillHeaderForm(p.header);
     renderLines(p.estimate?.items || []);
-    if (p.invoice) {
-      await showInvoicePreview(projectId);
-    } else {
-      $("invoice-section").classList.add("hidden");
-    }
     updateTotalsFromEstimate(p.estimate);
   } catch (e) {
     toastError(e, e.status);
     showView("list");
-  }
-}
-
-async function showInvoicePreview(projectId) {
-  const token = getCustomerToken();
-  const url = `/api/estimate/v1/projects/${projectId}/invoice/pdf`;
-  try {
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-    if (!res.ok) return;
-    const blob = await res.blob();
-    if (invoiceBlobUrl) URL.revokeObjectURL(invoiceBlobUrl);
-    invoiceBlobUrl = URL.createObjectURL(blob);
-    $("invoice-preview").src = invoiceBlobUrl;
-    $("link-invoice-pdf").href = `${url}?access_token=${encodeURIComponent(token)}`;
-    $("invoice-section").classList.remove("hidden");
-  } catch {
-    /* optional preview */
   }
 }
 
@@ -494,32 +521,31 @@ async function init() {
     }
   });
 
-  $("photo-with").addEventListener("change", () => hidePdfPreview());
-  $("photo-without").addEventListener("change", () => hidePdfPreview());
-
-  $("btn-preview-pdf").addEventListener("click", async () => {
-    if (!currentProjectId) return;
-    try {
-      await saveHeader().catch(() => ({}));
-      await saveItems();
-      await showPdfPreview(currentProjectId);
-    } catch (e) {
-      toastError(e, e.status);
-    }
-  });
+  $("btn-pdf-estimate-no-photo").addEventListener("click", () =>
+    showDocumentPreview("estimate", false)
+  );
+  $("btn-pdf-estimate-with-photo").addEventListener("click", () =>
+    showDocumentPreview("estimate", true)
+  );
+  $("btn-pdf-invoice-no-photo").addEventListener("click", () =>
+    showDocumentPreview("invoice", false)
+  );
+  $("btn-pdf-invoice-with-photo").addEventListener("click", () =>
+    showDocumentPreview("invoice", true)
+  );
 
   $("btn-finalize").addEventListener("click", async () => {
     if (!currentProjectId) return;
-    if (!confirm("見積を確定しますか？\n確定すると見積書（PDF）が作れます。")) return;
+    if (!confirm("見積を確定しますか？\n印刷・提出用（写真なし）の見積書が作れます。")) return;
     try {
       await saveHeader().catch(() => ({}));
       await saveItems();
       const result = await api(`/projects/${currentProjectId}/finalize`, {
         method: "POST",
-        body: JSON.stringify({ includePhotos: includePhotosSelected() }),
+        body: JSON.stringify({ includePhotos: false }),
       });
       toast("見積を確定しました");
-      await showPdfPreview(currentProjectId);
+      await showDocumentPreview("estimate", false);
       $("detail-status").textContent = "見積書の準備ができました";
       $("detail-status").className = "status-badge done";
       updateTotalsFromEstimate(result.estimate);
@@ -536,8 +562,9 @@ async function init() {
       await saveHeader().catch(() => ({}));
       await saveItems();
       await api(`/projects/${currentProjectId}/invoice`, { method: "POST", body: "{}" });
+      hasInvoice = true;
       toast("請求書を作成しました");
-      await showInvoicePreview(currentProjectId);
+      await showDocumentPreview("invoice", false);
     } catch (e) {
       toastError(e, e.status);
     }
@@ -546,7 +573,7 @@ async function init() {
   $("btn-toms").addEventListener("click", async () => {
     if (!currentProjectId) return;
     try {
-      const data = await api(`/projects/${currentProjectId}/toms-format${photoQuery()}`);
+      const data = await api(`/projects/${currentProjectId}/toms-format`);
       lastTomsData = data;
       $("toms-preview").textContent = JSON.stringify(data, null, 2);
       $("toms-section").classList.remove("hidden");

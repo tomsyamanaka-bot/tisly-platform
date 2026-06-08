@@ -100,17 +100,36 @@ export function lineDescription(item: EstimateLineItem): string {
   const name = (item.name || "").trim();
   const memo = (item.memo || "").trim();
   if (name && memo) return `${name}\n${memo}`;
-  return name || memo || "—";
+  return name || memo || "";
+}
+
+export function isEmptyLineItem(item: EstimateLineItem): boolean {
+  const desc = lineDescription(item);
+  if (desc) return false;
+  const qty = Number(item.quantity ?? 0);
+  const price = Number(item.unitPrice ?? 0);
+  const amount = Number(item.amount ?? 0);
+  return qty === 0 && price === 0 && amount === 0;
 }
 
 export function itemsToTomsLines(items: EstimateLineItem[]): TomsEstimateLine[] {
-  return items.map((item, i) => ({
-    lineNo: i + 1,
-    description: lineDescription(item),
-    quantity: item.quantity,
-    unitPrice: item.unitPrice,
-    amount: item.amount,
-  }));
+  return items
+    .filter((item) => !isEmptyLineItem(item))
+    .map((item, i) => ({
+      lineNo: i + 1,
+      description: lineDescription(item),
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      amount: item.amount,
+    }));
+}
+
+/** 宛名に御中を付与（様・御中が無い場合） */
+export function formatTomsAddressee(name: string): string {
+  const trimmed = (name || "").trim();
+  if (!trimmed) return "御中";
+  if (/御中\s*$|様\s*$/.test(trimmed)) return trimmed;
+  return `${trimmed} 御中`;
 }
 
 export function buildDefaultEstimateHeader(

@@ -2,20 +2,19 @@
 
 ## 完了（今回）
 
-- **PDF Unauthorized 解消** — Bearer JWT + `access_token` クエリ。iframe は Blob URL、別タブはトークン付き URL
-- **PDFプレビュー** — 確定前でも TOMS 形式 HTML プレビュー可能（`renderEstimateHtml`）
-- **見積項目複数対応** — 追加・削除・並び替え・リアルタイム合計・備考
-- **顧客情報強化** — 依頼主 / 依頼主住所 / 現場名 / 工事場所 / 担当者 / 電話 / メール を分離入力
-- **写真ライブラリ** — カメラ撮影・iPhone 写真ライブラリ複数選択（`multiple`、ドラッグ不要）
-- **写真大量対応** — クライアント圧縮、Lazy Load、36枚ずつ「さらに表示」、スクロール最適化
-- **見積レイアウト** — TOMS 御見積書 HTML（依頼主・現場ブロック、明細表、小計・税・合計、備考）
-- **テスト** — survey-v1 / estimate-v1 / multi-pwa-app-hub すべて PASS
-- **Git** — commit & push 済み（本番 pull 待ち）
+- **見積・請求PDF TOMS帳票寄せ** — タイトル「お見積書」「御請求書」、宛名御中、件名欄、右上に発行日・番号・登録番号・会社情報を固定表示
+- **金額表示** — 上部に税込合計を大きく中央表示（amount-banner）、明細は No / 適用 / 数量 / 単価 / 金額
+- **明細複数行** — 適用欄の改行保持、空行のみの明細はPDF非表示、20件超でもレイアウト維持
+- **写真あり・なし完全分離** — 見積/請求それぞれ `includePhotos=0|1`（デフォルト写真なし）。PWAに4ボタン＋TOMS形式確認
+- **番号ルール** — 見積・請求とも `YYMMDD-001` 形式（当日連番3桁）
+- **Unauthorized対策** — Bearer + `access_token` クエリ、401時は「ログインが切れました。もう一度ログインしてください」
+- **テスト** — toms-estimate-format / estimate-v1 / business-pdf-template PASS、`npm run build` 成功
 
 ## 既存（前回まで）
 
 - 現調PWA v1 (`/survey-v1`)・見積PWA v1 (`/estimate-v1`)・App Hub (`/app`)
 - 部材カード 8 種・見積連携・共通ナビ
+- PDFプレビューは HTML ライブ生成（写真モード切替対応）
 
 ## 未完了・ブロック
 

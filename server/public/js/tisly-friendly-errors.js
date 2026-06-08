@@ -7,8 +7,8 @@ export function friendlyHttpError(message, status) {
   if (code === 401 || /unauthorized|token|ログイン/i.test(msg)) {
     return {
       title: "ログインが切れました",
-      body: "セッションの有効期限が過ぎた可能性があります。",
-      action: "App Hub（/app）からもう一度ログインしてください。",
+      body: "もう一度ログインしてください。",
+      action: "App Hub（/app）を開いて、ログインし直してください。",
     };
   }
   if (code === 403 || /forbidden|denied|権限/i.test(msg)) {

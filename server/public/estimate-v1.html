@@ -12,6 +12,13 @@
   <title>TiSLY — 見積</title>
   <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
   <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
+  <style>
+    .pdf-btn-grid { display: grid; gap: 0.5rem; margin: 0.75rem 0; }
+    .pdf-btn-grid .btn-sub { width: 100%; text-align: center; }
+    .pdf-preview-frame { width: 100%; min-height: 420px; border: 1px solid var(--tisly-border, #e2e8f0); border-radius: 8px; background: #fff; }
+    #pdf-error { display: none; margin-top: 0.5rem; }
+    #pdf-error.visible { display: block; }
+  </style>
 </head>
 <body class="tisly-friendly">
   <main class="app-main">
@@ -63,35 +70,28 @@
 
       <label class="friendly-label">備考 <textarea id="estimate-notes" rows="3" placeholder="見積書に記載する備考"></textarea></label>
 
-      <p class="section-label">📷 写真の出力</p>
-      <div class="friendly-card photo-toggle-row">
-        <label class="photo-toggle"><input type="radio" name="photo-mode" id="photo-with" value="with" checked /> 写真あり版（参考写真を添付）</label>
-        <label class="photo-toggle"><input type="radio" name="photo-mode" id="photo-without" value="without" /> 写真なし版（1ページに収める）</label>
-      </div>
-
       <button type="button" class="btn-sub blue" id="btn-save-items">内訳を保存</button>
-      <button type="button" class="btn-sub blue" id="btn-preview-pdf">PDFプレビュー</button>
-      <button type="button" class="btn-main blue" id="btn-finalize">見積を確定</button>
+      <button type="button" class="btn-main blue" id="btn-finalize">見積を確定（印刷用・写真なし）</button>
       <button type="button" class="btn-sub blue" id="btn-invoice">請求書を作成</button>
 
-      <p class="section-label">📄 PDFプレビュー</p>
-      <p class="section-hint">確定前でもプレビューできます（TOMS形式レイアウト）</p>
+      <p class="section-label">📄 書類の確認・印刷</p>
+      <p class="section-hint">通常の提出・印刷は「写真なし」です。現場写真を添える場合は「写真付き」を選んでください。</p>
+      <div class="pdf-btn-grid friendly-card">
+        <button type="button" class="btn-sub blue" id="btn-pdf-estimate-no-photo">見積書を開く（写真なし）</button>
+        <button type="button" class="btn-sub blue" id="btn-pdf-estimate-with-photo">見積書を開く（写真付き）</button>
+        <button type="button" class="btn-sub blue" id="btn-pdf-invoice-no-photo">請求書を開く（写真なし）</button>
+        <button type="button" class="btn-sub blue" id="btn-pdf-invoice-with-photo">請求書を開く（写真付き）</button>
+        <button type="button" class="btn-sub blue" id="btn-toms">TOMS形式で確認</button>
+      </div>
+
       <div id="pdf-section" class="friendly-card hidden">
-        <iframe id="pdf-preview" class="pdf-preview-frame" title="見積書プレビュー"></iframe>
+        <iframe id="pdf-preview" class="pdf-preview-frame" title="書類プレビュー"></iframe>
         <a id="link-pdf" class="btn-sub blue" href="#" target="_blank" rel="noopener" style="margin-top:0.5rem;display:block;text-align:center;text-decoration:none;">別のタブで開く</a>
+        <div id="pdf-error" class="error-friendly"></div>
       </div>
 
-      <p class="section-label">📄 請求書プレビュー</p>
-      <div id="invoice-section" class="friendly-card hidden">
-        <iframe id="invoice-preview" class="pdf-preview-frame" title="請求書プレビュー"></iframe>
-        <a id="link-invoice-pdf" class="btn-sub blue" href="#" target="_blank" rel="noopener" style="margin-top:0.5rem;display:block;text-align:center;text-decoration:none;">請求書を別タブで開く</a>
-      </div>
-
-      <p class="section-label">📤 TOMS形式で確認</p>
-      <p class="section-hint">Excel出力用データ構造（TOMS_見積もり書_フォーマット.xlsx 連携準備）</p>
-      <button type="button" class="btn-sub blue" id="btn-toms">TOMS形式で確認</button>
       <div id="toms-section" class="friendly-card hidden">
-        <p style="font-size:0.85rem;color:var(--tisly-muted);margin:0 0 0.5rem;">形式の確認用です。本番接続はこれから整えます。</p>
+        <p style="font-size:0.85rem;color:var(--tisly-muted);margin:0 0 0.5rem;">Excel出力用データ構造（TOMS_見積もり書_フォーマット.xlsx 連携準備）</p>
         <pre id="toms-preview" style="font-size:0.75rem;overflow:auto;max-height:200px;margin:0;background:#f6f8fa;padding:0.75rem;border-radius:8px;"></pre>
         <button type="button" class="btn-sub blue" id="btn-toms-download" style="margin-top:0.5rem;">内容をコピー</button>
       </div>

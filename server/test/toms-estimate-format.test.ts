@@ -14,9 +14,8 @@ const { closeDatabase, getDatabase } = await import("../src/db/database.js");
 const { renderEstimateHtml } = await import("../src/business/pdf/estimate-template.js");
 const { renderInvoiceHtml } = await import("../src/business/pdf/invoice-template.js");
 const { getBusinessProject, getEstimate, getInvoice } = await import("../src/business/business-store.js");
-const { formatTomsIssueDate, generateTomsDailyDocNo } = await import(
-  "../src/business/toms-document-format.js"
-);
+const { formatTomsIssueDate, generateTomsDailyDocNo, itemsToTomsLines, isEmptyLineItem } =
+  await import("../src/business/toms-document-format.js");
 
 const app = createApp();
 
@@ -122,12 +121,14 @@ describe("TOMS標準見積フォーマット", () => {
       .get(`/api/estimate/v1/projects/${businessProjectId}/pdf?includePhotos=0`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(res.status, 200);
-    assert.match(res.text, /御見積書/);
-    assert.match(res.text, /株式会社TOMS/);
+    assert.match(res.text, /お見積書/);
+    assert.match(res.text, /株式会社 TOMS/);
+    assert.match(res.text, /金額/);
+    assert.match(res.text, /件名/);
+    assert.match(res.text, /御中/);
     assert.match(res.text, /山中 智紀/);
     assert.match(res.text, /T-2030001139320/);
     assert.match(res.text, /株式会社伝元/);
-    assert.match(res.text, /KSフロンティア様/);
     assert.match(res.text, /換気扇設置工事/);
     assert.match(res.text, />No</);
     assert.match(res.text, />適用</);
@@ -142,7 +143,16 @@ describe("TOMS標準見積フォーマット", () => {
       .set("Authorization", `Bearer ${token}`);
     assert.equal(res.status, 200);
     // 写真が無い案件でも写真ありモードではセクション構造を維持（写真0枚なら非表示）
-    assert.match(res.text, /御見積書/);
+    assert.match(res.text, /お見積書/);
+  });
+
+  it("空行だけの明細はPDFに出ない", () => {
+    const lines = itemsToTomsLines([
+      { id: "1", category: "other", name: "有効行", unit: "式", quantity: 1, unitPrice: 1000, amount: 1000 },
+      { id: "2", category: "other", name: "", memo: "", unit: "式", quantity: 0, unitPrice: 0, amount: 0 },
+    ]);
+    assert.equal(lines.length, 1);
+    assert.ok(isEmptyLineItem({ id: "x", category: "other", name: "", unit: "式", quantity: 0, unitPrice: 0, amount: 0 }));
   });
 
   it("TOMS JSONは Excel 連携用構造", async () => {
@@ -155,6 +165,56 @@ describe("TOMS標準見積フォーマット", () => {
     assert.equal(res.body.header.addressee, SAMPLE.customerName);
     assert.equal(res.body.header.siteName, SAMPLE.siteName);
     assert.ok(res.body.lines[0].description.includes("清掃・修理配線"));
+  });
+
+  it("明細20件でもHTMLが生成できる", async () => {
+    const manyItems = Array.from({ length: 22 }, (_, i) => ({
+      name: `工事項目${i + 1}`,
+      memo: i % 3 === 0 ? `詳細説明\n2行目${i}` : "",
+      unit: "式",
+      quantity: 1,
+      unitPrice: 1000 * (i + 1),
+      amount: 1000 * (i + 1),
+      category: "other",
+    }));
+    await request(app)
+      .patch(`/api/estimate/v1/projects/${businessProjectId}/items`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ items: manyItems });
+    const res = await request(app)
+      .get(`/api/estimate/v1/projects/${businessProjectId}/pdf`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(res.status, 200);
+    assert.match(res.text, /工事項目20/);
+    assert.match(res.text, /税込合計/);
+    const project = getBusinessProject(businessProjectId)!;
+    const estimate = getEstimate(project.estimateId!)!;
+    assert.equal(estimate.total, estimate.subtotal + estimate.tax);
+  });
+
+  it("請求PDF（写真なし・あり）が取得できる", async () => {
+    await request(app)
+      .post(`/api/estimate/v1/projects/${businessProjectId}/finalize`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ includePhotos: false });
+    await request(app)
+      .post(`/api/estimate/v1/projects/${businessProjectId}/invoice`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({});
+
+    const noPhoto = await request(app)
+      .get(`/api/estimate/v1/projects/${businessProjectId}/invoice/pdf`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(noPhoto.status, 200);
+    assert.match(noPhoto.text, /御請求書/);
+    assert.match(noPhoto.text, /振込先/);
+    assert.ok(!/参考写真/.test(noPhoto.text));
+
+    const withPhoto = await request(app)
+      .get(`/api/estimate/v1/projects/${businessProjectId}/invoice/pdf?includePhotos=1`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(withPhoto.status, 200);
+    assert.match(withPhoto.text, /御請求書/);
   });
 
   it("請求書テンプレに御請求書・振込先・見積参照番号がある", async () => {
@@ -247,7 +307,8 @@ describe("TOMS標準見積フォーマット", () => {
         includePhotos: false,
       }
     );
-    assert.match(html, /工事場所/);
-    assert.match(html, /茨城県つくば市/);
+    assert.match(html, /お見積書/);
+    assert.match(html, /amount-banner/);
+    assert.match(html, /換気扇設置工事/);
   });
 });

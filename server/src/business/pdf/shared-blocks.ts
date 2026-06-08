@@ -1,4 +1,5 @@
 import type { BusinessPhoto } from "../business-types.js";
+import { formatTomsAddressee } from "../toms-document-format.js";
 import type { TomsEstimateHeader, TomsInvoiceHeader } from "../toms-document-format.js";
 import { getTomsCompanyInfo } from "./company.js";
 
@@ -21,6 +22,49 @@ export function renderPdfHeader(docTitle: string, docNo: string): string {
   <div><img class="logo" src="${escapeHtml(co.logoUrl)}" alt="TOMS"/><h1>${escapeHtml(docTitle)}</h1><p class="meta doc-no">${escapeHtml(docNo)}</p></div>
   <div class="company">${escapeHtml(co.name)}<br/>〒${escapeHtml(co.postalCode)}<br/>${escapeHtml(co.address)}<br/>担当：${escapeHtml(co.representativeName)}<br/>TEL ${escapeHtml(co.phone)}${emailLine}<br/>登録番号 ${escapeHtml(co.registrationNo)}</div>
 </header>`;
+}
+
+export interface TomsDocHeaderInput {
+  docTitle: string;
+  addressee: string;
+  subject: string;
+  issueDateLabel: string;
+  issueDate: string;
+  docNoLabel: string;
+  docNo: string;
+}
+
+export function renderTomsDocLayoutHeader(input: TomsDocHeaderInput): string {
+  const co = getTomsCompanyInfo();
+  const addressee = formatTomsAddressee(input.addressee);
+  return `<div class="toms-doc-header">
+  <div class="toms-doc-left">
+    <h1 class="toms-doc-title">${escapeHtml(input.docTitle)}</h1>
+    <p class="toms-addressee">${escapeHtml(addressee)}</p>
+    <p class="toms-subject"><span class="toms-subject-label">件名</span> ${escapeHtml(input.subject)}</p>
+  </div>
+  <div class="toms-doc-right">
+    <table class="toms-meta-table">
+      <tr><th>${escapeHtml(input.issueDateLabel)}</th><td>${escapeHtml(input.issueDate)}</td></tr>
+      <tr><th>${escapeHtml(input.docNoLabel)}</th><td>${escapeHtml(input.docNo)}</td></tr>
+      <tr><th>登録番号</th><td>${escapeHtml(co.registrationNo)}</td></tr>
+    </table>
+    <div class="toms-company-block">
+      <div class="toms-company-name">${escapeHtml(co.name)}</div>
+      <div>〒${escapeHtml(co.postalCode)}</div>
+      <div>${escapeHtml(co.address)}</div>
+      <div>TEL：${escapeHtml(co.phone)}</div>
+      <div>担当：${escapeHtml(co.representativeName)}</div>
+    </div>
+  </div>
+</div>`;
+}
+
+export function renderAmountBanner(total: number): string {
+  return `<div class="amount-banner">
+  <div class="amount-banner-label">金額</div>
+  <div class="amount-banner-total">¥${total.toLocaleString("ja-JP")}<span class="amount-tax-note">（税込）</span></div>
+</div>`;
 }
 
 export function renderCustomerBlock(customerName: string, title: string, address: string, projectNo: string): string {
@@ -46,7 +90,7 @@ export interface TomsCustomerSiteBlockInput {
 
 export function renderTomsCustomerSiteBlock(input: TomsCustomerSiteBlockInput): string {
   const rows: string[] = [];
-  rows.push(`<p class="recipient"><strong>${escapeHtml(input.customerName)}</strong> 様</p>`);
+  rows.push(`<p class="recipient"><strong>${escapeHtml(formatTomsAddressee(input.customerName))}</strong></p>`);
   if (input.customerAddress) {
     rows.push(`<p class="meta">ご住所: ${escapeHtml(input.customerAddress)}</p>`);
   }
@@ -70,7 +114,7 @@ export function renderTomsCustomerSiteBlock(input: TomsCustomerSiteBlockInput): 
 
 export function renderTomsEstimateHeaderTable(header: TomsEstimateHeader): string {
   const rows = [
-    ["宛名", `${header.addressee} 様`],
+    ["宛名", formatTomsAddressee(header.addressee)],
     ["件名", header.subject],
     ["発行日", header.issueDate],
     ["見積番号", header.estimateNo],
@@ -89,7 +133,7 @@ export function renderTomsEstimateHeaderTable(header: TomsEstimateHeader): strin
 
 export function renderTomsInvoiceHeaderTable(header: TomsInvoiceHeader): string {
   const rows = [
-    ["宛名", `${header.addressee} 様`],
+    ["宛名", formatTomsAddressee(header.addressee)],
     ["件名", header.subject],
     ["請求日", header.invoiceDate],
     ["請求番号", header.invoiceNo],
@@ -142,12 +186,13 @@ export function renderTotals(subtotal: number, tax: number, total: number): stri
 }
 
 export function renderNotes(notes: string): string {
-  return `<div class="notes"><strong>備考</strong><br/>${escapeHtmlMultiline(notes || "—")}</div>`;
+  if (!notes?.trim()) return "";
+  return `<div class="notes"><strong>備考</strong><br/>${escapeHtmlMultiline(notes)}</div>`;
 }
 
 export function renderPhotoGrid(photos: BusinessPhoto[], includeImages = false): string {
   const slots = photos
-    .slice(0, 6)
+    .slice(0, 20)
     .map((p) => {
       if (includeImages && p.urlPath) {
         return `<div class="photo-slot"><img src="${escapeHtml(p.urlPath)}" alt="${escapeHtml(p.fileName)}"/><span class="photo-caption">${escapeHtml(p.caption || p.fileName)}</span></div>`;
@@ -156,7 +201,7 @@ export function renderPhotoGrid(photos: BusinessPhoto[], includeImages = false):
     })
     .join("");
   if (!slots) return "";
-  return `<h3>参考写真</h3><div class="photos">${slots}</div>`;
+  return `<h3 class="photo-section-title">参考写真</h3><div class="photos">${slots}</div>`;
 }
 
 export function renderBankBlock(bankInfo: string): string {

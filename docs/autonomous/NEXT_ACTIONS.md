@@ -4,9 +4,10 @@ Cursor が人間の確認なしで進められるタスクです。
 
 ## すぐ着手可能
 
+- [ ] 見積PWA — Puppeteer 本番 PDF 生成（HTML → 高品質 PDF）
+- [ ] 見積PDF — 現場名・工事場所を帳票フッターまたは備考連携で表示
 - [ ] 現調PWA — 写真・部材の個別削除 UI
 - [ ] 現調PWA — オフライン下書き（localStorage）
-- [ ] 見積PWA — Puppeteer 本番 PDF 生成（HTML → PDF）
 - [ ] 作業報告 PWA の画面モック（仮データ・カード UI）
 - [ ] App Hub — surveyor 向け「今日のオペレーション」を折りたたみ化
 
@@ -19,7 +20,7 @@ Cursor が人間の確認なしで進められるタスクです。
 ## 本番反映後の確認（人間がデプロイしたら Cursor も再確認可）
 
 - [ ] `curl -I https://tisly.jp/survey-v1` が 200
-- [ ] iPhone で写真ライブラリ複数選択が動くか
+- [ ] iPhone で見積書4種（写真あり/なし × 見積/請求）が開けるか
 - [ ] 見積 PDF プレビューが 401 にならないか
 - [ ] [HUMAN_TODO.md](./HUMAN_TODO.md) のスマホチェックリスト
 
@@ -28,8 +29,10 @@ Cursor が人間の確認なしで進められるタスクです。
 ```bash
 cd server
 npm run build
-npx tsx --test test/survey-v1.test.ts
+npx tsx --test test/toms-estimate-format.test.ts
 npx tsx --test test/estimate-v1.test.ts
+npx tsx --test test/business-pdf-template.test.ts
+npx tsx --test test/survey-v1.test.ts
 npx tsx --test test/multi-pwa-app-hub.test.ts
 ```
 

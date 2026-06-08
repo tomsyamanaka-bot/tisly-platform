@@ -376,7 +376,7 @@ export function finalizeEstimateV1(
   if (!project?.estimateId) throw new Error("estimate not found");
   const estimate = getEstimate(project.estimateId)!;
   const pdfCtx = getEstimatePdfContextV1(businessProjectId, {
-    includePhotos: opts?.includePhotos !== false,
+    includePhotos: opts?.includePhotos === true,
   }) ?? undefined;
   const pdfPath = generateEstimatePdf(project, estimate, pdfCtx);
   setEstimatePdfPath(estimate.id, pdfPath);
@@ -401,7 +401,7 @@ export function buildTomsFormatPreviewV1(
   if (!project || !detail?.estimate || !detail.header) throw new Error("estimate not found");
   return buildTomsEstimateDocument(project, detail.estimate, detail.header, {
     notes: project.surveyMemo ?? "",
-    photosIncluded: opts?.includePhotos !== false,
+    photosIncluded: opts?.includePhotos === true,
   });
 }
 

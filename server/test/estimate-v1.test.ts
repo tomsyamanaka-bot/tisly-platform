@@ -140,8 +140,8 @@ describe("見積PWA v1 API", () => {
     const ct = String(res.headers["content-type"] || "");
     assert.ok(ct.includes("pdf") || ct.includes("html"));
     if (ct.includes("html")) {
-      assert.ok(res.text.includes("御見積書"));
-      assert.ok(res.text.includes("株式会社TOMS"));
+      assert.ok(res.text.includes("お見積書"));
+      assert.ok(res.text.includes("株式会社 TOMS"));
       assert.ok(res.text.includes("適用"));
     } else {
       assert.ok(Buffer.isBuffer(res.body) ? res.body.length > 50 : true);
@@ -192,7 +192,7 @@ describe("見積PWA v1 API", () => {
       .get(`/api/estimate/v1/projects/${draft.body.businessProjectId}/pdf`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(res.status, 200);
-    assert.ok(res.text.includes("御見積書") || res.text.includes("小計"));
+    assert.ok(res.text.includes("お見積書") || res.text.includes("小計"));
   });
 
   it("GET /estimate-v1 ページを配信できる", async () => {
