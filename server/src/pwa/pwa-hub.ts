@@ -238,7 +238,7 @@ export function buildPracticalHubCards(role: string): PracticalPwaCard[] {
       url: ready && def.href ? def.href : null,
       themeColor: def.themeColor,
       status: ready ? "ready" : "coming_soon",
-      statusLabel: ready ? "使えます" : "次に作る",
+      statusLabel: ready ? "使えます" : "準備中",
     };
   });
 }

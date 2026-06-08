@@ -3,6 +3,10 @@ import {
   getCustomerToken,
   requireCustomerLogin,
 } from "./customer-auth.js";
+import { initPracticalNav } from "./tisly-practical-nav.js";
+
+let practicalNav = null;
+let currentSurveyProjectId = null;
 
 const API = "/api/estimate/v1";
 let currentProjectId = null;
@@ -48,8 +52,8 @@ async function api(path, opts = {}) {
 function showView(name) {
   $("view-list").classList.toggle("hidden", name !== "list");
   $("view-detail").classList.toggle("hidden", name !== "detail");
-  $("btn-back").classList.toggle("hidden", name === "list");
-  $("page-title").textContent = name === "detail" ? "見積の内容" : "見積";
+  practicalNav?.setTitle(name === "detail" ? "見積の内容" : "見積");
+  practicalNav?.setBackVisible(name !== "list");
   $("page-hint").textContent =
     name === "detail" ? "部材の数量・単価を直して、見積もりを確定できます" : "お仕事の料金をまとめます";
 }
@@ -209,9 +213,14 @@ async function openDetail(projectId) {
       statusEl.className = "status-badge orange";
       hidePdfPreview();
     }
-    $("detail-meta").textContent = [p.projectNo, p.estimate?.estimateNo, p.surveyProjectId && `現調案件あり`]
-      .filter(Boolean)
-      .join(" · ");
+    currentSurveyProjectId = p.surveyProjectId || null;
+    const metaParts = [p.projectNo, p.estimate?.estimateNo].filter(Boolean);
+    if (p.surveyProjectId) {
+      metaParts.push(
+        `<a href="/survey-v1?project=${encodeURIComponent(p.surveyProjectId)}" style="color:var(--tisly-blue)">← 現調の内容を見る</a>`
+      );
+    }
+    $("detail-meta").innerHTML = metaParts.join(" · ");
     renderLines(p.estimate?.items || []);
     updateTotalsFromEstimate(p.estimate);
   } catch (e) {
@@ -250,18 +259,23 @@ function setListTab(tab) {
 
 async function init() {
   await requireCustomerLogin(customerCodeFromPath());
+  practicalNav = initPracticalNav({
+    appId: "estimate_v1",
+    appName: "見積",
+    theme: "blue",
+    onBack: () => {
+      showView("list");
+      loadPending();
+      loadProjects();
+    },
+  });
+  practicalNav.setToast(toast);
   showView("list");
   await loadPending();
   await loadProjects();
 
   $("tab-pending").addEventListener("click", () => setListTab("pending"));
   $("tab-projects").addEventListener("click", () => setListTab("projects"));
-
-  $("btn-back").addEventListener("click", () => {
-    showView("list");
-    loadPending();
-    loadProjects();
-  });
 
   $("btn-save-items").addEventListener("click", async () => {
     if (!currentProjectId) return;

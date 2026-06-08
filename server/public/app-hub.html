@@ -12,13 +12,14 @@
   <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192.png?v=2001" />
   <link rel="manifest" href="/manifest.webmanifest?v=2001" />
   <title>TiSLY — App Hub</title>
-  <link rel="stylesheet" href="/css/tisly-pwa-shell.css" />
   <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
+  <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
   <link rel="stylesheet" href="/css/app-hub.css" />
 </head>
-<body class="app-hub-body">
-  <header class="app-hub-header friendly-header">
-    <h1>🏠 TiSLY 実務アプリ</h1>
+<body class="app-hub-body tisly-friendly">
+  <!-- TiSLY App Hub -->
+  <header class="app-hub-header friendly-header" id="hub-page-header">
+    <h1>🏠 今日使うアプリ</h1>
     <p class="hint">ログインして、お仕事に使うアプリを選びます</p>
   </header>
   <section id="login-panel" class="card login-card-friendly">
@@ -32,8 +33,8 @@
   </section>
   <main id="hub-apps-panel" hidden>
     <p id="hub-role-label" class="hub-role-friendly"></p>
-    <h2 class="practical-title">📱 実務アプリ</h2>
-    <p class="practical-subtitle">タップして開きます</p>
+    <h2 class="practical-title">📱 今日使うアプリ</h2>
+    <p class="practical-subtitle">現調・見積は大きいカードから開けます</p>
     <div id="hub-practical-grid" class="hub-practical-grid"></div>
     <details id="hub-more-apps" class="hub-more-details">
       <summary>その他のアプリ</summary>
@@ -118,7 +119,7 @@
     <span id="version-commit">Commit —</span>
     <span id="version-date">Date —</span>
   </footer>
-  <script type="module" src="/js/tisly-pwa-shell.js"></script>
+  <div id="toast" class="toast" role="status"></div>
   <script type="module" src="/js/app-hub.js"></script>
 </body>
 </html>

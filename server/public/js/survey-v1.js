@@ -3,6 +3,9 @@ import {
   getCustomerToken,
   requireCustomerLogin,
 } from "./customer-auth.js";
+import { initPracticalNav } from "./tisly-practical-nav.js";
+
+let practicalNav = null;
 
 const WORKFLOW_LABELS = {
   surveying: "現場調査中",
@@ -72,14 +75,14 @@ function showView(name) {
   $("view-form").classList.toggle("hidden", name !== "form");
   $("view-detail").classList.toggle("hidden", name !== "detail");
   $("view-edit").classList.toggle("hidden", name !== "edit");
-  $("btn-back").classList.toggle("hidden", name === "list");
   const titles = {
     list: "現調",
     form: "新しい現調",
     detail: "現調の内容",
     edit: "お客様情報",
   };
-  $("page-title").textContent = titles[name] || "現調";
+  practicalNav?.setTitle(titles[name] || "現調");
+  practicalNav?.setBackVisible(name !== "list");
   const hints = {
     list: "お客様の現場を見に行く記録を残します",
     form: "まずはお名前だけ入れれば大丈夫です",
@@ -244,30 +247,45 @@ function fileToBase64(file) {
   });
 }
 
+function handleBack() {
+  if (!$("view-edit").classList.contains("hidden") && currentProjectId) {
+    openDetail(currentProjectId);
+    return;
+  }
+  if (!$("view-detail").classList.contains("hidden")) {
+    showView("list");
+    loadList();
+    return;
+  }
+  if (!$("view-form").classList.contains("hidden")) {
+    showView("list");
+    return;
+  }
+  showView("list");
+}
+
 async function init() {
   await requireCustomerLogin(customerCodeFromPath());
+  practicalNav = initPracticalNav({
+    appId: "survey_v1",
+    appName: "現調",
+    theme: "green",
+    onBack: handleBack,
+  });
+  practicalNav.setToast(toast);
   fillMaterialSelect();
   showView("list");
   await loadList();
+
+  const params = new URLSearchParams(location.search);
+  const projectId = params.get("project");
+  if (projectId) await openDetail(projectId);
 
   $("btn-new").addEventListener("click", () => {
     currentProjectId = null;
     $("project-form").reset();
     $("form-error").classList.add("hidden");
     showView("form");
-  });
-
-  $("btn-back").addEventListener("click", () => {
-    if (!$("view-edit").classList.contains("hidden") && currentProjectId) {
-      openDetail(currentProjectId);
-      return;
-    }
-    if (!$("view-detail").classList.contains("hidden")) {
-      showView("list");
-      loadList();
-      return;
-    }
-    showView("list");
   });
 
   $("project-form").addEventListener("submit", async (ev) => {

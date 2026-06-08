@@ -58,6 +58,35 @@ describe("Phase 461-480 multi PWA app hub", () => {
     assert.equal(res.status, 200);
     assert.ok(res.text.includes("TiSLY App Hub"));
     assert.ok(res.text.includes("hub-app-grid"));
+    assert.ok(res.text.includes("今日使うアプリ"));
+    assert.ok(res.text.includes("tisly-practical-nav"));
+  });
+
+  it("serves survey-v1 and estimate-v1 with practical nav", async () => {
+    const sv = await request(app).get("/survey-v1");
+    assert.equal(sv.status, 200);
+    assert.ok(sv.text.includes("tisly-practical-nav"));
+    assert.ok(sv.text.includes("見積へ送る"));
+    const es = await request(app).get("/estimate-v1");
+    assert.equal(es.status, 200);
+    assert.ok(es.text.includes("tisly-practical-nav"));
+    assert.ok(es.text.includes("見積もり作成待ち"));
+  });
+
+  it("surveyor hub includes practicalApps cards", async () => {
+    const res = await request(app)
+      .get("/api/pwa/hub")
+      .set("Authorization", `Bearer ${surveyorToken}`);
+    assert.equal(res.status, 200);
+    const apps = res.body.practicalApps || [];
+    assert.ok(apps.length >= 5);
+    const survey = apps.find((a: { id: string }) => a.id === "survey_v1");
+    const estimate = apps.find((a: { id: string }) => a.id === "estimate_v1");
+    assert.equal(survey?.status, "ready");
+    assert.equal(estimate?.status, "ready");
+    const work = apps.find((a: { id: string }) => a.id === "work_report");
+    assert.equal(work?.status, "coming_soon");
+    assert.equal(work?.statusLabel, "準備中");
   });
 
   it("installer hub shows install only", async () => {

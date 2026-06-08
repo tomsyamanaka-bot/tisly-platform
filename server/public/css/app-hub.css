@@ -7,6 +7,11 @@
   max-width: 520px;
   margin-inline: auto;
 }
+
+.app-hub-body.has-practical-nav {
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
 .app-hub-header.friendly-header h1 {
   color: #5cb87a;
   font-size: 1.35rem;

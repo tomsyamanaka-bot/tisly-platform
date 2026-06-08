@@ -1,4 +1,4 @@
-import { renderPwaTopbar } from "./tisly-pwa-shell.js";
+import { initPracticalNav } from "./tisly-practical-nav.js";
 import { syncHubSnapshot, renderHubFromCache } from "./hub-offline-snapshot.js";
 import { highlightAnomalyCard } from "./connection-badges.js";
 
@@ -565,8 +565,10 @@ function renderPracticalApps(apps) {
       const features = (a.features || [])
         .map((f) => `<li>${f}</li>`)
         .join("");
+      const featured =
+        a.id === "survey_v1" ? " featured" : a.id === "estimate_v1" ? " featured estimate" : "";
       if (isReady) {
-        return `<a class="practical-card" href="${a.url}" style="--card-accent:${a.themeColor}">
+        return `<a class="practical-card${featured}" href="${a.url}" style="--card-accent:${a.themeColor}">
           <div class="practical-card-head">
             <span class="practical-icon">${a.icon}</span>
             <div>
@@ -732,4 +734,10 @@ if (sessionStorage.getItem(TOKEN_KEY)) {
   }
 }
 
-renderPwaTopbar("hub", "App Hub");
+const hubNav = initPracticalNav({
+  appId: "hub",
+  appName: "業務アプリ",
+  theme: "hub",
+  onBack: () => window.history.back(),
+});
+hubNav.setBackVisible(false);
