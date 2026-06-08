@@ -182,6 +182,84 @@ export function runMigrations(database: Database.Database): void {
   migratePhase1361(database);
   migratePhase1621(database);
   migratePhase2201(database);
+  migrateFieldSurveyPwaV1(database);
+}
+
+const SURVEY_PROJECT_V1_COLUMNS: Array<{ name: string; ddl: string }> = [
+  { name: "project_no", ddl: "ALTER TABLE survey_projects ADD COLUMN project_no TEXT" },
+  { name: "customer_name", ddl: "ALTER TABLE survey_projects ADD COLUMN customer_name TEXT" },
+  { name: "phone", ddl: "ALTER TABLE survey_projects ADD COLUMN phone TEXT" },
+  { name: "email", ddl: "ALTER TABLE survey_projects ADD COLUMN email TEXT" },
+  { name: "survey_date", ddl: "ALTER TABLE survey_projects ADD COLUMN survey_date TEXT" },
+  { name: "assignee", ddl: "ALTER TABLE survey_projects ADD COLUMN assignee TEXT" },
+  {
+    name: "workflow_status",
+    ddl: "ALTER TABLE survey_projects ADD COLUMN workflow_status TEXT NOT NULL DEFAULT 'surveying'",
+  },
+];
+
+const SURVEY_PHOTO_V1_COLUMNS: Array<{ name: string; ddl: string }> = [
+  { name: "comment", ddl: "ALTER TABLE survey_photos ADD COLUMN comment TEXT" },
+  { name: "taken_at", ddl: "ALTER TABLE survey_photos ADD COLUMN taken_at TEXT" },
+];
+
+/** TiSLY 現調PWA v1 — 案件拡張・部材・見積引き渡しログ */
+function migrateFieldSurveyPwaV1(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:field_survey_pwa_v1") as { value_json: string } | undefined;
+  if (marker) return;
+
+  addColumnsIfMissing(database, "survey_projects", SURVEY_PROJECT_V1_COLUMNS);
+  addColumnsIfMissing(database, "survey_photos", SURVEY_PHOTO_V1_COLUMNS);
+
+  database.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_survey_projects_project_no
+      ON survey_projects(project_no) WHERE project_no IS NOT NULL;
+  `);
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_survey_projects_workflow
+      ON survey_projects(workflow_status);
+  `);
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS survey_materials (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      category TEXT NOT NULL CHECK (category IN (
+        'camera', 'lan', 'wifi', 'electrical',
+        'lighting', 'intercom', 'aircon', 'other'
+      )),
+      item_label TEXT DEFAULT '',
+      quantity INTEGER NOT NULL DEFAULT 1,
+      memo TEXT DEFAULT '',
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES survey_projects(project_id) ON DELETE CASCADE
+    );
+  `);
+  database.exec(
+    "CREATE INDEX IF NOT EXISTS idx_survey_materials_project ON survey_materials(project_id)"
+  );
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS survey_handoff_log (
+      id TEXT PRIMARY KEY,
+      survey_project_id TEXT NOT NULL UNIQUE,
+      business_project_id TEXT NOT NULL,
+      handoff_by TEXT,
+      handoff_at TEXT DEFAULT (datetime('now')),
+      payload_json TEXT DEFAULT '{}',
+      FOREIGN KEY (survey_project_id) REFERENCES survey_projects(project_id) ON DELETE CASCADE
+    );
+  `);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:field_survey_pwa_v1", JSON.stringify({ at: new Date().toISOString() }));
 }
 
 function migratePhase2201(database: Database.Database): void {

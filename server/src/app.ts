@@ -56,6 +56,7 @@ import { config } from "./config.js";
 import { rejectInstallerRestricted } from "./auth/installer-restricted-guard.js";
 import { pwaHubRouter } from "./api/routes/pwa-hub.js";
 import { surveyRouter } from "./api/routes/survey.js";
+import { surveyV1Router } from "./api/routes/survey-v1.js";
 import { businessRouter } from "./api/routes/business.js";
 import { tomsRouter } from "./api/routes/toms.js";
 import { maintenanceProductionRouter } from "./api/routes/maintenance-production.js";
@@ -91,6 +92,7 @@ export function createApp(): express.Application {
   app.use("/api/auth", authRouter);
   app.use("/api/pwa", pwaHubRouter);
   app.use("/api/survey", surveyRouter);
+  app.use("/api/survey/v1", surveyV1Router);
   app.use("/api/business", businessRouter);
   app.use("/api/toms", tomsRouter);
   app.use("/api/maintenance", maintenanceProductionRouter);
@@ -327,6 +329,9 @@ export function createApp(): express.Application {
   });
   app.get("/survey", (_req, res) => {
     res.sendFile(path.join(publicDir, "survey.html"));
+  });
+  app.get("/survey-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "survey-v1.html"));
   });
   app.get("/survey/:projectId/report", (req, res) => {
     try {
