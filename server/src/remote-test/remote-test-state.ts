@@ -7,8 +7,8 @@ export interface RemoteTestLogEntry {
   source?: "web" | "device";
 }
 
-/** RP2350 が応答しないと offline とみなす秒数（ポーリング 3 秒 × 5） */
-export const DEVICE_OFFLINE_THRESHOLD_SEC = 15;
+/** RP2350 が応答しないと offline とみなす秒数（heartbeat 60 秒 + 余裕） */
+export const DEVICE_OFFLINE_THRESHOLD_SEC = 90;
 
 interface RemoteTestState {
   pendingCommand: RemoteTestCommand | null;
@@ -94,8 +94,11 @@ export function getDeviceStatus() {
   };
 }
 
-export function consumePendingCommand(firmwareVersion?: string): RemoteTestCommand | null {
+export function recordDeviceHeartbeat(firmwareVersion?: string): void {
   recordDevicePoll(firmwareVersion);
+}
+
+export function consumePendingCommand(_firmwareVersion?: string): RemoteTestCommand | null {
   const cmd = state.pendingCommand;
   if (cmd) {
     state.pendingCommand = null;

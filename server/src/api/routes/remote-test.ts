@@ -10,6 +10,7 @@ import {
   getRemoteTestStatus,
   markPushResult,
   queueCh1Command,
+  recordDeviceHeartbeat,
   recordWebAccess,
 } from "../../remote-test/remote-test-state.js";
 
@@ -154,10 +155,19 @@ remoteTestRouter.get("/device", (req, res) => {
   res.json({ ok: true, ...getDeviceStatus() });
 });
 
-remoteTestRouter.get("/command", (req, res) => {
+remoteTestRouter.get("/heartbeat", (req, res) => {
   const firmware =
     typeof req.query.firmware === "string" ? req.query.firmware.trim() : undefined;
-  const command = consumePendingCommand(firmware || undefined);
+  recordDeviceHeartbeat(firmware || undefined);
+  res.json({
+    ok: true,
+    ...getDeviceStatus(),
+    heartbeatAt: new Date().toISOString(),
+  });
+});
+
+remoteTestRouter.get("/command", (req, res) => {
+  const command = consumePendingCommand();
   res.json({
     ok: true,
     command,

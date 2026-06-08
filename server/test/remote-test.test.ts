@@ -76,10 +76,10 @@ describe("Remote Test PoC API", () => {
     assert.equal(status.body.pendingCommand, null);
   });
 
-  it("GET /device returns online after command poll", async () => {
+  it("GET /device returns online after heartbeat", async () => {
     await request(app)
-      .get("/api/remote-test/command")
-      .query({ token: TEST_TOKEN, firmware: "1.0.0-poc" });
+      .get("/api/remote-test/heartbeat")
+      .query({ token: TEST_TOKEN, firmware: "1.1.0-poc-success" });
 
     const res = await request(app)
       .get("/api/remote-test/device")
@@ -88,7 +88,29 @@ describe("Remote Test PoC API", () => {
     assert.equal(res.body.online, true);
     assert.equal(res.body.offline, false);
     assert.ok(res.body.lastSeen);
-    assert.equal(res.body.firmwareVersion, "1.0.0-poc");
+    assert.equal(res.body.firmwareVersion, "1.1.0-poc-success");
+  });
+
+  it("GET /command poll does not update device lastSeen", async () => {
+    resetRemoteTestState();
+    await request(app)
+      .get("/api/remote-test/heartbeat")
+      .query({ token: TEST_TOKEN, firmware: "1.1.0-poc-success" });
+
+    const before = await request(app)
+      .get("/api/remote-test/device")
+      .set("X-Remote-Test-Token", TEST_TOKEN);
+    const lastSeen = before.body.lastSeen as string;
+    assert.ok(lastSeen);
+
+    await new Promise((r) => setTimeout(r, 50));
+
+    await request(app).get("/api/remote-test/command").query({ token: TEST_TOKEN });
+
+    const after = await request(app)
+      .get("/api/remote-test/device")
+      .set("X-Remote-Test-Token", TEST_TOKEN);
+    assert.equal(after.body.lastSeen, lastSeen);
   });
 
   it("POST /ch1/off updates state", async () => {

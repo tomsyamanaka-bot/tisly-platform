@@ -39,7 +39,21 @@ TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。
 | 本番 Web UI | https://tisly.jp/remote-test |
 | デプロイ手順 | [`docs/remote-test-phase2-deploy.md`](docs/remote-test-phase2-deploy.md) |
 | 最小 .env | `server/.env.sample` |
-| RP2350 スクリプト | `rp2350/firmware/remote_test_poll.py` |
+| RP2350 ファームウェア | `rp2350/firmware/main.py` · `config.py` |
+| RP2350 スクリプト（単体） | `rp2350/firmware/remote_test_poll.py` |
+| ファームウェア版 | **v1.1.0-poc-success** |
+
+### 【実機確認済み】RP2350-ETH-8DI-8RO
+
+| 項目 | 結果 |
+|------|------|
+| Ethernet 接続 | 成功（W5500 / DHCP） |
+| PWA 制御 | 成功（PWA → VPS → RP2350） |
+| CH1 ON/OFF | 成功（リレー実機動作確認済み） |
+| heartbeat | 成功（60 秒間隔・接続時刻更新） |
+| 命令取得 | 成功（3 秒間隔ポーリング） |
+
+通信間隔: **poll 3 秒** / **heartbeat 60 秒**（`rp2350/firmware/config.py`）
 
 ---
 

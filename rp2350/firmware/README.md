@@ -1,6 +1,6 @@
 # TiSLY Remote Test — RP2350 最小ファームウェア
 
-**目的:** PoE 起動だけで `https://tisly.jp` へ 3 秒ごとにポーリングし、PWA から CH1 ON/OFF を実行する。
+**目的:** PoE 起動だけで `https://tisly.jp` へ接続し、PWA から CH1 ON/OFF を実行する。
 
 | 項目 | 値 |
 |------|-----|
@@ -8,7 +8,16 @@
 | MCU | Raspberry Pi Pico 2 (RP2350) |
 | MicroPython | v1.28.0（Waveshare 同梱 UF2 推奨） |
 | CH1 GPIO | 17（RO1 暫定） |
-| ポーリング | 3 秒 |
+| ファームウェア版 | **v1.1.0-poc-success** |
+| 命令取得（poll） | 3 秒 |
+| 生存確認（heartbeat） | 60 秒 |
+
+### 【実機確認済み】
+
+- Ethernet 接続成功（W5500 / DHCP）
+- PWA 制御成功（`https://tisly.jp/remote-test`）
+- CH1 ON/OFF 成功（リレー実機動作確認済み）
+- heartbeat 成功（接続時刻更新）
 
 ---
 
@@ -107,9 +116,11 @@ mip.install("urequests")
 
 [tisly] Ethernet init
 [tisly] IP address: 192.168.x.x
-[tisly] polling start (3 sec)
+[tisly] polling start (poll 3 sec / heartbeat 60 sec)
 
-[tisly] heartbeat sent
+[tisly] heartbeat sent          ← 60 秒ごとに 1 回のみ
+[tisly] command received: ch1_on
+[tisly] EXEC CH1 ON
 ```
 
 3. iPhone / PC で `https://tisly.jp/remote-test` を開く
@@ -125,8 +136,8 @@ mip.install("urequests")
 | `TISLY BOOT` | 起動（boot.py） |
 | `Ethernet init` | W5500 / LAN 初期化開始 |
 | `IP address: ...` | DHCP 取得 IP |
-| `polling start` | 3 秒ポーリング開始 |
-| `heartbeat sent` | VPS へポーリング成功（接続時刻更新） |
+| `polling start` | poll 3 秒 / heartbeat 60 秒で開始 |
+| `heartbeat sent` | VPS へ生存確認送信（60 秒ごと・接続時刻更新） |
 | `command received: ch1_on` | コマンド受信 |
 | `EXEC CH1 ON` | GPIO17 HIGH |
 | `EXEC CH1 OFF` | GPIO17 LOW |
@@ -148,6 +159,6 @@ mip.install("urequests")
 
 ## 関連
 
-- VPS API: `GET /api/remote-test/command`（3 秒ポーリング）
+- VPS API: `GET /api/remote-test/command`（3 秒・命令取得）/ `GET /api/remote-test/heartbeat`（60 秒・生存確認）
 - PWA: `https://tisly.jp/remote-test`
 - デプロイ手順: `docs/remote-test-phase2-deploy.md`

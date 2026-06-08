@@ -17,11 +17,22 @@ except ImportError:
 
 from machine import Pin
 
-# --- 設定（実機に合わせて編集） ---
-API_BASE = "https://tisly.jp"
-REMOTE_TEST_TOKEN = "CHANGE_ME_SAME_AS_SERVER_ENV"
-POLL_INTERVAL_SEC = 3
-CH1_GPIO = 17  # RO1 / CH1
+try:
+    import config
+
+    API_BASE = config.API_BASE
+    REMOTE_TEST_TOKEN = config.REMOTE_TEST_TOKEN
+    POLL_INTERVAL_SEC = config.POLL_INTERVAL_SEC
+    HEARTBEAT_INTERVAL_SEC = config.HEARTBEAT_INTERVAL_SEC
+    CH1_GPIO = config.CH1_GPIO
+    FIRMWARE_VERSION = config.FIRMWARE_VERSION
+except ImportError:
+    API_BASE = "https://tisly.jp"
+    REMOTE_TEST_TOKEN = "CHANGE_ME_SAME_AS_SERVER_ENV"
+    POLL_INTERVAL_SEC = 3
+    HEARTBEAT_INTERVAL_SEC = 60
+    CH1_GPIO = 17
+    FIRMWARE_VERSION = "1.1.0-poc-success"
 
 # --- GPIO ---
 relay_ch1 = Pin(CH1_GPIO, Pin.OUT)
@@ -133,8 +144,21 @@ def check_server():
     return True
 
 
+def send_heartbeat():
+    path = "/api/remote-test/heartbeat?firmware={}".format(FIRMWARE_VERSION)
+    body, status = http_get(path)
+    if status == 403:
+        log("AUTH FAIL 403 — REMOTE_TEST_TOKEN を確認")
+        return False
+    if status != 200:
+        log("heartbeat HTTP {} {}".format(status, (body or "")[:80]))
+        return False
+    log("heartbeat sent")
+    return True
+
+
 def fetch_command():
-    body, status = http_get("/api/remote-test/command?firmware=1.0.0-poc")
+    body, status = http_get("/api/remote-test/command")
     if status == 403:
         log("AUTH FAIL 403 — REMOTE_TEST_TOKEN を確認")
         return None
@@ -183,15 +207,25 @@ def main():
     if not srv_ok:
         log("警告: サーバ未接続 — 3秒後にリトライします")
 
-    log("ポーリング開始 ({}秒間隔)".format(POLL_INTERVAL_SEC))
+    log(
+        "ポーリング開始 (poll {}秒 / heartbeat {}秒)".format(
+            POLL_INTERVAL_SEC, HEARTBEAT_INTERVAL_SEC
+        )
+    )
     print("")
 
+    last_heartbeat = time.ticks_ms() - int(HEARTBEAT_INTERVAL_SEC * 1000)
+
     while True:
+        now = time.ticks_ms()
+        if time.ticks_diff(now, last_heartbeat) >= int(HEARTBEAT_INTERVAL_SEC * 1000):
+            send_heartbeat()
+            last_heartbeat = now
+
         cmd = fetch_command()
         if cmd:
             apply_command(cmd)
-        else:
-            log("poll ok — コマンドなし")
+
         time.sleep(POLL_INTERVAL_SEC)
 
 

@@ -2,7 +2,7 @@
 TiSLY Remote Test — 最小ファームウェア
 
 Waveshare RP2350-POE-ETH-8DI-8RO / MicroPython v1.28.0
-PoE 起動 → Ethernet 初期化 → 3 秒ごとに VPS へポーリング → CH1 ON/OFF 実行
+PoE 起動 → Ethernet 初期化 → 3 秒ごとに命令取得 / 60 秒ごとに heartbeat → CH1 ON/OFF 実行
 """
 
 import json
@@ -160,8 +160,23 @@ def http_get(path):
         return None, 0
 
 
+def send_heartbeat():
+    path = "/api/remote-test/heartbeat?firmware={}".format(config.FIRMWARE_VERSION)
+    body, status = http_get(path)
+
+    if status == 403:
+        log_error("AUTH 403 — config.REMOTE_TEST_TOKEN を VPS .env と一致させてください")
+        return False
+    if status != 200:
+        log_error("heartbeat HTTP {} — {}".format(status, (body or "")[:120]))
+        return False
+
+    log("heartbeat sent")
+    return True
+
+
 def poll_command():
-    path = "/api/remote-test/command?firmware={}".format(config.FIRMWARE_VERSION)
+    path = "/api/remote-test/command"
     body, status = http_get(path)
 
     if status == 403:
@@ -177,7 +192,6 @@ def poll_command():
         log_error("JSON parse: {} — {}".format(e, (body or "")[:120]))
         return None
 
-    log("heartbeat sent")
     return data.get("command")
 
 
@@ -211,13 +225,25 @@ def run():
         log_error("REMOTE_TEST_TOKEN が空です — config.py を編集してください")
         return
 
-    log("polling start ({} sec)".format(config.POLL_INTERVAL_SEC))
+    log(
+        "polling start (poll {} sec / heartbeat {} sec)".format(
+            config.POLL_INTERVAL_SEC, config.HEARTBEAT_INTERVAL_SEC
+        )
+    )
     print("")
 
+    last_heartbeat = time.ticks_ms() - int(config.HEARTBEAT_INTERVAL_SEC * 1000)
+
     while True:
+        now = time.ticks_ms()
+        if time.ticks_diff(now, last_heartbeat) >= int(config.HEARTBEAT_INTERVAL_SEC * 1000):
+            send_heartbeat()
+            last_heartbeat = now
+
         cmd = poll_command()
         if cmd:
             exec_command(cmd)
+
         time.sleep(config.POLL_INTERVAL_SEC)
 
 
