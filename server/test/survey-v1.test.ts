@@ -197,6 +197,58 @@ describe("現調PWA v1 API", () => {
     assert.ok(detail.body.handoff);
   });
 
+  it("写真タイトルを個別に更新できる", async () => {
+    const detail = await request(app)
+      .get(`/api/survey/v1/projects/${projectId}`)
+      .set("Authorization", `Bearer ${token}`);
+    const imagePhoto = detail.body.photos.find((p: { url: string }) => p.url);
+    assert.ok(imagePhoto?.id);
+    const res = await request(app)
+      .patch(`/api/survey/v1/projects/${projectId}/photos/${imagePhoto.id}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ title: "玄関カメラ" });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.title, "玄関カメラ");
+  });
+
+  it("案件をコピーできる（案件番号のみ新規）", async () => {
+    const before = await request(app)
+      .get(`/api/survey/v1/projects/${projectId}`)
+      .set("Authorization", `Bearer ${token}`);
+    const res = await request(app)
+      .post(`/api/survey/v1/projects/${projectId}/copy`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({});
+    assert.equal(res.status, 201);
+    assert.notEqual(res.body.projectId, projectId);
+    assert.notEqual(res.body.projectNo, before.body.projectNo);
+    assert.equal(res.body.customerName, before.body.customerName);
+    assert.equal(res.body.siteName, before.body.siteName);
+    const copied = await request(app)
+      .get(`/api/survey/v1/projects/${res.body.projectId}`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(copied.body.materials.length, before.body.materials.length);
+    assert.equal(copied.body.photos.length, before.body.photos.length);
+    assert.equal(copied.body.workflowStatus, "surveying");
+  });
+
+  it("案件を削除できる", async () => {
+    const copy = await request(app)
+      .post(`/api/survey/v1/projects/${projectId}/copy`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({});
+    const deleteId = copy.body.projectId;
+    const res = await request(app)
+      .delete(`/api/survey/v1/projects/${deleteId}`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(res.status, 200);
+    assert.equal(res.body.ok, true);
+    const gone = await request(app)
+      .get(`/api/survey/v1/projects/${deleteId}`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(gone.status, 404);
+  });
+
   it("既存 /api/survey は影響を受けない", async () => {
     const res = await request(app)
       .post("/api/survey/projects")

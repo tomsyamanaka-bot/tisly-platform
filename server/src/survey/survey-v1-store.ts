@@ -72,12 +72,14 @@ function rowToProject(r: Record<string, unknown>): SurveyProjectV1 {
 
 function rowToPhoto(r: Record<string, unknown>): SurveyPhotoV1 {
   const photoPath = String(r.photo_path);
+  const comment = r.comment != null ? String(r.comment) : null;
   return {
     id: String(r.id),
     photoType: String(r.photo_type),
     photoPath,
     url: photoPath.startsWith("_memo:") ? "" : `/uploads/survey/${photoPath}`,
-    comment: r.comment != null ? String(r.comment) : null,
+    comment,
+    title: comment,
     takenAt: r.taken_at != null ? String(r.taken_at) : null,
     uploadedBy: r.uploaded_by != null ? String(r.uploaded_by) : null,
     createdAt: String(r.created_at),
@@ -469,4 +471,93 @@ export function markEstimatePendingV1(
       payloadJson: parsePayload(handoffRow.payload_json as string),
     },
   };
+}
+
+export function updateSurveyPhotoV1(
+  projectId: string,
+  photoId: string,
+  patch: { title?: string; comment?: string }
+): SurveyPhotoV1 | null {
+  if (!getSurveyProjectV1(projectId)) return null;
+  const title = (patch.title ?? patch.comment)?.trim() ?? null;
+  const row = getDatabase()
+    .prepare(`SELECT id FROM survey_photos WHERE id = ? AND project_id = ?`)
+    .get(photoId, projectId) as { id: string } | undefined;
+  if (!row) return null;
+  getDatabase()
+    .prepare(`UPDATE survey_photos SET comment = ? WHERE id = ? AND project_id = ?`)
+    .run(title, photoId, projectId);
+  getDatabase()
+    .prepare(`UPDATE survey_projects SET updated_at = ? WHERE project_id = ?`)
+    .run(new Date().toISOString(), projectId);
+  const updated = getDatabase()
+    .prepare(
+      `SELECT id, photo_type, photo_path, comment, taken_at, uploaded_by, datetime(created_at) as created_at
+       FROM survey_photos WHERE id = ?`
+    )
+    .get(photoId) as Record<string, unknown>;
+  return rowToPhoto(updated);
+}
+
+export function copySurveyProjectV1(projectId: string): SurveyProjectV1 {
+  const detail = getSurveyProjectV1Detail(projectId);
+  if (!detail) throw new Error("project not found");
+
+  const copied = createSurveyProjectV1({
+    customerCode: detail.customerCode,
+    customerName: detail.customerName,
+    customerAddress: detail.customerAddress ?? undefined,
+    siteName: detail.siteName,
+    address: detail.address ?? undefined,
+    phone: detail.phone ?? undefined,
+    email: detail.email ?? undefined,
+    surveyDate: detail.surveyDate ?? undefined,
+    assignee: detail.assignee ?? undefined,
+    notes: detail.notes ?? undefined,
+  });
+
+  for (const m of detail.materials) {
+    addSurveyMaterialV1(copied.projectId, {
+      category: m.category,
+      itemLabel: m.itemLabel,
+      quantity: m.quantity,
+      memo: m.memo,
+    });
+  }
+
+  for (const ph of detail.photos) {
+    if (ph.photoPath.startsWith("_memo:")) {
+      addSurveyPhotoMemoV1(copied.projectId, {
+        comment: ph.comment ?? undefined,
+        takenAt: ph.takenAt ?? undefined,
+      });
+      continue;
+    }
+    const src = path.join(process.cwd(), "uploads", "survey", ph.photoPath);
+    if (!fs.existsSync(src)) continue;
+    const buf = fs.readFileSync(src);
+    addSurveyPhotoMemoV1(copied.projectId, {
+      comment: ph.comment ?? undefined,
+      imageBase64: buf.toString("base64"),
+      fileName: path.basename(ph.photoPath),
+      takenAt: ph.takenAt ?? undefined,
+    });
+  }
+
+  return getSurveyProjectV1(copied.projectId)!;
+}
+
+export function deleteSurveyProjectV1(projectId: string): boolean {
+  if (!getSurveyProjectV1(projectId)) return false;
+  const uploadDir = path.join(process.cwd(), "uploads", "survey", projectId);
+  if (fs.existsSync(uploadDir)) {
+    fs.rmSync(uploadDir, { recursive: true, force: true });
+  }
+  const db = getDatabase();
+  db.prepare(`DELETE FROM survey_photos WHERE project_id = ?`).run(projectId);
+  db.prepare(`DELETE FROM survey_materials WHERE project_id = ?`).run(projectId);
+  db.prepare(`DELETE FROM survey_project_notes WHERE project_id = ?`).run(projectId);
+  db.prepare(`DELETE FROM survey_handoff_log WHERE survey_project_id = ?`).run(projectId);
+  db.prepare(`DELETE FROM survey_projects WHERE project_id = ?`).run(projectId);
+  return true;
 }

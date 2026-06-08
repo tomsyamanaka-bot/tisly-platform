@@ -534,8 +534,15 @@ cd server && npm run build && npx tsc --noEmit && npm run test
 | API | 説明 |
 |-----|------|
 | `/api/schedule/v1/*` | 週間・月間・現場不可日（モックカレンダー） |
-| `/api/survey/v1/*` | 現調案件・写真・部材 |
-| `/api/estimate/v1/*` | 見積・PDF・請求 |
+| `/api/survey/v1/*` | 現調案件・写真タイトル・部材・案件コピー/削除 |
+| `/api/estimate/v1/*` | 見積・請求・完了報告書PDF・見積複製 |
+
+**帳票（実務PWA v2）**
+
+- 見積書・請求書は写真なし（提出用）
+- 現場写真は **完了報告書** に集約（1ページ目：案件情報、2ページ目以降：横2×縦3＝6枚/ページ、写真タイトル付き）
+- 現調：写真ごとにタイトル入力、一覧カードから案件コピー（📄）・削除（🗑）
+- 見積：複製ボタンで内容コピー＋見積番号のみ再発番
 
 | ドキュメント | |
 |-------------|--|
@@ -548,6 +555,7 @@ npm run build
 npx tsx --test test/schedule-v1.test.ts
 npx tsx --test test/survey-v1.test.ts
 npx tsx --test test/estimate-v1.test.ts
+npx tsx --test test/practical-pwa-v2.test.ts
 npx tsx --test test/multi-pwa-app-hub.test.ts
 ```
 

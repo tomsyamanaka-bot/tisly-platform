@@ -201,6 +201,40 @@ body.tisly-friendly {
 .tisly-friendly .list-card {
   cursor: pointer;
   transition: transform 0.1s, box-shadow 0.15s;
+  position: relative;
+}
+
+.tisly-friendly .list-card-actions {
+  position: absolute;
+  top: 0.65rem;
+  right: 0.65rem;
+  display: flex;
+  gap: 0.35rem;
+  z-index: 2;
+}
+
+.tisly-friendly .list-card-action {
+  border: 1px solid var(--tisly-border);
+  background: var(--tisly-bg);
+  border-radius: 6px;
+  padding: 0.25rem 0.45rem;
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.tisly-friendly .list-card-action:active {
+  transform: scale(0.95);
+}
+
+.tisly-friendly .photo-title-input {
+  width: 100%;
+  margin-top: 0.25rem;
+  padding: 0.3rem 0.4rem;
+  font-size: 0.75rem;
+  border: 1px solid var(--tisly-border);
+  border-radius: 4px;
+  background: #fff;
 }
 
 .tisly-friendly .list-card:active {

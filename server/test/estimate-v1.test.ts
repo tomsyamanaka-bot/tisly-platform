@@ -203,7 +203,83 @@ describe("見積PWA v1 API", () => {
     assert.equal(res.status, 200);
     assert.ok(res.text.includes("見積を確定") || res.text.includes("TiSLY — 見積"));
     assert.ok(res.text.includes("社内用データを確認"));
+    assert.ok(res.text.includes("完了報告書を開く"));
+    assert.ok(res.text.includes("見積を複製"));
+    assert.ok(!res.text.includes("写真付き"));
     assert.ok(res.text.includes("工事場所"));
     assert.ok(!res.text.includes("現場名"));
   });
+
+  it("見積を複製すると見積番号だけ再発番される", async () => {
+    const before = await request(app)
+      .get(`/api/estimate/v1/projects/${businessProjectId}`)
+      .set("Authorization", `Bearer ${token}`);
+    const oldNo = before.body.estimate.estimateNo;
+    const res = await request(app)
+      .post(`/api/estimate/v1/projects/${businessProjectId}/duplicate`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({});
+    assert.equal(res.status, 201);
+    assert.notEqual(res.body.estimate.estimateNo, oldNo);
+    assert.equal(res.body.estimate.items.length, before.body.estimate.items.length);
+  });
+
+  it("完了報告書は写真12枚で2ページ以上になる", async () => {
+    const survey = await request(app)
+      .post("/api/survey/v1/projects")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        customerCode: "TOMS001",
+        customerName: "完了報告テスト",
+        siteName: "報告現場",
+        address: "兵庫県神戸市",
+        assignee: "担当太郎",
+        surveyDate: "2026-06-09",
+      });
+    const svyId = survey.body.projectId;
+    const titles = [
+      "玄関カメラ",
+      "事務所NVR",
+      "駐車場配管",
+      "LAN配線",
+      "屋外カメラ",
+      "配電盤",
+      "受付モニタ",
+      "倉庫",
+      "屋上",
+      "機械室",
+      "会議室",
+      "廊下",
+    ];
+    for (let i = 0; i < 12; i++) {
+      const photo = await request(app)
+        .post(`/api/survey/v1/projects/${svyId}/photos`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({ imageBase64: TINY_PNG, fileName: `cr-${i}.jpg` });
+      await request(app)
+        .patch(`/api/survey/v1/projects/${svyId}/photos/${photo.body.id}`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({ title: titles[i] });
+    }
+    await request(app)
+      .post(`/api/survey/v1/projects/${svyId}/estimate-pending`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({});
+    const est = await request(app)
+      .post(`/api/estimate/v1/from-survey/${svyId}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({});
+    const res = await request(app)
+      .get(`/api/estimate/v1/projects/${est.body.businessProjectId}/completion-report/pdf`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(res.status, 200);
+    assert.ok(res.text.includes("完了報告書"));
+    assert.ok(res.text.includes("玄関カメラ"));
+    assert.ok(res.text.includes("LAN配線"));
+    const photoPages = (res.text.match(/cr-photo-page/g) || []).length;
+    assert.ok(photoPages >= 2, `expected >=2 photo pages, got ${photoPages}`);
+  });
 });
+
+const TINY_PNG =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";

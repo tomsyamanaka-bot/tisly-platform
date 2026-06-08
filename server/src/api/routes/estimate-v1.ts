@@ -1,18 +1,23 @@
 import { Router, type Response } from "express";
 import { requireAuth, type AuthedRequest } from "../../auth/auth-middleware.js";
 import { roleMeetsRequirement } from "../../auth/roles.js";
+import fs from "fs";
+import path from "path";
 import {
   buildTomsFormatPreviewV1,
   createEstimateFromSurveyV1,
   createInvoiceFromEstimateV1,
+  duplicateEstimateV1,
   finalizeEstimateV1,
   getEstimatePdfContextV1,
   getEstimateProjectV1Detail,
   listEstimateProjectsV1,
   listPendingSurveysV1,
+  renderCompletionReportHtmlV1,
   updateEstimateHeaderV1,
   updateEstimateItemsV1,
 } from "../../estimate/estimate-v1-store.js";
+import { businessUploadsDir } from "../../business/business-store.js";
 import {
   getEstimatePdfOrPlaceholder,
   getInvoicePdfOrPlaceholder,
@@ -194,6 +199,39 @@ estimateV1Router.get("/projects/:id/invoice/pdf", ...estimateV1Auth, (req: Authe
     includePhotos: pdfCtx?.includePhotos,
   });
   res.type(contentType).sendFile(filePath);
+});
+
+estimateV1Router.get(
+  "/projects/:id/completion-report/pdf",
+  ...estimateV1Auth,
+  (req: AuthedRequest, res) => {
+    if (!assertEstimateV1Role(req, res)) return;
+    const project = getBusinessProject(String(req.params.id));
+    if (!project) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    const html = renderCompletionReportHtmlV1(project.id);
+    if (!html) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    const tmp = businessUploadsDir(project.id, "pdf-html");
+    const p = path.join(tmp, "completion-report-live.html");
+    fs.writeFileSync(p, html, "utf8");
+    res.type("text/html; charset=utf-8").sendFile(p);
+  }
+);
+
+estimateV1Router.post("/projects/:id/duplicate", ...estimateV1Auth, (req: AuthedRequest, res) => {
+  if (!assertEstimateV1Role(req, res)) return;
+  try {
+    const detail = duplicateEstimateV1(String(req.params.id));
+    res.status(201).json(detail);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "duplicate failed";
+    res.status(msg === "estimate not found" ? 404 : 400).json({ error: msg });
+  }
 });
 
 estimateV1Router.get("/projects/:id/toms-format", ...estimateV1Auth, (req: AuthedRequest, res) => {

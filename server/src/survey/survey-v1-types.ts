@@ -83,7 +83,9 @@ export interface SurveyPhotoV1 {
   photoType: string;
   photoPath: string;
   url: string;
+  /** 写真タイトル（DB: comment） */
   comment: string | null;
+  title: string | null;
   takenAt: string | null;
   uploadedBy: string | null;
   createdAt: string;

@@ -131,6 +131,10 @@ function renderProjectList(projects) {
     .map(
       (p) => `
     <div class="friendly-card list-card" data-id="${p.projectId}">
+      <div class="list-card-actions">
+        <button type="button" class="list-card-action" data-action="copy" title="案件をコピー">📄</button>
+        <button type="button" class="list-card-action" data-action="delete" title="案件を削除">🗑</button>
+      </div>
       <span class="${statusBadgeClass(p.workflowStatus)}">${WORKFLOW_LABELS[p.workflowStatus] || p.workflowStatus}</span>
       <h2>${escapeHtml(p.siteName || p.customerName)}</h2>
       <p>${escapeHtml(p.customerName)} · ${escapeHtml(p.projectNo || p.projectId)}</p>
@@ -139,8 +143,41 @@ function renderProjectList(projects) {
     )
     .join("");
   el.querySelectorAll(".list-card").forEach((node) => {
-    node.addEventListener("click", () => openDetail(node.dataset.id));
+    node.addEventListener("click", (ev) => {
+      if (ev.target.closest(".list-card-action")) return;
+      openDetail(node.dataset.id);
+    });
+    node.querySelector('[data-action="copy"]')?.addEventListener("click", async (ev) => {
+      ev.stopPropagation();
+      await copyProject(node.dataset.id);
+    });
+    node.querySelector('[data-action="delete"]')?.addEventListener("click", async (ev) => {
+      ev.stopPropagation();
+      await deleteProject(node.dataset.id);
+    });
   });
+}
+
+async function copyProject(projectId) {
+  try {
+    toast("案件をコピーしています…");
+    const copied = await api(`/projects/${projectId}/copy`, { method: "POST", body: "{}" });
+    toast(`コピーしました（${copied.projectNo || copied.projectId}）`);
+    await loadList();
+  } catch (e) {
+    toastError(e, e.status);
+  }
+}
+
+async function deleteProject(projectId) {
+  if (!confirm("本当に削除しますか？")) return;
+  try {
+    await api(`/projects/${projectId}`, { method: "DELETE" });
+    toast("削除しました");
+    await loadList();
+  } catch (e) {
+    toastError(e, e.status);
+  }
 }
 
 async function loadList() {
@@ -189,6 +226,7 @@ function paintPhotoGrid() {
   }
   const visible = cachedPhotos.slice(0, photoDisplayLimit);
   el.innerHTML = `<div class="photo-grid">${paintPhotoGridHtml(visible)}</div>`;
+  bindPhotoTitleInputs();
   countEl.textContent = `写真 ${cachedPhotos.length} 枚（${visible.length} 枚表示）`;
   countEl.classList.remove("hidden");
   if (cachedPhotos.length > photoDisplayLimit) {
@@ -363,9 +401,37 @@ function paintPhotoGridHtml(visible) {
       const img = ph.url
         ? `<img src="${ph.url}" alt="" loading="lazy" decoding="async" />`
         : '<div style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;background:#eee;font-size:2rem;">📝</div>';
-      return `<div class="photo-card">${img}<div class="photo-caption">${escapeHtml(ph.comment || "（説明なし）")}<br><small>${escapeHtml(ph.takenAt || ph.createdAt || "")}</small></div></div>`;
+      const title = ph.title ?? ph.comment ?? "";
+      const titleField = ph.url
+        ? `<input type="text" class="photo-title-input" data-photo-id="${ph.id}" placeholder="タイトル（例：玄関カメラ）" value="${escapeHtml(title)}" />`
+        : `<div class="photo-caption">${escapeHtml(title || "（メモ）")}</div>`;
+      return `<div class="photo-card">${img}${titleField}<small style="display:block;padding:0 0.4rem 0.35rem;color:var(--tisly-muted);font-size:0.7rem;">${escapeHtml(ph.takenAt || ph.createdAt || "")}</small></div>`;
     })
     .join("");
+}
+
+function bindPhotoTitleInputs() {
+  $("photo-list").querySelectorAll(".photo-title-input").forEach((inp) => {
+    inp.addEventListener("change", async () => {
+      if (!currentProjectId) return;
+      const photoId = inp.dataset.photoId;
+      const title = inp.value.trim();
+      try {
+        await api(`/projects/${currentProjectId}/photos/${photoId}`, {
+          method: "PATCH",
+          body: JSON.stringify({ title }),
+        });
+        const ph = cachedPhotos.find((p) => p.id === photoId);
+        if (ph) {
+          ph.title = title;
+          ph.comment = title;
+        }
+        toast("タイトルを保存しました");
+      } catch (e) {
+        toastError(e, e.status);
+      }
+    });
+  });
 }
 
 async function uploadPhotos(files) {
@@ -387,7 +453,6 @@ async function uploadPhotos(files) {
     toast(`残り${room}枚分だけ追加します（上限${MAX_PHOTOS}枚）`);
   }
   showPhotoPreviews(batch);
-  const comment = $("photo-comment").value || undefined;
   const progress = $("photo-upload-progress");
   progress.classList.remove("hidden");
   let done = 0;
@@ -405,7 +470,6 @@ async function uploadPhotos(files) {
       await api(`/projects/${currentProjectId}/photos`, {
         method: "POST",
         body: JSON.stringify({
-          comment,
           imageBase64,
           fileName: (file.name || "photo").replace(/\.[^.]+$/, ".jpg"),
           takenAt: new Date().toISOString(),

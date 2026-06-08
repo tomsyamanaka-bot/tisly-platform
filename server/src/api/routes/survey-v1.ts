@@ -9,10 +9,13 @@ import {
 import {
   addSurveyMaterialV1,
   addSurveyPhotoMemoV1,
+  copySurveyProjectV1,
   createSurveyProjectV1,
+  deleteSurveyProjectV1,
   getSurveyProjectV1Detail,
   listSurveyProjectsV1,
   markEstimatePendingV1,
+  updateSurveyPhotoV1,
   updateSurveyProjectV1,
 } from "../../survey/survey-v1-store.js";
 
@@ -135,6 +138,38 @@ surveyV1Router.patch("/projects/:id", ...surveyV1Auth, (req: AuthedRequest, res)
   } catch (e) {
     res.status(400).json({ error: e instanceof Error ? e.message : "update failed" });
   }
+});
+
+surveyV1Router.post("/projects/:id/copy", ...surveyV1Auth, (req: AuthedRequest, res) => {
+  if (!assertSurveyRole(req, res)) return;
+  try {
+    const copied = copySurveyProjectV1(String(req.params.id));
+    res.status(201).json(copied);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "copy failed";
+    res.status(msg === "project not found" ? 404 : 400).json({ error: msg });
+  }
+});
+
+surveyV1Router.delete("/projects/:id", ...surveyV1Auth, (req: AuthedRequest, res) => {
+  if (!assertSurveyRole(req, res)) return;
+  const ok = deleteSurveyProjectV1(String(req.params.id));
+  if (!ok) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  res.json({ ok: true });
+});
+
+surveyV1Router.patch("/projects/:id/photos/:photoId", ...surveyV1Auth, (req: AuthedRequest, res) => {
+  if (!assertSurveyRole(req, res)) return;
+  const body = req.body as { title?: string; comment?: string };
+  const updated = updateSurveyPhotoV1(String(req.params.id), String(req.params.photoId), body);
+  if (!updated) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  res.json(updated);
 });
 
 surveyV1Router.post("/projects/:id/photos", ...surveyV1Auth, (req: AuthedRequest, res) => {

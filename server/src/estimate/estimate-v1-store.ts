@@ -23,7 +23,13 @@ import { generateInvoicePdf } from "../business/services/pdfService.js";
 import { listPricingRules } from "../business/business-pricing.js";
 import type { Estimate, EstimateLineItem, PricingCategory, PricingItem } from "../business/business-types.js";
 import { applyPricingTierToItems, calcTotals, normalizeLineItems } from "../business/estimate-math.js";
+import { generateTomsDailyDocNo } from "../business/toms-document-format.js";
 import { generateEstimatePdf } from "../business/services/pdfService.js";
+import { v4 as uuid } from "uuid";
+import {
+  renderPracticalCompletionReportHtml,
+  type PracticalCompletionReportContext,
+} from "./practical-completion-report-template.js";
 import { statusAfterSurveyDone, statusAfterSurveySchedule } from "../business/business-status.js";
 import {
   getSurveyProjectV1,
@@ -76,15 +82,19 @@ function materialsToEstimateRows(materials: SurveyMaterialV1[]): Array<{
 
 function copyV1PhotosToBusiness(businessProjectId: string, surveyProjectId: string): number {
   const photos = listSurveyPhotosV1(surveyProjectId);
-  const copied: ReturnType<typeof saveBusinessPhoto>[] = [];
+  const copied: Array<ReturnType<typeof saveBusinessPhoto> & { caption?: string }> = [];
   for (const ph of photos.slice(0, 20)) {
     if (ph.photoPath.startsWith("_memo:")) continue;
     const src = path.join(process.cwd(), "uploads", "survey", ph.photoPath);
     if (!fs.existsSync(src)) continue;
     const buf = fs.readFileSync(src);
-    copied.push(
-      saveBusinessPhoto(businessProjectId, "survey", buf.toString("base64"), path.basename(src))
+    const saved = saveBusinessPhoto(
+      businessProjectId,
+      "survey",
+      buf.toString("base64"),
+      path.basename(src)
     );
+    copied.push({ ...saved, caption: ph.title ?? ph.comment ?? undefined });
   }
   if (copied.length) {
     updateBusinessProject(businessProjectId, { surveyPhotos: copied });
@@ -415,6 +425,83 @@ export function buildTomsFormatPreviewV1(
     notes: project.surveyMemo ?? "",
     photosIncluded: opts?.includePhotos === true,
   });
+}
+
+export function buildCompletionReportContextV1(
+  businessProjectId: string
+): PracticalCompletionReportContext | null {
+  const project = getBusinessProject(businessProjectId);
+  if (!project) return null;
+  const survey = project.surveyProjectId ? getSurveyProjectV1(project.surveyProjectId) : null;
+  const estimate = project.estimateId ? getEstimate(project.estimateId) : null;
+  const header = estimate?.header ?? null;
+  const photos = project.surveyProjectId
+    ? listSurveyPhotosV1(project.surveyProjectId)
+        .filter((p) => !p.photoPath.startsWith("_memo:") && p.url)
+        .map((p) => ({
+          url: p.url,
+          title: p.title ?? p.comment ?? "",
+        }))
+    : (project.surveyPhotos || []).map((p) => ({
+        url: p.urlPath,
+        title: p.caption ?? "",
+      }));
+  return {
+    projectNo: project.projectNo,
+    addressee: header?.addressee ?? project.customerName,
+    siteName: survey?.siteName ?? project.title,
+    workLocation: survey?.address ?? project.address,
+    workDate: survey?.surveyDate ?? header?.issueDate ?? "",
+    staffName: header?.staffName ?? survey?.assignee ?? "",
+    photos,
+  };
+}
+
+export function renderCompletionReportHtmlV1(businessProjectId: string): string | null {
+  const ctx = buildCompletionReportContextV1(businessProjectId);
+  if (!ctx) return null;
+  return renderPracticalCompletionReportHtml(ctx);
+}
+
+export function duplicateEstimateV1(businessProjectId: string): EstimateProjectV1Detail {
+  const project = getBusinessProject(businessProjectId);
+  if (!project?.estimateId) throw new Error("estimate not found");
+  const est = getEstimate(project.estimateId)!;
+  const normalized = normalizeLineItems(est.items);
+  const totals = calcTotals(normalized);
+  const id = uuid();
+  const estimateNo = generateTomsDailyDocNo("business_estimates", "estimate_no");
+  const now = new Date().toISOString();
+  getDatabase()
+    .prepare(
+      `INSERT INTO business_estimates (
+        id, project_id, estimate_no, customer_name, title, items_json,
+        subtotal, tax, total, internal_cost, gross_profit, gross_profit_rate,
+        pdf_path, header_json, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)`
+    )
+    .run(
+      id,
+      businessProjectId,
+      estimateNo,
+      est.customerName,
+      est.title,
+      JSON.stringify(normalized),
+      totals.subtotal,
+      totals.tax,
+      totals.total,
+      totals.internalCost,
+      totals.grossProfit,
+      totals.grossProfitRate,
+      est.header ? JSON.stringify(est.header) : null,
+      now,
+      now
+    );
+  updateBusinessProject(businessProjectId, {
+    estimateId: id,
+    invoiceId: null,
+  });
+  return getEstimateProjectV1Detail(businessProjectId)!;
 }
 
 export function createInvoiceFromEstimateV1(businessProjectId: string): {

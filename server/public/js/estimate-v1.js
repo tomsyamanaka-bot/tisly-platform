@@ -59,10 +59,6 @@ function newEmptyLine() {
   };
 }
 
-function photoQuery(includePhotos) {
-  return includePhotos ? "?includePhotos=1" : "";
-}
-
 function splitDescription(name, memo) {
   const n = String(name || "").trim();
   const m = String(memo || "").trim();
@@ -340,35 +336,44 @@ async function saveHeader() {
   });
 }
 
-function buildPdfUrl(kind, includePhotos) {
-  const base =
-    kind === "invoice"
-      ? `/api/estimate/v1/projects/${currentProjectId}/invoice/pdf`
-      : `/api/estimate/v1/projects/${currentProjectId}/pdf`;
-  return `${base}${photoQuery(includePhotos)}`;
+function buildPdfUrl(kind) {
+  if (kind === "completion") {
+    return `/api/estimate/v1/projects/${currentProjectId}/completion-report/pdf`;
+  }
+  return kind === "invoice"
+    ? `/api/estimate/v1/projects/${currentProjectId}/invoice/pdf`
+    : `/api/estimate/v1/projects/${currentProjectId}/pdf`;
 }
 
-function buildPdfTabUrl(kind, includePhotos, token) {
-  const url = buildPdfUrl(kind, includePhotos);
+function buildPdfTabUrl(kind, token) {
+  const url = buildPdfUrl(kind);
   const sep = url.includes("?") ? "&" : "?";
   return `${url}${sep}access_token=${encodeURIComponent(token)}`;
 }
 
-async function showDocumentPreview(kind, includePhotos) {
+const PDF_LABELS = {
+  estimate: "見積書",
+  invoice: "請求書",
+  completion: "完了報告書",
+};
+
+async function showDocumentPreview(kind) {
   if (!currentProjectId) return;
   if (kind === "invoice" && !hasInvoice) {
     toast("先に請求書を作成してください");
     return;
   }
   const token = getCustomerToken();
-  const url = buildPdfUrl(kind, includePhotos);
+  const url = buildPdfUrl(kind);
   const errEl = $("pdf-error");
   errEl.classList.remove("visible");
   errEl.innerHTML = "";
   try {
     toast("書類を読み込み中…");
-    await saveHeader().catch(() => ({}));
-    await saveItems().catch(() => ({}));
+    if (kind !== "completion") {
+      await saveHeader().catch(() => ({}));
+      await saveItems().catch(() => ({}));
+    }
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -388,17 +393,9 @@ async function showDocumentPreview(kind, includePhotos) {
     if (pdfBlobUrl) URL.revokeObjectURL(pdfBlobUrl);
     pdfBlobUrl = URL.createObjectURL(blob);
     $("pdf-preview").src = pdfBlobUrl;
-    $("link-pdf").href = buildPdfTabUrl(kind, includePhotos, token);
+    $("link-pdf").href = buildPdfTabUrl(kind, token);
     $("pdf-section").classList.remove("hidden");
-    const label =
-      kind === "invoice"
-        ? includePhotos
-          ? "請求書（写真付き）"
-          : "請求書（写真なし）"
-        : includePhotos
-          ? "見積書（写真付き）"
-          : "見積書（写真なし）";
-    toast(`${label}を表示しました`);
+    toast(`${PDF_LABELS[kind] || "書類"}を表示しました`);
   } catch (e) {
     if (e.status === 401) {
       errEl.innerHTML = "<strong>ログインが切れました。もう一度ログインしてください</strong>";
@@ -562,22 +559,32 @@ async function init() {
     }
   });
 
-  $("btn-pdf-estimate-no-photo").addEventListener("click", () =>
-    showDocumentPreview("estimate", false)
-  );
-  $("btn-pdf-estimate-with-photo").addEventListener("click", () =>
-    showDocumentPreview("estimate", true)
-  );
-  $("btn-pdf-invoice-no-photo").addEventListener("click", () =>
-    showDocumentPreview("invoice", false)
-  );
-  $("btn-pdf-invoice-with-photo").addEventListener("click", () =>
-    showDocumentPreview("invoice", true)
-  );
+  $("btn-pdf-estimate").addEventListener("click", () => showDocumentPreview("estimate"));
+  $("btn-pdf-invoice").addEventListener("click", () => showDocumentPreview("invoice"));
+  $("btn-pdf-completion").addEventListener("click", () => showDocumentPreview("completion"));
+
+  $("btn-duplicate-estimate").addEventListener("click", async () => {
+    if (!currentProjectId) return;
+    if (!confirm("見積を複製しますか？\n内容はそのまま、見積番号だけ新しく発番します。")) return;
+    try {
+      const detail = await api(`/projects/${currentProjectId}/duplicate`, {
+        method: "POST",
+        body: "{}",
+      });
+      toast(`複製しました（${detail.estimate?.estimateNo || "新規"}）`);
+      hidePdfPreview();
+      $("hdr-estimate-no").value = detail.header?.estimateNo || detail.estimate?.estimateNo || "";
+      $("detail-status").textContent = "下書き";
+      $("detail-status").className = "status-badge orange";
+      hasInvoice = false;
+    } catch (e) {
+      toastError(e, e.status);
+    }
+  });
 
   $("btn-finalize").addEventListener("click", async () => {
     if (!currentProjectId) return;
-    if (!confirm("見積を確定しますか？\n印刷・提出用（写真なし）の見積書が作れます。")) return;
+    if (!confirm("見積を確定しますか？\n印刷・提出用の見積書が作れます。")) return;
     try {
       await saveHeader().catch(() => ({}));
       await saveItems();
@@ -586,7 +593,7 @@ async function init() {
         body: JSON.stringify({ includePhotos: false }),
       });
       toast("見積を確定しました");
-      await showDocumentPreview("estimate", false);
+      await showDocumentPreview("estimate");
       $("detail-status").textContent = "見積書の準備ができました";
       $("detail-status").className = "status-badge done";
       updateTotalsFromEstimate(result.estimate);
@@ -605,7 +612,7 @@ async function init() {
       await api(`/projects/${currentProjectId}/invoice`, { method: "POST", body: "{}" });
       hasInvoice = true;
       toast("請求書を作成しました");
-      await showDocumentPreview("invoice", false);
+      await showDocumentPreview("invoice");
     } catch (e) {
       toastError(e, e.status);
     }
