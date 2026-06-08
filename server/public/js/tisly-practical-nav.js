@@ -10,6 +10,7 @@ const BOTTOM_ITEMS = [
 ];
 
 let toastFn = null;
+let historySyncBound = false;
 
 function defaultToast(msg) {
   const el = document.getElementById("toast");
@@ -48,7 +49,7 @@ export function initPracticalNav(opts) {
     const themeCls = theme === "blue" && item.id === appId ? " theme-blue" : "";
     if (item.comingSoon || !item.href) {
       return `<button type="button" class="coming-soon${active}${themeCls}" data-coming-soon="1" aria-label="${item.label}（準備中）">
-        <span class="nav-icon">${item.icon}</span><span>${item.label}</span></button>`;
+        <span class="nav-icon">${item.icon}</span><span>${item.label}</span><span class="nav-soon-badge">準備中</span></button>`;
     }
     return `<a href="${item.href}" class="${active.trim()}${themeCls}" aria-current="${item.id === appId ? "page" : "false"}">
       <span class="nav-icon">${item.icon}</span><span>${item.label}</span></a>`;
@@ -59,12 +60,38 @@ export function initPracticalNav(opts) {
   const btnForward = document.getElementById("tisly-nav-forward");
   const titleEl = document.getElementById("tisly-nav-title");
 
-  btnBack?.addEventListener("click", () => backHandler());
-  btnForward?.addEventListener("click", () => window.history.forward());
+  const usesCustomBack = Boolean(onBack);
+
+  function syncHistoryButtons() {
+    if (usesCustomBack) {
+      btnForward?.toggleAttribute("disabled", true);
+      return;
+    }
+    btnBack?.toggleAttribute("disabled", window.history.length <= 1);
+  }
+
+  btnBack?.addEventListener("click", () => {
+    if (btnBack?.hasAttribute("disabled")) return;
+    backHandler();
+  });
+  btnForward?.addEventListener("click", () => {
+    if (btnForward?.hasAttribute("disabled")) {
+      (toastFn || defaultToast)("この画面では「進む」は使えません");
+      return;
+    }
+    window.history.forward();
+  });
+
+  if (!usesCustomBack && !historySyncBound) {
+    historySyncBound = true;
+    window.addEventListener("popstate", () => {
+      btnBack?.toggleAttribute("disabled", window.history.length <= 1);
+    });
+  }
 
   bottomRoot.querySelectorAll("[data-coming-soon]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      (toastFn || defaultToast)("準備中です。もう少しお待ちください");
+      (toastFn || defaultToast)("準備中です。公開まで少々お待ちください");
     });
   });
 
@@ -72,19 +99,27 @@ export function initPracticalNav(opts) {
     navigator.serviceWorker.register("/service-worker.js").catch(() => {});
   }
 
+  syncHistoryButtons();
+
   return {
     setTitle(title) {
       if (titleEl) titleEl.textContent = title;
     },
     setBackVisible(visible) {
       btnBack?.classList.toggle("hidden-nav", !visible);
+      if (visible) btnBack?.removeAttribute("disabled");
     },
     setBackHandler(fn) {
       backHandler = fn || (() => window.history.back());
     },
+    setForwardEnabled(enabled) {
+      if (enabled) btnForward?.removeAttribute("disabled");
+      else btnForward?.toggleAttribute("disabled", true);
+    },
     setToast(fn) {
       toastFn = fn;
     },
+    syncHistoryButtons,
   };
 }
 

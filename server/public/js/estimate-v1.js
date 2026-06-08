@@ -4,6 +4,7 @@ import {
   requireCustomerLogin,
 } from "./customer-auth.js";
 import { initPracticalNav } from "./tisly-practical-nav.js";
+import { friendlyHttpError, renderFriendlyErrorHtml } from "./tisly-friendly-errors.js";
 
 let practicalNav = null;
 let currentSurveyProjectId = null;
@@ -20,6 +21,11 @@ function toast(msg) {
   el.textContent = msg;
   el.classList.add("show");
   setTimeout(() => el.classList.remove("show"), 2200);
+}
+
+function toastError(err, status) {
+  const f = friendlyHttpError(err?.message || err, status);
+  toast(`${f.title} — ${f.action}`);
 }
 
 function yen(n) {
@@ -45,7 +51,11 @@ async function api(path, opts = {}) {
     },
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  if (!res.ok) {
+    const e = new Error(data.error || `HTTP ${res.status}`);
+    e.status = res.status;
+    throw e;
+  }
   return data;
 }
 
@@ -124,7 +134,7 @@ async function onPendingClick(node) {
     await loadPending();
     await loadProjects();
   } catch (e) {
-    toast(e.message);
+    toastError(e, e.status);
   }
 }
 
@@ -231,7 +241,7 @@ async function openDetail(projectId) {
     renderLines(p.estimate?.items || []);
     updateTotalsFromEstimate(p.estimate);
   } catch (e) {
-    toast(e.message);
+    toastError(e, e.status);
     showView("list");
   }
 }
@@ -242,7 +252,7 @@ async function loadPending() {
     const data = await api(`/pending-surveys?customerCode=${encodeURIComponent(code)}`);
     renderPendingList(data.surveys || []);
   } catch (e) {
-    $("pending-list").innerHTML = `<div class="error-friendly"><strong>読み込めませんでした</strong>もう一度開き直してください。<br><small>${escapeHtml(e.message)}</small></div>`;
+    $("pending-list").innerHTML = `<div class="error-friendly">${renderFriendlyErrorHtml(e, e.status)}</div>`;
   }
 }
 
@@ -252,7 +262,7 @@ async function loadProjects() {
     const data = await api(`/projects?customerCode=${encodeURIComponent(code)}`);
     renderProjectList(data.projects || []);
   } catch (e) {
-    $("project-list").innerHTML = `<div class="error-friendly"><strong>読み込めませんでした</strong><br><small>${escapeHtml(e.message)}</small></div>`;
+    $("project-list").innerHTML = `<div class="error-friendly">${renderFriendlyErrorHtml(e, e.status)}</div>`;
   }
 }
 
@@ -298,7 +308,7 @@ async function init() {
       $("detail-status").textContent = "下書き";
       $("detail-status").className = "status-badge orange";
     } catch (e) {
-      toast(e.message);
+      toastError(e, e.status);
     }
   });
 
@@ -319,7 +329,7 @@ async function init() {
       updateTotalsFromEstimate(result.estimate);
       await loadProjects();
     } catch (e) {
-      toast(e.message);
+      toastError(e, e.status);
     }
   });
 
@@ -331,7 +341,7 @@ async function init() {
       $("toms-preview").textContent = JSON.stringify(data, null, 2);
       $("toms-section").classList.remove("hidden");
     } catch (e) {
-      toast(e.message);
+      toastError(e, e.status);
     }
   });
 
@@ -349,5 +359,5 @@ async function init() {
 
 init().catch((e) => {
   console.error(e);
-  $("pending-list").innerHTML = `<div class="error-friendly"><strong>起動できませんでした</strong>ログインし直してください。<br><small>${escapeHtml(e.message)}</small></div>`;
+  $("pending-list").innerHTML = `<div class="error-friendly">${renderFriendlyErrorHtml(e, e.status)}</div>`;
 });

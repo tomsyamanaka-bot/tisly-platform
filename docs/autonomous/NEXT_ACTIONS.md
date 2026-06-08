@@ -17,11 +17,12 @@ Cursor が人間の確認なしで進められるタスクです。
 - [ ] 見積確定時に TOMS プレビューを自動保存
 - [ ] 部材マスタの仮シードデータ
 
-## 本番反映後の確認（人間がデプロイしたら）
+## 本番反映後の確認（人間がデプロイしたら Cursor も再確認可）
 
 - [ ] `curl -I https://tisly.jp/survey-v1` が 200
 - [ ] 本番で部材カード「アンテナ」が追加できるか
 - [ ] 見積 PDF が iPhone で表示できるか
+- [ ] [HUMAN_TODO.md](./HUMAN_TODO.md) のスマホチェックリストをすべて確認
 
 ## テスト
 
@@ -36,4 +37,4 @@ npx tsx --test test/multi-pwa-app-hub.test.ts
 ## 完了したら記録
 
 - [PHASE_LOG.md](./PHASE_LOG.md) に日付と内容を追記
-- 人間設定が必要なら [MANUAL_SETUP_REQUIRED.md](./MANUAL_SETUP_REQUIRED.md) に追記
+- 人間設定が必要なら [HUMAN_TODO.md](./HUMAN_TODO.md) に追記

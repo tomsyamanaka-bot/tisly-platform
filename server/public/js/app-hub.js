@@ -1,4 +1,5 @@
 import { initPracticalNav } from "./tisly-practical-nav.js";
+import { friendlyLoginError } from "./tisly-friendly-errors.js";
 import { syncHubSnapshot, renderHubFromCache } from "./hub-offline-snapshot.js";
 import { highlightAnomalyCard } from "./connection-badges.js";
 
@@ -709,9 +710,9 @@ document.getElementById("btn-hub-login")?.addEventListener("click", async () => 
   const code = document.getElementById("hub-customer-code").value.trim().toUpperCase();
   const username = document.getElementById("hub-username").value.trim();
   const password = document.getElementById("hub-password").value;
-  const { ok, body } = await customerLogin(code, username, password);
+  const { ok, status, body } = await customerLogin(code, username, password);
   if (!ok) {
-    err.textContent = body.error || "ログインに失敗しました";
+    err.textContent = friendlyLoginError(body, status);
     return;
   }
   sessionStorage.setItem(TOKEN_KEY, body.token);

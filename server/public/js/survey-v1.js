@@ -4,6 +4,7 @@ import {
   requireCustomerLogin,
 } from "./customer-auth.js";
 import { initPracticalNav } from "./tisly-practical-nav.js";
+import { friendlyHttpError, renderFriendlyErrorHtml } from "./tisly-friendly-errors.js";
 
 let practicalNav = null;
 
@@ -43,10 +44,15 @@ function toast(msg) {
   setTimeout(() => el.classList.remove("show"), 2200);
 }
 
-function showFriendlyError(elId, message) {
+function showFriendlyError(elId, err, status) {
   const el = $(elId);
-  el.innerHTML = `<strong>うまくいきませんでした</strong>もう一度「保存する」ボタンを押してください。<br><small>${escapeHtml(message)}</small>`;
+  el.innerHTML = renderFriendlyErrorHtml(err, status);
   el.classList.remove("hidden");
+}
+
+function toastError(err, status) {
+  const f = friendlyHttpError(err?.message || err, status);
+  toast(`${f.title} — ${f.action}`);
 }
 
 async function api(path, opts = {}) {
@@ -60,7 +66,11 @@ async function api(path, opts = {}) {
     },
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  if (!res.ok) {
+    const e = new Error(data.error || `HTTP ${res.status}`);
+    e.status = res.status;
+    throw e;
+  }
   return data;
 }
 
@@ -132,7 +142,7 @@ async function loadList() {
     const data = await api(`/projects?customerCode=${encodeURIComponent(code)}`);
     renderProjectList(data.projects || []);
   } catch (e) {
-    $("project-list").innerHTML = `<div class="error-friendly"><strong>一覧を読み込めませんでした</strong>画面を下に引っ張って更新するか、もう一度開き直してください。<br><small>${escapeHtml(e.message)}</small></div>`;
+    $("project-list").innerHTML = `<div class="error-friendly">${renderFriendlyErrorHtml(e, e.status)}</div>`;
   }
 }
 
@@ -234,7 +244,7 @@ async function openDetail(projectId) {
       handoffInfo.classList.add("hidden");
     }
   } catch (e) {
-    toast(e.message);
+    toastError(e, e.status);
     showView("list");
   }
 }
@@ -310,7 +320,7 @@ async function init() {
       toast("保存しました");
       await openDetail(created.projectId);
     } catch (e) {
-      showFriendlyError("form-error", e.message);
+      showFriendlyError("form-error", e, e.status);
     }
   });
 
@@ -335,7 +345,7 @@ async function init() {
       toast("写真を追加しました");
       await openDetail(currentProjectId);
     } catch (e) {
-      toast(e.message);
+      toastError(e, e.status);
     }
   });
 
@@ -355,7 +365,7 @@ async function init() {
       toast("メモを追加しました");
       await openDetail(currentProjectId);
     } catch (e) {
-      toast(e.message);
+      toastError(e, e.status);
     }
   });
 
@@ -377,7 +387,7 @@ async function init() {
       toast("部材を追加しました");
       await openDetail(currentProjectId);
     } catch (e) {
-      toast(e.message);
+      toastError(e, e.status);
     }
   });
 
@@ -394,7 +404,7 @@ async function init() {
       $("edit-error").classList.add("hidden");
       showView("edit");
     } catch (e) {
-      toast(e.message);
+      toastError(e, e.status);
     }
   });
 
@@ -416,7 +426,7 @@ async function init() {
       toast("変更を保存しました");
       await openDetail(currentProjectId);
     } catch (e) {
-      showFriendlyError("edit-error", e.message);
+      showFriendlyError("edit-error", e, e.status);
     }
   });
 
@@ -428,12 +438,12 @@ async function init() {
       toast("見積へ送りました");
       await openDetail(currentProjectId);
     } catch (e) {
-      toast(e.message);
+      toastError(e, e.status);
     }
   });
 }
 
 init().catch((e) => {
   console.error(e);
-  $("project-list").innerHTML = `<div class="error-friendly"><strong>起動できませんでした</strong>ログインし直してください。<br><small>${escapeHtml(e.message)}</small></div>`;
+  $("project-list").innerHTML = `<div class="error-friendly">${renderFriendlyErrorHtml(e, e.status)}</div>`;
 });

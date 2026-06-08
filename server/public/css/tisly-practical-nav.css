@@ -68,9 +68,11 @@ body.has-practical-nav #ops-panels-wrap {
   border: 1px solid var(--tisly-border, #e1e4e8);
 }
 
-.tisly-practical-topbar .nav-btn:disabled {
+.tisly-practical-topbar .nav-btn:disabled,
+.tisly-practical-topbar .nav-btn[disabled] {
   opacity: 0.35;
   cursor: default;
+  pointer-events: none;
 }
 
 .tisly-practical-topbar .nav-btn.hidden-nav {
@@ -141,11 +143,30 @@ body.has-practical-nav #ops-panels-wrap {
 }
 
 .tisly-practical-bottomnav .coming-soon {
-  opacity: 0.45;
+  opacity: 0.55;
+  position: relative;
 }
 
-.tisly-practical-bottomnav .coming-soon::after {
-  content: "";
+.tisly-practical-bottomnav .coming-soon .nav-soon-badge {
+  font-size: 0.55rem;
+  background: var(--tisly-orange-light, #fef6e8);
+  color: #9a6700;
+  padding: 0.05rem 0.25rem;
+  border-radius: 4px;
+  font-weight: 700;
+}
+
+.tisly-practical-bottomnav a,
+.tisly-practical-bottomnav button {
+  min-height: 52px;
+}
+
+.tisly-sticky-action {
+  position: sticky;
+  bottom: calc(var(--tisly-nav-bottom-h) + 0.5rem + env(safe-area-inset-bottom, 0px));
+  z-index: 5;
+  padding: 0.5rem 0;
+  background: linear-gradient(transparent, var(--tisly-bg, #f6f8fa) 30%);
 }
 
 /* App Hub: 実務カードを目立たせる */

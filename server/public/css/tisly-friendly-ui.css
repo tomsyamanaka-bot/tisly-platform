@@ -210,8 +210,8 @@ body.tisly-friendly {
 
 .tisly-friendly .photo-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-  gap: 0.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 0.65rem;
 }
 
 .tisly-friendly .photo-card {
@@ -385,8 +385,8 @@ body.tisly-friendly {
   align-items: center;
   justify-content: center;
   gap: 0.25rem;
-  padding: 0.75rem 0.5rem;
-  min-height: 72px;
+  padding: 0.85rem 0.5rem;
+  min-height: 80px;
   border: 2px solid var(--tisly-border);
   border-radius: var(--tisly-radius);
   background: var(--tisly-bg);
