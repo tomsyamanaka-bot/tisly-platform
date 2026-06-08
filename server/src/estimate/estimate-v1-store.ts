@@ -37,6 +37,7 @@ import {
   type SurveyMaterialV1,
   type SurveyWorkflowStatus,
 } from "../survey/survey-v1-types.js";
+import { upsertProjectCaseChain } from "../projects/project-case-chain.js";
 import type {
   EstimateHeaderInputV1,
   EstimatePendingSurveyV1,
@@ -298,6 +299,12 @@ export function createEstimateFromSurveyV1(
       email: detail.email ?? "",
     });
   }
+
+  upsertProjectCaseChain({
+    surveyProjectId,
+    businessProjectId: project.id,
+    customerCode: detail.customerCode,
+  });
 
   return getEstimateProjectV1Detail(project.id)!;
 }

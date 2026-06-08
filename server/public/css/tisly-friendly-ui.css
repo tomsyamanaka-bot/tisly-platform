@@ -752,6 +752,53 @@ body.tisly-friendly {
   margin: 0.15rem 0 0.15rem 0.5rem;
 }
 
+.tisly-friendly .schedule-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.tisly-friendly .pipeline-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+  font-size: 0.78rem;
+}
+
+.tisly-friendly .pipeline-chip {
+  background: #f1f5f9;
+  border-radius: 6px;
+  padding: 0.15rem 0.4rem;
+}
+
+.tisly-friendly .material-chip {
+  display: inline-block;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  padding: 0.15rem 0.45rem;
+  margin: 0.15rem 0.25rem 0.15rem 0;
+  font-size: 0.85rem;
+}
+
+.tisly-friendly .search-hit {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  margin-bottom: 0.5rem;
+}
+
+.tisly-friendly .search-kind {
+  display: inline-block;
+  font-size: 0.75rem;
+  background: #e2e8f0;
+  border-radius: 4px;
+  padding: 0.1rem 0.35rem;
+  margin-right: 0.35rem;
+}
+
 .tisly-friendly .schedule-month-cell[role="button"] {
   cursor: pointer;
 }

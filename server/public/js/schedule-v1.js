@@ -105,7 +105,7 @@ function renderWeatherMini(weather) {
   const lines = weather.slots
     .map((slot) => {
       const rainCls = slot.highlightRain ? ' style="color:#b91c1c;font-weight:600;"' : "";
-      return `<span class="weather-slot"${rainCls}>${slot.icon} ${slot.label} ${slot.precipChance}% ${slot.tempC}℃</span>`;
+      return `<span class="weather-slot"${rainCls}>${slot.icon}${slot.label} ${slot.precipChance}% ${slot.tempC}℃</span>`;
     })
     .join(" ");
   return `<div class="schedule-weather-mini">${lines}</div>`;
@@ -257,13 +257,20 @@ function renderDispatchBlock(dispatch) {
     .map((s, i) => {
       const leg = dispatch.legs[i];
       const legHtml = leg
-        ? `<div class="dispatch-leg">↓ ${escapeHtml(leg.memo || "車")} ${leg.durationMin}分 <a href="${escapeHtml(leg.mapsUrl)}" target="_blank" rel="noopener">地図</a></div>`
+        ? `<div class="dispatch-leg">↓ ${leg.durationMin}分</div>`
         : "";
-      return `${legHtml}<div class="dispatch-stop"><strong>${escapeHtml(s.time)}</strong> ${escapeHtml(s.title)}</div>`;
+      const navBtn = s.navUrl
+        ? `<a class="btn-sub btn-small" href="${escapeHtml(s.navUrl)}" target="_blank" rel="noopener">📍ナビ開始</a>`
+        : "";
+      return `${legHtml}<div class="dispatch-stop">
+        <strong>${escapeHtml(s.time)}</strong> ${escapeHtml(s.title)}
+        ${s.address ? `<br><small>${escapeHtml(s.address)}</small>` : ""}
+        ${navBtn}
+      </div>`;
     })
     .join("");
   return `<div class="dispatch-block">
-    <p class="section-label" style="margin-top:0.75rem;">🚐 配車表</p>
+    <p class="section-label" style="margin-top:0.75rem;">🚐 本日の配車</p>
     <p>${escapeHtml(dispatch.driver)} / ${escapeHtml(dispatch.vehicle)}</p>
     ${stops}
   </div>`;
@@ -320,23 +327,31 @@ function bindDayDetailActions(day) {
   });
 }
 
-async function openDayDetailByDate(date) {
+function openDayDetailByDate(date) {
   if (!date) return;
-  try {
-    const detail = await api(`/day?date=${encodeURIComponent(date)}`);
-    $("day-detail-title").textContent = `${formatDateShort(date)}（${detail.day.weekday}）`;
-    $("day-detail-body").innerHTML = renderDayDetailBody(detail);
-    $("day-detail").classList.remove("hidden");
-    $("unavail-form").classList.add("hidden");
-    bindDayDetailActions(detail.day);
-  } catch (e) {
-    toastError(e, e.status);
-  }
+  window.location.href = `/schedule-v1/day?date=${encodeURIComponent(date)}`;
 }
 
 function openUnavailForm(date) {
   $("unavail-date").value = date;
   $("unavail-form").classList.remove("hidden");
+}
+
+async function refreshSyncStatus() {
+  try {
+    const st = await api("/oauth/status");
+    const sync = st.sync;
+    const el = $("sync-status");
+    if (!el) return;
+    if (sync?.lastSyncedAt) {
+      const at = new Date(sync.lastSyncedAt).toLocaleString("ja-JP");
+      el.textContent = `最終同期: ${at}（${sync.eventCount}件）`;
+    } else {
+      el.textContent = st.oauth?.connected ? "未同期 — 🔄でGoogleカレンダーを取得" : "モックモード（OAuth未接続）";
+    }
+  } catch {
+    /* ignore */
+  }
 }
 
 async function refreshCurrent() {
@@ -357,6 +372,27 @@ async function init() {
 
   showMode("week");
   await loadWeek();
+  await refreshSyncStatus();
+
+  const oauth = new URLSearchParams(window.location.search).get("oauth");
+  if (oauth === "ok") toast("Google連携が完了しました");
+
+  $("btn-sync-calendar")?.addEventListener("click", async () => {
+    const btn = $("btn-sync-calendar");
+    btn.disabled = true;
+    btn.textContent = "同期中…";
+    try {
+      const result = await api("/sync", { method: "POST", body: JSON.stringify({ weeks: 8 }) });
+      toast(`同期完了（${result.count}件・${result.mode}）`);
+      await refreshSyncStatus();
+      await refreshCurrent();
+    } catch (e) {
+      toastError(e, e.status);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "🔄同期";
+    }
+  });
 
   $("mode-week").addEventListener("click", async () => {
     showMode("week");

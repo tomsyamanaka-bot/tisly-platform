@@ -59,6 +59,8 @@ import { surveyRouter } from "./api/routes/survey.js";
 import { surveyV1Router } from "./api/routes/survey-v1.js";
 import { estimateV1Router } from "./api/routes/estimate-v1.js";
 import { scheduleRouter } from "./api/routes/schedule.js";
+import { projectsV1Router } from "./api/routes/projects-v1.js";
+import { searchV1Router } from "./api/routes/search-v1.js";
 import { businessRouter } from "./api/routes/business.js";
 import { tomsRouter } from "./api/routes/toms.js";
 import { maintenanceProductionRouter } from "./api/routes/maintenance-production.js";
@@ -97,6 +99,8 @@ export function createApp(): express.Application {
   app.use("/api/survey/v1", surveyV1Router);
   app.use("/api/estimate/v1", estimateV1Router);
   app.use("/api/schedule/v1", scheduleRouter);
+  app.use("/api/projects/v1", projectsV1Router);
+  app.use("/api/search/v1", searchV1Router);
   app.use("/api/business", businessRouter);
   app.use("/api/toms", tomsRouter);
   app.use("/api/maintenance", maintenanceProductionRouter);
@@ -342,6 +346,15 @@ export function createApp(): express.Application {
   });
   app.get("/schedule-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "schedule-v1.html"));
+  });
+  app.get("/schedule-v1/day", (_req, res) => {
+    res.sendFile(path.join(publicDir, "schedule-day-v1.html"));
+  });
+  app.get("/projects-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "projects-v1.html"));
+  });
+  app.get("/search-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "search-v1.html"));
   });
   app.get("/survey/:projectId/report", (req, res) => {
     try {

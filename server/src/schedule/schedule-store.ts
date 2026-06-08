@@ -1,6 +1,10 @@
 import { v4 as uuid } from "uuid";
 import { getDatabase } from "../db/database.js";
 import { fetchCalendarEvents } from "../services/googleCalendar.js";
+import {
+  hasCachedCalendarEvents,
+  listCachedCalendarEvents,
+} from "./schedule-calendar-store.js";
 import type {
   DayAvailability,
   ScheduleDayCard,
@@ -126,11 +130,18 @@ function buildSummary(days: ScheduleDayCard[]): ScheduleWeekSummary {
   };
 }
 
+async function loadCalendarEvents(startDate: string, endDate: string): Promise<ScheduleEvent[]> {
+  if (hasCachedCalendarEvents()) {
+    return listCachedCalendarEvents(startDate, endDate);
+  }
+  return fetchCalendarEvents(startDate, endDate);
+}
+
 export async function getScheduleWeekView(offsetRaw?: unknown): Promise<ScheduleWeekView> {
   const offset = parseOffset(offsetRaw);
   const startDate = weekStartFromOffset(offset);
   const endDate = addDays(startDate, 6);
-  const events = await fetchCalendarEvents(startDate, endDate);
+  const events = await loadCalendarEvents(startDate, endDate);
   const unavailable = listUnavailableDays(startDate, endDate);
   const unavailableMap = new Map(unavailable.map((u) => [u.date, u]));
   const days: ScheduleDayCard[] = [];
@@ -154,7 +165,7 @@ export async function getScheduleThreeWeekView(offsetRaw?: unknown): Promise<{
   const offset = parseOffset(offsetRaw);
   const startDate = weekStartFromOffset(offset);
   const rangeEnd = addDays(startDate, 20);
-  const allEvents = await fetchCalendarEvents(startDate, rangeEnd);
+  const allEvents = await loadCalendarEvents(startDate, rangeEnd);
   const unavailable = listUnavailableDays(startDate, rangeEnd);
   const unavailableMap = new Map(unavailable.map((u) => [u.date, u]));
   const blocks: ScheduleThreeWeekBlock[] = [];
@@ -189,13 +200,18 @@ export async function getScheduleDayDetail(
 ): Promise<ScheduleDayDetail | null> {
   const date = String(dateRaw ?? "").slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
-  const events = await fetchCalendarEvents(date, date);
+  const events = await loadCalendarEvents(date, date);
   const unavailable = listUnavailableDays(date, date);
   const unavailableMap = new Map(unavailable.map((u) => [u.date, u]));
   const day = buildDayCard(date, events, unavailableMap);
   const weather = await fetchDayWeather(date, { location: opts?.location });
   const dispatch = buildDayDispatch(date, day.events);
-  return { day, weather, dispatch };
+  const firstSite = dispatch?.stops?.[0]?.address ?? day.events.find((e) => e.location)?.location ?? null;
+  const mapsUrl = firstSite
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(firstSite)}`
+    : null;
+  const memo = day.unavailable?.reason ?? null;
+  return { day, weather, dispatch, memo, mapsUrl };
 }
 
 export async function getScheduleMonthView(yearRaw: unknown, monthRaw: unknown): Promise<ScheduleMonthView> {
@@ -204,7 +220,7 @@ export async function getScheduleMonthView(yearRaw: unknown, monthRaw: unknown):
   const first = `${year}-${String(month).padStart(2, "0")}-01`;
   const lastDay = new Date(year, month, 0).getDate();
   const last = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
-  const events = await fetchCalendarEvents(first, last);
+  const events = await loadCalendarEvents(first, last);
   const unavailable = listUnavailableDays(first, last);
   const unavailableMap = new Map(unavailable.map((u) => [u.date, u]));
 

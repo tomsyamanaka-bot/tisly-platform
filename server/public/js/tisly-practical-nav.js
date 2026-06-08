@@ -5,7 +5,7 @@ const BOTTOM_ITEMS = [
   { id: "survey_v1", label: "現調", icon: "📋", href: "/survey-v1" },
   { id: "estimate_v1", label: "見積", icon: "💰", href: "/estimate-v1" },
   { id: "billing_v1", label: "請求", icon: "🧾", href: "/estimate-v1" },
-  { id: "projects", label: "案件一覧", icon: "📂", href: "/app" },
+  { id: "projects_v1", label: "案件一覧", icon: "📂", href: "/projects-v1" },
 ];
 
 let toastFn = null;

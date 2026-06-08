@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#e8a54b" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>TiSLY — 日程詳細</title>
+  <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
+  <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
+</head>
+<body class="tisly-friendly">
+  <main class="app-main">
+    <h2 id="day-title" class="schedule-week-label">—</h2>
+    <div id="day-weather" class="schedule-weather-mini"></div>
+    <div id="day-events" class="friendly-card"></div>
+    <div id="day-dispatch" class="friendly-card hidden"></div>
+    <div id="day-unavail" class="friendly-card"></div>
+    <div id="day-memo" class="friendly-card hidden"></div>
+    <a id="day-maps" class="btn-main" href="#" target="_blank" rel="noopener" style="display:none;margin-top:0.75rem;">📍 Googleマップ</a>
+  </main>
+  <div id="toast" class="toast" role="status"></div>
+  <script type="module" src="/js/schedule-day-v1.js"></script>
+</body>
+</html>

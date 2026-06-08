@@ -189,6 +189,7 @@ export function runMigrations(database: Database.Database): void {
   migrateTomsEstimateStandardFormat(database);
   migrateSchedulePlannerV1(database);
   migratePracticalSearchIndex(database);
+  migratePracticalPwaV2(database);
 }
 
 const BUSINESS_ESTIMATE_COLUMNS: Array<{ name: string; ddl: string }> = [
@@ -217,6 +218,47 @@ function migrateSchedulePlannerV1(database: Database.Database): void {
       `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
     )
     .run("migration:schedule_planner_v1", JSON.stringify({ at: new Date().toISOString() }));
+}
+
+/** 実務PWA v2 — カレンダーキャッシュ・案件チェーン */
+function migratePracticalPwaV2(database: Database.Database): void {
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS schedule_calendar_events (
+      id TEXT PRIMARY KEY,
+      external_id TEXT,
+      event_date TEXT NOT NULL,
+      title TEXT NOT NULL,
+      category TEXT NOT NULL,
+      source TEXT NOT NULL DEFAULT 'google',
+      start_time TEXT,
+      end_time TEXT,
+      all_day INTEGER NOT NULL DEFAULT 0,
+      location TEXT,
+      description TEXT,
+      synced_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_schedule_cal_date ON schedule_calendar_events(event_date);
+    CREATE TABLE IF NOT EXISTS project_case_chain (
+      id TEXT PRIMARY KEY,
+      case_no TEXT NOT NULL UNIQUE,
+      survey_project_id TEXT,
+      business_project_id TEXT,
+      customer_code TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_project_case_survey ON project_case_chain(survey_project_id);
+    CREATE INDEX IF NOT EXISTS idx_project_case_business ON project_case_chain(business_project_id);
+  `);
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:practical_pwa_v2") as { value_json: string } | undefined;
+  if (marker) return;
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:practical_pwa_v2", JSON.stringify({ at: new Date().toISOString() }));
 }
 
 /** 見積・請求検索用メタデータ */

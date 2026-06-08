@@ -1,5 +1,6 @@
-/** Google Maps Directions API 連携準備 — 最初はモック所要時間 */
+/** 配車表 — 案件データから自動生成（将来 Directions API 接続可能構成） */
 
+import { getDatabase } from "../db/database.js";
 import type { ScheduleEvent } from "./schedule-types.js";
 
 export interface RouteStop {
@@ -7,6 +8,9 @@ export interface RouteStop {
   title: string;
   address?: string;
   mapsQuery?: string;
+  projectId?: string;
+  assignee?: string;
+  navUrl?: string;
 }
 
 export interface RouteLeg {
@@ -26,17 +30,17 @@ export interface DayDispatch {
   legs: RouteLeg[];
 }
 
-const MOCK_DRIVER = "山中";
-const MOCK_VEHICLE = "ハイエース";
+const DEFAULT_DRIVER = process.env.DISPATCH_DEFAULT_DRIVER ?? "山中";
+const DEFAULT_VEHICLE = process.env.DISPATCH_DEFAULT_VEHICLE ?? "ハイエース";
 
-function mapsDirectionsUrl(origin: string, destination: string): string {
-  const key = process.env.GOOGLE_MAPS_API_KEY ?? "";
+export function mapsDirectionsUrl(origin: string, destination: string): string {
   const o = encodeURIComponent(origin);
   const d = encodeURIComponent(destination);
-  if (key) {
-    return `https://www.google.com/maps/dir/?api=1&origin=${o}&destination=${d}&travelmode=driving`;
-  }
   return `https://www.google.com/maps/dir/?api=1&origin=${o}&destination=${d}&travelmode=driving`;
+}
+
+export function mapsNavUrl(destination: string): string {
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}&travelmode=driving`;
 }
 
 function mockDurationMin(seed: string): number {
@@ -45,24 +49,109 @@ function mockDurationMin(seed: string): number {
   return 12 + (h % 25);
 }
 
-function constructionStops(events: ScheduleEvent[]): RouteStop[] {
-  const times = ["08:30", "10:30", "13:00", "15:30"];
+interface ProjectStop {
+  time: string;
+  title: string;
+  address: string;
+  projectId: string;
+  assignee: string | null;
+}
+
+function parseJsonSchedule(raw: string | null): { date?: string; startTime?: string } | null {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as { date?: string; startTime?: string };
+  } catch {
+    return null;
+  }
+}
+
+/** 案件テーブルから当日の現場ストップを取得 */
+function loadProjectStopsForDate(date: string): ProjectStop[] {
+  const stops: ProjectStop[] = [];
+  const db = getDatabase();
+
+  const businessRows = db
+    .prepare(
+      `SELECT id, title, address, customer_name, survey_schedule_json, construction_schedule_json
+       FROM business_projects ORDER BY updated_at DESC LIMIT 100`
+    )
+    .all() as Array<Record<string, string | null>>;
+
+  for (const row of businessRows) {
+    const survey = parseJsonSchedule(row.survey_schedule_json as string | null);
+    const construction = parseJsonSchedule(row.construction_schedule_json as string | null);
+    const sched = construction?.date === date ? construction : survey?.date === date ? survey : null;
+    if (!sched) continue;
+    const address = String(row.address ?? "").trim() || String(row.title ?? "現場");
+    stops.push({
+      time: sched.startTime ?? "09:00",
+      title: String(row.title ?? row.customer_name ?? "案件"),
+      address,
+      projectId: String(row.id),
+      assignee: null,
+    });
+  }
+
+  const surveyRows = db
+    .prepare(
+      `SELECT project_id, site_name, address, assignee, survey_date
+       FROM survey_projects WHERE survey_date = ? ORDER BY updated_at DESC`
+    )
+    .all(date) as Array<Record<string, string | null>>;
+
+  for (const row of surveyRows) {
+    const exists = stops.some((s) => s.title === String(row.site_name));
+    if (exists) continue;
+    stops.push({
+      time: "10:00",
+      title: String(row.site_name ?? "現調"),
+      address: String(row.address ?? row.site_name ?? "現場"),
+      projectId: String(row.project_id),
+      assignee: row.assignee ? String(row.assignee) : null,
+    });
+  }
+
+  return stops.sort((a, b) => a.time.localeCompare(b.time));
+}
+
+function constructionStopsFromEvents(events: ScheduleEvent[]): RouteStop[] {
+  const times = ["08:30", "10:00", "13:00", "15:30"];
   return events
     .filter((e) => e.category === "construction")
     .slice(0, 4)
     .map((ev, i) => ({
-      time: times[i] ?? "16:00",
+      time: ev.startTime ?? times[i] ?? "16:00",
       title: ev.title,
-      address: ev.title,
-      mapsQuery: ev.title,
+      address: ev.location ?? ev.title,
+      mapsQuery: ev.location ?? ev.title,
+      navUrl: mapsNavUrl(ev.location ?? ev.title),
     }));
 }
 
-/** 将来 Google Maps Distance Matrix API に差し替え */
+function projectStopsToRoute(stops: ProjectStop[]): RouteStop[] {
+  return stops.map((s) => ({
+    time: s.time,
+    title: s.title,
+    address: s.address,
+    mapsQuery: s.address,
+    projectId: s.projectId,
+    assignee: s.assignee ?? undefined,
+    navUrl: mapsNavUrl(s.address),
+  }));
+}
+
+/** 案件優先、なければカレンダー工事予定から配車表を構築 */
 export function buildDayDispatch(date: string, events: ScheduleEvent[]): DayDispatch | null {
-  const stops = constructionStops(events);
+  const projectStops = loadProjectStopsForDate(date);
+  let stops: RouteStop[] = projectStops.length
+    ? projectStopsToRoute(projectStops)
+    : constructionStopsFromEvents(events);
+
   if (!stops.length) return null;
 
+  const driver =
+    projectStops.find((s) => s.assignee)?.assignee ?? DEFAULT_DRIVER;
   const legs: RouteLeg[] = [];
   for (let i = 0; i < stops.length - 1; i++) {
     const from = stops[i];
@@ -81,8 +170,8 @@ export function buildDayDispatch(date: string, events: ScheduleEvent[]): DayDisp
 
   return {
     date,
-    driver: MOCK_DRIVER,
-    vehicle: MOCK_VEHICLE,
+    driver,
+    vehicle: DEFAULT_VEHICLE,
     stops,
     legs,
   };

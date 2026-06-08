@@ -14,7 +14,11 @@
 </head>
 <body class="tisly-friendly">
   <main class="app-main">
-    <p class="section-hint" id="page-hint">いつ空いてる？にすぐ答えられます</p>
+    <div class="schedule-top-actions">
+      <p class="section-hint" id="page-hint" style="margin:0;flex:1;">いつ空いてる？にすぐ答えられます</p>
+      <button type="button" class="btn-sub btn-small" id="btn-sync-calendar" title="Googleカレンダー同期">🔄同期</button>
+    </div>
+    <p class="section-hint" id="sync-status" style="font-size:0.82rem;margin-top:0.25rem;"></p>
 
     <div class="schedule-mode-tabs tab-row" role="tablist">
       <button type="button" class="tab-btn active" id="mode-week" role="tab">週間</button>

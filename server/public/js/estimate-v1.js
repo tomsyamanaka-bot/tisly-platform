@@ -158,6 +158,30 @@ function renderProjectList(projects) {
   });
 }
 
+let pendingSurveyForEstimate = null;
+
+function renderMaterialCandidates(groups) {
+  if (!groups?.length) return "<p>候補部材はありません</p>";
+  return groups
+    .map(
+      (g) => `<p><strong>${escapeHtml(g.label)}</strong><br>${(g.items || [])
+        .map((it) => `<span class="material-chip">${escapeHtml(it)}</span>`)
+        .join(" ")}</p>`
+    )
+    .join("");
+}
+
+async function createEstimateFromSurvey(surveyId) {
+  toast("見積を作っています…");
+  const created = await api(`/from-survey/${surveyId}`, { method: "POST", body: "{}" });
+  toast("見積を作りました");
+  $("material-candidates-panel")?.classList.add("hidden");
+  pendingSurveyForEstimate = null;
+  await openDetail(created.businessProjectId);
+  await loadPending();
+  await loadProjects();
+}
+
 async function onPendingClick(node) {
   const surveyId = node.dataset.surveyId;
   const hasEstimate = node.dataset.hasEstimate === "1";
@@ -167,12 +191,11 @@ async function onPendingClick(node) {
       await openDetail(bizId);
       return;
     }
-    toast("見積を作っています…");
-    const created = await api(`/from-survey/${surveyId}`, { method: "POST", body: "{}" });
-    toast("見積を作りました");
-    await openDetail(created.businessProjectId);
-    await loadPending();
-    await loadProjects();
+    const cand = await api(`/material-candidates/${surveyId}`);
+    pendingSurveyForEstimate = surveyId;
+    $("material-candidates-body").innerHTML = renderMaterialCandidates(cand.groups);
+    $("material-candidates-panel").classList.remove("hidden");
+    $("pending-list").classList.add("hidden");
   } catch (e) {
     toastError(e, e.status);
   }
@@ -494,6 +517,20 @@ async function init() {
 
   $("tab-pending").addEventListener("click", () => setListTab("pending"));
   $("tab-projects").addEventListener("click", () => setListTab("projects"));
+
+  $("btn-confirm-estimate")?.addEventListener("click", async () => {
+    if (!pendingSurveyForEstimate) return;
+    try {
+      await createEstimateFromSurvey(pendingSurveyForEstimate);
+    } catch (e) {
+      toastError(e, e.status);
+    }
+  });
+  $("btn-cancel-candidates")?.addEventListener("click", () => {
+    pendingSurveyForEstimate = null;
+    $("material-candidates-panel")?.classList.add("hidden");
+    $("pending-list")?.classList.remove("hidden");
+  });
 
   $("btn-save-header").addEventListener("click", async () => {
     if (!currentProjectId) return;

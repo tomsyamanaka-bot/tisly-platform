@@ -13,6 +13,17 @@ import {
 } from "../../schedule/schedule-store.js";
 import { fetchDayWeather } from "../../schedule/weather-service.js";
 import { UNAVAILABLE_REASON_PRESETS } from "../../schedule/schedule-types.js";
+import {
+  getCalendarAuthUrl,
+  getCalendarOAuthStatus,
+  getWeekStartWithOffset,
+  handleCalendarOAuthCallback,
+  syncGoogleCalendarEvents,
+} from "../../services/googleCalendar.js";
+import {
+  getCalendarSyncMeta,
+  replaceCachedCalendarEvents,
+} from "../../schedule/schedule-calendar-store.js";
 
 export const scheduleRouter = Router();
 
@@ -133,4 +144,50 @@ scheduleRouter.delete("/unavailable/:id", ...scheduleAuth, (req: AuthedRequest, 
     return;
   }
   res.status(204).send();
+});
+
+scheduleRouter.get("/oauth/status", ...scheduleAuth, (req: AuthedRequest, res) => {
+  if (!assertScheduleRole(req, res)) return;
+  res.json({ oauth: getCalendarOAuthStatus(), sync: getCalendarSyncMeta() });
+});
+
+scheduleRouter.get("/oauth/auth-url", ...scheduleAuth, (req: AuthedRequest, res) => {
+  if (!assertScheduleRole(req, res)) return;
+  res.json(getCalendarAuthUrl());
+});
+
+scheduleRouter.get("/oauth/callback", async (req, res) => {
+  const result = await handleCalendarOAuthCallback({
+    code: req.query.code as string | undefined,
+    error: req.query.error as string | undefined,
+  });
+  if (result.ok) {
+    res.redirect("/schedule-v1?oauth=ok");
+    return;
+  }
+  res.status(400).send(result.message);
+});
+
+scheduleRouter.post("/sync", ...scheduleAuth, async (req: AuthedRequest, res) => {
+  if (!assertScheduleRole(req, res)) return;
+  try {
+    const body = req.body as { startDate?: string; endDate?: string; weeks?: number };
+    const weeks = Math.max(1, Math.min(12, Number(body.weeks) || 8));
+    const startDate = body.startDate ?? getWeekStartWithOffset(-2);
+    const end = new Date(`${startDate}T12:00:00`);
+    end.setDate(end.getDate() + weeks * 7);
+    const endDate = body.endDate ?? end.toISOString().slice(0, 10);
+    const synced = await syncGoogleCalendarEvents(startDate, endDate);
+    const saved = replaceCachedCalendarEvents(startDate, endDate, synced.events);
+    res.json({
+      ok: true,
+      mode: synced.mode,
+      count: saved,
+      startDate,
+      endDate,
+      sync: getCalendarSyncMeta(),
+    });
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : "sync failed" });
+  }
 });

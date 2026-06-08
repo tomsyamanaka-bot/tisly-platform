@@ -20,6 +20,10 @@ import {
 import { getBusinessProject, getEstimate, getInvoice } from "../../business/business-store.js";
 import type { EstimateLineItem } from "../../business/business-types.js";
 import type { EstimateHeaderInputV1 } from "../../estimate/estimate-v1-types.js";
+import {
+  buildMaterialCandidatesForSurvey,
+  listAllMaterialCandidatePresets,
+} from "../../estimate/material-candidates.js";
 
 export const estimateV1Router = Router();
 
@@ -43,6 +47,17 @@ function parseIncludePhotos(query: Record<string, unknown>): boolean {
   if (raw === "1" || raw === "true" || raw === "yes") return true;
   return false;
 }
+
+estimateV1Router.get("/material-candidates/:surveyProjectId", ...estimateV1Auth, (req: AuthedRequest, res) => {
+  if (!assertEstimateV1Role(req, res)) return;
+  const groups = buildMaterialCandidatesForSurvey(String(req.params.surveyProjectId));
+  res.json({ groups });
+});
+
+estimateV1Router.get("/material-candidates", ...estimateV1Auth, (req: AuthedRequest, res) => {
+  if (!assertEstimateV1Role(req, res)) return;
+  res.json({ groups: listAllMaterialCandidatePresets() });
+});
 
 estimateV1Router.get("/pending-surveys", ...estimateV1Auth, (req: AuthedRequest, res) => {
   if (!assertEstimateV1Role(req, res)) return;

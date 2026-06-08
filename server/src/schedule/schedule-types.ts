@@ -13,8 +13,12 @@ export interface ScheduleEvent {
   title: string;
   category: ScheduleCategory;
   source: ScheduleEventSource;
-  /** 将来 Google Calendar 連携用 */
   externalId?: string | null;
+  startTime?: string | null;
+  endTime?: string | null;
+  allDay?: boolean;
+  location?: string | null;
+  description?: string | null;
 }
 
 export interface UnavailableDay {
@@ -72,6 +76,8 @@ export interface ScheduleDayDetail {
   day: ScheduleDayCard;
   weather: DayWeather;
   dispatch: DayDispatch | null;
+  memo?: string | null;
+  mapsUrl?: string | null;
 }
 
 export interface ScheduleMonthDayCell {

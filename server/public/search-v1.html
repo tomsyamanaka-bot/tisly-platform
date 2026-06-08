@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#6b8cce" />
+  <title>TiSLY — 検索</title>
+  <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
+  <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
+</head>
+<body class="tisly-friendly">
+  <main class="app-main">
+    <label class="friendly-label">🔍 検索
+      <input type="search" id="search-input" placeholder="見積番号・顧客・電話・住所・案件名…" autocomplete="off" />
+    </label>
+    <p class="section-hint">見積番号 / 請求番号 / 顧客 / 電話 / 住所 / 担当 / 案件名 / 工事場所</p>
+    <div id="search-results" class="empty-state">キーワードを入力してください</div>
+  </main>
+  <div id="toast" class="toast" role="status"></div>
+  <script type="module" src="/js/search-v1.js"></script>
+</body>
+</html>
