@@ -3,9 +3,11 @@ import type { AuthedRequest } from "../../auth/auth-middleware.js";
 import { requireAuth } from "../../auth/auth-middleware.js";
 import {
   buildHubCards,
+  buildPracticalHubCards,
   canAccessPwa,
   type PwaAppId,
   PWA_APP_CATALOG,
+  showOpsPanelsForRole,
 } from "../../pwa/pwa-hub.js";
 import { buildHubNotificationLinks, buildHubWorkflowLinks } from "../../pwa/hub-insights.js";
 import { buildHubOperations } from "../../toms/hub-operations.js";
@@ -27,6 +29,8 @@ pwaHubRouter.get("/hub", requireAuth("viewer"), (req: AuthedRequest, res) => {
   res.json({
     role,
     customerCode,
+    practicalApps: buildPracticalHubCards(role),
+    showOpsPanels: showOpsPanelsForRole(role),
     apps: cards,
     workflows: buildHubWorkflowLinks(customerCode, role),
     notifications: buildHubNotificationLinks(role),

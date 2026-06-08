@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0d1117" />
+  <meta name="theme-color" content="#5cb87a" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="TiSLY Hub" />
   <meta name="mobile-web-app-capable" content="yes" />
@@ -13,13 +13,39 @@
   <link rel="manifest" href="/manifest.webmanifest?v=2001" />
   <title>TiSLY — App Hub</title>
   <link rel="stylesheet" href="/css/tisly-pwa-shell.css" />
+  <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
   <link rel="stylesheet" href="/css/app-hub.css" />
 </head>
 <body class="app-hub-body">
-  <header class="app-hub-header">
-    <h1>TiSLY App Hub</h1>
-    <p class="hint">ログイン後、権限に応じて使える PWA を表示します</p>
+  <header class="app-hub-header friendly-header">
+    <h1>🏠 TiSLY 実務アプリ</h1>
+    <p class="hint">ログインして、お仕事に使うアプリを選びます</p>
   </header>
+  <section id="login-panel" class="card login-card-friendly">
+    <h2>ログイン</h2>
+    <p class="login-hint">会社コードとユーザー名で入ります</p>
+    <label>会社コード <input id="hub-customer-code" value="TOMS001" autocomplete="organization" /></label>
+    <label>ユーザー名 <input id="hub-username" autocomplete="username" /></label>
+    <label>パスワード <input id="hub-password" type="password" autocomplete="current-password" /></label>
+    <button type="button" class="btn btn-login-friendly" id="btn-hub-login">ログイン</button>
+    <p id="hub-login-error" class="error"></p>
+  </section>
+  <main id="hub-apps-panel" hidden>
+    <p id="hub-role-label" class="hub-role-friendly"></p>
+    <h2 class="practical-title">📱 実務アプリ</h2>
+    <p class="practical-subtitle">タップして開きます</p>
+    <div id="hub-practical-grid" class="hub-practical-grid"></div>
+    <details id="hub-more-apps" class="hub-more-details">
+      <summary>その他のアプリ</summary>
+      <div id="hub-app-grid" class="hub-app-grid"></div>
+    </details>
+    <h3 class="hub-workflows-title" id="hub-notif-title" hidden>通知・Push</h3>
+    <div id="hub-notif-grid" class="hub-app-grid" hidden></div>
+    <h3 class="hub-workflows-title" id="hub-workflow-title" hidden>ワークフロー導線</h3>
+    <div id="hub-workflow-grid" class="hub-workflow-grid" hidden></div>
+    <p class="hint hub-tv-hint">Google TV は PWA ではなく TV 専用アプリ（<code>/tv/:code</code>）です。</p>
+  </main>
+  <div id="ops-panels-wrap">
   <section id="rehearsal-summary-card" class="card rehearsal-summary-card">
     <h2>Deployment Summary</h2>
     <p class="hint">Phase 1581–1620 Production Deployment Rehearsal</p>
@@ -85,23 +111,7 @@
     <p id="publish-dry-run-last" class="publish-dry-run-last"></p>
     <button type="button" class="btn btn-secondary" id="btn-publish-audit-refresh">再読み込み</button>
   </section>
-  <section id="login-panel" class="card">
-    <h2>ログイン</h2>
-    <label>顧客コード <input id="hub-customer-code" value="TOMS001" autocomplete="organization" /></label>
-    <label>ユーザー名 <input id="hub-username" autocomplete="username" /></label>
-    <label>パスワード <input id="hub-password" type="password" autocomplete="current-password" /></label>
-    <button type="button" class="btn" id="btn-hub-login">ログイン</button>
-    <p id="hub-login-error" class="error"></p>
-  </section>
-  <main id="hub-apps-panel" hidden>
-    <p id="hub-role-label"></p>
-    <div id="hub-app-grid" class="hub-app-grid"></div>
-    <h3 class="hub-workflows-title" id="hub-notif-title" hidden>通知・Push</h3>
-    <div id="hub-notif-grid" class="hub-app-grid" hidden></div>
-    <h3 class="hub-workflows-title">ワークフロー導線</h3>
-    <div id="hub-workflow-grid" class="hub-workflow-grid" hidden></div>
-    <p class="hint">Google TV は PWA ではなく TV 専用アプリ（<code>/tv/:code</code>）です。</p>
-  </main>
+  </div>
   <footer id="app-version-footer" class="app-version-footer" aria-label="ビルド情報">
     <span class="version-label">TiSLY RC2</span>
     <span id="version-build">Build —</span>

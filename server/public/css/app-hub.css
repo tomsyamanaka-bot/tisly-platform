@@ -1,11 +1,172 @@
 .app-hub-body {
-  font-family: system-ui, sans-serif;
-  background: #0d1117;
-  color: #e6edf3;
+  font-family: system-ui, -apple-system, "Hiragino Sans", sans-serif;
+  background: #f6f8fa;
+  color: #24292f;
   margin: 0;
   padding: 1rem;
   max-width: 520px;
   margin-inline: auto;
+}
+.app-hub-header.friendly-header h1 {
+  color: #5cb87a;
+  font-size: 1.35rem;
+  margin: 0 0 0.25rem;
+}
+.app-hub-header.friendly-header .hint {
+  color: #6a737d;
+}
+.login-card-friendly {
+  background: #fff;
+  border: 1px solid #e1e4e8;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+.login-card-friendly h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.1rem;
+}
+.login-hint {
+  color: #6a737d;
+  font-size: 0.85rem;
+  margin: 0 0 0.75rem;
+}
+.login-card-friendly label {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 0.9rem;
+}
+.login-card-friendly input {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 4px;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #e1e4e8;
+  background: #fff;
+  color: #24292f;
+  font-size: 1rem;
+}
+.btn-login-friendly {
+  background: #5cb87a;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 14px 16px;
+  cursor: pointer;
+  width: 100%;
+  font-size: 1.05rem;
+  font-weight: 600;
+  min-height: 48px;
+  margin-top: 0.5rem;
+}
+.hub-role-friendly {
+  color: #6a737d;
+  font-size: 0.85rem;
+  margin: 0 0 0.5rem;
+}
+.practical-title {
+  font-size: 1.1rem;
+  margin: 0.5rem 0 0.15rem;
+}
+.practical-subtitle {
+  color: #6a737d;
+  font-size: 0.85rem;
+  margin: 0 0 0.75rem;
+}
+.hub-practical-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 1.25rem;
+}
+.practical-card {
+  display: block;
+  background: #fff;
+  border: 1px solid #e1e4e8;
+  border-left: 5px solid var(--card-accent, #5cb87a);
+  border-radius: 12px;
+  padding: 14px 16px;
+  text-decoration: none;
+  color: #24292f;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  transition: transform 0.1s;
+}
+.practical-card:active {
+  transform: scale(0.98);
+}
+.practical-card.coming-soon {
+  opacity: 0.75;
+  cursor: default;
+}
+.practical-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.practical-icon {
+  font-size: 1.75rem;
+  line-height: 1;
+}
+.practical-label {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+.practical-sub {
+  font-size: 0.8rem;
+  color: #6a737d;
+  margin-top: 2px;
+}
+.practical-tag {
+  margin-left: auto;
+  font-size: 0.7rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.practical-tag.ready {
+  background: #e8f5ec;
+  color: #5cb87a;
+}
+.practical-tag.soon {
+  background: #fef6e8;
+  color: #9a6700;
+}
+.practical-features {
+  margin: 10px 0 0 2.5rem;
+  padding: 0;
+  list-style: none;
+  font-size: 0.82rem;
+  color: #6a737d;
+}
+.practical-features li::before {
+  content: "✓ ";
+  color: #5cb87a;
+}
+.practical-card.coming-soon .practical-features li::before {
+  content: "· ";
+  color: #9a6700;
+}
+.hub-more-details {
+  margin: 1rem 0;
+  font-size: 0.9rem;
+}
+.hub-more-details summary {
+  cursor: pointer;
+  color: #4a90d9;
+  font-weight: 600;
+  padding: 0.5rem 0;
+}
+.hub-tv-hint {
+  margin-top: 1.5rem;
+}
+#ops-panels-wrap .card {
+  background: #161b22;
+  border: 1px solid #30363d;
+  color: #e6edf3;
+}
+#ops-panels-wrap .hint {
+  color: #8b949e;
 }
 .app-hub-header h1 {
   color: #58a6ff;

@@ -1,0 +1,353 @@
+/* TiSLY Friendly UI — 全 PWA 標準（一般客向けやさしいデザイン） */
+
+:root {
+  --tisly-bg: #f6f8fa;
+  --tisly-surface: #ffffff;
+  --tisly-blue: #4a90d9;
+  --tisly-blue-light: #e8f2fc;
+  --tisly-green: #5cb87a;
+  --tisly-green-light: #e8f5ec;
+  --tisly-orange: #e8a54b;
+  --tisly-orange-light: #fef6e8;
+  --tisly-red: #d9534f;
+  --tisly-red-light: #fce8e8;
+  --tisly-border: #e1e4e8;
+  --tisly-muted: #6a737d;
+  --tisly-text: #24292f;
+  --tisly-radius: 12px;
+  --tisly-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --tisly-btn-min-h: 48px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body.tisly-friendly {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+  background: var(--tisly-bg);
+  color: var(--tisly-text);
+  line-height: 1.5;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.tisly-friendly header.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--tisly-green);
+  color: #fff;
+  padding: 0.85rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  box-shadow: var(--tisly-shadow);
+}
+
+.tisly-friendly header.app-header.blue {
+  background: var(--tisly-blue);
+}
+
+.tisly-friendly header.app-header h1 {
+  margin: 0;
+  font-size: 1.15rem;
+  flex: 1;
+  font-weight: 600;
+}
+
+.tisly-friendly header.app-header .header-btn {
+  background: rgba(255, 255, 255, 0.25);
+  border: none;
+  color: #fff;
+  padding: 0.45rem 0.75rem;
+  border-radius: 8px;
+  text-decoration: none;
+  font-size: 0.9rem;
+  cursor: pointer;
+  min-height: 36px;
+}
+
+.tisly-friendly main.app-main {
+  padding: 1rem;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.tisly-friendly .friendly-card {
+  background: var(--tisly-surface);
+  border: 1px solid var(--tisly-border);
+  border-radius: var(--tisly-radius);
+  padding: 1rem;
+  margin-bottom: 0.85rem;
+  box-shadow: var(--tisly-shadow);
+}
+
+.tisly-friendly .friendly-card h2 {
+  margin: 0 0 0.4rem;
+  font-size: 1.05rem;
+}
+
+.tisly-friendly .friendly-card p {
+  margin: 0.2rem 0;
+  color: var(--tisly-muted);
+  font-size: 0.9rem;
+}
+
+.tisly-friendly .status-badge {
+  display: inline-block;
+  font-size: 0.78rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.tisly-friendly .status-badge.green {
+  background: var(--tisly-green-light);
+  color: var(--tisly-green);
+}
+
+.tisly-friendly .status-badge.blue {
+  background: var(--tisly-blue-light);
+  color: var(--tisly-blue);
+}
+
+.tisly-friendly .status-badge.orange {
+  background: var(--tisly-orange-light);
+  color: #9a6700;
+}
+
+.tisly-friendly .status-badge.done {
+  background: var(--tisly-blue-light);
+  color: var(--tisly-blue);
+}
+
+.tisly-friendly .section-label {
+  font-size: 0.85rem;
+  color: var(--tisly-muted);
+  margin: 1.1rem 0 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.tisly-friendly .section-hint {
+  font-size: 0.78rem;
+  color: var(--tisly-muted);
+  margin: -0.25rem 0 0.5rem;
+}
+
+.tisly-friendly .btn-main {
+  width: 100%;
+  background: var(--tisly-green);
+  color: #fff;
+  border: none;
+  padding: 0.85rem 1rem;
+  border-radius: var(--tisly-radius);
+  font-size: 1.05rem;
+  font-weight: 600;
+  min-height: var(--tisly-btn-min-h);
+  cursor: pointer;
+  margin-top: 0.75rem;
+}
+
+.tisly-friendly .btn-main.blue {
+  background: var(--tisly-blue);
+}
+
+.tisly-friendly .btn-main:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tisly-friendly .btn-sub {
+  width: 100%;
+  background: var(--tisly-surface);
+  color: var(--tisly-green);
+  border: 2px solid var(--tisly-green);
+  padding: 0.7rem 1rem;
+  border-radius: var(--tisly-radius);
+  font-size: 0.95rem;
+  min-height: var(--tisly-btn-min-h);
+  cursor: pointer;
+  margin-top: 0.5rem;
+}
+
+.tisly-friendly .btn-sub.blue {
+  color: var(--tisly-blue);
+  border-color: var(--tisly-blue);
+}
+
+.tisly-friendly .list-card {
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.15s;
+}
+
+.tisly-friendly .list-card:active {
+  transform: scale(0.98);
+  box-shadow: 0 0 0 2px var(--tisly-green);
+}
+
+.tisly-friendly .photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 0.5rem;
+}
+
+.tisly-friendly .photo-card {
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--tisly-border);
+  background: var(--tisly-bg);
+}
+
+.tisly-friendly .photo-card img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  display: block;
+}
+
+.tisly-friendly .photo-card .photo-caption {
+  padding: 0.35rem 0.5rem;
+  font-size: 0.75rem;
+  color: var(--tisly-muted);
+}
+
+.tisly-friendly .material-card {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid var(--tisly-border);
+}
+
+.tisly-friendly .material-card:last-child {
+  border-bottom: none;
+}
+
+.tisly-friendly .material-icon {
+  font-size: 1.5rem;
+  width: 2.5rem;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.tisly-friendly label.friendly-label {
+  display: block;
+  margin: 0.65rem 0 0.25rem;
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+
+.tisly-friendly input,
+.tisly-friendly select,
+.tisly-friendly textarea {
+  width: 100%;
+  padding: 0.6rem;
+  border: 1px solid var(--tisly-border);
+  border-radius: 8px;
+  font-size: 1rem;
+  background: var(--tisly-surface);
+}
+
+.tisly-friendly .empty-state {
+  text-align: center;
+  color: var(--tisly-muted);
+  padding: 2rem 1rem;
+}
+
+.tisly-friendly .empty-state .empty-icon {
+  font-size: 2.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.tisly-friendly .error-friendly {
+  background: var(--tisly-red-light);
+  color: var(--tisly-red);
+  padding: 0.75rem 1rem;
+  border-radius: var(--tisly-radius);
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+}
+
+.tisly-friendly .error-friendly strong {
+  display: block;
+  margin-bottom: 0.35rem;
+}
+
+.tisly-friendly .toast {
+  position: fixed;
+  bottom: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #333;
+  color: #fff;
+  padding: 0.7rem 1.2rem;
+  border-radius: var(--tisly-radius);
+  font-size: 0.9rem;
+  z-index: 100;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+
+.tisly-friendly .toast.show {
+  opacity: 1;
+}
+
+.tisly-friendly .hidden {
+  display: none !important;
+}
+
+.tisly-friendly .line-card {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--tisly-border);
+}
+
+.tisly-friendly .line-card:last-child {
+  border-bottom: none;
+}
+
+.tisly-friendly .totals-box {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 2px solid var(--tisly-border);
+}
+
+.tisly-friendly .totals-box .grand-total {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--tisly-blue);
+  margin-top: 0.35rem;
+}
+
+.tisly-friendly .tab-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.tisly-friendly .tab-btn {
+  flex: 1;
+  padding: 0.6rem;
+  border: 1px solid var(--tisly-border);
+  border-radius: var(--tisly-radius);
+  background: var(--tisly-surface);
+  cursor: pointer;
+  font-size: 0.92rem;
+}
+
+.tisly-friendly .tab-btn.active {
+  background: var(--tisly-blue);
+  color: #fff;
+  border-color: var(--tisly-blue);
+}
+
+.tisly-friendly .pdf-preview-frame {
+  width: 100%;
+  min-height: 360px;
+  border: 1px solid var(--tisly-border);
+  border-radius: var(--tisly-radius);
+  background: #fff;
+}

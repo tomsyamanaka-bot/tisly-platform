@@ -151,3 +151,100 @@ export function buildHubCards(
     return { ...card, url: card.href(customerCode.toUpperCase()) };
   });
 }
+
+/** 実務 PWA 入口カード（App Hub 上部に表示） */
+export type PracticalPwaStatus = "ready" | "coming_soon";
+
+export interface PracticalPwaCard {
+  id: string;
+  label: string;
+  subtitle: string;
+  icon: string;
+  features: string[];
+  url: string | null;
+  themeColor: string;
+  status: PracticalPwaStatus;
+  statusLabel: string;
+}
+
+const PRACTICAL_PWA_DEFS: Array<
+  Omit<PracticalPwaCard, "url" | "status" | "statusLabel"> & {
+    href: string | null;
+    readyRoles: string[];
+  }
+> = [
+  {
+    id: "survey_v1",
+    label: "現調アプリ",
+    subtitle: "お客様の現場を見に行く記録",
+    icon: "📋",
+    features: ["写真を撮る", "メモする", "部材を選ぶ", "見積へ送る"],
+    href: "/survey-v1",
+    themeColor: "#5cb87a",
+    readyRoles: ["surveyor", "manager", "owner", "admin", "super_admin"],
+  },
+  {
+    id: "estimate_v1",
+    label: "見積アプリ",
+    subtitle: "お仕事の料金をまとめる",
+    icon: "💰",
+    features: ["現調から見積作成", "部材を編集", "PDF確認", "TOMS形式へ出力"],
+    href: "/estimate-v1",
+    themeColor: "#4a90d9",
+    readyRoles: ["surveyor", "manager", "owner", "admin", "super_admin"],
+  },
+  {
+    id: "work_report",
+    label: "作業報告アプリ",
+    subtitle: "工事が終わったあとの報告",
+    icon: "📝",
+    features: ["写真で報告", "お客様へ送る", "履歴を見る"],
+    href: null,
+    themeColor: "#e8a54b",
+    readyRoles: [],
+  },
+  {
+    id: "customer_mgmt",
+    label: "顧客管理",
+    subtitle: "お客様の情報をまとめて見る",
+    icon: "👥",
+    features: ["お客様一覧", "連絡先", "案件の履歴"],
+    href: null,
+    themeColor: "#7c6fd6",
+    readyRoles: [],
+  },
+  {
+    id: "inventory",
+    label: "在庫管理",
+    subtitle: "部材の残り数を確認",
+    icon: "📦",
+    features: ["在庫一覧", "入出庫", "発注の目安"],
+    href: null,
+    themeColor: "#6a737d",
+    readyRoles: [],
+  },
+];
+
+export function buildPracticalHubCards(role: string): PracticalPwaCard[] {
+  const r = normalizePwaRole(role);
+  return PRACTICAL_PWA_DEFS.map((def) => {
+    const ready = def.readyRoles.includes(r) || def.readyRoles.includes(role);
+    return {
+      id: def.id,
+      label: def.label,
+      subtitle: def.subtitle,
+      icon: def.icon,
+      features: def.features,
+      url: ready && def.href ? def.href : null,
+      themeColor: def.themeColor,
+      status: ready ? "ready" : "coming_soon",
+      statusLabel: ready ? "使えます" : "次に作る",
+    };
+  });
+}
+
+/** manager 以上のみデプロイ系カードを表示 */
+export function showOpsPanelsForRole(role: string): boolean {
+  const r = normalizePwaRole(role);
+  return ["manager", "owner", "admin", "super_admin"].includes(r) || role === "super_admin";
+}

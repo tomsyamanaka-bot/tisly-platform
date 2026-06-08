@@ -553,6 +553,51 @@ async function customerLogin(code, username, password) {
   return { ok: res.ok, status: res.status, body };
 }
 
+function renderPracticalApps(apps) {
+  const grid = document.getElementById("hub-practical-grid");
+  if (!grid) return;
+  grid.innerHTML = (apps || [])
+    .map((a) => {
+      const isReady = a.status === "ready" && a.url;
+      const tag = isReady
+        ? `<span class="practical-tag ready">${a.statusLabel}</span>`
+        : `<span class="practical-tag soon">${a.statusLabel}</span>`;
+      const features = (a.features || [])
+        .map((f) => `<li>${f}</li>`)
+        .join("");
+      if (isReady) {
+        return `<a class="practical-card" href="${a.url}" style="--card-accent:${a.themeColor}">
+          <div class="practical-card-head">
+            <span class="practical-icon">${a.icon}</span>
+            <div>
+              <div class="practical-label">${a.label}</div>
+              <div class="practical-sub">${a.subtitle}</div>
+            </div>
+            ${tag}
+          </div>
+          <ul class="practical-features">${features}</ul>
+        </a>`;
+      }
+      return `<div class="practical-card coming-soon" style="--card-accent:${a.themeColor}">
+        <div class="practical-card-head">
+          <span class="practical-icon">${a.icon}</span>
+          <div>
+            <div class="practical-label">${a.label}</div>
+            <div class="practical-sub">${a.subtitle}</div>
+          </div>
+          ${tag}
+        </div>
+        <ul class="practical-features">${features}</ul>
+      </div>`;
+    })
+    .join("");
+}
+
+function toggleOpsPanels(show) {
+  const wrap = document.getElementById("ops-panels-wrap");
+  if (wrap) wrap.hidden = !show;
+}
+
 async function loadHubApps() {
   const token = sessionStorage.getItem(TOKEN_KEY);
   if (!token) return;
@@ -563,7 +608,10 @@ async function loadHubApps() {
   const data = await res.json();
   document.getElementById("login-panel").hidden = true;
   document.getElementById("hub-apps-panel").hidden = false;
-  document.getElementById("hub-role-label").textContent = `ロール: ${data.role} · 顧客: ${data.customerCode}`;
+  toggleOpsPanels(data.showOpsPanels === true);
+  document.getElementById("hub-role-label").textContent =
+    `${data.customerCode} でログイン中`;
+  renderPracticalApps(data.practicalApps);
   const grid = document.getElementById("hub-app-grid");
   grid.innerHTML = (data.apps || [])
     .map(
@@ -593,8 +641,10 @@ async function loadHubApps() {
     notifGrid?.setAttribute("hidden", "");
     if (notifGrid) notifGrid.innerHTML = "";
   }
+  const wfTitle = document.getElementById("hub-workflow-title");
   const wf = document.getElementById("hub-workflow-grid");
   if (wf && data.workflows?.length) {
+    wfTitle?.removeAttribute("hidden");
     wf.hidden = false;
     wf.innerHTML = data.workflows
       .map(
