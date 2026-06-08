@@ -75,7 +75,7 @@ describe("Phase 461-480 multi PWA app hub", () => {
       .set("Authorization", `Bearer ${surveyorToken}`);
     assert.equal(res.status, 200);
     const ids = res.body.apps.map((a: { id: string }) => a.id);
-    assert.deepEqual(ids, ["survey", "business"]);
+    assert.deepEqual(ids, ["survey_v1", "estimate_v1", "survey", "business"]);
   });
 
   it("admin hub shows all PWAs", async () => {
@@ -91,7 +91,9 @@ describe("Phase 461-480 multi PWA app hub", () => {
     assert.ok(ids.includes("customer_portal"));
     assert.ok(ids.includes("admin"));
     assert.ok(ids.includes("business"));
-    assert.equal(ids.length, 7);
+    assert.ok(ids.includes("survey_v1"));
+    assert.ok(ids.includes("estimate_v1"));
+    assert.equal(ids.length, 9);
   });
 
   it("admin hub shows notification menu links", async () => {
