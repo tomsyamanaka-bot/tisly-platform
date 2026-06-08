@@ -3,234 +3,94 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#1a7f37" />
+  <meta name="theme-color" content="#5cb87a" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="TiSLY現調" />
   <link rel="manifest" href="/manifest-survey-v1.webmanifest" />
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2001" />
   <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192.png?v=2001" />
-  <title>TiSLY — 現調PWA v1</title>
-  <style>
-    :root {
-      --green: #1a7f37;
-      --green-light: #dafbe1;
-      --border: #d0d7de;
-      --muted: #656d76;
-      --bg: #f6f8fa;
-      --danger: #cf222e;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: system-ui, -apple-system, sans-serif;
-      background: var(--bg);
-      color: #1f2328;
-      padding-bottom: env(safe-area-inset-bottom, 0);
-    }
-    header {
-      position: sticky;
-      top: 0;
-      z-index: 10;
-      background: var(--green);
-      color: #fff;
-      padding: 0.75rem 1rem;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-    header h1 { margin: 0; font-size: 1.1rem; flex: 1; }
-    header button, header a.btn {
-      background: rgba(255,255,255,0.2);
-      border: none;
-      color: #fff;
-      padding: 0.4rem 0.7rem;
-      border-radius: 6px;
-      text-decoration: none;
-      font-size: 0.9rem;
-      cursor: pointer;
-    }
-    main { padding: 1rem; max-width: 640px; margin: 0 auto; }
-    .hidden { display: none !important; }
-    .card {
-      background: #fff;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 1rem;
-      margin-bottom: 0.75rem;
-    }
-    .card h2 { margin: 0 0 0.5rem; font-size: 1rem; }
-    .card p { margin: 0.25rem 0; color: var(--muted); font-size: 0.9rem; }
-    .badge {
-      display: inline-block;
-      font-size: 0.75rem;
-      padding: 0.15rem 0.5rem;
-      border-radius: 999px;
-      background: var(--green-light);
-      color: var(--green);
-      font-weight: 600;
-    }
-    .badge.pending { background: #fff8c5; color: #9a6700; }
-    .badge.done { background: #ddf4ff; color: #0969da; }
-    label { display: block; margin: 0.6rem 0 0.25rem; font-size: 0.85rem; font-weight: 500; }
-    input, select, textarea {
-      width: 100%;
-      padding: 0.55rem;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      font-size: 1rem;
-    }
-    textarea { min-height: 4rem; resize: vertical; }
-    .btn-primary {
-      width: 100%;
-      background: var(--green);
-      color: #fff;
-      border: none;
-      padding: 0.75rem;
-      border-radius: 8px;
-      font-size: 1rem;
-      font-weight: 600;
-      margin-top: 1rem;
-      cursor: pointer;
-    }
-    .btn-secondary {
-      width: 100%;
-      background: #fff;
-      color: var(--green);
-      border: 1px solid var(--green);
-      padding: 0.65rem;
-      border-radius: 8px;
-      font-size: 0.95rem;
-      margin-top: 0.5rem;
-      cursor: pointer;
-    }
-    .btn-handoff {
-      background: #0969da;
-      border: none;
-      color: #fff;
-    }
-    .btn-handoff:disabled { opacity: 0.5; cursor: not-allowed; }
-    .list-item {
-      cursor: pointer;
-      transition: box-shadow 0.15s;
-    }
-    .list-item:active { box-shadow: 0 0 0 2px var(--green); }
-    .section-title {
-      font-size: 0.8rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--muted);
-      margin: 1.25rem 0 0.5rem;
-    }
-    .photo-thumb {
-      width: 72px;
-      height: 72px;
-      object-fit: cover;
-      border-radius: 6px;
-      border: 1px solid var(--border);
-    }
-    .photo-row, .material-row {
-      display: flex;
-      gap: 0.5rem;
-      align-items: flex-start;
-      padding: 0.5rem 0;
-      border-bottom: 1px solid var(--border);
-      font-size: 0.9rem;
-    }
-    .photo-row:last-child, .material-row:last-child { border-bottom: none; }
-    .error { color: var(--danger); font-size: 0.9rem; margin-top: 0.5rem; }
-    .toast {
-      position: fixed;
-      bottom: 1rem;
-      left: 50%;
-      transform: translateX(-50%);
-      background: #24292f;
-      color: #fff;
-      padding: 0.6rem 1rem;
-      border-radius: 8px;
-      font-size: 0.9rem;
-      z-index: 100;
-      opacity: 0;
-      transition: opacity 0.2s;
-      pointer-events: none;
-    }
-    .toast.show { opacity: 1; }
-    #file-input { display: none; }
-    .empty { text-align: center; color: var(--muted); padding: 2rem 1rem; }
-  </style>
+  <title>TiSLY — 現調</title>
+  <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
 </head>
-<body>
-  <header>
-    <button type="button" id="btn-back" class="hidden" aria-label="戻る">←</button>
-    <h1 id="page-title">現調案件</h1>
-    <a href="/app" class="btn">Hub</a>
+<body class="tisly-friendly">
+  <header class="app-header">
+    <button type="button" id="btn-back" class="header-btn hidden" aria-label="戻る">← 戻る</button>
+    <h1 id="page-title">現調</h1>
+    <a href="/app" class="header-btn">ホーム</a>
   </header>
 
-  <main>
+  <main class="app-main">
+    <p class="section-hint" id="page-hint">お客様の現場を見に行く記録を残します</p>
+
     <div id="view-list">
-      <button type="button" class="btn-primary" id="btn-new">＋ 新規現調案件</button>
-      <div id="project-list" class="empty">読み込み中…</div>
+      <button type="button" class="btn-main" id="btn-new">＋ 新しい現調をはじめる</button>
+      <p class="section-label">📋 案件一覧</p>
+      <div id="project-list" class="empty-state">読み込み中…</div>
     </div>
 
     <div id="view-form" class="hidden">
+      <div class="friendly-card">
+        <h2>新しい現調</h2>
+        <p>まずはお客様のお名前だけ入れればOKです</p>
+      </div>
       <form id="project-form">
-        <label>顧客名 <input name="customerName" required placeholder="山田様邸" /></label>
-        <label>住所 <input name="address" placeholder="東京都…" /></label>
-        <label>電話番号 <input name="phone" type="tel" inputmode="tel" /></label>
-        <label>メール <input name="email" type="email" inputmode="email" /></label>
-        <label>現調日 <input name="surveyDate" type="date" /></label>
-        <label>担当者 <input name="assignee" placeholder="担当者名" /></label>
-        <label>メモ <textarea name="notes" placeholder="現調メモ"></textarea></label>
-        <button type="submit" class="btn-primary" id="btn-save">保存</button>
+        <label class="friendly-label">お客様のお名前 <input name="customerName" required placeholder="山田様邸" /></label>
+        <label class="friendly-label">住所 <input name="address" placeholder="あとからでも入れられます" /></label>
+        <label class="friendly-label">現調日 <input name="surveyDate" type="date" /></label>
+        <label class="friendly-label">メモ <textarea name="notes" rows="3" placeholder="気づいたことをメモ"></textarea></label>
+        <button type="submit" class="btn-main" id="btn-save">保存する</button>
       </form>
-      <p id="form-error" class="error hidden"></p>
+      <div id="form-error" class="error-friendly hidden"></div>
     </div>
 
     <div id="view-edit" class="hidden">
       <form id="edit-form">
-        <label>顧客名 <input name="customerName" required /></label>
-        <label>住所 <input name="address" /></label>
-        <label>電話番号 <input name="phone" type="tel" inputmode="tel" /></label>
-        <label>メール <input name="email" type="email" inputmode="email" /></label>
-        <label>現調日 <input name="surveyDate" type="date" /></label>
-        <label>担当者 <input name="assignee" /></label>
-        <label>メモ <textarea name="notes"></textarea></label>
-        <button type="submit" class="btn-primary">更新を保存</button>
+        <label class="friendly-label">お客様のお名前 <input name="customerName" required /></label>
+        <label class="friendly-label">住所 <input name="address" /></label>
+        <label class="friendly-label">電話番号 <input name="phone" type="tel" inputmode="tel" /></label>
+        <label class="friendly-label">メール <input name="email" type="email" inputmode="email" /></label>
+        <label class="friendly-label">現調日 <input name="surveyDate" type="date" /></label>
+        <label class="friendly-label">担当者 <input name="assignee" /></label>
+        <label class="friendly-label">メモ <textarea name="notes" rows="3"></textarea></label>
+        <button type="submit" class="btn-main">変更を保存</button>
       </form>
-      <p id="edit-error" class="error hidden"></p>
+      <div id="edit-error" class="error-friendly hidden"></div>
     </div>
 
     <div id="view-detail" class="hidden">
-      <div class="card">
-        <div id="detail-status" class="badge">現調中</div>
+      <div class="friendly-card">
+        <span id="detail-status" class="status-badge green">現場調査中</span>
         <h2 id="detail-name">—</h2>
         <p id="detail-meta"></p>
         <p id="detail-notes" class="hidden"></p>
-        <button type="button" class="btn-secondary" id="btn-edit" style="margin-top:0.75rem;">案件を編集</button>
+        <button type="button" class="btn-sub" id="btn-edit" style="margin-top:0.5rem;">お客様情報を直す</button>
       </div>
 
-      <p class="section-title">写真メモ</p>
-      <div class="card">
+      <p class="section-label">📷 写真</p>
+      <p class="section-hint">現場の様子を写真で残します</p>
+      <div class="friendly-card">
         <div id="photo-list"></div>
-        <label>コメント <textarea id="photo-comment" rows="2" placeholder="写真の説明"></textarea></label>
-        <input type="file" id="file-input" accept="image/*" capture="environment" />
-        <button type="button" class="btn-secondary" id="btn-camera">📷 写真を追加</button>
-        <button type="button" class="btn-secondary" id="btn-photo-memo">テキストのみ登録</button>
+        <label class="friendly-label">写真の説明 <textarea id="photo-comment" rows="2" placeholder="どこを撮ったか"></textarea></label>
+        <input type="file" id="file-input" accept="image/*" capture="environment" style="display:none" />
+        <button type="button" class="btn-sub" id="btn-camera">📷 写真を撮る</button>
+        <button type="button" class="btn-sub" id="btn-photo-memo">📝 文字だけメモ</button>
       </div>
 
-      <p class="section-title">部材</p>
-      <div class="card">
+      <p class="section-label">🔧 使う部材</p>
+      <p class="section-hint">カメラや配線など、使うものを選びます</p>
+      <div class="friendly-card">
         <div id="material-list"></div>
-        <label>カテゴリ
+        <label class="friendly-label">種類
           <select id="material-category"></select>
         </label>
-        <label>品名・機種 <input id="material-label" placeholder="例: 屋外カメラ" /></label>
-        <label>数量 <input id="material-qty" type="number" min="1" value="1" inputmode="numeric" /></label>
-        <label>補足 <input id="material-memo" placeholder="設置位置など" /></label>
-        <button type="button" class="btn-secondary" id="btn-add-material">部材を追加</button>
+        <label class="friendly-label">品名 <input id="material-label" placeholder="例: 屋外カメラ" /></label>
+        <label class="friendly-label">数量 <input id="material-qty" type="number" min="1" value="1" inputmode="numeric" /></label>
+        <label class="friendly-label">補足 <input id="material-memo" placeholder="設置場所など" /></label>
+        <button type="button" class="btn-sub" id="btn-add-material">部材を追加</button>
       </div>
 
-      <button type="button" class="btn-primary btn-handoff" id="btn-handoff">見積へ渡す</button>
-      <p id="handoff-info" class="hidden" style="font-size:0.85rem;color:var(--muted);margin-top:0.5rem;"></p>
+      <button type="button" class="btn-main blue" id="btn-handoff">見積へ送る</button>
+      <p id="handoff-info" class="section-hint hidden"></p>
     </div>
   </main>
 

@@ -135,6 +135,6 @@ describe("見積PWA v1 API", () => {
   it("GET /estimate-v1 ページを配信できる", async () => {
     const res = await request(app).get("/estimate-v1");
     assert.equal(res.status, 200);
-    assert.ok(res.text.includes("見積PWA v1"));
+    assert.ok(res.text.includes("見積もりを確定") || res.text.includes("TiSLY — 見積"));
   });
 });
