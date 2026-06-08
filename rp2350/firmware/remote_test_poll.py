@@ -29,7 +29,7 @@ except ImportError:
     POLL_INTERVAL_SEC = 3
     HEARTBEAT_INTERVAL_SEC = 60
     CH_GPIO = {1: 17, 2: 18, 3: 19, 4: 20, 5: 21, 6: 22, 7: 23, 8: 24}
-    FIRMWARE_VERSION = "1.2.1-notify-fix"
+    FIRMWARE_VERSION = "1.3.0-remote-test-rc1"
 
 CH_PINS = {}
 for ch, gpio in CH_GPIO.items():

@@ -144,7 +144,7 @@ export function getRemoteTestDebugInfo() {
     heartbeatBody: heartbeatDebug.heartbeatBody,
     lastHeartbeatAt: heartbeatDebug.lastHeartbeatAt,
     confirmedChStates: { ...state.confirmedChStates },
-    notificationHistoryCount: state.notificationHistory.length,
+    notificationHistory: [...state.notificationHistory],
     lastPushResult: state.lastPushResult,
   };
 }

@@ -635,6 +635,9 @@ describe("Remote Test PoC API", () => {
     assert.ok(res.body.lastHeartbeatAt);
     assert.equal(typeof res.body.subscriptionCount, "number");
     assert.deepEqual(res.body.confirmedChStates["1"], "off");
+    assert.ok(Array.isArray(res.body.notificationHistory));
+    assert.ok(res.body.heartbeatBody);
+    assert.equal(res.body.lastPushResult, null);
   });
 
   it("notification: CH1 ON/OFF via heartbeat triggers notifications", async () => {

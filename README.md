@@ -44,7 +44,9 @@ TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。
 | RP2350 ファームウェア | `rp2350/firmware/main.py` · `config.py` |
 | RP2350 スクリプト（単体） | `rp2350/firmware/remote_test_poll.py` |
 | ファームウェア版（Phase 2 確認済み） | **v1.1.0-poc-success** |
-| ファームウェア版（Phase 3） | **v1.2.0-ch8** |
+| ファームウェア版（Remote Test RC1） | **v1.3.0-remote-test-rc1** |
+| 通知フロー図 | [`docs/remote-test-notification-flow.md`](docs/remote-test-notification-flow.md) |
+| RC1 完了レポート | [`docs/remote-test-final-report.md`](docs/remote-test-final-report.md) |
 
 ### Phase 2 RP2350 PoC — **完了**（2026-06-08）
 
@@ -59,7 +61,19 @@ TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。
 
 **完了記録:** [`docs/rp2350-phase2-poc-verification.md`](docs/rp2350-phase2-poc-verification.md) §6
 
-### 現在のフェーズ: Phase 3 — CH2〜CH8 拡張（実装中）
+### Remote Test RC1 — **完了**（2026-06-08）
+
+| 到達点 | 状態 |
+|--------|------|
+| CH1〜CH8 遠隔操作 | ✅ |
+| heartbeat `chStates` 差分通知 | ✅ |
+| Web Push（実機状態変化） | ✅ |
+| デバッグ API `/api/remote-test/debug` | ✅ |
+| ファームウェア版統一 | ✅ `1.3.0-remote-test-rc1` |
+
+**完了レポート:** [`docs/remote-test-final-report.md`](docs/remote-test-final-report.md)
+
+### 現在のフェーズ: Phase 6 候補 — MQTT 本格移行
 
 | 実装対象 | 内容 |
 |----------|------|
@@ -86,7 +100,7 @@ sudo systemctl restart tisly-server
 curl -s -H "X-Remote-Test-Token: $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"chStates":{"1":"off","2":"off","3":"off","4":"off","5":"off","6":"off","7":"off","8":"off"}}' \
-  "https://tisly.jp/api/remote-test/heartbeat?firmware=1.2.0-ch8"
+  "https://tisly.jp/api/remote-test/heartbeat?firmware=1.3.0-remote-test-rc1"
 ```
 
 ### VPS 反映後の確認項目
