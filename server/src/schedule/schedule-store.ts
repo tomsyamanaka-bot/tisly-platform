@@ -13,6 +13,9 @@ import type {
   UnavailableDay,
 } from "./schedule-types.js";
 import { SCHEDULE_CATEGORY_META } from "./schedule-types.js";
+import { buildDayDispatch } from "./route-planner-service.js";
+import { fetchDayWeather } from "./weather-service.js";
+import type { ScheduleDayDetail } from "./schedule-types.js";
 
 const WEEKDAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
 
@@ -150,12 +153,20 @@ export async function getScheduleThreeWeekView(offsetRaw?: unknown): Promise<{
 }> {
   const offset = parseOffset(offsetRaw);
   const startDate = weekStartFromOffset(offset);
+  const rangeEnd = addDays(startDate, 20);
+  const allEvents = await fetchCalendarEvents(startDate, rangeEnd);
+  const unavailable = listUnavailableDays(startDate, rangeEnd);
+  const unavailableMap = new Map(unavailable.map((u) => [u.date, u]));
   const blocks: ScheduleThreeWeekBlock[] = [];
   for (let w = 0; w < 3; w++) {
     const blockStart = addDays(startDate, w * 7);
     const blockEnd = addDays(blockStart, 6);
-    const events = await fetchCalendarEvents(blockStart, blockEnd);
-    const constructionCount = events.filter((e) => e.category === "construction").length;
+    const blockEvents = allEvents.filter((e) => e.date >= blockStart && e.date <= blockEnd);
+    const constructionCount = blockEvents.filter((e) => e.category === "construction").length;
+    const days: ScheduleDayCard[] = [];
+    for (let i = 0; i < 7; i++) {
+      days.push(buildDayCard(addDays(blockStart, i), allEvents, unavailableMap));
+    }
     const m1 = Number(blockStart.slice(5, 7));
     const d1 = Number(blockStart.slice(8, 10));
     const m2 = Number(blockEnd.slice(5, 7));
@@ -165,10 +176,26 @@ export async function getScheduleThreeWeekView(offsetRaw?: unknown): Promise<{
       endDate: blockEnd,
       label: `${m1}/${d1}〜${m2}/${d2}`,
       constructionCount,
-      totalEvents: events.length,
+      totalEvents: blockEvents.length,
+      days,
     });
   }
   return { offset, blocks };
+}
+
+export async function getScheduleDayDetail(
+  dateRaw: unknown,
+  opts?: { location?: string }
+): Promise<ScheduleDayDetail | null> {
+  const date = String(dateRaw ?? "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  const events = await fetchCalendarEvents(date, date);
+  const unavailable = listUnavailableDays(date, date);
+  const unavailableMap = new Map(unavailable.map((u) => [u.date, u]));
+  const day = buildDayCard(date, events, unavailableMap);
+  const weather = await fetchDayWeather(date, { location: opts?.location });
+  const dispatch = buildDayDispatch(date, day.events);
+  return { day, weather, dispatch };
 }
 
 export async function getScheduleMonthView(yearRaw: unknown, monthRaw: unknown): Promise<ScheduleMonthView> {

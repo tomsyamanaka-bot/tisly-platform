@@ -8,8 +8,10 @@ import {
   getScheduleSummary,
   getScheduleThreeWeekView,
   getScheduleWeekView,
+  getScheduleDayDetail,
   updateUnavailableDay,
 } from "../../schedule/schedule-store.js";
+import { fetchDayWeather } from "../../schedule/weather-service.js";
 import { UNAVAILABLE_REASON_PRESETS } from "../../schedule/schedule-types.js";
 
 export const scheduleRouter = Router();
@@ -69,6 +71,35 @@ scheduleRouter.get("/summary", ...scheduleAuth, async (req: AuthedRequest, res) 
 scheduleRouter.get("/presets", ...scheduleAuth, (req: AuthedRequest, res) => {
   if (!assertScheduleRole(req, res)) return;
   res.json({ reasonPresets: UNAVAILABLE_REASON_PRESETS });
+});
+
+scheduleRouter.get("/day", ...scheduleAuth, async (req: AuthedRequest, res) => {
+  if (!assertScheduleRole(req, res)) return;
+  try {
+    const detail = await getScheduleDayDetail(req.query.date, {
+      location: req.query.location as string | undefined,
+    });
+    if (!detail) {
+      res.status(400).json({ error: "valid date required (YYYY-MM-DD)" });
+      return;
+    }
+    res.json(detail);
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : "day detail failed" });
+  }
+});
+
+scheduleRouter.get("/weather", ...scheduleAuth, async (req: AuthedRequest, res) => {
+  if (!assertScheduleRole(req, res)) return;
+  const date = String(req.query.date ?? new Date().toISOString().slice(0, 10));
+  try {
+    const weather = await fetchDayWeather(date, {
+      location: req.query.location as string | undefined,
+    });
+    res.json(weather);
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : "weather failed" });
+  }
 });
 
 scheduleRouter.post("/unavailable", ...scheduleAuth, (req: AuthedRequest, res) => {

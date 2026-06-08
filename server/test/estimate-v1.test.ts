@@ -144,6 +144,8 @@ describe("見積PWA v1 API", () => {
       assert.ok(res.text.includes("お見積書"));
       assert.ok(res.text.includes("株式会社 TOMS"));
       assert.ok(res.text.includes("適用"));
+      assert.ok(!res.text.includes("T-2030001139320"));
+      assert.ok(!res.text.includes("登録番号"));
     } else {
       assert.ok(Buffer.isBuffer(res.body) ? res.body.length > 50 : true);
     }

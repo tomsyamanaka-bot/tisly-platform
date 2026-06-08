@@ -89,6 +89,25 @@ describe("日程調整 PWA v1 API", () => {
     assert.equal(res.status, 200);
     assert.equal(res.body.blocks.length, 3);
     assert.ok(res.body.blocks[0].constructionCount >= 0);
+    assert.equal(res.body.blocks[0].days.length, 7);
+  });
+
+  it("日付詳細・天気を取得できる", async () => {
+    const week = await request(app)
+      .get("/api/schedule/v1/week?offset=0")
+      .set("Authorization", `Bearer ${token}`);
+    const date = week.body.days[0].date;
+    const detail = await request(app)
+      .get(`/api/schedule/v1/day?date=${date}`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(detail.status, 200);
+    assert.equal(detail.body.day.date, date);
+    assert.equal(detail.body.weather.slots.length, 3);
+    const weather = await request(app)
+      .get(`/api/schedule/v1/weather?date=${date}`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(weather.status, 200);
+    assert.ok(weather.body.location);
   });
 
   it("月間表示を取得できる", async () => {

@@ -540,6 +540,7 @@ body.tisly-friendly {
   background: #fff;
   border: 1px solid var(--tisly-border, #e2e8f0);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  cursor: pointer;
 }
 
 .tisly-friendly .schedule-day-card.unavailable {
@@ -685,4 +686,72 @@ body.tisly-friendly {
 .tisly-friendly .photo-card.photo-pending {
   opacity: 0.75;
   border: 2px dashed var(--tisly-green, #5cb87a);
+}
+
+.tisly-friendly .schedule-weather-mini {
+  font-size: 0.8rem;
+  line-height: 1.5;
+  margin: 0.35rem 0;
+  color: var(--tisly-muted);
+}
+
+.tisly-friendly .weather-slot {
+  display: inline-block;
+  margin-right: 0.35rem;
+}
+
+.tisly-friendly .schedule-three-week-section {
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid var(--tisly-border, #e2e8f0);
+}
+
+.tisly-friendly .schedule-three-days {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.4rem;
+}
+
+.tisly-friendly .schedule-mini-day {
+  text-align: left;
+  padding: 0.55rem 0.65rem;
+  border-radius: 10px;
+  border: 1px solid var(--tisly-border, #e2e8f0);
+  background: #fafafa;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.tisly-friendly .schedule-mini-day-date {
+  display: block;
+  font-weight: 700;
+}
+
+.tisly-friendly .btn-small {
+  font-size: 0.85rem;
+  padding: 0.45rem 0.75rem;
+}
+
+.tisly-friendly .dispatch-block {
+  font-size: 0.9rem;
+  padding: 0.65rem;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid var(--tisly-border, #e2e8f0);
+}
+
+.tisly-friendly .dispatch-stop {
+  margin: 0.25rem 0;
+}
+
+.tisly-friendly .dispatch-leg {
+  font-size: 0.82rem;
+  color: var(--tisly-muted);
+  margin: 0.15rem 0 0.15rem 0.5rem;
+}
+
+.tisly-friendly .schedule-month-cell[role="button"] {
+  cursor: pointer;
 }

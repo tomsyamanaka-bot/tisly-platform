@@ -32,22 +32,30 @@ export interface TomsDocHeaderInput {
   issueDate: string;
   docNoLabel: string;
   docNo: string;
+  /** 見積書は false、請求書は true（デフォルト） */
+  includeRegistrationNo?: boolean;
+  workLocation?: string;
 }
 
 export function renderTomsDocLayoutHeader(input: TomsDocHeaderInput): string {
   const co = getTomsCompanyInfo();
   const addressee = formatTomsAddressee(input.addressee);
+  const regRow =
+    input.includeRegistrationNo !== false
+      ? `<tr><th>登録番号</th><td>${escapeHtml(co.registrationNo)}</td></tr>`
+      : "";
   return `<div class="toms-doc-header">
   <div class="toms-doc-left">
     <h1 class="toms-doc-title">${escapeHtml(input.docTitle)}</h1>
     <p class="toms-addressee">${escapeHtml(addressee)}</p>
     <p class="toms-subject"><span class="toms-subject-label">件名</span> ${escapeHtml(input.subject)}</p>
+    ${input.workLocation?.trim() ? `<p class="toms-subject"><span class="toms-subject-label">工事場所</span> ${escapeHtml(input.workLocation.trim())}</p>` : ""}
   </div>
   <div class="toms-doc-right">
     <table class="toms-meta-table">
       <tr><th>${escapeHtml(input.issueDateLabel)}</th><td>${escapeHtml(input.issueDate)}</td></tr>
       <tr><th>${escapeHtml(input.docNoLabel)}</th><td>${escapeHtml(input.docNo)}</td></tr>
-      <tr><th>登録番号</th><td>${escapeHtml(co.registrationNo)}</td></tr>
+      ${regRow}
     </table>
     <div class="toms-company-block">
       <div class="toms-company-name">${escapeHtml(co.name)}</div>

@@ -111,10 +111,26 @@ Safari → 共有 → **ホーム画面に追加**（`/app` 推奨）
 5. **JWT_SECRET** 本番用再生成
 6. **CUSTOMER_DEMO_PASSWORD** 本番では変更 or 無効化
 
+## 外部サービス（人間が取得・設定）
+
+| 項目 | キー要否 | 環境変数 | 備考 |
+|------|----------|----------|------|
+| Google Calendar API | 要 | `GOOGLE_CALENDAR_CLIENT_ID` 等 | 日程の本データ |
+| Google Maps API | 要 | `GOOGLE_MAPS_API_KEY` | 配車表の所要時間 |
+| Open-Meteo | **不要** | `OPEN_METEO_LIVE=1` で有効化 | 天気予報 |
+| Gmail SMTP | 要 | `SMTP_USER` / `SMTP_PASS` | 見積メール送信 |
+| VAPID | 要 | `VAPID_PUBLIC_KEY` 等 | Web Push |
+| JWT_SECRET | 要 | `JWT_SECRET` | 本番は再生成 |
+| 本番管理者パスワード | 要 | `ADMIN_PASSWORD_HASH` | デモパスワード変更 |
+| TOMS標準フォーマット | — | — | Excel 仕様書の共有・本接続 |
+| PDF印影画像 | — | `TOMS_LOGO_URL` 等 | 本番用印影・ロゴ差し替え |
+
+`.env.example` に仮値を記載済み。取得後は本番 `.env` にのみ設定（コミットしない）。
+
 ## できれば早め
 
-7. TOMS 標準フォーマット仕様書の共有
-8. **Google Calendar API**（日程調整本接続）— OAuth 取得後 `.env` に設定
+- TOMS 標準フォーマット仕様書の共有
+- 阿見リフォーム見積の実データ検証（営業と一緒に）
 
 ## やらなくていい（Cursor が進める）
 

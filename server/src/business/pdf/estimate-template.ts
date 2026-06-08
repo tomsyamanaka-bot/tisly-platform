@@ -54,6 +54,8 @@ ${renderTomsDocLayoutHeader({
   issueDate: header.issueDate,
   docNoLabel: "見積番号",
   docNo: header.estimateNo,
+  includeRegistrationNo: false,
+  workLocation: header.workLocation,
 })}
 ${renderAmountBanner(estimate.total)}
 <p class="intro">下記の通りお見積り申し上げます。</p>

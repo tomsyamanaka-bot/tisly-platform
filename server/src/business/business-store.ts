@@ -558,13 +558,16 @@ export function createEstimate(
     siteName: project.title,
     workLocation: project.address,
   });
+  const searchIndex = buildPracticalSearchIndex(project, draftEstimate, header, null, {
+    siteName: project.title,
+  });
   getDatabase()
     .prepare(
       `INSERT INTO business_estimates (
         id, project_id, estimate_no, customer_name, title, items_json,
         subtotal, tax, total, internal_cost, gross_profit, gross_profit_rate,
-        pdf_path, header_json, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)`
+        pdf_path, header_json, search_index_json, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?)`
     )
     .run(
       id,
@@ -580,6 +583,7 @@ export function createEstimate(
       totals.grossProfit,
       totals.grossProfitRate,
       JSON.stringify(header),
+      JSON.stringify(searchIndex),
       now,
       now
     );
@@ -676,7 +680,10 @@ export function updateEstimateHeader(estimateId: string, header: Partial<TomsEst
   };
   const invoice = bp?.invoiceId ? getInvoice(bp.invoiceId) : null;
   const searchIndex = bp
-    ? buildPracticalSearchIndex(bp, { ...existing, header: merged }, merged, invoice)
+    ? buildPracticalSearchIndex(bp, { ...existing, header: merged }, merged, invoice, {
+        siteName: merged.siteName ?? bp.title,
+        contactName: merged.staffName,
+      })
     : null;
   getDatabase()
     .prepare(

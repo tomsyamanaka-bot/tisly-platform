@@ -36,6 +36,35 @@
 - 標準手順: `git pull` → `npm run build` → `systemctl restart tisly-server`
 - Cursor 環境から VPS SSH が不通のため、人間によるデプロイ確認が必要
 
+## 2026-06-09 — 実務PWA 現場投入 v3
+
+### 現調写真（iPhone Safari）
+
+- `createImageBitmap` は使わない（HEIC で不安定）
+- `FileReader` → `Image.onload` → `canvas.toDataURL("image/jpeg")`
+- MIME が空 / `application/octet-stream` の HEIC も拡張子で受理
+- 失敗時は `console.error`、ユーザー文言は「別の写真でもう一度試してください」
+
+### 見積番号
+
+- 新規のみ `YYMMDD-001`（見積・請求共通、`generateTomsDailyDocNo`）
+- 旧 `EST-2026-xxxx` は DB を書き換えない
+
+### 見積PDF
+
+- 登録番号は**請求書のみ**（見積から削除）
+- 工事場所をヘッダーに表示（現場名と重複時は工事場所優先）
+
+### 日程調整
+
+- 現場不可ボタンは日付詳細のみ（週間カードには出さない）
+- 天気: Open-Meteo 準備、初期は守谷市モック
+- 配車: Google Maps 準備、初期はモック所要時間 + 地図リンク
+
+### 検索
+
+- `search_index_json` に番号・宛名・依頼主・現場・金額等を格納（検索 UI は次フェーズ）
+
 ## 2026-06-08 — 実務投入 v2（TOMS 向け）
 
 ### PDF 認証

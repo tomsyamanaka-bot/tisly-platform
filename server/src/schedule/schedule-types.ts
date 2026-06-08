@@ -1,5 +1,8 @@
 /** TiSLY 日程調整 PWA v1 — 型定義 */
 
+import type { DayDispatch } from "./route-planner-service.js";
+import type { DayWeather } from "./weather-service.js";
+
 export type ScheduleCategory = "construction" | "office" | "family" | "urgent";
 
 export type ScheduleEventSource = "mock" | "google" | "manual";
@@ -62,6 +65,13 @@ export interface ScheduleThreeWeekBlock {
   label: string;
   constructionCount: number;
   totalEvents: number;
+  days: ScheduleDayCard[];
+}
+
+export interface ScheduleDayDetail {
+  day: ScheduleDayCard;
+  weather: DayWeather;
+  dispatch: DayDispatch | null;
 }
 
 export interface ScheduleMonthDayCell {

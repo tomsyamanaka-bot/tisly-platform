@@ -100,6 +100,17 @@ function renderSummary(summary) {
     <div class="schedule-summary-item"><strong>${summary.totalEvents}</strong>総予定</div>`;
 }
 
+function renderWeatherMini(weather) {
+  if (!weather?.slots?.length) return "";
+  const lines = weather.slots
+    .map((slot) => {
+      const rainCls = slot.highlightRain ? ' style="color:#b91c1c;font-weight:600;"' : "";
+      return `<span class="weather-slot"${rainCls}>${slot.icon} ${slot.label} ${slot.precipChance}% ${slot.tempC}℃</span>`;
+    })
+    .join(" ");
+  return `<div class="schedule-weather-mini">${lines}</div>`;
+}
+
 function dayCardClass(day) {
   if (day.unavailable) return "schedule-day-card unavailable";
   if (day.availability?.level === "busy" || day.availability?.level === "full") return "schedule-day-card busy";
@@ -118,9 +129,9 @@ function renderWeekDays(days) {
         .join("");
       const more = day.events.length > 5 ? `<li>他${day.events.length - 5}件</li>` : "";
       const unavail = day.unavailable
-        ? `<span class="schedule-unavail-badge">現場不可 — ${escapeHtml(day.unavailable.reason)}</span>`
+        ? `<span class="schedule-unavail-badge">🚫 現場不可</span>`
         : "";
-      return `<article class="${dayCardClass(day)}" data-date="${day.date}">
+      return `<article class="${dayCardClass(day)}" data-date="${day.date}" role="button" tabindex="0">
         <div class="schedule-day-head">
           <div>
             <div class="schedule-day-date">${formatDateShort(day.date)}（${day.weekday}）</div>
@@ -133,22 +144,43 @@ function renderWeekDays(days) {
         </div>
         ${unavail}
         <ul class="schedule-event-list">${events}${more}</ul>
-        <button type="button" class="btn-sub" style="margin-top:0.5rem;width:100%;" data-set-unavail="${day.date}">この日を現場不可にする</button>
+        <p class="section-hint" style="margin:0.35rem 0 0;font-size:0.82rem;">タップで詳細</p>
       </article>`;
     })
     .join("");
 
   $("week-days").querySelectorAll("[data-date]").forEach((card) => {
-    card.addEventListener("click", (ev) => {
-      if (ev.target.closest("[data-set-unavail]")) return;
-      openDayDetail(card.dataset.date, days.find((d) => d.date === card.dataset.date));
+    const open = () => openDayDetailByDate(card.dataset.date);
+    card.addEventListener("click", open);
+    card.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter" || ev.key === " ") {
+        ev.preventDefault();
+        open();
+      }
     });
   });
-  $("week-days").querySelectorAll("[data-set-unavail]").forEach((btn) => {
-    btn.addEventListener("click", (ev) => {
-      ev.stopPropagation();
-      openUnavailForm(btn.dataset.setUnavail);
-    });
+}
+
+function renderThreeWeekBlocks(blocks) {
+  $("three-blocks").innerHTML = blocks
+    .map(
+      (b) => `<section class="schedule-three-week-section">
+        <h3>${escapeHtml(b.label)}</h3>
+        <p style="margin:0 0 0.5rem;">🟫 工事 <strong>${b.constructionCount}</strong> 件 · 合計 ${b.totalEvents} 件</p>
+        <div class="schedule-three-days">${(b.days || [])
+          .map(
+            (day) => `<button type="button" class="schedule-mini-day" data-date="${day.date}">
+              <span class="schedule-mini-day-date">${formatDateShort(day.date)}（${day.weekday}）</span>
+              <span>${escapeHtml(day.availability?.stars || "")} ${day.eventCount}件</span>
+              ${day.unavailable ? '<span class="schedule-unavail-badge">不可</span>' : ""}
+            </button>`
+          )
+          .join("")}</div>
+      </section>`
+    )
+    .join("");
+  $("three-blocks").querySelectorAll(".schedule-mini-day").forEach((btn) => {
+    btn.addEventListener("click", () => openDayDetailByDate(btn.dataset.date));
   });
 }
 
@@ -167,16 +199,8 @@ async function loadWeek() {
 async function loadThreeWeeks() {
   try {
     const data = await api(`/three-weeks?offset=${threeOffset}`);
-    $("three-label").textContent = threeOffset === 0 ? "今から3週間" : `${threeOffset > 0 ? threeOffset : threeOffset}週`;
-    $("three-blocks").innerHTML = data.blocks
-      .map(
-        (b) => `<div class="schedule-three-week-card">
-          <h3>${escapeHtml(b.label)}</h3>
-          <p style="margin:0;font-size:1.1rem;">🟫 工事 <strong>${b.constructionCount}</strong> 件</p>
-          <p class="section-hint" style="margin:0.25rem 0 0;">合計 ${b.totalEvents} 件の予定</p>
-        </div>`
-      )
-      .join("");
+    $("three-label").textContent = threeOffset === 0 ? "今から3週間" : `${threeOffset > 0 ? "+" : ""}${threeOffset}週`;
+    renderThreeWeekBlocks(data.blocks || []);
   } catch (e) {
     $("three-blocks").innerHTML = `<div class="error-friendly">${renderFriendlyErrorHtml(e, e.status)}</div>`;
   }
@@ -198,8 +222,8 @@ function renderMonthGrid(view) {
         .map((c) => `<div class="cat-line">${c.icon} ${escapeHtml(c.label)}${c.count > 1 ? `×${c.count}` : ""}</div>`)
         .join("");
       const extra = cell.extraCount > 0 ? `<div class="cat-line">他${cell.extraCount}件</div>` : "";
-      const unavail = cell.unavailable ? `<div class="cat-line" style="color:#b91c1c;">🚫 現場不可</div>` : "";
-      return `<div class="${cls}" data-date="${cell.date}" data-in-month="${cell.isCurrentMonth ? "1" : "0"}">
+      const unavail = cell.unavailable ? `<div class="cat-line" style="color:#b91c1c;">🚫</div>` : "";
+      return `<div class="${cls}" data-date="${cell.date}" data-in-month="${cell.isCurrentMonth ? "1" : "0"}" role="button" tabindex="0">
         <div class="day-num">${cell.dayOfMonth}</div>
         ${cats}${extra}${unavail}
       </div>`;
@@ -207,7 +231,14 @@ function renderMonthGrid(view) {
     .join("");
   $("month-grid").innerHTML = cells;
   $("month-grid").querySelectorAll("[data-in-month='1']").forEach((cell) => {
-    cell.addEventListener("click", () => openMonthDay(cell.dataset.date));
+    const open = () => openDayDetailByDate(cell.dataset.date);
+    cell.addEventListener("click", open);
+    cell.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter" || ev.key === " ") {
+        ev.preventDefault();
+        open();
+      }
+    });
   });
 }
 
@@ -220,25 +251,61 @@ async function loadMonth() {
   }
 }
 
-function openDayDetail(date, day) {
-  if (!day) return;
-  $("day-detail-title").textContent = `${formatDateShort(date)}（${day.weekday}）`;
+function renderDispatchBlock(dispatch) {
+  if (!dispatch?.stops?.length) return "";
+  const stops = dispatch.stops
+    .map((s, i) => {
+      const leg = dispatch.legs[i];
+      const legHtml = leg
+        ? `<div class="dispatch-leg">↓ ${escapeHtml(leg.memo || "車")} ${leg.durationMin}分 <a href="${escapeHtml(leg.mapsUrl)}" target="_blank" rel="noopener">地図</a></div>`
+        : "";
+      return `${legHtml}<div class="dispatch-stop"><strong>${escapeHtml(s.time)}</strong> ${escapeHtml(s.title)}</div>`;
+    })
+    .join("");
+  return `<div class="dispatch-block">
+    <p class="section-label" style="margin-top:0.75rem;">🚐 配車表</p>
+    <p>${escapeHtml(dispatch.driver)} / ${escapeHtml(dispatch.vehicle)}</p>
+    ${stops}
+  </div>`;
+}
+
+function renderDayDetailBody(detail) {
+  const day = detail.day;
   const events = day.events.length
     ? day.events
-        .map((ev) => `<p>${CAT_ICON[ev.category] || "📌"} ${escapeHtml(CAT_LABEL[ev.category] || "")} — ${escapeHtml(ev.title)}</p>`)
+        .map(
+          (ev) =>
+            `<p>${CAT_ICON[ev.category] || "📌"} <strong>${escapeHtml(CAT_LABEL[ev.category] || "")}</strong> — ${escapeHtml(ev.title)}</p>`
+        )
         .join("")
     : "<p>予定はありません</p>";
-  const unavail = day.unavailable
-    ? `<p class="schedule-unavail-badge">現場不可: ${escapeHtml(day.unavailable.reason)}</p>
-       <button type="button" class="btn-sub" id="btn-del-unavail" data-id="${day.unavailable.id}">現場不可を解除</button>`
+
+  const weatherHtml = renderWeatherMini(detail.weather);
+  const locationLine = detail.weather?.location
+    ? `<p class="section-hint" style="margin:0 0 0.35rem;">📍 ${escapeHtml(detail.weather.location)}</p>`
     : "";
-  $("day-detail-body").innerHTML = `
+
+  let unavailHtml = "";
+  if (day.unavailable) {
+    unavailHtml = `<p class="schedule-unavail-badge">🚫 現場不可: ${escapeHtml(day.unavailable.reason)}</p>
+      <button type="button" class="btn-sub btn-small" id="btn-del-unavail" data-id="${day.unavailable.id}">現場不可を解除</button>`;
+  } else {
+    unavailHtml = `<button type="button" class="btn-sub btn-small" id="btn-set-unavail-detail" data-date="${day.date}">この日を現場不可にする</button>`;
+  }
+
+  return `
+    ${locationLine}
+    ${weatherHtml}
     <p>空き度: <strong>${escapeHtml(day.availability?.stars || "")}</strong> ${escapeHtml(day.availability?.label || "")}</p>
-    ${unavail}
-    <div>${events}</div>`;
-  $("day-detail").classList.remove("hidden");
-  const delBtn = $("btn-del-unavail");
-  delBtn?.addEventListener("click", async () => {
+    <p class="section-label" style="margin:0.5rem 0 0.25rem;">📋 予定一覧</p>
+    <div>${events}</div>
+    ${renderDispatchBlock(detail.dispatch)}
+    <div style="margin-top:0.75rem;">${unavailHtml}</div>`;
+}
+
+function bindDayDetailActions(day) {
+  $("btn-del-unavail")?.addEventListener("click", async () => {
+    const delBtn = $("btn-del-unavail");
     try {
       await api(`/unavailable/${delBtn.dataset.id}`, { method: "DELETE" });
       toast("現場不可を解除しました");
@@ -248,24 +315,20 @@ function openDayDetail(date, day) {
       toastError(e, e.status);
     }
   });
+  $("btn-set-unavail-detail")?.addEventListener("click", () => {
+    openUnavailForm(day.date);
+  });
 }
 
-async function openMonthDay(date) {
+async function openDayDetailByDate(date) {
+  if (!date) return;
   try {
-    const data = await api(`/week?offset=0`);
-    const day = data.days.find((d) => d.date === date);
-    if (day) {
-      openDayDetail(date, day);
-      return;
-    }
-    const month = await api(`/month?year=${monthYear}&month=${monthMonth}`);
-    const cell = month.weeks.flat().find((c) => c.date === date);
-    $("day-detail-title").textContent = formatDateShort(date);
-    const events = (cell?.events || [])
-      .map((ev) => `<p>${CAT_ICON[ev.category] || "📌"} ${escapeHtml(ev.title)}</p>`)
-      .join("") || "<p>予定はありません</p>";
-    $("day-detail-body").innerHTML = events;
+    const detail = await api(`/day?date=${encodeURIComponent(date)}`);
+    $("day-detail-title").textContent = `${formatDateShort(date)}（${detail.day.weekday}）`;
+    $("day-detail-body").innerHTML = renderDayDetailBody(detail);
     $("day-detail").classList.remove("hidden");
+    $("unavail-form").classList.add("hidden");
+    bindDayDetailActions(detail.day);
   } catch (e) {
     toastError(e, e.status);
   }
@@ -274,7 +337,6 @@ async function openMonthDay(date) {
 function openUnavailForm(date) {
   $("unavail-date").value = date;
   $("unavail-form").classList.remove("hidden");
-  $("day-detail").classList.add("hidden");
 }
 
 async function refreshCurrent() {
@@ -365,6 +427,7 @@ async function init() {
       });
       toast("現場不可を登録しました");
       $("unavail-form").classList.add("hidden");
+      $("day-detail").classList.add("hidden");
       await refreshCurrent();
     } catch (e) {
       toastError(e, e.status);

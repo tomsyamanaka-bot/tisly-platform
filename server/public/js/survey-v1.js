@@ -39,6 +39,8 @@ let pendingPreviewUrls = [];
 let photoDisplayLimit = 12;
 const PHOTO_BATCH = 12;
 const MAX_PHOTOS = 30;
+const IMAGE_EXT_RE = /\.(jpe?g|png|gif|webp|heic|heif)$/i;
+const PHOTO_FAIL_MSG = "写真を追加できませんでした。別の写真でもう一度試してください";
 
 const $ = (id) => document.getElementById(id);
 
@@ -272,81 +274,66 @@ async function openDetail(projectId) {
   }
 }
 
-async function compressImage(file, maxWidth = 1600, quality = 0.82) {
-  const isImage = !file.type || file.type.startsWith("image/");
-  if (!isImage) {
-    return fileToBase64(file);
-  }
-  try {
-    const dataUrl = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-    let bitmap = null;
-    if (typeof createImageBitmap === "function") {
-      try {
-        bitmap = await createImageBitmap(file);
-      } catch {
-        bitmap = null;
-      }
-    }
-    let width;
-    let height;
-    if (bitmap) {
-      width = bitmap.width;
-      height = bitmap.height;
-    } else {
-      const img = await new Promise((resolve, reject) => {
-        const el = new Image();
-        el.onload = () => resolve(el);
-        el.onerror = reject;
-        el.src = String(dataUrl);
-      });
-      width = img.width;
-      height = img.height;
-    }
-    if (width > maxWidth) {
-      height = Math.round((height * maxWidth) / width);
-      width = maxWidth;
-    }
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("canvas unavailable");
-    if (bitmap) {
-      ctx.drawImage(bitmap, 0, 0, width, height);
-      bitmap.close?.();
-    } else {
-      const img = await new Promise((resolve, reject) => {
-        const el = new Image();
-        el.onload = () => resolve(el);
-        el.onerror = reject;
-        el.src = String(dataUrl);
-      });
-      ctx.drawImage(img, 0, 0, width, height);
-    }
-    const out = canvas.toDataURL("image/jpeg", quality);
-    if (!out || out.length < 32) throw new Error("compression failed");
-    return out.split(",")[1];
-  } catch {
-    return fileToBase64(file);
-  }
+function isLikelyImageFile(file) {
+  const type = String(file?.type || "").toLowerCase();
+  const name = String(file?.name || "");
+  if (type.startsWith("image/")) return true;
+  if ((type === "" || type === "application/octet-stream") && IMAGE_EXT_RE.test(name)) return true;
+  return false;
 }
 
-function fileToBase64(file) {
+function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result;
-      const b64 = String(dataUrl).split(",")[1];
-      resolve(b64);
-    };
-    reader.onerror = reject;
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error || new Error("FileReader failed"));
     reader.readAsDataURL(file);
   });
+}
+
+function loadImageFromDataUrl(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const el = new Image();
+    el.onload = () => resolve(el);
+    el.onerror = () => reject(new Error("image decode failed"));
+    el.src = dataUrl;
+  });
+}
+
+async function compressImage(file, maxWidth = 1600, quality = 0.82) {
+  const dataUrl = String(await readFileAsDataUrl(file));
+  const img = await loadImageFromDataUrl(dataUrl);
+  let width = img.width;
+  let height = img.height;
+  if (!width || !height) throw new Error("invalid image dimensions");
+  if (width > maxWidth) {
+    height = Math.round((height * maxWidth) / width);
+    width = maxWidth;
+  }
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("canvas unavailable");
+  ctx.drawImage(img, 0, 0, width, height);
+  let out;
+  try {
+    out = canvas.toDataURL("image/jpeg", quality);
+  } catch (err) {
+    console.error("[survey-v1] canvas.toDataURL failed", err, { name: file.name, type: file.type, size: file.size });
+    throw err;
+  }
+  if (!out || out.length < 32) throw new Error("compression failed");
+  const b64 = out.split(",")[1];
+  if (!b64 || b64.length < 16) throw new Error("empty base64");
+  return b64;
+}
+
+async function fileToBase64(file) {
+  const dataUrl = String(await readFileAsDataUrl(file));
+  const b64 = dataUrl.split(",")[1];
+  if (!b64) throw new Error("base64 empty");
+  return b64;
 }
 
 function revokePendingPreviews() {
@@ -383,9 +370,10 @@ function paintPhotoGridHtml(visible) {
 
 async function uploadPhotos(files) {
   if (!currentProjectId || !files?.length) return;
-  const imageFiles = [...files].filter((f) => !f.type || f.type.startsWith("image/"));
+  const imageFiles = [...files].filter(isLikelyImageFile);
   if (!imageFiles.length) {
-    toast("写真を追加できませんでした。もう一度選んでください");
+    console.error("[survey-v1] no image files after filter", [...files].map((f) => ({ name: f.name, type: f.type, size: f.size })));
+    toast(PHOTO_FAIL_MSG);
     return;
   }
   const currentImageCount = cachedPhotos.filter((p) => p.url).length;
@@ -407,7 +395,13 @@ async function uploadPhotos(files) {
   for (const file of batch) {
     progress.textContent = `アップロード中… ${done + 1} / ${batch.length}`;
     try {
-      const imageBase64 = await compressImage(file);
+      let imageBase64;
+      try {
+        imageBase64 = await compressImage(file);
+      } catch (compressErr) {
+        console.warn("[survey-v1] compress failed, trying raw base64", compressErr, file.name);
+        imageBase64 = await fileToBase64(file);
+      }
       await api(`/projects/${currentProjectId}/photos`, {
         method: "POST",
         body: JSON.stringify({
@@ -420,10 +414,11 @@ async function uploadPhotos(files) {
       done += 1;
     } catch (e) {
       failed = true;
+      console.error("[survey-v1] photo upload failed", e, { name: file.name, type: file.type, status: e.status });
       if (e.status === 401) {
         toast("ログインが切れました。もう一度ログインしてください");
       } else {
-        toast("写真を追加できませんでした。もう一度選んでください");
+        toast(PHOTO_FAIL_MSG);
       }
       break;
     }

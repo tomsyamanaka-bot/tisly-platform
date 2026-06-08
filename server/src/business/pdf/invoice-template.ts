@@ -73,6 +73,7 @@ ${renderTomsDocLayoutHeader({
   issueDate: header.invoiceDate,
   docNoLabel: "請求番号",
   docNo: header.invoiceNo,
+  includeRegistrationNo: true,
 })}
 ${renderAmountBanner(invoice.total)}
 <p class="intro">下記の通りご請求申し上げます。見積参照番号：${escapeHtml(header.estimateRefNo)}</p>
