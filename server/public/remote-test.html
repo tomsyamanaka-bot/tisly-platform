@@ -122,6 +122,15 @@
       background: rgba(26, 127, 55, 0.08);
       border-radius: 6px;
     }
+    .log-entry.notify-fail {
+      border-left: 3px solid var(--danger);
+      padding-left: 0.6rem;
+      background: rgba(218, 54, 51, 0.08);
+      border-radius: 6px;
+    }
+    .notify-label { font-weight: 700; }
+    .notify-label.on { color: #3fb950; }
+    .notify-label.off { color: var(--muted); }
     .log-time { color: var(--muted); }
     .log-label { font-weight: 600; }
     .status-success { color: #3fb950; font-weight: 700; }
@@ -320,6 +329,12 @@
       <dt>RP2350接続時刻</dt><dd id="dbg-poll">—</dd>
     </dl>
     <p class="hint">5秒ごとに自動更新</p>
+  </section>
+
+  <section class="card highlight">
+    <h2>通知履歴</h2>
+    <p class="hint">RP2350 の chStates 変化（OFF→ON / ON→OFF）で Push 送信。同一状態は通知しません。</p>
+    <div id="notify-history" aria-live="polite"><div class="log-entry"><span class="log-time">—</span> 待機中…</div></div>
   </section>
 
   <section class="card">

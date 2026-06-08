@@ -21,6 +21,24 @@ export interface RemoteTestLogEntry {
   source?: "web" | "device";
 }
 
+export interface ChStateChange {
+  channel: number;
+  from: ChannelState;
+  to: ChannelState;
+}
+
+export interface RemoteTestNotificationEntry {
+  id: string;
+  at: string;
+  channel: number;
+  from: ChannelState;
+  to: ChannelState;
+  title: string;
+  body: string;
+  pushSuccess: boolean;
+  pushError?: string;
+}
+
 /** RP2350 が応答しないと offline とみなす秒数（heartbeat 60 秒 + 余裕） */
 export const DEVICE_OFFLINE_THRESHOLD_SEC = 90;
 
@@ -49,6 +67,9 @@ export function normalizeDeviceChStates(input: unknown): ChStates | null {
 interface RemoteTestState {
   pendingCommand: RemoteTestCommand | null;
   chStates: ChStates;
+  /** heartbeat で確定した前回状態（Web 楽観更新と分離） */
+  lastDeviceChStates: ChStates;
+  deviceChStatesBaselined: boolean;
   lastCommand: RemoteTestCommand | null;
   lastCommandAt: string | null;
   lastPollAt: string | null;
@@ -58,13 +79,17 @@ interface RemoteTestState {
   lastAccessIp: string | null;
   firmwareVersion: string | null;
   logs: RemoteTestLogEntry[];
+  notificationHistory: RemoteTestNotificationEntry[];
 }
 
 const MAX_LOGS = 50;
+const MAX_NOTIFICATION_HISTORY = 50;
 
 const state: RemoteTestState = {
   pendingCommand: null,
   chStates: createDefaultChStates(),
+  lastDeviceChStates: createDefaultChStates(),
+  deviceChStatesBaselined: false,
   lastCommand: null,
   lastCommandAt: null,
   lastPollAt: null,
@@ -74,7 +99,21 @@ const state: RemoteTestState = {
   lastAccessIp: null,
   firmwareVersion: null,
   logs: [],
+  notificationHistory: [],
 };
+
+export function detectChStateChanges(prev: ChStates, next: ChStates): ChStateChange[] {
+  const changes: ChStateChange[] = [];
+  for (let ch = 1; ch <= CHANNEL_COUNT; ch++) {
+    const key = String(ch);
+    const from = prev[key] ?? "off";
+    const to = next[key] ?? "off";
+    if (from !== to) {
+      changes.push({ channel: ch, from, to });
+    }
+  }
+  return changes;
+}
 
 function pushLog(action: string, detail?: string, source: RemoteTestLogEntry["source"] = "web"): void {
   state.logs.unshift({ at: new Date().toISOString(), action, detail, source });
@@ -113,6 +152,7 @@ export function getRemoteTestStatus() {
     lastPushResult: state.lastPushResult,
     lastAccessIp: state.lastAccessIp,
     logs: [...state.logs],
+    notificationHistory: [...state.notificationHistory],
   };
 }
 
@@ -153,10 +193,47 @@ export function getDeviceStatus() {
   };
 }
 
-export function recordDeviceHeartbeat(firmwareVersion?: string, chStates?: ChStates): void {
+export function recordDeviceHeartbeat(firmwareVersion?: string, chStates?: ChStates): ChStateChange[] {
   recordDevicePoll(firmwareVersion);
-  if (chStates) {
-    state.chStates = { ...chStates };
+  if (!chStates) return [];
+
+  const prev = { ...state.lastDeviceChStates };
+  state.chStates = { ...chStates };
+  state.lastDeviceChStates = { ...chStates };
+
+  if (!state.deviceChStatesBaselined) {
+    state.deviceChStatesBaselined = true;
+    return [];
+  }
+
+  return detectChStateChanges(prev, chStates);
+}
+
+export function recordChStateNotification(
+  change: ChStateChange,
+  payload: { title: string; body: string },
+  result: { success: boolean; error?: string },
+  logId: string
+): void {
+  const label = `CH${change.channel} ${change.to.toUpperCase()}`;
+  pushLog(
+    "ch_state_change",
+    `${label} (${change.from}→${change.to})${result.success ? "" : ` — ${result.error ?? "failed"}`}`,
+    "device"
+  );
+  state.notificationHistory.unshift({
+    id: logId,
+    at: new Date().toISOString(),
+    channel: change.channel,
+    from: change.from,
+    to: change.to,
+    title: payload.title,
+    body: payload.body,
+    pushSuccess: result.success,
+    pushError: result.error,
+  });
+  if (state.notificationHistory.length > MAX_NOTIFICATION_HISTORY) {
+    state.notificationHistory.length = MAX_NOTIFICATION_HISTORY;
   }
 }
 
@@ -184,6 +261,8 @@ export function markPushResult(success: boolean, error?: string): void {
 export function resetRemoteTestState(): void {
   state.pendingCommand = null;
   state.chStates = createDefaultChStates();
+  state.lastDeviceChStates = createDefaultChStates();
+  state.deviceChStatesBaselined = false;
   state.lastCommand = null;
   state.lastCommandAt = null;
   state.lastPollAt = null;
@@ -193,4 +272,5 @@ export function resetRemoteTestState(): void {
   state.lastAccessIp = null;
   state.firmwareVersion = null;
   state.logs = [];
+  state.notificationHistory = [];
 }

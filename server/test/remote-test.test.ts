@@ -5,7 +5,10 @@ process.env.REMOTE_TEST_TOKEN = process.env.REMOTE_TEST_TOKEN || "test-remote-to
 
 import request from "supertest";
 import { createApp } from "../src/app.js";
-import { resetRemoteTestState } from "../src/remote-test/remote-test-state.js";
+import {
+  detectChStateChanges,
+  resetRemoteTestState,
+} from "../src/remote-test/remote-test-state.js";
 
 const TEST_TOKEN = "test-remote-token-abc123";
 
@@ -266,6 +269,210 @@ describe("Remote Test PoC API", () => {
     assert.equal(res.body.lastPushSuccessAt, null);
   });
 
+  it("detectChStateChanges finds OFF→ON and ON→OFF only", () => {
+    const prev = {
+      "1": "off",
+      "2": "on",
+      "3": "off",
+      "4": "off",
+      "5": "off",
+      "6": "off",
+      "7": "off",
+      "8": "off",
+    } as const;
+    const next = {
+      "1": "on",
+      "2": "off",
+      "3": "off",
+      "4": "off",
+      "5": "off",
+      "6": "off",
+      "7": "off",
+      "8": "on",
+    };
+    const changes = detectChStateChanges(prev, next);
+    assert.equal(changes.length, 3);
+    assert.deepEqual(changes.find((c) => c.channel === 1), { channel: 1, from: "off", to: "on" });
+    assert.deepEqual(changes.find((c) => c.channel === 2), { channel: 2, from: "on", to: "off" });
+    assert.deepEqual(changes.find((c) => c.channel === 8), { channel: 8, from: "off", to: "on" });
+    assert.equal(detectChStateChanges(next, next).length, 0);
+  });
+
+  it("first heartbeat baselines chStates without notifications", async () => {
+    resetRemoteTestState();
+    await request(app)
+      .post("/api/remote-test/heartbeat")
+      .query({ token: TEST_TOKEN, firmware: "1.2.0-ch8" })
+      .send({
+        chStates: {
+          "1": "off",
+          "2": "off",
+          "3": "off",
+          "4": "off",
+          "5": "off",
+          "6": "off",
+          "7": "off",
+          "8": "on",
+        },
+      });
+
+    const status = await request(app)
+      .get("/api/remote-test/status")
+      .set("X-Remote-Test-Token", TEST_TOKEN);
+    assert.equal(status.body.notificationHistory.length, 0);
+  });
+
+  it("heartbeat CH8 OFF→ON sends notification history entry", async () => {
+    resetRemoteTestState();
+    const allOff = {
+      "1": "off",
+      "2": "off",
+      "3": "off",
+      "4": "off",
+      "5": "off",
+      "6": "off",
+      "7": "off",
+      "8": "off",
+    };
+
+    await request(app)
+      .post("/api/remote-test/heartbeat")
+      .query({ token: TEST_TOKEN })
+      .send({ chStates: allOff });
+
+    const onRes = await request(app)
+      .post("/api/remote-test/heartbeat")
+      .query({ token: TEST_TOKEN })
+      .send({
+        chStates: { ...allOff, "8": "on" },
+      });
+    assert.equal(onRes.status, 200);
+    assert.equal(onRes.body.chStateChanges?.length, 1);
+    assert.equal(onRes.body.chStateChanges[0].channel, 8);
+    assert.equal(onRes.body.chStateChanges[0].from, "off");
+    assert.equal(onRes.body.chStateChanges[0].to, "on");
+
+    const status = await request(app)
+      .get("/api/remote-test/status")
+      .set("X-Remote-Test-Token", TEST_TOKEN);
+    assert.equal(status.body.notificationHistory.length, 1);
+    assert.equal(status.body.notificationHistory[0].channel, 8);
+    assert.equal(status.body.notificationHistory[0].to, "on");
+    assert.equal(status.body.notificationHistory[0].body, "CH8 ON");
+    assert.match(status.body.notificationHistory[0].title, /TiSLY CH8 ON/);
+  });
+
+  it("repeated heartbeat with same chStates does not add notifications", async () => {
+    resetRemoteTestState();
+    const ch8On = {
+      "1": "off",
+      "2": "off",
+      "3": "off",
+      "4": "off",
+      "5": "off",
+      "6": "off",
+      "7": "off",
+      "8": "on",
+    };
+
+    await request(app)
+      .post("/api/remote-test/heartbeat")
+      .query({ token: TEST_TOKEN })
+      .send({ chStates: { ...ch8On, "8": "off" } });
+    await request(app)
+      .post("/api/remote-test/heartbeat")
+      .query({ token: TEST_TOKEN })
+      .send({ chStates: ch8On });
+    await request(app)
+      .post("/api/remote-test/heartbeat")
+      .query({ token: TEST_TOKEN })
+      .send({ chStates: ch8On });
+
+    const status = await request(app)
+      .get("/api/remote-test/status")
+      .set("X-Remote-Test-Token", TEST_TOKEN);
+    assert.equal(status.body.notificationHistory.length, 1);
+  });
+
+  it("heartbeat CH8 ON→OFF sends notification history entry", async () => {
+    resetRemoteTestState();
+    const allOff = {
+      "1": "off",
+      "2": "off",
+      "3": "off",
+      "4": "off",
+      "5": "off",
+      "6": "off",
+      "7": "off",
+      "8": "off",
+    };
+
+    await request(app)
+      .post("/api/remote-test/heartbeat")
+      .query({ token: TEST_TOKEN })
+      .send({ chStates: allOff });
+    await request(app)
+      .post("/api/remote-test/heartbeat")
+      .query({ token: TEST_TOKEN })
+      .send({ chStates: { ...allOff, "8": "on" } });
+
+    const offRes = await request(app)
+      .post("/api/remote-test/heartbeat")
+      .query({ token: TEST_TOKEN })
+      .send({ chStates: allOff });
+    assert.equal(offRes.body.chStateChanges?.length, 1);
+    assert.equal(offRes.body.chStateChanges[0].to, "off");
+
+    const status = await request(app)
+      .get("/api/remote-test/status")
+      .set("X-Remote-Test-Token", TEST_TOKEN);
+    assert.equal(status.body.notificationHistory.length, 2);
+    assert.equal(status.body.notificationHistory[0].channel, 8);
+    assert.equal(status.body.notificationHistory[0].to, "off");
+    assert.equal(status.body.notificationHistory[0].body, "CH8 OFF");
+    assert.equal(status.body.notificationHistory[1].to, "on");
+  });
+
+  it("optimistic web ON still triggers push when heartbeat confirms device", async () => {
+    resetRemoteTestState();
+    const allOff = {
+      "1": "off",
+      "2": "off",
+      "3": "off",
+      "4": "off",
+      "5": "off",
+      "6": "off",
+      "7": "off",
+      "8": "off",
+    };
+
+    await request(app)
+      .post("/api/remote-test/heartbeat")
+      .query({ token: TEST_TOKEN })
+      .send({ chStates: allOff });
+
+    await request(app)
+      .post("/api/remote-test/ch8/on")
+      .set("X-Remote-Test-Token", TEST_TOKEN);
+
+    const before = await request(app)
+      .get("/api/remote-test/status")
+      .set("X-Remote-Test-Token", TEST_TOKEN);
+    assert.equal(before.body.notificationHistory.length, 0);
+    assert.equal(before.body.chStates["8"], "on");
+
+    await request(app)
+      .post("/api/remote-test/heartbeat")
+      .query({ token: TEST_TOKEN })
+      .send({ chStates: { ...allOff, "8": "on" } });
+
+    const after = await request(app)
+      .get("/api/remote-test/status")
+      .set("X-Remote-Test-Token", TEST_TOKEN);
+    assert.equal(after.body.notificationHistory.length, 1);
+    assert.equal(after.body.notificationHistory[0].body, "CH8 ON");
+  });
+
   it("GET /remote-test serves HTML page", async () => {
     const res = await request(app).get("/remote-test");
     assert.equal(res.status, 200);
@@ -279,6 +486,8 @@ describe("Remote Test PoC API", () => {
     assert.match(res.text, /Push 成功時刻/);
     assert.match(res.text, /CH8/);
     assert.match(res.text, /btn-ch-on/);
+    assert.match(res.text, /通知履歴/);
+    assert.match(res.text, /id="notify-history"/);
   });
 
   it("GET /remote-test/app.js serves in-scope script", async () => {

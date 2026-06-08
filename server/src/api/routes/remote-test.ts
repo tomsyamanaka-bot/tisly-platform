@@ -4,6 +4,7 @@ import {
   countPushSubscriptions,
   sendWebPush,
 } from "../../notification/channels/web-push.js";
+import { notifyChStateChanges } from "../../remote-test/remote-test-ch-notify.js";
 import {
   CHANNEL_COUNT,
   consumePendingCommand,
@@ -171,15 +172,19 @@ remoteTestRouter.get("/device", (req, res) => {
   res.json({ ok: true, ...getDeviceStatus() });
 });
 
-function handleDeviceHeartbeat(req: Request, res: Response): void {
+async function handleDeviceHeartbeat(req: Request, res: Response): Promise<void> {
   const firmware =
     typeof req.query.firmware === "string" ? req.query.firmware.trim() : undefined;
   const chStates = normalizeDeviceChStates(req.body?.chStates);
-  recordDeviceHeartbeat(firmware || undefined, chStates ?? undefined);
+  const changes = recordDeviceHeartbeat(firmware || undefined, chStates ?? undefined);
+  if (changes.length > 0) {
+    await notifyChStateChanges(changes);
+  }
   res.json({
     ok: true,
     ...getDeviceStatus(),
     heartbeatAt: new Date().toISOString(),
+    chStateChanges: changes,
   });
 }
 

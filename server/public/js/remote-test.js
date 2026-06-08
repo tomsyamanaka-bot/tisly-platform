@@ -101,6 +101,7 @@ async function api(method, path, body) {
 }
 
 const logEl = document.getElementById("log");
+const notifyHistoryEl = document.getElementById("notify-history");
 const tokenInput = document.getElementById("token-input");
 const saveTokenBtn = document.getElementById("btn-save-token");
 
@@ -251,6 +252,31 @@ function renderChannelBadge(ch, state) {
   el.innerHTML = `<span class="badge ${state === "on" ? "on" : "off"}">${state}</span>`;
 }
 
+function renderNotificationHistory(history) {
+  if (!notifyHistoryEl) return;
+  const items = Array.isArray(history) ? history : [];
+  if (items.length === 0) {
+    notifyHistoryEl.innerHTML =
+      '<div class="log-entry"><span class="log-time">—</span> まだ通知はありません</div>';
+    return;
+  }
+  notifyHistoryEl.innerHTML = items
+    .map((entry) => {
+      const time = fmtTime(entry.at);
+      const label = entry.body || `CH${entry.channel} ${(entry.to || "").toUpperCase()}`;
+      const cls = entry.to === "on" ? "on" : "off";
+      const pushStatus = entry.pushSuccess
+        ? '<span class="status-success">Push OK</span>'
+        : `<span class="status-fail">Push NG${entry.pushError ? ` — ${entry.pushError}` : ""}</span>`;
+      const entryCls = entry.pushSuccess ? "log-entry success" : "log-entry notify-fail";
+      return `<div class="${entryCls}">
+        <div><span class="log-time">${time}</span> <span class="notify-label ${cls}">${label}</span></div>
+        <div class="status-muted">${entry.title ?? ""} · ${pushStatus}</div>
+      </div>`;
+    })
+    .join("");
+}
+
 function renderStatus(data) {
   for (let ch = 1; ch <= CHANNEL_COUNT; ch++) {
     renderChannelBadge(ch, getChannelState(data, ch));
@@ -265,6 +291,7 @@ function renderStatus(data) {
 
   renderPushServerStatus(data);
   renderDeviceStatus(data.device);
+  renderNotificationHistory(data.notificationHistory);
 }
 
 function renderDeviceStatus(device) {
