@@ -246,10 +246,14 @@ function getChannelState(data, ch) {
   return "off";
 }
 
-function renderChannelBadge(ch, state) {
+function renderChannelBadge(ch, state, pending) {
   const el = document.getElementById(`st-ch${ch}`);
   if (!el) return;
-  el.innerHTML = `<span class="badge ${state === "on" ? "on" : "off"}">${state}</span>`;
+  if (pending) {
+    el.innerHTML = `<span class="badge pending">指令送信済み</span>`;
+  } else {
+    el.innerHTML = `<span class="badge ${state === "on" ? "on" : "off"}">${state}</span>`;
+  }
 }
 
 function renderNotificationHistory(history) {
@@ -278,8 +282,12 @@ function renderNotificationHistory(history) {
 }
 
 function renderStatus(data) {
+  // pendingCommand から保留中のチャンネル番号を抽出（例: "ch8_on" → 8）
+  const pendingMatch = data.pendingCommand ? data.pendingCommand.match(/^ch(\d+)_(on|off)$/) : null;
+  const pendingCh = pendingMatch ? Number(pendingMatch[1]) : null;
+
   for (let ch = 1; ch <= CHANNEL_COUNT; ch++) {
-    renderChannelBadge(ch, getChannelState(data, ch));
+    renderChannelBadge(ch, getChannelState(data, ch), ch === pendingCh);
   }
   document.getElementById("st-pending").textContent = data.pendingCommand ?? "なし";
   document.getElementById("st-notify").textContent = fmtTime(data.lastNotifyAt);

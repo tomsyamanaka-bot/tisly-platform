@@ -66,8 +66,9 @@ export function normalizeDeviceChStates(input: unknown): ChStates | null {
 
 interface RemoteTestState {
   pendingCommand: RemoteTestCommand | null;
-  chStates: ChStates;
-  /** heartbeat で確定した前回状態（Web 楽観更新と分離） */
+  /** heartbeat で確定した実機 chStates（PWA 楽観更新は含まない） */
+  confirmedChStates: ChStates;
+  /** 前回 heartbeat 時の confirmedChStates（差分検出用） */
   lastDeviceChStates: ChStates;
   deviceChStatesBaselined: boolean;
   lastCommand: RemoteTestCommand | null;
@@ -87,7 +88,7 @@ const MAX_NOTIFICATION_HISTORY = 50;
 
 const state: RemoteTestState = {
   pendingCommand: null,
-  chStates: createDefaultChStates(),
+  confirmedChStates: createDefaultChStates(),
   lastDeviceChStates: createDefaultChStates(),
   deviceChStatesBaselined: false,
   lastCommand: null,
@@ -132,7 +133,7 @@ export function buildChCommand(channel: number, on: boolean): RemoteTestCommand 
 }
 
 function getChState(channel: number): ChannelState {
-  return state.chStates[String(channel)] ?? "off";
+  return state.confirmedChStates[String(channel)] ?? "off";
 }
 
 export function recordWebAccess(ip: string): void {
@@ -142,7 +143,7 @@ export function recordWebAccess(ip: string): void {
 export function getRemoteTestStatus() {
   return {
     pendingCommand: state.pendingCommand,
-    chStates: { ...state.chStates },
+    chStates: { ...state.confirmedChStates },
     ch1State: getChState(1),
     lastCommand: state.lastCommand,
     lastCommandAt: state.lastCommandAt,
@@ -159,10 +160,10 @@ export function getRemoteTestStatus() {
 export function queueChCommand(channel: number, on: boolean): void {
   const command = buildChCommand(channel, on);
   state.pendingCommand = command;
-  state.chStates[String(channel)] = on ? "on" : "off";
+  // confirmedChStates は heartbeat でのみ更新する（PWA 楽観更新しない）
   state.lastCommand = command;
   state.lastCommandAt = new Date().toISOString();
-  pushLog(command, `CH${channel} → ${state.chStates[String(channel)].toUpperCase()}`);
+  pushLog(command, `CH${channel} → ${on ? "ON" : "OFF"} (pending)`);
 }
 
 /** @deprecated Use queueChCommand(1, on) */
@@ -189,7 +190,7 @@ export function getDeviceStatus() {
     offline: !online,
     lastSeen,
     firmwareVersion: state.firmwareVersion,
-    chStates: { ...state.chStates },
+    chStates: { ...state.confirmedChStates },
   };
 }
 
@@ -198,7 +199,8 @@ export function recordDeviceHeartbeat(firmwareVersion?: string, chStates?: ChSta
   if (!chStates) return [];
 
   const prev = { ...state.lastDeviceChStates };
-  state.chStates = { ...chStates };
+  // confirmedChStates は heartbeat でのみ更新する
+  state.confirmedChStates = { ...chStates };
   state.lastDeviceChStates = { ...chStates };
 
   if (!state.deviceChStatesBaselined) {
@@ -260,7 +262,7 @@ export function markPushResult(success: boolean, error?: string): void {
 
 export function resetRemoteTestState(): void {
   state.pendingCommand = null;
-  state.chStates = createDefaultChStates();
+  state.confirmedChStates = createDefaultChStates();
   state.lastDeviceChStates = createDefaultChStates();
   state.deviceChStatesBaselined = false;
   state.lastCommand = null;

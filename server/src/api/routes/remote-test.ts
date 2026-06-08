@@ -145,11 +145,24 @@ for (let ch = 1; ch <= CHANNEL_COUNT; ch++) {
   remoteTestRouter.post(`/ch${ch}/on`, (req, res) => {
     trackWebAccess(req);
     queueChCommand(ch, true);
+    const status = getRemoteTestStatus();
     res.json({
       ok: true,
       command: `ch${ch}_on`,
       channel: ch,
-      ...getRemoteTestStatus(),
+      pendingCommand: status.pendingCommand,
+      // confirmedChStates: heartbeat で確定した実機状態（楽観更新しない）
+      chStates: status.chStates,
+      ch1State: status.ch1State,
+      lastCommand: status.lastCommand,
+      lastCommandAt: status.lastCommandAt,
+      lastPollAt: status.lastPollAt,
+      lastNotifyAt: status.lastNotifyAt,
+      lastPushSuccessAt: status.lastPushSuccessAt,
+      lastPushResult: status.lastPushResult,
+      lastAccessIp: status.lastAccessIp,
+      logs: status.logs,
+      notificationHistory: status.notificationHistory,
       ...pushStatusExtras(),
     });
   });
@@ -157,11 +170,23 @@ for (let ch = 1; ch <= CHANNEL_COUNT; ch++) {
   remoteTestRouter.post(`/ch${ch}/off`, (req, res) => {
     trackWebAccess(req);
     queueChCommand(ch, false);
+    const status = getRemoteTestStatus();
     res.json({
       ok: true,
       command: `ch${ch}_off`,
       channel: ch,
-      ...getRemoteTestStatus(),
+      pendingCommand: status.pendingCommand,
+      chStates: status.chStates,
+      ch1State: status.ch1State,
+      lastCommand: status.lastCommand,
+      lastCommandAt: status.lastCommandAt,
+      lastPollAt: status.lastPollAt,
+      lastNotifyAt: status.lastNotifyAt,
+      lastPushSuccessAt: status.lastPushSuccessAt,
+      lastPushResult: status.lastPushResult,
+      lastAccessIp: status.lastAccessIp,
+      logs: status.logs,
+      notificationHistory: status.notificationHistory,
       ...pushStatusExtras(),
     });
   });
