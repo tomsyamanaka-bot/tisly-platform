@@ -1,0 +1,17 @@
+{
+  "name": "TiSLY 見積PWA v1",
+  "short_name": "見積v1",
+  "description": "TiSLY 実務見積PWA — 現調から作成・税込計算・PDF",
+  "start_url": "/estimate-v1",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f6f8fa",
+  "theme_color": "#0969da",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "/icons/icon-64.png?v=2001", "sizes": "64x64", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-128.png?v=2001", "sizes": "128x128", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-192.png?v=2001", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/icon-512.png?v=2001", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

@@ -183,6 +183,7 @@ export function runMigrations(database: Database.Database): void {
   migratePhase1621(database);
   migratePhase2201(database);
   migrateFieldSurveyPwaV1(database);
+  migrateFieldEstimatePwaV1(database);
 }
 
 const SURVEY_PROJECT_V1_COLUMNS: Array<{ name: string; ddl: string }> = [
@@ -260,6 +261,25 @@ function migrateFieldSurveyPwaV1(database: Database.Database): void {
       `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
     )
     .run("migration:field_survey_pwa_v1", JSON.stringify({ at: new Date().toISOString() }));
+}
+
+/** TiSLY 見積PWA v1 — インデックス追加（既存 business テーブル利用） */
+function migrateFieldEstimatePwaV1(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:field_estimate_pwa_v1") as { value_json: string } | undefined;
+  if (marker) return;
+
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_business_projects_survey_project
+      ON business_projects(survey_project_id) WHERE survey_project_id IS NOT NULL;
+  `);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:field_estimate_pwa_v1", JSON.stringify({ at: new Date().toISOString() }));
 }
 
 function migratePhase2201(database: Database.Database): void {
