@@ -1,7 +1,8 @@
-# Phase 2 — RP2350 実機確認手順（VPS heartbeat 404 修正後）
+# Phase 2 — RP2350 最終確認手順（PoC 完了判定）
 
 **対象:** 智紀さん（初心者向け）  
-**目的:** VPS 側 heartbeat API 修正（commit `d133aaa`）後、**ファームウェア再変更なし**で RESET だけ行い、heartbeat 404 が消えたことを実機で確認する。
+**フェーズ:** Phase 2 最終確認（commit `102e920` push 済み · VPS heartbeat 404 修正済み）  
+**目的:** **ファームウェア再変更なし**で Thonny RESET のみ行い、合格条件 5 項目をすべて満たしたら **Phase 2 RP2350 PoC 完了** と記録する。
 
 | 項目 | 値 |
 |------|-----|
@@ -10,9 +11,32 @@
 | poll 間隔 | 3 秒 |
 | heartbeat 間隔 | 60 秒 |
 | PWA URL | https://tisly.jp/remote-test |
-| VPS 確認済み | `curl` で `/api/remote-test/heartbeat` → **200 OK** |
+| VPS 事前確認 | トークンなし curl → **403**（404 でない = ルート存在）· トークンあり → **200 OK** |
 
-> **重要:** 今回は RP2350 へのファイル再アップロードは **不要** です。Thonny で接続して **RESET ボタンを押す** だけで確認を始められます。
+> **重要:** RP2350 へのファイル再アップロードは **不要** です。Thonny で接続して **RESET ボタンを 1 回** 押すだけで確認を始められます。
+
+---
+
+## 最終確認クイック手順（智紀さん向け・この順で実施）
+
+所要時間の目安: **約 3〜5 分**（heartbeat 60 秒待ちを含むと **約 2 分追加**）
+
+| 順 | 作業 | 合格の見方 |
+|----|------|------------|
+| **1** | Thonny で RP2350 に接続 → **RESET 1 回**（§1 参照） | Shell に `TISLY BOOT` · `polling start (poll 3 sec / heartbeat 60 sec)` |
+| **2** | Shell を **90 秒** 見守る | `heartbeat sent` が **起動直後 1 回** + **約 60 秒後に 1 回**（3 秒ごとではない）· **`error: heartbeat HTTP 404` が一切出ない** |
+| **3** | ブラウザで https://tisly.jp/remote-test を開く（トークン保存済み） | 状態 **online** · **最終接続** が RESET 後の時刻 · **ファームウェア** = `1.1.0-poc-success` |
+| **4** | PWA で **CH1 ON** → リレーを目視 | **3 秒以内**に Shell に `command received: ch1_on` · `EXEC CH1 ON` · リレーがカチッと ON |
+| **5** | PWA で **CH1 OFF** → リレーを目視 | **3 秒以内**に `command received: ch1_off` · `EXEC CH1 OFF` · リレーがカチッと OFF |
+| **6** | 上記 1〜5 がすべて OK | 本ドキュメント **§6 完了記録** にチェックを入れて記入 |
+
+**合格条件（すべて必須）**
+
+- Thonny Shell に `heartbeat HTTP 404` が **出ない**
+- `heartbeat sent` が **約 60 秒に 1 回**（起動直後の 1 回を除く）
+- PWA で `firmwareVersion` = **1.1.0-poc-success**
+- CH1 ON/OFF が PWA から **3 秒以内**に反応
+- リレーが ON/OFF で **カチッと** 動く
 
 ---
 
@@ -122,7 +146,7 @@ CH1 操作時の正常ログ例:
 
 ```bash
 cd /opt/tisly
-git log -1 --oneline          # d133aaa 以降か
+git log -1 --oneline          # 102e920 以降か（heartbeat 404 修正は d133aaa）
 cd server && npm run build
 sudo systemctl restart tisly-server
 
@@ -243,20 +267,20 @@ curl -s -H "X-Remote-Test-Token: $TOKEN" \
 
 ## 6. 完了記録 — Phase 2 RP2350 PoC 完了
 
-**以下すべて ✅ なら Phase 2 PoC 完了** と記録します。
+**§「最終確認クイック手順」の 1〜5 がすべて ✅ なら Phase 2 PoC 完了** と記録します。
 
 | # | 項目 | 確認者 | 日時 | 結果 |
 |---|------|--------|------|------|
-| 1 | VPS heartbeat curl 200 OK | | | ☐ |
-| 2 | RESET 後 Shell に `heartbeat sent`（404 なし） | | | ☐ |
+| 1 | VPS heartbeat curl 200 OK（トークンあり） | | | ☐ |
+| 2 | RESET 後 Shell に `heartbeat sent`（**404 なし**） | | | ☐ |
 | 3 | `heartbeat sent` が約 60 秒間隔（3 秒ごとでない） | | | ☐ |
-| 4 | PWA **online** · 接続時刻更新 · fw `1.1.0-poc-success` | | | ☐ |
-| 5 | CH1 ON → 3 秒以内 · リレー ON | | | ☐ |
-| 6 | CH1 OFF → 3 秒以内 · リレー OFF | | | ☐ |
+| 4 | PWA **online** · **lastSeen** 更新 · fw `1.1.0-poc-success` | | | ☐ |
+| 5 | CH1 ON → 3 秒以内 · リレー ON（カチッと音） | | | ☐ |
+| 6 | CH1 OFF → 3 秒以内 · リレー OFF（カチッと音） | | | ☐ |
 | 7 | （任意）Push テスト成功 | | | ☐ |
 | 8 | （任意）offline 90 秒判定 | | | ☐ |
 
-**完了宣言（全項目 OK 後に記入）:**
+**完了宣言（全必須項目 OK 後に記入）:**
 
 ```
 Phase 2 RP2350 PoC 完了
@@ -264,31 +288,39 @@ Phase 2 RP2350 PoC 完了
 確認者: 智紀
 RP2350 IP: 192.168.1.227
 ファームウェア: 1.1.0-poc-success
-VPS commit: d133aaa 以降
+VPS commit: 102e920（heartbeat 404 修正: d133aaa）
 備考:
 ```
 
-完了後は README の Phase 2 セクションと本ファイルの完了記録を更新してください。
+> 記入後、担当者が README の Phase 2 セクションを「PoC 完了」に更新する。
 
 ---
 
-## 7. 次フェーズ — CH2〜CH8 拡張（実装方針のみ）
+## 7. 次フェーズ — CH2〜CH8 拡張（実装準備のみ・コード変更なし）
 
-**コード変更はまだ行いません。** 詳細設計: [`docs/rp2350_phase3_design.md`](rp2350_phase3_design.md)
+Phase 2 完了後に着手。**コード変更はまだ行いません。** 詳細設計: [`docs/rp2350_phase3_design.md`](rp2350_phase3_design.md)
 
-### 方針要約
+### 実装前タスク（ハードウェア）
 
-| 層 | やること |
-|----|----------|
-| **VPS API** | `POST /api/remote-test/ch{N}/on\|off`（N=1..8）· `command` 返却を `ch3_on` 等に一般化 · 状態を `chStates` で保持 |
-| **PWA** | CH1 と同じ縦リスト UI で CH2〜CH8 ボタン追加（大改造なし） |
-| **RP2350** | `config.py` に `CH_GPIO` マップ追加 · `exec_command()` を一般化 · RO2〜8 の GPIO は Wiki + 実測で確定 |
-| **前提タスク** | `rp2350/config/gpio_map.json` のピン確定 · 各 RO を 1 点ずつ実測 |
+| # | タスク | 担当 | 状態 |
+|---|--------|------|------|
+| 1 | Waveshare Wiki `01_GPIO` とシルク表示を照合 | | ☐ |
+| 2 | `rp2350/config/gpio_map.json` の RO2〜RO8 `gpio_pin` を埋める | | ☐ |
+| 3 | 各 RO を 1 点ずつ Thonny で ON/OFF 実測（CH1=GPIO17 は済） | | ☐ |
+
+### 実装タスク（ソフトウェア・Phase 3 着手時）
+
+| 層 | ファイル / エンドポイント | やること |
+|----|---------------------------|----------|
+| **VPS API** | `server/src/routes/remote-test-*.ts` | `POST /api/remote-test/ch{N}/on\|off`（N=1..8）· `command` を `ch3_on` 等に一般化 · `chStates` で全 CH 保持 |
+| **PWA** | `server/public/remote-test/` | CH1 と同 UI パターンで CH2〜8 ボタンを縦リスト追加 |
+| **RP2350** | `rp2350/firmware/config.py` · `main.py` | `CH_GPIO` マップ · `exec_command()` 一般化 · `relay_manager.py` 段階統合 |
 
 ### 完了条件（次フェーズ）
 
 - PWA から CH1〜CH8 それぞれ **3 秒以内**に反応
 - VPS status API に全 CH 状態が含まれる
+- 各 CH のリレーが実機でカチッと動作
 
 ---
 

@@ -44,24 +44,29 @@ TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。
 | RP2350 スクリプト（単体） | `rp2350/firmware/remote_test_poll.py` |
 | ファームウェア版 | **v1.1.0-poc-success** |
 
-### 現在のフェーズ: VPS heartbeat 404 修正後の実機再確認
+### 現在のフェーズ: Phase 2 最終確認（PoC 完了判定待ち）
 
-VPS 側 `/api/remote-test/heartbeat` は commit `d133aaa` で 404 修正済み（curl 200 OK 確認済み）。  
-**RP2350 ファームウェアの再変更は不要** — Thonny で **RESET** のみ行い、Shell で `heartbeat HTTP 404` が消えることを確認する。
+| 到達点 | 状態 |
+|--------|------|
+| VPS heartbeat 404 修正 | ✅ commit `d133aaa` · ルート存在確認済み（トークンなし curl → **403**、404 ではない） |
+| 確認手順ドキュメント | ✅ commit `102e920` push 済み |
+| RP2350 ファームウェア | `1.1.0-poc-success`（**再アップロード不要**） |
+| 実機 IP | `192.168.1.227` · poll **3 秒** · heartbeat **60 秒** |
 
-**智紀さん向け手順（初心者向け）:** [`docs/rp2350-phase2-poc-verification.md`](docs/rp2350-phase2-poc-verification.md)
+**次の作業（智紀さん）:** Thonny で **RESET 1 回** のみ → 合格条件 5 項目を確認 → 完了記録 §6 に記入。
 
-| 項目 | 前回 PoC | 今回の再確認ポイント |
-|------|----------|----------------------|
-| Ethernet 接続 | 成功（`192.168.1.227`） | RESET 後 `IP address:` が表示される |
-| heartbeat | 404 発生（VPS 側） | Shell に `heartbeat sent` · **404 エラーなし** |
-| PWA 接続時刻 | 更新されない時期あり | **online** · 接続時刻が RESET 後に更新 |
-| CH1 ON/OFF | 成功（3 秒以内） | 再度 3 秒以内 · リレー目視 |
-| poll | 3 秒間隔 | `polling start (poll 3 sec / heartbeat 60 sec)` |
+**手順書:** [`docs/rp2350-phase2-poc-verification.md`](docs/rp2350-phase2-poc-verification.md)（冒頭の「最終確認クイック手順」）
 
-通信間隔: **poll 3 秒** / **heartbeat 60 秒**（`rp2350/firmware/config.py` · fw `1.1.0-poc-success`）
+| 合格項目 | 確認方法 |
+|----------|----------|
+| heartbeat 404 なし | Shell に `error: heartbeat HTTP 404` が出ない |
+| heartbeat 60 秒 | `heartbeat sent` が約 60 秒に 1 回（3 秒ごとでない） |
+| PWA 状態更新 | **online** · **lastSeen** · fw `1.1.0-poc-success` |
+| CH1 遠隔操作 | PWA ON/OFF → **3 秒以内** · リレーがカチッと動く |
 
-全項目 OK 後 → **Phase 2 RP2350 PoC 完了**（完了記録は上記ドキュメント §6）
+全項目 OK 後 → **Phase 2 RP2350 PoC 完了**（記録: 上記ドキュメント §6）
+
+**次フェーズ（未着手）:** CH2〜CH8 拡張 — 実装準備は [`docs/rp2350_phase3_design.md`](docs/rp2350_phase3_design.md) · 確認手順書 §7
 
 ### VPS 本番反映（PoC 成功後・最優先）
 
