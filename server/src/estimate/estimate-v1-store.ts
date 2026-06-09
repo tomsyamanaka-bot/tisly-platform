@@ -491,9 +491,10 @@ export function buildCompletionReportContextV1(
   return {
     projectNo: project.projectNo,
     addressee: header?.addressee ?? project.customerName,
+    subject: header?.subject ?? estimate?.title ?? project.title,
     siteName: survey?.siteName ?? project.title,
     workLocation: survey?.address ?? project.address,
-    workDate: survey?.surveyDate ?? header?.issueDate ?? "",
+    issueDate: header?.issueDate ?? survey?.surveyDate ?? "",
     staffName: survey?.assignee ?? header?.staffName ?? "",
     notes: survey?.notes ?? project.surveyMemo ?? "",
     photos: buildCompletionPhotosV1(businessProjectId),

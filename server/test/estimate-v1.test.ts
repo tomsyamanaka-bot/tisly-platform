@@ -20,6 +20,10 @@ async function surveyorLogin() {
     .send({ customerCode: "TOMS001", username: "toms001.surveyor", password: "demo-remote-2026" });
 }
 
+function countPracticalPdfPages(html: string, prefix: "sp" | "cr"): number {
+  return (html.match(new RegExp(`class="${prefix}-page ${prefix}-photo-page`, "g")) || []).length;
+}
+
 describe("見積PWA v1 API", () => {
   let token = "";
   let surveyProjectId = "";
@@ -305,28 +309,33 @@ describe("見積PWA v1 API", () => {
       .get(`/api/estimate/v1/projects/${est.body.businessProjectId}/specification/pdf`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(res.status, 200);
-    const photoPages = (res.text.match(/sp-photo-page/g) || []).length;
+    const photoPages = countPracticalPdfPages(res.text, "sp");
     assert.equal(photoPages, 1, `expected 1 photo page, got ${photoPages}`);
     assert.ok(res.text.includes("写真1"));
     assert.ok(res.text.includes("写真6"));
+    assert.ok(res.text.includes(">住所<"));
+    assert.ok(
+      /<p class="sp-photo-title">[\s\S]*?<div class="sp-photo-img-wrap">/.test(res.text),
+      "photo title should appear above photo image"
+    );
   });
 
-  it("仕様書は写真7枚で写真ページ2枚", async () => {
+  it("仕様書は写真9枚で写真ページ2枚", async () => {
     const survey = await request(app)
       .post("/api/survey/v1/projects")
       .set("Authorization", `Bearer ${token}`)
       .send({
         customerCode: "TOMS001",
-        customerName: "7枚仕様書",
-        siteName: "7枚仕様現場",
+        customerName: "9枚仕様書",
+        siteName: "9枚仕様現場",
         address: "埼玉県",
       });
     const svyId = survey.body.projectId;
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 9; i++) {
       await request(app)
         .post(`/api/survey/v1/projects/${svyId}/photos`)
         .set("Authorization", `Bearer ${token}`)
-        .send({ imageBase64: TINY_PNG, fileName: `sp7-${i}.jpg` });
+        .send({ imageBase64: TINY_PNG, fileName: `sp9-${i}.jpg` });
     }
     await request(app)
       .post(`/api/survey/v1/projects/${svyId}/estimate-pending`)
@@ -340,7 +349,7 @@ describe("見積PWA v1 API", () => {
       .get(`/api/estimate/v1/projects/${est.body.businessProjectId}/specification/pdf`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(res.status, 200);
-    const photoPages = (res.text.match(/sp-photo-page/g) || []).length;
+    const photoPages = countPracticalPdfPages(res.text, "sp");
     assert.equal(photoPages, 2, `expected 2 photo pages, got ${photoPages}`);
   });
 
@@ -415,18 +424,18 @@ describe("見積PWA v1 API", () => {
     assert.ok(res.text.includes("担当花子"));
   });
 
-  it("完了報告書は写真7枚で2ページになる", async () => {
+  it("完了報告書は写真8枚で1ページに収まる", async () => {
     const survey = await request(app)
       .post("/api/survey/v1/projects")
       .set("Authorization", `Bearer ${token}`)
       .send({
         customerCode: "TOMS001",
-        customerName: "7枚テスト",
-        siteName: "7枚現場",
+        customerName: "8枚テスト",
+        siteName: "8枚現場",
         address: "大阪府",
       });
     const svyId = survey.body.projectId;
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 8; i++) {
       await request(app)
         .post(`/api/survey/v1/projects/${svyId}/photos`)
         .set("Authorization", `Bearer ${token}`)
@@ -444,8 +453,8 @@ describe("見積PWA v1 API", () => {
       .get(`/api/estimate/v1/projects/${est.body.businessProjectId}/completion-report/pdf`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(res.status, 200);
-    const photoPages = (res.text.match(/cr-photo-page/g) || []).length;
-    assert.equal(photoPages, 2, `expected 2 photo pages, got ${photoPages}`);
+    const photoPages = countPracticalPdfPages(res.text, "cr");
+    assert.equal(photoPages, 1, `expected 1 photo page, got ${photoPages}`);
   });
 
   it("完了報告書は写真12枚で2ページ以上になる", async () => {
@@ -500,7 +509,7 @@ describe("見積PWA v1 API", () => {
     assert.ok(res.text.includes("完了報告書"));
     assert.ok(res.text.includes("玄関カメラ"));
     assert.ok(res.text.includes("LAN配線"));
-    const photoPages = (res.text.match(/cr-photo-page/g) || []).length;
+    const photoPages = countPracticalPdfPages(res.text, "cr");
     assert.ok(photoPages >= 2, `expected >=2 photo pages, got ${photoPages}`);
   });
 
