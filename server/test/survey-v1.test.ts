@@ -104,6 +104,37 @@ describe("現調PWA v1 API", () => {
     assert.ok(Array.isArray(res.body.materials));
   });
 
+  it("現調メモをPATCHで更新し再読込後も保持される", async () => {
+    const patch = await request(app)
+      .patch(`/api/survey/v1/projects/${projectId}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ notes: "更新後の現調メモ" });
+    assert.equal(patch.status, 200);
+    assert.equal(patch.body.notes, "更新後の現調メモ");
+
+    const reload = await request(app)
+      .get(`/api/survey/v1/projects/${projectId}`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(reload.status, 200);
+    assert.equal(reload.body.notes, "更新後の現調メモ");
+
+    const row = getDatabase()
+      .prepare(`SELECT notes FROM survey_project_notes WHERE project_id = ?`)
+      .get(projectId) as { notes: string } | undefined;
+    assert.equal(row?.notes, "更新後の現調メモ");
+  });
+
+  it("現調メモのみのPATCHでも他フィールドは維持される", async () => {
+    const patch = await request(app)
+      .patch(`/api/survey/v1/projects/${projectId}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ notes: "詳細画面から保存" });
+    assert.equal(patch.status, 200);
+    assert.equal(patch.body.notes, "詳細画面から保存");
+    assert.equal(patch.body.customerName, "株式会社テスト");
+    assert.equal(patch.body.siteName, "テストビル3F");
+  });
+
   it("ステータス更新できる", async () => {
     const res = await request(app)
       .patch(`/api/survey/v1/projects/${projectId}`)
@@ -379,8 +410,11 @@ describe("現調PWA v1 API", () => {
     const html = fs.readFileSync("public/survey-v1.html", "utf8");
     const js = fs.readFileSync("public/js/survey-v1.js", "utf8");
     assert.ok(html.includes("photo-title-status"));
+    assert.ok(html.includes("detail-memo"));
     assert.ok(js.includes("flushPhotoTitlesFromDom"));
     assert.ok(js.includes("capturePhotoTitlesFromDom"));
+    assert.ok(js.includes("saveProjectNotesFromDetail"));
+    assert.ok(js.includes("flushProjectNotesKeepalive"));
     assert.ok(js.includes("visibilitychange"));
     assert.ok(js.includes('ev.key !== "Enter"'));
     assert.ok(js.includes("写真メモを保存できませんでした"));

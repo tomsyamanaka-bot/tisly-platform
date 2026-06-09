@@ -49,6 +49,12 @@ const PHOTO_TITLE_PLACEHOLDERS = [
 ];
 const PHOTO_TITLE_SAVE_OK = "保存しました";
 const PHOTO_TITLE_SAVE_FAIL = "写真メモを保存できませんでした";
+const PROJECT_MEMO_SAVE_OK = "メモを保存しました";
+const PROJECT_MEMO_SAVE_FAIL = "メモを保存できませんでした";
+
+let projectNotesLastSaved = "";
+let detailMemoSaveTimer = null;
+let detailMemoBound = false;
 
 const $ = (id) => document.getElementById(id);
 
@@ -342,9 +348,96 @@ function formatCustomerSiteMeta(p) {
   return parts.map((x) => escapeHtml(x)).join("<br>");
 }
 
+function showDetailMemoStatus(msg, isError = false) {
+  const el = $("detail-memo-status");
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.toggle("photo-title-status-error", isError);
+  el.classList.toggle("visible", !!msg);
+  if (!isError && msg) {
+    setTimeout(() => {
+      if (el.textContent === msg) {
+        el.textContent = "";
+        el.classList.remove("visible");
+      }
+    }, 2200);
+  }
+}
+
+async function saveProjectNotesFromDetail({ quiet = false } = {}) {
+  if (!currentProjectId) return;
+  const textarea = $("detail-memo");
+  if (!textarea) return;
+  const notes = textarea.value;
+  if (projectNotesLastSaved === notes) return;
+  try {
+    await api(`/projects/${currentProjectId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ notes }),
+    });
+    projectNotesLastSaved = notes;
+    showDetailMemoStatus(PROJECT_MEMO_SAVE_OK);
+    if (!quiet) toast(PROJECT_MEMO_SAVE_OK);
+  } catch (e) {
+    showDetailMemoStatus(PROJECT_MEMO_SAVE_FAIL, true);
+    if (!quiet) toastError(e, e.status);
+    throw e;
+  }
+}
+
+function flushProjectNotesKeepalive() {
+  if (!currentProjectId) return;
+  const textarea = $("detail-memo");
+  if (!textarea) return;
+  const notes = textarea.value;
+  if (projectNotesLastSaved === notes) return;
+  const token = getCustomerToken();
+  fetch(`${API}/projects/${currentProjectId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ notes }),
+    keepalive: true,
+  });
+  projectNotesLastSaved = notes;
+}
+
+function bindDetailMemoInput() {
+  if (detailMemoBound) return;
+  detailMemoBound = true;
+  const textarea = $("detail-memo");
+  if (!textarea) return;
+  const persist = async (quiet = false) => {
+    try {
+      await saveProjectNotesFromDetail({ quiet });
+    } catch {
+      /* inline status shown in saveProjectNotesFromDetail */
+    }
+  };
+  textarea.addEventListener("input", () => {
+    showDetailMemoStatus("");
+    if (detailMemoSaveTimer) clearTimeout(detailMemoSaveTimer);
+    detailMemoSaveTimer = setTimeout(() => {
+      detailMemoSaveTimer = null;
+      persist(true);
+    }, 600);
+  });
+  textarea.addEventListener("change", () => persist(false));
+  textarea.addEventListener("blur", () => {
+    if (detailMemoSaveTimer) {
+      clearTimeout(detailMemoSaveTimer);
+      detailMemoSaveTimer = null;
+    }
+    persist(false);
+  });
+}
+
 async function openDetail(projectId) {
   if (currentProjectId) {
     await flushPhotoTitlesFromDom({ quiet: true });
+    await saveProjectNotesFromDetail({ quiet: true }).catch(() => {});
   }
   currentProjectId = projectId;
   photoDisplayLimit = PHOTO_BATCH;
@@ -356,13 +449,13 @@ async function openDetail(projectId) {
     statusEl.textContent = WORKFLOW_LABELS[p.workflowStatus] || p.workflowStatus;
     statusEl.className = statusBadgeClass(p.workflowStatus);
     $("detail-meta").innerHTML = formatCustomerSiteMeta(p);
-    const notesEl = $("detail-notes");
-    if (p.notes) {
-      notesEl.textContent = `📝 ${p.notes}`;
-      notesEl.classList.remove("hidden");
-    } else {
-      notesEl.classList.add("hidden");
+    const memoEl = $("detail-memo");
+    if (memoEl) {
+      memoEl.value = p.notes || "";
+      projectNotesLastSaved = p.notes || "";
+      showDetailMemoStatus("");
     }
+    bindDetailMemoInput();
     renderPhotos(p.photos);
     renderMaterials(p.materials);
     const handoffBtn = $("btn-handoff");
@@ -557,17 +650,38 @@ function clearPhotoTitleSaveTimer(photoId) {
   }
 }
 
+function flushPhotoTitlesKeepalive() {
+  const list = $("photo-list");
+  if (!list || !currentProjectId) return;
+  const token = getCustomerToken();
+  list.querySelectorAll(".photo-title-input").forEach((inp) => {
+    const photoId = inp.dataset.photoId;
+    const title = inp.value.trim();
+    if (photoTitleLastSaved.get(photoId) === title) return;
+    fetch(`${API}/projects/${currentProjectId}/photos/${photoId}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ title }),
+      keepalive: true,
+    });
+    photoTitleLastSaved.set(photoId, title);
+  });
+}
+
 function bindPhotoTitleIosFlush() {
   if (photoTitleIosFlushBound) return;
   photoTitleIosFlushBound = true;
+  const flushOnExit = () => {
+    flushPhotoTitlesKeepalive();
+    flushProjectNotesKeepalive();
+  };
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden") {
-      flushPhotoTitlesFromDom({ quiet: true });
-    }
+    if (document.visibilityState === "hidden") flushOnExit();
   });
-  window.addEventListener("pagehide", () => {
-    flushPhotoTitlesFromDom({ quiet: true });
-  });
+  window.addEventListener("pagehide", flushOnExit);
 }
 
 function bindPhotoTitleInputs() {
@@ -1083,7 +1197,7 @@ function projectBodyFromForm(fd) {
     email: fd.get("email") || undefined,
     assignee: fd.get("assignee") || undefined,
     surveyDate: fd.get("surveyDate") || undefined,
-    notes: fd.get("notes") || undefined,
+    notes: String(fd.get("notes") ?? ""),
   };
 }
 

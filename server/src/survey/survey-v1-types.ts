@@ -76,6 +76,8 @@ export interface SurveyProjectV1 {
   workflowStatus: SurveyWorkflowStatus;
   createdAt: string;
   updatedAt: string;
+  /** survey_project_notes.notes（作成・更新・詳細 GET で付与） */
+  notes?: string | null;
 }
 
 export interface SurveyPhotoV1 {

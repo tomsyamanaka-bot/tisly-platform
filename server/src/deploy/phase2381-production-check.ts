@@ -152,10 +152,10 @@ export function buildPhase2381ProductionCheck(
           : "RED",
     },
     {
-      id: "shell-version-2381",
-      label: "PWA shell v2381",
-      ok: PWA_SHELL_VERSION === "2381" && PWA_SHELL_TAG.includes("production"),
-      status: PWA_SHELL_VERSION === "2381" ? "GREEN" : "YELLOW",
+      id: "shell-version-2382",
+      label: "PWA shell v2382",
+      ok: PWA_SHELL_VERSION === "2382" && PWA_SHELL_TAG.includes("production"),
+      status: PWA_SHELL_VERSION === "2382" ? "GREEN" : "YELLOW",
     },
   ];
 

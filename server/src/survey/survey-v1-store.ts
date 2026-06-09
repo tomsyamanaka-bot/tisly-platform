@@ -129,6 +129,10 @@ function saveProjectNotes(projectId: string, notes: string): void {
     .run(projectId, notes);
 }
 
+function withProjectNotes(project: SurveyProjectV1): SurveyProjectV1 {
+  return { ...project, notes: getProjectNotes(project.projectId) };
+}
+
 export function listSurveyProjectsV1(opts?: {
   customerCode?: string;
   workflowStatus?: SurveyWorkflowStatus;
@@ -190,10 +194,10 @@ export function createSurveyProjectV1(input: {
       now,
       now
     );
-  if (input.notes?.trim()) {
-    saveProjectNotes(projectId, input.notes.trim());
+  if (input.notes !== undefined && input.notes !== null) {
+    saveProjectNotes(projectId, String(input.notes).trim());
   }
-  return getSurveyProjectV1(projectId)!;
+  return withProjectNotes(getSurveyProjectV1(projectId)!);
 }
 
 export function getSurveyProjectV1(projectId: string): SurveyProjectV1 | null {
@@ -274,9 +278,10 @@ export function updateSurveyProjectV1(
       projectId
     );
   if (patch.notes !== undefined) {
-    saveProjectNotes(projectId, patch.notes);
+    saveProjectNotes(projectId, String(patch.notes).trim());
   }
-  return getSurveyProjectV1(projectId);
+  const updated = getSurveyProjectV1(projectId);
+  return updated ? withProjectNotes(updated) : null;
 }
 
 export function listSurveyPhotosV1(projectId: string): SurveyPhotoV1[] {
