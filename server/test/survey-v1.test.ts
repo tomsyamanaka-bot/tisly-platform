@@ -224,6 +224,74 @@ describe("現調PWA v1 API", () => {
     assert.ok(res.body.url.includes("/uploads/survey/"));
   });
 
+  it("写真を並び替え・削除でき順番が維持される", async () => {
+    const fresh = await request(app)
+      .post("/api/survey/v1/projects")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        customerCode: "TOMS001",
+        customerName: "並び替えテスト",
+        siteName: "並び替え現場",
+      });
+    const reorderId = fresh.body.projectId as string;
+    const titles = ["一枚目", "二枚目", "三枚目"];
+    const photoIds: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      const res = await request(app)
+        .post(`/api/survey/v1/projects/${reorderId}/photos`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({ imageBase64: TINY_PNG, fileName: `order-${i}.jpg` });
+      assert.equal(res.status, 201);
+      photoIds.push(res.body.id);
+      await request(app)
+        .patch(`/api/survey/v1/projects/${reorderId}/photos/${res.body.id}`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({ title: titles[i] });
+    }
+
+    const beforeMove = await request(app)
+      .get(`/api/survey/v1/projects/${reorderId}`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.deepEqual(
+      beforeMove.body.photos.map((p: { title: string }) => p.title),
+      titles
+    );
+
+    const moveSecondUp = await request(app)
+      .post(`/api/survey/v1/projects/${reorderId}/photos/${photoIds[1]}/move`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ direction: "up" });
+    assert.equal(moveSecondUp.status, 200);
+    assert.deepEqual(
+      moveSecondUp.body.photos.map((p: { title: string }) => p.title),
+      ["二枚目", "一枚目", "三枚目"]
+    );
+
+    const moveFirstDown = await request(app)
+      .post(`/api/survey/v1/projects/${reorderId}/photos/${photoIds[1]}/move`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ direction: "down" });
+    assert.equal(moveFirstDown.status, 200);
+    assert.deepEqual(
+      moveFirstDown.body.photos.map((p: { title: string }) => p.title),
+      ["一枚目", "二枚目", "三枚目"]
+    );
+
+    const del = await request(app)
+      .delete(`/api/survey/v1/projects/${reorderId}/photos/${photoIds[0]}`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(del.status, 200);
+
+    const afterDelete = await request(app)
+      .get(`/api/survey/v1/projects/${reorderId}`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(afterDelete.body.photos.length, 2);
+    assert.deepEqual(
+      afterDelete.body.photos.map((p: { title: string }) => p.title),
+      ["二枚目", "三枚目"]
+    );
+  });
+
   it("写真タイトルを個別に更新できる", async () => {
     const detail = await request(app)
       .get(`/api/survey/v1/projects/${projectId}`)

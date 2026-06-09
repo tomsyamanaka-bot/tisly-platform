@@ -88,6 +88,7 @@ export interface SurveyPhotoV1 {
   title: string | null;
   takenAt: string | null;
   uploadedBy: string | null;
+  sortOrder: number;
   createdAt: string;
 }
 

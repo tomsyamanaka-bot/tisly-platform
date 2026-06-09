@@ -11,10 +11,12 @@ import {
   addSurveyPhotoMemoV1,
   copySurveyProjectV1,
   createSurveyProjectV1,
+  deleteSurveyPhotoV1,
   deleteSurveyProjectV1,
   getSurveyProjectV1Detail,
   listSurveyProjectsV1,
   markEstimatePendingV1,
+  moveSurveyPhotoV1,
   updateSurveyPhotoV1,
   updateSurveyProjectV1,
 } from "../../survey/survey-v1-store.js";
@@ -160,6 +162,43 @@ surveyV1Router.delete("/projects/:id", ...surveyV1Auth, (req: AuthedRequest, res
   }
   res.json({ ok: true });
 });
+
+surveyV1Router.post(
+  "/projects/:id/photos/:photoId/move",
+  ...surveyV1Auth,
+  (req: AuthedRequest, res) => {
+    if (!assertSurveyRole(req, res)) return;
+    const body = req.body as { direction?: string };
+    if (body.direction !== "up" && body.direction !== "down") {
+      res.status(400).json({ error: "direction must be up or down" });
+      return;
+    }
+    const photos = moveSurveyPhotoV1(
+      String(req.params.id),
+      String(req.params.photoId),
+      body.direction
+    );
+    if (!photos) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    res.json({ photos });
+  }
+);
+
+surveyV1Router.delete(
+  "/projects/:id/photos/:photoId",
+  ...surveyV1Auth,
+  (req: AuthedRequest, res) => {
+    if (!assertSurveyRole(req, res)) return;
+    const ok = deleteSurveyPhotoV1(String(req.params.id), String(req.params.photoId));
+    if (!ok) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    res.json({ ok: true });
+  }
+);
 
 surveyV1Router.patch("/projects/:id/photos/:photoId", ...surveyV1Auth, (req: AuthedRequest, res) => {
   if (!assertSurveyRole(req, res)) return;

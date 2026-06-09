@@ -82,9 +82,13 @@ function rowToPhoto(r: Record<string, unknown>): SurveyPhotoV1 {
     title: comment,
     takenAt: r.taken_at != null ? String(r.taken_at) : null,
     uploadedBy: r.uploaded_by != null ? String(r.uploaded_by) : null,
+    sortOrder: Number(r.sort_order ?? 0),
     createdAt: String(r.created_at),
   };
 }
+
+const SURVEY_PHOTO_SELECT =
+  `id, photo_type, photo_path, comment, taken_at, uploaded_by, sort_order, datetime(created_at) as created_at`;
 
 function rowToMaterial(r: Record<string, unknown>): SurveyMaterialV1 {
   return {
@@ -278,14 +282,21 @@ export function updateSurveyProjectV1(
 export function listSurveyPhotosV1(projectId: string): SurveyPhotoV1[] {
   const rows = getDatabase()
     .prepare(
-      `SELECT id, photo_type, photo_path, comment, taken_at, uploaded_by, datetime(created_at) as created_at
-       FROM survey_photos WHERE project_id = ? ORDER BY created_at DESC`
+      `SELECT ${SURVEY_PHOTO_SELECT}
+       FROM survey_photos WHERE project_id = ? ORDER BY sort_order ASC, created_at ASC, id ASC`
     )
     .all(projectId) as Record<string, unknown>[];
   return rows.map(rowToPhoto);
 }
 
 const MAX_SURVEY_PHOTOS_V1 = 30;
+
+function nextSurveyPhotoSortOrder(projectId: string): number {
+  const sortRow = getDatabase()
+    .prepare(`SELECT COALESCE(MAX(sort_order), -1) + 1 as n FROM survey_photos WHERE project_id = ?`)
+    .get(projectId) as { n: number };
+  return sortRow?.n ?? 0;
+}
 
 export function addSurveyPhotoMemoV1(
   projectId: string,
@@ -295,6 +306,7 @@ export function addSurveyPhotoMemoV1(
     fileName?: string;
     takenAt?: string;
     uploadedBy?: string;
+    sortOrder?: number;
   }
 ): SurveyPhotoV1 {
   if (!getSurveyProjectV1(projectId)) throw new Error("project not found");
@@ -323,10 +335,11 @@ export function addSurveyPhotoMemoV1(
     photoPath = `_memo:${id}`;
   }
 
+  const sortOrder = input.sortOrder ?? nextSurveyPhotoSortOrder(projectId);
   getDatabase()
     .prepare(
-      `INSERT INTO survey_photos (id, project_id, photo_type, photo_path, comment, taken_at, uploaded_by, created_at)
-       VALUES (?, ?, 'field', ?, ?, ?, ?, datetime('now'))`
+      `INSERT INTO survey_photos (id, project_id, photo_type, photo_path, comment, taken_at, uploaded_by, sort_order, created_at)
+       VALUES (?, ?, 'field', ?, ?, ?, ?, ?, datetime('now'))`
     )
     .run(
       id,
@@ -334,7 +347,8 @@ export function addSurveyPhotoMemoV1(
       photoPath,
       input.comment?.trim() ?? null,
       takenAt,
-      input.uploadedBy ?? null
+      input.uploadedBy ?? null,
+      sortOrder
     );
   getDatabase()
     .prepare(`UPDATE survey_projects SET updated_at = ? WHERE project_id = ?`)
@@ -346,6 +360,7 @@ export function addSurveyPhotoMemoV1(
     comment: input.comment?.trim() ?? null,
     taken_at: takenAt,
     uploaded_by: input.uploadedBy ?? null,
+    sort_order: sortOrder,
     created_at: now,
   });
 }
@@ -525,12 +540,68 @@ export function updateSurveyPhotoV1(
     .prepare(`UPDATE survey_projects SET updated_at = ? WHERE project_id = ?`)
     .run(new Date().toISOString(), projectId);
   const updated = getDatabase()
-    .prepare(
-      `SELECT id, photo_type, photo_path, comment, taken_at, uploaded_by, datetime(created_at) as created_at
-       FROM survey_photos WHERE id = ?`
-    )
+    .prepare(`SELECT ${SURVEY_PHOTO_SELECT} FROM survey_photos WHERE id = ?`)
     .get(photoId) as Record<string, unknown>;
   return rowToPhoto(updated);
+}
+
+export function moveSurveyPhotoV1(
+  projectId: string,
+  photoId: string,
+  direction: "up" | "down"
+): SurveyPhotoV1[] | null {
+  if (!getSurveyProjectV1(projectId)) return null;
+  const photos = listSurveyPhotosV1(projectId);
+  const idx = photos.findIndex((p) => p.id === photoId);
+  if (idx < 0) return null;
+  const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+  if (swapIdx < 0 || swapIdx >= photos.length) return photos;
+
+  const current = photos[idx]!;
+  const neighbor = photos[swapIdx]!;
+  const db = getDatabase();
+  db.prepare(`UPDATE survey_photos SET sort_order = ? WHERE id = ? AND project_id = ?`).run(
+    neighbor.sortOrder,
+    current.id,
+    projectId
+  );
+  db.prepare(`UPDATE survey_photos SET sort_order = ? WHERE id = ? AND project_id = ?`).run(
+    current.sortOrder,
+    neighbor.id,
+    projectId
+  );
+  db.prepare(`UPDATE survey_projects SET updated_at = ? WHERE project_id = ?`).run(
+    new Date().toISOString(),
+    projectId
+  );
+  return listSurveyPhotosV1(projectId);
+}
+
+export function deleteSurveyPhotoV1(projectId: string, photoId: string): boolean {
+  const row = getDatabase()
+    .prepare(`SELECT photo_path FROM survey_photos WHERE id = ? AND project_id = ?`)
+    .get(photoId, projectId) as { photo_path: string } | undefined;
+  if (!row) return false;
+
+  const photoPath = String(row.photo_path);
+  if (!photoPath.startsWith("_memo:")) {
+    const full = path.join(process.cwd(), "uploads", "survey", photoPath);
+    if (fs.existsSync(full)) {
+      try {
+        fs.unlinkSync(full);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  getDatabase()
+    .prepare(`DELETE FROM survey_photos WHERE id = ? AND project_id = ?`)
+    .run(photoId, projectId);
+  getDatabase()
+    .prepare(`UPDATE survey_projects SET updated_at = ? WHERE project_id = ?`)
+    .run(new Date().toISOString(), projectId);
+  return true;
 }
 
 export function copySurveyProjectV1(projectId: string): SurveyProjectV1 {
@@ -564,6 +635,7 @@ export function copySurveyProjectV1(projectId: string): SurveyProjectV1 {
       addSurveyPhotoMemoV1(copied.projectId, {
         comment: ph.comment ?? undefined,
         takenAt: ph.takenAt ?? undefined,
+        sortOrder: ph.sortOrder,
       });
       continue;
     }
@@ -575,6 +647,7 @@ export function copySurveyProjectV1(projectId: string): SurveyProjectV1 {
       imageBase64: buf.toString("base64"),
       fileName: path.basename(ph.photoPath),
       takenAt: ph.takenAt ?? undefined,
+      sortOrder: ph.sortOrder,
     });
   }
 

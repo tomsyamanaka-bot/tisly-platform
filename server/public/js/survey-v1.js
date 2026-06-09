@@ -230,6 +230,8 @@ function paintPhotoGrid() {
   el.innerHTML = `<div class="photo-grid">${paintPhotoGridHtml(visible)}</div>`;
   bindPhotoTitleInputs();
   bindPhotoEditButtons();
+  bindPhotoReorderButtons();
+  bindPhotoDeleteButtons();
   countEl.textContent = `写真 ${cachedPhotos.length} 枚（${visible.length} 枚表示）`;
   countEl.classList.remove("hidden");
   if (cachedPhotos.length > photoDisplayLimit) {
@@ -428,6 +430,9 @@ function showPhotoPreviews(files) {
 function paintPhotoGridHtml(visible) {
   return visible
     .map((ph) => {
+      const fullIdx = cachedPhotos.findIndex((p) => p.id === ph.id);
+      const canUp = fullIdx > 0;
+      const canDown = fullIdx >= 0 && fullIdx < cachedPhotos.length - 1;
       const img = ph.url
         ? `<button type="button" class="photo-edit-btn" data-photo-id="${ph.id}" aria-label="写真を編集"><img src="${ph.url}" alt="" loading="lazy" decoding="async" /></button>`
         : '<div style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;background:#eee;font-size:2rem;">📝</div>';
@@ -435,7 +440,15 @@ function paintPhotoGridHtml(visible) {
       const titleField = ph.url
         ? `<label class="photo-title-label"><span class="photo-title-label-text">写真タイトル</span><input type="text" class="photo-title-input" data-photo-id="${ph.id}" placeholder="例：玄関カメラ" value="${escapeHtml(title)}" inputmode="text" autocomplete="off" /></label>`
         : `<div class="photo-caption">${escapeHtml(title || "（メモ）")}</div>`;
-      return `<div class="photo-card">${img}${titleField}<small style="display:block;padding:0 0.4rem 0.35rem;color:var(--tisly-muted);font-size:0.7rem;">${escapeHtml(ph.takenAt || ph.createdAt || "")}</small></div>`;
+      return `<div class="photo-card" data-photo-id="${ph.id}">
+        <div class="photo-card-top"><button type="button" class="photo-delete-btn" data-photo-id="${ph.id}">削除</button></div>
+        ${img}${titleField}
+        <div class="photo-reorder-row">
+          <button type="button" class="photo-reorder-btn" data-photo-id="${ph.id}" data-direction="up" ${canUp ? "" : "disabled"}>↑ 上へ</button>
+          <button type="button" class="photo-reorder-btn" data-photo-id="${ph.id}" data-direction="down" ${canDown ? "" : "disabled"}>↓ 下へ</button>
+        </div>
+        <small style="display:block;padding:0 0.4rem 0.35rem;color:var(--tisly-muted);font-size:0.7rem;">${escapeHtml(ph.takenAt || ph.createdAt || "")}</small>
+      </div>`;
     })
     .join("");
 }
@@ -504,6 +517,65 @@ function bindPhotoEditButtons() {
       const photoId = btn.dataset.photoId;
       const ph = cachedPhotos.find((p) => p.id === photoId);
       if (ph?.url) openPhotoEditor(ph);
+    });
+  });
+}
+
+async function movePhoto(photoId, direction) {
+  if (!currentProjectId || !photoId) return;
+  const idx = cachedPhotos.findIndex((p) => p.id === photoId);
+  if (idx < 0) return;
+  const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+  if (swapIdx < 0 || swapIdx >= cachedPhotos.length) return;
+
+  const next = cachedPhotos.slice();
+  [next[idx], next[swapIdx]] = [next[swapIdx], next[idx]];
+  cachedPhotos = next;
+  paintPhotoGrid();
+
+  try {
+    const result = await api(`/projects/${currentProjectId}/photos/${photoId}/move`, {
+      method: "POST",
+      body: JSON.stringify({ direction }),
+    });
+    if (Array.isArray(result.photos)) {
+      cachedPhotos = result.photos;
+      paintPhotoGrid();
+    }
+  } catch (e) {
+    await openDetail(currentProjectId);
+    toastError(e, e.status);
+  }
+}
+
+function bindPhotoReorderButtons() {
+  $("photo-list").querySelectorAll(".photo-reorder-btn").forEach((btn) => {
+    btn.addEventListener("click", async (ev) => {
+      ev.stopPropagation();
+      if (btn.disabled) return;
+      await movePhoto(btn.dataset.photoId, btn.dataset.direction);
+    });
+  });
+}
+
+async function deletePhoto(photoId) {
+  if (!currentProjectId || !photoId) return;
+  if (!confirm("この写真を削除しますか？")) return;
+  try {
+    await api(`/projects/${currentProjectId}/photos/${photoId}`, { method: "DELETE" });
+    cachedPhotos = cachedPhotos.filter((p) => p.id !== photoId);
+    paintPhotoGrid();
+    toast("写真を削除しました");
+  } catch (e) {
+    toastError(e, e.status);
+  }
+}
+
+function bindPhotoDeleteButtons() {
+  $("photo-list").querySelectorAll(".photo-delete-btn").forEach((btn) => {
+    btn.addEventListener("click", async (ev) => {
+      ev.stopPropagation();
+      await deletePhoto(btn.dataset.photoId);
     });
   });
 }

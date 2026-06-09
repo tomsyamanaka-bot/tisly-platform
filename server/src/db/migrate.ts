@@ -183,6 +183,7 @@ export function runMigrations(database: Database.Database): void {
   migratePhase1621(database);
   migratePhase2201(database);
   migrateFieldSurveyPwaV1(database);
+  migrateSurveyPhotoSortOrder(database);
   migrateSurveyMaterialAntennaCategory(database);
   migrateFieldEstimatePwaV1(database);
   migrateSurveyCustomerSiteV2(database);
@@ -294,6 +295,36 @@ function migrateTomsEstimateStandardFormat(database: Database.Database): void {
       "migration:toms_estimate_standard_format_v1",
       JSON.stringify({ at: new Date().toISOString() })
     );
+}
+
+/** 現調PWA — 写真並び順 */
+function migrateSurveyPhotoSortOrder(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:survey_photo_sort_order") as { value_json: string } | undefined;
+  if (marker) return;
+
+  addColumnsIfMissing(database, "survey_photos", [
+    { name: "sort_order", ddl: "ALTER TABLE survey_photos ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0" },
+  ]);
+
+  const projects = database
+    .prepare(`SELECT DISTINCT project_id FROM survey_photos`)
+    .all() as Array<{ project_id: string }>;
+  const listStmt = database.prepare(
+    `SELECT id FROM survey_photos WHERE project_id = ? ORDER BY created_at ASC, id ASC`
+  );
+  const updateStmt = database.prepare(`UPDATE survey_photos SET sort_order = ? WHERE id = ?`);
+  for (const { project_id } of projects) {
+    const rows = listStmt.all(project_id) as Array<{ id: string }>;
+    rows.forEach((row, index) => updateStmt.run(index, row.id));
+  }
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:survey_photo_sort_order", JSON.stringify({ at: new Date().toISOString() }));
 }
 
 /** 現調PWA — 依頼主住所（顧客と現場の分離） */
