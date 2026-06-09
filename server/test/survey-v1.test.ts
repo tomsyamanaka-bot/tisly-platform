@@ -344,6 +344,17 @@ describe("現調PWA v1 API", () => {
     assert.equal(gone.status, 404);
   });
 
+  it("survey-v1 に写真プレビューモーダルが含まれる", () => {
+    const html = fs.readFileSync("public/survey-v1.html", "utf8");
+    const js = fs.readFileSync("public/js/survey-v1.js", "utf8");
+    assert.ok(html.includes("photo-preview-modal"));
+    assert.ok(html.includes("photo-preview-close"));
+    assert.ok(js.includes("openPhotoPreview"));
+    assert.ok(js.includes("photo-preview-btn"));
+    assert.ok(js.includes("closePhotoPreview"));
+    assert.ok(!js.includes("bindPhotoEditButtons"));
+  });
+
   it("既存 /api/survey は影響を受けない", async () => {
     const res = await request(app)
       .post("/api/survey/projects")

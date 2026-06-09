@@ -229,7 +229,7 @@ function paintPhotoGrid() {
   const visible = cachedPhotos.slice(0, photoDisplayLimit);
   el.innerHTML = `<div class="photo-grid">${paintPhotoGridHtml(visible)}</div>`;
   bindPhotoTitleInputs();
-  bindPhotoEditButtons();
+  bindPhotoPreviewButtons();
   bindPhotoReorderButtons();
   bindPhotoDeleteButtons();
   countEl.textContent = `写真 ${cachedPhotos.length} 枚（${visible.length} 枚表示）`;
@@ -434,7 +434,7 @@ function paintPhotoGridHtml(visible) {
       const canUp = fullIdx > 0;
       const canDown = fullIdx >= 0 && fullIdx < cachedPhotos.length - 1;
       const img = ph.url
-        ? `<button type="button" class="photo-edit-btn" data-photo-id="${ph.id}" aria-label="写真を編集"><img src="${ph.url}" alt="" loading="lazy" decoding="async" /></button>`
+        ? `<button type="button" class="photo-preview-btn" data-photo-id="${ph.id}" aria-label="写真を拡大表示"><img src="${ph.url}" alt="" loading="lazy" decoding="async" /></button>`
         : '<div style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;background:#eee;font-size:2rem;">📝</div>';
       const title = ph.title ?? ph.comment ?? "";
       const titleField = ph.url
@@ -509,14 +509,95 @@ function bindPhotoTitleInputs() {
 }
 
 let photoEditorState = null;
+let photoPreviewState = null;
 
-function bindPhotoEditButtons() {
-  $("photo-list").querySelectorAll(".photo-edit-btn").forEach((btn) => {
+function imagePhotosForPreview() {
+  return cachedPhotos.filter((p) => p.url);
+}
+
+function formatPhotoDateTime(value) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value);
+  return d.toLocaleString("ja-JP", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function paintPhotoPreviewAt(index) {
+  const st = photoPreviewState;
+  if (!st) return;
+  const ph = st.photos[index];
+  if (!ph) return;
+  st.index = index;
+  const img = $("photo-preview-img");
+  img.src = ph.url;
+  img.alt = ph.title || ph.comment || "現場写真";
+  const title = (ph.title ?? ph.comment ?? "").trim();
+  $("photo-preview-title").textContent = title || "（タイトルなし）";
+  $("photo-preview-date").textContent = formatPhotoDateTime(ph.takenAt || ph.createdAt);
+  $("photo-preview-prev").disabled = index <= 0;
+  $("photo-preview-next").disabled = index >= st.photos.length - 1;
+}
+
+function openPhotoPreview(photoId) {
+  const photos = imagePhotosForPreview();
+  const index = photos.findIndex((p) => p.id === photoId);
+  if (index < 0) return;
+  photoPreviewState = { index, photos };
+  paintPhotoPreviewAt(index);
+  const modal = $("photo-preview-modal");
+  modal.classList.remove("hidden");
+  modal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("photo-preview-open");
+}
+
+function closePhotoPreview() {
+  photoPreviewState = null;
+  const modal = $("photo-preview-modal");
+  if (!modal) return;
+  modal.classList.add("hidden");
+  modal.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("photo-preview-open");
+  const img = $("photo-preview-img");
+  if (img) img.removeAttribute("src");
+}
+
+function initPhotoPreview() {
+  const modal = $("photo-preview-modal");
+  if (!modal) return;
+
+  $("photo-preview-backdrop")?.addEventListener("click", closePhotoPreview);
+  $("photo-preview-stage")?.addEventListener("click", (ev) => {
+    if (ev.target === ev.currentTarget) closePhotoPreview();
+  });
+  $("photo-preview-close-x")?.addEventListener("click", closePhotoPreview);
+  $("photo-preview-close")?.addEventListener("click", closePhotoPreview);
+
+  $("photo-preview-prev")?.addEventListener("click", () => {
+    if (!photoPreviewState || photoPreviewState.index <= 0) return;
+    paintPhotoPreviewAt(photoPreviewState.index - 1);
+  });
+
+  $("photo-preview-next")?.addEventListener("click", () => {
+    if (!photoPreviewState || photoPreviewState.index >= photoPreviewState.photos.length - 1) return;
+    paintPhotoPreviewAt(photoPreviewState.index + 1);
+  });
+
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape" && photoPreviewState) closePhotoPreview();
+  });
+}
+
+function bindPhotoPreviewButtons() {
+  $("photo-list").querySelectorAll(".photo-preview-btn").forEach((btn) => {
     btn.addEventListener("click", (ev) => {
       ev.stopPropagation();
-      const photoId = btn.dataset.photoId;
-      const ph = cachedPhotos.find((p) => p.id === photoId);
-      if (ph?.url) openPhotoEditor(ph);
+      openPhotoPreview(btn.dataset.photoId);
     });
   });
 }
@@ -909,6 +990,7 @@ async function init() {
     onBack: handleBack,
   });
   practicalNav.setToast(toast);
+  initPhotoPreview();
   initPhotoEditor();
   renderMaterialPicker();
   showView("list");

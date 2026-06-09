@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
   <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
   <style>
-    .photo-edit-btn {
+    .photo-preview-btn {
       display: block;
       width: 100%;
       padding: 0;
@@ -21,7 +21,118 @@
       background: none;
       cursor: pointer;
     }
-    .photo-edit-btn img { pointer-events: none; }
+    .photo-preview-btn img { pointer-events: none; }
+    body.photo-preview-open { overflow: hidden; }
+    .photo-preview-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 90;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .photo-preview-modal.hidden { display: none; }
+    .photo-preview-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.92);
+    }
+    .photo-preview-panel {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      height: 100%;
+      max-height: 100dvh;
+      padding:
+        calc(env(safe-area-inset-top, 0px) + 0.5rem)
+        0.75rem
+        calc(env(safe-area-inset-bottom, 0px) + 0.75rem);
+      box-sizing: border-box;
+    }
+    .photo-preview-close-x {
+      position: absolute;
+      top: calc(env(safe-area-inset-top, 0px) + 0.35rem);
+      right: 0.75rem;
+      z-index: 2;
+      min-width: 44px;
+      min-height: 44px;
+      border: none;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.15);
+      color: #f8fafc;
+      font-size: 1.5rem;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .photo-preview-stage {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      padding: 2.5rem 0 0.5rem;
+    }
+    .photo-preview-stage img {
+      max-width: 100%;
+      max-height: 100%;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      border-radius: 6px;
+    }
+    .photo-preview-meta {
+      flex-shrink: 0;
+      text-align: center;
+      padding: 0.5rem 0.25rem;
+      color: #f8fafc;
+    }
+    .photo-preview-title {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 600;
+      word-break: break-word;
+    }
+    .photo-preview-date {
+      margin: 0.35rem 0 0;
+      font-size: 0.8rem;
+      color: #94a3b8;
+    }
+    .photo-preview-actions {
+      flex-shrink: 0;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 0.4rem;
+      align-items: center;
+      padding-top: 0.35rem;
+    }
+    .photo-preview-nav-btn {
+      min-height: 44px;
+      border: 1px solid #64748b;
+      border-radius: 8px;
+      background: #1e293b;
+      color: #f8fafc;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .photo-preview-nav-btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+    .photo-preview-close-btn {
+      min-height: 44px;
+      padding: 0 1rem;
+      border: none;
+      border-radius: 8px;
+      background: #5cb87a;
+      color: #fff;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
     body.photo-editor-open { overflow: hidden; }
     .photo-editor {
       position: fixed;
@@ -244,6 +355,25 @@
       </div>
     </div>
   </main>
+
+  <div id="photo-preview-modal" class="photo-preview-modal hidden" role="dialog" aria-modal="true" aria-labelledby="photo-preview-title" aria-hidden="true">
+    <div class="photo-preview-backdrop" id="photo-preview-backdrop"></div>
+    <div class="photo-preview-panel">
+      <button type="button" class="photo-preview-close-x" id="photo-preview-close-x" aria-label="閉じる">×</button>
+      <div class="photo-preview-stage" id="photo-preview-stage">
+        <img id="photo-preview-img" src="" alt="" />
+      </div>
+      <div class="photo-preview-meta">
+        <p id="photo-preview-title" class="photo-preview-title"></p>
+        <p id="photo-preview-date" class="photo-preview-date"></p>
+      </div>
+      <div class="photo-preview-actions">
+        <button type="button" class="photo-preview-nav-btn" id="photo-preview-prev">← 前へ</button>
+        <button type="button" class="photo-preview-close-btn" id="photo-preview-close">閉じる</button>
+        <button type="button" class="photo-preview-nav-btn" id="photo-preview-next">次へ →</button>
+      </div>
+    </div>
+  </div>
 
   <div id="photo-editor" class="photo-editor hidden" aria-hidden="true">
     <div class="photo-editor-toolbar">
