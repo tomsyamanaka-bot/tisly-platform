@@ -476,17 +476,51 @@ export function markEstimatePendingV1(
 export function updateSurveyPhotoV1(
   projectId: string,
   photoId: string,
-  patch: { title?: string; comment?: string }
+  patch: { title?: string; comment?: string; imageBase64?: string; fileName?: string }
 ): SurveyPhotoV1 | null {
   if (!getSurveyProjectV1(projectId)) return null;
-  const title = (patch.title ?? patch.comment)?.trim() ?? null;
   const row = getDatabase()
-    .prepare(`SELECT id FROM survey_photos WHERE id = ? AND project_id = ?`)
-    .get(photoId, projectId) as { id: string } | undefined;
+    .prepare(`SELECT id, photo_path FROM survey_photos WHERE id = ? AND project_id = ?`)
+    .get(photoId, projectId) as { id: string; photo_path: string } | undefined;
   if (!row) return null;
-  getDatabase()
-    .prepare(`UPDATE survey_photos SET comment = ? WHERE id = ? AND project_id = ?`)
-    .run(title, photoId, projectId);
+  const photoPath = String(row.photo_path);
+  if (photoPath.startsWith("_memo:")) return null;
+
+  if (patch.imageBase64) {
+    const full = path.join(process.cwd(), "uploads", "survey", photoPath);
+    const ext = path.extname(patch.fileName ?? photoPath) || ".jpg";
+    const outExt = ext.toLowerCase() === ".png" ? ".png" : ".jpg";
+    const buf = Buffer.from(patch.imageBase64, "base64");
+    if (!buf.length) throw new Error("empty image data");
+    const dir = path.dirname(full);
+    fs.mkdirSync(dir, { recursive: true });
+    const baseName = path.basename(photoPath, path.extname(photoPath));
+    const newRel = path.join(path.dirname(photoPath), `${baseName}${outExt}`).replace(/\\/g, "/");
+    const newFull = path.join(process.cwd(), "uploads", "survey", newRel);
+    fs.writeFileSync(newFull, buf);
+    if (newFull !== full && fs.existsSync(full)) {
+      try {
+        fs.unlinkSync(full);
+      } catch {
+        /* ignore */
+      }
+    }
+    if (newRel !== photoPath) {
+      getDatabase()
+        .prepare(`UPDATE survey_photos SET photo_path = ? WHERE id = ? AND project_id = ?`)
+        .run(newRel, photoId, projectId);
+    }
+  }
+
+  const title =
+    patch.title !== undefined || patch.comment !== undefined
+      ? (patch.title ?? patch.comment)?.trim() ?? null
+      : undefined;
+  if (title !== undefined) {
+    getDatabase()
+      .prepare(`UPDATE survey_photos SET comment = ? WHERE id = ? AND project_id = ?`)
+      .run(title, photoId, projectId);
+  }
   getDatabase()
     .prepare(`UPDATE survey_projects SET updated_at = ? WHERE project_id = ?`)
     .run(new Date().toISOString(), projectId);

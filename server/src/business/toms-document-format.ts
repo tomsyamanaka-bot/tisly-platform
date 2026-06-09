@@ -218,7 +218,7 @@ export function buildTomsEstimateDocument(
     tax: estimate.tax,
     total: estimate.total,
     notes: opts?.notes ?? project.surveyMemo ?? "",
-    photosIncluded: opts?.photosIncluded ?? true,
+    photosIncluded: opts?.photosIncluded === true,
     generatedAt: new Date().toISOString(),
   };
 }

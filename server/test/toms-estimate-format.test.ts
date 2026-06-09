@@ -123,12 +123,12 @@ describe("TOMS標準見積フォーマット", () => {
     assert.equal(res.status, 200);
     assert.match(res.text, /お見積書/);
     assert.match(res.text, /株式会社 TOMS/);
-    assert.match(res.text, /金額/);
+    assert.match(res.text, /御見積金額/);
     assert.match(res.text, /件名/);
     assert.match(res.text, /御中/);
     assert.match(res.text, /山中 智紀/);
-    assert.match(res.text, /T-2030001139320/);
     assert.match(res.text, /株式会社伝元/);
+    assert.ok(!/登録番号/.test(res.text));
     assert.match(res.text, /換気扇設置工事/);
     assert.match(res.text, />No</);
     assert.match(res.text, />適用</);
@@ -235,7 +235,7 @@ describe("TOMS標準見積フォーマット", () => {
     assert.match(invoiceHtml, /御請求書/);
     assert.match(invoiceHtml, /見積参照番号/);
     assert.match(invoiceHtml, /振込先/);
-    assert.match(invoiceHtml, /260608-/);
+    assert.match(invoiceHtml, /\d{6}-\d{3}/);
   });
 
   it("renderEstimateHtml はヘッダーテーブルを生成する", () => {

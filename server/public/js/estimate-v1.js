@@ -119,7 +119,7 @@ function renderPendingList(surveys) {
     <div class="friendly-card list-card" data-survey-id="${s.surveyProjectId}" data-has-estimate="${s.hasEstimate ? "1" : "0"}" data-biz-id="${s.businessProjectId || ""}">
       <span class="status-badge orange">見積待ち</span>
       <h2>${escapeHtml(s.customerName)}</h2>
-      <p>${escapeHtml(s.projectNo || s.surveyProjectId)} · 部材${s.materialCount}件 · 写真${s.photoCount}枚</p>
+      <p>${escapeHtml(s.projectNo || s.surveyProjectId)}</p>
       <p style="color:var(--tisly-blue);font-size:0.9rem;margin-top:0.35rem;">
         ${s.hasEstimate ? "タップして見積を開く" : "タップして見積を作る"}
       </p>
@@ -623,7 +623,16 @@ async function init() {
     try {
       const data = await api(`/projects/${currentProjectId}/toms-format`);
       lastTomsData = data;
-      $("toms-preview").textContent = JSON.stringify(data, null, 2);
+      const preview = {
+        header: data.header,
+        total: data.total,
+        subtotal: data.subtotal,
+        tax: data.tax,
+        lines: data.lines,
+        notes: data.notes,
+        company: data.company,
+      };
+      $("toms-preview").textContent = JSON.stringify(preview, null, 2);
       $("toms-section").classList.remove("hidden");
     } catch (e) {
       toastError(e, e.status);

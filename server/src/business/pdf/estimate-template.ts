@@ -10,8 +10,8 @@ import {
   renderAmountBanner,
   renderNotes,
   renderPhotoGrid,
-  renderSealPlaceholder,
-  renderTomsDocLayoutHeader,
+  renderTomsCompanyFooter,
+  renderTomsEstimateStandardHeader,
   renderTomsLineItemsTable,
   renderTotals,
 } from "./shared-blocks.js";
@@ -46,23 +46,12 @@ export function renderEstimateHtml(
 
   return `<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"/><title>お見積書 ${escapeHtml(header.estimateNo)}</title><style>${TOMS_PDF_STYLES}</style></head><body>
 <div class="${pageClass}">
-${renderTomsDocLayoutHeader({
-  docTitle: "お見積書",
-  addressee: header.addressee,
-  subject: header.subject,
-  issueDateLabel: "発行日",
-  issueDate: header.issueDate,
-  docNoLabel: "見積番号",
-  docNo: header.estimateNo,
-  includeRegistrationNo: false,
-  workLocation: header.workLocation,
-})}
+${renderTomsEstimateStandardHeader(header)}
 ${renderAmountBanner(estimate.total)}
-<p class="intro">下記の通りお見積り申し上げます。</p>
 ${renderTomsLineItemsTable(lines)}
 ${renderTotals(estimate.subtotal, estimate.tax, estimate.total)}
 ${renderNotes(notes)}
 ${photoBlock}
-<div class="doc-footer">${renderSealPlaceholder()}</div>
+${renderTomsCompanyFooter()}
 </div></body></html>`;
 }

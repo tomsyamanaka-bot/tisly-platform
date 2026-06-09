@@ -54,6 +54,9 @@ table.toms-items tbody tr{page-break-inside:avoid}
 .qr-placeholder{position:absolute;right:1rem;top:1rem;width:72px;height:72px;border:2px dashed #94a3b8;display:flex;align-items:center;justify-content:center;font-size:0.7rem;color:#64748b}
 .seal-placeholder{position:absolute;right:2rem;bottom:2rem;width:64px;height:64px;border:2px solid #cbd5e1;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:0.85rem}
 .doc-footer{position:relative;min-height:80px;margin-top:1.25rem}
+.toms-estimate-head{margin-bottom:1rem;padding-bottom:0.5rem;border-bottom:2px solid #0d9488}
+.toms-meta-inline{margin:0.5rem 0 0}
+.toms-company-footer{margin-top:1.5rem;padding-top:0.75rem;border-top:2px solid #94a3b8;font-size:0.88rem;line-height:1.6;color:#334155}
 @media print{
   body{padding:0.75rem 1rem}
   .doc{max-width:none}

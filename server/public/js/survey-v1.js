@@ -74,7 +74,9 @@ async function api(path, opts = {}) {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const e = new Error(data.error || `HTTP ${res.status}`);
+    let msg = data.error;
+    if (!msg && res.status === 413) msg = "payload too large";
+    const e = new Error(msg || `HTTP ${res.status}`);
     e.status = res.status;
     throw e;
   }
@@ -227,6 +229,7 @@ function paintPhotoGrid() {
   const visible = cachedPhotos.slice(0, photoDisplayLimit);
   el.innerHTML = `<div class="photo-grid">${paintPhotoGridHtml(visible)}</div>`;
   bindPhotoTitleInputs();
+  bindPhotoEditButtons();
   countEl.textContent = `写真 ${cachedPhotos.length} 枚（${visible.length} 枚表示）`;
   countEl.classList.remove("hidden");
   if (cachedPhotos.length > photoDisplayLimit) {
@@ -338,33 +341,60 @@ function loadImageFromDataUrl(dataUrl) {
   });
 }
 
-async function compressImage(file, maxWidth = 1600, quality = 0.82) {
+function isHeicLike(file) {
+  const type = String(file?.type || "").toLowerCase();
+  const name = String(file?.name || "").toLowerCase();
+  return type.includes("heic") || type.includes("heif") || /\.heic$|\.heif$/.test(name);
+}
+
+async function decodeImageSource(file) {
+  if (typeof createImageBitmap === "function") {
+    try {
+      const bitmap = await createImageBitmap(file);
+      return { source: bitmap, width: bitmap.width, height: bitmap.height, cleanup: () => bitmap.close?.() };
+    } catch (err) {
+      console.warn("[survey-v1] createImageBitmap failed", err, file.name);
+    }
+  }
   const dataUrl = String(await readFileAsDataUrl(file));
   const img = await loadImageFromDataUrl(dataUrl);
-  let width = img.width;
-  let height = img.height;
-  if (!width || !height) throw new Error("invalid image dimensions");
-  if (width > maxWidth) {
-    height = Math.round((height * maxWidth) / width);
-    width = maxWidth;
-  }
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("canvas unavailable");
-  ctx.drawImage(img, 0, 0, width, height);
+  return { source: img, width: img.width, height: img.height, cleanup: () => {} };
+}
+
+function canvasToJpegBase64(canvas, quality = 0.82) {
   let out;
   try {
     out = canvas.toDataURL("image/jpeg", quality);
   } catch (err) {
-    console.error("[survey-v1] canvas.toDataURL failed", err, { name: file.name, type: file.type, size: file.size });
+    console.error("[survey-v1] canvas.toDataURL failed", err);
     throw err;
   }
   if (!out || out.length < 32) throw new Error("compression failed");
   const b64 = out.split(",")[1];
   if (!b64 || b64.length < 16) throw new Error("empty base64");
   return b64;
+}
+
+async function compressImage(file, maxWidth = 1600, quality = 0.82) {
+  const decoded = await decodeImageSource(file);
+  try {
+    let width = decoded.width;
+    let height = decoded.height;
+    if (!width || !height) throw new Error("invalid image dimensions");
+    if (width > maxWidth) {
+      height = Math.round((height * maxWidth) / width);
+      width = maxWidth;
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("canvas unavailable");
+    ctx.drawImage(decoded.source, 0, 0, width, height);
+    return canvasToJpegBase64(canvas, quality);
+  } finally {
+    decoded.cleanup();
+  }
 }
 
 async function fileToBase64(file) {
@@ -399,7 +429,7 @@ function paintPhotoGridHtml(visible) {
   return visible
     .map((ph) => {
       const img = ph.url
-        ? `<img src="${ph.url}" alt="" loading="lazy" decoding="async" />`
+        ? `<button type="button" class="photo-edit-btn" data-photo-id="${ph.id}" aria-label="写真を編集"><img src="${ph.url}" alt="" loading="lazy" decoding="async" /></button>`
         : '<div style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;background:#eee;font-size:2rem;">📝</div>';
       const title = ph.title ?? ph.comment ?? "";
       const titleField = ph.url
@@ -434,6 +464,238 @@ function bindPhotoTitleInputs() {
   });
 }
 
+let photoEditorState = null;
+
+function bindPhotoEditButtons() {
+  $("photo-list").querySelectorAll(".photo-edit-btn").forEach((btn) => {
+    btn.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      const photoId = btn.dataset.photoId;
+      const ph = cachedPhotos.find((p) => p.id === photoId);
+      if (ph?.url) openPhotoEditor(ph);
+    });
+  });
+}
+
+function setPhotoEditorTool(tool) {
+  if (!photoEditorState) return;
+  photoEditorState.tool = tool;
+  document.querySelectorAll(".photo-editor-tool").forEach((el) => {
+    el.classList.toggle("active", el.dataset.tool === tool);
+  });
+}
+
+function photoEditorPoint(ev, canvas) {
+  const rect = canvas.getBoundingClientRect();
+  const clientX = ev.touches?.[0]?.clientX ?? ev.clientX;
+  const clientY = ev.touches?.[0]?.clientY ?? ev.clientY;
+  return {
+    x: ((clientX - rect.left) / rect.width) * canvas.width,
+    y: ((clientY - rect.top) / rect.height) * canvas.height,
+  };
+}
+
+function drawPhotoEditorShape(ctx, shape) {
+  ctx.save();
+  ctx.strokeStyle = "#e11d48";
+  ctx.fillStyle = "#e11d48";
+  ctx.lineWidth = Math.max(3, ctx.canvas.width * 0.004);
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  if (shape.type === "pen" && shape.points?.length > 1) {
+    ctx.beginPath();
+    shape.points.forEach((p, i) => {
+      if (i === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    });
+    ctx.stroke();
+  } else if (shape.type === "arrow") {
+    const { x1, y1, x2, y2 } = shape;
+    const angle = Math.atan2(y2 - y1, x2 - x1);
+    const head = Math.max(12, ctx.lineWidth * 4);
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - head * Math.cos(angle - 0.4), y2 - head * Math.sin(angle - 0.4));
+    ctx.lineTo(x2 - head * Math.cos(angle + 0.4), y2 - head * Math.sin(angle + 0.4));
+    ctx.closePath();
+    ctx.fill();
+  } else if (shape.type === "circle") {
+    const rx = Math.abs(shape.x2 - shape.x1) / 2;
+    const ry = Math.abs(shape.y2 - shape.y1) / 2;
+    const cx = (shape.x1 + shape.x2) / 2;
+    const cy = (shape.y1 + shape.y2) / 2;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rx || 1, ry || 1, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  } else if (shape.type === "text" && shape.text) {
+    const size = Math.max(18, ctx.canvas.width * 0.028);
+    ctx.font = `bold ${size}px system-ui, sans-serif`;
+    ctx.fillText(shape.text, shape.x, shape.y);
+  }
+  ctx.restore();
+}
+
+function redrawPhotoEditorCanvas() {
+  const st = photoEditorState;
+  if (!st) return;
+  const { baseCtx, drawCtx, baseCanvas, drawCanvas, shapes } = st;
+  baseCtx.clearRect(0, 0, baseCanvas.width, baseCanvas.height);
+  baseCtx.drawImage(st.image, 0, 0, baseCanvas.width, baseCanvas.height);
+  drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+  shapes.forEach((shape) => drawPhotoEditorShape(drawCtx, shape));
+}
+
+async function openPhotoEditor(photo) {
+  const overlay = $("photo-editor");
+  const baseCanvas = $("photo-editor-base");
+  const drawCanvas = $("photo-editor-draw");
+  if (!overlay || !baseCanvas || !drawCanvas) return;
+  const img = new Image();
+  img.crossOrigin = "anonymous";
+  await new Promise((resolve, reject) => {
+    img.onload = resolve;
+    img.onerror = () => reject(new Error("image load failed"));
+    img.src = photo.url;
+  });
+  const maxW = Math.min(1200, window.innerWidth - 24);
+  let width = img.width;
+  let height = img.height;
+  if (width > maxW) {
+    height = Math.round((height * maxW) / width);
+    width = maxW;
+  }
+  baseCanvas.width = width;
+  baseCanvas.height = height;
+  drawCanvas.width = width;
+  drawCanvas.height = height;
+  const baseCtx = baseCanvas.getContext("2d");
+  const drawCtx = drawCanvas.getContext("2d");
+  photoEditorState = {
+    photo,
+    image: img,
+    tool: "pen",
+    shapes: [],
+    draft: null,
+    baseCanvas,
+    drawCanvas,
+    baseCtx,
+    drawCtx,
+  };
+  redrawPhotoEditorCanvas();
+  setPhotoEditorTool("pen");
+  overlay.classList.remove("hidden");
+  document.body.classList.add("photo-editor-open");
+}
+
+function closePhotoEditor() {
+  photoEditorState = null;
+  $("photo-editor")?.classList.add("hidden");
+  document.body.classList.remove("photo-editor-open");
+}
+
+function initPhotoEditor() {
+  const overlay = $("photo-editor");
+  const drawCanvas = $("photo-editor-draw");
+  if (!overlay || !drawCanvas) return;
+
+  overlay.querySelectorAll(".photo-editor-tool").forEach((btn) => {
+    btn.addEventListener("click", () => setPhotoEditorTool(btn.dataset.tool));
+  });
+  $("photo-editor-cancel")?.addEventListener("click", closePhotoEditor);
+  $("photo-editor-undo")?.addEventListener("click", () => {
+    if (!photoEditorState?.shapes.length) return;
+    photoEditorState.shapes.pop();
+    redrawPhotoEditorCanvas();
+  });
+
+  const finishDraft = () => {
+    const st = photoEditorState;
+    if (!st?.draft) return;
+    if (st.draft.type === "pen" && st.draft.points?.length > 1) st.shapes.push(st.draft);
+    else if (st.draft.type === "arrow" || st.draft.type === "circle") st.shapes.push(st.draft);
+    st.draft = null;
+    redrawPhotoEditorCanvas();
+  };
+
+  const onPointerDown = (ev) => {
+    if (!photoEditorState) return;
+    ev.preventDefault();
+    const pt = photoEditorPoint(ev, drawCanvas);
+    const st = photoEditorState;
+    if (st.tool === "text") {
+      const text = window.prompt("文字を入力", "");
+      if (text?.trim()) {
+        st.shapes.push({ type: "text", x: pt.x, y: pt.y, text: text.trim() });
+        redrawPhotoEditorCanvas();
+      }
+      return;
+    }
+    if (st.tool === "pen") {
+      st.draft = { type: "pen", points: [pt] };
+    } else {
+      st.draft = { type: st.tool, x1: pt.x, y1: pt.y, x2: pt.x, y2: pt.y };
+    }
+    drawCanvas.setPointerCapture?.(ev.pointerId);
+  };
+
+  const onPointerMove = (ev) => {
+    if (!photoEditorState?.draft) return;
+    ev.preventDefault();
+    const pt = photoEditorPoint(ev, drawCanvas);
+    const st = photoEditorState;
+    if (st.draft.type === "pen") {
+      st.draft.points.push(pt);
+      redrawPhotoEditorCanvas();
+      drawPhotoEditorShape(st.drawCtx, st.draft);
+    } else {
+      st.draft.x2 = pt.x;
+      st.draft.y2 = pt.y;
+      redrawPhotoEditorCanvas();
+      drawPhotoEditorShape(st.drawCtx, st.draft);
+    }
+  };
+
+  const onPointerUp = (ev) => {
+    if (!photoEditorState?.draft) return;
+    ev.preventDefault();
+    finishDraft();
+    drawCanvas.releasePointerCapture?.(ev.pointerId);
+  };
+
+  drawCanvas.addEventListener("pointerdown", onPointerDown);
+  drawCanvas.addEventListener("pointermove", onPointerMove);
+  drawCanvas.addEventListener("pointerup", onPointerUp);
+  drawCanvas.addEventListener("pointercancel", onPointerUp);
+
+  $("photo-editor-save")?.addEventListener("click", async () => {
+    const st = photoEditorState;
+    if (!st || !currentProjectId) return;
+    try {
+      const merged = document.createElement("canvas");
+      merged.width = st.baseCanvas.width;
+      merged.height = st.baseCanvas.height;
+      const ctx = merged.getContext("2d");
+      ctx.drawImage(st.baseCanvas, 0, 0);
+      ctx.drawImage(st.drawCanvas, 0, 0);
+      const imageBase64 = canvasToJpegBase64(merged, 0.88);
+      await api(`/projects/${currentProjectId}/photos/${st.photo.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ imageBase64, fileName: "annotated.jpg" }),
+      });
+      toast("編集した写真を保存しました");
+      closePhotoEditor();
+      await openDetail(currentProjectId);
+    } catch (e) {
+      console.error("[survey-v1] photo editor save failed", e);
+      toastError(e, e.status);
+    }
+  });
+}
+
 async function uploadPhotos(files) {
   if (!currentProjectId || !files?.length) return;
   const imageFiles = [...files].filter(isLikelyImageFile);
@@ -464,7 +726,10 @@ async function uploadPhotos(files) {
       try {
         imageBase64 = await compressImage(file);
       } catch (compressErr) {
-        console.warn("[survey-v1] compress failed, trying raw base64", compressErr, file.name);
+        console.warn("[survey-v1] compress failed", compressErr, file.name);
+        if (isHeicLike(file)) {
+          throw Object.assign(new Error("heic decode failed"), { status: 400, heic: true });
+        }
         imageBase64 = await fileToBase64(file);
       }
       await api(`/projects/${currentProjectId}/photos`, {
@@ -481,6 +746,10 @@ async function uploadPhotos(files) {
       console.error("[survey-v1] photo upload failed", e, { name: file.name, type: file.type, status: e.status });
       if (e.status === 401) {
         toast("ログインが切れました。もう一度ログインしてください");
+      } else if (e.status === 413) {
+        toast("写真が大きすぎます。別の写真で試してください");
+      } else if (e.heic) {
+        toast("HEIC形式は変換できませんでした。JPEGで保存した写真を選んでください");
       } else {
         toast(PHOTO_FAIL_MSG);
       }
@@ -537,6 +806,7 @@ async function init() {
     onBack: handleBack,
   });
   practicalNav.setToast(toast);
+  initPhotoEditor();
   renderMaterialPicker();
   showView("list");
   await loadList();

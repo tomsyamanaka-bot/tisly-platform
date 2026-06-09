@@ -13,11 +13,30 @@
   <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
   <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
   <style>
-    .pdf-btn-grid { display: grid; gap: 0.5rem; margin: 0.75rem 0; }
-    .pdf-btn-grid .btn-sub { width: 100%; text-align: center; }
+    .doc-action-grid {
+      display: grid;
+      gap: 0.4rem;
+      margin: 0.5rem 0;
+    }
+    .doc-action-grid .btn-doc-action {
+      width: 100%;
+      min-height: 52px;
+      padding: 0.85rem 1rem;
+      font-size: 1rem;
+      font-weight: 600;
+      border-radius: var(--tisly-radius);
+      border: 2px solid var(--tisly-blue);
+      background: var(--tisly-surface);
+      color: var(--tisly-blue);
+      cursor: pointer;
+    }
+    .doc-action-grid .btn-doc-action:active { transform: scale(0.98); }
     .pdf-preview-frame { width: 100%; min-height: 420px; border: 1px solid var(--tisly-border, #e2e8f0); border-radius: 8px; background: #fff; }
     #pdf-error { display: none; margin-top: 0.5rem; }
     #pdf-error.visible { display: block; }
+    #view-detail .friendly-card { margin-bottom: 0.65rem; }
+    #view-detail .section-label { margin-top: 0.65rem; }
+    #view-detail .section-hint { margin-bottom: 0.35rem; }
   </style>
 </head>
 <body class="tisly-friendly">
@@ -85,11 +104,11 @@
 
       <p class="section-label">📄 書類の確認・印刷</p>
       <p class="section-hint">現場写真は完了報告書にまとめます。見積・請求は写真なしで提出します。</p>
-      <div class="pdf-btn-grid friendly-card">
-        <button type="button" class="btn-sub blue" id="btn-pdf-estimate">見積書を開く</button>
-        <button type="button" class="btn-sub blue" id="btn-pdf-invoice">請求書を開く</button>
-        <button type="button" class="btn-sub blue" id="btn-pdf-completion">完了報告書を開く</button>
-        <button type="button" class="btn-sub blue" id="btn-toms">社内用データを確認</button>
+      <div class="doc-action-grid friendly-card">
+        <button type="button" class="btn-doc-action" id="btn-pdf-estimate">見積書を開く</button>
+        <button type="button" class="btn-doc-action" id="btn-pdf-invoice">請求書を開く</button>
+        <button type="button" class="btn-doc-action" id="btn-pdf-completion">完了報告書を開く</button>
+        <button type="button" class="btn-doc-action" id="btn-toms">社内用データを確認</button>
       </div>
 
       <div id="pdf-section" class="friendly-card hidden">

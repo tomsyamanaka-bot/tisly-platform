@@ -87,6 +87,7 @@ export function createApp(): express.Application {
   app.use(attachCustomerFromSubdomain);
   app.use(
     express.json({
+      limit: "20mb",
       verify: (req, _res, buf) => {
         (req as express.Request & { rawBody?: string }).rawBody = buf.toString("utf8");
       },

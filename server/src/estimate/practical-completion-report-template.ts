@@ -13,6 +13,7 @@ export interface PracticalCompletionReportContext {
   workLocation: string;
   workDate: string;
   staffName: string;
+  notes?: string;
   photos: PracticalCompletionReportPhoto[];
 }
 
@@ -48,6 +49,7 @@ function renderInfoPage(ctx: PracticalCompletionReportContext): string {
     ["工事場所", ctx.workLocation],
     ["作業日", ctx.workDate],
     ["担当者", ctx.staffName],
+    ...(ctx.notes?.trim() ? [["備考", ctx.notes.trim()]] : []),
   ]
     .map(
       ([label, value]) =>

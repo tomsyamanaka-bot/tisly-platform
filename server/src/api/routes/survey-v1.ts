@@ -163,13 +163,27 @@ surveyV1Router.delete("/projects/:id", ...surveyV1Auth, (req: AuthedRequest, res
 
 surveyV1Router.patch("/projects/:id/photos/:photoId", ...surveyV1Auth, (req: AuthedRequest, res) => {
   if (!assertSurveyRole(req, res)) return;
-  const body = req.body as { title?: string; comment?: string };
-  const updated = updateSurveyPhotoV1(String(req.params.id), String(req.params.photoId), body);
-  if (!updated) {
-    res.status(404).json({ error: "Not found" });
+  const body = req.body as {
+    title?: string;
+    comment?: string;
+    imageBase64?: string;
+    fileName?: string;
+  };
+  if (!body.title?.trim() && !body.comment?.trim() && !body.imageBase64) {
+    res.status(400).json({ error: "title, comment or imageBase64 required" });
     return;
   }
-  res.json(updated);
+  try {
+    const updated = updateSurveyPhotoV1(String(req.params.id), String(req.params.photoId), body);
+    if (!updated) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    res.json(updated);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "photo update failed";
+    res.status(400).json({ error: msg });
+  }
 });
 
 surveyV1Router.post("/projects/:id/photos", ...surveyV1Auth, (req: AuthedRequest, res) => {

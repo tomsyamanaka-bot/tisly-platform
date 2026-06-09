@@ -12,6 +12,96 @@
   <title>TiSLY — 現調</title>
   <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
   <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
+  <style>
+    .photo-edit-btn {
+      display: block;
+      width: 100%;
+      padding: 0;
+      border: none;
+      background: none;
+      cursor: pointer;
+    }
+    .photo-edit-btn img { pointer-events: none; }
+    body.photo-editor-open { overflow: hidden; }
+    .photo-editor {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      background: rgba(15, 23, 42, 0.92);
+      display: flex;
+      flex-direction: column;
+      padding: env(safe-area-inset-top, 0) 0.5rem env(safe-area-inset-bottom, 0);
+    }
+    .photo-editor.hidden { display: none; }
+    .photo-editor-toolbar {
+      display: flex;
+      gap: 0.35rem;
+      flex-wrap: wrap;
+      padding: 0.5rem 0;
+    }
+    .photo-editor-tool {
+      flex: 1;
+      min-width: 4.5rem;
+      min-height: 44px;
+      border: 2px solid #64748b;
+      border-radius: 8px;
+      background: #1e293b;
+      color: #f8fafc;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    .photo-editor-tool.active {
+      border-color: #5cb87a;
+      background: #14532d;
+    }
+    .photo-editor-stage {
+      position: relative;
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      touch-action: none;
+    }
+    .photo-editor-stage canvas {
+      max-width: 100%;
+      max-height: 100%;
+      border-radius: 6px;
+    }
+    #photo-editor-draw {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      touch-action: none;
+    }
+    #photo-editor-base {
+      display: none;
+    }
+    .photo-editor-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 0.4rem;
+      padding: 0.5rem 0 0.75rem;
+    }
+    .photo-editor-actions button {
+      min-height: 48px;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    #photo-editor-save {
+      background: #5cb87a;
+      color: #fff;
+      border: none;
+    }
+    #photo-editor-undo, #photo-editor-cancel {
+      background: #fff;
+      color: #334155;
+      border: 1px solid #cbd5e1;
+    }
+  </style>
 </head>
 <body class="tisly-friendly">
   <main class="app-main">
@@ -108,6 +198,24 @@
       </div>
     </div>
   </main>
+
+  <div id="photo-editor" class="photo-editor hidden" aria-hidden="true">
+    <div class="photo-editor-toolbar">
+      <button type="button" class="photo-editor-tool active" data-tool="pen">手書き</button>
+      <button type="button" class="photo-editor-tool" data-tool="arrow">矢印</button>
+      <button type="button" class="photo-editor-tool" data-tool="circle">丸囲み</button>
+      <button type="button" class="photo-editor-tool" data-tool="text">文字</button>
+    </div>
+    <div class="photo-editor-stage">
+      <canvas id="photo-editor-base"></canvas>
+      <canvas id="photo-editor-draw"></canvas>
+    </div>
+    <div class="photo-editor-actions">
+      <button type="button" id="photo-editor-undo">戻す</button>
+      <button type="button" id="photo-editor-cancel">キャンセル</button>
+      <button type="button" id="photo-editor-save">保存</button>
+    </div>
+  </div>
 
   <div id="toast" class="toast" role="status"></div>
   <script type="module" src="/js/survey-v1.js"></script>

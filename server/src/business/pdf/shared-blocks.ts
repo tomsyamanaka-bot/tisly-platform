@@ -70,8 +70,33 @@ export function renderTomsDocLayoutHeader(input: TomsDocHeaderInput): string {
 
 export function renderAmountBanner(total: number): string {
   return `<div class="amount-banner">
-  <div class="amount-banner-label">金額</div>
+  <div class="amount-banner-label">御見積金額</div>
   <div class="amount-banner-total">¥${total.toLocaleString("ja-JP")}<span class="amount-tax-note">（税込）</span></div>
+</div>`;
+}
+
+export function renderTomsEstimateStandardHeader(header: TomsEstimateHeader): string {
+  const addressee = formatTomsAddressee(header.addressee);
+  return `<div class="toms-estimate-head">
+  <h1 class="toms-doc-title">お見積書</h1>
+  <p class="toms-addressee">${escapeHtml(addressee)}</p>
+  <p class="toms-subject"><span class="toms-subject-label">件名</span> ${escapeHtml(header.subject)}</p>
+  <table class="toms-meta-table toms-meta-inline">
+    <tr><th>発行日</th><td>${escapeHtml(header.issueDate)}</td></tr>
+    <tr><th>見積番号</th><td>${escapeHtml(header.estimateNo)}</td></tr>
+  </table>
+</div>`;
+}
+
+export function renderTomsCompanyFooter(): string {
+  const co = getTomsCompanyInfo();
+  const emailLine = co.email ? `<div>${escapeHtml(co.email)}</div>` : "";
+  return `<div class="toms-company-footer">
+  <div class="toms-company-name">${escapeHtml(co.name)}</div>
+  <div>〒${escapeHtml(co.postalCode)} ${escapeHtml(co.address)}</div>
+  <div>TEL ${escapeHtml(co.phone)}</div>
+  <div>担当 ${escapeHtml(co.representativeName)}</div>
+  ${emailLine}
 </div>`;
 }
 

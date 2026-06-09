@@ -197,6 +197,33 @@ describe("現調PWA v1 API", () => {
     assert.ok(detail.body.handoff);
   });
 
+  it("大きな写真もJSONで保存できる（20mb制限）", async () => {
+    const largeBase64 = Buffer.alloc(400_000, 0xff).toString("base64");
+    const res = await request(app)
+      .post(`/api/survey/v1/projects/${projectId}/photos`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        imageBase64: largeBase64,
+        fileName: "large-field.jpg",
+      });
+    assert.equal(res.status, 201, res.body?.error);
+    assert.ok(res.body.url.includes("/uploads/survey/"));
+  });
+
+  it("写真の手書き編集画像を上書き保存できる", async () => {
+    const detail = await request(app)
+      .get(`/api/survey/v1/projects/${projectId}`)
+      .set("Authorization", `Bearer ${token}`);
+    const imagePhoto = detail.body.photos.find((p: { url: string }) => p.url);
+    assert.ok(imagePhoto?.id);
+    const res = await request(app)
+      .patch(`/api/survey/v1/projects/${projectId}/photos/${imagePhoto.id}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ imageBase64: TINY_PNG, fileName: "annotated.jpg" });
+    assert.equal(res.status, 200, res.body?.error);
+    assert.ok(res.body.url.includes("/uploads/survey/"));
+  });
+
   it("写真タイトルを個別に更新できる", async () => {
     const detail = await request(app)
       .get(`/api/survey/v1/projects/${projectId}`)

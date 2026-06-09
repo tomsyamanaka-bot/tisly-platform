@@ -432,7 +432,7 @@ export function buildCompletionReportContextV1(
 ): PracticalCompletionReportContext | null {
   const project = getBusinessProject(businessProjectId);
   if (!project) return null;
-  const survey = project.surveyProjectId ? getSurveyProjectV1(project.surveyProjectId) : null;
+  const survey = project.surveyProjectId ? getSurveyProjectV1Detail(project.surveyProjectId) : null;
   const estimate = project.estimateId ? getEstimate(project.estimateId) : null;
   const header = estimate?.header ?? null;
   const photos = project.surveyProjectId
@@ -453,6 +453,7 @@ export function buildCompletionReportContextV1(
     workLocation: survey?.address ?? project.address,
     workDate: survey?.surveyDate ?? header?.issueDate ?? "",
     staffName: survey?.assignee ?? header?.staffName ?? "",
+    notes: survey?.notes ?? project.surveyMemo ?? "",
     photos,
   };
 }
