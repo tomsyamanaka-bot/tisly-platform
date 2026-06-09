@@ -69,7 +69,7 @@ function renderPhotoCell(photo: PracticalCompletionReportPhoto | null): string {
   }
   return `<div class="cr-photo-cell">
     <div class="cr-photo-img-wrap"><img src="${escapeHtml(photo.url)}" alt="${escapeHtml(photo.title)}" /></div>
-    <p class="cr-photo-title">${escapeHtml(photo.title || "（タイトルなし）")}</p>
+    <p class="cr-photo-title">${escapeHtml(photo.title)}</p>
   </div>`;
 }
 

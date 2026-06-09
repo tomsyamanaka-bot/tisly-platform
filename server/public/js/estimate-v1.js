@@ -340,6 +340,9 @@ function buildPdfUrl(kind) {
   if (kind === "completion") {
     return `/api/estimate/v1/projects/${currentProjectId}/completion-report/pdf`;
   }
+  if (kind === "specification") {
+    return `/api/estimate/v1/projects/${currentProjectId}/specification/pdf`;
+  }
   return kind === "invoice"
     ? `/api/estimate/v1/projects/${currentProjectId}/invoice/pdf`
     : `/api/estimate/v1/projects/${currentProjectId}/pdf`;
@@ -354,6 +357,7 @@ function buildPdfTabUrl(kind, token) {
 const PDF_LABELS = {
   estimate: "見積書",
   invoice: "請求書",
+  specification: "仕様書",
   completion: "完了報告書",
 };
 
@@ -370,7 +374,7 @@ async function showDocumentPreview(kind) {
   errEl.innerHTML = "";
   try {
     toast("書類を読み込み中…");
-    if (kind !== "completion") {
+    if (kind === "estimate" || kind === "invoice") {
       await saveHeader().catch(() => ({}));
       await saveItems().catch(() => ({}));
     }
@@ -561,6 +565,7 @@ async function init() {
 
   $("btn-pdf-estimate").addEventListener("click", () => showDocumentPreview("estimate"));
   $("btn-pdf-invoice").addEventListener("click", () => showDocumentPreview("invoice"));
+  $("btn-pdf-specification").addEventListener("click", () => showDocumentPreview("specification"));
   $("btn-pdf-completion").addEventListener("click", () => showDocumentPreview("completion"));
 
   $("btn-duplicate-estimate").addEventListener("click", async () => {

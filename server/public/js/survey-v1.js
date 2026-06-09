@@ -433,33 +433,64 @@ function paintPhotoGridHtml(visible) {
         : '<div style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;background:#eee;font-size:2rem;">📝</div>';
       const title = ph.title ?? ph.comment ?? "";
       const titleField = ph.url
-        ? `<input type="text" class="photo-title-input" data-photo-id="${ph.id}" placeholder="タイトル（例：玄関カメラ）" value="${escapeHtml(title)}" />`
+        ? `<label class="photo-title-label"><span class="photo-title-label-text">写真タイトル</span><input type="text" class="photo-title-input" data-photo-id="${ph.id}" placeholder="例：玄関カメラ" value="${escapeHtml(title)}" inputmode="text" autocomplete="off" /></label>`
         : `<div class="photo-caption">${escapeHtml(title || "（メモ）")}</div>`;
       return `<div class="photo-card">${img}${titleField}<small style="display:block;padding:0 0.4rem 0.35rem;color:var(--tisly-muted);font-size:0.7rem;">${escapeHtml(ph.takenAt || ph.createdAt || "")}</small></div>`;
     })
     .join("");
 }
 
+const photoTitleSaveTimers = new Map();
+
+async function savePhotoTitle(photoId, title, { quiet = false } = {}) {
+  if (!currentProjectId || !photoId) return;
+  await api(`/projects/${currentProjectId}/photos/${photoId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ title }),
+  });
+  const ph = cachedPhotos.find((p) => p.id === photoId);
+  if (ph) {
+    ph.title = title;
+    ph.comment = title;
+  }
+  if (!quiet) toast("タイトルを保存しました");
+}
+
 function bindPhotoTitleInputs() {
   $("photo-list").querySelectorAll(".photo-title-input").forEach((inp) => {
-    inp.addEventListener("change", async () => {
+    inp.addEventListener("click", (ev) => ev.stopPropagation());
+    inp.addEventListener("pointerdown", (ev) => ev.stopPropagation());
+    const persist = async (quiet = false) => {
       if (!currentProjectId) return;
       const photoId = inp.dataset.photoId;
       const title = inp.value.trim();
       try {
-        await api(`/projects/${currentProjectId}/photos/${photoId}`, {
-          method: "PATCH",
-          body: JSON.stringify({ title }),
-        });
-        const ph = cachedPhotos.find((p) => p.id === photoId);
-        if (ph) {
-          ph.title = title;
-          ph.comment = title;
-        }
-        toast("タイトルを保存しました");
+        await savePhotoTitle(photoId, title, { quiet });
       } catch (e) {
         toastError(e, e.status);
       }
+    };
+    inp.addEventListener("input", () => {
+      const photoId = inp.dataset.photoId;
+      if (photoTitleSaveTimers.has(photoId)) {
+        clearTimeout(photoTitleSaveTimers.get(photoId));
+      }
+      photoTitleSaveTimers.set(
+        photoId,
+        setTimeout(() => {
+          photoTitleSaveTimers.delete(photoId);
+          persist(true);
+        }, 600)
+      );
+    });
+    inp.addEventListener("change", () => persist(false));
+    inp.addEventListener("blur", () => {
+      const photoId = inp.dataset.photoId;
+      if (photoTitleSaveTimers.has(photoId)) {
+        clearTimeout(photoTitleSaveTimers.get(photoId));
+        photoTitleSaveTimers.delete(photoId);
+      }
+      persist(true);
     });
   });
 }

@@ -14,6 +14,7 @@ import {
   listEstimateProjectsV1,
   listPendingSurveysV1,
   renderCompletionReportHtmlV1,
+  renderSpecificationHtmlV1,
   updateEstimateHeaderV1,
   updateEstimateItemsV1,
 } from "../../estimate/estimate-v1-store.js";
@@ -200,6 +201,28 @@ estimateV1Router.get("/projects/:id/invoice/pdf", ...estimateV1Auth, (req: Authe
   });
   res.type(contentType).sendFile(filePath);
 });
+
+estimateV1Router.get(
+  "/projects/:id/specification/pdf",
+  ...estimateV1Auth,
+  (req: AuthedRequest, res) => {
+    if (!assertEstimateV1Role(req, res)) return;
+    const project = getBusinessProject(String(req.params.id));
+    if (!project) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    const html = renderSpecificationHtmlV1(project.id);
+    if (!html) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    const tmp = businessUploadsDir(project.id, "pdf-html");
+    const p = path.join(tmp, "specification-live.html");
+    fs.writeFileSync(p, html, "utf8");
+    res.type("text/html; charset=utf-8").sendFile(p);
+  }
+);
 
 estimateV1Router.get(
   "/projects/:id/completion-report/pdf",

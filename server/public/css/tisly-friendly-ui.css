@@ -228,13 +228,19 @@ body.tisly-friendly {
 }
 
 .tisly-friendly .photo-title-input {
+  display: block;
   width: 100%;
-  margin-top: 0.25rem;
-  padding: 0.3rem 0.4rem;
-  font-size: 0.75rem;
-  border: 1px solid var(--tisly-border);
-  border-radius: 4px;
+  margin: 0.4rem 0 0;
+  padding: 0.65rem 0.75rem;
+  min-height: 48px;
+  font-size: 1rem;
+  line-height: 1.35;
+  border: 2px solid var(--tisly-border);
+  border-radius: 8px;
   background: #fff;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  pointer-events: auto;
 }
 
 .tisly-friendly .list-card:active {

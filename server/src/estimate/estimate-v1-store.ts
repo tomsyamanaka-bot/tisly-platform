@@ -29,7 +29,12 @@ import { v4 as uuid } from "uuid";
 import {
   renderPracticalCompletionReportHtml,
   type PracticalCompletionReportContext,
+  type PracticalCompletionReportPhoto,
 } from "./practical-completion-report-template.js";
+import {
+  renderSpecificationHtml,
+  type SpecificationContext,
+} from "./specification-template.js";
 import { statusAfterSurveyDone, statusAfterSurveySchedule } from "../business/business-status.js";
 import {
   getSurveyProjectV1,
@@ -427,6 +432,54 @@ export function buildTomsFormatPreviewV1(
   });
 }
 
+/** 現調写真（仕様書・完了報告書の reportPhotos 用） */
+export function buildReportPhotosV1(businessProjectId: string): PracticalCompletionReportPhoto[] {
+  const project = getBusinessProject(businessProjectId);
+  if (!project) return [];
+  const raw = project.surveyProjectId
+    ? listSurveyPhotosV1(project.surveyProjectId)
+        .filter((p) => !p.photoPath.startsWith("_memo:") && p.url)
+        .map((p) => ({ url: p.url, title: p.title ?? p.comment ?? "" }))
+    : (project.surveyPhotos || [])
+        .filter((p) => p.urlPath)
+        .map((p) => ({ url: p.urlPath, title: p.caption ?? "" }));
+  return raw.map((p, i) => ({
+    url: p.url,
+    title: p.title.trim() || `写真${i + 1}`,
+  }));
+}
+
+/** 施工後写真（将来分離。現時点は reportPhotos と同じデータ） */
+export function buildCompletionPhotosV1(businessProjectId: string): PracticalCompletionReportPhoto[] {
+  const project = getBusinessProject(businessProjectId);
+  if (!project) return [];
+  // Future: project.constructionPhotos when post-construction photos are captured
+  return buildReportPhotosV1(businessProjectId);
+}
+
+export function buildSpecificationContextV1(businessProjectId: string): SpecificationContext | null {
+  const project = getBusinessProject(businessProjectId);
+  if (!project) return null;
+  const survey = project.surveyProjectId ? getSurveyProjectV1Detail(project.surveyProjectId) : null;
+  const estimate = project.estimateId ? getEstimate(project.estimateId) : null;
+  const header = estimate?.header ?? null;
+  return {
+    addressee: header?.addressee ?? project.customerName,
+    subject: header?.subject ?? estimate?.title ?? project.title,
+    siteName: survey?.siteName ?? header?.siteName ?? project.title,
+    workLocation: survey?.address ?? header?.workLocation ?? project.address,
+    issueDate: header?.issueDate ?? survey?.surveyDate ?? "",
+    staffName: survey?.assignee ?? header?.staffName ?? "",
+    photos: buildReportPhotosV1(businessProjectId),
+  };
+}
+
+export function renderSpecificationHtmlV1(businessProjectId: string): string | null {
+  const ctx = buildSpecificationContextV1(businessProjectId);
+  if (!ctx) return null;
+  return renderSpecificationHtml(ctx);
+}
+
 export function buildCompletionReportContextV1(
   businessProjectId: string
 ): PracticalCompletionReportContext | null {
@@ -435,17 +488,6 @@ export function buildCompletionReportContextV1(
   const survey = project.surveyProjectId ? getSurveyProjectV1Detail(project.surveyProjectId) : null;
   const estimate = project.estimateId ? getEstimate(project.estimateId) : null;
   const header = estimate?.header ?? null;
-  const photos = project.surveyProjectId
-    ? listSurveyPhotosV1(project.surveyProjectId)
-        .filter((p) => !p.photoPath.startsWith("_memo:") && p.url)
-        .map((p) => ({
-          url: p.url,
-          title: p.title ?? p.comment ?? "",
-        }))
-    : (project.surveyPhotos || []).map((p) => ({
-        url: p.urlPath,
-        title: p.caption ?? "",
-      }));
   return {
     projectNo: project.projectNo,
     addressee: header?.addressee ?? project.customerName,
@@ -454,7 +496,7 @@ export function buildCompletionReportContextV1(
     workDate: survey?.surveyDate ?? header?.issueDate ?? "",
     staffName: survey?.assignee ?? header?.staffName ?? "",
     notes: survey?.notes ?? project.surveyMemo ?? "",
-    photos,
+    photos: buildCompletionPhotosV1(businessProjectId),
   };
 }
 

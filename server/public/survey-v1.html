@@ -96,10 +96,20 @@
       color: #fff;
       border: none;
     }
-    #photo-editor-undo, #photo-editor-cancel {
+    #photo-editor-undo,     #photo-editor-cancel {
       background: #fff;
       color: #334155;
       border: 1px solid #cbd5e1;
+    }
+    .photo-title-label {
+      display: block;
+      padding: 0.35rem 0.4rem 0.5rem;
+    }
+    .photo-title-label-text {
+      display: block;
+      font-size: 0.75rem;
+      color: var(--tisly-muted);
+      margin-bottom: 0.25rem;
     }
   </style>
 </head>
@@ -169,7 +179,7 @@
         <div id="photo-list" class="photo-scroll-container"></div>
         <p id="photo-count" class="section-hint hidden"></p>
         <button type="button" class="btn-sub hidden" id="btn-load-more-photos">さらに写真を表示</button>
-        <p class="section-hint">各写真の下でタイトルを入力できます（完了報告書に表示されます）</p>
+        <p class="section-hint">写真は仕様書・完了報告書に使えます。見積書と請求書には載せません。</p>
         <label class="friendly-label">文字だけメモ（任意） <textarea id="photo-comment" rows="2" placeholder="写真なしのメモ"></textarea></label>
         <input type="file" id="file-input-camera" accept="image/jpeg,image/png,image/heic,image/heif,image/*" capture="environment" style="display:none" />
         <input type="file" id="file-input-library" accept="image/jpeg,image/png,image/heic,image/heif,image/*" multiple style="display:none" />
