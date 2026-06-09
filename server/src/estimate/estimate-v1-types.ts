@@ -1,6 +1,11 @@
 /** TiSLY 見積PWA v1 — 型・定数 */
 
-import type { Estimate, EstimateLineItem, Invoice } from "../business/business-types.js";
+import type {
+  CustomerPriceRuleSummary,
+  Estimate,
+  EstimateLineItem,
+  Invoice,
+} from "../business/business-types.js";
 import type { TomsEstimateDocumentV1, TomsEstimateHeader } from "../business/toms-document-format.js";
 import type { SurveyWorkflowStatus } from "../survey/survey-v1-types.js";
 
@@ -37,6 +42,8 @@ export interface EstimateProjectV1Detail {
   businessProjectId: string;
   projectNo: string;
   customerName: string;
+  customerId?: string | null;
+  priceRule?: CustomerPriceRuleSummary | null;
   title: string;
   address: string;
   phone: string;
@@ -55,6 +62,8 @@ export interface EstimateProjectV1Detail {
 }
 
 export interface EstimateTotalsV1 {
+  lineSubtotal: number;
+  shuseiDiscount: number;
   subtotal: number;
   tax: number;
   total: number;

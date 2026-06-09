@@ -192,6 +192,47 @@ export function runMigrations(database: Database.Database): void {
   migratePracticalSearchIndex(database);
   migratePracticalPwaV2(database);
   migrateCompletionPhotosV1(database);
+  migrateCustomerPriceRulesV1(database);
+}
+
+/** 顧客別単価ルール + 見積出精値引き */
+function migrateCustomerPriceRulesV1(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:customer_price_rules_v1") as { value_json: string } | undefined;
+  if (marker) return;
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS customer_price_rules (
+      id TEXT PRIMARY KEY,
+      customer_id TEXT NOT NULL,
+      rule_name TEXT NOT NULL,
+      cost_multiplier REAL NOT NULL DEFAULT 2.0,
+      labor_multiplier REAL NOT NULL DEFAULT 2.0,
+      discount_policy_memo TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (customer_id) REFERENCES business_customers(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_customer_price_rules_customer
+      ON customer_price_rules(customer_id);
+  `);
+
+  addColumnsIfMissing(database, "business_estimates", [
+    {
+      name: "shusei_discount_amount",
+      ddl: "ALTER TABLE business_estimates ADD COLUMN shusei_discount_amount INTEGER NOT NULL DEFAULT 0",
+    },
+    {
+      name: "shusei_discount_memo",
+      ddl: "ALTER TABLE business_estimates ADD COLUMN shusei_discount_memo TEXT NOT NULL DEFAULT ''",
+    },
+  ]);
+
+  const now = new Date().toISOString();
+  database
+    .prepare(`INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, ?)`)
+    .run("migration:customer_price_rules_v1", JSON.stringify({ migratedAt: now }), now);
 }
 
 /** 見積PWA — 完了報告書用写真・現場不可詳細メモ */

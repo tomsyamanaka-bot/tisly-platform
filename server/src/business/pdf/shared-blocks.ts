@@ -213,11 +213,42 @@ export function renderLineItemsTable(
   );
 }
 
-export function renderTotals(subtotal: number, tax: number, total: number): string {
+export interface RenderTotalsInput {
+  lineSubtotal?: number;
+  shuseiDiscount?: number;
+  shuseiDiscountMemo?: string;
+  subtotal: number;
+  tax: number;
+  total: number;
+}
+
+export function renderTotals(input: RenderTotalsInput): string;
+export function renderTotals(subtotal: number, tax: number, total: number): string;
+export function renderTotals(
+  subtotalOrInput: number | RenderTotalsInput,
+  tax?: number,
+  total?: number
+): string {
+  const data: RenderTotalsInput =
+    typeof subtotalOrInput === "object"
+      ? subtotalOrInput
+      : { subtotal: subtotalOrInput, tax: tax ?? 0, total: total ?? 0 };
+  const lineSubtotal = data.lineSubtotal ?? data.subtotal + (data.shuseiDiscount ?? 0);
+  const discount = data.shuseiDiscount ?? 0;
+  const discountRow =
+    discount > 0
+      ? `<div class="discount-row"><span>出精値引き${data.shuseiDiscountMemo?.trim() ? `（${escapeHtml(data.shuseiDiscountMemo.trim())}）` : ""}</span><span>-¥${discount.toLocaleString("ja-JP")}</span></div>`
+      : "";
+  const lineRow =
+    discount > 0
+      ? `<div><span>明細合計（税抜）</span><span>¥${lineSubtotal.toLocaleString("ja-JP")}</span></div>`
+      : "";
   return `<div class="totals">
-  <div><span>小計（税抜）</span><span>¥${subtotal.toLocaleString("ja-JP")}</span></div>
-  <div><span>消費税</span><span>¥${tax.toLocaleString("ja-JP")}</span></div>
-  <div class="grand"><span>税込合計</span><span>¥${total.toLocaleString("ja-JP")}</span></div>
+  ${lineRow}
+  ${discountRow}
+  <div><span>小計（税抜）</span><span>¥${data.subtotal.toLocaleString("ja-JP")}</span></div>
+  <div><span>消費税</span><span>¥${data.tax.toLocaleString("ja-JP")}</span></div>
+  <div class="grand"><span>税込合計</span><span>¥${data.total.toLocaleString("ja-JP")}</span></div>
 </div>`;
 }
 

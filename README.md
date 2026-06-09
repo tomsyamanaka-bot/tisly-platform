@@ -588,6 +588,7 @@ cd server && npm run build && npx tsc --noEmit && npm run test
 - 現場写真は **完了報告書** に集約（1ページ目：案件情報、2ページ目以降：横2×縦3＝6枚/ページ、写真タイトル付き）
 - 現調：写真ごとにタイトル入力、一覧カードから案件コピー（📄）・削除（🗑）
 - 見積：複製ボタンで内容コピー＋見積番号のみ再発番
+- **顧客別単価ルール v1**：部材原価×`costMultiplier`、労務原価×`laborMultiplier`、最終調整は出精値引き（`customer_price_rules`）
 
 | ドキュメント | |
 |-------------|--|
@@ -602,6 +603,7 @@ npm run build
 npx tsx --test test/schedule-v1.test.ts
 npx tsx --test test/survey-v1.test.ts
 npx tsx --test test/estimate-v1.test.ts
+npx tsx --test test/customer-price-rules.test.ts
 npx tsx --test test/practical-pwa-v2.test.ts
 npx tsx --test test/multi-pwa-app-hub.test.ts
 ```

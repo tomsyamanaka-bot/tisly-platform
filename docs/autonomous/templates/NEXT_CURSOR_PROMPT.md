@@ -10,28 +10,29 @@ TiSLY Practical PWA — Cursor 自走作業
 ## 前提
 - docs/autonomous/README.md → PROJECT_STATUS.md → HUMAN_ACTIONS.md を読む
 - VPS Auto Deploy 成功済み。master push で本番反映
+- 顧客別単価ルール v1 完成（customer_price_rules / 出精値引き / PDF反映）
 - 現調写真 / 完了報告書用写真は別管理（混在禁止）
-- Google Calendar・Maps は未設定でも mock / ナビのみで止まらない
 
 ## 次に進める候補（優先度順）
-1. 日程調整モーダル内に当日予定一覧（title/start/end/location/description）を表示
-2. 見積 PWA：案件ステータスフロー・請求連携の UX 改善
-3. 現調 PWA：オフライン写真キュー・再送の安定化
-4. PDF：写真の縦横判定でレイアウト最適化（object-fit 自動切替）
+1. 顧客マスター UI：単価ルールの編集画面（business_customers 連携）
+2. 見積 PWA：「倍率で再計算」ボタン（applyPriceRule=true）
+3. 日程調整モーダル内に当日予定一覧を表示
+4. 現調 PWA：オフライン写真キュー・再送の安定化
 5. Google Calendar 本番 OAuth の VPS .env 反映後の E2E 確認
 
 ## 壊してはいけない機能
+- 顧客別倍率計算（材料 costMultiplier / 労務 laborMultiplier）
+- 出精値引きの税計算順序（明細合計 − 値引き = 小計 → 税 → 合計）
 - 写真分離（現調 vs 完了報告書）
 - PDF 写真有無ルール（仕様書・完了報告書のみ）
-- 日程日付メモと現場不可の分離
-- 移動時間ブロック・連携ステータスバッジ
 - VPS 自動デプロイフロー
 
 ## テスト（必須）
 cd server
 npm run build
-npx tsx --test test/survey-v1.test.ts
+npx tsx --test test/customer-price-rules.test.ts
 npx tsx --test test/estimate-v1.test.ts
+npx tsx --test test/survey-v1.test.ts
 npx tsx --test test/schedule-v1.test.ts
 npx tsx --test test/practical-pwa-v2.test.ts
 
@@ -55,3 +56,4 @@ git push origin master
 | [PROJECT_STATUS.md](../PROJECT_STATUS.md) | 完成仕様 |
 | [HUMAN_ACTIONS.md](../HUMAN_ACTIONS.md) | 人間が設定するキー |
 | [REGRESSION_TEST.md](../checklists/REGRESSION_TEST.md) | 回帰テスト |
+| [field-estimate-pwa-v1 README](../../field-estimate-pwa-v1/README.md) | 見積・単価ルール API |

@@ -281,7 +281,7 @@ describe("Phase 601-620 drawing PWA and real integration foundations", () => {
         .set("Authorization", `Bearer ${token}`)
     );
     assert.equal(est.status, 200);
-    assert.match(est.text, /御見積書/);
+    assert.match(est.text, /お見積書/);
     const estimate = project.estimateId
       ? (
           await import("../src/business/business-store.js")
@@ -289,7 +289,7 @@ describe("Phase 601-620 drawing PWA and real integration foundations", () => {
       : null;
     if (estimate) {
       const html = renderEstimateHtml(project, estimate);
-      assert.match(html, /御見積書/);
+      assert.match(html, /お見積書/);
     }
   });
 });

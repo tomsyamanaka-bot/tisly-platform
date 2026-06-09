@@ -463,6 +463,8 @@ export function getPricingItemsForCustomer(customerId: string): PricingItem[] {
 function rowToEstimate(r: Record<string, unknown>): Estimate {
   const items = parseJson<Estimate["items"]>(r.items_json as string, []);
   const headerRaw = r.header_json != null ? String(r.header_json) : null;
+  const shuseiDiscount = Number(r.shusei_discount_amount ?? 0);
+  const subtotal = Number(r.subtotal);
   return {
     id: String(r.id),
     projectId: String(r.project_id),
@@ -470,7 +472,10 @@ function rowToEstimate(r: Record<string, unknown>): Estimate {
     customerName: String(r.customer_name),
     title: String(r.title),
     items,
-    subtotal: Number(r.subtotal),
+    lineSubtotal: subtotal + shuseiDiscount,
+    shuseiDiscount,
+    shuseiDiscountMemo: String(r.shusei_discount_memo ?? ""),
+    subtotal,
     tax: Number(r.tax),
     total: Number(r.total),
     internalCost: Number(r.internal_cost),
@@ -527,13 +532,13 @@ function ensureEstimateReadyStatus(projectId: string): void {
 export function createEstimate(
   projectId: string,
   items: Estimate["items"],
-  opts?: { fromAi?: boolean }
+  opts?: { fromAi?: boolean; shuseiDiscount?: number; shuseiDiscountMemo?: string }
 ): Estimate {
   const project = getBusinessProject(projectId);
   if (!project) throw new Error("project not found");
   ensureEstimateReadyStatus(projectId);
   const normalized = normalizeLineItems(items);
-  const totals = calcTotals(normalized);
+  const totals = calcTotals(normalized, { shuseiDiscount: opts?.shuseiDiscount });
   const id = uuid();
   const estimateNo = generateTomsDailyDocNo("business_estimates", "estimate_no");
   const now = new Date().toISOString();
@@ -544,6 +549,9 @@ export function createEstimate(
     customerName: project.customerName,
     title: project.title,
     items: normalized,
+    lineSubtotal: totals.lineSubtotal,
+    shuseiDiscount: totals.shuseiDiscount,
+    shuseiDiscountMemo: opts?.shuseiDiscountMemo ?? "",
     subtotal: totals.subtotal,
     tax: totals.tax,
     total: totals.total,
@@ -566,8 +574,9 @@ export function createEstimate(
       `INSERT INTO business_estimates (
         id, project_id, estimate_no, customer_name, title, items_json,
         subtotal, tax, total, internal_cost, gross_profit, gross_profit_rate,
+        shusei_discount_amount, shusei_discount_memo,
         pdf_path, header_json, search_index_json, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?)`
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?)`
     )
     .run(
       id,
@@ -582,6 +591,8 @@ export function createEstimate(
       totals.internalCost,
       totals.grossProfit,
       totals.grossProfitRate,
+      totals.shuseiDiscount,
+      opts?.shuseiDiscountMemo ?? "",
       JSON.stringify(header),
       JSON.stringify(searchIndex),
       now,

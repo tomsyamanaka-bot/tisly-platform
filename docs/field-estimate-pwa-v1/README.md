@@ -19,7 +19,7 @@
 | GET | `/projects` | 見積案件一覧 |
 | POST | `/from-survey/:surveyProjectId` | 現調から見積案件作成 |
 | GET | `/projects/:id` | 見積詳細 |
-| PATCH | `/projects/:id/items` | 明細更新・税計算 |
+| PATCH | `/projects/:id/items` | 明細更新・税計算（`shuseiDiscount` / `shuseiDiscountMemo` 対応） |
 | POST | `/projects/:id/finalize` | 確定 + PDF + `estimate_done` |
 | GET | `/projects/:id/pdf` | PDF/HTML プレビュー |
 | GET | `/projects/:id/toms-format` | TOMS標準フォーマット（スタブ） |
@@ -32,11 +32,23 @@
 4. `survey_handoff_log.business_project_id` を更新
 5. 確定時に `workflow_status = estimate_done`
 
+## 顧客別単価ルール（Customer Price Rule v1）
+
+- 部材原価 × `costMultiplier` = 材料販売単価
+- 労務原価 × `laborMultiplier` = 労務販売単価
+- 最終調整は **出精値引き**（`shusei_discount_amount` / `shusei_discount_memo`）で行う
+- 計算順: 明細合計 − 出精値引き = 小計 → 消費税 → 税込合計
+
+シード例: 客A×2.0 / 客B×3.0 / 管理会社A×1.8 / 一般個人×2.5 / 法人標準×2.2
+
 ## DB
 
-新規テーブルなし。既存 `business_projects` / `business_estimates` を利用。
+| テーブル | 用途 |
+|----------|------|
+| `customer_price_rules` | 顧客別倍率（`rule_name`, `cost_multiplier`, `labor_multiplier`） |
+| `business_estimates` | 出精値引き列（`shusei_discount_amount`, `shusei_discount_memo`） |
 
-マイグレーション: `migration:field_estimate_pwa_v1`（インデックス追加）
+マイグレーション: `migration:customer_price_rules_v1`
 
 ## オフライン（後回し）
 
@@ -47,6 +59,7 @@
 ```bash
 cd server
 npx tsx --test test/estimate-v1.test.ts
+npx tsx --test test/customer-price-rules.test.ts
 ```
 
 ## ログイン例

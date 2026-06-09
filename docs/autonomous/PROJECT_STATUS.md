@@ -90,10 +90,27 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 
 ---
 
+## 顧客別単価ルール（完成済み）
+
+| 項目 | 内容 |
+|------|------|
+| テーブル | `customer_price_rules`（`customer_id` → `business_customers`） |
+| 材料単価 | 部材原価 × `cost_multiplier` |
+| 労務単価 | 労務原価 × `labor_multiplier`（category=labor または名称マッチ） |
+| 出精値引き | `business_estimates.shusei_discount_amount` / `shusei_discount_memo` |
+| 計算 | 明細合計 − 出精値引き = 小計 → 税10% → 税込合計 |
+| UI | 見積詳細に単価ルール・倍率・出精値引きを表示 |
+| PDF | 出精値引き行を `renderTotals` に反映 |
+| テスト | `server/test/customer-price-rules.test.ts` |
+
+---
+
 ## 主要コード参照
 
 | 領域 | パス |
 |------|------|
+| 顧客別単価ルール | `server/src/business/customer-price-rules.ts` |
+| 税・値引き計算 | `server/src/business/estimate-math.ts` |
 | 写真分離ロジック | `server/src/estimate/estimate-v1-store.ts` |
 | 完了報告書用写真 API/Store | `server/src/estimate/completion-photos-store.ts` |
 | 仕様書 PDF テンプレ | `server/src/estimate/specification-template.ts` |

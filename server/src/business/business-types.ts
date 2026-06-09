@@ -134,6 +134,13 @@ export interface Customer {
   updatedAt: string;
 }
 
+export interface CustomerPriceRuleSummary {
+  ruleName: string;
+  costMultiplier: number;
+  laborMultiplier: number;
+  discountPolicyMemo: string;
+}
+
 export interface PricingItem {
   id: string;
   category: PricingCategory;
@@ -174,6 +181,9 @@ export interface Estimate {
   customerName: string;
   title: string;
   items: EstimateLineItem[];
+  lineSubtotal?: number;
+  shuseiDiscount: number;
+  shuseiDiscountMemo: string;
   subtotal: number;
   tax: number;
   total: number;

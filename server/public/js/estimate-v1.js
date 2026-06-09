@@ -268,6 +268,10 @@ function renderLines(items) {
   recalcLocal();
 }
 
+function readShuseiDiscount() {
+  return Math.max(0, Math.round(Number($("shusei-discount")?.value || 0)));
+}
+
 function recalcLocal() {
   $("line-list").querySelectorAll(".line-card").forEach((row) => {
     const i = Number(row.dataset.idx);
@@ -285,18 +289,26 @@ function recalcLocal() {
       if (amtEl) amtEl.textContent = `金額 ${yen(currentLines[i].amount)}`;
     }
   });
-  const subtotal = currentLines.reduce((s, it) => s + (it.amount || 0), 0);
+  const lineSubtotal = currentLines.reduce((s, it) => s + (it.amount || 0), 0);
+  const discount = readShuseiDiscount();
+  const subtotal = Math.max(0, lineSubtotal - discount);
   const tax = Math.round(subtotal * 0.1);
+  const total = subtotal + tax;
+  const showDiscount = discount > 0;
+  $("total-line-row")?.classList.toggle("hidden", !showDiscount);
+  $("total-discount-row")?.classList.toggle("hidden", !showDiscount);
+  if ($("total-line")) $("total-line").textContent = yen(lineSubtotal);
+  if ($("total-discount")) $("total-discount").textContent = `-${yen(discount)}`;
   $("total-sub").textContent = yen(subtotal);
   $("total-tax").textContent = yen(tax);
-  $("total-grand").textContent = yen(subtotal + tax);
+  $("total-grand").textContent = yen(total);
 }
 
 function updateTotalsFromEstimate(est) {
   if (!est) return;
-  $("total-sub").textContent = yen(est.subtotal);
-  $("total-tax").textContent = yen(est.tax);
-  $("total-grand").textContent = yen(est.total);
+  if ($("shusei-discount")) $("shusei-discount").value = String(est.shuseiDiscount ?? 0);
+  if ($("shusei-discount-memo")) $("shusei-discount-memo").value = est.shuseiDiscountMemo ?? "";
+  recalcLocal();
 }
 
 function hidePdfPreview() {
@@ -429,6 +441,26 @@ function renderCustomerInfo(p) {
     p.email && `Email: ${p.email}`,
   ].filter(Boolean);
   $("detail-customer-info").innerHTML = parts.map((x) => escapeHtml(x)).join(" · ");
+}
+
+function renderPriceRulePanel(p) {
+  const panel = $("price-rule-panel");
+  const summary = $("price-rule-summary");
+  if (!panel || !summary) return;
+  const rule = p.priceRule;
+  if (!rule) {
+    panel.classList.add("hidden");
+    return;
+  }
+  panel.classList.remove("hidden");
+  const discount = p.estimate?.shuseiDiscount ?? 0;
+  const lines = [
+    `単価ルール：${rule.ruleName}`,
+    `材料：原価 × ${rule.costMultiplier}`,
+    `労務：原価 × ${rule.laborMultiplier}`,
+  ];
+  if (discount > 0) lines.push(`出精値引き：-${discount.toLocaleString("ja-JP")}円`);
+  summary.textContent = lines.join("\n");
 }
 
 function isLikelyImageFile(file) {
@@ -755,6 +787,7 @@ async function openDetail(projectId) {
     const p = await api(`/projects/${projectId}`);
     $("detail-name").textContent = p.customerName || p.title;
     renderCustomerInfo(p);
+    renderPriceRulePanel(p);
     const statusEl = $("detail-status");
     if (p.pdfPath) {
       statusEl.textContent = "見積書の準備ができました";
@@ -775,6 +808,8 @@ async function openDetail(projectId) {
     $("estimate-notes").value = p.estimateNotes || "";
     fillHeaderForm(p.header);
     renderLines(p.estimate?.items || []);
+    if ($("shusei-discount")) $("shusei-discount").value = String(p.estimate?.shuseiDiscount ?? 0);
+    if ($("shusei-discount-memo")) $("shusei-discount-memo").value = p.estimate?.shuseiDiscountMemo ?? "";
     updateTotalsFromEstimate(p.estimate);
     const surveyLink = $("link-survey-photos");
     if (surveyLink) {
@@ -796,6 +831,8 @@ async function saveItems() {
     body: JSON.stringify({
       items: currentLines,
       notes: $("estimate-notes").value.trim(),
+      shuseiDiscount: readShuseiDiscount(),
+      shuseiDiscountMemo: $("shusei-discount-memo")?.value.trim() ?? "",
     }),
   });
 }
@@ -878,12 +915,20 @@ async function init() {
     renderLines(currentLines);
   });
 
+  $("shusei-discount")?.addEventListener("input", () => recalcLocal());
+  $("shusei-discount")?.addEventListener("change", () => recalcLocal());
+  $("shusei-discount-memo")?.addEventListener("input", () => recalcLocal());
+
   $("btn-save-items").addEventListener("click", async () => {
     if (!currentProjectId) return;
     try {
       const result = await saveItems();
       toast("内訳を保存しました");
       updateTotalsFromEstimate(result.estimate);
+      renderPriceRulePanel({
+        priceRule: (await api(`/projects/${currentProjectId}`)).priceRule,
+        estimate: result.estimate,
+      });
       hidePdfPreview();
       $("detail-status").textContent = "下書き";
       $("detail-status").className = "status-badge orange";

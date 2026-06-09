@@ -77,6 +77,10 @@
         <h2 id="detail-name">—</h2>
         <p id="detail-meta"></p>
         <p id="detail-customer-info" class="section-hint"></p>
+        <div id="price-rule-panel" class="price-rule-panel hidden">
+          <p class="section-label" style="margin:0.75rem 0 0.25rem;">💴 単価ルール</p>
+          <p id="price-rule-summary" class="section-hint"></p>
+        </div>
       </div>
 
       <p class="section-label">📋 見積ヘッダー</p>
@@ -101,7 +105,17 @@
       <div class="friendly-card" id="lines-card">
         <div id="line-list"></div>
         <button type="button" class="btn-sub blue" id="btn-add-line" style="margin-top:0.5rem;">＋ 項目を追加</button>
+        <div class="shusei-discount-box">
+          <label class="friendly-label">出精値引き（円）
+            <input type="number" id="shusei-discount" min="0" step="1000" inputmode="numeric" value="0" />
+          </label>
+          <label class="friendly-label">出精値引きメモ
+            <input type="text" id="shusei-discount-memo" placeholder="端数調整・特別値引きなど" />
+          </label>
+        </div>
         <div class="totals-box" id="totals-box">
+          <div id="total-line-row" class="hidden">明細合計 <span id="total-line">¥0</span></div>
+          <div id="total-discount-row" class="hidden">出精値引き <span id="total-discount">-¥0</span></div>
           <div>小計 <span id="total-sub">¥0</span></div>
           <div>消費税（10%） <span id="total-tax">¥0</span></div>
           <div class="grand-total">税込合計 <span id="total-grand">¥0</span></div>

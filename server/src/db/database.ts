@@ -8,6 +8,7 @@ import { ensureTenant } from "../provisioning/site-provisioner.js";
 import { runMigrations } from "./migrate.js";
 import { seedBusinessDefaults } from "../business/business-store.js";
 import { seedPricingRulesFromTiers } from "../business/business-pricing.js";
+import { seedCustomerPriceRules } from "../business/customer-price-rules.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -71,6 +72,7 @@ export function getDatabase(): Database.Database {
   seedDefaults(db);
   seedBusinessDefaults();
   seedPricingRulesFromTiers();
+  seedCustomerPriceRules();
   seedProRemoteCustomers();
   ensureTenant(config.defaultTenantId, "Default Tenant");
   return db;

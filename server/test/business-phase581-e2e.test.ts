@@ -73,7 +73,7 @@ describe("Phase 581-600 business E2E flow", () => {
       .get(`/api/business/projects/${projectId}/pdf/estimate`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(pdf.status, 200);
-    assert.match(pdf.text, /御見積書/);
+    assert.match(pdf.text, /お見積書/);
 
     const cal = await request(app)
       .post("/api/business/google/calendar/create")

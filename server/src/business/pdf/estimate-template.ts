@@ -57,7 +57,14 @@ ${renderTomsDocLayoutHeader({
 })}
 ${renderAmountBanner(estimate.total)}
 ${renderTomsLineItemsTable(lines)}
-${renderTotals(estimate.subtotal, estimate.tax, estimate.total)}
+${renderTotals({
+  lineSubtotal: estimate.lineSubtotal ?? estimate.subtotal + estimate.shuseiDiscount,
+  shuseiDiscount: estimate.shuseiDiscount,
+  shuseiDiscountMemo: estimate.shuseiDiscountMemo,
+  subtotal: estimate.subtotal,
+  tax: estimate.tax,
+  total: estimate.total,
+})}
 ${renderNotes(notes)}
 ${photoBlock}
 </div></body></html>`;

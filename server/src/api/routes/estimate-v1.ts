@@ -128,7 +128,13 @@ estimateV1Router.patch("/projects/:id/header", ...estimateV1Auth, (req: AuthedRe
 
 estimateV1Router.patch("/projects/:id/items", ...estimateV1Auth, (req: AuthedRequest, res) => {
   if (!assertEstimateV1Role(req, res)) return;
-  const body = req.body as { items?: Partial<EstimateLineItem>[]; notes?: string };
+  const body = req.body as {
+    items?: Partial<EstimateLineItem>[];
+    notes?: string;
+    shuseiDiscount?: number;
+    shuseiDiscountMemo?: string;
+    applyPriceRule?: boolean;
+  };
   if (!Array.isArray(body.items)) {
     res.status(400).json({ error: "items array required" });
     return;
@@ -136,6 +142,9 @@ estimateV1Router.patch("/projects/:id/items", ...estimateV1Auth, (req: AuthedReq
   try {
     const result = updateEstimateItemsV1(String(req.params.id), body.items, {
       notes: body.notes,
+      shuseiDiscount: body.shuseiDiscount,
+      shuseiDiscountMemo: body.shuseiDiscountMemo,
+      applyPriceRule: body.applyPriceRule === true,
     });
     res.json(result);
   } catch (e) {

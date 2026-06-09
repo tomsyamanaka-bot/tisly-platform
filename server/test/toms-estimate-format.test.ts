@@ -287,6 +287,8 @@ describe("TOMS標準見積フォーマット", () => {
             amount: 45000,
           },
         ],
+        shuseiDiscount: 0,
+        shuseiDiscountMemo: "",
         subtotal: 45000,
         tax: 4500,
         total: 49500,

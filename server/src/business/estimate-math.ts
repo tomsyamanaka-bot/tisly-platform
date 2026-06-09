@@ -7,7 +7,16 @@ export function lineAmount(quantity: number, unitPrice: number): number {
   return Math.round(quantity * unitPrice);
 }
 
-export function calcTotals(items: EstimateLineItem[]): {
+export interface CalcTotalsOptions {
+  shuseiDiscount?: number;
+}
+
+export function calcTotals(
+  items: EstimateLineItem[],
+  opts?: CalcTotalsOptions
+): {
+  lineSubtotal: number;
+  shuseiDiscount: number;
   subtotal: number;
   tax: number;
   total: number;
@@ -15,7 +24,9 @@ export function calcTotals(items: EstimateLineItem[]): {
   grossProfit: number;
   grossProfitRate: number;
 } {
-  const subtotal = items.reduce((s, i) => s + i.amount, 0);
+  const lineSubtotal = items.reduce((s, i) => s + i.amount, 0);
+  const shuseiDiscount = Math.max(0, Math.round(opts?.shuseiDiscount ?? 0));
+  const subtotal = Math.max(0, lineSubtotal - shuseiDiscount);
   const tax = Math.round(subtotal * TAX_RATE);
   const total = subtotal + tax;
   const internalCost = items.reduce(
@@ -24,7 +35,16 @@ export function calcTotals(items: EstimateLineItem[]): {
   );
   const grossProfit = subtotal - internalCost;
   const grossProfitRate = subtotal > 0 ? Math.round((grossProfit / subtotal) * 1000) / 10 : 0;
-  return { subtotal, tax, total, internalCost, grossProfit, grossProfitRate };
+  return {
+    lineSubtotal,
+    shuseiDiscount,
+    subtotal,
+    tax,
+    total,
+    internalCost,
+    grossProfit,
+    grossProfitRate,
+  };
 }
 
 export function normalizeLineItems(

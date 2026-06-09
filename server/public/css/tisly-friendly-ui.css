@@ -408,6 +408,20 @@ body.tisly-friendly {
   border-color: var(--tisly-red-light);
 }
 
+.tisly-friendly .price-rule-panel {
+  margin-top: 0.5rem;
+  padding: 0.65rem 0.75rem;
+  background: var(--tisly-blue-light, #eef4ff);
+  border-radius: 8px;
+  white-space: pre-line;
+}
+
+.tisly-friendly .shusei-discount-box {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--tisly-border);
+}
+
 .tisly-friendly .totals-box {
   margin-top: 0.75rem;
   padding-top: 0.75rem;

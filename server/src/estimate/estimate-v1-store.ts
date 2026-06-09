@@ -22,6 +22,11 @@ import {
 import { generateInvoicePdf } from "../business/services/pdfService.js";
 import { listPricingRules } from "../business/business-pricing.js";
 import type { Estimate, EstimateLineItem, PricingCategory, PricingItem } from "../business/business-types.js";
+import {
+  applyCustomerPriceToItems,
+  ensureBusinessCustomer,
+  getCustomerPriceRuleOrDefault,
+} from "../business/customer-price-rules.js";
 import { applyPricingTierToItems, calcTotals, normalizeLineItems } from "../business/estimate-math.js";
 import { generateTomsDailyDocNo } from "../business/toms-document-format.js";
 import { generateEstimatePdf } from "../business/services/pdfService.js";
@@ -224,10 +229,19 @@ export function getEstimateProjectV1Detail(businessProjectId: string): EstimateP
     estimate && pdfCtx
       ? mergeEstimateHeader(estimate, estimate.header ?? null, pdfCtx)
       : null;
+  const priceRuleRow = getCustomerPriceRuleOrDefault(project.customerId);
+  const priceRule = {
+    ruleName: priceRuleRow.ruleName,
+    costMultiplier: priceRuleRow.costMultiplier,
+    laborMultiplier: priceRuleRow.laborMultiplier,
+    discountPolicyMemo: priceRuleRow.discountPolicyMemo,
+  };
   return {
     businessProjectId: project.id,
     projectNo: project.projectNo,
     customerName: project.customerName,
+    customerId: project.customerId,
+    priceRule,
     title: project.title,
     address: project.address,
     phone: project.phone,
@@ -269,8 +283,14 @@ export function createEstimateFromSurveyV1(
   let project = businessProjectId ? getBusinessProject(businessProjectId) : null;
 
   if (!project) {
+    const customerId = `BCU-SVY-${detail.customerCode}`;
+    ensureBusinessCustomer({
+      id: customerId,
+      name: detail.customerName,
+      type: "company",
+    });
     project = createBusinessProject({
-      customerId: `BCU-SVY-${detail.customerCode}`,
+      customerId,
       customerName: detail.customerName,
       title: detail.siteName || detail.customerName,
       address: detail.address ?? "",
@@ -303,7 +323,9 @@ export function createEstimateFromSurveyV1(
       rows.length > 0
         ? rows
         : [{ category: "other", name: "工事一式（現調ベース）", unit: "式", quantity: 1 }];
-    const items = applyPricingTierToItems(seedRows, pricingItems);
+    const tiered = applyPricingTierToItems(seedRows, pricingItems);
+    const priceRule = getCustomerPriceRuleOrDefault(project.customerId);
+    const items = applyCustomerPriceToItems(tiered, priceRule);
     createEstimate(project.id, items);
     project = getBusinessProject(project.id)!;
     updateEstimateHeader(project.estimateId!, {
@@ -328,18 +350,30 @@ export function createEstimateFromSurveyV1(
 export function updateEstimateItemsV1(
   businessProjectId: string,
   items: Partial<EstimateLineItem>[],
-  opts?: { notes?: string }
+  opts?: { notes?: string; shuseiDiscount?: number; shuseiDiscountMemo?: string; applyPriceRule?: boolean }
 ): { estimate: Estimate; totals: EstimateTotalsV1 } {
   const project = getBusinessProject(businessProjectId);
   if (!project?.estimateId) throw new Error("estimate not found");
-  const normalized = normalizeLineItems(items);
-  const totals = calcTotals(normalized);
+  let normalized = normalizeLineItems(items);
+  if (opts?.applyPriceRule) {
+    const priceRule = getCustomerPriceRuleOrDefault(project.customerId);
+    normalized = applyCustomerPriceToItems(normalized, priceRule);
+  }
+  const existing = getEstimate(project.estimateId);
+  const shuseiDiscount =
+    opts?.shuseiDiscount !== undefined ? opts.shuseiDiscount : (existing?.shuseiDiscount ?? 0);
+  const shuseiDiscountMemo =
+    opts?.shuseiDiscountMemo !== undefined
+      ? opts.shuseiDiscountMemo
+      : (existing?.shuseiDiscountMemo ?? "");
+  const totals = calcTotals(normalized, { shuseiDiscount });
   const now = new Date().toISOString();
   getDatabase()
     .prepare(
       `UPDATE business_estimates SET
         items_json = ?, subtotal = ?, tax = ?, total = ?,
         internal_cost = ?, gross_profit = ?, gross_profit_rate = ?,
+        shusei_discount_amount = ?, shusei_discount_memo = ?,
         pdf_path = NULL, updated_at = ?
        WHERE id = ?`
     )
@@ -351,6 +385,8 @@ export function updateEstimateItemsV1(
       totals.internalCost,
       totals.grossProfit,
       totals.grossProfitRate,
+      totals.shuseiDiscount,
+      shuseiDiscountMemo,
       now,
       project.estimateId
     );
@@ -516,7 +552,7 @@ export function duplicateEstimateV1(businessProjectId: string): EstimateProjectV
   if (!project?.estimateId) throw new Error("estimate not found");
   const est = getEstimate(project.estimateId)!;
   const normalized = normalizeLineItems(est.items);
-  const totals = calcTotals(normalized);
+  const totals = calcTotals(normalized, { shuseiDiscount: est.shuseiDiscount });
   const id = uuid();
   const estimateNo = generateTomsDailyDocNo("business_estimates", "estimate_no");
   const now = new Date().toISOString();
@@ -525,8 +561,9 @@ export function duplicateEstimateV1(businessProjectId: string): EstimateProjectV
       `INSERT INTO business_estimates (
         id, project_id, estimate_no, customer_name, title, items_json,
         subtotal, tax, total, internal_cost, gross_profit, gross_profit_rate,
+        shusei_discount_amount, shusei_discount_memo,
         pdf_path, header_json, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)`
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)`
     )
     .run(
       id,
@@ -541,6 +578,8 @@ export function duplicateEstimateV1(businessProjectId: string): EstimateProjectV
       totals.internalCost,
       totals.grossProfit,
       totals.grossProfitRate,
+      totals.shuseiDiscount,
+      est.shuseiDiscountMemo ?? "",
       est.header ? JSON.stringify(est.header) : null,
       now,
       now
