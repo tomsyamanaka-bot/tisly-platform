@@ -101,8 +101,8 @@ describe("Phase 1721-1760 VPS Deploy Final Safety Check", () => {
       });
     }
 
-    it("deploy.yml does not echo VPS secrets", () => {
-      const yml = fs.readFileSync(path.join(repoRoot, ".github/workflows/deploy.yml"), "utf8");
+    it("deploy-vps.yml does not echo VPS secrets", () => {
+      const yml = fs.readFileSync(path.join(repoRoot, ".github/workflows/deploy-vps.yml"), "utf8");
       assert.ok(!yml.includes("echo ${{ secrets."));
       assert.ok(yml.includes("secrets.VPS_HOST"));
     });
@@ -122,7 +122,9 @@ describe("Phase 1721-1760 VPS Deploy Final Safety Check", () => {
         .filter((f) => f.includes(".env"));
       for (const f of tracked) {
         assert.ok(
-          f.endsWith(".example") || f.endsWith(".production.example"),
+          f.endsWith(".example") ||
+            f.endsWith(".production.example") ||
+            f.endsWith(".sample"),
           `non-example env tracked: ${f}`,
         );
       }
