@@ -529,7 +529,7 @@ export function updateSurveyPhotoV1(
 
   const title =
     patch.title !== undefined || patch.comment !== undefined
-      ? (patch.title ?? patch.comment)?.trim() ?? null
+      ? (patch.title ?? patch.comment)?.trim() || null
       : undefined;
   if (title !== undefined) {
     getDatabase()

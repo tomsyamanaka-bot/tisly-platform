@@ -4,13 +4,20 @@
 
 | 項目 | 値 |
 |------|-----|
-| 作業内容 | 実務PWA 写真修正・見積TOMS・日程天気/配車 |
+| 作業内容 | 現調写真タイトル保存の永続化修正 |
 | ローカル build | ✅ `npm run build` 成功 |
-| 単体テスト | ✅ schedule / survey / estimate / multi-pwa 計 47 PASS |
+| 単体テスト | ✅ survey-v1 / estimate-v1 写真タイトル関連 PASS |
 
 ## 完了（今回）
 
-### A — 最優先
+### 現調写真タイトル保存（最優先）
+
+- **保存トリガー** — blur / Enter(Done) / iOS キーボード閉じ（`visibilitychange`・`pagehide`）/ 並び替え・削除・再読込前の `flushPhotoTitlesFromDom`
+- **API** — `PATCH .../photos/:photoId` で `title`（DB `comment` 列）を更新。空文字クリアも可
+- **UI** — 入力欄拡大、placeholder 例文、インライン「保存しました」/ 失敗時「写真メモを保存できませんでした」
+- **PDF** — 仕様書・完了報告書にタイトル反映（未入力は「写真1」など自動）
+
+### A — 最優先（前回）
 
 - **A-1 現調写真** — `createImageBitmap` 廃止、HEIC/octet-stream 判定、console エラー、文言統一
 - **A-2 番号** — 見積・請求とも `YYMMDD-001`（`generateTomsDailyDocNo`、旧データ維持）

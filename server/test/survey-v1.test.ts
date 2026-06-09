@@ -304,6 +304,26 @@ describe("現調PWA v1 API", () => {
       .send({ title: "玄関カメラ" });
     assert.equal(res.status, 200);
     assert.equal(res.body.title, "玄関カメラ");
+
+    const reload = await request(app)
+      .get(`/api/survey/v1/projects/${projectId}`)
+      .set("Authorization", `Bearer ${token}`);
+    const reloaded = reload.body.photos.find((p: { id: string }) => p.id === imagePhoto.id);
+    assert.equal(reloaded?.title, "玄関カメラ");
+  });
+
+  it("写真タイトルを空にして保存できる", async () => {
+    const detail = await request(app)
+      .get(`/api/survey/v1/projects/${projectId}`)
+      .set("Authorization", `Bearer ${token}`);
+    const imagePhoto = detail.body.photos.find((p: { url: string }) => p.url);
+    assert.ok(imagePhoto?.id);
+    const res = await request(app)
+      .patch(`/api/survey/v1/projects/${projectId}/photos/${imagePhoto.id}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ title: "" });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.title, null);
   });
 
   it("案件をコピーできる（案件番号のみ新規）", async () => {
@@ -353,6 +373,18 @@ describe("現調PWA v1 API", () => {
     assert.ok(js.includes("photo-preview-btn"));
     assert.ok(js.includes("closePhotoPreview"));
     assert.ok(!js.includes("bindPhotoEditButtons"));
+  });
+
+  it("survey-v1 に写真タイトル保存のUIハンドラが含まれる", () => {
+    const html = fs.readFileSync("public/survey-v1.html", "utf8");
+    const js = fs.readFileSync("public/js/survey-v1.js", "utf8");
+    assert.ok(html.includes("photo-title-status"));
+    assert.ok(js.includes("flushPhotoTitlesFromDom"));
+    assert.ok(js.includes("capturePhotoTitlesFromDom"));
+    assert.ok(js.includes("visibilitychange"));
+    assert.ok(js.includes('ev.key !== "Enter"'));
+    assert.ok(js.includes("写真メモを保存できませんでした"));
+    assert.ok(js.includes("例：厨房コンセント"));
   });
 
   it("既存 /api/survey は影響を受けない", async () => {

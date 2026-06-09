@@ -208,7 +208,8 @@ surveyV1Router.patch("/projects/:id/photos/:photoId", ...surveyV1Auth, (req: Aut
     imageBase64?: string;
     fileName?: string;
   };
-  if (!body.title?.trim() && !body.comment?.trim() && !body.imageBase64) {
+  const hasTitlePatch = body.title !== undefined || body.comment !== undefined;
+  if (!hasTitlePatch && !body.imageBase64) {
     res.status(400).json({ error: "title, comment or imageBase64 required" });
     return;
   }

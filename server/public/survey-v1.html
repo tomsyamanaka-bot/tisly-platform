@@ -218,9 +218,26 @@
     }
     .photo-title-label-text {
       display: block;
-      font-size: 0.75rem;
+      font-size: 0.8rem;
       color: var(--tisly-muted);
-      margin-bottom: 0.25rem;
+      margin-bottom: 0.3rem;
+      font-weight: 600;
+    }
+    .photo-title-status {
+      display: block;
+      min-height: 1.1rem;
+      margin-top: 0.25rem;
+      font-size: 0.72rem;
+      color: #15803d;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+    .photo-title-status.visible {
+      opacity: 1;
+    }
+    .photo-title-status.photo-title-status-error {
+      color: #b91c1c;
+      opacity: 1;
     }
     .photo-card-top {
       display: flex;

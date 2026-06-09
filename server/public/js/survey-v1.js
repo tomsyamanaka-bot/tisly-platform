@@ -41,6 +41,14 @@ const PHOTO_BATCH = 12;
 const MAX_PHOTOS = 30;
 const IMAGE_EXT_RE = /\.(jpe?g|png|gif|webp|heic|heif)$/i;
 const PHOTO_FAIL_MSG = "写真の形式か容量で失敗しました。別の写真で試してください";
+const PHOTO_TITLE_PLACEHOLDERS = [
+  "例：厨房コンセント",
+  "例：小上がり照明",
+  "例：玄関インターホン",
+  "例：分電盤全景",
+];
+const PHOTO_TITLE_SAVE_OK = "保存しました";
+const PHOTO_TITLE_SAVE_FAIL = "写真メモを保存できませんでした";
 
 const $ = (id) => document.getElementById(id);
 
@@ -210,13 +218,70 @@ function renderMaterialPicker() {
   });
 }
 
+function syncPhotoTitleLastSaved(photos) {
+  for (const ph of photos || []) {
+    const t = (ph.title ?? ph.comment ?? "").trim();
+    photoTitleLastSaved.set(ph.id, t);
+  }
+}
+
+function capturePhotoTitlesFromDom() {
+  const list = $("photo-list");
+  if (!list) return;
+  list.querySelectorAll(".photo-title-input").forEach((inp) => {
+    const photoId = inp.dataset.photoId;
+    const title = inp.value.trim();
+    const ph = cachedPhotos.find((p) => p.id === photoId);
+    if (ph) {
+      ph.title = title;
+      ph.comment = title;
+    }
+  });
+}
+
+function showPhotoTitleStatus(photoId, msg, isError = false) {
+  const el = $("photo-list")?.querySelector(`.photo-title-status[data-photo-id="${photoId}"]`);
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.toggle("photo-title-status-error", isError);
+  el.classList.toggle("visible", !!msg);
+  if (!isError && msg) {
+    setTimeout(() => {
+      if (el.textContent === msg) {
+        el.textContent = "";
+        el.classList.remove("visible");
+      }
+    }, 2200);
+  }
+}
+
+async function flushPhotoTitlesFromDom({ quiet = true } = {}) {
+  const list = $("photo-list");
+  if (!list || !currentProjectId) return;
+  const inputs = [...list.querySelectorAll(".photo-title-input")];
+  await Promise.all(
+    inputs.map(async (inp) => {
+      const photoId = inp.dataset.photoId;
+      const title = inp.value.trim();
+      if (photoTitleLastSaved.get(photoId) === title) return;
+      try {
+        await savePhotoTitle(photoId, title, { quiet });
+      } catch {
+        /* savePhotoTitle shows inline error */
+      }
+    })
+  );
+}
+
 function renderPhotos(photos) {
   cachedPhotos = photos || [];
+  syncPhotoTitleLastSaved(cachedPhotos);
   photoDisplayLimit = Math.min(PHOTO_BATCH, cachedPhotos.length || PHOTO_BATCH);
   paintPhotoGrid();
 }
 
 function paintPhotoGrid() {
+  capturePhotoTitlesFromDom();
   const el = $("photo-list");
   const countEl = $("photo-count");
   const moreBtn = $("btn-load-more-photos");
@@ -278,6 +343,9 @@ function formatCustomerSiteMeta(p) {
 }
 
 async function openDetail(projectId) {
+  if (currentProjectId) {
+    await flushPhotoTitlesFromDom({ quiet: true });
+  }
   currentProjectId = projectId;
   photoDisplayLimit = PHOTO_BATCH;
   showView("detail");
@@ -437,8 +505,9 @@ function paintPhotoGridHtml(visible) {
         ? `<button type="button" class="photo-preview-btn" data-photo-id="${ph.id}" aria-label="写真を拡大表示"><img src="${ph.url}" alt="" loading="lazy" decoding="async" /></button>`
         : '<div style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;background:#eee;font-size:2rem;">📝</div>';
       const title = ph.title ?? ph.comment ?? "";
+      const placeholder = PHOTO_TITLE_PLACEHOLDERS[fullIdx % PHOTO_TITLE_PLACEHOLDERS.length];
       const titleField = ph.url
-        ? `<label class="photo-title-label"><span class="photo-title-label-text">写真タイトル</span><input type="text" class="photo-title-input" data-photo-id="${ph.id}" placeholder="例：玄関カメラ" value="${escapeHtml(title)}" inputmode="text" autocomplete="off" /></label>`
+        ? `<label class="photo-title-label"><span class="photo-title-label-text">写真タイトル</span><input type="text" class="photo-title-input" data-photo-id="${ph.id}" placeholder="${escapeHtml(placeholder)}" value="${escapeHtml(title)}" inputmode="text" enterkeyhint="done" autocomplete="off" maxlength="120" /><span class="photo-title-status" data-photo-id="${ph.id}" aria-live="polite"></span></label>`
         : `<div class="photo-caption">${escapeHtml(title || "（メモ）")}</div>`;
       return `<div class="photo-card" data-photo-id="${ph.id}">
         <div class="photo-card-top"><button type="button" class="photo-delete-btn" data-photo-id="${ph.id}">削除</button></div>
@@ -454,22 +523,55 @@ function paintPhotoGridHtml(visible) {
 }
 
 const photoTitleSaveTimers = new Map();
+const photoTitleLastSaved = new Map();
+let photoTitleIosFlushBound = false;
 
 async function savePhotoTitle(photoId, title, { quiet = false } = {}) {
   if (!currentProjectId || !photoId) return;
-  await api(`/projects/${currentProjectId}/photos/${photoId}`, {
-    method: "PATCH",
-    body: JSON.stringify({ title }),
-  });
-  const ph = cachedPhotos.find((p) => p.id === photoId);
-  if (ph) {
-    ph.title = title;
-    ph.comment = title;
+  const normalized = title.trim();
+  if (photoTitleLastSaved.get(photoId) === normalized) return;
+  try {
+    await api(`/projects/${currentProjectId}/photos/${photoId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ title: normalized }),
+    });
+    photoTitleLastSaved.set(photoId, normalized);
+    const ph = cachedPhotos.find((p) => p.id === photoId);
+    if (ph) {
+      ph.title = normalized;
+      ph.comment = normalized;
+    }
+    showPhotoTitleStatus(photoId, PHOTO_TITLE_SAVE_OK);
+    if (!quiet) toast(PHOTO_TITLE_SAVE_OK);
+  } catch (e) {
+    showPhotoTitleStatus(photoId, PHOTO_TITLE_SAVE_FAIL, true);
+    if (!quiet) toast(PHOTO_TITLE_SAVE_FAIL);
+    throw e;
   }
-  if (!quiet) toast("タイトルを保存しました");
+}
+
+function clearPhotoTitleSaveTimer(photoId) {
+  if (photoTitleSaveTimers.has(photoId)) {
+    clearTimeout(photoTitleSaveTimers.get(photoId));
+    photoTitleSaveTimers.delete(photoId);
+  }
+}
+
+function bindPhotoTitleIosFlush() {
+  if (photoTitleIosFlushBound) return;
+  photoTitleIosFlushBound = true;
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") {
+      flushPhotoTitlesFromDom({ quiet: true });
+    }
+  });
+  window.addEventListener("pagehide", () => {
+    flushPhotoTitlesFromDom({ quiet: true });
+  });
 }
 
 function bindPhotoTitleInputs() {
+  bindPhotoTitleIosFlush();
   $("photo-list").querySelectorAll(".photo-title-input").forEach((inp) => {
     inp.addEventListener("click", (ev) => ev.stopPropagation());
     inp.addEventListener("pointerdown", (ev) => ev.stopPropagation());
@@ -479,15 +581,14 @@ function bindPhotoTitleInputs() {
       const title = inp.value.trim();
       try {
         await savePhotoTitle(photoId, title, { quiet });
-      } catch (e) {
-        toastError(e, e.status);
+      } catch {
+        /* inline status shown in savePhotoTitle */
       }
     };
     inp.addEventListener("input", () => {
       const photoId = inp.dataset.photoId;
-      if (photoTitleSaveTimers.has(photoId)) {
-        clearTimeout(photoTitleSaveTimers.get(photoId));
-      }
+      showPhotoTitleStatus(photoId, "");
+      clearPhotoTitleSaveTimer(photoId);
       photoTitleSaveTimers.set(
         photoId,
         setTimeout(() => {
@@ -497,13 +598,16 @@ function bindPhotoTitleInputs() {
       );
     });
     inp.addEventListener("change", () => persist(false));
+    inp.addEventListener("keydown", (ev) => {
+      if (ev.key !== "Enter") return;
+      ev.preventDefault();
+      clearPhotoTitleSaveTimer(inp.dataset.photoId);
+      persist(false);
+      inp.blur();
+    });
     inp.addEventListener("blur", () => {
-      const photoId = inp.dataset.photoId;
-      if (photoTitleSaveTimers.has(photoId)) {
-        clearTimeout(photoTitleSaveTimers.get(photoId));
-        photoTitleSaveTimers.delete(photoId);
-      }
-      persist(true);
+      clearPhotoTitleSaveTimer(inp.dataset.photoId);
+      persist(false);
     });
   });
 }
@@ -604,6 +708,7 @@ function bindPhotoPreviewButtons() {
 
 async function movePhoto(photoId, direction) {
   if (!currentProjectId || !photoId) return;
+  await flushPhotoTitlesFromDom({ quiet: true });
   const idx = cachedPhotos.findIndex((p) => p.id === photoId);
   if (idx < 0) return;
   const swapIdx = direction === "up" ? idx - 1 : idx + 1;
@@ -642,6 +747,7 @@ function bindPhotoReorderButtons() {
 async function deletePhoto(photoId) {
   if (!currentProjectId || !photoId) return;
   if (!confirm("この写真を削除しますか？")) return;
+  await flushPhotoTitlesFromDom({ quiet: true });
   try {
     await api(`/projects/${currentProjectId}/photos/${photoId}`, { method: "DELETE" });
     cachedPhotos = cachedPhotos.filter((p) => p.id !== photoId);
@@ -1034,7 +1140,8 @@ async function init() {
     await uploadPhotos(files);
   });
 
-  $("btn-load-more-photos").addEventListener("click", () => {
+  $("btn-load-more-photos").addEventListener("click", async () => {
+    await flushPhotoTitlesFromDom({ quiet: true });
     photoDisplayLimit = Math.min(photoDisplayLimit + PHOTO_BATCH, cachedPhotos.length);
     paintPhotoGrid();
   });
