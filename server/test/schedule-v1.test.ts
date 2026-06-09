@@ -158,6 +158,24 @@ describe("日程調整 PWA v1 API", () => {
       .get(`/api/schedule/v1/day?date=${date}`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(detail.body.memo, "午後は事務所で打合せ");
+
+    const withRemark = await request(app)
+      .patch("/api/schedule/v1/day-note")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        date,
+        note: "午後は事務所で打合せ",
+        eventRemark: "14時からお客様来社",
+        unavailableReason: "",
+        detailMemo: "",
+      });
+    assert.equal(withRemark.status, 200);
+    assert.equal(withRemark.body.eventRemark, "14時からお客様来社");
+
+    const detail2 = await request(app)
+      .get(`/api/schedule/v1/day?date=${date}`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(detail2.body.eventRemark, "14時からお客様来社");
   });
 
   it("Googleカレンダー予定のdescriptionが日詳細に含まれる", async () => {

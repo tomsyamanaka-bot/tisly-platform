@@ -8,19 +8,33 @@
   <title>TiSLY — 日程詳細</title>
   <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
   <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
+  <style>
+    #day-title { cursor: pointer; }
+    #day-title:active { opacity: 0.75; }
+    .day-memo-line { margin: 0.35rem 0; font-size: 0.9rem; line-height: 1.45; }
+    .day-memo-label { display: inline-block; min-width: 4.5rem; font-weight: 600; color: #64748b; font-size: 0.78rem; }
+    .event-desc-snippet {
+      display: inline-block;
+      margin: 0.15rem 0 0;
+      padding: 0;
+      border: none;
+      background: none;
+      text-align: left;
+      font-size: 0.82rem;
+      line-height: 1.35;
+      color: #475569;
+      cursor: pointer;
+    }
+    .event-desc-snippet[aria-expanded="true"] { color: #0f172a; white-space: pre-wrap; display: block; }
+  </style>
 </head>
 <body class="tisly-friendly">
   <main class="app-main">
-    <h2 id="day-title" class="schedule-week-label">—</h2>
+    <h2 id="day-title" class="schedule-week-label" title="タップしてメモを編集">—</h2>
     <div id="day-weather" class="schedule-weather-mini"></div>
+    <div id="day-memo-summary" class="friendly-card" role="button" tabindex="0" aria-label="日付メモを編集"></div>
     <div id="day-events" class="friendly-card"></div>
     <div id="day-dispatch" class="friendly-card hidden"></div>
-    <div id="day-unavail" class="friendly-card"></div>
-    <div id="day-memo" class="friendly-card">
-      <p class="section-label">📝 日付メモ</p>
-      <textarea id="day-memo-input" rows="3" placeholder="午前は雨注意、材料発注、電話対応など（現場不可の理由とは別）"></textarea>
-      <span id="day-memo-status" class="photo-title-status" aria-live="polite"></span>
-    </div>
     <a id="day-maps" class="btn-main" href="#" target="_blank" rel="noopener" style="display:none;margin-top:0.75rem;">📍 Googleマップ</a>
   </main>
   <div id="toast" class="toast" role="status"></div>

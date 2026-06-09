@@ -9,8 +9,10 @@ import {
   getScheduleThreeWeekView,
   getScheduleWeekView,
   getScheduleDayDetail,
+  getScheduleDayDetailMemo,
   getScheduleDayNote,
   updateUnavailableDay,
+  upsertScheduleDayDetailMemo,
   upsertScheduleDayNote,
 } from "../../schedule/schedule-store.js";
 import { fetchDayWeather } from "../../schedule/weather-service.js";
@@ -93,16 +95,48 @@ scheduleRouter.get("/day-note", ...scheduleAuth, (req: AuthedRequest, res) => {
     res.status(400).json({ error: "valid date required (YYYY-MM-DD)" });
     return;
   }
-  const saved = getScheduleDayNote(date);
-  res.json({ date, note: saved?.note ?? "" });
+  try {
+    res.json(getScheduleDayDetailMemo(date));
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "load failed";
+    res.status(400).json({ error: msg });
+  }
 });
 
 scheduleRouter.patch("/day-note", ...scheduleAuth, (req: AuthedRequest, res) => {
   if (!assertScheduleRole(req, res)) return;
-  const body = req.body as { date?: string; note?: string };
+  const body = req.body as {
+    date?: string;
+    note?: string;
+    eventRemark?: string;
+    unavailableReason?: string;
+    detailMemo?: string;
+  };
   try {
+    if (
+      body.eventRemark !== undefined ||
+      body.unavailableReason !== undefined ||
+      body.detailMemo !== undefined
+    ) {
+      const saved = upsertScheduleDayDetailMemo({
+        date: body.date ?? "",
+        note: body.note,
+        eventRemark: body.eventRemark,
+        unavailableReason: body.unavailableReason,
+        detailMemo: body.detailMemo,
+      });
+      res.json(saved);
+      return;
+    }
     const saved = upsertScheduleDayNote(body.date ?? "", body.note ?? "");
-    res.json({ date: saved.date, note: saved.note });
+    res.json({
+      date: saved.date,
+      note: saved.note,
+      eventRemark: saved.eventRemark,
+      unavailableReason: "",
+      detailMemo: "",
+      unavailableId: null,
+    });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "save failed";
     res.status(400).json({ error: msg });

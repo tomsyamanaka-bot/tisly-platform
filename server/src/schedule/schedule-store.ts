@@ -213,47 +213,125 @@ export async function getScheduleDayDetail(
     : null;
   const dayNote = getScheduleDayNote(date);
   const memo = dayNote?.note?.trim() ? dayNote.note : null;
-  return { day, weather, dispatch, memo, mapsUrl };
+  const eventRemark = dayNote?.eventRemark?.trim() ? dayNote.eventRemark : null;
+  return { day, weather, dispatch, memo, eventRemark, mapsUrl };
 }
 
 export interface ScheduleDayNote {
   date: string;
   note: string;
+  eventRemark: string;
   updatedAt: string;
+}
+
+export interface ScheduleDayDetailMemo {
+  date: string;
+  note: string;
+  eventRemark: string;
+  unavailableReason: string;
+  detailMemo: string;
+  unavailableId: string | null;
 }
 
 export function getScheduleDayNote(dateRaw: unknown): ScheduleDayNote | null {
   const date = String(dateRaw ?? "").slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
   const row = getDatabase()
-    .prepare(`SELECT note_date, note, updated_at FROM schedule_day_notes WHERE note_date = ?`)
-    .get(date) as { note_date: string; note: string; updated_at: string } | undefined;
+    .prepare(`SELECT note_date, note, event_remark, updated_at FROM schedule_day_notes WHERE note_date = ?`)
+    .get(date) as { note_date: string; note: string; event_remark?: string; updated_at: string } | undefined;
   if (!row) return null;
-  return { date: row.note_date, note: row.note ?? "", updatedAt: row.updated_at };
+  return {
+    date: row.note_date,
+    note: row.note ?? "",
+    eventRemark: row.event_remark ?? "",
+    updatedAt: row.updated_at,
+  };
+}
+
+export function getScheduleDayDetailMemo(dateRaw: unknown): ScheduleDayDetailMemo {
+  const date = String(dateRaw ?? "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("valid date required (YYYY-MM-DD)");
+  const dayNote = getScheduleDayNote(date);
+  const unavailable = listUnavailableDays(date, date)[0] ?? null;
+  return {
+    date,
+    note: dayNote?.note ?? "",
+    eventRemark: dayNote?.eventRemark ?? "",
+    unavailableReason: unavailable?.reason ?? "",
+    detailMemo: unavailable?.detailMemo ?? "",
+    unavailableId: unavailable?.id ?? null,
+  };
+}
+
+function upsertScheduleDayNoteRow(date: string, note: string, eventRemark: string): ScheduleDayNote {
+  const existing = getDatabase()
+    .prepare(`SELECT note_date FROM schedule_day_notes WHERE note_date = ?`)
+    .get(date) as { note_date: string } | undefined;
+  if (existing) {
+    getDatabase()
+      .prepare(
+        `UPDATE schedule_day_notes SET note = ?, event_remark = ?, updated_at = datetime('now') WHERE note_date = ?`
+      )
+      .run(note, eventRemark, date);
+  } else {
+    getDatabase()
+      .prepare(
+        `INSERT INTO schedule_day_notes (note_date, note, event_remark, created_at, updated_at)
+         VALUES (?, ?, ?, datetime('now'), datetime('now'))`
+      )
+      .run(date, note, eventRemark);
+  }
+  const saved = getScheduleDayNote(date);
+  if (!saved) throw new Error("failed to save day note");
+  return saved;
 }
 
 export function upsertScheduleDayNote(dateRaw: unknown, noteRaw: unknown): ScheduleDayNote {
   const date = String(dateRaw ?? "").slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("valid date required (YYYY-MM-DD)");
   const note = String(noteRaw ?? "");
-  const existing = getDatabase()
-    .prepare(`SELECT note_date FROM schedule_day_notes WHERE note_date = ?`)
-    .get(date) as { note_date: string } | undefined;
-  if (existing) {
-    getDatabase()
-      .prepare(`UPDATE schedule_day_notes SET note = ?, updated_at = datetime('now') WHERE note_date = ?`)
-      .run(note, date);
-  } else {
-    getDatabase()
-      .prepare(
-        `INSERT INTO schedule_day_notes (note_date, note, created_at, updated_at)
-         VALUES (?, ?, datetime('now'), datetime('now'))`
-      )
-      .run(date, note);
+  const existing = getScheduleDayNote(date);
+  return upsertScheduleDayNoteRow(date, note, existing?.eventRemark ?? "");
+}
+
+export function upsertScheduleDayDetailMemo(input: {
+  date: string;
+  note?: string;
+  eventRemark?: string;
+  unavailableReason?: string;
+  detailMemo?: string;
+}): ScheduleDayDetailMemo {
+  const date = String(input.date ?? "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("valid date required (YYYY-MM-DD)");
+  const note = input.note !== undefined ? String(input.note) : (getScheduleDayNote(date)?.note ?? "");
+  const eventRemark =
+    input.eventRemark !== undefined ? String(input.eventRemark) : (getScheduleDayNote(date)?.eventRemark ?? "");
+  upsertScheduleDayNoteRow(date, note, eventRemark);
+
+  const reason = input.unavailableReason !== undefined ? String(input.unavailableReason).trim() : undefined;
+  const detailMemo = input.detailMemo !== undefined ? String(input.detailMemo) : undefined;
+  const existing = listUnavailableDays(date, date)[0] ?? null;
+
+  if (reason !== undefined) {
+    if (!reason) {
+      if (existing) deleteUnavailableDay(existing.id);
+    } else if (existing) {
+      updateUnavailableDay(existing.id, {
+        reason,
+        detailMemo: detailMemo !== undefined ? detailMemo : existing.detailMemo,
+      });
+    } else {
+      createUnavailableDay({
+        date,
+        reason,
+        detailMemo: detailMemo ?? "",
+      });
+    }
+  } else if (detailMemo !== undefined && existing) {
+    updateUnavailableDay(existing.id, { detailMemo });
   }
-  const saved = getScheduleDayNote(date);
-  if (!saved) throw new Error("failed to save day note");
-  return saved;
+
+  return getScheduleDayDetailMemo(date);
 }
 
 export async function getScheduleMonthView(yearRaw: unknown, monthRaw: unknown): Promise<ScheduleMonthView> {

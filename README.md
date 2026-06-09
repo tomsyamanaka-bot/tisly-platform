@@ -16,6 +16,48 @@ TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。
 
 > **本番公開する場合はまず [`docs/vps_first_launch_for_tomonori.md`](docs/vps_first_launch_for_tomonori.md) を見る**
 
+## VPS 自動デプロイ（push → Actions → VPS）
+
+`master` へ push すると GitHub Actions が ConoHa VPS へ SSH し、`scripts/deploy-vps.sh` で本番を更新します。VPS 上の `server/data/*.json`（警戒状態・QNAP アーカイブ等）は **Git 管理外** のため、`git fetch` + `git reset --hard origin/master` でローカルデータに阻まれません。
+
+| 項目 | 内容 |
+|------|------|
+| フロー | `git push origin master` → **TiSLY Deploy**（CI）→ **VPS Auto Deploy**（本番反映） |
+| 詳細手順 | [`docs/autonomous/VPS_AUTO_DEPLOY.md`](docs/autonomous/VPS_AUTO_DEPLOY.md) |
+| 成功確認 | https://tisly.jp/api/health の `commitShort` が push した commit の先頭 7 文字と一致 |
+
+### GitHub Actions が失敗したときのログの見方
+
+1. GitHub リポジトリ → **Actions** タブを開く
+2. 赤い ❌ の実行をクリック → 失敗した **ジョブ** を開く
+3. 失敗した **ステップ** を展開し、ログ末尾の `::error::` 行を確認
+
+| ワークフロー | よくある失敗箇所 | ログで探すキーワード |
+|--------------|------------------|----------------------|
+| **TiSLY Deploy** (`deploy.yml`) | Release gate（build / test） | `npm run release:gate` · `FAIL` · テスト名 |
+| **VPS Auto Deploy** (`deploy-vps.yml`) | Secrets 未設定 | `GitHub Secrets が未設定` · `VPS_HOST` 等 |
+| **VPS Auto Deploy** | SSH / デプロイスクリプト | `Deploy via SSH` ステップ · `[TiSLY deploy-vps] ERROR` |
+| **VPS Auto Deploy** | health 不一致 | `commitShort が` と一致しません · `commitShort 不一致` |
+
+**Actions ログの場所（画面）**
+
+```
+リポジトリ → Actions → 失敗した Run → ジョブ名（例: Deploy to ConoHa VPS）
+  → ステップ一覧の ❌ をクリック → ログ全文（SSH 出力は Deploy via SSH 内）
+```
+
+**VPS 側の確認（SSH 後）**
+
+```bash
+sudo systemctl status tisly-server
+journalctl -u tisly-server -n 80 --no-pager
+cd /opt/tisly && git log -1 --oneline
+bash /opt/tisly/scripts/deploy-vps.sh
+curl -s https://tisly.jp/api/health | grep commitShort
+```
+
+CI（`deploy.yml`）が通ってから VPS デプロイ（`deploy-vps.yml`）が走ります。どちらが落ちたか Actions の Run 一覧でワークフロー名を確認してください。
+
 ## TiSLY Platform — PWA First Architecture
 
 **TiSLY は PWA 中心。他社 SaaS に依存しない。**
@@ -126,7 +168,7 @@ TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。
 智紀さん向け手順: [`docs/remote-test-phase2-deploy.md`](docs/remote-test-phase2-deploy.md) §0
 
 ```bash
-cd /opt/tisly && git pull origin master
+cd /opt/tisly && git fetch origin && git reset --hard origin/master
 cd /opt/tisly/server && npm run build
 cd /opt/tisly/server && npm run vapid:setup    # 初回 or VAPID 未設定時
 sudo systemctl restart tisly-server

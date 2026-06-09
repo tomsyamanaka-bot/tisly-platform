@@ -2,6 +2,7 @@
 # ConoHa VPS 本番自動デプロイ（GitHub Actions から呼び出し / 手動実行可）
 # 配置: /opt/tisly/scripts/deploy-vps.sh
 # 何度実行しても同じ手順で安全に更新できる（冪等）
+# ローカル data/*.json は Git 管理外のため git reset --hard で衝突しない
 set -euo pipefail
 
 REPO_ROOT="${TISLY_REPO_ROOT:-/opt/tisly}"
@@ -30,19 +31,20 @@ fi
 
 cd "${REPO_ROOT}"
 
-echo "=== current git commit (before pull) ==="
+echo "=== current git commit (before sync) ==="
 git log -1 --oneline
 BEFORE_SHORT="$(git_short)"
-log "commitShort (before pull): ${BEFORE_SHORT}"
+log "commitShort (before sync): ${BEFORE_SHORT}"
 
-echo "=== git pull ==="
-git pull origin master
+echo "=== git fetch & reset ==="
+git fetch origin
+git reset --hard origin/master
 
-echo "=== current git commit (after pull) ==="
+echo "=== current git commit (after sync) ==="
 git log -1 --oneline
 HEAD_SHORT="$(git_short)"
 HEAD_FULL="$(git_full)"
-log "commitShort (after pull): ${HEAD_SHORT}"
+log "commitShort (after sync): ${HEAD_SHORT}"
 
 echo "=== npm install ==="
 cd "${SERVER_DIR}"

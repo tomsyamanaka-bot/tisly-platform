@@ -28,9 +28,13 @@ server/.env
 server/.env.production
 .env.production
 server/uploads/
-server/data/deploy-dry-run-last.json
+# server/data — 実行時生成（VPS ローカル保持・git reset で衝突しない）
+server/data/qnap-archive/
 server/data/release-gate-last.json
+server/data/deploy-dry-run-last.json
 server/data/deploy-history.json
+server/data/remote-test-security-demo.json
+server/data/migration/sqlite-export.json
 backup/
 tv-app/node_modules/
 tv-app/.expo/

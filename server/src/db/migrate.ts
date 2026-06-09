@@ -214,6 +214,12 @@ function migrateCompletionPhotosV1(database: Database.Database): void {
       ddl: "ALTER TABLE schedule_unavailable_days ADD COLUMN detail_memo TEXT NOT NULL DEFAULT ''",
     },
   ]);
+  addColumnsIfMissing(database, "schedule_day_notes", [
+    {
+      name: "event_remark",
+      ddl: "ALTER TABLE schedule_day_notes ADD COLUMN event_remark TEXT NOT NULL DEFAULT ''",
+    },
+  ]);
 }
 
 const BUSINESS_ESTIMATE_COLUMNS: Array<{ name: string; ddl: string }> = [

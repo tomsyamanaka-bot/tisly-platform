@@ -39,10 +39,17 @@
     #view-detail .section-hint { margin-bottom: 0.35rem; }
     .photo-mgmt-grid { display: grid; gap: 0.5rem; }
     .completion-photo-card { border: 1px solid var(--tisly-border, #e2e8f0); border-radius: 8px; padding: 0.5rem; }
-    .completion-photo-card img { width: 100%; max-height: 120px; object-fit: cover; border-radius: 6px; }
+    .completion-photo-preview-btn { display: block; width: 100%; padding: 0; border: none; background: none; cursor: pointer; border-radius: 6px; overflow: hidden; }
+    .completion-photo-preview-btn img { width: 100%; max-height: 120px; object-fit: cover; display: block; }
+    .completion-photo-card.photo-pending img { opacity: 0.65; }
     .completion-photo-actions { display: flex; gap: 0.35rem; margin-top: 0.35rem; flex-wrap: wrap; }
     .completion-reorder-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .completion-title-status { display: block; min-height: 1rem; font-size: 0.72rem; color: #64748b; }
     .survey-photo-hint { font-size: 0.85rem; color: var(--tisly-muted, #64748b); margin: 0; }
+    #completion-photo-lightbox { position: fixed; inset: 0; z-index: 1100; background: rgba(0,0,0,0.88); display: flex; align-items: center; justify-content: center; padding: 1rem; }
+    #completion-photo-lightbox.hidden { display: none; }
+    #completion-photo-lightbox img { max-width: 100%; max-height: 92vh; object-fit: contain; border-radius: 4px; }
+    #completion-photo-lightbox button { position: absolute; top: 1rem; right: 1rem; border: none; background: rgba(255,255,255,0.9); border-radius: 8px; padding: 0.35rem 0.65rem; font-size: 0.9rem; }
   </style>
 </head>
 <body class="tisly-friendly">
@@ -153,6 +160,10 @@
   </main>
 
   <div id="toast" class="toast" role="status"></div>
+  <div id="completion-photo-lightbox" class="hidden" role="dialog" aria-modal="true" aria-label="写真プレビュー">
+    <button type="button" id="completion-lightbox-close">閉じる</button>
+    <img id="completion-lightbox-img" src="" alt="" />
+  </div>
   <script type="module" src="/js/estimate-v1.js"></script>
 </body>
 </html>

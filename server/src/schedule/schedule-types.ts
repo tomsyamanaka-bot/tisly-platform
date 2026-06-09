@@ -78,6 +78,7 @@ export interface ScheduleDayDetail {
   weather: DayWeather;
   dispatch: DayDispatch | null;
   memo?: string | null;
+  eventRemark?: string | null;
   mapsUrl?: string | null;
 }
 

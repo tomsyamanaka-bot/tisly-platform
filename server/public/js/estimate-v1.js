@@ -16,8 +16,10 @@ let currentLines = [];
 let lastTomsData = null;
 let hasInvoice = false;
 let completionPhotos = [];
+let completionPendingPreviewUrls = [];
 const completionTitleTimers = new Map();
 const completionTitleLastSaved = new Map();
+const COMPLETION_TITLE_SAVE_OK = "タイトルを保存しました";
 const MAX_COMPLETION_PHOTOS = 30;
 const IMAGE_EXT_RE = /\.(jpe?g|png|gif|webp|heic|heif)$/i;
 const COMPLETION_PHOTO_FAIL_MSG = "写真の形式か容量で失敗しました。別の写真で試してください";
@@ -522,22 +524,62 @@ async function fileToUploadBase64(file) {
   }
 }
 
-function renderCompletionPhotos() {
+function revokeCompletionPendingPreviews() {
+  completionPendingPreviewUrls.forEach((u) => URL.revokeObjectURL(u));
+  completionPendingPreviewUrls = [];
+}
+
+function showCompletionTitleStatus(photoId, msg, isError = false) {
+  const el = document.querySelector(`.completion-title-status[data-photo-id="${photoId}"]`);
+  if (!el) return;
+  el.textContent = msg;
+  el.style.color = isError ? "#b91c1c" : "#64748b";
+}
+
+function openCompletionLightbox(url) {
+  const box = $("completion-photo-lightbox");
+  const img = $("completion-lightbox-img");
+  if (!box || !img || !url) return;
+  img.src = url;
+  box.classList.remove("hidden");
+}
+
+function closeCompletionLightbox() {
+  const box = $("completion-photo-lightbox");
+  const img = $("completion-lightbox-img");
+  if (!box || !img) return;
+  box.classList.add("hidden");
+  img.src = "";
+}
+
+function renderCompletionPhotos(pendingFiles = []) {
   const el = $("completion-photo-list");
   if (!el) return;
-  if (!completionPhotos.length) {
+  const pendingHtml = pendingFiles
+    .map((file) => {
+      const url = URL.createObjectURL(file);
+      completionPendingPreviewUrls.push(url);
+      return `<div class="completion-photo-card photo-pending"><button type="button" class="completion-photo-preview-btn" tabindex="-1"><img src="${url}" alt="" /></button><p class="survey-photo-hint" style="margin:0.35rem 0 0;">送信中…</p></div>`;
+    })
+    .join("");
+  if (!completionPhotos.length && !pendingHtml) {
     el.innerHTML = '<p class="survey-photo-hint">まだ写真がありません</p>';
     return;
   }
-  el.innerHTML = completionPhotos
+  el.innerHTML =
+    pendingHtml +
+    completionPhotos
     .map((ph, idx) => {
       const canUp = idx > 0;
       const canDown = idx < completionPhotos.length - 1;
       return `
     <div class="completion-photo-card" data-photo-id="${ph.id}">
-      <img src="${escapeHtml(ph.url)}" alt="" loading="lazy" decoding="async" />
+      <button type="button" class="completion-photo-preview-btn" data-photo-url="${escapeHtml(ph.url)}" aria-label="写真を拡大表示">
+        <img src="${escapeHtml(ph.url)}" alt="" loading="lazy" decoding="async" />
+      </button>
       <label class="friendly-label" style="margin:0.35rem 0 0;">タイトル
         <input type="text" class="completion-title-input" data-photo-id="${ph.id}" value="${escapeHtml(ph.title || "")}" maxlength="120" inputmode="text" enterkeyhint="done" autocomplete="off" />
+        <span class="completion-title-status" data-photo-id="${ph.id}" aria-live="polite"></span>
       </label>
       <div class="completion-photo-actions">
         <button type="button" class="btn-sub btn-small completion-reorder-btn" data-photo-id="${ph.id}" data-direction="up" ${canUp ? "" : "disabled"}>↑ 上へ</button>
@@ -547,49 +589,45 @@ function renderCompletionPhotos() {
     </div>`;
     })
     .join("");
+  el.querySelectorAll(".completion-photo-preview-btn[data-photo-url]").forEach((btn) => {
+    btn.addEventListener("click", () => openCompletionLightbox(btn.dataset.photoUrl));
+  });
   el.querySelectorAll(".completion-title-input").forEach((inp) => {
     const photoId = inp.dataset.photoId;
+    const persistTitle = async () => {
+      const title = inp.value;
+      if (completionTitleLastSaved.get(photoId) === title) return;
+      try {
+        await api(`/projects/${currentProjectId}/completion-photos/${photoId}`, {
+          method: "PATCH",
+          body: JSON.stringify({ title }),
+        });
+        completionTitleLastSaved.set(photoId, title);
+        const ph = completionPhotos.find((p) => p.id === photoId);
+        if (ph) ph.title = title;
+        showCompletionTitleStatus(photoId, COMPLETION_TITLE_SAVE_OK);
+      } catch (e) {
+        showCompletionTitleStatus(photoId, "保存に失敗しました", true);
+        toastError(e, e.status);
+      }
+    };
     inp.addEventListener("input", () => {
+      showCompletionTitleStatus(photoId, "");
       if (completionTitleTimers.has(photoId)) clearTimeout(completionTitleTimers.get(photoId));
       completionTitleTimers.set(
         photoId,
         setTimeout(async () => {
           completionTitleTimers.delete(photoId);
-          const title = inp.value;
-          if (completionTitleLastSaved.get(photoId) === title) return;
-          try {
-            await api(`/projects/${currentProjectId}/completion-photos/${photoId}`, {
-              method: "PATCH",
-              body: JSON.stringify({ title }),
-            });
-            completionTitleLastSaved.set(photoId, title);
-            const ph = completionPhotos.find((p) => p.id === photoId);
-            if (ph) ph.title = title;
-          } catch (e) {
-            toastError(e, e.status);
-          }
+          await persistTitle();
         }, 600)
       );
     });
     inp.addEventListener("blur", async () => {
-      const photoIdBlur = inp.dataset.photoId;
-      if (completionTitleTimers.has(photoIdBlur)) {
-        clearTimeout(completionTitleTimers.get(photoIdBlur));
-        completionTitleTimers.delete(photoIdBlur);
+      if (completionTitleTimers.has(photoId)) {
+        clearTimeout(completionTitleTimers.get(photoId));
+        completionTitleTimers.delete(photoId);
       }
-      const title = inp.value;
-      if (completionTitleLastSaved.get(photoIdBlur) === title) return;
-      try {
-        await api(`/projects/${currentProjectId}/completion-photos/${photoIdBlur}`, {
-          method: "PATCH",
-          body: JSON.stringify({ title }),
-        });
-        completionTitleLastSaved.set(photoIdBlur, title);
-        const ph = completionPhotos.find((p) => p.id === photoIdBlur);
-        if (ph) ph.title = title;
-      } catch (e) {
-        toastError(e, e.status);
-      }
+      await persistTitle();
     });
   });
   el.querySelectorAll(".completion-reorder-btn").forEach((btn) => {
@@ -673,6 +711,8 @@ async function uploadCompletionPhotos(files) {
   if (batch.length < imageFiles.length) {
     toast(`残り${room}枚分だけ追加します（上限${MAX_COMPLETION_PHOTOS}枚）`);
   }
+  revokeCompletionPendingPreviews();
+  renderCompletionPhotos(batch);
   toast("写真をアップロード中…");
   let done = 0;
   let failed = false;
@@ -690,11 +730,14 @@ async function uploadCompletionPhotos(files) {
       completionPhotos.push(photo);
       completionTitleLastSaved.set(photo.id, photo.title || "");
       done += 1;
+      revokeCompletionPendingPreviews();
+      renderCompletionPhotos(batch.slice(done));
     } catch (e) {
       failed = true;
       console.error("[estimate-v1] completion photo upload failed", e, file.name);
     }
   }
+  revokeCompletionPendingPreviews();
   renderCompletionPhotos();
   hidePdfPreview();
   if (done > 0) toast(failed ? `${done}枚追加（一部失敗）` : "写真を追加しました");
@@ -872,6 +915,11 @@ async function init() {
     } catch (e) {
       toastError(e, e.status);
     }
+  });
+
+  $("completion-lightbox-close")?.addEventListener("click", closeCompletionLightbox);
+  $("completion-photo-lightbox")?.addEventListener("click", (ev) => {
+    if (ev.target === $("completion-photo-lightbox")) closeCompletionLightbox();
   });
 
   $("btn-pdf-estimate").addEventListener("click", () => showDocumentPreview("estimate"));

@@ -5,6 +5,7 @@ import {
 } from "./customer-auth.js";
 import { initPracticalNav } from "./tisly-practical-nav.js";
 import { friendlyHttpError, renderFriendlyErrorHtml } from "./tisly-friendly-errors.js";
+import { initDayEditModal, openDayEditModal } from "./schedule-day-edit-modal.js";
 
 const API = "/api/schedule/v1";
 const CAT_ICON = {
@@ -117,6 +118,36 @@ function dayCardClass(day) {
   return "schedule-day-card";
 }
 
+function renderEventDescSnippet(description, eventKey) {
+  if (!description?.trim()) return "";
+  const text = description.trim();
+  const lines = text.split(/\n/).filter(Boolean);
+  const preview = lines.slice(0, 2).join(" ").slice(0, 72);
+  const truncated = preview.length < text.replace(/\n/g, " ").length;
+  const label = truncated ? "メモ" : "説明";
+  return `<br><button type="button" class="event-desc-snippet" data-desc-key="${escapeHtml(eventKey)}" data-desc-full="${escapeHtml(text)}" aria-expanded="false">${label}: ${escapeHtml(preview)}${truncated ? "…" : ""}</button>`;
+}
+
+function bindEventDescSnippets(root) {
+  root?.querySelectorAll(".event-desc-snippet").forEach((btn) => {
+    btn.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      const full = btn.dataset.descFull || "";
+      const expanded = btn.getAttribute("aria-expanded") === "true";
+      if (expanded) {
+        const lines = full.split(/\n/).filter(Boolean);
+        const preview = lines.slice(0, 2).join(" ").slice(0, 72);
+        const truncated = preview.length < full.replace(/\n/g, " ").length;
+        btn.innerHTML = `${truncated ? "メモ" : "説明"}: ${escapeHtml(preview)}${truncated ? "…" : ""}`;
+        btn.setAttribute("aria-expanded", "false");
+        return;
+      }
+      btn.innerHTML = `説明: ${escapeHtml(full).replace(/\n/g, "<br>")}`;
+      btn.setAttribute("aria-expanded", "true");
+    });
+  });
+}
+
 function renderWeekDays(days) {
   $("week-days").innerHTML = days
     .map((day) => {
@@ -124,7 +155,7 @@ function renderWeekDays(days) {
         .slice(0, 5)
         .map(
           (ev) =>
-            `<li><span>${CAT_ICON[ev.category] || "📌"}</span><span>${escapeHtml(ev.title)}</span></li>`
+            `<li><span>${CAT_ICON[ev.category] || "📌"}</span><span>${escapeHtml(ev.title)}${renderEventDescSnippet(ev.description, `${day.date}-${ev.id}`)}</span></li>`
         )
         .join("");
       const more = day.events.length > 5 ? `<li>他${day.events.length - 5}件</li>` : "";
@@ -149,9 +180,13 @@ function renderWeekDays(days) {
     })
     .join("");
 
+  bindEventDescSnippets($("week-days"));
   $("week-days").querySelectorAll("[data-date]").forEach((card) => {
     const open = () => openDayDetailByDate(card.dataset.date);
-    card.addEventListener("click", open);
+    card.addEventListener("click", (ev) => {
+      if (ev.target.closest(".event-desc-snippet")) return;
+      open();
+    });
     card.addEventListener("keydown", (ev) => {
       if (ev.key === "Enter" || ev.key === " ") {
         ev.preventDefault();
@@ -282,7 +317,7 @@ function renderDayDetailBody(detail) {
     ? day.events
         .map(
           (ev) =>
-            `<p>${CAT_ICON[ev.category] || "📌"} <strong>${escapeHtml(CAT_LABEL[ev.category] || "")}</strong> — ${escapeHtml(ev.title)}</p>`
+            `<p>${CAT_ICON[ev.category] || "📌"} <strong>${escapeHtml(CAT_LABEL[ev.category] || "")}</strong> — ${escapeHtml(ev.title)}${renderEventDescSnippet(ev.description, `detail-${ev.id}`)}</p>`
         )
         .join("")
     : "<p>予定はありません</p>";
@@ -329,7 +364,11 @@ function bindDayDetailActions(day) {
 
 function openDayDetailByDate(date) {
   if (!date) return;
-  window.location.href = `/schedule-v1/day?date=${encodeURIComponent(date)}`;
+  openDayEditModal(date, {
+    onSaved: () => {
+      refreshCurrent().catch(() => {});
+    },
+  });
 }
 
 function openUnavailForm(date) {
@@ -386,6 +425,22 @@ async function init() {
   });
   practicalNav.setToast(toast);
   practicalNav.setBackVisible(false);
+
+  let reasonPresets = [];
+  try {
+    const presetData = await api("/presets");
+    reasonPresets = presetData.reasonPresets || [];
+  } catch {
+    reasonPresets = [];
+  }
+  initDayEditModal({
+    api: Object.assign(
+      (path, opts) => api(path, opts),
+      { token: () => getCustomerToken() }
+    ),
+    toast,
+    reasonPresets,
+  });
 
   showMode("week");
   await loadWeek();

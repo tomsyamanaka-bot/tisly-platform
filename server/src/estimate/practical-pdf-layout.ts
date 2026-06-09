@@ -1,7 +1,7 @@
 import { escapeHtml, escapeHtmlMultiline } from "../business/pdf/shared-blocks.js";
 import { getTomsCompanyInfo } from "../business/pdf/company.js";
 
-export const PAGE_MARGIN_MM = 4;
+export const PAGE_MARGIN_MM = 3;
 export const COLS = 2;
 export const ROWS_FULL = 4;
 export const PHOTOS_PER_PAGE = COLS * ROWS_FULL;
@@ -150,13 +150,13 @@ export function buildPracticalPdfStyles(prefix: string): string {
   .${prefix}-page { width: ${contentW}mm; height: ${contentH}mm; page-break-after: always; overflow: hidden; }
   .${prefix}-page:last-child { page-break-after: auto; }
   .${prefix}-first-page { display: flex; flex-direction: column; }
-  .${prefix}-doc-header { flex: 0 0 auto; display: flex; justify-content: space-between; align-items: flex-start; gap: 3mm; max-height: 18%; overflow: hidden; padding-bottom: 1mm; border-bottom: 1px solid #0d9488; margin-bottom: 1mm; }
+  .${prefix}-doc-header { flex: 0 0 auto; display: flex; justify-content: space-between; align-items: flex-start; gap: 2mm; max-height: 12%; overflow: hidden; padding-bottom: 0.5mm; border-bottom: 1px solid #0d9488; margin-bottom: 0.5mm; }
   .${prefix}-doc-left { flex: 1; min-width: 0; }
-  .${prefix}-doc-right { flex: 0 0 42%; text-align: right; font-size: 6.5pt; line-height: 1.35; color: #334155; }
-  .${prefix}-doc-title { font-size: 9pt; margin: 0 0 1mm; letter-spacing: 0.08em; font-weight: 700; line-height: 1.15; }
-  .${prefix}-addressee { font-size: 7.5pt; margin: 0 0 0.5mm; font-weight: 600; }
-  .${prefix}-subject { margin: 0 0 0.3mm; font-size: 6.5pt; line-height: 1.3; }
-  .${prefix}-notes { margin: 0; font-size: 6pt; line-height: 1.3; color: #475569; }
+  .${prefix}-doc-right { flex: 0 0 44%; text-align: right; font-size: 6.5pt; line-height: 1.3; color: #334155; }
+  .${prefix}-doc-title { font-size: 8.5pt; margin: 0 0 0.5mm; letter-spacing: 0.06em; font-weight: 700; line-height: 1.1; }
+  .${prefix}-addressee { font-size: 7pt; margin: 0 0 0.3mm; font-weight: 600; }
+  .${prefix}-subject { margin: 0 0 0.2mm; font-size: 6.2pt; line-height: 1.25; }
+  .${prefix}-notes { margin: 0; font-size: 5.8pt; line-height: 1.25; color: #475569; }
   .${prefix}-subject-label { font-weight: 600; margin-right: 0.5mm; }
   .${prefix}-meta-table { border-collapse: collapse; margin: 0 0 0.5mm auto; font-size: 6.5pt; }
   .${prefix}-meta-table th, .${prefix}-meta-table td { padding: 0.1mm 0 0.1mm 1mm; text-align: left; vertical-align: top; }
@@ -170,11 +170,11 @@ export function buildPracticalPdfStyles(prefix: string): string {
     display: grid;
     grid-template-columns: repeat(${COLS}, 1fr);
     grid-template-rows: repeat(${ROWS_FULL}, 1fr);
-    gap: 3mm;
+    gap: 2mm;
   }
   .${prefix}-page:not(.${prefix}-first-page) .${prefix}-photo-grid { height: 100%; }
   .${prefix}-photo-cell { display: flex; flex-direction: column; min-height: 0; }
-  .${prefix}-photo-title { margin: 1mm 0 0; text-align: center; font-size: 7.5pt; color: #334155; line-height: 1.2; flex: 0 0 auto; }
+  .${prefix}-photo-title { margin: 0.5mm 0 0; text-align: center; font-size: 7pt; color: #334155; line-height: 1.15; flex: 0 0 auto; }
   .${prefix}-photo-img-wrap { flex: 1; min-height: 0; overflow: hidden; border: 1px solid #cbd5e1; border-radius: 1px; background: #f8fafc; }
   .${prefix}-photo-img-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .${prefix}-photo-empty { visibility: hidden; }

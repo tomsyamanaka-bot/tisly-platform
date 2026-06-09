@@ -10,7 +10,7 @@ flowchart LR
   B --> C[GitHub Actions deploy-vps.yml]
   C --> D[SSH → VPS]
   D --> E[scripts/deploy-vps.sh]
-  E --> F[git pull / npm install / build]
+  E --> F[git fetch & reset / npm install / build]
   F --> G[systemctl restart tisly-server]
   G --> H[/api/health で commitShort 確認]
   H --> I[成功 or Actions 失敗]
@@ -19,7 +19,7 @@ flowchart LR
 1. `master` への push で `.github/workflows/deploy-vps.yml` が起動
 2. GitHub Actions が VPS へ SSH
 3. VPS 上で `bash /opt/tisly/scripts/deploy-vps.sh` を実行
-4. スクリプトが `git pull` → `npm install` → `npm run build` → `release-gate-last.json` 同期確認 → `systemctl restart` → health 確認
+4. スクリプトが `git fetch origin` → `git reset --hard origin/master` → `npm install` → `npm run build` → `release-gate-last.json` 同期確認 → `systemctl restart` → health 確認（`server/data/*.json` は Git 管理外のためローカルデータで止まらない）
 5. Actions 側でも `https://tisly.jp/api/health` の `commitShort` が push した commit と一致するか再確認
 6. いずれかが失敗したら GitHub Actions を **失敗** 扱いにする
 
@@ -206,7 +206,7 @@ GitHub 側: リポジトリの **Actions** タブ → **VPS Auto Deploy** ワー
 
 **智紀さんがやることは Cursor で修正 → Commit & Push（`master`）だけで OK です。**
 
-VPS への SSH、`git pull`、`npm run build`、`systemctl restart` は **不要** です（GitHub Actions が自動実行します）。
+VPS への SSH、`git fetch` / `git reset`、`npm run build`、`systemctl restart` は **不要** です（GitHub Actions が自動実行します）。
 
 ---
 

@@ -5,22 +5,21 @@ import {
 } from "./customer-auth.js";
 import { initPracticalNav } from "./tisly-practical-nav.js";
 import { friendlyHttpError } from "./tisly-friendly-errors.js";
+import {
+  initDayEditModal,
+  openDayEditModal,
+  renderDayMemoSummary,
+} from "./schedule-day-edit-modal.js";
 
 const API = "/api/schedule/v1";
 const CAT_ICON = { construction: "🟫", office: "🟦", family: "🟩", urgent: "🟥" };
 const CAT_LABEL = { construction: "工事", office: "事務", family: "家族", urgent: "重要" };
-const DAY_MEMO_SAVE_OK = "メモを保存しました";
-const DAY_MEMO_SAVE_FAIL = "メモの保存に失敗しました";
 
 const $ = (id) => document.getElementById(id);
 
 let currentDate = "";
-let dayMemoLastSaved = "";
-let dayMemoSaveTimer = null;
-let dayMemoBound = false;
-let unavailDetailLastSaved = "";
-let unavailDetailSaveTimer = null;
 let reasonPresets = [];
+let lastDetail = null;
 
 function toast(msg) {
   const el = $("toast");
@@ -64,109 +63,34 @@ async function api(path, opts = {}) {
   return data;
 }
 
-function showDayMemoStatus(msg, isError = false) {
-  const el = $("day-memo-status");
-  if (!el) return;
-  el.textContent = msg;
-  el.style.color = isError ? "#b91c1c" : "#64748b";
+function renderEventDescription(description, eventKey) {
+  if (!description?.trim()) return "";
+  const text = description.trim();
+  const lines = text.split(/\n/).filter(Boolean);
+  const preview = lines.slice(0, 2).join(" ").slice(0, 80);
+  const truncated = preview.length < text.replace(/\n/g, " ").length;
+  const label = truncated ? "メモ" : "説明";
+  return `<br><button type="button" class="event-desc-snippet" data-desc-key="${escapeHtml(eventKey)}" data-desc-full="${escapeHtml(text)}" aria-expanded="false">${label}: ${escapeHtml(preview)}${truncated ? "…" : ""}</button>`;
 }
 
-async function saveDayMemo({ quiet = false } = {}) {
-  if (!currentDate) return;
-  const textarea = $("day-memo-input");
-  if (!textarea) return;
-  const note = textarea.value;
-  if (dayMemoLastSaved === note) return;
-  try {
-    await api("/day-note", {
-      method: "PATCH",
-      body: JSON.stringify({ date: currentDate, note }),
+function bindEventDescSnippets(root) {
+  root?.querySelectorAll(".event-desc-snippet").forEach((btn) => {
+    btn.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      const full = btn.dataset.descFull || "";
+      const expanded = btn.getAttribute("aria-expanded") === "true";
+      if (expanded) {
+        const lines = full.split(/\n/).filter(Boolean);
+        const preview = lines.slice(0, 2).join(" ").slice(0, 80);
+        const truncated = preview.length < full.replace(/\n/g, " ").length;
+        btn.innerHTML = `${truncated ? "メモ" : "説明"}: ${escapeHtml(preview)}${truncated ? "…" : ""}`;
+        btn.setAttribute("aria-expanded", "false");
+        return;
+      }
+      btn.innerHTML = `説明: ${escapeHtml(full).replace(/\n/g, "<br>")}`;
+      btn.setAttribute("aria-expanded", "true");
     });
-    dayMemoLastSaved = note;
-    showDayMemoStatus(DAY_MEMO_SAVE_OK);
-    if (!quiet) toast(DAY_MEMO_SAVE_OK);
-  } catch (e) {
-    showDayMemoStatus(DAY_MEMO_SAVE_FAIL, true);
-    if (!quiet) toast(friendlyHttpError(e.message, e.status).title);
-    throw e;
-  }
-}
-
-function flushDayMemoKeepalive() {
-  if (!currentDate) return;
-  const textarea = $("day-memo-input");
-  if (!textarea) return;
-  const note = textarea.value;
-  if (dayMemoLastSaved === note) return;
-  const token = getCustomerToken();
-  fetch(`${API}/day-note`, {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({ date: currentDate, note }),
-    keepalive: true,
   });
-  dayMemoLastSaved = note;
-}
-
-function bindDayMemoIosFlush() {
-  const flushOnExit = () => flushDayMemoKeepalive();
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden") flushOnExit();
-  });
-  window.addEventListener("pagehide", flushOnExit);
-}
-
-function bindDayMemoInput() {
-  if (dayMemoBound) return;
-  dayMemoBound = true;
-  bindDayMemoIosFlush();
-  const textarea = $("day-memo-input");
-  if (!textarea) return;
-  const persist = async (quiet = false) => {
-    try {
-      await saveDayMemo({ quiet });
-    } catch {
-      /* inline status shown in saveDayMemo */
-    }
-  };
-  textarea.addEventListener("input", () => {
-    showDayMemoStatus("");
-    if (dayMemoSaveTimer) clearTimeout(dayMemoSaveTimer);
-    dayMemoSaveTimer = setTimeout(() => {
-      dayMemoSaveTimer = null;
-      persist(true);
-    }, 600);
-  });
-  textarea.addEventListener("change", () => persist(false));
-  textarea.addEventListener("keydown", (ev) => {
-    if (ev.key !== "Enter") return;
-    ev.preventDefault();
-    if (dayMemoSaveTimer) {
-      clearTimeout(dayMemoSaveTimer);
-      dayMemoSaveTimer = null;
-    }
-    persist(false);
-    textarea.blur();
-  });
-  textarea.addEventListener("blur", () => {
-    if (dayMemoSaveTimer) {
-      clearTimeout(dayMemoSaveTimer);
-      dayMemoSaveTimer = null;
-    }
-    persist(false);
-  });
-}
-
-async function loadDayNote(date) {
-  const data = await api(`/day-note?date=${encodeURIComponent(date)}`);
-  const textarea = $("day-memo-input");
-  if (!textarea) return;
-  textarea.value = data.note ?? "";
-  dayMemoLastSaved = textarea.value;
-  showDayMemoStatus("");
 }
 
 function renderWeather(weather) {
@@ -182,11 +106,6 @@ function renderWeather(weather) {
     .join(" ");
 }
 
-function renderEventDescription(description) {
-  if (!description?.trim()) return "";
-  return `<br><small class="event-description">📝 ${escapeHtml(description.trim())}</small>`;
-}
-
 function renderEvents(day) {
   const events = day.events.length
     ? day.events
@@ -194,7 +113,7 @@ function renderEvents(day) {
           const time =
             ev.allDay ? "終日" : [ev.startTime, ev.endTime].filter(Boolean).join("〜") || "";
           const loc = ev.location ? `<br><small>📍 ${escapeHtml(ev.location)}</small>` : "";
-          const desc = renderEventDescription(ev.description);
+          const desc = renderEventDescription(ev.description, ev.id);
           return `<p>${CAT_ICON[ev.category] || "📌"} <strong>${escapeHtml(CAT_LABEL[ev.category] || "")}</strong>
             ${time ? `<span style="opacity:0.8;"> ${escapeHtml(time)}</span>` : ""}
             — ${escapeHtml(ev.title)}${loc}${desc}</p>`;
@@ -202,6 +121,20 @@ function renderEvents(day) {
         .join("")
     : "<p>予定はありません</p>";
   $("day-events").innerHTML = `<p class="section-label">📋 予定一覧</p>${events}`;
+  bindEventDescSnippets($("day-events"));
+}
+
+function renderMemoSummary(detail) {
+  const el = $("day-memo-summary");
+  if (!el) return;
+  el.innerHTML = `
+    <p class="section-label" style="margin:0 0 0.35rem;">📝 日付メモ・現場不可・備考</p>
+    ${renderDayMemoSummary({
+      memo: detail.memo,
+      eventRemark: detail.eventRemark,
+      unavailable: detail.day.unavailable,
+    })}
+    <p class="section-hint" style="margin:0.5rem 0 0;font-size:0.82rem;">タップして編集</p>`;
 }
 
 function renderDispatch(dispatch) {
@@ -232,131 +165,39 @@ function renderDispatch(dispatch) {
     ${stops}`;
 }
 
-function reasonOptionsHtml(selected) {
-  const presets = reasonPresets.length ? reasonPresets : ["事務処理", "家族予定", "材料待ち", "移動不可", "電話対応のみ"];
-  return presets
-    .map((r) => `<option value="${escapeHtml(r)}"${r === selected ? " selected" : ""}>${escapeHtml(r)}</option>`)
-    .join("");
-}
-
-let currentUnavailableId = null;
-
-async function saveUnavailDetail({ quiet = false } = {}) {
-  const textarea = $("unavail-detail-input");
-  const select = $("unavail-reason-select");
-  if (!textarea || !select || !currentUnavailableId) return;
-  const detailMemo = textarea.value;
-  const reason = select.value;
-  if (unavailDetailLastSaved === detailMemo && select.dataset.lastReason === reason) return;
-  try {
-    await api(`/unavailable/${currentUnavailableId}`, {
-      method: "PATCH",
-      body: JSON.stringify({ reason, detailMemo }),
-    });
-    unavailDetailLastSaved = detailMemo;
-    select.dataset.lastReason = reason;
-    showUnavailDetailStatus("保存しました");
-    if (!quiet) toast("現場不可メモを保存しました");
-  } catch (e) {
-    showUnavailDetailStatus("保存に失敗しました", true);
-    if (!quiet) toast(friendlyHttpError(e.message, e.status).title);
-    throw e;
-  }
-}
-
-function showUnavailDetailStatus(msg, isError = false) {
-  const el = $("unavail-detail-status");
-  if (!el) return;
-  el.textContent = msg;
-  el.style.color = isError ? "#b91c1c" : "#64748b";
-}
-
-function bindUnavailDetailInput() {
-  const textarea = $("unavail-detail-input");
-  const select = $("unavail-reason-select");
-  if (!textarea || !select) return;
-  const persist = async (quiet = false) => {
-    try {
-      await saveUnavailDetail({ quiet });
-    } catch {
-      /* status shown */
-    }
-  };
-  textarea.addEventListener("input", () => {
-    showUnavailDetailStatus("");
-    if (unavailDetailSaveTimer) clearTimeout(unavailDetailSaveTimer);
-    unavailDetailSaveTimer = setTimeout(() => {
-      unavailDetailSaveTimer = null;
-      persist(true);
-    }, 600);
+function openEditForCurrentDate() {
+  if (!currentDate) return;
+  openDayEditModal(currentDate, {
+    showDetailLink: false,
+    onSaved: async () => {
+      if (currentDate) await loadDay(currentDate);
+    },
   });
-  textarea.addEventListener("blur", () => {
-    if (unavailDetailSaveTimer) {
-      clearTimeout(unavailDetailSaveTimer);
-      unavailDetailSaveTimer = null;
-    }
-    persist(false);
-  });
-  select.addEventListener("change", () => persist(false));
 }
 
-function renderUnavail(dayCard) {
-  currentUnavailableId = dayCard.unavailable?.id || null;
-  if (dayCard.unavailable) {
-    unavailDetailLastSaved = dayCard.unavailable.detailMemo || "";
-    $("day-unavail").innerHTML = `
-      <p class="section-label">🚫 現場不可</p>
-      <label class="friendly-label">理由
-        <select id="unavail-reason-select" data-last-reason="${escapeHtml(dayCard.unavailable.reason)}">${reasonOptionsHtml(dayCard.unavailable.reason)}</select>
-      </label>
-      <label class="friendly-label">現場不可メモ（詳細）
-        <textarea id="unavail-detail-input" rows="2" placeholder="午前だけ対応可、外作業NG、材料待ちなど">${escapeHtml(dayCard.unavailable.detailMemo || "")}</textarea>
-      </label>
-      <span id="unavail-detail-status" class="photo-title-status" aria-live="polite"></span>
-      <button type="button" class="btn-sub btn-small" id="btn-del-unavail" data-id="${dayCard.unavailable.id}">現場不可を解除</button>`;
-    bindUnavailDetailInput();
-    $("btn-del-unavail")?.addEventListener("click", async () => {
-      try {
-        await api(`/unavailable/${dayCard.unavailable.id}`, { method: "DELETE" });
-        toast("現場不可を解除しました");
-        await loadDay(dayCard.date);
-      } catch (e) {
-        toast(friendlyHttpError(e.message, e.status).title);
-      }
-    });
-  } else {
-    $("day-unavail").innerHTML = `
-      <p class="section-label">現場不可設定</p>
-      <label class="friendly-label">理由
-        <select id="unavail-reason-new">${reasonOptionsHtml("事務処理")}</select>
-      </label>
-      <button type="button" class="btn-sub btn-small" id="btn-set-unavail">この日を現場不可にする</button>`;
-    $("btn-set-unavail")?.addEventListener("click", async () => {
-      try {
-        const reason = $("unavail-reason-new")?.value || "事務処理";
-        await api("/unavailable", {
-          method: "POST",
-          body: JSON.stringify({ date: dayCard.date, reason }),
-        });
-        toast("現場不可を登録しました");
-        await loadDay(dayCard.date);
-      } catch (e) {
-        toast(friendlyHttpError(e.message, e.status).title);
-      }
-    });
-  }
+function bindMemoSummaryOpen() {
+  const el = $("day-memo-summary");
+  const title = $("day-title");
+  const open = () => openEditForCurrentDate();
+  el?.addEventListener("click", open);
+  el?.addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter" || ev.key === " ") {
+      ev.preventDefault();
+      open();
+    }
+  });
+  title?.addEventListener("click", open);
 }
 
 async function loadDay(date) {
   currentDate = date;
   const detail = await api(`/day?date=${encodeURIComponent(date)}`);
+  lastDetail = detail;
   $("day-title").textContent = `${formatDateShort(date)}（${detail.day.weekday}）`;
   renderWeather(detail.weather);
+  renderMemoSummary(detail);
   renderEvents(detail.day);
   renderDispatch(detail.dispatch);
-  renderUnavail(detail.day);
-  await loadDayNote(date);
-  bindDayMemoInput();
   const maps = $("day-maps");
   if (detail.mapsUrl) {
     maps.href = detail.mapsUrl;
@@ -378,6 +219,13 @@ async function loadReasonPresets() {
 async function init() {
   await requireCustomerLogin(customerCodeFromPath());
   await loadReasonPresets();
+  initDayEditModal({
+    api: Object.assign((path, opts) => api(path, opts), { token: () => getCustomerToken() }),
+    toast,
+    reasonPresets,
+  });
+  bindMemoSummaryOpen();
+
   const nav = initPracticalNav({
     appId: "schedule_v1",
     appName: "日程詳細",
@@ -395,6 +243,9 @@ async function init() {
   }
   try {
     await loadDay(date);
+    if (new URLSearchParams(window.location.search).get("edit") === "1") {
+      openEditForCurrentDate();
+    }
   } catch (e) {
     toast(friendlyHttpError(e.message, e.status).title);
   }
