@@ -1,0 +1,20 @@
+---
+description: TiSLY Practical PWA autonomous Cursor self-drive rules
+alwaysApply: true
+---
+
+# TiSLY Self-Drive Rules
+
+Before any code change for TiSLY Practical PWA (survey / estimate / schedule):
+
+1. **Always read** `docs/autonomous/PROJECT_STATUS.md` first.
+2. **Always run** the regression checklist in `docs/autonomous/checklists/REGRESSION_TEST.md` when touching photos, PDFs, or schedule features.
+3. **Never mix** survey photos (`survey_photos`) and completion report photos (`completion_photos`).
+   - Specification PDF → survey photos only.
+   - Completion report PDF → completion photos only.
+   - Estimate / invoice PDFs → no photos.
+4. **Do not require manual VPS deploy** after `git push origin master` unless GitHub Actions VPS Auto Deploy fails. Confirm via https://tisly.jp/api/health `commitShort`.
+5. **Prefer autonomous investigation** (logs, tests, `docs/autonomous/examples/EXAMPLE_INDEX.md`) before asking the user.
+6. On task completion, report: implementation summary, test results, commit hash, VPS health URL confirmation.
+
+Entry point for humans: `docs/autonomous/README.md`.

@@ -2,10 +2,17 @@
 
 Cursor が止まらずに開発を進めるための標準フォルダーです。
 
+**長時間自走を始めるときは、この README の次に [PROJECT_STATUS.md](./PROJECT_STATUS.md) を必ず読んでください。**
+
 ## 使い方
 
 | ファイル | いつ見るか |
 |----------|------------|
+| **[PROJECT_STATUS.md](./PROJECT_STATUS.md)** | **完成済み標準仕様（作業開始時に必読）** |
+| [CURSOR_SELF_DRIVE_RULES.md](./CURSOR_SELF_DRIVE_RULES.md) | Cursor の自走行動規範・完了報告形式 |
+| [checklists/REGRESSION_TEST.md](./checklists/REGRESSION_TEST.md) | 写真/PDF/日程変更後の回帰テスト |
+| [examples/EXAMPLE_INDEX.md](./examples/EXAMPLE_INDEX.md) | UI・PDF のお手本コード索引 |
+| [templates/NEXT_CURSOR_PROMPT.md](./templates/NEXT_CURSOR_PROMPT.md) | 次回作業用プロンプト雛形 |
 | [DEVELOPMENT_QUEUE.md](./DEVELOPMENT_QUEUE.md) | 今どの Phase か、次に何を優先するか |
 | [NEXT_ACTIONS.md](./NEXT_ACTIONS.md) | Cursor が次に自走できる作業リスト |
 | [BLOCKED_ITEMS.md](./BLOCKED_ITEMS.md) | 詰まっていることと回避策 |

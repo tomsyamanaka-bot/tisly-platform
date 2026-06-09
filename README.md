@@ -3,6 +3,9 @@
 TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。  
 三菱電機 **FX 系** PLC と **GX Works2 / GX Works3** を想定しています。
 
+> **Cursor で長時間自走させるときは、最初に [`docs/autonomous/README.md`](docs/autonomous/README.md) を読んでください。**  
+> 続けて [`docs/autonomous/PROJECT_STATUS.md`](docs/autonomous/PROJECT_STATUS.md) で完成仕様を確認してください。
+
 ## リポジトリ構成について（Phase 1681–1720）
 
 | 項目 | 説明 |
@@ -589,7 +592,9 @@ cd server && npm run build && npx tsc --noEmit && npm run test
 | ドキュメント | |
 |-------------|--|
 | Schedule Planner | [`docs/schedule-planner-v1.md`](docs/schedule-planner-v1.md) |
-| 自走管理 | [`docs/autonomous/CURRENT_STATUS.md`](docs/autonomous/CURRENT_STATUS.md) |
+| 自走管理（入口） | [`docs/autonomous/README.md`](docs/autonomous/README.md) |
+| 完成仕様 | [`docs/autonomous/PROJECT_STATUS.md`](docs/autonomous/PROJECT_STATUS.md) |
+| 自走ルール | [`docs/autonomous/CURSOR_SELF_DRIVE_RULES.md`](docs/autonomous/CURSOR_SELF_DRIVE_RULES.md) |
 
 ```bash
 cd server
