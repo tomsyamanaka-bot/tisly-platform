@@ -193,6 +193,35 @@ export function runMigrations(database: Database.Database): void {
   migratePracticalPwaV2(database);
   migrateCompletionPhotosV1(database);
   migrateCustomerPriceRulesV1(database);
+  migrateCustomerPriceRulesV1_1(database);
+}
+
+/** 見積ごとの単価ルール選択（Customer Price Rule v1.1） */
+function migrateCustomerPriceRulesV1_1(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:customer_price_rules_v1_1") as { value_json: string } | undefined;
+  if (marker) return;
+
+  addColumnsIfMissing(database, "business_estimates", [
+    {
+      name: "price_rule_name",
+      ddl: "ALTER TABLE business_estimates ADD COLUMN price_rule_name TEXT NOT NULL DEFAULT ''",
+    },
+    {
+      name: "price_rule_cost_multiplier",
+      ddl: "ALTER TABLE business_estimates ADD COLUMN price_rule_cost_multiplier REAL",
+    },
+    {
+      name: "price_rule_labor_multiplier",
+      ddl: "ALTER TABLE business_estimates ADD COLUMN price_rule_labor_multiplier REAL",
+    },
+  ]);
+
+  const now = new Date().toISOString();
+  database
+    .prepare(`INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, ?)`)
+    .run("migration:customer_price_rules_v1_1", JSON.stringify({ migratedAt: now }), now);
 }
 
 /** 顧客別単価ルール + 見積出精値引き */

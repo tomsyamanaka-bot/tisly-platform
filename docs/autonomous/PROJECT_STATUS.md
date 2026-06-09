@@ -90,18 +90,20 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 
 ---
 
-## 顧客別単価ルール（完成済み）
+## 顧客別単価ルール v1.1（完成済み）
 
 | 項目 | 内容 |
 |------|------|
-| テーブル | `customer_price_rules`（`customer_id` → `business_customers`） |
+| テーブル | `customer_price_rules` + 見積選択 `business_estimates.price_rule_*` |
 | 材料単価 | 部材原価 × `cost_multiplier` |
 | 労務単価 | 労務原価 × `labor_multiplier`（category=labor または名称マッチ） |
-| 出精値引き | `business_estimates.shusei_discount_amount` / `shusei_discount_memo` |
+| 出精値引き | `shusei_discount_amount` / `shusei_discount_memo`（金額・理由メモ） |
 | 計算 | 明細合計 − 出精値引き = 小計 → 税10% → 税込合計 |
-| UI | 見積詳細に単価ルール・倍率・出精値引きを表示 |
-| PDF | 出精値引き行を `renderTotals` に反映 |
-| テスト | `server/test/customer-price-rules.test.ts` |
+| UI | 内訳上部：顧客名・ルール選択・倍率表示・「倍率で再計算」（手入力単価は確認後上書き） |
+| API | `GET /api/estimate/v1/price-rules`、`PATCH items` に `priceRule` / `applyPriceRule` |
+| PDF（お客様） | 単価ルール名・出精値引き・税込合計（**倍率は非表示**） |
+| PDF（社内） | TOMS データに `priceRule` 倍率を含む |
+| テスト | `server/test/customer-price-rules.test.ts`（8ケース） |
 
 ---
 

@@ -21,11 +21,22 @@ import {
 } from "../business/toms-document-format.js";
 import { generateInvoicePdf } from "../business/services/pdfService.js";
 import { listPricingRules } from "../business/business-pricing.js";
-import type { Estimate, EstimateLineItem, PricingCategory, PricingItem } from "../business/business-types.js";
+import type {
+  CustomerPriceRuleSummary,
+  Estimate,
+  EstimateLineItem,
+  PricingCategory,
+  PricingItem,
+} from "../business/business-types.js";
 import {
   applyCustomerPriceToItems,
   ensureBusinessCustomer,
+  findManualPriceLineIndices,
+  findPresetPriceRule,
   getCustomerPriceRuleOrDefault,
+  listPresetPriceRuleOptions,
+  MANUAL_PRICE_RULE_NAME,
+  resolveEstimatePriceRule,
 } from "../business/customer-price-rules.js";
 import { applyPricingTierToItems, calcTotals, normalizeLineItems } from "../business/estimate-math.js";
 import { generateTomsDailyDocNo } from "../business/toms-document-format.js";
@@ -229,13 +240,17 @@ export function getEstimateProjectV1Detail(businessProjectId: string): EstimateP
     estimate && pdfCtx
       ? mergeEstimateHeader(estimate, estimate.header ?? null, pdfCtx)
       : null;
-  const priceRuleRow = getCustomerPriceRuleOrDefault(project.customerId);
-  const priceRule = {
-    ruleName: priceRuleRow.ruleName,
-    costMultiplier: priceRuleRow.costMultiplier,
-    laborMultiplier: priceRuleRow.laborMultiplier,
-    discountPolicyMemo: priceRuleRow.discountPolicyMemo,
-  };
+  const priceRule = estimate
+    ? resolveEstimatePriceRule(estimate, project.customerId)
+    : (() => {
+        const row = getCustomerPriceRuleOrDefault(project.customerId);
+        return {
+          ruleName: row.ruleName,
+          costMultiplier: row.costMultiplier,
+          laborMultiplier: row.laborMultiplier,
+          discountPolicyMemo: row.discountPolicyMemo,
+        };
+      })();
   return {
     businessProjectId: project.id,
     projectNo: project.projectNo,
@@ -347,19 +362,90 @@ export function createEstimateFromSurveyV1(
   return getEstimateProjectV1Detail(project.id)!;
 }
 
+export function listEstimatePriceRulePresetsV1() {
+  return listPresetPriceRuleOptions();
+}
+
+function ruleForApply(
+  existing: Estimate | null,
+  customerId: string,
+  priceRuleInput?: { ruleName: string; costMultiplier?: number | null; laborMultiplier?: number | null }
+): CustomerPriceRuleSummary | null {
+  if (priceRuleInput?.ruleName === MANUAL_PRICE_RULE_NAME) return null;
+  if (priceRuleInput?.ruleName && priceRuleInput.costMultiplier != null) {
+    return {
+      ruleName: priceRuleInput.ruleName,
+      costMultiplier: priceRuleInput.costMultiplier,
+      laborMultiplier: priceRuleInput.laborMultiplier ?? priceRuleInput.costMultiplier,
+      discountPolicyMemo: "",
+    };
+  }
+  if (existing) {
+    const resolved = resolveEstimatePriceRule(existing, customerId);
+    if (resolved.ruleName === MANUAL_PRICE_RULE_NAME) return null;
+    return resolved;
+  }
+  const customer = getCustomerPriceRuleOrDefault(customerId);
+  return {
+    ruleName: customer.ruleName,
+    costMultiplier: customer.costMultiplier,
+    laborMultiplier: customer.laborMultiplier,
+    discountPolicyMemo: customer.discountPolicyMemo,
+  };
+}
+
+function persistEstimatePriceRule(
+  estimateId: string,
+  priceRuleInput?: { ruleName: string; costMultiplier?: number | null; laborMultiplier?: number | null }
+): void {
+  if (!priceRuleInput?.ruleName) return;
+  const preset = findPresetPriceRule(priceRuleInput.ruleName);
+  const ruleName = priceRuleInput.ruleName;
+  const costMult =
+    priceRuleInput.costMultiplier !== undefined
+      ? priceRuleInput.costMultiplier
+      : (preset?.costMultiplier ?? null);
+  const laborMult =
+    priceRuleInput.laborMultiplier !== undefined
+      ? priceRuleInput.laborMultiplier
+      : (preset?.laborMultiplier ?? null);
+  getDatabase()
+    .prepare(
+      `UPDATE business_estimates SET
+        price_rule_name = ?, price_rule_cost_multiplier = ?, price_rule_labor_multiplier = ?
+       WHERE id = ?`
+    )
+    .run(ruleName, costMult, laborMult, estimateId);
+}
+
 export function updateEstimateItemsV1(
   businessProjectId: string,
   items: Partial<EstimateLineItem>[],
-  opts?: { notes?: string; shuseiDiscount?: number; shuseiDiscountMemo?: string; applyPriceRule?: boolean }
+  opts?: {
+    notes?: string;
+    shuseiDiscount?: number;
+    shuseiDiscountMemo?: string;
+    applyPriceRule?: boolean;
+    forceOverwriteManualLines?: boolean;
+    priceRule?: { ruleName: string; costMultiplier?: number | null; laborMultiplier?: number | null };
+  }
 ): { estimate: Estimate; totals: EstimateTotalsV1 } {
   const project = getBusinessProject(businessProjectId);
   if (!project?.estimateId) throw new Error("estimate not found");
+  const existing = getEstimate(project.estimateId);
   let normalized = normalizeLineItems(items);
   if (opts?.applyPriceRule) {
-    const priceRule = getCustomerPriceRuleOrDefault(project.customerId);
-    normalized = applyCustomerPriceToItems(normalized, priceRule);
+    const priceRule = ruleForApply(existing, project.customerId, opts.priceRule);
+    if (priceRule) {
+      const manualIndices = findManualPriceLineIndices(normalized, priceRule);
+      if (manualIndices.length > 0 && !opts.forceOverwriteManualLines) {
+        const err = new Error("manual_price_lines");
+        (err as Error & { manualLineIndices: number[] }).manualLineIndices = manualIndices;
+        throw err;
+      }
+      normalized = applyCustomerPriceToItems(normalized, priceRule);
+    }
   }
-  const existing = getEstimate(project.estimateId);
   const shuseiDiscount =
     opts?.shuseiDiscount !== undefined ? opts.shuseiDiscount : (existing?.shuseiDiscount ?? 0);
   const shuseiDiscountMemo =
@@ -368,6 +454,9 @@ export function updateEstimateItemsV1(
       : (existing?.shuseiDiscountMemo ?? "");
   const totals = calcTotals(normalized, { shuseiDiscount });
   const now = new Date().toISOString();
+  if (opts?.priceRule?.ruleName) {
+    persistEstimatePriceRule(project.estimateId, opts.priceRule);
+  }
   getDatabase()
     .prepare(
       `UPDATE business_estimates SET
@@ -463,10 +552,14 @@ export function buildTomsFormatPreviewV1(
   const project = getBusinessProject(businessProjectId);
   const detail = getEstimateProjectV1Detail(businessProjectId);
   if (!project || !detail?.estimate || !detail.header) throw new Error("estimate not found");
-  return buildTomsEstimateDocument(project, detail.estimate, detail.header, {
+  const doc = buildTomsEstimateDocument(project, detail.estimate, detail.header, {
     notes: project.surveyMemo ?? "",
     photosIncluded: opts?.includePhotos === true,
+    priceRule: detail.priceRule ?? null,
+    shuseiDiscount: detail.estimate.shuseiDiscount,
+    shuseiDiscountMemo: detail.estimate.shuseiDiscountMemo,
   });
+  return doc;
 }
 
 /** 現調写真（仕様書・完了報告書の reportPhotos 用） */
@@ -562,8 +655,9 @@ export function duplicateEstimateV1(businessProjectId: string): EstimateProjectV
         id, project_id, estimate_no, customer_name, title, items_json,
         subtotal, tax, total, internal_cost, gross_profit, gross_profit_rate,
         shusei_discount_amount, shusei_discount_memo,
+        price_rule_name, price_rule_cost_multiplier, price_rule_labor_multiplier,
         pdf_path, header_json, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)`
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)`
     )
     .run(
       id,
@@ -580,6 +674,9 @@ export function duplicateEstimateV1(businessProjectId: string): EstimateProjectV
       totals.grossProfitRate,
       totals.shuseiDiscount,
       est.shuseiDiscountMemo ?? "",
+      est.priceRuleName ?? "",
+      est.priceRuleCostMultiplier ?? null,
+      est.priceRuleLaborMultiplier ?? null,
       est.header ? JSON.stringify(est.header) : null,
       now,
       now

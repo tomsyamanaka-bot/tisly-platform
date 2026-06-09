@@ -48,9 +48,18 @@ export interface TomsEstimateDocumentV1 {
   company: ReturnType<typeof getTomsCompanyInfo>;
   header: TomsEstimateHeader;
   lines: TomsEstimateLine[];
+  lineSubtotal?: number;
+  shuseiDiscount?: number;
+  shuseiDiscountMemo?: string;
   subtotal: number;
   tax: number;
   total: number;
+  priceRule?: {
+    ruleName: string;
+    costMultiplier: number;
+    laborMultiplier: number;
+    discountPolicyMemo?: string;
+  } | null;
   notes: string;
   photosIncluded: boolean;
   generatedAt: string;
@@ -206,7 +215,18 @@ export function buildTomsEstimateDocument(
   project: BusinessProject,
   estimate: Estimate,
   header: TomsEstimateHeader,
-  opts?: { notes?: string; photosIncluded?: boolean }
+  opts?: {
+    notes?: string;
+    photosIncluded?: boolean;
+    priceRule?: {
+      ruleName: string;
+      costMultiplier: number;
+      laborMultiplier: number;
+      discountPolicyMemo?: string;
+    } | null;
+    shuseiDiscount?: number;
+    shuseiDiscountMemo?: string;
+  }
 ): TomsEstimateDocumentV1 {
   return {
     version: "toms-standard-v1",
@@ -214,9 +234,13 @@ export function buildTomsEstimateDocument(
     company: getTomsCompanyInfo(),
     header,
     lines: itemsToTomsLines(estimate.items),
+    lineSubtotal: estimate.lineSubtotal,
+    shuseiDiscount: opts?.shuseiDiscount ?? estimate.shuseiDiscount,
+    shuseiDiscountMemo: opts?.shuseiDiscountMemo ?? estimate.shuseiDiscountMemo,
     subtotal: estimate.subtotal,
     tax: estimate.tax,
     total: estimate.total,
+    priceRule: opts?.priceRule ?? null,
     notes: opts?.notes ?? project.surveyMemo ?? "",
     photosIncluded: opts?.photosIncluded === true,
     generatedAt: new Date().toISOString(),

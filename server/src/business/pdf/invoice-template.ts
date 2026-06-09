@@ -12,6 +12,7 @@ import {
   renderBankBlock,
   renderNotes,
   renderPhotoGrid,
+  renderPriceRuleLine,
   renderSealPlaceholder,
   renderTomsDocLayoutHeader,
   renderTomsLineItemsTable,
@@ -23,6 +24,10 @@ export interface InvoiceHtmlOptions {
   estimateRefNo?: string;
   notes?: string | null;
   includePhotos?: boolean;
+  priceRuleName?: string | null;
+  shuseiDiscount?: number;
+  shuseiDiscountMemo?: string;
+  lineSubtotal?: number;
 }
 
 export function buildInvoiceHeader(
@@ -77,8 +82,16 @@ ${renderTomsDocLayoutHeader({
 })}
 ${renderAmountBanner(invoice.total)}
 <p class="intro">下記の通りご請求申し上げます。見積参照番号：${escapeHtml(header.estimateRefNo)}</p>
+${renderPriceRuleLine(opts?.priceRuleName ?? estimate.priceRuleName)}
 ${renderTomsLineItemsTable(lines)}
-${renderTotals(invoice.subtotal, invoice.tax, invoice.total)}
+${renderTotals({
+  lineSubtotal: opts?.lineSubtotal ?? estimate.lineSubtotal,
+  shuseiDiscount: opts?.shuseiDiscount ?? estimate.shuseiDiscount,
+  shuseiDiscountMemo: opts?.shuseiDiscountMemo ?? estimate.shuseiDiscountMemo,
+  subtotal: invoice.subtotal,
+  tax: invoice.tax,
+  total: invoice.total,
+})}
 ${renderBankBlock(header.bankInfo)}
 ${renderNotes(notes)}
 ${photoBlock}

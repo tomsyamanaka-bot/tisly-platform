@@ -1,6 +1,6 @@
 import { v4 as uuid } from "uuid";
 import { getDatabase } from "../db/database.js";
-import type { EstimateLineItem } from "./business-types.js";
+import type { CustomerPriceRuleSummary, EstimateLineItem } from "./business-types.js";
 import { lineAmount } from "./estimate-math.js";
 
 export interface CustomerPriceRule {
@@ -23,6 +23,119 @@ export const DEFAULT_PRICE_RULE: Pick<
   laborMultiplier: 2.0,
   discountPolicyMemo: "",
 };
+
+export const MANUAL_PRICE_RULE_NAME = "手動調整";
+
+export interface PresetPriceRuleOption {
+  id: string;
+  ruleName: string;
+  costMultiplier: number | null;
+  laborMultiplier: number | null;
+  label: string;
+}
+
+/** 見積PWAで選択できる単価ルールプリセット */
+export const PRESET_PRICE_RULE_OPTIONS: PresetPriceRuleOption[] = [
+  { id: "customer-a", ruleName: "客A", costMultiplier: 2.0, laborMultiplier: 2.0, label: "客A：材料×2.0 / 労務×2.0" },
+  { id: "customer-b", ruleName: "客B", costMultiplier: 3.0, laborMultiplier: 2.5, label: "客B：材料×3.0 / 労務×2.5" },
+  {
+    id: "mgmt-a",
+    ruleName: "管理会社A",
+    costMultiplier: 1.8,
+    laborMultiplier: 1.8,
+    label: "管理会社A：材料×1.8 / 労務×1.8",
+  },
+  {
+    id: "individual",
+    ruleName: "一般個人",
+    costMultiplier: 2.5,
+    laborMultiplier: 2.2,
+    label: "一般個人：材料×2.5 / 労務×2.2",
+  },
+  {
+    id: "corp-standard",
+    ruleName: "法人標準",
+    costMultiplier: 2.2,
+    laborMultiplier: 2.0,
+    label: "法人標準：材料×2.2 / 労務×2.0",
+  },
+  {
+    id: "manual",
+    ruleName: MANUAL_PRICE_RULE_NAME,
+    costMultiplier: null,
+    laborMultiplier: null,
+    label: "手動調整",
+  },
+];
+
+export function listPresetPriceRuleOptions(): PresetPriceRuleOption[] {
+  return PRESET_PRICE_RULE_OPTIONS;
+}
+
+export function findPresetPriceRule(ruleName: string): PresetPriceRuleOption | undefined {
+  return PRESET_PRICE_RULE_OPTIONS.find((p) => p.ruleName === ruleName);
+}
+
+export function resolveEstimatePriceRule(
+  estimate: {
+    priceRuleName?: string;
+    priceRuleCostMultiplier?: number | null;
+    priceRuleLaborMultiplier?: number | null;
+  },
+  customerId: string
+): CustomerPriceRuleSummary {
+  const storedName = (estimate.priceRuleName ?? "").trim();
+  if (storedName === MANUAL_PRICE_RULE_NAME) {
+    return {
+      ruleName: MANUAL_PRICE_RULE_NAME,
+      costMultiplier: 0,
+      laborMultiplier: 0,
+      discountPolicyMemo: "",
+    };
+  }
+  if (storedName && estimate.priceRuleCostMultiplier != null) {
+    return {
+      ruleName: storedName,
+      costMultiplier: estimate.priceRuleCostMultiplier,
+      laborMultiplier: estimate.priceRuleLaborMultiplier ?? estimate.priceRuleCostMultiplier,
+      discountPolicyMemo: "",
+    };
+  }
+  const customer = getCustomerPriceRuleOrDefault(customerId);
+  return {
+    ruleName: customer.ruleName,
+    costMultiplier: customer.costMultiplier,
+    laborMultiplier: customer.laborMultiplier,
+    discountPolicyMemo: customer.discountPolicyMemo,
+  };
+}
+
+export function expectedUnitPriceFromRule(
+  item: { category?: string; name?: string; costPrice?: number; unitPrice?: number },
+  rule: Pick<CustomerPriceRule, "costMultiplier" | "laborMultiplier"> | CustomerPriceRuleSummary
+): number | null {
+  const baseCost = item.costPrice ?? 0;
+  if (baseCost <= 0) return null;
+  const mult = isLaborLineItem(item) ? rule.laborMultiplier : rule.costMultiplier;
+  return Math.round(baseCost * mult);
+}
+
+export function findManualPriceLineIndices(
+  items: EstimateLineItem[],
+  rule: Pick<CustomerPriceRule, "costMultiplier" | "laborMultiplier"> | CustomerPriceRuleSummary
+): number[] {
+  const indices: number[] = [];
+  items.forEach((item, i) => {
+    const expected = expectedUnitPriceFromRule(item, rule);
+    if (expected == null) return;
+    const current = item.unitPrice ?? 0;
+    if (current === expected) return;
+    // 単価0・未入力は倍率適用対象。正の手入力のみ確認対象。
+    if (current <= 0) return;
+    indices.push(i);
+  });
+  return indices;
+}
 
 function rowToRule(r: Record<string, unknown>): CustomerPriceRule {
   return {
@@ -206,7 +319,7 @@ export function seedCustomerPriceRules(): void {
       type: "individual",
       ruleName: "一般個人",
       costMultiplier: 2.5,
-      laborMultiplier: 2.0,
+      laborMultiplier: 2.2,
       discountPolicyMemo: "",
     },
     {

@@ -182,6 +182,9 @@ export interface Estimate {
   title: string;
   items: EstimateLineItem[];
   lineSubtotal?: number;
+  priceRuleName?: string;
+  priceRuleCostMultiplier?: number | null;
+  priceRuleLaborMultiplier?: number | null;
   shuseiDiscount: number;
   shuseiDiscountMemo: string;
   subtotal: number;

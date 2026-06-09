@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import type { BusinessProject, CompletionReport, Estimate, Invoice } from "../business-types.js";
+import { resolveEstimatePriceRule } from "../customer-price-rules.js";
 import { businessUploadsDir } from "../business-store.js";
 import { generateQnapFilePath } from "./qnapService.js";
 import {
@@ -94,6 +95,7 @@ export function generateEstimatePdf(
     notes: ctx?.notes,
     header: ctx?.header ?? estimate.header,
     includePhotos: ctx?.includePhotos,
+    priceRuleName: resolveEstimatePriceRule(estimate, project.customerId).ruleName,
   });
   const htmlPath = writeHtml(project.id, "pdf-html", `estimate-${estimate.estimateNo}.html`, html);
   const { pdfPath } = renderWithTemplate("estimate", project, estimate, [
@@ -125,6 +127,10 @@ export function generateInvoicePdf(
     estimateRefNo: ctx?.estimateRefNo ?? invoice.estimateRefNo ?? estimate.estimateNo,
     notes: ctx?.notes,
     includePhotos: ctx?.includePhotos,
+    priceRuleName: resolveEstimatePriceRule(estimate, project.customerId).ruleName,
+    shuseiDiscount: estimate.shuseiDiscount,
+    shuseiDiscountMemo: estimate.shuseiDiscountMemo,
+    lineSubtotal: estimate.lineSubtotal,
   });
   const htmlPath = writeHtml(project.id, "pdf-html", `invoice-${invoice.invoiceNo}.html`, html);
   const { pdfPath } = renderWithTemplate("invoice", project, invoice, [
@@ -180,6 +186,7 @@ export function getEstimatePdfOrPlaceholder(
     notes: ctx?.notes,
     header: ctx?.header ?? estimate.header,
     includePhotos: ctx?.includePhotos,
+    priceRuleName: resolveEstimatePriceRule(estimate, project.customerId).ruleName,
   });
   const tmp = businessUploadsDir(project.id, "pdf-html");
   const p = path.join(tmp, "estimate-live.html");
@@ -197,6 +204,10 @@ export function getInvoicePdfOrPlaceholder(
     estimateRefNo: ctx?.estimateRefNo ?? invoice.estimateRefNo ?? estimate.estimateNo,
     notes: ctx?.notes,
     includePhotos: ctx?.includePhotos,
+    priceRuleName: resolveEstimatePriceRule(estimate, project.customerId).ruleName,
+    shuseiDiscount: estimate.shuseiDiscount,
+    shuseiDiscountMemo: estimate.shuseiDiscountMemo,
+    lineSubtotal: estimate.lineSubtotal,
   });
   const tmp = businessUploadsDir(project.id, "pdf-html");
   const p = path.join(tmp, "invoice-live.html");

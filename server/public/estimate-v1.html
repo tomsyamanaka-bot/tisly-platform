@@ -77,10 +77,6 @@
         <h2 id="detail-name">—</h2>
         <p id="detail-meta"></p>
         <p id="detail-customer-info" class="section-hint"></p>
-        <div id="price-rule-panel" class="price-rule-panel hidden">
-          <p class="section-label" style="margin:0.75rem 0 0.25rem;">💴 単価ルール</p>
-          <p id="price-rule-summary" class="section-hint"></p>
-        </div>
       </div>
 
       <p class="section-label">📋 見積ヘッダー</p>
@@ -103,15 +99,26 @@
       <p class="section-label">🧾 お見積りの内訳</p>
       <p class="section-hint">項目を追加・並べ替え・削除できます</p>
       <div class="friendly-card" id="lines-card">
+        <div id="price-rule-panel" class="price-rule-panel">
+          <p class="section-label" style="margin:0 0 0.35rem;">💴 単価ルール選択</p>
+          <p id="price-rule-customer" class="section-hint" style="margin:0 0 0.5rem;"></p>
+          <label class="friendly-label" style="margin:0 0 0.5rem;">ルールを選ぶ
+            <select id="price-rule-select" class="price-rule-select"></select>
+          </label>
+          <p id="price-rule-summary" class="section-hint price-rule-summary"></p>
+          <button type="button" class="btn-sub blue" id="btn-recalc-price-rule">倍率で再計算</button>
+        </div>
         <div id="line-list"></div>
         <button type="button" class="btn-sub blue" id="btn-add-line" style="margin-top:0.5rem;">＋ 項目を追加</button>
         <div class="shusei-discount-box">
-          <label class="friendly-label">出精値引き（円）
+          <p class="section-label" style="margin:0 0 0.35rem;">出精値引き</p>
+          <label class="friendly-label">出精値引き金額（円）
             <input type="number" id="shusei-discount" min="0" step="1000" inputmode="numeric" value="0" />
           </label>
-          <label class="friendly-label">出精値引きメモ
-            <input type="text" id="shusei-discount-memo" placeholder="端数調整・特別値引きなど" />
+          <label class="friendly-label">出精値引き理由メモ
+            <input type="text" id="shusei-discount-memo" placeholder="例：端数調整" />
           </label>
+          <p id="shusei-discount-preview" class="section-hint shusei-discount-preview"></p>
         </div>
         <div class="totals-box" id="totals-box">
           <div id="total-line-row" class="hidden">明細合計 <span id="total-line">¥0</span></div>

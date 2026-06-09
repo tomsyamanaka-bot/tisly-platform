@@ -10,19 +10,21 @@ TiSLY Practical PWA — Cursor 自走作業
 ## 前提
 - docs/autonomous/README.md → PROJECT_STATUS.md → HUMAN_ACTIONS.md を読む
 - VPS Auto Deploy 成功済み。master push で本番反映
-- 顧客別単価ルール v1 完成（customer_price_rules / 出精値引き / PDF反映）
+- 顧客別単価ルール v1.1 完成（ルール選択 UI / 倍率再計算 / PDF反映）
 - 現調写真 / 完了報告書用写真は別管理（混在禁止）
 
 ## 次に進める候補（優先度順）
 1. 顧客マスター UI：単価ルールの編集画面（business_customers 連携）
-2. 見積 PWA：「倍率で再計算」ボタン（applyPriceRule=true）
-3. 日程調整モーダル内に当日予定一覧を表示
-4. 現調 PWA：オフライン写真キュー・再送の安定化
-5. Google Calendar 本番 OAuth の VPS .env 反映後の E2E 確認
+2. 日程調整モーダル内に当日予定一覧を表示
+3. 現調 PWA：オフライン写真キュー・再送の安定化
+4. Google Calendar 本番 OAuth の VPS .env 反映後の E2E 確認
+5. 見積内訳に原価（costPrice）表示（社内モード）
 
 ## 壊してはいけない機能
 - 顧客別倍率計算（材料 costMultiplier / 労務 laborMultiplier）
 - 出精値引きの税計算順序（明細合計 − 値引き = 小計 → 税 → 合計）
+- 手入力単価の確認フロー（409 manual_price_lines）
+- お客様向け PDF に倍率を出さない（ルール名のみ）
 - 写真分離（現調 vs 完了報告書）
 - PDF 写真有無ルール（仕様書・完了報告書のみ）
 - VPS 自動デプロイフロー

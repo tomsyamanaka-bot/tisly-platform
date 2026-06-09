@@ -17,6 +17,7 @@ import {
   renderSpecificationHtmlV1,
   updateEstimateHeaderV1,
   updateEstimateItemsV1,
+  listEstimatePriceRulePresetsV1,
 } from "../../estimate/estimate-v1-store.js";
 import {
   addCompletionPhotoV1,
@@ -60,6 +61,11 @@ function parseIncludePhotos(query: Record<string, unknown>): boolean {
   if (raw === "1" || raw === "true" || raw === "yes") return true;
   return false;
 }
+
+estimateV1Router.get("/price-rules", ...estimateV1Auth, (req: AuthedRequest, res) => {
+  if (!assertEstimateV1Role(req, res)) return;
+  res.json({ presets: listEstimatePriceRulePresetsV1() });
+});
 
 estimateV1Router.get("/material-candidates/:surveyProjectId", ...estimateV1Auth, (req: AuthedRequest, res) => {
   if (!assertEstimateV1Role(req, res)) return;
@@ -134,6 +140,8 @@ estimateV1Router.patch("/projects/:id/items", ...estimateV1Auth, (req: AuthedReq
     shuseiDiscount?: number;
     shuseiDiscountMemo?: string;
     applyPriceRule?: boolean;
+    forceOverwriteManualLines?: boolean;
+    priceRule?: { ruleName: string; costMultiplier?: number | null; laborMultiplier?: number | null };
   };
   if (!Array.isArray(body.items)) {
     res.status(400).json({ error: "items array required" });
@@ -145,10 +153,22 @@ estimateV1Router.patch("/projects/:id/items", ...estimateV1Auth, (req: AuthedReq
       shuseiDiscount: body.shuseiDiscount,
       shuseiDiscountMemo: body.shuseiDiscountMemo,
       applyPriceRule: body.applyPriceRule === true,
+      forceOverwriteManualLines: body.forceOverwriteManualLines === true,
+      priceRule: body.priceRule,
     });
     res.json(result);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "update failed";
+    if (msg === "manual_price_lines") {
+      const manualLineIndices =
+        (e as Error & { manualLineIndices?: number[] }).manualLineIndices ?? [];
+      res.status(409).json({
+        error: "manual_price_lines",
+        message: "手入力で変更した単価があります。上書きしますか？",
+        manualLineIndices,
+      });
+      return;
+    }
     res.status(msg === "estimate not found" ? 404 : 400).json({ error: msg });
   }
 });

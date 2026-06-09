@@ -10,6 +10,7 @@ import {
   renderAmountBanner,
   renderNotes,
   renderPhotoGrid,
+  renderPriceRuleLine,
   renderTomsDocLayoutHeader,
   renderTomsLineItemsTable,
   renderTotals,
@@ -22,6 +23,7 @@ export interface EstimateHtmlOptions {
   notes?: string | null;
   header?: TomsEstimateHeader | null;
   includePhotos?: boolean;
+  priceRuleName?: string | null;
 }
 
 export function renderEstimateHtml(
@@ -56,6 +58,7 @@ ${renderTomsDocLayoutHeader({
   includeRegistrationNo: false,
 })}
 ${renderAmountBanner(estimate.total)}
+${renderPriceRuleLine(opts?.priceRuleName ?? estimate.priceRuleName)}
 ${renderTomsLineItemsTable(lines)}
 ${renderTotals({
   lineSubtotal: estimate.lineSubtotal ?? estimate.subtotal + estimate.shuseiDiscount,

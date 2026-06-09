@@ -13,6 +13,9 @@ let pdfBlobUrl = null;
 const API = "/api/estimate/v1";
 let currentProjectId = null;
 let currentLines = [];
+let currentCustomerName = "";
+let priceRulePresets = [];
+let currentPriceRule = null;
 let lastTomsData = null;
 let hasInvoice = false;
 let completionPhotos = [];
@@ -302,6 +305,8 @@ function recalcLocal() {
   $("total-sub").textContent = yen(subtotal);
   $("total-tax").textContent = yen(tax);
   $("total-grand").textContent = yen(total);
+  renderShuseiPreview();
+  if (currentPriceRule) renderPriceRuleSummary(readSelectedPriceRule(), { shuseiDiscount: discount });
 }
 
 function updateTotalsFromEstimate(est) {
@@ -443,24 +448,171 @@ function renderCustomerInfo(p) {
   $("detail-customer-info").innerHTML = parts.map((x) => escapeHtml(x)).join(" · ");
 }
 
-function renderPriceRulePanel(p) {
-  const panel = $("price-rule-panel");
-  const summary = $("price-rule-summary");
-  if (!panel || !summary) return;
-  const rule = p.priceRule;
-  if (!rule) {
-    panel.classList.add("hidden");
+function isLaborLineName(name, category) {
+  if (category === "labor") return true;
+  return /労務|工事|設置|配線/.test(String(name || ""));
+}
+
+function expectedUnitPriceLocal(item, rule) {
+  if (!rule || rule.ruleName === "手動調整") return null;
+  const baseCost = item.costPrice ?? 0;
+  if (baseCost <= 0) return null;
+  const mult = isLaborLineName(item.name, item.category) ? rule.laborMultiplier : rule.costMultiplier;
+  return Math.round(baseCost * mult);
+}
+
+function findPresetByRuleName(ruleName) {
+  return priceRulePresets.find((p) => p.ruleName === ruleName);
+}
+
+function matchPresetOption(rule) {
+  if (!rule) return priceRulePresets.find((p) => p.id === "manual") || null;
+  const exact = findPresetByRuleName(rule.ruleName);
+  if (exact) return exact;
+  return priceRulePresets.find((p) => p.id === "manual") || null;
+}
+
+function populatePriceRuleSelect(rule) {
+  const sel = $("price-rule-select");
+  if (!sel) return;
+  if (!priceRulePresets.length) {
+    sel.innerHTML = '<option value="">読み込み中…</option>';
     return;
   }
-  panel.classList.remove("hidden");
-  const discount = p.estimate?.shuseiDiscount ?? 0;
-  const lines = [
-    `単価ルール：${rule.ruleName}`,
-    `材料：原価 × ${rule.costMultiplier}`,
-    `労務：原価 × ${rule.laborMultiplier}`,
-  ];
-  if (discount > 0) lines.push(`出精値引き：-${discount.toLocaleString("ja-JP")}円`);
+  sel.innerHTML = priceRulePresets
+    .map((p) => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.label)}</option>`)
+    .join("");
+  const matched = matchPresetOption(rule);
+  if (matched) sel.value = matched.id;
+}
+
+function readSelectedPriceRule() {
+  const sel = $("price-rule-select");
+  const preset = priceRulePresets.find((p) => p.id === sel?.value);
+  if (!preset) return currentPriceRule;
+  if (preset.ruleName === "手動調整") {
+    return { ruleName: "手動調整", costMultiplier: null, laborMultiplier: null };
+  }
+  return {
+    ruleName: preset.ruleName,
+    costMultiplier: preset.costMultiplier,
+    laborMultiplier: preset.laborMultiplier,
+  };
+}
+
+function renderPriceRuleSummary(rule, estimate) {
+  const summary = $("price-rule-summary");
+  if (!summary) return;
+  if (!rule) {
+    summary.textContent = "";
+    return;
+  }
+  const lines = [`単価ルール：${rule.ruleName}`];
+  if (rule.ruleName !== "手動調整") {
+    lines.push(`材料：原価 × ${rule.costMultiplier}`);
+    lines.push(`労務：原価 × ${rule.laborMultiplier}`);
+  } else {
+    lines.push("単価は手入力で調整します");
+  }
+  const discount = estimate?.shuseiDiscount ?? readShuseiDiscount();
+  const memo = estimate?.shuseiDiscountMemo ?? $("shusei-discount-memo")?.value?.trim() ?? "";
+  if (discount > 0) {
+    lines.push(`出精値引き：-${discount.toLocaleString("ja-JP")}円`);
+    if (memo) lines.push(`理由：${memo}`);
+  }
   summary.textContent = lines.join("\n");
+}
+
+function renderShuseiPreview() {
+  const el = $("shusei-discount-preview");
+  if (!el) return;
+  const discount = readShuseiDiscount();
+  const memo = $("shusei-discount-memo")?.value?.trim() ?? "";
+  if (discount <= 0) {
+    el.textContent = "";
+    return;
+  }
+  const lines = [`出精値引き：-${discount.toLocaleString("ja-JP")}円`];
+  if (memo) lines.push(`理由：${memo}`);
+  el.textContent = lines.join("\n");
+}
+
+function renderPriceRulePanel(p) {
+  const panel = $("price-rule-panel");
+  if (!panel) return;
+  currentCustomerName = p.customerName || p.title || "";
+  const customerEl = $("price-rule-customer");
+  if (customerEl) customerEl.textContent = currentCustomerName ? `顧客：${currentCustomerName}` : "";
+  currentPriceRule = p.priceRule || null;
+  populatePriceRuleSelect(currentPriceRule);
+  renderPriceRuleSummary(currentPriceRule, p.estimate);
+  renderShuseiPreview();
+}
+
+async function loadPriceRulePresets() {
+  try {
+    const data = await api("/price-rules");
+    priceRulePresets = data.presets || [];
+  } catch (e) {
+    console.warn("[estimate-v1] price-rules load failed", e);
+    priceRulePresets = [];
+  }
+}
+
+async function patchItems(body) {
+  const res = await fetch(`${API}/projects/${currentProjectId}/items`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${getCustomerToken()}`,
+    },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const e = new Error(data.error || data.message || `HTTP ${res.status}`);
+    e.status = res.status;
+    e.manualLineIndices = data.manualLineIndices;
+    throw e;
+  }
+  return data;
+}
+
+async function recalcWithPriceRule(forceOverwrite = false) {
+  if (!currentProjectId) return;
+  recalcLocal();
+  const priceRule = readSelectedPriceRule();
+  if (priceRule?.ruleName === "手動調整") {
+    toast("手動調整モードです。単価は自動では変わりません");
+    return;
+  }
+  try {
+    const result = await patchItems({
+      items: currentLines,
+      notes: $("estimate-notes").value.trim(),
+      shuseiDiscount: readShuseiDiscount(),
+      shuseiDiscountMemo: $("shusei-discount-memo")?.value.trim() ?? "",
+      applyPriceRule: true,
+      forceOverwriteManualLines: forceOverwrite,
+      priceRule,
+    });
+    renderLines(result.estimate.items || []);
+    updateTotalsFromEstimate(result.estimate);
+    currentPriceRule = readSelectedPriceRule();
+    renderPriceRuleSummary(currentPriceRule, result.estimate);
+    hidePdfPreview();
+    toast("倍率で再計算しました");
+  } catch (e) {
+    if (e.status === 409 && e.message === "manual_price_lines") {
+      const count = e.manualLineIndices?.length ?? 0;
+      const ok = window.confirm(
+        `手入力で変更した単価が${count}行あります。選択中の単価ルールで上書きしますか？`
+      );
+      if (ok) await recalcWithPriceRule(true);
+      return;
+    }
+    toastError(e, e.status);
+  }
 }
 
 function isLikelyImageFile(file) {
@@ -826,14 +978,12 @@ async function openDetail(projectId) {
 
 async function saveItems() {
   recalcLocal();
-  return api(`/projects/${currentProjectId}/items`, {
-    method: "PATCH",
-    body: JSON.stringify({
-      items: currentLines,
-      notes: $("estimate-notes").value.trim(),
-      shuseiDiscount: readShuseiDiscount(),
-      shuseiDiscountMemo: $("shusei-discount-memo")?.value.trim() ?? "",
-    }),
+  return patchItems({
+    items: currentLines,
+    notes: $("estimate-notes").value.trim(),
+    shuseiDiscount: readShuseiDiscount(),
+    shuseiDiscountMemo: $("shusei-discount-memo")?.value.trim() ?? "",
+    priceRule: readSelectedPriceRule(),
   });
 }
 
@@ -867,6 +1017,7 @@ function setListTab(tab) {
 
 async function init() {
   await requireCustomerLogin(customerCodeFromPath());
+  await loadPriceRulePresets();
   practicalNav = initPracticalNav({
     appId: "estimate_v1",
     appName: "見積",
@@ -919,14 +1070,30 @@ async function init() {
   $("shusei-discount")?.addEventListener("change", () => recalcLocal());
   $("shusei-discount-memo")?.addEventListener("input", () => recalcLocal());
 
+  $("price-rule-select")?.addEventListener("change", () => {
+    currentPriceRule = readSelectedPriceRule();
+    renderPriceRuleSummary(currentPriceRule, { shuseiDiscount: readShuseiDiscount() });
+  });
+
+  $("btn-recalc-price-rule")?.addEventListener("click", async () => {
+    if (!currentProjectId) return;
+    try {
+      await recalcWithPriceRule(false);
+    } catch (e) {
+      toastError(e, e.status);
+    }
+  });
+
   $("btn-save-items").addEventListener("click", async () => {
     if (!currentProjectId) return;
     try {
       const result = await saveItems();
       toast("内訳を保存しました");
       updateTotalsFromEstimate(result.estimate);
+      const refreshed = await api(`/projects/${currentProjectId}`);
       renderPriceRulePanel({
-        priceRule: (await api(`/projects/${currentProjectId}`)).priceRule,
+        customerName: refreshed.customerName,
+        priceRule: refreshed.priceRule,
         estimate: result.estimate,
       });
       hidePdfPreview();

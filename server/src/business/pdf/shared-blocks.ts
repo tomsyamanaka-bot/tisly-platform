@@ -252,6 +252,12 @@ export function renderTotals(
 </div>`;
 }
 
+export function renderPriceRuleLine(ruleName?: string | null): string {
+  const name = (ruleName ?? "").trim();
+  if (!name || name === "手動調整") return "";
+  return `<p class="price-rule-line">単価ルール：${escapeHtml(name)}</p>`;
+}
+
 export function renderNotes(notes: string): string {
   if (!notes?.trim()) return "";
   return `<div class="notes"><strong>備考</strong><br/>${escapeHtmlMultiline(notes)}</div>`;

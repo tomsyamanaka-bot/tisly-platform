@@ -32,12 +32,25 @@
 4. `survey_handoff_log.business_project_id` を更新
 5. 確定時に `workflow_status = estimate_done`
 
-## 顧客別単価ルール（Customer Price Rule v1）
+## 顧客別単価ルール（Customer Price Rule v1.1）
 
 - 部材原価 × `costMultiplier` = 材料販売単価
 - 労務原価 × `laborMultiplier` = 労務販売単価
-- 最終調整は **出精値引き**（`shusei_discount_amount` / `shusei_discount_memo`）で行う
+- 最終調整は **出精値引き**（金額 + 理由メモ）で行う
 - 計算順: 明細合計 − 出精値引き = 小計 → 消費税 → 税込合計
+
+### 見積PWA UI（v1.1）
+
+- 内訳カード上部に **単価ルール選択**（客A / 客B / 管理会社A / 一般個人 / 法人標準 / 手動調整）
+- **倍率で再計算** ボタン → `PATCH items` に `applyPriceRule: true`
+- 手入力単価行は 409 `manual_price_lines` → 確認後 `forceOverwriteManualLines: true`
+
+### API
+
+| メソッド | パス | 用途 |
+|----------|------|------|
+| GET | `/api/estimate/v1/price-rules` | プリセット一覧 |
+| PATCH | `/api/estimate/v1/projects/:id/items` | `priceRule`, `applyPriceRule`, `shuseiDiscount` 等 |
 
 シード例: 客A×2.0 / 客B×3.0 / 管理会社A×1.8 / 一般個人×2.5 / 法人標準×2.2
 
@@ -46,9 +59,9 @@
 | テーブル | 用途 |
 |----------|------|
 | `customer_price_rules` | 顧客別倍率（`rule_name`, `cost_multiplier`, `labor_multiplier`） |
-| `business_estimates` | 出精値引き列（`shusei_discount_amount`, `shusei_discount_memo`） |
+| `business_estimates` | 出精値引き + 見積選択ルール（`price_rule_name`, `price_rule_cost_multiplier`, `price_rule_labor_multiplier`） |
 
-マイグレーション: `migration:customer_price_rules_v1`
+マイグレーション: `migration:customer_price_rules_v1`, `migration:customer_price_rules_v1_1`
 
 ## オフライン（後回し）
 

@@ -31,6 +31,8 @@ table.header-table th,table.header-table td{border:1px solid #e2e8f0;padding:0.4
 table.header-table th.hdr-label{width:7.5rem;background:#f1f5f9;text-align:left;font-weight:600;color:#334155}
 table.header-table td.hdr-value{line-height:1.45}
 .intro{margin:0.5rem 0 0.75rem;font-size:0.92rem}
+.price-rule-line{margin:0.35rem 0 0.75rem;font-size:0.88rem;color:#475569}
+.discount-row{color:#b45309}
 table.items{width:100%;border-collapse:collapse;margin:0.75rem 0 1rem}
 table.items th,table.items td{border:1px solid #94a3b8;padding:0.4rem 0.55rem;font-size:0.85rem;vertical-align:top}
 table.items th{background:#f1f5f9;text-align:center;font-weight:600}

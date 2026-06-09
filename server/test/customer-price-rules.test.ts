@@ -174,5 +174,105 @@ describe("顧客別単価ルール v1", () => {
     assert.ok(body.includes("出精値引き"));
     assert.ok(body.includes("端数調整"));
     assert.ok(body.includes("税込合計"));
+    assert.ok(body.includes("単価ルール"));
+    assert.ok(body.includes("法人標準"));
+  });
+
+  it("客Aルールで倍率再計算すると原価×2.0になる", async () => {
+    const { businessProjectId } = await createSurveyEstimate(token, "客Aテスト", "TOMS001");
+    const items = normalizeLineItems([
+      { name: "カメラ", category: "camera", quantity: 1, costPrice: 1000, unitPrice: 0 },
+    ]);
+    const patched = await request(app)
+      .patch(`/api/estimate/v1/projects/${businessProjectId}/items`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        items,
+        applyPriceRule: true,
+        priceRule: { ruleName: "客A", costMultiplier: 2.0, laborMultiplier: 2.0 },
+      });
+    assert.equal(patched.status, 200);
+    assert.equal(patched.body.estimate.items[0].unitPrice, 2000);
+    assert.equal(patched.body.estimate.priceRuleName, "客A");
+  });
+
+  it("客Bルールで倍率再計算すると原価×3.0になる", async () => {
+    const { businessProjectId } = await createSurveyEstimate(token, "客Bテスト", "TOMS001");
+    const items = normalizeLineItems([
+      { name: "カメラ", category: "camera", quantity: 2, costPrice: 1000, unitPrice: 0 },
+    ]);
+    const patched = await request(app)
+      .patch(`/api/estimate/v1/projects/${businessProjectId}/items`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        items,
+        applyPriceRule: true,
+        priceRule: { ruleName: "客B", costMultiplier: 3.0, laborMultiplier: 2.5 },
+      });
+    assert.equal(patched.status, 200);
+    assert.equal(patched.body.estimate.items[0].unitPrice, 3000);
+    assert.equal(patched.body.estimate.items[0].amount, 6000);
+  });
+
+  it("手入力単価は確認なしでは上書きされず、forceOverwrite で上書きされる", async () => {
+    const { businessProjectId } = await createSurveyEstimate(token, "上書きテスト", "TOMS001");
+    const items = normalizeLineItems([
+      { name: "カメラ", category: "camera", quantity: 1, costPrice: 1000, unitPrice: 5555 },
+    ]);
+    const blocked = await request(app)
+      .patch(`/api/estimate/v1/projects/${businessProjectId}/items`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        items,
+        applyPriceRule: true,
+        priceRule: { ruleName: "客A", costMultiplier: 2.0, laborMultiplier: 2.0 },
+      });
+    assert.equal(blocked.status, 409);
+    assert.equal(blocked.body.error, "manual_price_lines");
+
+    const forced = await request(app)
+      .patch(`/api/estimate/v1/projects/${businessProjectId}/items`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        items,
+        applyPriceRule: true,
+        forceOverwriteManualLines: true,
+        priceRule: { ruleName: "客A", costMultiplier: 2.0, laborMultiplier: 2.0 },
+      });
+    assert.equal(forced.status, 200);
+    assert.equal(forced.body.estimate.items[0].unitPrice, 2000);
+  });
+
+  it("請求書PDFに出精値引き・単価ルール・税込合計が反映される", async () => {
+    const { businessProjectId } = await createSurveyEstimate(token, "請求PDFテスト", "TOMS001");
+    const detail = await request(app)
+      .get(`/api/estimate/v1/projects/${businessProjectId}`)
+      .set("Authorization", `Bearer ${token}`);
+    const items = detail.body.estimate.items;
+    await request(app)
+      .patch(`/api/estimate/v1/projects/${businessProjectId}/items`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        items,
+        shuseiDiscount: 5000,
+        shuseiDiscountMemo: "特別調整",
+        priceRule: { ruleName: "法人標準", costMultiplier: 2.2, laborMultiplier: 2.0 },
+      });
+
+    await request(app)
+      .post(`/api/estimate/v1/projects/${businessProjectId}/invoice`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({});
+
+    const pdf = await request(app)
+      .get(`/api/estimate/v1/projects/${businessProjectId}/invoice/pdf`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(pdf.status, 200);
+    const body = pdf.text || "";
+    assert.ok(body.includes("出精値引き"));
+    assert.ok(body.includes("特別調整"));
+    assert.ok(body.includes("税込合計"));
+    assert.ok(body.includes("単価ルール"));
+    assert.ok(body.includes("法人標準"));
   });
 });
