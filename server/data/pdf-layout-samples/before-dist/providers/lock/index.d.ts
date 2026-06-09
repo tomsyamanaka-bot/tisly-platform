@@ -1,0 +1,10 @@
+import type { LockProvider, LockProviderId } from "./types.js";
+export * from "./types.js";
+export { MockLockProvider } from "./mockLockProvider.js";
+export { SesameLockProvider } from "./sesameProvider.js";
+export { SwitchBotLockProvider } from "./switchbotProvider.js";
+export declare function resolveLockProviderId(): LockProviderId;
+export declare function initLockProvider(): LockProvider;
+export declare function setLockProvider(provider: LockProvider): void;
+export declare function getLockProvider(): LockProvider;
+export declare function resetLockProviderForTests(): void;

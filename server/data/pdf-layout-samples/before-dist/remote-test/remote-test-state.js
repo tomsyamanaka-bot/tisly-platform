@@ -1,0 +1,382 @@
+import { resetSecurityDemoState } from "./security-demo-state.js";
+export const CHANNEL_COUNT = 8;
+/** RP2350 が応答しないと offline とみなす秒数（heartbeat 60 秒 + 余裕） */
+export const DEVICE_OFFLINE_THRESHOLD_SEC = 90;
+function createDefaultChannelStates() {
+    const states = {};
+    for (let ch = 1; ch <= CHANNEL_COUNT; ch++) {
+        states[String(ch)] = "off";
+    }
+    return states;
+}
+function createDefaultInputStates() {
+    const states = {};
+    for (let di = 1; di <= CHANNEL_COUNT; di++) {
+        states[String(di)] = "off";
+    }
+    return states;
+}
+function normalizeChannelValue(val) {
+    if (val === "on" || val === "off")
+        return val;
+    if (val === true || val === 1 || val === "1" || val === "ON")
+        return "on";
+    if (val === false || val === 0 || val === "0" || val === "OFF")
+        return "off";
+    return null;
+}
+function normalizeDeviceStates(input, prefix = "ch") {
+    if (!input || typeof input !== "object")
+        return null;
+    const obj = input;
+    const states = prefix === "di" ? createDefaultInputStates() : createDefaultChannelStates();
+    let recognized = 0;
+    for (let n = 1; n <= CHANNEL_COUNT; n++) {
+        const key = String(n);
+        const val = normalizeChannelValue(obj[key]);
+        if (val) {
+            states[key] = val;
+            recognized++;
+        }
+    }
+    return recognized > 0 ? states : null;
+}
+export function normalizeDeviceChStates(input) {
+    return normalizeDeviceStates(input, "ch");
+}
+export function normalizeDeviceInputStates(input) {
+    return normalizeDeviceStates(input, "di");
+}
+const MAX_LOGS = 50;
+const MAX_NOTIFICATION_HISTORY = 50;
+const state = {
+    pendingCommand: null,
+    confirmedChStates: createDefaultChannelStates(),
+    lastDeviceChStates: createDefaultChannelStates(),
+    deviceChStatesBaselined: false,
+    confirmedInputStates: createDefaultInputStates(),
+    lastDeviceInputStates: createDefaultInputStates(),
+    deviceInputStatesBaselined: false,
+    lastCommand: null,
+    lastCommandAt: null,
+    lastPollAt: null,
+    lastNotifyAt: null,
+    lastPushSuccessAt: null,
+    lastPushResult: null,
+    lastAccessIp: null,
+    firmwareVersion: null,
+    logs: [],
+    notificationHistory: [],
+};
+let heartbeatDebug = {
+    heartbeatMethod: null,
+    heartbeatBody: null,
+    lastHeartbeatAt: null,
+};
+export function recordHeartbeatDebug(method, body) {
+    heartbeatDebug = {
+        heartbeatMethod: method,
+        heartbeatBody: body,
+        lastHeartbeatAt: new Date().toISOString(),
+    };
+}
+export function getHeartbeatDebugSnapshot() {
+    return { ...heartbeatDebug };
+}
+export function getRemoteTestDebugInfo() {
+    return {
+        heartbeatMethod: heartbeatDebug.heartbeatMethod,
+        heartbeatBody: heartbeatDebug.heartbeatBody,
+        lastHeartbeatAt: heartbeatDebug.lastHeartbeatAt,
+        confirmedChStates: { ...state.confirmedChStates },
+        confirmedInputStates: { ...state.confirmedInputStates },
+        notificationHistory: [...state.notificationHistory],
+        lastPushResult: state.lastPushResult,
+    };
+}
+export function detectChStateChanges(prev, next) {
+    const changes = [];
+    for (let ch = 1; ch <= CHANNEL_COUNT; ch++) {
+        const key = String(ch);
+        const from = prev[key] ?? "off";
+        const to = next[key] ?? "off";
+        if (from !== to) {
+            changes.push({ channel: ch, from, to });
+        }
+    }
+    return changes;
+}
+export function detectInputStateChanges(prev, next) {
+    const changes = [];
+    for (let di = 1; di <= CHANNEL_COUNT; di++) {
+        const key = String(di);
+        const from = prev[key] ?? "off";
+        const to = next[key] ?? "off";
+        if (from !== to) {
+            changes.push({ input: di, from, to });
+        }
+    }
+    return changes;
+}
+function pushLog(action, detail, source = "web") {
+    state.logs.unshift({ at: new Date().toISOString(), action, detail, source });
+    if (state.logs.length > MAX_LOGS)
+        state.logs.length = MAX_LOGS;
+}
+export function isValidChannel(channel) {
+    return Number.isInteger(channel) && channel >= 1 && channel <= CHANNEL_COUNT;
+}
+export function buildChCommand(channel, on) {
+    if (!isValidChannel(channel)) {
+        throw new Error(`Invalid channel: ${channel}`);
+    }
+    return `ch${channel}_${on ? "on" : "off"}`;
+}
+function getChState(channel) {
+    return state.confirmedChStates[String(channel)] ?? "off";
+}
+export function recordWebAccess(ip) {
+    state.lastAccessIp = ip;
+}
+export function applySimulatedInputChange(change) {
+    const key = String(change.input);
+    state.confirmedInputStates[key] = change.to;
+    state.lastDeviceInputStates[key] = change.to;
+    if (!state.deviceInputStatesBaselined) {
+        state.deviceInputStatesBaselined = true;
+    }
+}
+export function getRemoteTestStatus() {
+    return {
+        pendingCommand: state.pendingCommand,
+        chStates: { ...state.confirmedChStates },
+        inputStates: { ...state.confirmedInputStates },
+        ch1State: getChState(1),
+        lastCommand: state.lastCommand,
+        lastCommandAt: state.lastCommandAt,
+        lastPollAt: state.lastPollAt,
+        lastNotifyAt: state.lastNotifyAt,
+        lastPushSuccessAt: state.lastPushSuccessAt,
+        lastPushResult: state.lastPushResult,
+        lastAccessIp: state.lastAccessIp,
+        logs: [...state.logs],
+        notificationHistory: [...state.notificationHistory],
+    };
+}
+export function queueChCommand(channel, on) {
+    const command = buildChCommand(channel, on);
+    state.pendingCommand = command;
+    // confirmedChStates は heartbeat でのみ更新する（PWA 楽観更新しない）
+    state.lastCommand = command;
+    state.lastCommandAt = new Date().toISOString();
+    pushLog(command, `CH${channel} → ${on ? "ON" : "OFF"} (pending)`);
+}
+/** @deprecated Use queueChCommand(1, on) */
+export function queueCh1Command(command) {
+    queueChCommand(1, command === "ch1_on");
+}
+export function recordDevicePoll(firmwareVersion) {
+    state.lastPollAt = new Date().toISOString();
+    if (firmwareVersion) {
+        state.firmwareVersion = firmwareVersion;
+    }
+}
+export function getDeviceStatus() {
+    const lastSeen = state.lastPollAt;
+    let online = false;
+    if (lastSeen) {
+        const elapsed = (Date.now() - new Date(lastSeen).getTime()) / 1000;
+        online = elapsed <= DEVICE_OFFLINE_THRESHOLD_SEC;
+    }
+    return {
+        online,
+        offline: !online,
+        lastSeen,
+        firmwareVersion: state.firmwareVersion,
+        chStates: { ...state.confirmedChStates },
+        inputStates: { ...state.confirmedInputStates },
+    };
+}
+function recordChStatesFromHeartbeat(chStates) {
+    const prev = { ...state.confirmedChStates };
+    for (let ch = 1; ch <= CHANNEL_COUNT; ch++) {
+        const key = String(ch);
+        const prevState = prev[key] ?? "off";
+        const currentState = chStates[key] ?? "off";
+        console.log(`[remote-test] heartbeat CH${ch} prev=${prevState} current=${currentState}`);
+    }
+    if (!state.deviceChStatesBaselined) {
+        state.deviceChStatesBaselined = true;
+        state.confirmedChStates = { ...chStates };
+        state.lastDeviceChStates = { ...chStates };
+        console.log("[remote-test] heartbeat: chStates baseline established — notification skipped");
+        return [];
+    }
+    const changes = detectChStateChanges(prev, chStates);
+    if (changes.length > 0) {
+        for (const change of changes) {
+            console.log(`[remote-test] notification condition MET CH${change.channel} prev=${change.from} current=${change.to}`);
+        }
+    }
+    state.confirmedChStates = { ...chStates };
+    state.lastDeviceChStates = { ...chStates };
+    return changes;
+}
+function recordInputStatesFromHeartbeat(inputStates) {
+    const prev = { ...state.confirmedInputStates };
+    for (let di = 1; di <= CHANNEL_COUNT; di++) {
+        const key = String(di);
+        const prevState = prev[key] ?? "off";
+        const currentState = inputStates[key] ?? "off";
+        console.log(`[remote-test] heartbeat DI${di} prev=${prevState} current=${currentState}`);
+    }
+    if (!state.deviceInputStatesBaselined) {
+        state.deviceInputStatesBaselined = true;
+        state.confirmedInputStates = { ...inputStates };
+        state.lastDeviceInputStates = { ...inputStates };
+        console.log("[remote-test] heartbeat: inputStates baseline established — notification skipped");
+        return [];
+    }
+    const changes = detectInputStateChanges(prev, inputStates);
+    if (changes.length > 0) {
+        for (const change of changes) {
+            console.log(`[remote-test] notification condition MET DI${change.input} prev=${change.from} current=${change.to}`);
+        }
+    }
+    state.confirmedInputStates = { ...inputStates };
+    state.lastDeviceInputStates = { ...inputStates };
+    return changes;
+}
+export function recordDeviceHeartbeat(firmwareVersion, chStates, inputStates) {
+    recordDevicePoll(firmwareVersion);
+    const chChanges = [];
+    const inputChanges = [];
+    if (!chStates) {
+        console.log("[remote-test] heartbeat: chStates missing — skip ch diff");
+    }
+    else {
+        chChanges.push(...recordChStatesFromHeartbeat(chStates));
+    }
+    if (!inputStates) {
+        console.log("[remote-test] heartbeat: inputStates missing — skip input diff");
+    }
+    else {
+        inputChanges.push(...recordInputStatesFromHeartbeat(inputStates));
+    }
+    if (chChanges.length === 0 && inputChanges.length === 0 && chStates && inputStates) {
+        console.log("[remote-test] notification condition not met (no state changes)");
+    }
+    return { chChanges, inputChanges };
+}
+export function recordChStateNotification(change, payload, result, logId) {
+    const label = `CH${change.channel} ${change.to.toUpperCase()}`;
+    const timestamp = new Date().toISOString();
+    console.log(`[remote-test] notificationHistory add CH${change.channel} from=${change.from} to=${change.to} pushSuccess=${result.success}`, result.error ? { error: result.error } : "");
+    pushLog("ch_state_change", `${label} (${change.from}→${change.to})${result.success ? "" : ` — ${result.error ?? "failed"}`}`, "device");
+    state.notificationHistory.unshift({
+        id: logId,
+        at: timestamp,
+        timestamp,
+        kind: "ch",
+        channel: change.channel,
+        from: change.from,
+        to: change.to,
+        title: payload.title,
+        body: payload.body,
+        pushSuccess: result.success,
+        pushError: result.error,
+    });
+    if (state.notificationHistory.length > MAX_NOTIFICATION_HISTORY) {
+        state.notificationHistory.length = MAX_NOTIFICATION_HISTORY;
+    }
+}
+export function recordInputStateNotification(change, payload, result, logId) {
+    const label = `DI${change.input} ${change.to.toUpperCase()}`;
+    const timestamp = new Date().toISOString();
+    console.log(`[remote-test] notificationHistory add DI${change.input} from=${change.from} to=${change.to} pushSuccess=${result.success}`, result.error ? { error: result.error } : "");
+    pushLog("input_state_change", `${label} (${change.from}→${change.to})${result.success ? "" : ` — ${result.error ?? "failed"}`}`, "device");
+    state.notificationHistory.unshift({
+        id: logId,
+        at: timestamp,
+        timestamp,
+        kind: "di",
+        channel: change.input,
+        from: change.from,
+        to: change.to,
+        title: payload.title,
+        body: payload.body,
+        pushSuccess: result.success,
+        pushError: result.error,
+    });
+    if (state.notificationHistory.length > MAX_NOTIFICATION_HISTORY) {
+        state.notificationHistory.length = MAX_NOTIFICATION_HISTORY;
+    }
+}
+export function recordSecurityNotification(entry, result, logId) {
+    const timestamp = new Date().toISOString();
+    console.log(`[security-demo] notificationHistory add ${entry.kind} pushSuccess=${result.success}`, result.error ? { error: result.error } : "");
+    pushLog(entry.kind === "arm" || entry.kind === "disarm" ? entry.kind : "security_event", `${entry.title} — ${entry.body}${result.success ? "" : ` — ${result.error ?? "failed"}`}`, "web");
+    state.notificationHistory.unshift({
+        id: logId,
+        at: timestamp,
+        timestamp,
+        kind: entry.kind,
+        channel: entry.channel,
+        from: entry.from,
+        to: entry.to,
+        title: entry.title,
+        body: entry.body,
+        pushSuccess: result.success,
+        pushError: result.error,
+        eventType: entry.eventType,
+    });
+    if (state.notificationHistory.length > MAX_NOTIFICATION_HISTORY) {
+        state.notificationHistory.length = MAX_NOTIFICATION_HISTORY;
+    }
+}
+export function consumePendingCommand(_firmwareVersion) {
+    const cmd = state.pendingCommand;
+    if (cmd) {
+        state.pendingCommand = null;
+        pushLog("command_delivered", cmd, "device");
+    }
+    return cmd;
+}
+export function markPushResult(success, error) {
+    state.lastPushResult = { success, error };
+    if (success) {
+        const at = new Date().toISOString();
+        state.lastPushSuccessAt = at;
+        state.lastNotifyAt = at;
+        pushLog("push_sent", "TiSLY Push 通知成功");
+    }
+    else {
+        pushLog("push_failed", error ?? "Push 送信失敗");
+    }
+}
+export function resetRemoteTestState() {
+    heartbeatDebug = {
+        heartbeatMethod: null,
+        heartbeatBody: null,
+        lastHeartbeatAt: null,
+    };
+    state.pendingCommand = null;
+    state.confirmedChStates = createDefaultChannelStates();
+    state.lastDeviceChStates = createDefaultChannelStates();
+    state.deviceChStatesBaselined = false;
+    state.confirmedInputStates = createDefaultInputStates();
+    state.lastDeviceInputStates = createDefaultInputStates();
+    state.deviceInputStatesBaselined = false;
+    state.lastCommand = null;
+    state.lastCommandAt = null;
+    state.lastPollAt = null;
+    state.lastNotifyAt = null;
+    state.lastPushSuccessAt = null;
+    state.lastPushResult = null;
+    state.lastAccessIp = null;
+    state.firmwareVersion = null;
+    state.logs = [];
+    state.notificationHistory = [];
+    resetSecurityDemoState();
+}
+export { resetSecurityDemoState };

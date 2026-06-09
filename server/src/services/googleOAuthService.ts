@@ -15,12 +15,38 @@ export interface GoogleOAuthConfig {
   refreshToken: string | null;
 }
 
+const DEFAULT_GOOGLE_CALENDAR_REDIRECT_URI =
+  "https://tisly.jp/api/google-calendar/oauth/callback";
+
+function readGoogleClientId(): string {
+  return process.env.GOOGLE_CLIENT_ID ?? process.env.GOOGLE_CALENDAR_CLIENT_ID ?? "";
+}
+
+function readGoogleClientSecret(): string {
+  return process.env.GOOGLE_CLIENT_SECRET ?? process.env.GOOGLE_CALENDAR_CLIENT_SECRET ?? "";
+}
+
+function readGoogleRedirectUri(): string {
+  return (
+    process.env.GOOGLE_REDIRECT_URI ??
+    process.env.GOOGLE_CALENDAR_REDIRECT_URI ??
+    DEFAULT_GOOGLE_CALENDAR_REDIRECT_URI
+  );
+}
+
 function envMode(): GoogleOAuthMode {
   const enabled = process.env.GOOGLE_OAUTH_ENABLED === "true";
   const hasCreds =
-    Boolean(process.env.GOOGLE_CLIENT_ID) &&
-    Boolean(process.env.GOOGLE_CLIENT_SECRET) &&
+    Boolean(readGoogleClientId()) &&
+    Boolean(readGoogleClientSecret()) &&
     Boolean(process.env.GOOGLE_REDIRECT_URI);
+  if (enabled && hasCreds) return "real";
+  return "mock";
+}
+
+function calendarEnvMode(): GoogleOAuthMode {
+  const enabled = process.env.GOOGLE_CALENDAR_ENABLED === "true";
+  const hasCreds = Boolean(readGoogleClientId()) && Boolean(readGoogleClientSecret());
   if (enabled && hasCreds) return "real";
   return "mock";
 }
@@ -50,11 +76,36 @@ export function getGoogleOAuthConfig(): GoogleOAuthConfig {
   return {
     enabled: process.env.GOOGLE_OAUTH_ENABLED === "true",
     mode: envMode(),
-    clientId: process.env.GOOGLE_CLIENT_ID ?? "",
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+    clientId: readGoogleClientId(),
+    clientSecret: readGoogleClientSecret(),
     redirectUri: process.env.GOOGLE_REDIRECT_URI ?? "",
     refreshToken:
       readStoredToken(REFRESH_TOKEN_KEY) ?? process.env.GOOGLE_REFRESH_TOKEN ?? null,
+  };
+}
+
+export function getGoogleCalendarOAuthConfig(): GoogleOAuthConfig {
+  return {
+    enabled: process.env.GOOGLE_CALENDAR_ENABLED === "true",
+    mode: calendarEnvMode(),
+    clientId: readGoogleClientId(),
+    clientSecret: readGoogleClientSecret(),
+    redirectUri: readGoogleRedirectUri(),
+    refreshToken:
+      readStoredToken(REFRESH_TOKEN_KEY) ?? process.env.GOOGLE_REFRESH_TOKEN ?? null,
+  };
+}
+
+export function getGoogleCalendarOAuthStatus() {
+  const cfg = getGoogleCalendarOAuthConfig();
+  const configured = Boolean(cfg.clientId && cfg.clientSecret);
+  return {
+    enabled: cfg.enabled,
+    configured,
+    mode: cfg.mode,
+    connected: cfg.mode === "mock" ? true : Boolean(cfg.refreshToken),
+    clientIdConfigured: Boolean(cfg.clientId),
+    redirectUri: cfg.redirectUri || null,
   };
 }
 
@@ -79,6 +130,94 @@ export function getGoogleOAuthStatus() {
     clientIdConfigured: Boolean(cfg.clientId),
     redirectUri: cfg.redirectUri || null,
   };
+}
+
+export function getGoogleCalendarAuthUrl(): {
+  url: string;
+  mode: GoogleOAuthMode;
+  configured: boolean;
+} {
+  const cfg = getGoogleCalendarOAuthConfig();
+  const configured = Boolean(cfg.clientId && cfg.clientSecret);
+  if (!configured) {
+    return { mode: "mock", url: "", configured: false };
+  }
+  if (cfg.mode === "mock") {
+    return {
+      mode: "mock",
+      configured: true,
+      url: `/api/google-calendar/oauth/callback?code=mock&state=schedule`,
+    };
+  }
+  const params = new URLSearchParams({
+    client_id: cfg.clientId,
+    redirect_uri: cfg.redirectUri,
+    response_type: "code",
+    scope: "https://www.googleapis.com/auth/calendar.readonly",
+    access_type: "offline",
+    prompt: "consent",
+    state: "schedule",
+  });
+  return {
+    mode: "real",
+    configured: true,
+    url: `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`,
+  };
+}
+
+export async function handleGoogleCalendarOAuthCallback(input: {
+  code?: string;
+  error?: string;
+}): Promise<{ ok: boolean; mode: GoogleOAuthMode; message: string; refreshTokenSaved?: boolean }> {
+  const cfg = getGoogleCalendarOAuthConfig();
+  if (input.error) {
+    return { ok: false, mode: cfg.mode, message: input.error };
+  }
+  if (cfg.mode === "mock") {
+    saveGoogleRefreshToken(`mock-calendar-refresh-${Date.now()}`);
+    return {
+      ok: true,
+      mode: "mock",
+      message: "Mock Calendar OAuth: refresh token stored",
+      refreshTokenSaved: true,
+    };
+  }
+  if (!input.code) {
+    return { ok: false, mode: "real", message: "authorization code required" };
+  }
+  try {
+    const res = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: cfg.clientId,
+        client_secret: cfg.clientSecret,
+        grant_type: "authorization_code",
+        code: input.code,
+        redirect_uri: cfg.redirectUri,
+      }),
+    });
+    const json = (await res.json()) as {
+      access_token?: string;
+      refresh_token?: string;
+      expires_in?: number;
+      error?: string;
+      error_description?: string;
+    };
+    if (!res.ok || !json.access_token) {
+      throw new Error(json.error_description ?? json.error ?? `token exchange failed (${res.status})`);
+    }
+    if (json.refresh_token) saveGoogleRefreshToken(json.refresh_token);
+    saveAccessToken(json.access_token, json.expires_in);
+    return {
+      ok: true,
+      mode: "real",
+      message: "Calendar OAuth tokens stored",
+      refreshTokenSaved: Boolean(json.refresh_token),
+    };
+  } catch (e) {
+    return { ok: false, mode: "real", message: (e as Error).message };
+  }
 }
 
 export function getGoogleAuthUrl(state = "business"): { url: string; mode: GoogleOAuthMode } {
@@ -140,8 +279,8 @@ async function exchangeToken(body: Record<string, string>): Promise<{
   };
 }
 
-export async function refreshGoogleAccessToken(): Promise<string> {
-  const cfg = getGoogleOAuthConfig();
+export async function refreshGoogleAccessToken(scope: "business" | "calendar" = "business"): Promise<string> {
+  const cfg = scope === "calendar" ? getGoogleCalendarOAuthConfig() : getGoogleOAuthConfig();
   if (cfg.mode === "mock") return "mock-access-token";
   if (!cfg.refreshToken) throw new Error("no refresh token");
   const tokens = await exchangeToken({

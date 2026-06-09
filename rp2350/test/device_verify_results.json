@@ -1,0 +1,182 @@
+[
+  {
+    "action": "CH1 ON",
+    "pendingCleared": false,
+    "confirmedCh": "off",
+    "expectedCh": "on",
+    "deviceOnline": true,
+    "firmware": "1.2.0-ch8",
+    "heartbeatBody": "(debug 404)",
+    "confirmedChStates": {
+      "1": "off",
+      "2": "off",
+      "3": "off",
+      "4": "off",
+      "5": "off",
+      "6": "off",
+      "7": "off",
+      "8": "off"
+    },
+    "notification": {
+      "id": "acf99cf0-1874-43be-9180-ff7a45d27b59",
+      "at": "2026-06-08T07:55:39.305Z",
+      "channel": 1,
+      "from": "off",
+      "to": "on",
+      "title": "TiSLY CH1 ON",
+      "body": "CH1 ON",
+      "pushSuccess": true
+    },
+    "pushSuccess": true,
+    "lastPushResult": {
+      "success": true
+    }
+  },
+  {
+    "action": "CH1 OFF",
+    "pendingCleared": false,
+    "confirmedCh": "off",
+    "expectedCh": "off",
+    "deviceOnline": true,
+    "firmware": "1.2.0-ch8",
+    "heartbeatBody": "(debug 404)",
+    "confirmedChStates": {
+      "1": "off",
+      "2": "off",
+      "3": "off",
+      "4": "off",
+      "5": "off",
+      "6": "off",
+      "7": "off",
+      "8": "off"
+    },
+    "notification": {
+      "id": "5af9ef66-d211-4a14-99cb-bd79c486f201",
+      "at": "2026-06-08T07:55:56.919Z",
+      "channel": 1,
+      "from": "on",
+      "to": "off",
+      "title": "TiSLY CH1 OFF",
+      "body": "CH1 OFF",
+      "pushSuccess": true
+    },
+    "pushSuccess": true,
+    "lastPushResult": {
+      "success": true
+    }
+  },
+  {
+    "action": "CH4 ON",
+    "pendingCleared": false,
+    "confirmedCh": "off",
+    "expectedCh": "on",
+    "deviceOnline": true,
+    "firmware": "1.2.0-ch8",
+    "heartbeatBody": "(debug 404)",
+    "confirmedChStates": {
+      "1": "off",
+      "2": "off",
+      "3": "off",
+      "4": "off",
+      "5": "off",
+      "6": "off",
+      "7": "off",
+      "8": "off"
+    },
+    "notification": null,
+    "pushSuccess": null,
+    "lastPushResult": {
+      "success": true
+    }
+  },
+  {
+    "action": "CH4 OFF",
+    "pendingCleared": false,
+    "confirmedCh": "off",
+    "expectedCh": "off",
+    "deviceOnline": true,
+    "firmware": "1.2.0-ch8",
+    "heartbeatBody": "(debug 404)",
+    "confirmedChStates": {
+      "1": "off",
+      "2": "off",
+      "3": "off",
+      "4": "off",
+      "5": "off",
+      "6": "off",
+      "7": "off",
+      "8": "off"
+    },
+    "notification": null,
+    "pushSuccess": null,
+    "lastPushResult": {
+      "success": true
+    }
+  },
+  {
+    "action": "CH8 ON",
+    "pendingCleared": false,
+    "confirmedCh": "off",
+    "expectedCh": "on",
+    "deviceOnline": true,
+    "firmware": "1.2.0-ch8",
+    "heartbeatBody": "(debug 404)",
+    "confirmedChStates": {
+      "1": "off",
+      "2": "off",
+      "3": "off",
+      "4": "off",
+      "5": "off",
+      "6": "off",
+      "7": "off",
+      "8": "off"
+    },
+    "notification": {
+      "id": "0e0fc0df-52c9-4b2b-baf0-d2a5e11fc0b6",
+      "at": "2026-06-08T07:25:59.006Z",
+      "channel": 8,
+      "from": "off",
+      "to": "on",
+      "title": "TiSLY CH8 ON",
+      "body": "CH8 ON",
+      "pushSuccess": true
+    },
+    "pushSuccess": true,
+    "lastPushResult": {
+      "success": true
+    }
+  },
+  {
+    "action": "CH8 OFF",
+    "pendingCleared": false,
+    "confirmedCh": "off",
+    "expectedCh": "off",
+    "deviceOnline": false,
+    "firmware": "1.2.0-ch8",
+    "heartbeatBody": "(debug 404)",
+    "confirmedChStates": {
+      "1": "off",
+      "2": "off",
+      "3": "off",
+      "4": "off",
+      "5": "off",
+      "6": "off",
+      "7": "off",
+      "8": "off"
+    },
+    "notification": {
+      "id": "1bcb2cac-9a3f-47eb-8b76-27a8e390921d",
+      "at": "2026-06-08T07:54:27.555Z",
+      "channel": 8,
+      "from": "on",
+      "to": "off",
+      "title": "TiSLY CH8 OFF",
+      "body": "CH8 OFF",
+      "pushSuccess": true
+    },
+    "pushSuccess": true,
+    "lastPushResult": {
+      "success": true
+    }
+  }
+]

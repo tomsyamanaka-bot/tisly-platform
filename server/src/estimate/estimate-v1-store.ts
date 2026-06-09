@@ -470,6 +470,7 @@ export function buildSpecificationContextV1(businessProjectId: string): Specific
     workLocation: survey?.address ?? header?.workLocation ?? project.address,
     issueDate: header?.issueDate ?? survey?.surveyDate ?? "",
     staffName: survey?.assignee ?? header?.staffName ?? "",
+    notes: survey?.notes ?? project.surveyMemo ?? "",
     photos: buildReportPhotosV1(businessProjectId),
   };
 }

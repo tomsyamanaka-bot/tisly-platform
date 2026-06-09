@@ -1,0 +1,30 @@
+import { getLastGmailSendStatus } from "../notification/gmail-send-log.js";
+import type { ProductionCheckItem, ProductionCheckStatus } from "./phase2381-production-check.js";
+export interface Phase2385ProductionReport {
+    phase: "2385";
+    ready: boolean;
+    shellVersion: string;
+    shellTag: string;
+    productionRatePercent: number;
+    operationalReady: boolean;
+    adminPasswordStatus: ProductionCheckStatus;
+    gmailInfraStatus: "GREEN" | "YELLOW" | "RED";
+    gmailMode: string;
+    smtpConfigured: boolean;
+    notificationTestToConfigured: boolean;
+    gmailSendVerified: boolean;
+    pdfAttachmentEnabled: boolean;
+    testEmailBodySafe: boolean;
+    distPdfAttachmentEnabled: boolean;
+    distTestEmailBodySafe: boolean;
+    distRuntimeAligned: boolean;
+    lastTestEmailOk: boolean;
+    maskedCredentials: string;
+    attachmentFileName: string;
+    lastSendStatus: ReturnType<typeof getLastGmailSendStatus>;
+    implemented: string[];
+    mockRemaining: string[];
+    nextPhase: string;
+    checks: ProductionCheckItem[];
+}
+export declare function buildPhase2385ProductionCheck(env?: NodeJS.ProcessEnv): Phase2385ProductionReport;

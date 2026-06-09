@@ -4,38 +4,34 @@
 
 | 項目 | 値 |
 |------|-----|
-| 作業内容 | 現調写真タイトル保存の永続化修正 |
-| ローカル build | ✅ `npm run build` 成功 |
-| 単体テスト | ✅ survey-v1 / estimate-v1 写真タイトル関連 PASS |
+| 作業内容 | Google Calendar 本接続 / 現調メモ・写真タイトル / PDF レイアウト |
+| ローカル build | 要確認 `npm run build` |
+| 単体テスト | survey-v1 / estimate-v1 / practical-pwa-v2 |
 
 ## 完了（今回）
 
-### 現調写真タイトル保存（最優先）
+### A — Google Calendar 本接続
 
-- **保存トリガー** — blur / Enter(Done) / iOS キーボード閉じ（`visibilitychange`・`pagehide`）/ 並び替え・削除・再読込前の `flushPhotoTitlesFromDom`
-- **API** — `PATCH .../photos/:photoId` で `title`（DB `comment` 列）を更新。空文字クリアも可
-- **UI** — 入力欄拡大、placeholder 例文、インライン「保存しました」/ 失敗時「写真メモを保存できませんでした」
-- **PDF** — 仕様書・完了報告書にタイトル反映（未入力は「写真1」など自動）
+- `GOOGLE_CALENDAR_ENABLED` でモック/本番切替（既存モック維持）
+- API: `GET /api/google-calendar/auth/start`, `GET /api/google-calendar/oauth/callback`, `POST /api/schedule/v1/sync/google`
+- 日程調整右上 **Google同期** ボタン、未設定時は「Google連携は未設定です」
+- 予定取得: 名前・開始/終了・場所・説明 + カテゴリ自動判定
 
-### A — 最優先（前回）
+### B — 現調メモ
 
-- **A-1 現調写真** — `createImageBitmap` 廃止、HEIC/octet-stream 判定、console エラー、文言統一
-- **A-2 番号** — 見積・請求とも `YYMMDD-001`（`generateTomsDailyDocNo`、旧データ維持）
-- **A-3 登録番号** — 見積PDF/HTML/プレビューから削除（請求書は残す）
-- **A-4 TOMS見積** — 会社情報・お見積書レイアウト・工事場所・写真あり/なしボタン
+- 保存先 `survey_project_notes.notes` に統一
+- blur / Done / 600ms debounce / pagehide / visibilitychange
+- 仕様書・完了報告書 PDF に現調メモ反映
 
-### B — 日程
+### C — 写真タイトル
 
-- **B-1** — 週間カードから「現場不可」ボタン削除、詳細画面のみ
-- **B-2** — 週間/3週間/月間すべてタップで `/api/schedule/v1/day` 詳細
-- **B-3** — `weather-service.ts` 守谷市モック + Open-Meteo 差し替え準備
-- **B-4** — `route-planner-service.ts` 配車表モック + Google Maps リンク
+- `survey_photos.comment` をタイトルとして PATCH 保存
+- PDF にタイトル反映（未入力は「写真1」形式）
 
-### C — 連携・検索
+### D — PDF レイアウト
 
-- **C-1** — 見積複数行（数量・単価・並べ替え・削除）
-- **C-2** — 依頼主/現場分離（survey-v1）
-- **C-3** — `search_index_json` 拡張（番号・宛名・現場・金額など）
+- 上部余白削減、案件情報横並びコンパクト、写真タイトルは写真下中央
+- 2列×4段（最大8枚/ページ）、見積・請求には写真なし
 
 ## URL（ローカル `npm start` / 本番）
 

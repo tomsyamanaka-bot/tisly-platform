@@ -79,6 +79,25 @@ describe("実務PWA v2 — Calendar / Projects / Search", () => {
       .set("Authorization", `Bearer ${token}`);
     assert.equal(res.status, 200);
     assert.ok(res.body.oauth);
+    assert.equal(typeof res.body.oauth.configured, "boolean");
+  });
+
+  it("GET /google-calendar/auth/start は未設定時503", async () => {
+    const res = await request(app)
+      .get("/api/google-calendar/auth/start")
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(res.status, 503);
+    assert.ok(String(res.body.error).includes("未設定"));
+  });
+
+  it("POST /schedule/v1/sync/google はモックで同期", async () => {
+    const sync = await request(app)
+      .post("/api/schedule/v1/sync/google")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ weeks: 2 });
+    assert.equal(sync.status, 200);
+    assert.ok(sync.body.ok);
+    assert.ok(sync.body.count >= 0);
   });
 
   it("GET /projects-v1 ページ", async () => {

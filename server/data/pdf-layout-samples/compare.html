@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PDF Layout Compare</title>
+  <style>
+    body { font-family: sans-serif; margin: 0; padding: 12px; background: #e2e8f0; }
+    h1 { font-size: 16px; margin: 0 0 12px; }
+    h2 { font-size: 13px; margin: 16px 0 8px; color: #334155; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+    .card { background: #fff; border-radius: 8px; padding: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+    .label { font-size: 11px; font-weight: 700; margin-bottom: 6px; color: #0f766e; }
+    .label.before { color: #b45309; }
+    iframe { width: 100%; height: 520px; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff; }
+    @media (max-width: 700px) { .row { grid-template-columns: 1fr; } iframe { height: 420px; } }
+  </style>
+</head>
+<body>
+  <h1>仕様書 / 完了報告書 PDF レイアウト比較</h1>
+  <h2>仕様書</h2>
+  <div class="row">
+    <div class="card"><div class="label before">修正前</div><iframe src="before-specification.html"></iframe></div>
+    <div class="card"><div class="label">修正後</div><iframe src="after-specification.html"></iframe></div>
+  </div>
+  <h2>完了報告書</h2>
+  <div class="row">
+    <div class="card"><div class="label before">修正前</div><iframe src="before-completion-report.html"></iframe></div>
+    <div class="card"><div class="label">修正後</div><iframe src="after-completion-report.html"></iframe></div>
+  </div>
+</body>
+</html>

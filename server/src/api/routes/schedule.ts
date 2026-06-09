@@ -168,25 +168,51 @@ scheduleRouter.get("/oauth/callback", async (req, res) => {
   res.status(400).send(result.message);
 });
 
+async function runGoogleCalendarSync(
+  body: { startDate?: string; endDate?: string; weeks?: number }
+): Promise<{
+  ok: true;
+  mode: "mock" | "real";
+  count: number;
+  startDate: string;
+  endDate: string;
+  sync: ReturnType<typeof getCalendarSyncMeta>;
+}> {
+  const weeks = Math.max(1, Math.min(12, Number(body.weeks) || 8));
+  const startDate = body.startDate ?? getWeekStartWithOffset(-2);
+  const end = new Date(`${startDate}T12:00:00`);
+  end.setDate(end.getDate() + weeks * 7);
+  const endDate = body.endDate ?? end.toISOString().slice(0, 10);
+  const synced = await syncGoogleCalendarEvents(startDate, endDate);
+  const saved = replaceCachedCalendarEvents(startDate, endDate, synced.events);
+  return {
+    ok: true,
+    mode: synced.mode,
+    count: saved,
+    startDate,
+    endDate,
+    sync: getCalendarSyncMeta(),
+  };
+}
+
 scheduleRouter.post("/sync", ...scheduleAuth, async (req: AuthedRequest, res) => {
   if (!assertScheduleRole(req, res)) return;
   try {
-    const body = req.body as { startDate?: string; endDate?: string; weeks?: number };
-    const weeks = Math.max(1, Math.min(12, Number(body.weeks) || 8));
-    const startDate = body.startDate ?? getWeekStartWithOffset(-2);
-    const end = new Date(`${startDate}T12:00:00`);
-    end.setDate(end.getDate() + weeks * 7);
-    const endDate = body.endDate ?? end.toISOString().slice(0, 10);
-    const synced = await syncGoogleCalendarEvents(startDate, endDate);
-    const saved = replaceCachedCalendarEvents(startDate, endDate, synced.events);
-    res.json({
-      ok: true,
-      mode: synced.mode,
-      count: saved,
-      startDate,
-      endDate,
-      sync: getCalendarSyncMeta(),
-    });
+    res.json(await runGoogleCalendarSync(req.body as { startDate?: string; endDate?: string; weeks?: number }));
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : "sync failed" });
+  }
+});
+
+scheduleRouter.post("/sync/google", ...scheduleAuth, async (req: AuthedRequest, res) => {
+  if (!assertScheduleRole(req, res)) return;
+  const oauth = getCalendarOAuthStatus();
+  if (oauth.mode === "real" && !oauth.configured) {
+    res.status(503).json({ error: "Google連携は未設定です", configured: false });
+    return;
+  }
+  try {
+    res.json(await runGoogleCalendarSync(req.body as { startDate?: string; endDate?: string; weeks?: number }));
   } catch (e) {
     res.status(500).json({ error: e instanceof Error ? e.message : "sync failed" });
   }

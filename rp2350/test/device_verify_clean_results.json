@@ -1,0 +1,125 @@
+[
+  {
+    "action": "CH1 ON",
+    "startedAt": "2026-06-08T08:01:30.796048+00:00",
+    "command": "ch1_on",
+    "pendingAfter": null,
+    "confirmedCh": "on",
+    "expectedCh": "on",
+    "deviceOnline": true,
+    "firmwareReported": "1.2.0-ch8",
+    "lastPollAt": "2026-06-08T08:01:31.824Z",
+    "notification": null,
+    "pushSuccess": null
+  },
+  {
+    "action": "CH1 OFF",
+    "startedAt": "2026-06-08T08:01:39.081665+00:00",
+    "command": "ch1_off",
+    "pendingAfter": null,
+    "confirmedCh": "off",
+    "expectedCh": "off",
+    "deviceOnline": true,
+    "firmwareReported": "1.2.0-ch8",
+    "lastPollAt": "2026-06-08T08:01:40.144Z",
+    "notification": {
+      "id": "eb525008-8544-41f7-a056-7a8958254227",
+      "at": "2026-06-08T08:01:40.549Z",
+      "channel": 1,
+      "from": "on",
+      "to": "off",
+      "title": "TiSLY CH1 OFF",
+      "body": "CH1 OFF",
+      "pushSuccess": true
+    },
+    "pushSuccess": true
+  },
+  {
+    "action": "CH4 ON",
+    "startedAt": "2026-06-08T08:01:47.387022+00:00",
+    "command": "ch4_on",
+    "pendingAfter": null,
+    "confirmedCh": "on",
+    "expectedCh": "on",
+    "deviceOnline": true,
+    "firmwareReported": "1.2.0-ch8",
+    "lastPollAt": "2026-06-08T08:01:48.911Z",
+    "notification": {
+      "id": "9240b396-0ada-4cdf-ac13-0fd2f344ab2c",
+      "at": "2026-06-08T08:01:49.322Z",
+      "channel": 4,
+      "from": "off",
+      "to": "on",
+      "title": "TiSLY CH4 ON",
+      "body": "CH4 ON",
+      "pushSuccess": true
+    },
+    "pushSuccess": true
+  },
+  {
+    "action": "CH4 OFF",
+    "startedAt": "2026-06-08T08:01:55.664869+00:00",
+    "command": "ch4_off",
+    "pendingAfter": null,
+    "confirmedCh": "off",
+    "expectedCh": "off",
+    "deviceOnline": true,
+    "firmwareReported": "1.2.0-ch8",
+    "lastPollAt": "2026-06-08T08:01:58.832Z",
+    "notification": {
+      "id": "91bc4bb2-f3f7-46d2-9230-5c5e565b5639",
+      "at": "2026-06-08T08:01:58.033Z",
+      "channel": 4,
+      "from": "on",
+      "to": "off",
+      "title": "TiSLY CH4 OFF",
+      "body": "CH4 OFF",
+      "pushSuccess": true
+    },
+    "pushSuccess": true
+  },
+  {
+    "action": "CH8 ON",
+    "startedAt": "2026-06-08T08:02:03.970045+00:00",
+    "command": "ch8_on",
+    "pendingAfter": null,
+    "confirmedCh": "on",
+    "expectedCh": "on",
+    "deviceOnline": true,
+    "firmwareReported": "1.2.0-ch8",
+    "lastPollAt": "2026-06-08T08:02:07.151Z",
+    "notification": {
+      "id": "b117384a-876a-4f5e-a022-c72081ace72b",
+      "at": "2026-06-08T08:02:07.565Z",
+      "channel": 8,
+      "from": "off",
+      "to": "on",
+      "title": "TiSLY CH8 ON",
+      "body": "CH8 ON",
+      "pushSuccess": true
+    },
+    "pushSuccess": true
+  },
+  {
+    "action": "CH8 OFF",
+    "startedAt": "2026-06-08T08:02:12.236063+00:00",
+    "command": "ch8_off",
+    "pendingAfter": null,
+    "confirmedCh": "off",
+    "expectedCh": "off",
+    "deviceOnline": true,
+    "firmwareReported": "1.2.0-ch8",
+    "lastPollAt": "2026-06-08T08:02:15.922Z",
+    "notification": {
+      "id": "f8930a09-8636-431e-b6bd-8071b3406b9a",
+      "at": "2026-06-08T08:02:16.338Z",
+      "channel": 8,
+      "from": "on",
+      "to": "off",
+      "title": "TiSLY CH8 OFF",
+      "body": "CH8 OFF",
+      "pushSuccess": true
+    },
+    "pushSuccess": true
+  }
+]

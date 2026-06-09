@@ -5,10 +5,9 @@
 
 import type { ScheduleCategory, ScheduleEvent, ScheduleEventSource } from "../schedule/schedule-types.js";
 import {
-  getGoogleOAuthConfig,
-  getGoogleOAuthStatus,
-  getGoogleAuthUrl,
-  handleGoogleOAuthCallback,
+  getGoogleCalendarAuthUrl,
+  getGoogleCalendarOAuthStatus,
+  handleGoogleCalendarOAuthCallback,
   refreshGoogleAccessToken,
 } from "./googleOAuthService.js";
 
@@ -23,9 +22,9 @@ export const GOOGLE_CALENDAR_CONFIG_PLACEHOLDER: GoogleCalendarConfig = {
   clientId: process.env.GOOGLE_CALENDAR_CLIENT_ID ?? process.env.GOOGLE_CLIENT_ID ?? "",
   clientSecret: process.env.GOOGLE_CALENDAR_CLIENT_SECRET ?? process.env.GOOGLE_CLIENT_SECRET ?? "",
   redirectUri:
-    process.env.GOOGLE_CALENDAR_REDIRECT_URI ??
     process.env.GOOGLE_REDIRECT_URI ??
-    "https://tisly.jp/api/schedule/v1/oauth/callback",
+    process.env.GOOGLE_CALENDAR_REDIRECT_URI ??
+    "https://tisly.jp/api/google-calendar/oauth/callback",
   calendarId: process.env.GOOGLE_CALENDAR_ID ?? "primary",
 };
 
@@ -37,7 +36,7 @@ export interface CalendarProvider {
 const CONSTRUCTION_KW = [
   "工事", "設置", "現調", "施工", "配線", "カメラ", "lan", "防犯", "交換", "取付", "配管", "電気",
 ];
-const OFFICE_KW = ["見積", "請求", "入金", "事務", "会議", "打合", "ミーティング", "税理", "書類", "メール"];
+const OFFICE_KW = ["見積", "請求", "入金", "経理", "事務", "会議", "打合", "ミーティング", "税理", "書類", "メール"];
 const FAMILY_KW = ["家族", "学校", "習い", "子供", "旅行", "休み", "誕生日", "病院", "通院"];
 const URGENT_KW = ["緊急", "重要", "至急", "トラブル", "故障", "アラーム", "警報"];
 
@@ -189,7 +188,7 @@ export class RealGoogleCalendarProvider implements CalendarProvider {
   }
 
   async listEvents(startDate: string, endDate: string): Promise<ScheduleEvent[]> {
-    const token = await refreshGoogleAccessToken();
+    const token = await refreshGoogleAccessToken("calendar");
     const timeMin = `${startDate}T00:00:00+09:00`;
     const timeMax = `${addDays(endDate, 1)}T00:00:00+09:00`;
     const params = new URLSearchParams({
@@ -225,7 +224,7 @@ export class RealGoogleCalendarProvider implements CalendarProvider {
 }
 
 function resolveProvider(): CalendarProvider {
-  const status = getGoogleOAuthStatus();
+  const status = getGoogleCalendarOAuthStatus();
   if (status.mode === "real" && status.connected) {
     return new RealGoogleCalendarProvider();
   }
@@ -260,16 +259,17 @@ export async function syncGoogleCalendarEvents(
 }
 
 export function getCalendarOAuthStatus() {
-  return getGoogleOAuthStatus();
+  return getGoogleCalendarOAuthStatus();
 }
 
 export function getCalendarAuthUrl() {
-  return getGoogleAuthUrl("schedule");
+  return getGoogleCalendarAuthUrl();
 }
 
 export async function handleCalendarOAuthCallback(input: { code?: string; error?: string }) {
-  return handleGoogleOAuthCallback(input);
+  return handleGoogleCalendarOAuthCallback(input);
 }
+
 
 export function getWeekStartWithOffset(offsetWeeks = 0): string {
   const now = new Date();

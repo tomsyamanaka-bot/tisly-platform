@@ -1,0 +1,215 @@
+import fs from "fs";
+import path from "path";
+import { DEFAULT_MAIL_TO } from "../business-types.js";
+import { logBusinessIntegration } from "../business-integration-log.js";
+import { getGoogleOAuthConfig, refreshGoogleAccessToken } from "../../services/googleOAuthService.js";
+export function getGmailSendMode() {
+    const raw = (process.env.GMAIL_SEND_MODE ?? "mock").toLowerCase();
+    if (raw === "real")
+        return "real";
+    if (raw === "dryrun" || raw === "dry_run")
+        return "dryRun";
+    return "mock";
+}
+export function canGmailRealSend(confirmed) {
+    if (process.env.GOOGLE_OAUTH_ENABLED !== "true") {
+        return { ok: false, reason: "GOOGLE_OAUTH_ENABLED must be true" };
+    }
+    if (getGmailSendMode() !== "real") {
+        return { ok: false, reason: "GMAIL_SEND_MODE must be real" };
+    }
+    if (!confirmed) {
+        return { ok: false, reason: "confirmed=true required" };
+    }
+    const cfg = getGoogleOAuthConfig();
+    if (cfg.mode !== "real" || !cfg.refreshToken) {
+        return { ok: false, reason: "Google OAuth not connected" };
+    }
+    return { ok: true };
+}
+function base64UrlEncode(buf) {
+    return buf
+        .toString("base64")
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/, "");
+}
+function resolveAttachmentPath(attachPath) {
+    if (!attachPath || attachPath.includes("placeholder"))
+        return null;
+    const local = attachPath.startsWith("/")
+        ? path.join(process.cwd(), attachPath.replace(/^\//, ""))
+        : path.join(process.cwd(), attachPath);
+    return fs.existsSync(local) ? local : null;
+}
+export function buildMultipartMime(to, subject, body, attachments) {
+    const boundary = `tisly_${Date.now()}`;
+    const subjectB64 = Buffer.from(subject).toString("base64");
+    const lines = [
+        `To: ${to}`,
+        `Subject: =?UTF-8?B?${subjectB64}?=`,
+        "MIME-Version: 1.0",
+        `Content-Type: multipart/mixed; boundary="${boundary}"`,
+        "",
+        `--${boundary}`,
+        "Content-Type: text/plain; charset=UTF-8",
+        "Content-Transfer-Encoding: base64",
+        "",
+        Buffer.from(body).toString("base64"),
+    ];
+    for (const att of attachments) {
+        lines.push(`--${boundary}`, `Content-Type: ${att.mimeType ?? "application/pdf"}; name="${att.fileName}"`, "Content-Transfer-Encoding: base64", `Content-Disposition: attachment; filename="${att.fileName}"`, "", att.content.toString("base64"));
+    }
+    lines.push(`--${boundary}--`);
+    return lines.join("\r\n");
+}
+export function previewGmailRealSend(draft) {
+    const to = draft.to || DEFAULT_MAIL_TO;
+    const names = [];
+    for (const p of draft.attachmentPaths) {
+        const local = resolveAttachmentPath(p);
+        names.push(local ? path.basename(local) : path.basename(p));
+    }
+    return {
+        to,
+        subject: draft.subject,
+        body: draft.body,
+        attachmentFileNames: names,
+    };
+}
+export async function sendGmailRealWithDraft(draft, opts) {
+    const mode = opts.mode ?? getGmailSendMode();
+    const preview = previewGmailRealSend(draft);
+    const logBase = {
+        projectId: opts.projectId ?? draft.projectId,
+        type: "gmail",
+        request: {
+            op: "send-real",
+            mode,
+            to: preview.to,
+            subject: preview.subject,
+            attachments: preview.attachmentFileNames,
+            confirmed: Boolean(opts.confirmed),
+        },
+    };
+    if (mode === "mock") {
+        logBusinessIntegration({
+            ...logBase,
+            provider: "mock",
+            status: "skipped",
+            response: { note: "mock mode — no delivery", guard: "mock" },
+        });
+        return { processedMode: "mock", status: "skipped", message: "Mock: メールは送信されません" };
+    }
+    if (mode === "dryRun") {
+        logBusinessIntegration({
+            ...logBase,
+            provider: "google",
+            status: "skipped",
+            response: { dryRun: true, preview },
+        });
+        return {
+            processedMode: "dryRun",
+            status: "dry_run",
+            message: "Dry-run: 送信内容をログに記録しました（実送信なし）",
+        };
+    }
+    const gate = canGmailRealSend(opts.confirmed);
+    if (!gate.ok) {
+        logBusinessIntegration({
+            ...logBase,
+            provider: "google",
+            status: "skipped",
+            errorMessage: gate.reason,
+        });
+        return { processedMode: "real", status: "skipped", message: gate.reason ?? "blocked" };
+    }
+    const attachments = [];
+    for (const p of draft.attachmentPaths) {
+        const local = resolveAttachmentPath(p);
+        if (local) {
+            attachments.push({ fileName: path.basename(local), content: fs.readFileSync(local) });
+        }
+    }
+    if (!attachments.length) {
+        attachments.push({
+            fileName: "placeholder.pdf",
+            content: Buffer.from("%PDF-1.4\n% TiSLY placeholder\n"),
+        });
+    }
+    const rawMime = buildMultipartMime(preview.to, preview.subject, preview.body, attachments);
+    const raw = base64UrlEncode(Buffer.from(rawMime, "utf8"));
+    const token = await refreshGoogleAccessToken();
+    const res = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
+        method: "POST",
+        headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ raw }),
+    });
+    const json = (await res.json());
+    if (!res.ok || !json.id) {
+        const msg = json.error?.message ?? `Gmail send failed (${res.status})`;
+        logBusinessIntegration({
+            ...logBase,
+            provider: "google",
+            status: "error",
+            errorMessage: msg,
+            response: { retryable: res.status >= 500 || res.status === 429 },
+        });
+        throw new Error(msg);
+    }
+    logBusinessIntegration({
+        ...logBase,
+        provider: "google",
+        status: "success",
+        response: { messageId: json.id, attachmentCount: attachments.length, guard: "real" },
+    });
+    return {
+        processedMode: "real",
+        status: "sent",
+        messageId: json.id,
+        message: "Gmail送信完了",
+    };
+}
+/** Phase 2251–2300 — イベント通知用 Gmail 簡易送信 */
+export async function sendGmailNotification(input) {
+    const mode = getGmailSendMode();
+    if (mode === "mock")
+        return { ok: true };
+    if (mode === "dryRun")
+        return { ok: true };
+    const gate = canGmailRealSend(input.confirmed ?? true);
+    if (!gate.ok)
+        return { ok: false, error: gate.reason };
+    const subjectB64 = Buffer.from(input.subject).toString("base64");
+    const rawMime = [
+        `To: ${input.to}`,
+        `Subject: =?UTF-8?B?${subjectB64}?=`,
+        "MIME-Version: 1.0",
+        "Content-Type: text/plain; charset=UTF-8",
+        "",
+        input.body,
+    ].join("\r\n");
+    const raw = base64UrlEncode(Buffer.from(rawMime, "utf8"));
+    try {
+        const token = await refreshGoogleAccessToken();
+        const res = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ raw }),
+        });
+        const json = (await res.json());
+        if (!res.ok || !json.id) {
+            return { ok: false, error: json.error?.message ?? `Gmail send failed (${res.status})` };
+        }
+        return { ok: true };
+    }
+    catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    }
+}

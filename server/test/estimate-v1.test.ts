@@ -313,10 +313,10 @@ describe("見積PWA v1 API", () => {
     assert.equal(photoPages, 1, `expected 1 photo page, got ${photoPages}`);
     assert.ok(res.text.includes("写真1"));
     assert.ok(res.text.includes("写真6"));
-    assert.ok(res.text.includes(">住所<"));
+    assert.ok(res.text.includes("現場名"));
     assert.ok(
-      /<p class="sp-photo-title">[\s\S]*?<div class="sp-photo-img-wrap">/.test(res.text),
-      "photo title should appear above photo image"
+      /<div class="sp-photo-img-wrap">[\s\S]*?<p class="sp-photo-title">/.test(res.text),
+      "photo title should appear below photo image"
     );
   });
 
@@ -351,6 +351,39 @@ describe("見積PWA v1 API", () => {
     assert.equal(res.status, 200);
     const photoPages = countPracticalPdfPages(res.text, "sp");
     assert.equal(photoPages, 2, `expected 2 photo pages, got ${photoPages}`);
+  });
+
+  it("仕様書・完了報告書に現調メモが反映される", async () => {
+    const survey = await request(app)
+      .post("/api/survey/v1/projects")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        customerCode: "TOMS001",
+        customerName: "メモPDFテスト",
+        siteName: "メモ現場",
+        address: "東京都",
+        notes: "配線ルート要確認",
+      });
+    const svyId = survey.body.projectId;
+    await request(app)
+      .post(`/api/survey/v1/projects/${svyId}/estimate-pending`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({});
+    const est = await request(app)
+      .post(`/api/estimate/v1/from-survey/${svyId}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({});
+    const bizId = est.body.businessProjectId;
+    const spec = await request(app)
+      .get(`/api/estimate/v1/projects/${bizId}/specification/pdf`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(spec.status, 200);
+    assert.ok(spec.text.includes("配線ルート要確認"));
+    const cr = await request(app)
+      .get(`/api/estimate/v1/projects/${bizId}/completion-report/pdf`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(cr.status, 200);
+    assert.ok(cr.text.includes("配線ルート要確認"));
   });
 
   it("仕様書・完了報告書に写真タイトルが反映される", async () => {

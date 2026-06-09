@@ -1,0 +1,47 @@
+import QRCode from "qrcode";
+import { getAsset, getAssetByQrToken, getAssetQrUrl } from "./asset-master.js";
+import { listConstructionPhotos } from "./construction-photos.js";
+import { listDrawingVersions } from "./drawing-versions.js";
+import { getDatabase } from "../db/database.js";
+import { listProjectTimeline } from "./project-timeline.js";
+export async function generateAssetQrPng(assetId, baseUrl) {
+    const asset = getAsset(assetId);
+    if (!asset)
+        throw new Error("asset not found");
+    const url = getAssetQrUrl(asset, baseUrl);
+    return QRCode.toBuffer(url, { type: "png", margin: 1, width: 256 });
+}
+export function resolveAssetFromQr(token) {
+    const asset = getAssetByQrToken(token);
+    if (!asset)
+        return null;
+    const projectId = asset.projectId;
+    const history = projectId ? listProjectTimeline(projectId) : [];
+    const drawings = projectId ? listDrawingVersions(projectId) : [];
+    const photos = projectId ? listConstructionPhotos(projectId) : [];
+    return {
+        asset,
+        qrUrl: getAssetQrUrl(asset),
+        history,
+        drawings,
+        photos,
+    };
+}
+export function recordQrScan(assetId) {
+    const row = getDatabase()
+        .prepare(`SELECT metadata_json FROM toms_assets WHERE id = ?`)
+        .get(assetId);
+    if (!row)
+        return;
+    let meta = {};
+    try {
+        meta = JSON.parse(row.metadata_json || "{}");
+    }
+    catch {
+        meta = {};
+    }
+    meta.lastScanAt = new Date().toISOString();
+    getDatabase()
+        .prepare(`UPDATE toms_assets SET metadata_json = ?, updated_at = datetime('now') WHERE id = ?`)
+        .run(JSON.stringify(meta), assetId);
+}

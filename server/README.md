@@ -101,6 +101,17 @@ SQLite（`TISLY_DB_PATH`）。全ログ（イベント・警報・操作・接�
 
 `server/.env.example` に全項目のテンプレートあり。
 
+### 日程調整 — Google Calendar
+
+| 変数 | 説明 |
+|------|------|
+| `GOOGLE_CALENDAR_ENABLED` | `true` で本番カレンダー、`false` でモック予定 |
+| `GOOGLE_CLIENT_ID` | OAuth クライアント ID |
+| `GOOGLE_CLIENT_SECRET` | OAuth シークレット |
+| `GOOGLE_REDIRECT_URI` | 本番: `https://tisly.jp/api/google-calendar/oauth/callback` |
+
+Google Cloud 側の手順: [`docs/google_calendar_practical_pwa.md`](../docs/google_calendar_practical_pwa.md)
+
 ## 本番デプロイ
 
 - `deploy/systemd/` — systemd ユニット

@@ -9,6 +9,7 @@ export interface SpecificationContext {
   workLocation: string;
   issueDate: string;
   staffName: string;
+  notes?: string;
   photos: SpecificationPhoto[];
 }
 
@@ -24,6 +25,7 @@ export function renderSpecificationHtml(ctx: SpecificationContext): string {
       { label: "住所", value: ctx.workLocation },
       { label: "作成日", value: ctx.issueDate },
       { label: "担当者", value: ctx.staffName },
+      ...(ctx.notes?.trim() ? [{ label: "現調メモ", value: ctx.notes.trim() }] : []),
     ],
     photos: ctx.photos,
   });

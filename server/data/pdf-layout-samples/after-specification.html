@@ -1,0 +1,58 @@
+<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"/>
+<title>仕様書 防犯カメラ設置工事</title>
+<style>
+  @page { size: A4 portrait; margin: 6mm; }
+  * { box-sizing: border-box; }
+  body { font-family: "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif; color: #1a1a1a; margin: 0; padding: 0; font-size: 9pt; }
+  .sp-page { width: 198mm; height: 285mm; page-break-after: always; overflow: hidden; }
+  .sp-page:last-child { page-break-after: auto; }
+  .sp-first-page { display: flex; flex-direction: column; }
+  .sp-header { flex: 0 0 auto; max-height: 15%; overflow: hidden; padding-bottom: 1.5mm; }
+  .sp-title { text-align: center; font-size: 11pt; margin: 0 0 1.5mm; letter-spacing: 0.12em; font-weight: 700; line-height: 1.2; }
+  .sp-info-table { width: 100%; border-collapse: collapse; margin: 0; font-size: 7.5pt; }
+  .sp-info-table th { text-align: left; width: 18%; padding: 0.6mm 1.5mm; border-bottom: 1px solid #e2e8f0; font-weight: 600; color: #334155; white-space: nowrap; }
+  .sp-info-table td { padding: 0.6mm 1.5mm; border-bottom: 1px solid #f1f5f9; line-height: 1.25; }
+  .sp-company-block { margin-top: auto; padding-top: 3mm; border-top: 1px solid #94a3b8; font-size: 8pt; line-height: 1.45; color: #334155; }
+  .sp-company-name { font-weight: 700; font-size: 8.5pt; margin-bottom: 0.5mm; }
+  .sp-no-photos { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 12pt; color: #64748b; letter-spacing: 0.1em; }
+  .sp-photo-grid {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: repeat(4, 1fr);
+    gap: 3mm;
+  }
+  .sp-page:not(.sp-first-page) .sp-photo-grid { height: 100%; }
+  .sp-photo-cell { display: flex; flex-direction: column; min-height: 0; }
+  .sp-photo-title { margin: 0 0 1mm; text-align: center; font-size: 7.5pt; color: #334155; line-height: 1.2; flex: 0 0 auto; }
+  .sp-photo-img-wrap { flex: 1; min-height: 0; overflow: hidden; border: 1px solid #cbd5e1; border-radius: 1px; background: #f8fafc; }
+  .sp-photo-img-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .sp-photo-empty { visibility: hidden; }
+</style></head><body>
+<div class="sp-page sp-photo-page sp-first-page">
+  <div class="sp-header">
+  <h1 class="sp-title">仕様書</h1>
+  <table class="sp-info-table"><tr><th>宛名</th><td>株式会社サンプル 御中</td></tr><tr><th>件名</th><td>防犯カメラ設置工事</td></tr><tr><th>現場名</th><td>本社ビル1F</td></tr><tr><th>住所</th><td>兵庫県神戸市中央区〇〇町1-2-3</td></tr><tr><th>作成日</th><td>2026-06-09</td></tr><tr><th>担当者</th><td>山田太郎</td></tr></table>
+</div>
+  <div class="sp-photo-grid"><div class="sp-photo-cell">
+    <p class="sp-photo-title">写真1</p>
+    <div class="sp-photo-img-wrap"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAFUlEQVR42mNk+M9Qz0AEYBxVSF+FABJADveWkH6oAAAAAElFTkSuQmCC" alt="写真1" /></div>
+  </div><div class="sp-photo-cell">
+    <p class="sp-photo-title">写真2</p>
+    <div class="sp-photo-img-wrap"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAFUlEQVR42mNk+M9Qz0AEYBxVSF+FABJADveWkH6oAAAAAElFTkSuQmCC" alt="写真2" /></div>
+  </div><div class="sp-photo-cell">
+    <p class="sp-photo-title">写真3</p>
+    <div class="sp-photo-img-wrap"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAFUlEQVR42mNk+M9Qz0AEYBxVSF+FABJADveWkH6oAAAAAElFTkSuQmCC" alt="写真3" /></div>
+  </div><div class="sp-photo-cell">
+    <p class="sp-photo-title">写真4</p>
+    <div class="sp-photo-img-wrap"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAFUlEQVR42mNk+M9Qz0AEYBxVSF+FABJADveWkH6oAAAAAElFTkSuQmCC" alt="写真4" /></div>
+  </div><div class="sp-photo-cell">
+    <p class="sp-photo-title">写真5</p>
+    <div class="sp-photo-img-wrap"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAFUlEQVR42mNk+M9Qz0AEYBxVSF+FABJADveWkH6oAAAAAElFTkSuQmCC" alt="写真5" /></div>
+  </div><div class="sp-photo-cell">
+    <p class="sp-photo-title">写真6</p>
+    <div class="sp-photo-img-wrap"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAFUlEQVR42mNk+M9Qz0AEYBxVSF+FABJADveWkH6oAAAAAElFTkSuQmCC" alt="写真6" /></div>
+  </div><div class="sp-photo-cell sp-photo-empty"></div><div class="sp-photo-cell sp-photo-empty"></div></div>
+</div>
+</body></html>

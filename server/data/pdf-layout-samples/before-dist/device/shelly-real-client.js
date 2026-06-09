@@ -1,0 +1,207 @@
+/**
+ * Phase941 — Shelly Gen3/Plus 実機 RPC（env: SHELLY_MODE, SHELLY_BASE_URL, SHELLY_AUTH_TOKEN）
+ */
+import { config } from "../config.js";
+export function getShellyEnvMode() {
+    return config.shelly.mode;
+}
+function resolveBaseUrl(override) {
+    const base = (override ?? config.shelly.baseUrl)?.trim();
+    return base || null;
+}
+function authHeaders() {
+    const h = { Accept: "application/json" };
+    if (config.shelly.authToken) {
+        h.Authorization = `Bearer ${config.shelly.authToken}`;
+    }
+    return h;
+}
+async function shellyRpc(method, params, baseOverride) {
+    const base = resolveBaseUrl(baseOverride);
+    if (!base)
+        return null;
+    const url = `${base.replace(/\/$/, "")}/rpc/${method}`;
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), 5000);
+    try {
+        const res = await fetch(url, {
+            method: "POST",
+            headers: { ...authHeaders(), "Content-Type": "application/json" },
+            body: JSON.stringify(params ?? {}),
+            signal: controller.signal,
+        });
+        if (!res.ok)
+            return null;
+        return (await res.json());
+    }
+    catch {
+        return null;
+    }
+    finally {
+        clearTimeout(t);
+    }
+}
+export async function fetchShellyDeviceStatus(baseOverride) {
+    const now = new Date().toISOString();
+    const mode = getShellyEnvMode();
+    const baseUrl = resolveBaseUrl(baseOverride);
+    if (mode === "mock") {
+        return {
+            mode,
+            online: true,
+            relay: true,
+            voltage: 100.2,
+            current: 0.41,
+            powerW: 41,
+            mock: true,
+            baseUrl,
+            fetchedAt: now,
+        };
+    }
+    if (!baseUrl) {
+        return {
+            mode,
+            online: false,
+            mock: false,
+            baseUrl,
+            fetchedAt: now,
+            connectionError: "real接続失敗 — SHELLY_BASE_URL required",
+        };
+    }
+    const data = await shellyRpc("Shelly.GetStatus", {}, baseUrl);
+    if (!data) {
+        return {
+            mode,
+            online: false,
+            mock: false,
+            baseUrl,
+            fetchedAt: now,
+            connectionError: "real接続失敗",
+        };
+    }
+    const sw = (data["switch:0"] ?? data.switch0);
+    const em = (data["em:0"] ?? data.em0);
+    const wifi = (data.wifi ?? data["wifi:0"]);
+    const sys = (data.sys ?? data["sys:0"]);
+    const temp = (data.temperature ?? data["temperature:0"]);
+    const uptime = Number(sys?.uptime ?? data.uptime ?? 0);
+    const rssi = wifi?.rssi != null ? Number(wifi.rssi) : undefined;
+    const tempC = temp?.tC != null
+        ? Number(temp.tC)
+        : temp?.value != null
+            ? Number(temp.value)
+            : data.temperature != null
+                ? Number(data.temperature)
+                : undefined;
+    return {
+        mode,
+        online: true,
+        relay: Boolean(sw?.output ?? sw?.on),
+        voltage: Number(em?.voltage ?? sw?.voltage ?? 0),
+        current: Number(em?.current ?? 0),
+        powerW: Number(em?.act_power ?? em?.power ?? 0),
+        uptimeSec: uptime > 0 ? uptime : undefined,
+        wifiRssi: rssi,
+        temperatureC: tempC,
+        raw: data,
+        mock: false,
+        baseUrl,
+        fetchedAt: now,
+    };
+}
+export function assertRealActionGuard(input) {
+    const dryRun = input.dryRun === true;
+    if (getShellyEnvMode() === "mock") {
+        return { dryRun: dryRun || true, blocked: false };
+    }
+    if (!input.confirm && !dryRun) {
+        return { dryRun, blocked: true, reason: "real mode requires confirm:true or dryRun:true" };
+    }
+    return { dryRun, blocked: false };
+}
+export async function shellyReboot(input) {
+    const guard = assertRealActionGuard(input);
+    if (guard.blocked) {
+        return {
+            ok: false,
+            dryRun: false,
+            action: "reboot",
+            mode: getShellyEnvMode(),
+            mock: getShellyEnvMode() === "mock",
+            message: guard.reason ?? "blocked",
+        };
+    }
+    if (guard.dryRun || getShellyEnvMode() === "mock") {
+        return {
+            ok: true,
+            dryRun: true,
+            action: "reboot",
+            mode: getShellyEnvMode(),
+            mock: getShellyEnvMode() === "mock",
+            message: "dry-run: Shelly.Reboot skipped",
+        };
+    }
+    const base = resolveBaseUrl(input.baseUrl);
+    if (!base) {
+        return {
+            ok: false,
+            dryRun: false,
+            action: "reboot",
+            mode: "real",
+            mock: false,
+            message: "SHELLY_BASE_URL required",
+        };
+    }
+    const res = await shellyRpc("Shelly.Reboot", {}, base);
+    return {
+        ok: !!res,
+        dryRun: false,
+        action: "reboot",
+        mode: "real",
+        mock: false,
+        message: res ? "Shelly.Reboot sent" : "Shelly.Reboot failed",
+    };
+}
+export async function shellyToggle(input) {
+    const guard = assertRealActionGuard(input);
+    if (guard.blocked) {
+        return {
+            ok: false,
+            dryRun: false,
+            action: "toggle",
+            mode: getShellyEnvMode(),
+            mock: getShellyEnvMode() === "mock",
+            message: guard.reason ?? "blocked",
+        };
+    }
+    if (guard.dryRun || getShellyEnvMode() === "mock") {
+        return {
+            ok: true,
+            dryRun: true,
+            action: "toggle",
+            mode: getShellyEnvMode(),
+            mock: getShellyEnvMode() === "mock",
+            message: "dry-run: Switch.Set skipped",
+        };
+    }
+    const base = resolveBaseUrl(input.baseUrl);
+    if (!base) {
+        return {
+            ok: false,
+            dryRun: false,
+            action: "toggle",
+            mode: "real",
+            mock: false,
+            message: "SHELLY_BASE_URL required",
+        };
+    }
+    const res = await shellyRpc("Switch.Set", { id: 0, on: input.on !== false }, base);
+    return {
+        ok: !!res,
+        dryRun: false,
+        action: "toggle",
+        mode: "real",
+        mock: false,
+        message: res ? "Switch.Set sent" : "Switch.Set failed",
+    };
+}

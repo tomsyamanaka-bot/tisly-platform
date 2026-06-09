@@ -1,0 +1,5 @@
+{
+  "type": "event",
+  "deviceId": "ESP-001",
+  "eventType": "test"
+}
