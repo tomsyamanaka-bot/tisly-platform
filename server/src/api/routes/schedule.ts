@@ -8,6 +8,7 @@ import {
   getScheduleSummary,
   getScheduleThreeWeekView,
   getScheduleWeekView,
+  getCalendarIntegrationStatus,
   getScheduleDayDetail,
   getScheduleDayDetailMemo,
   getScheduleDayNote,
@@ -15,6 +16,7 @@ import {
   upsertScheduleDayDetailMemo,
   upsertScheduleDayNote,
 } from "../../schedule/schedule-store.js";
+import { getMapsIntegrationStatus } from "../../schedule/google-maps-service.js";
 import { fetchDayWeather } from "../../schedule/weather-service.js";
 import { UNAVAILABLE_REASON_PRESETS } from "../../schedule/schedule-types.js";
 import {
@@ -211,7 +213,12 @@ scheduleRouter.delete("/unavailable/:id", ...scheduleAuth, (req: AuthedRequest, 
 
 scheduleRouter.get("/oauth/status", ...scheduleAuth, (req: AuthedRequest, res) => {
   if (!assertScheduleRole(req, res)) return;
-  res.json({ oauth: getCalendarOAuthStatus(), sync: getCalendarSyncMeta() });
+  res.json({
+    oauth: getCalendarOAuthStatus(),
+    calendarIntegration: getCalendarIntegrationStatus(),
+    mapsIntegration: getMapsIntegrationStatus(),
+    sync: getCalendarSyncMeta(),
+  });
 });
 
 scheduleRouter.get("/oauth/auth-url", ...scheduleAuth, (req: AuthedRequest, res) => {

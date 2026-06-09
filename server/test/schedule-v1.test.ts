@@ -92,6 +92,45 @@ describe("日程調整 PWA v1 API", () => {
     assert.equal(res.body.blocks[0].days.length, 7);
   });
 
+  it("GET /oauth/status に連携ステータスが含まれる", async () => {
+    const res = await request(app)
+      .get("/api/schedule/v1/oauth/status")
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(res.status, 200);
+    assert.equal(res.body.calendarIntegration.label, "仮連携中");
+    assert.equal(res.body.mapsIntegration.label, "未設定");
+    assert.ok(res.body.mapsIntegration.hint.includes("ナビ起動のみ"));
+  });
+
+  it("日付詳細に移動時間ブロックとMaps連携状態が含まれる", async () => {
+    const week = await request(app)
+      .get("/api/schedule/v1/week?offset=0")
+      .set("Authorization", `Bearer ${token}`);
+    const date = week.body.days[1].date;
+    const eventId = "test-travel-1";
+    getDatabase()
+      .prepare(
+        `INSERT INTO schedule_calendar_events
+         (id, external_id, event_date, title, category, source, start_time, end_time, all_day, location, description, synced_at)
+         VALUES (?, ?, ?, ?, 'construction', 'mock', '09:00', '12:00', 0, 'つくばみらい市', '', datetime('now'))`
+      )
+      .run(eventId, "ext-travel", date, "防犯カメラ設置");
+    const detail = await request(app)
+      .get(`/api/schedule/v1/day?date=${date}`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(detail.status, 200);
+    assert.ok(Array.isArray(detail.body.travelBlocks));
+    assert.ok(detail.body.travelBlocks.length >= 1);
+    const current = detail.body.travelBlocks.find(
+      (b: { kind: string }) => b.kind === "current_to_site"
+    );
+    assert.ok(current);
+    assert.ok(current.durationMin >= 1);
+    assert.ok(current.mapsUrl.includes("google.com/maps"));
+    assert.equal(detail.body.mapsIntegration.mode, "nav_only");
+    assert.equal(detail.body.mapsIntegration.label, "未設定");
+  });
+
   it("日付詳細・天気を取得できる", async () => {
     const week = await request(app)
       .get("/api/schedule/v1/week?offset=0")

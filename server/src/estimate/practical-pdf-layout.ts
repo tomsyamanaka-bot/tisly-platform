@@ -176,7 +176,7 @@ export function buildPracticalPdfStyles(prefix: string): string {
   .${prefix}-photo-cell { display: flex; flex-direction: column; min-height: 0; }
   .${prefix}-photo-title { margin: 0.5mm 0 0; text-align: center; font-size: 7pt; color: #334155; line-height: 1.15; flex: 0 0 auto; }
   .${prefix}-photo-img-wrap { flex: 1; min-height: 0; overflow: hidden; border: 1px solid #cbd5e1; border-radius: 1px; background: #f8fafc; }
-  .${prefix}-photo-img-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .${prefix}-photo-img-wrap img { width: 100%; height: 100%; object-fit: contain; object-position: center; display: block; }
   .${prefix}-photo-empty { visibility: hidden; }
 `;
 }

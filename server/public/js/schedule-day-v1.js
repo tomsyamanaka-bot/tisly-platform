@@ -10,6 +10,12 @@ import {
   openDayEditModal,
   renderDayMemoSummary,
 } from "./schedule-day-edit-modal.js";
+import {
+  bindEventDescSnippets,
+  renderScheduleEventLine,
+  renderTravelBlocksHtml,
+  renderIntegrationBadges,
+} from "./schedule-event-ui.js";
 
 const API = "/api/schedule/v1";
 const CAT_ICON = { construction: "🟫", office: "🟦", family: "🟩", urgent: "🟥" };
@@ -63,36 +69,6 @@ async function api(path, opts = {}) {
   return data;
 }
 
-function renderEventDescription(description, eventKey) {
-  if (!description?.trim()) return "";
-  const text = description.trim();
-  const lines = text.split(/\n/).filter(Boolean);
-  const preview = lines.slice(0, 2).join(" ").slice(0, 80);
-  const truncated = preview.length < text.replace(/\n/g, " ").length;
-  const label = truncated ? "メモ" : "説明";
-  return `<br><button type="button" class="event-desc-snippet" data-desc-key="${escapeHtml(eventKey)}" data-desc-full="${escapeHtml(text)}" aria-expanded="false">${label}: ${escapeHtml(preview)}${truncated ? "…" : ""}</button>`;
-}
-
-function bindEventDescSnippets(root) {
-  root?.querySelectorAll(".event-desc-snippet").forEach((btn) => {
-    btn.addEventListener("click", (ev) => {
-      ev.stopPropagation();
-      const full = btn.dataset.descFull || "";
-      const expanded = btn.getAttribute("aria-expanded") === "true";
-      if (expanded) {
-        const lines = full.split(/\n/).filter(Boolean);
-        const preview = lines.slice(0, 2).join(" ").slice(0, 80);
-        const truncated = preview.length < full.replace(/\n/g, " ").length;
-        btn.innerHTML = `${truncated ? "メモ" : "説明"}: ${escapeHtml(preview)}${truncated ? "…" : ""}`;
-        btn.setAttribute("aria-expanded", "false");
-        return;
-      }
-      btn.innerHTML = `説明: ${escapeHtml(full).replace(/\n/g, "<br>")}`;
-      btn.setAttribute("aria-expanded", "true");
-    });
-  });
-}
-
 function renderWeather(weather) {
   if (!weather?.slots?.length) {
     $("day-weather").innerHTML = "";
@@ -109,19 +85,31 @@ function renderWeather(weather) {
 function renderEvents(day) {
   const events = day.events.length
     ? day.events
-        .map((ev) => {
-          const time =
-            ev.allDay ? "終日" : [ev.startTime, ev.endTime].filter(Boolean).join("〜") || "";
-          const loc = ev.location ? `<br><small>📍 ${escapeHtml(ev.location)}</small>` : "";
-          const desc = renderEventDescription(ev.description, ev.id);
-          return `<p>${CAT_ICON[ev.category] || "📌"} <strong>${escapeHtml(CAT_LABEL[ev.category] || "")}</strong>
-            ${time ? `<span style="opacity:0.8;"> ${escapeHtml(time)}</span>` : ""}
-            — ${escapeHtml(ev.title)}${loc}${desc}</p>`;
-        })
+        .map((ev) =>
+          renderScheduleEventLine(ev, {
+            eventKey: ev.id,
+            catIcon: CAT_ICON,
+            catLabel: CAT_LABEL,
+            previewLen: 80,
+          })
+        )
         .join("")
     : "<p>予定はありません</p>";
   $("day-events").innerHTML = `<p class="section-label">📋 予定一覧</p>${events}`;
   bindEventDescSnippets($("day-events"));
+}
+
+function renderTravel(detail) {
+  const el = $("day-travel");
+  if (!el) return;
+  const html = renderTravelBlocksHtml(detail.travelBlocks, detail.mapsIntegration);
+  if (!html) {
+    el.classList.add("hidden");
+    el.innerHTML = "";
+    return;
+  }
+  el.classList.remove("hidden");
+  el.innerHTML = html;
 }
 
 function renderMemoSummary(detail) {
@@ -197,6 +185,7 @@ async function loadDay(date) {
   renderWeather(detail.weather);
   renderMemoSummary(detail);
   renderEvents(detail.day);
+  renderTravel(detail);
   renderDispatch(detail.dispatch);
   const maps = $("day-maps");
   if (detail.mapsUrl) {
@@ -242,6 +231,15 @@ async function init() {
     return;
   }
   try {
+    const status = await api("/oauth/status");
+    const badgeEl = $("integration-badges");
+    if (badgeEl) {
+      badgeEl.innerHTML = renderIntegrationBadges(
+        status.calendarIntegration?.label,
+        status.mapsIntegration?.label,
+        status.mapsIntegration?.hint
+      );
+    }
     await loadDay(date);
     if (new URLSearchParams(window.location.search).get("edit") === "1") {
       openEditForCurrentDate();

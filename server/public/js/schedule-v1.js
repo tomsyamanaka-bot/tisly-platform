@@ -6,6 +6,14 @@ import {
 import { initPracticalNav } from "./tisly-practical-nav.js";
 import { friendlyHttpError, renderFriendlyErrorHtml } from "./tisly-friendly-errors.js";
 import { initDayEditModal, openDayEditModal } from "./schedule-day-edit-modal.js";
+import {
+  bindEventDescSnippets,
+  formatEventTime,
+  renderEventDescriptionHtml,
+  renderEventLocationHtml,
+  renderIntegrationBadges,
+  escapeScheduleHtml,
+} from "./schedule-event-ui.js";
 
 const API = "/api/schedule/v1";
 const CAT_ICON = {
@@ -118,45 +126,17 @@ function dayCardClass(day) {
   return "schedule-day-card";
 }
 
-function renderEventDescSnippet(description, eventKey) {
-  if (!description?.trim()) return "";
-  const text = description.trim();
-  const lines = text.split(/\n/).filter(Boolean);
-  const preview = lines.slice(0, 2).join(" ").slice(0, 72);
-  const truncated = preview.length < text.replace(/\n/g, " ").length;
-  const label = truncated ? "メモ" : "説明";
-  return `<br><button type="button" class="event-desc-snippet" data-desc-key="${escapeHtml(eventKey)}" data-desc-full="${escapeHtml(text)}" aria-expanded="false">${label}: ${escapeHtml(preview)}${truncated ? "…" : ""}</button>`;
-}
-
-function bindEventDescSnippets(root) {
-  root?.querySelectorAll(".event-desc-snippet").forEach((btn) => {
-    btn.addEventListener("click", (ev) => {
-      ev.stopPropagation();
-      const full = btn.dataset.descFull || "";
-      const expanded = btn.getAttribute("aria-expanded") === "true";
-      if (expanded) {
-        const lines = full.split(/\n/).filter(Boolean);
-        const preview = lines.slice(0, 2).join(" ").slice(0, 72);
-        const truncated = preview.length < full.replace(/\n/g, " ").length;
-        btn.innerHTML = `${truncated ? "メモ" : "説明"}: ${escapeHtml(preview)}${truncated ? "…" : ""}`;
-        btn.setAttribute("aria-expanded", "false");
-        return;
-      }
-      btn.innerHTML = `説明: ${escapeHtml(full).replace(/\n/g, "<br>")}`;
-      btn.setAttribute("aria-expanded", "true");
-    });
-  });
-}
-
 function renderWeekDays(days) {
   $("week-days").innerHTML = days
     .map((day) => {
       const events = day.events
         .slice(0, 5)
-        .map(
-          (ev) =>
-            `<li><span>${CAT_ICON[ev.category] || "📌"}</span><span>${escapeHtml(ev.title)}${renderEventDescSnippet(ev.description, `${day.date}-${ev.id}`)}</span></li>`
-        )
+        .map((ev) => {
+          const time = formatEventTime(ev);
+          const timeHtml = time ? `<small class="event-time">${escapeHtml(time)}</small> ` : "";
+          const loc = ev.location ? `<small> 📍${escapeHtml(ev.location)}</small>` : "";
+          return `<li><span>${CAT_ICON[ev.category] || "📌"}</span><span>${timeHtml}<strong>${escapeHtml(ev.title)}</strong>${loc}${renderEventDescriptionHtml(ev.description, `${day.date}-${ev.id}`)}${renderEventLocationHtml(ev.location)}</span></li>`;
+        })
         .join("");
       const more = day.events.length > 5 ? `<li>他${day.events.length - 5}件</li>` : "";
       const unavail = day.unavailable
@@ -184,7 +164,7 @@ function renderWeekDays(days) {
   $("week-days").querySelectorAll("[data-date]").forEach((card) => {
     const open = () => openDayDetailByDate(card.dataset.date);
     card.addEventListener("click", (ev) => {
-      if (ev.target.closest(".event-desc-snippet")) return;
+      if (ev.target.closest(".event-desc-snippet, .event-map-btn")) return;
       open();
     });
     card.addEventListener("keydown", (ev) => {
@@ -381,11 +361,18 @@ async function refreshSyncStatus() {
     const st = await api("/oauth/status");
     const sync = st.sync;
     const oauth = st.oauth ?? {};
+    const calLabel = st.calendarIntegration?.label ?? (oauth.mode === "mock" ? "仮連携中" : "未設定");
+    const mapsLabel = st.mapsIntegration?.label ?? "未設定";
+    const mapsHint = st.mapsIntegration?.hint ?? "";
+    const badgeEl = $("integration-badges");
+    if (badgeEl) {
+      badgeEl.innerHTML = renderIntegrationBadges(calLabel, mapsLabel, mapsHint);
+    }
     const el = $("sync-status");
     const btn = $("btn-sync-calendar");
     if (!el) return;
     if (oauth.mode === "real" && !oauth.configured) {
-      el.textContent = "Google連携は未設定です";
+      el.textContent = "Google連携は未設定です（.env にクライアントID等を設定）";
       if (btn) {
         btn.disabled = false;
         btn.title = "Google Calendar のクライアントID等を .env に設定してください";
@@ -396,13 +383,12 @@ async function refreshSyncStatus() {
       el.textContent = "Google未接続 — 「Google同期」でログイン後に取得";
     } else if (sync?.lastSyncedAt) {
       const at = new Date(sync.lastSyncedAt).toLocaleString("ja-JP");
-      const modeLabel = oauth.mode === "real" ? "本番" : "モック";
-      el.textContent = `最終同期: ${at}（${sync.eventCount}件・${modeLabel}）`;
+      el.textContent = `最終同期: ${at}（${sync.eventCount}件・${calLabel}）`;
     } else {
       el.textContent =
         oauth.mode === "real"
           ? "未同期 — 「Google同期」でカレンダーを取得"
-          : "モック予定モード — 「Google同期」でデモ予定を読み込み";
+          : "デモ予定を表示中 — 「Google同期」でキャッシュ保存";
     }
     if (btn) btn.disabled = false;
   } catch {

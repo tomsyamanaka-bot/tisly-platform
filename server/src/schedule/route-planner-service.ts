@@ -1,6 +1,7 @@
 /** 配車表 — 案件データから自動生成（将来 Directions API 接続可能構成） */
 
 import { getDatabase } from "../db/database.js";
+import { mapsDirectionsUrl, mapsNavUrl, mockDurationMin } from "./google-maps-service.js";
 import type { ScheduleEvent } from "./schedule-types.js";
 
 export interface RouteStop {
@@ -33,21 +34,7 @@ export interface DayDispatch {
 const DEFAULT_DRIVER = process.env.DISPATCH_DEFAULT_DRIVER ?? "山中";
 const DEFAULT_VEHICLE = process.env.DISPATCH_DEFAULT_VEHICLE ?? "ハイエース";
 
-export function mapsDirectionsUrl(origin: string, destination: string): string {
-  const o = encodeURIComponent(origin);
-  const d = encodeURIComponent(destination);
-  return `https://www.google.com/maps/dir/?api=1&origin=${o}&destination=${d}&travelmode=driving`;
-}
-
-export function mapsNavUrl(destination: string): string {
-  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}&travelmode=driving`;
-}
-
-function mockDurationMin(seed: string): number {
-  let h = 0;
-  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
-  return 12 + (h % 25);
-}
+export { mapsDirectionsUrl, mapsNavUrl } from "./google-maps-service.js";
 
 interface ProjectStop {
   time: string;

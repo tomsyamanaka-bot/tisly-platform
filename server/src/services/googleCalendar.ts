@@ -136,15 +136,56 @@ export function mockCalendarEvents(startDate: string, endDate: string): Schedule
     startTime: string;
     endTime: string;
     location?: string;
+    description?: string;
   }> = [
-    { title: "防犯カメラ設置", category: "construction", wd: 1, startTime: "08:30", endTime: "12:00", location: "守谷市" },
-    { title: "インターホン交換", category: "construction", wd: 2, startTime: "10:00", endTime: "14:00", location: "つくばみらい市" },
-    { title: "見積書まとめ", category: "office", wd: 2, startTime: "15:00", endTime: "17:00" },
+    {
+      title: "防犯カメラ設置",
+      category: "construction",
+      wd: 1,
+      startTime: "08:30",
+      endTime: "12:00",
+      location: "守谷市",
+      description: "既設カメラ撤去、LAN引き直し。駐車場2台分確保。",
+    },
+    {
+      title: "インターホン交換",
+      category: "construction",
+      wd: 2,
+      startTime: "10:00",
+      endTime: "14:00",
+      location: "つくばみらい市",
+      description: "玄関子機2台・親機1台。配線ルート要確認。",
+    },
+    { title: "見積書まとめ", category: "office", wd: 2, startTime: "15:00", endTime: "17:00", description: "先週現調分の見積をまとめる" },
     { title: "請求・入金確認", category: "office", wd: 3, startTime: "09:00", endTime: "10:30" },
     { title: "家族の予定", category: "family", wd: 5, startTime: "18:00", endTime: "20:00" },
-    { title: "緊急対応", category: "urgent", wd: 4, startTime: "13:00", endTime: "15:00", location: "取手市" },
-    { title: "LAN配線工事", category: "construction", wd: 3, startTime: "13:00", endTime: "17:00", location: "取手市" },
-    { title: "現調（大阪）", category: "construction", wd: 1, startTime: "14:00", endTime: "16:00", location: "大阪市" },
+    {
+      title: "緊急対応",
+      category: "urgent",
+      wd: 4,
+      startTime: "13:00",
+      endTime: "15:00",
+      location: "取手市",
+      description: "録画異常。HDD交換の可能性あり。",
+    },
+    {
+      title: "LAN配線工事",
+      category: "construction",
+      wd: 3,
+      startTime: "13:00",
+      endTime: "17:00",
+      location: "取手市",
+      description: "2階書斎までCAT6引き込み。",
+    },
+    {
+      title: "現調（大阪）",
+      category: "construction",
+      wd: 1,
+      startTime: "14:00",
+      endTime: "16:00",
+      location: "大阪市",
+      description: "新規防犯カメラ8台。配線経路・電源確認。",
+    },
   ];
 
   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
@@ -164,7 +205,7 @@ export function mockCalendarEvents(startDate: string, endDate: string): Schedule
         endTime: tpl.endTime,
         allDay: false,
         location: tpl.location ?? null,
-        description: null,
+        description: tpl.description ?? null,
       });
     });
   }

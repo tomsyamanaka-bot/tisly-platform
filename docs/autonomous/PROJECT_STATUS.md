@@ -1,6 +1,6 @@
 # プロジェクト標準仕様（完成状態）
 
-**最終更新:** 2026-06-09  
+**最終更新:** 2026-06-10  
 **対象:** TiSLY Practical PWA（現調 v1 / 見積 v1 / 日程 v1）
 
 Cursor が長時間自走する際の **「壊してはいけない完成仕様」** の単一ソースです。新しい実装を始める前に必ず読んでください。
@@ -60,13 +60,19 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 
 ---
 
-## 日程・Google カレンダー（完成済み）
+## 日程・Google カレンダー / Maps（完成済み）
 
 | 機能 | 状態 |
 |------|------|
 | 日程詳細の日付メモ | `schedule_unavailable_days.detail_memo` に保存（現場不可とは別） |
+| 予定フィールド表示 | title / start / end / location / description を週間・日詳細に反映 |
 | Google カレンダー予定の説明 | 一覧・日詳細で表示（折りたたみ/展開） |
+| 場所の地図ボタン | location がある予定に Google マップリンク |
 | Google 同期 | `GOOGLE_CALENDAR_ENABLED` でモック/本番切替 |
+| 連携ステータス UI | `未設定` / `仮連携中` / `本番連携済み` バッジ（Calendar・Maps） |
+| 移動時間（日程詳細） | `現在地→現場` / `前の現場→次の現場` ブロック + ナビ起動 |
+| Maps API 未設定時 | 目安時間 + 「Google Maps API未設定：ナビ起動のみ」 |
+| Maps API 設定後 | `GOOGLE_MAPS_API_KEY` で Directions API 取得（`（API）` 表示） |
 
 ---
 
@@ -95,7 +101,9 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 見積・請求 PDF テンプレ | `server/src/business/pdf/estimate-template.ts`, `invoice-template.ts` |
 | 完了報告書写真 UI | `server/public/js/estimate-v1.js` |
 | 日程日付メモ UI | `server/public/js/schedule-day-v1.js` |
-| Google 説明表示 | `server/public/js/schedule-v1.js`, `schedule-day-v1.js` |
+| Google 説明・地図・移動時間 UI | `server/public/js/schedule-event-ui.js`, `schedule-v1.js`, `schedule-day-v1.js` |
+| Maps / 移動時間 API | `server/src/schedule/google-maps-service.ts`, `route-planner-service.ts` |
+| 人間設定一覧 | [HUMAN_ACTIONS.md](./HUMAN_ACTIONS.md) |
 
 ---
 

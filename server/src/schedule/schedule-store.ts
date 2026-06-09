@@ -17,9 +17,15 @@ import type {
   UnavailableDay,
 } from "./schedule-types.js";
 import { SCHEDULE_CATEGORY_META } from "./schedule-types.js";
+import {
+  buildDayTravelBlocks,
+  enrichDispatchLegDurations,
+  getMapsIntegrationStatus,
+} from "./google-maps-service.js";
 import { buildDayDispatch } from "./route-planner-service.js";
 import { fetchDayWeather } from "./weather-service.js";
-import type { ScheduleDayDetail } from "./schedule-types.js";
+import type { CalendarIntegrationStatus, ScheduleDayDetail } from "./schedule-types.js";
+import { getCalendarOAuthStatus } from "../services/googleCalendar.js";
 
 const WEEKDAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
 
@@ -206,7 +212,11 @@ export async function getScheduleDayDetail(
   const unavailableMap = new Map(unavailable.map((u) => [u.date, u]));
   const day = buildDayCard(date, events, unavailableMap);
   const weather = await fetchDayWeather(date, { location: opts?.location });
-  const dispatch = buildDayDispatch(date, day.events);
+  let dispatch = buildDayDispatch(date, day.events);
+  if (dispatch) {
+    dispatch = await enrichDispatchLegDurations(dispatch);
+  }
+  const travelBlocks = await buildDayTravelBlocks(date, dispatch, day.events);
   const firstSite = dispatch?.stops?.[0]?.address ?? day.events.find((e) => e.location)?.location ?? null;
   const mapsUrl = firstSite
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(firstSite)}`
@@ -214,7 +224,36 @@ export async function getScheduleDayDetail(
   const dayNote = getScheduleDayNote(date);
   const memo = dayNote?.note?.trim() ? dayNote.note : null;
   const eventRemark = dayNote?.eventRemark?.trim() ? dayNote.eventRemark : null;
-  return { day, weather, dispatch, memo, eventRemark, mapsUrl };
+  return {
+    day,
+    weather,
+    dispatch,
+    travelBlocks,
+    mapsIntegration: getMapsIntegrationStatus(),
+    memo,
+    eventRemark,
+    mapsUrl,
+  };
+}
+
+export function getCalendarIntegrationStatus(): CalendarIntegrationStatus {
+  const oauth = getCalendarOAuthStatus();
+  let label: CalendarIntegrationStatus["label"];
+  if (oauth.mode === "mock") {
+    label = "仮連携中";
+  } else if (!oauth.configured) {
+    label = "未設定";
+  } else if (oauth.connected) {
+    label = "本番連携済み";
+  } else {
+    label = "要OAuth接続";
+  }
+  return {
+    label,
+    mode: oauth.mode,
+    configured: oauth.configured,
+    connected: oauth.connected,
+  };
 }
 
 export interface ScheduleDayNote {

@@ -1,6 +1,7 @@
 /** TiSLY 日程調整 PWA v1 — 型定義 */
 
 import type { DayDispatch } from "./route-planner-service.js";
+import type { DayTravelBlock, MapsIntegrationStatus } from "./google-maps-service.js";
 import type { DayWeather } from "./weather-service.js";
 
 export type ScheduleCategory = "construction" | "office" | "family" | "urgent";
@@ -73,10 +74,19 @@ export interface ScheduleThreeWeekBlock {
   days: ScheduleDayCard[];
 }
 
+export interface CalendarIntegrationStatus {
+  label: "未設定" | "仮連携中" | "本番連携済み" | "要OAuth接続";
+  mode: "mock" | "real";
+  configured: boolean;
+  connected: boolean;
+}
+
 export interface ScheduleDayDetail {
   day: ScheduleDayCard;
   weather: DayWeather;
   dispatch: DayDispatch | null;
+  travelBlocks: DayTravelBlock[];
+  mapsIntegration: MapsIntegrationStatus;
   memo?: string | null;
   eventRemark?: string | null;
   mapsUrl?: string | null;

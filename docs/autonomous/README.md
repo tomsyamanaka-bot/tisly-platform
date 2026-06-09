@@ -16,6 +16,7 @@ Cursor が止まらずに開発を進めるための標準フォルダーです�
 | [DEVELOPMENT_QUEUE.md](./DEVELOPMENT_QUEUE.md) | 今どの Phase か、次に何を優先するか |
 | [NEXT_ACTIONS.md](./NEXT_ACTIONS.md) | Cursor が次に自走できる作業リスト |
 | [BLOCKED_ITEMS.md](./BLOCKED_ITEMS.md) | 詰まっていることと回避策 |
+| [HUMAN_ACTIONS.md](./HUMAN_ACTIONS.md) | **人間が後で設定するキー・OAuth（実務 PWA 向け一覧）** |
 | [MANUAL_SETUP_REQUIRED.md](./MANUAL_SETUP_REQUIRED.md) | 人間が後で設定するキー・認証情報 |
 | [SYSTEM_MAP.md](./SYSTEM_MAP.md) | PWA / API / DB / インフラの接続図 |
 | [UI_DESIGN_GUIDE.md](./UI_DESIGN_GUIDE.md) | 一般のお客様向け画面ルール |
