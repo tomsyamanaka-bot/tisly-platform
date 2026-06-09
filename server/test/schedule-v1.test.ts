@@ -129,6 +129,37 @@ describe("日程調整 PWA v1 API", () => {
     assert.ok("totalEvents" in res.body.summary);
   });
 
+  it("日付メモを保存・取得できる（現場不可とは別）", async () => {
+    const week = await request(app)
+      .get("/api/schedule/v1/week?offset=0")
+      .set("Authorization", `Bearer ${token}`);
+    const date = week.body.days[2].date;
+
+    const empty = await request(app)
+      .get(`/api/schedule/v1/day-note?date=${date}`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(empty.status, 200);
+    assert.equal(empty.body.note, "");
+
+    const saved = await request(app)
+      .patch("/api/schedule/v1/day-note")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ date, note: "午後は事務所で打合せ" });
+    assert.equal(saved.status, 200);
+    assert.equal(saved.body.note, "午後は事務所で打合せ");
+
+    const loaded = await request(app)
+      .get(`/api/schedule/v1/day-note?date=${date}`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(loaded.status, 200);
+    assert.equal(loaded.body.note, "午後は事務所で打合せ");
+
+    const detail = await request(app)
+      .get(`/api/schedule/v1/day?date=${date}`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(detail.body.memo, "午後は事務所で打合せ");
+  });
+
   it("現場不可日を登録・更新・削除できる", async () => {
     const monday = new Date();
     const day = monday.getDay();

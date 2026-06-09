@@ -122,8 +122,11 @@ describe("TOMS標準見積フォーマット", () => {
       .set("Authorization", `Bearer ${token}`);
     assert.equal(res.status, 200);
     assert.match(res.text, /お見積書/);
+    assert.match(res.text, /toms-doc-header/);
     assert.match(res.text, /株式会社 TOMS/);
     assert.match(res.text, /御見積金額/);
+    assert.match(res.text, /見積番号/);
+    assert.match(res.text, /発行日/);
     assert.match(res.text, /件名/);
     assert.match(res.text, /御中/);
     assert.match(res.text, /山中 智紀/);
@@ -308,7 +311,9 @@ describe("TOMS標準見積フォーマット", () => {
       }
     );
     assert.match(html, /お見積書/);
+    assert.match(html, /toms-doc-header/);
     assert.match(html, /amount-banner/);
+    assert.ok(!/<div class="toms-company-footer">/.test(html));
     assert.match(html, /換気扇設置工事/);
   });
 });

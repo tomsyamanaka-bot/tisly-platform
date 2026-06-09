@@ -210,8 +210,49 @@ export async function getScheduleDayDetail(
   const mapsUrl = firstSite
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(firstSite)}`
     : null;
-  const memo = day.unavailable?.reason ?? null;
+  const dayNote = getScheduleDayNote(date);
+  const memo = dayNote?.note?.trim() ? dayNote.note : null;
   return { day, weather, dispatch, memo, mapsUrl };
+}
+
+export interface ScheduleDayNote {
+  date: string;
+  note: string;
+  updatedAt: string;
+}
+
+export function getScheduleDayNote(dateRaw: unknown): ScheduleDayNote | null {
+  const date = String(dateRaw ?? "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  const row = getDatabase()
+    .prepare(`SELECT note_date, note, updated_at FROM schedule_day_notes WHERE note_date = ?`)
+    .get(date) as { note_date: string; note: string; updated_at: string } | undefined;
+  if (!row) return null;
+  return { date: row.note_date, note: row.note ?? "", updatedAt: row.updated_at };
+}
+
+export function upsertScheduleDayNote(dateRaw: unknown, noteRaw: unknown): ScheduleDayNote {
+  const date = String(dateRaw ?? "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("valid date required (YYYY-MM-DD)");
+  const note = String(noteRaw ?? "");
+  const existing = getDatabase()
+    .prepare(`SELECT note_date FROM schedule_day_notes WHERE note_date = ?`)
+    .get(date) as { note_date: string } | undefined;
+  if (existing) {
+    getDatabase()
+      .prepare(`UPDATE schedule_day_notes SET note = ?, updated_at = datetime('now') WHERE note_date = ?`)
+      .run(note, date);
+  } else {
+    getDatabase()
+      .prepare(
+        `INSERT INTO schedule_day_notes (note_date, note, created_at, updated_at)
+         VALUES (?, ?, datetime('now'), datetime('now'))`
+      )
+      .run(date, note);
+  }
+  const saved = getScheduleDayNote(date);
+  if (!saved) throw new Error("failed to save day note");
+  return saved;
 }
 
 export async function getScheduleMonthView(yearRaw: unknown, monthRaw: unknown): Promise<ScheduleMonthView> {

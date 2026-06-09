@@ -9,8 +9,15 @@ import { friendlyHttpError } from "./tisly-friendly-errors.js";
 const API = "/api/schedule/v1";
 const CAT_ICON = { construction: "🟫", office: "🟦", family: "🟩", urgent: "🟥" };
 const CAT_LABEL = { construction: "工事", office: "事務", family: "家族", urgent: "重要" };
+const DAY_MEMO_SAVE_OK = "メモを保存しました";
+const DAY_MEMO_SAVE_FAIL = "メモの保存に失敗しました";
 
 const $ = (id) => document.getElementById(id);
+
+let currentDate = "";
+let dayMemoLastSaved = "";
+let dayMemoSaveTimer = null;
+let dayMemoBound = false;
 
 function toast(msg) {
   const el = $("toast");
@@ -52,6 +59,111 @@ async function api(path, opts = {}) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw Object.assign(new Error(data.error || `HTTP ${res.status}`), { status: res.status });
   return data;
+}
+
+function showDayMemoStatus(msg, isError = false) {
+  const el = $("day-memo-status");
+  if (!el) return;
+  el.textContent = msg;
+  el.style.color = isError ? "#b91c1c" : "#64748b";
+}
+
+async function saveDayMemo({ quiet = false } = {}) {
+  if (!currentDate) return;
+  const textarea = $("day-memo-input");
+  if (!textarea) return;
+  const note = textarea.value;
+  if (dayMemoLastSaved === note) return;
+  try {
+    await api("/day-note", {
+      method: "PATCH",
+      body: JSON.stringify({ date: currentDate, note }),
+    });
+    dayMemoLastSaved = note;
+    showDayMemoStatus(DAY_MEMO_SAVE_OK);
+    if (!quiet) toast(DAY_MEMO_SAVE_OK);
+  } catch (e) {
+    showDayMemoStatus(DAY_MEMO_SAVE_FAIL, true);
+    if (!quiet) toast(friendlyHttpError(e.message, e.status).title);
+    throw e;
+  }
+}
+
+function flushDayMemoKeepalive() {
+  if (!currentDate) return;
+  const textarea = $("day-memo-input");
+  if (!textarea) return;
+  const note = textarea.value;
+  if (dayMemoLastSaved === note) return;
+  const token = getCustomerToken();
+  fetch(`${API}/day-note`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ date: currentDate, note }),
+    keepalive: true,
+  });
+  dayMemoLastSaved = note;
+}
+
+function bindDayMemoIosFlush() {
+  const flushOnExit = () => flushDayMemoKeepalive();
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") flushOnExit();
+  });
+  window.addEventListener("pagehide", flushOnExit);
+}
+
+function bindDayMemoInput() {
+  if (dayMemoBound) return;
+  dayMemoBound = true;
+  bindDayMemoIosFlush();
+  const textarea = $("day-memo-input");
+  if (!textarea) return;
+  const persist = async (quiet = false) => {
+    try {
+      await saveDayMemo({ quiet });
+    } catch {
+      /* inline status shown in saveDayMemo */
+    }
+  };
+  textarea.addEventListener("input", () => {
+    showDayMemoStatus("");
+    if (dayMemoSaveTimer) clearTimeout(dayMemoSaveTimer);
+    dayMemoSaveTimer = setTimeout(() => {
+      dayMemoSaveTimer = null;
+      persist(true);
+    }, 600);
+  });
+  textarea.addEventListener("change", () => persist(false));
+  textarea.addEventListener("keydown", (ev) => {
+    if (ev.key !== "Enter") return;
+    ev.preventDefault();
+    if (dayMemoSaveTimer) {
+      clearTimeout(dayMemoSaveTimer);
+      dayMemoSaveTimer = null;
+    }
+    persist(false);
+    textarea.blur();
+  });
+  textarea.addEventListener("blur", () => {
+    if (dayMemoSaveTimer) {
+      clearTimeout(dayMemoSaveTimer);
+      dayMemoSaveTimer = null;
+    }
+    persist(false);
+  });
+}
+
+async function loadDayNote(date) {
+  const data = await api(`/day-note?date=${encodeURIComponent(date)}`);
+  const textarea = $("day-memo-input");
+  if (!textarea) return;
+  textarea.value = data.note ?? "";
+  dayMemoLastSaved = textarea.value;
+  showDayMemoStatus("");
 }
 
 function renderWeather(weather) {
@@ -145,18 +257,15 @@ function renderUnavail(day) {
 }
 
 async function loadDay(date) {
+  currentDate = date;
   const detail = await api(`/day?date=${encodeURIComponent(date)}`);
   $("day-title").textContent = `${formatDateShort(date)}（${detail.day.weekday}）`;
   renderWeather(detail.weather);
   renderEvents(detail.day);
   renderDispatch(detail.dispatch);
   renderUnavail(detail.day);
-  if (detail.memo) {
-    $("day-memo").classList.remove("hidden");
-    $("day-memo").innerHTML = `<p class="section-label">📝 メモ</p><p>${escapeHtml(detail.memo)}</p>`;
-  } else {
-    $("day-memo").classList.add("hidden");
-  }
+  await loadDayNote(date);
+  bindDayMemoInput();
   const maps = $("day-maps");
   if (detail.mapsUrl) {
     maps.href = detail.mapsUrl;

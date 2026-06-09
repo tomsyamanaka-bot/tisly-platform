@@ -209,6 +209,13 @@ function migrateSchedulePlannerV1(database: Database.Database): void {
       updated_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_schedule_unavailable_date ON schedule_unavailable_days(unavailable_date);
+    CREATE TABLE IF NOT EXISTS schedule_day_notes (
+      note_date TEXT PRIMARY KEY,
+      note TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_schedule_day_notes_date ON schedule_day_notes(note_date);
   `);
   const marker = database
     .prepare("SELECT value_json FROM platform_settings WHERE key = ?")

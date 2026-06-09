@@ -9,7 +9,9 @@ import {
   getScheduleThreeWeekView,
   getScheduleWeekView,
   getScheduleDayDetail,
+  getScheduleDayNote,
   updateUnavailableDay,
+  upsertScheduleDayNote,
 } from "../../schedule/schedule-store.js";
 import { fetchDayWeather } from "../../schedule/weather-service.js";
 import { UNAVAILABLE_REASON_PRESETS } from "../../schedule/schedule-types.js";
@@ -82,6 +84,29 @@ scheduleRouter.get("/summary", ...scheduleAuth, async (req: AuthedRequest, res) 
 scheduleRouter.get("/presets", ...scheduleAuth, (req: AuthedRequest, res) => {
   if (!assertScheduleRole(req, res)) return;
   res.json({ reasonPresets: UNAVAILABLE_REASON_PRESETS });
+});
+
+scheduleRouter.get("/day-note", ...scheduleAuth, (req: AuthedRequest, res) => {
+  if (!assertScheduleRole(req, res)) return;
+  const date = String(req.query.date ?? "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    res.status(400).json({ error: "valid date required (YYYY-MM-DD)" });
+    return;
+  }
+  const saved = getScheduleDayNote(date);
+  res.json({ date, note: saved?.note ?? "" });
+});
+
+scheduleRouter.patch("/day-note", ...scheduleAuth, (req: AuthedRequest, res) => {
+  if (!assertScheduleRole(req, res)) return;
+  const body = req.body as { date?: string; note?: string };
+  try {
+    const saved = upsertScheduleDayNote(body.date ?? "", body.note ?? "");
+    res.json({ date: saved.date, note: saved.note });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "save failed";
+    res.status(400).json({ error: msg });
+  }
 });
 
 scheduleRouter.get("/day", ...scheduleAuth, async (req: AuthedRequest, res) => {

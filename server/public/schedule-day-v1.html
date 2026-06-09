@@ -16,7 +16,11 @@
     <div id="day-events" class="friendly-card"></div>
     <div id="day-dispatch" class="friendly-card hidden"></div>
     <div id="day-unavail" class="friendly-card"></div>
-    <div id="day-memo" class="friendly-card hidden"></div>
+    <div id="day-memo" class="friendly-card">
+      <p class="section-label">📝 メモ</p>
+      <textarea id="day-memo-input" rows="3" placeholder="この日のメモ（現場不可の理由とは別）"></textarea>
+      <span id="day-memo-status" class="photo-title-status" aria-live="polite"></span>
+    </div>
     <a id="day-maps" class="btn-main" href="#" target="_blank" rel="noopener" style="display:none;margin-top:0.75rem;">📍 Googleマップ</a>
   </main>
   <div id="toast" class="toast" role="status"></div>
