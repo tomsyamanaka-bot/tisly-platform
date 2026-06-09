@@ -224,6 +224,70 @@ describe("見積PWA v1 API", () => {
     assert.equal(res.body.estimate.items.length, before.body.estimate.items.length);
   });
 
+  it("完了報告書は写真なしで写真未登録とTOMS会社情報を含む", async () => {
+    const survey = await request(app)
+      .post("/api/survey/v1/projects")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        customerCode: "TOMS001",
+        customerName: "写真なし顧客",
+        siteName: "未撮影現場",
+        address: "東京都千代田区",
+        assignee: "担当花子",
+        surveyDate: "2026-06-10",
+      });
+    await request(app)
+      .post(`/api/survey/v1/projects/${survey.body.projectId}/estimate-pending`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({});
+    const est = await request(app)
+      .post(`/api/estimate/v1/from-survey/${survey.body.projectId}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({});
+    const res = await request(app)
+      .get(`/api/estimate/v1/projects/${est.body.businessProjectId}/completion-report/pdf`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(res.status, 200);
+    assert.ok(res.text.includes("完了報告書"));
+    assert.ok(res.text.includes("写真未登録"));
+    assert.ok(res.text.includes("株式会社 TOMS"));
+    assert.ok(res.text.includes("未撮影現場"));
+    assert.ok(res.text.includes("担当花子"));
+  });
+
+  it("完了報告書は写真7枚で2ページになる", async () => {
+    const survey = await request(app)
+      .post("/api/survey/v1/projects")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        customerCode: "TOMS001",
+        customerName: "7枚テスト",
+        siteName: "7枚現場",
+        address: "大阪府",
+      });
+    const svyId = survey.body.projectId;
+    for (let i = 0; i < 7; i++) {
+      await request(app)
+        .post(`/api/survey/v1/projects/${svyId}/photos`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({ imageBase64: TINY_PNG, fileName: `p${i}.jpg` });
+    }
+    await request(app)
+      .post(`/api/survey/v1/projects/${svyId}/estimate-pending`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({});
+    const est = await request(app)
+      .post(`/api/estimate/v1/from-survey/${svyId}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({});
+    const res = await request(app)
+      .get(`/api/estimate/v1/projects/${est.body.businessProjectId}/completion-report/pdf`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(res.status, 200);
+    const photoPages = (res.text.match(/cr-photo-page/g) || []).length;
+    assert.equal(photoPages, 2, `expected 2 photo pages, got ${photoPages}`);
+  });
+
   it("完了報告書は写真12枚で2ページ以上になる", async () => {
     const survey = await request(app)
       .post("/api/survey/v1/projects")

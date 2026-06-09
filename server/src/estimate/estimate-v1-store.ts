@@ -452,7 +452,7 @@ export function buildCompletionReportContextV1(
     siteName: survey?.siteName ?? project.title,
     workLocation: survey?.address ?? project.address,
     workDate: survey?.surveyDate ?? header?.issueDate ?? "",
-    staffName: header?.staffName ?? survey?.assignee ?? "",
+    staffName: survey?.assignee ?? header?.staffName ?? "",
     photos,
   };
 }

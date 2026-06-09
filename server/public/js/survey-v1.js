@@ -40,7 +40,7 @@ let photoDisplayLimit = 12;
 const PHOTO_BATCH = 12;
 const MAX_PHOTOS = 30;
 const IMAGE_EXT_RE = /\.(jpe?g|png|gif|webp|heic|heif)$/i;
-const PHOTO_FAIL_MSG = "写真を追加できませんでした。別の写真でもう一度試してください";
+const PHOTO_FAIL_MSG = "写真の形式か容量で失敗しました。別の写真で試してください";
 
 const $ = (id) => document.getElementById(id);
 
