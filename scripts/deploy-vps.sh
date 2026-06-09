@@ -6,12 +6,21 @@ set -euo pipefail
 
 REPO_ROOT="${TISLY_REPO_ROOT:-/opt/tisly}"
 SERVER_DIR="${REPO_ROOT}/server"
+RELEASE_GATE_JSON="${SERVER_DIR}/data/release-gate-last.json"
 SERVICE_NAME="${TISLY_SERVICE:-tisly-server}"
 HEALTH_URL="${TISLY_HEALTH_URL:-https://tisly.jp/api/health}"
 EXPECTED_COMMIT="${EXPECTED_COMMIT_SHORT:-}"
 
 log() { echo "[TiSLY deploy-vps] $(date -Iseconds) $*"; }
 fail() { log "ERROR: $*"; exit 1; }
+
+git_short() {
+  git -C "${REPO_ROOT}" rev-parse --short HEAD
+}
+
+git_full() {
+  git -C "${REPO_ROOT}" rev-parse HEAD
+}
 
 if [ -n "${EXPECTED_COMMIT}" ]; then
   EXPECTED_SHORT="${EXPECTED_COMMIT:0:7}"
@@ -21,8 +30,19 @@ fi
 
 cd "${REPO_ROOT}"
 
+echo "=== current git commit (before pull) ==="
+git log -1 --oneline
+BEFORE_SHORT="$(git_short)"
+log "commitShort (before pull): ${BEFORE_SHORT}"
+
 echo "=== git pull ==="
 git pull origin master
+
+echo "=== current git commit (after pull) ==="
+git log -1 --oneline
+HEAD_SHORT="$(git_short)"
+HEAD_FULL="$(git_full)"
+log "commitShort (after pull): ${HEAD_SHORT}"
 
 echo "=== npm install ==="
 cd "${SERVER_DIR}"
@@ -31,6 +51,15 @@ npm install
 echo "=== build ==="
 npm run build
 [ -f dist/index.js ] || fail "dist/index.js がありません — build 失敗"
+
+echo "=== release-gate-last.json sync ==="
+[ -f "${RELEASE_GATE_JSON}" ] || fail "release-gate-last.json がありません: ${RELEASE_GATE_JSON}"
+MARKER_COMMIT="$(grep -oE '"commit":\s*"[0-9a-f]{40}"' "${RELEASE_GATE_JSON}" | head -1 | grep -oE '[0-9a-f]{40}' || true)"
+if [ "${MARKER_COMMIT}" != "${HEAD_FULL}" ]; then
+  cat "${RELEASE_GATE_JSON}"
+  fail "release-gate-last.json の commit が HEAD と不一致: marker=${MARKER_COMMIT:-<none>} head=${HEAD_FULL}"
+fi
+log "release-gate-last.json commit OK: ${HEAD_SHORT}"
 
 echo "=== restart ==="
 sudo systemctl restart "${SERVICE_NAME}"
@@ -50,16 +79,24 @@ done
 [ -n "${HEALTH_BODY}" ] || fail "health API に到達できません: ${HEALTH_URL}"
 echo "${HEALTH_BODY}" | grep commitShort || fail "health 応答に commitShort がありません"
 
+ACTUAL_SHORT="$(echo "${HEALTH_BODY}" | grep -oE '"commitShort":"[0-9a-f]{7}"' | head -1 | cut -d'"' -f4 || true)"
+if [ "${ACTUAL_SHORT}" != "${HEAD_SHORT}" ]; then
+  echo "${HEALTH_BODY}"
+  fail "commitShort 不一致 (health vs git HEAD): expected=${HEAD_SHORT} actual=${ACTUAL_SHORT:-<none>}"
+fi
+log "commitShort 確認 OK (health = git HEAD): ${HEAD_SHORT}"
+
+if [ -n "${EXPECTED_SHORT}" ] && [ "${ACTUAL_SHORT}" != "${EXPECTED_SHORT}" ]; then
+  echo "${HEALTH_BODY}"
+  fail "commitShort 不一致 (GitHub Actions 期待値): expected=${EXPECTED_SHORT} actual=${ACTUAL_SHORT}"
+fi
 if [ -n "${EXPECTED_SHORT}" ]; then
-  ACTUAL_SHORT="$(echo "${HEALTH_BODY}" | grep -oE '"commitShort":"[0-9a-f]{7}"' | head -1 | cut -d'"' -f4 || true)"
-  if [ "${ACTUAL_SHORT}" != "${EXPECTED_SHORT}" ]; then
-    echo "${HEALTH_BODY}"
-    fail "commitShort 不一致: expected=${EXPECTED_SHORT} actual=${ACTUAL_SHORT:-<none>}"
-  fi
-  log "commitShort 確認 OK: ${EXPECTED_SHORT}"
-else
-  echo "${HEALTH_BODY}" | grep commitShort
-  log "commitShort 確認 OK（手動実行 — 期待値未指定）"
+  log "commitShort 確認 OK (GitHub Actions): ${EXPECTED_SHORT}"
 fi
 
-echo "=== deploy completed ==="
+echo ""
+echo "========================================"
+echo "  DEPLOY OK"
+echo "  commit: ${HEAD_SHORT}"
+echo "  health: ${HEALTH_URL}"
+echo "========================================"
