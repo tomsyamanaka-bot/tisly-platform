@@ -1,0 +1,60 @@
+name: VPS Auto Deploy
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: tisly-vps-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy to ConoHa VPS
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check deploy secrets
+        id: secrets
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          missing=0
+          [ -z "${VPS_HOST}" ] && { echo "::error::GitHub Secret VPS_HOST が未設定です"; missing=1; }
+          [ -z "${VPS_USER}" ] && { echo "::error::GitHub Secret VPS_USER が未設定です"; missing=1; }
+          [ -z "${VPS_SSH_KEY}" ] && { echo "::error::GitHub Secret VPS_SSH_KEY が未設定です"; missing=1; }
+          if [ "${missing}" -eq 1 ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy via SSH
+        if: steps.secrets.outputs.ready == 'true'
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script_stop: true
+          envs: EXPECTED_COMMIT_SHORT
+          script: |
+            set -euo pipefail
+            export EXPECTED_COMMIT_SHORT="${{ github.sha }}"
+            bash /opt/tisly/scripts/deploy-vps.sh
+
+      - name: Verify health commitShort (GitHub Actions)
+        if: steps.secrets.outputs.ready == 'true'
+        env:
+          EXPECTED_SHORT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          short="${EXPECTED_SHORT:0:7}"
+          body="$(curl -sf --max-time 30 https://tisly.jp/api/health)"
+          echo "${body}" | grep -q "\"commitShort\":\"${short}\"" \
+            || { echo "${body}"; echo "::error::commitShort が ${short} と一致しません"; exit 1; }
+          echo "commitShort verified: ${short}"

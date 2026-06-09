@@ -14,6 +14,7 @@ Cursor が止まらずに開発を進めるための標準フォルダーです�
 | [UI_DESIGN_GUIDE.md](./UI_DESIGN_GUIDE.md) | 一般のお客様向け画面ルール |
 | [PHASE_LOG.md](./PHASE_LOG.md) | Phase ごとの完了ログ |
 | [HUMAN_TODO.md](./HUMAN_TODO.md) | 智紀さん専用の短い ToDo |
+| [VPS_AUTO_DEPLOY.md](./VPS_AUTO_DEPLOY.md) | GitHub push → VPS 自動デプロイの設定 |
 
 ## 方針
 
