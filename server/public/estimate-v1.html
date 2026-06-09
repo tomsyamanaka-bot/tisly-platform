@@ -37,6 +37,11 @@
     #view-detail .friendly-card { margin-bottom: 0.65rem; }
     #view-detail .section-label { margin-top: 0.65rem; }
     #view-detail .section-hint { margin-bottom: 0.35rem; }
+    .photo-mgmt-grid { display: grid; gap: 0.5rem; }
+    .completion-photo-card { border: 1px solid var(--tisly-border, #e2e8f0); border-radius: 8px; padding: 0.5rem; }
+    .completion-photo-card img { width: 100%; max-height: 120px; object-fit: cover; border-radius: 6px; }
+    .completion-photo-actions { display: flex; gap: 0.35rem; margin-top: 0.35rem; flex-wrap: wrap; }
+    .survey-photo-hint { font-size: 0.85rem; color: var(--tisly-muted, #64748b); margin: 0; }
   </style>
 </head>
 <body class="tisly-friendly">
@@ -98,12 +103,28 @@
       <label class="friendly-label">備考 <textarea id="estimate-notes" rows="3" placeholder="見積書に記載する備考"></textarea></label>
 
       <button type="button" class="btn-sub blue" id="btn-save-items">内訳を保存</button>
+
+      <p class="section-label">📷 書類用写真管理</p>
+      <div class="friendly-card photo-mgmt-grid">
+        <div>
+          <p class="section-label" style="margin:0;">仕様書用写真</p>
+          <p class="survey-photo-hint">現調画面で追加した写真を使用します（<a id="link-survey-photos" href="#">現調を開く</a>）</p>
+        </div>
+        <div>
+          <p class="section-label" style="margin:0;">完了報告書用写真</p>
+          <p class="section-hint" style="margin:0.25rem 0 0.5rem;">完了報告書PDF専用。現調写真とは別管理です。</p>
+          <input type="file" id="completion-photo-input" accept="image/*" capture="environment" multiple class="hidden" />
+          <button type="button" class="btn-sub blue" id="btn-add-completion-photo">＋ 写真を追加</button>
+          <div id="completion-photo-list" class="photo-mgmt-grid" style="margin-top:0.5rem;"></div>
+        </div>
+      </div>
+
       <button type="button" class="btn-sub blue" id="btn-duplicate-estimate">見積を複製</button>
       <button type="button" class="btn-main blue" id="btn-finalize">見積を確定（印刷用）</button>
       <button type="button" class="btn-sub blue" id="btn-invoice">請求書を作成</button>
 
       <p class="section-label">📄 書類の確認・印刷</p>
-      <p class="section-hint">見積書・請求書は金額提出用です。写真は仕様書・完了報告書で確認できます。</p>
+      <p class="section-hint">見積書・請求書は金額提出用です。仕様書は現調写真、完了報告書は専用写真を使います。</p>
       <div class="doc-action-grid friendly-card">
         <button type="button" class="btn-doc-action" id="btn-pdf-estimate">見積書を開く</button>
         <button type="button" class="btn-doc-action" id="btn-pdf-invoice">請求書を開く</button>

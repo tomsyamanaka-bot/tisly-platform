@@ -42,6 +42,7 @@ import {
   listSurveyPhotosV1,
   updateSurveyProjectV1,
 } from "../survey/survey-v1-store.js";
+import { listCompletionPhotosV1 } from "./completion-photos-store.js";
 import {
   SURVEY_MATERIAL_LABELS,
   SURVEY_TO_ESTIMATE_CATEGORY,
@@ -449,12 +450,13 @@ export function buildReportPhotosV1(businessProjectId: string): PracticalComplet
   }));
 }
 
-/** 施工後写真（将来分離。現時点は reportPhotos と同じデータ） */
+/** 完了報告書専用写真（現調写真とは別管理） */
 export function buildCompletionPhotosV1(businessProjectId: string): PracticalCompletionReportPhoto[] {
-  const project = getBusinessProject(businessProjectId);
-  if (!project) return [];
-  // Future: project.constructionPhotos when post-construction photos are captured
-  return buildReportPhotosV1(businessProjectId);
+  if (!getBusinessProject(businessProjectId)) return [];
+  return listCompletionPhotosV1(businessProjectId).map((p, i) => ({
+    url: p.url,
+    title: p.title.trim() || `写真${i + 1}`,
+  }));
 }
 
 export function buildSpecificationContextV1(businessProjectId: string): SpecificationContext | null {
@@ -469,6 +471,7 @@ export function buildSpecificationContextV1(businessProjectId: string): Specific
     siteName: survey?.siteName ?? header?.siteName ?? project.title,
     workLocation: survey?.address ?? header?.workLocation ?? project.address,
     issueDate: header?.issueDate ?? survey?.surveyDate ?? "",
+    estimateNo: header?.estimateNo ?? estimate?.estimateNo ?? "",
     staffName: survey?.assignee ?? header?.staffName ?? "",
     notes: survey?.notes ?? project.surveyMemo ?? "",
     photos: buildReportPhotosV1(businessProjectId),

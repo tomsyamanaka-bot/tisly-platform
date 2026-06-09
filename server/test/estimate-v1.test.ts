@@ -276,7 +276,7 @@ describe("見積PWA v1 API", () => {
     assert.ok(res.text.includes("写真未登録"));
     assert.ok(res.text.includes("株式会社 TOMS"));
     assert.ok(res.text.includes("仕様書現場"));
-    assert.ok(res.text.includes("担当次郎"));
+    assert.ok(res.text.includes("工事場所"));
     assert.ok(!res.text.includes("参考写真"));
   });
 
@@ -313,7 +313,7 @@ describe("見積PWA v1 API", () => {
     assert.equal(photoPages, 1, `expected 1 photo page, got ${photoPages}`);
     assert.ok(res.text.includes("写真1"));
     assert.ok(res.text.includes("写真6"));
-    assert.ok(res.text.includes("現場名"));
+    assert.ok(res.text.includes("6枚現場"));
     assert.ok(
       /<div class="sp-photo-img-wrap">[\s\S]*?<p class="sp-photo-title">/.test(res.text),
       "photo title should appear below photo image"
@@ -386,7 +386,7 @@ describe("見積PWA v1 API", () => {
     assert.ok(cr.text.includes("配線ルート要確認"));
   });
 
-  it("仕様書・完了報告書に写真タイトルが反映される", async () => {
+  it("仕様書は現調写真タイトルを反映し、完了報告書には流用しない", async () => {
     const survey = await request(app)
       .post("/api/survey/v1/projects")
       .set("Authorization", `Bearer ${token}`)
@@ -423,10 +423,56 @@ describe("見積PWA v1 API", () => {
       .get(`/api/estimate/v1/projects/${bizId}/completion-report/pdf`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(cr.status, 200);
-    assert.ok(cr.text.includes("配電盤全景"));
+    assert.ok(!cr.text.includes("配電盤全景"));
+    assert.ok(cr.text.includes("完了報告書用写真がありません"));
   });
 
-  it("完了報告書は写真なしで写真未登録とTOMS会社情報を含む", async () => {
+  it("完了報告書用写真APIで追加した写真が完了報告書PDFに出る", async () => {
+    const survey = await request(app)
+      .post("/api/survey/v1/projects")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        customerCode: "TOMS001",
+        customerName: "完了写真API",
+        siteName: "完了写真現場",
+        address: "茨城県",
+      });
+    const svyId = survey.body.projectId;
+    await request(app)
+      .post(`/api/survey/v1/projects/${svyId}/estimate-pending`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({});
+    const est = await request(app)
+      .post(`/api/estimate/v1/from-survey/${svyId}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({});
+    const bizId = est.body.businessProjectId;
+    const uploaded = await request(app)
+      .post(`/api/estimate/v1/projects/${bizId}/completion-photos`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ imageBase64: TINY_PNG, fileName: "after.jpg", title: "施工後全景" });
+    assert.equal(uploaded.status, 201);
+    await request(app)
+      .patch(`/api/estimate/v1/projects/${bizId}/completion-photos/${uploaded.body.id}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ title: "施工後全景" });
+    const list = await request(app)
+      .get(`/api/estimate/v1/projects/${bizId}/completion-photos`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(list.status, 200);
+    assert.equal(list.body.photos.length, 1);
+    const cr = await request(app)
+      .get(`/api/estimate/v1/projects/${bizId}/completion-report/pdf`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(cr.status, 200);
+    assert.ok(cr.text.includes("施工後全景"));
+    const del = await request(app)
+      .delete(`/api/estimate/v1/projects/${bizId}/completion-photos/${uploaded.body.id}`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(del.status, 204);
+  });
+
+  it("完了報告書は写真なしで専用メッセージとTOMS会社情報を含む", async () => {
     const survey = await request(app)
       .post("/api/survey/v1/projects")
       .set("Authorization", `Bearer ${token}`)
@@ -451,13 +497,13 @@ describe("見積PWA v1 API", () => {
       .set("Authorization", `Bearer ${token}`);
     assert.equal(res.status, 200);
     assert.ok(res.text.includes("完了報告書"));
-    assert.ok(res.text.includes("写真未登録"));
+    assert.ok(res.text.includes("完了報告書用写真がありません"));
     assert.ok(res.text.includes("株式会社 TOMS"));
     assert.ok(res.text.includes("未撮影現場"));
-    assert.ok(res.text.includes("担当花子"));
+    assert.ok(res.text.includes("工事場所"));
   });
 
-  it("完了報告書は写真8枚で1ページに収まる", async () => {
+  it("完了報告書は完了報告書用写真8枚で1ページに収まる", async () => {
     const survey = await request(app)
       .post("/api/survey/v1/projects")
       .set("Authorization", `Bearer ${token}`)
@@ -468,12 +514,6 @@ describe("見積PWA v1 API", () => {
         address: "大阪府",
       });
     const svyId = survey.body.projectId;
-    for (let i = 0; i < 8; i++) {
-      await request(app)
-        .post(`/api/survey/v1/projects/${svyId}/photos`)
-        .set("Authorization", `Bearer ${token}`)
-        .send({ imageBase64: TINY_PNG, fileName: `p${i}.jpg` });
-    }
     await request(app)
       .post(`/api/survey/v1/projects/${svyId}/estimate-pending`)
       .set("Authorization", `Bearer ${token}`)
@@ -482,15 +522,22 @@ describe("見積PWA v1 API", () => {
       .post(`/api/estimate/v1/from-survey/${svyId}`)
       .set("Authorization", `Bearer ${token}`)
       .send({});
+    const bizId = est.body.businessProjectId;
+    for (let i = 0; i < 8; i++) {
+      await request(app)
+        .post(`/api/estimate/v1/projects/${bizId}/completion-photos`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({ imageBase64: TINY_PNG, fileName: `p${i}.jpg` });
+    }
     const res = await request(app)
-      .get(`/api/estimate/v1/projects/${est.body.businessProjectId}/completion-report/pdf`)
+      .get(`/api/estimate/v1/projects/${bizId}/completion-report/pdf`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(res.status, 200);
     const photoPages = countPracticalPdfPages(res.text, "cr");
     assert.equal(photoPages, 1, `expected 1 photo page, got ${photoPages}`);
   });
 
-  it("完了報告書は写真12枚で2ページ以上になる", async () => {
+  it("完了報告書は完了報告書用写真12枚で2ページ以上になる", async () => {
     const survey = await request(app)
       .post("/api/survey/v1/projects")
       .set("Authorization", `Bearer ${token}`)
@@ -517,16 +564,6 @@ describe("見積PWA v1 API", () => {
       "会議室",
       "廊下",
     ];
-    for (let i = 0; i < 12; i++) {
-      const photo = await request(app)
-        .post(`/api/survey/v1/projects/${svyId}/photos`)
-        .set("Authorization", `Bearer ${token}`)
-        .send({ imageBase64: TINY_PNG, fileName: `cr-${i}.jpg` });
-      await request(app)
-        .patch(`/api/survey/v1/projects/${svyId}/photos/${photo.body.id}`)
-        .set("Authorization", `Bearer ${token}`)
-        .send({ title: titles[i] });
-    }
     await request(app)
       .post(`/api/survey/v1/projects/${svyId}/estimate-pending`)
       .set("Authorization", `Bearer ${token}`)
@@ -535,8 +572,19 @@ describe("見積PWA v1 API", () => {
       .post(`/api/estimate/v1/from-survey/${svyId}`)
       .set("Authorization", `Bearer ${token}`)
       .send({});
+    const bizId = est.body.businessProjectId;
+    for (let i = 0; i < 12; i++) {
+      const photo = await request(app)
+        .post(`/api/estimate/v1/projects/${bizId}/completion-photos`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({ imageBase64: TINY_PNG, fileName: `cr-${i}.jpg` });
+      await request(app)
+        .patch(`/api/estimate/v1/projects/${bizId}/completion-photos/${photo.body.id}`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({ title: titles[i] });
+    }
     const res = await request(app)
-      .get(`/api/estimate/v1/projects/${est.body.businessProjectId}/completion-report/pdf`)
+      .get(`/api/estimate/v1/projects/${bizId}/completion-report/pdf`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(res.status, 200);
     assert.ok(res.text.includes("完了報告書"));
@@ -546,7 +594,7 @@ describe("見積PWA v1 API", () => {
     assert.ok(photoPages >= 2, `expected >=2 photo pages, got ${photoPages}`);
   });
 
-  it("仕様書・完了報告書は写真の並び替えと削除を反映する", async () => {
+  it("仕様書は現調写真の並び替えと削除を反映する", async () => {
     const survey = await request(app)
       .post("/api/survey/v1/projects")
       .set("Authorization", `Bearer ${token}`)
@@ -596,15 +644,10 @@ describe("見積PWA v1 API", () => {
     assert.ok(spec.text.includes("中間"));
     assert.ok(spec.text.includes("末尾"));
     assert.ok(!spec.text.includes("先頭"));
-    assert.ok(cr.text.includes("中間"));
-    assert.ok(cr.text.includes("末尾"));
-    assert.ok(!cr.text.includes("先頭"));
+    assert.ok(cr.text.includes("完了報告書用写真がありません"));
     const midPos = spec.text.indexOf("中間");
     const endPos = spec.text.indexOf("末尾");
     assert.ok(midPos >= 0 && endPos > midPos, "spec photo order should be 中間 then 末尾");
-    const crMidPos = cr.text.indexOf("中間");
-    const crEndPos = cr.text.indexOf("末尾");
-    assert.ok(crMidPos >= 0 && crEndPos > crMidPos, "completion report photo order should be 中間 then 末尾");
   });
 });
 

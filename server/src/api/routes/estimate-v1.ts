@@ -18,6 +18,12 @@ import {
   updateEstimateHeaderV1,
   updateEstimateItemsV1,
 } from "../../estimate/estimate-v1-store.js";
+import {
+  addCompletionPhotoV1,
+  deleteCompletionPhotoV1,
+  listCompletionPhotosV1,
+  updateCompletionPhotoV1,
+} from "../../estimate/completion-photos-store.js";
 import { businessUploadsDir } from "../../business/business-store.js";
 import {
   getEstimatePdfOrPlaceholder,
@@ -221,6 +227,67 @@ estimateV1Router.get(
     const p = path.join(tmp, "specification-live.html");
     fs.writeFileSync(p, html, "utf8");
     res.type("text/html; charset=utf-8").sendFile(p);
+  }
+);
+
+estimateV1Router.get("/projects/:id/completion-photos", ...estimateV1Auth, (req: AuthedRequest, res) => {
+  if (!assertEstimateV1Role(req, res)) return;
+  const project = getBusinessProject(String(req.params.id));
+  if (!project) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  res.json({ photos: listCompletionPhotosV1(project.id) });
+});
+
+estimateV1Router.post("/projects/:id/completion-photos", ...estimateV1Auth, (req: AuthedRequest, res) => {
+  if (!assertEstimateV1Role(req, res)) return;
+  const projectId = String(req.params.id);
+  const body = req.body as { imageBase64?: string; fileName?: string; title?: string };
+  if (!body.imageBase64) {
+    res.status(400).json({ error: "imageBase64 required" });
+    return;
+  }
+  try {
+    const photo = addCompletionPhotoV1(projectId, {
+      imageBase64: body.imageBase64,
+      fileName: body.fileName,
+      title: body.title,
+      uploadedBy: req.admin?.username,
+    });
+    res.status(201).json(photo);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "upload failed";
+    res.status(msg === "project not found" ? 404 : 400).json({ error: msg });
+  }
+});
+
+estimateV1Router.patch(
+  "/projects/:id/completion-photos/:photoId",
+  ...estimateV1Auth,
+  (req: AuthedRequest, res) => {
+    if (!assertEstimateV1Role(req, res)) return;
+    const body = req.body as { title?: string; imageBase64?: string; fileName?: string };
+    const updated = updateCompletionPhotoV1(String(req.params.id), String(req.params.photoId), body);
+    if (!updated) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    res.json(updated);
+  }
+);
+
+estimateV1Router.delete(
+  "/projects/:id/completion-photos/:photoId",
+  ...estimateV1Auth,
+  (req: AuthedRequest, res) => {
+    if (!assertEstimateV1Role(req, res)) return;
+    const ok = deleteCompletionPhotoV1(String(req.params.id), String(req.params.photoId));
+    if (!ok) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    res.status(204).send();
   }
 );
 

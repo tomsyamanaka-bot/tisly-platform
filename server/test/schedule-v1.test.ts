@@ -10,7 +10,7 @@ process.env.RATE_LIMIT_PROVIDER = "memory";
 
 const { default: request } = await import("supertest");
 const { createApp } = await import("../src/app.js");
-const { closeDatabase } = await import("../src/db/database.js");
+const { closeDatabase, getDatabase } = await import("../src/db/database.js");
 const { calcAvailability } = await import("../src/schedule/schedule-store.js");
 
 const app = createApp();
@@ -158,6 +158,55 @@ describe("日程調整 PWA v1 API", () => {
       .get(`/api/schedule/v1/day?date=${date}`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(detail.body.memo, "午後は事務所で打合せ");
+  });
+
+  it("Googleカレンダー予定のdescriptionが日詳細に含まれる", async () => {
+    const week = await request(app)
+      .get("/api/schedule/v1/week?offset=0")
+      .set("Authorization", `Bearer ${token}`);
+    const date = week.body.days[3].date;
+    const eventId = "test-gcal-desc-1";
+    getDatabase()
+      .prepare(
+        `INSERT INTO schedule_calendar_events
+         (id, external_id, event_date, title, category, source, start_time, end_time, all_day, location, description, synced_at)
+         VALUES (?, ?, ?, ?, 'construction', 'google', '08:30', '12:00', 0, '守谷市', '既設カメラ撤去、LAN引き直し', datetime('now'))`
+      )
+      .run(eventId, "ext-1", date, "防犯カメラ設置");
+    const detail = await request(app)
+      .get(`/api/schedule/v1/day?date=${date}`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(detail.status, 200);
+    const ev = detail.body.day.events.find((e: { id: string }) => e.id === eventId);
+    assert.ok(ev);
+    assert.equal(ev.description, "既設カメラ撤去、LAN引き直し");
+    assert.equal(ev.location, "守谷市");
+  });
+
+  it("現場不可の詳細メモを保存できる", async () => {
+    const week = await request(app)
+      .get("/api/schedule/v1/week?offset=0")
+      .set("Authorization", `Bearer ${token}`);
+    const date = week.body.days[4].date;
+    const created = await request(app)
+      .post("/api/schedule/v1/unavailable")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ date, reason: "材料待ち", detailMemo: "午前だけ対応可" });
+    assert.equal(created.status, 201);
+    assert.equal(created.body.detailMemo, "午前だけ対応可");
+    const patched = await request(app)
+      .patch(`/api/schedule/v1/unavailable/${created.body.id}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ detailMemo: "外作業NG・材料待ち" });
+    assert.equal(patched.status, 200);
+    assert.equal(patched.body.detailMemo, "外作業NG・材料待ち");
+    const detail = await request(app)
+      .get(`/api/schedule/v1/day?date=${date}`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(detail.body.day.unavailable.detailMemo, "外作業NG・材料待ち");
+    await request(app)
+      .delete(`/api/schedule/v1/unavailable/${created.body.id}`)
+      .set("Authorization", `Bearer ${token}`);
   });
 
   it("現場不可日を登録・更新・削除できる", async () => {

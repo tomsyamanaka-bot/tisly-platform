@@ -25,6 +25,7 @@ export interface UnavailableDay {
   id: string;
   date: string;
   reason: string;
+  detailMemo: string;
   createdAt: string;
   updatedAt: string;
 }

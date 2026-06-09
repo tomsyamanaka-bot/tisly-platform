@@ -140,9 +140,13 @@ scheduleRouter.get("/weather", ...scheduleAuth, async (req: AuthedRequest, res) 
 
 scheduleRouter.post("/unavailable", ...scheduleAuth, (req: AuthedRequest, res) => {
   if (!assertScheduleRole(req, res)) return;
-  const body = req.body as { date?: string; reason?: string };
+  const body = req.body as { date?: string; reason?: string; detailMemo?: string };
   try {
-    const day = createUnavailableDay({ date: body.date ?? "", reason: body.reason ?? "" });
+    const day = createUnavailableDay({
+      date: body.date ?? "",
+      reason: body.reason ?? "",
+      detailMemo: body.detailMemo,
+    });
     res.status(201).json(day);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "create failed";
@@ -152,7 +156,7 @@ scheduleRouter.post("/unavailable", ...scheduleAuth, (req: AuthedRequest, res) =
 
 scheduleRouter.patch("/unavailable/:id", ...scheduleAuth, (req: AuthedRequest, res) => {
   if (!assertScheduleRole(req, res)) return;
-  const body = req.body as { reason?: string };
+  const body = req.body as { reason?: string; detailMemo?: string };
   const updated = updateUnavailableDay(String(req.params.id), body);
   if (!updated) {
     res.status(404).json({ error: "Not found" });

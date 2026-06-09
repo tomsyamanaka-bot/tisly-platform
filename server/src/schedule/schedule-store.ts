@@ -67,6 +67,7 @@ function rowToUnavailable(r: Record<string, unknown>): UnavailableDay {
     id: String(r.id),
     date: String(r.unavailable_date),
     reason: String(r.reason ?? ""),
+    detailMemo: String(r.detail_memo ?? ""),
     createdAt: String(r.created_at),
     updatedAt: String(r.updated_at),
   };
@@ -75,7 +76,7 @@ function rowToUnavailable(r: Record<string, unknown>): UnavailableDay {
 export function listUnavailableDays(startDate: string, endDate: string): UnavailableDay[] {
   const rows = getDatabase()
     .prepare(
-      `SELECT id, unavailable_date, reason, created_at, updated_at
+      `SELECT id, unavailable_date, reason, detail_memo, created_at, updated_at
        FROM schedule_unavailable_days
        WHERE unavailable_date >= ? AND unavailable_date <= ?
        ORDER BY unavailable_date ASC`
@@ -315,9 +316,14 @@ export async function getScheduleSummary(range: string, offsetRaw?: unknown): Pr
   return week.summary;
 }
 
-export function createUnavailableDay(input: { date: string; reason: string }): UnavailableDay {
+export function createUnavailableDay(input: {
+  date: string;
+  reason: string;
+  detailMemo?: string;
+}): UnavailableDay {
   const date = input.date?.trim();
   const reason = input.reason?.trim();
+  const detailMemo = input.detailMemo?.trim() ?? "";
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("valid date required (YYYY-MM-DD)");
   if (!reason) throw new Error("reason required");
   const existing = getDatabase()
@@ -328,29 +334,37 @@ export function createUnavailableDay(input: { date: string; reason: string }): U
   const now = new Date().toISOString();
   getDatabase()
     .prepare(
-      `INSERT INTO schedule_unavailable_days (id, unavailable_date, reason, created_at, updated_at)
-       VALUES (?, ?, ?, datetime('now'), datetime('now'))`
+      `INSERT INTO schedule_unavailable_days (id, unavailable_date, reason, detail_memo, created_at, updated_at)
+       VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))`
     )
-    .run(id, date, reason);
+    .run(id, date, reason, detailMemo);
   return rowToUnavailable({
     id,
     unavailable_date: date,
     reason,
+    detail_memo: detailMemo,
     created_at: now,
     updated_at: now,
   });
 }
 
-export function updateUnavailableDay(id: string, patch: { reason?: string }): UnavailableDay | null {
+export function updateUnavailableDay(
+  id: string,
+  patch: { reason?: string; detailMemo?: string }
+): UnavailableDay | null {
   const row = getDatabase()
     .prepare(`SELECT * FROM schedule_unavailable_days WHERE id = ?`)
     .get(id) as Record<string, unknown> | undefined;
   if (!row) return null;
-  const reason = patch.reason?.trim() ?? String(row.reason);
+  const reason = patch.reason !== undefined ? patch.reason.trim() : String(row.reason);
+  const detailMemo =
+    patch.detailMemo !== undefined ? patch.detailMemo.trim() : String(row.detail_memo ?? "");
   getDatabase()
-    .prepare(`UPDATE schedule_unavailable_days SET reason = ?, updated_at = datetime('now') WHERE id = ?`)
-    .run(reason, id);
-  return rowToUnavailable({ ...row, reason });
+    .prepare(
+      `UPDATE schedule_unavailable_days SET reason = ?, detail_memo = ?, updated_at = datetime('now') WHERE id = ?`
+    )
+    .run(reason, detailMemo, id);
+  return rowToUnavailable({ ...row, reason, detail_memo: detailMemo });
 }
 
 export function deleteUnavailableDay(id: string): boolean {

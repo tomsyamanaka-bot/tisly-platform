@@ -191,6 +191,29 @@ export function runMigrations(database: Database.Database): void {
   migrateSchedulePlannerV1(database);
   migratePracticalSearchIndex(database);
   migratePracticalPwaV2(database);
+  migrateCompletionPhotosV1(database);
+}
+
+/** 見積PWA — 完了報告書用写真・現場不可詳細メモ */
+function migrateCompletionPhotosV1(database: Database.Database): void {
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS completion_photos (
+      id TEXT PRIMARY KEY,
+      business_project_id TEXT NOT NULL,
+      photo_path TEXT NOT NULL,
+      title TEXT,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      uploaded_by TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_completion_photos_project ON completion_photos(business_project_id);
+  `);
+  addColumnsIfMissing(database, "schedule_unavailable_days", [
+    {
+      name: "detail_memo",
+      ddl: "ALTER TABLE schedule_unavailable_days ADD COLUMN detail_memo TEXT NOT NULL DEFAULT ''",
+    },
+  ]);
 }
 
 const BUSINESS_ESTIMATE_COLUMNS: Array<{ name: string; ddl: string }> = [

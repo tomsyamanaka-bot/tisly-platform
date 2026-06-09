@@ -15,6 +15,9 @@ let currentProjectId = null;
 let currentLines = [];
 let lastTomsData = null;
 let hasInvoice = false;
+let completionPhotos = [];
+const completionTitleTimers = new Map();
+const completionTitleLastSaved = new Map();
 
 const $ = (id) => document.getElementById(id);
 
@@ -423,12 +426,137 @@ function renderCustomerInfo(p) {
   $("detail-customer-info").innerHTML = parts.map((x) => escapeHtml(x)).join(" · ");
 }
 
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = String(reader.result || "");
+      const base64 = dataUrl.includes(",") ? dataUrl.split(",")[1] : dataUrl;
+      resolve(base64);
+    };
+    reader.onerror = () => reject(reader.error || new Error("read failed"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function renderCompletionPhotos() {
+  const el = $("completion-photo-list");
+  if (!el) return;
+  if (!completionPhotos.length) {
+    el.innerHTML = '<p class="survey-photo-hint">まだ写真がありません</p>';
+    return;
+  }
+  el.innerHTML = completionPhotos
+    .map(
+      (ph) => `
+    <div class="completion-photo-card" data-photo-id="${ph.id}">
+      <img src="${escapeHtml(ph.url)}" alt="" loading="lazy" />
+      <label class="friendly-label" style="margin:0.35rem 0 0;">タイトル
+        <input type="text" class="completion-title-input" data-photo-id="${ph.id}" value="${escapeHtml(ph.title || "")}" maxlength="120" />
+      </label>
+      <div class="completion-photo-actions">
+        <button type="button" class="btn-sub btn-small btn-del-completion-photo" data-photo-id="${ph.id}">削除</button>
+      </div>
+    </div>`
+    )
+    .join("");
+  el.querySelectorAll(".completion-title-input").forEach((inp) => {
+    const photoId = inp.dataset.photoId;
+    inp.addEventListener("input", () => {
+      if (completionTitleTimers.has(photoId)) clearTimeout(completionTitleTimers.get(photoId));
+      completionTitleTimers.set(
+        photoId,
+        setTimeout(async () => {
+          completionTitleTimers.delete(photoId);
+          const title = inp.value;
+          if (completionTitleLastSaved.get(photoId) === title) return;
+          try {
+            await api(`/projects/${currentProjectId}/completion-photos/${photoId}`, {
+              method: "PATCH",
+              body: JSON.stringify({ title }),
+            });
+            completionTitleLastSaved.set(photoId, title);
+            const ph = completionPhotos.find((p) => p.id === photoId);
+            if (ph) ph.title = title;
+          } catch (e) {
+            toastError(e, e.status);
+          }
+        }, 600)
+      );
+    });
+    inp.addEventListener("blur", async () => {
+      const photoIdBlur = inp.dataset.photoId;
+      if (completionTitleTimers.has(photoIdBlur)) {
+        clearTimeout(completionTitleTimers.get(photoIdBlur));
+        completionTitleTimers.delete(photoIdBlur);
+      }
+      const title = inp.value;
+      if (completionTitleLastSaved.get(photoIdBlur) === title) return;
+      try {
+        await api(`/projects/${currentProjectId}/completion-photos/${photoIdBlur}`, {
+          method: "PATCH",
+          body: JSON.stringify({ title }),
+        });
+        completionTitleLastSaved.set(photoIdBlur, title);
+        const ph = completionPhotos.find((p) => p.id === photoIdBlur);
+        if (ph) ph.title = title;
+      } catch (e) {
+        toastError(e, e.status);
+      }
+    });
+  });
+  el.querySelectorAll(".btn-del-completion-photo").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const photoId = btn.dataset.photoId;
+      if (!confirm("この写真を削除しますか？")) return;
+      try {
+        await api(`/projects/${currentProjectId}/completion-photos/${photoId}`, { method: "DELETE" });
+        completionPhotos = completionPhotos.filter((p) => p.id !== photoId);
+        completionTitleLastSaved.delete(photoId);
+        renderCompletionPhotos();
+        hidePdfPreview();
+        toast("写真を削除しました");
+      } catch (e) {
+        toastError(e, e.status);
+      }
+    });
+  });
+}
+
+async function loadCompletionPhotos() {
+  if (!currentProjectId) return;
+  const data = await api(`/projects/${currentProjectId}/completion-photos`);
+  completionPhotos = data.photos || [];
+  for (const ph of completionPhotos) {
+    completionTitleLastSaved.set(ph.id, ph.title || "");
+  }
+  renderCompletionPhotos();
+}
+
+async function uploadCompletionPhotos(files) {
+  if (!currentProjectId || !files?.length) return;
+  toast("写真をアップロード中…");
+  for (const file of files) {
+    const imageBase64 = await readFileAsBase64(file);
+    const photo = await api(`/projects/${currentProjectId}/completion-photos`, {
+      method: "POST",
+      body: JSON.stringify({ imageBase64, fileName: file.name, title: "" }),
+    });
+    completionPhotos.push(photo);
+    completionTitleLastSaved.set(photo.id, photo.title || "");
+  }
+  renderCompletionPhotos();
+  hidePdfPreview();
+  toast("写真を追加しました");
+}
+
 async function openDetail(projectId) {
   currentProjectId = projectId;
   showView("detail");
   $("toms-section").classList.add("hidden");
   lastTomsData = null;
   hidePdfPreview();
+  completionPhotos = [];
   try {
     const p = await api(`/projects/${projectId}`);
     $("detail-name").textContent = p.customerName || p.title;
@@ -454,6 +582,13 @@ async function openDetail(projectId) {
     fillHeaderForm(p.header);
     renderLines(p.estimate?.items || []);
     updateTotalsFromEstimate(p.estimate);
+    const surveyLink = $("link-survey-photos");
+    if (surveyLink) {
+      surveyLink.href = p.surveyProjectId
+        ? `/survey-v1?project=${encodeURIComponent(p.surveyProjectId)}`
+        : "/survey-v1";
+    }
+    await loadCompletionPhotos();
   } catch (e) {
     toastError(e, e.status);
     showView("list");
@@ -558,6 +693,18 @@ async function init() {
       hidePdfPreview();
       $("detail-status").textContent = "下書き";
       $("detail-status").className = "status-badge orange";
+    } catch (e) {
+      toastError(e, e.status);
+    }
+  });
+
+  $("btn-add-completion-photo")?.addEventListener("click", () => $("completion-photo-input")?.click());
+  $("completion-photo-input")?.addEventListener("change", async (ev) => {
+    const files = [...(ev.target.files || [])];
+    ev.target.value = "";
+    if (!files.length) return;
+    try {
+      await uploadCompletionPhotos(files);
     } catch (e) {
       toastError(e, e.status);
     }
