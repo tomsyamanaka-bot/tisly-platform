@@ -594,6 +594,56 @@ describe("見積PWA v1 API", () => {
     assert.ok(photoPages >= 2, `expected >=2 photo pages, got ${photoPages}`);
   });
 
+  it("完了報告書用写真の並び替えが完了報告書PDFに反映される", async () => {
+    const survey = await request(app)
+      .post("/api/survey/v1/projects")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        customerCode: "TOMS001",
+        customerName: "完了写真順序",
+        siteName: "完了写真順序現場",
+        address: "埼玉県",
+      });
+    await request(app)
+      .post(`/api/survey/v1/projects/${survey.body.projectId}/estimate-pending`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({});
+    const est = await request(app)
+      .post(`/api/estimate/v1/from-survey/${survey.body.projectId}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({});
+    const bizId = est.body.businessProjectId;
+    const photoIds: string[] = [];
+    for (const title of ["先頭", "中間", "末尾"]) {
+      const photo = await request(app)
+        .post(`/api/estimate/v1/projects/${bizId}/completion-photos`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({ imageBase64: TINY_PNG, fileName: `${title}.jpg` });
+      photoIds.push(photo.body.id);
+      await request(app)
+        .patch(`/api/estimate/v1/projects/${bizId}/completion-photos/${photo.body.id}`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({ title });
+    }
+    await request(app)
+      .post(`/api/estimate/v1/projects/${bizId}/completion-photos/${photoIds[1]}/move`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ direction: "up" });
+    await request(app)
+      .delete(`/api/estimate/v1/projects/${bizId}/completion-photos/${photoIds[0]}`)
+      .set("Authorization", `Bearer ${token}`);
+    const cr = await request(app)
+      .get(`/api/estimate/v1/projects/${bizId}/completion-report/pdf`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(cr.status, 200);
+    assert.ok(cr.text.includes("中間"));
+    assert.ok(cr.text.includes("末尾"));
+    assert.ok(!cr.text.includes("先頭"));
+    const midPos = cr.text.indexOf("中間");
+    const endPos = cr.text.indexOf("末尾");
+    assert.ok(midPos >= 0 && endPos > midPos, "completion photo order should be 中間 then 末尾");
+  });
+
   it("仕様書は現調写真の並び替えと削除を反映する", async () => {
     const survey = await request(app)
       .post("/api/survey/v1/projects")

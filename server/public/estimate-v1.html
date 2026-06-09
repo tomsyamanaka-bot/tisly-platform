@@ -41,6 +41,7 @@
     .completion-photo-card { border: 1px solid var(--tisly-border, #e2e8f0); border-radius: 8px; padding: 0.5rem; }
     .completion-photo-card img { width: 100%; max-height: 120px; object-fit: cover; border-radius: 6px; }
     .completion-photo-actions { display: flex; gap: 0.35rem; margin-top: 0.35rem; flex-wrap: wrap; }
+    .completion-reorder-btn:disabled { opacity: 0.35; cursor: not-allowed; }
     .survey-photo-hint { font-size: 0.85rem; color: var(--tisly-muted, #64748b); margin: 0; }
   </style>
 </head>
@@ -113,8 +114,12 @@
         <div>
           <p class="section-label" style="margin:0;">完了報告書用写真</p>
           <p class="section-hint" style="margin:0.25rem 0 0.5rem;">完了報告書PDF専用。現調写真とは別管理です。</p>
-          <input type="file" id="completion-photo-input" accept="image/*" capture="environment" multiple class="hidden" />
-          <button type="button" class="btn-sub blue" id="btn-add-completion-photo">＋ 写真を追加</button>
+          <input type="file" id="completion-photo-input-camera" accept="image/jpeg,image/png,image/heic,image/heif,image/*" capture="environment" style="display:none" />
+          <input type="file" id="completion-photo-input-library" accept="image/*" multiple style="display:none" />
+          <div class="photo-action-row">
+            <button type="button" class="btn-sub" id="btn-completion-camera">📷 カメラで撮る</button>
+            <button type="button" class="btn-sub" id="btn-completion-library">🖼 写真を選ぶ</button>
+          </div>
           <div id="completion-photo-list" class="photo-mgmt-grid" style="margin-top:0.5rem;"></div>
         </div>
       </div>

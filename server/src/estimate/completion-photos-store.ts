@@ -123,6 +123,34 @@ export function updateCompletionPhotoV1(
   return rowToCompletionPhoto(updated);
 }
 
+export function moveCompletionPhotoV1(
+  businessProjectId: string,
+  photoId: string,
+  direction: "up" | "down"
+): CompletionPhotoV1[] | null {
+  if (!getBusinessProject(businessProjectId)) return null;
+  const photos = listCompletionPhotosV1(businessProjectId);
+  const idx = photos.findIndex((p) => p.id === photoId);
+  if (idx < 0) return null;
+  const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+  if (swapIdx < 0 || swapIdx >= photos.length) return photos;
+
+  const current = photos[idx]!;
+  const neighbor = photos[swapIdx]!;
+  const db = getDatabase();
+  db.prepare(`UPDATE completion_photos SET sort_order = ? WHERE id = ? AND business_project_id = ?`).run(
+    neighbor.sortOrder,
+    current.id,
+    businessProjectId
+  );
+  db.prepare(`UPDATE completion_photos SET sort_order = ? WHERE id = ? AND business_project_id = ?`).run(
+    current.sortOrder,
+    neighbor.id,
+    businessProjectId
+  );
+  return listCompletionPhotosV1(businessProjectId);
+}
+
 export function deleteCompletionPhotoV1(businessProjectId: string, photoId: string): boolean {
   const row = getDatabase()
     .prepare(`SELECT photo_path FROM completion_photos WHERE id = ? AND business_project_id = ?`)

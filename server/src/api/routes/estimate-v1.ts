@@ -22,6 +22,7 @@ import {
   addCompletionPhotoV1,
   deleteCompletionPhotoV1,
   listCompletionPhotosV1,
+  moveCompletionPhotoV1,
   updateCompletionPhotoV1,
 } from "../../estimate/completion-photos-store.js";
 import { businessUploadsDir } from "../../business/business-store.js";
@@ -261,6 +262,29 @@ estimateV1Router.post("/projects/:id/completion-photos", ...estimateV1Auth, (req
     res.status(msg === "project not found" ? 404 : 400).json({ error: msg });
   }
 });
+
+estimateV1Router.post(
+  "/projects/:id/completion-photos/:photoId/move",
+  ...estimateV1Auth,
+  (req: AuthedRequest, res) => {
+    if (!assertEstimateV1Role(req, res)) return;
+    const body = req.body as { direction?: string };
+    if (body.direction !== "up" && body.direction !== "down") {
+      res.status(400).json({ error: "direction must be up or down" });
+      return;
+    }
+    const photos = moveCompletionPhotoV1(
+      String(req.params.id),
+      String(req.params.photoId),
+      body.direction
+    );
+    if (!photos) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    res.json({ photos });
+  }
+);
 
 estimateV1Router.patch(
   "/projects/:id/completion-photos/:photoId",

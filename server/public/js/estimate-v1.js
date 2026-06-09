@@ -18,6 +18,9 @@ let hasInvoice = false;
 let completionPhotos = [];
 const completionTitleTimers = new Map();
 const completionTitleLastSaved = new Map();
+const MAX_COMPLETION_PHOTOS = 30;
+const IMAGE_EXT_RE = /\.(jpe?g|png|gif|webp|heic|heif)$/i;
+const COMPLETION_PHOTO_FAIL_MSG = "写真の形式か容量で失敗しました。別の写真で試してください";
 
 const $ = (id) => document.getElementById(id);
 
@@ -426,17 +429,97 @@ function renderCustomerInfo(p) {
   $("detail-customer-info").innerHTML = parts.map((x) => escapeHtml(x)).join(" · ");
 }
 
-function readFileAsBase64(file) {
+function isLikelyImageFile(file) {
+  const type = String(file?.type || "").toLowerCase();
+  const name = String(file?.name || "");
+  if (type.startsWith("image/")) return true;
+  if ((type === "" || type === "application/octet-stream") && IMAGE_EXT_RE.test(name)) return true;
+  return false;
+}
+
+function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = String(reader.result || "");
-      const base64 = dataUrl.includes(",") ? dataUrl.split(",")[1] : dataUrl;
-      resolve(base64);
-    };
-    reader.onerror = () => reject(reader.error || new Error("read failed"));
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error || new Error("FileReader failed"));
     reader.readAsDataURL(file);
   });
+}
+
+function readFileAsBase64(file) {
+  return readFileAsDataUrl(file).then((dataUrl) => {
+    const b64 = String(dataUrl).split(",")[1];
+    if (!b64) throw new Error("base64 empty");
+    return b64;
+  });
+}
+
+function loadImageFromDataUrl(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const el = new Image();
+    el.onload = () => resolve(el);
+    el.onerror = () => reject(new Error("image decode failed"));
+    el.src = dataUrl;
+  });
+}
+
+function isHeicLike(file) {
+  const type = String(file?.type || "").toLowerCase();
+  const name = String(file?.name || "").toLowerCase();
+  return type.includes("heic") || type.includes("heif") || /\.heic$|\.heif$/.test(name);
+}
+
+async function decodeImageSource(file) {
+  if (typeof createImageBitmap === "function") {
+    try {
+      const bitmap = await createImageBitmap(file);
+      return { source: bitmap, width: bitmap.width, height: bitmap.height, cleanup: () => bitmap.close?.() };
+    } catch (err) {
+      console.warn("[estimate-v1] createImageBitmap failed", err, file.name);
+    }
+  }
+  const dataUrl = String(await readFileAsDataUrl(file));
+  const img = await loadImageFromDataUrl(dataUrl);
+  return { source: img, width: img.width, height: img.height, cleanup: () => {} };
+}
+
+function canvasToJpegBase64(canvas, quality = 0.82) {
+  const out = canvas.toDataURL("image/jpeg", quality);
+  const b64 = out.split(",")[1];
+  if (!b64 || b64.length < 16) throw new Error("compression failed");
+  return b64;
+}
+
+async function compressImage(file, maxWidth = 1600, quality = 0.82) {
+  const decoded = await decodeImageSource(file);
+  try {
+    let width = decoded.width;
+    let height = decoded.height;
+    if (!width || !height) throw new Error("invalid image dimensions");
+    if (width > maxWidth) {
+      height = Math.round((height * maxWidth) / width);
+      width = maxWidth;
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("canvas unavailable");
+    ctx.drawImage(decoded.source, 0, 0, width, height);
+    return canvasToJpegBase64(canvas, quality);
+  } finally {
+    decoded.cleanup();
+  }
+}
+
+async function fileToUploadBase64(file) {
+  try {
+    return await compressImage(file);
+  } catch (compressErr) {
+    console.warn("[estimate-v1] compress failed", compressErr, file.name);
+    if (isHeicLike(file)) throw Object.assign(new Error("heic decode failed"), { status: 400, heic: true });
+    return readFileAsBase64(file);
+  }
 }
 
 function renderCompletionPhotos() {
@@ -447,18 +530,22 @@ function renderCompletionPhotos() {
     return;
   }
   el.innerHTML = completionPhotos
-    .map(
-      (ph) => `
+    .map((ph, idx) => {
+      const canUp = idx > 0;
+      const canDown = idx < completionPhotos.length - 1;
+      return `
     <div class="completion-photo-card" data-photo-id="${ph.id}">
-      <img src="${escapeHtml(ph.url)}" alt="" loading="lazy" />
+      <img src="${escapeHtml(ph.url)}" alt="" loading="lazy" decoding="async" />
       <label class="friendly-label" style="margin:0.35rem 0 0;">タイトル
-        <input type="text" class="completion-title-input" data-photo-id="${ph.id}" value="${escapeHtml(ph.title || "")}" maxlength="120" />
+        <input type="text" class="completion-title-input" data-photo-id="${ph.id}" value="${escapeHtml(ph.title || "")}" maxlength="120" inputmode="text" enterkeyhint="done" autocomplete="off" />
       </label>
       <div class="completion-photo-actions">
+        <button type="button" class="btn-sub btn-small completion-reorder-btn" data-photo-id="${ph.id}" data-direction="up" ${canUp ? "" : "disabled"}>↑ 上へ</button>
+        <button type="button" class="btn-sub btn-small completion-reorder-btn" data-photo-id="${ph.id}" data-direction="down" ${canDown ? "" : "disabled"}>↓ 下へ</button>
         <button type="button" class="btn-sub btn-small btn-del-completion-photo" data-photo-id="${ph.id}">削除</button>
       </div>
-    </div>`
-    )
+    </div>`;
+    })
     .join("");
   el.querySelectorAll(".completion-title-input").forEach((inp) => {
     const photoId = inp.dataset.photoId;
@@ -505,6 +592,12 @@ function renderCompletionPhotos() {
       }
     });
   });
+  el.querySelectorAll(".completion-reorder-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (btn.disabled) return;
+      await moveCompletionPhoto(btn.dataset.photoId, btn.dataset.direction);
+    });
+  });
   el.querySelectorAll(".btn-del-completion-photo").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const photoId = btn.dataset.photoId;
@@ -523,6 +616,37 @@ function renderCompletionPhotos() {
   });
 }
 
+async function moveCompletionPhoto(photoId, direction) {
+  if (!currentProjectId || !photoId) return;
+  const idx = completionPhotos.findIndex((p) => p.id === photoId);
+  if (idx < 0) return;
+  const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+  if (swapIdx < 0 || swapIdx >= completionPhotos.length) return;
+
+  const next = completionPhotos.slice();
+  [next[idx], next[swapIdx]] = [next[swapIdx], next[idx]];
+  completionPhotos = next;
+  renderCompletionPhotos();
+
+  try {
+    const result = await api(`/projects/${currentProjectId}/completion-photos/${photoId}/move`, {
+      method: "POST",
+      body: JSON.stringify({ direction }),
+    });
+    if (Array.isArray(result.photos)) {
+      completionPhotos = result.photos;
+      for (const ph of completionPhotos) {
+        completionTitleLastSaved.set(ph.id, ph.title || "");
+      }
+      renderCompletionPhotos();
+      hidePdfPreview();
+    }
+  } catch (e) {
+    await loadCompletionPhotos();
+    toastError(e, e.status);
+  }
+}
+
 async function loadCompletionPhotos() {
   if (!currentProjectId) return;
   const data = await api(`/projects/${currentProjectId}/completion-photos`);
@@ -535,19 +659,46 @@ async function loadCompletionPhotos() {
 
 async function uploadCompletionPhotos(files) {
   if (!currentProjectId || !files?.length) return;
+  const imageFiles = [...files].filter(isLikelyImageFile);
+  if (!imageFiles.length) {
+    toast(COMPLETION_PHOTO_FAIL_MSG);
+    return;
+  }
+  const room = MAX_COMPLETION_PHOTOS - completionPhotos.length;
+  if (room <= 0) {
+    toast(`写真は最大${MAX_COMPLETION_PHOTOS}枚までです`);
+    return;
+  }
+  const batch = imageFiles.slice(0, room);
+  if (batch.length < imageFiles.length) {
+    toast(`残り${room}枚分だけ追加します（上限${MAX_COMPLETION_PHOTOS}枚）`);
+  }
   toast("写真をアップロード中…");
-  for (const file of files) {
-    const imageBase64 = await readFileAsBase64(file);
-    const photo = await api(`/projects/${currentProjectId}/completion-photos`, {
-      method: "POST",
-      body: JSON.stringify({ imageBase64, fileName: file.name, title: "" }),
-    });
-    completionPhotos.push(photo);
-    completionTitleLastSaved.set(photo.id, photo.title || "");
+  let done = 0;
+  let failed = false;
+  for (const file of batch) {
+    try {
+      const imageBase64 = await fileToUploadBase64(file);
+      const photo = await api(`/projects/${currentProjectId}/completion-photos`, {
+        method: "POST",
+        body: JSON.stringify({
+          imageBase64,
+          fileName: (file.name || "photo").replace(/\.[^.]+$/, ".jpg"),
+          title: "",
+        }),
+      });
+      completionPhotos.push(photo);
+      completionTitleLastSaved.set(photo.id, photo.title || "");
+      done += 1;
+    } catch (e) {
+      failed = true;
+      console.error("[estimate-v1] completion photo upload failed", e, file.name);
+    }
   }
   renderCompletionPhotos();
   hidePdfPreview();
-  toast("写真を追加しました");
+  if (done > 0) toast(failed ? `${done}枚追加（一部失敗）` : "写真を追加しました");
+  else toast(COMPLETION_PHOTO_FAIL_MSG);
 }
 
 async function openDetail(projectId) {
@@ -698,8 +849,21 @@ async function init() {
     }
   });
 
-  $("btn-add-completion-photo")?.addEventListener("click", () => $("completion-photo-input")?.click());
-  $("completion-photo-input")?.addEventListener("change", async (ev) => {
+  $("btn-completion-camera")?.addEventListener("click", () => $("completion-photo-input-camera")?.click());
+  $("btn-completion-library")?.addEventListener("click", () => $("completion-photo-input-library")?.click());
+
+  $("completion-photo-input-camera")?.addEventListener("change", async (ev) => {
+    const files = [...(ev.target.files || [])];
+    ev.target.value = "";
+    if (!files.length) return;
+    try {
+      await uploadCompletionPhotos(files);
+    } catch (e) {
+      toastError(e, e.status);
+    }
+  });
+
+  $("completion-photo-input-library")?.addEventListener("change", async (ev) => {
     const files = [...(ev.target.files || [])];
     ev.target.value = "";
     if (!files.length) return;
