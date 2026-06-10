@@ -146,10 +146,10 @@ describe("見積PWA v1 API", () => {
     assert.ok(ct.includes("pdf") || ct.includes("html"));
     if (ct.includes("html")) {
       assert.ok(res.text.includes("お見積書"));
-      assert.ok(res.text.includes("株式会社 TOMS"));
-      assert.ok(res.text.includes("適用"));
-      assert.ok(!res.text.includes("T-2030001139320"));
-      assert.ok(!res.text.includes("登録番号"));
+      assert.ok(res.text.includes("株式会社TOMS"));
+      assert.ok(res.text.includes("項目"));
+      assert.ok(res.text.includes("インボイス番号"));
+      assert.ok(res.text.includes("T-2030001139320"));
     } else {
       assert.ok(Buffer.isBuffer(res.body) ? res.body.length > 50 : true);
     }
@@ -274,7 +274,7 @@ describe("見積PWA v1 API", () => {
     assert.equal(res.status, 200);
     assert.ok(res.text.includes("仕様書"));
     assert.ok(res.text.includes("写真未登録"));
-    assert.ok(res.text.includes("株式会社 TOMS"));
+    assert.ok(res.text.includes("株式会社TOMS"));
     assert.ok(res.text.includes("仕様書現場"));
     assert.ok(res.text.includes("工事場所"));
     assert.ok(!res.text.includes("参考写真"));
@@ -498,7 +498,7 @@ describe("見積PWA v1 API", () => {
     assert.equal(res.status, 200);
     assert.ok(res.text.includes("完了報告書"));
     assert.ok(res.text.includes("完了報告書用写真がありません"));
-    assert.ok(res.text.includes("株式会社 TOMS"));
+    assert.ok(res.text.includes("株式会社TOMS"));
     assert.ok(res.text.includes("未撮影現場"));
     assert.ok(res.text.includes("工事場所"));
   });

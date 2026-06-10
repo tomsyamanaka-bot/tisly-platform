@@ -32,9 +32,67 @@ export interface TomsDocHeaderInput {
   issueDate: string;
   docNoLabel: string;
   docNo: string;
-  /** 見積書は false、請求書は true（デフォルト） */
+  /** @deprecated TOMS Official Layout v1 では常にインボイス番号を表示 */
   includeRegistrationNo?: boolean;
   workLocation?: string;
+}
+
+export interface TomsOfficialDocLayoutInput {
+  docTitle: string;
+  amountLabel: string;
+  addressee: string;
+  subject: string;
+  workLocation?: string;
+  issueDateLabel: string;
+  issueDate: string;
+  docNoLabel: string;
+  docNo: string;
+  total: number;
+  extraMetaRows?: Array<{ label: string; value: string }>;
+}
+
+export function renderTomsOfficialDocLayout(input: TomsOfficialDocLayoutInput): string {
+  const co = getTomsCompanyInfo();
+  const addressee = formatTomsAddressee(input.addressee);
+  const workLocation = input.workLocation?.trim()
+    ? `<p class="toms-official-field"><span class="toms-official-field-label">作業場所</span>${escapeHtml(input.workLocation.trim())}</p>`
+    : "";
+  const extraRows = (input.extraMetaRows ?? [])
+    .filter((row) => row.value.trim())
+    .map(
+      (row) =>
+        `<tr><th>${escapeHtml(row.label)}</th><td>${escapeHtml(row.value)}</td></tr>`
+    )
+    .join("");
+  return `<div class="toms-official">
+  <div class="toms-official-header">
+    <div class="toms-official-header-main">
+      <div class="toms-official-title-band"><h1>${escapeHtml(input.docTitle)}</h1></div>
+      <p class="toms-official-addressee">${escapeHtml(addressee)}</p>
+      <p class="toms-official-field"><span class="toms-official-field-label">件名</span>${escapeHtml(input.subject)}</p>
+      ${workLocation}
+    </div>
+    <div class="toms-official-header-side">
+      <div class="toms-official-company">
+        <div class="toms-official-company-name">${escapeHtml(co.name)}</div>
+        <div>〒${escapeHtml(co.postalCode)}</div>
+        <div>${escapeHtml(co.address)}</div>
+        <div>TEL ${escapeHtml(co.phone)}</div>
+        <div>担当 ${escapeHtml(co.representativeName)}</div>
+      </div>
+      <table class="toms-official-meta">
+        <tr><th>${escapeHtml(input.issueDateLabel)}</th><td>${escapeHtml(input.issueDate)}</td></tr>
+        <tr><th>${escapeHtml(input.docNoLabel)}</th><td>${escapeHtml(input.docNo)}</td></tr>
+        <tr><th>インボイス番号</th><td>${escapeHtml(co.registrationNo)}</td></tr>
+        ${extraRows}
+      </table>
+    </div>
+  </div>
+  <div class="toms-official-amount">
+    <span class="toms-official-amount-label">${escapeHtml(input.amountLabel)}</span>
+    <span class="toms-official-amount-value">¥${input.total.toLocaleString("ja-JP")}<span class="toms-official-amount-tax">（税込）</span></span>
+  </div>
+</div>`;
 }
 
 export function renderTomsDocLayoutHeader(input: TomsDocHeaderInput): string {
@@ -196,7 +254,7 @@ export function renderTomsLineItemsTable(
         `<tr><td class="num col-no">${i.lineNo ?? idx + 1}</td><td class="col-desc">${escapeHtmlMultiline(i.description)}</td><td class="num col-qty">${i.quantity}</td><td class="num col-price">¥${i.unitPrice.toLocaleString("ja-JP")}</td><td class="num col-amount">¥${i.amount.toLocaleString("ja-JP")}</td></tr>`
     )
     .join("");
-  return `<table class="items toms-items"><thead><tr><th class="col-no">No</th><th class="col-desc">適用</th><th class="col-qty">数量</th><th class="col-price">単価</th><th class="col-amount">金額</th></tr></thead><tbody>${rows}</tbody></table>`;
+  return `<table class="items toms-official-items"><thead><tr><th class="col-no">No</th><th class="col-desc">項目</th><th class="col-qty">数量</th><th class="col-price">単価</th><th class="col-amount">金額</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 export function renderLineItemsTable(
@@ -243,12 +301,18 @@ export function renderTotals(
     discount > 0
       ? `<div><span>明細合計（税抜）</span><span>¥${lineSubtotal.toLocaleString("ja-JP")}</span></div>`
       : "";
-  return `<div class="totals">
+  const taxBreakdown = `<div class="toms-official-tax-breakdown">
+    <div><span>税率内訳（10%）</span><span></span></div>
+    <div><span>10%対象額</span><span>¥${data.subtotal.toLocaleString("ja-JP")}</span></div>
+    <div><span>消費税</span><span>¥${data.tax.toLocaleString("ja-JP")}</span></div>
+  </div>`;
+  return `<div class="toms-official-totals">
   ${lineRow}
   ${discountRow}
-  <div><span>小計（税抜）</span><span>¥${data.subtotal.toLocaleString("ja-JP")}</span></div>
+  <div><span>小計</span><span>¥${data.subtotal.toLocaleString("ja-JP")}</span></div>
   <div><span>消費税</span><span>¥${data.tax.toLocaleString("ja-JP")}</span></div>
   <div class="grand"><span>税込合計</span><span>¥${data.total.toLocaleString("ja-JP")}</span></div>
+  ${taxBreakdown}
 </div>`;
 }
 
@@ -260,7 +324,7 @@ export function renderPriceRuleLine(ruleName?: string | null): string {
 
 export function renderNotes(notes: string): string {
   if (!notes?.trim()) return "";
-  return `<div class="notes"><strong>備考</strong><br/>${escapeHtmlMultiline(notes)}</div>`;
+  return `<div class="toms-official-notes"><strong>〈備考〉</strong><br/>${escapeHtmlMultiline(notes)}</div>`;
 }
 
 export function renderPhotoGrid(photos: BusinessPhoto[], includeImages = false): string {

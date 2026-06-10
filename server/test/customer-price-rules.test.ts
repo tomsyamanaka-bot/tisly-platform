@@ -188,7 +188,8 @@ describe("顧客別単価ルール v1.2", () => {
     assert.ok(body.includes("出精値引き"));
     assert.ok(body.includes("端数調整"));
     assert.ok(body.includes("税込合計"));
-    assert.ok(body.includes("小計（税抜）"));
+    assert.ok(body.includes("小計"));
+    assert.ok(body.includes("税率内訳"));
     assert.ok(body.includes("消費税"));
     assert.ok(body.includes(CUSTOMER_PDF_PRICE_RULE_NOTE));
     assert.ok(!body.includes("× 2.2"));

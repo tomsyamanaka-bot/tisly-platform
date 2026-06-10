@@ -8,10 +8,9 @@ import {
 import { TOMS_PDF_STYLES } from "./styles.js";
 import {
   escapeHtml,
-  renderAmountBanner,
   renderNotes,
   renderPhotoGrid,
-  renderTomsDocLayoutHeader,
+  renderTomsOfficialDocLayout,
   renderTomsLineItemsTable,
   renderTotals,
 } from "./shared-blocks.js";
@@ -50,17 +49,18 @@ export function renderEstimateHtml(
 
   return `<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"/><title>お見積書 ${escapeHtml(header.estimateNo)}</title><style>${TOMS_PDF_STYLES}</style></head><body>
 <div class="${pageClass}">
-${renderTomsDocLayoutHeader({
+${renderTomsOfficialDocLayout({
   docTitle: "お見積書",
+  amountLabel: "御見積金額",
   addressee: header.addressee,
   subject: header.subject,
+  workLocation: header.workLocation || opts?.workLocation || project.address,
   issueDateLabel: "発行日",
   issueDate: header.issueDate,
   docNoLabel: "見積番号",
   docNo: header.estimateNo,
-  includeRegistrationNo: false,
+  total: estimate.total,
 })}
-${renderAmountBanner(estimate.total)}
 ${renderTomsLineItemsTable(lines)}
 ${renderTotals({
   lineSubtotal: estimate.lineSubtotal ?? estimate.subtotal + estimate.shuseiDiscount,

@@ -122,19 +122,22 @@ describe("TOMS標準見積フォーマット", () => {
       .set("Authorization", `Bearer ${token}`);
     assert.equal(res.status, 200);
     assert.match(res.text, /お見積書/);
-    assert.match(res.text, /toms-doc-header/);
-    assert.match(res.text, /株式会社 TOMS/);
+    assert.match(res.text, /toms-official/);
+    assert.match(res.text, /株式会社TOMS/);
     assert.match(res.text, /御見積金額/);
     assert.match(res.text, /見積番号/);
     assert.match(res.text, /発行日/);
+    assert.match(res.text, /インボイス番号/);
     assert.match(res.text, /件名/);
+    assert.match(res.text, /作業場所/);
     assert.match(res.text, /御中/);
-    assert.match(res.text, /山中 智紀/);
+    assert.match(res.text, /山中智紀/);
+    assert.match(res.text, /税率内訳/);
     assert.match(res.text, /株式会社伝元/);
     assert.ok(!/登録番号/.test(res.text));
     assert.match(res.text, /換気扇設置工事/);
     assert.match(res.text, />No</);
-    assert.match(res.text, />適用</);
+    assert.match(res.text, />項目</);
     assert.match(res.text, /小上がり既存換気扇3台設置/);
     assert.match(res.text, /清掃・修理配線/);
     assert.ok(!/参考写真/.test(res.text));
@@ -237,6 +240,8 @@ describe("TOMS標準見積フォーマット", () => {
     const invoiceHtml = renderInvoiceHtml(project, invoice, estimate);
     assert.match(invoiceHtml, /御請求書/);
     assert.match(invoiceHtml, /見積参照番号/);
+    assert.match(invoiceHtml, /toms-official/);
+    assert.match(invoiceHtml, /ご請求金額/);
     assert.match(invoiceHtml, /振込先/);
     assert.match(invoiceHtml, /\d{6}-\d{3}/);
   });
@@ -313,8 +318,8 @@ describe("TOMS標準見積フォーマット", () => {
       }
     );
     assert.match(html, /お見積書/);
-    assert.match(html, /toms-doc-header/);
-    assert.match(html, /amount-banner/);
+    assert.match(html, /toms-official/);
+    assert.match(html, /toms-official-amount/);
     assert.ok(!/<div class="toms-company-footer">/.test(html));
     assert.match(html, /換気扇設置工事/);
   });

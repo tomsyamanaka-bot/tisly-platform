@@ -1,0 +1,35 @@
+{
+  "estimate": {
+    "structuralScorePercent": 93.3,
+    "matched": [
+      "gray title band",
+      "large addressee",
+      "subject and work location",
+      "company block top-right",
+      "issue date and doc number",
+      "invoice registration number",
+      "amount frame",
+      "blue item table with black borders",
+      "subtotal tax and grand total",
+      "tax rate breakdown",
+      "remarks block"
+    ],
+    "referenceOnly": [
+      "centered title without gray band",
+      "no company block in legacy QNAP PDF"
+    ]
+  },
+  "invoice": {
+    "structuralScorePercent": 92.9,
+    "matched": [
+      "御請求書 title",
+      "same header and amount layout as estimate",
+      "estimate reference number",
+      "bank block",
+      "totals and tax breakdown"
+    ],
+    "referenceOnly": [
+      "legacy QNAP invoice uses red table header"
+    ]
+  }
+}

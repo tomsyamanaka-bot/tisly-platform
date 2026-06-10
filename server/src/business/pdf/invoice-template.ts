@@ -9,12 +9,11 @@ import {
 import { TOMS_PDF_STYLES } from "./styles.js";
 import {
   escapeHtml,
-  renderAmountBanner,
   renderBankBlock,
   renderNotes,
   renderPhotoGrid,
   renderSealPlaceholder,
-  renderTomsDocLayoutHeader,
+  renderTomsOfficialDocLayout,
   renderTomsLineItemsTable,
   renderTotals,
 } from "./shared-blocks.js";
@@ -73,18 +72,19 @@ export function renderInvoiceHtml(
 
   return `<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"/><title>御請求書 ${escapeHtml(header.invoiceNo)}</title><style>${TOMS_PDF_STYLES}</style></head><body>
 <div class="${pageClass}">
-${renderTomsDocLayoutHeader({
+${renderTomsOfficialDocLayout({
   docTitle: "御請求書",
+  amountLabel: "ご請求金額",
   addressee: header.addressee,
   subject: header.subject,
+  workLocation: header.workLocation,
   issueDateLabel: "請求日",
   issueDate: header.invoiceDate,
   docNoLabel: "請求番号",
   docNo: header.invoiceNo,
-  includeRegistrationNo: true,
+  total: invoice.total,
+  extraMetaRows: [{ label: "見積参照番号", value: header.estimateRefNo }],
 })}
-${renderAmountBanner(invoice.total)}
-<p class="intro">下記の通りご請求申し上げます。見積参照番号：${escapeHtml(header.estimateRefNo)}</p>
 ${renderTomsLineItemsTable(lines)}
 ${renderTotals({
   lineSubtotal: opts?.lineSubtotal ?? estimate.lineSubtotal,
