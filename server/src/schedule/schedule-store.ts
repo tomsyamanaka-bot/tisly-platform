@@ -25,7 +25,7 @@ import {
 import { buildDayDispatch } from "./route-planner-service.js";
 import { fetchDayWeather } from "./weather-service.js";
 import type { CalendarIntegrationStatus, ScheduleDayDetail } from "./schedule-types.js";
-import { getCalendarOAuthStatus } from "../services/googleCalendar.js";
+import { getGoogleCalendarPublicStatus } from "../services/googleCalendar.js";
 
 const WEEKDAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
 
@@ -237,22 +237,21 @@ export async function getScheduleDayDetail(
 }
 
 export function getCalendarIntegrationStatus(): CalendarIntegrationStatus {
-  const oauth = getCalendarOAuthStatus();
-  let label: CalendarIntegrationStatus["label"];
-  if (oauth.mode === "mock") {
-    label = "仮連携中";
-  } else if (!oauth.configured) {
-    label = "未設定";
-  } else if (oauth.connected) {
-    label = "本番連携済み";
-  } else {
-    label = "要OAuth接続";
-  }
+  const { displayLabel, displayStatus, mode, configured, connected } =
+    getGoogleCalendarPublicStatus();
+  const labelMap: Record<string, CalendarIntegrationStatus["label"]> = {
+    mock: "仮連携中",
+    not_configured: "未設定",
+    not_logged_in: "設定済み・未ログイン",
+    logged_in: "Googleログイン済み",
+    sync_success: "同期成功",
+    sync_failed: "同期失敗",
+  };
   return {
-    label,
-    mode: oauth.mode,
-    configured: oauth.configured,
-    connected: oauth.connected,
+    label: labelMap[displayStatus] ?? displayLabel,
+    mode,
+    configured,
+    connected,
   };
 }
 

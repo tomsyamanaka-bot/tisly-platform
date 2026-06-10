@@ -90,6 +90,15 @@ describe("実務PWA v2 — Calendar / Projects / Search", () => {
     assert.ok(String(res.body.error).includes("未設定"));
   });
 
+  it("GET /api/google-calendar/status", async () => {
+    const res = await request(app)
+      .get("/api/google-calendar/status")
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(res.status, 200);
+    assert.ok(res.body.displayLabel);
+    assert.ok(!JSON.stringify(res.body).includes("clientSecret"));
+  });
+
   it("POST /schedule/v1/sync/google はモックで同期", async () => {
     const sync = await request(app)
       .post("/api/schedule/v1/sync/google")

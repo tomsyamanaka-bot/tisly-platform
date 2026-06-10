@@ -75,7 +75,15 @@ export interface ScheduleThreeWeekBlock {
 }
 
 export interface CalendarIntegrationStatus {
-  label: "未設定" | "仮連携中" | "本番連携済み" | "要OAuth接続";
+  label:
+    | "未設定"
+    | "仮連携中"
+    | "本番連携済み"
+    | "要OAuth接続"
+    | "設定済み・未ログイン"
+    | "Googleログイン済み"
+    | "同期成功"
+    | "同期失敗";
   mode: "mock" | "real";
   configured: boolean;
   connected: boolean;

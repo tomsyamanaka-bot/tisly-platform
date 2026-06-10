@@ -3,6 +3,7 @@ import { requireAuth, type AuthedRequest } from "../../auth/auth-middleware.js";
 import { roleMeetsRequirement } from "../../auth/roles.js";
 import {
   getCalendarAuthUrl,
+  getGoogleCalendarPublicStatus,
   handleCalendarOAuthCallback,
 } from "../../services/googleCalendar.js";
 
@@ -18,6 +19,11 @@ function assertScheduleRole(req: AuthedRequest, res: Response): boolean {
   }
   return true;
 }
+
+googleCalendarRouter.get("/status", ...calendarAuth, (req: AuthedRequest, res) => {
+  if (!assertScheduleRole(req, res)) return;
+  res.json(getGoogleCalendarPublicStatus());
+});
 
 googleCalendarRouter.get("/auth/start", ...calendarAuth, (req: AuthedRequest, res) => {
   if (!assertScheduleRole(req, res)) return;

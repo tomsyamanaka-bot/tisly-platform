@@ -356,14 +356,45 @@ function openUnavailForm(date) {
   $("unavail-form").classList.remove("hidden");
 }
 
+async function fetchGoogleCalendarStatus() {
+  const token = getCustomerToken();
+  const res = await fetch("/api/google-calendar/status", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const e = new Error(data.error || `HTTP ${res.status}`);
+    e.status = res.status;
+    throw e;
+  }
+  return data;
+}
+
+function renderCalendarStatusLine(cal) {
+  const lines = [`Googleカレンダー: ${cal.displayLabel}`];
+  if (cal.displayStatus === "not_configured") {
+    lines.push("VPS の .env に GOOGLE_CALENDAR_ENABLED と OAuth クライアント情報を設定してください");
+  } else if (cal.displayStatus === "not_logged_in") {
+    lines.push("「Googleログイン」ボタンから初回認証を行ってください");
+  } else if (cal.displayStatus === "sync_failed" && cal.sync?.lastSyncError) {
+    lines.push(cal.sync.lastSyncError);
+  } else if (cal.sync?.lastSyncedAt) {
+    const at = new Date(cal.sync.lastSyncedAt).toLocaleString("ja-JP");
+    lines.push(`最終同期: ${at}（${cal.sync.eventCount ?? 0}件）`);
+  } else if (cal.displayStatus === "logged_in") {
+    lines.push("「Google予定を同期」でカレンダーを取得できます");
+  } else if (cal.displayStatus === "mock") {
+    lines.push("デモ予定を表示中 — 本番連携は .env で GOOGLE_CALENDAR_ENABLED=true");
+  }
+  return lines.join(" — ");
+}
+
 async function refreshSyncStatus() {
   try {
-    const st = await api("/oauth/status");
-    const sync = st.sync;
-    const oauth = st.oauth ?? {};
-    const calLabel = st.calendarIntegration?.label ?? (oauth.mode === "mock" ? "仮連携中" : "未設定");
+    const [st, cal] = await Promise.all([api("/oauth/status"), fetchGoogleCalendarStatus()]);
     const mapsLabel = st.mapsIntegration?.label ?? "未設定";
     const mapsHint = st.mapsIntegration?.hint ?? "";
+    const calLabel = cal.displayLabel ?? st.calendarIntegration?.label ?? "未設定";
     const badgeEl = $("integration-badges");
     if (badgeEl) {
       badgeEl.innerHTML = renderIntegrationBadges(calLabel, mapsLabel, mapsHint);
@@ -371,26 +402,19 @@ async function refreshSyncStatus() {
     const el = $("sync-status");
     const btn = $("btn-sync-calendar");
     if (!el) return;
-    if (oauth.mode === "real" && !oauth.configured) {
-      el.textContent = "Google連携は未設定です（.env にクライアントID等を設定）";
-      if (btn) {
-        btn.disabled = false;
+    el.textContent = renderCalendarStatusLine(cal);
+    el.classList.toggle("sync-error", cal.displayStatus === "sync_failed");
+    if (btn) {
+      btn.textContent = cal.buttonLabel || "Google予定を同期";
+      btn.disabled = Boolean(cal.buttonDisabled);
+      if (cal.displayStatus === "not_configured") {
         btn.title = "Google Calendar のクライアントID等を .env に設定してください";
+      } else if (cal.displayStatus === "not_logged_in") {
+        btn.title = "Googleアカウントでログインしてカレンダー連携を完了します";
+      } else {
+        btn.title = "Googleカレンダーの予定を同期します";
       }
-      return;
     }
-    if (oauth.mode === "real" && !oauth.connected) {
-      el.textContent = "Google未接続 — 「Google同期」でログイン後に取得";
-    } else if (sync?.lastSyncedAt) {
-      const at = new Date(sync.lastSyncedAt).toLocaleString("ja-JP");
-      el.textContent = `最終同期: ${at}（${sync.eventCount}件・${calLabel}）`;
-    } else {
-      el.textContent =
-        oauth.mode === "real"
-          ? "未同期 — 「Google同期」でカレンダーを取得"
-          : "デモ予定を表示中 — 「Google同期」でキャッシュ保存";
-    }
-    if (btn) btn.disabled = false;
   } catch {
     /* ignore */
   }
@@ -437,17 +461,17 @@ async function init() {
 
   $("btn-sync-calendar")?.addEventListener("click", async () => {
     const btn = $("btn-sync-calendar");
+    if (btn.disabled) return;
     btn.disabled = true;
     const prevLabel = btn.textContent;
-    btn.textContent = "同期中…";
+    btn.textContent = "処理中…";
     try {
-      const st = await api("/oauth/status");
-      const oauth = st.oauth ?? {};
-      if (oauth.mode === "real" && !oauth.configured) {
+      const cal = await fetchGoogleCalendarStatus();
+      if (cal.displayStatus === "not_configured") {
         toast("Google連携は未設定です");
         return;
       }
-      if (oauth.mode === "real" && !oauth.connected) {
+      if (cal.displayStatus === "not_logged_in") {
         const token = getCustomerToken();
         const authRes = await fetch("/api/google-calendar/auth/start", {
           headers: { Authorization: `Bearer ${token}` },
@@ -463,6 +487,7 @@ async function init() {
         }
         return;
       }
+      btn.textContent = "同期中…";
       const result = await api("/sync/google", { method: "POST", body: JSON.stringify({ weeks: 8 }) });
       toast(`同期完了（${result.count}件・${result.mode}）`);
       await refreshSyncStatus();
@@ -473,9 +498,11 @@ async function init() {
       } else {
         toastError(e, e.status);
       }
+      await refreshSyncStatus();
     } finally {
-      btn.disabled = false;
-      btn.textContent = prevLabel || "Google同期";
+      const latest = await fetchGoogleCalendarStatus().catch(() => null);
+      btn.disabled = Boolean(latest?.buttonDisabled);
+      btn.textContent = latest?.buttonLabel || prevLabel || "Google予定を同期";
     }
   });
 

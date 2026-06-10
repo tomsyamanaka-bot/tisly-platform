@@ -4,12 +4,41 @@
  */
 
 import type { ScheduleCategory, ScheduleEvent, ScheduleEventSource } from "../schedule/schedule-types.js";
+import { getCalendarSyncMeta, type CalendarSyncMeta } from "../schedule/schedule-calendar-store.js";
 import {
   getGoogleCalendarAuthUrl,
   getGoogleCalendarOAuthStatus,
   handleGoogleCalendarOAuthCallback,
   refreshGoogleAccessToken,
 } from "./googleOAuthService.js";
+
+export type GoogleCalendarDisplayStatus =
+  | "mock"
+  | "not_configured"
+  | "not_logged_in"
+  | "logged_in"
+  | "sync_success"
+  | "sync_failed";
+
+export interface GoogleCalendarPublicStatus {
+  enabled: boolean;
+  configured: boolean;
+  clientIdConfigured: boolean;
+  clientSecretConfigured: boolean;
+  redirectUri: string | null;
+  mode: "mock" | "real";
+  connected: boolean;
+  displayStatus: GoogleCalendarDisplayStatus;
+  displayLabel: string;
+  sync: {
+    lastSyncedAt: string | null;
+    eventCount: number;
+    lastSyncStatus: "success" | "failed" | null;
+    lastSyncError: string | null;
+  };
+  buttonLabel: string;
+  buttonDisabled: boolean;
+}
 
 export interface GoogleCalendarConfig {
   clientId: string;
@@ -301,6 +330,97 @@ export async function syncGoogleCalendarEvents(
 
 export function getCalendarOAuthStatus() {
   return getGoogleCalendarOAuthStatus();
+}
+
+const GOOGLE_ERROR_JA: Array<{ pattern: RegExp; message: string }> = [
+  { pattern: /invalid_grant/i, message: "Googleログインの有効期限が切れました。再度ログインしてください。" },
+  { pattern: /access_denied/i, message: "Googleカレンダーへのアクセスが拒否されました。" },
+  { pattern: /unauthorized|401/i, message: "Google認証が無効です。再度ログインしてください。" },
+  { pattern: /forbidden|403/i, message: "Googleカレンダーへのアクセス権限がありません。" },
+  { pattern: /quota|rate limit/i, message: "Google APIの利用上限に達しました。しばらく待ってから再試行してください。" },
+  { pattern: /not found|404/i, message: "指定したカレンダーが見つかりません。" },
+];
+
+export function formatGoogleCalendarErrorJa(message: string): string {
+  const text = message.trim();
+  if (!text) return "同期に失敗しました。しばらく待ってから再試行してください。";
+  for (const rule of GOOGLE_ERROR_JA) {
+    if (rule.pattern.test(text)) return rule.message;
+  }
+  if (/[\u3040-\u30ff\u4e00-\u9faf]/.test(text)) return text;
+  return `同期に失敗しました: ${text}`;
+}
+
+function resolveDisplayStatus(
+  oauth: ReturnType<typeof getGoogleCalendarOAuthStatus>,
+  sync: CalendarSyncMeta
+): { displayStatus: GoogleCalendarDisplayStatus; displayLabel: string } {
+  if (oauth.mode === "mock") {
+    return { displayStatus: "mock", displayLabel: "仮連携中" };
+  }
+  if (!oauth.configured) {
+    return { displayStatus: "not_configured", displayLabel: "未設定" };
+  }
+  if (!oauth.connected) {
+    return { displayStatus: "not_logged_in", displayLabel: "設定済み・未ログイン" };
+  }
+  if (sync.lastSyncStatus === "failed") {
+    return { displayStatus: "sync_failed", displayLabel: "同期失敗" };
+  }
+  if (sync.lastSyncedAt && sync.lastSyncStatus === "success") {
+    return { displayStatus: "sync_success", displayLabel: "同期成功" };
+  }
+  return { displayStatus: "logged_in", displayLabel: "Googleログイン済み" };
+}
+
+function resolveButtonState(displayStatus: GoogleCalendarDisplayStatus): {
+  buttonLabel: string;
+  buttonDisabled: boolean;
+} {
+  switch (displayStatus) {
+    case "not_configured":
+      return { buttonLabel: "Google連携は未設定です", buttonDisabled: true };
+    case "not_logged_in":
+      return { buttonLabel: "Googleログイン", buttonDisabled: false };
+    case "mock":
+    case "logged_in":
+    case "sync_success":
+    case "sync_failed":
+      return { buttonLabel: "Google予定を同期", buttonDisabled: false };
+    default:
+      return { buttonLabel: "Google予定を同期", buttonDisabled: false };
+  }
+}
+
+export function getGoogleCalendarPublicStatus(): GoogleCalendarPublicStatus {
+  const oauth = getGoogleCalendarOAuthStatus();
+  const syncMeta = getCalendarSyncMeta();
+  const { displayStatus, displayLabel } = resolveDisplayStatus(oauth, syncMeta);
+  const { buttonLabel, buttonDisabled } = resolveButtonState(displayStatus);
+  const clientSecretConfigured = Boolean(
+    process.env.GOOGLE_CLIENT_SECRET ?? process.env.GOOGLE_CALENDAR_CLIENT_SECRET
+  );
+  return {
+    enabled: oauth.enabled,
+    configured: oauth.configured,
+    clientIdConfigured: oauth.clientIdConfigured,
+    clientSecretConfigured,
+    redirectUri: oauth.redirectUri,
+    mode: oauth.mode,
+    connected: oauth.connected,
+    displayStatus,
+    displayLabel,
+    sync: {
+      lastSyncedAt: syncMeta.lastSyncedAt,
+      eventCount: syncMeta.eventCount,
+      lastSyncStatus: syncMeta.lastSyncStatus ?? null,
+      lastSyncError: syncMeta.lastSyncError
+        ? formatGoogleCalendarErrorJa(syncMeta.lastSyncError)
+        : null,
+    },
+    buttonLabel,
+    buttonDisabled,
+  };
 }
 
 export function getCalendarAuthUrl() {

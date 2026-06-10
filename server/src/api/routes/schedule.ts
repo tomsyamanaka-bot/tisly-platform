@@ -20,14 +20,17 @@ import { getMapsIntegrationStatus } from "../../schedule/google-maps-service.js"
 import { fetchDayWeather } from "../../schedule/weather-service.js";
 import { UNAVAILABLE_REASON_PRESETS } from "../../schedule/schedule-types.js";
 import {
+  formatGoogleCalendarErrorJa,
   getCalendarAuthUrl,
   getCalendarOAuthStatus,
+  getGoogleCalendarPublicStatus,
   getWeekStartWithOffset,
   handleCalendarOAuthCallback,
   syncGoogleCalendarEvents,
 } from "../../services/googleCalendar.js";
 import {
   getCalendarSyncMeta,
+  recordCalendarSyncFailure,
   replaceCachedCalendarEvents,
 } from "../../schedule/schedule-calendar-store.js";
 
@@ -213,11 +216,13 @@ scheduleRouter.delete("/unavailable/:id", ...scheduleAuth, (req: AuthedRequest, 
 
 scheduleRouter.get("/oauth/status", ...scheduleAuth, (req: AuthedRequest, res) => {
   if (!assertScheduleRole(req, res)) return;
+  const calendarStatus = getGoogleCalendarPublicStatus();
   res.json({
     oauth: getCalendarOAuthStatus(),
     calendarIntegration: getCalendarIntegrationStatus(),
     mapsIntegration: getMapsIntegrationStatus(),
     sync: getCalendarSyncMeta(),
+    calendarStatus,
   });
 });
 
@@ -270,7 +275,9 @@ scheduleRouter.post("/sync", ...scheduleAuth, async (req: AuthedRequest, res) =>
   try {
     res.json(await runGoogleCalendarSync(req.body as { startDate?: string; endDate?: string; weeks?: number }));
   } catch (e) {
-    res.status(500).json({ error: e instanceof Error ? e.message : "sync failed" });
+    const msg = formatGoogleCalendarErrorJa(e instanceof Error ? e.message : "sync failed");
+    recordCalendarSyncFailure(msg);
+    res.status(500).json({ error: msg });
   }
 });
 
@@ -284,6 +291,8 @@ scheduleRouter.post("/sync/google", ...scheduleAuth, async (req: AuthedRequest, 
   try {
     res.json(await runGoogleCalendarSync(req.body as { startDate?: string; endDate?: string; weeks?: number }));
   } catch (e) {
-    res.status(500).json({ error: e instanceof Error ? e.message : "sync failed" });
+    const msg = formatGoogleCalendarErrorJa(e instanceof Error ? e.message : "sync failed");
+    recordCalendarSyncFailure(msg);
+    res.status(500).json({ error: msg });
   }
 });

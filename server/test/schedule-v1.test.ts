@@ -100,6 +100,46 @@ describe("日程調整 PWA v1 API", () => {
     assert.equal(res.body.calendarIntegration.label, "仮連携中");
     assert.equal(res.body.mapsIntegration.label, "未設定");
     assert.ok(res.body.mapsIntegration.hint.includes("ナビ起動のみ"));
+    assert.equal(res.body.calendarStatus.displayStatus, "mock");
+    assert.equal(res.body.calendarStatus.buttonLabel, "Google予定を同期");
+  });
+
+  it("GET /api/google-calendar/status は Secret を返さない", async () => {
+    const res = await request(app)
+      .get("/api/google-calendar/status")
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(res.status, 200);
+    assert.equal(res.body.displayStatus, "mock");
+    assert.equal(res.body.displayLabel, "仮連携中");
+    assert.equal(typeof res.body.configured, "boolean");
+    assert.equal(typeof res.body.clientIdConfigured, "boolean");
+    assert.equal(typeof res.body.clientSecretConfigured, "boolean");
+    assert.ok(res.body.sync);
+    assert.equal(res.body.clientSecret, undefined);
+    assert.equal(res.body.clientSecretValue, undefined);
+    assert.equal(res.body.refreshToken, undefined);
+    const raw = JSON.stringify(res.body);
+    assert.ok(!raw.includes("GOCSPX-"));
+    assert.ok(!/"clientSecret"\s*:\s*"/.test(raw));
+    assert.ok(!raw.includes("refresh_token"));
+  });
+
+  it("Google未設定でも schedule API は 200 を返す", async () => {
+    const week = await request(app)
+      .get("/api/schedule/v1/week?offset=0")
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(week.status, 200);
+    const status = await request(app)
+      .get("/api/google-calendar/status")
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(status.status, 200);
+    assert.equal(status.body.mode, "mock");
+    const sync = await request(app)
+      .post("/api/schedule/v1/sync/google")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ weeks: 1 });
+    assert.equal(sync.status, 200);
+    assert.ok(sync.body.ok);
   });
 
   it("日付詳細に移動時間ブロックとMaps連携状態が含まれる", async () => {

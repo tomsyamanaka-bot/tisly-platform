@@ -9,6 +9,8 @@ export interface CalendarSyncMeta {
   eventCount: number;
   rangeStart: string | null;
   rangeEnd: string | null;
+  lastSyncStatus?: "success" | "failed" | null;
+  lastSyncError?: string | null;
 }
 
 function rowToEvent(r: Record<string, unknown>): ScheduleEvent {
@@ -85,11 +87,29 @@ export function replaceCachedCalendarEvents(
         eventCount: events.length,
         rangeStart: startDate,
         rangeEnd: endDate,
+        lastSyncStatus: "success",
+        lastSyncError: null,
       })
     );
   });
   tx();
   return events.length;
+}
+
+export function recordCalendarSyncFailure(errorMessage: string): void {
+  const prev = getCalendarSyncMeta();
+  getDatabase()
+    .prepare(
+      `INSERT OR REPLACE INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run(
+      "schedule_calendar_sync_meta",
+      JSON.stringify({
+        ...prev,
+        lastSyncStatus: "failed",
+        lastSyncError: errorMessage,
+      })
+    );
 }
 
 export function getCalendarSyncMeta(): CalendarSyncMeta {

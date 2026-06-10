@@ -71,8 +71,12 @@ export function bindEventDescSnippets(root) {
 }
 
 export function integrationBadgeClass(label) {
-  if (label === "本番連携済み") return "integration-badge live";
+  if (label === "本番連携済み" || label === "同期成功") return "integration-badge live";
   if (label === "仮連携中") return "integration-badge mock";
+  if (label === "設定済み・未ログイン" || label === "Googleログイン済み") {
+    return "integration-badge pending";
+  }
+  if (label === "同期失敗") return "integration-badge error";
   return "integration-badge unset";
 }
 
