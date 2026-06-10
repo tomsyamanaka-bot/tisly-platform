@@ -51,6 +51,68 @@ export interface TomsOfficialDocLayoutInput {
   extraMetaRows?: Array<{ label: string; value: string }>;
 }
 
+export interface TomsOfficialReportHeaderInput {
+  docTitle: string;
+  addressee: string;
+  subject: string;
+  workLocation?: string;
+  /** @default 工事場所 */
+  workLocationLabel?: string;
+  notes?: string;
+  issueDateLabel: string;
+  issueDate: string;
+  docNoLabel?: string;
+  docNo?: string;
+  includeRegistrationNo?: boolean;
+  compact?: boolean;
+}
+
+export function renderTomsOfficialReportHeader(input: TomsOfficialReportHeaderInput): string {
+  const co = getTomsCompanyInfo();
+  const addressee = formatTomsAddressee(input.addressee);
+  const locLabel = input.workLocationLabel ?? "工事場所";
+  const workLocation = input.workLocation?.trim()
+    ? `<p class="toms-official-field"><span class="toms-official-field-label">${escapeHtml(locLabel)}</span>${escapeHtml(input.workLocation.trim())}</p>`
+    : "";
+  const notes = input.notes?.trim()
+    ? `<p class="toms-official-field toms-official-notes-inline"><span class="toms-official-field-label">現調メモ</span>${escapeHtmlMultiline(input.notes.trim())}</p>`
+    : "";
+  const docNoRow =
+    input.docNoLabel?.trim() && input.docNo?.trim()
+      ? `<tr><th>${escapeHtml(input.docNoLabel)}</th><td>${escapeHtml(input.docNo)}</td></tr>`
+      : "";
+  const regRow =
+    input.includeRegistrationNo !== false
+      ? `<tr><th>インボイス番号</th><td>${escapeHtml(co.registrationNo)}</td></tr>`
+      : "";
+  const compactClass = input.compact !== false ? " toms-official-compact" : "";
+  return `<div class="toms-official${compactClass}">
+  <div class="toms-official-header">
+    <div class="toms-official-header-main">
+      <div class="toms-official-title-band"><h1>${escapeHtml(input.docTitle)}</h1></div>
+      <p class="toms-official-addressee">${escapeHtml(addressee)}</p>
+      <p class="toms-official-field"><span class="toms-official-field-label">件名</span>${escapeHtml(input.subject)}</p>
+      ${workLocation}
+      ${notes}
+    </div>
+    <div class="toms-official-header-side">
+      <div class="toms-official-company">
+        <div class="toms-official-company-name">${escapeHtml(co.name)}</div>
+        <div>〒${escapeHtml(co.postalCode)}</div>
+        <div>${escapeHtml(co.address)}</div>
+        <div>TEL ${escapeHtml(co.phone)}</div>
+        <div>担当 ${escapeHtml(co.representativeName)}</div>
+      </div>
+      <table class="toms-official-meta">
+        <tr><th>${escapeHtml(input.issueDateLabel)}</th><td>${escapeHtml(input.issueDate || "—")}</td></tr>
+        ${docNoRow}
+        ${regRow}
+      </table>
+    </div>
+  </div>
+</div>`;
+}
+
 export function renderTomsOfficialDocLayout(input: TomsOfficialDocLayoutInput): string {
   const co = getTomsCompanyInfo();
   const addressee = formatTomsAddressee(input.addressee);

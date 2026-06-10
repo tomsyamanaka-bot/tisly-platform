@@ -6,7 +6,7 @@ import {
   TOMS_DEFAULT_STAFF,
   type TomsInvoiceHeader,
 } from "../toms-document-format.js";
-import { TOMS_PDF_STYLES } from "./styles.js";
+import { TOMS_PDF_STYLES, TOMS_PDF_VIEWPORT_META } from "./styles.js";
 import {
   escapeHtml,
   renderBankBlock,
@@ -70,7 +70,7 @@ export function renderInvoiceHtml(
       : "";
   const pageClass = includePhotos ? "doc with-photos" : "doc single-page";
 
-  return `<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"/><title>御請求書 ${escapeHtml(header.invoiceNo)}</title><style>${TOMS_PDF_STYLES}</style></head><body>
+  return `<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"/>${TOMS_PDF_VIEWPORT_META}<title>御請求書 ${escapeHtml(header.invoiceNo)}</title><style>${TOMS_PDF_STYLES}</style></head><body>
 <div class="${pageClass}">
 ${renderTomsOfficialDocLayout({
   docTitle: "御請求書",
@@ -94,8 +94,8 @@ ${renderTotals({
   tax: invoice.tax,
   total: invoice.total,
 })}
-${renderBankBlock(header.bankInfo)}
 ${renderNotes(notes)}
+${renderBankBlock(header.bankInfo)}
 ${photoBlock}
 <div class="doc-footer">${renderSealPlaceholder()}</div>
 </div></body></html>`;

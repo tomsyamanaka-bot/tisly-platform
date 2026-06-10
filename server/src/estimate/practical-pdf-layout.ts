@@ -1,7 +1,7 @@
-import { escapeHtml, escapeHtmlMultiline } from "../business/pdf/shared-blocks.js";
-import { getTomsCompanyInfo } from "../business/pdf/company.js";
+import { escapeHtml, renderTomsOfficialReportHeader } from "../business/pdf/shared-blocks.js";
+import { TOMS_OFFICIAL_CORE_STYLES, TOMS_PDF_VIEWPORT_META } from "../business/pdf/styles.js";
 
-export const PAGE_MARGIN_MM = 3;
+export const PAGE_MARGIN_MM = 2.5;
 export const COLS = 2;
 export const ROWS_FULL = 4;
 export const PHOTOS_PER_PAGE = COLS * ROWS_FULL;
@@ -39,39 +39,20 @@ function chunk<T>(arr: T[], size: number): T[][] {
   return out;
 }
 
-function renderSplitHeader(prefix: string, input: PracticalPdfHeaderInput): string {
-  const co = getTomsCompanyInfo();
-  const docNoRow =
-    input.docNoLabel?.trim() && input.docNo?.trim()
-      ? `<tr><th>${escapeHtml(input.docNoLabel)}</th><td>${escapeHtml(input.docNo)}</td></tr>`
-      : "";
-  const workLocation = input.workLocation?.trim()
-    ? `<p class="${prefix}-subject"><span class="${prefix}-subject-label">工事場所</span> ${escapeHtml(input.workLocation)}</p>`
-    : "";
-  const notes = input.notes?.trim()
-    ? `<p class="${prefix}-notes"><span class="${prefix}-subject-label">現調メモ</span> ${escapeHtmlMultiline(input.notes.trim())}</p>`
-    : "";
-  return `<div class="${prefix}-doc-header">
-  <div class="${prefix}-doc-left">
-    <h1 class="${prefix}-doc-title">${escapeHtml(input.docTitle)}</h1>
-    <p class="${prefix}-addressee">${escapeHtml(input.addressee)}</p>
-    <p class="${prefix}-subject"><span class="${prefix}-subject-label">件名</span> ${escapeHtml(input.subject)}</p>
-    ${workLocation}
-    ${notes}
-  </div>
-  <div class="${prefix}-doc-right">
-    <table class="${prefix}-meta-table">
-      <tr><th>${escapeHtml(input.issueDateLabel)}</th><td>${escapeHtml(input.issueDate || "—")}</td></tr>
-      ${docNoRow}
-    </table>
-    <div class="${prefix}-company-block">
-      <div class="${prefix}-company-name">${escapeHtml(co.name)}</div>
-      <div>〒${escapeHtml(co.postalCode)} ${escapeHtml(co.address)}</div>
-      <div>TEL ${escapeHtml(co.phone)}</div>
-      <div>担当 ${escapeHtml(co.representativeName)}</div>
-    </div>
-  </div>
-</div>`;
+function renderReportHeader(input: PracticalPdfHeaderInput): string {
+  return renderTomsOfficialReportHeader({
+    docTitle: input.docTitle,
+    addressee: input.addressee,
+    subject: input.subject,
+    workLocation: input.workLocation,
+    workLocationLabel: "工事場所",
+    notes: input.notes,
+    issueDateLabel: input.issueDateLabel,
+    issueDate: input.issueDate,
+    docNoLabel: input.docNoLabel,
+    docNo: input.docNo,
+    compact: true,
+  });
 }
 
 function renderPhotoCell(prefix: string, photo: PracticalPdfPhoto | null): string {
@@ -101,7 +82,7 @@ function renderFirstPage(
 ): string {
   const cells = padCells(photos, PHOTOS_PER_PAGE);
   return `<div class="${prefix}-page ${prefix}-photo-page ${prefix}-first-page">
-  ${renderSplitHeader(prefix, header)}
+  ${renderReportHeader(header)}
   ${renderPhotoGrid(prefix, cells)}
 </div>`;
 }
@@ -118,9 +99,10 @@ function renderNoPhotosPage(
   header: PracticalPdfHeaderInput,
   noPhotosMessage: string
 ): string {
+  const msg = escapeHtml(noPhotosMessage);
   return `<div class="${prefix}-page ${prefix}-photo-page ${prefix}-first-page">
-  ${renderSplitHeader(prefix, header)}
-  <div class="${prefix}-no-photos">${escapeHtml(noPhotosMessage)}</div>
+  ${renderReportHeader(header)}
+  <div class="${prefix}-no-photos">${msg}</div>
 </div>`;
 }
 
@@ -146,23 +128,12 @@ export function buildPracticalPdfStyles(prefix: string): string {
   return `
   @page { size: A4 portrait; margin: ${m}mm; }
   * { box-sizing: border-box; }
-  body { font-family: "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif; color: #1a1a1a; margin: 0; padding: 0; font-size: 9pt; }
+  body { font-family: "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif; color: #1a1a1a; margin: 0; padding: 0; font-size: 9pt; word-break: keep-all; }
+  ${TOMS_OFFICIAL_CORE_STYLES}
   .${prefix}-page { width: ${contentW}mm; height: ${contentH}mm; page-break-after: always; overflow: hidden; }
   .${prefix}-page:last-child { page-break-after: auto; }
   .${prefix}-first-page { display: flex; flex-direction: column; }
-  .${prefix}-doc-header { flex: 0 0 auto; display: flex; justify-content: space-between; align-items: flex-start; gap: 2mm; max-height: 12%; overflow: hidden; padding-bottom: 0.5mm; border-bottom: 1px solid #0d9488; margin-bottom: 0.5mm; }
-  .${prefix}-doc-left { flex: 1; min-width: 0; }
-  .${prefix}-doc-right { flex: 0 0 44%; text-align: right; font-size: 6.5pt; line-height: 1.3; color: #334155; }
-  .${prefix}-doc-title { font-size: 8.5pt; margin: 0 0 0.5mm; letter-spacing: 0.06em; font-weight: 700; line-height: 1.1; }
-  .${prefix}-addressee { font-size: 7pt; margin: 0 0 0.3mm; font-weight: 600; }
-  .${prefix}-subject { margin: 0 0 0.2mm; font-size: 6.2pt; line-height: 1.25; }
-  .${prefix}-notes { margin: 0; font-size: 5.8pt; line-height: 1.25; color: #475569; }
-  .${prefix}-subject-label { font-weight: 600; margin-right: 0.5mm; }
-  .${prefix}-meta-table { border-collapse: collapse; margin: 0 0 0.5mm auto; font-size: 6.5pt; }
-  .${prefix}-meta-table th, .${prefix}-meta-table td { padding: 0.1mm 0 0.1mm 1mm; text-align: left; vertical-align: top; }
-  .${prefix}-meta-table th { font-weight: 600; color: #475569; white-space: nowrap; }
-  .${prefix}-company-block { margin-top: 0.3mm; }
-  .${prefix}-company-name { font-weight: 700; font-size: 6.8pt; margin-bottom: 0.2mm; }
+  .${prefix}-first-page .toms-official { flex: 0 0 auto; }
   .${prefix}-no-photos { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 10pt; color: #64748b; letter-spacing: 0.05em; }
   .${prefix}-photo-grid {
     flex: 1;
@@ -170,11 +141,12 @@ export function buildPracticalPdfStyles(prefix: string): string {
     display: grid;
     grid-template-columns: repeat(${COLS}, 1fr);
     grid-template-rows: repeat(${ROWS_FULL}, 1fr);
-    gap: 2mm;
+    gap: 1.8mm;
+    margin-top: 0.5mm;
   }
-  .${prefix}-page:not(.${prefix}-first-page) .${prefix}-photo-grid { height: 100%; }
+  .${prefix}-page:not(.${prefix}-first-page) .${prefix}-photo-grid { height: 100%; margin-top: 0; }
   .${prefix}-photo-cell { display: flex; flex-direction: column; min-height: 0; }
-  .${prefix}-photo-title { margin: 0.5mm 0 0; text-align: center; font-size: 7pt; color: #334155; line-height: 1.15; flex: 0 0 auto; }
+  .${prefix}-photo-title { margin: 0.4mm 0 0; text-align: center; font-size: 6.5pt; color: #334155; line-height: 1.15; flex: 0 0 auto; }
   .${prefix}-photo-img-wrap { flex: 1; min-height: 0; overflow: hidden; border: 1px solid #cbd5e1; border-radius: 1px; background: #f8fafc; }
   .${prefix}-photo-img-wrap img { width: 100%; height: 100%; object-fit: contain; object-position: center; display: block; }
   .${prefix}-photo-empty { visibility: hidden; }
@@ -185,8 +157,10 @@ export function renderPracticalPdfHtml(opts: PracticalPdfLayoutOptions): string 
   const { prefix, pageTitle, header, photos, noPhotosMessage = "写真未登録" } = opts;
   const styles = buildPracticalPdfStyles(prefix);
   const body = renderPhotoPages(prefix, header, photos, noPhotosMessage);
+  const safeTitle = escapeHtml(pageTitle);
   return `<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"/>
-<title>${escapeHtml(pageTitle)}</title>
+${TOMS_PDF_VIEWPORT_META}
+<title>${safeTitle}</title>
 <style>${styles}</style></head><body>
 ${body}
 </body></html>`;
