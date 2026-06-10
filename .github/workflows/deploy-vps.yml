@@ -54,16 +54,16 @@ jobs:
             echo ""
             echo "=== 必要な Secrets（4 項目）==="
             echo "  VPS_HOST     — VPS の IP またはホスト名"
-            echo "  VPS_USER     — SSH ログインユーザー（例: tisly）"
+            echo "  VPS_USER     — SSH ログインユーザー（例: root / tisly）"
             echo "  VPS_SSH_KEY  — 秘密鍵 PEM 全文"
-            echo "  VPS_PORT     — SSH ポート（省略可、デフォルト 22）"
+            echo "  VPS_PORT     — SSH ポート（省略可、デフォルト 55222）"
             echo ""
             echo "詳細: docs/autonomous/VPS_AUTO_DEPLOY.md"
             echo "ready=false" >> "$GITHUB_OUTPUT"
             exit 1
           fi
 
-          PORT="${VPS_PORT:-22}"
+          PORT="${VPS_PORT:-55222}"
           echo "Secrets OK (host=${VPS_HOST}, user=${VPS_USER}, port=${PORT})"
           echo "ready=true" >> "$GITHUB_OUTPUT"
           echo "port=${PORT}" >> "$GITHUB_OUTPUT"
@@ -78,28 +78,152 @@ jobs:
           echo "short=${SHORT}" >> "$GITHUB_OUTPUT"
           echo "Deploy target commit: ${SHORT} (${FULL})"
 
+      - name: Prepare SSH and log deploy target
+        if: steps.secrets.outputs.ready == 'true'
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+        run: |
+          set -euo pipefail
+          PORT="${VPS_PORT:-55222}"
+          KEY_FILE="${HOME}/.ssh/tisly_deploy_key"
+
+          echo "=== Deploy SSH target ==="
+          echo "host: ${VPS_HOST}"
+          echo "user: ${VPS_USER}"
+          echo "port: ${PORT}"
+
+          mkdir -p "${HOME}/.ssh"
+          chmod 700 "${HOME}/.ssh"
+
+          # 秘密鍵の改行崩れ対策（GitHub Secret のリテラル \n も復元）
+          printf '%b' "${VPS_SSH_KEY}" > "${KEY_FILE}"
+          if ! head -1 "${KEY_FILE}" | grep -q 'BEGIN'; then
+            printf '%s\n' "${VPS_SSH_KEY}" > "${KEY_FILE}"
+          fi
+          chmod 600 "${KEY_FILE}"
+
+          if [ ! -s "${KEY_FILE}" ]; then
+            echo "::error::SSH key file is empty"
+            exit 1
+          fi
+          echo "ssh key file: present ($(wc -c < "${KEY_FILE}") bytes)"
+          if head -1 "${KEY_FILE}" | grep -q 'BEGIN'; then
+            echo "ssh key format: BEGIN line OK"
+          else
+            echo "::warning::ssh key BEGIN line not detected — key may be malformed"
+          fi
+          if ssh-keygen -y -f "${KEY_FILE}" >/dev/null 2>&1; then
+            echo "ssh key validation: OK"
+          else
+            echo "::error::ssh key validation failed (ssh-keygen -y)"
+            exit 1
+          fi
+
       - name: Deploy via SSH
         if: steps.secrets.outputs.ready == 'true'
-        uses: appleboy/ssh-action@v1.2.0
         env:
-          EXPECTED_COMMIT_SHORT: ${{ steps.commit.outputs.full }}
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ steps.secrets.outputs.port || 22 }}
-          script_stop: true
-          envs: EXPECTED_COMMIT_SHORT
-          command_timeout: 20m
-          script: |
-            set -euo pipefail
-            echo "========================================"
-            echo "  TiSLY VPS Auto Deploy (SSH)"
-            echo "  expected commitShort: ${EXPECTED_COMMIT_SHORT:0:7}"
-            echo "  triggered by: ${{ github.actor }} (${{ github.event_name }})"
-            echo "========================================"
-            export EXPECTED_COMMIT_SHORT="${EXPECTED_COMMIT_SHORT}"
-            bash /opt/tisly/scripts/deploy-vps.sh
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          EXPECTED_SHORT: ${{ steps.commit.outputs.short }}
+        run: |
+          set -euo pipefail
+          PORT="${VPS_PORT:-55222}"
+          KEY_FILE="${HOME}/.ssh/tisly_deploy_key"
+          SSH_BASE=(
+            -p "${PORT}"
+            -i "${KEY_FILE}"
+            -o BatchMode=yes
+            -o StrictHostKeyChecking=no
+            -o UserKnownHostsFile=/dev/null
+            -o GlobalKnownHostsFile=/dev/null
+            -o LogLevel=ERROR
+            -o ConnectTimeout=30
+            -o ServerAliveInterval=15
+            -o ServerAliveCountMax=3
+          )
+          TARGET="${VPS_USER}@${VPS_HOST}"
+
+          echo "=== SSH connectivity test ==="
+          ssh "${SSH_BASE[@]}" "${TARGET}" 'echo "SSH_OK user=$(whoami) host=$(hostname)"'
+
+          echo "=== Remote deploy (inline, no VPS script required) ==="
+          ssh "${SSH_BASE[@]}" "${TARGET}" bash -s "${EXPECTED_SHORT}" <<'REMOTE'
+          set -euo pipefail
+          EXPECTED_SHORT="${1:-}"
+          REPO_ROOT=/opt/tisly
+          SERVER_DIR="${REPO_ROOT}/server"
+          SERVICE_NAME=tisly-server
+          HEALTH_URL=https://tisly.jp/api/health
+
+          echo "========================================"
+          echo "  TiSLY VPS Auto Deploy (inline)"
+          echo "  expected commitShort: ${EXPECTED_SHORT}"
+          echo "  user: $(whoami)"
+          echo "  host: $(hostname)"
+          echo "========================================"
+
+          cd "${REPO_ROOT}"
+          echo "=== current git commit (before sync) ==="
+          git log -1 --oneline || true
+
+          echo "=== git fetch & reset (no git pull) ==="
+          git fetch origin
+          git reset --hard origin/master
+
+          echo "=== current git commit (after sync) ==="
+          git log -1 --oneline
+          HEAD_SHORT="$(git rev-parse --short HEAD)"
+          echo "commitShort (after sync): ${HEAD_SHORT}"
+
+          cd "${SERVER_DIR}"
+          echo "=== npm install ==="
+          npm install
+          echo "=== build ==="
+          npm run build
+          [ -f dist/index.js ] || { echo "ERROR: dist/index.js missing"; exit 1; }
+
+          echo "=== restart ==="
+          if [ "$(id -u)" -eq 0 ]; then
+            systemctl restart "${SERVICE_NAME}"
+          else
+            sudo -n systemctl restart "${SERVICE_NAME}"
+          fi
+
+          echo "=== health check ==="
+          HEALTH_BODY=""
+          for attempt in $(seq 1 30); do
+            if HEALTH_BODY="$(curl -sf --max-time 15 "${HEALTH_URL}" 2>/dev/null)"; then
+              if echo "${HEALTH_BODY}" | grep -q commitShort; then
+                break
+              fi
+            fi
+            echo "health wait (${attempt}/30)..."
+            sleep 2
+          done
+          [ -n "${HEALTH_BODY}" ] || { echo "ERROR: health API unreachable"; exit 1; }
+          echo "${HEALTH_BODY}" | grep commitShort || { echo "ERROR: commitShort missing in health"; exit 1; }
+
+          ACTUAL_SHORT="$(echo "${HEALTH_BODY}" | grep -oE '"commitShort":"[0-9a-f]{7}"' | head -1 | cut -d'"' -f4 || true)"
+          if [ "${ACTUAL_SHORT}" != "${HEAD_SHORT}" ]; then
+            echo "ERROR: commitShort mismatch health=${ACTUAL_SHORT:-<none>} git=${HEAD_SHORT}"
+            exit 1
+          fi
+          if [ -n "${EXPECTED_SHORT}" ] && [ "${ACTUAL_SHORT}" != "${EXPECTED_SHORT}" ]; then
+            echo "ERROR: commitShort mismatch expected=${EXPECTED_SHORT} actual=${ACTUAL_SHORT}"
+            exit 1
+          fi
+
+          echo ""
+          echo "========================================"
+          echo "  DEPLOY OK"
+          echo "  commit: ${HEAD_SHORT}"
+          echo "  health: ${HEALTH_URL}"
+          echo "========================================"
+          REMOTE
 
       - name: Verify health commitShort (GitHub Actions)
         if: steps.secrets.outputs.ready == 'true'
