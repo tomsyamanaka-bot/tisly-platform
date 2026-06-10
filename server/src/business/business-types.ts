@@ -185,6 +185,7 @@ export interface Estimate {
   priceRuleName?: string;
   priceRuleCostMultiplier?: number | null;
   priceRuleLaborMultiplier?: number | null;
+  applyPriceRule?: boolean;
   shuseiDiscount: number;
   shuseiDiscountMemo: string;
   subtotal: number;

@@ -36,28 +36,28 @@ export interface PresetPriceRuleOption {
 
 /** 見積PWAで選択できる単価ルールプリセット */
 export const PRESET_PRICE_RULE_OPTIONS: PresetPriceRuleOption[] = [
-  { id: "customer-a", ruleName: "客A", costMultiplier: 2.0, laborMultiplier: 2.0, label: "客A：材料×2.0 / 労務×2.0" },
-  { id: "customer-b", ruleName: "客B", costMultiplier: 3.0, laborMultiplier: 2.5, label: "客B：材料×3.0 / 労務×2.5" },
+  { id: "customer-a", ruleName: "客A", costMultiplier: 2.0, laborMultiplier: 2.0, label: "客A：原価 × 2.0" },
+  { id: "customer-b", ruleName: "客B", costMultiplier: 3.0, laborMultiplier: 3.0, label: "客B：原価 × 3.0" },
   {
     id: "mgmt-a",
     ruleName: "管理会社A",
     costMultiplier: 1.8,
     laborMultiplier: 1.8,
-    label: "管理会社A：材料×1.8 / 労務×1.8",
+    label: "管理会社A：原価 × 1.8",
   },
   {
     id: "individual",
     ruleName: "一般個人",
     costMultiplier: 2.5,
-    laborMultiplier: 2.2,
-    label: "一般個人：材料×2.5 / 労務×2.2",
+    laborMultiplier: 2.5,
+    label: "一般個人：原価 × 2.5",
   },
   {
     id: "corp-standard",
     ruleName: "法人標準",
     costMultiplier: 2.2,
-    laborMultiplier: 2.0,
-    label: "法人標準：材料×2.2 / 労務×2.0",
+    laborMultiplier: 2.2,
+    label: "法人標準：原価 × 2.2",
   },
   {
     id: "manual",
@@ -114,8 +114,8 @@ export function expectedUnitPriceFromRule(
   item: { category?: string; name?: string; costPrice?: number; unitPrice?: number },
   rule: Pick<CustomerPriceRule, "costMultiplier" | "laborMultiplier"> | CustomerPriceRuleSummary
 ): number | null {
+  if (!isPriceRuleTargetLineItem(item)) return null;
   const baseCost = item.costPrice ?? 0;
-  if (baseCost <= 0) return null;
   const mult = isLaborLineItem(item) ? rule.laborMultiplier : rule.costMultiplier;
   return Math.round(baseCost * mult);
 }
@@ -156,6 +156,32 @@ export function isLaborLineItem(item: { category?: string; name?: string }): boo
   return /労務|工事|設置|配線/.test(name);
 }
 
+/** 倍率再計算の対象行（材料・労務）。その他は手入力を優先 */
+export function isPriceRuleTargetLineItem(item: {
+  category?: string;
+  name?: string;
+  costPrice?: number;
+}): boolean {
+  const baseCost = item.costPrice ?? 0;
+  if (baseCost <= 0) return false;
+  if (isLaborLineItem(item)) return true;
+  if (item.category === "other") return false;
+  return true;
+}
+
+export const CUSTOMER_PDF_PRICE_RULE_NOTE = "顧客別単価ルール適用";
+
+export function buildCustomerFacingPdfNotes(
+  userNotes: string | null | undefined,
+  ruleName?: string | null
+): string {
+  const base = (userNotes ?? "").trim();
+  const name = (ruleName ?? "").trim();
+  if (!name || name === MANUAL_PRICE_RULE_NAME) return base;
+  if (base.includes(CUSTOMER_PDF_PRICE_RULE_NOTE)) return base;
+  return base ? `${base}\n${CUSTOMER_PDF_PRICE_RULE_NOTE}` : CUSTOMER_PDF_PRICE_RULE_NOTE;
+}
+
 export function applyCustomerPriceToItems(
   items: EstimateLineItem[],
   rule: Pick<CustomerPriceRule, "costMultiplier" | "laborMultiplier"> | null
@@ -163,11 +189,13 @@ export function applyCustomerPriceToItems(
   const costMult = rule?.costMultiplier ?? DEFAULT_PRICE_RULE.costMultiplier;
   const laborMult = rule?.laborMultiplier ?? DEFAULT_PRICE_RULE.laborMultiplier;
   return items.map((item) => {
+    if (!isPriceRuleTargetLineItem(item)) {
+      return { ...item, amount: lineAmount(item.quantity, item.unitPrice) };
+    }
     const isLabor = isLaborLineItem(item);
     const mult = isLabor ? laborMult : costMult;
     const baseCost = item.costPrice ?? 0;
-    const unitPrice =
-      baseCost > 0 ? Math.round(baseCost * mult) : Math.round((item.unitPrice || 0) * mult);
+    const unitPrice = Math.round(baseCost * mult);
     return {
       ...item,
       unitPrice,
@@ -301,7 +329,7 @@ export function seedCustomerPriceRules(): void {
       type: "company",
       ruleName: "客B",
       costMultiplier: 3.0,
-      laborMultiplier: 2.5,
+      laborMultiplier: 3.0,
       discountPolicyMemo: "端数は出精値引きで調整",
     },
     {
@@ -319,7 +347,7 @@ export function seedCustomerPriceRules(): void {
       type: "individual",
       ruleName: "一般個人",
       costMultiplier: 2.5,
-      laborMultiplier: 2.2,
+      laborMultiplier: 2.5,
       discountPolicyMemo: "",
     },
     {
@@ -328,7 +356,7 @@ export function seedCustomerPriceRules(): void {
       type: "company",
       ruleName: "法人標準",
       costMultiplier: 2.2,
-      laborMultiplier: 2.0,
+      laborMultiplier: 2.2,
       discountPolicyMemo: "法人向け標準。最終調整は出精値引き",
     },
     {
@@ -337,7 +365,7 @@ export function seedCustomerPriceRules(): void {
       type: "company",
       ruleName: "法人標準",
       costMultiplier: 2.2,
-      laborMultiplier: 2.0,
+      laborMultiplier: 2.2,
       discountPolicyMemo: "法人向け標準。最終調整は出精値引き",
     },
   ];

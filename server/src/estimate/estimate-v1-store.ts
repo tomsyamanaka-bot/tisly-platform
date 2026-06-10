@@ -343,6 +343,13 @@ export function createEstimateFromSurveyV1(
     const items = applyCustomerPriceToItems(tiered, priceRule);
     createEstimate(project.id, items);
     project = getBusinessProject(project.id)!;
+    if (project.estimateId) {
+      persistEstimatePriceRule(project.estimateId, {
+        ruleName: priceRule.ruleName,
+        costMultiplier: priceRule.costMultiplier,
+        laborMultiplier: priceRule.laborMultiplier,
+      });
+    }
     updateEstimateHeader(project.estimateId!, {
       addressee: detail.customerName,
       subject: detail.siteName || detail.customerName,
@@ -409,13 +416,15 @@ function persistEstimatePriceRule(
     priceRuleInput.laborMultiplier !== undefined
       ? priceRuleInput.laborMultiplier
       : (preset?.laborMultiplier ?? null);
+  const applyPriceRule = ruleName !== MANUAL_PRICE_RULE_NAME ? 1 : 0;
   getDatabase()
     .prepare(
       `UPDATE business_estimates SET
-        price_rule_name = ?, price_rule_cost_multiplier = ?, price_rule_labor_multiplier = ?
+        price_rule_name = ?, price_rule_cost_multiplier = ?, price_rule_labor_multiplier = ?,
+        apply_price_rule = ?
        WHERE id = ?`
     )
-    .run(ruleName, costMult, laborMult, estimateId);
+    .run(ruleName, costMult, laborMult, applyPriceRule, estimateId);
 }
 
 export function updateEstimateItemsV1(
@@ -655,9 +664,9 @@ export function duplicateEstimateV1(businessProjectId: string): EstimateProjectV
         id, project_id, estimate_no, customer_name, title, items_json,
         subtotal, tax, total, internal_cost, gross_profit, gross_profit_rate,
         shusei_discount_amount, shusei_discount_memo,
-        price_rule_name, price_rule_cost_multiplier, price_rule_labor_multiplier,
+        price_rule_name, price_rule_cost_multiplier, price_rule_labor_multiplier, apply_price_rule,
         pdf_path, header_json, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)`
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)`
     )
     .run(
       id,
@@ -677,6 +686,7 @@ export function duplicateEstimateV1(businessProjectId: string): EstimateProjectV
       est.priceRuleName ?? "",
       est.priceRuleCostMultiplier ?? null,
       est.priceRuleLaborMultiplier ?? null,
+      est.applyPriceRule ? 1 : 0,
       est.header ? JSON.stringify(est.header) : null,
       now,
       now

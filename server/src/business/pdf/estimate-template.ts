@@ -1,4 +1,5 @@
 import type { BusinessProject, Estimate } from "../business-types.js";
+import { buildCustomerFacingPdfNotes } from "../customer-price-rules.js";
 import {
   itemsToTomsLines,
   mergeEstimateHeader,
@@ -10,7 +11,6 @@ import {
   renderAmountBanner,
   renderNotes,
   renderPhotoGrid,
-  renderPriceRuleLine,
   renderTomsDocLayoutHeader,
   renderTomsLineItemsTable,
   renderTotals,
@@ -37,7 +37,10 @@ export function renderEstimateHtml(
     staffName: opts?.staffName,
   });
   const lines = itemsToTomsLines(estimate.items);
-  const notes = opts?.notes ?? project.surveyMemo ?? "";
+  const notes = buildCustomerFacingPdfNotes(
+    opts?.notes ?? project.surveyMemo ?? "",
+    opts?.priceRuleName ?? estimate.priceRuleName
+  );
   const includePhotos = opts?.includePhotos === true;
   const photoBlock =
     includePhotos && project.surveyPhotos?.length
@@ -58,7 +61,6 @@ ${renderTomsDocLayoutHeader({
   includeRegistrationNo: false,
 })}
 ${renderAmountBanner(estimate.total)}
-${renderPriceRuleLine(opts?.priceRuleName ?? estimate.priceRuleName)}
 ${renderTomsLineItemsTable(lines)}
 ${renderTotals({
   lineSubtotal: estimate.lineSubtotal ?? estimate.subtotal + estimate.shuseiDiscount,

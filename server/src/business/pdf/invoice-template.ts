@@ -1,4 +1,5 @@
 import type { BusinessProject, Estimate, Invoice } from "../business-types.js";
+import { buildCustomerFacingPdfNotes } from "../customer-price-rules.js";
 import {
   formatTomsIssueDate,
   itemsToTomsLines,
@@ -12,7 +13,6 @@ import {
   renderBankBlock,
   renderNotes,
   renderPhotoGrid,
-  renderPriceRuleLine,
   renderSealPlaceholder,
   renderTomsDocLayoutHeader,
   renderTomsLineItemsTable,
@@ -60,7 +60,10 @@ export function renderInvoiceHtml(
 ): string {
   const header = buildInvoiceHeader(project, invoice, estimate, opts);
   const lines = itemsToTomsLines(invoice.items);
-  const notes = opts?.notes ?? project.surveyMemo ?? "";
+  const notes = buildCustomerFacingPdfNotes(
+    opts?.notes ?? project.surveyMemo ?? "",
+    opts?.priceRuleName ?? estimate.priceRuleName
+  );
   const includePhotos = opts?.includePhotos === true;
   const photoBlock =
     includePhotos && project.surveyPhotos?.length
@@ -82,7 +85,6 @@ ${renderTomsDocLayoutHeader({
 })}
 ${renderAmountBanner(invoice.total)}
 <p class="intro">下記の通りご請求申し上げます。見積参照番号：${escapeHtml(header.estimateRefNo)}</p>
-${renderPriceRuleLine(opts?.priceRuleName ?? estimate.priceRuleName)}
 ${renderTomsLineItemsTable(lines)}
 ${renderTotals({
   lineSubtotal: opts?.lineSubtotal ?? estimate.lineSubtotal,

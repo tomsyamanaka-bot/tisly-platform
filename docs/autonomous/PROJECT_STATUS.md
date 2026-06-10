@@ -90,20 +90,22 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 
 ---
 
-## 顧客別単価ルール v1.1（完成済み）
+## 顧客別単価ルール v1.2（完成済み）
 
 | 項目 | 内容 |
 |------|------|
-| テーブル | `customer_price_rules` + 見積選択 `business_estimates.price_rule_*` |
+| テーブル | `customer_price_rules` + 見積 `price_rule_*` / `apply_price_rule` / `shusei_discount_*` |
 | 材料単価 | 部材原価 × `cost_multiplier` |
-| 労務単価 | 労務原価 × `labor_multiplier`（category=labor または名称マッチ） |
-| 出精値引き | `shusei_discount_amount` / `shusei_discount_memo`（金額・理由メモ） |
+| 労務単価 | 標準労務原価 × `labor_multiplier`（category=labor または名称マッチ） |
+| その他明細 | 手入力単価を優先（`category=other` 等は倍率対象外） |
+| 出精値引き | `shusei_discount_amount` / `shusei_discount_memo` |
 | 計算 | 明細合計 − 出精値引き = 小計 → 税10% → 税込合計 |
-| UI | 内訳上部：顧客名・ルール選択・倍率表示・「倍率で再計算」（手入力単価は確認後上書き） |
+| UI | 顧客名・ルール選択（客A/B/管理会社A/一般個人/法人標準/手動調整）・材料/労務倍率入力・「倍率で再計算」・出精値引き |
+| 手入力保護 | 再計算時「手入力の単価があります。上書きしますか？」（上書き / 残す） |
 | API | `GET /api/estimate/v1/price-rules`、`PATCH items` に `priceRule` / `applyPriceRule` |
-| PDF（お客様） | 単価ルール名・出精値引き・税込合計（**倍率は非表示**） |
+| PDF（お客様） | 出精値引き・税抜小計・消費税・税込合計、備考に「顧客別単価ルール適用」（**倍率は非表示**） |
 | PDF（社内） | TOMS データに `priceRule` 倍率を含む |
-| テスト | `server/test/customer-price-rules.test.ts`（8ケース） |
+| テスト | `server/test/customer-price-rules.test.ts`（9ケース） |
 
 ---
 

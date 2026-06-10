@@ -425,6 +425,32 @@ body.tisly-friendly {
   background: #fff;
 }
 
+.tisly-friendly .price-rule-customer {
+  font-weight: 600;
+}
+
+.tisly-friendly .price-rule-multipliers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.tisly-friendly .price-multiplier-input {
+  width: 100%;
+  margin-top: 0.25rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--tisly-border);
+  border-radius: 8px;
+  font-size: 0.95rem;
+  background: #fff;
+}
+
+.tisly-friendly .price-multiplier-input:disabled {
+  background: #f4f4f4;
+  color: #888;
+}
+
 .tisly-friendly .price-rule-summary {
   white-space: pre-line;
   margin: 0.35rem 0 0.5rem;

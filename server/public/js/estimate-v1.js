@@ -453,12 +453,45 @@ function isLaborLineName(name, category) {
   return /労務|工事|設置|配線/.test(String(name || ""));
 }
 
+function isPriceRuleTargetLineLocal(item) {
+  const baseCost = item.costPrice ?? 0;
+  if (baseCost <= 0) return false;
+  if (isLaborLineName(item.name, item.category)) return true;
+  if (item.category === "other") return false;
+  return true;
+}
+
 function expectedUnitPriceLocal(item, rule) {
   if (!rule || rule.ruleName === "手動調整") return null;
+  if (!isPriceRuleTargetLineLocal(item)) return null;
   const baseCost = item.costPrice ?? 0;
-  if (baseCost <= 0) return null;
   const mult = isLaborLineName(item.name, item.category) ? rule.laborMultiplier : rule.costMultiplier;
   return Math.round(baseCost * mult);
+}
+
+function readMultiplierInputs() {
+  const cost = Number($("cost-multiplier")?.value);
+  const labor = Number($("labor-multiplier")?.value);
+  return {
+    costMultiplier: Number.isFinite(cost) && cost > 0 ? cost : null,
+    laborMultiplier: Number.isFinite(labor) && labor > 0 ? labor : null,
+  };
+}
+
+function syncMultiplierInputsFromRule(rule, preset) {
+  const costEl = $("cost-multiplier");
+  const laborEl = $("labor-multiplier");
+  const isManual = preset?.ruleName === "手動調整" || rule?.ruleName === "手動調整";
+  const costVal = preset?.costMultiplier ?? rule?.costMultiplier ?? "";
+  const laborVal = preset?.laborMultiplier ?? rule?.laborMultiplier ?? "";
+  if (costEl) {
+    costEl.disabled = isManual;
+    costEl.value = isManual ? "" : String(costVal);
+  }
+  if (laborEl) {
+    laborEl.disabled = isManual;
+    laborEl.value = isManual ? "" : String(laborVal);
+  }
 }
 
 function findPresetByRuleName(ruleName) {
@@ -484,6 +517,7 @@ function populatePriceRuleSelect(rule) {
     .join("");
   const matched = matchPresetOption(rule);
   if (matched) sel.value = matched.id;
+  syncMultiplierInputsFromRule(rule, matched);
 }
 
 function readSelectedPriceRule() {
@@ -493,10 +527,11 @@ function readSelectedPriceRule() {
   if (preset.ruleName === "手動調整") {
     return { ruleName: "手動調整", costMultiplier: null, laborMultiplier: null };
   }
+  const mult = readMultiplierInputs();
   return {
     ruleName: preset.ruleName,
-    costMultiplier: preset.costMultiplier,
-    laborMultiplier: preset.laborMultiplier,
+    costMultiplier: mult.costMultiplier ?? preset.costMultiplier,
+    laborMultiplier: mult.laborMultiplier ?? preset.laborMultiplier,
   };
 }
 
@@ -604,10 +639,7 @@ async function recalcWithPriceRule(forceOverwrite = false) {
     toast("倍率で再計算しました");
   } catch (e) {
     if (e.status === 409 && e.message === "manual_price_lines") {
-      const count = e.manualLineIndices?.length ?? 0;
-      const ok = window.confirm(
-        `手入力で変更した単価が${count}行あります。選択中の単価ルールで上書きしますか？`
-      );
+      const ok = window.confirm("手入力の単価があります。上書きしますか？");
       if (ok) await recalcWithPriceRule(true);
       return;
     }
@@ -1071,6 +1103,17 @@ async function init() {
   $("shusei-discount-memo")?.addEventListener("input", () => recalcLocal());
 
   $("price-rule-select")?.addEventListener("change", () => {
+    const preset = priceRulePresets.find((p) => p.id === $("price-rule-select")?.value);
+    syncMultiplierInputsFromRule(currentPriceRule, preset);
+    currentPriceRule = readSelectedPriceRule();
+    renderPriceRuleSummary(currentPriceRule, { shuseiDiscount: readShuseiDiscount() });
+  });
+
+  $("cost-multiplier")?.addEventListener("input", () => {
+    currentPriceRule = readSelectedPriceRule();
+    renderPriceRuleSummary(currentPriceRule, { shuseiDiscount: readShuseiDiscount() });
+  });
+  $("labor-multiplier")?.addEventListener("input", () => {
     currentPriceRule = readSelectedPriceRule();
     renderPriceRuleSummary(currentPriceRule, { shuseiDiscount: readShuseiDiscount() });
   });

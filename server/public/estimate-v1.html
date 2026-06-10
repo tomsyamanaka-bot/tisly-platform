@@ -100,11 +100,19 @@
       <p class="section-hint">項目を追加・並べ替え・削除できます</p>
       <div class="friendly-card" id="lines-card">
         <div id="price-rule-panel" class="price-rule-panel">
-          <p class="section-label" style="margin:0 0 0.35rem;">💴 単価ルール選択</p>
-          <p id="price-rule-customer" class="section-hint" style="margin:0 0 0.5rem;"></p>
-          <label class="friendly-label" style="margin:0 0 0.5rem;">ルールを選ぶ
+          <p class="section-label" style="margin:0 0 0.35rem;">💴 顧客別単価ルール</p>
+          <p id="price-rule-customer" class="section-hint price-rule-customer" style="margin:0 0 0.5rem;"></p>
+          <label class="friendly-label" style="margin:0 0 0.5rem;">単価ルール選択
             <select id="price-rule-select" class="price-rule-select"></select>
           </label>
+          <div class="price-rule-multipliers">
+            <label class="friendly-label">材料倍率
+              <input type="number" id="cost-multiplier" class="price-multiplier-input" min="0" step="0.1" inputmode="decimal" />
+            </label>
+            <label class="friendly-label">労務倍率
+              <input type="number" id="labor-multiplier" class="price-multiplier-input" min="0" step="0.1" inputmode="decimal" />
+            </label>
+          </div>
           <p id="price-rule-summary" class="section-hint price-rule-summary"></p>
           <button type="button" class="btn-sub blue" id="btn-recalc-price-rule">倍率で再計算</button>
         </div>

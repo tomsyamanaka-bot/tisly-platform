@@ -13,7 +13,9 @@ const { createApp } = await import("../src/app.js");
 const { closeDatabase, getDatabase } = await import("../src/db/database.js");
 import {
   applyCustomerPriceToItems,
+  CUSTOMER_PDF_PRICE_RULE_NOTE,
   getCustomerPriceRule,
+  isPriceRuleTargetLineItem,
   upsertCustomerPriceRule,
 } from "../src/business/customer-price-rules.js";
 import { calcTotals, normalizeLineItems } from "../src/business/estimate-math.js";
@@ -52,7 +54,7 @@ async function createSurveyEstimate(token: string, customerName: string, custome
   return { surveyProjectId, businessProjectId: est.body.businessProjectId as string, estimate: est.body.estimate };
 }
 
-describe("顧客別単価ルール v1", () => {
+describe("顧客別単価ルール v1.2", () => {
   let token = "";
 
   before(async () => {
@@ -93,13 +95,25 @@ describe("顧客別単価ルール v1", () => {
     assert.equal(items[0].amount, 2000);
   });
 
+  it("その他カテゴリは倍率再計算の対象外（手入力優先）", () => {
+    const rule = { costMultiplier: 2.0, laborMultiplier: 2.0 };
+    const items = applyCustomerPriceToItems(
+      normalizeLineItems([
+        { name: "特別調整", category: "other", quantity: 1, costPrice: 1000, unitPrice: 7777 },
+      ]),
+      rule
+    );
+    assert.equal(items[0].unitPrice, 7777);
+    assert.equal(isPriceRuleTargetLineItem({ category: "other", costPrice: 1000 }), false);
+  });
+
   it("客B は原価×3.0 で材料単価を計算する", () => {
     const customerId = "BCU-PRICE-B";
     upsertCustomerPriceRule({
       customerId,
       ruleName: "客B",
       costMultiplier: 3.0,
-      laborMultiplier: 2.5,
+      laborMultiplier: 3.0,
     });
     const rule = getCustomerPriceRule(customerId)!;
     const items = applyCustomerPriceToItems(
@@ -174,8 +188,10 @@ describe("顧客別単価ルール v1", () => {
     assert.ok(body.includes("出精値引き"));
     assert.ok(body.includes("端数調整"));
     assert.ok(body.includes("税込合計"));
-    assert.ok(body.includes("単価ルール"));
-    assert.ok(body.includes("法人標準"));
+    assert.ok(body.includes("小計（税抜）"));
+    assert.ok(body.includes("消費税"));
+    assert.ok(body.includes(CUSTOMER_PDF_PRICE_RULE_NOTE));
+    assert.ok(!body.includes("× 2.2"));
   });
 
   it("客Aルールで倍率再計算すると原価×2.0になる", async () => {
@@ -194,6 +210,7 @@ describe("顧客別単価ルール v1", () => {
     assert.equal(patched.status, 200);
     assert.equal(patched.body.estimate.items[0].unitPrice, 2000);
     assert.equal(patched.body.estimate.priceRuleName, "客A");
+    assert.equal(patched.body.estimate.applyPriceRule, true);
   });
 
   it("客Bルールで倍率再計算すると原価×3.0になる", async () => {
@@ -207,7 +224,7 @@ describe("顧客別単価ルール v1", () => {
       .send({
         items,
         applyPriceRule: true,
-        priceRule: { ruleName: "客B", costMultiplier: 3.0, laborMultiplier: 2.5 },
+        priceRule: { ruleName: "客B", costMultiplier: 3.0, laborMultiplier: 3.0 },
       });
     assert.equal(patched.status, 200);
     assert.equal(patched.body.estimate.items[0].unitPrice, 3000);
@@ -272,7 +289,7 @@ describe("顧客別単価ルール v1", () => {
     assert.ok(body.includes("出精値引き"));
     assert.ok(body.includes("特別調整"));
     assert.ok(body.includes("税込合計"));
-    assert.ok(body.includes("単価ルール"));
-    assert.ok(body.includes("法人標準"));
+    assert.ok(body.includes(CUSTOMER_PDF_PRICE_RULE_NOTE));
+    assert.ok(!body.includes("× 2.2"));
   });
 });

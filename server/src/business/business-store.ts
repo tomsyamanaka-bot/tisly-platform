@@ -478,6 +478,7 @@ function rowToEstimate(r: Record<string, unknown>): Estimate {
       r.price_rule_cost_multiplier != null ? Number(r.price_rule_cost_multiplier) : null,
     priceRuleLaborMultiplier:
       r.price_rule_labor_multiplier != null ? Number(r.price_rule_labor_multiplier) : null,
+    applyPriceRule: Number(r.apply_price_rule ?? 0) === 1,
     shuseiDiscount,
     shuseiDiscountMemo: String(r.shusei_discount_memo ?? ""),
     subtotal,

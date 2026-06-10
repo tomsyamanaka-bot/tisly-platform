@@ -194,6 +194,27 @@ export function runMigrations(database: Database.Database): void {
   migrateCompletionPhotosV1(database);
   migrateCustomerPriceRulesV1(database);
   migrateCustomerPriceRulesV1_1(database);
+  migrateCustomerPriceRulesV1_2(database);
+}
+
+/** 見積ごとの単価ルール適用フラグ（Customer Price Rule v1.2） */
+function migrateCustomerPriceRulesV1_2(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:customer_price_rules_v1_2") as { value_json: string } | undefined;
+  if (marker) return;
+
+  addColumnsIfMissing(database, "business_estimates", [
+    {
+      name: "apply_price_rule",
+      ddl: "ALTER TABLE business_estimates ADD COLUMN apply_price_rule INTEGER NOT NULL DEFAULT 0",
+    },
+  ]);
+
+  const now = new Date().toISOString();
+  database
+    .prepare(`INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, ?)`)
+    .run("migration:customer_price_rules_v1_2", JSON.stringify({ migratedAt: now }), now);
 }
 
 /** 見積ごとの単価ルール選択（Customer Price Rule v1.1） */
