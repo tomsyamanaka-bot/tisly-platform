@@ -98,28 +98,47 @@ jobs:
           mkdir -p "${HOME}/.ssh"
           chmod 700 "${HOME}/.ssh"
 
-          # 秘密鍵の改行崩れ対策（GitHub Secret のリテラル \n も復元）
-          printf '%b' "${VPS_SSH_KEY}" > "${KEY_FILE}"
-          if ! head -1 "${KEY_FILE}" | grep -q 'BEGIN'; then
-            printf '%s\n' "${VPS_SSH_KEY}" > "${KEY_FILE}"
-          fi
-          chmod 600 "${KEY_FILE}"
+          # 秘密鍵の改行崩れ対策（複数パターンを試行、中身はログに出さない）
+          # NOTE: printf '%b' は鍵本文のバックスラッシュを壊すため使わない
+          KEY_READY=false
+          write_key() {
+            printf '%s' "$1" > "${KEY_FILE}"
+            chmod 600 "${KEY_FILE}"
+          }
+          has_begin_marker() {
+            [ -s "${KEY_FILE}" ] && head -1 "${KEY_FILE}" | grep -q 'BEGIN'
+          }
 
-          if [ ! -s "${KEY_FILE}" ]; then
-            echo "::error::SSH key file is empty"
+          write_key "${VPS_SSH_KEY}"
+          has_begin_marker && KEY_READY=true && echo "ssh key loaded (strategy: raw)"
+
+          if [ "${KEY_READY}" != "true" ]; then
+            write_key "$(printf '%s' "${VPS_SSH_KEY}" | sed 's/\\n/\n/g')"
+            has_begin_marker && KEY_READY=true && echo "ssh key loaded (strategy: sed-\\\\n)"
+          fi
+
+          if [ "${KEY_READY}" != "true" ]; then
+            write_key "$(printf '%s' "${VPS_SSH_KEY}" | tr -d '\r' | sed 's/\\n/\n/g')"
+            has_begin_marker && KEY_READY=true && echo "ssh key loaded (strategy: tr-sed)"
+          fi
+
+          if [ "${KEY_READY}" != "true" ]; then
+            if printf '%s' "${VPS_SSH_KEY}" | tr -d '\n\r ' | base64 -d > "${KEY_FILE}" 2>/dev/null; then
+              chmod 600 "${KEY_FILE}"
+              has_begin_marker && KEY_READY=true && echo "ssh key loaded (strategy: base64)"
+            fi
+          fi
+
+          if [ "${KEY_READY}" != "true" ]; then
+            echo "::error::SSH key format invalid — VPS_SSH_KEY に BEGIN 行がありません。秘密鍵 PEM 全文を再登録してください"
             exit 1
           fi
+
           echo "ssh key file: present ($(wc -c < "${KEY_FILE}") bytes)"
-          if head -1 "${KEY_FILE}" | grep -q 'BEGIN'; then
-            echo "ssh key format: BEGIN line OK"
-          else
-            echo "::warning::ssh key BEGIN line not detected — key may be malformed"
-          fi
           if ssh-keygen -y -f "${KEY_FILE}" >/dev/null 2>&1; then
-            echo "ssh key validation: OK"
+            echo "ssh key validation: OK (ssh-keygen -y)"
           else
-            echo "::error::ssh key validation failed (ssh-keygen -y)"
-            exit 1
+            echo "::warning::ssh-keygen -y failed — SSH 接続テストで最終判定します"
           fi
 
       - name: Deploy via SSH
@@ -148,7 +167,11 @@ jobs:
           TARGET="${VPS_USER}@${VPS_HOST}"
 
           echo "=== SSH connectivity test ==="
-          ssh "${SSH_BASE[@]}" "${TARGET}" 'echo "SSH_OK user=$(whoami) host=$(hostname)"'
+          if ! ssh "${SSH_BASE[@]}" "${TARGET}" 'echo "SSH_OK user=$(whoami) host=$(hostname)"'; then
+            echo "::error::SSH 接続失敗 (host=${VPS_HOST} port=${PORT} user=${VPS_USER})"
+            echo "確認: VPS_PORT / VPS_HOST / VPS_USER / VPS_SSH_KEY（公開鍵が authorized_keys に登録済みか）"
+            exit 1
+          fi
 
           echo "=== Remote deploy (inline, no VPS script required) ==="
           ssh "${SSH_BASE[@]}" "${TARGET}" bash -s "${EXPECTED_SHORT}" <<'REMOTE'
