@@ -129,6 +129,30 @@ jobs:
             fi
           fi
 
+          # 6) 1行潰れ OpenSSH / PEM を PEM 形式へ再構成
+          if [ "${KEY_READY}" != "true" ] || ! ssh-keygen -y -f "${KEY_FILE}" >/dev/null 2>&1; then
+            python3 - <<'PY'
+          import os, re, textwrap
+          raw = os.environ.get("VPS_SSH_KEY", "").strip().replace("\\n", "\n")
+          m = re.search(
+              r"(-----BEGIN [^-]+-----)\s*(.+?)\s*(-----END [^-]+-----)",
+              raw,
+              re.S,
+          )
+          if m:
+              header, body, footer = m.groups()
+              body = re.sub(r"\s+", "", body)
+              wrapped = "\n".join(textwrap.wrap(body, 70))
+              fixed = f"{header}\n{wrapped}\n{footer}\n"
+              path = os.path.expanduser("~/.ssh/tisly_deploy_key")
+              os.makedirs(os.path.dirname(path), mode=0o700, exist_ok=True)
+              with open(path, "w", encoding="utf-8", newline="\n") as f:
+                  f.write(fixed)
+              os.chmod(path, 0o600)
+          PY
+            has_begin_marker && KEY_READY=true && echo "ssh key loaded (strategy: python-wrap)"
+          fi
+
           if [ "${KEY_READY}" != "true" ]; then
             echo "::error::SSH key format invalid — VPS_SSH_KEY に BEGIN 行がありません。秘密鍵 PEM 全文を再登録してください"
             exit 1
@@ -167,11 +191,47 @@ jobs:
           TARGET="${VPS_USER}@${VPS_HOST}"
 
           echo "=== SSH connectivity test ==="
-          if ! ssh "${SSH_BASE[@]}" "${TARGET}" 'echo "SSH_OK user=$(whoami) host=$(hostname)"'; then
-            echo "::error::SSH 接続失敗 (host=${VPS_HOST} port=${PORT} user=${VPS_USER})"
-            echo "確認: VPS_PORT / VPS_HOST / VPS_USER / VPS_SSH_KEY（公開鍵が authorized_keys に登録済みか）"
+          ssh_try() {
+            local p="$1"
+            ssh -p "${p}" -i "${KEY_FILE}" \
+              -o BatchMode=yes \
+              -o StrictHostKeyChecking=no \
+              -o UserKnownHostsFile=/dev/null \
+              -o GlobalKnownHostsFile=/dev/null \
+              -o LogLevel=ERROR \
+              -o ConnectTimeout=15 \
+              "${TARGET}" 'echo "SSH_OK user=$(whoami) host=$(hostname) port='"${p}"'"'
+          }
+
+          CONNECTED=false
+          for try_port in "${PORT}" 55222 22; do
+            echo "try port: ${try_port}"
+            if ssh_try "${try_port}"; then
+              PORT="${try_port}"
+              CONNECTED=true
+              echo "SSH connected on port ${PORT}"
+              break
+            fi
+          done
+
+          if [ "${CONNECTED}" != "true" ]; then
+            echo "::error::SSH 接続失敗 (host=${VPS_HOST} user=${VPS_USER}, tried ports: ${PORT} 55222 22)"
+            echo "確認: VPS_SSH_KEY が秘密鍵 PEM 全文か / 対応する公開鍵が authorized_keys にあるか / ファイアウォール"
             exit 1
           fi
+
+          SSH_BASE=(
+            -p "${PORT}"
+            -i "${KEY_FILE}"
+            -o BatchMode=yes
+            -o StrictHostKeyChecking=no
+            -o UserKnownHostsFile=/dev/null
+            -o GlobalKnownHostsFile=/dev/null
+            -o LogLevel=ERROR
+            -o ConnectTimeout=30
+            -o ServerAliveInterval=15
+            -o ServerAliveCountMax=3
+          )
 
           echo "=== Remote deploy (inline, no VPS script required) ==="
           ssh "${SSH_BASE[@]}" "${TARGET}" bash -s "${EXPECTED_SHORT}" <<'REMOTE'
