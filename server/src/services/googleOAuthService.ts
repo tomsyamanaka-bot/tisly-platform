@@ -3,6 +3,39 @@ import { logBusinessIntegration } from "../business/business-integration-log.js"
 
 const REFRESH_TOKEN_KEY = "google_oauth_refresh_token";
 const ACCESS_TOKEN_KEY = "google_oauth_access_token";
+const SCOPES_KEY = "google_oauth_scopes";
+
+const CALENDAR_WRITE_SCOPE = "https://www.googleapis.com/auth/calendar";
+const CALENDAR_READONLY_SCOPE = "https://www.googleapis.com/auth/calendar.readonly";
+
+export interface GoogleApiErrorBody {
+  error?: {
+    message?: string;
+    code?: number;
+    status?: string;
+    errors?: Array<{ message?: string; reason?: string }>;
+  };
+}
+
+/** Google API エラーをログ出力（トークン・シークレットは含めない） */
+export function logGoogleCalendarApiError(
+  operation: string,
+  httpStatus: number,
+  body: GoogleApiErrorBody
+): void {
+  const err = body.error;
+  console.error(`[google-calendar] ${operation} failed`, {
+    httpStatus,
+    message: err?.message ?? "(no message)",
+    code: err?.code,
+    status: err?.status,
+    reasons: err?.errors?.map((e) => e.reason).filter(Boolean),
+  });
+}
+
+export function googleApiErrorMessage(body: GoogleApiErrorBody, httpStatus: number): string {
+  return body.error?.message ?? `Google API error (${httpStatus})`;
+}
 
 export type GoogleOAuthMode = "mock" | "real";
 
@@ -95,17 +128,40 @@ function calendarEnvMode(): GoogleOAuthMode {
   return inspectGoogleCalendarEnv().configured ? "real" : "mock";
 }
 
-function readStoredToken(key: string): string | null {
+function readStoredTokenRow(key: string): { token?: string; expiresAt?: number } | null {
   const row = getDatabase()
     .prepare(`SELECT value_json FROM platform_settings WHERE key = ?`)
     .get(key) as { value_json: string } | undefined;
   if (!row) return null;
   try {
-    const parsed = JSON.parse(row.value_json) as { token?: string };
-    return parsed.token ?? null;
+    return JSON.parse(row.value_json) as { token?: string; expiresAt?: number };
   } catch {
     return null;
   }
+}
+
+function readStoredToken(key: string): string | null {
+  return readStoredTokenRow(key)?.token ?? null;
+}
+
+export function hasGoogleCalendarAccessToken(): boolean {
+  return Boolean(readStoredToken(ACCESS_TOKEN_KEY));
+}
+
+export function hasGoogleCalendarRefreshToken(): boolean {
+  const cfg = getGoogleCalendarOAuthConfig();
+  return Boolean(cfg.refreshToken);
+}
+
+export function getGoogleCalendarTokenExpiry(): string | null {
+  const row = readStoredTokenRow(ACCESS_TOKEN_KEY);
+  if (!row?.expiresAt) return null;
+  return new Date(row.expiresAt).toISOString();
+}
+
+export function getGoogleCalendarTokenScope(): string {
+  const scopes = readStoredScopes();
+  return scopes.length ? scopes.join(" ") : "";
 }
 
 function writeStoredToken(key: string, token: string, extra?: Record<string, unknown>): void {
@@ -114,6 +170,64 @@ function writeStoredToken(key: string, token: string, extra?: Record<string, unk
       `INSERT OR REPLACE INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
     )
     .run(key, JSON.stringify({ token, at: new Date().toISOString(), ...extra }));
+}
+
+function readStoredScopes(): string[] {
+  const row = getDatabase()
+    .prepare(`SELECT value_json FROM platform_settings WHERE key = ?`)
+    .get(SCOPES_KEY) as { value_json: string } | undefined;
+  if (!row) return [];
+  try {
+    const parsed = JSON.parse(row.value_json) as { scopes?: string[]; scope?: string };
+    if (Array.isArray(parsed.scopes)) return parsed.scopes;
+    if (typeof parsed.scope === "string") {
+      return parsed.scope.split(/\s+/).filter(Boolean);
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+function saveGrantedScopes(scope: string): void {
+  const scopes = scope.split(/\s+/).filter(Boolean);
+  getDatabase()
+    .prepare(
+      `INSERT OR REPLACE INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run(SCOPES_KEY, JSON.stringify({ scopes, scope, at: new Date().toISOString() }));
+}
+
+export function getGoogleCalendarGrantedScopes(): string[] {
+  return readStoredScopes();
+}
+
+export function hasGoogleCalendarWriteScope(): boolean {
+  const scopes = readStoredScopes();
+  if (scopes.length === 0) return true;
+  if (scopes.includes(CALENDAR_WRITE_SCOPE)) return true;
+  if (scopes.some((s) => s.endsWith("/auth/calendar") && !s.includes("readonly"))) return true;
+  if (scopes.includes(CALENDAR_READONLY_SCOPE)) return false;
+  return true;
+}
+
+export async function refreshGoogleCalendarGrantedScopes(): Promise<string[]> {
+  const cfg = getGoogleCalendarOAuthConfig();
+  if (cfg.mode === "mock" || !cfg.refreshToken) return readStoredScopes();
+  try {
+    const token = await refreshGoogleAccessToken("calendar");
+    const res = await fetch(
+      `https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=${encodeURIComponent(token)}`
+    );
+    const json = (await res.json()) as { scope?: string; error?: string };
+    if (res.ok && json.scope) {
+      saveGrantedScopes(json.scope);
+      return json.scope.split(/\s+/).filter(Boolean);
+    }
+  } catch {
+    /* keep cached scopes */
+  }
+  return readStoredScopes();
 }
 
 export function getGoogleOAuthConfig(): GoogleOAuthConfig {
@@ -250,6 +364,9 @@ export async function handleGoogleCalendarOAuthCallback(input: {
     }
     if (json.refresh_token) saveGoogleRefreshToken(json.refresh_token);
     saveAccessToken(json.access_token, json.expires_in);
+    if (typeof (json as { scope?: string }).scope === "string") {
+      saveGrantedScopes((json as { scope: string }).scope);
+    }
     return {
       ok: true,
       mode: "real",
@@ -442,42 +559,90 @@ export interface GoogleCalendarListItem {
   summary: string;
   primary: boolean;
   accessRole: string;
+  writable?: boolean;
 }
 
 export async function listGoogleCalendars(): Promise<GoogleCalendarListItem[]> {
+  const result = await listGoogleCalendarsDetailed();
+  if (result.calendars.length > 0) return result.calendars;
+  if (result.usedFallback) return [result.fallback];
+  return [];
+}
+
+export interface GoogleCalendarListResult {
+  calendars: GoogleCalendarListItem[];
+  usedFallback: boolean;
+  fallback: GoogleCalendarListItem;
+  apiError?: string;
+  httpStatus?: number;
+}
+
+const PRIMARY_LIST_FALLBACK: GoogleCalendarListItem = {
+  id: "primary",
+  summary: "メインカレンダー",
+  primary: true,
+  accessRole: "owner",
+  writable: true,
+};
+
+export async function listGoogleCalendarsDetailed(): Promise<GoogleCalendarListResult> {
   const cfg = getGoogleCalendarOAuthConfig();
   if (cfg.mode === "mock") {
-    return [
-      { id: "primary", summary: "メインカレンダー（モック）", primary: true, accessRole: "owner" },
-      { id: "mock-work", summary: "工事予定（モック）", primary: false, accessRole: "writer" },
-    ];
+    return {
+      calendars: [
+        { id: "primary", summary: "メインカレンダー（モック）", primary: true, accessRole: "owner" },
+        { id: "mock-work", summary: "工事予定（モック）", primary: false, accessRole: "writer" },
+      ],
+      usedFallback: false,
+      fallback: PRIMARY_LIST_FALLBACK,
+    };
   }
   const token = await refreshGoogleAccessToken("calendar");
   const res = await fetch(
     "https://www.googleapis.com/calendar/v3/users/me/calendarList?minAccessRole=writer",
     { headers: { Authorization: `Bearer ${token}` } }
   );
-  const json = (await res.json()) as {
+  const json = (await res.json()) as GoogleApiErrorBody & {
     items?: Array<{ id?: string; summary?: string; primary?: boolean; accessRole?: string }>;
-    error?: { message?: string };
   };
   if (!res.ok) {
-    throw new Error(json.error?.message ?? `Calendar list failed (${res.status})`);
+    logGoogleCalendarApiError("calendarList", res.status, json);
+    const msg = googleApiErrorMessage(json, res.status);
+    return {
+      calendars: [],
+      usedFallback: true,
+      fallback: PRIMARY_LIST_FALLBACK,
+      apiError: msg,
+      httpStatus: res.status,
+    };
   }
-  return (json.items ?? [])
+  const calendars = (json.items ?? [])
     .filter((i) => i.id && i.summary)
-    .map((i) => ({
-      id: i.id!,
-      summary: i.summary!,
-      primary: Boolean(i.primary),
-      accessRole: i.accessRole ?? "reader",
-    }));
+    .map((i) => {
+      const accessRole = i.accessRole ?? "reader";
+      return {
+        id: i.id!,
+        summary: i.summary!,
+        primary: Boolean(i.primary),
+        accessRole,
+        writable: accessRole === "owner" || accessRole === "writer",
+      };
+    });
+  if (calendars.length === 0) {
+    return {
+      calendars: [],
+      usedFallback: true,
+      fallback: PRIMARY_LIST_FALLBACK,
+      apiError: "writable calendar not found",
+    };
+  }
+  return { calendars, usedFallback: false, fallback: PRIMARY_LIST_FALLBACK };
 }
 
 export function clearGoogleCalendarTokens(): void {
   getDatabase()
-    .prepare(`DELETE FROM platform_settings WHERE key IN (?, ?)`)
-    .run(REFRESH_TOKEN_KEY, ACCESS_TOKEN_KEY);
+    .prepare(`DELETE FROM platform_settings WHERE key IN (?, ?, ?)`)
+    .run(REFRESH_TOKEN_KEY, ACCESS_TOKEN_KEY, SCOPES_KEY);
 }
 
 export interface GoogleCalendarSyncEventInput {
@@ -515,9 +680,13 @@ export async function createGoogleCalendarEventForSync(
       }),
     }
   );
-  const json = (await res.json()) as { id?: string; htmlLink?: string; error?: { message?: string } };
+  const json = (await res.json()) as GoogleApiErrorBody & {
+    id?: string;
+    htmlLink?: string;
+  };
   if (!res.ok || !json.id) {
-    throw new Error(json.error?.message ?? `Calendar create failed (${res.status})`);
+    logGoogleCalendarApiError("events.insert", res.status, json);
+    throw new Error(googleApiErrorMessage(json, res.status));
   }
   return { mode: "real", eventId: json.id, htmlLink: json.htmlLink };
 }

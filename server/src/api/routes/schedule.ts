@@ -24,11 +24,16 @@ import {
   getCalendarAuthUrl,
   getCalendarOAuthStatus,
   getGoogleCalendarPublicStatus,
-  getWeekStartWithOffset,
   handleCalendarOAuthCallback,
   syncGoogleCalendarEvents,
 } from "../../services/googleCalendar.js";
 import { assertGoogleCalendarSyncAllowed } from "../../services/googleOAuthService.js";
+import {
+  assertGoogleCalendarSyncRequest,
+  GoogleCalendarSyncError,
+  sendGoogleCalendarSyncError,
+} from "../../schedule/google-calendar-sync-service.js";
+import { touchGoogleCalendarLastSync } from "../../schedule/google-calendar-sync-store.js";
 import {
   getCalendarSyncMeta,
   recordCalendarSyncFailure,
@@ -297,7 +302,8 @@ scheduleRouter.get("/oauth/callback", async (req, res) => {
 });
 
 async function runGoogleCalendarSync(
-  body: { startDate?: string; endDate?: string; weeks?: number }
+  body: Parameters<typeof assertGoogleCalendarSyncRequest>[0],
+  auth?: AuthedRequest["admin"]
 ): Promise<{
   ok: true;
   mode: "mock" | "real";
@@ -306,42 +312,55 @@ async function runGoogleCalendarSync(
   endDate: string;
   sync: ReturnType<typeof getCalendarSyncMeta>;
 }> {
-  const weeks = Math.max(1, Math.min(12, Number(body.weeks) || 8));
-  const startDate = body.startDate ?? getWeekStartWithOffset(-2);
-  const end = new Date(`${startDate}T12:00:00`);
-  end.setDate(end.getDate() + weeks * 7);
-  const endDate = body.endDate ?? end.toISOString().slice(0, 10);
-  const synced = await syncGoogleCalendarEvents(startDate, endDate);
-  const saved = replaceCachedCalendarEvents(startDate, endDate, synced.events);
+  const params = assertGoogleCalendarSyncRequest(body, auth);
+  const synced = await syncGoogleCalendarEvents(params.startDate, params.endDate);
+  const saved = replaceCachedCalendarEvents(params.startDate, params.endDate, synced.events);
+  touchGoogleCalendarLastSync();
   return {
     ok: true,
     mode: synced.mode,
     count: saved,
-    startDate,
-    endDate,
+    startDate: params.startDate,
+    endDate: params.endDate,
     sync: getCalendarSyncMeta(),
   };
+}
+
+function handleGoogleCalendarSyncError(
+  e: unknown,
+  res: Response
+): boolean {
+  if (e instanceof GoogleCalendarSyncError) {
+    if (e.status >= 500) {
+      recordCalendarSyncFailure(e.message);
+    }
+    sendGoogleCalendarSyncError(res, e.status, e.code, e.message, e.details);
+    return true;
+  }
+  return false;
 }
 
 scheduleRouter.post("/sync", ...scheduleAuth, async (req: AuthedRequest, res) => {
   if (!assertScheduleRole(req, res)) return;
   const guard = assertGoogleCalendarSyncAllowed();
   if (!guard.ok) {
-    res.status(guard.status).json({ error: guard.error, configured: false, mode: "mock" });
+    sendGoogleCalendarSyncError(res, guard.status, "google_calendar_not_configured", guard.error, {
+      configured: false,
+      mode: "mock",
+    });
     return;
   }
   try {
-    const result = await runGoogleCalendarSync(
-      req.body as { startDate?: string; endDate?: string; weeks?: number }
-    );
+    const result = await runGoogleCalendarSync(req.body, req.admin);
     res.json({
       ...result,
       modeLabel: result.mode === "real" ? "Google" : "mock",
     });
   } catch (e) {
+    if (handleGoogleCalendarSyncError(e, res)) return;
     const msg = formatGoogleCalendarErrorJa(e instanceof Error ? e.message : "sync failed");
     recordCalendarSyncFailure(msg);
-    res.status(500).json({ error: msg });
+    sendGoogleCalendarSyncError(res, 500, "sync_failed", msg);
   }
 });
 
@@ -349,20 +368,22 @@ scheduleRouter.post("/sync/google", ...scheduleAuth, async (req: AuthedRequest, 
   if (!assertScheduleRole(req, res)) return;
   const guard = assertGoogleCalendarSyncAllowed();
   if (!guard.ok) {
-    res.status(guard.status).json({ error: guard.error, configured: false, mode: "mock" });
+    sendGoogleCalendarSyncError(res, guard.status, "google_calendar_not_configured", guard.error, {
+      configured: false,
+      mode: "mock",
+    });
     return;
   }
   try {
-    const result = await runGoogleCalendarSync(
-      req.body as { startDate?: string; endDate?: string; weeks?: number }
-    );
+    const result = await runGoogleCalendarSync(req.body, req.admin);
     res.json({
       ...result,
       modeLabel: result.mode === "real" ? "Google" : "mock",
     });
   } catch (e) {
+    if (handleGoogleCalendarSyncError(e, res)) return;
     const msg = formatGoogleCalendarErrorJa(e instanceof Error ? e.message : "sync failed");
     recordCalendarSyncFailure(msg);
-    res.status(500).json({ error: msg });
+    sendGoogleCalendarSyncError(res, 500, "sync_failed", msg);
   }
 });

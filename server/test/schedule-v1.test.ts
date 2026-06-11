@@ -120,6 +120,8 @@ describe("日程調整 PWA v1 API", () => {
     assert.equal(typeof res.body.clientIdConfigured, "boolean");
     assert.equal(typeof res.body.clientSecretConfigured, "boolean");
     assert.ok(res.body.sync);
+    assert.ok(res.body.scope);
+    assert.equal(typeof res.body.scope.hasWriteAccess, "boolean");
     assert.equal(res.body.clientSecret, undefined);
     assert.equal(res.body.clientSecretValue, undefined);
     assert.equal(res.body.refreshToken, undefined);
@@ -144,8 +146,10 @@ describe("日程調整 PWA v1 API", () => {
       .set("Authorization", `Bearer ${token}`)
       .send({ weeks: 1 });
     assert.equal(sync.status, 503);
-    assert.ok(String(sync.body.error).includes("Googleカレンダー未設定"));
-    assert.equal(sync.body.mode, "mock");
+    assert.equal(sync.body.ok, false);
+    assert.ok(String(sync.body.message).includes("Googleカレンダー未設定"));
+    assert.equal(sync.body.details?.mode, "mock");
+    assert.notEqual(sync.body.message, "Bad Request");
   });
 
   it("日付詳細に移動時間ブロックとMaps連携状態が含まれる", async () => {

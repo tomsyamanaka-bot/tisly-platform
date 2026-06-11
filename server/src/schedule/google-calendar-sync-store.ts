@@ -53,6 +53,18 @@ function rowToLink(r: Record<string, unknown>): GoogleCalendarEventLinkV1 {
   };
 }
 
+function normalizeCalendarSummary(summary: string | null | undefined): string | null {
+  if (!summary) return summary ?? null;
+  if (
+    summary === "primary（読込失敗）" ||
+    summary === "読込失敗" ||
+    summary === "primary（メインカレンダー）"
+  ) {
+    return DEFAULT_SETTINGS.calendarSummary;
+  }
+  return summary;
+}
+
 export function getGoogleCalendarSettingsV1(): GoogleCalendarSettingsV1 {
   const row = getDatabase()
     .prepare(`SELECT value_json FROM platform_settings WHERE key = ?`)
@@ -61,8 +73,8 @@ export function getGoogleCalendarSettingsV1(): GoogleCalendarSettingsV1 {
   try {
     const parsed = JSON.parse(row.value_json) as Partial<GoogleCalendarSettingsV1>;
     return {
-      calendarId: parsed.calendarId ?? DEFAULT_SETTINGS.calendarId,
-      calendarSummary: parsed.calendarSummary ?? DEFAULT_SETTINGS.calendarSummary,
+      calendarId: parsed.calendarId?.trim() || DEFAULT_SETTINGS.calendarId,
+      calendarSummary: normalizeCalendarSummary(parsed.calendarSummary) ?? DEFAULT_SETTINGS.calendarSummary,
       autoCreateProjects: parsed.autoCreateProjects ?? DEFAULT_SETTINGS.autoCreateProjects,
       syncDirection: parsed.syncDirection ?? DEFAULT_SETTINGS.syncDirection,
       lastFullSyncAt: parsed.lastFullSyncAt ?? null,
@@ -82,9 +94,19 @@ export function saveGoogleCalendarSettingsV1(
   >
 ): GoogleCalendarSettingsV1 {
   const current = getGoogleCalendarSettingsV1();
+  const calendarId =
+    typeof patch.calendarId === "string" && patch.calendarId.trim()
+      ? patch.calendarId.trim()
+      : current.calendarId?.trim() || DEFAULT_SETTINGS.calendarId;
+  const calendarSummary =
+    patch.calendarSummary === "primary（読込失敗）" || patch.calendarSummary === "読込失敗"
+      ? DEFAULT_SETTINGS.calendarSummary
+      : (patch.calendarSummary ?? current.calendarSummary);
   const next: GoogleCalendarSettingsV1 = {
     ...current,
     ...patch,
+    calendarId,
+    calendarSummary,
     updatedAt: new Date().toISOString(),
   };
   getDatabase()

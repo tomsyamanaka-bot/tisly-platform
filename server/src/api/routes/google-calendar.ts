@@ -3,9 +3,11 @@ import { requireAuth, type AuthedRequest } from "../../auth/auth-middleware.js";
 import { roleMeetsRequirement } from "../../auth/roles.js";
 import {
   getCalendarAuthUrl,
+  getGoogleCalendarDiagnosticStatus,
   getGoogleCalendarPublicStatus,
   handleCalendarOAuthCallback,
   formatGoogleCalendarErrorJa,
+  formatGoogleCalendarListErrorJa,
 } from "../../services/googleCalendar.js";
 import {
   assertGoogleCalendarSyncAllowed,
@@ -15,9 +17,13 @@ import {
 import { resetCalendarProvider } from "../../services/googleCalendar.js";
 import {
   fetchGoogleCalendarListV1,
+  GoogleCalendarSyncError,
+  PRIMARY_CALENDAR_FALLBACK,
   runFullGoogleCalendarSyncV1,
+  sendGoogleCalendarSyncError,
   updateGoogleCalendarSettingsV1,
 } from "../../schedule/google-calendar-sync-service.js";
+import { refreshGoogleCalendarGrantedScopes } from "../../services/googleOAuthService.js";
 import {
   findLinkByProject,
   getGoogleCalendarSettingsV1,
@@ -37,11 +43,37 @@ function assertScheduleRole(req: AuthedRequest, res: Response): boolean {
   return true;
 }
 
-googleCalendarRouter.get("/status", ...calendarAuth, (req: AuthedRequest, res) => {
+googleCalendarRouter.get("/status", ...calendarAuth, async (req: AuthedRequest, res) => {
   if (!assertScheduleRole(req, res)) return;
   const settings = getGoogleCalendarSettingsV1();
+  const publicStatus = getGoogleCalendarPublicStatus();
+  if (publicStatus.connected && publicStatus.mode === "live") {
+    await refreshGoogleCalendarGrantedScopes().catch(() => undefined);
+  }
+  const diagnostics = publicStatus.connected
+    ? await getGoogleCalendarDiagnosticStatus().catch(() => ({
+        hasAccessToken: false,
+        hasRefreshToken: false,
+        tokenScope: "",
+        tokenExpiry: null,
+        needsRelogin: publicStatus.scope.needsReLogin,
+        calendarListOk: false,
+        writableCalendarId: null,
+        selectedCalendarId: settings.calendarId || "primary",
+      }))
+    : {
+        hasAccessToken: false,
+        hasRefreshToken: false,
+        tokenScope: "",
+        tokenExpiry: null,
+        needsRelogin: false,
+        calendarListOk: false,
+        writableCalendarId: null,
+        selectedCalendarId: settings.calendarId || "primary",
+      };
   res.json({
-    ...getGoogleCalendarPublicStatus(),
+    ...publicStatus,
+    ...diagnostics,
     settings,
   });
 });
@@ -71,11 +103,30 @@ googleCalendarRouter.patch("/settings", ...calendarAuth, (req: AuthedRequest, re
 googleCalendarRouter.get("/calendars", ...calendarAuth, async (req: AuthedRequest, res) => {
   if (!assertScheduleRole(req, res)) return;
   try {
-    const calendars = await fetchGoogleCalendarListV1();
-    res.json({ calendars });
+    const result = await fetchGoogleCalendarListV1();
+    const listError = result.usedFallback
+      ? formatGoogleCalendarListErrorJa(result.httpStatus, result.warning)
+      : null;
+    res.json({
+      calendars: result.calendars,
+      usedFallback: result.usedFallback,
+      warning: listError?.message,
+      code: listError?.code,
+      needsRelogin: listError?.needsRelogin ?? false,
+      httpStatus: result.httpStatus ?? null,
+    });
   } catch (e) {
-    const msg = formatGoogleCalendarErrorJa(e instanceof Error ? e.message : "calendar list failed");
-    res.status(500).json({ error: msg });
+    const listError = formatGoogleCalendarListErrorJa(
+      undefined,
+      e instanceof Error ? e.message : "calendar list failed"
+    );
+    res.json({
+      calendars: [{ ...PRIMARY_CALENDAR_FALLBACK }],
+      usedFallback: true,
+      warning: listError.message,
+      code: listError.code,
+      needsRelogin: listError.needsRelogin,
+    });
   }
 });
 
@@ -101,21 +152,27 @@ googleCalendarRouter.post("/sync/full", ...calendarAuth, async (req: AuthedReque
   if (!assertScheduleRole(req, res)) return;
   const guard = assertGoogleCalendarSyncAllowed();
   if (!guard.ok) {
-    res.status(guard.status).json({ error: guard.error, configured: false, mode: "mock" });
+    sendGoogleCalendarSyncError(res, guard.status, "google_calendar_not_configured", guard.error, {
+      configured: false,
+      mode: "mock",
+    });
     return;
   }
   try {
-    const result = await runFullGoogleCalendarSyncV1(
-      req.body as { startDate?: string; endDate?: string; weeks?: number }
-    );
+    const result = await runFullGoogleCalendarSyncV1(req.body);
     res.json({
+      ok: true,
       ...result,
       modeLabel: result.mode === "real" ? "Google" : "mock",
     });
   } catch (e) {
+    if (e instanceof GoogleCalendarSyncError) {
+      sendGoogleCalendarSyncError(res, e.status, e.code, e.message, e.details);
+      return;
+    }
     const msg = formatGoogleCalendarErrorJa(e instanceof Error ? e.message : "sync failed");
     recordCalendarSyncFailure(msg);
-    res.status(500).json({ error: msg });
+    sendGoogleCalendarSyncError(res, 500, "sync_failed", msg);
   }
 });
 

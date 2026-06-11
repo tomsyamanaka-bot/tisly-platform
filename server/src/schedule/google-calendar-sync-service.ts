@@ -7,16 +7,20 @@ import {
   syncGoogleCalendarEvents,
 } from "../services/googleCalendar.js";
 import {
+  assertGoogleCalendarSyncAllowed,
   createGoogleCalendarEventForSync,
-  listGoogleCalendars,
+  getGoogleCalendarOAuthStatus,
+  hasGoogleCalendarWriteScope,
+  listGoogleCalendarsDetailed,
   markGoogleCalendarEventComplete,
   updateGoogleCalendarEventForSync,
   type GoogleCalendarListItem,
 } from "../services/googleOAuthService.js";
 import {
-  assertGoogleCalendarSyncAllowed,
-  getGoogleCalendarOAuthStatus,
-} from "../services/googleOAuthService.js";
+  PRIMARY_CALENDAR_FALLBACK,
+  assertGoogleCalendarSyncRequest,
+  type GoogleCalendarSyncRequestBody,
+} from "./google-calendar-sync-params.js";
 import { replaceCachedCalendarEvents } from "./schedule-calendar-store.js";
 import type { ScheduleEvent } from "./schedule-types.js";
 import {
@@ -175,35 +179,25 @@ async function pushToGoogle(
   return { pushed, linksUpdated };
 }
 
-export async function runFullGoogleCalendarSyncV1(input?: {
-  startDate?: string;
-  endDate?: string;
-  weeks?: number;
-}): Promise<FullSyncResultV1> {
+export async function runFullGoogleCalendarSyncV1(
+  input?: GoogleCalendarSyncRequestBody
+): Promise<FullSyncResultV1> {
   const guard = assertGoogleCalendarSyncAllowed();
   if (!guard.ok) {
     throw new Error(guard.error);
   }
+  const validated = assertGoogleCalendarSyncRequest(input ?? {});
   const oauth = getGoogleCalendarOAuthStatus();
-  const settings = getGoogleCalendarSettingsV1();
-  const weeks = Math.max(1, Math.min(12, Number(input?.weeks) || 8));
-  const startDate =
-    input?.startDate ??
-    (() => {
-      const d = new Date();
-      const day = d.getDay();
-      const diff = day === 0 ? -6 : 1 - day;
-      d.setDate(d.getDate() + diff - 14);
-      return d.toISOString().slice(0, 10);
-    })();
-  const endDate = input?.endDate ?? addDays(startDate, weeks * 7);
+  const settings = validated.settings;
+  const startDate = validated.startDate;
+  const endDate = validated.endDate;
 
   let pulled = 0;
   let pushed = 0;
   let projectsCreated = 0;
   let linksUpdated = 0;
 
-  const direction = settings.syncDirection;
+  const direction = validated.syncDirection;
   const mode = oauth.mode;
 
   if (direction === "bidirectional" || direction === "pull_only") {
@@ -217,7 +211,9 @@ export async function runFullGoogleCalendarSyncV1(input?: {
     pulled = events.length;
   }
 
-  if (direction === "bidirectional" || direction === "push_only") {
+  const canPush =
+    (direction === "bidirectional" || direction === "push_only") && hasGoogleCalendarWriteScope();
+  if (canPush) {
     const push = await pushToGoogle(startDate, endDate, settings, mode);
     pushed = push.pushed;
     linksUpdated += push.linksUpdated;
@@ -237,9 +233,36 @@ export async function runFullGoogleCalendarSyncV1(input?: {
   };
 }
 
-export async function fetchGoogleCalendarListV1(): Promise<GoogleCalendarListItem[]> {
-  return listGoogleCalendars();
+export async function fetchGoogleCalendarListV1(): Promise<{
+  calendars: GoogleCalendarListItem[];
+  usedFallback: boolean;
+  warning?: string;
+  httpStatus?: number;
+}> {
+  const result = await listGoogleCalendarsDetailed();
+  if (result.usedFallback) {
+    saveGoogleCalendarSettingsV1({
+      calendarId: result.fallback.id,
+      calendarSummary: result.fallback.summary,
+    });
+    return {
+      calendars: [{ ...result.fallback, writable: true }],
+      usedFallback: true,
+      warning: result.apiError,
+      httpStatus: result.httpStatus,
+    };
+  }
+  return { calendars: result.calendars, usedFallback: false };
 }
+
+export {
+  assertGoogleCalendarSyncRequest,
+  validateGoogleCalendarSyncRequest,
+  GoogleCalendarSyncError,
+  PRIMARY_CALENDAR_FALLBACK,
+  sendGoogleCalendarSyncError,
+  toGoogleCalendarSyncErrorPayload,
+} from "./google-calendar-sync-params.js";
 
 export function updateGoogleCalendarSettingsV1(
   patch: Parameters<typeof saveGoogleCalendarSettingsV1>[0]

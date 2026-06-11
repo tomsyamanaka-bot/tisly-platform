@@ -55,12 +55,23 @@ function toast(msg) {
   setTimeout(() => el.classList.remove("show"), 2200);
 }
 
+function apiErrorMessage(data, status) {
+  if (data?.message) return data.message;
+  if (data?.error) return data.error;
+  return `HTTP ${status}`;
+}
+
 function toastError(err, status) {
   if (status === 401 || /unauthorized/i.test(String(err?.message || ""))) {
     toast("ログインが切れました。もう一度ログインしてください");
     return;
   }
-  const f = friendlyHttpError(err?.message || err, status);
+  const msg = String(err?.message || "");
+  if (msg && !/^bad request$/i.test(msg) && !/^http \d+$/i.test(msg)) {
+    toast(msg);
+    return;
+  }
+  const f = friendlyHttpError(msg || err, status);
   toast(`${f.title} — ${f.action}`);
 }
 
@@ -77,11 +88,51 @@ async function api(path, opts = {}) {
   if (res.status === 204) return {};
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const e = new Error(data.error || `HTTP ${res.status}`);
+    const e = new Error(apiErrorMessage(data, res.status));
     e.status = res.status;
+    e.code = data.code;
+    e.details = data.details;
     throw e;
   }
   return data;
+}
+
+function addDaysIso(iso, n) {
+  const d = new Date(`${iso}T12:00:00+09:00`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+function mondayOfWeekOffset(offset = 0) {
+  const tz = "Asia/Tokyo";
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: tz });
+  const wd =
+    new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "short" })
+      .formatToParts(new Date(`${today}T12:00:00+09:00`))
+      .find((p) => p.type === "weekday")?.value ?? "Mon";
+  const dayIndex = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[wd] ?? 1;
+  const mondayOffset = dayIndex === 0 ? -6 : 1 - dayIndex;
+  return addDaysIso(today, mondayOffset + offset * 7);
+}
+
+function showSyncDebug(body) {
+  const calendarId = body.selectedCalendarId || body.calendarId || "primary";
+  const weekOffset = Number.isFinite(Number(body.weekOffset)) ? Number(body.weekOffset) : 0;
+  const weeks = Math.max(1, Number(body.weeks) || 1);
+  const dateFrom = body.dateFrom || body.startDate || mondayOfWeekOffset(weekOffset);
+  const dateTo = body.dateTo || body.endDate || addDaysIso(dateFrom, weeks * 7 - 1);
+  const syncDirection = body.syncDirection || "two_way";
+  const lines = [
+    `selectedCalendarId: ${body.selectedCalendarId ?? "(未指定)"}`,
+    `calendarId: ${calendarId}`,
+    `syncDirection: ${syncDirection}`,
+    `weekOffset: ${weekOffset}`,
+    `dateFrom: ${dateFrom}`,
+    `dateTo: ${dateTo}`,
+  ];
+  const el = $("sync-debug-line");
+  if (el) el.textContent = lines.join(" · ");
+  toast(`同期送信: ${calendarId} / ${syncDirection} / ${dateFrom}〜${dateTo}`);
 }
 
 function escapeHtml(s) {
@@ -415,8 +466,9 @@ async function fetchGoogleCalendarStatus() {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const e = new Error(data.error || `HTTP ${res.status}`);
+    const e = new Error(apiErrorMessage(data, res.status));
     e.status = res.status;
+    e.code = data.code;
     throw e;
   }
   return data;
@@ -536,7 +588,26 @@ async function init() {
         return;
       }
       btn.textContent = "同期中…";
-      const result = await api("/sync/google", { method: "POST", body: JSON.stringify({ weeks: 8 }) });
+      if (cal.needsRelogin || cal.scope?.needsReLogin) {
+        toast("権限が不足しています。設定画面から再ログインしてください。");
+        return;
+      }
+      const syncBody = {
+        weeks: 1,
+        weekOffset,
+        syncDirection: "bidirectional",
+        selectedCalendarId: cal.settings?.calendarId || "primary",
+        timezone: "Asia/Tokyo",
+      };
+      showSyncDebug(syncBody);
+      const result = await api("/sync/google", {
+        method: "POST",
+        body: JSON.stringify(syncBody),
+      });
+      if (result.mode !== "real") {
+        toast("本番接続が必要です。Googleカレンダー設定からログインしてください。");
+        return;
+      }
       const modeLabel = result.modeLabel || (result.mode === "real" ? "Google" : result.mode);
       toast(`同期完了（${result.count}件・${modeLabel}）`);
       await refreshSyncStatus();
@@ -544,6 +615,8 @@ async function init() {
     } catch (e) {
       if (e.status === 503 && String(e.message || "").includes("Googleカレンダー")) {
         toast(e.message || "Googleカレンダー未設定：設定画面でログインしてください");
+      } else if (e.message) {
+        toast(e.message);
       } else {
         toastError(e, e.status);
       }

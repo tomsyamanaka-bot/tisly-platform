@@ -9,9 +9,19 @@ import { getGoogleCalendarSettingsV1 } from "../schedule/google-calendar-sync-st
 import {
   assertGoogleCalendarSyncAllowed,
   getGoogleCalendarAuthUrl,
+  getGoogleCalendarGrantedScopes,
   getGoogleCalendarOAuthStatus,
+  getGoogleCalendarTokenExpiry,
+  getGoogleCalendarTokenScope,
+  googleApiErrorMessage,
   handleGoogleCalendarOAuthCallback,
+  hasGoogleCalendarAccessToken,
+  hasGoogleCalendarRefreshToken,
+  hasGoogleCalendarWriteScope,
+  listGoogleCalendarsDetailed,
+  logGoogleCalendarApiError,
   refreshGoogleAccessToken,
+  type GoogleApiErrorBody,
 } from "./googleOAuthService.js";
 
 export type GoogleCalendarDisplayStatus =
@@ -41,6 +51,12 @@ export interface GoogleCalendarPublicStatus {
   };
   buttonLabel: string;
   buttonDisabled: boolean;
+  scope: {
+    granted: string[];
+    hasWriteAccess: boolean;
+    needsReLogin: boolean;
+    label: string;
+  };
 }
 
 export interface GoogleCalendarConfig {
@@ -274,8 +290,9 @@ export class RealGoogleCalendarProvider implements CalendarProvider {
     const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(this.calendarId)}/events?${params}`;
     const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
     if (!res.ok) {
-      const err = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
-      throw new Error(err.error?.message ?? `Google Calendar list failed (${res.status})`);
+      const err = (await res.json().catch(() => ({}))) as GoogleApiErrorBody;
+      logGoogleCalendarApiError("events.list", res.status, err);
+      throw new Error(googleApiErrorMessage(err, res.status));
     }
     const json = (await res.json()) as { items?: Array<Record<string, unknown>> };
     const events: ScheduleEvent[] = [];
@@ -347,7 +364,13 @@ const GOOGLE_ERROR_JA: Array<{ pattern: RegExp; message: string }> = [
   { pattern: /invalid_grant/i, message: "Googleログインの有効期限が切れました。再度ログインしてください。" },
   { pattern: /access_denied/i, message: "Googleカレンダーへのアクセスが拒否されました。" },
   { pattern: /unauthorized|401/i, message: "Google認証が無効です。再度ログインしてください。" },
-  { pattern: /forbidden|403/i, message: "Googleカレンダーへのアクセス権限がありません。" },
+  {
+    pattern: /forbidden|403|permission_denied/i,
+    message:
+      "Googleカレンダーの権限が不足しています。Google連携画面から再ログインしてください。",
+  },
+  { pattern: /insufficient.*permission|insufficient.*scope/i, message: "Google Calendar APIの権限が不足しています。" },
+  { pattern: /calendar.*readonly|readonly.*calendar/i, message: "Google Calendar APIの権限が不足しています（読み取り専用）。設定画面から再ログインしてください。" },
   { pattern: /quota|rate limit/i, message: "Google APIの利用上限に達しました。しばらく待ってから再試行してください。" },
   { pattern: /not found|404/i, message: "指定したカレンダーが見つかりません。" },
 ];
@@ -360,6 +383,80 @@ export function formatGoogleCalendarErrorJa(message: string): string {
   }
   if (/[\u3040-\u30ff\u4e00-\u9faf]/.test(text)) return text;
   return `同期に失敗しました: ${text}`;
+}
+
+export function formatGoogleCalendarListErrorJa(
+  httpStatus?: number,
+  rawMessage?: string
+): { message: string; code: string; needsRelogin: boolean } {
+  if (httpStatus === 403) {
+    return {
+      message: "Googleカレンダー権限不足です。Google連携画面から再ログインしてください",
+      code: "google_calendar_permission_denied",
+      needsRelogin: true,
+    };
+  }
+  if (httpStatus === 401) {
+    return {
+      message: "Googleログイン期限切れです。再ログインしてください",
+      code: "google_token_expired",
+      needsRelogin: true,
+    };
+  }
+  const formatted = formatGoogleCalendarErrorJa(rawMessage ?? "");
+  const needsRelogin = /再ログイン|期限切れ|権限が不足|権限不足|readonly/i.test(formatted);
+  return {
+    message: formatted,
+    code: needsRelogin ? "google_calendar_needs_relogin" : "google_calendar_list_failed",
+    needsRelogin,
+  };
+}
+
+export interface GoogleCalendarDiagnosticStatus {
+  hasAccessToken: boolean;
+  hasRefreshToken: boolean;
+  tokenScope: string;
+  tokenExpiry: string | null;
+  needsRelogin: boolean;
+  calendarListOk: boolean;
+  writableCalendarId: string | null;
+  selectedCalendarId: string;
+}
+
+export async function getGoogleCalendarDiagnosticStatus(): Promise<GoogleCalendarDiagnosticStatus> {
+  const settings = getGoogleCalendarSettingsV1();
+  const oauth = getGoogleCalendarOAuthStatus();
+  const hasWriteAccess = hasGoogleCalendarWriteScope();
+  const scopeNeedsRelogin = oauth.connected && oauth.configured && !hasWriteAccess;
+
+  let calendarListOk = false;
+  let writableCalendarId: string | null = null;
+  let listNeedsRelogin = false;
+
+  if (oauth.connected && oauth.mode === "real") {
+    const list = await listGoogleCalendarsDetailed();
+    calendarListOk = !list.usedFallback && list.calendars.length > 0;
+    if (calendarListOk) {
+      const writable = list.calendars.find((c) => c.writable !== false);
+      writableCalendarId = writable?.id ?? list.calendars[0]?.id ?? null;
+    } else if (list.httpStatus === 401 || list.httpStatus === 403) {
+      listNeedsRelogin = true;
+    }
+  } else if (oauth.mode === "mock") {
+    calendarListOk = true;
+    writableCalendarId = settings.calendarId || "primary";
+  }
+
+  return {
+    hasAccessToken: hasGoogleCalendarAccessToken(),
+    hasRefreshToken: hasGoogleCalendarRefreshToken(),
+    tokenScope: getGoogleCalendarTokenScope(),
+    tokenExpiry: getGoogleCalendarTokenExpiry(),
+    needsRelogin: scopeNeedsRelogin || listNeedsRelogin,
+    calendarListOk,
+    writableCalendarId,
+    selectedCalendarId: settings.calendarId || "primary",
+  };
 }
 
 function resolveDisplayStatus(
@@ -409,6 +506,16 @@ export function getGoogleCalendarPublicStatus(): GoogleCalendarPublicStatus {
   const clientSecretConfigured = Boolean(
     process.env.GOOGLE_CLIENT_SECRET ?? process.env.GOOGLE_CALENDAR_CLIENT_SECRET
   );
+  const grantedScopes = getGoogleCalendarGrantedScopes();
+  const hasWriteAccess = hasGoogleCalendarWriteScope();
+  const needsReLogin = oauth.connected && oauth.configured && !hasWriteAccess;
+  const scopeLabel = !oauth.connected
+    ? "未ログイン"
+    : needsReLogin
+      ? "読み取り専用 — 再ログインが必要"
+      : hasWriteAccess
+        ? "カレンダー読み書き"
+        : "不明";
   return {
     enabled: oauth.enabled,
     configured: oauth.configured,
@@ -429,7 +536,13 @@ export function getGoogleCalendarPublicStatus(): GoogleCalendarPublicStatus {
         : null,
     },
     buttonLabel,
-    buttonDisabled,
+    buttonDisabled: buttonDisabled || needsReLogin,
+    scope: {
+      granted: grantedScopes,
+      hasWriteAccess,
+      needsReLogin,
+      label: scopeLabel,
+    },
   };
 }
 
@@ -442,8 +555,15 @@ export async function handleCalendarOAuthCallback(input: { code?: string; error?
 }
 
 
-export function getWeekStartWithOffset(offsetWeeks = 0): string {
-  const now = new Date();
-  const monday = weekdayOffset(now);
-  return addDays(monday, offsetWeeks * 7);
+export function getWeekStartWithOffset(offsetWeeks = 0, timeZone = "Asia/Tokyo"): string {
+  const today = new Date().toLocaleDateString("en-CA", { timeZone });
+  const weekday = new Intl.DateTimeFormat("en-US", { timeZone, weekday: "short" }).formatToParts(
+    new Date(`${today}T12:00:00+09:00`)
+  );
+  const wd =
+    weekday.find((p) => p.type === "weekday")?.value ??
+    new Date(`${today}T12:00:00+09:00`).toLocaleDateString("en-US", { weekday: "short", timeZone });
+  const dayIndex = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[wd] ?? 1;
+  const mondayOffset = dayIndex === 0 ? -6 : 1 - dayIndex;
+  return addDays(today, mondayOffset + offsetWeeks * 7);
 }
