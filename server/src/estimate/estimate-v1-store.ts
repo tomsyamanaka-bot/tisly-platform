@@ -3,6 +3,7 @@ import path from "path";
 import { getDatabase } from "../db/database.js";
 import {
   createBusinessProject,
+  createCompletionReport,
   createEstimate,
   createInvoiceFromEstimate,
   getBusinessProject,
@@ -51,7 +52,12 @@ import {
   renderSpecificationHtml,
   type SpecificationContext,
 } from "./specification-template.js";
-import { statusAfterSurveyDone, statusAfterSurveySchedule } from "../business/business-status.js";
+import {
+  normalizeProjectStatus,
+  statusAfterSurveyDone,
+  statusAfterSurveySchedule,
+} from "../business/business-status.js";
+import { transitionProjectStatus } from "../business/business-workflow.js";
 import {
   getSurveyProjectV1,
   getSurveyProjectV1Detail,
@@ -66,6 +72,16 @@ import {
   type SurveyWorkflowStatus,
 } from "../survey/survey-v1-types.js";
 import { upsertProjectCaseChain } from "../projects/project-case-chain.js";
+import { getMaterialV1 } from "../field-ops/materials-v1-store.js";
+import {
+  aggregateNeedsFromTemplates,
+  listProjectWorkTemplateIds,
+} from "../field-ops/work-templates-store.js";
+import {
+  buildWorkContentSummary,
+  formatChecklistForPdf,
+  getLatestWorkSessionForProject,
+} from "../field-ops/work-session-v1-store.js";
 import type {
   EstimateHeaderInputV1,
   EstimatePendingSurveyV1,
@@ -93,6 +109,7 @@ function materialsToEstimateRows(materials: SurveyMaterialV1[]): Array<{
   name: string;
   unit: string;
   quantity: number;
+  costPrice?: number;
 }> {
   return materials.map((m) => ({
     category: SURVEY_TO_ESTIMATE_CATEGORY[m.category],
@@ -100,6 +117,52 @@ function materialsToEstimateRows(materials: SurveyMaterialV1[]): Array<{
     unit: m.category === "camera" ? "台" : "式",
     quantity: m.quantity,
   }));
+}
+
+function mapTemplateCategoryToEstimate(materialCategory: string | null, label: string): string {
+  const cat = materialCategory ?? "";
+  if (cat.includes("カメラ") || cat === "NVR" || cat === "HDD") return "camera";
+  if (cat === "LAN") return "lan";
+  if (cat.includes("Wi-Fi") || cat.includes("wifi")) return "ap";
+  if (label.includes("インターホン")) return "intercom";
+  if (cat === "電源") return "outlet";
+  return "other";
+}
+
+function templateNeedsToEstimateRows(surveyProjectId: string): Array<{
+  category: string;
+  name: string;
+  unit: string;
+  quantity: number;
+  costPrice: number;
+}> {
+  const templateIds = listProjectWorkTemplateIds({ source: "survey", projectId: surveyProjectId });
+  if (!templateIds.length) return [];
+  const needs = aggregateNeedsFromTemplates(templateIds).filter((n) => n.itemType === "material");
+  return needs.map((n) => {
+    const mat = n.materialId ? getMaterialV1(n.materialId) : null;
+    return {
+      category: mapTemplateCategoryToEstimate(n.category, n.label),
+      name: mat?.name ?? n.label,
+      unit: n.unit ?? mat?.unit ?? "式",
+      quantity: n.qty,
+      costPrice: mat?.cost ?? 0,
+    };
+  });
+}
+
+function buildEstimateSeedRows(surveyProjectId: string, materials: SurveyMaterialV1[]): Array<{
+  category: string;
+  name: string;
+  unit: string;
+  quantity: number;
+  costPrice?: number;
+}> {
+  const fromTemplate = templateNeedsToEstimateRows(surveyProjectId);
+  if (fromTemplate.length) return fromTemplate;
+  const rows = materialsToEstimateRows(materials);
+  if (rows.length) return rows;
+  return [{ category: "other", name: "工事一式（現調ベース）", unit: "式", quantity: 1 }];
 }
 
 function copyV1PhotosToBusiness(businessProjectId: string, surveyProjectId: string): number {
@@ -333,12 +396,11 @@ export function createEstimateFromSurveyV1(
 
   if (!project.estimateId) {
     const pricingItems = pricingRulesToItems();
-    const rows = materialsToEstimateRows(detail.materials);
-    const seedRows =
-      rows.length > 0
-        ? rows
-        : [{ category: "other", name: "工事一式（現調ベース）", unit: "式", quantity: 1 }];
-    const tiered = applyPricingTierToItems(seedRows, pricingItems);
+    const seedRows = buildEstimateSeedRows(surveyProjectId, detail.materials);
+    const tiered = applyPricingTierToItems(seedRows, pricingItems).map((item, i) => ({
+      ...item,
+      costPrice: seedRows[i]?.costPrice ?? item.costPrice,
+    }));
     const priceRule = getCustomerPriceRuleOrDefault(project.customerId);
     const items = applyCustomerPriceToItems(tiered, priceRule);
     createEstimate(project.id, items);
@@ -622,6 +684,13 @@ export function renderSpecificationHtmlV1(businessProjectId: string): string | n
   return renderSpecificationHtml(ctx);
 }
 
+function formatSessionTime(iso: string | null | undefined): string | undefined {
+  if (!iso) return undefined;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", hour12: false });
+}
+
 export function buildCompletionReportContextV1(
   businessProjectId: string
 ): PracticalCompletionReportContext | null {
@@ -630,14 +699,21 @@ export function buildCompletionReportContextV1(
   const survey = project.surveyProjectId ? getSurveyProjectV1Detail(project.surveyProjectId) : null;
   const estimate = project.estimateId ? getEstimate(project.estimateId) : null;
   const header = estimate?.header ?? null;
+  const ref = { source: "business" as const, projectId: businessProjectId };
+  const session = getLatestWorkSessionForProject(ref);
+  const worker = session?.workerName ?? survey?.assignee ?? header?.staffName ?? "";
   return {
     projectNo: project.projectNo,
     addressee: header?.addressee ?? project.customerName,
     subject: header?.subject ?? estimate?.title ?? project.title,
     siteName: survey?.siteName ?? project.title,
     workLocation: survey?.address ?? project.address,
-    issueDate: header?.issueDate ?? survey?.surveyDate ?? "",
-    staffName: survey?.assignee ?? header?.staffName ?? "",
+    issueDate: header?.issueDate ?? new Date().toISOString().slice(0, 10),
+    staffName: worker,
+    startTime: formatSessionTime(session?.startTime),
+    endTime: formatSessionTime(session?.completionTime),
+    workContent: buildWorkContentSummary(ref),
+    checklistSummary: formatChecklistForPdf(ref),
     notes: survey?.notes ?? project.surveyMemo ?? "",
     photos: buildCompletionPhotosV1(businessProjectId),
   };
@@ -647,6 +723,28 @@ export function renderCompletionReportHtmlV1(businessProjectId: string): string 
   const ctx = buildCompletionReportContextV1(businessProjectId);
   if (!ctx) return null;
   return renderPracticalCompletionReportHtml(ctx);
+}
+
+export function createCompletionReportV1(businessProjectId: string): { reportId: string } {
+  const project = getBusinessProject(businessProjectId);
+  if (!project) throw new Error("project not found");
+  if (project.completionReportId) {
+    return { reportId: project.completionReportId };
+  }
+  const ref = { source: "business" as const, projectId: businessProjectId };
+  let status = normalizeProjectStatus(project.status);
+  if (["estimate_created", "estimate_sent"].includes(status)) {
+    transitionProjectStatus(businessProjectId, "construction_scheduled");
+    status = "construction_scheduled";
+  }
+  if (status === "construction_scheduled") {
+    transitionProjectStatus(businessProjectId, "construction_done");
+  }
+  const report = createCompletionReport(businessProjectId, {
+    title: `${project.title} 完了報告`,
+    workMemo: buildWorkContentSummary(ref),
+  });
+  return { reportId: report.id };
 }
 
 export function duplicateEstimateV1(businessProjectId: string): EstimateProjectV1Detail {

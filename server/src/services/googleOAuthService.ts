@@ -15,8 +15,55 @@ export interface GoogleOAuthConfig {
   refreshToken: string | null;
 }
 
-const DEFAULT_GOOGLE_CALENDAR_REDIRECT_URI =
-  "https://tisly.jp/api/google-calendar/oauth/callback";
+const DEFAULT_GOOGLE_CALENDAR_REDIRECT_URI = "https://tisly.jp/auth/google/callback";
+
+export const GOOGLE_CALENDAR_NOT_CONFIGURED_MSG =
+  "Googleカレンダー未設定：設定画面でログインしてください";
+
+export function inspectGoogleCalendarEnv(): {
+  missingEnv: string[];
+  configured: boolean;
+} {
+  const missingEnv: string[] = [];
+  if (process.env.GOOGLE_CALENDAR_ENABLED !== "true") {
+    missingEnv.push("GOOGLE_CALENDAR_ENABLED");
+  }
+  if (!readGoogleClientId().trim()) {
+    missingEnv.push("GOOGLE_CLIENT_ID");
+  }
+  if (!readGoogleClientSecret().trim()) {
+    missingEnv.push("GOOGLE_CLIENT_SECRET");
+  }
+  const redirectUri =
+    process.env.GOOGLE_REDIRECT_URI?.trim() ||
+    process.env.GOOGLE_CALENDAR_REDIRECT_URI?.trim() ||
+    "";
+  if (!redirectUri) {
+    missingEnv.push("GOOGLE_REDIRECT_URI");
+  }
+  return {
+    missingEnv,
+    configured: missingEnv.length === 0,
+  };
+}
+
+export function assertGoogleCalendarSyncAllowed():
+  | { ok: true }
+  | { ok: false; status: number; error: string } {
+  const env = inspectGoogleCalendarEnv();
+  if (!env.configured) {
+    return { ok: false, status: 503, error: GOOGLE_CALENDAR_NOT_CONFIGURED_MSG };
+  }
+  const cfg = getGoogleCalendarOAuthConfig();
+  if (!cfg.refreshToken) {
+    return {
+      ok: false,
+      status: 503,
+      error: GOOGLE_CALENDAR_NOT_CONFIGURED_MSG,
+    };
+  }
+  return { ok: true };
+}
 
 function readGoogleClientId(): string {
   return process.env.GOOGLE_CLIENT_ID ?? process.env.GOOGLE_CALENDAR_CLIENT_ID ?? "";
@@ -45,10 +92,7 @@ function envMode(): GoogleOAuthMode {
 }
 
 function calendarEnvMode(): GoogleOAuthMode {
-  const enabled = process.env.GOOGLE_CALENDAR_ENABLED === "true";
-  const hasCreds = Boolean(readGoogleClientId()) && Boolean(readGoogleClientSecret());
-  if (enabled && hasCreds) return "real";
-  return "mock";
+  return inspectGoogleCalendarEnv().configured ? "real" : "mock";
 }
 
 function readStoredToken(key: string): string | null {
@@ -98,14 +142,15 @@ export function getGoogleCalendarOAuthConfig(): GoogleOAuthConfig {
 
 export function getGoogleCalendarOAuthStatus() {
   const cfg = getGoogleCalendarOAuthConfig();
-  const configured = Boolean(cfg.clientId && cfg.clientSecret);
+  const env = inspectGoogleCalendarEnv();
   return {
     enabled: cfg.enabled,
-    configured,
+    configured: env.configured,
     mode: cfg.mode,
-    connected: cfg.mode === "mock" ? true : Boolean(cfg.refreshToken),
+    connected: env.configured ? Boolean(cfg.refreshToken) : false,
     clientIdConfigured: Boolean(cfg.clientId),
-    redirectUri: cfg.redirectUri || null,
+    redirectUri: env.configured ? cfg.redirectUri || null : null,
+    missingEnv: env.missingEnv,
   };
 }
 
@@ -138,22 +183,15 @@ export function getGoogleCalendarAuthUrl(): {
   configured: boolean;
 } {
   const cfg = getGoogleCalendarOAuthConfig();
-  const configured = Boolean(cfg.clientId && cfg.clientSecret);
-  if (!configured) {
+  const env = inspectGoogleCalendarEnv();
+  if (!env.configured) {
     return { mode: "mock", url: "", configured: false };
-  }
-  if (cfg.mode === "mock") {
-    return {
-      mode: "mock",
-      configured: true,
-      url: `/api/google-calendar/oauth/callback?code=mock&state=schedule`,
-    };
   }
   const params = new URLSearchParams({
     client_id: cfg.clientId,
     redirect_uri: cfg.redirectUri,
     response_type: "code",
-    scope: "https://www.googleapis.com/auth/calendar.readonly",
+    scope: "https://www.googleapis.com/auth/calendar",
     access_type: "offline",
     prompt: "consent",
     state: "schedule",
@@ -173,14 +211,17 @@ export async function handleGoogleCalendarOAuthCallback(input: {
   if (input.error) {
     return { ok: false, mode: cfg.mode, message: input.error };
   }
-  if (cfg.mode === "mock") {
-    saveGoogleRefreshToken(`mock-calendar-refresh-${Date.now()}`);
-    return {
-      ok: true,
-      mode: "mock",
-      message: "Mock Calendar OAuth: refresh token stored",
-      refreshTokenSaved: true,
-    };
+  if (!inspectGoogleCalendarEnv().configured) {
+    if (input.code === "mock") {
+      saveGoogleRefreshToken(`mock-calendar-refresh-${Date.now()}`);
+      return {
+        ok: true,
+        mode: "mock",
+        message: "Mock Calendar OAuth: refresh token stored",
+        refreshTokenSaved: true,
+      };
+    }
+    return { ok: false, mode: "mock", message: GOOGLE_CALENDAR_NOT_CONFIGURED_MSG };
   }
   if (!input.code) {
     return { ok: false, mode: "real", message: "authorization code required" };
@@ -394,6 +435,169 @@ export interface GoogleCalendarCreateInput {
   end: string;
   location?: string;
   description?: string;
+}
+
+export interface GoogleCalendarListItem {
+  id: string;
+  summary: string;
+  primary: boolean;
+  accessRole: string;
+}
+
+export async function listGoogleCalendars(): Promise<GoogleCalendarListItem[]> {
+  const cfg = getGoogleCalendarOAuthConfig();
+  if (cfg.mode === "mock") {
+    return [
+      { id: "primary", summary: "メインカレンダー（モック）", primary: true, accessRole: "owner" },
+      { id: "mock-work", summary: "工事予定（モック）", primary: false, accessRole: "writer" },
+    ];
+  }
+  const token = await refreshGoogleAccessToken("calendar");
+  const res = await fetch(
+    "https://www.googleapis.com/calendar/v3/users/me/calendarList?minAccessRole=writer",
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  const json = (await res.json()) as {
+    items?: Array<{ id?: string; summary?: string; primary?: boolean; accessRole?: string }>;
+    error?: { message?: string };
+  };
+  if (!res.ok) {
+    throw new Error(json.error?.message ?? `Calendar list failed (${res.status})`);
+  }
+  return (json.items ?? [])
+    .filter((i) => i.id && i.summary)
+    .map((i) => ({
+      id: i.id!,
+      summary: i.summary!,
+      primary: Boolean(i.primary),
+      accessRole: i.accessRole ?? "reader",
+    }));
+}
+
+export function clearGoogleCalendarTokens(): void {
+  getDatabase()
+    .prepare(`DELETE FROM platform_settings WHERE key IN (?, ?)`)
+    .run(REFRESH_TOKEN_KEY, ACCESS_TOKEN_KEY);
+}
+
+export interface GoogleCalendarSyncEventInput {
+  calendarId: string;
+  title: string;
+  start: string;
+  end: string;
+  location?: string;
+  description?: string;
+}
+
+export async function createGoogleCalendarEventForSync(
+  input: GoogleCalendarSyncEventInput
+): Promise<{ mode: GoogleOAuthMode; eventId: string; htmlLink?: string }> {
+  const cfg = getGoogleCalendarOAuthConfig();
+  if (cfg.mode === "mock") {
+    const eventId = `mock-event-${Date.now()}`;
+    return { mode: "mock", eventId };
+  }
+  const token = await refreshGoogleAccessToken("calendar");
+  const res = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(input.calendarId)}/events`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        summary: input.title,
+        location: input.location,
+        description: input.description,
+        start: { dateTime: input.start, timeZone: "Asia/Tokyo" },
+        end: { dateTime: input.end, timeZone: "Asia/Tokyo" },
+      }),
+    }
+  );
+  const json = (await res.json()) as { id?: string; htmlLink?: string; error?: { message?: string } };
+  if (!res.ok || !json.id) {
+    throw new Error(json.error?.message ?? `Calendar create failed (${res.status})`);
+  }
+  return { mode: "real", eventId: json.id, htmlLink: json.htmlLink };
+}
+
+export async function updateGoogleCalendarEventForSync(
+  input: GoogleCalendarSyncEventInput & { eventId: string }
+): Promise<{ mode: GoogleOAuthMode; eventId: string }> {
+  const cfg = getGoogleCalendarOAuthConfig();
+  if (cfg.mode === "mock") {
+    return { mode: "mock", eventId: input.eventId };
+  }
+  const token = await refreshGoogleAccessToken("calendar");
+  const res = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(input.calendarId)}/events/${encodeURIComponent(input.eventId)}`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        summary: input.title,
+        location: input.location,
+        description: input.description,
+        start: { dateTime: input.start, timeZone: "Asia/Tokyo" },
+        end: { dateTime: input.end, timeZone: "Asia/Tokyo" },
+      }),
+    }
+  );
+  const json = (await res.json()) as { id?: string; error?: { message?: string } };
+  if (!res.ok || !json.id) {
+    throw new Error(json.error?.message ?? `Calendar update failed (${res.status})`);
+  }
+  return { mode: "real", eventId: json.id };
+}
+
+export async function markGoogleCalendarEventComplete(input: {
+  calendarId: string;
+  eventId: string;
+  completionNote: string;
+}): Promise<{ mode: GoogleOAuthMode; eventId: string }> {
+  const cfg = getGoogleCalendarOAuthConfig();
+  if (cfg.mode === "mock") {
+    return { mode: "mock", eventId: input.eventId };
+  }
+  const token = await refreshGoogleAccessToken("calendar");
+  const getRes = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(input.calendarId)}/events/${encodeURIComponent(input.eventId)}`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  const current = (await getRes.json()) as {
+    summary?: string;
+    description?: string;
+    error?: { message?: string };
+  };
+  if (!getRes.ok) {
+    throw new Error(current.error?.message ?? `Calendar get failed (${getRes.status})`);
+  }
+  const summary = current.summary?.includes("✅") ? current.summary : `✅ ${current.summary ?? "工事"}`;
+  const description = [current.description ?? "", input.completionNote].filter(Boolean).join("\n\n");
+  const res = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(input.calendarId)}/events/${encodeURIComponent(input.eventId)}`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        summary,
+        description,
+        colorId: "10",
+      }),
+    }
+  );
+  const json = (await res.json()) as { id?: string; error?: { message?: string } };
+  if (!res.ok || !json.id) {
+    throw new Error(json.error?.message ?? `Calendar complete mark failed (${res.status})`);
+  }
+  return { mode: "real", eventId: json.id };
 }
 
 export async function createGoogleCalendarEvent(

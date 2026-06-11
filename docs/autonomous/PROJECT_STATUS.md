@@ -69,6 +69,9 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | Google カレンダー予定の説明 | 一覧・日詳細で表示（折りたたみ/展開） |
 | 場所の地図ボタン | location がある予定に Google マップリンク |
 | Google 同期 | `GOOGLE_CALENDAR_ENABLED` でモック/本番切替 |
+| 連携設定 PWA | `/google-calendar-settings-v1` — ログイン・カレンダー選択・双方向同期 |
+| OAuth コールバック | `https://tisly.jp/auth/google/callback` |
+| 案件↔予定リンク | `google_calendar_event_links` — 自動生成・完了 ✅ 反映 |
 | 連携ステータス UI | `未設定` / `仮連携中` / `本番連携済み` バッジ（Calendar・Maps） |
 | 移動時間（日程詳細） | `現在地→現場` / `前の現場→次の現場` ブロック + ナビ起動 |
 | Maps API 未設定時 | 目安時間 + 「Google Maps API未設定：ナビ起動のみ」 |

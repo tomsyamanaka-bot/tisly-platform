@@ -24,8 +24,18 @@ import {
 } from "./google-maps-service.js";
 import { buildDayDispatch } from "./route-planner-service.js";
 import { fetchDayWeather } from "./weather-service.js";
-import type { CalendarIntegrationStatus, ScheduleDayDetail } from "./schedule-types.js";
+import type {
+  CalendarIntegrationStatus,
+  ScheduleDayDetail,
+  ScheduleDaySiteStop,
+} from "./schedule-types.js";
 import { getGoogleCalendarPublicStatus } from "../services/googleCalendar.js";
+import { listWorkSessionsForDate } from "../field-ops/work-session-v1-store.js";
+import type { ProjectRefV1 } from "../field-ops/field-ops-types.js";
+import {
+  ensureDayDeparture,
+  findFirstConstructionEvent,
+} from "./schedule-day-departures-store.js";
 
 const WEEKDAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
 
@@ -153,7 +163,13 @@ export async function getScheduleWeekView(offsetRaw?: unknown): Promise<Schedule
   const unavailableMap = new Map(unavailable.map((u) => [u.date, u]));
   const days: ScheduleDayCard[] = [];
   for (let i = 0; i < 7; i++) {
-    days.push(buildDayCard(addDays(startDate, i), events, unavailableMap));
+    const day = buildDayCard(addDays(startDate, i), events, unavailableMap);
+    const firstConstruction = findFirstConstructionEvent(day.events);
+    day.firstConstructionEventId = firstConstruction?.id ?? null;
+    if (firstConstruction) {
+      day.departure = await ensureDayDeparture(day.date);
+    }
+    days.push(day);
   }
   return {
     offset,
@@ -201,6 +217,34 @@ export async function getScheduleThreeWeekView(offsetRaw?: unknown): Promise<{
   return { offset, blocks };
 }
 
+function inferProjectSource(projectId: string): ProjectRefV1["source"] | null {
+  const db = getDatabase();
+  const biz = db.prepare(`SELECT id FROM business_projects WHERE id = ?`).get(projectId);
+  if (biz) return "business";
+  const survey = db.prepare(`SELECT project_id FROM survey_projects WHERE project_id = ?`).get(projectId);
+  if (survey) return "survey";
+  return null;
+}
+
+function buildSiteStopsForDay(dispatch: ReturnType<typeof buildDayDispatch>): ScheduleDaySiteStop[] {
+  if (!dispatch?.stops?.length) return [];
+  const out: ScheduleDaySiteStop[] = [];
+  const seen = new Set<string>();
+  for (const stop of dispatch.stops) {
+    if (!stop.projectId || seen.has(stop.projectId)) continue;
+    const source = inferProjectSource(stop.projectId);
+    if (!source) continue;
+    seen.add(stop.projectId);
+    out.push({
+      projectId: stop.projectId,
+      projectSource: source,
+      title: stop.title,
+      address: stop.address,
+    });
+  }
+  return out;
+}
+
 export async function getScheduleDayDetail(
   dateRaw: unknown,
   opts?: { location?: string }
@@ -224,6 +268,10 @@ export async function getScheduleDayDetail(
   const dayNote = getScheduleDayNote(date);
   const memo = dayNote?.note?.trim() ? dayNote.note : null;
   const eventRemark = dayNote?.eventRemark?.trim() ? dayNote.eventRemark : null;
+  const departure = await ensureDayDeparture(date);
+  const firstConstruction = findFirstConstructionEvent(day.events);
+  day.firstConstructionEventId = firstConstruction?.id ?? null;
+  day.departure = departure;
   return {
     day,
     weather,
@@ -233,6 +281,9 @@ export async function getScheduleDayDetail(
     memo,
     eventRemark,
     mapsUrl,
+    departure,
+    siteStops: buildSiteStopsForDay(dispatch),
+    workSessions: listWorkSessionsForDate(date),
   };
 }
 
@@ -241,7 +292,7 @@ export function getCalendarIntegrationStatus(): CalendarIntegrationStatus {
     getGoogleCalendarPublicStatus();
   const labelMap: Record<string, CalendarIntegrationStatus["label"]> = {
     mock: "仮連携中",
-    not_configured: "未設定",
+    not_configured: "未設定（mock）",
     not_logged_in: "設定済み・未ログイン",
     logged_in: "Googleログイン済み",
     sync_success: "同期成功",

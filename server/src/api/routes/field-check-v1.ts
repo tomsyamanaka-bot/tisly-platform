@@ -1,0 +1,112 @@
+import { Router, type Response } from "express";
+import { requireAuth, type AuthedRequest } from "../../auth/auth-middleware.js";
+import { roleMeetsRequirement } from "../../auth/roles.js";
+import type { ProjectRefV1 } from "../../field-ops/field-ops-types.js";
+import {
+  addManualFieldCheckItemV1,
+  completeFieldCheckSessionV1,
+  generateFieldCheckItemsV1,
+  listFieldCheckItemsV1,
+  listFieldCheckSessionsV1,
+  updateFieldCheckItemV1,
+} from "../../field-ops/field-check-v1-store.js";
+
+export const fieldCheckV1Router = Router();
+
+const auth = [requireAuth("surveyor")] as const;
+
+function assertRole(req: AuthedRequest, res: Response): boolean {
+  const role = req.admin?.role ?? "viewer";
+  if (!roleMeetsRequirement(role, "surveyor") && role !== "super_admin") {
+    res.status(403).json({ error: "Surveyor or admin role required" });
+    return false;
+  }
+  return true;
+}
+
+function parseRef(query: Record<string, unknown>): ProjectRefV1 | null {
+  const source = query.source ?? query.projectSource;
+  const projectId = query.projectId;
+  if (source !== "survey" && source !== "business") return null;
+  if (!projectId || typeof projectId !== "string") return null;
+  return { source, projectId };
+}
+
+fieldCheckV1Router.get("/items", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const ref = parseRef(req.query as Record<string, unknown>);
+  if (!ref) {
+    res.status(400).json({ error: "source and projectId query params are required" });
+    return;
+  }
+  res.json({ items: listFieldCheckItemsV1(ref) });
+});
+
+fieldCheckV1Router.post("/items/generate", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const ref = parseRef(req.body as Record<string, unknown>);
+  if (!ref) {
+    res.status(400).json({ error: "projectSource and projectId are required" });
+    return;
+  }
+  res.json({ items: generateFieldCheckItemsV1(ref) });
+});
+
+fieldCheckV1Router.post("/items", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const body = req.body as Record<string, unknown>;
+  const ref = parseRef(body);
+  if (!ref || !body.label) {
+    res.status(400).json({ error: "projectSource, projectId, and label are required" });
+    return;
+  }
+  const item = addManualFieldCheckItemV1(ref, {
+    label: String(body.label),
+    quantity: body.quantity != null ? Number(body.quantity) : undefined,
+    unit: body.unit != null ? String(body.unit) : undefined,
+    category: body.category != null ? String(body.category) : undefined,
+  });
+  res.status(201).json(item);
+});
+
+fieldCheckV1Router.patch("/items/:id", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const body = req.body as Record<string, unknown>;
+  const item = updateFieldCheckItemV1(String(req.params.id), {
+    checked: body.checked !== undefined ? Boolean(body.checked) : undefined,
+    checkedBy: body.checkedBy !== undefined ? (body.checkedBy != null ? String(body.checkedBy) : null) : req.admin?.username ?? null,
+    label: body.label != null ? String(body.label) : undefined,
+    quantity: body.quantity != null ? Number(body.quantity) : undefined,
+  });
+  if (!item) {
+    res.status(404).json({ error: "item not found" });
+    return;
+  }
+  res.json(item);
+});
+
+fieldCheckV1Router.post("/sessions", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const body = req.body as Record<string, unknown>;
+  const ref = parseRef(body);
+  if (!ref) {
+    res.status(400).json({ error: "projectSource and projectId are required" });
+    return;
+  }
+  const session = completeFieldCheckSessionV1(
+    ref,
+    req.admin?.username ?? null,
+    body.memo != null ? String(body.memo) : null
+  );
+  res.status(201).json(session);
+});
+
+fieldCheckV1Router.get("/sessions", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const ref = parseRef(req.query as Record<string, unknown>);
+  if (!ref) {
+    res.status(400).json({ error: "source and projectId query params are required" });
+    return;
+  }
+  res.json({ sessions: listFieldCheckSessionsV1(ref) });
+});

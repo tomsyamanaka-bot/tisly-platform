@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#4285f4" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>TiSLY — Googleカレンダー連携</title>
+  <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
+  <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
+  <style>
+    .gcal-status-badge { display:inline-block; font-size:0.78rem; padding:0.2rem 0.55rem; border-radius:999px; font-weight:600; }
+    .gcal-status-badge.live { background:#dcfce7; color:#166534; }
+    .gcal-status-badge.mock { background:#fef3c7; color:#92400e; }
+    .gcal-status-badge.off { background:#f1f5f9; color:#64748b; }
+    .gcal-status-badge.err { background:#fee2e2; color:#b91c1c; }
+    .gcal-card { margin-bottom:0.75rem; }
+    .gcal-card h2 { margin:0 0 0.5rem; font-size:1rem; }
+    .gcal-meta { font-size:0.85rem; color:#475569; margin:0.25rem 0; }
+    .gcal-actions { display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:0.6rem; }
+    .feature-list { margin:0.5rem 0 0; padding-left:1.1rem; font-size:0.88rem; color:#334155; }
+    .feature-list li { margin:0.2rem 0; }
+    #sync-result { font-size:0.85rem; color:#166534; margin-top:0.5rem; }
+  </style>
+</head>
+<body class="tisly-friendly">
+  <main class="app-main">
+    <p class="section-hint">GoogleカレンダーとTiSLY案件を双方向同期します</p>
+
+    <div class="friendly-card gcal-card">
+      <h2>連携ステータス</h2>
+      <p id="status-line" class="gcal-meta">読み込み中…</p>
+      <p id="oauth-line" class="gcal-meta"></p>
+      <p id="sync-line" class="gcal-meta"></p>
+      <div class="gcal-actions">
+        <button type="button" class="btn-primary" id="btn-login">Googleログイン</button>
+        <button type="button" class="btn-sub" id="btn-sync" disabled>今すぐ同期</button>
+        <button type="button" class="btn-sub" id="btn-disconnect" disabled>連携解除</button>
+      </div>
+      <p id="sync-result" class="hidden"></p>
+    </div>
+
+    <div class="friendly-card gcal-card">
+      <h2>同期カレンダー</h2>
+      <label class="section-hint" for="calendar-select">書き込み可能なカレンダー</label>
+      <select id="calendar-select" class="friendly-input" disabled>
+        <option value="">読み込み中…</option>
+      </select>
+      <label class="section-hint" style="display:flex;align-items:center;gap:0.5rem;margin-top:0.65rem;">
+        <input type="checkbox" id="auto-create" checked disabled />
+        Google予定から案件を自動生成（工事・緊急）
+      </label>
+      <label class="section-hint" for="sync-direction">同期方向</label>
+      <select id="sync-direction" class="friendly-input" disabled>
+        <option value="bidirectional">双方向（推奨）</option>
+        <option value="pull_only">Google → TiSLY のみ</option>
+        <option value="push_only">TiSLY → Google のみ</option>
+      </select>
+      <button type="button" class="btn-sub" id="btn-save-settings" style="margin-top:0.5rem;" disabled>設定を保存</button>
+    </div>
+
+    <div class="friendly-card gcal-card">
+      <h2>連携機能</h2>
+      <ul class="feature-list">
+        <li>Google予定の読み込み・TiSLY日程へ反映</li>
+        <li>工事予定から案件自動生成</li>
+        <li>案件の施工日をGoogleカレンダーへ書き込み</li>
+        <li>Google Maps 移動時間 → 出発時間自動計算</li>
+        <li>最初の現場のみ 出発30分前通知 + 持ち物リスト</li>
+        <li>Open-Meteo 雨予報（日程詳細画面）</li>
+        <li>作業完了時にGoogle予定へ ✅ 反映</li>
+      </ul>
+      <div class="gcal-actions">
+        <a class="btn-sub" href="/schedule-v1">日程調整を開く</a>
+      </div>
+    </div>
+  </main>
+  <div id="toast" class="toast" role="status"></div>
+  <script type="module" src="/js/google-calendar-settings-v1.js"></script>
+</body>
+</html>

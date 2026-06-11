@@ -4,11 +4,13 @@ import { v4 as uuid } from "uuid";
 import { getDatabase } from "../db/database.js";
 import {
   SURVEY_MATERIAL_CATEGORIES,
+  SURVEY_WORK_TYPES,
   SURVEY_WORKFLOW_STATUSES,
   type SurveyMaterialCategory,
   type SurveyMaterialV1,
   type SurveyPhotoV1,
   type SurveyProjectV1,
+  type SurveyWorkType,
   type SurveyWorkflowStatus,
 } from "./survey-v1-types.js";
 import { surveyUploadsDir } from "./survey-store.js";
@@ -35,6 +37,25 @@ function isWorkflowStatus(v: string): v is SurveyWorkflowStatus {
 
 function isMaterialCategory(v: string): v is SurveyMaterialCategory {
   return (SURVEY_MATERIAL_CATEGORIES as readonly string[]).includes(v);
+}
+
+function isWorkType(v: string): v is SurveyWorkType {
+  return (SURVEY_WORK_TYPES as readonly string[]).includes(v);
+}
+
+function parseWorkTypes(raw: unknown): SurveyWorkType[] {
+  if (!raw) return [];
+  let arr: unknown[] = [];
+  if (typeof raw === "string") {
+    try {
+      arr = JSON.parse(raw) as unknown[];
+    } catch {
+      return [];
+    }
+  } else if (Array.isArray(raw)) {
+    arr = raw;
+  }
+  return arr.filter((v): v is SurveyWorkType => typeof v === "string" && isWorkType(v));
 }
 
 function nextProjectNo(): string {
@@ -65,6 +86,7 @@ function rowToProject(r: Record<string, unknown>): SurveyProjectV1 {
     workflowStatus: isWorkflowStatus(String(r.workflow_status ?? "surveying"))
       ? (String(r.workflow_status) as SurveyWorkflowStatus)
       : "surveying",
+    workTypes: parseWorkTypes(r.work_types_json),
     createdAt: String(r.created_at),
     updatedAt: String(r.updated_at),
   };
@@ -166,6 +188,7 @@ export function createSurveyProjectV1(input: {
   assignee?: string;
   notes?: string;
   projectNo?: string;
+  workTypes?: SurveyWorkType[];
 }): SurveyProjectV1 {
   const projectId = `SVY-${uuid().slice(0, 8).toUpperCase()}`;
   const now = new Date().toISOString();
@@ -176,8 +199,8 @@ export function createSurveyProjectV1(input: {
       `INSERT INTO survey_projects (
         project_id, project_no, customer_code, customer_name, customer_address, site_name,
         address, phone, email, survey_date, assignee,
-        status, workflow_status, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 'surveying', ?, ?)`
+        status, workflow_status, work_types_json, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 'surveying', ?, ?, ?)`
     )
     .run(
       projectId,
@@ -191,6 +214,7 @@ export function createSurveyProjectV1(input: {
       input.email?.trim() ?? null,
       input.surveyDate ?? null,
       input.assignee?.trim() ?? null,
+      JSON.stringify(parseWorkTypes(input.workTypes)),
       now,
       now
     );
@@ -247,6 +271,7 @@ export function updateSurveyProjectV1(
     assignee: string;
     notes: string;
     workflowStatus: SurveyWorkflowStatus;
+    workTypes: SurveyWorkType[];
   }>
 ): SurveyProjectV1 | null {
   const existing = getSurveyProjectV1(projectId);
@@ -261,6 +286,7 @@ export function updateSurveyProjectV1(
         customer_name = ?, customer_address = ?, site_name = ?, address = ?, phone = ?, email = ?,
         survey_date = ?, assignee = ?,
         workflow_status = COALESCE(?, workflow_status),
+        work_types_json = COALESCE(?, work_types_json),
         updated_at = ?
        WHERE project_id = ?`
     )
@@ -274,6 +300,7 @@ export function updateSurveyProjectV1(
       patch.surveyDate !== undefined ? patch.surveyDate : existing.surveyDate,
       patch.assignee !== undefined ? patch.assignee : existing.assignee,
       patch.workflowStatus ?? null,
+      patch.workTypes !== undefined ? JSON.stringify(parseWorkTypes(patch.workTypes)) : null,
       now,
       projectId
     );

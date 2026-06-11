@@ -108,7 +108,22 @@ SQLite（`TISLY_DB_PATH`）。全ログ（イベント・警報・操作・接�
 | `GOOGLE_CALENDAR_ENABLED` | `true` で本番カレンダー、`false` でモック予定 |
 | `GOOGLE_CLIENT_ID` | OAuth クライアント ID |
 | `GOOGLE_CLIENT_SECRET` | OAuth シークレット |
-| `GOOGLE_REDIRECT_URI` | 本番: `https://tisly.jp/api/google-calendar/oauth/callback` |
+| `GOOGLE_REDIRECT_URI` | 本番: `https://tisly.jp/auth/google/callback` |
+| `GOOGLE_MAPS_API_KEY` | 移動時間（Directions API）。未設定時は目安時間 |
+| `OPEN_METEO_LIVE` | `1` で Open-Meteo 雨予報（日程日詳細） |
+
+| 画面 | パス |
+|------|------|
+| 日程調整 | `/schedule-v1`（⚙️連携 → 設定画面） |
+| Googleカレンダー連携 | `/google-calendar-settings-v1` |
+| OAuth コールバック | `/auth/google/callback` |
+
+連携機能: Googleログイン · カレンダー一覧 · 双方向同期 · 予定から案件自動生成 · Maps移動時間 · 出発時間計算 · 出発30分前通知 · 持ち物リスト通知 · 雨予報 · 最初の現場のみ出発通知 · 作業完了で ✅ 反映
+
+```bash
+npm run test:google-calendar
+npm run test -- test/departure-reminder-v1.test.ts
+```
 
 Google Cloud 側の手順: [`docs/google_calendar_practical_pwa.md`](../docs/google_calendar_practical_pwa.md)
 

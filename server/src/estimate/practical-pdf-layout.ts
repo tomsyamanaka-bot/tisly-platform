@@ -29,6 +29,7 @@ export interface PracticalPdfLayoutOptions {
   header: PracticalPdfHeaderInput;
   photos: PracticalPdfPhoto[];
   noPhotosMessage?: string;
+  extraBodyHtml?: string;
 }
 
 function chunk<T>(arr: T[], size: number): T[][] {
@@ -78,11 +79,14 @@ function padCells(photos: PracticalPdfPhoto[], size: number): (PracticalPdfPhoto
 function renderFirstPage(
   prefix: string,
   header: PracticalPdfHeaderInput,
-  photos: PracticalPdfPhoto[]
+  photos: PracticalPdfPhoto[],
+  extraBodyHtml?: string
 ): string {
   const cells = padCells(photos, PHOTOS_PER_PAGE);
+  const extra = extraBodyHtml ? `<div class="${prefix}-extra-body">${extraBodyHtml}</div>` : "";
   return `<div class="${prefix}-page ${prefix}-photo-page ${prefix}-first-page">
   ${renderReportHeader(header)}
+  ${extra}
   ${renderPhotoGrid(prefix, cells)}
 </div>`;
 }
@@ -97,11 +101,14 @@ function renderPhotoOnlyPage(prefix: string, photos: PracticalPdfPhoto[]): strin
 function renderNoPhotosPage(
   prefix: string,
   header: PracticalPdfHeaderInput,
-  noPhotosMessage: string
+  noPhotosMessage: string,
+  extraBodyHtml?: string
 ): string {
   const msg = escapeHtml(noPhotosMessage);
+  const extra = extraBodyHtml ? `<div class="${prefix}-extra-body">${extraBodyHtml}</div>` : "";
   return `<div class="${prefix}-page ${prefix}-photo-page ${prefix}-first-page">
   ${renderReportHeader(header)}
+  ${extra}
   <div class="${prefix}-no-photos">${msg}</div>
 </div>`;
 }
@@ -110,13 +117,14 @@ function renderPhotoPages(
   prefix: string,
   header: PracticalPdfHeaderInput,
   photos: PracticalPdfPhoto[],
-  noPhotosMessage: string
+  noPhotosMessage: string,
+  extraBodyHtml?: string
 ): string {
   if (!photos.length) {
-    return renderNoPhotosPage(prefix, header, noPhotosMessage);
+    return renderNoPhotosPage(prefix, header, noPhotosMessage, extraBodyHtml);
   }
   const pages = chunk(photos, PHOTOS_PER_PAGE);
-  const first = renderFirstPage(prefix, header, pages[0]!);
+  const first = renderFirstPage(prefix, header, pages[0]!, extraBodyHtml);
   const rest = pages.slice(1).map((batch) => renderPhotoOnlyPage(prefix, batch)).join("");
   return first + rest;
 }
@@ -150,13 +158,18 @@ export function buildPracticalPdfStyles(prefix: string): string {
   .${prefix}-photo-img-wrap { flex: 1; min-height: 0; overflow: hidden; border: 1px solid #cbd5e1; border-radius: 1px; background: #f8fafc; }
   .${prefix}-photo-img-wrap img { width: 100%; height: 100%; object-fit: contain; object-position: center; display: block; }
   .${prefix}-photo-empty { visibility: hidden; }
+  .${prefix}-extra-body { flex: 0 0 auto; margin: 0.5mm 0 1mm; font-size: 7.5pt; }
+  .cr-work-summary { width: 100%; border-collapse: collapse; margin: 0; }
+  .cr-work-summary th { text-align: left; width: 18%; padding: 0.3mm 1mm; color: #475569; font-weight: 600; vertical-align: top; }
+  .cr-work-summary td { padding: 0.3mm 1mm; color: #0f172a; vertical-align: top; }
+  .cr-checklist-cell { white-space: pre-wrap; line-height: 1.35; }
 `;
 }
 
 export function renderPracticalPdfHtml(opts: PracticalPdfLayoutOptions): string {
-  const { prefix, pageTitle, header, photos, noPhotosMessage = "写真未登録" } = opts;
+  const { prefix, pageTitle, header, photos, noPhotosMessage = "写真未登録", extraBodyHtml } = opts;
   const styles = buildPracticalPdfStyles(prefix);
-  const body = renderPhotoPages(prefix, header, photos, noPhotosMessage);
+  const body = renderPhotoPages(prefix, header, photos, noPhotosMessage, extraBodyHtml);
   const safeTitle = escapeHtml(pageTitle);
   return `<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"/>
 ${TOMS_PDF_VIEWPORT_META}

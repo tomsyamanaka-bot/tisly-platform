@@ -16,6 +16,22 @@ const WORKFLOW_LABELS = {
   completed: "完了",
 };
 
+const WORK_TYPES = [
+  { key: "camera", label: "防犯カメラ" },
+  { key: "wifi", label: "Wi-Fi" },
+  { key: "lan", label: "LAN" },
+  { key: "intercom", label: "インターホン" },
+  { key: "tv", label: "TV" },
+  { key: "electrical", label: "電気工事" },
+  { key: "aircon", label: "エアコン" },
+  { key: "ev", label: "EV" },
+  { key: "other", label: "その他" },
+];
+
+let cachedWorkTemplates = [];
+let selectedTemplateIds = new Set();
+let selectedWorkTypes = new Set();
+
 const MATERIAL_PICKER = [
   { key: "camera", icon: "📷", label: "防犯カメラ" },
   { key: "wifi", icon: "📶", label: "Wi-Fi" },
@@ -204,6 +220,65 @@ async function loadList() {
   } catch (e) {
     $("project-list").innerHTML = `<div class="error-friendly">${renderFriendlyErrorHtml(e, e.status)}</div>`;
   }
+}
+
+function getSelectedWorkTypesFromDom(containerId) {
+  const el = $(containerId);
+  if (!el) return [];
+  return [...el.querySelectorAll('input[type="checkbox"]:checked')].map((cb) => cb.value);
+}
+
+function renderWorkTypeGrid(containerId, selected = [], { namePrefix = "workType" } = {}) {
+  const el = $(containerId);
+  if (!el) return;
+  const set = new Set(selected);
+  el.innerHTML = WORK_TYPES.map(
+    (wt) => `<label class="work-type-chip${set.has(wt.key) ? " selected" : ""}">
+      <input type="checkbox" name="${namePrefix}" value="${wt.key}" ${set.has(wt.key) ? "checked" : ""} />
+      <span>${escapeHtml(wt.label)}</span>
+    </label>`
+  ).join("");
+  el.querySelectorAll(".work-type-chip").forEach((chip) => {
+    const cb = chip.querySelector("input");
+    cb?.addEventListener("change", () => {
+      chip.classList.toggle("selected", cb.checked);
+    });
+  });
+}
+
+function renderTemplateList(containerId, templates, selectedIds = []) {
+  const el = $(containerId);
+  if (!el) return;
+  if (!templates.length) {
+    el.innerHTML = "<p class='section-hint'>テンプレートがありません</p>";
+    return;
+  }
+  const set = new Set(selectedIds);
+  el.innerHTML = templates
+    .map(
+      (t) => `<label class="template-card${set.has(t.id) ? " selected" : ""}" data-id="${escapeHtml(t.id)}">
+        <input type="checkbox" value="${escapeHtml(t.id)}" ${set.has(t.id) ? "checked" : ""} />
+        <div>
+          <strong>${escapeHtml(t.name)}</strong>
+          ${t.description ? `<p class="section-hint">${escapeHtml(t.description)}</p>` : ""}
+          <p class="section-hint">${t.items?.length ?? 0} 項目</p>
+        </div>
+      </label>`
+    )
+    .join("");
+  el.querySelectorAll(".template-card").forEach((card) => {
+    const cb = card.querySelector("input");
+    cb?.addEventListener("change", () => {
+      card.classList.toggle("selected", cb.checked);
+    });
+  });
+}
+
+async function loadWorkTemplates() {
+  if (cachedWorkTemplates.length) return cachedWorkTemplates;
+  const data = await api("/work-templates");
+  cachedWorkTemplates = data.templates || [];
+  return cachedWorkTemplates;
 }
 
 function renderMaterialPicker() {
@@ -457,6 +532,16 @@ async function openDetail(projectId) {
     }
     bindDetailMemoInput();
     renderPhotos(p.photos);
+    selectedWorkTypes = new Set(p.workTypes || []);
+    renderWorkTypeGrid("detail-work-types", p.workTypes || []);
+    const templates = await loadWorkTemplates();
+    try {
+      const applied = await api(`/projects/${projectId}/work-templates`);
+      selectedTemplateIds = new Set(applied.templateIds || []);
+    } catch {
+      selectedTemplateIds = new Set();
+    }
+    renderTemplateList("detail-work-templates", templates, [...selectedTemplateIds]);
     renderMaterials(p.materials);
     const handoffBtn = $("btn-handoff");
     const handoffInfo = $("handoff-info");
@@ -1187,6 +1272,7 @@ function handleBack() {
 }
 
 function projectBodyFromForm(fd) {
+  const workTypes = getSelectedWorkTypesFromDom("form-work-types");
   return {
     customerCode: customerCodeFromPath(),
     customerName: fd.get("customerName"),
@@ -1198,7 +1284,14 @@ function projectBodyFromForm(fd) {
     assignee: fd.get("assignee") || undefined,
     surveyDate: fd.get("surveyDate") || undefined,
     notes: String(fd.get("notes") ?? ""),
+    workTypes,
   };
+}
+
+function getSelectedTemplateIdsFromDom(containerId) {
+  const el = $(containerId);
+  if (!el) return [];
+  return [...el.querySelectorAll('input[type="checkbox"]:checked')].map((cb) => cb.value);
 }
 
 async function init() {
@@ -1213,6 +1306,8 @@ async function init() {
   initPhotoPreview();
   initPhotoEditor();
   renderMaterialPicker();
+  renderWorkTypeGrid("form-work-types", []);
+  loadWorkTemplates().then((tpls) => renderTemplateList("form-work-templates", tpls)).catch(console.error);
   showView("list");
   await loadList();
 
@@ -1232,10 +1327,53 @@ async function init() {
     const fd = new FormData(ev.target);
     try {
       const created = await api("/projects", { method: "POST", body: JSON.stringify(projectBodyFromForm(fd)) });
+      const templateIds = getSelectedTemplateIdsFromDom("form-work-templates");
+      if (templateIds.length) {
+        await api(`/projects/${created.projectId}/work-templates`, {
+          method: "POST",
+          body: JSON.stringify({ templateIds }),
+        });
+      }
       toast("保存しました");
       await openDetail(created.projectId);
     } catch (e) {
       showFriendlyError("form-error", e, e.status);
+    }
+  });
+
+  $("btn-save-work-types").addEventListener("click", async () => {
+    if (!currentProjectId) return;
+    try {
+      const workTypes = getSelectedWorkTypesFromDom("detail-work-types");
+      await api(`/projects/${currentProjectId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ workTypes }),
+      });
+      toast("工事種別を保存しました");
+    } catch (e) {
+      toastError(e, e.status);
+    }
+  });
+
+  $("btn-apply-templates").addEventListener("click", async () => {
+    if (!currentProjectId) return;
+    const templateIds = getSelectedTemplateIdsFromDom("detail-work-templates");
+    if (!templateIds.length) {
+      toast("テンプレートを1つ以上選んでください");
+      return;
+    }
+    try {
+      const result = await api(`/projects/${currentProjectId}/work-templates`, {
+        method: "POST",
+        body: JSON.stringify({ templateIds }),
+      });
+      const info = $("template-apply-result");
+      info.classList.remove("hidden");
+      info.textContent = `持ち物 ${result.fieldCheckCount}件 / 発注 ${result.purchaseLineCount}件 / 部材 ${result.surveyMaterialCount}件を生成`;
+      toast("テンプレートを適用しました");
+      await openDetail(currentProjectId);
+    } catch (e) {
+      toastError(e, e.status);
     }
   });
 

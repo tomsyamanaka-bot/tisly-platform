@@ -571,6 +571,7 @@ cd server && npm run build && npx tsc --noEmit && npm run test
 | 順 | PWA | URL |
 |----|-----|-----|
 | 1 | 日程調整 | `/schedule-v1` |
+| 1b | Googleカレンダー連携 | `/google-calendar-settings-v1` |
 | 2 | 現調 v1 | `/survey-v1` |
 | 3 | 見積 v1 | `/estimate-v1` |
 | 4 | 請求 | `/estimate-v1`（見積PWA内で請求書作成） |
@@ -578,7 +579,9 @@ cd server && npm run build && npx tsc --noEmit && npm run test
 
 | API | 説明 |
 |-----|------|
-| `/api/schedule/v1/*` | 週間・月間・現場不可日（モックカレンダー） |
+| `/api/schedule/v1/*` | 週間・月間・現場不可日・出発リマインダー |
+| `/api/google-calendar/*` | Google OAuth・カレンダー一覧・双方向同期 |
+| `/auth/google/callback` | OAuth コールバック（本番 URI） |
 | `/api/survey/v1/*` | 現調案件・写真タイトル・部材・案件コピー/削除 |
 | `/api/estimate/v1/*` | 見積・請求・完了報告書PDF・見積複製 |
 

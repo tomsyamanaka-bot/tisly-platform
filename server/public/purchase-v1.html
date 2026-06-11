@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#c45b2c" />
+  <title>TiSLY — 発注管理</title>
+  <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
+  <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
+  <link rel="stylesheet" href="/css/field-ops-mobile.css" />
+  <style>
+    .status-tabs { display:flex; gap:0.35rem; flex-wrap:wrap; margin-bottom:0.75rem; }
+    .status-tab { padding:0.35rem 0.6rem; border-radius:999px; border:1px solid #cbd5e1; background:#fff; font-size:0.8rem; cursor:pointer; }
+    .status-tab.active { background:#c45b2c; color:#fff; border-color:#c45b2c; }
+    .purchase-line { padding:0.65rem 0; border-bottom:1px solid #e8ecf0; }
+    .purchase-line:last-child { border-bottom:none; }
+    .line-meta { font-size:0.82rem; color:#64748b; }
+    .line-actions { display:flex; gap:0.35rem; flex-wrap:wrap; margin-top:0.4rem; }
+    .line-actions button { font-size:0.78rem; padding:0.25rem 0.5rem; }
+    .summary-chips { display:flex; gap:0.4rem; flex-wrap:wrap; margin-bottom:0.75rem; }
+    .summary-chip { font-size:0.78rem; padding:0.2rem 0.5rem; border-radius:6px; background:#f1f5f9; }
+  </style>
+</head>
+<body class="tisly-friendly field-ops-touch">
+  <main class="app-main">
+    <div id="view-projects">
+      <p class="section-label">📦 発注管理 — 案件を選択</p>
+      <div id="project-list" class="empty-state">読み込み中…</div>
+    </div>
+    <div id="view-purchase" class="hidden">
+      <div id="project-header" class="friendly-card"></div>
+      <div id="summary" class="summary-chips"></div>
+      <button type="button" class="btn-sub" id="btn-regenerate">不足分を再集計</button>
+      <div class="status-tabs" id="status-tabs"></div>
+      <div id="lines" class="friendly-card"></div>
+      <button type="button" class="btn-sub" id="btn-back">案件一覧に戻る</button>
+    </div>
+  </main>
+  <div id="toast" class="toast" role="status"></div>
+  <script type="module" src="/js/purchase-v1.js"></script>
+</body>
+</html>

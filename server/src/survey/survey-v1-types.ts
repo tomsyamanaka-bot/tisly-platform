@@ -31,6 +31,33 @@ export const SURVEY_MATERIAL_CATEGORIES = [
 
 export type SurveyMaterialCategory = (typeof SURVEY_MATERIAL_CATEGORIES)[number];
 
+/** 工事種別（現調PWA v2 — Field Operations UI 連動） */
+export const SURVEY_WORK_TYPES = [
+  "camera",
+  "wifi",
+  "lan",
+  "intercom",
+  "tv",
+  "electrical",
+  "aircon",
+  "ev",
+  "other",
+] as const;
+
+export type SurveyWorkType = (typeof SURVEY_WORK_TYPES)[number];
+
+export const SURVEY_WORK_TYPE_LABELS: Record<SurveyWorkType, string> = {
+  camera: "防犯カメラ",
+  wifi: "Wi-Fi",
+  lan: "LAN",
+  intercom: "インターホン",
+  tv: "TV",
+  electrical: "電気工事",
+  aircon: "エアコン",
+  ev: "EV",
+  other: "その他",
+};
+
 export const SURVEY_MATERIAL_LABELS: Record<SurveyMaterialCategory, string> = {
   camera: "防犯カメラ",
   wifi: "Wi-Fi",
@@ -74,6 +101,8 @@ export interface SurveyProjectV1 {
   gpsLng: number | null;
   status: string;
   workflowStatus: SurveyWorkflowStatus;
+  /** 選択した工事種別（JSON 配列） */
+  workTypes: SurveyWorkType[];
   createdAt: string;
   updatedAt: string;
   /** survey_project_notes.notes（作成・更新・詳細 GET で付与） */

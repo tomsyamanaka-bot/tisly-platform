@@ -60,8 +60,14 @@ import { surveyV1Router } from "./api/routes/survey-v1.js";
 import { estimateV1Router } from "./api/routes/estimate-v1.js";
 import { scheduleRouter } from "./api/routes/schedule.js";
 import { googleCalendarRouter } from "./api/routes/google-calendar.js";
+import { getCalendarAuthUrl, handleCalendarOAuthCallback } from "./services/googleCalendar.js";
+import { GOOGLE_CALENDAR_NOT_CONFIGURED_MSG } from "./services/googleOAuthService.js";
 import { projectsV1Router } from "./api/routes/projects-v1.js";
 import { searchV1Router } from "./api/routes/search-v1.js";
+import { materialsV1Router } from "./api/routes/materials-v1.js";
+import { fieldCheckV1Router } from "./api/routes/field-check-v1.js";
+import { purchaseV1Router } from "./api/routes/purchase-v1.js";
+import { workSessionV1Router } from "./api/routes/work-session-v1.js";
 import { businessRouter } from "./api/routes/business.js";
 import { tomsRouter } from "./api/routes/toms.js";
 import { maintenanceProductionRouter } from "./api/routes/maintenance-production.js";
@@ -102,8 +108,37 @@ export function createApp(): express.Application {
   app.use("/api/estimate/v1", estimateV1Router);
   app.use("/api/schedule/v1", scheduleRouter);
   app.use("/api/google-calendar", googleCalendarRouter);
+
+  app.get("/auth/google", (_req, res) => {
+    const auth = getCalendarAuthUrl();
+    if (!auth.configured || !auth.url) {
+      res.redirect(
+        `/google-calendar-settings-v1?error=${encodeURIComponent(GOOGLE_CALENDAR_NOT_CONFIGURED_MSG)}`
+      );
+      return;
+    }
+    res.redirect(auth.url);
+  });
+
+  app.get("/auth/google/callback", async (req, res) => {
+    const result = await handleCalendarOAuthCallback({
+      code: req.query.code as string | undefined,
+      error: req.query.error as string | undefined,
+    });
+    if (result.ok) {
+      res.redirect("/google-calendar-settings-v1?oauth=ok");
+      return;
+    }
+    res.redirect(
+      `/google-calendar-settings-v1?error=${encodeURIComponent(result.message)}`
+    );
+  });
   app.use("/api/projects/v1", projectsV1Router);
   app.use("/api/search/v1", searchV1Router);
+  app.use("/api/materials/v1", materialsV1Router);
+  app.use("/api/field-check/v1", fieldCheckV1Router);
+  app.use("/api/purchase/v1", purchaseV1Router);
+  app.use("/api/work-session/v1", workSessionV1Router);
   app.use("/api/business", businessRouter);
   app.use("/api/toms", tomsRouter);
   app.use("/api/maintenance", maintenanceProductionRouter);
@@ -359,6 +394,15 @@ export function createApp(): express.Application {
   app.get("/search-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "search-v1.html"));
   });
+  app.get("/field-check-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "field-check-v1.html"));
+  });
+  app.get("/purchase-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "purchase-v1.html"));
+  });
+  app.get("/google-calendar-settings-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "google-calendar-settings-v1.html"));
+  });
   app.get("/survey/:projectId/report", (req, res) => {
     try {
       const html = buildSurveyReportHtml(String(req.params.projectId));
@@ -611,6 +655,18 @@ export function createApp(): express.Application {
         "report-export-audit",
       ],
     });
+  });
+
+  app.use((req, res) => {
+    if (req.path.startsWith("/api/")) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    if (req.method !== "GET" || /\.\w+$/.test(req.path)) {
+      res.status(404).type("text/plain").send("Not found");
+      return;
+    }
+    res.status(404).sendFile(path.join(publicDir, "tisly-not-found.html"));
   });
 
   return app;

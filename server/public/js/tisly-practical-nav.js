@@ -1,11 +1,13 @@
 /** TiSLY 実務 PWA 共通ナビ — 戻る/進む/アプリ一覧 + 下部タブ */
 
 const BOTTOM_ITEMS = [
-  { id: "schedule_v1", label: "日程調整", icon: "📅", href: "/schedule-v1" },
+  { id: "schedule_v1", label: "日程", icon: "📅", href: "/schedule-v1" },
   { id: "survey_v1", label: "現調", icon: "📋", href: "/survey-v1" },
   { id: "estimate_v1", label: "見積", icon: "💰", href: "/estimate-v1" },
   { id: "billing_v1", label: "請求", icon: "🧾", href: "/estimate-v1" },
-  { id: "projects_v1", label: "案件一覧", icon: "📂", href: "/projects-v1" },
+  { id: "projects_v1", label: "案件", icon: "📂", href: "/projects-v1" },
+  { id: "field_check_v1", label: "持ち物", icon: "🧰", href: "/field-check-v1" },
+  { id: "purchase_v1", label: "発注", icon: "📦", href: "/purchase-v1" },
 ];
 
 let toastFn = null;

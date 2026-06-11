@@ -12,6 +12,7 @@
   <title>TiSLY — 現調</title>
   <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
   <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
+  <link rel="stylesheet" href="/css/field-ops-mobile.css" />
   <style>
     .photo-preview-btn {
       display: block;
@@ -277,7 +278,7 @@
     }
   </style>
 </head>
-<body class="tisly-friendly">
+<body class="tisly-friendly field-ops-touch">
   <main class="app-main">
     <p class="section-hint" id="page-hint">お客様の現場を見に行く記録を残します</p>
 
@@ -305,6 +306,12 @@
         <label class="friendly-label">担当者 <input name="assignee" placeholder="現場ご担当者名" /></label>
         <label class="friendly-label">現調日 <input name="surveyDate" type="date" /></label>
         <label class="friendly-label">現調メモ <textarea name="notes" rows="3" placeholder="気づいたこと、お客様のご要望など"></textarea></label>
+        <p class="section-label">🔧 工事種別</p>
+        <p class="section-hint">該当する工事を選んでください（複数可）</p>
+        <div id="form-work-types" class="work-type-grid" role="group" aria-label="工事種別"></div>
+        <p class="section-label">📋 工事テンプレート</p>
+        <p class="section-hint">選ぶと部材・持ち物・発注が自動生成されます</p>
+        <div id="form-work-templates" class="template-list"></div>
         <button type="submit" class="btn-main" id="btn-save">保存する</button>
       </form>
       <div id="form-error" class="error-friendly hidden"></div>
@@ -356,6 +363,20 @@
         </div>
         <button type="button" class="btn-sub" id="btn-photo-memo">📝 文字だけメモ</button>
         <p id="photo-upload-progress" class="section-hint hidden"></p>
+      </div>
+
+      <p class="section-label">🔧 工事種別</p>
+      <div class="friendly-card">
+        <div id="detail-work-types" class="work-type-grid"></div>
+        <button type="button" class="btn-sub" id="btn-save-work-types">工事種別を保存</button>
+      </div>
+
+      <p class="section-label">📋 工事テンプレート</p>
+      <p class="section-hint">選択して保存すると持ち物・発注・部材が連動します</p>
+      <div class="friendly-card">
+        <div id="detail-work-templates" class="template-list"></div>
+        <button type="button" class="btn-sub" id="btn-apply-templates">テンプレートを適用</button>
+        <p id="template-apply-result" class="section-hint hidden"></p>
       </div>
 
       <p class="section-label">🔧 使う部材</p>

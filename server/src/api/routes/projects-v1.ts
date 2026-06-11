@@ -1,6 +1,7 @@
 import { Router, type Response } from "express";
 import { requireAuth, type AuthedRequest } from "../../auth/auth-middleware.js";
 import { roleMeetsRequirement } from "../../auth/roles.js";
+import { buildFieldOpsDashboardV1Async } from "../../projects/field-ops-dashboard.js";
 import { getProjectDetailV1, listProjectsV1 } from "../../projects/projects-v1-store.js";
 
 export const projectsV1Router = Router();
@@ -15,6 +16,15 @@ function assertRole(req: AuthedRequest, res: Response): boolean {
   }
   return true;
 }
+
+projectsV1Router.get("/dashboard", ...auth, async (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  try {
+    res.json(await buildFieldOpsDashboardV1Async());
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : "dashboard failed" });
+  }
+});
 
 projectsV1Router.get("/projects", ...auth, (req: AuthedRequest, res) => {
   if (!assertRole(req, res)) return;

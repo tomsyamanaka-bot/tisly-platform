@@ -8,6 +8,7 @@
   <title>TiSLY — 日程詳細</title>
   <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
   <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
+  <link rel="stylesheet" href="/css/field-ops-mobile.css" />
   <style>
     #day-title { cursor: pointer; }
     #day-title:active { opacity: 0.75; }
@@ -37,17 +38,27 @@
     .travel-block-meta { font-size: 0.82rem; color: #475569; margin-bottom: 0.35rem; }
     .travel-maps-hint { color: #b45309; margin: 0 0 0.5rem; }
     .event-map-btn { margin-left: 0.35rem; }
+    .departure-prep-card { margin: 0.5rem 0; padding: 0.55rem 0.65rem; background: #fffbeb; border: 1px solid #fcd34d; border-radius: 8px; }
+    .departure-prep-card p { margin: 0.2rem 0; font-size: 0.88rem; }
+    .departure-prep-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.45rem; }
+    .departure-remind-badge { font-size: 0.75rem; padding: 0.1rem 0.4rem; border-radius: 999px; background: #dbeafe; color: #1d4ed8; }
+    .departure-alert-card { margin: 0 0 0.75rem; padding: 0.65rem 0.75rem; background: #fef3c7; border: 1px solid #f59e0b; border-radius: 10px; }
+    .departure-alert-title { margin: 0; font-weight: 700; color: #92400e; }
+    .departure-alert-body { margin: 0.25rem 0 0.5rem; font-size: 0.88rem; color: #78350f; }
   </style>
 </head>
-<body class="tisly-friendly">
+<body class="tisly-friendly field-ops-touch">
   <main class="app-main">
     <div id="integration-badges"></div>
+    <div id="departure-alert-mount" class="hidden" aria-live="polite"></div>
     <h2 id="day-title" class="schedule-week-label" title="タップしてメモを編集">—</h2>
+    <div id="day-departure" class="hidden"></div>
     <div id="day-weather" class="schedule-weather-mini"></div>
     <div id="day-memo-summary" class="friendly-card" role="button" tabindex="0" aria-label="日付メモを編集"></div>
     <div id="day-events" class="friendly-card"></div>
     <div id="day-travel" class="friendly-card hidden"></div>
     <div id="day-dispatch" class="friendly-card hidden"></div>
+    <div id="day-work-sessions" class="hidden"></div>
     <a id="day-maps" class="btn-main" href="#" target="_blank" rel="noopener" style="display:none;margin-top:0.75rem;">📍 Googleマップ</a>
   </main>
   <div id="toast" class="toast" role="status"></div>

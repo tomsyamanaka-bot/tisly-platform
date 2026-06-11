@@ -14,6 +14,14 @@ import {
   renderIntegrationBadges,
   escapeScheduleHtml,
 } from "./schedule-event-ui.js";
+import {
+  bindDepartureAlertCards,
+  bindDeparturePrepCards,
+  initDepartureReminderClient,
+  renderDepartureAlertCard,
+  renderDeparturePrepHtml,
+  startDepartureReminderPolling,
+} from "./departure-reminder.js";
 
 const API = "/api/schedule/v1";
 const CAT_ICON = {
@@ -31,6 +39,8 @@ const CAT_LABEL = {
 
 let practicalNav = null;
 let weekOffset = 0;
+let departuresById = {};
+let todayDeparture = null;
 let threeOffset = 0;
 let monthYear = new Date().getFullYear();
 let monthMonth = new Date().getMonth() + 1;
@@ -126,16 +136,32 @@ function dayCardClass(day) {
   return "schedule-day-card";
 }
 
+function indexDepartures(days) {
+  departuresById = {};
+  const today = new Date().toISOString().slice(0, 10);
+  todayDeparture = null;
+  for (const day of days) {
+    if (day.departure?.id) {
+      departuresById[day.departure.id] = day.departure;
+      if (day.date === today) todayDeparture = day.departure;
+    }
+  }
+}
+
 function renderWeekDays(days) {
+  indexDepartures(days);
   $("week-days").innerHTML = days
     .map((day) => {
+      const firstId = day.firstConstructionEventId;
       const events = day.events
         .slice(0, 5)
         .map((ev) => {
           const time = formatEventTime(ev);
           const timeHtml = time ? `<small class="event-time">${escapeHtml(time)}</small> ` : "";
           const loc = ev.location ? `<small> 📍${escapeHtml(ev.location)}</small>` : "";
-          return `<li><span>${CAT_ICON[ev.category] || "📌"}</span><span>${timeHtml}<strong>${escapeHtml(ev.title)}</strong>${loc}${renderEventDescriptionHtml(ev.description, `${day.date}-${ev.id}`)}${renderEventLocationHtml(ev.location)}</span></li>`;
+          const departureHtml =
+            day.departure && ev.id === firstId ? renderDeparturePrepHtml(day.departure) : "";
+          return `<li class="${departureHtml ? "has-departure" : ""}"><span>${CAT_ICON[ev.category] || "📌"}</span><span>${timeHtml}<strong>${escapeHtml(ev.title)}</strong>${loc}${renderEventDescriptionHtml(ev.description, `${day.date}-${ev.id}`)}${renderEventLocationHtml(ev.location)}${departureHtml}</span></li>`;
         })
         .join("");
       const more = day.events.length > 5 ? `<li>他${day.events.length - 5}件</li>` : "";
@@ -161,6 +187,11 @@ function renderWeekDays(days) {
     .join("");
 
   bindEventDescSnippets($("week-days"));
+  bindDeparturePrepCards($("week-days"), departuresById, {
+    apiFetch: (path, opts) => api(path, opts),
+    onSaved: async () => loadWeek(),
+    toast,
+  });
   $("week-days").querySelectorAll("[data-date]").forEach((card) => {
     const open = () => openDayDetailByDate(card.dataset.date);
     card.addEventListener("click", (ev) => {
@@ -199,6 +230,26 @@ function renderThreeWeekBlocks(blocks) {
   });
 }
 
+function refreshTodayDepartureAlert() {
+  const mount = $("departure-alert-mount");
+  if (!mount) return;
+  if (!todayDeparture) {
+    mount.classList.add("hidden");
+    mount.innerHTML = "";
+    return;
+  }
+  const html = renderDepartureAlertCard(todayDeparture);
+  if (html) {
+    mount.innerHTML = html;
+    bindDepartureAlertCards(mount);
+    mount.classList.remove("hidden");
+  } else {
+    mount.classList.add("hidden");
+    mount.innerHTML = "";
+  }
+  startDepartureReminderPolling(todayDeparture, (path, opts) => api(path, opts));
+}
+
 async function loadWeek() {
   try {
     const data = await api(`/week?offset=${weekOffset}`);
@@ -206,6 +257,7 @@ async function loadWeek() {
     $("week-range").textContent = `${formatDateShort(data.startDate)}〜${formatDateShort(data.endDate)}`;
     renderSummary(data.summary);
     renderWeekDays(data.days);
+    refreshTodayDepartureAlert();
   } catch (e) {
     $("week-days").innerHTML = `<div class="error-friendly">${renderFriendlyErrorHtml(e, e.status)}</div>`;
   }
@@ -383,8 +435,11 @@ function renderCalendarStatusLine(cal) {
     lines.push(`最終同期: ${at}（${cal.sync.eventCount ?? 0}件）`);
   } else if (cal.displayStatus === "logged_in") {
     lines.push("「Google予定を同期」でカレンダーを取得できます");
-  } else if (cal.displayStatus === "mock") {
-    lines.push("デモ予定を表示中 — 本番連携は .env で GOOGLE_CALENDAR_ENABLED=true");
+  } else if (!cal.configured || cal.mode === "mock") {
+    lines.push("Googleカレンダー未設定 — 連携設定からログインしてください");
+    if (Array.isArray(cal.missingEnv) && cal.missingEnv.length) {
+      lines.push(`不足: ${cal.missingEnv.join(", ")}`);
+    }
   }
   return lines.join(" — ");
 }
@@ -455,6 +510,11 @@ async function init() {
   showMode("week");
   await loadWeek();
   await refreshSyncStatus();
+  await initDepartureReminderClient({
+    apiFetch: (path, opts) => api(path, opts),
+    toast,
+    departure: todayDeparture,
+  });
 
   const oauth = new URLSearchParams(window.location.search).get("oauth");
   if (oauth === "ok") toast("Google連携が完了しました");
@@ -467,34 +527,23 @@ async function init() {
     btn.textContent = "処理中…";
     try {
       const cal = await fetchGoogleCalendarStatus();
-      if (cal.displayStatus === "not_configured") {
-        toast("Google連携は未設定です");
+      if (!cal.configured || cal.mode === "mock") {
+        toast("Googleカレンダー未設定：設定画面でログインしてください");
         return;
       }
-      if (cal.displayStatus === "not_logged_in") {
-        const token = getCustomerToken();
-        const authRes = await fetch("/api/google-calendar/auth/start", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const authData = await authRes.json().catch(() => ({}));
-        if (!authRes.ok) {
-          const err = new Error(authData.error || `HTTP ${authRes.status}`);
-          err.status = authRes.status;
-          throw err;
-        }
-        if (authData.url) {
-          window.location.href = authData.url;
-        }
+      if (cal.displayStatus === "not_logged_in" || !cal.connected) {
+        window.location.href = "/auth/google";
         return;
       }
       btn.textContent = "同期中…";
       const result = await api("/sync/google", { method: "POST", body: JSON.stringify({ weeks: 8 }) });
-      toast(`同期完了（${result.count}件・${result.mode}）`);
+      const modeLabel = result.modeLabel || (result.mode === "real" ? "Google" : result.mode);
+      toast(`同期完了（${result.count}件・${modeLabel}）`);
       await refreshSyncStatus();
       await refreshCurrent();
     } catch (e) {
-      if (e.status === 503 && String(e.message || "").includes("未設定")) {
-        toast("Google連携は未設定です");
+      if (e.status === 503 && String(e.message || "").includes("Googleカレンダー")) {
+        toast(e.message || "Googleカレンダー未設定：設定画面でログインしてください");
       } else {
         toastError(e, e.status);
       }

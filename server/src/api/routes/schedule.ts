@@ -28,11 +28,18 @@ import {
   handleCalendarOAuthCallback,
   syncGoogleCalendarEvents,
 } from "../../services/googleCalendar.js";
+import { assertGoogleCalendarSyncAllowed } from "../../services/googleOAuthService.js";
 import {
   getCalendarSyncMeta,
   recordCalendarSyncFailure,
   replaceCachedCalendarEvents,
 } from "../../schedule/schedule-calendar-store.js";
+import {
+  buildDepartureNotificationPayload,
+  ensureDayDeparture,
+  getDepartureById,
+  updateDayDeparture,
+} from "../../schedule/schedule-day-departures-store.js";
 
 export const scheduleRouter = Router();
 
@@ -148,6 +155,52 @@ scheduleRouter.patch("/day-note", ...scheduleAuth, (req: AuthedRequest, res) => 
   }
 });
 
+scheduleRouter.get("/departures", ...scheduleAuth, async (req: AuthedRequest, res) => {
+  if (!assertScheduleRole(req, res)) return;
+  const date = String(req.query.date ?? "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    res.status(400).json({ error: "valid date required (YYYY-MM-DD)" });
+    return;
+  }
+  try {
+    const departure = await ensureDayDeparture(date);
+    res.json({ date, departure });
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : "departures failed" });
+  }
+});
+
+scheduleRouter.patch("/departures/:id", ...scheduleAuth, (req: AuthedRequest, res) => {
+  if (!assertScheduleRole(req, res)) return;
+  const body = req.body as {
+    departureTime?: string;
+    reminderMinutesBefore?: number;
+    reminderEnabled?: boolean;
+    reminderSentAt?: string | null;
+  };
+  try {
+    const updated = updateDayDeparture(String(req.params.id), body);
+    if (!updated) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    res.json(updated);
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : "update failed" });
+  }
+});
+
+scheduleRouter.post("/departures/:id/test-notify", ...scheduleAuth, (req: AuthedRequest, res) => {
+  if (!assertScheduleRole(req, res)) return;
+  const departure = getDepartureById(String(req.params.id));
+  if (!departure) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  const payload = buildDepartureNotificationPayload(departure);
+  res.json({ ok: true, notification: payload, departure });
+});
+
 scheduleRouter.get("/day", ...scheduleAuth, async (req: AuthedRequest, res) => {
   if (!assertScheduleRole(req, res)) return;
   try {
@@ -237,7 +290,7 @@ scheduleRouter.get("/oauth/callback", async (req, res) => {
     error: req.query.error as string | undefined,
   });
   if (result.ok) {
-    res.redirect("/schedule-v1?oauth=ok");
+    res.redirect("/google-calendar-settings-v1?oauth=ok");
     return;
   }
   res.status(400).send(result.message);
@@ -272,8 +325,19 @@ async function runGoogleCalendarSync(
 
 scheduleRouter.post("/sync", ...scheduleAuth, async (req: AuthedRequest, res) => {
   if (!assertScheduleRole(req, res)) return;
+  const guard = assertGoogleCalendarSyncAllowed();
+  if (!guard.ok) {
+    res.status(guard.status).json({ error: guard.error, configured: false, mode: "mock" });
+    return;
+  }
   try {
-    res.json(await runGoogleCalendarSync(req.body as { startDate?: string; endDate?: string; weeks?: number }));
+    const result = await runGoogleCalendarSync(
+      req.body as { startDate?: string; endDate?: string; weeks?: number }
+    );
+    res.json({
+      ...result,
+      modeLabel: result.mode === "real" ? "Google" : "mock",
+    });
   } catch (e) {
     const msg = formatGoogleCalendarErrorJa(e instanceof Error ? e.message : "sync failed");
     recordCalendarSyncFailure(msg);
@@ -283,13 +347,19 @@ scheduleRouter.post("/sync", ...scheduleAuth, async (req: AuthedRequest, res) =>
 
 scheduleRouter.post("/sync/google", ...scheduleAuth, async (req: AuthedRequest, res) => {
   if (!assertScheduleRole(req, res)) return;
-  const oauth = getCalendarOAuthStatus();
-  if (oauth.mode === "real" && !oauth.configured) {
-    res.status(503).json({ error: "Google連携は未設定です", configured: false });
+  const guard = assertGoogleCalendarSyncAllowed();
+  if (!guard.ok) {
+    res.status(guard.status).json({ error: guard.error, configured: false, mode: "mock" });
     return;
   }
   try {
-    res.json(await runGoogleCalendarSync(req.body as { startDate?: string; endDate?: string; weeks?: number }));
+    const result = await runGoogleCalendarSync(
+      req.body as { startDate?: string; endDate?: string; weeks?: number }
+    );
+    res.json({
+      ...result,
+      modeLabel: result.mode === "real" ? "Google" : "mock",
+    });
   } catch (e) {
     const msg = formatGoogleCalendarErrorJa(e instanceof Error ? e.message : "sync failed");
     recordCalendarSyncFailure(msg);

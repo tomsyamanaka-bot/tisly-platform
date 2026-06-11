@@ -1,0 +1,263 @@
+/* Field Operations UI v2 — iPhone 優先・片手操作 */
+
+.field-ops-touch .btn-main,
+.field-ops-touch .btn-hero,
+.field-ops-touch .btn-primary,
+.field-ops-touch .btn-sub {
+  min-height: 52px;
+  font-size: 1rem;
+}
+
+.field-ops-touch .section-label {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.field-ops-touch .section-hint {
+  font-size: 0.9rem;
+}
+
+.field-ops-touch input[type="checkbox"] {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.work-type-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+  margin: 0.5rem 0 0.75rem;
+}
+
+.work-type-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--tisly-border);
+  border-radius: 10px;
+  background: #fff;
+  font-size: 0.92rem;
+  cursor: pointer;
+  min-height: 48px;
+}
+
+.work-type-chip input {
+  flex-shrink: 0;
+}
+
+.work-type-chip.selected {
+  border-color: var(--tisly-green);
+  background: var(--tisly-green-light);
+}
+
+.template-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+
+.template-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--tisly-border);
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  min-height: 52px;
+}
+
+.template-card.selected {
+  border-color: #4a90d9;
+  background: #e8f2fc;
+}
+
+.template-card input {
+  margin-top: 0.2rem;
+  width: 1.35rem;
+  height: 1.35rem;
+}
+
+.pipeline-bar {
+  display: flex;
+  gap: 0.25rem;
+  overflow-x: auto;
+  padding: 0.5rem 0;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.pipeline-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.pipeline-step {
+  flex: 0 0 auto;
+  min-width: 4.2rem;
+  text-align: center;
+  font-size: 0.68rem;
+  color: var(--tisly-muted);
+  padding: 0.35rem 0.25rem;
+  border-radius: 8px;
+  border: 1px solid transparent;
+}
+
+.pipeline-step .step-icon {
+  display: block;
+  font-size: 1rem;
+  margin-bottom: 0.15rem;
+}
+
+.pipeline-step.done {
+  color: #15803d;
+  background: #ecfdf5;
+}
+
+.pipeline-step.active {
+  color: #1d4ed8;
+  background: #dbeafe;
+  border-color: #93c5fd;
+  font-weight: 700;
+}
+
+.pipeline-step.pending {
+  opacity: 0.55;
+}
+
+.pipeline-step.compact {
+  min-width: 3.4rem;
+  font-size: 0.62rem;
+}
+
+.work-session-panel {
+  margin: 0.5rem 0;
+  padding: 0.65rem 0.75rem;
+}
+
+.work-session-panel.compact {
+  padding: 0.5rem 0.6rem;
+}
+
+.work-session-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.45rem;
+}
+
+.work-session-actions .btn-main {
+  width: 100%;
+}
+
+.work-checklist {
+  margin-top: 0.35rem;
+}
+
+.work-check-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0;
+  font-size: 0.9rem;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+
+.dashboard-card {
+  display: block;
+  padding: 0.85rem 0.75rem;
+  border-radius: 12px;
+  border: 1px solid var(--tisly-border);
+  background: #fff;
+  text-decoration: none;
+  color: inherit;
+  min-height: 72px;
+  box-shadow: var(--tisly-shadow);
+}
+
+.dashboard-card .dash-count {
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.dashboard-card .dash-label {
+  font-size: 0.82rem;
+  color: var(--tisly-muted);
+  margin-top: 0.2rem;
+}
+
+.check-category {
+  margin-bottom: 0.75rem;
+}
+
+.check-category-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin: 0 0 0.35rem;
+  padding: 0.35rem 0;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.check-rate-badge {
+  display: inline-block;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  background: #ede9fe;
+  color: #5b21b6;
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.purchase-line.status-shortage {
+  border-left: 4px solid #dc2626;
+  padding-left: 0.5rem;
+  background: #fef2f2;
+}
+
+.purchase-line.status-stock {
+  border-left: 4px solid #16a34a;
+  padding-left: 0.5rem;
+  background: #f0fdf4;
+}
+
+.purchase-line.status-ordered {
+  border-left: 4px solid #2563eb;
+  padding-left: 0.5rem;
+  background: #eff6ff;
+}
+
+.purchase-line.status-received {
+  border-left: 4px solid #7c3aed;
+  padding-left: 0.5rem;
+  background: #f5f3ff;
+}
+
+.purchase-line.status-carried {
+  border-left: 4px solid #1e293b;
+  padding-left: 0.5rem;
+  background: #f8fafc;
+}
+
+.purchase-status-pill {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+}
+
+.purchase-status-pill.shortage { background: #fecaca; color: #991b1b; }
+.purchase-status-pill.stock { background: #bbf7d0; color: #166534; }
+.purchase-status-pill.ordered { background: #bfdbfe; color: #1e40af; }
+.purchase-status-pill.received { background: #ddd6fe; color: #5b21b6; }
+.purchase-status-pill.carried { background: #cbd5e1; color: #0f172a; }

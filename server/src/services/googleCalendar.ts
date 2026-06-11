@@ -5,7 +5,9 @@
 
 import type { ScheduleCategory, ScheduleEvent, ScheduleEventSource } from "../schedule/schedule-types.js";
 import { getCalendarSyncMeta, type CalendarSyncMeta } from "../schedule/schedule-calendar-store.js";
+import { getGoogleCalendarSettingsV1 } from "../schedule/google-calendar-sync-store.js";
 import {
+  assertGoogleCalendarSyncAllowed,
   getGoogleCalendarAuthUrl,
   getGoogleCalendarOAuthStatus,
   handleGoogleCalendarOAuthCallback,
@@ -26,7 +28,8 @@ export interface GoogleCalendarPublicStatus {
   clientIdConfigured: boolean;
   clientSecretConfigured: boolean;
   redirectUri: string | null;
-  mode: "mock" | "real";
+  mode: "mock" | "live";
+  missingEnv: string[];
   connected: boolean;
   displayStatus: GoogleCalendarDisplayStatus;
   displayLabel: string;
@@ -53,7 +56,7 @@ export const GOOGLE_CALENDAR_CONFIG_PLACEHOLDER: GoogleCalendarConfig = {
   redirectUri:
     process.env.GOOGLE_REDIRECT_URI ??
     process.env.GOOGLE_CALENDAR_REDIRECT_URI ??
-    "https://tisly.jp/api/google-calendar/oauth/callback",
+    "https://tisly.jp/auth/google/callback",
   calendarId: process.env.GOOGLE_CALENDAR_ID ?? "primary",
 };
 
@@ -293,10 +296,14 @@ export class RealGoogleCalendarProvider implements CalendarProvider {
   }
 }
 
+function resolveCalendarId(): string {
+  return getGoogleCalendarSettingsV1().calendarId || GOOGLE_CALENDAR_CONFIG_PLACEHOLDER.calendarId;
+}
+
 function resolveProvider(): CalendarProvider {
   const status = getGoogleCalendarOAuthStatus();
   if (status.mode === "real" && status.connected) {
-    return new RealGoogleCalendarProvider();
+    return new RealGoogleCalendarProvider(resolveCalendarId());
   }
   return new MockGoogleCalendarProvider();
 }
@@ -323,6 +330,10 @@ export async function syncGoogleCalendarEvents(
   startDate: string,
   endDate: string
 ): Promise<{ events: ScheduleEvent[]; mode: "mock" | "real"; count: number }> {
+  const guard = assertGoogleCalendarSyncAllowed();
+  if (!guard.ok) {
+    throw new Error(guard.error);
+  }
   resetCalendarProvider();
   const events = await provider.listEvents(startDate, endDate);
   return { events, mode: provider.mode, count: events.length };
@@ -355,11 +366,8 @@ function resolveDisplayStatus(
   oauth: ReturnType<typeof getGoogleCalendarOAuthStatus>,
   sync: CalendarSyncMeta
 ): { displayStatus: GoogleCalendarDisplayStatus; displayLabel: string } {
-  if (oauth.mode === "mock") {
-    return { displayStatus: "mock", displayLabel: "仮連携中" };
-  }
   if (!oauth.configured) {
-    return { displayStatus: "not_configured", displayLabel: "未設定" };
+    return { displayStatus: "not_configured", displayLabel: "未設定（mock）" };
   }
   if (!oauth.connected) {
     return { displayStatus: "not_logged_in", displayLabel: "設定済み・未ログイン" };
@@ -382,11 +390,12 @@ function resolveButtonState(displayStatus: GoogleCalendarDisplayStatus): {
       return { buttonLabel: "Google連携は未設定です", buttonDisabled: true };
     case "not_logged_in":
       return { buttonLabel: "Googleログイン", buttonDisabled: false };
-    case "mock":
     case "logged_in":
     case "sync_success":
     case "sync_failed":
       return { buttonLabel: "Google予定を同期", buttonDisabled: false };
+    case "mock":
+      return { buttonLabel: "Google予定を同期", buttonDisabled: true };
     default:
       return { buttonLabel: "Google予定を同期", buttonDisabled: false };
   }
@@ -406,7 +415,8 @@ export function getGoogleCalendarPublicStatus(): GoogleCalendarPublicStatus {
     clientIdConfigured: oauth.clientIdConfigured,
     clientSecretConfigured,
     redirectUri: oauth.redirectUri,
-    mode: oauth.mode,
+    mode: oauth.configured ? "live" : "mock",
+    missingEnv: oauth.missingEnv ?? [],
     connected: oauth.connected,
     displayStatus,
     displayLabel,

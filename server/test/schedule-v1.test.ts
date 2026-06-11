@@ -97,11 +97,12 @@ describe("日程調整 PWA v1 API", () => {
       .get("/api/schedule/v1/oauth/status")
       .set("Authorization", `Bearer ${token}`);
     assert.equal(res.status, 200);
-    assert.equal(res.body.calendarIntegration.label, "仮連携中");
+    assert.equal(res.body.calendarIntegration.label, "未設定（mock）");
     assert.equal(res.body.mapsIntegration.label, "未設定");
     assert.ok(res.body.mapsIntegration.hint.includes("ナビ起動のみ"));
-    assert.equal(res.body.calendarStatus.displayStatus, "mock");
-    assert.equal(res.body.calendarStatus.buttonLabel, "Google予定を同期");
+    assert.equal(res.body.calendarStatus.displayStatus, "not_configured");
+    assert.equal(res.body.calendarStatus.mode, "mock");
+    assert.equal(res.body.calendarStatus.buttonLabel, "Google連携は未設定です");
   });
 
   it("GET /api/google-calendar/status は Secret を返さない", async () => {
@@ -109,8 +110,12 @@ describe("日程調整 PWA v1 API", () => {
       .get("/api/google-calendar/status")
       .set("Authorization", `Bearer ${token}`);
     assert.equal(res.status, 200);
-    assert.equal(res.body.displayStatus, "mock");
-    assert.equal(res.body.displayLabel, "仮連携中");
+    assert.equal(res.body.displayStatus, "not_configured");
+    assert.equal(res.body.displayLabel, "未設定（mock）");
+    assert.equal(res.body.mode, "mock");
+    assert.equal(res.body.configured, false);
+    assert.ok(Array.isArray(res.body.missingEnv));
+    assert.ok(res.body.missingEnv.includes("GOOGLE_CALENDAR_ENABLED"));
     assert.equal(typeof res.body.configured, "boolean");
     assert.equal(typeof res.body.clientIdConfigured, "boolean");
     assert.equal(typeof res.body.clientSecretConfigured, "boolean");
@@ -138,8 +143,9 @@ describe("日程調整 PWA v1 API", () => {
       .post("/api/schedule/v1/sync/google")
       .set("Authorization", `Bearer ${token}`)
       .send({ weeks: 1 });
-    assert.equal(sync.status, 200);
-    assert.ok(sync.body.ok);
+    assert.equal(sync.status, 503);
+    assert.ok(String(sync.body.error).includes("Googleカレンダー未設定"));
+    assert.equal(sync.body.mode, "mock");
   });
 
   it("日付詳細に移動時間ブロックとMaps連携状態が含まれる", async () => {
@@ -348,11 +354,11 @@ describe("日程調整 PWA v1 API", () => {
   it("下部ナビが指定順になっている", async () => {
     const res = await request(app).get("/js/tisly-practical-nav.js");
     assert.equal(res.status, 200);
-    const idxSchedule = res.text.indexOf('label: "日程調整"');
+    const idxSchedule = res.text.indexOf('label: "日程"');
     const idxSurvey = res.text.indexOf('label: "現調"');
     const idxEstimate = res.text.indexOf('label: "見積"');
     const idxBilling = res.text.indexOf('label: "請求"');
-    const idxProjects = res.text.indexOf('label: "案件一覧"');
+    const idxProjects = res.text.indexOf('label: "案件"');
     assert.ok(idxSchedule >= 0 && idxSurvey > idxSchedule);
     assert.ok(idxEstimate > idxSurvey);
     assert.ok(idxBilling > idxEstimate);

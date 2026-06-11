@@ -16,8 +16,20 @@ import {
   renderTravelBlocksHtml,
   renderIntegrationBadges,
 } from "./schedule-event-ui.js";
+import {
+  bindDepartureAlertCards,
+  bindDeparturePrepCards,
+  initDepartureReminderClient,
+  renderDepartureAlertCard,
+  renderDeparturePrepHtml,
+} from "./departure-reminder.js";
+import {
+  bindWorkSessionPanels,
+  renderWorkSessionPanel,
+} from "./work-session-ui.js";
 
 const API = "/api/schedule/v1";
+const WORK_API = "/api/work-session/v1";
 const CAT_ICON = { construction: "🟫", office: "🟦", family: "🟩", urgent: "🟥" };
 const CAT_LABEL = { construction: "工事", office: "事務", family: "家族", urgent: "重要" };
 
@@ -26,6 +38,7 @@ const $ = (id) => document.getElementById(id);
 let currentDate = "";
 let reasonPresets = [];
 let lastDetail = null;
+let currentDeparture = null;
 
 function toast(msg) {
   const el = $("toast");
@@ -82,6 +95,30 @@ function renderWeather(weather) {
     .join(" ");
 }
 
+function renderDepartureSection(detail) {
+  const el = $("day-departure");
+  if (!el) return;
+  currentDeparture = detail.departure ?? null;
+  if (!currentDeparture) {
+    el.classList.add("hidden");
+    el.innerHTML = "";
+    return;
+  }
+  el.classList.remove("hidden");
+  el.innerHTML = renderDeparturePrepHtml(currentDeparture);
+  bindDeparturePrepCards(el, { [currentDeparture.id]: currentDeparture }, {
+    apiFetch: (path, opts) => api(path, opts),
+    onSaved: async (saved) => {
+      currentDeparture = saved;
+      if (lastDetail) {
+        lastDetail.departure = saved;
+        renderDepartureSection(lastDetail);
+      }
+    },
+    toast,
+  });
+}
+
 function renderEvents(day) {
   const events = day.events.length
     ? day.events
@@ -97,6 +134,20 @@ function renderEvents(day) {
     : "<p>予定はありません</p>";
   $("day-events").innerHTML = `<p class="section-label">📋 予定一覧</p>${events}`;
   bindEventDescSnippets($("day-events"));
+}
+
+function renderDepartureAlert(detail) {
+  const mount = $("departure-alert-mount");
+  if (!mount) return;
+  const html = renderDepartureAlertCard(detail.departure);
+  if (html) {
+    mount.innerHTML = html;
+    bindDepartureAlertCards(mount);
+    mount.classList.remove("hidden");
+  } else {
+    mount.classList.add("hidden");
+    mount.innerHTML = "";
+  }
 }
 
 function renderTravel(detail) {
@@ -123,6 +174,56 @@ function renderMemoSummary(detail) {
       unavailable: detail.day.unavailable,
     })}
     <p class="section-hint" style="margin:0.5rem 0 0;font-size:0.82rem;">タップして編集</p>`;
+}
+
+function renderSiteWorkSessions(detail) {
+  const el = $("day-work-sessions");
+  if (!el) return;
+  const stops = detail.siteStops || [];
+  if (!stops.length) {
+    el.classList.add("hidden");
+    el.innerHTML = "";
+    return;
+  }
+  const sessionsByKey = new Map(
+    (detail.workSessions || []).map((s) => [`${s.projectSource}:${s.projectId}`, s])
+  );
+  el.classList.remove("hidden");
+  el.innerHTML = `<p class="section-label">📍 現場作業</p>${stops
+    .map((stop) => {
+      const session = sessionsByKey.get(`${stop.projectSource}:${stop.projectId}`) ?? null;
+      return renderWorkSessionPanel({
+        projectSource: stop.projectSource,
+        projectId: stop.projectId,
+        projectTitle: stop.title,
+        workDate: currentDate,
+        session,
+        compact: true,
+      });
+    })
+    .join("")}`;
+  bindWorkSessionPanels(el, {
+    apiFetch: workApi,
+    toast,
+    onUpdated: async () => {
+      if (currentDate) await loadDay(currentDate);
+    },
+  });
+}
+
+async function workApi(path, opts = {}) {
+  const token = getCustomerToken();
+  const res = await fetch(`${WORK_API}${path.replace(WORK_API, "")}`, {
+    ...opts,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      ...(opts.headers || {}),
+    },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw Object.assign(new Error(data.error || `HTTP ${res.status}`), { status: res.status });
+  return data;
 }
 
 function renderDispatch(dispatch) {
@@ -183,10 +284,18 @@ async function loadDay(date) {
   lastDetail = detail;
   $("day-title").textContent = `${formatDateShort(date)}（${detail.day.weekday}）`;
   renderWeather(detail.weather);
+  renderDepartureAlert(detail);
   renderMemoSummary(detail);
+  renderDepartureSection(detail);
   renderEvents(detail.day);
   renderTravel(detail);
   renderDispatch(detail.dispatch);
+  renderSiteWorkSessions(detail);
+  await initDepartureReminderClient({
+    apiFetch: (path, opts) => api(path, opts),
+    toast,
+    departure: detail.departure,
+  });
   const maps = $("day-maps");
   if (detail.mapsUrl) {
     maps.href = detail.mapsUrl;

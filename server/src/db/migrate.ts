@@ -195,6 +195,339 @@ export function runMigrations(database: Database.Database): void {
   migrateCustomerPriceRulesV1(database);
   migrateCustomerPriceRulesV1_1(database);
   migrateCustomerPriceRulesV1_2(database);
+  migrateFieldOperationsSystemV1(database);
+  migrateFieldOpsUiV2(database);
+  migrateScheduleDayDeparturesV1(database);
+  migrateArrivalWorkCompletionV1(database);
+  migrateGoogleCalendarSyncV1(database);
+}
+
+/** Google Calendar 双方向同期 v1 — 設定・案件リンク */
+function migrateGoogleCalendarSyncV1(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:google_calendar_sync_v1") as { value_json: string } | undefined;
+  if (marker) return;
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS google_calendar_event_links (
+      id TEXT PRIMARY KEY,
+      google_event_id TEXT NOT NULL UNIQUE,
+      google_calendar_id TEXT NOT NULL,
+      project_source TEXT NOT NULL CHECK (project_source IN ('survey', 'business')),
+      project_id TEXT NOT NULL,
+      schedule_event_id TEXT,
+      link_kind TEXT NOT NULL DEFAULT 'linked' CHECK (link_kind IN ('linked', 'from_google', 'to_google')),
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_gcal_links_project ON google_calendar_event_links(project_source, project_id);
+    CREATE INDEX IF NOT EXISTS idx_gcal_links_event ON google_calendar_event_links(google_event_id);
+  `);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:google_calendar_sync_v1", JSON.stringify({ at: new Date().toISOString() }));
+}
+
+/** 到着・作業完了システム v1 — 作業セッション / 完了チェックリスト */
+function migrateArrivalWorkCompletionV1(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:arrival_work_completion_v1") as { value_json: string } | undefined;
+  if (marker) return;
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS project_work_sessions (
+      id TEXT PRIMARY KEY,
+      project_source TEXT NOT NULL CHECK (project_source IN ('survey', 'business')),
+      project_id TEXT NOT NULL,
+      work_date TEXT NOT NULL,
+      schedule_event_id TEXT,
+      arrival_time TEXT,
+      arrival_lat REAL,
+      arrival_lng REAL,
+      start_time TEXT,
+      completion_time TEXT,
+      worker_name TEXT,
+      work_memo TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(project_source, project_id, work_date)
+    );
+    CREATE INDEX IF NOT EXISTS idx_work_sessions_project ON project_work_sessions(project_source, project_id);
+    CREATE INDEX IF NOT EXISTS idx_work_sessions_date ON project_work_sessions(work_date);
+
+    CREATE TABLE IF NOT EXISTS completion_checklist_items (
+      id TEXT PRIMARY KEY,
+      project_source TEXT NOT NULL CHECK (project_source IN ('survey', 'business')),
+      project_id TEXT NOT NULL,
+      category TEXT NOT NULL,
+      label TEXT NOT NULL,
+      checked INTEGER NOT NULL DEFAULT 0,
+      checked_at TEXT,
+      checked_by TEXT,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      source TEXT NOT NULL DEFAULT 'auto' CHECK (source IN ('auto', 'manual')),
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_completion_checklist_project ON completion_checklist_items(project_source, project_id);
+  `);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:arrival_work_completion_v1", JSON.stringify({ at: new Date().toISOString() }));
+}
+
+/** 出発リマインダー + 持ち物確認通知 v1 */
+function migrateScheduleDayDeparturesV1(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:schedule_day_departures_v1") as { value_json: string } | undefined;
+  if (marker) return;
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS schedule_day_departures (
+      id TEXT PRIMARY KEY,
+      departure_date TEXT NOT NULL UNIQUE,
+      project_id TEXT,
+      project_source TEXT,
+      first_event_id TEXT,
+      event_title TEXT,
+      departure_time TEXT NOT NULL,
+      reminder_minutes_before INTEGER NOT NULL DEFAULT 30,
+      reminder_enabled INTEGER NOT NULL DEFAULT 1,
+      reminder_sent_at TEXT,
+      travel_duration_min INTEGER,
+      travel_duration_source TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_schedule_day_departures_date ON schedule_day_departures(departure_date);
+  `);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:schedule_day_departures_v1", JSON.stringify({ at: new Date().toISOString() }));
+}
+
+/** Field Operations UI v2 — 工事種別・案件パイプライン拡張 */
+function migrateFieldOpsUiV2(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:field_ops_ui_v2") as { value_json: string } | undefined;
+  if (marker) return;
+
+  addColumnsIfMissing(database, "survey_projects", [
+    {
+      name: "work_types_json",
+      ddl: "ALTER TABLE survey_projects ADD COLUMN work_types_json TEXT NOT NULL DEFAULT '[]'",
+    },
+  ]);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:field_ops_ui_v2", JSON.stringify({ at: new Date().toISOString() }));
+}
+
+/** Field Operations System v1 — 材料マスター / 工事テンプレ / 持ち物 / 発注 */
+function migrateFieldOperationsSystemV1(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:field_operations_system_v1") as { value_json: string } | undefined;
+  if (marker) return;
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS materials (
+      id TEXT PRIMARY KEY,
+      category TEXT NOT NULL,
+      name TEXT NOT NULL,
+      maker TEXT,
+      model TEXT,
+      unit TEXT NOT NULL DEFAULT '個',
+      cost REAL NOT NULL DEFAULT 0,
+      stock_qty REAL NOT NULL DEFAULT 0,
+      min_stock REAL NOT NULL DEFAULT 0,
+      supplier TEXT,
+      memo TEXT,
+      active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_materials_category ON materials(category);
+    CREATE INDEX IF NOT EXISTS idx_materials_active ON materials(active);
+
+    CREATE TABLE IF NOT EXISTS work_templates (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      active INTEGER NOT NULL DEFAULT 1,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS work_template_items (
+      id TEXT PRIMARY KEY,
+      template_id TEXT NOT NULL,
+      material_id TEXT,
+      label TEXT NOT NULL,
+      qty REAL NOT NULL DEFAULT 1,
+      unit TEXT,
+      item_type TEXT NOT NULL DEFAULT 'material' CHECK (item_type IN ('material', 'tool')),
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      FOREIGN KEY (template_id) REFERENCES work_templates(id) ON DELETE CASCADE,
+      FOREIGN KEY (material_id) REFERENCES materials(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_work_template_items_template ON work_template_items(template_id);
+
+    CREATE TABLE IF NOT EXISTS project_work_templates (
+      id TEXT PRIMARY KEY,
+      project_source TEXT NOT NULL CHECK (project_source IN ('survey', 'business')),
+      project_id TEXT NOT NULL,
+      template_id TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(project_source, project_id, template_id),
+      FOREIGN KEY (template_id) REFERENCES work_templates(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_project_work_templates_project ON project_work_templates(project_source, project_id);
+
+    CREATE TABLE IF NOT EXISTS field_check_items (
+      id TEXT PRIMARY KEY,
+      project_source TEXT NOT NULL CHECK (project_source IN ('survey', 'business')),
+      project_id TEXT NOT NULL,
+      label TEXT NOT NULL,
+      category TEXT,
+      quantity REAL NOT NULL DEFAULT 1,
+      unit TEXT,
+      material_id TEXT,
+      source TEXT NOT NULL DEFAULT 'auto' CHECK (source IN ('auto', 'manual')),
+      checked INTEGER NOT NULL DEFAULT 0,
+      checked_at TEXT,
+      checked_by TEXT,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_field_check_items_project ON field_check_items(project_source, project_id);
+
+    CREATE TABLE IF NOT EXISTS field_check_sessions (
+      id TEXT PRIMARY KEY,
+      project_source TEXT NOT NULL CHECK (project_source IN ('survey', 'business')),
+      project_id TEXT NOT NULL,
+      checked_count INTEGER NOT NULL DEFAULT 0,
+      total_count INTEGER NOT NULL DEFAULT 0,
+      all_checked INTEGER NOT NULL DEFAULT 0,
+      completed_by TEXT,
+      completed_at TEXT NOT NULL,
+      memo TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_field_check_sessions_project ON field_check_sessions(project_source, project_id);
+
+    CREATE TABLE IF NOT EXISTS purchase_lines (
+      id TEXT PRIMARY KEY,
+      project_source TEXT NOT NULL CHECK (project_source IN ('survey', 'business')),
+      project_id TEXT NOT NULL,
+      material_id TEXT,
+      label TEXT NOT NULL,
+      qty_required REAL NOT NULL DEFAULT 0,
+      qty_ordered REAL NOT NULL DEFAULT 0,
+      unit TEXT,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'ordered', 'received', 'carried')),
+      supplier TEXT,
+      ordered_at TEXT,
+      received_at TEXT,
+      carried_at TEXT,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_purchase_lines_project ON purchase_lines(project_source, project_id);
+    CREATE INDEX IF NOT EXISTS idx_purchase_lines_status ON purchase_lines(status);
+  `);
+
+  seedFieldOperationsSystemV1(database);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:field_operations_system_v1", JSON.stringify({ at: new Date().toISOString() }));
+}
+
+function seedFieldOperationsSystemV1(database: Database.Database): void {
+  const count = database.prepare(`SELECT COUNT(*) as c FROM materials`).get() as { c: number };
+  if (count.c > 0) return;
+
+  const now = new Date().toISOString();
+  const materials: Array<{
+    id: string;
+    category: string;
+    name: string;
+    maker: string;
+    model: string;
+    unit: string;
+    cost: number;
+    stock_qty: number;
+    min_stock: number;
+    supplier: string;
+  }> = [
+    { id: "mat-camera-outdoor", category: "防犯カメラ", name: "屋外防犯カメラ 200万画素", maker: "Hikvision", model: "DS-2CD2043G2", unit: "台", cost: 12000, stock_qty: 2, min_stock: 2, supplier: "防犯機器商事" },
+    { id: "mat-nvr-8ch", category: "NVR", name: "8ch NVR", maker: "Hikvision", model: "DS-7608NI-K2", unit: "台", cost: 28000, stock_qty: 1, min_stock: 1, supplier: "防犯機器商事" },
+    { id: "mat-hdd-4tb", category: "HDD", name: "監視用HDD 4TB", maker: "Seagate", model: "ST4000VX015", unit: "台", cost: 11000, stock_qty: 3, min_stock: 2, supplier: "PCパーツ卸" },
+    { id: "mat-poe-8port", category: "電源", name: "PoEハブ 8port", maker: "Netgear", model: "GS108LP", unit: "台", cost: 15000, stock_qty: 1, min_stock: 1, supplier: "ネット機器卸" },
+    { id: "mat-lan-cat6", category: "LAN", name: "CAT6 LANケーブル", maker: "エレコム", model: "LD-CT2", unit: "m", cost: 80, stock_qty: 150, min_stock: 100, supplier: "電材店" },
+    { id: "mat-rj45", category: "LAN", name: "RJ45コネクタ", maker: "エレコム", model: "LD-RJ45", unit: "個", cost: 15, stock_qty: 50, min_stock: 30, supplier: "電材店" },
+    { id: "mat-ladder", category: "工具", name: "脚立", maker: "ハセガワ", model: "LG-180", unit: "台", cost: 8000, stock_qty: 2, min_stock: 1, supplier: "工具レンタル" },
+    { id: "mat-tester", category: "工具", name: "テスター", maker: "Hioki", model: "FT6031", unit: "台", cost: 5000, stock_qty: 3, min_stock: 2, supplier: "計測器店" },
+    { id: "mat-crimp-tool", category: "工具", name: "圧着工具", maker: "エレコム", model: "LD-TMT", unit: "個", cost: 3500, stock_qty: 2, min_stock: 1, supplier: "電材店" },
+    { id: "mat-driver-set", category: "工具", name: "ドライバーセット", maker: "VESSEL", model: "TD-56", unit: "式", cost: 2000, stock_qty: 5, min_stock: 2, supplier: "工具店" },
+  ];
+
+  const insertMat = database.prepare(
+    `INSERT INTO materials (id, category, name, maker, model, unit, cost, stock_qty, min_stock, supplier, active, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`
+  );
+  for (const m of materials) {
+    insertMat.run(m.id, m.category, m.name, m.maker, m.model, m.unit, m.cost, m.stock_qty, m.min_stock, m.supplier, now, now);
+  }
+
+  const templateId = "wt-camera-4";
+  database
+    .prepare(
+      `INSERT INTO work_templates (id, name, description, active, sort_order, created_at, updated_at)
+       VALUES (?, ?, ?, 1, 0, ?, ?)`
+    )
+    .run(templateId, "防犯カメラ4台", "屋外カメラ4台・NVR・PoE・配線一式", now, now);
+
+  const items: Array<{ id: string; material_id: string | null; label: string; qty: number; unit: string | null; item_type: string; sort_order: number }> = [
+    { id: "wti-cam", material_id: "mat-camera-outdoor", label: "カメラ", qty: 4, unit: "台", item_type: "material", sort_order: 0 },
+    { id: "wti-nvr", material_id: "mat-nvr-8ch", label: "NVR", qty: 1, unit: "台", item_type: "material", sort_order: 1 },
+    { id: "wti-hdd", material_id: "mat-hdd-4tb", label: "HDD", qty: 1, unit: "台", item_type: "material", sort_order: 2 },
+    { id: "wti-poe", material_id: "mat-poe-8port", label: "PoE", qty: 1, unit: "台", item_type: "material", sort_order: 3 },
+    { id: "wti-lan", material_id: "mat-lan-cat6", label: "LAN", qty: 200, unit: "m", item_type: "material", sort_order: 4 },
+    { id: "wti-rj45", material_id: "mat-rj45", label: "RJ45", qty: 20, unit: "個", item_type: "material", sort_order: 5 },
+    { id: "wti-ladder", material_id: "mat-ladder", label: "脚立", qty: 1, unit: "台", item_type: "tool", sort_order: 6 },
+    { id: "wti-tester", material_id: "mat-tester", label: "テスター", qty: 1, unit: "台", item_type: "tool", sort_order: 7 },
+    { id: "wti-crimp", material_id: "mat-crimp-tool", label: "圧着工具", qty: 1, unit: "個", item_type: "tool", sort_order: 8 },
+    { id: "wti-driver", material_id: "mat-driver-set", label: "ドライバー", qty: 1, unit: "式", item_type: "tool", sort_order: 9 },
+  ];
+  const insertItem = database.prepare(
+    `INSERT INTO work_template_items (id, template_id, material_id, label, qty, unit, item_type, sort_order)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+  for (const it of items) {
+    insertItem.run(it.id, templateId, it.material_id, it.label, it.qty, it.unit, it.item_type, it.sort_order);
+  }
 }
 
 /** 見積ごとの単価ルール適用フラグ（Customer Price Rule v1.2） */

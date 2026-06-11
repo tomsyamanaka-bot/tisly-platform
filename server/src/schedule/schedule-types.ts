@@ -3,6 +3,7 @@
 import type { DayDispatch } from "./route-planner-service.js";
 import type { DayTravelBlock, MapsIntegrationStatus } from "./google-maps-service.js";
 import type { DayWeather } from "./weather-service.js";
+import type { ScheduleDayDepartureV1 } from "./schedule-day-departures-store.js";
 
 export type ScheduleCategory = "construction" | "office" | "family" | "urgent";
 
@@ -45,6 +46,8 @@ export interface ScheduleDayCard {
   events: ScheduleEvent[];
   unavailable: UnavailableDay | null;
   availability: DayAvailability;
+  departure?: ScheduleDayDepartureV1 | null;
+  firstConstructionEventId?: string | null;
 }
 
 export interface ScheduleWeekView {
@@ -77,6 +80,7 @@ export interface ScheduleThreeWeekBlock {
 export interface CalendarIntegrationStatus {
   label:
     | "未設定"
+    | "未設定（mock）"
     | "仮連携中"
     | "本番連携済み"
     | "要OAuth接続"
@@ -84,9 +88,16 @@ export interface CalendarIntegrationStatus {
     | "Googleログイン済み"
     | "同期成功"
     | "同期失敗";
-  mode: "mock" | "real";
+  mode: "mock" | "live";
   configured: boolean;
   connected: boolean;
+}
+
+export interface ScheduleDaySiteStop {
+  projectId: string;
+  projectSource: "survey" | "business";
+  title: string;
+  address?: string;
 }
 
 export interface ScheduleDayDetail {
@@ -98,6 +109,9 @@ export interface ScheduleDayDetail {
   memo?: string | null;
   eventRemark?: string | null;
   mapsUrl?: string | null;
+  departure?: ScheduleDayDepartureV1 | null;
+  siteStops?: ScheduleDaySiteStop[];
+  workSessions?: import("../field-ops/field-ops-types.js").WorkSessionV1[];
 }
 
 export interface ScheduleMonthDayCell {

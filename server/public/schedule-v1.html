@@ -36,15 +36,25 @@
     .schedule-event-list .event-map-btn { display: inline-block; margin-top: 0.15rem; font-size: 0.72rem; padding: 0.1rem 0.4rem; }
     .schedule-event-list li { align-items: flex-start; }
     .schedule-event-list .event-time { display: block; color: #64748b; }
+    .departure-prep-card { margin-top: 0.5rem; padding: 0.55rem 0.65rem; background: #fffbeb; border: 1px solid #fcd34d; border-radius: 8px; }
+    .departure-prep-card p { margin: 0.2rem 0; font-size: 0.88rem; }
+    .departure-prep-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.45rem; }
+    .departure-remind-badge { font-size: 0.75rem; padding: 0.1rem 0.4rem; border-radius: 999px; background: #dbeafe; color: #1d4ed8; }
+    .departure-alert-card { margin: 0 0 0.75rem; padding: 0.65rem 0.75rem; background: #fef3c7; border: 1px solid #f59e0b; border-radius: 10px; }
+    .departure-alert-title { margin: 0; font-weight: 700; color: #92400e; }
+    .departure-alert-body { margin: 0.25rem 0 0.5rem; font-size: 0.88rem; color: #78350f; }
+    .schedule-event-list li.has-departure { flex-direction: column; align-items: stretch; }
   </style>
 </head>
 <body class="tisly-friendly">
   <main class="app-main">
     <div class="schedule-top-actions">
       <p class="section-hint" id="page-hint" style="margin:0;flex:1;">いつ空いてる？にすぐ答えられます</p>
+      <a class="btn-sub btn-small" href="/google-calendar-settings-v1" title="Googleカレンダー連携設定">⚙️連携</a>
       <button type="button" class="btn-sub btn-small" id="btn-sync-calendar" title="Googleカレンダー同期">Google同期</button>
     </div>
     <div id="integration-badges"></div>
+    <div id="departure-alert-mount" class="hidden" aria-live="polite"></div>
     <p class="section-hint" id="sync-status" style="font-size:0.82rem;margin-top:0.25rem;"></p>
 
     <div class="schedule-mode-tabs tab-row" role="tablist">

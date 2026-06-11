@@ -12,6 +12,7 @@
   <title>TiSLY — 見積</title>
   <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
   <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
+  <link rel="stylesheet" href="/css/field-ops-mobile.css" />
   <style>
     .doc-action-grid {
       display: grid;
@@ -52,7 +53,7 @@
     #completion-photo-lightbox button { position: absolute; top: 1rem; right: 1rem; border: none; background: rgba(255,255,255,0.9); border-radius: 8px; padding: 0.35rem 0.65rem; font-size: 0.9rem; }
   </style>
 </head>
-<body class="tisly-friendly">
+<body class="tisly-friendly field-ops-touch">
   <main class="app-main">
     <p class="section-hint" id="page-hint">お仕事の料金をまとめます</p>
 
@@ -140,6 +141,10 @@
       <label class="friendly-label">備考 <textarea id="estimate-notes" rows="3" placeholder="見積書に記載する備考"></textarea></label>
 
       <button type="button" class="btn-sub blue" id="btn-save-items">内訳を保存</button>
+
+      <p class="section-label">🔧 現場作業・完了チェック</p>
+      <div id="estimate-work-session"></div>
+      <button type="button" class="btn-main blue" id="btn-create-completion-report" style="margin-top:0.5rem;">完了報告書作成</button>
 
       <p class="section-label">📷 書類用写真管理</p>
       <div class="friendly-card photo-mgmt-grid">

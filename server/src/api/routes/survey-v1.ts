@@ -5,7 +5,10 @@ import {
   SURVEY_MATERIAL_CATEGORIES,
   SURVEY_WORKFLOW_STATUSES,
   type SurveyWorkflowStatus,
+  type SurveyWorkType,
 } from "../../survey/survey-v1-types.js";
+import { applyWorkTemplatesToProject } from "../../field-ops/project-materials-service.js";
+import { listProjectWorkTemplateIds, listWorkTemplatesV1 } from "../../field-ops/work-templates-store.js";
 import {
   addSurveyMaterialV1,
   addSurveyPhotoMemoV1,
@@ -64,6 +67,7 @@ surveyV1Router.post("/projects", ...surveyV1Auth, (req: AuthedRequest, res) => {
     assignee?: string;
     notes?: string;
     projectNo?: string;
+    workTypes?: string[];
   };
   const customerCode = body.customerCode ?? req.admin?.customerCode;
   if (!customerCode || !body.customerName?.trim()) {
@@ -83,6 +87,7 @@ surveyV1Router.post("/projects", ...surveyV1Auth, (req: AuthedRequest, res) => {
       assignee: body.assignee,
       notes: body.notes,
       projectNo: body.projectNo,
+      workTypes: body.workTypes as SurveyWorkType[] | undefined,
     });
     res.status(201).json(project);
   } catch (e) {
@@ -113,6 +118,7 @@ surveyV1Router.patch("/projects/:id", ...surveyV1Auth, (req: AuthedRequest, res)
     assignee?: string;
     notes?: string;
     workflowStatus?: string;
+    workTypes?: string[];
   };
   const workflowStatus = body.workflowStatus ? parseWorkflowStatus(body.workflowStatus) : undefined;
   if (body.workflowStatus && !workflowStatus) {
@@ -131,6 +137,7 @@ surveyV1Router.patch("/projects/:id", ...surveyV1Auth, (req: AuthedRequest, res)
       assignee: body.assignee,
       notes: body.notes,
       workflowStatus: workflowStatus ?? undefined,
+      workTypes: body.workTypes as SurveyWorkType[] | undefined,
     });
     if (!updated) {
       res.status(404).json({ error: "Not found" });
@@ -277,6 +284,37 @@ surveyV1Router.post("/projects/:id/materials", ...surveyV1Auth, (req: AuthedRequ
     const msg = e instanceof Error ? e.message : "material failed";
     res.status(msg === "project not found" ? 404 : 400).json({ error: msg });
   }
+});
+
+surveyV1Router.get("/work-templates", ...surveyV1Auth, (req: AuthedRequest, res) => {
+  if (!assertSurveyRole(req, res)) return;
+  res.json({ templates: listWorkTemplatesV1(true) });
+});
+
+surveyV1Router.get("/projects/:id/work-templates", ...surveyV1Auth, (req: AuthedRequest, res) => {
+  if (!assertSurveyRole(req, res)) return;
+  const projectId = String(req.params.id);
+  const detail = getSurveyProjectV1Detail(projectId);
+  if (!detail) {
+    res.status(404).json({ error: "project not found" });
+    return;
+  }
+  const templateIds = listProjectWorkTemplateIds({ source: "survey", projectId });
+  res.json({ templateIds, templates: listWorkTemplatesV1(true).filter((t) => templateIds.includes(t.id)) });
+});
+
+surveyV1Router.post("/projects/:id/work-templates", ...surveyV1Auth, (req: AuthedRequest, res) => {
+  if (!assertSurveyRole(req, res)) return;
+  const projectId = String(req.params.id);
+  const detail = getSurveyProjectV1Detail(projectId);
+  if (!detail) {
+    res.status(404).json({ error: "project not found" });
+    return;
+  }
+  const body = req.body as { templateIds?: string[] };
+  const templateIds = Array.isArray(body.templateIds) ? body.templateIds.map(String) : [];
+  const result = applyWorkTemplatesToProject({ source: "survey", projectId }, templateIds);
+  res.json(result);
 });
 
 surveyV1Router.post(
