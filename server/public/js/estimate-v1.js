@@ -4,6 +4,7 @@ import {
   requireCustomerLogin,
 } from "./customer-auth.js";
 import { initPracticalNav } from "./tisly-practical-nav.js";
+import { bindWorkSessionPanels, renderWorkSessionPanel } from "./work-session-ui.js";
 import { friendlyHttpError, renderFriendlyErrorHtml } from "./tisly-friendly-errors.js";
 
 let practicalNav = null;
@@ -386,53 +387,36 @@ const PDF_LABELS = {
   completion: "完了報告書",
 };
 
-async function showDocumentPreview(kind) {
+const DOC_VIEWER_KINDS = {
+  estimate: "estimate",
+  invoice: "invoice",
+  specification: "specification",
+  completion: "completion-report",
+};
+
+function buildDocumentViewerUrl(kind) {
+  const viewerKind = DOC_VIEWER_KINDS[kind] || kind;
+  const params = new URLSearchParams({
+    projectId: currentProjectId,
+    kind: viewerKind,
+    return: `${window.location.pathname}${window.location.search}`,
+  });
+  return `/document-viewer-v1.html?${params}`;
+}
+
+async function openDocumentViewer(kind) {
   if (!currentProjectId) return;
   if (kind === "invoice" && !hasInvoice) {
     toast("先に請求書を作成してください");
     return;
   }
-  const token = getCustomerToken();
-  const url = buildPdfUrl(kind);
-  const errEl = $("pdf-error");
-  errEl.classList.remove("visible");
-  errEl.innerHTML = "";
   try {
-    toast("書類を読み込み中…");
     if (kind === "estimate" || kind === "invoice") {
       await saveHeader().catch(() => ({}));
       await saveItems().catch(() => ({}));
     }
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      const status = res.status;
-      if (status === 401) {
-        errEl.innerHTML = "<strong>ログインが切れました。もう一度ログインしてください</strong>";
-        errEl.classList.add("visible");
-        $("pdf-section").classList.remove("hidden");
-        toast("ログインが切れました。もう一度ログインしてください");
-        return;
-      }
-      throw Object.assign(new Error(data.error || `HTTP ${status}`), { status });
-    }
-    const blob = await res.blob();
-    if (pdfBlobUrl) URL.revokeObjectURL(pdfBlobUrl);
-    pdfBlobUrl = URL.createObjectURL(blob);
-    $("pdf-preview").src = pdfBlobUrl;
-    $("link-pdf").href = buildPdfTabUrl(kind, token);
-    $("pdf-section").classList.remove("hidden");
-    toast(`${PDF_LABELS[kind] || "書類"}を表示しました`);
+    window.location.href = buildDocumentViewerUrl(kind);
   } catch (e) {
-    if (e.status === 401) {
-      errEl.innerHTML = "<strong>ログインが切れました。もう一度ログインしてください</strong>";
-      errEl.classList.add("visible");
-      $("pdf-section").classList.remove("hidden");
-      toast("ログインが切れました。もう一度ログインしてください");
-      return;
-    }
     toastError(e, e.status);
   }
 }
@@ -960,6 +944,46 @@ async function uploadCompletionPhotos(files) {
   else toast(COMPLETION_PHOTO_FAIL_MSG);
 }
 
+async function workSessionApi(path, opts = {}) {
+  const token = getCustomerToken();
+  const url = path.startsWith("/api/") ? path : `/api/work-session/v1${path}`;
+  const res = await fetch(url, {
+    ...opts,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      ...(opts.headers || {}),
+    },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw Object.assign(new Error(data.error || `HTTP ${res.status}`), { status: res.status });
+  return data;
+}
+
+async function renderEstimateWorkSession(projectId) {
+  const mount = $("estimate-work-session");
+  if (!mount || !projectId) return;
+  try {
+    const data = await workSessionApi(
+      `/api/work-session/v1/session?source=business&projectId=${encodeURIComponent(projectId)}`
+    );
+    mount.innerHTML = renderWorkSessionPanel({
+      projectSource: "business",
+      projectId,
+      workDate: new Date().toISOString().slice(0, 10),
+      session: data.session,
+      checklist: data.checklist || [],
+    });
+    bindWorkSessionPanels(mount, {
+      apiFetch: workSessionApi,
+      toast,
+      onUpdated: async () => renderEstimateWorkSession(projectId),
+    });
+  } catch {
+    mount.innerHTML = "";
+  }
+}
+
 async function openDetail(projectId) {
   currentProjectId = projectId;
   showView("detail");
@@ -1002,6 +1026,7 @@ async function openDetail(projectId) {
         : "/survey-v1";
     }
     await loadCompletionPhotos();
+    await renderEstimateWorkSession(projectId);
   } catch (e) {
     toastError(e, e.status);
     showView("list");
@@ -1177,10 +1202,21 @@ async function init() {
     if (ev.target === $("completion-photo-lightbox")) closeCompletionLightbox();
   });
 
-  $("btn-pdf-estimate").addEventListener("click", () => showDocumentPreview("estimate"));
-  $("btn-pdf-invoice").addEventListener("click", () => showDocumentPreview("invoice"));
-  $("btn-pdf-specification").addEventListener("click", () => showDocumentPreview("specification"));
-  $("btn-pdf-completion").addEventListener("click", () => showDocumentPreview("completion"));
+  $("btn-pdf-estimate").addEventListener("click", () => openDocumentViewer("estimate"));
+  $("btn-pdf-invoice").addEventListener("click", () => openDocumentViewer("invoice"));
+  $("btn-pdf-specification").addEventListener("click", () => openDocumentViewer("specification"));
+  $("btn-pdf-completion").addEventListener("click", () => openDocumentViewer("completion"));
+
+  $("btn-create-completion-report")?.addEventListener("click", async () => {
+    if (!currentProjectId) return;
+    try {
+      await api(`/projects/${currentProjectId}/completion-report/create`, { method: "POST", body: "{}" });
+      openDocumentViewer("completion");
+      toast("完了報告書を作成しました");
+    } catch (e) {
+      toastError(e, e.status);
+    }
+  });
 
   $("btn-duplicate-estimate").addEventListener("click", async () => {
     if (!currentProjectId) return;
@@ -1212,7 +1248,7 @@ async function init() {
         body: JSON.stringify({ includePhotos: false }),
       });
       toast("見積を確定しました");
-      await showDocumentPreview("estimate");
+      openDocumentViewer("estimate");
       $("detail-status").textContent = "見積書の準備ができました";
       $("detail-status").className = "status-badge done";
       updateTotalsFromEstimate(result.estimate);
@@ -1231,7 +1267,7 @@ async function init() {
       await api(`/projects/${currentProjectId}/invoice`, { method: "POST", body: "{}" });
       hasInvoice = true;
       toast("請求書を作成しました");
-      await showDocumentPreview("invoice");
+      openDocumentViewer("invoice");
     } catch (e) {
       toastError(e, e.status);
     }

@@ -7,16 +7,34 @@
   <title>TiSLY — 案件一覧</title>
   <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
   <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
+  <link rel="stylesheet" href="/css/field-ops-mobile.css" />
+  <style>
+    .doc-action-grid { display: grid; gap: 0.4rem; }
+    .doc-action-grid .btn-doc-action {
+      display: block; width: 100%; min-height: 48px; padding: 0.75rem 1rem;
+      font-size: 0.95rem; font-weight: 600; text-align: center; text-decoration: none;
+      border-radius: var(--tisly-radius); border: 2px solid var(--tisly-blue);
+      background: var(--tisly-surface); color: var(--tisly-blue);
+    }
+  </style>
 </head>
-<body class="tisly-friendly">
+<body class="tisly-friendly field-ops-touch">
   <main class="app-main">
     <div id="view-list">
+      <div id="today-departure-card" class="hidden"></div>
+      <div id="dashboard-grid" class="dashboard-grid"></div>
       <a href="/search-v1" class="btn-sub" style="width:100%;margin-bottom:0.75rem;text-align:center;">🔍 検索</a>
       <p class="section-label">📂 案件一覧</p>
       <div id="project-list" class="empty-state">読み込み中…</div>
     </div>
     <div id="view-detail" class="hidden">
       <div id="detail-header" class="friendly-card"></div>
+      <p class="section-label">ステータス</p>
+      <div id="detail-pipeline" class="pipeline-bar friendly-card"></div>
+      <p class="section-label">現場作業</p>
+      <div id="detail-work-session"></div>
+      <p class="section-label">書類</p>
+      <div id="detail-documents" class="doc-action-grid friendly-card hidden"></div>
       <p class="section-label">時系列</p>
       <div id="detail-timeline" class="friendly-card"></div>
       <button type="button" class="btn-sub" id="btn-back-list">一覧に戻る</button>

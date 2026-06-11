@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#4a90d9" />
+  <title>TiSLY — 書類閲覧</title>
+  <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
+  <link rel="stylesheet" href="/css/document-viewer-v1.css" />
+</head>
+<body class="tisly-friendly doc-viewer-body">
+  <header class="doc-viewer-header" id="doc-header">
+    <button type="button" class="doc-header-back" id="btn-back" aria-label="戻る">← 戻る</button>
+    <div class="doc-header-center">
+      <p class="doc-header-kind" id="header-kind">書類</p>
+      <p class="doc-header-title" id="header-title">読み込み中…</p>
+    </div>
+    <div class="doc-header-actions">
+      <button type="button" class="doc-header-btn" id="btn-share" title="共有">共有</button>
+      <button type="button" class="doc-header-btn" id="btn-print" title="印刷">印刷</button>
+      <button type="button" class="doc-header-btn primary" id="btn-pdf" title="PDF">PDF</button>
+    </div>
+  </header>
+
+  <main class="doc-viewer-main" id="doc-main">
+    <div id="doc-loading" class="doc-loading">読み込み中…</div>
+    <div id="doc-error" class="doc-error hidden"></div>
+    <div id="doc-mobile" class="doc-mobile hidden"></div>
+    <div id="doc-desktop" class="doc-desktop hidden">
+      <iframe id="pdf-frame" class="doc-pdf-frame" title="書類プレビュー"></iframe>
+    </div>
+  </main>
+
+  <footer class="doc-fixed-total hidden" id="doc-fixed-total" aria-live="polite"></footer>
+
+  <div id="photo-lightbox" class="doc-lightbox hidden" role="dialog" aria-modal="true" aria-label="写真プレビュー">
+    <button type="button" class="doc-lightbox-close" id="lightbox-close">閉じる</button>
+    <button type="button" class="doc-lightbox-nav prev" id="lightbox-prev" aria-label="前の写真">‹</button>
+    <img id="lightbox-img" src="" alt="" />
+    <p id="lightbox-caption" class="doc-lightbox-caption"></p>
+    <button type="button" class="doc-lightbox-nav next" id="lightbox-next" aria-label="次の写真">›</button>
+  </div>
+
+  <div id="toast" class="toast" role="status"></div>
+  <script type="module" src="/js/document-viewer-v1.js"></script>
+</body>
+</html>

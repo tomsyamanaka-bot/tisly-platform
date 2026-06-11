@@ -13,6 +13,7 @@ import {
   getEstimateProjectV1Detail,
   listEstimateProjectsV1,
   listPendingSurveysV1,
+  createCompletionReportV1,
   renderCompletionReportHtmlV1,
   renderSpecificationHtmlV1,
   updateEstimateHeaderV1,
@@ -38,6 +39,11 @@ import {
   buildMaterialCandidatesForSurvey,
   listAllMaterialCandidatePresets,
 } from "../../estimate/material-candidates.js";
+import {
+  buildDocumentViewPayloadV1,
+  DOCUMENT_VIEW_KINDS,
+  type DocumentViewKindV1,
+} from "../../estimate/document-view-v1.js";
 
 export const estimateV1Router = Router();
 
@@ -344,6 +350,21 @@ estimateV1Router.delete(
   }
 );
 
+estimateV1Router.post(
+  "/projects/:id/completion-report/create",
+  ...estimateV1Auth,
+  (req: AuthedRequest, res) => {
+    if (!assertEstimateV1Role(req, res)) return;
+    try {
+      const result = createCompletionReportV1(String(req.params.id));
+      res.status(201).json(result);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "create failed";
+      res.status(msg === "project not found" ? 404 : 400).json({ error: msg });
+    }
+  }
+);
+
 estimateV1Router.get(
   "/projects/:id/completion-report/pdf",
   ...estimateV1Auth,
@@ -375,6 +396,21 @@ estimateV1Router.post("/projects/:id/duplicate", ...estimateV1Auth, (req: Authed
     const msg = e instanceof Error ? e.message : "duplicate failed";
     res.status(msg === "estimate not found" ? 404 : 400).json({ error: msg });
   }
+});
+
+estimateV1Router.get("/projects/:id/document-view", ...estimateV1Auth, (req: AuthedRequest, res) => {
+  if (!assertEstimateV1Role(req, res)) return;
+  const kind = String(req.query.kind ?? "") as DocumentViewKindV1;
+  if (!DOCUMENT_VIEW_KINDS.includes(kind)) {
+    res.status(400).json({ error: "kind must be one of: " + DOCUMENT_VIEW_KINDS.join(", ") });
+    return;
+  }
+  const payload = buildDocumentViewPayloadV1(String(req.params.id), kind);
+  if (!payload) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  res.json(payload);
 });
 
 estimateV1Router.get("/projects/:id/toms-format", ...estimateV1Auth, (req: AuthedRequest, res) => {
