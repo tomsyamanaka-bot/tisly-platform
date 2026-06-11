@@ -4,6 +4,8 @@ import { v4 as uuid } from "uuid";
 import { getDatabase } from "../db/database.js";
 import type { ScheduleEvent } from "./schedule-types.js";
 
+import type { GoogleCalendarSafeLog } from "./google-calendar-safe-log.js";
+
 export interface CalendarSyncMeta {
   lastSyncedAt: string | null;
   eventCount: number;
@@ -11,6 +13,7 @@ export interface CalendarSyncMeta {
   rangeEnd: string | null;
   lastSyncStatus?: "success" | "failed" | null;
   lastSyncError?: string | null;
+  lastSyncSafeLog?: GoogleCalendarSafeLog | null;
 }
 
 function rowToEvent(r: Record<string, unknown>): ScheduleEvent {
@@ -89,6 +92,7 @@ export function replaceCachedCalendarEvents(
         rangeEnd: endDate,
         lastSyncStatus: "success",
         lastSyncError: null,
+        lastSyncSafeLog: null,
       })
     );
   });
@@ -96,7 +100,10 @@ export function replaceCachedCalendarEvents(
   return events.length;
 }
 
-export function recordCalendarSyncFailure(errorMessage: string): void {
+export function recordCalendarSyncFailure(
+  errorMessage: string,
+  safeLog?: GoogleCalendarSafeLog | null
+): void {
   const prev = getCalendarSyncMeta();
   getDatabase()
     .prepare(
@@ -108,6 +115,7 @@ export function recordCalendarSyncFailure(errorMessage: string): void {
         ...prev,
         lastSyncStatus: "failed",
         lastSyncError: errorMessage,
+        lastSyncSafeLog: safeLog ?? prev.lastSyncSafeLog ?? null,
       })
     );
 }

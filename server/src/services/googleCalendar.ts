@@ -10,6 +10,8 @@ import {
   assertGoogleCalendarSyncAllowed,
   getGoogleCalendarAuthUrl,
   getGoogleCalendarGrantedScopes,
+  getGoogleCalendarOAuthEnvDebug,
+  type GoogleCalendarOAuthEnvDebug,
   getGoogleCalendarOAuthStatus,
   getGoogleCalendarTokenExpiry,
   getGoogleCalendarTokenScope,
@@ -23,6 +25,13 @@ import {
   refreshGoogleAccessToken,
   type GoogleApiErrorBody,
 } from "./googleOAuthService.js";
+import {
+  extractGoogleApiSafeLog,
+  formatTokenScopeShort,
+  getGoogleCalendarSafeLog,
+  saveGoogleCalendarSafeLog,
+  type GoogleCalendarSafeLog,
+} from "../schedule/google-calendar-safe-log.js";
 
 export type GoogleCalendarDisplayStatus =
   | "mock"
@@ -48,6 +57,7 @@ export interface GoogleCalendarPublicStatus {
     eventCount: number;
     lastSyncStatus: "success" | "failed" | null;
     lastSyncError: string | null;
+    lastSyncSafeLog: GoogleCalendarSafeLog | null;
   };
   buttonLabel: string;
   buttonDisabled: boolean;
@@ -57,6 +67,7 @@ export interface GoogleCalendarPublicStatus {
     needsReLogin: boolean;
     label: string;
   };
+  oauthDebug: GoogleCalendarOAuthEnvDebug;
 }
 
 export interface GoogleCalendarConfig {
@@ -292,6 +303,7 @@ export class RealGoogleCalendarProvider implements CalendarProvider {
     if (!res.ok) {
       const err = (await res.json().catch(() => ({}))) as GoogleApiErrorBody;
       logGoogleCalendarApiError("events.list", res.status, err);
+      saveGoogleCalendarSafeLog(extractGoogleApiSafeLog("events.list", res.status, err));
       throw new Error(googleApiErrorMessage(err, res.status));
     }
     const json = (await res.json()) as { items?: Array<Record<string, unknown>> };
@@ -416,12 +428,16 @@ export interface GoogleCalendarDiagnosticStatus {
   hasAccessToken: boolean;
   hasRefreshToken: boolean;
   tokenScope: string;
+  tokenScopeShort: string;
   tokenExpiry: string | null;
   needsRelogin: boolean;
   calendarListOk: boolean;
   writableCalendarId: string | null;
   selectedCalendarId: string;
+  lastSyncSafeLog: GoogleCalendarSafeLog | null;
 }
+
+export { formatTokenScopeShort, getGoogleCalendarSafeLog };
 
 export async function getGoogleCalendarDiagnosticStatus(): Promise<GoogleCalendarDiagnosticStatus> {
   const settings = getGoogleCalendarSettingsV1();
@@ -447,15 +463,18 @@ export async function getGoogleCalendarDiagnosticStatus(): Promise<GoogleCalenda
     writableCalendarId = settings.calendarId || "primary";
   }
 
+  const tokenScope = getGoogleCalendarTokenScope();
   return {
     hasAccessToken: hasGoogleCalendarAccessToken(),
     hasRefreshToken: hasGoogleCalendarRefreshToken(),
-    tokenScope: getGoogleCalendarTokenScope(),
+    tokenScope,
+    tokenScopeShort: formatTokenScopeShort(tokenScope),
     tokenExpiry: getGoogleCalendarTokenExpiry(),
     needsRelogin: scopeNeedsRelogin || listNeedsRelogin,
     calendarListOk,
     writableCalendarId,
     selectedCalendarId: settings.calendarId || "primary",
+    lastSyncSafeLog: getGoogleCalendarSafeLog(),
   };
 }
 
@@ -534,6 +553,7 @@ export function getGoogleCalendarPublicStatus(): GoogleCalendarPublicStatus {
       lastSyncError: syncMeta.lastSyncError
         ? formatGoogleCalendarErrorJa(syncMeta.lastSyncError)
         : null,
+      lastSyncSafeLog: syncMeta.lastSyncSafeLog ?? getGoogleCalendarSafeLog(),
     },
     buttonLabel,
     buttonDisabled: buttonDisabled || needsReLogin,
@@ -543,6 +563,7 @@ export function getGoogleCalendarPublicStatus(): GoogleCalendarPublicStatus {
       needsReLogin,
       label: scopeLabel,
     },
+    oauthDebug: getGoogleCalendarOAuthEnvDebug(),
   };
 }
 
@@ -550,7 +571,11 @@ export function getCalendarAuthUrl() {
   return getGoogleCalendarAuthUrl();
 }
 
-export async function handleCalendarOAuthCallback(input: { code?: string; error?: string }) {
+export async function handleCalendarOAuthCallback(input: {
+  code?: string;
+  error?: string;
+  error_description?: string;
+}) {
   return handleGoogleCalendarOAuthCallback(input);
 }
 

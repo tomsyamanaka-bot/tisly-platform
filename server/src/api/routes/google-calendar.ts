@@ -5,12 +5,18 @@ import {
   getCalendarAuthUrl,
   getGoogleCalendarDiagnosticStatus,
   getGoogleCalendarPublicStatus,
+  getGoogleCalendarSafeLog,
   handleCalendarOAuthCallback,
   formatGoogleCalendarErrorJa,
   formatGoogleCalendarListErrorJa,
 } from "../../services/googleCalendar.js";
 import {
+  formatGoogleApiErrorHint,
+  formatTokenScopeShort,
+} from "../../schedule/google-calendar-safe-log.js";
+import {
   assertGoogleCalendarSyncAllowed,
+  buildGoogleCalendarOAuthSettingsRedirectQuery,
   clearGoogleCalendarTokens,
   GOOGLE_CALENDAR_NOT_CONFIGURED_MSG,
 } from "../../services/googleOAuthService.js";
@@ -23,7 +29,10 @@ import {
   sendGoogleCalendarSyncError,
   updateGoogleCalendarSettingsV1,
 } from "../../schedule/google-calendar-sync-service.js";
-import { refreshGoogleCalendarGrantedScopes } from "../../services/googleOAuthService.js";
+import {
+  refreshGoogleCalendarGrantedScopes,
+  testGoogleCalendarEventWrite,
+} from "../../services/googleOAuthService.js";
 import {
   findLinkByProject,
   getGoogleCalendarSettingsV1,
@@ -50,30 +59,36 @@ googleCalendarRouter.get("/status", ...calendarAuth, async (req: AuthedRequest, 
   if (publicStatus.connected && publicStatus.mode === "live") {
     await refreshGoogleCalendarGrantedScopes().catch(() => undefined);
   }
+  const syncMeta = publicStatus.sync;
   const diagnostics = publicStatus.connected
     ? await getGoogleCalendarDiagnosticStatus().catch(() => ({
         hasAccessToken: false,
         hasRefreshToken: false,
         tokenScope: "",
+        tokenScopeShort: "—",
         tokenExpiry: null,
         needsRelogin: publicStatus.scope.needsReLogin,
         calendarListOk: false,
         writableCalendarId: null,
         selectedCalendarId: settings.calendarId || "primary",
+        lastSyncSafeLog: syncMeta.lastSyncSafeLog ?? getGoogleCalendarSafeLog(),
       }))
     : {
         hasAccessToken: false,
         hasRefreshToken: false,
         tokenScope: "",
+        tokenScopeShort: "—",
         tokenExpiry: null,
         needsRelogin: false,
         calendarListOk: false,
         writableCalendarId: null,
         selectedCalendarId: settings.calendarId || "primary",
+        lastSyncSafeLog: syncMeta.lastSyncSafeLog ?? getGoogleCalendarSafeLog(),
       };
   res.json({
     ...publicStatus,
     ...diagnostics,
+    lastSyncError: syncMeta.lastSyncError,
     settings,
   });
 });
@@ -166,14 +181,73 @@ googleCalendarRouter.post("/sync/full", ...calendarAuth, async (req: AuthedReque
       modeLabel: result.mode === "real" ? "Google" : "mock",
     });
   } catch (e) {
+    const safeLog = getGoogleCalendarSafeLog();
+    const hint = formatGoogleApiErrorHint(safeLog);
+    const safeDetails = safeLog
+      ? {
+          googleErrorCode: safeLog.googleErrorCode,
+          googleErrorMessage: safeLog.googleErrorMessage,
+          httpStatus: safeLog.httpStatus,
+          operation: safeLog.operation,
+          errorHint: hint,
+        }
+      : undefined;
     if (e instanceof GoogleCalendarSyncError) {
-      sendGoogleCalendarSyncError(res, e.status, e.code, e.message, e.details);
+      sendGoogleCalendarSyncError(res, e.status, e.code, e.message, {
+        ...e.details,
+        ...(safeDetails ?? {}),
+      });
       return;
     }
-    const msg = formatGoogleCalendarErrorJa(e instanceof Error ? e.message : "sync failed");
-    recordCalendarSyncFailure(msg);
-    sendGoogleCalendarSyncError(res, 500, "sync_failed", msg);
+    const msg = formatGoogleCalendarErrorJa(
+      hint ?? (e instanceof Error ? e.message : "sync failed")
+    );
+    recordCalendarSyncFailure(msg, safeLog);
+    sendGoogleCalendarSyncError(res, 500, "sync_failed", msg, safeDetails ?? undefined);
   }
+});
+
+googleCalendarRouter.post("/diagnostics/test-event", ...calendarAuth, async (req: AuthedRequest, res) => {
+  if (!assertScheduleRole(req, res)) return;
+  const guard = assertGoogleCalendarSyncAllowed();
+  if (!guard.ok) {
+    res.status(guard.status).json({
+      ok: false,
+      error: guard.error,
+      tokenScope: "",
+      tokenScopeShort: "—",
+      needsRelogin: false,
+      testEvent: { ok: false, error: guard.error },
+    });
+    return;
+  }
+  await refreshGoogleCalendarGrantedScopes().catch(() => undefined);
+  const settings = getGoogleCalendarSettingsV1();
+  const diagnostics = await getGoogleCalendarDiagnosticStatus().catch(() => null);
+  const calendarId =
+    String((req.body as { calendarId?: string })?.calendarId ?? "").trim() ||
+    diagnostics?.selectedCalendarId ||
+    settings.calendarId ||
+    "primary";
+  const tokenScope = diagnostics?.tokenScope ?? "";
+  const needsRelogin = diagnostics?.needsRelogin ?? false;
+  const testEvent = await testGoogleCalendarEventWrite(calendarId);
+  const safeLog = testEvent.ok ? null : testEvent.safeLog ?? getGoogleCalendarSafeLog();
+  res.json({
+    ok: testEvent.ok,
+    tokenScope,
+    tokenScopeShort: formatTokenScopeShort(tokenScope),
+    needsRelogin,
+    googleApiError: safeLog
+      ? {
+          googleErrorCode: safeLog.googleErrorCode,
+          googleErrorMessage: safeLog.googleErrorMessage,
+          httpStatus: safeLog.httpStatus,
+          errorHint: formatGoogleApiErrorHint(safeLog),
+        }
+      : null,
+    testEvent,
+  });
 });
 
 googleCalendarRouter.get("/links/project", ...calendarAuth, (req: AuthedRequest, res) => {
@@ -200,10 +274,8 @@ googleCalendarRouter.get("/oauth/callback", async (req, res) => {
   const result = await handleCalendarOAuthCallback({
     code: req.query.code as string | undefined,
     error: req.query.error as string | undefined,
+    error_description: req.query.error_description as string | undefined,
   });
-  if (result.ok) {
-    res.redirect("/google-calendar-settings-v1?oauth=ok");
-    return;
-  }
-  res.status(400).send(result.message);
+  const query = buildGoogleCalendarOAuthSettingsRedirectQuery(result);
+  res.redirect(`/google-calendar-settings-v1?${query}`);
 });

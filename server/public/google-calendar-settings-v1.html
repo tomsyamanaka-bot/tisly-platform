@@ -21,6 +21,12 @@
     .feature-list { margin:0.5rem 0 0; padding-left:1.1rem; font-size:0.88rem; color:#334155; }
     .feature-list li { margin:0.2rem 0; }
     #sync-result { font-size:0.85rem; color:#166534; margin-top:0.5rem; }
+    .dev-info-grid { display:grid; grid-template-columns:minmax(8rem,auto) 1fr; gap:0.25rem 0.75rem; font-size:0.8rem; margin:0.5rem 0 0; }
+    .dev-info-grid dt { color:#64748b; margin:0; }
+    .dev-info-grid dd { margin:0; color:#1e293b; word-break:break-all; }
+    .dev-info-grid dd.err { color:#b91c1c; }
+    .dev-info-grid dd.ok { color:#166534; }
+    #dev-safe-log { font-size:0.75rem; color:#64748b; margin-top:0.5rem; white-space:pre-wrap; }
   </style>
 </head>
 <body class="tisly-friendly">
@@ -58,6 +64,34 @@
         <option value="push_only">TiSLY → Google のみ</option>
       </select>
       <button type="button" class="btn-sub" id="btn-save-settings" style="margin-top:0.5rem;" disabled>設定を保存</button>
+    </div>
+
+    <div class="friendly-card gcal-card" id="dev-info-card">
+      <h2>開発情報</h2>
+      <dl class="dev-info-grid" id="dev-info-grid">
+        <dt>mode</dt><dd id="dev-mode">—</dd>
+        <dt>connected</dt><dd id="dev-connected">—</dd>
+        <dt>needsRelogin</dt><dd id="dev-needs-relogin">—</dd>
+        <dt>calendarListOk</dt><dd id="dev-calendar-list-ok">—</dd>
+        <dt>selectedCalendarId</dt><dd id="dev-selected-calendar">—</dd>
+        <dt>writableCalendarId</dt><dd id="dev-writable-calendar">—</dd>
+        <dt>tokenScope</dt><dd id="dev-token-scope">—</dd>
+        <dt>lastSyncError</dt><dd id="dev-last-sync-error">—</dd>
+        <dt>redirect_uri</dt><dd id="dev-redirect-uri">—</dd>
+        <dt>client_id</dt><dd id="dev-client-id-masked">—</dd>
+        <dt>scopes</dt><dd id="dev-oauth-scopes">—</dd>
+        <dt>hasAccessToken</dt><dd id="dev-has-access-token">—</dd>
+        <dt>hasRefreshToken</dt><dd id="dev-has-refresh-token">—</dd>
+      </dl>
+      <div id="oauth-debug-panel" class="hidden" style="margin-top:0.5rem;padding:0.5rem 0.65rem;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;">
+        <p style="margin:0 0 0.35rem;font-size:0.82rem;font-weight:600;color:#334155;">OAuthデバッグ</p>
+        <pre id="oauth-debug-log" style="margin:0;font-size:0.75rem;color:#475569;white-space:pre-wrap;word-break:break-all;"></pre>
+      </div>
+      <p id="dev-safe-log" class="hidden"></p>
+      <div class="gcal-actions">
+        <button type="button" class="btn-sub" id="btn-test-event" disabled>OAuth書き込みテスト</button>
+      </div>
+      <p id="dev-test-result" class="gcal-meta" style="font-size:0.75rem;margin-top:0.35rem;"></p>
     </div>
 
     <div class="friendly-card gcal-card">

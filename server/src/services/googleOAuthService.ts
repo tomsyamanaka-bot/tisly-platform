@@ -1,5 +1,10 @@
 import { getDatabase } from "../db/database.js";
 import { logBusinessIntegration } from "../business/business-integration-log.js";
+import {
+  extractGoogleApiSafeLog,
+  saveGoogleCalendarSafeLog,
+  type GoogleCalendarSafeLog,
+} from "../schedule/google-calendar-safe-log.js";
 
 const REFRESH_TOKEN_KEY = "google_oauth_refresh_token";
 const ACCESS_TOKEN_KEY = "google_oauth_access_token";
@@ -7,6 +12,103 @@ const SCOPES_KEY = "google_oauth_scopes";
 
 const CALENDAR_WRITE_SCOPE = "https://www.googleapis.com/auth/calendar";
 const CALENDAR_READONLY_SCOPE = "https://www.googleapis.com/auth/calendar.readonly";
+
+export const GOOGLE_CALENDAR_OAUTH_SCOPE = CALENDAR_WRITE_SCOPE;
+
+export function maskGoogleClientId(clientId: string): string {
+  const id = clientId.trim();
+  if (!id) return "—";
+  if (id.length <= 12) return `${id.slice(0, 3)}…${id.slice(-3)}`;
+  return `${id.slice(0, 6)}…${id.slice(-6)}`;
+}
+
+export interface GoogleCalendarOAuthEnvDebug {
+  redirectUri: string;
+  clientIdMasked: string;
+  scopes: string;
+  calendarEnabled: boolean;
+  clientIdConfigured: boolean;
+  clientSecretConfigured: boolean;
+  redirectUriMatchesExpected: boolean;
+  expectedRedirectUri: string;
+}
+
+export function getGoogleCalendarOAuthEnvDebug(): GoogleCalendarOAuthEnvDebug {
+  const redirectUri = readGoogleRedirectUri();
+  const expectedRedirectUri = DEFAULT_GOOGLE_CALENDAR_REDIRECT_URI;
+  return {
+    redirectUri,
+    clientIdMasked: maskGoogleClientId(readGoogleClientId()),
+    scopes: GOOGLE_CALENDAR_OAUTH_SCOPE,
+    calendarEnabled: process.env.GOOGLE_CALENDAR_ENABLED === "true",
+    clientIdConfigured: Boolean(readGoogleClientId().trim()),
+    clientSecretConfigured: Boolean(readGoogleClientSecret().trim()),
+    redirectUriMatchesExpected: redirectUri === expectedRedirectUri,
+    expectedRedirectUri,
+  };
+}
+
+export interface GoogleOAuthCallbackDebug extends GoogleCalendarOAuthEnvDebug {
+  callbackReached: boolean;
+  error: string | null;
+  errorDescription: string | null;
+  accessTokenSaved: boolean;
+  refreshTokenSaved: boolean;
+}
+
+export function buildGoogleOAuthCallbackDebug(input: {
+  callbackReached?: boolean;
+  error?: string | null;
+  errorDescription?: string | null;
+  accessTokenSaved?: boolean;
+  refreshTokenSaved?: boolean;
+}): GoogleOAuthCallbackDebug {
+  return {
+    ...getGoogleCalendarOAuthEnvDebug(),
+    callbackReached: input.callbackReached ?? true,
+    error: input.error ?? null,
+    errorDescription: input.errorDescription ?? null,
+    accessTokenSaved: Boolean(input.accessTokenSaved),
+    refreshTokenSaved: Boolean(input.refreshTokenSaved),
+  };
+}
+
+export function buildGoogleCalendarOAuthSettingsRedirectQuery(result: {
+  ok: boolean;
+  message: string;
+  oauthDebug: GoogleOAuthCallbackDebug;
+}): string {
+  const params = new URLSearchParams();
+  if (result.ok) {
+    params.set("oauth", "ok");
+  } else {
+    params.set("error", result.message);
+    if (result.oauthDebug.error) params.set("oauth_error", result.oauthDebug.error);
+    if (result.oauthDebug.errorDescription) {
+      params.set("oauth_error_description", result.oauthDebug.errorDescription);
+    }
+  }
+  params.set("oauth_callback", result.oauthDebug.callbackReached ? "reached" : "not_reached");
+  params.set("oauth_redirect_uri", result.oauthDebug.redirectUri);
+  params.set("oauth_client_id", result.oauthDebug.clientIdMasked);
+  params.set("oauth_access_token_saved", String(result.oauthDebug.accessTokenSaved));
+  params.set("oauth_refresh_token_saved", String(result.oauthDebug.refreshTokenSaved));
+  return params.toString();
+}
+
+export function formatGoogleOAuthErrorHint(error: string | null, errorDescription: string | null): string {
+  const code = (error ?? "").toLowerCase();
+  const desc = (errorDescription ?? "").toLowerCase();
+  if (code === "org_internal" || desc.includes("org_internal")) {
+    return "OAuth User Type が Internal のため、組織外アカウントはログインできません。Google Cloud Console で External に変更するか、Test users に追加してください。";
+  }
+  if (code === "access_denied") {
+    return "Googleログインがキャンセルまたは拒否されました。";
+  }
+  if (errorDescription) return errorDescription;
+  if (error) return error;
+  return "OAuthエラーが発生しました。";
+}
 
 export interface GoogleApiErrorBody {
   error?: {
@@ -305,7 +407,7 @@ export function getGoogleCalendarAuthUrl(): {
     client_id: cfg.clientId,
     redirect_uri: cfg.redirectUri,
     response_type: "code",
-    scope: "https://www.googleapis.com/auth/calendar",
+    scope: GOOGLE_CALENDAR_OAUTH_SCOPE,
     access_type: "offline",
     prompt: "consent",
     state: "schedule",
@@ -320,10 +422,27 @@ export function getGoogleCalendarAuthUrl(): {
 export async function handleGoogleCalendarOAuthCallback(input: {
   code?: string;
   error?: string;
-}): Promise<{ ok: boolean; mode: GoogleOAuthMode; message: string; refreshTokenSaved?: boolean }> {
+  error_description?: string;
+}): Promise<{
+  ok: boolean;
+  mode: GoogleOAuthMode;
+  message: string;
+  refreshTokenSaved?: boolean;
+  accessTokenSaved?: boolean;
+  oauthDebug: GoogleOAuthCallbackDebug;
+}> {
   const cfg = getGoogleCalendarOAuthConfig();
   if (input.error) {
-    return { ok: false, mode: cfg.mode, message: input.error };
+    const oauthDebug = buildGoogleOAuthCallbackDebug({
+      error: input.error,
+      errorDescription: input.error_description ?? null,
+    });
+    return {
+      ok: false,
+      mode: cfg.mode,
+      message: formatGoogleOAuthErrorHint(input.error, input.error_description ?? null),
+      oauthDebug,
+    };
   }
   if (!inspectGoogleCalendarEnv().configured) {
     if (input.code === "mock") {
@@ -333,12 +452,24 @@ export async function handleGoogleCalendarOAuthCallback(input: {
         mode: "mock",
         message: "Mock Calendar OAuth: refresh token stored",
         refreshTokenSaved: true,
+        accessTokenSaved: false,
+        oauthDebug: buildGoogleOAuthCallbackDebug({ refreshTokenSaved: true }),
       };
     }
-    return { ok: false, mode: "mock", message: GOOGLE_CALENDAR_NOT_CONFIGURED_MSG };
+    return {
+      ok: false,
+      mode: "mock",
+      message: GOOGLE_CALENDAR_NOT_CONFIGURED_MSG,
+      oauthDebug: buildGoogleOAuthCallbackDebug({ error: GOOGLE_CALENDAR_NOT_CONFIGURED_MSG }),
+    };
   }
   if (!input.code) {
-    return { ok: false, mode: "real", message: "authorization code required" };
+    return {
+      ok: false,
+      mode: "real",
+      message: "authorization code required",
+      oauthDebug: buildGoogleOAuthCallbackDebug({ error: "authorization code required" }),
+    };
   }
   try {
     const res = await fetch("https://oauth2.googleapis.com/token", {
@@ -367,14 +498,26 @@ export async function handleGoogleCalendarOAuthCallback(input: {
     if (typeof (json as { scope?: string }).scope === "string") {
       saveGrantedScopes((json as { scope: string }).scope);
     }
+    const refreshTokenSaved = Boolean(json.refresh_token);
     return {
       ok: true,
       mode: "real",
       message: "Calendar OAuth tokens stored",
-      refreshTokenSaved: Boolean(json.refresh_token),
+      refreshTokenSaved,
+      accessTokenSaved: true,
+      oauthDebug: buildGoogleOAuthCallbackDebug({
+        accessTokenSaved: true,
+        refreshTokenSaved,
+      }),
     };
   } catch (e) {
-    return { ok: false, mode: "real", message: (e as Error).message };
+    const err = e as Error;
+    return {
+      ok: false,
+      mode: "real",
+      message: err.message,
+      oauthDebug: buildGoogleOAuthCallbackDebug({ error: err.message }),
+    };
   }
 }
 
@@ -607,6 +750,7 @@ export async function listGoogleCalendarsDetailed(): Promise<GoogleCalendarListR
   };
   if (!res.ok) {
     logGoogleCalendarApiError("calendarList", res.status, json);
+    saveGoogleCalendarSafeLog(extractGoogleApiSafeLog("calendarList", res.status, json));
     const msg = googleApiErrorMessage(json, res.status);
     return {
       calendars: [],
@@ -686,9 +830,84 @@ export async function createGoogleCalendarEventForSync(
   };
   if (!res.ok || !json.id) {
     logGoogleCalendarApiError("events.insert", res.status, json);
+    saveGoogleCalendarSafeLog(extractGoogleApiSafeLog("events.insert", res.status, json));
     throw new Error(googleApiErrorMessage(json, res.status));
   }
   return { mode: "real", eventId: json.id, htmlLink: json.htmlLink };
+}
+
+function addHoursIsoTokyo(hours: number): string {
+  const now = new Date();
+  now.setTime(now.getTime() + hours * 60 * 60 * 1000);
+  return now.toLocaleString("sv-SE", { timeZone: "Asia/Tokyo" }).replace(" ", "T");
+}
+
+export interface GoogleCalendarTestEventResult {
+  ok: boolean;
+  mode: GoogleOAuthMode;
+  calendarId: string;
+  eventId?: string;
+  deleted?: boolean;
+  safeLog?: GoogleCalendarSafeLog | null;
+  googleErrorCode?: string | number | null;
+  googleErrorMessage?: string | null;
+  httpStatus?: number | null;
+  error?: string;
+}
+
+/** OAuth 書き込み診断: テストイベント作成 → 成功時即削除 */
+export async function testGoogleCalendarEventWrite(
+  calendarId = "primary"
+): Promise<GoogleCalendarTestEventResult> {
+  const cfg = getGoogleCalendarOAuthConfig();
+  const calId = calendarId.trim() || "primary";
+  if (cfg.mode === "mock") {
+    return { ok: true, mode: "mock", calendarId: calId, eventId: "mock-test", deleted: true };
+  }
+  const token = await refreshGoogleAccessToken("calendar");
+  const start = addHoursIsoTokyo(1);
+  const end = addHoursIsoTokyo(2);
+  const createRes = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        summary: "TISLY OAuth Test",
+        start: { dateTime: `${start}+09:00`, timeZone: "Asia/Tokyo" },
+        end: { dateTime: `${end}+09:00`, timeZone: "Asia/Tokyo" },
+      }),
+    }
+  );
+  const createJson = (await createRes.json()) as GoogleApiErrorBody & { id?: string };
+  if (!createRes.ok || !createJson.id) {
+    logGoogleCalendarApiError("events.insert.test", createRes.status, createJson);
+    const safeLog = extractGoogleApiSafeLog("events.insert.test", createRes.status, createJson);
+    saveGoogleCalendarSafeLog(safeLog);
+    return {
+      ok: false,
+      mode: "real",
+      calendarId: calId,
+      safeLog,
+      googleErrorCode: safeLog.googleErrorCode,
+      googleErrorMessage: safeLog.googleErrorMessage,
+      httpStatus: createRes.status,
+      error: googleApiErrorMessage(createJson, createRes.status),
+    };
+  }
+  const eventId = createJson.id;
+  const delRes = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events/${encodeURIComponent(eventId)}`,
+    { method: "DELETE", headers: { Authorization: `Bearer ${token}` } }
+  );
+  if (!delRes.ok && delRes.status !== 204 && delRes.status !== 410) {
+    const delJson = (await delRes.json().catch(() => ({}))) as GoogleApiErrorBody;
+    logGoogleCalendarApiError("events.delete.test", delRes.status, delJson);
+  }
+  return { ok: true, mode: "real", calendarId: calId, eventId, deleted: true };
 }
 
 export async function updateGoogleCalendarEventForSync(

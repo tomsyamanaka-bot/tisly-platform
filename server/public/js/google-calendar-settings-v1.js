@@ -120,6 +120,152 @@ function resolveSyncDateRange(body) {
   return { dateFrom, dateTo, weekOffset };
 }
 
+function boolLabel(v) {
+  return v === true ? "true" : v === false ? "false" : "—";
+}
+
+function formatSafeLogBlock(safeLog) {
+  if (!safeLog) return "";
+  const lines = [
+    safeLog.googleErrorCode != null ? `googleErrorCode=${safeLog.googleErrorCode}` : null,
+    safeLog.googleErrorMessage ? `googleErrorMessage=${safeLog.googleErrorMessage}` : null,
+    safeLog.httpStatus != null ? `httpStatus=${safeLog.httpStatus}` : null,
+  ].filter(Boolean);
+  return lines.join("\n");
+}
+
+function formatGoogleApiErrorHintFromLog(safeLog) {
+  if (!safeLog?.httpStatus) return safeLog?.googleErrorMessage ?? null;
+  if (safeLog.httpStatus === 403) return "権限不足";
+  if (safeLog.httpStatus === 401) return "再ログイン必要";
+  if (safeLog.httpStatus === 400) {
+    return safeLog.googleErrorMessage
+      ? `validationエラー: ${safeLog.googleErrorMessage}`
+      : "validationエラー";
+  }
+  return safeLog.googleErrorMessage ?? null;
+}
+
+function renderOAuthDebugFromParams(params) {
+  const panel = $("oauth-debug-panel");
+  const logEl = $("oauth-debug-log");
+  if (!panel || !logEl) return;
+
+  const oauthError = params.get("oauth_error");
+  const oauthErrorDesc = params.get("oauth_error_description");
+  const callback = params.get("oauth_callback");
+  const redirectUri = params.get("oauth_redirect_uri");
+  const clientId = params.get("oauth_client_id");
+  const accessSaved = params.get("oauth_access_token_saved");
+  const refreshSaved = params.get("oauth_refresh_token_saved");
+  const genericError = params.get("error");
+
+  const hasOAuthDebug =
+    oauthError ||
+    oauthErrorDesc ||
+    callback ||
+    redirectUri ||
+    clientId ||
+    accessSaved ||
+    refreshSaved ||
+    genericError;
+
+  if (!hasOAuthDebug) {
+    panel.classList.add("hidden");
+    logEl.textContent = "";
+    return;
+  }
+
+  const lines = [
+    genericError ? `message: ${genericError}` : null,
+    oauthError ? `error: ${oauthError}` : null,
+    oauthErrorDesc ? `error_description: ${oauthErrorDesc}` : null,
+    callback ? `callback: ${callback}` : null,
+    redirectUri ? `redirect_uri: ${redirectUri}` : null,
+    clientId ? `client_id: ${clientId}` : null,
+    accessSaved != null ? `access_token_saved: ${accessSaved}` : null,
+    refreshSaved != null ? `refresh_token_saved: ${refreshSaved}` : null,
+  ].filter(Boolean);
+
+  if (oauthError === "org_internal" || (oauthErrorDesc || "").toLowerCase().includes("org_internal")) {
+    lines.push(
+      "hint: OAuth User Type が Internal です。Console → Audience → External に変更し、Testing なら Test users にログイン用 Gmail を追加してください。"
+    );
+  }
+
+  panel.classList.remove("hidden");
+  logEl.textContent = lines.join("\n");
+}
+
+function renderDevInfo(cal) {
+  const scopeShort =
+    cal.tokenScopeShort ||
+    (cal.tokenScope?.includes("readonly") ? "calendar.readonly" : cal.tokenScope ? "calendar" : "—");
+  const safeLog = cal.lastSyncSafeLog ?? cal.sync?.lastSyncSafeLog ?? null;
+  const lastErr = cal.lastSyncError ?? cal.sync?.lastSyncError ?? null;
+  const oauthDbg = cal.oauthDebug ?? {};
+
+  $("dev-mode").textContent = cal.mode ?? "—";
+  $("dev-connected").textContent = boolLabel(cal.connected);
+  const relogin = Boolean(cal.needsRelogin || cal.scope?.needsReLogin);
+  const reloginEl = $("dev-needs-relogin");
+  reloginEl.textContent = boolLabel(relogin);
+  reloginEl.className = relogin ? "err" : "ok";
+
+  const listOk = cal.calendarListOk;
+  const listEl = $("dev-calendar-list-ok");
+  listEl.textContent = boolLabel(listOk);
+  listEl.className = listOk === false ? "err" : listOk === true ? "ok" : "";
+
+  $("dev-selected-calendar").textContent = cal.selectedCalendarId ?? cal.settings?.calendarId ?? "—";
+  $("dev-writable-calendar").textContent = cal.writableCalendarId ?? "—";
+  $("dev-token-scope").textContent = scopeShort;
+  $("dev-redirect-uri").textContent = oauthDbg.redirectUri ?? cal.redirectUri ?? "—";
+  $("dev-client-id-masked").textContent = oauthDbg.clientIdMasked ?? "—";
+  $("dev-oauth-scopes").textContent = oauthDbg.scopes ?? "—";
+  const accessEl = $("dev-has-access-token");
+  if (accessEl) {
+    accessEl.textContent = boolLabel(cal.hasAccessToken);
+    accessEl.className = cal.hasAccessToken ? "ok" : "err";
+  }
+  const refreshEl = $("dev-has-refresh-token");
+  if (refreshEl) {
+    refreshEl.textContent = boolLabel(cal.hasRefreshToken);
+    refreshEl.className = cal.hasRefreshToken ? "ok" : "err";
+  }
+  const errEl = $("dev-last-sync-error");
+  errEl.textContent = lastErr || "—";
+  errEl.className = lastErr ? "err" : "";
+
+  const safeEl = $("dev-safe-log");
+  if (safeLog) {
+    const hint = formatGoogleApiErrorHintFromLog(safeLog);
+    safeEl.classList.remove("hidden");
+    safeEl.textContent = [hint, formatSafeLogBlock(safeLog)].filter(Boolean).join("\n");
+  } else {
+    safeEl.classList.add("hidden");
+    safeEl.textContent = "";
+  }
+
+  const canTest = cal.mode === "live" && cal.connected;
+  $("btn-test-event").disabled = !canTest;
+}
+
+function renderTestEventResult(data) {
+  const lines = [
+    `tokenScope: ${data.tokenScopeShort ?? data.tokenScope ?? "—"}`,
+    `needsRelogin: ${data.needsRelogin}`,
+    data.googleApiError
+      ? `Google API error: ${data.googleApiError.errorHint ?? formatSafeLogBlock(data.googleApiError)}`
+      : null,
+    data.testEvent?.ok
+      ? `Events create: 成功（即削除済み eventId=${data.testEvent.eventId ?? "—"}）`
+      : `Events create: 失敗 — ${data.testEvent?.error ?? data.testEvent?.googleErrorMessage ?? "不明"}`,
+  ].filter(Boolean);
+  const el = $("dev-test-result");
+  if (el) el.textContent = lines.join(" · ");
+}
+
 function showSyncDebug(body) {
   const calendarId = body.selectedCalendarId || body.calendarId || "primary";
   const { dateFrom, dateTo } = resolveSyncDateRange(body);
@@ -208,6 +354,8 @@ async function refreshStatus() {
   $("auto-create").checked = settings.autoCreateProjects !== false;
   $("sync-direction").value = settings.syncDirection || "bidirectional";
 
+  renderDevInfo(cal);
+
   if (cal.connected) {
     await loadCalendars(settings.calendarId || "primary");
   } else {
@@ -268,8 +416,14 @@ async function init() {
   });
 
   const params = new URLSearchParams(window.location.search);
+  renderOAuthDebugFromParams(params);
   if (params.get("oauth") === "ok") {
-    toast("Googleログインが完了しました");
+    const refreshSaved = params.get("oauth_refresh_token_saved") === "true";
+    toast(
+      refreshSaved
+        ? "Googleログインが完了しました（トークン保存済み）"
+        : "Googleログインが完了しました（refresh_token 未取得 — 再ログインを推奨）"
+    );
     window.history.replaceState({}, "", "/google-calendar-settings-v1");
   }
   const err = params.get("error");
@@ -325,7 +479,30 @@ async function init() {
       toast(`同期完了 ${count}件`);
       await refreshStatus();
     } catch (e) {
-      toast(e.message || "同期に失敗しました");
+      const details = e.details ?? {};
+      const safeLog =
+        details.googleErrorCode != null || details.httpStatus != null
+          ? {
+              googleErrorCode: details.googleErrorCode ?? null,
+              googleErrorMessage: details.googleErrorMessage ?? null,
+              httpStatus: details.httpStatus ?? null,
+            }
+          : null;
+      const hint = details.errorHint ?? formatGoogleApiErrorHintFromLog(safeLog);
+      const msg = hint || e.message || "同期に失敗しました";
+      toast(msg);
+      const safeEl = $("dev-safe-log");
+      if (safeEl && safeLog) {
+        safeEl.classList.remove("hidden");
+        safeEl.textContent = [hint, formatSafeLogBlock(safeLog)].filter(Boolean).join("\n");
+      }
+      if (safeLog) {
+        const errEl = $("dev-last-sync-error");
+        if (errEl) {
+          errEl.textContent = msg;
+          errEl.className = "err";
+        }
+      }
     } finally {
       btn.textContent = "今すぐ同期";
       const canSync =
@@ -345,6 +522,32 @@ async function init() {
       await refreshStatus();
     } catch (e) {
       toast(e.message || "解除に失敗しました");
+    }
+  });
+
+  $("btn-test-event")?.addEventListener("click", async () => {
+    const btn = $("btn-test-event");
+    btn.disabled = true;
+    btn.textContent = "テスト中…";
+    try {
+      const calendarId = $("calendar-select").value || "primary";
+      const data = await api("/diagnostics/test-event", {
+        method: "POST",
+        body: JSON.stringify({ calendarId }),
+      });
+      renderTestEventResult(data);
+      if (data.ok) {
+        toast("OAuth書き込みテスト成功");
+      } else {
+        toast(data.testEvent?.error || data.googleApiError?.errorHint || "書き込みテスト失敗");
+      }
+      await refreshStatus();
+    } catch (e) {
+      toast(e.message || "テストに失敗しました");
+    } finally {
+      btn.textContent = "OAuth書き込みテスト";
+      const canTest = statusData?.mode === "live" && statusData?.connected;
+      btn.disabled = !canTest;
     }
   });
 

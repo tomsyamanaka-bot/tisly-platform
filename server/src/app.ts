@@ -60,8 +60,12 @@ import { surveyV1Router } from "./api/routes/survey-v1.js";
 import { estimateV1Router } from "./api/routes/estimate-v1.js";
 import { scheduleRouter } from "./api/routes/schedule.js";
 import { googleCalendarRouter } from "./api/routes/google-calendar.js";
+import { googleCalendarDebugRouter } from "./api/routes/google-calendar-debug.js";
 import { getCalendarAuthUrl, handleCalendarOAuthCallback } from "./services/googleCalendar.js";
-import { GOOGLE_CALENDAR_NOT_CONFIGURED_MSG } from "./services/googleOAuthService.js";
+import {
+  buildGoogleCalendarOAuthSettingsRedirectQuery,
+  GOOGLE_CALENDAR_NOT_CONFIGURED_MSG,
+} from "./services/googleOAuthService.js";
 import { projectsV1Router } from "./api/routes/projects-v1.js";
 import { searchV1Router } from "./api/routes/search-v1.js";
 import { materialsV1Router } from "./api/routes/materials-v1.js";
@@ -108,6 +112,7 @@ export function createApp(): express.Application {
   app.use("/api/estimate/v1", estimateV1Router);
   app.use("/api/schedule/v1", scheduleRouter);
   app.use("/api/google-calendar", googleCalendarRouter);
+  app.use("/api/debug/google-calendar", googleCalendarDebugRouter);
 
   app.get("/auth/google", (_req, res) => {
     const auth = getCalendarAuthUrl();
@@ -124,14 +129,10 @@ export function createApp(): express.Application {
     const result = await handleCalendarOAuthCallback({
       code: req.query.code as string | undefined,
       error: req.query.error as string | undefined,
+      error_description: req.query.error_description as string | undefined,
     });
-    if (result.ok) {
-      res.redirect("/google-calendar-settings-v1?oauth=ok");
-      return;
-    }
-    res.redirect(
-      `/google-calendar-settings-v1?error=${encodeURIComponent(result.message)}`
-    );
+    const query = buildGoogleCalendarOAuthSettingsRedirectQuery(result);
+    res.redirect(`/google-calendar-settings-v1?${query}`);
   });
   app.use("/api/projects/v1", projectsV1Router);
   app.use("/api/search/v1", searchV1Router);

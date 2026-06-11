@@ -27,7 +27,10 @@ import {
   handleCalendarOAuthCallback,
   syncGoogleCalendarEvents,
 } from "../../services/googleCalendar.js";
-import { assertGoogleCalendarSyncAllowed } from "../../services/googleOAuthService.js";
+import {
+  assertGoogleCalendarSyncAllowed,
+  buildGoogleCalendarOAuthSettingsRedirectQuery,
+} from "../../services/googleOAuthService.js";
 import {
   assertGoogleCalendarSyncRequest,
   GoogleCalendarSyncError,
@@ -293,12 +296,10 @@ scheduleRouter.get("/oauth/callback", async (req, res) => {
   const result = await handleCalendarOAuthCallback({
     code: req.query.code as string | undefined,
     error: req.query.error as string | undefined,
+    error_description: req.query.error_description as string | undefined,
   });
-  if (result.ok) {
-    res.redirect("/google-calendar-settings-v1?oauth=ok");
-    return;
-  }
-  res.status(400).send(result.message);
+  const query = buildGoogleCalendarOAuthSettingsRedirectQuery(result);
+  res.redirect(`/google-calendar-settings-v1?${query}`);
 });
 
 async function runGoogleCalendarSync(
