@@ -11,6 +11,24 @@ export function formatEventTime(ev) {
   return parts.length ? parts.join("〜") : "";
 }
 
+/** Google Calendar の backgroundColor を日程カードへ反映 */
+export function eventCalendarColorStyle(ev) {
+  const color = ev?.calendarColor?.trim();
+  if (!color || !/^#[0-9a-fA-F]{3,8}$/.test(color)) return "";
+  return `border-left:4px solid ${color};padding-left:0.45rem;background:linear-gradient(90deg, ${color}18 0%, transparent 55%);`;
+}
+
+export function eventCalendarBadgeHtml(ev) {
+  const color = ev?.calendarColor?.trim();
+  const label = ev?.calendarSummary?.trim();
+  if (!color && !label) return "";
+  const swatch = color
+    ? `<span class="cal-color-swatch" style="display:inline-block;width:0.7rem;height:0.7rem;border-radius:2px;background:${escapeScheduleHtml(color)};vertical-align:middle;margin-right:0.2rem;"></span>`
+    : "";
+  const text = label ? `<small style="opacity:0.75;">${escapeScheduleHtml(label)}</small> ` : "";
+  return `${swatch}${text}`;
+}
+
 export function escapeScheduleHtml(s) {
   return String(s)
     .replace(/&/g, "&amp;")
@@ -43,7 +61,10 @@ export function renderScheduleEventLine(ev, { eventKey, catIcon, catLabel, previ
   const desc = renderEventDescriptionHtml(ev.description, eventKey ?? ev.id, previewLen);
   const icon = catIcon?.[ev.category] || "📌";
   const label = catLabel?.[ev.category] || "";
-  return `<p class="schedule-event-line">${icon} <strong>${escapeScheduleHtml(label)}</strong>${timeHtml}
+  const calBadge = eventCalendarBadgeHtml(ev);
+  const colorStyle = eventCalendarColorStyle(ev);
+  const styleAttr = colorStyle ? ` style="${colorStyle}"` : "";
+  return `<p class="schedule-event-line"${styleAttr}>${calBadge}${icon} <strong>${escapeScheduleHtml(label)}</strong>${timeHtml}
     — ${escapeScheduleHtml(ev.title)}${loc}${desc}</p>`;
 }
 

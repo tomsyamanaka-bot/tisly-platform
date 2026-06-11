@@ -29,6 +29,9 @@ function rowToEvent(r: Record<string, unknown>): ScheduleEvent {
     allDay: Boolean(r.all_day),
     location: r.location ? String(r.location) : null,
     description: r.description ? String(r.description) : null,
+    calendarId: r.calendar_id ? String(r.calendar_id) : null,
+    calendarColor: r.calendar_color ? String(r.calendar_color) : null,
+    calendarSummary: r.calendar_summary ? String(r.calendar_summary) : null,
   };
 }
 
@@ -62,8 +65,8 @@ export function replaceCachedCalendarEvents(
     ).run(startDate, endDate);
     const insert = db.prepare(
       `INSERT INTO schedule_calendar_events
-       (id, external_id, event_date, title, category, source, start_time, end_time, all_day, location, description, synced_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
+       (id, external_id, event_date, title, category, source, start_time, end_time, all_day, location, description, calendar_id, calendar_color, calendar_summary, synced_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
     );
     const now = new Date().toISOString();
     for (const ev of events) {
@@ -78,7 +81,10 @@ export function replaceCachedCalendarEvents(
         ev.endTime ?? null,
         ev.allDay ? 1 : 0,
         ev.location ?? null,
-        ev.description ?? null
+        ev.description ?? null,
+        ev.calendarId ?? null,
+        ev.calendarColor ?? null,
+        ev.calendarSummary ?? null
       );
     }
     db.prepare(

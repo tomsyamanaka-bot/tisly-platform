@@ -21,6 +21,12 @@ export interface ScheduleEvent {
   allDay?: boolean;
   location?: string | null;
   description?: string | null;
+  /** Google Calendar 同期元カレンダー ID */
+  calendarId?: string | null;
+  /** Google Calendar の backgroundColor（例: #9a6324） */
+  calendarColor?: string | null;
+  /** Google Calendar の表示名 */
+  calendarSummary?: string | null;
 }
 
 export interface UnavailableDay {

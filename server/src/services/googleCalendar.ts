@@ -7,6 +7,10 @@ import type { ScheduleCategory, ScheduleEvent, ScheduleEventSource } from "../sc
 import { getCalendarSyncMeta, type CalendarSyncMeta } from "../schedule/schedule-calendar-store.js";
 import { getGoogleCalendarSettingsV1 } from "../schedule/google-calendar-sync-store.js";
 import {
+  calendarMetaMap,
+  resolveTargetCalendarIds,
+} from "../schedule/google-calendar-target-calendars.js";
+import {
   assertGoogleCalendarSyncAllowed,
   getGoogleCalendarAuthUrl,
   getGoogleCalendarGrantedScopes,
@@ -21,6 +25,7 @@ import {
   hasGoogleCalendarRefreshToken,
   hasGoogleCalendarWriteScope,
   listGoogleCalendarsDetailed,
+  type GoogleCalendarListItem,
   logGoogleCalendarApiError,
   refreshGoogleAccessToken,
   type GoogleApiErrorBody,
@@ -152,22 +157,29 @@ function parseGoogleDateTime(
   return { date, startTime, endTime, allDay: false };
 }
 
-function googleItemToEvent(item: {
-  id?: string;
-  summary?: string;
-  description?: string;
-  location?: string;
-  start?: { date?: string; dateTime?: string };
-  end?: { date?: string; dateTime?: string };
-}): ScheduleEvent | null {
+function googleItemToEvent(
+  item: {
+    id?: string;
+    summary?: string;
+    description?: string;
+    location?: string;
+    start?: { date?: string; dateTime?: string };
+    end?: { date?: string; dateTime?: string };
+  },
+  meta?: { calendarId?: string; calendarColor?: string | null; calendarSummary?: string | null }
+): ScheduleEvent | null {
   if (!item.id || !item.summary || !item.start) return null;
   const { date, startTime, endTime, allDay } = parseGoogleDateTime(
     item.start,
     item.end ?? item.start
   );
   const title = item.summary.trim();
+  const calendarId = meta?.calendarId ?? null;
+  const localId = calendarId
+    ? `gcal-${calendarId.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 64)}-${item.id}`
+    : `gcal-${item.id}`;
   return {
-    id: `gcal-${item.id}`,
+    id: localId,
     date,
     title,
     category: classifyEventCategory(title, item.description, item.location),
@@ -178,6 +190,9 @@ function googleItemToEvent(item: {
     allDay,
     location: item.location?.trim() || null,
     description: item.description?.trim() || null,
+    calendarId,
+    calendarColor: meta?.calendarColor ?? null,
+    calendarSummary: meta?.calendarSummary ?? null,
   };
 }
 
@@ -279,6 +294,53 @@ export class MockGoogleCalendarProvider implements CalendarProvider {
   }
 }
 
+export async function listGoogleCalendarEventsForId(
+  calendarId: string,
+  startDate: string,
+  endDate: string,
+  meta?: { calendarColor?: string | null; calendarSummary?: string | null }
+): Promise<ScheduleEvent[]> {
+  const token = await refreshGoogleAccessToken("calendar");
+  const timeMin = `${startDate}T00:00:00+09:00`;
+  const timeMax = `${addDays(endDate, 1)}T00:00:00+09:00`;
+  const params = new URLSearchParams({
+    timeMin,
+    timeMax,
+    singleEvents: "true",
+    orderBy: "startTime",
+    maxResults: "250",
+  });
+  const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?${params}`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as GoogleApiErrorBody;
+    logGoogleCalendarApiError("events.list", res.status, err);
+    saveGoogleCalendarSafeLog(extractGoogleApiSafeLog("events.list", res.status, err));
+    throw new Error(googleApiErrorMessage(err, res.status));
+  }
+  const json = (await res.json()) as { items?: Array<Record<string, unknown>> };
+  const events: ScheduleEvent[] = [];
+  for (const item of json.items ?? []) {
+    const ev = googleItemToEvent(
+      item as {
+        id?: string;
+        summary?: string;
+        description?: string;
+        location?: string;
+        start?: { date?: string; dateTime?: string };
+        end?: { date?: string; dateTime?: string };
+      },
+      {
+        calendarId,
+        calendarColor: meta?.calendarColor ?? null,
+        calendarSummary: meta?.calendarSummary ?? null,
+      }
+    );
+    if (ev && ev.date >= startDate && ev.date <= endDate) events.push(ev);
+  }
+  return events;
+}
+
 export class RealGoogleCalendarProvider implements CalendarProvider {
   mode: "mock" | "real" = "real";
   private calendarId: string;
@@ -288,40 +350,7 @@ export class RealGoogleCalendarProvider implements CalendarProvider {
   }
 
   async listEvents(startDate: string, endDate: string): Promise<ScheduleEvent[]> {
-    const token = await refreshGoogleAccessToken("calendar");
-    const timeMin = `${startDate}T00:00:00+09:00`;
-    const timeMax = `${addDays(endDate, 1)}T00:00:00+09:00`;
-    const params = new URLSearchParams({
-      timeMin,
-      timeMax,
-      singleEvents: "true",
-      orderBy: "startTime",
-      maxResults: "250",
-    });
-    const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(this.calendarId)}/events?${params}`;
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-    if (!res.ok) {
-      const err = (await res.json().catch(() => ({}))) as GoogleApiErrorBody;
-      logGoogleCalendarApiError("events.list", res.status, err);
-      saveGoogleCalendarSafeLog(extractGoogleApiSafeLog("events.list", res.status, err));
-      throw new Error(googleApiErrorMessage(err, res.status));
-    }
-    const json = (await res.json()) as { items?: Array<Record<string, unknown>> };
-    const events: ScheduleEvent[] = [];
-    for (const item of json.items ?? []) {
-      const ev = googleItemToEvent(
-        item as {
-          id?: string;
-          summary?: string;
-          description?: string;
-          location?: string;
-          start?: { date?: string; dateTime?: string };
-          end?: { date?: string; dateTime?: string };
-        }
-      );
-      if (ev && ev.date >= startDate && ev.date <= endDate) events.push(ev);
-    }
-    return events;
+    return listGoogleCalendarEventsForId(this.calendarId, startDate, endDate);
   }
 }
 
@@ -352,20 +381,121 @@ export function getCalendarProvider(): CalendarProvider {
 }
 
 export async function fetchCalendarEvents(startDate: string, endDate: string): Promise<ScheduleEvent[]> {
-  return provider.listEvents(startDate, endDate);
+  return fetchCalendarEventsFromTargets(startDate, endDate);
+}
+
+/** 同期モードに応じた複数カレンダーから予定を取得 */
+export async function fetchCalendarEventsFromTargets(
+  startDate: string,
+  endDate: string,
+  targetIds?: string[]
+): Promise<ScheduleEvent[]> {
+  const oauth = getGoogleCalendarOAuthStatus();
+  const settings = getGoogleCalendarSettingsV1();
+
+  if (oauth.mode === "real" && oauth.connected) {
+    const list = await listGoogleCalendarsDetailed();
+    const calendars = list.usedFallback ? [list.fallback] : list.calendars;
+    const ids = targetIds?.length
+      ? targetIds
+      : resolveTargetCalendarIds(settings, calendars);
+    const meta = calendarMetaMap(calendars);
+    const merged: ScheduleEvent[] = [];
+    for (const calId of ids) {
+      const cal = meta.get(calId);
+      const batch = await listGoogleCalendarEventsForId(calId, startDate, endDate, {
+        calendarColor: cal?.backgroundColor ?? null,
+        calendarSummary: cal?.summary ?? null,
+      });
+      merged.push(...batch);
+    }
+    merged.sort((a, b) => {
+      if (a.date !== b.date) return a.date.localeCompare(b.date);
+      return (a.startTime ?? "").localeCompare(b.startTime ?? "");
+    });
+    return merged;
+  }
+
+  return mockMultiCalendarEvents(startDate, endDate, targetIds);
+}
+
+function mockMultiCalendarEvents(
+  startDate: string,
+  endDate: string,
+  targetIds?: string[]
+): ScheduleEvent[] {
+  const settings = getGoogleCalendarSettingsV1();
+  const mockCals: GoogleCalendarListItem[] = [
+    {
+      id: "primary",
+      summary: "メインカレンダー（モック）",
+      primary: true,
+      accessRole: "owner",
+      writable: true,
+      backgroundColor: "#9a6324",
+    },
+    {
+      id: "mock-work",
+      summary: "★TOMS★（モック）",
+      primary: false,
+      accessRole: "writer",
+      writable: true,
+      backgroundColor: "#4986e7",
+    },
+  ];
+  const ids = targetIds?.length
+    ? targetIds
+    : resolveTargetCalendarIds(settings, mockCals);
+  const meta = calendarMetaMap(mockCals);
+  const base = mockCalendarEvents(startDate, endDate);
+  const events: ScheduleEvent[] = [];
+  for (const calId of ids) {
+    const cal = meta.get(calId);
+    for (const ev of base) {
+      if ((ev.date.charCodeAt(ev.date.length - 1) + calId.length) % (ids.length + 1) !== 0) continue;
+      events.push({
+        ...ev,
+        id: `mock-${calId}-${ev.id}`,
+        externalId: `mock-ext-${calId}-${ev.externalId}`,
+        calendarId: calId,
+        calendarColor: cal?.backgroundColor ?? null,
+        calendarSummary: cal?.summary ?? null,
+      });
+    }
+  }
+  if (!events.length && ids.length === 1) {
+    return base.map((ev) => ({
+      ...ev,
+      calendarId: ids[0],
+      calendarColor: meta.get(ids[0])?.backgroundColor ?? null,
+      calendarSummary: meta.get(ids[0])?.summary ?? null,
+    }));
+  }
+  return events.sort((a, b) => {
+    if (a.date !== b.date) return a.date.localeCompare(b.date);
+    return (a.startTime ?? "").localeCompare(b.startTime ?? "");
+  });
 }
 
 export async function syncGoogleCalendarEvents(
   startDate: string,
-  endDate: string
-): Promise<{ events: ScheduleEvent[]; mode: "mock" | "real"; count: number }> {
+  endDate: string,
+  targetIds?: string[]
+): Promise<{ events: ScheduleEvent[]; mode: "mock" | "real"; count: number; calendarIds: string[] }> {
   const guard = assertGoogleCalendarSyncAllowed();
   if (!guard.ok) {
     throw new Error(guard.error);
   }
-  resetCalendarProvider();
-  const events = await provider.listEvents(startDate, endDate);
-  return { events, mode: provider.mode, count: events.length };
+  const oauth = getGoogleCalendarOAuthStatus();
+  const settings = getGoogleCalendarSettingsV1();
+  let calendarIds = targetIds ?? [];
+  if (!calendarIds.length) {
+    const list = await listGoogleCalendarsDetailed();
+    const calendars = list.usedFallback ? [list.fallback] : list.calendars;
+    calendarIds = resolveTargetCalendarIds(settings, calendars);
+  }
+  const events = await fetchCalendarEventsFromTargets(startDate, endDate, calendarIds);
+  return { events, mode: oauth.mode, count: events.length, calendarIds };
 }
 
 export function getCalendarOAuthStatus() {

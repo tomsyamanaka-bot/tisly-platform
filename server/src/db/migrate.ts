@@ -200,6 +200,33 @@ export function runMigrations(database: Database.Database): void {
   migrateScheduleDayDeparturesV1(database);
   migrateArrivalWorkCompletionV1(database);
   migrateGoogleCalendarSyncV1(database);
+  migrateGoogleCalendarMultiCalV1(database);
+}
+
+/** Google Calendar 複数カレンダー同期 — イベントにカレンダー色・ID を保持 */
+function migrateGoogleCalendarMultiCalV1(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:google_calendar_multi_cal_v1") as { value_json: string } | undefined;
+  if (marker) return;
+
+  addColumnsIfMissing(database, "schedule_calendar_events", [
+    { name: "calendar_id", ddl: "ALTER TABLE schedule_calendar_events ADD COLUMN calendar_id TEXT" },
+    {
+      name: "calendar_color",
+      ddl: "ALTER TABLE schedule_calendar_events ADD COLUMN calendar_color TEXT",
+    },
+    {
+      name: "calendar_summary",
+      ddl: "ALTER TABLE schedule_calendar_events ADD COLUMN calendar_summary TEXT",
+    },
+  ]);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:google_calendar_multi_cal_v1", JSON.stringify({ at: new Date().toISOString() }));
 }
 
 /** Google Calendar 双方向同期 v1 — 設定・案件リンク */

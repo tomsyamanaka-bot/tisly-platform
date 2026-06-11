@@ -11,6 +11,7 @@ import {
   saveGoogleCalendarSettingsV1,
   type GoogleCalendarSettingsV1,
   type GoogleCalendarSyncDirection,
+  type GoogleCalendarSyncMode,
 } from "./google-calendar-sync-store.js";
 
 export const PRIMARY_CALENDAR_ID = "primary";
@@ -35,6 +36,8 @@ export interface GoogleCalendarSyncRequestBody {
   selectedCalendarId?: string;
   calendarId?: string;
   syncDirection?: string;
+  syncMode?: GoogleCalendarSyncMode;
+  calendarIds?: string[];
   timezone?: string;
 }
 
@@ -184,16 +187,22 @@ function patchSettingsFromBody(body: GoogleCalendarSyncRequestBody): GoogleCalen
     body.selectedCalendarId ?? body.calendarId ?? current.calendarId
   );
   const syncDirection = normalizeSyncDirection(body.syncDirection ?? current.syncDirection);
+  const syncMode = body.syncMode ?? current.syncMode;
+  const calendarIds = body.calendarIds ?? current.calendarIds;
   const needsPatch =
     !current.calendarId?.trim() ||
     current.calendarId !== calendarId ||
-    current.syncDirection !== syncDirection;
+    current.syncDirection !== syncDirection ||
+    current.syncMode !== syncMode ||
+    JSON.stringify(current.calendarIds) !== JSON.stringify(calendarIds);
   if (!needsPatch) return current;
   return saveGoogleCalendarSettingsV1({
     calendarId,
     calendarSummary:
       calendarId === PRIMARY_CALENDAR_ID ? PRIMARY_CALENDAR_SUMMARY : current.calendarSummary,
     syncDirection,
+    syncMode,
+    calendarIds,
   });
 }
 

@@ -13,6 +13,8 @@ import {
   renderEventLocationHtml,
   renderIntegrationBadges,
   escapeScheduleHtml,
+  eventCalendarColorStyle,
+  eventCalendarBadgeHtml,
 } from "./schedule-event-ui.js";
 import {
   bindDepartureAlertCards,
@@ -212,7 +214,10 @@ function renderWeekDays(days) {
           const loc = ev.location ? `<small> 📍${escapeHtml(ev.location)}</small>` : "";
           const departureHtml =
             day.departure && ev.id === firstId ? renderDeparturePrepHtml(day.departure) : "";
-          return `<li class="${departureHtml ? "has-departure" : ""}"><span>${CAT_ICON[ev.category] || "📌"}</span><span>${timeHtml}<strong>${escapeHtml(ev.title)}</strong>${loc}${renderEventDescriptionHtml(ev.description, `${day.date}-${ev.id}`)}${renderEventLocationHtml(ev.location)}${departureHtml}</span></li>`;
+          const colorStyle = eventCalendarColorStyle(ev);
+          const liStyle = colorStyle ? ` style="${colorStyle}"` : "";
+          const calBadge = eventCalendarBadgeHtml(ev);
+          return `<li class="${departureHtml ? "has-departure" : ""}"${liStyle}><span>${CAT_ICON[ev.category] || "📌"}</span><span>${calBadge}${timeHtml}<strong>${escapeHtml(ev.title)}</strong>${loc}${renderEventDescriptionHtml(ev.description, `${day.date}-${ev.id}`)}${renderEventLocationHtml(ev.location)}${departureHtml}</span></li>`;
         })
         .join("");
       const more = day.events.length > 5 ? `<li>他${day.events.length - 5}件</li>` : "";

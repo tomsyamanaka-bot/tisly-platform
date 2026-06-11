@@ -21,6 +21,12 @@ import {
   assertGoogleCalendarSyncRequest,
   type GoogleCalendarSyncRequestBody,
 } from "./google-calendar-sync-params.js";
+import {
+  buildGoogleEventLocalId,
+  calendarMetaMap,
+  resolveTargetCalendarIds,
+  filterWritableCalendars,
+} from "./google-calendar-target-calendars.js";
 import { replaceCachedCalendarEvents } from "./schedule-calendar-store.js";
 import type { ScheduleEvent } from "./schedule-types.js";
 import {
@@ -39,12 +45,23 @@ import { getDatabase } from "../db/database.js";
 export interface FullSyncResultV1 {
   mode: "mock" | "real";
   calendarId: string;
+  calendarIds: string[];
+  syncMode: GoogleCalendarSettingsV1["syncMode"];
   pulled: number;
   pushed: number;
   projectsCreated: number;
   linksUpdated: number;
   startDate: string;
   endDate: string;
+}
+
+async function resolveSyncTargetCalendarIds(
+  settings: GoogleCalendarSettingsV1
+): Promise<{ ids: string[]; meta: Map<string, GoogleCalendarListItem> }> {
+  const list = await listGoogleCalendarsDetailed();
+  const calendars = list.usedFallback ? [list.fallback] : list.calendars;
+  const ids = resolveTargetCalendarIds(settings, calendars);
+  return { ids, meta: calendarMetaMap(calendars) };
 }
 
 function addDays(iso: string, n: number): string {
@@ -98,7 +115,7 @@ async function importEventAsProject(
 
   upsertGoogleCalendarEventLink({
     googleEventId: ev.externalId,
-    googleCalendarId: settings.calendarId,
+    googleCalendarId: ev.calendarId || settings.calendarId,
     projectSource: "survey",
     projectId,
     scheduleEventId: ev.id,
@@ -110,9 +127,10 @@ async function importEventAsProject(
 async function pullFromGoogle(
   startDate: string,
   endDate: string,
-  settings: GoogleCalendarSettingsV1
+  settings: GoogleCalendarSettingsV1,
+  targetIds: string[]
 ): Promise<{ events: ScheduleEvent[]; projectsCreated: number; linksUpdated: number }> {
-  const synced = await syncGoogleCalendarEvents(startDate, endDate);
+  const synced = await syncGoogleCalendarEvents(startDate, endDate, targetIds);
   replaceCachedCalendarEvents(startDate, endDate, synced.events);
 
   let projectsCreated = 0;
@@ -129,51 +147,59 @@ async function pushToGoogle(
   startDate: string,
   endDate: string,
   settings: GoogleCalendarSettingsV1,
-  mode: "mock" | "real"
+  mode: "mock" | "real",
+  targetIds: string[],
+  meta: Map<string, GoogleCalendarListItem>
 ): Promise<{ pushed: number; linksUpdated: number }> {
-  const candidates = listSurveyProjectsForPush(startDate, endDate);
   let pushed = 0;
   let linksUpdated = 0;
 
-  for (const p of candidates) {
-    const start = toDateTimeIso(p.surveyDate, p.startTime ?? "09:00");
-    const end = toDateTimeIso(p.surveyDate, p.endTime ?? "12:00");
-    const created = await createGoogleCalendarEventForSync({
-      calendarId: settings.calendarId,
-      title: p.title,
-      start,
-      end,
-      location: p.address ?? undefined,
-      description: `TiSLY案件: ${p.projectId}`,
-    });
-    upsertGoogleCalendarEventLink({
-      googleEventId: created.eventId,
-      googleCalendarId: settings.calendarId,
-      projectSource: "survey",
-      projectId: p.projectId,
-      linkKind: "to_google",
-    });
-    pushed += 1;
-    linksUpdated += 1;
+  for (const calId of targetIds) {
+    const cal = meta.get(calId);
+    const candidates = listSurveyProjectsForPush(startDate, endDate, calId);
+    for (const p of candidates) {
+      const start = toDateTimeIso(p.surveyDate, p.startTime ?? "09:00");
+      const end = toDateTimeIso(p.surveyDate, p.endTime ?? "12:00");
+      const created = await createGoogleCalendarEventForSync({
+        calendarId: calId,
+        title: p.title,
+        start,
+        end,
+        location: p.address ?? undefined,
+        description: `TiSLY案件: ${p.projectId}`,
+      });
+      upsertGoogleCalendarEventLink({
+        googleEventId: created.eventId,
+        googleCalendarId: calId,
+        projectSource: "survey",
+        projectId: p.projectId,
+        linkKind: "to_google",
+      });
+      pushed += 1;
+      linksUpdated += 1;
 
-    if (mode === "real") {
-      getDatabase()
-        .prepare(
-          `INSERT OR REPLACE INTO schedule_calendar_events
-           (id, external_id, event_date, title, category, source, start_time, end_time, all_day, location, description, synced_at)
-           VALUES (?, ?, ?, ?, ?, 'google', ?, ?, 0, ?, ?, datetime('now'))`
-        )
-        .run(
-          `gcal-${created.eventId}`,
-          created.eventId,
-          p.surveyDate,
-          p.title,
-          classifyEventCategory(p.title),
-          p.startTime ?? "09:00",
-          p.endTime ?? "12:00",
-          p.address,
-          `TiSLY案件: ${p.projectId}`
-        );
+      if (mode === "real") {
+        getDatabase()
+          .prepare(
+            `INSERT OR REPLACE INTO schedule_calendar_events
+             (id, external_id, event_date, title, category, source, start_time, end_time, all_day, location, description, calendar_id, calendar_color, calendar_summary, synced_at)
+             VALUES (?, ?, ?, ?, ?, 'google', ?, ?, 0, ?, ?, ?, ?, ?, datetime('now'))`
+          )
+          .run(
+            buildGoogleEventLocalId(calId, created.eventId),
+            created.eventId,
+            p.surveyDate,
+            p.title,
+            classifyEventCategory(p.title),
+            p.startTime ?? "09:00",
+            p.endTime ?? "12:00",
+            p.address,
+            `TiSLY案件: ${p.projectId}`,
+            calId,
+            cal?.backgroundColor ?? null,
+            cal?.summary ?? null
+          );
+      }
     }
   }
   return { pushed, linksUpdated };
@@ -199,9 +225,10 @@ export async function runFullGoogleCalendarSyncV1(
 
   const direction = validated.syncDirection;
   const mode = oauth.mode;
+  const { ids: targetIds, meta } = await resolveSyncTargetCalendarIds(settings);
 
   if (direction === "bidirectional" || direction === "pull_only") {
-    const pull = await pullFromGoogle(startDate, endDate, settings);
+    const pull = await pullFromGoogle(startDate, endDate, settings, targetIds);
     pulled = pull.events.length;
     projectsCreated = pull.projectsCreated;
     linksUpdated += pull.linksUpdated;
@@ -214,7 +241,7 @@ export async function runFullGoogleCalendarSyncV1(
   const canPush =
     (direction === "bidirectional" || direction === "push_only") && hasGoogleCalendarWriteScope();
   if (canPush) {
-    const push = await pushToGoogle(startDate, endDate, settings, mode);
+    const push = await pushToGoogle(startDate, endDate, settings, mode, targetIds, meta);
     pushed = push.pushed;
     linksUpdated += push.linksUpdated;
   }
@@ -224,6 +251,8 @@ export async function runFullGoogleCalendarSyncV1(
   return {
     mode,
     calendarId: settings.calendarId,
+    calendarIds: targetIds,
+    syncMode: settings.syncMode,
     pulled,
     pushed,
     projectsCreated,
@@ -235,6 +264,7 @@ export async function runFullGoogleCalendarSyncV1(
 
 export async function fetchGoogleCalendarListV1(): Promise<{
   calendars: GoogleCalendarListItem[];
+  allCalendars: GoogleCalendarListItem[];
   usedFallback: boolean;
   warning?: string;
   httpStatus?: number;
@@ -245,14 +275,18 @@ export async function fetchGoogleCalendarListV1(): Promise<{
       calendarId: result.fallback.id,
       calendarSummary: result.fallback.summary,
     });
+    const fallback = { ...result.fallback, writable: true };
     return {
-      calendars: [{ ...result.fallback, writable: true }],
+      calendars: [fallback],
+      allCalendars: [fallback],
       usedFallback: true,
       warning: result.apiError,
       httpStatus: result.httpStatus,
     };
   }
-  return { calendars: result.calendars, usedFallback: false };
+  const allCalendars = result.calendars;
+  const writable = filterWritableCalendars(allCalendars);
+  return { calendars: writable, allCalendars, usedFallback: false };
 }
 
 export {
@@ -296,9 +330,11 @@ export async function syncProjectScheduleToGoogle(
   const start = toDateTimeIso(input.date, input.startTime ?? "09:00");
   const end = toDateTimeIso(input.date, input.endTime ?? "12:00");
 
+  const targetCalendarId = existing?.googleCalendarId || settings.calendarId;
+
   if (existing) {
     await updateGoogleCalendarEventForSync({
-      calendarId: settings.calendarId,
+      calendarId: targetCalendarId,
       eventId: existing.googleEventId,
       title: input.title,
       start,
@@ -309,7 +345,7 @@ export async function syncProjectScheduleToGoogle(
   }
 
   const created = await createGoogleCalendarEventForSync({
-    calendarId: settings.calendarId,
+    calendarId: targetCalendarId,
     title: input.title,
     start,
     end,
@@ -318,7 +354,7 @@ export async function syncProjectScheduleToGoogle(
   });
   upsertGoogleCalendarEventLink({
     googleEventId: created.eventId,
-    googleCalendarId: settings.calendarId,
+    googleCalendarId: targetCalendarId,
     projectSource: ref.source,
     projectId: ref.projectId,
     linkKind: "to_google",

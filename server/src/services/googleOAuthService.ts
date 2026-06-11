@@ -703,6 +703,7 @@ export interface GoogleCalendarListItem {
   primary: boolean;
   accessRole: string;
   writable?: boolean;
+  backgroundColor?: string | null;
 }
 
 export async function listGoogleCalendars(): Promise<GoogleCalendarListItem[]> {
@@ -726,6 +727,7 @@ const PRIMARY_LIST_FALLBACK: GoogleCalendarListItem = {
   primary: true,
   accessRole: "owner",
   writable: true,
+  backgroundColor: "#9a6324",
 };
 
 export async function listGoogleCalendarsDetailed(): Promise<GoogleCalendarListResult> {
@@ -733,20 +735,47 @@ export async function listGoogleCalendarsDetailed(): Promise<GoogleCalendarListR
   if (cfg.mode === "mock") {
     return {
       calendars: [
-        { id: "primary", summary: "メインカレンダー（モック）", primary: true, accessRole: "owner" },
-        { id: "mock-work", summary: "工事予定（モック）", primary: false, accessRole: "writer" },
+        {
+          id: "primary",
+          summary: "メインカレンダー（モック）",
+          primary: true,
+          accessRole: "owner",
+          writable: true,
+          backgroundColor: "#9a6324",
+        },
+        {
+          id: "mock-work",
+          summary: "★TOMS★（モック）",
+          primary: false,
+          accessRole: "writer",
+          writable: true,
+          backgroundColor: "#4986e7",
+        },
+        {
+          id: "mock-readonly",
+          summary: "社員共有（読取のみ・モック）",
+          primary: false,
+          accessRole: "reader",
+          writable: false,
+          backgroundColor: "#ac725e",
+        },
       ],
       usedFallback: false,
       fallback: PRIMARY_LIST_FALLBACK,
     };
   }
   const token = await refreshGoogleAccessToken("calendar");
-  const res = await fetch(
-    "https://www.googleapis.com/calendar/v3/users/me/calendarList?minAccessRole=writer",
-    { headers: { Authorization: `Bearer ${token}` } }
-  );
+  const res = await fetch("https://www.googleapis.com/calendar/v3/users/me/calendarList", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
   const json = (await res.json()) as GoogleApiErrorBody & {
-    items?: Array<{ id?: string; summary?: string; primary?: boolean; accessRole?: string }>;
+    items?: Array<{
+      id?: string;
+      summary?: string;
+      primary?: boolean;
+      accessRole?: string;
+      backgroundColor?: string;
+    }>;
   };
   if (!res.ok) {
     logGoogleCalendarApiError("calendarList", res.status, json);
@@ -770,7 +799,12 @@ export async function listGoogleCalendarsDetailed(): Promise<GoogleCalendarListR
         primary: Boolean(i.primary),
         accessRole,
         writable: accessRole === "owner" || accessRole === "writer",
+        backgroundColor: i.backgroundColor ?? null,
       };
+    })
+    .sort((a, b) => {
+      if (a.primary !== b.primary) return a.primary ? -1 : 1;
+      return a.summary.localeCompare(b.summary, "ja");
     });
   if (calendars.length === 0) {
     return {

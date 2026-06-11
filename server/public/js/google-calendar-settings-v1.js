@@ -16,6 +16,13 @@ const SYNC_DIRECTION_LABEL = {
 
 const PRIMARY_LABEL = "メインカレンダー（primary）";
 
+const SYNC_MODE_LABEL = {
+  primary_only: "primaryのみ",
+  selected_only: "選択カレンダーのみ",
+  multiple: "複数カレンダー同期",
+  all_writable: "全カレンダー同期",
+};
+
 function toast(msg) {
   const el = $("toast");
   if (!el) return;
@@ -58,10 +65,21 @@ function badgeClass(displayStatus) {
   return "off";
 }
 
-function calendarOptionLabel(c, calStatus) {
+function calendarOptionLabel(c) {
   if (!c) return PRIMARY_LABEL;
   if (c.id === "primary" || c.primary) return PRIMARY_LABEL;
   return c.summary;
+}
+
+function colorSwatchHtml(color) {
+  if (!color) return "";
+  return `<span class="cal-color-swatch" style="background:${escapeHtml(color)}"></span>`;
+}
+
+function isWritableCal(c) {
+  if (c.writable === false) return false;
+  const role = (c.accessRole ?? "").toLowerCase();
+  return role === "owner" || role === "writer" || c.writable === true;
 }
 
 function resolveCalendarSelectLabel(cal, calendarData) {
@@ -219,6 +237,8 @@ function renderDevInfo(cal) {
 
   $("dev-selected-calendar").textContent = cal.selectedCalendarId ?? cal.settings?.calendarId ?? "—";
   $("dev-writable-calendar").textContent = cal.writableCalendarId ?? "—";
+  $("dev-sync-mode").textContent = SYNC_MODE_LABEL[cal.settings?.syncMode] ?? cal.settings?.syncMode ?? "—";
+  $("dev-calendar-ids").textContent = (cal.settings?.calendarIds || []).join(", ") || "—";
   $("dev-token-scope").textContent = scopeShort;
   $("dev-redirect-uri").textContent = oauthDbg.redirectUri ?? cal.redirectUri ?? "—";
   $("dev-client-id-masked").textContent = oauthDbg.clientIdMasked ?? "—";
@@ -270,11 +290,15 @@ function showSyncDebug(body) {
   const calendarId = body.selectedCalendarId || body.calendarId || "primary";
   const { dateFrom, dateTo } = resolveSyncDateRange(body);
   const syncDirection = body.syncDirection || "two_way";
+  const syncMode = body.syncMode || "selected_only";
+  const calendarIds = (body.calendarIds || []).join(",");
   const timezone = body.timezone || "Asia/Tokyo";
   const el = $("sync-debug-line");
   if (el) {
     el.textContent = [
+      `syncMode=${syncMode}`,
       `selectedCalendarId=${calendarId}`,
+      `calendarIds=${calendarIds || calendarId}`,
       `syncDirection=${syncDirection}`,
       `dateFrom=${dateFrom}`,
       `dateTo=${dateTo}`,
@@ -307,6 +331,7 @@ async function refreshStatus() {
   }
 
   lines.push(`カレンダー：${formatCalendarLabel(settings, loadedCalendars)}`);
+  lines.push(`同期モード：${SYNC_MODE_LABEL[settings.syncMode] || "選択カレンダーのみ"}`);
   lines.push(`同期方向：${SYNC_DIRECTION_LABEL[settings.syncDirection] || "双方向"}`);
 
   const sync = cal.sync || {};
@@ -350,6 +375,11 @@ async function refreshStatus() {
   $("auto-create").disabled = !cal.connected;
   $("sync-direction").disabled = !cal.connected;
   $("btn-save-settings").disabled = !cal.connected;
+  $("btn-sync-test").disabled = !cal.connected || cal.mode !== "live";
+  document.querySelectorAll('input[name="sync-mode"]').forEach((el) => {
+    el.disabled = !cal.connected;
+    el.checked = el.value === (settings.syncMode || "selected_only");
+  });
 
   $("auto-create").checked = settings.autoCreateProjects !== false;
   $("sync-direction").value = settings.syncDirection || "bidirectional";
@@ -375,25 +405,93 @@ function primaryFallbackCalendars() {
   return [{ id: "primary", summary: "メインカレンダー", primary: true, accessRole: "owner", writable: true }];
 }
 
+function getSelectedSyncMode() {
+  const checked = document.querySelector('input[name="sync-mode"]:checked');
+  return checked?.value || "selected_only";
+}
+
+function renderMultiCalendarList(calendars, selectedIds) {
+  const panel = $("multi-calendar-list");
+  if (!panel) return;
+  const mode = getSelectedSyncMode();
+  if (mode !== "multiple") {
+    panel.classList.remove("show");
+    panel.innerHTML = "";
+    return;
+  }
+  panel.classList.add("show");
+  const ids = new Set(selectedIds || []);
+  panel.innerHTML = calendars
+    .filter((c) => isWritableCal(c))
+    .map(
+      (c) => `<label>${colorSwatchHtml(c.backgroundColor)}
+        <input type="checkbox" class="multi-cal-check" value="${escapeHtml(c.id)}" ${ids.has(c.id) ? "checked" : ""} />
+        ${escapeHtml(calendarOptionLabel(c))}</label>`
+    )
+    .join("");
+}
+
+function renderCalendarDebugTable(allCalendars) {
+  const panel = $("cal-debug-panel");
+  const body = $("cal-debug-body");
+  if (!panel || !body) return;
+  if (!allCalendars?.length) {
+    panel.classList.add("hidden");
+    body.innerHTML = "";
+    return;
+  }
+  panel.classList.remove("hidden");
+  body.innerHTML = allCalendars
+    .map((c) => {
+      const writable = isWritableCal(c);
+      return `<tr>
+        <td>${escapeHtml(c.summary)}${c.primary ? " ★" : ""}</td>
+        <td>${escapeHtml(c.id)}</td>
+        <td>${escapeHtml(c.accessRole ?? "—")}</td>
+        <td class="writable-${writable}">${writable ? "true" : "false"}</td>
+        <td>${colorSwatchHtml(c.backgroundColor)} ${escapeHtml(c.backgroundColor ?? "—")}</td>
+      </tr>`;
+    })
+    .join("");
+}
+
+function getSelectedCalendarIds() {
+  const mode = getSelectedSyncMode();
+  const primaryId = $("calendar-select")?.value || "primary";
+  if (mode === "primary_only") return ["primary"];
+  if (mode === "selected_only") return [primaryId];
+  if (mode === "all_writable") {
+    return loadedCalendars.filter((c) => isWritableCal(c)).map((c) => c.id);
+  }
+  const checks = [...document.querySelectorAll(".multi-cal-check:checked")].map((el) => el.value);
+  return checks.length ? checks : [primaryId];
+}
+
 async function loadCalendars(selectedId) {
   const sel = $("calendar-select");
   const cal = statusData || {};
+  const settings = cal.settings || {};
   try {
     const data = await api("/calendars");
     loadedCalendars = data.calendars?.length ? data.calendars : primaryFallbackCalendars();
-    const effectiveId = selectedId || "primary";
+    const allCalendars = data.allCalendars?.length ? data.allCalendars : loadedCalendars;
+    renderCalendarDebugTable(allCalendars);
+    const effectiveId = selectedId || settings.calendarId || "primary";
     const { label: stateLabel, hint } = resolveCalendarSelectLabel(cal, data);
     if (data.usedFallback && (data.needsRelogin || data.httpStatus === 403 || data.httpStatus === 401)) {
       loadedCalendars = primaryFallbackCalendars();
       sel.innerHTML = `<option value="primary" selected>${escapeHtml(stateLabel)}</option>`;
     } else {
       sel.innerHTML = loadedCalendars
+        .filter((c) => isWritableCal(c))
         .map((c) => {
-          const label = calendarOptionLabel(c, cal);
-          return `<option value="${escapeHtml(c.id)}" ${c.id === effectiveId ? "selected" : ""}>${escapeHtml(label)}</option>`;
+          const label = calendarOptionLabel(c);
+          const colorHint = c.backgroundColor ? ` (${c.backgroundColor})` : "";
+          return `<option value="${escapeHtml(c.id)}" ${c.id === effectiveId ? "selected" : ""}>${escapeHtml(label)}${escapeHtml(colorHint)}</option>`;
         })
         .join("");
     }
+    renderMultiCalendarList(loadedCalendars, settings.calendarIds || [effectiveId]);
     if (hint) {
       const syncLine = $("sync-line");
       if (syncLine && !syncLine.textContent.includes(hint)) {
@@ -404,6 +502,7 @@ async function loadCalendars(selectedId) {
     loadedCalendars = primaryFallbackCalendars();
     const { label: stateLabel } = resolveCalendarSelectLabel(cal, { usedFallback: true });
     sel.innerHTML = `<option value="primary" selected>${escapeHtml(stateLabel)}</option>`;
+    renderCalendarDebugTable([]);
   }
 }
 
@@ -456,9 +555,13 @@ async function init() {
         return;
       }
       const calendarId = $("calendar-select").value || "primary";
+      const syncMode = getSelectedSyncMode();
+      const calendarIds = getSelectedCalendarIds();
       const syncBody = {
         weeks: 8,
         selectedCalendarId: calendarId,
+        syncMode,
+        calendarIds,
         syncDirection: $("sync-direction").value || "bidirectional",
         timezone: "Asia/Tokyo",
       };
@@ -475,7 +578,10 @@ async function init() {
       el.classList.remove("hidden");
       const modeLabel = result.modeLabel || "Google";
       const count = result.pulled ?? 0;
-      el.textContent = `同期完了（${count}件・${modeLabel}） — 送信${result.pushed}件 / 案件自動生成${result.projectsCreated}件`;
+      const calInfo = result.calendarIds?.length
+        ? ` · 対象${result.calendarIds.length}カレンダー`
+        : "";
+      el.textContent = `同期完了（${count}件・${modeLabel}${calInfo}） — 送信${result.pushed}件 / 案件自動生成${result.projectsCreated}件`;
       toast(`同期完了 ${count}件`);
       await refreshStatus();
     } catch (e) {
@@ -551,18 +657,56 @@ async function init() {
     }
   });
 
+  document.querySelectorAll('input[name="sync-mode"]').forEach((el) => {
+    el.addEventListener("change", () => {
+      const settings = statusData?.settings || {};
+      renderMultiCalendarList(loadedCalendars, settings.calendarIds || [$("calendar-select")?.value || "primary"]);
+      const mode = getSelectedSyncMode();
+      const sel = $("calendar-select");
+      if (sel) sel.disabled = !statusData?.connected || mode === "primary_only" || mode === "all_writable";
+    });
+  });
+
+  $("btn-sync-test")?.addEventListener("click", async () => {
+    const btn = $("btn-sync-test");
+    btn.disabled = true;
+    btn.textContent = "テスト中…";
+    try {
+      const calendarId = $("calendar-select").value || "primary";
+      const data = await api("/diagnostics/test-event", {
+        method: "POST",
+        body: JSON.stringify({ calendarId }),
+      });
+      renderTestEventResult(data);
+      if (data.ok) {
+        toast(`同期テスト成功（${calendarId}）— 作成後即削除済み`);
+      } else {
+        toast(data.testEvent?.error || "同期テスト失敗");
+      }
+      await refreshStatus();
+    } catch (e) {
+      toast(e.message || "同期テストに失敗しました");
+    } finally {
+      btn.textContent = "選択カレンダー同期テスト";
+      btn.disabled = !(statusData?.mode === "live" && statusData?.connected);
+    }
+  });
+
   $("btn-save-settings")?.addEventListener("click", async () => {
     try {
       const calendarId = $("calendar-select").value || "primary";
+      const syncMode = getSelectedSyncMode();
+      const calendarIds = getSelectedCalendarIds();
+      const picked = loadedCalendars.find((c) => c.id === calendarId);
       const calendarSummary =
-        calendarId === "primary" ? "メインカレンダー" : calendarOptionLabel(
-          loadedCalendars.find((c) => c.id === calendarId)
-        );
+        calendarId === "primary" ? "メインカレンダー" : calendarOptionLabel(picked);
       await api("/settings", {
         method: "PATCH",
         body: JSON.stringify({
           calendarId,
           calendarSummary,
+          syncMode,
+          calendarIds,
           autoCreateProjects: $("auto-create").checked,
           syncDirection: $("sync-direction").value,
         }),

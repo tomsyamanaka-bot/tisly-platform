@@ -6,9 +6,19 @@ import type { ProjectRefV1 } from "../field-ops/field-ops-types.js";
 
 export type GoogleCalendarSyncDirection = "bidirectional" | "pull_only" | "push_only";
 
+/** 同期対象カレンダーの選択モード */
+export type GoogleCalendarSyncMode =
+  | "primary_only"
+  | "selected_only"
+  | "multiple"
+  | "all_writable";
+
 export interface GoogleCalendarSettingsV1 {
   calendarId: string;
   calendarSummary: string | null;
+  /** 複数カレンダー同期モード用の ID 一覧 */
+  calendarIds: string[];
+  syncMode: GoogleCalendarSyncMode;
   autoCreateProjects: boolean;
   syncDirection: GoogleCalendarSyncDirection;
   lastFullSyncAt: string | null;
@@ -32,11 +42,29 @@ const SETTINGS_KEY = "google_calendar_sync_settings_v1";
 const DEFAULT_SETTINGS: GoogleCalendarSettingsV1 = {
   calendarId: "primary",
   calendarSummary: "メインカレンダー",
+  calendarIds: ["primary"],
+  syncMode: "selected_only",
   autoCreateProjects: true,
   syncDirection: "bidirectional",
   lastFullSyncAt: null,
   updatedAt: new Date().toISOString(),
 };
+
+function normalizeSyncMode(raw: unknown): GoogleCalendarSyncMode {
+  const v = String(raw ?? "").trim();
+  if (v === "primary_only" || v === "selected_only" || v === "multiple" || v === "all_writable") {
+    return v;
+  }
+  return DEFAULT_SETTINGS.syncMode;
+}
+
+function normalizeCalendarIds(raw: unknown, calendarId: string): string[] {
+  if (Array.isArray(raw)) {
+    const ids = raw.map((x) => String(x).trim()).filter(Boolean);
+    if (ids.length) return [...new Set(ids)];
+  }
+  return calendarId ? [calendarId] : DEFAULT_SETTINGS.calendarIds;
+}
 
 function rowToLink(r: Record<string, unknown>): GoogleCalendarEventLinkV1 {
   return {
@@ -72,9 +100,12 @@ export function getGoogleCalendarSettingsV1(): GoogleCalendarSettingsV1 {
   if (!row) return { ...DEFAULT_SETTINGS };
   try {
     const parsed = JSON.parse(row.value_json) as Partial<GoogleCalendarSettingsV1>;
+    const calendarId = parsed.calendarId?.trim() || DEFAULT_SETTINGS.calendarId;
     return {
-      calendarId: parsed.calendarId?.trim() || DEFAULT_SETTINGS.calendarId,
+      calendarId,
       calendarSummary: normalizeCalendarSummary(parsed.calendarSummary) ?? DEFAULT_SETTINGS.calendarSummary,
+      calendarIds: normalizeCalendarIds(parsed.calendarIds, calendarId),
+      syncMode: normalizeSyncMode(parsed.syncMode),
       autoCreateProjects: parsed.autoCreateProjects ?? DEFAULT_SETTINGS.autoCreateProjects,
       syncDirection: parsed.syncDirection ?? DEFAULT_SETTINGS.syncDirection,
       lastFullSyncAt: parsed.lastFullSyncAt ?? null,
@@ -89,7 +120,12 @@ export function saveGoogleCalendarSettingsV1(
   patch: Partial<
     Pick<
       GoogleCalendarSettingsV1,
-      "calendarId" | "calendarSummary" | "autoCreateProjects" | "syncDirection"
+      | "calendarId"
+      | "calendarSummary"
+      | "calendarIds"
+      | "syncMode"
+      | "autoCreateProjects"
+      | "syncDirection"
     >
   >
 ): GoogleCalendarSettingsV1 {
@@ -102,11 +138,20 @@ export function saveGoogleCalendarSettingsV1(
     patch.calendarSummary === "primary（読込失敗）" || patch.calendarSummary === "読込失敗"
       ? DEFAULT_SETTINGS.calendarSummary
       : (patch.calendarSummary ?? current.calendarSummary);
+  const calendarIds =
+    patch.calendarIds !== undefined
+      ? normalizeCalendarIds(patch.calendarIds, calendarId)
+      : current.calendarIds?.length
+        ? current.calendarIds
+        : [calendarId];
+  const syncMode = patch.syncMode !== undefined ? normalizeSyncMode(patch.syncMode) : current.syncMode;
   const next: GoogleCalendarSettingsV1 = {
     ...current,
     ...patch,
     calendarId,
     calendarSummary,
+    calendarIds,
+    syncMode,
     updatedAt: new Date().toISOString(),
   };
   getDatabase()
@@ -206,7 +251,11 @@ export function upsertGoogleCalendarEventLink(input: {
   return findLinkByGoogleEventId(input.googleEventId)!;
 }
 
-export function listSurveyProjectsForPush(startDate: string, endDate: string): Array<{
+export function listSurveyProjectsForPush(
+  startDate: string,
+  endDate: string,
+  googleCalendarId?: string
+): Array<{
   projectId: string;
   title: string;
   surveyDate: string;
@@ -214,17 +263,29 @@ export function listSurveyProjectsForPush(startDate: string, endDate: string): A
   startTime: string | null;
   endTime: string | null;
 }> {
+  const calFilter = googleCalendarId?.trim();
   const rows = getDatabase()
     .prepare(
-      `SELECT sp.project_id, sp.site_name, sp.customer_name, sp.survey_date, sp.address
-       FROM survey_projects sp
-       LEFT JOIN google_calendar_event_links l
-         ON l.project_source = 'survey' AND l.project_id = sp.project_id
-       WHERE sp.survey_date >= ? AND sp.survey_date <= ?
-         AND sp.status != 'deleted'
-         AND l.id IS NULL`
+      calFilter
+        ? `SELECT sp.project_id, sp.site_name, sp.customer_name, sp.survey_date, sp.address
+           FROM survey_projects sp
+           LEFT JOIN google_calendar_event_links l
+             ON l.project_source = 'survey' AND l.project_id = sp.project_id
+             AND l.google_calendar_id = ?
+           WHERE sp.survey_date >= ? AND sp.survey_date <= ?
+             AND sp.status != 'deleted'
+             AND l.id IS NULL`
+        : `SELECT sp.project_id, sp.site_name, sp.customer_name, sp.survey_date, sp.address
+           FROM survey_projects sp
+           LEFT JOIN google_calendar_event_links l
+             ON l.project_source = 'survey' AND l.project_id = sp.project_id
+           WHERE sp.survey_date >= ? AND sp.survey_date <= ?
+             AND sp.status != 'deleted'
+             AND l.id IS NULL`
     )
-    .all(startDate, endDate) as Array<Record<string, unknown>>;
+    .all(...(calFilter ? [calFilter, startDate, endDate] : [startDate, endDate])) as Array<
+    Record<string, unknown>
+  >;
   return rows.map((r) => ({
     projectId: String(r.project_id),
     title: String(r.site_name || r.customer_name),

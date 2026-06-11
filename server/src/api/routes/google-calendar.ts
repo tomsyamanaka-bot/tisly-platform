@@ -103,6 +103,8 @@ googleCalendarRouter.patch("/settings", ...calendarAuth, (req: AuthedRequest, re
   const body = req.body as {
     calendarId?: string;
     calendarSummary?: string;
+    calendarIds?: string[];
+    syncMode?: "primary_only" | "selected_only" | "multiple" | "all_writable";
     autoCreateProjects?: boolean;
     syncDirection?: "bidirectional" | "pull_only" | "push_only";
   };
@@ -124,6 +126,7 @@ googleCalendarRouter.get("/calendars", ...calendarAuth, async (req: AuthedReques
       : null;
     res.json({
       calendars: result.calendars,
+      allCalendars: result.allCalendars ?? result.calendars,
       usedFallback: result.usedFallback,
       warning: listError?.message,
       code: listError?.code,
@@ -135,8 +138,10 @@ googleCalendarRouter.get("/calendars", ...calendarAuth, async (req: AuthedReques
       undefined,
       e instanceof Error ? e.message : "calendar list failed"
     );
+    const fallback = { ...PRIMARY_CALENDAR_FALLBACK };
     res.json({
-      calendars: [{ ...PRIMARY_CALENDAR_FALLBACK }],
+      calendars: [fallback],
+      allCalendars: [fallback],
       usedFallback: true,
       warning: listError.message,
       code: listError.code,

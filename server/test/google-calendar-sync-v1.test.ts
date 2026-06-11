@@ -83,6 +83,58 @@ describe("Google Calendar 双方向同期 v1", () => {
     assert.ok(Array.isArray(res.body.calendars));
     assert.ok(res.body.calendars.length >= 1);
     assert.equal(res.body.usedFallback, false);
+    assert.ok(Array.isArray(res.body.allCalendars));
+    for (const c of res.body.calendars) {
+      assert.notEqual(c.writable, false, `writable calendar expected: ${c.id}`);
+      assert.ok(c.summary);
+      assert.ok(c.id);
+    }
+    const readonly = res.body.allCalendars.find((c: { id: string }) => c.id === "mock-readonly");
+    if (readonly) assert.equal(readonly.writable, false);
+  });
+
+  it("PATCH settings syncMode + calendarIds を保存", async () => {
+    const res = await request(app)
+      .patch("/api/google-calendar/settings")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        calendarId: "mock-work",
+        calendarSummary: "★TOMS★（モック）",
+        syncMode: "multiple",
+        calendarIds: ["primary", "mock-work"],
+        syncDirection: "bidirectional",
+      });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.settings.syncMode, "multiple");
+    assert.deepEqual(res.body.settings.calendarIds, ["primary", "mock-work"]);
+    await request(app)
+      .patch("/api/google-calendar/settings")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        calendarId: "primary",
+        calendarSummary: "メインカレンダー",
+        syncMode: "selected_only",
+        calendarIds: ["primary"],
+        syncDirection: "bidirectional",
+      });
+  });
+
+  it("resolveTargetCalendarIds — primary_only は primary のみ", async () => {
+    const { resolveTargetCalendarIds } = await import(
+      "../src/schedule/google-calendar-target-calendars.js"
+    );
+    const { saveGoogleCalendarSettingsV1 } = await import(
+      "../src/schedule/google-calendar-sync-store.js"
+    );
+    saveGoogleCalendarSettingsV1({ syncMode: "primary_only", calendarId: "mock-work" });
+    const ids = resolveTargetCalendarIds(
+      { syncMode: "primary_only", calendarId: "mock-work", calendarIds: ["mock-work"] } as import("../src/schedule/google-calendar-sync-store.js").GoogleCalendarSettingsV1,
+      [
+        { id: "primary", summary: "メイン", primary: true, accessRole: "owner", writable: true },
+        { id: "mock-work", summary: "TOMS", primary: false, accessRole: "writer", writable: true },
+      ]
+    );
+    assert.deepEqual(ids, ["primary"]);
   });
 
   it("calendars 403時は primary フォールバック + needsRelogin", async () => {
@@ -620,6 +672,9 @@ describe("Google Calendar 双方向同期 v1", () => {
 
   it("Google予定から案件自動生成（live env + mock provider）", async () => {
     const { saveGoogleRefreshToken } = await import("../src/services/googleOAuthService.js");
+    const { saveGoogleCalendarSettingsV1 } = await import(
+      "../src/schedule/google-calendar-sync-store.js"
+    );
     const { setCalendarProvider, MockGoogleCalendarProvider } = await import(
       "../src/services/googleCalendar.js"
     );
@@ -634,12 +689,25 @@ describe("Google Calendar 双方向同期 v1", () => {
     process.env.GOOGLE_CLIENT_SECRET = "test-secret";
     process.env.GOOGLE_REDIRECT_URI = "https://tisly.jp/auth/google/callback";
     saveGoogleRefreshToken("test-refresh-token");
+    saveGoogleCalendarSettingsV1({
+      calendarId: "primary",
+      calendarSummary: "メインカレンダー",
+      syncMode: "primary_only",
+      calendarIds: ["primary"],
+      syncDirection: "bidirectional",
+    });
     setCalendarProvider(new MockGoogleCalendarProvider());
     const originalFetch = globalThis.fetch;
     globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       if (url.includes("oauth2.googleapis.com/token")) {
         return new Response(JSON.stringify({ access_token: "test-access-token" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (url.includes("/events") && init?.method === "POST") {
+        return new Response(JSON.stringify({ id: `mock-push-${Date.now()}` }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });
@@ -797,6 +865,9 @@ describe("Google Calendar 双方向同期 v1", () => {
     assert.ok(html.includes("oauth-debug-panel"));
     assert.ok(html.includes("dev-redirect-uri"));
     assert.ok(html.includes("btn-test-event"));
+    assert.ok(html.includes("sync-mode"));
+    assert.ok(html.includes("cal-debug-table"));
+    assert.ok(html.includes("btn-sync-test"));
   });
 
   it("フロントは API message を toast に使う（汎用 Bad Request 禁止）", async () => {
