@@ -270,16 +270,34 @@ export function listFieldCheckProjectsV1(opts?: { limit?: number }): FieldCheckP
       `SELECT DISTINCT
          l.project_source AS source,
          l.project_id AS id,
-         COALESCE(sp.site_name, bp.title, '') AS title,
+         COALESCE(
+           NULLIF(sp.site_name, ''),
+           NULLIF(sp.customer_name, ''),
+           NULLIF(bp.title, ''),
+           NULLIF(se.title, ''),
+           NULLIF(se2.title, '')
+         ) AS title,
          COALESCE(sp.project_no, bp.project_no, l.project_id) AS project_no,
          COALESCE(sp.customer_name, bp.customer_name, '') AS customer_name,
-         COALESCE(NULLIF(sp.survey_date, ''), '') AS event_date
+         COALESCE(
+           NULLIF(sp.survey_date, ''),
+           NULLIF(se.event_date, ''),
+           NULLIF(se2.event_date, '')
+         ) AS event_date
        FROM google_calendar_event_links l
        LEFT JOIN survey_projects sp
          ON l.project_source = 'survey' AND l.project_id = sp.project_id
        LEFT JOIN business_projects bp
          ON l.project_source = 'business' AND l.project_id = bp.id
-       WHERE (sp.project_id IS NULL OR sp.status != 'archived')
+       LEFT JOIN schedule_calendar_events se
+         ON l.schedule_event_id IS NOT NULL AND l.schedule_event_id = se.id
+       LEFT JOIN schedule_calendar_events se2
+         ON se2.external_id = l.google_event_id
+       WHERE (sp.project_id IS NULL OR sp.status NOT IN ('archived', 'deleted'))
+         AND NOT (
+           COALESCE(sp.site_name, sp.customer_name, se.title, se2.title, '') LIKE '%DEMO%'
+           OR COALESCE(sp.site_name, sp.customer_name, se.title, se2.title, '') LIKE '%デモ%'
+         )
        ORDER BY event_date DESC, title ASC
        LIMIT ?`
     )
