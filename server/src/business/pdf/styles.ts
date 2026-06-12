@@ -19,24 +19,24 @@ export const TOMS_OFFICIAL_CORE_STYLES = `
 .toms-official-amount-label{font-size:0.92rem;font-weight:700;letter-spacing:0.08em;white-space:nowrap;flex-shrink:0}
 .toms-official-amount-value{font-size:1.48rem;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
 .toms-official-amount-tax{font-size:0.8rem;font-weight:600;margin-left:0.15rem}
-table.toms-official-items{width:100%;border-collapse:collapse;margin:0 0 0.65rem;border:1px solid #000;table-layout:fixed}
-table.toms-official-items th,table.toms-official-items td{border:1px solid #000;padding:0.35rem 0.45rem;font-size:0.82rem;vertical-align:middle;line-height:1.32;word-break:keep-all;overflow-wrap:break-word;white-space:normal}
-table.toms-official-items thead th{background:#b4c7e7;font-weight:700;text-align:center;writing-mode:horizontal-tb}
-table.toms-official-items tbody tr{background:#eef3fb;height:auto;min-height:1.65rem}
-table.toms-official-items .col-no{width:2rem;text-align:center}
-table.toms-official-items .col-desc{text-align:left;width:auto;min-width:38%;word-break:break-word;white-space:normal}
-table.toms-official-items .col-qty{width:2.6rem;text-align:center}
-table.toms-official-items .col-unit{width:2.4rem;text-align:center}
-table.toms-official-items .col-price{width:4.8rem}
-table.toms-official-items .col-amount{width:5.5rem}
+table.toms-official-items{width:100%;border-collapse:collapse;margin:0 0 0.5rem;border:1px solid #000;table-layout:fixed}
+table.toms-official-items th,table.toms-official-items td{border:1px solid #000;padding:0.22rem 0.38rem;font-size:0.8rem;vertical-align:middle;line-height:1.25;word-break:keep-all;overflow-wrap:break-word;white-space:normal;writing-mode:horizontal-tb}
+table.toms-official-items thead th{background:#b4c7e7;font-weight:700;text-align:center}
+table.toms-official-items tbody tr{background:#eef3fb;height:auto;min-height:1.35rem}
+table.toms-official-items .col-no{width:1.8rem;text-align:center}
+table.toms-official-items .col-desc{text-align:left;width:auto;min-width:44%;word-break:break-word;white-space:normal}
+table.toms-official-items .col-qty{width:2.4rem;text-align:center}
+table.toms-official-items .col-unit{width:2.2rem;text-align:center}
+table.toms-official-items .col-price{width:4.5rem}
+table.toms-official-items .col-amount{width:5rem}
 .num{text-align:right;font-variant-numeric:tabular-nums}
-.toms-official-totals{margin:0.3rem 0 0 auto;width:270px;max-width:100%;font-size:0.84rem}
-.toms-official-totals div{display:flex;justify-content:space-between;padding:0.16rem 0;gap:0.5rem}
-.toms-official-totals .grand{font-weight:800;font-size:0.98rem;border-top:1px solid #000;margin-top:0.2rem;padding-top:0.28rem}
+.toms-official-totals{margin:0.2rem 0 0 auto;width:250px;max-width:100%;font-size:0.8rem}
+.toms-official-totals div{display:flex;justify-content:space-between;padding:0.12rem 0;gap:0.5rem}
+.toms-official-totals .grand{font-weight:800;font-size:0.92rem;border-top:1px solid #000;margin-top:0.15rem;padding-top:0.22rem}
 .toms-official-totals .discount-row{color:#92400e}
-.toms-official-tax-breakdown{margin-top:0.3rem;padding-top:0.28rem;border-top:1px dashed #666;font-size:0.78rem;color:#333}
+.toms-official-tax-breakdown{margin-top:0.22rem;padding-top:0.22rem;border-top:1px dashed #666;font-size:0.74rem;color:#333}
 .toms-official-tax-breakdown div{display:flex;justify-content:space-between;padding:0.08rem 0}
-.toms-official-notes{margin-top:0.85rem;font-size:0.82rem;line-height:1.5}
+.toms-official-notes{margin-top:0.55rem;font-size:0.78rem;line-height:1.42}
 .toms-official-notes strong{font-weight:700}
 .toms-official-compact .toms-official-header{margin-bottom:0.35rem;gap:0.65rem}
 .toms-official-compact .toms-official-title-band{margin-bottom:0.4rem;padding:0.28rem 0.9rem 0.28rem 0.55rem}
@@ -53,9 +53,9 @@ export const TOMS_PDF_VIEWPORT_META =
   '<meta name="viewport" content="width=device-width, initial-scale=1"/>';
 
 export const TOMS_PDF_STYLES = `
-body{font-family:"Hiragino Sans","Yu Gothic","Meiryo",sans-serif;margin:0;padding:8mm 10mm;color:#111;background:#fff;font-size:10pt;line-height:1.45;word-break:keep-all;overflow-wrap:break-word;-webkit-text-size-adjust:100%}
+body{font-family:"Hiragino Sans","Yu Gothic","Meiryo",sans-serif;margin:0;padding:6mm 8mm;color:#111;background:#fff;font-size:9.5pt;line-height:1.38;word-break:keep-all;overflow-wrap:break-word;-webkit-text-size-adjust:100%;writing-mode:horizontal-tb}
 .doc{max-width:800px;min-width:280px;margin:0 auto}
-.doc.single-page{page-break-inside:auto}
+.doc.single-page{page-break-inside:avoid;max-height:287mm}
 .doc.with-photos .photo-section-title{page-break-before:auto}
 ${TOMS_OFFICIAL_CORE_STYLES}
 .intro{margin:0.45rem 0 0.65rem;font-size:0.86rem}

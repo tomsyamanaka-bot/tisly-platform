@@ -9,11 +9,14 @@ import {
   getBusinessProject,
   getEstimate,
   getInvoice,
+  listCustomers,
   saveBusinessPhoto,
   setEstimatePdfPath,
   setInvoicePdfPath,
+  syncInvoiceItemsFromEstimate,
   updateBusinessProject,
   updateEstimateHeader,
+  updateInvoicePaymentDue,
 } from "../business/business-store.js";
 import {
   buildTomsEstimateDocument,
@@ -43,6 +46,11 @@ import { applyPricingTierToItems, calcTotals, normalizeLineItems } from "../busi
 import { generateTomsDailyDocNo } from "../business/toms-document-format.js";
 import { generateEstimatePdf } from "../business/services/pdfService.js";
 import { v4 as uuid } from "uuid";
+import {
+  getEstimateLineTemplateV1,
+  listEstimateLineTemplatesV1,
+  seedEstimateLineTemplatesV1,
+} from "./estimate-line-templates-store.js";
 import {
   renderPracticalCompletionReportHtml,
   type PracticalCompletionReportContext,
@@ -249,21 +257,25 @@ export function listPendingSurveysV1(opts?: { customerCode?: string }): Estimate
 }
 
 export function listEstimateProjectsV1(opts?: { customerCode?: string }): EstimateProjectV1Summary[] {
-  const clauses = ["bp.survey_project_id IS NOT NULL"];
   const params: unknown[] = [];
+  let customerFilter = "";
   if (opts?.customerCode) {
-    clauses.push("sp.customer_code = ?");
+    customerFilter = "AND (sp.customer_code = ? OR bp.standalone_doc_kind IS NOT NULL)";
     params.push(opts.customerCode.toUpperCase());
   }
   const rows = getDatabase()
     .prepare(
-      `SELECT bp.id, bp.project_no, bp.customer_name, bp.title, bp.survey_project_id, bp.estimate_id, bp.updated_at,
+      `SELECT bp.id, bp.project_no, bp.customer_name, bp.title, bp.survey_project_id, bp.estimate_id,
+              bp.invoice_id, bp.standalone_doc_kind, bp.updated_at,
               sp.workflow_status,
-              be.estimate_no, be.subtotal, be.total, be.pdf_path
+              be.estimate_no, be.subtotal, be.total, be.pdf_path,
+              bi.invoice_no, bi.total AS invoice_total
        FROM business_projects bp
-       INNER JOIN survey_projects sp ON sp.project_id = bp.survey_project_id
+       LEFT JOIN survey_projects sp ON sp.project_id = bp.survey_project_id
        LEFT JOIN business_estimates be ON be.id = bp.estimate_id
-       WHERE ${clauses.join(" AND ")}
+       LEFT JOIN business_invoices bi ON bi.id = bp.invoice_id
+       WHERE (bp.survey_project_id IS NOT NULL OR bp.standalone_doc_kind IS NOT NULL)
+       ${customerFilter}
        ORDER BY bp.updated_at DESC`
     )
     .all(...params) as Record<string, unknown>[];
@@ -276,12 +288,23 @@ export function listEstimateProjectsV1(opts?: { customerCode?: string }): Estima
     surveyProjectId: r.survey_project_id != null ? String(r.survey_project_id) : null,
     estimateId: r.estimate_id != null ? String(r.estimate_id) : null,
     estimateNo: r.estimate_no != null ? String(r.estimate_no) : null,
+    invoiceId: r.invoice_id != null ? String(r.invoice_id) : null,
+    invoiceNo: r.invoice_no != null ? String(r.invoice_no) : null,
+    standaloneDocKind:
+      r.standalone_doc_kind === "estimate" || r.standalone_doc_kind === "invoice"
+        ? (r.standalone_doc_kind as "estimate" | "invoice")
+        : null,
     subtotal: r.subtotal != null ? Number(r.subtotal) : null,
     total: r.total != null ? Number(r.total) : null,
+    invoiceTotal: r.invoice_total != null ? Number(r.invoice_total) : null,
     pdfPath: r.pdf_path != null ? String(r.pdf_path) : null,
     surveyWorkflowStatus: r.workflow_status != null ? (String(r.workflow_status) as SurveyWorkflowStatus) : null,
     updatedAt: String(r.updated_at),
   }));
+}
+
+export function listInvoiceProjectsV1(opts?: { customerCode?: string }): EstimateProjectV1Summary[] {
+  return listEstimateProjectsV1(opts).filter((p) => p.invoiceId || p.standaloneDocKind === "invoice");
 }
 
 export function getEstimateProjectV1Detail(businessProjectId: string): EstimateProjectV1Detail | null {
@@ -334,6 +357,7 @@ export function getEstimateProjectV1Detail(businessProjectId: string): EstimateP
     estimate,
     invoice,
     pdfPath: estimate?.pdfPath ?? null,
+    standaloneDocKind: project.standaloneDocKind,
     tomsFormatReady: Boolean(estimate),
   };
 }
@@ -554,6 +578,9 @@ export function updateEstimateItemsV1(
     updateBusinessProject(businessProjectId, { surveyMemo: opts.notes });
   }
   const estimate = getEstimate(project.estimateId)!;
+  if (project.invoiceId) {
+    syncInvoiceItemsFromEstimate(project.invoiceId, normalized, totals);
+  }
   return { estimate, totals };
 }
 
@@ -815,8 +842,111 @@ export function createInvoiceFromEstimateV1(businessProjectId: string): {
 export interface StandaloneDocInputV1 {
   addressee: string;
   subject: string;
+  staffName?: string;
   workLocation?: string;
-  items: Partial<EstimateLineItem>[];
+  notes?: string;
+  invoiceDate?: string;
+  paymentDueDate?: string;
+  items?: Partial<EstimateLineItem>[];
+}
+
+export interface CustomerSuggestionV1 {
+  name: string;
+  contactName: string;
+  address: string;
+  phone: string;
+}
+
+function defaultEmptyLineItem(): Partial<EstimateLineItem> {
+  return {
+    id: uuid(),
+    category: "other",
+    name: "",
+    unit: "式",
+    quantity: 1,
+    unitPrice: 0,
+    amount: 0,
+  };
+}
+
+function applyStandaloneDocHeader(
+  projectId: string,
+  estimateId: string,
+  input: StandaloneDocInputV1,
+  createdBy?: string
+): void {
+  updateEstimateHeader(estimateId, {
+    addressee: input.addressee.trim(),
+    subject: input.subject.trim(),
+    workLocation: input.workLocation?.trim() ?? "",
+    siteName: input.subject.trim(),
+    staffName: input.staffName?.trim() || createdBy || "",
+    issueDate: input.invoiceDate?.trim() || new Date().toISOString().slice(0, 10),
+  });
+  if (input.notes?.trim()) {
+    updateBusinessProject(projectId, { surveyMemo: input.notes.trim() });
+  }
+}
+
+export function listCustomerSuggestionsV1(query: string, limit = 10): CustomerSuggestionV1[] {
+  const q = query.trim();
+  if (q.length < 1) return [];
+  const like = `%${q.replace(/[%_]/g, "")}%`;
+  const seen = new Set<string>();
+  const results: CustomerSuggestionV1[] = [];
+
+  for (const c of listCustomers()) {
+    if (!c.name.toLowerCase().includes(q.toLowerCase()) && !c.contactName.toLowerCase().includes(q.toLowerCase())) {
+      continue;
+    }
+    if (seen.has(c.name)) continue;
+    seen.add(c.name);
+    results.push({
+      name: c.name,
+      contactName: c.contactName,
+      address: c.address,
+      phone: c.phone,
+    });
+    if (results.length >= limit) return results;
+  }
+
+  const projectRows = getDatabase()
+    .prepare(
+      `SELECT customer_name, address, phone FROM business_projects
+       WHERE customer_name LIKE ? COLLATE NOCASE
+       ORDER BY updated_at DESC LIMIT ?`
+    )
+    .all(like, limit * 2) as Array<{ customer_name: string; address: string; phone: string }>;
+
+  for (const row of projectRows) {
+    const name = String(row.customer_name ?? "").trim();
+    if (!name || seen.has(name)) continue;
+    seen.add(name);
+    results.push({
+      name,
+      contactName: "",
+      address: String(row.address ?? ""),
+      phone: String(row.phone ?? ""),
+    });
+    if (results.length >= limit) break;
+  }
+  return results;
+}
+
+export function listEstimateLineTemplatesForApiV1() {
+  seedEstimateLineTemplatesV1();
+  return listEstimateLineTemplatesV1();
+}
+
+export function applyEstimateLineTemplateV1(templateId: string): Partial<EstimateLineItem>[] {
+  seedEstimateLineTemplatesV1();
+  const tpl = getEstimateLineTemplateV1(templateId);
+  if (!tpl) throw new Error("template not found");
+  return tpl.items.map((item) => ({
+    ...item,
+    id: uuid(),
+    amount: Math.round(Number(item.quantity ?? 1) * Number(item.unitPrice ?? 0)),
+  }));
 }
 
 function createStandaloneBusinessProjectV1(input: StandaloneDocInputV1) {
@@ -838,20 +968,15 @@ export function createStandaloneEstimateV1(
   input: StandaloneDocInputV1,
   createdBy?: string
 ): EstimateProjectV1Detail {
-  const items = normalizeLineItems(input.items);
-  if (!items.length) throw new Error("items required");
+  const items = normalizeLineItems(
+    input.items?.length ? input.items : [defaultEmptyLineItem()]
+  );
   const project = createStandaloneBusinessProjectV1(input);
+  updateBusinessProject(project.id, { standaloneDocKind: "estimate" });
   createEstimate(project.id, items);
   const refreshed = getBusinessProject(project.id)!;
   if (!refreshed.estimateId) throw new Error("estimate create failed");
-  updateEstimateHeader(refreshed.estimateId, {
-    addressee: input.addressee.trim(),
-    subject: input.subject.trim(),
-    workLocation: input.workLocation?.trim() ?? "",
-    siteName: input.subject.trim(),
-    staffName: createdBy ?? "",
-    issueDate: new Date().toISOString().slice(0, 10),
-  });
+  applyStandaloneDocHeader(project.id, refreshed.estimateId, input, createdBy);
   return getEstimateProjectV1Detail(project.id)!;
 }
 
@@ -859,7 +984,23 @@ export function createStandaloneInvoiceV1(
   input: StandaloneDocInputV1,
   createdBy?: string
 ): EstimateProjectV1Detail {
-  const detail = createStandaloneEstimateV1(input, createdBy);
-  createInvoiceFromEstimateV1(detail.businessProjectId);
-  return getEstimateProjectV1Detail(detail.businessProjectId)!;
+  const items = normalizeLineItems(
+    input.items?.length ? input.items : [defaultEmptyLineItem()]
+  );
+  const project = createStandaloneBusinessProjectV1(input);
+  updateBusinessProject(project.id, {
+    standaloneDocKind: "invoice",
+    paymentDueDate: input.paymentDueDate?.trim() || null,
+  });
+  createEstimate(project.id, items);
+  const refreshed = getBusinessProject(project.id)!;
+  if (!refreshed.estimateId) throw new Error("estimate create failed");
+  applyStandaloneDocHeader(project.id, refreshed.estimateId, input, createdBy);
+  createInvoiceFromEstimateV1(refreshed.id);
+  const withInvoice = getBusinessProject(refreshed.id)!;
+  if (withInvoice.invoiceId && input.paymentDueDate?.trim()) {
+    updateInvoicePaymentDue(withInvoice.invoiceId, input.paymentDueDate.trim());
+    updateBusinessProject(refreshed.id, { paymentDueDate: input.paymentDueDate.trim() });
+  }
+  return getEstimateProjectV1Detail(refreshed.id)!;
 }

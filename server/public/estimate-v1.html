@@ -54,6 +54,18 @@
     .practical-hidden { display: none !important; }
     .standalone-actions { display: grid; gap: 0.45rem; margin: 0.65rem 0; }
     .standalone-form .line-qty-price { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.35rem; }
+    .customer-suggest-list { list-style: none; margin: 0.25rem 0 0; padding: 0; border: 1px solid var(--tisly-border, #e2e8f0); border-radius: 8px; max-height: 160px; overflow-y: auto; }
+    .customer-suggest-list li { padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--tisly-border, #e2e8f0); cursor: pointer; font-size: 0.88rem; }
+    .customer-suggest-list li:last-child { border-bottom: none; }
+    .customer-suggest-list li:active { background: #eff6ff; }
+    .line-grid-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+    .line-grid-table th, .line-grid-table td { padding: 0.25rem 0.2rem; vertical-align: top; }
+    .line-grid-table th { font-size: 0.75rem; color: var(--tisly-muted, #64748b); font-weight: 600; }
+    .line-grid-table .desc-input { width: 100%; min-height: 2.4rem; resize: vertical; }
+    .line-grid-table .qty-input, .line-grid-table .price-input { width: 100%; min-width: 3.5rem; }
+    .line-grid-table .order-target-cell { text-align: center; white-space: nowrap; }
+    .line-template-row { display: flex; gap: 0.35rem; flex-wrap: wrap; align-items: center; margin-bottom: 0.5rem; }
+    .line-template-row select { flex: 1; min-width: 140px; }
     @media (max-width: 480px) {
       .standalone-form .line-qty-price { grid-template-columns: 1fr 1fr; }
     }
@@ -71,25 +83,28 @@
       <div id="standalone-form-panel" class="friendly-card hidden">
         <p class="section-label" id="standalone-form-title">新規見積</p>
         <div class="standalone-form">
-          <label class="friendly-label">宛名 <input type="text" id="standalone-addressee" placeholder="株式会社〇〇 御中" /></label>
+          <label class="friendly-label">宛名
+            <input type="text" id="standalone-addressee" placeholder="株式会社〇〇 御中" autocomplete="off" />
+          </label>
+          <ul id="standalone-customer-suggest" class="customer-suggest-list hidden"></ul>
+          <label class="friendly-label">担当者 <input type="text" id="standalone-staff" placeholder="担当者名" /></label>
           <label class="friendly-label">件名 <input type="text" id="standalone-subject" placeholder="工事件名" /></label>
-          <label class="friendly-label">作業場所 <input type="text" id="standalone-work-location" placeholder="建物名・住所" /></label>
-          <p class="section-hint" style="margin:0.5rem 0 0.25rem;">明細（1行目から入力）</p>
-          <label class="friendly-label">項目 <input type="text" id="standalone-line-name" placeholder="作業内容・部材名" /></label>
-          <div class="line-qty-price">
-            <label class="friendly-label">数量 <input type="number" id="standalone-line-qty" min="0" step="1" value="1" inputmode="numeric" /></label>
-            <label class="friendly-label">単位 <input type="text" id="standalone-line-unit" value="式" /></label>
-            <label class="friendly-label">単価 <input type="number" id="standalone-line-price" min="0" step="100" value="0" inputmode="numeric" /></label>
+          <label class="friendly-label" id="standalone-work-location-wrap">工事場所 <input type="text" id="standalone-work-location" placeholder="建物名・住所" /></label>
+          <div id="standalone-invoice-fields" class="hidden">
+            <div class="line-qty-price">
+              <label class="friendly-label">請求日 <input type="date" id="standalone-invoice-date" /></label>
+              <label class="friendly-label">支払期限 <input type="date" id="standalone-payment-due" /></label>
+            </div>
           </div>
-          <button type="button" class="btn-sub blue" id="btn-standalone-add-line" style="margin-top:0.35rem;">＋ 明細を追加</button>
-          <div id="standalone-line-preview" class="section-hint" style="margin-top:0.5rem;"></div>
-          <button type="button" class="btn-main blue" id="btn-standalone-submit" style="margin-top:0.5rem;">作成する</button>
+          <label class="friendly-label">備考 <textarea id="standalone-notes" rows="2" placeholder="帳票に記載する備考"></textarea></label>
+          <button type="button" class="btn-main blue" id="btn-standalone-submit" style="margin-top:0.5rem;">保存する</button>
           <button type="button" class="btn-sub" id="btn-standalone-cancel">やめる</button>
         </div>
       </div>
       <div class="tab-row">
         <button type="button" class="tab-btn active" id="tab-pending">見積待ち一覧</button>
         <button type="button" class="tab-btn" id="tab-projects">確定した見積</button>
+        <button type="button" class="tab-btn" id="tab-invoices">請求書一覧</button>
       </div>
       <div id="material-candidates-panel" class="friendly-card hidden">
         <p class="section-label">部材候補（現調から自動）</p>
@@ -99,6 +114,7 @@
       </div>
       <div id="pending-list" class="empty-state">読み込み中…</div>
       <div id="project-list" class="empty-state hidden">読み込み中…</div>
+      <div id="invoice-list" class="empty-state hidden">読み込み中…</div>
     </div>
 
     <div id="view-detail" class="hidden">
@@ -112,7 +128,10 @@
       <p class="section-label">📋 見積ヘッダー</p>
       <p class="section-hint">お客様へ提出する見積書の表紙情報です</p>
       <div class="friendly-card" id="header-card">
-        <label class="friendly-label">宛名 <input type="text" id="hdr-addressee" placeholder="株式会社〇〇 御中" /></label>
+        <label class="friendly-label">宛名
+          <input type="text" id="hdr-addressee" placeholder="株式会社〇〇 御中" autocomplete="off" />
+        </label>
+        <ul id="hdr-customer-suggest" class="customer-suggest-list hidden"></ul>
         <label class="friendly-label">件名 <input type="text" id="hdr-subject" placeholder="工事件名" /></label>
         <div class="line-qty-price">
           <label class="friendly-label">発行日 <input type="text" id="hdr-issue-date" readonly /></label>
@@ -123,12 +142,25 @@
         <label class="friendly-label">住所 <input type="text" id="hdr-address" placeholder="〒・住所" /></label>
         <label class="friendly-label">電話 <input type="tel" id="hdr-phone" inputmode="tel" /></label>
         <label class="friendly-label practical-hidden">メール <input type="email" id="hdr-email" inputmode="email" /></label>
+        <label class="friendly-label">備考 <textarea id="hdr-notes" rows="2" placeholder="帳票備考（社内メモと共有可）"></textarea></label>
+        <div id="invoice-header-fields" class="hidden">
+          <div class="line-qty-price">
+            <label class="friendly-label">請求日 <input type="date" id="hdr-invoice-date" /></label>
+            <label class="friendly-label">支払期限 <input type="date" id="hdr-payment-due" /></label>
+          </div>
+        </div>
         <button type="button" class="btn-sub blue" id="btn-save-header">ヘッダーを保存</button>
       </div>
 
       <p class="section-label">🧾 お見積りの内訳</p>
       <p class="section-hint">項目を追加・並べ替え・削除できます</p>
       <div class="friendly-card" id="lines-card">
+        <div class="line-template-row">
+          <label class="friendly-label" style="margin:0;flex:1;">テンプレート
+            <select id="line-template-select"><option value="">よく使うテンプレート…</option></select>
+          </label>
+          <button type="button" class="btn-sub blue" id="btn-apply-line-template">明細に反映</button>
+        </div>
         <div id="price-rule-panel" class="price-rule-panel practical-hidden">
           <p class="section-label" style="margin:0 0 0.35rem;">💴 顧客別単価ルール</p>
           <p id="price-rule-customer" class="section-hint price-rule-customer" style="margin:0 0 0.5rem;"></p>
@@ -196,7 +228,7 @@
 
       <button type="button" class="btn-sub blue" id="btn-duplicate-estimate">見積を複製</button>
       <button type="button" class="btn-main blue" id="btn-finalize">見積を確定（印刷用）</button>
-      <button type="button" class="btn-sub blue" id="btn-invoice">請求書を作成</button>
+      <button type="button" class="btn-main blue" id="btn-invoice">【請求書作成】</button>
 
       <p class="section-label">📄 書類の確認・印刷</p>
       <p class="section-hint">見積書・請求書は金額提出用です。仕様書は現調写真、完了報告書は専用写真を使います。</p>

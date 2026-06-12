@@ -36,10 +36,7 @@ export function renderEstimateHtml(
     staffName: opts?.staffName,
   });
   const lines = itemsToTomsLines(estimate.items);
-  const notes = buildCustomerFacingPdfNotes(
-    opts?.notes ?? project.surveyMemo ?? "",
-    opts?.priceRuleName ?? estimate.priceRuleName
-  );
+  const notes = buildCustomerFacingPdfNotes(opts?.notes ?? project.surveyMemo ?? "");
   const includePhotos = opts?.includePhotos === true;
   const photoBlock =
     includePhotos && project.surveyPhotos?.length

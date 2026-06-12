@@ -19,7 +19,8 @@ let currentPriceRule = null;
 let lastTomsData = null;
 let hasInvoice = false;
 let standaloneMode = "estimate";
-let standaloneDraftLines = [];
+let lineTemplates = [];
+let customerSuggestTimer = null;
 let completionPhotos = [];
 let completionPendingPreviewUrls = [];
 const completionTitleTimers = new Map();
@@ -69,7 +70,20 @@ function newEmptyLine() {
     quantity: 1,
     unitPrice: 0,
     amount: 0,
+    orderTarget: false,
   };
+}
+
+const LINE_FIELD_ORDER = ["desc", "qty", "price"];
+
+function focusLineField(rowIdx, fieldName) {
+  const row = $("line-list")?.querySelector(`.line-grid-row[data-idx="${rowIdx}"]`);
+  if (!row) return false;
+  const el = row.querySelector(`[data-field="${fieldName}"]`);
+  if (!el) return false;
+  el.focus();
+  if (el.select) el.select();
+  return true;
 }
 
 function splitDescription(name, memo) {
@@ -144,6 +158,50 @@ function renderPendingList(surveys) {
   });
 }
 
+function renderInvoiceList(projects) {
+  const el = $("invoice-list");
+  if (!el) return;
+  if (!projects.length) {
+    el.className = "empty-state";
+    el.innerHTML = '<div class="empty-icon">🧾</div><p>まだ請求書がありません</p><p>【新規請求書】から単独作成できます</p>';
+    return;
+  }
+  el.className = "";
+  el.innerHTML = projects
+    .map(
+      (p) => `
+    <div class="friendly-card list-card" data-id="${p.businessProjectId}">
+      <span class="status-badge done">${escapeHtml(p.invoiceNo || "請求書")}</span>
+      <h2>${escapeHtml(p.customerName)}</h2>
+      <p>${escapeHtml(p.projectNo)} · ${p.invoiceTotal != null ? yen(p.invoiceTotal) : p.total != null ? yen(p.total) : "—"}</p>
+    </div>`
+    )
+    .join("");
+  el.querySelectorAll(".list-card").forEach((node) => {
+    node.addEventListener("click", () => openDetail(node.dataset.id));
+  });
+}
+
+async function loadInvoices() {
+  const code = customerCodeFromPath();
+  try {
+    const data = await api(`/invoices?customerCode=${encodeURIComponent(code)}`);
+    renderInvoiceList(data.projects || []);
+  } catch (e) {
+    if ($("invoice-list")) {
+      $("invoice-list").innerHTML = `<div class="error-friendly">${renderFriendlyErrorHtml(e, e.status)}</div>`;
+    }
+  }
+}
+
+function refreshListTabVisibility() {
+  const pending = $("tab-pending")?.classList.contains("active");
+  const invoices = $("tab-invoices")?.classList.contains("active");
+  $("pending-list")?.classList.toggle("hidden", !pending);
+  $("project-list")?.classList.toggle("hidden", pending || invoices);
+  $("invoice-list")?.classList.toggle("hidden", !invoices);
+}
+
 function renderProjectList(projects) {
   const el = $("project-list");
   if (!projects.length) {
@@ -211,9 +269,42 @@ async function onPendingClick(node) {
 }
 
 function bindLineInputs() {
-  $("line-list").querySelectorAll(".qty-input, .price-input, .desc-input").forEach((inp) => {
+  $("line-list").querySelectorAll(".qty-input, .price-input, .desc-input, .order-target-input").forEach((inp) => {
     inp.addEventListener("input", () => recalcLocal());
     inp.addEventListener("change", () => recalcLocal());
+  });
+  $("line-list").querySelectorAll(".line-field-input").forEach((inp) => {
+    inp.addEventListener("keydown", (ev) => {
+      const field = inp.dataset.field;
+      const idx = Number(inp.dataset.idx);
+      if (ev.key === "Tab" && !ev.shiftKey) {
+        const pos = LINE_FIELD_ORDER.indexOf(field);
+        if (pos >= 0 && pos < LINE_FIELD_ORDER.length - 1) {
+          ev.preventDefault();
+          focusLineField(idx, LINE_FIELD_ORDER[pos + 1]);
+          return;
+        }
+        if (pos === LINE_FIELD_ORDER.length - 1 && idx < currentLines.length - 1) {
+          ev.preventDefault();
+          focusLineField(idx + 1, LINE_FIELD_ORDER[0]);
+        }
+      }
+      if (ev.key === "Enter" && !ev.shiftKey && field !== "desc") {
+        ev.preventDefault();
+        const pos = LINE_FIELD_ORDER.indexOf(field);
+        if (pos >= 0 && pos < LINE_FIELD_ORDER.length - 1) {
+          focusLineField(idx, LINE_FIELD_ORDER[pos + 1]);
+          return;
+        }
+        if (idx === currentLines.length - 1) {
+          currentLines.push(newEmptyLine());
+          renderLines(currentLines);
+          focusLineField(currentLines.length - 1, LINE_FIELD_ORDER[0]);
+          return;
+        }
+        focusLineField(idx + 1, LINE_FIELD_ORDER[0]);
+      }
+    });
   });
   $("line-list").querySelectorAll("[data-action]").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -241,34 +332,30 @@ function bindLineInputs() {
 }
 
 function renderLines(items) {
-  currentLines = (items || []).map((it) => ({ ...it }));
+  currentLines = (items || []).map((it) => ({ ...it, orderTarget: it.orderTarget === true }));
   if (!currentLines.length) currentLines = [newEmptyLine()];
   const el = $("line-list");
-  el.innerHTML = currentLines
+  el.innerHTML = `<table class="line-grid-table"><thead><tr>
+    <th>項目</th><th>数量</th><th>単価</th><th>発注</th><th></th>
+  </tr></thead><tbody>${currentLines
     .map(
       (it, i) => `
-    <div class="line-card" data-idx="${i}">
-      <label class="friendly-label" style="margin:0 0 0.35rem;">適用（複数行可）</label>
-      <textarea class="desc-input line-desc-input" data-idx="${i}" rows="3" placeholder="小上がり既存換気扇3台設置&#10;清掃・修理配線">${escapeHtml(splitDescription(it.name, it.memo))}</textarea>
-      <div class="line-qty-price">
-        <div>
-          <label class="friendly-label" style="margin:0;">数量</label>
-          <input type="number" min="1" class="qty-input" data-idx="${i}" value="${it.quantity}" inputmode="numeric" />
+    <tr class="line-grid-row line-card" data-idx="${i}">
+      <td><textarea class="desc-input line-field-input" data-field="desc" data-idx="${i}" rows="2" placeholder="作業内容・部材名">${escapeHtml(splitDescription(it.name, it.memo))}</textarea></td>
+      <td><input type="number" min="0" step="1" class="qty-input line-field-input" data-field="qty" data-idx="${i}" value="${it.quantity}" inputmode="numeric" /></td>
+      <td><input type="number" min="0" class="price-input line-field-input" data-field="price" data-idx="${i}" value="${it.unitPrice}" inputmode="numeric" /></td>
+      <td class="order-target-cell"><label><input type="checkbox" class="order-target-input" data-idx="${i}" ${it.orderTarget ? "checked" : ""} /> 発注</label></td>
+      <td>
+        <div class="line-amount" style="font-size:0.78rem;margin-bottom:0.2rem;">${yen((it.quantity || 0) * (it.unitPrice || 0))}</div>
+        <div class="line-actions" style="display:flex;gap:0.2rem;flex-wrap:wrap;">
+          <button type="button" data-action="up" data-idx="${i}" ${i === 0 ? "disabled" : ""}>↑</button>
+          <button type="button" data-action="down" data-idx="${i}" ${i === currentLines.length - 1 ? "disabled" : ""}>↓</button>
+          <button type="button" class="btn-line-delete" data-action="delete" data-idx="${i}">削除</button>
         </div>
-        <div>
-          <label class="friendly-label" style="margin:0;">単価（円）</label>
-          <input type="number" min="0" class="price-input" data-idx="${i}" value="${it.unitPrice}" inputmode="numeric" />
-        </div>
-      </div>
-      <div class="line-amount">金額 ${yen((it.quantity || 0) * (it.unitPrice || 0))}</div>
-      <div class="line-actions">
-        <button type="button" data-action="up" data-idx="${i}" ${i === 0 ? "disabled" : ""}>↑ 上へ</button>
-        <button type="button" data-action="down" data-idx="${i}" ${i === currentLines.length - 1 ? "disabled" : ""}>↓ 下へ</button>
-        <button type="button" class="btn-line-delete" data-action="delete" data-idx="${i}">削除</button>
-      </div>
-    </div>`
+      </td>
+    </tr>`
     )
-    .join("");
+    .join("")}</tbody></table>`;
   bindLineInputs();
   recalcLocal();
 }
@@ -278,20 +365,22 @@ function readShuseiDiscount() {
 }
 
 function recalcLocal() {
-  $("line-list").querySelectorAll(".line-card").forEach((row) => {
+  $("line-list").querySelectorAll(".line-grid-row").forEach((row) => {
     const i = Number(row.dataset.idx);
     const qty = Number(row.querySelector(".qty-input")?.value || 1);
     const price = Number(row.querySelector(".price-input")?.value || 0);
     const desc = row.querySelector(".desc-input")?.value || "";
+    const orderTarget = row.querySelector(".order-target-input")?.checked === true;
     const parsed = parseDescription(desc);
     if (currentLines[i]) {
       currentLines[i].quantity = qty;
       currentLines[i].unitPrice = price;
       currentLines[i].name = parsed.name;
       currentLines[i].memo = parsed.memo;
+      currentLines[i].orderTarget = orderTarget;
       currentLines[i].amount = Math.round(qty * price);
       const amtEl = row.querySelector(".line-amount");
-      if (amtEl) amtEl.textContent = `金額 ${yen(currentLines[i].amount)}`;
+      if (amtEl) amtEl.textContent = yen(currentLines[i].amount);
     }
   });
   const lineSubtotal = currentLines.reduce((s, it) => s + (it.amount || 0), 0);
@@ -340,6 +429,18 @@ function fillHeaderForm(header) {
   $("hdr-address").value = header.address || "";
   $("hdr-phone").value = header.phone || "";
   $("hdr-email").value = header.email || "";
+  if ($("hdr-notes")) $("hdr-notes").value = header.notes || "";
+}
+
+function fillInvoiceHeaderForm(project, invoice) {
+  $("invoice-header-fields")?.classList.toggle("hidden", !invoice);
+  if (!invoice) return;
+  if ($("hdr-invoice-date")) {
+    $("hdr-invoice-date").value = (invoice.createdAt || "").slice(0, 10) || todayIsoDate();
+  }
+  if ($("hdr-payment-due")) {
+    $("hdr-payment-due").value = invoice.paymentDueDate || project?.paymentDueDate || "";
+  }
 }
 
 function readHeaderForm() {
@@ -946,98 +1047,151 @@ async function uploadCompletionPhotos(files) {
 }
 
 function renderStandalonePreview() {
-  const el = $("standalone-line-preview");
+  /* removed — standalone creates header-only docs */
+}
+
+function todayIsoDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function renderCustomerSuggestList(el, suggestions, onPick) {
   if (!el) return;
-  if (!standaloneDraftLines.length) {
-    el.textContent = "明細が未入力です";
+  if (!suggestions?.length) {
+    el.classList.add("hidden");
+    el.innerHTML = "";
     return;
   }
-  el.innerHTML = standaloneDraftLines
+  el.classList.remove("hidden");
+  el.innerHTML = suggestions
     .map(
-      (line, i) =>
-        `${i + 1}. ${escapeHtml(line.name)} — ${line.quantity}${escapeHtml(line.unit)} × ${yen(line.unitPrice)}`
+      (s, i) =>
+        `<li data-suggest-idx="${i}"><strong>${escapeHtml(s.name)}</strong>${s.contactName ? ` · ${escapeHtml(s.contactName)}` : ""}${s.address ? `<br><span style="color:#64748b;font-size:0.8rem;">${escapeHtml(s.address)}</span>` : ""}</li>`
     )
-    .join("<br>");
+    .join("");
+  el.querySelectorAll("li").forEach((node) => {
+    node.addEventListener("click", () => {
+      const s = suggestions[Number(node.dataset.suggestIdx)];
+      if (s) onPick(s);
+      el.classList.add("hidden");
+    });
+  });
+}
+
+async function fetchCustomerSuggestions(query) {
+  if (!query || query.trim().length < 1) return [];
+  const data = await api(`/customers/suggest?q=${encodeURIComponent(query.trim())}`);
+  return data.suggestions || [];
+}
+
+function bindCustomerSuggest(inputEl, listEl, onPick) {
+  if (!inputEl || !listEl) return;
+  inputEl.addEventListener("input", () => {
+    clearTimeout(customerSuggestTimer);
+    const q = inputEl.value.trim();
+    if (q.length < 1) {
+      listEl.classList.add("hidden");
+      return;
+    }
+    customerSuggestTimer = setTimeout(async () => {
+      try {
+        const suggestions = await fetchCustomerSuggestions(q);
+        renderCustomerSuggestList(listEl, suggestions, onPick);
+      } catch {
+        listEl.classList.add("hidden");
+      }
+    }, 220);
+  });
+  inputEl.addEventListener("blur", () => {
+    setTimeout(() => listEl.classList.add("hidden"), 180);
+  });
+}
+
+async function loadLineTemplates() {
+  try {
+    const data = await api("/line-templates");
+    lineTemplates = data.templates || [];
+    const sel = $("line-template-select");
+    if (!sel) return;
+    sel.innerHTML =
+      `<option value="">よく使うテンプレート…</option>` +
+      lineTemplates.map((t) => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name)}</option>`).join("");
+  } catch {
+    /* optional */
+  }
 }
 
 function resetStandaloneForm(mode) {
   standaloneMode = mode;
-  standaloneDraftLines = [];
-  $("standalone-form-title").textContent = mode === "invoice" ? "新規請求書" : "新規見積";
+  const isInvoice = mode === "invoice";
+  $("standalone-form-title").textContent = isInvoice ? "新規請求書" : "新規見積";
   $("standalone-addressee").value = "";
+  $("standalone-staff").value = "";
   $("standalone-subject").value = "";
   $("standalone-work-location").value = "";
-  $("standalone-line-name").value = "";
-  $("standalone-line-qty").value = "1";
-  $("standalone-line-unit").value = "式";
-  $("standalone-line-price").value = "0";
-  renderStandalonePreview();
+  $("standalone-notes").value = "";
+  $("standalone-invoice-date").value = todayIsoDate();
+  $("standalone-payment-due").value = "";
+  $("standalone-invoice-fields")?.classList.toggle("hidden", !isInvoice);
+  $("standalone-work-location-wrap")?.classList.toggle("hidden", isInvoice);
+  $("standalone-customer-suggest")?.classList.add("hidden");
   $("standalone-form-panel")?.classList.remove("hidden");
   $("pending-list")?.classList.add("hidden");
   $("project-list")?.classList.add("hidden");
+  $("invoice-list")?.classList.add("hidden");
   document.querySelector(".tab-row")?.classList.add("hidden");
 }
 
 function hideStandaloneForm() {
   $("standalone-form-panel")?.classList.add("hidden");
   document.querySelector(".tab-row")?.classList.remove("hidden");
-  const pending = $("tab-pending")?.classList.contains("active");
-  $("pending-list")?.classList.toggle("hidden", !pending);
-  $("project-list")?.classList.toggle("hidden", pending);
+  refreshListTabVisibility();
 }
 
 function addStandaloneDraftLine() {
-  const name = $("standalone-line-name")?.value?.trim();
-  if (!name) {
-    toast("項目名を入力してください");
-    return;
-  }
-  const quantity = Number($("standalone-line-qty")?.value || 1);
-  const unit = $("standalone-line-unit")?.value?.trim() || "式";
-  const unitPrice = Number($("standalone-line-price")?.value || 0);
-  standaloneDraftLines.push({
-    ...newEmptyLine(),
-    name,
-    quantity: Number.isFinite(quantity) ? quantity : 1,
-    unit,
-    unitPrice: Number.isFinite(unitPrice) ? unitPrice : 0,
-    amount: (Number.isFinite(quantity) ? quantity : 1) * (Number.isFinite(unitPrice) ? unitPrice : 0),
-  });
-  $("standalone-line-name").value = "";
-  $("standalone-line-qty").value = "1";
-  $("standalone-line-unit").value = "式";
-  $("standalone-line-price").value = "0";
-  renderStandalonePreview();
+  /* removed */
 }
 
 async function submitStandaloneForm() {
   const addressee = $("standalone-addressee")?.value?.trim();
   const subject = $("standalone-subject")?.value?.trim();
+  const staffName = $("standalone-staff")?.value?.trim() ?? "";
   const workLocation = $("standalone-work-location")?.value?.trim() ?? "";
+  const notes = $("standalone-notes")?.value?.trim() ?? "";
   if (!addressee || !subject) {
     toast("宛名と件名を入力してください");
     return;
   }
-  if (!standaloneDraftLines.length) {
-    addStandaloneDraftLine();
-    if (!standaloneDraftLines.length) return;
-  }
   const path =
     standaloneMode === "invoice" ? "/standalone-invoice" : "/standalone-estimate";
+  const body =
+    standaloneMode === "invoice"
+      ? {
+          addressee,
+          subject,
+          staffName,
+          notes,
+          invoiceDate: $("standalone-invoice-date")?.value || todayIsoDate(),
+          paymentDueDate: $("standalone-payment-due")?.value || "",
+          items: [],
+        }
+      : {
+          addressee,
+          subject,
+          staffName,
+          workLocation,
+          notes,
+          items: [],
+        };
   try {
     toast("作成中…");
     const detail = await api(path, {
       method: "POST",
-      body: JSON.stringify({
-        addressee,
-        subject,
-        workLocation,
-        items: standaloneDraftLines,
-      }),
+      body: JSON.stringify(body),
     });
     hideStandaloneForm();
     toast(standaloneMode === "invoice" ? "請求書を作成しました" : "見積を作成しました");
     await loadProjects();
+    await loadInvoices();
     await openDetail(detail.businessProjectId);
   } catch (e) {
     toastError(e, e.status);
@@ -1069,7 +1223,10 @@ async function openDetail(projectId) {
     const metaParts = [p.projectNo, p.estimate?.estimateNo].filter(Boolean);
     $("detail-meta").textContent = metaParts.join(" · ");
     $("estimate-notes").value = p.estimateNotes || "";
+    if ($("hdr-notes") && p.estimateNotes) $("hdr-notes").value = p.estimateNotes;
     fillHeaderForm(p.header);
+    fillInvoiceHeaderForm(p, p.invoice);
+    $("btn-invoice")?.classList.toggle("hidden", hasInvoice);
     renderLines(p.estimate?.items || []);
     if ($("shusei-discount")) $("shusei-discount").value = String(p.estimate?.shuseiDiscount ?? 0);
     if ($("shusei-discount-memo")) $("shusei-discount-memo").value = p.estimate?.shuseiDiscountMemo ?? "";
@@ -1120,10 +1277,12 @@ async function loadProjects() {
 
 function setListTab(tab) {
   const pending = tab === "pending";
+  const invoices = tab === "invoices";
   $("tab-pending").classList.toggle("active", pending);
-  $("tab-projects").classList.toggle("active", !pending);
-  $("pending-list").classList.toggle("hidden", !pending);
-  $("project-list").classList.toggle("hidden", pending);
+  $("tab-projects").classList.toggle("active", tab === "projects");
+  $("tab-invoices")?.classList.toggle("active", invoices);
+  refreshListTabVisibility();
+  if (invoices) loadInvoices();
 }
 
 async function init() {
@@ -1137,21 +1296,57 @@ async function init() {
       showView("list");
       loadPending();
       loadProjects();
+      loadInvoices();
     },
   });
   practicalNav.setToast(toast);
   showView("list");
   await loadPending();
   await loadProjects();
+  await loadInvoices();
+  await loadLineTemplates();
+
+  bindCustomerSuggest($("standalone-addressee"), $("standalone-customer-suggest"), (s) => {
+    $("standalone-addressee").value = s.name;
+    if ($("standalone-staff") && s.contactName) $("standalone-staff").value = s.contactName;
+    if ($("standalone-work-location") && s.address) $("standalone-work-location").value = s.address;
+  });
+  bindCustomerSuggest($("hdr-addressee"), $("hdr-customer-suggest"), (s) => {
+    $("hdr-addressee").value = s.name;
+    if ($("hdr-staff") && s.contactName) $("hdr-staff").value = s.contactName;
+    if ($("hdr-address") && s.address) $("hdr-address").value = s.address;
+    if ($("hdr-phone") && s.phone) $("hdr-phone").value = s.phone;
+  });
 
   $("tab-pending").addEventListener("click", () => setListTab("pending"));
   $("tab-projects").addEventListener("click", () => setListTab("projects"));
+  $("tab-invoices")?.addEventListener("click", () => setListTab("invoices"));
 
   $("btn-new-standalone-estimate")?.addEventListener("click", () => resetStandaloneForm("estimate"));
   $("btn-new-standalone-invoice")?.addEventListener("click", () => resetStandaloneForm("invoice"));
-  $("btn-standalone-add-line")?.addEventListener("click", addStandaloneDraftLine);
   $("btn-standalone-submit")?.addEventListener("click", submitStandaloneForm);
   $("btn-standalone-cancel")?.addEventListener("click", hideStandaloneForm);
+
+  $("btn-apply-line-template")?.addEventListener("click", async () => {
+    const templateId = $("line-template-select")?.value;
+    if (!templateId) {
+      toast("テンプレートを選んでください");
+      return;
+    }
+    try {
+      const data = await api(`/line-templates/${encodeURIComponent(templateId)}/items`);
+      const items = (data.items || []).map((it) => ({ ...it, id: undefined }));
+      if (!items.length) {
+        toast("テンプレートに明細がありません");
+        return;
+      }
+      currentLines = items.map((it) => ({ ...newEmptyLine(), ...it }));
+      renderLines(currentLines);
+      toast("テンプレートを反映しました");
+    } catch (e) {
+      toastError(e, e.status);
+    }
+  });
 
   $("btn-confirm-estimate")?.addEventListener("click", async () => {
     if (!pendingSurveyForEstimate) return;
@@ -1326,7 +1521,10 @@ async function init() {
       await saveItems();
       await api(`/projects/${currentProjectId}/invoice`, { method: "POST", body: "{}" });
       hasInvoice = true;
-      toast("請求書を作成しました");
+      $("btn-invoice")?.classList.add("hidden");
+      const refreshed = await api(`/projects/${currentProjectId}`);
+      fillInvoiceHeaderForm(refreshed, refreshed.invoice);
+      toast("請求書を作成しました（明細をコピーしました）");
       openDocumentViewer("invoice");
     } catch (e) {
       toastError(e, e.status);

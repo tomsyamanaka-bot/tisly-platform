@@ -115,6 +115,7 @@ export interface BusinessProject {
   paidDate: string | null;
   qnapBasePath: string;
   surveyProjectId: string | null;
+  standaloneDocKind: "estimate" | "invoice" | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -172,6 +173,8 @@ export interface EstimateLineItem {
   costPrice?: number;
   memo?: string;
   fromAiCandidate?: boolean;
+  /** 将来の発注連携対象フラグ */
+  orderTarget?: boolean;
 }
 
 export interface Estimate {

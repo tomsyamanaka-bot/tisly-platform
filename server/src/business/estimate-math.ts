@@ -64,6 +64,7 @@ export function normalizeLineItems(
       costPrice: r.costPrice != null ? Number(r.costPrice) : undefined,
       memo: r.memo,
       fromAiCandidate: r.fromAiCandidate,
+      orderTarget: r.orderTarget === true,
     };
   });
 }

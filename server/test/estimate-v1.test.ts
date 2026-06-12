@@ -699,6 +699,91 @@ describe("見積PWA v1 API", () => {
     const endPos = spec.text.indexOf("末尾");
     assert.ok(midPos >= 0 && endPos > midPos, "spec photo order should be 中間 then 末尾");
   });
+
+  it("単独見積をヘッダーのみで作成できる", async () => {
+    const res = await request(app)
+      .post("/api/estimate/v1/standalone-estimate")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        addressee: "単独見積テスト株式会社",
+        subject: "LAN配線工事",
+        staffName: "山田",
+        workLocation: "大阪府大阪市",
+        notes: "現調なし単独見積",
+        items: [],
+      });
+    assert.equal(res.status, 201, res.body?.error);
+    assert.ok(res.body.businessProjectId);
+    assert.ok(res.body.estimate?.items?.length >= 1);
+    assert.equal(res.body.header?.addressee, "単独見積テスト株式会社");
+  });
+
+  it("単独請求書をヘッダーのみで作成できる", async () => {
+    const res = await request(app)
+      .post("/api/estimate/v1/standalone-invoice")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        addressee: "単独請求テスト株式会社",
+        subject: "防犯カメラ工事",
+        staffName: "佐藤",
+        invoiceDate: "2026-06-13",
+        paymentDueDate: "2026-07-13",
+        notes: "単独請求テスト",
+        items: [],
+      });
+    assert.equal(res.status, 201, res.body?.error);
+    assert.ok(res.body.invoice);
+    assert.equal(res.body.invoice.customerName, "単独請求テスト株式会社");
+  });
+
+  it("見積テンプレートと顧客候補APIが使える", async () => {
+    const tpl = await request(app)
+      .get("/api/estimate/v1/line-templates")
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(tpl.status, 200);
+    assert.ok(tpl.body.templates.length >= 8);
+    const first = tpl.body.templates[0];
+    const items = await request(app)
+      .get(`/api/estimate/v1/line-templates/${first.id}/items`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(items.status, 200);
+    assert.ok(items.body.items.length >= 1);
+
+    const suggest = await request(app)
+      .get("/api/estimate/v1/customers/suggest?q=単独")
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(suggest.status, 200);
+    assert.ok(Array.isArray(suggest.body.suggestions));
+  });
+
+  it("見積から請求書へ明細がコピーされる", async () => {
+    const est = await request(app)
+      .post("/api/estimate/v1/standalone-estimate")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        addressee: "コピーテスト株式会社",
+        subject: "コピー確認",
+        items: [{ name: "テスト項目A", quantity: 2, unitPrice: 5000, unit: "式" }],
+      });
+    const bizId = est.body.businessProjectId;
+    await request(app)
+      .patch(`/api/estimate/v1/projects/${bizId}/items`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        items: [{ name: "テスト項目A", quantity: 2, unitPrice: 5000, unit: "式", orderTarget: true }],
+      });
+    const inv = await request(app)
+      .post(`/api/estimate/v1/projects/${bizId}/invoice`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({});
+    assert.equal(inv.status, 201, inv.body?.error);
+    const detail = await request(app)
+      .get(`/api/estimate/v1/projects/${bizId}`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(detail.body.invoice.items[0].name, "テスト項目A");
+    assert.equal(detail.body.invoice.items[0].quantity, 2);
+    assert.equal(detail.body.invoice.items[0].unitPrice, 5000);
+  });
 });
 
 const TINY_PNG =

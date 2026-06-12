@@ -203,6 +203,42 @@ export function runMigrations(database: Database.Database): void {
   migrateGoogleCalendarMultiCalV1(database);
   migrateScheduleIntelligenceV1(database);
   migrateMaterialCheckV1(database);
+  migrateEstimatePracticalV1(database);
+}
+
+/** 見積・請求 実務化 v1 — 明細テンプレ / 単独請求フラグ */
+function migrateEstimatePracticalV1(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:estimate_practical_v1") as { value_json: string } | undefined;
+  if (marker) return;
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS estimate_line_templates (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      items_json TEXT NOT NULL DEFAULT '[]',
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_estimate_line_templates_active ON estimate_line_templates(active, sort_order);
+  `);
+
+  addColumnsIfMissing(database, "business_projects", [
+    {
+      name: "standalone_doc_kind",
+      ddl: "ALTER TABLE business_projects ADD COLUMN standalone_doc_kind TEXT",
+    },
+  ]);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:estimate_practical_v1", JSON.stringify({ at: new Date().toISOString() }));
 }
 
 /** 材料チェック v1 — 案件ごとの材料リスト + 日付別チェック状態 */

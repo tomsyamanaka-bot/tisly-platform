@@ -59,10 +59,7 @@ export function renderInvoiceHtml(
 ): string {
   const header = buildInvoiceHeader(project, invoice, estimate, opts);
   const lines = itemsToTomsLines(invoice.items);
-  const notes = buildCustomerFacingPdfNotes(
-    opts?.notes ?? project.surveyMemo ?? "",
-    opts?.priceRuleName ?? estimate.priceRuleName
-  );
+  const notes = buildCustomerFacingPdfNotes(opts?.notes ?? project.surveyMemo ?? "");
   const includePhotos = opts?.includePhotos === true;
   const photoBlock =
     includePhotos && project.surveyPhotos?.length
@@ -83,7 +80,9 @@ ${renderTomsOfficialDocLayout({
   docNoLabel: "請求番号",
   docNo: header.invoiceNo,
   total: invoice.total,
-  extraMetaRows: [{ label: "見積参照番号", value: header.estimateRefNo }],
+  extraMetaRows: header.estimateRefNo?.trim()
+    ? [{ label: "見積参照番号", value: header.estimateRefNo }]
+    : [],
 })}
 ${renderTomsLineItemsTable(lines)}
 ${renderTotals({

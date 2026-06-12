@@ -177,7 +177,13 @@ const INTERNAL_CUSTOMER_NOTE_PATTERNS = [
   /部材\d+件/,
   /写真\d+枚/,
   /作成:\s*\S+/,
+  /作成者/i,
   /顧客別単価ルール/,
+  /\bowner\b/i,
+  /\bJSON\b/i,
+  /内部ID/i,
+  /\bPWA\b/i,
+  /BIZ-[A-Z0-9-]+/i,
 ];
 
 export function filterInternalNotesFromCustomerPdf(notes: string | null | undefined): string {
@@ -192,13 +198,9 @@ export function filterInternalNotesFromCustomerPdf(notes: string | null | undefi
 
 export function buildCustomerFacingPdfNotes(
   userNotes: string | null | undefined,
-  ruleName?: string | null
+  _ruleName?: string | null
 ): string {
-  const base = filterInternalNotesFromCustomerPdf(userNotes);
-  const name = (ruleName ?? "").trim();
-  if (!name || name === MANUAL_PRICE_RULE_NAME) return base;
-  if (base.includes(CUSTOMER_PDF_PRICE_RULE_NOTE)) return base;
-  return base ? `${base}\n${CUSTOMER_PDF_PRICE_RULE_NOTE}` : CUSTOMER_PDF_PRICE_RULE_NOTE;
+  return filterInternalNotesFromCustomerPdf(userNotes);
 }
 
 export function applyCustomerPriceToItems(

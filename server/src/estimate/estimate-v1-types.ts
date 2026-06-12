@@ -31,8 +31,12 @@ export interface EstimateProjectV1Summary {
   surveyProjectId: string | null;
   estimateId: string | null;
   estimateNo: string | null;
+  invoiceId?: string | null;
+  invoiceNo?: string | null;
+  standaloneDocKind?: "estimate" | "invoice" | null;
   subtotal: number | null;
   total: number | null;
+  invoiceTotal?: number | null;
   pdfPath: string | null;
   surveyWorkflowStatus: SurveyWorkflowStatus | null;
   updatedAt: string;
@@ -58,6 +62,7 @@ export interface EstimateProjectV1Detail {
   estimate: Estimate | null;
   invoice: Invoice | null;
   pdfPath: string | null;
+  standaloneDocKind?: "estimate" | "invoice" | null;
   tomsFormatReady: boolean;
 }
 

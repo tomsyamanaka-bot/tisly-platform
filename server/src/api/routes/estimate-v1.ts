@@ -13,7 +13,11 @@ import {
   finalizeEstimateV1,
   getEstimatePdfContextV1,
   getEstimateProjectV1Detail,
+  listCustomerSuggestionsV1,
+  listEstimateLineTemplatesForApiV1,
+  applyEstimateLineTemplateV1,
   listEstimateProjectsV1,
+  listInvoiceProjectsV1,
   listPendingSurveysV1,
   createCompletionReportV1,
   renderCompletionReportHtmlV1,
@@ -98,6 +102,34 @@ estimateV1Router.get("/projects", ...estimateV1Auth, (req: AuthedRequest, res) =
   res.json({ projects: listEstimateProjectsV1({ customerCode }) });
 });
 
+estimateV1Router.get("/invoices", ...estimateV1Auth, (req: AuthedRequest, res) => {
+  if (!assertEstimateV1Role(req, res)) return;
+  const customerCode = (req.query.customerCode as string) ?? req.admin?.customerCode;
+  res.json({ projects: listInvoiceProjectsV1({ customerCode }) });
+});
+
+estimateV1Router.get("/customers/suggest", ...estimateV1Auth, (req: AuthedRequest, res) => {
+  if (!assertEstimateV1Role(req, res)) return;
+  const q = String(req.query.q ?? "");
+  res.json({ suggestions: listCustomerSuggestionsV1(q) });
+});
+
+estimateV1Router.get("/line-templates", ...estimateV1Auth, (req: AuthedRequest, res) => {
+  if (!assertEstimateV1Role(req, res)) return;
+  res.json({ templates: listEstimateLineTemplatesForApiV1() });
+});
+
+estimateV1Router.get("/line-templates/:id/items", ...estimateV1Auth, (req: AuthedRequest, res) => {
+  if (!assertEstimateV1Role(req, res)) return;
+  try {
+    const items = applyEstimateLineTemplateV1(String(req.params.id));
+    res.json({ items });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "template failed";
+    res.status(msg === "template not found" ? 404 : 400).json({ error: msg });
+  }
+});
+
 estimateV1Router.post("/from-survey/:surveyProjectId", ...estimateV1Auth, (req: AuthedRequest, res) => {
   if (!assertEstimateV1Role(req, res)) return;
   try {
@@ -126,7 +158,9 @@ estimateV1Router.post("/standalone-estimate", ...estimateV1Auth, (req: AuthedReq
       {
         addressee: String(body.addressee ?? ""),
         subject: String(body.subject ?? ""),
+        staffName: body.staffName != null ? String(body.staffName) : undefined,
         workLocation: body.workLocation != null ? String(body.workLocation) : "",
+        notes: body.notes != null ? String(body.notes) : undefined,
         items: Array.isArray(body.items) ? (body.items as Partial<EstimateLineItem>[]) : [],
       },
       req.admin?.username
@@ -146,7 +180,11 @@ estimateV1Router.post("/standalone-invoice", ...estimateV1Auth, (req: AuthedRequ
       {
         addressee: String(body.addressee ?? ""),
         subject: String(body.subject ?? ""),
+        staffName: body.staffName != null ? String(body.staffName) : undefined,
         workLocation: body.workLocation != null ? String(body.workLocation) : "",
+        notes: body.notes != null ? String(body.notes) : undefined,
+        invoiceDate: body.invoiceDate != null ? String(body.invoiceDate) : undefined,
+        paymentDueDate: body.paymentDueDate != null ? String(body.paymentDueDate) : undefined,
         items: Array.isArray(body.items) ? (body.items as Partial<EstimateLineItem>[]) : [],
       },
       req.admin?.username

@@ -102,6 +102,10 @@ function rowToProject(r: Record<string, unknown>): BusinessProject {
     paidDate: r.paid_date != null ? String(r.paid_date) : null,
     qnapBasePath: String(r.qnap_base_path ?? ""),
     surveyProjectId: r.survey_project_id != null ? String(r.survey_project_id) : null,
+    standaloneDocKind:
+      r.standalone_doc_kind === "estimate" || r.standalone_doc_kind === "invoice"
+        ? (r.standalone_doc_kind as "estimate" | "invoice")
+        : null,
     createdAt: String(r.created_at),
     updatedAt: String(r.updated_at),
   };
@@ -203,6 +207,7 @@ export function updateBusinessProject(
     estimateId: string | null;
     completionReportId: string | null;
     invoiceId: string | null;
+    standaloneDocKind: "estimate" | "invoice" | null;
   }>,
   opts?: { skipTransitionCheck?: boolean }
 ): BusinessProject {
@@ -232,6 +237,7 @@ export function updateBusinessProject(
         estimate_id = COALESCE(?, estimate_id),
         completion_report_id = COALESCE(?, completion_report_id),
         invoice_id = COALESCE(?, invoice_id),
+        standalone_doc_kind = COALESCE(?, standalone_doc_kind),
         updated_at = ?
       WHERE id = ?`
     )
@@ -253,6 +259,7 @@ export function updateBusinessProject(
       patch.estimateId !== undefined ? patch.estimateId : null,
       patch.completionReportId !== undefined ? patch.completionReportId : null,
       patch.invoiceId !== undefined ? patch.invoiceId : null,
+      patch.standaloneDocKind !== undefined ? patch.standaloneDocKind : null,
       now,
       id
     );
@@ -676,6 +683,32 @@ export function createInvoiceFromEstimate(projectId: string, paymentDueDate?: st
     status: statusAfterInvoiceCreated(),
   });
   return getInvoice(id)!;
+}
+
+export function syncInvoiceItemsFromEstimate(
+  invoiceId: string,
+  items: Estimate["items"],
+  totals: { subtotal: number; tax: number; total: number }
+): Invoice {
+  const now = new Date().toISOString();
+  getDatabase()
+    .prepare(
+      `UPDATE business_invoices SET
+        items_json = ?, subtotal = ?, tax = ?, total = ?, pdf_path = NULL, updated_at = ?
+       WHERE id = ?`
+    )
+    .run(JSON.stringify(items), totals.subtotal, totals.tax, totals.total, now, invoiceId);
+  return getInvoice(invoiceId)!;
+}
+
+export function updateInvoicePaymentDue(invoiceId: string, paymentDueDate: string | null): Invoice {
+  const now = new Date().toISOString();
+  getDatabase()
+    .prepare(
+      `UPDATE business_invoices SET payment_due_date = ?, pdf_path = NULL, updated_at = ? WHERE id = ?`
+    )
+    .run(paymentDueDate, now, invoiceId);
+  return getInvoice(invoiceId)!;
 }
 
 export function updateEstimateHeader(estimateId: string, header: Partial<TomsEstimateHeader>): Estimate {
