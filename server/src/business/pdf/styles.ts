@@ -4,7 +4,7 @@ export const TOMS_OFFICIAL_CORE_STYLES = `
 .toms-official-header-main{flex:1;min-width:0}
 .toms-official-header-side{flex:0 0 210px;min-width:190px;text-align:right;font-size:0.76rem;line-height:1.5;color:#222}
 .toms-official-title-band{display:inline-block;background:#d9d9d9;padding:0.4rem 1.5rem 0.4rem 0.75rem;margin:0 0 0.65rem}
-.toms-official-title-band h1{margin:0;font-size:1.28rem;letter-spacing:0.32em;font-weight:700;color:#111;white-space:nowrap}
+.toms-official-title-band h1{margin:0;font-size:1.28rem;letter-spacing:0.08em;font-weight:700;color:#111;white-space:normal;word-break:keep-all}
 .toms-official-addressee{margin:0 0 0.55rem;font-size:1.15rem;font-weight:700;color:#111;line-height:1.35}
 .toms-official-field{margin:0 0 0.3rem;font-size:0.9rem;line-height:1.45}
 .toms-official-field-label{font-weight:700;margin-right:0.4rem;white-space:nowrap}
@@ -14,20 +14,21 @@ export const TOMS_OFFICIAL_CORE_STYLES = `
 .toms-official-meta{border-collapse:collapse;margin:0 0 0 auto;font-size:0.76rem}
 .toms-official-meta th,.toms-official-meta td{padding:0.1rem 0 0.1rem 0.4rem;text-align:left;vertical-align:top}
 .toms-official-meta th{font-weight:700;color:#333;white-space:nowrap}
-.toms-official-meta td{color:#111;word-break:break-all}
+.toms-official-meta td{color:#111;word-break:break-word;overflow-wrap:break-word}
 .toms-official-amount{display:flex;justify-content:space-between;align-items:center;flex-wrap:nowrap;gap:0.5rem;margin:0.7rem 0 0.85rem;padding:0.6rem 0.9rem;border:2px solid #111;background:#fff}
 .toms-official-amount-label{font-size:0.92rem;font-weight:700;letter-spacing:0.08em;white-space:nowrap;flex-shrink:0}
 .toms-official-amount-value{font-size:1.48rem;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
 .toms-official-amount-tax{font-size:0.8rem;font-weight:600;margin-left:0.15rem}
 table.toms-official-items{width:100%;border-collapse:collapse;margin:0 0 0.65rem;border:1px solid #000;table-layout:fixed}
-table.toms-official-items th,table.toms-official-items td{border:1px solid #000;padding:0.35rem 0.45rem;font-size:0.82rem;vertical-align:middle;line-height:1.32;min-height:1.65rem}
-table.toms-official-items thead th{background:#b4c7e7;font-weight:700;text-align:center}
-table.toms-official-items tbody tr{background:#eef3fb;height:1.9rem}
+table.toms-official-items th,table.toms-official-items td{border:1px solid #000;padding:0.35rem 0.45rem;font-size:0.82rem;vertical-align:middle;line-height:1.32;word-break:keep-all;overflow-wrap:break-word;white-space:normal}
+table.toms-official-items thead th{background:#b4c7e7;font-weight:700;text-align:center;writing-mode:horizontal-tb}
+table.toms-official-items tbody tr{background:#eef3fb;height:auto;min-height:1.65rem}
 table.toms-official-items .col-no{width:2rem;text-align:center}
-table.toms-official-items .col-desc{text-align:left;word-break:break-word;white-space:pre-wrap}
-table.toms-official-items .col-qty{width:3.2rem}
-table.toms-official-items .col-price{width:5.2rem}
-table.toms-official-items .col-amount{width:6.2rem}
+table.toms-official-items .col-desc{text-align:left;width:auto;min-width:38%;word-break:break-word;white-space:normal}
+table.toms-official-items .col-qty{width:2.6rem;text-align:center}
+table.toms-official-items .col-unit{width:2.4rem;text-align:center}
+table.toms-official-items .col-price{width:4.8rem}
+table.toms-official-items .col-amount{width:5.5rem}
 .num{text-align:right;font-variant-numeric:tabular-nums}
 .toms-official-totals{margin:0.3rem 0 0 auto;width:270px;max-width:100%;font-size:0.84rem}
 .toms-official-totals div{display:flex;justify-content:space-between;padding:0.16rem 0;gap:0.5rem}

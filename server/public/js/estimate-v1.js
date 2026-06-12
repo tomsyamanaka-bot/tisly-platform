@@ -4,7 +4,6 @@ import {
   requireCustomerLogin,
 } from "./customer-auth.js";
 import { initPracticalNav } from "./tisly-practical-nav.js";
-import { bindWorkSessionPanels, renderWorkSessionPanel } from "./work-session-ui.js";
 import { friendlyHttpError, renderFriendlyErrorHtml } from "./tisly-friendly-errors.js";
 
 let practicalNav = null;
@@ -19,6 +18,8 @@ let priceRulePresets = [];
 let currentPriceRule = null;
 let lastTomsData = null;
 let hasInvoice = false;
+let standaloneMode = "estimate";
+let standaloneDraftLines = [];
 let completionPhotos = [];
 let completionPendingPreviewUrls = [];
 const completionTitleTimers = new Map();
@@ -944,43 +945,102 @@ async function uploadCompletionPhotos(files) {
   else toast(COMPLETION_PHOTO_FAIL_MSG);
 }
 
-async function workSessionApi(path, opts = {}) {
-  const token = getCustomerToken();
-  const url = path.startsWith("/api/") ? path : `/api/work-session/v1${path}`;
-  const res = await fetch(url, {
-    ...opts,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      ...(opts.headers || {}),
-    },
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw Object.assign(new Error(data.error || `HTTP ${res.status}`), { status: res.status });
-  return data;
+function renderStandalonePreview() {
+  const el = $("standalone-line-preview");
+  if (!el) return;
+  if (!standaloneDraftLines.length) {
+    el.textContent = "明細が未入力です";
+    return;
+  }
+  el.innerHTML = standaloneDraftLines
+    .map(
+      (line, i) =>
+        `${i + 1}. ${escapeHtml(line.name)} — ${line.quantity}${escapeHtml(line.unit)} × ${yen(line.unitPrice)}`
+    )
+    .join("<br>");
 }
 
-async function renderEstimateWorkSession(projectId) {
-  const mount = $("estimate-work-session");
-  if (!mount || !projectId) return;
+function resetStandaloneForm(mode) {
+  standaloneMode = mode;
+  standaloneDraftLines = [];
+  $("standalone-form-title").textContent = mode === "invoice" ? "新規請求書" : "新規見積";
+  $("standalone-addressee").value = "";
+  $("standalone-subject").value = "";
+  $("standalone-work-location").value = "";
+  $("standalone-line-name").value = "";
+  $("standalone-line-qty").value = "1";
+  $("standalone-line-unit").value = "式";
+  $("standalone-line-price").value = "0";
+  renderStandalonePreview();
+  $("standalone-form-panel")?.classList.remove("hidden");
+  $("pending-list")?.classList.add("hidden");
+  $("project-list")?.classList.add("hidden");
+  document.querySelector(".tab-row")?.classList.add("hidden");
+}
+
+function hideStandaloneForm() {
+  $("standalone-form-panel")?.classList.add("hidden");
+  document.querySelector(".tab-row")?.classList.remove("hidden");
+  const pending = $("tab-pending")?.classList.contains("active");
+  $("pending-list")?.classList.toggle("hidden", !pending);
+  $("project-list")?.classList.toggle("hidden", pending);
+}
+
+function addStandaloneDraftLine() {
+  const name = $("standalone-line-name")?.value?.trim();
+  if (!name) {
+    toast("項目名を入力してください");
+    return;
+  }
+  const quantity = Number($("standalone-line-qty")?.value || 1);
+  const unit = $("standalone-line-unit")?.value?.trim() || "式";
+  const unitPrice = Number($("standalone-line-price")?.value || 0);
+  standaloneDraftLines.push({
+    ...newEmptyLine(),
+    name,
+    quantity: Number.isFinite(quantity) ? quantity : 1,
+    unit,
+    unitPrice: Number.isFinite(unitPrice) ? unitPrice : 0,
+    amount: (Number.isFinite(quantity) ? quantity : 1) * (Number.isFinite(unitPrice) ? unitPrice : 0),
+  });
+  $("standalone-line-name").value = "";
+  $("standalone-line-qty").value = "1";
+  $("standalone-line-unit").value = "式";
+  $("standalone-line-price").value = "0";
+  renderStandalonePreview();
+}
+
+async function submitStandaloneForm() {
+  const addressee = $("standalone-addressee")?.value?.trim();
+  const subject = $("standalone-subject")?.value?.trim();
+  const workLocation = $("standalone-work-location")?.value?.trim() ?? "";
+  if (!addressee || !subject) {
+    toast("宛名と件名を入力してください");
+    return;
+  }
+  if (!standaloneDraftLines.length) {
+    addStandaloneDraftLine();
+    if (!standaloneDraftLines.length) return;
+  }
+  const path =
+    standaloneMode === "invoice" ? "/standalone-invoice" : "/standalone-estimate";
   try {
-    const data = await workSessionApi(
-      `/api/work-session/v1/session?source=business&projectId=${encodeURIComponent(projectId)}`
-    );
-    mount.innerHTML = renderWorkSessionPanel({
-      projectSource: "business",
-      projectId,
-      workDate: new Date().toISOString().slice(0, 10),
-      session: data.session,
-      checklist: data.checklist || [],
+    toast("作成中…");
+    const detail = await api(path, {
+      method: "POST",
+      body: JSON.stringify({
+        addressee,
+        subject,
+        workLocation,
+        items: standaloneDraftLines,
+      }),
     });
-    bindWorkSessionPanels(mount, {
-      apiFetch: workSessionApi,
-      toast,
-      onUpdated: async () => renderEstimateWorkSession(projectId),
-    });
-  } catch {
-    mount.innerHTML = "";
+    hideStandaloneForm();
+    toast(standaloneMode === "invoice" ? "請求書を作成しました" : "見積を作成しました");
+    await loadProjects();
+    await openDetail(detail.businessProjectId);
+  } catch (e) {
+    toastError(e, e.status);
   }
 }
 
@@ -1007,12 +1067,7 @@ async function openDetail(projectId) {
     hasInvoice = Boolean(p.invoice);
     currentSurveyProjectId = p.surveyProjectId || null;
     const metaParts = [p.projectNo, p.estimate?.estimateNo].filter(Boolean);
-    if (p.surveyProjectId) {
-      metaParts.push(
-        `<a href="/survey-v1?project=${encodeURIComponent(p.surveyProjectId)}" style="color:var(--tisly-blue)">← 現調の内容を見る</a>`
-      );
-    }
-    $("detail-meta").innerHTML = metaParts.join(" · ");
+    $("detail-meta").textContent = metaParts.join(" · ");
     $("estimate-notes").value = p.estimateNotes || "";
     fillHeaderForm(p.header);
     renderLines(p.estimate?.items || []);
@@ -1026,7 +1081,6 @@ async function openDetail(projectId) {
         : "/survey-v1";
     }
     await loadCompletionPhotos();
-    await renderEstimateWorkSession(projectId);
   } catch (e) {
     toastError(e, e.status);
     showView("list");
@@ -1092,6 +1146,12 @@ async function init() {
 
   $("tab-pending").addEventListener("click", () => setListTab("pending"));
   $("tab-projects").addEventListener("click", () => setListTab("projects"));
+
+  $("btn-new-standalone-estimate")?.addEventListener("click", () => resetStandaloneForm("estimate"));
+  $("btn-new-standalone-invoice")?.addEventListener("click", () => resetStandaloneForm("invoice"));
+  $("btn-standalone-add-line")?.addEventListener("click", addStandaloneDraftLine);
+  $("btn-standalone-submit")?.addEventListener("click", submitStandaloneForm);
+  $("btn-standalone-cancel")?.addEventListener("click", hideStandaloneForm);
 
   $("btn-confirm-estimate")?.addEventListener("click", async () => {
     if (!pendingSurveyForEstimate) return;

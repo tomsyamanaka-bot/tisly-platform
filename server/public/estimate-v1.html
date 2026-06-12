@@ -51,6 +51,12 @@
     #completion-photo-lightbox.hidden { display: none; }
     #completion-photo-lightbox img { max-width: 100%; max-height: 92vh; object-fit: contain; border-radius: 4px; }
     #completion-photo-lightbox button { position: absolute; top: 1rem; right: 1rem; border: none; background: rgba(255,255,255,0.9); border-radius: 8px; padding: 0.35rem 0.65rem; font-size: 0.9rem; }
+    .practical-hidden { display: none !important; }
+    .standalone-actions { display: grid; gap: 0.45rem; margin: 0.65rem 0; }
+    .standalone-form .line-qty-price { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.35rem; }
+    @media (max-width: 480px) {
+      .standalone-form .line-qty-price { grid-template-columns: 1fr 1fr; }
+    }
   </style>
 </head>
 <body class="tisly-friendly field-ops-touch">
@@ -58,6 +64,29 @@
     <p class="section-hint" id="page-hint">お仕事の料金をまとめます</p>
 
     <div id="view-list">
+      <div class="standalone-actions">
+        <button type="button" class="btn-main blue" id="btn-new-standalone-estimate">【新規見積】</button>
+        <button type="button" class="btn-sub blue" id="btn-new-standalone-invoice">【新規請求書】</button>
+      </div>
+      <div id="standalone-form-panel" class="friendly-card hidden">
+        <p class="section-label" id="standalone-form-title">新規見積</p>
+        <div class="standalone-form">
+          <label class="friendly-label">宛名 <input type="text" id="standalone-addressee" placeholder="株式会社〇〇 御中" /></label>
+          <label class="friendly-label">件名 <input type="text" id="standalone-subject" placeholder="工事件名" /></label>
+          <label class="friendly-label">作業場所 <input type="text" id="standalone-work-location" placeholder="建物名・住所" /></label>
+          <p class="section-hint" style="margin:0.5rem 0 0.25rem;">明細（1行目から入力）</p>
+          <label class="friendly-label">項目 <input type="text" id="standalone-line-name" placeholder="作業内容・部材名" /></label>
+          <div class="line-qty-price">
+            <label class="friendly-label">数量 <input type="number" id="standalone-line-qty" min="0" step="1" value="1" inputmode="numeric" /></label>
+            <label class="friendly-label">単位 <input type="text" id="standalone-line-unit" value="式" /></label>
+            <label class="friendly-label">単価 <input type="number" id="standalone-line-price" min="0" step="100" value="0" inputmode="numeric" /></label>
+          </div>
+          <button type="button" class="btn-sub blue" id="btn-standalone-add-line" style="margin-top:0.35rem;">＋ 明細を追加</button>
+          <div id="standalone-line-preview" class="section-hint" style="margin-top:0.5rem;"></div>
+          <button type="button" class="btn-main blue" id="btn-standalone-submit" style="margin-top:0.5rem;">作成する</button>
+          <button type="button" class="btn-sub" id="btn-standalone-cancel">やめる</button>
+        </div>
+      </div>
       <div class="tab-row">
         <button type="button" class="tab-btn active" id="tab-pending">見積待ち一覧</button>
         <button type="button" class="tab-btn" id="tab-projects">確定した見積</button>
@@ -76,8 +105,8 @@
       <div class="friendly-card">
         <span id="detail-status" class="status-badge orange">—</span>
         <h2 id="detail-name">—</h2>
-        <p id="detail-meta"></p>
-        <p id="detail-customer-info" class="section-hint"></p>
+        <p id="detail-meta" class="section-hint practical-hidden"></p>
+        <p id="detail-customer-info" class="section-hint practical-hidden"></p>
       </div>
 
       <p class="section-label">📋 見積ヘッダー</p>
@@ -93,14 +122,14 @@
         <label class="friendly-label">工事場所 <input type="text" id="hdr-work-location" placeholder="建物名・フロアなど" /></label>
         <label class="friendly-label">住所 <input type="text" id="hdr-address" placeholder="〒・住所" /></label>
         <label class="friendly-label">電話 <input type="tel" id="hdr-phone" inputmode="tel" /></label>
-        <label class="friendly-label">メール <input type="email" id="hdr-email" inputmode="email" /></label>
+        <label class="friendly-label practical-hidden">メール <input type="email" id="hdr-email" inputmode="email" /></label>
         <button type="button" class="btn-sub blue" id="btn-save-header">ヘッダーを保存</button>
       </div>
 
       <p class="section-label">🧾 お見積りの内訳</p>
       <p class="section-hint">項目を追加・並べ替え・削除できます</p>
       <div class="friendly-card" id="lines-card">
-        <div id="price-rule-panel" class="price-rule-panel">
+        <div id="price-rule-panel" class="price-rule-panel practical-hidden">
           <p class="section-label" style="margin:0 0 0.35rem;">💴 顧客別単価ルール</p>
           <p id="price-rule-customer" class="section-hint price-rule-customer" style="margin:0 0 0.5rem;"></p>
           <label class="friendly-label" style="margin:0 0 0.5rem;">単価ルール選択
@@ -142,9 +171,9 @@
 
       <button type="button" class="btn-sub blue" id="btn-save-items">内訳を保存</button>
 
-      <p class="section-label">🔧 現場作業・完了チェック</p>
-      <div id="estimate-work-session"></div>
-      <button type="button" class="btn-main blue" id="btn-create-completion-report" style="margin-top:0.5rem;">完了報告書作成</button>
+      <p class="section-label practical-hidden">🔧 現場作業・完了チェック</p>
+      <div id="estimate-work-session" class="practical-hidden"></div>
+      <button type="button" class="btn-main blue practical-hidden" id="btn-create-completion-report" style="margin-top:0.5rem;">完了報告書作成</button>
 
       <p class="section-label">📷 書類用写真管理</p>
       <div class="friendly-card photo-mgmt-grid">
@@ -176,7 +205,7 @@
         <button type="button" class="btn-doc-action" id="btn-pdf-invoice">請求書を開く</button>
         <button type="button" class="btn-doc-action" id="btn-pdf-specification">仕様書を開く</button>
         <button type="button" class="btn-doc-action" id="btn-pdf-completion">完了報告書を開く</button>
-        <button type="button" class="btn-doc-action" id="btn-toms">社内用データを確認</button>
+        <button type="button" class="btn-doc-action practical-hidden" id="btn-toms">社内用データを確認</button>
       </div>
 
       <div id="pdf-section" class="friendly-card hidden">

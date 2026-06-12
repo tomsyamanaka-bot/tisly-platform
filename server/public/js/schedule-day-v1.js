@@ -32,6 +32,7 @@ import {
   bindIntelligenceEventCards,
   renderDayIntelligenceEvents,
   renderDayIntelligenceSummary,
+  renderWeatherSlotsHtml,
 } from "./schedule-intelligence-ui.js";
 
 const API = "/api/schedule/v1";
@@ -89,8 +90,16 @@ async function api(path, opts = {}) {
 }
 
 function renderWeather(weather) {
-  $("day-weather").innerHTML = "";
-  $("day-weather").classList.add("hidden");
+  const el = $("day-weather");
+  if (!el) return;
+  const html = renderWeatherSlotsHtml(weather?.slots, { inline: false, practical: true });
+  if (!html) {
+    el.innerHTML = "";
+    el.classList.add("hidden");
+    return;
+  }
+  el.classList.remove("hidden");
+  el.innerHTML = html;
 }
 
 function renderDepartureSection(detail) {

@@ -7,6 +7,8 @@ import {
   buildTomsFormatPreviewV1,
   createEstimateFromSurveyV1,
   createInvoiceFromEstimateV1,
+  createStandaloneEstimateV1,
+  createStandaloneInvoiceV1,
   duplicateEstimateV1,
   finalizeEstimateV1,
   getEstimatePdfContextV1,
@@ -113,6 +115,46 @@ estimateV1Router.post("/from-survey/:surveyProjectId", ...estimateV1Auth, (req: 
           ? 400
           : 400;
     res.status(status).json({ error: msg });
+  }
+});
+
+estimateV1Router.post("/standalone-estimate", ...estimateV1Auth, (req: AuthedRequest, res) => {
+  if (!assertEstimateV1Role(req, res)) return;
+  try {
+    const body = req.body as Record<string, unknown>;
+    const detail = createStandaloneEstimateV1(
+      {
+        addressee: String(body.addressee ?? ""),
+        subject: String(body.subject ?? ""),
+        workLocation: body.workLocation != null ? String(body.workLocation) : "",
+        items: Array.isArray(body.items) ? (body.items as Partial<EstimateLineItem>[]) : [],
+      },
+      req.admin?.username
+    );
+    res.status(201).json(detail);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "create failed";
+    res.status(400).json({ error: msg });
+  }
+});
+
+estimateV1Router.post("/standalone-invoice", ...estimateV1Auth, (req: AuthedRequest, res) => {
+  if (!assertEstimateV1Role(req, res)) return;
+  try {
+    const body = req.body as Record<string, unknown>;
+    const detail = createStandaloneInvoiceV1(
+      {
+        addressee: String(body.addressee ?? ""),
+        subject: String(body.subject ?? ""),
+        workLocation: body.workLocation != null ? String(body.workLocation) : "",
+        items: Array.isArray(body.items) ? (body.items as Partial<EstimateLineItem>[]) : [],
+      },
+      req.admin?.username
+    );
+    res.status(201).json(detail);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "create failed";
+    res.status(400).json({ error: msg });
   }
 });
 

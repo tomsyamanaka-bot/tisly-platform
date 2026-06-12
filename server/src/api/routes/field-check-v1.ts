@@ -5,6 +5,7 @@ import type { ProjectRefV1 } from "../../field-ops/field-ops-types.js";
 import {
   addManualFieldCheckItemV1,
   completeFieldCheckSessionV1,
+  createFieldCheckProjectV1,
   deleteFieldCheckItemV1,
   generateFieldCheckItemsV1,
   getFieldCheckProgressV1,
@@ -45,6 +46,22 @@ function parseCheckDate(query: Record<string, unknown>): string | undefined {
 fieldCheckV1Router.get("/projects", ...auth, (req: AuthedRequest, res) => {
   if (!assertRole(req, res)) return;
   res.json({ projects: listFieldCheckProjectsV1() });
+});
+
+fieldCheckV1Router.post("/projects", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const body = req.body as Record<string, unknown>;
+  const title = body.title != null ? String(body.title) : "";
+  try {
+    const project = createFieldCheckProjectV1({
+      title,
+      customerName: body.customerName != null ? String(body.customerName) : undefined,
+    });
+    res.status(201).json(project);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "create failed";
+    res.status(400).json({ error: msg });
+  }
 });
 
 fieldCheckV1Router.get("/items", ...auth, (req: AuthedRequest, res) => {

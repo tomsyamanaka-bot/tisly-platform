@@ -811,3 +811,55 @@ export function createInvoiceFromEstimateV1(businessProjectId: string): {
   setInvoicePdfPath(invoice.id, pdfPath);
   return { invoice: getInvoice(invoice.id)!, pdfPath };
 }
+
+export interface StandaloneDocInputV1 {
+  addressee: string;
+  subject: string;
+  workLocation?: string;
+  items: Partial<EstimateLineItem>[];
+}
+
+function createStandaloneBusinessProjectV1(input: StandaloneDocInputV1) {
+  const addressee = input.addressee.trim();
+  const subject = input.subject.trim();
+  if (!addressee) throw new Error("addressee is required");
+  if (!subject) throw new Error("subject is required");
+  const customerId = `BCU-EST-${uuid().slice(0, 8).toUpperCase()}`;
+  ensureBusinessCustomer({ id: customerId, name: addressee, type: "company" });
+  return createBusinessProject({
+    customerId,
+    customerName: addressee,
+    title: subject,
+    address: input.workLocation?.trim() ?? "",
+  });
+}
+
+export function createStandaloneEstimateV1(
+  input: StandaloneDocInputV1,
+  createdBy?: string
+): EstimateProjectV1Detail {
+  const items = normalizeLineItems(input.items);
+  if (!items.length) throw new Error("items required");
+  const project = createStandaloneBusinessProjectV1(input);
+  createEstimate(project.id, items);
+  const refreshed = getBusinessProject(project.id)!;
+  if (!refreshed.estimateId) throw new Error("estimate create failed");
+  updateEstimateHeader(refreshed.estimateId, {
+    addressee: input.addressee.trim(),
+    subject: input.subject.trim(),
+    workLocation: input.workLocation?.trim() ?? "",
+    siteName: input.subject.trim(),
+    staffName: createdBy ?? "",
+    issueDate: new Date().toISOString().slice(0, 10),
+  });
+  return getEstimateProjectV1Detail(project.id)!;
+}
+
+export function createStandaloneInvoiceV1(
+  input: StandaloneDocInputV1,
+  createdBy?: string
+): EstimateProjectV1Detail {
+  const detail = createStandaloneEstimateV1(input, createdBy);
+  createInvoiceFromEstimateV1(detail.businessProjectId);
+  return getEstimateProjectV1Detail(detail.businessProjectId)!;
+}

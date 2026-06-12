@@ -23,7 +23,7 @@
     #sync-result { font-size:0.85rem; color:#166534; margin-top:0.5rem; }
     .dev-info-grid { display:grid; grid-template-columns:minmax(8rem,auto) 1fr; gap:0.25rem 0.75rem; font-size:0.8rem; margin:0.5rem 0 0; }
     .dev-info-grid dt { color:#64748b; margin:0; }
-    .dev-info-grid dd { margin:0; color:#1e293b; word-break:normal; overflow-wrap:anywhere; }
+    .dev-info-grid dd { margin:0; color:#1e293b; word-break:normal; overflow-wrap:break-word; }
     .dev-info-grid dd.err { color:#b91c1c; }
     .dev-info-grid dd.ok { color:#166534; }
     #dev-safe-log { font-size:0.75rem; color:#64748b; margin-top:0.5rem; white-space:pre-wrap; }
@@ -39,7 +39,7 @@
     #multi-calendar-list.show { display:flex; }
     .cal-color-swatch { display:inline-block; width:0.85rem; height:0.85rem; border-radius:3px; border:1px solid rgba(0,0,0,0.15); flex-shrink:0; }
     .cal-debug-table { width:100%; border-collapse:collapse; font-size:0.75rem; margin-top:0.5rem; }
-    .cal-debug-table th, .cal-debug-table td { border:1px solid #e2e8f0; padding:0.3rem 0.4rem; text-align:left; word-break:normal; overflow-wrap:anywhere; }
+    .cal-debug-table th, .cal-debug-table td { border:1px solid #e2e8f0; padding:0.3rem 0.4rem; text-align:left; word-break:normal; overflow-wrap:break-word; }
     .cal-debug-table th { background:#f1f5f9; color:#475569; }
     .cal-debug-table td.writable-true { color:#166534; }
     .cal-debug-table td.writable-false { color:#94a3b8; }
@@ -52,6 +52,12 @@
     #multi-calendar-list label input { flex:0 0 auto; margin-top:0.2rem; width:auto; padding:0; border:none; background:transparent; }
     #multi-calendar-list .cal-color-swatch { flex:0 0 auto; }
     #multi-calendar-list .cal-label-text { flex:1 1 auto; min-width:0; max-width:100%; }
+    #auto-create { width:auto !important; flex:0 0 auto; padding:0; min-height:0; }
+    .gcal-card label.section-hint { display:flex; flex-direction:row; align-items:flex-start; gap:0.45rem; width:100%; max-width:100%; line-height:1.4; word-break:normal; overflow-wrap:break-word; white-space:normal; }
+    .sync-mode-options label input[type=radio],
+    #multi-calendar-list label input[type=checkbox],
+    .gcal-card label.section-hint input[type=checkbox] { width:auto !important; flex:0 0 auto; margin-top:0.15rem; padding:0; min-height:0; }
+    .schedule-top-actions .btn-sub { width:auto; flex-shrink:0; }
     @media (max-width: 480px) {
       .dev-info-grid { grid-template-columns:1fr; gap:0.15rem 0; }
       .dev-info-grid dt { font-size:0.72rem; margin-top:0.35rem; }
@@ -101,9 +107,9 @@
         <option value="">読み込み中…</option>
       </select>
       <div id="multi-calendar-list"></div>
-      <label class="section-hint" style="display:flex;align-items:center;gap:0.5rem;margin-top:0.65rem;">
+      <label class="section-hint gcal-checkbox-row" style="margin-top:0.65rem;">
         <input type="checkbox" id="auto-create" checked disabled />
-        Google予定から案件を自動生成（工事・緊急）
+        <span>Google予定から案件を自動生成（工事・緊急）</span>
       </label>
       <label class="section-hint" for="sync-direction">同期方向</label>
       <select id="sync-direction" class="friendly-input" disabled>

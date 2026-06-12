@@ -405,6 +405,9 @@ export function createApp(): express.Application {
   app.get("/google-calendar-settings-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "google-calendar-settings-v1.html"));
   });
+  app.get("/google-calendar-v1", (_req, res) => {
+    res.redirect(301, "/google-calendar-settings-v1");
+  });
   app.get("/survey/:projectId/report", (req, res) => {
     try {
       const html = buildSurveyReportHtml(String(req.params.projectId));

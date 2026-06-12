@@ -1,7 +1,13 @@
 import { v4 as uuid } from "uuid";
 import { getDatabase } from "../db/database.js";
+import { createBusinessProject } from "../business/business-store.js";
+import { ensureBusinessCustomer } from "../business/customer-price-rules.js";
 import { todayInTimeZone } from "../services/googleCalendar.js";
 import type { FieldCheckItemV1, FieldCheckSessionV1, ProjectRefV1 } from "./field-ops-types.js";
+
+function isDemoTitle(title: string): boolean {
+  return /DEMO|デモ/i.test(title);
+}
 
 function normalizeCheckDate(raw?: string | null): string {
   const d = String(raw ?? "").slice(0, 10);
@@ -262,10 +268,59 @@ export interface FieldCheckProjectListItemV1 {
   total: number;
 }
 
-/** Googleカレンダー連携で生成・リンクされた案件のみ（材料チェック PWA 一覧用） */
+function rowToFieldCheckProjectListItem(
+  source: ProjectRefV1["source"],
+  r: Record<string, unknown>
+): FieldCheckProjectListItemV1 {
+  const ref: ProjectRefV1 = { source, projectId: String(r.id) };
+  const progress = getFieldCheckProgressV1(ref);
+  const eventDateRaw = r.event_date ? String(r.event_date).slice(0, 10) : "";
+  const eventDate =
+    eventDateRaw && /^\d{4}-\d{2}-\d{2}$/.test(eventDateRaw) ? eventDateRaw : null;
+  return {
+    id: ref.projectId,
+    source: ref.source,
+    title: String(r.title || "案件"),
+    projectNo: String(r.project_no || ref.projectId),
+    customerName: String(r.customer_name || ""),
+    eventDate,
+    checked: progress.checked,
+    total: progress.total,
+  };
+}
+
+function mergeProjectRow(
+  deduped: Map<string, Record<string, unknown>>,
+  source: ProjectRefV1["source"],
+  r: Record<string, unknown>
+): void {
+  const key = `${source}:${r.id}`;
+  const title = String(r.title ?? "").trim();
+  if (isDemoTitle(title)) return;
+  const eventDateRaw = r.event_date ? String(r.event_date).slice(0, 10) : "";
+  const eventDate =
+    eventDateRaw && /^\d{4}-\d{2}-\d{2}$/.test(eventDateRaw) ? eventDateRaw : null;
+  const prev = deduped.get(key);
+  if (!prev) {
+    deduped.set(key, { ...r, source, title, event_date: eventDate ?? "" });
+    return;
+  }
+  const prevTitle = String(prev.title ?? "").trim();
+  const prevDate = String(prev.event_date ?? "").slice(0, 10);
+  const score = (t: string, d: string) =>
+    (t && t !== "案件" ? 100 : 0) + (d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? 10 : 0) + t.length;
+  if (score(title, eventDate ?? "") >= score(prevTitle, prevDate)) {
+    deduped.set(key, { ...r, source, title, event_date: eventDate ?? "" });
+  }
+}
+
+/** 材料チェック PWA 一覧 — カレンダー連携・現調・見積案件を統合 */
 export function listFieldCheckProjectsV1(opts?: { limit?: number }): FieldCheckProjectListItemV1[] {
   const limit = opts?.limit ?? 80;
-  const rows = getDatabase()
+  const db = getDatabase();
+  const deduped = new Map<string, Record<string, unknown>>();
+
+  const calendarRows = db
     .prepare(
       `SELECT DISTINCT
          l.project_source AS source,
@@ -294,52 +349,80 @@ export function listFieldCheckProjectsV1(opts?: { limit?: number }): FieldCheckP
        LEFT JOIN schedule_calendar_events se2
          ON se2.external_id = l.google_event_id
        WHERE (sp.project_id IS NULL OR sp.status NOT IN ('archived', 'deleted'))
-         AND NOT (
-           COALESCE(sp.site_name, sp.customer_name, se.title, se2.title, '') LIKE '%DEMO%'
-           OR COALESCE(sp.site_name, sp.customer_name, se.title, se2.title, '') LIKE '%デモ%'
-         )
        ORDER BY event_date DESC, title ASC
        LIMIT ?`
     )
     .all(limit * 3) as Array<Record<string, unknown>>;
-
-  const deduped = new Map<string, Record<string, unknown>>();
-  for (const r of rows) {
-    const key = `${r.source}:${r.id}`;
-    const title = String(r.title ?? "").trim();
-    const eventDateRaw = r.event_date ? String(r.event_date).slice(0, 10) : "";
-    const eventDate =
-      eventDateRaw && /^\d{4}-\d{2}-\d{2}$/.test(eventDateRaw) ? eventDateRaw : null;
-    const prev = deduped.get(key);
-    if (!prev) {
-      deduped.set(key, { ...r, title, event_date: eventDate ?? "" });
-      continue;
-    }
-    const prevTitle = String(prev.title ?? "").trim();
-    const prevDate = String(prev.event_date ?? "").slice(0, 10);
-    const score = (t: string, d: string) =>
-      (t && t !== "案件" ? 100 : 0) + (d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? 10 : 0) + t.length;
-    if (score(title, eventDate ?? "") >= score(prevTitle, prevDate)) {
-      deduped.set(key, { ...r, title, event_date: eventDate ?? "" });
-    }
+  for (const r of calendarRows) {
+    mergeProjectRow(deduped, String(r.source) as ProjectRefV1["source"], r);
   }
 
-  return [...deduped.values()].slice(0, limit).map((r) => {
-    const ref: ProjectRefV1 = {
-      source: String(r.source) as ProjectRefV1["source"],
-      projectId: String(r.id),
-    };
-    const progress = getFieldCheckProgressV1(ref);
-    const eventDate = r.event_date ? String(r.event_date).slice(0, 10) : null;
-    return {
-      id: ref.projectId,
-      source: ref.source,
-      title: String(r.title || "案件"),
-      projectNo: String(r.project_no || ref.projectId),
-      customerName: String(r.customer_name || ""),
-      eventDate: eventDate && /^\d{4}-\d{2}-\d{2}$/.test(eventDate) ? eventDate : null,
-      checked: progress.checked,
-      total: progress.total,
-    };
+  const surveyRows = db
+    .prepare(
+      `SELECT sp.project_id AS id,
+         COALESCE(NULLIF(sp.site_name, ''), NULLIF(sp.customer_name, ''), sp.project_id) AS title,
+         COALESCE(sp.project_no, sp.project_id) AS project_no,
+         COALESCE(sp.customer_name, '') AS customer_name,
+         NULLIF(sp.survey_date, '') AS event_date
+       FROM survey_projects sp
+       WHERE sp.status NOT IN ('archived', 'deleted')
+       ORDER BY sp.survey_date DESC, sp.updated_at DESC
+       LIMIT ?`
+    )
+    .all(limit * 2) as Array<Record<string, unknown>>;
+  for (const r of surveyRows) {
+    mergeProjectRow(deduped, "survey", r);
+  }
+
+  const businessRows = db
+    .prepare(
+      `SELECT bp.id AS id,
+         COALESCE(NULLIF(bp.title, ''), NULLIF(bp.customer_name, ''), bp.id) AS title,
+         COALESCE(bp.project_no, bp.id) AS project_no,
+         COALESCE(bp.customer_name, '') AS customer_name,
+         NULL AS event_date
+       FROM business_projects bp
+       WHERE bp.status NOT IN ('archived', 'deleted')
+       ORDER BY bp.updated_at DESC
+       LIMIT ?`
+    )
+    .all(limit * 2) as Array<Record<string, unknown>>;
+  for (const r of businessRows) {
+    mergeProjectRow(deduped, "business", r);
+  }
+
+  return [...deduped.values()]
+    .sort((a, b) => {
+      const da = String(a.event_date ?? "");
+      const dbDate = String(b.event_date ?? "");
+      if (da !== dbDate) return dbDate.localeCompare(da);
+      return String(a.title ?? "").localeCompare(String(b.title ?? ""), "ja");
+    })
+    .slice(0, limit)
+    .map((r) =>
+      rowToFieldCheckProjectListItem(String(r.source) as ProjectRefV1["source"], r)
+    );
+}
+
+export function createFieldCheckProjectV1(input: {
+  title: string;
+  customerName?: string;
+}): FieldCheckProjectListItemV1 {
+  const title = input.title.trim();
+  if (!title) throw new Error("title is required");
+  const customerName = (input.customerName ?? title).trim() || title;
+  const customerId = `BCU-FC-${uuid().slice(0, 8).toUpperCase()}`;
+  ensureBusinessCustomer({ id: customerId, name: customerName, type: "company" });
+  const project = createBusinessProject({
+    customerId,
+    customerName,
+    title,
+  });
+  return rowToFieldCheckProjectListItem("business", {
+    id: project.id,
+    title: project.title,
+    project_no: project.projectNo,
+    customer_name: project.customerName,
+    event_date: todayInTimeZone(),
   });
 }

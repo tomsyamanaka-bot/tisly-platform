@@ -251,12 +251,38 @@ function renderSessions(sessions) {
     .join("");
 }
 
+async function addProject() {
+  const input = $("project-title-input");
+  const title = input?.value?.trim();
+  if (!title) {
+    toast("案件名を入力してください");
+    input?.focus();
+    return;
+  }
+  try {
+    const created = await api(CHECK_API, "/projects", {
+      method: "POST",
+      body: JSON.stringify({ title }),
+    });
+    input.value = "";
+    await loadProjects();
+    await openProject({
+      id: created.id,
+      source: created.source,
+      title: created.title,
+    });
+    toast("案件を追加しました");
+  } catch (e) {
+    toast(e.message);
+  }
+}
+
 async function loadProjects() {
   const data = await api(CHECK_API, "/projects");
   const projects = data.projects || [];
   if (!projects.length) {
     $("project-list").innerHTML =
-      "<p class='section-hint'>Googleカレンダー連携の案件がありません。<br>日程画面でGoogle同期後、工事予定から案件が自動生成されます。</p>";
+      "<p class='section-hint'>案件がありません。<br>上の入力欄から案件を追加するか、日程でGoogle同期後に自動生成された案件を選べます。</p>";
     return;
   }
   $("project-list").innerHTML = projects
@@ -375,6 +401,13 @@ async function main() {
   $("btn-back")?.addEventListener("click", showProjects);
   $("btn-complete")?.addEventListener("click", completeSession);
   $("btn-add-material")?.addEventListener("click", addMaterial);
+  $("btn-add-project")?.addEventListener("click", addProject);
+  $("project-title-input")?.addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter") {
+      ev.preventDefault();
+      addProject();
+    }
+  });
   $("material-input")?.addEventListener("keydown", (ev) => {
     if (ev.key === "Enter") {
       ev.preventDefault();

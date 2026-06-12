@@ -308,15 +308,22 @@ export function renderTomsInvoiceHeaderTable(header: TomsInvoiceHeader): string 
 }
 
 export function renderTomsLineItemsTable(
-  items: Array<{ lineNo?: number; description: string; quantity: number; unitPrice: number; amount: number }>
+  items: Array<{
+    lineNo?: number;
+    description: string;
+    quantity: number;
+    unit?: string;
+    unitPrice: number;
+    amount: number;
+  }>
 ): string {
   const rows = items
     .map(
       (i, idx) =>
-        `<tr><td class="num col-no">${i.lineNo ?? idx + 1}</td><td class="col-desc">${escapeHtmlMultiline(i.description)}</td><td class="num col-qty">${i.quantity}</td><td class="num col-price">¥${i.unitPrice.toLocaleString("ja-JP")}</td><td class="num col-amount">¥${i.amount.toLocaleString("ja-JP")}</td></tr>`
+        `<tr><td class="num col-no">${i.lineNo ?? idx + 1}</td><td class="col-desc">${escapeHtmlMultiline(i.description)}</td><td class="num col-qty">${i.quantity}</td><td class="col-unit">${escapeHtml(i.unit ?? "")}</td><td class="num col-price">¥${i.unitPrice.toLocaleString("ja-JP")}</td><td class="num col-amount">¥${i.amount.toLocaleString("ja-JP")}</td></tr>`
     )
     .join("");
-  return `<table class="items toms-official-items"><thead><tr><th class="col-no">No</th><th class="col-desc">項目</th><th class="col-qty">数量</th><th class="col-price">単価</th><th class="col-amount">金額</th></tr></thead><tbody>${rows}</tbody></table>`;
+  return `<table class="items toms-official-items"><thead><tr><th class="col-no">No</th><th class="col-desc">項目</th><th class="col-qty">数量</th><th class="col-unit">単位</th><th class="col-price">単価</th><th class="col-amount">金額</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 export function renderLineItemsTable(
@@ -327,6 +334,7 @@ export function renderLineItemsTable(
       lineNo: idx + 1,
       description: i.memo ? `${i.name}\n${i.memo}` : i.name,
       quantity: i.quantity,
+      unit: i.unit,
       unitPrice: i.unitPrice,
       amount: i.amount,
     }))

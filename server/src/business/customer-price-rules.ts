@@ -171,11 +171,30 @@ export function isPriceRuleTargetLineItem(item: {
 
 export const CUSTOMER_PDF_PRICE_RULE_NOTE = "顧客別単価ルール適用";
 
+const INTERNAL_CUSTOMER_NOTE_PATTERNS = [
+  /現調PWA\s*v1/i,
+  /SVY-[a-f0-9-]+/i,
+  /部材\d+件/,
+  /写真\d+枚/,
+  /作成:\s*\S+/,
+  /顧客別単価ルール/,
+];
+
+export function filterInternalNotesFromCustomerPdf(notes: string | null | undefined): string {
+  const raw = (notes ?? "").trim();
+  if (!raw) return "";
+  return raw
+    .split(/\n|\s*\/\s*/)
+    .map((line) => line.trim())
+    .filter((line) => line && !INTERNAL_CUSTOMER_NOTE_PATTERNS.some((p) => p.test(line)))
+    .join("\n");
+}
+
 export function buildCustomerFacingPdfNotes(
   userNotes: string | null | undefined,
   ruleName?: string | null
 ): string {
-  const base = (userNotes ?? "").trim();
+  const base = filterInternalNotesFromCustomerPdf(userNotes);
   const name = (ruleName ?? "").trim();
   if (!name || name === MANUAL_PRICE_RULE_NAME) return base;
   if (base.includes(CUSTOMER_PDF_PRICE_RULE_NOTE)) return base;
