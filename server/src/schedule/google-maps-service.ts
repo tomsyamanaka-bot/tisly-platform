@@ -2,6 +2,8 @@
 
 import type { DayDispatch } from "./route-planner-service.js";
 import type { ScheduleEvent } from "./schedule-types.js";
+import { getCachedRouteDuration, setCachedRouteDuration } from "./maps-route-cache.js";
+import { getDefaultOriginLabel, getSchedulePlannerSettingsV1 } from "./schedule-settings-store.js";
 
 export function mapsDirectionsUrl(origin: string, destination: string): string {
   const o = encodeURIComponent(origin);
@@ -53,6 +55,31 @@ export function mockDurationMin(seed: string): number {
   return 12 + (h % 25);
 }
 
+async function fetchDirectionsApiMinutes(
+  origin: string,
+  destination: string,
+  key: string
+): Promise<number | null> {
+  const params = new URLSearchParams({
+    origin,
+    destination,
+    mode: "driving",
+    language: "ja",
+    key,
+  });
+  const res = await fetch(`https://maps.googleapis.com/maps/api/directions/json?${params}`);
+  const json = (await res.json()) as {
+    status?: string;
+    routes?: Array<{ legs?: Array<{ duration?: { value?: number } }> }>;
+  };
+  const seconds = json.routes?.[0]?.legs?.[0]?.duration?.value;
+  if (json.status === "OK" && typeof seconds === "number" && seconds > 0) {
+    return Math.max(1, Math.round(seconds / 60));
+  }
+  return null;
+}
+
+/** 出発リマインダー等 — API未設定時は目安（mock） */
 export async function fetchDrivingDurationMin(
   origin: string,
   destination: string
@@ -63,29 +90,59 @@ export async function fetchDrivingDurationMin(
     return { minutes: mockDurationMin(seed), source: "mock" };
   }
   try {
-    const params = new URLSearchParams({
-      origin,
-      destination,
-      mode: "driving",
-      language: "ja",
-      key,
-    });
-    const res = await fetch(`https://maps.googleapis.com/maps/api/directions/json?${params}`);
-    const json = (await res.json()) as {
-      status?: string;
-      routes?: Array<{ legs?: Array<{ duration?: { value?: number } }> }>;
-    };
-    const seconds = json.routes?.[0]?.legs?.[0]?.duration?.value;
-    if (json.status === "OK" && typeof seconds === "number" && seconds > 0) {
-      return { minutes: Math.max(1, Math.round(seconds / 60)), source: "api" };
-    }
+    const minutes = await fetchDirectionsApiMinutes(origin, destination, key);
+    if (minutes != null) return { minutes, source: "api" };
   } catch {
     /* fallback to mock */
   }
   return { minutes: mockDurationMin(seed), source: "mock" };
 }
 
-const DEFAULT_ORIGIN = process.env.DISPATCH_DEFAULT_ORIGIN ?? "事務所（守谷市）";
+/** 日程インテリジェンス — API未設定時は null（mock しない） */
+export async function fetchDrivingDurationMinForIntelligence(
+  origin: string,
+  destination: string,
+  routeDate: string
+): Promise<{ minutes: number | null; source: MapsDurationSource; cacheHit: boolean }> {
+  const cached = getCachedRouteDuration(origin, destination, routeDate);
+  if (cached) {
+    return {
+      minutes: cached.durationMin,
+      source: cached.durationSource,
+      cacheHit: true,
+    };
+  }
+
+  const key = process.env.GOOGLE_MAPS_API_KEY?.trim();
+  if (!key) {
+    setCachedRouteDuration(origin, destination, routeDate, null, "none");
+    return { minutes: null, source: "none", cacheHit: false };
+  }
+
+  try {
+    const minutes = await fetchDirectionsApiMinutes(origin, destination, key);
+    const source: MapsDurationSource = minutes != null ? "api" : "none";
+    setCachedRouteDuration(origin, destination, routeDate, minutes, source);
+    return { minutes, source, cacheHit: false };
+  } catch {
+    setCachedRouteDuration(origin, destination, routeDate, null, "none");
+    return { minutes: null, source: "none", cacheHit: false };
+  }
+}
+
+function resolveDefaultOrigin(): string {
+  const fromSettings = getSchedulePlannerSettingsV1().defaultOrigin.trim();
+  if (fromSettings) return fromSettings;
+  return process.env.DISPATCH_DEFAULT_ORIGIN?.trim() ?? "";
+}
+
+export function getDefaultDepartureOrigin(): string {
+  return resolveDefaultOrigin();
+}
+
+export function getDefaultDepartureOriginLabel(): string {
+  return getDefaultOriginLabel();
+}
 
 function firstSiteDestination(
   dispatch: DayDispatch | null,
@@ -105,18 +162,19 @@ export async function buildDayTravelBlocks(
   events: ScheduleEvent[]
 ): Promise<DayTravelBlock[]> {
   const blocks: DayTravelBlock[] = [];
+  const defaultOrigin = resolveDefaultOrigin() || "事務所（守谷市）";
   const firstDest = firstSiteDestination(dispatch, events);
   if (firstDest) {
-    const dur = await fetchDrivingDurationMin(DEFAULT_ORIGIN, firstDest);
+    const dur = await fetchDrivingDurationMin(defaultOrigin, firstDest);
     blocks.push({
       id: `${date}-current-to-first`,
       kind: "current_to_site",
       label: `現在地 → ${firstDest}`,
-      origin: DEFAULT_ORIGIN,
+      origin: defaultOrigin,
       destination: firstDest,
       durationMin: dur.minutes,
       durationSource: dur.source,
-      mapsUrl: mapsDirectionsUrl(DEFAULT_ORIGIN, firstDest),
+      mapsUrl: mapsDirectionsUrl(defaultOrigin, firstDest),
     });
   }
   if (dispatch?.legs?.length) {

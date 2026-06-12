@@ -60,10 +60,11 @@ function mockSlots(date: string, location: string): WeatherSlot[] {
   });
 }
 
+/** 朝6-11 / 昼11-16 / 夜16-21 の代表時刻 */
 function hourIndexForPeriod(period: WeatherPeriod): number {
   if (period === "morning") return 8;
-  if (period === "afternoon") return 14;
-  return 20;
+  if (period === "afternoon") return 13;
+  return 18;
 }
 
 async function fetchOpenMeteoSlots(
@@ -89,18 +90,35 @@ async function fetchOpenMeteoSlots(
   const precips = data.hourly?.precipitation_probability ?? [];
   if (!times.length) return null;
 
-  const defs: Array<{ period: WeatherPeriod; label: string }> = [
-    { period: "morning", label: "朝" },
-    { period: "afternoon", label: "昼" },
-    { period: "night", label: "夜" },
+  const periodHours: Array<{ period: WeatherPeriod; label: string; start: number; end: number }> = [
+    { period: "morning", label: "朝", start: 6, end: 11 },
+    { period: "afternoon", label: "昼", start: 11, end: 16 },
+    { period: "night", label: "夜", start: 16, end: 21 },
   ];
 
-  return defs.map((d) => {
-    const targetHour = hourIndexForPeriod(d.period);
-    let idx = times.findIndex((t) => t.startsWith(`${date}T${String(targetHour).padStart(2, "0")}`));
-    if (idx < 0) idx = Math.min(times.length - 1, targetHour);
-    const precip = Math.round(precips[idx] ?? 0);
-    const tempC = Math.round(temps[idx] ?? 20);
+  return periodHours.map((d) => {
+    const rangeIndices: number[] = [];
+    for (let h = d.start; h < d.end; h++) {
+      const prefix = `${date}T${String(h).padStart(2, "0")}`;
+      const idx = times.findIndex((t) => t.startsWith(prefix));
+      if (idx >= 0) rangeIndices.push(idx);
+    }
+    let precip = 0;
+    let tempC = 20;
+    if (rangeIndices.length) {
+      precip = Math.round(
+        rangeIndices.reduce((sum, i) => sum + (precips[i] ?? 0), 0) / rangeIndices.length
+      );
+      tempC = Math.round(
+        rangeIndices.reduce((sum, i) => sum + (temps[i] ?? 20), 0) / rangeIndices.length
+      );
+    } else {
+      const targetHour = hourIndexForPeriod(d.period);
+      let idx = times.findIndex((t) => t.startsWith(`${date}T${String(targetHour).padStart(2, "0")}`));
+      if (idx < 0) idx = Math.min(times.length - 1, targetHour);
+      precip = Math.round(precips[idx] ?? 0);
+      tempC = Math.round(temps[idx] ?? 20);
+    }
     return {
       period: d.period,
       label: d.label,

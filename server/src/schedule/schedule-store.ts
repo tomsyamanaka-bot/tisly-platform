@@ -36,6 +36,7 @@ import {
   ensureDayDeparture,
   findFirstConstructionEvent,
 } from "./schedule-day-departures-store.js";
+import { buildDayScheduleIntelligence } from "./schedule-intelligence-service.js";
 
 const WEEKDAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
 
@@ -272,6 +273,7 @@ export async function getScheduleDayDetail(
   const firstConstruction = findFirstConstructionEvent(day.events);
   day.firstConstructionEventId = firstConstruction?.id ?? null;
   day.departure = departure;
+  const intelligence = await buildDayScheduleIntelligence(date, day.events);
   return {
     day,
     weather,
@@ -284,6 +286,7 @@ export async function getScheduleDayDetail(
     departure,
     siteStops: buildSiteStopsForDay(dispatch),
     workSessions: listWorkSessionsForDate(date),
+    intelligence,
   };
 }
 

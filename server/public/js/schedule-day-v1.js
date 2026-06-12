@@ -27,6 +27,10 @@ import {
   bindWorkSessionPanels,
   renderWorkSessionPanel,
 } from "./work-session-ui.js";
+import {
+  renderDayIntelligenceEvents,
+  renderDayIntelligenceSummary,
+} from "./schedule-intelligence-ui.js";
 
 const API = "/api/schedule/v1";
 const WORK_API = "/api/work-session/v1";
@@ -119,7 +123,15 @@ function renderDepartureSection(detail) {
   });
 }
 
-function renderEvents(day) {
+function renderEvents(day, intelligence) {
+  const el = $("day-events");
+  if (intelligence?.events?.length) {
+    el.innerHTML = `<p class="section-label">📋 予定一覧（天気・移動）</p>${renderDayIntelligenceEvents(intelligence, {
+      catIcon: CAT_ICON,
+      catLabel: CAT_LABEL,
+    })}`;
+    return;
+  }
   const events = day.events.length
     ? day.events
         .map((ev) =>
@@ -132,8 +144,14 @@ function renderEvents(day) {
         )
         .join("")
     : "<p>予定はありません</p>";
-  $("day-events").innerHTML = `<p class="section-label">📋 予定一覧</p>${events}`;
-  bindEventDescSnippets($("day-events"));
+  el.innerHTML = `<p class="section-label">📋 予定一覧</p>${events}`;
+  bindEventDescSnippets(el);
+}
+
+function renderIntelligenceSummary(intelligence) {
+  const el = $("day-intelligence-summary");
+  if (!el) return;
+  el.innerHTML = intelligence ? renderDayIntelligenceSummary(intelligence) : "";
 }
 
 function renderDepartureAlert(detail) {
@@ -287,7 +305,8 @@ async function loadDay(date) {
   renderDepartureAlert(detail);
   renderMemoSummary(detail);
   renderDepartureSection(detail);
-  renderEvents(detail.day);
+  renderEvents(detail.day, detail.intelligence);
+  renderIntelligenceSummary(detail.intelligence);
   renderTravel(detail);
   renderDispatch(detail.dispatch);
   renderSiteWorkSessions(detail);

@@ -111,6 +111,7 @@ export function createApp(): express.Application {
   app.use("/api/survey/v1", surveyV1Router);
   app.use("/api/estimate/v1", estimateV1Router);
   app.use("/api/schedule/v1", scheduleRouter);
+  app.use("/api/schedule", scheduleRouter);
   app.use("/api/google-calendar", googleCalendarRouter);
   app.use("/api/debug/google-calendar", googleCalendarDebugRouter);
 

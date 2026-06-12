@@ -506,6 +506,53 @@ async function loadCalendars(selectedId) {
   }
 }
 
+async function scheduleApi(path, opts = {}) {
+  const token = getCustomerToken();
+  const res = await fetch(`/api/schedule/v1${path}`, {
+    ...opts,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      ...(opts.headers || {}),
+    },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(apiErrorMessage(data, res.status));
+  return data;
+}
+
+async function loadScheduleOriginSettings() {
+  try {
+    const data = await scheduleApi("/settings");
+    const input = $("default-origin-input");
+    if (input) input.value = data.defaultOrigin || "";
+    const display = $("default-origin-display");
+    if (display) {
+      display.textContent = data.defaultOriginDisplay
+        ? `表示用: ${data.defaultOriginDisplay}`
+        : "未設定（移動時間の起点は空欄のまま）";
+    }
+  } catch (e) {
+    $("default-origin-display").textContent = e.message || "読み込み失敗";
+  }
+}
+
+async function runIntelligenceDebug() {
+  const date =
+    $("intel-debug-date")?.value || new Date().toISOString().slice(0, 10);
+  const out = $("intel-debug-output");
+  try {
+    const data = await scheduleApi(`/intelligence/debug?date=${encodeURIComponent(date)}`);
+    $("intel-maps-configured").textContent = data.mapsApiConfigured ? "true" : "false";
+    $("intel-maps-configured").className = data.mapsApiConfigured ? "ok" : "err";
+    $("intel-default-origin").textContent =
+      data.defaultOriginDisplay || data.defaultOriginLabel || data.defaultOrigin || "（未設定）";
+    if (out) out.textContent = JSON.stringify(data, null, 2);
+  } catch (e) {
+    if (out) out.textContent = e.message || "デバッグ取得失敗";
+  }
+}
+
 async function init() {
   await requireCustomerLogin(customerCodeFromPath());
   initPracticalNav({
@@ -513,6 +560,24 @@ async function init() {
     appName: "Googleカレンダー",
     theme: "blue",
   });
+
+  const today = new Date().toISOString().slice(0, 10);
+  const intelDate = $("intel-debug-date");
+  if (intelDate && !intelDate.value) intelDate.value = today;
+  await loadScheduleOriginSettings();
+  $("btn-save-origin")?.addEventListener("click", async () => {
+    try {
+      await scheduleApi("/settings", {
+        method: "PATCH",
+        body: JSON.stringify({ defaultOrigin: $("default-origin-input")?.value ?? "" }),
+      });
+      toast("通常出発地を保存しました");
+      await loadScheduleOriginSettings();
+    } catch (e) {
+      toast(e.message || "保存に失敗しました");
+    }
+  });
+  $("btn-intel-debug")?.addEventListener("click", () => runIntelligenceDebug());
 
   const params = new URLSearchParams(window.location.search);
   renderOAuthDebugFromParams(params);

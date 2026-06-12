@@ -39,6 +39,8 @@ import {
 import { touchGoogleCalendarLastSync } from "../../schedule/google-calendar-sync-store.js";
 import {
   getCalendarSyncMeta,
+  hasCachedCalendarEvents,
+  listCachedCalendarEvents,
   recordCalendarSyncFailure,
   replaceCachedCalendarEvents,
 } from "../../schedule/schedule-calendar-store.js";
@@ -48,6 +50,17 @@ import {
   getDepartureById,
   updateDayDeparture,
 } from "../../schedule/schedule-day-departures-store.js";
+import {
+  buildDailySummaryResponse,
+  buildDayScheduleIntelligence,
+  buildScheduleIntelligenceDebug,
+} from "../../schedule/schedule-intelligence-service.js";
+import {
+  getSchedulePlannerSettingsV1,
+  maskAddressForDisplay,
+  updateSchedulePlannerSettingsV1,
+} from "../../schedule/schedule-settings-store.js";
+import { fetchCalendarEvents } from "../../services/googleCalendar.js";
 
 export const scheduleRouter = Router();
 
@@ -207,6 +220,78 @@ scheduleRouter.post("/departures/:id/test-notify", ...scheduleAuth, (req: Authed
   }
   const payload = buildDepartureNotificationPayload(departure);
   res.json({ ok: true, notification: payload, departure });
+});
+
+async function loadEventsForDate(date: string) {
+  if (hasCachedCalendarEvents()) {
+    return listCachedCalendarEvents(date, date);
+  }
+  return fetchCalendarEvents(date, date);
+}
+
+scheduleRouter.get("/settings", ...scheduleAuth, (req: AuthedRequest, res) => {
+  if (!assertScheduleRole(req, res)) return;
+  const settings = getSchedulePlannerSettingsV1();
+  res.json({
+    defaultOrigin: settings.defaultOrigin,
+    defaultOriginDisplay: settings.defaultOrigin
+      ? maskAddressForDisplay(settings.defaultOrigin)
+      : "",
+    updatedAt: settings.updatedAt,
+  });
+});
+
+scheduleRouter.patch("/settings", ...scheduleAuth, (req: AuthedRequest, res) => {
+  if (!assertScheduleRole(req, res)) return;
+  const body = req.body as { defaultOrigin?: string };
+  try {
+    const saved = updateSchedulePlannerSettingsV1({
+      defaultOrigin: body.defaultOrigin,
+    });
+    res.json({
+      defaultOrigin: saved.defaultOrigin,
+      defaultOriginDisplay: saved.defaultOrigin
+        ? maskAddressForDisplay(saved.defaultOrigin)
+        : "",
+      updatedAt: saved.updatedAt,
+    });
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : "save failed" });
+  }
+});
+
+scheduleRouter.get("/daily-summary", ...scheduleAuth, async (req: AuthedRequest, res) => {
+  if (!assertScheduleRole(req, res)) return;
+  const date = String(req.query.date ?? "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    res.status(400).json({ error: "valid date required (YYYY-MM-DD)" });
+    return;
+  }
+  try {
+    const events = await loadEventsForDate(date);
+    const intelligence = await buildDayScheduleIntelligence(date, events, {
+      includeReturnToOrigin: true,
+    });
+    res.json(buildDailySummaryResponse(intelligence));
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : "daily summary failed" });
+  }
+});
+
+scheduleRouter.get("/intelligence/debug", ...scheduleAuth, async (req: AuthedRequest, res) => {
+  if (!assertScheduleRole(req, res)) return;
+  const date = String(req.query.date ?? new Date().toISOString().slice(0, 10)).slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    res.status(400).json({ error: "valid date required (YYYY-MM-DD)" });
+    return;
+  }
+  try {
+    const events = await loadEventsForDate(date);
+    const debug = await buildScheduleIntelligenceDebug(date, events);
+    res.json({ date, ...debug });
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : "debug failed" });
+  }
 });
 
 scheduleRouter.get("/day", ...scheduleAuth, async (req: AuthedRequest, res) => {

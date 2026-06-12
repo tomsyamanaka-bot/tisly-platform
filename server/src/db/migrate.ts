@@ -201,6 +201,32 @@ export function runMigrations(database: Database.Database): void {
   migrateArrivalWorkCompletionV1(database);
   migrateGoogleCalendarSyncV1(database);
   migrateGoogleCalendarMultiCalV1(database);
+  migrateScheduleIntelligenceV1(database);
+}
+
+/** 日程調整レベル4 — 移動時間キャッシュ */
+function migrateScheduleIntelligenceV1(database: Database.Database): void {
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS schedule_route_cache (
+      cache_key TEXT PRIMARY KEY,
+      origin TEXT NOT NULL,
+      destination TEXT NOT NULL,
+      route_date TEXT NOT NULL,
+      duration_min INTEGER,
+      duration_source TEXT NOT NULL DEFAULT 'none',
+      cached_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_schedule_route_cache_date ON schedule_route_cache(route_date);
+  `);
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:schedule_intelligence_v1") as { value_json: string } | undefined;
+  if (marker) return;
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:schedule_intelligence_v1", JSON.stringify({ at: new Date().toISOString() }));
 }
 
 /** Google Calendar 複数カレンダー同期 — イベントにカレンダー色・ID を保持 */

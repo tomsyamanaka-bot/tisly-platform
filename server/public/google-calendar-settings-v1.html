@@ -59,6 +59,15 @@
     </div>
 
     <div class="friendly-card gcal-card">
+      <h2>通常出発地</h2>
+      <p class="section-hint">最初の現場への移動時間計算に使います（画面上はマスク表示）</p>
+      <label class="section-hint" for="default-origin-input">通常出発地</label>
+      <input type="text" id="default-origin-input" class="friendly-input" placeholder="例：茨城県守谷市〇〇" autocomplete="street-address" />
+      <p id="default-origin-display" class="gcal-meta"></p>
+      <button type="button" class="btn-sub" id="btn-save-origin" style="margin-top:0.5rem;">出発地を保存</button>
+    </div>
+
+    <div class="friendly-card gcal-card">
       <h2>同期カレンダー</h2>
       <p class="section-hint">同期モード</p>
       <div class="sync-mode-options" id="sync-mode-options">
@@ -84,6 +93,19 @@
       </select>
       <button type="button" class="btn-sub" id="btn-save-settings" style="margin-top:0.5rem;" disabled>設定を保存</button>
       <button type="button" class="btn-sub" id="btn-sync-test" style="margin-top:0.5rem;" disabled>選択カレンダー同期テスト</button>
+    </div>
+
+    <div class="friendly-card gcal-card" id="schedule-intel-debug-card">
+      <h2>日程インテリジェンス デバッグ</h2>
+      <p class="section-hint">Maps / 天気 / 住所抽出 / ルートキャッシュ</p>
+      <label class="section-hint" for="intel-debug-date">対象日</label>
+      <input type="date" id="intel-debug-date" class="friendly-input" />
+      <button type="button" class="btn-sub" id="btn-intel-debug" style="margin-top:0.5rem;">デバッグ取得</button>
+      <dl class="dev-info-grid" id="intel-debug-grid" style="margin-top:0.65rem;">
+        <dt>Maps API</dt><dd id="intel-maps-configured">—</dd>
+        <dt>出発地</dt><dd id="intel-default-origin">—</dd>
+      </dl>
+      <pre id="intel-debug-output" style="margin:0.5rem 0 0;font-size:0.72rem;white-space:pre-wrap;word-break:break-all;background:#f8fafc;padding:0.5rem;border-radius:8px;border:1px solid #e2e8f0;max-height:16rem;overflow:auto;"></pre>
     </div>
 
     <div class="friendly-card gcal-card" id="dev-info-card">

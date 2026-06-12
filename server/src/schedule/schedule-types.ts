@@ -4,6 +4,7 @@ import type { DayDispatch } from "./route-planner-service.js";
 import type { DayTravelBlock, MapsIntegrationStatus } from "./google-maps-service.js";
 import type { DayWeather } from "./weather-service.js";
 import type { ScheduleDayDepartureV1 } from "./schedule-day-departures-store.js";
+import type { DayScheduleIntelligence } from "./schedule-intelligence-service.js";
 
 export type ScheduleCategory = "construction" | "office" | "family" | "urgent";
 
@@ -118,6 +119,7 @@ export interface ScheduleDayDetail {
   departure?: ScheduleDayDepartureV1 | null;
   siteStops?: ScheduleDaySiteStop[];
   workSessions?: import("../field-ops/field-ops-types.js").WorkSessionV1[];
+  intelligence?: DayScheduleIntelligence;
 }
 
 export interface ScheduleMonthDayCell {
