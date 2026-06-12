@@ -34,8 +34,18 @@ export function eventCalendarBadgeHtml(ev, { compact = false } = {}) {
     : `${swatch}${text} `;
 }
 
-export function renderWeekEventItemHtml(ev, { dayDate, catIcon, previewLen = 48 } = {}) {
+export function renderWeekEventItemHtml(ev, { dayDate, catIcon, previewLen = 48, practical = false } = {}) {
   const time = formatEventTime(ev);
+  if (practical) {
+    const liStyle = eventCalendarColorStyle(ev);
+    const styleAttr = liStyle ? ` style="${liStyle.replace(/border-left:[^;]+;?/, "")}"` : "";
+    return `<li class="schedule-event-item schedule-event-practical"${styleAttr}>
+      <div class="schedule-event-body">
+        ${time ? `<div class="event-time-line">${escapeScheduleHtml(time)}</div>` : ""}
+        <div class="event-title-line">${escapeScheduleHtml(ev.title)}</div>
+      </div>
+    </li>`;
+  }
   const colorStyle = eventCalendarColorStyle(ev);
   const liStyle = colorStyle ? ` style="${colorStyle}"` : "";
   const calBadge = eventCalendarBadgeHtml(ev, { compact: true });

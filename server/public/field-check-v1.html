@@ -4,36 +4,55 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#7c5cbf" />
-  <title>TiSLY — 持ち物チェック</title>
+  <title>TiSLY — 材料チェック</title>
   <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
   <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
   <link rel="stylesheet" href="/css/field-ops-mobile.css" />
   <style>
-    .check-item { display:flex; align-items:center; gap:0.75rem; padding:0.65rem 0; border-bottom:1px solid #e8ecf0; }
+    .material-add-row { display:flex; gap:0.5rem; margin:0.75rem 0; }
+    .material-add-row input { flex:1; min-height:48px; padding:0.5rem 0.75rem; border:1px solid #e2e8f0; border-radius:8px; font-size:1rem; }
+    .material-add-row .btn-primary { flex-shrink:0; min-width:5.5rem; padding:0 1rem; }
+    .check-item { display:flex; align-items:center; gap:0.75rem; padding:0.65rem 0; border-bottom:1px solid #e8ecf0; position:relative; }
     .check-item:last-child { border-bottom:none; }
     .check-item input[type=checkbox] { width:1.35rem; height:1.35rem; flex-shrink:0; }
-    .check-item label { flex:1; cursor:pointer; }
-    .check-qty { color:#64748b; font-size:0.85rem; }
-    .session-row { font-size:0.85rem; color:#475569; padding:0.35rem 0; }
+    .check-item-label { flex:1; cursor:pointer; user-select:none; }
+    .check-item.checked .check-item-label { text-decoration:line-through; color:#94a3b8; }
+    .check-item-actions { display:flex; gap:0.25rem; opacity:0; pointer-events:none; transition:opacity 0.15s; }
+    .check-item:hover .check-item-actions,
+    .check-item:focus-within .check-item-actions,
+    .check-item.menu-open .check-item-actions { opacity:1; pointer-events:auto; }
+    .check-item-menu-btn { background:none; border:none; font-size:1.25rem; line-height:1; padding:0.25rem 0.5rem; cursor:pointer; color:#64748b; min-width:44px; min-height:44px; }
+    .check-item-menu { position:absolute; right:0; top:100%; z-index:20; background:#fff; border:1px solid #e2e8f0; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1); min-width:8rem; }
+    .check-item-menu button { display:block; width:100%; text-align:left; padding:0.65rem 0.85rem; border:none; background:none; font-size:0.95rem; cursor:pointer; }
+    .check-item-menu button:hover { background:#f1f5f9; }
+    .check-item-menu button.danger { color:#b91c1c; }
+    .material-empty { text-align:center; padding:1.5rem 0.5rem; color:#64748b; }
+    .material-empty .btn-primary { margin-top:0.75rem; }
     .progress-bar { height:6px; background:#e2e8f0; border-radius:3px; overflow:hidden; margin:0.5rem 0; }
     .progress-fill { height:100%; background:#7c5cbf; transition:width 0.2s; }
-    .shortage-banner { margin-bottom:0.75rem; padding:0.65rem 0.75rem; background:#fef2f2; border:1px solid #fca5a5; border-radius:8px; }
-    .shortage-title { margin:0; font-weight:700; color:#b91c1c; }
-    .shortage-list { margin:0.35rem 0 0; padding-left:1.1rem; color:#991b1b; font-size:0.9rem; }
+    .session-row { font-size:0.85rem; color:#475569; padding:0.35rem 0; }
+    @media (max-width: 640px) {
+      .check-item-actions { opacity:1; pointer-events:auto; }
+    }
   </style>
 </head>
 <body class="tisly-friendly field-ops-touch">
   <main class="app-main">
     <div id="view-projects">
-      <p class="section-label">🧰 持ち物チェック — 案件を選択</p>
+      <p class="section-label">🎒 材料チェック — 案件を選択</p>
       <div id="project-list" class="empty-state">読み込み中…</div>
     </div>
     <div id="view-checklist" class="hidden">
-      <div id="shortage-banner" class="shortage-banner hidden" role="alert"></div>
       <div id="project-header" class="friendly-card"></div>
       <div class="progress-bar"><div id="progress-fill" class="progress-fill" style="width:0%"></div></div>
       <p id="progress-text" class="section-hint"></p>
-      <div id="checklist" class="friendly-card"></div>
+      <div class="friendly-card">
+        <div class="material-add-row">
+          <input type="text" id="material-input" placeholder="材料を追加" autocomplete="off" enterkeyhint="done" />
+          <button type="button" class="btn-primary" id="btn-add-material">＋追加</button>
+        </div>
+        <div id="checklist"></div>
+      </div>
       <button type="button" class="btn-primary" id="btn-complete">出発前チェック完了</button>
       <p class="section-label">チェック履歴</p>
       <div id="sessions" class="friendly-card"></div>

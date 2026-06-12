@@ -421,7 +421,7 @@ function renderMultiCalendarList(calendars, selectedIds) {
     .map(
       (c) => `<label>${colorSwatchHtml(c.backgroundColor)}
         <input type="checkbox" class="multi-cal-check" value="${escapeHtml(c.id)}" ${ids.has(c.id) ? "checked" : ""} />
-        ${escapeHtml(calendarOptionLabel(c))}</label>`
+        <span class="cal-label-text">${escapeHtml(calendarOptionLabel(c))}</span></label>`
     )
     .join("");
 }

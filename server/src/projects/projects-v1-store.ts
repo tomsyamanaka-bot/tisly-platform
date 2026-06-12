@@ -11,6 +11,7 @@ import {
   getLatestWorkSessionForProject,
   listCompletionChecklistV1,
 } from "../field-ops/work-session-v1-store.js";
+import { getFieldCheckProgressV1 } from "../field-ops/field-check-v1-store.js";
 
 export type ProjectPipelineStage =
   | "survey"
@@ -27,7 +28,7 @@ export const PIPELINE_STAGE_LABELS: Record<ProjectPipelineStage, string> = {
   survey: "現調",
   estimate: "見積",
   ordered: "受注",
-  field_check: "持ち物",
+  field_check: "材料チェック",
   purchase: "発注",
   construction: "施工中",
   work_done: "完了",
@@ -146,14 +147,9 @@ function fieldOpsProgress(ref: ProjectRefV1): {
     .get(ref.source, ref.projectId) as { c: number };
   const hasTemplates = (tpl?.c ?? 0) > 0;
 
-  const fc = db
-    .prepare(
-      `SELECT COUNT(*) as total, SUM(checked) as checked FROM field_check_items
-       WHERE project_source = ? AND project_id = ?`
-    )
-    .get(ref.source, ref.projectId) as { total: number; checked: number | null };
-  const fcTotal = fc?.total ?? 0;
-  const fcChecked = fc?.checked ?? 0;
+  const fcProgress = getFieldCheckProgressV1(ref);
+  const fcTotal = fcProgress.total;
+  const fcChecked = fcProgress.checked;
   const fieldCheckDone = fcTotal > 0 && fcChecked >= fcTotal;
   const fieldCheckActive = fcTotal > 0 && !fieldCheckDone;
 

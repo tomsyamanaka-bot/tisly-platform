@@ -2,7 +2,6 @@
 
 import type { SurveyMaterialCategory } from "../survey/survey-v1-types.js";
 import type { ProjectRefV1 } from "./field-ops-types.js";
-import { generateFieldCheckItemsV1 } from "./field-check-v1-store.js";
 import { generatePurchaseLinesV1 } from "./purchase-v1-store.js";
 import { aggregateNeedsFromTemplates, setProjectWorkTemplates } from "./work-templates-store.js";
 import { getDatabase } from "../db/database.js";
@@ -18,7 +17,6 @@ export function applyWorkTemplatesToProject(
   surveyMaterialCount: number;
 } {
   const applied = setProjectWorkTemplates(ref, templateIds);
-  const fieldItems = generateFieldCheckItemsV1(ref);
   const purchaseLines = generatePurchaseLinesV1(ref);
   let surveyMaterialCount = 0;
   if (ref.source === "survey") {
@@ -26,7 +24,7 @@ export function applyWorkTemplatesToProject(
   }
   return {
     templateIds: applied,
-    fieldCheckCount: fieldItems.length,
+    fieldCheckCount: 0,
     purchaseLineCount: purchaseLines.length,
     surveyMaterialCount,
   };

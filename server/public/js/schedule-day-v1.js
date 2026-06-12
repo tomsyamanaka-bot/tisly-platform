@@ -89,16 +89,8 @@ async function api(path, opts = {}) {
 }
 
 function renderWeather(weather) {
-  if (!weather?.slots?.length) {
-    $("day-weather").innerHTML = "";
-    return;
-  }
-  $("day-weather").innerHTML = weather.slots
-    .map((slot) => {
-      const rainCls = slot.highlightRain ? ' style="color:#b91c1c;font-weight:600;"' : "";
-      return `<span class="weather-slot"${rainCls}>${slot.icon}${slot.label} ${slot.precipChance}% ${slot.tempC}℃</span>`;
-    })
-    .join(" ");
+  $("day-weather").innerHTML = "";
+  $("day-weather").classList.add("hidden");
 }
 
 function renderDepartureSection(detail) {
@@ -126,18 +118,19 @@ function renderDepartureSection(detail) {
 }
 
 function enrichIntelligenceWithDeparture(intelligence, departure, firstEventId) {
-  if (!intelligence?.events?.length || !departure?.fieldCheckProgress?.total) return intelligence;
+  if (!intelligence?.events?.length || !departure?.fieldCheckUrl) return intelligence;
   const idx = intelligence.events.findIndex((ev) => ev.eventId === firstEventId);
   const targetIdx = idx >= 0 ? idx : 0;
   const ev = intelligence.events[targetIdx];
-  if (ev?.fieldCheck?.total) return intelligence;
+  if (ev?.fieldCheck?.url) return intelligence;
+  const progress = departure.fieldCheckProgress ?? { checked: 0, total: 0 };
   const events = intelligence.events.map((item, i) =>
     i === targetIdx
       ? {
           ...item,
           fieldCheck: {
-            checked: departure.fieldCheckProgress.checked,
-            total: departure.fieldCheckProgress.total,
+            checked: progress.checked,
+            total: progress.total,
             url: departure.fieldCheckUrl,
           },
         }
@@ -154,27 +147,29 @@ function renderEvents(day, intelligence, departure) {
     day.firstConstructionEventId
   );
   if (intel?.events?.length) {
-    el.innerHTML = `<p class="section-label">📋 予定一覧</p>${renderDayIntelligenceEvents(intel, {
+    el.innerHTML = renderDayIntelligenceEvents(intel, {
       catIcon: CAT_ICON,
       catLabel: CAT_LABEL,
-    })}`;
+    });
     bindIntelligenceEventCards(el);
     return;
   }
   const events = day.events.length
     ? day.events
-        .map((ev) =>
-          renderScheduleEventLine(ev, {
-            eventKey: ev.id,
-            catIcon: CAT_ICON,
-            catLabel: CAT_LABEL,
-            previewLen: 80,
-          })
-        )
+        .map((ev) => {
+          const time = ev.allDay
+            ? "終日"
+            : [ev.startTime, ev.endTime].filter(Boolean).join("〜");
+          return `<article class="schedule-intel-card schedule-intel-card-compact">
+            <div class="schedule-intel-summary schedule-intel-practical">
+              ${time ? `<div class="schedule-intel-time">${escapeHtml(time)}</div>` : ""}
+              <div class="schedule-intel-title">${escapeHtml(ev.title)}</div>
+            </div>
+          </article>`;
+        })
         .join("")
-    : "<p>予定はありません</p>";
-  el.innerHTML = `<p class="section-label">📋 予定一覧</p>${events}`;
-  bindEventDescSnippets(el);
+    : "<p class='section-hint'>予定はありません</p>";
+  el.innerHTML = events;
 }
 
 function renderIntelligenceSummary(intelligence) {
@@ -218,49 +213,15 @@ function renderTravel(detail) {
 function renderMemoSummary(detail) {
   const el = $("day-memo-summary");
   if (!el) return;
-  el.innerHTML = `
-    <p class="section-label" style="margin:0 0 0.35rem;">📝 日付メモ・現場不可・備考</p>
-    ${renderDayMemoSummary({
-      memo: detail.memo,
-      eventRemark: detail.eventRemark,
-      unavailable: detail.day.unavailable,
-    })}
-    <p class="section-hint" style="margin:0.5rem 0 0;font-size:0.82rem;">タップして編集</p>`;
+  el.classList.add("hidden");
+  el.innerHTML = "";
 }
 
 function renderSiteWorkSessions(detail) {
   const el = $("day-work-sessions");
   if (!el) return;
-  const stops = detail.siteStops || [];
-  if (!stops.length) {
-    el.classList.add("hidden");
-    el.innerHTML = "";
-    return;
-  }
-  const sessionsByKey = new Map(
-    (detail.workSessions || []).map((s) => [`${s.projectSource}:${s.projectId}`, s])
-  );
-  el.classList.remove("hidden");
-  el.innerHTML = `<p class="section-label">📍 現場作業</p>${stops
-    .map((stop) => {
-      const session = sessionsByKey.get(`${stop.projectSource}:${stop.projectId}`) ?? null;
-      return renderWorkSessionPanel({
-        projectSource: stop.projectSource,
-        projectId: stop.projectId,
-        projectTitle: stop.title,
-        workDate: currentDate,
-        session,
-        compact: true,
-      });
-    })
-    .join("")}`;
-  bindWorkSessionPanels(el, {
-    apiFetch: workApi,
-    toast,
-    onUpdated: async () => {
-      if (currentDate) await loadDay(currentDate);
-    },
-  });
+  el.classList.add("hidden");
+  el.innerHTML = "";
 }
 
 async function workApi(path, opts = {}) {
@@ -279,29 +240,8 @@ async function workApi(path, opts = {}) {
 }
 
 function renderDispatch(dispatch) {
-  if (!dispatch?.stops?.length) {
-    $("day-dispatch").classList.add("hidden");
-    return;
-  }
-  $("day-dispatch").classList.remove("hidden");
-  const stops = dispatch.stops
-    .map((s, i) => {
-      const leg = dispatch.legs[i];
-      const legHtml = leg
-        ? `<div class="dispatch-leg">↓ ${leg.durationMin}分</div>`
-        : "";
-      const navBtn = renderNavIconButton(s.navUrl);
-      return `${legHtml}<div class="dispatch-stop">
-        <strong>${escapeHtml(s.time)}</strong> ${escapeHtml(s.title)}
-        ${s.address ? `<br><small>${escapeHtml(s.address)}</small>` : ""}
-        ${navBtn}
-      </div>`;
-    })
-    .join("");
-  $("day-dispatch").innerHTML = `
-    <p class="section-label">🚐 本日の配車</p>
-    <p>${escapeHtml(dispatch.driver)} / ${escapeHtml(dispatch.vehicle)}</p>
-    ${stops}`;
+  $("day-dispatch").classList.add("hidden");
+  $("day-dispatch").innerHTML = "";
 }
 
 function openEditForCurrentDate() {
@@ -348,12 +288,7 @@ async function loadDay(date) {
     departure: detail.departure,
   });
   const maps = $("day-maps");
-  if (detail.mapsUrl) {
-    maps.href = detail.mapsUrl;
-    maps.style.display = "block";
-  } else {
-    maps.style.display = "none";
-  }
+  if (maps) maps.style.display = "none";
 }
 
 async function loadReasonPresets() {
@@ -394,11 +329,8 @@ async function init() {
     const status = await api("/oauth/status");
     const badgeEl = $("integration-badges");
     if (badgeEl) {
-      badgeEl.innerHTML = renderIntegrationBadges(
-        status.calendarIntegration?.label,
-        status.mapsIntegration?.label,
-        status.mapsIntegration?.hint
-      );
+      badgeEl.innerHTML = "";
+      badgeEl.classList.add("hidden");
     }
     await loadDay(date);
     if (new URLSearchParams(window.location.search).get("edit") === "1") {

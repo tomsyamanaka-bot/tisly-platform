@@ -25,7 +25,7 @@
       cursor: pointer;
     }
     .event-desc-snippet[aria-expanded="true"] { color: #0f172a; white-space: pre-wrap; }
-    .integration-badges { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.35rem 0 0.15rem; }
+    .integration-badges { display: none !important; }
     .integration-badge { font-size: 0.72rem; padding: 0.15rem 0.45rem; border-radius: 999px; font-weight: 600; }
     .integration-badge.live { background: #dcfce7; color: #166534; }
     .integration-badge.mock { background: #fef3c7; color: #92400e; }
@@ -178,7 +178,7 @@
         <button type="button" id="btn-next-week" aria-label="次の7日間">＞</button>
       </div>
       <button type="button" class="btn-sub hidden" id="btn-this-week" style="width:100%;margin-bottom:0.75rem;">今日に戻る</button>
-      <div id="week-summary" class="schedule-summary-grid"></div>
+      <div id="week-summary" class="schedule-summary-grid hidden"></div>
       <div id="week-days"></div>
     </div>
 

@@ -172,13 +172,8 @@ function showMode(mode) {
 
 function renderSummary(summary) {
   if (!summary) return;
-  $("week-summary").innerHTML = `
-    <div class="schedule-summary-item"><strong>${summary.constructionCount}</strong>工事</div>
-    <div class="schedule-summary-item"><strong>${summary.officeCount}</strong>事務</div>
-    <div class="schedule-summary-item"><strong>${summary.familyCount}</strong>家族</div>
-    <div class="schedule-summary-item"><strong>${summary.unavailableDays}</strong>現場不可</div>
-    <div class="schedule-summary-item"><strong>${summary.freeDays}</strong>空き日</div>
-    <div class="schedule-summary-item"><strong>${summary.totalEvents}</strong>総予定</div>`;
+  $("week-summary").innerHTML = "";
+  $("week-summary").classList.add("hidden");
 }
 
 function renderWeatherMini(weather) {
@@ -237,6 +232,7 @@ function renderWeekDays(days, today = todayIso()) {
             dayDate: day.date,
             catIcon: CAT_ICON,
             previewLen: 48,
+            practical: true,
           });
           if (!departureHtml) return itemHtml;
           return itemHtml.replace(
@@ -249,15 +245,12 @@ function renderWeekDays(days, today = todayIso()) {
       const unavail = day.unavailable
         ? `<span class="schedule-unavail-badge">🚫 現場不可</span>`
         : "";
-      const availStars = escapeHtml(day.availability?.stars || "");
-      const availLabel = escapeHtml(day.availability?.label || "");
       const todayCls = isToday ? " schedule-day-today" : "";
       return `<article class="${dayCardClass(day)} schedule-day-compact${todayCls}" data-date="${day.date}" role="button" tabindex="0">
         <div class="schedule-day-head schedule-day-head-compact">
           <div class="schedule-day-head-main">
             <span class="schedule-day-date">${formatDateShort(day.date)}（${day.weekday}）${todayBadge}</span>
             <span class="schedule-day-count">予定${day.eventCount}件</span>
-            <span class="schedule-day-avail-inline"><span class="stars">${availStars}</span> ${availLabel}</span>
           </div>
         </div>
         ${unavail}
@@ -303,7 +296,7 @@ function renderThreeWeekBlocks(blocks) {
           .map(
             (day) => `<button type="button" class="schedule-mini-day" data-date="${day.date}">
               <span class="schedule-mini-day-date">${formatDateShort(day.date)}（${day.weekday}）</span>
-              <span>${escapeHtml(day.availability?.stars || "")} ${day.eventCount}件</span>
+              <span>${day.eventCount}件</span>
               ${day.unavailable ? '<span class="schedule-unavail-badge">不可</span>' : ""}
             </button>`
           )
@@ -482,11 +475,7 @@ function bindDayDetailActions(day) {
 
 function openDayDetailByDate(date) {
   if (!date) return;
-  openDayEditModal(date, {
-    onSaved: () => {
-      refreshCurrent().catch(() => {});
-    },
-  });
+  window.location.href = `/schedule-v1/day?date=${encodeURIComponent(date)}`;
 }
 
 function openUnavailForm(date) {

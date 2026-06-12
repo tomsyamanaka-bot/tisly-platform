@@ -195,15 +195,14 @@ function buildFieldCheckForEvent(
     { source: ref.projectSource, projectId: ref.projectId },
     date
   );
-  if (!progress || progress.total <= 0) return null;
   const q = new URLSearchParams({
     projectId: ref.projectId,
     source: ref.projectSource,
     date,
   });
   return {
-    checked: progress.checked,
-    total: progress.total,
+    checked: progress?.checked ?? 0,
+    total: progress?.total ?? 0,
     url: `/field-check-v1?${q.toString()}`,
   };
 }

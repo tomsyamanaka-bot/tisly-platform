@@ -89,7 +89,7 @@ describe("Field Operations System v1", () => {
       .set("Authorization", `Bearer ${token}`)
       .send({ templateIds: [templateId] });
     assert.equal(applied.status, 200);
-    assert.equal(applied.body.fieldCheckCount, 10);
+    assert.equal(applied.body.fieldCheckCount, 0);
     assert.ok(applied.body.purchaseLineCount >= 2, `purchase lines: ${applied.body.purchaseLineCount}`);
     assert.ok(applied.body.surveyMaterialCount >= 6);
 
@@ -110,27 +110,33 @@ describe("Field Operations System v1", () => {
     assert.equal(shortageQty, 50);
   });
 
-  it("持ち物チェックリスト取得・チェック・履歴保存", async () => {
+  it("材料チェックリスト取得・チェック・履歴保存", async () => {
+    const added = await request(app)
+      .post("/api/field-check/v1/items")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ projectSource: "survey", projectId, label: "カメラ" });
+    assert.equal(added.status, 201);
+
     const items = await request(app)
       .get(`/api/field-check/v1/items?source=survey&projectId=${projectId}`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(items.status, 200);
-    assert.equal(items.body.items.length, 10);
+    assert.equal(items.body.items.length, 1);
 
     const first = items.body.items[0];
     const checked = await request(app)
       .patch(`/api/field-check/v1/items/${first.id}`)
       .set("Authorization", `Bearer ${token}`)
-      .send({ checked: true });
+      .send({ checked: true, checkDate: "2026-06-12" });
     assert.equal(checked.status, 200);
     assert.equal(checked.body.checked, true);
 
     const session = await request(app)
       .post("/api/field-check/v1/sessions")
       .set("Authorization", `Bearer ${token}`)
-      .send({ projectSource: "survey", projectId });
+      .send({ projectSource: "survey", projectId, checkDate: "2026-06-12" });
     assert.equal(session.status, 201);
-    assert.equal(session.body.totalCount, 10);
+    assert.equal(session.body.totalCount, 1);
     assert.equal(session.body.checkedCount, 1);
 
     const hist = await request(app)
@@ -163,7 +169,7 @@ describe("Field Operations System v1", () => {
   it("持ち物・発注 PWA HTML が配信される", async () => {
     const fieldCheck = await request(app).get("/field-check-v1");
     assert.equal(fieldCheck.status, 200);
-    assert.ok(fieldCheck.text.includes("持ち物チェック"));
+    assert.ok(fieldCheck.text.includes("材料チェック"));
 
     const purchase = await request(app).get("/purchase-v1");
     assert.equal(purchase.status, 200);

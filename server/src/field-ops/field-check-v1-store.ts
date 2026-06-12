@@ -1,9 +1,19 @@
 import { v4 as uuid } from "uuid";
 import { getDatabase } from "../db/database.js";
+import { todayInTimeZone } from "../services/googleCalendar.js";
 import type { FieldCheckItemV1, FieldCheckSessionV1, ProjectRefV1 } from "./field-ops-types.js";
-import { aggregateNeedsFromTemplates, listProjectWorkTemplateIds } from "./work-templates-store.js";
 
-function rowToItem(r: Record<string, unknown>): FieldCheckItemV1 {
+function normalizeCheckDate(raw?: string | null): string {
+  const d = String(raw ?? "").slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+  return todayInTimeZone();
+}
+
+function rowToItem(
+  r: Record<string, unknown>,
+  dayState?: Record<string, unknown> | null
+): FieldCheckItemV1 {
+  const checkedFromDay = dayState != null ? Number(dayState.checked ?? 0) === 1 : false;
   return {
     id: String(r.id),
     projectSource: String(r.project_source) as ProjectRefV1["source"],
@@ -14,9 +24,9 @@ function rowToItem(r: Record<string, unknown>): FieldCheckItemV1 {
     unit: r.unit != null ? String(r.unit) : null,
     materialId: r.material_id != null ? String(r.material_id) : null,
     source: String(r.source) === "manual" ? "manual" : "auto",
-    checked: Number(r.checked ?? 0) === 1,
-    checkedAt: r.checked_at != null ? String(r.checked_at) : null,
-    checkedBy: r.checked_by != null ? String(r.checked_by) : null,
+    checked: checkedFromDay,
+    checkedAt: dayState?.checked_at != null ? String(dayState.checked_at) : null,
+    checkedBy: dayState?.checked_by != null ? String(dayState.checked_by) : null,
     sortOrder: Number(r.sort_order ?? 0),
   };
 }
@@ -35,7 +45,47 @@ function rowToSession(r: Record<string, unknown>): FieldCheckSessionV1 {
   };
 }
 
-export function listFieldCheckItemsV1(ref: ProjectRefV1): FieldCheckItemV1[] {
+function loadDayStatesForItems(
+  itemIds: string[],
+  checkDate: string
+): Map<string, Record<string, unknown>> {
+  const map = new Map<string, Record<string, unknown>>();
+  if (!itemIds.length) return map;
+  const db = getDatabase();
+  const placeholders = itemIds.map(() => "?").join(",");
+  const rows = db
+    .prepare(
+      `SELECT * FROM field_check_item_day_states
+       WHERE check_date = ? AND item_id IN (${placeholders})`
+    )
+    .all(checkDate, ...itemIds) as Array<Record<string, unknown>>;
+  for (const row of rows) {
+    map.set(String(row.item_id), row);
+  }
+  return map;
+}
+
+function sortMaterialItems(items: FieldCheckItemV1[]): FieldCheckItemV1[] {
+  return [...items].sort((a, b) => {
+    if (a.checked !== b.checked) return a.checked ? 1 : -1;
+    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+    return a.label.localeCompare(b.label, "ja");
+  });
+}
+
+export function getFieldCheckProgressV1(
+  ref: ProjectRefV1,
+  checkDate?: string
+): { checked: number; total: number } {
+  const items = listFieldCheckItemsV1(ref, checkDate);
+  return {
+    checked: items.filter((i) => i.checked).length,
+    total: items.length,
+  };
+}
+
+export function listFieldCheckItemsV1(ref: ProjectRefV1, checkDate?: string): FieldCheckItemV1[] {
+  const date = normalizeCheckDate(checkDate);
   const rows = getDatabase()
     .prepare(
       `SELECT * FROM field_check_items
@@ -43,39 +93,16 @@ export function listFieldCheckItemsV1(ref: ProjectRefV1): FieldCheckItemV1[] {
        ORDER BY sort_order ASC, label ASC`
     )
     .all(ref.source, ref.projectId) as Array<Record<string, unknown>>;
-  return rows.map(rowToItem);
+  const dayStates = loadDayStatesForItems(
+    rows.map((r) => String(r.id)),
+    date
+  );
+  const items = rows.map((r) => rowToItem(r, dayStates.get(String(r.id)) ?? null));
+  return sortMaterialItems(items);
 }
 
+/** 工事テンプレからの自動生成は廃止（材料は手動入力） */
 export function generateFieldCheckItemsV1(ref: ProjectRefV1): FieldCheckItemV1[] {
-  const db = getDatabase();
-  const templateIds = listProjectWorkTemplateIds(ref);
-  const needs = aggregateNeedsFromTemplates(templateIds);
-  db.prepare(
-    `DELETE FROM field_check_items WHERE project_source = ? AND project_id = ? AND source = 'auto'`
-  ).run(ref.source, ref.projectId);
-  const now = new Date().toISOString();
-  const insert = db.prepare(
-    `INSERT INTO field_check_items (
-      id, project_source, project_id, label, category, quantity, unit,
-      material_id, source, checked, sort_order, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'auto', 0, ?, ?, ?)`
-  );
-  let order = 0;
-  for (const n of needs) {
-    insert.run(
-      uuid(),
-      ref.source,
-      ref.projectId,
-      n.label,
-      n.category ?? (n.itemType === "tool" ? "工具" : "部材"),
-      n.qty,
-      n.unit,
-      n.materialId,
-      order++,
-      now,
-      now
-    );
-  }
   return listFieldCheckItemsV1(ref);
 }
 
@@ -102,8 +129,8 @@ export function addManualFieldCheckItemV1(
       id,
       ref.source,
       ref.projectId,
-      input.label,
-      input.category ?? "その他",
+      input.label.trim(),
+      input.category ?? "材料",
       input.quantity ?? 1,
       input.unit ?? null,
       maxOrder.n,
@@ -113,56 +140,78 @@ export function addManualFieldCheckItemV1(
   return listFieldCheckItemsV1(ref).find((i) => i.id === id)!;
 }
 
+function upsertDayCheckState(
+  itemId: string,
+  checkDate: string,
+  checked: boolean,
+  checkedBy: string | null
+): void {
+  const now = new Date().toISOString();
+  getDatabase()
+    .prepare(
+      `INSERT INTO field_check_item_day_states (item_id, check_date, checked, checked_at, checked_by)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(item_id, check_date) DO UPDATE SET
+         checked = excluded.checked,
+         checked_at = excluded.checked_at,
+         checked_by = excluded.checked_by`
+    )
+    .run(itemId, checkDate, checked ? 1 : 0, checked ? now : null, checked ? checkedBy : null);
+}
+
 export function updateFieldCheckItemV1(
   itemId: string,
-  patch: { checked?: boolean; checkedBy?: string | null; label?: string; quantity?: number }
+  patch: { checked?: boolean; checkedBy?: string | null; label?: string; quantity?: number },
+  checkDate?: string
 ): FieldCheckItemV1 | null {
   const now = new Date().toISOString();
   const row = getDatabase()
     .prepare(`SELECT * FROM field_check_items WHERE id = ?`)
     .get(itemId) as Record<string, unknown> | undefined;
   if (!row) return null;
-  const checked = patch.checked !== undefined ? (patch.checked ? 1 : 0) : Number(row.checked ?? 0);
-  const checkedAt =
-    patch.checked !== undefined ? (patch.checked ? now : null) : row.checked_at != null ? String(row.checked_at) : null;
-  const checkedBy =
-    patch.checkedBy !== undefined
-      ? patch.checkedBy
-      : row.checked_by != null
-        ? String(row.checked_by)
-        : null;
-  getDatabase()
-    .prepare(
-      `UPDATE field_check_items SET
-        checked = ?,
-        checked_at = ?,
-        checked_by = ?,
-        label = COALESCE(?, label),
-        quantity = COALESCE(?, quantity),
-        updated_at = ?
-      WHERE id = ?`
-    )
-    .run(
-      checked,
-      checkedAt,
-      checkedBy,
-      patch.label ?? null,
-      patch.quantity ?? null,
-      now,
-      itemId
-    );
-  const updated = getDatabase()
-    .prepare(`SELECT * FROM field_check_items WHERE id = ?`)
-    .get(itemId) as Record<string, unknown>;
-  return rowToItem(updated);
+
+  if (patch.label != null || patch.quantity != null) {
+    getDatabase()
+      .prepare(
+        `UPDATE field_check_items SET
+          label = COALESCE(?, label),
+          quantity = COALESCE(?, quantity),
+          updated_at = ?
+        WHERE id = ?`
+      )
+      .run(patch.label ?? null, patch.quantity ?? null, now, itemId);
+  }
+
+  if (patch.checked !== undefined) {
+    const date = normalizeCheckDate(checkDate);
+    const checkedBy =
+      patch.checkedBy !== undefined
+        ? patch.checkedBy
+        : patch.checked
+          ? "user"
+          : null;
+    upsertDayCheckState(itemId, date, patch.checked, checkedBy);
+  }
+
+  const ref: ProjectRefV1 = {
+    source: String(row.project_source) as ProjectRefV1["source"],
+    projectId: String(row.project_id),
+  };
+  return listFieldCheckItemsV1(ref, checkDate).find((i) => i.id === itemId) ?? null;
+}
+
+export function deleteFieldCheckItemV1(itemId: string): boolean {
+  const result = getDatabase().prepare(`DELETE FROM field_check_items WHERE id = ?`).run(itemId);
+  return result.changes > 0;
 }
 
 export function completeFieldCheckSessionV1(
   ref: ProjectRefV1,
   completedBy: string | null,
-  memo?: string | null
+  memo?: string | null,
+  checkDate?: string
 ): FieldCheckSessionV1 {
-  const items = listFieldCheckItemsV1(ref);
+  const items = listFieldCheckItemsV1(ref, checkDate);
   const checkedCount = items.filter((i) => i.checked).length;
   const totalCount = items.length;
   const allChecked = totalCount > 0 && checkedCount === totalCount;
@@ -200,4 +249,58 @@ export function listFieldCheckSessionsV1(ref: ProjectRefV1): FieldCheckSessionV1
     )
     .all(ref.source, ref.projectId) as Array<Record<string, unknown>>;
   return rows.map(rowToSession);
+}
+
+export interface FieldCheckProjectListItemV1 {
+  id: string;
+  source: ProjectRefV1["source"];
+  title: string;
+  projectNo: string;
+  customerName: string;
+  eventDate: string | null;
+  checked: number;
+  total: number;
+}
+
+/** Googleカレンダー連携で生成・リンクされた案件のみ（材料チェック PWA 一覧用） */
+export function listFieldCheckProjectsV1(opts?: { limit?: number }): FieldCheckProjectListItemV1[] {
+  const limit = opts?.limit ?? 80;
+  const rows = getDatabase()
+    .prepare(
+      `SELECT DISTINCT
+         l.project_source AS source,
+         l.project_id AS id,
+         COALESCE(sp.site_name, bp.title, '') AS title,
+         COALESCE(sp.project_no, bp.project_no, l.project_id) AS project_no,
+         COALESCE(sp.customer_name, bp.customer_name, '') AS customer_name,
+         COALESCE(NULLIF(sp.survey_date, ''), '') AS event_date
+       FROM google_calendar_event_links l
+       LEFT JOIN survey_projects sp
+         ON l.project_source = 'survey' AND l.project_id = sp.project_id
+       LEFT JOIN business_projects bp
+         ON l.project_source = 'business' AND l.project_id = bp.id
+       WHERE (sp.project_id IS NULL OR sp.status != 'archived')
+       ORDER BY event_date DESC, title ASC
+       LIMIT ?`
+    )
+    .all(limit) as Array<Record<string, unknown>>;
+
+  return rows.map((r) => {
+    const ref: ProjectRefV1 = {
+      source: String(r.source) as ProjectRefV1["source"],
+      projectId: String(r.id),
+    };
+    const progress = getFieldCheckProgressV1(ref);
+    const eventDate = r.event_date ? String(r.event_date).slice(0, 10) : null;
+    return {
+      id: ref.projectId,
+      source: ref.source,
+      title: String(r.title || "案件"),
+      projectNo: String(r.project_no || ref.projectId),
+      customerName: String(r.customer_name || ""),
+      eventDate: eventDate && /^\d{4}-\d{2}-\d{2}$/.test(eventDate) ? eventDate : null,
+      checked: progress.checked,
+      total: progress.total,
+    };
+  });
 }

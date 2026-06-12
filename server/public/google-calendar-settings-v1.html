@@ -23,21 +23,40 @@
     #sync-result { font-size:0.85rem; color:#166534; margin-top:0.5rem; }
     .dev-info-grid { display:grid; grid-template-columns:minmax(8rem,auto) 1fr; gap:0.25rem 0.75rem; font-size:0.8rem; margin:0.5rem 0 0; }
     .dev-info-grid dt { color:#64748b; margin:0; }
-    .dev-info-grid dd { margin:0; color:#1e293b; word-break:break-all; }
+    .dev-info-grid dd { margin:0; color:#1e293b; word-break:normal; overflow-wrap:anywhere; }
     .dev-info-grid dd.err { color:#b91c1c; }
     .dev-info-grid dd.ok { color:#166534; }
     #dev-safe-log { font-size:0.75rem; color:#64748b; margin-top:0.5rem; white-space:pre-wrap; }
-    .sync-mode-options { display:flex; flex-direction:column; gap:0.35rem; margin:0.5rem 0; }
-    .sync-mode-options label { display:flex; align-items:center; gap:0.45rem; font-size:0.88rem; cursor:pointer; }
+    .sync-mode-options { display:flex; flex-direction:column; gap:0.35rem; margin:0.5rem 0; width:100%; max-width:100%; }
+    .sync-mode-options label {
+      display:flex; flex-direction:row; align-items:flex-start; gap:0.45rem;
+      font-size:0.88rem; cursor:pointer; width:100%; max-width:100%; line-height:1.4;
+      word-break:normal; overflow-wrap:break-word; white-space:normal;
+    }
+    .sync-mode-options label input { flex-shrink:0; margin-top:0.15rem; }
+    .sync-mode-options .sync-mode-label { flex:1; min-width:0; }
     #multi-calendar-list { display:none; flex-direction:column; gap:0.3rem; margin:0.5rem 0; padding:0.5rem; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0; }
     #multi-calendar-list.show { display:flex; }
-    #multi-calendar-list label { display:flex; align-items:center; gap:0.4rem; font-size:0.85rem; cursor:pointer; }
     .cal-color-swatch { display:inline-block; width:0.85rem; height:0.85rem; border-radius:3px; border:1px solid rgba(0,0,0,0.15); flex-shrink:0; }
     .cal-debug-table { width:100%; border-collapse:collapse; font-size:0.75rem; margin-top:0.5rem; }
-    .cal-debug-table th, .cal-debug-table td { border:1px solid #e2e8f0; padding:0.3rem 0.4rem; text-align:left; word-break:break-all; }
+    .cal-debug-table th, .cal-debug-table td { border:1px solid #e2e8f0; padding:0.3rem 0.4rem; text-align:left; word-break:normal; overflow-wrap:anywhere; }
     .cal-debug-table th { background:#f1f5f9; color:#475569; }
     .cal-debug-table td.writable-true { color:#166534; }
     .cal-debug-table td.writable-false { color:#94a3b8; }
+    #calendar-select, #sync-direction, #default-origin-input { width:100%; max-width:100%; min-width:0; box-sizing:border-box; }
+    #multi-calendar-list label {
+      display:flex; flex-direction:row; align-items:flex-start; gap:0.45rem;
+      font-size:0.88rem; cursor:pointer; line-height:1.4; width:100%; max-width:100%;
+      word-break:normal; overflow-wrap:break-word; white-space:normal;
+    }
+    #multi-calendar-list label input { flex-shrink:0; margin-top:0.2rem; }
+    #multi-calendar-list .cal-label-text { flex:1; min-width:0; }
+    @media (max-width: 480px) {
+      .dev-info-grid { grid-template-columns:1fr; gap:0.15rem 0; }
+      .dev-info-grid dt { font-size:0.72rem; margin-top:0.35rem; }
+      #cal-debug-panel { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+      .cal-debug-table { min-width:28rem; }
+    }
   </style>
 </head>
 <body class="tisly-friendly">
@@ -71,10 +90,10 @@
       <h2>同期カレンダー</h2>
       <p class="section-hint">同期モード</p>
       <div class="sync-mode-options" id="sync-mode-options">
-        <label><input type="radio" name="sync-mode" value="primary_only" disabled /> primaryのみ</label>
-        <label><input type="radio" name="sync-mode" value="selected_only" disabled /> 選択カレンダーのみ</label>
-        <label><input type="radio" name="sync-mode" value="multiple" disabled /> 複数カレンダー同期</label>
-        <label><input type="radio" name="sync-mode" value="all_writable" disabled /> 全カレンダー同期</label>
+        <label><input type="radio" name="sync-mode" value="primary_only" disabled /> <span class="sync-mode-label">primaryのみ</span></label>
+        <label><input type="radio" name="sync-mode" value="selected_only" disabled /> <span class="sync-mode-label">選択カレンダーのみ</span></label>
+        <label><input type="radio" name="sync-mode" value="multiple" disabled /> <span class="sync-mode-label">複数カレンダー同期</span></label>
+        <label><input type="radio" name="sync-mode" value="all_writable" disabled /> <span class="sync-mode-label">全カレンダー同期</span></label>
       </div>
       <label class="section-hint" for="calendar-select">書き込み可能なカレンダー（選択）</label>
       <select id="calendar-select" class="friendly-input" disabled>

@@ -163,7 +163,7 @@ describe("出発リマインダー + 持ち物通知 v1", () => {
     assert.ok(notify.body.notification.url.includes("projectId="));
     assert.ok(notify.body.notification.url.includes(`date=${testDate}`));
     assert.ok(notify.body.notification.title.includes("出発準備"));
-    assert.ok(notify.body.notification.body.includes("持ち物"));
+    assert.ok(notify.body.notification.body.includes("材料チェック"));
   });
 
   it("日詳細 API に departure が含まれる", async () => {
@@ -202,6 +202,7 @@ describe("出発リマインダー + 持ち物通知 v1", () => {
     assert.equal(html.status, 200);
     const js = await request(app).get("/js/field-check-v1.js");
     assert.ok(js.text.includes("openFromQueryParams"));
-    assert.ok(js.text.includes("shortage-banner"));
+    assert.ok(js.text.includes("材料を追加"));
+    assert.ok(js.text.includes("check-item-label"));
   });
 });

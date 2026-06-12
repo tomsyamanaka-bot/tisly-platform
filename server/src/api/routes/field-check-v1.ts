@@ -5,8 +5,11 @@ import type { ProjectRefV1 } from "../../field-ops/field-ops-types.js";
 import {
   addManualFieldCheckItemV1,
   completeFieldCheckSessionV1,
+  deleteFieldCheckItemV1,
   generateFieldCheckItemsV1,
+  getFieldCheckProgressV1,
   listFieldCheckItemsV1,
+  listFieldCheckProjectsV1,
   listFieldCheckSessionsV1,
   updateFieldCheckItemV1,
 } from "../../field-ops/field-check-v1-store.js";
@@ -32,6 +35,18 @@ function parseRef(query: Record<string, unknown>): ProjectRefV1 | null {
   return { source, projectId };
 }
 
+function parseCheckDate(query: Record<string, unknown>): string | undefined {
+  const raw = query.date ?? query.checkDate;
+  if (raw == null) return undefined;
+  const d = String(raw).slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : undefined;
+}
+
+fieldCheckV1Router.get("/projects", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  res.json({ projects: listFieldCheckProjectsV1() });
+});
+
 fieldCheckV1Router.get("/items", ...auth, (req: AuthedRequest, res) => {
   if (!assertRole(req, res)) return;
   const ref = parseRef(req.query as Record<string, unknown>);
@@ -39,7 +54,19 @@ fieldCheckV1Router.get("/items", ...auth, (req: AuthedRequest, res) => {
     res.status(400).json({ error: "source and projectId query params are required" });
     return;
   }
-  res.json({ items: listFieldCheckItemsV1(ref) });
+  const checkDate = parseCheckDate(req.query as Record<string, unknown>);
+  res.json({ items: listFieldCheckItemsV1(ref, checkDate) });
+});
+
+fieldCheckV1Router.get("/progress", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const ref = parseRef(req.query as Record<string, unknown>);
+  if (!ref) {
+    res.status(400).json({ error: "source and projectId query params are required" });
+    return;
+  }
+  const checkDate = parseCheckDate(req.query as Record<string, unknown>);
+  res.json(getFieldCheckProgressV1(ref, checkDate));
 });
 
 fieldCheckV1Router.post("/items/generate", ...auth, (req: AuthedRequest, res) => {
@@ -72,17 +99,37 @@ fieldCheckV1Router.post("/items", ...auth, (req: AuthedRequest, res) => {
 fieldCheckV1Router.patch("/items/:id", ...auth, (req: AuthedRequest, res) => {
   if (!assertRole(req, res)) return;
   const body = req.body as Record<string, unknown>;
-  const item = updateFieldCheckItemV1(String(req.params.id), {
-    checked: body.checked !== undefined ? Boolean(body.checked) : undefined,
-    checkedBy: body.checkedBy !== undefined ? (body.checkedBy != null ? String(body.checkedBy) : null) : req.admin?.username ?? null,
-    label: body.label != null ? String(body.label) : undefined,
-    quantity: body.quantity != null ? Number(body.quantity) : undefined,
-  });
+  const checkDate = parseCheckDate(body);
+  const item = updateFieldCheckItemV1(
+    String(req.params.id),
+    {
+      checked: body.checked !== undefined ? Boolean(body.checked) : undefined,
+      checkedBy:
+        body.checkedBy !== undefined
+          ? body.checkedBy != null
+            ? String(body.checkedBy)
+            : null
+          : req.admin?.username ?? null,
+      label: body.label != null ? String(body.label) : undefined,
+      quantity: body.quantity != null ? Number(body.quantity) : undefined,
+    },
+    checkDate
+  );
   if (!item) {
     res.status(404).json({ error: "item not found" });
     return;
   }
   res.json(item);
+});
+
+fieldCheckV1Router.delete("/items/:id", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const ok = deleteFieldCheckItemV1(String(req.params.id));
+  if (!ok) {
+    res.status(404).json({ error: "item not found" });
+    return;
+  }
+  res.status(204).send();
 });
 
 fieldCheckV1Router.post("/sessions", ...auth, (req: AuthedRequest, res) => {
@@ -93,10 +140,12 @@ fieldCheckV1Router.post("/sessions", ...auth, (req: AuthedRequest, res) => {
     res.status(400).json({ error: "projectSource and projectId are required" });
     return;
   }
+  const checkDate = parseCheckDate(body);
   const session = completeFieldCheckSessionV1(
     ref,
     req.admin?.username ?? null,
-    body.memo != null ? String(body.memo) : null
+    body.memo != null ? String(body.memo) : null,
+    checkDate
   );
   res.status(201).json(session);
 });

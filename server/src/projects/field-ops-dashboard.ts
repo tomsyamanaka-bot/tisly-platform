@@ -102,7 +102,7 @@ export function buildFieldOpsDashboardV1(): FieldOpsDashboardV1 {
     },
     {
       id: "field_check_short",
-      label: "持ち物不足",
+      label: "材料未チェック",
       count: countFieldCheckIncomplete(),
       href: "/field-check-v1",
       themeColor: "#7c5cbf",

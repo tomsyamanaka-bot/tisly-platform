@@ -1369,7 +1369,7 @@ async function init() {
       });
       const info = $("template-apply-result");
       info.classList.remove("hidden");
-      info.textContent = `持ち物 ${result.fieldCheckCount}件 / 発注 ${result.purchaseLineCount}件 / 部材 ${result.surveyMaterialCount}件を生成`;
+      info.textContent = `発注 ${result.purchaseLineCount}件 / 部材 ${result.surveyMaterialCount}件を生成（材料チェックは日程・案件から手動登録）`;
       toast("テンプレートを適用しました");
       await openDetail(currentProjectId);
     } catch (e) {

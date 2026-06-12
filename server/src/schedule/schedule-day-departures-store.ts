@@ -3,6 +3,7 @@
 import { v4 as uuid } from "uuid";
 import { getDatabase } from "../db/database.js";
 import type { ProjectRefV1 } from "../field-ops/field-ops-types.js";
+import { getFieldCheckProgressV1 } from "../field-ops/field-check-v1-store.js";
 import {
   buildDayTravelBlocks,
   enrichDispatchLegDurations,
@@ -38,6 +39,7 @@ export interface ScheduleDayDepartureV1 {
   travelDurationMin: number | null;
   travelDurationSource: MapsDurationSource | null;
   fieldCheckUrl: string | null;
+  fieldCheckProgress: { checked: number; total: number } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -126,17 +128,27 @@ function buildFieldCheckUrl(
   return `/field-check-v1?${q.toString()}`;
 }
 
+function resolveFieldCheckProgress(
+  date: string,
+  projectId: string | null,
+  projectSource: ProjectRefV1["source"] | null
+): { checked: number; total: number } | null {
+  if (!projectId || !projectSource) return null;
+  return getFieldCheckProgressV1({ source: projectSource, projectId }, date);
+}
+
 function rowToDeparture(r: Record<string, unknown>): ScheduleDayDepartureV1 {
   const departureTime = String(r.departure_time);
   const reminderMinutesBefore = Number(r.reminder_minutes_before ?? DEFAULT_REMINDER_MINUTES);
+  const date = String(r.departure_date);
+  const projectId = r.project_id != null ? String(r.project_id) : null;
+  const projectSource =
+    r.project_source === "business" || r.project_source === "survey" ? r.project_source : null;
   return {
     id: String(r.id),
-    date: String(r.departure_date),
-    projectId: r.project_id != null ? String(r.project_id) : null,
-    projectSource:
-      r.project_source === "business" || r.project_source === "survey"
-        ? r.project_source
-        : null,
+    date,
+    projectId,
+    projectSource,
     firstEventId: r.first_event_id != null ? String(r.first_event_id) : null,
     eventTitle: r.event_title != null ? String(r.event_title) : null,
     departureTime,
@@ -151,11 +163,8 @@ function rowToDeparture(r: Record<string, unknown>): ScheduleDayDepartureV1 {
       r.travel_duration_source === "none"
         ? r.travel_duration_source
         : null,
-    fieldCheckUrl: buildFieldCheckUrl(
-      String(r.departure_date),
-      r.project_id != null ? String(r.project_id) : null,
-      r.project_source === "business" || r.project_source === "survey" ? r.project_source : null
-    ),
+    fieldCheckUrl: buildFieldCheckUrl(date, projectId, projectSource),
+    fieldCheckProgress: resolveFieldCheckProgress(date, projectId, projectSource),
     createdAt: String(r.created_at),
     updatedAt: String(r.updated_at),
   };
@@ -295,12 +304,12 @@ export function buildDepartureNotificationPayload(
 ): { title: string; body: string; url: string } {
   const title = "🚐 出発準備";
   const site = departure.eventTitle ?? "最初の現場";
-  const body = `今日の最初の現場「${site}」\n持ち物を確認してください。`;
+  const body = `今日の最初の現場「${site}」\n材料チェックを確認してください。`;
   const url =
     departure.fieldCheckUrl ??
     (departure.projectId && departure.projectSource
       ? buildFieldCheckUrl(departure.date, departure.projectId, departure.projectSource)!
-      : `/schedule-day-v1?date=${departure.date}`);
+      : `/schedule-v1/day?date=${departure.date}`);
   return { title, body, url };
 }
 

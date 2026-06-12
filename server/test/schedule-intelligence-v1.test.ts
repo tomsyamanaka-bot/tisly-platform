@@ -275,13 +275,14 @@ describe("日程調整レベル4 — インテリジェンス", () => {
     assert.equal(summary.events[0].travel.compactLabel, "🏠→現場");
   });
 
-  it("schedule-intelligence-ui.js — 所要時間優先・ナビは詳細のみ", async () => {
+  it("schedule-intelligence-ui.js — 実務モード（時刻・天気・所要時間・材料チェック）", async () => {
     const js = await request(app).get("/js/schedule-intelligence-ui.js");
     assert.equal(js.status, 200);
     assert.ok(js.text.includes("schedule-intel-travel"));
-    assert.ok(js.text.includes("schedule-intel-details"));
-    assert.ok(js.text.includes("schedule-nav-icon-btn"));
-    assert.ok(!js.text.includes("📍ナビ開始"));
-    assert.ok(!js.text.includes("Googleマップ"));
+    assert.ok(js.text.includes("🚗所要時間"));
+    assert.ok(js.text.includes("🎒 ${fieldCheck.checked}/${fieldCheck.total}"));
+    assert.ok(js.text.includes("schedule-intel-practical"));
+    assert.ok(!js.text.includes("schedule-intel-details"));
+    assert.ok(!js.text.includes("eventCalendarBadgeHtml"));
   });
 });

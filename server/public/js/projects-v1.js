@@ -24,7 +24,7 @@ const STAGE_LABELS = {
   survey: "現調",
   estimate: "見積",
   ordered: "受注",
-  field_check: "持ち物",
+  field_check: "材料チェック",
   purchase: "発注",
   construction: "施工中",
   work_done: "完了",
@@ -151,9 +151,9 @@ function renderTodayDeparture(todayDeparture) {
   el.innerHTML = `<div class="friendly-card today-departure-card">
     <p class="section-label" style="margin-top:0;">🚐 今日の出発</p>
     <p>🚐 出発 <strong>${escapeHtml(todayDeparture.departureTime)}</strong></p>
-    <p>🔔 持ち物通知 <strong>${escapeHtml(todayDeparture.reminderTime)}</strong>${todayDeparture.reminderEnabled ? "" : "（OFF）"}</p>
+    <p>🔔 材料チェック通知 <strong>${escapeHtml(todayDeparture.reminderTime)}</strong>${todayDeparture.reminderEnabled ? "" : "（OFF）"}</p>
     ${todayDeparture.eventTitle ? `<p class="section-hint">${escapeHtml(todayDeparture.eventTitle)}</p>` : ""}
-    <a class="btn-sub" href="${escapeHtml(href)}" style="display:inline-block;margin-top:0.35rem;">持ち物を見る</a>
+    <a class="btn-sub" href="${escapeHtml(href)}" style="display:inline-block;margin-top:0.35rem;">材料チェックを開く</a>
   </div>`;
 }
 

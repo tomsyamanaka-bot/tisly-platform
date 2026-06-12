@@ -105,14 +105,22 @@ describe("Field Operations UI v2", () => {
     assert.ok(ids.includes("invoice_pending"));
   });
 
-  it("持ち物はカテゴリ別に取得・チェックできる", async () => {
+  it("材料チェックは手動追加・日付別チェックできる", async () => {
+    await request(app)
+      .post("/api/field-check/v1/items")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ projectSource: "survey", projectId, label: "PoEハブ" });
     const items = await request(app)
-      .get(`/api/field-check/v1/items?source=survey&projectId=${projectId}`)
+      .get(`/api/field-check/v1/items?source=survey&projectId=${projectId}&date=2026-06-12`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(items.status, 200);
-    assert.ok(items.body.items.length >= 8);
-    const categories = new Set(items.body.items.map((i: { category: string }) => i.category));
-    assert.ok(categories.size >= 2);
+    assert.ok(items.body.items.length >= 1);
+    const first = items.body.items[0];
+    const checked = await request(app)
+      .patch(`/api/field-check/v1/items/${first.id}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ checked: true, checkDate: "2026-06-12" });
+    assert.equal(checked.body.checked, true);
   });
 
   it("発注行に不足・ステータス情報がある", async () => {

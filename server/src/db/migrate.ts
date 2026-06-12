@@ -202,6 +202,34 @@ export function runMigrations(database: Database.Database): void {
   migrateGoogleCalendarSyncV1(database);
   migrateGoogleCalendarMultiCalV1(database);
   migrateScheduleIntelligenceV1(database);
+  migrateMaterialCheckV1(database);
+}
+
+/** 材料チェック v1 — 案件ごとの材料リスト + 日付別チェック状態 */
+function migrateMaterialCheckV1(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:material_check_v1") as { value_json: string } | undefined;
+  if (marker) return;
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS field_check_item_day_states (
+      item_id TEXT NOT NULL,
+      check_date TEXT NOT NULL,
+      checked INTEGER NOT NULL DEFAULT 0,
+      checked_at TEXT,
+      checked_by TEXT,
+      PRIMARY KEY (item_id, check_date),
+      FOREIGN KEY (item_id) REFERENCES field_check_items(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_field_check_day_states_date ON field_check_item_day_states(check_date);
+  `);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:material_check_v1", JSON.stringify({ at: new Date().toISOString() }));
 }
 
 /** 日程調整レベル4 — 移動時間キャッシュ */
