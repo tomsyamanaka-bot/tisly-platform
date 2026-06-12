@@ -3,7 +3,11 @@
 import type { DayDispatch } from "./route-planner-service.js";
 import type { ScheduleEvent } from "./schedule-types.js";
 import { getCachedRouteDuration, setCachedRouteDuration } from "./maps-route-cache.js";
-import { getDefaultOriginLabel, getSchedulePlannerSettingsV1 } from "./schedule-settings-store.js";
+import {
+  DEFAULT_SCHEDULE_ORIGIN,
+  getDefaultOriginLabel,
+  getSchedulePlannerSettingsV1,
+} from "./schedule-settings-store.js";
 
 export function mapsDirectionsUrl(origin: string, destination: string): string {
   const o = encodeURIComponent(origin);
@@ -162,7 +166,7 @@ export async function buildDayTravelBlocks(
   events: ScheduleEvent[]
 ): Promise<DayTravelBlock[]> {
   const blocks: DayTravelBlock[] = [];
-  const defaultOrigin = resolveDefaultOrigin() || "事務所（守谷市）";
+  const defaultOrigin = resolveDefaultOrigin() || DEFAULT_SCHEDULE_ORIGIN;
   const firstDest = firstSiteDestination(dispatch, events);
   if (firstDest) {
     const dur = await fetchDrivingDurationMin(defaultOrigin, firstDest);

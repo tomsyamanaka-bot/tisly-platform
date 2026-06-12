@@ -4,13 +4,16 @@ import { getDatabase } from "../db/database.js";
 
 const SETTINGS_KEY = "schedule_planner_settings_v1";
 
+/** TiSLY 通常出発地（移動時間計算の起点） */
+export const DEFAULT_SCHEDULE_ORIGIN = "茨城県つくばみらい市板橋2889-2";
+
 export interface SchedulePlannerSettingsV1 {
   defaultOrigin: string;
   updatedAt: string;
 }
 
 const DEFAULT_SETTINGS: SchedulePlannerSettingsV1 = {
-  defaultOrigin: "",
+  defaultOrigin: DEFAULT_SCHEDULE_ORIGIN,
   updatedAt: new Date().toISOString(),
 };
 

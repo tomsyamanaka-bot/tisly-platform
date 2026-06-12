@@ -23,11 +23,12 @@ export function renderWeatherSlotsHtml(slots, { inline = false, practical = fals
 }
 
 function renderTravelLineHtml(travel) {
+  const route = escapeScheduleHtml(travel.compactLabel || "🏠→現場");
   const dur =
     travel.durationLabel === "移動時間未計算" || travel.durationLabel === "移動時間API未設定"
       ? escapeScheduleHtml(travel.durationLabel)
       : `<strong>${escapeScheduleHtml(travel.durationLabel)}</strong>`;
-  return `<div class="schedule-intel-travel">🚗所要時間 ${dur}</div>`;
+  return `<div class="schedule-intel-travel">${route} ${dur}</div>`;
 }
 
 function renderMaterialLineHtml(fieldCheck) {

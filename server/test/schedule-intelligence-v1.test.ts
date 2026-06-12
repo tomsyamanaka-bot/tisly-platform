@@ -279,7 +279,7 @@ describe("日程調整レベル4 — インテリジェンス", () => {
     const js = await request(app).get("/js/schedule-intelligence-ui.js");
     assert.equal(js.status, 200);
     assert.ok(js.text.includes("schedule-intel-travel"));
-    assert.ok(js.text.includes("🚗所要時間"));
+    assert.ok(js.text.includes("🏠→現場"));
     assert.ok(js.text.includes("🎒 ${fieldCheck.checked}/${fieldCheck.total}"));
     assert.ok(js.text.includes("schedule-intel-practical"));
     assert.ok(!js.text.includes("schedule-intel-details"));
