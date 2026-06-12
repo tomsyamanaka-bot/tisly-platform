@@ -301,9 +301,30 @@ export function listFieldCheckProjectsV1(opts?: { limit?: number }): FieldCheckP
        ORDER BY event_date DESC, title ASC
        LIMIT ?`
     )
-    .all(limit) as Array<Record<string, unknown>>;
+    .all(limit * 3) as Array<Record<string, unknown>>;
 
-  return rows.map((r) => {
+  const deduped = new Map<string, Record<string, unknown>>();
+  for (const r of rows) {
+    const key = `${r.source}:${r.id}`;
+    const title = String(r.title ?? "").trim();
+    const eventDateRaw = r.event_date ? String(r.event_date).slice(0, 10) : "";
+    const eventDate =
+      eventDateRaw && /^\d{4}-\d{2}-\d{2}$/.test(eventDateRaw) ? eventDateRaw : null;
+    const prev = deduped.get(key);
+    if (!prev) {
+      deduped.set(key, { ...r, title, event_date: eventDate ?? "" });
+      continue;
+    }
+    const prevTitle = String(prev.title ?? "").trim();
+    const prevDate = String(prev.event_date ?? "").slice(0, 10);
+    const score = (t: string, d: string) =>
+      (t && t !== "案件" ? 100 : 0) + (d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? 10 : 0) + t.length;
+    if (score(title, eventDate ?? "") >= score(prevTitle, prevDate)) {
+      deduped.set(key, { ...r, title, event_date: eventDate ?? "" });
+    }
+  }
+
+  return [...deduped.values()].slice(0, limit).map((r) => {
     const ref: ProjectRefV1 = {
       source: String(r.source) as ProjectRefV1["source"],
       projectId: String(r.id),
