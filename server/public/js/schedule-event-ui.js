@@ -146,21 +146,36 @@ export function renderIntegrationBadges(calendarLabel, mapsLabel, mapsHint) {
   return `<div class="integration-badges">${cal}${maps}</div>`;
 }
 
-export function renderTravelBlocksHtml(travelBlocks, mapsIntegration) {
+export function renderNavIconButton(mapsUrl, { title = "ナビ開始" } = {}) {
+  if (!mapsUrl) {
+    return `<span class="schedule-nav-icon-btn schedule-nav-icon-disabled" title="ナビ不可" aria-hidden="true">🧭</span>`;
+  }
+  return `<a class="schedule-nav-icon-btn" href="${escapeScheduleHtml(mapsUrl)}" target="_blank" rel="noopener" title="${escapeScheduleHtml(title)}" aria-label="${escapeScheduleHtml(title)}">🧭</a>`;
+}
+
+export function renderTravelBlocksHtml(travelBlocks, mapsIntegration, { navInDetails = true } = {}) {
   if (!travelBlocks?.length) return "";
   const hint = mapsIntegration?.hint
     ? `<p class="section-hint travel-maps-hint">${escapeScheduleHtml(mapsIntegration.hint)}</p>`
     : "";
   const rows = travelBlocks
-    .map((block) => {
+    .map((block, i) => {
       const dur =
         block.durationMin != null
           ? `<strong>${block.durationMin}分</strong>${block.durationSource === "api" ? "（API）" : block.durationSource === "mock" ? "（目安）" : ""}`
           : "—";
-      return `<div class="travel-block">
-        <div class="travel-block-label">${escapeScheduleHtml(block.label)}</div>
-        <div class="travel-block-meta">移動 ${dur}</div>
-        <a class="btn-sub btn-small" href="${escapeScheduleHtml(block.mapsUrl)}" target="_blank" rel="noopener">📍ナビ開始</a>
+      const navHtml = navInDetails
+        ? `<details class="travel-block-nav-details">
+            <summary class="travel-block-nav-summary">詳細</summary>
+            <div class="travel-block-nav-row">${renderNavIconButton(block.mapsUrl)}</div>
+          </details>`
+        : renderNavIconButton(block.mapsUrl);
+      return `<div class="travel-block" data-travel-block="${i}">
+        <div class="travel-block-head">
+          <div class="travel-block-label">${escapeScheduleHtml(block.label)}</div>
+          <div class="travel-block-meta">🚗 ${dur}</div>
+        </div>
+        ${navHtml}
       </div>`;
     })
     .join("");

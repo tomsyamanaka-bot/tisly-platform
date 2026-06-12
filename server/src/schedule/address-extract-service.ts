@@ -99,13 +99,17 @@ function loadProjectAddress(
   return null;
 }
 
-function resolveProjectAddress(event: ScheduleEvent): string | null {
+export interface EventProjectRef {
+  projectSource: "survey" | "business";
+  projectId: string;
+}
+
+function resolveEventProjectRef(event: ScheduleEvent): EventProjectRef | null {
   const externalId = event.externalId?.trim();
   if (externalId) {
     const link = findLinkByGoogleEventId(externalId);
-    if (link) {
-      const addr = loadProjectAddress(link.projectSource, link.projectId);
-      if (addr) return addr;
+    if (link?.projectId && (link.projectSource === "survey" || link.projectSource === "business")) {
+      return { projectSource: link.projectSource, projectId: link.projectId };
     }
   }
   const db = getDatabase();
@@ -115,11 +119,25 @@ function resolveProjectAddress(event: ScheduleEvent): string | null {
        WHERE schedule_event_id = ? LIMIT 1`
     )
     .get(event.id) as { project_source?: string; project_id?: string } | undefined;
-  if (byScheduleId?.project_id && byScheduleId?.project_source) {
-    return loadProjectAddress(String(byScheduleId.project_source), String(byScheduleId.project_id));
+  if (
+    byScheduleId?.project_id &&
+    (byScheduleId.project_source === "survey" || byScheduleId.project_source === "business")
+  ) {
+    return {
+      projectSource: byScheduleId.project_source,
+      projectId: String(byScheduleId.project_id),
+    };
   }
   return null;
 }
+
+function resolveProjectAddress(event: ScheduleEvent): string | null {
+  const ref = resolveEventProjectRef(event);
+  if (!ref) return null;
+  return loadProjectAddress(ref.projectSource, ref.projectId);
+}
+
+export { resolveEventProjectRef };
 
 export function extractEventAddress(event: ScheduleEvent): ExtractedAddress {
   const location = event.location?.trim();

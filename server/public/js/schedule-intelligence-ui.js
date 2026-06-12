@@ -10,7 +10,7 @@ export function formatEventTimeRange(ev) {
 
 export function renderWeatherSlotsHtml(slots, { inline = false } = {}) {
   if (!slots?.length) return "";
-  const sep = inline ? " · " : "<br>";
+  const sep = inline ? " " : "<br>";
   return slots
     .map((slot) => {
       const rainCls = slot.highlightRain ? ' style="color:#b91c1c;font-weight:600;"' : "";
@@ -19,37 +19,90 @@ export function renderWeatherSlotsHtml(slots, { inline = false } = {}) {
     .join(sep);
 }
 
+function travelDurationText(travel) {
+  if (travel.durationLabel === "移動時間未計算" || travel.durationLabel === "移動時間API未設定") {
+    return escapeScheduleHtml(travel.durationLabel);
+  }
+  return `<strong>${escapeScheduleHtml(travel.durationLabel)}</strong>`;
+}
+
+function renderTravelLineHtml(travel) {
+  const route = escapeScheduleHtml(travel.compactLabel || travel.label || "移動");
+  return `<div class="schedule-intel-travel">🚗 ${route} ${travelDurationText(travel)}</div>`;
+}
+
+function renderMaterialLineHtml(fieldCheck) {
+  if (!fieldCheck?.total) return "";
+  const label =
+    fieldCheck.checked >= fieldCheck.total
+      ? `🎒 材料チェック完了 ${fieldCheck.checked}/${fieldCheck.total}`
+      : `🎒 材料チェック ${fieldCheck.checked}/${fieldCheck.total}`;
+  if (fieldCheck.url) {
+    return `<a class="schedule-intel-material" href="${escapeScheduleHtml(fieldCheck.url)}">${escapeScheduleHtml(label)}</a>`;
+  }
+  return `<div class="schedule-intel-material">${escapeScheduleHtml(label)}</div>`;
+}
+
+function renderNavIconHtml(mapsUrl) {
+  if (!mapsUrl) {
+    return `<span class="schedule-nav-icon-btn schedule-nav-icon-disabled" title="ナビ不可" aria-hidden="true">🧭</span>`;
+  }
+  return `<a class="schedule-nav-icon-btn" href="${escapeScheduleHtml(mapsUrl)}" target="_blank" rel="noopener" title="ナビ開始" aria-label="ナビ開始">🧭</a>`;
+}
+
 export function renderIntelligenceEventCard(evIntel, { catIcon, catLabel } = {}) {
   const ev = evIntel;
   const time = formatEventTimeRange(ev);
   const addr = ev.address?.displayAddress ?? "住所未設定";
-  const addrIcon = addr === "住所未設定" || addr === "住所未確定" ? "📍" : "📍";
   const travel = ev.travel ?? {};
-  const travelText =
-    travel.durationLabel === "移動時間未計算" || travel.durationLabel === "移動時間API未設定"
-      ? `🚗 ${escapeScheduleHtml(travel.durationLabel)}`
-      : `🚗 ${escapeScheduleHtml(travel.label || "移動")} ${escapeScheduleHtml(travel.durationLabel || "")}`;
-  const mapsBtn = travel.mapsUrl
-    ? `<a class="btn-sub btn-small" href="${escapeScheduleHtml(travel.mapsUrl)}" target="_blank" rel="noopener">🧭 Googleマップ</a>`
-    : `<span class="section-hint" style="font-size:0.8rem;">🧭マップ不可</span>`;
   const weatherHtml = renderWeatherSlotsHtml(ev.weatherSlots, { inline: true });
-  const indexLabel = ev.index != null ? `${ev.index}. ` : "";
-  const summaryParts = [weatherHtml, travelText].filter(Boolean).join(" · ");
-  const calBadgeCompact = eventCalendarBadgeHtml({
-    calendarColor: ev.calendarColor,
-    calendarSummary: ev.calendarSummary,
-  }, { compact: true });
+  const calBadgeCompact = eventCalendarBadgeHtml(
+    {
+      calendarColor: ev.calendarColor,
+      calendarSummary: ev.calendarSummary,
+    },
+    { compact: true }
+  );
+  const eventKey = escapeScheduleHtml(ev.eventId ?? ev.id ?? "");
 
-  return `<article class="schedule-intel-card schedule-intel-card-compact friendly-card">
-    <div class="schedule-intel-head-compact">
+  return `<article class="schedule-intel-card schedule-intel-card-compact" data-intel-event-id="${eventKey}">
+    <button type="button" class="schedule-intel-summary" data-intel-toggle="1" aria-expanded="false" aria-label="予定の詳細を開く">
       ${time ? `<div class="schedule-intel-time">${escapeScheduleHtml(time)}</div>` : ""}
-      <div class="schedule-intel-title">${indexLabel}${escapeScheduleHtml(ev.title)}</div>
+      <div class="schedule-intel-title">${escapeScheduleHtml(ev.title)}</div>
       ${calBadgeCompact}
+      ${weatherHtml ? `<div class="schedule-intel-weather">${weatherHtml}</div>` : ""}
+      ${renderTravelLineHtml(travel)}
+      ${renderMaterialLineHtml(ev.fieldCheck)}
+    </button>
+    <div class="schedule-intel-details" hidden>
+      <div class="schedule-intel-detail-row">
+        <span class="schedule-intel-address-compact">📍 ${escapeScheduleHtml(addr)}</span>
+        ${renderNavIconHtml(travel.mapsUrl)}
+      </div>
     </div>
-    ${summaryParts ? `<div class="schedule-intel-summary-line">${summaryParts}</div>` : ""}
-    <div class="schedule-intel-address-compact">${addrIcon} ${escapeScheduleHtml(addr)}</div>
-    <div class="schedule-intel-maps-compact">${mapsBtn}</div>
   </article>`;
+}
+
+export function bindIntelligenceEventCards(root) {
+  root?.querySelectorAll("[data-intel-toggle]").forEach((btn) => {
+    if (btn.dataset.intelBound === "1") return;
+    btn.dataset.intelBound = "1";
+    btn.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      const card = btn.closest("[data-intel-event-id]");
+      const details = card?.querySelector(".schedule-intel-details");
+      if (!details) return;
+      const expanded = btn.getAttribute("aria-expanded") === "true";
+      const next = !expanded;
+      btn.setAttribute("aria-expanded", next ? "true" : "false");
+      btn.setAttribute("aria-label", next ? "予定の詳細を閉じる" : "予定の詳細を開く");
+      details.hidden = !next;
+      card?.classList.toggle("schedule-intel-expanded", next);
+    });
+  });
+  root?.querySelectorAll(".schedule-intel-material, .schedule-nav-icon-btn").forEach((el) => {
+    el.addEventListener("click", (ev) => ev.stopPropagation());
+  });
 }
 
 export function renderDayIntelligenceSummary(intelligence) {

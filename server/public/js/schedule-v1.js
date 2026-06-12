@@ -11,6 +11,7 @@ import {
   renderIntegrationBadges,
   escapeScheduleHtml,
   renderWeekEventItemHtml,
+  renderNavIconButton,
 } from "./schedule-event-ui.js";
 import {
   bindDepartureAlertCards,
@@ -413,9 +414,7 @@ function renderDispatchBlock(dispatch) {
       const legHtml = leg
         ? `<div class="dispatch-leg">↓ ${leg.durationMin}分</div>`
         : "";
-      const navBtn = s.navUrl
-        ? `<a class="btn-sub btn-small" href="${escapeHtml(s.navUrl)}" target="_blank" rel="noopener">📍ナビ開始</a>`
-        : "";
+      const navBtn = renderNavIconButton(s.navUrl);
       return `${legHtml}<div class="dispatch-stop">
         <strong>${escapeHtml(s.time)}</strong> ${escapeHtml(s.title)}
         ${s.address ? `<br><small>${escapeHtml(s.address)}</small>` : ""}

@@ -15,6 +15,7 @@ import {
   renderScheduleEventLine,
   renderTravelBlocksHtml,
   renderIntegrationBadges,
+  renderNavIconButton,
 } from "./schedule-event-ui.js";
 import {
   bindDepartureAlertCards,
@@ -28,6 +29,7 @@ import {
   renderWorkSessionPanel,
 } from "./work-session-ui.js";
 import {
+  bindIntelligenceEventCards,
   renderDayIntelligenceEvents,
   renderDayIntelligenceSummary,
 } from "./schedule-intelligence-ui.js";
@@ -123,13 +125,40 @@ function renderDepartureSection(detail) {
   });
 }
 
-function renderEvents(day, intelligence) {
+function enrichIntelligenceWithDeparture(intelligence, departure, firstEventId) {
+  if (!intelligence?.events?.length || !departure?.fieldCheckProgress?.total) return intelligence;
+  const idx = intelligence.events.findIndex((ev) => ev.eventId === firstEventId);
+  const targetIdx = idx >= 0 ? idx : 0;
+  const ev = intelligence.events[targetIdx];
+  if (ev?.fieldCheck?.total) return intelligence;
+  const events = intelligence.events.map((item, i) =>
+    i === targetIdx
+      ? {
+          ...item,
+          fieldCheck: {
+            checked: departure.fieldCheckProgress.checked,
+            total: departure.fieldCheckProgress.total,
+            url: departure.fieldCheckUrl,
+          },
+        }
+      : item
+  );
+  return { ...intelligence, events };
+}
+
+function renderEvents(day, intelligence, departure) {
   const el = $("day-events");
-  if (intelligence?.events?.length) {
-    el.innerHTML = `<p class="section-label">📋 予定一覧（天気・移動）</p>${renderDayIntelligenceEvents(intelligence, {
+  const intel = enrichIntelligenceWithDeparture(
+    intelligence,
+    departure,
+    day.firstConstructionEventId
+  );
+  if (intel?.events?.length) {
+    el.innerHTML = `<p class="section-label">📋 予定一覧</p>${renderDayIntelligenceEvents(intel, {
       catIcon: CAT_ICON,
       catLabel: CAT_LABEL,
     })}`;
+    bindIntelligenceEventCards(el);
     return;
   }
   const events = day.events.length
@@ -171,6 +200,11 @@ function renderDepartureAlert(detail) {
 function renderTravel(detail) {
   const el = $("day-travel");
   if (!el) return;
+  if (detail.intelligence?.events?.length) {
+    el.classList.add("hidden");
+    el.innerHTML = "";
+    return;
+  }
   const html = renderTravelBlocksHtml(detail.travelBlocks, detail.mapsIntegration);
   if (!html) {
     el.classList.add("hidden");
@@ -256,9 +290,7 @@ function renderDispatch(dispatch) {
       const legHtml = leg
         ? `<div class="dispatch-leg">↓ ${leg.durationMin}分</div>`
         : "";
-      const navBtn = s.navUrl
-        ? `<a class="btn-sub btn-small" href="${escapeHtml(s.navUrl)}" target="_blank" rel="noopener">📍ナビ開始</a>`
-        : "";
+      const navBtn = renderNavIconButton(s.navUrl);
       return `${legHtml}<div class="dispatch-stop">
         <strong>${escapeHtml(s.time)}</strong> ${escapeHtml(s.title)}
         ${s.address ? `<br><small>${escapeHtml(s.address)}</small>` : ""}
@@ -305,7 +337,7 @@ async function loadDay(date) {
   renderDepartureAlert(detail);
   renderMemoSummary(detail);
   renderDepartureSection(detail);
-  renderEvents(detail.day, detail.intelligence);
+  renderEvents(detail.day, detail.intelligence, detail.departure);
   renderIntelligenceSummary(detail.intelligence);
   renderTravel(detail);
   renderDispatch(detail.dispatch);

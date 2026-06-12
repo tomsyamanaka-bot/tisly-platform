@@ -16,6 +16,7 @@ const { extractEventAddress } = await import("../src/schedule/address-extract-se
 const {
   buildDayScheduleIntelligence,
   buildDailySummaryResponse,
+  buildTravelCompactLabel,
 } = await import("../src/schedule/schedule-intelligence-service.js");
 const { updateSchedulePlannerSettingsV1 } = await import("../src/schedule/schedule-settings-store.js");
 import type { ScheduleEvent } from "../src/schedule/schedule-types.js";
@@ -147,6 +148,15 @@ describe("日程調整レベル4 — インテリジェンス", () => {
     assert.equal(intel.feasibility, "unknown");
     assert.equal(intel.totalTravelMin, null);
     assert.ok(intel.events[0].weatherSlots.length === 3);
+    assert.equal(intel.events[0].travel.compactLabel, "🏠→現場");
+    assert.equal(intel.events[1].travel.compactLabel, "現場①→現場②");
+    assert.equal(intel.events[2].travel.compactLabel, "現場②→現場③");
+  });
+
+  it("移動ラベル — カード表示用 compactLabel", () => {
+    assert.equal(buildTravelCompactLabel(0), "🏠→現場");
+    assert.equal(buildTravelCompactLabel(1), "現場①→現場②");
+    assert.equal(buildTravelCompactLabel(2), "現場②→現場③");
   });
 
   it("★TOMS★カレンダー予定 — calendarSummary 反映", async () => {
@@ -262,5 +272,16 @@ describe("日程調整レベル4 — インテリジェンス", () => {
     assert.equal(summary.date, "2026-06-18");
     assert.ok(summary.events[0].weather.length === 3);
     assert.ok(summary.events[0].travel.mapsUrl == null || summary.events[0].travel.mapsUrl.includes("google.com"));
+    assert.equal(summary.events[0].travel.compactLabel, "🏠→現場");
+  });
+
+  it("schedule-intelligence-ui.js — 所要時間優先・ナビは詳細のみ", async () => {
+    const js = await request(app).get("/js/schedule-intelligence-ui.js");
+    assert.equal(js.status, 200);
+    assert.ok(js.text.includes("schedule-intel-travel"));
+    assert.ok(js.text.includes("schedule-intel-details"));
+    assert.ok(js.text.includes("schedule-nav-icon-btn"));
+    assert.ok(!js.text.includes("📍ナビ開始"));
+    assert.ok(!js.text.includes("Googleマップ"));
   });
 });

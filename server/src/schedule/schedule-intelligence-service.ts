@@ -3,8 +3,10 @@
 import {
   extractEventAddress,
   geocodeQueryFromAddress,
+  resolveEventProjectRef,
   type ExtractedAddress,
 } from "./address-extract-service.js";
+import { getFieldCheckProgressV1 } from "../field-ops/field-check-v1-store.js";
 import { geocodeAddress } from "./geocode-service.js";
 import {
   fetchDrivingDurationMinForIntelligence,
@@ -21,6 +23,8 @@ export type ScheduleFeasibility = "comfortable" | "caution" | "tight" | "unknown
 
 export interface EventTravelInfo {
   label: string;
+  /** カード表示用（例: 🏠→現場 / 現場①→現場②） */
+  compactLabel: string;
   origin: string | null;
   destination: string | null;
   durationMin: number | null;
@@ -29,6 +33,12 @@ export interface EventTravelInfo {
   mapsUrl: string | null;
   mapsAvailable: boolean;
   cacheHit: boolean;
+}
+
+export interface EventFieldCheckInfo {
+  checked: number;
+  total: number;
+  url: string | null;
 }
 
 export interface ScheduleEventIntelligence {
@@ -44,6 +54,7 @@ export interface ScheduleEventIntelligence {
   weather: DayWeather | null;
   weatherSlots: WeatherSlot[];
   travel: EventTravelInfo;
+  fieldCheck: EventFieldCheckInfo | null;
 }
 
 export interface DayGapJudgment {
@@ -162,8 +173,44 @@ function travelDurationLabel(
   return `${minutes}分`;
 }
 
+const SITE_CIRCLED = ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧", "⑨", "⑩"];
+
+function siteCircled(index: number): string {
+  return SITE_CIRCLED[index] ?? String(index + 1);
+}
+
+/** カード用の移動ラベル（1件目: 🏠→現場、2件目以降: 現場①→現場②） */
+export function buildTravelCompactLabel(eventIndex: number): string {
+  if (eventIndex <= 0) return "🏠→現場";
+  return `現場${siteCircled(eventIndex - 1)}→現場${siteCircled(eventIndex)}`;
+}
+
+function buildFieldCheckForEvent(
+  date: string,
+  event: ScheduleEvent
+): EventFieldCheckInfo | null {
+  const ref = resolveEventProjectRef(event);
+  if (!ref) return null;
+  const progress = getFieldCheckProgressV1(
+    { source: ref.projectSource, projectId: ref.projectId },
+    date
+  );
+  if (!progress || progress.total <= 0) return null;
+  const q = new URLSearchParams({
+    projectId: ref.projectId,
+    source: ref.projectSource,
+    date,
+  });
+  return {
+    checked: progress.checked,
+    total: progress.total,
+    url: `/field-check-v1?${q.toString()}`,
+  };
+}
+
 function buildTravelInfo(input: {
   label: string;
+  compactLabel: string;
   origin: string | null;
   destination: string | null;
   durationMin: number | null;
@@ -177,6 +224,7 @@ function buildTravelInfo(input: {
   );
   return {
     label: input.label,
+    compactLabel: input.compactLabel,
     origin: input.origin,
     destination: input.destination,
     durationMin: input.durationMin,
@@ -246,13 +294,14 @@ export async function buildDayScheduleIntelligence(
     const destination = address.fullAddress ?? address.cityHint;
     const hasAddress = Boolean(destination);
 
+    const travelCompactLabel = buildTravelCompactLabel(i);
     let travelLabel = "";
     if (i === 0) {
       travelLabel = defaultOrigin
         ? `${defaultOriginLabel} → 現場`
         : "自宅 → 現場";
     } else {
-      travelLabel = "前現場 → 次現場";
+      travelLabel = `現場${siteCircled(i - 1)} → 現場${siteCircled(i)}`;
     }
 
     let durationMin: number | null = null;
@@ -280,6 +329,7 @@ export async function buildDayScheduleIntelligence(
 
     const travel = buildTravelInfo({
       label: travelLabel,
+      compactLabel: travelCompactLabel,
       origin: origin ?? (i === 0 ? defaultOriginLabel : null),
       destination,
       durationMin,
@@ -304,6 +354,7 @@ export async function buildDayScheduleIntelligence(
       weather,
       weatherSlots: slots,
       travel,
+      fieldCheck: buildFieldCheckForEvent(date, ev),
     });
 
     if (i > 0) {
@@ -330,6 +381,7 @@ export async function buildDayScheduleIntelligence(
       else totalTravelSum += dur.minutes;
       returnToOrigin = buildTravelInfo({
         label: "最終現場 → 通常出発地",
+        compactLabel: "現場→🏠",
         origin: dest,
         destination: defaultOrigin,
         durationMin: dur.minutes,
@@ -463,10 +515,12 @@ export function buildDailySummaryResponse(intelligence: DayScheduleIntelligence)
       })),
       travel: {
         label: ev.travel.label,
+        compactLabel: ev.travel.compactLabel,
         durationMin: ev.travel.durationMin,
         durationLabel: ev.travel.durationLabel,
         mapsUrl: ev.travel.mapsUrl,
       },
+      fieldCheck: ev.fieldCheck,
     })),
     totalTravelMin: intelligence.totalTravelMin,
     totalScheduledMin: intelligence.totalScheduledMin,

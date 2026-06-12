@@ -62,12 +62,27 @@
     .departure-prep-details-title { margin: 0 0 0.2rem !important; font-size: 0.82rem !important; }
     .departure-prep-detail-row { margin: 0.12rem 0; font-size: 0.8rem; }
     .departure-prep-actions { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.35rem; }
-    .departure-prep-kit-always { margin-top: 0.25rem; }
+    .departure-prep-kit-always { margin-top: 0.25rem; display:flex; flex-wrap:wrap; align-items:center; gap:0.35rem 0.5rem; }
+    .departure-kit-progress { font-size:0.82rem; color:#475569; font-weight:600; }
     .departure-remind-badge { font-size: 0.72rem; padding: 0.05rem 0.35rem; border-radius: 999px; background: #dbeafe; color: #1d4ed8; }
     .departure-alert-card { margin: 0 0 0.5rem; padding: 0.5rem 0.6rem; background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; }
     .departure-alert-title { margin: 0; font-weight: 700; font-size: 0.88rem; color: #92400e; }
     .departure-alert-body { margin: 0.2rem 0 0.35rem; font-size: 0.82rem; color: #78350f; }
-    .schedule-day-compact { padding: 0.5rem 0.65rem !important; margin-bottom: 0.45rem !important; }
+    .schedule-nav-icon-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.65rem;
+      height: 1.65rem;
+      border-radius: 6px;
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      text-decoration: none;
+      font-size: 0.95rem;
+      line-height: 1;
+    }
+    .schedule-nav-icon-btn.schedule-nav-icon-disabled { opacity: 0.35; }
+    .schedule-day-compact { padding: 0.38rem 0.55rem !important; margin-bottom: 0.32rem !important; }
     .schedule-day-head-compact { margin-bottom: 0.15rem; }
     .schedule-day-head-main {
       display: flex;
@@ -81,10 +96,10 @@
     .schedule-day-count { color: #64748b; font-size: 0.78rem; }
     .schedule-day-avail-inline { margin-left: auto; font-size: 0.75rem; color: #64748b; text-align: right; }
     .schedule-day-avail-inline .stars { display: inline; font-size: 0.78rem; letter-spacing: 0.03em; color: #d97706; }
-    .schedule-event-list-compact { margin-top: 0.25rem !important; }
+    .schedule-event-list-compact { margin-top: 0.15rem !important; }
     .schedule-event-list-compact .schedule-event-item {
-      padding: 0.18rem 0 !important;
-      gap: 0.3rem !important;
+      padding: 0.12rem 0 !important;
+      gap: 0.25rem !important;
       align-items: flex-start;
     }
     .schedule-event-icon { font-size: 0.75rem; line-height: 1.35; flex-shrink: 0; opacity: 0.85; }
@@ -114,8 +129,9 @@
     .event-desc-compact[aria-expanded="true"] { white-space: pre-wrap; overflow: visible; }
     .schedule-event-departure { margin-top: 0.15rem; }
     #btn-this-week { margin-bottom: 0.45rem !important; padding: 0.4rem 0.6rem; font-size: 0.85rem; }
-    .schedule-summary-grid { margin: 0.45rem 0 !important; gap: 0.35rem !important; }
-    .schedule-summary-item { padding: 0.4rem 0.25rem !important; font-size: 0.78rem; }
+    .schedule-summary-grid { margin: 0.3rem 0 !important; gap: 0.25rem !important; }
+    .schedule-summary-item { padding: 0.28rem 0.2rem !important; font-size: 0.72rem; }
+    .schedule-week-nav { margin-bottom: 0.35rem !important; }
     .schedule-today-badge {
       display: inline-block;
       margin-left: 0.25rem;
