@@ -205,6 +205,7 @@ export function runMigrations(database: Database.Database): void {
   migrateMaterialCheckV1(database);
   migrateEstimatePracticalV1(database);
   migrateScheduleDefaultOriginTsukubamiraiV1(database);
+  migrateScheduleDefaultOriginTsukubamiraiV2(database);
 }
 
 /** 見積・請求 実務化 v1 — 明細テンプレ / 単独請求フラグ */
@@ -2990,6 +2991,64 @@ function migrateScheduleDefaultOriginTsukubamiraiV1(database: Database.Database)
     )
     .run(
       "migration:schedule_default_origin_tsukubamirai_v1",
+      JSON.stringify({ at: new Date().toISOString() })
+    );
+}
+
+/** 通常出発地 — プレースホルダ（自宅等）をつくばみらい市板橋2889-2 へ更新 */
+function migrateScheduleDefaultOriginTsukubamiraiV2(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:schedule_default_origin_tsukubamirai_v2") as { value_json: string } | undefined;
+  if (marker) return;
+
+  const SETTINGS_KEY = "schedule_planner_settings_v1";
+  const DEFAULT_ORIGIN = "茨城県つくばみらい市板橋2889-2";
+  const PLACEHOLDER_ORIGINS = new Set(["", "自宅", "事務所（守谷市）"]);
+
+  const row = database
+    .prepare(`SELECT value_json FROM platform_settings WHERE key = ?`)
+    .get(SETTINGS_KEY) as { value_json: string } | undefined;
+
+  let currentOrigin = "";
+  if (row) {
+    try {
+      const parsed = JSON.parse(row.value_json) as { defaultOrigin?: string };
+      currentOrigin = String(parsed.defaultOrigin ?? "").trim();
+    } catch {
+      /* ignore */
+    }
+  }
+
+  if (!PLACEHOLDER_ORIGINS.has(currentOrigin)) {
+    database
+      .prepare(
+        `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+      )
+      .run(
+        "migration:schedule_default_origin_tsukubamirai_v2",
+        JSON.stringify({ at: new Date().toISOString(), skipped: true, currentOrigin })
+      );
+    return;
+  }
+
+  const next = {
+    defaultOrigin: DEFAULT_ORIGIN,
+    updatedAt: new Date().toISOString(),
+  };
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))
+       ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at`
+    )
+    .run(SETTINGS_KEY, JSON.stringify(next));
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run(
+      "migration:schedule_default_origin_tsukubamirai_v2",
       JSON.stringify({ at: new Date().toISOString() })
     );
 }
