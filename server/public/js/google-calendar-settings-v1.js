@@ -419,9 +419,7 @@ function renderMultiCalendarList(calendars, selectedIds) {
   panel.innerHTML = calendars
     .filter((c) => isWritableCal(c))
     .map(
-      (c) => `<label>${colorSwatchHtml(c.backgroundColor)}
-        <input type="checkbox" class="multi-cal-check" value="${escapeHtml(c.id)}" ${ids.has(c.id) ? "checked" : ""} />
-        <span class="cal-label-text">${escapeHtml(calendarOptionLabel(c))}</span></label>`
+      (c) => `<label>${colorSwatchHtml(c.backgroundColor)}<input type="checkbox" class="multi-cal-check" value="${escapeHtml(c.id)}" ${ids.has(c.id) ? "checked" : ""} /><span class="cal-label-text">${escapeHtml(calendarOptionLabel(c))}</span></label>`
     )
     .join("");
 }
