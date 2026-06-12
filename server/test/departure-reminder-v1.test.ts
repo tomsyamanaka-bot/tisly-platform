@@ -193,6 +193,8 @@ describe("出発リマインダー + 持ち物通知 v1", () => {
     assert.equal(res.status, 200);
     assert.ok(res.text.includes("field-check-v1"));
     assert.ok(res.text.includes("departure-alert-card"));
+    assert.ok(res.text.includes("data-departure-accordion"));
+    assert.ok(res.text.includes("departure-kit-btn"));
   });
 
   it("field-check-v1 が projectId クエリに対応する", async () => {

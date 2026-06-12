@@ -62,6 +62,8 @@ export interface ScheduleWeekView {
   label: string;
   startDate: string;
   endDate: string;
+  /** サーバー側の「今日」（Asia/Tokyo） */
+  today: string;
   days: ScheduleDayCard[];
   summary: ScheduleWeekSummary;
 }

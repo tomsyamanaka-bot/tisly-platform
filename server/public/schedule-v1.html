@@ -36,14 +36,102 @@
     .schedule-event-list .event-map-btn { display: inline-block; margin-top: 0.15rem; font-size: 0.72rem; padding: 0.1rem 0.4rem; }
     .schedule-event-list li { align-items: flex-start; }
     .schedule-event-list .event-time { display: block; color: #64748b; }
-    .departure-prep-card { margin-top: 0.5rem; padding: 0.55rem 0.65rem; background: #fffbeb; border: 1px solid #fcd34d; border-radius: 8px; }
-    .departure-prep-card p { margin: 0.2rem 0; font-size: 0.88rem; }
-    .departure-prep-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.45rem; }
-    .departure-remind-badge { font-size: 0.75rem; padding: 0.1rem 0.4rem; border-radius: 999px; background: #dbeafe; color: #1d4ed8; }
-    .departure-alert-card { margin: 0 0 0.75rem; padding: 0.65rem 0.75rem; background: #fef3c7; border: 1px solid #f59e0b; border-radius: 10px; }
-    .departure-alert-title { margin: 0; font-weight: 700; color: #92400e; }
-    .departure-alert-body { margin: 0.25rem 0 0.5rem; font-size: 0.88rem; color: #78350f; }
-    .schedule-event-list li.has-departure { flex-direction: column; align-items: stretch; }
+    .btn-compact { font-size: 0.78rem !important; padding: 0.28rem 0.5rem !important; min-height: 0; line-height: 1.25; }
+    .departure-prep-card {
+      margin-top: 0.3rem;
+      padding: 0.35rem 0.45rem;
+      background: #fffbeb;
+      border: 1px solid #fcd34d;
+      border-radius: 6px;
+    }
+    .departure-prep-summary {
+      display: block;
+      width: 100%;
+      margin: 0;
+      padding: 0.1rem 0;
+      border: none;
+      background: none;
+      text-align: left;
+      font-size: 0.78rem;
+      line-height: 1.35;
+      color: #78350f;
+      cursor: pointer;
+    }
+    .departure-prep-compact-line { font-weight: 600; }
+    .departure-prep-details { margin-top: 0.35rem; padding-top: 0.35rem; border-top: 1px dashed #fcd34d; }
+    .departure-prep-details-title { margin: 0 0 0.2rem !important; font-size: 0.82rem !important; }
+    .departure-prep-detail-row { margin: 0.12rem 0; font-size: 0.8rem; }
+    .departure-prep-actions { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.35rem; }
+    .departure-prep-kit-always { margin-top: 0.25rem; }
+    .departure-remind-badge { font-size: 0.72rem; padding: 0.05rem 0.35rem; border-radius: 999px; background: #dbeafe; color: #1d4ed8; }
+    .departure-alert-card { margin: 0 0 0.5rem; padding: 0.5rem 0.6rem; background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; }
+    .departure-alert-title { margin: 0; font-weight: 700; font-size: 0.88rem; color: #92400e; }
+    .departure-alert-body { margin: 0.2rem 0 0.35rem; font-size: 0.82rem; color: #78350f; }
+    .schedule-day-compact { padding: 0.5rem 0.65rem !important; margin-bottom: 0.45rem !important; }
+    .schedule-day-head-compact { margin-bottom: 0.15rem; }
+    .schedule-day-head-main {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 0.35rem 0.5rem;
+      font-size: 0.82rem;
+      line-height: 1.35;
+    }
+    .schedule-day-date { font-size: 0.92rem !important; font-weight: 700; }
+    .schedule-day-count { color: #64748b; font-size: 0.78rem; }
+    .schedule-day-avail-inline { margin-left: auto; font-size: 0.75rem; color: #64748b; text-align: right; }
+    .schedule-day-avail-inline .stars { display: inline; font-size: 0.78rem; letter-spacing: 0.03em; color: #d97706; }
+    .schedule-event-list-compact { margin-top: 0.25rem !important; }
+    .schedule-event-list-compact .schedule-event-item {
+      padding: 0.18rem 0 !important;
+      gap: 0.3rem !important;
+      align-items: flex-start;
+    }
+    .schedule-event-icon { font-size: 0.75rem; line-height: 1.35; flex-shrink: 0; opacity: 0.85; }
+    .schedule-event-body { flex: 1; min-width: 0; }
+    .event-time-line { font-size: 0.75rem; color: #64748b; line-height: 1.3; }
+    .event-title-line {
+      font-size: 0.82rem;
+      font-weight: 600;
+      line-height: 1.3;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .event-cal-line { margin-top: 0.08rem; font-size: 0.68rem; line-height: 1.2; color: #94a3b8; }
+    .event-cal-name { font-size: 0.68rem !important; }
+    .event-desc-compact {
+      display: block;
+      margin: 0.08rem 0 0;
+      font-size: 0.72rem !important;
+      line-height: 1.25;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
+    .event-desc-compact[aria-expanded="true"] { white-space: pre-wrap; overflow: visible; }
+    .schedule-event-departure { margin-top: 0.15rem; }
+    #btn-this-week { margin-bottom: 0.45rem !important; padding: 0.4rem 0.6rem; font-size: 0.85rem; }
+    .schedule-summary-grid { margin: 0.45rem 0 !important; gap: 0.35rem !important; }
+    .schedule-summary-item { padding: 0.4rem 0.25rem !important; font-size: 0.78rem; }
+    .schedule-today-badge {
+      display: inline-block;
+      margin-left: 0.25rem;
+      padding: 0.05rem 0.4rem;
+      border-radius: 999px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      background: #fef3c7;
+      color: #b45309;
+      vertical-align: middle;
+    }
+    .schedule-day-today {
+      border-color: #f59e0b !important;
+      box-shadow: 0 0 0 1px #fcd34d;
+    }
+    #btn-prev-week:disabled { opacity: 0.35; cursor: default; }
   </style>
 </head>
 <body class="tisly-friendly">
@@ -66,14 +154,14 @@
 
     <div id="view-week">
       <div class="schedule-week-nav">
-        <button type="button" id="btn-prev-week" aria-label="前週">＜</button>
+        <button type="button" id="btn-prev-week" aria-label="前の7日間">＜</button>
         <div>
-          <div class="schedule-week-label" id="week-label">今週</div>
+          <div class="schedule-week-label" id="week-label">今日から7日間</div>
           <div class="section-hint" id="week-range" style="text-align:center;margin:0;"></div>
         </div>
-        <button type="button" id="btn-next-week" aria-label="来週">＞</button>
+        <button type="button" id="btn-next-week" aria-label="次の7日間">＞</button>
       </div>
-      <button type="button" class="btn-sub" id="btn-this-week" style="width:100%;margin-bottom:0.75rem;">今週に戻る</button>
+      <button type="button" class="btn-sub hidden" id="btn-this-week" style="width:100%;margin-bottom:0.75rem;">今日に戻る</button>
       <div id="week-summary" class="schedule-summary-grid"></div>
       <div id="week-days"></div>
     </div>

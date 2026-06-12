@@ -38,16 +38,70 @@
     .travel-block-meta { font-size: 0.82rem; color: #475569; margin-bottom: 0.35rem; }
     .travel-maps-hint { color: #b45309; margin: 0 0 0.5rem; }
     .event-map-btn { margin-left: 0.35rem; }
-    .departure-prep-card { margin: 0.5rem 0; padding: 0.55rem 0.65rem; background: #fffbeb; border: 1px solid #fcd34d; border-radius: 8px; }
-    .departure-prep-card p { margin: 0.2rem 0; font-size: 0.88rem; }
-    .departure-prep-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.45rem; }
-    .departure-remind-badge { font-size: 0.75rem; padding: 0.1rem 0.4rem; border-radius: 999px; background: #dbeafe; color: #1d4ed8; }
-    .departure-alert-card { margin: 0 0 0.75rem; padding: 0.65rem 0.75rem; background: #fef3c7; border: 1px solid #f59e0b; border-radius: 10px; }
-    .departure-alert-title { margin: 0; font-weight: 700; color: #92400e; }
-    .departure-alert-body { margin: 0.25rem 0 0.5rem; font-size: 0.88rem; color: #78350f; }
-    .schedule-intel-card { border-left: 4px solid #e8a54b; }
-    .schedule-day-summary { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; }
-    .schedule-intel-weather .weather-slot { display: inline-block; margin-right: 0.35rem; }
+    .btn-compact { font-size: 0.78rem !important; padding: 0.28rem 0.5rem !important; min-height: 0; line-height: 1.25; }
+    .departure-prep-card {
+      margin: 0.35rem 0;
+      padding: 0.35rem 0.45rem;
+      background: #fffbeb;
+      border: 1px solid #fcd34d;
+      border-radius: 6px;
+    }
+    .departure-prep-summary {
+      display: block;
+      width: 100%;
+      margin: 0;
+      padding: 0.1rem 0;
+      border: none;
+      background: none;
+      text-align: left;
+      font-size: 0.78rem;
+      line-height: 1.35;
+      color: #78350f;
+      cursor: pointer;
+    }
+    .departure-prep-compact-line { font-weight: 600; }
+    .departure-prep-details { margin-top: 0.35rem; padding-top: 0.35rem; border-top: 1px dashed #fcd34d; }
+    .departure-prep-details-title { margin: 0 0 0.2rem !important; font-size: 0.82rem !important; }
+    .departure-prep-detail-row { margin: 0.12rem 0; font-size: 0.8rem; }
+    .departure-prep-actions { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.35rem; }
+    .departure-prep-kit-always { margin-top: 0.25rem; }
+    .departure-remind-badge { font-size: 0.72rem; padding: 0.05rem 0.35rem; border-radius: 999px; background: #dbeafe; color: #1d4ed8; }
+    .departure-alert-card { margin: 0 0 0.5rem; padding: 0.5rem 0.6rem; background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; }
+    .departure-alert-title { margin: 0; font-weight: 700; font-size: 0.88rem; color: #92400e; }
+    .departure-alert-body { margin: 0.2rem 0 0.35rem; font-size: 0.82rem; color: #78350f; }
+    .schedule-intel-card-compact {
+      border-left: 3px solid #e8a54b;
+      margin-bottom: 0.4rem !important;
+      padding: 0.4rem 0.55rem !important;
+    }
+    .event-cal-line { margin-top: 0.08rem; font-size: 0.68rem; line-height: 1.2; color: #94a3b8; }
+    .schedule-intel-time { font-size: 0.75rem; color: #64748b; line-height: 1.3; }
+    .schedule-intel-title {
+      font-size: 0.84rem;
+      font-weight: 600;
+      line-height: 1.3;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .schedule-intel-summary-line {
+      font-size: 0.72rem;
+      line-height: 1.35;
+      color: #475569;
+      margin: 0.15rem 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .schedule-intel-address-compact { font-size: 0.72rem; color: #64748b; margin: 0.1rem 0; }
+    .schedule-intel-maps-compact { margin-top: 0.2rem; }
+    .schedule-intel-maps-compact .btn-small { font-size: 0.72rem !important; padding: 0.22rem 0.45rem !important; }
+    .schedule-day-summary-compact { margin-top: 0.5rem !important; padding: 0.5rem 0.6rem !important; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; }
+    .schedule-day-summary-label { margin: 0 0 0.35rem !important; font-size: 0.82rem !important; }
+    .schedule-day-summary-body { font-size: 0.8rem; line-height: 1.45; }
+    #day-events .section-label { margin-bottom: 0.35rem !important; font-size: 0.85rem; }
+    #day-memo-summary { padding: 0.5rem 0.65rem !important; margin-bottom: 0.45rem !important; }
   </style>
 </head>
 <body class="tisly-friendly field-ops-touch">

@@ -118,22 +118,17 @@ function addDaysIso(iso, n) {
   return d.toISOString().slice(0, 10);
 }
 
-function mondayOfWeekOffset(offset = 0) {
+function scheduleWindowStartFromOffset(offset = 0) {
   const tz = "Asia/Tokyo";
   const today = new Date().toLocaleDateString("en-CA", { timeZone: tz });
-  const wd =
-    new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "short" })
-      .formatToParts(new Date(`${today}T12:00:00+09:00`))
-      .find((p) => p.type === "weekday")?.value ?? "Mon";
-  const dayIndex = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[wd] ?? 1;
-  const mondayOffset = dayIndex === 0 ? -6 : 1 - dayIndex;
-  return addDaysIso(today, mondayOffset + offset * 7);
+  const safe = Math.max(0, Math.trunc(offset));
+  return addDaysIso(today, safe * 7);
 }
 
 function resolveSyncDateRange(body) {
   const weekOffset = Number.isFinite(Number(body.weekOffset)) ? Number(body.weekOffset) : 0;
   const weeks = Math.max(1, Number(body.weeks) || 8);
-  const dateFrom = body.dateFrom || body.startDate || mondayOfWeekOffset(weekOffset);
+  const dateFrom = body.dateFrom || body.startDate || scheduleWindowStartFromOffset(weekOffset);
   const dateTo = body.dateTo || body.endDate || addDaysIso(dateFrom, weeks * 7 - 1);
   return { dateFrom, dateTo, weekOffset };
 }

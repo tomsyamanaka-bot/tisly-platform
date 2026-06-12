@@ -171,27 +171,55 @@ export function stopDepartureReminderPolling() {
   activeDeparture = null;
 }
 
-export function renderDeparturePrepHtml(departure, { compact = false } = {}) {
+export function renderDeparturePrepHtml(departure) {
   if (!departure) return "";
   const toggleLabel = departure.reminderEnabled ? "ON" : "OFF";
   const kitHref = buildFieldCheckHref(departure);
-  if (compact) {
-    return `<div class="departure-compact">
-      <span>🚐 出発 ${departure.departureTime}</span>
-      <span>🔔 ${departure.reminderTime}</span>
-      <a class="btn-sub btn-small" href="${kitHref}">持ち物</a>
-    </div>`;
-  }
-  return `<div class="departure-prep-card friendly-card" data-departure-id="${departure.id}">
-    <p class="section-label" style="margin-top:0;">🚐 出発準備</p>
-    <p>出発時間 <strong>${departure.departureTime}</strong></p>
-    <p>通知 <strong>${departure.reminderTime}</strong> <span class="departure-remind-badge">${toggleLabel}</span></p>
-    <div class="departure-prep-actions">
-      <button type="button" class="btn-sub btn-small" data-departure-edit="1">出発時間を変更</button>
-      <button type="button" class="btn-sub btn-small" data-departure-toggle="1">通知 ${toggleLabel}</button>
-      <a class="btn-sub btn-small" href="${kitHref}">持ち物リストを開く</a>
+  return `<div class="departure-prep-card departure-prep-collapsed" data-departure-id="${departure.id}" aria-expanded="false">
+    <button type="button" class="departure-prep-summary" data-departure-accordion="1" aria-label="出発準備の詳細を開く">
+      <span class="departure-prep-compact-line">🚐 出発 ${departure.departureTime}　通知 ${departure.reminderTime} ${toggleLabel}</span>
+    </button>
+    <div class="departure-prep-details" hidden>
+      <p class="section-label departure-prep-details-title">🚐 出発準備</p>
+      <p class="departure-prep-detail-row">出発時間 <strong>${departure.departureTime}</strong></p>
+      <p class="departure-prep-detail-row">通知 <strong>${departure.reminderTime}</strong> <span class="departure-remind-badge">${toggleLabel}</span></p>
+      <div class="departure-prep-actions">
+        <button type="button" class="btn-sub btn-small btn-compact" data-departure-edit="1">出発時間を変更</button>
+        <button type="button" class="btn-sub btn-small btn-compact" data-departure-toggle="1">通知 ${toggleLabel}</button>
+        <a class="btn-sub btn-small btn-compact" href="${kitHref}">持ち物リストを開く</a>
+      </div>
+    </div>
+    <div class="departure-prep-kit-always">
+      <a class="btn-sub btn-small btn-compact departure-kit-btn" href="${kitHref}">🎒 持ち物リストを開く</a>
     </div>
   </div>`;
+}
+
+function setDeparturePrepExpanded(card, expanded) {
+  if (!card) return;
+  card.classList.toggle("departure-prep-expanded", expanded);
+  card.classList.toggle("departure-prep-collapsed", !expanded);
+  card.setAttribute("aria-expanded", expanded ? "true" : "false");
+  const details = card.querySelector(".departure-prep-details");
+  if (details) details.hidden = !expanded;
+  const summaryBtn = card.querySelector("[data-departure-accordion]");
+  if (summaryBtn) {
+    summaryBtn.setAttribute("aria-label", expanded ? "出発準備の詳細を閉じる" : "出発準備の詳細を開く");
+  }
+}
+
+export function bindDeparturePrepAccordion(root) {
+  root?.querySelectorAll("[data-departure-accordion]").forEach((btn) => {
+    if (btn.dataset.accordionBound === "1") return;
+    btn.dataset.accordionBound = "1";
+    btn.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      const card = btn.closest("[data-departure-id]");
+      if (!card) return;
+      const expanded = card.classList.contains("departure-prep-expanded");
+      setDeparturePrepExpanded(card, !expanded);
+    });
+  });
 }
 
 export function openDepartureEditDialog(departure, { apiFetch, onSaved, toast }) {
@@ -225,6 +253,10 @@ export function toggleDepartureReminder(departure, { apiFetch, onSaved, toast })
 }
 
 export function bindDeparturePrepCards(root, departuresById, { apiFetch, onSaved, toast }) {
+  bindDeparturePrepAccordion(root);
+  root?.querySelectorAll(".departure-kit-btn, .departure-prep-actions a").forEach((el) => {
+    el.addEventListener("click", (ev) => ev.stopPropagation());
+  });
   root?.querySelectorAll("[data-departure-edit]").forEach((btn) => {
     btn.addEventListener("click", (ev) => {
       ev.stopPropagation();

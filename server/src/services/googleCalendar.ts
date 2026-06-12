@@ -722,3 +722,14 @@ export function getWeekStartWithOffset(offsetWeeks = 0, timeZone = "Asia/Tokyo")
   const mondayOffset = dayIndex === 0 ? -6 : 1 - dayIndex;
   return addDays(today, mondayOffset + offsetWeeks * 7);
 }
+
+/** 日程調整 PWA — 今日（JST）を基準にした7日間ウィンドウの開始日 */
+export function todayInTimeZone(timeZone = "Asia/Tokyo"): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone });
+}
+
+export function getScheduleWindowStartWithOffset(offsetWeeks = 0, timeZone = "Asia/Tokyo"): string {
+  const today = todayInTimeZone(timeZone);
+  const offset = Math.max(0, Math.trunc(offsetWeeks));
+  return addDays(today, offset * 7);
+}

@@ -12,6 +12,9 @@ const { default: request } = await import("supertest");
 const { createApp } = await import("../src/app.js");
 const { closeDatabase, getDatabase } = await import("../src/db/database.js");
 const { calcAvailability } = await import("../src/schedule/schedule-store.js");
+const { todayInTimeZone, getScheduleWindowStartWithOffset } = await import(
+  "../src/services/googleCalendar.js"
+);
 
 const app = createApp();
 
@@ -58,28 +61,38 @@ describe("日程調整 PWA v1 API", () => {
     assert.ok(res.text.includes("週間"));
   });
 
-  it("週間表示を取得できる", async () => {
+  it("週間表示を取得できる（今日から7日間）", async () => {
+    const today = todayInTimeZone();
     const res = await request(app)
       .get("/api/schedule/v1/week?offset=0")
       .set("Authorization", `Bearer ${token}`);
     assert.equal(res.status, 200);
-    assert.equal(res.body.label, "今週");
+    assert.equal(res.body.label, "今日から7日間");
+    assert.equal(res.body.startDate, today);
+    assert.equal(res.body.today, today);
     assert.equal(res.body.days.length, 7);
+    assert.equal(res.body.days[0].date, today);
     assert.ok(res.body.summary);
     assert.ok(typeof res.body.days[0].availability.stars === "string");
+    for (const day of res.body.days) {
+      assert.ok(day.date >= today, `過去日が含まれています: ${day.date}`);
+    }
   });
 
-  it("前週・来週を切替できる", async () => {
+  it("次の7日間へ切替でき、過去ウィンドウには戻らない", async () => {
+    const today = todayInTimeZone();
     const prev = await request(app)
       .get("/api/schedule/v1/week?offset=-1")
       .set("Authorization", `Bearer ${token}`);
     assert.equal(prev.status, 200);
-    assert.equal(prev.body.label, "前週");
+    assert.equal(prev.body.startDate, today);
+    assert.equal(prev.body.label, "今日から7日間");
     const next = await request(app)
       .get("/api/schedule/v1/week?offset=1")
       .set("Authorization", `Bearer ${token}`);
     assert.equal(next.status, 200);
-    assert.equal(next.body.label, "来週");
+    assert.equal(next.body.label, "1週間後");
+    assert.equal(next.body.startDate, getScheduleWindowStartWithOffset(1));
   });
 
   it("3週間表示を取得できる", async () => {
@@ -317,11 +330,7 @@ describe("日程調整 PWA v1 API", () => {
   });
 
   it("現場不可日を登録・更新・削除できる", async () => {
-    const monday = new Date();
-    const day = monday.getDay();
-    const diff = day === 0 ? -6 : 1 - day;
-    monday.setDate(monday.getDate() + diff);
-    const date = monday.toISOString().slice(0, 10);
+    const date = todayInTimeZone();
 
     const created = await request(app)
       .post("/api/schedule/v1/unavailable")
@@ -333,9 +342,9 @@ describe("日程調整 PWA v1 API", () => {
     const week = await request(app)
       .get("/api/schedule/v1/week?offset=0")
       .set("Authorization", `Bearer ${token}`);
-    const mondayDay = week.body.days.find((d: { date: string }) => d.date === date);
-    assert.ok(mondayDay?.unavailable);
-    assert.equal(mondayDay.unavailable.reason, "事務処理");
+    const todayDay = week.body.days.find((d: { date: string }) => d.date === date);
+    assert.ok(todayDay?.unavailable);
+    assert.equal(todayDay.unavailable.reason, "事務処理");
 
     const patched = await request(app)
       .patch(`/api/schedule/v1/unavailable/${unavailableId}`)

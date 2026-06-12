@@ -18,15 +18,40 @@ export function eventCalendarColorStyle(ev) {
   return `border-left:4px solid ${color};padding-left:0.45rem;background:linear-gradient(90deg, ${color}18 0%, transparent 55%);`;
 }
 
-export function eventCalendarBadgeHtml(ev) {
+export function eventCalendarBadgeHtml(ev, { compact = false } = {}) {
   const color = ev?.calendarColor?.trim();
   const label = ev?.calendarSummary?.trim();
   if (!color && !label) return "";
   const swatch = color
-    ? `<span class="cal-color-swatch" style="display:inline-block;width:0.7rem;height:0.7rem;border-radius:2px;background:${escapeScheduleHtml(color)};vertical-align:middle;margin-right:0.2rem;"></span>`
+    ? `<span class="cal-color-swatch" style="display:inline-block;width:0.55rem;height:0.55rem;border-radius:2px;background:${escapeScheduleHtml(color)};vertical-align:middle;margin-right:0.15rem;"></span>`
     : "";
-  const text = label ? `<small style="opacity:0.75;">${escapeScheduleHtml(label)}</small> ` : "";
-  return `${swatch}${text}`;
+  const calCls = compact ? "event-cal-name" : "";
+  const text = label
+    ? `<small class="${calCls}" style="opacity:0.75;">${escapeScheduleHtml(label)}</small>`
+    : "";
+  return compact
+    ? `<div class="event-cal-line">${swatch}${text}</div>`
+    : `${swatch}${text} `;
+}
+
+export function renderWeekEventItemHtml(ev, { dayDate, catIcon, previewLen = 48 } = {}) {
+  const time = formatEventTime(ev);
+  const colorStyle = eventCalendarColorStyle(ev);
+  const liStyle = colorStyle ? ` style="${colorStyle}"` : "";
+  const calBadge = eventCalendarBadgeHtml(ev, { compact: true });
+  const desc = renderEventDescriptionHtml(ev.description, `${dayDate}-${ev.id}`, previewLen, {
+    compact: true,
+  });
+  const icon = catIcon?.[ev.category] || "📌";
+  return `<li class="schedule-event-item"${liStyle}>
+    <span class="schedule-event-icon" aria-hidden="true">${icon}</span>
+    <div class="schedule-event-body">
+      ${time ? `<div class="event-time-line">${escapeScheduleHtml(time)}</div>` : ""}
+      <div class="event-title-line">${escapeScheduleHtml(ev.title)}</div>
+      ${calBadge}
+      ${desc}
+    </div>
+  </li>`;
 }
 
 export function escapeScheduleHtml(s) {
@@ -37,14 +62,22 @@ export function escapeScheduleHtml(s) {
     .replace(/"/g, "&quot;");
 }
 
-export function renderEventDescriptionHtml(description, eventKey, previewLen = 72) {
+export function renderEventDescriptionHtml(description, eventKey, previewLen = 72, { compact = false } = {}) {
   if (!description?.trim()) return "";
   const text = description.trim();
-  const lines = text.split(/\n/).filter(Boolean);
-  const preview = lines.slice(0, 2).join(" ").slice(0, previewLen);
-  const truncated = preview.length < text.replace(/\n/g, " ").length;
+  const oneLine = text.replace(/\s+/g, " ").trim();
+  const maxLen = compact ? Math.min(previewLen, 48) : previewLen;
+  const preview = compact ? oneLine.slice(0, maxLen) : linesPreview(text, maxLen);
+  const truncated = preview.length < oneLine.length;
   const label = truncated ? "メモ" : "説明";
-  return `<br><button type="button" class="event-desc-snippet" data-desc-key="${escapeScheduleHtml(eventKey)}" data-desc-full="${escapeScheduleHtml(text)}" aria-expanded="false">${label}: ${escapeScheduleHtml(preview)}${truncated ? "…" : ""}</button>`;
+  const cls = compact ? "event-desc-snippet event-desc-compact" : "event-desc-snippet";
+  const prefix = compact ? "" : "<br>";
+  return `${prefix}<button type="button" class="${cls}" data-desc-key="${escapeScheduleHtml(eventKey)}" data-desc-full="${escapeScheduleHtml(text)}" data-preview-len="${maxLen}" aria-expanded="false">${label}: ${escapeScheduleHtml(preview)}${truncated ? "…" : ""}</button>`;
+}
+
+function linesPreview(text, previewLen) {
+  const lines = text.split(/\n/).filter(Boolean);
+  return lines.slice(0, 2).join(" ").slice(0, previewLen);
 }
 
 export function renderEventLocationHtml(location) {
@@ -78,9 +111,11 @@ export function bindEventDescSnippets(root) {
       const expanded = btn.getAttribute("aria-expanded") === "true";
       const previewLen = Number(btn.dataset.previewLen) || 72;
       if (expanded) {
-        const lines = full.split(/\n/).filter(Boolean);
-        const preview = lines.slice(0, 2).join(" ").slice(0, previewLen);
-        const truncated = preview.length < full.replace(/\n/g, " ").length;
+        const oneLine = full.replace(/\s+/g, " ").trim();
+        const preview = btn.classList.contains("event-desc-compact")
+          ? oneLine.slice(0, previewLen)
+          : linesPreview(full, previewLen);
+        const truncated = preview.length < oneLine.length;
         btn.innerHTML = `${truncated ? "メモ" : "説明"}: ${escapeScheduleHtml(preview)}${truncated ? "…" : ""}`;
         btn.setAttribute("aria-expanded", "false");
         return;

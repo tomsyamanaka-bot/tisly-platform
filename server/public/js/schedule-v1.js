@@ -8,13 +8,9 @@ import { friendlyHttpError, renderFriendlyErrorHtml } from "./tisly-friendly-err
 import { initDayEditModal, openDayEditModal } from "./schedule-day-edit-modal.js";
 import {
   bindEventDescSnippets,
-  formatEventTime,
-  renderEventDescriptionHtml,
-  renderEventLocationHtml,
   renderIntegrationBadges,
   escapeScheduleHtml,
-  eventCalendarColorStyle,
-  eventCalendarBadgeHtml,
+  renderWeekEventItemHtml,
 } from "./schedule-event-ui.js";
 import {
   bindDepartureAlertCards,
@@ -99,29 +95,41 @@ async function api(path, opts = {}) {
   return data;
 }
 
+const SCHEDULE_TZ = "Asia/Tokyo";
+
 function addDaysIso(iso, n) {
   const d = new Date(`${iso}T12:00:00+09:00`);
   d.setUTCDate(d.getUTCDate() + n);
   return d.toISOString().slice(0, 10);
 }
 
-function mondayOfWeekOffset(offset = 0) {
-  const tz = "Asia/Tokyo";
-  const today = new Date().toLocaleDateString("en-CA", { timeZone: tz });
-  const wd =
-    new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "short" })
-      .formatToParts(new Date(`${today}T12:00:00+09:00`))
-      .find((p) => p.type === "weekday")?.value ?? "Mon";
-  const dayIndex = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[wd] ?? 1;
-  const mondayOffset = dayIndex === 0 ? -6 : 1 - dayIndex;
-  return addDaysIso(today, mondayOffset + offset * 7);
+function todayIso() {
+  return new Date().toLocaleDateString("en-CA", { timeZone: SCHEDULE_TZ });
+}
+
+function scheduleWindowStartFromOffset(offset = 0) {
+  const safe = Math.max(0, Math.trunc(offset));
+  return addDaysIso(todayIso(), safe * 7);
+}
+
+function daysBetweenIso(fromIso, toIso) {
+  const from = new Date(`${fromIso}T12:00:00+09:00`);
+  const to = new Date(`${toIso}T12:00:00+09:00`);
+  return Math.round((to - from) / 86400000);
+}
+
+function weekOffsetFromDateParam(dateParam) {
+  if (!dateParam) return 0;
+  const today = todayIso();
+  if (dateParam < today) return 0;
+  return Math.floor(daysBetweenIso(today, dateParam) / 7);
 }
 
 function showSyncDebug(body) {
   const calendarId = body.selectedCalendarId || body.calendarId || "primary";
   const weekOffset = Number.isFinite(Number(body.weekOffset)) ? Number(body.weekOffset) : 0;
   const weeks = Math.max(1, Number(body.weeks) || 1);
-  const dateFrom = body.dateFrom || body.startDate || mondayOfWeekOffset(weekOffset);
+  const dateFrom = body.dateFrom || body.startDate || scheduleWindowStartFromOffset(weekOffset);
   const dateTo = body.dateTo || body.endDate || addDaysIso(dateFrom, weeks * 7 - 1);
   const syncDirection = body.syncDirection || "two_way";
   const lines = [
@@ -189,9 +197,8 @@ function dayCardClass(day) {
   return "schedule-day-card";
 }
 
-function indexDepartures(days) {
+function indexDepartures(days, today = todayIso()) {
   departuresById = {};
-  const today = new Date().toISOString().slice(0, 10);
   todayDeparture = null;
   for (const day of days) {
     if (day.departure?.id) {
@@ -201,43 +208,59 @@ function indexDepartures(days) {
   }
 }
 
-function renderWeekDays(days) {
-  indexDepartures(days);
+function updateWeekNavState(offset) {
+  const prevBtn = $("btn-prev-week");
+  const todayBtn = $("btn-this-week");
+  if (prevBtn) {
+    prevBtn.disabled = offset <= 0;
+    prevBtn.style.visibility = offset <= 0 ? "hidden" : "visible";
+  }
+  if (todayBtn) {
+    todayBtn.classList.toggle("hidden", offset <= 0);
+  }
+}
+
+function renderWeekDays(days, today = todayIso()) {
+  indexDepartures(days, today);
   $("week-days").innerHTML = days
     .map((day) => {
+      const isToday = day.date === today;
+      const todayBadge = isToday ? '<span class="schedule-today-badge">今日</span>' : "";
       const firstId = day.firstConstructionEventId;
       const events = day.events
         .slice(0, 5)
         .map((ev) => {
-          const time = formatEventTime(ev);
-          const timeHtml = time ? `<small class="event-time">${escapeHtml(time)}</small> ` : "";
-          const loc = ev.location ? `<small> 📍${escapeHtml(ev.location)}</small>` : "";
           const departureHtml =
             day.departure && ev.id === firstId ? renderDeparturePrepHtml(day.departure) : "";
-          const colorStyle = eventCalendarColorStyle(ev);
-          const liStyle = colorStyle ? ` style="${colorStyle}"` : "";
-          const calBadge = eventCalendarBadgeHtml(ev);
-          return `<li class="${departureHtml ? "has-departure" : ""}"${liStyle}><span>${CAT_ICON[ev.category] || "📌"}</span><span>${calBadge}${timeHtml}<strong>${escapeHtml(ev.title)}</strong>${loc}${renderEventDescriptionHtml(ev.description, `${day.date}-${ev.id}`)}${renderEventLocationHtml(ev.location)}${departureHtml}</span></li>`;
+          const itemHtml = renderWeekEventItemHtml(ev, {
+            dayDate: day.date,
+            catIcon: CAT_ICON,
+            previewLen: 48,
+          });
+          if (!departureHtml) return itemHtml;
+          return itemHtml.replace(
+            "</li>",
+            `<div class="schedule-event-departure">${departureHtml}</div></li>`
+          );
         })
         .join("");
       const more = day.events.length > 5 ? `<li>他${day.events.length - 5}件</li>` : "";
       const unavail = day.unavailable
         ? `<span class="schedule-unavail-badge">🚫 現場不可</span>`
         : "";
-      return `<article class="${dayCardClass(day)}" data-date="${day.date}" role="button" tabindex="0">
-        <div class="schedule-day-head">
-          <div>
-            <div class="schedule-day-date">${formatDateShort(day.date)}（${day.weekday}）</div>
-            <div class="section-hint" style="margin:0;">予定 ${day.eventCount} 件</div>
-          </div>
-          <div class="schedule-availability">
-            <span class="stars">${escapeHtml(day.availability?.stars || "")}</span>
-            <span>${escapeHtml(day.availability?.label || "")}</span>
+      const availStars = escapeHtml(day.availability?.stars || "");
+      const availLabel = escapeHtml(day.availability?.label || "");
+      const todayCls = isToday ? " schedule-day-today" : "";
+      return `<article class="${dayCardClass(day)} schedule-day-compact${todayCls}" data-date="${day.date}" role="button" tabindex="0">
+        <div class="schedule-day-head schedule-day-head-compact">
+          <div class="schedule-day-head-main">
+            <span class="schedule-day-date">${formatDateShort(day.date)}（${day.weekday}）${todayBadge}</span>
+            <span class="schedule-day-count">予定${day.eventCount}件</span>
+            <span class="schedule-day-avail-inline"><span class="stars">${availStars}</span> ${availLabel}</span>
           </div>
         </div>
         ${unavail}
-        <ul class="schedule-event-list">${events}${more}</ul>
-        <p class="section-hint" style="margin:0.35rem 0 0;font-size:0.82rem;">タップで詳細</p>
+        <ul class="schedule-event-list schedule-event-list-compact">${events}${more}</ul>
       </article>`;
     })
     .join("");
@@ -251,7 +274,13 @@ function renderWeekDays(days) {
   $("week-days").querySelectorAll("[data-date]").forEach((card) => {
     const open = () => openDayDetailByDate(card.dataset.date);
     card.addEventListener("click", (ev) => {
-      if (ev.target.closest(".event-desc-snippet, .event-map-btn")) return;
+      if (
+        ev.target.closest(
+          ".event-desc-snippet, .event-map-btn, .departure-prep-card, .departure-kit-btn, [data-departure-edit], [data-departure-toggle]"
+        )
+      ) {
+        return;
+      }
       open();
     });
     card.addEventListener("keydown", (ev) => {
@@ -309,10 +338,12 @@ function refreshTodayDepartureAlert() {
 async function loadWeek() {
   try {
     const data = await api(`/week?offset=${weekOffset}`);
+    const today = data.today || todayIso();
     $("week-label").textContent = data.label;
     $("week-range").textContent = `${formatDateShort(data.startDate)}〜${formatDateShort(data.endDate)}`;
     renderSummary(data.summary);
-    renderWeekDays(data.days);
+    renderWeekDays(data.days, today);
+    updateWeekNavState(data.offset ?? weekOffset);
     refreshTodayDepartureAlert();
   } catch (e) {
     $("week-days").innerHTML = `<div class="error-friendly">${renderFriendlyErrorHtml(e, e.status)}</div>`;
@@ -564,6 +595,9 @@ async function init() {
     reasonPresets,
   });
 
+  const urlDate = new URLSearchParams(window.location.search).get("date")?.slice(0, 10) ?? "";
+  weekOffset = weekOffsetFromDateParam(urlDate);
+
   showMode("week");
   await loadWeek();
   await refreshSyncStatus();
@@ -597,12 +631,18 @@ async function init() {
         toast("権限が不足しています。設定画面から再ログインしてください。");
         return;
       }
+      const dateFrom = scheduleWindowStartFromOffset(weekOffset);
+      const dateTo = addDaysIso(dateFrom, 6);
       const syncBody = {
         weeks: 1,
         weekOffset,
+        startDate: dateFrom,
+        endDate: dateTo,
+        dateFrom,
+        dateTo,
         syncDirection: "bidirectional",
         selectedCalendarId: cal.settings?.calendarId || "primary",
-        timezone: "Asia/Tokyo",
+        timezone: SCHEDULE_TZ,
       };
       showSyncDebug(syncBody);
       const result = await api("/sync/google", {
@@ -647,6 +687,7 @@ async function init() {
   });
 
   $("btn-prev-week").addEventListener("click", async () => {
+    if (weekOffset <= 0) return;
     weekOffset -= 1;
     await loadWeek();
   });

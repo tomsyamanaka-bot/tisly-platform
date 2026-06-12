@@ -29,7 +29,11 @@ import type {
   ScheduleDayDetail,
   ScheduleDaySiteStop,
 } from "./schedule-types.js";
-import { getGoogleCalendarPublicStatus } from "../services/googleCalendar.js";
+import {
+  getGoogleCalendarPublicStatus,
+  getScheduleWindowStartWithOffset,
+  todayInTimeZone,
+} from "../services/googleCalendar.js";
 import { listWorkSessionsForDate } from "../field-ops/work-session-v1-store.js";
 import type { ProjectRefV1 } from "../field-ops/field-ops-types.js";
 import {
@@ -52,21 +56,20 @@ function parseOffset(raw: unknown): number {
   return Math.max(-52, Math.min(52, Math.trunc(n)));
 }
 
+/** 週間表示用 — 過去ウィンドウへは戻らない（offset >= 0） */
+function parseWeekOffset(raw: unknown): number {
+  const n = Number(raw ?? 0);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(52, Math.trunc(n)));
+}
+
 function weekStartFromOffset(offset: number): string {
-  const now = new Date();
-  const day = now.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  const monday = new Date(now);
-  monday.setDate(now.getDate() + diff + offset * 7);
-  return monday.toISOString().slice(0, 10);
+  return getScheduleWindowStartWithOffset(offset);
 }
 
 function weekLabel(offset: number): string {
-  if (offset === 0) return "今週";
-  if (offset === -1) return "前週";
-  if (offset === 1) return "来週";
-  if (offset < 0) return `${-offset}週前`;
-  return `${offset}週後`;
+  if (offset === 0) return "今日から7日間";
+  return `${offset}週間後`;
 }
 
 export function calcAvailability(eventCount: number, unavailable: boolean): DayAvailability {
@@ -156,9 +159,10 @@ async function loadCalendarEvents(startDate: string, endDate: string): Promise<S
 }
 
 export async function getScheduleWeekView(offsetRaw?: unknown): Promise<ScheduleWeekView> {
-  const offset = parseOffset(offsetRaw);
+  const offset = parseWeekOffset(offsetRaw);
   const startDate = weekStartFromOffset(offset);
   const endDate = addDays(startDate, 6);
+  const today = todayInTimeZone();
   const events = await loadCalendarEvents(startDate, endDate);
   const unavailable = listUnavailableDays(startDate, endDate);
   const unavailableMap = new Map(unavailable.map((u) => [u.date, u]));
@@ -177,6 +181,7 @@ export async function getScheduleWeekView(offsetRaw?: unknown): Promise<Schedule
     label: weekLabel(offset),
     startDate,
     endDate,
+    today,
     days,
     summary: buildSummary(days),
   };
@@ -186,7 +191,7 @@ export async function getScheduleThreeWeekView(offsetRaw?: unknown): Promise<{
   offset: number;
   blocks: ScheduleThreeWeekBlock[];
 }> {
-  const offset = parseOffset(offsetRaw);
+  const offset = parseWeekOffset(offsetRaw);
   const startDate = weekStartFromOffset(offset);
   const rangeEnd = addDays(startDate, 20);
   const allEvents = await loadCalendarEvents(startDate, rangeEnd);

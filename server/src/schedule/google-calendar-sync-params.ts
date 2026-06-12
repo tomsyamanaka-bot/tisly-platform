@@ -1,7 +1,7 @@
 /** Google Calendar 同期リクエストの正規化・検証 */
 
 import type { AuthedRequest } from "../auth/auth-middleware.js";
-import { getWeekStartWithOffset } from "../services/googleCalendar.js";
+import { getScheduleWindowStartWithOffset } from "../services/googleCalendar.js";
 import {
   getGoogleCalendarOAuthStatus,
   hasGoogleCalendarWriteScope,
@@ -176,7 +176,7 @@ function resolveDateRange(
   }
 
   const weekOffset = Number.isFinite(Number(body.weekOffset)) ? Number(body.weekOffset) : 0;
-  const startDate = getWeekStartWithOffset(weekOffset, timezone);
+  const startDate = getScheduleWindowStartWithOffset(weekOffset, timezone);
   const weeks = Math.max(1, Math.min(12, Number(body.weeks) || 1));
   return { startDate, endDate: addDays(startDate, weeks * 7 - 1) };
 }

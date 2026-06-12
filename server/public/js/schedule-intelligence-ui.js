@@ -8,23 +8,20 @@ export function formatEventTimeRange(ev) {
   return parts.length ? parts.join("〜") : "";
 }
 
-export function renderWeatherSlotsHtml(slots) {
+export function renderWeatherSlotsHtml(slots, { inline = false } = {}) {
   if (!slots?.length) return "";
+  const sep = inline ? " · " : "<br>";
   return slots
     .map((slot) => {
       const rainCls = slot.highlightRain ? ' style="color:#b91c1c;font-weight:600;"' : "";
-      return `<span class="weather-slot"${rainCls}>${slot.icon} ${escapeScheduleHtml(slot.label)} ${slot.precipChance}% / ${slot.tempC}℃</span>`;
+      return `<span class="weather-slot"${rainCls}>${slot.icon}${escapeScheduleHtml(slot.label)} ${slot.precipChance}% ${slot.tempC}℃</span>`;
     })
-    .join("<br>");
+    .join(sep);
 }
 
 export function renderIntelligenceEventCard(evIntel, { catIcon, catLabel } = {}) {
   const ev = evIntel;
   const time = formatEventTimeRange(ev);
-  const calBadge = eventCalendarBadgeHtml({
-    calendarColor: ev.calendarColor,
-    calendarSummary: ev.calendarSummary,
-  });
   const addr = ev.address?.displayAddress ?? "住所未設定";
   const addrIcon = addr === "住所未設定" || addr === "住所未確定" ? "📍" : "📍";
   const travel = ev.travel ?? {};
@@ -35,19 +32,23 @@ export function renderIntelligenceEventCard(evIntel, { catIcon, catLabel } = {})
   const mapsBtn = travel.mapsUrl
     ? `<a class="btn-sub btn-small" href="${escapeScheduleHtml(travel.mapsUrl)}" target="_blank" rel="noopener">🧭 Googleマップ</a>`
     : `<span class="section-hint" style="font-size:0.8rem;">🧭マップ不可</span>`;
-  const weatherHtml = renderWeatherSlotsHtml(ev.weatherSlots);
+  const weatherHtml = renderWeatherSlotsHtml(ev.weatherSlots, { inline: true });
   const indexLabel = ev.index != null ? `${ev.index}. ` : "";
+  const summaryParts = [weatherHtml, travelText].filter(Boolean).join(" · ");
+  const calBadgeCompact = eventCalendarBadgeHtml({
+    calendarColor: ev.calendarColor,
+    calendarSummary: ev.calendarSummary,
+  }, { compact: true });
 
-  return `<article class="schedule-intel-card friendly-card" style="margin-bottom:0.65rem;padding:0.65rem 0.75rem;">
-    <div class="schedule-intel-head" style="margin-bottom:0.35rem;">
-      <strong>${indexLabel}${escapeScheduleHtml(ev.title)}</strong>
-      ${time ? `<div class="section-hint" style="margin:0.15rem 0 0;">🕐 ${escapeScheduleHtml(time)}</div>` : ""}
-      ${calBadge ? `<div style="margin-top:0.2rem;">${calBadge}</div>` : ""}
+  return `<article class="schedule-intel-card schedule-intel-card-compact friendly-card">
+    <div class="schedule-intel-head-compact">
+      ${time ? `<div class="schedule-intel-time">${escapeScheduleHtml(time)}</div>` : ""}
+      <div class="schedule-intel-title">${indexLabel}${escapeScheduleHtml(ev.title)}</div>
+      ${calBadgeCompact}
     </div>
-    ${weatherHtml ? `<div class="schedule-intel-weather" style="font-size:0.85rem;margin:0.35rem 0;line-height:1.5;">${weatherHtml}</div>` : ""}
-    <div class="schedule-intel-travel" style="font-size:0.85rem;margin:0.25rem 0;">${travelText}</div>
-    <div class="schedule-intel-address" style="font-size:0.85rem;margin:0.25rem 0;">${addrIcon} ${escapeScheduleHtml(addr)}</div>
-    <div class="schedule-intel-maps" style="margin-top:0.35rem;">${mapsBtn}</div>
+    ${summaryParts ? `<div class="schedule-intel-summary-line">${summaryParts}</div>` : ""}
+    <div class="schedule-intel-address-compact">${addrIcon} ${escapeScheduleHtml(addr)}</div>
+    <div class="schedule-intel-maps-compact">${mapsBtn}</div>
   </article>`;
 }
 
@@ -64,9 +65,9 @@ export function renderDayIntelligenceSummary(intelligence) {
     intelligence.totalBindingMin != null
       ? `${intelligence.totalBindingMin}分`
       : "—";
-  return `<section class="schedule-day-summary friendly-card" style="margin-top:0.75rem;padding:0.75rem;">
-    <p class="section-label" style="margin:0 0 0.5rem;">📊 1日のまとめ</p>
-    <div style="font-size:0.9rem;line-height:1.6;">
+  return `<section class="schedule-day-summary schedule-day-summary-compact friendly-card">
+    <p class="section-label schedule-day-summary-label">📊 1日のまとめ</p>
+    <div class="schedule-day-summary-body">
       <div>総移動時間：<strong>${escapeScheduleHtml(travel)}</strong></div>
       <div>総予定時間：<strong>${escapeScheduleHtml(scheduled)}</strong></div>
       <div>移動込み拘束時間：<strong>${escapeScheduleHtml(binding)}</strong></div>
