@@ -323,6 +323,14 @@ jobs:
             exit 1
           fi
 
+          echo "${HEALTH_BODY}" | grep -q '"qnapPdfBackupV1":true' \
+            || { echo "ERROR: runtimeFeatures.qnapPdfBackupV1 missing — Node process not restarted with new build"; exit 1; }
+          UPTIME="$(echo "${HEALTH_BODY}" | grep -oE '"uptime":[0-9]+' | head -1 | cut -d: -f2 || true)"
+          if [ -n "${UPTIME}" ] && [ "${UPTIME}" -gt 180 ]; then
+            echo "ERROR: uptime ${UPTIME}s after restart (expected <= 180)"
+            exit 1
+          fi
+
           MAPS_OK="$(echo "${HEALTH_BODY}" | grep -oE '"googleMapsApiConfigured":(true|false)' | head -1 || true)"
           echo "=== integrations: ${MAPS_OK:-maps status unknown} ==="
           if [ -n "${GOOGLE_MAPS_API_KEY:-}" ]; then
@@ -351,6 +359,13 @@ jobs:
           echo "${body}"
           echo "${body}" | grep -q "\"commitShort\":\"${short}\"" \
             || { echo "::error::commitShort が ${short} と一致しません"; exit 1; }
+          echo "${body}" | grep -q '"qnapPdfBackupV1":true' \
+            || { echo "::error::runtimeFeatures.qnapPdfBackupV1 がありません（Node 再起動未反映）"; exit 1; }
+          uptime="$(echo "${body}" | grep -oE '"uptime":[0-9]+' | head -1 | cut -d: -f2 || true)"
+          if [ -n "${uptime}" ] && [ "${uptime}" -gt 180 ]; then
+            echo "::error::uptime ${uptime}s — 再起動後のプロセスではありません"
+            exit 1
+          fi
           echo "commitShort verified: ${short}"
 
       - name: Deploy summary

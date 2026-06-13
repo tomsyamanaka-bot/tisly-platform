@@ -116,6 +116,10 @@ async function buildFullHealthResponse() {
     status: dbOk ? "ok" : "degraded",
     buildVersion,
     commitShort: buildVersion.commitShort,
+    runtimeFeatures: {
+      qnapPdfBackupV1: true,
+      storageSettingsV1: true,
+    },
     googleMapsApiConfigured,
     googleMapsApiKeyPresent,
     uptime: Math.round(process.uptime()),
