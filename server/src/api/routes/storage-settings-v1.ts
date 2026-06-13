@@ -11,6 +11,10 @@ import {
   runQnapConnectionTest,
   runQnapTestPdfSend,
 } from "../../storage/qnap-storage-service.js";
+import {
+  resyncAllQnapPdfMismatchesV1,
+  runQnapPdfIntegrityCheckV1,
+} from "../../storage/qnap-pdf-integrity-service.js";
 
 export const storageSettingsV1Router = Router();
 
@@ -77,5 +81,22 @@ storageSettingsV1Router.post("/qnap/test-pdf", ...adminAuth, async (req: AuthedR
     ok: result.ok,
     result,
     summary: getStorageStatusSummary(settings),
+  });
+});
+
+storageSettingsV1Router.get("/qnap/integrity", ...adminAuth, (req: AuthedRequest, res) => {
+  if (!assertAdminRole(req, res)) return;
+  res.json(runQnapPdfIntegrityCheckV1());
+});
+
+storageSettingsV1Router.post("/qnap/integrity/resync", ...adminAuth, async (req: AuthedRequest, res) => {
+  if (!assertAdminRole(req, res)) return;
+  const integrity = runQnapPdfIntegrityCheckV1();
+  const result = await resyncAllQnapPdfMismatchesV1();
+  res.json({
+    ok: true,
+    integrity,
+    result,
+    refreshed: runQnapPdfIntegrityCheckV1(),
   });
 });

@@ -30,12 +30,17 @@ async function mockUploadPdf(
   row: ProjectPdfMetaRow,
   localFile: string
 ): Promise<{ ok: true; displayPath: string } | { ok: false; error: string }> {
-  const remoteRel = buildQnapPdfRemotePath(row.projectId, row.fileName);
+  const remoteRel = buildQnapPdfRemotePath(row.projectId, row.fileName, row.kind);
   const dest = path.join(mockMirrorRoot(), settings.qnap.shareName, remoteRel);
   try {
     fs.mkdirSync(path.dirname(dest), { recursive: true });
     fs.copyFileSync(localFile, dest);
-    const displayPath = buildQnapPdfDisplayPath(settings.qnap.shareName, row.projectId, row.fileName);
+    const displayPath = buildQnapPdfDisplayPath(
+      settings.qnap.shareName,
+      row.projectId,
+      row.fileName,
+      row.kind
+    );
     return { ok: true, displayPath };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
@@ -50,9 +55,14 @@ async function realUploadPdf(
   try {
     const cfg = settingsToWebDavConfig(settings);
     const client = new QnapWebDavClient(cfg);
-    const remoteRel = buildQnapPdfRemotePath(row.projectId, row.fileName);
+    const remoteRel = buildQnapPdfRemotePath(row.projectId, row.fileName, row.kind);
     await client.uploadLocalFiles([{ localPath: localFile, remotePath: remoteRel }]);
-    const displayPath = buildQnapPdfDisplayPath(settings.qnap.shareName, row.projectId, row.fileName);
+    const displayPath = buildQnapPdfDisplayPath(
+      settings.qnap.shareName,
+      row.projectId,
+      row.fileName,
+      row.kind
+    );
     return { ok: true, displayPath };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };

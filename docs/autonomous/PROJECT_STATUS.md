@@ -53,8 +53,8 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 
 | 帳票 | 写真 | レイアウト要点 |
 |------|------|----------------|
-| 仕様書 | 現調写真 | 上部余白削減、案件情報コンパクト、2列×4段（最大8枚/ページ） |
-| 完了報告書 | 完了報告書用写真のみ | 写真優先レイアウト、上部余白削減 |
+| 仕様書 | 現調写真 | A4縦・1ページ目=表紙（システム構成/機器一覧等）・2ページ目以降=2列×3段（6枚/ページ）・ページフッター |
+| 完了報告書 | 完了報告書用写真のみ | A4縦・1ページ目=表紙（作業内容/使用部材等）・2ページ目以降=2列×3段（6枚/ページ）・ページフッター |
 | 見積書 | なし | TOMS 左右分割ヘッダ（`renderTomsDocLayoutHeader`） |
 | 請求書 | なし | 見積書と同系の左右分割レイアウト |
 
@@ -182,10 +182,10 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 共有 | iPhone Safari / PWA → Web Share API、非対応 → URL コピー |
 | メール | **標準では送信しない** |
 | QNAP バックアップ | **完成済み** — ローカル保存成功後に WebDAV へ自動送信（失敗してもローカル PDF は維持） |
-| QNAP 保存先 | `/TiSLY/projects/{projectId}/pdfs/`（共有フォルダ名は設定可） |
+| QNAP 保存先 | `/TiSLY/projects/{projectId}/estimate/` / `invoice/` / `specification/` / `completion-report/` |
 | QNAP 接続設定 UI | **完成済み** — `/settings-v1` → `/storage-settings-v1`（管理者専用） |
 | QNAP Worker | `qnap-pdf-backup-worker` — pending/failed（最大3回）を再送 |
-| 案件 UI | `/projects-v1` 書類セクション — ローカル/QNAP 状態、失敗時「QNAPへ再同期」 |
+| 案件 UI | `/projects-v1` 書類セクション — **仕様書・見積書・完了報告書・請求書** タブ、ローカル/QNAP 状態、失敗時「QNAPへ再同期」 |
 | DB | `project_pdf_meta` — qnap_backup_* 列 |
 | 仕様書 | [`docs/project-pdf-storage-spec.md`](../project-pdf-storage-spec.md) |
 | API | `GET/POST/DELETE /api/projects/v1/projects/:id/pdfs/...` + `POST .../qnap-resync` |
@@ -252,6 +252,43 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | QNAP 接続方式 | **WebDAV**（`/storage-settings-v1` で設定） |
 | 次フェーズ | **案件完了報告書 PDF の実用化** |
 | その次 | **QNAP 日次整合チェック**（ローカル vs QNAP の突合） |
+
+### QNAP 日次整合チェック v1（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 比較 | `project_pdf_meta` のローカル PDF 件数 vs `qnap_backup_status=success` 件数 |
+| 差分時 | `/storage-settings-v1` に警告表示 + 「QNAPへ再同期」ボタン |
+| API | `GET /api/storage/v1/settings/qnap/integrity` / `POST .../integrity/resync` |
+| 再同期 | 未成功 PDF を `pending` に戻し Worker / 即時送信 |
+| テスト | `server/test/qnap-pdf-backup-v1.test.ts` |
+
+### 仕様書 / 完了報告書 PDF 自動保存 v1（完成済み）
+
+| トリガー | 動作 |
+|----------|------|
+| 現調完了（見積へ送る） | 連携済み business 案件があれば `specification-*.pdf` を初回保存 + QNAP キュー |
+| 見積PWA 現調連携 | `POST /from-survey` 後に仕様書 PDF 初回保存 |
+| 案件詳細「仕様書作成」 | `POST /api/projects/v1/projects/:id/specification/create` |
+| 作業完了（construction_done） | `POST /api/work-session/v1/complete` 後に完了報告 PDF 初回保存 |
+| 保存先 | `uploads/business/{projectId}/pdfs/` + QNAP `/TiSLY/projects/{id}/specification|completion-report/` |
+
+### IP/設備一覧 v1（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| UI | 現調 PWA `/survey-v1` — 機器名/種別/設置場所/IP/ID/メモ（パスワードは管理者のみ） |
+| DB | `survey_ip_equipment` |
+| PDF | 仕様書表紙「IP一覧」— 未入力は `—`、パスワードは PDF に載せない |
+| API | `POST/PATCH/DELETE /api/survey/v1/projects/:id/ip-equipment` |
+
+### Puppeteer PDF Engine（本番）
+
+| 項目 | 内容 |
+|------|------|
+| 有効化 | VPS `.env` で `TISLY_PDF_PUPPETEER=true` |
+| フォールバック | Puppeteer 失敗時は HTML minimal PDF（`renderWithPdfFallback`） |
+| health | `GET /api/health` → `pdfEngine: puppeteer` または `html_fallback` |
 
 ---
 

@@ -269,14 +269,14 @@ describe("見積PWA v1 API", () => {
       .set("Authorization", `Bearer ${token}`)
       .send({});
     const res = await request(app)
-      .get(`/api/estimate/v1/projects/${est.body.businessProjectId}/specification/pdf`)
+      .get(`/api/estimate/v1/projects/${est.body.businessProjectId}/specification/pdf?live=1`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(res.status, 200);
-    assert.ok(res.text.includes("仕様書"));
+    assert.ok(res.text.includes("システム仕様書"));
     assert.ok(res.text.includes("写真未登録"));
     assert.ok(res.text.includes("株式会社TOMS"));
-    assert.ok(res.text.includes("仕様書現場"));
-    assert.ok(res.text.includes("工事場所"));
+    assert.ok(res.text.includes("東京都港区"));
+    assert.ok(res.text.includes("Page 1 /"));
     assert.ok(!res.text.includes("参考写真"));
   });
 
@@ -306,7 +306,7 @@ describe("見積PWA v1 API", () => {
       .set("Authorization", `Bearer ${token}`)
       .send({});
     const res = await request(app)
-      .get(`/api/estimate/v1/projects/${est.body.businessProjectId}/specification/pdf`)
+      .get(`/api/estimate/v1/projects/${est.body.businessProjectId}/specification/pdf?live=1`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(res.status, 200);
     const photoPages = countPracticalPdfPages(res.text, "sp");
@@ -346,7 +346,7 @@ describe("見積PWA v1 API", () => {
       .set("Authorization", `Bearer ${token}`)
       .send({});
     const res = await request(app)
-      .get(`/api/estimate/v1/projects/${est.body.businessProjectId}/specification/pdf`)
+      .get(`/api/estimate/v1/projects/${est.body.businessProjectId}/specification/pdf?live=1`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(res.status, 200);
     const photoPages = countPracticalPdfPages(res.text, "sp");
@@ -375,12 +375,12 @@ describe("見積PWA v1 API", () => {
       .send({});
     const bizId = est.body.businessProjectId;
     const spec = await request(app)
-      .get(`/api/estimate/v1/projects/${bizId}/specification/pdf`)
+      .get(`/api/estimate/v1/projects/${bizId}/specification/pdf?live=1`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(spec.status, 200);
     assert.ok(spec.text.includes("配線ルート要確認"));
     const cr = await request(app)
-      .get(`/api/estimate/v1/projects/${bizId}/completion-report/pdf`)
+      .get(`/api/estimate/v1/projects/${bizId}/completion-report/pdf?live=1`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(cr.status, 200);
     assert.ok(cr.text.includes("配線ルート要確認"));
@@ -415,12 +415,12 @@ describe("見積PWA v1 API", () => {
       .send({});
     const bizId = est.body.businessProjectId;
     const spec = await request(app)
-      .get(`/api/estimate/v1/projects/${bizId}/specification/pdf`)
+      .get(`/api/estimate/v1/projects/${bizId}/specification/pdf?live=1`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(spec.status, 200);
     assert.ok(spec.text.includes("配電盤全景"));
     const cr = await request(app)
-      .get(`/api/estimate/v1/projects/${bizId}/completion-report/pdf`)
+      .get(`/api/estimate/v1/projects/${bizId}/completion-report/pdf?live=1`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(cr.status, 200);
     assert.ok(!cr.text.includes("配電盤全景"));
@@ -462,7 +462,7 @@ describe("見積PWA v1 API", () => {
     assert.equal(list.status, 200);
     assert.equal(list.body.photos.length, 1);
     const cr = await request(app)
-      .get(`/api/estimate/v1/projects/${bizId}/completion-report/pdf`)
+      .get(`/api/estimate/v1/projects/${bizId}/completion-report/pdf?live=1`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(cr.status, 200);
     assert.ok(cr.text.includes("施工後全景"));
@@ -493,17 +493,17 @@ describe("見積PWA v1 API", () => {
       .set("Authorization", `Bearer ${token}`)
       .send({});
     const res = await request(app)
-      .get(`/api/estimate/v1/projects/${est.body.businessProjectId}/completion-report/pdf`)
+      .get(`/api/estimate/v1/projects/${est.body.businessProjectId}/completion-report/pdf?live=1`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(res.status, 200);
     assert.ok(res.text.includes("完了報告書"));
     assert.ok(res.text.includes("完了報告書用写真がありません"));
     assert.ok(res.text.includes("株式会社TOMS"));
-    assert.ok(res.text.includes("未撮影現場"));
-    assert.ok(res.text.includes("工事場所"));
+    assert.ok(res.text.includes("千代田区"));
+    assert.ok(res.text.includes("Page 1 /"));
   });
 
-  it("完了報告書は完了報告書用写真8枚で1ページに収まる", async () => {
+  it("完了報告書は完了報告書用写真6枚で1ページに収まる", async () => {
     const survey = await request(app)
       .post("/api/survey/v1/projects")
       .set("Authorization", `Bearer ${token}`)
@@ -523,14 +523,14 @@ describe("見積PWA v1 API", () => {
       .set("Authorization", `Bearer ${token}`)
       .send({});
     const bizId = est.body.businessProjectId;
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 6; i++) {
       await request(app)
         .post(`/api/estimate/v1/projects/${bizId}/completion-photos`)
         .set("Authorization", `Bearer ${token}`)
         .send({ imageBase64: TINY_PNG, fileName: `p${i}.jpg` });
     }
     const res = await request(app)
-      .get(`/api/estimate/v1/projects/${bizId}/completion-report/pdf`)
+      .get(`/api/estimate/v1/projects/${bizId}/completion-report/pdf?live=1`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(res.status, 200);
     const photoPages = countPracticalPdfPages(res.text, "cr");
@@ -584,7 +584,7 @@ describe("見積PWA v1 API", () => {
         .send({ title: titles[i] });
     }
     const res = await request(app)
-      .get(`/api/estimate/v1/projects/${bizId}/completion-report/pdf`)
+      .get(`/api/estimate/v1/projects/${bizId}/completion-report/pdf?live=1`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(res.status, 200);
     assert.ok(res.text.includes("完了報告書"));
@@ -633,7 +633,7 @@ describe("見積PWA v1 API", () => {
       .delete(`/api/estimate/v1/projects/${bizId}/completion-photos/${photoIds[0]}`)
       .set("Authorization", `Bearer ${token}`);
     const cr = await request(app)
-      .get(`/api/estimate/v1/projects/${bizId}/completion-report/pdf`)
+      .get(`/api/estimate/v1/projects/${bizId}/completion-report/pdf?live=1`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(cr.status, 200);
     assert.ok(cr.text.includes("中間"));
@@ -684,10 +684,10 @@ describe("見積PWA v1 API", () => {
       .send({});
     const bizId = est.body.businessProjectId;
     const spec = await request(app)
-      .get(`/api/estimate/v1/projects/${bizId}/specification/pdf`)
+      .get(`/api/estimate/v1/projects/${bizId}/specification/pdf?live=1`)
       .set("Authorization", `Bearer ${token}`);
     const cr = await request(app)
-      .get(`/api/estimate/v1/projects/${bizId}/completion-report/pdf`)
+      .get(`/api/estimate/v1/projects/${bizId}/completion-report/pdf?live=1`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(spec.status, 200);
     assert.equal(cr.status, 200);

@@ -59,7 +59,7 @@ function parseSettings(raw: string | undefined): StorageSettingsV1 {
   if (!raw) return { ...DEFAULT_STORAGE_SETTINGS, qnap: { ...DEFAULT_QNAP } };
   try {
     const parsed = JSON.parse(raw) as Partial<StorageSettingsV1>;
-    const qnap = parsed.qnap ?? {};
+    const qnap: Partial<StorageSettingsV1["qnap"]> = parsed.qnap ?? {};
     return {
       localStorageEnabled: parsed.localStorageEnabled !== false,
       qnapBackupEnabled: Boolean(parsed.qnapBackupEnabled),
@@ -143,7 +143,7 @@ export function updateStorageSettingsV1(
   >
 ): StorageSettingsV1 {
   const current = getStorageSettingsV1();
-  const qnapPatch = patch.qnap ?? {};
+  const qnapPatch: Partial<StorageSettingsV1["qnap"]> = patch.qnap ?? {};
   const passwordIncoming = qnapPatch.password;
   const nextPassword =
     passwordIncoming === undefined

@@ -136,7 +136,7 @@ describe("Arrival + Work Completion System v1", () => {
 
   it("完了報告書 PDF に作業情報が含まれる", async () => {
     const pdf = await request(app)
-      .get(`/api/estimate/v1/projects/${businessProjectId}/completion-report/pdf`)
+      .get(`/api/estimate/v1/projects/${businessProjectId}/completion-report/pdf?live=1`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(pdf.status, 200);
     assert.ok(pdf.text.includes("完了報告書"));

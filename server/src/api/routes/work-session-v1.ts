@@ -13,6 +13,7 @@ import {
   recordWorkStartV1,
   updateCompletionChecklistItemV1,
 } from "../../field-ops/work-session-v1-store.js";
+import { autoSaveCompletionReportPdfV1 } from "../../projects/project-pdf-auto-save.js";
 
 export const workSessionV1Router = Router();
 
@@ -99,7 +100,7 @@ workSessionV1Router.post("/start", ...auth, (req: AuthedRequest, res) => {
   }
 });
 
-workSessionV1Router.post("/complete", ...auth, (req: AuthedRequest, res) => {
+workSessionV1Router.post("/complete", ...auth, async (req: AuthedRequest, res) => {
   if (!assertRole(req, res)) return;
   const body = req.body as Record<string, unknown>;
   const ref = parseRef(body);
@@ -112,6 +113,9 @@ workSessionV1Router.post("/complete", ...auth, (req: AuthedRequest, res) => {
       ref,
       body.workDate != null ? String(body.workDate).slice(0, 10) : undefined
     );
+    if (ref.source === "business") {
+      await autoSaveCompletionReportPdfV1(ref.projectId);
+    }
     res.json({ session });
   } catch (e) {
     res.status(400).json({ error: e instanceof Error ? e.message : "complete failed" });

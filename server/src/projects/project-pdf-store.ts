@@ -26,6 +26,7 @@ import {
 import {
   getEstimatePdfContextV1,
   renderCompletionReportHtmlV1,
+  generateAndSaveSpecificationPdfV1,
 } from "../estimate/estimate-v1-store.js";
 import {
   recordProjectPdfSavedV1,
@@ -40,21 +41,27 @@ import { getStorageSettingsV1 } from "../storage/storage-settings-store.js";
 export type PdfStorageProvider = "local" | "qnap";
 export const PDF_STORAGE_PROVIDER: PdfStorageProvider = "local";
 
-export type ProjectPdfKind = "estimate" | "invoice" | "report";
+export type ProjectPdfKind = "estimate" | "invoice" | "report" | "specification";
 
 export const PROJECT_PDF_KIND_LABELS: Record<ProjectPdfKind, string> = {
   estimate: "見積書",
   invoice: "請求書",
-  report: "報告書",
+  report: "完了報告書",
+  specification: "仕様書",
 };
 
 function sanitizeSuffix(s: string): string {
   return s.replace(/[/\\:*?"<>|]/g, "_").trim() || "doc";
 }
 
-/** 標準ファイル名: estimate-xxxx.pdf / invoice-xxxx.pdf / report-xxxx.pdf */
+/** 標準ファイル名: estimate-xxxx.pdf / invoice-xxxx.pdf / report-xxxx.pdf / specification-xxxx.pdf */
 export function buildProjectPdfFileName(kind: ProjectPdfKind, suffix: string): string {
-  const base = kind === "report" ? "report" : kind;
+  const base =
+    kind === "report"
+      ? "report"
+      : kind === "specification"
+        ? "specification"
+        : kind;
   return `${base}-${sanitizeSuffix(suffix)}.pdf`;
 }
 
@@ -159,19 +166,29 @@ function reportSuffix(projectId: string): string {
   return rep?.title?.slice(0, 24) ?? projectId.slice(-4);
 }
 
+function specificationSuffix(projectId: string): string {
+  const project = getBusinessProject(projectId);
+  return project?.projectNo ?? projectId.slice(-4);
+}
+
 export function expectedStoragePath(projectId: string, kind: ProjectPdfKind): string {
   const suffix =
     kind === "estimate"
       ? estimateSuffix(projectId)
       : kind === "invoice"
         ? invoiceSuffix(projectId)
-        : reportSuffix(projectId);
+        : kind === "specification"
+          ? specificationSuffix(projectId)
+          : reportSuffix(projectId);
   return projectPdfPublicPath(projectId, buildProjectPdfFileName(kind, suffix));
 }
 
 function dbPdfPath(projectId: string, kind: ProjectPdfKind): string | null {
   const project = getBusinessProject(projectId);
   if (!project) return null;
+  if (kind === "specification") {
+    return getProjectPdfMeta(projectId, "specification")?.localPath ?? null;
+  }
   if (kind === "estimate" && project.estimateId) {
     return getEstimate(project.estimateId)?.pdfPath ?? null;
   }
@@ -188,7 +205,7 @@ export function listProjectPdfsV1(
   projectId: string,
   opts?: { includeQnapError?: boolean }
 ): ProjectPdfEntryV1[] {
-  const kinds: ProjectPdfKind[] = ["estimate", "invoice", "report"];
+  const kinds: ProjectPdfKind[] = ["specification", "estimate", "report", "invoice"];
   return kinds.map((kind) => {
     const pdfPath = dbPdfPath(projectId, kind);
     return entryFromPath(kind, pdfPath, expectedStoragePath(projectId, kind), {
@@ -218,6 +235,8 @@ export function deleteProjectPdfV1(projectId: string, kind: ProjectPdfKind): boo
     setInvoicePdfPath(project.invoiceId, "");
   } else if (kind === "report" && project.completionReportId) {
     setCompletionReportPdfPath(project.completionReportId, "");
+  } else if (kind === "specification") {
+    /* meta only */
   }
   softDeleteProjectPdfMeta(projectId, kind);
   return true;
@@ -254,6 +273,9 @@ export async function regenerateProjectPdfV1(
     const pdfPath = await generateInvoicePdf(project, invoice, estimate);
     setInvoicePdfPath(invoice.id, pdfPath);
     saveProjectPdfWithQnapQueue(projectId, "invoice", pdfPath);
+  } else if (kind === "specification") {
+    const pdfPath = await generateAndSaveSpecificationPdfV1(projectId);
+    if (!pdfPath) throw new Error("No specification");
   } else {
     if (!project.completionReportId) throw new Error("No completion report");
     const html = renderCompletionReportHtmlV1(projectId);

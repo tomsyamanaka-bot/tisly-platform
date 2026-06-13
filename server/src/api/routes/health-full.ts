@@ -21,6 +21,7 @@ import { pingRedis } from "../../redis/redis-client.js";
 import { getRateLimitProviderName } from "../../redis/rate-limit-redis.js";
 import { getInfrastructureStatuses } from "../../infrastructure/status.js";
 import { getBuildVersion } from "../../deploy/build-version.js";
+import { getPdfRenderMode } from "../../business/pdf/render.js";
 import { getWsClientCount } from "../../ws/hub.js";
 import { getGoogleMapsApiKey, isGoogleMapsApiConfigured } from "../../schedule/google-maps-service.js";
 import fs from "fs";
@@ -111,11 +112,13 @@ async function buildFullHealthResponse() {
   const publicUrl = config.publicUrl;
   const googleMapsApiConfigured = isGoogleMapsApiConfigured();
   const googleMapsApiKeyPresent = Boolean(getGoogleMapsApiKey());
+  const pdfEngine = getPdfRenderMode() === "puppeteer" ? "puppeteer" : "html_fallback";
 
   return {
     status: dbOk ? "ok" : "degraded",
     buildVersion,
     commitShort: buildVersion.commitShort,
+    pdfEngine,
     runtimeFeatures: {
       qnapPdfBackupV1: true,
       storageSettingsV1: true,

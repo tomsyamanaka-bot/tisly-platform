@@ -9,54 +9,46 @@ export interface PracticalCompletionReportContext {
   siteName: string;
   workLocation: string;
   issueDate: string;
+  workDate?: string;
   staffName: string;
   startTime?: string;
   endTime?: string;
   workContent?: string;
+  materialsUsed?: string;
   checklistSummary?: string;
   notes?: string;
+  generatedAt: string;
   photos: PracticalCompletionReportPhoto[];
 }
 
-function renderWorkSummaryBlock(ctx: PracticalCompletionReportContext): string {
-  const rows: string[] = [];
-  if (ctx.staffName) rows.push(`<tr><th>作業員</th><td>${escapeHtml(ctx.staffName)}</td></tr>`);
-  if (ctx.startTime) rows.push(`<tr><th>開始時間</th><td>${escapeHtml(ctx.startTime)}</td></tr>`);
-  if (ctx.endTime) rows.push(`<tr><th>終了時間</th><td>${escapeHtml(ctx.endTime)}</td></tr>`);
-  if (ctx.workContent) rows.push(`<tr><th>作業内容</th><td>${escapeHtml(ctx.workContent)}</td></tr>`);
-  if (ctx.checklistSummary) {
-    rows.push(
-      `<tr><th>チェック結果</th><td class="cr-checklist-cell">${escapeHtml(ctx.checklistSummary).replace(/\n/g, "<br/>")}</td></tr>`
-    );
-  }
-  if (!rows.length) return "";
-  return `<table class="cr-work-summary">${rows.join("")}</table>`;
-}
-
-function escapeHtml(s: string): string {
-  return String(s)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
 export function renderPracticalCompletionReportHtml(ctx: PracticalCompletionReportContext): string {
+  const coverFields = [
+    { label: "案件名", value: ctx.subject || ctx.siteName },
+    { label: "顧客名", value: ctx.addressee },
+    { label: "住所", value: ctx.workLocation || ctx.siteName },
+    { label: "担当者", value: ctx.staffName },
+    { label: "工事日", value: ctx.workDate ?? ctx.issueDate },
+    { label: "開始時間", value: ctx.startTime ?? "—" },
+    { label: "終了時間", value: ctx.endTime ?? "—" },
+  ];
+  const coverSections = [
+    { title: "作業内容", body: ctx.workContent ?? "—" },
+    { title: "使用部材", body: ctx.materialsUsed ?? "—" },
+  ];
+  if (ctx.checklistSummary?.trim()) {
+    coverSections.push({ title: "チェック結果", body: ctx.checklistSummary.trim() });
+  }
+  if (ctx.notes?.trim()) {
+    coverSections.push({ title: "備考", body: ctx.notes.trim() });
+  }
   return renderPracticalPdfHtml({
     prefix: "cr",
     pageTitle: `完了報告書 ${ctx.projectNo}`,
-    header: {
-      docTitle: "完了報告書",
-      addressee: ctx.addressee,
-      subject: ctx.subject,
-      workLocation: ctx.workLocation || ctx.siteName,
-      issueDateLabel: "作成日",
-      issueDate: ctx.issueDate,
-      docNoLabel: "案件番号",
-      docNo: ctx.projectNo,
-      notes: ctx.notes,
-    },
-    extraBodyHtml: renderWorkSummaryBlock(ctx),
+    documentTitle: "工事完了報告書",
+    projectNo: ctx.projectNo,
+    generatedAt: ctx.generatedAt,
+    coverFields,
+    coverSections,
     photos: ctx.photos,
     noPhotosMessage: "完了報告書用写真がありません",
   });

@@ -35,10 +35,13 @@ const STAGE_LABELS = {
 // --- 案件 PDF 書類 UI ---
 // ローカル PDF + QNAP バックアップ状態（管理者のみエラー詳細）
 const PDF_KIND_TO_DOC_VIEW = {
+  specification: "specification",
   estimate: "estimate",
-  invoice: "invoice",
   report: "completion-report",
+  invoice: "invoice",
 };
+
+const PDF_KIND_ORDER = ["specification", "estimate", "report", "invoice"];
 
 const $ = (id) => document.getElementById(id);
 
@@ -232,7 +235,8 @@ async function renderDetailDocuments(detail) {
   const data = await loadProjectPdfs(p.id);
   pdfListIsAdmin = Boolean(data.isAdmin);
   pdfQnapBackupEnabled = Boolean(data.qnapBackupEnabled);
-  const pdfs = (data.pdfs || []).filter((pdf) => {
+  const pdfsRaw = data.pdfs || [];
+  const pdfs = PDF_KIND_ORDER.map((kind) => pdfsRaw.find((p) => p.kind === kind)).filter(Boolean).filter((pdf) => {
     if (pdf.kind === "invoice") {
       const pipeline = p.pipeline || {};
       return pipeline.invoice === "done" || pipeline.invoice === "active";
@@ -240,10 +244,43 @@ async function renderDetailDocuments(detail) {
     return true;
   });
   if (!pdfs.length) {
-    mount.innerHTML = "<p class='pdf-empty'>書類がありません</p>";
+    mount.innerHTML = `<div class="spec-create-row"><button type="button" class="btn-doc-action" id="btn-create-specification">仕様書作成（PDF自動保存）</button></div><p class='pdf-empty'>書類がありません</p>`;
+    $("btn-create-specification")?.addEventListener("click", async () => {
+      try {
+        await api(`/projects/${encodeURIComponent(p.id)}/specification/create`, { method: "POST", body: "{}" });
+        toast("仕様書PDFを保存しました");
+        await renderDetailDocuments(detail);
+      } catch (e) {
+        toast(e.message || "仕様書の作成に失敗しました");
+      }
+    });
     return;
   }
-  mount.innerHTML = `<p class="section-hint" style="margin-top:0;">保存先: ${escapeHtml(data.storageBasePath || `uploads/business/${p.id}/pdfs/`)}</p>${pdfs.map((pdf) => renderPdfRow(p.id, pdf)).join("")}`;
+  const specPdf = pdfs.find((x) => x.kind === "specification");
+  const specCreateHtml =
+    specPdf && !specPdf.exists
+      ? `<div class="spec-create-row"><button type="button" class="btn-doc-action" id="btn-create-specification">仕様書作成（PDF自動保存）</button></div>`
+      : "";
+  mount.innerHTML = `${specCreateHtml}<p class="section-hint" style="margin-top:0;">保存先: ${escapeHtml(data.storageBasePath || `uploads/business/${p.id}/pdfs/`)}</p><div class="doc-tabs">${pdfs.map((pdf) => `<button type="button" class="doc-tab${pdf.exists ? "" : " doc-tab-empty"}" data-doc-tab="${escapeHtml(pdf.kind)}">${escapeHtml(pdf.label)}</button>`).join("")}</div><div id="doc-tab-panels">${pdfs.map((pdf) => `<div class="doc-tab-panel hidden" data-doc-panel="${escapeHtml(pdf.kind)}">${renderPdfRow(p.id, pdf)}</div>`).join("")}</div>`;
+  $("btn-create-specification")?.addEventListener("click", async () => {
+    try {
+      await api(`/projects/${encodeURIComponent(p.id)}/specification/create`, { method: "POST", body: "{}" });
+      toast("仕様書PDFを保存しました");
+      await renderDetailDocuments(detail);
+    } catch (e) {
+      toast(e.message || "仕様書の作成に失敗しました");
+    }
+  });
+  const panels = mount.querySelectorAll(".doc-tab-panel");
+  const tabs = mount.querySelectorAll(".doc-tab");
+  function activateTab(kind) {
+    tabs.forEach((t) => t.classList.toggle("active", t.dataset.docTab === kind));
+    panels.forEach((panel) => panel.classList.toggle("hidden", panel.dataset.docPanel !== kind));
+  }
+  if (tabs.length) activateTab(tabs[0].dataset.docTab);
+  tabs.forEach((tab) => {
+    tab.addEventListener("click", () => activateTab(tab.dataset.docTab));
+  });
   mount.querySelectorAll(".pdf-row").forEach((row) => {
     const kind = row.dataset.pdfKind;
     row.querySelector('[data-pdf-action="share"]')?.addEventListener("click", () => {
@@ -251,7 +288,7 @@ async function renderDetailDocuments(detail) {
       sharePdf(p.id, kind, label);
     });
     row.querySelector('[data-pdf-action="regenerate"]')?.addEventListener("click", async () => {
-      if (!confirm(`${kind === "report" ? "報告書" : kind === "invoice" ? "請求書" : "見積書"}PDFを再生成しますか？`)) return;
+      if (!confirm(`${pdfs.find((x) => x.kind === kind)?.label || kind}PDFを再生成しますか？`)) return;
       try {
         await api(`/projects/${encodeURIComponent(p.id)}/pdfs/${encodeURIComponent(kind)}/regenerate`, {
           method: "POST",

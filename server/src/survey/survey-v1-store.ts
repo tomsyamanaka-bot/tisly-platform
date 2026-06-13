@@ -8,6 +8,7 @@ import {
   SURVEY_WORKFLOW_STATUSES,
   type SurveyMaterialCategory,
   type SurveyMaterialV1,
+  type SurveyIpEquipmentV1,
   type SurveyPhotoV1,
   type SurveyProjectV1,
   type SurveyWorkType,
@@ -28,6 +29,7 @@ export interface SurveyProjectV1Detail extends SurveyProjectV1 {
   notes: string | null;
   photos: SurveyPhotoV1[];
   materials: SurveyMaterialV1[];
+  ipEquipment: SurveyIpEquipmentV1[];
   handoff: SurveyHandoffLogV1 | null;
 }
 
@@ -124,6 +126,29 @@ function rowToMaterial(r: Record<string, unknown>): SurveyMaterialV1 {
     createdAt: String(r.created_at),
     updatedAt: String(r.updated_at),
   };
+}
+
+function rowToIpEquipment(
+  r: Record<string, unknown>,
+  opts?: { includePassword?: boolean }
+): SurveyIpEquipmentV1 {
+  const item: SurveyIpEquipmentV1 = {
+    id: String(r.id),
+    projectId: String(r.project_id),
+    deviceName: String(r.device_name ?? ""),
+    deviceType: String(r.device_type ?? ""),
+    location: String(r.location ?? ""),
+    ipAddress: String(r.ip_address ?? ""),
+    loginId: String(r.login_id ?? ""),
+    memo: String(r.memo ?? ""),
+    sortOrder: Number(r.sort_order ?? 0),
+    createdAt: String(r.created_at),
+    updatedAt: String(r.updated_at),
+  };
+  if (opts?.includePassword) {
+    item.password = String(r.password ?? "");
+  }
+  return item;
 }
 
 function parsePayload(raw: string | null | undefined): Record<string, unknown> {
@@ -236,6 +261,7 @@ export function getSurveyProjectV1Detail(projectId: string): SurveyProjectV1Deta
   if (!project) return null;
   const photos = listSurveyPhotosV1(projectId);
   const materials = listSurveyMaterialsV1(projectId);
+  const ipEquipment = listSurveyIpEquipmentV1(projectId);
   const handoffRow = getDatabase()
     .prepare(`SELECT * FROM survey_handoff_log WHERE survey_project_id = ?`)
     .get(projectId) as Record<string, unknown> | undefined;
@@ -254,6 +280,7 @@ export function getSurveyProjectV1Detail(projectId: string): SurveyProjectV1Deta
     notes: getProjectNotes(projectId),
     photos,
     materials,
+    ipEquipment,
     handoff,
   };
 }
@@ -453,6 +480,139 @@ export function addSurveyMaterialV1(
     created_at: now,
     updated_at: now,
   });
+}
+
+export function listSurveyIpEquipmentV1(
+  projectId: string,
+  opts?: { includePassword?: boolean }
+): SurveyIpEquipmentV1[] {
+  const rows = getDatabase()
+    .prepare(
+      `SELECT * FROM survey_ip_equipment WHERE project_id = ? ORDER BY sort_order ASC, created_at ASC`
+    )
+    .all(projectId) as Record<string, unknown>[];
+  return rows.map((r) => rowToIpEquipment(r, opts));
+}
+
+export function addSurveyIpEquipmentV1(
+  projectId: string,
+  input: {
+    deviceName?: string;
+    deviceType?: string;
+    location?: string;
+    ipAddress?: string;
+    loginId?: string;
+    password?: string;
+    memo?: string;
+  }
+): SurveyIpEquipmentV1 {
+  if (!getSurveyProjectV1(projectId)) throw new Error("project not found");
+  const id = uuid();
+  const now = new Date().toISOString();
+  const sortRow = getDatabase()
+    .prepare(`SELECT COALESCE(MAX(sort_order), -1) + 1 as n FROM survey_ip_equipment WHERE project_id = ?`)
+    .get(projectId) as { n: number };
+  getDatabase()
+    .prepare(
+      `INSERT INTO survey_ip_equipment (
+        id, project_id, device_name, device_type, location, ip_address, login_id, password, memo, sort_order, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .run(
+      id,
+      projectId,
+      input.deviceName?.trim() ?? "",
+      input.deviceType?.trim() ?? "",
+      input.location?.trim() ?? "",
+      input.ipAddress?.trim() ?? "",
+      input.loginId?.trim() ?? "",
+      input.password?.trim() ?? "",
+      input.memo?.trim() ?? "",
+      sortRow.n,
+      now,
+      now
+    );
+  getDatabase()
+    .prepare(`UPDATE survey_projects SET updated_at = ? WHERE project_id = ?`)
+    .run(now, projectId);
+  return rowToIpEquipment(
+    getDatabase().prepare(`SELECT * FROM survey_ip_equipment WHERE id = ?`).get(id) as Record<
+      string,
+      unknown
+    >,
+    { includePassword: true }
+  );
+}
+
+export function updateSurveyIpEquipmentV1(
+  projectId: string,
+  itemId: string,
+  patch: {
+    deviceName?: string;
+    deviceType?: string;
+    location?: string;
+    ipAddress?: string;
+    loginId?: string;
+    password?: string;
+    memo?: string;
+  }
+): SurveyIpEquipmentV1 | null {
+  if (!getSurveyProjectV1(projectId)) return null;
+  const row = getDatabase()
+    .prepare(`SELECT * FROM survey_ip_equipment WHERE id = ? AND project_id = ?`)
+    .get(itemId, projectId) as Record<string, unknown> | undefined;
+  if (!row) return null;
+  const now = new Date().toISOString();
+  const next = {
+    deviceName: patch.deviceName !== undefined ? patch.deviceName.trim() : String(row.device_name ?? ""),
+    deviceType: patch.deviceType !== undefined ? patch.deviceType.trim() : String(row.device_type ?? ""),
+    location: patch.location !== undefined ? patch.location.trim() : String(row.location ?? ""),
+    ipAddress: patch.ipAddress !== undefined ? patch.ipAddress.trim() : String(row.ip_address ?? ""),
+    loginId: patch.loginId !== undefined ? patch.loginId.trim() : String(row.login_id ?? ""),
+    password: patch.password !== undefined ? patch.password.trim() : String(row.password ?? ""),
+    memo: patch.memo !== undefined ? patch.memo.trim() : String(row.memo ?? ""),
+  };
+  getDatabase()
+    .prepare(
+      `UPDATE survey_ip_equipment SET
+        device_name = ?, device_type = ?, location = ?, ip_address = ?, login_id = ?, password = ?, memo = ?, updated_at = ?
+       WHERE id = ? AND project_id = ?`
+    )
+    .run(
+      next.deviceName,
+      next.deviceType,
+      next.location,
+      next.ipAddress,
+      next.loginId,
+      next.password,
+      next.memo,
+      now,
+      itemId,
+      projectId
+    );
+  getDatabase()
+    .prepare(`UPDATE survey_projects SET updated_at = ? WHERE project_id = ?`)
+    .run(now, projectId);
+  return rowToIpEquipment(
+    getDatabase().prepare(`SELECT * FROM survey_ip_equipment WHERE id = ?`).get(itemId) as Record<
+      string,
+      unknown
+    >,
+    { includePassword: true }
+  );
+}
+
+export function deleteSurveyIpEquipmentV1(projectId: string, itemId: string): boolean {
+  if (!getSurveyProjectV1(projectId)) return false;
+  const result = getDatabase()
+    .prepare(`DELETE FROM survey_ip_equipment WHERE id = ? AND project_id = ?`)
+    .run(itemId, projectId);
+  if (result.changes) {
+    getDatabase()
+      .prepare(`UPDATE survey_projects SET updated_at = ? WHERE project_id = ?`)
+      .run(new Date().toISOString(), projectId);
+  }
+  return result.changes > 0;
 }
 
 export function updateWorkflowStatusV1(

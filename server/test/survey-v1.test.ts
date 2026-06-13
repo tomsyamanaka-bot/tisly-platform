@@ -228,6 +228,29 @@ describe("現調PWA v1 API", () => {
     assert.ok(detail.body.handoff);
   });
 
+  it("IP/設備一覧を追加でき仕様書PDFに反映する", async () => {
+    const add = await request(app)
+      .post(`/api/survey/v1/projects/${projectId}/ip-equipment`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        deviceName: "NVR",
+        deviceType: "レコーダー",
+        location: "リビング",
+        ipAddress: "192.168.1.10",
+        loginId: "admin",
+        memo: "メイン",
+      });
+    assert.equal(add.status, 201);
+    assert.equal(add.body.item.deviceName, "NVR");
+    assert.equal(add.body.item.password, undefined);
+
+    const detail = await request(app)
+      .get(`/api/survey/v1/projects/${projectId}`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(detail.body.ipEquipment.length, 1);
+    assert.equal(detail.body.ipEquipment[0].ipAddress, "192.168.1.10");
+  });
+
   it("大きな写真もJSONで保存できる（20mb制限）", async () => {
     const largeBase64 = Buffer.alloc(400_000, 0xff).toString("base64");
     const res = await request(app)

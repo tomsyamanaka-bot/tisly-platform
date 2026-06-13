@@ -115,13 +115,13 @@ describe("QNAP PDF 自動バックアップ v1", () => {
     assert.equal(pdfs.status, 200);
     const estimate = pdfs.body.pdfs.find((p: { kind: string }) => p.kind === "estimate");
     assert.equal(estimate.qnap.status, "success", estimate.qnap?.error);
-    assert.match(estimate.qnap.path, /\/TiSLY\/projects\/.+\/pdfs\/estimate-.*\.pdf/);
+    assert.match(estimate.qnap.path, /\/TiSLY\/projects\/.+\/estimate\/estimate-.*\.pdf/);
     const remote = path.join(
       process.cwd(),
       "uploads",
       "qnap-storage-mock",
       "TiSLY",
-      buildQnapPdfRemotePath(businessProjectId, estimate.fileName)
+      buildQnapPdfRemotePath(businessProjectId, estimate.fileName, "estimate")
     );
     assert.ok(fs.existsSync(remote), remote);
   });
@@ -250,5 +250,15 @@ describe("QNAP PDF 自動バックアップ v1", () => {
       .set("Authorization", `Bearer ${surveyorToken}`);
     const surveyorEst = surveyorPdfs.body.pdfs.find((p: { kind: string }) => p.kind === "estimate");
     assert.equal(surveyorEst.qnap.error, null);
+  });
+
+  it("QNAP PDF 整合チェック API", async () => {
+    const integrity = await request(app)
+      .get("/api/storage/v1/settings/qnap/integrity")
+      .set("Authorization", `Bearer ${ownerToken}`);
+    assert.equal(integrity.status, 200);
+    assert.equal(typeof integrity.body.localPdfCount, "number");
+    assert.equal(typeof integrity.body.qnapSuccessCount, "number");
+    assert.equal(typeof integrity.body.mismatch, "boolean");
   });
 });

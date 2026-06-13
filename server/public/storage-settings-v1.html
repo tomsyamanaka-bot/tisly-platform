@@ -100,6 +100,21 @@
       <div id="pdf-result" class="result-box hidden" role="status"></div>
     </div>
 
+    <div class="friendly-card storage-card">
+      <h2>QNAP PDF 整合チェック</h2>
+      <p class="storage-meta">ローカル保存 PDF と QNAP バックアップ件数を比較します（日次確認用）。</p>
+      <dl class="status-grid" id="integrity-grid">
+        <dt>ローカル PDF</dt><dd id="integrity-local">—</dd>
+        <dt>QNAP 成功</dt><dd id="integrity-qnap">—</dd>
+        <dt>状態</dt><dd id="integrity-status" class="status-muted">—</dd>
+      </dl>
+      <div id="integrity-warning" class="result-box err hidden" role="alert"></div>
+      <div class="storage-actions">
+        <button type="button" class="btn-sub" id="btn-integrity-check">整合チェック</button>
+        <button type="button" class="btn-sub hidden" id="btn-integrity-resync">QNAPへ再同期</button>
+      </div>
+    </div>
+
     <div class="storage-actions" style="margin-top:0.5rem;">
       <a class="btn-sub" href="/settings-v1">← 設定メニュー</a>
     </div>

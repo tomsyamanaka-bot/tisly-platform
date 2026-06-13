@@ -25,7 +25,12 @@ import {
   mergeEstimateHeader,
   type TomsEstimateHeader,
 } from "../business/toms-document-format.js";
-import { generateEstimatePdf, generateInvoicePdf, generateCompletionReportPdfV1 } from "../business/services/pdfService.js";
+import {
+  generateEstimatePdf,
+  generateInvoicePdf,
+  generateCompletionReportPdfV1,
+  generateSpecificationPdfV1,
+} from "../business/services/pdfService.js";
 import { recordProjectPdfSavedV1 } from "../projects/project-pdf-qnap-store.js";
 import { listPricingRules } from "../business/business-pricing.js";
 import type {
@@ -66,6 +71,7 @@ import {
   normalizeProjectStatus,
   statusAfterSurveyDone,
   statusAfterSurveySchedule,
+  canTransitionStatus,
 } from "../business/business-status.js";
 import { transitionProjectStatus } from "../business/business-workflow.js";
 import {
@@ -78,9 +84,11 @@ import { listCompletionPhotosV1 } from "./completion-photos-store.js";
 import {
   SURVEY_MATERIAL_LABELS,
   SURVEY_TO_ESTIMATE_CATEGORY,
+  SURVEY_WORK_TYPE_LABELS,
   type SurveyMaterialV1,
   type SurveyWorkflowStatus,
 } from "../survey/survey-v1-types.js";
+import type { SurveyProjectV1Detail } from "../survey/survey-v1-store.js";
 import { upsertProjectCaseChain } from "../projects/project-case-chain.js";
 import { getMaterialV1 } from "../field-ops/materials-v1-store.js";
 import {
@@ -663,7 +671,78 @@ export function buildTomsFormatPreviewV1(
   return doc;
 }
 
-/** 現調写真（仕様書・完了報告書の reportPhotos 用） */
+function formatMaterialsList(materials: SurveyMaterialV1[]): string {
+  if (!materials.length) return "—";
+  return materials
+    .map((m) => {
+      const cat = SURVEY_MATERIAL_LABELS[m.category] ?? m.category;
+      const qty = m.quantity > 0 ? ` × ${m.quantity}` : "";
+      const memo = m.memo?.trim() && m.memo !== "__auto_template__" ? `（${m.memo}）` : "";
+      return `・${cat}: ${m.itemLabel}${qty}${memo}`;
+    })
+    .join("\n");
+}
+
+function buildSystemConfigSummary(survey: SurveyProjectV1Detail | null): string {
+  if (!survey?.workTypes?.length) return "—";
+  return survey.workTypes.map((t) => SURVEY_WORK_TYPE_LABELS[t] ?? t).join(" / ");
+}
+
+function buildEquipmentListSummary(survey: SurveyProjectV1Detail | null): string {
+  if (!survey?.materials?.length) return "—";
+  return formatMaterialsList(survey.materials);
+}
+
+function buildWiringSummary(survey: SurveyProjectV1Detail | null): string {
+  if (!survey) return "—";
+  const lanMaterials = survey.materials.filter(
+    (m) => m.category === "lan" || /配線|LAN|ケーブル/i.test(m.itemLabel)
+  );
+  if (lanMaterials.length) return formatMaterialsList(lanMaterials);
+  if (/配線|LAN|ケーブル/i.test(survey.notes ?? "")) return survey.notes!.trim();
+  return "—";
+}
+
+function buildInstallationLocationsSummary(
+  photos: PracticalCompletionReportPhoto[]
+): string {
+  const titles = photos.map((p) => p.title.trim()).filter((t) => t && !/^写真\d+$/.test(t));
+  if (!titles.length) return "—";
+  return titles.map((t) => `・${t}`).join("\n");
+}
+
+function buildIpListSummary(survey: SurveyProjectV1Detail | null): string {
+  const items = survey?.ipEquipment ?? [];
+  if (!items.length) return "—";
+  return items
+    .map((e) => {
+      const name = e.deviceName.trim() || "—";
+      const type = e.deviceType.trim();
+      const loc = e.location.trim();
+      const ip = e.ipAddress.trim();
+      const id = e.loginId.trim();
+      const parts = [name];
+      if (type) parts.push(`[${type}]`);
+      if (loc) parts.push(`@${loc}`);
+      if (ip) parts.push(`IP:${ip}`);
+      if (id) parts.push(`ID:${id}`);
+      const memo = e.memo.trim() ? ` (${e.memo})` : "";
+      return `・${parts.join(" ")}${memo}`;
+    })
+    .join("\n");
+}
+
+function formatWorkDate(iso: string | null | undefined): string | undefined {
+  if (!iso) return undefined;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso.slice(0, 10).replace(/-/g, "/");
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}/${m}/${day}`;
+}
+
+/** 現調写真（仕様書のみ） */
 export function buildReportPhotosV1(businessProjectId: string): PracticalCompletionReportPhoto[] {
   const project = getBusinessProject(businessProjectId);
   if (!project) return [];
@@ -695,16 +774,24 @@ export function buildSpecificationContextV1(businessProjectId: string): Specific
   const survey = project.surveyProjectId ? getSurveyProjectV1Detail(project.surveyProjectId) : null;
   const estimate = project.estimateId ? getEstimate(project.estimateId) : null;
   const header = estimate?.header ?? null;
+  const photos = buildReportPhotosV1(businessProjectId);
+  const now = new Date().toISOString();
   return {
+    projectNo: project.projectNo,
     addressee: header?.addressee ?? project.customerName,
     subject: header?.subject ?? estimate?.title ?? project.title,
     siteName: survey?.siteName ?? header?.siteName ?? project.title,
     workLocation: survey?.address ?? header?.workLocation ?? project.address,
     issueDate: header?.issueDate ?? survey?.surveyDate ?? "",
-    estimateNo: header?.estimateNo ?? estimate?.estimateNo ?? "",
     staffName: survey?.assignee ?? header?.staffName ?? "",
+    generatedAt: now,
+    systemConfig: buildSystemConfigSummary(survey),
+    equipmentList: buildEquipmentListSummary(survey),
+    wiringSummary: buildWiringSummary(survey),
+    ipList: buildIpListSummary(survey),
+    installationLocations: buildInstallationLocationsSummary(photos),
     notes: survey?.notes ?? project.surveyMemo ?? "",
-    photos: buildReportPhotosV1(businessProjectId),
+    photos,
   };
 }
 
@@ -732,6 +819,7 @@ export function buildCompletionReportContextV1(
   const ref = { source: "business" as const, projectId: businessProjectId };
   const session = getLatestWorkSessionForProject(ref);
   const worker = session?.workerName ?? survey?.assignee ?? header?.staffName ?? "";
+  const surveyDetail = project.surveyProjectId ? getSurveyProjectV1Detail(project.surveyProjectId) : null;
   return {
     projectNo: project.projectNo,
     addressee: header?.addressee ?? project.customerName,
@@ -739,14 +827,30 @@ export function buildCompletionReportContextV1(
     siteName: survey?.siteName ?? project.title,
     workLocation: survey?.address ?? project.address,
     issueDate: header?.issueDate ?? new Date().toISOString().slice(0, 10),
+    workDate: formatWorkDate(session?.workDate ?? session?.completionTime),
     staffName: worker,
     startTime: formatSessionTime(session?.startTime),
     endTime: formatSessionTime(session?.completionTime),
     workContent: buildWorkContentSummary(ref),
+    materialsUsed: buildEquipmentListSummary(surveyDetail),
     checklistSummary: formatChecklistForPdf(ref),
     notes: survey?.notes ?? project.surveyMemo ?? "",
+    generatedAt: new Date().toISOString(),
     photos: buildCompletionPhotosV1(businessProjectId),
   };
+}
+
+export async function generateAndSaveSpecificationPdfV1(
+  businessProjectId: string
+): Promise<string | null> {
+  const project = getBusinessProject(businessProjectId);
+  if (!project) return null;
+  const html = renderSpecificationHtmlV1(businessProjectId);
+  if (!html) return null;
+  const suffix = project.projectNo || businessProjectId.slice(-4);
+  const pdfPath = await generateSpecificationPdfV1(project, html, suffix);
+  recordProjectPdfSavedV1(businessProjectId, "specification", pdfPath);
+  return pdfPath;
 }
 
 export function renderCompletionReportHtmlV1(businessProjectId: string): string | null {
@@ -792,6 +896,13 @@ export async function createCompletionReportV1(
     pdfPath = await generateCompletionReportPdfV1(refreshed, html, report.title.slice(0, 24));
     setCompletionReportPdfPath(report.id, pdfPath);
     recordProjectPdfSavedV1(businessProjectId, "report", pdfPath);
+  }
+  const latest = getBusinessProject(businessProjectId);
+  if (
+    latest &&
+    canTransitionStatus(normalizeProjectStatus(latest.status), "completion_report_created")
+  ) {
+    transitionProjectStatus(businessProjectId, "completion_report_created");
   }
   return { reportId: report.id, pdfPath };
 }

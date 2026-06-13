@@ -134,3 +134,20 @@ export interface SurveyMaterialV1 {
   createdAt: string;
   updatedAt: string;
 }
+
+/** IP/設備一覧（仕様書 PDF の IP一覧 に反映） */
+export interface SurveyIpEquipmentV1 {
+  id: string;
+  projectId: string;
+  deviceName: string;
+  deviceType: string;
+  location: string;
+  ipAddress: string;
+  loginId: string;
+  /** 管理者のみ API/UI で返却。PDF には載せない */
+  password?: string;
+  memo: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}

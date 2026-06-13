@@ -71,6 +71,7 @@ const PROJECT_MEMO_SAVE_FAIL = "メモを保存できませんでした";
 let projectNotesLastSaved = "";
 let detailMemoSaveTimer = null;
 let detailMemoBound = false;
+let surveyIsStorageAdmin = false;
 
 const $ = (id) => document.getElementById(id);
 
@@ -409,6 +410,47 @@ function renderMaterials(materials) {
     .join("");
 }
 
+function renderIpEquipment(items) {
+  const el = $("ip-equipment-list");
+  if (!el) return;
+  if (!items?.length) {
+    el.innerHTML = '<p style="color:var(--tisly-muted);font-size:0.9rem;">まだ設備がありません</p>';
+    return;
+  }
+  el.innerHTML = items
+    .map(
+      (item) =>
+        `<div class="material-card" data-ip-id="${escapeHtml(item.id)}">
+          <span class="material-icon">🌐</span>
+          <div>
+            <strong>${escapeHtml(item.deviceName || "—")}</strong>
+            ${item.deviceType ? ` <span style="color:var(--tisly-muted)">[${escapeHtml(item.deviceType)}]</span>` : ""}<br>
+            ${item.location ? `<span>${escapeHtml(item.location)}</span><br>` : ""}
+            ${item.ipAddress ? `<span>IP: ${escapeHtml(item.ipAddress)}</span>` : ""}
+            ${item.loginId ? ` · ID: ${escapeHtml(item.loginId)}` : ""}
+            ${item.memo ? `<br><small style="color:var(--tisly-muted)">${escapeHtml(item.memo)}</small>` : ""}
+          </div>
+          <button type="button" class="btn-sub" data-action="delete-ip" style="margin-left:auto;">削除</button>
+        </div>`
+    )
+    .join("");
+  el.querySelectorAll('[data-action="delete-ip"]').forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const card = btn.closest("[data-ip-id]");
+      if (!card || !currentProjectId) return;
+      try {
+        await api(`/projects/${currentProjectId}/ip-equipment/${encodeURIComponent(card.dataset.ipId)}`, {
+          method: "DELETE",
+        });
+        toast("設備を削除しました");
+        await openDetail(currentProjectId);
+      } catch (e) {
+        toastError(e, e.status);
+      }
+    });
+  });
+}
+
 function formatCustomerSiteMeta(p) {
   const parts = [
     p.projectNo,
@@ -543,6 +585,7 @@ async function openDetail(projectId) {
     }
     renderTemplateList("detail-work-templates", templates, [...selectedTemplateIds]);
     renderMaterials(p.materials);
+    renderIpEquipment(p.ipEquipment || []);
     const handoffBtn = $("btn-handoff");
     const handoffInfo = $("handoff-info");
     if (p.workflowStatus === "estimate_pending" || p.handoff) {
@@ -1295,7 +1338,9 @@ function getSelectedTemplateIdsFromDom(containerId) {
 }
 
 async function init() {
-  await requireCustomerLogin(customerCodeFromPath());
+  const session = await requireCustomerLogin(customerCodeFromPath());
+  surveyIsStorageAdmin = ["owner", "admin", "super_admin"].includes(session?.role);
+  $("ip-password-wrap")?.classList.toggle("hidden", !surveyIsStorageAdmin);
   practicalNav = initPracticalNav({
     appId: "survey_v1",
     appName: "現調",
@@ -1434,6 +1479,37 @@ async function init() {
       $("material-memo").value = "";
       $("material-qty").value = "1";
       toast("部材を追加しました");
+      await openDetail(currentProjectId);
+    } catch (e) {
+      toastError(e, e.status);
+    }
+  });
+
+  $("btn-add-ip-equipment")?.addEventListener("click", async () => {
+    if (!currentProjectId) return;
+    const body = {
+      deviceName: $("ip-device-name")?.value ?? "",
+      deviceType: $("ip-device-type")?.value ?? "",
+      location: $("ip-location")?.value ?? "",
+      ipAddress: $("ip-address")?.value ?? "",
+      loginId: $("ip-login-id")?.value ?? "",
+      memo: $("ip-memo")?.value ?? "",
+    };
+    if (surveyIsStorageAdmin && $("ip-password")?.value) {
+      body.password = $("ip-password").value;
+    }
+    try {
+      await api(`/projects/${currentProjectId}/ip-equipment`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+      ["ip-device-name", "ip-device-type", "ip-location", "ip-address", "ip-login-id", "ip-password", "ip-memo"].forEach(
+        (id) => {
+          const el = $(id);
+          if (el) el.value = "";
+        }
+      );
+      toast("設備を追加しました");
       await openDetail(currentProjectId);
     } catch (e) {
       toastError(e, e.status);

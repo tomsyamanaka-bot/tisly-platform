@@ -1,6 +1,6 @@
 import { Router, type Response } from "express";
 import { requireAuth, type AuthedRequest } from "../../auth/auth-middleware.js";
-import { roleMeetsRequirement } from "../../auth/roles.js";
+import { roleMeetsRequirement, normalizeRole } from "../../auth/roles.js";
 import {
   SURVEY_MATERIAL_CATEGORIES,
   SURVEY_WORKFLOW_STATUSES,
@@ -11,18 +11,25 @@ import { applyWorkTemplatesToProject } from "../../field-ops/project-materials-s
 import { listProjectWorkTemplateIds, listWorkTemplatesV1 } from "../../field-ops/work-templates-store.js";
 import {
   addSurveyMaterialV1,
+  addSurveyIpEquipmentV1,
   addSurveyPhotoMemoV1,
   copySurveyProjectV1,
   createSurveyProjectV1,
+  deleteSurveyIpEquipmentV1,
   deleteSurveyPhotoV1,
   deleteSurveyProjectV1,
   getSurveyProjectV1Detail,
   listSurveyProjectsV1,
   markEstimatePendingV1,
   moveSurveyPhotoV1,
+  updateSurveyIpEquipmentV1,
   updateSurveyPhotoV1,
   updateSurveyProjectV1,
 } from "../../survey/survey-v1-store.js";
+import {
+  findBusinessProjectIdForSurvey,
+  maybeAutoSaveSpecificationPdfV1,
+} from "../../projects/project-pdf-auto-save.js";
 
 export const surveyV1Router = Router();
 
@@ -42,6 +49,16 @@ function parseWorkflowStatus(raw: unknown): SurveyWorkflowStatus | null {
   return (SURVEY_WORKFLOW_STATUSES as readonly string[]).includes(raw)
     ? (raw as SurveyWorkflowStatus)
     : null;
+}
+
+function isStorageAdmin(role: string): boolean {
+  const n = normalizeRole(role);
+  return n === "owner" || n === "admin" || n === "super_admin";
+}
+
+function stripIpPasswords<T extends { password?: string }>(items: T[], includePassword: boolean): T[] {
+  if (includePassword) return items;
+  return items.map(({ password: _p, ...rest }) => rest as T);
 }
 
 surveyV1Router.get("/projects", ...surveyV1Auth, (req: AuthedRequest, res) => {
@@ -102,7 +119,11 @@ surveyV1Router.get("/projects/:id", ...surveyV1Auth, (req: AuthedRequest, res) =
     res.status(404).json({ error: "Not found" });
     return;
   }
-  res.json(detail);
+  const role = req.admin?.role ?? "viewer";
+  res.json({
+    ...detail,
+    ipEquipment: stripIpPasswords(detail.ipEquipment, isStorageAdmin(role)),
+  });
 });
 
 surveyV1Router.patch("/projects/:id", ...surveyV1Auth, (req: AuthedRequest, res) => {
@@ -320,10 +341,15 @@ surveyV1Router.post("/projects/:id/work-templates", ...surveyV1Auth, (req: Authe
 surveyV1Router.post(
   "/projects/:id/estimate-pending",
   ...surveyV1Auth,
-  (req: AuthedRequest, res) => {
+  async (req: AuthedRequest, res) => {
     if (!assertSurveyRole(req, res)) return;
     try {
-      const result = markEstimatePendingV1(String(req.params.id), req.admin?.userId);
+      const surveyProjectId = String(req.params.id);
+      const result = markEstimatePendingV1(surveyProjectId, req.admin?.userId);
+      const businessProjectId = findBusinessProjectIdForSurvey(surveyProjectId);
+      if (businessProjectId) {
+        await maybeAutoSaveSpecificationPdfV1(businessProjectId);
+      }
       res.json(result);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "handoff failed";
@@ -331,3 +357,52 @@ surveyV1Router.post(
     }
   }
 );
+
+surveyV1Router.post("/projects/:id/ip-equipment", ...surveyV1Auth, (req: AuthedRequest, res) => {
+  if (!assertSurveyRole(req, res)) return;
+  const body = req.body as Record<string, unknown>;
+  const role = req.admin?.role ?? "viewer";
+  try {
+    const item = addSurveyIpEquipmentV1(String(req.params.id), {
+      deviceName: body.deviceName != null ? String(body.deviceName) : undefined,
+      deviceType: body.deviceType != null ? String(body.deviceType) : undefined,
+      location: body.location != null ? String(body.location) : undefined,
+      ipAddress: body.ipAddress != null ? String(body.ipAddress) : undefined,
+      loginId: body.loginId != null ? String(body.loginId) : undefined,
+      password: isStorageAdmin(role) && body.password != null ? String(body.password) : undefined,
+      memo: body.memo != null ? String(body.memo) : undefined,
+    });
+    res.status(201).json({
+      item: stripIpPasswords([item], isStorageAdmin(role))[0],
+    });
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : "add failed" });
+  }
+});
+
+surveyV1Router.patch("/projects/:id/ip-equipment/:itemId", ...surveyV1Auth, (req: AuthedRequest, res) => {
+  if (!assertSurveyRole(req, res)) return;
+  const body = req.body as Record<string, unknown>;
+  const role = req.admin?.role ?? "viewer";
+  const patch: Record<string, string | undefined> = {};
+  for (const key of ["deviceName", "deviceType", "location", "ipAddress", "loginId", "memo"] as const) {
+    if (body[key] != null) patch[key] = String(body[key]);
+  }
+  if (isStorageAdmin(role) && body.password != null) patch.password = String(body.password);
+  const item = updateSurveyIpEquipmentV1(String(req.params.id), String(req.params.itemId), patch);
+  if (!item) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  res.json({ item: stripIpPasswords([item], isStorageAdmin(role))[0] });
+});
+
+surveyV1Router.delete("/projects/:id/ip-equipment/:itemId", ...surveyV1Auth, (req: AuthedRequest, res) => {
+  if (!assertSurveyRole(req, res)) return;
+  const ok = deleteSurveyIpEquipmentV1(String(req.params.id), String(req.params.itemId));
+  if (!ok) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  res.json({ ok: true });
+});

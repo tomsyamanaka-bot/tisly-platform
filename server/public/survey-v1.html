@@ -390,6 +390,22 @@
         <button type="button" class="btn-sub" id="btn-add-material">選んだ部材を追加</button>
       </div>
 
+      <p class="section-label">🌐 IP/設備一覧</p>
+      <p class="section-hint">仕様書 PDF の IP一覧 に反映されます（未入力は —）</p>
+      <div class="friendly-card">
+        <div id="ip-equipment-list"></div>
+        <label class="friendly-label">機器名 <input id="ip-device-name" placeholder="例：NVR" /></label>
+        <label class="friendly-label">種別 <input id="ip-device-type" placeholder="例：レコーダー / カメラ" /></label>
+        <label class="friendly-label">設置場所 <input id="ip-location" placeholder="例：リビング" /></label>
+        <label class="friendly-label">IPアドレス <input id="ip-address" inputmode="decimal" placeholder="192.168.1.10" /></label>
+        <label class="friendly-label">ID <input id="ip-login-id" placeholder="admin" autocomplete="off" /></label>
+        <label class="friendly-label hidden" id="ip-password-wrap">パスワード（管理者のみ）
+          <input id="ip-password" type="password" autocomplete="new-password" />
+        </label>
+        <label class="friendly-label">メモ <input id="ip-memo" placeholder="任意" /></label>
+        <button type="button" class="btn-sub" id="btn-add-ip-equipment">設備を追加</button>
+      </div>
+
       <div class="tisly-sticky-action">
         <button type="button" class="btn-main blue" id="btn-handoff">見積へ送る</button>
         <p id="handoff-info" class="section-hint hidden"></p>

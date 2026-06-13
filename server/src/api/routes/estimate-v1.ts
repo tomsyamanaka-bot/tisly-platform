@@ -25,7 +25,9 @@ import {
   updateEstimateHeaderV1,
   updateEstimateItemsV1,
   listEstimatePriceRulePresetsV1,
+  generateAndSaveSpecificationPdfV1,
 } from "../../estimate/estimate-v1-store.js";
+import { maybeAutoSaveSpecificationPdfV1 } from "../../projects/project-pdf-auto-save.js";
 import {
   addCompletionPhotoV1,
   deleteCompletionPhotoV1,
@@ -41,7 +43,7 @@ import {
   getInvoicePdfOrPlaceholder,
 } from "../../business/services/pdfService.js";
 import { getBusinessProject, getEstimate, getInvoice, getCompletionReport, setEstimatePdfPath, setInvoicePdfPath } from "../../business/business-store.js";
-import { regenerateProjectPdfV1 } from "../../projects/project-pdf-store.js";
+import { regenerateProjectPdfV1, resolveProjectPdfFile } from "../../projects/project-pdf-store.js";
 import { recordProjectPdfSavedV1 } from "../../projects/project-pdf-qnap-store.js";
 import type { EstimateLineItem } from "../../business/business-types.js";
 import type { EstimateHeaderInputV1 } from "../../estimate/estimate-v1-types.js";
@@ -140,13 +142,14 @@ estimateV1Router.get("/line-templates/:id/items", ...estimateV1Auth, (req: Authe
   }
 });
 
-estimateV1Router.post("/from-survey/:surveyProjectId", ...estimateV1Auth, (req: AuthedRequest, res) => {
+estimateV1Router.post("/from-survey/:surveyProjectId", ...estimateV1Auth, async (req: AuthedRequest, res) => {
   if (!assertEstimateV1Role(req, res)) return;
   try {
     const detail = createEstimateFromSurveyV1(
       String(req.params.surveyProjectId),
       req.admin?.username
     );
+    await maybeAutoSaveSpecificationPdfV1(detail.businessProjectId);
     res.status(201).json(detail);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "create failed";
@@ -394,14 +397,23 @@ estimateV1Router.post(
 estimateV1Router.get(
   "/projects/:id/specification/pdf",
   ...estimateV1Auth,
-  (req: AuthedRequest, res) => {
+  async (req: AuthedRequest, res) => {
     if (!assertEstimateV1Role(req, res)) return;
-    const project = getBusinessProject(String(req.params.id));
+    const projectId = String(req.params.id);
+    const project = getBusinessProject(projectId);
     if (!project) {
       res.status(404).json({ error: "Not found" });
       return;
     }
-    const html = renderSpecificationHtmlV1(project.id);
+    const regenerate = parseRegenerate(req.query as Record<string, unknown>);
+    if (!regenerate) {
+      const stored = resolveProjectPdfFile(projectId, "specification");
+      if (stored) {
+        res.type("application/pdf").sendFile(stored);
+        return;
+      }
+    }
+    const html = renderSpecificationHtmlV1(projectId);
     if (!html) {
       res.status(404).json({ error: "Not found" });
       return;
@@ -410,6 +422,21 @@ estimateV1Router.get(
     const p = path.join(tmp, "specification-live.html");
     fs.writeFileSync(p, html, "utf8");
     res.type("text/html; charset=utf-8").sendFile(p);
+  }
+);
+
+estimateV1Router.post(
+  "/projects/:id/specification/pdf/regenerate",
+  ...estimateV1Auth,
+  async (req: AuthedRequest, res) => {
+    if (!assertEstimateV1Role(req, res)) return;
+    try {
+      const entry = await regenerateProjectPdfV1(String(req.params.id), "specification");
+      res.json({ pdfPath: entry.pdfPath, pdf: entry });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "regenerate failed";
+      res.status(msg.includes("not found") || msg.startsWith("No ") ? 404 : 500).json({ error: msg });
+    }
   }
 );
 

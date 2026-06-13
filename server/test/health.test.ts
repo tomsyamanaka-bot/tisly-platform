@@ -32,6 +32,8 @@ describe("Health API extended (Phase 221-240)", () => {
     assert.equal(typeof res.body.googleMapsApiConfigured, "boolean");
     assert.equal(typeof res.body.googleMapsApiKeyPresent, "boolean");
     assert.equal(res.body.commitShort, res.body.buildVersion.commitShort);
+    assert.equal(typeof res.body.pdfEngine, "string");
+    assert.ok(["puppeteer", "html_fallback"].includes(res.body.pdfEngine));
     assert.equal(res.body.integrations.googleMapsApiConfigured, res.body.googleMapsApiConfigured);
   });
 

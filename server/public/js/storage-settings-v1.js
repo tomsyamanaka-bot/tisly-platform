@@ -104,6 +104,31 @@ async function load() {
   }
 }
 
+function renderIntegrity(report) {
+  $("integrity-local").textContent = String(report.localPdfCount ?? "—");
+  $("integrity-qnap").textContent = String(report.qnapSuccessCount ?? "—");
+  const statusEl = $("integrity-status");
+  const warnEl = $("integrity-warning");
+  const resyncBtn = $("btn-integrity-resync");
+  if (report.mismatch) {
+    statusEl.textContent = "⚠️ 差分あり";
+    statusEl.className = "status-err";
+    warnEl.classList.remove("hidden");
+    warnEl.textContent = report.message || "ローカルとQNAPの件数が一致しません";
+    resyncBtn?.classList.remove("hidden");
+  } else {
+    statusEl.textContent = report.qnapBackupEnabled ? "✅ 整合" : "未設定";
+    statusEl.className = report.qnapBackupEnabled ? "status-ok" : "status-muted";
+    warnEl.classList.add("hidden");
+    resyncBtn?.classList.add("hidden");
+  }
+}
+
+async function loadIntegrity() {
+  const report = await api("/qnap/integrity");
+  renderIntegrity(report);
+}
+
 async function init() {
   initPracticalNav({ appId: "settings_v1", appName: "ストレージ", theme: "hub" });
 
@@ -158,8 +183,32 @@ async function init() {
     }
   });
 
+  $("btn-integrity-check")?.addEventListener("click", async () => {
+    try {
+      await loadIntegrity();
+      toast("整合チェック完了");
+    } catch (e) {
+      toast(e.message || "整合チェックに失敗しました");
+    }
+  });
+
+  $("btn-integrity-resync")?.addEventListener("click", async () => {
+    if (!confirm("QNAPへ未同期のPDFを再送信しますか？")) return;
+    $("btn-integrity-resync").disabled = true;
+    try {
+      const data = await api("/qnap/integrity/resync", { method: "POST", body: "{}" });
+      renderIntegrity(data.refreshed || data.integrity);
+      toast(`再同期: 成功 ${data.result?.succeeded ?? 0} / 失敗 ${data.result?.failed ?? 0}`);
+    } catch (e) {
+      toast(e.message || "再同期に失敗しました");
+    } finally {
+      $("btn-integrity-resync").disabled = false;
+    }
+  });
+
   try {
     await load();
+    await loadIntegrity();
   } catch (e) {
     toast(e.message || "読み込みに失敗しました");
   }

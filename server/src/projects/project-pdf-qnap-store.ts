@@ -67,13 +67,35 @@ function rowFromDb(r: Record<string, unknown>): ProjectPdfMetaRow {
   };
 }
 
-export function buildQnapPdfRemotePath(projectId: string, fileName: string): string {
-  return `projects/${projectId}/pdfs/${fileName}`;
+export function buildQnapPdfRemotePath(
+  projectId: string,
+  fileName: string,
+  kind?: ProjectPdfKind
+): string {
+  const subfolder = qnapSubfolderForKind(kind, fileName);
+  return `projects/${projectId}/${subfolder}/${fileName}`;
 }
 
-export function buildQnapPdfDisplayPath(shareName: string, projectId: string, fileName: string): string {
+function qnapSubfolderForKind(kind: ProjectPdfKind | undefined, fileName: string): string {
+  if (kind === "specification") return "specification";
+  if (kind === "report") return "completion-report";
+  if (kind === "estimate") return "estimate";
+  if (kind === "invoice") return "invoice";
+  if (fileName.startsWith("specification-")) return "specification";
+  if (fileName.startsWith("report-")) return "completion-report";
+  if (fileName.startsWith("invoice-")) return "invoice";
+  if (fileName.startsWith("estimate-")) return "estimate";
+  return "pdfs";
+}
+
+export function buildQnapPdfDisplayPath(
+  shareName: string,
+  projectId: string,
+  fileName: string,
+  kind?: ProjectPdfKind
+): string {
   const share = shareName.replace(/^\/+|\/+$/g, "") || "TiSLY";
-  return `/${share}/${buildQnapPdfRemotePath(projectId, fileName)}`;
+  return `/${share}/${buildQnapPdfRemotePath(projectId, fileName, kind)}`;
 }
 
 export function isQnapPdfBackupConfigured(): boolean {
@@ -114,7 +136,7 @@ export function toQnapPublicMeta(
   const displayPath =
     row.qnapBackupPath ??
     (opts?.shareName && row.fileName
-      ? buildQnapPdfDisplayPath(opts.shareName, row.projectId, row.fileName)
+      ? buildQnapPdfDisplayPath(opts.shareName, row.projectId, row.fileName, row.kind)
       : null);
   return {
     enabled: true,

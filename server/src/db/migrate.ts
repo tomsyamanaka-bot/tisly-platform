@@ -210,6 +210,7 @@ export function runMigrations(database: Database.Database): void {
   migrateStorageSettingsV1(database);
   migrateProjectSoftDeleteV1(database);
   migrateProjectPdfQnapBackupV1(database);
+  migrateSurveyIpEquipmentV1(database);
 }
 
 /** 案件一覧 v1 — 論理削除 deleted_at */
@@ -3181,4 +3182,38 @@ function migrateStorageSettingsV1(database: Database.Database): void {
       `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
     )
     .run("migration:storage_settings_v1", JSON.stringify({ at: new Date().toISOString() }));
+}
+
+/** 現調PWA — IP/設備一覧（仕様書 PDF 反映） */
+function migrateSurveyIpEquipmentV1(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:survey_ip_equipment_v1") as { value_json: string } | undefined;
+  if (marker) return;
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS survey_ip_equipment (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      device_name TEXT NOT NULL DEFAULT '',
+      device_type TEXT NOT NULL DEFAULT '',
+      location TEXT NOT NULL DEFAULT '',
+      ip_address TEXT NOT NULL DEFAULT '',
+      login_id TEXT NOT NULL DEFAULT '',
+      password TEXT NOT NULL DEFAULT '',
+      memo TEXT NOT NULL DEFAULT '',
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES survey_projects(project_id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_survey_ip_equipment_project
+      ON survey_ip_equipment(project_id);
+  `);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:survey_ip_equipment_v1", JSON.stringify({ at: new Date().toISOString() }));
 }

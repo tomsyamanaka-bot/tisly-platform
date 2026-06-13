@@ -1,9 +1,10 @@
 import { calcTotals, normalizeLineItems } from "../business/estimate-math.js";
 import { buildCustomerFacingPdfNotes } from "../business/customer-price-rules.js";
-import { getBusinessProject, getEstimate, getInvoice } from "../business/business-store.js";
+import { getBusinessProject, getEstimate, getInvoice, getCompletionReport } from "../business/business-store.js";
 import type { EstimateLineItem } from "../business/business-types.js";
 import { listCompletionChecklistV1 } from "../field-ops/work-session-v1-store.js";
 import { getSurveyProjectV1Detail } from "../survey/survey-v1-store.js";
+import { getProjectPdfMeta } from "../projects/project-pdf-qnap-store.js";
 import {
   buildCompletionReportContextV1,
   buildReportPhotosV1,
@@ -152,11 +153,16 @@ function pdfPathForKind(projectId: string, kind: DocumentViewKindV1): string {
 
 function regenerateUrlForKind(projectId: string, kind: DocumentViewKindV1): string | null {
   const base = `/api/estimate/v1/projects/${projectId}`;
+  const projectsBase = `/api/projects/v1/projects/${projectId}/pdfs`;
   switch (kind) {
     case "estimate":
       return `${base}/pdf/regenerate`;
     case "invoice":
       return `${base}/invoice/pdf/regenerate`;
+    case "specification":
+      return `${base}/specification/pdf/regenerate`;
+    case "completion-report":
+      return `${projectsBase}/report/regenerate`;
     default:
       return null;
   }
@@ -244,15 +250,18 @@ export function buildDocumentViewPayloadV1(
   if (kind === "specification") {
     const ctx = buildSpecificationContextV1(businessProjectId);
     if (!ctx) return null;
+    const specMeta = getProjectPdfMeta(businessProjectId, "specification");
     return {
       ...base,
+      storedPdfPath: specMeta?.localPath ?? null,
+      hasStoredPdf: Boolean(specMeta?.localPath),
       specification: {
         addressee: ctx.addressee,
         subject: ctx.subject,
         siteName: ctx.siteName,
         workLocation: ctx.workLocation,
         issueDate: ctx.issueDate,
-        estimateNo: ctx.estimateNo ?? "",
+        estimateNo: ctx.projectNo,
         staffName: ctx.staffName,
         notes: ctx.notes ?? "",
         photos: ctx.photos,
@@ -269,8 +278,13 @@ export function buildDocumentViewPayloadV1(
       label: it.label,
       checked: it.checked,
     }));
+    const reportMeta = project.completionReportId
+      ? getCompletionReport(project.completionReportId)?.pdfPath
+      : null;
     return {
       ...base,
+      storedPdfPath: reportMeta ?? null,
+      hasStoredPdf: Boolean(reportMeta),
       completionReport: {
         addressee: ctx.addressee,
         subject: ctx.subject,

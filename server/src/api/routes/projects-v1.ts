@@ -24,12 +24,16 @@ import {
 } from "../../projects/project-pdf-qnap-store.js";
 import { processQnapPdfBackupRow } from "../../storage/qnap-pdf-backup-service.js";
 import { getStorageSettingsV1 } from "../../storage/storage-settings-store.js";
+import {
+  autoSaveCompletionReportPdfV1,
+  maybeAutoSaveSpecificationPdfV1,
+} from "../../projects/project-pdf-auto-save.js";
 
 export const projectsV1Router = Router();
 
 const auth = [requireAuth("surveyor")] as const;
 
-const PDF_KINDS: ProjectPdfKind[] = ["estimate", "invoice", "report"];
+const PDF_KINDS: ProjectPdfKind[] = ["specification", "estimate", "report", "invoice"];
 
 function assertRole(req: AuthedRequest, res: Response): boolean {
   const role = req.admin?.role ?? "viewer";
@@ -99,7 +103,7 @@ projectsV1Router.get("/projects/:id/pdfs/:kind/file", ...auth, (req: AuthedReque
   if (!assertRole(req, res)) return;
   const kind = parsePdfKind(String(req.params.kind));
   if (!kind) {
-    res.status(400).json({ error: "kind must be estimate, invoice, or report" });
+    res.status(400).json({ error: "kind must be specification, estimate, invoice, or report" });
     return;
   }
   const filePath = resolveProjectPdfFile(String(req.params.id), kind);
@@ -114,7 +118,7 @@ projectsV1Router.post("/projects/:id/pdfs/:kind/regenerate", ...auth, async (req
   if (!assertRole(req, res)) return;
   const kind = parsePdfKind(String(req.params.kind));
   if (!kind) {
-    res.status(400).json({ error: "kind must be estimate, invoice, or report" });
+    res.status(400).json({ error: "kind must be specification, estimate, invoice, or report" });
     return;
   }
   try {
@@ -135,7 +139,7 @@ projectsV1Router.delete("/projects/:id/pdfs/:kind", ...auth, (req: AuthedRequest
   if (!assertRole(req, res)) return;
   const kind = parsePdfKind(String(req.params.kind));
   if (!kind) {
-    res.status(400).json({ error: "kind must be estimate, invoice, or report" });
+    res.status(400).json({ error: "kind must be specification, estimate, invoice, or report" });
     return;
   }
   const ok = deleteProjectPdfV1(String(req.params.id), kind);
@@ -155,7 +159,7 @@ projectsV1Router.post("/projects/:id/pdfs/:kind/qnap-resync", ...auth, async (re
   if (!assertRole(req, res)) return;
   const kind = parsePdfKind(String(req.params.kind));
   if (!kind) {
-    res.status(400).json({ error: "kind must be estimate, invoice, or report" });
+    res.status(400).json({ error: "kind must be specification, estimate, invoice, or report" });
     return;
   }
   const projectId = String(req.params.id);
@@ -174,6 +178,27 @@ projectsV1Router.post("/projects/:id/pdfs/:kind/qnap-resync", ...auth, async (re
       includeQnapError: isStorageAdmin(req.admin?.role ?? "viewer"),
     }),
   });
+});
+
+projectsV1Router.post("/projects/:id/specification/create", ...auth, async (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const projectId = String(req.params.id);
+  try {
+    const pdfPath = await maybeAutoSaveSpecificationPdfV1(projectId);
+    if (!pdfPath) {
+      res.status(404).json({ error: "specification not available" });
+      return;
+    }
+    res.json({
+      ok: true,
+      pdfPath,
+      pdfs: listProjectPdfsV1(projectId, {
+        includeQnapError: isStorageAdmin(req.admin?.role ?? "viewer"),
+      }),
+    });
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : "create failed" });
+  }
 });
 
 projectsV1Router.post("/projects/:id/restore", ...auth, (req: AuthedRequest, res) => {

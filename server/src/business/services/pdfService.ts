@@ -96,6 +96,16 @@ export async function generateCompletionReportPdfV1(
   return writePdf(project.id, "pdfs", fileName, pdfBuf);
 }
 
+export async function generateSpecificationPdfV1(
+  project: BusinessProject,
+  html: string,
+  suffix: string
+): Promise<string> {
+  const fileName = buildProjectPdfFileName("specification", suffix);
+  const { pdfBuf } = await renderWithPdfFallback(html, `仕様書 ${project.title}`);
+  return writePdf(project.id, "pdfs", fileName, pdfBuf);
+}
+
 function renderWithTemplate(
   kind: PdfDocumentKind,
   project: BusinessProject,

@@ -45,6 +45,21 @@
     .pdf-qnap-none { color: #94a3b8; }
     .pdf-qnap-error { margin-top: 0.25rem; font-size: 0.75rem; color: #b91c1c; word-break: break-all; }
     .pdf-empty { font-size: 0.85rem; color: #94a3b8; padding: 0.35rem 0; }
+    .doc-tabs { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.55rem; }
+    .doc-tab {
+      flex: 1; min-width: 72px; min-height: 40px; padding: 0.35rem 0.5rem;
+      border-radius: 8px; border: 1px solid #cbd5e1; background: #fff;
+      font-size: 0.78rem; font-weight: 700; color: #475569; cursor: pointer;
+    }
+    .doc-tab.active { background: var(--tisly-blue); color: #fff; border-color: var(--tisly-blue); }
+    .doc-tab-empty { opacity: 0.72; }
+    .doc-tab-panel.hidden { display: none; }
+    .spec-create-row { margin-bottom: 0.55rem; }
+    .spec-create-row .btn-doc-action {
+      display: block; width: 100%; min-height: 44px; border-radius: 10px;
+      border: 2px solid var(--tisly-blue); background: #eff6ff; color: var(--tisly-blue);
+      font-weight: 700; cursor: pointer;
+    }
     .deleted-card { border-left: 3px solid #f87171; }
     .list-tabs { display: flex; gap: 0.35rem; margin-bottom: 0.75rem; }
     .list-tabs button {
