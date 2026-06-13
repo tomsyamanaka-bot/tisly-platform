@@ -324,7 +324,7 @@ export function renderPdfA4LineItemsTable(
         `<tr><td class="num col-no">${i.lineNo ?? idx + 1}</td><td class="col-desc">${escapeHtmlMultiline(i.description)}</td><td class="num col-qty">${i.quantity}</td><td class="col-unit">${escapeHtml(i.unit ?? "")}</td><td class="num col-price">¥${i.unitPrice.toLocaleString("ja-JP")}</td><td class="num col-amount">¥${i.amount.toLocaleString("ja-JP")}</td></tr>`
     )
     .join("");
-  return `<table class="pdf-a4-line-items"><colgroup><col style="width:6%"/><col style="width:45%"/><col style="width:9%"/><col style="width:9%"/><col style="width:15%"/><col style="width:16%"/></colgroup><thead><tr><th class="col-no">No</th><th class="col-desc">項目</th><th class="col-qty">数量</th><th class="col-unit">単位</th><th class="col-price">単価</th><th class="col-amount">金額</th></tr></thead><tbody>${rows}</tbody></table>`;
+  return `<table class="pdf-a4-line-items"><colgroup><col style="width:8%"/><col style="width:42%"/><col style="width:10%"/><col style="width:10%"/><col style="width:15%"/><col style="width:15%"/></colgroup><thead><tr><th class="col-no">No</th><th class="col-desc">項目</th><th class="col-qty">数量</th><th class="col-unit">単位</th><th class="col-price">単価</th><th class="col-amount">金額</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 export function renderTomsLineItemsTable(

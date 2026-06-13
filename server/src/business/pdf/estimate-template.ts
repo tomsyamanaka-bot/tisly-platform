@@ -12,6 +12,11 @@ import {
   TOMS_PDF_VIEWPORT_META,
 } from "./styles.js";
 import {
+  sanitizePdfDisplayText,
+  sanitizePdfItemText,
+  sanitizePdfNotesText,
+} from "./pdf-text-sanitize.js";
+import {
   escapeHtml,
   renderNotes,
   renderPhotoGrid,
@@ -19,6 +24,19 @@ import {
   renderTomsLineItemsTable,
   renderTotals,
 } from "./shared-blocks.js";
+
+function sanitizeEstimateHeader(header: ReturnType<typeof mergeEstimateHeader>) {
+  return {
+    ...header,
+    addressee: sanitizePdfDisplayText(header.addressee),
+    subject: sanitizePdfDisplayText(header.subject),
+    workLocation: sanitizePdfDisplayText(header.workLocation, ""),
+    staffName: sanitizePdfDisplayText(header.staffName, ""),
+    address: sanitizePdfDisplayText(header.address ?? "", ""),
+    phone: sanitizePdfDisplayText(header.phone ?? "", ""),
+    email: sanitizePdfDisplayText(header.email ?? "", ""),
+  };
+}
 
 export interface EstimateHtmlOptions {
   siteName?: string | null;
@@ -35,18 +53,22 @@ export function renderEstimateHtml(
   estimate: Estimate,
   opts?: EstimateHtmlOptions
 ): string {
-  const header = mergeEstimateHeader(estimate, opts?.header ?? estimate.header ?? null, {
-    siteName: opts?.siteName,
-    workLocation: opts?.workLocation ?? project.address,
-    staffName: opts?.staffName,
-  });
+  const header = sanitizeEstimateHeader(
+    mergeEstimateHeader(estimate, opts?.header ?? estimate.header ?? null, {
+      siteName: opts?.siteName,
+      workLocation: sanitizePdfDisplayText(opts?.workLocation ?? project.address, ""),
+      staffName: opts?.staffName,
+    })
+  );
   const lines = itemsToTomsLines(estimate.items)
     .map((line) => ({
       ...line,
-      description: filterCustomerFacingLineDescription(line.description),
+      description: sanitizePdfItemText(filterCustomerFacingLineDescription(line.description)),
     }))
     .filter((line) => line.description.trim());
-  const notes = buildCustomerFacingPdfNotes(opts?.notes ?? project.surveyMemo ?? "");
+  const notes = sanitizePdfNotesText(
+    buildCustomerFacingPdfNotes(opts?.notes ?? project.surveyMemo ?? "")
+  );
   const includePhotos = opts?.includePhotos === true;
   const photoBlock =
     includePhotos && project.surveyPhotos?.length

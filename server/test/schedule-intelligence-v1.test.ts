@@ -112,7 +112,7 @@ describe("日程調整レベル4 — インテリジェンス", () => {
     ];
     const intel = await buildDayScheduleIntelligence("2026-06-18", events);
     assert.equal(intel.events.length, 1);
-    assert.equal(intel.events[0].travel.durationLabel, "移動時間API未設定");
+    assert.equal(intel.events[0].travel.durationLabel, "Google Maps API未設定");
     assert.equal(intel.feasibility, "unknown");
     assert.equal(intel.totalScheduledMin, 120);
     assert.equal(intel.totalTravelMin, null);
@@ -183,13 +183,13 @@ describe("日程調整レベル4 — インテリジェンス", () => {
     assert.equal(intel.events[0].calendarSummary, "primary");
   });
 
-  it("Maps API未設定 — 移動時間API未設定表示", async () => {
+  it("Maps API未設定 — Google Maps API未設定表示", async () => {
     delete process.env.GOOGLE_MAPS_API_KEY;
     const intel = await buildDayScheduleIntelligence("2026-06-18", [
       baseEvent({ location: "守谷市" }),
     ]);
     assert.equal(intel.mapsApiConfigured, false);
-    assert.equal(intel.events[0].travel.durationLabel, "移動時間API未設定");
+    assert.equal(intel.events[0].travel.durationLabel, "Google Maps API未設定");
   });
 
   it("天気API失敗時もモック天気で継続", async () => {

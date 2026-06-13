@@ -13,6 +13,11 @@ import {
   TOMS_PDF_VIEWPORT_META,
 } from "./styles.js";
 import {
+  sanitizePdfDisplayText,
+  sanitizePdfItemText,
+  sanitizePdfNotesText,
+} from "./pdf-text-sanitize.js";
+import {
   escapeHtml,
   renderBankBlock,
   renderNotes,
@@ -22,6 +27,21 @@ import {
   renderTomsLineItemsTable,
   renderTotals,
 } from "./shared-blocks.js";
+
+function sanitizeInvoiceHeader(header: TomsInvoiceHeader): TomsInvoiceHeader {
+  return {
+    ...header,
+    addressee: sanitizePdfDisplayText(header.addressee),
+    subject: sanitizePdfDisplayText(header.subject),
+    workLocation: sanitizePdfDisplayText(header.workLocation, ""),
+    staffName: sanitizePdfDisplayText(header.staffName, ""),
+    address: sanitizePdfDisplayText(header.address ?? "", ""),
+    phone: sanitizePdfDisplayText(header.phone ?? "", ""),
+    email: sanitizePdfDisplayText(header.email ?? "", ""),
+    estimateRefNo: sanitizePdfDisplayText(header.estimateRefNo, ""),
+    bankInfo: sanitizePdfDisplayText(header.bankInfo, ""),
+  };
+}
 
 export interface InvoiceHtmlOptions {
   header?: TomsInvoiceHeader | null;
@@ -62,14 +82,16 @@ export function renderInvoiceHtml(
   estimate: Estimate,
   opts?: InvoiceHtmlOptions
 ): string {
-  const header = buildInvoiceHeader(project, invoice, estimate, opts);
+  const header = sanitizeInvoiceHeader(buildInvoiceHeader(project, invoice, estimate, opts));
   const lines = itemsToTomsLines(invoice.items)
     .map((line) => ({
       ...line,
-      description: filterCustomerFacingLineDescription(line.description),
+      description: sanitizePdfItemText(filterCustomerFacingLineDescription(line.description)),
     }))
     .filter((line) => line.description.trim());
-  const notes = buildCustomerFacingPdfNotes(opts?.notes ?? project.surveyMemo ?? "");
+  const notes = sanitizePdfNotesText(
+    buildCustomerFacingPdfNotes(opts?.notes ?? project.surveyMemo ?? "")
+  );
   const includePhotos = opts?.includePhotos === true;
   const photoBlock =
     includePhotos && project.surveyPhotos?.length
@@ -104,8 +126,10 @@ ${renderTotals({
   total: invoice.total,
 })}
 ${renderNotes(notes)}
+<div class="doc-invoice-footer">
 ${renderBankBlock(header.bankInfo)}
-${photoBlock}
 <div class="doc-footer">${renderSealPlaceholder()}</div>
+</div>
+${photoBlock}
 </div></body></html>`;
 }

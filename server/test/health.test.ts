@@ -29,6 +29,9 @@ describe("Health API extended (Phase 221-240)", () => {
     assert.ok(res.body.database);
     assert.ok(res.body.websocket);
     assert.ok(res.body.productionUrl);
+    assert.equal(typeof res.body.googleMapsApiConfigured, "boolean");
+    assert.equal(typeof res.body.googleMapsApiKeyPresent, "boolean");
+    assert.equal(res.body.integrations.googleMapsApiConfigured, res.body.googleMapsApiConfigured);
   });
 
   it("GET /health reflects new phase", async () => {

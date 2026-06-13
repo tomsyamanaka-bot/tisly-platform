@@ -22,13 +22,16 @@ export function renderWeatherSlotsHtml(slots, { inline = false, practical = fals
     .join(sep);
 }
 
-function renderTravelLineHtml(travel) {
+const MAPS_API_UNSET_LABEL = "Google Maps API未設定";
+
+function renderTravelLineHtml(travel, { showMapsUnsetBanner = false } = {}) {
+  if (travel.durationLabel === MAPS_API_UNSET_LABEL) {
+    if (!showMapsUnsetBanner) return "";
+    return `<div class="schedule-intel-maps-unset">${escapeScheduleHtml(MAPS_API_UNSET_LABEL)}</div>`;
+  }
+  if (travel.durationLabel === "移動時間未計算") return "";
   const route = escapeScheduleHtml(travel.compactLabel || "🏠→現場");
-  const dur =
-    travel.durationLabel === "移動時間未計算" || travel.durationLabel === "移動時間API未設定"
-      ? escapeScheduleHtml(travel.durationLabel)
-      : `<strong>${escapeScheduleHtml(travel.durationLabel)}</strong>`;
-  return `<div class="schedule-intel-travel">${route} ${dur}</div>`;
+  return `<div class="schedule-intel-travel">${route} <strong>${escapeScheduleHtml(travel.durationLabel)}</strong></div>`;
 }
 
 function renderMaterialLineHtml(fieldCheck) {
@@ -40,7 +43,7 @@ function renderMaterialLineHtml(fieldCheck) {
   return `<a class="schedule-intel-material" href="${escapeScheduleHtml(fieldCheck.url)}">${escapeScheduleHtml(label)}</a>`;
 }
 
-export function renderIntelligenceEventCard(evIntel, { catIcon, catLabel } = {}) {
+export function renderIntelligenceEventCard(evIntel, { catIcon, catLabel, showMapsUnsetBanner = false } = {}) {
   const ev = evIntel;
   const time = formatEventTimeRange(ev);
   const travel = ev.travel ?? {};
@@ -52,7 +55,7 @@ export function renderIntelligenceEventCard(evIntel, { catIcon, catLabel } = {})
       ${time ? `<div class="schedule-intel-time">${escapeScheduleHtml(time)}</div>` : ""}
       <div class="schedule-intel-title">${escapeScheduleHtml(ev.title)}</div>
       ${weatherHtml ? `<div class="schedule-intel-weather">${weatherHtml}</div>` : ""}
-      ${renderTravelLineHtml(travel)}
+      ${renderTravelLineHtml(travel, { showMapsUnsetBanner })}
       ${renderMaterialLineHtml(ev.fieldCheck)}
     </div>
   </article>`;
@@ -72,7 +75,13 @@ export function renderDayIntelligenceEvents(intelligence, opts = {}) {
   if (!intelligence?.events?.length) {
     return `<p class="section-hint">予定はありません</p>`;
   }
+  const mapsUnset = intelligence.mapsApiConfigured === false;
+  let mapsUnsetShown = false;
   return intelligence.events
-    .map((ev) => renderIntelligenceEventCard(ev, opts))
+    .map((ev) => {
+      const showMapsUnsetBanner = mapsUnset && !mapsUnsetShown;
+      if (showMapsUnsetBanner) mapsUnsetShown = true;
+      return renderIntelligenceEventCard(ev, { ...opts, showMapsUnsetBanner });
+    })
     .join("");
 }

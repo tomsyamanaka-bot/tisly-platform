@@ -57,7 +57,7 @@ export function getMapsIntegrationStatus(): MapsIntegrationStatus {
     apiConfigured,
     mode: apiConfigured ? "api" : "nav_only",
     label: apiConfigured ? "本番連携済み" : "未設定",
-    hint: apiConfigured ? "" : "Google Maps API未設定：ナビ起動のみ",
+    hint: apiConfigured ? "" : "Google Maps API未設定",
   };
 }
 

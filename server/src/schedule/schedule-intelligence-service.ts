@@ -161,14 +161,16 @@ function worstFeasibility(levels: ScheduleFeasibility[]): ScheduleFeasibility {
   return "comfortable";
 }
 
+export const MAPS_API_UNSET_LABEL = "Google Maps API未設定";
+
 function travelDurationLabel(
   minutes: number | null,
   source: MapsDurationSource,
   mapsConfigured: boolean,
   hasAddress: boolean
 ): string {
+  if (!mapsConfigured) return MAPS_API_UNSET_LABEL;
   if (!hasAddress) return "移動時間未計算";
-  if (!mapsConfigured) return "移動時間API未設定";
   if (minutes == null || source === "none") return "移動時間未計算";
   return `${minutes}分`;
 }

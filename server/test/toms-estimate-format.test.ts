@@ -385,7 +385,7 @@ describe("TOMS標準見積フォーマット", () => {
       { includePhotos: false }
     );
     assert.match(html, /pdf-a4-line-items/);
-    assert.match(html, /style="width:45%"/);
+    assert.match(html, /style="width:42%"/);
     assert.match(html, /writing-mode:horizontal-tb/);
     assert.match(html, /word-break:keep-all/);
     assert.match(html, /charset=.UTF-8/);
@@ -393,5 +393,158 @@ describe("TOMS標準見積フォーマット", () => {
     assert.ok(!html.includes("@media screen and (max-width:520px)"));
     assert.match(html, /width=794/);
     assert.match(html, /防犯カメラ設置工事一式/);
+  });
+
+  it("????? 破損テキストはPDFに出さない", () => {
+    const html = renderEstimateHtml(
+      {
+        id: "p1",
+        projectNo: "PRJ-1",
+        customerId: "c1",
+        customerName: "?????",
+        title: "?????",
+        address: "茨城県",
+        phone: "",
+        status: "estimate_created",
+        surveySchedule: null,
+        surveyMemo: "?????",
+        surveyPhotos: [],
+        estimateId: "e1",
+        constructionSchedule: null,
+        requiredMaterials: "",
+        constructionMemo: "",
+        constructionPhotos: [],
+        completionReportId: null,
+        invoiceId: null,
+        paymentDueDate: null,
+        paidDate: null,
+        qnapBasePath: "",
+        surveyProjectId: null,
+        createdAt: "",
+        updatedAt: "",
+      },
+      {
+        id: "e1",
+        projectId: "p1",
+        estimateNo: "260613-001",
+        customerName: "?????",
+        title: "?????",
+        items: [
+          {
+            id: "1",
+            category: "other",
+            name: "?????",
+            memo: "",
+            unit: "式",
+            quantity: 1,
+            unitPrice: 1000,
+            amount: 1000,
+          },
+          {
+            id: "2",
+            category: "other",
+            name: "正常な項目",
+            memo: "",
+            unit: "式",
+            quantity: 1,
+            unitPrice: 2000,
+            amount: 2000,
+          },
+        ],
+        shuseiDiscount: 0,
+        shuseiDiscountMemo: "",
+        subtotal: 2000,
+        tax: 200,
+        total: 2200,
+        internalCost: 0,
+        grossProfit: 2000,
+        grossProfitRate: 100,
+        pdfPath: null,
+        createdAt: "2026-06-13T00:00:00.000Z",
+        updatedAt: "2026-06-13T00:00:00.000Z",
+      },
+      { includePhotos: false, notes: "?????" }
+    );
+    assert.ok(!html.includes("?????"));
+    assert.match(html, /未設定/);
+    assert.match(html, /正常な項目/);
+    assert.ok(!html.includes("〈備考〉"));
+  });
+
+  it("請求PDFも ????? を除去する", () => {
+    const project = {
+      id: "p1",
+      projectNo: "PRJ-1",
+      customerId: "c1",
+      customerName: "?????",
+      title: "?????",
+      address: "茨城県",
+      phone: "",
+      status: "invoice_created",
+      surveySchedule: null,
+      surveyMemo: "",
+      surveyPhotos: [],
+      estimateId: "e1",
+      constructionSchedule: null,
+      requiredMaterials: "",
+      constructionMemo: "",
+      completionReportId: null,
+      invoiceId: "i1",
+      paymentDueDate: null,
+      paidDate: null,
+      qnapBasePath: "",
+      surveyProjectId: null,
+      createdAt: "",
+      updatedAt: "",
+    };
+    const estimate = {
+      id: "e1",
+      projectId: "p1",
+      estimateNo: "260613-001",
+      customerName: "?????",
+      title: "?????",
+      items: [],
+      shuseiDiscount: 0,
+      shuseiDiscountMemo: "",
+      subtotal: 1000,
+      tax: 100,
+      total: 1100,
+      internalCost: 0,
+      grossProfit: 1000,
+      grossProfitRate: 100,
+      pdfPath: null,
+      createdAt: "2026-06-13T00:00:00.000Z",
+      updatedAt: "2026-06-13T00:00:00.000Z",
+    };
+    const invoice = {
+      id: "i1",
+      projectId: "p1",
+      invoiceNo: "260613-001",
+      customerName: "?????",
+      title: "?????",
+      items: [
+        {
+          id: "1",
+          category: "other",
+          name: "正常な請求項目",
+          memo: "",
+          unit: "式",
+          quantity: 1,
+          unitPrice: 1000,
+          amount: 1000,
+        },
+      ],
+      subtotal: 1000,
+      tax: 100,
+      total: 1100,
+      bankInfo: "?????",
+      pdfPath: null,
+      createdAt: "2026-06-13T00:00:00.000Z",
+      updatedAt: "2026-06-13T00:00:00.000Z",
+    };
+    const html = renderInvoiceHtml(project, invoice, estimate);
+    assert.ok(!html.includes("?????"));
+    assert.match(html, /正常な請求項目/);
+    assert.match(html, /doc-invoice-footer/);
   });
 });

@@ -120,7 +120,7 @@ describe("日程調整 PWA v1 API", () => {
     assert.equal(res.status, 200);
     assert.equal(res.body.calendarIntegration.label, "未設定（mock）");
     assert.equal(res.body.mapsIntegration.label, "未設定");
-    assert.ok(res.body.mapsIntegration.hint.includes("ナビ起動のみ"));
+    assert.ok(res.body.mapsIntegration.hint.includes("Google Maps API未設定"));
     assert.equal(res.body.calendarStatus.displayStatus, "not_configured");
     assert.equal(res.body.calendarStatus.mode, "mock");
     assert.equal(res.body.calendarStatus.buttonLabel, "Google連携は未設定です");

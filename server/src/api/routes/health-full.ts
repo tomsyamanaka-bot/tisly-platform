@@ -109,10 +109,14 @@ async function buildFullHealthResponse() {
   const buildVersion = getBuildVersion();
   const wsReady = nginxHasWebSocket();
   const publicUrl = config.publicUrl;
+  const googleMapsApiConfigured = isGoogleMapsApiConfigured();
+  const googleMapsApiKeyPresent = Boolean(getGoogleMapsApiKey());
 
   return {
     status: dbOk ? "ok" : "degraded",
     buildVersion,
+    googleMapsApiConfigured,
+    googleMapsApiKeyPresent,
     uptime: Math.round(process.uptime()),
     database: {
       status: dbOk ? "ok" : "error",
@@ -127,8 +131,8 @@ async function buildFullHealthResponse() {
     productionUrl: publicUrl,
     phase: config.rc1Phase,
     integrations: {
-      googleMapsApiConfigured: isGoogleMapsApiConfigured(),
-      googleMapsApiKeyPresent: Boolean(getGoogleMapsApiKey()),
+      googleMapsApiConfigured,
+      googleMapsApiKeyPresent,
     },
     db_provider: providerInfo.provider,
     postgres: {
