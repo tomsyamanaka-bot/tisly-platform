@@ -288,6 +288,7 @@ jobs:
           cd "${SERVER_DIR}"
           echo "=== npm install ==="
           npm install
+          [ -d node_modules/puppeteer ] || { echo "ERROR: puppeteer missing — PDF generation requires puppeteer"; exit 1; }
           echo "=== build ==="
           npm run build
           [ -f dist/index.js ] || { echo "ERROR: dist/index.js missing"; exit 1; }
