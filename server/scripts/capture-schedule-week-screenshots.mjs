@@ -31,6 +31,7 @@ async function main() {
   const token = await loginToken();
   const browser = await puppeteer.launch({ headless: "new", defaultViewport: { width: 430, height: 932 } });
   const page = await browser.newPage();
+  await page.setCacheEnabled(false);
 
   await page.goto(`${baseUrl}/customer/TOMS001/login`, { waitUntil: "networkidle2" });
   await page.evaluate((t) => {
@@ -38,8 +39,21 @@ async function main() {
     sessionStorage.setItem("tisly_token", t);
   }, token);
 
-  await page.goto(`${baseUrl}/schedule-v1`, { waitUntil: "networkidle2" });
+  await page.goto(`${baseUrl}/schedule-v1?verify=${Date.now()}`, { waitUntil: "networkidle2" });
+  await page.evaluate(async () => {
+    if ("serviceWorker" in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((r) => r.unregister()));
+    }
+    if (window.caches) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k)));
+    }
+  });
+  await page.reload({ waitUntil: "networkidle2" });
   await page.waitForSelector("#week-days .schedule-day-card", { timeout: 30000 });
+  const travelCount = await page.$$eval(".schedule-intel-travel", (els) => els.length);
+  console.log("schedule-intel-travel count:", travelCount);
   await new Promise((r) => setTimeout(r, 1500));
 
   await page.screenshot({
