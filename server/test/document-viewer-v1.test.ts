@@ -145,6 +145,14 @@ describe("Document Viewer UX v1 API", () => {
     assert.ok(Array.isArray(res.body.completionReport.checklist));
   });
 
+  it("document-view に shareFileName を含む", async () => {
+    const res = await request(app)
+      .get(`/api/estimate/v1/projects/${businessProjectId}/document-view?kind=estimate`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(res.status, 200);
+    assert.match(res.body.shareFileName, /^estimate-.*\.pdf$/);
+  });
+
   it("不正 kind は 400", async () => {
     const res = await request(app)
       .get(`/api/estimate/v1/projects/${businessProjectId}/document-view?kind=unknown`)

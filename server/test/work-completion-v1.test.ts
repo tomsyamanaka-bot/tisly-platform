@@ -152,7 +152,10 @@ describe("Arrival + Work Completion System v1", () => {
       .set("Authorization", `Bearer ${token}`);
     assert.equal(pdf.status, 200);
     assert.ok(pdf.text.includes("完了報告書"));
-    assert.ok(pdf.text.includes("開始時間") || pdf.text.includes("作業内容"));
+    assert.ok(pdf.text.includes("作業内容"));
+    assert.ok(!pdf.text.includes("開始時間"));
+    assert.ok(!pdf.text.includes("終了時間"));
+    assert.ok(!pdf.text.includes("使用部材"));
   });
 
   it("完了報告書作成 API が動作する", async () => {

@@ -75,7 +75,7 @@ describe("案件 PDF 管理 v1", () => {
   it("buildProjectPdfFileName — 標準命名", () => {
     assert.equal(buildProjectPdfFileName("estimate", "EST-2026-0001"), "estimate-EST-2026-0001.pdf");
     assert.equal(buildProjectPdfFileName("invoice", "INV-001"), "invoice-INV-001.pdf");
-    assert.equal(buildProjectPdfFileName("report", "完了報告"), "report-完了報告.pdf");
+    assert.equal(buildProjectPdfFileName("report", "PRJ-2026-0001"), "completion-report-PRJ-2026-0001.pdf");
   });
 
   it("GET /projects/:id/pdfs — 一覧と保存パス", async () => {
@@ -108,7 +108,7 @@ describe("案件 PDF 管理 v1", () => {
     const files = fs.readdirSync(dir).filter((f) => f.endsWith(".pdf"));
     assert.ok(files.some((f) => f.startsWith("estimate-")), files.join(","));
     assert.ok(files.some((f) => f.startsWith("invoice-")), files.join(","));
-    assert.ok(files.some((f) => f.startsWith("report-")), files.join(","));
+    assert.ok(files.some((f) => f.startsWith("completion-report-")), files.join(","));
   });
 
   it("POST regenerate + DELETE pdf", async () => {

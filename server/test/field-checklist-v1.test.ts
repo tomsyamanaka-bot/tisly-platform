@@ -167,14 +167,14 @@ describe("Field Checklist v1", () => {
     assert.equal(patched.body.memo, "配線交換済み");
   });
 
-  it("完了報告書 PDF にチェック結果が含まれる", async () => {
+  it("完了報告書 PDF にチェック結果を出さない", async () => {
     const pdf = await request(app)
       .get(`/api/estimate/v1/projects/${businessProjectId}/completion-report/pdf?live=1`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(pdf.status, 200);
-    assert.ok(pdf.text.includes("確認結果") || pdf.text.includes("確認を実施"));
-    assert.ok(pdf.text.includes("確認済") || pdf.text.includes("未確認"));
-    assert.ok(pdf.text.includes("お客様都合"));
+    assert.ok(!pdf.text.includes("確認結果"));
+    assert.ok(!pdf.text.includes("確認済"));
+    assert.ok(!pdf.text.includes("未確認"));
   });
 
   it("checklistStatus に forced 件数が含まれる", async () => {

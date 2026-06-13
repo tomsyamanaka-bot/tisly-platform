@@ -1,4 +1,5 @@
 import { Router, type Response } from "express";
+import path from "path";
 import { requireAuth, type AuthedRequest } from "../../auth/auth-middleware.js";
 import { roleMeetsRequirement, normalizeRole } from "../../auth/roles.js";
 import { buildFieldOpsDashboardV1Async } from "../../projects/field-ops-dashboard.js";
@@ -111,6 +112,8 @@ projectsV1Router.get("/projects/:id/pdfs/:kind/file", ...auth, (req: AuthedReque
     res.status(404).json({ error: "PDF not found" });
     return;
   }
+  const fileName = path.basename(filePath);
+  res.setHeader("Content-Disposition", `inline; filename*=UTF-8''${encodeURIComponent(fileName)}`);
   res.type("application/pdf").sendFile(filePath);
 });
 

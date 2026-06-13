@@ -11,15 +11,11 @@ export interface SpecificationContext {
   issueDate: string;
   staffName: string;
   generatedAt: string;
-  /** システム構成 */
+  /** @deprecated お客様向けPDFには出さない */
   systemConfig?: string;
-  /** 機器一覧 */
   equipmentList?: string;
-  /** 配線概要 */
   wiringSummary?: string;
-  /** IP一覧 */
   ipList?: string;
-  /** 設置場所一覧 */
   installationLocations?: string;
   notes?: string;
   photos: SpecificationPhoto[];
@@ -33,16 +29,6 @@ export function renderSpecificationHtml(ctx: SpecificationContext): string {
     { label: "担当者", value: ctx.staffName },
     { label: "作成日", value: ctx.issueDate },
   ];
-  const coverSections = [
-    { title: "システム構成", body: ctx.systemConfig ?? "—" },
-    { title: "機器一覧", body: ctx.equipmentList ?? "—" },
-    { title: "配線概要", body: ctx.wiringSummary ?? "—" },
-    { title: "IP一覧", body: ctx.ipList ?? "—" },
-    { title: "設置場所一覧", body: ctx.installationLocations ?? "—" },
-  ];
-  if (ctx.notes?.trim()) {
-    coverSections.push({ title: "備考", body: ctx.notes.trim() });
-  }
   return renderPracticalPdfHtml({
     prefix: "sp",
     pageTitle: `仕様書 ${ctx.subject}`,
@@ -50,7 +36,6 @@ export function renderSpecificationHtml(ctx: SpecificationContext): string {
     projectNo: ctx.projectNo,
     generatedAt: ctx.generatedAt,
     coverFields,
-    coverSections,
     photos: ctx.photos,
     noPhotosMessage: "写真未登録",
   });

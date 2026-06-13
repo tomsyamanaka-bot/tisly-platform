@@ -148,8 +148,8 @@ describe("見積PWA v1 API", () => {
       assert.ok(res.text.includes("お見積書"));
       assert.ok(res.text.includes("株式会社TOMS"));
       assert.ok(res.text.includes("項目"));
-      assert.ok(res.text.includes("インボイス番号"));
-      assert.ok(res.text.includes("T-2030001139320"));
+      assert.ok(!res.text.includes("インボイス番号"));
+      assert.ok(!res.text.includes("T-2030001139320"));
     } else {
       assert.ok(Buffer.isBuffer(res.body) ? res.body.length > 50 : true);
     }
@@ -353,7 +353,7 @@ describe("見積PWA v1 API", () => {
     assert.equal(photoPages, 2, `expected 2 photo pages, got ${photoPages}`);
   });
 
-  it("仕様書・完了報告書に現調メモが反映される", async () => {
+  it("仕様書・完了報告書にお客様向けPDFに社内メモを出さない", async () => {
     const survey = await request(app)
       .post("/api/survey/v1/projects")
       .set("Authorization", `Bearer ${token}`)
@@ -378,12 +378,17 @@ describe("見積PWA v1 API", () => {
       .get(`/api/estimate/v1/projects/${bizId}/specification/pdf?live=1`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(spec.status, 200);
-    assert.ok(spec.text.includes("配線ルート要確認"));
+    assert.ok(!spec.text.includes("配線ルート要確認"));
+    assert.ok(!spec.text.includes("システム構成"));
+    assert.ok(!spec.text.includes("設置場所一覧"));
     const cr = await request(app)
       .get(`/api/estimate/v1/projects/${bizId}/completion-report/pdf?live=1`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(cr.status, 200);
-    assert.ok(cr.text.includes("配線ルート要確認"));
+    assert.ok(!cr.text.includes("配線ルート要確認"));
+    assert.ok(!cr.text.includes("開始時間"));
+    assert.ok(!cr.text.includes("使用部材"));
+    assert.ok(!cr.text.includes("確認結果"));
   });
 
   it("仕様書は現調写真タイトルを反映し、完了報告書には流用しない", async () => {

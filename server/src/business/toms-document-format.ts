@@ -84,7 +84,7 @@ export const TOMS_DEFAULT_STAFF = "山中 智紀";
 
 export const TOMS_DEFAULT_BANK_INFO =
   process.env.TOMS_BANK_INFO ??
-  "常陽銀行 越谷支店\n普通 1370414\nトムス";
+  "常陽銀行 越谷支店\n普通 1370414\nトムズ";
 
 export const TOMS_ESTIMATE_VALID_DAYS = 30;
 
@@ -136,8 +136,8 @@ export function formatTomsPaymentDueDate(raw: string | null | undefined): string
 /** 振込先 — 空/破損時は TOMS 既定口座 */
 export function resolveTomsBankInfo(bankInfo: string | null | undefined): string {
   const trimmed = (bankInfo ?? "").trim();
-  if (!trimmed || /^\?{3,}$/.test(trimmed)) return TOMS_DEFAULT_BANK_INFO;
-  return trimmed;
+  const base = !trimmed || /^\?{3,}$/.test(trimmed) ? TOMS_DEFAULT_BANK_INFO : trimmed;
+  return base.replace(/トムス/g, "トムズ");
 }
 
 /** 発行日 YYYY/MM/DD */

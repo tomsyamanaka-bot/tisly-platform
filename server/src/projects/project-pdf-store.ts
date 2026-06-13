@@ -54,11 +54,11 @@ function sanitizeSuffix(s: string): string {
   return s.replace(/[/\\:*?"<>|]/g, "_").trim() || "doc";
 }
 
-/** 標準ファイル名: estimate-xxxx.pdf / invoice-xxxx.pdf / report-xxxx.pdf / specification-xxxx.pdf */
+/** 標準ファイル名: estimate-xxxx.pdf / invoice-xxxx.pdf / completion-report-xxxx.pdf / specification-xxxx.pdf */
 export function buildProjectPdfFileName(kind: ProjectPdfKind, suffix: string): string {
   const base =
     kind === "report"
-      ? "report"
+      ? "completion-report"
       : kind === "specification"
         ? "specification"
         : kind;
@@ -161,9 +161,7 @@ function invoiceSuffix(projectId: string): string {
 
 function reportSuffix(projectId: string): string {
   const project = getBusinessProject(projectId);
-  if (!project?.completionReportId) return projectId.slice(-4);
-  const rep = getCompletionReport(project.completionReportId);
-  return rep?.title?.slice(0, 24) ?? projectId.slice(-4);
+  return project?.projectNo ?? projectId.slice(-4);
 }
 
 function specificationSuffix(projectId: string): string {

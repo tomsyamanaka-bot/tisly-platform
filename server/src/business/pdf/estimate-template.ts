@@ -90,6 +90,7 @@ ${renderTomsOfficialDocLayout({
   docNoLabel: "見積番号",
   docNo: header.estimateNo,
   total: estimate.total,
+  includeRegistrationNo: false,
 })}
 ${renderTomsLineItemsTable(lines)}
 ${renderTotals({

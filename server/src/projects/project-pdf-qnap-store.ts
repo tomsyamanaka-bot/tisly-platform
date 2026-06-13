@@ -81,6 +81,7 @@ function qnapSubfolderForKind(kind: ProjectPdfKind | undefined, fileName: string
   if (kind === "report") return "completion-report";
   if (kind === "estimate") return "estimate";
   if (kind === "invoice") return "invoice";
+  if (fileName.startsWith("completion-report-")) return "completion-report";
   if (fileName.startsWith("specification-")) return "specification";
   if (fileName.startsWith("report-")) return "completion-report";
   if (fileName.startsWith("invoice-")) return "invoice";

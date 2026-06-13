@@ -28,19 +28,10 @@ export function renderPracticalCompletionReportHtml(ctx: PracticalCompletionRepo
     { label: "住所", value: ctx.workLocation || ctx.siteName },
     { label: "担当者", value: ctx.staffName },
     { label: "工事日", value: ctx.workDate ?? ctx.issueDate },
-    { label: "開始時間", value: ctx.startTime ?? "—" },
-    { label: "終了時間", value: ctx.endTime ?? "—" },
   ];
-  const coverSections = [
-    { title: "作業内容", body: ctx.workContent ?? "—" },
-    { title: "使用部材", body: ctx.materialsUsed ?? "—" },
-  ];
-  if (ctx.checklistSummary?.trim()) {
-    coverSections.push({ title: "確認結果", body: ctx.checklistSummary.trim() });
-  }
-  if (ctx.notes?.trim()) {
-    coverSections.push({ title: "備考", body: ctx.notes.trim() });
-  }
+  const coverSections = ctx.workContent?.trim()
+    ? [{ title: "作業内容", body: ctx.workContent.trim() }]
+    : [];
   return renderPracticalPdfHtml({
     prefix: "cr",
     pageTitle: `完了報告書 ${ctx.projectNo}`,

@@ -141,7 +141,7 @@ describe("QNAP PDF 自動バックアップ v1", () => {
       .set("Authorization", `Bearer ${ownerToken}`);
     const report = pdfs.body.pdfs.find((p: { kind: string }) => p.kind === "report");
     assert.equal(report.qnap.status, "success");
-    assert.match(report.fileName, /^report-.*\.pdf$/);
+    assert.match(report.fileName, /^completion-report-.*\.pdf$/);
   });
 
   it("4. QNAP失敗時でもローカルPDFは開ける", async () => {

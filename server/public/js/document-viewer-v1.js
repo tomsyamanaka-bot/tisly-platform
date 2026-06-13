@@ -1,5 +1,6 @@
 import { getCustomerToken, requireCustomerLogin, customerCodeFromPath } from "./customer-auth.js";
 import { renderFriendlyErrorHtml } from "./tisly-friendly-errors.js";
+import { sharePdfAsFile } from "./pdf-share-v1.js";
 
 const MOBILE_BREAKPOINT = 768;
 const API = "/api/estimate/v1";
@@ -190,40 +191,14 @@ function renderSpecificationMobile(spec) {
 }
 
 function renderCompletionMobile(cr) {
-  const checklistHtml = cr.checklist.length
-    ? cr.checklist
-        .map(
-          (it) => `<article class="doc-check-card ${it.checked ? "done" : "pending"}">
-            <span class="doc-check-icon">${it.checked ? "✓" : "—"}</span>
-            <div class="doc-check-body">
-              <p class="doc-check-cat">${escapeHtml(it.category)}</p>
-              <p class="doc-check-label">${escapeHtml(it.label)}</p>
-              <p class="doc-check-status">${it.checked ? "確認済" : "未確認"}</p>
-            </div>
-          </article>`
-        )
-        .join("")
-    : `<div class="doc-meta-card"><p class="muted">チェック項目はありません</p></div>`;
-
-  const timeBlock =
-    cr.startTime || cr.endTime
-      ? `<div class="doc-hero-card doc-work-time-hero">
-          <p class="doc-hero-label">作業時間</p>
-          <p class="time-range">${escapeHtml(cr.startTime || "—")} 〜 ${escapeHtml(cr.endTime || "—")}</p>
-          ${cr.staffName ? `<p class="muted">作業員 ${escapeHtml(cr.staffName)}</p>` : ""}
-        </div>`
-      : "";
-
   return `
-    ${timeBlock}
     <div class="doc-meta-card">
       <p><strong>${escapeHtml(cr.addressee)}</strong> 様</p>
       <p>${escapeHtml(cr.subject)}</p>
       <p class="muted">${escapeHtml(cr.workLocation || cr.siteName)}</p>
+      ${cr.staffName ? `<p class="muted">担当 ${escapeHtml(cr.staffName)}</p>` : ""}
     </div>
     ${cr.workContent ? `<div class="doc-meta-card"><p class="muted">作業内容</p><p>${escapeHtml(cr.workContent)}</p></div>` : ""}
-    <p class="section-label" style="margin:0.5rem 0 0;">チェック項目</p>
-    ${checklistHtml}
     <p class="section-label" style="margin:0.75rem 0 0;">写真</p>
     ${renderPhotoList(cr.photos, { grid: true })}`;
 }
@@ -382,21 +357,23 @@ function updateHeader(data) {
 }
 
 async function handleShare() {
-  const url = window.location.href;
-  const title = `${payload?.label || "書類"} — ${payload?.projectTitle || ""}`;
-  if (navigator.share) {
-    try {
-      await navigator.share({ title, url });
-      return;
-    } catch {
-      /* cancelled */
-    }
+  if (!payload?.pdfUrl) {
+    toast("PDFがありません");
+    return;
   }
+  const title = `${payload?.label || "書類"} — ${payload?.projectTitle || ""}`;
+  const fetchUrl = buildPdfTabUrl(payload.pdfUrl);
   try {
-    await navigator.clipboard.writeText(url);
-    toast("リンクをコピーしました");
-  } catch {
-    toast("共有に失敗しました");
+    await sharePdfAsFile({
+      fetchUrl,
+      fileName: payload.shareFileName || `${payload.kind || "document"}.pdf`,
+      title,
+      getHeaders: () => ({ Authorization: `Bearer ${getCustomerToken()}` }),
+      toast,
+    });
+  } catch (e) {
+    if (e?.name === "AbortError") return;
+    toast(e.message || "共有に失敗しました");
   }
 }
 

@@ -868,8 +868,7 @@ export async function createCompletionReportV1(
     const html = renderCompletionReportHtmlV1(businessProjectId);
     let pdfPath: string | undefined;
     if (html) {
-      const rep = getCompletionReport(project.completionReportId);
-      const suffix = rep?.title?.slice(0, 24) ?? businessProjectId.slice(-4);
+      const suffix = project.projectNo ?? businessProjectId.slice(-4);
       pdfPath = await generateCompletionReportPdfV1(project, html, suffix);
       setCompletionReportPdfPath(project.completionReportId, pdfPath);
       recordProjectPdfSavedV1(businessProjectId, "report", pdfPath);
@@ -893,7 +892,7 @@ export async function createCompletionReportV1(
   const html = renderCompletionReportHtmlV1(businessProjectId);
   let pdfPath: string | undefined;
   if (html) {
-    pdfPath = await generateCompletionReportPdfV1(refreshed, html, report.title.slice(0, 24));
+    pdfPath = await generateCompletionReportPdfV1(refreshed, html, refreshed.projectNo ?? businessProjectId.slice(-4));
     setCompletionReportPdfPath(report.id, pdfPath);
     recordProjectPdfSavedV1(businessProjectId, "report", pdfPath);
   }

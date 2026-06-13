@@ -5,6 +5,7 @@ import {
 } from "./customer-auth.js";
 import { initPracticalNav } from "./tisly-practical-nav.js";
 import { renderFriendlyErrorHtml } from "./tisly-friendly-errors.js";
+import { sharePdfAsFile } from "./pdf-share-v1.js";
 
 const API = "/api/projects/v1";
 const WORK_API = "/api/work-session/v1";
@@ -157,21 +158,19 @@ function pdfShareUrl(projectId, kind) {
   return `${window.location.origin}${API}/projects/${encodeURIComponent(projectId)}/pdfs/${encodeURIComponent(kind)}/file?access_token=${encodeURIComponent(token)}`;
 }
 
-async function sharePdf(projectId, kind, label) {
-  const url = pdfShareUrl(projectId, kind);
-  if (navigator.share) {
-    try {
-      await navigator.share({ title: `${label} — TiSLY`, url });
-      return;
-    } catch (e) {
-      if (e?.name === "AbortError") return;
-    }
-  }
+async function sharePdf(projectId, kind, label, fileName) {
+  const fetchUrl = pdfFileUrl(projectId, kind);
   try {
-    await navigator.clipboard.writeText(url);
-    toast("URLをコピーしました");
-  } catch {
-    prompt("共有URL（コピーしてください）", url);
+    await sharePdfAsFile({
+      fetchUrl,
+      fileName: fileName || `${kind}.pdf`,
+      title: `${label} — TiSLY`,
+      getHeaders: () => ({ Authorization: `Bearer ${getCustomerToken()}` }),
+      toast,
+    });
+  } catch (e) {
+    if (e?.name === "AbortError") return;
+    toast(e.message || "共有に失敗しました");
   }
 }
 
@@ -292,7 +291,7 @@ async function renderDetailDocuments(detail) {
     const kind = row.dataset.pdfKind;
     row.querySelector('[data-pdf-action="share"]')?.addEventListener("click", () => {
       const label = pdfs.find((x) => x.kind === kind)?.label || kind;
-      sharePdf(p.id, kind, label);
+      sharePdf(p.id, kind, label, pdfs.find((x) => x.kind === kind)?.fileName);
     });
     row.querySelector('[data-pdf-action="regenerate"]')?.addEventListener("click", async () => {
       if (!confirm(`${pdfs.find((x) => x.kind === kind)?.label || kind}PDFを再生成しますか？`)) return;

@@ -127,7 +127,7 @@ describe("TOMS標準見積フォーマット", () => {
     assert.match(res.text, /御見積金額/);
     assert.match(res.text, /見積番号/);
     assert.match(res.text, /発行日/);
-    assert.match(res.text, /インボイス番号/);
+    assert.ok(!/インボイス番号/.test(res.text));
     assert.match(res.text, /件名/);
     assert.match(res.text, /作業場所/);
     assert.match(res.text, /御中/);
@@ -251,6 +251,8 @@ describe("TOMS標準見積フォーマット", () => {
     assert.match(invoiceHtml, /ご請求金額/);
     assert.match(invoiceHtml, /振込先/);
     assert.match(invoiceHtml, /常陽銀行 越谷支店/);
+    assert.match(invoiceHtml, /トムズ/);
+    assert.match(invoiceHtml, /インボイス番号/);
     assert.match(invoiceHtml, /支払期限/);
     assert.match(invoiceHtml, /担当者/);
     assert.match(invoiceHtml, /\d{6}-\d{3}/);

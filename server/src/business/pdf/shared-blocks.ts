@@ -48,6 +48,8 @@ export interface TomsOfficialDocLayoutInput {
   docNoLabel: string;
   docNo: string;
   total: number;
+  /** 見積書は false（請求書は true） */
+  includeRegistrationNo?: boolean;
   extraMetaRows?: Array<{ label: string; value: string }>;
 }
 
@@ -131,6 +133,10 @@ export function renderTomsOfficialDocLayout(input: TomsOfficialDocLayoutInput): 
         `<tr><th>${escapeHtml(row.label)}</th><td>${escapeHtml(row.value)}</td></tr>`
     )
     .join("");
+  const regRow =
+    input.includeRegistrationNo !== false
+      ? `<tr><th>インボイス番号</th><td>${escapeHtml(co.registrationNo)}</td></tr>`
+      : "";
   return `<div class="toms-official">
   <div class="toms-official-header">
     <div class="toms-official-header-main">
@@ -150,7 +156,7 @@ export function renderTomsOfficialDocLayout(input: TomsOfficialDocLayoutInput): 
       <table class="toms-official-meta">
         <tr><th>${escapeHtml(input.issueDateLabel)}</th><td>${escapeHtml(input.issueDate)}</td></tr>
         <tr><th>${escapeHtml(input.docNoLabel)}</th><td>${escapeHtml(input.docNo)}</td></tr>
-        <tr><th>インボイス番号</th><td>${escapeHtml(co.registrationNo)}</td></tr>
+        ${regRow}
         ${extraRows}
       </table>
     </div>

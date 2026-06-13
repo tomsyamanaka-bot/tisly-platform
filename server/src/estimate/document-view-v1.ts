@@ -2,9 +2,11 @@ import { calcTotals, normalizeLineItems } from "../business/estimate-math.js";
 import { buildCustomerFacingPdfNotes } from "../business/customer-price-rules.js";
 import { getBusinessProject, getEstimate, getInvoice, getCompletionReport } from "../business/business-store.js";
 import type { EstimateLineItem } from "../business/business-types.js";
+import { resolveTomsBankInfo } from "../business/toms-document-format.js";
 import { listCompletionChecklistV1 } from "../field-ops/work-session-v1-store.js";
 import { getSurveyProjectV1Detail } from "../survey/survey-v1-store.js";
 import { getProjectPdfMeta } from "../projects/project-pdf-qnap-store.js";
+import { buildProjectPdfFileName } from "../projects/project-pdf-store.js";
 import {
   buildCompletionReportContextV1,
   buildReportPhotosV1,
@@ -49,6 +51,7 @@ export interface DocumentViewPayloadV1 {
   projectTitle: string;
   projectNo: string;
   pdfUrl: string;
+  shareFileName: string;
   storedPdfPath: string | null;
   hasStoredPdf: boolean;
   regenerateUrl: string | null;
@@ -172,6 +175,27 @@ function customerFacingNotes(raw: string | null | undefined): string {
   return buildCustomerFacingPdfNotes(raw);
 }
 
+function shareFileNameForKind(projectId: string, kind: DocumentViewKindV1): string {
+  const project = getBusinessProject(projectId);
+  if (!project) return "document.pdf";
+  switch (kind) {
+    case "estimate": {
+      const est = project.estimateId ? getEstimate(project.estimateId) : null;
+      return buildProjectPdfFileName("estimate", est?.estimateNo ?? projectId.slice(-4));
+    }
+    case "invoice": {
+      const inv = project.invoiceId ? getInvoice(project.invoiceId) : null;
+      return buildProjectPdfFileName("invoice", inv?.invoiceNo ?? projectId.slice(-4));
+    }
+    case "specification":
+      return buildProjectPdfFileName("specification", project.projectNo ?? projectId.slice(-4));
+    case "completion-report":
+      return buildProjectPdfFileName("report", project.projectNo ?? projectId.slice(-4));
+    default:
+      return `${kind}.pdf`;
+  }
+}
+
 export function buildDocumentViewPayloadV1(
   businessProjectId: string,
   kind: DocumentViewKindV1
@@ -188,6 +212,7 @@ export function buildDocumentViewPayloadV1(
     projectTitle: project.title,
     projectNo: project.projectNo,
     pdfUrl: pdfPathForKind(businessProjectId, kind),
+    shareFileName: shareFileNameForKind(businessProjectId, kind),
     storedPdfPath: null,
     hasStoredPdf: false,
     regenerateUrl: regenerateUrlForKind(businessProjectId, kind),
@@ -237,7 +262,7 @@ export function buildDocumentViewPayloadV1(
         issueDate: detail.header.issueDate || invoice.createdAt.slice(0, 10),
         paymentDueDate: invoice.paymentDueDate ?? "",
         estimateRefNo: invoice.estimateRefNo ?? "",
-        bankInfo: invoice.bankInfo,
+        bankInfo: resolveTomsBankInfo(invoice.bankInfo),
         items: mapLineItems(items),
         subtotal: invoice.subtotal,
         tax: invoice.tax,
