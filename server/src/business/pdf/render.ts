@@ -34,7 +34,11 @@ export async function htmlToPdfBuffer(html: string): Promise<Buffer | null> {
             }) => Promise<void>;
             setContent: (h: string, o: { waitUntil: string }) => Promise<void>;
             evaluateHandle: (fn: string) => Promise<{ jsonValue: () => Promise<unknown> }>;
-            pdf: (o: { format: string; printBackground: boolean }) => Promise<Uint8Array>;
+            pdf: (o: {
+              format: string;
+              landscape?: boolean;
+              printBackground: boolean;
+            }) => Promise<Uint8Array>;
           }>;
           close: () => Promise<void>;
         }>;
@@ -42,10 +46,10 @@ export async function htmlToPdfBuffer(html: string): Promise<Buffer | null> {
     };
     const browser = await puppeteer.default.launch({ headless: true });
     const page = await browser.newPage();
-    await page.setViewport({ width: 794, height: 1123, deviceScaleFactor: 1 });
+    await page.setViewport({ width: 1123, height: 794, deviceScaleFactor: 1 });
     await page.setContent(html, { waitUntil: "networkidle0" });
     await page.evaluateHandle("document.fonts.ready");
-    const buf = await page.pdf({ format: "A4", printBackground: true });
+    const buf = await page.pdf({ format: "A4", landscape: true, printBackground: true });
     await browser.close();
     return Buffer.from(buf);
   } catch (e) {

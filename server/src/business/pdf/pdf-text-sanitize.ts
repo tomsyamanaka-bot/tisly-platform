@@ -8,29 +8,49 @@ export function isCorruptQuestionMarkText(value: string | null | undefined): boo
   return CORRUPT_QMARK_RE.test(trimmed);
 }
 
-/** 宛名・件名など — 破損時は「未設定」 */
+function isUnsafePdfText(value: string | null | undefined): boolean {
+  const trimmed = (value ?? "").trim();
+  return !trimmed || isCorruptQuestionMarkText(trimmed);
+}
+
+/** 宛名・件名・作業場所 — 空/破損時は fallback（既定: 未設定） */
+export function sanitizePdfRequiredField(
+  value: string | null | undefined,
+  fallback = "未設定"
+): string {
+  if (isUnsafePdfText(value)) return fallback;
+  return (value ?? "").trim();
+}
+
+/** @deprecated sanitizePdfRequiredField を使用 */
 export function sanitizePdfDisplayText(
   value: string | null | undefined,
   fallback = "未設定"
 ): string {
   const trimmed = (value ?? "").trim();
-  if (!trimmed) return "";
+  if (!trimmed) return fallback;
   if (isCorruptQuestionMarkText(trimmed)) return fallback;
   return trimmed;
 }
 
-/** 備考 — 破損時は空欄 */
+/** 備考 — 空/破損時は空欄（備考ブロック非表示） */
 export function sanitizePdfNotesText(value: string | null | undefined): string {
-  return sanitizePdfDisplayText(value, "");
-}
-
-/** 明細項目名 — 破損時は空（行除外） */
-export function sanitizePdfItemText(value: string | null | undefined): string {
   const trimmed = (value ?? "").trim();
   if (!trimmed || isCorruptQuestionMarkText(trimmed)) return "";
-  return trimmed.split(/\n/).map((line) => {
-    const t = line.trim();
-    if (!t || isCorruptQuestionMarkText(t)) return "";
-    return t;
-  }).filter(Boolean).join("\n");
+  return trimmed;
+}
+
+/** 明細項目名 — 空/破損時は「作業一式」 */
+export function sanitizePdfItemText(value: string | null | undefined): string {
+  const trimmed = (value ?? "").trim();
+  if (!trimmed || isCorruptQuestionMarkText(trimmed)) return "作業一式";
+  return trimmed
+    .split(/\n/)
+    .map((line) => {
+      const t = line.trim();
+      if (!t || isCorruptQuestionMarkText(t)) return "";
+      return t;
+    })
+    .filter(Boolean)
+    .join("\n") || "作業一式";
 }

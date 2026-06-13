@@ -141,6 +141,10 @@ describe("TOMS標準見積フォーマット", () => {
     assert.match(res.text, /小上がり既存換気扇3台設置/);
     assert.match(res.text, /清掃・修理配線/);
     assert.ok(!/参考写真/.test(res.text));
+    assert.ok(!/振込先/.test(res.text));
+    assert.match(res.text, /有効期限/);
+    assert.match(res.text, /担当者/);
+    assert.match(res.text, /size: A4 landscape/);
   });
 
   it("写真あり版では参考写真セクションが出る", async () => {
@@ -214,6 +218,9 @@ describe("TOMS標準見積フォーマット", () => {
     assert.equal(noPhoto.status, 200);
     assert.match(noPhoto.text, /御請求書/);
     assert.match(noPhoto.text, /振込先/);
+    assert.match(noPhoto.text, /常陽銀行/);
+    assert.match(noPhoto.text, /支払期限/);
+    assert.match(noPhoto.text, /担当者/);
     assert.ok(!/参考写真/.test(noPhoto.text));
 
     const withPhoto = await request(app)
@@ -243,6 +250,9 @@ describe("TOMS標準見積フォーマット", () => {
     assert.match(invoiceHtml, /toms-official/);
     assert.match(invoiceHtml, /ご請求金額/);
     assert.match(invoiceHtml, /振込先/);
+    assert.match(invoiceHtml, /常陽銀行 越谷支店/);
+    assert.match(invoiceHtml, /支払期限/);
+    assert.match(invoiceHtml, /担当者/);
     assert.match(invoiceHtml, /\d{6}-\d{3}/);
   });
 
@@ -385,14 +395,16 @@ describe("TOMS標準見積フォーマット", () => {
       { includePhotos: false }
     );
     assert.match(html, /pdf-a4-line-items/);
-    assert.match(html, /style="width:42%"/);
+    assert.match(html, /style="width:48%"/);
     assert.match(html, /writing-mode:horizontal-tb/);
     assert.match(html, /word-break:keep-all/);
     assert.match(html, /charset=.UTF-8/);
     assert.match(html, /Noto Sans JP/);
     assert.ok(!html.includes("@media screen and (max-width:520px)"));
-    assert.match(html, /width=794/);
+    assert.match(html, /width=1123/);
+    assert.match(html, /size: A4 landscape/);
     assert.match(html, /防犯カメラ設置工事一式/);
+    assert.ok(!/振込先/.test(html));
   });
 
   it("????? 破損テキストはPDFに出さない", () => {
@@ -467,6 +479,7 @@ describe("TOMS標準見積フォーマット", () => {
     );
     assert.ok(!html.includes("?????"));
     assert.match(html, /未設定/);
+    assert.match(html, /作業一式/);
     assert.match(html, /正常な項目/);
     assert.ok(!html.includes("〈備考〉"));
   });
@@ -545,6 +558,7 @@ describe("TOMS標準見積フォーマット", () => {
     const html = renderInvoiceHtml(project, invoice, estimate);
     assert.ok(!html.includes("?????"));
     assert.match(html, /正常な請求項目/);
+    assert.match(html, /常陽銀行 越谷支店/);
     assert.match(html, /doc-invoice-footer/);
   });
 });

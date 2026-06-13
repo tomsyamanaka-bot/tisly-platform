@@ -1,6 +1,7 @@
 import type { BusinessProject, Estimate } from "../business-types.js";
 import { buildCustomerFacingPdfNotes, filterCustomerFacingLineDescription } from "../customer-price-rules.js";
 import {
+  computeTomsEstimateValidUntil,
   itemsToTomsLines,
   mergeEstimateHeader,
   type TomsEstimateHeader,
@@ -12,14 +13,15 @@ import {
   TOMS_PDF_VIEWPORT_META,
 } from "./styles.js";
 import {
-  sanitizePdfDisplayText,
   sanitizePdfItemText,
   sanitizePdfNotesText,
+  sanitizePdfRequiredField,
 } from "./pdf-text-sanitize.js";
 import {
   escapeHtml,
   renderNotes,
   renderPhotoGrid,
+  renderTomsDocFooter,
   renderTomsOfficialDocLayout,
   renderTomsLineItemsTable,
   renderTotals,
@@ -28,13 +30,13 @@ import {
 function sanitizeEstimateHeader(header: ReturnType<typeof mergeEstimateHeader>) {
   return {
     ...header,
-    addressee: sanitizePdfDisplayText(header.addressee),
-    subject: sanitizePdfDisplayText(header.subject),
-    workLocation: sanitizePdfDisplayText(header.workLocation, ""),
-    staffName: sanitizePdfDisplayText(header.staffName, ""),
-    address: sanitizePdfDisplayText(header.address ?? "", ""),
-    phone: sanitizePdfDisplayText(header.phone ?? "", ""),
-    email: sanitizePdfDisplayText(header.email ?? "", ""),
+    addressee: sanitizePdfRequiredField(header.addressee),
+    subject: sanitizePdfRequiredField(header.subject),
+    workLocation: sanitizePdfRequiredField(header.workLocation),
+    staffName: sanitizePdfRequiredField(header.staffName, "山中 智紀"),
+    address: sanitizePdfRequiredField(header.address ?? "", ""),
+    phone: sanitizePdfRequiredField(header.phone ?? "", ""),
+    email: sanitizePdfRequiredField(header.email ?? "", ""),
   };
 }
 
@@ -56,19 +58,18 @@ export function renderEstimateHtml(
   const header = sanitizeEstimateHeader(
     mergeEstimateHeader(estimate, opts?.header ?? estimate.header ?? null, {
       siteName: opts?.siteName,
-      workLocation: sanitizePdfDisplayText(opts?.workLocation ?? project.address, ""),
+      workLocation: sanitizePdfRequiredField(opts?.workLocation ?? project.address),
       staffName: opts?.staffName,
     })
   );
-  const lines = itemsToTomsLines(estimate.items)
-    .map((line) => ({
-      ...line,
-      description: sanitizePdfItemText(filterCustomerFacingLineDescription(line.description)),
-    }))
-    .filter((line) => line.description.trim());
+  const lines = itemsToTomsLines(estimate.items).map((line) => ({
+    ...line,
+    description: sanitizePdfItemText(filterCustomerFacingLineDescription(line.description)),
+  }));
   const notes = sanitizePdfNotesText(
     buildCustomerFacingPdfNotes(opts?.notes ?? project.surveyMemo ?? "")
   );
+  const validUntil = computeTomsEstimateValidUntil(header.issueDate, header.validUntil);
   const includePhotos = opts?.includePhotos === true;
   const photoBlock =
     includePhotos && project.surveyPhotos?.length
@@ -83,7 +84,7 @@ ${renderTomsOfficialDocLayout({
   amountLabel: "御見積金額",
   addressee: header.addressee,
   subject: header.subject,
-  workLocation: header.workLocation || opts?.workLocation || project.address,
+  workLocation: header.workLocation,
   issueDateLabel: "発行日",
   issueDate: header.issueDate,
   docNoLabel: "見積番号",
@@ -100,6 +101,7 @@ ${renderTotals({
   total: estimate.total,
 })}
 ${renderNotes(notes)}
+${renderTomsDocFooter({ staffName: header.staffName, validUntil })}
 ${photoBlock}
 </div></body></html>`;
 }

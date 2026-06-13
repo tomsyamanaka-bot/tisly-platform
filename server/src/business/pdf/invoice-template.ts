@@ -2,7 +2,9 @@ import type { BusinessProject, Estimate, Invoice } from "../business-types.js";
 import { buildCustomerFacingPdfNotes, filterCustomerFacingLineDescription } from "../customer-price-rules.js";
 import {
   formatTomsIssueDate,
+  formatTomsPaymentDueDate,
   itemsToTomsLines,
+  resolveTomsBankInfo,
   TOMS_DEFAULT_STAFF,
   type TomsInvoiceHeader,
 } from "../toms-document-format.js";
@@ -13,9 +15,9 @@ import {
   TOMS_PDF_VIEWPORT_META,
 } from "./styles.js";
 import {
-  sanitizePdfDisplayText,
   sanitizePdfItemText,
   sanitizePdfNotesText,
+  sanitizePdfRequiredField,
 } from "./pdf-text-sanitize.js";
 import {
   escapeHtml,
@@ -23,6 +25,7 @@ import {
   renderNotes,
   renderPhotoGrid,
   renderSealPlaceholder,
+  renderTomsDocFooter,
   renderTomsOfficialDocLayout,
   renderTomsLineItemsTable,
   renderTotals,
@@ -31,15 +34,15 @@ import {
 function sanitizeInvoiceHeader(header: TomsInvoiceHeader): TomsInvoiceHeader {
   return {
     ...header,
-    addressee: sanitizePdfDisplayText(header.addressee),
-    subject: sanitizePdfDisplayText(header.subject),
-    workLocation: sanitizePdfDisplayText(header.workLocation, ""),
-    staffName: sanitizePdfDisplayText(header.staffName, ""),
-    address: sanitizePdfDisplayText(header.address ?? "", ""),
-    phone: sanitizePdfDisplayText(header.phone ?? "", ""),
-    email: sanitizePdfDisplayText(header.email ?? "", ""),
-    estimateRefNo: sanitizePdfDisplayText(header.estimateRefNo, ""),
-    bankInfo: sanitizePdfDisplayText(header.bankInfo, ""),
+    addressee: sanitizePdfRequiredField(header.addressee),
+    subject: sanitizePdfRequiredField(header.subject),
+    workLocation: sanitizePdfRequiredField(header.workLocation),
+    staffName: sanitizePdfRequiredField(header.staffName, TOMS_DEFAULT_STAFF),
+    address: sanitizePdfRequiredField(header.address ?? "", ""),
+    phone: sanitizePdfRequiredField(header.phone ?? "", ""),
+    email: sanitizePdfRequiredField(header.email ?? "", ""),
+    estimateRefNo: sanitizePdfRequiredField(header.estimateRefNo, ""),
+    bankInfo: resolveTomsBankInfo(header.bankInfo),
   };
 }
 
@@ -52,6 +55,7 @@ export interface InvoiceHtmlOptions {
   shuseiDiscount?: number;
   shuseiDiscountMemo?: string;
   lineSubtotal?: number;
+  paymentDueDate?: string | null;
 }
 
 export function buildInvoiceHeader(
@@ -83,14 +87,15 @@ export function renderInvoiceHtml(
   opts?: InvoiceHtmlOptions
 ): string {
   const header = sanitizeInvoiceHeader(buildInvoiceHeader(project, invoice, estimate, opts));
-  const lines = itemsToTomsLines(invoice.items)
-    .map((line) => ({
-      ...line,
-      description: sanitizePdfItemText(filterCustomerFacingLineDescription(line.description)),
-    }))
-    .filter((line) => line.description.trim());
+  const lines = itemsToTomsLines(invoice.items).map((line) => ({
+    ...line,
+    description: sanitizePdfItemText(filterCustomerFacingLineDescription(line.description)),
+  }));
   const notes = sanitizePdfNotesText(
     buildCustomerFacingPdfNotes(opts?.notes ?? project.surveyMemo ?? "")
+  );
+  const paymentDueDate = formatTomsPaymentDueDate(
+    opts?.paymentDueDate ?? invoice.paymentDueDate ?? project.paymentDueDate
   );
   const includePhotos = opts?.includePhotos === true;
   const photoBlock =
@@ -126,6 +131,7 @@ ${renderTotals({
   total: invoice.total,
 })}
 ${renderNotes(notes)}
+${renderTomsDocFooter({ staffName: header.staffName, paymentDueDate })}
 <div class="doc-invoice-footer">
 ${renderBankBlock(header.bankInfo)}
 <div class="doc-footer">${renderSealPlaceholder()}</div>

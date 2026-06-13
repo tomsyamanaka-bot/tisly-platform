@@ -10,6 +10,8 @@ export interface TomsEstimateHeader {
   issueDate: string;
   estimateNo: string;
   staffName: string;
+  /** 見積有効期限（YYYY/MM/DD）。未設定時は発行日+30日 */
+  validUntil?: string;
   /** @deprecated 後方互換のみ。UI・PDFでは工事場所を使用 */
   siteName?: string;
   workLocation: string;
@@ -81,7 +83,61 @@ export const TOMS_DEFAULT_STAFF = "山中 智紀";
 
 export const TOMS_DEFAULT_BANK_INFO =
   process.env.TOMS_BANK_INFO ??
-  "みずほ銀行 守谷支店 普通 1234567 カ）トムス";
+  "常陽銀行 越谷支店\n普通 1370414\nトムス";
+
+export const TOMS_ESTIMATE_VALID_DAYS = 30;
+
+/** YYYY/MM/DD または ISO 日付を TOMS 表示形式へ */
+export function formatTomsDateDisplay(raw: string | null | undefined): string {
+  const trimmed = (raw ?? "").trim();
+  if (!trimmed) return "";
+  if (/^\d{4}\/\d{2}\/\d{2}$/.test(trimmed)) return trimmed;
+  const iso = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[1]}/${iso[2]}/${iso[3]}`;
+  return trimmed;
+}
+
+function parseTomsDateInput(raw: string): Date | null {
+  const trimmed = raw.trim();
+  const slash = trimmed.match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
+  if (slash) {
+    const d = new Date(Number(slash[1]), Number(slash[2]) - 1, Number(slash[3]));
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  const iso = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) {
+    const d = new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  const parsed = new Date(trimmed);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+/** 見積有効期限 — header.validUntil 優先、なければ発行日+30日 */
+export function computeTomsEstimateValidUntil(
+  issueDate: string,
+  validUntil?: string | null
+): string {
+  const stored = formatTomsDateDisplay(validUntil);
+  if (stored) return stored;
+  const base = parseTomsDateInput(issueDate);
+  if (!base) return "—";
+  base.setDate(base.getDate() + TOMS_ESTIMATE_VALID_DAYS);
+  return formatTomsIssueDate(base);
+}
+
+/** 請求書の支払期限表示 */
+export function formatTomsPaymentDueDate(raw: string | null | undefined): string {
+  const formatted = formatTomsDateDisplay(raw);
+  return formatted || "—";
+}
+
+/** 振込先 — 空/破損時は TOMS 既定口座 */
+export function resolveTomsBankInfo(bankInfo: string | null | undefined): string {
+  const trimmed = (bankInfo ?? "").trim();
+  if (!trimmed || /^\?{3,}$/.test(trimmed)) return TOMS_DEFAULT_BANK_INFO;
+  return trimmed;
+}
 
 /** 発行日 YYYY/MM/DD */
 export function formatTomsIssueDate(d = new Date()): string {
@@ -144,7 +200,7 @@ export function itemsToTomsLines(items: EstimateLineItem[]): TomsEstimateLine[] 
 /** 宛名に御中を付与（様・御中が無い場合） */
 export function formatTomsAddressee(name: string): string {
   const trimmed = (name || "").trim();
-  if (!trimmed) return "御中";
+  if (!trimmed || trimmed === "未設定") return "未設定";
   if (/御中\s*$|様\s*$/.test(trimmed)) return trimmed;
   return `${trimmed} 御中`;
 }
@@ -203,6 +259,7 @@ export function mergeEstimateHeader(
     issueDate: stored.issueDate || defaults.issueDate,
     estimateNo: stored.estimateNo || defaults.estimateNo,
     staffName: stored.staffName || defaults.staffName,
+    validUntil: stored.validUntil || defaults.validUntil,
     siteName: stored.siteName || defaults.siteName,
     workLocation: stored.workLocation || defaults.workLocation,
     address: stored.address || defaults.address,

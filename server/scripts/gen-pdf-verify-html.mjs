@@ -101,7 +101,7 @@ const invoice = {
   subtotal: 55000,
   tax: 5500,
   total: 60500,
-  bankInfo: "みずほ銀行 守谷支店 普通 1234567 カ）トムス",
+  bankInfo: "常陽銀行 越谷支店\n普通 1370414\nトムス",
   pdfPath: null,
   createdAt: "2026-06-13T00:00:00.000Z",
   updatedAt: "2026-06-13T00:00:00.000Z",

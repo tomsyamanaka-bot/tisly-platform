@@ -51,6 +51,12 @@ export interface TomsOfficialDocLayoutInput {
   extraMetaRows?: Array<{ label: string; value: string }>;
 }
 
+export interface TomsDocFooterInput {
+  staffName: string;
+  validUntil?: string;
+  paymentDueDate?: string;
+}
+
 export interface TomsOfficialReportHeaderInput {
   docTitle: string;
   addressee: string;
@@ -116,9 +122,8 @@ export function renderTomsOfficialReportHeader(input: TomsOfficialReportHeaderIn
 export function renderTomsOfficialDocLayout(input: TomsOfficialDocLayoutInput): string {
   const co = getTomsCompanyInfo();
   const addressee = formatTomsAddressee(input.addressee);
-  const workLocation = input.workLocation?.trim()
-    ? `<p class="toms-official-field"><span class="toms-official-field-label">作業場所</span>${escapeHtml(input.workLocation.trim())}</p>`
-    : "";
+  const subject = input.subject?.trim() || "未設定";
+  const workLocation = input.workLocation?.trim() || "未設定";
   const extraRows = (input.extraMetaRows ?? [])
     .filter((row) => row.value.trim())
     .map(
@@ -131,8 +136,8 @@ export function renderTomsOfficialDocLayout(input: TomsOfficialDocLayoutInput): 
     <div class="toms-official-header-main">
       <div class="toms-official-title-band"><h1>${escapeHtml(input.docTitle)}</h1></div>
       <p class="toms-official-addressee">${escapeHtml(addressee)}</p>
-      <p class="toms-official-field"><span class="toms-official-field-label">件名</span>${escapeHtml(input.subject)}</p>
-      ${workLocation}
+      <p class="toms-official-field"><span class="toms-official-field-label">件名</span>${escapeHtml(subject)}</p>
+      <p class="toms-official-field"><span class="toms-official-field-label">作業場所</span>${escapeHtml(workLocation)}</p>
     </div>
     <div class="toms-official-header-side">
       <div class="toms-official-company">
@@ -155,6 +160,25 @@ export function renderTomsOfficialDocLayout(input: TomsOfficialDocLayoutInput): 
     <span class="toms-official-amount-value">¥${input.total.toLocaleString("ja-JP")}<span class="toms-official-amount-tax">（税込）</span></span>
   </div>
 </div>`;
+}
+
+export function renderTomsDocFooter(input: TomsDocFooterInput): string {
+  const staff = input.staffName?.trim() || "未設定";
+  const rows: string[] = [];
+  if (input.validUntil?.trim()) {
+    rows.push(
+      `<p class="toms-official-field"><span class="toms-official-field-label">有効期限</span>${escapeHtml(input.validUntil.trim())}</p>`
+    );
+  }
+  if (input.paymentDueDate?.trim()) {
+    rows.push(
+      `<p class="toms-official-field"><span class="toms-official-field-label">支払期限</span>${escapeHtml(input.paymentDueDate.trim())}</p>`
+    );
+  }
+  rows.push(
+    `<p class="toms-official-field"><span class="toms-official-field-label">担当者</span>${escapeHtml(staff)}</p>`
+  );
+  return `<div class="toms-official-footer">${rows.join("")}</div>`;
 }
 
 export function renderTomsDocLayoutHeader(input: TomsDocHeaderInput): string {
@@ -324,7 +348,7 @@ export function renderPdfA4LineItemsTable(
         `<tr><td class="num col-no">${i.lineNo ?? idx + 1}</td><td class="col-desc">${escapeHtmlMultiline(i.description)}</td><td class="num col-qty">${i.quantity}</td><td class="col-unit">${escapeHtml(i.unit ?? "")}</td><td class="num col-price">¥${i.unitPrice.toLocaleString("ja-JP")}</td><td class="num col-amount">¥${i.amount.toLocaleString("ja-JP")}</td></tr>`
     )
     .join("");
-  return `<table class="pdf-a4-line-items"><colgroup><col style="width:8%"/><col style="width:42%"/><col style="width:10%"/><col style="width:10%"/><col style="width:15%"/><col style="width:15%"/></colgroup><thead><tr><th class="col-no">No</th><th class="col-desc">項目</th><th class="col-qty">数量</th><th class="col-unit">単位</th><th class="col-price">単価</th><th class="col-amount">金額</th></tr></thead><tbody>${rows}</tbody></table>`;
+  return `<table class="pdf-a4-line-items"><colgroup><col style="width:5%"/><col style="width:48%"/><col style="width:8%"/><col style="width:8%"/><col style="width:15%"/><col style="width:16%"/></colgroup><thead><tr><th class="col-no">No</th><th class="col-desc">項目</th><th class="col-qty">数量</th><th class="col-unit">単位</th><th class="col-price">単価</th><th class="col-amount">金額</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 export function renderTomsLineItemsTable(
@@ -426,8 +450,9 @@ export function renderPhotoGrid(photos: BusinessPhoto[], includeImages = false):
 }
 
 export function renderBankBlock(bankInfo: string): string {
+  const info = bankInfo?.trim() || "—";
   return `<div class="bank-block">
-  <strong>振込先</strong><br/>${escapeHtmlMultiline(bankInfo || "—")}
+  <strong>振込先</strong><br/>${escapeHtmlMultiline(info)}
 </div>`;
 }
 
