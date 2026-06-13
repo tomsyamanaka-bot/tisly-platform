@@ -243,30 +243,41 @@ export function buildPracticalPdfStyles(prefix: string): string {
     position: relative;
   }
   .${prefix}-page:last-child { page-break-after: auto; }
-  .${prefix}-cover-page { padding: 0.5mm 0 0; }
-  .${prefix}-cover-header { text-align: center; margin-bottom: 1mm; flex: 0 0 auto; }
-  .${prefix}-cover-rule { height: 0; border-top: 1px solid #94a3b8; margin: 0.8mm 0; }
-  .${prefix}-cover-company { font-size: 9.5pt; font-weight: 700; letter-spacing: 0.08em; margin: 0.5mm 0; }
-  .${prefix}-cover-title { font-size: 13pt; font-weight: 700; margin: 0.8mm 0; letter-spacing: 0.12em; }
-  .${prefix}-cover-fields { width: 100%; border-collapse: collapse; margin: 0.5mm 0 1mm; font-size: 8pt; flex: 0 0 auto; }
-  .${prefix}-cover-fields th { text-align: left; width: 20%; padding: 0.35mm 1mm; color: #475569; font-weight: 600; vertical-align: top; border-bottom: 1px solid #e2e8f0; line-height: 1.2; }
-  .${prefix}-cover-fields td { padding: 0.35mm 1mm; color: #0f172a; vertical-align: top; border-bottom: 1px solid #f1f5f9; line-height: 1.2; }
-  .${prefix}-cover-section { margin: 0.8mm 0; flex: 0 0 auto; }
-  .${prefix}-cover-section h3 { margin: 0 0 0.4mm; font-size: 8pt; font-weight: 700; color: #334155; }
-  .${prefix}-cover-section-body { font-size: 7.5pt; line-height: 1.35; color: #0f172a; white-space: pre-wrap; }
-  .${prefix}-no-photos-cover { margin-top: 2mm; text-align: center; font-size: 9pt; color: #64748b; flex: 0 0 auto; }
+  .${prefix}-cover-page { padding: 0.3mm 0 0; }
+  .${prefix}-cover-header { text-align: center; margin-bottom: 0.6mm; flex: 0 0 auto; }
+  .${prefix}-cover-rule { height: 0; border-top: 1px solid #94a3b8; margin: 0.5mm 0; }
+  .${prefix}-cover-company { font-size: 9pt; font-weight: 700; letter-spacing: 0.08em; margin: 0.3mm 0; line-height: 1.15; }
+  .${prefix}-cover-title { font-size: 12.5pt; font-weight: 700; margin: 0.5mm 0; letter-spacing: 0.12em; line-height: 1.15; }
+  .${prefix}-cover-fields { width: 100%; border-collapse: collapse; margin: 0.3mm 0 0.6mm; font-size: 7.5pt; flex: 0 0 auto; }
+  .${prefix}-cover-fields th { text-align: left; width: 20%; padding: 0.25mm 0.8mm; color: #475569; font-weight: 600; vertical-align: top; border-bottom: 1px solid #e2e8f0; line-height: 1.15; }
+  .${prefix}-cover-fields td { padding: 0.25mm 0.8mm; color: #0f172a; vertical-align: top; border-bottom: 1px solid #f1f5f9; line-height: 1.15; }
+  .${prefix}-cover-section { margin: 0.4mm 0; flex: 0 0 auto; }
+  .${prefix}-cover-section h3 { margin: 0 0 0.25mm; font-size: 7.5pt; font-weight: 700; color: #334155; line-height: 1.15; }
+  .${prefix}-cover-section-body { font-size: 7pt; line-height: 1.25; color: #0f172a; white-space: pre-wrap; max-height: 14mm; overflow: hidden; }
+  .${prefix}-no-photos-cover { margin-top: 1.5mm; text-align: center; font-size: 8.5pt; color: #64748b; flex: 0 0 auto; }
   .${prefix}-photo-page { padding: 0; }
   .${prefix}-photo-grid {
     display: grid;
     grid-template-columns: repeat(${COLS}, 1fr);
     grid-auto-flow: row;
-    gap: 1.8mm;
+    gap: 1.5mm;
     align-content: start;
   }
   .${prefix}-cover-photo-grid {
-    flex: 0 0 auto;
-    margin: 0.8mm 0 0.5mm;
-    grid-template-rows: repeat(${ROWS}, auto);
+    flex: 1 1 0;
+    min-height: 0;
+    margin: 0.4mm 0 0;
+    grid-auto-rows: minmax(0, 1fr);
+    align-content: start;
+  }
+  .${prefix}-cover-photo-grid .${prefix}-photo-cell {
+    min-height: 0;
+    overflow: hidden;
+  }
+  .${prefix}-cover-photo-grid .${prefix}-photo-img-wrap {
+    flex: 1 1 0;
+    min-height: 0;
+    aspect-ratio: unset;
   }
   .${prefix}-photo-page .${prefix}-photo-grid {
     flex: 1;
@@ -274,11 +285,11 @@ export function buildPracticalPdfStyles(prefix: string): string {
     grid-template-rows: repeat(${ROWS}, 1fr);
     margin-bottom: 1mm;
   }
-  .${prefix}-photo-page .${prefix}-photo-img-wrap { aspect-ratio: auto; flex: 1; min-height: 0; }
+  .${prefix}-photo-page .${prefix}-photo-img-wrap { aspect-ratio: unset; flex: 1; min-height: 0; }
   .${prefix}-photo-cell { display: flex; flex-direction: column; width: 100%; min-height: 0; }
-  .${prefix}-photo-title { margin: 0.4mm 0 0; text-align: center; font-size: 6.5pt; color: #334155; line-height: 1.15; flex: 0 0 auto; }
-  .${prefix}-photo-num { font-weight: 700; margin-right: 0.5mm; }
-  .${prefix}-photo-img-wrap { width: 100%; aspect-ratio: 4 / 3; overflow: hidden; border: 1px solid #cbd5e1; border-radius: 1px; background: #f8fafc; }
+  .${prefix}-photo-title { margin: 0.3mm 0 0; text-align: center; font-size: 6pt; color: #334155; line-height: 1.1; flex: 0 0 auto; }
+  .${prefix}-photo-num { font-weight: 700; margin-right: 0.4mm; }
+  .${prefix}-photo-img-wrap { width: 100%; aspect-ratio: 4 / 3; overflow: hidden; border: 1px solid #cbd5e1; border-radius: 1px; background: #f8fafc; flex: 0 0 auto; }
   .${prefix}-photo-img-wrap img { width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
   .${prefix}-no-photos { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 10pt; color: #64748b; letter-spacing: 0.05em; }
   .${prefix}-page-footer {

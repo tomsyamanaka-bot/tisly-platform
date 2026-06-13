@@ -56,11 +56,11 @@ function coverPageHtml(html: string, prefix: "sp" | "cr") {
 }
 
 describe("practical-pdf-layout 写真グリッド", () => {
-  it("grid-auto-flow: row と aspect-ratio 4/3 を CSS に含む", () => {
+  it("grid-auto-flow: row と object-fit: cover を CSS に含む", () => {
     const html = renderSpec(1);
     assert.match(html, /grid-auto-flow:\s*row/);
-    assert.match(html, /aspect-ratio:\s*4\s*\/\s*3/);
     assert.match(html, /object-fit:\s*cover/);
+    assert.match(html, /sp-cover-photo-grid[\s\S]*grid-auto-rows:\s*minmax/);
     assert.doesNotMatch(html, /photo-empty/);
   });
 
@@ -75,6 +75,14 @@ describe("practical-pdf-layout 写真グリッド", () => {
   it("写真4枚は1ページ目（表紙）に4枚のみ", () => {
     const html = renderSpec(4);
     assert.equal(countCoverPhotoCells(html, "sp"), 4);
+    assert.equal(countContinuationPhotoPages(html, "sp"), 0);
+    assert.match(html, /Page 1 \/ 1/);
+    assert.match(html, /sp-cover-photo-grid/);
+  });
+
+  it("写真5枚は1ページ目（表紙）に5枚のみ", () => {
+    const html = renderSpec(5);
+    assert.equal(countCoverPhotoCells(html, "sp"), 5);
     assert.equal(countContinuationPhotoPages(html, "sp"), 0);
     assert.match(html, /Page 1 \/ 1/);
   });
