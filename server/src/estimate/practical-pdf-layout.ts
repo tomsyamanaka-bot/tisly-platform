@@ -118,24 +118,15 @@ function renderCoverPage(
 </div>`;
 }
 
-function renderPhotoCell(prefix: string, photo: PracticalPdfPhoto | null): string {
-  if (!photo) {
-    return `<div class="${prefix}-photo-cell ${prefix}-photo-empty"></div>`;
-  }
+function renderPhotoCell(prefix: string, photo: PracticalPdfPhoto): string {
   return `<div class="${prefix}-photo-cell">
     <div class="${prefix}-photo-img-wrap"><img src="${escapeHtml(photo.url)}" alt="${escapeHtml(photo.title)}" /></div>
     <p class="${prefix}-photo-title">${escapeHtml(photo.title)}</p>
   </div>`;
 }
 
-function renderPhotoGrid(prefix: string, cells: (PracticalPdfPhoto | null)[]): string {
-  return `<div class="${prefix}-photo-grid">${cells.map((c) => renderPhotoCell(prefix, c)).join("")}</div>`;
-}
-
-function padCells(photos: PracticalPdfPhoto[], size: number): (PracticalPdfPhoto | null)[] {
-  const cells: (PracticalPdfPhoto | null)[] = [...photos];
-  while (cells.length < size) cells.push(null);
-  return cells;
+function renderPhotoGrid(prefix: string, photos: PracticalPdfPhoto[]): string {
+  return `<div class="${prefix}-photo-grid">${photos.map((p) => renderPhotoCell(prefix, p)).join("")}</div>`;
 }
 
 function renderPhotoPage(
@@ -143,9 +134,8 @@ function renderPhotoPage(
   photos: PracticalPdfPhoto[],
   footerHtml: string
 ): string {
-  const cells = padCells(photos, PHOTOS_PER_PAGE);
   return `<div class="${prefix}-page ${prefix}-photo-page">
-  ${renderPhotoGrid(prefix, cells)}
+  ${renderPhotoGrid(prefix, photos)}
   ${footerHtml}
 </div>`;
 }
@@ -244,15 +234,15 @@ export function buildPracticalPdfStyles(prefix: string): string {
     min-height: 0;
     display: grid;
     grid-template-columns: repeat(${COLS}, 1fr);
-    grid-template-rows: repeat(${ROWS}, 1fr);
+    grid-auto-flow: row;
     gap: 2mm;
     margin-bottom: 1mm;
+    align-content: start;
   }
-  .${prefix}-photo-cell { display: flex; flex-direction: column; min-height: 0; }
+  .${prefix}-photo-cell { display: flex; flex-direction: column; width: 100%; }
   .${prefix}-photo-title { margin: 0.5mm 0 0; text-align: center; font-size: 7pt; color: #334155; line-height: 1.2; flex: 0 0 auto; }
-  .${prefix}-photo-img-wrap { flex: 1; min-height: 0; overflow: hidden; border: 1px solid #cbd5e1; border-radius: 1px; background: #f8fafc; }
+  .${prefix}-photo-img-wrap { width: 100%; aspect-ratio: 4 / 3; overflow: hidden; border: 1px solid #cbd5e1; border-radius: 1px; background: #f8fafc; }
   .${prefix}-photo-img-wrap img { width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
-  .${prefix}-photo-empty { visibility: hidden; }
   .${prefix}-no-photos { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 10pt; color: #64748b; letter-spacing: 0.05em; }
   .${prefix}-page-footer {
     flex: 0 0 auto;

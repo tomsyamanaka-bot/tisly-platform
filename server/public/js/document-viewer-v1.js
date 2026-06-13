@@ -157,39 +157,23 @@ function renderInvoiceMobile(inv) {
     </div>`;
 }
 
-function renderPhotoList(photos, { swipe = false } = {}) {
+function renderPhotoItem(p, i) {
+  return `<figure class="doc-photo-item" data-photo-index="${i}" role="button" tabindex="0">
+    <div class="doc-photo-img-wrap">
+      <img src="${escapeHtml(p.url)}" alt="${escapeHtml(p.title)}" loading="lazy" />
+    </div>
+    <figcaption class="doc-photo-caption">${escapeHtml(p.title)}</figcaption>
+  </figure>`;
+}
+
+function renderPhotoList(photos, { grid = false } = {}) {
   if (!photos.length) {
     return `<div class="doc-meta-card"><p class="muted">写真はありません</p></div>`;
   }
   lightboxPhotos = photos;
-
-  if (swipe) {
-    const slides = photos
-      .map(
-        (p, i) => `<div class="doc-swipe-slide" data-index="${i}">
-          <img src="${escapeHtml(p.url)}" alt="${escapeHtml(p.title)}" loading="lazy" />
-        </div>`
-      )
-      .join("");
-    const dots = photos
-      .map((_, i) => `<span class="doc-swipe-dot${i === 0 ? " active" : ""}" data-index="${i}"></span>`)
-      .join("");
-    return `<div class="doc-swipe-gallery" id="swipe-gallery">
-      <div class="doc-swipe-track" id="swipe-track">${slides}</div>
-      <p class="doc-photo-caption" id="swipe-caption">${escapeHtml(photos[0].title)}</p>
-      <div class="doc-swipe-dots" id="swipe-dots">${dots}</div>
-    </div>`;
-  }
-
-  return `<div class="doc-photo-list">
-    ${photos
-      .map(
-        (p, i) => `<figure class="doc-photo-item" data-photo-index="${i}" role="button" tabindex="0">
-          <img src="${escapeHtml(p.url)}" alt="${escapeHtml(p.title)}" loading="lazy" />
-          <figcaption class="doc-photo-caption">${escapeHtml(p.title)}</figcaption>
-        </figure>`
-      )
-      .join("")}
+  const listClass = grid ? "doc-photo-grid" : "doc-photo-list";
+  return `<div class="${listClass}">
+    ${photos.map((p, i) => renderPhotoItem(p, i)).join("")}
   </div>`;
 }
 
@@ -202,7 +186,7 @@ function renderSpecificationMobile(spec) {
       <p class="muted">作成日 ${escapeHtml(spec.issueDate)}${spec.estimateNo ? ` · 見積 ${escapeHtml(spec.estimateNo)}` : ""}</p>
     </div>
     ${spec.notes ? `<div class="doc-meta-card"><p class="muted">備考</p><p>${escapeHtml(spec.notes)}</p></div>` : ""}
-    ${renderPhotoList(spec.photos)}`;
+    ${renderPhotoList(spec.photos, { grid: true })}`;
 }
 
 function renderCompletionMobile(cr) {
@@ -241,7 +225,7 @@ function renderCompletionMobile(cr) {
     <p class="section-label" style="margin:0.5rem 0 0;">チェック項目</p>
     ${checklistHtml}
     <p class="section-label" style="margin:0.75rem 0 0;">写真</p>
-    ${renderPhotoList(cr.photos, { swipe: true })}`;
+    ${renderPhotoList(cr.photos, { grid: true })}`;
 }
 
 function renderFieldReportMobile(fr) {
@@ -317,60 +301,6 @@ function bindMobileInteractions(data) {
     });
   });
 
-  const gallery = $("swipe-gallery");
-  if (gallery) {
-    bindSwipeGallery(gallery);
-  }
-}
-
-function bindSwipeGallery(gallery) {
-  const track = $("swipe-track");
-  const dots = $("swipe-dots");
-  const caption = $("swipe-caption");
-  let index = 0;
-  let startX = 0;
-  let dragging = false;
-
-  function goTo(i) {
-    index = Math.max(0, Math.min(lightboxPhotos.length - 1, i));
-    track.style.transform = `translateX(-${index * 100}%)`;
-    dots?.querySelectorAll(".doc-swipe-dot").forEach((d, di) => {
-      d.classList.toggle("active", di === index);
-    });
-    if (caption && lightboxPhotos[index]) {
-      caption.textContent = lightboxPhotos[index].title;
-    }
-  }
-
-  gallery.addEventListener("click", () => openLightbox(index));
-
-  gallery.addEventListener(
-    "touchstart",
-    (ev) => {
-      startX = ev.touches[0].clientX;
-      dragging = true;
-    },
-    { passive: true }
-  );
-
-  gallery.addEventListener(
-    "touchend",
-    (ev) => {
-      if (!dragging) return;
-      dragging = false;
-      const dx = ev.changedTouches[0].clientX - startX;
-      if (Math.abs(dx) < 40) return;
-      goTo(dx < 0 ? index + 1 : index - 1);
-    },
-    { passive: true }
-  );
-
-  dots?.querySelectorAll(".doc-swipe-dot").forEach((dot) => {
-    dot.addEventListener("click", (ev) => {
-      ev.stopPropagation();
-      goTo(Number(dot.dataset.index || 0));
-    });
-  });
 }
 
 function openLightbox(index) {

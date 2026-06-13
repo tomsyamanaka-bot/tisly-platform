@@ -240,7 +240,14 @@
   cursor: pointer;
 }
 
-/* 写真 */
+/* 写真 — 仕様書・完了報告書は PDF と同じ 2 列 row flow グリッド */
+.doc-photo-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-auto-flow: row;
+  gap: 0.75rem;
+}
+
 .doc-photo-list {
   display: flex;
   flex-direction: column;
@@ -253,13 +260,21 @@
   overflow: hidden;
   box-shadow: var(--tisly-shadow);
   cursor: pointer;
+  width: 100%;
+}
+
+.doc-photo-img-wrap {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
 }
 
 .doc-photo-item img {
   display: block;
   width: 100%;
-  height: auto;
-  vertical-align: middle;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
 }
 
 .doc-photo-caption {
