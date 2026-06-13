@@ -288,27 +288,44 @@ jobs:
           cd "${SERVER_DIR}"
           echo "=== Chromium OS deps (Puppeteer PDF) ==="
           if command -v apt-get >/dev/null 2>&1; then
-            APT="apt-get"
-            if [ "$(id -u)" -ne 0 ]; then
-              APT="sudo -n apt-get"
-            fi
-            ${APT} update -qq
-            ${APT} install -y -qq \
+            export DEBIAN_FRONTEND=noninteractive
+            run_apt() {
+              if [ "$(id -u)" -eq 0 ]; then
+                apt-get "$@"
+              else
+                sudo -n apt-get "$@"
+              fi
+            }
+            run_apt update -qq
+            run_apt install -y -qq \
               ca-certificates fonts-liberation fonts-noto-cjk \
-              libasound2 libasound2t64 libatk-bridge2.0-0 libatk-bridge2.0-0t64 \
-              libatk1.0-0 libatk1.0-0t64 libc6 libcairo2 libcups2 libdbus-1-3 \
-              libexpat1 libfontconfig1 libgbm1 libgcc-s1 libglib2.0-0 libgtk-3-0 \
+              libasound2 libatk-bridge2.0-0 libatk1.0-0 \
+              libc6 libcairo2 libcups2 libdbus-1-3 libdrm2 libexpat1 \
+              libfontconfig1 libgbm1 libgcc-s1 libglib2.0-0 libgtk-3-0 \
               libnspr4 libnss3 libpango-1.0-0 libpangocairo-1.0-0 libstdc++6 \
               libx11-6 libx11-xcb1 libxcb1 libxcomposite1 libxcursor1 libxdamage1 \
-              libxext6 libxfixes3 libxi6 libxrandr2 libxrender1 libxss1 libxtst6 \
-              lsb-release wget xdg-utils \
-              || echo "WARN: some Chromium deps may be missing — continuing"
+              libxext6 libxfixes3 libxi6 libxkbcommon0 libxrandr2 libxrender1 \
+              libxshmfence1 libxss1 libxtst6 lsb-release wget xdg-utils
+            ldconfig || true
+            if ! ldconfig -p | grep -q 'libatk-1.0.so.0'; then
+              echo "ERROR: libatk-1.0.so.0 still missing after apt install"
+              ldconfig -p | grep atk || true
+              exit 1
+            fi
+          else
+            echo "WARN: apt-get not found — skipping OS deps"
           fi
           echo "=== npm install ==="
           npm install
           [ -d node_modules/puppeteer ] || { echo "ERROR: puppeteer missing — PDF generation requires puppeteer"; exit 1; }
           echo "=== Puppeteer Chrome binary ==="
-          npx puppeteer browsers install chrome || { echo "ERROR: puppeteer chrome install failed"; exit 1; }
+          npx puppeteer browsers install chrome --install-deps \
+            || npx puppeteer browsers install chrome
+          CHROME_BIN="$(find /root/.cache/puppeteer /home -path '*/chrome-linux64/chrome' 2>/dev/null | head -1 || true)"
+          if [ -n "${CHROME_BIN}" ]; then
+            echo "=== verify chrome shared libs ==="
+            ldd "${CHROME_BIN}" | grep 'not found' && { echo "ERROR: chrome missing shared libraries"; exit 1; }
+          fi
           echo "=== build ==="
           npm run build
           [ -f dist/index.js ] || { echo "ERROR: dist/index.js missing"; exit 1; }
