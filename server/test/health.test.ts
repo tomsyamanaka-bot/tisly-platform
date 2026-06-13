@@ -34,6 +34,9 @@ describe("Health API extended (Phase 221-240)", () => {
     assert.equal(res.body.commitShort, res.body.buildVersion.commitShort);
     assert.equal(typeof res.body.pdfEngine, "string");
     assert.ok(["puppeteer", "html_fallback"].includes(res.body.pdfEngine));
+    assert.equal(typeof res.body.pdfEngineReady, "boolean");
+    assert.ok("chromiumExecutablePath" in res.body);
+    assert.ok("pdfLastError" in res.body);
     assert.equal(res.body.integrations.googleMapsApiConfigured, res.body.googleMapsApiConfigured);
   });
 

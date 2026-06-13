@@ -36,6 +36,7 @@ import {
   type ProjectPdfQnapPublicV1,
 } from "./project-pdf-qnap-store.js";
 import { getStorageSettingsV1 } from "../storage/storage-settings-store.js";
+import { isValidPdfFile } from "../business/pdf/pdf-validation.js";
 
 /** 現在は local のみ。将来 qnap へ切替 */
 export type PdfStorageProvider = "local" | "qnap";
@@ -113,8 +114,9 @@ function entryFromPath(
   const meta = projectId ? getProjectPdfMeta(projectId, kind) : null;
   const qnap = toQnapPublicMeta(meta, { includeError: qnapOpts?.includeError, shareName });
   const local = resolveLocalPdf(pdfPath);
+  const validLocal = local && isValidPdfFile(local) ? local : null;
   const fileName = pdfPath ? path.basename(pdfPath) : null;
-  if (!local) {
+  if (!validLocal) {
     return {
       kind,
       label: PROJECT_PDF_KIND_LABELS[kind],
@@ -129,11 +131,11 @@ function entryFromPath(
       qnap,
     };
   }
-  const fileMetaData = fileMeta(local);
+  const fileMetaData = fileMeta(validLocal);
   return {
     kind,
     label: PROJECT_PDF_KIND_LABELS[kind],
-    fileName: fileName ?? path.basename(local),
+    fileName: fileName ?? path.basename(validLocal),
     pdfPath,
     storagePath,
     createdAt: fileMetaData.createdAt,
@@ -218,7 +220,9 @@ export function countExistingProjectPdfsV1(projectId: string): number {
 
 export function resolveProjectPdfFile(projectId: string, kind: ProjectPdfKind): string | null {
   const pdfPath = dbPdfPath(projectId, kind);
-  return resolveLocalPdf(pdfPath);
+  const local = resolveLocalPdf(pdfPath);
+  if (!local || !isValidPdfFile(local)) return null;
+  return local;
 }
 
 export function deleteProjectPdfV1(projectId: string, kind: ProjectPdfKind): boolean {

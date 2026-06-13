@@ -7,6 +7,8 @@ import { listCompletionChecklistV1 } from "../field-ops/work-session-v1-store.js
 import { getSurveyProjectV1Detail } from "../survey/survey-v1-store.js";
 import { getProjectPdfMeta } from "../projects/project-pdf-qnap-store.js";
 import { buildProjectPdfFileName } from "../projects/project-pdf-store.js";
+import { isValidPdfFile } from "../business/pdf/pdf-validation.js";
+import path from "path";
 import {
   buildCompletionReportContextV1,
   buildReportPhotosV1,
@@ -139,22 +141,15 @@ function mapLineItems(items: EstimateLineItem[]): DocumentViewLineItemV1[] {
   }));
 }
 
-function pdfPathForKind(projectId: string, kind: DocumentViewKindV1, hasStoredPdf = false): string {
-  const projectsBase = `/api/projects/v1/projects/${projectId}/pdfs`;
+function resolveStoredPdfLocal(storedPath: string | null | undefined): string | null {
+  if (!storedPath?.trim()) return null;
+  const local = path.join(process.cwd(), storedPath.replace(/^\//, ""));
+  return isValidPdfFile(local) ? local : null;
+}
+
+/** PDF取得は常に estimate-v1 API（無効PDFはサーバー側で再生成） */
+function pdfPathForKind(projectId: string, kind: DocumentViewKindV1): string {
   const estimateBase = `/api/estimate/v1/projects/${projectId}`;
-  if (hasStoredPdf) {
-    switch (kind) {
-      case "estimate":
-        return `${projectsBase}/estimate/file`;
-      case "invoice":
-        return `${projectsBase}/invoice/file`;
-      case "specification":
-      case "field-report":
-        return `${projectsBase}/specification/file`;
-      case "completion-report":
-        return `${projectsBase}/report/file`;
-    }
-  }
   switch (kind) {
     case "estimate":
       return `${estimateBase}/pdf`;
@@ -192,7 +187,7 @@ function customerFacingNotes(raw: string | null | undefined): string {
 function finalizeDocumentViewPayload(payload: DocumentViewPayloadV1): DocumentViewPayloadV1 {
   return {
     ...payload,
-    pdfUrl: pdfPathForKind(payload.projectId, payload.kind, payload.hasStoredPdf),
+    pdfUrl: pdfPathForKind(payload.projectId, payload.kind),
   };
 }
 
@@ -232,7 +227,7 @@ export function buildDocumentViewPayloadV1(
     projectId: businessProjectId,
     projectTitle: project.title,
     projectNo: project.projectNo,
-    pdfUrl: pdfPathForKind(businessProjectId, kind, false),
+    pdfUrl: pdfPathForKind(businessProjectId, kind),
     shareFileName: shareFileNameForKind(businessProjectId, kind),
     storedPdfPath: null,
     hasStoredPdf: false,
@@ -247,7 +242,7 @@ export function buildDocumentViewPayloadV1(
     return finalizeDocumentViewPayload({
       ...base,
       storedPdfPath: detail.estimate.pdfPath ?? null,
-      hasStoredPdf: Boolean(detail.estimate.pdfPath),
+      hasStoredPdf: Boolean(resolveStoredPdfLocal(detail.estimate.pdfPath)),
       estimate: {
         docNo: detail.header.estimateNo ?? detail.estimate.estimateNo,
         addressee: detail.header.addressee,
@@ -275,7 +270,7 @@ export function buildDocumentViewPayloadV1(
     return finalizeDocumentViewPayload({
       ...base,
       storedPdfPath: invoice.pdfPath ?? null,
-      hasStoredPdf: Boolean(invoice.pdfPath),
+      hasStoredPdf: Boolean(resolveStoredPdfLocal(invoice.pdfPath)),
       invoice: {
         docNo: invoice.invoiceNo,
         addressee: detail.header.addressee,
@@ -300,7 +295,7 @@ export function buildDocumentViewPayloadV1(
     return finalizeDocumentViewPayload({
       ...base,
       storedPdfPath: specMeta?.localPath ?? null,
-      hasStoredPdf: Boolean(specMeta?.localPath),
+      hasStoredPdf: Boolean(resolveStoredPdfLocal(specMeta?.localPath)),
       specification: {
         addressee: ctx.addressee,
         subject: ctx.subject,
@@ -330,7 +325,7 @@ export function buildDocumentViewPayloadV1(
     return finalizeDocumentViewPayload({
       ...base,
       storedPdfPath: reportMeta ?? null,
-      hasStoredPdf: Boolean(reportMeta),
+      hasStoredPdf: Boolean(resolveStoredPdfLocal(reportMeta)),
       completionReport: {
         addressee: ctx.addressee,
         subject: ctx.subject,

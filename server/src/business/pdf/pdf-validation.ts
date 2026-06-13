@@ -2,7 +2,7 @@ import fs from "fs";
 import zlib from "zlib";
 
 export const PDF_GENERATION_FAILED_MSG = "PDF生成に失敗しました。再生成してください";
-export const PDF_MIN_BYTES = 1000;
+export const PDF_MIN_BYTES = 10000;
 
 export interface PdfValidationResult {
   valid: boolean;

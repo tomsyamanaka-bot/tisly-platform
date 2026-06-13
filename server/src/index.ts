@@ -20,6 +20,7 @@ import { logProductionEnvWarnings } from "./config/production-env-checker.js";
 import { logGmailStartupStatus } from "./notification/smtp-gmail.js";
 import { initLockProvider } from "./providers/lock/index.js";
 import { ensureLockProviderSeed } from "./lock-provider/lock-provider-store.js";
+import { probePdfEngineHealth } from "./business/pdf/pdf-engine-status.js";
 
 logProductionEnvWarnings();
 logGmailStartupStatus();
@@ -34,6 +35,10 @@ startBackupScheduler();
 startHealthMonitor();
 startWorkers();
 startSwitchBotBridgeWorker();
+
+void probePdfEngineHealth().catch((e) => {
+  console.warn("[pdf-engine] startup probe failed:", e instanceof Error ? e.message : e);
+});
 
 const app = createApp();
 

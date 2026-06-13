@@ -326,6 +326,10 @@ jobs:
 
           echo "${HEALTH_BODY}" | grep -q '"qnapPdfBackupV1":true' \
             || { echo "ERROR: runtimeFeatures.qnapPdfBackupV1 missing — Node process not restarted with new build"; exit 1; }
+          echo "${HEALTH_BODY}" | grep -q '"pdfEngine":"puppeteer"' \
+            || { echo "ERROR: pdfEngine is not puppeteer — PDF generation unavailable"; exit 1; }
+          echo "${HEALTH_BODY}" | grep -q '"pdfEngineReady":true' \
+            || { echo "ERROR: pdfEngineReady is false — check Chromium on VPS"; exit 1; }
           UPTIME="$(echo "${HEALTH_BODY}" | grep -oE '"uptime":[0-9]+' | head -1 | cut -d: -f2 || true)"
           if [ -n "${UPTIME}" ] && [ "${UPTIME}" -gt 180 ]; then
             echo "ERROR: uptime ${UPTIME}s after restart (expected <= 180)"

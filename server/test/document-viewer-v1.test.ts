@@ -173,7 +173,7 @@ describe("Document Viewer UX v1 API", () => {
     const ct = String(res.headers["content-type"] || "");
     assert.match(ct, /application\/pdf/i, `expected PDF not HTML (got ${ct})`);
     const body = Buffer.isBuffer(res.body) ? res.body : Buffer.from(String(res.body || ""), "binary");
-    assert.ok(body.length >= 1000, `PDF too small: ${body.length}`);
+    assert.ok(body.length >= 10000, `PDF too small: ${body.length}`);
     assert.equal(body.subarray(0, 5).toString("ascii"), "%PDF-");
   });
 });

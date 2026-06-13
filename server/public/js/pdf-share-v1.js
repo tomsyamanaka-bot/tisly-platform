@@ -4,6 +4,7 @@
  */
 
 const PDF_FAIL_MSG = "PDF生成に失敗しました。再生成してください";
+const PDF_MIN_CLIENT_BYTES = 10000;
 
 function triggerDownload(blob, fileName) {
   const url = URL.createObjectURL(blob);
@@ -18,7 +19,7 @@ function triggerDownload(blob, fileName) {
 }
 
 function isValidPdfBlob(blob) {
-  return blob && blob.size >= 1000 && blob.type !== "text/html";
+  return blob && blob.size >= PDF_MIN_CLIENT_BYTES && blob.type !== "text/html";
 }
 
 async function fetchPdfBlob(fetchUrl, headers = {}) {

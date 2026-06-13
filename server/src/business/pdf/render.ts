@@ -4,6 +4,11 @@ import type { BusinessProject, CompletionReport, Estimate, Invoice } from "../bu
 import { businessUploadsDir, getEstimate } from "../business-store.js";
 import { logBusinessIntegration } from "../business-integration-log.js";
 import { assertValidPdfBuffer, PDF_GENERATION_FAILED_MSG } from "./pdf-validation.js";
+import {
+  notePdfGenerationError,
+  notePdfGenerationSuccess,
+  probePdfEngineHealth,
+} from "./pdf-engine-status.js";
 import { renderCompletionReportHtml } from "./completion-report-template.js";
 import { renderEstimateHtml } from "./estimate-template.js";
 import { renderInvoiceHtml } from "./invoice-template.js";
@@ -15,6 +20,24 @@ export type PdfDocumentKind =
   | "specification";
 
 export type PdfRenderMode = "html" | "puppeteer";
+
+const PUPPETEER_LAUNCH_ARGS = ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"];
+
+function resolveChromiumExecutablePath(): string | undefined {
+  try {
+    const puppeteerPkg = path.join(process.cwd(), "node_modules", "puppeteer", "package.json");
+    if (!fs.existsSync(puppeteerPkg)) return undefined;
+    const json = JSON.parse(fs.readFileSync(puppeteerPkg, "utf8")) as {
+      puppeteer?: { chromium?: { path?: string } };
+    };
+    const rel = json.puppeteer?.chromium?.path;
+    if (!rel) return undefined;
+    const full = path.join(process.cwd(), "node_modules", "puppeteer", rel);
+    return fs.existsSync(full) ? full : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 export function getPdfRenderMode(): PdfRenderMode {
   if (process.env.TISLY_PDF_PUPPETEER === "false") return "html";
@@ -29,10 +52,15 @@ export function getPdfRenderMode(): PdfRenderMode {
 
 export async function htmlToPdfBuffer(html: string): Promise<Buffer | null> {
   if (process.env.TISLY_PDF_PUPPETEER === "false") return null;
+  const executablePath = resolveChromiumExecutablePath();
   try {
     const puppeteer = (await import("puppeteer" as string)) as {
       default: {
-        launch: (opts: { headless: boolean }) => Promise<{
+        launch: (opts: {
+          headless: boolean | "shell";
+          args: string[];
+          executablePath?: string;
+        }) => Promise<{
           newPage: () => Promise<{
             setViewport: (opts: {
               width: number;
@@ -49,23 +77,40 @@ export async function htmlToPdfBuffer(html: string): Promise<Buffer | null> {
           }>;
           close: () => Promise<void>;
         }>;
+        executablePath?: () => string;
       };
     };
-    const browser = await puppeteer.default.launch({ headless: true });
-    const page = await browser.newPage();
-    await page.setViewport({ width: 794, height: 1123, deviceScaleFactor: 1 });
-    await page.setContent(html, { waitUntil: "networkidle0" });
-    await page.evaluateHandle("document.fonts.ready");
-    const buf = await page.pdf({ format: "A4", landscape: false, printBackground: true });
-    await browser.close();
-    return Buffer.from(buf);
+    const resolvedPath =
+      executablePath ??
+      (typeof puppeteer.default.executablePath === "function"
+        ? puppeteer.default.executablePath()
+        : undefined);
+    const browser = await puppeteer.default.launch({
+      headless: true,
+      args: PUPPETEER_LAUNCH_ARGS,
+      ...(resolvedPath ? { executablePath: resolvedPath } : {}),
+    });
+    try {
+      const page = await browser.newPage();
+      await page.setViewport({ width: 794, height: 1123, deviceScaleFactor: 1 });
+      await page.setContent(html, { waitUntil: "networkidle0" });
+      await page.evaluateHandle("document.fonts.ready");
+      const buf = await page.pdf({ format: "A4", landscape: false, printBackground: true });
+      const pdfBuf = Buffer.from(buf);
+      notePdfGenerationSuccess(resolvedPath ?? null);
+      return pdfBuf;
+    } finally {
+      await browser.close();
+    }
   } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    notePdfGenerationError(message);
     logBusinessIntegration({
       type: "pdf",
       provider: "puppeteer",
       status: "error",
-      errorMessage: (e as Error).message,
-      response: { fallback: "html" },
+      errorMessage: message,
+      response: { noFallback: true },
     });
     return null;
   }
@@ -76,6 +121,11 @@ export async function renderWithPdfFallback(
   html: string,
   _title: string
 ): Promise<{ pdfBuf: Buffer; usedFallback: boolean; renderMode: PdfRenderMode }> {
+  const engine = await probePdfEngineHealth();
+  if (!engine.pdfEngineReady || engine.pdfEngine !== "puppeteer") {
+    throw new Error(engine.pdfLastError ?? PDF_GENERATION_FAILED_MSG);
+  }
+
   const puppeteerBuf = await htmlToPdfBuffer(html);
   if (puppeteerBuf) {
     assertValidPdfBuffer(puppeteerBuf);
@@ -129,11 +179,10 @@ export async function renderBusinessPdf(
   const localPdf = path.join(pdfDir, pdfName);
   fs.writeFileSync(localPdf, pdfBuf);
   const pdfPath = `/uploads/business/${project.id}/pdfs/${pdfName}`;
-  const mode = getPdfRenderMode();
   logBusinessIntegration({
     projectId: project.id,
     type: "pdf",
-    provider: mode === "puppeteer" ? "puppeteer" : "html",
+    provider: "puppeteer",
     status: "success",
     request: { kind },
     response: { htmlPath, pdfPath },
@@ -177,13 +226,12 @@ export async function renderSpecificationPdf(
   const localPdf = path.join(pdfDir, pdfName);
   fs.writeFileSync(localPdf, pdfBuf);
   const pdfPath = `/uploads/business/${project.id}/specifications/${pdfName}`;
-  const mode = getPdfRenderMode();
   logBusinessIntegration({
     projectId: project.id,
     type: "pdf",
-    provider: mode === "puppeteer" ? "puppeteer" : "html",
+    provider: "puppeteer",
     status: "success",
-    request: { kind: "specification", dryRun: mode !== "puppeteer", mockOnly: mode !== "puppeteer" },
+    request: { kind: "specification" },
     response: { htmlPath, pdfPath },
   });
   return {
@@ -209,7 +257,7 @@ export async function runUnifiedPdfPipeline(
   return {
     ...rendered,
     kind,
-    renderMode: getPdfRenderMode(),
+    renderMode: "puppeteer",
     previewUrl: rendered.htmlPath,
   };
 }

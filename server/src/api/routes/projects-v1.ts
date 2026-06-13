@@ -18,6 +18,7 @@ import {
   PDF_STORAGE_PROVIDER,
   regenerateProjectPdfV1,
   resolveProjectPdfFile,
+  buildProjectPdfFileName,
 } from "../../projects/project-pdf-store.js";
 import { sendPdfFile } from "../../business/pdf/pdf-serve.js";
 import { isValidPdfFile } from "../../business/pdf/pdf-validation.js";
@@ -102,20 +103,35 @@ projectsV1Router.get("/projects/:id/pdfs", ...auth, (req: AuthedRequest, res) =>
   });
 });
 
-projectsV1Router.get("/projects/:id/pdfs/:kind/file", ...auth, (req: AuthedRequest, res) => {
+projectsV1Router.get("/projects/:id/pdfs/:kind/file", ...auth, async (req: AuthedRequest, res) => {
   if (!assertRole(req, res)) return;
+  const projectId = String(req.params.id);
   const kind = parsePdfKind(String(req.params.kind));
   if (!kind) {
     res.status(400).json({ error: "kind must be specification, estimate, invoice, or report" });
     return;
   }
-  const filePath = resolveProjectPdfFile(String(req.params.id), kind);
+  let filePath = resolveProjectPdfFile(projectId, kind);
   if (!filePath || !isValidPdfFile(filePath)) {
-    res.status(404).json({ error: "PDF not found" });
+    try {
+      await regenerateProjectPdfV1(projectId, kind);
+      filePath = resolveProjectPdfFile(projectId, kind);
+    } catch (e) {
+      res.status(500).json({ error: e instanceof Error ? e.message : "PDF generation failed" });
+      return;
+    }
+  }
+  if (!filePath || !isValidPdfFile(filePath)) {
+    res.status(500).json({ error: "PDF generation failed" });
     return;
   }
-  const fileName = path.basename(filePath);
-  sendPdfFile(res, filePath, fileName);
+  const suffix =
+    kind === "estimate"
+      ? path.basename(filePath).replace(/^estimate-/, "").replace(/\.pdf$/, "")
+      : kind === "invoice"
+        ? path.basename(filePath).replace(/^invoice-/, "").replace(/\.pdf$/, "")
+        : path.basename(filePath).replace(/^completion-report-|^specification-/, "").replace(/\.pdf$/, "");
+  sendPdfFile(res, filePath, buildProjectPdfFileName(kind, suffix));
 });
 
 projectsV1Router.post("/projects/:id/pdfs/:kind/regenerate", ...auth, async (req: AuthedRequest, res) => {
