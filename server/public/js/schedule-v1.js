@@ -21,6 +21,12 @@ import {
   renderDeparturePrepHtml,
   startDepartureReminderPolling,
 } from "./departure-reminder.js";
+import {
+  bindAddressInputButtons,
+  bindIntelligenceEventCards,
+  enrichIntelligenceWithDeparture,
+  renderWeekIntelligenceEventItemHtml,
+} from "./schedule-intelligence-ui.js";
 
 const API = "/api/schedule/v1";
 const CAT_ICON = {
@@ -223,11 +229,23 @@ function renderWeekDays(days, today = todayIso()) {
       const isToday = day.date === today;
       const todayBadge = isToday ? '<span class="schedule-today-badge">今日</span>' : "";
       const firstId = day.firstConstructionEventId;
+      const intel = enrichIntelligenceWithDeparture(
+        day.intelligence,
+        day.departure,
+        firstId
+      );
+      const intelByEventId = new Map(
+        (intel?.events ?? []).map((ev) => [ev.eventId, ev])
+      );
       const events = day.events
         .slice(0, 5)
         .map((ev) => {
           const departureHtml =
             day.departure && ev.id === firstId ? renderDeparturePrepHtml(day.departure) : "";
+          const evIntel = intelByEventId.get(ev.id);
+          if (evIntel && intel) {
+            return renderWeekIntelligenceEventItemHtml(evIntel, intel, { departureHtml });
+          }
           const itemHtml = renderWeekEventItemHtml(ev, {
             dayDate: day.date,
             catIcon: CAT_ICON,
@@ -262,6 +280,12 @@ function renderWeekDays(days, today = todayIso()) {
     .join("");
 
   bindEventDescSnippets($("week-days"));
+  bindIntelligenceEventCards($("week-days"));
+  bindAddressInputButtons($("week-days"), {
+    apiFetch: (path, opts) => api(path, opts),
+    toast,
+    onSaved: async () => loadWeek(),
+  });
   bindDeparturePrepCards($("week-days"), departuresById, {
     apiFetch: (path, opts) => api(path, opts),
     onSaved: async () => loadWeek(),
@@ -272,7 +296,7 @@ function renderWeekDays(days, today = todayIso()) {
     card.addEventListener("click", (ev) => {
       if (
         ev.target.closest(
-          ".event-desc-snippet, .event-map-btn, .departure-prep-card, .departure-kit-btn, [data-departure-edit], [data-departure-toggle]"
+          ".event-desc-snippet, .event-map-btn, .departure-prep-card, .departure-kit-btn, [data-departure-edit], [data-departure-toggle], .schedule-intel-material, .schedule-intel-address-btn"
         )
       ) {
         return;

@@ -180,16 +180,21 @@ function worstFeasibility(levels: ScheduleFeasibility[]): ScheduleFeasibility {
 
 export const MAPS_API_UNSET_LABEL = "Google Maps API未設定";
 export const ADDRESS_UNSET_LABEL = "住所未設定";
+export const TRAVEL_UNCALCULATED_LABEL = "移動時間未計算";
+export const TRAVEL_FETCH_FAILED_LABEL = "移動時間取得失敗";
 
 function travelDurationLabel(
   minutes: number | null,
   source: MapsDurationSource,
   mapsConfigured: boolean,
-  hasAddress: boolean
+  hasAddress: boolean,
+  apiAttempted = false
 ): string {
   if (!hasAddress) return ADDRESS_UNSET_LABEL;
   if (!mapsConfigured) return MAPS_API_UNSET_LABEL;
-  if (minutes == null || source === "none") return "移動時間未計算";
+  if (minutes == null || source === "none") {
+    return apiAttempted ? TRAVEL_FETCH_FAILED_LABEL : TRAVEL_UNCALCULATED_LABEL;
+  }
   if (source === "api") return `${minutes}分（API）`;
   if (source === "mock") return `${minutes}分（目安）`;
   return `${minutes}分`;
@@ -265,6 +270,7 @@ function buildTravelInfo(input: {
   mapsConfigured: boolean;
   hasAddress: boolean;
   cacheHit: boolean;
+  apiAttempted?: boolean;
 }): EventTravelInfo {
   const mapsAvailable = Boolean(
     input.hasAddress && input.origin && input.destination && input.mapsConfigured
@@ -280,7 +286,8 @@ function buildTravelInfo(input: {
       input.durationMin,
       input.durationSource,
       input.mapsConfigured,
-      input.hasAddress
+      input.hasAddress,
+      input.apiAttempted
     ),
     mapsUrl:
       mapsAvailable && input.origin && input.destination
@@ -354,8 +361,10 @@ export async function buildDayScheduleIntelligence(
     let durationMin: number | null = null;
     let durationSource: MapsDurationSource = "none";
     let cacheHit = false;
+    let apiAttempted = false;
 
-    if (hasAddress && origin && destination) {
+    if (hasAddress && origin && destination && mapsConfigured) {
+      apiAttempted = true;
       const dur = await fetchDrivingDurationMinForIntelligence(origin, destination, date);
       durationMin = dur.minutes;
       durationSource = dur.source;
@@ -384,6 +393,7 @@ export async function buildDayScheduleIntelligence(
       mapsConfigured,
       hasAddress,
       cacheHit,
+      apiAttempted,
     });
 
     totalScheduled += eventDurationMin(ev);
@@ -436,6 +446,7 @@ export async function buildDayScheduleIntelligence(
         mapsConfigured,
         hasAddress: true,
         cacheHit: dur.cacheHit,
+        apiAttempted: mapsConfigured,
       });
     }
   }

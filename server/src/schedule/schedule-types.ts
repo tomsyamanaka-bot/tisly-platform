@@ -57,6 +57,8 @@ export interface ScheduleDayCard {
   firstConstructionEventId?: string | null;
   /** 週間一覧カード用 — 朝・昼・夜 */
   weather?: DayWeather | null;
+  /** 週間一覧 — 予定ごとの天気・移動時間・材料チェック */
+  intelligence?: DayScheduleIntelligence;
 }
 
 export interface ScheduleWeekView {

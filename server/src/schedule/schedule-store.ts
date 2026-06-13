@@ -186,14 +186,20 @@ export async function getScheduleWeekView(offsetRaw?: unknown): Promise<Schedule
     days.push(day);
   }
   const daysWithWeather = await attachWeatherToDayCards(days);
+  const daysWithIntelligence = await Promise.all(
+    daysWithWeather.map(async (day) => ({
+      ...day,
+      intelligence: await buildDayScheduleIntelligence(day.date, day.events),
+    }))
+  );
   return {
     offset,
     label: weekLabel(offset),
     startDate,
     endDate,
     today,
-    days: daysWithWeather,
-    summary: buildSummary(daysWithWeather),
+    days: daysWithIntelligence,
+    summary: buildSummary(daysWithIntelligence),
   };
 }
 

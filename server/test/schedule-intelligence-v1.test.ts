@@ -17,6 +17,7 @@ const {
   buildDayScheduleIntelligence,
   buildDailySummaryResponse,
   buildTravelCompactLabel,
+  TRAVEL_FETCH_FAILED_LABEL,
 } = await import("../src/schedule/schedule-intelligence-service.js");
 const { updateSchedulePlannerSettingsV1 } = await import("../src/schedule/schedule-settings-store.js");
 import type { ScheduleEvent } from "../src/schedule/schedule-types.js";
@@ -345,6 +346,9 @@ describe("日程調整レベル4 — インテリジェンス", () => {
     assert.ok(js.text.includes("schedule-intel-address-btn"));
     assert.ok(js.text.includes("\\u4f4f\\u6240\\u672a\\u8a2d\\u5b9a"));
     assert.ok(js.text.includes("\\u79fb\\u52d5\\u6642\\u9593\\u672a\\u8a08\\u7b97"));
+    assert.ok(js.text.includes("\\u79fb\\u52d5\\u6642\\u9593\\u53d6\\u5f97\\u5931\\u6557"));
+    assert.ok(js.text.includes("renderWeekIntelligenceEventItemHtml"));
+    assert.ok(js.text.includes("enrichIntelligenceWithDeparture"));
     assert.ok(!js.text.includes("schedule-intel-details"));
     assert.ok(!js.text.includes("eventCalendarBadgeHtml"));
   });
@@ -486,5 +490,42 @@ describe("日程調整レベル4 — インテリジェンス", () => {
     );
     assert.ok(ref);
     assert.equal(ref.projectId, "proj-token-1");
+  });
+
+  it("Maps API設定済みで取得失敗 — 移動時間取得失敗ラベル", async () => {
+    process.env.GOOGLE_MAPS_API_KEY = "test-directions-fail-key";
+    updateSchedulePlannerSettingsV1({ defaultOrigin: "茨城県つくばみらい市板橋2889-2" });
+    const origin = "茨城県つくばみらい市板橋2889-2";
+    const dest = "茨城県守谷市百合丘2丁目2633-1";
+    const date = "2026-06-19";
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (input) => {
+      const url = String(input);
+      if (url.includes("directions/json")) {
+        return new Response(JSON.stringify({ status: "ZERO_RESULTS" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return originalFetch(input);
+    };
+    try {
+      const intel = await buildDayScheduleIntelligence(date, [
+        baseEvent({ id: "fail-ev", location: dest, startTime: "10:00", endTime: "11:00" }),
+      ]);
+      assert.equal(intel.mapsApiConfigured, true);
+      assert.equal(intel.events[0].travel.durationLabel, TRAVEL_FETCH_FAILED_LABEL);
+    } finally {
+      globalThis.fetch = originalFetch;
+      delete process.env.GOOGLE_MAPS_API_KEY;
+    }
+  });
+
+  it("schedule-v1.js — 週間一覧で intelligence 表示", async () => {
+    const js = await request(app).get("/js/schedule-v1.js");
+    assert.equal(js.status, 200);
+    assert.ok(js.text.includes("renderWeekIntelligenceEventItemHtml"));
+    assert.ok(js.text.includes("bindIntelligenceEventCards"));
+    assert.ok(js.text.includes("schedule-intel-material"));
   });
 });

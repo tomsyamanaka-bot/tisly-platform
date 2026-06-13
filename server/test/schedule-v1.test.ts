@@ -85,6 +85,9 @@ describe("日程調整 PWA v1 API", () => {
       assert.ok(slot.label);
       assert.ok(typeof slot.precipChance === "number");
     }
+    assert.ok(res.body.days[0].intelligence, "intelligence should be present on week day cards");
+    assert.ok(Array.isArray(res.body.days[0].intelligence.events));
+    assert.equal(typeof res.body.days[0].intelligence.mapsApiConfigured, "boolean");
   });
 
   it("次の7日間へ切替でき、過去ウィンドウには戻らない", async () => {

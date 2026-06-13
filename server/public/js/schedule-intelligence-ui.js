@@ -25,6 +25,16 @@ export function renderWeatherSlotsHtml(slots, { inline = false, practical = fals
 const MAPS_API_UNSET_LABEL = "Google Maps API\u672a\u8a2d\u5b9a";
 const ADDRESS_UNSET_LABEL = "\u4f4f\u6240\u672a\u8a2d\u5b9a";
 const TRAVEL_UNCALCULATED_LABEL = "\u79fb\u52d5\u6642\u9593\u672a\u8a08\u7b97";
+const TRAVEL_FETCH_FAILED_LABEL = "\u79fb\u52d5\u6642\u9593\u53d6\u5f97\u5931\u6557";
+
+function travelLabelIsMuted(label) {
+  return (
+    !label ||
+    label === TRAVEL_UNCALCULATED_LABEL ||
+    label === TRAVEL_FETCH_FAILED_LABEL ||
+    label === ADDRESS_UNSET_LABEL
+  );
+}
 
 function renderTravelLineHtml(
   travel,
@@ -36,15 +46,11 @@ function renderTravelLineHtml(
   }
   const label = travel.durationLabel ?? "";
   const route = escapeScheduleHtml(travel.compactLabel || "🏠→現場");
-  if (label === ADDRESS_UNSET_LABEL) {
-    return `<div class="schedule-intel-travel">${route} <span class="schedule-intel-travel-muted">${escapeScheduleHtml(ADDRESS_UNSET_LABEL)}</span></div>`;
+  if (label === MAPS_API_UNSET_LABEL) {
+    return `<div class="schedule-intel-travel">${route} <span class="schedule-intel-travel-muted">${escapeScheduleHtml(MAPS_API_UNSET_LABEL)}</span></div>`;
   }
-  const uncalculated = !label || label === TRAVEL_UNCALCULATED_LABEL;
-  if (uncalculated) {
-    if (!travel.mapsUrl) {
-      return `<div class="schedule-intel-travel">${route} <span class="schedule-intel-travel-muted">${escapeScheduleHtml(TRAVEL_UNCALCULATED_LABEL)}</span></div>`;
-    }
-    return `<div class="schedule-intel-travel">${route} <span class="schedule-intel-travel-muted">${escapeScheduleHtml(TRAVEL_UNCALCULATED_LABEL)}</span></div>`;
+  if (travelLabelIsMuted(label)) {
+    return `<div class="schedule-intel-travel">${route} <span class="schedule-intel-travel-muted">${escapeScheduleHtml(label || TRAVEL_UNCALCULATED_LABEL)}</span></div>`;
   }
   return `<div class="schedule-intel-travel">${route} <strong>${escapeScheduleHtml(label)}</strong></div>`;
 }
@@ -55,7 +61,7 @@ function renderMaterialLineHtml(fieldCheck) {
     fieldCheck.total > 0
       ? `🎒 ${fieldCheck.checked}/${fieldCheck.total}`
       : "🎒 材料チェックを開く";
-  return `<a class="btn-sub btn-small schedule-intel-material" href="${escapeScheduleHtml(fieldCheck.url)}">${escapeScheduleHtml(label)}</a>`;
+  return `<a class="btn-sub btn-small schedule-intel-material" href="${escapeScheduleHtml(fieldCheck.url)}" style="position:relative;z-index:2;pointer-events:auto;">${escapeScheduleHtml(label)}</a>`;
 }
 
 function needsAddressInput(evIntel) {
@@ -75,7 +81,7 @@ export function renderIntelligenceEventCard(
   const ev = evIntel;
   const time = formatEventTimeRange(ev);
   const travel = ev.travel ?? {};
-  const weatherHtml = renderWeatherSlotsHtml(ev.weatherSlots, { inline: true, practical: true });
+  const weatherHtml = renderWeatherSlotsHtml(ev.weatherSlots, { inline: true, practical: false });
   const eventKey = escapeScheduleHtml(ev.eventId ?? ev.id ?? "");
 
   return `<article class="schedule-intel-card schedule-intel-card-compact" data-intel-event-id="${eventKey}">
@@ -93,7 +99,44 @@ export function renderIntelligenceEventCard(
 export function bindIntelligenceEventCards(root) {
   root?.querySelectorAll(".schedule-intel-material").forEach((el) => {
     el.addEventListener("click", (ev) => ev.stopPropagation());
+    el.addEventListener("mousedown", (ev) => ev.stopPropagation());
+    el.addEventListener("touchstart", (ev) => ev.stopPropagation(), { passive: true });
   });
+}
+
+export function enrichIntelligenceWithDeparture(intelligence, departure, firstEventId) {
+  if (!intelligence?.events?.length) return intelligence;
+  const idx = intelligence.events.findIndex((ev) => ev.eventId === firstEventId);
+  const targetIdx = idx >= 0 ? idx : 0;
+  const progress = departure?.fieldCheckProgress ?? { checked: 0, total: 0 };
+  const fallbackUrl = departure?.fieldCheckUrl ?? null;
+  const events = intelligence.events.map((item, i) => {
+    if (item.fieldCheck?.url) return item;
+    if (i !== targetIdx || !fallbackUrl) return item;
+    return {
+      ...item,
+      fieldCheck: {
+        checked: progress.checked,
+        total: progress.total,
+        url: fallbackUrl,
+      },
+    };
+  });
+  return { ...intelligence, events };
+}
+
+export function renderWeekIntelligenceEventItemHtml(
+  evIntel,
+  intelligence,
+  { departureHtml = "" } = {}
+) {
+  const card = renderIntelligenceEventCard(evIntel, {
+    mapsApiConfigured: intelligence?.mapsApiConfigured !== false,
+  });
+  const departureBlock = departureHtml
+    ? `<div class="schedule-event-departure">${departureHtml}</div>`
+    : "";
+  return `<li class="schedule-event-item schedule-event-practical schedule-event-intel">${card}${departureBlock}</li>`;
 }
 
 export function bindAddressInputButtons(root, { apiFetch, toast, onSaved } = {}) {
