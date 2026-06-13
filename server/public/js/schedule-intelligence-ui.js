@@ -23,19 +23,24 @@ export function renderWeatherSlotsHtml(slots, { inline = false, practical = fals
 }
 
 const MAPS_API_UNSET_LABEL = "Google Maps API\u672a\u8a2d\u5b9a";
+const TRAVEL_UNCALCULATED_LABEL = "\u79fb\u52d5\u6642\u9593\u672a\u8a08\u7b97";
 
 function renderTravelLineHtml(
   travel,
   { showMapsUnsetBanner = false, mapsApiConfigured = true } = {}
 ) {
-  const mapsUnset = mapsApiConfigured === false || travel.durationLabel === MAPS_API_UNSET_LABEL;
-  if (mapsUnset) {
+  if (mapsApiConfigured === false) {
     if (!showMapsUnsetBanner) return "";
     return `<div class="schedule-intel-maps-unset">${escapeScheduleHtml(MAPS_API_UNSET_LABEL)}</div>`;
   }
-  if (travel.durationLabel === "移動時間未計算") return "";
+  const label = travel.durationLabel ?? "";
+  const uncalculated = !label || label === TRAVEL_UNCALCULATED_LABEL;
   const route = escapeScheduleHtml(travel.compactLabel || "🏠→現場");
-  return `<div class="schedule-intel-travel">${route} <strong>${escapeScheduleHtml(travel.durationLabel)}</strong></div>`;
+  if (uncalculated) {
+    if (!travel.mapsUrl) return "";
+    return `<div class="schedule-intel-travel">${route} <span class="schedule-intel-travel-muted">${escapeScheduleHtml(TRAVEL_UNCALCULATED_LABEL)}</span></div>`;
+  }
+  return `<div class="schedule-intel-travel">${route} <strong>${escapeScheduleHtml(label)}</strong></div>`;
 }
 
 function renderMaterialLineHtml(fieldCheck) {

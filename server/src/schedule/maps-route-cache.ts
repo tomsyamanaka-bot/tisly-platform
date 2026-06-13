@@ -86,3 +86,14 @@ export function purgeExpiredRouteCache(): number {
     .run(cutoff);
   return r.changes;
 }
+
+/** API キー設定前に保存された none/null キャッシュを削除（Directions 再試行用） */
+export function purgeUnconfiguredRouteCache(): number {
+  const r = getDatabase()
+    .prepare(
+      `DELETE FROM schedule_route_cache
+       WHERE duration_source = 'none' AND duration_min IS NULL`
+    )
+    .run();
+  return r.changes;
+}

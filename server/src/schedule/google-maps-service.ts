@@ -2,7 +2,11 @@
 
 import type { DayDispatch } from "./route-planner-service.js";
 import type { ScheduleEvent } from "./schedule-types.js";
-import { getCachedRouteDuration, setCachedRouteDuration } from "./maps-route-cache.js";
+import {
+  getCachedRouteDuration,
+  purgeUnconfiguredRouteCache,
+  setCachedRouteDuration,
+} from "./maps-route-cache.js";
 import {
   DEFAULT_SCHEDULE_ORIGIN,
   getDefaultOriginLabel,
@@ -111,21 +115,34 @@ export async function fetchDrivingDurationMin(
 }
 
 /** 日程インテリジェンス — API未設定時は null（mock しない） */
+let unconfiguredRouteCachePurged = false;
+
+function ensureUnconfiguredRouteCachePurged(): void {
+  if (unconfiguredRouteCachePurged || !getGoogleMapsApiKey()) return;
+  purgeUnconfiguredRouteCache();
+  unconfiguredRouteCachePurged = true;
+}
+
 export async function fetchDrivingDurationMinForIntelligence(
   origin: string,
   destination: string,
   routeDate: string
 ): Promise<{ minutes: number | null; source: MapsDurationSource; cacheHit: boolean }> {
+  const key = getGoogleMapsApiKey();
+  if (key) ensureUnconfiguredRouteCachePurged();
+
   const cached = getCachedRouteDuration(origin, destination, routeDate);
   if (cached) {
-    return {
-      minutes: cached.durationMin,
-      source: cached.durationSource,
-      cacheHit: true,
-    };
+    const staleNone =
+      Boolean(key) && cached.durationSource === "none" && cached.durationMin == null;
+    if (!staleNone) {
+      return {
+        minutes: cached.durationMin,
+        source: cached.durationSource,
+        cacheHit: true,
+      };
+    }
   }
-
-  const key = getGoogleMapsApiKey();
   if (!key) {
     setCachedRouteDuration(origin, destination, routeDate, null, "none");
     return { minutes: null, source: "none", cacheHit: false };

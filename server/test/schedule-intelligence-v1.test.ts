@@ -307,7 +307,56 @@ describe("日程調整レベル4 — インテリジェンス", () => {
     assert.ok(js.text.includes("schedule-intel-material"));
     assert.ok(js.text.includes("btn-sub btn-small schedule-intel-material"));
     assert.ok(js.text.includes("schedule-intel-practical"));
+    assert.ok(js.text.includes("schedule-intel-travel-muted"));
+    assert.ok(js.text.includes("\\u79fb\\u52d5\\u6642\\u9593\\u672a\\u8a08\\u7b97"));
     assert.ok(!js.text.includes("schedule-intel-details"));
     assert.ok(!js.text.includes("eventCalendarBadgeHtml"));
+  });
+
+  it("none キャッシュ — API キー設定後は Directions を再試行", async () => {
+    process.env.GOOGLE_MAPS_API_KEY = "test-directions-key";
+    const { setCachedRouteDuration } = await import("../src/schedule/maps-route-cache.js");
+    const { fetchDrivingDurationMinForIntelligence } = await import(
+      "../src/schedule/google-maps-service.js"
+    );
+    const origin = "茨城県つくばみらい市板橋2889-2";
+    const dest = "茨城県守谷市百合丘2丁目2633-1";
+    const date = "2026-06-20";
+    setCachedRouteDuration(origin, dest, date, null, "none");
+
+    const originalFetch = globalThis.fetch;
+    let directionCalls = 0;
+    globalThis.fetch = async (input) => {
+      const url = String(input);
+      if (url.includes("directions/json")) {
+        directionCalls += 1;
+        return new Response(
+          JSON.stringify({
+            status: "OK",
+            routes: [{ legs: [{ duration: { value: 2700 } }] }],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      return originalFetch(input);
+    };
+
+    try {
+      const result = await fetchDrivingDurationMinForIntelligence(origin, dest, date);
+      assert.equal(result.source, "api");
+      assert.equal(result.minutes, 45);
+      assert.equal(result.cacheHit, false);
+      assert.ok(directionCalls >= 1);
+
+      setCachedRouteDuration(origin, dest, date, null, "none");
+      const retry = await fetchDrivingDurationMinForIntelligence(origin, dest, date);
+      assert.equal(retry.source, "api");
+      assert.equal(retry.minutes, 45);
+      assert.equal(retry.cacheHit, false);
+      assert.ok(directionCalls >= 2);
+    } finally {
+      globalThis.fetch = originalFetch;
+      delete process.env.GOOGLE_MAPS_API_KEY;
+    }
   });
 });
