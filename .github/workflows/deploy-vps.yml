@@ -286,9 +286,29 @@ jobs:
           echo "commitShort (after sync): ${HEAD_SHORT}"
 
           cd "${SERVER_DIR}"
+          echo "=== Chromium OS deps (Puppeteer PDF) ==="
+          if command -v apt-get >/dev/null 2>&1; then
+            APT="apt-get"
+            if [ "$(id -u)" -ne 0 ]; then
+              APT="sudo -n apt-get"
+            fi
+            ${APT} update -qq
+            ${APT} install -y -qq \
+              ca-certificates fonts-liberation fonts-noto-cjk \
+              libasound2 libasound2t64 libatk-bridge2.0-0 libatk-bridge2.0-0t64 \
+              libatk1.0-0 libatk1.0-0t64 libc6 libcairo2 libcups2 libdbus-1-3 \
+              libexpat1 libfontconfig1 libgbm1 libgcc-s1 libglib2.0-0 libgtk-3-0 \
+              libnspr4 libnss3 libpango-1.0-0 libpangocairo-1.0-0 libstdc++6 \
+              libx11-6 libx11-xcb1 libxcb1 libxcomposite1 libxcursor1 libxdamage1 \
+              libxext6 libxfixes3 libxi6 libxrandr2 libxrender1 libxss1 libxtst6 \
+              lsb-release wget xdg-utils \
+              || echo "WARN: some Chromium deps may be missing — continuing"
+          fi
           echo "=== npm install ==="
           npm install
           [ -d node_modules/puppeteer ] || { echo "ERROR: puppeteer missing — PDF generation requires puppeteer"; exit 1; }
+          echo "=== Puppeteer Chrome binary ==="
+          npx puppeteer browsers install chrome || { echo "ERROR: puppeteer chrome install failed"; exit 1; }
           echo "=== build ==="
           npm run build
           [ -f dist/index.js ] || { echo "ERROR: dist/index.js missing"; exit 1; }
