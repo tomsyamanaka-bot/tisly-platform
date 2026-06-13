@@ -1,8 +1,19 @@
 /**
  * 案件単位 PDF 管理 — uploads/business/{projectId}/pdfs/
  *
- * 将来拡張: storageProvider で local / qnap を切替可能にする（Phase2）。
- * 現時点は local 固定（QNAP 連携は次 Phase）。
+ * 保存仕様（固定）: docs/project-pdf-storage-spec.md
+ * QNAP バックアップ計画: docs/qnap-pdf-backup-plan.md
+ *
+ * 現時点は local 固定。QNAP 連携は次フェーズ。
+ *
+ * --- 将来 DB 項目案（migration 未実施・設計メモ） ---
+ * 専用テーブル project_pdf_meta または business_* .pdf_path 拡張を想定:
+ *   storage_provider   TEXT  — 'local' | 'qnap'（一次保存は local 維持）
+ *   local_path         TEXT  — ローカル相対パス（現 pdf_path と同等）
+ *   qnap_path          TEXT  — QNAP 上のフルパス
+ *   qnap_backup_status TEXT  — 'pending' | 'synced' | 'failed'
+ *   qnap_backuped_at   TEXT  — 最終 QNAP 同期成功日時
+ *   qnap_last_error    TEXT  — 直近バックアップエラー
  */
 import fs from "fs";
 import path from "path";
@@ -81,6 +92,13 @@ export interface ProjectPdfEntryV1 {
   updatedAt: string | null;
   sizeBytes: number | null;
   exists: boolean;
+  // --- 次フェーズ QNAP 連携（API レスポンス拡張予定・現在未使用） ---
+  // storageProvider?: 'local' | 'qnap';
+  // localPath?: string | null;
+  // qnapPath?: string | null;
+  // qnapBackupStatus?: 'pending' | 'synced' | 'failed';
+  // qnapBackupedAt?: string | null;
+  // qnapLastError?: string | null;
 }
 
 function entryFromPath(

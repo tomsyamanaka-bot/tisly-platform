@@ -1,6 +1,6 @@
 # プロジェクト標準仕様（完成状態）
 
-**最終更新:** 2026-06-11  
+**最終更新:** 2026-06-13  
 **対象:** TiSLY Practical PWA（現調 v1 / 見積 v1 / 日程 v1 / 持ち物 v1 / 発注 v1 / 到着・作業完了 v1 / 書類閲覧 UX v1）
 
 Cursor が長時間自走する際の **「壊してはいけない完成仕様」** の単一ソースです。新しい実装を始める前に必ず読んでください。
@@ -167,6 +167,22 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 - 現調写真（`survey_photos`）と完了報告書用写真（`completion_photos`）の分離は維持
 - 工事テンプレからの現調部材は `survey_materials.memo = '__auto_template__'` で識別
 - 発注の在庫更新: 入荷で `stock_qty` 加算、現場持込で減算
+
+---
+
+## 案件 PDF 保存 v1（完成済み — ローカル固定）
+
+| 領域 | 内容 |
+|------|------|
+| 保存先 | `uploads/business/{projectId}/pdfs/` |
+| ファイル名 | `estimate-{番号}.pdf` / `invoice-{番号}.pdf` / `report-{タイトル}.pdf` |
+| 表示 | PWA は **保存済み PDF を優先**（再生成は明示ボタンのみ） |
+| 共有 | iPhone Safari / PWA → Web Share API、非対応 → URL コピー |
+| メール | **標準では送信しない** |
+| QNAP | **次フェーズ**（設計: `docs/qnap-pdf-backup-plan.md`） |
+| 仕様書 | [`docs/project-pdf-storage-spec.md`](../project-pdf-storage-spec.md) |
+| API | `GET/POST/DELETE /api/projects/v1/projects/:id/pdfs/...` |
+| テスト | `server/test/project-pdf-v1.test.ts` |
 
 ---
 

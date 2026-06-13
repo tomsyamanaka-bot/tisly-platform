@@ -2298,6 +2298,11 @@ function migratePhase521(database: Database.Database): void {
       updated_at TEXT DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_business_projects_status ON business_projects(status);
+    -- 案件 PDF メタ（将来 QNAP 連携）— 現状は pdf_path のみ使用。
+    -- 次フェーズで project_pdf_meta テーブル追加、または pdf_path 行へ以下を拡張予定:
+    --   storage_provider, local_path, qnap_path,
+    --   qnap_backup_status (pending|synced|failed), qnap_backuped_at, qnap_last_error
+    -- 設計: docs/qnap-pdf-backup-plan.md
     CREATE TABLE IF NOT EXISTS business_estimates (
       id TEXT PRIMARY KEY,
       project_id TEXT NOT NULL,

@@ -32,6 +32,10 @@ const STAGE_LABELS = {
   payment: "入金",
 };
 
+// --- 案件 PDF 書類 UI ---
+// 現在: ローカル PDF のみ（uploads/business/{projectId}/pdfs/）
+// 次フェーズ: QNAP backup status を管理者画面のみに表示予定
+// お客さん向け PWA には QNAP 状態を出さない（内部ログのみ）
 const PDF_KIND_TO_DOC_VIEW = {
   estimate: "estimate",
   invoice: "invoice",
@@ -198,6 +202,7 @@ async function loadProjectPdfs(projectId) {
   }
 }
 
+/** 案件詳細「書類」セクション — local PDF の一覧・共有・再生成・削除 */
 async function renderDetailDocuments(detail) {
   const mount = $("detail-documents");
   if (!mount) return;
