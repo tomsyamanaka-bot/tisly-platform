@@ -431,10 +431,23 @@ describe("現調PWA v1 API", () => {
     const js = fs.readFileSync("public/js/survey-v1.js", "utf8");
     assert.ok(html.includes("photo-preview-modal"));
     assert.ok(html.includes("photo-preview-close"));
+    assert.ok(html.includes("z-index: 1200"));
+    assert.ok(html.includes("pointer-events: none"));
     assert.ok(js.includes("openPhotoPreview"));
     assert.ok(js.includes("photo-preview-btn"));
     assert.ok(js.includes("closePhotoPreview"));
+    assert.ok(js.includes("bindPreviewTap"));
+    assert.ok(js.includes('setAttribute("inert"'));
     assert.ok(!js.includes("bindPhotoEditButtons"));
+  });
+
+  it("写真モーダル: 2枚目を開いてメモ保存・閉じるハンドラ", () => {
+    const js = fs.readFileSync("public/js/survey-v1.js", "utf8");
+    assert.ok(js.includes("paintPhotoPreviewAt"));
+    assert.ok(js.includes("bindPhotoTitleInputs"));
+    assert.ok(js.includes("bindPhotoPreviewButtons"));
+    assert.ok(js.includes("removeAttribute(\"inert\")"));
+    assert.ok(js.includes("touchstart"));
   });
 
   it("survey-v1 に写真タイトル保存のUIハンドラが含まれる", () => {

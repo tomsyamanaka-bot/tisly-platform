@@ -160,7 +160,7 @@ describe("Document Viewer UX v1 API", () => {
     assert.equal(res.status, 400);
   });
 
-  it("印刷用 PDF エンドポイントは従来どおり application/pdf を返す", async () => {
+  it("印刷用 PDF エンドポイントは application/pdf を返し実体がある", async () => {
     await request(app)
       .post(`/api/estimate/v1/projects/${businessProjectId}/finalize`)
       .set("Authorization", `Bearer ${token}`)
@@ -171,6 +171,9 @@ describe("Document Viewer UX v1 API", () => {
       .set("Authorization", `Bearer ${token}`);
     assert.equal(res.status, 200);
     const ct = String(res.headers["content-type"] || "");
-    assert.ok(/pdf|html/.test(ct), `PDF endpoint unchanged (got ${ct})`);
+    assert.match(ct, /application\/pdf/i, `expected PDF not HTML (got ${ct})`);
+    const body = Buffer.isBuffer(res.body) ? res.body : Buffer.from(String(res.body || ""), "binary");
+    assert.ok(body.length >= 1000, `PDF too small: ${body.length}`);
+    assert.equal(body.subarray(0, 5).toString("ascii"), "%PDF-");
   });
 });

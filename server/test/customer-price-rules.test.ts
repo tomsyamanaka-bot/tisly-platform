@@ -204,7 +204,7 @@ describe("顧客別単価ルール v1.2", () => {
     assert.match(String(pdf.headers["content-type"] || ""), /application\/pdf/);
 
     const htmlPreview = await request(app)
-      .get(`/api/estimate/v1/projects/${businessProjectId}/pdf?live=1`)
+      .get(`/api/estimate/v1/projects/${businessProjectId}/pdf?format=html&live=1`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(htmlPreview.status, 200);
     const body = htmlPreview.text || "";
@@ -316,7 +316,7 @@ describe("顧客別単価ルール v1.2", () => {
     assert.match(String(pdf.headers["content-type"] || ""), /application\/pdf/);
 
     const htmlPreview = await request(app)
-      .get(`/api/estimate/v1/projects/${businessProjectId}/invoice/pdf?live=1`)
+      .get(`/api/estimate/v1/projects/${businessProjectId}/invoice/pdf?format=html&live=1`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(htmlPreview.status, 200);
     const body = htmlPreview.text || "";

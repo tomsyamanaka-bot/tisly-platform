@@ -27,9 +27,9 @@ function countPhotoCells(html: string, prefix: "sp" | "cr") {
 
 function titleOrder(html: string) {
   const titles: string[] = [];
-  const re = /<p class="sp-photo-title">([^<]+)<\/p>/g;
+  const re = /<p class="sp-photo-title"><span class="sp-photo-num">[^<]*<\/span>\s*([^<]*)<\/p>/g;
   let m: RegExpExecArray | null;
-  while ((m = re.exec(html)) !== null) titles.push(m[1]);
+  while ((m = re.exec(html)) !== null) titles.push(m[1].trim());
   return titles;
 }
 

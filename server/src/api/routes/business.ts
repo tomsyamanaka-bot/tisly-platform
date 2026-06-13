@@ -73,7 +73,7 @@ import {
   createInvoiceMailDraft,
 } from "../../business/services/gmailService.js";
 import {
-  generateCompletionReportPdf,
+  generateCompletionReportPdfV1,
   generateEstimatePdf,
   generateInvoicePdf,
   getCompletionReportPdfOrPlaceholder,
@@ -509,13 +509,22 @@ businessRouter.post("/projects/:projectId/invoice", ...businessAuth, async (req:
   res.json({ invoice: getInvoice(invoice.id), pdfPath });
 });
 
-businessRouter.post("/projects/:projectId/completion-report", ...businessAuth, (req: AuthedRequest, res) => {
+businessRouter.post("/projects/:projectId/completion-report", ...businessAuth, async (req: AuthedRequest, res) => {
   if (!assertBusinessRole(req, res)) return;
   const report = createCompletionReport(String(req.params.projectId), req.body);
   const project = getBusinessProject(String(req.params.projectId))!;
-  const pdfPath = generateCompletionReportPdf(project, report);
-  setCompletionReportPdfPath(report.id, pdfPath);
-  res.json({ report: getCompletionReport(report.id), pdfPath });
+  try {
+    const html = renderCompletionReportHtml(project, report);
+    const pdfPath = await generateCompletionReportPdfV1(
+      project,
+      html,
+      project.projectNo ?? project.id.slice(-4)
+    );
+    setCompletionReportPdfPath(report.id, pdfPath);
+    res.json({ report: getCompletionReport(report.id), pdfPath });
+  } catch (e) {
+    res.status(500).json({ error: (e as Error).message });
+  }
 });
 
 businessRouter.post("/projects/:projectId/invoice-mail", ...businessAuth, (req: AuthedRequest, res) => {

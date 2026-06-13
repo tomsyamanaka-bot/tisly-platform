@@ -252,8 +252,6 @@ body.tisly-friendly {
   max-height: 420px;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  content-visibility: auto;
-  contain-intrinsic-size: 0 320px;
 }
 
 .tisly-friendly .photo-grid {

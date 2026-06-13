@@ -827,7 +827,7 @@ function bindPhotoTitleInputs() {
   bindPhotoTitleIosFlush();
   $("photo-list").querySelectorAll(".photo-title-input").forEach((inp) => {
     inp.addEventListener("click", (ev) => ev.stopPropagation());
-    inp.addEventListener("pointerdown", (ev) => ev.stopPropagation());
+    inp.addEventListener("touchstart", (ev) => ev.stopPropagation(), { passive: true });
     const persist = async (quiet = false) => {
       if (!currentProjectId) return;
       const photoId = inp.dataset.photoId;
@@ -901,6 +901,35 @@ function paintPhotoPreviewAt(index) {
   $("photo-preview-next").disabled = index >= st.photos.length - 1;
 }
 
+function getPreviewInertRoot() {
+  return document.querySelector(".app-main");
+}
+
+function bindPreviewTap(el, handler) {
+  if (!el) return;
+  let touchHandled = false;
+  const run = (ev) => {
+    ev.stopPropagation();
+    handler(ev);
+  };
+  el.addEventListener("touchend", (ev) => {
+    touchHandled = true;
+    run(ev);
+    ev.preventDefault();
+  }, { passive: false });
+  el.addEventListener("click", (ev) => {
+    if (touchHandled) {
+      touchHandled = false;
+      return;
+    }
+    run(ev);
+  });
+}
+
+function bindPreviewDismiss(el, handler) {
+  bindPreviewTap(el, handler);
+}
+
 function openPhotoPreview(photoId) {
   const photos = imagePhotosForPreview();
   const index = photos.findIndex((p) => p.id === photoId);
@@ -911,6 +940,7 @@ function openPhotoPreview(photoId) {
   modal.classList.remove("hidden");
   modal.setAttribute("aria-hidden", "false");
   document.body.classList.add("photo-preview-open");
+  getPreviewInertRoot()?.setAttribute("inert", "");
 }
 
 function closePhotoPreview() {
@@ -920,6 +950,7 @@ function closePhotoPreview() {
   modal.classList.add("hidden");
   modal.setAttribute("aria-hidden", "true");
   document.body.classList.remove("photo-preview-open");
+  getPreviewInertRoot()?.removeAttribute("inert");
   const img = $("photo-preview-img");
   if (img) img.removeAttribute("src");
 }
@@ -928,19 +959,19 @@ function initPhotoPreview() {
   const modal = $("photo-preview-modal");
   if (!modal) return;
 
-  $("photo-preview-backdrop")?.addEventListener("click", closePhotoPreview);
+  bindPreviewDismiss($("photo-preview-backdrop"), closePhotoPreview);
   $("photo-preview-stage")?.addEventListener("click", (ev) => {
     if (ev.target === ev.currentTarget) closePhotoPreview();
   });
-  $("photo-preview-close-x")?.addEventListener("click", closePhotoPreview);
-  $("photo-preview-close")?.addEventListener("click", closePhotoPreview);
+  bindPreviewDismiss($("photo-preview-close-x"), closePhotoPreview);
+  bindPreviewDismiss($("photo-preview-close"), closePhotoPreview);
 
-  $("photo-preview-prev")?.addEventListener("click", () => {
+  bindPreviewDismiss($("photo-preview-prev"), () => {
     if (!photoPreviewState || photoPreviewState.index <= 0) return;
     paintPhotoPreviewAt(photoPreviewState.index - 1);
   });
 
-  $("photo-preview-next")?.addEventListener("click", () => {
+  bindPreviewDismiss($("photo-preview-next"), () => {
     if (!photoPreviewState || photoPreviewState.index >= photoPreviewState.photos.length - 1) return;
     paintPhotoPreviewAt(photoPreviewState.index + 1);
   });

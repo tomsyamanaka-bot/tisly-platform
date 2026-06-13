@@ -8,42 +8,13 @@ import {
   PDF_STORAGE_PROVIDER,
   type PdfStorageProvider,
 } from "../../projects/project-pdf-store.js";
-import { generateQnapFilePath } from "./qnapService.js";
-import {
-  getPdfTemplateMeta,
-  renderPdfPlaceholderHtml,
-  type PdfDocumentKind,
-} from "./pdf-templates.js";
+import { renderPdfPlaceholderHtml } from "./pdf-templates.js";
 import { renderEstimateHtml } from "./estimatePdfTemplate.js";
 import { renderInvoiceHtml } from "./invoicePdfTemplate.js";
 import { renderWithPdfFallback } from "../pdf/render.js";
+import { assertValidPdfBuffer } from "../pdf/pdf-validation.js";
 import type { TomsEstimateHeader } from "../toms-document-format.js";
 /** Phase601+ v3: HTML templates live in estimatePdfTemplate / invoicePdfTemplate / completionReportPdfTemplate */
-
-function minimalPdfBuffer(title: string, lines: string[]): Buffer {
-  const text = [title, "", ...lines].join("\n");
-  const escaped = text.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
-  const stream = `BT /F1 12 Tf 50 750 Td (${escaped.slice(0, 500)}) Tj ET`;
-  const pdf = `%PDF-1.4
-1 0 obj<< /Type /Catalog /Pages 2 0 R >>endobj
-2 0 obj<< /Type /Pages /Kids [3 0 R] /Count 1 >>endobj
-3 0 obj<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources<< /Font<< /F1<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> >>endobj
-4 0 obj<< /Length ${stream.length} >>stream
-${stream}
-endstream endobj
-xref
-0 5
-0000000000 65535 f 
-0000000009 00000 n 
-0000000058 00000 n 
-0000000115 00000 n 
-0000000274 00000 n 
-trailer<< /Size 5 /Root 1 0 R >>
-startxref
-400
-%%EOF`;
-  return Buffer.from(pdf, "utf8");
-}
 
 /** @see PDF_STORAGE_PROVIDER — 現状 local 固定、将来 qnap 切替 */
 export function getPdfStorageProvider(): PdfStorageProvider {
@@ -51,6 +22,7 @@ export function getPdfStorageProvider(): PdfStorageProvider {
 }
 
 function writePdf(projectId: string, folder: string, fileName: string, buf: Buffer): string {
+  assertValidPdfBuffer(buf);
   const dir = businessUploadsDir(projectId, folder);
   const full = path.join(dir, fileName);
   fs.writeFileSync(full, buf);
@@ -106,36 +78,6 @@ export async function generateSpecificationPdfV1(
   return writePdf(project.id, "pdfs", fileName, pdfBuf);
 }
 
-function renderWithTemplate(
-  kind: PdfDocumentKind,
-  project: BusinessProject,
-  doc: Estimate | Invoice | CompletionReport,
-  pdfLines: string[]
-): { pdfPath: string; htmlPath: string; template: ReturnType<typeof getPdfTemplateMeta> } {
-  const meta = getPdfTemplateMeta(kind);
-  const html = renderPdfPlaceholderHtml(kind, project, doc);
-  const htmlName = `${kind}-placeholder.html`;
-  const htmlPath = writeHtml(project.id, "pdf-html", htmlName, html);
-  const fileName = path.basename(
-    generateQnapFilePath(
-      project,
-      kind === "completion_report" ? "completion_report" : kind,
-      kind === "estimate"
-        ? (doc as Estimate).estimateNo
-        : kind === "invoice"
-          ? (doc as Invoice).invoiceNo
-          : undefined
-    )
-  );
-  const pdfPath = writePdf(
-    project.id,
-    "pdfs",
-    fileName,
-    minimalPdfBuffer(meta.description, [...pdfLines, `template: ${meta.provider}/${meta.version}`])
-  );
-  return { pdfPath, htmlPath, template: meta };
-}
-
 export async function generateEstimatePdf(
   project: BusinessProject,
   estimate: Estimate,
@@ -188,21 +130,6 @@ export async function generateInvoicePdf(
     html,
     `請求 ${invoice.invoiceNo}`
   );
-  return pdfPath;
-}
-
-export function generateCompletionReportPdf(
-  project: BusinessProject,
-  report: CompletionReport
-): string {
-  const { pdfPath } = renderWithTemplate("completion_report", project, report, [
-    `完了報告 ${report.title}`,
-    `案件: ${project.title}`,
-    `お客様: ${project.customerName}`,
-    report.workMemo,
-    `施工前写真: ${report.beforePhotos.length}枚`,
-    `施工後写真: ${report.afterPhotos.length}枚`,
-  ]);
   return pdfPath;
 }
 

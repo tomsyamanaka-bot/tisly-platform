@@ -18,7 +18,7 @@ function triggerDownload(blob, fileName) {
 }
 
 function isValidPdfBlob(blob) {
-  return blob && blob.size >= 100 && blob.type !== "text/html";
+  return blob && blob.size >= 1000 && blob.type !== "text/html";
 }
 
 async function fetchPdfBlob(fetchUrl, headers = {}) {

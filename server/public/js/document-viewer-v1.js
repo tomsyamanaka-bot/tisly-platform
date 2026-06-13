@@ -72,7 +72,7 @@ async function loadPdfFrame(pdfPath) {
     throw new Error(PDF_FAIL_MSG);
   }
   const blob = await res.blob();
-  if (blob.size < 100) {
+  if (blob.size < 1000) {
     throw new Error(PDF_FAIL_MSG);
   }
   if (pdfBlobUrl) URL.revokeObjectURL(pdfBlobUrl);
