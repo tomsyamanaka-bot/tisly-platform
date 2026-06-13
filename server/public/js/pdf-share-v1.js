@@ -3,6 +3,8 @@
  * 非対応時はダウンロード / URL コピーにフォールバック。
  */
 
+const PDF_FAIL_MSG = "PDF生成に失敗しました。再生成してください";
+
 function triggerDownload(blob, fileName) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -15,16 +17,24 @@ function triggerDownload(blob, fileName) {
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 
+function isValidPdfBlob(blob) {
+  return blob && blob.size >= 100 && blob.type !== "text/html";
+}
+
 async function fetchPdfBlob(fetchUrl, headers = {}) {
   const res = await fetch(fetchUrl, { headers });
   if (!res.ok) {
-    throw new Error("PDFの取得に失敗しました");
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || PDF_FAIL_MSG);
   }
   const contentType = res.headers.get("content-type") || "";
   if (contentType.includes("text/html")) {
-    throw new Error("PDFが未生成です。PDF再作成を実行してください");
+    throw new Error(PDF_FAIL_MSG);
   }
   const blob = await res.blob();
+  if (!isValidPdfBlob(blob)) {
+    throw new Error(PDF_FAIL_MSG);
+  }
   const type = blob.type && blob.type !== "application/octet-stream" ? blob.type : "application/pdf";
   return new Blob([blob], { type });
 }
@@ -82,4 +92,4 @@ export async function copyPdfShareUrl(url, toast) {
   }
 }
 
-export { fetchPdfBlob, triggerDownload };
+export { fetchPdfBlob, triggerDownload, PDF_FAIL_MSG, isValidPdfBlob };

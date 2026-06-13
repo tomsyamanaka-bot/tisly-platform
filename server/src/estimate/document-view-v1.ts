@@ -139,18 +139,32 @@ function mapLineItems(items: EstimateLineItem[]): DocumentViewLineItemV1[] {
   }));
 }
 
-function pdfPathForKind(projectId: string, kind: DocumentViewKindV1): string {
-  const base = `/api/estimate/v1/projects/${projectId}`;
+function pdfPathForKind(projectId: string, kind: DocumentViewKindV1, hasStoredPdf = false): string {
+  const projectsBase = `/api/projects/v1/projects/${projectId}/pdfs`;
+  const estimateBase = `/api/estimate/v1/projects/${projectId}`;
+  if (hasStoredPdf) {
+    switch (kind) {
+      case "estimate":
+        return `${projectsBase}/estimate/file`;
+      case "invoice":
+        return `${projectsBase}/invoice/file`;
+      case "specification":
+      case "field-report":
+        return `${projectsBase}/specification/file`;
+      case "completion-report":
+        return `${projectsBase}/report/file`;
+    }
+  }
   switch (kind) {
     case "estimate":
-      return `${base}/pdf`;
+      return `${estimateBase}/pdf`;
     case "invoice":
-      return `${base}/invoice/pdf`;
+      return `${estimateBase}/invoice/pdf`;
     case "specification":
     case "field-report":
-      return `${base}/specification/pdf`;
+      return `${estimateBase}/specification/pdf`;
     case "completion-report":
-      return `${base}/completion-report/pdf`;
+      return `${estimateBase}/completion-report/pdf`;
   }
 }
 
@@ -173,6 +187,13 @@ function regenerateUrlForKind(projectId: string, kind: DocumentViewKindV1): stri
 
 function customerFacingNotes(raw: string | null | undefined): string {
   return buildCustomerFacingPdfNotes(raw);
+}
+
+function finalizeDocumentViewPayload(payload: DocumentViewPayloadV1): DocumentViewPayloadV1 {
+  return {
+    ...payload,
+    pdfUrl: pdfPathForKind(payload.projectId, payload.kind, payload.hasStoredPdf),
+  };
 }
 
 function shareFileNameForKind(projectId: string, kind: DocumentViewKindV1): string {
@@ -211,7 +232,7 @@ export function buildDocumentViewPayloadV1(
     projectId: businessProjectId,
     projectTitle: project.title,
     projectNo: project.projectNo,
-    pdfUrl: pdfPathForKind(businessProjectId, kind),
+    pdfUrl: pdfPathForKind(businessProjectId, kind, false),
     shareFileName: shareFileNameForKind(businessProjectId, kind),
     storedPdfPath: null,
     hasStoredPdf: false,
@@ -223,7 +244,7 @@ export function buildDocumentViewPayloadV1(
     const items = normalizeLineItems(detail.estimate.items);
     const totals = calcTotals(items, { shuseiDiscount: detail.estimate.shuseiDiscount });
     const notes = customerFacingNotes(detail.estimateNotes ?? project.surveyMemo ?? "");
-    return {
+    return finalizeDocumentViewPayload({
       ...base,
       storedPdfPath: detail.estimate.pdfPath ?? null,
       hasStoredPdf: Boolean(detail.estimate.pdfPath),
@@ -241,7 +262,7 @@ export function buildDocumentViewPayloadV1(
         tax: totals.tax,
         total: totals.total,
       },
-    };
+    });
   }
 
   if (kind === "invoice") {
@@ -251,7 +272,7 @@ export function buildDocumentViewPayloadV1(
     if (!invoice || !estimate || !detail?.header) return null;
     const items = normalizeLineItems(estimate.items);
     const notes = customerFacingNotes(project.surveyMemo ?? "");
-    return {
+    return finalizeDocumentViewPayload({
       ...base,
       storedPdfPath: invoice.pdfPath ?? null,
       hasStoredPdf: Boolean(invoice.pdfPath),
@@ -269,14 +290,14 @@ export function buildDocumentViewPayloadV1(
         total: invoice.total,
         notes,
       },
-    };
+    });
   }
 
   if (kind === "specification") {
     const ctx = buildSpecificationContextV1(businessProjectId);
     if (!ctx) return null;
     const specMeta = getProjectPdfMeta(businessProjectId, "specification");
-    return {
+    return finalizeDocumentViewPayload({
       ...base,
       storedPdfPath: specMeta?.localPath ?? null,
       hasStoredPdf: Boolean(specMeta?.localPath),
@@ -291,7 +312,7 @@ export function buildDocumentViewPayloadV1(
         notes: ctx.notes ?? "",
         photos: ctx.photos,
       },
-    };
+    });
   }
 
   if (kind === "completion-report") {
@@ -306,7 +327,7 @@ export function buildDocumentViewPayloadV1(
     const reportMeta = project.completionReportId
       ? getCompletionReport(project.completionReportId)?.pdfPath
       : null;
-    return {
+    return finalizeDocumentViewPayload({
       ...base,
       storedPdfPath: reportMeta ?? null,
       hasStoredPdf: Boolean(reportMeta),
@@ -324,14 +345,14 @@ export function buildDocumentViewPayloadV1(
         photos: ctx.photos,
         checklist,
       },
-    };
+    });
   }
 
   if (kind === "field-report") {
     const surveyId = project.surveyProjectId;
     const survey = surveyId ? getSurveyProjectV1Detail(surveyId) : null;
     const photos = buildReportPhotosV1(businessProjectId);
-    return {
+    return finalizeDocumentViewPayload({
       ...base,
       fieldReport: {
         siteName: survey?.siteName ?? project.title,
@@ -347,7 +368,7 @@ export function buildDocumentViewPayloadV1(
         })),
         photos,
       },
-    };
+    });
   }
 
   return null;

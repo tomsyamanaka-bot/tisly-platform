@@ -183,9 +183,13 @@ function withProjectNotes(project: SurveyProjectV1): SurveyProjectV1 {
 export function listSurveyProjectsV1(opts?: {
   customerCode?: string;
   workflowStatus?: SurveyWorkflowStatus;
+  includeDeleted?: boolean;
 }): SurveyProjectV1[] {
   const clauses: string[] = [];
   const params: unknown[] = [];
+  if (!opts?.includeDeleted) {
+    clauses.push("deleted_at IS NULL");
+  }
   if (opts?.customerCode) {
     clauses.push("customer_code = ?");
     params.push(opts.customerCode.toUpperCase());
@@ -249,9 +253,10 @@ export function createSurveyProjectV1(input: {
   return withProjectNotes(getSurveyProjectV1(projectId)!);
 }
 
-export function getSurveyProjectV1(projectId: string): SurveyProjectV1 | null {
+export function getSurveyProjectV1(projectId: string, opts?: { includeDeleted?: boolean }): SurveyProjectV1 | null {
+  const deletedClause = opts?.includeDeleted ? "" : " AND deleted_at IS NULL";
   const row = getDatabase()
-    .prepare(`SELECT * FROM survey_projects WHERE project_id = ?`)
+    .prepare(`SELECT * FROM survey_projects WHERE project_id = ?${deletedClause}`)
     .get(projectId) as Record<string, unknown> | undefined;
   return row ? rowToProject(row) : null;
 }
@@ -847,16 +852,52 @@ export function copySurveyProjectV1(projectId: string): SurveyProjectV1 {
 }
 
 export function deleteSurveyProjectV1(projectId: string): boolean {
-  if (!getSurveyProjectV1(projectId)) return false;
-  const uploadDir = path.join(process.cwd(), "uploads", "survey", projectId);
-  if (fs.existsSync(uploadDir)) {
-    fs.rmSync(uploadDir, { recursive: true, force: true });
-  }
-  const db = getDatabase();
-  db.prepare(`DELETE FROM survey_photos WHERE project_id = ?`).run(projectId);
-  db.prepare(`DELETE FROM survey_materials WHERE project_id = ?`).run(projectId);
-  db.prepare(`DELETE FROM survey_project_notes WHERE project_id = ?`).run(projectId);
-  db.prepare(`DELETE FROM survey_handoff_log WHERE survey_project_id = ?`).run(projectId);
-  db.prepare(`DELETE FROM survey_projects WHERE project_id = ?`).run(projectId);
+  const existing = getSurveyProjectV1(projectId);
+  if (!existing) return false;
+  const now = new Date().toISOString();
+  const result = getDatabase()
+    .prepare(`UPDATE survey_projects SET deleted_at = ?, updated_at = ? WHERE project_id = ? AND deleted_at IS NULL`)
+    .run(now, now, projectId);
+  return result.changes > 0;
+}
+
+export function getSurveyDeletePreviewV1(projectId: string): {
+  projectId: string;
+  siteName: string;
+  linkedEstimate: boolean;
+  warning?: string;
+} | null {
+  const project = getSurveyProjectV1(projectId);
+  if (!project) return null;
+  const handoff = getDatabase()
+    .prepare(`SELECT business_project_id FROM survey_handoff_log WHERE survey_project_id = ?`)
+    .get(projectId) as { business_project_id?: string } | undefined;
+  const linkedEstimate = Boolean(handoff?.business_project_id);
+  return {
+    projectId,
+    siteName: project.siteName,
+    linkedEstimate,
+    warning: linkedEstimate ? "削除すると見積側の参照が残ります" : undefined,
+  };
+}
+
+export function listDeletedSurveyProjectsV1(limit = 50): SurveyProjectV1[] {
+  const rows = getDatabase()
+    .prepare(
+      `SELECT * FROM survey_projects WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC LIMIT ?`
+    )
+    .all(limit) as Record<string, unknown>[];
+  return rows.map(rowToProject);
+}
+
+export function restoreSurveyProjectV1(projectId: string): boolean {
+  const row = getDatabase()
+    .prepare(`SELECT project_id, deleted_at FROM survey_projects WHERE project_id = ?`)
+    .get(projectId) as { project_id: string; deleted_at: string | null } | undefined;
+  if (!row?.deleted_at) return false;
+  const now = new Date().toISOString();
+  getDatabase()
+    .prepare(`UPDATE survey_projects SET deleted_at = NULL, updated_at = ? WHERE project_id = ?`)
+    .run(now, projectId);
   return true;
 }

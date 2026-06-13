@@ -18,10 +18,13 @@ import {
   deleteSurveyIpEquipmentV1,
   deleteSurveyPhotoV1,
   deleteSurveyProjectV1,
+  getSurveyDeletePreviewV1,
   getSurveyProjectV1Detail,
+  listDeletedSurveyProjectsV1,
   listSurveyProjectsV1,
   markEstimatePendingV1,
   moveSurveyPhotoV1,
+  restoreSurveyProjectV1,
   updateSurveyIpEquipmentV1,
   updateSurveyPhotoV1,
   updateSurveyProjectV1,
@@ -179,6 +182,41 @@ surveyV1Router.post("/projects/:id/copy", ...surveyV1Auth, (req: AuthedRequest, 
     const msg = e instanceof Error ? e.message : "copy failed";
     res.status(msg === "project not found" ? 404 : 400).json({ error: msg });
   }
+});
+
+surveyV1Router.get("/projects/:id/delete-preview", ...surveyV1Auth, (req: AuthedRequest, res) => {
+  if (!assertSurveyRole(req, res)) return;
+  const preview = getSurveyDeletePreviewV1(String(req.params.id));
+  if (!preview) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  res.json(preview);
+});
+
+surveyV1Router.get("/projects/deleted", ...surveyV1Auth, (req: AuthedRequest, res) => {
+  if (!assertSurveyRole(req, res)) return;
+  const role = normalizeRole(req.admin?.role ?? "viewer");
+  if (role !== "owner" && role !== "admin" && role !== "super_admin") {
+    res.status(403).json({ error: "Admin role required" });
+    return;
+  }
+  res.json({ projects: listDeletedSurveyProjectsV1() });
+});
+
+surveyV1Router.post("/projects/:id/restore", ...surveyV1Auth, (req: AuthedRequest, res) => {
+  if (!assertSurveyRole(req, res)) return;
+  const role = normalizeRole(req.admin?.role ?? "viewer");
+  if (role !== "owner" && role !== "admin" && role !== "super_admin") {
+    res.status(403).json({ error: "Admin role required" });
+    return;
+  }
+  const ok = restoreSurveyProjectV1(String(req.params.id));
+  if (!ok) {
+    res.status(404).json({ error: "Not found or not deleted" });
+    return;
+  }
+  res.json({ ok: true, project: getSurveyProjectV1Detail(String(req.params.id)) });
 });
 
 surveyV1Router.delete("/projects/:id", ...surveyV1Auth, (req: AuthedRequest, res) => {

@@ -1,6 +1,6 @@
 import { getCustomerToken, requireCustomerLogin, customerCodeFromPath } from "./customer-auth.js";
 import { renderFriendlyErrorHtml } from "./tisly-friendly-errors.js";
-import { sharePdfAsFile } from "./pdf-share-v1.js";
+import { sharePdfAsFile, fetchPdfBlob, PDF_FAIL_MSG } from "./pdf-share-v1.js";
 
 const MOBILE_BREAKPOINT = 768;
 const API = "/api/estimate/v1";
@@ -63,17 +63,18 @@ async function fetchPayload(projectId, kind) {
 async function loadPdfFrame(pdfPath) {
   const token = getCustomerToken();
   const res = await fetch(pdfPath, { headers: { Authorization: `Bearer ${token}` } });
-  if (!res.ok) throw new Error("PDFの読み込みに失敗しました");
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || PDF_FAIL_MSG);
+  }
   const contentType = res.headers.get("content-type") || "";
   if (contentType.includes("text/html")) {
-    const html = await res.text();
-    const blob = new Blob([html], { type: "text/html; charset=UTF-8" });
-    if (pdfBlobUrl) URL.revokeObjectURL(pdfBlobUrl);
-    pdfBlobUrl = URL.createObjectURL(blob);
-    $("pdf-frame").src = pdfBlobUrl;
-    return;
+    throw new Error(PDF_FAIL_MSG);
   }
   const blob = await res.blob();
+  if (blob.size < 100) {
+    throw new Error(PDF_FAIL_MSG);
+  }
   if (pdfBlobUrl) URL.revokeObjectURL(pdfBlobUrl);
   pdfBlobUrl = URL.createObjectURL(blob);
   $("pdf-frame").src = pdfBlobUrl;
@@ -419,8 +420,21 @@ async function init() {
   });
   $("btn-share").addEventListener("click", () => handleShare());
   $("btn-print").addEventListener("click", () => handlePrint());
-  $("btn-pdf").addEventListener("click", () => {
-    window.open(buildPdfTabUrl(payload?.pdfUrl || ""), "_blank", "noopener");
+  $("btn-pdf").addEventListener("click", async () => {
+    if (!payload?.pdfUrl) {
+      toast(PDF_FAIL_MSG);
+      return;
+    }
+    try {
+      const blob = await fetchPdfBlob(buildPdfTabUrl(payload.pdfUrl), {
+        Authorization: `Bearer ${getCustomerToken()}`,
+      });
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank", "noopener");
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (e) {
+      toast(e.message || PDF_FAIL_MSG);
+    }
   });
 
   $("lightbox-close").addEventListener("click", closeLightbox);

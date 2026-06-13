@@ -19,6 +19,8 @@ import {
   regenerateProjectPdfV1,
   resolveProjectPdfFile,
 } from "../../projects/project-pdf-store.js";
+import { sendPdfFile } from "../../business/pdf/pdf-serve.js";
+import { isValidPdfFile } from "../../business/pdf/pdf-validation.js";
 import {
   getProjectPdfMeta,
   resetQnapBackupForResync,
@@ -108,13 +110,12 @@ projectsV1Router.get("/projects/:id/pdfs/:kind/file", ...auth, (req: AuthedReque
     return;
   }
   const filePath = resolveProjectPdfFile(String(req.params.id), kind);
-  if (!filePath) {
+  if (!filePath || !isValidPdfFile(filePath)) {
     res.status(404).json({ error: "PDF not found" });
     return;
   }
   const fileName = path.basename(filePath);
-  res.setHeader("Content-Disposition", `inline; filename*=UTF-8''${encodeURIComponent(fileName)}`);
-  res.type("application/pdf").sendFile(filePath);
+  sendPdfFile(res, filePath, fileName);
 });
 
 projectsV1Router.post("/projects/:id/pdfs/:kind/regenerate", ...auth, async (req: AuthedRequest, res) => {

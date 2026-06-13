@@ -118,7 +118,7 @@ describe("TOMS標準見積フォーマット", () => {
 
   it("伝元/KSフロンティア案件の見積HTMLにTOMSヘッダーと明細列がある", async () => {
     const res = await request(app)
-      .get(`/api/estimate/v1/projects/${businessProjectId}/pdf?includePhotos=0`)
+      .get(`/api/estimate/v1/projects/${businessProjectId}/pdf?format=html&includePhotos=0`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(res.status, 200);
     assert.match(res.text, /お見積書/);
@@ -149,7 +149,7 @@ describe("TOMS標準見積フォーマット", () => {
 
   it("写真あり版では参考写真セクションが出る", async () => {
     const res = await request(app)
-      .get(`/api/estimate/v1/projects/${businessProjectId}/pdf?includePhotos=1`)
+      .get(`/api/estimate/v1/projects/${businessProjectId}/pdf?format=html&includePhotos=1`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(res.status, 200);
     // 写真が無い案件でも写真ありモードではセクション構造を維持（写真0枚なら非表示）
@@ -192,7 +192,7 @@ describe("TOMS標準見積フォーマット", () => {
       .set("Authorization", `Bearer ${token}`)
       .send({ items: manyItems });
     const res = await request(app)
-      .get(`/api/estimate/v1/projects/${businessProjectId}/pdf`)
+      .get(`/api/estimate/v1/projects/${businessProjectId}/pdf?format=html`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(res.status, 200);
     assert.match(res.text, /工事項目20/);
@@ -213,7 +213,7 @@ describe("TOMS標準見積フォーマット", () => {
       .send({});
 
     const noPhoto = await request(app)
-      .get(`/api/estimate/v1/projects/${businessProjectId}/invoice/pdf?live=1`)
+      .get(`/api/estimate/v1/projects/${businessProjectId}/invoice/pdf?format=html&live=1`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(noPhoto.status, 200);
     assert.match(noPhoto.text, /御請求書/);
@@ -224,7 +224,7 @@ describe("TOMS標準見積フォーマット", () => {
     assert.ok(!/参考写真/.test(noPhoto.text));
 
     const withPhoto = await request(app)
-      .get(`/api/estimate/v1/projects/${businessProjectId}/invoice/pdf?includePhotos=1&live=1`)
+      .get(`/api/estimate/v1/projects/${businessProjectId}/invoice/pdf?format=html&includePhotos=1&live=1`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(withPhoto.status, 200);
     assert.match(withPhoto.text, /御請求書/);

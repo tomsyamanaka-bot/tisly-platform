@@ -203,7 +203,18 @@ async function copyProject(projectId) {
 }
 
 async function deleteProject(projectId) {
-  if (!confirm("本当に削除しますか？")) return;
+  let preview = null;
+  try {
+    preview = await api(`/projects/${projectId}/delete-preview`);
+  } catch {
+    /* ignore */
+  }
+  let msg =
+    "この現調データを削除しますか？写真・見積・報告書に使っている場合は注意してください。";
+  if (preview?.warning) {
+    msg += `\n\n⚠ ${preview.warning}`;
+  }
+  if (!confirm(msg)) return;
   try {
     await api(`/projects/${projectId}`, { method: "DELETE" });
     toast("削除しました");

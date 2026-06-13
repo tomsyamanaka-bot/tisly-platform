@@ -20,6 +20,8 @@ import {
 import {
   bindDepartureAlertCards,
   bindDeparturePrepCards,
+  collectFieldCheckDedupeKeys,
+  departureMatchesFieldCheckKey,
   initDepartureReminderClient,
   renderDepartureAlertCard,
   renderDeparturePrepHtml,
@@ -112,8 +114,10 @@ function renderDepartureSection(detail) {
     el.innerHTML = "";
     return;
   }
+  const dedupeKeys = collectFieldCheckDedupeKeys(detail.intelligence, currentDeparture.date);
+  const hideMaterial = departureMatchesFieldCheckKey(currentDeparture, dedupeKeys);
   el.classList.remove("hidden");
-  el.innerHTML = renderDeparturePrepHtml(currentDeparture);
+  el.innerHTML = renderDeparturePrepHtml(currentDeparture, { hideMaterialCheck: hideMaterial });
   bindDeparturePrepCards(el, { [currentDeparture.id]: currentDeparture }, {
     apiFetch: (path, opts) => api(path, opts),
     onSaved: async (saved) => {
@@ -197,7 +201,9 @@ function renderIntelligenceSummary(intelligence) {
 function renderDepartureAlert(detail) {
   const mount = $("departure-alert-mount");
   if (!mount) return;
-  const html = renderDepartureAlertCard(detail.departure);
+  const dedupeKeys = collectFieldCheckDedupeKeys(detail.intelligence, detail.departure?.date);
+  const hideMaterial = departureMatchesFieldCheckKey(detail.departure, dedupeKeys);
+  const html = renderDepartureAlertCard(detail.departure, { hideMaterialLink: hideMaterial });
   if (html) {
     mount.innerHTML = html;
     bindDepartureAlertCards(mount);

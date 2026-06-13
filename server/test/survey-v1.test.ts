@@ -401,12 +401,16 @@ describe("現調PWA v1 API", () => {
     assert.equal(copied.body.workflowStatus, "surveying");
   });
 
-  it("案件を削除できる", async () => {
+  it("案件を論理削除できる", async () => {
     const copy = await request(app)
       .post(`/api/survey/v1/projects/${projectId}/copy`)
       .set("Authorization", `Bearer ${token}`)
       .send({});
     const deleteId = copy.body.projectId;
+    const preview = await request(app)
+      .get(`/api/survey/v1/projects/${deleteId}/delete-preview`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(preview.status, 200);
     const res = await request(app)
       .delete(`/api/survey/v1/projects/${deleteId}`)
       .set("Authorization", `Bearer ${token}`);
@@ -416,6 +420,10 @@ describe("現調PWA v1 API", () => {
       .get(`/api/survey/v1/projects/${deleteId}`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(gone.status, 404);
+    const list = await request(app)
+      .get("/api/survey/v1/projects?customerCode=TOMS001")
+      .set("Authorization", `Bearer ${token}`);
+    assert.ok(!list.body.projects.some((p: { projectId: string }) => p.projectId === deleteId));
   });
 
   it("survey-v1 に写真プレビューモーダルが含まれる", () => {

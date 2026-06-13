@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { renderPracticalCompletionReportHtml } from "../src/estimate/practical-completion-report-template.js";
 import { renderSpecificationHtml } from "../src/estimate/specification-template.js";
+import { formatPhotoCircledNumber } from "../src/estimate/practical-pdf-layout.js";
 import { renderEstimateHtml } from "../src/business/pdf/estimate-template.js";
 import { renderInvoiceHtml } from "../src/business/pdf/invoice-template.js";
 import { resolveTomsBankInfo } from "../src/business/toms-document-format.js";
@@ -106,6 +107,31 @@ describe("お客様向けPDFコンテンツ", () => {
     assert.ok(!html.includes("システム構成"));
     assert.ok(!html.includes("設置場所一覧"));
     assert.ok(!html.includes("Google予定"));
+  });
+
+  it("写真ページは左上から①②順・2列×3段", () => {
+    const photos = Array.from({ length: 4 }, (_, i) => ({
+      url: `/p${i + 1}.jpg`,
+      title: `現場${i + 1}`,
+    }));
+    const html = renderSpecificationHtml({
+      projectNo: "PRJ-2026-0099",
+      addressee: "テスト",
+      subject: "案件",
+      siteName: "現場",
+      workLocation: "東京都",
+      issueDate: "2026/06/13",
+      staffName: "担当",
+      generatedAt: "2026-06-13T12:00:00+09:00",
+      photos,
+    });
+    assert.match(html, /①/);
+    assert.match(html, /②/);
+    assert.match(html, /③/);
+    assert.match(html, /④/);
+    assert.match(html, /object-fit: cover/);
+    assert.equal(formatPhotoCircledNumber(1), "①");
+    assert.equal(formatPhotoCircledNumber(6), "⑥");
   });
 
   it("完了報告書から作業時間・部材・確認結果を除く", () => {

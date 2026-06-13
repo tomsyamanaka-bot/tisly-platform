@@ -27,6 +27,46 @@ export async function requestNotificationPermissionOnce() {
   }
 }
 
+/** 材料チェック重複判定キー — date + projectId + eventId または date + title + location */
+export function fieldCheckDedupeKey({ date, projectId, eventId, title, location }) {
+  const d = String(date ?? "").slice(0, 10);
+  if (d && projectId && eventId) {
+    return `${d}|${projectId}|${eventId}`;
+  }
+  const t = String(title ?? "").trim();
+  const loc = String(location ?? "").trim();
+  return `${d}|${t}|${loc}`;
+}
+
+export function collectFieldCheckDedupeKeys(intelligence, date) {
+  const keys = new Set();
+  for (const ev of intelligence?.events ?? []) {
+    if (!ev.fieldCheck?.url) continue;
+    keys.add(
+      fieldCheckDedupeKey({
+        date,
+        projectId: ev.projectId ?? ev.projectRef?.projectId,
+        eventId: ev.eventId ?? ev.id,
+        title: ev.title,
+        location: ev.location ?? ev.address?.fullAddress,
+      })
+    );
+  }
+  return keys;
+}
+
+export function departureMatchesFieldCheckKey(departure, dedupeKeys) {
+  if (!departure || !dedupeKeys?.size) return false;
+  const key = fieldCheckDedupeKey({
+    date: departure.date,
+    projectId: departure.projectId,
+    eventId: departure.firstEventId,
+    title: departure.eventTitle,
+    location: null,
+  });
+  return dedupeKeys.has(key);
+}
+
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -102,7 +142,7 @@ export async function showDepartureNotification(departure, payload) {
   return "alert";
 }
 
-export function renderDepartureAlertCard(departure, { onOpenKit } = {}) {
+export function renderDepartureAlertCard(departure, { onOpenKit, hideMaterialLink = false } = {}) {
   if (!departure?.reminderEnabled || departure.date !== todayIso()) return "";
   const mins = minutesUntilReminder(departure);
   if (mins == null) return "";
@@ -110,10 +150,13 @@ export function renderDepartureAlertCard(departure, { onOpenKit } = {}) {
   if (!show) return "";
   const site = departure.eventTitle ? `「${departure.eventTitle}」` : "";
   const href = buildFieldCheckHref(departure);
+  const kitBtn = hideMaterialLink
+    ? `<p class="departure-alert-body muted">予定カードから材料チェックを開けます</p>`
+    : `<a class="btn-sub btn-small departure-alert-btn" href="${href}" data-departure-open="1">材料チェックを開く</a>`;
   return `<div class="departure-alert-card" role="alert">
     <p class="departure-alert-title">🔔 ${departure.reminderTime} 材料チェック</p>
     <p class="departure-alert-body">出発 ${departure.departureTime}${site ? ` — ${site}` : ""}</p>
-    <a class="btn-sub btn-small departure-alert-btn" href="${href}" data-departure-open="1">材料チェックを開く</a>
+    ${kitBtn}
   </div>`;
 }
 
@@ -177,11 +220,23 @@ function materialCheckProgressLabel(departure) {
   return `🎒 ${p.checked}/${p.total}`;
 }
 
-export function renderDeparturePrepHtml(departure) {
+export function renderDeparturePrepHtml(departure, { hideMaterialCheck = false } = {}) {
   if (!departure) return "";
   const toggleLabel = departure.reminderEnabled ? "ON" : "OFF";
   const kitHref = buildFieldCheckHref(departure);
   const progressLabel = materialCheckProgressLabel(departure);
+  const kitAlways = hideMaterialCheck
+    ? `<div class="departure-prep-kit-always">
+      <span class="departure-kit-progress" aria-hidden="true">${progressLabel}</span>
+      <span class="section-hint">予定内カードから開く</span>
+    </div>`
+    : `<div class="departure-prep-kit-always">
+      <span class="departure-kit-progress" aria-hidden="true">${progressLabel}</span>
+      <a class="btn-sub btn-small btn-compact departure-kit-btn" href="${kitHref}">材料チェックを開く</a>
+    </div>`;
+  const kitAction = hideMaterialCheck
+    ? ""
+    : `<a class="btn-sub btn-small btn-compact" href="${kitHref}">材料チェックを開く</a>`;
   return `<div class="departure-prep-card departure-prep-collapsed" data-departure-id="${departure.id}" aria-expanded="false">
     <button type="button" class="departure-prep-summary" data-departure-accordion="1" aria-label="出発準備の詳細を開く">
       <span class="departure-prep-compact-line">🚐 出発 ${departure.departureTime}　通知 ${departure.reminderTime} ${toggleLabel}</span>
@@ -193,13 +248,10 @@ export function renderDeparturePrepHtml(departure) {
       <div class="departure-prep-actions">
         <button type="button" class="btn-sub btn-small btn-compact" data-departure-edit="1">出発時間を変更</button>
         <button type="button" class="btn-sub btn-small btn-compact" data-departure-toggle="1">通知 ${toggleLabel}</button>
-        <a class="btn-sub btn-small btn-compact" href="${kitHref}">材料チェックを開く</a>
+        ${kitAction}
       </div>
     </div>
-    <div class="departure-prep-kit-always">
-      <span class="departure-kit-progress" aria-hidden="true">${progressLabel}</span>
-      <a class="btn-sub btn-small btn-compact departure-kit-btn" href="${kitHref}">材料チェックを開く</a>
-    </div>
+    ${kitAlways}
   </div>`;
 }
 

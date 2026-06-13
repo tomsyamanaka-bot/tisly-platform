@@ -43,8 +43,10 @@ import {
   getInvoicePdfOrPlaceholder,
 } from "../../business/services/pdfService.js";
 import { getBusinessProject, getEstimate, getInvoice, getCompletionReport, setEstimatePdfPath, setInvoicePdfPath } from "../../business/business-store.js";
-import { regenerateProjectPdfV1, resolveProjectPdfFile } from "../../projects/project-pdf-store.js";
+import { regenerateProjectPdfV1, resolveProjectPdfFile, buildProjectPdfFileName } from "../../projects/project-pdf-store.js";
 import { recordProjectPdfSavedV1 } from "../../projects/project-pdf-qnap-store.js";
+import { sendPdfFile } from "../../business/pdf/pdf-serve.js";
+import { isValidPdfFile, PDF_GENERATION_FAILED_MSG } from "../../business/pdf/pdf-validation.js";
 import type { EstimateLineItem } from "../../business/business-types.js";
 import type { EstimateHeaderInputV1 } from "../../estimate/estimate-v1-types.js";
 import {
@@ -84,6 +86,11 @@ function parseRegenerate(query: Record<string, unknown>): boolean {
   const raw = query.regenerate ?? query.live;
   if (raw === "1" || raw === "true" || raw === "yes") return true;
   return false;
+}
+
+function parseFormatHtml(query: Record<string, unknown>): boolean {
+  const raw = query.format ?? query.preview;
+  return raw === "html";
 }
 
 estimateV1Router.get("/price-rules", ...estimateV1Auth, (req: AuthedRequest, res) => {
@@ -286,25 +293,46 @@ estimateV1Router.post("/projects/:id/finalize", ...estimateV1Auth, async (req: A
   }
 });
 
-estimateV1Router.get("/projects/:id/pdf", ...estimateV1Auth, (req: AuthedRequest, res) => {
+estimateV1Router.get("/projects/:id/pdf", ...estimateV1Auth, async (req: AuthedRequest, res) => {
   if (!assertEstimateV1Role(req, res)) return;
-  const project = getBusinessProject(String(req.params.id));
+  const projectId = String(req.params.id);
+  const project = getBusinessProject(projectId);
   if (!project?.estimateId) {
     res.status(404).json({ error: "No estimate" });
     return;
   }
-  const estimate = getEstimateProjectV1Detail(project.id)?.estimate;
+  const estimate = getEstimate(project.estimateId);
   if (!estimate) {
     res.status(404).json({ error: "No estimate" });
     return;
   }
   const includePhotos = parseIncludePhotos(req.query as Record<string, unknown>);
   const regenerate = parseRegenerate(req.query as Record<string, unknown>);
-  const pdfCtx = getEstimatePdfContextV1(project.id, { includePhotos }) ?? undefined;
-  const { contentType, path: filePath } = getEstimatePdfOrPlaceholder(project, estimate, pdfCtx, {
-    regenerate,
-  });
-  res.type(contentType).sendFile(filePath);
+  const pdfCtx = getEstimatePdfContextV1(projectId, { includePhotos }) ?? undefined;
+  if (parseFormatHtml(req.query as Record<string, unknown>)) {
+    const { contentType, path: filePath } = getEstimatePdfOrPlaceholder(project, estimate, pdfCtx, {
+      regenerate,
+    });
+    res.type(contentType).sendFile(filePath);
+    return;
+  }
+  let filePath = !regenerate ? resolveProjectPdfFile(projectId, "estimate") : null;
+  if (!filePath || !isValidPdfFile(filePath)) {
+    try {
+      const pdfPath = await generateEstimatePdf(project, estimate, pdfCtx);
+      setEstimatePdfPath(estimate.id, pdfPath);
+      recordProjectPdfSavedV1(projectId, "estimate", pdfPath);
+      filePath = resolveProjectPdfFile(projectId, "estimate");
+    } catch (e) {
+      res.status(500).json({ error: e instanceof Error ? e.message : PDF_GENERATION_FAILED_MSG });
+      return;
+    }
+  }
+  if (!filePath || !isValidPdfFile(filePath)) {
+    res.status(500).json({ error: PDF_GENERATION_FAILED_MSG });
+    return;
+  }
+  sendPdfFile(res, filePath, buildProjectPdfFileName("estimate", estimate.estimateNo));
 });
 
 estimateV1Router.post("/projects/:id/pdf/regenerate", ...estimateV1Auth, async (req: AuthedRequest, res) => {
@@ -344,9 +372,10 @@ estimateV1Router.post("/projects/:id/invoice", ...estimateV1Auth, async (req: Au
   }
 });
 
-estimateV1Router.get("/projects/:id/invoice/pdf", ...estimateV1Auth, (req: AuthedRequest, res) => {
+estimateV1Router.get("/projects/:id/invoice/pdf", ...estimateV1Auth, async (req: AuthedRequest, res) => {
   if (!assertEstimateV1Role(req, res)) return;
-  const project = getBusinessProject(String(req.params.id));
+  const projectId = String(req.params.id);
+  const project = getBusinessProject(projectId);
   if (!project?.invoiceId || !project.estimateId) {
     res.status(404).json({ error: "No invoice" });
     return;
@@ -359,12 +388,38 @@ estimateV1Router.get("/projects/:id/invoice/pdf", ...estimateV1Auth, (req: Authe
   }
   const includePhotos = parseIncludePhotos(req.query as Record<string, unknown>);
   const regenerate = parseRegenerate(req.query as Record<string, unknown>);
-  const pdfCtx = getEstimatePdfContextV1(project.id, { includePhotos }) ?? undefined;
-  const { contentType, path: filePath } = getInvoicePdfOrPlaceholder(project, invoice, estimate, {
-    notes: pdfCtx?.notes,
-    includePhotos: pdfCtx?.includePhotos,
-  }, { regenerate });
-  res.type(contentType).sendFile(filePath);
+  const pdfCtx = getEstimatePdfContextV1(projectId, { includePhotos }) ?? undefined;
+  if (parseFormatHtml(req.query as Record<string, unknown>)) {
+    const { contentType, path: filePath } = getInvoicePdfOrPlaceholder(
+      project,
+      invoice,
+      estimate,
+      { notes: pdfCtx?.notes, includePhotos: pdfCtx?.includePhotos },
+      { regenerate }
+    );
+    res.type(contentType).sendFile(filePath);
+    return;
+  }
+  let filePath = !regenerate ? resolveProjectPdfFile(projectId, "invoice") : null;
+  if (!filePath || !isValidPdfFile(filePath)) {
+    try {
+      const pdfPath = await generateInvoicePdf(project, invoice, estimate, {
+        notes: pdfCtx?.notes,
+        includePhotos: pdfCtx?.includePhotos,
+      });
+      setInvoicePdfPath(invoice.id, pdfPath);
+      recordProjectPdfSavedV1(projectId, "invoice", pdfPath);
+      filePath = resolveProjectPdfFile(projectId, "invoice");
+    } catch (e) {
+      res.status(500).json({ error: e instanceof Error ? e.message : PDF_GENERATION_FAILED_MSG });
+      return;
+    }
+  }
+  if (!filePath || !isValidPdfFile(filePath)) {
+    res.status(500).json({ error: PDF_GENERATION_FAILED_MSG });
+    return;
+  }
+  sendPdfFile(res, filePath, buildProjectPdfFileName("invoice", invoice.invoiceNo));
 });
 
 estimateV1Router.post(
@@ -406,22 +461,45 @@ estimateV1Router.get(
       return;
     }
     const regenerate = parseRegenerate(req.query as Record<string, unknown>);
-    if (!regenerate) {
-      const stored = resolveProjectPdfFile(projectId, "specification");
-      if (stored) {
-        res.type("application/pdf").sendFile(stored);
+    if (parseFormatHtml(req.query as Record<string, unknown>)) {
+      const html = renderSpecificationHtmlV1(projectId);
+      if (!html) {
+        res.status(404).json({ error: "Not found" });
+        return;
+      }
+      const tmp = businessUploadsDir(project.id, "pdf-html");
+      const p = path.join(tmp, "specification-live.html");
+      fs.writeFileSync(p, html, "utf8");
+      res.type("text/html; charset=utf-8").sendFile(p);
+      return;
+    }
+    let filePath = !regenerate ? resolveProjectPdfFile(projectId, "specification") : null;
+    if (!filePath || !isValidPdfFile(filePath)) {
+      try {
+        const pdfPath = await maybeAutoSaveSpecificationPdfV1(projectId);
+        if (!pdfPath) {
+          const entry = await regenerateProjectPdfV1(projectId, "specification");
+          filePath = resolveProjectPdfFile(projectId, "specification");
+          if (!filePath && entry.pdfPath) {
+            filePath = path.join(process.cwd(), entry.pdfPath.replace(/^\//, ""));
+          }
+        } else {
+          filePath = resolveProjectPdfFile(projectId, "specification");
+        }
+      } catch (e) {
+        res.status(500).json({ error: e instanceof Error ? e.message : PDF_GENERATION_FAILED_MSG });
         return;
       }
     }
-    const html = renderSpecificationHtmlV1(projectId);
-    if (!html) {
-      res.status(404).json({ error: "Not found" });
+    if (!filePath || !isValidPdfFile(filePath)) {
+      res.status(500).json({ error: PDF_GENERATION_FAILED_MSG });
       return;
     }
-    const tmp = businessUploadsDir(project.id, "pdf-html");
-    const p = path.join(tmp, "specification-live.html");
-    fs.writeFileSync(p, html, "utf8");
-    res.type("text/html; charset=utf-8").sendFile(p);
+    sendPdfFile(
+      res,
+      filePath,
+      buildProjectPdfFileName("specification", project.projectNo ?? projectId.slice(-4))
+    );
   }
 );
 
@@ -542,7 +620,7 @@ estimateV1Router.post(
 estimateV1Router.get(
   "/projects/:id/completion-report/pdf",
   ...estimateV1Auth,
-  (req: AuthedRequest, res) => {
+  async (req: AuthedRequest, res) => {
     if (!assertEstimateV1Role(req, res)) return;
     const projectId = String(req.params.id);
     const project = getBusinessProject(projectId);
@@ -551,25 +629,43 @@ estimateV1Router.get(
       return;
     }
     const regenerate = parseRegenerate(req.query as Record<string, unknown>);
-    if (!regenerate && project.completionReportId) {
-      const report = getCompletionReport(project.completionReportId);
-      if (report?.pdfPath) {
-        const local = path.join(process.cwd(), report.pdfPath.replace(/^\//, ""));
-        if (fs.existsSync(local)) {
-          res.type("application/pdf").sendFile(local);
-          return;
-        }
+    if (parseFormatHtml(req.query as Record<string, unknown>)) {
+      const html = renderCompletionReportHtmlV1(projectId);
+      if (!html) {
+        res.status(404).json({ error: "Not found" });
+        return;
       }
-    }
-    const html = renderCompletionReportHtmlV1(projectId);
-    if (!html) {
-      res.status(404).json({ error: "Not found" });
+      const tmp = businessUploadsDir(project.id, "pdf-html");
+      const p = path.join(tmp, "completion-report-live.html");
+      fs.writeFileSync(p, html, "utf8");
+      res.type("text/html; charset=utf-8").sendFile(p);
       return;
     }
-    const tmp = businessUploadsDir(project.id, "pdf-html");
-    const p = path.join(tmp, "completion-report-live.html");
-    fs.writeFileSync(p, html, "utf8");
-    res.type("text/html; charset=utf-8").sendFile(p);
+    let filePath = !regenerate ? resolveProjectPdfFile(projectId, "report") : null;
+    if (!filePath || !isValidPdfFile(filePath)) {
+      try {
+        if (!project.completionReportId) {
+          await createCompletionReportV1(projectId);
+        }
+        const entry = await regenerateProjectPdfV1(projectId, "report");
+        filePath = resolveProjectPdfFile(projectId, "report");
+        if (!filePath && entry.pdfPath) {
+          filePath = path.join(process.cwd(), entry.pdfPath.replace(/^\//, ""));
+        }
+      } catch (e) {
+        res.status(500).json({ error: e instanceof Error ? e.message : PDF_GENERATION_FAILED_MSG });
+        return;
+      }
+    }
+    if (!filePath || !isValidPdfFile(filePath)) {
+      res.status(500).json({ error: PDF_GENERATION_FAILED_MSG });
+      return;
+    }
+    sendPdfFile(
+      res,
+      filePath,
+      buildProjectPdfFileName("report", project.projectNo ?? projectId.slice(-4))
+    );
   }
 );
 

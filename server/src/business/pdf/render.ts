@@ -3,6 +3,7 @@ import path from "path";
 import type { BusinessProject, CompletionReport, Estimate, Invoice } from "../business-types.js";
 import { businessUploadsDir, getEstimate } from "../business-store.js";
 import { logBusinessIntegration } from "../business-integration-log.js";
+import { assertValidPdfBuffer } from "./pdf-validation.js";
 import { renderCompletionReportHtml } from "./completion-report-template.js";
 import { renderEstimateHtml } from "./estimate-template.js";
 import { renderInvoiceHtml } from "./invoice-template.js";
@@ -71,10 +72,13 @@ export async function renderWithPdfFallback(
 ): Promise<{ pdfBuf: Buffer; usedFallback: boolean; renderMode: PdfRenderMode }> {
   const puppeteerBuf = await htmlToPdfBuffer(html);
   if (puppeteerBuf) {
+    assertValidPdfBuffer(puppeteerBuf);
     return { pdfBuf: puppeteerBuf, usedFallback: false, renderMode: "puppeteer" };
   }
+  const pdfBuf = minimalPdfBuffer(title);
+  assertValidPdfBuffer(pdfBuf);
   return {
-    pdfBuf: minimalPdfBuffer(title),
+    pdfBuf,
     usedFallback: true,
     renderMode: getPdfRenderMode() === "puppeteer" ? "html" : getPdfRenderMode(),
   };
