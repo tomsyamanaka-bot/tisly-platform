@@ -3,7 +3,7 @@ import { getDatabase } from "../db/database.js";
 import { getTomsCompanyInfo } from "./pdf/company.js";
 export const TOMS_DEFAULT_STAFF = "山中 智紀";
 export const TOMS_DEFAULT_BANK_INFO = process.env.TOMS_BANK_INFO ??
-    "みずほ銀行 守谷支店 普通 1234567 カ）トムス";
+    "みずほ銀行 守谷支店 普通 1234567 カ）トムズ";
 /** 発行日 YYYY/MM/DD */
 export function formatTomsIssueDate(d = new Date()) {
     const y = d.getFullYear();

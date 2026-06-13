@@ -332,6 +332,9 @@ jobs:
           npm run build
           [ -f dist/index.js ] || { echo "ERROR: dist/index.js missing"; exit 1; }
 
+          echo "=== regenerate invalid PDFs ==="
+          node scripts/regenerate-invalid-pdfs.mjs || echo "WARN: PDF regeneration had failures (deploy continues)"
+
           echo "=== restart ==="
           if [ "$(id -u)" -eq 0 ]; then
             systemctl restart "${SERVICE_NAME}"

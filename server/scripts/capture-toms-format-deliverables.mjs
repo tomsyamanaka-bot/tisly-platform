@@ -107,7 +107,7 @@ const invoice = {
   total: estimate.total,
   invoiceDate: "2026/06/13",
   paymentDueDate: "2026/07/13",
-  bankInfo: "三菱UFJ銀行 つくば支店 普通 1234567 カ）トムス",
+  bankInfo: "三菱UFJ銀行 つくば支店 普通 1234567 カ）トムズ",
   pdfPath: "/uploads/business/BIZ-TOMS-FMT/pdfs/invoice-260613-001.pdf",
   createdAt: "2026-06-13T00:00:00.000Z",
   updatedAt: "2026-06-13T00:00:00.000Z",
