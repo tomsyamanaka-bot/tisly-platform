@@ -11,16 +11,17 @@ import {
   TOMS_PDF_FONT_LINKS,
   TOMS_PDF_STYLES,
   TOMS_PDF_VIEWPORT_META,
+  TOMS_DOC_PHOTO_EXTRA_STYLES,
 } from "./styles.js";
 import {
   sanitizePdfItemText,
   sanitizePdfNotesText,
   sanitizePdfRequiredField,
 } from "./pdf-text-sanitize.js";
+import { renderTomsDocWithPhotoLayout } from "./toms-doc-photo-layout.js";
 import {
   escapeHtml,
   renderNotes,
-  renderPhotoGrid,
   renderTomsDocFooter,
   renderTomsOfficialDocLayout,
   renderTomsLineItemsTable,
@@ -70,29 +71,23 @@ export function renderEstimateHtml(
     buildCustomerFacingPdfNotes(opts?.notes ?? project.surveyMemo ?? "")
   );
   const validUntil = computeTomsEstimateValidUntil(header.issueDate, header.validUntil);
-  const includePhotos = opts?.includePhotos === true;
-  const photoBlock =
-    includePhotos && project.surveyPhotos?.length
-      ? renderPhotoGrid(project.surveyPhotos, true)
-      : "";
-  const pageClass = includePhotos ? "doc with-photos" : "doc single-page";
+  const includePhotos = opts?.includePhotos === true && (project.surveyPhotos?.length ?? 0) > 0;
 
-  return `<!DOCTYPE html><html lang="ja"><head>${TOMS_PDF_CHARSET_META}${TOMS_PDF_FONT_LINKS}${TOMS_PDF_VIEWPORT_META}<title>お見積書 ${escapeHtml(header.estimateNo)}</title><style>${TOMS_PDF_STYLES}</style></head><body>
-<div class="${pageClass}">
-${renderTomsOfficialDocLayout({
-  docTitle: "お見積書",
-  amountLabel: "御見積金額",
-  addressee: header.addressee,
-  subject: header.subject,
-  workLocation: header.workLocation,
-  issueDateLabel: "発行日",
-  issueDate: header.issueDate,
-  docNoLabel: "見積番号",
-  docNo: header.estimateNo,
-  total: estimate.total,
-  includeRegistrationNo: false,
-})}
-${renderTomsLineItemsTable(lines)}
+  const coverHeaderHtml = renderTomsOfficialDocLayout({
+    docTitle: "お見積書",
+    amountLabel: "御見積金額",
+    addressee: header.addressee,
+    subject: header.subject,
+    workLocation: header.workLocation,
+    issueDateLabel: "発行日",
+    issueDate: header.issueDate,
+    docNoLabel: "見積番号",
+    docNo: header.estimateNo,
+    total: estimate.total,
+    includeRegistrationNo: false,
+  });
+
+  const documentBodyHtml = `${renderTomsLineItemsTable(lines)}
 ${renderTotals({
   lineSubtotal: estimate.lineSubtotal ?? estimate.subtotal + estimate.shuseiDiscount,
   shuseiDiscount: estimate.shuseiDiscount,
@@ -102,7 +97,25 @@ ${renderTotals({
   total: estimate.total,
 })}
 ${renderNotes(notes)}
-${renderTomsDocFooter({ staffName: header.staffName, validUntil })}
-${photoBlock}
+${renderTomsDocFooter({ staffName: header.staffName, validUntil })}`;
+
+  if (includePhotos) {
+    const { photoPageStyles, bodyHtml } = renderTomsDocWithPhotoLayout({
+      prefix: "est",
+      photos: project.surveyPhotos ?? [],
+      projectNo: project.projectNo,
+      generatedAt: estimate.updatedAt ?? estimate.createdAt,
+      coverHeaderHtml,
+      documentBodyHtml,
+    });
+    return `<!DOCTYPE html><html lang="ja"><head>${TOMS_PDF_CHARSET_META}${TOMS_PDF_FONT_LINKS}${TOMS_PDF_VIEWPORT_META}<title>お見積書 ${escapeHtml(header.estimateNo)}</title><style>${TOMS_PDF_STYLES}${photoPageStyles}${TOMS_DOC_PHOTO_EXTRA_STYLES}</style></head><body>
+${bodyHtml}
+</body></html>`;
+  }
+
+  return `<!DOCTYPE html><html lang="ja"><head>${TOMS_PDF_CHARSET_META}${TOMS_PDF_FONT_LINKS}${TOMS_PDF_VIEWPORT_META}<title>お見積書 ${escapeHtml(header.estimateNo)}</title><style>${TOMS_PDF_STYLES}</style></head><body>
+<div class="doc single-page">
+${coverHeaderHtml}
+${documentBodyHtml}
 </div></body></html>`;
 }

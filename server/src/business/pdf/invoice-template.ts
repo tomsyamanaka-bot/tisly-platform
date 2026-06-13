@@ -13,17 +13,18 @@ import {
   TOMS_PDF_FONT_LINKS,
   TOMS_PDF_STYLES,
   TOMS_PDF_VIEWPORT_META,
+  TOMS_DOC_PHOTO_EXTRA_STYLES,
 } from "./styles.js";
 import {
   sanitizePdfItemText,
   sanitizePdfNotesText,
   sanitizePdfRequiredField,
 } from "./pdf-text-sanitize.js";
+import { renderTomsDocWithPhotoLayout } from "./toms-doc-photo-layout.js";
 import {
   escapeHtml,
   renderBankBlock,
   renderNotes,
-  renderPhotoGrid,
   renderSealPlaceholder,
   renderTomsDocFooter,
   renderTomsOfficialDocLayout,
@@ -97,31 +98,25 @@ export function renderInvoiceHtml(
   const paymentDueDate = formatTomsPaymentDueDate(
     opts?.paymentDueDate ?? invoice.paymentDueDate ?? project.paymentDueDate
   );
-  const includePhotos = opts?.includePhotos === true;
-  const photoBlock =
-    includePhotos && project.surveyPhotos?.length
-      ? renderPhotoGrid(project.surveyPhotos, true)
-      : "";
-  const pageClass = includePhotos ? "doc with-photos" : "doc single-page";
+  const includePhotos = opts?.includePhotos === true && (project.surveyPhotos?.length ?? 0) > 0;
 
-  return `<!DOCTYPE html><html lang="ja"><head>${TOMS_PDF_CHARSET_META}${TOMS_PDF_FONT_LINKS}${TOMS_PDF_VIEWPORT_META}<title>御請求書 ${escapeHtml(header.invoiceNo)}</title><style>${TOMS_PDF_STYLES}</style></head><body>
-<div class="${pageClass}">
-${renderTomsOfficialDocLayout({
-  docTitle: "御請求書",
-  amountLabel: "ご請求金額",
-  addressee: header.addressee,
-  subject: header.subject,
-  workLocation: header.workLocation,
-  issueDateLabel: "請求日",
-  issueDate: header.invoiceDate,
-  docNoLabel: "請求番号",
-  docNo: header.invoiceNo,
-  total: invoice.total,
-  extraMetaRows: header.estimateRefNo?.trim()
-    ? [{ label: "見積参照番号", value: header.estimateRefNo }]
-    : [],
-})}
-${renderTomsLineItemsTable(lines)}
+  const coverHeaderHtml = renderTomsOfficialDocLayout({
+    docTitle: "御請求書",
+    amountLabel: "ご請求金額",
+    addressee: header.addressee,
+    subject: header.subject,
+    workLocation: header.workLocation,
+    issueDateLabel: "請求日",
+    issueDate: header.invoiceDate,
+    docNoLabel: "請求番号",
+    docNo: header.invoiceNo,
+    total: invoice.total,
+    extraMetaRows: header.estimateRefNo?.trim()
+      ? [{ label: "見積参照番号", value: header.estimateRefNo }]
+      : [],
+  });
+
+  const documentBodyHtml = `${renderTomsLineItemsTable(lines)}
 ${renderTotals({
   lineSubtotal: opts?.lineSubtotal ?? estimate.lineSubtotal,
   shuseiDiscount: opts?.shuseiDiscount ?? estimate.shuseiDiscount,
@@ -135,7 +130,25 @@ ${renderTomsDocFooter({ staffName: header.staffName, paymentDueDate })}
 <div class="doc-invoice-footer">
 ${renderBankBlock(header.bankInfo)}
 <div class="doc-footer">${renderSealPlaceholder()}</div>
-</div>
-${photoBlock}
+</div>`;
+
+  if (includePhotos) {
+    const { photoPageStyles, bodyHtml } = renderTomsDocWithPhotoLayout({
+      prefix: "inv",
+      photos: project.surveyPhotos ?? [],
+      projectNo: project.projectNo,
+      generatedAt: invoice.updatedAt ?? invoice.createdAt,
+      coverHeaderHtml,
+      documentBodyHtml,
+    });
+    return `<!DOCTYPE html><html lang="ja"><head>${TOMS_PDF_CHARSET_META}${TOMS_PDF_FONT_LINKS}${TOMS_PDF_VIEWPORT_META}<title>御請求書 ${escapeHtml(header.invoiceNo)}</title><style>${TOMS_PDF_STYLES}${photoPageStyles}${TOMS_DOC_PHOTO_EXTRA_STYLES}</style></head><body>
+${bodyHtml}
+</body></html>`;
+  }
+
+  return `<!DOCTYPE html><html lang="ja"><head>${TOMS_PDF_CHARSET_META}${TOMS_PDF_FONT_LINKS}${TOMS_PDF_VIEWPORT_META}<title>御請求書 ${escapeHtml(header.invoiceNo)}</title><style>${TOMS_PDF_STYLES}</style></head><body>
+<div class="doc single-page">
+${coverHeaderHtml}
+${documentBodyHtml}
 </div></body></html>`;
 }

@@ -87,10 +87,24 @@ ${PDF_A4_LINE_ITEMS_STYLES}
 .photo-section-title{font-size:0.76rem;margin:0.5rem 0 0.18rem}
 .seal-placeholder{width:56px;height:56px;border:2px solid #cbd5e1;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:0.76rem;flex-shrink:0}
 .doc-footer{flex-shrink:0}
+.est-doc-body-page,.inv-doc-body-page{page-break-before:always;max-width:200mm;width:100%;min-width:0;margin:0 auto;box-sizing:border-box;padding:4mm 6mm 4mm 5mm}
+.est-doc-header-compact,.inv-doc-header-compact{flex:0 0 auto;font-size:8pt;line-height:1.2}
+.est-doc-header-compact .toms-official-header,.inv-doc-header-compact .toms-official-header{margin-bottom:0.15rem}
+.est-doc-header-compact .toms-official-amount,.inv-doc-header-compact .toms-official-amount{margin:0.15rem 0 0.2rem;padding:0.2rem 0.45rem}
+.est-doc-header-compact .toms-official-title-band h1,.inv-doc-header-compact .toms-official-title-band h1{font-size:0.88rem}
 @media print{
   body{padding:0}
   .doc{width:200mm;min-width:200mm;max-width:200mm}
   table.pdf-a4-line-items thead{display:table-header-group}
   table.pdf-a4-line-items tbody tr{page-break-inside:avoid}
+}
+`;
+
+/** 見積・請求の写真ページ（est/inv prefix）向け追加スタイル */
+export const TOMS_DOC_PHOTO_EXTRA_STYLES = `
+body:has(.est-page, .inv-page){padding:0;margin:0}
+@media print{
+  body:has(.est-page, .inv-page){padding:0}
+  .est-doc-body-page,.inv-doc-body-page{padding:0;width:200mm;max-width:200mm;margin:0 auto}
 }
 `;

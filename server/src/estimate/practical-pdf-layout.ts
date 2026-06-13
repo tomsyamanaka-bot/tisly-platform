@@ -45,6 +45,26 @@ function chunk<T>(arr: T[], size: number): T[][] {
   return out;
 }
 
+export function slicePhotosForPages(photos: PracticalPdfPhoto[]): {
+  coverPhotos: PracticalPdfPhoto[];
+  continuationPages: PracticalPdfPhoto[][];
+} {
+  const coverPhotos = photos.slice(0, FIRST_PAGE_PHOTOS_MAX);
+  const remainingPhotos = photos.slice(FIRST_PAGE_PHOTOS_MAX);
+  return {
+    coverPhotos,
+    continuationPages: remainingPhotos.length ? chunk(remainingPhotos, PHOTOS_PER_PAGE) : [],
+  };
+}
+
+export function countPhotoLayoutPages(photoCount: number): number {
+  if (photoCount <= 0) return 0;
+  const { continuationPages } = slicePhotosForPages(
+    Array.from({ length: photoCount }, () => ({ url: "", title: "" }))
+  );
+  return 1 + continuationPages.length;
+}
+
 /** 写真番号 ① ② … （PDF 2列×3段レイアウト用） */
 export { formatPhotoCircledNumber } from "../business/pdf/shared-blocks.js";
 
@@ -128,7 +148,7 @@ function renderCoverPage(
 </div>`;
 }
 
-function renderPhotoCell(prefix: string, photo: PracticalPdfPhoto, globalIndex: number): string {
+export function renderPhotoCellHtml(prefix: string, photo: PracticalPdfPhoto, globalIndex: number): string {
   const num = formatPhotoCircledNumber(globalIndex);
   const title = photo.title?.trim() || `写真${globalIndex}`;
   return `<div class="${prefix}-photo-cell">
@@ -137,7 +157,7 @@ function renderPhotoCell(prefix: string, photo: PracticalPdfPhoto, globalIndex: 
   </div>`;
 }
 
-function renderPhotoGrid(
+export function renderPhotoGridHtml(
   prefix: string,
   photos: PracticalPdfPhoto[],
   startIndex: number,
@@ -147,8 +167,37 @@ function renderPhotoGrid(
     ? `${prefix}-photo-grid ${extraClass}`
     : `${prefix}-photo-grid`;
   return `<div class="${gridClass}">${photos
-    .map((p, i) => renderPhotoCell(prefix, p, startIndex + i))
+    .map((p, i) => renderPhotoCellHtml(prefix, p, startIndex + i))
     .join("")}</div>`;
+}
+
+function renderPhotoGrid(
+  prefix: string,
+  photos: PracticalPdfPhoto[],
+  startIndex: number,
+  extraClass = ""
+): string {
+  return renderPhotoGridHtml(prefix, photos, startIndex, extraClass);
+}
+
+export function renderPhotoContinuationPagesHtml(
+  prefix: string,
+  continuationPages: PracticalPdfPhoto[][],
+  projectNo: string,
+  generatedAt: string,
+  startPageNum: number,
+  totalPages: number
+): string {
+  return continuationPages
+    .map((batch, idx) =>
+      renderPhotoPage(
+        prefix,
+        batch,
+        renderPageFooter(prefix, projectNo, generatedAt, startPageNum + idx, totalPages),
+        FIRST_PAGE_PHOTOS_MAX + idx * PHOTOS_PER_PAGE + 1
+      )
+    )
+    .join("");
 }
 
 function renderPhotoPage(
@@ -182,9 +231,7 @@ function renderAllPages(opts: PracticalPdfLayoutOptions): string {
     noPhotosMessage = "写真未登録",
   } = opts;
 
-  const coverPhotos = photos.slice(0, FIRST_PAGE_PHOTOS_MAX);
-  const remainingPhotos = photos.slice(FIRST_PAGE_PHOTOS_MAX);
-  const continuationPages = remainingPhotos.length ? chunk(remainingPhotos, PHOTOS_PER_PAGE) : [];
+  const { coverPhotos, continuationPages } = slicePhotosForPages(photos);
   const totalPages = photos.length ? 1 + continuationPages.length : 2;
 
   const pages: string[] = [];
