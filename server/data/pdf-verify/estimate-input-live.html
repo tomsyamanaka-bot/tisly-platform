@@ -1,0 +1,169 @@
+<!DOCTYPE html><html lang="ja"><head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=390, initial-scale=1"/>
+<link rel="stylesheet" href="file:///C:/Users/yaman/TiSLY_HOME_Security_DEMO/server/public/css/tisly-friendly-ui.css"/>
+<link rel="stylesheet" href="file:///C:/Users/yaman/TiSLY_HOME_Security_DEMO/server/public/css/field-ops-mobile.css"/>
+<style>
+    .doc-action-grid {
+      display: grid;
+      gap: 0.4rem;
+      margin: 0.5rem 0;
+    }
+    .doc-action-grid .btn-doc-action {
+      width: 100%;
+      min-height: 52px;
+      padding: 0.85rem 1rem;
+      font-size: 1rem;
+      font-weight: 600;
+      border-radius: var(--tisly-radius);
+      border: 2px solid var(--tisly-blue);
+      background: var(--tisly-surface);
+      color: var(--tisly-blue);
+      cursor: pointer;
+    }
+    .doc-action-grid .btn-doc-action:active { transform: scale(0.98); }
+    .pdf-preview-frame { width: 100%; min-height: 420px; border: 1px solid var(--tisly-border, #e2e8f0); border-radius: 8px; background: #fff; }
+    #pdf-error { display: none; margin-top: 0.5rem; }
+    #pdf-error.visible { display: block; }
+    #view-detail .friendly-card { margin-bottom: 0.65rem; }
+    #view-detail .section-label { margin-top: 0.65rem; }
+    #view-detail .section-hint { margin-bottom: 0.35rem; }
+    .photo-mgmt-grid { display: grid; gap: 0.5rem; }
+    .completion-photo-card { border: 1px solid var(--tisly-border, #e2e8f0); border-radius: 8px; padding: 0.5rem; }
+    .completion-photo-preview-btn { display: block; width: 100%; padding: 0; border: none; background: none; cursor: pointer; border-radius: 6px; overflow: hidden; }
+    .completion-photo-preview-btn img { width: 100%; max-height: 120px; object-fit: cover; display: block; }
+    .completion-photo-card.photo-pending img { opacity: 0.65; }
+    .completion-photo-actions { display: flex; gap: 0.35rem; margin-top: 0.35rem; flex-wrap: wrap; }
+    .completion-reorder-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .completion-title-status { display: block; min-height: 1rem; font-size: 0.72rem; color: #64748b; }
+    .survey-photo-hint { font-size: 0.85rem; color: var(--tisly-muted, #64748b); margin: 0; }
+    #completion-photo-lightbox { position: fixed; inset: 0; z-index: 1100; background: rgba(0,0,0,0.88); display: flex; align-items: center; justify-content: center; padding: 1rem; }
+    #completion-photo-lightbox.hidden { display: none; }
+    #completion-photo-lightbox img { max-width: 100%; max-height: 92vh; object-fit: contain; border-radius: 4px; }
+    #completion-photo-lightbox button { position: absolute; top: 1rem; right: 1rem; border: none; background: rgba(255,255,255,0.9); border-radius: 8px; padding: 0.35rem 0.65rem; font-size: 0.9rem; }
+    .practical-hidden { display: none !important; }
+    .standalone-actions { display: grid; gap: 0.45rem; margin: 0.65rem 0; }
+    .standalone-form .line-qty-price { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.35rem; }
+    .customer-suggest-list { list-style: none; margin: 0.25rem 0 0; padding: 0; border: 1px solid var(--tisly-border, #e2e8f0); border-radius: 8px; max-height: 160px; overflow-y: auto; }
+    .customer-suggest-list li { padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--tisly-border, #e2e8f0); cursor: pointer; font-size: 0.88rem; }
+    .customer-suggest-list li:last-child { border-bottom: none; }
+    .customer-suggest-list li:active { background: #eff6ff; }
+    #line-list { display: flex; flex-direction: column; gap: 0.65rem; }
+    .line-item-card {
+      border: 1px solid var(--tisly-border, #e2e8f0);
+      border-radius: 10px;
+      padding: 0.7rem 0.75rem;
+      background: #fff;
+    }
+    .line-item-card .line-field-label {
+      margin: 0 0 0.3rem;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--tisly-muted, #64748b);
+    }
+    .line-item-card .desc-input {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      min-height: 3rem;
+      resize: vertical;
+      writing-mode: horizontal-tb !important;
+      text-orientation: mixed !important;
+      -webkit-text-orientation: mixed;
+      white-space: pre-wrap;
+      word-break: normal;
+      overflow-wrap: break-word;
+      line-height: 1.45;
+      font-size: 0.95rem;
+      box-sizing: border-box;
+    }
+    .line-metrics-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+      margin-top: 0.55rem;
+    }
+    .line-metric-label {
+      display: block;
+      margin: 0 0 0.2rem;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--tisly-muted, #64748b);
+    }
+    .line-item-card .qty-input,
+    .line-item-card .price-input {
+      width: 100%;
+      min-height: 44px;
+      font-size: 1rem;
+      box-sizing: border-box;
+    }
+    .line-amount-display {
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--tisly-blue);
+      padding: 0.35rem 0.2rem;
+    }
+    .line-order-target {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      margin-top: 0.45rem;
+      font-size: 0.88rem;
+    }
+    @media (min-width: 520px) {
+      .line-metrics-grid {
+        display: grid;
+        grid-template-columns: 10fr 15fr 25fr;
+        gap: 0.4rem;
+        align-items: end;
+      }
+    }
+    .line-template-row { display: flex; gap: 0.35rem; flex-wrap: wrap; align-items: center; margin-bottom: 0.5rem; }
+    .line-template-row select { flex: 1; min-width: 140px; }
+    @media (max-width: 480px) {
+      .standalone-form .line-qty-price { grid-template-columns: 1fr 1fr; }
+    }
+  </style></head>
+<body class="tisly-friendly field-ops-touch" style="padding:0.75rem;background:#f6f8fa">
+<p class="section-label">🧾 お見積りの内訳</p>
+<div class="friendly-card"><div id="line-list"><div class="line-item-card line-card" data-idx="0">
+      <label class="friendly-label line-field-label">項目名</label>
+      <textarea class="desc-input line-field-input" rows="3">防犯カメラ
+LAN配線工事</textarea>
+      <div class="line-metrics-grid">
+        <div class="line-metric col-qty">
+          <label class="friendly-label line-metric-label">数量</label>
+          <input type="number" class="qty-input line-field-input" value="2" />
+        </div>
+        <div class="line-metric col-price">
+          <label class="friendly-label line-metric-label">単価</label>
+          <input type="number" class="price-input line-field-input" value="45000" />
+        </div>
+        <div class="line-metric col-amount">
+          <span class="line-metric-label">金額</span>
+          <div class="line-amount-display">¥90,000</div>
+        </div>
+      </div>
+    </div><div class="line-item-card line-card" data-idx="0">
+      <label class="friendly-label line-field-label">項目名</label>
+      <textarea class="desc-input line-field-input" rows="3">工事
+作業内容</textarea>
+      <div class="line-metrics-grid">
+        <div class="line-metric col-qty">
+          <label class="friendly-label line-metric-label">数量</label>
+          <input type="number" class="qty-input line-field-input" value="1" />
+        </div>
+        <div class="line-metric col-price">
+          <label class="friendly-label line-metric-label">単価</label>
+          <input type="number" class="price-input line-field-input" value="88000" />
+        </div>
+        <div class="line-metric col-amount">
+          <span class="line-metric-label">金額</span>
+          <div class="line-amount-display">¥88,000</div>
+        </div>
+      </div>
+    </div></div></div>
+</body></html>

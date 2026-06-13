@@ -77,7 +77,7 @@ function newEmptyLine() {
 const LINE_FIELD_ORDER = ["desc", "qty", "price"];
 
 function focusLineField(rowIdx, fieldName) {
-  const row = $("line-list")?.querySelector(`.line-grid-row[data-idx="${rowIdx}"]`);
+  const row = $("line-list")?.querySelector(`.line-item-card[data-idx="${rowIdx}"]`);
   if (!row) return false;
   const el = row.querySelector(`[data-field="${fieldName}"]`);
   if (!el) return false;
@@ -335,27 +335,35 @@ function renderLines(items) {
   currentLines = (items || []).map((it) => ({ ...it, orderTarget: it.orderTarget === true }));
   if (!currentLines.length) currentLines = [newEmptyLine()];
   const el = $("line-list");
-  el.innerHTML = `<table class="line-grid-table"><thead><tr>
-    <th>項目</th><th>数量</th><th>単価</th><th>発注</th><th></th>
-  </tr></thead><tbody>${currentLines
+  el.innerHTML = currentLines
     .map(
       (it, i) => `
-    <tr class="line-grid-row line-card" data-idx="${i}">
-      <td><textarea class="desc-input line-field-input" data-field="desc" data-idx="${i}" rows="2" placeholder="作業内容・部材名">${escapeHtml(splitDescription(it.name, it.memo))}</textarea></td>
-      <td><input type="number" min="0" step="1" class="qty-input line-field-input" data-field="qty" data-idx="${i}" value="${it.quantity}" inputmode="numeric" /></td>
-      <td><input type="number" min="0" class="price-input line-field-input" data-field="price" data-idx="${i}" value="${it.unitPrice}" inputmode="numeric" /></td>
-      <td class="order-target-cell"><label><input type="checkbox" class="order-target-input" data-idx="${i}" ${it.orderTarget ? "checked" : ""} /> 発注</label></td>
-      <td>
-        <div class="line-amount" style="font-size:0.78rem;margin-bottom:0.2rem;">${yen((it.quantity || 0) * (it.unitPrice || 0))}</div>
-        <div class="line-actions" style="display:flex;gap:0.2rem;flex-wrap:wrap;">
-          <button type="button" data-action="up" data-idx="${i}" ${i === 0 ? "disabled" : ""}>↑</button>
-          <button type="button" data-action="down" data-idx="${i}" ${i === currentLines.length - 1 ? "disabled" : ""}>↓</button>
-          <button type="button" class="btn-line-delete" data-action="delete" data-idx="${i}">削除</button>
+    <div class="line-item-card line-card" data-idx="${i}">
+      <label class="friendly-label line-field-label">項目名</label>
+      <textarea class="desc-input line-field-input" data-field="desc" data-idx="${i}" rows="3" placeholder="例：防犯カメラ&#10;LAN配線工事">${escapeHtml(splitDescription(it.name, it.memo))}</textarea>
+      <div class="line-metrics-grid">
+        <div class="line-metric col-qty">
+          <label class="friendly-label line-metric-label">数量</label>
+          <input type="number" min="0" step="1" class="qty-input line-field-input" data-field="qty" data-idx="${i}" value="${it.quantity}" inputmode="numeric" />
         </div>
-      </td>
-    </tr>`
+        <div class="line-metric col-price">
+          <label class="friendly-label line-metric-label">単価</label>
+          <input type="number" min="0" class="price-input line-field-input" data-field="price" data-idx="${i}" value="${it.unitPrice}" inputmode="numeric" />
+        </div>
+        <div class="line-metric col-amount">
+          <span class="line-metric-label">金額</span>
+          <div class="line-amount-display">${yen((it.quantity || 0) * (it.unitPrice || 0))}</div>
+        </div>
+      </div>
+      <label class="line-order-target"><input type="checkbox" class="order-target-input" data-idx="${i}" ${it.orderTarget ? "checked" : ""} /> 発注対象</label>
+      <div class="line-actions">
+        <button type="button" data-action="up" data-idx="${i}" ${i === 0 ? "disabled" : ""}>↑</button>
+        <button type="button" data-action="down" data-idx="${i}" ${i === currentLines.length - 1 ? "disabled" : ""}>↓</button>
+        <button type="button" class="btn-line-delete" data-action="delete" data-idx="${i}">削除</button>
+      </div>
+    </div>`
     )
-    .join("")}</tbody></table>`;
+    .join("");
   bindLineInputs();
   recalcLocal();
 }
@@ -365,7 +373,7 @@ function readShuseiDiscount() {
 }
 
 function recalcLocal() {
-  $("line-list").querySelectorAll(".line-grid-row").forEach((row) => {
+  $("line-list").querySelectorAll(".line-item-card").forEach((row) => {
     const i = Number(row.dataset.idx);
     const qty = Number(row.querySelector(".qty-input")?.value || 1);
     const price = Number(row.querySelector(".price-input")?.value || 0);
@@ -379,7 +387,7 @@ function recalcLocal() {
       currentLines[i].memo = parsed.memo;
       currentLines[i].orderTarget = orderTarget;
       currentLines[i].amount = Math.round(qty * price);
-      const amtEl = row.querySelector(".line-amount");
+      const amtEl = row.querySelector(".line-amount-display");
       if (amtEl) amtEl.textContent = yen(currentLines[i].amount);
     }
   });

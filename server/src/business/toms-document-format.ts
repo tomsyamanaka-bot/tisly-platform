@@ -40,6 +40,7 @@ export interface TomsEstimateLine {
   lineNo: number;
   description: string;
   quantity: number;
+  unit?: string;
   unitPrice: number;
   amount: number;
 }
@@ -192,6 +193,7 @@ export function itemsToTomsLines(items: EstimateLineItem[]): TomsEstimateLine[] 
       lineNo: i + 1,
       description: lineDescription(item),
       quantity: item.quantity,
+      unit: (item.unit ?? "").trim(),
       unitPrice: item.unitPrice,
       amount: item.amount,
     }));

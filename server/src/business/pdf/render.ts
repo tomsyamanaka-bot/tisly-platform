@@ -46,10 +46,10 @@ export async function htmlToPdfBuffer(html: string): Promise<Buffer | null> {
     };
     const browser = await puppeteer.default.launch({ headless: true });
     const page = await browser.newPage();
-    await page.setViewport({ width: 1123, height: 794, deviceScaleFactor: 1 });
+    await page.setViewport({ width: 794, height: 1123, deviceScaleFactor: 1 });
     await page.setContent(html, { waitUntil: "networkidle0" });
     await page.evaluateHandle("document.fonts.ready");
-    const buf = await page.pdf({ format: "A4", landscape: true, printBackground: true });
+    const buf = await page.pdf({ format: "A4", landscape: false, printBackground: true });
     await browser.close();
     return Buffer.from(buf);
   } catch (e) {

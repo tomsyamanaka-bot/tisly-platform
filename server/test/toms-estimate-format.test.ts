@@ -144,7 +144,7 @@ describe("TOMS標準見積フォーマット", () => {
     assert.ok(!/振込先/.test(res.text));
     assert.match(res.text, /有効期限/);
     assert.match(res.text, /担当者/);
-    assert.match(res.text, /size: A4 landscape/);
+    assert.match(res.text, /size: A4 portrait/);
   });
 
   it("写真あり版では参考写真セクションが出る", async () => {
@@ -334,7 +334,7 @@ describe("TOMS標準見積フォーマット", () => {
     assert.match(html, /換気扇設置工事/);
   });
 
-  it("renderEstimateHtml の明細テーブルはA4横書きレイアウト", () => {
+  it("renderEstimateHtml の明細テーブルはA4縦レイアウト", () => {
     const html = renderEstimateHtml(
       {
         id: "p1",
@@ -395,14 +395,13 @@ describe("TOMS標準見積フォーマット", () => {
       { includePhotos: false }
     );
     assert.match(html, /pdf-a4-line-items/);
-    assert.match(html, /style="width:48%"/);
-    assert.match(html, /writing-mode:horizontal-tb/);
+    assert.match(html, /style="width:46%"/);
     assert.match(html, /word-break:keep-all/);
     assert.match(html, /charset=.UTF-8/);
     assert.match(html, /Noto Sans JP/);
     assert.ok(!html.includes("@media screen and (max-width:520px)"));
-    assert.match(html, /width=1123/);
-    assert.match(html, /size: A4 landscape/);
+    assert.match(html, /width=device-width/);
+    assert.match(html, /size: A4 portrait/);
     assert.match(html, /防犯カメラ設置工事一式/);
     assert.ok(!/振込先/.test(html));
   });
