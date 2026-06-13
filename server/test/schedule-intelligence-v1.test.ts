@@ -21,6 +21,9 @@ const {
 const { updateSchedulePlannerSettingsV1 } = await import("../src/schedule/schedule-settings-store.js");
 import type { ScheduleEvent } from "../src/schedule/schedule-types.js";
 import { resolveEventProjectRef } from "../src/schedule/address-extract-service.js";
+const { upsertEventAddressOverride } = await import(
+  "../src/schedule/schedule-event-address-overrides-store.js"
+);
 
 const app = createApp();
 
@@ -447,5 +450,41 @@ describe("日程調整レベル4 — インテリジェンス", () => {
     ]);
     assert.equal(intel.events[0].travel.durationLabel, "住所未設定");
     delete process.env.GOOGLE_MAPS_API_KEY;
+  });
+
+  it("同一住所 — 自宅と現場①が同じなら 0 分（API）", async () => {
+    process.env.GOOGLE_MAPS_API_KEY = "test-key";
+    updateSchedulePlannerSettingsV1({ defaultOrigin: "茨城県つくばみらい市板橋2889-2" });
+    upsertEventAddressOverride("ev-same-home", "つくばみらい市板橋2889-2");
+    const intel = await buildDayScheduleIntelligence("2026-06-14", [
+      baseEvent({
+        id: "ev-same-home",
+        title: "材料発注",
+        location: null,
+        description: null,
+      }),
+    ]);
+    assert.equal(intel.events[0].travel.durationMin, 0);
+    assert.equal(intel.events[0].travel.durationLabel, "0分（API）");
+    assert.equal(intel.events[0].travel.durationSource, "api");
+    delete process.env.GOOGLE_MAPS_API_KEY;
+  });
+
+  it("件名トークン — プレフィックス除去後に案件解決", async () => {
+    getDatabase()
+      .prepare(
+        `INSERT INTO survey_projects (project_id, customer_code, customer_name, site_name, address, status, survey_date, created_at, updated_at)
+         VALUES ('proj-token-1', 'TOMS001', 'TS生コン', '溶接機ケーブル', '茨城県', 'active', '2026-06-14', datetime('now'), datetime('now'))`
+      )
+      .run();
+    const ref = resolveEventProjectRef(
+      baseEvent({
+        title: "現調)TS生コン　溶接機ケーブル　金持って行く！",
+        location: null,
+        description: null,
+      })
+    );
+    assert.ok(ref);
+    assert.equal(ref.projectId, "proj-token-1");
   });
 });

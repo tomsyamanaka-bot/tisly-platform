@@ -115,6 +115,7 @@ async function buildFullHealthResponse() {
   return {
     status: dbOk ? "ok" : "degraded",
     buildVersion,
+    commitShort: buildVersion.commitShort,
     googleMapsApiConfigured,
     googleMapsApiKeyPresent,
     uptime: Math.round(process.uptime()),

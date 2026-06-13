@@ -143,9 +143,38 @@ function normalizeTitleKey(title: string): string {
   return title.trim().replace(/\s+/g, "");
 }
 
+const TITLE_MATCH_NOISE = new Set(["案件", "材料発注", "現調", "工事", "作業", "現場"]);
+
+function stripEventTitlePrefixes(title: string): string {
+  return title
+    .trim()
+    .replace(/^(?:現調|伝元案件)[)）]\s*/i, "")
+    .replace(/^伝元案件\s*/i, "")
+    .trim();
+}
+
+function extractTitleMatchTokens(title: string): string[] {
+  const stripped = stripEventTitlePrefixes(title);
+  const tokens = stripped
+    .split(/[\s　、,/]+/)
+    .map((part) => normalizeTitleKey(part.replace(/^[^(]*[)）]/, "")))
+    .filter((part) => part.length >= 2 && !TITLE_MATCH_NOISE.has(part));
+  const full = normalizeTitleKey(stripped);
+  return [...new Set([full, ...tokens].filter(Boolean))];
+}
+
+function titleMatchesCandidate(titleKey: string, candidate: string): boolean {
+  if (!titleKey || !candidate) return false;
+  if (titleKey === candidate) return true;
+  if (titleKey.length >= 4 && candidate.length >= 4) {
+    return titleKey.includes(candidate) || candidate.includes(titleKey);
+  }
+  return false;
+}
+
 function resolveEventProjectRefByTitle(title: string): EventProjectRef | null {
-  const key = normalizeTitleKey(title);
-  if (!key || key === "案件") return null;
+  const keys = extractTitleMatchTokens(title);
+  if (!keys.length) return null;
   const db = getDatabase();
 
   const surveyRows = db
@@ -160,7 +189,9 @@ function resolveEventProjectRefByTitle(title: string): EventProjectRef | null {
 
   for (const row of surveyRows) {
     const candidates = [row.site_name, row.customer_name].map((v) => normalizeTitleKey(String(v ?? "")));
-    if (candidates.some((c) => c && (c === key || key.includes(c) || c.includes(key)))) {
+    if (
+      keys.some((key) => candidates.some((c) => titleMatchesCandidate(key, c)))
+    ) {
       return { projectSource: "survey", projectId: String(row.project_id) };
     }
   }
@@ -176,7 +207,9 @@ function resolveEventProjectRefByTitle(title: string): EventProjectRef | null {
 
   for (const row of businessRows) {
     const candidates = [row.title, row.customer_name].map((v) => normalizeTitleKey(String(v ?? "")));
-    if (candidates.some((c) => c && (c === key || key.includes(c) || c.includes(key)))) {
+    if (
+      keys.some((key) => candidates.some((c) => titleMatchesCandidate(key, c)))
+    ) {
       return { projectSource: "business", projectId: String(row.id) };
     }
   }

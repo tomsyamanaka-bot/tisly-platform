@@ -25,6 +25,27 @@ export function mapsNavUrl(destination: string): string {
 
 export type MapsDurationSource = "api" | "mock" | "none";
 
+const PREFECTURE_PREFIX_RE =
+  /^(?:北海道|(?:京都|大阪)府|(?:神奈川|和歌山|鹿児島)県|.{2,3}県)/;
+
+/** Directions 比較用 — 都道府県有無・空白差を吸収 */
+export function normalizeRouteAddressKey(address: string): string {
+  return address
+    .trim()
+    .replace(/\s+/g, "")
+    .replace(/[０-９]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xfee0))
+    .replace(/[－—–−]/g, "-")
+    .replace(PREFECTURE_PREFIX_RE, "")
+    .toLowerCase();
+}
+
+export function routeAddressesEquivalent(origin: string, destination: string): boolean {
+  const a = normalizeRouteAddressKey(origin);
+  const b = normalizeRouteAddressKey(destination);
+  if (!a || !b) return false;
+  return a === b;
+}
+
 export interface MapsIntegrationStatus {
   apiConfigured: boolean;
   mode: "api" | "nav_only";
@@ -128,6 +149,10 @@ export async function fetchDrivingDurationMinForIntelligence(
   destination: string,
   routeDate: string
 ): Promise<{ minutes: number | null; source: MapsDurationSource; cacheHit: boolean }> {
+  if (routeAddressesEquivalent(origin, destination)) {
+    return { minutes: 0, source: "api", cacheHit: false };
+  }
+
   const key = getGoogleMapsApiKey();
   if (key) ensureUnconfiguredRouteCachePurged();
 
