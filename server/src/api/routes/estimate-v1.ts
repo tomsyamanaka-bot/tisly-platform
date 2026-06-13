@@ -43,7 +43,7 @@ import {
   getInvoicePdfOrPlaceholder,
 } from "../../business/services/pdfService.js";
 import { getBusinessProject, getEstimate, getInvoice, getCompletionReport, setEstimatePdfPath, setInvoicePdfPath } from "../../business/business-store.js";
-import { regenerateProjectPdfV1, resolveProjectPdfFile, buildProjectPdfFileName } from "../../projects/project-pdf-store.js";
+import { regenerateProjectPdfV1, resolveProjectPdfFile, buildProjectPdfFileNameForProject } from "../../projects/project-pdf-store.js";
 import { recordProjectPdfSavedV1 } from "../../projects/project-pdf-qnap-store.js";
 import { sendPdfFile } from "../../business/pdf/pdf-serve.js";
 import { isValidPdfFile, PDF_GENERATION_FAILED_MSG } from "../../business/pdf/pdf-validation.js";
@@ -332,7 +332,7 @@ estimateV1Router.get("/projects/:id/pdf", ...estimateV1Auth, async (req: AuthedR
     res.status(500).json({ error: PDF_GENERATION_FAILED_MSG });
     return;
   }
-  sendPdfFile(res, filePath, buildProjectPdfFileName("estimate", estimate.estimateNo));
+  sendPdfFile(res, filePath, buildProjectPdfFileNameForProject("estimate", project, estimate));
 });
 
 estimateV1Router.post("/projects/:id/pdf/regenerate", ...estimateV1Auth, async (req: AuthedRequest, res) => {
@@ -419,7 +419,7 @@ estimateV1Router.get("/projects/:id/invoice/pdf", ...estimateV1Auth, async (req:
     res.status(500).json({ error: PDF_GENERATION_FAILED_MSG });
     return;
   }
-  sendPdfFile(res, filePath, buildProjectPdfFileName("invoice", invoice.invoiceNo));
+  sendPdfFile(res, filePath, buildProjectPdfFileNameForProject("invoice", project, estimate));
 });
 
 estimateV1Router.post(
@@ -498,7 +498,11 @@ estimateV1Router.get(
     sendPdfFile(
       res,
       filePath,
-      buildProjectPdfFileName("specification", project.projectNo ?? projectId.slice(-4))
+      buildProjectPdfFileNameForProject(
+        "specification",
+        project,
+        project.estimateId ? getEstimate(project.estimateId) ?? undefined : undefined
+      )
     );
   }
 );
@@ -664,7 +668,11 @@ estimateV1Router.get(
     sendPdfFile(
       res,
       filePath,
-      buildProjectPdfFileName("report", project.projectNo ?? projectId.slice(-4))
+      buildProjectPdfFileNameForProject(
+        "report",
+        project,
+        project.estimateId ? getEstimate(project.estimateId) ?? undefined : undefined
+      )
     );
   }
 );

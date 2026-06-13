@@ -1,4 +1,4 @@
-import { escapeHtml, escapeHtmlMultiline } from "../business/pdf/shared-blocks.js";
+import { escapeHtml, escapeHtmlMultiline, formatPhotoCircledNumber } from "../business/pdf/shared-blocks.js";
 import { getTomsCompanyInfo } from "../business/pdf/company.js";
 import { TOMS_PDF_VIEWPORT_META } from "../business/pdf/styles.js";
 
@@ -44,12 +44,7 @@ function chunk<T>(arr: T[], size: number): T[][] {
 }
 
 /** 写真番号 ① ② … （PDF 2列×3段レイアウト用） */
-export function formatPhotoCircledNumber(index: number): string {
-  if (index >= 1 && index <= 20) {
-    return String.fromCharCode(0x2460 + index - 1);
-  }
-  return String(index);
-}
+export { formatPhotoCircledNumber } from "../business/pdf/shared-blocks.js";
 
 function formatFooterDateTime(isoOrDate: string): string {
   const trimmed = (isoOrDate ?? "").trim();

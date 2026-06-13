@@ -6,7 +6,7 @@ import { resolveTomsBankInfo } from "../business/toms-document-format.js";
 import { listCompletionChecklistV1 } from "../field-ops/work-session-v1-store.js";
 import { getSurveyProjectV1Detail } from "../survey/survey-v1-store.js";
 import { getProjectPdfMeta } from "../projects/project-pdf-qnap-store.js";
-import { buildProjectPdfFileName } from "../projects/project-pdf-store.js";
+import { buildProjectPdfFileNameForProject } from "../projects/project-pdf-store.js";
 import { isValidPdfFile } from "../business/pdf/pdf-validation.js";
 import path from "path";
 import {
@@ -194,19 +194,16 @@ function finalizeDocumentViewPayload(payload: DocumentViewPayloadV1): DocumentVi
 function shareFileNameForKind(projectId: string, kind: DocumentViewKindV1): string {
   const project = getBusinessProject(projectId);
   if (!project) return "document.pdf";
+  const estimate = project.estimateId ? getEstimate(project.estimateId) : null;
   switch (kind) {
-    case "estimate": {
-      const est = project.estimateId ? getEstimate(project.estimateId) : null;
-      return buildProjectPdfFileName("estimate", est?.estimateNo ?? projectId.slice(-4));
-    }
-    case "invoice": {
-      const inv = project.invoiceId ? getInvoice(project.invoiceId) : null;
-      return buildProjectPdfFileName("invoice", inv?.invoiceNo ?? projectId.slice(-4));
-    }
+    case "estimate":
+      return buildProjectPdfFileNameForProject("estimate", project, estimate ?? undefined);
+    case "invoice":
+      return buildProjectPdfFileNameForProject("invoice", project, estimate ?? undefined);
     case "specification":
-      return buildProjectPdfFileName("specification", project.projectNo ?? projectId.slice(-4));
+      return buildProjectPdfFileNameForProject("specification", project, estimate ?? undefined);
     case "completion-report":
-      return buildProjectPdfFileName("report", project.projectNo ?? projectId.slice(-4));
+      return buildProjectPdfFileNameForProject("report", project, estimate ?? undefined);
     default:
       return `${kind}.pdf`;
   }

@@ -78,10 +78,12 @@ ${TOMS_OFFICIAL_CORE_STYLES}
 ${PDF_A4_LINE_ITEMS_STYLES}
 .intro{margin:0.28rem 0 0.38rem;font-size:0.72rem}
 .bank-block{flex:1;max-width:52%;padding:0.38rem 0.55rem;border:1px solid #000;font-size:0.76rem;line-height:1.28;page-break-inside:avoid}
-.photos{display:grid;grid-template-columns:repeat(2,1fr);gap:0.28rem;margin-top:0.28rem}
-.photo-slot{border:1px solid #ccc;min-height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#94a3b8;font-size:0.58rem;overflow:hidden;page-break-inside:avoid}
-.photo-slot img{max-width:100%;max-height:80px;object-fit:contain}
-.photo-caption{font-size:0.54rem;margin-top:0.08rem;color:#64748b}
+.photos{display:grid;grid-template-columns:repeat(2,1fr);gap:0.28rem;margin-top:0.28rem;align-content:start}
+.photo-slot{display:flex;flex-direction:column;width:100%;page-break-inside:avoid}
+.photo-img-wrap{width:100%;aspect-ratio:4/3;overflow:hidden;border:1px solid #cbd5e1;background:#f8fafc}
+.photo-img-wrap img{width:100%;height:100%;object-fit:cover;object-position:center;display:block}
+.photo-title{margin:0.08rem 0 0;text-align:center;font-size:0.54rem;color:#334155;line-height:1.2;flex:0 0 auto}
+.photo-num{font-weight:700;margin-right:0.08rem}
 .photo-section-title{font-size:0.76rem;margin:0.5rem 0 0.18rem}
 .seal-placeholder{width:56px;height:56px;border:2px solid #cbd5e1;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:0.76rem;flex-shrink:0}
 .doc-footer{flex-shrink:0}

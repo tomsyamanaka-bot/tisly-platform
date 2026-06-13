@@ -24,28 +24,49 @@ export function resolveChromiumExecutablePath(): string | null {
 
   try {
     const puppeteerPkg = path.join(process.cwd(), "node_modules", "puppeteer", "package.json");
-    if (!fs.existsSync(puppeteerPkg)) return null;
-    const json = JSON.parse(fs.readFileSync(puppeteerPkg, "utf8")) as {
-      puppeteer?: { chromium?: { path?: string } };
-    };
-    const rel = json.puppeteer?.chromium?.path;
-    if (!rel) return null;
-    const full = path.join(process.cwd(), "node_modules", "puppeteer", rel);
-    if (fs.existsSync(full)) return full;
+    if (fs.existsSync(puppeteerPkg)) {
+      const json = JSON.parse(fs.readFileSync(puppeteerPkg, "utf8")) as {
+        puppeteer?: { chromium?: { path?: string } };
+      };
+      const rel = json.puppeteer?.chromium?.path;
+      if (rel) {
+        const full = path.join(process.cwd(), "node_modules", "puppeteer", rel);
+        if (fs.existsSync(full)) return full;
+      }
+    }
   } catch {
     /* ignore */
   }
 
   const homeCache = path.join(os.homedir(), ".cache", "puppeteer");
   if (fs.existsSync(homeCache)) {
-    const bins = fs
-      .readdirSync(homeCache, { withFileTypes: true })
-      .flatMap((entry) => {
-        if (!entry.isDirectory()) return [];
-        const chrome = path.join(homeCache, entry.name, "chrome-linux64", "chrome");
-        return fs.existsSync(chrome) ? [chrome] : [];
-      });
-    if (bins[0]) return bins[0];
+    const chromeRoots = [
+      path.join(homeCache, "chrome"),
+      homeCache,
+    ];
+    for (const root of chromeRoots) {
+      if (!fs.existsSync(root)) continue;
+      const bins = fs
+        .readdirSync(root, { withFileTypes: true })
+        .flatMap((entry) => {
+          if (!entry.isDirectory()) return [];
+          const candidates = [
+            path.join(root, entry.name, "chrome-linux64", "chrome"),
+            path.join(root, entry.name, "chrome-win64", "chrome.exe"),
+            path.join(
+              root,
+              entry.name,
+              "chrome-mac",
+              "Chromium.app",
+              "Contents",
+              "MacOS",
+              "Chromium"
+            ),
+          ];
+          return candidates.filter((c) => fs.existsSync(c));
+        });
+      if (bins[0]) return bins[0];
+    }
   }
 
   return null;

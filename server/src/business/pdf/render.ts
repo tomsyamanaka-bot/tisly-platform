@@ -10,6 +10,7 @@ import {
   probePdfEngineHealth,
 } from "./pdf-engine-status.js";
 import { PUPPETEER_LAUNCH_ARGS, resolveChromiumExecutablePath } from "./chromium-path.js";
+import { embedPdfImagesInHtml } from "./pdf-image-embed.js";
 import { renderCompletionReportHtml } from "./completion-report-template.js";
 import { renderEstimateHtml } from "./estimate-template.js";
 import { renderInvoiceHtml } from "./invoice-template.js";
@@ -79,7 +80,7 @@ export async function htmlToPdfBuffer(html: string): Promise<Buffer | null> {
     try {
       const page = await browser.newPage();
       await page.setViewport({ width: 794, height: 1123, deviceScaleFactor: 1 });
-      await page.setContent(html, { waitUntil: "networkidle0" });
+      await page.setContent(embedPdfImagesInHtml(html), { waitUntil: "networkidle0" });
       await page.evaluateHandle("document.fonts.ready");
       const buf = await page.pdf({ format: "A4", landscape: false, printBackground: true });
       const pdfBuf = Buffer.from(buf);

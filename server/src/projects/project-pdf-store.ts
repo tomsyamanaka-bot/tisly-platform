@@ -51,19 +51,64 @@ export const PROJECT_PDF_KIND_LABELS: Record<ProjectPdfKind, string> = {
   specification: "仕様書",
 };
 
-function sanitizeSuffix(s: string): string {
-  return s.replace(/[/\\:*?"<>|]/g, "_").trim() || "doc";
+const PDF_FILE_NAME_MAX_LEN = 80;
+
+/** ファイル名セグメントから使えない文字を除去 */
+export function sanitizePdfFileNameSegment(s: string): string {
+  return s.replace(/[/\\:*?"<>|]/g, "_").replace(/\s+/g, " ").trim() || "案件";
 }
 
-/** 標準ファイル名: estimate-xxxx.pdf / invoice-xxxx.pdf / completion-report-xxxx.pdf / specification-xxxx.pdf */
-export function buildProjectPdfFileName(kind: ProjectPdfKind, suffix: string): string {
-  const base =
-    kind === "report"
-      ? "completion-report"
-      : kind === "specification"
-        ? "specification"
-        : kind;
-  return `${base}-${sanitizeSuffix(suffix)}.pdf`;
+/** 顧客名に「様」を付与（重複しない） */
+export function formatCustomerNameForPdfFile(name: string): string {
+  const trimmed = sanitizePdfFileNameSegment(name || "お客様");
+  return trimmed.endsWith("様") ? trimmed : `${trimmed}様`;
+}
+
+/**
+ * 実務向け PDF ファイル名: 種別_顧客名_件名.pdf
+ * 例: 見積書_上田様_カメラ工事.pdf
+ */
+export function buildProjectPdfFileName(
+  kind: ProjectPdfKind,
+  customerName: string,
+  subject: string
+): string {
+  const kindLabel = PROJECT_PDF_KIND_LABELS[kind];
+  const customer = formatCustomerNameForPdfFile(customerName);
+  const title = sanitizePdfFileNameSegment(subject || "案件");
+  const ext = ".pdf";
+  let base = `${kindLabel}_${customer}_${title}`;
+  const maxBaseLen = PDF_FILE_NAME_MAX_LEN - ext.length;
+  if (base.length > maxBaseLen) {
+    const prefix = `${kindLabel}_${customer}_`;
+    const maxTitleLen = Math.max(1, maxBaseLen - prefix.length);
+    base = `${prefix}${title.slice(0, maxTitleLen)}`;
+  }
+  return `${base}${ext}`;
+}
+
+export function resolvePdfSubjectForProject(
+  project: { title?: string | null },
+  estimate?: { header?: { subject?: string | null } | null; title?: string | null } | null
+): string {
+  return (
+    estimate?.header?.subject?.trim() ||
+    estimate?.title?.trim() ||
+    project.title?.trim() ||
+    "案件"
+  );
+}
+
+export function buildProjectPdfFileNameForProject(
+  kind: ProjectPdfKind,
+  project: { customerName: string; title: string },
+  estimate?: { header?: { subject?: string | null } | null; title?: string | null } | null
+): string {
+  return buildProjectPdfFileName(
+    kind,
+    project.customerName,
+    resolvePdfSubjectForProject(project, estimate)
+  );
 }
 
 export function projectPdfStorageDir(projectId: string): string {
@@ -147,40 +192,16 @@ function entryFromPath(
   };
 }
 
-function estimateSuffix(projectId: string): string {
-  const project = getBusinessProject(projectId);
-  if (!project?.estimateId) return projectId.slice(-4);
-  const est = getEstimate(project.estimateId);
-  return est?.estimateNo ?? projectId.slice(-4);
-}
-
-function invoiceSuffix(projectId: string): string {
-  const project = getBusinessProject(projectId);
-  if (!project?.invoiceId) return projectId.slice(-4);
-  const inv = getInvoice(project.invoiceId);
-  return inv?.invoiceNo ?? projectId.slice(-4);
-}
-
-function reportSuffix(projectId: string): string {
-  const project = getBusinessProject(projectId);
-  return project?.projectNo ?? projectId.slice(-4);
-}
-
-function specificationSuffix(projectId: string): string {
-  const project = getBusinessProject(projectId);
-  return project?.projectNo ?? projectId.slice(-4);
-}
-
 export function expectedStoragePath(projectId: string, kind: ProjectPdfKind): string {
-  const suffix =
-    kind === "estimate"
-      ? estimateSuffix(projectId)
-      : kind === "invoice"
-        ? invoiceSuffix(projectId)
-        : kind === "specification"
-          ? specificationSuffix(projectId)
-          : reportSuffix(projectId);
-  return projectPdfPublicPath(projectId, buildProjectPdfFileName(kind, suffix));
+  const project = getBusinessProject(projectId);
+  if (!project) {
+    return projectPdfPublicPath(projectId, `${kind}.pdf`);
+  }
+  const estimate = project.estimateId ? getEstimate(project.estimateId) : null;
+  return projectPdfPublicPath(
+    projectId,
+    buildProjectPdfFileNameForProject(kind, project, estimate)
+  );
 }
 
 function dbPdfPath(projectId: string, kind: ProjectPdfKind): string | null {
@@ -282,7 +303,8 @@ export async function regenerateProjectPdfV1(
     if (!project.completionReportId) throw new Error("No completion report");
     const html = renderCompletionReportHtmlV1(projectId);
     if (!html) throw new Error("No completion report");
-    const pdfPath = await generateCompletionReportPdfV1(project, html, reportSuffix(projectId));
+    const report = getCompletionReport(project.completionReportId);
+    const pdfPath = await generateCompletionReportPdfV1(project, html, report?.pdfPath);
     setCompletionReportPdfPath(project.completionReportId, pdfPath);
     saveProjectPdfWithQnapQueue(projectId, "report", pdfPath);
   }

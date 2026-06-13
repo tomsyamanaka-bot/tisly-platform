@@ -1,5 +1,4 @@
 import { Router, type Response } from "express";
-import path from "path";
 import { requireAuth, type AuthedRequest } from "../../auth/auth-middleware.js";
 import { roleMeetsRequirement, normalizeRole } from "../../auth/roles.js";
 import { buildFieldOpsDashboardV1Async } from "../../projects/field-ops-dashboard.js";
@@ -18,9 +17,10 @@ import {
   PDF_STORAGE_PROVIDER,
   regenerateProjectPdfV1,
   resolveProjectPdfFile,
-  buildProjectPdfFileName,
+  buildProjectPdfFileNameForProject,
 } from "../../projects/project-pdf-store.js";
 import { sendPdfFile } from "../../business/pdf/pdf-serve.js";
+import { getBusinessProject, getEstimate } from "../../business/business-store.js";
 import { isValidPdfFile } from "../../business/pdf/pdf-validation.js";
 import {
   getProjectPdfMeta,
@@ -125,13 +125,13 @@ projectsV1Router.get("/projects/:id/pdfs/:kind/file", ...auth, async (req: Authe
     res.status(500).json({ error: "PDF generation failed" });
     return;
   }
-  const suffix =
-    kind === "estimate"
-      ? path.basename(filePath).replace(/^estimate-/, "").replace(/\.pdf$/, "")
-      : kind === "invoice"
-        ? path.basename(filePath).replace(/^invoice-/, "").replace(/\.pdf$/, "")
-        : path.basename(filePath).replace(/^completion-report-|^specification-/, "").replace(/\.pdf$/, "");
-  sendPdfFile(res, filePath, buildProjectPdfFileName(kind, suffix));
+  const project = getBusinessProject(projectId);
+  const estimate = project?.estimateId ? getEstimate(project.estimateId) : null;
+  if (!project) {
+    sendPdfFile(res, filePath);
+    return;
+  }
+  sendPdfFile(res, filePath, buildProjectPdfFileNameForProject(kind, project, estimate ?? undefined));
 });
 
 projectsV1Router.post("/projects/:id/pdfs/:kind/regenerate", ...auth, async (req: AuthedRequest, res) => {

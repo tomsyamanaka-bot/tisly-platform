@@ -150,7 +150,7 @@ describe("Document Viewer UX v1 API", () => {
       .get(`/api/estimate/v1/projects/${businessProjectId}/document-view?kind=estimate`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(res.status, 200);
-    assert.match(res.body.shareFileName, /^estimate-.*\.pdf$/);
+    assert.match(res.body.shareFileName, /^見積書_.*\.pdf$/);
   });
 
   it("不正 kind は 400", async () => {

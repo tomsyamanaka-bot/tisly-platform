@@ -31,7 +31,7 @@ import {
   generateCompletionReportPdfV1,
   generateSpecificationPdfV1,
 } from "../business/services/pdfService.js";
-import { recordProjectPdfSavedV1 } from "../projects/project-pdf-qnap-store.js";
+import { recordProjectPdfSavedV1, getProjectPdfMeta } from "../projects/project-pdf-qnap-store.js";
 import { listPricingRules } from "../business/business-pricing.js";
 import type {
   CustomerPriceRuleSummary,
@@ -847,8 +847,8 @@ export async function generateAndSaveSpecificationPdfV1(
   if (!project) return null;
   const html = renderSpecificationHtmlV1(businessProjectId);
   if (!html) return null;
-  const suffix = project.projectNo || businessProjectId.slice(-4);
-  const pdfPath = await generateSpecificationPdfV1(project, html, suffix);
+  const oldPath = getProjectPdfMeta(businessProjectId, "specification")?.localPath ?? null;
+  const pdfPath = await generateSpecificationPdfV1(project, html, oldPath);
   recordProjectPdfSavedV1(businessProjectId, "specification", pdfPath);
   return pdfPath;
 }
@@ -868,8 +868,8 @@ export async function createCompletionReportV1(
     const html = renderCompletionReportHtmlV1(businessProjectId);
     let pdfPath: string | undefined;
     if (html) {
-      const suffix = project.projectNo ?? businessProjectId.slice(-4);
-      pdfPath = await generateCompletionReportPdfV1(project, html, suffix);
+      const report = getCompletionReport(project.completionReportId);
+      pdfPath = await generateCompletionReportPdfV1(project, html, report?.pdfPath);
       setCompletionReportPdfPath(project.completionReportId, pdfPath);
       recordProjectPdfSavedV1(businessProjectId, "report", pdfPath);
     }
@@ -892,7 +892,7 @@ export async function createCompletionReportV1(
   const html = renderCompletionReportHtmlV1(businessProjectId);
   let pdfPath: string | undefined;
   if (html) {
-    pdfPath = await generateCompletionReportPdfV1(refreshed, html, refreshed.projectNo ?? businessProjectId.slice(-4));
+    pdfPath = await generateCompletionReportPdfV1(refreshed, html, report.pdfPath);
     setCompletionReportPdfPath(report.id, pdfPath);
     recordProjectPdfSavedV1(businessProjectId, "report", pdfPath);
   }

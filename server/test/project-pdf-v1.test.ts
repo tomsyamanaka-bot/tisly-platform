@@ -72,10 +72,19 @@ describe("案件 PDF 管理 v1", () => {
 
   after(() => closeDatabase());
 
-  it("buildProjectPdfFileName — 標準命名", () => {
-    assert.equal(buildProjectPdfFileName("estimate", "EST-2026-0001"), "estimate-EST-2026-0001.pdf");
-    assert.equal(buildProjectPdfFileName("invoice", "INV-001"), "invoice-INV-001.pdf");
-    assert.equal(buildProjectPdfFileName("report", "PRJ-2026-0001"), "completion-report-PRJ-2026-0001.pdf");
+  it("buildProjectPdfFileName — 実務向け命名", () => {
+    assert.equal(
+      buildProjectPdfFileName("estimate", "上田", "カメラ工事"),
+      "見積書_上田様_カメラ工事.pdf"
+    );
+    assert.equal(
+      buildProjectPdfFileName("invoice", "上田", "カメラ工事"),
+      "請求書_上田様_カメラ工事.pdf"
+    );
+    assert.equal(
+      buildProjectPdfFileName("report", "上田", "カメラ工事"),
+      "完了報告書_上田様_カメラ工事.pdf"
+    );
   });
 
   it("GET /projects/:id/pdfs — 一覧と保存パス", async () => {
@@ -91,7 +100,7 @@ describe("案件 PDF 管理 v1", () => {
     assert.ok(kinds.includes("report"));
     const estimatePdf = res.body.pdfs.find((p: { kind: string }) => p.kind === "estimate");
     assert.ok(estimatePdf.exists, "見積PDFが存在すること");
-    assert.match(estimatePdf.fileName, /^estimate-.*\.pdf$/);
+    assert.match(estimatePdf.fileName, /^見積書_.*\.pdf$/);
   });
 
   it("GET /projects/:id/pdfs/estimate/file — PDF取得", async () => {
@@ -106,9 +115,9 @@ describe("案件 PDF 管理 v1", () => {
     const dir = path.join(process.cwd(), "uploads", "business", businessProjectId, "pdfs");
     assert.ok(fs.existsSync(dir), "pdfs ディレクトリが存在すること");
     const files = fs.readdirSync(dir).filter((f) => f.endsWith(".pdf"));
-    assert.ok(files.some((f) => f.startsWith("estimate-")), files.join(","));
-    assert.ok(files.some((f) => f.startsWith("invoice-")), files.join(","));
-    assert.ok(files.some((f) => f.startsWith("completion-report-")), files.join(","));
+    assert.ok(files.some((f) => f.startsWith("見積書_")), files.join(","));
+    assert.ok(files.some((f) => f.startsWith("請求書_")), files.join(","));
+    assert.ok(files.some((f) => f.startsWith("完了報告書_")), files.join(","));
   });
 
   it("POST regenerate + DELETE pdf", async () => {

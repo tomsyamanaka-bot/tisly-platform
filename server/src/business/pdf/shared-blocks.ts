@@ -15,6 +15,14 @@ export function escapeHtmlMultiline(s: string): string {
   return escapeHtml(s).replace(/\n/g, "<br/>");
 }
 
+/** 写真番号 ① ② … （PDF 2列×3段レイアウト用） */
+export function formatPhotoCircledNumber(index: number): string {
+  if (index >= 1 && index <= 20) {
+    return String.fromCharCode(0x2460 + index - 1);
+  }
+  return String(index);
+}
+
 export function renderPdfHeader(docTitle: string, docNo: string): string {
   const co = getTomsCompanyInfo();
   const emailLine = co.email ? `<br/>${escapeHtml(co.email)}` : "";
@@ -447,13 +455,15 @@ export function renderNotes(notes: string): string {
 }
 
 export function renderPhotoGrid(photos: BusinessPhoto[], includeImages = false): string {
-  const slots = photos
-    .slice(0, 20)
-    .map((p) => {
+  const items = photos.slice(0, 20);
+  const slots = items
+    .map((p, i) => {
+      const num = formatPhotoCircledNumber(i + 1);
+      const title = (p.caption || p.fileName || `写真${i + 1}`).trim();
       if (includeImages && p.urlPath) {
-        return `<div class="photo-slot"><img src="${escapeHtml(p.urlPath)}" alt="${escapeHtml(p.fileName)}"/><span class="photo-caption">${escapeHtml(p.caption || p.fileName)}</span></div>`;
+        return `<div class="photo-slot"><div class="photo-img-wrap"><img src="${escapeHtml(p.urlPath)}" alt="${escapeHtml(title)}"/></div><p class="photo-title"><span class="photo-num">${num}</span> ${escapeHtml(title)}</p></div>`;
       }
-      return `<div class="photo-slot">${escapeHtml(p.fileName)}</div>`;
+      return `<div class="photo-slot"><p class="photo-title"><span class="photo-num">${num}</span> ${escapeHtml(title)}</p></div>`;
     })
     .join("");
   if (!slots) return "";

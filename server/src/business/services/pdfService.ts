@@ -2,9 +2,9 @@ import fs from "fs";
 import path from "path";
 import type { BusinessProject, CompletionReport, Estimate, Invoice } from "../business-types.js";
 import { resolveEstimatePriceRule } from "../customer-price-rules.js";
-import { businessUploadsDir } from "../business-store.js";
+import { businessUploadsDir, getEstimate } from "../business-store.js";
 import {
-  buildProjectPdfFileName,
+  buildProjectPdfFileNameForProject,
   PDF_STORAGE_PROVIDER,
   type PdfStorageProvider,
 } from "../../projects/project-pdf-store.js";
@@ -36,23 +36,40 @@ function writeHtml(projectId: string, folder: string, fileName: string, html: st
   return `/uploads/business/${projectId}/${folder}/${fileName}`;
 }
 
+function removeStoredPdfIfRenamed(
+  oldStoredPath: string | null | undefined,
+  newFileName: string
+): void {
+  if (!oldStoredPath?.trim()) return;
+  const oldName = path.basename(oldStoredPath);
+  if (oldName === newFileName) return;
+  const oldLocal = path.join(process.cwd(), oldStoredPath.replace(/^\//, ""));
+  if (fs.existsSync(oldLocal)) {
+    try {
+      fs.unlinkSync(oldLocal);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
 async function writePdfFromHtml(
   project: BusinessProject,
   kind: "estimate" | "invoice",
   doc: Estimate | Invoice,
   html: string,
-  title: string
+  title: string,
+  oldStoredPath?: string | null
 ): Promise<{ pdfPath: string; htmlPath: string }> {
   const htmlName =
     kind === "estimate"
       ? `estimate-${(doc as Estimate).estimateNo}.html`
       : `invoice-${(doc as Invoice).invoiceNo}.html`;
   const htmlPath = writeHtml(project.id, "pdf-html", htmlName, html);
-  const suffix =
-    kind === "estimate"
-      ? (doc as Estimate).estimateNo
-      : (doc as Invoice).invoiceNo;
-  const fileName = buildProjectPdfFileName(kind, suffix);
+  const estimate =
+    kind === "estimate" ? (doc as Estimate) : project.estimateId ? getEstimate(project.estimateId) : null;
+  const fileName = buildProjectPdfFileNameForProject(kind, project, estimate ?? undefined);
+  removeStoredPdfIfRenamed(oldStoredPath, fileName);
   const { pdfBuf } = await renderWithPdfFallback(html, title);
   const pdfPath = writePdf(project.id, "pdfs", fileName, pdfBuf);
   return { pdfPath, htmlPath };
@@ -61,9 +78,11 @@ async function writePdfFromHtml(
 export async function generateCompletionReportPdfV1(
   project: BusinessProject,
   html: string,
-  suffix: string
+  oldStoredPath?: string | null
 ): Promise<string> {
-  const fileName = buildProjectPdfFileName("report", suffix);
+  const estimate = project.estimateId ? getEstimate(project.estimateId) : null;
+  const fileName = buildProjectPdfFileNameForProject("report", project, estimate ?? undefined);
+  removeStoredPdfIfRenamed(oldStoredPath, fileName);
   const { pdfBuf } = await renderWithPdfFallback(html, `完了報告 ${project.title}`);
   return writePdf(project.id, "pdfs", fileName, pdfBuf);
 }
@@ -71,9 +90,11 @@ export async function generateCompletionReportPdfV1(
 export async function generateSpecificationPdfV1(
   project: BusinessProject,
   html: string,
-  suffix: string
+  oldStoredPath?: string | null
 ): Promise<string> {
-  const fileName = buildProjectPdfFileName("specification", suffix);
+  const estimate = project.estimateId ? getEstimate(project.estimateId) : null;
+  const fileName = buildProjectPdfFileNameForProject("specification", project, estimate ?? undefined);
+  removeStoredPdfIfRenamed(oldStoredPath, fileName);
   const { pdfBuf } = await renderWithPdfFallback(html, `仕様書 ${project.title}`);
   return writePdf(project.id, "pdfs", fileName, pdfBuf);
 }
@@ -97,7 +118,8 @@ export async function generateEstimatePdf(
     "estimate",
     estimate,
     html,
-    `見積 ${estimate.estimateNo}`
+    `見積 ${estimate.estimateNo}`,
+    estimate.pdfPath
   );
   return pdfPath;
 }
@@ -128,7 +150,8 @@ export async function generateInvoicePdf(
     "invoice",
     invoice,
     html,
-    `請求 ${invoice.invoiceNo}`
+    `請求 ${invoice.invoiceNo}`,
+    invoice.pdfPath
   );
   return pdfPath;
 }
