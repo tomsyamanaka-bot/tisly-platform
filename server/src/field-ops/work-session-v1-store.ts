@@ -14,26 +14,30 @@ import type {
 } from "./field-ops-types.js";
 import { listProjectWorkTemplateIds } from "./work-templates-store.js";
 import { getWorkTemplateV1 } from "./work-templates-store.js";
+import {
+  getFieldChecklistTemplateByNameV1,
+} from "./field-checklist-templates-store.js";
+import { addCompletionPhotoV1 } from "../estimate/completion-photos-store.js";
+import path from "path";
 import { reflectProjectCompletionToGoogleCalendar } from "../schedule/google-calendar-sync-service.js";
 
-const CHECKLIST_BY_WORK_TYPE: Record<string, Array<{ category: string; label: string }>> = {
-  camera: [
-    { category: "防犯カメラ", label: "映像確認" },
-    { category: "防犯カメラ", label: "録画確認" },
-    { category: "防犯カメラ", label: "通知確認" },
-    { category: "防犯カメラ", label: "お客様説明" },
-  ],
-  lan: [
-    { category: "LAN", label: "通信確認" },
-    { category: "LAN", label: "スピード確認" },
-    { category: "LAN", label: "ラベル貼付" },
-  ],
-  wifi: [
-    { category: "Wi-Fi", label: "接続確認" },
-    { category: "Wi-Fi", label: "速度確認" },
-    { category: "Wi-Fi", label: "お客様説明" },
-  ],
+const WORK_TYPE_TEMPLATE_NAMES: Record<string, string> = {
+  camera: "防犯カメラ",
+  wifi: "Wi-Fi",
+  intercom: "インターホン",
+  lan: "LAN配線",
+  electrical: "電気工事",
+  tisly: "TiSLY",
 };
+
+const TEMPLATE_NAME_PATTERNS: Array<{ pattern: RegExp; name: string }> = [
+  { pattern: /カメラ|防犯/i, name: "防犯カメラ" },
+  { pattern: /Wi-?Fi|ワイファイ/i, name: "Wi-Fi" },
+  { pattern: /インターホン|ドアホン/i, name: "インターホン" },
+  { pattern: /LAN|配線/i, name: "LAN配線" },
+  { pattern: /電気|電源/i, name: "電気工事" },
+  { pattern: /TiSLY|tisly/i, name: "TiSLY" },
+];
 
 function rowToSession(r: Record<string, unknown>): WorkSessionV1 {
   return {
@@ -49,16 +53,26 @@ function rowToSession(r: Record<string, unknown>): WorkSessionV1 {
     completionTime: r.completion_time != null ? String(r.completion_time) : null,
     workerName: r.worker_name != null ? String(r.worker_name) : null,
     workMemo: r.work_memo != null ? String(r.work_memo) : null,
+    forceCompleteReason:
+      r.force_complete_reason != null ? String(r.force_complete_reason) : null,
     createdAt: String(r.created_at),
     updatedAt: String(r.updated_at),
   };
 }
 
 function rowToChecklistItem(r: Record<string, unknown>): CompletionChecklistItemV1 {
+  const projectSource = String(r.project_source) as ProjectRefV1["source"];
+  const projectId = String(r.project_id);
+  const photoId = r.photo_id != null ? String(r.photo_id) : null;
+  let photoUrl: string | null = null;
+  if (photoId && r.photo_path != null && projectSource === "business") {
+    const fileName = path.basename(String(r.photo_path));
+    photoUrl = `/uploads/business/${projectId}/completion/${fileName}`;
+  }
   return {
     id: String(r.id),
-    projectSource: String(r.project_source) as ProjectRefV1["source"],
-    projectId: String(r.project_id),
+    projectSource,
+    projectId,
     category: String(r.category),
     label: String(r.label),
     checked: Number(r.checked ?? 0) === 1,
@@ -66,6 +80,10 @@ function rowToChecklistItem(r: Record<string, unknown>): CompletionChecklistItem
     checkedBy: r.checked_by != null ? String(r.checked_by) : null,
     sortOrder: Number(r.sort_order ?? 0),
     source: String(r.source) === "manual" ? "manual" : "auto",
+    photoId,
+    photoUrl,
+    templateItemId: r.template_item_id != null ? String(r.template_item_id) : null,
+    memo: r.memo != null ? String(r.memo) : null,
   };
 }
 
@@ -145,49 +163,57 @@ function parseWorkTypesFromProject(ref: ProjectRefV1): SurveyWorkType[] {
   }
 }
 
-function collectChecklistDefaults(ref: ProjectRefV1): Array<{ category: string; label: string }> {
-  const out: Array<{ category: string; label: string }> = [];
-  const seen = new Set<string>();
+function resolveTemplateNames(ref: ProjectRefV1): string[] {
+  const names = new Set<string>();
 
   for (const wt of parseWorkTypesFromProject(ref)) {
-    const items = CHECKLIST_BY_WORK_TYPE[wt];
-    if (!items) continue;
-    for (const it of items) {
-      const key = `${it.category}::${it.label}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      out.push(it);
-    }
+    const mapped = WORK_TYPE_TEMPLATE_NAMES[wt];
+    if (mapped) names.add(mapped);
   }
 
   for (const templateId of listProjectWorkTemplateIds(ref)) {
     const tpl = getWorkTemplateV1(templateId);
     if (!tpl) continue;
-    if (/カメラ|防犯/i.test(tpl.name)) {
-      for (const it of CHECKLIST_BY_WORK_TYPE.camera ?? []) {
-        const key = `${it.category}::${it.label}`;
-        if (!seen.has(key)) {
-          seen.add(key);
-          out.push(it);
-        }
-      }
+    for (const { pattern, name } of TEMPLATE_NAME_PATTERNS) {
+      if (pattern.test(tpl.name)) names.add(name);
     }
-    if (/LAN|配線/i.test(tpl.name)) {
-      for (const it of CHECKLIST_BY_WORK_TYPE.lan ?? []) {
-        const key = `${it.category}::${it.label}`;
-        if (!seen.has(key)) {
-          seen.add(key);
-          out.push(it);
-        }
-      }
+  }
+
+  return [...names];
+}
+
+function collectChecklistDefaults(ref: ProjectRefV1): Array<{
+  category: string;
+  label: string;
+  templateItemId: string | null;
+}> {
+  const out: Array<{ category: string; label: string; templateItemId: string | null }> = [];
+  const seen = new Set<string>();
+  const templateNames = resolveTemplateNames(ref);
+
+  for (const name of templateNames) {
+    const tpl = getFieldChecklistTemplateByNameV1(name);
+    if (!tpl) continue;
+    for (const it of tpl.items) {
+      const key = `${tpl.name}::${it.label}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ category: tpl.name, label: it.label, templateItemId: it.id });
     }
   }
 
   if (!out.length) {
-    out.push(
-      { category: "共通", label: "作業完了確認" },
-      { category: "共通", label: "お客様説明" }
-    );
+    const common = getFieldChecklistTemplateByNameV1("防犯カメラ");
+    if (common?.items.length) {
+      for (const it of common.items.slice(0, 4)) {
+        out.push({ category: common.name, label: it.label, templateItemId: it.id });
+      }
+    } else {
+      out.push(
+        { category: "共通", label: "作業完了確認", templateItemId: null },
+        { category: "共通", label: "お客様説明済み", templateItemId: null }
+      );
+    }
   }
   return out;
 }
@@ -195,9 +221,11 @@ function collectChecklistDefaults(ref: ProjectRefV1): Array<{ category: string; 
 export function listCompletionChecklistV1(ref: ProjectRefV1): CompletionChecklistItemV1[] {
   const rows = getDatabase()
     .prepare(
-      `SELECT * FROM completion_checklist_items
-       WHERE project_source = ? AND project_id = ?
-       ORDER BY sort_order ASC, category ASC, label ASC`
+      `SELECT ci.*, cp.photo_path
+       FROM completion_checklist_items ci
+       LEFT JOIN completion_photos cp ON cp.id = ci.photo_id
+       WHERE ci.project_source = ? AND ci.project_id = ?
+       ORDER BY ci.sort_order ASC, ci.category ASC, ci.label ASC`
     )
     .all(ref.source, ref.projectId) as Array<Record<string, unknown>>;
   return rows.map(rowToChecklistItem);
@@ -212,18 +240,19 @@ export function generateCompletionChecklistV1(ref: ProjectRefV1): CompletionChec
   const now = nowIso();
   const insert = db.prepare(
     `INSERT INTO completion_checklist_items (
-      id, project_source, project_id, category, label, checked, sort_order, source, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, 0, ?, 'auto', ?, ?)`
+      id, project_source, project_id, category, label, checked, sort_order, source,
+      template_item_id, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, 0, ?, 'auto', ?, ?, ?)`
   );
   defaults.forEach((it, i) => {
-    insert.run(uuid(), ref.source, ref.projectId, it.category, it.label, i, now, now);
+    insert.run(uuid(), ref.source, ref.projectId, it.category, it.label, i, it.templateItemId, now, now);
   });
   return listCompletionChecklistV1(ref);
 }
 
 export function updateCompletionChecklistItemV1(
   itemId: string,
-  patch: { checked?: boolean; checkedBy?: string | null; label?: string }
+  patch: { checked?: boolean; checkedBy?: string | null; label?: string; memo?: string | null }
 ): CompletionChecklistItemV1 | null {
   const db = getDatabase();
   const row = db.prepare(`SELECT * FROM completion_checklist_items WHERE id = ?`).get(itemId) as
@@ -239,6 +268,13 @@ export function updateCompletionChecklistItemV1(
   if (patch.label != null) {
     db.prepare(`UPDATE completion_checklist_items SET label = ?, updated_at = ? WHERE id = ?`).run(
       patch.label,
+      now,
+      itemId
+    );
+  }
+  if (patch.memo !== undefined) {
+    db.prepare(`UPDATE completion_checklist_items SET memo = ?, updated_at = ? WHERE id = ?`).run(
+      patch.memo ?? "",
       now,
       itemId
     );
@@ -366,7 +402,62 @@ export function recordWorkStartV1(ref: ProjectRefV1, workDate?: string): WorkSes
   return getWorkSessionV1(ref, date)!;
 }
 
-export function recordWorkCompleteV1(ref: ProjectRefV1, workDate?: string): WorkSessionV1 {
+export function getChecklistCompletionStatus(ref: ProjectRefV1): {
+  total: number;
+  checked: number;
+  unchecked: number;
+  allChecked: boolean;
+  uncheckedLabels: string[];
+} {
+  const items = listCompletionChecklistV1(ref);
+  const unchecked = items.filter((it) => !it.checked);
+  return {
+    total: items.length,
+    checked: items.length - unchecked.length,
+    unchecked: unchecked.length,
+    allChecked: items.length > 0 && unchecked.length === 0,
+    uncheckedLabels: unchecked.map((it) => it.label),
+  };
+}
+
+export function attachPhotoToChecklistItemV1(
+  itemId: string,
+  input: { imageBase64: string; fileName?: string; title?: string; uploadedBy?: string }
+): CompletionChecklistItemV1 | null {
+  const db = getDatabase();
+  const row = db.prepare(`SELECT * FROM completion_checklist_items WHERE id = ?`).get(itemId) as
+    | Record<string, unknown>
+    | undefined;
+  if (!row) return null;
+  const ref: ProjectRefV1 = {
+    source: String(row.project_source) as ProjectRefV1["source"],
+    projectId: String(row.project_id),
+  };
+  if (ref.source !== "business") {
+    throw new Error("写真添付は business 案件のみ対応しています");
+  }
+  if (!getBusinessProject(ref.projectId)) throw new Error("project not found");
+
+  const photo = addCompletionPhotoV1(ref.projectId, {
+    imageBase64: input.imageBase64,
+    fileName: input.fileName,
+    title: input.title ?? String(row.label),
+    uploadedBy: input.uploadedBy,
+  });
+  const now = nowIso();
+  db.prepare(`UPDATE completion_checklist_items SET photo_id = ?, updated_at = ? WHERE id = ?`).run(
+    photo.id,
+    now,
+    itemId
+  );
+  return listCompletionChecklistV1(ref).find((it) => it.id === itemId) ?? null;
+}
+
+export function recordWorkCompleteV1(
+  ref: ProjectRefV1,
+  workDate?: string,
+  opts?: { force?: boolean; forceReason?: string | null }
+): WorkSessionV1 {
   const date = workDate ?? todayIso();
   const session = getOrCreateSession(ref, date);
   if (!session.startTime) {
@@ -374,10 +465,27 @@ export function recordWorkCompleteV1(ref: ProjectRefV1, workDate?: string): Work
   }
   if (session.completionTime) return session;
 
+  const status = getChecklistCompletionStatus(ref);
+  if (status.unchecked > 0 && !opts?.force) {
+    throw new Error(
+      `未完了のチェック項目が${status.unchecked}件あります: ${status.uncheckedLabels.slice(0, 3).join("、")}${status.unchecked > 3 ? " 他" : ""}`
+    );
+  }
+  if (status.unchecked > 0 && opts?.force) {
+    const reason = opts.forceReason?.trim() ?? "";
+    if (!reason) {
+      throw new Error("未完了項目があるため、強制完了の理由メモが必要です");
+    }
+  }
+
   const now = nowIso();
+  const forceReason =
+    status.unchecked > 0 && opts?.force ? (opts.forceReason?.trim() ?? null) : null;
   getDatabase()
-    .prepare(`UPDATE project_work_sessions SET completion_time = ?, updated_at = ? WHERE id = ?`)
-    .run(now, now, session.id);
+    .prepare(
+      `UPDATE project_work_sessions SET completion_time = ?, force_complete_reason = ?, updated_at = ? WHERE id = ?`
+    )
+    .run(now, forceReason, now, session.id);
   maybeAdvanceOnComplete(ref);
   appendWorkTimeline(ref, "作業完了", formatTimeJa(now));
   reflectProjectCompletionToGoogleCalendar(ref, now).catch(() => {
@@ -443,17 +551,16 @@ export function buildWorkContentSummary(ref: ProjectRefV1): string {
 export function formatChecklistForPdf(ref: ProjectRefV1): string {
   const items = listCompletionChecklistV1(ref);
   if (!items.length) return "";
-  const byCat = new Map<string, CompletionChecklistItemV1[]>();
+  const lines = [
+    "現場作業時に以下の確認を実施しました。",
+    "",
+  ];
   for (const it of items) {
-    const list = byCat.get(it.category) ?? [];
-    list.push(it);
-    byCat.set(it.category, list);
-  }
-  const lines: string[] = [];
-  for (const [cat, catItems] of byCat) {
-    lines.push(`【${cat}】`);
-    for (const it of catItems) {
-      lines.push(`${it.checked ? "☑" : "□"} ${it.label}`);
+    const memo = it.memo?.trim();
+    if (it.checked) {
+      lines.push(memo ? `✓ ${it.label}（${memo}）` : `✓ ${it.label}`);
+    } else {
+      lines.push(memo ? `${it.label} — 未確認（${memo}）` : `${it.label} — 未確認`);
     }
   }
   return lines.join("\n");

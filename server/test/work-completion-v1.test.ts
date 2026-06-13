@@ -99,6 +99,18 @@ describe("Arrival + Work Completion System v1", () => {
     assert.equal(start.status, 200);
     assert.ok(start.body.session.startTime);
 
+    const checklist = await request(app)
+      .get(
+        `/api/work-session/v1/completion-checklist?source=business&projectId=${businessProjectId}`
+      )
+      .set("Authorization", `Bearer ${token}`);
+    for (const item of checklist.body.items) {
+      await request(app)
+        .patch(`/api/work-session/v1/completion-checklist/${item.id}`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({ checked: true });
+    }
+
     const complete = await request(app)
       .post("/api/work-session/v1/complete")
       .set("Authorization", `Bearer ${token}`)

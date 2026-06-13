@@ -17,4 +17,25 @@ Before any code change for TiSLY Practical PWA (survey / estimate / schedule):
 5. **Prefer autonomous investigation** (logs, tests, `docs/autonomous/examples/EXAMPLE_INDEX.md`) before asking the user.
 6. On task completion, report: implementation summary, test results, commit hash, VPS health URL confirmation.
 
+## Auto commit & push (required after successful verification)
+
+When implementation is done and **all** of the following pass, proceed **without asking** the user for confirmation:
+
+1. `npm run build`
+2. Related tests for the changed area
+3. Local `/api/health` check
+
+Then automatically:
+
+4. `git commit` — short English message describing the change (e.g. `Add field checklist workflow`)
+5. `git push origin master`
+6. Confirm https://tisly.jp/api/health `commitShort` matches the pushed commit
+7. Report completion (changes, test results, remaining issues)
+
+**Never:**
+
+- Push when tests or build fail
+- Commit API keys, passwords, secrets, or `.env`
+- Perform destructive changes without prior user confirmation
+
 Entry point for humans: `docs/autonomous/README.md`.

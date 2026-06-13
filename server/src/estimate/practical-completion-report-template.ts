@@ -36,7 +36,7 @@ export function renderPracticalCompletionReportHtml(ctx: PracticalCompletionRepo
     { title: "使用部材", body: ctx.materialsUsed ?? "—" },
   ];
   if (ctx.checklistSummary?.trim()) {
-    coverSections.push({ title: "チェック結果", body: ctx.checklistSummary.trim() });
+    coverSections.push({ title: "確認結果", body: ctx.checklistSummary.trim() });
   }
   if (ctx.notes?.trim()) {
     coverSections.push({ title: "備考", body: ctx.notes.trim() });

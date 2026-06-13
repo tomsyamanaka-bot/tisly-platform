@@ -72,6 +72,7 @@ import { materialsV1Router } from "./api/routes/materials-v1.js";
 import { fieldCheckV1Router } from "./api/routes/field-check-v1.js";
 import { purchaseV1Router } from "./api/routes/purchase-v1.js";
 import { workSessionV1Router } from "./api/routes/work-session-v1.js";
+import { fieldChecklistV1Router } from "./api/routes/field-checklist-v1.js";
 import { businessRouter } from "./api/routes/business.js";
 import { tomsRouter } from "./api/routes/toms.js";
 import { maintenanceProductionRouter } from "./api/routes/maintenance-production.js";
@@ -142,6 +143,7 @@ export function createApp(): express.Application {
   app.use("/api/field-check/v1", fieldCheckV1Router);
   app.use("/api/purchase/v1", purchaseV1Router);
   app.use("/api/work-session/v1", workSessionV1Router);
+  app.use("/api/field-checklist/v1", fieldChecklistV1Router);
   app.use("/api/storage/v1/settings", storageSettingsV1Router);
   app.use("/api/business", businessRouter);
   app.use("/api/toms", tomsRouter);
@@ -400,6 +402,12 @@ export function createApp(): express.Application {
   });
   app.get("/field-check-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "field-check-v1.html"));
+  });
+  app.get("/field-checklist-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "field-checklist-v1.html"));
+  });
+  app.get("/checklist-templates-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "checklist-templates-v1.html"));
   });
   app.get("/purchase-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "purchase-v1.html"));

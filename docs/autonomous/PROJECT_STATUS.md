@@ -89,6 +89,8 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 現調 | `/survey-v1` |
 | 見積・請求・完了報告 | `/estimate-v1` |
 | 持ち物チェック | `/field-check-v1` |
+| 現場チェックリスト | `/field-checklist-v1` |
+| チェックリスト管理 | `/checklist-templates-v1`（設定から） |
 | 発注管理 | `/purchase-v1` |
 | 設定（管理者） | `/settings-v1` |
 | ストレージ設定 | `/storage-settings-v1` |
@@ -139,13 +141,16 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 作業開始 | 到着後「作業開始」→ `start_time` |
 | 作業完了 | 「作業完了」→ `completion_time`、案件ステータスを施工中→完了へ |
 | 完了写真 | `completion_photos`（見積 PWA）— 作業完了後も複数追加可 |
-| 完了チェック | 工事種別（防犯カメラ/LAN 等）から案件別チェックリスト自動生成 |
-| 完了報告書 | 「完了報告書作成」— 作業時間・内容・チェック結果・写真を PDF 反映 |
+| 現場チェックリスト | 到着時に工事種別テンプレから自動生成 — タップで完了・自動保存 |
+| チェック項目写真 | 項目ごとに `completion_photos` へ添付（現調写真と分離） |
+| 完了チェック | 未完了項目あり → 作業完了拒否（UI から force 可） |
+| 完了報告書 | 「完了報告書作成」— 作業時間・内容・✓チェック結果・写真を PDF 反映 |
+| テンプレート管理 | `/checklist-templates-v1` — 追加/編集/複製/削除 + 月間集計 |
 | 案件パイプライン 9 段 | 現調→見積→受注→持ち物→発注→**施工中**→**完了**→請求→入金 |
-| 案件ホーム | 今日の施工中 / 今日の完了 / 今月完了 カード |
-| DB | `project_work_sessions`, `completion_checklist_items` |
-| API | `/api/work-session/v1`（arrival/start/complete/checklist） |
-| テスト | `server/test/work-completion-v1.test.ts`（8ケース） |
+| 案件ホーム | 今日の施工中 / 今日の完了 / 今月完了 カード + **チェックリスト**タブ |
+| DB | `project_work_sessions`, `completion_checklist_items`, `field_checklist_templates` |
+| API | `/api/work-session/v1`, `/api/field-checklist/v1` |
+| テスト | `server/test/work-completion-v1.test.ts`, `server/test/field-checklist-v1.test.ts` |
 
 **将来利用:** `arrival_time` / `start_time` / `completion_time` は工数・粗利・作業時間分析用に保持
 
@@ -231,6 +236,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 材料マスター / 工事テンプレ | `server/src/field-ops/materials-v1-store.ts`, `work-templates-store.ts` |
 | 持ち物 / 発注 | `server/src/field-ops/field-check-v1-store.ts`, `purchase-v1-store.ts` |
 | 到着・作業完了 | `server/src/field-ops/work-session-v1-store.ts`, `server/public/js/work-session-ui.js` |
+| 現場チェックリスト | `server/src/field-ops/field-checklist-templates-store.ts`, `server/public/js/field-checklist-ui.js`, `field-checklist-v1.html` |
 | 案件連動（テンプレ適用） | `server/src/field-ops/project-materials-service.ts` |
 | 持ち物 PWA UI | `server/public/js/field-check-v1.js` |
 | 発注 PWA UI | `server/public/js/purchase-v1.js` |

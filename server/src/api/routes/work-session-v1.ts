@@ -3,7 +3,9 @@ import { requireAuth, type AuthedRequest } from "../../auth/auth-middleware.js";
 import { roleMeetsRequirement } from "../../auth/roles.js";
 import type { ProjectRefV1 } from "../../field-ops/field-ops-types.js";
 import {
+  attachPhotoToChecklistItemV1,
   generateCompletionChecklistV1,
+  getChecklistCompletionStatus,
   getLatestWorkSessionForProject,
   getWorkSessionV1,
   listCompletionChecklistV1,
@@ -46,7 +48,8 @@ workSessionV1Router.get("/session", ...auth, (req: AuthedRequest, res) => {
   const workDate = req.query.workDate ? String(req.query.workDate).slice(0, 10) : undefined;
   const session = getWorkSessionV1(ref, workDate) ?? getLatestWorkSessionForProject(ref);
   const checklist = listCompletionChecklistV1(ref);
-  res.json({ session, checklist });
+  const checklistStatus = getChecklistCompletionStatus(ref);
+  res.json({ session, checklist, checklistStatus });
 });
 
 workSessionV1Router.get("/sessions-by-date", ...auth, (req: AuthedRequest, res) => {
@@ -109,9 +112,17 @@ workSessionV1Router.post("/complete", ...auth, async (req: AuthedRequest, res) =
     return;
   }
   try {
+    const force = Boolean(body.force);
+    const forceReason =
+      body.forceReason != null
+        ? String(body.forceReason)
+        : body.forceCompleteReason != null
+          ? String(body.forceCompleteReason)
+          : undefined;
     const session = recordWorkCompleteV1(
       ref,
-      body.workDate != null ? String(body.workDate).slice(0, 10) : undefined
+      body.workDate != null ? String(body.workDate).slice(0, 10) : undefined,
+      { force, forceReason }
     );
     if (ref.source === "business") {
       await autoSaveCompletionReportPdfV1(ref.projectId);
@@ -149,10 +160,45 @@ workSessionV1Router.patch("/completion-checklist/:id", ...auth, (req: AuthedRequ
     checked: body.checked !== undefined ? Boolean(body.checked) : undefined,
     checkedBy: req.admin?.username ?? null,
     label: body.label != null ? String(body.label) : undefined,
+    memo: body.memo !== undefined ? (body.memo != null ? String(body.memo) : null) : undefined,
   });
   if (!item) {
     res.status(404).json({ error: "Not found" });
     return;
   }
   res.json(item);
+});
+
+workSessionV1Router.get("/completion-checklist/status", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const ref = parseRef(req.query as Record<string, unknown>);
+  if (!ref) {
+    res.status(400).json({ error: "source and projectId query params are required" });
+    return;
+  }
+  res.json(getChecklistCompletionStatus(ref));
+});
+
+workSessionV1Router.post("/completion-checklist/:id/photo", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const body = req.body as Record<string, unknown>;
+  if (!body.imageBase64 || typeof body.imageBase64 !== "string") {
+    res.status(400).json({ error: "imageBase64 is required" });
+    return;
+  }
+  try {
+    const item = attachPhotoToChecklistItemV1(String(req.params.id), {
+      imageBase64: body.imageBase64,
+      fileName: body.fileName != null ? String(body.fileName) : undefined,
+      title: body.title != null ? String(body.title) : undefined,
+      uploadedBy: req.admin?.username ?? undefined,
+    });
+    if (!item) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    res.json(item);
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : "photo attach failed" });
+  }
 });

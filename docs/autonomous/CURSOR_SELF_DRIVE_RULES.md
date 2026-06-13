@@ -50,6 +50,29 @@ npx tsx --test test/practical-pwa-v2.test.ts
 
 ---
 
+## 作業完了時 — 自動 commit & push（必須）
+
+実装が完了し、以下が **すべて成功** したら、ユーザー確認を待たずに自動で進める。
+
+1. `npm run build`
+2. 変更領域の関連テスト
+3. ローカル `/api/health` 確認
+
+成功後のフロー:
+
+4. `git commit` — 内容が分かる短い英語（例: `Add field checklist workflow`）
+5. `git push origin master`
+6. https://tisly.jp/api/health の `commitShort` が push した commit と一致するか確認
+7. 完了報告（実装内容・テスト結果・残課題）
+
+**禁止:**
+
+- テスト未通過で push しない
+- APIキー・パスワード・秘密情報・`.env` を commit しない
+- 破壊的変更は事前にユーザー確認
+
+---
+
 ## 作業完了時（必須報告）
 
 作業を終えたら、チャットまたは PHASE_LOG に以下を **必ず** 記載する。

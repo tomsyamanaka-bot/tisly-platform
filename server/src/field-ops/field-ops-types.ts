@@ -129,6 +129,7 @@ export interface WorkSessionV1 {
   completionTime: string | null;
   workerName: string | null;
   workMemo: string | null;
+  forceCompleteReason: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -144,4 +145,37 @@ export interface CompletionChecklistItemV1 {
   checkedBy: string | null;
   sortOrder: number;
   source: "auto" | "manual";
+  photoId: string | null;
+  photoUrl: string | null;
+  templateItemId: string | null;
+  memo: string | null;
+}
+
+/** 現場チェックリスト — テンプレート（案件到着時に自動生成） */
+export interface FieldChecklistTemplateV1 {
+  id: string;
+  name: string;
+  description: string | null;
+  active: boolean;
+  sortOrder: number;
+  items: FieldChecklistTemplateItemV1[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FieldChecklistTemplateItemV1 {
+  id: string;
+  templateId: string;
+  label: string;
+  sortOrder: number;
+  photoRequired: boolean;
+}
+
+export interface FieldChecklistMonthlyStatsV1 {
+  month: string;
+  projectCount: number;
+  totalItems: number;
+  checkedItems: number;
+  missedItems: number;
+  confirmationRate: number;
 }

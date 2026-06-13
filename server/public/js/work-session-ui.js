@@ -119,9 +119,33 @@ export function bindWorkSessionPanels(root, { apiFetch, toast, onUpdated }) {
             if (onUpdated) await onUpdated(data);
             toast?.("作業開始を記録しました");
           } else if (action === "complete") {
+            let force = false;
+            let forceReason = null;
+            try {
+              const statusQ = new URLSearchParams({ source: projectSource, projectId });
+              if (workDate) statusQ.set("workDate", workDate);
+              const statusData = await apiFetch(`${WORK_API}/completion-checklist/status?${statusQ.toString()}`);
+              if (statusData.unchecked > 0) {
+                const ok = window.confirm(
+                  `未完了のチェックが${statusData.unchecked}件あります。\n${statusData.uncheckedLabels?.slice(0, 5).join("、") || ""}\n\nこのまま作業完了しますか？`
+                );
+                if (!ok) return;
+                forceReason = window.prompt(
+                  "未完了項目があります。強制完了の理由を入力してください（必須）:",
+                  ""
+                );
+                if (!forceReason?.trim()) {
+                  toast?.("強制完了には理由メモが必要です");
+                  return;
+                }
+                force = true;
+              }
+            } catch {
+              /* status unavailable — proceed */
+            }
             const data = await apiFetch(`${WORK_API}/complete`, {
               method: "POST",
-              body: JSON.stringify(body),
+              body: JSON.stringify({ ...body, force, forceReason: forceReason?.trim() || undefined }),
             });
             if (onUpdated) await onUpdated(data);
             toast?.("作業完了を記録しました");

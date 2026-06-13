@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#64748b" />
+  <title>TiSLY — チェックリストテンプレート</title>
+  <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
+  <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
+  <style>
+    .tpl-card { border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.75rem; margin-bottom: 0.55rem; background: #fff; }
+    .tpl-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; }
+    .tpl-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.45rem; }
+    .tpl-actions button { min-height: 36px; padding: 0.25rem 0.65rem; border-radius: 8px; border: 1px solid #cbd5e1; background: #f8fafc; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
+    .tpl-items { margin: 0.45rem 0 0; padding-left: 1.1rem; font-size: 0.88rem; color: #475569; }
+    .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; margin: 0.5rem 0; }
+    .stat-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.65rem; text-align: center; }
+    .stat-box strong { display: block; font-size: 1.25rem; color: #1e293b; }
+    .stat-box span { font-size: 0.78rem; color: #64748b; }
+    .editor-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.45); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 1rem; }
+    .editor-overlay.hidden { display: none; }
+    .editor-dialog { background: #fff; border-radius: 14px; padding: 1rem; max-width: 420px; width: 100%; max-height: 90vh; overflow: auto; }
+    .editor-dialog input, .editor-dialog textarea { width: 100%; min-height: 44px; margin: 0.35rem 0; padding: 0.5rem; border: 1px solid #e2e8f0; border-radius: 8px; }
+    .item-row { display: flex; gap: 0.35rem; margin-bottom: 0.35rem; align-items: center; }
+    .item-row input[type=text] { flex: 1; min-height: 40px; }
+  </style>
+</head>
+<body class="tisly-friendly">
+  <main class="app-main">
+    <p class="section-hint">管理者専用 — 現場チェックリストテンプレート</p>
+
+    <div class="friendly-card">
+      <h2>月間集計</h2>
+      <div class="stats-grid" id="stats-grid">
+        <div class="stat-box"><strong id="stat-rate">—</strong><span>確認率</span></div>
+        <div class="stat-box"><strong id="stat-missed">—</strong><span>チェック漏れ</span></div>
+        <div class="stat-box"><strong id="stat-projects">—</strong><span>案件数</span></div>
+        <div class="stat-box"><strong id="stat-items">—</strong><span>項目数</span></div>
+      </div>
+    </div>
+
+    <div class="friendly-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;">
+        <h2 style="margin:0;">テンプレート一覧</h2>
+        <button type="button" class="btn-main" id="btn-new-template">＋ 追加</button>
+      </div>
+      <div id="template-list" style="margin-top:0.75rem;">読み込み中…</div>
+    </div>
+  </main>
+
+  <div id="editor-overlay" class="editor-overlay hidden" role="dialog" aria-modal="true">
+    <div class="editor-dialog">
+      <h3 id="editor-title">テンプレート編集</h3>
+      <label>名称<input type="text" id="edit-name" /></label>
+      <label>説明<textarea id="edit-desc" rows="2"></textarea></label>
+      <p class="section-label">チェック項目</p>
+      <div id="edit-items"></div>
+      <button type="button" class="btn-sub" id="btn-add-item">＋ 項目追加</button>
+      <div style="display:flex;gap:0.5rem;margin-top:0.75rem;">
+        <button type="button" class="btn-sub" id="btn-editor-cancel" style="flex:1;">キャンセル</button>
+        <button type="button" class="btn-main" id="btn-editor-save" style="flex:1;">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status"></div>
+  <script type="module" src="/js/checklist-templates-v1.js"></script>
+</body>
+</html>

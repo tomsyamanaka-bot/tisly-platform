@@ -211,6 +211,7 @@ export function runMigrations(database: Database.Database): void {
   migrateProjectSoftDeleteV1(database);
   migrateProjectPdfQnapBackupV1(database);
   migrateSurveyIpEquipmentV1(database);
+  migrateFieldChecklistV1(database);
 }
 
 /** 案件一覧 v1 — 論理削除 deleted_at */
@@ -3216,4 +3217,119 @@ function migrateSurveyIpEquipmentV1(database: Database.Database): void {
       `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
     )
     .run("migration:survey_ip_equipment_v1", JSON.stringify({ at: new Date().toISOString() }));
+}
+
+/** 現場チェックリスト v1 — テンプレート管理 + 項目写真 + 集計 */
+function migrateFieldChecklistV1(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:field_checklist_v1") as { value_json: string } | undefined;
+  if (marker) return;
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS field_checklist_templates (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      active INTEGER NOT NULL DEFAULT 1,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_field_checklist_templates_active
+      ON field_checklist_templates(active, sort_order);
+
+    CREATE TABLE IF NOT EXISTS field_checklist_template_items (
+      id TEXT PRIMARY KEY,
+      template_id TEXT NOT NULL,
+      label TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      photo_required INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (template_id) REFERENCES field_checklist_templates(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_field_checklist_template_items_tpl
+      ON field_checklist_template_items(template_id, sort_order);
+  `);
+
+  addColumnsIfMissing(database, "completion_checklist_items", [
+    { name: "photo_id", ddl: "ALTER TABLE completion_checklist_items ADD COLUMN photo_id TEXT" },
+    {
+      name: "template_item_id",
+      ddl: "ALTER TABLE completion_checklist_items ADD COLUMN template_item_id TEXT",
+    },
+    { name: "memo", ddl: "ALTER TABLE completion_checklist_items ADD COLUMN memo TEXT DEFAULT ''" },
+  ]);
+
+  addColumnsIfMissing(database, "project_work_sessions", [
+    {
+      name: "force_complete_reason",
+      ddl: "ALTER TABLE project_work_sessions ADD COLUMN force_complete_reason TEXT",
+    },
+  ]);
+
+  const seedTemplates: Array<{ name: string; sortOrder: number; items: string[] }> = [
+    {
+      name: "防犯カメラ",
+      sortOrder: 0,
+      items: [
+        "電源確認",
+        "ネット接続確認",
+        "カメラ映像確認",
+        "録画確認",
+        "スマホ通知確認",
+        "機器固定確認",
+        "お客様説明済み",
+        "清掃済み",
+      ],
+    },
+    {
+      name: "Wi-Fi",
+      sortOrder: 1,
+      items: ["電源確認", "接続確認", "速度確認", "カバレッジ確認", "お客様説明済み", "清掃済み"],
+    },
+    {
+      name: "インターホン",
+      sortOrder: 2,
+      items: ["電源確認", "呼出確認", "モニター映像確認", "解錠確認", "お客様説明済み", "清掃済み"],
+    },
+    {
+      name: "LAN配線",
+      sortOrder: 3,
+      items: ["配線確認", "通信確認", "スピード確認", "ラベル貼付", "清掃済み"],
+    },
+    {
+      name: "電気工事",
+      sortOrder: 4,
+      items: ["電源確認", "ブレーカー確認", "配線確認", "動作確認", "清掃済み"],
+    },
+    {
+      name: "TiSLY",
+      sortOrder: 5,
+      items: ["機器起動確認", "ネット接続確認", "アプリ連携確認", "通知確認", "お客様説明済み"],
+    },
+  ];
+
+  const insertTpl = database.prepare(
+    `INSERT INTO field_checklist_templates (id, name, description, active, sort_order, created_at, updated_at)
+     VALUES (?, ?, ?, 1, ?, datetime('now'), datetime('now'))`
+  );
+  const insertItem = database.prepare(
+    `INSERT INTO field_checklist_template_items (id, template_id, label, sort_order, photo_required, created_at)
+     VALUES (?, ?, ?, ?, ?, datetime('now'))`
+  );
+
+  for (const tpl of seedTemplates) {
+    const tplId = `fct-${tpl.name.replace(/\s+/g, "-")}`;
+    insertTpl.run(tplId, tpl.name, `${tpl.name}工事の現場チェック`, tpl.sortOrder);
+    tpl.items.forEach((label, i) => {
+      insertItem.run(`${tplId}-item-${i}`, tplId, label, i, /映像|録画|通知/.test(label) ? 1 : 0);
+    });
+  }
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:field_checklist_v1", JSON.stringify({ at: new Date().toISOString() }));
 }

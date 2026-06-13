@@ -82,6 +82,31 @@
     .delete-dialog .dialog-actions button { flex: 1; min-height: 44px; border-radius: 10px; font-weight: 700; }
     .delete-dialog .btn-cancel { border: 1px solid #cbd5e1; background: #f8fafc; }
     .delete-dialog .btn-confirm-delete { border: none; background: #dc2626; color: #fff; }
+    .detail-tabs { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.75rem 0; }
+    .detail-tab {
+      flex: 1; min-width: 72px; min-height: 44px; padding: 0.35rem 0.5rem;
+      border-radius: 8px; border: 1px solid #cbd5e1; background: #fff;
+      font-size: 0.78rem; font-weight: 700; color: #475569; cursor: pointer;
+    }
+    .detail-tab.active { background: var(--tisly-blue); color: #fff; border-color: var(--tisly-blue); }
+    .detail-tab-panel.hidden { display: none; }
+    .field-check-item { border-bottom: 1px solid #e8ecf0; padding: 0.65rem 0; }
+    .field-check-item:last-child { border-bottom: none; }
+    .field-check-row { display: flex; align-items: center; gap: 0.65rem; cursor: pointer; }
+    .field-check-row input[type=checkbox] { width: 1.4rem; height: 1.4rem; flex-shrink: 0; accent-color: #059669; }
+    .field-check-label { flex: 1; font-size: 1rem; font-weight: 600; }
+    .field-check-cat { font-size: 0.72rem; color: #64748b; background: #f1f5f9; padding: 0.15rem 0.45rem; border-radius: 999px; }
+    .field-check-item.checked .field-check-label { color: #64748b; text-decoration: line-through; }
+    .field-check-photo-row { display: flex; align-items: center; gap: 0.5rem; margin: 0.35rem 0 0 2rem; }
+    .field-check-thumb img { width: 48px; height: 48px; object-fit: cover; border-radius: 8px; border: 1px solid #e2e8f0; }
+    .btn-photo-attach {
+      display: inline-flex; align-items: center; min-height: 36px; padding: 0.25rem 0.65rem;
+      border-radius: 8px; border: 1px solid #cbd5e1; background: #f8fafc; font-size: 0.82rem; font-weight: 600; cursor: pointer;
+    }
+    .progress-bar { height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; margin: 0.35rem 0; }
+    .progress-fill { height: 100%; background: #059669; transition: width 0.2s; }
+    .checklist-warn { color: #b45309; font-size: 0.85rem; }
+    .checklist-ok { color: #15803d; font-size: 0.85rem; }
   </style>
 </head>
 <body class="tisly-friendly field-ops-touch">
@@ -99,14 +124,30 @@
     </div>
     <div id="view-detail" class="hidden">
       <div id="detail-header" class="friendly-card"></div>
-      <p class="section-label">ステータス</p>
-      <div id="detail-pipeline" class="pipeline-bar friendly-card"></div>
-      <p class="section-label">現場作業</p>
-      <div id="detail-work-session"></div>
-      <p class="section-label">書類</p>
-      <div id="detail-documents" class="friendly-card hidden"></div>
-      <p class="section-label">時系列</p>
-      <div id="detail-timeline" class="friendly-card"></div>
+      <div class="detail-tabs" role="tablist">
+        <button type="button" class="detail-tab active" data-detail-tab="overview">概要</button>
+        <button type="button" class="detail-tab" data-detail-tab="checklist">チェックリスト</button>
+        <button type="button" class="detail-tab" data-detail-tab="documents">書類</button>
+        <button type="button" class="detail-tab" data-detail-tab="timeline">履歴</button>
+      </div>
+      <div id="detail-panel-overview" class="detail-tab-panel">
+        <p class="section-label">ステータス</p>
+        <div id="detail-pipeline" class="pipeline-bar friendly-card"></div>
+        <p class="section-label">現場作業</p>
+        <div id="detail-work-session"></div>
+      </div>
+      <div id="detail-panel-checklist" class="detail-tab-panel hidden">
+        <div id="detail-checklist" class="friendly-card"></div>
+        <a href="#" id="link-full-checklist" class="btn-sub" style="display:block;text-align:center;margin-top:0.5rem;">チェックリスト画面を開く</a>
+      </div>
+      <div id="detail-panel-documents" class="detail-tab-panel hidden">
+        <p class="section-label">書類</p>
+        <div id="detail-documents" class="friendly-card hidden"></div>
+      </div>
+      <div id="detail-panel-timeline" class="detail-tab-panel hidden">
+        <p class="section-label">時系列</p>
+        <div id="detail-timeline" class="friendly-card"></div>
+      </div>
       <button type="button" class="btn-sub" id="btn-back-list">一覧に戻る</button>
     </div>
   </main>

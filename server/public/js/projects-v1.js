@@ -7,7 +7,13 @@ import { initPracticalNav } from "./tisly-practical-nav.js";
 import { renderFriendlyErrorHtml } from "./tisly-friendly-errors.js";
 
 const API = "/api/projects/v1";
+const WORK_API = "/api/work-session/v1";
 import { bindWorkSessionPanels, renderWorkSessionPanel } from "./work-session-ui.js";
+import {
+  bindFieldChecklistPanel,
+  loadFieldChecklist,
+  renderFieldChecklistPanel,
+} from "./field-checklist-ui.js";
 
 const STAGE_ORDER = [
   "survey",
@@ -480,6 +486,56 @@ async function confirmDeleteProject() {
   }
 }
 
+async function workApi(path, opts = {}) {
+  const token = getCustomerToken();
+  const res = await fetch(`${WORK_API}${path}`, {
+    ...opts,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      ...(opts.headers || {}),
+    },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+function setDetailTab(tab) {
+  document.querySelectorAll(".detail-tab").forEach((t) => {
+    t.classList.toggle("active", t.dataset.detailTab === tab);
+  });
+  document.querySelectorAll(".detail-tab-panel").forEach((p) => {
+    p.classList.toggle("hidden", p.id !== `detail-panel-${tab}`);
+  });
+}
+
+async function renderDetailChecklist(detail) {
+  const mount = $("detail-checklist");
+  if (!mount) return;
+  const p = detail.project;
+  try {
+    const data = await loadFieldChecklist(workApi, { projectSource: p.source, projectId: p.id });
+    mount.innerHTML = renderFieldChecklistPanel({
+      items: data.checklist || [],
+      status: data.checklistStatus,
+      showHeader: true,
+    });
+    bindFieldChecklistPanel(mount, {
+      apiFetch: workApi,
+      toast,
+      projectSource: p.source,
+      projectId: p.id,
+    });
+    const link = $("link-full-checklist");
+    if (link) {
+      link.href = `/field-checklist-v1?projectId=${encodeURIComponent(p.id)}&source=${encodeURIComponent(p.source)}`;
+    }
+  } catch (e) {
+    mount.innerHTML = `<p class="section-hint">${escapeHtml(e.message || "読み込み失敗")}</p>`;
+  }
+}
+
 function renderDetailWorkSession(detail) {
   const mount = $("detail-work-session");
   if (!mount) return;
@@ -491,7 +547,8 @@ function renderDetailWorkSession(detail) {
     projectTitle: p.title,
     workDate,
     session: detail.workSession,
-    checklist: detail.completionChecklist || [],
+    checklist: [],
+    compact: true,
   });
   bindWorkSessionPanels(mount, {
     apiFetch: workApi,
@@ -515,12 +572,14 @@ async function openDetail(id, source) {
       <p><span class="status-badge">${escapeHtml(p.statusLabel)}</span></p>`;
     $("detail-pipeline").innerHTML = pipelineBarHtml(p.pipeline);
     renderDetailWorkSession(detail);
+    await renderDetailChecklist(detail);
     await renderDetailDocuments(detail);
     $("detail-timeline").innerHTML = detail.timeline.length
       ? detail.timeline
           .map((t) => `<p><strong>${escapeHtml(t.date)}</strong> ${escapeHtml(t.label)} ${escapeHtml(t.detail)}</p>`)
           .join("")
       : "<p>履歴はまだありません</p>";
+    setDetailTab("overview");
     showDetail();
     history.pushState({ projectId: id }, "", `?id=${id}&source=${source}`);
   } catch (e) {
@@ -571,6 +630,9 @@ async function init() {
 
   $("tab-active").addEventListener("click", () => setListTab("active"));
   $("tab-deleted").addEventListener("click", () => setListTab("deleted"));
+  document.querySelectorAll(".detail-tab").forEach((tab) => {
+    tab.addEventListener("click", () => setDetailTab(tab.dataset.detailTab));
+  });
   $("delete-dialog-cancel").addEventListener("click", hideDeleteDialog);
   $("delete-dialog-confirm").addEventListener("click", confirmDeleteProject);
   $("delete-dialog-overlay").addEventListener("click", (ev) => {
