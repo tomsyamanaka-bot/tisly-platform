@@ -77,6 +77,14 @@ describe("日程調整 PWA v1 API", () => {
     for (const day of res.body.days) {
       assert.ok(day.date >= today, `過去日が含まれています: ${day.date}`);
     }
+    assert.ok(res.body.days[0].weather, "weather should be present on week day cards");
+    assert.ok(Array.isArray(res.body.days[0].weather.slots));
+    assert.equal(res.body.days[0].weather.slots.length, 3);
+    for (const slot of res.body.days[0].weather.slots) {
+      assert.ok(slot.icon);
+      assert.ok(slot.label);
+      assert.ok(typeof slot.precipChance === "number");
+    }
   });
 
   it("次の7日間へ切替でき、過去ウィンドウには戻らない", async () => {

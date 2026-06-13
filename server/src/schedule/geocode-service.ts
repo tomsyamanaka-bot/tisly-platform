@@ -1,6 +1,6 @@
 /** 住所 → 緯度経度（Google Geocoding / Open-Meteo フォールバック） */
 
-import { isGoogleMapsApiConfigured } from "./google-maps-service.js";
+import { getGoogleMapsApiKey, isGoogleMapsApiConfigured } from "./google-maps-service.js";
 
 export interface GeocodeResult {
   lat: number;
@@ -70,7 +70,7 @@ export async function geocodeAddress(queryRaw: string): Promise<GeocodeResult> {
   const cached = memoryCache.get(query);
   if (cached) return cached;
 
-  const key = process.env.GOOGLE_MAPS_API_KEY?.trim();
+  const key = getGoogleMapsApiKey();
   if (key && isGoogleMapsApiConfigured()) {
     try {
       const google = await geocodeWithGoogle(query, key);

@@ -172,8 +172,10 @@ export function isPriceRuleTargetLineItem(item: {
 export const CUSTOMER_PDF_PRICE_RULE_NOTE = "顧客別単価ルール適用";
 
 const INTERNAL_CUSTOMER_NOTE_PATTERNS = [
-  /現調PWA\s*v1/i,
-  /SVY-[a-f0-9-]+/i,
+  /現調PWA/i,
+  /PWA連携/i,
+  /SVY[-\s]?[A-Za-z0-9-]+/i,
+  /SVY番号/i,
   /部材\d+件/,
   /写真\d+枚/,
   /作成:\s*\S+/,
@@ -184,6 +186,7 @@ const INTERNAL_CUSTOMER_NOTE_PATTERNS = [
   /内部ID/i,
   /\bPWA\b/i,
   /BIZ-[A-Z0-9-]+/i,
+  /BCU-SVY-[A-Z0-9-]+/i,
 ];
 
 export function filterInternalNotesFromCustomerPdf(notes: string | null | undefined): string {
@@ -194,6 +197,17 @@ export function filterInternalNotesFromCustomerPdf(notes: string | null | undefi
     .map((line) => line.trim())
     .filter((line) => line && !INTERNAL_CUSTOMER_NOTE_PATTERNS.some((p) => p.test(line)))
     .join("\n");
+}
+
+/** 明細行の項目名・メモから内部情報を除去 */
+export function filterCustomerFacingLineDescription(description: string | null | undefined): string {
+  const filtered = filterInternalNotesFromCustomerPdf(description);
+  if (filtered) return filtered;
+  const raw = (description ?? "").trim();
+  if (!raw) return "";
+  const lines = raw.split(/\n/).map((l) => l.trim()).filter(Boolean);
+  const safe = lines.filter((line) => !INTERNAL_CUSTOMER_NOTE_PATTERNS.some((p) => p.test(line)));
+  return safe.join("\n");
 }
 
 export function buildCustomerFacingPdfNotes(

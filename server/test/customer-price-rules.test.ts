@@ -14,6 +14,8 @@ const { closeDatabase, getDatabase } = await import("../src/db/database.js");
 import {
   applyCustomerPriceToItems,
   CUSTOMER_PDF_PRICE_RULE_NOTE,
+  filterCustomerFacingLineDescription,
+  filterInternalNotesFromCustomerPdf,
   getCustomerPriceRule,
   isPriceRuleTargetLineItem,
   upsertCustomerPriceRule,
@@ -74,6 +76,14 @@ describe("顧客別単価ルール v1.2", () => {
   });
 
   after(() => closeDatabase());
+
+  it("顧客PDF備考から内部情報を除去する", () => {
+    const raw =
+      "現調PWA v1 連携 (SVY-ABC123) / 部材0件 / 顧客別単価ルール適用 / owner / JSON / 内部ID / PWA連携 / 現場メモのみ";
+    const filtered = filterInternalNotesFromCustomerPdf(raw);
+    assert.equal(filtered, "現場メモのみ");
+    assert.equal(filterCustomerFacingLineDescription("カメラ設置\n部材0件"), "カメラ設置");
+  });
 
   it("客A は原価×2.0 で材料単価を計算する", () => {
     const customerId = "BCU-PRICE-A";
@@ -193,6 +203,10 @@ describe("顧客別単価ルール v1.2", () => {
     assert.ok(body.includes("消費税"));
     assert.ok(!body.includes(CUSTOMER_PDF_PRICE_RULE_NOTE));
     assert.ok(!body.includes("× 2.2"));
+    assert.ok(!body.includes("現調PWA"));
+    assert.ok(!body.includes("SVY-"));
+    assert.ok(!body.includes("部材0件"));
+    assert.ok(!body.includes("owner"));
   });
 
   it("客Aルールで倍率再計算すると原価×2.0になる", async () => {

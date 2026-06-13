@@ -245,11 +245,13 @@ function renderWeekDays(days, today = todayIso()) {
       const unavail = day.unavailable
         ? `<span class="schedule-unavail-badge">🚫 現場不可</span>`
         : "";
+      const weatherHtml = renderWeatherMini(day.weather);
       const todayCls = isToday ? " schedule-day-today" : "";
       return `<article class="${dayCardClass(day)} schedule-day-compact${todayCls}" data-date="${day.date}" role="button" tabindex="0">
         <div class="schedule-day-head schedule-day-head-compact">
           <div class="schedule-day-head-main">
             <span class="schedule-day-date">${formatDateShort(day.date)}（${day.weekday}）${todayBadge}</span>
+            ${weatherHtml}
             <span class="schedule-day-count">予定${day.eventCount}件</span>
           </div>
         </div>
@@ -294,11 +296,15 @@ function renderThreeWeekBlocks(blocks) {
         <p style="margin:0 0 0.5rem;">🟫 工事 <strong>${b.constructionCount}</strong> 件 · 合計 ${b.totalEvents} 件</p>
         <div class="schedule-three-days">${(b.days || [])
           .map(
-            (day) => `<button type="button" class="schedule-mini-day" data-date="${day.date}">
+            (day) => {
+              const weatherHtml = renderWeatherMini(day.weather);
+              return `<button type="button" class="schedule-mini-day" data-date="${day.date}">
               <span class="schedule-mini-day-date">${formatDateShort(day.date)}（${day.weekday}）</span>
+              ${weatherHtml}
               <span>${day.eventCount}件</span>
               ${day.unavailable ? '<span class="schedule-unavail-badge">不可</span>' : ""}
-            </button>`
+            </button>`;
+            }
           )
           .join("")}</div>
       </section>`

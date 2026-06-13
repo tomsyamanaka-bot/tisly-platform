@@ -11,6 +11,7 @@ import {
 } from "./pdf-templates.js";
 import { renderEstimateHtml } from "./estimatePdfTemplate.js";
 import { renderInvoiceHtml } from "./invoicePdfTemplate.js";
+import { renderWithPdfFallback } from "../pdf/render.js";
 import type { TomsEstimateHeader } from "../toms-document-format.js";
 /** Phase601+ v3: HTML templates live in estimatePdfTemplate / invoicePdfTemplate / completionReportPdfTemplate */
 
@@ -53,6 +54,30 @@ function writeHtml(projectId: string, folder: string, fileName: string, html: st
   return `/uploads/business/${projectId}/${folder}/${fileName}`;
 }
 
+async function writePdfFromHtml(
+  project: BusinessProject,
+  kind: "estimate" | "invoice",
+  doc: Estimate | Invoice,
+  html: string,
+  title: string
+): Promise<{ pdfPath: string; htmlPath: string }> {
+  const htmlName =
+    kind === "estimate"
+      ? `estimate-${(doc as Estimate).estimateNo}.html`
+      : `invoice-${(doc as Invoice).invoiceNo}.html`;
+  const htmlPath = writeHtml(project.id, "pdf-html", htmlName, html);
+  const fileName = path.basename(
+    generateQnapFilePath(
+      project,
+      kind,
+      kind === "estimate" ? (doc as Estimate).estimateNo : (doc as Invoice).invoiceNo
+    )
+  );
+  const { pdfBuf } = await renderWithPdfFallback(html, title);
+  const pdfPath = writePdf(project.id, "pdfs", fileName, pdfBuf);
+  return { pdfPath, htmlPath };
+}
+
 function renderWithTemplate(
   kind: PdfDocumentKind,
   project: BusinessProject,
@@ -83,11 +108,11 @@ function renderWithTemplate(
   return { pdfPath, htmlPath, template: meta };
 }
 
-export function generateEstimatePdf(
+export async function generateEstimatePdf(
   project: BusinessProject,
   estimate: Estimate,
   ctx?: EstimatePdfRenderContext
-): string {
+): Promise<string> {
   const html = renderEstimateHtml(project, estimate, {
     siteName: ctx?.siteName,
     workLocation: ctx?.workLocation,
@@ -97,17 +122,13 @@ export function generateEstimatePdf(
     includePhotos: ctx?.includePhotos,
     priceRuleName: resolveEstimatePriceRule(estimate, project.customerId).ruleName,
   });
-  const htmlPath = writeHtml(project.id, "pdf-html", `estimate-${estimate.estimateNo}.html`, html);
-  const { pdfPath } = renderWithTemplate("estimate", project, estimate, [
-    `見積書 ${estimate.estimateNo}`,
-    `お客様: ${estimate.customerName}`,
-    `件名: ${estimate.title}`,
-    `小計: ¥${estimate.subtotal}`,
-    `税: ¥${estimate.tax}`,
-    `合計: ¥${estimate.total}`,
-    `粗利: ¥${estimate.grossProfit} (${estimate.grossProfitRate}%)`,
-    `html: ${htmlPath}`,
-  ]);
+  const { pdfPath } = await writePdfFromHtml(
+    project,
+    "estimate",
+    estimate,
+    html,
+    `見積 ${estimate.estimateNo}`
+  );
   return pdfPath;
 }
 
@@ -117,12 +138,12 @@ export interface InvoicePdfRenderContext {
   includePhotos?: boolean;
 }
 
-export function generateInvoicePdf(
+export async function generateInvoicePdf(
   project: BusinessProject,
   invoice: Invoice,
   estimate: Estimate,
   ctx?: InvoicePdfRenderContext
-): string {
+): Promise<string> {
   const html = renderInvoiceHtml(project, invoice, estimate, {
     estimateRefNo: ctx?.estimateRefNo ?? invoice.estimateRefNo ?? estimate.estimateNo,
     notes: ctx?.notes,
@@ -132,17 +153,13 @@ export function generateInvoicePdf(
     shuseiDiscountMemo: estimate.shuseiDiscountMemo,
     lineSubtotal: estimate.lineSubtotal,
   });
-  const htmlPath = writeHtml(project.id, "pdf-html", `invoice-${invoice.invoiceNo}.html`, html);
-  const { pdfPath } = renderWithTemplate("invoice", project, invoice, [
-    `御請求書 ${invoice.invoiceNo}`,
-    `お客様: ${invoice.customerName}`,
-    `件名: ${invoice.title}`,
-    `見積参照: ${invoice.estimateRefNo ?? estimate.estimateNo}`,
-    `合計: ¥${invoice.total}`,
-    `支払期限: ${invoice.paymentDueDate ?? ""}`,
-    invoice.bankInfo,
-    `html: ${htmlPath}`,
-  ]);
+  const { pdfPath } = await writePdfFromHtml(
+    project,
+    "invoice",
+    invoice,
+    html,
+    `請求 ${invoice.invoiceNo}`
+  );
   return pdfPath;
 }
 
@@ -190,8 +207,8 @@ export function getEstimatePdfOrPlaceholder(
   });
   const tmp = businessUploadsDir(project.id, "pdf-html");
   const p = path.join(tmp, "estimate-live.html");
-  fs.writeFileSync(p, html);
-  return { contentType: "text/html; charset=utf-8", path: p };
+  fs.writeFileSync(p, html, "utf8");
+  return { contentType: "text/html; charset=UTF-8", path: p };
 }
 
 export function getInvoicePdfOrPlaceholder(
@@ -211,8 +228,8 @@ export function getInvoicePdfOrPlaceholder(
   });
   const tmp = businessUploadsDir(project.id, "pdf-html");
   const p = path.join(tmp, "invoice-live.html");
-  fs.writeFileSync(p, html);
-  return { contentType: "text/html; charset=utf-8", path: p };
+  fs.writeFileSync(p, html, "utf8");
+  return { contentType: "text/html; charset=UTF-8", path: p };
 }
 
 export function getCompletionReportPdfOrPlaceholder(

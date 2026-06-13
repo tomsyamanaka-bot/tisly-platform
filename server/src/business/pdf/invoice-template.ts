@@ -1,12 +1,17 @@
 import type { BusinessProject, Estimate, Invoice } from "../business-types.js";
-import { buildCustomerFacingPdfNotes } from "../customer-price-rules.js";
+import { buildCustomerFacingPdfNotes, filterCustomerFacingLineDescription } from "../customer-price-rules.js";
 import {
   formatTomsIssueDate,
   itemsToTomsLines,
   TOMS_DEFAULT_STAFF,
   type TomsInvoiceHeader,
 } from "../toms-document-format.js";
-import { TOMS_PDF_STYLES, TOMS_PDF_VIEWPORT_META } from "./styles.js";
+import {
+  TOMS_PDF_CHARSET_META,
+  TOMS_PDF_FONT_LINKS,
+  TOMS_PDF_STYLES,
+  TOMS_PDF_VIEWPORT_META,
+} from "./styles.js";
 import {
   escapeHtml,
   renderBankBlock,
@@ -58,7 +63,12 @@ export function renderInvoiceHtml(
   opts?: InvoiceHtmlOptions
 ): string {
   const header = buildInvoiceHeader(project, invoice, estimate, opts);
-  const lines = itemsToTomsLines(invoice.items);
+  const lines = itemsToTomsLines(invoice.items)
+    .map((line) => ({
+      ...line,
+      description: filterCustomerFacingLineDescription(line.description),
+    }))
+    .filter((line) => line.description.trim());
   const notes = buildCustomerFacingPdfNotes(opts?.notes ?? project.surveyMemo ?? "");
   const includePhotos = opts?.includePhotos === true;
   const photoBlock =
@@ -67,7 +77,7 @@ export function renderInvoiceHtml(
       : "";
   const pageClass = includePhotos ? "doc with-photos" : "doc single-page";
 
-  return `<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"/>${TOMS_PDF_VIEWPORT_META}<title>御請求書 ${escapeHtml(header.invoiceNo)}</title><style>${TOMS_PDF_STYLES}</style></head><body>
+  return `<!DOCTYPE html><html lang="ja"><head>${TOMS_PDF_CHARSET_META}${TOMS_PDF_FONT_LINKS}${TOMS_PDF_VIEWPORT_META}<title>御請求書 ${escapeHtml(header.invoiceNo)}</title><style>${TOMS_PDF_STYLES}</style></head><body>
 <div class="${pageClass}">
 ${renderTomsOfficialDocLayout({
   docTitle: "御請求書",

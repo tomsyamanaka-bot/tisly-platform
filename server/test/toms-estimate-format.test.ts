@@ -323,4 +323,75 @@ describe("TOMS標準見積フォーマット", () => {
     assert.ok(!/<div class="toms-company-footer">/.test(html));
     assert.match(html, /換気扇設置工事/);
   });
+
+  it("renderEstimateHtml の明細テーブルはA4横書きレイアウト", () => {
+    const html = renderEstimateHtml(
+      {
+        id: "p1",
+        projectNo: "PRJ-1",
+        customerId: "c1",
+        customerName: SAMPLE.customerName,
+        title: SAMPLE.subject,
+        address: SAMPLE.workLocation,
+        phone: "",
+        status: "estimate_created",
+        surveySchedule: null,
+        surveyMemo: "",
+        surveyPhotos: [],
+        estimateId: "e1",
+        constructionSchedule: null,
+        requiredMaterials: "",
+        constructionMemo: "",
+        constructionPhotos: [],
+        completionReportId: null,
+        invoiceId: null,
+        paymentDueDate: null,
+        paidDate: null,
+        qnapBasePath: "",
+        surveyProjectId: null,
+        createdAt: "",
+        updatedAt: "",
+      },
+      {
+        id: "e1",
+        projectId: "p1",
+        estimateNo: "260608-001",
+        customerName: SAMPLE.customerName,
+        title: SAMPLE.subject,
+        items: [
+          {
+            id: "1",
+            category: "other",
+            name: "防犯カメラ設置工事一式",
+            memo: "",
+            unit: "式",
+            quantity: 1,
+            unitPrice: 150000,
+            amount: 150000,
+          },
+        ],
+        shuseiDiscount: 0,
+        shuseiDiscountMemo: "",
+        subtotal: 150000,
+        tax: 15000,
+        total: 165000,
+        internalCost: 0,
+        grossProfit: 150000,
+        grossProfitRate: 100,
+        pdfPath: null,
+        createdAt: "2026-06-08T00:00:00.000Z",
+        updatedAt: "2026-06-08T00:00:00.000Z",
+      },
+      { includePhotos: false }
+    );
+    assert.match(html, /pdf-a4-line-items/);
+    assert.match(html, /style="width:45%"/);
+    assert.match(html, /writing-mode:horizontal-tb/);
+    assert.match(html, /word-break:keep-all/);
+    assert.match(html, /charset=.UTF-8/);
+    assert.match(html, /Noto Sans JP/);
+    assert.ok(!html.includes("@media screen and (max-width:520px)"));
+    assert.match(html, /width=794/);
+    assert.match(html, /防犯カメラ設置工事一式/);
+  });
 });

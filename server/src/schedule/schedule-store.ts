@@ -158,6 +158,15 @@ async function loadCalendarEvents(startDate: string, endDate: string): Promise<S
   return fetchCalendarEvents(startDate, endDate);
 }
 
+async function attachWeatherToDayCards(days: ScheduleDayCard[]): Promise<ScheduleDayCard[]> {
+  return Promise.all(
+    days.map(async (day) => ({
+      ...day,
+      weather: await fetchDayWeather(day.date),
+    }))
+  );
+}
+
 export async function getScheduleWeekView(offsetRaw?: unknown): Promise<ScheduleWeekView> {
   const offset = parseWeekOffset(offsetRaw);
   const startDate = weekStartFromOffset(offset);
@@ -176,14 +185,15 @@ export async function getScheduleWeekView(offsetRaw?: unknown): Promise<Schedule
     }
     days.push(day);
   }
+  const daysWithWeather = await attachWeatherToDayCards(days);
   return {
     offset,
     label: weekLabel(offset),
     startDate,
     endDate,
     today,
-    days,
-    summary: buildSummary(days),
+    days: daysWithWeather,
+    summary: buildSummary(daysWithWeather),
   };
 }
 
@@ -207,6 +217,7 @@ export async function getScheduleThreeWeekView(offsetRaw?: unknown): Promise<{
     for (let i = 0; i < 7; i++) {
       days.push(buildDayCard(addDays(blockStart, i), allEvents, unavailableMap));
     }
+    const daysWithWeather = await attachWeatherToDayCards(days);
     const m1 = Number(blockStart.slice(5, 7));
     const d1 = Number(blockStart.slice(8, 10));
     const m2 = Number(blockEnd.slice(5, 7));
@@ -217,7 +228,7 @@ export async function getScheduleThreeWeekView(offsetRaw?: unknown): Promise<{
       label: `${m1}/${d1}〜${m2}/${d2}`,
       constructionCount,
       totalEvents: blockEvents.length,
-      days,
+      days: daysWithWeather,
     });
   }
   return { offset, blocks };

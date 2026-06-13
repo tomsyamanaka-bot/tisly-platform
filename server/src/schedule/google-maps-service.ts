@@ -40,7 +40,15 @@ export interface DayTravelBlock {
 }
 
 export function isGoogleMapsApiConfigured(): boolean {
-  return Boolean(process.env.GOOGLE_MAPS_API_KEY?.trim());
+  return Boolean(getGoogleMapsApiKey());
+}
+
+export function getGoogleMapsApiKey(): string {
+  return (
+    process.env.GOOGLE_MAPS_API_KEY?.trim() ||
+    process.env.GOOGLE_MAP_API_KEY?.trim() ||
+    ""
+  );
 }
 
 export function getMapsIntegrationStatus(): MapsIntegrationStatus {
@@ -88,7 +96,7 @@ export async function fetchDrivingDurationMin(
   origin: string,
   destination: string
 ): Promise<{ minutes: number; source: MapsDurationSource }> {
-  const key = process.env.GOOGLE_MAPS_API_KEY?.trim();
+  const key = getGoogleMapsApiKey();
   const seed = `${origin}:${destination}`;
   if (!key) {
     return { minutes: mockDurationMin(seed), source: "mock" };
@@ -117,7 +125,7 @@ export async function fetchDrivingDurationMinForIntelligence(
     };
   }
 
-  const key = process.env.GOOGLE_MAPS_API_KEY?.trim();
+  const key = getGoogleMapsApiKey();
   if (!key) {
     setCachedRouteDuration(origin, destination, routeDate, null, "none");
     return { minutes: null, source: "none", cacheHit: false };

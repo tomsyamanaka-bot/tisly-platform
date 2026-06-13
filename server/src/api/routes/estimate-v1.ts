@@ -259,11 +259,11 @@ estimateV1Router.patch("/projects/:id/items", ...estimateV1Auth, (req: AuthedReq
   }
 });
 
-estimateV1Router.post("/projects/:id/finalize", ...estimateV1Auth, (req: AuthedRequest, res) => {
+estimateV1Router.post("/projects/:id/finalize", ...estimateV1Auth, async (req: AuthedRequest, res) => {
   if (!assertEstimateV1Role(req, res)) return;
   const body = (req.body ?? {}) as { includePhotos?: boolean };
   try {
-    const result = finalizeEstimateV1(String(req.params.id), {
+    const result = await finalizeEstimateV1(String(req.params.id), {
       includePhotos: body.includePhotos === true,
     });
     res.json(result);
@@ -291,10 +291,10 @@ estimateV1Router.get("/projects/:id/pdf", ...estimateV1Auth, (req: AuthedRequest
   res.type(contentType).sendFile(filePath);
 });
 
-estimateV1Router.post("/projects/:id/invoice", ...estimateV1Auth, (req: AuthedRequest, res) => {
+estimateV1Router.post("/projects/:id/invoice", ...estimateV1Auth, async (req: AuthedRequest, res) => {
   if (!assertEstimateV1Role(req, res)) return;
   try {
-    const result = createInvoiceFromEstimateV1(String(req.params.id));
+    const result = await createInvoiceFromEstimateV1(String(req.params.id));
     res.status(201).json(result);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "invoice failed";

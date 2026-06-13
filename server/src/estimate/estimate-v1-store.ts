@@ -615,21 +615,21 @@ export function updateEstimateHeaderV1(
   return updated.header!;
 }
 
-export function finalizeEstimateV1(
+export async function finalizeEstimateV1(
   businessProjectId: string,
   opts?: { includePhotos?: boolean }
-): {
+): Promise<{
   estimate: Estimate;
   pdfPath: string;
   surveyWorkflowStatus: SurveyWorkflowStatus;
-} {
+}> {
   const project = getBusinessProject(businessProjectId);
   if (!project?.estimateId) throw new Error("estimate not found");
   const estimate = getEstimate(project.estimateId)!;
   const pdfCtx = getEstimatePdfContextV1(businessProjectId, {
     includePhotos: opts?.includePhotos === true,
   }) ?? undefined;
-  const pdfPath = generateEstimatePdf(project, estimate, pdfCtx);
+  const pdfPath = await generateEstimatePdf(project, estimate, pdfCtx);
   setEstimatePdfPath(estimate.id, pdfPath);
 
   if (project.surveyProjectId) {
@@ -823,10 +823,10 @@ export function duplicateEstimateV1(businessProjectId: string): EstimateProjectV
   return getEstimateProjectV1Detail(businessProjectId)!;
 }
 
-export function createInvoiceFromEstimateV1(businessProjectId: string): {
+export async function createInvoiceFromEstimateV1(businessProjectId: string): Promise<{
   invoice: NonNullable<ReturnType<typeof getInvoice>>;
   pdfPath: string;
-} {
+}> {
   const project = getBusinessProject(businessProjectId);
   if (!project?.estimateId) throw new Error("estimate not found");
   const estimate = getEstimate(project.estimateId)!;
@@ -834,7 +834,7 @@ export function createInvoiceFromEstimateV1(businessProjectId: string): {
   if (!invoice) {
     invoice = createInvoiceFromEstimate(businessProjectId);
   }
-  const pdfPath = generateInvoicePdf(project, invoice, estimate);
+  const pdfPath = await generateInvoicePdf(project, invoice, estimate);
   setInvoicePdfPath(invoice.id, pdfPath);
   return { invoice: getInvoice(invoice.id)!, pdfPath };
 }

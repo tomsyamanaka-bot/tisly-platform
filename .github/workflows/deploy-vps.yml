@@ -172,6 +172,7 @@ jobs:
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_PORT: ${{ secrets.VPS_PORT }}
           EXPECTED_SHORT: ${{ steps.commit.outputs.short }}
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
         run: |
           set -euo pipefail
           PORT="${VPS_PORT:-55222}"
@@ -234,13 +235,35 @@ jobs:
           )
 
           echo "=== Remote deploy (inline, no VPS script required) ==="
-          ssh "${SSH_BASE[@]}" "${TARGET}" bash -s "${EXPECTED_SHORT}" <<'REMOTE'
+          ssh "${SSH_BASE[@]}" "${TARGET}" "GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY:-}" bash -s "${EXPECTED_SHORT}" <<'REMOTE'
           set -euo pipefail
           EXPECTED_SHORT="${1:-}"
           REPO_ROOT=/opt/tisly
           SERVER_DIR="${REPO_ROOT}/server"
           SERVICE_NAME=tisly-server
           HEALTH_URL=https://tisly.jp/api/health
+          ENV_FILE="${SERVER_DIR}/.env"
+
+          sync_env_var() {
+            local key="$1"
+            local val="$2"
+            [ -n "${val}" ] || return 0
+            if [ ! -f "${ENV_FILE}" ]; then
+              echo "${key}=${val}" >> "${ENV_FILE}"
+              echo "=== env: created ${key} in .env ==="
+              return 0
+            fi
+            if grep -q "^${key}=" "${ENV_FILE}"; then
+              sed -i "s|^${key}=.*|${key}=${val}|" "${ENV_FILE}"
+            else
+              echo "${key}=${val}" >> "${ENV_FILE}"
+            fi
+            echo "=== env: synced ${key} in .env ==="
+          }
+
+          if [ -n "${GOOGLE_MAPS_API_KEY:-}" ]; then
+            sync_env_var "GOOGLE_MAPS_API_KEY" "${GOOGLE_MAPS_API_KEY}"
+          fi
 
           echo "========================================"
           echo "  TiSLY VPS Auto Deploy (inline)"
@@ -299,6 +322,9 @@ jobs:
             echo "ERROR: commitShort mismatch expected=${EXPECTED_SHORT} actual=${ACTUAL_SHORT}"
             exit 1
           fi
+
+          MAPS_OK="$(echo "${HEALTH_BODY}" | grep -oE '"googleMapsApiConfigured":(true|false)' | head -1 || true)"
+          echo "=== integrations: ${MAPS_OK:-maps status unknown} ==="
 
           echo ""
           echo "========================================"

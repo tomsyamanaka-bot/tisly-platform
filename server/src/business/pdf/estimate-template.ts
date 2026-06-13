@@ -1,11 +1,16 @@
 import type { BusinessProject, Estimate } from "../business-types.js";
-import { buildCustomerFacingPdfNotes } from "../customer-price-rules.js";
+import { buildCustomerFacingPdfNotes, filterCustomerFacingLineDescription } from "../customer-price-rules.js";
 import {
   itemsToTomsLines,
   mergeEstimateHeader,
   type TomsEstimateHeader,
 } from "../toms-document-format.js";
-import { TOMS_PDF_STYLES, TOMS_PDF_VIEWPORT_META } from "./styles.js";
+import {
+  TOMS_PDF_CHARSET_META,
+  TOMS_PDF_FONT_LINKS,
+  TOMS_PDF_STYLES,
+  TOMS_PDF_VIEWPORT_META,
+} from "./styles.js";
 import {
   escapeHtml,
   renderNotes,
@@ -35,7 +40,12 @@ export function renderEstimateHtml(
     workLocation: opts?.workLocation ?? project.address,
     staffName: opts?.staffName,
   });
-  const lines = itemsToTomsLines(estimate.items);
+  const lines = itemsToTomsLines(estimate.items)
+    .map((line) => ({
+      ...line,
+      description: filterCustomerFacingLineDescription(line.description),
+    }))
+    .filter((line) => line.description.trim());
   const notes = buildCustomerFacingPdfNotes(opts?.notes ?? project.surveyMemo ?? "");
   const includePhotos = opts?.includePhotos === true;
   const photoBlock =
@@ -44,7 +54,7 @@ export function renderEstimateHtml(
       : "";
   const pageClass = includePhotos ? "doc with-photos" : "doc single-page";
 
-  return `<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"/>${TOMS_PDF_VIEWPORT_META}<title>お見積書 ${escapeHtml(header.estimateNo)}</title><style>${TOMS_PDF_STYLES}</style></head><body>
+  return `<!DOCTYPE html><html lang="ja"><head>${TOMS_PDF_CHARSET_META}${TOMS_PDF_FONT_LINKS}${TOMS_PDF_VIEWPORT_META}<title>お見積書 ${escapeHtml(header.estimateNo)}</title><style>${TOMS_PDF_STYLES}</style></head><body>
 <div class="${pageClass}">
 ${renderTomsOfficialDocLayout({
   docTitle: "お見積書",

@@ -55,6 +55,8 @@ export interface ScheduleDayCard {
   availability: DayAvailability;
   departure?: ScheduleDayDepartureV1 | null;
   firstConstructionEventId?: string | null;
+  /** 週間一覧カード用 — 朝・昼・夜 */
+  weather?: DayWeather | null;
 }
 
 export interface ScheduleWeekView {

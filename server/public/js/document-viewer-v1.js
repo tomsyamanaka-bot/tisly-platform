@@ -63,6 +63,15 @@ async function loadPdfFrame(pdfPath) {
   const token = getCustomerToken();
   const res = await fetch(pdfPath, { headers: { Authorization: `Bearer ${token}` } });
   if (!res.ok) throw new Error("PDFの読み込みに失敗しました");
+  const contentType = res.headers.get("content-type") || "";
+  if (contentType.includes("text/html")) {
+    const html = await res.text();
+    const blob = new Blob([html], { type: "text/html; charset=UTF-8" });
+    if (pdfBlobUrl) URL.revokeObjectURL(pdfBlobUrl);
+    pdfBlobUrl = URL.createObjectURL(blob);
+    $("pdf-frame").src = pdfBlobUrl;
+    return;
+  }
   const blob = await res.blob();
   if (pdfBlobUrl) URL.revokeObjectURL(pdfBlobUrl);
   pdfBlobUrl = URL.createObjectURL(blob);

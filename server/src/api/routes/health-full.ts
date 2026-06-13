@@ -22,6 +22,7 @@ import { getRateLimitProviderName } from "../../redis/rate-limit-redis.js";
 import { getInfrastructureStatuses } from "../../infrastructure/status.js";
 import { getBuildVersion } from "../../deploy/build-version.js";
 import { getWsClientCount } from "../../ws/hub.js";
+import { getGoogleMapsApiKey, isGoogleMapsApiConfigured } from "../../schedule/google-maps-service.js";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -125,6 +126,10 @@ async function buildFullHealthResponse() {
     },
     productionUrl: publicUrl,
     phase: config.rc1Phase,
+    integrations: {
+      googleMapsApiConfigured: isGoogleMapsApiConfigured(),
+      googleMapsApiKeyPresent: Boolean(getGoogleMapsApiKey()),
+    },
     db_provider: providerInfo.provider,
     postgres: {
       reachable: postgresReachable,

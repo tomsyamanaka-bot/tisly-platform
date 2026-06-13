@@ -459,7 +459,7 @@ businessRouter.get("/projects/:projectId/ai-candidate/draft-lines", ...businessA
   }
 });
 
-businessRouter.post("/projects/:projectId/estimate", ...businessAuth, (req: AuthedRequest, res) => {
+businessRouter.post("/projects/:projectId/estimate", ...businessAuth, async (req: AuthedRequest, res) => {
   if (!assertBusinessRole(req, res)) return;
   const body = req.body as { items?: unknown[]; fromAi?: boolean };
   const estimate = createEstimate(
@@ -468,7 +468,7 @@ businessRouter.post("/projects/:projectId/estimate", ...businessAuth, (req: Auth
     { fromAi: body.fromAi }
   );
   const project = getBusinessProject(String(req.params.projectId))!;
-  const pdfPath = generateEstimatePdf(project, estimate);
+  const pdfPath = await generateEstimatePdf(project, estimate);
   setEstimatePdfPath(estimate.id, pdfPath);
   res.status(201).json({ estimate: getEstimate(estimate.id), pdfPath });
 });
@@ -498,13 +498,13 @@ businessRouter.post("/projects/:projectId/estimate-mail", ...businessAuth, (req:
   res.json({ mail });
 });
 
-businessRouter.post("/projects/:projectId/invoice", ...businessAuth, (req: AuthedRequest, res) => {
+businessRouter.post("/projects/:projectId/invoice", ...businessAuth, async (req: AuthedRequest, res) => {
   if (!assertBusinessRole(req, res)) return;
   const body = req.body as { paymentDueDate?: string };
   const invoice = createInvoiceFromEstimate(String(req.params.projectId), body.paymentDueDate);
   const project = getBusinessProject(String(req.params.projectId))!;
   const estimate = getEstimate(project.estimateId!)!;
-  const pdfPath = generateInvoicePdf(project, invoice, estimate);
+  const pdfPath = await generateInvoicePdf(project, invoice, estimate);
   setInvoicePdfPath(invoice.id, pdfPath);
   res.json({ invoice: getInvoice(invoice.id), pdfPath });
 });
