@@ -22,10 +22,14 @@ export function renderWeatherSlotsHtml(slots, { inline = false, practical = fals
     .join(sep);
 }
 
-const MAPS_API_UNSET_LABEL = "Google Maps API未設定";
+const MAPS_API_UNSET_LABEL = "Google Maps API\u672a\u8a2d\u5b9a";
 
-function renderTravelLineHtml(travel, { showMapsUnsetBanner = false } = {}) {
-  if (travel.durationLabel === MAPS_API_UNSET_LABEL) {
+function renderTravelLineHtml(
+  travel,
+  { showMapsUnsetBanner = false, mapsApiConfigured = true } = {}
+) {
+  const mapsUnset = mapsApiConfigured === false || travel.durationLabel === MAPS_API_UNSET_LABEL;
+  if (mapsUnset) {
     if (!showMapsUnsetBanner) return "";
     return `<div class="schedule-intel-maps-unset">${escapeScheduleHtml(MAPS_API_UNSET_LABEL)}</div>`;
   }
@@ -43,7 +47,10 @@ function renderMaterialLineHtml(fieldCheck) {
   return `<a class="schedule-intel-material" href="${escapeScheduleHtml(fieldCheck.url)}">${escapeScheduleHtml(label)}</a>`;
 }
 
-export function renderIntelligenceEventCard(evIntel, { catIcon, catLabel, showMapsUnsetBanner = false } = {}) {
+export function renderIntelligenceEventCard(
+  evIntel,
+  { catIcon, catLabel, showMapsUnsetBanner = false, mapsApiConfigured = true } = {}
+) {
   const ev = evIntel;
   const time = formatEventTimeRange(ev);
   const travel = ev.travel ?? {};
@@ -55,7 +62,7 @@ export function renderIntelligenceEventCard(evIntel, { catIcon, catLabel, showMa
       ${time ? `<div class="schedule-intel-time">${escapeScheduleHtml(time)}</div>` : ""}
       <div class="schedule-intel-title">${escapeScheduleHtml(ev.title)}</div>
       ${weatherHtml ? `<div class="schedule-intel-weather">${weatherHtml}</div>` : ""}
-      ${renderTravelLineHtml(travel, { showMapsUnsetBanner })}
+      ${renderTravelLineHtml(travel, { showMapsUnsetBanner, mapsApiConfigured })}
       ${renderMaterialLineHtml(ev.fieldCheck)}
     </div>
   </article>`;
@@ -81,7 +88,11 @@ export function renderDayIntelligenceEvents(intelligence, opts = {}) {
     .map((ev) => {
       const showMapsUnsetBanner = mapsUnset && !mapsUnsetShown;
       if (showMapsUnsetBanner) mapsUnsetShown = true;
-      return renderIntelligenceEventCard(ev, { ...opts, showMapsUnsetBanner });
+      return renderIntelligenceEventCard(ev, {
+        ...opts,
+        showMapsUnsetBanner,
+        mapsApiConfigured: intelligence.mapsApiConfigured !== false,
+      });
     })
     .join("");
 }

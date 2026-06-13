@@ -165,7 +165,7 @@ export function renderNavIconButton(mapsUrl, { title = "ナビ開始" } = {}) {
 
 export function renderTravelBlocksHtml(travelBlocks, mapsIntegration, { navInDetails = true } = {}) {
   if (!mapsIntegration?.apiConfigured) {
-    const hint = mapsIntegration?.hint || "Google Maps API未設定";
+    const hint = mapsIntegration?.hint || "Google Maps API\u672a\u8a2d\u5b9a";
     return `<p class="section-label">🚗 移動時間</p><p class="section-hint travel-maps-hint">${escapeScheduleHtml(hint)}</p>`;
   }
   if (!travelBlocks?.length) return "";
