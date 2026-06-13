@@ -13,6 +13,7 @@ import {
   bindFieldChecklistPanel,
   loadFieldChecklist,
   renderFieldChecklistPanel,
+  renderFieldChecklistStatusSummary,
 } from "./field-checklist-ui.js";
 
 const STAGE_ORDER = [
@@ -510,6 +511,24 @@ function setDetailTab(tab) {
   });
 }
 
+async function renderDetailChecklistOverview(detail) {
+  const mount = $("detail-checklist-overview");
+  if (!mount) return;
+  const p = detail.project;
+  const openHref = `/field-checklist-v1?projectId=${encodeURIComponent(p.id)}&source=${encodeURIComponent(p.source)}`;
+  try {
+    const data = await loadFieldChecklist(workApi, { projectSource: p.source, projectId: p.id });
+    mount.innerHTML = renderFieldChecklistStatusSummary({
+      status: data.checklistStatus,
+      session: data.session,
+      showOpenButton: true,
+      openHref,
+    });
+  } catch (e) {
+    mount.innerHTML = `<p class="section-hint">${escapeHtml(e.message || "読み込み失敗")}</p>`;
+  }
+}
+
 async function renderDetailChecklist(detail) {
   const mount = $("detail-checklist");
   if (!mount) return;
@@ -520,12 +539,18 @@ async function renderDetailChecklist(detail) {
       items: data.checklist || [],
       status: data.checklistStatus,
       showHeader: true,
+      showSyncButton: true,
     });
     bindFieldChecklistPanel(mount, {
       apiFetch: workApi,
       toast,
       projectSource: p.source,
       projectId: p.id,
+      showHeader: true,
+      showSyncButton: true,
+      onRefresh: async () => {
+        await renderDetailChecklistOverview(detail);
+      },
     });
     const link = $("link-full-checklist");
     if (link) {
@@ -572,6 +597,7 @@ async function openDetail(id, source) {
       <p><span class="status-badge">${escapeHtml(p.statusLabel)}</span></p>`;
     $("detail-pipeline").innerHTML = pipelineBarHtml(p.pipeline);
     renderDetailWorkSession(detail);
+    await renderDetailChecklistOverview(detail);
     await renderDetailChecklist(detail);
     await renderDetailDocuments(detail);
     $("detail-timeline").innerHTML = detail.timeline.length

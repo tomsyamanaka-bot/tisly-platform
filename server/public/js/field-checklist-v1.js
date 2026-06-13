@@ -77,12 +77,14 @@ async function renderChecklistView() {
   mount.innerHTML = renderFieldChecklistPanel({
     items: data.checklist || [],
     status: data.checklistStatus,
+    showSyncButton: true,
   });
   bindFieldChecklistPanel(mount, {
     apiFetch: workApi,
     toast,
     projectSource: p.source,
     projectId: p.id,
+    showSyncButton: true,
   });
 
   const wsMount = $("work-session-mount");

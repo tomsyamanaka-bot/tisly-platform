@@ -408,16 +408,79 @@ export function getChecklistCompletionStatus(ref: ProjectRefV1): {
   unchecked: number;
   allChecked: boolean;
   uncheckedLabels: string[];
+  withMemo: number;
+  withPhoto: number;
+  forceCompleteReason: string | null;
 } {
   const items = listCompletionChecklistV1(ref);
   const unchecked = items.filter((it) => !it.checked);
+  const session = getLatestWorkSessionForProject(ref);
   return {
     total: items.length,
     checked: items.length - unchecked.length,
     unchecked: unchecked.length,
     allChecked: items.length > 0 && unchecked.length === 0,
     uncheckedLabels: unchecked.map((it) => it.label),
+    withMemo: items.filter((it) => it.memo?.trim()).length,
+    withPhoto: items.filter((it) => it.photoId).length,
+    forceCompleteReason: session?.forceCompleteReason?.trim() || null,
   };
+}
+
+/** 最新テンプレート定義を既存案件チェックリストへマージ（チェック状態は保持） */
+export function syncCompletionChecklistFromTemplatesV1(ref: ProjectRefV1): {
+  added: number;
+  updated: number;
+  items: CompletionChecklistItemV1[];
+} {
+  const defaults = collectChecklistDefaults(ref);
+  const existing = listCompletionChecklistV1(ref);
+  const db = getDatabase();
+  const now = nowIso();
+  let added = 0;
+  let updated = 0;
+
+  const byTemplateItemId = new Map(
+    existing.filter((it) => it.templateItemId).map((it) => [it.templateItemId!, it])
+  );
+  const byKey = new Map(existing.map((it) => [`${it.category}::${it.label}`, it]));
+
+  const insert = db.prepare(
+    `INSERT INTO completion_checklist_items (
+      id, project_source, project_id, category, label, checked, sort_order, source,
+      template_item_id, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, 0, ?, 'auto', ?, ?, ?)`
+  );
+  const updateLabel = db.prepare(
+    `UPDATE completion_checklist_items SET label = ?, category = ?, updated_at = ? WHERE id = ?`
+  );
+
+  defaults.forEach((def, i) => {
+    if (def.templateItemId && byTemplateItemId.has(def.templateItemId)) {
+      const row = byTemplateItemId.get(def.templateItemId)!;
+      if (row.label !== def.label || row.category !== def.category) {
+        updateLabel.run(def.label, def.category, now, row.id);
+        updated += 1;
+      }
+      return;
+    }
+    const key = `${def.category}::${def.label}`;
+    if (byKey.has(key)) return;
+    insert.run(
+      uuid(),
+      ref.source,
+      ref.projectId,
+      def.category,
+      def.label,
+      existing.length + added,
+      def.templateItemId,
+      now,
+      now
+    );
+    added += 1;
+  });
+
+  return { added, updated, items: listCompletionChecklistV1(ref) };
 }
 
 export function attachPhotoToChecklistItemV1(
@@ -551,17 +614,28 @@ export function buildWorkContentSummary(ref: ProjectRefV1): string {
 export function formatChecklistForPdf(ref: ProjectRefV1): string {
   const items = listCompletionChecklistV1(ref);
   if (!items.length) return "";
-  const lines = [
-    "現場作業時に以下の確認を実施しました。",
-    "",
-  ];
+  const session = getLatestWorkSessionForProject(ref);
+  const forceReason = session?.forceCompleteReason?.trim() ?? "";
+  const lines = ["現場作業時に以下の確認を実施しました。", ""];
   for (const it of items) {
     const memo = it.memo?.trim();
     if (it.checked) {
       lines.push(memo ? `✓ ${it.label}（${memo}）` : `✓ ${it.label}`);
+    } else if (forceReason) {
+      lines.push(
+        memo
+          ? `${it.label} — 未確認（強制完了：${forceReason} / ${memo}）`
+          : `${it.label} — 未確認（強制完了：${forceReason}）`
+      );
     } else {
       lines.push(memo ? `${it.label} — 未確認（${memo}）` : `${it.label} — 未確認`);
     }
+  }
+  if (forceReason) {
+    lines.push("");
+    lines.push(
+      `※ 上記のうち未確認項目については、現場事情により作業完了時点では確認できませんでした（理由：${forceReason}）。`
+    );
   }
   return lines.join("\n");
 }

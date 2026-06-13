@@ -9,27 +9,10 @@
   <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
   <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
   <link rel="stylesheet" href="/css/field-ops-mobile.css" />
+  <link rel="stylesheet" href="/css/field-checklist-v1.css" />
   <style>
-    .field-check-item { border-bottom: 1px solid #e8ecf0; padding: 0.65rem 0; }
-    .field-check-item:last-child { border-bottom: none; }
-    .field-check-row { display: flex; align-items: center; gap: 0.65rem; cursor: pointer; }
-    .field-check-row input[type=checkbox] { width: 1.4rem; height: 1.4rem; flex-shrink: 0; accent-color: #059669; }
-    .field-check-label { flex: 1; font-size: 1rem; font-weight: 600; }
-    .field-check-cat { font-size: 0.72rem; color: #64748b; background: #f1f5f9; padding: 0.15rem 0.45rem; border-radius: 999px; }
-    .field-check-item.checked .field-check-label { color: #64748b; text-decoration: line-through; }
-    .field-check-photo-row { display: flex; align-items: center; gap: 0.5rem; margin: 0.35rem 0 0 2rem; }
-    .field-check-thumb img { width: 48px; height: 48px; object-fit: cover; border-radius: 8px; border: 1px solid #e2e8f0; }
-    .field-check-no-photo { font-size: 0.78rem; color: #94a3b8; }
-    .btn-photo-attach {
-      display: inline-flex; align-items: center; gap: 0.25rem; min-height: 36px;
-      padding: 0.25rem 0.65rem; border-radius: 8px; border: 1px solid #cbd5e1;
-      background: #f8fafc; font-size: 0.82rem; font-weight: 600; cursor: pointer;
-    }
-    .progress-bar { height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; margin: 0.35rem 0; }
-    .progress-fill { height: 100%; background: #059669; transition: width 0.2s; }
-    .checklist-warn { color: #b45309; font-size: 0.85rem; margin: 0.35rem 0 0; }
-    .checklist-ok { color: #15803d; font-size: 0.85rem; margin: 0.35rem 0 0; }
     .project-pick-card { cursor: pointer; margin-bottom: 0.5rem; }
+    #checklist-mount.friendly-card { padding: 0.85rem; }
   </style>
 </head>
 <body class="tisly-friendly field-ops-touch">
@@ -42,7 +25,7 @@
       <div id="project-header" class="friendly-card"></div>
       <div id="checklist-mount" class="friendly-card"></div>
       <div id="work-session-mount"></div>
-      <button type="button" class="btn-sub" id="btn-back">案件一覧に戻る</button>
+      <button type="button" class="btn-sub" id="btn-back" style="min-height:48px;">案件一覧に戻る</button>
     </div>
   </main>
   <div id="toast" class="toast" role="status"></div>

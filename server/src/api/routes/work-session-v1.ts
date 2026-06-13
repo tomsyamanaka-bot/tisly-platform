@@ -13,6 +13,7 @@ import {
   recordArrivalV1,
   recordWorkCompleteV1,
   recordWorkStartV1,
+  syncCompletionChecklistFromTemplatesV1,
   updateCompletionChecklistItemV1,
 } from "../../field-ops/work-session-v1-store.js";
 import { autoSaveCompletionReportPdfV1 } from "../../projects/project-pdf-auto-save.js";
@@ -151,6 +152,21 @@ workSessionV1Router.post("/completion-checklist/generate", ...auth, (req: Authed
     return;
   }
   res.json({ items: generateCompletionChecklistV1(ref) });
+});
+
+workSessionV1Router.post("/completion-checklist/sync-templates", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const ref = parseRef(req.body as Record<string, unknown>);
+  if (!ref) {
+    res.status(400).json({ error: "projectSource and projectId are required" });
+    return;
+  }
+  try {
+    const result = syncCompletionChecklistFromTemplatesV1(ref);
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : "sync failed" });
+  }
 });
 
 workSessionV1Router.patch("/completion-checklist/:id", ...auth, (req: AuthedRequest, res) => {

@@ -60,11 +60,12 @@ function renderTemplateList() {
         <div class="tpl-card-head">
           <div>
             <strong>${escapeHtml(t.name)}</strong>
-            ${t.description ? `<p class="section-hint">${escapeHtml(t.description)}</p>` : ""}
+            ${t.description ? `<p class="section-hint" style="margin:0.25rem 0 0;">${escapeHtml(t.description)}</p>` : ""}
+            <p class="tpl-card-meta">${t.items.length} 項目 · ${t.active ? "有効" : "無効"}</p>
           </div>
           <span class="status-badge">${t.active ? "有効" : "無効"}</span>
         </div>
-        <ul class="tpl-items">${t.items.map((it) => `<li>${escapeHtml(it.label)}${it.photoRequired ? " 📷" : ""}</li>`).join("")}</ul>
+        <ul class="tpl-items">${t.items.slice(0, 6).map((it) => `<li>${escapeHtml(it.label)}${it.photoRequired ? " 📷" : ""}</li>`).join("")}${t.items.length > 6 ? `<li>…他 ${t.items.length - 6} 件</li>` : ""}</ul>
         <div class="tpl-actions">
           <button type="button" data-action="edit" data-id="${escapeHtml(t.id)}">編集</button>
           <button type="button" data-action="duplicate" data-id="${escapeHtml(t.id)}">複製</button>
@@ -151,7 +152,7 @@ async function saveEditor() {
     } else {
       await api("/templates", { method: "POST", body: JSON.stringify(body) });
     }
-    toast("保存しました");
+    toast("保存しました。既存案件へ反映するには各案件の「テンプレートから同期」を実行してください");
     closeEditor();
     await loadAll();
   } catch (e) {

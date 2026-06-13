@@ -169,7 +169,43 @@ describe("Field Checklist v1", () => {
       .get(`/api/estimate/v1/projects/${businessProjectId}/completion-report/pdf?live=1`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(pdf.status, 200);
-    assert.ok(pdf.text.includes("確認結果") || pdf.text.includes("チェック"));
+    assert.ok(pdf.text.includes("確認結果") || pdf.text.includes("確認を実施"));
+    assert.ok(pdf.text.includes("未確認") || pdf.text.includes("✓"));
+    assert.ok(pdf.text.includes("強制完了") || pdf.text.includes("お客様都合"));
+  });
+
+  it("テンプレート同期で新項目を案件に追加できる", async () => {
+    const adminLogin = await request(app)
+      .post("/api/auth/customer/login")
+      .send({ customerCode: "TOMS001", username: "toms001.admin", password: "demo-remote-2026" });
+    const adminToken = adminLogin.body.token;
+
+    const tplRes = await request(app)
+      .get("/api/field-checklist/v1/templates")
+      .set("Authorization", `Bearer ${adminToken}`);
+    const cameraTpl = tplRes.body.templates.find((t: { name: string }) => t.name === "防犯カメラ");
+    assert.ok(cameraTpl);
+
+    await request(app)
+      .patch(`/api/field-checklist/v1/templates/${cameraTpl.id}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        items: [...cameraTpl.items, { label: "同期テスト項目", photoRequired: false }],
+      });
+
+    const before = await request(app)
+      .get(`/api/work-session/v1/completion-checklist?source=business&projectId=${businessProjectId}`)
+      .set("Authorization", `Bearer ${token}`);
+    const beforeCount = before.body.items.length;
+
+    const synced = await request(app)
+      .post("/api/work-session/v1/completion-checklist/sync-templates")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ projectSource: "business", projectId: businessProjectId });
+    assert.equal(synced.status, 200);
+    assert.ok(synced.body.added >= 1);
+    assert.ok(synced.body.items.length >= beforeCount + 1);
+    assert.ok(synced.body.items.some((it: { label: string }) => it.label === "同期テスト項目"));
   });
 
   it("テンプレート CRUD（管理者）", async () => {

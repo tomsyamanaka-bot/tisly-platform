@@ -8,24 +8,54 @@
   <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
   <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
   <style>
-    .tpl-card { border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.75rem; margin-bottom: 0.55rem; background: #fff; }
+    .tpl-help {
+      font-size: 0.88rem; line-height: 1.55; color: #475569;
+      padding: 0.65rem 0.75rem; background: #f0f9ff; border: 1px solid #bae6fd;
+      border-radius: 10px; margin-bottom: 0.75rem;
+    }
+    .tpl-card {
+      border: 1px solid #e2e8f0; border-radius: 12px; padding: 0.85rem;
+      margin-bottom: 0.65rem; background: #fff;
+    }
     .tpl-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; }
-    .tpl-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.45rem; }
-    .tpl-actions button { min-height: 36px; padding: 0.25rem 0.65rem; border-radius: 8px; border: 1px solid #cbd5e1; background: #f8fafc; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
-    .tpl-items { margin: 0.45rem 0 0; padding-left: 1.1rem; font-size: 0.88rem; color: #475569; }
+    .tpl-card-meta { font-size: 0.78rem; color: #64748b; margin-top: 0.25rem; }
+    .tpl-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.55rem; }
+    .tpl-actions button {
+      min-height: 48px; padding: 0.35rem 0.85rem; border-radius: 10px;
+      border: 2px solid #cbd5e1; background: #f8fafc; font-size: 0.88rem; font-weight: 700; cursor: pointer;
+    }
+    .tpl-actions button[data-action="edit"] { border-color: var(--tisly-blue); color: var(--tisly-blue); }
+    .tpl-items {
+      margin: 0.55rem 0 0; padding: 0.55rem 0.65rem; background: #f8fafc;
+      border-radius: 8px; font-size: 0.86rem; color: #475569; line-height: 1.5;
+    }
+    .tpl-items li { margin: 0.15rem 0; }
     .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; margin: 0.5rem 0; }
-    .stat-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.65rem; text-align: center; }
-    .stat-box strong { display: block; font-size: 1.25rem; color: #1e293b; }
-    .stat-box span { font-size: 0.78rem; color: #64748b; }
-    .editor-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.45); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 1rem; }
+    .stat-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.75rem; text-align: center; }
+    .stat-box strong { display: block; font-size: 1.35rem; color: #1e293b; }
+    .stat-box span { font-size: 0.78rem; color: #64748b; font-weight: 600; }
+    .editor-overlay {
+      position: fixed; inset: 0; background: rgba(15,23,42,0.45); z-index: 200;
+      display: flex; align-items: center; justify-content: center; padding: 1rem;
+    }
     .editor-overlay.hidden { display: none; }
-    .editor-dialog { background: #fff; border-radius: 14px; padding: 1rem; max-width: 420px; width: 100%; max-height: 90vh; overflow: auto; }
-    .editor-dialog input, .editor-dialog textarea { width: 100%; min-height: 44px; margin: 0.35rem 0; padding: 0.5rem; border: 1px solid #e2e8f0; border-radius: 8px; }
-    .item-row { display: flex; gap: 0.35rem; margin-bottom: 0.35rem; align-items: center; }
-    .item-row input[type=text] { flex: 1; min-height: 40px; }
+    .editor-dialog {
+      background: #fff; border-radius: 14px; padding: 1rem; max-width: 440px; width: 100%; max-height: 90vh; overflow: auto;
+    }
+    .editor-dialog input, .editor-dialog textarea {
+      width: 100%; min-height: 48px; margin: 0.35rem 0; padding: 0.55rem 0.65rem;
+      border: 1px solid #e2e8f0; border-radius: 10px; font-size: 0.95rem; box-sizing: border-box;
+    }
+    .item-row { display: flex; gap: 0.4rem; margin-bottom: 0.45rem; align-items: center; }
+    .item-row input[type=text] { flex: 1; min-height: 48px; }
+    .item-row button[data-remove] {
+      min-width: 48px; min-height: 48px; border-radius: 10px; border: 1px solid #fecaca;
+      background: #fef2f2; color: #b91c1c; font-weight: 700; cursor: pointer;
+    }
+    .btn-toolbar { min-height: 48px; }
   </style>
 </head>
-<body class="tisly-friendly">
+<body class="tisly-friendly field-ops-touch">
   <main class="app-main">
     <p class="section-hint">管理者専用 — 現場チェックリストテンプレート</p>
 
@@ -40,9 +70,13 @@
     </div>
 
     <div class="friendly-card">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;flex-wrap:wrap;">
         <h2 style="margin:0;">テンプレート一覧</h2>
-        <button type="button" class="btn-main" id="btn-new-template">＋ 追加</button>
+        <button type="button" class="btn-main btn-toolbar" id="btn-new-template">＋ 追加</button>
+      </div>
+      <div class="tpl-help">
+        初期テンプレ：防犯カメラ / LAN配線 / Wi-Fi / インターホン / 電気工事 / TiSLY<br />
+        編集後は各案件のチェックリスト画面で「テンプレートから同期」を実行すると、新しい項目が反映されます（既存のチェック状態は保持）。
       </div>
       <div id="template-list" style="margin-top:0.75rem;">読み込み中…</div>
     </div>
@@ -51,14 +85,14 @@
   <div id="editor-overlay" class="editor-overlay hidden" role="dialog" aria-modal="true">
     <div class="editor-dialog">
       <h3 id="editor-title">テンプレート編集</h3>
-      <label>名称<input type="text" id="edit-name" /></label>
-      <label>説明<textarea id="edit-desc" rows="2"></textarea></label>
+      <label>名称<input type="text" id="edit-name" placeholder="例：防犯カメラ" /></label>
+      <label>説明<textarea id="edit-desc" rows="2" placeholder="工事種別の説明（任意）"></textarea></label>
       <p class="section-label">チェック項目</p>
       <div id="edit-items"></div>
-      <button type="button" class="btn-sub" id="btn-add-item">＋ 項目追加</button>
+      <button type="button" class="btn-sub btn-toolbar" id="btn-add-item">＋ 項目追加</button>
       <div style="display:flex;gap:0.5rem;margin-top:0.75rem;">
-        <button type="button" class="btn-sub" id="btn-editor-cancel" style="flex:1;">キャンセル</button>
-        <button type="button" class="btn-main" id="btn-editor-save" style="flex:1;">保存</button>
+        <button type="button" class="btn-sub btn-toolbar" id="btn-editor-cancel" style="flex:1;">キャンセル</button>
+        <button type="button" class="btn-main btn-toolbar" id="btn-editor-save" style="flex:1;">保存</button>
       </div>
     </div>
   </div>
