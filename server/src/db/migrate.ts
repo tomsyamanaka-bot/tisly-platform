@@ -207,7 +207,9 @@ export function runMigrations(database: Database.Database): void {
   migrateScheduleDefaultOriginTsukubamiraiV1(database);
   migrateScheduleDefaultOriginTsukubamiraiV2(database);
   migrateScheduleEventAddressOverridesV1(database);
+  migrateStorageSettingsV1(database);
   migrateProjectSoftDeleteV1(database);
+  migrateProjectPdfQnapBackupV1(database);
 }
 
 /** 案件一覧 v1 — 論理削除 deleted_at */
@@ -3106,4 +3108,77 @@ function migrateScheduleEventAddressOverridesV1(database: Database.Database): vo
       "migration:schedule_event_address_overrides_v1",
       JSON.stringify({ at: new Date().toISOString() })
     );
+}
+
+/** 案件 PDF QNAP バックアップ v1 — project_pdf_meta */
+function migrateProjectPdfQnapBackupV1(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:project_pdf_qnap_backup_v1") as { value_json: string } | undefined;
+  if (marker) return;
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS project_pdf_meta (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      local_path TEXT NOT NULL DEFAULT '',
+      file_name TEXT NOT NULL DEFAULT '',
+      qnap_backup_enabled INTEGER NOT NULL DEFAULT 0,
+      qnap_backup_status TEXT,
+      qnap_backup_path TEXT,
+      qnap_backup_error TEXT,
+      qnap_backup_attempts INTEGER NOT NULL DEFAULT 0,
+      qnap_backup_last_attempt_at TEXT,
+      qnap_backup_completed_at TEXT,
+      deleted_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(project_id, kind)
+    );
+    CREATE INDEX IF NOT EXISTS idx_project_pdf_meta_status
+      ON project_pdf_meta(qnap_backup_status, qnap_backup_enabled)
+      WHERE deleted_at IS NULL;
+    CREATE INDEX IF NOT EXISTS idx_project_pdf_meta_project
+      ON project_pdf_meta(project_id)
+      WHERE deleted_at IS NULL;
+  `);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:project_pdf_qnap_backup_v1", JSON.stringify({ at: new Date().toISOString() }));
+}
+
+/** ストレージ設定 v1 — ローカル PDF + QNAP 接続（管理者 UI） */
+function migrateStorageSettingsV1(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:storage_settings_v1") as { value_json: string } | undefined;
+  if (marker) return;
+
+  const SETTINGS_KEY = "storage_settings_v1";
+  const row = database
+    .prepare(`SELECT value_json FROM platform_settings WHERE key = ?`)
+    .get(SETTINGS_KEY) as { value_json: string } | undefined;
+  if (!row) {
+    const defaults = {
+      localStorageEnabled: true,
+      qnapBackupEnabled: false,
+      qnap: { host: "", port: 8080, shareName: "TiSLY", username: "", password: "" },
+      updatedAt: new Date().toISOString(),
+    };
+    database
+      .prepare(
+        `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+      )
+      .run(SETTINGS_KEY, JSON.stringify(defaults));
+  }
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:storage_settings_v1", JSON.stringify({ at: new Date().toISOString() }));
 }

@@ -42,6 +42,7 @@ import {
 } from "../../business/services/pdfService.js";
 import { getBusinessProject, getEstimate, getInvoice, getCompletionReport, setEstimatePdfPath, setInvoicePdfPath } from "../../business/business-store.js";
 import { regenerateProjectPdfV1 } from "../../projects/project-pdf-store.js";
+import { recordProjectPdfSavedV1 } from "../../projects/project-pdf-qnap-store.js";
 import type { EstimateLineItem } from "../../business/business-types.js";
 import type { EstimateHeaderInputV1 } from "../../estimate/estimate-v1-types.js";
 import {
@@ -322,6 +323,7 @@ estimateV1Router.post("/projects/:id/pdf/regenerate", ...estimateV1Auth, async (
     }) ?? undefined;
     const pdfPath = await generateEstimatePdf(project, estimate, pdfCtx);
     setEstimatePdfPath(estimate.id, pdfPath);
+    recordProjectPdfSavedV1(project.id, "estimate", pdfPath);
     res.json({ pdfPath, estimate: getEstimate(estimate.id) });
   } catch (e) {
     res.status(500).json({ error: e instanceof Error ? e.message : "regenerate failed" });
@@ -381,6 +383,7 @@ estimateV1Router.post(
     try {
       const pdfPath = await generateInvoicePdf(project, invoice, estimate);
       setInvoicePdfPath(invoice.id, pdfPath);
+      recordProjectPdfSavedV1(project.id, "invoice", pdfPath);
       res.json({ pdfPath, invoice: getInvoice(invoice.id) });
     } catch (e) {
       res.status(500).json({ error: e instanceof Error ? e.message : "regenerate failed" });

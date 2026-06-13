@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#64748b" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>TiSLY — ストレージ設定</title>
+  <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
+  <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
+  <style>
+    .storage-card { margin-bottom:0.75rem; }
+    .storage-card h2 { margin:0 0 0.5rem; font-size:1rem; }
+    .storage-meta { font-size:0.85rem; color:#475569; margin:0.25rem 0; }
+    .storage-actions { display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:0.6rem; }
+    .status-grid { display:grid; grid-template-columns:minmax(7rem,auto) 1fr; gap:0.35rem 0.75rem; font-size:0.88rem; margin:0.5rem 0 0; }
+    .status-grid dt { color:#64748b; margin:0; }
+    .status-grid dd { margin:0; color:#1e293b; word-break:break-word; }
+    .status-ok { color:#166534; font-weight:600; }
+    .status-err { color:#b91c1c; font-weight:600; }
+    .status-warn { color:#92400e; font-weight:600; }
+    .status-muted { color:#64748b; }
+    .toggle-row { display:flex; align-items:center; gap:0.5rem; margin:0.4rem 0; font-size:0.9rem; }
+    .toggle-row input[type=checkbox] { width:auto; flex:0 0 auto; }
+    .form-grid label { display:block; margin:0.45rem 0; font-size:0.88rem; }
+    .form-grid input { width:100%; box-sizing:border-box; margin-top:0.2rem; }
+    .result-box { margin-top:0.5rem; padding:0.55rem 0.65rem; border-radius:8px; font-size:0.85rem; }
+    .result-box.ok { background:#dcfce7; color:#166534; }
+    .result-box.err { background:#fee2e2; color:#b91c1c; }
+    .result-box.hidden { display:none; }
+    .hint-small { font-size:0.78rem; color:#64748b; margin:0.35rem 0 0; }
+  </style>
+</head>
+<body class="tisly-friendly">
+  <main class="app-main">
+    <p class="section-hint">PDF 保存先と QNAP バックアップの接続設定（管理者専用）</p>
+
+    <div class="friendly-card storage-card">
+      <h2>現在の状態</h2>
+      <dl class="status-grid">
+        <dt>ローカル保存</dt><dd id="status-local" class="status-ok">—</dd>
+        <dt>QNAP</dt><dd id="status-qnap" class="status-muted">—</dd>
+        <dt>最終確認</dt><dd id="status-last-check">—</dd>
+      </dl>
+    </div>
+
+    <div class="friendly-card storage-card">
+      <h2>保存方式</h2>
+      <label class="toggle-row">
+        <input type="checkbox" id="local-enabled" checked disabled />
+        ローカル保存（標準 — VPS uploads/business/）
+      </label>
+      <label class="toggle-row">
+        <input type="checkbox" id="qnap-enabled" />
+        QNAPバックアップ有効
+      </label>
+      <p class="hint-small">自動バックアップは次フェーズ。ここでは接続設定とテストのみ。</p>
+    </div>
+
+    <div class="friendly-card storage-card" id="qnap-form-card">
+      <h2>QNAP設定</h2>
+      <div class="form-grid">
+        <label>IPアドレス
+          <input id="qnap-host" type="text" inputmode="decimal" placeholder="192.168.1.100" autocomplete="off" />
+        </label>
+        <label>ポート（WebDAV）
+          <input id="qnap-port" type="number" value="8080" placeholder="8080" />
+        </label>
+        <label>共有フォルダ名
+          <input id="qnap-share" type="text" value="TiSLY" placeholder="TiSLY" />
+        </label>
+        <label>ユーザー名
+          <input id="qnap-user" type="text" placeholder="admin" autocomplete="username" />
+        </label>
+        <label>パスワード
+          <input id="qnap-pass" type="password" placeholder="変更時のみ入力" autocomplete="new-password" />
+        </label>
+      </div>
+      <p class="hint-small">例: 192.168.1.100 / 8080 / TiSLY / admin</p>
+      <div class="storage-actions">
+        <button type="button" class="btn-primary" id="btn-save">保存</button>
+      </div>
+    </div>
+
+    <div class="friendly-card storage-card">
+      <h2>接続テスト</h2>
+      <p class="storage-meta">QNAP へ接続し、指定共有フォルダの存在を確認します。</p>
+      <div class="storage-actions">
+        <button type="button" class="btn-sub" id="btn-test-connection">QNAP接続確認</button>
+      </div>
+      <div id="connection-result" class="result-box hidden" role="status"></div>
+    </div>
+
+    <div class="friendly-card storage-card">
+      <h2>テストファイル送信</h2>
+      <p class="storage-meta">tisly-test.pdf を /TiSLY/Test/ へ送信します。</p>
+      <div class="storage-actions">
+        <button type="button" class="btn-sub" id="btn-test-pdf">テストPDF送信</button>
+      </div>
+      <div id="pdf-result" class="result-box hidden" role="status"></div>
+    </div>
+
+    <div class="storage-actions" style="margin-top:0.5rem;">
+      <a class="btn-sub" href="/settings-v1">← 設定メニュー</a>
+    </div>
+  </main>
+  <div id="toast" class="toast" role="status"></div>
+  <script type="module" src="/js/storage-settings-v1.js"></script>
+</body>
+</html>

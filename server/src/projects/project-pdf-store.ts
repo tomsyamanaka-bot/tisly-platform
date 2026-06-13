@@ -4,16 +4,7 @@
  * 保存仕様（固定）: docs/project-pdf-storage-spec.md
  * QNAP バックアップ計画: docs/qnap-pdf-backup-plan.md
  *
- * 現時点は local 固定。QNAP 連携は次フェーズ。
- *
- * --- 将来 DB 項目案（migration 未実施・設計メモ） ---
- * 専用テーブル project_pdf_meta または business_* .pdf_path 拡張を想定:
- *   storage_provider   TEXT  — 'local' | 'qnap'（一次保存は local 維持）
- *   local_path         TEXT  — ローカル相対パス（現 pdf_path と同等）
- *   qnap_path          TEXT  — QNAP 上のフルパス
- *   qnap_backup_status TEXT  — 'pending' | 'synced' | 'failed'
- *   qnap_backuped_at   TEXT  — 最終 QNAP 同期成功日時
- *   qnap_last_error    TEXT  — 直近バックアップエラー
+ * 現時点は local 固定 + QNAP バックアップ（project_pdf_meta）。
  */
 import fs from "fs";
 import path from "path";
@@ -36,6 +27,14 @@ import {
   getEstimatePdfContextV1,
   renderCompletionReportHtmlV1,
 } from "../estimate/estimate-v1-store.js";
+import {
+  recordProjectPdfSavedV1,
+  softDeleteProjectPdfMeta,
+  getProjectPdfMeta,
+  toQnapPublicMeta,
+  type ProjectPdfQnapPublicV1,
+} from "./project-pdf-qnap-store.js";
+import { getStorageSettingsV1 } from "../storage/storage-settings-store.js";
 
 /** 現在は local のみ。将来 qnap へ切替 */
 export type PdfStorageProvider = "local" | "qnap";
@@ -92,20 +91,20 @@ export interface ProjectPdfEntryV1 {
   updatedAt: string | null;
   sizeBytes: number | null;
   exists: boolean;
-  // --- 次フェーズ QNAP 連携（API レスポンス拡張予定・現在未使用） ---
-  // storageProvider?: 'local' | 'qnap';
-  // localPath?: string | null;
-  // qnapPath?: string | null;
-  // qnapBackupStatus?: 'pending' | 'synced' | 'failed';
-  // qnapBackupedAt?: string | null;
-  // qnapLastError?: string | null;
+  local: { saved: boolean; label: string };
+  qnap: ProjectPdfQnapPublicV1;
 }
 
 function entryFromPath(
   kind: ProjectPdfKind,
   pdfPath: string | null,
-  storagePath: string
+  storagePath: string,
+  qnapOpts?: { includeError?: boolean }
 ): ProjectPdfEntryV1 {
+  const shareName = getStorageSettingsV1().qnap.shareName;
+  const projectId = storagePath.match(/uploads\/business\/([^/]+)\//)?.[1] ?? "";
+  const meta = projectId ? getProjectPdfMeta(projectId, kind) : null;
+  const qnap = toQnapPublicMeta(meta, { includeError: qnapOpts?.includeError, shareName });
   const local = resolveLocalPdf(pdfPath);
   const fileName = pdfPath ? path.basename(pdfPath) : null;
   if (!local) {
@@ -119,19 +118,23 @@ function entryFromPath(
       updatedAt: null,
       sizeBytes: null,
       exists: false,
+      local: { saved: false, label: "未保存" },
+      qnap,
     };
   }
-  const meta = fileMeta(local);
+  const fileMetaData = fileMeta(local);
   return {
     kind,
     label: PROJECT_PDF_KIND_LABELS[kind],
     fileName: fileName ?? path.basename(local),
     pdfPath,
     storagePath,
-    createdAt: meta.createdAt,
-    updatedAt: meta.updatedAt,
-    sizeBytes: meta.sizeBytes,
+    createdAt: fileMetaData.createdAt,
+    updatedAt: fileMetaData.updatedAt,
+    sizeBytes: fileMetaData.sizeBytes,
     exists: true,
+    local: { saved: true, label: "✅ 保存済み" },
+    qnap,
   };
 }
 
@@ -181,11 +184,16 @@ function dbPdfPath(projectId: string, kind: ProjectPdfKind): string | null {
   return null;
 }
 
-export function listProjectPdfsV1(projectId: string): ProjectPdfEntryV1[] {
+export function listProjectPdfsV1(
+  projectId: string,
+  opts?: { includeQnapError?: boolean }
+): ProjectPdfEntryV1[] {
   const kinds: ProjectPdfKind[] = ["estimate", "invoice", "report"];
   return kinds.map((kind) => {
     const pdfPath = dbPdfPath(projectId, kind);
-    return entryFromPath(kind, pdfPath, expectedStoragePath(projectId, kind));
+    return entryFromPath(kind, pdfPath, expectedStoragePath(projectId, kind), {
+      includeError: opts?.includeQnapError,
+    });
   });
 }
 
@@ -211,7 +219,16 @@ export function deleteProjectPdfV1(projectId: string, kind: ProjectPdfKind): boo
   } else if (kind === "report" && project.completionReportId) {
     setCompletionReportPdfPath(project.completionReportId, "");
   }
+  softDeleteProjectPdfMeta(projectId, kind);
   return true;
+}
+
+function saveProjectPdfWithQnapQueue(
+  projectId: string,
+  kind: ProjectPdfKind,
+  pdfPath: string
+): void {
+  recordProjectPdfSavedV1(projectId, kind, pdfPath);
 }
 
 export async function regenerateProjectPdfV1(
@@ -228,6 +245,7 @@ export async function regenerateProjectPdfV1(
     const pdfCtx = getEstimatePdfContextV1(projectId) ?? undefined;
     const pdfPath = await generateEstimatePdf(project, estimate, pdfCtx);
     setEstimatePdfPath(estimate.id, pdfPath);
+    saveProjectPdfWithQnapQueue(projectId, "estimate", pdfPath);
   } else if (kind === "invoice") {
     if (!project.invoiceId || !project.estimateId) throw new Error("No invoice");
     const invoice = getInvoice(project.invoiceId);
@@ -235,12 +253,14 @@ export async function regenerateProjectPdfV1(
     if (!invoice || !estimate) throw new Error("No invoice");
     const pdfPath = await generateInvoicePdf(project, invoice, estimate);
     setInvoicePdfPath(invoice.id, pdfPath);
+    saveProjectPdfWithQnapQueue(projectId, "invoice", pdfPath);
   } else {
     if (!project.completionReportId) throw new Error("No completion report");
     const html = renderCompletionReportHtmlV1(projectId);
     if (!html) throw new Error("No completion report");
     const pdfPath = await generateCompletionReportPdfV1(project, html, reportSuffix(projectId));
     setCompletionReportPdfPath(project.completionReportId, pdfPath);
+    saveProjectPdfWithQnapQueue(projectId, "report", pdfPath);
   }
 
   return entryFromPath(kind, dbPdfPath(projectId, kind), expectedStoragePath(projectId, kind));

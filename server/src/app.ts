@@ -88,6 +88,7 @@ import { securityAutomationRouter } from "./api/routes/security-automation.js";
 import { buildSurveyReportHtml } from "./survey/survey-report.js";
 import { remoteTestRouter } from "./api/routes/remote-test.js";
 import { pushRouter } from "./api/routes/push.js";
+import { storageSettingsV1Router } from "./api/routes/storage-settings-v1.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(__dirname, "..", "public");
@@ -141,6 +142,7 @@ export function createApp(): express.Application {
   app.use("/api/field-check/v1", fieldCheckV1Router);
   app.use("/api/purchase/v1", purchaseV1Router);
   app.use("/api/work-session/v1", workSessionV1Router);
+  app.use("/api/storage/v1/settings", storageSettingsV1Router);
   app.use("/api/business", businessRouter);
   app.use("/api/toms", tomsRouter);
   app.use("/api/maintenance", maintenanceProductionRouter);
@@ -404,6 +406,12 @@ export function createApp(): express.Application {
   });
   app.get("/google-calendar-settings-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "google-calendar-settings-v1.html"));
+  });
+  app.get("/settings-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "settings-v1.html"));
+  });
+  app.get("/storage-settings-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "storage-settings-v1.html"));
   });
   app.get("/google-calendar-v1", (_req, res) => {
     res.redirect(301, "/google-calendar-settings-v1");

@@ -13,6 +13,7 @@ import {
 } from "../field-ops/work-session-v1-store.js";
 import { getFieldCheckProgressV1 } from "../field-ops/field-check-v1-store.js";
 import { countExistingProjectPdfsV1 } from "./project-pdf-store.js";
+import { softDeleteAllProjectPdfMeta } from "./project-pdf-qnap-store.js";
 
 export type ProjectPipelineStage =
   | "survey"
@@ -570,6 +571,7 @@ export function deleteProjectV1(id: string, source: "business" | "survey"): Dele
       title: string;
     } | undefined;
     if (!row || row.deleted_at) return null;
+    softDeleteAllProjectPdfMeta(id);
     db.prepare(`UPDATE business_projects SET deleted_at = ?, updated_at = ? WHERE id = ?`).run(now, now, id);
     return {
       ok: true,

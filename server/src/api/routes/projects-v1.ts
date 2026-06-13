@@ -1,6 +1,6 @@
 import { Router, type Response } from "express";
 import { requireAuth, type AuthedRequest } from "../../auth/auth-middleware.js";
-import { roleMeetsRequirement } from "../../auth/roles.js";
+import { roleMeetsRequirement, normalizeRole } from "../../auth/roles.js";
 import { buildFieldOpsDashboardV1Async } from "../../projects/field-ops-dashboard.js";
 import {
   deleteProjectV1,
@@ -18,6 +18,12 @@ import {
   regenerateProjectPdfV1,
   resolveProjectPdfFile,
 } from "../../projects/project-pdf-store.js";
+import {
+  getProjectPdfMeta,
+  resetQnapBackupForResync,
+} from "../../projects/project-pdf-qnap-store.js";
+import { processQnapPdfBackupRow } from "../../storage/qnap-pdf-backup-service.js";
+import { getStorageSettingsV1 } from "../../storage/storage-settings-store.js";
 
 export const projectsV1Router = Router();
 
@@ -32,6 +38,11 @@ function assertRole(req: AuthedRequest, res: Response): boolean {
     return false;
   }
   return true;
+}
+
+function isStorageAdmin(role: string): boolean {
+  const n = normalizeRole(role);
+  return n === "owner" || n === "admin" || n === "super_admin";
 }
 
 function parsePdfKind(raw: string): ProjectPdfKind | null {
@@ -71,10 +82,15 @@ projectsV1Router.get("/projects/:id/delete-preview", ...auth, (req: AuthedReques
 
 projectsV1Router.get("/projects/:id/pdfs", ...auth, (req: AuthedRequest, res) => {
   if (!assertRole(req, res)) return;
-  const pdfs = listProjectPdfsV1(String(req.params.id));
+  const role = req.admin?.role ?? "viewer";
+  const includeQnapError = isStorageAdmin(role);
+  const settings = getStorageSettingsV1();
+  const pdfs = listProjectPdfsV1(String(req.params.id), { includeQnapError });
   res.json({
     storageProvider: PDF_STORAGE_PROVIDER,
     storageBasePath: `uploads/business/${String(req.params.id)}/pdfs/`,
+    qnapBackupEnabled: Boolean(settings.qnapBackupEnabled),
+    isAdmin: includeQnapError,
     pdfs,
   });
 });
@@ -103,7 +119,12 @@ projectsV1Router.post("/projects/:id/pdfs/:kind/regenerate", ...auth, async (req
   }
   try {
     const entry = await regenerateProjectPdfV1(String(req.params.id), kind);
-    res.json({ pdf: entry, pdfs: listProjectPdfsV1(String(req.params.id)) });
+    res.json({
+      pdf: entry,
+      pdfs: listProjectPdfsV1(String(req.params.id), {
+        includeQnapError: isStorageAdmin(req.admin?.role ?? "viewer"),
+      }),
+    });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "regenerate failed";
     res.status(msg.includes("not found") || msg.startsWith("No ") ? 404 : 500).json({ error: msg });
@@ -122,7 +143,37 @@ projectsV1Router.delete("/projects/:id/pdfs/:kind", ...auth, (req: AuthedRequest
     res.status(404).json({ error: "project not found" });
     return;
   }
-  res.json({ ok: true, pdfs: listProjectPdfsV1(String(req.params.id)) });
+  res.json({
+    ok: true,
+    pdfs: listProjectPdfsV1(String(req.params.id), {
+      includeQnapError: isStorageAdmin(req.admin?.role ?? "viewer"),
+    }),
+  });
+});
+
+projectsV1Router.post("/projects/:id/pdfs/:kind/qnap-resync", ...auth, async (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const kind = parsePdfKind(String(req.params.kind));
+  if (!kind) {
+    res.status(400).json({ error: "kind must be estimate, invoice, or report" });
+    return;
+  }
+  const projectId = String(req.params.id);
+  const meta = resetQnapBackupForResync(projectId, kind);
+  if (!meta) {
+    res.status(404).json({ error: "PDF not found" });
+    return;
+  }
+  const refreshed = getProjectPdfMeta(projectId, kind);
+  if (refreshed) {
+    await processQnapPdfBackupRow(refreshed);
+  }
+  res.json({
+    ok: true,
+    pdfs: listProjectPdfsV1(projectId, {
+      includeQnapError: isStorageAdmin(req.admin?.role ?? "viewer"),
+    }),
+  });
 });
 
 projectsV1Router.post("/projects/:id/restore", ...auth, (req: AuthedRequest, res) => {

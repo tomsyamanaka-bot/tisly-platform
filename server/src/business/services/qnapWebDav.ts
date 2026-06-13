@@ -40,6 +40,31 @@ export class QnapWebDavClient {
     }
   }
 
+  /** 共有フォルダ（WebDAV ルート）の存在確認 */
+  async verifyShareFolder(): Promise<{ ok: boolean; message: string }> {
+    if (!this.cfg.webdavUrl) {
+      return { ok: false, message: "WebDAV URL not configured" };
+    }
+    try {
+      const res = await fetch(this.cfg.webdavUrl, {
+        method: "PROPFIND",
+        headers: this.headers({
+          Depth: "0",
+          "Content-Type": "application/xml",
+        }),
+      });
+      if (res.status === 404) {
+        return { ok: false, message: "共有フォルダが見つかりません（404）" };
+      }
+      if (res.ok || res.status === 207 || res.status === 401) {
+        return { ok: true, message: "共有フォルダを確認しました" };
+      }
+      return { ok: false, message: `PROPFIND failed: HTTP ${res.status}` };
+    } catch (e) {
+      return { ok: false, message: (e as Error).message };
+    }
+  }
+
   async mkcol(remoteDir: string): Promise<void> {
     const parts = remoteDir.split("/").filter(Boolean);
     let acc = "";

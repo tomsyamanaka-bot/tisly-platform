@@ -33,9 +33,7 @@ const STAGE_LABELS = {
 };
 
 // --- 案件 PDF 書類 UI ---
-// 現在: ローカル PDF のみ（uploads/business/{projectId}/pdfs/）
-// 次フェーズ: QNAP backup status を管理者画面のみに表示予定
-// お客さん向け PWA には QNAP 状態を出さない（内部ログのみ）
+// ローカル PDF + QNAP バックアップ状態（管理者のみエラー詳細）
 const PDF_KIND_TO_DOC_VIEW = {
   estimate: "estimate",
   invoice: "invoice",
@@ -106,6 +104,8 @@ async function workApi(path, opts = {}) {
 let currentDetailRef = null;
 let pendingDeleteRef = null;
 let listTab = "active";
+let pdfListIsAdmin = false;
+let pdfQnapBackupEnabled = false;
 
 function pipelineBarHtml(pipeline, { compact = false } = {}) {
   return STAGE_ORDER.map((s) => {
@@ -175,6 +175,15 @@ function renderPdfRow(projectId, pdf) {
     ? `<a class="${primaryClass}" href="${escapeHtml(openHref)}">開く</a>`
     : `<span class="pdf-empty">PDF未作成 — 見積PWAで生成してください</span>`;
 
+  const localLabel = pdf.local?.label || (hasFile ? "✅ 保存済み" : "未保存");
+  const qnap = pdf.qnap || {};
+  const qnapLabel = qnap.label || (pdfQnapBackupEnabled ? "待機中" : "未設定");
+  const showResync = hasFile && qnap.status === "failed";
+  const qnapErrorHtml =
+    pdfListIsAdmin && qnap.error
+      ? `<div class="pdf-qnap-error">${escapeHtml(qnap.error)}</div>`
+      : "";
+
   return `<article class="pdf-row" data-pdf-kind="${escapeHtml(pdf.kind)}">
     <div class="pdf-row-head">
       <strong>${escapeHtml(pdf.label)}</strong>
@@ -185,10 +194,16 @@ function renderPdfRow(projectId, pdf) {
       <div>サイズ: ${escapeHtml(formatSize(pdf.sizeBytes))}</div>
       <div>更新: ${escapeHtml(formatDateTime(pdf.updatedAt))}</div>
     </div>
+    <div class="pdf-storage-status">
+      <div>ローカル: <span class="pdf-local-ok">${escapeHtml(localLabel)}</span></div>
+      <div>QNAP: <span class="pdf-qnap-label pdf-qnap-${escapeHtml(qnap.status || "none")}">${escapeHtml(qnapLabel)}</span></div>
+      ${qnapErrorHtml}
+    </div>
     <div class="pdf-actions">
       ${primaryTag}
       ${hasFile ? `<button type="button" data-pdf-action="share">共有</button>` : ""}
       ${hasFile ? `<button type="button" data-pdf-action="regenerate">再生成</button>` : ""}
+      ${showResync ? `<button type="button" data-pdf-action="qnap-resync">QNAPへ再同期</button>` : ""}
       ${hasFile ? `<button type="button" class="btn-danger" data-pdf-action="delete">削除</button>` : ""}
     </div>
   </article>`;
@@ -215,6 +230,8 @@ async function renderDetailDocuments(detail) {
   mount.classList.remove("hidden");
   mount.innerHTML = "<p class='section-hint'>読み込み中…</p>";
   const data = await loadProjectPdfs(p.id);
+  pdfListIsAdmin = Boolean(data.isAdmin);
+  pdfQnapBackupEnabled = Boolean(data.qnapBackupEnabled);
   const pdfs = (data.pdfs || []).filter((pdf) => {
     if (pdf.kind === "invoice") {
       const pipeline = p.pipeline || {};
@@ -244,6 +261,18 @@ async function renderDetailDocuments(detail) {
         await renderDetailDocuments(detail);
       } catch (e) {
         toast(e.message || "再生成に失敗しました");
+      }
+    });
+    row.querySelector('[data-pdf-action="qnap-resync"]')?.addEventListener("click", async () => {
+      try {
+        await api(`/projects/${encodeURIComponent(p.id)}/pdfs/${encodeURIComponent(kind)}/qnap-resync`, {
+          method: "POST",
+          body: "{}",
+        });
+        toast("QNAP再同期を実行しました");
+        await renderDetailDocuments(detail);
+      } catch (e) {
+        toast(e.message || "QNAP再同期に失敗しました");
       }
     });
     row.querySelector('[data-pdf-action="delete"]')?.addEventListener("click", async () => {

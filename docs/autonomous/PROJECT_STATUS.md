@@ -90,6 +90,8 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 見積・請求・完了報告 | `/estimate-v1` |
 | 持ち物チェック | `/field-check-v1` |
 | 発注管理 | `/purchase-v1` |
+| 設定（管理者） | `/settings-v1` |
+| ストレージ設定 | `/storage-settings-v1` |
 
 ログイン例: `TOMS001` / `toms001.surveyor` / `.env` の `CUSTOMER_DEMO_PASSWORD`
 
@@ -170,7 +172,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 
 ---
 
-## 案件 PDF 保存 v1（完成済み — ローカル固定）
+## 案件 PDF 保存 v1（完成済み — ローカル固定 + QNAP バックアップ）
 
 | 領域 | 内容 |
 |------|------|
@@ -179,10 +181,15 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 表示 | PWA は **保存済み PDF を優先**（再生成は明示ボタンのみ） |
 | 共有 | iPhone Safari / PWA → Web Share API、非対応 → URL コピー |
 | メール | **標準では送信しない** |
-| QNAP | **次フェーズ**（設計: `docs/qnap-pdf-backup-plan.md`） |
+| QNAP バックアップ | **完成済み** — ローカル保存成功後に WebDAV へ自動送信（失敗してもローカル PDF は維持） |
+| QNAP 保存先 | `/TiSLY/projects/{projectId}/pdfs/`（共有フォルダ名は設定可） |
+| QNAP 接続設定 UI | **完成済み** — `/settings-v1` → `/storage-settings-v1`（管理者専用） |
+| QNAP Worker | `qnap-pdf-backup-worker` — pending/failed（最大3回）を再送 |
+| 案件 UI | `/projects-v1` 書類セクション — ローカル/QNAP 状態、失敗時「QNAPへ再同期」 |
+| DB | `project_pdf_meta` — qnap_backup_* 列 |
 | 仕様書 | [`docs/project-pdf-storage-spec.md`](../project-pdf-storage-spec.md) |
-| API | `GET/POST/DELETE /api/projects/v1/projects/:id/pdfs/...` |
-| テスト | `server/test/project-pdf-v1.test.ts` |
+| API | `GET/POST/DELETE /api/projects/v1/projects/:id/pdfs/...` + `POST .../qnap-resync` |
+| テスト | `server/test/project-pdf-v1.test.ts`, `server/test/qnap-pdf-backup-v1.test.ts` |
 
 ---
 
@@ -228,7 +235,23 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 持ち物 PWA UI | `server/public/js/field-check-v1.js` |
 | 発注 PWA UI | `server/public/js/purchase-v1.js` |
 | 書類閲覧 UX v1 | `server/public/document-viewer-v1.html`, `server/public/js/document-viewer-v1.js`, `server/src/estimate/document-view-v1.ts` |
+| QNAP ストレージ設定 | `server/public/storage-settings-v1.html`, `server/src/storage/storage-settings-store.ts`, `server/src/storage/qnap-storage-service.ts` |
+| QNAP PDF バックアップ | `server/src/projects/project-pdf-qnap-store.ts`, `server/src/storage/qnap-pdf-backup-service.ts`, `server/src/workers/qnap-pdf-backup-worker.ts` |
 | 人間設定一覧 | [HUMAN_ACTIONS.md](./HUMAN_ACTIONS.md) |
+
+---
+
+## 次フェーズ用メモ（QNAP PDF バックアップ完成後）
+
+| 方針 | 内容 |
+|------|------|
+| PDF の正 | **ローカル保存が正** — `uploads/business/{projectId}/pdfs/` |
+| QNAP の役割 | **バックアップ専用** — ローカル成功後に WebDAV 送信。失敗しても現場 PDF は維持 |
+| メール | **標準では送信しない** |
+| 共有 | iPhone Safari / PWA の **Web Share API**（非対応時は URL コピー） |
+| QNAP 接続方式 | **WebDAV**（`/storage-settings-v1` で設定） |
+| 次フェーズ | **案件完了報告書 PDF の実用化** |
+| その次 | **QNAP 日次整合チェック**（ローカル vs QNAP の突合） |
 
 ---
 

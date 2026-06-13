@@ -26,6 +26,7 @@ import {
   type TomsEstimateHeader,
 } from "../business/toms-document-format.js";
 import { generateEstimatePdf, generateInvoicePdf, generateCompletionReportPdfV1 } from "../business/services/pdfService.js";
+import { recordProjectPdfSavedV1 } from "../projects/project-pdf-qnap-store.js";
 import { listPricingRules } from "../business/business-pricing.js";
 import type {
   CustomerPriceRuleSummary,
@@ -632,6 +633,7 @@ export async function finalizeEstimateV1(
   }) ?? undefined;
   const pdfPath = await generateEstimatePdf(project, estimate, pdfCtx);
   setEstimatePdfPath(estimate.id, pdfPath);
+  recordProjectPdfSavedV1(businessProjectId, "estimate", pdfPath);
 
   if (project.surveyProjectId) {
     updateSurveyProjectV1(project.surveyProjectId, { workflowStatus: "estimate_done" });
@@ -766,6 +768,7 @@ export async function createCompletionReportV1(
       const suffix = rep?.title?.slice(0, 24) ?? businessProjectId.slice(-4);
       pdfPath = await generateCompletionReportPdfV1(project, html, suffix);
       setCompletionReportPdfPath(project.completionReportId, pdfPath);
+      recordProjectPdfSavedV1(businessProjectId, "report", pdfPath);
     }
     return { reportId: project.completionReportId, pdfPath };
   }
@@ -788,6 +791,7 @@ export async function createCompletionReportV1(
   if (html) {
     pdfPath = await generateCompletionReportPdfV1(refreshed, html, report.title.slice(0, 24));
     setCompletionReportPdfPath(report.id, pdfPath);
+    recordProjectPdfSavedV1(businessProjectId, "report", pdfPath);
   }
   return { reportId: report.id, pdfPath };
 }
@@ -854,6 +858,7 @@ export async function createInvoiceFromEstimateV1(businessProjectId: string): Pr
   }
   const pdfPath = await generateInvoicePdf(project, invoice, estimate);
   setInvoicePdfPath(invoice.id, pdfPath);
+  recordProjectPdfSavedV1(businessProjectId, "invoice", pdfPath);
   return { invoice: getInvoice(invoice.id)!, pdfPath };
 }
 
