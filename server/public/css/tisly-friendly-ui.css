@@ -899,3 +899,32 @@ body.tisly-friendly {
 .tisly-friendly .schedule-month-cell[role="button"] {
   cursor: pointer;
 }
+
+.tisly-friendly .schedule-intel-travel-link,
+.tisly-friendly .travel-block-link,
+.tisly-friendly .event-map-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: rgba(37, 99, 235, 0.15);
+  touch-action: manipulation;
+}
+
+.tisly-friendly .schedule-intel-travel-link:active,
+.tisly-friendly .travel-block-link:active {
+  opacity: 0.85;
+}
+
+.tisly-friendly .travel-block-link {
+  border: 1px solid var(--tisly-border, #e2e8f0);
+  border-radius: 10px;
+  padding: 0.45rem 0.55rem;
+  margin-bottom: 0.35rem;
+  background: #fff;
+}
+
+.tisly-friendly .travel-block-link .travel-block-meta {
+  color: #1d4ed8;
+  font-weight: 600;
+}

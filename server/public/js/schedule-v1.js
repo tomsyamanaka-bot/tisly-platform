@@ -296,7 +296,7 @@ function renderWeekDays(days, today = todayIso()) {
     card.addEventListener("click", (ev) => {
       if (
         ev.target.closest(
-          ".event-desc-snippet, .event-map-btn, .departure-prep-card, .departure-kit-btn, [data-departure-edit], [data-departure-toggle], .schedule-intel-material, .schedule-intel-address-btn"
+          ".event-desc-snippet, .event-map-btn, .event-map-link, .departure-prep-card, .departure-kit-btn, [data-departure-edit], [data-departure-toggle], .schedule-intel-material, .schedule-intel-address-btn, .schedule-intel-travel-link, .travel-block-link"
         )
       ) {
         return;

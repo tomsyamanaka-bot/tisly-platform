@@ -338,6 +338,7 @@ describe("日程調整レベル4 — インテリジェンス", () => {
     const js = await request(app).get("/js/schedule-intelligence-ui.js");
     assert.equal(js.status, 200);
     assert.ok(js.text.includes("schedule-intel-travel"));
+    assert.ok(js.text.includes("schedule-intel-travel-link"));
     assert.ok(js.text.includes("🏠→現場"));
     assert.ok(js.text.includes("schedule-intel-material"));
     assert.ok(js.text.includes("btn-sub btn-small schedule-intel-material"));

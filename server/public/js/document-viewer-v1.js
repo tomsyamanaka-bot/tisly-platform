@@ -1,6 +1,6 @@
 import { getCustomerToken, requireCustomerLogin, customerCodeFromPath } from "./customer-auth.js";
 import { renderFriendlyErrorHtml } from "./tisly-friendly-errors.js";
-import { sharePdfAsFile, fetchPdfBlob, PDF_FAIL_MSG } from "./pdf-share-v1.js";
+import { sharePdfAsFile, fetchPdfBlobWithRegenerate } from "./pdf-share-v1.js";
 
 const MOBILE_BREAKPOINT = 768;
 const API = "/api/estimate/v1";
@@ -60,24 +60,33 @@ async function fetchPayload(projectId, kind) {
   return data;
 }
 
-async function loadPdfFrame(pdfPath) {
-  const token = getCustomerToken();
-  const res = await fetch(pdfPath, { headers: { Authorization: `Bearer ${token}` } });
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data.error || PDF_FAIL_MSG);
-  }
-  const contentType = res.headers.get("content-type") || "";
-  if (contentType.includes("text/html")) {
-    throw new Error(PDF_FAIL_MSG);
-  }
-  const blob = await res.blob();
-  if (blob.size < 10000) {
-    throw new Error(PDF_FAIL_MSG);
-  }
+function pdfAuthHeaders() {
+  return { Authorization: `Bearer ${getCustomerToken()}` };
+}
+
+function getRegenerateUrl() {
+  return payload?.regenerateUrl || null;
+}
+
+async function fetchDocumentPdfBlob() {
+  if (!payload?.pdfUrl) throw new Error("PDF URLがありません");
+  return fetchPdfBlobWithRegenerate({
+    fetchUrl: buildPdfTabUrl(payload.pdfUrl),
+    headers: pdfAuthHeaders(),
+    regenerateUrl: getRegenerateUrl(),
+    getRegenerateHeaders: pdfAuthHeaders,
+  });
+}
+
+function setPdfFrameBlob(blob) {
   if (pdfBlobUrl) URL.revokeObjectURL(pdfBlobUrl);
   pdfBlobUrl = URL.createObjectURL(blob);
   $("pdf-frame").src = pdfBlobUrl;
+}
+
+async function loadPdfFrame() {
+  const blob = await fetchDocumentPdfBlob();
+  setPdfFrameBlob(blob);
 }
 
 function renderEstimateMobile(est) {
@@ -307,7 +316,7 @@ function applyLayoutMode() {
   const showFixedTotal = mobileMode && (payload?.estimate || payload?.invoice);
   $("doc-fixed-total").classList.toggle("hidden", !showFixedTotal);
   if (!mobileMode && payload) {
-    loadPdfFrame(payload.pdfUrl).catch((e) => {
+    loadPdfFrame().catch((e) => {
       $("doc-error").classList.remove("hidden");
       $("doc-error").innerHTML = renderFriendlyErrorHtml(e);
     });
@@ -338,7 +347,7 @@ async function regenerateStoredPdf() {
   };
   toast("PDFを再作成しました");
   if (!mobileMode) {
-    await loadPdfFrame(payload.pdfUrl);
+    await loadPdfFrame();
   }
 }
 
@@ -369,7 +378,8 @@ async function handleShare() {
       fetchUrl,
       fileName: payload.shareFileName || `${payload.kind || "document"}.pdf`,
       title,
-      getHeaders: () => ({ Authorization: `Bearer ${getCustomerToken()}` }),
+      regenerateUrl: getRegenerateUrl(),
+      getHeaders: pdfAuthHeaders,
       toast,
     });
   } catch (e) {
@@ -378,16 +388,33 @@ async function handleShare() {
   }
 }
 
-function handlePrint() {
-  if (mobileMode) {
-    window.print();
+async function handlePrint() {
+  if (!payload?.pdfUrl) {
+    toast("PDFがありません");
     return;
   }
-  const frame = $("pdf-frame");
   try {
-    frame.contentWindow?.print();
-  } catch {
-    window.open(buildPdfTabUrl(payload.pdfUrl), "_blank");
+    const blob = await fetchDocumentPdfBlob();
+    if (mobileMode) {
+      const url = URL.createObjectURL(blob);
+      const w = window.open(url, "_blank", "noopener");
+      if (!w) toast("ポップアップがブロックされました。PDFボタンから開いてください。");
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      return;
+    }
+    setPdfFrameBlob(blob);
+    const frame = $("pdf-frame");
+    frame.onload = () => {
+      try {
+        frame.contentWindow?.focus();
+        frame.contentWindow?.print();
+      } catch {
+        window.open(buildPdfTabUrl(payload.pdfUrl), "_blank");
+      }
+      frame.onload = null;
+    };
+  } catch (e) {
+    toast(e.message || "印刷用PDFの取得に失敗しました");
   }
 }
 
@@ -422,18 +449,16 @@ async function init() {
   $("btn-print").addEventListener("click", () => handlePrint());
   $("btn-pdf").addEventListener("click", async () => {
     if (!payload?.pdfUrl) {
-      toast(PDF_FAIL_MSG);
+      toast("PDF URLがありません");
       return;
     }
     try {
-      const blob = await fetchPdfBlob(buildPdfTabUrl(payload.pdfUrl), {
-        Authorization: `Bearer ${getCustomerToken()}`,
-      });
+      const blob = await fetchDocumentPdfBlob();
       const url = URL.createObjectURL(blob);
       window.open(url, "_blank", "noopener");
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (e) {
-      toast(e.message || PDF_FAIL_MSG);
+      toast(e.message || "PDFの取得に失敗しました");
     }
   });
 

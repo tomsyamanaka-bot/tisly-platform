@@ -71,7 +71,10 @@ export const TOMS_PDF_STYLES = `
 @page { size: A4 portrait; margin: 4mm 5mm; }
 body{font-family:"Noto Sans JP","Hiragino Sans","Yu Gothic","Meiryo",system-ui,sans-serif;margin:0;padding:4mm 6mm 4mm 5mm;color:#111;background:#fff;font-size:9.5pt;line-height:1.28;word-break:normal;overflow-wrap:break-word;-webkit-text-size-adjust:100%;padding-bottom:calc(4mm + env(safe-area-inset-bottom, 0px))}
 .doc{max-width:200mm;width:100%;min-width:0;margin:0 auto;box-sizing:border-box}
-.doc.single-page{page-break-inside:avoid;max-height:287mm}
+.doc.single-page{page-break-inside:avoid;min-height:287mm;display:flex;flex-direction:column;justify-content:flex-start}
+.toms-doc-lower{flex:1 1 auto;display:flex;flex-direction:column;justify-content:space-between;margin-top:0.35rem;padding-bottom:0.15rem;min-height:0}
+.toms-doc-lower table.pdf-a4-line-items{flex:0 0 auto}
+.toms-doc-lower .toms-official-totals-wrap,.toms-doc-lower .toms-official-notes,.toms-doc-lower .toms-official-footer,.toms-doc-lower .doc-invoice-footer{flex:0 0 auto}
 .doc.with-photos .photo-section-title{page-break-before:auto}
 .doc-invoice-footer{display:flex;justify-content:space-between;align-items:flex-end;gap:0.8rem;margin-top:0.35rem;padding-bottom:calc(6mm + env(safe-area-inset-bottom, 12px))}
 ${TOMS_OFFICIAL_CORE_STYLES}

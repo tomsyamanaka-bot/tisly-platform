@@ -5,6 +5,25 @@ export function mapsSearchUrl(query) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query.trim())}`;
 }
 
+export function mapsNavUrl(destination) {
+  if (!destination?.trim()) return "";
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination.trim())}&travelmode=driving`;
+}
+
+/** 現場リンク — 緯度経度 > 住所 > 現場名 */
+export function resolveSiteMapsUrl({ lat, lng, address, siteName } = {}) {
+  const latNum = lat != null ? Number(lat) : NaN;
+  const lngNum = lng != null ? Number(lng) : NaN;
+  if (Number.isFinite(latNum) && Number.isFinite(lngNum)) {
+    return `https://www.google.com/maps/dir/?api=1&destination=${latNum},${lngNum}&travelmode=driving`;
+  }
+  const addr = address?.trim();
+  if (addr) return mapsSearchUrl(addr);
+  const name = siteName?.trim();
+  if (name) return mapsSearchUrl(name);
+  return "";
+}
+
 export function formatEventTime(ev) {
   if (ev.allDay) return "終日";
   const parts = [ev.startTime, ev.endTime].filter(Boolean);
@@ -93,8 +112,7 @@ function linesPreview(text, previewLen) {
 export function renderEventLocationHtml(location) {
   if (!location?.trim()) return "";
   const url = mapsSearchUrl(location);
-  return `<br><small>📍 ${escapeScheduleHtml(location)}</small>
-    <a class="btn-sub btn-small event-map-btn" href="${escapeScheduleHtml(url)}" target="_blank" rel="noopener" style="margin-left:0.25rem;">地図</a>`;
+  return `<br><a class="event-map-link" href="${escapeScheduleHtml(url)}" target="_blank" rel="noopener"><small>📍 ${escapeScheduleHtml(location)}</small></a>`;
 }
 
 export function renderScheduleEventLine(ev, { eventKey, catIcon, catLabel, previewLen = 72 } = {}) {
@@ -163,7 +181,7 @@ export function renderNavIconButton(mapsUrl, { title = "ナビ開始" } = {}) {
   return `<a class="schedule-nav-icon-btn" href="${escapeScheduleHtml(mapsUrl)}" target="_blank" rel="noopener" title="${escapeScheduleHtml(title)}" aria-label="${escapeScheduleHtml(title)}">🧭</a>`;
 }
 
-export function renderTravelBlocksHtml(travelBlocks, mapsIntegration, { navInDetails = true } = {}) {
+export function renderTravelBlocksHtml(travelBlocks, mapsIntegration) {
   if (!travelBlocks?.length) {
     if (!mapsIntegration?.apiConfigured) {
       const hint = mapsIntegration?.hint || "Google Maps API\u672a\u8a2d\u5b9a";
@@ -182,20 +200,23 @@ export function renderTravelBlocksHtml(travelBlocks, mapsIntegration, { navInDet
         block.durationMin != null
           ? `<strong>${block.durationMin}分</strong>${block.durationSource === "api" ? "（API）" : block.durationSource === "mock" ? "（目安）" : ""}`
           : "—";
-      const navHtml = navInDetails
-        ? `<details class="travel-block-nav-details">
-            <summary class="travel-block-nav-summary">詳細</summary>
-            <div class="travel-block-nav-row">${renderNavIconButton(block.mapsUrl)}</div>
-          </details>`
-        : renderNavIconButton(block.mapsUrl);
-      return `<div class="travel-block" data-travel-block="${i}">
-        <div class="travel-block-head">
+      const inner = `<div class="travel-block-head">
           <div class="travel-block-label">${escapeScheduleHtml(block.label)}</div>
-          <div class="travel-block-meta">🚗 ${dur}</div>
-        </div>
-        ${navHtml}
-      </div>`;
+          <div class="travel-block-meta">🚗 ${dur} 🧭</div>
+        </div>`;
+      const mapsUrl = block.mapsUrl?.trim();
+      if (mapsUrl) {
+        return `<a class="travel-block travel-block-link" data-travel-block="${i}" href="${escapeScheduleHtml(mapsUrl)}" target="_blank" rel="noopener" aria-label="Googleマップでナビ">${inner}</a>`;
+      }
+      return `<div class="travel-block" data-travel-block="${i}">${inner}</div>`;
     })
     .join("");
   return `<p class="section-label">🚗 移動時間</p>${hint}<div class="travel-blocks">${rows}</div>`;
+}
+
+export function bindTravelBlockLinks(root) {
+  root?.querySelectorAll(".travel-block-link, .event-map-link").forEach((el) => {
+    el.addEventListener("click", (ev) => ev.stopPropagation());
+    el.addEventListener("touchstart", (ev) => ev.stopPropagation(), { passive: true });
+  });
 }

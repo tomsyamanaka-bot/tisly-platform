@@ -46,13 +46,19 @@ function renderTravelLineHtml(
   }
   const label = travel.durationLabel ?? "";
   const route = escapeScheduleHtml(travel.compactLabel || "🏠→現場");
+  let inner = "";
   if (label === MAPS_API_UNSET_LABEL) {
-    return `<div class="schedule-intel-travel">${route} <span class="schedule-intel-travel-muted">${escapeScheduleHtml(MAPS_API_UNSET_LABEL)}</span></div>`;
+    inner = `${route} <span class="schedule-intel-travel-muted">${escapeScheduleHtml(MAPS_API_UNSET_LABEL)}</span>`;
+  } else if (travelLabelIsMuted(label)) {
+    inner = `${route} <span class="schedule-intel-travel-muted">${escapeScheduleHtml(label || TRAVEL_UNCALCULATED_LABEL)}</span>`;
+  } else {
+    inner = `${route} <strong>${escapeScheduleHtml(label)}</strong>`;
   }
-  if (travelLabelIsMuted(label)) {
-    return `<div class="schedule-intel-travel">${route} <span class="schedule-intel-travel-muted">${escapeScheduleHtml(label || TRAVEL_UNCALCULATED_LABEL)}</span></div>`;
+  const mapsUrl = travel.mapsUrl?.trim();
+  if (mapsUrl) {
+    return `<a class="schedule-intel-travel schedule-intel-travel-link" href="${escapeScheduleHtml(mapsUrl)}" target="_blank" rel="noopener" aria-label="Googleマップでナビ">${inner}</a>`;
   }
-  return `<div class="schedule-intel-travel">${route} <strong>${escapeScheduleHtml(label)}</strong></div>`;
+  return `<div class="schedule-intel-travel">${inner}</div>`;
 }
 
 function renderMaterialLineHtml(fieldCheck) {
@@ -100,6 +106,10 @@ export function bindIntelligenceEventCards(root) {
   root?.querySelectorAll(".schedule-intel-material").forEach((el) => {
     el.addEventListener("click", (ev) => ev.stopPropagation());
     el.addEventListener("mousedown", (ev) => ev.stopPropagation());
+    el.addEventListener("touchstart", (ev) => ev.stopPropagation(), { passive: true });
+  });
+  root?.querySelectorAll(".schedule-intel-travel-link").forEach((el) => {
+    el.addEventListener("click", (ev) => ev.stopPropagation());
     el.addEventListener("touchstart", (ev) => ev.stopPropagation(), { passive: true });
   });
 }

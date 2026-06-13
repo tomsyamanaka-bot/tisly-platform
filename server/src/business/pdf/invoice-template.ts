@@ -116,7 +116,7 @@ export function renderInvoiceHtml(
       : [],
   });
 
-  const documentBodyHtml = `${renderTomsLineItemsTable(lines)}
+  const documentBodyHtml = `<div class="toms-doc-lower">${renderTomsLineItemsTable(lines)}
 ${renderTotals({
   lineSubtotal: opts?.lineSubtotal ?? estimate.lineSubtotal,
   shuseiDiscount: opts?.shuseiDiscount ?? estimate.shuseiDiscount,
@@ -130,7 +130,7 @@ ${renderTomsDocFooter({ staffName: header.staffName, paymentDueDate })}
 <div class="doc-invoice-footer">
 ${renderBankBlock(header.bankInfo)}
 <div class="doc-footer">${renderSealPlaceholder()}</div>
-</div>`;
+</div></div>`;
 
   if (includePhotos) {
     const { photoPageStyles, bodyHtml } = renderTomsDocWithPhotoLayout({

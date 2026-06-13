@@ -23,6 +23,29 @@ export function mapsNavUrl(destination: string): string {
   return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}&travelmode=driving`;
 }
 
+export function mapsSearchUrl(query: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query.trim())}`;
+}
+
+/** 現場リンク — 緯度経度 > 住所 > 現場名 */
+export function resolveSiteMapsUrl(input: {
+  lat?: number | null;
+  lon?: number | null;
+  address?: string | null;
+  siteName?: string | null;
+}): string | null {
+  const lat = input.lat;
+  const lon = input.lon;
+  if (typeof lat === "number" && typeof lon === "number" && Number.isFinite(lat) && Number.isFinite(lon)) {
+    return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}&travelmode=driving`;
+  }
+  const address = input.address?.trim();
+  if (address) return mapsSearchUrl(address);
+  const siteName = input.siteName?.trim();
+  if (siteName) return mapsSearchUrl(siteName);
+  return null;
+}
+
 export type MapsDurationSource = "api" | "mock" | "none";
 
 const PREFECTURE_PREFIX_RE =

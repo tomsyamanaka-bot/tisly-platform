@@ -16,6 +16,7 @@ import {
   renderTravelBlocksHtml,
   renderIntegrationBadges,
   renderNavIconButton,
+  bindTravelBlockLinks,
 } from "./schedule-event-ui.js";
 import {
   bindDepartureAlertCards,
@@ -230,6 +231,7 @@ function renderTravel(detail) {
   }
   el.classList.remove("hidden");
   el.innerHTML = html;
+  bindTravelBlockLinks(el);
 }
 
 function renderMemoSummary(detail) {

@@ -205,6 +205,26 @@ describe("日程調整 PWA v1 API", () => {
     assert.equal(detail.body.mapsIntegration.label, "未設定");
   });
 
+  it("schedule-event-ui.js — Google Maps リンクヘルパー", async () => {
+    const js = await request(app).get("/js/schedule-event-ui.js");
+    assert.equal(js.status, 200);
+    assert.ok(js.text.includes("resolveSiteMapsUrl"));
+    assert.ok(js.text.includes("travel-block-link"));
+    assert.ok(js.text.includes("google.com/maps/dir"));
+    assert.ok(js.text.includes("google.com/maps/search"));
+  });
+
+  it("resolveSiteMapsUrl — 緯度経度・住所・現場名の優先順", async () => {
+    const { resolveSiteMapsUrl } = await import("../src/schedule/google-maps-service.js");
+    const geo = resolveSiteMapsUrl({ lat: 35.95, lon: 140.0, address: "茨城県" });
+    assert.ok(geo?.includes("destination=35.95,140"));
+    const addr = resolveSiteMapsUrl({ address: "茨城県守谷市" });
+    assert.ok(addr?.includes("maps/search"));
+    assert.ok(addr?.includes(encodeURIComponent("茨城県守谷市")));
+    const name = resolveSiteMapsUrl({ siteName: "防犯カメラ設置" });
+    assert.ok(name?.includes("maps/search"));
+  });
+
   it("日付詳細・天気を取得できる", async () => {
     const week = await request(app)
       .get("/api/schedule/v1/week?offset=0")
