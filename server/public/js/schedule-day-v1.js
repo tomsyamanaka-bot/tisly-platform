@@ -127,24 +127,23 @@ function renderDepartureSection(detail) {
 }
 
 function enrichIntelligenceWithDeparture(intelligence, departure, firstEventId) {
-  if (!intelligence?.events?.length || !departure?.fieldCheckUrl) return intelligence;
+  if (!intelligence?.events?.length) return intelligence;
   const idx = intelligence.events.findIndex((ev) => ev.eventId === firstEventId);
   const targetIdx = idx >= 0 ? idx : 0;
-  const ev = intelligence.events[targetIdx];
-  if (ev?.fieldCheck?.url) return intelligence;
-  const progress = departure.fieldCheckProgress ?? { checked: 0, total: 0 };
-  const events = intelligence.events.map((item, i) =>
-    i === targetIdx
-      ? {
-          ...item,
-          fieldCheck: {
-            checked: progress.checked,
-            total: progress.total,
-            url: departure.fieldCheckUrl,
-          },
-        }
-      : item
-  );
+  const progress = departure?.fieldCheckProgress ?? { checked: 0, total: 0 };
+  const fallbackUrl = departure?.fieldCheckUrl ?? null;
+  const events = intelligence.events.map((item, i) => {
+    if (item.fieldCheck?.url) return item;
+    if (i !== targetIdx || !fallbackUrl) return item;
+    return {
+      ...item,
+      fieldCheck: {
+        checked: progress.checked,
+        total: progress.total,
+        url: fallbackUrl,
+      },
+    };
+  });
   return { ...intelligence, events };
 }
 

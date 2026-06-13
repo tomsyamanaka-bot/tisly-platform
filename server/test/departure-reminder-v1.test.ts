@@ -205,4 +205,26 @@ describe("出発リマインダー + 持ち物通知 v1", () => {
     assert.ok(js.text.includes("材料を追加"));
     assert.ok(js.text.includes("check-item-label"));
   });
+
+  it("移動時間の再計算で自動出発時刻を更新する（手動変更は保持）", async () => {
+    getDatabase()
+      .prepare(`DELETE FROM schedule_day_departures WHERE departure_date = ?`)
+      .run(testDate);
+    const auto = await request(app)
+      .get(`/api/schedule/v1/departures?date=${testDate}`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(auto.status, 200);
+    const autoTime = auto.body.departure.departureTime as string;
+    assert.match(autoTime, /^\d{2}:\d{2}$/);
+
+    await request(app)
+      .patch(`/api/schedule/v1/departures/${auto.body.departure.id}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ departureTime: "06:30" });
+
+    const resync = await request(app)
+      .get(`/api/schedule/v1/departures?date=${testDate}`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(resync.body.departure.departureTime, "06:30");
+  });
 });

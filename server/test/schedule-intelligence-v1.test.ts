@@ -20,6 +20,7 @@ const {
 } = await import("../src/schedule/schedule-intelligence-service.js");
 const { updateSchedulePlannerSettingsV1 } = await import("../src/schedule/schedule-settings-store.js");
 import type { ScheduleEvent } from "../src/schedule/schedule-types.js";
+import { resolveEventProjectRef } from "../src/schedule/address-extract-service.js";
 
 const app = createApp();
 
@@ -192,6 +193,29 @@ describe("日程調整レベル4 — インテリジェンス", () => {
     assert.equal(intel.events[0].travel.durationLabel, "Google Maps API未設定");
   });
 
+  it("件名から案件を解決 — 材料チェック URL", async () => {
+    const created = await request(app)
+      .post("/api/survey/v1/projects")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        customerCode: "TOMS001",
+        customerName: "日程テスト",
+        siteName: "防犯カメラ設置",
+        address: "茨城県守谷市",
+      });
+    assert.equal(created.status, 201);
+    const ref = resolveEventProjectRef(
+      baseEvent({ title: "防犯カメラ設置", location: null, description: null })
+    );
+    assert.ok(ref);
+    assert.equal(ref.projectSource, "survey");
+    const intel = await buildDayScheduleIntelligence("2026-06-18", [
+      baseEvent({ id: "mat-1", title: "防犯カメラ設置", location: "守谷市" }),
+    ]);
+    assert.ok(intel.events[0].fieldCheck?.url?.includes("/field-check-v1"));
+    assert.ok(intel.events[0].fieldCheck?.url?.includes("projectId="));
+  });
+
   it("天気API失敗時もモック天気で継続", async () => {
     process.env.OPEN_METEO_LIVE = "0";
     const intel = await buildDayScheduleIntelligence("2026-06-18", [
@@ -280,7 +304,8 @@ describe("日程調整レベル4 — インテリジェンス", () => {
     assert.equal(js.status, 200);
     assert.ok(js.text.includes("schedule-intel-travel"));
     assert.ok(js.text.includes("🏠→現場"));
-    assert.ok(js.text.includes("🎒 ${fieldCheck.checked}/${fieldCheck.total}"));
+    assert.ok(js.text.includes("schedule-intel-material"));
+    assert.ok(js.text.includes("btn-sub btn-small schedule-intel-material"));
     assert.ok(js.text.includes("schedule-intel-practical"));
     assert.ok(!js.text.includes("schedule-intel-details"));
     assert.ok(!js.text.includes("eventCalendarBadgeHtml"));

@@ -104,6 +104,51 @@ export interface EventProjectRef {
   projectId: string;
 }
 
+function normalizeTitleKey(title: string): string {
+  return title.trim().replace(/\s+/g, "");
+}
+
+function resolveEventProjectRefByTitle(title: string): EventProjectRef | null {
+  const key = normalizeTitleKey(title);
+  if (!key || key === "案件") return null;
+  const db = getDatabase();
+
+  const surveyRows = db
+    .prepare(
+      `SELECT project_id, site_name, customer_name
+       FROM survey_projects
+       WHERE status NOT IN ('archived', 'deleted')
+       ORDER BY survey_date DESC, updated_at DESC
+       LIMIT 200`
+    )
+    .all() as Array<{ project_id: string; site_name?: string | null; customer_name?: string | null }>;
+
+  for (const row of surveyRows) {
+    const candidates = [row.site_name, row.customer_name].map((v) => normalizeTitleKey(String(v ?? "")));
+    if (candidates.some((c) => c && (c === key || key.includes(c) || c.includes(key)))) {
+      return { projectSource: "survey", projectId: String(row.project_id) };
+    }
+  }
+
+  const businessRows = db
+    .prepare(
+      `SELECT id, title, customer_name
+       FROM business_projects
+       ORDER BY updated_at DESC
+       LIMIT 200`
+    )
+    .all() as Array<{ id: string; title?: string | null; customer_name?: string | null }>;
+
+  for (const row of businessRows) {
+    const candidates = [row.title, row.customer_name].map((v) => normalizeTitleKey(String(v ?? "")));
+    if (candidates.some((c) => c && (c === key || key.includes(c) || c.includes(key)))) {
+      return { projectSource: "business", projectId: String(row.id) };
+    }
+  }
+
+  return null;
+}
+
 function resolveEventProjectRef(event: ScheduleEvent): EventProjectRef | null {
   const externalId = event.externalId?.trim();
   if (externalId) {
@@ -124,11 +169,11 @@ function resolveEventProjectRef(event: ScheduleEvent): EventProjectRef | null {
     (byScheduleId.project_source === "survey" || byScheduleId.project_source === "business")
   ) {
     return {
-      projectSource: byScheduleId.project_source,
+      projectSource: byScheduleId.project_source as "survey" | "business",
       projectId: String(byScheduleId.project_id),
     };
   }
-  return null;
+  return resolveEventProjectRefByTitle(event.title);
 }
 
 function resolveProjectAddress(event: ScheduleEvent): string | null {

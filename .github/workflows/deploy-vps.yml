@@ -325,6 +325,10 @@ jobs:
 
           MAPS_OK="$(echo "${HEALTH_BODY}" | grep -oE '"googleMapsApiConfigured":(true|false)' | head -1 || true)"
           echo "=== integrations: ${MAPS_OK:-maps status unknown} ==="
+          if [ -n "${GOOGLE_MAPS_API_KEY:-}" ]; then
+            echo "${HEALTH_BODY}" | grep -q '"googleMapsApiConfigured":true' \
+              || { echo "ERROR: GOOGLE_MAPS_API_KEY set but health googleMapsApiConfigured is not true"; exit 1; }
+          fi
 
           echo ""
           echo "========================================"

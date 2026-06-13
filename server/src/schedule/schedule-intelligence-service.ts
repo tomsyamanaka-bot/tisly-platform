@@ -172,6 +172,8 @@ function travelDurationLabel(
   if (!mapsConfigured) return MAPS_API_UNSET_LABEL;
   if (!hasAddress) return "移動時間未計算";
   if (minutes == null || source === "none") return "移動時間未計算";
+  if (source === "api") return `${minutes}分（API）`;
+  if (source === "mock") return `${minutes}分（目安）`;
   return `${minutes}分`;
 }
 

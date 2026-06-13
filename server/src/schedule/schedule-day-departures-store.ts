@@ -15,6 +15,7 @@ import {
   hasCachedCalendarEvents,
   listCachedCalendarEvents,
 } from "./schedule-calendar-store.js";
+import { resolveEventProjectRef } from "./address-extract-service.js";
 import type { ScheduleEvent } from "./schedule-types.js";
 
 async function loadCalendarEventsForDate(date: string): Promise<ScheduleEvent[]> {
@@ -95,13 +96,18 @@ export function resolveFirstSiteOfDay(
   const firstStop = dispatch?.stops?.[0];
   if (!firstEv && !firstStop) return null;
 
-  const projectId = firstStop?.projectId ?? null;
+  const evRef = firstEv ? resolveEventProjectRef(firstEv) : null;
+  const projectId = firstStop?.projectId ?? evRef?.projectId ?? null;
+  const projectSource =
+    (firstStop?.projectId ? inferProjectSource(firstStop.projectId) : null) ??
+    evRef?.projectSource ??
+    (projectId ? inferProjectSource(projectId) : null);
   return {
     firstEventId: firstEv?.id ?? null,
     eventTitle: firstEv?.title ?? firstStop?.title ?? "現場",
     startTime: firstStop?.time ?? firstEv?.startTime ?? "09:00",
     projectId,
-    projectSource: projectId ? inferProjectSource(projectId) : null,
+    projectSource,
   };
 }
 
@@ -218,13 +224,65 @@ export function getDepartureById(id: string): ScheduleDayDepartureV1 | null {
   return row ? rowToDeparture(row) : null;
 }
 
+function syncDayDepartureTravel(
+  existing: ScheduleDayDepartureV1,
+  firstSite: FirstSiteOfDay,
+  travel: { minutes: number; source: MapsDurationSource }
+): ScheduleDayDepartureV1 {
+  const prevTravel = existing.travelDurationMin ?? 20;
+  const autoFromPrev = calcDefaultDepartureTime(firstSite.startTime, prevTravel);
+  const autoFromNew = calcDefaultDepartureTime(firstSite.startTime, travel.minutes);
+  const departureStillAuto = existing.departureTime === autoFromPrev;
+  const travelChanged =
+    existing.travelDurationMin !== travel.minutes ||
+    existing.travelDurationSource !== travel.source;
+  const contextChanged =
+    existing.firstEventId !== firstSite.firstEventId ||
+    existing.projectId !== firstSite.projectId ||
+    existing.projectSource !== firstSite.projectSource ||
+    existing.eventTitle !== firstSite.eventTitle;
+
+  if (!travelChanged && !contextChanged) return existing;
+
+  const departureTime = departureStillAuto ? autoFromNew : existing.departureTime;
+  const now = new Date().toISOString();
+
+  getDatabase()
+    .prepare(
+      `UPDATE schedule_day_departures SET
+        project_id = ?,
+        project_source = ?,
+        first_event_id = ?,
+        event_title = ?,
+        departure_time = ?,
+        travel_duration_min = ?,
+        travel_duration_source = ?,
+        updated_at = ?
+       WHERE id = ?`
+    )
+    .run(
+      firstSite.projectId,
+      firstSite.projectSource,
+      firstSite.firstEventId,
+      firstSite.eventTitle,
+      departureTime,
+      travel.minutes,
+      travel.source,
+      now,
+      existing.id
+    );
+
+  return getDepartureByDate(existing.date)!;
+}
+
 export async function ensureDayDeparture(date: string): Promise<ScheduleDayDepartureV1 | null> {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
-  const existing = getDepartureByDate(date);
-  if (existing) return existing;
 
   const { firstSite, travel } = await buildDepartureContext(date);
-  if (!firstSite) return null;
+  if (!firstSite) return getDepartureByDate(date);
+
+  const existing = getDepartureByDate(date);
+  if (existing) return syncDayDepartureTravel(existing, firstSite, travel);
 
   const now = new Date().toISOString();
   const id = uuid();

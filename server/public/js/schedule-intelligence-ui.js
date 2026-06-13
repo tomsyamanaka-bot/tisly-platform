@@ -44,7 +44,7 @@ function renderMaterialLineHtml(fieldCheck) {
     fieldCheck.total > 0
       ? `🎒 ${fieldCheck.checked}/${fieldCheck.total}`
       : "🎒 材料チェックを開く";
-  return `<a class="schedule-intel-material" href="${escapeScheduleHtml(fieldCheck.url)}">${escapeScheduleHtml(label)}</a>`;
+  return `<a class="btn-sub btn-small schedule-intel-material" href="${escapeScheduleHtml(fieldCheck.url)}">${escapeScheduleHtml(label)}</a>`;
 }
 
 export function renderIntelligenceEventCard(
