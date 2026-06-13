@@ -2,10 +2,17 @@
 
 import { getDatabase } from "../db/database.js";
 import { findLinkByGoogleEventId } from "./google-calendar-sync-store.js";
+import { getEventAddressOverride } from "./schedule-event-address-overrides-store.js";
 import type { ScheduleEvent } from "./schedule-types.js";
 import { maskAddressForDisplay } from "./schedule-settings-store.js";
 
-export type AddressSource = "location" | "description" | "project" | "title_place" | "none";
+export type AddressSource =
+  | "location"
+  | "description"
+  | "project"
+  | "correction"
+  | "title_place"
+  | "none";
 
 export interface ExtractedAddress {
   /** ナビ・API用のフル住所（取得できた場合） */
@@ -23,8 +30,12 @@ export interface ExtractedAddress {
 const PREFECTURE_RE =
   /(?:北海道|青森県|岩手県|宮城県|秋田県|山形県|福島県|茨城県|栃木県|群馬県|埼玉県|千葉県|東京都|神奈川県|新潟県|富山県|石川県|福井県|山梨県|長野県|岐阜県|静岡県|愛知県|三重県|滋賀県|京都府|大阪府|兵庫県|奈良県|和歌山県|鳥取県|島根県|岡山県|広島県|山口県|徳島県|香川県|愛媛県|高知県|福岡県|佐賀県|長崎県|熊本県|大分県|宮崎県|鹿児島県|沖縄県)/;
 
+const LABELED_ADDRESS_RES = [
+  /(?:住所|場所|作業場所|現場|所在地|工事場所|お客様住所)[：:\s　]+([^\n\r]{4,120})/i,
+];
+
 const ADDRESS_LINE_RE =
-  /(?:住所|所在地|現場|場所|工事場所|お客様住所)[：:\s　]*([^\n\r]{4,80})/i;
+  /(?:住所|所在地|現場|場所|作業場所|工事場所|お客様住所)[：:\s　]*([^\n\r]{4,80})/i;
 
 const POSTAL_ADDRESS_RE = /〒?\s*\d{3}-?\d{4}\s*([^\n\r]{4,80})/;
 
@@ -53,7 +64,8 @@ function looksLikeFullAddress(text: string): boolean {
 function extractFromDescription(description: string | null | undefined): string | null {
   if (!description?.trim()) return null;
   const text = description.trim();
-  for (const re of [ADDRESS_LINE_RE, POSTAL_ADDRESS_RE, STREET_ADDRESS_RE]) {
+
+  for (const re of LABELED_ADDRESS_RES) {
     const m = text.match(re);
     if (m?.[1]) {
       const candidate = cleanAddressCandidate(m[1]);
@@ -62,10 +74,33 @@ function extractFromDescription(description: string | null | undefined): string 
   }
   const lines = text.split(/\n/).map((l) => l.trim()).filter(Boolean);
   for (const line of lines) {
+    for (const re of LABELED_ADDRESS_RES) {
+      const m = line.match(re);
+      if (m?.[1]) {
+        const candidate = cleanAddressCandidate(m[1]);
+        if (looksLikeFullAddress(candidate)) return candidate;
+      }
+    }
+  }
+
+  for (const re of [ADDRESS_LINE_RE, POSTAL_ADDRESS_RE, STREET_ADDRESS_RE]) {
+    const m = text.match(re);
+    if (m?.[1]) {
+      const candidate = cleanAddressCandidate(m[1]);
+      if (looksLikeFullAddress(candidate)) return candidate;
+    }
+  }
+  for (const line of lines) {
     const candidate = cleanAddressCandidate(line);
     if (looksLikeFullAddress(candidate)) return candidate;
   }
   return null;
+}
+
+function resolveCorrectionAddress(event: ScheduleEvent): string | null {
+  const override = getEventAddressOverride(event.id);
+  const addr = override?.address?.trim();
+  return addr || null;
 }
 
 function extractCityFromTitle(title: string): string | null {
@@ -195,6 +230,19 @@ export function extractEventAddress(event: ScheduleEvent): ExtractedAddress {
       uncertain: !looksLikeFullAddress(location),
       mapsAvailable: true,
       cityHint: location.match(CITY_ONLY_RE)?.[1] ?? null,
+    };
+  }
+
+  const correctionAddr = resolveCorrectionAddress(event);
+  if (correctionAddr) {
+    const display = maskAddressForDisplay(correctionAddr);
+    return {
+      fullAddress: correctionAddr,
+      displayAddress: display || correctionAddr,
+      source: "correction",
+      uncertain: false,
+      mapsAvailable: true,
+      cityHint: correctionAddr.match(CITY_ONLY_RE)?.[1] ?? null,
     };
   }
 

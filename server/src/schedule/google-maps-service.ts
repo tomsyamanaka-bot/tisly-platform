@@ -133,28 +133,24 @@ export async function fetchDrivingDurationMinForIntelligence(
 
   const cached = getCachedRouteDuration(origin, destination, routeDate);
   if (cached) {
-    const staleNone =
-      Boolean(key) && cached.durationSource === "none" && cached.durationMin == null;
-    if (!staleNone) {
-      return {
-        minutes: cached.durationMin,
-        source: cached.durationSource,
-        cacheHit: true,
-      };
-    }
+    return {
+      minutes: cached.durationMin,
+      source: cached.durationSource,
+      cacheHit: true,
+    };
   }
   if (!key) {
-    setCachedRouteDuration(origin, destination, routeDate, null, "none");
     return { minutes: null, source: "none", cacheHit: false };
   }
 
   try {
     const minutes = await fetchDirectionsApiMinutes(origin, destination, key);
     const source: MapsDurationSource = minutes != null ? "api" : "none";
-    setCachedRouteDuration(origin, destination, routeDate, minutes, source);
+    if (minutes != null) {
+      setCachedRouteDuration(origin, destination, routeDate, minutes, source);
+    }
     return { minutes, source, cacheHit: false };
   } catch {
-    setCachedRouteDuration(origin, destination, routeDate, null, "none");
     return { minutes: null, source: "none", cacheHit: false };
   }
 }
@@ -162,7 +158,7 @@ export async function fetchDrivingDurationMinForIntelligence(
 function resolveDefaultOrigin(): string {
   const fromSettings = getSchedulePlannerSettingsV1().defaultOrigin.trim();
   if (fromSettings) return fromSettings;
-  return process.env.DISPATCH_DEFAULT_ORIGIN?.trim() ?? "";
+  return process.env.DISPATCH_DEFAULT_ORIGIN?.trim() || DEFAULT_SCHEDULE_ORIGIN;
 }
 
 export function getDefaultDepartureOrigin(): string {

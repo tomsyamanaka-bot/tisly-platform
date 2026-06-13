@@ -206,6 +206,7 @@ export function runMigrations(database: Database.Database): void {
   migrateEstimatePracticalV1(database);
   migrateScheduleDefaultOriginTsukubamiraiV1(database);
   migrateScheduleDefaultOriginTsukubamiraiV2(database);
+  migrateScheduleEventAddressOverridesV1(database);
 }
 
 /** 見積・請求 実務化 v1 — 明細テンプレ / 単独請求フラグ */
@@ -3049,6 +3050,29 @@ function migrateScheduleDefaultOriginTsukubamiraiV2(database: Database.Database)
     )
     .run(
       "migration:schedule_default_origin_tsukubamirai_v2",
+      JSON.stringify({ at: new Date().toISOString() })
+    );
+}
+
+/** 予定住所補正 — Google カレンダー location が空でも TiSLY 側で住所を保持 */
+function migrateScheduleEventAddressOverridesV1(database: Database.Database): void {
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS schedule_event_address_overrides (
+      schedule_event_id TEXT PRIMARY KEY,
+      address TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:schedule_event_address_overrides_v1") as { value_json: string } | undefined;
+  if (marker) return;
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run(
+      "migration:schedule_event_address_overrides_v1",
       JSON.stringify({ at: new Date().toISOString() })
     );
 }

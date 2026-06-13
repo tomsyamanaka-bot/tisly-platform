@@ -60,6 +60,7 @@ import {
   maskAddressForDisplay,
   updateSchedulePlannerSettingsV1,
 } from "../../schedule/schedule-settings-store.js";
+import { upsertEventAddressOverride } from "../../schedule/schedule-event-address-overrides-store.js";
 import { fetchCalendarEvents } from "../../services/googleCalendar.js";
 
 export const scheduleRouter = Router();
@@ -253,6 +254,24 @@ scheduleRouter.patch("/settings", ...scheduleAuth, (req: AuthedRequest, res) => 
       defaultOriginDisplay: saved.defaultOrigin
         ? maskAddressForDisplay(saved.defaultOrigin)
         : "",
+      updatedAt: saved.updatedAt,
+    });
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : "save failed" });
+  }
+});
+
+scheduleRouter.patch("/events/:eventId/address", ...scheduleAuth, (req: AuthedRequest, res) => {
+  if (!assertScheduleRole(req, res)) return;
+  const eventId = String(req.params.eventId ?? "").trim();
+  const body = req.body as { address?: string };
+  try {
+    const saved = upsertEventAddressOverride(eventId, body.address ?? "");
+    res.json({
+      ok: true,
+      scheduleEventId: saved.scheduleEventId,
+      address: saved.address,
+      addressDisplay: maskAddressForDisplay(saved.address),
       updatedAt: saved.updatedAt,
     });
   } catch (e) {

@@ -82,6 +82,17 @@ describe("日程調整レベル4 — インテリジェンス", () => {
     assert.equal(addr.mapsAvailable, false);
   });
 
+  it("description — 作業場所ラベルから住所抽出", () => {
+    const addr = extractEventAddress(
+      baseEvent({
+        location: null,
+        description: "作業場所: 茨城県つくば市研究学園5-1-1",
+      })
+    );
+    assert.equal(addr.source, "description");
+    assert.ok(addr.fullAddress?.includes("つくば市"));
+  });
+
   it("description から住所抽出", () => {
     const addr = extractEventAddress(
       baseEvent({
@@ -93,13 +104,20 @@ describe("日程調整レベル4 — インテリジェンス", () => {
     assert.ok(addr.fullAddress?.includes("柏市"));
   });
 
-  it("件名のみ地名 — 住所未確定", () => {
+  it("件名のみ地名 — 住所未確定（移動時間は計算しない）", async () => {
     const addr = extractEventAddress(
       baseEvent({ title: "柏市カメラ", location: null, description: null })
     );
     assert.equal(addr.source, "title_place");
     assert.equal(addr.displayAddress, "住所未確定");
     assert.equal(addr.cityHint, "柏市");
+    process.env.GOOGLE_MAPS_API_KEY = "test-key";
+    const intel = await buildDayScheduleIntelligence("2026-06-18", [
+      baseEvent({ id: "title-only", title: "柏市カメラ", location: null }),
+    ]);
+    assert.equal(intel.events[0].travel.durationLabel, "住所未設定");
+    assert.equal(intel.events[0].travel.destination, null);
+    delete process.env.GOOGLE_MAPS_API_KEY;
   });
 
   it("1日1件 — インテリジェンス構築", async () => {
@@ -273,8 +291,21 @@ describe("日程調整レベル4 — インテリジェンス", () => {
       .set("Authorization", `Bearer ${token}`);
     assert.equal(res.status, 200);
     assert.equal(typeof res.body.mapsApiConfigured, "boolean");
+    assert.ok(Array.isArray(res.body.events));
     assert.ok(Array.isArray(res.body.addressExtractions));
     assert.ok(Array.isArray(res.body.routeResults));
+    if (res.body.events.length) {
+      const row = res.body.events[0];
+      assert.ok("title" in row);
+      assert.ok("calendarLocation" in row);
+      assert.ok("extractedAddress" in row);
+      assert.ok("addressSource" in row);
+      assert.ok("routeOrigin" in row);
+      assert.ok("routeDestination" in row);
+      assert.ok("durationMin" in row);
+      assert.ok("routeSource" in row);
+      assert.ok("reason" in row);
+    }
   });
 
   it("日詳細 API に intelligence が含まれる", async () => {
@@ -308,6 +339,8 @@ describe("日程調整レベル4 — インテリジェンス", () => {
     assert.ok(js.text.includes("btn-sub btn-small schedule-intel-material"));
     assert.ok(js.text.includes("schedule-intel-practical"));
     assert.ok(js.text.includes("schedule-intel-travel-muted"));
+    assert.ok(js.text.includes("schedule-intel-address-btn"));
+    assert.ok(js.text.includes("\\u4f4f\\u6240\\u672a\\u8a2d\\u5b9a"));
     assert.ok(js.text.includes("\\u79fb\\u52d5\\u6642\\u9593\\u672a\\u8a08\\u7b97"));
     assert.ok(!js.text.includes("schedule-intel-details"));
     assert.ok(!js.text.includes("eventCalendarBadgeHtml"));
@@ -315,14 +348,22 @@ describe("日程調整レベル4 — インテリジェンス", () => {
 
   it("none キャッシュ — API キー設定後は Directions を再試行", async () => {
     process.env.GOOGLE_MAPS_API_KEY = "test-directions-key";
-    const { setCachedRouteDuration } = await import("../src/schedule/maps-route-cache.js");
     const { fetchDrivingDurationMinForIntelligence } = await import(
       "../src/schedule/google-maps-service.js"
     );
     const origin = "茨城県つくばみらい市板橋2889-2";
     const dest = "茨城県守谷市百合丘2丁目2633-1";
     const date = "2026-06-20";
-    setCachedRouteDuration(origin, dest, date, null, "none");
+    const cacheKey = `${origin}\0${dest}\0${date}`;
+    const { createHash } = await import("node:crypto");
+    const key = createHash("sha256").update(cacheKey).digest("hex");
+    getDatabase()
+      .prepare(
+        `INSERT INTO schedule_route_cache
+         (cache_key, origin, destination, route_date, duration_min, duration_source, cached_at)
+         VALUES (?, ?, ?, ?, NULL, 'none', datetime('now'))`
+      )
+      .run(key, origin, dest, date);
 
     const originalFetch = globalThis.fetch;
     let directionCalls = 0;
@@ -348,7 +389,14 @@ describe("日程調整レベル4 — インテリジェンス", () => {
       assert.equal(result.cacheHit, false);
       assert.ok(directionCalls >= 1);
 
-      setCachedRouteDuration(origin, dest, date, null, "none");
+      getDatabase()
+        .prepare(
+          `INSERT INTO schedule_route_cache
+           (cache_key, origin, destination, route_date, duration_min, duration_source, cached_at)
+           VALUES (?, ?, ?, ?, NULL, 'none', datetime('now'))
+           ON CONFLICT(cache_key) DO UPDATE SET duration_min = NULL, duration_source = 'none'`
+        )
+        .run(key, origin, dest, date);
       const retry = await fetchDrivingDurationMinForIntelligence(origin, dest, date);
       assert.equal(retry.source, "api");
       assert.equal(retry.minutes, 45);
@@ -358,5 +406,46 @@ describe("日程調整レベル4 — インテリジェンス", () => {
       globalThis.fetch = originalFetch;
       delete process.env.GOOGLE_MAPS_API_KEY;
     }
+  });
+
+  it("案件マスタ住所 — project source", () => {
+    getDatabase()
+      .prepare(
+        `INSERT INTO survey_projects (project_id, customer_code, customer_name, site_name, address, status, survey_date, created_at, updated_at)
+         VALUES ('proj-addr-1', 'TOMS001', 'テスト', '現場A', '茨城県取手市', 'active', '2026-06-18', datetime('now'), datetime('now'))`
+      )
+      .run();
+    const addr = extractEventAddress(
+      baseEvent({ title: "現場A", location: null, description: null })
+    );
+    assert.equal(addr.source, "project");
+    assert.ok(addr.fullAddress?.includes("取手市"));
+  });
+
+  it("TiSLY 住所補正 — correction source", async () => {
+    const saved = await request(app)
+      .patch("/api/schedule/v1/events/ev-correct-only/address")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ address: "茨城県龍ケ崎市若柴町1-1" });
+    assert.equal(saved.status, 200);
+    const addr = extractEventAddress(
+      baseEvent({
+        id: "ev-correct-only",
+        title: "ユニーク補正テストXYZ",
+        location: null,
+        description: null,
+      })
+    );
+    assert.equal(addr.source, "correction");
+    assert.ok(addr.fullAddress?.includes("龍ケ崎市"));
+  });
+
+  it("住所なし — 住所未設定ラベル（Maps API 設定時）", async () => {
+    process.env.GOOGLE_MAPS_API_KEY = "test-key";
+    const intel = await buildDayScheduleIntelligence("2026-06-18", [
+      baseEvent({ id: "no-addr", title: "打合せ", location: null, description: null }),
+    ]);
+    assert.equal(intel.events[0].travel.durationLabel, "住所未設定");
+    delete process.env.GOOGLE_MAPS_API_KEY;
   });
 });

@@ -47,6 +47,10 @@ export function getCachedRouteDuration(
     getDatabase().prepare(`DELETE FROM schedule_route_cache WHERE cache_key = ?`).run(key);
     return null;
   }
+  if (row.duration_min == null && row.duration_source === "none") {
+    getDatabase().prepare(`DELETE FROM schedule_route_cache WHERE cache_key = ?`).run(key);
+    return null;
+  }
   return {
     origin: row.origin,
     destination: row.destination,
@@ -65,6 +69,7 @@ export function setCachedRouteDuration(
   durationMin: number | null,
   durationSource: MapsDurationSource
 ): void {
+  if (durationMin == null && durationSource === "none") return;
   const key = cacheKey(origin, destination, routeDate);
   getDatabase()
     .prepare(

@@ -23,6 +23,7 @@ export function renderWeatherSlotsHtml(slots, { inline = false, practical = fals
 }
 
 const MAPS_API_UNSET_LABEL = "Google Maps API\u672a\u8a2d\u5b9a";
+const ADDRESS_UNSET_LABEL = "\u4f4f\u6240\u672a\u8a2d\u5b9a";
 const TRAVEL_UNCALCULATED_LABEL = "\u79fb\u52d5\u6642\u9593\u672a\u8a08\u7b97";
 
 function renderTravelLineHtml(
@@ -34,10 +35,15 @@ function renderTravelLineHtml(
     return `<div class="schedule-intel-maps-unset">${escapeScheduleHtml(MAPS_API_UNSET_LABEL)}</div>`;
   }
   const label = travel.durationLabel ?? "";
-  const uncalculated = !label || label === TRAVEL_UNCALCULATED_LABEL;
   const route = escapeScheduleHtml(travel.compactLabel || "🏠→現場");
+  if (label === ADDRESS_UNSET_LABEL) {
+    return `<div class="schedule-intel-travel">${route} <span class="schedule-intel-travel-muted">${escapeScheduleHtml(ADDRESS_UNSET_LABEL)}</span></div>`;
+  }
+  const uncalculated = !label || label === TRAVEL_UNCALCULATED_LABEL;
   if (uncalculated) {
-    if (!travel.mapsUrl) return "";
+    if (!travel.mapsUrl) {
+      return `<div class="schedule-intel-travel">${route} <span class="schedule-intel-travel-muted">${escapeScheduleHtml(TRAVEL_UNCALCULATED_LABEL)}</span></div>`;
+    }
     return `<div class="schedule-intel-travel">${route} <span class="schedule-intel-travel-muted">${escapeScheduleHtml(TRAVEL_UNCALCULATED_LABEL)}</span></div>`;
   }
   return `<div class="schedule-intel-travel">${route} <strong>${escapeScheduleHtml(label)}</strong></div>`;
@@ -50,6 +56,16 @@ function renderMaterialLineHtml(fieldCheck) {
       ? `🎒 ${fieldCheck.checked}/${fieldCheck.total}`
       : "🎒 材料チェックを開く";
   return `<a class="btn-sub btn-small schedule-intel-material" href="${escapeScheduleHtml(fieldCheck.url)}">${escapeScheduleHtml(label)}</a>`;
+}
+
+function needsAddressInput(evIntel) {
+  return !evIntel?.address?.fullAddress;
+}
+
+function renderAddressInputButton(evIntel) {
+  if (!needsAddressInput(evIntel)) return "";
+  const eventKey = escapeScheduleHtml(evIntel.eventId ?? evIntel.id ?? "");
+  return `<button type="button" class="btn-sub btn-small schedule-intel-address-btn" data-event-id="${eventKey}">住所を入力</button>`;
 }
 
 export function renderIntelligenceEventCard(
@@ -68,6 +84,7 @@ export function renderIntelligenceEventCard(
       <div class="schedule-intel-title">${escapeScheduleHtml(ev.title)}</div>
       ${weatherHtml ? `<div class="schedule-intel-weather">${weatherHtml}</div>` : ""}
       ${renderTravelLineHtml(travel, { showMapsUnsetBanner, mapsApiConfigured })}
+      ${renderAddressInputButton(ev)}
       ${renderMaterialLineHtml(ev.fieldCheck)}
     </div>
   </article>`;
@@ -76,6 +93,39 @@ export function renderIntelligenceEventCard(
 export function bindIntelligenceEventCards(root) {
   root?.querySelectorAll(".schedule-intel-material").forEach((el) => {
     el.addEventListener("click", (ev) => ev.stopPropagation());
+  });
+}
+
+export function bindAddressInputButtons(root, { apiFetch, toast, onSaved } = {}) {
+  if (!root || !apiFetch) return;
+  root.querySelectorAll(".schedule-intel-address-btn").forEach((btn) => {
+    btn.addEventListener("click", async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const eventId = btn.getAttribute("data-event-id");
+      if (!eventId) return;
+      const current = btn.dataset.currentAddress || "";
+      const input = window.prompt("現場の住所を入力してください", current);
+      if (input == null) return;
+      const address = input.trim();
+      if (!address) {
+        toast?.("住所を入力してください");
+        return;
+      }
+      btn.disabled = true;
+      try {
+        await apiFetch(`/events/${encodeURIComponent(eventId)}/address`, {
+          method: "PATCH",
+          body: JSON.stringify({ address }),
+        });
+        toast?.("住所を保存しました");
+        await onSaved?.();
+      } catch (e) {
+        toast?.(e.message || "保存に失敗しました");
+      } finally {
+        btn.disabled = false;
+      }
+    });
   });
 }
 

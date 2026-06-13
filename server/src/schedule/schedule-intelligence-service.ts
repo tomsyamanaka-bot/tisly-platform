@@ -81,12 +81,28 @@ export interface DayScheduleIntelligence {
   returnToOrigin?: EventTravelInfo;
 }
 
+export interface ScheduleIntelligenceDebugEvent {
+  eventId: string;
+  title: string;
+  calendarLocation: string | null;
+  extractedAddress: string | null;
+  addressSource: string;
+  routeOrigin: string | null;
+  routeDestination: string | null;
+  durationMin: number | null;
+  routeSource: MapsDurationSource;
+  reason: string;
+  cacheHit: boolean;
+}
+
 export interface ScheduleIntelligenceDebug {
   mapsApiConfigured: boolean;
   defaultOrigin: string;
   defaultOriginLabel: string;
+  events: ScheduleIntelligenceDebugEvent[];
   geocodeResults: Array<{ query: string; lat: number; lon: number; source: string }>;
   weatherResults: Array<{ eventId: string; source: string; location: string }>;
+  /** @deprecated events を参照 */
   routeResults: Array<{
     origin: string;
     destination: string;
@@ -94,6 +110,7 @@ export interface ScheduleIntelligenceDebug {
     source: MapsDurationSource;
     cacheHit: boolean;
   }>;
+  /** @deprecated events を参照 */
   addressExtractions: Array<{
     eventId: string;
     title: string;
@@ -162,6 +179,7 @@ function worstFeasibility(levels: ScheduleFeasibility[]): ScheduleFeasibility {
 }
 
 export const MAPS_API_UNSET_LABEL = "Google Maps API未設定";
+export const ADDRESS_UNSET_LABEL = "住所未設定";
 
 function travelDurationLabel(
   minutes: number | null,
@@ -169,8 +187,8 @@ function travelDurationLabel(
   mapsConfigured: boolean,
   hasAddress: boolean
 ): string {
+  if (!hasAddress) return ADDRESS_UNSET_LABEL;
   if (!mapsConfigured) return MAPS_API_UNSET_LABEL;
-  if (!hasAddress) return "移動時間未計算";
   if (minutes == null || source === "none") return "移動時間未計算";
   if (source === "api") return `${minutes}分（API）`;
   if (source === "mock") return `${minutes}分（目安）`;
@@ -187,6 +205,32 @@ function siteCircled(index: number): string {
 export function buildTravelCompactLabel(eventIndex: number): string {
   if (eventIndex <= 0) return "🏠→現場";
   return `現場${siteCircled(eventIndex - 1)}→現場${siteCircled(eventIndex)}`;
+}
+
+function routeAddress(address: ExtractedAddress): string | null {
+  return address.fullAddress?.trim() || null;
+}
+
+function buildRouteSkipReason(input: {
+  hasAddress: boolean;
+  origin: string | null;
+  destination: string | null;
+  mapsConfigured: boolean;
+  durationMin: number | null;
+  durationSource: MapsDurationSource;
+  addressSource: string;
+}): string {
+  if (!input.hasAddress) {
+    if (input.addressSource === "title_place") return "件名のみのため住所未確定";
+    return "住所が取得できません";
+  }
+  if (!input.origin) return "出発地が未設定";
+  if (!input.destination) return "到着地が未設定";
+  if (!input.mapsConfigured) return "Google Maps API未設定";
+  if (input.durationMin == null || input.durationSource === "none") {
+    return "Directions API が移動時間を返しませんでした";
+  }
+  return "ok";
 }
 
 function buildFieldCheckForEvent(
@@ -293,8 +337,8 @@ export async function buildDayScheduleIntelligence(
     const origin =
       i === 0
         ? defaultOrigin || null
-        : prevAddress?.fullAddress ?? prevAddress?.cityHint ?? null;
-    const destination = address.fullAddress ?? address.cityHint;
+        : prevAddress ? routeAddress(prevAddress) : null;
+    const destination = routeAddress(address);
     const hasAddress = Boolean(destination);
 
     const travelCompactLabel = buildTravelCompactLabel(i);
@@ -377,7 +421,7 @@ export async function buildDayScheduleIntelligence(
   let returnToOrigin: EventTravelInfo | undefined;
   if (opts?.includeReturnToOrigin && defaultOrigin && addresses.length) {
     const last = addresses[addresses.length - 1]!;
-    const dest = last.fullAddress ?? last.cityHint;
+    const dest = routeAddress(last);
     if (dest) {
       const dur = await fetchDrivingDurationMinForIntelligence(dest, defaultOrigin, date);
       if (!mapsConfigured || dur.minutes == null) travelComplete = false;
@@ -444,6 +488,8 @@ export async function buildScheduleIntelligenceDebug(
   date: string,
   events: ScheduleEvent[]
 ): Promise<ScheduleIntelligenceDebug> {
+  const sorted = sortEventsByStart(events);
+  const eventById = new Map(sorted.map((ev) => [ev.id, ev]));
   const intelligence = await buildDayScheduleIntelligence(date, events, {
     includeReturnToOrigin: true,
   });
@@ -451,8 +497,35 @@ export async function buildScheduleIntelligenceDebug(
   const weatherResults: ScheduleIntelligenceDebug["weatherResults"] = [];
   const routeResults: ScheduleIntelligenceDebug["routeResults"] = [];
   const addressExtractions: ScheduleIntelligenceDebug["addressExtractions"] = [];
+  const debugEvents: ScheduleIntelligenceDebugEvent[] = [];
 
   for (const ev of intelligence.events) {
+    const raw = eventById.get(ev.eventId);
+    const calendarLocation = raw?.location?.trim() || null;
+    const reason = buildRouteSkipReason({
+      hasAddress: Boolean(ev.travel.destination),
+      origin: ev.travel.origin,
+      destination: ev.travel.destination,
+      mapsConfigured: intelligence.mapsApiConfigured,
+      durationMin: ev.travel.durationMin,
+      durationSource: ev.travel.durationSource,
+      addressSource: ev.address.source,
+    });
+
+    debugEvents.push({
+      eventId: ev.eventId,
+      title: ev.title,
+      calendarLocation,
+      extractedAddress: ev.address.fullAddress,
+      addressSource: ev.address.source,
+      routeOrigin: ev.travel.origin,
+      routeDestination: ev.travel.destination,
+      durationMin: ev.travel.durationMin,
+      routeSource: ev.travel.durationSource,
+      reason,
+      cacheHit: ev.travel.cacheHit,
+    });
+
     addressExtractions.push({
       eventId: ev.eventId,
       title: ev.title,
@@ -488,6 +561,7 @@ export async function buildScheduleIntelligenceDebug(
     mapsApiConfigured: intelligence.mapsApiConfigured,
     defaultOrigin: intelligence.defaultOrigin,
     defaultOriginLabel: intelligence.defaultOriginLabel,
+    events: debugEvents,
     geocodeResults,
     weatherResults,
     routeResults,

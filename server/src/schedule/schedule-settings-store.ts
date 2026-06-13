@@ -24,8 +24,9 @@ export function getSchedulePlannerSettingsV1(): SchedulePlannerSettingsV1 {
   if (!row) return { ...DEFAULT_SETTINGS };
   try {
     const parsed = JSON.parse(row.value_json) as Partial<SchedulePlannerSettingsV1>;
+    const origin = String(parsed.defaultOrigin ?? "").trim();
     return {
-      defaultOrigin: String(parsed.defaultOrigin ?? "").trim(),
+      defaultOrigin: origin || DEFAULT_SCHEDULE_ORIGIN,
       updatedAt: parsed.updatedAt ?? DEFAULT_SETTINGS.updatedAt,
     };
   } catch {

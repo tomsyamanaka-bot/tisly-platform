@@ -29,6 +29,7 @@ import {
   renderWorkSessionPanel,
 } from "./work-session-ui.js";
 import {
+  bindAddressInputButtons,
   bindIntelligenceEventCards,
   renderDayIntelligenceEvents,
   renderDayIntelligenceSummary,
@@ -160,6 +161,13 @@ function renderEvents(day, intelligence, departure) {
       catLabel: CAT_LABEL,
     });
     bindIntelligenceEventCards(el);
+    bindAddressInputButtons(el, {
+      apiFetch: (path, opts) => api(path, opts),
+      toast,
+      onSaved: async () => {
+        if (currentDate) await loadDay(currentDate);
+      },
+    });
     return;
   }
   const events = day.events.length
