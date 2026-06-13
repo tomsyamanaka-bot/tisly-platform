@@ -6,6 +6,8 @@ export const PAGE_MARGIN_MM = 2.5;
 export const COLS = 2;
 export const ROWS = 3;
 export const PHOTOS_PER_PAGE = COLS * ROWS;
+/** 1ページ目（表紙）に載せる写真の上限。7枚目以降は2ページ目へ */
+export const FIRST_PAGE_PHOTOS_MAX = PHOTOS_PER_PAGE;
 
 export interface PracticalPdfPhoto {
   url: string;
@@ -81,6 +83,7 @@ function renderCoverPage(
   documentTitle: string,
   fields: PracticalPdfCoverField[],
   sections: PracticalPdfCoverSection[] | undefined,
+  coverPhotos: PracticalPdfPhoto[],
   footerHtml: string,
   noPhotosMessage?: string,
   showNoPhotosOnCover?: boolean
@@ -107,6 +110,9 @@ function renderCoverPage(
     showNoPhotosOnCover && noPhotosMessage
       ? `<div class="${prefix}-no-photos-cover">${escapeHtml(noPhotosMessage)}</div>`
       : "";
+  const coverPhotoGrid = coverPhotos.length
+    ? renderPhotoGrid(prefix, coverPhotos, 1, `${prefix}-cover-photo-grid`)
+    : "";
   return `<div class="${prefix}-page ${prefix}-cover-page">
   <div class="${prefix}-cover-header">
     <div class="${prefix}-cover-rule"></div>
@@ -116,6 +122,7 @@ function renderCoverPage(
   </div>
   <table class="${prefix}-cover-fields">${fieldRows}</table>
   ${sectionBlocks ? `<div class="${prefix}-cover-rule"></div>${sectionBlocks}` : ""}
+  ${coverPhotoGrid}
   ${noPhotos}
   ${footerHtml}
 </div>`;
@@ -130,8 +137,16 @@ function renderPhotoCell(prefix: string, photo: PracticalPdfPhoto, globalIndex: 
   </div>`;
 }
 
-function renderPhotoGrid(prefix: string, photos: PracticalPdfPhoto[], startIndex: number): string {
-  return `<div class="${prefix}-photo-grid">${photos
+function renderPhotoGrid(
+  prefix: string,
+  photos: PracticalPdfPhoto[],
+  startIndex: number,
+  extraClass = ""
+): string {
+  const gridClass = extraClass
+    ? `${prefix}-photo-grid ${extraClass}`
+    : `${prefix}-photo-grid`;
+  return `<div class="${gridClass}">${photos
     .map((p, i) => renderPhotoCell(prefix, p, startIndex + i))
     .join("")}</div>`;
 }
@@ -167,8 +182,10 @@ function renderAllPages(opts: PracticalPdfLayoutOptions): string {
     noPhotosMessage = "写真未登録",
   } = opts;
 
-  const photoPages = photos.length ? chunk(photos, PHOTOS_PER_PAGE) : [];
-  const totalPages = 1 + (photos.length ? photoPages.length : 1);
+  const coverPhotos = photos.slice(0, FIRST_PAGE_PHOTOS_MAX);
+  const remainingPhotos = photos.slice(FIRST_PAGE_PHOTOS_MAX);
+  const continuationPages = remainingPhotos.length ? chunk(remainingPhotos, PHOTOS_PER_PAGE) : [];
+  const totalPages = photos.length ? 1 + continuationPages.length : 2;
 
   const pages: string[] = [];
   pages.push(
@@ -177,6 +194,7 @@ function renderAllPages(opts: PracticalPdfLayoutOptions): string {
       documentTitle,
       coverFields,
       coverSections,
+      coverPhotos,
       renderPageFooter(prefix, projectNo, generatedAt, 1, totalPages),
       noPhotosMessage,
       !photos.length
@@ -192,13 +210,13 @@ function renderAllPages(opts: PracticalPdfLayoutOptions): string {
       )
     );
   } else {
-    photoPages.forEach((batch, idx) => {
+    continuationPages.forEach((batch, idx) => {
       pages.push(
         renderPhotoPage(
           prefix,
           batch,
           renderPageFooter(prefix, projectNo, generatedAt, idx + 2, totalPages),
-          idx * PHOTOS_PER_PAGE + 1
+          FIRST_PAGE_PHOTOS_MAX + idx * PHOTOS_PER_PAGE + 1
         )
       );
     });
@@ -225,31 +243,40 @@ export function buildPracticalPdfStyles(prefix: string): string {
     position: relative;
   }
   .${prefix}-page:last-child { page-break-after: auto; }
-  .${prefix}-cover-page { padding: 1mm 0 0; }
-  .${prefix}-cover-header { text-align: center; margin-bottom: 2mm; }
-  .${prefix}-cover-rule { height: 0; border-top: 1px solid #94a3b8; margin: 1.5mm 0; }
-  .${prefix}-cover-company { font-size: 10pt; font-weight: 700; letter-spacing: 0.08em; margin: 1mm 0; }
-  .${prefix}-cover-title { font-size: 14pt; font-weight: 700; margin: 1.5mm 0; letter-spacing: 0.12em; }
-  .${prefix}-cover-fields { width: 100%; border-collapse: collapse; margin: 1mm 0 2mm; font-size: 8.5pt; }
-  .${prefix}-cover-fields th { text-align: left; width: 22%; padding: 0.8mm 1.5mm; color: #475569; font-weight: 600; vertical-align: top; border-bottom: 1px solid #e2e8f0; }
-  .${prefix}-cover-fields td { padding: 0.8mm 1.5mm; color: #0f172a; vertical-align: top; border-bottom: 1px solid #f1f5f9; }
-  .${prefix}-cover-section { margin: 1.5mm 0; }
-  .${prefix}-cover-section h3 { margin: 0 0 0.8mm; font-size: 8.5pt; font-weight: 700; color: #334155; }
-  .${prefix}-cover-section-body { font-size: 8pt; line-height: 1.45; color: #0f172a; white-space: pre-wrap; }
-  .${prefix}-no-photos-cover { margin-top: 3mm; text-align: center; font-size: 9pt; color: #64748b; }
+  .${prefix}-cover-page { padding: 0.5mm 0 0; }
+  .${prefix}-cover-header { text-align: center; margin-bottom: 1mm; flex: 0 0 auto; }
+  .${prefix}-cover-rule { height: 0; border-top: 1px solid #94a3b8; margin: 0.8mm 0; }
+  .${prefix}-cover-company { font-size: 9.5pt; font-weight: 700; letter-spacing: 0.08em; margin: 0.5mm 0; }
+  .${prefix}-cover-title { font-size: 13pt; font-weight: 700; margin: 0.8mm 0; letter-spacing: 0.12em; }
+  .${prefix}-cover-fields { width: 100%; border-collapse: collapse; margin: 0.5mm 0 1mm; font-size: 8pt; flex: 0 0 auto; }
+  .${prefix}-cover-fields th { text-align: left; width: 20%; padding: 0.35mm 1mm; color: #475569; font-weight: 600; vertical-align: top; border-bottom: 1px solid #e2e8f0; line-height: 1.2; }
+  .${prefix}-cover-fields td { padding: 0.35mm 1mm; color: #0f172a; vertical-align: top; border-bottom: 1px solid #f1f5f9; line-height: 1.2; }
+  .${prefix}-cover-section { margin: 0.8mm 0; flex: 0 0 auto; }
+  .${prefix}-cover-section h3 { margin: 0 0 0.4mm; font-size: 8pt; font-weight: 700; color: #334155; }
+  .${prefix}-cover-section-body { font-size: 7.5pt; line-height: 1.35; color: #0f172a; white-space: pre-wrap; }
+  .${prefix}-no-photos-cover { margin-top: 2mm; text-align: center; font-size: 9pt; color: #64748b; flex: 0 0 auto; }
   .${prefix}-photo-page { padding: 0; }
   .${prefix}-photo-grid {
-    flex: 1;
-    min-height: 0;
     display: grid;
     grid-template-columns: repeat(${COLS}, 1fr);
     grid-auto-flow: row;
-    gap: 2mm;
-    margin-bottom: 1mm;
+    gap: 1.8mm;
     align-content: start;
   }
-  .${prefix}-photo-cell { display: flex; flex-direction: column; width: 100%; }
-  .${prefix}-photo-title { margin: 0.5mm 0 0; text-align: center; font-size: 7pt; color: #334155; line-height: 1.2; flex: 0 0 auto; }
+  .${prefix}-cover-photo-grid {
+    flex: 0 0 auto;
+    margin: 0.8mm 0 0.5mm;
+    grid-template-rows: repeat(${ROWS}, auto);
+  }
+  .${prefix}-photo-page .${prefix}-photo-grid {
+    flex: 1;
+    min-height: 0;
+    grid-template-rows: repeat(${ROWS}, 1fr);
+    margin-bottom: 1mm;
+  }
+  .${prefix}-photo-page .${prefix}-photo-img-wrap { aspect-ratio: auto; flex: 1; min-height: 0; }
+  .${prefix}-photo-cell { display: flex; flex-direction: column; width: 100%; min-height: 0; }
+  .${prefix}-photo-title { margin: 0.4mm 0 0; text-align: center; font-size: 6.5pt; color: #334155; line-height: 1.15; flex: 0 0 auto; }
   .${prefix}-photo-num { font-weight: 700; margin-right: 0.5mm; }
   .${prefix}-photo-img-wrap { width: 100%; aspect-ratio: 4 / 3; overflow: hidden; border: 1px solid #cbd5e1; border-radius: 1px; background: #f8fafc; }
   .${prefix}-photo-img-wrap img { width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
