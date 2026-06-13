@@ -9,6 +9,7 @@ import {
   notePdfGenerationSuccess,
   probePdfEngineHealth,
 } from "./pdf-engine-status.js";
+import { PUPPETEER_LAUNCH_ARGS, resolveChromiumExecutablePath } from "./chromium-path.js";
 import { renderCompletionReportHtml } from "./completion-report-template.js";
 import { renderEstimateHtml } from "./estimate-template.js";
 import { renderInvoiceHtml } from "./invoice-template.js";
@@ -20,24 +21,6 @@ export type PdfDocumentKind =
   | "specification";
 
 export type PdfRenderMode = "html" | "puppeteer";
-
-const PUPPETEER_LAUNCH_ARGS = ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"];
-
-function resolveChromiumExecutablePath(): string | undefined {
-  try {
-    const puppeteerPkg = path.join(process.cwd(), "node_modules", "puppeteer", "package.json");
-    if (!fs.existsSync(puppeteerPkg)) return undefined;
-    const json = JSON.parse(fs.readFileSync(puppeteerPkg, "utf8")) as {
-      puppeteer?: { chromium?: { path?: string } };
-    };
-    const rel = json.puppeteer?.chromium?.path;
-    if (!rel) return undefined;
-    const full = path.join(process.cwd(), "node_modules", "puppeteer", rel);
-    return fs.existsSync(full) ? full : undefined;
-  } catch {
-    return undefined;
-  }
-}
 
 export function getPdfRenderMode(): PdfRenderMode {
   if (process.env.TISLY_PDF_PUPPETEER === "false") return "html";
@@ -52,7 +35,7 @@ export function getPdfRenderMode(): PdfRenderMode {
 
 export async function htmlToPdfBuffer(html: string): Promise<Buffer | null> {
   if (process.env.TISLY_PDF_PUPPETEER === "false") return null;
-  const executablePath = resolveChromiumExecutablePath();
+  const executablePath = resolveChromiumExecutablePath() ?? undefined;
   try {
     const puppeteer = (await import("puppeteer" as string)) as {
       default: {
@@ -85,10 +68,13 @@ export async function htmlToPdfBuffer(html: string): Promise<Buffer | null> {
       (typeof puppeteer.default.executablePath === "function"
         ? puppeteer.default.executablePath()
         : undefined);
+    if (!resolvedPath) {
+      throw new Error("Chromium executable not found");
+    }
     const browser = await puppeteer.default.launch({
       headless: true,
       args: PUPPETEER_LAUNCH_ARGS,
-      ...(resolvedPath ? { executablePath: resolvedPath } : {}),
+      executablePath: resolvedPath,
     });
     try {
       const page = await browser.newPage();

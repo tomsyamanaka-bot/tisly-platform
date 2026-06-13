@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { analyzePdfBuffer } from "./pdf-validation.js";
+import { PUPPETEER_LAUNCH_ARGS, resolveChromiumExecutablePath } from "./chromium-path.js";
 
 export interface PdfEngineHealthV1 {
   pdfEngine: "puppeteer" | "html_fallback";
@@ -27,22 +28,6 @@ function puppeteerInstalled(): boolean {
   }
 }
 
-function resolveChromiumExecutablePath(): string | null {
-  try {
-    const puppeteerPkg = path.join(process.cwd(), "node_modules", "puppeteer", "package.json");
-    if (!fs.existsSync(puppeteerPkg)) return null;
-    const json = JSON.parse(fs.readFileSync(puppeteerPkg, "utf8")) as {
-      puppeteer?: { chromium?: { path?: string } };
-    };
-    const rel = json.puppeteer?.chromium?.path;
-    if (!rel) return null;
-    const full = path.join(process.cwd(), "node_modules", "puppeteer", rel);
-    return fs.existsSync(full) ? full : null;
-  } catch {
-    return null;
-  }
-}
-
 export function getPdfEngineHealthSnapshot(): PdfEngineHealthV1 {
   return { ...lastProbe };
 }
@@ -63,7 +48,15 @@ export async function probePdfEngineHealth(force = false): Promise<PdfEngineHeal
     }
 
     const chromiumExecutablePath = resolveChromiumExecutablePath();
-    const launchArgs = ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"];
+    if (!chromiumExecutablePath) {
+      lastProbe = {
+        pdfEngine: "html_fallback",
+        pdfEngineReady: false,
+        chromiumExecutablePath: null,
+        pdfLastError: "Chromium executable not found (install chromium package on VPS)",
+      };
+      return { ...lastProbe };
+    }
 
     try {
       const puppeteer = (await import("puppeteer" as string)) as {
@@ -71,7 +64,7 @@ export async function probePdfEngineHealth(force = false): Promise<PdfEngineHeal
           launch: (opts: {
             headless: boolean | "shell";
             args: string[];
-            executablePath?: string;
+            executablePath: string;
           }) => Promise<{
             newPage: () => Promise<{
               setContent: (h: string, o: { waitUntil: string }) => Promise<void>;
@@ -79,20 +72,13 @@ export async function probePdfEngineHealth(force = false): Promise<PdfEngineHeal
             }>;
             close: () => Promise<void>;
           }>;
-          executablePath?: () => string;
         };
       };
 
-      const executablePath =
-        chromiumExecutablePath ??
-        (typeof puppeteer.default.executablePath === "function"
-          ? puppeteer.default.executablePath()
-          : undefined);
-
       const browser = await puppeteer.default.launch({
         headless: true,
-        args: launchArgs,
-        ...(executablePath ? { executablePath } : {}),
+        args: PUPPETEER_LAUNCH_ARGS,
+        executablePath: chromiumExecutablePath,
       });
       try {
         const page = await browser.newPage();
@@ -112,7 +98,7 @@ export async function probePdfEngineHealth(force = false): Promise<PdfEngineHeal
         lastProbe = {
           pdfEngine: "puppeteer",
           pdfEngineReady: true,
-          chromiumExecutablePath: executablePath ?? null,
+          chromiumExecutablePath,
           pdfLastError: null,
         };
       } finally {
