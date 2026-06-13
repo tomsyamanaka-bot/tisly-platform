@@ -540,6 +540,7 @@ async function renderDetailChecklist(detail) {
       status: data.checklistStatus,
       showHeader: true,
       showSyncButton: true,
+      forceReason: data.session?.forceCompleteReason || data.checklistStatus?.forceCompleteReason || "",
     });
     bindFieldChecklistPanel(mount, {
       apiFetch: workApi,

@@ -5,12 +5,14 @@ import {
 } from "./customer-auth.js";
 import { initPracticalNav } from "./tisly-practical-nav.js";
 import { friendlyHttpError, renderFriendlyErrorHtml } from "./tisly-friendly-errors.js";
+import { confirmChecklistBeforeReport } from "./field-checklist-ui.js";
 
 let practicalNav = null;
 let currentSurveyProjectId = null;
 let pdfBlobUrl = null;
 
 const API = "/api/estimate/v1";
+const WORK_API = "/api/work-session/v1";
 let currentProjectId = null;
 let currentLines = [];
 let currentCustomerName = "";
@@ -1501,6 +1503,24 @@ async function init() {
   $("btn-create-completion-report")?.addEventListener("click", async () => {
     if (!currentProjectId) return;
     try {
+      const ok = await confirmChecklistBeforeReport(
+        async (path, opts = {}) => {
+          const token = getCustomerToken();
+          const res = await fetch(path.startsWith("/") ? path : `${WORK_API}${path}`, {
+            ...opts,
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+              ...(opts.headers || {}),
+            },
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+          return data;
+        },
+        { projectSource: "business", projectId: currentProjectId }
+      );
+      if (!ok) return;
       await api(`/projects/${currentProjectId}/completion-report/create`, { method: "POST", body: "{}" });
       openDocumentViewer("completion");
       toast("完了報告書を作成しました");

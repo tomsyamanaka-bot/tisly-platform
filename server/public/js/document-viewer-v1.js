@@ -210,10 +210,11 @@ function renderCompletionMobile(cr) {
     ? cr.checklist
         .map(
           (it) => `<article class="doc-check-card ${it.checked ? "done" : "pending"}">
-            <span class="doc-check-icon">${it.checked ? "☑" : "□"}</span>
+            <span class="doc-check-icon">${it.checked ? "✓" : "—"}</span>
             <div class="doc-check-body">
               <p class="doc-check-cat">${escapeHtml(it.category)}</p>
               <p class="doc-check-label">${escapeHtml(it.label)}</p>
+              <p class="doc-check-status">${it.checked ? "確認済" : "未確認"}</p>
             </div>
           </article>`
         )

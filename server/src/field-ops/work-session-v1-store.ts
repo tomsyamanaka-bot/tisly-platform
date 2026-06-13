@@ -406,6 +406,7 @@ export function getChecklistCompletionStatus(ref: ProjectRefV1): {
   total: number;
   checked: number;
   unchecked: number;
+  forced: number;
   allChecked: boolean;
   uncheckedLabels: string[];
   withMemo: number;
@@ -415,15 +416,17 @@ export function getChecklistCompletionStatus(ref: ProjectRefV1): {
   const items = listCompletionChecklistV1(ref);
   const unchecked = items.filter((it) => !it.checked);
   const session = getLatestWorkSessionForProject(ref);
+  const forceCompleteReason = session?.forceCompleteReason?.trim() || null;
   return {
     total: items.length,
     checked: items.length - unchecked.length,
     unchecked: unchecked.length,
+    forced: forceCompleteReason ? unchecked.length : 0,
     allChecked: items.length > 0 && unchecked.length === 0,
     uncheckedLabels: unchecked.map((it) => it.label),
     withMemo: items.filter((it) => it.memo?.trim()).length,
     withPhoto: items.filter((it) => it.photoId).length,
-    forceCompleteReason: session?.forceCompleteReason?.trim() || null,
+    forceCompleteReason,
   };
 }
 
@@ -616,25 +619,21 @@ export function formatChecklistForPdf(ref: ProjectRefV1): string {
   if (!items.length) return "";
   const session = getLatestWorkSessionForProject(ref);
   const forceReason = session?.forceCompleteReason?.trim() ?? "";
-  const lines = ["現場作業時に以下の確認を実施しました。", ""];
+  const unchecked = items.filter((it) => !it.checked);
+  const lines = ["現場作業時に、以下の項目について確認を実施しました。", ""];
   for (const it of items) {
-    const memo = it.memo?.trim();
     if (it.checked) {
-      lines.push(memo ? `✓ ${it.label}（${memo}）` : `✓ ${it.label}`);
+      lines.push(`・${it.label}：確認済`);
     } else if (forceReason) {
-      lines.push(
-        memo
-          ? `${it.label} — 未確認（強制完了：${forceReason} / ${memo}）`
-          : `${it.label} — 未確認（強制完了：${forceReason}）`
-      );
+      lines.push(`・${it.label}：未確認（${forceReason}）`);
     } else {
-      lines.push(memo ? `${it.label} — 未確認（${memo}）` : `${it.label} — 未確認`);
+      lines.push(`・${it.label}：未確認`);
     }
   }
-  if (forceReason) {
+  if (forceReason && unchecked.length > 0) {
     lines.push("");
     lines.push(
-      `※ 上記のうち未確認項目については、現場事情により作業完了時点では確認できませんでした（理由：${forceReason}）。`
+      `※ 「未確認」と記載の項目は、${forceReason}のため作業完了時点では確認を保留としております。`
     );
   }
   return lines.join("\n");

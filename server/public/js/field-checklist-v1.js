@@ -78,6 +78,7 @@ async function renderChecklistView() {
     items: data.checklist || [],
     status: data.checklistStatus,
     showSyncButton: true,
+    forceReason: data.session?.forceCompleteReason || data.checklistStatus?.forceCompleteReason || "",
   });
   bindFieldChecklistPanel(mount, {
     apiFetch: workApi,

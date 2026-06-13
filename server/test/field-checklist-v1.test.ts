@@ -78,7 +78,10 @@ describe("Field Checklist v1", () => {
     assert.ok(res.body.templates.length >= 6);
     const names = res.body.templates.map((t: { name: string }) => t.name);
     assert.ok(names.includes("防犯カメラ"));
+    assert.ok(names.includes("LAN配線"));
     assert.ok(names.includes("Wi-Fi"));
+    assert.ok(names.includes("インターホン"));
+    assert.ok(names.includes("電気工事"));
     assert.ok(names.includes("TiSLY"));
   });
 
@@ -170,8 +173,19 @@ describe("Field Checklist v1", () => {
       .set("Authorization", `Bearer ${token}`);
     assert.equal(pdf.status, 200);
     assert.ok(pdf.text.includes("確認結果") || pdf.text.includes("確認を実施"));
-    assert.ok(pdf.text.includes("未確認") || pdf.text.includes("✓"));
-    assert.ok(pdf.text.includes("強制完了") || pdf.text.includes("お客様都合"));
+    assert.ok(pdf.text.includes("確認済") || pdf.text.includes("未確認"));
+    assert.ok(pdf.text.includes("お客様都合"));
+  });
+
+  it("checklistStatus に forced 件数が含まれる", async () => {
+    const status = await request(app)
+      .get(
+        `/api/work-session/v1/completion-checklist/status?source=business&projectId=${businessProjectId}`
+      )
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(status.status, 200);
+    assert.ok(status.body.forced >= 1);
+    assert.ok(status.body.forceCompleteReason);
   });
 
   it("テンプレート同期で新項目を案件に追加できる", async () => {
