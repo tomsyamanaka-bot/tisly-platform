@@ -1,0 +1,41 @@
+<!DOCTYPE html><html lang="ja"><head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=390, initial-scale=1"/>
+<link rel="stylesheet" href="../../public/css/tisly-friendly-ui.css"/>
+<style>
+body{margin:0;padding:0.75rem;font-family:system-ui,sans-serif;background:#f6f8fa}
+#line-list{display:flex;flex-direction:column;gap:0.65rem}
+.line-item-card{border:1px solid #e2e8f0;border-radius:10px;padding:0.7rem 0.75rem;background:#fff}
+.line-field-label{margin:0 0 0.3rem;font-size:0.82rem;font-weight:700;color:#64748b}
+.desc-input{width:100%;min-height:3rem;writing-mode:horizontal-tb;white-space:pre-wrap;word-break:normal;overflow-wrap:break-word;line-height:1.45;font-size:0.95rem;box-sizing:border-box}
+.line-metrics-grid{display:flex;flex-direction:column;gap:0.45rem;margin-top:0.55rem}
+.line-metric-label{display:block;margin:0 0 0.2rem;font-size:0.78rem;font-weight:600;color:#64748b}
+.qty-input,.price-input{width:100%;min-height:44px;font-size:1rem;box-sizing:border-box}
+.line-amount-display{min-height:44px;display:flex;align-items:center;justify-content:flex-end;font-size:0.95rem;font-weight:700;color:#4a90d9}
+.line-order-target{display:flex;align-items:center;gap:0.4rem;margin-top:0.45rem;font-size:0.88rem}
+.line-actions{display:flex;gap:0.35rem;margin-top:0.5rem;flex-wrap:wrap}
+.line-actions button{padding:0.35rem 0.6rem;font-size:0.8rem;border:1px solid #e2e8f0;border-radius:6px;background:#f6f8fa}
+</style></head><body class="tisly-friendly">
+<p style="font-size:0.85rem;color:#64748b">修正後（カード型・iPhone幅）</p>
+<div id="line-list"><div class="line-item-card">
+<label class="line-field-label">項目名</label>
+<textarea class="desc-input" rows="3">防犯カメラ
+LAN配線工事</textarea>
+<div class="line-metrics-grid">
+<div class="line-metric"><label class="line-metric-label">数量</label><input class="qty-input" value="2"/></div>
+<div class="line-metric"><label class="line-metric-label">単価</label><input class="price-input" value="45000"/></div>
+<div class="line-metric"><span class="line-metric-label">金額</span><div class="line-amount-display">¥90,000</div></div>
+</div>
+<label class="line-order-target"><input type="checkbox"/> 発注対象</label>
+<div class="line-actions"><button>↑</button><button>↓</button><button>削除</button></div>
+</div><div class="line-item-card">
+<label class="line-field-label">項目名</label>
+<textarea class="desc-input" rows="3">工事ブロック
+配管・配線</textarea>
+<div class="line-metrics-grid">
+<div class="line-metric"><label class="line-metric-label">数量</label><input class="qty-input" value="1"/></div>
+<div class="line-metric"><label class="line-metric-label">単価</label><input class="price-input" value="88000"/></div>
+<div class="line-metric"><span class="line-metric-label">金額</span><div class="line-amount-display">¥88,000</div></div>
+</div>
+<label class="line-order-target"><input type="checkbox"/> 発注対象</label>
+<div class="line-actions"><button>↑</button><button>↓</button><button>削除</button></div>
+</div></div></body></html>

@@ -242,7 +242,7 @@ describe("見積PWA v1 API", () => {
       .set("Authorization", `Bearer ${token}`)
       .send({});
     const invPdf = await request(app)
-      .get(`/api/estimate/v1/projects/${businessProjectId}/invoice/pdf`)
+      .get(`/api/estimate/v1/projects/${businessProjectId}/invoice/pdf?live=1`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(invPdf.status, 200);
     assert.ok(!invPdf.text.includes("参考写真"));

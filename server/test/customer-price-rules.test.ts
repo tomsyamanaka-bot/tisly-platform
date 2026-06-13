@@ -85,6 +85,13 @@ describe("顧客別単価ルール v1.2", () => {
     assert.equal(filterCustomerFacingLineDescription("カメラ設置\n部材0件"), "カメラ設置");
   });
 
+  it("Google予定自動生成メモをPDF備考から除外する", () => {
+    const raw =
+      "現調PWA v1 連携 (SVY-X) / メモ: Google予定から自動生成 / 部材0件 / お客様向けの特記事項";
+    const filtered = filterInternalNotesFromCustomerPdf(raw);
+    assert.equal(filtered, "お客様向けの特記事項");
+  });
+
   it("客A は原価×2.0 で材料単価を計算する", () => {
     const customerId = "BCU-PRICE-A";
     upsertCustomerPriceRule({
@@ -194,7 +201,13 @@ describe("顧客別単価ルール v1.2", () => {
       .get(`/api/estimate/v1/projects/${businessProjectId}/pdf`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(pdf.status, 200);
-    const body = pdf.text || "";
+    assert.match(String(pdf.headers["content-type"] || ""), /application\/pdf/);
+
+    const htmlPreview = await request(app)
+      .get(`/api/estimate/v1/projects/${businessProjectId}/pdf?live=1`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(htmlPreview.status, 200);
+    const body = htmlPreview.text || "";
     assert.ok(body.includes("出精値引き"));
     assert.ok(body.includes("端数調整"));
     assert.ok(body.includes("税込合計"));
@@ -300,7 +313,13 @@ describe("顧客別単価ルール v1.2", () => {
       .get(`/api/estimate/v1/projects/${businessProjectId}/invoice/pdf`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(pdf.status, 200);
-    const body = pdf.text || "";
+    assert.match(String(pdf.headers["content-type"] || ""), /application\/pdf/);
+
+    const htmlPreview = await request(app)
+      .get(`/api/estimate/v1/projects/${businessProjectId}/invoice/pdf?live=1`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(htmlPreview.status, 200);
+    const body = htmlPreview.text || "";
     assert.ok(body.includes("出精値引き"));
     assert.ok(body.includes("特別調整"));
     assert.ok(body.includes("税込合計"));

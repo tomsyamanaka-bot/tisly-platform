@@ -207,6 +207,32 @@ export function runMigrations(database: Database.Database): void {
   migrateScheduleDefaultOriginTsukubamiraiV1(database);
   migrateScheduleDefaultOriginTsukubamiraiV2(database);
   migrateScheduleEventAddressOverridesV1(database);
+  migrateProjectSoftDeleteV1(database);
+}
+
+/** 案件一覧 v1 — 論理削除 deleted_at */
+function migrateProjectSoftDeleteV1(database: Database.Database): void {
+  addColumnsIfMissing(database, "business_projects", [
+    {
+      name: "deleted_at",
+      ddl: "ALTER TABLE business_projects ADD COLUMN deleted_at TEXT",
+    },
+  ]);
+  addColumnsIfMissing(database, "survey_projects", [
+    {
+      name: "deleted_at",
+      ddl: "ALTER TABLE survey_projects ADD COLUMN deleted_at TEXT",
+    },
+  ]);
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:project_soft_delete_v1") as { value_json: string } | undefined;
+  if (marker) return;
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:project_soft_delete_v1", JSON.stringify({ at: new Date().toISOString() }));
 }
 
 /** 見積・請求 実務化 v1 — 明細テンプレ / 単独請求フラグ */

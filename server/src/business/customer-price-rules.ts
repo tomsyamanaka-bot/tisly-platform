@@ -174,6 +174,9 @@ export const CUSTOMER_PDF_PRICE_RULE_NOTE = "顧客別単価ルール適用";
 const INTERNAL_CUSTOMER_NOTE_PATTERNS = [
   /現調PWA/i,
   /PWA連携/i,
+  /Google予定/i,
+  /Google\s*Calendar/i,
+  /自動生成/,
   /SVY[-\s]?[A-Za-z0-9-]+/i,
   /SVY番号/i,
   /部材\d+件/,
@@ -187,6 +190,15 @@ const INTERNAL_CUSTOMER_NOTE_PATTERNS = [
   /\bPWA\b/i,
   /BIZ-[A-Z0-9-]+/i,
   /BCU-SVY-[A-Z0-9-]+/i,
+  /^メモ:\s*(Google|PWA|自動|system|internal|debug)/i,
+  /Google予定/i,
+  /自動生成/i,
+  /PWA連携/i,
+  /\bsystem\b/i,
+  /\binternal\b/i,
+  /\bdebug\b/i,
+  /現調メモ:/,
+  /案件番号:/,
 ];
 
 export function filterInternalNotesFromCustomerPdf(notes: string | null | undefined): string {

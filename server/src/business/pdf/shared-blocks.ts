@@ -409,17 +409,22 @@ export function renderTotals(
     discount > 0
       ? `<div><span>明細合計（税抜）</span><span>¥${lineSubtotal.toLocaleString("ja-JP")}</span></div>`
       : "";
-  const taxBreakdown = `<div class="toms-official-tax-breakdown">
-    <div><span>税率内訳（10%）</span><span></span></div>
-    <div><span>10%対象額</span><span>¥${data.subtotal.toLocaleString("ja-JP")}</span></div>
-    <div><span>消費税</span><span>¥${data.tax.toLocaleString("ja-JP")}</span></div>
+  const taxBreakdown = `<div class="toms-official-tax-breakdown" aria-label="税率内訳">
+    <span class="tax-label">税率内訳</span>
+    <span class="tax-value">10%</span>
+    <span class="tax-label">対象額</span>
+    <span class="tax-value num">¥${data.subtotal.toLocaleString("ja-JP")}</span>
+    <span class="tax-label">消費税</span>
+    <span class="tax-value num">¥${data.tax.toLocaleString("ja-JP")}</span>
   </div>`;
-  return `<div class="toms-official-totals">
+  return `<div class="toms-official-totals-wrap">
+  <div class="toms-official-totals">
   ${lineRow}
   ${discountRow}
   <div><span>小計</span><span>¥${data.subtotal.toLocaleString("ja-JP")}</span></div>
   <div><span>消費税</span><span>¥${data.tax.toLocaleString("ja-JP")}</span></div>
   <div class="grand"><span>税込合計</span><span>¥${data.total.toLocaleString("ja-JP")}</span></div>
+  </div>
   ${taxBreakdown}
 </div>`;
 }

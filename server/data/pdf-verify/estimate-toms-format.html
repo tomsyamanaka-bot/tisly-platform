@@ -1,12 +1,11 @@
-/** TOMS Official Layout v1.4 — A4 portrait print PDF styles */
+<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"/><link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet"/><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/><title>お見積書 260613-001</title><style>
+@page { size: A4 portrait; margin: 4mm 5mm; }
+body{font-family:"Noto Sans JP","Hiragino Sans","Yu Gothic","Meiryo",system-ui,sans-serif;margin:0;padding:4mm 6mm 4mm 5mm;color:#111;background:#fff;font-size:9.5pt;line-height:1.28;word-break:normal;overflow-wrap:break-word;-webkit-text-size-adjust:100%;padding-bottom:calc(4mm + env(safe-area-inset-bottom, 0px))}
+.doc{max-width:200mm;width:100%;min-width:0;margin:0 auto;box-sizing:border-box}
+.doc.single-page{page-break-inside:avoid;max-height:287mm}
+.doc.with-photos .photo-section-title{page-break-before:auto}
+.doc-invoice-footer{display:flex;justify-content:space-between;align-items:flex-end;gap:0.8rem;margin-top:0.35rem;padding-bottom:calc(6mm + env(safe-area-inset-bottom, 12px))}
 
-/** A4縦向き: 210mm × 297mm（794×1123px @96dpi） */
-export const TOMS_PDF_A4_PORTRAIT_WIDTH_PX = 794;
-
-/** @deprecated use TOMS_PDF_A4_PORTRAIT_WIDTH_PX */
-export const TOMS_PDF_A4_LANDSCAPE_WIDTH_PX = TOMS_PDF_A4_PORTRAIT_WIDTH_PX;
-
-export const TOMS_OFFICIAL_CORE_STYLES = `
 .toms-official-header{display:flex;justify-content:space-between;align-items:flex-start;gap:0.55rem;margin-bottom:0.28rem}
 .toms-official-header-main{flex:1;min-width:0}
 .toms-official-header-side{flex:0 0 38%;min-width:0;text-align:right;font-size:0.65rem;line-height:1.22;color:#222}
@@ -40,10 +39,8 @@ export const TOMS_OFFICIAL_CORE_STYLES = `
 .toms-official-notes strong{font-weight:700}
 .toms-official-footer{display:flex;flex-wrap:wrap;gap:0.35rem 1.2rem;margin-top:0.28rem;font-size:0.76rem;line-height:1.28}
 .toms-official-footer .toms-official-field{margin:0}
-`;
 
-/** PDF専用 A4 縦向き明細テーブル（見積・請求）— 項目50% / 数量10% / 単価15% / 金額25% 基準 */
-export const PDF_A4_LINE_ITEMS_STYLES = `
+
 table.pdf-a4-line-items{width:100%;border-collapse:collapse;margin:0 0 0.22rem;border:1px solid #000;table-layout:fixed}
 table.pdf-a4-line-items th,table.pdf-a4-line-items td{border:1px solid #000;padding:0.07rem 0.2rem;font-size:8pt;vertical-align:middle;line-height:1.22}
 table.pdf-a4-line-items thead th{background:#b4c7e7;font-weight:700;text-align:center;white-space:nowrap;letter-spacing:0.02em}
@@ -54,28 +51,7 @@ table.pdf-a4-line-items .col-qty{width:10%;text-align:center;white-space:nowrap}
 table.pdf-a4-line-items .col-unit{width:6%;text-align:center;white-space:nowrap}
 table.pdf-a4-line-items .col-price{width:15%;text-align:right;white-space:nowrap}
 table.pdf-a4-line-items .col-amount{width:15%;text-align:right;white-space:nowrap}
-`;
 
-export const TOMS_PDF_CHARSET_META = '<meta charset="UTF-8"/>';
-
-export const TOMS_PDF_FONT_LINKS =
-  '<link rel="preconnect" href="https://fonts.googleapis.com"/>' +
-  '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>' +
-  '<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet"/>';
-
-/** 実機閲覧は device-width（右切れ防止）。印刷/Puppeteer は @page + @media print で A4 縦固定 */
-export const TOMS_PDF_VIEWPORT_META =
-  `<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>`;
-
-export const TOMS_PDF_STYLES = `
-@page { size: A4 portrait; margin: 4mm 5mm; }
-body{font-family:"Noto Sans JP","Hiragino Sans","Yu Gothic","Meiryo",system-ui,sans-serif;margin:0;padding:4mm 6mm 4mm 5mm;color:#111;background:#fff;font-size:9.5pt;line-height:1.28;word-break:normal;overflow-wrap:break-word;-webkit-text-size-adjust:100%;padding-bottom:calc(4mm + env(safe-area-inset-bottom, 0px))}
-.doc{max-width:200mm;width:100%;min-width:0;margin:0 auto;box-sizing:border-box}
-.doc.single-page{page-break-inside:avoid;max-height:287mm}
-.doc.with-photos .photo-section-title{page-break-before:auto}
-.doc-invoice-footer{display:flex;justify-content:space-between;align-items:flex-end;gap:0.8rem;margin-top:0.35rem;padding-bottom:calc(6mm + env(safe-area-inset-bottom, 12px))}
-${TOMS_OFFICIAL_CORE_STYLES}
-${PDF_A4_LINE_ITEMS_STYLES}
 .intro{margin:0.28rem 0 0.38rem;font-size:0.72rem}
 .bank-block{flex:1;max-width:52%;padding:0.38rem 0.55rem;border:1px solid #000;font-size:0.76rem;line-height:1.28;page-break-inside:avoid}
 .photos{display:grid;grid-template-columns:repeat(2,1fr);gap:0.28rem;margin-top:0.28rem}
@@ -91,4 +67,56 @@ ${PDF_A4_LINE_ITEMS_STYLES}
   table.pdf-a4-line-items thead{display:table-header-group}
   table.pdf-a4-line-items tbody tr{page-break-inside:avoid}
 }
-`;
+</style></head><body>
+<div class="doc single-page">
+<div class="toms-official">
+  <div class="toms-official-header">
+    <div class="toms-official-header-main">
+      <div class="toms-official-title-band"><h1>お見積書</h1></div>
+      <p class="toms-official-addressee">フレックス株式会社 御中</p>
+      <p class="toms-official-field"><span class="toms-official-field-label">件名</span>防犯カメラ設置工事</p>
+      <p class="toms-official-field"><span class="toms-official-field-label">作業場所</span>茨城県つくば市研究学園5丁目</p>
+    </div>
+    <div class="toms-official-header-side">
+      <div class="toms-official-company">
+        <div class="toms-official-company-name">株式会社TOMS</div>
+        <div>〒302-0102</div>
+        <div>茨城県守谷市松前台7-24-9</div>
+        <div>TEL 080-2710-4483</div>
+        <div>担当 山中智紀</div>
+      </div>
+      <table class="toms-official-meta">
+        <tr><th>発行日</th><td>2026/06/13</td></tr>
+        <tr><th>見積番号</th><td>260613-001</td></tr>
+        <tr><th>インボイス番号</th><td>T-2030001139320</td></tr>
+        
+      </table>
+    </div>
+  </div>
+  <div class="toms-official-amount">
+    <span class="toms-official-amount-label">御見積金額</span>
+    <span class="toms-official-amount-value">¥195,800<span class="toms-official-amount-tax">（税込）</span></span>
+  </div>
+</div>
+<table class="pdf-a4-line-items"><colgroup><col style="width:4%"/><col style="width:46%"/><col style="width:10%"/><col style="width:6%"/><col style="width:15%"/><col style="width:19%"/></colgroup><thead><tr><th class="col-no">No</th><th class="col-desc">項目</th><th class="col-qty">数量</th><th class="col-unit">単位</th><th class="col-price">単価</th><th class="col-amount">金額</th></tr></thead><tbody><tr><td class="num col-no">1</td><td class="col-desc">防犯カメラ<br/>LAN配線工事</td><td class="num col-qty">2</td><td class="col-unit">台</td><td class="num col-price">¥45,000</td><td class="num col-amount">¥90,000</td></tr><tr><td class="num col-no">2</td><td class="col-desc">工事<br/>作業内容</td><td class="num col-qty">1</td><td class="col-unit">式</td><td class="num col-price">¥88,000</td><td class="num col-amount">¥88,000</td></tr></tbody></table>
+<div class="toms-official-totals-wrap">
+  <div class="toms-official-totals">
+  
+  
+  <div><span>小計</span><span>¥178,000</span></div>
+  <div><span>消費税</span><span>¥17,800</span></div>
+  <div class="grand"><span>税込合計</span><span>¥195,800</span></div>
+  </div>
+  <div class="toms-official-tax-breakdown" aria-label="税率内訳">
+    <span class="tax-label">税率内訳</span>
+    <span class="tax-value">10%</span>
+    <span class="tax-label">対象額</span>
+    <span class="tax-value num">¥178,000</span>
+    <span class="tax-label">消費税</span>
+    <span class="tax-value num">¥17,800</span>
+  </div>
+</div>
+<div class="toms-official-notes"><strong>〈備考〉</strong><br/>・納期は2週間程度を目安にご連絡ください</div>
+<div class="toms-official-footer"><p class="toms-official-field"><span class="toms-official-field-label">有効期限</span>2026/07/13</p><p class="toms-official-field"><span class="toms-official-field-label">担当者</span>山中 智紀</p></div>
+
+</div></body></html>

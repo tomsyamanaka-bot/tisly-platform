@@ -1,0 +1,23 @@
+<!DOCTYPE html><html lang="ja"><head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=390, initial-scale=1"/>
+<link rel="stylesheet" href="../../public/css/tisly-friendly-ui.css"/>
+<style>
+body{margin:0;font-family:system-ui,sans-serif;background:#f6f8fa}
+.dialog-overlay{position:fixed;inset:0;background:rgba(15,23,42,0.45);display:flex;align-items:center;justify-content:center;padding:1rem}
+.dialog-card{background:#fff;border-radius:12px;padding:1rem 1.1rem;max-width:320px;width:100%;box-shadow:0 8px 30px rgba(0,0,0,0.18)}
+.dialog-card h3{margin:0 0 0.5rem;font-size:1rem}
+.dialog-card p{margin:0 0 1rem;line-height:1.55;font-size:0.92rem;color:#334155;white-space:pre-line}
+.dialog-actions{display:flex;gap:0.5rem;justify-content:flex-end}
+.dialog-actions button{min-height:44px;padding:0.55rem 0.9rem;border-radius:8px;border:1px solid #e2e8f0;background:#fff;font-size:0.9rem}
+.dialog-actions .danger{background:#dc2626;color:#fff;border-color:#dc2626}
+</style></head><body>
+<div class="dialog-overlay">
+  <div class="dialog-card">
+    <h3>案件の削除</h3>
+    <p>この案件には見積または請求があります。
+本当に削除しますか？
+関連する見積・請求・材料情報も一覧から非表示になります。</p>
+    <div class="dialog-actions"><button type="button">キャンセル</button><button type="button" class="danger">削除する</button></div>
+  </div>
+</div>
+</body></html>

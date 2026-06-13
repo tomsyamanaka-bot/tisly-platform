@@ -794,10 +794,14 @@ export function createCompletionReport(
       now,
       now
     );
-  updateBusinessProject(projectId, {
+  const patch: { completionReportId: string; status?: BusinessProjectStatus } = {
     completionReportId: id,
-    status: statusAfterCompletionReport(),
-  });
+  };
+  const nextStatus = statusAfterCompletionReport();
+  if (canTransitionStatus(project.status, nextStatus)) {
+    patch.status = nextStatus;
+  }
+  updateBusinessProject(projectId, patch);
   return getCompletionReport(id)!;
 }
 

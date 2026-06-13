@@ -12,6 +12,7 @@ import {
   listCompletionChecklistV1,
 } from "../field-ops/work-session-v1-store.js";
 import { getFieldCheckProgressV1 } from "../field-ops/field-check-v1-store.js";
+import { countExistingProjectPdfsV1 } from "./project-pdf-store.js";
 
 export type ProjectPipelineStage =
   | "survey"
@@ -61,6 +62,8 @@ export interface ProjectListItemV1 {
   pipeline: Record<ProjectPipelineStage, PipelineStageState>;
   source: "business" | "survey";
   updatedAt: string;
+  hasEstimate?: boolean;
+  hasInvoice?: boolean;
 }
 
 export interface ProjectTimelineItemV1 {
@@ -315,8 +318,10 @@ export function listProjectsV1(opts?: { customerCode?: string; limit?: number })
 
   const bizRows = db
     .prepare(
-      `SELECT id, project_no, title, customer_name, address, status, invoice_id, paid_date, updated_at
-       FROM business_projects ORDER BY updated_at DESC LIMIT ?`
+      `SELECT id, project_no, title, customer_name, address, status, estimate_id, invoice_id, paid_date, updated_at
+       FROM business_projects
+       WHERE deleted_at IS NULL
+       ORDER BY updated_at DESC LIMIT ?`
     )
     .all(limit) as Array<Record<string, string | null>>;
 
@@ -336,6 +341,8 @@ export function listProjectsV1(opts?: { customerCode?: string; limit?: number })
       pipeline: pipelineFromBusinessStatus(String(r.status), hasInvoice, hasPaid, ref),
       source: "business",
       updatedAt: String(r.updated_at),
+      hasEstimate: Boolean(r.estimate_id),
+      hasInvoice,
     });
   }
 
@@ -343,7 +350,8 @@ export function listProjectsV1(opts?: { customerCode?: string; limit?: number })
     .prepare(
       `SELECT project_id, project_no, site_name, customer_name, address, workflow_status, updated_at
        FROM survey_projects
-       WHERE project_id NOT IN (SELECT COALESCE(survey_project_id,'') FROM business_projects WHERE survey_project_id IS NOT NULL)
+       WHERE deleted_at IS NULL
+         AND project_id NOT IN (SELECT COALESCE(survey_project_id,'') FROM business_projects WHERE survey_project_id IS NOT NULL AND deleted_at IS NULL)
        ORDER BY updated_at DESC LIMIT ?`
     )
     .all(limit) as Array<Record<string, string | null>>;
@@ -383,7 +391,7 @@ export function getProjectDetailV1(id: string, source?: string): ProjectDetailV1
       .prepare(
         `SELECT id, project_no, title, customer_name, address, phone, status, invoice_id, paid_date, updated_at,
                 survey_schedule_json, construction_schedule_json, payment_due_date, paid_date AS paid
-         FROM business_projects WHERE id = ?`
+         FROM business_projects WHERE id = ? AND deleted_at IS NULL`
       )
       .get(id) as Record<string, string | null> | undefined;
     if (row) {
@@ -447,7 +455,7 @@ export function getProjectDetailV1(id: string, source?: string): ProjectDetailV1
   const survey = db
     .prepare(
       `SELECT project_id, project_no, site_name, customer_name, address, phone, assignee, workflow_status, survey_date, updated_at
-       FROM survey_projects WHERE project_id = ?`
+       FROM survey_projects WHERE project_id = ? AND deleted_at IS NULL`
     )
     .get(id) as Record<string, string | null> | undefined;
   if (!survey) return null;
@@ -481,4 +489,184 @@ export function getProjectDetailV1(id: string, source?: string): ProjectDetailV1
     workSession: getLatestWorkSessionForProject(ref),
     completionChecklist: listCompletionChecklistV1(ref),
   };
+}
+
+export interface DeleteProjectV1Result {
+  ok: boolean;
+  hadEstimate: boolean;
+  hadInvoice: boolean;
+  pdfCount: number;
+  projectTitle: string;
+}
+
+export interface DeleteProjectPreviewV1 {
+  projectTitle: string;
+  estimateCount: number;
+  invoiceCount: number;
+  pdfCount: number;
+}
+
+export interface DeletedProjectListItemV1 {
+  id: string;
+  projectNo: string;
+  title: string;
+  customerName: string;
+  source: "business" | "survey";
+  deletedAt: string;
+  estimateCount: number;
+  invoiceCount: number;
+  pdfCount: number;
+}
+
+export function getProjectDeletePreviewV1(
+  id: string,
+  source: "business" | "survey"
+): DeleteProjectPreviewV1 | null {
+  const db = getDatabase();
+  if (source === "business") {
+    const row = db
+      .prepare(
+        `SELECT title, estimate_id, invoice_id, deleted_at FROM business_projects WHERE id = ?`
+      )
+      .get(id) as
+      | { title: string; estimate_id: string | null; invoice_id: string | null; deleted_at: string | null }
+      | undefined;
+    if (!row || row.deleted_at) return null;
+    return {
+      projectTitle: String(row.title ?? ""),
+      estimateCount: row.estimate_id ? 1 : 0,
+      invoiceCount: row.invoice_id ? 1 : 0,
+      pdfCount: countExistingProjectPdfsV1(id),
+    };
+  }
+  const survey = db
+    .prepare(`SELECT site_name, deleted_at FROM survey_projects WHERE project_id = ?`)
+    .get(id) as { site_name: string; deleted_at: string | null } | undefined;
+  if (!survey || survey.deleted_at) return null;
+  return {
+    projectTitle: String(survey.site_name ?? ""),
+    estimateCount: 0,
+    invoiceCount: 0,
+    pdfCount: 0,
+  };
+}
+
+export function deleteProjectV1(id: string, source: "business" | "survey"): DeleteProjectV1Result | null {
+  const preview = getProjectDeletePreviewV1(id, source);
+  if (!preview) return null;
+  const db = getDatabase();
+  const now = new Date().toISOString();
+
+  if (source === "business") {
+    const row = db
+      .prepare(
+        `SELECT id, estimate_id, invoice_id, deleted_at, title FROM business_projects WHERE id = ?`
+      )
+      .get(id) as {
+      id: string;
+      estimate_id: string | null;
+      invoice_id: string | null;
+      deleted_at: string | null;
+      title: string;
+    } | undefined;
+    if (!row || row.deleted_at) return null;
+    db.prepare(`UPDATE business_projects SET deleted_at = ?, updated_at = ? WHERE id = ?`).run(now, now, id);
+    return {
+      ok: true,
+      hadEstimate: Boolean(row.estimate_id),
+      hadInvoice: Boolean(row.invoice_id),
+      pdfCount: preview.pdfCount,
+      projectTitle: String(row.title ?? preview.projectTitle),
+    };
+  }
+
+  const survey = db
+    .prepare(`SELECT project_id, deleted_at FROM survey_projects WHERE project_id = ?`)
+    .get(id) as { project_id: string; deleted_at: string | null } | undefined;
+  if (!survey || survey.deleted_at) return null;
+  db.prepare(`UPDATE survey_projects SET deleted_at = ?, updated_at = ? WHERE project_id = ?`).run(now, now, id);
+  return {
+    ok: true,
+    hadEstimate: false,
+    hadInvoice: false,
+    pdfCount: 0,
+    projectTitle: preview.projectTitle,
+  };
+}
+
+export function listDeletedProjectsV1(opts?: { limit?: number }): DeletedProjectListItemV1[] {
+  const limit = opts?.limit ?? 80;
+  const db = getDatabase();
+  const items: DeletedProjectListItemV1[] = [];
+
+  const bizRows = db
+    .prepare(
+      `SELECT id, project_no, title, customer_name, estimate_id, invoice_id, deleted_at
+       FROM business_projects
+       WHERE deleted_at IS NOT NULL
+       ORDER BY deleted_at DESC LIMIT ?`
+    )
+    .all(limit) as Array<Record<string, string | null>>;
+
+  for (const r of bizRows) {
+    const id = String(r.id);
+    items.push({
+      id,
+      projectNo: String(r.project_no ?? r.id),
+      title: String(r.title ?? ""),
+      customerName: String(r.customer_name ?? ""),
+      source: "business",
+      deletedAt: String(r.deleted_at),
+      estimateCount: r.estimate_id ? 1 : 0,
+      invoiceCount: r.invoice_id ? 1 : 0,
+      pdfCount: countExistingProjectPdfsV1(id),
+    });
+  }
+
+  const surveyRows = db
+    .prepare(
+      `SELECT project_id, project_no, site_name, customer_name, deleted_at
+       FROM survey_projects
+       WHERE deleted_at IS NOT NULL
+       ORDER BY deleted_at DESC LIMIT ?`
+    )
+    .all(limit) as Array<Record<string, string | null>>;
+
+  for (const r of surveyRows) {
+    items.push({
+      id: String(r.project_id),
+      projectNo: String(r.project_no ?? r.project_id),
+      title: String(r.site_name ?? ""),
+      customerName: String(r.customer_name ?? ""),
+      source: "survey",
+      deletedAt: String(r.deleted_at),
+      estimateCount: 0,
+      invoiceCount: 0,
+      pdfCount: 0,
+    });
+  }
+
+  return items.sort((a, b) => b.deletedAt.localeCompare(a.deletedAt)).slice(0, limit);
+}
+
+export function restoreProjectV1(id: string, source: "business" | "survey"): boolean {
+  const db = getDatabase();
+  const now = new Date().toISOString();
+  if (source === "business") {
+    const row = db
+      .prepare(`SELECT id, deleted_at FROM business_projects WHERE id = ?`)
+      .get(id) as { id: string; deleted_at: string | null } | undefined;
+    if (!row?.deleted_at) return false;
+    db.prepare(`UPDATE business_projects SET deleted_at = NULL, updated_at = ? WHERE id = ?`).run(now, id);
+    return true;
+  }
+  const survey = db
+    .prepare(`SELECT project_id, deleted_at FROM survey_projects WHERE project_id = ?`)
+    .get(id) as { project_id: string; deleted_at: string | null } | undefined;
+  if (!survey?.deleted_at) return false;
+  db.prepare(`UPDATE survey_projects SET deleted_at = NULL, updated_at = ? WHERE project_id = ?`).run(
+    now,
+    id
+  );
+  return true;
 }

@@ -407,10 +407,47 @@ function applyLayoutMode() {
   }
 }
 
+async function regenerateStoredPdf() {
+  if (!payload?.regenerateUrl) {
+    toast("この書類はPDF再作成に対応していません");
+    return;
+  }
+  if (!confirm("内容を反映してPDFを再作成しますか？\n保存済みPDFが上書きされます。")) return;
+  const token = getCustomerToken();
+  const res = await fetch(payload.regenerateUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: "{}",
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw Object.assign(new Error(data.error || "PDF再作成に失敗しました"), { status: res.status });
+  payload = {
+    ...payload,
+    storedPdfPath: data.pdfPath ?? payload.storedPdfPath,
+    hasStoredPdf: Boolean(data.pdfPath ?? payload.hasStoredPdf),
+  };
+  toast("PDFを再作成しました");
+  if (!mobileMode) {
+    await loadPdfFrame(payload.pdfUrl);
+  }
+}
+
+function updateRegenerateButton(data) {
+  const btn = $("btn-regenerate");
+  if (!btn) return;
+  const show = Boolean(data.regenerateUrl);
+  btn.classList.toggle("hidden", !show);
+  btn.title = data.hasStoredPdf ? "PDF再作成（保存済みを上書き）" : "PDF作成";
+}
+
 function updateHeader(data) {
   $("header-kind").textContent = data.label;
   $("header-title").textContent = data.projectTitle;
   document.title = `TiSLY — ${data.label}`;
+  updateRegenerateButton(data);
 }
 
 async function handleShare() {
@@ -469,6 +506,9 @@ async function init() {
   }
 
   $("btn-back").addEventListener("click", () => handleBack(returnUrl));
+  $("btn-regenerate")?.addEventListener("click", () => {
+    regenerateStoredPdf().catch((e) => toast(e.message || "PDF再作成に失敗しました"));
+  });
   $("btn-share").addEventListener("click", () => handleShare());
   $("btn-print").addEventListener("click", () => handlePrint());
   $("btn-pdf").addEventListener("click", () => {

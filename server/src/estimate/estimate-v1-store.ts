@@ -7,12 +7,14 @@ import {
   createEstimate,
   createInvoiceFromEstimate,
   getBusinessProject,
+  getCompletionReport,
   getEstimate,
   getInvoice,
   listCustomers,
   saveBusinessPhoto,
   setEstimatePdfPath,
   setInvoicePdfPath,
+  setCompletionReportPdfPath,
   syncInvoiceItemsFromEstimate,
   updateBusinessProject,
   updateEstimateHeader,
@@ -23,7 +25,7 @@ import {
   mergeEstimateHeader,
   type TomsEstimateHeader,
 } from "../business/toms-document-format.js";
-import { generateInvoicePdf } from "../business/services/pdfService.js";
+import { generateEstimatePdf, generateInvoicePdf, generateCompletionReportPdfV1 } from "../business/services/pdfService.js";
 import { listPricingRules } from "../business/business-pricing.js";
 import type {
   CustomerPriceRuleSummary,
@@ -44,7 +46,6 @@ import {
 } from "../business/customer-price-rules.js";
 import { applyPricingTierToItems, calcTotals, normalizeLineItems } from "../business/estimate-math.js";
 import { generateTomsDailyDocNo } from "../business/toms-document-format.js";
-import { generateEstimatePdf } from "../business/services/pdfService.js";
 import { v4 as uuid } from "uuid";
 import {
   getEstimateLineTemplateV1,
@@ -752,11 +753,21 @@ export function renderCompletionReportHtmlV1(businessProjectId: string): string 
   return renderPracticalCompletionReportHtml(ctx);
 }
 
-export function createCompletionReportV1(businessProjectId: string): { reportId: string } {
+export async function createCompletionReportV1(
+  businessProjectId: string
+): Promise<{ reportId: string; pdfPath?: string }> {
   const project = getBusinessProject(businessProjectId);
   if (!project) throw new Error("project not found");
   if (project.completionReportId) {
-    return { reportId: project.completionReportId };
+    const html = renderCompletionReportHtmlV1(businessProjectId);
+    let pdfPath: string | undefined;
+    if (html) {
+      const rep = getCompletionReport(project.completionReportId);
+      const suffix = rep?.title?.slice(0, 24) ?? businessProjectId.slice(-4);
+      pdfPath = await generateCompletionReportPdfV1(project, html, suffix);
+      setCompletionReportPdfPath(project.completionReportId, pdfPath);
+    }
+    return { reportId: project.completionReportId, pdfPath };
   }
   const ref = { source: "business" as const, projectId: businessProjectId };
   let status = normalizeProjectStatus(project.status);
@@ -771,7 +782,14 @@ export function createCompletionReportV1(businessProjectId: string): { reportId:
     title: `${project.title} 完了報告`,
     workMemo: buildWorkContentSummary(ref),
   });
-  return { reportId: report.id };
+  const refreshed = getBusinessProject(businessProjectId)!;
+  const html = renderCompletionReportHtmlV1(businessProjectId);
+  let pdfPath: string | undefined;
+  if (html) {
+    pdfPath = await generateCompletionReportPdfV1(refreshed, html, report.title.slice(0, 24));
+    setCompletionReportPdfPath(report.id, pdfPath);
+  }
+  return { reportId: report.id, pdfPath };
 }
 
 export function duplicateEstimateV1(businessProjectId: string): EstimateProjectV1Detail {

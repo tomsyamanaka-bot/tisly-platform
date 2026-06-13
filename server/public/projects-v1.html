@@ -16,6 +16,46 @@
       border-radius: var(--tisly-radius); border: 2px solid var(--tisly-blue);
       background: var(--tisly-surface); color: var(--tisly-blue);
     }
+    .project-card { position: relative; cursor: pointer; }
+    .project-card .list-card-actions { position: absolute; top: 0.65rem; right: 0.65rem; }
+    .pdf-row {
+      border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.65rem 0.75rem; margin-bottom: 0.55rem;
+      background: #fff;
+    }
+    .pdf-row-head { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem; }
+    .pdf-row-head strong { font-size: 0.95rem; }
+    .pdf-meta { font-size: 0.78rem; color: #64748b; line-height: 1.45; }
+    .pdf-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.45rem; }
+    .pdf-actions button, .pdf-actions a {
+      min-height: 40px; padding: 0.35rem 0.65rem; font-size: 0.82rem; font-weight: 600;
+      border-radius: 8px; border: 1px solid #cbd5e1; background: #f8fafc; color: #334155;
+      text-decoration: none; cursor: pointer;
+    }
+    .pdf-actions .btn-primary-action { background: var(--tisly-blue); color: #fff; border-color: var(--tisly-blue); }
+    .pdf-actions .btn-danger { color: #b91c1c; border-color: #fecaca; background: #fef2f2; }
+    .pdf-empty { font-size: 0.85rem; color: #94a3b8; padding: 0.35rem 0; }
+    .deleted-card { border-left: 3px solid #f87171; }
+    .list-tabs { display: flex; gap: 0.35rem; margin-bottom: 0.75rem; }
+    .list-tabs button {
+      flex: 1; min-height: 44px; border-radius: 10px; border: 1px solid #cbd5e1;
+      background: #fff; font-weight: 600; font-size: 0.88rem;
+    }
+    .list-tabs button.active { background: var(--tisly-blue); color: #fff; border-color: var(--tisly-blue); }
+    .delete-dialog-overlay {
+      position: fixed; inset: 0; background: rgba(15,23,42,0.45); z-index: 200;
+      display: flex; align-items: center; justify-content: center; padding: 1rem;
+    }
+    .delete-dialog-overlay.hidden { display: none; }
+    .delete-dialog {
+      background: #fff; border-radius: 14px; padding: 1.1rem; max-width: 360px; width: 100%;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.18);
+    }
+    .delete-dialog h4 { margin: 0 0 0.65rem; font-size: 1rem; }
+    .delete-dialog .stats { font-size: 0.9rem; line-height: 1.6; margin-bottom: 0.85rem; }
+    .delete-dialog .dialog-actions { display: flex; gap: 0.5rem; }
+    .delete-dialog .dialog-actions button { flex: 1; min-height: 44px; border-radius: 10px; font-weight: 700; }
+    .delete-dialog .btn-cancel { border: 1px solid #cbd5e1; background: #f8fafc; }
+    .delete-dialog .btn-confirm-delete { border: none; background: #dc2626; color: #fff; }
   </style>
 </head>
 <body class="tisly-friendly field-ops-touch">
@@ -24,8 +64,12 @@
       <div id="today-departure-card" class="hidden"></div>
       <div id="dashboard-grid" class="dashboard-grid"></div>
       <a href="/search-v1" class="btn-sub" style="width:100%;margin-bottom:0.75rem;text-align:center;">🔍 検索</a>
-      <p class="section-label">📂 案件一覧</p>
+      <div class="list-tabs">
+        <button type="button" id="tab-active" class="active">📂 案件一覧</button>
+        <button type="button" id="tab-deleted">🗑 削除済</button>
+      </div>
       <div id="project-list" class="empty-state">読み込み中…</div>
+      <div id="deleted-list" class="hidden empty-state"></div>
     </div>
     <div id="view-detail" class="hidden">
       <div id="detail-header" class="friendly-card"></div>
@@ -34,12 +78,22 @@
       <p class="section-label">現場作業</p>
       <div id="detail-work-session"></div>
       <p class="section-label">書類</p>
-      <div id="detail-documents" class="doc-action-grid friendly-card hidden"></div>
+      <div id="detail-documents" class="friendly-card hidden"></div>
       <p class="section-label">時系列</p>
       <div id="detail-timeline" class="friendly-card"></div>
       <button type="button" class="btn-sub" id="btn-back-list">一覧に戻る</button>
     </div>
   </main>
+  <div id="delete-dialog-overlay" class="delete-dialog-overlay hidden" role="dialog" aria-modal="true">
+    <div class="delete-dialog">
+      <h4>案件を削除</h4>
+      <div id="delete-dialog-body" class="stats"></div>
+      <div class="dialog-actions">
+        <button type="button" class="btn-cancel" id="delete-dialog-cancel">キャンセル</button>
+        <button type="button" class="btn-confirm-delete" id="delete-dialog-confirm">削除する</button>
+      </div>
+    </div>
+  </div>
   <div id="toast" class="toast" role="status"></div>
   <script type="module" src="/js/projects-v1.js"></script>
 </body>

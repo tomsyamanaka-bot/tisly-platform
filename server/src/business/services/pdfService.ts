@@ -3,6 +3,11 @@ import path from "path";
 import type { BusinessProject, CompletionReport, Estimate, Invoice } from "../business-types.js";
 import { resolveEstimatePriceRule } from "../customer-price-rules.js";
 import { businessUploadsDir } from "../business-store.js";
+import {
+  buildProjectPdfFileName,
+  PDF_STORAGE_PROVIDER,
+  type PdfStorageProvider,
+} from "../../projects/project-pdf-store.js";
 import { generateQnapFilePath } from "./qnapService.js";
 import {
   getPdfTemplateMeta,
@@ -40,6 +45,11 @@ startxref
   return Buffer.from(pdf, "utf8");
 }
 
+/** @see PDF_STORAGE_PROVIDER — 現状 local 固定、将来 qnap 切替 */
+export function getPdfStorageProvider(): PdfStorageProvider {
+  return PDF_STORAGE_PROVIDER;
+}
+
 function writePdf(projectId: string, folder: string, fileName: string, buf: Buffer): string {
   const dir = businessUploadsDir(projectId, folder);
   const full = path.join(dir, fileName);
@@ -66,16 +76,24 @@ async function writePdfFromHtml(
       ? `estimate-${(doc as Estimate).estimateNo}.html`
       : `invoice-${(doc as Invoice).invoiceNo}.html`;
   const htmlPath = writeHtml(project.id, "pdf-html", htmlName, html);
-  const fileName = path.basename(
-    generateQnapFilePath(
-      project,
-      kind,
-      kind === "estimate" ? (doc as Estimate).estimateNo : (doc as Invoice).invoiceNo
-    )
-  );
+  const suffix =
+    kind === "estimate"
+      ? (doc as Estimate).estimateNo
+      : (doc as Invoice).invoiceNo;
+  const fileName = buildProjectPdfFileName(kind, suffix);
   const { pdfBuf } = await renderWithPdfFallback(html, title);
   const pdfPath = writePdf(project.id, "pdfs", fileName, pdfBuf);
   return { pdfPath, htmlPath };
+}
+
+export async function generateCompletionReportPdfV1(
+  project: BusinessProject,
+  html: string,
+  suffix: string
+): Promise<string> {
+  const fileName = buildProjectPdfFileName("report", suffix);
+  const { pdfBuf } = await renderWithPdfFallback(html, `完了報告 ${project.title}`);
+  return writePdf(project.id, "pdfs", fileName, pdfBuf);
 }
 
 function renderWithTemplate(
@@ -178,6 +196,17 @@ export function generateCompletionReportPdf(
   return pdfPath;
 }
 
+function resolveStoredPdfPath(storedPath: string | null | undefined): string | null {
+  if (!storedPath?.trim()) return null;
+  const local = path.join(process.cwd(), storedPath.replace(/^\//, ""));
+  return fs.existsSync(local) ? local : null;
+}
+
+export interface PdfServeOptions {
+  /** true = 保存済みPDFを無視してHTMLプレビューを生成 */
+  regenerate?: boolean;
+}
+
 export interface EstimatePdfRenderContext {
   siteName?: string | null;
   workLocation?: string | null;
@@ -194,8 +223,13 @@ export interface EstimatePdfRenderContext {
 export function getEstimatePdfOrPlaceholder(
   project: BusinessProject,
   estimate: Estimate,
-  ctx?: EstimatePdfRenderContext
-): { contentType: string; path: string } {
+  ctx?: EstimatePdfRenderContext,
+  opts?: PdfServeOptions
+): { contentType: string; path: string; stored: boolean } {
+  if (!opts?.regenerate) {
+    const stored = resolveStoredPdfPath(estimate.pdfPath);
+    if (stored) return { contentType: "application/pdf", path: stored, stored: true };
+  }
   const html = renderEstimateHtml(project, estimate, {
     siteName: ctx?.siteName,
     workLocation: ctx?.workLocation ?? project.address,
@@ -208,15 +242,20 @@ export function getEstimatePdfOrPlaceholder(
   const tmp = businessUploadsDir(project.id, "pdf-html");
   const p = path.join(tmp, "estimate-live.html");
   fs.writeFileSync(p, html, "utf8");
-  return { contentType: "text/html; charset=UTF-8", path: p };
+  return { contentType: "text/html; charset=UTF-8", path: p, stored: false };
 }
 
 export function getInvoicePdfOrPlaceholder(
   project: BusinessProject,
   invoice: Invoice,
   estimate: Estimate,
-  ctx?: InvoicePdfRenderContext
-): { contentType: string; path: string } {
+  ctx?: InvoicePdfRenderContext,
+  opts?: PdfServeOptions
+): { contentType: string; path: string; stored: boolean } {
+  if (!opts?.regenerate) {
+    const stored = resolveStoredPdfPath(invoice.pdfPath);
+    if (stored) return { contentType: "application/pdf", path: stored, stored: true };
+  }
   const html = renderInvoiceHtml(project, invoice, estimate, {
     estimateRefNo: ctx?.estimateRefNo ?? invoice.estimateRefNo ?? estimate.estimateNo,
     notes: ctx?.notes,
@@ -229,7 +268,7 @@ export function getInvoicePdfOrPlaceholder(
   const tmp = businessUploadsDir(project.id, "pdf-html");
   const p = path.join(tmp, "invoice-live.html");
   fs.writeFileSync(p, html, "utf8");
-  return { contentType: "text/html; charset=UTF-8", path: p };
+  return { contentType: "text/html; charset=UTF-8", path: p, stored: false };
 }
 
 export function getCompletionReportPdfOrPlaceholder(

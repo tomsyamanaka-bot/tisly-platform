@@ -213,7 +213,7 @@ describe("TOMS標準見積フォーマット", () => {
       .send({});
 
     const noPhoto = await request(app)
-      .get(`/api/estimate/v1/projects/${businessProjectId}/invoice/pdf`)
+      .get(`/api/estimate/v1/projects/${businessProjectId}/invoice/pdf?live=1`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(noPhoto.status, 200);
     assert.match(noPhoto.text, /御請求書/);
@@ -224,7 +224,7 @@ describe("TOMS標準見積フォーマット", () => {
     assert.ok(!/参考写真/.test(noPhoto.text));
 
     const withPhoto = await request(app)
-      .get(`/api/estimate/v1/projects/${businessProjectId}/invoice/pdf?includePhotos=1`)
+      .get(`/api/estimate/v1/projects/${businessProjectId}/invoice/pdf?includePhotos=1&live=1`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(withPhoto.status, 200);
     assert.match(withPhoto.text, /御請求書/);

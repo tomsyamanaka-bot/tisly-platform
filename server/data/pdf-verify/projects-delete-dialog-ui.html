@@ -1,0 +1,23 @@
+<!DOCTYPE html><html lang="ja"><head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=390, initial-scale=1"/>
+<link rel="stylesheet" href="../../public/css/tisly-friendly-ui.css"/>
+<style>
+body{margin:0;font-family:system-ui,sans-serif}
+.delete-dialog-overlay{position:fixed;inset:0;background:rgba(15,23,42,0.45);display:flex;align-items:center;justify-content:center;padding:1rem}
+.delete-dialog{background:#fff;border-radius:14px;padding:1.1rem;max-width:360px;width:100%}
+.delete-dialog h4{margin:0 0 0.65rem}
+.delete-dialog .stats{font-size:0.9rem;line-height:1.6;margin-bottom:0.85rem}
+.dialog-actions{display:flex;gap:0.5rem}
+.dialog-actions button{flex:1;min-height:44px;border-radius:10px;font-weight:700}
+.btn-cancel{border:1px solid #cbd5e1;background:#f8fafc}
+.btn-confirm-delete{border:none;background:#dc2626;color:#fff}
+</style></head><body>
+<div class="delete-dialog-overlay"><div class="delete-dialog">
+<h4>案件を削除</h4>
+<div class="stats">
+<p><strong>案件：</strong>現調）上田さんカメラ</p>
+<p>見積：1</p><p>請求：1</p><p>PDF：3</p>
+<p style="margin-top:0.65rem;">本当に削除しますか？</p>
+</div>
+<div class="dialog-actions"><button class="btn-cancel">キャンセル</button><button class="btn-confirm-delete">削除する</button></div>
+</div></div></body></html>

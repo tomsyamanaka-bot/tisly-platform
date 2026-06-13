@@ -35,10 +35,13 @@ import {
 } from "../../estimate/completion-photos-store.js";
 import { businessUploadsDir } from "../../business/business-store.js";
 import {
+  generateEstimatePdf,
+  generateInvoicePdf,
   getEstimatePdfOrPlaceholder,
   getInvoicePdfOrPlaceholder,
 } from "../../business/services/pdfService.js";
-import { getBusinessProject, getEstimate, getInvoice } from "../../business/business-store.js";
+import { getBusinessProject, getEstimate, getInvoice, getCompletionReport, setEstimatePdfPath, setInvoicePdfPath } from "../../business/business-store.js";
+import { regenerateProjectPdfV1 } from "../../projects/project-pdf-store.js";
 import type { EstimateLineItem } from "../../business/business-types.js";
 import type { EstimateHeaderInputV1 } from "../../estimate/estimate-v1-types.js";
 import {
@@ -70,6 +73,12 @@ function assertEstimateV1Role(req: AuthedRequest, res: Response): boolean {
 
 function parseIncludePhotos(query: Record<string, unknown>): boolean {
   const raw = query.includePhotos ?? query.photos;
+  if (raw === "1" || raw === "true" || raw === "yes") return true;
+  return false;
+}
+
+function parseRegenerate(query: Record<string, unknown>): boolean {
+  const raw = query.regenerate ?? query.live;
   if (raw === "1" || raw === "true" || raw === "yes") return true;
   return false;
 }
@@ -286,9 +295,37 @@ estimateV1Router.get("/projects/:id/pdf", ...estimateV1Auth, (req: AuthedRequest
     return;
   }
   const includePhotos = parseIncludePhotos(req.query as Record<string, unknown>);
+  const regenerate = parseRegenerate(req.query as Record<string, unknown>);
   const pdfCtx = getEstimatePdfContextV1(project.id, { includePhotos }) ?? undefined;
-  const { contentType, path: filePath } = getEstimatePdfOrPlaceholder(project, estimate, pdfCtx);
+  const { contentType, path: filePath } = getEstimatePdfOrPlaceholder(project, estimate, pdfCtx, {
+    regenerate,
+  });
   res.type(contentType).sendFile(filePath);
+});
+
+estimateV1Router.post("/projects/:id/pdf/regenerate", ...estimateV1Auth, async (req: AuthedRequest, res) => {
+  if (!assertEstimateV1Role(req, res)) return;
+  const project = getBusinessProject(String(req.params.id));
+  if (!project?.estimateId) {
+    res.status(404).json({ error: "No estimate" });
+    return;
+  }
+  const estimate = getEstimate(project.estimateId);
+  if (!estimate) {
+    res.status(404).json({ error: "No estimate" });
+    return;
+  }
+  try {
+    const body = (req.body ?? {}) as { includePhotos?: boolean };
+    const pdfCtx = getEstimatePdfContextV1(project.id, {
+      includePhotos: body.includePhotos === true,
+    }) ?? undefined;
+    const pdfPath = await generateEstimatePdf(project, estimate, pdfCtx);
+    setEstimatePdfPath(estimate.id, pdfPath);
+    res.json({ pdfPath, estimate: getEstimate(estimate.id) });
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : "regenerate failed" });
+  }
 });
 
 estimateV1Router.post("/projects/:id/invoice", ...estimateV1Auth, async (req: AuthedRequest, res) => {
@@ -316,13 +353,40 @@ estimateV1Router.get("/projects/:id/invoice/pdf", ...estimateV1Auth, (req: Authe
     return;
   }
   const includePhotos = parseIncludePhotos(req.query as Record<string, unknown>);
+  const regenerate = parseRegenerate(req.query as Record<string, unknown>);
   const pdfCtx = getEstimatePdfContextV1(project.id, { includePhotos }) ?? undefined;
   const { contentType, path: filePath } = getInvoicePdfOrPlaceholder(project, invoice, estimate, {
     notes: pdfCtx?.notes,
     includePhotos: pdfCtx?.includePhotos,
-  });
+  }, { regenerate });
   res.type(contentType).sendFile(filePath);
 });
+
+estimateV1Router.post(
+  "/projects/:id/invoice/pdf/regenerate",
+  ...estimateV1Auth,
+  async (req: AuthedRequest, res) => {
+    if (!assertEstimateV1Role(req, res)) return;
+    const project = getBusinessProject(String(req.params.id));
+    if (!project?.invoiceId || !project.estimateId) {
+      res.status(404).json({ error: "No invoice" });
+      return;
+    }
+    const invoice = getInvoice(project.invoiceId);
+    const estimate = getEstimate(project.estimateId);
+    if (!invoice || !estimate) {
+      res.status(404).json({ error: "No invoice" });
+      return;
+    }
+    try {
+      const pdfPath = await generateInvoicePdf(project, invoice, estimate);
+      setInvoicePdfPath(invoice.id, pdfPath);
+      res.json({ pdfPath, invoice: getInvoice(invoice.id) });
+    } catch (e) {
+      res.status(500).json({ error: e instanceof Error ? e.message : "regenerate failed" });
+    }
+  }
+);
 
 estimateV1Router.get(
   "/projects/:id/specification/pdf",
@@ -433,10 +497,10 @@ estimateV1Router.delete(
 estimateV1Router.post(
   "/projects/:id/completion-report/create",
   ...estimateV1Auth,
-  (req: AuthedRequest, res) => {
+  async (req: AuthedRequest, res) => {
     if (!assertEstimateV1Role(req, res)) return;
     try {
-      const result = createCompletionReportV1(String(req.params.id));
+      const result = await createCompletionReportV1(String(req.params.id));
       res.status(201).json(result);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "create failed";
@@ -450,12 +514,24 @@ estimateV1Router.get(
   ...estimateV1Auth,
   (req: AuthedRequest, res) => {
     if (!assertEstimateV1Role(req, res)) return;
-    const project = getBusinessProject(String(req.params.id));
+    const projectId = String(req.params.id);
+    const project = getBusinessProject(projectId);
     if (!project) {
       res.status(404).json({ error: "Not found" });
       return;
     }
-    const html = renderCompletionReportHtmlV1(project.id);
+    const regenerate = parseRegenerate(req.query as Record<string, unknown>);
+    if (!regenerate && project.completionReportId) {
+      const report = getCompletionReport(project.completionReportId);
+      if (report?.pdfPath) {
+        const local = path.join(process.cwd(), report.pdfPath.replace(/^\//, ""));
+        if (fs.existsSync(local)) {
+          res.type("application/pdf").sendFile(local);
+          return;
+        }
+      }
+    }
+    const html = renderCompletionReportHtmlV1(projectId);
     if (!html) {
       res.status(404).json({ error: "Not found" });
       return;
@@ -464,6 +540,21 @@ estimateV1Router.get(
     const p = path.join(tmp, "completion-report-live.html");
     fs.writeFileSync(p, html, "utf8");
     res.type("text/html; charset=utf-8").sendFile(p);
+  }
+);
+
+estimateV1Router.post(
+  "/projects/:id/completion-report/pdf/regenerate",
+  ...estimateV1Auth,
+  async (req: AuthedRequest, res) => {
+    if (!assertEstimateV1Role(req, res)) return;
+    try {
+      const entry = await regenerateProjectPdfV1(String(req.params.id), "report");
+      res.json({ pdfPath: entry.pdfPath, pdf: entry });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "regenerate failed";
+      res.status(msg.includes("not found") || msg.startsWith("No ") ? 404 : 500).json({ error: msg });
+    }
   }
 );
 

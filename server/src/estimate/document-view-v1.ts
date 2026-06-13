@@ -1,4 +1,5 @@
 import { calcTotals, normalizeLineItems } from "../business/estimate-math.js";
+import { buildCustomerFacingPdfNotes } from "../business/customer-price-rules.js";
 import { getBusinessProject, getEstimate, getInvoice } from "../business/business-store.js";
 import type { EstimateLineItem } from "../business/business-types.js";
 import { listCompletionChecklistV1 } from "../field-ops/work-session-v1-store.js";
@@ -47,6 +48,9 @@ export interface DocumentViewPayloadV1 {
   projectTitle: string;
   projectNo: string;
   pdfUrl: string;
+  storedPdfPath: string | null;
+  hasStoredPdf: boolean;
+  regenerateUrl: string | null;
   estimate?: {
     docNo: string;
     addressee: string;
@@ -146,6 +150,22 @@ function pdfPathForKind(projectId: string, kind: DocumentViewKindV1): string {
   }
 }
 
+function regenerateUrlForKind(projectId: string, kind: DocumentViewKindV1): string | null {
+  const base = `/api/estimate/v1/projects/${projectId}`;
+  switch (kind) {
+    case "estimate":
+      return `${base}/pdf/regenerate`;
+    case "invoice":
+      return `${base}/invoice/pdf/regenerate`;
+    default:
+      return null;
+  }
+}
+
+function customerFacingNotes(raw: string | null | undefined): string {
+  return buildCustomerFacingPdfNotes(raw);
+}
+
 export function buildDocumentViewPayloadV1(
   businessProjectId: string,
   kind: DocumentViewKindV1
@@ -162,21 +182,27 @@ export function buildDocumentViewPayloadV1(
     projectTitle: project.title,
     projectNo: project.projectNo,
     pdfUrl: pdfPathForKind(businessProjectId, kind),
+    storedPdfPath: null,
+    hasStoredPdf: false,
+    regenerateUrl: regenerateUrlForKind(businessProjectId, kind),
   };
 
   if (kind === "estimate") {
     if (!detail?.estimate || !detail.header) return null;
     const items = normalizeLineItems(detail.estimate.items);
     const totals = calcTotals(items, { shuseiDiscount: detail.estimate.shuseiDiscount });
+    const notes = customerFacingNotes(detail.estimateNotes ?? project.surveyMemo ?? "");
     return {
       ...base,
+      storedPdfPath: detail.estimate.pdfPath ?? null,
+      hasStoredPdf: Boolean(detail.estimate.pdfPath),
       estimate: {
         docNo: detail.header.estimateNo ?? detail.estimate.estimateNo,
         addressee: detail.header.addressee,
         subject: detail.header.subject,
         issueDate: detail.header.issueDate,
         staffName: detail.header.staffName,
-        notes: detail.estimateNotes ?? "",
+        notes,
         items: mapLineItems(items),
         lineSubtotal: totals.lineSubtotal,
         shuseiDiscount: totals.shuseiDiscount,
@@ -193,8 +219,11 @@ export function buildDocumentViewPayloadV1(
     const estimate = getEstimate(project.estimateId);
     if (!invoice || !estimate || !detail?.header) return null;
     const items = normalizeLineItems(estimate.items);
+    const notes = customerFacingNotes(project.surveyMemo ?? "");
     return {
       ...base,
+      storedPdfPath: invoice.pdfPath ?? null,
+      hasStoredPdf: Boolean(invoice.pdfPath),
       invoice: {
         docNo: invoice.invoiceNo,
         addressee: detail.header.addressee,
@@ -207,7 +236,7 @@ export function buildDocumentViewPayloadV1(
         subtotal: invoice.subtotal,
         tax: invoice.tax,
         total: invoice.total,
-        notes: project.surveyMemo ?? "",
+        notes,
       },
     };
   }

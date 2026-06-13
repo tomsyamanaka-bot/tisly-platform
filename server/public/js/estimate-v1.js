@@ -1293,6 +1293,32 @@ function setListTab(tab) {
   if (invoices) loadInvoices();
 }
 
+async function regenerateProjectPdf(kind) {
+  if (!currentProjectId) return;
+  const label = kind === "invoice" ? "請求書" : "見積書";
+  if (!confirm(`${label}PDFを再作成しますか？\n保存済みPDFが上書きされます。`)) return;
+  try {
+    if (kind === "estimate" || kind === "invoice") {
+      await saveHeader().catch(() => ({}));
+      await saveItems().catch(() => ({}));
+    }
+    const path =
+      kind === "invoice"
+        ? `/projects/${currentProjectId}/invoice/pdf/regenerate`
+        : `/projects/${currentProjectId}/pdf/regenerate`;
+    const result = await api(path, { method: "POST", body: "{}" });
+    toast(`${label}PDFを再作成しました`);
+    if (kind === "estimate") {
+      $("detail-status").textContent = "見積書の準備ができました";
+      $("detail-status").className = "status-badge done";
+    }
+    return result.pdfPath;
+  } catch (e) {
+    toastError(e, e.status);
+    return null;
+  }
+}
+
 async function init() {
   await requireCustomerLogin(customerCodeFromPath());
   await loadPriceRulePresets();
@@ -1466,7 +1492,9 @@ async function init() {
   });
 
   $("btn-pdf-estimate").addEventListener("click", () => openDocumentViewer("estimate"));
+  $("btn-regenerate-estimate")?.addEventListener("click", () => regenerateProjectPdf("estimate"));
   $("btn-pdf-invoice").addEventListener("click", () => openDocumentViewer("invoice"));
+  $("btn-regenerate-invoice")?.addEventListener("click", () => regenerateProjectPdf("invoice"));
   $("btn-pdf-specification").addEventListener("click", () => openDocumentViewer("specification"));
   $("btn-pdf-completion").addEventListener("click", () => openDocumentViewer("completion"));
 
