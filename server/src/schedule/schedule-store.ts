@@ -23,7 +23,10 @@ import {
   getMapsIntegrationStatus,
 } from "./google-maps-service.js";
 import { buildDayDispatch } from "./route-planner-service.js";
-import { fetchDayWeather } from "./weather-service.js";
+import { geocodeAddress } from "./geocode-service.js";
+import { getDefaultDepartureOrigin } from "./google-maps-service.js";
+import { getDefaultOriginLabel } from "./schedule-settings-store.js";
+import { fetchDayWeather, type DayWeather } from "./weather-service.js";
 import type {
   CalendarIntegrationStatus,
   ScheduleDayDetail,
@@ -158,11 +161,45 @@ async function loadCalendarEvents(startDate: string, endDate: string): Promise<S
   return fetchCalendarEvents(startDate, endDate);
 }
 
+/** 基準地（通常出発地）の緯度経度から Open-Meteo で天気取得 — 現場天気の流用禁止 */
+export async function fetchBaseOriginDayWeather(date: string): Promise<DayWeather> {
+  const origin = getDefaultDepartureOrigin();
+  const label = getDefaultOriginLabel();
+  try {
+    const geo = await geocodeAddress(origin);
+    const weather = await fetchDayWeather(date, {
+      location: label,
+      lat: geo.lat,
+      lon: geo.lon,
+    });
+    if (!weather.slots?.length) {
+      return {
+        ...weather,
+        location: label,
+        kind: "base",
+        status: "fetch_failed",
+      };
+    }
+    return { ...weather, location: label, kind: "base", status: "ok" };
+  } catch {
+    return {
+      date,
+      location: label,
+      lat: 0,
+      lon: 0,
+      source: "mock",
+      slots: [],
+      kind: "base",
+      status: "fetch_failed",
+    };
+  }
+}
+
 async function attachWeatherToDayCards(days: ScheduleDayCard[]): Promise<ScheduleDayCard[]> {
   return Promise.all(
     days.map(async (day) => ({
       ...day,
-      weather: await fetchDayWeather(day.date),
+      weather: await fetchBaseOriginDayWeather(day.date),
     }))
   );
 }
@@ -278,7 +315,9 @@ export async function getScheduleDayDetail(
   const unavailable = listUnavailableDays(date, date);
   const unavailableMap = new Map(unavailable.map((u) => [u.date, u]));
   const day = buildDayCard(date, events, unavailableMap);
-  const weather = await fetchDayWeather(date, { location: opts?.location });
+  const weather = opts?.location
+    ? await fetchDayWeather(date, { location: opts.location })
+    : await fetchBaseOriginDayWeather(date);
   let dispatch = buildDayDispatch(date, day.events);
   if (dispatch) {
     dispatch = await enrichDispatchLegDurations(dispatch);

@@ -36,7 +36,7 @@ import {
   bindIntelligenceEventCards,
   renderDayIntelligenceEvents,
   renderDayIntelligenceSummary,
-  renderWeatherSlotsHtml,
+  renderBaseWeatherHtml,
 } from "./schedule-intelligence-ui.js";
 
 const API = "/api/schedule/v1";
@@ -96,7 +96,7 @@ async function api(path, opts = {}) {
 function renderWeather(weather) {
   const el = $("day-weather");
   if (!el) return;
-  const html = renderWeatherSlotsHtml(weather?.slots, { inline: false, practical: true });
+  const html = renderBaseWeatherHtml(weather);
   if (!html) {
     el.innerHTML = "";
     el.classList.add("hidden");

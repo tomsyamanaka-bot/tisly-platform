@@ -17,7 +17,7 @@ import {
   resolveSiteMapsUrl,
   type MapsDurationSource,
 } from "./google-maps-service.js";
-import { fetchDayWeather, type DayWeather, type WeatherSlot } from "./weather-service.js";
+import { fetchDayWeather, type DayWeather, type WeatherDisplayStatus, type WeatherSlot } from "./weather-service.js";
 import type { ScheduleEvent } from "./schedule-types.js";
 
 export type ScheduleFeasibility = "comfortable" | "caution" | "tight" | "unknown";
@@ -54,6 +54,8 @@ export interface ScheduleEventIntelligence {
   address: ExtractedAddress;
   weather: DayWeather | null;
   weatherSlots: WeatherSlot[];
+  /** 現場天気の取得状態 */
+  weatherStatus: WeatherDisplayStatus;
   travel: EventTravelInfo;
   fieldCheck: EventFieldCheckInfo | null;
 }
@@ -309,9 +311,20 @@ function buildTravelInfo(input: {
 async function weatherForEvent(
   date: string,
   address: ExtractedAddress
-): Promise<{ weather: DayWeather | null; slots: WeatherSlot[]; lat: number | null; lon: number | null }> {
-  const query = geocodeQueryFromAddress(address) ?? address.cityHint;
-  if (!query) return { weather: null, slots: [], lat: null, lon: null };
+): Promise<{
+  weather: DayWeather | null;
+  slots: WeatherSlot[];
+  status: WeatherDisplayStatus;
+  lat: number | null;
+  lon: number | null;
+}> {
+  if (!address.fullAddress?.trim()) {
+    return { weather: null, slots: [], status: "address_unset", lat: null, lon: null };
+  }
+  const query = geocodeQueryFromAddress(address);
+  if (!query) {
+    return { weather: null, slots: [], status: "address_unset", lat: null, lon: null };
+  }
   try {
     const geo = await geocodeAddress(query);
     const weather = await fetchDayWeather(date, {
@@ -319,9 +332,18 @@ async function weatherForEvent(
       lat: geo.lat,
       lon: geo.lon,
     });
-    return { weather, slots: weather.slots, lat: geo.lat, lon: geo.lon };
+    if (!weather.slots?.length) {
+      return { weather: null, slots: [], status: "fetch_failed", lat: geo.lat, lon: geo.lon };
+    }
+    return {
+      weather: { ...weather, kind: "site", status: "ok" },
+      slots: weather.slots,
+      status: "ok",
+      lat: geo.lat,
+      lon: geo.lon,
+    };
   } catch {
-    return { weather: null, slots: [], lat: null, lon: null };
+    return { weather: null, slots: [], status: "fetch_failed", lat: null, lon: null };
   }
 }
 
@@ -346,7 +368,7 @@ export async function buildDayScheduleIntelligence(
     const ev = sorted[i]!;
     const address = extractEventAddress(ev);
     addresses.push(address);
-    const { weather, slots, lat: destLat, lon: destLon } = await weatherForEvent(date, address);
+    const { weather, slots, status: weatherStatus, lat: destLat, lon: destLon } = await weatherForEvent(date, address);
 
     const prevAddress = i > 0 ? addresses[i - 1]! : null;
     const origin =
@@ -421,6 +443,7 @@ export async function buildDayScheduleIntelligence(
       address,
       weather,
       weatherSlots: slots,
+      weatherStatus,
       travel,
       fieldCheck: buildFieldCheckForEvent(date, ev),
     });
@@ -605,6 +628,7 @@ export function buildDailySummaryResponse(intelligence: DayScheduleIntelligence)
       calendarSummary: ev.calendarSummary,
       address: ev.address.displayAddress,
       addressSource: ev.address.source,
+      weatherStatus: ev.weatherStatus,
       weather: ev.weatherSlots.map((s) => ({
         period: s.period,
         label: s.label,

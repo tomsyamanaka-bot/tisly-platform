@@ -345,7 +345,9 @@ export function renderTomsInvoiceHeaderTable(header: TomsInvoiceHeader): string 
   return `<table class="header-table"><tbody>${body}</tbody></table>`;
 }
 
-/** PDF専用 A4 横書き明細（見積・請求）— 旧 toms-official-items は使用しない */
+/** PDF専用 A4 縦向き明細 — 行数が少ない場合は空行でエリアを拡張 */
+const PDF_A4_MIN_LINE_ROWS = 14;
+
 export function renderPdfA4LineItemsTable(
   items: Array<{
     lineNo?: number;
@@ -362,7 +364,11 @@ export function renderPdfA4LineItemsTable(
         `<tr><td class="num col-no">${i.lineNo ?? idx + 1}</td><td class="col-desc">${escapeHtmlMultiline(i.description)}</td><td class="num col-qty">${i.quantity}</td><td class="col-unit">${escapeHtml(i.unit ?? "")}</td><td class="num col-price">¥${i.unitPrice.toLocaleString("ja-JP")}</td><td class="num col-amount">¥${i.amount.toLocaleString("ja-JP")}</td></tr>`
     )
     .join("");
-  return `<table class="pdf-a4-line-items"><colgroup><col style="width:4%"/><col style="width:46%"/><col style="width:10%"/><col style="width:6%"/><col style="width:15%"/><col style="width:19%"/></colgroup><thead><tr><th class="col-no">No</th><th class="col-desc">項目</th><th class="col-qty">数量</th><th class="col-unit">単位</th><th class="col-price">単価</th><th class="col-amount">金額</th></tr></thead><tbody>${rows}</tbody></table>`;
+  const fillerCount = Math.max(0, PDF_A4_MIN_LINE_ROWS - items.length);
+  const fillers = Array.from({ length: fillerCount }, () =>
+    `<tr class="pdf-a4-line-filler"><td class="col-no">&nbsp;</td><td class="col-desc">&nbsp;</td><td class="col-qty">&nbsp;</td><td class="col-unit">&nbsp;</td><td class="col-price">&nbsp;</td><td class="col-amount">&nbsp;</td></tr>`
+  ).join("");
+  return `<div class="toms-doc-items-area"><table class="pdf-a4-line-items"><colgroup><col style="width:4%"/><col style="width:46%"/><col style="width:10%"/><col style="width:6%"/><col style="width:15%"/><col style="width:19%"/></colgroup><thead><tr><th class="col-no">No</th><th class="col-desc">項目</th><th class="col-qty">数量</th><th class="col-unit">単位</th><th class="col-price">単価</th><th class="col-amount">金額</th></tr></thead><tbody>${rows}${fillers}</tbody></table></div>`;
 }
 
 export function renderTomsLineItemsTable(

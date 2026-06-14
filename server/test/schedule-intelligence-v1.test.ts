@@ -108,7 +108,7 @@ describe("日程調整レベル4 — インテリジェンス", () => {
     assert.ok(addr.fullAddress?.includes("柏市"));
   });
 
-  it("件名のみ地名 — 住所未確定（移動時間は計算しない）", async () => {
+  it("件名のみ地名 — 住所未確定（現場天気は住所未設定）", async () => {
     const addr = extractEventAddress(
       baseEvent({ title: "柏市カメラ", location: null, description: null })
     );
@@ -121,6 +121,8 @@ describe("日程調整レベル4 — インテリジェンス", () => {
     ]);
     assert.equal(intel.events[0].travel.durationLabel, "住所未設定");
     assert.equal(intel.events[0].travel.destination, null);
+    assert.equal(intel.events[0].weatherStatus, "address_unset");
+    assert.equal(intel.events[0].weatherSlots.length, 0);
     delete process.env.GOOGLE_MAPS_API_KEY;
   });
 
@@ -171,6 +173,8 @@ describe("日程調整レベル4 — インテリジェンス", () => {
     assert.equal(intel.feasibility, "unknown");
     assert.equal(intel.totalTravelMin, null);
     assert.ok(intel.events[0].weatherSlots.length === 3);
+    assert.equal(intel.events[0].weatherStatus, "ok");
+    assert.equal(intel.events[0].weather?.kind, "site");
     assert.equal(intel.events[0].travel.compactLabel, "🏠→現場");
     assert.equal(intel.events[1].travel.compactLabel, "現場①→現場②");
     assert.equal(intel.events[2].travel.compactLabel, "現場②→現場③");
@@ -244,6 +248,7 @@ describe("日程調整レベル4 — インテリジェンス", () => {
       baseEvent({ location: "守谷市" }),
     ]);
     assert.equal(intel.events[0].weatherSlots.length, 3);
+    assert.equal(intel.events[0].weatherStatus, "ok");
     assert.ok(intel.events[0].weather?.source === "mock");
   });
 
@@ -330,6 +335,7 @@ describe("日程調整レベル4 — インテリジェンス", () => {
     );
     assert.equal(summary.date, "2026-06-18");
     assert.ok(summary.events[0].weather.length === 3);
+    assert.equal(summary.events[0].weatherStatus, "ok");
     assert.ok(summary.events[0].travel.mapsUrl == null || summary.events[0].travel.mapsUrl.includes("google.com"));
     assert.equal(summary.events[0].travel.compactLabel, "🏠→現場");
   });
@@ -345,6 +351,10 @@ describe("日程調整レベル4 — インテリジェンス", () => {
     assert.ok(js.text.includes("schedule-intel-practical"));
     assert.ok(js.text.includes("schedule-intel-travel-muted"));
     assert.ok(js.text.includes("schedule-intel-address-btn"));
+    assert.ok(js.text.includes("renderBaseWeatherHtml"));
+    assert.ok(js.text.includes("renderSiteWeatherHtml"));
+    assert.ok(js.text.includes("🏠基準地天気"));
+    assert.ok(js.text.includes("📍現場天気"));
     assert.ok(js.text.includes("\\u4f4f\\u6240\\u672a\\u8a2d\\u5b9a"));
     assert.ok(js.text.includes("\\u79fb\\u52d5\\u6642\\u9593\\u672a\\u8a08\\u7b97"));
     assert.ok(js.text.includes("\\u79fb\\u52d5\\u6642\\u9593\\u53d6\\u5f97\\u5931\\u6557"));
@@ -454,7 +464,17 @@ describe("日程調整レベル4 — インテリジェンス", () => {
       baseEvent({ id: "no-addr", title: "打合せ", location: null, description: null }),
     ]);
     assert.equal(intel.events[0].travel.durationLabel, "住所未設定");
+    assert.equal(intel.events[0].weatherStatus, "address_unset");
     delete process.env.GOOGLE_MAPS_API_KEY;
+  });
+
+  it("基準地天気 — 通常出発地から取得（kind=base）", async () => {
+    const { fetchBaseOriginDayWeather } = await import("../src/schedule/schedule-store.js");
+    updateSchedulePlannerSettingsV1({ defaultOrigin: "茨城県つくばみらい市板橋2889-2" });
+    const weather = await fetchBaseOriginDayWeather("2026-06-18");
+    assert.equal(weather.kind, "base");
+    assert.equal(weather.slots.length, 3);
+    assert.equal(weather.status, "ok");
   });
 
   it("同一住所 — 自宅と現場①が同じなら 0 分（API）", async () => {

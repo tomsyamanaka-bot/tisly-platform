@@ -1,95 +1,121 @@
 <!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-<title>完了報告書 PRJ-2026-SCR</title>
+<title>完了報告書 PRJ-FINAL-001</title>
 <style>
   @page { size: A4 portrait; margin: 2.5mm; }
   * { box-sizing: border-box; }
   body { font-family: "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif; color: #1a1a1a; margin: 0; padding: 0; font-size: 9pt; word-break: keep-all; }
-  
-.toms-official-header{display:flex;justify-content:space-between;align-items:flex-start;gap:0.55rem;margin-bottom:0.28rem}
-.toms-official-header-main{flex:1;min-width:0}
-.toms-official-header-side{flex:0 0 38%;min-width:0;text-align:right;font-size:0.65rem;line-height:1.22;color:#222}
-.toms-official-title-band{display:inline-block;background:#d9d9d9;padding:0.2rem 0.75rem 0.2rem 0.45rem;margin:0 0 0.28rem}
-.toms-official-title-band h1{margin:0;font-size:0.98rem;letter-spacing:0.18em;font-weight:700;color:#111;white-space:normal;word-break:keep-all}
-.toms-official-addressee{margin:0 0 0.22rem;font-size:0.92rem;font-weight:700;color:#111;line-height:1.28}
-.toms-official-field{margin:0 0 0.12rem;font-size:0.76rem;line-height:1.22}
-.toms-official-field-label{font-weight:700;margin-right:0.35rem;white-space:nowrap}
-.toms-official-notes-inline{color:#334155;font-size:0.64rem}
-.toms-official-company{margin-bottom:0.25rem}
-.toms-official-company-name{font-weight:700;font-size:0.70rem;margin-bottom:0.06rem}
-.toms-official-meta{border-collapse:collapse;margin:0 0 0 auto;font-size:0.65rem}
-.toms-official-meta th,.toms-official-meta td{padding:0.05rem 0 0.05rem 0.28rem;text-align:left;vertical-align:top}
-.toms-official-meta th{font-weight:700;color:#333;white-space:nowrap}
-.toms-official-meta td{color:#111;word-break:break-word;overflow-wrap:break-word}
-.toms-official-amount{display:flex;justify-content:space-between;align-items:center;flex-wrap:nowrap;gap:0.4rem;margin:0.28rem 0 0.32rem;padding:0.3rem 0.6rem;border:2px solid #111;background:#fff}
-.toms-official-amount-label{font-size:0.84rem;font-weight:700;letter-spacing:0.06em;white-space:nowrap;flex-shrink:0}
-.toms-official-amount-value{font-size:1.16rem;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
-.toms-official-amount-tax{font-size:0.72rem;font-weight:600;margin-left:0.12rem}
-.num{text-align:right;font-variant-numeric:tabular-nums}
-.toms-official-totals{margin:0.08rem 0 0 auto;width:220px;max-width:42%;font-size:0.76rem}
-.toms-official-totals div{display:flex;justify-content:space-between;padding:0.05rem 0;gap:0.4rem}
-.toms-official-totals .grand{font-weight:800;font-size:0.76rem;border-top:1px solid #000;margin-top:0.08rem;padding-top:0.1rem}
-.toms-official-totals .discount-row{color:#92400e}
-.toms-official-tax-breakdown{margin-top:0.1rem;padding-top:0.1rem;border-top:1px dashed #666;font-size:0.64rem;color:#333}
-.toms-official-tax-breakdown div{display:flex;justify-content:space-between;padding:0.04rem 0}
-.toms-official-notes{margin-top:0.22rem;font-size:0.76rem;line-height:1.28}
-.toms-official-notes strong{font-weight:700}
-.toms-official-footer{display:flex;flex-wrap:wrap;gap:0.35rem 1.2rem;margin-top:0.28rem;font-size:0.76rem;line-height:1.28}
-.toms-official-footer .toms-official-field{margin:0}
-
-  .cr-page { width: 205mm; height: 292mm; page-break-after: always; overflow: hidden; }
+  .cr-page {
+    width: 205mm;
+    height: 292mm;
+    page-break-after: always;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
   .cr-page:last-child { page-break-after: auto; }
-  .cr-first-page { display: flex; flex-direction: column; }
-  .cr-first-page .toms-official { flex: 0 0 auto; }
-  .cr-no-photos { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 10pt; color: #64748b; letter-spacing: 0.05em; }
+  .cr-cover-page { padding: 0.3mm 0 0; }
+  .cr-cover-header { text-align: center; margin-bottom: 0.6mm; flex: 0 0 auto; }
+  .cr-cover-rule { height: 0; border-top: 1px solid #94a3b8; margin: 0.5mm 0; }
+  .cr-cover-company { font-size: 9pt; font-weight: 700; letter-spacing: 0.08em; margin: 0.3mm 0; line-height: 1.15; }
+  .cr-cover-title { font-size: 12.5pt; font-weight: 700; margin: 0.5mm 0; letter-spacing: 0.12em; line-height: 1.15; }
+  .cr-cover-fields { width: 100%; border-collapse: collapse; margin: 0.3mm 0 0.6mm; font-size: 7.5pt; flex: 0 0 auto; }
+  .cr-cover-fields th { text-align: left; width: 20%; padding: 0.25mm 0.8mm; color: #475569; font-weight: 600; vertical-align: top; border-bottom: 1px solid #e2e8f0; line-height: 1.15; }
+  .cr-cover-fields td { padding: 0.25mm 0.8mm; color: #0f172a; vertical-align: top; border-bottom: 1px solid #f1f5f9; line-height: 1.15; }
+  .cr-cover-section { margin: 0.4mm 0; flex: 0 0 auto; }
+  .cr-cover-section h3 { margin: 0 0 0.25mm; font-size: 7.5pt; font-weight: 700; color: #334155; line-height: 1.15; }
+  .cr-cover-section-body { font-size: 7pt; line-height: 1.25; color: #0f172a; white-space: pre-wrap; max-height: 14mm; overflow: hidden; }
+  .cr-no-photos-cover { margin-top: 1.5mm; text-align: center; font-size: 8.5pt; color: #64748b; flex: 0 0 auto; }
+  .cr-photo-page { padding: 0; }
   .cr-photo-grid {
-    flex: 1;
-    min-height: 0;
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    grid-template-rows: repeat(4, 1fr);
-    gap: 1.8mm;
-    margin-top: 0.5mm;
+    grid-auto-flow: row;
+    gap: 1.5mm;
+    align-content: start;
   }
-  .cr-page:not(.cr-first-page) .cr-photo-grid { height: 100%; margin-top: 0; }
-  .cr-photo-cell { display: flex; flex-direction: column; min-height: 0; }
-  .cr-photo-title { margin: 0.4mm 0 0; text-align: center; font-size: 6.5pt; color: #334155; line-height: 1.15; flex: 0 0 auto; }
-  .cr-photo-img-wrap { flex: 1; min-height: 0; overflow: hidden; border: 1px solid #cbd5e1; border-radius: 1px; background: #f8fafc; }
-  .cr-photo-img-wrap img { width: 100%; height: 100%; object-fit: contain; object-position: center; display: block; }
-  .cr-photo-empty { visibility: hidden; }
-  .cr-extra-body { flex: 0 0 auto; margin: 0.5mm 0 1mm; font-size: 7.5pt; }
-  .cr-work-summary { width: 100%; border-collapse: collapse; margin: 0; }
-  .cr-work-summary th { text-align: left; width: 18%; padding: 0.3mm 1mm; color: #475569; font-weight: 600; vertical-align: top; }
-  .cr-work-summary td { padding: 0.3mm 1mm; color: #0f172a; vertical-align: top; }
-  .cr-checklist-cell { white-space: pre-wrap; line-height: 1.35; }
+  .cr-cover-photo-grid {
+    flex: 1 1 0;
+    min-height: 0;
+    margin: 0.4mm 0 0;
+    grid-auto-rows: minmax(0, 1fr);
+    align-content: start;
+  }
+  .cr-cover-photo-grid .cr-photo-cell {
+    min-height: 0;
+    overflow: hidden;
+  }
+  .cr-cover-photo-grid .cr-photo-img-wrap {
+    flex: 1 1 0;
+    min-height: 0;
+    aspect-ratio: unset;
+  }
+  .cr-photo-page .cr-photo-grid {
+    flex: 1;
+    min-height: 0;
+    grid-template-rows: repeat(3, 1fr);
+    margin-bottom: 1mm;
+  }
+  .cr-photo-page .cr-photo-img-wrap { aspect-ratio: unset; flex: 1; min-height: 0; }
+  .cr-photo-cell { display: flex; flex-direction: column; width: 100%; min-height: 0; }
+  .cr-photo-title { margin: 0.3mm 0 0; text-align: center; font-size: 6pt; color: #334155; line-height: 1.1; flex: 0 0 auto; }
+  .cr-photo-num { font-weight: 700; margin-right: 0.4mm; }
+  .cr-photo-img-wrap { width: 100%; aspect-ratio: 4 / 3; overflow: hidden; border: 1px solid #cbd5e1; border-radius: 1px; background: #f8fafc; flex: 0 0 auto; }
+  .cr-photo-img-wrap img { width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
+  .cr-no-photos { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 10pt; color: #64748b; letter-spacing: 0.05em; }
+  .cr-page-footer {
+    flex: 0 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 6.5pt;
+    color: #64748b;
+    border-top: 1px solid #e2e8f0;
+    padding-top: 1mm;
+    margin-top: auto;
+    gap: 2mm;
+  }
+  .cr-footer-project { font-weight: 600; color: #334155; }
+  .cr-footer-datetime { flex: 1; text-align: center; }
+  .cr-footer-pagenum { font-weight: 600; white-space: nowrap; }
 </style></head><body>
-<div class="cr-page cr-photo-page cr-first-page">
-  <div class="toms-official toms-official-compact">
-  <div class="toms-official-header">
-    <div class="toms-official-header-main">
-      <div class="toms-official-title-band"><h1>完了報告書</h1></div>
-      <p class="toms-official-addressee">見積テスト顧客 御中</p>
-      <p class="toms-official-field"><span class="toms-official-field-label">件名</span>防犯カメラ設置工事</p>
-      <p class="toms-official-field"><span class="toms-official-field-label">工事場所</span>つくば市</p>
-      
-    </div>
-    <div class="toms-official-header-side">
-      <div class="toms-official-company">
-        <div class="toms-official-company-name">株式会社TOMS</div>
-        <div>〒302-0102</div>
-        <div>茨城県守谷市松前台7-24-9</div>
-        <div>TEL 080-2710-4483</div>
-        <div>担当 山中智紀</div>
-      </div>
-      <table class="toms-official-meta">
-        <tr><th>作成日</th><td>2026-06-13</td></tr>
-        <tr><th>案件番号</th><td>PRJ-2026-SCR</td></tr>
-        <tr><th>インボイス番号</th><td>T-2030001139320</td></tr>
-      </table>
-    </div>
+<div class="cr-page cr-cover-page">
+  <div class="cr-cover-header">
+    <div class="cr-cover-rule"></div>
+    <div class="cr-cover-company">株式会社TOMS</div>
+    <h1 class="cr-cover-title">工事完了報告書</h1>
+    <div class="cr-cover-rule"></div>
   </div>
-</div>
-  <div class="cr-extra-body"><table class="cr-work-summary"><tr><th>作業員</th><td>山中 智紀</td></tr><tr><th>開始時間</th><td>09:00</td></tr><tr><th>終了時間</th><td>17:00</td></tr><tr><th>作業内容</th><td>防犯カメラ設置・配線工事</td></tr><tr><th>チェック結果</th><td class="cr-checklist-cell">電源確認: OK<br/>配線確認: OK</td></tr></table></div>
-  <div class="cr-no-photos">完了報告書用写真がありません</div>
+  <table class="cr-cover-fields"><tr><th>案件名</th><td>防犯カメラ設置工事</td></tr><tr><th>顧客名</th><td>最終確認テスト株式会社 御中</td></tr><tr><th>住所</th><td>守谷市</td></tr><tr><th>担当者</th><td>山中 智紀</td></tr><tr><th>工事日</th><td>2026-06-14</td></tr></table>
+  <div class="cr-cover-rule"></div><div class="cr-cover-section">
+      <h3>作業内容</h3>
+      <div class="cr-cover-section-body">防犯カメラ設置</div>
+    </div>
+  <div class="cr-photo-grid cr-cover-photo-grid"><div class="cr-photo-cell">
+    <div class="cr-photo-img-wrap"><img src="https://via.placeholder.com/400x300?text=Photo1" alt="完了写真1" /></div>
+    <p class="cr-photo-title"><span class="cr-photo-num">①</span> 完了写真1</p>
+  </div><div class="cr-photo-cell">
+    <div class="cr-photo-img-wrap"><img src="https://via.placeholder.com/400x300?text=Photo2" alt="完了写真2" /></div>
+    <p class="cr-photo-title"><span class="cr-photo-num">②</span> 完了写真2</p>
+  </div><div class="cr-photo-cell">
+    <div class="cr-photo-img-wrap"><img src="https://via.placeholder.com/400x300?text=Photo3" alt="完了写真3" /></div>
+    <p class="cr-photo-title"><span class="cr-photo-num">③</span> 完了写真3</p>
+  </div><div class="cr-photo-cell">
+    <div class="cr-photo-img-wrap"><img src="https://via.placeholder.com/400x300?text=Photo4" alt="完了写真4" /></div>
+    <p class="cr-photo-title"><span class="cr-photo-num">④</span> 完了写真4</p>
+  </div><div class="cr-photo-cell">
+    <div class="cr-photo-img-wrap"><img src="https://via.placeholder.com/400x300?text=Photo5" alt="完了写真5" /></div>
+    <p class="cr-photo-title"><span class="cr-photo-num">⑤</span> 完了写真5</p>
+  </div><div class="cr-photo-cell">
+    <div class="cr-photo-img-wrap"><img src="https://via.placeholder.com/400x300?text=Photo6" alt="完了写真6" /></div>
+    <p class="cr-photo-title"><span class="cr-photo-num">⑥</span> 完了写真6</p>
+  </div></div>
+  
+  <div class="cr-page-footer">
+    <span class="cr-footer-project">PRJ-FINAL-001</span>
+    <span class="cr-footer-datetime">2026/06/14 09:00</span>
+    <span class="cr-footer-pagenum">Page 1 / 1</span>
+  </div>
 </div>
 </body></html>

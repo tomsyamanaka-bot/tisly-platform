@@ -88,7 +88,7 @@ export function renderEstimateHtml(
   });
 
   const documentBodyHtml = `<div class="toms-doc-lower">${renderTomsLineItemsTable(lines)}
-${renderTotals({
+<div class="toms-doc-footer-cluster">${renderTotals({
   lineSubtotal: estimate.lineSubtotal ?? estimate.subtotal + estimate.shuseiDiscount,
   shuseiDiscount: estimate.shuseiDiscount,
   shuseiDiscountMemo: estimate.shuseiDiscountMemo,
@@ -97,7 +97,7 @@ ${renderTotals({
   total: estimate.total,
 })}
 ${renderNotes(notes)}
-${renderTomsDocFooter({ staffName: header.staffName, validUntil })}</div>`;
+${renderTomsDocFooter({ staffName: header.staffName, validUntil })}</div></div>`;
 
   if (includePhotos) {
     const { photoPageStyles, bodyHtml } = renderTomsDocWithPhotoLayout({

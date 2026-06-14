@@ -73,8 +73,13 @@ body{font-family:"Noto Sans JP","Hiragino Sans","Yu Gothic","Meiryo",system-ui,s
 .doc{max-width:200mm;width:100%;min-width:0;margin:0 auto;box-sizing:border-box}
 .doc.single-page{page-break-inside:avoid;min-height:287mm;display:flex;flex-direction:column;justify-content:flex-start}
 .toms-doc-lower{flex:1 1 auto;display:flex;flex-direction:column;justify-content:space-between;margin-top:0.35rem;padding-bottom:0.15rem;min-height:0}
+.toms-doc-items-area{flex:1 1 auto;display:flex;flex-direction:column;min-height:155mm;margin-bottom:0.25rem}
+.toms-doc-items-area table.pdf-a4-line-items{flex:1 1 auto;height:100%}
+.toms-doc-footer-cluster{margin-top:auto;flex:0 0 auto;width:100%}
 .toms-doc-lower table.pdf-a4-line-items{flex:0 0 auto}
-.toms-doc-lower .toms-official-totals-wrap,.toms-doc-lower .toms-official-notes,.toms-doc-lower .toms-official-footer,.toms-doc-lower .doc-invoice-footer{flex:0 0 auto}
+.toms-doc-lower .toms-doc-footer-cluster .toms-official-totals-wrap,.toms-doc-lower .toms-doc-footer-cluster .toms-official-notes,.toms-doc-lower .toms-doc-footer-cluster .toms-official-footer,.toms-doc-lower .toms-doc-footer-cluster .doc-invoice-footer{flex:0 0 auto}
+table.pdf-a4-line-items tbody tr.pdf-a4-line-filler td{height:1.45rem;vertical-align:top}
+table.pdf-a4-line-items tbody tr.pdf-a4-line-filler{background:#f8fafc}
 .doc.with-photos .photo-section-title{page-break-before:auto}
 .doc-invoice-footer{display:flex;justify-content:space-between;align-items:flex-end;gap:0.8rem;margin-top:0.35rem;padding-bottom:calc(6mm + env(safe-area-inset-bottom, 12px))}
 ${TOMS_OFFICIAL_CORE_STYLES}

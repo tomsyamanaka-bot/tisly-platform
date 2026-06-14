@@ -1,0 +1,51 @@
+{
+  "capturedAt": "2026-06-14T10:17:16.199Z",
+  "baseUrl": "http://127.0.0.1:3080",
+  "weather": {
+    "base": true,
+    "site": true,
+    "dayDetail": {
+      "base": false,
+      "site": false
+    }
+  },
+  "googleMaps": {
+    "checks": [
+      {
+        "screen": "schedule-v1-week",
+        "links": []
+      },
+      {
+        "screen": "schedule-day-v1",
+        "date": "2026-06-14",
+        "travel": [],
+        "addressBtn": false,
+        "baseWeather": false,
+        "siteWeather": false,
+        "locationLinks": []
+      }
+    ],
+    "pass": true
+  },
+  "pdf": {
+    "estimate-live.html": {
+      "saved": true,
+      "screenshot": "06-estimate-a4-after.png"
+    },
+    "invoice-live.html": {
+      "saved": true,
+      "screenshot": "07-invoice-a4-after.png"
+    },
+    "specification-live.html": {
+      "saved": true,
+      "screenshot": "08-specification-a4-after.png"
+    },
+    "completion-report-live.html": {
+      "saved": true,
+      "screenshot": "09-completion-a4-after.png"
+    },
+    "before-estimate-live.html": "estimate-layout-before.png",
+    "before-invoice-live.html": "invoice-layout-before.png"
+  },
+  "screenshots": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\final-polish-screenshots"
+}

@@ -11,6 +11,10 @@ export interface WeatherSlot {
   highlightRain: boolean;
 }
 
+export type WeatherKind = "base" | "site";
+
+export type WeatherDisplayStatus = "ok" | "address_unset" | "fetch_failed";
+
 export interface DayWeather {
   date: string;
   location: string;
@@ -18,6 +22,10 @@ export interface DayWeather {
   lon: number;
   source: "mock" | "open-meteo";
   slots: WeatherSlot[];
+  /** 基準地天気 vs 現場天気 */
+  kind?: WeatherKind;
+  /** UI表示用ステータス */
+  status?: WeatherDisplayStatus;
 }
 
 const DEFAULT_LOCATION = {

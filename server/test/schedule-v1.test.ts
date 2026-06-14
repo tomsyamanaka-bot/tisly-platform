@@ -78,6 +78,7 @@ describe("日程調整 PWA v1 API", () => {
       assert.ok(day.date >= today, `過去日が含まれています: ${day.date}`);
     }
     assert.ok(res.body.days[0].weather, "weather should be present on week day cards");
+    assert.equal(res.body.days[0].weather.kind, "base");
     assert.ok(Array.isArray(res.body.days[0].weather.slots));
     assert.equal(res.body.days[0].weather.slots.length, 3);
     for (const slot of res.body.days[0].weather.slots) {
@@ -236,6 +237,7 @@ describe("日程調整 PWA v1 API", () => {
     assert.equal(detail.status, 200);
     assert.equal(detail.body.day.date, date);
     assert.equal(detail.body.weather.slots.length, 3);
+    assert.equal(detail.body.weather.kind, "base");
     const weather = await request(app)
       .get(`/api/schedule/v1/weather?date=${date}`)
       .set("Authorization", `Bearer ${token}`);

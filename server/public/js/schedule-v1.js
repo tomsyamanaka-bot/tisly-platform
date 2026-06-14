@@ -25,6 +25,7 @@ import {
   bindAddressInputButtons,
   bindIntelligenceEventCards,
   enrichIntelligenceWithDeparture,
+  renderBaseWeatherHtml,
   renderWeekIntelligenceEventItemHtml,
 } from "./schedule-intelligence-ui.js";
 
@@ -183,14 +184,7 @@ function renderSummary(summary) {
 }
 
 function renderWeatherMini(weather) {
-  if (!weather?.slots?.length) return "";
-  const lines = weather.slots
-    .map((slot) => {
-      const rainCls = slot.highlightRain ? ' style="color:#b91c1c;font-weight:600;"' : "";
-      return `<span class="weather-slot"${rainCls}>${slot.icon}${slot.label} ${slot.precipChance}% ${slot.tempC}℃</span>`;
-    })
-    .join(" ");
-  return `<div class="schedule-weather-mini">${lines}</div>`;
+  return renderBaseWeatherHtml(weather);
 }
 
 function dayCardClass(day) {

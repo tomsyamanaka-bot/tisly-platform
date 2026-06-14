@@ -1,8 +1,16 @@
-<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"/><link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet"/><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/><title>お見積書 260613-001</title><style>
+<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"/><link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet"/><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/><title>お見積書 260614-001</title><style>
 @page { size: A4 portrait; margin: 4mm 5mm; }
-body{font-family:"Noto Sans JP","Hiragino Sans","Yu Gothic","Meiryo",system-ui,sans-serif;margin:0;padding:4mm 5mm;color:#111;background:#fff;font-size:9.5pt;line-height:1.28;word-break:normal;overflow-wrap:break-word;-webkit-text-size-adjust:100%;padding-bottom:calc(4mm + env(safe-area-inset-bottom, 0px))}
+body{font-family:"Noto Sans JP","Hiragino Sans","Yu Gothic","Meiryo",system-ui,sans-serif;margin:0;padding:4mm 6mm 4mm 5mm;color:#111;background:#fff;font-size:9.5pt;line-height:1.28;word-break:normal;overflow-wrap:break-word;-webkit-text-size-adjust:100%;padding-bottom:calc(4mm + env(safe-area-inset-bottom, 0px))}
 .doc{max-width:200mm;width:100%;min-width:0;margin:0 auto;box-sizing:border-box}
-.doc.single-page{page-break-inside:avoid;max-height:287mm}
+.doc.single-page{page-break-inside:avoid;min-height:287mm;display:flex;flex-direction:column;justify-content:flex-start}
+.toms-doc-lower{flex:1 1 auto;display:flex;flex-direction:column;justify-content:space-between;margin-top:0.35rem;padding-bottom:0.15rem;min-height:0}
+.toms-doc-items-area{flex:1 1 auto;display:flex;flex-direction:column;min-height:155mm;margin-bottom:0.25rem}
+.toms-doc-items-area table.pdf-a4-line-items{flex:1 1 auto;height:100%}
+.toms-doc-footer-cluster{margin-top:auto;flex:0 0 auto;width:100%}
+.toms-doc-lower table.pdf-a4-line-items{flex:0 0 auto}
+.toms-doc-lower .toms-doc-footer-cluster .toms-official-totals-wrap,.toms-doc-lower .toms-doc-footer-cluster .toms-official-notes,.toms-doc-lower .toms-doc-footer-cluster .toms-official-footer,.toms-doc-lower .toms-doc-footer-cluster .doc-invoice-footer{flex:0 0 auto}
+table.pdf-a4-line-items tbody tr.pdf-a4-line-filler td{height:1.45rem;vertical-align:top}
+table.pdf-a4-line-items tbody tr.pdf-a4-line-filler{background:#f8fafc}
 .doc.with-photos .photo-section-title{page-break-before:auto}
 .doc-invoice-footer{display:flex;justify-content:space-between;align-items:flex-end;gap:0.8rem;margin-top:0.35rem;padding-bottom:calc(6mm + env(safe-area-inset-bottom, 12px))}
 
@@ -26,12 +34,15 @@ body{font-family:"Noto Sans JP","Hiragino Sans","Yu Gothic","Meiryo",system-ui,s
 .toms-official-amount-value{font-size:1.16rem;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
 .toms-official-amount-tax{font-size:0.72rem;font-weight:600;margin-left:0.12rem}
 .num{text-align:right;font-variant-numeric:tabular-nums}
-.toms-official-totals{margin:0.08rem 0 0 auto;width:220px;max-width:42%;font-size:0.76rem}
-.toms-official-totals div{display:flex;justify-content:space-between;padding:0.05rem 0;gap:0.4rem}
+.toms-official-totals-wrap{margin:0.08rem 0 0;width:100%;max-width:100%;box-sizing:border-box;overflow:visible;padding-right:0}
+.toms-official-totals{margin:0 0 0 auto;width:min(220px,100%);max-width:100%;font-size:0.76rem;box-sizing:border-box}
+.toms-official-totals div{display:flex;justify-content:space-between;padding:0.05rem 0;gap:0.35rem}
 .toms-official-totals .grand{font-weight:800;font-size:0.76rem;border-top:1px solid #000;margin-top:0.08rem;padding-top:0.1rem}
 .toms-official-totals .discount-row{color:#92400e}
-.toms-official-tax-breakdown{margin-top:0.1rem;padding-top:0.1rem;border-top:1px dashed #666;font-size:0.64rem;color:#333}
-.toms-official-tax-breakdown div{display:flex;justify-content:space-between;padding:0.04rem 0}
+.toms-official-tax-breakdown{margin-top:0.12rem;padding:0.1rem 0 0;border-top:1px dashed #666;font-size:0.58rem;color:#333;width:100%;max-width:100%;box-sizing:border-box;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0.12rem 0.25rem;line-height:1.25;clear:both}
+.toms-official-tax-breakdown .tax-label{font-weight:600;color:#444;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.toms-official-tax-breakdown .tax-value{font-weight:700;font-variant-numeric:tabular-nums;color:#111;white-space:nowrap;text-align:right;overflow:hidden;text-overflow:ellipsis}
+.toms-official-tax-breakdown .tax-pair{display:contents}
 .toms-official-notes{margin-top:0.22rem;font-size:0.76rem;line-height:1.28}
 .toms-official-notes strong{font-weight:700}
 .toms-official-footer{display:flex;flex-wrap:wrap;gap:0.35rem 1.2rem;margin-top:0.28rem;font-size:0.76rem;line-height:1.28}
@@ -51,13 +62,20 @@ table.pdf-a4-line-items .col-amount{width:15%;text-align:right;white-space:nowra
 
 .intro{margin:0.28rem 0 0.38rem;font-size:0.72rem}
 .bank-block{flex:1;max-width:52%;padding:0.38rem 0.55rem;border:1px solid #000;font-size:0.76rem;line-height:1.28;page-break-inside:avoid}
-.photos{display:grid;grid-template-columns:repeat(2,1fr);gap:0.28rem;margin-top:0.28rem}
-.photo-slot{border:1px solid #ccc;min-height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#94a3b8;font-size:0.58rem;overflow:hidden;page-break-inside:avoid}
-.photo-slot img{max-width:100%;max-height:80px;object-fit:contain}
-.photo-caption{font-size:0.54rem;margin-top:0.08rem;color:#64748b}
+.photos{display:grid;grid-template-columns:repeat(2,1fr);gap:0.28rem;margin-top:0.28rem;align-content:start}
+.photo-slot{display:flex;flex-direction:column;width:100%;page-break-inside:avoid}
+.photo-img-wrap{width:100%;aspect-ratio:4/3;overflow:hidden;border:1px solid #cbd5e1;background:#f8fafc}
+.photo-img-wrap img{width:100%;height:100%;object-fit:cover;object-position:center;display:block}
+.photo-title{margin:0.08rem 0 0;text-align:center;font-size:0.54rem;color:#334155;line-height:1.2;flex:0 0 auto}
+.photo-num{font-weight:700;margin-right:0.08rem}
 .photo-section-title{font-size:0.76rem;margin:0.5rem 0 0.18rem}
 .seal-placeholder{width:56px;height:56px;border:2px solid #cbd5e1;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:0.76rem;flex-shrink:0}
 .doc-footer{flex-shrink:0}
+.est-doc-body-page,.inv-doc-body-page{page-break-before:always;max-width:200mm;width:100%;min-width:0;margin:0 auto;box-sizing:border-box;padding:4mm 6mm 4mm 5mm}
+.est-doc-header-compact,.inv-doc-header-compact{flex:0 0 auto;font-size:8pt;line-height:1.2}
+.est-doc-header-compact .toms-official-header,.inv-doc-header-compact .toms-official-header{margin-bottom:0.15rem}
+.est-doc-header-compact .toms-official-amount,.inv-doc-header-compact .toms-official-amount{margin:0.15rem 0 0.2rem;padding:0.2rem 0.45rem}
+.est-doc-header-compact .toms-official-title-band h1,.inv-doc-header-compact .toms-official-title-band h1{font-size:0.88rem}
 @media print{
   body{padding:0}
   .doc{width:200mm;min-width:200mm;max-width:200mm}
@@ -70,9 +88,9 @@ table.pdf-a4-line-items .col-amount{width:15%;text-align:right;white-space:nowra
   <div class="toms-official-header">
     <div class="toms-official-header-main">
       <div class="toms-official-title-band"><h1>お見積書</h1></div>
-      <p class="toms-official-addressee">見積テスト顧客 御中</p>
+      <p class="toms-official-addressee">最終確認テスト株式会社 御中</p>
       <p class="toms-official-field"><span class="toms-official-field-label">件名</span>防犯カメラ設置工事</p>
-      <p class="toms-official-field"><span class="toms-official-field-label">作業場所</span>つくば市</p>
+      <p class="toms-official-field"><span class="toms-official-field-label">作業場所</span>守谷市</p>
     </div>
     <div class="toms-official-header-side">
       <div class="toms-official-company">
@@ -83,8 +101,9 @@ table.pdf-a4-line-items .col-amount{width:15%;text-align:right;white-space:nowra
         <div>担当 山中智紀</div>
       </div>
       <table class="toms-official-meta">
-        <tr><th>発行日</th><td>2026-06-13</td></tr>
-        <tr><th>見積番号</th><td>260613-001</td></tr>
+        <tr><th>発行日</th><td>2026-06-14</td></tr>
+        <tr><th>見積番号</th><td>260614-001</td></tr>
+        
         
       </table>
     </div>
@@ -94,20 +113,24 @@ table.pdf-a4-line-items .col-amount{width:15%;text-align:right;white-space:nowra
     <span class="toms-official-amount-value">¥195,800<span class="toms-official-amount-tax">（税込）</span></span>
   </div>
 </div>
-<table class="pdf-a4-line-items"><colgroup><col style="width:4%"/><col style="width:46%"/><col style="width:10%"/><col style="width:6%"/><col style="width:15%"/><col style="width:19%"/></colgroup><thead><tr><th class="col-no">No</th><th class="col-desc">項目</th><th class="col-qty">数量</th><th class="col-unit">単位</th><th class="col-price">単価</th><th class="col-amount">金額</th></tr></thead><tbody><tr><td class="num col-no">1</td><td class="col-desc">防犯カメラ<br/>LAN配線工事</td><td class="num col-qty">2</td><td class="col-unit">台</td><td class="num col-price">¥45,000</td><td class="num col-amount">¥90,000</td></tr><tr><td class="num col-no">2</td><td class="col-desc">工事<br/>作業内容</td><td class="num col-qty">1</td><td class="col-unit">式</td><td class="num col-price">¥88,000</td><td class="num col-amount">¥88,000</td></tr></tbody></table>
-<div class="toms-official-totals">
+<div class="toms-doc-lower"><div class="toms-doc-items-area"><table class="pdf-a4-line-items"><colgroup><col style="width:4%"/><col style="width:46%"/><col style="width:10%"/><col style="width:6%"/><col style="width:15%"/><col style="width:19%"/></colgroup><thead><tr><th class="col-no">No</th><th class="col-desc">項目</th><th class="col-qty">数量</th><th class="col-unit">単位</th><th class="col-price">単価</th><th class="col-amount">金額</th></tr></thead><tbody><tr><td class="num col-no">1</td><td class="col-desc">防犯カメラ<br/>LAN配線</td><td class="num col-qty">2</td><td class="col-unit">台</td><td class="num col-price">¥45,000</td><td class="num col-amount">¥90,000</td></tr><tr><td class="num col-no">2</td><td class="col-desc">工事<br/>作業</td><td class="num col-qty">1</td><td class="col-unit">式</td><td class="num col-price">¥88,000</td><td class="num col-amount">¥88,000</td></tr><tr class="pdf-a4-line-filler"><td class="col-no">&nbsp;</td><td class="col-desc">&nbsp;</td><td class="col-qty">&nbsp;</td><td class="col-unit">&nbsp;</td><td class="col-price">&nbsp;</td><td class="col-amount">&nbsp;</td></tr><tr class="pdf-a4-line-filler"><td class="col-no">&nbsp;</td><td class="col-desc">&nbsp;</td><td class="col-qty">&nbsp;</td><td class="col-unit">&nbsp;</td><td class="col-price">&nbsp;</td><td class="col-amount">&nbsp;</td></tr><tr class="pdf-a4-line-filler"><td class="col-no">&nbsp;</td><td class="col-desc">&nbsp;</td><td class="col-qty">&nbsp;</td><td class="col-unit">&nbsp;</td><td class="col-price">&nbsp;</td><td class="col-amount">&nbsp;</td></tr><tr class="pdf-a4-line-filler"><td class="col-no">&nbsp;</td><td class="col-desc">&nbsp;</td><td class="col-qty">&nbsp;</td><td class="col-unit">&nbsp;</td><td class="col-price">&nbsp;</td><td class="col-amount">&nbsp;</td></tr><tr class="pdf-a4-line-filler"><td class="col-no">&nbsp;</td><td class="col-desc">&nbsp;</td><td class="col-qty">&nbsp;</td><td class="col-unit">&nbsp;</td><td class="col-price">&nbsp;</td><td class="col-amount">&nbsp;</td></tr><tr class="pdf-a4-line-filler"><td class="col-no">&nbsp;</td><td class="col-desc">&nbsp;</td><td class="col-qty">&nbsp;</td><td class="col-unit">&nbsp;</td><td class="col-price">&nbsp;</td><td class="col-amount">&nbsp;</td></tr><tr class="pdf-a4-line-filler"><td class="col-no">&nbsp;</td><td class="col-desc">&nbsp;</td><td class="col-qty">&nbsp;</td><td class="col-unit">&nbsp;</td><td class="col-price">&nbsp;</td><td class="col-amount">&nbsp;</td></tr><tr class="pdf-a4-line-filler"><td class="col-no">&nbsp;</td><td class="col-desc">&nbsp;</td><td class="col-qty">&nbsp;</td><td class="col-unit">&nbsp;</td><td class="col-price">&nbsp;</td><td class="col-amount">&nbsp;</td></tr><tr class="pdf-a4-line-filler"><td class="col-no">&nbsp;</td><td class="col-desc">&nbsp;</td><td class="col-qty">&nbsp;</td><td class="col-unit">&nbsp;</td><td class="col-price">&nbsp;</td><td class="col-amount">&nbsp;</td></tr><tr class="pdf-a4-line-filler"><td class="col-no">&nbsp;</td><td class="col-desc">&nbsp;</td><td class="col-qty">&nbsp;</td><td class="col-unit">&nbsp;</td><td class="col-price">&nbsp;</td><td class="col-amount">&nbsp;</td></tr><tr class="pdf-a4-line-filler"><td class="col-no">&nbsp;</td><td class="col-desc">&nbsp;</td><td class="col-qty">&nbsp;</td><td class="col-unit">&nbsp;</td><td class="col-price">&nbsp;</td><td class="col-amount">&nbsp;</td></tr><tr class="pdf-a4-line-filler"><td class="col-no">&nbsp;</td><td class="col-desc">&nbsp;</td><td class="col-qty">&nbsp;</td><td class="col-unit">&nbsp;</td><td class="col-price">&nbsp;</td><td class="col-amount">&nbsp;</td></tr></tbody></table></div>
+<div class="toms-doc-footer-cluster"><div class="toms-official-totals-wrap">
+  <div class="toms-official-totals">
   
   
   <div><span>小計</span><span>¥178,000</span></div>
   <div><span>消費税</span><span>¥17,800</span></div>
   <div class="grand"><span>税込合計</span><span>¥195,800</span></div>
-  <div class="toms-official-tax-breakdown">
-    <div><span>税率内訳（10%）</span><span></span></div>
-    <div><span>10%対象額</span><span>¥178,000</span></div>
-    <div><span>消費税</span><span>¥17,800</span></div>
+  </div>
+  <div class="toms-official-tax-breakdown" aria-label="税率内訳">
+    <span class="tax-label">税率内訳</span>
+    <span class="tax-value">10%</span>
+    <span class="tax-label">対象額</span>
+    <span class="tax-value num">¥178,000</span>
+    <span class="tax-label">消費税</span>
+    <span class="tax-value num">¥17,800</span>
   </div>
 </div>
-
-<div class="toms-official-footer"><p class="toms-official-field"><span class="toms-official-field-label">有効期限</span>2026/07/13</p><p class="toms-official-field"><span class="toms-official-field-label">担当者</span>山中 智紀</p></div>
-
+<div class="toms-official-notes"><strong>〈備考〉</strong><br/>最終確認用メモ</div>
+<div class="toms-official-footer"><p class="toms-official-field"><span class="toms-official-field-label">有効期限</span>2026/07/14</p><p class="toms-official-field"><span class="toms-official-field-label">担当者</span>山中 智紀</p></div></div></div>
 </div></body></html>

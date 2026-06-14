@@ -8,18 +8,47 @@ export function formatEventTimeRange(ev) {
   return parts.length ? parts.join("〜") : "";
 }
 
-export function renderWeatherSlotsHtml(slots, { inline = false, practical = false } = {}) {
+export function renderWeatherSlotsHtml(slots, { inline = false, practical = false, precipOnly = false } = {}) {
   if (!slots?.length) return "";
   const sep = inline ? " " : "<br>";
   return slots
     .map((slot) => {
-      if (practical) {
+      if (practical && !precipOnly) {
         return `<span class="weather-slot">${slot.icon}${escapeScheduleHtml(slot.label)}</span>`;
       }
       const rainCls = slot.highlightRain ? ' style="color:#b91c1c;font-weight:600;"' : "";
-      return `<span class="weather-slot"${rainCls}>${slot.icon}${escapeScheduleHtml(slot.label)} ${slot.precipChance}% ${slot.tempC}℃</span>`;
+      const suffix = precipOnly
+        ? ` ${slot.precipChance}%`
+        : ` ${slot.precipChance}% ${slot.tempC}℃`;
+      return `<span class="weather-slot"${rainCls}>${slot.icon}${escapeScheduleHtml(slot.label)}${suffix}</span>`;
     })
     .join(sep);
+}
+
+/** 日付カード上部 — 🏠基準地天気 */
+export function renderBaseWeatherHtml(weather) {
+  const label = `<div class="weather-block-label">🏠基準地天気</div>`;
+  if (weather?.status === "fetch_failed" || !weather?.slots?.length) {
+    return `<div class="schedule-weather-mini weather-block">${label}<div class="weather-block-status">取得失敗</div></div>`;
+  }
+  const slotsHtml = renderWeatherSlotsHtml(weather.slots, { precipOnly: true, inline: false });
+  return `<div class="schedule-weather-mini weather-block">${label}${slotsHtml}</div>`;
+}
+
+/** 予定カード — 📍現場天気 */
+export function renderSiteWeatherHtml(evIntel) {
+  const status =
+    evIntel?.weatherStatus ??
+    (evIntel?.weatherSlots?.length ? "ok" : "address_unset");
+  const label = `<div class="weather-block-label">📍現場天気</div>`;
+  if (status === "address_unset") {
+    return `<div class="schedule-intel-weather weather-block">${label}<div class="weather-block-status">住所未設定</div></div>`;
+  }
+  if (status === "fetch_failed") {
+    return `<div class="schedule-intel-weather weather-block">${label}<div class="weather-block-status">取得失敗</div></div>`;
+  }
+  const slotsHtml = renderWeatherSlotsHtml(evIntel.weatherSlots, { precipOnly: true, inline: true });
+  return `<div class="schedule-intel-weather weather-block">${label}${slotsHtml}</div>`;
 }
 
 const MAPS_API_UNSET_LABEL = "Google Maps API\u672a\u8a2d\u5b9a";
@@ -87,14 +116,14 @@ export function renderIntelligenceEventCard(
   const ev = evIntel;
   const time = formatEventTimeRange(ev);
   const travel = ev.travel ?? {};
-  const weatherHtml = renderWeatherSlotsHtml(ev.weatherSlots, { inline: true, practical: false });
+  const weatherHtml = renderSiteWeatherHtml(ev);
   const eventKey = escapeScheduleHtml(ev.eventId ?? ev.id ?? "");
 
   return `<article class="schedule-intel-card schedule-intel-card-compact" data-intel-event-id="${eventKey}">
     <div class="schedule-intel-summary schedule-intel-practical">
       ${time ? `<div class="schedule-intel-time">${escapeScheduleHtml(time)}</div>` : ""}
       <div class="schedule-intel-title">${escapeScheduleHtml(ev.title)}</div>
-      ${weatherHtml ? `<div class="schedule-intel-weather">${weatherHtml}</div>` : ""}
+      ${weatherHtml ? weatherHtml : ""}
       ${renderTravelLineHtml(travel, { showMapsUnsetBanner, mapsApiConfigured })}
       ${renderAddressInputButton(ev)}
       ${renderMaterialLineHtml(ev.fieldCheck)}

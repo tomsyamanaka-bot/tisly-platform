@@ -1,0 +1,118 @@
+<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>仕様書 防犯カメラ設置工事</title>
+<style>
+  @page { size: A4 portrait; margin: 2.5mm; }
+  * { box-sizing: border-box; }
+  body { font-family: "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif; color: #1a1a1a; margin: 0; padding: 0; font-size: 9pt; word-break: keep-all; }
+  .sp-page {
+    width: 205mm;
+    height: 292mm;
+    page-break-after: always;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+  .sp-page:last-child { page-break-after: auto; }
+  .sp-cover-page { padding: 0.3mm 0 0; }
+  .sp-cover-header { text-align: center; margin-bottom: 0.6mm; flex: 0 0 auto; }
+  .sp-cover-rule { height: 0; border-top: 1px solid #94a3b8; margin: 0.5mm 0; }
+  .sp-cover-company { font-size: 9pt; font-weight: 700; letter-spacing: 0.08em; margin: 0.3mm 0; line-height: 1.15; }
+  .sp-cover-title { font-size: 12.5pt; font-weight: 700; margin: 0.5mm 0; letter-spacing: 0.12em; line-height: 1.15; }
+  .sp-cover-fields { width: 100%; border-collapse: collapse; margin: 0.3mm 0 0.6mm; font-size: 7.5pt; flex: 0 0 auto; }
+  .sp-cover-fields th { text-align: left; width: 20%; padding: 0.25mm 0.8mm; color: #475569; font-weight: 600; vertical-align: top; border-bottom: 1px solid #e2e8f0; line-height: 1.15; }
+  .sp-cover-fields td { padding: 0.25mm 0.8mm; color: #0f172a; vertical-align: top; border-bottom: 1px solid #f1f5f9; line-height: 1.15; }
+  .sp-cover-section { margin: 0.4mm 0; flex: 0 0 auto; }
+  .sp-cover-section h3 { margin: 0 0 0.25mm; font-size: 7.5pt; font-weight: 700; color: #334155; line-height: 1.15; }
+  .sp-cover-section-body { font-size: 7pt; line-height: 1.25; color: #0f172a; white-space: pre-wrap; max-height: 14mm; overflow: hidden; }
+  .sp-no-photos-cover { margin-top: 1.5mm; text-align: center; font-size: 8.5pt; color: #64748b; flex: 0 0 auto; }
+  .sp-photo-page { padding: 0; }
+  .sp-photo-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    grid-auto-flow: row;
+    gap: 1.5mm;
+    align-content: start;
+  }
+  .sp-cover-photo-grid {
+    flex: 1 1 0;
+    min-height: 0;
+    margin: 0.4mm 0 0;
+    grid-auto-rows: minmax(0, 1fr);
+    align-content: start;
+  }
+  .sp-cover-photo-grid .sp-photo-cell {
+    min-height: 0;
+    overflow: hidden;
+  }
+  .sp-cover-photo-grid .sp-photo-img-wrap {
+    flex: 1 1 0;
+    min-height: 0;
+    aspect-ratio: unset;
+  }
+  .sp-photo-page .sp-photo-grid {
+    flex: 1;
+    min-height: 0;
+    grid-template-rows: repeat(3, 1fr);
+    margin-bottom: 1mm;
+  }
+  .sp-photo-page .sp-photo-img-wrap { aspect-ratio: unset; flex: 1; min-height: 0; }
+  .sp-photo-cell { display: flex; flex-direction: column; width: 100%; min-height: 0; }
+  .sp-photo-title { margin: 0.3mm 0 0; text-align: center; font-size: 6pt; color: #334155; line-height: 1.1; flex: 0 0 auto; }
+  .sp-photo-num { font-weight: 700; margin-right: 0.4mm; }
+  .sp-photo-img-wrap { width: 100%; aspect-ratio: 4 / 3; overflow: hidden; border: 1px solid #cbd5e1; border-radius: 1px; background: #f8fafc; flex: 0 0 auto; }
+  .sp-photo-img-wrap img { width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
+  .sp-no-photos { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 10pt; color: #64748b; letter-spacing: 0.05em; }
+  .sp-page-footer {
+    flex: 0 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 6.5pt;
+    color: #64748b;
+    border-top: 1px solid #e2e8f0;
+    padding-top: 1mm;
+    margin-top: auto;
+    gap: 2mm;
+  }
+  .sp-footer-project { font-weight: 600; color: #334155; }
+  .sp-footer-datetime { flex: 1; text-align: center; }
+  .sp-footer-pagenum { font-weight: 600; white-space: nowrap; }
+</style></head><body>
+<div class="sp-page sp-cover-page">
+  <div class="sp-cover-header">
+    <div class="sp-cover-rule"></div>
+    <div class="sp-cover-company">株式会社TOMS</div>
+    <h1 class="sp-cover-title">システム仕様書</h1>
+    <div class="sp-cover-rule"></div>
+  </div>
+  <table class="sp-cover-fields"><tr><th>案件名</th><td>防犯カメラ設置工事</td></tr><tr><th>顧客名</th><td>最終確認テスト株式会社 御中</td></tr><tr><th>住所</th><td>守谷市</td></tr><tr><th>担当者</th><td>山中 智紀</td></tr><tr><th>作成日</th><td>2026-06-14</td></tr></table>
+  
+  <div class="sp-photo-grid sp-cover-photo-grid"><div class="sp-photo-cell">
+    <div class="sp-photo-img-wrap"><img src="https://via.placeholder.com/400x300?text=Survey1" alt="現調写真1" /></div>
+    <p class="sp-photo-title"><span class="sp-photo-num">①</span> 現調写真1</p>
+  </div><div class="sp-photo-cell">
+    <div class="sp-photo-img-wrap"><img src="https://via.placeholder.com/400x300?text=Survey2" alt="現調写真2" /></div>
+    <p class="sp-photo-title"><span class="sp-photo-num">②</span> 現調写真2</p>
+  </div><div class="sp-photo-cell">
+    <div class="sp-photo-img-wrap"><img src="https://via.placeholder.com/400x300?text=Survey3" alt="現調写真3" /></div>
+    <p class="sp-photo-title"><span class="sp-photo-num">③</span> 現調写真3</p>
+  </div><div class="sp-photo-cell">
+    <div class="sp-photo-img-wrap"><img src="https://via.placeholder.com/400x300?text=Survey4" alt="現調写真4" /></div>
+    <p class="sp-photo-title"><span class="sp-photo-num">④</span> 現調写真4</p>
+  </div><div class="sp-photo-cell">
+    <div class="sp-photo-img-wrap"><img src="https://via.placeholder.com/400x300?text=Survey5" alt="現調写真5" /></div>
+    <p class="sp-photo-title"><span class="sp-photo-num">⑤</span> 現調写真5</p>
+  </div><div class="sp-photo-cell">
+    <div class="sp-photo-img-wrap"><img src="https://via.placeholder.com/400x300?text=Survey6" alt="現調写真6" /></div>
+    <p class="sp-photo-title"><span class="sp-photo-num">⑥</span> 現調写真6</p>
+  </div></div>
+  
+  <div class="sp-page-footer">
+    <span class="sp-footer-project">PRJ-FINAL-001</span>
+    <span class="sp-footer-datetime">2026/06/14 09:00</span>
+    <span class="sp-footer-pagenum">Page 1 / 1</span>
+  </div>
+</div>
+</body></html>

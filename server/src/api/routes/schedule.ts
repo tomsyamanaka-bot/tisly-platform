@@ -10,6 +10,7 @@ import {
   getScheduleWeekView,
   getCalendarIntegrationStatus,
   getScheduleDayDetail,
+  fetchBaseOriginDayWeather,
   getScheduleDayDetailMemo,
   getScheduleDayNote,
   updateUnavailableDay,
@@ -333,9 +334,10 @@ scheduleRouter.get("/weather", ...scheduleAuth, async (req: AuthedRequest, res) 
   if (!assertScheduleRole(req, res)) return;
   const date = String(req.query.date ?? new Date().toISOString().slice(0, 10));
   try {
-    const weather = await fetchDayWeather(date, {
-      location: req.query.location as string | undefined,
-    });
+    const location = req.query.location as string | undefined;
+    const weather = location
+      ? await fetchDayWeather(date, { location })
+      : await fetchBaseOriginDayWeather(date);
     res.json(weather);
   } catch (e) {
     res.status(500).json({ error: e instanceof Error ? e.message : "weather failed" });
