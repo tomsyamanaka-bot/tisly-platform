@@ -83,7 +83,7 @@ describe("お客様向けPDFコンテンツ", () => {
     };
     const html = renderInvoiceHtml(baseProject, invoice, baseEstimate);
     assert.match(html, /トムズ/);
-    assert.match(html, /インボイス番号/);
+    assert.match(html, /登録番号/);
     assert.equal(resolveTomsBankInfo("常陽銀行 越谷支店\n普通 1370414\nトムス"), "常陽銀行 越谷支店\n普通 1370414\nトムズ");
   });
 

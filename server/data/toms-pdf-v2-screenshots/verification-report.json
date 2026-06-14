@@ -1,0 +1,71 @@
+{
+  "generatedAt": "2026-06-14T22:15:44.478Z",
+  "screenshots": [
+    {
+      "name": "01-estimate-v1-before",
+      "png": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\toms-pdf-v2-screenshots\\01-estimate-v1-before.png",
+      "pdf": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\toms-pdf-v2-screenshots\\01-estimate-v1-before.pdf",
+      "viewport": {
+        "width": 900,
+        "height": 1200,
+        "deviceScaleFactor": 2
+      }
+    },
+    {
+      "name": "02-estimate-v2-after",
+      "png": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\toms-pdf-v2-screenshots\\02-estimate-v2-after.png",
+      "pdf": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\toms-pdf-v2-screenshots\\02-estimate-v2-after.pdf",
+      "viewport": {
+        "width": 900,
+        "height": 1200,
+        "deviceScaleFactor": 2
+      }
+    },
+    {
+      "name": "03-invoice-v2-after",
+      "png": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\toms-pdf-v2-screenshots\\03-invoice-v2-after.png",
+      "pdf": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\toms-pdf-v2-screenshots\\03-invoice-v2-after.pdf",
+      "viewport": {
+        "width": 900,
+        "height": 1200,
+        "deviceScaleFactor": 2
+      }
+    },
+    {
+      "name": "04-estimate-v2-iphone-safari",
+      "png": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\toms-pdf-v2-screenshots\\04-estimate-v2-iphone-safari.png",
+      "pdf": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\toms-pdf-v2-screenshots\\04-estimate-v2-iphone-safari.pdf",
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "deviceScaleFactor": 3,
+        "isMobile": true,
+        "hasTouch": true
+      }
+    },
+    {
+      "name": "05-invoice-v2-iphone-safari",
+      "png": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\toms-pdf-v2-screenshots\\05-invoice-v2-iphone-safari.png",
+      "pdf": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\toms-pdf-v2-screenshots\\05-invoice-v2-iphone-safari.pdf",
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "deviceScaleFactor": 3,
+        "isMobile": true,
+        "hasTouch": true
+      }
+    }
+  ],
+  "iphoneChecks": [
+    {
+      "label": "estimate PWA iframe",
+      "path": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\toms-pdf-v2-screenshots\\06-estimate-v2-iphone-pwa.png",
+      "ok": true
+    },
+    {
+      "label": "invoice PWA iframe",
+      "path": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\toms-pdf-v2-screenshots\\07-invoice-v2-iphone-pwa.png",
+      "ok": true
+    }
+  ]
+}

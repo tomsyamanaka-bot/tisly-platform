@@ -1,0 +1,133 @@
+<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"/><link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet"/><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/><title>お見積書 v1</title><style>
+@page { size: A4 portrait; margin: 6mm 7mm; }
+body{font-family:"Noto Sans JP","Hiragino Sans","Yu Gothic","Meiryo",system-ui,sans-serif;margin:0;padding:6mm 7mm 6mm 6mm;color:#111;background:#fff;font-size:9.5pt;line-height:1.32;word-break:normal;overflow-wrap:break-word;-webkit-text-size-adjust:100%;padding-bottom:calc(6mm + env(safe-area-inset-bottom, 0px))}
+.doc{max-width:200mm;width:100%;min-width:0;margin:0 auto;box-sizing:border-box}
+.doc.single-page{page-break-inside:avoid;min-height:279mm;display:flex;flex-direction:column;justify-content:space-between}
+.toms-doc-lower{flex:1 1 auto;display:flex;flex-direction:column;justify-content:space-between;margin-top:0.55rem;padding-bottom:0.25rem;min-height:0}
+.toms-doc-items-area{flex:1 1 auto;display:flex;flex-direction:column;min-height:138mm;margin:0.35rem 0 0.38rem}
+.toms-doc-items-area table.pdf-a4-line-items{flex:1 1 auto;height:100%}
+.toms-doc-footer-cluster{margin-top:auto;flex:0 0 auto;width:100%;padding-top:0.18rem}
+.toms-doc-lower table.pdf-a4-line-items{flex:0 0 auto}
+.toms-doc-lower .toms-doc-footer-cluster .toms-official-totals-wrap,.toms-doc-lower .toms-doc-footer-cluster .toms-official-notes,.toms-doc-lower .toms-doc-footer-cluster .toms-official-footer,.toms-doc-lower .toms-doc-footer-cluster .doc-invoice-footer{flex:0 0 auto}
+table.pdf-a4-line-items tbody tr.pdf-a4-line-filler td{height:1.45rem;vertical-align:top}
+table.pdf-a4-line-items tbody tr.pdf-a4-line-filler{background:#f8fafc}
+.doc.with-photos .photo-section-title{page-break-before:auto}
+.doc-invoice-footer{display:flex;justify-content:space-between;align-items:flex-end;gap:0.8rem;margin-top:0.52rem;padding-bottom:calc(6mm + env(safe-area-inset-bottom, 12px))}
+
+.toms-official-header{display:flex;justify-content:space-between;align-items:flex-start;gap:0.85rem;margin-bottom:0.62rem}
+.toms-official-header-main{flex:1;min-width:0}
+.toms-official-header-side{flex:0 0 38%;min-width:0;text-align:right;font-size:0.65rem;line-height:1.32;color:#222}
+.toms-official-title-band{display:inline-block;background:#d9d9d9;padding:0.32rem 0.9rem 0.32rem 0.55rem;margin:0 0 0.52rem}
+.toms-official-title-band h1{margin:0;font-size:1.02rem;letter-spacing:0.18em;font-weight:700;color:#111;white-space:normal;word-break:keep-all}
+.toms-official-addressee{margin:0 0 0.42rem;font-size:0.96rem;font-weight:700;color:#111;line-height:1.34}
+.toms-official-field{margin:0 0 0.24rem;font-size:0.78rem;line-height:1.28}
+.toms-official-field-label{font-weight:700;margin-right:0.35rem;white-space:nowrap}
+.toms-official-notes-inline{color:#334155;font-size:0.64rem}
+.toms-official-company{margin-bottom:0.42rem;line-height:1.34}
+.toms-official-company-name{font-weight:700;font-size:0.70rem;margin-bottom:0.1rem}
+.toms-official-meta{border-collapse:collapse;margin:0.12rem 0 0 auto;font-size:0.65rem}
+.toms-official-meta th,.toms-official-meta td{padding:0.1rem 0 0.1rem 0.32rem;text-align:left;vertical-align:top}
+.toms-official-meta th{font-weight:700;color:#333;white-space:nowrap}
+.toms-official-meta td{color:#111;word-break:break-word;overflow-wrap:break-word}
+.toms-official-amount{display:flex;justify-content:space-between;align-items:center;flex-wrap:nowrap;gap:0.5rem;margin:0.62rem 0 0.72rem;padding:0.42rem 0.72rem;border:2px solid #111;background:#fff}
+.toms-official-amount-label{font-size:0.86rem;font-weight:700;letter-spacing:0.06em;white-space:nowrap;flex-shrink:0}
+.toms-official-amount-value{font-size:1.18rem;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
+.toms-official-amount-tax{font-size:0.72rem;font-weight:600;margin-left:0.12rem}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.toms-official-totals-wrap{margin:0.18rem 0 0;width:100%;max-width:100%;box-sizing:border-box;overflow:visible;padding-right:0}
+.toms-official-totals{margin:0 0 0 auto;width:min(220px,100%);max-width:100%;font-size:0.76rem;box-sizing:border-box}
+.toms-official-totals div{display:flex;justify-content:space-between;padding:0.08rem 0;gap:0.35rem}
+.toms-official-totals .grand{font-weight:800;font-size:0.76rem;border-top:1px solid #000;margin-top:0.12rem;padding-top:0.14rem}
+.toms-official-totals .discount-row{color:#92400e}
+.toms-official-tax-breakdown{margin-top:0.18rem;padding:0.14rem 0 0;border-top:1px dashed #666;font-size:0.58rem;color:#333;width:100%;max-width:100%;box-sizing:border-box;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0.12rem 0.25rem;line-height:1.25;clear:both}
+.toms-official-tax-breakdown .tax-label{font-weight:600;color:#444;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.toms-official-tax-breakdown .tax-value{font-weight:700;font-variant-numeric:tabular-nums;color:#111;white-space:nowrap;text-align:right;overflow:hidden;text-overflow:ellipsis}
+.toms-official-tax-breakdown .tax-pair{display:contents}
+.toms-official-notes{margin-top:0.32rem;font-size:0.76rem;line-height:1.32}
+.toms-official-notes strong{font-weight:700}
+.toms-official-footer{display:flex;flex-wrap:wrap;gap:0.45rem 1.35rem;margin-top:0.42rem;font-size:0.76rem;line-height:1.32}
+.toms-official-footer .toms-official-field{margin:0}
+
+
+table.pdf-a4-line-items{width:100%;border-collapse:collapse;margin:0.18rem 0 0.32rem;border:1px solid #000;table-layout:fixed}
+table.pdf-a4-line-items th,table.pdf-a4-line-items td{border:1px solid #000;padding:0.07rem 0.2rem;font-size:8pt;vertical-align:middle;line-height:1.22}
+table.pdf-a4-line-items thead th{background:#b4c7e7;font-weight:700;text-align:center;white-space:nowrap;letter-spacing:0.02em}
+table.pdf-a4-line-items tbody tr{background:#eef3fb}
+table.pdf-a4-line-items .col-no{width:4%;text-align:center;white-space:nowrap}
+table.pdf-a4-line-items .col-desc{width:50%;min-width:50%;text-align:left;white-space:normal;word-break:keep-all;overflow-wrap:break-word;line-height:1.22;vertical-align:top}
+table.pdf-a4-line-items .col-qty{width:10%;text-align:center;white-space:nowrap}
+table.pdf-a4-line-items .col-unit{width:6%;text-align:center;white-space:nowrap}
+table.pdf-a4-line-items .col-price{width:15%;text-align:right;white-space:nowrap}
+table.pdf-a4-line-items .col-amount{width:15%;text-align:right;white-space:nowrap}
+
+.intro{margin:0.28rem 0 0.38rem;font-size:0.72rem}
+.bank-block{flex:1;max-width:52%;padding:0.38rem 0.55rem;border:1px solid #000;font-size:0.76rem;line-height:1.28;page-break-inside:avoid}
+.photos{display:grid;grid-template-columns:repeat(2,1fr);gap:0.28rem;margin-top:0.28rem;align-content:start}
+.photo-slot{display:flex;flex-direction:column;width:100%;page-break-inside:avoid}
+.photo-img-wrap{width:100%;aspect-ratio:4/3;overflow:hidden;border:1px solid #cbd5e1;background:#f8fafc}
+.photo-img-wrap img{width:100%;height:100%;object-fit:cover;object-position:center;display:block}
+.photo-title{margin:0.08rem 0 0;text-align:center;font-size:0.54rem;color:#334155;line-height:1.2;flex:0 0 auto}
+.photo-num{font-weight:700;margin-right:0.08rem}
+.photo-section-title{font-size:0.76rem;margin:0.5rem 0 0.18rem}
+.seal-placeholder{width:56px;height:56px;border:2px solid #cbd5e1;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:0.76rem;flex-shrink:0}
+.doc-footer{flex-shrink:0}
+.est-doc-body-page,.inv-doc-body-page{page-break-before:always;max-width:200mm;width:100%;min-width:0;margin:0 auto;box-sizing:border-box;padding:4mm 6mm 4mm 5mm}
+.est-doc-header-compact,.inv-doc-header-compact{flex:0 0 auto;font-size:8pt;line-height:1.2}
+.est-doc-header-compact .toms-official-header,.inv-doc-header-compact .toms-official-header{margin-bottom:0.15rem}
+.est-doc-header-compact .toms-official-amount,.inv-doc-header-compact .toms-official-amount{margin:0.15rem 0 0.2rem;padding:0.2rem 0.45rem}
+.est-doc-header-compact .toms-official-title-band h1,.inv-doc-header-compact .toms-official-title-band h1{font-size:0.88rem}
+@media print{
+  body{padding:0}
+  .doc{width:200mm;min-width:200mm;max-width:200mm}
+  table.pdf-a4-line-items thead{display:table-header-group}
+  table.pdf-a4-line-items tbody tr{page-break-inside:avoid}
+}
+</style></head><body>
+<div class="doc single-page"><div class="toms-official">
+  <div class="toms-official-header">
+    <div class="toms-official-header-main">
+      <div class="toms-official-title-band"><h1>お見積書</h1></div>
+      <p class="toms-official-addressee">富塚 御中</p>
+      <p class="toms-official-field"><span class="toms-official-field-label">件名</span>龍ヶ崎市 防犯カメラ工事</p>
+      <p class="toms-official-field"><span class="toms-official-field-label">作業場所</span>茨城県龍ヶ崎市</p>
+    </div>
+    <div class="toms-official-header-side">
+      <div class="toms-official-company">
+        <div class="toms-official-company-name">株式会社TOMS</div>
+        <div>〒302-0102</div>
+        <div>茨城県守谷市松前台7-24-9</div>
+        <div>TEL 080-2710-4483</div>
+        <div>担当 山中智紀</div>
+      </div>
+      <table class="toms-official-meta">
+        <tr><th>発行日</th><td>2026/06/14</td></tr>
+        <tr><th>見積番号</th><td>260614-001</td></tr>
+        
+        
+      </table>
+    </div>
+  </div>
+  <div class="toms-official-amount">
+    <span class="toms-official-amount-label">御見積金額</span>
+    <span class="toms-official-amount-value">¥328,900<span class="toms-official-amount-tax">（税込）</span></span>
+  </div>
+</div><div class="toms-doc-lower"><div class="toms-doc-items-area"><table class="pdf-a4-line-items"><colgroup><col style="width:4%"/><col style="width:46%"/><col style="width:10%"/><col style="width:6%"/><col style="width:15%"/><col style="width:19%"/></colgroup><thead><tr><th class="col-no">No</th><th class="col-desc">項目</th><th class="col-qty">数量</th><th class="col-unit">単位</th><th class="col-price">単価</th><th class="col-amount">金額</th></tr></thead><tbody><tr><td class="num col-no">1</td><td class="col-desc">4K 屋外カメラ<br/>TP-LINK Tapo C520WS</td><td class="num col-qty">2</td><td class="col-unit">台</td><td class="num col-price">¥98,000</td><td class="num col-amount">¥196,000</td></tr><tr><td class="num col-no">2</td><td class="col-desc">配線・設置工事</td><td class="num col-qty">1</td><td class="col-unit">式</td><td class="num col-price">¥85,000</td><td class="num col-amount">¥85,000</td></tr><tr><td class="num col-no">3</td><td class="col-desc">PoEハブ<br/>8ポート</td><td class="num col-qty">1</td><td class="col-unit">台</td><td class="num col-price">¥18,000</td><td class="num col-amount">¥18,000</td></tr><tr class="pdf-a4-line-filler"><td class="col-no">&nbsp;</td><td class="col-desc">&nbsp;</td><td class="col-qty">&nbsp;</td><td class="col-unit">&nbsp;</td><td class="col-price">&nbsp;</td><td class="col-amount">&nbsp;</td></tr><tr class="pdf-a4-line-filler"><td class="col-no">&nbsp;</td><td class="col-desc">&nbsp;</td><td class="col-qty">&nbsp;</td><td class="col-unit">&nbsp;</td><td class="col-price">&nbsp;</td><td class="col-amount">&nbsp;</td></tr><tr class="pdf-a4-line-filler"><td class="col-no">&nbsp;</td><td class="col-desc">&nbsp;</td><td class="col-qty">&nbsp;</td><td class="col-unit">&nbsp;</td><td class="col-price">&nbsp;</td><td class="col-amount">&nbsp;</td></tr><tr class="pdf-a4-line-filler"><td class="col-no">&nbsp;</td><td class="col-desc">&nbsp;</td><td class="col-qty">&nbsp;</td><td class="col-unit">&nbsp;</td><td class="col-price">&nbsp;</td><td class="col-amount">&nbsp;</td></tr><tr class="pdf-a4-line-filler"><td class="col-no">&nbsp;</td><td class="col-desc">&nbsp;</td><td class="col-qty">&nbsp;</td><td class="col-unit">&nbsp;</td><td class="col-price">&nbsp;</td><td class="col-amount">&nbsp;</td></tr><tr class="pdf-a4-line-filler"><td class="col-no">&nbsp;</td><td class="col-desc">&nbsp;</td><td class="col-qty">&nbsp;</td><td class="col-unit">&nbsp;</td><td class="col-price">&nbsp;</td><td class="col-amount">&nbsp;</td></tr><tr class="pdf-a4-line-filler"><td class="col-no">&nbsp;</td><td class="col-desc">&nbsp;</td><td class="col-qty">&nbsp;</td><td class="col-unit">&nbsp;</td><td class="col-price">&nbsp;</td><td class="col-amount">&nbsp;</td></tr><tr class="pdf-a4-line-filler"><td class="col-no">&nbsp;</td><td class="col-desc">&nbsp;</td><td class="col-qty">&nbsp;</td><td class="col-unit">&nbsp;</td><td class="col-price">&nbsp;</td><td class="col-amount">&nbsp;</td></tr><tr class="pdf-a4-line-filler"><td class="col-no">&nbsp;</td><td class="col-desc">&nbsp;</td><td class="col-qty">&nbsp;</td><td class="col-unit">&nbsp;</td><td class="col-price">&nbsp;</td><td class="col-amount">&nbsp;</td></tr><tr class="pdf-a4-line-filler"><td class="col-no">&nbsp;</td><td class="col-desc">&nbsp;</td><td class="col-qty">&nbsp;</td><td class="col-unit">&nbsp;</td><td class="col-price">&nbsp;</td><td class="col-amount">&nbsp;</td></tr><tr class="pdf-a4-line-filler"><td class="col-no">&nbsp;</td><td class="col-desc">&nbsp;</td><td class="col-qty">&nbsp;</td><td class="col-unit">&nbsp;</td><td class="col-price">&nbsp;</td><td class="col-amount">&nbsp;</td></tr></tbody></table></div>
+<div class="toms-doc-footer-cluster"><div class="toms-official-totals-wrap">
+  <div class="toms-official-totals">
+  
+  
+  <div><span>小計</span><span>¥299,000</span></div>
+  <div><span>消費税</span><span>¥29,900</span></div>
+  <div class="grand"><span>税込合計</span><span>¥328,900</span></div>
+  </div>
+  <div class="toms-official-tax-breakdown" aria-label="税率内訳">
+    <span class="tax-label">税率内訳</span>
+    <span class="tax-value">10%</span>
+    <span class="tax-label">対象額</span>
+    <span class="tax-value num">¥299,000</span>
+    <span class="tax-label">消費税</span>
+    <span class="tax-value num">¥29,900</span>
+  </div>
+</div>
+<div class="toms-official-notes"><strong>〈備考〉</strong><br/>・納期2週間程度<br/>・現地確認済み</div>
+<div class="toms-official-footer"><p class="toms-official-field"><span class="toms-official-field-label">有効期限</span>2026/07/14</p><p class="toms-official-field"><span class="toms-official-field-label">担当者</span>山中 智紀</p></div></div></div></div></body></html>

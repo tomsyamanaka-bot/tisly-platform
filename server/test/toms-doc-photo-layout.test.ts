@@ -127,6 +127,6 @@ describe("見積・請求 統一写真レイアウト", () => {
     const project = { ...baseProject, surveyPhotos: [] };
     const html = renderEstimateHtml(project, baseEstimate, { includePhotos: true });
     assert.ok(!html.includes("est-cover-photo-grid"));
-    assert.match(html, /doc single-page/);
+    assert.match(html, /toms-v2-page/);
   });
 });

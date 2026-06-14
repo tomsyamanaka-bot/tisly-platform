@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="72" height="72" viewBox="0 0 72 72" role="img" aria-label="*>TOMS p">
+  <rect x="2" y="2" width="68" height="68" fill="none" stroke="#c41e3a" stroke-width="3"/>
+  <rect x="8" y="8" width="56" height="56" fill="none" stroke="#c41e3a" stroke-width="1.5"/>
+  <text x="36" y="28" text-anchor="middle" fill="#c41e3a" font-family="serif" font-size="9" font-weight="700">*</text>
+  <text x="36" y="40" text-anchor="middle" fill="#c41e3a" font-family="serif" font-size="9" font-weight="700"></text>
+  <text x="36" y="52" text-anchor="middle" fill="#c41e3a" font-family="serif" font-size="9" font-weight="700"></text>
+  <text x="22" y="40" text-anchor="middle" fill="#c41e3a" font-family="serif" font-size="8" font-weight="700">T</text>
+  <text x="50" y="40" text-anchor="middle" fill="#c41e3a" font-family="serif" font-size="8" font-weight="700">S</text>
+  <text x="36" y="62" text-anchor="middle" fill="#c41e3a" font-family="serif" font-size="7" font-weight="700">p</text>
+</svg>

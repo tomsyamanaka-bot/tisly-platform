@@ -122,29 +122,29 @@ describe("TOMS標準見積フォーマット", () => {
       .set("Authorization", `Bearer ${token}`);
     assert.equal(res.status, 200);
     assert.match(res.text, /お見積書/);
-    assert.match(res.text, /toms-official/);
+    assert.match(res.text, /toms-v2/);
     assert.match(res.text, /株式会社TOMS/);
-    assert.match(res.text, /御見積金額/);
+    assert.match(res.text, /金額/);
     assert.match(res.text, /見積番号/);
     assert.match(res.text, /発行日/);
     assert.ok(!/インボイス番号/.test(res.text));
     assert.match(res.text, /件名/);
-    assert.match(res.text, /作業場所/);
     assert.match(res.text, /御中/);
-    assert.match(res.text, /山中智紀/);
-    assert.match(res.text, /税率内訳/);
+    assert.match(res.text, /山中/);
+    assert.ok(!/税率内訳/.test(res.text));
     assert.match(res.text, /株式会社伝元/);
     assert.ok(!/登録番号/.test(res.text));
     assert.match(res.text, /換気扇設置工事/);
     assert.match(res.text, />No</);
-    assert.match(res.text, />項目</);
+    assert.match(res.text, />摘要</);
     assert.match(res.text, /小上がり既存換気扇3台設置/);
     assert.match(res.text, /清掃・修理配線/);
     assert.ok(!/参考写真/.test(res.text));
-    assert.ok(!/振込先/.test(res.text));
+    assert.ok(!/振込口座/.test(res.text));
     assert.match(res.text, /有効期限/);
-    assert.match(res.text, /担当者/);
-    assert.match(res.text, /size: A4 portrait/);
+    assert.match(res.text, /担当/);
+    assert.match(res.text, /toms-v2-frame/);
+    assert.match(res.text, /Page 1 \/ 1/);
   });
 
   it("写真あり版では参考写真セクションが出る", async () => {
@@ -217,10 +217,10 @@ describe("TOMS標準見積フォーマット", () => {
       .set("Authorization", `Bearer ${token}`);
     assert.equal(noPhoto.status, 200);
     assert.match(noPhoto.text, /御請求書/);
-    assert.match(noPhoto.text, /振込先/);
+    assert.match(noPhoto.text, /振込口座/);
     assert.match(noPhoto.text, /常陽銀行/);
     assert.match(noPhoto.text, /支払期限/);
-    assert.match(noPhoto.text, /担当者/);
+    assert.match(noPhoto.text, /担当/);
     assert.ok(!/参考写真/.test(noPhoto.text));
 
     const withPhoto = await request(app)
@@ -247,14 +247,15 @@ describe("TOMS標準見積フォーマット", () => {
     const invoiceHtml = renderInvoiceHtml(project, invoice, estimate);
     assert.match(invoiceHtml, /御請求書/);
     assert.match(invoiceHtml, /見積参照番号/);
-    assert.match(invoiceHtml, /toms-official/);
-    assert.match(invoiceHtml, /ご請求金額/);
-    assert.match(invoiceHtml, /振込先/);
+    assert.match(invoiceHtml, /toms-v2/);
+    assert.match(invoiceHtml, /金額/);
+    assert.match(invoiceHtml, /振込口座/);
     assert.match(invoiceHtml, /常陽銀行 越谷支店/);
     assert.match(invoiceHtml, /トムズ/);
-    assert.match(invoiceHtml, /インボイス番号/);
+    assert.match(invoiceHtml, /登録番号/);
     assert.match(invoiceHtml, /支払期限/);
-    assert.match(invoiceHtml, /担当者/);
+    assert.match(invoiceHtml, /担当/);
+    assert.match(invoiceHtml, /税率内訳/);
     assert.match(invoiceHtml, /\d{6}-\d{3}/);
   });
 
@@ -330,8 +331,8 @@ describe("TOMS標準見積フォーマット", () => {
       }
     );
     assert.match(html, /お見積書/);
-    assert.match(html, /toms-official/);
-    assert.match(html, /toms-official-amount/);
+    assert.match(html, /toms-v2/);
+    assert.match(html, /toms-v2-amount-value/);
     assert.ok(!/<div class="toms-company-footer">/.test(html));
     assert.match(html, /換気扇設置工事/);
   });
@@ -396,16 +397,15 @@ describe("TOMS標準見積フォーマット", () => {
       },
       { includePhotos: false }
     );
-    assert.match(html, /pdf-a4-line-items/);
-    assert.match(html, /style="width:46%"/);
-    assert.match(html, /word-break:keep-all/);
+    assert.match(html, /toms-v2-items/);
+    assert.match(html, /word-break:\s*keep-all/);
     assert.match(html, /charset=.UTF-8/);
     assert.match(html, /Noto Sans JP/);
     assert.ok(!html.includes("@media screen and (max-width:520px)"));
     assert.match(html, /width=device-width/);
     assert.match(html, /size: A4 portrait/);
     assert.match(html, /防犯カメラ設置工事一式/);
-    assert.ok(!/振込先/.test(html));
+    assert.ok(!/振込口座/.test(html));
   });
 
   it("????? 破損テキストはPDFに出さない", () => {
@@ -560,6 +560,6 @@ describe("TOMS標準見積フォーマット", () => {
     assert.ok(!html.includes("?????"));
     assert.match(html, /正常な請求項目/);
     assert.match(html, /常陽銀行 越谷支店/);
-    assert.match(html, /doc-invoice-footer/);
+    assert.match(html, /振込口座/);
   });
 });

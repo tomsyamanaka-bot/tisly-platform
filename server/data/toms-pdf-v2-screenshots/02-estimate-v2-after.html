@@ -1,0 +1,283 @@
+<!DOCTYPE html><html lang="ja"><head>
+<meta charset="UTF-8"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>お見積書 260614-001</title>
+<style>
+@page { size: A4 portrait; margin: 8mm; }
+* { box-sizing: border-box; }
+body {
+  font-family: "Noto Sans JP", "Hiragino Sans", "Yu Gothic", "Meiryo", system-ui, sans-serif;
+  margin: 0;
+  padding: 0;
+  color: #111;
+  background: #fff;
+  font-size: 9pt;
+  line-height: 1.3;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  -webkit-text-size-adjust: 100%;
+}
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+.toms-v2-page {
+  width: 194mm;
+  min-height: 281mm;
+  margin: 0 auto;
+  page-break-after: always;
+  position: relative;
+  padding-bottom: 5mm;
+}
+.toms-v2-page:last-child { page-break-after: auto; }
+.toms-v2-frame {
+  border: 2px solid #000;
+  min-height: 275mm;
+  display: flex;
+  flex-direction: column;
+  padding: 2.5mm 3mm 2mm;
+}
+.toms-v2-frame-continuation { padding-top: 3mm; }
+.toms-v2-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 3mm;
+  margin-bottom: 1.5mm;
+}
+.toms-v2-header-left { flex: 1 1 58%; min-width: 0; }
+.toms-v2-header-right { flex: 0 0 40%; min-width: 0; text-align: right; position: relative; }
+.toms-v2-title-band {
+  display: inline-block;
+  background: #d3d3d3;
+  border: 1px solid #000;
+  padding: 1.2mm 5mm;
+  margin-bottom: 2mm;
+  min-width: 28mm;
+  text-align: center;
+  font-size: 13pt;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+.toms-v2-addressee-row {
+  display: flex;
+  align-items: baseline;
+  gap: 1mm;
+  margin: 1mm 0 2mm;
+}
+.toms-v2-addressee-name {
+  font-size: 14pt;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.toms-v2-addressee-line {
+  flex: 1 1 auto;
+  border-bottom: 1px solid #000;
+  min-width: 8mm;
+  margin: 0 1mm;
+  height: 0;
+  align-self: flex-end;
+  margin-bottom: 2px;
+}
+.toms-v2-addressee-honorific { font-size: 12pt; font-weight: 700; white-space: nowrap; }
+.toms-v2-subject-row {
+  display: flex;
+  align-items: baseline;
+  gap: 1mm;
+  font-size: 9.5pt;
+  margin-top: 0.5mm;
+}
+.toms-v2-subject-label { font-weight: 700; white-space: nowrap; }
+.toms-v2-subject-value { font-weight: 700; flex: 1; min-width: 0; }
+.toms-v2-subject-underline { border-bottom: 1px solid #000; margin: 0.5mm 0 1mm; }
+.toms-v2-intro { margin: 1mm 0 0; font-size: 8pt; }
+.toms-v2-meta {
+  border-collapse: collapse;
+  margin: 0 0 1mm auto;
+  font-size: 7.5pt;
+}
+.toms-v2-meta th, .toms-v2-meta td { padding: 0.2mm 0 0.2mm 1.5mm; text-align: left; vertical-align: top; }
+.toms-v2-meta th { font-weight: 700; white-space: nowrap; }
+.toms-v2-company-wrap { position: relative; text-align: left; display: inline-block; max-width: 100%; }
+.toms-v2-company-band {
+  background: #d3d3d3;
+  border: 1px solid #000;
+  padding: 0.6mm 2mm;
+  font-weight: 700;
+  font-size: 8.5pt;
+  margin-bottom: 0.5mm;
+}
+.toms-v2-company-body { font-size: 7.5pt; line-height: 1.35; padding-right: 14mm; }
+.toms-v2-bank { margin-top: 0.8mm; white-space: pre-line; }
+.toms-v2-seal {
+  position: absolute;
+  right: -2mm;
+  top: 0;
+  width: 14mm;
+  height: 14mm;
+  object-fit: contain;
+  opacity: 0.92;
+  mix-blend-mode: multiply;
+}
+.toms-v2-amount-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid #000;
+  border-bottom: 1px solid #000;
+  padding: 1.5mm 2mm;
+  margin: 0.5mm 0 1mm;
+  gap: 2mm;
+}
+.toms-v2-amount-label { font-size: 10pt; font-weight: 700; flex: 0 0 auto; }
+.toms-v2-amount-value { font-size: 18pt; font-weight: 800; flex: 1 1 auto; text-align: center; font-variant-numeric: tabular-nums; }
+.toms-v2-amount-tax { font-size: 9pt; font-weight: 600; flex: 0 0 auto; }
+.toms-v2-items {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid #000;
+  table-layout: fixed;
+  flex: 1 1 auto;
+  margin-bottom: 1mm;
+}
+.toms-v2-items th, .toms-v2-items td {
+  border: 1px solid #000;
+  padding: 0.8mm 1mm;
+  font-size: 8pt;
+  vertical-align: middle;
+  line-height: 1.25;
+}
+.toms-v2-items thead th {
+  background: #d3d3d3;
+  font-weight: 700;
+  text-align: center;
+}
+.toms-v2-items tbody tr { background: #e6f2ff; }
+.toms-v2-items tbody tr.toms-v2-row-filler td { height: 5mm; }
+.toms-v2-items .col-no { width: 6%; text-align: center; }
+.toms-v2-items .col-desc { width: 52%; text-align: center; white-space: pre-line; word-break: keep-all; }
+.toms-v2-items .col-qty { width: 10%; }
+.toms-v2-items .col-price { width: 16%; }
+.toms-v2-items .col-amount { width: 16%; }
+.toms-v2-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 2mm;
+  margin-top: 0.5mm;
+}
+.toms-v2-bottom-left { flex: 1 1 55%; min-width: 0; }
+.toms-v2-bottom-right { flex: 0 0 38%; min-width: 0; }
+.toms-v2-tax-table {
+  border-collapse: collapse;
+  font-size: 7.5pt;
+  width: 100%;
+  max-width: 72mm;
+  border: 1px solid #000;
+}
+.toms-v2-tax-table th, .toms-v2-tax-table td {
+  border: 1px solid #000;
+  padding: 0.6mm 1mm;
+  text-align: center;
+}
+.toms-v2-tax-table th { background: #d3d3d3; font-weight: 700; }
+.toms-v2-totals {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 8pt;
+  margin-left: auto;
+}
+.toms-v2-totals th, .toms-v2-totals td {
+  border: 1px solid #000;
+  padding: 0.7mm 1.5mm;
+}
+.toms-v2-totals th {
+  background: #d3d3d3;
+  font-weight: 700;
+  text-align: center;
+  width: 42%;
+}
+.toms-v2-totals tr.grand th, .toms-v2-totals tr.grand td { font-weight: 800; }
+.toms-v2-notes {
+  border-top: 1px solid #000;
+  margin-top: 1.5mm;
+  padding-top: 1mm;
+  flex: 1 1 auto;
+  min-height: 22mm;
+  display: flex;
+  flex-direction: column;
+}
+.toms-v2-notes-label { font-size: 8pt; font-weight: 700; margin-bottom: 1mm; }
+.toms-v2-notes-body { font-size: 8pt; line-height: 1.4; white-space: pre-wrap; flex: 1; min-height: 16mm; }
+.toms-v2-notes-empty { min-height: 16mm; }
+.toms-v2-page-num {
+  text-align: center;
+  font-size: 7.5pt;
+  color: #333;
+  margin-top: 2mm;
+  font-weight: 600;
+}
+.toms-v2-cover-header .toms-v2-header { margin-bottom: 0.5mm; }
+.toms-v2-cover-header .toms-v2-amount-row { margin-bottom: 0; }
+.toms-v2-footer-extras { font-size: 7.5pt; margin-top: 1mm; line-height: 1.35; }
+@media print {
+  body { padding: 0; }
+  .toms-v2-page { width: 194mm; }
+  .toms-v2-items thead { display: table-header-group; }
+  .toms-v2-items tbody tr { page-break-inside: avoid; }
+}
+</style>
+</head><body>
+<div class="toms-v2-page">
+<div class="toms-v2-frame">
+<div class="toms-v2-header"><div class="toms-v2-header-left">
+  <div class="toms-v2-title-band">お見積書</div>
+  <div class="toms-v2-addressee-row">
+    <span class="toms-v2-addressee-name">富塚</span>
+    <span class="toms-v2-addressee-line" aria-hidden="true"></span>
+    <span class="toms-v2-addressee-honorific">様</span>
+  </div>
+  <div class="toms-v2-subject-row">
+    <span class="toms-v2-subject-label">件名：</span>
+    <span class="toms-v2-subject-value">龍ヶ崎市 防犯カメラ工事</span>
+  </div>
+  <div class="toms-v2-subject-underline"></div>
+  
+  <p class="toms-v2-intro">下記の通り、お見積り申し上げます。</p>
+</div><div class="toms-v2-header-right">
+  <table class="toms-v2-meta"><tr><th>発行日</th><td>2026/06/14</td></tr><tr><th>見積番号</th><td>No 1</td></tr></table>
+  <div class="toms-v2-company-wrap">
+    <div class="toms-v2-company-band">株式会社TOMS</div>
+<div class="toms-v2-company-body">
+  <div>〒302-0102</div>
+  <div>茨城県守谷市松前台7-24-9</div>
+  <div>TEL: 080-2710-4483</div>
+  <div>担当: 山中 智紀</div>
+  
+</div>
+    <img class="toms-v2-seal" src="/assets/toms-seal.svg" alt="印"/>
+  </div>
+</div></div>
+<div class="toms-v2-amount-row">
+  <span class="toms-v2-amount-label">金額</span>
+  <span class="toms-v2-amount-value">¥328,900</span>
+  <span class="toms-v2-amount-tax">（税込）</span>
+</div>
+<table class="toms-v2-items">
+<colgroup>
+  <col class="col-no"/><col class="col-desc"/><col class="col-qty"/><col class="col-price"/><col class="col-amount"/>
+</colgroup>
+<thead><tr><th>No</th><th>摘要</th><th>数量</th><th>単価</th><th>金額</th></tr></thead>
+<tbody><tr><td class="col-no">1</td><td class="col-desc">4K 屋外カメラ<br/>TP-LINK Tapo C520WS</td><td class="col-qty num">2</td><td class="col-price num">98,000</td><td class="col-amount num">196,000</td></tr><tr><td class="col-no">2</td><td class="col-desc">配線・設置工事</td><td class="col-qty num">1</td><td class="col-price num">85,000</td><td class="col-amount num">85,000</td></tr><tr><td class="col-no">3</td><td class="col-desc">PoEハブ<br/>8ポート</td><td class="col-qty num">1</td><td class="col-price num">18,000</td><td class="col-amount num">18,000</td></tr><tr class="toms-v2-row-filler"><td class="col-no">&nbsp;</td><td class="col-desc">&nbsp;</td><td class="col-qty">&nbsp;</td><td class="col-price">&nbsp;</td><td class="col-amount">&nbsp;</td></tr><tr class="toms-v2-row-filler"><td class="col-no">&nbsp;</td><td class="col-desc">&nbsp;</td><td class="col-qty">&nbsp;</td><td class="col-price">&nbsp;</td><td class="col-amount">&nbsp;</td></tr><tr class="toms-v2-row-filler"><td class="col-no">&nbsp;</td><td class="col-desc">&nbsp;</td><td class="col-qty">&nbsp;</td><td class="col-price">&nbsp;</td><td class="col-amount">&nbsp;</td></tr><tr class="toms-v2-row-filler"><td class="col-no">&nbsp;</td><td class="col-desc">&nbsp;</td><td class="col-qty">&nbsp;</td><td class="col-price">&nbsp;</td><td class="col-amount">&nbsp;</td></tr><tr class="toms-v2-row-filler"><td class="col-no">&nbsp;</td><td class="col-desc">&nbsp;</td><td class="col-qty">&nbsp;</td><td class="col-price">&nbsp;</td><td class="col-amount">&nbsp;</td></tr><tr class="toms-v2-row-filler"><td class="col-no">&nbsp;</td><td class="col-desc">&nbsp;</td><td class="col-qty">&nbsp;</td><td class="col-price">&nbsp;</td><td class="col-amount">&nbsp;</td></tr><tr class="toms-v2-row-filler"><td class="col-no">&nbsp;</td><td class="col-desc">&nbsp;</td><td class="col-qty">&nbsp;</td><td class="col-price">&nbsp;</td><td class="col-amount">&nbsp;</td></tr><tr class="toms-v2-row-filler"><td class="col-no">&nbsp;</td><td class="col-desc">&nbsp;</td><td class="col-qty">&nbsp;</td><td class="col-price">&nbsp;</td><td class="col-amount">&nbsp;</td></tr><tr class="toms-v2-row-filler"><td class="col-no">&nbsp;</td><td class="col-desc">&nbsp;</td><td class="col-qty">&nbsp;</td><td class="col-price">&nbsp;</td><td class="col-amount">&nbsp;</td></tr></tbody>
+</table><div class="toms-v2-bottom">
+  <div class="toms-v2-bottom-left"><div class="toms-v2-footer-extras">有効期限：2026/07/14</div></div>
+  <div class="toms-v2-bottom-right"><table class="toms-v2-totals">
+
+<tr><th>小計</th><td class="num">299,000</td></tr>
+<tr><th>消費税</th><td class="num">29,900</td></tr>
+<tr class="grand"><th>税込合計</th><td class="num">¥328,900</td></tr>
+</table></div>
+</div>
+<div class="toms-v2-notes"><div class="toms-v2-notes-label">＜備考＞</div><div class="toms-v2-notes-body">・納期2週間程度<br/>・現地確認済み</div></div>
+<div class="toms-v2-page-num">Page 1 / 1</div></div></div>
+</body></html>
