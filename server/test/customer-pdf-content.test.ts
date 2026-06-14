@@ -102,7 +102,8 @@ describe("お客様向けPDFコンテンツ", () => {
       notes: "Google予定から自動生成",
       photos: [{ url: "/p.jpg", title: "写真1" }],
     });
-    assert.match(html, /システム仕様書/);
+    assert.match(html, /仕様書/);
+    assert.doesNotMatch(html, /システム仕様書/);
     assert.match(html, /写真1/);
     assert.ok(!html.includes("システム構成"));
     assert.ok(!html.includes("設置場所一覧"));

@@ -133,8 +133,7 @@ export function generateQnapSpecificationFilePath(
 ): string {
   const suffix = sanitizeSegment(project.customerName);
   const title = sanitizeSegment(project.title);
-  const no = sanitizeSegment(project.projectNo);
-  return `${generateQnapSpecificationFolderPath(project)}SPEC-${no}_${suffix}_${title}.pdf`;
+  return `${generateQnapSpecificationFolderPath(project)}仕様書_${suffix}_${title}.pdf`;
 }
 
 export function createQnapSavePlan(project: BusinessProject): QnapSavePlan {

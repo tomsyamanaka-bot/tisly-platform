@@ -194,7 +194,7 @@ describe("Phase 601-620 drawing PWA and real integration foundations", () => {
       .set("Authorization", `Bearer ${token}`)
       .send({ drawingPlanId: planId });
     assert.equal(res.status, 201);
-    assert.match(res.body.qnapPath, /07_仕様書\/SPEC-/);
+    assert.match(res.body.qnapPath, /07_仕様書\/仕様書_/);
     assert.ok(res.body.document.pdfPath);
   });
 
@@ -207,7 +207,7 @@ describe("Phase 601-620 drawing PWA and real integration foundations", () => {
     const folder = generateQnapSpecificationFolderPath(project);
     const file = generateQnapSpecificationFilePath(project);
     assert.match(folder, /07_仕様書\/$/);
-    assert.match(file, /SPEC-.*山田様.*施工図試験\.pdf$/);
+    assert.match(file, /仕様書_.*山田様.*施工図試験\.pdf$/);
   });
 
   it("blocks Gmail real send without confirmed", async () => {

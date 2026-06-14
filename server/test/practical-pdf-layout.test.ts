@@ -16,7 +16,7 @@ function renderSpec(count: number) {
   return renderPracticalPdfHtml({
     prefix: "sp",
     pageTitle: "仕様書テスト",
-    documentTitle: "システム仕様書",
+    documentTitle: "仕様書",
     projectNo: "PRJ-TEST",
     generatedAt: "2026-06-13T12:00:00+09:00",
     coverFields: [{ label: "件名", value: "テスト" }],

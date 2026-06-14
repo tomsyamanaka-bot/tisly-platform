@@ -30,8 +30,13 @@
   border-radius: 8px;
   padding: 0.45rem 0.55rem;
   font-size: 0.85rem;
-  min-height: 40px;
+  min-height: 44px;
+  min-width: 4.5rem;
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  position: relative;
+  z-index: 2;
 }
 
 .doc-header-center {
@@ -463,6 +468,63 @@
 
 .hidden {
   display: none !important;
+}
+
+@media (max-width: 767px) {
+  .doc-viewer-body {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0) + 4.5rem);
+  }
+
+  .doc-viewer-header {
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 0.5rem;
+    padding: 0.45rem 0.5rem;
+    padding-top: calc(0.45rem + env(safe-area-inset-top, 0));
+  }
+
+  .doc-header-back {
+    order: 0;
+    flex: 0 0 auto;
+    font-size: 0.9rem;
+    padding: 0.5rem 0.65rem;
+  }
+
+  .doc-header-center {
+    order: 1;
+    flex: 1 1 8rem;
+    text-align: left;
+    padding-right: 0.25rem;
+  }
+
+  .doc-header-actions {
+    order: 2;
+    width: 100%;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+  }
+
+  .doc-header-btn {
+    min-height: 40px;
+    font-size: 0.74rem;
+  }
+
+  .doc-viewer-main {
+    margin-top: calc(4.8rem + env(safe-area-inset-top, 0));
+  }
+
+  .doc-header-title {
+    font-size: 0.82rem;
+  }
+
+  .doc-fixed-total {
+    display: none !important;
+  }
+
+  .doc-viewer-main {
+    padding: 0.75rem;
+  }
 }
 
 @media (min-width: 768px) {

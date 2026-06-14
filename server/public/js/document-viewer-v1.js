@@ -424,6 +424,10 @@ function handleBack(returnUrl) {
     window.history.back();
     return;
   }
+  if (payload?.projectId) {
+    window.location.href = `/projects-v1?projectId=${encodeURIComponent(payload.projectId)}`;
+    return;
+  }
   window.location.href = "/estimate-v1";
 }
 

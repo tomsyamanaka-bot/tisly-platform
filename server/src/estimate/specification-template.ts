@@ -32,7 +32,7 @@ export function renderSpecificationHtml(ctx: SpecificationContext): string {
   return renderPracticalPdfHtml({
     prefix: "sp",
     pageTitle: `仕様書 ${ctx.subject}`,
-    documentTitle: "システム仕様書",
+    documentTitle: "仕様書",
     projectNo: ctx.projectNo,
     generatedAt: ctx.generatedAt,
     coverFields,

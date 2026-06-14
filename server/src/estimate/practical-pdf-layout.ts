@@ -27,7 +27,7 @@ export interface PracticalPdfCoverSection {
 export interface PracticalPdfLayoutOptions {
   prefix: "sp" | "cr";
   pageTitle: string;
-  /** 例: システム仕様書 / 工事完了報告書 */
+  /** 例: 仕様書 / 工事完了報告書 */
   documentTitle: string;
   projectNo: string;
   generatedAt: string;

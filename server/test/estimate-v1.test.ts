@@ -280,7 +280,8 @@ describe("見積PWA v1 API", () => {
       .get(`/api/estimate/v1/projects/${est.body.businessProjectId}/specification/pdf?format=html&live=1`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(res.status, 200);
-    assert.ok(res.text.includes("システム仕様書"));
+    assert.ok(res.text.includes("仕様書"));
+    assert.ok(!res.text.includes("システム仕様書"));
     assert.ok(res.text.includes("写真未登録"));
     assert.ok(res.text.includes("株式会社TOMS"));
     assert.ok(res.text.includes("東京都港区"));
