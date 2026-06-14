@@ -282,11 +282,8 @@ estimateV1Router.patch("/projects/:id/items", ...estimateV1Auth, (req: AuthedReq
 
 estimateV1Router.post("/projects/:id/finalize", ...estimateV1Auth, async (req: AuthedRequest, res) => {
   if (!assertEstimateV1Role(req, res)) return;
-  const body = (req.body ?? {}) as { includePhotos?: boolean };
   try {
-    const result = await finalizeEstimateV1(String(req.params.id), {
-      includePhotos: body.includePhotos === true,
-    });
+    const result = await finalizeEstimateV1(String(req.params.id));
     res.json(result);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "finalize failed";
@@ -307,11 +304,8 @@ estimateV1Router.get("/projects/:id/pdf", ...estimateV1Auth, async (req: AuthedR
     res.status(404).json({ error: "No estimate" });
     return;
   }
-  const hasSurveyPhotos = (project.surveyPhotos?.length ?? 0) > 0;
-  /** 見積書PDFは写真なし（PROJECT_STATUS: includePhotos 常に false） */
-  const includePhotos = parseIncludePhotos(req.query as Record<string, unknown>, false);
   const regenerate = parseRegenerate(req.query as Record<string, unknown>);
-  const pdfCtx = getEstimatePdfContextV1(projectId, { includePhotos }) ?? undefined;
+  const pdfCtx = getEstimatePdfContextV1(projectId) ?? undefined;
   if (parseFormatHtml(req.query as Record<string, unknown>)) {
     const { contentType, path: filePath } = getEstimatePdfOrPlaceholder(project, estimate, pdfCtx, {
       regenerate,
@@ -320,9 +314,6 @@ estimateV1Router.get("/projects/:id/pdf", ...estimateV1Auth, async (req: AuthedR
     return;
   }
   let filePath = !regenerate ? resolveProjectPdfFile(projectId, "estimate") : null;
-  if (filePath && includePhotos && hasSurveyPhotos) {
-    filePath = null;
-  }
   if (!filePath || !isValidPdfFile(filePath)) {
     try {
       const pdfPath = await generateEstimatePdf(project, estimate, pdfCtx);
@@ -360,11 +351,7 @@ estimateV1Router.post("/projects/:id/pdf/regenerate", ...estimateV1Auth, async (
     return;
   }
   try {
-    const body = (req.body ?? {}) as { includePhotos?: boolean };
-    const hasSurveyPhotos = (project.surveyPhotos?.length ?? 0) > 0;
-    const includePhotos =
-      body.includePhotos === false ? false : body.includePhotos === true || hasSurveyPhotos;
-    const pdfCtx = getEstimatePdfContextV1(project.id, { includePhotos }) ?? undefined;
+    const pdfCtx = getEstimatePdfContextV1(project.id) ?? undefined;
     const pdfPath = await generateEstimatePdf(project, estimate, pdfCtx);
     setEstimatePdfPath(estimate.id, pdfPath);
     recordProjectPdfSavedV1(project.id, "estimate", pdfPath);
@@ -399,31 +386,24 @@ estimateV1Router.get("/projects/:id/invoice/pdf", ...estimateV1Auth, async (req:
     res.status(404).json({ error: "No invoice" });
     return;
   }
-  const hasSurveyPhotos = (project.surveyPhotos?.length ?? 0) > 0;
-  /** 請求書PDFは写真なし（PROJECT_STATUS: includePhotos 常に false） */
-  const includePhotos = parseIncludePhotos(req.query as Record<string, unknown>, false);
   const regenerate = parseRegenerate(req.query as Record<string, unknown>);
-  const pdfCtx = getEstimatePdfContextV1(projectId, { includePhotos }) ?? undefined;
+  const pdfCtx = getEstimatePdfContextV1(projectId) ?? undefined;
   if (parseFormatHtml(req.query as Record<string, unknown>)) {
     const { contentType, path: filePath } = getInvoicePdfOrPlaceholder(
       project,
       invoice,
       estimate,
-      { notes: pdfCtx?.notes, includePhotos: pdfCtx?.includePhotos },
+      { notes: pdfCtx?.notes },
       { regenerate }
     );
     res.type(contentType).sendFile(filePath);
     return;
   }
   let filePath = !regenerate ? resolveProjectPdfFile(projectId, "invoice") : null;
-  if (filePath && includePhotos && hasSurveyPhotos) {
-    filePath = null;
-  }
   if (!filePath || !isValidPdfFile(filePath)) {
     try {
       const pdfPath = await generateInvoicePdf(project, invoice, estimate, {
         notes: pdfCtx?.notes,
-        includePhotos: pdfCtx?.includePhotos,
       });
       setInvoicePdfPath(invoice.id, pdfPath);
       recordProjectPdfSavedV1(projectId, "invoice", pdfPath);
@@ -463,14 +443,9 @@ estimateV1Router.post(
       return;
     }
     try {
-      const body = (req.body ?? {}) as { includePhotos?: boolean };
-      const hasSurveyPhotos = (project.surveyPhotos?.length ?? 0) > 0;
-      const includePhotos =
-        body.includePhotos === false ? false : body.includePhotos === true || hasSurveyPhotos;
-      const pdfCtx = getEstimatePdfContextV1(project.id, { includePhotos }) ?? undefined;
+      const pdfCtx = getEstimatePdfContextV1(project.id) ?? undefined;
       const pdfPath = await generateInvoicePdf(project, invoice, estimate, {
         notes: pdfCtx?.notes,
-        includePhotos: pdfCtx?.includePhotos,
       });
       setInvoicePdfPath(invoice.id, pdfPath);
       recordProjectPdfSavedV1(project.id, "invoice", pdfPath);

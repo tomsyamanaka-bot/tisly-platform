@@ -110,7 +110,6 @@ export async function generateEstimatePdf(
     staffName: ctx?.staffName,
     notes: ctx?.notes,
     header: ctx?.header ?? estimate.header,
-    includePhotos: ctx?.includePhotos,
     priceRuleName: resolveEstimatePriceRule(estimate, project.customerId).ruleName,
   });
   const { pdfPath } = await writePdfFromHtml(
@@ -127,7 +126,6 @@ export async function generateEstimatePdf(
 export interface InvoicePdfRenderContext {
   estimateRefNo?: string;
   notes?: string | null;
-  includePhotos?: boolean;
 }
 
 export async function generateInvoicePdf(
@@ -139,7 +137,6 @@ export async function generateInvoicePdf(
   const html = renderInvoiceHtml(project, invoice, estimate, {
     estimateRefNo: ctx?.estimateRefNo ?? invoice.estimateRefNo ?? estimate.estimateNo,
     notes: ctx?.notes,
-    includePhotos: ctx?.includePhotos,
     priceRuleName: resolveEstimatePriceRule(estimate, project.customerId).ruleName,
     shuseiDiscount: estimate.shuseiDiscount,
     shuseiDiscountMemo: estimate.shuseiDiscountMemo,
@@ -177,7 +174,6 @@ export interface EstimatePdfRenderContext {
   staffName?: string | null;
   notes?: string | null;
   header?: TomsEstimateHeader | null;
-  includePhotos?: boolean;
 }
 
 export function getEstimatePdfOrPlaceholder(
@@ -196,7 +192,6 @@ export function getEstimatePdfOrPlaceholder(
     staffName: ctx?.staffName,
     notes: ctx?.notes,
     header: ctx?.header ?? estimate.header,
-    includePhotos: ctx?.includePhotos,
     priceRuleName: resolveEstimatePriceRule(estimate, project.customerId).ruleName,
   });
   const tmp = businessUploadsDir(project.id, "pdf-html");
@@ -219,7 +214,6 @@ export function getInvoicePdfOrPlaceholder(
   const html = renderInvoiceHtml(project, invoice, estimate, {
     estimateRefNo: ctx?.estimateRefNo ?? invoice.estimateRefNo ?? estimate.estimateNo,
     notes: ctx?.notes,
-    includePhotos: ctx?.includePhotos,
     priceRuleName: resolveEstimatePriceRule(estimate, project.customerId).ruleName,
     shuseiDiscount: estimate.shuseiDiscount,
     shuseiDiscountMemo: estimate.shuseiDiscountMemo,

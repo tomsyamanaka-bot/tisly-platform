@@ -150,11 +150,11 @@ function renderHtml(docType, photoCount) {
   switch (docType) {
     case "estimate": {
       const project = { ...baseProject, surveyPhotos: businessPhotos(photoCount) };
-      return renderEstimateHtml(project, baseEstimate, { includePhotos: true });
+      return renderEstimateHtml(project, baseEstimate);
     }
     case "invoice": {
       const project = { ...baseProject, surveyPhotos: businessPhotos(photoCount) };
-      return renderInvoiceHtml(project, baseInvoice, baseEstimate, { includePhotos: true });
+      return renderInvoiceHtml(project, baseInvoice, baseEstimate);
     }
     case "specification":
       return renderSpecificationHtml({ ...baseSpec, photos: mixedPhotos(photoCount) });
@@ -249,24 +249,30 @@ async function verifyCase(page, docType, photoCount) {
   const analysis = analyzePdfBuffer(pdfBuf);
   const layout = await analyzeHtmlLayout(page, embedded, prefix);
 
-  const expectedPage1 = Math.min(photoCount, 6);
-  const expectedPage2 = Math.max(0, photoCount - 6);
   const isBusinessDoc = docType === "estimate" || docType === "invoice";
-  const expectedPdfPages = isBusinessDoc ? (expectedPage2 > 0 ? 3 : 2) : expectedPage2 > 0 ? 2 : 1;
+  const expectedPage1 = isBusinessDoc ? 0 : Math.min(photoCount, 6);
+  const expectedPage2 = isBusinessDoc ? 0 : Math.max(0, photoCount - 6);
+  const expectedPdfPages = isBusinessDoc ? 1 : expectedPage2 > 0 ? 2 : 1;
 
   const pdfFileName = buildProjectPdfFileName(fileKind(docType), "上田", "カメラ工事");
   fs.mkdirSync(outDir, { recursive: true });
   const outName = `${docType}-${photoCount}photos.pdf`;
   fs.writeFileSync(path.join(outDir, outName), pdfBuf);
 
-  const missingImages = !layout.allBase64 || layout.page1Visible < expectedPage1;
-  const pass =
-    layout.page1Photos === expectedPage1 &&
-    layout.page1Visible === expectedPage1 &&
-    layout.page2Photos === expectedPage2 &&
-    analysis.valid &&
-    analysis.pageCount === expectedPdfPages &&
-    !missingImages;
+  const missingImages = isBusinessDoc
+    ? false
+    : !layout.allBase64 || layout.page1Visible < expectedPage1;
+  const pass = isBusinessDoc
+    ? layout.page1Photos === 0 &&
+      layout.page2Photos === 0 &&
+      analysis.valid &&
+      analysis.pageCount === expectedPdfPages
+    : layout.page1Photos === expectedPage1 &&
+      layout.page1Visible === expectedPage1 &&
+      layout.page2Photos === expectedPage2 &&
+      analysis.valid &&
+      analysis.pageCount === expectedPdfPages &&
+      !missingImages;
 
   return {
     docType: docLabel(docType),

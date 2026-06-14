@@ -2,7 +2,6 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { renderEstimateHtml } from "../src/business/pdf/estimate-template.js";
 import { renderInvoiceHtml } from "../src/business/pdf/invoice-template.js";
-import { FIRST_PAGE_PHOTOS_MAX } from "../src/estimate/practical-pdf-layout.js";
 
 const portraitSample =
   "data:image/svg+xml;base64," + Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"/>').toString("base64");
@@ -68,41 +67,18 @@ const baseEstimate = {
   updatedAt: "2026-06-13T12:00:00.000Z",
 };
 
-function countCoverPhotos(html: string, prefix: "est" | "inv") {
-  const coverRe = new RegExp(
-    `class="${prefix}-page ${prefix}-cover-page"[\\s\\S]*?(?=class="${prefix}-page |class="doc |$)`
-  );
-  const cover = html.match(coverRe)?.[0] ?? "";
-  return (cover.match(new RegExp(`class="${prefix}-photo-cell"`, "g")) || []).length;
-}
-
-function countContinuationPages(html: string, prefix: "est" | "inv") {
-  return (html.match(new RegExp(`class="${prefix}-page ${prefix}-photo-page"`, "g")) || []).length;
-}
-
-describe("見積・請求 統一写真レイアウト", () => {
-  it("見積書 6枚は1ページ目（表紙）に6枚・object-fit cover", () => {
-    const html = renderEstimateHtml(baseProject, baseEstimate, { includePhotos: true });
-    assert.equal(countCoverPhotos(html, "est"), 6);
-    assert.equal(countContinuationPages(html, "est"), 0);
-    assert.match(html, /est-cover-photo-grid/);
-    assert.match(html, /object-fit:\s*cover/);
-    assert.match(html, /Page 1 \/ 2/);
-    assert.ok(!html.includes("参考写真"));
+describe("見積・請求 PDF — 写真ページ禁止", () => {
+  it("現調写真6枚があっても見積書に写真レイアウトが出ない", () => {
+    const html = renderEstimateHtml(baseProject, baseEstimate);
+    assert.ok(!html.includes("est-cover-photo-grid"));
+    assert.ok(!html.includes("est-photo-page"));
+    assert.ok(!html.includes("est-photo-cell"));
+    assert.match(html, /toms-v2-page/);
+    assert.match(html, />摘要</);
+    assert.match(html, /Page 1 \/ 1/);
   });
 
-  it("見積書 7枚目は2ページ目（写真専用）へ", () => {
-    const project = { ...baseProject, surveyPhotos: businessPhotos(7) };
-    const html = renderEstimateHtml(project, baseEstimate, { includePhotos: true });
-    assert.equal(FIRST_PAGE_PHOTOS_MAX, 6);
-    assert.equal(countCoverPhotos(html, "est"), 6);
-    assert.equal(countContinuationPages(html, "est"), 1);
-    assert.match(html, /Page 1 \/ 3/);
-    assert.match(html, /Page 2 \/ 3/);
-  });
-
-  it("請求書 4枚は1ページ目に4枚のみ", () => {
-    const project = { ...baseProject, surveyPhotos: businessPhotos(4) };
+  it("現調写真6枚があっても請求書に写真レイアウトが出ない", () => {
     const invoice = {
       id: "i1",
       projectId: "p1",
@@ -117,16 +93,11 @@ describe("見積・請求 統一写真レイアウト", () => {
       createdAt: "2026-06-13T00:00:00.000Z",
       updatedAt: "2026-06-13T12:00:00.000Z",
     };
-    const html = renderInvoiceHtml(project, invoice, baseEstimate, { includePhotos: true });
-    assert.equal(countCoverPhotos(html, "inv"), 4);
-    assert.equal(countContinuationPages(html, "inv"), 0);
-    assert.match(html, /inv-cover-photo-grid/);
-  });
-
-  it("写真なし見積は従来の単一ページ", () => {
-    const project = { ...baseProject, surveyPhotos: [] };
-    const html = renderEstimateHtml(project, baseEstimate, { includePhotos: true });
-    assert.ok(!html.includes("est-cover-photo-grid"));
-    assert.match(html, /toms-v2-page/);
+    const html = renderInvoiceHtml(baseProject, invoice, baseEstimate);
+    assert.ok(!html.includes("inv-cover-photo-grid"));
+    assert.ok(!html.includes("inv-photo-page"));
+    assert.ok(!html.includes("inv-photo-cell"));
+    assert.match(html, /御請求書/);
+    assert.match(html, /Page 1 \/ 1/);
   });
 });

@@ -13,13 +13,9 @@ import {
   sanitizePdfNotesText,
   sanitizePdfRequiredField,
 } from "./pdf-text-sanitize.js";
-import { renderTomsDocWithPhotoLayout } from "./toms-doc-photo-layout.js";
 import { escapeHtml } from "./shared-blocks.js";
 import {
-  renderTomsV2CoverHeader,
   renderTomsV2DocumentBody,
-  renderTomsV2DocumentLower,
-  TOMS_V2_PHOTO_EXTRA_STYLES,
   TOMS_V2_STYLES,
   wrapTomsV2Html,
   type TomsV2PageContext,
@@ -44,7 +40,6 @@ export interface InvoiceHtmlOptions {
   header?: TomsInvoiceHeader | null;
   estimateRefNo?: string;
   notes?: string | null;
-  includePhotos?: boolean;
   priceRuleName?: string | null;
   shuseiDiscount?: number;
   shuseiDiscountMemo?: string;
@@ -133,42 +128,6 @@ export function renderInvoiceHtmlV2(
   opts?: InvoiceHtmlOptions
 ): string {
   const ctx = buildInvoiceV2Context(project, invoice, estimate, opts);
-  const includePhotos = opts?.includePhotos === true && (project.surveyPhotos?.length ?? 0) > 0;
-
-  if (includePhotos) {
-    const coverHeaderHtml = renderTomsV2CoverHeader({
-      kind: "invoice",
-      docTitle: ctx.docTitle,
-      introText: ctx.introText,
-      addressee: ctx.addressee,
-      subject: ctx.subject,
-      workLocation: ctx.workLocation,
-      issueDateLabel: ctx.issueDateLabel,
-      issueDate: ctx.issueDate,
-      docNoLabel: ctx.docNoLabel,
-      docNo: ctx.docNo,
-      includeRegistrationNo: ctx.includeRegistrationNo,
-      staffName: ctx.staffName,
-      total: ctx.total,
-      bankInfo: ctx.bankInfo,
-      extraMetaRows: ctx.extraMetaRows,
-    });
-    const documentBodyHtml = renderTomsV2DocumentLower(ctx);
-    const { photoPageStyles, bodyHtml } = renderTomsDocWithPhotoLayout({
-      prefix: "inv",
-      photos: project.surveyPhotos ?? [],
-      projectNo: project.projectNo,
-      generatedAt: invoice.updatedAt ?? invoice.createdAt,
-      coverHeaderHtml,
-      documentBodyHtml,
-    });
-    return wrapTomsV2Html(
-      `御請求書 ${ctx.docNo}`,
-      bodyHtml,
-      photoPageStyles + TOMS_V2_PHOTO_EXTRA_STYLES
-    );
-  }
-
   return wrapTomsV2Html(`御請求書 ${ctx.docNo}`, renderTomsV2DocumentBody(ctx));
 }
 

@@ -56,7 +56,7 @@ function renderPageFooter(
   </div>`;
 }
 
-/** 見積・請求 — 写真あり版（1ページ目最大6枚・2列×3段） */
+/** @deprecated 見積・請求では使用禁止。仕様書・完了報告書は practical-pdf-layout を直接使用 */
 export function renderTomsDocWithPhotoLayout(input: TomsDocPhotoLayoutInput): {
   photoPageStyles: string;
   bodyHtml: string;

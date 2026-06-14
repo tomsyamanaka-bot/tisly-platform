@@ -1,0 +1,46 @@
+{
+  "generatedAt": "2026-06-14T22:45:57.094Z",
+  "businessProjectId": "BIZ-69921415",
+  "documents": [
+    {
+      "kind": "estimate",
+      "label": "見積書",
+      "pdfPath": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\pdf-four-types-emergency\\estimate.pdf",
+      "screenshot": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\pdf-four-types-emergency\\estimate.png",
+      "pageCount": 1,
+      "photoCells": 0,
+      "bytes": 258285,
+      "noPhotoLayout": true
+    },
+    {
+      "kind": "invoice",
+      "label": "請求書",
+      "pdfPath": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\pdf-four-types-emergency\\invoice.pdf",
+      "screenshot": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\pdf-four-types-emergency\\invoice.png",
+      "pageCount": 1,
+      "photoCells": 0,
+      "bytes": 320845,
+      "noPhotoLayout": true
+    },
+    {
+      "kind": "specification",
+      "label": "仕様書",
+      "pdfPath": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\pdf-four-types-emergency\\specification.pdf",
+      "screenshot": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\pdf-four-types-emergency\\specification.png",
+      "pageCount": 1,
+      "photoCells": 6,
+      "bytes": 98062,
+      "noPhotoLayout": true
+    },
+    {
+      "kind": "completion-report",
+      "label": "完了報告書",
+      "pdfPath": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\pdf-four-types-emergency\\completion-report.pdf",
+      "screenshot": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\pdf-four-types-emergency\\completion-report.png",
+      "pageCount": 1,
+      "photoCells": 6,
+      "bytes": 101127,
+      "noPhotoLayout": true
+    }
+  ]
+}

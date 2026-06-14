@@ -11,13 +11,9 @@ import {
   sanitizePdfNotesText,
   sanitizePdfRequiredField,
 } from "./pdf-text-sanitize.js";
-import { renderTomsDocWithPhotoLayout } from "./toms-doc-photo-layout.js";
 import { escapeHtml } from "./shared-blocks.js";
 import {
-  renderTomsV2CoverHeader,
   renderTomsV2DocumentBody,
-  renderTomsV2DocumentLower,
-  TOMS_V2_PHOTO_EXTRA_STYLES,
   TOMS_V2_STYLES,
   wrapTomsV2Html,
   type TomsV2PageContext,
@@ -42,7 +38,6 @@ export interface EstimateHtmlOptions {
   staffName?: string | null;
   notes?: string | null;
   header?: TomsEstimateHeader | null;
-  includePhotos?: boolean;
   priceRuleName?: string | null;
 }
 
@@ -104,40 +99,6 @@ export function renderEstimateHtmlV2(
   opts?: EstimateHtmlOptions
 ): string {
   const ctx = buildEstimateV2Context(project, estimate, opts);
-  const includePhotos = opts?.includePhotos === true && (project.surveyPhotos?.length ?? 0) > 0;
-
-  if (includePhotos) {
-    const coverHeaderHtml = renderTomsV2CoverHeader({
-      kind: "estimate",
-      docTitle: ctx.docTitle,
-      introText: ctx.introText,
-      addressee: ctx.addressee,
-      subject: ctx.subject,
-      workLocation: ctx.workLocation,
-      issueDateLabel: ctx.issueDateLabel,
-      issueDate: ctx.issueDate,
-      docNoLabel: ctx.docNoLabel,
-      docNo: ctx.docNo,
-      includeRegistrationNo: ctx.includeRegistrationNo,
-      staffName: ctx.staffName,
-      total: ctx.total,
-    });
-    const documentBodyHtml = renderTomsV2DocumentLower(ctx);
-    const { photoPageStyles, bodyHtml } = renderTomsDocWithPhotoLayout({
-      prefix: "est",
-      photos: project.surveyPhotos ?? [],
-      projectNo: project.projectNo,
-      generatedAt: estimate.updatedAt ?? estimate.createdAt,
-      coverHeaderHtml,
-      documentBodyHtml,
-    });
-    return wrapTomsV2Html(
-      `お見積書 ${ctx.docNo}`,
-      bodyHtml,
-      photoPageStyles + TOMS_V2_PHOTO_EXTRA_STYLES
-    );
-  }
-
   return wrapTomsV2Html(`お見積書 ${ctx.docNo}`, renderTomsV2DocumentBody(ctx));
 }
 

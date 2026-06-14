@@ -594,10 +594,7 @@ export function updateEstimateItemsV1(
   return { estimate, totals };
 }
 
-export function getEstimatePdfContextV1(
-  businessProjectId: string,
-  opts?: { includePhotos?: boolean }
-) {
+export function getEstimatePdfContextV1(businessProjectId: string) {
   const project = getBusinessProject(businessProjectId);
   if (!project) return null;
   const survey = project.surveyProjectId ? getSurveyProjectV1(project.surveyProjectId) : null;
@@ -611,7 +608,6 @@ export function getEstimatePdfContextV1(
     email: survey?.email ?? null,
     notes: project.surveyMemo || null,
     header: estimate?.header ?? null,
-    includePhotos: opts?.includePhotos,
   };
 }
 
@@ -626,8 +622,7 @@ export function updateEstimateHeaderV1(
 }
 
 export async function finalizeEstimateV1(
-  businessProjectId: string,
-  opts?: { includePhotos?: boolean }
+  businessProjectId: string
 ): Promise<{
   estimate: Estimate;
   pdfPath: string;
@@ -636,9 +631,7 @@ export async function finalizeEstimateV1(
   const project = getBusinessProject(businessProjectId);
   if (!project?.estimateId) throw new Error("estimate not found");
   const estimate = getEstimate(project.estimateId)!;
-  const pdfCtx = getEstimatePdfContextV1(businessProjectId, {
-    includePhotos: opts?.includePhotos === true,
-  }) ?? undefined;
+  const pdfCtx = getEstimatePdfContextV1(businessProjectId) ?? undefined;
   const pdfPath = await generateEstimatePdf(project, estimate, pdfCtx);
   setEstimatePdfPath(estimate.id, pdfPath);
   recordProjectPdfSavedV1(businessProjectId, "estimate", pdfPath);

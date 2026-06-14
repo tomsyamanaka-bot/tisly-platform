@@ -147,13 +147,15 @@ describe("TOMS標準見積フォーマット", () => {
     assert.match(res.text, /Page 1 \/ 1/);
   });
 
-  it("写真あり版では参考写真セクションが出る", async () => {
+  it("includePhotos=1 でも見積書に写真レイアウトは出ない", async () => {
     const res = await request(app)
       .get(`/api/estimate/v1/projects/${businessProjectId}/pdf?format=html&includePhotos=1`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(res.status, 200);
-    // 写真が無い案件でも写真ありモードではセクション構造を維持（写真0枚なら非表示）
     assert.match(res.text, /お見積書/);
+    assert.ok(!/est-cover-photo-grid/.test(res.text));
+    assert.ok(!/est-photo-cell/.test(res.text));
+    assert.match(res.text, />摘要</);
   });
 
   it("空行だけの明細はPDFに出ない", () => {
@@ -202,11 +204,11 @@ describe("TOMS標準見積フォーマット", () => {
     assert.equal(estimate.total, estimate.subtotal + estimate.tax);
   });
 
-  it("請求PDF（写真なし・あり）が取得できる", async () => {
+  it("請求PDFは写真なしで取得できる", async () => {
     await request(app)
       .post(`/api/estimate/v1/projects/${businessProjectId}/finalize`)
       .set("Authorization", `Bearer ${token}`)
-      .send({ includePhotos: false });
+      .send({});
     await request(app)
       .post(`/api/estimate/v1/projects/${businessProjectId}/invoice`)
       .set("Authorization", `Bearer ${token}`)
@@ -222,19 +224,21 @@ describe("TOMS標準見積フォーマット", () => {
     assert.match(noPhoto.text, /支払期限/);
     assert.match(noPhoto.text, /担当/);
     assert.ok(!/参考写真/.test(noPhoto.text));
+    assert.ok(!/inv-photo-cell/.test(noPhoto.text));
 
-    const withPhoto = await request(app)
+    const withPhotoQuery = await request(app)
       .get(`/api/estimate/v1/projects/${businessProjectId}/invoice/pdf?format=html&includePhotos=1&live=1`)
       .set("Authorization", `Bearer ${token}`);
-    assert.equal(withPhoto.status, 200);
-    assert.match(withPhoto.text, /御請求書/);
+    assert.equal(withPhotoQuery.status, 200);
+    assert.match(withPhotoQuery.text, /御請求書/);
+    assert.ok(!/inv-photo-cell/.test(withPhotoQuery.text));
   });
 
   it("請求書テンプレに御請求書・振込先・見積参照番号がある", async () => {
     await request(app)
       .post(`/api/estimate/v1/projects/${businessProjectId}/finalize`)
       .set("Authorization", `Bearer ${token}`)
-      .send({ includePhotos: false });
+      .send({});
     const inv = await request(app)
       .post(`/api/estimate/v1/projects/${businessProjectId}/invoice`)
       .set("Authorization", `Bearer ${token}`)
@@ -327,7 +331,6 @@ describe("TOMS標準見積フォーマット", () => {
           siteName: SAMPLE.siteName,
           workLocation: SAMPLE.workLocation,
         },
-        includePhotos: false,
       }
     );
     assert.match(html, /お見積書/);
@@ -395,7 +398,7 @@ describe("TOMS標準見積フォーマット", () => {
         createdAt: "2026-06-08T00:00:00.000Z",
         updatedAt: "2026-06-08T00:00:00.000Z",
       },
-      { includePhotos: false }
+      {}
     );
     assert.match(html, /toms-v2-items/);
     assert.match(html, /word-break:\s*keep-all/);
@@ -476,7 +479,7 @@ describe("TOMS標準見積フォーマット", () => {
         createdAt: "2026-06-13T00:00:00.000Z",
         updatedAt: "2026-06-13T00:00:00.000Z",
       },
-      { includePhotos: false, notes: "?????" }
+      { notes: "?????" }
     );
     assert.ok(!html.includes("?????"));
     assert.match(html, /未設定/);
