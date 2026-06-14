@@ -89,7 +89,7 @@ describe("Document Viewer UX v1 API", () => {
     assert.ok(res.body.estimate);
     assert.ok(res.body.estimate.items.length >= 1);
     assert.ok(res.body.estimate.total > 0);
-    assert.match(res.body.pdfUrl, /\/pdf$/);
+    assert.match(res.body.pdfUrl, /\/pdf\?includePhotos=false$/);
   });
 
   it("仕様書・現場報告 document-view JSON を返す", async () => {

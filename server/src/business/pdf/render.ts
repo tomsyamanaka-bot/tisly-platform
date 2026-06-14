@@ -8,6 +8,7 @@ import {
   notePdfGenerationError,
   notePdfGenerationSuccess,
   probePdfEngineHealth,
+  getPdfEngineHealthSnapshot,
 } from "./pdf-engine-status.js";
 import { PUPPETEER_LAUNCH_ARGS, resolveChromiumExecutablePath } from "./chromium-path.js";
 import { embedPdfImagesInHtml } from "./pdf-image-embed.js";
@@ -51,6 +52,8 @@ export async function htmlToPdfBuffer(html: string): Promise<Buffer | null> {
               height: number;
               deviceScaleFactor: number;
             }) => Promise<void>;
+            setDefaultNavigationTimeout: (ms: number) => void;
+            setDefaultTimeout: (ms: number) => void;
             setContent: (h: string, o: { waitUntil: string }) => Promise<void>;
             evaluateHandle: (fn: string) => Promise<{ jsonValue: () => Promise<unknown> }>;
             pdf: (o: {
@@ -80,7 +83,9 @@ export async function htmlToPdfBuffer(html: string): Promise<Buffer | null> {
     try {
       const page = await browser.newPage();
       await page.setViewport({ width: 794, height: 1123, deviceScaleFactor: 1 });
-      await page.setContent(embedPdfImagesInHtml(html), { waitUntil: "networkidle0" });
+      page.setDefaultNavigationTimeout(90_000);
+      page.setDefaultTimeout(90_000);
+      await page.setContent(embedPdfImagesInHtml(html), { waitUntil: "load" });
       await page.evaluateHandle("document.fonts.ready");
       const buf = await page.pdf({ format: "A4", landscape: false, printBackground: true });
       const pdfBuf = Buffer.from(buf);
@@ -118,7 +123,8 @@ export async function renderWithPdfFallback(
     assertValidPdfBuffer(puppeteerBuf);
     return { pdfBuf: puppeteerBuf, usedFallback: false, renderMode: "puppeteer" };
   }
-  throw new Error(PDF_GENERATION_FAILED_MSG);
+  const lastErr = getPdfEngineHealthSnapshot().pdfLastError;
+  throw new Error(lastErr ?? PDF_GENERATION_FAILED_MSG);
 }
 
 function writeHtmlFile(projectId: string, name: string, html: string): string {

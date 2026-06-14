@@ -22,6 +22,26 @@ function isValidPdfBlob(blob) {
   return blob && blob.size >= PDF_MIN_CLIENT_BYTES && blob.type !== "text/html";
 }
 
+function logPdfFetchDebug(fetchUrl, res, blob) {
+  const contentType = res.headers.get("content-type") || "";
+  const contentLength = res.headers.get("content-length") || String(blob?.size ?? 0);
+  const headPromise = blob
+    ? blob.slice(0, 20).arrayBuffer().then((buf) => new TextDecoder("ascii").decode(buf))
+    : Promise.resolve("");
+  return headPromise.then((head20) => {
+    console.log(
+      "[PDF DEBUG]",
+      JSON.stringify({
+        url: fetchUrl,
+        status: res.status,
+        contentType,
+        contentLength,
+        head20,
+      })
+    );
+  });
+}
+
 async function readResponseErrorDetail(res) {
   const contentType = res.headers.get("content-type") || "";
   if (contentType.includes("application/json")) {
@@ -51,11 +71,26 @@ async function validatePdfBlob(blob, res) {
   return null;
 }
 
-function describeHttpPdfError(status, detail) {
-  if (status === 404) return `PDF API 404${detail ? `: ${detail}` : ""}`;
-  if (status === 500) return `PDF API 500${detail ? `: ${detail}` : ""}`;
-  if (status === 403) return `PDF API 403${detail ? `: ${detail}` : ""}`;
-  return `PDF API ${status}${detail ? `: ${detail}` : ""}`;
+function describeHttpPdfError(status, detail, fetchUrl) {
+  const urlPart = fetchUrl ? ` URL: ${fetchUrl}` : "";
+  const bodyPart = detail ? ` body: ${detail}` : "";
+  if (status === 404) return `PDF API 404${bodyPart}${urlPart}`;
+  if (status === 500) return `PDF API 500${bodyPart}${urlPart}`;
+  if (status === 403) return `PDF API 403${bodyPart}${urlPart}`;
+  if (status === 401) return `PDF API 401${bodyPart}${urlPart}`;
+  return `PDF API ${status}${bodyPart}${urlPart}`;
+}
+
+/** 見積・請求 PDF は写真なしクエリを付与（VPS 500 防止） */
+export function normalizePdfFetchUrl(fetchUrl) {
+  if (!fetchUrl || typeof fetchUrl !== "string") return fetchUrl;
+  if (!fetchUrl.includes("/api/estimate/v1/projects/")) return fetchUrl;
+  const isEstimate = /\/pdf(?:\?|$)/.test(fetchUrl) && !fetchUrl.includes("/invoice/pdf");
+  const isInvoice = fetchUrl.includes("/invoice/pdf");
+  if (!isEstimate && !isInvoice) return fetchUrl;
+  if (/[?&]includePhotos=/.test(fetchUrl)) return fetchUrl;
+  const sep = fetchUrl.includes("?") ? "&" : "?";
+  return `${fetchUrl}${sep}includePhotos=false`;
 }
 
 /**
@@ -63,18 +98,19 @@ function describeHttpPdfError(status, detail) {
  * @throws {Error} 原因付きメッセージ
  */
 async function fetchPdfBlob(fetchUrl, headers = {}) {
-  const res = await fetch(fetchUrl, { headers });
+  const url = normalizePdfFetchUrl(fetchUrl);
+  const res = await fetch(url, { headers });
+  const blob = res.ok ? await res.blob() : null;
+  await logPdfFetchDebug(url, res, blob);
   if (!res.ok) {
     const detail = await readResponseErrorDetail(res);
-    throw new Error(describeHttpPdfError(res.status, detail));
+    throw new Error(describeHttpPdfError(res.status, detail, url));
   }
-  const blob = await res.blob();
   const validationError = await validatePdfBlob(blob, res);
   if (validationError) {
-    if (validationError.includes("サイズ不足") || validationError.includes("ヘッダー")) {
-      throw new Error(validationError);
-    }
-    throw new Error(validationError);
+    const ct = res.headers.get("content-type") || "";
+    const cl = res.headers.get("content-length") || String(blob?.size ?? 0);
+    throw new Error(`${validationError} URL: ${url} status: ${res.status} content-type: ${ct} content-length: ${cl}`);
   }
   const type = blob.type && blob.type !== "application/octet-stream" ? blob.type : "application/pdf";
   return new Blob([blob], { type });
@@ -114,7 +150,11 @@ async function fetchPdfBlobWithRegenerate({ fetchUrl, headers = {}, regenerateUr
     });
     if (!regRes.ok) {
       const detail = await readResponseErrorDetail(regRes);
-      throw new Error(detail ? `PDF再生成失敗: ${detail}` : "PDF再生成に失敗しました");
+      throw new Error(
+        detail
+          ? `PDF再生成失敗 (${regRes.status}): ${detail} URL: ${regenerateUrl}`
+          : `PDF再生成失敗 (${regRes.status}) URL: ${regenerateUrl}`
+      );
     }
     return await fetchPdfBlob(fetchUrl, headers);
   }
@@ -130,6 +170,22 @@ function canShareFiles(file) {
     }
   }
   return true;
+}
+
+/** iPhone Safari / PWA — blob URL では PDF を開けないため直接 URL を使う */
+export function isIosPdfViewer() {
+  const ua = navigator.userAgent || "";
+  const ios = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  return ios;
+}
+
+/** iOS Safari / PWA 向け: 認証付き PDF API URL を直接開く */
+export function openPdfUrlDirect(fetchUrl) {
+  const url = normalizePdfFetchUrl(fetchUrl);
+  const w = window.open(url, "_blank", "noopener");
+  if (!w) {
+    window.location.assign(url);
+  }
 }
 
 /**
@@ -187,4 +243,5 @@ export {
   isValidPdfBlob,
   shouldAutoRegeneratePdf,
   validatePdfBlob,
+  logPdfFetchDebug,
 };

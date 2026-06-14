@@ -1,6 +1,6 @@
 import { getCustomerToken, requireCustomerLogin, customerCodeFromPath } from "./customer-auth.js";
 import { renderFriendlyErrorHtml } from "./tisly-friendly-errors.js";
-import { sharePdfAsFile, fetchPdfBlobWithRegenerate } from "./pdf-share-v1.js";
+import { sharePdfAsFile, fetchPdfBlobWithRegenerate, openPdfUrlDirect, isIosPdfViewer } from "./pdf-share-v1.js";
 
 const MOBILE_BREAKPOINT = 768;
 const API = "/api/estimate/v1";
@@ -395,11 +395,8 @@ async function handlePrint() {
   }
   try {
     const blob = await fetchDocumentPdfBlob();
-    if (mobileMode) {
-      const url = URL.createObjectURL(blob);
-      const w = window.open(url, "_blank", "noopener");
-      if (!w) toast("ポップアップがブロックされました。PDFボタンから開いてください。");
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    if (mobileMode || isIosPdfViewer()) {
+      openPdfUrlDirect(buildPdfTabUrl(payload.pdfUrl));
       return;
     }
     setPdfFrameBlob(blob);
@@ -450,6 +447,11 @@ async function init() {
   $("btn-pdf").addEventListener("click", async () => {
     if (!payload?.pdfUrl) {
       toast("PDF URLがありません");
+      return;
+    }
+    const fetchUrl = buildPdfTabUrl(payload.pdfUrl);
+    if (isIosPdfViewer() || mobileMode) {
+      openPdfUrlDirect(fetchUrl);
       return;
     }
     try {

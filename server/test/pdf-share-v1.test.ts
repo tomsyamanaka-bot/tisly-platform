@@ -20,8 +20,9 @@ describe("Web Share API 用 PDF File 生成", () => {
     assert.ok(js.includes("PDF API 404"));
     assert.ok(js.includes("PDFサイズ不足"));
     assert.ok(js.includes("Content-Type不正"));
-    assert.ok(js.includes("fetchPdfBlobWithRegenerate"));
-    assert.ok(js.includes("%PDF-"));
+    assert.ok(js.includes("normalizePdfFetchUrl"));
+    assert.ok(js.includes("openPdfUrlDirect"));
+    assert.ok(js.includes("head20"));
 
     const html = RICH_TEST_HTML;
     const buf = await htmlToPdfBuffer(html);

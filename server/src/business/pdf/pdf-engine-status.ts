@@ -84,7 +84,7 @@ export async function probePdfEngineHealth(force = false): Promise<PdfEngineHeal
         const page = await browser.newPage();
         await page.setContent(
           "<!DOCTYPE html><html><body><h1>PDF probe</h1><p>TiSLY health check</p></body></html>",
-          { waitUntil: "networkidle0" }
+          { waitUntil: "load" }
         );
         const buf = Buffer.from(
           await page.pdf({ format: "A4", printBackground: true })

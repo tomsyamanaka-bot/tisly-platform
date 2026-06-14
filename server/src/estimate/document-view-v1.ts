@@ -152,9 +152,9 @@ function pdfPathForKind(projectId: string, kind: DocumentViewKindV1): string {
   const estimateBase = `/api/estimate/v1/projects/${projectId}`;
   switch (kind) {
     case "estimate":
-      return `${estimateBase}/pdf`;
+      return `${estimateBase}/pdf?includePhotos=false`;
     case "invoice":
-      return `${estimateBase}/invoice/pdf`;
+      return `${estimateBase}/invoice/pdf?includePhotos=false`;
     case "specification":
     case "field-report":
       return `${estimateBase}/specification/pdf`;

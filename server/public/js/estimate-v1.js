@@ -482,8 +482,8 @@ function buildPdfUrl(kind) {
     return `/api/estimate/v1/projects/${currentProjectId}/specification/pdf`;
   }
   return kind === "invoice"
-    ? `/api/estimate/v1/projects/${currentProjectId}/invoice/pdf`
-    : `/api/estimate/v1/projects/${currentProjectId}/pdf`;
+    ? `/api/estimate/v1/projects/${currentProjectId}/invoice/pdf?includePhotos=false`
+    : `/api/estimate/v1/projects/${currentProjectId}/pdf?includePhotos=false`;
 }
 
 function buildPdfTabUrl(kind, token) {

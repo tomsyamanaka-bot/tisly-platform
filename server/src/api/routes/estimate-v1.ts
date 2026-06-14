@@ -45,7 +45,7 @@ import {
 import { getBusinessProject, getEstimate, getInvoice, getCompletionReport, setEstimatePdfPath, setInvoicePdfPath } from "../../business/business-store.js";
 import { regenerateProjectPdfV1, resolveProjectPdfFile, buildProjectPdfFileNameForProject } from "../../projects/project-pdf-store.js";
 import { recordProjectPdfSavedV1 } from "../../projects/project-pdf-qnap-store.js";
-import { sendPdfFile } from "../../business/pdf/pdf-serve.js";
+import { sendPdfFile, logPdfApiError } from "../../business/pdf/pdf-serve.js";
 import { isValidPdfFile, PDF_GENERATION_FAILED_MSG } from "../../business/pdf/pdf-validation.js";
 import type { EstimateLineItem } from "../../business/business-types.js";
 import type { EstimateHeaderInputV1 } from "../../estimate/estimate-v1-types.js";
@@ -308,7 +308,8 @@ estimateV1Router.get("/projects/:id/pdf", ...estimateV1Auth, async (req: AuthedR
     return;
   }
   const hasSurveyPhotos = (project.surveyPhotos?.length ?? 0) > 0;
-  const includePhotos = parseIncludePhotos(req.query as Record<string, unknown>, hasSurveyPhotos);
+  /** 見積書PDFは写真なし（PROJECT_STATUS: includePhotos 常に false） */
+  const includePhotos = parseIncludePhotos(req.query as Record<string, unknown>, false);
   const regenerate = parseRegenerate(req.query as Record<string, unknown>);
   const pdfCtx = getEstimatePdfContextV1(projectId, { includePhotos }) ?? undefined;
   if (parseFormatHtml(req.query as Record<string, unknown>)) {
@@ -329,15 +330,21 @@ estimateV1Router.get("/projects/:id/pdf", ...estimateV1Auth, async (req: AuthedR
       recordProjectPdfSavedV1(projectId, "estimate", pdfPath);
       filePath = resolveProjectPdfFile(projectId, "estimate");
     } catch (e) {
-      res.status(500).json({ error: e instanceof Error ? e.message : PDF_GENERATION_FAILED_MSG });
+      const msg = e instanceof Error ? e.message : PDF_GENERATION_FAILED_MSG;
+      logPdfApiError("estimate", projectId, 500, msg);
+      res.status(500).json({ error: msg });
       return;
     }
   }
   if (!filePath || !isValidPdfFile(filePath)) {
+    logPdfApiError("estimate", projectId, 500, PDF_GENERATION_FAILED_MSG);
     res.status(500).json({ error: PDF_GENERATION_FAILED_MSG });
     return;
   }
-  sendPdfFile(res, filePath, buildProjectPdfFileNameForProject("estimate", project, estimate));
+  sendPdfFile(res, filePath, buildProjectPdfFileNameForProject("estimate", project, estimate), {
+    documentType: "estimate",
+    projectId,
+  });
 });
 
 estimateV1Router.post("/projects/:id/pdf/regenerate", ...estimateV1Auth, async (req: AuthedRequest, res) => {
@@ -393,7 +400,8 @@ estimateV1Router.get("/projects/:id/invoice/pdf", ...estimateV1Auth, async (req:
     return;
   }
   const hasSurveyPhotos = (project.surveyPhotos?.length ?? 0) > 0;
-  const includePhotos = parseIncludePhotos(req.query as Record<string, unknown>, hasSurveyPhotos);
+  /** 請求書PDFは写真なし（PROJECT_STATUS: includePhotos 常に false） */
+  const includePhotos = parseIncludePhotos(req.query as Record<string, unknown>, false);
   const regenerate = parseRegenerate(req.query as Record<string, unknown>);
   const pdfCtx = getEstimatePdfContextV1(projectId, { includePhotos }) ?? undefined;
   if (parseFormatHtml(req.query as Record<string, unknown>)) {
@@ -421,15 +429,21 @@ estimateV1Router.get("/projects/:id/invoice/pdf", ...estimateV1Auth, async (req:
       recordProjectPdfSavedV1(projectId, "invoice", pdfPath);
       filePath = resolveProjectPdfFile(projectId, "invoice");
     } catch (e) {
-      res.status(500).json({ error: e instanceof Error ? e.message : PDF_GENERATION_FAILED_MSG });
+      const msg = e instanceof Error ? e.message : PDF_GENERATION_FAILED_MSG;
+      logPdfApiError("invoice", projectId, 500, msg);
+      res.status(500).json({ error: msg });
       return;
     }
   }
   if (!filePath || !isValidPdfFile(filePath)) {
+    logPdfApiError("invoice", projectId, 500, PDF_GENERATION_FAILED_MSG);
     res.status(500).json({ error: PDF_GENERATION_FAILED_MSG });
     return;
   }
-  sendPdfFile(res, filePath, buildProjectPdfFileNameForProject("invoice", project, estimate));
+  sendPdfFile(res, filePath, buildProjectPdfFileNameForProject("invoice", project, estimate), {
+    documentType: "invoice",
+    projectId,
+  });
 });
 
 estimateV1Router.post(
@@ -505,11 +519,14 @@ estimateV1Router.get(
           filePath = resolveProjectPdfFile(projectId, "specification");
         }
       } catch (e) {
-        res.status(500).json({ error: e instanceof Error ? e.message : PDF_GENERATION_FAILED_MSG });
+        const msg = e instanceof Error ? e.message : PDF_GENERATION_FAILED_MSG;
+        logPdfApiError("specification", projectId, 500, msg);
+        res.status(500).json({ error: msg });
         return;
       }
     }
     if (!filePath || !isValidPdfFile(filePath)) {
+      logPdfApiError("specification", projectId, 500, PDF_GENERATION_FAILED_MSG);
       res.status(500).json({ error: PDF_GENERATION_FAILED_MSG });
       return;
     }
@@ -520,7 +537,8 @@ estimateV1Router.get(
         "specification",
         project,
         project.estimateId ? getEstimate(project.estimateId) ?? undefined : undefined
-      )
+      ),
+      { documentType: "specification", projectId }
     );
   }
 );
@@ -675,11 +693,14 @@ estimateV1Router.get(
           filePath = path.join(process.cwd(), entry.pdfPath.replace(/^\//, ""));
         }
       } catch (e) {
-        res.status(500).json({ error: e instanceof Error ? e.message : PDF_GENERATION_FAILED_MSG });
+        const msg = e instanceof Error ? e.message : PDF_GENERATION_FAILED_MSG;
+        logPdfApiError("completion-report", projectId, 500, msg);
+        res.status(500).json({ error: msg });
         return;
       }
     }
     if (!filePath || !isValidPdfFile(filePath)) {
+      logPdfApiError("completion-report", projectId, 500, PDF_GENERATION_FAILED_MSG);
       res.status(500).json({ error: PDF_GENERATION_FAILED_MSG });
       return;
     }
@@ -690,7 +711,8 @@ estimateV1Router.get(
         "report",
         project,
         project.estimateId ? getEstimate(project.estimateId) ?? undefined : undefined
-      )
+      ),
+      { documentType: "completion-report", projectId }
     );
   }
 );
