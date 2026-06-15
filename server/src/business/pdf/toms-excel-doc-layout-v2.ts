@@ -16,6 +16,8 @@ export const TOMS_V2_CONTINUATION_PAGE_ROWS = 22;
 
 export const TOMS_V2_GRAY = "#d3d3d3";
 export const TOMS_V2_ROW_BLUE = "#e6f2ff";
+/** 明細 tbody 行の固定高さ（データ行・空行共通） */
+export const TOMS_V2_LINE_ROW_HEIGHT_MM = 6.2;
 
 export type TomsV2DocKind = "estimate" | "invoice";
 
@@ -190,7 +192,7 @@ function renderLineItemsTable(lines: TomsV2LineItem[], fillerCount: number): str
   const rows = lines
     .map(
       (line, idx) =>
-        `<tr><td class="col-no">${line.lineNo ?? idx + 1}</td><td class="col-desc">${escapeHtmlMultiline(line.description)}</td><td class="col-qty num">${line.quantity}</td><td class="col-price num">${line.unitPrice.toLocaleString("ja-JP")}</td><td class="col-amount num">${line.amount.toLocaleString("ja-JP")}</td></tr>`
+        `<tr class="toms-v2-row-data"><td class="col-no">${line.lineNo ?? idx + 1}</td><td class="col-desc">${escapeHtmlMultiline(line.description)}</td><td class="col-qty num">${line.quantity}</td><td class="col-price num">${line.unitPrice.toLocaleString("ja-JP")}</td><td class="col-amount num">${line.amount.toLocaleString("ja-JP")}</td></tr>`
     )
     .join("");
   const fillers = Array.from({ length: fillerCount }, () =>
@@ -531,7 +533,12 @@ body {
   text-align: center;
 }
 .toms-v2-items tbody tr { background: ${TOMS_V2_ROW_BLUE}; }
-.toms-v2-items tbody tr.toms-v2-row-filler td { height: 6.2mm; }
+.toms-v2-items tbody tr td {
+  height: ${TOMS_V2_LINE_ROW_HEIGHT_MM}mm;
+  max-height: ${TOMS_V2_LINE_ROW_HEIGHT_MM}mm;
+  overflow: hidden;
+  box-sizing: border-box;
+}
 .toms-v2-items .col-no { width: 6%; text-align: center; }
 .toms-v2-items .col-desc { width: 52%; text-align: center; white-space: pre-line; word-break: keep-all; }
 .toms-v2-items .col-qty { width: 10%; }

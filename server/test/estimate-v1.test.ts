@@ -29,7 +29,7 @@ function countCoverPhotoCells(html: string, prefix: "sp" | "cr"): number {
     `class="${prefix}-page ${prefix}-cover-page"[\\s\\S]*?(?=class="${prefix}-page |$)`
   );
   const cover = html.match(coverRe)?.[0] ?? "";
-  return (cover.match(new RegExp(`class="${prefix}-photo-cell"`, "g")) || []).length;
+  return (cover.match(new RegExp(`class="${prefix}-photo-cell(?:\\s|")`, "g")) || []).length;
 }
 
 describe("見積PWA v1 API", () => {

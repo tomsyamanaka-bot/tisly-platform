@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-06-15T01:06:53.161Z",
-  "businessProjectId": "BIZ-59E93A05",
+  "generatedAt": "2026-06-15T04:24:13.621Z",
+  "businessProjectId": "BIZ-73C36405",
   "documents": [
     {
       "kind": "estimate",
@@ -9,7 +9,9 @@
       "screenshot": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\pdf-four-types-emergency\\estimate.png",
       "pageCount": 1,
       "photoCells": 0,
-      "bytes": 266648,
+      "coverPhotoCells": 0,
+      "bytes": 267383,
+      "fixedSixFrameCover": null,
       "noPhotoLayout": true
     },
     {
@@ -19,7 +21,9 @@
       "screenshot": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\pdf-four-types-emergency\\invoice.png",
       "pageCount": 1,
       "photoCells": 0,
-      "bytes": 321213,
+      "coverPhotoCells": 0,
+      "bytes": 321913,
+      "fixedSixFrameCover": null,
       "noPhotoLayout": true
     },
     {
@@ -29,7 +33,9 @@
       "screenshot": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\pdf-four-types-emergency\\specification.png",
       "pageCount": 1,
       "photoCells": 6,
-      "bytes": 97888,
+      "coverPhotoCells": 6,
+      "bytes": 98130,
+      "fixedSixFrameCover": true,
       "noPhotoLayout": true
     },
     {
@@ -39,7 +45,9 @@
       "screenshot": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\pdf-four-types-emergency\\completion-report.png",
       "pageCount": 1,
       "photoCells": 6,
-      "bytes": 100953,
+      "coverPhotoCells": 6,
+      "bytes": 101196,
+      "fixedSixFrameCover": true,
       "noPhotoLayout": true
     }
   ],
@@ -65,6 +73,21 @@
     {
       "kind": "completion-report",
       "screenshot": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\pdf-four-types-emergency\\viewer-back-completion-report.png",
+      "backButtonVisible": true,
+      "backButtonText": "← 戻る"
+    }
+  ],
+  "estimateUiScreenshots": [
+    {
+      "view": "list",
+      "screenshot": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\pdf-four-types-emergency\\estimate-ui-list.png",
+      "backButtonVisible": true,
+      "backButtonText": "← 戻る",
+      "listHasQuestionMarks": false
+    },
+    {
+      "view": "detail",
+      "screenshot": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\pdf-four-types-emergency\\estimate-ui-detail.png",
       "backButtonVisible": true,
       "backButtonText": "← 戻る"
     }

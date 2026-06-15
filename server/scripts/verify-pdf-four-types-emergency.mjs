@@ -183,10 +183,20 @@ for (const [kind, storedPath] of Object.entries(pdfPaths)) {
   await page.close();
 
   const prefix = kind === "specification" ? "sp" : kind === "completion-report" ? "cr" : kind.slice(0, 3);
+  const coverCells =
+    kind === "estimate" || kind === "invoice"
+      ? 0
+      : (() => {
+          const coverRe = new RegExp(
+            `class="${prefix}-page ${prefix}-cover-page"[\\s\\S]*?(?=class="${prefix}-page |$)`
+          );
+          const cover = htmlForShot.match(coverRe)?.[0] ?? "";
+          return (cover.match(new RegExp(`class="${prefix}-photo-cell(?:\\s|")`, "g")) || []).length;
+        })();
   const photoCells =
     kind === "estimate" || kind === "invoice"
       ? 0
-      : (htmlForShot.match(new RegExp(`class="${prefix}-photo-cell"`, "g")) || []).length;
+      : (htmlForShot.match(new RegExp(`class="${prefix}-photo-cell(?:\\\\s|")`, "g")) || []).length;
 
   report.documents.push({
     kind,
@@ -195,11 +205,14 @@ for (const [kind, storedPath] of Object.entries(pdfPaths)) {
     screenshot: outPng,
     pageCount: analysis.pageCount,
     photoCells,
+    coverPhotoCells: coverCells,
     bytes: pdfBuf.length,
+    fixedSixFrameCover:
+      kind === "estimate" || kind === "invoice" ? null : coverCells === 6,
     noPhotoLayout:
-      kind === "estimate" || kind === "invoice" ? !htmlForShot.includes("-photo-cell") : photoCells >= 4,
+      kind === "estimate" || kind === "invoice" ? !htmlForShot.includes("-photo-cell") : coverCells === 6,
   });
-  console.log(`${labels[kind]}: ${analysis.pageCount} pages, photoCells=${photoCells}`);
+  console.log(`${labels[kind]}: ${analysis.pageCount} pages, coverCells=${coverCells}, photoCells=${photoCells}`);
 }
 
 const server = http.createServer(app);
@@ -242,6 +255,51 @@ for (const kind of ["estimate", "invoice", "specification", "completion-report"]
   });
   console.log(`viewer ${kind}: back=${backCheck.visible} "${backCheck.text}"`);
 }
+
+report.estimateUiScreenshots = [];
+for (const [viewName, url, selector] of [
+  ["list", `${baseUrl}/estimate-v1`, "#project-list, #pending-list, .empty-state"],
+  ["detail", `${baseUrl}/estimate-v1`, "#view-detail"],
+]) {
+  if (viewName === "detail") {
+    await uiPage.goto(`${baseUrl}/estimate-v1`, { waitUntil: "networkidle2" });
+    await uiPage.waitForSelector(".list-card", { timeout: 15000 });
+    await uiPage.click(".list-card");
+    await uiPage.waitForSelector("#view-detail:not(.hidden)", { timeout: 15000 });
+  } else {
+    await uiPage.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
+    await uiPage.waitForSelector(selector, { timeout: 15000 });
+  }
+  const backCheck = await uiPage.evaluate(() => {
+    const btn = document.getElementById("tisly-nav-back");
+    if (!btn) return { visible: false, text: "" };
+    const r = btn.getBoundingClientRect();
+    const style = window.getComputedStyle(btn);
+    return {
+      visible:
+        r.width >= 40 &&
+        r.height >= 40 &&
+        style.visibility !== "hidden" &&
+        style.display !== "none",
+      text: btn.textContent?.trim() ?? "",
+    };
+  });
+  const listHasQuestionMarks = await uiPage.evaluate(() => {
+    const cards = [...document.querySelectorAll(".list-card h2")].map((el) => el.textContent?.trim() ?? "");
+    return cards.some((t) => /^\?{3,}$/.test(t));
+  });
+  const png = path.join(outDir, `estimate-ui-${viewName}.png`);
+  await uiPage.screenshot({ path: png });
+  report.estimateUiScreenshots.push({
+    view: viewName,
+    screenshot: png,
+    backButtonVisible: backCheck.visible,
+    backButtonText: backCheck.text,
+    listHasQuestionMarks: viewName === "list" ? listHasQuestionMarks : undefined,
+  });
+  console.log(`estimate ${viewName}: back=${backCheck.visible}, qmarks=${listHasQuestionMarks}`);
+}
+
 await uiPage.close();
 server.close();
 

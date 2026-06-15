@@ -114,6 +114,7 @@ async function workApi(path, opts = {}) {
 
 let currentDetailRef = null;
 let pendingDeleteRef = null;
+let practicalNavRef = null;
 let listTab = "active";
 let pdfListIsAdmin = false;
 let pdfQnapBackupEnabled = false;
@@ -132,11 +133,19 @@ function pipelineBarHtml(pipeline, { compact = false } = {}) {
 function showList() {
   $("view-list").classList.remove("hidden");
   $("view-detail").classList.add("hidden");
+  practicalNavRef?.setBackHandler(() => {
+    window.location.href = "/app";
+  });
 }
 
 function showDetail() {
   $("view-list").classList.add("hidden");
   $("view-detail").classList.remove("hidden");
+  practicalNavRef?.setBackHandler(() => {
+    showList();
+    history.replaceState({}, "", "/projects-v1");
+    loadList();
+  });
 }
 
 function documentViewerHref(projectId, kind) {
@@ -645,9 +654,23 @@ async function loadList() {
 
 async function init() {
   await requireCustomerLogin(customerCodeFromPath());
-  const nav = initPracticalNav({ appId: "projects_v1", appName: "案件一覧", theme: "hub" });
+  const nav = initPracticalNav({
+    appId: "projects_v1",
+    appName: "案件一覧",
+    theme: "hub",
+    onBack: () => {
+      if (!$("view-detail")?.classList.contains("hidden")) {
+        showList();
+        history.replaceState({}, "", "/projects-v1");
+        loadList();
+        return;
+      }
+      window.location.href = "/app";
+    },
+  });
+  practicalNavRef = nav;
   nav.setToast(toast);
-  nav.setBackVisible(false);
+  nav.setBackVisible(true);
 
   $("btn-back-list").addEventListener("click", () => {
     showList();

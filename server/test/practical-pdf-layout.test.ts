@@ -25,7 +25,7 @@ function renderSpec(count: number) {
 }
 
 function countPhotoCells(html: string, prefix: "sp" | "cr") {
-  return (html.match(new RegExp(`class="${prefix}-photo-cell"`, "g")) || []).length;
+  return (html.match(new RegExp(`class="${prefix}-photo-cell(?:\\s|")`, "g")) || []).length;
 }
 
 function countCoverPhotoCells(html: string, prefix: "sp" | "cr") {
@@ -33,7 +33,7 @@ function countCoverPhotoCells(html: string, prefix: "sp" | "cr") {
     `class="${prefix}-page ${prefix}-cover-page"[\\s\\S]*?(?=class="${prefix}-page |$)`
   );
   const cover = html.match(coverRe)?.[0] ?? "";
-  return (cover.match(new RegExp(`class="${prefix}-photo-cell"`, "g")) || []).length;
+  return (cover.match(new RegExp(`class="${prefix}-photo-cell(?:\\s|")`, "g")) || []).length;
 }
 
 function countContinuationPhotoPages(html: string, prefix: "sp" | "cr") {
@@ -60,39 +60,41 @@ describe("practical-pdf-layout 写真グリッド", () => {
     const html = renderSpec(1);
     assert.match(html, /grid-auto-flow:\s*row/);
     assert.match(html, /object-fit:\s*cover/);
-    assert.match(html, /sp-cover-photo-grid[\s\S]*grid-auto-rows:\s*minmax/);
-    assert.doesNotMatch(html, /photo-empty/);
+    assert.match(html, /sp-cover-photo-grid[\s\S]*grid-template-rows:\s*repeat\(3,\s*1fr\)/);
+    assert.match(html, /sp-photo-cell-empty/);
   });
 
-  it("1・3・5・6枚で空き枠を出さず枚数分のセルのみ", () => {
-    for (const n of [1, 3, 5, 6]) {
+  it("1〜5枚でも表紙は常に6枠（空き枠あり）", () => {
+    for (const n of [1, 3, 5]) {
       const html = renderSpec(n);
-      assert.equal(countPhotoCells(html, "sp"), n, `${n}枚: セル数`);
-      assert.doesNotMatch(html, /photo-empty/, `${n}枚: 空き枠なし`);
+      assert.equal(countCoverPhotoCells(html, "sp"), 6, `${n}枚: 表紙セル数`);
+      assert.equal(countPhotoCells(html, "sp"), 6, `${n}枚: 総セル数`);
+      const emptyCount = (coverPageHtml(html, "sp").match(/sp-photo-cell-empty/g) || []).length;
+      assert.equal(emptyCount, 6 - n, `${n}枚: 空枠数`);
     }
   });
 
-  it("写真4枚は1ページ目（表紙）に4枚のみ", () => {
+  it("写真4枚は1ページ目（表紙）に6枠固定・2枚空き", () => {
     const html = renderSpec(4);
-    assert.equal(countCoverPhotoCells(html, "sp"), 4);
+    assert.equal(countCoverPhotoCells(html, "sp"), 6);
     assert.equal(countContinuationPhotoPages(html, "sp"), 0);
     assert.match(html, /Page 1 \/ 1/);
     assert.match(html, /sp-cover-photo-grid/);
   });
 
-  it("写真5枚は1ページ目（表紙）に5枚のみ", () => {
+  it("写真5枚は1ページ目（表紙）に6枠固定・1枚空き", () => {
     const html = renderSpec(5);
-    assert.equal(countCoverPhotoCells(html, "sp"), 5);
+    assert.equal(countCoverPhotoCells(html, "sp"), 6);
     assert.equal(countContinuationPhotoPages(html, "sp"), 0);
     assert.match(html, /Page 1 \/ 1/);
   });
 
-  it("写真6枚は1ページ目（表紙）に6枚・続きページなし", () => {
+  it("写真6枚は1ページ目（表紙）に6枠・空枠なし", () => {
     const html = renderSpec(6);
     assert.equal(countCoverPhotoCells(html, "sp"), 6);
     assert.equal(countContinuationPhotoPages(html, "sp"), 0);
     assert.match(html, /Page 1 \/ 1/);
-    assert.match(coverPageHtml(html, "sp"), /sp-cover-photo-grid/);
+    assert.doesNotMatch(coverPageHtml(html, "sp"), /sp-photo-cell-empty/);
   });
 
   it("7枚目以降だけ2ページ目（写真専用ページ）へ", () => {
@@ -119,9 +121,11 @@ describe("practical-pdf-layout 写真グリッド", () => {
     assert.deepEqual(titleOrder(html), ["写真1", "写真2", "写真3", "写真4", "写真5", "写真6"]);
   });
 
-  it("5枚は ①② / ③④ / ⑤ の並び（3行目左1枚のみ）", () => {
+  it("5枚は ①② / ③④ / ⑤ の並び（3行目右は空枠）", () => {
     const html = renderSpec(5);
     assert.deepEqual(titleOrder(html), ["写真1", "写真2", "写真3", "写真4", "写真5"]);
+    const cover = coverPageHtml(html, "sp");
+    assert.equal((cover.match(/sp-photo-cell-empty/g) || []).length, 1);
   });
 
   it("表紙の写真グリッドは基本情報の直後に配置される", () => {

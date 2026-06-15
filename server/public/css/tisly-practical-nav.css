@@ -22,7 +22,7 @@ body.has-practical-nav #ops-panels-wrap {
   top: 0;
   left: 0;
   right: 0;
-  z-index: 100;
+  z-index: 1200;
   display: flex;
   align-items: center;
   gap: 0.35rem;

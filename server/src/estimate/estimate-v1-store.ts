@@ -25,6 +25,7 @@ import {
   mergeEstimateHeader,
   type TomsEstimateHeader,
 } from "../business/toms-document-format.js";
+import { resolveProjectDisplayName } from "../business/pdf/pdf-text-sanitize.js";
 import {
   generateEstimatePdf,
   generateInvoicePdf,
@@ -229,7 +230,7 @@ export function listPendingSurveysV1(opts?: { customerCode?: string }): Estimate
   }
   const rows = getDatabase()
     .prepare(
-      `SELECT sp.project_id, sp.project_no, sp.customer_code, sp.customer_name, sp.address, sp.survey_date,
+      `SELECT sp.project_id, sp.project_no, sp.customer_code, sp.customer_name, sp.site_name, sp.address, sp.survey_date,
               hl.handoff_at, hl.business_project_id,
               (SELECT COUNT(*) FROM survey_materials sm WHERE sm.project_id = sp.project_id) as material_count,
               (SELECT COUNT(*) FROM survey_photos sph WHERE sph.project_id = sp.project_id) as photo_count
@@ -254,7 +255,10 @@ export function listPendingSurveysV1(opts?: { customerCode?: string }): Estimate
       surveyProjectId: String(r.project_id),
       projectNo: r.project_no != null ? String(r.project_no) : null,
       customerCode: String(r.customer_code),
-      customerName: String(r.customer_name ?? ""),
+      customerName: resolveProjectDisplayName({
+        customerName: String(r.customer_name ?? ""),
+        siteName: r.site_name != null ? String(r.site_name) : null,
+      }),
       address: r.address != null ? String(r.address) : null,
       surveyDate: r.survey_date != null ? String(r.survey_date) : null,
       materialCount: Number(r.material_count ?? 0),
@@ -277,7 +281,7 @@ export function listEstimateProjectsV1(opts?: { customerCode?: string }): Estima
     .prepare(
       `SELECT bp.id, bp.project_no, bp.customer_name, bp.title, bp.survey_project_id, bp.estimate_id,
               bp.invoice_id, bp.standalone_doc_kind, bp.updated_at,
-              sp.workflow_status,
+              sp.workflow_status, sp.site_name AS survey_site_name,
               be.estimate_no, be.subtotal, be.total, be.pdf_path,
               bi.invoice_no, bi.total AS invoice_total
        FROM business_projects bp
@@ -293,7 +297,11 @@ export function listEstimateProjectsV1(opts?: { customerCode?: string }): Estima
   return rows.map((r) => ({
     businessProjectId: String(r.id),
     projectNo: String(r.project_no),
-    customerName: String(r.customer_name),
+    customerName: resolveProjectDisplayName({
+      customerName: String(r.customer_name),
+      siteName: r.survey_site_name != null ? String(r.survey_site_name) : null,
+      title: String(r.title),
+    }),
     title: String(r.title),
     surveyProjectId: r.survey_project_id != null ? String(r.survey_project_id) : null,
     estimateId: r.estimate_id != null ? String(r.estimate_id) : null,
@@ -350,7 +358,12 @@ export function getEstimateProjectV1Detail(businessProjectId: string): EstimateP
   return {
     businessProjectId: project.id,
     projectNo: project.projectNo,
-    customerName: project.customerName,
+    customerName: resolveProjectDisplayName({
+      customerName: project.customerName,
+      clientName: header?.addressee ?? estimate?.customerName,
+      siteName: survey?.siteName ?? project.title,
+      title: project.title,
+    }),
     customerId: project.customerId,
     priceRule,
     title: project.title,

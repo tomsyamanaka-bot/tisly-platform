@@ -87,6 +87,8 @@ describe("TOMS Excel layout v2 templates", () => {
     assert.match(html, /下記の通り、お見積り申し上げます。/);
     assert.match(html, /Page 1 \/ 1/);
     assert.match(html, /toms-seal/);
+    assert.match(html, /toms-v2-row-data/);
+    assert.match(html, /height:\s*6\.2mm/);
     assert.ok(!html.includes("インボイス番号"));
   });
 

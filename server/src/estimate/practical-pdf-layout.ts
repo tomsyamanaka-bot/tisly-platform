@@ -131,7 +131,7 @@ function renderCoverPage(
       ? `<div class="${prefix}-no-photos-cover">${escapeHtml(noPhotosMessage)}</div>`
       : "";
   const coverPhotoGrid = coverPhotos.length
-    ? renderPhotoGrid(prefix, coverPhotos, 1, `${prefix}-cover-photo-grid`)
+    ? renderPhotoGrid(prefix, coverPhotos, 1, `${prefix}-cover-photo-grid`, PHOTOS_PER_PAGE)
     : "";
   return `<div class="${prefix}-page ${prefix}-cover-page">
   <div class="${prefix}-cover-header">
@@ -157,27 +157,39 @@ export function renderPhotoCellHtml(prefix: string, photo: PracticalPdfPhoto, gl
   </div>`;
 }
 
+export function renderEmptyPhotoCellHtml(prefix: string): string {
+  return `<div class="${prefix}-photo-cell ${prefix}-photo-cell-empty">
+    <div class="${prefix}-photo-img-wrap"></div>
+    <p class="${prefix}-photo-title">&nbsp;</p>
+  </div>`;
+}
+
 export function renderPhotoGridHtml(
   prefix: string,
   photos: PracticalPdfPhoto[],
   startIndex: number,
-  extraClass = ""
+  extraClass = "",
+  fixedCellCount?: number
 ): string {
   const gridClass = extraClass
     ? `${prefix}-photo-grid ${extraClass}`
     : `${prefix}-photo-grid`;
-  return `<div class="${gridClass}">${photos
-    .map((p, i) => renderPhotoCellHtml(prefix, p, startIndex + i))
-    .join("")}</div>`;
+  const cells = photos.map((p, i) => renderPhotoCellHtml(prefix, p, startIndex + i));
+  const targetCount = fixedCellCount ?? photos.length;
+  for (let i = photos.length; i < targetCount; i++) {
+    cells.push(renderEmptyPhotoCellHtml(prefix));
+  }
+  return `<div class="${gridClass}">${cells.join("")}</div>`;
 }
 
 function renderPhotoGrid(
   prefix: string,
   photos: PracticalPdfPhoto[],
   startIndex: number,
-  extraClass = ""
+  extraClass = "",
+  fixedCellCount?: number
 ): string {
-  return renderPhotoGridHtml(prefix, photos, startIndex, extraClass);
+  return renderPhotoGridHtml(prefix, photos, startIndex, extraClass, fixedCellCount);
 }
 
 export function renderPhotoContinuationPagesHtml(
@@ -314,7 +326,7 @@ export function buildPracticalPdfStyles(prefix: string): string {
     flex: 1 1 0;
     min-height: 0;
     margin: 0.4mm 0 0;
-    grid-auto-rows: minmax(0, 1fr);
+    grid-template-rows: repeat(${ROWS}, 1fr);
     align-content: start;
   }
   .${prefix}-cover-photo-grid .${prefix}-photo-cell {

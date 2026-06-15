@@ -4,10 +4,12 @@ import {
   requireCustomerLogin,
 } from "./customer-auth.js";
 import { initPracticalNav } from "./tisly-practical-nav.js";
+import { resolveProjectDisplayName } from "./project-display-name.js";
 import { friendlyHttpError, renderFriendlyErrorHtml } from "./tisly-friendly-errors.js";
 import { confirmChecklistBeforeReport } from "./field-checklist-ui.js";
 
 let practicalNav = null;
+let currentView = "list";
 let currentSurveyProjectId = null;
 let pdfBlobUrl = null;
 
@@ -124,13 +126,40 @@ async function api(path, opts = {}) {
   return data;
 }
 
+function projectListTitle(p) {
+  return resolveProjectDisplayName({
+    customerName: p.customerName,
+    clientName: p.clientName,
+    companyName: p.companyName,
+    projectName: p.projectName,
+    siteName: p.siteName,
+    title: p.title,
+  });
+}
+
 function showView(name) {
+  currentView = name;
   $("view-list").classList.toggle("hidden", name !== "list");
   $("view-detail").classList.toggle("hidden", name !== "detail");
   practicalNav?.setTitle(name === "detail" ? "見積の内容" : "見積");
-  practicalNav?.setBackVisible(name !== "list");
+  practicalNav?.setBackVisible(true);
   $("page-hint").textContent =
     name === "detail" ? "部材の数量・単価を直して、見積もりを確定できます" : "お仕事の料金をまとめます";
+}
+
+function handlePracticalBack() {
+  if (!$("standalone-form-panel")?.classList.contains("hidden")) {
+    hideStandaloneForm();
+    return;
+  }
+  if (currentView === "detail") {
+    showView("list");
+    loadPending();
+    loadProjects();
+    loadInvoices();
+    return;
+  }
+  window.location.href = "/app";
 }
 
 function renderPendingList(surveys) {
@@ -147,7 +176,7 @@ function renderPendingList(surveys) {
       (s) => `
     <div class="friendly-card list-card" data-survey-id="${s.surveyProjectId}" data-has-estimate="${s.hasEstimate ? "1" : "0"}" data-biz-id="${s.businessProjectId || ""}">
       <span class="status-badge orange">見積待ち</span>
-      <h2>${escapeHtml(s.customerName)}</h2>
+      <h2>${escapeHtml(projectListTitle(s))}</h2>
       <p>${escapeHtml(s.projectNo || s.surveyProjectId)}</p>
       <p style="color:var(--tisly-blue);font-size:0.9rem;margin-top:0.35rem;">
         ${s.hasEstimate ? "タップして見積を開く" : "タップして見積を作る"}
@@ -174,7 +203,7 @@ function renderInvoiceList(projects) {
       (p) => `
     <div class="friendly-card list-card" data-id="${p.businessProjectId}">
       <span class="status-badge done">${escapeHtml(p.invoiceNo || "請求書")}</span>
-      <h2>${escapeHtml(p.customerName)}</h2>
+      <h2>${escapeHtml(projectListTitle(p))}</h2>
       <p>${escapeHtml(p.projectNo)} · ${p.invoiceTotal != null ? yen(p.invoiceTotal) : p.total != null ? yen(p.total) : "—"}</p>
     </div>`
     )
@@ -217,7 +246,7 @@ function renderProjectList(projects) {
       (p) => `
     <div class="friendly-card list-card" data-id="${p.businessProjectId}">
       <span class="status-badge ${p.pdfPath ? "done" : "orange"}">${p.pdfPath ? "見積書の準備ができました" : p.estimateNo || "下書き"}</span>
-      <h2>${escapeHtml(p.customerName)}</h2>
+      <h2>${escapeHtml(projectListTitle(p))}</h2>
       <p>${escapeHtml(p.projectNo)} · ${p.total != null ? yen(p.total) : "—"}</p>
     </div>`
     )
@@ -671,7 +700,7 @@ function renderShuseiPreview() {
 function renderPriceRulePanel(p) {
   const panel = $("price-rule-panel");
   if (!panel) return;
-  currentCustomerName = p.customerName || p.title || "";
+  currentCustomerName = projectListTitle(p);
   const customerEl = $("price-rule-customer");
   if (customerEl) customerEl.textContent = currentCustomerName ? `顧客：${currentCustomerName}` : "";
   currentPriceRule = p.priceRule || null;
@@ -1217,7 +1246,7 @@ async function openDetail(projectId) {
   completionPhotos = [];
   try {
     const p = await api(`/projects/${projectId}`);
-    $("detail-name").textContent = p.customerName || p.title;
+    $("detail-name").textContent = projectListTitle(p);
     renderCustomerInfo(p);
     renderPriceRulePanel(p);
     const statusEl = $("detail-status");
@@ -1328,12 +1357,7 @@ async function init() {
     appId: "estimate_v1",
     appName: "見積",
     theme: "blue",
-    onBack: () => {
-      showView("list");
-      loadPending();
-      loadProjects();
-      loadInvoices();
-    },
+    onBack: handlePracticalBack,
   });
   practicalNav.setToast(toast);
   showView("list");

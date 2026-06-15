@@ -1,7 +1,46 @@
-/** DB破損（????? 等）テキスト — 見積・請求 PDF 表示用 */
+/** DB破損（????? 等）テキスト — 見積・請求 PDF / 一覧 UI 表示用 */
 
 const CORRUPT_QMARK_RE = /^\?{3,}$/;
 const CORRUPT_QMARK_RUN_RE = /\?{3,}/g;
+
+export interface ProjectDisplayNameFields {
+  customerName?: string | null;
+  customer_name?: string | null;
+  clientName?: string | null;
+  companyName?: string | null;
+  projectName?: string | null;
+  siteName?: string | null;
+  title?: string | null;
+}
+
+function pickDisplayNameCandidate(...values: (string | null | undefined)[]): string | null {
+  for (const value of values) {
+    const trimmed = (value ?? "").trim();
+    if (!trimmed) continue;
+    if (CORRUPT_QMARK_RE.test(trimmed)) continue;
+    const cleaned = stripCorruptQuestionMarkRuns(trimmed);
+    if (cleaned) return cleaned;
+  }
+  return null;
+}
+
+/** 一覧・詳細の表示名 — customerName → clientName → companyName → projectName → siteName → title → 未設定 */
+export function resolveProjectDisplayName(
+  fields: ProjectDisplayNameFields,
+  fallback = "未設定"
+): string {
+  return (
+    pickDisplayNameCandidate(
+      fields.customerName,
+      fields.customer_name,
+      fields.clientName,
+      fields.companyName,
+      fields.projectName,
+      fields.siteName,
+      fields.title
+    ) ?? fallback
+  );
+}
 
 export function isCorruptQuestionMarkText(value: string | null | undefined): boolean {
   const trimmed = (value ?? "").trim();

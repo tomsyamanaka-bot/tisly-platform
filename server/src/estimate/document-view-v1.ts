@@ -1,5 +1,6 @@
 import { calcTotals, normalizeLineItems } from "../business/estimate-math.js";
 import { buildCustomerFacingPdfNotes } from "../business/customer-price-rules.js";
+import { resolveProjectDisplayName } from "../business/pdf/pdf-text-sanitize.js";
 import { getBusinessProject, getEstimate, getInvoice, getCompletionReport } from "../business/business-store.js";
 import type { EstimateLineItem } from "../business/business-types.js";
 import { resolveTomsBankInfo } from "../business/toms-document-format.js";
@@ -218,11 +219,17 @@ export function buildDocumentViewPayloadV1(
   if (!project) return null;
 
   const detail = getEstimateProjectV1Detail(businessProjectId);
+  const survey = project.surveyProjectId ? getSurveyProjectV1Detail(project.surveyProjectId) : null;
   const base: DocumentViewPayloadV1 = {
     kind,
     label: KIND_LABELS[kind],
     projectId: businessProjectId,
-    projectTitle: project.title,
+    projectTitle: resolveProjectDisplayName({
+      customerName: project.customerName,
+      clientName: detail?.header?.addressee ?? detail?.estimate?.customerName,
+      siteName: survey?.siteName ?? project.title,
+      title: project.title,
+    }),
     projectNo: project.projectNo,
     pdfUrl: pdfPathForKind(businessProjectId, kind),
     shareFileName: shareFileNameForKind(businessProjectId, kind),
