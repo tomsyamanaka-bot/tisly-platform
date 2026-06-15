@@ -136,7 +136,7 @@ import { processBusinessOfflineSync } from "../../business/business-offline-sync
 import { renderBusinessPdf, getRenderedHtmlPath } from "../../business/pdf/render.js";
 import { renderEstimateHtml } from "../../business/pdf/estimate-template.js";
 import { renderInvoiceHtml } from "../../business/pdf/invoice-template.js";
-import { renderCompletionReportHtml } from "../../business/pdf/completion-report-template.js";
+import { renderCompletionReportHtmlV1 } from "../../estimate/estimate-v1-store.js";
 import type { PricingScopeType } from "../../business/business-types.js";
 import { createAiEstimatePlaceholder, getLatestAiEstimate } from "../../survey/survey-store.js";
 import type { EstimateLineItem } from "../../business/business-types.js";
@@ -514,7 +514,8 @@ businessRouter.post("/projects/:projectId/completion-report", ...businessAuth, a
   const report = createCompletionReport(String(req.params.projectId), req.body);
   const project = getBusinessProject(String(req.params.projectId))!;
   try {
-    const html = renderCompletionReportHtml(project, report);
+    const html = renderCompletionReportHtmlV1(String(req.params.projectId));
+    if (!html) throw new Error("completion report html missing");
     const pdfPath = await generateCompletionReportPdfV1(
       project,
       html,
@@ -1554,7 +1555,8 @@ function servePdfDocument(kind: "estimate" | "invoice" | "completion_report") {
         res.type("application/pdf");
         return res.send(fs.readFileSync(rendered.localPath));
       }
-      const html = renderCompletionReportHtml(project, rep);
+      const html = renderCompletionReportHtmlV1(project.id);
+      if (!html) throw new Error("completion report html missing");
       res.type("text/html; charset=utf-8");
       return res.send(html);
     } catch (e) {

@@ -12,9 +12,12 @@ import {
 } from "./pdf-engine-status.js";
 import { PUPPETEER_LAUNCH_ARGS, resolveChromiumExecutablePath } from "./chromium-path.js";
 import { embedPdfImagesInHtml } from "./pdf-image-embed.js";
-import { renderCompletionReportHtml } from "./completion-report-template.js";
 import { renderEstimateHtml } from "./estimate-template.js";
 import { renderInvoiceHtml } from "./invoice-template.js";
+import {
+  buildCompletionReportContextV1,
+} from "../../estimate/estimate-v1-store.js";
+import { renderPracticalCompletionReportHtml } from "../../estimate/practical-completion-report-template.js";
 
 export type PdfDocumentKind =
   | "estimate"
@@ -156,7 +159,11 @@ export async function renderBusinessPdf(
             if (!estimate) throw new Error("estimate required for invoice pdf");
             return renderInvoiceHtml(project, doc as Invoice, estimate);
           })()
-        : renderCompletionReportHtml(project, doc as CompletionReport);
+        : (() => {
+            const ctx = buildCompletionReportContextV1(project.id);
+            if (!ctx) throw new Error("completion report context missing");
+            return renderPracticalCompletionReportHtml(ctx);
+          })();
   const htmlName = `${kind}-toms.html`;
   const htmlPath = writeHtmlFile(project.id, htmlName, html);
   const title =

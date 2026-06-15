@@ -130,9 +130,13 @@ function renderCoverPage(
     showNoPhotosOnCover && noPhotosMessage
       ? `<div class="${prefix}-no-photos-cover">${escapeHtml(noPhotosMessage)}</div>`
       : "";
-  const coverPhotoGrid = coverPhotos.length
-    ? renderPhotoGrid(prefix, coverPhotos, 1, `${prefix}-cover-photo-grid`, PHOTOS_PER_PAGE)
-    : "";
+  const coverPhotoGrid = renderPhotoGrid(
+    prefix,
+    coverPhotos,
+    1,
+    `${prefix}-cover-photo-grid`,
+    PHOTOS_PER_PAGE
+  );
   return `<div class="${prefix}-page ${prefix}-cover-page">
   <div class="${prefix}-cover-header">
     <div class="${prefix}-cover-rule"></div>
@@ -256,7 +260,7 @@ function renderAllPages(opts: PracticalPdfLayoutOptions): string {
       coverPhotos,
       renderPageFooter(prefix, projectNo, generatedAt, 1, totalPages),
       noPhotosMessage,
-      !photos.length
+      false
     )
   );
 
@@ -350,6 +354,7 @@ export function buildPracticalPdfStyles(prefix: string): string {
   .${prefix}-photo-num { font-weight: 700; margin-right: 0.4mm; }
   .${prefix}-photo-img-wrap { width: 100%; aspect-ratio: 4 / 3; overflow: hidden; border: 1px solid #cbd5e1; border-radius: 1px; background: #f8fafc; flex: 0 0 auto; }
   .${prefix}-photo-img-wrap img { width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
+  .${prefix}-photo-cell-empty .${prefix}-photo-img-wrap { background: #d1d5db; }
   .${prefix}-no-photos { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 10pt; color: #64748b; letter-spacing: 0.05em; }
   .${prefix}-page-footer {
     flex: 0 0 auto;

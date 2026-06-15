@@ -85,8 +85,8 @@ function setPdfFrameBlob(blob) {
 }
 
 async function loadPdfFrame() {
-  const blob = await fetchDocumentPdfBlob();
-  setPdfFrameBlob(blob);
+  if (!payload?.pdfUrl) throw new Error("PDF URLがありません");
+  $("pdf-frame").src = buildPdfTabUrl(payload.pdfUrl);
 }
 
 function renderEstimateMobile(est) {
@@ -311,11 +311,11 @@ function closeLightbox() {
 
 function applyLayoutMode() {
   mobileMode = isMobileViewport();
-  $("doc-mobile").classList.toggle("hidden", !mobileMode);
-  $("doc-desktop").classList.toggle("hidden", mobileMode);
-  const showFixedTotal = mobileMode && (payload?.estimate || payload?.invoice);
-  $("doc-fixed-total").classList.toggle("hidden", !showFixedTotal);
-  if (!mobileMode && payload) {
+  document.body.classList.add("doc-pdf-view-mode");
+  $("doc-mobile").classList.add("hidden");
+  $("doc-desktop").classList.remove("hidden");
+  $("doc-fixed-total").classList.add("hidden");
+  if (payload?.pdfUrl) {
     loadPdfFrame().catch((e) => {
       $("doc-error").classList.remove("hidden");
       $("doc-error").innerHTML = renderFriendlyErrorHtml(e);
@@ -346,9 +346,7 @@ async function regenerateStoredPdf() {
     hasStoredPdf: Boolean(data.pdfPath ?? payload.hasStoredPdf),
   };
   toast("PDFを再作成しました");
-  if (!mobileMode) {
-    await loadPdfFrame();
-  }
+  await loadPdfFrame();
 }
 
 function updateRegenerateButton(data) {
@@ -484,11 +482,7 @@ async function init() {
   });
 
   window.addEventListener("resize", () => {
-    const wasMobile = mobileMode;
     applyLayoutMode();
-    if (!wasMobile && mobileMode && payload) {
-      renderMobileView(payload);
-    }
   });
 
   try {

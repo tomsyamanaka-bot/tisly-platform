@@ -770,7 +770,7 @@ export function buildCompletionPhotosV1(businessProjectId: string): PracticalCom
   if (!getBusinessProject(businessProjectId)) return [];
   return listCompletionPhotosV1(businessProjectId).map((p, i) => ({
     url: p.url,
-    title: p.title.trim() || `写真${i + 1}`,
+    title: `写真${i + 1}`,
   }));
 }
 

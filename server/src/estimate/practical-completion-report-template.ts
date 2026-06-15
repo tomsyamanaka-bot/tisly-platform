@@ -28,10 +28,14 @@ export function renderPracticalCompletionReportHtml(ctx: PracticalCompletionRepo
     { label: "住所", value: ctx.workLocation || ctx.siteName },
     { label: "担当者", value: ctx.staffName },
     { label: "工事日", value: ctx.workDate ?? ctx.issueDate },
+    ...(ctx.workContent?.trim()
+      ? [{ label: "作業内容", value: ctx.workContent.trim() }]
+      : []),
   ];
-  const coverSections = ctx.workContent?.trim()
-    ? [{ title: "作業内容", body: ctx.workContent.trim() }]
-    : [];
+  const photos = ctx.photos.map((p, i) => ({
+    url: p.url,
+    title: p.title?.trim() || `写真${i + 1}`,
+  }));
   return renderPracticalPdfHtml({
     prefix: "cr",
     pageTitle: `完了報告書 ${ctx.projectNo}`,
@@ -39,8 +43,7 @@ export function renderPracticalCompletionReportHtml(ctx: PracticalCompletionRepo
     projectNo: ctx.projectNo,
     generatedAt: ctx.generatedAt,
     coverFields,
-    coverSections,
-    photos: ctx.photos,
+    photos,
     noPhotosMessage: "完了報告書用写真がありません",
   });
 }

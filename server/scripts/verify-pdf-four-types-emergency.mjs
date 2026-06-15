@@ -178,7 +178,11 @@ for (const [kind, storedPath] of Object.entries(pdfPaths)) {
   await page.setViewport({ width: 794, height: 1123, deviceScaleFactor: 2 });
   if (htmlForShot) {
     await page.setContent(htmlForShot, { waitUntil: "networkidle0" });
-    await page.screenshot({ path: outPng, fullPage: true });
+    const shotPath = kind === "completion-report" ? path.join(outDir, "completion-report-fixed.png") : outPng;
+    await page.screenshot({ path: shotPath, fullPage: true });
+    if (kind === "completion-report" && shotPath !== outPng) {
+      fs.copyFileSync(shotPath, outPng);
+    }
   }
   await page.close();
 
@@ -236,16 +240,39 @@ for (const kind of ["estimate", "invoice", "specification", "completion-report"]
   const viewerUrl = `${baseUrl}/document-viewer-v1.html?projectId=${encodeURIComponent(bizId)}&kind=${encodeURIComponent(kind)}&return=${encodeURIComponent("/estimate-v1")}`;
   await uiPage.goto(viewerUrl, { waitUntil: "networkidle2", timeout: 30000 });
   await uiPage.waitForSelector("#btn-back", { timeout: 15000 });
+  await uiPage.waitForSelector("#pdf-frame", { timeout: 15000 });
+  await uiPage.waitForFunction(
+    () => {
+      const frame = document.getElementById("pdf-frame");
+      return frame && frame.src && !frame.src.endsWith("about:blank");
+    },
+    { timeout: 20000 }
+  );
+  await new Promise((r) => setTimeout(r, 2500));
   const backCheck = await uiPage.evaluate(() => {
     const btn = document.getElementById("btn-back");
-    if (!btn) return { visible: false, text: "" };
+    if (!btn) return { visible: false, text: "", zIndex: 0, position: "" };
     const r = btn.getBoundingClientRect();
+    const style = window.getComputedStyle(btn);
     return {
-      visible: r.width >= 40 && r.height >= 40,
+      visible:
+        r.width >= 40 &&
+        r.height >= 40 &&
+        style.visibility !== "hidden" &&
+        style.display !== "none" &&
+        style.position === "fixed",
       text: btn.textContent?.trim() ?? "",
+      zIndex: Number.parseInt(style.zIndex, 10) || 0,
+      position: style.position,
     };
   });
-  const viewerPng = path.join(outDir, `viewer-back-${kind}.png`);
+  const viewerNames = {
+    estimate: "viewer-estimate-back",
+    invoice: "viewer-invoice-back",
+    specification: "viewer-specification-back",
+    "completion-report": "viewer-completion-back",
+  };
+  const viewerPng = path.join(outDir, `${viewerNames[kind]}.png`);
   await uiPage.screenshot({ path: viewerPng });
   report.viewerScreenshots.push({
     kind,
