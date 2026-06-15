@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-06-14T22:45:57.094Z",
-  "businessProjectId": "BIZ-69921415",
+  "generatedAt": "2026-06-15T01:06:53.161Z",
+  "businessProjectId": "BIZ-59E93A05",
   "documents": [
     {
       "kind": "estimate",
@@ -9,7 +9,7 @@
       "screenshot": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\pdf-four-types-emergency\\estimate.png",
       "pageCount": 1,
       "photoCells": 0,
-      "bytes": 258285,
+      "bytes": 266648,
       "noPhotoLayout": true
     },
     {
@@ -19,7 +19,7 @@
       "screenshot": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\pdf-four-types-emergency\\invoice.png",
       "pageCount": 1,
       "photoCells": 0,
-      "bytes": 320845,
+      "bytes": 321213,
       "noPhotoLayout": true
     },
     {
@@ -29,7 +29,7 @@
       "screenshot": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\pdf-four-types-emergency\\specification.png",
       "pageCount": 1,
       "photoCells": 6,
-      "bytes": 98062,
+      "bytes": 97888,
       "noPhotoLayout": true
     },
     {
@@ -39,8 +39,34 @@
       "screenshot": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\pdf-four-types-emergency\\completion-report.png",
       "pageCount": 1,
       "photoCells": 6,
-      "bytes": 101127,
+      "bytes": 100953,
       "noPhotoLayout": true
+    }
+  ],
+  "viewerScreenshots": [
+    {
+      "kind": "estimate",
+      "screenshot": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\pdf-four-types-emergency\\viewer-back-estimate.png",
+      "backButtonVisible": true,
+      "backButtonText": "← 戻る"
+    },
+    {
+      "kind": "invoice",
+      "screenshot": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\pdf-four-types-emergency\\viewer-back-invoice.png",
+      "backButtonVisible": true,
+      "backButtonText": "← 戻る"
+    },
+    {
+      "kind": "specification",
+      "screenshot": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\pdf-four-types-emergency\\viewer-back-specification.png",
+      "backButtonVisible": true,
+      "backButtonText": "← 戻る"
+    },
+    {
+      "kind": "completion-report",
+      "screenshot": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\pdf-four-types-emergency\\viewer-back-completion-report.png",
+      "backButtonVisible": true,
+      "backButtonText": "← 戻る"
     }
   ]
 }

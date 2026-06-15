@@ -129,6 +129,7 @@ describe("TOMS標準見積フォーマット", () => {
     assert.match(res.text, /発行日/);
     assert.ok(!/インボイス番号/.test(res.text));
     assert.match(res.text, /件名/);
+    assert.match(res.text, /施工場所/);
     assert.match(res.text, /御中/);
     assert.match(res.text, /山中/);
     assert.ok(!/税率内訳/.test(res.text));

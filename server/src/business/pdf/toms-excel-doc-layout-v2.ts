@@ -9,8 +9,8 @@ export const TOMS_V2_PAGE_MARGIN_MM = 8;
 export const TOMS_V2_FRAME_WIDTH_MM = 194;
 export const TOMS_V2_FRAME_HEIGHT_MM = 281;
 
-/** 1ページ目の明細行上限（ヘッダー・合計欄の余白込み） */
-export const TOMS_V2_FIRST_PAGE_ROWS = 12;
+/** 1ページ目の明細行上限（ヘッダー・合計欄の余白込み・空行で表を下まで伸ばす） */
+export const TOMS_V2_FIRST_PAGE_ROWS = 18;
 /** 2ページ目以降の明細行上限 */
 export const TOMS_V2_CONTINUATION_PAGE_ROWS = 22;
 
@@ -144,14 +144,13 @@ function renderSeal(): string {
 function renderHeaderLeft(ctx: TomsV2PageContext): string {
   const { name, honorific } = splitTomsV2Addressee(ctx.addressee);
   const subject = ctx.subject?.trim() || "未設定";
-  const workLoc =
-    ctx.kind === "invoice" && ctx.workLocation?.trim()
-      ? `<div class="toms-v2-subject-row">
+  const workLoc = ctx.workLocation?.trim()
+    ? `<div class="toms-v2-subject-row">
       <span class="toms-v2-subject-label">施工場所：</span>
       <span class="toms-v2-subject-value">${escapeHtml(ctx.workLocation.trim())}</span>
     </div>
     <div class="toms-v2-subject-underline"></div>`
-      : "";
+    : "";
   return `<div class="toms-v2-header-left">
   <div class="toms-v2-title-band">${escapeHtml(ctx.docTitle)}</div>
   <div class="toms-v2-addressee-row">
@@ -197,13 +196,13 @@ function renderLineItemsTable(lines: TomsV2LineItem[], fillerCount: number): str
   const fillers = Array.from({ length: fillerCount }, () =>
     `<tr class="toms-v2-row-filler"><td class="col-no">&nbsp;</td><td class="col-desc">&nbsp;</td><td class="col-qty">&nbsp;</td><td class="col-price">&nbsp;</td><td class="col-amount">&nbsp;</td></tr>`
   ).join("");
-  return `<table class="toms-v2-items">
+  return `<div class="toms-v2-items-area"><table class="toms-v2-items">
 <colgroup>
   <col class="col-no"/><col class="col-desc"/><col class="col-qty"/><col class="col-price"/><col class="col-amount"/>
 </colgroup>
 <thead><tr><th>No</th><th>摘要</th><th>数量</th><th>単価</th><th>金額</th></tr></thead>
 <tbody>${rows}${fillers}</tbody>
-</table>`;
+</table></div>`;
 }
 
 function renderTotalsGrid(input: TomsV2TotalsInput): string {
@@ -495,22 +494,29 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-top: 1px solid #000;
-  border-bottom: 1px solid #000;
-  padding: 1.5mm 2mm;
-  margin: 0.5mm 0 1mm;
+  border: 2px solid #000;
+  padding: 1.8mm 2.5mm;
+  margin: 0.8mm 0 1.2mm;
   gap: 2mm;
+  background: #fff;
 }
 .toms-v2-amount-label { font-size: 10pt; font-weight: 700; flex: 0 0 auto; }
 .toms-v2-amount-value { font-size: 18pt; font-weight: 800; flex: 1 1 auto; text-align: center; font-variant-numeric: tabular-nums; }
 .toms-v2-amount-tax { font-size: 9pt; font-weight: 600; flex: 0 0 auto; }
+.toms-v2-items-area {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 132mm;
+  margin-bottom: 1mm;
+}
 .toms-v2-items {
   width: 100%;
   border-collapse: collapse;
   border: 1px solid #000;
   table-layout: fixed;
   flex: 1 1 auto;
-  margin-bottom: 1mm;
+  height: 100%;
 }
 .toms-v2-items th, .toms-v2-items td {
   border: 1px solid #000;
@@ -520,12 +526,12 @@ body {
   line-height: 1.25;
 }
 .toms-v2-items thead th {
-  background: ${TOMS_V2_GRAY};
+  background: #b4c7e7;
   font-weight: 700;
   text-align: center;
 }
 .toms-v2-items tbody tr { background: ${TOMS_V2_ROW_BLUE}; }
-.toms-v2-items tbody tr.toms-v2-row-filler td { height: 5mm; }
+.toms-v2-items tbody tr.toms-v2-row-filler td { height: 6.2mm; }
 .toms-v2-items .col-no { width: 6%; text-align: center; }
 .toms-v2-items .col-desc { width: 52%; text-align: center; white-space: pre-line; word-break: keep-all; }
 .toms-v2-items .col-qty { width: 10%; }
@@ -572,16 +578,16 @@ body {
 .toms-v2-totals tr.grand th, .toms-v2-totals tr.grand td { font-weight: 800; }
 .toms-v2-notes {
   border-top: 1px solid #000;
-  margin-top: 1.5mm;
-  padding-top: 1mm;
-  flex: 1 1 auto;
-  min-height: 22mm;
+  margin-top: auto;
+  padding-top: 1.2mm;
+  flex: 0 0 auto;
+  min-height: 24mm;
   display: flex;
   flex-direction: column;
 }
 .toms-v2-notes-label { font-size: 8pt; font-weight: 700; margin-bottom: 1mm; }
-.toms-v2-notes-body { font-size: 8pt; line-height: 1.4; white-space: pre-wrap; flex: 1; min-height: 16mm; }
-.toms-v2-notes-empty { min-height: 16mm; }
+.toms-v2-notes-body { font-size: 8pt; line-height: 1.4; white-space: pre-wrap; flex: 1; min-height: 18mm; }
+.toms-v2-notes-empty { min-height: 18mm; }
 .toms-v2-page-num {
   text-align: center;
   font-size: 7.5pt;

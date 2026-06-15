@@ -3,6 +3,7 @@
  * Usage: npm run build && node scripts/verify-pdf-four-types-emergency.mjs
  */
 import fs from "fs";
+import http from "http";
 import path from "path";
 import { fileURLToPath } from "url";
 import puppeteer from "puppeteer";
@@ -200,6 +201,49 @@ for (const [kind, storedPath] of Object.entries(pdfPaths)) {
   });
   console.log(`${labels[kind]}: ${analysis.pageCount} pages, photoCells=${photoCells}`);
 }
+
+const server = http.createServer(app);
+await new Promise((resolve, reject) => {
+  server.once("error", reject);
+  server.listen(0, "127.0.0.1", resolve);
+});
+const port = server.address().port;
+const baseUrl = `http://127.0.0.1:${port}`;
+
+report.viewerScreenshots = [];
+const uiPage = await browser.newPage();
+await uiPage.setViewport({ width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+await uiPage.goto(`${baseUrl}/customer/TOMS001/login`, { waitUntil: "networkidle2" });
+await uiPage.evaluate((t) => {
+  localStorage.setItem("tisly_admin_token", t);
+  sessionStorage.setItem("tisly_token", t);
+}, token);
+
+for (const kind of ["estimate", "invoice", "specification", "completion-report"]) {
+  const viewerUrl = `${baseUrl}/document-viewer-v1.html?projectId=${encodeURIComponent(bizId)}&kind=${encodeURIComponent(kind)}&return=${encodeURIComponent("/estimate-v1")}`;
+  await uiPage.goto(viewerUrl, { waitUntil: "networkidle2", timeout: 30000 });
+  await uiPage.waitForSelector("#btn-back", { timeout: 15000 });
+  const backCheck = await uiPage.evaluate(() => {
+    const btn = document.getElementById("btn-back");
+    if (!btn) return { visible: false, text: "" };
+    const r = btn.getBoundingClientRect();
+    return {
+      visible: r.width >= 40 && r.height >= 40,
+      text: btn.textContent?.trim() ?? "",
+    };
+  });
+  const viewerPng = path.join(outDir, `viewer-back-${kind}.png`);
+  await uiPage.screenshot({ path: viewerPng });
+  report.viewerScreenshots.push({
+    kind,
+    screenshot: viewerPng,
+    backButtonVisible: backCheck.visible,
+    backButtonText: backCheck.text,
+  });
+  console.log(`viewer ${kind}: back=${backCheck.visible} "${backCheck.text}"`);
+}
+await uiPage.close();
+server.close();
 
 await browser.close();
 closeDatabase();
