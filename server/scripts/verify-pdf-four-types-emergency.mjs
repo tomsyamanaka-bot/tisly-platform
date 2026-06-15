@@ -244,26 +244,51 @@ for (const kind of ["estimate", "invoice", "specification", "completion-report"]
   await uiPage.waitForFunction(
     () => {
       const frame = document.getElementById("pdf-frame");
-      return frame && frame.src && !frame.src.endsWith("about:blank");
+      return frame && frame.src && frame.src.startsWith("blob:");
     },
-    { timeout: 20000 }
+    { timeout: 30000 }
   );
   await new Promise((r) => setTimeout(r, 2500));
   const backCheck = await uiPage.evaluate(() => {
     const btn = document.getElementById("btn-back");
-    if (!btn) return { visible: false, text: "", zIndex: 0, position: "" };
+    const chrome = document.getElementById("doc-pdf-chrome");
+    const frame = document.getElementById("pdf-frame");
+    if (!btn || !chrome || !frame) {
+      return { visible: false, text: "", zIndex: 0, position: "", frameTop: 0, chromeHeight: 0 };
+    }
     const r = btn.getBoundingClientRect();
+    const chromeRect = chrome.getBoundingClientRect();
+    const frameRect = frame.getBoundingClientRect();
     const style = window.getComputedStyle(btn);
+    const chromeStyle = window.getComputedStyle(chrome);
     return {
       visible:
         r.width >= 40 &&
         r.height >= 40 &&
         style.visibility !== "hidden" &&
         style.display !== "none" &&
-        style.position === "fixed",
+        chromeStyle.position === "fixed" &&
+        r.top >= 0 &&
+        r.left >= 0 &&
+        frameRect.top >= chromeRect.bottom - 2,
       text: btn.textContent?.trim() ?? "",
-      zIndex: Number.parseInt(style.zIndex, 10) || 0,
-      position: style.position,
+      zIndex: Number.parseInt(chromeStyle.zIndex, 10) || 0,
+      position: chromeStyle.position,
+      frameTop: frameRect.top,
+      chromeHeight: chromeRect.height,
+    };
+  });
+  const screenshotBuf = await uiPage.screenshot({ encoding: "binary" });
+  const buttonPixelCheck = await uiPage.evaluate(() => {
+    const btn = document.getElementById("btn-back");
+    if (!btn) return { bluePixels: 0 };
+    const r = btn.getBoundingClientRect();
+    const cx = Math.round(r.left + r.width / 2);
+    const cy = Math.round(r.top + r.height / 2);
+    const el = document.elementFromPoint(cx, cy);
+    return {
+      bluePixels: el === btn || btn.contains(el) ? 1 : 0,
+      hitTag: el?.tagName ?? "",
     };
   });
   const viewerNames = {
@@ -273,14 +298,19 @@ for (const kind of ["estimate", "invoice", "specification", "completion-report"]
     "completion-report": "viewer-completion-back",
   };
   const viewerPng = path.join(outDir, `${viewerNames[kind]}.png`);
-  await uiPage.screenshot({ path: viewerPng });
+  fs.writeFileSync(viewerPng, screenshotBuf);
+  const backVisibleInScreenshot =
+    backCheck.visible && buttonPixelCheck.bluePixels > 0 && backCheck.text.includes("戻る");
   report.viewerScreenshots.push({
     kind,
     screenshot: viewerPng,
-    backButtonVisible: backCheck.visible,
+    backButtonVisible: backVisibleInScreenshot,
     backButtonText: backCheck.text,
+    frameTop: backCheck.frameTop,
+    chromeHeight: backCheck.chromeHeight,
+    buttonHitTest: buttonPixelCheck,
   });
-  console.log(`viewer ${kind}: back=${backCheck.visible} "${backCheck.text}"`);
+  console.log(`viewer ${kind}: back=${backVisibleInScreenshot} "${backCheck.text}" frameTop=${backCheck.frameTop}`);
 }
 
 report.estimateUiScreenshots = [];

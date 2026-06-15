@@ -158,8 +158,8 @@ describe("お客様向けPDFコンテンツ", () => {
     assert.match(html, /作業内容/);
     assert.match(html, /設置作業を実施/);
     assert.match(html, /cr-cover-photo-grid/);
+    assert.match(html, /cr-cover-section/);
     assert.equal((html.match(/class="cr-photo-cell(?:\s|")/g) || []).length, 6);
-    assert.ok(!html.includes('class="cr-cover-section"'));
     assert.ok(!html.includes("開始時間"));
     assert.ok(!html.includes("終了時間"));
     assert.ok(!html.includes("使用部材"));

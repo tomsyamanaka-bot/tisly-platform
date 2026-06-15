@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-06-15T10:19:16.749Z",
-  "businessProjectId": "BIZ-C9DF242A",
+  "generatedAt": "2026-06-15T11:09:12.699Z",
+  "businessProjectId": "BIZ-F653891E",
   "documents": [
     {
       "kind": "estimate",
@@ -34,7 +34,7 @@
       "pageCount": 1,
       "photoCells": 6,
       "coverPhotoCells": 6,
-      "bytes": 98021,
+      "bytes": 98024,
       "fixedSixFrameCover": true,
       "noPhotoLayout": true
     },
@@ -46,7 +46,7 @@
       "pageCount": 1,
       "photoCells": 6,
       "coverPhotoCells": 6,
-      "bytes": 99282,
+      "bytes": 99749,
       "fixedSixFrameCover": true,
       "noPhotoLayout": true
     }
@@ -56,25 +56,49 @@
       "kind": "estimate",
       "screenshot": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\pdf-four-types-emergency\\viewer-estimate-back.png",
       "backButtonVisible": true,
-      "backButtonText": "← 戻る"
+      "backButtonText": "← 戻る",
+      "frameTop": 52,
+      "chromeHeight": 52,
+      "buttonHitTest": {
+        "bluePixels": 1,
+        "hitTag": "BUTTON"
+      }
     },
     {
       "kind": "invoice",
       "screenshot": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\pdf-four-types-emergency\\viewer-invoice-back.png",
       "backButtonVisible": true,
-      "backButtonText": "← 戻る"
+      "backButtonText": "← 戻る",
+      "frameTop": 52,
+      "chromeHeight": 52,
+      "buttonHitTest": {
+        "bluePixels": 1,
+        "hitTag": "BUTTON"
+      }
     },
     {
       "kind": "specification",
       "screenshot": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\pdf-four-types-emergency\\viewer-specification-back.png",
       "backButtonVisible": true,
-      "backButtonText": "← 戻る"
+      "backButtonText": "← 戻る",
+      "frameTop": 52,
+      "chromeHeight": 52,
+      "buttonHitTest": {
+        "bluePixels": 1,
+        "hitTag": "BUTTON"
+      }
     },
     {
       "kind": "completion-report",
       "screenshot": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\pdf-four-types-emergency\\viewer-completion-back.png",
       "backButtonVisible": true,
-      "backButtonText": "← 戻る"
+      "backButtonText": "← 戻る",
+      "frameTop": 52,
+      "chromeHeight": 52,
+      "buttonHitTest": {
+        "bluePixels": 1,
+        "hitTag": "BUTTON"
+      }
     }
   ],
   "estimateUiScreenshots": [

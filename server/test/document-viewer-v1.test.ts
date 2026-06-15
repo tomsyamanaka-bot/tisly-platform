@@ -78,6 +78,7 @@ describe("Document Viewer UX v1 API", () => {
     assert.match(res.text, /document-viewer-v1\.js/);
     assert.match(res.text, /btn-back/);
     assert.match(res.text, /doc-pdf-back-fixed/);
+    assert.match(res.text, /doc-pdf-chrome/);
   });
 
   it("見積書 document-view JSON を返す", async () => {

@@ -102,7 +102,7 @@ describe("practical-pdf-layout 写真グリッド", () => {
     assert.equal(FIRST_PAGE_PHOTOS_MAX, 6);
     assert.equal(countCoverPhotoCells(html, "sp"), 6);
     assert.equal(countContinuationPhotoPages(html, "sp"), 1);
-    assert.equal(countPhotoCells(html, "sp"), 7);
+    assert.equal(countPhotoCells(html, "sp"), 12);
     assert.match(html, /Page 1 \/ 2/);
     assert.match(html, /Page 2 \/ 2/);
     assert.deepEqual(titleOrder(html), [
@@ -134,5 +134,22 @@ describe("practical-pdf-layout 写真グリッド", () => {
     const fieldsPos = cover.indexOf("sp-cover-fields");
     const gridPos = cover.indexOf("sp-cover-photo-grid");
     assert.ok(fieldsPos >= 0 && gridPos > fieldsPos, "写真は基本情報テーブルの下");
+  });
+
+  it("完了報告書も仕様書と同じ6枠固定（cr prefix）", () => {
+    for (const n of [1, 3, 5, 6]) {
+      const html = renderPracticalPdfHtml({
+        prefix: "cr",
+        pageTitle: "完了報告書テスト",
+        documentTitle: "工事完了報告書",
+        projectNo: "PRJ-TEST",
+        generatedAt: "2026-06-13T12:00:00+09:00",
+        coverFields: [{ label: "件名", value: "テスト" }],
+        photos: photos(n),
+      });
+      assert.equal(countCoverPhotoCells(html, "cr"), 6, `${n}枚: 表紙セル数`);
+      assert.match(html, /cr-cover-photo-grid/);
+      assert.match(html, /grid-template-rows:\s*repeat\(3,\s*1fr\)/);
+    }
   });
 });

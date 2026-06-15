@@ -223,7 +223,7 @@ function renderPhotoPage(
   startIndex: number
 ): string {
   return `<div class="${prefix}-page ${prefix}-photo-page">
-  ${renderPhotoGrid(prefix, photos, startIndex)}
+  ${renderPhotoGrid(prefix, photos, startIndex, "", PHOTOS_PER_PAGE)}
   ${footerHtml}
 </div>`;
 }

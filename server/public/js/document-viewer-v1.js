@@ -86,7 +86,8 @@ function setPdfFrameBlob(blob) {
 
 async function loadPdfFrame() {
   if (!payload?.pdfUrl) throw new Error("PDF URLがありません");
-  $("pdf-frame").src = buildPdfTabUrl(payload.pdfUrl);
+  const blob = await fetchDocumentPdfBlob();
+  setPdfFrameBlob(blob);
 }
 
 function renderEstimateMobile(est) {
@@ -312,6 +313,7 @@ function closeLightbox() {
 function applyLayoutMode() {
   mobileMode = isMobileViewport();
   document.body.classList.add("doc-pdf-view-mode");
+  $("doc-pdf-chrome")?.classList.remove("hidden");
   $("doc-mobile").classList.add("hidden");
   $("doc-desktop").classList.remove("hidden");
   $("doc-fixed-total").classList.add("hidden");
