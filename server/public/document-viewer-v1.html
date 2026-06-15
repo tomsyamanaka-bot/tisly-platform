@@ -10,7 +10,11 @@
 </head>
 <body class="tisly-friendly doc-viewer-body doc-pdf-view-mode">
   <div class="doc-pdf-chrome" id="doc-pdf-chrome">
-    <button type="button" class="doc-pdf-back-fixed" id="btn-back" aria-label="戻る">← 戻る</button>
+    <button type="button" class="doc-pdf-chrome-btn doc-pdf-back-fixed" id="btn-back" aria-label="戻る">← 戻る</button>
+    <div class="doc-pdf-chrome-actions">
+      <button type="button" class="doc-pdf-chrome-btn doc-pdf-action-btn primary" id="btn-pdf" title="PDFにする">PDFにする</button>
+      <button type="button" class="doc-pdf-chrome-btn doc-pdf-action-btn" id="btn-share" title="共有">共有</button>
+    </div>
   </div>
   <header class="doc-viewer-header" id="doc-header">
     <div class="doc-header-center">
@@ -19,9 +23,7 @@
     </div>
     <div class="doc-header-actions">
       <button type="button" class="doc-header-btn" id="btn-regenerate" title="PDF再作成">PDF再作成</button>
-      <button type="button" class="doc-header-btn" id="btn-share" title="共有">共有</button>
       <button type="button" class="doc-header-btn" id="btn-print" title="印刷">印刷</button>
-      <button type="button" class="doc-header-btn primary" id="btn-pdf" title="PDF">PDF</button>
     </div>
   </header>
 
@@ -45,6 +47,6 @@
   </div>
 
   <div id="toast" class="toast" role="status"></div>
-  <script type="module" src="/js/document-viewer-v1.js"></script>
+  <script type="module" src="/js/document-viewer-v1.js?v=20260615-pdf-chrome"></script>
 </body>
 </html>

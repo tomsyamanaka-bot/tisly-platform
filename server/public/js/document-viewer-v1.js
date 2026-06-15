@@ -1,6 +1,14 @@
 import { getCustomerToken, requireCustomerLogin, customerCodeFromPath } from "./customer-auth.js";
 import { renderFriendlyErrorHtml } from "./tisly-friendly-errors.js";
-import { sharePdfAsFile, fetchPdfBlobWithRegenerate, openPdfUrlDirect, isIosPdfViewer } from "./pdf-share-v1.js";
+import {
+  sharePdfBlobAsFile,
+  fetchPdfBlobWithRegenerate,
+  openPdfBlob,
+  isValidPdfBlob,
+  prefetchPdfForShare,
+  isIosPdfViewer,
+  triggerDownload,
+} from "./pdf-share-v1.js";
 
 const MOBILE_BREAKPOINT = 768;
 const API = "/api/estimate/v1";
@@ -11,6 +19,7 @@ let payload = null;
 let lightboxPhotos = [];
 let lightboxIndex = 0;
 let pdfBlobUrl = null;
+let cachedPdfBlob = null;
 let mobileMode = false;
 
 function toast(msg) {
@@ -68,14 +77,17 @@ function getRegenerateUrl() {
   return payload?.regenerateUrl || null;
 }
 
-async function fetchDocumentPdfBlob() {
+async function fetchDocumentPdfBlob({ forceRefresh = false } = {}) {
   if (!payload?.pdfUrl) throw new Error("PDF URLがありません");
-  return fetchPdfBlobWithRegenerate({
+  if (!forceRefresh && cachedPdfBlob && isValidPdfBlob(cachedPdfBlob)) return cachedPdfBlob;
+  const blob = await fetchPdfBlobWithRegenerate({
     fetchUrl: buildPdfTabUrl(payload.pdfUrl),
     headers: pdfAuthHeaders(),
     regenerateUrl: getRegenerateUrl(),
     getRegenerateHeaders: pdfAuthHeaders,
   });
+  cachedPdfBlob = blob;
+  return blob;
 }
 
 function setPdfFrameBlob(blob) {
@@ -347,6 +359,7 @@ async function regenerateStoredPdf() {
     storedPdfPath: data.pdfPath ?? payload.storedPdfPath,
     hasStoredPdf: Boolean(data.pdfPath ?? payload.hasStoredPdf),
   };
+  cachedPdfBlob = null;
   toast("PDFを再作成しました");
   await loadPdfFrame();
 }
@@ -366,22 +379,59 @@ function updateHeader(data) {
   updateRegenerateButton(data);
 }
 
+function getShareFileName() {
+  return payload?.shareFileName || `${payload?.kind || "document"}.pdf`;
+}
+
+function prefetchPdfOnTouch() {
+  if (!payload?.pdfUrl) return;
+  prefetchPdfForShare({
+    fetchUrl: buildPdfTabUrl(payload.pdfUrl),
+    getHeaders: pdfAuthHeaders,
+    regenerateUrl: getRegenerateUrl(),
+  })
+    .then((blob) => {
+      cachedPdfBlob = blob;
+    })
+    .catch(() => {});
+}
+
+async function resolvePdfBlob({ forceRefresh = false } = {}) {
+  if (!payload?.pdfUrl) throw new Error("PDFがありません");
+  if (!forceRefresh && cachedPdfBlob && isValidPdfBlob(cachedPdfBlob)) return cachedPdfBlob;
+  const blob = await fetchDocumentPdfBlob({ forceRefresh });
+  cachedPdfBlob = blob;
+  return blob;
+}
+
+async function handlePdfOpen() {
+  if (!payload?.pdfUrl) {
+    toast("PDFがありません");
+    return;
+  }
+  try {
+    const blob = await resolvePdfBlob();
+    const fileName = getShareFileName();
+    if (isIosPdfViewer()) {
+      triggerDownload(blob, fileName);
+      toast("PDFファイルを保存しました");
+      return;
+    }
+    openPdfBlob(blob);
+  } catch (e) {
+    toast(e.message || "PDFの取得に失敗しました");
+  }
+}
+
 async function handleShare() {
   if (!payload?.pdfUrl) {
     toast("PDFがありません");
     return;
   }
-  const title = `${payload?.label || "書類"} — ${payload?.projectTitle || ""}`;
-  const fetchUrl = buildPdfTabUrl(payload.pdfUrl);
+  const fileName = getShareFileName();
   try {
-    await sharePdfAsFile({
-      fetchUrl,
-      fileName: payload.shareFileName || `${payload.kind || "document"}.pdf`,
-      title,
-      regenerateUrl: getRegenerateUrl(),
-      getHeaders: pdfAuthHeaders,
-      toast,
-    });
+    const pdfBlob = await resolvePdfBlob();
+    await sharePdfBlobAsFile(pdfBlob, fileName, toast);
   } catch (e) {
     if (e?.name === "AbortError") return;
     toast(e.message || "共有に失敗しました");
@@ -395,8 +445,8 @@ async function handlePrint() {
   }
   try {
     const blob = await fetchDocumentPdfBlob();
-    if (mobileMode || isIosPdfViewer()) {
-      openPdfUrlDirect(buildPdfTabUrl(payload.pdfUrl));
+    if (mobileMode) {
+      openPdfBlob(blob);
       return;
     }
     setPdfFrameBlob(blob);
@@ -406,7 +456,7 @@ async function handlePrint() {
         frame.contentWindow?.focus();
         frame.contentWindow?.print();
       } catch {
-        window.open(buildPdfTabUrl(payload.pdfUrl), "_blank");
+        openPdfBlob(blob);
       }
       frame.onload = null;
     };
@@ -447,26 +497,10 @@ async function init() {
     regenerateStoredPdf().catch((e) => toast(e.message || "PDF再作成に失敗しました"));
   });
   $("btn-share").addEventListener("click", () => handleShare());
+  $("btn-share").addEventListener("touchstart", prefetchPdfOnTouch, { passive: true });
+  $("btn-pdf").addEventListener("click", () => handlePdfOpen());
+  $("btn-pdf").addEventListener("touchstart", prefetchPdfOnTouch, { passive: true });
   $("btn-print").addEventListener("click", () => handlePrint());
-  $("btn-pdf").addEventListener("click", async () => {
-    if (!payload?.pdfUrl) {
-      toast("PDF URLがありません");
-      return;
-    }
-    const fetchUrl = buildPdfTabUrl(payload.pdfUrl);
-    if (isIosPdfViewer() || mobileMode) {
-      openPdfUrlDirect(fetchUrl);
-      return;
-    }
-    try {
-      const blob = await fetchDocumentPdfBlob();
-      const url = URL.createObjectURL(blob);
-      window.open(url, "_blank", "noopener");
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    } catch (e) {
-      toast(e.message || "PDFの取得に失敗しました");
-    }
-  });
 
   $("lightbox-close").addEventListener("click", closeLightbox);
   $("photo-lightbox").addEventListener("click", (ev) => {

@@ -1,6 +1,7 @@
 /**
  * お客様向け PDF を File として共有（Web Share API files）。
- * 非対応時はダウンロード / URL コピーにフォールバック。
+ * HTML プレビュー URL（document-viewer-v1.html 等）の共有は禁止。
+ * 非対応時は PDF ダウンロードのみ（URL 共有フォールバックなし）。
  */
 
 const PDF_FAIL_MSG = "PDF生成に失敗しました。再生成してください";
@@ -98,6 +99,7 @@ export function normalizePdfFetchUrl(fetchUrl) {
  * @throws {Error} 原因付きメッセージ
  */
 async function fetchPdfBlob(fetchUrl, headers = {}) {
+  assertPdfApiFetchUrl(fetchUrl);
   const url = normalizePdfFetchUrl(fetchUrl);
   const res = await fetch(url, { headers });
   const blob = res.ok ? await res.blob() : null;
@@ -160,6 +162,24 @@ async function fetchPdfBlobWithRegenerate({ fetchUrl, headers = {}, regenerateUr
   }
 }
 
+function isForbiddenShareUrl(url) {
+  if (!url || typeof url !== "string") return true;
+  if (url.includes("document-viewer-v1.html")) return true;
+  if (/\.html(?:\?|$)/i.test(url)) return true;
+  if (typeof window !== "undefined" && url === window.location.href) return true;
+  return false;
+}
+
+/** PDF 共有・取得は estimate/projects PDF API のみ許可 */
+export function assertPdfApiFetchUrl(fetchUrl) {
+  if (!fetchUrl || typeof fetchUrl !== "string") {
+    throw new Error("PDF API URLが不正です");
+  }
+  if (isForbiddenShareUrl(fetchUrl)) {
+    throw new Error("HTML URLは共有できません。PDF APIを使用してください");
+  }
+}
+
 function canShareFiles(file) {
   if (!navigator.share) return false;
   if (typeof navigator.canShare === "function") {
@@ -170,6 +190,51 @@ function canShareFiles(file) {
     }
   }
   return true;
+}
+
+function pdfFileFromBlob(pdfBlob, fileName) {
+  const safeName = (fileName || "document.pdf").replace(/[/\\:*?"<>|]/g, "_");
+  return new File([pdfBlob], safeName, { type: "application/pdf" });
+}
+
+/**
+ * 取得済み PDF Blob を即座に File 共有（iOS ユーザージェスチャー維持用）。
+ * navigator.share には files のみ渡す（url / title 禁止 — LINE が HTML URL を送るのを防ぐ）。
+ */
+export async function sharePdfBlobAsFile(pdfBlob, fileName, toast) {
+  if (!isValidPdfBlob(pdfBlob)) {
+    throw new Error(PDF_FAIL_MSG);
+  }
+  const file = pdfFileFromBlob(pdfBlob, fileName);
+
+  if (canShareFiles(file)) {
+    try {
+      await navigator.share({ files: [file] });
+      return "share-files";
+    } catch (e) {
+      if (e?.name === "AbortError") throw e;
+    }
+  }
+
+  triggerDownload(pdfBlob, file.name);
+  toast?.("PDFをダウンロードしました（共有アプリから送れます）");
+  return "download";
+}
+
+/** application/pdf Blob を新しいタブで開く（API URL 直開きは使わない） */
+export function openPdfBlob(blob) {
+  const url = URL.createObjectURL(blob);
+  const w = window.open(url, "_blank", "noopener");
+  if (!w) {
+    const a = document.createElement("a");
+    a.href = url;
+    a.target = "_blank";
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
 /** iPhone Safari / PWA — blob URL では PDF を開けないため直接 URL を使う */
@@ -198,41 +263,34 @@ export function openPdfUrlDirect(fetchUrl) {
  * @param {(msg: string) => void} [opts.toast]
  * @returns {Promise<'share-files'|'download'|'url-copy'>}
  */
-export async function sharePdfAsFile({ fetchUrl, fileName, title, getHeaders, regenerateUrl, toast }) {
-  const headers = getHeaders?.() ?? {};
-  const pdfBlob = await fetchPdfBlobWithRegenerate({
-    fetchUrl,
-    headers,
-    regenerateUrl,
-    getRegenerateHeaders: getHeaders,
-  });
-  const safeName = (fileName || "document.pdf").replace(/[/\\:*?"<>|]/g, "_");
-  const file = new File([pdfBlob], safeName, { type: "application/pdf" });
+const prefetchPdfCache = new Map();
 
-  if (canShareFiles(file)) {
-    try {
-      await navigator.share({ files: [file], title: title || safeName });
-      return "share-files";
-    } catch (e) {
-      if (e?.name === "AbortError") throw e;
-    }
+/** 共有ボタン touchstart 等で先読み（iOS ユーザージェスチャー切れ防止） */
+export function prefetchPdfForShare({ fetchUrl, getHeaders, regenerateUrl }) {
+  assertPdfApiFetchUrl(fetchUrl);
+  if (!prefetchPdfCache.has(fetchUrl)) {
+    const headers = getHeaders?.() ?? {};
+    const promise = fetchPdfBlobWithRegenerate({
+      fetchUrl,
+      headers,
+      regenerateUrl,
+      getRegenerateHeaders: getHeaders,
+    }).catch((e) => {
+      prefetchPdfCache.delete(fetchUrl);
+      throw e;
+    });
+    prefetchPdfCache.set(fetchUrl, promise);
   }
-
-  triggerDownload(pdfBlob, safeName);
-  toast?.("PDFをダウンロードしました（共有アプリから送れます）");
-  return "download";
+  return prefetchPdfCache.get(fetchUrl);
 }
 
-/** URL共有フォールバック（HTMLプレビュー等で File 共有不可の場合） */
-export async function copyPdfShareUrl(url, toast) {
-  try {
-    await navigator.clipboard.writeText(url);
-    toast?.("URLをコピーしました");
-    return "url-copy";
-  } catch {
-    prompt("共有URL（コピーしてください）", url);
-    return "url-copy";
-  }
+export async function sharePdfAsFile({ fetchUrl, fileName, title, getHeaders, regenerateUrl, toast, pdfBlob }) {
+  assertPdfApiFetchUrl(fetchUrl);
+  const resolvedBlob =
+    pdfBlob && isValidPdfBlob(pdfBlob)
+      ? pdfBlob
+      : await prefetchPdfForShare({ fetchUrl, getHeaders, regenerateUrl });
+  return sharePdfBlobAsFile(resolvedBlob, fileName || title, toast);
 }
 
 export {

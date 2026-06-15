@@ -21,6 +21,8 @@
   z-index: 2147483647;
   display: flex;
   align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.35rem;
   padding: 0 calc(env(safe-area-inset-right, 0px) + 8px) 6px calc(env(safe-area-inset-left, 0px) + 8px);
   padding-top: env(safe-area-inset-top, 0);
   pointer-events: none;
@@ -29,20 +31,25 @@
   -webkit-transform: translateZ(0);
 }
 
-.doc-pdf-back-fixed {
+.doc-pdf-chrome-actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.35rem;
+  flex-shrink: 0;
+  pointer-events: auto;
+}
+
+.doc-pdf-chrome-btn {
   position: relative;
   top: auto;
   left: auto;
   z-index: 1;
   border: none;
-  background: rgba(30, 64, 120, 0.92);
-  color: #fff;
   border-radius: 10px;
   padding: 0.5rem 0.7rem;
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   font-weight: 600;
   min-height: 44px;
-  min-width: 5rem;
   cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
@@ -50,6 +57,25 @@
   pointer-events: auto;
   transform: translateZ(0);
   -webkit-transform: translateZ(0);
+  white-space: nowrap;
+}
+
+.doc-pdf-back-fixed {
+  background: rgba(30, 64, 120, 0.92);
+  color: #fff;
+  min-width: 5rem;
+}
+
+.doc-pdf-action-btn {
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--tisly-blue, #1e4078);
+  border: 1px solid rgba(30, 64, 120, 0.2);
+}
+
+.doc-pdf-action-btn.primary {
+  background: rgba(30, 64, 120, 0.92);
+  color: #fff;
+  border: none;
 }
 
 .doc-pdf-view-mode .doc-viewer-header {

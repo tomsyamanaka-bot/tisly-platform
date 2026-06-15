@@ -5,7 +5,7 @@ import {
 } from "./customer-auth.js";
 import { initPracticalNav } from "./tisly-practical-nav.js";
 import { renderFriendlyErrorHtml } from "./tisly-friendly-errors.js";
-import { sharePdfAsFile } from "./pdf-share-v1.js";
+import { sharePdfAsFile, prefetchPdfForShare } from "./pdf-share-v1.js";
 
 const API = "/api/projects/v1";
 const WORK_API = "/api/work-session/v1";
@@ -298,9 +298,22 @@ async function renderDetailDocuments(detail) {
   });
   mount.querySelectorAll(".pdf-row").forEach((row) => {
     const kind = row.dataset.pdfKind;
-    row.querySelector('[data-pdf-action="share"]')?.addEventListener("click", () => {
-      const label = pdfs.find((x) => x.kind === kind)?.label || kind;
-      sharePdf(p.id, kind, label, pdfs.find((x) => x.kind === kind)?.fileName);
+    const shareBtn = row.querySelector('[data-pdf-action="share"]');
+    const label = pdfs.find((x) => x.kind === kind)?.label || kind;
+    const fileName = pdfs.find((x) => x.kind === kind)?.fileName;
+    const shareFetchUrl = () => pdfFileUrl(p.id, kind);
+    shareBtn?.addEventListener(
+      "touchstart",
+      () => {
+        prefetchPdfForShare({
+          fetchUrl: shareFetchUrl(),
+          getHeaders: () => ({ Authorization: `Bearer ${getCustomerToken()}` }),
+        }).catch(() => {});
+      },
+      { passive: true }
+    );
+    shareBtn?.addEventListener("click", () => {
+      sharePdf(p.id, kind, label, fileName);
     });
     row.querySelector('[data-pdf-action="regenerate"]')?.addEventListener("click", async () => {
       if (!confirm(`${pdfs.find((x) => x.kind === kind)?.label || kind}PDFを再生成しますか？`)) return;
