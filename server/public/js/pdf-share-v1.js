@@ -7,6 +7,10 @@
 const PDF_FAIL_MSG = "PDF生成に失敗しました。再生成してください";
 const PDF_MIN_CLIENT_BYTES = 10000;
 
+/** iOS 共有シートで LINE が出ない場合の案内（共有ボタン押下時に表示） */
+export const LINE_SHARE_HINT =
+  "LINEが出ない場合は、まず「ファイルに保存」してからLINEの＋ → ファイルで送信してください";
+
 function triggerDownload(blob, fileName) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -201,11 +205,15 @@ function pdfFileFromBlob(pdfBlob, fileName) {
  * 取得済み PDF Blob を即座に File 共有（iOS ユーザージェスチャー維持用）。
  * navigator.share には files のみ渡す（url / title 禁止 — LINE が HTML URL を送るのを防ぐ）。
  */
-export async function sharePdfBlobAsFile(pdfBlob, fileName, toast) {
+export async function sharePdfBlobAsFile(pdfBlob, fileName, toast, { showHint = true } = {}) {
   if (!isValidPdfBlob(pdfBlob)) {
     throw new Error(PDF_FAIL_MSG);
   }
   const file = pdfFileFromBlob(pdfBlob, fileName);
+
+  if (showHint) {
+    toast?.(LINE_SHARE_HINT, { durationMs: 4500 });
+  }
 
   if (canShareFiles(file)) {
     try {
@@ -217,7 +225,7 @@ export async function sharePdfBlobAsFile(pdfBlob, fileName, toast) {
   }
 
   triggerDownload(pdfBlob, file.name);
-  toast?.("PDFをダウンロードしました（共有アプリから送れます）");
+  toast?.("PDFをファイルに保存しました。LINEの＋ → ファイルから送信できます");
   return "download";
 }
 

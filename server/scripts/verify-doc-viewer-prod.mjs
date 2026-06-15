@@ -89,8 +89,11 @@ async function main() {
     html.includes("← 戻る") &&
     html.includes('id="btn-pdf"') &&
     html.includes("PDFにする") &&
+    html.includes('id="btn-save"') &&
+    html.includes("保存") &&
     html.includes('id="btn-share"') &&
-    html.includes(">共有</button>") &&
+    html.includes("LINEで送る") &&
+    html.includes("doc-preview-mode") &&
     !html.includes("navigator.share({ title, url");
 
   const shareCodeOk =
@@ -98,6 +101,7 @@ async function main() {
     !shareJs.includes("navigator.share({ title, url") &&
     !viewerJs.includes("navigator.share({ title, url") &&
     shareJs.includes('type: "application/pdf"') &&
+    shareJs.includes("LINE_SHARE_HINT") &&
     shareJs.includes("document-viewer-v1.html");
 
   const token = await login();

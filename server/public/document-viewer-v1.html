@@ -8,12 +8,13 @@
   <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
   <link rel="stylesheet" href="/css/document-viewer-v1.css" />
 </head>
-<body class="tisly-friendly doc-viewer-body doc-pdf-view-mode">
+<body class="tisly-friendly doc-viewer-body doc-preview-mode">
   <div class="doc-pdf-chrome" id="doc-pdf-chrome">
     <button type="button" class="doc-pdf-chrome-btn doc-pdf-back-fixed" id="btn-back" aria-label="戻る">← 戻る</button>
     <div class="doc-pdf-chrome-actions">
-      <button type="button" class="doc-pdf-chrome-btn doc-pdf-action-btn primary" id="btn-pdf" title="PDFにする">PDFにする</button>
-      <button type="button" class="doc-pdf-chrome-btn doc-pdf-action-btn" id="btn-share" title="共有">共有</button>
+      <button type="button" class="doc-pdf-chrome-btn doc-pdf-action-btn primary" id="btn-pdf" title="PDF表示">PDFにする</button>
+      <button type="button" class="doc-pdf-chrome-btn doc-pdf-action-btn" id="btn-save" title="ファイルに保存">保存</button>
+      <button type="button" class="doc-pdf-chrome-btn doc-pdf-action-btn" id="btn-share" title="PDFファイルを共有">LINEで送る</button>
     </div>
   </div>
   <header class="doc-viewer-header" id="doc-header">
@@ -47,6 +48,6 @@
   </div>
 
   <div id="toast" class="toast" role="status"></div>
-  <script type="module" src="/js/document-viewer-v1.js?v=20260615-pdf-chrome"></script>
+  <script type="module" src="/js/document-viewer-v1.js?v=20260616-preview-back"></script>
 </body>
 </html>

@@ -134,6 +134,9 @@ describe("TOMS標準見積フォーマット", () => {
     assert.match(res.text, /山中/);
     assert.ok(!/税率内訳/.test(res.text));
     assert.match(res.text, /株式会社伝元/);
+    assert.ok(!/toms-v2-addressee-line/.test(res.text));
+    assert.match(res.text, /toms-v2-addressee-row/);
+    assert.match(res.text, /\.toms-v2-addressee-row[\s\S]*border-bottom:\s*1px solid #000/);
     assert.ok(!/登録番号/.test(res.text));
     assert.match(res.text, /換気扇設置工事/);
     assert.match(res.text, />No</);

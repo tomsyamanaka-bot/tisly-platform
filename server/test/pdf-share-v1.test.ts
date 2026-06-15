@@ -21,9 +21,13 @@ describe("Web Share API 用 PDF File 生成", () => {
     assert.ok(!viewerJs.includes("navigator.share({ title"));
     assert.ok(viewerJs.includes("sharePdfBlobAsFile"));
     assert.ok(viewerJs.includes("openPdfBlob"));
-    assert.ok(viewerJs.includes("isIosPdfViewer"));
     assert.ok(viewerJs.includes("triggerDownload"));
     assert.ok(viewerJs.includes("handlePdfOpen"));
+    assert.ok(viewerJs.includes("handleSaveFile"));
+    assert.ok(viewerJs.includes('viewMode === "pdf"'));
+    assert.ok(viewerJs.includes("showPreviewMode"));
+    assert.ok(viewerJs.includes("showPdfViewMode"));
+    assert.ok(js.includes("LINE_SHARE_HINT"));
     assert.ok(js.includes("assertPdfApiFetchUrl"));
     assert.ok(js.includes("document-viewer-v1.html"));
     assert.ok(js.includes("sharePdfBlobAsFile"));

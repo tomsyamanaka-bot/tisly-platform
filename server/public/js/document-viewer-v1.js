@@ -6,7 +6,6 @@ import {
   openPdfBlob,
   isValidPdfBlob,
   prefetchPdfForShare,
-  isIosPdfViewer,
   triggerDownload,
 } from "./pdf-share-v1.js";
 
@@ -21,12 +20,14 @@ let lightboxIndex = 0;
 let pdfBlobUrl = null;
 let cachedPdfBlob = null;
 let mobileMode = false;
+/** @type {'preview' | 'pdf'} */
+let viewMode = "preview";
 
-function toast(msg) {
+function toast(msg, { durationMs = 2200 } = {}) {
   const el = $("toast");
   el.textContent = msg;
   el.classList.add("show");
-  setTimeout(() => el.classList.remove("show"), 2200);
+  setTimeout(() => el.classList.remove("show"), durationMs);
 }
 
 function yen(n) {
@@ -322,18 +323,55 @@ function closeLightbox() {
   $("photo-lightbox").classList.add("hidden");
 }
 
+function clearPdfFrame() {
+  if (pdfBlobUrl) {
+    URL.revokeObjectURL(pdfBlobUrl);
+    pdfBlobUrl = null;
+  }
+  const frame = $("pdf-frame");
+  if (frame) frame.src = "about:blank";
+}
+
+function updateFixedTotalVisibility() {
+  const bar = $("doc-fixed-total");
+  if (!bar) return;
+  if (viewMode !== "preview") {
+    bar.classList.add("hidden");
+    return;
+  }
+  const show = payload?.kind === "estimate" || payload?.kind === "invoice";
+  bar.classList.toggle("hidden", !show);
+}
+
+function showPreviewMode() {
+  viewMode = "preview";
+  document.body.classList.remove("doc-pdf-view-mode");
+  document.body.classList.add("doc-preview-mode");
+  $("doc-mobile")?.classList.remove("hidden");
+  $("doc-desktop")?.classList.add("hidden");
+  clearPdfFrame();
+  updateFixedTotalVisibility();
+}
+
+async function showPdfViewMode() {
+  viewMode = "pdf";
+  document.body.classList.remove("doc-preview-mode");
+  document.body.classList.add("doc-pdf-view-mode");
+  $("doc-mobile")?.classList.add("hidden");
+  $("doc-desktop")?.classList.remove("hidden");
+  $("doc-fixed-total")?.classList.add("hidden");
+  await loadPdfFrame();
+}
+
 function applyLayoutMode() {
   mobileMode = isMobileViewport();
-  document.body.classList.add("doc-pdf-view-mode");
-  $("doc-pdf-chrome")?.classList.remove("hidden");
-  $("doc-mobile").classList.add("hidden");
-  $("doc-desktop").classList.remove("hidden");
-  $("doc-fixed-total").classList.add("hidden");
-  if (payload?.pdfUrl) {
-    loadPdfFrame().catch((e) => {
-      $("doc-error").classList.remove("hidden");
+  if (viewMode === "pdf") {
+    showPdfViewMode().catch((e) => {
+      $("doc-error")?.classList.remove("hidden");
       $("doc-error").innerHTML = renderFriendlyErrorHtml(e);
     });
+  } else {
+    showPreviewMode();
   }
 }
 
@@ -410,16 +448,25 @@ async function handlePdfOpen() {
     return;
   }
   try {
-    const blob = await resolvePdfBlob();
-    const fileName = getShareFileName();
-    if (isIosPdfViewer()) {
-      triggerDownload(blob, fileName);
-      toast("PDFファイルを保存しました");
-      return;
-    }
-    openPdfBlob(blob);
+    await resolvePdfBlob();
+    await showPdfViewMode();
   } catch (e) {
     toast(e.message || "PDFの取得に失敗しました");
+  }
+}
+
+async function handleSaveFile() {
+  if (!payload?.pdfUrl) {
+    toast("PDFがありません");
+    return;
+  }
+  const fileName = getShareFileName();
+  try {
+    const blob = await resolvePdfBlob();
+    triggerDownload(blob, fileName);
+    toast("PDFをファイルに保存しました");
+  } catch (e) {
+    toast(e.message || "PDFの保存に失敗しました");
   }
 }
 
@@ -466,6 +513,10 @@ async function handlePrint() {
 }
 
 function handleBack(returnUrl) {
+  if (viewMode === "pdf") {
+    showPreviewMode();
+    return;
+  }
   if (returnUrl && returnUrl.startsWith("/")) {
     window.location.href = returnUrl;
     return;
@@ -498,6 +549,8 @@ async function init() {
   });
   $("btn-share").addEventListener("click", () => handleShare());
   $("btn-share").addEventListener("touchstart", prefetchPdfOnTouch, { passive: true });
+  $("btn-save")?.addEventListener("click", () => handleSaveFile());
+  $("btn-save")?.addEventListener("touchstart", prefetchPdfOnTouch, { passive: true });
   $("btn-pdf").addEventListener("click", () => handlePdfOpen());
   $("btn-pdf").addEventListener("touchstart", prefetchPdfOnTouch, { passive: true });
   $("btn-print").addEventListener("click", () => handlePrint());
@@ -526,6 +579,7 @@ async function init() {
     updateHeader(payload);
     renderMobileView(payload);
     $("doc-loading").classList.add("hidden");
+    showPreviewMode();
     applyLayoutMode();
   } catch (e) {
     $("doc-loading").classList.add("hidden");

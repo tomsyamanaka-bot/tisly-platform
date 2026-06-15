@@ -80,7 +80,9 @@ describe("Document Viewer UX v1 API", () => {
     assert.match(res.text, /doc-pdf-back-fixed/);
     assert.match(res.text, /doc-pdf-chrome/);
     assert.match(res.text, /id="btn-pdf"[^>]*>PDFにする/);
-    assert.match(res.text, /id="btn-share"[^>]*>共有/);
+    assert.match(res.text, /id="btn-save"[^>]*>保存/);
+    assert.match(res.text, /id="btn-share"[^>]*>LINEで送る/);
+    assert.match(res.text, /doc-preview-mode/);
     assert.match(res.text, /doc-pdf-chrome-actions/);
     assert.doesNotMatch(res.text, /navigator\.share\(\{\s*title,\s*url/);
   });

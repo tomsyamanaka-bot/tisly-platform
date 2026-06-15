@@ -157,7 +157,6 @@ function renderHeaderLeft(ctx: TomsV2PageContext): string {
   <div class="toms-v2-title-band">${escapeHtml(ctx.docTitle)}</div>
   <div class="toms-v2-addressee-row">
     <span class="toms-v2-addressee-name">${escapeHtml(name)}</span>
-    <span class="toms-v2-addressee-line" aria-hidden="true"></span>
     <span class="toms-v2-addressee-honorific">${escapeHtml(honorific)}</span>
   </div>
   <div class="toms-v2-subject-row">
@@ -435,24 +434,25 @@ body {
 .toms-v2-addressee-row {
   display: flex;
   align-items: baseline;
-  gap: 1mm;
+  justify-content: flex-start;
+  gap: 2mm;
   margin: 1mm 0 2mm;
+  padding-bottom: 1px;
+  border-bottom: 1px solid #000;
+  width: 100%;
+  max-width: 72mm;
 }
 .toms-v2-addressee-name {
   font-size: 14pt;
   font-weight: 700;
   white-space: nowrap;
 }
-.toms-v2-addressee-line {
-  flex: 1 1 auto;
-  border-bottom: 1px solid #000;
-  min-width: 8mm;
-  margin: 0 1mm;
-  height: 0;
-  align-self: flex-end;
-  margin-bottom: 2px;
+.toms-v2-addressee-honorific {
+  font-size: 12pt;
+  font-weight: 700;
+  white-space: nowrap;
+  margin-left: auto;
 }
-.toms-v2-addressee-honorific { font-size: 12pt; font-weight: 700; white-space: nowrap; }
 .toms-v2-subject-row {
   display: flex;
   align-items: baseline;

@@ -4,12 +4,42 @@
   padding-top: 0;
   padding-bottom: 0;
   background: var(--tisly-bg);
+  --doc-pdf-chrome-h: max(52px, calc(env(safe-area-inset-top, 0px) + 44px));
+}
+
+/* プレビューモード — HTMLプレビュー + 上部クローム（PDFにする / 保存 / LINEで送る） */
+.doc-preview-mode {
+  overflow-x: hidden;
+}
+
+.doc-preview-mode .doc-viewer-header {
+  display: none;
+}
+
+.doc-preview-mode .doc-viewer-main {
+  margin: 0;
+  padding: 0;
+  max-width: none;
+  margin-top: var(--doc-pdf-chrome-h);
+  padding: 0.75rem;
+  padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0) + 4.5rem);
+}
+
+.doc-preview-mode #doc-mobile {
+  display: flex !important;
+}
+
+.doc-preview-mode #doc-desktop {
+  display: none !important;
+}
+
+.doc-preview-mode .doc-pdf-chrome {
+  display: flex;
 }
 
 /* PDF表示モード — iframe + 上部クロームに戻る（実機 iPhone: ネイティブPDFが全面を覆うため） */
 .doc-pdf-view-mode {
   overflow: hidden;
-  --doc-pdf-chrome-h: max(52px, calc(env(safe-area-inset-top, 0px) + 44px));
 }
 
 .doc-pdf-chrome {
@@ -34,9 +64,12 @@
 .doc-pdf-chrome-actions {
   display: flex;
   align-items: flex-end;
-  gap: 0.35rem;
-  flex-shrink: 0;
+  gap: 0.25rem;
+  flex-shrink: 1;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   pointer-events: auto;
+  max-width: calc(100% - 5.5rem);
 }
 
 .doc-pdf-chrome-btn {
@@ -46,8 +79,8 @@
   z-index: 1;
   border: none;
   border-radius: 10px;
-  padding: 0.5rem 0.7rem;
-  font-size: 0.82rem;
+  padding: 0.45rem 0.55rem;
+  font-size: 0.75rem;
   font-weight: 600;
   min-height: 44px;
   cursor: pointer;
