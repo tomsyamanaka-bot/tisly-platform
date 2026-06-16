@@ -36,8 +36,54 @@ let activeTab = "overview";
 let storageData = null;
 let timelineFilter = "all";
 let timelineSearchQuery = "";
+let timelineProjectId = "";
 const expandedTimelineIds = new Set();
 const openStorageFolders = new Set();
+
+const TL_SESSION_PREFIX = "tisly_timeline_filter_v1";
+
+function timelineSessionKey(projectId) {
+  return `${TL_SESSION_PREFIX}:${projectId}`;
+}
+
+function resetTimelineFilterState() {
+  timelineFilter = "all";
+  timelineSearchQuery = "";
+  expandedTimelineIds.clear();
+}
+
+function loadTimelineFilterState(projectId) {
+  try {
+    const raw = sessionStorage.getItem(timelineSessionKey(projectId));
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (typeof data.filter === "string" && TIMELINE_FILTERS.some((f) => f.id === data.filter)) {
+      timelineFilter = data.filter;
+    }
+    if (typeof data.query === "string") timelineSearchQuery = data.query;
+  } catch {
+    /* ignore */
+  }
+}
+
+function saveTimelineFilterState(projectId) {
+  if (!projectId) return;
+  try {
+    sessionStorage.setItem(
+      timelineSessionKey(projectId),
+      JSON.stringify({ filter: timelineFilter, query: timelineSearchQuery })
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
+function ensureTimelineProjectState(projectId) {
+  if (timelineProjectId === projectId) return;
+  timelineProjectId = projectId;
+  resetTimelineFilterState();
+  loadTimelineFilterState(projectId);
+}
 
 const TIMELINE_FILTERS = [
   { id: "all", label: "すべて" },
@@ -408,20 +454,20 @@ function renderTimelineCard(e) {
   const catLabel = timelineCategoryLabel(e.category, e.eventType);
   const expanded = expandedTimelineIds.has(e.id);
   const hasDetail = Boolean(e.detail?.trim());
-  const longDetail = hasDetail && e.detail.length > 48;
   const backfillBadge = e.isBackfill
     ? `<span class="tl-backfill-badge">自動補完</span>`
     : "";
   return `
-    <button type="button" class="tl-card ${catClass}${expanded ? " expanded" : ""}" data-tl-expand="${escapeHtml(e.id)}"${hasDetail ? "" : " disabled"}>
+    <button type="button" class="tl-card ${catClass}${expanded ? " expanded" : ""}" data-tl-expand="${escapeHtml(e.id)}"${hasDetail ? "" : ' aria-disabled="true"'}>
       <div class="tl-card-head">
         <span class="tl-time">${escapeHtml(timelineTimeLabel(e))}</span>
         <span class="tl-type-badge">${escapeHtml(catLabel)}</span>
         ${backfillBadge}
       </div>
       <div class="tl-title">${escapeHtml(e.title)}</div>
-      ${hasDetail ? `<div class="tl-detail${longDetail && !expanded ? " clamped" : ""}">${escapeHtml(e.detail)}</div>` : ""}
-      ${longDetail && !expanded ? `<span class="tl-expand-hint">タップで詳細</span>` : ""}
+      ${hasDetail ? `<div class="tl-detail${expanded ? "" : " clamped"}">${escapeHtml(e.detail)}</div>` : ""}
+      ${hasDetail && !expanded ? `<span class="tl-expand-hint">タップで全文表示</span>` : ""}
+      ${hasDetail && expanded ? `<span class="tl-expand-hint">タップで閉じる</span>` : ""}
     </button>`;
 }
 
@@ -472,7 +518,10 @@ function renderHistoryTab() {
   if (!items.length) {
     return `
       ${searchRow}
-      <p class="section-hint">該当する履歴がありません</p>`;
+      <div class="tl-empty">
+        <p class="section-hint">条件に合う履歴がありません</p>
+        <p class="tl-empty-guide">フィルタや検索語を変えるか、見積作成・PDF保存・LINE共有・QNAP保存を行うと履歴が増えます</p>
+      </div>`;
   }
   const groups = groupTimelineByDate(items);
   const rows = groups
@@ -961,6 +1010,7 @@ function bindActions() {
   document.querySelectorAll("[data-tl-filter]").forEach((btn) => {
     btn.addEventListener("click", () => {
       timelineFilter = btn.getAttribute("data-tl-filter") || "all";
+      saveTimelineFilterState(detail?.project?.id);
       render();
       bindActions();
     });
@@ -969,12 +1019,14 @@ function bindActions() {
   if (tlSearch) {
     tlSearch.addEventListener("input", () => {
       timelineSearchQuery = tlSearch.value;
+      saveTimelineFilterState(detail?.project?.id);
       render();
       bindActions();
     });
   }
   document.querySelectorAll("[data-tl-expand]").forEach((btn) => {
     btn.addEventListener("click", () => {
+      if (btn.getAttribute("aria-disabled") === "true") return;
       const id = btn.getAttribute("data-tl-expand");
       if (!id) return;
       if (expandedTimelineIds.has(id)) expandedTimelineIds.delete(id);
@@ -1003,6 +1055,7 @@ async function main() {
   });
 
   detail = await api(`/projects/${encodeURIComponent(projectId)}`);
+  ensureTimelineProjectState(projectId);
   const tab = new URLSearchParams(window.location.search).get("tab");
   if (tab && TABS.some((t) => t.id === tab)) activeTab = tab;
   if (activeTab === "files") {

@@ -178,7 +178,7 @@ export function listProjectTimelineEventsV1(
       `SELECT id, project_id, event_type, title, description, created_at, is_backfill
        FROM project_timeline_events
        WHERE project_id = ?
-       ORDER BY created_at DESC
+       ORDER BY created_at DESC, id DESC
        LIMIT ?`
     )
     .all(projectId, limit) as Array<Record<string, unknown>>;
@@ -266,20 +266,15 @@ function collectStorageFileEvents(projectNo: string): BackfillDraft[] {
   return drafts;
 }
 
-/** 既存案件の履歴を見積・請求・PDF・共有・QNAP 等から自動補完 */
-export function backfillProjectTimelineV1(projectId: string): number {
+/** 既存ソースから補完候補ドラフトを収集（INSERT なし） */
+export function collectBackfillDraftsForProjectV1(projectId: string): BackfillDraft[] {
   const db = getDatabase();
-  const existing = db
-    .prepare(`SELECT COUNT(*) as c FROM project_timeline_events WHERE project_id = ?`)
-    .get(projectId) as { c: number };
-  if (existing.c > 0) return 0;
-
   const project = db
     .prepare(
       `SELECT project_no, title, created_at, survey_project_id FROM business_projects WHERE id = ? AND deleted_at IS NULL`
     )
     .get(projectId) as Record<string, unknown> | undefined;
-  if (!project) return 0;
+  if (!project) return [];
 
   const seen = new Set<string>();
   const drafts: BackfillDraft[] = [];
@@ -423,6 +418,56 @@ export function backfillProjectTimelineV1(projectId: string): number {
   }
 
   drafts.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  return drafts;
+}
+
+/** is_backfill 列追加前に補完された履歴へフラグを付与 */
+export function markRetroactiveBackfillFlagsV1(projectId: string): number {
+  const db = getDatabase();
+  const hasMarked = db
+    .prepare(
+      `SELECT 1 FROM project_timeline_events WHERE project_id = ? AND is_backfill = 1 LIMIT 1`
+    )
+    .get(projectId);
+  if (hasMarked) return 0;
+
+  const draftKeys = new Set(collectBackfillDraftsForProjectV1(projectId).map(dedupeKey));
+  if (draftKeys.size === 0) return 0;
+
+  const rows = db
+    .prepare(
+      `SELECT id, event_type, title, description, created_at FROM project_timeline_events
+       WHERE project_id = ? AND is_backfill = 0`
+    )
+    .all(projectId) as Array<Record<string, unknown>>;
+
+  let updated = 0;
+  const upd = db.prepare(`UPDATE project_timeline_events SET is_backfill = 1 WHERE id = ?`);
+  for (const r of rows) {
+    const key = dedupeKey({
+      eventType: String(r.event_type),
+      title: String(r.title),
+      description: String(r.description ?? ""),
+      createdAt: String(r.created_at),
+    });
+    if (draftKeys.has(key)) {
+      upd.run(String(r.id));
+      updated += 1;
+    }
+  }
+  return updated;
+}
+
+/** 既存案件の履歴を見積・請求・PDF・共有・QNAP 等から自動補完 */
+export function backfillProjectTimelineV1(projectId: string): number {
+  const db = getDatabase();
+  const existing = db
+    .prepare(`SELECT COUNT(*) as c FROM project_timeline_events WHERE project_id = ?`)
+    .get(projectId) as { c: number };
+  if (existing.c > 0) return 0;
+
+  const drafts = collectBackfillDraftsForProjectV1(projectId);
+  if (drafts.length === 0) return 0;
   for (const d of drafts) {
     addProjectTimelineEventV1({
       projectId,

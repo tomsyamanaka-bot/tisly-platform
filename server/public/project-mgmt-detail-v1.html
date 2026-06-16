@@ -73,7 +73,7 @@
       background: #fff;
     }
     .tl-filter-chip {
-      flex: 0 0 auto; min-height: 34px; padding: 0.25rem 0.55rem;
+      flex: 0 0 auto; min-height: 40px; padding: 0.35rem 0.65rem;
       border-radius: 999px; border: 1px solid #cbd5e1; background: #f8fafc;
       font-size: 0.74rem; font-weight: 700; color: #64748b; cursor: pointer;
       -webkit-tap-highlight-color: transparent;
@@ -84,12 +84,13 @@
     }
     .tl-card {
       display: block; width: 100%; text-align: left;
-      padding: 0.6rem 0.7rem 0.6rem 0.8rem;
+      min-height: 56px;
+      padding: 0.7rem 0.75rem 0.7rem 0.85rem;
       border: 1px solid #e2e8f0; border-left: 4px solid #cbd5e1;
       border-radius: 0 10px 10px 0; background: #f8fafc;
       cursor: pointer; -webkit-tap-highlight-color: transparent;
     }
-    .tl-card:disabled { cursor: default; }
+    .tl-card[aria-disabled="true"] { cursor: default; }
     .tl-card-head {
       display: flex; align-items: center; flex-wrap: wrap; gap: 0.3rem 0.45rem;
       margin-bottom: 0.2rem;

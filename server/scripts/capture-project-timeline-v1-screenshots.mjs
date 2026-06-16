@@ -199,6 +199,19 @@ async function main() {
   await new Promise((r) => setTimeout(r, 300));
   await shot(page, "04-timeline-qnap.png");
 
+  await page.click('.tl-filter-chip[data-tl-filter="all"]');
+  await new Promise((r) => setTimeout(r, 200));
+  await page.evaluate(() => {
+    const input = document.getElementById("tl-search-input");
+    if (input) {
+      input.value = "zzzz検索ゼロzzzz";
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  });
+  await page.waitForSelector(".tl-empty .section-hint");
+  await new Promise((r) => setTimeout(r, 300));
+  await shot(page, "06-timeline-search-zero.png");
+
   const legacyId = await ensureLegacyProject();
   await openHistoryTab(page, legacyId);
   await shot(page, "05-timeline-legacy-backfill.png");
@@ -227,6 +240,7 @@ async function main() {
       "03-timeline-pdf-share.png",
       "04-timeline-qnap.png",
       "05-timeline-legacy-backfill.png",
+      "06-timeline-search-zero.png",
     ],
     outputDir: OUT,
   };

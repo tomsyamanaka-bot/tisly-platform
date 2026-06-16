@@ -1,10 +1,10 @@
 {
-  "capturedAt": "2026-06-16T10:13:56.532Z",
+  "capturedAt": "2026-06-16T10:24:35.481Z",
   "projectId": "BIZ-FF40278A",
-  "legacyProjectId": "BIZ-21EA0309",
+  "legacyProjectId": "BIZ-2BABD379",
   "historyCounts": {
     "total": 8,
-    "backfill": 0
+    "backfill": 1
   },
   "legacyBackfillCounts": {
     "total": 2,
@@ -15,7 +15,8 @@
     "02-timeline-search-estimate.png",
     "03-timeline-pdf-share.png",
     "04-timeline-qnap.png",
-    "05-timeline-legacy-backfill.png"
+    "05-timeline-legacy-backfill.png",
+    "06-timeline-search-zero.png"
   ],
   "outputDir": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\project-timeline-v1-screenshots"
 }

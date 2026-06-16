@@ -196,4 +196,65 @@ describe("案件タイムライン v1", () => {
     assert.equal(res.status, 200);
     assert.ok(res.body.count >= 0);
   });
+
+  it("履歴は created_at DESC → id DESC で安定ソート", async () => {
+    const { addProjectTimelineEventV1 } = await import("../src/projects/project-timeline-v1-store.js");
+    const sameTime = "2026-06-16T12:00:00.000Z";
+    addProjectTimelineEventV1({
+      projectId,
+      eventType: "status_changed",
+      title: "ソート検証A",
+      description: "first",
+      createdAt: sameTime,
+    });
+    addProjectTimelineEventV1({
+      projectId,
+      eventType: "status_changed",
+      title: "ソート検証B",
+      description: "second",
+      createdAt: sameTime,
+    });
+
+    const first = await request(app)
+      .get(`/api/project-timeline-v1/${projectId}`)
+      .set("Authorization", `Bearer ${token}`);
+    const second = await request(app)
+      .get(`/api/project-timeline-v1/${projectId}`)
+      .set("Authorization", `Bearer ${token}`);
+
+    assert.deepEqual(
+      first.body.events.map((e: { id: string }) => e.id),
+      second.body.events.map((e: { id: string }) => e.id)
+    );
+
+    const sortHits = first.body.events.filter(
+      (e: { title: string }) => e.title === "ソート検証A" || e.title === "ソート検証B"
+    );
+    assert.equal(sortHits.length, 2);
+    assert.ok(sortHits[0].id > sortHits[1].id, "same timestamp should sort by id DESC");
+  });
+
+  it("通常追加履歴には isBackfill=false のみ", async () => {
+    const res = await request(app)
+      .post("/api/project-timeline-v1/add")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        projectId,
+        eventType: "invoice_pdf_saved",
+        title: "請求PDF保存",
+        description: "請求書_通常.pdf",
+      });
+    assert.equal(res.status, 201);
+    assert.equal(res.body.event.isBackfill, false);
+
+    const detail = await request(app)
+      .get(`/api/project-mgmt/v1/projects/${projectId}`)
+      .set("Authorization", `Bearer ${token}`);
+    const normal = detail.body.timeline.filter(
+      (e: { title: string; isBackfill: boolean }) =>
+        e.title === "請求PDF保存" && e.detail?.includes("通常")
+    );
+    assert.equal(normal.length, 1);
+    assert.equal(normal[0].isBackfill, false);
+  });
 });

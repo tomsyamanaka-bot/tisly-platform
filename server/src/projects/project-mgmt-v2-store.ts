@@ -18,6 +18,7 @@ import {
   formatTimelineDateGroupV1,
   formatTimelineDateTimeV1,
   listProjectTimelineEventsV1,
+  markRetroactiveBackfillFlagsV1,
 } from "./project-timeline-v1-store.js";
 
 export type WorkflowCardState = "not_created" | "created" | "updated";
@@ -162,6 +163,7 @@ export function buildWorkflowCardsV2(input: {
 
 export function listProjectTimelineV2(projectId: string): ProjectTimelineItemV2[] {
   backfillProjectTimelineV1(projectId);
+  markRetroactiveBackfillFlagsV1(projectId);
   const v1Events = listProjectTimelineEventsV1(projectId);
   if (v1Events.length > 0) {
     return v1Events.map((e) => ({

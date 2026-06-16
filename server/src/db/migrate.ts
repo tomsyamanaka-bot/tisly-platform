@@ -1,4 +1,5 @@
 import type Database from "better-sqlite3";
+import { applyRetroactiveBackfillFlags } from "../projects/project-timeline-v1-retroactive-backfill.js";
 
 const EVENT_COLUMNS: Array<{ name: string; ddl: string }> = [
   { name: "event_id", ddl: "ALTER TABLE events ADD COLUMN event_id TEXT" },
@@ -217,6 +218,7 @@ export function runMigrations(database: Database.Database): void {
   migrateProjectMgmtV2(database);
   migrateProjectTimelineV1(database);
   migrateProjectTimelineV1BackfillFlag(database);
+  migrateProjectTimelineV1RetroactiveBackfill(database);
 }
 
 /** 案件一覧 v1 — 論理削除 deleted_at */
@@ -3512,5 +3514,24 @@ function migrateProjectTimelineV1BackfillFlag(database: Database.Database): void
     .run(
       "migration:project_timeline_v1_backfill_flag",
       JSON.stringify({ at: new Date().toISOString() })
+    );
+}
+
+/** 案件タイムライン v1 — 既存補完履歴の is_backfill 付与 */
+function migrateProjectTimelineV1RetroactiveBackfill(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:project_timeline_v1_retroactive_backfill") as { value_json: string } | undefined;
+  if (marker) return;
+
+  const { projects, events } = applyRetroactiveBackfillFlags(database);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run(
+      "migration:project_timeline_v1_retroactive_backfill",
+      JSON.stringify({ at: new Date().toISOString(), projects, events })
     );
 }
