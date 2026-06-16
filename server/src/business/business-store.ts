@@ -217,6 +217,20 @@ export function createBusinessProject(input: {
     detail: `${created.projectNo} ${created.title}`,
     actor: "business",
   });
+  addProjectTimelineEventV1({
+    projectId: id,
+    eventType: "project_created",
+    title: "案件作成",
+    description: `${created.projectNo} ${created.title}`,
+  });
+  if (input.surveyProjectId) {
+    addProjectTimelineEventV1({
+      projectId: id,
+      eventType: "survey_created",
+      title: "現調作成",
+      description: input.surveyProjectId,
+    });
+  }
   return created;
 }
 
