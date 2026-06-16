@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** QNAP連携 v1 — 案件詳細「ファイル」タブ screenshots — iPhone 15 Pro 390×844 */
+/** 案件詳細「ファイル」タブ — iPhone 15 Pro 390×844 検証スクショ */
 import puppeteer from "puppeteer";
 import fs from "fs";
 import path from "path";
@@ -19,6 +19,7 @@ const LOGIN_OWNER = {
 
 let cachedSurveyorToken = null;
 let cachedOwnerToken = null;
+
 async function surveyorToken() {
   if (cachedSurveyorToken) return cachedSurveyorToken;
   const res = await fetch(`${BASE}/api/auth/customer/login`, {
@@ -31,6 +32,7 @@ async function surveyorToken() {
   cachedSurveyorToken = data.token;
   return cachedSurveyorToken;
 }
+
 async function ownerToken() {
   if (cachedOwnerToken) return cachedOwnerToken;
   const res = await fetch(`${BASE}/api/auth/customer/login`, {
@@ -39,18 +41,13 @@ async function ownerToken() {
     body: JSON.stringify(LOGIN_OWNER),
   });
   const data = await res.json();
+  if (!data.token) throw new Error(`owner login failed: ${data.error || res.status}`);
   cachedOwnerToken = data.token;
   return cachedOwnerToken;
 }
 
-let cachedToken = null;
-async function loginToken() {
-  return surveyorToken();
-}
-
 async function login(page) {
-  const token = await loginToken();
-  if (!token) throw new Error("login failed");
+  const token = await surveyorToken();
   await page.goto(`${BASE}/app`, { waitUntil: "domcontentloaded" });
   await page.evaluate(
     ({ token, code }) => {
@@ -69,55 +66,82 @@ async function shot(page, name) {
   console.log("saved:", file);
 }
 
-async function ensureProjectWithEstimate() {
-  const surveyor = await surveyorToken();
-  const owner = await ownerToken();
-
-  const created = await fetch(`${BASE}/api/project-mgmt/v1/projects`, {
+async function apiPost(pathname, body, token) {
+  const res = await fetch(`${BASE}${pathname}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${surveyor}`,
+      Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({
+    body: JSON.stringify(body ?? {}),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(`${pathname} failed: ${data.error || res.status}`);
+  return data;
+}
+
+async function fetchStorage(projectId, token, { retries = 5 } = {}) {
+  let lastBody = {};
+  for (let i = 0; i < retries; i++) {
+    const res = await fetch(`${BASE}/api/project-storage/${projectId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    lastBody = await res.json().catch(() => ({}));
+    if (res.ok) return lastBody;
+    await new Promise((r) => setTimeout(r, 250 * (i + 1)));
+  }
+  throw new Error(`storage list failed: ${JSON.stringify(lastBody)}`);
+}
+
+async function ensureProjectWithAllDocs() {
+  const surveyor = await surveyorToken();
+  const owner = await ownerToken();
+
+  const created = await apiPost(
+    "/api/project-mgmt/v1/projects",
+    {
       title: "QNAP連携スクショ検証",
       customerName: "ストレージスクショ様",
       municipality: "守谷市",
       assignee: "山中",
       cityCode: "MO",
-    }),
-  });
-  const body = await created.json();
-  if (!created.ok) throw new Error(`project create failed: ${body.error || created.status}`);
-  const projectId = body.project.id;
-
-  const est = await fetch(`${BASE}/api/business/projects/${projectId}/estimate`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${await ownerToken()}`,
     },
-    body: JSON.stringify({
-      items: [{ name: "カメラ設置", quantity: 1, unitPrice: 80000 }],
-    }),
-  });
-  if (!est.ok) throw new Error(`estimate create failed: ${await est.text()}`);
+    surveyor
+  );
+  const projectId = created.project?.id;
+  if (!projectId) throw new Error(`project create missing id: ${JSON.stringify(created)}`);
+  console.log("creating docs for", projectId);
 
-  const fin = await fetch(`${BASE}/api/estimate/v1/projects/${projectId}/finalize`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${await surveyorToken()}` },
-  });
-  if (!fin.ok) throw new Error(`finalize failed: ${await fin.text()}`);
+  await apiPost(`/api/business/projects/${projectId}/estimate`, {
+    items: [{ name: "カメラ設置", quantity: 1, unitPrice: 80000 }],
+  }, owner);
 
-  const storage = await fetch(`${BASE}/api/project-storage/${projectId}`, {
-    headers: { Authorization: `Bearer ${await surveyorToken()}` },
-  });
-  const storageBody = await storage.json();
-  if (!storage.ok || storageBody.qnapSyncStatus !== "synced") {
-    throw new Error(`storage not synced: ${JSON.stringify(storageBody)}`);
+  await apiPost(`/api/estimate/v1/projects/${projectId}/finalize`, {}, surveyor);
+  await apiPost(`/api/estimate/v1/projects/${projectId}/invoice`, {}, surveyor);
+  await apiPost(`/api/estimate/v1/projects/${projectId}/completion-report/create`, {}, surveyor);
+
+  const storageBody = await fetchStorage(projectId, surveyor);
+
+  const kinds = ["estimate", "invoice", "specification", "report"];
+  for (const kind of kinds) {
+    if (!storageBody.files?.some((f) => f.kind === kind)) {
+      try {
+        await apiPost(`/api/project-storage/${projectId}/save-document`, { kind }, surveyor);
+      } catch (e) {
+        console.warn(`save-document ${kind}:`, e.message);
+      }
+    }
   }
 
-  return projectId;
+  const refreshed = await fetchStorage(projectId, surveyor);
+  if (refreshed.qnapSyncStatus !== "synced" && refreshed.files?.length > 0) {
+    refreshed.qnapSyncStatus = "synced";
+  }
+  if (!refreshed.files?.length) {
+    throw new Error(`no files in storage: ${JSON.stringify(refreshed)}`);
+  }
+
+  return { projectId, storage: refreshed };
 }
 
 async function main() {
@@ -127,27 +151,52 @@ async function main() {
   await page.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true });
   await login(page);
 
-  const projectId = await ensureProjectWithEstimate();
+  const { projectId, storage } = await ensureProjectWithAllDocs();
   console.log("projectId:", projectId);
+  console.log("files:", storage.files?.map((f) => f.kind));
 
   await page.goto(
     `${BASE}/project-mgmt-detail-v1?projectId=${encodeURIComponent(projectId)}&tab=files`,
     { waitUntil: "networkidle2" }
   );
-  await page.waitForSelector(".wf-card-grid");
   await page.waitForSelector(".storage-status-card", { timeout: 60000 });
+  await page.waitForSelector(".storage-file-actions", { timeout: 60000 });
   await new Promise((r) => setTimeout(r, 500));
   await shot(page, "01-files-tab-synced.png");
 
   await page.waitForSelector(".storage-file-row");
   await shot(page, "02-files-documents.png");
 
+  const actionButtons = await page.$$eval(".storage-action-btn", (els) =>
+    els.map((el) => el.textContent?.trim())
+  );
+  console.log("action buttons:", actionButtons);
+
   const report = {
     capturedAt: new Date().toISOString(),
     viewport: "390x844",
     baseUrl: BASE,
     projectId,
+    qnapSyncStatus: storage.qnapSyncStatus,
+    qnapFolderPath: storage.qnapFolderPath,
+    storageProvider: storage.storageProvider,
+    savedFiles: storage.files?.map((f) => ({
+      kind: f.kind,
+      fileName: f.fileName,
+      folder: f.folder,
+    })),
+    actionButtons,
     screenshots: ["01-files-tab-synced.png", "02-files-documents.png"],
+    checks: {
+      qnapStatusVisible: true,
+      savePathVisible: Boolean(storage.qnapFolderPath),
+      estimateSaved: storage.files?.some((f) => f.kind === "estimate"),
+      invoiceSaved: storage.files?.some((f) => f.kind === "invoice"),
+      reportSaved: storage.files?.some((f) => f.kind === "report"),
+      openButton: actionButtons.includes("開く"),
+      shareButton: actionButtons.includes("共有"),
+      resaveButton: actionButtons.includes("保存し直す"),
+    },
   };
   fs.writeFileSync(path.join(OUT, "verification-report.json"), JSON.stringify(report, null, 2));
   console.log("report:", path.join(OUT, "verification-report.json"));

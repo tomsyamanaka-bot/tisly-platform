@@ -8,6 +8,7 @@ process.env.CUSTOMER_DEMO_PASSWORD = "demo-remote-2026";
 process.env.NODE_ENV = "test";
 process.env.TISLY_DB_PATH = "./data/test-project-storage-v1.db";
 process.env.RATE_LIMIT_PROVIDER = "memory";
+process.env.PROJECT_STORAGE_PROVIDER = "mock";
 
 const { default: request } = await import("supertest");
 const { createApp } = await import("../src/app.js");
@@ -43,6 +44,11 @@ describe("QNAP連携 v1 — project-storage mock", () => {
       } catch {
         /* */
       }
+    }
+
+    const storageRoot = projectStorageRootDir();
+    if (fs.existsSync(storageRoot)) {
+      fs.rmSync(storageRoot, { recursive: true, force: true });
     }
 
     const login = await surveyorLogin();
@@ -90,6 +96,7 @@ describe("QNAP連携 v1 — project-storage mock", () => {
     assert.equal(res.body.qnapSyncLabel, "未同期");
     assert.equal(res.body.folders.length, 8);
     assert.equal(res.body.files.length, 0);
+    assert.equal(res.body.storageProvider, "mock");
   });
 
   it("POST create-folders は冪等", async () => {
@@ -117,15 +124,31 @@ describe("QNAP連携 v1 — project-storage mock", () => {
       .send({});
     assert.equal(fin.status, 200, fin.body?.error);
 
-    const estimatePath = path.join(projectStorageRootDir(), projectNo, "02_見積", "見積書.pdf");
-    assert.ok(fs.existsSync(estimatePath), estimatePath);
+    const estimatePath = path.join(projectStorageRootDir(), projectNo, "02_見積");
+    const estimateFiles = fs.readdirSync(estimatePath).filter((f) => f.endsWith(".pdf"));
+    assert.ok(estimateFiles.length >= 1, estimatePath);
+    assert.match(estimateFiles[0]!, /^見積書_.*\.pdf$/);
 
     const list = await request(app)
       .get(`/api/project-storage/${projectId}`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(list.status, 200);
     assert.equal(list.body.qnapSyncStatus, "synced");
-    assert.ok(list.body.files.some((f: { kind: string }) => f.kind === "estimate"));
+    const estFile = list.body.files.find((f: { kind: string }) => f.kind === "estimate");
+    assert.ok(estFile);
+    assert.match(estFile.fileName, /^見積書_.*\.pdf$/);
+    assert.equal(estFile.viewerKind, "estimate");
+  });
+
+  it("POST regenerate-document — 見積を保存し直す", async () => {
+    const res = await request(app)
+      .post(`/api/project-storage/${projectId}/regenerate-document`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ kind: "estimate" });
+    assert.equal(res.status, 200, res.body?.error);
+    assert.match(res.body.fileName, /^見積書_.*\.pdf$/);
+    assert.equal(res.body.folder, "02_見積");
+    assert.equal(res.body.provider, "mock");
   });
 
   it("POST save-document — 手動保存", async () => {
@@ -134,7 +157,7 @@ describe("QNAP連携 v1 — project-storage mock", () => {
       .set("Authorization", `Bearer ${token}`)
       .send({ kind: "estimate" });
     assert.equal(res.status, 201);
-    assert.equal(res.body.fileName, "見積書.pdf");
+    assert.match(res.body.fileName, /^見積書_.*\.pdf$/);
     assert.equal(res.body.folder, "02_見積");
   });
 });

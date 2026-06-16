@@ -1,8 +1,11 @@
 import { getCustomerToken, requireCustomerLogin } from "./customer-auth.js";
 import { initPracticalNav } from "./tisly-practical-nav.js";
+import { sharePdfAsFile, prefetchPdfForShare } from "./pdf-share-v1.js";
 
 const API = "/api/project-mgmt/v1";
 const STORAGE_API = "/api/project-storage";
+const PROJECTS_API = "/api/projects/v1";
+const ESTIMATE_API = "/api/estimate/v1";
 const TABS = [
   { id: "overview", label: "概要" },
   { id: "history", label: "履歴" },
@@ -29,6 +32,23 @@ const STATUS_OPTIONS = [
 let detail = null;
 let activeTab = "overview";
 let storageData = null;
+
+const STORAGE_DOC_SLOTS = [
+  { kind: "estimate", fallbackLabel: "見積書.pdf", viewerKind: "estimate", pdfKind: "estimate" },
+  { kind: "invoice", fallbackLabel: "請求書.pdf", viewerKind: "invoice", pdfKind: "invoice" },
+  {
+    kind: "specification",
+    fallbackLabel: "仕様書.pdf",
+    viewerKind: "specification",
+    pdfKind: "specification",
+  },
+  {
+    kind: "report",
+    fallbackLabel: "完了報告書.pdf",
+    viewerKind: "completion-report",
+    pdfKind: "report",
+  },
+];
 
 function toast(msg) {
   const el = document.getElementById("toast");
@@ -77,6 +97,35 @@ async function storageApi(projectId) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
   return data;
+}
+
+async function storagePost(projectId, path, body) {
+  const token = getCustomerToken();
+  const res = await fetch(`${STORAGE_API}/${encodeURIComponent(projectId)}${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(body ?? {}),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+function documentViewerHref(projectId, viewerKind) {
+  const params = new URLSearchParams({
+    projectId,
+    kind: viewerKind,
+    return: `${window.location.pathname}${window.location.search}`,
+  });
+  return `/document-viewer-v1.html?${params}`;
+}
+
+function pdfFileUrl(projectId, pdfKind) {
+  const token = getCustomerToken();
+  return `${PROJECTS_API}/projects/${encodeURIComponent(projectId)}/pdfs/${encodeURIComponent(pdfKind)}/file?access_token=${encodeURIComponent(token)}`;
 }
 
 async function api(path, opts = {}) {
@@ -265,31 +314,39 @@ function renderFilesTab() {
   }
   const statusLine = `${storageData.qnapSyncIcon || "🟡"} ${escapeHtml(storageData.qnapSyncLabel || "未同期")}`;
   const folderPath = escapeHtml(storageData.qnapFolderPath || detail.project.qnapFolderPath || "—");
-  const docKinds = [
-    { kind: "estimate", label: "見積書.pdf" },
-    { kind: "invoice", label: "請求書.pdf" },
-    { kind: "specification", label: "仕様書.pdf" },
-    { kind: "report", label: "完了報告書.pdf" },
-  ];
   const fileMap = new Map((storageData.files || []).map((f) => [f.kind, f]));
-  const rows = docKinds
-    .map((d) => {
-      const f = fileMap.get(d.kind);
-      const status = f ? "🟢 保存済" : "🟡 未保存";
-      return `
-    <div class="storage-file-row">
+  const rows = STORAGE_DOC_SLOTS.map((slot) => {
+    const f = fileMap.get(slot.kind);
+    const saved = Boolean(f);
+    const displayName = f?.fileName || slot.fallbackLabel;
+    const status = saved ? "🟢 保存済" : "🟡 未保存";
+    const actions = saved
+      ? `
+      <div class="storage-file-actions">
+        <a class="storage-action-btn primary" href="${escapeHtml(documentViewerHref(detail.project.id, f.viewerKind || slot.viewerKind))}">開く</a>
+        <button type="button" class="storage-action-btn" data-storage-share="${escapeHtml(slot.pdfKind)}" data-share-name="${escapeHtml(f.shareFileName || displayName)}">共有</button>
+        <button type="button" class="storage-action-btn" data-storage-resave="${escapeHtml(slot.kind)}">保存し直す</button>
+      </div>`
+      : `<p class="storage-file-empty">PDF未保存 — 見積PWA等で作成してください</p>`;
+    return `
+    <div class="storage-file-row${saved ? "" : " is-empty"}" data-storage-kind="${escapeHtml(slot.kind)}">
       <span class="storage-file-icon">📄</span>
       <div class="storage-file-body">
-        <div class="storage-file-name">${escapeHtml(d.label)}</div>
+        <div class="storage-file-name">${escapeHtml(displayName)}</div>
         <div class="storage-file-meta">${status}${f?.savedAt ? ` · ${formatDateTime(f.savedAt)}` : ""}</div>
+        ${actions}
       </div>
     </div>`;
-    })
-    .join("");
+  }).join("");
 
   const folders = (storageData.folders || [])
     .map((f) => `<span class="storage-folder-chip">${escapeHtml(f)}</span>`)
     .join("");
+
+  const providerLabel =
+    storageData.storageProvider === "mock"
+      ? "Mock Storage（ローカル）"
+      : escapeHtml(storageData.storageProvider || "mock");
 
   return `
     <section class="storage-status-card" aria-label="QNAP状態">
@@ -297,9 +354,11 @@ function renderFilesTab() {
         <span class="storage-status-label">QNAP状態</span>
         <span class="storage-status-value">${statusLine}</span>
       </div>
+      <div class="storage-path-label">保存先パス</div>
       <div class="storage-path">${folderPath}</div>
+      <div class="storage-provider-hint">保存先: ${providerLabel}</div>
     </section>
-    <h3 class="section-sub">書類</h3>
+    <h3 class="section-sub">保存済み書類</h3>
     <div class="storage-file-list">${rows}</div>
     <h3 class="section-sub">フォルダ構成</h3>
     <div class="storage-folder-grid">${folders}</div>`;
@@ -387,6 +446,74 @@ function render() {
   bindActions();
 }
 
+async function refreshStorageData() {
+  storageData = await storageApi(detail.project.id);
+}
+
+async function shareStoragePdf(pdfKind, fileName) {
+  const projectId = detail.project.id;
+  const fetchUrl = pdfFileUrl(projectId, pdfKind);
+  try {
+    await sharePdfAsFile({
+      fetchUrl,
+      fileName: fileName || `${pdfKind}.pdf`,
+      title: `書類 — TiSLY`,
+      getHeaders: () => ({ Authorization: `Bearer ${getCustomerToken()}` }),
+      toast,
+    });
+    await fetch(`${ESTIMATE_API}/projects/${encodeURIComponent(projectId)}/pdf-share-log`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${getCustomerToken()}`,
+      },
+      body: JSON.stringify({ kind: pdfKind, channel: "share" }),
+    }).catch(() => {});
+  } catch (e) {
+    if (e?.name === "AbortError") return;
+    toast(e.message || "共有に失敗しました");
+  }
+}
+
+async function resaveStorageDocument(kind, btn) {
+  if (!confirm("PDFを再生成して保存し直しますか？")) return;
+  const prev = btn?.textContent;
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "処理中…";
+  }
+  try {
+    await storagePost(detail.project.id, "/regenerate-document", { kind });
+    await refreshStorageData();
+    toast("保存し直しました");
+    render();
+  } catch (e) {
+    toast(e.message || "保存し直しに失敗しました");
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = prev || "保存し直す";
+    }
+  }
+}
+
+function bindStorageActions() {
+  document.querySelectorAll("[data-storage-share]").forEach((btn) => {
+    const pdfKind = btn.getAttribute("data-storage-share");
+    const fileName = btn.getAttribute("data-share-name");
+    const fetchUrl = pdfFileUrl(detail.project.id, pdfKind);
+    prefetchPdfForShare({
+      fetchUrl,
+      getHeaders: () => ({ Authorization: `Bearer ${getCustomerToken()}` }),
+    });
+    btn.addEventListener("click", () => shareStoragePdf(pdfKind, fileName));
+  });
+  document.querySelectorAll("[data-storage-resave]").forEach((btn) => {
+    const kind = btn.getAttribute("data-storage-resave");
+    btn.addEventListener("click", () => resaveStorageDocument(kind, btn));
+  });
+}
+
 function bindActions() {
   document.getElementById("btn-save-overview")?.addEventListener("click", async () => {
     try {
@@ -418,6 +545,8 @@ function bindActions() {
       toast(e.message);
     }
   });
+
+  if (activeTab === "files") bindStorageActions();
 }
 
 async function main() {

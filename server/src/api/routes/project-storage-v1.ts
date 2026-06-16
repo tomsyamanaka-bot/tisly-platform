@@ -1,9 +1,11 @@
 import { Router, type Response } from "express";
 import { requireAuth, type AuthedRequest } from "../../auth/auth-middleware.js";
 import { roleMeetsRequirement } from "../../auth/roles.js";
+import { regenerateProjectPdfV1 } from "../../projects/project-pdf-store.js";
 import {
   createProjectStorageFoldersV1,
   listProjectStorageV1,
+  resolveProjectStorageProviderKind,
   saveProjectStorageDocumentV1,
   type ProjectStorageDocKind,
 } from "../../storage/project-storage-v1.js";
@@ -31,7 +33,10 @@ function assertRole(req: AuthedRequest, res: Response): boolean {
 projectStorageV1Router.get("/:projectId", ...auth, (req: AuthedRequest, res) => {
   if (!assertRole(req, res)) return;
   try {
-    res.json(listProjectStorageV1(String(req.params.projectId)));
+    res.json({
+      ...listProjectStorageV1(String(req.params.projectId)),
+      storageProvider: resolveProjectStorageProviderKind(),
+    });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "list failed";
     if (msg === "project not found") {
@@ -79,6 +84,38 @@ projectStorageV1Router.post("/:projectId/save-document", ...auth, (req: AuthedRe
       return;
     }
     if (msg.startsWith("No local PDF") || msg.startsWith("PDF not found")) {
+      res.status(400).json({ error: msg });
+      return;
+    }
+    res.status(500).json({ error: msg });
+  }
+});
+
+projectStorageV1Router.post("/:projectId/regenerate-document", ...auth, async (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const body = req.body ?? {};
+  const kind = String(body.kind ?? "") as ProjectStorageDocKind;
+  if (!VALID_KINDS.has(kind)) {
+    res.status(400).json({ error: "kind must be estimate|invoice|specification|report" });
+    return;
+  }
+  const projectId = String(req.params.projectId);
+  try {
+    await regenerateProjectPdfV1(projectId, kind);
+    const result = saveProjectStorageDocumentV1(projectId, kind);
+    res.status(200).json(result);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "regenerate failed";
+    if (msg === "project not found") {
+      res.status(404).json({ error: msg });
+      return;
+    }
+    if (
+      msg.startsWith("No ") ||
+      msg.startsWith("PDF not found") ||
+      msg === "No specification" ||
+      msg === "No completion report"
+    ) {
       res.status(400).json({ error: msg });
       return;
     }

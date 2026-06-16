@@ -366,7 +366,7 @@ function resolveProvider(): CalendarProvider {
   return new MockGoogleCalendarProvider();
 }
 
-let provider: CalendarProvider = resolveProvider();
+let provider: CalendarProvider | null = null;
 
 export function setCalendarProvider(p: CalendarProvider): void {
   provider = p;
@@ -377,6 +377,7 @@ export function resetCalendarProvider(): void {
 }
 
 export function getCalendarProvider(): CalendarProvider {
+  if (!provider) provider = resolveProvider();
   return provider;
 }
 

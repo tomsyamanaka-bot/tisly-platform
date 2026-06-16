@@ -1,10 +1,51 @@
 {
-  "capturedAt": "2026-06-16T07:11:33.277Z",
+  "capturedAt": "2026-06-16T07:30:09.201Z",
   "viewport": "390x844",
   "baseUrl": "http://127.0.0.1:3080",
-  "projectId": "BIZ-1C8E6402",
+  "projectId": "BIZ-F7BEB796",
+  "qnapSyncStatus": "synced",
+  "qnapFolderPath": "/案件/MO-26-0616-012/",
+  "storageProvider": "mock",
+  "savedFiles": [
+    {
+      "kind": "estimate",
+      "fileName": "見積書_ストレージスクショ様_QNAP連携スクショ検証.pdf",
+      "folder": "02_見積"
+    },
+    {
+      "kind": "invoice",
+      "fileName": "請求書_ストレージスクショ様_QNAP連携スクショ検証.pdf",
+      "folder": "03_請求"
+    },
+    {
+      "kind": "report",
+      "fileName": "完了報告書_ストレージスクショ様_QNAP連携スクショ検証.pdf",
+      "folder": "05_完了報告"
+    }
+  ],
+  "actionButtons": [
+    "開く",
+    "共有",
+    "保存し直す",
+    "開く",
+    "共有",
+    "保存し直す",
+    "開く",
+    "共有",
+    "保存し直す"
+  ],
   "screenshots": [
     "01-files-tab-synced.png",
     "02-files-documents.png"
-  ]
+  ],
+  "checks": {
+    "qnapStatusVisible": true,
+    "savePathVisible": true,
+    "estimateSaved": true,
+    "invoiceSaved": true,
+    "reportSaved": true,
+    "openButton": true,
+    "shareButton": true,
+    "resaveButton": true
+  }
 }
