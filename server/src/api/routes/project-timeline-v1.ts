@@ -4,6 +4,7 @@ import { roleMeetsRequirement } from "../../auth/roles.js";
 import { getBusinessProject } from "../../business/business-store.js";
 import {
   addProjectTimelineEventV1,
+  backfillProjectTimelineV1,
   listProjectTimelineEventsV1,
 } from "../../projects/project-timeline-v1-store.js";
 
@@ -28,6 +29,7 @@ projectTimelineV1Router.get("/:projectId", ...auth, (req: AuthedRequest, res) =>
     return;
   }
   const q = (req.query.q as string) ?? "";
+  backfillProjectTimelineV1(projectId);
   const events = listProjectTimelineEventsV1(projectId, { q });
   res.json({ events, count: events.length });
 });

@@ -35,15 +35,18 @@ let detail = null;
 let activeTab = "overview";
 let storageData = null;
 let timelineFilter = "all";
+let timelineSearchQuery = "";
 const openStorageFolders = new Set();
 
 const TIMELINE_FILTERS = [
   { id: "all", label: "すべて" },
   { id: "estimate", label: "見積" },
   { id: "invoice", label: "請求" },
+  { id: "specification", label: "仕様書" },
+  { id: "completion", label: "完了報告" },
   { id: "share", label: "共有" },
   { id: "qnap", label: "QNAP" },
-  { id: "completion", label: "完了報告" },
+  { id: "photo", label: "写真" },
 ];
 
 const STORAGE_DOC_SLOTS = [
@@ -295,29 +298,60 @@ function renderOverview(p) {
     </div>`;
 }
 
-function timelineCategoryClass(category) {
+function timelineCategoryClass(category, eventType) {
   const map = {
     estimate: "tl-cat-estimate",
     invoice: "tl-cat-invoice",
+    specification: "tl-cat-specification",
     completion: "tl-cat-completion",
     share: "tl-cat-share",
     qnap: "tl-cat-qnap",
+    photo: "tl-cat-photo",
+    drawing: "tl-cat-photo",
   };
-  return map[category] || "tl-cat-general";
+  if (map[category]) return map[category];
+  if (eventType === "drawing_added") return "tl-cat-photo";
+  return "tl-cat-general";
+}
+
+function timelineTimeLabel(item) {
+  if (item.date?.includes(" ")) return item.date.split(" ")[1];
+  const d = new Date(item.createdAt);
+  if (Number.isNaN(d.getTime())) return item.date || "—";
+  return d.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
 function filterTimelineItems(items) {
-  if (timelineFilter === "all") return items;
+  const q = timelineSearchQuery.trim().toLowerCase();
   return items.filter((e) => {
+    const hay = `${e.title} ${e.detail || ""} ${e.eventType || ""}`.toLowerCase();
+    if (q && !hay.includes(q)) return false;
+    if (timelineFilter === "all") return true;
     if (e.category === timelineFilter) return true;
-    const hay = `${e.title} ${e.detail || ""}`;
     if (timelineFilter === "estimate") return hay.includes("見積");
     if (timelineFilter === "invoice") return hay.includes("請求");
-    if (timelineFilter === "share") return hay.includes("共有") || hay.includes("LINE");
-    if (timelineFilter === "qnap") return hay.includes("QNAP");
+    if (timelineFilter === "specification") return hay.includes("仕様");
+    if (timelineFilter === "share") return hay.includes("共有") || hay.includes("line");
+    if (timelineFilter === "qnap") return hay.includes("qnap");
     if (timelineFilter === "completion") return hay.includes("完了");
+    if (timelineFilter === "photo") return hay.includes("写真") || hay.includes("図面");
     return false;
   });
+}
+
+function groupTimelineByDate(items) {
+  const groups = [];
+  const map = new Map();
+  for (const item of items) {
+    const key = item.dateGroup || item.date?.slice(0, 10) || "—";
+    if (!map.has(key)) {
+      const group = { dateLabel: key, items: [] };
+      map.set(key, group);
+      groups.push(group);
+    }
+    map.get(key).items.push(item);
+  }
+  return groups;
 }
 
 function renderHistoryTab() {
@@ -326,24 +360,39 @@ function renderHistoryTab() {
     (f) =>
       `<button type="button" class="tl-filter-chip${timelineFilter === f.id ? " active" : ""}" data-tl-filter="${f.id}">${f.label}</button>`
   ).join("");
+  const searchRow = `
+    <div class="tl-search-row">
+      <input type="search" id="tl-search-input" class="tl-search-input" placeholder="履歴を検索（見積・請求・共有…）" value="${escapeHtml(timelineSearchQuery)}" autocomplete="off" />
+    </div>
+    <div class="tl-search-row tl-chip-row">${chips}</div>`;
   if (!items.length) {
     return `
-      <div class="tl-search-row">${chips}</div>
-      <p class="section-hint">${timelineFilter === "all" ? "履歴はまだありません" : "該当する履歴がありません"}</p>`;
+      ${searchRow}
+      <p class="section-hint">${timelineFilter === "all" && !timelineSearchQuery.trim() ? "履歴はまだありません" : "該当する履歴がありません"}</p>`;
   }
-  const rows = items
-    .map(
-      (e) => `
-      <div class="tl-item ${timelineCategoryClass(e.category)}">
-        <div class="tl-time">${escapeHtml(e.date)}</div>
+  const groups = groupTimelineByDate(items);
+  const rows = groups
+    .map((g) => {
+      const groupItems = g.items
+        .map(
+          (e) => `
+      <div class="tl-item ${timelineCategoryClass(e.category, e.eventType)}">
+        <div class="tl-time">${escapeHtml(timelineTimeLabel(e))}</div>
         <div class="tl-title">${escapeHtml(e.title)}</div>
         ${e.detail ? `<div class="tl-detail">${escapeHtml(e.detail)}</div>` : ""}
       </div>`
-    )
+        )
+        .join("");
+      return `
+      <section class="tl-date-group">
+        <h4 class="tl-date-heading">${escapeHtml(g.dateLabel)}</h4>
+        <div class="timeline-list">${groupItems}</div>
+      </section>`;
+    })
     .join("");
   return `
-    <div class="tl-search-row">${chips}</div>
-    <div class="timeline-list">${rows}</div>
+    ${searchRow}
+    ${rows}
     <p class="tl-count-hint">${items.length}件</p>`;
 }
 
@@ -821,6 +870,14 @@ function bindActions() {
       bindActions();
     });
   });
+  const tlSearch = document.getElementById("tl-search-input");
+  if (tlSearch) {
+    tlSearch.addEventListener("input", () => {
+      timelineSearchQuery = tlSearch.value;
+      render();
+      bindActions();
+    });
+  }
 }
 
 async function main() {

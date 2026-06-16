@@ -1,11 +1,13 @@
 {
-  "capturedAt": "2026-06-16T09:45:46.739Z",
+  "capturedAt": "2026-06-16T10:02:08.988Z",
   "projectId": "BIZ-FF40278A",
+  "legacyProjectId": "BIZ-4D9165A2",
   "screenshots": [
     "01-timeline-list.png",
     "02-timeline-search-estimate.png",
     "03-timeline-pdf-share.png",
-    "04-timeline-qnap.png"
+    "04-timeline-qnap.png",
+    "05-timeline-legacy-backfill.png"
   ],
   "outputDir": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\project-timeline-v1-screenshots"
 }

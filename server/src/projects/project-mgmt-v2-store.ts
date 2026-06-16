@@ -11,12 +11,14 @@ import {
   type ProjectMgmtStatus,
 } from "./project-mgmt-status-v1.js";
 import { listProjectTimeline } from "../toms/project-timeline.js";
+import { getProjectDocumentsStatusV1 } from "./project-documents-v1.js";
+import type { ProjectMgmtListItemV1 } from "./project-mgmt-v1-store.js";
 import {
+  backfillProjectTimelineV1,
+  formatTimelineDateGroupV1,
   formatTimelineDateTimeV1,
   listProjectTimelineEventsV1,
 } from "./project-timeline-v1-store.js";
-import { getProjectDocumentsStatusV1 } from "./project-documents-v1.js";
-import type { ProjectMgmtListItemV1 } from "./project-mgmt-v1-store.js";
 
 export type WorkflowCardState = "not_created" | "created" | "updated";
 
@@ -33,6 +35,7 @@ export interface WorkflowCardV2 {
 export interface ProjectTimelineItemV2 {
   id: string;
   date: string;
+  dateGroup: string;
   title: string;
   detail: string;
   eventType: string;
@@ -157,11 +160,13 @@ export function buildWorkflowCardsV2(input: {
 }
 
 export function listProjectTimelineV2(projectId: string): ProjectTimelineItemV2[] {
+  backfillProjectTimelineV1(projectId);
   const v1Events = listProjectTimelineEventsV1(projectId);
   if (v1Events.length > 0) {
     return v1Events.map((e) => ({
       id: e.id,
       date: formatTimelineDateTimeV1(e.createdAt),
+      dateGroup: formatTimelineDateGroupV1(e.createdAt),
       title: e.title,
       detail: e.description,
       eventType: e.eventType,
@@ -172,21 +177,16 @@ export function listProjectTimelineV2(projectId: string): ProjectTimelineItemV2[
   return listProjectTimeline(projectId)
     .slice()
     .reverse()
-    .map((e) => {
-      const d = new Date(e.createdAt);
-      const date = Number.isNaN(d.getTime())
-        ? e.createdAt.slice(0, 10)
-        : formatTimelineDateTimeV1(e.createdAt);
-      return {
-        id: e.id,
-        date,
-        title: e.title,
-        detail: e.detail,
-        eventType: e.eventType,
-        category: "general",
-        createdAt: e.createdAt,
-      };
-    });
+    .map((e) => ({
+      id: e.id,
+      date: formatTimelineDateTimeV1(e.createdAt),
+      dateGroup: formatTimelineDateGroupV1(e.createdAt),
+      title: e.title,
+      detail: e.detail,
+      eventType: e.eventType,
+      category: "general",
+      createdAt: e.createdAt,
+    }));
 }
 
 export function listPdfShareHistoryV2(projectId: string): PdfShareHistoryItemV2[] {

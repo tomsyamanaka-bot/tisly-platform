@@ -128,5 +128,53 @@ describe("案件タイムライン v1", () => {
     assert.ok(Array.isArray(detail.body.timeline));
     assert.ok(detail.body.timeline.some((e: { title: string }) => e.title === "案件作成"));
     assert.ok(detail.body.timeline[0].date.includes("/"));
+    assert.ok(detail.body.timeline[0].dateGroup?.includes("年"));
+  });
+
+  it("履歴が空の古い案件をソースデータから自動補完", async () => {
+    const { getDatabase } = await import("../src/db/database.js");
+    const { createEstimate } = await import("../src/business/business-store.js");
+    const legacy = await request(app)
+      .post("/api/project-mgmt/v1/projects")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        title: "レガシー補完検証",
+        customerName: "補完様",
+        municipality: "守谷市",
+        assignee: "テスト",
+        cityCode: "MO",
+      });
+    assert.equal(legacy.status, 201);
+    const legacyId = legacy.body.project.id;
+
+    createEstimate(legacyId, [
+      {
+        name: "カメラ設置",
+        quantity: 1,
+        unit: "式",
+        unitPrice: 100000,
+        costPrice: 50000,
+      },
+    ]);
+
+    await request(app)
+      .post(`/api/estimate/v1/projects/${legacyId}/pdf-share-log`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ documentKind: "estimate", fileName: "見積書_補完.pdf" });
+
+    getDatabase().prepare(`DELETE FROM project_timeline_events WHERE project_id = ?`).run(legacyId);
+
+    const detail = await request(app)
+      .get(`/api/project-mgmt/v1/projects/${legacyId}`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(detail.status, 200);
+    assert.ok(detail.body.timeline.length >= 3);
+    assert.ok(detail.body.timeline.some((e: { title: string }) => e.title === "案件作成"));
+    assert.ok(detail.body.timeline.some((e: { title: string }) => e.title === "見積書作成"));
+    assert.ok(
+      detail.body.timeline.some(
+        (e: { title: string }) => e.title.includes("共有") || e.title.includes("LINE")
+      )
+    );
   });
 });

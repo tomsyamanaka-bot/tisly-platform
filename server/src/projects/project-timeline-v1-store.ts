@@ -1,6 +1,9 @@
 /** 案件タイムライン v1 — project_timeline_events */
+import fs from "fs";
+import path from "path";
 import { v4 as uuid } from "uuid";
 import { getDatabase } from "../db/database.js";
+import { projectStorageProjectDir } from "../storage/project-storage-provider.js";
 import type { ProjectPdfKind } from "./project-pdf-store.js";
 
 export type ProjectTimelineEventTypeV1 =
@@ -25,9 +28,12 @@ export type ProjectTimelineEventTypeV1 =
 export type ProjectTimelineCategoryV1 =
   | "estimate"
   | "invoice"
+  | "specification"
   | "completion"
   | "share"
   | "qnap"
+  | "photo"
+  | "drawing"
   | "general";
 
 export interface ProjectTimelineEventV1 {
@@ -45,13 +51,44 @@ const EVENT_CATEGORY: Record<string, ProjectTimelineCategoryV1> = {
   estimate_pdf_saved: "estimate",
   invoice_created: "invoice",
   invoice_pdf_saved: "invoice",
-  specification_created: "general",
-  specification_saved: "general",
+  specification_created: "specification",
+  specification_saved: "specification",
   completion_created: "completion",
   completion_saved: "completion",
   pdf_shared: "share",
   qnap_saved: "qnap",
+  photo_added: "photo",
+  drawing_added: "drawing",
 };
+
+const SHARE_KIND_LABELS: Record<string, string> = {
+  estimate: "見積書",
+  invoice: "請求書",
+  specification: "仕様書",
+  completion: "完了報告書",
+  "completion-report": "完了報告書",
+  report: "完了報告書",
+};
+
+const LEGACY_EVENT_MAP: Record<string, { eventType: string; title: string }> = {
+  project_created: { eventType: "project_created", title: "案件作成" },
+  survey: { eventType: "survey_created", title: "現調" },
+  drawing: { eventType: "drawing_added", title: "図面追加" },
+  ai_estimate: { eventType: "estimate_created", title: "AI見積" },
+  estimate_sent: { eventType: "estimate_pdf_saved", title: "見積送信" },
+  construction_start: { eventType: "status_changed", title: "施工開始" },
+  construction_complete: { eventType: "status_changed", title: "施工完了" },
+  completion_report: { eventType: "completion_saved", title: "完了報告" },
+  invoice: { eventType: "invoice_created", title: "請求" },
+  payment: { eventType: "status_changed", title: "入金" },
+};
+
+interface BackfillDraft {
+  eventType: string;
+  title: string;
+  description: string;
+  createdAt: string;
+}
 
 const PDF_KIND_EVENT: Record<
   ProjectPdfKind,
@@ -180,21 +217,239 @@ export function recordPdfShareTimelineV1(
   documentKind: string,
   fileName: string
 ): void {
-  const kindLabels: Record<string, string> = {
-    estimate: "見積書",
-    invoice: "請求書",
-    specification: "仕様書",
-    completion: "完了報告書",
-    "completion-report": "完了報告書",
-    report: "完了報告書",
-  };
-  const label = kindLabels[documentKind] ?? documentKind;
+  const label = SHARE_KIND_LABELS[documentKind] ?? documentKind;
   addProjectTimelineEventV1({
     projectId,
     eventType: "pdf_shared",
     title: "LINE共有",
     description: `${label} · ${fileName}`,
   });
+}
+
+function dedupeKey(d: BackfillDraft): string {
+  return `${d.eventType}|${d.createdAt.slice(0, 19)}|${d.title}|${d.description}`;
+}
+
+function collectStorageFileEvents(projectNo: string): BackfillDraft[] {
+  const drafts: BackfillDraft[] = [];
+  const localRoot = projectStorageProjectDir(projectNo);
+  const folders: Array<{ folder: string; eventType: "photo_added" | "drawing_added"; title: string }> =
+    [
+      { folder: "06_写真", eventType: "photo_added", title: "写真追加" },
+      { folder: "07_図面", eventType: "drawing_added", title: "図面追加" },
+    ];
+  for (const { folder, eventType, title } of folders) {
+    const dir = path.join(localRoot, folder);
+    if (!fs.existsSync(dir)) continue;
+    for (const name of fs.readdirSync(dir)) {
+      const abs = path.join(dir, name);
+      let stat: fs.Stats;
+      try {
+        stat = fs.statSync(abs);
+      } catch {
+        continue;
+      }
+      if (!stat.isFile()) continue;
+      drafts.push({
+        eventType,
+        title,
+        description: name,
+        createdAt: stat.mtime.toISOString(),
+      });
+    }
+  }
+  return drafts;
+}
+
+/** 既存案件の履歴を見積・請求・PDF・共有・QNAP 等から自動補完 */
+export function backfillProjectTimelineV1(projectId: string): number {
+  const db = getDatabase();
+  const existing = db
+    .prepare(`SELECT COUNT(*) as c FROM project_timeline_events WHERE project_id = ?`)
+    .get(projectId) as { c: number };
+  if (existing.c > 0) return 0;
+
+  const project = db
+    .prepare(
+      `SELECT project_no, title, created_at, survey_project_id FROM business_projects WHERE id = ? AND deleted_at IS NULL`
+    )
+    .get(projectId) as Record<string, unknown> | undefined;
+  if (!project) return 0;
+
+  const seen = new Set<string>();
+  const drafts: BackfillDraft[] = [];
+  const push = (d: BackfillDraft) => {
+    const key = dedupeKey(d);
+    if (seen.has(key)) return;
+    seen.add(key);
+    drafts.push(d);
+  };
+
+  push({
+    eventType: "project_created",
+    title: "案件作成",
+    description: `${project.project_no} ${project.title}`,
+    createdAt: String(project.created_at),
+  });
+
+  if (project.survey_project_id) {
+    push({
+      eventType: "survey_created",
+      title: "現調作成",
+      description: String(project.survey_project_id),
+      createdAt: String(project.created_at),
+    });
+  }
+
+  const estimates = db
+    .prepare(
+      `SELECT estimate_no, pdf_path, created_at, updated_at FROM business_estimates WHERE project_id = ? ORDER BY created_at ASC`
+    )
+    .all(projectId) as Array<Record<string, unknown>>;
+  for (const e of estimates) {
+    push({
+      eventType: "estimate_created",
+      title: "見積書作成",
+      description: String(e.estimate_no),
+      createdAt: String(e.created_at),
+    });
+    if (e.pdf_path) {
+      push({
+        eventType: "estimate_pdf_saved",
+        title: "見積PDF保存",
+        description: String(e.estimate_no),
+        createdAt: String(e.updated_at ?? e.created_at),
+      });
+    }
+  }
+
+  const invoices = db
+    .prepare(
+      `SELECT invoice_no, pdf_path, created_at, updated_at FROM business_invoices WHERE project_id = ? ORDER BY created_at ASC`
+    )
+    .all(projectId) as Array<Record<string, unknown>>;
+  for (const inv of invoices) {
+    push({
+      eventType: "invoice_created",
+      title: "請求書作成",
+      description: String(inv.invoice_no),
+      createdAt: String(inv.created_at),
+    });
+    if (inv.pdf_path) {
+      push({
+        eventType: "invoice_pdf_saved",
+        title: "請求PDF保存",
+        description: String(inv.invoice_no),
+        createdAt: String(inv.updated_at ?? inv.created_at),
+      });
+    }
+  }
+
+  const pdfRows = db
+    .prepare(
+      `SELECT kind, file_name, created_at, updated_at FROM project_pdf_meta
+       WHERE project_id = ? AND deleted_at IS NULL AND local_path != ''`
+    )
+    .all(projectId) as Array<Record<string, unknown>>;
+  for (const p of pdfRows) {
+    const kind = String(p.kind) as ProjectPdfKind;
+    const spec = PDF_KIND_EVENT[kind];
+    if (!spec) continue;
+    push({
+      eventType: spec.save,
+      title: spec.saveTitle,
+      description: String(p.file_name ?? `${kind}.pdf`),
+      createdAt: String(p.updated_at ?? p.created_at),
+    });
+  }
+
+  const qnapRows = db
+    .prepare(
+      `SELECT file_name, qnap_backup_path, qnap_backup_completed_at FROM project_pdf_meta
+       WHERE project_id = ? AND deleted_at IS NULL
+         AND qnap_backup_status = 'success' AND qnap_backup_completed_at IS NOT NULL`
+    )
+    .all(projectId) as Array<Record<string, unknown>>;
+  for (const q of qnapRows) {
+    const fileName = String(q.file_name ?? "document.pdf");
+    const qnapPath = String(q.qnap_backup_path ?? "");
+    push({
+      eventType: "qnap_saved",
+      title: "QNAP保存",
+      description: qnapPath ? `${fileName} → ${qnapPath}` : fileName,
+      createdAt: String(q.qnap_backup_completed_at),
+    });
+  }
+
+  const shares = db
+    .prepare(
+      `SELECT document_kind, file_name, shared_at FROM pdf_share_logs WHERE project_id = ? ORDER BY shared_at ASC`
+    )
+    .all(projectId) as Array<Record<string, unknown>>;
+  for (const s of shares) {
+    const label = SHARE_KIND_LABELS[String(s.document_kind)] ?? String(s.document_kind);
+    push({
+      eventType: "pdf_shared",
+      title: "LINE共有",
+      description: `${label} · ${String(s.file_name)}`,
+      createdAt: String(s.shared_at),
+    });
+  }
+
+  const legacy = db
+    .prepare(
+      `SELECT event_type, title, detail, created_at FROM business_project_timeline
+       WHERE project_id = ? ORDER BY created_at ASC`
+    )
+    .all(projectId) as Array<Record<string, unknown>>;
+  for (const l of legacy) {
+    const eventType = String(l.event_type);
+    const mapped = LEGACY_EVENT_MAP[eventType];
+    push({
+      eventType: mapped?.eventType ?? eventType,
+      title: mapped?.title ?? String(l.title || eventType),
+      description: String(l.detail ?? ""),
+      createdAt: String(l.created_at),
+    });
+  }
+
+  for (const d of collectStorageFileEvents(String(project.project_no))) {
+    push(d);
+  }
+
+  drafts.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  for (const d of drafts) {
+    addProjectTimelineEventV1({
+      projectId,
+      eventType: d.eventType,
+      title: d.title,
+      description: d.description,
+      createdAt: d.createdAt,
+    });
+  }
+  return drafts.length;
+}
+
+/** 履歴が空の全案件を一括補完 */
+export function backfillAllEmptyProjectTimelinesV1(): { projects: number; events: number } {
+  const db = getDatabase();
+  const rows = db
+    .prepare(
+      `SELECT p.id FROM business_projects p
+       WHERE p.deleted_at IS NULL
+         AND NOT EXISTS (SELECT 1 FROM project_timeline_events e WHERE e.project_id = p.id)`
+    )
+    .all() as Array<{ id: string }>;
+  let projects = 0;
+  let events = 0;
+  for (const r of rows) {
+    const n = backfillProjectTimelineV1(r.id);
+    if (n > 0) {
+      projects += 1;
+      events += n;
+    }
+  }
+  return { projects, events };
 }
 
 export function formatTimelineDateTimeV1(iso: string): string {
@@ -206,4 +461,16 @@ export function formatTimelineDateTimeV1(iso: string): string {
   const h = String(d.getHours()).padStart(2, "0");
   const mi = String(d.getMinutes()).padStart(2, "0");
   return `${y}/${mo}/${da} ${h}:${mi}`;
+}
+
+const WEEKDAY_JA = ["日", "月", "火", "水", "木", "金", "土"];
+
+export function formatTimelineDateGroupV1(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso.slice(0, 10);
+  const y = d.getFullYear();
+  const mo = d.getMonth() + 1;
+  const da = d.getDate();
+  const wd = WEEKDAY_JA[d.getDay()];
+  return `${y}年${mo}月${da}日（${wd}）`;
 }
