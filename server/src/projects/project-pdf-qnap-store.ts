@@ -5,6 +5,7 @@ import path from "path";
 import { v4 as uuid } from "uuid";
 import { getDatabase } from "../db/database.js";
 import { getStorageSettingsV1 } from "../storage/storage-settings-store.js";
+import { mirrorPdfToProjectStorageV1 } from "../storage/project-storage-v1.js";
 import type { ProjectPdfKind } from "./project-pdf-store.js";
 
 export type QnapBackupStatus = "pending" | "uploading" | "success" | "failed";
@@ -209,7 +210,9 @@ export function recordProjectPdfSavedV1(
       now,
       existing.id
     );
-    return getProjectPdfMeta(projectId, kind)!;
+    const row = getProjectPdfMeta(projectId, kind)!;
+    mirrorPdfToProjectStorageV1(projectId, kind, pdfPath);
+    return row;
   }
 
   const id = uuid();
@@ -230,7 +233,9 @@ export function recordProjectPdfSavedV1(
     now,
     now
   );
-  return getProjectPdfMeta(projectId, kind)!;
+  const row = getProjectPdfMeta(projectId, kind)!;
+  mirrorPdfToProjectStorageV1(projectId, kind, pdfPath);
+  return row;
 }
 
 export function softDeleteProjectPdfMeta(projectId: string, kind: ProjectPdfKind): void {

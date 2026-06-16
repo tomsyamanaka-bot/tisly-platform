@@ -58,6 +58,7 @@ import {
   buildQnapFolderPathV1,
   resolveCityCodeForProject,
 } from "../projects/project-id-v1.js";
+import { createProjectStorageFoldersV1 } from "../storage/project-storage-v1.js";
 
 let projectNoSeq = 0;
 
@@ -204,6 +205,11 @@ export function createBusinessProject(input: {
       now
     );
   const created = getBusinessProject(id)!;
+  try {
+    createProjectStorageFoldersV1(id);
+  } catch (e) {
+    console.error("[business-store] project storage folders:", e);
+  }
   appendProjectTimeline({
     projectId: id,
     eventType: "project_created",

@@ -134,9 +134,76 @@ describe("案件管理基盤 v1", () => {
     assert.equal(gone.status, 404);
   });
 
-  it("下部ナビに案件管理", async () => {
+  it("下部ナビに案件 → /project-mgmt-v1", async () => {
     const res = await request(app).get("/js/tisly-practical-nav.js");
-    assert.ok(res.text.includes('label: "案件管理"'));
+    assert.ok(res.text.includes('label: "案件"'));
     assert.ok(res.text.includes('href: "/project-mgmt-v1"'));
+  });
+
+  it("GET /kpi と workflowCards・timeline・shareHistory", async () => {
+    const created = await request(app)
+      .post("/api/project-mgmt/v1/projects")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        title: "v2ダッシュボード検証",
+        customerName: "v2KPIテスト様",
+        municipality: "守谷市",
+        cityCode: "MO",
+        assignee: "テスト担当",
+      });
+    assert.equal(created.status, 201);
+    const id = created.body.project.id;
+
+    const kpiRes = await request(app)
+      .get("/api/project-mgmt/v1/kpi")
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(kpiRes.status, 200);
+    assert.ok(typeof kpiRes.body.kpi.projectsThisMonth === "number");
+    assert.ok("orderRatePercent" in kpiRes.body.kpi);
+
+    const detail = await request(app)
+      .get(`/api/project-mgmt/v1/projects/${id}`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(detail.status, 200);
+    assert.ok(Array.isArray(detail.body.workflowCards));
+    assert.equal(detail.body.workflowCards.length, 5);
+    assert.ok(detail.body.workflowCards.some((c: { key: string }) => c.key === "survey"));
+    assert.ok(Array.isArray(detail.body.timeline));
+    assert.ok(detail.body.timeline.some((e: { title: string }) => e.title.includes("案件")));
+    assert.ok(Array.isArray(detail.body.shareHistory));
+
+    await request(app)
+      .post(`/api/estimate/v1/projects/${id}/pdf-share-log`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ documentKind: "estimate", fileName: "見積書_test.pdf" });
+
+    const detail2 = await request(app)
+      .get(`/api/project-mgmt/v1/projects/${id}`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.ok(detail2.body.shareHistory.length >= 1);
+    assert.equal(detail2.body.shareHistory[0].channelLabel, "LINE共有");
+
+    const search = await request(app)
+      .get(
+        `/api/project-mgmt/v1/projects?customerName=v2KPI&projectNo=${encodeURIComponent(created.body.project.projectNo)}&municipality=守谷&assignee=テスト&status=inquiry`
+      )
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(search.status, 200);
+    assert.ok(search.body.projects.some((p: { id: string }) => p.id === id));
+    assert.ok(search.body.kpi);
+
+    await request(app)
+      .delete(`/api/project-mgmt/v1/projects/${id}`)
+      .set("Authorization", `Bearer ${token}`);
+  });
+
+  it("project_timeline ビューが存在", async () => {
+    const { getDatabase } = await import("../src/db/database.js");
+    const row = getDatabase()
+      .prepare(
+        `SELECT name FROM sqlite_master WHERE type = 'view' AND name = 'project_timeline'`
+      )
+      .get() as { name: string } | undefined;
+    assert.equal(row?.name, "project_timeline");
   });
 });

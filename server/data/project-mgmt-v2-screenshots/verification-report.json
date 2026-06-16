@@ -1,0 +1,13 @@
+{
+  "capturedAt": "2026-06-16T06:56:41.611Z",
+  "viewport": "390x844",
+  "baseUrl": "http://127.0.0.1:3091",
+  "projectId": "BIZ-9BE396D2",
+  "screenshots": [
+    "01-dashboard.png",
+    "02-timeline.png",
+    "03-share-history.png",
+    "04-search.png",
+    "05-kpi.png"
+  ]
+}

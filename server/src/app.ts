@@ -68,6 +68,7 @@ import {
 } from "./services/googleOAuthService.js";
 import { projectsV1Router } from "./api/routes/projects-v1.js";
 import { projectMgmtV1Router } from "./api/routes/project-mgmt-v1.js";
+import { projectStorageV1Router } from "./api/routes/project-storage-v1.js";
 import { searchV1Router } from "./api/routes/search-v1.js";
 import { materialsV1Router } from "./api/routes/materials-v1.js";
 import { fieldCheckV1Router } from "./api/routes/field-check-v1.js";
@@ -140,6 +141,7 @@ export function createApp(): express.Application {
   });
   app.use("/api/projects/v1", projectsV1Router);
   app.use("/api/project-mgmt/v1", projectMgmtV1Router);
+  app.use("/api/project-storage", projectStorageV1Router);
   app.use("/api/search/v1", searchV1Router);
   app.use("/api/materials/v1", materialsV1Router);
   app.use("/api/field-check/v1", fieldCheckV1Router);

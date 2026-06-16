@@ -10,15 +10,34 @@
   <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
   <link rel="stylesheet" href="/css/field-ops-mobile.css" />
   <style>
-    .mgmt-toolbar { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.75rem; }
-    .mgmt-toolbar input, .mgmt-toolbar select {
+    .kpi-section { margin-bottom: 0.75rem; }
+    .kpi-month { font-size: 0.78rem; color: #64748b; margin: 0 0 0.35rem; }
+    .kpi-grid {
+      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.4rem;
+    }
+    .kpi-card {
+      border: 1px solid #e2e8f0; border-radius: 10px; background: #fff;
+      padding: 0.45rem 0.35rem; text-align: center; min-height: 64px;
+      display: flex; flex-direction: column; justify-content: center;
+    }
+    .kpi-card.kpi-warn { border-color: #fecaca; background: #fff7f7; }
+    .kpi-card.kpi-accent { border-color: #bfdbfe; background: #eff6ff; }
+    .kpi-val { font-size: 1.05rem; font-weight: 800; color: #1e293b; line-height: 1.2; }
+    .kpi-lbl { font-size: 0.62rem; color: #64748b; margin-top: 0.15rem; line-height: 1.25; }
+    .search-panel {
+      border: 1px solid #e2e8f0; border-radius: 12px; padding: 0.65rem; margin-bottom: 0.65rem;
+      background: #f8fafc;
+    }
+    .search-panel label { display: block; font-size: 0.72rem; color: #64748b; margin: 0.35rem 0 0.15rem; }
+    .search-panel label:first-child { margin-top: 0; }
+    .search-panel input, .search-panel select, .mgmt-toolbar input, .mgmt-toolbar select {
       width: 100%; min-height: 44px; padding: 0.5rem 0.75rem; border-radius: 10px;
-      border: 1px solid #cbd5e1; font-size: 0.95rem;
+      border: 1px solid #cbd5e1; font-size: 0.9rem; box-sizing: border-box;
     }
     .mgmt-list { display: flex; flex-direction: column; gap: 0.55rem; }
     .mgmt-card {
       border: 1px solid #e2e8f0; border-radius: 12px; padding: 0.75rem;
-      background: #fff; cursor: pointer;
+      background: #fff; cursor: pointer; -webkit-tap-highlight-color: transparent;
     }
     .mgmt-card:active { background: #f8fafc; }
     .mgmt-card-head { display: flex; justify-content: space-between; gap: 0.5rem; align-items: flex-start; }
@@ -42,18 +61,28 @@
     .create-panel label { display: block; font-size: 0.78rem; color: #64748b; margin: 0.45rem 0 0.2rem; }
     .create-panel input, .create-panel select {
       width: 100%; min-height: 42px; border-radius: 8px; border: 1px solid #cbd5e1; padding: 0.4rem 0.6rem;
+      box-sizing: border-box;
     }
     .create-actions { display: flex; gap: 0.5rem; margin-top: 0.65rem; }
     .create-actions button { flex: 1; min-height: 44px; border-radius: 10px; font-weight: 700; cursor: pointer; }
     .btn-cancel { border: 1px solid #cbd5e1; background: #fff; }
     .btn-save { border: none; background: var(--tisly-blue, #4f6fa8); color: #fff; }
     .empty-hint { text-align: center; color: #94a3b8; padding: 2rem 0.5rem; font-size: 0.9rem; }
+    @media (orientation: landscape) and (max-height: 500px) {
+      .kpi-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+      .kpi-card { min-height: 52px; }
+    }
   </style>
 </head>
 <body class="tisly-friendly">
   <main class="app-main">
     <p class="section-label">📋 案件管理</p>
     <p class="section-hint">現調 → 見積 → 請求 → 完了報告を案件単位で管理</p>
+
+    <section class="kpi-section" aria-label="KPI">
+      <p class="kpi-month" id="kpi-month-label">—</p>
+      <div class="kpi-grid" id="kpi-grid"></div>
+    </section>
 
     <button type="button" class="btn-new-project" id="btn-toggle-create">＋ 新規案件</button>
 
@@ -77,8 +106,18 @@
       </div>
     </div>
 
-    <div class="mgmt-toolbar">
-      <input type="search" id="search-q" placeholder="案件ID・顧客名・住所で検索" autocomplete="off" />
+    <div class="search-panel">
+      <label for="search-q">キーワード（複合）</label>
+      <input type="search" id="search-q" placeholder="案件ID・顧客名・住所" autocomplete="off" />
+      <label for="search-customer">顧客名</label>
+      <input type="search" id="search-customer" placeholder="顧客名" autocomplete="off" />
+      <label for="search-project-no">案件ID</label>
+      <input type="search" id="search-project-no" placeholder="MO-26-0616-001" autocomplete="off" />
+      <label for="search-municipality">市区町村</label>
+      <select id="search-municipality"><option value="">すべての市区町村</option></select>
+      <label for="search-assignee">担当者</label>
+      <input type="search" id="search-assignee" placeholder="担当者名" autocomplete="off" />
+      <label for="filter-status">ステータス</label>
       <select id="filter-status">
         <option value="">すべての状態</option>
         <option value="inquiry">問い合わせ</option>

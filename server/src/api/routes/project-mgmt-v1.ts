@@ -5,10 +5,13 @@ import {
   createProjectMgmtV1,
   getProjectMgmtDetailV1,
   listProjectCityCodesV1,
-  listProjectMgmtV1,
   softDeleteProjectMgmtV1,
   updateProjectMgmtV1,
 } from "../../projects/project-mgmt-v1-store.js";
+import {
+  getProjectMgmtKpiV2,
+  listProjectMgmtV2,
+} from "../../projects/project-mgmt-v2-store.js";
 import { isValidMgmtStatus } from "../../projects/project-mgmt-status-v1.js";
 
 export const projectMgmtV1Router = Router();
@@ -29,12 +32,31 @@ projectMgmtV1Router.get("/city-codes", ...auth, (req: AuthedRequest, res) => {
   res.json({ cityCodes: listProjectCityCodesV1() });
 });
 
+projectMgmtV1Router.get("/kpi", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  res.json({ kpi: getProjectMgmtKpiV2() });
+});
+
 projectMgmtV1Router.get("/projects", ...auth, (req: AuthedRequest, res) => {
   if (!assertRole(req, res)) return;
   const q = (req.query.q as string) ?? "";
+  const customerName = (req.query.customerName as string) ?? "";
+  const projectNo = (req.query.projectNo as string) ?? "";
+  const municipality = (req.query.municipality as string) ?? "";
+  const assignee = (req.query.assignee as string) ?? "";
   const statusRaw = (req.query.status as string) ?? "";
   const status = isValidMgmtStatus(statusRaw) ? statusRaw : undefined;
-  res.json({ projects: listProjectMgmtV1({ q, status }) });
+  res.json({
+    projects: listProjectMgmtV2({
+      q,
+      customerName,
+      projectNo,
+      municipality,
+      assignee,
+      status,
+    }),
+    kpi: getProjectMgmtKpiV2(),
+  });
 });
 
 projectMgmtV1Router.post("/projects", ...auth, (req: AuthedRequest, res) => {

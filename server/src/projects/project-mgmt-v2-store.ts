@@ -1,0 +1,352 @@
+/** 案件親データ運用 v2 — ダッシュボードカード・KPI・複合検索・履歴 */
+
+import { getDatabase } from "../db/database.js";
+import { getLatestWorkSessionForProject } from "../field-ops/work-session-v1-store.js";
+import { listSurveyPhotosV1 } from "../survey/survey-v1-store.js";
+import { listPdfShareLogsForProjectV1 } from "./pdf-share-log-store.js";
+import {
+  deriveMgmtStatus,
+  mgmtStatusMatchesFilter,
+  PROJECT_MGMT_STATUS_LABELS,
+  type ProjectMgmtStatus,
+} from "./project-mgmt-status-v1.js";
+import { listProjectTimeline } from "../toms/project-timeline.js";
+import { getProjectDocumentsStatusV1 } from "./project-documents-v1.js";
+import type { ProjectMgmtListItemV1 } from "./project-mgmt-v1-store.js";
+
+export type WorkflowCardState = "not_created" | "created" | "updated";
+
+export interface WorkflowCardV2 {
+  key: "survey" | "estimate" | "invoice" | "specification" | "completion";
+  label: string;
+  state: WorkflowCardState;
+  stateLabel: string;
+  stateIcon: string;
+  href: string | null;
+  summary: string;
+}
+
+export interface ProjectTimelineItemV2 {
+  id: string;
+  date: string;
+  title: string;
+  detail: string;
+  eventType: string;
+}
+
+export interface PdfShareHistoryItemV2 {
+  id: string;
+  documentLabel: string;
+  sharedAt: string;
+  channelLabel: string;
+  fileName: string;
+}
+
+export interface ProjectMgmtKpiV2 {
+  monthLabel: string;
+  projectsThisMonth: number;
+  estimatesSubmitted: number;
+  ordersWon: number;
+  invoicedCount: number;
+  unpaidCount: number;
+  orderRatePercent: number | null;
+}
+
+const SHARE_KIND_LABELS: Record<string, string> = {
+  estimate: "見積書",
+  invoice: "請求書",
+  specification: "仕様書",
+  completion: "完了報告書",
+  "completion-report": "完了報告書",
+  report: "完了報告書",
+};
+
+const STATE_PRESENTATION: Record<WorkflowCardState, { label: string; icon: string }> = {
+  not_created: { label: "未作成", icon: "🔴" },
+  created: { label: "作成済", icon: "🟢" },
+  updated: { label: "更新あり", icon: "🟡" },
+};
+
+function cardStateFromDocStatus(
+  code: string
+): WorkflowCardState {
+  if (code === "ready") return "created";
+  if (code === "not_created") return "not_created";
+  return "updated";
+}
+
+export function buildWorkflowCardsV2(input: {
+  projectId: string;
+  surveyProjectId: string | null;
+  surveyHref: string | null;
+  estimateHref: string | null;
+  invoiceHref: string | null;
+  completionHref: string | null;
+}): WorkflowCardV2[] {
+  const docStatus = getProjectDocumentsStatusV1(input.projectId);
+  const docMap = new Map(docStatus?.documents.map((d) => [d.kind, d]) ?? []);
+
+  const surveyPhotos = input.surveyProjectId
+    ? listSurveyPhotosV1(input.surveyProjectId).length
+    : 0;
+  let surveyState: WorkflowCardState = "not_created";
+  if (input.surveyProjectId) {
+    const specStale = docMap.get("specification")?.stale;
+    if (!surveyPhotos) surveyState = "updated";
+    else if (specStale) surveyState = "updated";
+    else surveyState = "created";
+  }
+
+  const specDoc = docMap.get("specification");
+  const estDoc = docMap.get("estimate");
+  const invDoc = docMap.get("invoice");
+  const compDoc = docMap.get("completion");
+
+  const specHref = input.surveyProjectId
+    ? `/document-viewer-v1.html?projectId=${encodeURIComponent(input.projectId)}&kind=specification`
+    : null;
+
+  const cards: Array<Omit<WorkflowCardV2, "stateLabel" | "stateIcon">> = [
+    {
+      key: "survey",
+      label: "現調",
+      state: surveyState,
+      href: input.surveyHref,
+      summary: input.surveyProjectId ? `写真 ${surveyPhotos} 枚` : "未連携",
+    },
+    {
+      key: "estimate",
+      label: "見積",
+      state: estDoc ? cardStateFromDocStatus(estDoc.status) : "not_created",
+      href: input.estimateHref,
+      summary: estDoc?.hasPdf ? "PDFあり" : estDoc?.status === "not_created" ? "未作成" : "下書き",
+    },
+    {
+      key: "invoice",
+      label: "請求",
+      state: invDoc ? cardStateFromDocStatus(invDoc.status) : "not_created",
+      href: input.invoiceHref,
+      summary: invDoc?.hasPdf ? "PDFあり" : "未作成",
+    },
+    {
+      key: "specification",
+      label: "仕様書",
+      state: specDoc ? cardStateFromDocStatus(specDoc.status) : "not_created",
+      href: specHref,
+      summary: specDoc?.hasPdf ? "PDFあり" : "未作成",
+    },
+    {
+      key: "completion",
+      label: "完了報告",
+      state: compDoc ? cardStateFromDocStatus(compDoc.status) : "not_created",
+      href: input.completionHref,
+      summary: compDoc?.hasPdf ? "PDFあり" : "未作成",
+    },
+  ];
+
+  return cards.map((c) => {
+    const pres = STATE_PRESENTATION[c.state];
+    return { ...c, stateLabel: pres.label, stateIcon: pres.icon };
+  });
+}
+
+export function listProjectTimelineV2(projectId: string): ProjectTimelineItemV2[] {
+  return listProjectTimeline(projectId).map((e) => {
+    const d = new Date(e.createdAt);
+    const date = Number.isNaN(d.getTime())
+      ? e.createdAt.slice(0, 10)
+      : d.toLocaleDateString("ja-JP", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        });
+    return {
+      id: e.id,
+      date,
+      title: e.title,
+      detail: e.detail,
+      eventType: e.eventType,
+    };
+  });
+}
+
+export function listPdfShareHistoryV2(projectId: string): PdfShareHistoryItemV2[] {
+  return listPdfShareLogsForProjectV1(projectId).map((log) => ({
+    id: log.id,
+    documentLabel: SHARE_KIND_LABELS[log.documentKind] ?? log.documentKind,
+    sharedAt: log.sharedAt,
+    channelLabel: "LINE共有",
+    fileName: log.fileName,
+  }));
+}
+
+export interface ProjectMgmtSearchFiltersV2 {
+  q?: string;
+  customerName?: string;
+  projectNo?: string;
+  municipality?: string;
+  assignee?: string;
+  status?: ProjectMgmtStatus;
+  limit?: number;
+}
+
+function matchesField(haystack: string, needle: string): boolean {
+  const n = needle.trim().toLowerCase();
+  if (!n) return true;
+  return haystack.toLowerCase().includes(n);
+}
+
+function rowToListItem(r: Record<string, unknown>): ProjectMgmtListItemV1 {
+  const id = String(r.id);
+  const businessStatus = String(r.status ?? "new");
+  const hasInvoice = Boolean(r.invoice_id);
+  const hasPaid = Boolean(r.paid_date);
+  const session = getLatestWorkSessionForProject({ source: "business", projectId: id });
+  const hasActiveWorkSession = Boolean(
+    session && (session.arrivalTime || session.startTime) && !session.completionTime
+  );
+  const mgmtStatus = deriveMgmtStatus(businessStatus, {
+    hasActiveWorkSession,
+    hasInvoice,
+    hasPaid,
+  });
+
+  return {
+    id,
+    projectNo: String(r.project_no ?? id),
+    title: String(r.title ?? ""),
+    customerName: String(r.customer_name ?? ""),
+    address: String(r.address ?? ""),
+    municipality: String(r.municipality ?? ""),
+    assignee: String(r.assignee ?? ""),
+    mgmtStatus,
+    mgmtStatusLabel: PROJECT_MGMT_STATUS_LABELS[mgmtStatus],
+    createdAt: String(r.created_at ?? ""),
+    updatedAt: String(r.updated_at ?? ""),
+  };
+}
+
+export function listProjectMgmtV2(filters?: ProjectMgmtSearchFiltersV2): ProjectMgmtListItemV1[] {
+  const limit = filters?.limit ?? 200;
+  const rows = getDatabase()
+    .prepare(
+      `SELECT id, project_no, title, customer_name, address, municipality, assignee,
+              status, invoice_id, paid_date, created_at, updated_at
+       FROM business_projects
+       WHERE deleted_at IS NULL
+       ORDER BY created_at DESC
+       LIMIT ?`
+    )
+    .all(limit) as Array<Record<string, unknown>>;
+
+  return rows
+    .filter((r) => {
+      const q = filters?.q?.trim();
+      if (q) {
+        const fields = [
+          String(r.project_no ?? ""),
+          String(r.customer_name ?? ""),
+          String(r.address ?? ""),
+          String(r.title ?? ""),
+          String(r.municipality ?? ""),
+          String(r.assignee ?? ""),
+        ];
+        if (!fields.some((f) => f.toLowerCase().includes(q.toLowerCase()))) return false;
+      }
+      if (!matchesField(String(r.customer_name ?? ""), filters?.customerName ?? "")) return false;
+      if (!matchesField(String(r.project_no ?? ""), filters?.projectNo ?? "")) return false;
+      if (!matchesField(String(r.municipality ?? ""), filters?.municipality ?? "")) return false;
+      if (!matchesField(String(r.assignee ?? ""), filters?.assignee ?? "")) return false;
+      return true;
+    })
+    .filter((r) => {
+      if (!filters?.status) return true;
+      const id = String(r.id);
+      const session = getLatestWorkSessionForProject({ source: "business", projectId: id });
+      const hasActiveWorkSession = Boolean(
+        session && (session.arrivalTime || session.startTime) && !session.completionTime
+      );
+      return mgmtStatusMatchesFilter(String(r.status ?? "new"), filters.status, {
+        hasActiveWorkSession,
+        hasInvoice: Boolean(r.invoice_id),
+        hasPaid: Boolean(r.paid_date),
+      });
+    })
+    .map(rowToListItem);
+}
+
+function monthBoundsJst(now = new Date()): { start: string; end: string; label: string } {
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  const start = new Date(y, m, 1);
+  const end = new Date(y, m + 1, 0, 23, 59, 59, 999);
+  const label = `${y}年${m + 1}月`;
+  return { start: start.toISOString(), end: end.toISOString(), label };
+}
+
+const ORDERED_STATUSES: ProjectMgmtStatus[] = [
+  "ordered",
+  "construction_scheduled",
+  "construction_in_progress",
+  "work_completed",
+  "invoiced",
+  "paid",
+];
+
+const ESTIMATE_SUBMITTED_STATUSES: ProjectMgmtStatus[] = [
+  "estimate_submitted",
+  ...ORDERED_STATUSES,
+];
+
+export function getProjectMgmtKpiV2(now = new Date()): ProjectMgmtKpiV2 {
+  const { start, end, label } = monthBoundsJst(now);
+  const rows = getDatabase()
+    .prepare(
+      `SELECT id, status, invoice_id, paid_date, estimate_id, created_at
+       FROM business_projects WHERE deleted_at IS NULL`
+    )
+    .all() as Array<Record<string, unknown>>;
+
+  let projectsThisMonth = 0;
+  let estimatesSubmitted = 0;
+  let ordersWon = 0;
+  let invoicedCount = 0;
+  let unpaidCount = 0;
+
+  for (const r of rows) {
+    const createdAt = String(r.created_at ?? "");
+    const inMonth = createdAt >= start && createdAt <= end;
+    if (inMonth) projectsThisMonth += 1;
+
+    const id = String(r.id);
+    const session = getLatestWorkSessionForProject({ source: "business", projectId: id });
+    const hasActiveWorkSession = Boolean(
+      session && (session.arrivalTime || session.startTime) && !session.completionTime
+    );
+    const mgmt = deriveMgmtStatus(String(r.status ?? "new"), {
+      hasActiveWorkSession,
+      hasInvoice: Boolean(r.invoice_id),
+      hasPaid: Boolean(r.paid_date),
+    });
+
+    if (ESTIMATE_SUBMITTED_STATUSES.includes(mgmt) && Boolean(r.estimate_id) && inMonth) {
+      estimatesSubmitted += 1;
+    }
+    if (ORDERED_STATUSES.includes(mgmt) && inMonth) ordersWon += 1;
+    if ((mgmt === "invoiced" || mgmt === "paid") && inMonth) invoicedCount += 1;
+    if (mgmt === "invoiced" && inMonth) unpaidCount += 1;
+  }
+
+  const orderRatePercent =
+    estimatesSubmitted > 0 ? Math.round((ordersWon / estimatesSubmitted) * 1000) / 10 : null;
+
+  return {
+    monthLabel: label,
+    projectsThisMonth,
+    estimatesSubmitted,
+    ordersWon,
+    invoicedCount,
+    unpaidCount,
+    orderRatePercent,
+  };
+}

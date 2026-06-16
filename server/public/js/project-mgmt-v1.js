@@ -46,6 +46,22 @@ async function api(path, opts = {}) {
 let cityCodes = [];
 let debounceTimer = null;
 
+function renderKpi(kpi) {
+  const el = $("kpi-grid");
+  if (!el || !kpi) return;
+  const rate =
+    kpi.orderRatePercent != null ? `${kpi.orderRatePercent}%` : "—";
+  el.innerHTML = `
+    <div class="kpi-card"><span class="kpi-val">${kpi.projectsThisMonth}</span><span class="kpi-lbl">今月案件数</span></div>
+    <div class="kpi-card"><span class="kpi-val">${kpi.estimatesSubmitted}</span><span class="kpi-lbl">見積提出数</span></div>
+    <div class="kpi-card"><span class="kpi-val">${kpi.ordersWon}</span><span class="kpi-lbl">受注数</span></div>
+    <div class="kpi-card"><span class="kpi-val">${kpi.invoicedCount}</span><span class="kpi-lbl">請求済件数</span></div>
+    <div class="kpi-card kpi-warn"><span class="kpi-val">${kpi.unpaidCount}</span><span class="kpi-lbl">未入金件数</span></div>
+    <div class="kpi-card kpi-accent"><span class="kpi-val">${rate}</span><span class="kpi-lbl">受注率</span></div>`;
+  const label = $("kpi-month-label");
+  if (label) label.textContent = kpi.monthLabel ?? "";
+}
+
 function renderList(projects) {
   const list = $("project-list");
   const empty = $("empty-hint");
@@ -64,7 +80,7 @@ function renderList(projects) {
         <span class="mgmt-status">${escapeHtml(p.mgmtStatusLabel)}</span>
       </div>
       <div class="mgmt-title">${escapeHtml(p.customerName)} — ${escapeHtml(p.title)}</div>
-      <div class="mgmt-meta">作成: ${formatDate(p.createdAt)}${p.address ? ` · ${escapeHtml(p.address)}` : ""}</div>
+      <div class="mgmt-meta">作成: ${formatDate(p.createdAt)}${p.assignee ? ` · 担当: ${escapeHtml(p.assignee)}` : ""}${p.municipality ? ` · ${escapeHtml(p.municipality)}` : ""}</div>
     </article>`
     )
     .join("");
@@ -84,14 +100,28 @@ function renderList(projects) {
   });
 }
 
-async function loadProjects() {
-  const q = $("search-q")?.value ?? "";
-  const status = $("filter-status")?.value ?? "";
+function buildSearchParams() {
   const params = new URLSearchParams();
-  if (q.trim()) params.set("q", q.trim());
+  const q = $("search-q")?.value?.trim();
+  const customerName = $("search-customer")?.value?.trim();
+  const projectNo = $("search-project-no")?.value?.trim();
+  const municipality = $("search-municipality")?.value?.trim();
+  const assignee = $("search-assignee")?.value?.trim();
+  const status = $("filter-status")?.value ?? "";
+  if (q) params.set("q", q);
+  if (customerName) params.set("customerName", customerName);
+  if (projectNo) params.set("projectNo", projectNo);
+  if (municipality) params.set("municipality", municipality);
+  if (assignee) params.set("assignee", assignee);
   if (status) params.set("status", status);
+  return params;
+}
+
+async function loadProjects() {
+  const params = buildSearchParams();
   const qs = params.toString();
   const data = await api(`/projects${qs ? `?${qs}` : ""}`);
+  renderKpi(data.kpi);
   renderList(data.projects ?? []);
 }
 
@@ -110,6 +140,14 @@ async function loadCityCodes() {
   sel.innerHTML = cityCodes
     .map((c) => `<option value="${escapeHtml(c.cityCode)}">${escapeHtml(c.cityName)}</option>`)
     .join("");
+  const muniSel = $("search-municipality");
+  if (muniSel && muniSel.tagName === "SELECT") {
+    muniSel.innerHTML =
+      `<option value="">すべての市区町村</option>` +
+      cityCodes
+        .map((c) => `<option value="${escapeHtml(c.cityName)}">${escapeHtml(c.cityName)}</option>`)
+        .join("");
+  }
 }
 
 function toggleCreate(show) {
@@ -143,12 +181,16 @@ async function saveCreate() {
 
 async function main() {
   if (!requireCustomerLogin()) return;
-  initPracticalNav({ appId: "project_mgmt_v1", appName: "案件管理", theme: "blue" });
+  initPracticalNav({ appId: "project_mgmt_v1", appName: "案件", theme: "blue" });
 
   await loadCityCodes();
   await loadProjects();
 
   $("search-q")?.addEventListener("input", scheduleLoad);
+  $("search-customer")?.addEventListener("input", scheduleLoad);
+  $("search-project-no")?.addEventListener("input", scheduleLoad);
+  $("search-municipality")?.addEventListener("change", scheduleLoad);
+  $("search-assignee")?.addEventListener("input", scheduleLoad);
   $("filter-status")?.addEventListener("change", () => loadProjects().catch((e) => toast(e.message)));
   $("btn-toggle-create")?.addEventListener("click", () => toggleCreate(true));
   $("btn-cancel-create")?.addEventListener("click", () => toggleCreate(false));

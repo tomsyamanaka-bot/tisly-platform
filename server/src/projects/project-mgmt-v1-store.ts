@@ -27,6 +27,12 @@ import {
   PROJECT_MGMT_STATUS_LABELS,
   type ProjectMgmtStatus,
 } from "./project-mgmt-status-v1.js";
+import {
+  buildWorkflowCardsV2,
+  listPdfShareHistoryV2,
+  listProjectTimelineV2,
+} from "./project-mgmt-v2-store.js";
+import { createProjectStorageFoldersV1 } from "../storage/project-storage-v1.js";
 
 export interface ProjectMgmtListItemV1 {
   id: string;
@@ -84,6 +90,9 @@ export interface ProjectMgmtDetailV1 {
   };
   documents: ReturnType<typeof listProjectPdfsV1>;
   fieldOpsHref: string;
+  workflowCards: ReturnType<typeof buildWorkflowCardsV2>;
+  timeline: ReturnType<typeof listProjectTimelineV2>;
+  shareHistory: ReturnType<typeof listPdfShareHistoryV2>;
 }
 
 function rowToListItem(r: Record<string, unknown>): ProjectMgmtListItemV1 {
@@ -228,6 +237,20 @@ export function getProjectMgmtDetailV1(projectId: string): ProjectMgmtDetailV1 |
     },
     documents: listProjectPdfsV1(projectId),
     fieldOpsHref: `/projects-v1?projectId=${encodeURIComponent(projectId)}&source=business`,
+    workflowCards: buildWorkflowCardsV2({
+      projectId,
+      surveyProjectId,
+      surveyHref: surveyProjectId
+        ? `/survey-v1?projectId=${encodeURIComponent(surveyProjectId)}`
+        : null,
+      estimateHref: `/estimate-v1?projectId=${encodeURIComponent(projectId)}`,
+      invoiceHref: `/estimate-v1?projectId=${encodeURIComponent(projectId)}&tab=invoice`,
+      completionHref: completionReportId
+        ? `/document-viewer-v1.html?projectId=${encodeURIComponent(projectId)}&kind=completion-report`
+        : `/projects-v1?projectId=${encodeURIComponent(projectId)}&source=business`,
+    }),
+    timeline: listProjectTimelineV2(projectId),
+    shareHistory: listPdfShareHistoryV2(projectId),
   };
 }
 
@@ -289,6 +312,11 @@ export function createProjectMgmtV1(input: {
     );
 
   const created = getBusinessProject(id)!;
+  try {
+    createProjectStorageFoldersV1(id);
+  } catch (e) {
+    console.error("[project-mgmt-v1] project storage folders:", e);
+  }
   appendProjectTimeline({
     projectId: id,
     eventType: "project_created",
