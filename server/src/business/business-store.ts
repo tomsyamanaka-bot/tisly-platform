@@ -26,11 +26,12 @@ import {
 } from "./estimate-math.js";
 import {
   buildDefaultEstimateHeader,
-  generateTomsDailyDocNo,
+  generateProjectScopedDocNo,
   parseEstimateHeaderJson,
   TOMS_DEFAULT_BANK_INFO,
   type TomsEstimateHeader,
 } from "./toms-document-format.js";
+import { markProjectPdfStaleV1 } from "../projects/project-pdf-stale-v1.js";
 import { buildPracticalSearchIndex } from "../estimate/estimate-v1-search.js";
 import type {
   AiEstimateCandidate,
@@ -553,7 +554,7 @@ export function createEstimate(
   const normalized = normalizeLineItems(items);
   const totals = calcTotals(normalized, { shuseiDiscount: opts?.shuseiDiscount });
   const id = uuid();
-  const estimateNo = generateTomsDailyDocNo("business_estimates", "estimate_no");
+  const estimateNo = generateProjectScopedDocNo(project.projectNo, "business_estimates", "estimate_no");
   const now = new Date().toISOString();
   const draftEstimate: Estimate = {
     id,
@@ -653,7 +654,7 @@ export function createInvoiceFromEstimate(projectId: string, paymentDueDate?: st
   const est = getEstimate(project.estimateId);
   if (!est) throw new Error("estimate not found");
   const id = uuid();
-  const invoiceNo = generateTomsDailyDocNo("business_invoices", "invoice_no");
+  const invoiceNo = generateProjectScopedDocNo(project.projectNo, "business_invoices", "invoice_no");
   const now = new Date().toISOString();
   getDatabase()
     .prepare(
@@ -698,6 +699,8 @@ export function syncInvoiceItemsFromEstimate(
        WHERE id = ?`
     )
     .run(JSON.stringify(items), totals.subtotal, totals.tax, totals.total, now, invoiceId);
+  const inv = getInvoice(invoiceId);
+  if (inv) markProjectPdfStaleV1(inv.projectId, ["invoice", "estimate"]);
   return getInvoice(invoiceId)!;
 }
 
@@ -708,6 +711,8 @@ export function updateInvoicePaymentDue(invoiceId: string, paymentDueDate: strin
       `UPDATE business_invoices SET payment_due_date = ?, pdf_path = NULL, updated_at = ? WHERE id = ?`
     )
     .run(paymentDueDate, now, invoiceId);
+  const inv = getInvoice(invoiceId);
+  if (inv) markProjectPdfStaleV1(inv.projectId, "invoice");
   return getInvoice(invoiceId)!;
 }
 
@@ -737,9 +742,10 @@ export function updateEstimateHeader(estimateId: string, header: Partial<TomsEst
     : null;
   getDatabase()
     .prepare(
-      `UPDATE business_estimates SET header_json = ?, search_index_json = ?, updated_at = datetime('now') WHERE id = ?`
+      `UPDATE business_estimates SET header_json = ?, search_index_json = ?, pdf_path = NULL, updated_at = datetime('now') WHERE id = ?`
     )
     .run(JSON.stringify(merged), searchIndex ? JSON.stringify(searchIndex) : null, estimateId);
+  if (bp) markProjectPdfStaleV1(bp.id, ["estimate", "invoice"]);
   return getEstimate(estimateId)!;
 }
 

@@ -32,6 +32,30 @@
       cursor: pointer;
     }
     .doc-action-grid .btn-doc-action:active { transform: scale(0.98); }
+    .btn-doc-action .doc-btn-label { display: block; font-weight: 600; }
+    .btn-doc-action .doc-btn-status { display: block; font-size: 0.78rem; font-weight: 500; margin-top: 0.15rem; color: var(--tisly-muted, #64748b); }
+    .doc-list-section { margin-top: 0.75rem; }
+    .doc-list-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.35rem 0.5rem;
+      align-items: center;
+      padding: 0.65rem 0;
+      border-bottom: 1px solid var(--tisly-border, #e2e8f0);
+    }
+    .doc-list-row:last-child { border-bottom: none; }
+    .doc-list-meta { font-size: 0.82rem; color: var(--tisly-muted, #64748b); }
+    .doc-list-actions { display: flex; gap: 0.35rem; flex-wrap: wrap; justify-content: flex-end; }
+    .doc-list-actions button {
+      min-height: 36px;
+      padding: 0.35rem 0.65rem;
+      font-size: 0.82rem;
+      border-radius: 8px;
+      border: 1px solid var(--tisly-border, #e2e8f0);
+      background: #fff;
+      color: var(--tisly-blue);
+      cursor: pointer;
+    }
     .pdf-preview-frame { width: 100%; min-height: 420px; border: 1px solid var(--tisly-border, #e2e8f0); border-radius: 8px; background: #fff; }
     #pdf-error { display: none; margin-top: 0.5rem; }
     #pdf-error.visible { display: block; }
@@ -299,15 +323,30 @@
       <button type="button" class="btn-main blue" id="btn-invoice">【請求書作成】</button>
 
       <p class="section-label">📄 書類の確認・印刷</p>
-      <p class="section-hint">見積書・請求書は金額提出用です。仕様書は現調写真、完了報告書は専用写真を使います。</p>
+      <p class="section-hint">案件を開くと書類PDFをバックグラウンド生成します。「開く」で即表示できます。</p>
       <div class="doc-action-grid friendly-card">
-        <button type="button" class="btn-doc-action" id="btn-pdf-estimate">見積書を開く</button>
-        <button type="button" class="btn-doc-action" id="btn-regenerate-estimate">見積PDF再作成</button>
-        <button type="button" class="btn-doc-action" id="btn-pdf-invoice">請求書を開く</button>
-        <button type="button" class="btn-doc-action" id="btn-regenerate-invoice">請求PDF再作成</button>
-        <button type="button" class="btn-doc-action" id="btn-pdf-specification">仕様書を開く</button>
-        <button type="button" class="btn-doc-action" id="btn-pdf-completion">完了報告書を開く</button>
+        <button type="button" class="btn-doc-action" id="btn-pdf-estimate">
+          <span class="doc-btn-label">見積書</span>
+          <span class="doc-btn-status" id="doc-status-estimate">—</span>
+        </button>
+        <button type="button" class="btn-doc-action" id="btn-pdf-invoice">
+          <span class="doc-btn-label">請求書</span>
+          <span class="doc-btn-status" id="doc-status-invoice">—</span>
+        </button>
+        <button type="button" class="btn-doc-action" id="btn-pdf-specification">
+          <span class="doc-btn-label">仕様書</span>
+          <span class="doc-btn-status" id="doc-status-specification">—</span>
+        </button>
+        <button type="button" class="btn-doc-action" id="btn-pdf-completion">
+          <span class="doc-btn-label">完了報告書</span>
+          <span class="doc-btn-status" id="doc-status-completion">—</span>
+        </button>
         <button type="button" class="btn-doc-action practical-hidden" id="btn-toms">社内用データを確認</button>
+      </div>
+
+      <div class="doc-list-section friendly-card" id="doc-list-section">
+        <p class="section-label" style="margin-top:0;">📋 書類一覧</p>
+        <div id="doc-list-mount"><p class="section-hint">読み込み中…</p></div>
       </div>
 
       <div id="pdf-section" class="friendly-card hidden">
@@ -329,6 +368,6 @@
     <button type="button" id="completion-lightbox-close">閉じる</button>
     <img id="completion-lightbox-img" src="" alt="" />
   </div>
-  <script type="module" src="/js/estimate-v1.js?v=estimate-ui-v3"></script>
+  <script type="module" src="/js/estimate-v1.js?v=estimate-ui-v4"></script>
 </body>
 </html>

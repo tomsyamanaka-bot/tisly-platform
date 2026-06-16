@@ -14,7 +14,7 @@ const { closeDatabase, getDatabase } = await import("../src/db/database.js");
 const { renderEstimateHtml } = await import("../src/business/pdf/estimate-template.js");
 const { renderInvoiceHtml } = await import("../src/business/pdf/invoice-template.js");
 const { getBusinessProject, getEstimate, getInvoice } = await import("../src/business/business-store.js");
-const { formatTomsIssueDate, generateTomsDailyDocNo, itemsToTomsLines, isEmptyLineItem } =
+const { formatTomsIssueDate, generateProjectScopedDocNo, itemsToTomsLines, isEmptyLineItem } =
   await import("../src/business/toms-document-format.js");
 
 const app = createApp();
@@ -107,9 +107,9 @@ describe("TOMS標準見積フォーマット", () => {
 
   after(() => closeDatabase());
 
-  it("見積番号は YYMMDD-001 形式", () => {
-    const no = generateTomsDailyDocNo("business_estimates", "estimate_no", new Date("2026-06-08"));
-    assert.match(no, /^260608-\d{3}$/);
+  it("見積番号は案件番号-001形式", () => {
+    const no = generateProjectScopedDocNo("MO-26-0616", "business_estimates", "estimate_no");
+    assert.equal(no, "MO-26-0616-001");
   });
 
   it("発行日は YYYY/MM/DD", () => {
@@ -264,7 +264,7 @@ describe("TOMS標準見積フォーマット", () => {
     assert.match(invoiceHtml, /支払期限/);
     assert.match(invoiceHtml, /担当/);
     assert.match(invoiceHtml, /税率内訳/);
-    assert.match(invoiceHtml, /\d{6}-\d{3}/);
+    assert.match(invoiceHtml, /PRJ-\d{4}-\d{4}-\d{3}|MO-[\d-]+-\d{3}/);
   });
 
   it("renderEstimateHtml はヘッダーテーブルを生成する", () => {

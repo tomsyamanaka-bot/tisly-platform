@@ -212,6 +212,7 @@ export function runMigrations(database: Database.Database): void {
   migrateProjectPdfQnapBackupV1(database);
   migrateSurveyIpEquipmentV1(database);
   migrateFieldChecklistV1(database);
+  migrateProjectDocumentsV1(database);
 }
 
 /** 案件一覧 v1 — 論理削除 deleted_at */
@@ -3332,4 +3333,39 @@ function migrateFieldChecklistV1(database: Database.Database): void {
       `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
     )
     .run("migration:field_checklist_v1", JSON.stringify({ at: new Date().toISOString() }));
+}
+
+/** 案件書類 v1 — PDF stale フラグ + 共有ログ */
+function migrateProjectDocumentsV1(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:project_documents_v1") as { value_json: string } | undefined;
+  if (marker) return;
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS project_pdf_stale (
+      project_id TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      stale_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (project_id, kind)
+    );
+    CREATE INDEX IF NOT EXISTS idx_project_pdf_stale_project
+      ON project_pdf_stale(project_id);
+
+    CREATE TABLE IF NOT EXISTS pdf_share_logs (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      document_kind TEXT NOT NULL,
+      file_name TEXT NOT NULL,
+      shared_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_pdf_share_logs_project
+      ON pdf_share_logs(project_id, shared_at DESC);
+  `);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:project_documents_v1", JSON.stringify({ at: new Date().toISOString() }));
 }

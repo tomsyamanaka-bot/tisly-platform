@@ -58,6 +58,12 @@ import {
   DOCUMENT_VIEW_KINDS,
   type DocumentViewKindV1,
 } from "../../estimate/document-view-v1.js";
+import {
+  getProjectDocumentsStatusV1,
+  prefetchProjectPdfsV1,
+  resolveProjectPdfForServeV1,
+} from "../../projects/project-documents-v1.js";
+import { recordPdfShareLogV1, listPdfShareLogsForProjectV1 } from "../../projects/pdf-share-log-store.js";
 
 export const estimateV1Router = Router();
 
@@ -313,7 +319,7 @@ estimateV1Router.get("/projects/:id/pdf", ...estimateV1Auth, async (req: AuthedR
     res.type(contentType).sendFile(filePath);
     return;
   }
-  let filePath = !regenerate ? resolveProjectPdfFile(projectId, "estimate") : null;
+  let filePath = regenerate ? null : await resolveProjectPdfForServeV1(projectId, "estimate");
   if (!filePath || !isValidPdfFile(filePath)) {
     try {
       const pdfPath = await generateEstimatePdf(project, estimate, pdfCtx);
@@ -399,7 +405,7 @@ estimateV1Router.get("/projects/:id/invoice/pdf", ...estimateV1Auth, async (req:
     res.type(contentType).sendFile(filePath);
     return;
   }
-  let filePath = !regenerate ? resolveProjectPdfFile(projectId, "invoice") : null;
+  let filePath = regenerate ? null : await resolveProjectPdfForServeV1(projectId, "invoice");
   if (!filePath || !isValidPdfFile(filePath)) {
     try {
       const pdfPath = await generateInvoicePdf(project, invoice, estimate, {
@@ -480,7 +486,7 @@ estimateV1Router.get(
       res.type("text/html; charset=utf-8").sendFile(p);
       return;
     }
-    let filePath = !regenerate ? resolveProjectPdfFile(projectId, "specification") : null;
+    let filePath = regenerate ? null : await resolveProjectPdfForServeV1(projectId, "specification");
     if (!filePath || !isValidPdfFile(filePath)) {
       try {
         const pdfPath = await maybeAutoSaveSpecificationPdfV1(projectId);
@@ -656,7 +662,7 @@ estimateV1Router.get(
       res.type("text/html; charset=utf-8").sendFile(p);
       return;
     }
-    let filePath = !regenerate ? resolveProjectPdfFile(projectId, "report") : null;
+    let filePath = regenerate ? null : await resolveProjectPdfForServeV1(projectId, "completion");
     if (!filePath || !isValidPdfFile(filePath)) {
       try {
         if (!project.completionReportId) {
@@ -731,6 +737,59 @@ estimateV1Router.get("/projects/:id/document-view", ...estimateV1Auth, (req: Aut
     return;
   }
   res.json(payload);
+});
+
+estimateV1Router.get("/projects/:id/documents-status", ...estimateV1Auth, (req: AuthedRequest, res) => {
+  if (!assertEstimateV1Role(req, res)) return;
+  const status = getProjectDocumentsStatusV1(String(req.params.id));
+  if (!status) {
+    res.status(404).json({ error: "project not found" });
+    return;
+  }
+  res.json(status);
+});
+
+estimateV1Router.post("/projects/:id/pdfs/prefetch", ...estimateV1Auth, async (req: AuthedRequest, res) => {
+  if (!assertEstimateV1Role(req, res)) return;
+  const projectId = String(req.params.id);
+  if (!getBusinessProject(projectId)) {
+    res.status(404).json({ error: "project not found" });
+    return;
+  }
+  try {
+    const result = await prefetchProjectPdfsV1(projectId);
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : "prefetch failed" });
+  }
+});
+
+estimateV1Router.post("/projects/:id/pdf-share-log", ...estimateV1Auth, (req: AuthedRequest, res) => {
+  if (!assertEstimateV1Role(req, res)) return;
+  const projectId = String(req.params.id);
+  if (!getBusinessProject(projectId)) {
+    res.status(404).json({ error: "project not found" });
+    return;
+  }
+  const body = req.body as { documentKind?: string; fileName?: string };
+  const documentKind = String(body.documentKind ?? "").trim();
+  const fileName = String(body.fileName ?? "").trim();
+  if (!documentKind || !fileName) {
+    res.status(400).json({ error: "documentKind and fileName required" });
+    return;
+  }
+  const row = recordPdfShareLogV1({ projectId, documentKind, fileName });
+  res.status(201).json(row);
+});
+
+estimateV1Router.get("/projects/:id/pdf-share-log", ...estimateV1Auth, (req: AuthedRequest, res) => {
+  if (!assertEstimateV1Role(req, res)) return;
+  const projectId = String(req.params.id);
+  if (!getBusinessProject(projectId)) {
+    res.status(404).json({ error: "project not found" });
+    return;
+  }
+  res.json({ logs: listPdfShareLogsForProjectV1(projectId) });
 });
 
 estimateV1Router.get("/projects/:id/toms-format", ...estimateV1Auth, (req: AuthedRequest, res) => {

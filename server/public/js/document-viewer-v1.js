@@ -402,12 +402,10 @@ async function regenerateStoredPdf() {
   await loadPdfFrame();
 }
 
-function updateRegenerateButton(data) {
+function updateRegenerateButton(_data) {
   const btn = $("btn-regenerate");
   if (!btn) return;
-  const show = Boolean(data.regenerateUrl);
-  btn.classList.toggle("hidden", !show);
-  btn.title = data.hasStoredPdf ? "PDF再作成（保存済みを上書き）" : "PDF作成";
+  btn.classList.add("hidden");
 }
 
 function updateHeader(data) {
@@ -470,6 +468,24 @@ async function handleSaveFile() {
   }
 }
 
+async function logPdfShare() {
+  if (!payload?.projectId) return;
+  const fileName = getShareFileName();
+  const documentKind = payload.kind || "unknown";
+  try {
+    await fetch(`${API}/projects/${encodeURIComponent(payload.projectId)}/pdf-share-log`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${getCustomerToken()}`,
+      },
+      body: JSON.stringify({ documentKind, fileName }),
+    });
+  } catch {
+    /* optional */
+  }
+}
+
 async function handleShare() {
   if (!payload?.pdfUrl) {
     toast("PDFがありません");
@@ -479,6 +495,7 @@ async function handleShare() {
   try {
     const pdfBlob = await resolvePdfBlob();
     await sharePdfBlobAsFile(pdfBlob, fileName, toast);
+    await logPdfShare();
   } catch (e) {
     if (e?.name === "AbortError") return;
     toast(e.message || "共有に失敗しました");
@@ -581,6 +598,8 @@ async function init() {
     $("doc-loading").classList.add("hidden");
     showPreviewMode();
     applyLayoutMode();
+    prefetchPdfOnTouch();
+    fetchDocumentPdfBlob().catch(() => {});
   } catch (e) {
     $("doc-loading").classList.add("hidden");
     $("doc-error").classList.remove("hidden");

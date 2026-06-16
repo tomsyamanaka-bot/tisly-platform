@@ -52,7 +52,11 @@ import {
   resolveEstimatePriceRule,
 } from "../business/customer-price-rules.js";
 import { applyPricingTierToItems, calcTotals, normalizeLineItems } from "../business/estimate-math.js";
-import { generateTomsDailyDocNo } from "../business/toms-document-format.js";
+import { generateProjectScopedDocNo } from "../business/toms-document-format.js";
+import {
+  clearProjectPdfStaleV1,
+  markProjectPdfStaleV1,
+} from "../projects/project-pdf-stale-v1.js";
 import { v4 as uuid } from "uuid";
 import {
   getEstimateLineTemplateV1,
@@ -600,6 +604,7 @@ export function updateEstimateItemsV1(
   if (opts?.notes !== undefined) {
     updateBusinessProject(businessProjectId, { surveyMemo: opts.notes });
   }
+  markProjectPdfStaleV1(businessProjectId, ["estimate", "invoice"]);
   const estimate = getEstimate(project.estimateId)!;
   if (project.invoiceId) {
     syncInvoiceItemsFromEstimate(project.invoiceId, normalized, totals);
@@ -648,6 +653,7 @@ export async function finalizeEstimateV1(
   const pdfPath = await generateEstimatePdf(project, estimate, pdfCtx);
   setEstimatePdfPath(estimate.id, pdfPath);
   recordProjectPdfSavedV1(businessProjectId, "estimate", pdfPath);
+  clearProjectPdfStaleV1(businessProjectId, "estimate");
 
   if (project.surveyProjectId) {
     updateSurveyProjectV1(project.surveyProjectId, { workflowStatus: "estimate_done" });
@@ -919,7 +925,7 @@ export function duplicateEstimateV1(businessProjectId: string): EstimateProjectV
   const normalized = normalizeLineItems(est.items);
   const totals = calcTotals(normalized, { shuseiDiscount: est.shuseiDiscount });
   const id = uuid();
-  const estimateNo = generateTomsDailyDocNo("business_estimates", "estimate_no");
+  const estimateNo = generateProjectScopedDocNo(project.projectNo, "business_estimates", "estimate_no");
   const now = new Date().toISOString();
   getDatabase()
     .prepare(
@@ -975,6 +981,7 @@ export async function createInvoiceFromEstimateV1(businessProjectId: string): Pr
   const pdfPath = await generateInvoicePdf(project, invoice, estimate);
   setInvoicePdfPath(invoice.id, pdfPath);
   recordProjectPdfSavedV1(businessProjectId, "invoice", pdfPath);
+  clearProjectPdfStaleV1(businessProjectId, "invoice");
   return { invoice: getInvoice(invoice.id)!, pdfPath };
 }
 

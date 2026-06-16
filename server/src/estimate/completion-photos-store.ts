@@ -3,6 +3,7 @@ import path from "path";
 import { v4 as uuid } from "uuid";
 import { getDatabase } from "../db/database.js";
 import { businessUploadsDir, getBusinessProject } from "../business/business-store.js";
+import { markProjectPdfStaleV1 } from "../projects/project-pdf-stale-v1.js";
 
 export interface CompletionPhotoV1 {
   id: string;
@@ -76,6 +77,7 @@ export function addCompletionPhotoV1(
        VALUES (?, ?, ?, ?, ?, datetime('now'), ?)`
     )
     .run(id, businessProjectId, outName, title || null, sortOrder, input.uploadedBy ?? null);
+  markProjectPdfStaleV1(businessProjectId, "completion");
   return rowToCompletionPhoto({
     id,
     business_project_id: businessProjectId,
@@ -120,6 +122,9 @@ export function updateCompletionPhotoV1(
   const updated = getDatabase()
     .prepare(`SELECT * FROM completion_photos WHERE id = ?`)
     .get(photoId) as Record<string, unknown>;
+  if (patch.imageBase64 || patch.title !== undefined) {
+    markProjectPdfStaleV1(businessProjectId, "completion");
+  }
   return rowToCompletionPhoto(updated);
 }
 
@@ -148,6 +153,7 @@ export function moveCompletionPhotoV1(
     neighbor.id,
     businessProjectId
   );
+  markProjectPdfStaleV1(businessProjectId, "completion");
   return listCompletionPhotosV1(businessProjectId);
 }
 
@@ -165,5 +171,6 @@ export function deleteCompletionPhotoV1(businessProjectId: string, photoId: stri
   const r = getDatabase()
     .prepare(`DELETE FROM completion_photos WHERE id = ? AND business_project_id = ?`)
     .run(photoId, businessProjectId);
+  if (r.changes > 0) markProjectPdfStaleV1(businessProjectId, "completion");
   return r.changes > 0;
 }

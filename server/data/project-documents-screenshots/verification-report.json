@@ -1,0 +1,22 @@
+{
+  "at": "2026-06-16T05:29:21.333Z",
+  "businessProjectId": "BIZ-DA0F458F",
+  "prefetchMs": 1377,
+  "prefetchBody": {
+    "projectId": "BIZ-DA0F458F",
+    "prefetched": [
+      "estimate"
+    ],
+    "skipped": [
+      "invoice",
+      "specification",
+      "completion"
+    ],
+    "errors": [],
+    "elapsedMs": 1373
+  },
+  "screenshots": [
+    "01-document-status-buttons.png",
+    "02-document-list.png"
+  ]
+}

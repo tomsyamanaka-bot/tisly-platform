@@ -37,6 +37,14 @@ import {
 } from "./project-pdf-qnap-store.js";
 import { getStorageSettingsV1 } from "../storage/storage-settings-store.js";
 import { isValidPdfFile } from "../business/pdf/pdf-validation.js";
+import { clearProjectPdfStaleV1, type PracticalDocKind } from "./project-pdf-stale-v1.js";
+
+const PDF_KIND_TO_PRACTICAL: Record<ProjectPdfKind, PracticalDocKind> = {
+  estimate: "estimate",
+  invoice: "invoice",
+  specification: "specification",
+  report: "completion",
+};
 
 /** 現在は local のみ。将来 qnap へ切替 */
 export type PdfStorageProvider = "local" | "qnap";
@@ -308,6 +316,8 @@ export async function regenerateProjectPdfV1(
     setCompletionReportPdfPath(project.completionReportId, pdfPath);
     saveProjectPdfWithQnapQueue(projectId, "report", pdfPath);
   }
+
+  clearProjectPdfStaleV1(projectId, PDF_KIND_TO_PRACTICAL[kind]);
 
   return entryFromPath(kind, dbPdfPath(projectId, kind), expectedStoragePath(projectId, kind));
 }

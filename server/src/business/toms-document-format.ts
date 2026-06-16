@@ -170,6 +170,28 @@ export function generateTomsDailyDocNo(
   return `${prefix}-${String(row.c + 1).padStart(3, "0")}`;
 }
 
+/**
+ * 案件番号ベース採番 — {projectNo}-001 形式（重複禁止）
+ * 例: MO-26-0616-001
+ */
+export function generateProjectScopedDocNo(
+  projectNo: string,
+  table: "business_estimates" | "business_invoices",
+  column: "estimate_no" | "invoice_no"
+): string {
+  const base = (projectNo || "DOC").trim().replace(/[/\\:*?"<>|]/g, "-");
+  let seq = 1;
+  while (seq < 1000) {
+    const candidate = `${base}-${String(seq).padStart(3, "0")}`;
+    const exists = getDatabase()
+      .prepare(`SELECT 1 FROM ${table} WHERE ${column} = ? LIMIT 1`)
+      .get(candidate);
+    if (!exists) return candidate;
+    seq += 1;
+  }
+  throw new Error(`doc number exhausted for ${base}`);
+}
+
 export function lineDescription(item: EstimateLineItem): string {
   const name = (item.name || "").trim();
   const memo = (item.memo || "").trim();

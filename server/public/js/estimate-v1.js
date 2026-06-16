@@ -7,6 +7,7 @@ import { initPracticalNav } from "./tisly-practical-nav.js";
 import { resolveProjectDisplayName } from "./project-display-name.js";
 import { friendlyHttpError, renderFriendlyErrorHtml } from "./tisly-friendly-errors.js";
 import { confirmChecklistBeforeReport } from "./field-checklist-ui.js";
+import { prefetchPdfForShare, sharePdfAsFile, triggerDownload } from "./pdf-share-v1.js";
 
 let practicalNav = null;
 let currentView = "list";
@@ -27,6 +28,9 @@ let lineTemplates = [];
 let customerSuggestTimer = null;
 let completionPhotos = [];
 let completionPendingPreviewUrls = [];
+let documentsStatus = null;
+let documentsStatusTimer = null;
+let prefetchInFlight = null;
 const completionTitleTimers = new Map();
 const completionTitleLastSaved = new Map();
 const COMPLETION_TITLE_SAVE_OK = "タイトルを保存しました";
@@ -497,10 +501,12 @@ function readHeaderForm() {
 }
 
 async function saveHeader() {
-  return api(`/projects/${currentProjectId}/header`, {
+  const result = await api(`/projects/${currentProjectId}/header`, {
     method: "PATCH",
     body: JSON.stringify(readHeaderForm()),
   });
+  scheduleDocumentsStatusRefresh();
+  return result;
 }
 
 function buildPdfUrl(kind) {
@@ -519,6 +525,155 @@ function buildPdfTabUrl(kind, token) {
   const url = buildPdfUrl(kind);
   const sep = url.includes("?") ? "&" : "?";
   return `${url}${sep}access_token=${encodeURIComponent(token)}`;
+}
+
+const DOC_STATUS_IDS = {
+  estimate: "doc-status-estimate",
+  invoice: "doc-status-invoice",
+  specification: "doc-status-specification",
+  completion: "doc-status-completion",
+};
+
+function buildPdfFetchUrl(pdfPath) {
+  const token = getCustomerToken();
+  const sep = pdfPath.includes("?") ? "&" : "?";
+  return `${pdfPath}${sep}access_token=${encodeURIComponent(token)}`;
+}
+
+function pdfAuthHeaders() {
+  return { Authorization: `Bearer ${getCustomerToken()}` };
+}
+
+function renderDocumentStatusBadges(documents) {
+  for (const doc of documents || []) {
+    const el = $(DOC_STATUS_IDS[doc.kind]);
+    if (!el) continue;
+    el.textContent = `${doc.statusIcon} ${doc.statusLabel}`;
+  }
+}
+
+function renderDocumentList(documents) {
+  const mount = $("doc-list-mount");
+  if (!mount) return;
+  if (!documents?.length) {
+    mount.innerHTML = '<p class="section-hint">書類がありません</p>';
+    return;
+  }
+  mount.innerHTML = documents
+    .map(
+      (doc) => `<div class="doc-list-row" data-doc-kind="${escapeHtml(doc.kind)}">
+        <div>
+          <strong>${escapeHtml(doc.label)}</strong>
+          <div class="doc-list-meta">${escapeHtml(doc.statusIcon)} ${escapeHtml(doc.statusLabel)}${doc.fileName ? ` · ${escapeHtml(doc.fileName)}` : ""}</div>
+        </div>
+        <div class="doc-list-actions">
+          <button type="button" data-doc-action="open" data-kind="${escapeHtml(doc.kind)}" ${doc.status === "not_created" || doc.status === "photos_missing" || doc.status === "completion_photos_missing" ? "disabled" : ""}>開く</button>
+          <button type="button" data-doc-action="share" data-kind="${escapeHtml(doc.kind)}" ${!doc.pdfUrl ? "disabled" : ""}>共有</button>
+          <button type="button" data-doc-action="save" data-kind="${escapeHtml(doc.kind)}" ${!doc.pdfUrl ? "disabled" : ""}>保存</button>
+        </div>
+      </div>`
+    )
+    .join("");
+
+  mount.querySelectorAll("[data-doc-action]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const kind = btn.getAttribute("data-kind");
+      const action = btn.getAttribute("data-doc-action");
+      if (action === "open") openDocumentViewer(kind);
+      else if (action === "share") shareDocumentFromList(kind);
+      else if (action === "save") saveDocumentFromList(kind);
+    });
+  });
+}
+
+function findDocumentStatus(kind) {
+  return documentsStatus?.documents?.find((d) => d.kind === kind) || null;
+}
+
+async function loadDocumentsStatus() {
+  if (!currentProjectId) return;
+  try {
+    const data = await api(`/projects/${currentProjectId}/documents-status`);
+    documentsStatus = data;
+    renderDocumentStatusBadges(data.documents);
+    renderDocumentList(data.documents);
+  } catch {
+    /* optional */
+  }
+}
+
+function scheduleDocumentsStatusRefresh() {
+  clearTimeout(documentsStatusTimer);
+  documentsStatusTimer = setTimeout(() => {
+    loadDocumentsStatus().catch(() => {});
+  }, 400);
+}
+
+async function prefetchProjectPdfsBackground() {
+  if (!currentProjectId || prefetchInFlight) return prefetchInFlight;
+  const docs = documentsStatus?.documents || [];
+  for (const doc of docs) {
+    if (doc.pdfUrl && doc.status !== "not_created") {
+      prefetchPdfForShare({
+        fetchUrl: buildPdfFetchUrl(doc.pdfUrl),
+        getHeaders: pdfAuthHeaders,
+        regenerateUrl: null,
+      });
+    }
+  }
+  prefetchInFlight = api(`/projects/${currentProjectId}/pdfs/prefetch`, {
+    method: "POST",
+    body: "{}",
+  })
+    .then(() => loadDocumentsStatus())
+    .catch(() => {})
+    .finally(() => {
+      prefetchInFlight = null;
+    });
+  return prefetchInFlight;
+}
+
+async function shareDocumentFromList(kind) {
+  const doc = findDocumentStatus(kind);
+  if (!doc?.pdfUrl) {
+    toast("PDFがありません");
+    return;
+  }
+  const fileName = doc.shareFileName || `${doc.label}.pdf`;
+  try {
+    await sharePdfAsFile({
+      fetchUrl: buildPdfFetchUrl(doc.pdfUrl),
+      fileName,
+      title: doc.label,
+      getHeaders: pdfAuthHeaders,
+      toast,
+    });
+    await api(`/projects/${currentProjectId}/pdf-share-log`, {
+      method: "POST",
+      body: JSON.stringify({ documentKind: doc.viewerKind || kind, fileName }),
+    }).catch(() => {});
+  } catch (e) {
+    if (e?.name !== "AbortError") toastError(e, e.status);
+  }
+}
+
+async function saveDocumentFromList(kind) {
+  const doc = findDocumentStatus(kind);
+  if (!doc?.pdfUrl) {
+    toast("PDFがありません");
+    return;
+  }
+  const fileName = doc.shareFileName || `${doc.label}.pdf`;
+  try {
+    const blob = await prefetchPdfForShare({
+      fetchUrl: buildPdfFetchUrl(doc.pdfUrl),
+      getHeaders: pdfAuthHeaders,
+    });
+    triggerDownload(blob, fileName);
+    toast("PDFを保存しました");
+  } catch (e) {
+    toastError(e, e.status);
+  }
 }
 
 const PDF_LABELS = {
@@ -1081,8 +1236,11 @@ async function uploadCompletionPhotos(files) {
   revokeCompletionPendingPreviews();
   renderCompletionPhotos();
   hidePdfPreview();
-  if (done > 0) toast(failed ? `${done}枚追加（一部失敗）` : "写真を追加しました");
-  else toast(COMPLETION_PHOTO_FAIL_MSG);
+  if (done > 0) {
+    toast(failed ? `${done}枚追加（一部失敗）` : "写真を追加しました");
+    scheduleDocumentsStatusRefresh();
+    prefetchProjectPdfsBackground();
+  } else toast(COMPLETION_PHOTO_FAIL_MSG);
 }
 
 function renderStandalonePreview() {
@@ -1277,6 +1435,8 @@ async function openDetail(projectId) {
         : "/survey-v1";
     }
     await loadCompletionPhotos();
+    await loadDocumentsStatus();
+    prefetchProjectPdfsBackground();
   } catch (e) {
     toastError(e, e.status);
     showView("list");
@@ -1285,13 +1445,15 @@ async function openDetail(projectId) {
 
 async function saveItems() {
   recalcLocal();
-  return patchItems({
+  const result = await patchItems({
     items: currentLines,
     notes: $("estimate-notes").value.trim(),
     shuseiDiscount: readShuseiDiscount(),
     shuseiDiscountMemo: $("shusei-discount-memo")?.value.trim() ?? "",
     priceRule: readSelectedPriceRule(),
   });
+  scheduleDocumentsStatusRefresh();
+  return result;
 }
 
 async function loadPending() {
@@ -1322,32 +1484,6 @@ function setListTab(tab) {
   $("tab-invoices")?.classList.toggle("active", invoices);
   refreshListTabVisibility();
   if (invoices) loadInvoices();
-}
-
-async function regenerateProjectPdf(kind) {
-  if (!currentProjectId) return;
-  const label = kind === "invoice" ? "請求書" : "見積書";
-  if (!confirm(`${label}PDFを再作成しますか？\n保存済みPDFが上書きされます。`)) return;
-  try {
-    if (kind === "estimate" || kind === "invoice") {
-      await saveHeader().catch(() => ({}));
-      await saveItems().catch(() => ({}));
-    }
-    const path =
-      kind === "invoice"
-        ? `/projects/${currentProjectId}/invoice/pdf/regenerate`
-        : `/projects/${currentProjectId}/pdf/regenerate`;
-    const result = await api(path, { method: "POST", body: "{}" });
-    toast(`${label}PDFを再作成しました`);
-    if (kind === "estimate") {
-      $("detail-status").textContent = "見積書の準備ができました";
-      $("detail-status").className = "status-badge done";
-    }
-    return result.pdfPath;
-  } catch (e) {
-    toastError(e, e.status);
-    return null;
-  }
 }
 
 async function init() {
@@ -1518,9 +1654,7 @@ async function init() {
   });
 
   $("btn-pdf-estimate").addEventListener("click", () => openDocumentViewer("estimate"));
-  $("btn-regenerate-estimate")?.addEventListener("click", () => regenerateProjectPdf("estimate"));
   $("btn-pdf-invoice").addEventListener("click", () => openDocumentViewer("invoice"));
-  $("btn-regenerate-invoice")?.addEventListener("click", () => regenerateProjectPdf("invoice"));
   $("btn-pdf-specification").addEventListener("click", () => openDocumentViewer("specification"));
   $("btn-pdf-completion").addEventListener("click", () => openDocumentViewer("completion"));
 
@@ -1642,6 +1776,11 @@ async function init() {
       toast("コピーできませんでした");
     }
   });
+
+  const deepLinkProject = new URLSearchParams(window.location.search).get("project");
+  if (deepLinkProject) {
+    await openDetail(deepLinkProject);
+  }
 }
 
 init().catch((e) => {
