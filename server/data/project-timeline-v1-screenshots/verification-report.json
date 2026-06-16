@@ -1,22 +1,57 @@
 {
-  "capturedAt": "2026-06-16T10:24:35.481Z",
-  "projectId": "BIZ-FF40278A",
-  "legacyProjectId": "BIZ-2BABD379",
+  "capturedAt": "2026-06-16T10:47:36.602Z",
+  "baseUrl": "http://127.0.0.1:58901",
+  "projectId": "BIZ-90EBE84B",
+  "legacyProjectId": "BIZ-B1A59E5A",
   "historyCounts": {
-    "total": 8,
+    "total": 9,
     "backfill": 1
   },
   "legacyBackfillCounts": {
     "total": 2,
     "backfill": 2
   },
+  "checks": {
+    "tabs": {
+      "overview": true,
+      "survey": true,
+      "estimate": true,
+      "invoice": true,
+      "specification": true,
+      "completion": true,
+      "photos": true,
+      "files": true,
+      "history": true
+    },
+    "history": {
+      "tapExpand": true,
+      "newestFirst": true,
+      "backfillLabelsVisible": true,
+      "chipEstimateActive": true,
+      "chipPersisted": true,
+      "searchZero": true,
+      "searchResetOnProjectChange": true
+    },
+    "dashboard": {
+      "returnParamOnDetail": true,
+      "backToDashboard": true,
+      "returnParamNotLeaked": true
+    },
+    "crossTab": {
+      "estimate": true,
+      "pdfSaved": true,
+      "lineShare": true,
+      "qnap": true,
+      "photo": true
+    }
+  },
   "screenshots": [
-    "01-timeline-list.png",
-    "02-timeline-search-estimate.png",
-    "03-timeline-pdf-share.png",
-    "04-timeline-qnap.png",
-    "05-timeline-legacy-backfill.png",
-    "06-timeline-search-zero.png"
+    "01-detail-overview.png",
+    "02-history-list.png",
+    "03-history-filter-estimate.png",
+    "04-history-filter-qnap.png",
+    "05-history-search-zero.png",
+    "06-back-to-dashboard.png"
   ],
   "outputDir": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\project-timeline-v1-screenshots"
 }
