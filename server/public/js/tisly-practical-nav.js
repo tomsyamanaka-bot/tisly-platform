@@ -5,7 +5,8 @@ const BOTTOM_ITEMS = [
   { id: "survey_v1", label: "現調", icon: "📋", href: "/survey-v1" },
   { id: "estimate_v1", label: "見積", icon: "💰", href: "/estimate-v1" },
   { id: "billing_v1", label: "請求", icon: "🧾", href: "/estimate-v1" },
-  { id: "projects_v1", label: "案件", icon: "📂", href: "/projects-v1" },
+  { id: "project_mgmt_v1", label: "案件管理", icon: "📋", href: "/project-mgmt-v1" },
+  { id: "projects_v1", label: "現場", icon: "📂", href: "/projects-v1" },
   { id: "field_check_v1", label: "材料", icon: "🎒", href: "/field-check-v1" },
   { id: "purchase_v1", label: "発注", icon: "📦", href: "/purchase-v1" },
 ];

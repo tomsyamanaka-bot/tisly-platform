@@ -53,17 +53,30 @@ import type {
 } from "./business-types.js";
 import { generateQnapProjectPath } from "./services/qnapService.js";
 import { appendProjectTimeline } from "../toms/project-timeline.js";
+import {
+  allocateProjectNoV1,
+  buildQnapFolderPathV1,
+  resolveCityCodeForProject,
+} from "../projects/project-id-v1.js";
 
 let projectNoSeq = 0;
 
-function nextProjectNo(): string {
-  const year = new Date().getFullYear();
-  projectNoSeq += 1;
-  const row = getDatabase()
-    .prepare(`SELECT COUNT(*) as c FROM business_projects WHERE project_no LIKE ?`)
-    .get(`PRJ-${year}-%`) as { c: number };
-  const n = (row?.c ?? 0) + projectNoSeq;
-  return `PRJ-${year}-${String(n).padStart(4, "0")}`;
+function nextProjectNo(input?: { municipality?: string; address?: string }): string {
+  const cityCode = resolveCityCodeForProject({
+    municipality: input?.municipality,
+    address: input?.address,
+  });
+  try {
+    return allocateProjectNoV1(cityCode);
+  } catch {
+    projectNoSeq += 1;
+    const year = new Date().getFullYear();
+    const row = getDatabase()
+      .prepare(`SELECT COUNT(*) as c FROM business_projects WHERE project_no LIKE ?`)
+      .get(`PRJ-${year}-%`) as { c: number };
+    const n = (row?.c ?? 0) + projectNoSeq;
+    return `PRJ-${year}-${String(n).padStart(4, "0")}`;
+  }
 }
 
 function parseJson<T>(raw: string | null | undefined, fallback: T): T {
@@ -103,6 +116,10 @@ function rowToProject(r: Record<string, unknown>): BusinessProject {
     paidDate: r.paid_date != null ? String(r.paid_date) : null,
     qnapBasePath: String(r.qnap_base_path ?? ""),
     surveyProjectId: r.survey_project_id != null ? String(r.survey_project_id) : null,
+    municipality: String(r.municipality ?? ""),
+    assignee: String(r.assignee ?? ""),
+    qnapFolderPath: String(r.qnap_folder_path ?? ""),
+    qnapSyncStatus: String(r.qnap_sync_status ?? "pending"),
     standaloneDocKind:
       r.standalone_doc_kind === "estimate" || r.standalone_doc_kind === "invoice"
         ? (r.standalone_doc_kind as "estimate" | "invoice")
@@ -138,11 +155,14 @@ export function createBusinessProject(input: {
   title: string;
   address?: string;
   phone?: string;
+  municipality?: string;
+  assignee?: string;
   surveyProjectId?: string;
 }): BusinessProject {
   const id = `BIZ-${uuid().slice(0, 8).toUpperCase()}`;
-  const projectNo = nextProjectNo();
+  const projectNo = nextProjectNo({ municipality: input.municipality, address: input.address });
   const now = new Date().toISOString();
+  const qnapFolderPath = buildQnapFolderPathV1(projectNo);
   const stub = {
     id,
     projectNo,
@@ -159,11 +179,13 @@ export function createBusinessProject(input: {
     .prepare(
       `INSERT INTO business_projects (
         id, project_no, customer_id, customer_name, title, address, phone, status,
+        municipality, assignee, qnap_folder_path, qnap_sync_status,
         survey_schedule_json, survey_memo, survey_photos_json, estimate_id,
         construction_schedule_json, required_materials, construction_memo, construction_photos_json,
         completion_report_id, invoice_id, payment_due_date, paid_date, qnap_base_path,
         survey_project_id, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, 'new', NULL, '', '[]', NULL, NULL, '', '', '[]', NULL, NULL, NULL, NULL, ?, ?, ?, ?)`
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, 'new', ?, ?, ?, 'pending',
+        NULL, '', '[]', NULL, NULL, '', '', '[]', NULL, NULL, NULL, NULL, ?, ?, ?, ?)`
     )
     .run(
       id,
@@ -173,6 +195,9 @@ export function createBusinessProject(input: {
       input.title,
       input.address ?? "",
       input.phone ?? "",
+      input.municipality?.trim() ?? "",
+      input.assignee?.trim() ?? "",
+      qnapFolderPath,
       qnapBasePath,
       input.surveyProjectId ?? null,
       now,

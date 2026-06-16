@@ -115,6 +115,12 @@ export interface BusinessProject {
   paidDate: string | null;
   qnapBasePath: string;
   surveyProjectId: string | null;
+  municipality: string;
+  assignee: string;
+  /** 将来 QNAP 連携用 — 例: /案件/MO-26-0616-001/ */
+  qnapFolderPath: string;
+  /** 将来 QNAP 連携用 — pending | synced | error */
+  qnapSyncStatus: string;
   standaloneDocKind: "estimate" | "invoice" | null;
   createdAt: string;
   updatedAt: string;

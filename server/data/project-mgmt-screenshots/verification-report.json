@@ -1,0 +1,10 @@
+{
+  "capturedAt": "2026-06-16T06:39:08.588Z",
+  "baseUrl": "http://127.0.0.1:3081",
+  "screenshots": [
+    "01-project-mgmt-list.png",
+    "02-project-mgmt-create-form.png",
+    "03-project-mgmt-detail-overview.png",
+    "04-project-mgmt-detail-estimate-tab.png"
+  ]
+}

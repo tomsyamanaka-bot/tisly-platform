@@ -404,7 +404,7 @@ describe("日程調整 PWA v1 API", () => {
     const idxSurvey = res.text.indexOf('label: "現調"');
     const idxEstimate = res.text.indexOf('label: "見積"');
     const idxBilling = res.text.indexOf('label: "請求"');
-    const idxProjects = res.text.indexOf('label: "案件"');
+    const idxProjects = res.text.indexOf('label: "案件管理"');
     assert.ok(idxSchedule >= 0 && idxSurvey > idxSchedule);
     assert.ok(idxEstimate > idxSurvey);
     assert.ok(idxBilling > idxEstimate);

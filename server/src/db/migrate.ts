@@ -213,6 +213,7 @@ export function runMigrations(database: Database.Database): void {
   migrateSurveyIpEquipmentV1(database);
   migrateFieldChecklistV1(database);
   migrateProjectDocumentsV1(database);
+  migrateProjectMgmtV1(database);
 }
 
 /** 案件一覧 v1 — 論理削除 deleted_at */
@@ -3368,4 +3369,73 @@ function migrateProjectDocumentsV1(database: Database.Database): void {
       `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
     )
     .run("migration:project_documents_v1", JSON.stringify({ at: new Date().toISOString() }));
+}
+
+/** 案件管理基盤 v1 — 市コード・案件ID採番・マスター拡張 */
+function migrateProjectMgmtV1(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:project_mgmt_v1") as { value_json: string } | undefined;
+  if (marker) return;
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS project_city_codes (
+      city_code TEXT PRIMARY KEY,
+      city_name TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS project_no_sequences (
+      city_code TEXT NOT NULL,
+      date_key TEXT NOT NULL,
+      last_seq INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (city_code, date_key),
+      FOREIGN KEY (city_code) REFERENCES project_city_codes(city_code)
+    );
+    CREATE INDEX IF NOT EXISTS idx_project_no_sequences_date
+      ON project_no_sequences(date_key);
+  `);
+
+  addColumnsIfMissing(database, "business_projects", [
+    {
+      name: "municipality",
+      ddl: "ALTER TABLE business_projects ADD COLUMN municipality TEXT DEFAULT ''",
+    },
+    {
+      name: "assignee",
+      ddl: "ALTER TABLE business_projects ADD COLUMN assignee TEXT DEFAULT ''",
+    },
+    {
+      name: "qnap_folder_path",
+      ddl: "ALTER TABLE business_projects ADD COLUMN qnap_folder_path TEXT DEFAULT ''",
+    },
+    {
+      name: "qnap_sync_status",
+      ddl: "ALTER TABLE business_projects ADD COLUMN qnap_sync_status TEXT DEFAULT 'pending'",
+    },
+  ]);
+
+  const seedCities: Array<[string, string, number]> = [
+    ["MO", "守谷市", 0],
+    ["JY", "常総市", 1],
+    ["TS", "つくば市", 2],
+    ["TM", "つくばみらい市", 3],
+  ];
+  const insertCity = database.prepare(
+    `INSERT OR IGNORE INTO project_city_codes (city_code, city_name, sort_order, active)
+     VALUES (?, ?, ?, 1)`
+  );
+  for (const [code, name, order] of seedCities) {
+    insertCity.run(code, name, order);
+  }
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:project_mgmt_v1", JSON.stringify({ at: new Date().toISOString() }));
 }

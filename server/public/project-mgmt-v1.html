@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#4f6fa8" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>TiSLY — 案件管理</title>
+  <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
+  <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
+  <link rel="stylesheet" href="/css/field-ops-mobile.css" />
+  <style>
+    .mgmt-toolbar { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.75rem; }
+    .mgmt-toolbar input, .mgmt-toolbar select {
+      width: 100%; min-height: 44px; padding: 0.5rem 0.75rem; border-radius: 10px;
+      border: 1px solid #cbd5e1; font-size: 0.95rem;
+    }
+    .mgmt-list { display: flex; flex-direction: column; gap: 0.55rem; }
+    .mgmt-card {
+      border: 1px solid #e2e8f0; border-radius: 12px; padding: 0.75rem;
+      background: #fff; cursor: pointer;
+    }
+    .mgmt-card:active { background: #f8fafc; }
+    .mgmt-card-head { display: flex; justify-content: space-between; gap: 0.5rem; align-items: flex-start; }
+    .mgmt-id { font-family: ui-monospace, monospace; font-size: 0.82rem; color: #475569; font-weight: 700; }
+    .mgmt-status {
+      font-size: 0.72rem; font-weight: 700; padding: 0.2rem 0.45rem; border-radius: 999px;
+      background: #eff6ff; color: #1d4ed8; white-space: nowrap;
+    }
+    .mgmt-title { font-weight: 700; margin: 0.35rem 0 0.15rem; font-size: 0.95rem; }
+    .mgmt-meta { font-size: 0.8rem; color: #64748b; line-height: 1.45; }
+    .btn-new-project {
+      display: block; width: 100%; min-height: 48px; margin-bottom: 0.75rem;
+      border-radius: 12px; border: none; background: var(--tisly-blue, #4f6fa8);
+      color: #fff; font-weight: 700; font-size: 1rem; cursor: pointer;
+    }
+    .create-panel {
+      border: 1px solid #e2e8f0; border-radius: 12px; padding: 0.85rem; margin-bottom: 0.75rem;
+      background: #f8fafc;
+    }
+    .create-panel.hidden { display: none; }
+    .create-panel label { display: block; font-size: 0.78rem; color: #64748b; margin: 0.45rem 0 0.2rem; }
+    .create-panel input, .create-panel select {
+      width: 100%; min-height: 42px; border-radius: 8px; border: 1px solid #cbd5e1; padding: 0.4rem 0.6rem;
+    }
+    .create-actions { display: flex; gap: 0.5rem; margin-top: 0.65rem; }
+    .create-actions button { flex: 1; min-height: 44px; border-radius: 10px; font-weight: 700; cursor: pointer; }
+    .btn-cancel { border: 1px solid #cbd5e1; background: #fff; }
+    .btn-save { border: none; background: var(--tisly-blue, #4f6fa8); color: #fff; }
+    .empty-hint { text-align: center; color: #94a3b8; padding: 2rem 0.5rem; font-size: 0.9rem; }
+  </style>
+</head>
+<body class="tisly-friendly">
+  <main class="app-main">
+    <p class="section-label">📋 案件管理</p>
+    <p class="section-hint">現調 → 見積 → 請求 → 完了報告を案件単位で管理</p>
+
+    <button type="button" class="btn-new-project" id="btn-toggle-create">＋ 新規案件</button>
+
+    <div class="create-panel hidden" id="create-panel">
+      <h3 style="margin:0 0 0.35rem;font-size:0.95rem;">新規案件作成</h3>
+      <label for="create-city">市区町村</label>
+      <select id="create-city"></select>
+      <label for="create-title">案件名 *</label>
+      <input id="create-title" type="text" placeholder="防犯カメラ設置工事" />
+      <label for="create-customer">顧客名 *</label>
+      <input id="create-customer" type="text" placeholder="山田 太郎 様" />
+      <label for="create-phone">電話番号</label>
+      <input id="create-phone" type="tel" placeholder="090-0000-0000" />
+      <label for="create-address">住所</label>
+      <input id="create-address" type="text" placeholder="茨城県守谷市…" />
+      <label for="create-assignee">担当者</label>
+      <input id="create-assignee" type="text" placeholder="山中" />
+      <div class="create-actions">
+        <button type="button" class="btn-cancel" id="btn-cancel-create">キャンセル</button>
+        <button type="button" class="btn-save" id="btn-save-create">作成</button>
+      </div>
+    </div>
+
+    <div class="mgmt-toolbar">
+      <input type="search" id="search-q" placeholder="案件ID・顧客名・住所で検索" autocomplete="off" />
+      <select id="filter-status">
+        <option value="">すべての状態</option>
+        <option value="inquiry">問い合わせ</option>
+        <option value="survey_scheduled">現調予定</option>
+        <option value="estimate_submitted">見積提出</option>
+        <option value="ordered">受注</option>
+        <option value="construction_scheduled">施工予定</option>
+        <option value="construction_in_progress">施工中</option>
+        <option value="work_completed">完了</option>
+        <option value="invoiced">請求済</option>
+        <option value="paid">入金済</option>
+      </select>
+    </div>
+
+    <div class="mgmt-list" id="project-list" aria-live="polite"></div>
+    <p class="empty-hint hidden" id="empty-hint">案件がありません</p>
+  </main>
+  <div id="toast" class="toast" role="status"></div>
+  <script type="module" src="/js/project-mgmt-v1.js"></script>
+</body>
+</html>
