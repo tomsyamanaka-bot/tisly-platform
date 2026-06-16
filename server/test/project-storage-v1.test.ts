@@ -102,7 +102,7 @@ describe("QNAP連携 v1 — project-storage mock", () => {
     assert.equal(res.status, 200);
     assert.ok(res.body.qnapFolderPath.includes("/案件/"));
     assert.equal(res.body.qnapSyncStatus, "pending");
-    assert.equal(res.body.qnapSyncLabel, "未同期");
+    assert.equal(res.body.qnapSyncLabel, "未保存");
     assert.equal(res.body.folders.length, 8);
     assert.equal(res.body.files.length, 0);
     assert.equal(res.body.documents.length, 4);

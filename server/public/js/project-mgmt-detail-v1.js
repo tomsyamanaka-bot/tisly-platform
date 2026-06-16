@@ -200,11 +200,11 @@ async function storagePost(projectId, path, body) {
   return data;
 }
 
-function documentViewerHref(projectId, viewerKind) {
+function documentViewerHref(projectId, viewerKind, tabHint) {
   const params = new URLSearchParams({
     projectId,
     kind: viewerKind,
-    return: `${window.location.pathname}${window.location.search}`,
+    return: buildDetailReturnUrl(tabHint || activeTab),
   });
   return `/document-viewer-v1.html?${params}`;
 }
@@ -268,9 +268,56 @@ function cardTabForKey(key) {
 }
 
 function qnapSyncBadge(projectStatus) {
-  if (projectStatus === "synced") return { icon: "🟢", label: "同期済" };
+  if (projectStatus === "synced") return { icon: "🟢", label: "QNAP保存済" };
   if (projectStatus === "error") return { icon: "🔴", label: "エラー" };
-  return { icon: "🟡", label: "未同期" };
+  return { icon: "🟡", label: "未保存" };
+}
+
+function renderDocumentStatusSummary() {
+  const docs = detail.documentsStatus?.documents ?? [];
+  if (!docs.length) return `<p class="section-hint">書類状態を取得できません</p>`;
+  const rows = docs
+    .map(
+      (d) => `
+    <div class="doc-status-row">
+      <span class="doc-status-icon">${d.statusIcon}</span>
+      <span class="doc-status-label">${escapeHtml(d.label)}</span>
+      <span class="doc-status-value">${escapeHtml(d.statusLabel)}</span>
+    </div>`
+    )
+    .join("");
+  return `<div class="doc-status-grid">${rows}</div>`;
+}
+
+function renderRecentHistory(limit = 3) {
+  const items = (detail.timeline ?? []).slice(0, limit);
+  if (!items.length) {
+    return `<p class="section-hint">まだ履歴がありません</p>`;
+  }
+  const rows = items
+    .map(
+      (e) => `
+    <div class="recent-history-row">
+      <span class="recent-history-date">${escapeHtml(e.dateGroup || e.date?.slice(0, 10) || "—")}</span>
+      <span class="recent-history-title">${escapeHtml(e.title)}</span>
+    </div>`
+    )
+    .join("");
+  return `
+    <div class="recent-history-list">${rows}</div>
+    <div class="btn-row">
+      <button type="button" class="primary" id="btn-open-history">履歴をすべて見る</button>
+    </div>`;
+}
+
+function renderQnapStatusSummary(p) {
+  const qnap = qnapSyncBadge(p.qnapSyncStatus);
+  return `
+    <div class="qnap-status-summary">
+      <span class="qnap-status-icon">${qnap.icon}</span>
+      <span class="qnap-status-label">${escapeHtml(qnap.label)}</span>
+    </div>
+    <p class="qnap-path-hint">${escapeHtml(p.qnapFolderPath || "—")}</p>`;
 }
 
 function resolveDashboardReturnUrl() {
@@ -280,9 +327,89 @@ function resolveDashboardReturnUrl() {
   return "/project-dashboard-v1";
 }
 
-function renderDashboardBackLink() {
-  const href = resolveDashboardReturnUrl();
-  return `<a href="${escapeHtml(href)}" class="dash-back-link">← ダッシュボードへ戻る</a>`;
+function resolveListReturnUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const ret = params.get("listReturn");
+  if (ret && ret.startsWith("/")) return ret;
+  return "/project-mgmt-v1";
+}
+
+function buildDetailReturnUrl(tab) {
+  const params = new URLSearchParams(window.location.search);
+  if (tab) params.set("tab", tab);
+  return `${window.location.pathname}?${params}`;
+}
+
+function renderBackLinks() {
+  const dashHref = resolveDashboardReturnUrl();
+  const listHref = resolveListReturnUrl();
+  return `
+    <nav class="detail-back-nav" aria-label="戻る">
+      <a href="${escapeHtml(dashHref)}" class="dash-back-link">← ダッシュボード</a>
+      <a href="${escapeHtml(listHref)}" class="dash-back-link dash-back-link-secondary">← 案件一覧</a>
+    </nav>`;
+}
+
+function docEntryForKind(kind) {
+  return (detail.documentsStatus?.documents ?? []).find((d) => d.kind === kind);
+}
+
+function tabBadgeForTab(tabId) {
+  const docs = detail.documentsStatus?.documents ?? [];
+  const qnap = detail.project.qnapSyncStatus;
+  switch (tabId) {
+    case "survey": {
+      const card = (detail.workflowCards ?? []).find((c) => c.key === "survey");
+      return card ? `${card.stateIcon}` : "";
+    }
+    case "estimate":
+      return docEntryForKind("estimate")?.statusIcon ?? "";
+    case "invoice":
+      return docEntryForKind("invoice")?.statusIcon ?? "";
+    case "specification":
+      return docEntryForKind("specification")?.statusIcon ?? "";
+    case "completion":
+      return docEntryForKind("completion")?.statusIcon ?? "";
+    case "photos": {
+      const spec = docEntryForKind("specification");
+      const comp = docEntryForKind("completion");
+      if (spec?.status === "photos_missing" || comp?.status === "completion_photos_missing") {
+        return "📷";
+      }
+      return "";
+    }
+    case "files":
+      if (qnap === "synced") return "🟢";
+      if (qnap === "error") return "🔴";
+      return "🟡";
+    default:
+      return "";
+  }
+}
+
+function renderNextActionsCard() {
+  const actions = detail.nextActions ?? [];
+  if (!actions.length) {
+    return `
+      <section class="next-actions-card next-actions-done" aria-label="次にやること">
+        <h2 class="next-actions-title">次にやること</h2>
+        <p class="next-actions-empty">✅ すべて完了しています</p>
+      </section>`;
+  }
+  const items = actions
+    .map(
+      (a) => `
+    <button type="button" class="next-action-item" data-next-tab="${escapeHtml(a.tab || "")}" data-next-href="${escapeHtml(a.href || "")}">
+      <span class="next-action-icon">${a.icon}</span>
+      <span class="next-action-label">${escapeHtml(a.label)}</span>
+    </button>`
+    )
+    .join("");
+  return `
+    <section class="next-actions-card" aria-label="次にやること">
+      <h2 class="next-actions-title">次にやること</h2>
+      <div class="next-actions-list">${items}</div>
+    </section>`;
 }
 
 function renderDashboard(p) {
@@ -299,17 +426,13 @@ function renderDashboard(p) {
     .join("");
 
   return `
-    ${renderDashboardBackLink()}
-    <section class="dash-meta" aria-label="案件ダッシュボード">
-      <dl class="dash-info-grid">
-        <dt>案件ID</dt><dd>${escapeHtml(p.projectNo)}</dd>
-        <dt>ステータス</dt><dd><span class="detail-status">${escapeHtml(p.mgmtStatusLabel)}</span></dd>
-        <dt>顧客名</dt><dd>${escapeHtml(p.customerName)}</dd>
-        <dt>現場住所</dt><dd>${escapeHtml(p.address || "—")}</dd>
-        <dt>担当者</dt><dd>${escapeHtml(p.assignee || "—")}</dd>
-        <dt>作成日</dt><dd>${formatDate(p.createdAt)}</dd>
-        <dt>更新日</dt><dd>${formatDate(p.updatedAt)}</dd>
-      </dl>
+    ${renderBackLinks()}
+    <header class="detail-header">
+      <h1 class="detail-title">${escapeHtml(p.customerName)}</h1>
+      <p class="detail-subtitle">${escapeHtml(p.title)} · ${escapeHtml(p.projectNo)}</p>
+    </header>
+    ${renderNextActionsCard()}
+    <section class="dash-meta" aria-label="ワークフロー">
       <div class="wf-card-grid">${cards}</div>
     </section>`;
 }
@@ -336,36 +459,72 @@ function renderOverview(p) {
     ([v, l]) =>
       `<option value="${v}"${p.mgmtStatus === v ? " selected" : ""}>${escapeHtml(l)}</option>`
   ).join("");
+  const todayActions = (detail.nextActions ?? [])
+    .slice(0, 3)
+    .map((a) => `<li>${a.icon} ${escapeHtml(a.label)}</li>`)
+    .join("");
+  const todayBlock = todayActions
+    ? `<ul class="today-actions-list">${todayActions}</ul>`
+    : `<p class="section-hint">✅ 今日のタスクはありません</p>`;
+
   return `
-    ${renderShareHistory()}
-    <dl class="info-grid">
-      <dt>電話</dt><dd>${escapeHtml(p.phone || "—")}</dd>
-      <dt>市区町村</dt><dd>${escapeHtml(p.municipality || "—")}</dd>
-    </dl>
-    <div class="edit-field" style="margin-top:0.75rem;">
-      <label for="edit-status">状態</label>
-      <select id="edit-status">${statusOpts}</select>
-    </div>
-    <div class="edit-field">
-      <label for="edit-title">案件名</label>
-      <input id="edit-title" type="text" value="${escapeHtml(p.title)}" />
-    </div>
-    <div class="edit-field">
-      <label for="edit-customer">顧客名</label>
-      <input id="edit-customer" type="text" value="${escapeHtml(p.customerName)}" />
-    </div>
-    <div class="edit-field">
-      <label for="edit-assignee">担当者</label>
-      <input id="edit-assignee" type="text" value="${escapeHtml(p.assignee || "")}" />
-    </div>
-    <div class="btn-row">
-      <button type="button" class="primary" id="btn-save-overview">保存</button>
-      <a href="${escapeHtml(detail.fieldOpsHref)}">現場パイプライン</a>
-    </div>
-    <p class="future-field">QNAP: ${escapeHtml(p.qnapFolderPath || "—")}</p>
-    <div class="btn-row">
-      <button type="button" class="btn-danger" id="btn-delete-project">案件を削除</button>
-    </div>`;
+    <section class="overview-section">
+      <h3 class="section-sub">基本情報</h3>
+      <dl class="info-grid overview-info-grid">
+        <dt>案件ID</dt><dd>${escapeHtml(p.projectNo)}</dd>
+        <dt>顧客名</dt><dd>${escapeHtml(p.customerName)}</dd>
+        <dt>現場名</dt><dd>${escapeHtml(p.title)}</dd>
+        <dt>住所</dt><dd>${escapeHtml(p.address || "—")}</dd>
+        <dt>担当</dt><dd>${escapeHtml(p.assignee || "—")}</dd>
+        <dt>ステータス</dt><dd><span class="detail-status">${escapeHtml(p.mgmtStatusLabel)}</span></dd>
+      </dl>
+    </section>
+    <section class="overview-section">
+      <h3 class="section-sub">今日やること</h3>
+      ${todayBlock}
+    </section>
+    <section class="overview-section">
+      <h3 class="section-sub">最近の履歴</h3>
+      ${renderRecentHistory(3)}
+    </section>
+    <section class="overview-section">
+      <h3 class="section-sub">書類状態</h3>
+      ${renderDocumentStatusSummary()}
+    </section>
+    <section class="overview-section">
+      <h3 class="section-sub">QNAP保存状態</h3>
+      ${renderQnapStatusSummary(p)}
+    </section>
+    <section class="overview-section overview-edit">
+      <h3 class="section-sub">編集</h3>
+      <dl class="info-grid">
+        <dt>電話</dt><dd>${escapeHtml(p.phone || "—")}</dd>
+        <dt>市区町村</dt><dd>${escapeHtml(p.municipality || "—")}</dd>
+      </dl>
+      <div class="edit-field" style="margin-top:0.75rem;">
+        <label for="edit-status">状態</label>
+        <select id="edit-status">${statusOpts}</select>
+      </div>
+      <div class="edit-field">
+        <label for="edit-title">案件名</label>
+        <input id="edit-title" type="text" value="${escapeHtml(p.title)}" />
+      </div>
+      <div class="edit-field">
+        <label for="edit-customer">顧客名</label>
+        <input id="edit-customer" type="text" value="${escapeHtml(p.customerName)}" />
+      </div>
+      <div class="edit-field">
+        <label for="edit-assignee">担当者</label>
+        <input id="edit-assignee" type="text" value="${escapeHtml(p.assignee || "")}" />
+      </div>
+      <div class="btn-row">
+        <button type="button" class="primary" id="btn-save-overview">保存</button>
+        <a href="${escapeHtml(detail.fieldOpsHref)}">現場パイプライン</a>
+      </div>
+      <div class="btn-row">
+        <button type="button" class="btn-danger" id="btn-delete-project">案件を削除</button>
+      </div>
+    </section>`;
 }
 
 function timelineCategoryClass(category, eventType) {
@@ -544,16 +703,21 @@ function findPdfEntry(pdfKind) {
   return (detail.documents || []).find((d) => d.kind === pdfKind);
 }
 
-function renderDocTabActions(pdfKind, viewerKind, storageKind) {
+function renderDocTabActions(pdfKind, viewerKind, storageKind, docKind) {
   const entry = findPdfEntry(pdfKind);
+  const statusEntry = docKind ? docEntryForKind(docKind) : null;
+  const statusLine = statusEntry
+    ? `<p class="doc-tab-status">${statusEntry.statusIcon} ${escapeHtml(statusEntry.statusLabel)}</p>`
+    : "";
   if (!entry?.exists) {
-    return `<p class="storage-file-empty">PDF未保存 — 作成後にここから開けます</p>`;
+    return `${statusLine}<p class="storage-file-empty">PDF未保存 — 作成後にここから開けます</p>`;
   }
   const displayName = entry.fileName || `${pdfKind}.pdf`;
   const resaveKind = storageKind || pdfKind;
   return `
+    ${statusLine}
     <div class="storage-file-actions doc-tab-actions">
-      <a class="storage-action-btn primary" href="${escapeHtml(documentViewerHref(detail.project.id, viewerKind))}">開く</a>
+      <a class="storage-action-btn primary" href="${escapeHtml(documentViewerHref(detail.project.id, viewerKind, activeTab))}">開く</a>
       <button type="button" class="storage-action-btn" data-storage-share="${escapeHtml(pdfKind)}" data-share-name="${escapeHtml(displayName)}">共有</button>
       <button type="button" class="storage-action-btn" data-storage-resave="${escapeHtml(resaveKind)}">保存し直す</button>
     </div>`;
@@ -582,7 +746,7 @@ function renderSpecificationTab() {
   return `
     <p class="section-hint">${escapeHtml(photoHint)}</p>
     <h3 class="section-sub">仕様書</h3>
-    ${renderDocTabActions("specification", "specification", "specification")}
+    ${renderDocTabActions("specification", "specification", "specification", "specification")}
     ${specEntry?.exists ? "" : `<div class="btn-row"><a class="primary" href="${escapeHtml(s.href || "/survey-v1")}">現調から仕様書を作成</a></div>`}`;
 }
 
@@ -594,7 +758,7 @@ function renderEstimateTab() {
       <span>${e.linked ? `${escapeHtml(e.estimateNo || "")} · ${formatYen(e.total)}` : "未作成"}</span>
     </a>
     <h3 class="section-sub">見積書</h3>
-    ${renderDocTabActions("estimate", "estimate", "estimate")}
+    ${renderDocTabActions("estimate", "estimate", "estimate", "estimate")}
     <div class="btn-row"><a class="primary" href="${escapeHtml(e.href)}">見積PWAを開く</a></div>`;
 }
 
@@ -606,7 +770,7 @@ function renderInvoiceTab() {
       <span>${inv.linked ? `${escapeHtml(inv.invoiceNo || "")} · ${formatYen(inv.total)}` : "未作成"}</span>
     </a>
     <h3 class="section-sub">請求書</h3>
-    ${renderDocTabActions("invoice", "invoice", "invoice")}
+    ${renderDocTabActions("invoice", "invoice", "invoice", "invoice")}
     <div class="btn-row"><a class="primary" href="${escapeHtml(inv.href)}">請求を開く</a></div>`;
 }
 
@@ -618,7 +782,7 @@ function renderCompletionTab() {
       <span>${c.linked ? "作成済み" : "未作成"}</span>
     </a>
     <h3 class="section-sub">完了報告書</h3>
-    ${renderDocTabActions("report", "completion-report", "report")}
+    ${renderDocTabActions("report", "completion-report", "report", "completion")}
     <div class="btn-row"><a class="primary" href="${escapeHtml(c.href || detail.fieldOpsHref)}">完了報告を見る</a></div>`;
 }
 
@@ -654,12 +818,12 @@ function renderFilesTab() {
       const qnap = saved
         ? qnapSyncBadge(projectQnap)
         : qnapSyncBadge(doc.saveStatus === "error" ? "error" : "pending");
-      const status = `${doc.saveStatusIcon || "🟡"} ${escapeHtml(doc.saveStatusLabel || "未保存")} · ${qnap.icon} QNAP ${escapeHtml(qnap.label)}`;
+      const status = `${doc.saveStatusIcon || "🟡"} ${escapeHtml(doc.saveStatusLabel || "未保存")} · ${qnap.icon} ${escapeHtml(qnap.label)}`;
       const canOpen = saved || doc.hasLocalPdf;
       const actions = canOpen
         ? `
       <div class="storage-file-actions">
-        <a class="storage-action-btn primary" href="${escapeHtml(documentViewerHref(projectId, doc.viewerKind))}">開く</a>
+        <a class="storage-action-btn primary" href="${escapeHtml(documentViewerHref(projectId, doc.viewerKind, "files"))}">開く</a>
         <button type="button" class="storage-action-btn" data-storage-share="${escapeHtml(doc.pdfKind || doc.kind)}" data-share-name="${escapeHtml(displayName)}">共有</button>
         <button type="button" class="storage-action-btn" data-storage-resave="${escapeHtml(doc.kind)}">保存し直す</button>
       </div>`
@@ -797,10 +961,11 @@ function render() {
   const root = document.getElementById("detail-root");
   if (!detail || !root) return;
   const p = detail.project;
-  const tabsHtml = TABS.map(
-    (t) =>
-      `<button type="button" class="detail-tab${activeTab === t.id ? " active" : ""}" data-tab="${t.id}">${t.label}</button>`
-  ).join("");
+  const tabsHtml = TABS.map((t) => {
+    const badge = tabBadgeForTab(t.id);
+    const badgeHtml = badge ? `<span class="tab-badge">${badge}</span>` : "";
+    return `<button type="button" class="detail-tab${activeTab === t.id ? " active" : ""}" data-tab="${t.id}">${t.label}${badgeHtml}</button>`;
+  }).join("");
 
   root.innerHTML = `
     ${renderDashboard(p)}
@@ -833,6 +998,22 @@ function render() {
       activeTab = cardTabForKey(key);
       render();
       bindActions();
+    });
+  });
+
+  root.querySelectorAll(".next-action-item").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const href = btn.getAttribute("data-next-href");
+      const tab = btn.getAttribute("data-next-tab");
+      if (href) {
+        window.location.href = href;
+        return;
+      }
+      if (tab) {
+        activeTab = tab;
+        render();
+        bindActions();
+      }
     });
   });
 
@@ -973,6 +1154,12 @@ function bindStorageFolders() {
 }
 
 function bindActions() {
+  document.getElementById("btn-open-history")?.addEventListener("click", () => {
+    activeTab = "history";
+    render();
+    bindActions();
+  });
+
   document.getElementById("btn-save-overview")?.addEventListener("click", async () => {
     try {
       const body = {

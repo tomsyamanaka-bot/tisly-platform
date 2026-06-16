@@ -1,0 +1,29 @@
+{
+  "capturedAt": "2026-06-16T13:29:41.454Z",
+  "viewport": "390x844",
+  "baseUrl": "http://127.0.0.1:59681",
+  "projectId": "BIZ-42463C78",
+  "nextActions": [
+    "見積未作成",
+    "請求未作成",
+    "QNAP未保存",
+    "写真不足"
+  ],
+  "navChecks": {
+    "dashboardBack": true,
+    "listBack": true,
+    "dashboardRoundTrip": true,
+    "viewerReturnToFilesTab": true,
+    "historyTabBack": true
+  },
+  "screenshots": [
+    "01-detail-overview.png",
+    "02-next-actions.png",
+    "03-document-status.png",
+    "04-qnap-status.png",
+    "05-history-summary.png",
+    "06-back-navigation.png"
+  ],
+  "outputDir": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\project-detail-v1-screenshots",
+  "allOk": true
+}

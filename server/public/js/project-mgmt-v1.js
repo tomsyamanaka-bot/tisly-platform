@@ -88,7 +88,7 @@ function renderList(projects) {
   list.querySelectorAll(".mgmt-card").forEach((card) => {
     const open = () => {
       const id = card.getAttribute("data-id");
-      window.location.href = `/project-mgmt-detail-v1?projectId=${encodeURIComponent(id)}`;
+      window.location.href = `/project-mgmt-detail-v1?projectId=${encodeURIComponent(id)}&listReturn=${encodeURIComponent("/project-mgmt-v1")}`;
     };
     card.addEventListener("click", open);
     card.addEventListener("keydown", (e) => {
@@ -176,7 +176,7 @@ async function saveCreate() {
   const data = await api("/projects", { method: "POST", body: JSON.stringify(body) });
   toast(`案件 ${data.project.projectNo} を作成しました`);
   toggleCreate(false);
-  window.location.href = `/project-mgmt-detail-v1?projectId=${encodeURIComponent(data.project.id)}`;
+  window.location.href = `/project-mgmt-detail-v1?projectId=${encodeURIComponent(data.project.id)}&listReturn=${encodeURIComponent("/project-mgmt-v1")}`;
 }
 
 async function main() {

@@ -168,6 +168,9 @@ describe("案件管理基盤 v1", () => {
     assert.ok(Array.isArray(detail.body.workflowCards));
     assert.equal(detail.body.workflowCards.length, 5);
     assert.ok(detail.body.workflowCards.some((c: { key: string }) => c.key === "survey"));
+    assert.ok(Array.isArray(detail.body.nextActions));
+    assert.ok(detail.body.nextActions.some((a: { label: string }) => a.label.includes("見積")));
+    assert.ok(detail.body.documentsStatus?.documents?.length === 4);
     assert.ok(Array.isArray(detail.body.timeline));
     assert.ok(detail.body.timeline.some((e: { title: string }) => e.title.includes("案件")));
     assert.ok(Array.isArray(detail.body.shareHistory));

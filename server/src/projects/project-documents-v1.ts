@@ -108,13 +108,13 @@ function statusPresentation(code: DocumentStatusCode): { label: string; icon: st
     case "ready":
       return { label: "作成済", icon: "✅" };
     case "stale":
-      return { label: "更新あり（次回自動反映）", icon: "🔄" };
+      return { label: "更新あり", icon: "🔄" };
     case "photos_missing":
       return { label: "写真不足", icon: "📷" };
     case "completion_photos_missing":
-      return { label: "完了写真不足", icon: "📷" };
+      return { label: "写真不足", icon: "📷" };
     default:
-      return { label: "未作成", icon: "△" };
+      return { label: "未作成", icon: "⚠️" };
   }
 }
 

@@ -30,9 +30,12 @@ import {
 } from "./project-mgmt-status-v1.js";
 import {
   buildWorkflowCardsV2,
+  buildNextActionsV1,
   listPdfShareHistoryV2,
   listProjectTimelineV2,
+  type NextActionItemV1,
 } from "./project-mgmt-v2-store.js";
+import { getProjectDocumentsStatusV1, type ProjectDocumentsStatusV1 } from "./project-documents-v1.js";
 import { createProjectStorageFoldersV1 } from "../storage/project-storage-v1.js";
 
 export interface ProjectMgmtListItemV1 {
@@ -92,6 +95,8 @@ export interface ProjectMgmtDetailV1 {
   documents: ReturnType<typeof listProjectPdfsV1>;
   fieldOpsHref: string;
   workflowCards: ReturnType<typeof buildWorkflowCardsV2>;
+  nextActions: NextActionItemV1[];
+  documentsStatus: ProjectDocumentsStatusV1 | null;
   timeline: ReturnType<typeof listProjectTimelineV2>;
   shareHistory: ReturnType<typeof listPdfShareHistoryV2>;
 }
@@ -250,6 +255,19 @@ export function getProjectMgmtDetailV1(projectId: string): ProjectMgmtDetailV1 |
         ? `/document-viewer-v1.html?projectId=${encodeURIComponent(projectId)}&kind=completion-report`
         : `/projects-v1?projectId=${encodeURIComponent(projectId)}&source=business`,
     }),
+    nextActions: buildNextActionsV1({
+      projectId,
+      estimateHref: `/estimate-v1?projectId=${encodeURIComponent(projectId)}`,
+      invoiceHref: `/estimate-v1?projectId=${encodeURIComponent(projectId)}&tab=invoice`,
+      completionHref: completionReportId
+        ? `/document-viewer-v1.html?projectId=${encodeURIComponent(projectId)}&kind=completion-report`
+        : `/projects-v1?projectId=${encodeURIComponent(projectId)}&source=business`,
+      surveyHref: surveyProjectId
+        ? `/survey-v1?projectId=${encodeURIComponent(surveyProjectId)}`
+        : null,
+      qnapSyncStatus: String(row.qnap_sync_status ?? "pending"),
+    }),
+    documentsStatus: getProjectDocumentsStatusV1(projectId),
     timeline: listProjectTimelineV2(projectId),
     shareHistory: listPdfShareHistoryV2(projectId),
   };

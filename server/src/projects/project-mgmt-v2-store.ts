@@ -20,8 +20,18 @@ import {
   listProjectTimelineEventsV1,
   markRetroactiveBackfillFlagsV1,
 } from "./project-timeline-v1-store.js";
+import { listProjectStorageV1 } from "../storage/project-storage-v1.js";
+import { getBusinessProject } from "../business/business-store.js";
 
-export type WorkflowCardState = "not_created" | "created" | "updated";
+export interface NextActionItemV1 {
+  key: string;
+  label: string;
+  icon: string;
+  href: string | null;
+  tab: string | null;
+}
+
+export type WorkflowCardState = "not_created" | "created" | "updated" | "photos_missing";
 
 export interface WorkflowCardV2 {
   key: "survey" | "estimate" | "invoice" | "specification" | "completion";
@@ -73,16 +83,16 @@ const SHARE_KIND_LABELS: Record<string, string> = {
 };
 
 const STATE_PRESENTATION: Record<WorkflowCardState, { label: string; icon: string }> = {
-  not_created: { label: "未作成", icon: "🔴" },
-  created: { label: "作成済", icon: "🟢" },
-  updated: { label: "更新あり", icon: "🟡" },
+  not_created: { label: "未作成", icon: "⚠️" },
+  created: { label: "作成済", icon: "✅" },
+  updated: { label: "更新あり", icon: "🔄" },
+  photos_missing: { label: "写真不足", icon: "📷" },
 };
 
-function cardStateFromDocStatus(
-  code: string
-): WorkflowCardState {
+function cardStateFromDocStatus(code: string): WorkflowCardState {
   if (code === "ready") return "created";
   if (code === "not_created") return "not_created";
+  if (code === "photos_missing" || code === "completion_photos_missing") return "photos_missing";
   return "updated";
 }
 
@@ -103,7 +113,7 @@ export function buildWorkflowCardsV2(input: {
   let surveyState: WorkflowCardState = "not_created";
   if (input.surveyProjectId) {
     const specStale = docMap.get("specification")?.stale;
-    if (!surveyPhotos) surveyState = "updated";
+    if (!surveyPhotos) surveyState = "photos_missing";
     else if (specStale) surveyState = "updated";
     else surveyState = "created";
   }
@@ -159,6 +169,100 @@ export function buildWorkflowCardsV2(input: {
     const pres = STATE_PRESENTATION[c.state];
     return { ...c, stateLabel: pres.label, stateIcon: pres.icon };
   });
+}
+
+export function buildNextActionsV1(input: {
+  projectId: string;
+  estimateHref: string;
+  invoiceHref: string;
+  completionHref: string;
+  surveyHref: string | null;
+  qnapSyncStatus: string;
+}): NextActionItemV1[] {
+  const actions: NextActionItemV1[] = [];
+  const docStatus = getProjectDocumentsStatusV1(input.projectId);
+  const docMap = new Map(docStatus?.documents.map((d) => [d.kind, d]) ?? []);
+
+  let storageDocs: ReturnType<typeof listProjectStorageV1>["documents"] = [];
+  try {
+    storageDocs = listProjectStorageV1(input.projectId).documents;
+  } catch {
+    /* project storage unavailable */
+  }
+
+  const est = docMap.get("estimate");
+  if (!est || est.status === "not_created") {
+    actions.push({
+      key: "estimate_not_created",
+      label: "見積未作成",
+      icon: "⚠️",
+      href: input.estimateHref,
+      tab: "estimate",
+    });
+  }
+
+  const inv = docMap.get("invoice");
+  if (!inv || inv.status === "not_created") {
+    actions.push({
+      key: "invoice_not_created",
+      label: "請求未作成",
+      icon: "⚠️",
+      href: input.invoiceHref,
+      tab: "invoice",
+    });
+  }
+
+  if (storageDocs.some((d) => d.hasLocalPdf && d.saveStatus !== "saved")) {
+    actions.push({
+      key: "pdf_unsaved",
+      label: "PDF未保存",
+      icon: "🟡",
+      href: null,
+      tab: "files",
+    });
+  }
+
+  if (input.qnapSyncStatus !== "synced") {
+    actions.push({
+      key: "qnap_unsaved",
+      label: "QNAP未保存",
+      icon: "🟡",
+      href: null,
+      tab: "files",
+    });
+  }
+
+  const spec = docMap.get("specification");
+  const comp = docMap.get("completion");
+  const bizProject = getBusinessProject(input.projectId);
+  const surveyPhotoCount = bizProject?.surveyProjectId
+    ? listSurveyPhotosV1(bizProject.surveyProjectId).length
+    : 0;
+  if (
+    spec?.status === "photos_missing" ||
+    comp?.status === "completion_photos_missing" ||
+    (bizProject?.surveyProjectId && surveyPhotoCount === 0)
+  ) {
+    actions.push({
+      key: "photos_missing",
+      label: "写真不足",
+      icon: "📷",
+      href: input.surveyHref,
+      tab: "photos",
+    });
+  }
+
+  if (!comp || comp.status === "not_created") {
+    actions.push({
+      key: "completion_not_created",
+      label: "完了報告未作成",
+      icon: "⚠️",
+      href: input.completionHref,
+      tab: "completion",
+    });
+  }
+
+  return actions;
 }
 
 export function listProjectTimelineV2(projectId: string): ProjectTimelineItemV2[] {

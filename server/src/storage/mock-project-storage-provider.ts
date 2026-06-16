@@ -90,8 +90,8 @@ export const QNAP_SYNC_STATUS_LABELS: Record<
   QnapSyncStatusV1,
   { icon: string; label: string }
 > = {
-  synced: { icon: "🟢", label: "同期済" },
-  pending: { icon: "🟡", label: "未同期" },
+  synced: { icon: "🟢", label: "QNAP保存済" },
+  pending: { icon: "🟡", label: "未保存" },
   error: { icon: "🔴", label: "エラー" },
 };
 
@@ -151,14 +151,14 @@ function resolveDocSaveStatus(
   projectSyncStatus: QnapSyncStatusV1
 ): { saveStatus: ProjectStorageSaveStatusV1; saveStatusIcon: string; saveStatusLabel: string } {
   if (stored) {
-    return { saveStatus: "saved", saveStatusIcon: "✅", saveStatusLabel: "保存済み" };
+    return { saveStatus: "saved", saveStatusIcon: "✅", saveStatusLabel: "作成済" };
   }
   const meta = getProjectPdfMeta(projectId, kind as ProjectPdfKind);
   if (projectSyncStatus === "error" && meta?.localPath) {
-    return { saveStatus: "error", saveStatusIcon: "🔴", saveStatusLabel: "保存エラー" };
+    return { saveStatus: "error", saveStatusIcon: "🔴", saveStatusLabel: "エラー" };
   }
   if (meta?.localPath) {
-    return { saveStatus: "regenerable", saveStatusIcon: "🔄", saveStatusLabel: "再生成可" };
+    return { saveStatus: "regenerable", saveStatusIcon: "🔄", saveStatusLabel: "更新あり" };
   }
   return { saveStatus: "unsaved", saveStatusIcon: "🟡", saveStatusLabel: "未保存" };
 }
