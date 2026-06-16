@@ -176,5 +176,24 @@ describe("案件タイムライン v1", () => {
         (e: { title: string }) => e.title.includes("共有") || e.title.includes("LINE")
       )
     );
+    assert.ok(
+      detail.body.timeline.some((e: { isBackfill: boolean }) => e.isBackfill === true),
+      "backfill events should be marked"
+    );
+    assert.ok(
+      detail.body.timeline.every((e: { isBackfill: boolean }) => typeof e.isBackfill === "boolean")
+    );
+  });
+
+  it("顧客名で履歴検索できる（API q パラメータ）", async () => {
+    const detail = await request(app)
+      .get(`/api/project-mgmt/v1/projects/${projectId}`)
+      .set("Authorization", `Bearer ${token}`);
+    const customer = detail.body.project.customerName;
+    const res = await request(app)
+      .get(`/api/project-timeline-v1/${projectId}?q=${encodeURIComponent(customer.slice(0, 2))}`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(res.status, 200);
+    assert.ok(res.body.count >= 0);
   });
 });

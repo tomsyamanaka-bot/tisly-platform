@@ -7,7 +7,7 @@ import Database from "better-sqlite3";
 
 const BASE = process.env.TISLY_SCREENSHOT_BASE || "http://127.0.0.1:3080";
 const OUT = path.join(process.cwd(), "data", "project-timeline-v1-screenshots");
-const DB_PATH = process.env.TISLY_DB_PATH || path.join(process.cwd(), "data", "tisly.db");
+const DB_PATH = process.env.TISLY_DB_PATH || path.join(process.cwd(), "data", "tisly_notifications.db");
 const LOGIN = {
   customerCode: "TOMS001",
   username: "toms001.surveyor",
@@ -56,24 +56,31 @@ async function ensureRichProject() {
   });
   const data = await list.json();
   const existing = data.projects?.find((p) => p.title?.includes("タイムラインスクショ"));
-  if (existing) return existing.id;
+  let projectId = existing?.id;
 
-  const created = await fetch(`${BASE}/api/project-mgmt/v1/projects`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({
-      title: "タイムラインスクショ検証",
-      customerName: "タイムラインスクショ様",
-      municipality: "守谷市",
-      assignee: "山中",
-      cityCode: "MO",
-    }),
-  });
-  const body = await created.json();
-  const projectId = body.project.id;
+  if (!projectId) {
+    const created = await fetch(`${BASE}/api/project-mgmt/v1/projects`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        title: "タイムラインスクショ検証",
+        customerName: "タイムラインスクショ様",
+        municipality: "守谷市",
+        assignee: "山中",
+        cityCode: "MO",
+      }),
+    });
+    const body = await created.json();
+    projectId = body.project.id;
+  }
+
+  const detail = await fetch(`${BASE}/api/project-mgmt/v1/projects/${projectId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  }).then((r) => r.json());
+  if ((detail.timeline?.length ?? 0) >= 6) return projectId;
 
   const events = [
     { eventType: "estimate_pdf_saved", title: "見積PDF保存", description: "見積書_スクショ様.pdf" },
@@ -166,7 +173,7 @@ async function openHistoryTab(page, projectId) {
   });
   await page.waitForSelector(".detail-tabs");
   await page.click('.detail-tab[data-tab="history"]');
-  await page.waitForSelector(".tl-date-group, .timeline-list, .section-hint");
+  await page.waitForSelector(".tl-card, .tl-empty, .section-hint");
   await new Promise((r) => setTimeout(r, 400));
 }
 
@@ -196,10 +203,24 @@ async function main() {
   await openHistoryTab(page, legacyId);
   await shot(page, "05-timeline-legacy-backfill.png");
 
+  const token = await loginToken();
+  const richDetail = await fetch(`${BASE}/api/project-mgmt/v1/projects/${projectId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  }).then((r) => r.json());
+  const legacyDetail = await fetch(`${BASE}/api/project-mgmt/v1/projects/${legacyId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  }).then((r) => r.json());
+  const countStats = (timeline) => ({
+    total: timeline?.length ?? 0,
+    backfill: (timeline ?? []).filter((e) => e.isBackfill).length,
+  });
+
   const report = {
     capturedAt: new Date().toISOString(),
     projectId,
     legacyProjectId: legacyId,
+    historyCounts: countStats(richDetail.timeline),
+    legacyBackfillCounts: countStats(legacyDetail.timeline),
     screenshots: [
       "01-timeline-list.png",
       "02-timeline-search-estimate.png",

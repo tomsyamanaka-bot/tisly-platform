@@ -36,18 +36,42 @@ let activeTab = "overview";
 let storageData = null;
 let timelineFilter = "all";
 let timelineSearchQuery = "";
+const expandedTimelineIds = new Set();
 const openStorageFolders = new Set();
 
 const TIMELINE_FILTERS = [
   { id: "all", label: "すべて" },
   { id: "estimate", label: "見積" },
   { id: "invoice", label: "請求" },
-  { id: "specification", label: "仕様書" },
-  { id: "completion", label: "完了報告" },
   { id: "share", label: "共有" },
   { id: "qnap", label: "QNAP" },
   { id: "photo", label: "写真" },
+  { id: "completion", label: "完了報告" },
 ];
+
+const TIMELINE_CATEGORY_LABELS = {
+  estimate: "見積",
+  invoice: "請求",
+  specification: "仕様書",
+  completion: "完了報告",
+  share: "共有",
+  qnap: "QNAP",
+  photo: "写真",
+  drawing: "図面",
+  general: "その他",
+};
+
+const TIMELINE_SEARCH_ALIASES = {
+  見積: ["見積", "estimate"],
+  請求: ["請求", "invoice"],
+  仕様書: ["仕様", "specification"],
+  完了報告: ["完了", "completion"],
+  line: ["line", "共有", "pdf_shared"],
+  qnap: ["qnap"],
+  写真: ["写真", "photo"],
+  図面: ["図面", "drawing"],
+  pdf: ["pdf", ".pdf"],
+};
 
 const STORAGE_DOC_SLOTS = [
   { kind: "estimate", fallbackLabel: "見積書.pdf", viewerKind: "estimate", pdfKind: "estimate" },
@@ -314,6 +338,12 @@ function timelineCategoryClass(category, eventType) {
   return "tl-cat-general";
 }
 
+function timelineCategoryLabel(category, eventType) {
+  if (category && TIMELINE_CATEGORY_LABELS[category]) return TIMELINE_CATEGORY_LABELS[category];
+  if (eventType === "drawing_added") return "図面";
+  return "その他";
+}
+
 function timelineTimeLabel(item) {
   if (item.date?.includes(" ")) return item.date.split(" ")[1];
   const d = new Date(item.createdAt);
@@ -321,22 +351,78 @@ function timelineTimeLabel(item) {
   return d.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
+function timelineSearchHaystack(item) {
+  const p = detail?.project;
+  const parts = [
+    item.title,
+    item.detail || "",
+    item.eventType || "",
+    item.category || "",
+    timelineCategoryLabel(item.category, item.eventType),
+    p?.customerName || "",
+    p?.projectNo || "",
+    p?.id || "",
+    p?.title || "",
+  ];
+  return parts.join(" ").toLowerCase();
+}
+
+function timelineSearchMatches(haystack, query) {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  if (haystack.includes(q)) return true;
+  const aliasTerms = TIMELINE_SEARCH_ALIASES[q];
+  if (aliasTerms) return aliasTerms.some((term) => haystack.includes(term.toLowerCase()));
+  for (const [key, terms] of Object.entries(TIMELINE_SEARCH_ALIASES)) {
+    if (key.includes(q) || q.includes(key)) {
+      if (terms.some((term) => haystack.includes(term.toLowerCase()))) return true;
+    }
+  }
+  return false;
+}
+
 function filterTimelineItems(items) {
-  const q = timelineSearchQuery.trim().toLowerCase();
   return items.filter((e) => {
-    const hay = `${e.title} ${e.detail || ""} ${e.eventType || ""}`.toLowerCase();
-    if (q && !hay.includes(q)) return false;
+    const hay = timelineSearchHaystack(e);
+    if (!timelineSearchMatches(hay, timelineSearchQuery)) return false;
     if (timelineFilter === "all") return true;
     if (e.category === timelineFilter) return true;
-    if (timelineFilter === "estimate") return hay.includes("見積");
-    if (timelineFilter === "invoice") return hay.includes("請求");
-    if (timelineFilter === "specification") return hay.includes("仕様");
+    if (timelineFilter === "estimate") return hay.includes("見積") || hay.includes("estimate");
+    if (timelineFilter === "invoice") return hay.includes("請求") || hay.includes("invoice");
     if (timelineFilter === "share") return hay.includes("共有") || hay.includes("line");
     if (timelineFilter === "qnap") return hay.includes("qnap");
-    if (timelineFilter === "completion") return hay.includes("完了");
-    if (timelineFilter === "photo") return hay.includes("写真") || hay.includes("図面");
+    if (timelineFilter === "completion") return hay.includes("完了") || hay.includes("completion");
+    if (timelineFilter === "photo") return hay.includes("写真") || hay.includes("図面") || hay.includes("photo") || hay.includes("drawing");
     return false;
   });
+}
+
+function timelineCounts(items) {
+  const total = items.length;
+  const backfill = items.filter((e) => e.isBackfill).length;
+  return { total, backfill, normal: total - backfill };
+}
+
+function renderTimelineCard(e) {
+  const catClass = timelineCategoryClass(e.category, e.eventType);
+  const catLabel = timelineCategoryLabel(e.category, e.eventType);
+  const expanded = expandedTimelineIds.has(e.id);
+  const hasDetail = Boolean(e.detail?.trim());
+  const longDetail = hasDetail && e.detail.length > 48;
+  const backfillBadge = e.isBackfill
+    ? `<span class="tl-backfill-badge">自動補完</span>`
+    : "";
+  return `
+    <button type="button" class="tl-card ${catClass}${expanded ? " expanded" : ""}" data-tl-expand="${escapeHtml(e.id)}"${hasDetail ? "" : " disabled"}>
+      <div class="tl-card-head">
+        <span class="tl-time">${escapeHtml(timelineTimeLabel(e))}</span>
+        <span class="tl-type-badge">${escapeHtml(catLabel)}</span>
+        ${backfillBadge}
+      </div>
+      <div class="tl-title">${escapeHtml(e.title)}</div>
+      ${hasDetail ? `<div class="tl-detail${longDetail && !expanded ? " clamped" : ""}">${escapeHtml(e.detail)}</div>` : ""}
+      ${longDetail && !expanded ? `<span class="tl-expand-hint">タップで詳細</span>` : ""}
+    </button>`;
 }
 
 function groupTimelineByDate(items) {
@@ -355,34 +441,43 @@ function groupTimelineByDate(items) {
 }
 
 function renderHistoryTab() {
-  const items = filterTimelineItems(detail.timeline ?? []);
+  const allItems = detail.timeline ?? [];
+  const counts = timelineCounts(allItems);
+  const items = filterTimelineItems(allItems);
   const chips = TIMELINE_FILTERS.map(
     (f) =>
       `<button type="button" class="tl-filter-chip${timelineFilter === f.id ? " active" : ""}" data-tl-filter="${f.id}">${f.label}</button>`
   ).join("");
+  const statsRow = `
+    <div class="tl-stats-row">
+      <span class="tl-stat">履歴 <strong>${counts.total}</strong>件</span>
+      <span class="tl-stat tl-stat-backfill">自動補完 <strong>${counts.backfill}</strong>件</span>
+    </div>`;
   const searchRow = `
-    <div class="tl-search-row">
-      <input type="search" id="tl-search-input" class="tl-search-input" placeholder="履歴を検索（見積・請求・共有…）" value="${escapeHtml(timelineSearchQuery)}" autocomplete="off" />
-    </div>
-    <div class="tl-search-row tl-chip-row">${chips}</div>`;
+    <div class="tl-toolbar">
+      ${statsRow}
+      <div class="tl-search-row">
+        <input type="search" id="tl-search-input" class="tl-search-input" placeholder="見積・請求・LINE・QNAP・顧客名…" value="${escapeHtml(timelineSearchQuery)}" autocomplete="off" />
+      </div>
+      <div class="tl-search-row tl-chip-row">${chips}</div>
+    </div>`;
+  if (!allItems.length) {
+    return `
+      ${searchRow}
+      <div class="tl-empty">
+        <p class="section-hint">まだ履歴がありません</p>
+        <p class="tl-empty-guide">見積作成・PDF保存・LINE共有・QNAP保存を行うとここに記録されます</p>
+      </div>`;
+  }
   if (!items.length) {
     return `
       ${searchRow}
-      <p class="section-hint">${timelineFilter === "all" && !timelineSearchQuery.trim() ? "履歴はまだありません" : "該当する履歴がありません"}</p>`;
+      <p class="section-hint">該当する履歴がありません</p>`;
   }
   const groups = groupTimelineByDate(items);
   const rows = groups
     .map((g) => {
-      const groupItems = g.items
-        .map(
-          (e) => `
-      <div class="tl-item ${timelineCategoryClass(e.category, e.eventType)}">
-        <div class="tl-time">${escapeHtml(timelineTimeLabel(e))}</div>
-        <div class="tl-title">${escapeHtml(e.title)}</div>
-        ${e.detail ? `<div class="tl-detail">${escapeHtml(e.detail)}</div>` : ""}
-      </div>`
-        )
-        .join("");
+      const groupItems = g.items.map((e) => renderTimelineCard(e)).join("");
       return `
       <section class="tl-date-group">
         <h4 class="tl-date-heading">${escapeHtml(g.dateLabel)}</h4>
@@ -392,8 +487,8 @@ function renderHistoryTab() {
     .join("");
   return `
     ${searchRow}
-    ${rows}
-    <p class="tl-count-hint">${items.length}件</p>`;
+    <div class="tl-timeline-body">${rows}</div>
+    <p class="tl-count-hint">表示 ${items.length}件</p>`;
 }
 
 function findPdfEntry(pdfKind) {
@@ -878,6 +973,16 @@ function bindActions() {
       bindActions();
     });
   }
+  document.querySelectorAll("[data-tl-expand]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-tl-expand");
+      if (!id) return;
+      if (expandedTimelineIds.has(id)) expandedTimelineIds.delete(id);
+      else expandedTimelineIds.add(id);
+      render();
+      bindActions();
+    });
+  });
 }
 
 async function main() {

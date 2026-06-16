@@ -1,7 +1,15 @@
 {
-  "capturedAt": "2026-06-16T10:02:08.988Z",
+  "capturedAt": "2026-06-16T10:13:56.532Z",
   "projectId": "BIZ-FF40278A",
-  "legacyProjectId": "BIZ-4D9165A2",
+  "legacyProjectId": "BIZ-21EA0309",
+  "historyCounts": {
+    "total": 8,
+    "backfill": 0
+  },
+  "legacyBackfillCounts": {
+    "total": 2,
+    "backfill": 2
+  },
   "screenshots": [
     "01-timeline-list.png",
     "02-timeline-search-estimate.png",

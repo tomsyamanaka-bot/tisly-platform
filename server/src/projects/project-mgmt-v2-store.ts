@@ -41,6 +41,7 @@ export interface ProjectTimelineItemV2 {
   eventType: string;
   category: string;
   createdAt: string;
+  isBackfill: boolean;
 }
 
 export interface PdfShareHistoryItemV2 {
@@ -172,6 +173,7 @@ export function listProjectTimelineV2(projectId: string): ProjectTimelineItemV2[
       eventType: e.eventType,
       category: e.category,
       createdAt: e.createdAt,
+      isBackfill: e.isBackfill,
     }));
   }
   return listProjectTimeline(projectId)
@@ -186,6 +188,7 @@ export function listProjectTimelineV2(projectId: string): ProjectTimelineItemV2[
       eventType: e.eventType,
       category: "general",
       createdAt: e.createdAt,
+      isBackfill: false,
     }));
 }
 

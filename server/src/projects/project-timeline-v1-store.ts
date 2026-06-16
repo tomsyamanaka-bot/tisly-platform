@@ -44,6 +44,7 @@ export interface ProjectTimelineEventV1 {
   description: string;
   createdAt: string;
   category: ProjectTimelineCategoryV1;
+  isBackfill: boolean;
 }
 
 const EVENT_CATEGORY: Record<string, ProjectTimelineCategoryV1> = {
@@ -134,6 +135,7 @@ function rowToEvent(r: Record<string, unknown>): ProjectTimelineEventV1 {
     description: String(r.description ?? ""),
     createdAt: String(r.created_at),
     category: categoryFor(eventType),
+    isBackfill: Boolean(r.is_backfill),
   };
 }
 
@@ -143,15 +145,17 @@ export function addProjectTimelineEventV1(input: {
   title: string;
   description?: string;
   createdAt?: string;
+  isBackfill?: boolean;
 }): ProjectTimelineEventV1 {
   const id = `PTE-${uuid().slice(0, 8).toUpperCase()}`;
   const now = input.createdAt ?? new Date().toISOString();
+  const isBackfill = input.isBackfill ? 1 : 0;
   getDatabase()
     .prepare(
-      `INSERT INTO project_timeline_events (id, project_id, event_type, title, description, created_at)
-       VALUES (?, ?, ?, ?, ?, ?)`
+      `INSERT INTO project_timeline_events (id, project_id, event_type, title, description, created_at, is_backfill)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
     )
-    .run(id, input.projectId, input.eventType, input.title, input.description ?? "", now);
+    .run(id, input.projectId, input.eventType, input.title, input.description ?? "", now, isBackfill);
   return {
     id,
     projectId: input.projectId,
@@ -160,6 +164,7 @@ export function addProjectTimelineEventV1(input: {
     description: input.description ?? "",
     createdAt: now,
     category: categoryFor(input.eventType),
+    isBackfill: Boolean(isBackfill),
   };
 }
 
@@ -170,7 +175,7 @@ export function listProjectTimelineEventsV1(
   const limit = opts?.limit ?? 300;
   const rows = getDatabase()
     .prepare(
-      `SELECT id, project_id, event_type, title, description, created_at
+      `SELECT id, project_id, event_type, title, description, created_at, is_backfill
        FROM project_timeline_events
        WHERE project_id = ?
        ORDER BY created_at DESC
@@ -425,6 +430,7 @@ export function backfillProjectTimelineV1(projectId: string): number {
       title: d.title,
       description: d.description,
       createdAt: d.createdAt,
+      isBackfill: true,
     });
   }
   return drafts.length;

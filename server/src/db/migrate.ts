@@ -216,6 +216,7 @@ export function runMigrations(database: Database.Database): void {
   migrateProjectMgmtV1(database);
   migrateProjectMgmtV2(database);
   migrateProjectTimelineV1(database);
+  migrateProjectTimelineV1BackfillFlag(database);
 }
 
 /** 案件一覧 v1 — 論理削除 deleted_at */
@@ -3488,4 +3489,28 @@ function migrateProjectTimelineV1(database: Database.Database): void {
       `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
     )
     .run("migration:project_timeline_v1", JSON.stringify({ at: new Date().toISOString() }));
+}
+
+/** 案件タイムライン v1 — backfill フラグ */
+function migrateProjectTimelineV1BackfillFlag(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:project_timeline_v1_backfill_flag") as { value_json: string } | undefined;
+  if (marker) return;
+
+  addColumnsIfMissing(database, "project_timeline_events", [
+    {
+      name: "is_backfill",
+      ddl: "ALTER TABLE project_timeline_events ADD COLUMN is_backfill INTEGER NOT NULL DEFAULT 0",
+    },
+  ]);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run(
+      "migration:project_timeline_v1_backfill_flag",
+      JSON.stringify({ at: new Date().toISOString() })
+    );
 }
