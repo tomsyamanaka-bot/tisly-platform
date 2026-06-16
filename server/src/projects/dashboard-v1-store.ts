@@ -1,0 +1,530 @@
+/** 案件ダッシュボード v1 — KPI・今日の予定・要対応・集計 */
+
+import { getDatabase } from "../db/database.js";
+import { getLatestWorkSessionForProject } from "../field-ops/work-session-v1-store.js";
+import { getScheduleDayDetail } from "../schedule/schedule-store.js";
+import { resolveEventProjectRef } from "../schedule/address-extract-service.js";
+import type { ScheduleEvent } from "../schedule/schedule-types.js";
+import { todayInTimeZone } from "../services/googleCalendar.js";
+import {
+  deriveMgmtStatus,
+  PROJECT_MGMT_STATUS_LABELS,
+  type ProjectMgmtStatus,
+} from "./project-mgmt-status-v1.js";
+import { listProjectCityCodesV1, resolveCityCodeForProject } from "./project-id-v1.js";
+import type { ProjectMgmtListItemV1 } from "./project-mgmt-v1-store.js";
+
+export interface DashboardKpiCardV1 {
+  key: string;
+  label: string;
+  count: number;
+}
+
+export interface DashboardSummaryV1 {
+  total: number;
+  cards: DashboardKpiCardV1[];
+}
+
+export interface DashboardTodayItemV1 {
+  eventId: string;
+  timeLabel: string;
+  title: string;
+  address: string;
+  assignee: string;
+  projectId: string | null;
+  projectNo: string | null;
+  detailHref: string | null;
+}
+
+export interface DashboardTodayV1 {
+  date: string;
+  items: DashboardTodayItemV1[];
+}
+
+export type DashboardAlertType =
+  | "survey_overdue"
+  | "estimate_not_submitted"
+  | "invoice_not_issued"
+  | "payment_overdue";
+
+export type DashboardAlertPriority = "red" | "yellow" | "blue";
+
+export interface DashboardAlertV1 {
+  projectId: string;
+  projectNo: string;
+  customerName: string;
+  title: string;
+  assignee: string;
+  mgmtStatus: ProjectMgmtStatus;
+  mgmtStatusLabel: string;
+  alertType: DashboardAlertType;
+  alertLabel: string;
+  priority: DashboardAlertPriority;
+  priorityOrder: number;
+  detail: string;
+  updatedAt: string;
+}
+
+export interface DashboardRecentItemV1 {
+  id: string;
+  projectNo: string;
+  customerName: string;
+  mgmtStatus: ProjectMgmtStatus;
+  mgmtStatusLabel: string;
+  updatedAt: string;
+}
+
+export interface DashboardCityStatV1 {
+  cityCode: string;
+  cityName: string;
+  count: number;
+}
+
+export interface DashboardSalesV1 {
+  monthLabel: string;
+  estimateTotal: number;
+  invoiceTotal: number;
+  paidTotal: number;
+}
+
+type ProjectRow = Record<string, unknown>;
+
+const KPI_DEFS: Array<{ key: string; label: string; statuses: ProjectMgmtStatus[] }> = [
+  { key: "inquiry", label: "問い合わせ", statuses: ["inquiry"] },
+  { key: "survey_scheduled", label: "現調予定", statuses: ["survey_scheduled"] },
+  { key: "estimate_submitted", label: "見積提出", statuses: ["estimate_submitted"] },
+  { key: "ordered", label: "受注", statuses: ["ordered", "construction_scheduled"] },
+  { key: "construction_in_progress", label: "施工中", statuses: ["construction_in_progress"] },
+  { key: "awaiting_invoice", label: "請求待ち", statuses: ["work_completed"] },
+  { key: "awaiting_payment", label: "入金待ち", statuses: ["invoiced"] },
+  { key: "completed", label: "完了", statuses: ["paid"] },
+];
+
+function parseJson<T>(raw: unknown, fallback: T): T {
+  if (raw == null || raw === "") return fallback;
+  if (typeof raw === "object") return raw as T;
+  try {
+    return JSON.parse(String(raw)) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+function monthBoundsJst(now = new Date()): { start: string; end: string; label: string } {
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  const start = new Date(y, m, 1).toISOString();
+  const end = new Date(y, m + 1, 0, 23, 59, 59, 999).toISOString();
+  return { start, end, label: `${y}年${m + 1}月` };
+}
+
+function listActiveProjectRows(): ProjectRow[] {
+  return getDatabase()
+    .prepare(
+      `SELECT id, project_no, title, customer_name, address, municipality, assignee, phone,
+              status, invoice_id, paid_date, estimate_id, survey_schedule_json,
+              payment_due_date, created_at, updated_at
+       FROM business_projects
+       WHERE deleted_at IS NULL`
+    )
+    .all() as ProjectRow[];
+}
+
+function deriveRowMgmt(row: ProjectRow): ProjectMgmtStatus {
+  const id = String(row.id);
+  const session = getLatestWorkSessionForProject({ source: "business", projectId: id });
+  const hasActiveWorkSession = Boolean(
+    session && (session.arrivalTime || session.startTime) && !session.completionTime
+  );
+  return deriveMgmtStatus(String(row.status ?? "new"), {
+    hasActiveWorkSession,
+    hasInvoice: Boolean(row.invoice_id),
+    hasPaid: Boolean(row.paid_date),
+  });
+}
+
+function rowToListItem(row: ProjectRow): ProjectMgmtListItemV1 {
+  const mgmtStatus = deriveRowMgmt(row);
+  return {
+    id: String(row.id),
+    projectNo: String(row.project_no ?? row.id),
+    title: String(row.title ?? ""),
+    customerName: String(row.customer_name ?? ""),
+    address: String(row.address ?? ""),
+    municipality: String(row.municipality ?? ""),
+    assignee: String(row.assignee ?? ""),
+    mgmtStatus,
+    mgmtStatusLabel: PROJECT_MGMT_STATUS_LABELS[mgmtStatus],
+    createdAt: String(row.created_at ?? ""),
+    updatedAt: String(row.updated_at ?? ""),
+  };
+}
+
+function surveyScheduleDate(row: ProjectRow): string | null {
+  const schedule = parseJson<{ date?: string } | null>(row.survey_schedule_json, null);
+  const date = schedule?.date?.trim();
+  return date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null;
+}
+
+function daysBetween(fromDate: string, toDate: string): number {
+  const a = new Date(`${fromDate}T12:00:00`);
+  const b = new Date(`${toDate}T12:00:00`);
+  if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return 0;
+  return Math.floor((b.getTime() - a.getTime()) / (24 * 60 * 60 * 1000));
+}
+
+function formatTimeLabel(event: ScheduleEvent): string {
+  if (event.allDay) return "終日";
+  const start = event.startTime?.trim();
+  const end = event.endTime?.trim();
+  if (start && end) return `${start}–${end}`;
+  if (start) return start;
+  return "—";
+}
+
+function loadBusinessProjectMeta(projectId: string): {
+  projectNo: string;
+  assignee: string;
+  address: string;
+  customerName: string;
+} | null {
+  const row = getDatabase()
+    .prepare(
+      `SELECT project_no, assignee, address, customer_name
+       FROM business_projects WHERE id = ? AND deleted_at IS NULL`
+    )
+    .get(projectId) as ProjectRow | undefined;
+  if (!row) return null;
+  return {
+    projectNo: String(row.project_no ?? projectId),
+    assignee: String(row.assignee ?? ""),
+    address: String(row.address ?? ""),
+    customerName: String(row.customer_name ?? ""),
+  };
+}
+
+function resolveBusinessProjectId(ref: { projectSource: string; projectId: string }): string | null {
+  if (ref.projectSource === "business") return ref.projectId;
+  const row = getDatabase()
+    .prepare(
+      `SELECT id FROM business_projects
+       WHERE survey_project_id = ? AND deleted_at IS NULL
+       LIMIT 1`
+    )
+    .get(ref.projectId) as { id?: string } | undefined;
+  return row?.id ? String(row.id) : null;
+}
+
+export function getDashboardSummaryV1(): DashboardSummaryV1 {
+  const rows = listActiveProjectRows();
+  const counts = new Map<string, number>();
+  for (const def of KPI_DEFS) counts.set(def.key, 0);
+
+  for (const row of rows) {
+    const mgmt = deriveRowMgmt(row);
+    for (const def of KPI_DEFS) {
+      if (def.statuses.includes(mgmt)) {
+        counts.set(def.key, (counts.get(def.key) ?? 0) + 1);
+        break;
+      }
+    }
+  }
+
+  const cards: DashboardKpiCardV1[] = [
+    { key: "total", label: "案件総数", count: rows.length },
+    ...KPI_DEFS.map((def) => ({
+      key: def.key,
+      label: def.label,
+      count: counts.get(def.key) ?? 0,
+    })),
+  ];
+
+  return { total: rows.length, cards };
+}
+
+export async function getDashboardTodayV1(dateRaw?: string): Promise<DashboardTodayV1> {
+  const date = (dateRaw ?? todayInTimeZone()).slice(0, 10);
+  const detail = await getScheduleDayDetail(date);
+  const events = [...(detail?.day.events ?? [])].sort((a, b) => {
+    const sa = a.startTime ?? "";
+    const sb = b.startTime ?? "";
+    if (sa !== sb) return sa.localeCompare(sb, "ja");
+    return a.title.localeCompare(b.title, "ja");
+  });
+
+  const items: DashboardTodayItemV1[] = events.map((event) => {
+    const ref = resolveEventProjectRef(event);
+    let projectId: string | null = null;
+    let projectNo: string | null = null;
+    let assignee = "";
+    let address = event.location?.trim() || "";
+
+    if (ref) {
+      projectId = resolveBusinessProjectId(ref);
+      if (projectId) {
+        const meta = loadBusinessProjectMeta(projectId);
+        if (meta) {
+          projectNo = meta.projectNo;
+          assignee = meta.assignee;
+          if (!address) address = meta.address;
+        }
+      }
+    }
+
+    return {
+      eventId: event.id,
+      timeLabel: formatTimeLabel(event),
+      title: event.title,
+      address,
+      assignee,
+      projectId,
+      projectNo,
+      detailHref: projectId
+        ? `/project-mgmt-detail-v1?projectId=${encodeURIComponent(projectId)}`
+        : null,
+    };
+  });
+
+  return { date, items };
+}
+
+export function getDashboardAlertsV1(todayRaw?: string): DashboardAlertV1[] {
+  const today = (todayRaw ?? todayInTimeZone()).slice(0, 10);
+  const rows = listActiveProjectRows();
+  const alerts: DashboardAlertV1[] = [];
+  const db = getDatabase();
+
+  for (const row of rows) {
+    const base = rowToListItem(row);
+    const mgmt = base.mgmtStatus;
+    const surveyDate = surveyScheduleDate(row);
+
+    if (
+      (mgmt === "survey_scheduled" || mgmt === "inquiry") &&
+      surveyDate &&
+      surveyDate < today
+    ) {
+      alerts.push({
+        projectId: base.id,
+        projectNo: base.projectNo,
+        customerName: base.customerName,
+        title: base.title,
+        assignee: base.assignee,
+        mgmtStatus: base.mgmtStatus,
+        mgmtStatusLabel: base.mgmtStatusLabel,
+        updatedAt: base.updatedAt,
+        alertType: "survey_overdue",
+        alertLabel: "現調予定日超過",
+        priority: "red",
+        priorityOrder: 1,
+        detail: `現調予定 ${surveyDate}`,
+      });
+      continue;
+    }
+
+    const status = String(row.status ?? "new").toLowerCase();
+    const hasEstimate = Boolean(row.estimate_id);
+    if (
+      !hasEstimate &&
+      (status === "survey_done" ||
+        (mgmt === "survey_scheduled" && surveyDate && surveyDate < today))
+    ) {
+      alerts.push({
+        projectId: base.id,
+        projectNo: base.projectNo,
+        customerName: base.customerName,
+        title: base.title,
+        assignee: base.assignee,
+        mgmtStatus: base.mgmtStatus,
+        mgmtStatusLabel: base.mgmtStatusLabel,
+        updatedAt: base.updatedAt,
+        alertType: "estimate_not_submitted",
+        alertLabel: "見積未提出",
+        priority: "yellow",
+        priorityOrder: 2,
+        detail: surveyDate ? `現調日 ${surveyDate}` : "見積書未作成",
+      });
+      continue;
+    }
+
+    if (mgmt === "work_completed" && !row.invoice_id) {
+      alerts.push({
+        projectId: base.id,
+        projectNo: base.projectNo,
+        customerName: base.customerName,
+        title: base.title,
+        assignee: base.assignee,
+        mgmtStatus: base.mgmtStatus,
+        mgmtStatusLabel: base.mgmtStatusLabel,
+        updatedAt: base.updatedAt,
+        alertType: "invoice_not_issued",
+        alertLabel: "請求未発行",
+        priority: "yellow",
+        priorityOrder: 3,
+        detail: "工事完了・請求書未発行",
+      });
+      continue;
+    }
+
+    if (mgmt === "invoiced" && !row.paid_date) {
+      const invoiceId = row.invoice_id ? String(row.invoice_id) : null;
+      let anchorDate =
+        row.payment_due_date != null ? String(row.payment_due_date).slice(0, 10) : null;
+      if (!anchorDate && invoiceId) {
+        const inv = db
+          .prepare(`SELECT created_at, payment_due_date FROM business_invoices WHERE id = ?`)
+          .get(invoiceId) as { created_at?: string; payment_due_date?: string } | undefined;
+        anchorDate =
+          inv?.payment_due_date?.slice(0, 10) ?? inv?.created_at?.slice(0, 10) ?? null;
+      }
+      if (anchorDate && daysBetween(anchorDate, today) >= 30) {
+        alerts.push({
+          projectId: base.id,
+          projectNo: base.projectNo,
+          customerName: base.customerName,
+          title: base.title,
+          assignee: base.assignee,
+          mgmtStatus: base.mgmtStatus,
+          mgmtStatusLabel: base.mgmtStatusLabel,
+          updatedAt: base.updatedAt,
+          alertType: "payment_overdue",
+          alertLabel: "入金待ち30日超過",
+          priority: "blue",
+          priorityOrder: 4,
+          detail: `基準日 ${anchorDate}`,
+        });
+      }
+    }
+  }
+
+  return alerts.sort((a, b) => {
+    if (a.priorityOrder !== b.priorityOrder) return a.priorityOrder - b.priorityOrder;
+    return b.updatedAt.localeCompare(a.updatedAt);
+  });
+}
+
+export function getDashboardRecentV1(limit = 10): DashboardRecentItemV1[] {
+  const rows = getDatabase()
+    .prepare(
+      `SELECT id, project_no, customer_name, status, invoice_id, paid_date, updated_at
+       FROM business_projects
+       WHERE deleted_at IS NULL
+       ORDER BY updated_at DESC
+       LIMIT ?`
+    )
+    .all(limit) as ProjectRow[];
+
+  return rows.map((row) => {
+    const item = rowToListItem(row);
+    return {
+      id: item.id,
+      projectNo: item.projectNo,
+      customerName: item.customerName,
+      mgmtStatus: item.mgmtStatus,
+      mgmtStatusLabel: item.mgmtStatusLabel,
+      updatedAt: item.updatedAt,
+    };
+  });
+}
+
+export function getDashboardCityStatsV1(): DashboardCityStatV1[] {
+  const cities = listProjectCityCodesV1();
+  const counts = new Map(cities.map((c) => [c.cityCode, 0]));
+  const rows = listActiveProjectRows();
+
+  for (const row of rows) {
+    const projectNo = String(row.project_no ?? "");
+    const prefix = projectNo.split("-")[0]?.toUpperCase();
+    let code = prefix && counts.has(prefix) ? prefix : null;
+    if (!code) {
+      code = resolveCityCodeForProject({
+        municipality: String(row.municipality ?? ""),
+        address: String(row.address ?? ""),
+      });
+    }
+    if (counts.has(code)) {
+      counts.set(code, (counts.get(code) ?? 0) + 1);
+    }
+  }
+
+  return cities.map((c) => ({
+    cityCode: c.cityCode,
+    cityName: c.cityName,
+    count: counts.get(c.cityCode) ?? 0,
+  }));
+}
+
+export function getDashboardSalesV1(now = new Date()): DashboardSalesV1 {
+  const { start, end, label } = monthBoundsJst(now);
+  const db = getDatabase();
+
+  const estimateRow = db
+    .prepare(
+      `SELECT COALESCE(SUM(e.total), 0) AS total
+       FROM business_estimates e
+       INNER JOIN business_projects p ON p.id = e.project_id
+       WHERE p.deleted_at IS NULL
+         AND e.created_at >= ? AND e.created_at <= ?`
+    )
+    .get(start, end) as { total: number };
+
+  const invoiceRow = db
+    .prepare(
+      `SELECT COALESCE(SUM(i.total), 0) AS total
+       FROM business_invoices i
+       INNER JOIN business_projects p ON p.id = i.project_id
+       WHERE p.deleted_at IS NULL
+         AND i.created_at >= ? AND i.created_at <= ?`
+    )
+    .get(start, end) as { total: number };
+
+  const paidRow = db
+    .prepare(
+      `SELECT COALESCE(SUM(i.total), 0) AS total
+       FROM business_projects p
+       INNER JOIN business_invoices i ON i.id = p.invoice_id
+       WHERE p.deleted_at IS NULL
+         AND p.paid_date IS NOT NULL
+         AND p.paid_date >= ? AND p.paid_date <= ?`
+    )
+    .get(start, end) as { total: number };
+
+  return {
+    monthLabel: label,
+    estimateTotal: Number(estimateRow?.total ?? 0),
+    invoiceTotal: Number(invoiceRow?.total ?? 0),
+    paidTotal: Number(paidRow?.total ?? 0),
+  };
+}
+
+export function searchDashboardProjectsV1(q: string, limit = 50): ProjectMgmtListItemV1[] {
+  const needle = q.trim().toLowerCase();
+  if (!needle) return [];
+
+  const rows = getDatabase()
+    .prepare(
+      `SELECT id, project_no, title, customer_name, address, municipality, assignee, phone,
+              status, invoice_id, paid_date, created_at, updated_at
+       FROM business_projects
+       WHERE deleted_at IS NULL
+       ORDER BY updated_at DESC
+       LIMIT 500`
+    )
+    .all() as ProjectRow[];
+
+  return rows
+    .filter((row) => {
+      const fields = [
+        String(row.project_no ?? ""),
+        String(row.customer_name ?? ""),
+        String(row.phone ?? ""),
+        String(row.address ?? ""),
+        String(row.municipality ?? ""),
+        String(row.assignee ?? ""),
+        String(row.title ?? ""),
+      ];
+      return fields.some((f) => f.toLowerCase().includes(needle));
+    })
+    .slice(0, limit)
+    .map(rowToListItem);
+}

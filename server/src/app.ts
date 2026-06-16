@@ -68,6 +68,7 @@ import {
 } from "./services/googleOAuthService.js";
 import { projectsV1Router } from "./api/routes/projects-v1.js";
 import { projectMgmtV1Router } from "./api/routes/project-mgmt-v1.js";
+import { dashboardV1Router } from "./api/routes/dashboard-v1.js";
 import { projectStorageV1Router } from "./api/routes/project-storage-v1.js";
 import { searchV1Router } from "./api/routes/search-v1.js";
 import { materialsV1Router } from "./api/routes/materials-v1.js";
@@ -141,6 +142,7 @@ export function createApp(): express.Application {
   });
   app.use("/api/projects/v1", projectsV1Router);
   app.use("/api/project-mgmt/v1", projectMgmtV1Router);
+  app.use("/api/dashboard-v1", dashboardV1Router);
   app.use("/api/project-storage", projectStorageV1Router);
   app.use("/api/search/v1", searchV1Router);
   app.use("/api/materials/v1", materialsV1Router);
@@ -400,6 +402,9 @@ export function createApp(): express.Application {
   });
   app.get("/projects-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "projects-v1.html"));
+  });
+  app.get("/project-dashboard-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "project-dashboard-v1.html"));
   });
   app.get("/project-mgmt-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "project-mgmt-v1.html"));

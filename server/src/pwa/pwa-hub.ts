@@ -184,6 +184,16 @@ const PRACTICAL_PWA_DEFS: Array<
   }
 > = [
   {
+    id: "project_dashboard_v1",
+    label: "案件ダッシュボード",
+    subtitle: "今日の仕事が一目でわかる",
+    icon: "📊",
+    features: ["案件件数", "今日の予定", "要対応", "売上集計"],
+    href: "/project-dashboard-v1",
+    themeColor: "#4f6fa8",
+    readyRoles: ["surveyor", "manager", "owner", "admin", "super_admin"],
+  },
+  {
     id: "schedule_v1",
     label: "日程を調整する",
     subtitle: "空き日をすぐ確認",

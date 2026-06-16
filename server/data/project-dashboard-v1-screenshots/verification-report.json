@@ -1,0 +1,18 @@
+{
+  "capturedAt": "2026-06-16T08:45:02.455Z",
+  "viewport": "390x844",
+  "base": "http://127.0.0.1:3080",
+  "files": [
+    "01-dashboard-overview.png",
+    "02-dashboard-search.png",
+    "03-dashboard-bottom.png"
+  ],
+  "apis": [
+    "/api/dashboard-v1/summary",
+    "/api/dashboard-v1/today",
+    "/api/dashboard-v1/alerts",
+    "/api/dashboard-v1/recent",
+    "/api/dashboard-v1/city-stats",
+    "/api/dashboard-v1/sales"
+  ]
+}
