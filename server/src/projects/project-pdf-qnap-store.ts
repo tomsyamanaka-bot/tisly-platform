@@ -6,6 +6,10 @@ import { v4 as uuid } from "uuid";
 import { getDatabase } from "../db/database.js";
 import { getStorageSettingsV1 } from "../storage/storage-settings-store.js";
 import { mirrorPdfToProjectStorageV1 } from "../storage/project-storage-v1.js";
+import {
+  recordProjectPdfTimelineV1,
+  recordQnapTimelineV1,
+} from "./project-timeline-v1-store.js";
 import type { ProjectPdfKind } from "./project-pdf-store.js";
 
 export type QnapBackupStatus = "pending" | "uploading" | "success" | "failed";
@@ -212,6 +216,7 @@ export function recordProjectPdfSavedV1(
     );
     const row = getProjectPdfMeta(projectId, kind)!;
     mirrorPdfToProjectStorageV1(projectId, kind, pdfPath);
+    recordProjectPdfTimelineV1(projectId, kind, fileName, false);
     return row;
   }
 
@@ -235,6 +240,7 @@ export function recordProjectPdfSavedV1(
   );
   const row = getProjectPdfMeta(projectId, kind)!;
   mirrorPdfToProjectStorageV1(projectId, kind, pdfPath);
+  recordProjectPdfTimelineV1(projectId, kind, fileName, true);
   return row;
 }
 
@@ -291,6 +297,9 @@ export function markQnapBackupUploading(id: string): void {
 
 export function markQnapBackupSuccess(id: string, qnapPath: string): void {
   const now = new Date().toISOString();
+  const before = getDatabase()
+    .prepare(`SELECT project_id, file_name FROM project_pdf_meta WHERE id = ?`)
+    .get(id) as { project_id?: string; file_name?: string } | undefined;
   getDatabase()
     .prepare(
       `UPDATE project_pdf_meta SET
@@ -302,6 +311,13 @@ export function markQnapBackupSuccess(id: string, qnapPath: string): void {
       WHERE id = ? AND deleted_at IS NULL`
     )
     .run(qnapPath, now, now, id);
+  if (before?.project_id) {
+    recordQnapTimelineV1(
+      String(before.project_id),
+      String(before.file_name ?? "document.pdf"),
+      qnapPath
+    );
+  }
 }
 
 export function markQnapBackupFailed(id: string, error: string): void {

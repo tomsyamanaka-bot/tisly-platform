@@ -3,6 +3,7 @@
  */
 import { v4 as uuid } from "uuid";
 import { getDatabase } from "../db/database.js";
+import { recordPdfShareTimelineV1 } from "./project-timeline-v1-store.js";
 
 export interface PdfShareLogRowV1 {
   id: string;
@@ -25,6 +26,7 @@ export function recordPdfShareLogV1(input: {
        VALUES (?, ?, ?, ?, ?)`
     )
     .run(id, input.projectId, input.documentKind, input.fileName, now);
+  recordPdfShareTimelineV1(input.projectId, input.documentKind, input.fileName);
   return { id, projectId: input.projectId, documentKind: input.documentKind, fileName: input.fileName, sharedAt: now };
 }
 

@@ -68,6 +68,7 @@ import {
 } from "./services/googleOAuthService.js";
 import { projectsV1Router } from "./api/routes/projects-v1.js";
 import { projectMgmtV1Router } from "./api/routes/project-mgmt-v1.js";
+import { projectTimelineV1Router } from "./api/routes/project-timeline-v1.js";
 import { dashboardV1Router } from "./api/routes/dashboard-v1.js";
 import { projectStorageV1Router } from "./api/routes/project-storage-v1.js";
 import { searchV1Router } from "./api/routes/search-v1.js";
@@ -142,6 +143,7 @@ export function createApp(): express.Application {
   });
   app.use("/api/projects/v1", projectsV1Router);
   app.use("/api/project-mgmt/v1", projectMgmtV1Router);
+  app.use("/api/project-timeline-v1", projectTimelineV1Router);
   app.use("/api/dashboard-v1", dashboardV1Router);
   app.use("/api/project-storage", projectStorageV1Router);
   app.use("/api/search/v1", searchV1Router);

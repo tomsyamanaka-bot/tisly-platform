@@ -8,6 +8,7 @@ import {
 } from "../business/business-store.js";
 import type { BusinessProject } from "../business/business-types.js";
 import { appendProjectTimeline } from "../toms/project-timeline.js";
+import { addProjectTimelineEventV1 } from "./project-timeline-v1-store.js";
 import { getLatestWorkSessionForProject } from "../field-ops/work-session-v1-store.js";
 import { listSurveyPhotosV1 } from "../survey/survey-v1-store.js";
 import { listCompletionPhotosV1 } from "../estimate/completion-photos-store.js";
@@ -323,6 +324,20 @@ export function createProjectMgmtV1(input: {
     detail: `${created.projectNo} ${created.title}`,
     actor: "project_mgmt",
   });
+  addProjectTimelineEventV1({
+    projectId: id,
+    eventType: "project_created",
+    title: "案件作成",
+    description: `${created.projectNo} ${created.title}`,
+  });
+  if (input.surveyProjectId) {
+    addProjectTimelineEventV1({
+      projectId: id,
+      eventType: "survey_created",
+      title: "現調作成",
+      description: input.surveyProjectId,
+    });
+  }
   return created;
 }
 
@@ -340,6 +355,19 @@ export function updateProjectMgmtV1(
 ): BusinessProject | null {
   const existing = getBusinessProject(projectId);
   if (!existing) return null;
+
+  const prevMgmtStatus = deriveMgmtStatus(existing.status, {
+    hasActiveWorkSession: false,
+    hasInvoice: Boolean(existing.invoiceId),
+    hasPaid: Boolean(existing.paidDate),
+  });
+  const prevAssignee = String(
+    (
+      getDatabase()
+        .prepare(`SELECT assignee FROM business_projects WHERE id = ?`)
+        .get(projectId) as { assignee?: string } | undefined
+    )?.assignee ?? ""
+  );
 
   const businessPatch: Parameters<typeof updateBusinessProject>[1] = {};
   if (patch.title !== undefined) businessPatch.title = patch.title;
@@ -371,7 +399,39 @@ export function updateProjectMgmtV1(
       .run(...params, projectId);
   }
 
-  return getBusinessProject(projectId);
+  const updated = getBusinessProject(projectId);
+  if (updated) {
+    const changes: string[] = [];
+    if (patch.title !== undefined && patch.title !== existing.title) changes.push("案件名");
+    if (patch.customerName !== undefined && patch.customerName !== existing.customerName)
+      changes.push("顧客名");
+    if (patch.mgmtStatus !== undefined && patch.mgmtStatus !== prevMgmtStatus) {
+      addProjectTimelineEventV1({
+        projectId,
+        eventType: "status_changed",
+        title: "ステータス変更",
+        description: `${PROJECT_MGMT_STATUS_LABELS[prevMgmtStatus]} → ${PROJECT_MGMT_STATUS_LABELS[patch.mgmtStatus]}`,
+      });
+    }
+    if (patch.assignee !== undefined && patch.assignee.trim() !== prevAssignee.trim()) {
+      addProjectTimelineEventV1({
+        projectId,
+        eventType: "assignee_changed",
+        title: "担当変更",
+        description: `${prevAssignee || "—"} → ${patch.assignee.trim() || "—"}`,
+      });
+    }
+    if (changes.length) {
+      addProjectTimelineEventV1({
+        projectId,
+        eventType: "project_updated",
+        title: "案件更新",
+        description: changes.join("・"),
+      });
+    }
+  }
+
+  return updated;
 }
 
 export function softDeleteProjectMgmtV1(projectId: string): boolean {

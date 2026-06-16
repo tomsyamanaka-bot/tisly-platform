@@ -53,6 +53,7 @@ import type {
 } from "./business-types.js";
 import { generateQnapProjectPath } from "./services/qnapService.js";
 import { appendProjectTimeline } from "../toms/project-timeline.js";
+import { addProjectTimelineEventV1 } from "../projects/project-timeline-v1-store.js";
 import {
   allocateProjectNoV1,
   buildQnapFolderPathV1,
@@ -647,6 +648,12 @@ export function createEstimate(
     estimateId: id,
     status: statusAfterEstimateCreated(),
   });
+  addProjectTimelineEventV1({
+    projectId,
+    eventType: "estimate_created",
+    title: "見積書作成",
+    description: estimateNo,
+  });
   if (opts?.fromAi) {
     getDatabase()
       .prepare(
@@ -713,6 +720,12 @@ export function createInvoiceFromEstimate(projectId: string, paymentDueDate?: st
   updateBusinessProject(projectId, {
     invoiceId: id,
     status: statusAfterInvoiceCreated(),
+  });
+  addProjectTimelineEventV1({
+    projectId,
+    eventType: "invoice_created",
+    title: "請求書作成",
+    description: invoiceNo,
   });
   return getInvoice(id)!;
 }

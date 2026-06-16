@@ -215,6 +215,7 @@ export function runMigrations(database: Database.Database): void {
   migrateProjectDocumentsV1(database);
   migrateProjectMgmtV1(database);
   migrateProjectMgmtV2(database);
+  migrateProjectTimelineV1(database);
 }
 
 /** 案件一覧 v1 — 論理削除 deleted_at */
@@ -3459,4 +3460,32 @@ function migrateProjectMgmtV2(database: Database.Database): void {
       `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
     )
     .run("migration:project_mgmt_v2", JSON.stringify({ at: new Date().toISOString() }));
+}
+
+/** 案件タイムライン v1 — project_timeline_events */
+function migrateProjectTimelineV1(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:project_timeline_v1") as { value_json: string } | undefined;
+  if (marker) return;
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS project_timeline_events (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      event_type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES business_projects(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_project_timeline_events_project
+      ON project_timeline_events(project_id, created_at DESC);
+  `);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:project_timeline_v1", JSON.stringify({ at: new Date().toISOString() }));
 }

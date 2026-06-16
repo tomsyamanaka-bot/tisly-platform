@@ -55,11 +55,31 @@
     .share-doc { font-weight: 700; font-size: 0.88rem; }
     .share-meta { font-size: 0.78rem; color: #64748b; margin-top: 0.1rem; }
     .timeline-list { padding: 0.15rem 0; }
-    .tl-date { font-weight: 700; font-size: 0.82rem; color: #475569; margin: 0.65rem 0 0.35rem; }
-    .tl-date:first-child { margin-top: 0; }
-    .tl-item { padding: 0.4rem 0 0.4rem 0.65rem; border-left: 2px solid #cbd5e1; margin-left: 0.25rem; }
-    .tl-title { font-weight: 600; font-size: 0.88rem; }
-    .tl-detail { font-size: 0.78rem; color: #64748b; margin-top: 0.1rem; }
+    .tl-search-row {
+      display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.65rem;
+    }
+    .tl-filter-chip {
+      flex: 0 0 auto; min-height: 34px; padding: 0.25rem 0.55rem;
+      border-radius: 999px; border: 1px solid #cbd5e1; background: #fff;
+      font-size: 0.74rem; font-weight: 700; color: #475569; cursor: pointer;
+    }
+    .tl-filter-chip.active {
+      background: var(--tisly-blue, #4f6fa8); color: #fff; border-color: var(--tisly-blue, #4f6fa8);
+    }
+    .tl-item {
+      padding: 0.55rem 0.65rem 0.55rem 0.75rem; border-left: 3px solid #cbd5e1;
+      margin: 0 0 0.45rem 0.15rem; border-radius: 0 8px 8px 0; background: #f8fafc;
+    }
+    .tl-time { font-size: 0.74rem; color: #64748b; font-weight: 600; margin-bottom: 0.15rem; }
+    .tl-title { font-weight: 700; font-size: 0.9rem; color: #1e293b; }
+    .tl-detail { font-size: 0.78rem; color: #64748b; margin-top: 0.15rem; word-break: break-word; }
+    .tl-count-hint { font-size: 0.72rem; color: #94a3b8; text-align: right; margin-top: 0.25rem; }
+    .tl-cat-estimate { border-left-color: #2563eb; background: #eff6ff; }
+    .tl-cat-invoice { border-left-color: #16a34a; background: #f0fdf4; }
+    .tl-cat-completion { border-left-color: #7c3aed; background: #f5f3ff; }
+    .tl-cat-share { border-left-color: #ea580c; background: #fff7ed; }
+    .tl-cat-qnap { border-left-color: #0891b2; background: #ecfeff; }
+    .tl-cat-general { border-left-color: #94a3b8; }
     .link-card {
       display: block; padding: 0.75rem; border-radius: 10px; border: 1px solid #e2e8f0;
       background: #fff; text-decoration: none; color: inherit; margin-bottom: 0.5rem;

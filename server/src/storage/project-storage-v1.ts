@@ -2,6 +2,7 @@
  * 案件ストレージ v1 — provider 経由の公開 API
  */
 import type { ProjectPdfKind } from "../projects/project-pdf-store.js";
+import { addProjectTimelineEventV1 } from "../projects/project-timeline-v1-store.js";
 import {
   getProjectStorageProvider,
   type ProjectStorageDocKind,
@@ -57,7 +58,23 @@ export function uploadProjectStorageFileV1(
   folderType: import("./project-storage-provider.js").ProjectStorageFolderType,
   input: { fileName: string; fileBase64: string }
 ) {
-  return getProjectStorageProvider().uploadFile(projectId, folderType, input);
+  const result = getProjectStorageProvider().uploadFile(projectId, folderType, input);
+  if (folderType === "photos") {
+    addProjectTimelineEventV1({
+      projectId,
+      eventType: "photo_added",
+      title: "写真追加",
+      description: input.fileName,
+    });
+  } else if (folderType === "drawings") {
+    addProjectTimelineEventV1({
+      projectId,
+      eventType: "drawing_added",
+      title: "図面追加",
+      description: input.fileName,
+    });
+  }
+  return result;
 }
 
 /** PDF 保存時に project storage へ自動ミラー */

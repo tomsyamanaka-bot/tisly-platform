@@ -3,6 +3,7 @@ import { initPracticalNav } from "./tisly-practical-nav.js";
 import { sharePdfAsFile, prefetchPdfForShare } from "./pdf-share-v1.js";
 
 const API = "/api/project-mgmt/v1";
+const TIMELINE_API = "/api/project-timeline-v1";
 const STORAGE_API = "/api/project-storage";
 const PROJECTS_API = "/api/projects/v1";
 const ESTIMATE_API = "/api/estimate/v1";
@@ -33,7 +34,17 @@ const STATUS_OPTIONS = [
 let detail = null;
 let activeTab = "overview";
 let storageData = null;
+let timelineFilter = "all";
 const openStorageFolders = new Set();
+
+const TIMELINE_FILTERS = [
+  { id: "all", label: "すべて" },
+  { id: "estimate", label: "見積" },
+  { id: "invoice", label: "請求" },
+  { id: "share", label: "共有" },
+  { id: "qnap", label: "QNAP" },
+  { id: "completion", label: "完了報告" },
+];
 
 const STORAGE_DOC_SLOTS = [
   { kind: "estimate", fallbackLabel: "見積書.pdf", viewerKind: "estimate", pdfKind: "estimate" },
@@ -284,25 +295,56 @@ function renderOverview(p) {
     </div>`;
 }
 
+function timelineCategoryClass(category) {
+  const map = {
+    estimate: "tl-cat-estimate",
+    invoice: "tl-cat-invoice",
+    completion: "tl-cat-completion",
+    share: "tl-cat-share",
+    qnap: "tl-cat-qnap",
+  };
+  return map[category] || "tl-cat-general";
+}
+
+function filterTimelineItems(items) {
+  if (timelineFilter === "all") return items;
+  return items.filter((e) => {
+    if (e.category === timelineFilter) return true;
+    const hay = `${e.title} ${e.detail || ""}`;
+    if (timelineFilter === "estimate") return hay.includes("見積");
+    if (timelineFilter === "invoice") return hay.includes("請求");
+    if (timelineFilter === "share") return hay.includes("共有") || hay.includes("LINE");
+    if (timelineFilter === "qnap") return hay.includes("QNAP");
+    if (timelineFilter === "completion") return hay.includes("完了");
+    return false;
+  });
+}
+
 function renderHistoryTab() {
-  const items = detail.timeline ?? [];
+  const items = filterTimelineItems(detail.timeline ?? []);
+  const chips = TIMELINE_FILTERS.map(
+    (f) =>
+      `<button type="button" class="tl-filter-chip${timelineFilter === f.id ? " active" : ""}" data-tl-filter="${f.id}">${f.label}</button>`
+  ).join("");
   if (!items.length) {
-    return `<p class="section-hint">履歴はまだありません</p>`;
+    return `
+      <div class="tl-search-row">${chips}</div>
+      <p class="section-hint">${timelineFilter === "all" ? "履歴はまだありません" : "該当する履歴がありません"}</p>`;
   }
-  let lastDate = "";
   const rows = items
-    .map((e) => {
-      const showDate = e.date !== lastDate;
-      if (showDate) lastDate = e.date;
-      return `
-      ${showDate ? `<div class="tl-date">${escapeHtml(e.date)}</div>` : ""}
-      <div class="tl-item">
+    .map(
+      (e) => `
+      <div class="tl-item ${timelineCategoryClass(e.category)}">
+        <div class="tl-time">${escapeHtml(e.date)}</div>
         <div class="tl-title">${escapeHtml(e.title)}</div>
         ${e.detail ? `<div class="tl-detail">${escapeHtml(e.detail)}</div>` : ""}
-      </div>`;
-    })
+      </div>`
+    )
     .join("");
-  return `<div class="timeline-list">${rows}</div>`;
+  return `
+    <div class="tl-search-row">${chips}</div>
+    <div class="timeline-list">${rows}</div>
+    <p class="tl-count-hint">${items.length}件</p>`;
 }
 
 function findPdfEntry(pdfKind) {
@@ -625,8 +667,11 @@ async function shareStoragePdf(pdfKind, fileName) {
         "Content-Type": "application/json",
         Authorization: `Bearer ${getCustomerToken()}`,
       },
-      body: JSON.stringify({ kind: pdfKind, channel: "share" }),
+      body: JSON.stringify({ documentKind: pdfKind, fileName: fileName || `${pdfKind}.pdf` }),
     }).catch(() => {});
+    const refreshed = await api(`/projects/${encodeURIComponent(projectId)}`);
+    detail = refreshed.detail;
+    if (activeTab === "history") render();
   } catch (e) {
     if (e?.name === "AbortError") return;
     toast(e.message || "共有に失敗しました");
@@ -769,6 +814,13 @@ function bindActions() {
   bindDocActions();
   bindStorageUploads();
   bindStorageFolders();
+  document.querySelectorAll("[data-tl-filter]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      timelineFilter = btn.getAttribute("data-tl-filter") || "all";
+      render();
+      bindActions();
+    });
+  });
 }
 
 async function main() {

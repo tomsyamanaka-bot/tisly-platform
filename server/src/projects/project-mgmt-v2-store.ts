@@ -11,6 +11,10 @@ import {
   type ProjectMgmtStatus,
 } from "./project-mgmt-status-v1.js";
 import { listProjectTimeline } from "../toms/project-timeline.js";
+import {
+  formatTimelineDateTimeV1,
+  listProjectTimelineEventsV1,
+} from "./project-timeline-v1-store.js";
 import { getProjectDocumentsStatusV1 } from "./project-documents-v1.js";
 import type { ProjectMgmtListItemV1 } from "./project-mgmt-v1-store.js";
 
@@ -32,6 +36,8 @@ export interface ProjectTimelineItemV2 {
   title: string;
   detail: string;
   eventType: string;
+  category: string;
+  createdAt: string;
 }
 
 export interface PdfShareHistoryItemV2 {
@@ -151,23 +157,36 @@ export function buildWorkflowCardsV2(input: {
 }
 
 export function listProjectTimelineV2(projectId: string): ProjectTimelineItemV2[] {
-  return listProjectTimeline(projectId).map((e) => {
-    const d = new Date(e.createdAt);
-    const date = Number.isNaN(d.getTime())
-      ? e.createdAt.slice(0, 10)
-      : d.toLocaleDateString("ja-JP", {
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-        });
-    return {
+  const v1Events = listProjectTimelineEventsV1(projectId);
+  if (v1Events.length > 0) {
+    return v1Events.map((e) => ({
       id: e.id,
-      date,
+      date: formatTimelineDateTimeV1(e.createdAt),
       title: e.title,
-      detail: e.detail,
+      detail: e.description,
       eventType: e.eventType,
-    };
-  });
+      category: e.category,
+      createdAt: e.createdAt,
+    }));
+  }
+  return listProjectTimeline(projectId)
+    .slice()
+    .reverse()
+    .map((e) => {
+      const d = new Date(e.createdAt);
+      const date = Number.isNaN(d.getTime())
+        ? e.createdAt.slice(0, 10)
+        : formatTimelineDateTimeV1(e.createdAt);
+      return {
+        id: e.id,
+        date,
+        title: e.title,
+        detail: e.detail,
+        eventType: e.eventType,
+        category: "general",
+        createdAt: e.createdAt,
+      };
+    });
 }
 
 export function listPdfShareHistoryV2(projectId: string): PdfShareHistoryItemV2[] {
