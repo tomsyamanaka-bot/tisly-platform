@@ -67,6 +67,38 @@ function apiErrorMessage(data, status) {
   return `HTTP ${status}`;
 }
 
+const SYNC_DUPLICATE_ERROR_UI =
+  "Googleカレンダー同期に失敗しました。予定の重複保存エラーです。再同期してください。";
+
+function formatSyncErrorForUi(err) {
+  const detail =
+    err.details?.detailLog ||
+    err.details?.googleErrorMessage ||
+    err.message ||
+    "";
+  console.error("[schedule-sync]", detail, err.details ?? {});
+  const msg = err.message || detail || "同期に失敗しました";
+  if (/UNIQUE constraint|重複保存|schedule_calendar_events/i.test(`${msg} ${detail}`)) {
+    return SYNC_DUPLICATE_ERROR_UI;
+  }
+  return msg;
+}
+
+function formatSyncSuccessToast(result) {
+  const lastSyncedAt = result.lastSyncedAt || result.sync?.lastSyncedAt;
+  const lastSyncLabel = lastSyncedAt
+    ? lastSyncedAt.slice(0, 16).replace("T", " ")
+    : "—";
+  return [
+    "同期成功",
+    `最終同期 ${lastSyncLabel}`,
+    `取得 ${result.fetched ?? result.count ?? 0}件`,
+    `作成 ${result.created ?? 0}件`,
+    `更新 ${result.updated ?? 0}件`,
+    `スキップ ${result.skipped ?? 0}件`,
+  ].join(" · ");
+}
+
 function toastError(err, status) {
   if (status === 401 || /unauthorized/i.test(String(err?.message || ""))) {
     toast("ログインが切れました。もう一度ログインしてください");
@@ -529,7 +561,12 @@ function renderCalendarStatusLine(cal) {
   } else if (cal.displayStatus === "not_logged_in") {
     lines.push("「Googleログイン」ボタンから初回認証を行ってください");
   } else if (cal.displayStatus === "sync_failed" && cal.sync?.lastSyncError) {
-    lines.push(cal.sync.lastSyncError);
+    const err = cal.sync.lastSyncError;
+    lines.push(
+      /UNIQUE constraint|重複保存|schedule_calendar_events/i.test(err)
+        ? SYNC_DUPLICATE_ERROR_UI
+        : err
+    );
   } else if (cal.sync?.lastSyncedAt) {
     const at = new Date(cal.sync.lastSyncedAt).toLocaleString("ja-JP");
     lines.push(`最終同期: ${at}（${cal.sync.eventCount ?? 0}件）`);
@@ -665,17 +702,14 @@ async function init() {
         toast("本番接続が必要です。Googleカレンダー設定からログインしてください。");
         return;
       }
-      const modeLabel = result.modeLabel || (result.mode === "real" ? "Google" : result.mode);
-      toast(`同期完了（${result.count}件・${modeLabel}）`);
+      toast(formatSyncSuccessToast(result));
       await refreshSyncStatus();
       await refreshCurrent();
     } catch (e) {
       if (e.status === 503 && String(e.message || "").includes("Googleカレンダー")) {
         toast(e.message || "Googleカレンダー未設定：設定画面でログインしてください");
-      } else if (e.message) {
-        toast(e.message);
       } else {
-        toastError(e, e.status);
+        toast(formatSyncErrorForUi(e));
       }
       await refreshSyncStatus();
     } finally {

@@ -183,6 +183,7 @@ googleCalendarRouter.post("/sync/full", ...calendarAuth, async (req: AuthedReque
     res.json({
       ok: true,
       ...result,
+      count: result.created + result.updated,
       modeLabel: result.mode === "real" ? "Google" : "mock",
     });
   } catch (e) {
@@ -197,18 +198,22 @@ googleCalendarRouter.post("/sync/full", ...calendarAuth, async (req: AuthedReque
           errorHint: hint,
         }
       : undefined;
+    const rawMsg = e instanceof Error ? e.message : "sync failed";
+    const msg = formatGoogleCalendarErrorJa(hint ?? rawMsg);
+    console.error("[google-calendar/sync/full]", rawMsg, safeDetails ?? {});
     if (e instanceof GoogleCalendarSyncError) {
       sendGoogleCalendarSyncError(res, e.status, e.code, e.message, {
         ...e.details,
         ...(safeDetails ?? {}),
+        detailLog: rawMsg,
       });
       return;
     }
-    const msg = formatGoogleCalendarErrorJa(
-      hint ?? (e instanceof Error ? e.message : "sync failed")
-    );
     recordCalendarSyncFailure(msg, safeLog);
-    sendGoogleCalendarSyncError(res, 500, "sync_failed", msg, safeDetails ?? undefined);
+    sendGoogleCalendarSyncError(res, 500, "sync_failed", msg, {
+      ...(safeDetails ?? {}),
+      detailLog: rawMsg,
+    });
   }
 });
 

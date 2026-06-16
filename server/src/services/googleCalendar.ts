@@ -7,9 +7,14 @@ import type { ScheduleCategory, ScheduleEvent, ScheduleEventSource } from "../sc
 import { getCalendarSyncMeta, type CalendarSyncMeta } from "../schedule/schedule-calendar-store.js";
 import { getGoogleCalendarSettingsV1 } from "../schedule/google-calendar-sync-store.js";
 import {
+  buildGoogleEventLocalId,
   calendarMetaMap,
   resolveTargetCalendarIds,
 } from "../schedule/google-calendar-target-calendars.js";
+import {
+  formatScheduleCalendarDuplicateErrorForUi,
+  isScheduleCalendarDuplicateError,
+} from "../schedule/schedule-calendar-store.js";
 import {
   assertGoogleCalendarSyncAllowed,
   getGoogleCalendarAuthUrl,
@@ -176,8 +181,8 @@ function googleItemToEvent(
   const title = item.summary.trim();
   const calendarId = meta?.calendarId ?? null;
   const localId = calendarId
-    ? `gcal-${calendarId.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 64)}-${item.id}`
-    : `gcal-${item.id}`;
+    ? buildGoogleEventLocalId(calendarId, item.id)
+    : buildGoogleEventLocalId("primary", item.id);
   return {
     id: localId,
     date,
@@ -456,7 +461,7 @@ function mockMultiCalendarEvents(
       if ((ev.date.charCodeAt(ev.date.length - 1) + calId.length) % (ids.length + 1) !== 0) continue;
       events.push({
         ...ev,
-        id: `mock-${calId}-${ev.id}`,
+        id: buildGoogleEventLocalId(calId, `mock-ext-${calId}-${ev.externalId}`),
         externalId: `mock-ext-${calId}-${ev.externalId}`,
         calendarId: calId,
         calendarColor: cal?.backgroundColor ?? null,
@@ -465,11 +470,16 @@ function mockMultiCalendarEvents(
     }
   }
   if (!events.length && ids.length === 1) {
+    const calId = ids[0];
+    const cal = meta.get(calId);
     return base.map((ev) => ({
       ...ev,
-      calendarId: ids[0],
-      calendarColor: meta.get(ids[0])?.backgroundColor ?? null,
-      calendarSummary: meta.get(ids[0])?.summary ?? null,
+      id: ev.externalId
+        ? buildGoogleEventLocalId(calId, ev.externalId)
+        : buildGoogleEventLocalId(calId, ev.id.replace(/^mock-/, "")),
+      calendarId: calId,
+      calendarColor: cal?.backgroundColor ?? null,
+      calendarSummary: cal?.summary ?? null,
     }));
   }
   return events.sort((a, b) => {
@@ -521,6 +531,9 @@ const GOOGLE_ERROR_JA: Array<{ pattern: RegExp; message: string }> = [
 export function formatGoogleCalendarErrorJa(message: string): string {
   const text = message.trim();
   if (!text) return "同期に失敗しました。しばらく待ってから再試行してください。";
+  if (isScheduleCalendarDuplicateError(text)) {
+    return formatScheduleCalendarDuplicateErrorForUi(text);
+  }
   for (const rule of GOOGLE_ERROR_JA) {
     if (rule.pattern.test(text)) return rule.message;
   }

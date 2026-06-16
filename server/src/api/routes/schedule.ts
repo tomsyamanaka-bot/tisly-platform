@@ -43,7 +43,7 @@ import {
   hasCachedCalendarEvents,
   listCachedCalendarEvents,
   recordCalendarSyncFailure,
-  replaceCachedCalendarEvents,
+  upsertCachedCalendarEvents,
 } from "../../schedule/schedule-calendar-store.js";
 import {
   buildDepartureNotificationPayload,
@@ -415,21 +415,34 @@ async function runGoogleCalendarSync(
   ok: true;
   mode: "mock" | "real";
   count: number;
+  fetched: number;
+  created: number;
+  updated: number;
+  skipped: number;
+  failed: number;
   startDate: string;
   endDate: string;
+  lastSyncedAt: string | null;
   sync: ReturnType<typeof getCalendarSyncMeta>;
 }> {
   const params = assertGoogleCalendarSyncRequest(body, auth);
   const synced = await syncGoogleCalendarEvents(params.startDate, params.endDate);
-  const saved = replaceCachedCalendarEvents(params.startDate, params.endDate, synced.events);
+  const upsert = upsertCachedCalendarEvents(params.startDate, params.endDate, synced.events);
   touchGoogleCalendarLastSync();
+  const syncMeta = getCalendarSyncMeta();
   return {
     ok: true,
     mode: synced.mode,
-    count: saved,
+    count: upsert.created + upsert.updated,
+    fetched: upsert.fetched,
+    created: upsert.created,
+    updated: upsert.updated,
+    skipped: upsert.skipped,
+    failed: upsert.failed,
     startDate: params.startDate,
     endDate: params.endDate,
-    sync: getCalendarSyncMeta(),
+    lastSyncedAt: syncMeta.lastSyncedAt,
+    sync: syncMeta,
   };
 }
 

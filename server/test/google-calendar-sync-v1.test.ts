@@ -870,25 +870,6 @@ describe("Google Calendar 双方向同期 v1", () => {
     assert.ok(html.includes("btn-sync-test"));
   });
 
-  it("フロントは API message を toast に使う（汎用 Bad Request 禁止）", async () => {
-    const js = fs.readFileSync(
-      new URL("../public/js/google-calendar-settings-v1.js", import.meta.url),
-      "utf8"
-    );
-    assert.ok(js.includes("apiErrorMessage"));
-    assert.ok(js.includes("data?.message"));
-    assert.ok(js.includes("renderDevInfo"));
-    assert.ok(js.includes("renderOAuthDebugFromParams"));
-    assert.ok(js.includes("formatGoogleApiErrorHintFromLog"));
-    assert.ok(!js.includes("primary（読込失敗）"));
-    const scheduleJs = fs.readFileSync(
-      new URL("../public/js/schedule-v1.js", import.meta.url),
-      "utf8"
-    );
-    assert.ok(scheduleJs.includes("e.message"));
-    assert.ok(scheduleJs.includes("apiErrorMessage"));
-  });
-
   it("出発リマインダー API が最初の現場のみ対象", async () => {
     getDatabase()
       .prepare(`DELETE FROM schedule_calendar_events WHERE event_date = ?`)
@@ -916,5 +897,140 @@ describe("Google Calendar 双方向同期 v1", () => {
     assert.equal(res.status, 200);
     assert.equal(res.body.departure.eventTitle, "1件目現場");
     assert.equal(res.body.departure.reminderMinutesBefore, 30);
+  });
+
+  it("フロントは API message を toast に使う（汎用 Bad Request 禁止）", async () => {
+    const js = fs.readFileSync(
+      new URL("../public/js/google-calendar-settings-v1.js", import.meta.url),
+      "utf8"
+    );
+    assert.ok(js.includes("apiErrorMessage"));
+    assert.ok(js.includes("data?.message"));
+    assert.ok(js.includes("renderDevInfo"));
+    assert.ok(js.includes("renderOAuthDebugFromParams"));
+    assert.ok(js.includes("formatGoogleApiErrorHintFromLog"));
+    assert.ok(js.includes("formatSyncErrorForUi"));
+    assert.ok(js.includes("formatSyncSuccessLines"));
+    assert.ok(!js.includes("primary（読込失敗）"));
+    const scheduleJs = fs.readFileSync(
+      new URL("../public/js/schedule-v1.js", import.meta.url),
+      "utf8"
+    );
+    assert.ok(scheduleJs.includes("formatSyncErrorForUi"));
+    assert.ok(scheduleJs.includes("formatSyncSuccessToast"));
+    assert.ok(scheduleJs.includes("apiErrorMessage"));
+  });
+
+  it("同じGoogle予定を2回UPSERTしてもUNIQUE制約エラーにならない", async () => {
+    const { upsertCachedCalendarEvents } = await import("../src/schedule/schedule-calendar-store.js");
+    const { buildGoogleEventLocalId } = await import(
+      "../src/schedule/google-calendar-target-calendars.js"
+    );
+    const start = "2026-06-01";
+    const end = "2026-06-30";
+    const ev = {
+      id: buildGoogleEventLocalId("primary", "dup-event-1"),
+      externalId: "dup-event-1",
+      calendarId: "primary",
+      date: "2026-06-10",
+      title: "重複テスト予定",
+      category: "construction" as const,
+      source: "google" as const,
+      startTime: "09:00",
+      endTime: "10:00",
+      allDay: false,
+      location: null,
+      description: null,
+    };
+    const first = upsertCachedCalendarEvents(start, end, [ev]);
+    assert.equal(first.created, 1);
+    assert.equal(first.updated, 0);
+    assert.equal(first.failed, 0);
+
+    const second = upsertCachedCalendarEvents(start, end, [
+      { ...ev, title: "重複テスト予定（更新）" },
+    ]);
+    assert.equal(second.created, 0);
+    assert.equal(second.updated, 1);
+    assert.equal(second.failed, 0);
+
+    const row = getDatabase()
+      .prepare(`SELECT title FROM schedule_calendar_events WHERE id = ?`)
+      .get(ev.id) as { title?: string };
+    assert.equal(row.title, "重複テスト予定（更新）");
+  });
+
+  it("複数カレンダーで同じ google event.id でも衝突しない", async () => {
+    const { upsertCachedCalendarEvents } = await import("../src/schedule/schedule-calendar-store.js");
+    const { buildGoogleEventLocalId } = await import(
+      "../src/schedule/google-calendar-target-calendars.js"
+    );
+    const start = "2026-06-01";
+    const end = "2026-06-30";
+    const sharedGoogleId = "shared-google-id-99";
+    const evA = {
+      id: buildGoogleEventLocalId("cal-a@group.calendar.google.com", sharedGoogleId),
+      externalId: sharedGoogleId,
+      calendarId: "cal-a@group.calendar.google.com",
+      date: "2026-06-11",
+      title: "カレンダーA",
+      category: "construction" as const,
+      source: "google" as const,
+      startTime: "09:00",
+      endTime: "10:00",
+      allDay: false,
+      location: null,
+      description: null,
+    };
+    const evB = {
+      id: buildGoogleEventLocalId("cal-b@group.calendar.google.com", sharedGoogleId),
+      externalId: sharedGoogleId,
+      calendarId: "cal-b@group.calendar.google.com",
+      date: "2026-06-11",
+      title: "カレンダーB",
+      category: "office" as const,
+      source: "google" as const,
+      startTime: "11:00",
+      endTime: "12:00",
+      allDay: false,
+      location: null,
+      description: null,
+    };
+    const stats = upsertCachedCalendarEvents(start, end, [evA, evB]);
+    assert.equal(stats.failed, 0);
+    assert.equal(stats.created, 2);
+    assert.notEqual(evA.id, evB.id);
+
+    const count = (
+      getDatabase()
+        .prepare(`SELECT COUNT(*) AS c FROM schedule_calendar_events WHERE external_id = ?`)
+        .get(sharedGoogleId) as { c: number }
+    ).c;
+    assert.equal(count, 2);
+  });
+
+  it("モック同期を2回実行しても落ちない（UPDATE扱い）", async () => {
+    const { upsertCachedCalendarEvents } = await import("../src/schedule/schedule-calendar-store.js");
+    const { mockCalendarEvents } = await import("../src/services/googleCalendar.js");
+    const { buildGoogleEventLocalId } = await import(
+      "../src/schedule/google-calendar-target-calendars.js"
+    );
+    const start = "2026-06-01";
+    const end = "2026-06-14";
+    const events = mockCalendarEvents(start, end).map((ev) => ({
+      ...ev,
+      calendarId: "primary",
+      externalId: ev.externalId ?? ev.id.replace(/^mock-/, "ext-"),
+      id: buildGoogleEventLocalId("primary", ev.externalId ?? ev.id.replace(/^mock-/, "ext-")),
+    }));
+    assert.ok(events.length > 0);
+    const first = upsertCachedCalendarEvents(start, end, events);
+    assert.equal(first.failed, 0);
+    assert.ok(first.created > 0);
+
+    const second = upsertCachedCalendarEvents(start, end, events);
+    assert.equal(second.failed, 0);
+    assert.equal(second.created, 0);
+    assert.equal(second.updated, events.length);
   });
 });

@@ -27,7 +27,7 @@ import {
   resolveTargetCalendarIds,
   filterWritableCalendars,
 } from "./google-calendar-target-calendars.js";
-import { replaceCachedCalendarEvents } from "./schedule-calendar-store.js";
+import { upsertCachedCalendarEvents, type CalendarUpsertStats } from "./schedule-calendar-store.js";
 import type { ScheduleEvent } from "./schedule-types.js";
 import {
   findLinkByGoogleEventId,
@@ -53,6 +53,17 @@ export interface FullSyncResultV1 {
   linksUpdated: number;
   startDate: string;
   endDate: string;
+  /** 取得件数 */
+  fetched: number;
+  /** 新規作成件数 */
+  created: number;
+  /** 更新件数 */
+  updated: number;
+  /** スキップ件数 */
+  skipped: number;
+  /** 保存失敗件数 */
+  failed: number;
+  lastSyncedAt: string;
 }
 
 async function resolveSyncTargetCalendarIds(
@@ -129,18 +140,40 @@ async function pullFromGoogle(
   endDate: string,
   settings: GoogleCalendarSettingsV1,
   targetIds: string[]
-): Promise<{ events: ScheduleEvent[]; projectsCreated: number; linksUpdated: number }> {
+): Promise<{
+  events: ScheduleEvent[];
+  projectsCreated: number;
+  linksUpdated: number;
+  importFailed: number;
+  upsert: CalendarUpsertStats;
+}> {
   const synced = await syncGoogleCalendarEvents(startDate, endDate, targetIds);
-  replaceCachedCalendarEvents(startDate, endDate, synced.events);
+  const upsert = upsertCachedCalendarEvents(startDate, endDate, synced.events);
 
   let projectsCreated = 0;
   let linksUpdated = 0;
+  let importFailed = 0;
   for (const ev of synced.events) {
-    const result = await importEventAsProject(ev, settings);
-    if (result?.created) projectsCreated += 1;
-    if (result) linksUpdated += 1;
+    try {
+      const result = await importEventAsProject(ev, settings);
+      if (result?.created) projectsCreated += 1;
+      if (result) linksUpdated += 1;
+    } catch (e) {
+      importFailed += 1;
+      console.error("[google-calendar-sync] importEventAsProject failed", {
+        eventId: ev.externalId,
+        calendarId: ev.calendarId,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
   }
-  return { events: synced.events, projectsCreated, linksUpdated };
+  return {
+    events: synced.events,
+    projectsCreated,
+    linksUpdated,
+    importFailed,
+    upsert,
+  };
 }
 
 async function pushToGoogle(
@@ -222,6 +255,11 @@ export async function runFullGoogleCalendarSyncV1(
   let pushed = 0;
   let projectsCreated = 0;
   let linksUpdated = 0;
+  let fetched = 0;
+  let created = 0;
+  let updated = 0;
+  let skipped = 0;
+  let failed = 0;
 
   const direction = validated.syncDirection;
   const mode = oauth.mode;
@@ -232,10 +270,20 @@ export async function runFullGoogleCalendarSyncV1(
     pulled = pull.events.length;
     projectsCreated = pull.projectsCreated;
     linksUpdated += pull.linksUpdated;
+    fetched = pull.upsert.fetched;
+    created = pull.upsert.created;
+    updated = pull.upsert.updated;
+    skipped = pull.upsert.skipped;
+    failed = pull.upsert.failed + pull.importFailed;
   } else {
     const events = await fetchCalendarEvents(startDate, endDate);
-    replaceCachedCalendarEvents(startDate, endDate, events);
+    const upsert = upsertCachedCalendarEvents(startDate, endDate, events);
     pulled = events.length;
+    fetched = upsert.fetched;
+    created = upsert.created;
+    updated = upsert.updated;
+    skipped = upsert.skipped;
+    failed = upsert.failed;
   }
 
   const canPush =
@@ -259,6 +307,12 @@ export async function runFullGoogleCalendarSyncV1(
     linksUpdated,
     startDate,
     endDate,
+    fetched,
+    created,
+    updated,
+    skipped,
+    failed,
+    lastSyncedAt: new Date().toISOString(),
   };
 }
 

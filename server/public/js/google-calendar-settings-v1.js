@@ -37,6 +37,38 @@ function apiErrorMessage(data, status) {
   return `HTTP ${status}`;
 }
 
+const SYNC_DUPLICATE_ERROR_UI =
+  "Googleカレンダー同期に失敗しました。\n予定の重複保存エラーです。再同期してください。";
+
+function formatSyncErrorForUi(err) {
+  const detail =
+    err.details?.detailLog ||
+    err.details?.googleErrorMessage ||
+    err.message ||
+    "";
+  console.error("[google-calendar-sync]", detail, err.details ?? {});
+  const msg = err.message || detail || "同期に失敗しました";
+  if (/UNIQUE constraint|重複保存|schedule_calendar_events/i.test(`${msg} ${detail}`)) {
+    return SYNC_DUPLICATE_ERROR_UI;
+  }
+  return msg;
+}
+
+function formatSyncSuccessLines(result) {
+  const lastSyncedAt = result.lastSyncedAt || result.sync?.lastSyncedAt;
+  const lastSyncLabel = lastSyncedAt
+    ? lastSyncedAt.slice(0, 16).replace("T", " ")
+    : "—";
+  return [
+    "同期成功",
+    `最終同期 ${lastSyncLabel}`,
+    `取得 ${result.fetched ?? result.pulled ?? 0}件`,
+    `作成 ${result.created ?? 0}件`,
+    `更新 ${result.updated ?? 0}件`,
+    `スキップ ${result.skipped ?? 0}件`,
+  ];
+}
+
 async function api(path, opts = {}) {
   const token = getCustomerToken();
   const res = await fetch(`/api/google-calendar${path}`, {
@@ -634,13 +666,8 @@ async function init() {
       }
       const el = $("sync-result");
       el.classList.remove("hidden");
-      const modeLabel = result.modeLabel || "Google";
-      const count = result.pulled ?? 0;
-      const calInfo = result.calendarIds?.length
-        ? ` · 対象${result.calendarIds.length}カレンダー`
-        : "";
-      el.textContent = `同期完了（${count}件・${modeLabel}${calInfo}） — 送信${result.pushed}件 / 案件自動生成${result.projectsCreated}件`;
-      toast(`同期完了 ${count}件`);
+      el.textContent = formatSyncSuccessLines(result).join(" · ");
+      toast("同期成功");
       await refreshStatus();
     } catch (e) {
       const details = e.details ?? {};
@@ -653,8 +680,11 @@ async function init() {
             }
           : null;
       const hint = details.errorHint ?? formatGoogleApiErrorHintFromLog(safeLog);
-      const msg = hint || e.message || "同期に失敗しました";
-      toast(msg);
+      const msg = formatSyncErrorForUi(e);
+      if (hint || details.detailLog) {
+        console.error("[google-calendar-sync] detail", hint || details.detailLog, details);
+      }
+      toast(msg.replace(/\n/g, " "));
       const safeEl = $("dev-safe-log");
       if (safeEl && safeLog) {
         safeEl.classList.remove("hidden");
