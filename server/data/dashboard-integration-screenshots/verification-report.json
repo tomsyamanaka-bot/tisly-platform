@@ -1,0 +1,95 @@
+{
+  "capturedAt": "2026-06-16T09:15:25.817Z",
+  "viewport": "390x844",
+  "baseUrl": "http://127.0.0.1:53431",
+  "businessProjectId": "BIZ-C3BF6D29",
+  "projectNo": "MO-26-0616-001",
+  "qnapMockPath": "/案件/MO-26-0616-001/",
+  "storageProvider": "mock",
+  "qnapSyncStatus": "synced",
+  "qnapFolderPath": "/案件/MO-26-0616-001/",
+  "documentFiles": [
+    {
+      "kind": "estimate",
+      "fileName": "見積書_連携検証様_防犯カメラ設置工事.pdf",
+      "folder": "02_見積"
+    },
+    {
+      "kind": "invoice",
+      "fileName": "請求書_連携検証様_防犯カメラ設置工事.pdf",
+      "folder": "03_請求"
+    },
+    {
+      "kind": "specification",
+      "fileName": "仕様書_連携検証様_防犯カメラ設置工事.pdf",
+      "folder": "04_仕様書"
+    },
+    {
+      "kind": "report",
+      "fileName": "完了報告書_連携検証様_防犯カメラ設置工事.pdf",
+      "folder": "05_完了報告"
+    }
+  ],
+  "pdfFolders": {
+    "01_現調": [],
+    "02_見積": [
+      "見積書_連携検証様_防犯カメラ設置工事.pdf"
+    ],
+    "03_請求": [
+      "請求書_連携検証様_防犯カメラ設置工事.pdf"
+    ],
+    "04_仕様書": [
+      "仕様書_連携検証様_防犯カメラ設置工事.pdf"
+    ],
+    "05_完了報告": [
+      "完了報告書_連携検証様_防犯カメラ設置工事.pdf"
+    ],
+    "06_写真": [
+      "test-photos.png",
+      "仕様書",
+      "完了報告"
+    ],
+    "07_図面": [
+      "test-drawings.png"
+    ],
+    "08_その他": [
+      "test-others.png"
+    ]
+  },
+  "pdfSaved": {
+    "estimate": true,
+    "invoice": true,
+    "specification": true,
+    "completion": true
+  },
+  "allPdfsSaved": true,
+  "navChecks": [
+    {
+      "section": "search",
+      "hasHref": true,
+      "returnsDashboard": true
+    },
+    {
+      "section": "back-link",
+      "href": "/project-dashboard-v1",
+      "ok": true
+    }
+  ],
+  "searchResults": 1,
+  "recentIncludesProject": true,
+  "shareCapture": {
+    "fileName": "請求書_連携検証様_防犯カメラ設置工事.pdf",
+    "type": "application/pdf"
+  },
+  "shareOk": true,
+  "tabsOk": true,
+  "screenshots": [
+    "01-dashboard.png",
+    "02-detail-overview.png",
+    "03-doc-tabs.png",
+    "04-files-tab.png",
+    "05-pdf-share.png",
+    "06-qnap-status.png"
+  ],
+  "allOk": true
+}

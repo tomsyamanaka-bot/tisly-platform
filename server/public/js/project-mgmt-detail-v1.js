@@ -8,13 +8,14 @@ const PROJECTS_API = "/api/projects/v1";
 const ESTIMATE_API = "/api/estimate/v1";
 const TABS = [
   { id: "overview", label: "概要" },
-  { id: "history", label: "履歴" },
-  { id: "files", label: "ファイル" },
   { id: "survey", label: "現調" },
   { id: "estimate", label: "見積" },
   { id: "invoice", label: "請求" },
+  { id: "specification", label: "仕様書" },
   { id: "completion", label: "完了報告" },
   { id: "photos", label: "写真" },
+  { id: "files", label: "ファイル" },
+  { id: "history", label: "履歴" },
 ];
 
 const STATUS_OPTIONS = [
@@ -176,10 +177,16 @@ function cardTabForKey(key) {
     survey: "survey",
     estimate: "estimate",
     invoice: "invoice",
-    specification: "survey",
+    specification: "specification",
     completion: "completion",
   };
   return map[key] || "overview";
+}
+
+function qnapSyncBadge(projectStatus) {
+  if (projectStatus === "synced") return { icon: "🟢", label: "同期済" };
+  if (projectStatus === "error") return { icon: "🔴", label: "エラー" };
+  return { icon: "🟡", label: "未同期" };
 }
 
 function resolveDashboardReturnUrl() {
@@ -321,17 +328,27 @@ function renderSurveyTab() {
   const s = detail.survey;
   if (!s.linked) {
     return `<p class="section-hint">現調案件が未連携です。</p>
-      <div class="btn-row"><a class="primary" href="/survey-v1">現調PWAを開く</a></div>
-      ${renderDocTabActions("specification", "specification", "specification")}`;
+      <div class="btn-row"><a class="primary" href="/survey-v1">現調PWAを開く</a></div>`;
   }
   return `
     <a class="link-card" href="${escapeHtml(s.href)}">
       <strong>現調を開く</strong>
       <span>写真 ${s.photoCount} 枚 · ID ${escapeHtml(s.surveyProjectId)}</span>
     </a>
+    <div class="btn-row"><a href="/survey-v1">現調PWAを開く</a></div>`;
+}
+
+function renderSpecificationTab() {
+  const s = detail.survey;
+  const specEntry = findPdfEntry("specification");
+  const photoHint = s.linked
+    ? `現調写真 ${s.photoCount} 枚`
+    : "現調未連携 — 写真は仕様書に反映されません";
+  return `
+    <p class="section-hint">${escapeHtml(photoHint)}</p>
     <h3 class="section-sub">仕様書</h3>
     ${renderDocTabActions("specification", "specification", "specification")}
-    <div class="btn-row"><a href="/survey-v1">現調PWAを開く</a></div>`;
+    ${specEntry?.exists ? "" : `<div class="btn-row"><a class="primary" href="${escapeHtml(s.href || "/survey-v1")}">現調から仕様書を作成</a></div>`}`;
 }
 
 function renderEstimateTab() {
@@ -394,11 +411,15 @@ function renderFilesTab() {
         };
       });
 
+  const projectQnap = storageData.qnapSyncStatus || "pending";
   const docRows = docSlots
     .map((doc) => {
       const saved = doc.saveStatus === "saved" || Boolean(doc.fileName);
       const displayName = doc.fileName || `${doc.docLabel}.pdf`;
-      const status = `${doc.saveStatusIcon || "🟡"} ${escapeHtml(doc.saveStatusLabel || "未保存")}`;
+      const qnap = saved
+        ? qnapSyncBadge(projectQnap)
+        : qnapSyncBadge(doc.saveStatus === "error" ? "error" : "pending");
+      const status = `${doc.saveStatusIcon || "🟡"} ${escapeHtml(doc.saveStatusLabel || "未保存")} · ${qnap.icon} QNAP ${escapeHtml(qnap.label)}`;
       const canOpen = saved || doc.hasLocalPdf;
       const actions = canOpen
         ? `
@@ -522,6 +543,8 @@ function renderTabPanel(tab) {
       return renderFilesTab();
     case "survey":
       return renderSurveyTab();
+    case "specification":
+      return renderSpecificationTab();
     case "estimate":
       return renderEstimateTab();
     case "invoice":

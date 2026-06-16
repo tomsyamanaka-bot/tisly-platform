@@ -214,6 +214,7 @@ export function runMigrations(database: Database.Database): void {
   migrateFieldChecklistV1(database);
   migrateProjectDocumentsV1(database);
   migrateProjectMgmtV1(database);
+  migrateProjectMgmtV2(database);
 }
 
 /** 案件一覧 v1 — 論理削除 deleted_at */
@@ -3438,4 +3439,24 @@ function migrateProjectMgmtV1(database: Database.Database): void {
       `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
     )
     .run("migration:project_mgmt_v1", JSON.stringify({ at: new Date().toISOString() }));
+}
+
+/** 案件親データ運用 v2 — project_timeline ビュー（business_project_timeline の別名） */
+function migrateProjectMgmtV2(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:project_mgmt_v2") as { value_json: string } | undefined;
+  if (marker) return;
+
+  database.exec(`
+    CREATE VIEW IF NOT EXISTS project_timeline AS
+    SELECT id, project_id, event_type, title, detail, actor, metadata_json, created_at
+    FROM business_project_timeline;
+  `);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:project_mgmt_v2", JSON.stringify({ at: new Date().toISOString() }));
 }

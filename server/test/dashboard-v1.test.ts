@@ -208,4 +208,89 @@ describe("案件ダッシュボード v1", () => {
     assert.equal(dash.url, "/project-dashboard-v1");
     assert.equal(dash.status, "ready");
   });
+
+  it("案件詳細リンクに return パラメータ", async () => {
+    const created = await request(app)
+      .post("/api/project-mgmt/v1/projects")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        title: "return検証",
+        customerName: "returnテスト様",
+        municipality: "守谷市",
+        cityCode: "MO",
+      });
+    assert.equal(created.status, 201);
+    const id = created.body.project.id;
+
+    const today = await request(app)
+      .get("/api/dashboard-v1/today")
+      .set("Authorization", `Bearer ${token}`);
+    for (const item of today.body.items ?? []) {
+      if (item.projectId === id && item.detailHref) {
+        assert.ok(item.detailHref.includes("return="));
+        assert.ok(item.detailHref.includes("project-mgmt-detail-v1"));
+      }
+    }
+
+    const recent = await request(app)
+      .get("/api/dashboard-v1/recent")
+      .set("Authorization", `Bearer ${token}`);
+    assert.ok(recent.body.projects?.some((p: { id: string }) => p.id === id));
+  });
+
+  it("PDF未保存アラート", async () => {
+    const created = await request(app)
+      .post("/api/project-mgmt/v1/projects")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        title: "PDF未保存検証",
+        customerName: "PDFアラート様",
+        municipality: "守谷市",
+        cityCode: "MO",
+      });
+    assert.equal(created.status, 201);
+    const id = created.body.project.id;
+
+    getDatabase()
+      .prepare(`UPDATE business_projects SET estimate_id = 'est-dash-pdf-missing' WHERE id = ?`)
+      .run(id);
+
+    const res = await request(app)
+      .get("/api/dashboard-v1/alerts")
+      .set("Authorization", `Bearer ${token}`);
+    assert.ok(
+      res.body.alerts.some(
+        (a: { projectId: string; alertType: string }) =>
+          a.projectId === id && a.alertType === "pdf_not_saved"
+      )
+    );
+  });
+
+  it("写真不足アラート", async () => {
+    const created = await request(app)
+      .post("/api/project-mgmt/v1/projects")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        title: "写真不足検証",
+        customerName: "写真不足様",
+        municipality: "守谷市",
+        cityCode: "MO",
+      });
+    assert.equal(created.status, 201);
+    const id = created.body.project.id;
+
+    getDatabase()
+      .prepare(`UPDATE business_projects SET survey_project_id = 'svy-mock-no-photos' WHERE id = ?`)
+      .run(id);
+
+    const res = await request(app)
+      .get("/api/dashboard-v1/alerts")
+      .set("Authorization", `Bearer ${token}`);
+    assert.ok(
+      res.body.alerts.some(
+        (a: { projectId: string; alertType: string }) =>
+          a.projectId === id && a.alertType === "photos_missing"
+      )
+    );
+  });
 });

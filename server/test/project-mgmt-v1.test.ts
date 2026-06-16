@@ -134,10 +134,10 @@ describe("案件管理基盤 v1", () => {
     assert.equal(gone.status, 404);
   });
 
-  it("下部ナビに案件 → /project-mgmt-v1", async () => {
+  it("下部ナビに案件 → /project-dashboard-v1", async () => {
     const res = await request(app).get("/js/tisly-practical-nav.js");
     assert.ok(res.text.includes('label: "案件"'));
-    assert.ok(res.text.includes('href: "/project-mgmt-v1"'));
+    assert.ok(res.text.includes('href: "/project-dashboard-v1"'));
   });
 
   it("GET /kpi と workflowCards・timeline・shareHistory", async () => {

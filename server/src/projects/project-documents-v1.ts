@@ -114,7 +114,7 @@ function statusPresentation(code: DocumentStatusCode): { label: string; icon: st
     case "completion_photos_missing":
       return { label: "完了写真不足", icon: "📷" };
     default:
-      return { label: "未作成", icon: "⚠" };
+      return { label: "未作成", icon: "△" };
   }
 }
 
