@@ -1,32 +1,60 @@
 {
-  "capturedAt": "2026-06-16T08:11:59.964Z",
+  "capturedAt": "2026-06-16T08:26:18.981Z",
   "viewport": "390x844",
   "baseUrl": "http://127.0.0.1:3080",
-  "projectId": "BIZ-AF080428",
+  "projectId": "BIZ-D4ABFB4B",
   "qnapSyncStatus": "synced",
-  "qnapFolderPath": "/案件/MO-26-0616-013/",
+  "qnapFolderPath": "/案件/MO-26-0616-015/",
   "storageProvider": "mock",
+  "folderCount": 8,
   "savedFiles": [
     {
       "kind": "estimate",
       "fileName": "見積書_ストレージスクショ様_QNAP連携スクショ検証.pdf",
-      "folder": "02_見積"
+      "folder": "02_見積",
+      "saveStatusLabel": "保存済み"
     },
     {
       "kind": "invoice",
       "fileName": "請求書_ストレージスクショ様_QNAP連携スクショ検証.pdf",
-      "folder": "03_請求"
+      "folder": "03_請求",
+      "saveStatusLabel": "保存済み"
     },
     {
       "kind": "specification",
       "fileName": "仕様書_ストレージスクショ様_QNAP連携スクショ検証.pdf",
-      "folder": "04_仕様書"
+      "folder": "04_仕様書",
+      "saveStatusLabel": "保存済み"
     },
     {
       "kind": "report",
       "fileName": "完了報告書_ストレージスクショ様_QNAP連携スクショ検証.pdf",
-      "folder": "05_完了報告"
+      "folder": "05_完了報告",
+      "saveStatusLabel": "保存済み"
     }
+  ],
+  "documents": [
+    {
+      "kind": "estimate",
+      "saveStatusLabel": "保存済み"
+    },
+    {
+      "kind": "invoice",
+      "saveStatusLabel": "保存済み"
+    },
+    {
+      "kind": "specification",
+      "saveStatusLabel": "保存済み"
+    },
+    {
+      "kind": "report",
+      "saveStatusLabel": "保存済み"
+    }
+  ],
+  "uploadButtons": [
+    "写真を追加",
+    "図面を追加",
+    "その他を追加"
   ],
   "actionButtons": [
     "開く",
@@ -42,19 +70,42 @@
     "共有",
     "保存し直す"
   ],
+  "saveStatuses": [
+    "✅ 保存済み · 2026/06/16",
+    "✅ 保存済み · 2026/06/16",
+    "✅ 保存済み · 2026/06/16",
+    "✅ 保存済み · 2026/06/16"
+  ],
+  "folderHeaders": [
+    "▶ 📁 01_現調 0件",
+    "▶ 📁 02_見積 1件",
+    "▶ 📁 03_請求 1件",
+    "▶ 📁 04_仕様書 1件",
+    "▶ 📁 05_完了報告 1件",
+    "▶ 📁 06_写真 0件",
+    "▶ 📁 07_図面 0件",
+    "▶ 📁 08_その他 0件"
+  ],
   "screenshots": [
     "01-files-tab-synced.png",
-    "02-files-documents.png"
+    "02-files-documents.png",
+    "03-files-folder-open.png"
   ],
   "checks": {
     "qnapStatusVisible": true,
     "savePathVisible": true,
+    "eightFolders": true,
     "estimateSaved": true,
     "invoiceSaved": true,
     "specificationSaved": true,
     "reportSaved": true,
+    "uploadPhotosButton": true,
+    "uploadDrawingsButton": true,
+    "uploadOthersButton": true,
     "openButton": true,
     "shareButton": true,
-    "resaveButton": true
+    "resaveButton": true,
+    "saveStatusVisible": true,
+    "folderToggle": true
   }
 }

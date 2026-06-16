@@ -13,16 +13,25 @@ export type {
   ListProjectStorageResultV1,
   ProjectStorageDocKind,
   ProjectStorageFileEntryV1,
+  ProjectStorageFolderContentV1,
+  ProjectStorageFolderFileV1,
+  ProjectStorageFolderType,
+  ProjectStorageDocumentSlotV1,
+  ProjectStorageSaveStatusV1,
+  UploadProjectStorageFileResultV1,
   QnapSyncStatusV1,
   SaveProjectStorageDocumentResultV1,
 } from "./project-storage-provider.js";
 
 export {
+  FOLDER_TYPE_TO_SUBFOLDER,
   PROJECT_STORAGE_SUBFOLDERS,
   QNAP_SYNC_STATUS_LABELS,
+  UPLOAD_FOLDER_TYPES,
   projectStorageProjectDir,
   projectStorageRootDir,
   resolveProjectStorageProviderKind,
+  resolveProjectStorageFilePath,
 } from "./project-storage-provider.js";
 
 export { updateQnapSyncStatusV1 } from "./mock-project-storage-provider.js";
@@ -41,6 +50,14 @@ export function saveProjectStorageDocumentV1(
   sourcePdfPath?: string
 ) {
   return getProjectStorageProvider().saveDocument(projectId, kind, sourcePdfPath);
+}
+
+export function uploadProjectStorageFileV1(
+  projectId: string,
+  folderType: import("./project-storage-provider.js").ProjectStorageFolderType,
+  input: { fileName: string; fileBase64: string }
+) {
+  return getProjectStorageProvider().uploadFile(projectId, folderType, input);
 }
 
 /** PDF 保存時に project storage へ自動ミラー */

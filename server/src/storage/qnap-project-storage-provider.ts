@@ -9,7 +9,9 @@ import type {
   CreateProjectStorageFoldersResultV1,
   ListProjectStorageResultV1,
   ProjectStorageDocKind,
+  ProjectStorageFolderType,
   SaveProjectStorageDocumentResultV1,
+  UploadProjectStorageFileResultV1,
 } from "./mock-project-storage-provider.js";
 
 const NOT_READY =
@@ -35,6 +37,13 @@ export const qnapProjectStorageProvider: ProjectStorageProvider = {
     notReady();
   },
   mirrorPdf(_projectId: string, _kind: ProjectStorageDocKind, _pdfPath: string): void {
+    notReady();
+  },
+  uploadFile(
+    _projectId: string,
+    _folderType: ProjectStorageFolderType,
+    _input: { fileName: string; fileBase64: string }
+  ): UploadProjectStorageFileResultV1 {
     notReady();
   },
 };

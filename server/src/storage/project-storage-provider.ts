@@ -20,15 +20,24 @@ export type {
   ListProjectStorageResultV1,
   ProjectStorageDocKind,
   ProjectStorageFileEntryV1,
+  ProjectStorageFolderContentV1,
+  ProjectStorageFolderFileV1,
+  ProjectStorageFolderType,
+  ProjectStorageDocumentSlotV1,
+  ProjectStorageSaveStatusV1,
+  UploadProjectStorageFileResultV1,
   QnapSyncStatusV1,
   SaveProjectStorageDocumentResultV1,
 } from "./mock-project-storage-provider.js";
 
 export {
+  FOLDER_TYPE_TO_SUBFOLDER,
   PROJECT_STORAGE_SUBFOLDERS,
   QNAP_SYNC_STATUS_LABELS,
+  UPLOAD_FOLDER_TYPES,
   projectStorageProjectDir,
   projectStorageRootDir,
+  resolveProjectStorageFilePath,
 } from "./mock-project-storage-provider.js";
 
 export interface ProjectStorageProvider {
@@ -41,6 +50,11 @@ export interface ProjectStorageProvider {
     sourcePdfPath?: string
   ): SaveProjectStorageDocumentResultV1;
   mirrorPdf(projectId: string, kind: ProjectStorageDocKind, pdfPath: string): void;
+  uploadFile(
+    projectId: string,
+    folderType: import("./mock-project-storage-provider.js").ProjectStorageFolderType,
+    input: { fileName: string; fileBase64: string }
+  ): import("./mock-project-storage-provider.js").UploadProjectStorageFileResultV1;
 }
 
 export function resolveProjectStorageProviderKind(): ProjectStorageProviderKind {

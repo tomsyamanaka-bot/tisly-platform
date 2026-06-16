@@ -32,6 +32,7 @@ const STATUS_OPTIONS = [
 let detail = null;
 let activeTab = "overview";
 let storageData = null;
+const openStorageFolders = new Set();
 
 const STORAGE_DOC_SLOTS = [
   { kind: "estimate", fallbackLabel: "見積書.pdf", viewerKind: "estimate", pdfKind: "estimate" },
@@ -123,9 +124,31 @@ function documentViewerHref(projectId, viewerKind) {
   return `/document-viewer-v1.html?${params}`;
 }
 
+function storageFileUrl(projectId, relativePath) {
+  const token = getCustomerToken();
+  const params = new URLSearchParams({
+    relativePath,
+    access_token: token,
+  });
+  return `${STORAGE_API}/${encodeURIComponent(projectId)}/file?${params}`;
+}
+
 function pdfFileUrl(projectId, pdfKind) {
   const token = getCustomerToken();
   return `${PROJECTS_API}/projects/${encodeURIComponent(projectId)}/pdfs/${encodeURIComponent(pdfKind)}/file?access_token=${encodeURIComponent(token)}`;
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || "");
+      const base64 = result.includes(",") ? result.split(",")[1] : result;
+      resolve(base64);
+    };
+    reader.onerror = () => reject(reader.error || new Error("read failed"));
+    reader.readAsDataURL(file);
+  });
 }
 
 async function api(path, opts = {}) {
@@ -340,33 +363,97 @@ function renderFilesTab() {
   }
   const statusLine = `${storageData.qnapSyncIcon || "🟡"} ${escapeHtml(storageData.qnapSyncLabel || "未同期")}`;
   const folderPath = escapeHtml(storageData.qnapFolderPath || detail.project.qnapFolderPath || "—");
-  const fileMap = new Map((storageData.files || []).map((f) => [f.kind, f]));
-  const rows = STORAGE_DOC_SLOTS.map((slot) => {
-    const f = fileMap.get(slot.kind);
-    const saved = Boolean(f);
-    const displayName = f?.fileName || slot.fallbackLabel;
-    const status = saved ? "🟢 保存済" : "🟡 未保存";
-    const actions = saved
-      ? `
+  const projectId = detail.project.id;
+
+  const docSlots = storageData.documents?.length
+    ? storageData.documents
+    : STORAGE_DOC_SLOTS.map((slot) => {
+        const f = (storageData.files || []).find((x) => x.kind === slot.kind);
+        return {
+          kind: slot.kind,
+          docLabel: slot.fallbackLabel.replace(/\.pdf$/, ""),
+          fileName: f?.fileName ?? null,
+          saveStatusIcon: f ? "✅" : "🟡",
+          saveStatusLabel: f ? "保存済み" : "未保存",
+          viewerKind: slot.viewerKind,
+          pdfKind: slot.pdfKind,
+          savedAt: f?.savedAt ?? null,
+        };
+      });
+
+  const docRows = docSlots
+    .map((doc) => {
+      const saved = doc.saveStatus === "saved" || Boolean(doc.fileName);
+      const displayName = doc.fileName || `${doc.docLabel}.pdf`;
+      const status = `${doc.saveStatusIcon || "🟡"} ${escapeHtml(doc.saveStatusLabel || "未保存")}`;
+      const canOpen = saved || doc.hasLocalPdf;
+      const actions = canOpen
+        ? `
       <div class="storage-file-actions">
-        <a class="storage-action-btn primary" href="${escapeHtml(documentViewerHref(detail.project.id, f.viewerKind || slot.viewerKind))}">開く</a>
-        <button type="button" class="storage-action-btn" data-storage-share="${escapeHtml(slot.pdfKind)}" data-share-name="${escapeHtml(f.shareFileName || displayName)}">共有</button>
-        <button type="button" class="storage-action-btn" data-storage-resave="${escapeHtml(slot.kind)}">保存し直す</button>
+        <a class="storage-action-btn primary" href="${escapeHtml(documentViewerHref(projectId, doc.viewerKind))}">開く</a>
+        <button type="button" class="storage-action-btn" data-storage-share="${escapeHtml(doc.pdfKind || doc.kind)}" data-share-name="${escapeHtml(displayName)}">共有</button>
+        <button type="button" class="storage-action-btn" data-storage-resave="${escapeHtml(doc.kind)}">保存し直す</button>
       </div>`
-      : `<p class="storage-file-empty">PDF未保存 — 見積PWA等で作成してください</p>`;
-    return `
-    <div class="storage-file-row${saved ? "" : " is-empty"}" data-storage-kind="${escapeHtml(slot.kind)}">
+        : `<p class="storage-file-empty">PDF未保存 — 見積PWA等で作成してください</p>`;
+      return `
+    <div class="storage-file-row${saved ? "" : " is-empty"}" data-storage-kind="${escapeHtml(doc.kind)}">
       <span class="storage-file-icon">📄</span>
       <div class="storage-file-body">
-        <div class="storage-file-name">${escapeHtml(displayName)}</div>
-        <div class="storage-file-meta">${status}${f?.savedAt ? ` · ${formatDateTime(f.savedAt)}` : ""}</div>
+        <div class="storage-file-name">${escapeHtml(doc.docLabel)}</div>
+        <div class="storage-file-meta">${status}${doc.savedAt ? ` · ${formatDateTime(doc.savedAt)}` : ""}</div>
+        ${doc.fileName ? `<div class="storage-file-subname">${escapeHtml(doc.fileName)}</div>` : ""}
         ${actions}
       </div>
     </div>`;
-  }).join("");
+    })
+    .join("");
 
-  const folders = (storageData.folders || [])
-    .map((f) => `<span class="storage-folder-chip">${escapeHtml(f)}</span>`)
+  const folderBlocks = (storageData.folderContents || storageData.folders?.map((f) => ({ folder: f, files: [] })) || [])
+    .map((fc) => {
+      const folder = fc.folder;
+      const isOpen = openStorageFolders.has(folder);
+      const count = fc.files?.length ?? 0;
+      const fileLines = (fc.files || [])
+        .map((f) => {
+          const isDocPdf =
+            f.mediaKind === "pdf" &&
+            ["02_見積", "03_請求", "04_仕様書", "05_完了報告"].includes(folder) &&
+            !f.displayName.includes("/");
+          let openHref = "";
+          if (isDocPdf) {
+            const kindMap = {
+              "02_見積": "estimate",
+              "03_請求": "invoice",
+              "04_仕様書": "specification",
+              "05_完了報告": "completion-report",
+            };
+            openHref = documentViewerHref(projectId, kindMap[folder] || "estimate");
+          } else if (f.relativePath) {
+            openHref = storageFileUrl(projectId, f.relativePath);
+          }
+          const nameCell = openHref
+            ? `<a class="storage-folder-file-link" href="${escapeHtml(openHref)}" target="_blank" rel="noopener">${escapeHtml(f.displayName || f.fileName)}</a>`
+            : escapeHtml(f.displayName || f.fileName);
+          return `
+        <div class="storage-folder-file">
+          <span class="storage-folder-file-icon">${f.icon || "📄"}</span>
+          ${nameCell}
+        </div>`;
+        })
+        .join("");
+      return `
+    <div class="storage-folder-block${isOpen ? " is-open" : ""}" data-storage-folder="${escapeHtml(folder)}">
+      <button type="button" class="storage-folder-header" aria-expanded="${isOpen}">
+        <span class="storage-folder-chevron">${isOpen ? "▼" : "▶"}</span>
+        <span class="storage-folder-icon">📁</span>
+        <span class="storage-folder-name">${escapeHtml(folder)}</span>
+        <span class="storage-folder-count">${count}件</span>
+      </button>
+      <div class="storage-folder-body"${isOpen ? "" : " hidden"}>
+        ${fileLines || `<p class="storage-file-empty">ファイルなし</p>`}
+      </div>
+    </div>`;
+    })
     .join("");
 
   const providerLabel =
@@ -384,10 +471,19 @@ function renderFilesTab() {
       <div class="storage-path">${folderPath}</div>
       <div class="storage-provider-hint">保存先: ${providerLabel}</div>
     </section>
-    <h3 class="section-sub">保存済み書類</h3>
-    <div class="storage-file-list">${rows}</div>
-    <h3 class="section-sub">フォルダ構成</h3>
-    <div class="storage-folder-grid">${folders}</div>`;
+    <h3 class="section-sub">書類</h3>
+    <div class="storage-file-list">${docRows}</div>
+    <h3 class="section-sub">ファイルを追加</h3>
+    <div class="storage-upload-row">
+      <button type="button" class="storage-upload-btn" id="btn-upload-photos">写真を追加</button>
+      <button type="button" class="storage-upload-btn" id="btn-upload-drawings">図面を追加</button>
+      <button type="button" class="storage-upload-btn" id="btn-upload-others">その他を追加</button>
+    </div>
+    <input type="file" id="input-upload-photos" accept="image/*" multiple hidden />
+    <input type="file" id="input-upload-drawings" accept="image/*,.pdf,application/pdf" multiple hidden />
+    <input type="file" id="input-upload-others" multiple hidden />
+    <h3 class="section-sub">案件フォルダ</h3>
+    <div class="storage-folder-tree">${folderBlocks}</div>`;
 }
 
 function renderPhotosTab() {
@@ -540,6 +636,68 @@ function bindDocActions() {
   });
 }
 
+async function uploadStorageFiles(folderType, fileList, btn) {
+  if (!fileList?.length) return;
+  const prev = btn?.textContent;
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "送信中…";
+  }
+  try {
+    for (const file of fileList) {
+      const fileBase64 = await fileToBase64(file);
+      await storagePost(detail.project.id, "/upload-file", {
+        folderType,
+        fileName: file.name,
+        fileBase64,
+      });
+    }
+    await refreshStorageData();
+    toast(`${fileList.length}件アップロードしました`);
+    render();
+  } catch (e) {
+    toast(e.message || "アップロードに失敗しました");
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = prev;
+    }
+  }
+}
+
+function bindStorageUploads() {
+  const pairs = [
+    ["btn-upload-photos", "input-upload-photos", "photos"],
+    ["btn-upload-drawings", "input-upload-drawings", "drawings"],
+    ["btn-upload-others", "input-upload-others", "others"],
+  ];
+  for (const [btnId, inputId, folderType] of pairs) {
+    const btn = document.getElementById(btnId);
+    const input = document.getElementById(inputId);
+    if (!btn || !input) continue;
+    btn.addEventListener("click", () => input.click());
+    input.addEventListener("change", async () => {
+      const files = [...(input.files || [])];
+      input.value = "";
+      await uploadStorageFiles(folderType, files, btn);
+    });
+  }
+}
+
+function bindStorageFolders() {
+  document.querySelectorAll(".storage-folder-header").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const block = btn.closest(".storage-folder-block");
+      const folder = block?.getAttribute("data-storage-folder");
+      if (!folder) return;
+      if (openStorageFolders.has(folder)) openStorageFolders.delete(folder);
+      else openStorageFolders.add(folder);
+      render();
+      bindActions();
+    });
+  });
+}
+
 function bindActions() {
   document.getElementById("btn-save-overview")?.addEventListener("click", async () => {
     try {
@@ -573,6 +731,8 @@ function bindActions() {
   });
 
   bindDocActions();
+  bindStorageUploads();
+  bindStorageFolders();
 }
 
 async function main() {

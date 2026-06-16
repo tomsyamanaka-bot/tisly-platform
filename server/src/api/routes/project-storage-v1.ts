@@ -6,8 +6,12 @@ import {
   createProjectStorageFoldersV1,
   listProjectStorageV1,
   resolveProjectStorageProviderKind,
+  resolveProjectStorageFilePath,
   saveProjectStorageDocumentV1,
+  uploadProjectStorageFileV1,
+  UPLOAD_FOLDER_TYPES,
   type ProjectStorageDocKind,
+  type ProjectStorageFolderType,
 } from "../../storage/project-storage-v1.js";
 
 export const projectStorageV1Router = Router();
@@ -19,6 +23,17 @@ const VALID_KINDS = new Set<ProjectStorageDocKind>([
   "invoice",
   "specification",
   "report",
+]);
+
+const VALID_FOLDER_TYPES = new Set<ProjectStorageFolderType>([
+  "survey",
+  "estimate",
+  "invoice",
+  "specification",
+  "completion",
+  "photos",
+  "drawings",
+  "others",
 ]);
 
 function assertRole(req: AuthedRequest, res: Response): boolean {
@@ -116,6 +131,62 @@ projectStorageV1Router.post("/:projectId/regenerate-document", ...auth, async (r
       msg === "No specification" ||
       msg === "No completion report"
     ) {
+      res.status(400).json({ error: msg });
+      return;
+    }
+    res.status(500).json({ error: msg });
+  }
+});
+
+projectStorageV1Router.get("/:projectId/file", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const projectId = String(req.params.projectId);
+  const relativePath = String(req.query.relativePath ?? "").trim();
+  if (!relativePath) {
+    res.status(400).json({ error: "relativePath is required" });
+    return;
+  }
+  try {
+    const abs = resolveProjectStorageFilePath(projectId, relativePath);
+    if (!abs) {
+      res.status(404).json({ error: "file not found" });
+      return;
+    }
+    res.sendFile(abs);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "file read failed";
+    res.status(500).json({ error: msg });
+  }
+});
+
+projectStorageV1Router.post("/:projectId/upload-file", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const body = req.body ?? {};
+  const folderType = String(body.folderType ?? "") as ProjectStorageFolderType;
+  if (!VALID_FOLDER_TYPES.has(folderType)) {
+    res.status(400).json({
+      error:
+        "folderType must be survey|estimate|invoice|specification|completion|photos|drawings|others",
+    });
+    return;
+  }
+  if (!UPLOAD_FOLDER_TYPES.has(folderType)) {
+    res.status(400).json({ error: "upload allowed only for photos|drawings|others" });
+    return;
+  }
+  try {
+    const result = uploadProjectStorageFileV1(String(req.params.projectId), folderType, {
+      fileName: body.fileName != null ? String(body.fileName) : "upload.bin",
+      fileBase64: String(body.fileBase64 ?? ""),
+    });
+    res.status(201).json(result);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "upload failed";
+    if (msg === "project not found") {
+      res.status(404).json({ error: msg });
+      return;
+    }
+    if (msg.includes("required") || msg.includes("empty") || msg.includes("must be")) {
       res.status(400).json({ error: msg });
       return;
     }

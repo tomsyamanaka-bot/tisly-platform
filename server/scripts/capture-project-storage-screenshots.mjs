@@ -158,6 +158,7 @@ async function main() {
   const { projectId, storage } = await ensureProjectWithAllDocs();
   console.log("projectId:", projectId);
   console.log("files:", storage.files?.map((f) => f.kind));
+  console.log("folderContents:", storage.folderContents?.length);
 
   await page.goto(
     `${BASE}/project-mgmt-detail-v1?projectId=${encodeURIComponent(projectId)}&tab=files`,
@@ -165,15 +166,32 @@ async function main() {
   );
   await page.waitForSelector(".storage-status-card", { timeout: 60000 });
   await page.waitForSelector(".storage-file-actions", { timeout: 60000 });
+  await page.waitForSelector(".storage-upload-btn", { timeout: 60000 });
   await new Promise((r) => setTimeout(r, 500));
   await shot(page, "01-files-tab-synced.png");
 
   await page.waitForSelector(".storage-file-row");
   await shot(page, "02-files-documents.png");
 
+  const folderHeaders = await page.$$eval(".storage-folder-header", (els) =>
+    els.map((el) => el.textContent?.replace(/\s+/g, " ").trim())
+  );
+  console.log("folders:", folderHeaders);
+
+  await page.click(".storage-folder-header");
+  await new Promise((r) => setTimeout(r, 300));
+  await shot(page, "03-files-folder-open.png");
+
+  const uploadButtons = await page.$$eval(".storage-upload-btn", (els) =>
+    els.map((el) => el.textContent?.trim())
+  );
   const actionButtons = await page.$$eval(".storage-action-btn", (els) =>
     els.map((el) => el.textContent?.trim())
   );
+  const saveStatuses = await page.$$eval(".storage-file-meta", (els) =>
+    els.map((el) => el.textContent?.trim())
+  );
+  console.log("upload buttons:", uploadButtons);
   console.log("action buttons:", actionButtons);
 
   const report = {
@@ -184,23 +202,42 @@ async function main() {
     qnapSyncStatus: storage.qnapSyncStatus,
     qnapFolderPath: storage.qnapFolderPath,
     storageProvider: storage.storageProvider,
+    folderCount: storage.folderContents?.length ?? storage.folders?.length,
     savedFiles: storage.files?.map((f) => ({
       kind: f.kind,
       fileName: f.fileName,
       folder: f.folder,
+      saveStatusLabel: f.saveStatusLabel,
     })),
+    documents: storage.documents?.map((d) => ({
+      kind: d.kind,
+      saveStatusLabel: d.saveStatusLabel,
+    })),
+    uploadButtons,
     actionButtons,
-    screenshots: ["01-files-tab-synced.png", "02-files-documents.png"],
+    saveStatuses,
+    folderHeaders,
+    screenshots: [
+      "01-files-tab-synced.png",
+      "02-files-documents.png",
+      "03-files-folder-open.png",
+    ],
     checks: {
       qnapStatusVisible: true,
       savePathVisible: Boolean(storage.qnapFolderPath),
+      eightFolders: (storage.folderContents?.length ?? 0) === 8,
       estimateSaved: storage.files?.some((f) => f.kind === "estimate"),
       invoiceSaved: storage.files?.some((f) => f.kind === "invoice"),
       specificationSaved: storage.files?.some((f) => f.kind === "specification"),
       reportSaved: storage.files?.some((f) => f.kind === "report"),
+      uploadPhotosButton: uploadButtons.includes("写真を追加"),
+      uploadDrawingsButton: uploadButtons.includes("図面を追加"),
+      uploadOthersButton: uploadButtons.includes("その他を追加"),
       openButton: actionButtons.includes("開く"),
       shareButton: actionButtons.includes("共有"),
       resaveButton: actionButtons.includes("保存し直す"),
+      saveStatusVisible: saveStatuses.some((s) => s?.includes("保存済み")),
+      folderToggle: folderHeaders.length === 8,
     },
   };
   fs.writeFileSync(path.join(OUT, "verification-report.json"), JSON.stringify(report, null, 2));

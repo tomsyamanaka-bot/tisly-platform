@@ -102,6 +102,7 @@
     .storage-file-body { flex: 1; min-width: 0; }
     .storage-file-name { font-weight: 700; font-size: 0.88rem; word-break: break-all; }
     .storage-file-meta { font-size: 0.74rem; color: #64748b; margin-top: 0.1rem; }
+    .storage-file-subname { font-size: 0.72rem; color: #94a3b8; margin-top: 0.15rem; word-break: break-all; }
     .storage-file-empty { font-size: 0.74rem; color: #94a3b8; margin: 0.35rem 0 0; }
     .storage-file-actions {
       display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.45rem;
@@ -123,6 +124,38 @@
       font-size: 0.68rem; padding: 0.2rem 0.45rem; border-radius: 6px;
       background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe;
     }
+    .storage-upload-row {
+      display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.85rem;
+    }
+    .storage-upload-btn {
+      flex: 1; min-width: 100px; min-height: 40px; padding: 0.35rem 0.5rem;
+      border-radius: 8px; border: 1px solid #93c5fd; background: #eff6ff;
+      font-size: 0.76rem; font-weight: 700; color: #1d4ed8; cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .storage-upload-btn:disabled { opacity: 0.55; cursor: wait; }
+    .storage-folder-tree { display: flex; flex-direction: column; gap: 0.35rem; }
+    .storage-folder-block {
+      border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; overflow: hidden;
+    }
+    .storage-folder-header {
+      width: 100%; display: flex; align-items: center; gap: 0.35rem;
+      padding: 0.55rem 0.65rem; border: none; background: #f8fafc;
+      font-size: 0.82rem; font-weight: 700; color: #334155; cursor: pointer;
+      text-align: left; -webkit-tap-highlight-color: transparent;
+    }
+    .storage-folder-chevron { font-size: 0.65rem; color: #94a3b8; width: 0.75rem; flex-shrink: 0; }
+    .storage-folder-icon { flex-shrink: 0; }
+    .storage-folder-name { flex: 1; min-width: 0; }
+    .storage-folder-count { font-size: 0.68rem; font-weight: 600; color: #94a3b8; }
+    .storage-folder-body { padding: 0.35rem 0.65rem 0.55rem 1.85rem; }
+    .storage-folder-body[hidden] { display: none; }
+    .storage-folder-file {
+      display: flex; align-items: flex-start; gap: 0.35rem;
+      padding: 0.2rem 0; font-size: 0.78rem; word-break: break-all;
+    }
+    .storage-folder-file-icon { flex-shrink: 0; }
+    .storage-folder-file-link { color: #1d4ed8; text-decoration: none; }
     @media (orientation: landscape) and (max-height: 500px) {
       .wf-card-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
       .wf-card { min-height: 72px; }

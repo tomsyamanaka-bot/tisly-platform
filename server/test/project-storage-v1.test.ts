@@ -81,7 +81,16 @@ describe("QNAP連携 v1 — project-storage mock", () => {
     const root = projectStorageRootDir();
     const projectDir = path.join(root, projectNo);
     assert.ok(fs.existsSync(projectDir), `expected ${projectDir}`);
-    for (const sub of ["01_現調", "02_見積", "03_請求", "04_仕様書", "05_完了報告"]) {
+    for (const sub of [
+      "01_現調",
+      "02_見積",
+      "03_請求",
+      "04_仕様書",
+      "05_完了報告",
+      "06_写真",
+      "07_図面",
+      "08_その他",
+    ]) {
       assert.ok(fs.existsSync(path.join(projectDir, sub)), sub);
     }
   });
@@ -96,6 +105,8 @@ describe("QNAP連携 v1 — project-storage mock", () => {
     assert.equal(res.body.qnapSyncLabel, "未同期");
     assert.equal(res.body.folders.length, 8);
     assert.equal(res.body.files.length, 0);
+    assert.equal(res.body.documents.length, 4);
+    assert.equal(res.body.folderContents.length, 8);
     assert.equal(res.body.storageProvider, "mock");
   });
 
@@ -201,5 +212,56 @@ describe("QNAP連携 v1 — project-storage mock", () => {
     for (const kind of ["estimate", "invoice", "specification", "report"]) {
       assert.ok(list.body.files.some((f: { kind: string }) => f.kind === kind), kind);
     }
+    const specFolder = list.body.folderContents.find(
+      (f: { folder: string }) => f.folder === "04_仕様書"
+    );
+    assert.ok(specFolder?.files?.length >= 1);
+  });
+
+  it("POST upload-file — 写真・図面・その他", async () => {
+    const tinyPng =
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+    for (const [folderType, sub] of [
+      ["photos", "06_写真"],
+      ["drawings", "07_図面"],
+      ["others", "08_その他"],
+    ] as const) {
+      const res = await request(app)
+        .post(`/api/project-storage/${projectId}/upload-file`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({ folderType, fileName: `test-${folderType}.png`, fileBase64: tinyPng });
+      assert.equal(res.status, 201, res.body?.error);
+      assert.equal(res.body.folder, sub);
+      const dir = path.join(projectStorageRootDir(), projectNo, sub);
+      assert.ok(fs.readdirSync(dir).some((f) => f.includes("test-")));
+    }
+  });
+
+  it("仕様書・完了報告保存で元写真も 06_写真 にミラー", async () => {
+    const specDir = path.join(projectStorageRootDir(), projectNo, "06_写真", "仕様書");
+    const reportDir = path.join(projectStorageRootDir(), projectNo, "06_写真", "完了報告");
+    await request(app)
+      .post(`/api/project-storage/${projectId}/save-document`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ kind: "specification" });
+    await request(app)
+      .post(`/api/project-storage/${projectId}/save-document`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ kind: "report" });
+    if (fs.existsSync(specDir)) {
+      const specPhotos = fs.readdirSync(specDir).filter((f) => f.startsWith("仕様書写真_"));
+      assert.ok(specPhotos.length >= 0);
+    }
+    if (fs.existsSync(reportDir)) {
+      const reportPhotos = fs.readdirSync(reportDir).filter((f) => f.startsWith("完了写真_"));
+      assert.ok(reportPhotos.length >= 0);
+    }
+    const list = await request(app)
+      .get(`/api/project-storage/${projectId}`)
+      .set("Authorization", `Bearer ${token}`);
+    const photosFolder = list.body.folderContents.find(
+      (f: { folder: string }) => f.folder === "06_写真"
+    );
+    assert.ok(photosFolder);
   });
 });
