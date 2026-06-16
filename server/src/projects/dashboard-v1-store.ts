@@ -3,9 +3,19 @@
 import { getDatabase } from "../db/database.js";
 import { getLatestWorkSessionForProject } from "../field-ops/work-session-v1-store.js";
 import { getScheduleDayDetail } from "../schedule/schedule-store.js";
-import { resolveEventProjectRef } from "../schedule/address-extract-service.js";
+import {
+  extractEventAddress,
+  extractEventDisplayTitle,
+  resolveEventProjectRef,
+} from "../schedule/address-extract-service.js";
 import type { ScheduleEvent } from "../schedule/schedule-types.js";
 import { todayInTimeZone } from "../services/googleCalendar.js";
+import { getStorageSettingsV1 } from "../storage/storage-settings-store.js";
+import {
+  isQnapPdfBackupConfigured,
+  listProjectPdfMeta,
+} from "./project-pdf-qnap-store.js";
+import { getProjectDocumentsStatusV1 } from "./project-documents-v1.js";
 import {
   deriveMgmtStatus,
   PROJECT_MGMT_STATUS_LABELS,
@@ -29,11 +39,13 @@ export interface DashboardTodayItemV1 {
   eventId: string;
   timeLabel: string;
   title: string;
+  rawTitle: string;
   address: string;
   assignee: string;
   projectId: string | null;
   projectNo: string | null;
   detailHref: string | null;
+  linked: boolean;
 }
 
 export interface DashboardTodayV1 {
@@ -45,7 +57,11 @@ export type DashboardAlertType =
   | "survey_overdue"
   | "estimate_not_submitted"
   | "invoice_not_issued"
-  | "payment_overdue";
+  | "payment_pending"
+  | "pdf_not_saved"
+  | "qnap_not_saved"
+  | "photos_missing"
+  | "completion_photos_missing";
 
 export type DashboardAlertPriority = "red" | "yellow" | "blue";
 
@@ -88,6 +104,12 @@ export interface DashboardSalesV1 {
 }
 
 type ProjectRow = Record<string, unknown>;
+
+const DASHBOARD_RETURN = encodeURIComponent("/project-dashboard-v1");
+
+function projectDetailHref(projectId: string): string {
+  return `/project-mgmt-detail-v1?projectId=${encodeURIComponent(projectId)}&return=${DASHBOARD_RETURN}`;
+}
 
 const KPI_DEFS: Array<{ key: string; label: string; statuses: ProjectMgmtStatus[] }> = [
   { key: "inquiry", label: "問い合わせ", statuses: ["inquiry"] },
@@ -166,12 +188,6 @@ function surveyScheduleDate(row: ProjectRow): string | null {
   return date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null;
 }
 
-function daysBetween(fromDate: string, toDate: string): number {
-  const a = new Date(`${fromDate}T12:00:00`);
-  const b = new Date(`${toDate}T12:00:00`);
-  if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return 0;
-  return Math.floor((b.getTime() - a.getTime()) / (24 * 60 * 60 * 1000));
-}
 
 function formatTimeLabel(event: ScheduleEvent): string {
   if (event.allDay) return "終日";
@@ -257,7 +273,6 @@ export async function getDashboardTodayV1(dateRaw?: string): Promise<DashboardTo
     let projectId: string | null = null;
     let projectNo: string | null = null;
     let assignee = "";
-    let address = event.location?.trim() || "";
 
     if (ref) {
       projectId = resolveBusinessProjectId(ref);
@@ -266,33 +281,165 @@ export async function getDashboardTodayV1(dateRaw?: string): Promise<DashboardTo
         if (meta) {
           projectNo = meta.projectNo;
           assignee = meta.assignee;
-          if (!address) address = meta.address;
         }
       }
     }
 
+    const extracted = extractEventAddress(event);
+    let address = extracted.fullAddress?.trim() || extracted.displayAddress?.trim() || "";
+    if (!address || address === "住所未確定" || address === "住所未設定") {
+      if (projectId) {
+        const meta = loadBusinessProjectMeta(projectId);
+        if (meta?.address?.trim()) address = meta.address.trim();
+      }
+    }
+    if (!address || address === "住所未確定") address = "住所未設定";
+
+    const displayTitle = extractEventDisplayTitle(event);
+    const linked = Boolean(projectId);
+
     return {
       eventId: event.id,
       timeLabel: formatTimeLabel(event),
-      title: event.title,
+      title: displayTitle,
+      rawTitle: event.title,
       address,
       assignee,
       projectId,
       projectNo,
-      detailHref: projectId
-        ? `/project-mgmt-detail-v1?projectId=${encodeURIComponent(projectId)}`
-        : null,
+      detailHref: projectId ? projectDetailHref(projectId) : null,
+      linked,
     };
   });
 
   return { date, items };
 }
 
+function pushDashboardAlert(
+  alerts: DashboardAlertV1[],
+  base: ProjectMgmtListItemV1,
+  spec: {
+    alertType: DashboardAlertType;
+    alertLabel: string;
+    priority: DashboardAlertPriority;
+    priorityOrder: number;
+    detail: string;
+  }
+): void {
+  alerts.push({
+    projectId: base.id,
+    projectNo: base.projectNo,
+    customerName: base.customerName,
+    title: base.title,
+    assignee: base.assignee,
+    mgmtStatus: base.mgmtStatus,
+    mgmtStatusLabel: base.mgmtStatusLabel,
+    updatedAt: base.updatedAt,
+    ...spec,
+  });
+}
+
+function collectDocumentAlerts(projectId: string): Array<{
+  alertType: DashboardAlertType;
+  alertLabel: string;
+  priority: DashboardAlertPriority;
+  priorityOrder: number;
+  detail: string;
+}> {
+  const out: Array<{
+    alertType: DashboardAlertType;
+    alertLabel: string;
+    priority: DashboardAlertPriority;
+    priorityOrder: number;
+    detail: string;
+  }> = [];
+  const docStatus = getProjectDocumentsStatusV1(projectId);
+  if (!docStatus) return out;
+  const docs = docStatus.documents;
+
+  for (const doc of docs) {
+    if (doc.status === "photos_missing") {
+      out.push({
+        alertType: "photos_missing",
+        alertLabel: "写真不足",
+        priority: "yellow",
+        priorityOrder: 5,
+        detail: `${doc.label}用の現調写真`,
+      });
+      continue;
+    }
+    if (doc.status === "completion_photos_missing") {
+      out.push({
+        alertType: "completion_photos_missing",
+        alertLabel: "完了写真不足",
+        priority: "yellow",
+        priorityOrder: 6,
+        detail: doc.label,
+      });
+      continue;
+    }
+    if (!doc.hasPdf && doc.status === "stale") {
+      out.push({
+        alertType: "pdf_not_saved",
+        alertLabel: "PDF未保存",
+        priority: "yellow",
+        priorityOrder: 7,
+        detail: doc.label,
+      });
+      continue;
+    }
+    if (doc.status === "not_created" && doc.kind === "estimate") {
+      const project = getDatabase()
+        .prepare(`SELECT estimate_id FROM business_projects WHERE id = ?`)
+        .get(projectId) as { estimate_id?: string } | undefined;
+      if (project?.estimate_id) {
+        out.push({
+          alertType: "pdf_not_saved",
+          alertLabel: "PDF未保存",
+          priority: "yellow",
+          priorityOrder: 7,
+          detail: doc.label,
+        });
+      }
+    } else if (doc.status === "not_created" && doc.kind === "invoice") {
+      const project = getDatabase()
+        .prepare(`SELECT invoice_id FROM business_projects WHERE id = ?`)
+        .get(projectId) as { invoice_id?: string } | undefined;
+      if (project?.invoice_id) {
+        out.push({
+          alertType: "pdf_not_saved",
+          alertLabel: "PDF未保存",
+          priority: "yellow",
+          priorityOrder: 7,
+          detail: doc.label,
+        });
+      }
+    }
+  }
+
+  const settings = getStorageSettingsV1();
+  const qnapEnabled = Boolean(settings.qnapBackupEnabled && isQnapPdfBackupConfigured());
+  if (qnapEnabled) {
+    for (const meta of listProjectPdfMeta(projectId)) {
+      if (meta.qnapBackupEnabled && meta.localPath && meta.qnapBackupStatus !== "success") {
+        out.push({
+          alertType: "qnap_not_saved",
+          alertLabel: "QNAP未保存",
+          priority: "blue",
+          priorityOrder: 8,
+          detail: meta.fileName,
+        });
+      }
+    }
+  }
+
+  return out;
+}
+
 export function getDashboardAlertsV1(todayRaw?: string): DashboardAlertV1[] {
   const today = (todayRaw ?? todayInTimeZone()).slice(0, 10);
   const rows = listActiveProjectRows();
   const alerts: DashboardAlertV1[] = [];
-  const db = getDatabase();
 
   for (const row of rows) {
     const base = rowToListItem(row);
@@ -304,22 +451,13 @@ export function getDashboardAlertsV1(todayRaw?: string): DashboardAlertV1[] {
       surveyDate &&
       surveyDate < today
     ) {
-      alerts.push({
-        projectId: base.id,
-        projectNo: base.projectNo,
-        customerName: base.customerName,
-        title: base.title,
-        assignee: base.assignee,
-        mgmtStatus: base.mgmtStatus,
-        mgmtStatusLabel: base.mgmtStatusLabel,
-        updatedAt: base.updatedAt,
+      pushDashboardAlert(alerts, base, {
         alertType: "survey_overdue",
         alertLabel: "現調予定日超過",
         priority: "red",
         priorityOrder: 1,
         detail: `現調予定 ${surveyDate}`,
       });
-      continue;
     }
 
     const status = String(row.status ?? "new").toLowerCase();
@@ -329,71 +467,37 @@ export function getDashboardAlertsV1(todayRaw?: string): DashboardAlertV1[] {
       (status === "survey_done" ||
         (mgmt === "survey_scheduled" && surveyDate && surveyDate < today))
     ) {
-      alerts.push({
-        projectId: base.id,
-        projectNo: base.projectNo,
-        customerName: base.customerName,
-        title: base.title,
-        assignee: base.assignee,
-        mgmtStatus: base.mgmtStatus,
-        mgmtStatusLabel: base.mgmtStatusLabel,
-        updatedAt: base.updatedAt,
+      pushDashboardAlert(alerts, base, {
         alertType: "estimate_not_submitted",
         alertLabel: "見積未提出",
         priority: "yellow",
         priorityOrder: 2,
         detail: surveyDate ? `現調日 ${surveyDate}` : "見積書未作成",
       });
-      continue;
     }
 
     if (mgmt === "work_completed" && !row.invoice_id) {
-      alerts.push({
-        projectId: base.id,
-        projectNo: base.projectNo,
-        customerName: base.customerName,
-        title: base.title,
-        assignee: base.assignee,
-        mgmtStatus: base.mgmtStatus,
-        mgmtStatusLabel: base.mgmtStatusLabel,
-        updatedAt: base.updatedAt,
+      pushDashboardAlert(alerts, base, {
         alertType: "invoice_not_issued",
         alertLabel: "請求未発行",
         priority: "yellow",
         priorityOrder: 3,
         detail: "工事完了・請求書未発行",
       });
-      continue;
     }
 
     if (mgmt === "invoiced" && !row.paid_date) {
-      const invoiceId = row.invoice_id ? String(row.invoice_id) : null;
-      let anchorDate =
-        row.payment_due_date != null ? String(row.payment_due_date).slice(0, 10) : null;
-      if (!anchorDate && invoiceId) {
-        const inv = db
-          .prepare(`SELECT created_at, payment_due_date FROM business_invoices WHERE id = ?`)
-          .get(invoiceId) as { created_at?: string; payment_due_date?: string } | undefined;
-        anchorDate =
-          inv?.payment_due_date?.slice(0, 10) ?? inv?.created_at?.slice(0, 10) ?? null;
-      }
-      if (anchorDate && daysBetween(anchorDate, today) >= 30) {
-        alerts.push({
-          projectId: base.id,
-          projectNo: base.projectNo,
-          customerName: base.customerName,
-          title: base.title,
-          assignee: base.assignee,
-          mgmtStatus: base.mgmtStatus,
-          mgmtStatusLabel: base.mgmtStatusLabel,
-          updatedAt: base.updatedAt,
-          alertType: "payment_overdue",
-          alertLabel: "入金待ち30日超過",
-          priority: "blue",
-          priorityOrder: 4,
-          detail: `基準日 ${anchorDate}`,
-        });
-      }
+      pushDashboardAlert(alerts, base, {
+        alertType: "payment_pending",
+        alertLabel: "入金待ち",
+        priority: "blue",
+        priorityOrder: 4,
+        detail: "請求済・未入金",
+      });
+    }
+
+    for (const docAlert of collectDocumentAlerts(base.id)) {
+      pushDashboardAlert(alerts, base, docAlert);
     }
   }
 

@@ -47,6 +47,14 @@ async function shot(page, name) {
   console.log("saved:", file);
 }
 
+async function scrollToSection(page, selector) {
+  await page.evaluate((sel) => {
+    const el = document.querySelector(sel);
+    if (el) el.scrollIntoView({ behavior: "instant", block: "start" });
+  }, selector);
+  await new Promise((r) => setTimeout(r, 350));
+}
+
 async function main() {
   const browser = await puppeteer.launch({
     headless: true,
@@ -60,16 +68,39 @@ async function main() {
   await page.waitForSelector("#kpi-scroll .kpi-pill", { timeout: 15000 });
   await shot(page, "01-dashboard-overview.png");
 
-  await page.evaluate(() => {
-    document.getElementById("search-input")?.focus();
-  });
-  await page.type("#search-input", "ダッシュボード", { delay: 30 });
-  await new Promise((r) => setTimeout(r, 600));
-  await shot(page, "02-dashboard-search.png");
+  await scrollToSection(page, "#today-list");
+  await shot(page, "02-today-schedule.png");
 
-  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-  await new Promise((r) => setTimeout(r, 400));
-  await shot(page, "03-dashboard-bottom.png");
+  await scrollToSection(page, "#alerts-list");
+  await shot(page, "03-alerts.png");
+
+  await page.evaluate(() => {
+    const input = document.getElementById("search-input");
+    if (input) {
+      input.value = "ダッシュボード";
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  });
+  await new Promise((r) => setTimeout(r, 700));
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await new Promise((r) => setTimeout(r, 200));
+  await shot(page, "04-search-results.png");
+
+  const firstCard = await page.$("#alerts-list .dash-card[data-href], #recent-list .dash-card[data-href]");
+  if (firstCard) {
+    await firstCard.click();
+    await page.waitForSelector(".dash-back-link", { timeout: 15000 });
+    await shot(page, "05-detail-back-link.png");
+  } else {
+    const recent = await page.$("#recent-list .dash-card[data-href]");
+    if (recent) {
+      await page.goto(`${BASE}/project-dashboard-v1`, { waitUntil: "networkidle0" });
+      await page.waitForSelector("#recent-list .dash-card", { timeout: 10000 });
+      await page.click("#recent-list .dash-card[data-href]");
+      await page.waitForSelector(".dash-back-link", { timeout: 15000 });
+      await shot(page, "05-detail-back-link.png");
+    }
+  }
 
   const report = {
     capturedAt: new Date().toISOString(),

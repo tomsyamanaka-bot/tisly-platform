@@ -1,11 +1,15 @@
 {
-  "capturedAt": "2026-06-16T08:45:02.455Z",
+  "capturedAt": "2026-06-16T09:01:04.168Z",
   "viewport": "390x844",
   "base": "http://127.0.0.1:3080",
   "files": [
     "01-dashboard-overview.png",
     "02-dashboard-search.png",
-    "03-dashboard-bottom.png"
+    "02-today-schedule.png",
+    "03-alerts.png",
+    "03-dashboard-bottom.png",
+    "04-search-results.png",
+    "05-detail-back-link.png"
   ],
   "apis": [
     "/api/dashboard-v1/summary",

@@ -252,6 +252,48 @@ function resolveProjectAddress(event: ScheduleEvent): string | null {
 
 export { resolveEventProjectRef };
 
+export function extractEventDisplayTitle(event: ScheduleEvent): string {
+  const raw = event.title?.trim() ?? "";
+  if (!raw) return "（予定）";
+
+  const ref = resolveEventProjectRef(event);
+  if (ref) {
+    const db = getDatabase();
+    let customerName: string | null = null;
+    if (ref.projectSource === "business") {
+      const row = db
+        .prepare(`SELECT customer_name, title FROM business_projects WHERE id = ? AND deleted_at IS NULL`)
+        .get(ref.projectId) as { customer_name?: string; title?: string } | undefined;
+      customerName = String(row?.customer_name ?? "").trim() || String(row?.title ?? "").trim() || null;
+    } else {
+      const row = db
+        .prepare(`SELECT customer_name, site_name FROM survey_projects WHERE project_id = ?`)
+        .get(ref.projectId) as { customer_name?: string; site_name?: string } | undefined;
+      customerName =
+        String(row?.customer_name ?? "").trim() || String(row?.site_name ?? "").trim() || null;
+    }
+    if (customerName) return customerName;
+  }
+
+  let t = stripEventTitlePrefixes(raw);
+  t = t.replace(/^(?:\d{1,2}[:：]\d{2})\s*[-–—]?\s*/, "");
+  t = t.replace(/^(?:現調|工事|施工|作業|材料|伝元|訪問)\s*/i, "");
+
+  const parts = t
+    .split(/[\s　、,/]+/)
+    .map((p) => p.replace(/^[^(]*[)）]/, "").trim())
+    .filter((p) => p.length >= 2 && !TITLE_MATCH_NOISE.has(p));
+
+  const withSama = parts.find((p) => /様$/.test(p));
+  if (withSama) return withSama;
+
+  if (parts.length >= 2) return `${parts[0]} ${parts[1]}`;
+  if (parts.length === 1) return parts[0];
+
+  const cleaned = t.replace(/\s*[（(].*[）)]\s*$/, "").trim();
+  return cleaned || raw;
+}
+
 export function extractEventAddress(event: ScheduleEvent): ExtractedAddress {
   const location = event.location?.trim();
   if (location) {

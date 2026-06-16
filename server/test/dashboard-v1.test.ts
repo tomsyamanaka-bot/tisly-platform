@@ -159,6 +159,43 @@ describe("案件ダッシュボード v1", () => {
     );
   });
 
+  it("入金待ちアラート", async () => {
+    const created = await request(app)
+      .post("/api/project-mgmt/v1/projects")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        title: "入金待ち検証",
+        customerName: "入金待ちテスト様",
+        municipality: "つくば市",
+        cityCode: "TS",
+      });
+    assert.equal(created.status, 201);
+    const id = created.body.project.id;
+    getDatabase()
+      .prepare(
+        `UPDATE business_projects
+         SET status = 'invoiced', invoice_id = 'inv-test-dash'
+         WHERE id = ?`
+      )
+      .run(id);
+
+    const res = await request(app)
+      .get("/api/dashboard-v1/alerts")
+      .set("Authorization", `Bearer ${token}`);
+    assert.ok(
+      res.body.alerts.some(
+        (a: { projectId: string; alertType: string }) =>
+          a.projectId === id && a.alertType === "payment_pending"
+      )
+    );
+  });
+
+  it("下部ナビ案件タブはダッシュボードへ", async () => {
+    const res = await request(app).get("/js/tisly-practical-nav.js");
+    assert.equal(res.status, 200);
+    assert.ok(res.text.includes('href: "/project-dashboard-v1"'));
+  });
+
   it("App Hub に案件ダッシュボードカード", async () => {
     const res = await request(app)
       .get("/api/pwa/hub")

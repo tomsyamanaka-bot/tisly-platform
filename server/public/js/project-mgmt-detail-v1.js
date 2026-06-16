@@ -182,6 +182,18 @@ function cardTabForKey(key) {
   return map[key] || "overview";
 }
 
+function resolveDashboardReturnUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const ret = params.get("return");
+  if (ret && ret.startsWith("/")) return ret;
+  return "/project-dashboard-v1";
+}
+
+function renderDashboardBackLink() {
+  const href = resolveDashboardReturnUrl();
+  return `<a href="${escapeHtml(href)}" class="dash-back-link">← ダッシュボードへ戻る</a>`;
+}
+
 function renderDashboard(p) {
   const cards = (detail.workflowCards ?? [])
     .map(
@@ -196,6 +208,7 @@ function renderDashboard(p) {
     .join("");
 
   return `
+    ${renderDashboardBackLink()}
     <section class="dash-meta" aria-label="案件ダッシュボード">
       <dl class="dash-info-grid">
         <dt>案件ID</dt><dd>${escapeHtml(p.projectNo)}</dd>
@@ -748,7 +761,7 @@ async function main() {
     appName: "案件詳細",
     theme: "blue",
     onBack: () => {
-      window.location.href = "/project-mgmt-v1";
+      window.location.href = resolveDashboardReturnUrl();
     },
   });
 

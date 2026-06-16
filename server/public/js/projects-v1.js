@@ -669,7 +669,7 @@ async function init() {
   await requireCustomerLogin(customerCodeFromPath());
   const nav = initPracticalNav({
     appId: "projects_v1",
-    appName: "案件一覧",
+    appName: "現場",
     theme: "hub",
     onBack: () => {
       if (!$("view-detail")?.classList.contains("hidden")) {

@@ -2,6 +2,11 @@ import { getCustomerToken, requireCustomerLogin } from "./customer-auth.js";
 import { initPracticalNav } from "./tisly-practical-nav.js";
 
 const API = "/api/dashboard-v1";
+const DASHBOARD_RETURN = encodeURIComponent("/project-dashboard-v1");
+
+function projectDetailHref(projectId) {
+  return `/project-mgmt-detail-v1?projectId=${encodeURIComponent(projectId)}&return=${DASHBOARD_RETURN}`;
+}
 
 const $ = (id) => document.getElementById(id);
 
@@ -99,13 +104,18 @@ function renderToday(data) {
         ? `class="dash-card" data-href="${escapeHtml(href)}" tabindex="0" role="button"`
         : `class="dash-card static"`;
       const assignee = item.assignee ? `担当: ${escapeHtml(item.assignee)}` : "担当: —";
-      const addr = item.address ? escapeHtml(item.address) : "—";
+      const addr = item.address ? escapeHtml(item.address) : "住所未設定";
+      const rawHint =
+        item.rawTitle && item.rawTitle !== item.title
+          ? `<div class="dash-raw-title">${escapeHtml(item.rawTitle)}</div>`
+          : "";
       return `<article ${attrs}>
         <div class="dash-card-head">
           <span class="dash-time">${escapeHtml(item.timeLabel)}</span>
           ${item.projectNo ? `<span class="status-chip">${escapeHtml(item.projectNo)}</span>` : ""}
         </div>
         <div class="dash-title">${escapeHtml(item.title)}</div>
+        ${rawHint}
         <div class="dash-meta">${addr}<br>${assignee}</div>
       </article>`;
     })
@@ -134,7 +144,7 @@ function renderAlerts(alerts) {
   }
   list.innerHTML = alerts
     .map((a) => {
-      const href = `/project-mgmt-detail-v1?projectId=${encodeURIComponent(a.projectId)}`;
+      const href = projectDetailHref(a.projectId);
       return `<article class="dash-card ${alertBorderClass(a.priority)}" data-href="${escapeHtml(href)}" tabindex="0" role="button">
         <div class="dash-card-head">
           <span class="${alertBadgeClass(a.priority)}">${escapeHtml(a.alertLabel)}</span>
@@ -157,7 +167,7 @@ function renderRecent(projects) {
   }
   list.innerHTML = projects
     .map((p) => {
-      const href = `/project-mgmt-detail-v1?projectId=${encodeURIComponent(p.id)}`;
+      const href = projectDetailHref(p.id);
       return `<article class="dash-card" data-href="${escapeHtml(href)}" tabindex="0" role="button">
         <div class="dash-card-head">
           <span class="dash-meta" style="font-family:ui-monospace,monospace;font-weight:700;color:#475569">${escapeHtml(p.projectNo)}</span>
@@ -206,7 +216,7 @@ function renderSearchResults(projects) {
     <h2 style="font-size:0.88rem;margin:0 0 0.45rem">🔍 検索結果 (${projects.length}件)</h2>
     ${projects
       .map((p) => {
-        const href = `/project-mgmt-detail-v1?projectId=${encodeURIComponent(p.id)}`;
+        const href = projectDetailHref(p.id);
         return `<article class="dash-card" data-href="${escapeHtml(href)}" tabindex="0" role="button">
           <div class="dash-card-head">
             <span class="dash-meta" style="font-family:ui-monospace,monospace;font-weight:700">${escapeHtml(p.projectNo)}</span>
