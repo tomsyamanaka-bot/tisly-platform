@@ -160,4 +160,46 @@ describe("QNAP連携 v1 — project-storage mock", () => {
     assert.match(res.body.fileName, /^見積書_.*\.pdf$/);
     assert.equal(res.body.folder, "02_見積");
   });
+
+  it("請求・仕様書・完了報告書も mock storage に保存", async () => {
+    const inv = await request(app)
+      .post(`/api/estimate/v1/projects/${projectId}/invoice`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({});
+    assert.ok([200, 201].includes(inv.status), inv.body?.error);
+
+    const spec = await request(app)
+      .post(`/api/projects/v1/projects/${projectId}/specification/create`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({});
+    assert.equal(spec.status, 200, spec.body?.error);
+
+    const report = await request(app)
+      .post(`/api/estimate/v1/projects/${projectId}/completion-report/create`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({});
+    assert.equal(report.status, 201, report.body?.error);
+
+    const root = projectStorageRootDir();
+    const projectDir = path.join(root, projectNo);
+    for (const [sub, pattern] of [
+      ["03_請求", /^請求書_.*\.pdf$/],
+      ["04_仕様書", /^仕様書_.*\.pdf$/],
+      ["05_完了報告", /^完了報告書_.*\.pdf$/],
+    ] as const) {
+      const dir = path.join(projectDir, sub);
+      const pdfs = fs.readdirSync(dir).filter((f) => f.endsWith(".pdf"));
+      assert.ok(pdfs.length >= 1, sub);
+      assert.match(pdfs[0]!, pattern);
+    }
+
+    const list = await request(app)
+      .get(`/api/project-storage/${projectId}`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(list.status, 200);
+    assert.equal(list.body.qnapSyncStatus, "synced");
+    for (const kind of ["estimate", "invoice", "specification", "report"]) {
+      assert.ok(list.body.files.some((f: { kind: string }) => f.kind === kind), kind);
+    }
+  });
 });

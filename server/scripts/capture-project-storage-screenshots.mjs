@@ -118,6 +118,11 @@ async function ensureProjectWithAllDocs() {
 
   await apiPost(`/api/estimate/v1/projects/${projectId}/finalize`, {}, surveyor);
   await apiPost(`/api/estimate/v1/projects/${projectId}/invoice`, {}, surveyor);
+  try {
+    await apiPost(`/api/projects/v1/projects/${projectId}/specification/create`, {}, surveyor);
+  } catch (e) {
+    console.warn("specification/create:", e.message);
+  }
   await apiPost(`/api/estimate/v1/projects/${projectId}/completion-report/create`, {}, surveyor);
 
   const storageBody = await fetchStorage(projectId, surveyor);
@@ -134,11 +139,10 @@ async function ensureProjectWithAllDocs() {
   }
 
   const refreshed = await fetchStorage(projectId, surveyor);
-  if (refreshed.qnapSyncStatus !== "synced" && refreshed.files?.length > 0) {
-    refreshed.qnapSyncStatus = "synced";
-  }
-  if (!refreshed.files?.length) {
-    throw new Error(`no files in storage: ${JSON.stringify(refreshed)}`);
+  const requiredKinds = ["estimate", "invoice", "specification", "report"];
+  const missing = requiredKinds.filter((k) => !refreshed.files?.some((f) => f.kind === k));
+  if (missing.length) {
+    throw new Error(`missing storage files: ${missing.join(", ")} — ${JSON.stringify(refreshed.files)}`);
   }
 
   return { projectId, storage: refreshed };
@@ -192,6 +196,7 @@ async function main() {
       savePathVisible: Boolean(storage.qnapFolderPath),
       estimateSaved: storage.files?.some((f) => f.kind === "estimate"),
       invoiceSaved: storage.files?.some((f) => f.kind === "invoice"),
+      specificationSaved: storage.files?.some((f) => f.kind === "specification"),
       reportSaved: storage.files?.some((f) => f.kind === "report"),
       openButton: actionButtons.includes("開く"),
       shareButton: actionButtons.includes("共有"),

@@ -262,20 +262,40 @@ function renderHistoryTab() {
   return `<div class="timeline-list">${rows}</div>`;
 }
 
+function findPdfEntry(pdfKind) {
+  return (detail.documents || []).find((d) => d.kind === pdfKind);
+}
+
+function renderDocTabActions(pdfKind, viewerKind, storageKind) {
+  const entry = findPdfEntry(pdfKind);
+  if (!entry?.exists) {
+    return `<p class="storage-file-empty">PDF未保存 — 作成後にここから開けます</p>`;
+  }
+  const displayName = entry.fileName || `${pdfKind}.pdf`;
+  const resaveKind = storageKind || pdfKind;
+  return `
+    <div class="storage-file-actions doc-tab-actions">
+      <a class="storage-action-btn primary" href="${escapeHtml(documentViewerHref(detail.project.id, viewerKind))}">開く</a>
+      <button type="button" class="storage-action-btn" data-storage-share="${escapeHtml(pdfKind)}" data-share-name="${escapeHtml(displayName)}">共有</button>
+      <button type="button" class="storage-action-btn" data-storage-resave="${escapeHtml(resaveKind)}">保存し直す</button>
+    </div>`;
+}
+
 function renderSurveyTab() {
   const s = detail.survey;
   if (!s.linked) {
     return `<p class="section-hint">現調案件が未連携です。</p>
-      <div class="btn-row"><a class="primary" href="/survey-v1">現調PWAを開く</a></div>`;
+      <div class="btn-row"><a class="primary" href="/survey-v1">現調PWAを開く</a></div>
+      ${renderDocTabActions("specification", "specification", "specification")}`;
   }
   return `
     <a class="link-card" href="${escapeHtml(s.href)}">
       <strong>現調を開く</strong>
       <span>写真 ${s.photoCount} 枚 · ID ${escapeHtml(s.surveyProjectId)}</span>
     </a>
-    <div class="btn-row">
-      <a class="primary" href="/document-viewer-v1.html?projectId=${encodeURIComponent(detail.project.id)}&kind=specification">仕様書を見る</a>
-    </div>`;
+    <h3 class="section-sub">仕様書</h3>
+    ${renderDocTabActions("specification", "specification", "specification")}
+    <div class="btn-row"><a href="/survey-v1">現調PWAを開く</a></div>`;
 }
 
 function renderEstimateTab() {
@@ -285,6 +305,8 @@ function renderEstimateTab() {
       <strong>見積</strong>
       <span>${e.linked ? `${escapeHtml(e.estimateNo || "")} · ${formatYen(e.total)}` : "未作成"}</span>
     </a>
+    <h3 class="section-sub">見積書</h3>
+    ${renderDocTabActions("estimate", "estimate", "estimate")}
     <div class="btn-row"><a class="primary" href="${escapeHtml(e.href)}">見積PWAを開く</a></div>`;
 }
 
@@ -295,6 +317,8 @@ function renderInvoiceTab() {
       <strong>請求</strong>
       <span>${inv.linked ? `${escapeHtml(inv.invoiceNo || "")} · ${formatYen(inv.total)}` : "未作成"}</span>
     </a>
+    <h3 class="section-sub">請求書</h3>
+    ${renderDocTabActions("invoice", "invoice", "invoice")}
     <div class="btn-row"><a class="primary" href="${escapeHtml(inv.href)}">請求を開く</a></div>`;
 }
 
@@ -305,6 +329,8 @@ function renderCompletionTab() {
       <strong>完了報告書</strong>
       <span>${c.linked ? "作成済み" : "未作成"}</span>
     </a>
+    <h3 class="section-sub">完了報告書</h3>
+    ${renderDocTabActions("report", "completion-report", "report")}
     <div class="btn-row"><a class="primary" href="${escapeHtml(c.href || detail.fieldOpsHref)}">完了報告を見る</a></div>`;
 }
 
@@ -497,7 +523,7 @@ async function resaveStorageDocument(kind, btn) {
   }
 }
 
-function bindStorageActions() {
+function bindDocActions() {
   document.querySelectorAll("[data-storage-share]").forEach((btn) => {
     const pdfKind = btn.getAttribute("data-storage-share");
     const fileName = btn.getAttribute("data-share-name");
@@ -546,7 +572,7 @@ function bindActions() {
     }
   });
 
-  if (activeTab === "files") bindStorageActions();
+  bindDocActions();
 }
 
 async function main() {

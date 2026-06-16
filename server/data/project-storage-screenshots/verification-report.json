@@ -1,10 +1,10 @@
 {
-  "capturedAt": "2026-06-16T07:30:09.201Z",
+  "capturedAt": "2026-06-16T08:11:59.964Z",
   "viewport": "390x844",
   "baseUrl": "http://127.0.0.1:3080",
-  "projectId": "BIZ-F7BEB796",
+  "projectId": "BIZ-AF080428",
   "qnapSyncStatus": "synced",
-  "qnapFolderPath": "/案件/MO-26-0616-012/",
+  "qnapFolderPath": "/案件/MO-26-0616-013/",
   "storageProvider": "mock",
   "savedFiles": [
     {
@@ -18,12 +18,20 @@
       "folder": "03_請求"
     },
     {
+      "kind": "specification",
+      "fileName": "仕様書_ストレージスクショ様_QNAP連携スクショ検証.pdf",
+      "folder": "04_仕様書"
+    },
+    {
       "kind": "report",
       "fileName": "完了報告書_ストレージスクショ様_QNAP連携スクショ検証.pdf",
       "folder": "05_完了報告"
     }
   ],
   "actionButtons": [
+    "開く",
+    "共有",
+    "保存し直す",
     "開く",
     "共有",
     "保存し直す",
@@ -43,6 +51,7 @@
     "savePathVisible": true,
     "estimateSaved": true,
     "invoiceSaved": true,
+    "specificationSaved": true,
     "reportSaved": true,
     "openButton": true,
     "shareButton": true,
