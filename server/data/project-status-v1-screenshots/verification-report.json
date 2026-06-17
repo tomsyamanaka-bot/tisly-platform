@@ -1,0 +1,19 @@
+{
+  "capturedAt": "2026-06-16T14:41:25.174Z",
+  "baseUrl": "http://127.0.0.1:3080",
+  "projectId": "BIZ-7AB1AF6C",
+  "files": [
+    "01-project-status-card.png",
+    "02-dashboard-status-summary.png",
+    "03-project-list-filter-status.png",
+    "04-project-detail-status.png",
+    "05-status-api-response.png"
+  ],
+  "apiSample": {
+    "status": "inquiry",
+    "statusLabel": "問い合わせ",
+    "statusColor": "gray",
+    "statusColorHex": "#64748b",
+    "updatedAt": "2026-06-16T14:40:37.529Z"
+  }
+}
