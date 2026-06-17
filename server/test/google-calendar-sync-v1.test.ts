@@ -1117,6 +1117,55 @@ describe("Google Calendar 双方向同期 v1", () => {
     }
   });
 
+  it("終日連日予定は日数分に展開される", async () => {
+    const { expandGoogleItemToEvents } = await import("../src/services/googleCalendar.js");
+    const item = {
+      id: "multi-day-vacation",
+      summary: "フレックス 材料発注",
+      start: { date: "2026-06-17" },
+      end: { date: "2026-06-20" },
+    };
+    const expanded = expandGoogleItemToEvents(item, { calendarId: "primary" });
+    assert.equal(expanded.length, 3);
+    assert.deepEqual(
+      expanded.map((e) => e.date),
+      ["2026-06-17", "2026-06-18", "2026-06-19"]
+    );
+    assert.ok(expanded.every((e) => e.title === "フレックス 材料発注"));
+    assert.ok(new Set(expanded.map((e) => e.id)).size === 3);
+    assert.ok(expanded.every((e) => e.externalId === "multi-day-vacation"));
+  });
+
+  it("同タイトル別日付の予定は別IDで2回UPSERTしても重複しない", async () => {
+    const { upsertCachedCalendarEvents } = await import("../src/schedule/schedule-calendar-store.js");
+    const { buildGoogleEventLocalId } = await import(
+      "../src/schedule/google-calendar-target-calendars.js"
+    );
+    const start = "2026-06-01";
+    const end = "2026-06-30";
+    const days = ["2026-06-17", "2026-06-18", "2026-06-19"];
+    const events = days.map((date, i) => ({
+      id: buildGoogleEventLocalId("primary", `order-${i + 1}`),
+      externalId: `order-${i + 1}`,
+      calendarId: "primary",
+      date,
+      title: `フレックス 材料発注 ${i + 1}/3`,
+      category: "office" as const,
+      source: "google" as const,
+      startTime: null,
+      endTime: null,
+      allDay: true,
+      location: null,
+      description: null,
+    }));
+    const first = upsertCachedCalendarEvents(start, end, events);
+    assert.equal(first.created, 3);
+    const second = upsertCachedCalendarEvents(start, end, events);
+    assert.equal(second.created, 0);
+    assert.equal(second.updated, 3);
+    assert.equal(second.failed, 0);
+  });
+
   it("UNIQUEエラーはUI向け短文にマップされる", async () => {
     const scheduleJs = fs.readFileSync(
       new URL("../public/js/schedule-v1.js", import.meta.url),

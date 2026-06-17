@@ -175,7 +175,8 @@ function googleItemToEvent(
     start?: { date?: string; dateTime?: string };
     end?: { date?: string; dateTime?: string };
   },
-  meta?: { calendarId?: string; calendarColor?: string | null; calendarSummary?: string | null }
+  meta?: { calendarId?: string; calendarColor?: string | null; calendarSummary?: string | null },
+  dayDate?: string
 ): ScheduleEvent | null {
   if (!item.id || !item.summary || !item.start) return null;
   const { date, startTime, endTime, allDay } = parseGoogleDateTime(
@@ -184,12 +185,14 @@ function googleItemToEvent(
   );
   const title = item.summary.trim();
   const calendarId = meta?.calendarId ?? null;
+  const eventDate = dayDate ?? date;
+  const localKey = dayDate ? `${item.id}@${dayDate}` : item.id;
   const localId = calendarId
-    ? buildGoogleEventLocalId(calendarId, item.id)
-    : buildGoogleEventLocalId("primary", item.id);
+    ? buildGoogleEventLocalId(calendarId, localKey)
+    : buildGoogleEventLocalId("primary", localKey);
   return {
     id: localId,
-    date,
+    date: eventDate,
     title,
     category: classifyEventCategory(title, item.description, item.location),
     source: "google" as ScheduleEventSource,
@@ -203,6 +206,62 @@ function googleItemToEvent(
     calendarColor: meta?.calendarColor ?? null,
     calendarSummary: meta?.calendarSummary ?? null,
   };
+}
+
+/** Google の終日連日予定・複数日またぎ予定を日別に展開 */
+export function expandGoogleItemToEvents(
+  item: {
+    id?: string;
+    summary?: string;
+    description?: string;
+    location?: string;
+    start?: { date?: string; dateTime?: string };
+    end?: { date?: string; dateTime?: string };
+  },
+  meta?: { calendarId?: string; calendarColor?: string | null; calendarSummary?: string | null }
+): ScheduleEvent[] {
+  const base = googleItemToEvent(item, meta);
+  if (!base || !item.id || !item.start) return base ? [base] : [];
+
+  const calendarId = meta?.calendarId ?? "primary";
+
+  if (item.start.date) {
+    const startDate = item.start.date;
+    const endExclusive = item.end?.date ?? addDays(startDate, 1);
+    if (endExclusive <= addDays(startDate, 1)) return [base];
+
+    const events: ScheduleEvent[] = [];
+    for (let d = startDate; d < endExclusive; d = addDays(d, 1)) {
+      const ev = googleItemToEvent(item, meta, d);
+      if (ev) events.push(ev);
+    }
+    return events.length ? events : [base];
+  }
+
+  if (item.start.dateTime) {
+    const startDate = item.start.dateTime.slice(0, 10);
+    const endDt = item.end?.dateTime ?? item.start.dateTime;
+    const endDate = endDt.slice(0, 10);
+    if (startDate === endDate) return [base];
+
+    const events: ScheduleEvent[] = [];
+    for (let d = startDate; d <= endDate; d = addDays(d, 1)) {
+      const isFirst = d === startDate;
+      const isLast = d === endDate;
+      const ev = googleItemToEvent(item, meta, d);
+      if (!ev) continue;
+      events.push({
+        ...ev,
+        id: buildGoogleEventLocalId(calendarId, `${item.id}@${d}`),
+        startTime: isFirst ? base.startTime : isLast ? "00:00" : null,
+        endTime: isLast ? base.endTime : isFirst ? "23:59" : null,
+        allDay: !isFirst && !isLast,
+      });
+    }
+    return events.length ? events : [base];
+  }
+
+  return [base];
 }
 
 /** デモ用モック予定 */
@@ -330,7 +389,7 @@ export async function listGoogleCalendarEventsForId(
   const json = (await res.json()) as { items?: Array<Record<string, unknown>> };
   const events: ScheduleEvent[] = [];
   for (const item of json.items ?? []) {
-    const ev = googleItemToEvent(
+    const expanded = expandGoogleItemToEvents(
       item as {
         id?: string;
         summary?: string;
@@ -345,7 +404,9 @@ export async function listGoogleCalendarEventsForId(
         calendarSummary: meta?.calendarSummary ?? null,
       }
     );
-    if (ev && ev.date >= startDate && ev.date <= endDate) events.push(ev);
+    for (const ev of expanded) {
+      if (ev.date >= startDate && ev.date <= endDate) events.push(ev);
+    }
   }
   return events;
 }
