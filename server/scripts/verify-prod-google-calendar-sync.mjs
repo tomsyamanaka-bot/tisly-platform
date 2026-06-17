@@ -101,8 +101,11 @@ async function scanMultiDayEvents(token, startDate, endDate) {
   }
   for (const date of dates) {
     const res = await fetch(`${BASE}/api/schedule/v1/day?date=${date}`, { headers });
-    const j = await res.json();
-    for (const ev of j.intelligence?.events ?? j.events ?? []) {
+    if (!res.ok) continue;
+    const text = await res.text();
+    if (!text.startsWith("{")) continue;
+    const j = JSON.parse(text);
+    for (const ev of j.day?.events ?? j.intelligence?.events ?? j.events ?? []) {
       const key = ev.title?.trim() || "";
       if (!key) continue;
       if (!titleBuckets.has(key)) titleBuckets.set(key, []);

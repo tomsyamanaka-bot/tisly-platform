@@ -1,6 +1,6 @@
 {
-  "capturedAt": "2026-06-17T10:10:55.401Z",
-  "commitShort": "a572348",
+  "capturedAt": "2026-06-17T11:31:22.399Z",
+  "commitShort": "590e7ca",
   "vpsHealthMatch": true,
   "viewport": "390x844",
   "apiDoubleSync": [
@@ -8,10 +8,10 @@
       "attempt": 1,
       "status": 200,
       "ok": true,
-      "pulled": 10,
-      "fetched": 10,
+      "pulled": 12,
+      "fetched": 12,
       "created": 0,
-      "updated": 10,
+      "updated": 12,
       "skipped": 0,
       "failed": 0,
       "mode": "real"
@@ -20,10 +20,10 @@
       "attempt": 2,
       "status": 200,
       "ok": true,
-      "pulled": 10,
-      "fetched": 10,
+      "pulled": 12,
+      "fetched": 12,
       "created": 0,
-      "updated": 10,
+      "updated": 12,
       "skipped": 0,
       "failed": 0,
       "mode": "real"
@@ -32,19 +32,66 @@
   "scheduleUiDoubleSync": [
     {
       "attempt": 1,
-      "kind": "timeout",
-      "text": "",
-      "syncStatus": ""
+      "ok": true,
+      "toast": "",
+      "summary": "Googleカレンダー：同期成功\n\n最終同期：2026/6/17 20:31\n\n取得：12件　更新：12件",
+      "detail": "",
+      "detailHidden": true,
+      "summaryCompact": true,
+      "longErrorOnSummary": false
     },
     {
       "attempt": 2,
-      "kind": "timeout",
-      "text": "",
-      "syncStatus": ""
+      "ok": true,
+      "toast": "",
+      "summary": "Googleカレンダー：同期成功\n\n最終同期：2026/6/17 20:31\n\n取得：12件　更新：12件",
+      "detail": "",
+      "detailHidden": true,
+      "summaryCompact": true,
+      "longErrorOnSummary": false
     }
   ],
-  "settingsUiSync": null,
+  "multiDayScan": {
+    "multiDayPatterns": [
+      {
+        "title": "伝元案件)阿見",
+        "dayCount": 2,
+        "dates": [
+          "2026-06-16",
+          "2026-06-25"
+        ]
+      }
+    ],
+    "materialOrder": [],
+    "scannedDates": [
+      "2026-06-10",
+      "2026-06-11",
+      "2026-06-12",
+      "2026-06-13",
+      "2026-06-14",
+      "2026-06-15",
+      "2026-06-16",
+      "2026-06-17",
+      "2026-06-18",
+      "2026-06-19",
+      "2026-06-20",
+      "2026-06-21",
+      "2026-06-22",
+      "2026-06-23",
+      "2026-06-24",
+      "2026-06-25"
+    ]
+  },
+  "layoutCheck": {
+    "horizontalHint": true,
+    "syncSummaryText": "Googleカレンダー：同期成功\n\n最終同期：2026/6/17 20:31\n\n取得：12件　更新：12件",
+    "syncSummaryLong": false,
+    "todayAboveNav": true,
+    "hasAddressUnset": true
+  },
   "uniqueConstraintError": false,
+  "allApiSyncOk": true,
+  "allUiSyncOk": true,
   "outDir": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\google-calendar-sync-upsert-verify",
   "screenshots": [
     "02-schedule-v1-iphone-before-sync.png",
