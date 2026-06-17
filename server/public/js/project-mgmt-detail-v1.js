@@ -22,14 +22,27 @@ const TABS = [
 const STATUS_OPTIONS = [
   ["inquiry", "問い合わせ"],
   ["survey_scheduled", "現調予定"],
-  ["estimate_submitted", "見積提出"],
+  ["survey_done", "現調完了"],
+  ["estimate_creating", "見積作成中"],
+  ["estimate_submitted", "見積提出済"],
   ["ordered", "受注"],
   ["construction_scheduled", "施工予定"],
   ["construction_in_progress", "施工中"],
-  ["work_completed", "完了"],
+  ["completion_report_creating", "完了報告作成中"],
+  ["awaiting_invoice", "請求待ち"],
   ["invoiced", "請求済"],
-  ["paid", "入金済"],
+  ["awaiting_payment", "入金待ち"],
+  ["completed", "完了"],
 ];
+
+const STATUS_COLOR_STYLES = {
+  gray: { bg: "#f1f5f9", fg: "#475569", border: "#cbd5e1" },
+  blue: { bg: "#eff6ff", fg: "#1d4ed8", border: "#bfdbfe" },
+  yellow: { bg: "#fefce8", fg: "#a16207", border: "#fde047" },
+  green: { bg: "#f0fdf4", fg: "#15803d", border: "#86efac" },
+  orange: { bg: "#fff7ed", fg: "#c2410c", border: "#fdba74" },
+  purple: { bg: "#f5f3ff", fg: "#6d28d9", border: "#c4b5fd" },
+};
 
 let detail = null;
 let activeTab = "overview";
@@ -454,7 +467,27 @@ function renderShareHistory() {
   return `<section class="share-section"><h3 class="section-sub">PDF共有履歴</h3>${items}</section>`;
 }
 
+function statusBadgeStyle(colorGroup) {
+  const s = STATUS_COLOR_STYLES[colorGroup] || STATUS_COLOR_STYLES.gray;
+  return `background:${s.bg};color:${s.fg};border:1px solid ${s.border}`;
+}
+
+function renderStatusHero() {
+  const ps = detail?.projectStatus;
+  if (!ps) return "";
+  const style = statusBadgeStyle(ps.statusColor);
+  return `
+    <section class="status-hero" aria-label="現在ステータス">
+      <p class="status-hero-label">現在ステータス</p>
+      <p class="status-hero-value" style="${style}">${escapeHtml(ps.statusLabel)}</p>
+      <p class="status-hero-updated">自動判定 · 更新 ${formatDateTime(ps.updatedAt)}</p>
+    </section>`;
+}
+
 function renderOverview(p) {
+  const ps = detail.projectStatus;
+  const autoStatus = ps?.statusLabel ?? p.mgmtStatusLabel;
+  const autoColor = ps?.statusColor ?? p.statusColor ?? "gray";
   const statusOpts = STATUS_OPTIONS.map(
     ([v, l]) =>
       `<option value="${v}"${p.mgmtStatus === v ? " selected" : ""}>${escapeHtml(l)}</option>`
@@ -468,6 +501,7 @@ function renderOverview(p) {
     : `<p class="section-hint">✅ 今日のタスクはありません</p>`;
 
   return `
+    ${renderStatusHero()}
     <section class="overview-section">
       <h3 class="section-sub">基本情報</h3>
       <dl class="info-grid overview-info-grid">
@@ -476,7 +510,7 @@ function renderOverview(p) {
         <dt>現場名</dt><dd>${escapeHtml(p.title)}</dd>
         <dt>住所</dt><dd>${escapeHtml(p.address || "—")}</dd>
         <dt>担当</dt><dd>${escapeHtml(p.assignee || "—")}</dd>
-        <dt>ステータス</dt><dd><span class="detail-status">${escapeHtml(p.mgmtStatusLabel)}</span></dd>
+        <dt>ステータス</dt><dd><span class="detail-status" style="${statusBadgeStyle(autoColor)}">${escapeHtml(autoStatus)}</span></dd>
       </dl>
     </section>
     <section class="overview-section">

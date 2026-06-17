@@ -77,7 +77,7 @@ function renderList(projects) {
     <article class="mgmt-card" data-id="${escapeHtml(p.id)}" tabindex="0" role="button">
       <div class="mgmt-card-head">
         <span class="mgmt-id">${escapeHtml(p.projectNo)}</span>
-        <span class="mgmt-status">${escapeHtml(p.mgmtStatusLabel)}</span>
+        <span class="mgmt-status mgmt-status-${escapeHtml(p.statusColor || "gray")}">${escapeHtml(p.mgmtStatusLabel)}</span>
       </div>
       <div class="mgmt-title">${escapeHtml(p.customerName)} — ${escapeHtml(p.title)}</div>
       <div class="mgmt-meta">作成: ${formatDate(p.createdAt)}${p.assignee ? ` · 担当: ${escapeHtml(p.assignee)}` : ""}${p.municipality ? ` · ${escapeHtml(p.municipality)}` : ""}</div>

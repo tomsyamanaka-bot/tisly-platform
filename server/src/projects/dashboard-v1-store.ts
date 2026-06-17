@@ -1,7 +1,6 @@
 /** 案件ダッシュボード v1 — KPI・今日の予定・要対応・集計 */
 
 import { getDatabase } from "../db/database.js";
-import { getLatestWorkSessionForProject } from "../field-ops/work-session-v1-store.js";
 import { getScheduleDayDetail } from "../schedule/schedule-store.js";
 import {
   extractEventAddress,
@@ -17,10 +16,11 @@ import {
 } from "./project-pdf-qnap-store.js";
 import { getProjectDocumentsStatusV1 } from "./project-documents-v1.js";
 import {
-  deriveMgmtStatus,
+  deriveProjectStatusFromRowV1,
   PROJECT_MGMT_STATUS_LABELS,
   type ProjectMgmtStatus,
 } from "./project-mgmt-status-v1.js";
+import { PROJECT_STATUS_COLOR_GROUP_V1 } from "./project-status-v1.js";
 import { listProjectCityCodesV1, resolveCityCodeForProject } from "./project-id-v1.js";
 import type { ProjectMgmtListItemV1 } from "./project-mgmt-v1-store.js";
 
@@ -113,13 +113,16 @@ function projectDetailHref(projectId: string): string {
 
 const KPI_DEFS: Array<{ key: string; label: string; statuses: ProjectMgmtStatus[] }> = [
   { key: "inquiry", label: "問い合わせ", statuses: ["inquiry"] },
-  { key: "survey_scheduled", label: "現調予定", statuses: ["survey_scheduled"] },
-  { key: "estimate_submitted", label: "見積提出", statuses: ["estimate_submitted"] },
-  { key: "ordered", label: "受注", statuses: ["ordered", "construction_scheduled"] },
+  { key: "estimate_submitted", label: "見積提出済", statuses: ["estimate_submitted"] },
+  { key: "ordered", label: "受注", statuses: ["ordered"] },
   { key: "construction_in_progress", label: "施工中", statuses: ["construction_in_progress"] },
-  { key: "awaiting_invoice", label: "請求待ち", statuses: ["work_completed"] },
-  { key: "awaiting_payment", label: "入金待ち", statuses: ["invoiced"] },
-  { key: "completed", label: "完了", statuses: ["paid"] },
+  {
+    key: "awaiting_invoice",
+    label: "請求待ち",
+    statuses: ["awaiting_invoice", "completion_report_creating"],
+  },
+  { key: "awaiting_payment", label: "入金待ち", statuses: ["awaiting_payment", "invoiced"] },
+  { key: "completed", label: "完了", statuses: ["completed"] },
 ];
 
 function parseJson<T>(raw: unknown, fallback: T): T {
@@ -144,7 +147,8 @@ function listActiveProjectRows(): ProjectRow[] {
   return getDatabase()
     .prepare(
       `SELECT id, project_no, title, customer_name, address, municipality, assignee, phone,
-              status, invoice_id, paid_date, estimate_id, survey_schedule_json,
+              status, invoice_id, paid_date, estimate_id, survey_project_id,
+              survey_schedule_json, construction_schedule_json,
               payment_due_date, created_at, updated_at
        FROM business_projects
        WHERE deleted_at IS NULL`
@@ -153,16 +157,7 @@ function listActiveProjectRows(): ProjectRow[] {
 }
 
 function deriveRowMgmt(row: ProjectRow): ProjectMgmtStatus {
-  const id = String(row.id);
-  const session = getLatestWorkSessionForProject({ source: "business", projectId: id });
-  const hasActiveWorkSession = Boolean(
-    session && (session.arrivalTime || session.startTime) && !session.completionTime
-  );
-  return deriveMgmtStatus(String(row.status ?? "new"), {
-    hasActiveWorkSession,
-    hasInvoice: Boolean(row.invoice_id),
-    hasPaid: Boolean(row.paid_date),
-  });
+  return deriveProjectStatusFromRowV1(row);
 }
 
 function rowToListItem(row: ProjectRow): ProjectMgmtListItemV1 {
@@ -177,6 +172,7 @@ function rowToListItem(row: ProjectRow): ProjectMgmtListItemV1 {
     assignee: String(row.assignee ?? ""),
     mgmtStatus,
     mgmtStatusLabel: PROJECT_MGMT_STATUS_LABELS[mgmtStatus],
+    statusColor: PROJECT_STATUS_COLOR_GROUP_V1[mgmtStatus],
     createdAt: String(row.created_at ?? ""),
     updatedAt: String(row.updated_at ?? ""),
   };
@@ -476,7 +472,7 @@ export function getDashboardAlertsV1(todayRaw?: string): DashboardAlertV1[] {
       });
     }
 
-    if (mgmt === "work_completed" && !row.invoice_id) {
+    if (mgmt === "awaiting_invoice" && !row.invoice_id) {
       pushDashboardAlert(alerts, base, {
         alertType: "invoice_not_issued",
         alertLabel: "請求未発行",
@@ -486,7 +482,7 @@ export function getDashboardAlertsV1(todayRaw?: string): DashboardAlertV1[] {
       });
     }
 
-    if (mgmt === "invoiced" && !row.paid_date) {
+    if ((mgmt === "invoiced" || mgmt === "awaiting_payment") && !row.paid_date) {
       pushDashboardAlert(alerts, base, {
         alertType: "payment_pending",
         alertLabel: "入金待ち",
@@ -510,7 +506,8 @@ export function getDashboardAlertsV1(todayRaw?: string): DashboardAlertV1[] {
 export function getDashboardRecentV1(limit = 10): DashboardRecentItemV1[] {
   const rows = getDatabase()
     .prepare(
-      `SELECT id, project_no, customer_name, status, invoice_id, paid_date, updated_at
+      `SELECT id, project_no, customer_name, status, invoice_id, paid_date, estimate_id,
+              survey_project_id, survey_schedule_json, construction_schedule_json, updated_at
        FROM business_projects
        WHERE deleted_at IS NULL
        ORDER BY updated_at DESC
@@ -608,7 +605,8 @@ export function searchDashboardProjectsV1(q: string, limit = 50): ProjectMgmtLis
   const rows = getDatabase()
     .prepare(
       `SELECT id, project_no, title, customer_name, address, municipality, assignee, phone,
-              status, invoice_id, paid_date, created_at, updated_at
+              status, invoice_id, paid_date, estimate_id, survey_project_id,
+              survey_schedule_json, construction_schedule_json, created_at, updated_at
        FROM business_projects
        WHERE deleted_at IS NULL
        ORDER BY updated_at DESC

@@ -9,7 +9,6 @@ import {
 import type { BusinessProject } from "../business/business-types.js";
 import { appendProjectTimeline } from "../toms/project-timeline.js";
 import { addProjectTimelineEventV1 } from "./project-timeline-v1-store.js";
-import { getLatestWorkSessionForProject } from "../field-ops/work-session-v1-store.js";
 import { listSurveyPhotosV1 } from "../survey/survey-v1-store.js";
 import { listCompletionPhotosV1 } from "../estimate/completion-photos-store.js";
 import { getEstimate, getInvoice } from "../business/business-store.js";
@@ -22,12 +21,15 @@ import {
   resolveCityCodeForProject,
 } from "./project-id-v1.js";
 import {
-  deriveMgmtStatus,
-  mgmtStatusMatchesFilter,
+  deriveProjectStatusFromRowV1,
   mgmtStatusToBusinessStatus,
   PROJECT_MGMT_STATUS_LABELS,
   type ProjectMgmtStatus,
 } from "./project-mgmt-status-v1.js";
+import {
+  PROJECT_STATUS_COLOR_GROUP_V1,
+  projectStatusMatchesFilterV1,
+} from "./project-status-v1.js";
 import {
   buildWorkflowCardsV2,
   buildNextActionsV1,
@@ -37,6 +39,7 @@ import {
 } from "./project-mgmt-v2-store.js";
 import { getProjectDocumentsStatusV1, type ProjectDocumentsStatusV1 } from "./project-documents-v1.js";
 import { createProjectStorageFoldersV1 } from "../storage/project-storage-v1.js";
+import { getProjectStatusV1, type ProjectStatusResultV1 } from "./project-status-v1.js";
 
 export interface ProjectMgmtListItemV1 {
   id: string;
@@ -48,6 +51,7 @@ export interface ProjectMgmtListItemV1 {
   assignee: string;
   mgmtStatus: ProjectMgmtStatus;
   mgmtStatusLabel: string;
+  statusColor: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -99,26 +103,15 @@ export interface ProjectMgmtDetailV1 {
   documentsStatus: ProjectDocumentsStatusV1 | null;
   timeline: ReturnType<typeof listProjectTimelineV2>;
   shareHistory: ReturnType<typeof listPdfShareHistoryV2>;
+  projectStatus: ProjectStatusResultV1 | null;
 }
 
 function rowToListItem(r: Record<string, unknown>): ProjectMgmtListItemV1 {
-  const id = String(r.id);
-  const businessStatus = String(r.status ?? "new");
-  const hasInvoice = Boolean(r.invoice_id);
-  const hasPaid = Boolean(r.paid_date);
-  const session = getLatestWorkSessionForProject({ source: "business", projectId: id });
-  const hasActiveWorkSession = Boolean(
-    session && (session.arrivalTime || session.startTime) && !session.completionTime
-  );
-  const mgmtStatus = deriveMgmtStatus(businessStatus, {
-    hasActiveWorkSession,
-    hasInvoice,
-    hasPaid,
-  });
+  const mgmtStatus = deriveProjectStatusFromRowV1(r);
 
   return {
-    id,
-    projectNo: String(r.project_no ?? id),
+    id: String(r.id),
+    projectNo: String(r.project_no ?? r.id),
     title: String(r.title ?? ""),
     customerName: String(r.customer_name ?? ""),
     address: String(r.address ?? ""),
@@ -126,6 +119,7 @@ function rowToListItem(r: Record<string, unknown>): ProjectMgmtListItemV1 {
     assignee: String(r.assignee ?? ""),
     mgmtStatus,
     mgmtStatusLabel: PROJECT_MGMT_STATUS_LABELS[mgmtStatus],
+    statusColor: PROJECT_STATUS_COLOR_GROUP_V1[mgmtStatus],
     createdAt: String(r.created_at ?? ""),
     updatedAt: String(r.updated_at ?? ""),
   };
@@ -152,7 +146,8 @@ export function listProjectMgmtV1(opts?: {
   const rows = getDatabase()
     .prepare(
       `SELECT id, project_no, title, customer_name, address, municipality, assignee,
-              status, invoice_id, paid_date, created_at, updated_at
+              status, invoice_id, paid_date, estimate_id, survey_project_id,
+              survey_schedule_json, construction_schedule_json, created_at, updated_at
        FROM business_projects
        WHERE deleted_at IS NULL
        ORDER BY created_at DESC
@@ -164,16 +159,7 @@ export function listProjectMgmtV1(opts?: {
     .filter((r) => matchesSearch(r, opts?.q ?? ""))
     .filter((r) => {
       if (!opts?.status) return true;
-      const id = String(r.id);
-      const session = getLatestWorkSessionForProject({ source: "business", projectId: id });
-      const hasActiveWorkSession = Boolean(
-        session && (session.arrivalTime || session.startTime) && !session.completionTime
-      );
-      return mgmtStatusMatchesFilter(String(r.status ?? "new"), opts.status, {
-        hasActiveWorkSession,
-        hasInvoice: Boolean(r.invoice_id),
-        hasPaid: Boolean(r.paid_date),
-      });
+      return projectStatusMatchesFilterV1(r, opts.status);
     })
     .map(rowToListItem);
 }
@@ -270,6 +256,7 @@ export function getProjectMgmtDetailV1(projectId: string): ProjectMgmtDetailV1 |
     documentsStatus: getProjectDocumentsStatusV1(projectId),
     timeline: listProjectTimelineV2(projectId),
     shareHistory: listPdfShareHistoryV2(projectId),
+    projectStatus: getProjectStatusV1(projectId),
   };
 }
 
@@ -374,11 +361,15 @@ export function updateProjectMgmtV1(
   const existing = getBusinessProject(projectId);
   if (!existing) return null;
 
-  const prevMgmtStatus = deriveMgmtStatus(existing.status, {
-    hasActiveWorkSession: false,
-    hasInvoice: Boolean(existing.invoiceId),
-    hasPaid: Boolean(existing.paidDate),
-  });
+  const prevMgmtStatus = deriveProjectStatusFromRowV1(
+    getDatabase()
+      .prepare(
+        `SELECT id, status, estimate_id, invoice_id, paid_date, survey_project_id,
+                survey_schedule_json, construction_schedule_json, updated_at
+         FROM business_projects WHERE id = ?`
+      )
+      .get(projectId) as Record<string, unknown>
+  );
   const prevAssignee = String(
     (
       getDatabase()

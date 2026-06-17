@@ -1,15 +1,17 @@
 /** 案件親データ運用 v2 — ダッシュボードカード・KPI・複合検索・履歴 */
 
 import { getDatabase } from "../db/database.js";
-import { getLatestWorkSessionForProject } from "../field-ops/work-session-v1-store.js";
 import { listSurveyPhotosV1 } from "../survey/survey-v1-store.js";
 import { listPdfShareLogsForProjectV1 } from "./pdf-share-log-store.js";
 import {
-  deriveMgmtStatus,
-  mgmtStatusMatchesFilter,
+  deriveProjectStatusFromRowV1,
   PROJECT_MGMT_STATUS_LABELS,
   type ProjectMgmtStatus,
 } from "./project-mgmt-status-v1.js";
+import {
+  PROJECT_STATUS_COLOR_GROUP_V1,
+  projectStatusMatchesFilterV1,
+} from "./project-status-v1.js";
 import { listProjectTimeline } from "../toms/project-timeline.js";
 import { getProjectDocumentsStatusV1 } from "./project-documents-v1.js";
 import type { ProjectMgmtListItemV1 } from "./project-mgmt-v1-store.js";
@@ -325,23 +327,11 @@ function matchesField(haystack: string, needle: string): boolean {
 }
 
 function rowToListItem(r: Record<string, unknown>): ProjectMgmtListItemV1 {
-  const id = String(r.id);
-  const businessStatus = String(r.status ?? "new");
-  const hasInvoice = Boolean(r.invoice_id);
-  const hasPaid = Boolean(r.paid_date);
-  const session = getLatestWorkSessionForProject({ source: "business", projectId: id });
-  const hasActiveWorkSession = Boolean(
-    session && (session.arrivalTime || session.startTime) && !session.completionTime
-  );
-  const mgmtStatus = deriveMgmtStatus(businessStatus, {
-    hasActiveWorkSession,
-    hasInvoice,
-    hasPaid,
-  });
+  const mgmtStatus = deriveProjectStatusFromRowV1(r);
 
   return {
-    id,
-    projectNo: String(r.project_no ?? id),
+    id: String(r.id),
+    projectNo: String(r.project_no ?? r.id),
     title: String(r.title ?? ""),
     customerName: String(r.customer_name ?? ""),
     address: String(r.address ?? ""),
@@ -349,6 +339,7 @@ function rowToListItem(r: Record<string, unknown>): ProjectMgmtListItemV1 {
     assignee: String(r.assignee ?? ""),
     mgmtStatus,
     mgmtStatusLabel: PROJECT_MGMT_STATUS_LABELS[mgmtStatus],
+    statusColor: PROJECT_STATUS_COLOR_GROUP_V1[mgmtStatus],
     createdAt: String(r.created_at ?? ""),
     updatedAt: String(r.updated_at ?? ""),
   };
@@ -359,7 +350,8 @@ export function listProjectMgmtV2(filters?: ProjectMgmtSearchFiltersV2): Project
   const rows = getDatabase()
     .prepare(
       `SELECT id, project_no, title, customer_name, address, municipality, assignee,
-              status, invoice_id, paid_date, created_at, updated_at
+              status, invoice_id, paid_date, estimate_id, survey_project_id,
+              survey_schedule_json, construction_schedule_json, created_at, updated_at
        FROM business_projects
        WHERE deleted_at IS NULL
        ORDER BY created_at DESC
@@ -389,16 +381,7 @@ export function listProjectMgmtV2(filters?: ProjectMgmtSearchFiltersV2): Project
     })
     .filter((r) => {
       if (!filters?.status) return true;
-      const id = String(r.id);
-      const session = getLatestWorkSessionForProject({ source: "business", projectId: id });
-      const hasActiveWorkSession = Boolean(
-        session && (session.arrivalTime || session.startTime) && !session.completionTime
-      );
-      return mgmtStatusMatchesFilter(String(r.status ?? "new"), filters.status, {
-        hasActiveWorkSession,
-        hasInvoice: Boolean(r.invoice_id),
-        hasPaid: Boolean(r.paid_date),
-      });
+      return projectStatusMatchesFilterV1(r, filters.status);
     })
     .map(rowToListItem);
 }
@@ -416,9 +399,11 @@ const ORDERED_STATUSES: ProjectMgmtStatus[] = [
   "ordered",
   "construction_scheduled",
   "construction_in_progress",
-  "work_completed",
+  "completion_report_creating",
+  "awaiting_invoice",
   "invoiced",
-  "paid",
+  "awaiting_payment",
+  "completed",
 ];
 
 const ESTIMATE_SUBMITTED_STATUSES: ProjectMgmtStatus[] = [
@@ -430,7 +415,8 @@ export function getProjectMgmtKpiV2(now = new Date()): ProjectMgmtKpiV2 {
   const { start, end, label } = monthBoundsJst(now);
   const rows = getDatabase()
     .prepare(
-      `SELECT id, status, invoice_id, paid_date, estimate_id, created_at
+      `SELECT id, status, invoice_id, paid_date, estimate_id, survey_project_id,
+              survey_schedule_json, construction_schedule_json, created_at
        FROM business_projects WHERE deleted_at IS NULL`
     )
     .all() as Array<Record<string, unknown>>;
@@ -446,23 +432,16 @@ export function getProjectMgmtKpiV2(now = new Date()): ProjectMgmtKpiV2 {
     const inMonth = createdAt >= start && createdAt <= end;
     if (inMonth) projectsThisMonth += 1;
 
-    const id = String(r.id);
-    const session = getLatestWorkSessionForProject({ source: "business", projectId: id });
-    const hasActiveWorkSession = Boolean(
-      session && (session.arrivalTime || session.startTime) && !session.completionTime
-    );
-    const mgmt = deriveMgmtStatus(String(r.status ?? "new"), {
-      hasActiveWorkSession,
-      hasInvoice: Boolean(r.invoice_id),
-      hasPaid: Boolean(r.paid_date),
-    });
+    const mgmt = deriveProjectStatusFromRowV1(r);
 
     if (ESTIMATE_SUBMITTED_STATUSES.includes(mgmt) && Boolean(r.estimate_id) && inMonth) {
       estimatesSubmitted += 1;
     }
     if (ORDERED_STATUSES.includes(mgmt) && inMonth) ordersWon += 1;
-    if ((mgmt === "invoiced" || mgmt === "paid") && inMonth) invoicedCount += 1;
-    if (mgmt === "invoiced" && inMonth) unpaidCount += 1;
+    if ((mgmt === "invoiced" || mgmt === "awaiting_payment" || mgmt === "completed") && inMonth) {
+      invoicedCount += 1;
+    }
+    if ((mgmt === "invoiced" || mgmt === "awaiting_payment") && inMonth) unpaidCount += 1;
   }
 
   const orderRatePercent =

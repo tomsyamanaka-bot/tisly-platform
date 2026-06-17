@@ -44,8 +44,14 @@
     .mgmt-id { font-family: ui-monospace, monospace; font-size: 0.82rem; color: #475569; font-weight: 700; }
     .mgmt-status {
       font-size: 0.72rem; font-weight: 700; padding: 0.2rem 0.45rem; border-radius: 999px;
-      background: #eff6ff; color: #1d4ed8; white-space: nowrap;
+      white-space: nowrap; border: 1px solid transparent;
     }
+    .mgmt-status-gray { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
+    .mgmt-status-blue { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+    .mgmt-status-yellow { background: #fefce8; color: #a16207; border-color: #fde047; }
+    .mgmt-status-green { background: #f0fdf4; color: #15803d; border-color: #86efac; }
+    .mgmt-status-orange { background: #fff7ed; color: #c2410c; border-color: #fdba74; }
+    .mgmt-status-purple { background: #f5f3ff; color: #6d28d9; border-color: #c4b5fd; }
     .mgmt-title { font-weight: 700; margin: 0.35rem 0 0.15rem; font-size: 0.95rem; }
     .mgmt-meta { font-size: 0.8rem; color: #64748b; line-height: 1.45; }
     .btn-new-project {
@@ -122,13 +128,17 @@
         <option value="">すべての状態</option>
         <option value="inquiry">問い合わせ</option>
         <option value="survey_scheduled">現調予定</option>
-        <option value="estimate_submitted">見積提出</option>
+        <option value="survey_done">現調完了</option>
+        <option value="estimate_creating">見積作成中</option>
+        <option value="estimate_submitted">見積提出済</option>
         <option value="ordered">受注</option>
         <option value="construction_scheduled">施工予定</option>
         <option value="construction_in_progress">施工中</option>
-        <option value="work_completed">完了</option>
+        <option value="completion_report_creating">完了報告作成中</option>
+        <option value="awaiting_invoice">請求待ち</option>
         <option value="invoiced">請求済</option>
-        <option value="paid">入金済</option>
+        <option value="awaiting_payment">入金待ち</option>
+        <option value="completed">完了</option>
       </select>
     </div>
 
