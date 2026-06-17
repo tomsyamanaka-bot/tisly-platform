@@ -87,6 +87,8 @@ async function inspectLayout(page) {
     }
 
     const addressUnset = !!document.querySelector(".schedule-intel-address-unset");
+    const addressBtn = document.querySelector(".schedule-intel-address-btn");
+    const addressBtnHref = addressBtn?.getAttribute("href") || "";
 
     return {
       hintText: hint?.textContent?.trim() || "",
@@ -97,6 +99,7 @@ async function inspectLayout(page) {
       tabRects,
       todayAboveNav,
       addressUnset,
+      addressBtnHref,
       hasModeTabs: tabRects.length === 3,
       bodySnippet: bodyText.slice(0, 500),
     };
@@ -201,6 +204,8 @@ async function main() {
         !layoutFailure.syncText.includes("重複保存") &&
         !layoutFailure.bodySnippet.includes("重複保存"),
       addressUnsetBlock: layoutDefault.addressUnset,
+      addressBtnLinksToProject:
+        /project-mgmt-(detail-)?v1/.test(layoutDefault.addressBtnHref || ""),
     },
     layoutDefault,
     layoutSuccess,
@@ -213,7 +218,8 @@ async function main() {
     report.checks.modeTabsOk &&
     report.checks.todayAboveNav &&
     report.checks.syncSuccessCompact &&
-    report.checks.syncFailureCompact;
+    report.checks.syncFailureCompact &&
+    report.checks.addressBtnLinksToProject;
   fs.writeFileSync(path.join(OUT, "verification-report.json"), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));
 

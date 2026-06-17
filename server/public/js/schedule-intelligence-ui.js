@@ -103,12 +103,25 @@ function needsAddressInput(evIntel) {
   return !evIntel?.address?.fullAddress;
 }
 
+function projectDetailHref(evIntel) {
+  const ref = evIntel?.projectRef;
+  if (ref?.projectId) {
+    const q = new URLSearchParams({
+      projectId: ref.projectId,
+      listReturn: "/schedule-v1",
+    });
+    return `/project-mgmt-detail-v1?${q.toString()}`;
+  }
+  return "/project-mgmt-v1";
+}
+
 function renderAddressUnsetBlock(evIntel) {
   if (!needsAddressInput(evIntel)) return "";
   const eventKey = escapeScheduleHtml(evIntel.eventId ?? evIntel.id ?? "");
+  const href = escapeScheduleHtml(projectDetailHref(evIntel));
   return `<div class="schedule-intel-address-unset">
     <span class="schedule-intel-address-label">住所未設定</span>
-    <button type="button" class="btn-sub btn-small schedule-intel-address-btn" data-event-id="${eventKey}">住所を入力</button>
+    <a class="btn-sub btn-small schedule-intel-address-btn" href="${href}" data-event-id="${eventKey}">住所を入力</a>
   </div>`;
 }
 
@@ -181,36 +194,14 @@ export function renderWeekIntelligenceEventItemHtml(
   return `<li class="schedule-event-item schedule-event-practical schedule-event-intel">${card}${departureBlock}</li>`;
 }
 
-export function bindAddressInputButtons(root, { apiFetch, toast, onSaved } = {}) {
-  if (!root || !apiFetch) return;
+export function bindAddressInputButtons(root) {
+  if (!root) return;
   root.querySelectorAll(".schedule-intel-address-btn").forEach((btn) => {
-    btn.addEventListener("click", async (ev) => {
-      ev.preventDefault();
+    btn.addEventListener("click", (ev) => {
       ev.stopPropagation();
-      const eventId = btn.getAttribute("data-event-id");
-      if (!eventId) return;
-      const current = btn.dataset.currentAddress || "";
-      const input = window.prompt("現場の住所を入力してください", current);
-      if (input == null) return;
-      const address = input.trim();
-      if (!address) {
-        toast?.("住所を入力してください");
-        return;
-      }
-      btn.disabled = true;
-      try {
-        await apiFetch(`/events/${encodeURIComponent(eventId)}/address`, {
-          method: "PATCH",
-          body: JSON.stringify({ address }),
-        });
-        toast?.("住所を保存しました");
-        await onSaved?.();
-      } catch (e) {
-        toast?.(e.message || "保存に失敗しました");
-      } finally {
-        btn.disabled = false;
-      }
     });
+    btn.addEventListener("mousedown", (ev) => ev.stopPropagation());
+    btn.addEventListener("touchstart", (ev) => ev.stopPropagation(), { passive: true });
   });
 }
 

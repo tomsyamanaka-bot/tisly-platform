@@ -166,13 +166,7 @@ function renderEvents(day, intelligence, departure) {
       catLabel: CAT_LABEL,
     });
     bindIntelligenceEventCards(el);
-    bindAddressInputButtons(el, {
-      apiFetch: (path, opts) => api(path, opts),
-      toast,
-      onSaved: async () => {
-        if (currentDate) await loadDay(currentDate);
-      },
-    });
+    bindAddressInputButtons(el);
     return;
   }
   const events = day.events.length

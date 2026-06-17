@@ -404,10 +404,46 @@ describe("日程調整 PWA v1 API", () => {
     const idxSurvey = res.text.indexOf('label: "現調"');
     const idxEstimate = res.text.indexOf('label: "見積"');
     const idxBilling = res.text.indexOf('label: "請求"');
-    const idxProjects = res.text.indexOf('label: "案件管理"');
+    const idxProjects = res.text.indexOf('label: "案件"');
     assert.ok(idxSchedule >= 0 && idxSurvey > idxSchedule);
     assert.ok(idxEstimate > idxSurvey);
     assert.ok(idxBilling > idxEstimate);
     assert.ok(idxProjects > idxBilling);
+  });
+
+  it("schedule-v1.js — 同期成功・失敗表示は短文（詳細は折りたたみ）", async () => {
+    const js = await request(app).get("/js/schedule-v1.js");
+    assert.equal(js.status, 200);
+    assert.ok(js.text.includes("Googleカレンダー：同期成功"));
+    assert.ok(js.text.includes("Googleカレンダー：同期失敗"));
+    assert.ok(js.text.includes("最終同期："));
+    assert.ok(js.text.includes("取得："));
+    assert.ok(js.text.includes("更新："));
+    assert.ok(js.text.includes("詳細を見る"));
+    assert.ok(js.text.includes("buildSyncStatusView"));
+    assert.ok(js.text.includes("formatSyncErrorForUi"));
+    assert.ok(js.text.includes("SYNC_DUPLICATE_ERROR_UI"));
+    assert.ok(js.text.includes('toast("同期しました")'));
+    assert.ok(!js.text.includes("detailEl.textContent = view.summaryLines"));
+  });
+
+  it("schedule-v1.html — iPhone横書き・下ナビ余白", async () => {
+    const res = await request(app).get("/schedule-v1");
+    assert.equal(res.status, 200);
+    assert.ok(res.text.includes('writing-mode: horizontal-tb'));
+    assert.ok(res.text.includes("schedule-header-hint"));
+    assert.ok(res.text.includes("空き日確認・Google同期"));
+    assert.ok(res.text.includes("safe-area-inset-bottom"));
+    assert.ok(res.text.includes("schedule-intel-address-unset"));
+    assert.ok(res.text.includes("btn-sync-detail-toggle"));
+  });
+
+  it("schedule-intelligence-ui.js — 住所未設定は案件詳細へ導線", async () => {
+    const js = await request(app).get("/js/schedule-intelligence-ui.js");
+    assert.equal(js.status, 200);
+    assert.ok(js.text.includes("project-mgmt-detail-v1"));
+    assert.ok(js.text.includes("schedule-intel-address-unset"));
+    assert.ok(js.text.includes("住所未設定"));
+    assert.ok(!js.text.includes("window.prompt"));
   });
 });

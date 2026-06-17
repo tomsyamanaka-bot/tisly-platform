@@ -351,6 +351,9 @@ describe("日程調整レベル4 — インテリジェンス", () => {
     assert.ok(js.text.includes("schedule-intel-practical"));
     assert.ok(js.text.includes("schedule-intel-travel-muted"));
     assert.ok(js.text.includes("schedule-intel-address-btn"));
+    assert.ok(js.text.includes("project-mgmt-detail-v1"));
+    assert.ok(js.text.includes("project-mgmt-v1"));
+    assert.ok(!js.text.includes("window.prompt"));
     assert.ok(js.text.includes("renderBaseWeatherHtml"));
     assert.ok(js.text.includes("renderSiteWeatherHtml"));
     assert.ok(js.text.includes("🏠基準地天気"));

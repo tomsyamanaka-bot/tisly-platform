@@ -446,11 +446,7 @@ function renderWeekDays(days, today = todayIso()) {
 
   bindEventDescSnippets($("week-days"));
   bindIntelligenceEventCards($("week-days"));
-  bindAddressInputButtons($("week-days"), {
-    apiFetch: (path, opts) => api(path, opts),
-    toast,
-    onSaved: async () => loadWeek(),
-  });
+  bindAddressInputButtons($("week-days"));
   bindDeparturePrepCards($("week-days"), departuresById, {
     apiFetch: (path, opts) => api(path, opts),
     onSaved: async () => loadWeek(),

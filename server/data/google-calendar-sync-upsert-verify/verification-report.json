@@ -1,7 +1,53 @@
 {
-  "capturedAt": "2026-06-16T22:27:28.131Z",
+  "capturedAt": "2026-06-17T10:10:55.401Z",
+  "commitShort": "a572348",
+  "vpsHealthMatch": true,
   "viewport": "390x844",
-  "page": "/google-calendar-settings-v1",
-  "canSync": false,
-  "outDir": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\google-calendar-sync-upsert-verify"
+  "apiDoubleSync": [
+    {
+      "attempt": 1,
+      "status": 200,
+      "ok": true,
+      "pulled": 10,
+      "fetched": 10,
+      "created": 0,
+      "updated": 10,
+      "skipped": 0,
+      "failed": 0,
+      "mode": "real"
+    },
+    {
+      "attempt": 2,
+      "status": 200,
+      "ok": true,
+      "pulled": 10,
+      "fetched": 10,
+      "created": 0,
+      "updated": 10,
+      "skipped": 0,
+      "failed": 0,
+      "mode": "real"
+    }
+  ],
+  "scheduleUiDoubleSync": [
+    {
+      "attempt": 1,
+      "kind": "timeout",
+      "text": "",
+      "syncStatus": ""
+    },
+    {
+      "attempt": 2,
+      "kind": "timeout",
+      "text": "",
+      "syncStatus": ""
+    }
+  ],
+  "settingsUiSync": null,
+  "uniqueConstraintError": false,
+  "outDir": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\google-calendar-sync-upsert-verify",
+  "screenshots": [
+    "02-schedule-v1-iphone-before-sync.png",
+    "03-schedule-v1-iphone-after-sync.png"
+  ]
 }

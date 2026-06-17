@@ -4,6 +4,7 @@ import {
   extractEventAddress,
   geocodeQueryFromAddress,
   resolveEventProjectRef,
+  type EventProjectRef,
   type ExtractedAddress,
 } from "./address-extract-service.js";
 import { getFieldCheckProgressV1 } from "../field-ops/field-check-v1-store.js";
@@ -58,6 +59,7 @@ export interface ScheduleEventIntelligence {
   weatherStatus: WeatherDisplayStatus;
   travel: EventTravelInfo;
   fieldCheck: EventFieldCheckInfo | null;
+  projectRef: EventProjectRef | null;
 }
 
 export interface DayGapJudgment {
@@ -446,6 +448,7 @@ export async function buildDayScheduleIntelligence(
       weatherStatus,
       travel,
       fieldCheck: buildFieldCheckForEvent(date, ev),
+      projectRef: resolveEventProjectRef(ev),
     });
 
     if (i > 0) {

@@ -1034,4 +1034,102 @@ describe("Google Calendar 双方向同期 v1", () => {
     assert.equal(second.created, 0);
     assert.equal(second.updated, events.length);
   });
+
+  it("POST /api/schedule/v1/sync/google を2回実行してもUNIQUEエラーにならない", async () => {
+    const { saveGoogleRefreshToken } = await import("../src/services/googleOAuthService.js");
+    const { saveGoogleCalendarSettingsV1 } = await import(
+      "../src/schedule/google-calendar-sync-store.js"
+    );
+    const { setCalendarProvider, MockGoogleCalendarProvider } = await import(
+      "../src/services/googleCalendar.js"
+    );
+    const prev = {
+      enabled: process.env.GOOGLE_CALENDAR_ENABLED,
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      redirect: process.env.GOOGLE_REDIRECT_URI,
+    };
+    process.env.GOOGLE_CALENDAR_ENABLED = "true";
+    process.env.GOOGLE_CLIENT_ID = "test-client-id.apps.googleusercontent.com";
+    process.env.GOOGLE_CLIENT_SECRET = "test-secret";
+    process.env.GOOGLE_REDIRECT_URI = "https://tisly.jp/auth/google/callback";
+    saveGoogleRefreshToken("test-refresh-token");
+    saveGoogleCalendarSettingsV1({
+      calendarId: "primary",
+      calendarSummary: "メインカレンダー",
+      syncMode: "primary_only",
+      calendarIds: ["primary"],
+      syncDirection: "bidirectional",
+    });
+    setCalendarProvider(new MockGoogleCalendarProvider());
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes("oauth2.googleapis.com/token")) {
+        return new Response(JSON.stringify({ access_token: "test-access-token" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (url.includes("/events") && init?.method === "POST") {
+        return new Response(JSON.stringify({ id: `mock-push-${Date.now()}` }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (url.includes("googleapis.com/calendar")) {
+        return new Response(JSON.stringify({ items: [] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return originalFetch(input, init);
+    };
+    const syncBody = { weeks: 1, selectedCalendarId: "primary", syncDirection: "bidirectional" };
+    try {
+      const first = await request(app)
+        .post("/api/schedule/v1/sync/google")
+        .set("Authorization", `Bearer ${token}`)
+        .send(syncBody);
+      assert.equal(first.status, 200);
+      assert.equal(first.body.ok, true);
+      assert.ok(typeof first.body.fetched === "number" || typeof first.body.count === "number");
+
+      const second = await request(app)
+        .post("/api/schedule/v1/sync/google")
+        .set("Authorization", `Bearer ${token}`)
+        .send(syncBody);
+      assert.equal(second.status, 200);
+      assert.equal(second.body.ok, true);
+      assert.ok(
+        !/UNIQUE constraint|重複保存|schedule_calendar_events/i.test(JSON.stringify(second.body))
+      );
+      if (typeof second.body.updated === "number" && typeof second.body.created === "number") {
+        assert.equal(second.body.created, 0);
+        assert.ok(second.body.updated >= 0);
+      }
+    } finally {
+      globalThis.fetch = originalFetch;
+      process.env.GOOGLE_CALENDAR_ENABLED = prev.enabled;
+      process.env.GOOGLE_CLIENT_ID = prev.clientId;
+      process.env.GOOGLE_CLIENT_SECRET = prev.clientSecret;
+      process.env.GOOGLE_REDIRECT_URI = prev.redirect;
+    }
+  });
+
+  it("UNIQUEエラーはUI向け短文にマップされる", async () => {
+    const scheduleJs = fs.readFileSync(
+      new URL("../public/js/schedule-v1.js", import.meta.url),
+      "utf8"
+    );
+    assert.ok(scheduleJs.includes("SYNC_DUPLICATE_ERROR_UI"));
+    assert.ok(scheduleJs.includes("formatSyncErrorForUi"));
+    assert.ok(scheduleJs.includes("詳細を見る"));
+    assert.ok(!scheduleJs.includes("UNIQUE constraint failed"));
+    const settingsJs = fs.readFileSync(
+      new URL("../public/js/google-calendar-settings-v1.js", import.meta.url),
+      "utf8"
+    );
+    assert.ok(settingsJs.includes("formatSyncErrorForUi"));
+  });
 });
