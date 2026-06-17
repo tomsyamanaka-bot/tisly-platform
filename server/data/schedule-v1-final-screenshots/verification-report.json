@@ -1,0 +1,149 @@
+{
+  "capturedAt": "2026-06-17T12:09:49.858Z",
+  "baseUrl": "https://tisly.jp",
+  "commitShort": "538e085",
+  "localCommit": null,
+  "vpsHealthMatch": null,
+  "viewport": "390x844",
+  "apiDoubleSync": [
+    {
+      "attempt": 1,
+      "status": 200,
+      "ok": true,
+      "pulled": 12,
+      "fetched": 12,
+      "created": 0,
+      "updated": 12,
+      "skipped": 0,
+      "failed": 0,
+      "mode": "real"
+    },
+    {
+      "attempt": 2,
+      "status": 200,
+      "ok": true,
+      "pulled": 12,
+      "fetched": 12,
+      "created": 0,
+      "updated": 12,
+      "skipped": 0,
+      "failed": 0,
+      "mode": "real"
+    }
+  ],
+  "scheduleUiDoubleSync": [
+    {
+      "attempt": 1,
+      "ok": true,
+      "toast": "",
+      "summary": "Googleカレンダー：同期成功\n\n最終同期：2026/6/17 21:09\n\n取得：12件　更新：12件",
+      "detail": "",
+      "detailHidden": true,
+      "toggleText": "詳細",
+      "summaryCompact": true,
+      "longErrorOnSummary": false
+    },
+    {
+      "attempt": 2,
+      "ok": true,
+      "toast": "",
+      "summary": "Googleカレンダー：同期成功\n\n最終同期：2026/6/17 21:09\n\n取得：12件　更新：12件",
+      "detail": "",
+      "detailHidden": true,
+      "toggleText": "詳細",
+      "summaryCompact": true,
+      "longErrorOnSummary": false
+    }
+  ],
+  "multiDayScan": {
+    "multiDayPatterns": [
+      {
+        "title": "伝元案件)阿見",
+        "dayCount": 2,
+        "dates": [
+          "2026-06-16",
+          "2026-06-25"
+        ]
+      }
+    ],
+    "scannedDates": [
+      "2026-06-10",
+      "2026-06-11",
+      "2026-06-12",
+      "2026-06-13",
+      "2026-06-14",
+      "2026-06-15",
+      "2026-06-16",
+      "2026-06-17",
+      "2026-06-18",
+      "2026-06-19",
+      "2026-06-20",
+      "2026-06-21",
+      "2026-06-22",
+      "2026-06-23",
+      "2026-06-24",
+      "2026-06-25"
+    ]
+  },
+  "multiDayUi": {
+    "found": false,
+    "target": {
+      "title": "伝元案件)阿見",
+      "dayCount": 2,
+      "dates": [
+        "2026-06-16",
+        "2026-06-25"
+      ]
+    }
+  },
+  "layoutBefore": {
+    "horizontalHint": true,
+    "hintText": "空き日確認・Google同期",
+    "syncSummaryText": "Googleカレンダー：同期成功\n\n最終同期：2026/6/17 21:09\n\n取得：12件　更新：12件",
+    "syncSummaryLong": false,
+    "syncDetailHidden": true,
+    "syncToggleText": "詳細",
+    "todayAboveNav": true,
+    "hasModeTabs": true
+  },
+  "layoutAfter": {
+    "horizontalHint": true,
+    "hintText": "空き日確認・Google同期",
+    "syncSummaryText": "Googleカレンダー：同期成功\n\n最終同期：2026/6/17 21:09\n\n取得：12件　更新：12件",
+    "syncSummaryLong": false,
+    "syncDetailHidden": true,
+    "syncToggleText": "詳細",
+    "todayAboveNav": true,
+    "hasModeTabs": true
+  },
+  "layoutFull": {
+    "horizontalHint": true,
+    "hintText": "空き日確認・Google同期",
+    "syncSummaryText": "",
+    "syncSummaryLong": false,
+    "syncDetailHidden": true,
+    "syncToggleText": "詳細",
+    "todayAboveNav": true,
+    "hasModeTabs": true
+  },
+  "uniqueConstraintError": false,
+  "allApiSyncOk": true,
+  "allUiSyncOk": true,
+  "checks": {
+    "horizontalHint": true,
+    "todayAboveNav": true,
+    "syncSuccessCompact": true,
+    "syncDetailCollapsed": true,
+    "modeTabsOk": true,
+    "multiDayExpanded": true,
+    "noUniqueError": true
+  },
+  "outDir": "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\schedule-v1-final-screenshots",
+  "screenshots": [
+    "01-schedule-before-sync.png",
+    "02-schedule-after-sync.png",
+    "03-schedule-multi-day-events.png",
+    "04-schedule-full-view.png"
+  ],
+  "pass": true
+}
