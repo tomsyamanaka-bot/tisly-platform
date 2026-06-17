@@ -110,8 +110,8 @@ export const SAFARI_PWA_REINSTALL_STEPS = [
   "既存の TiSLY ホーム画面アイコンを長押し →「削除」",
   "Safari で https://tisly.jp/app を開く",
   "共有ボタン →「ホーム画面に追加」",
-  "追加画面のプレビューが六角シールド（TiSLY ロゴ）になっていることを確認",
-  "まだ緑十字アイコンなら: 設定 → Safari →「履歴とWebサイトデータを消去」→ 上記を再実行",
+  "追加画面のプレビューが青い TiSLY ロゴ（六角シールド）になっていることを確認",
+  "まだ旧アイコン（緑盾）なら: 設定 → Safari →「履歴とWebサイトデータを消去」→ 上記を再実行",
 ] as const;
 
 export function buildVpsPwaIconUpdateBlock(): string[] {

@@ -14,6 +14,7 @@ const { createApp } = await import("../src/app.js");
 const { closeDatabase, getDatabase } = await import("../src/db/database.js");
 const { resetRateLimitsForTests } = await import("../src/security/rate-limit.js");
 const { PWA_SHELL_VERSION } = await import("../src/pwa/pwa-shell-version.js");
+const { APP_ICON_VERSION } = await import("../src/pwa/pwa-manifest-icons.js");
 
 const app = createApp();
 
@@ -152,8 +153,8 @@ describe("Phase 461-480 multi PWA app hub", () => {
     assert.deepEqual(res.body.notifications || [], []);
   });
 
-  it("serves Phase2001 hex shield icons", async () => {
-    for (const size of [64, 128, 192, 256, 384, 512]) {
+  it("serves TiSLY logo PWA icons", async () => {
+    for (const size of [64, 128, 180, 192, 256, 384, 512]) {
       const res = await request(app).get(`/icons/icon-${size}.png`);
       assert.equal(res.status, 200, `icon-${size}.png`);
       assert.ok(res.headers["content-type"]?.includes("image"));
@@ -161,14 +162,15 @@ describe("Phase 461-480 multi PWA app hub", () => {
     const manifest = await request(app).get("/manifest.webmanifest");
     const sizes = (manifest.body.icons || []).map((i: { sizes: string }) => i.sizes);
     assert.ok(sizes.includes("64x64"));
+    assert.ok(sizes.includes("180x180"));
     assert.ok(sizes.includes("512x512"));
     const iconSrcs = (manifest.body.icons || []).map((i: { src: string }) => i.src);
-    assert.ok(iconSrcs.every((s: string) => s.includes("?v=2001")));
+    assert.ok(iconSrcs.every((s: string) => s.includes(`?v=${APP_ICON_VERSION}`)));
     const apple = await request(app).get("/apple-touch-icon.png");
     assert.equal(apple.status, 200);
     const hub = await request(app).get("/app");
-    assert.ok(hub.text.includes("icon-192.png?v=2001"));
-    assert.ok(hub.text.includes("manifest.webmanifest?v=2001"));
+    assert.ok(hub.text.includes("/apple-touch-icon.png"));
+    assert.ok(hub.text.includes(`manifest.webmanifest?v=${APP_ICON_VERSION}`));
   });
 
   it("serves RC2 push and notification PWA pages", async () => {

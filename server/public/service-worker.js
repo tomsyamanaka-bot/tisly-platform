@@ -1,8 +1,8 @@
-/* TiSLY Multi PWA — Phase 2161 customer portal shell + hex shield icon */
+/* TiSLY Multi PWA — Phase 2161 customer portal shell + TiSLY blue logo icon */
 const SW_VERSION = "tisly-pwa-v2382-production";
-const OFFLINE_CACHE = "tisly-pwa-shell-v2383-production";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2383-production";
-const ICON_V = "?v=2001";
+const OFFLINE_CACHE = "tisly-pwa-shell-v2385-production";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2385-production";
+const ICON_V = "?v=2002";
 const SHELL_URLS = [
   "/customer-portal.html",
   "/js/customer-portal.js",
@@ -100,11 +100,12 @@ const SHELL_URLS = [
   "/js/api.js",
   `/icons/icon-64.png${ICON_V}`,
   `/icons/icon-128.png${ICON_V}`,
+  `/icons/icon-180.png${ICON_V}`,
   `/icons/icon-192.png${ICON_V}`,
   `/icons/icon-256.png${ICON_V}`,
   `/icons/icon-384.png${ICON_V}`,
   `/icons/icon-512.png${ICON_V}`,
-  `/apple-touch-icon.png${ICON_V}`,
+  `/apple-touch-icon.png`,
   "/manifest-installer.webmanifest",
   "/manifest-survey.webmanifest",
   "/manifest-maintenance.webmanifest",

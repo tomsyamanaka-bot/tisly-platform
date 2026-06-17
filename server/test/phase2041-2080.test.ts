@@ -74,8 +74,8 @@ describe("Phase 2041-2080 PWA icon production verification", () => {
       assert.ok(text.includes("削除"));
       assert.ok(text.includes("https://tisly.jp/app"));
       assert.ok(text.includes("ホーム画面に追加"));
-      assert.ok(text.includes("六角シールド"));
-      assert.ok(text.includes("緑十字"));
+      assert.ok(text.includes("青い TiSLY ロゴ"));
+      assert.ok(text.includes("緑盾"));
     });
   });
 
@@ -165,10 +165,10 @@ describe("Phase 2041-2080 PWA icon production verification", () => {
         "git pull origin master",
         "npm ci",
         "systemctl restart tisly-server",
-        "icon-192.png?v=2001",
+        `icon-192.png?v=${APP_ICON_VERSION}`,
         "apple-touch-icon.png",
-        "六角シールド",
-        "緑十字",
+        "青い TiSLY ロゴ",
+        "緑盾",
         "APP_ICON_VERSION",
       ]) {
         assert.ok(doc.includes(needle), `doc missing: ${needle}`);

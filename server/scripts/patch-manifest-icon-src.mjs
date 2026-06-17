@@ -8,7 +8,7 @@ const files = fs
   .readdirSync(publicDir)
   .filter((f) => f.endsWith(".webmanifest") || f === "manifest.json");
 
-const sizes = [64, 128, 192, 256, 384, 512];
+const sizes = [64, 128, 180, 192, 256, 384, 512];
 
 for (const file of files) {
   const full = path.join(publicDir, file);

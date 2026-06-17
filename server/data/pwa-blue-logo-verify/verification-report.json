@@ -1,0 +1,21 @@
+{
+  "phase": "pwa-blue-logo-v2002",
+  "date": "2026-06-18",
+  "iconVersion": "2002",
+  "files": [
+    "server/public/icons/icon-192.png",
+    "server/public/icons/icon-512.png",
+    "server/public/icons/icon-180.png",
+    "server/public/apple-touch-icon.png"
+  ],
+  "manifestThemeColor": "#1565c0",
+  "appleTouchIconHref": "/apple-touch-icon.png",
+  "iphoneRealDeviceChecklist": [
+    "Safari で https://tisly.jp/app を開く",
+    "共有 → ホーム画面に追加",
+    "プレビューが青い TiSLY ロゴであること",
+    "PWA 起動後スプラッシュ/アイコンがぼやけないこと",
+    "黒背景ホーム画面でもロゴが視認できること"
+  ],
+  "notes": "iOS は旧アイコンキャッシュがある場合、ホーム画面アイコン削除 → Safari データ消去 → 再追加が必要"
+}
