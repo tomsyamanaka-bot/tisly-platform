@@ -19,6 +19,7 @@ export interface CalendarSyncMeta {
   lastSyncUpdated?: number;
   lastSyncSkipped?: number;
   lastSyncFailed?: number;
+  lastSyncFetched?: number;
 }
 
 export interface CalendarUpsertStats {
@@ -118,6 +119,7 @@ function recordCalendarSyncSuccessMeta(
         lastSyncUpdated: stats.updated,
         lastSyncSkipped: stats.skipped,
         lastSyncFailed: stats.failed,
+        lastSyncFetched: stats.fetched,
       })
     );
 }

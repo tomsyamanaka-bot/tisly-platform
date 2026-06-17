@@ -210,21 +210,126 @@
       pointer-events: auto;
     }
     a.schedule-intel-material { color: #1d4ed8; }
-    .schedule-intel-address-btn { margin-top: 0.06rem; position: relative; z-index: 2; }
+    .schedule-intel-address-btn { margin-top: 0; position: relative; z-index: 2; }
+    .schedule-header-card {
+      margin-bottom: 0.5rem;
+      padding: 0.55rem 0.65rem;
+    }
+    .schedule-header-hint {
+      margin: 0 0 0.45rem;
+      font-size: 0.88rem;
+      line-height: 1.35;
+      color: #475569;
+      white-space: normal;
+      writing-mode: horizontal-tb;
+      word-break: keep-all;
+    }
+    .schedule-header-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      align-items: center;
+    }
+    .schedule-header-actions .btn-sub {
+      flex: 1 1 auto;
+      min-width: 0;
+      max-width: 100%;
+      white-space: nowrap;
+      writing-mode: horizontal-tb;
+      text-align: center;
+      font-size: 0.78rem;
+      padding: 0.38rem 0.5rem;
+    }
+    .schedule-header-actions #btn-sync-calendar {
+      flex: 1 1 100%;
+    }
+    @media (min-width: 360px) {
+      .schedule-header-actions #btn-sync-calendar {
+        flex: 1 1 auto;
+      }
+    }
+    .schedule-sync-card {
+      margin: 0 0 0.5rem;
+      padding: 0.45rem 0.55rem;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      line-height: 1.45;
+      color: #334155;
+      white-space: normal;
+      writing-mode: horizontal-tb;
+      word-break: keep-all;
+    }
+    .schedule-sync-card.sync-error-state {
+      background: #fef2f2;
+      border-color: #fecaca;
+      color: #991b1b;
+    }
+    .schedule-sync-card.sync-success-state {
+      background: #f0fdf4;
+      border-color: #bbf7d0;
+    }
+    .schedule-sync-line { margin: 0; }
+    .schedule-sync-detail-btn {
+      display: inline-block;
+      margin: 0.25rem 0 0;
+      padding: 0;
+      border: none;
+      background: none;
+      color: #1d4ed8;
+      font-size: 0.78rem;
+      cursor: pointer;
+      text-decoration: underline;
+      white-space: nowrap;
+    }
+    .schedule-sync-detail {
+      margin-top: 0.35rem;
+      padding-top: 0.35rem;
+      border-top: 1px dashed #cbd5e1;
+      font-size: 0.75rem;
+      color: #64748b;
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.4;
+    }
+    .schedule-sync-detail.hidden { display: none; }
+    .schedule-intel-address-unset {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.35rem 0.5rem;
+      margin-top: 0.2rem;
+      padding: 0.28rem 0.4rem;
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      border-radius: 6px;
+    }
+    .schedule-intel-address-label {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #c2410c;
+      white-space: nowrap;
+    }
   </style>
 </head>
 <body class="tisly-friendly">
   <main class="app-main">
-    <div class="schedule-top-actions">
-      <p class="section-hint" id="page-hint" style="margin:0;flex:1;">いつ空いてる？にすぐ答えられます</p>
-      <a class="btn-sub btn-small" href="/settings-v1" title="管理者設定">⚙️設定</a>
-      <a class="btn-sub btn-small" href="/google-calendar-settings-v1" title="Googleカレンダー連携設定">📅連携</a>
-      <button type="button" class="btn-sub btn-small" id="btn-sync-calendar" title="Googleカレンダー同期">Google同期</button>
+    <div class="friendly-card schedule-header-card">
+      <p class="schedule-header-hint" id="page-hint">空き日確認・Google同期</p>
+      <div class="schedule-header-actions">
+        <a class="btn-sub btn-small" href="/settings-v1" title="管理者設定">⚙️ 設定</a>
+        <a class="btn-sub btn-small" href="/google-calendar-settings-v1" title="Googleカレンダー連携設定">📅 連携</a>
+        <button type="button" class="btn-sub btn-small" id="btn-sync-calendar" title="Googleカレンダー同期">Google予定を同期</button>
+      </div>
     </div>
     <div id="integration-badges"></div>
     <div id="departure-alert-mount" class="hidden" aria-live="polite"></div>
-    <p class="section-hint" id="sync-status" style="font-size:0.82rem;margin-top:0.25rem;"></p>
-    <p class="section-hint" id="sync-debug-line" style="font-size:0.75rem;color:#64748b;margin-top:0.15rem;"></p>
+    <div id="sync-status-card" class="schedule-sync-card hidden" aria-live="polite">
+      <div id="sync-status-summary"></div>
+      <button type="button" class="schedule-sync-detail-btn hidden" id="btn-sync-detail-toggle" aria-expanded="false">詳細</button>
+      <div id="sync-status-detail" class="schedule-sync-detail hidden" aria-hidden="true"></div>
+    </div>
 
     <div class="schedule-mode-tabs tab-row" role="tablist">
       <button type="button" class="tab-btn active" id="mode-week" role="tab">週間</button>

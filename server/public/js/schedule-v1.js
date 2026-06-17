@@ -84,19 +84,174 @@ function formatSyncErrorForUi(err) {
   return msg;
 }
 
-function formatSyncSuccessToast(result) {
-  const lastSyncedAt = result.lastSyncedAt || result.sync?.lastSyncedAt;
-  const lastSyncLabel = lastSyncedAt
-    ? lastSyncedAt.slice(0, 16).replace("T", " ")
-    : "—";
-  return [
-    "同期成功",
-    `最終同期 ${lastSyncLabel}`,
-    `取得 ${result.fetched ?? result.count ?? 0}件`,
-    `作成 ${result.created ?? 0}件`,
-    `更新 ${result.updated ?? 0}件`,
-    `スキップ ${result.skipped ?? 0}件`,
-  ].join(" · ");
+function formatSyncTimestampJa(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso.slice(0, 16).replace("T", " ");
+  const y = d.getFullYear();
+  const m = d.getMonth() + 1;
+  const day = d.getDate();
+  const h = d.getHours();
+  const min = String(d.getMinutes()).padStart(2, "0");
+  return `${y}/${m}/${day} ${h}:${min}`;
+}
+
+function syncCountsFrom(cal, result) {
+  const sync = cal?.sync ?? {};
+  const fetched =
+    result?.fetched ??
+    sync.lastSyncFetched ??
+    sync.eventCount ??
+    result?.count ??
+    0;
+  const updated = result?.updated ?? sync.lastSyncUpdated ?? 0;
+  const created = result?.created ?? sync.lastSyncCreated ?? 0;
+  const skipped = result?.skipped ?? sync.lastSyncSkipped ?? 0;
+  return { fetched, updated, created, skipped };
+}
+
+function formatSyncErrorText(err) {
+  return formatSyncErrorForUi(err);
+}
+
+function buildSyncDetailText(cal, lastSyncBody) {
+  const sync = cal?.sync ?? {};
+  const lines = [];
+  const counts = syncCountsFrom(cal, lastSyncBody);
+  if (counts.created || counts.skipped) {
+    lines.push(`作成 ${counts.created}件 · スキップ ${counts.skipped}件`);
+  }
+  if (sync.rangeStart && sync.rangeEnd) {
+    lines.push(`同期範囲: ${sync.rangeStart}〜${sync.rangeEnd}`);
+  }
+  if (lastSyncBody) {
+    const calendarId = lastSyncBody.selectedCalendarId || lastSyncBody.calendarId || "primary";
+    const dateFrom = lastSyncBody.dateFrom || lastSyncBody.startDate;
+    const dateTo = lastSyncBody.dateTo || lastSyncBody.endDate;
+    lines.push(
+      `送信: ${calendarId} / ${lastSyncBody.syncDirection || "bidirectional"} / ${dateFrom}〜${dateTo}`
+    );
+  }
+  const safeLog = sync.lastSyncSafeLog;
+  if (safeLog && typeof safeLog === "object") {
+    const hint = safeLog.hint || safeLog.summary;
+    if (hint) lines.push(String(hint));
+  }
+  return lines.join("\n");
+}
+
+function buildSyncStatusView(cal, { lastError, lastSyncBody } = {}) {
+  const sync = cal?.sync ?? {};
+  const summaryLines = [];
+  let detailText = "";
+  let detailToggleLabel = "詳細";
+  let showToggle = false;
+  let cardClass = "";
+
+  if (cal.displayStatus === "sync_failed") {
+    cardClass = "sync-error-state";
+    summaryLines.push("Googleカレンダー：同期失敗");
+    const err =
+      lastError ||
+      (sync.lastSyncError
+        ? /UNIQUE constraint|重複保存|schedule_calendar_events/i.test(sync.lastSyncError)
+          ? SYNC_DUPLICATE_ERROR_UI
+          : sync.lastSyncError
+        : "同期に失敗しました");
+    detailText = err;
+    detailToggleLabel = "詳細を見る";
+    showToggle = Boolean(detailText);
+  } else if (cal.displayStatus === "sync_success") {
+    cardClass = "sync-success-state";
+    summaryLines.push("Googleカレンダー：同期成功");
+    if (sync.lastSyncedAt) {
+      summaryLines.push(`最終同期：${formatSyncTimestampJa(sync.lastSyncedAt)}`);
+    }
+    const counts = syncCountsFrom(cal, lastSyncBody);
+    summaryLines.push(`取得：${counts.fetched}件　更新：${counts.updated}件`);
+    detailText = buildSyncDetailText(cal, lastSyncBody);
+    showToggle = Boolean(detailText);
+  } else if (cal.displayStatus === "not_configured") {
+    summaryLines.push("Googleカレンダー：未設定");
+    summaryLines.push("連携画面または .env で OAuth を設定してください");
+  } else if (cal.displayStatus === "not_logged_in") {
+    summaryLines.push("Googleカレンダー：未ログイン");
+    summaryLines.push("連携画面から Google ログインしてください");
+  } else if (cal.displayStatus === "logged_in") {
+    summaryLines.push("Googleカレンダー：ログイン済み");
+    summaryLines.push("「Google予定を同期」で予定を取得できます");
+  } else if (!cal.configured || cal.mode === "mock") {
+    summaryLines.push("Googleカレンダー：未設定");
+    summaryLines.push("連携設定からログインしてください");
+    if (Array.isArray(cal.missingEnv) && cal.missingEnv.length) {
+      detailText = `不足: ${cal.missingEnv.join(", ")}`;
+      showToggle = true;
+    }
+  } else {
+    summaryLines.push(`Googleカレンダー：${cal.displayLabel || "—"}`);
+  }
+
+  return { summaryLines, detailText, detailToggleLabel, showToggle, cardClass };
+}
+
+let lastSyncRequestBody = null;
+
+function renderSyncStatusCard(cal, { lastError, expandDetail = false } = {}) {
+  const card = $("sync-status-card");
+  const summaryEl = $("sync-status-summary");
+  const detailEl = $("sync-status-detail");
+  const toggleBtn = $("btn-sync-detail-toggle");
+  if (!card || !summaryEl) return;
+
+  const view = buildSyncStatusView(cal, {
+    lastError,
+    lastSyncBody: lastSyncRequestBody,
+  });
+  if (!view.summaryLines.length) {
+    card.classList.add("hidden");
+    return;
+  }
+
+  card.classList.remove("hidden", "sync-error-state", "sync-success-state");
+  if (view.cardClass) card.classList.add(view.cardClass);
+
+  summaryEl.innerHTML = view.summaryLines
+    .map((line) => `<p class="schedule-sync-line">${escapeHtml(line)}</p>`)
+    .join("");
+
+  if (detailEl) {
+    detailEl.textContent = view.detailText || "";
+    const showDetail = expandDetail && view.detailText;
+    detailEl.classList.toggle("hidden", !showDetail);
+    detailEl.setAttribute("aria-hidden", showDetail ? "false" : "true");
+  }
+
+  if (toggleBtn) {
+    if (view.showToggle && view.detailText) {
+      toggleBtn.classList.remove("hidden");
+      toggleBtn.textContent = expandDetail ? "詳細を閉じる" : view.detailToggleLabel;
+      toggleBtn.setAttribute("aria-expanded", expandDetail ? "true" : "false");
+    } else {
+      toggleBtn.classList.add("hidden");
+      toggleBtn.setAttribute("aria-expanded", "false");
+    }
+  }
+}
+
+function bindSyncDetailToggle() {
+  const toggleBtn = $("btn-sync-detail-toggle");
+  if (!toggleBtn || toggleBtn.dataset.bound) return;
+  toggleBtn.dataset.bound = "1";
+  toggleBtn.addEventListener("click", () => {
+    const detailEl = $("sync-status-detail");
+    const expanded = detailEl?.classList.contains("hidden");
+    detailEl?.classList.toggle("hidden", !expanded);
+    detailEl?.setAttribute("aria-hidden", expanded ? "false" : "true");
+    toggleBtn.setAttribute("aria-expanded", expanded ? "true" : "false");
+    toggleBtn.textContent = expanded
+      ? "詳細を閉じる"
+      : toggleBtn.dataset.defaultLabel || "詳細";
+  });
 }
 
 function toastError(err, status) {
@@ -166,23 +321,7 @@ function weekOffsetFromDateParam(dateParam) {
 }
 
 function showSyncDebug(body) {
-  const calendarId = body.selectedCalendarId || body.calendarId || "primary";
-  const weekOffset = Number.isFinite(Number(body.weekOffset)) ? Number(body.weekOffset) : 0;
-  const weeks = Math.max(1, Number(body.weeks) || 1);
-  const dateFrom = body.dateFrom || body.startDate || scheduleWindowStartFromOffset(weekOffset);
-  const dateTo = body.dateTo || body.endDate || addDaysIso(dateFrom, weeks * 7 - 1);
-  const syncDirection = body.syncDirection || "two_way";
-  const lines = [
-    `selectedCalendarId: ${body.selectedCalendarId ?? "(未指定)"}`,
-    `calendarId: ${calendarId}`,
-    `syncDirection: ${syncDirection}`,
-    `weekOffset: ${weekOffset}`,
-    `dateFrom: ${dateFrom}`,
-    `dateTo: ${dateTo}`,
-  ];
-  const el = $("sync-debug-line");
-  if (el) el.textContent = lines.join(" · ");
-  toast(`同期送信: ${calendarId} / ${syncDirection} / ${dateFrom}〜${dateTo}`);
+  lastSyncRequestBody = body;
 }
 
 function escapeHtml(s) {
@@ -322,7 +461,7 @@ function renderWeekDays(days, today = todayIso()) {
     card.addEventListener("click", (ev) => {
       if (
         ev.target.closest(
-          ".event-desc-snippet, .event-map-btn, .event-map-link, .departure-prep-card, .departure-kit-btn, [data-departure-edit], [data-departure-toggle], .schedule-intel-material, .schedule-intel-address-btn, .schedule-intel-travel-link, .travel-block-link"
+          ".event-desc-snippet, .event-map-btn, .event-map-link, .departure-prep-card, .departure-kit-btn, [data-departure-edit], [data-departure-toggle], .schedule-intel-material, .schedule-intel-address-btn, .schedule-intel-address-unset, .schedule-intel-travel-link, .travel-block-link"
         )
       ) {
         return;
@@ -555,33 +694,10 @@ async function fetchGoogleCalendarStatus() {
 }
 
 function renderCalendarStatusLine(cal) {
-  const lines = [`Googleカレンダー: ${cal.displayLabel}`];
-  if (cal.displayStatus === "not_configured") {
-    lines.push("VPS の .env に GOOGLE_CALENDAR_ENABLED と OAuth クライアント情報を設定してください");
-  } else if (cal.displayStatus === "not_logged_in") {
-    lines.push("「Googleログイン」ボタンから初回認証を行ってください");
-  } else if (cal.displayStatus === "sync_failed" && cal.sync?.lastSyncError) {
-    const err = cal.sync.lastSyncError;
-    lines.push(
-      /UNIQUE constraint|重複保存|schedule_calendar_events/i.test(err)
-        ? SYNC_DUPLICATE_ERROR_UI
-        : err
-    );
-  } else if (cal.sync?.lastSyncedAt) {
-    const at = new Date(cal.sync.lastSyncedAt).toLocaleString("ja-JP");
-    lines.push(`最終同期: ${at}（${cal.sync.eventCount ?? 0}件）`);
-  } else if (cal.displayStatus === "logged_in") {
-    lines.push("「Google予定を同期」でカレンダーを取得できます");
-  } else if (!cal.configured || cal.mode === "mock") {
-    lines.push("Googleカレンダー未設定 — 連携設定からログインしてください");
-    if (Array.isArray(cal.missingEnv) && cal.missingEnv.length) {
-      lines.push(`不足: ${cal.missingEnv.join(", ")}`);
-    }
-  }
-  return lines.join(" — ");
+  return buildSyncStatusView(cal, { lastSyncBody: lastSyncRequestBody }).summaryLines.join("\n");
 }
 
-async function refreshSyncStatus() {
+async function refreshSyncStatus(options = {}) {
   try {
     const [st, cal] = await Promise.all([api("/oauth/status"), fetchGoogleCalendarStatus()]);
     const mapsLabel = st.mapsIntegration?.label ?? "未設定";
@@ -591,11 +707,13 @@ async function refreshSyncStatus() {
     if (badgeEl) {
       badgeEl.innerHTML = renderIntegrationBadges(calLabel, mapsLabel, mapsHint);
     }
-    const el = $("sync-status");
     const btn = $("btn-sync-calendar");
-    if (!el) return;
-    el.textContent = renderCalendarStatusLine(cal);
-    el.classList.toggle("sync-error", cal.displayStatus === "sync_failed");
+    renderSyncStatusCard(cal, options);
+    const toggleBtn = $("btn-sync-detail-toggle");
+    if (toggleBtn) {
+      toggleBtn.dataset.defaultLabel =
+        cal.displayStatus === "sync_failed" ? "詳細を見る" : "詳細";
+    }
     if (btn) {
       btn.textContent = cal.buttonLabel || "Google予定を同期";
       btn.disabled = Boolean(cal.buttonDisabled);
@@ -648,6 +766,7 @@ async function init() {
   weekOffset = weekOffsetFromDateParam(urlDate);
 
   showMode("week");
+  bindSyncDetailToggle();
   await loadWeek();
   await refreshSyncStatus();
   await initDepartureReminderClient({
@@ -702,14 +821,37 @@ async function init() {
         toast("本番接続が必要です。Googleカレンダー設定からログインしてください。");
         return;
       }
-      toast(formatSyncSuccessToast(result));
+      toast("同期しました");
+      const calAfter = await fetchGoogleCalendarStatus().catch(() => cal);
+      renderSyncStatusCard(
+        {
+          ...calAfter,
+          displayStatus: "sync_success",
+          displayLabel: "同期成功",
+          sync: {
+            ...(calAfter?.sync ?? {}),
+            lastSyncedAt: result.lastSyncedAt || result.sync?.lastSyncedAt || calAfter?.sync?.lastSyncedAt,
+            lastSyncFetched: result.fetched ?? calAfter?.sync?.lastSyncFetched,
+            lastSyncUpdated: result.updated ?? calAfter?.sync?.lastSyncUpdated,
+            lastSyncCreated: result.created ?? calAfter?.sync?.lastSyncCreated,
+            lastSyncSkipped: result.skipped ?? calAfter?.sync?.lastSyncSkipped,
+            lastSyncStatus: "success",
+          },
+        },
+        { expandDetail: false }
+      );
       await refreshSyncStatus();
       await refreshCurrent();
     } catch (e) {
       if (e.status === 503 && String(e.message || "").includes("Googleカレンダー")) {
         toast(e.message || "Googleカレンダー未設定：設定画面でログインしてください");
       } else {
-        toast(formatSyncErrorForUi(e));
+        const errText = formatSyncErrorText(e);
+        const calFail = await fetchGoogleCalendarStatus().catch(() => null);
+        renderSyncStatusCard(
+          calFail || { displayStatus: "sync_failed", displayLabel: "同期失敗", sync: {} },
+          { lastError: errText, expandDetail: false }
+        );
       }
       await refreshSyncStatus();
     } finally {

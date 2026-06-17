@@ -917,7 +917,8 @@ describe("Google Calendar 双方向同期 v1", () => {
       "utf8"
     );
     assert.ok(scheduleJs.includes("formatSyncErrorForUi"));
-    assert.ok(scheduleJs.includes("formatSyncSuccessToast"));
+    assert.ok(scheduleJs.includes("同期しました"));
+    assert.ok(scheduleJs.includes("renderSyncStatusCard"));
     assert.ok(scheduleJs.includes("apiErrorMessage"));
   });
 

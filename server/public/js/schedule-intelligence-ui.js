@@ -103,10 +103,13 @@ function needsAddressInput(evIntel) {
   return !evIntel?.address?.fullAddress;
 }
 
-function renderAddressInputButton(evIntel) {
+function renderAddressUnsetBlock(evIntel) {
   if (!needsAddressInput(evIntel)) return "";
   const eventKey = escapeScheduleHtml(evIntel.eventId ?? evIntel.id ?? "");
-  return `<button type="button" class="btn-sub btn-small schedule-intel-address-btn" data-event-id="${eventKey}">住所を入力</button>`;
+  return `<div class="schedule-intel-address-unset">
+    <span class="schedule-intel-address-label">住所未設定</span>
+    <button type="button" class="btn-sub btn-small schedule-intel-address-btn" data-event-id="${eventKey}">住所を入力</button>
+  </div>`;
 }
 
 export function renderIntelligenceEventCard(
@@ -116,7 +119,7 @@ export function renderIntelligenceEventCard(
   const ev = evIntel;
   const time = formatEventTimeRange(ev);
   const travel = ev.travel ?? {};
-  const weatherHtml = renderSiteWeatherHtml(ev);
+  const weatherHtml = needsAddressInput(ev) ? "" : renderSiteWeatherHtml(ev);
   const eventKey = escapeScheduleHtml(ev.eventId ?? ev.id ?? "");
 
   return `<article class="schedule-intel-card schedule-intel-card-compact" data-intel-event-id="${eventKey}">
@@ -125,7 +128,7 @@ export function renderIntelligenceEventCard(
       <div class="schedule-intel-title">${escapeScheduleHtml(ev.title)}</div>
       ${weatherHtml ? weatherHtml : ""}
       ${renderTravelLineHtml(travel, { showMapsUnsetBanner, mapsApiConfigured })}
-      ${renderAddressInputButton(ev)}
+      ${renderAddressUnsetBlock(ev)}
       ${renderMaterialLineHtml(ev.fieldCheck)}
     </div>
   </article>`;

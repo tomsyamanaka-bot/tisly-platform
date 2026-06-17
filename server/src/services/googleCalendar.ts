@@ -68,6 +68,10 @@ export interface GoogleCalendarPublicStatus {
     lastSyncStatus: "success" | "failed" | null;
     lastSyncError: string | null;
     lastSyncSafeLog: GoogleCalendarSafeLog | null;
+    lastSyncFetched?: number;
+    lastSyncCreated?: number;
+    lastSyncUpdated?: number;
+    lastSyncSkipped?: number;
   };
   buttonLabel: string;
   buttonDisabled: boolean;
@@ -698,6 +702,10 @@ export function getGoogleCalendarPublicStatus(): GoogleCalendarPublicStatus {
         ? formatGoogleCalendarErrorJa(syncMeta.lastSyncError)
         : null,
       lastSyncSafeLog: syncMeta.lastSyncSafeLog ?? getGoogleCalendarSafeLog(),
+      lastSyncFetched: syncMeta.lastSyncFetched,
+      lastSyncCreated: syncMeta.lastSyncCreated,
+      lastSyncUpdated: syncMeta.lastSyncUpdated,
+      lastSyncSkipped: syncMeta.lastSyncSkipped,
     },
     buttonLabel,
     buttonDisabled: buttonDisabled || needsReLogin,
