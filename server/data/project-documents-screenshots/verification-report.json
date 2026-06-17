@@ -1,22 +1,127 @@
 {
-  "at": "2026-06-16T05:29:21.333Z",
-  "businessProjectId": "BIZ-DA0F458F",
-  "prefetchMs": 1377,
+  "at": "2026-06-16T06:28:05.136Z",
+  "mode": "production",
+  "baseUrl": "https://tisly.jp",
+  "commitShort": "3d5e685",
+  "businessProjectId": "BIZ-BC40A1B0",
   "prefetchBody": {
-    "projectId": "BIZ-DA0F458F",
+    "projectId": "BIZ-BC40A1B0",
     "prefetched": [
-      "estimate"
-    ],
-    "skipped": [
-      "invoice",
-      "specification",
       "completion"
     ],
+    "skipped": [
+      "estimate",
+      "invoice",
+      "specification"
+    ],
     "errors": [],
-    "elapsedMs": 1373
+    "elapsedMs": 2401
   },
+  "shareCodeOk": true,
+  "statusTexts": {
+    "estimate": "✅ 作成済",
+    "invoice": "✅ 作成済",
+    "specification": "✅ 作成済",
+    "completion": "✅ 作成済"
+  },
+  "statusOk": true,
+  "documentChecks": [
+    {
+      "kind": "estimate",
+      "label": "見積書",
+      "previewOk": true,
+      "pdfOk": true,
+      "landscapeOk": true,
+      "scrollOk": false,
+      "backToPreviewOk": true,
+      "backToListOk": true,
+      "saveVisible": true,
+      "shareVisible": true,
+      "shareCapture": null,
+      "shareFilesOnly": null
+    },
+    {
+      "kind": "invoice",
+      "label": "請求書",
+      "previewOk": true,
+      "pdfOk": true,
+      "landscapeOk": true,
+      "scrollOk": false,
+      "backToPreviewOk": true,
+      "backToListOk": true,
+      "saveVisible": true,
+      "shareVisible": true,
+      "shareCapture": {
+        "fileName": "請求書_書類UIテスト様_防犯カメラ設置工事.pdf",
+        "type": "application/pdf",
+        "hasUrl": false,
+        "hasTitle": false
+      },
+      "shareFilesOnly": true
+    },
+    {
+      "kind": "specification",
+      "label": "仕様書",
+      "previewOk": true,
+      "pdfOk": true,
+      "landscapeOk": true,
+      "scrollOk": true,
+      "backToPreviewOk": true,
+      "backToListOk": true,
+      "saveVisible": true,
+      "shareVisible": true,
+      "shareCapture": null,
+      "shareFilesOnly": null
+    },
+    {
+      "kind": "completion-report",
+      "label": "工事完了報告書",
+      "previewOk": true,
+      "pdfOk": true,
+      "landscapeOk": true,
+      "scrollOk": true,
+      "backToPreviewOk": true,
+      "backToListOk": true,
+      "saveVisible": true,
+      "shareVisible": true,
+      "shareCapture": null,
+      "shareFilesOnly": null
+    }
+  ],
+  "allDocsOk": true,
+  "cache": {
+    "firstFetchMs": 110,
+    "secondFetchMs": 139,
+    "cacheFaster": false,
+    "firstOk": true,
+    "secondOk": true
+  },
+  "staleRegenerated": true,
+  "shareLogOk": true,
+  "shareLogs": [
+    {
+      "id": "bfb65335-f6bb-4fb6-842f-5d8b08526a97",
+      "projectId": "BIZ-BC40A1B0",
+      "documentKind": "invoice",
+      "fileName": "請求書_書類UIテスト様_防犯カメラ設置工事.pdf",
+      "sharedAt": "2026-06-16T06:28:04.266Z"
+    },
+    {
+      "id": "82e88378-8bcd-46ec-bfb4-7cb3eaeafd9a",
+      "projectId": "BIZ-BC40A1B0",
+      "documentKind": "invoice",
+      "fileName": "請求書_書類UIテスト様_防犯カメラ設置工事.pdf",
+      "sharedAt": "2026-06-16T06:27:58.567Z"
+    }
+  ],
+  "photoLayout": {},
   "screenshots": [
     "01-document-status-buttons.png",
-    "02-document-list.png"
-  ]
+    "02-document-list.png",
+    "03-estimate-pdf-viewer-iphone.png",
+    "04-invoice-pdf-share-sheet.png",
+    "05-specification-pdf-viewer.png",
+    "06-completion-report-pdf-viewer.png"
+  ],
+  "allOk": true
 }
