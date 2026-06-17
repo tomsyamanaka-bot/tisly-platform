@@ -186,7 +186,7 @@ function googleItemToEvent(
   const title = item.summary.trim();
   const calendarId = meta?.calendarId ?? null;
   const eventDate = dayDate ?? date;
-  const localKey = dayDate ? `${item.id}@${dayDate}` : item.id;
+  const localKey = `${item.id}@${eventDate}`;
   const localId = calendarId
     ? buildGoogleEventLocalId(calendarId, localKey)
     : buildGoogleEventLocalId("primary", localKey);

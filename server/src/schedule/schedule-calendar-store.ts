@@ -49,10 +49,12 @@ function rowToEvent(r: Record<string, unknown>): ScheduleEvent {
   };
 }
 
-/** calendarId + Google event.id でローカル主キーを決定 */
+/** calendarId + Google event.id (+ 日付) でローカル主キーを決定 */
 export function resolveScheduleEventLocalId(ev: ScheduleEvent): string {
   if (ev.calendarId && ev.externalId) {
-    return buildGoogleEventLocalId(ev.calendarId, ev.externalId);
+    const date = ev.date?.trim();
+    const scopedKey = date ? `${ev.externalId}@${date}` : ev.externalId;
+    return buildGoogleEventLocalId(ev.calendarId, scopedKey);
   }
   if (ev.id?.trim()) return ev.id.trim();
   return uuid();
@@ -141,6 +143,7 @@ export function upsertCachedCalendarEvents(
 
   const existsStmt = db.prepare(`SELECT 1 AS ok FROM schedule_calendar_events WHERE id = ? LIMIT 1`);
   const upsert = db.prepare(UPSERT_SQL);
+  const deleteLegacy = db.prepare(`DELETE FROM schedule_calendar_events WHERE id = ?`);
 
   for (const raw of events) {
     if (!raw.title?.trim() || !raw.date?.trim()) {
@@ -149,6 +152,12 @@ export function upsertCachedCalendarEvents(
     }
     const ev: ScheduleEvent = { ...raw, id: resolveScheduleEventLocalId(raw) };
     try {
+      if (ev.externalId && ev.calendarId && ev.id.includes("@")) {
+        const legacyId = buildGoogleEventLocalId(ev.calendarId, ev.externalId);
+        if (legacyId !== ev.id) {
+          deleteLegacy.run(legacyId);
+        }
+      }
       const existed = Boolean(existsStmt.get(ev.id));
       upsert.run(
         ev.id,

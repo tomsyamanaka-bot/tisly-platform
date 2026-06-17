@@ -120,8 +120,8 @@ export async function showDepartureNotification(departure, payload) {
         const reg = await navigator.serviceWorker.ready;
         await reg.showNotification(title, {
           body,
-          icon: "/icons/icon-192.png?v=2002",
-          badge: "/icons/icon-192.png?v=2002",
+          icon: "/icons/icon-192.png?v=2003",
+          badge: "/icons/icon-192.png?v=2003",
           data: { url },
           tag: `departure-${departure.id}`,
         });

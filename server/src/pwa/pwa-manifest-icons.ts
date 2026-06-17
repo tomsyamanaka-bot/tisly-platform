@@ -1,5 +1,5 @@
 /** Phase 2001 / 2041 — 全 PWA 共通アイコンキャッシュバスト（変更時はここだけ更新） */
-export const APP_ICON_VERSION = "2002";
+export const APP_ICON_VERSION = "2003";
 
 /** @deprecated APP_ICON_VERSION を使用 */
 export const PWA_ICON_VERSION = APP_ICON_VERSION;

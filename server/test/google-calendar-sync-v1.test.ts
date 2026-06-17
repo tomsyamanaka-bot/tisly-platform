@@ -930,7 +930,7 @@ describe("Google Calendar 双方向同期 v1", () => {
     const start = "2026-06-01";
     const end = "2026-06-30";
     const ev = {
-      id: buildGoogleEventLocalId("primary", "dup-event-1"),
+      id: buildGoogleEventLocalId("primary", "dup-event-1@2026-06-10"),
       externalId: "dup-event-1",
       calendarId: "primary",
       date: "2026-06-10",
@@ -1164,6 +1164,43 @@ describe("Google Calendar 双方向同期 v1", () => {
     assert.equal(second.created, 0);
     assert.equal(second.updated, 3);
     assert.equal(second.failed, 0);
+  });
+
+  it("Google同一event.idの日別インスタンスは全日UPSERTされる", async () => {
+    const { expandGoogleItemToEvents } = await import("../src/services/googleCalendar.js");
+    const { upsertCachedCalendarEvents, listCachedCalendarEvents } = await import(
+      "../src/schedule/schedule-calendar-store.js"
+    );
+    const { buildGoogleEventLocalId } = await import(
+      "../src/schedule/google-calendar-target-calendars.js"
+    );
+    const calId = "primary";
+    const googleId = "den-multi-ammi";
+    const days = ["2026-06-25", "2026-06-26", "2026-06-27"];
+    const items = days.map((date, i) => ({
+      id: googleId,
+      summary: `伝元案件 阿見 (${i + 1}/3日目)`,
+      start: { date },
+      end: { date: days[i + 1] ?? "2026-06-28" },
+    }));
+    const expanded = items.flatMap((item) => expandGoogleItemToEvents(item, { calendarId: calId }));
+    assert.equal(expanded.length, 3);
+    assert.equal(new Set(expanded.map((e) => e.id)).size, 3);
+    assert.ok(
+      expanded.every((e) => e.id === buildGoogleEventLocalId(calId, `${googleId}@${e.date}`))
+    );
+
+    const start = "2026-06-20";
+    const end = "2026-06-30";
+    const stats = upsertCachedCalendarEvents(start, end, expanded);
+    assert.equal(stats.created, 3);
+    assert.equal(stats.failed, 0);
+
+    for (const date of days) {
+      const onDay = listCachedCalendarEvents(date, date).filter((e) => e.externalId === googleId);
+      assert.equal(onDay.length, 1, `expected one row on ${date}`);
+      assert.match(onDay[0].title, /伝元案件 阿見/);
+    }
   });
 
   it("UNIQUEエラーはUI向け短文にマップされる", async () => {

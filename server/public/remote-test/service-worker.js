@@ -1,7 +1,7 @@
 /* TiSLY Remote Test PWA — scoped Web Push (iOS 16.4+ standalone) */
 const SW_VERSION = "tisly-remote-test-v1";
 const OFFLINE_CACHE = "tisly-remote-test-shell-v1";
-const ICON_V = "?v=2002";
+const ICON_V = "?v=2003";
 const SHELL_URLS = [
   "/remote-test",
   "/remote-test/app.js",

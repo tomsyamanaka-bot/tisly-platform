@@ -29,4 +29,4 @@ node server/scripts/patch-pwa-sw-icon-version.mjs
 
 ## 反映
 
-manifest / HTML の icon URL に `?v=2002` を付与し、Service Worker キャッシュ名を更新して旧アイコンを無効化します。iOS ホーム画面アイコンは再インストール（削除→追加）が必要な場合があります。
+manifest / HTML の icon URL に `?v=2003` を付与し、Service Worker キャッシュ名を更新して旧アイコンを無効化します。iOS ホーム画面アイコンは再インストール（削除→追加）が必要な場合があります。

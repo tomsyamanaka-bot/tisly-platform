@@ -22,17 +22,17 @@ systemctl restart tisly-server
 ## B. curl 確認（新アイコン配信）
 
 ```bash
-curl -sI https://tisly.jp/icons/icon-192.png?v=2002 | head -3
-curl -sI https://tisly.jp/icons/icon-512.png?v=2002 | head -3
+curl -sI https://tisly.jp/icons/icon-192.png?v=2003 | head -3
+curl -sI https://tisly.jp/icons/icon-512.png?v=2003 | head -3
 curl -sI https://tisly.jp/apple-touch-icon.png | head -3
-curl -s https://tisly.jp/manifest.webmanifest?v=2002 | grep -o 'icon-192[^"]*' | head -3
+curl -s https://tisly.jp/manifest.webmanifest?v=2003 | grep -o 'icon-192[^"]*' | head -3
 curl -s https://tisly.jp/api/deploy/pwa-icon-check
 ```
 
 期待:
 
 - 各 icon URL が **HTTP 200**
-- manifest の icons が `?v=2002` 付き（`APP_ICON_VERSION`）
+- manifest の icons が `?v=2003` 付き（`APP_ICON_VERSION`）
 - `pwa-icon-check` の `ready: true`
 
 ---
@@ -80,5 +80,5 @@ npm run test
 |------|------|
 | icon-192 OK | curl / checklist 緑 |
 | apple-touch-icon OK | curl 200 |
-| manifest icons v=2002 OK | API `manifestIconsVersioned` |
+| manifest icons v=2003 OK | API `manifestIconsVersioned` |
 | Safari 再追加手順 OK | 実機で青い TiSLY ロゴ表示 |
