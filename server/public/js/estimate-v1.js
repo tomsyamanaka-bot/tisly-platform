@@ -684,7 +684,10 @@ function renderDocumentStatusBadges(documents) {
   for (const doc of documents || []) {
     const el = $(DOC_STATUS_IDS[doc.kind]);
     if (!el) continue;
-    el.textContent = `${doc.statusIcon} ${doc.statusLabel}`;
+    const storage = doc.storageStatusIcon && doc.storageStatusLabel
+      ? ` ${doc.storageStatusIcon}${doc.storageStatusLabel}`
+      : "";
+    el.textContent = `${doc.statusIcon} ${doc.statusLabel}${storage}`;
   }
 }
 
@@ -697,17 +700,26 @@ function renderDocumentList(documents) {
   }
   mount.innerHTML = documents
     .map(
-      (doc) => `<div class="doc-list-row" data-doc-kind="${escapeHtml(doc.kind)}">
+      (doc) => {
+        const storageBadge = doc.storageStatusIcon && doc.storageStatusLabel
+          ? `${doc.storageStatusIcon} ${doc.storageStatusLabel}`
+          : "";
+        const pdfBadge = doc.hasPdf ? "📄 PDFあり" : "";
+        const photoBadge = doc.hasPhotos ? "📷 写真あり" : "";
+        const badges = [storageBadge, pdfBadge, photoBadge].filter(Boolean).join(" · ");
+        return `<div class="doc-list-row" data-doc-kind="${escapeHtml(doc.kind)}">
         <div>
           <strong>${escapeHtml(doc.label)}</strong>
           <div class="doc-list-meta">${escapeHtml(doc.statusIcon)} ${escapeHtml(doc.statusLabel)}${doc.fileName ? ` · ${escapeHtml(doc.fileName)}` : ""}</div>
+          ${badges ? `<div class="doc-storage-badges">${escapeHtml(badges)}</div>` : ""}
         </div>
         <div class="doc-list-actions">
           <button type="button" data-doc-action="open" data-kind="${escapeHtml(doc.kind)}" ${doc.status === "not_created" || doc.status === "photos_missing" || doc.status === "completion_photos_missing" ? "disabled" : ""}>開く</button>
           <button type="button" data-doc-action="share" data-kind="${escapeHtml(doc.kind)}" ${!doc.pdfUrl ? "disabled" : ""}>共有</button>
           <button type="button" data-doc-action="save" data-kind="${escapeHtml(doc.kind)}" ${!doc.pdfUrl ? "disabled" : ""}>保存</button>
         </div>
-      </div>`
+      </div>`;
+      }
     )
     .join("");
 

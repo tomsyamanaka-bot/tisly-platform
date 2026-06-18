@@ -291,12 +291,19 @@ function renderDocumentStatusSummary() {
   if (!docs.length) return `<p class="section-hint">書類状態を取得できません</p>`;
   const rows = docs
     .map(
-      (d) => `
+      (d) => {
+        const storage = d.storageStatusIcon && d.storageStatusLabel
+          ? ` · ${d.storageStatusIcon}${d.storageStatusLabel}`
+          : "";
+        const pdf = d.hasPdf ? " · 📄PDF" : "";
+        const photos = d.hasPhotos ? " · 📷写真" : "";
+        return `
     <div class="doc-status-row">
       <span class="doc-status-icon">${d.statusIcon}</span>
       <span class="doc-status-label">${escapeHtml(d.label)}</span>
-      <span class="doc-status-value">${escapeHtml(d.statusLabel)}</span>
-    </div>`
+      <span class="doc-status-value">${escapeHtml(d.statusLabel)}${storage}${pdf}${photos}</span>
+    </div>`;
+      }
     )
     .join("");
   return `<div class="doc-status-grid">${rows}</div>`;
