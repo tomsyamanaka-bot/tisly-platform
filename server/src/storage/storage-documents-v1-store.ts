@@ -19,7 +19,11 @@ export type StorageDocumentTypeV1 =
   | "photos"
   | "pdf";
 
-export type StorageDocumentStatusV1 = "qnap_pending" | "qnap_synced" | "qnap_failed";
+export type StorageDocumentStatusV1 =
+  | "qnap_pending"
+  | "qnap_syncing"
+  | "qnap_synced"
+  | "qnap_failed";
 
 export interface StorageDocumentV1 {
   id: string;
@@ -81,18 +85,105 @@ function qnapStatusToStorageStatus(status: QnapBackupStatus | null): StorageDocu
   return "qnap_pending";
 }
 
-export function storageStatusPresentation(status: StorageDocumentStatusV1): {
+export function storageStatusPresentation(
+  status: StorageDocumentStatusV1,
+  qnapConfigured = true
+): {
   label: string;
   icon: string;
 } {
+  if (!qnapConfigured && status !== "qnap_synced") {
+    return { label: "QNAP未設定", icon: "⚙️" };
+  }
   switch (status) {
     case "qnap_synced":
       return { label: "QNAP保存済み", icon: "🟢" };
     case "qnap_failed":
       return { label: "保存失敗", icon: "🔴" };
+    case "qnap_syncing":
+      return { label: "保存中", icon: "🔵" };
     default:
       return { label: "QNAP未保存", icon: "🟡" };
   }
+}
+
+export function getStorageDocumentByIdV1(id: string): StorageDocumentV1 | null {
+  const row = getDatabase()
+    .prepare(`SELECT * FROM storage_documents_v1 WHERE id = ?`)
+    .get(id) as Record<string, unknown> | undefined;
+  return row ? rowFromDb(row) : null;
+}
+
+export function findStorageDocumentByLocalPathV1(
+  projectId: string,
+  documentType: StorageDocumentTypeV1,
+  localPath: string
+): StorageDocumentV1 | null {
+  const row = getDatabase()
+    .prepare(
+      `SELECT * FROM storage_documents_v1
+       WHERE project_id = ? AND document_type = ? AND local_path = ?
+       ORDER BY created_at DESC LIMIT 1`
+    )
+    .get(projectId, documentType, localPath) as Record<string, unknown> | undefined;
+  return row ? rowFromDb(row) : null;
+}
+
+export function listPendingStorageDocumentsForProjectV1(projectId: string): StorageDocumentV1[] {
+  return listStorageDocumentsForProjectV1(projectId).filter(
+    (d) => d.status === "qnap_pending" || d.status === "qnap_failed"
+  );
+}
+
+export function listFailedStorageDocumentsV1(projectId?: string): StorageDocumentV1[] {
+  const db = getDatabase();
+  if (projectId) {
+    const rows = db
+      .prepare(
+        `SELECT * FROM storage_documents_v1
+         WHERE project_id = ? AND status = 'qnap_failed'
+         ORDER BY updated_at ASC`
+      )
+      .all(projectId) as Array<Record<string, unknown>>;
+    return rows.map(rowFromDb);
+  }
+  const rows = db
+    .prepare(
+      `SELECT * FROM storage_documents_v1 WHERE status = 'qnap_failed' ORDER BY updated_at ASC`
+    )
+    .all() as Array<Record<string, unknown>>;
+  return rows.map(rowFromDb);
+}
+
+export function markStorageDocumentQnapSyncingV1(id: string): void {
+  const now = new Date().toISOString();
+  getDatabase()
+    .prepare(
+      `UPDATE storage_documents_v1 SET status = 'qnap_syncing', updated_at = ?, error_message = NULL WHERE id = ?`
+    )
+    .run(now, id);
+}
+
+export function markStorageDocumentQnapSyncedV1(id: string, qnapPath: string): void {
+  const now = new Date().toISOString();
+  getDatabase()
+    .prepare(
+      `UPDATE storage_documents_v1 SET
+        status = 'qnap_synced', qnap_path = ?, synced_at = ?, error_message = NULL, updated_at = ?
+       WHERE id = ?`
+    )
+    .run(qnapPath, now, now, id);
+}
+
+export function markStorageDocumentQnapFailedV1(id: string, errorMessage: string): void {
+  const now = new Date().toISOString();
+  getDatabase()
+    .prepare(
+      `UPDATE storage_documents_v1 SET
+        status = 'qnap_failed', error_message = ?, updated_at = ?
+       WHERE id = ?`
+    )
+    .run(errorMessage.slice(0, 2000), now, id);
 }
 
 export function listStorageDocumentsForProjectV1(projectId: string): StorageDocumentV1[] {
@@ -127,12 +218,18 @@ export interface RegisterProjectPdfDocumentInputV1 {
   errorMessage?: string | null;
 }
 
-/** PDF 保存時に storage_documents_v1 へ履歴登録 */
+/** PDF 保存時に storage_documents_v1 へ履歴登録（同一 local_path は重複しない） */
 export function registerProjectPdfDocumentV1(input: RegisterProjectPdfDocumentInputV1): StorageDocumentV1 {
   const project = getBusinessProject(input.projectId);
   const documentType = PDF_KIND_TO_DOC_TYPE[input.kind];
   const title = PDF_KIND_TITLES[input.kind];
   const fileName = path.basename(input.localPath);
+
+  const existing = findStorageDocumentByLocalPathV1(input.projectId, documentType, input.localPath);
+  if (existing) {
+    return existing;
+  }
+
   const absPath = path.join(process.cwd(), input.localPath.replace(/^\//, ""));
   let size = 0;
   try {
