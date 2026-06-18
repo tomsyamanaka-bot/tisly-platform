@@ -2,36 +2,45 @@ import { Router, type Response } from "express";
 import { requireAuth, type AuthedRequest } from "../../auth/auth-middleware.js";
 import { roleMeetsRequirement } from "../../auth/roles.js";
 import {
+  MASTER_V1_CHIP_FILTERS,
+  MASTER_V1_MAIN_CATEGORIES,
+} from "../../master/master-v1-categories.js";
+import {
   MASTER_V1_MATERIAL_CATEGORIES,
   MASTER_V1_WORK_CATEGORIES,
   type MasterV1Entity,
 } from "../../master/master-v1-types.js";
 import {
   bulkUpdateMasterV1,
+  createMasterV1Category,
   createMasterV1Customer,
   createMasterV1CustomerPrice,
   createMasterV1Material,
   createMasterV1Rank,
   createMasterV1SymbolMapping,
   createMasterV1WorkItem,
+  deleteMasterV1Category,
   deleteMasterV1Customer,
   deleteMasterV1CustomerPrice,
   deleteMasterV1Material,
   deleteMasterV1Rank,
   deleteMasterV1SymbolMapping,
   deleteMasterV1WorkItem,
+  getMasterV1Category,
   getMasterV1Customer,
   getMasterV1CustomerPrice,
   getMasterV1Material,
   getMasterV1Rank,
   getMasterV1SymbolMapping,
   getMasterV1WorkItem,
+  listMasterV1Categories,
   listMasterV1CustomerPrices,
   listMasterV1Customers,
   listMasterV1Materials,
   listMasterV1Ranks,
   listMasterV1SymbolMappings,
   listMasterV1WorkItems,
+  updateMasterV1Category,
   updateMasterV1Customer,
   updateMasterV1CustomerPrice,
   updateMasterV1Material,
@@ -67,22 +76,100 @@ function assertRole(req: AuthedRequest, res: Response): boolean {
 }
 
 function listOpts(req: AuthedRequest) {
+  const chip = req.query.chip as string | undefined;
+  const favoriteOnly = req.query.favoriteOnly === "true" || chip === "__favorite__";
   return {
     q: req.query.q as string | undefined,
     category: req.query.category as string | undefined,
-    favoriteOnly: req.query.favoriteOnly === "true",
+    categoryMain: (req.query.categoryMain as string | undefined) || (chip && chip !== "__favorite__" ? chip : undefined),
+    categorySub: req.query.categorySub as string | undefined,
+    favoriteOnly,
     activeOnly: req.query.activeOnly !== "false",
   };
 }
 
+function parseTagsBody(body: Record<string, unknown>): string[] | undefined {
+  if (body.tags == null) return undefined;
+  if (Array.isArray(body.tags)) return body.tags.map(String);
+  if (typeof body.tags === "string") {
+    return body.tags.split(/[,、\s]+/).filter(Boolean);
+  }
+  return [];
+}
+
+function parseExtraMaterialIds(body: Record<string, unknown>): string[] | undefined {
+  if (body.extraMaterialIds == null) return undefined;
+  if (Array.isArray(body.extraMaterialIds)) return body.extraMaterialIds.map(String);
+  if (typeof body.extraMaterialIds === "string") {
+    return body.extraMaterialIds.split(/[,、\s]+/).filter(Boolean);
+  }
+  return [];
+}
+
 masterV1Router.get("/meta", ...auth, (req: AuthedRequest, res) => {
   if (!assertRole(req, res)) return;
+  const categories = listMasterV1Categories();
   res.json({
     workCategories: MASTER_V1_WORK_CATEGORIES,
     materialCategories: MASTER_V1_MATERIAL_CATEGORIES,
+    mainCategories: MASTER_V1_MAIN_CATEGORIES,
+    chipFilters: MASTER_V1_CHIP_FILTERS,
+    categories,
     storageProviders: STORAGE_PROVIDER_KINDS,
     csvEntities: ["customers", "ranks", "work-items", "materials"] as MasterV1Entity[],
   });
+});
+
+// —— Categories ——
+
+masterV1Router.get("/categories", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const kind = req.query.kind as "work" | "material" | "both" | undefined;
+  const categoryMain = req.query.categoryMain as string | undefined;
+  res.json({ categories: listMasterV1Categories({ kind, categoryMain }) });
+});
+
+masterV1Router.post("/categories", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const body = req.body as Record<string, unknown>;
+  if (!body.categoryMain || !body.categorySub) {
+    res.status(400).json({ error: "categoryMain and categorySub are required" });
+    return;
+  }
+  const item = createMasterV1Category({
+    kind: body.kind === "work" || body.kind === "material" ? body.kind : "both",
+    categoryMain: String(body.categoryMain),
+    categorySub: String(body.categorySub),
+    sortOrder: body.sortOrder != null ? Number(body.sortOrder) : 0,
+    active: body.active !== false,
+  });
+  res.status(201).json(item);
+});
+
+masterV1Router.patch("/categories/:id", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const body = req.body as Record<string, unknown>;
+  const item = updateMasterV1Category(String(req.params.id), {
+    kind: body.kind === "work" || body.kind === "material" || body.kind === "both" ? body.kind : undefined,
+    categoryMain: body.categoryMain != null ? String(body.categoryMain) : undefined,
+    categorySub: body.categorySub != null ? String(body.categorySub) : undefined,
+    sortOrder: body.sortOrder != null ? Number(body.sortOrder) : undefined,
+    active: body.active !== undefined ? Boolean(body.active) : undefined,
+  });
+  if (!item) {
+    res.status(404).json({ error: "category not found" });
+    return;
+  }
+  res.json(item);
+});
+
+masterV1Router.delete("/categories/:id", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  if (!deleteMasterV1Category(String(req.params.id))) {
+    res.status(404).json({ error: "category not found" });
+    return;
+  }
+  res.json({ ok: true });
 });
 
 // —— Customers ——
@@ -219,19 +306,28 @@ masterV1Router.get("/work-items", ...auth, (req: AuthedRequest, res) => {
 masterV1Router.post("/work-items", ...auth, (req: AuthedRequest, res) => {
   if (!assertRole(req, res)) return;
   const body = req.body as Record<string, unknown>;
-  if (!body.name || !body.category) {
-    res.status(400).json({ error: "name and category are required" });
+  if (!body.name) {
+    res.status(400).json({ error: "name is required" });
+    return;
+  }
+  const categoryMain = body.categoryMain ?? body.category;
+  if (!categoryMain) {
+    res.status(400).json({ error: "categoryMain is required" });
     return;
   }
   const item = createMasterV1WorkItem({
-    category: String(body.category),
+    categoryMain: String(categoryMain),
+    categorySub: body.categorySub != null ? String(body.categorySub) : "",
     name: String(body.name),
     code: body.code != null ? String(body.code) : undefined,
-    unit: body.unit != null ? String(body.unit) : undefined,
+    unit: body.unit != null ? String(body.unit) : body.defaultUnit != null ? String(body.defaultUnit) : undefined,
+    defaultQuantity: body.defaultQuantity != null ? Number(body.defaultQuantity) : undefined,
     standardCost: body.standardCost != null ? Number(body.standardCost) : undefined,
     laborCost: body.laborCost != null ? Number(body.laborCost) : undefined,
+    standardSellPrice: body.standardSellPrice != null ? Number(body.standardSellPrice) : undefined,
+    tags: parseTagsBody(body),
     memo: body.memo != null ? String(body.memo) : null,
-    favorite: Boolean(body.favorite),
+    favorite: body.isFavorite !== undefined ? Boolean(body.isFavorite) : Boolean(body.favorite),
     active: body.active !== false,
     sortOrder: body.sortOrder != null ? Number(body.sortOrder) : 0,
   });
@@ -242,14 +338,18 @@ masterV1Router.patch("/work-items/:id", ...auth, (req: AuthedRequest, res) => {
   if (!assertRole(req, res)) return;
   const body = req.body as Record<string, unknown>;
   const item = updateMasterV1WorkItem(String(req.params.id), {
-    category: body.category != null ? String(body.category) : undefined,
+    categoryMain: body.categoryMain != null ? String(body.categoryMain) : body.category != null ? String(body.category) : undefined,
+    categorySub: body.categorySub != null ? String(body.categorySub) : undefined,
     code: body.code != null ? String(body.code) : undefined,
     name: body.name != null ? String(body.name) : undefined,
-    unit: body.unit != null ? String(body.unit) : undefined,
+    unit: body.unit != null ? String(body.unit) : body.defaultUnit != null ? String(body.defaultUnit) : undefined,
+    defaultQuantity: body.defaultQuantity != null ? Number(body.defaultQuantity) : undefined,
     standardCost: body.standardCost != null ? Number(body.standardCost) : undefined,
     laborCost: body.laborCost != null ? Number(body.laborCost) : undefined,
+    standardSellPrice: body.standardSellPrice != null ? Number(body.standardSellPrice) : undefined,
+    tags: parseTagsBody(body),
     memo: body.memo !== undefined ? (body.memo != null ? String(body.memo) : null) : undefined,
-    favorite: body.favorite !== undefined ? Boolean(body.favorite) : undefined,
+    favorite: body.isFavorite !== undefined ? Boolean(body.isFavorite) : body.favorite !== undefined ? Boolean(body.favorite) : undefined,
     active: body.active !== undefined ? Boolean(body.active) : undefined,
     sortOrder: body.sortOrder != null ? Number(body.sortOrder) : undefined,
   });
@@ -279,20 +379,31 @@ masterV1Router.get("/materials", ...auth, (req: AuthedRequest, res) => {
 masterV1Router.post("/materials", ...auth, (req: AuthedRequest, res) => {
   if (!assertRole(req, res)) return;
   const body = req.body as Record<string, unknown>;
-  if (!body.name || !body.category) {
-    res.status(400).json({ error: "name and category are required" });
+  if (!body.name) {
+    res.status(400).json({ error: "name is required" });
+    return;
+  }
+  const categoryMain = body.categoryMain ?? body.category;
+  if (!categoryMain) {
+    res.status(400).json({ error: "categoryMain is required" });
     return;
   }
   const item = createMasterV1Material({
-    category: String(body.category),
+    categoryMain: String(categoryMain),
+    categorySub: body.categorySub != null ? String(body.categorySub) : "",
     name: String(body.name),
     code: body.code != null ? String(body.code) : undefined,
     maker: body.maker != null ? String(body.maker) : null,
     model: body.model != null ? String(body.model) : null,
-    unit: body.unit != null ? String(body.unit) : undefined,
+    supplier: body.supplier != null ? String(body.supplier) : null,
+    unit: body.unit != null ? String(body.unit) : body.defaultUnit != null ? String(body.defaultUnit) : undefined,
+    defaultQuantity: body.defaultQuantity != null ? Number(body.defaultQuantity) : undefined,
     cost: body.cost != null ? Number(body.cost) : undefined,
+    standardSellPrice: body.standardSellPrice != null ? Number(body.standardSellPrice) : undefined,
+    stockManaged: body.stockManaged !== undefined ? Boolean(body.stockManaged) : undefined,
+    tags: parseTagsBody(body),
     memo: body.memo != null ? String(body.memo) : null,
-    favorite: Boolean(body.favorite),
+    favorite: body.isFavorite !== undefined ? Boolean(body.isFavorite) : Boolean(body.favorite),
     active: body.active !== false,
     sortOrder: body.sortOrder != null ? Number(body.sortOrder) : 0,
   });
@@ -303,15 +414,21 @@ masterV1Router.patch("/materials/:id", ...auth, (req: AuthedRequest, res) => {
   if (!assertRole(req, res)) return;
   const body = req.body as Record<string, unknown>;
   const item = updateMasterV1Material(String(req.params.id), {
-    category: body.category != null ? String(body.category) : undefined,
+    categoryMain: body.categoryMain != null ? String(body.categoryMain) : body.category != null ? String(body.category) : undefined,
+    categorySub: body.categorySub != null ? String(body.categorySub) : undefined,
     code: body.code != null ? String(body.code) : undefined,
     name: body.name != null ? String(body.name) : undefined,
     maker: body.maker !== undefined ? (body.maker != null ? String(body.maker) : null) : undefined,
     model: body.model !== undefined ? (body.model != null ? String(body.model) : null) : undefined,
-    unit: body.unit != null ? String(body.unit) : undefined,
+    supplier: body.supplier !== undefined ? (body.supplier != null ? String(body.supplier) : null) : undefined,
+    unit: body.unit != null ? String(body.unit) : body.defaultUnit != null ? String(body.defaultUnit) : undefined,
+    defaultQuantity: body.defaultQuantity != null ? Number(body.defaultQuantity) : undefined,
     cost: body.cost != null ? Number(body.cost) : undefined,
+    standardSellPrice: body.standardSellPrice != null ? Number(body.standardSellPrice) : undefined,
+    stockManaged: body.stockManaged !== undefined ? Boolean(body.stockManaged) : undefined,
+    tags: parseTagsBody(body),
     memo: body.memo !== undefined ? (body.memo != null ? String(body.memo) : null) : undefined,
-    favorite: body.favorite !== undefined ? Boolean(body.favorite) : undefined,
+    favorite: body.isFavorite !== undefined ? Boolean(body.isFavorite) : body.favorite !== undefined ? Boolean(body.favorite) : undefined,
     active: body.active !== undefined ? Boolean(body.active) : undefined,
     sortOrder: body.sortOrder != null ? Number(body.sortOrder) : undefined,
   });
@@ -402,8 +519,11 @@ masterV1Router.post("/symbol-mappings", ...auth, (req: AuthedRequest, res) => {
     mappingKind: body.mappingKind === "line" ? "line" : "symbol",
     symbolType: String(body.symbolType),
     label: String(body.label),
+    categoryMain: body.categoryMain != null ? String(body.categoryMain) : null,
+    categorySub: body.categorySub != null ? String(body.categorySub) : null,
     workItemId: body.workItemId != null ? String(body.workItemId) : null,
     materialId: body.materialId != null ? String(body.materialId) : null,
+    extraMaterialIds: parseExtraMaterialIds(body) ?? [],
     qtyPerUnit: body.qtyPerUnit != null ? Number(body.qtyPerUnit) : 1,
     memo: body.memo != null ? String(body.memo) : null,
     active: body.active !== false,
@@ -419,8 +539,11 @@ masterV1Router.patch("/symbol-mappings/:id", ...auth, (req: AuthedRequest, res) 
     mappingKind: body.mappingKind === "line" ? "line" : body.mappingKind === "symbol" ? "symbol" : undefined,
     symbolType: body.symbolType != null ? String(body.symbolType) : undefined,
     label: body.label != null ? String(body.label) : undefined,
+    categoryMain: body.categoryMain !== undefined ? (body.categoryMain != null ? String(body.categoryMain) : null) : undefined,
+    categorySub: body.categorySub !== undefined ? (body.categorySub != null ? String(body.categorySub) : null) : undefined,
     workItemId: body.workItemId !== undefined ? (body.workItemId != null ? String(body.workItemId) : null) : undefined,
     materialId: body.materialId !== undefined ? (body.materialId != null ? String(body.materialId) : null) : undefined,
+    extraMaterialIds: parseExtraMaterialIds(body),
     qtyPerUnit: body.qtyPerUnit != null ? Number(body.qtyPerUnit) : undefined,
     memo: body.memo !== undefined ? (body.memo != null ? String(body.memo) : null) : undefined,
     active: body.active !== undefined ? Boolean(body.active) : undefined,

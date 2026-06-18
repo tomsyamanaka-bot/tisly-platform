@@ -44,14 +44,13 @@ function buildCandidate(
   qty: number,
   unit: string,
   memo: string | null
-): { work: MasterV1EstimatePreviewCandidate | null; material: MasterV1EstimatePreviewCandidate | null } {
+): { work: MasterV1EstimatePreviewCandidate | null; materials: MasterV1EstimatePreviewCandidate[] } {
   const mapping = findSymbolMappingByType(symbolType, sourceType === "line" ? "line" : "symbol");
   const workItem = mapping?.workItemId ? getMasterV1WorkItem(mapping.workItemId) : null;
-  const material = mapping?.materialId ? getMasterV1Material(mapping.materialId) : null;
   const mappingQty = (mapping?.qtyPerUnit ?? 1) * qty;
 
   let work: MasterV1EstimatePreviewCandidate | null = null;
-  let mat: MasterV1EstimatePreviewCandidate | null = null;
+  const materials: MasterV1EstimatePreviewCandidate[] = [];
 
   if (workItem) {
     work = {
@@ -67,8 +66,16 @@ function buildCandidate(
       memo,
     };
   }
-  if (material) {
-    mat = {
+
+  const materialIds = new Set<string>();
+  if (mapping?.materialId) materialIds.add(mapping.materialId);
+  for (const mid of mapping?.extraMaterialIds ?? []) {
+    if (mid) materialIds.add(mid);
+  }
+  for (const mid of materialIds) {
+    const material = getMasterV1Material(mid);
+    if (!material) continue;
+    materials.push({
       sourceType,
       sourceId,
       symbolType,
@@ -79,9 +86,10 @@ function buildCandidate(
       material,
       mappingId: mapping?.id ?? null,
       memo,
-    };
+    });
   }
-  if (!work && !mat) {
+
+  if (!work && materials.length === 0) {
     const fallback: MasterV1EstimatePreviewCandidate = {
       sourceType,
       sourceId,
@@ -94,9 +102,9 @@ function buildCandidate(
       mappingId: mapping?.id ?? null,
       memo: memo ? `${memo}（マッピング未設定）` : "マッピング未設定",
     };
-    return { work: fallback, material: null };
+    return { work: fallback, materials: [] };
   }
-  return { work, material: mat };
+  return { work, materials };
 }
 
 export function extractEstimatePreviewFromExport(
@@ -107,7 +115,7 @@ export function extractEstimatePreviewFromExport(
   const materialRaw: MasterV1EstimatePreviewCandidate[] = [];
 
   for (const sym of exportData.symbols) {
-    const { work, material } = buildCandidate(
+    const { work, materials } = buildCandidate(
       "symbol",
       sym.id,
       sym.symbolType,
@@ -116,11 +124,8 @@ export function extractEstimatePreviewFromExport(
       "台",
       sym.memo || null
     );
-    if (work) {
-      if (work.workItem) workRaw.push(work);
-      else workRaw.push(work);
-    }
-    if (material) materialRaw.push(material);
+    if (work) workRaw.push(work);
+    materialRaw.push(...materials);
   }
 
   const lineTotals = new Map<string, { lengthPx: number; count: number }>();
@@ -136,7 +141,7 @@ export function extractEstimatePreviewFromExport(
     const meta = SURVEY_DRAWING_LINE_TYPE_META[lineType as keyof typeof SURVEY_DRAWING_LINE_TYPE_META];
     const label = meta?.label ?? lineType;
     const meters = Math.round(totals.lengthPx * PX_TO_METER * 100) / 100;
-    const { work, material } = buildCandidate(
+    const { work, materials } = buildCandidate(
       "line",
       `line-${lineType}`,
       lineType,
@@ -146,7 +151,7 @@ export function extractEstimatePreviewFromExport(
       `${totals.count}ルート / ${Math.round(totals.lengthPx)}px`
     );
     if (work) workRaw.push(work);
-    if (material) materialRaw.push(material);
+    materialRaw.push(...materials);
   }
 
   return {

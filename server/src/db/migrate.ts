@@ -1,5 +1,9 @@
 import type Database from "better-sqlite3";
 import { applyRetroactiveBackfillFlags } from "../projects/project-timeline-v1-retroactive-backfill.js";
+import {
+  seedMasterV1Categories,
+  seedMasterV1CategorySamples,
+} from "../master/master-v1-category-seed.js";
 
 const EVENT_COLUMNS: Array<{ name: string; ddl: string }> = [
   { name: "event_id", ddl: "ALTER TABLE events ADD COLUMN event_id TEXT" },
@@ -221,6 +225,7 @@ export function runMigrations(database: Database.Database): void {
   migrateProjectTimelineV1RetroactiveBackfill(database);
   migrateSurveyDrawingSketchesV1(database);
   migrateMasterV1(database);
+  migrateMasterV1Categories(database);
 }
 
 /** 現調図面 v1 — 方眼紙写真 + 描画レイヤー */
@@ -3775,4 +3780,90 @@ function seedMasterV1(database: Database.Database): void {
   );
   insPrice.run("price-demo-a-cam", "cust-demo-a", "work", "work-camera-install", 28000, 23000, "顧客A カメラ設置単価", now, now);
   insPrice.run("price-demo-a-dome", "cust-demo-a", "material", "mat-v1-dome-cam", 36000, 18000, "顧客A ドームカメラ", now, now);
+}
+
+/** 見積マスター v1 カテゴリ強化 — 階層カテゴリ・タグ・記号マッピング拡張 */
+function migrateMasterV1Categories(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:master_v1_categories") as { value_json: string } | undefined;
+  if (marker) return;
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS master_v1_categories (
+      id TEXT PRIMARY KEY,
+      kind TEXT NOT NULL CHECK (kind IN ('work', 'material', 'both')),
+      category_main TEXT NOT NULL,
+      category_sub TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(kind, category_main, category_sub)
+    );
+    CREATE INDEX IF NOT EXISTS idx_master_v1_categories_main ON master_v1_categories(category_main);
+  `);
+
+  const workCols: Array<[string, string]> = [
+    ["category_main", "TEXT"],
+    ["category_sub", "TEXT DEFAULT ''"],
+    ["tags", "TEXT DEFAULT '[]'"],
+    ["default_quantity", "REAL NOT NULL DEFAULT 1"],
+    ["standard_sell_price", "REAL NOT NULL DEFAULT 0"],
+  ];
+  for (const [col, ddl] of workCols) {
+    try {
+      database.exec(`ALTER TABLE master_v1_work_items ADD COLUMN ${col} ${ddl}`);
+    } catch {
+      /* already exists */
+    }
+  }
+
+  const matCols: Array<[string, string]> = [
+    ["category_main", "TEXT"],
+    ["category_sub", "TEXT DEFAULT ''"],
+    ["tags", "TEXT DEFAULT '[]'"],
+    ["default_quantity", "REAL NOT NULL DEFAULT 1"],
+    ["standard_sell_price", "REAL NOT NULL DEFAULT 0"],
+    ["supplier", "TEXT"],
+    ["stock_managed", "INTEGER NOT NULL DEFAULT 0"],
+  ];
+  for (const [col, ddl] of matCols) {
+    try {
+      database.exec(`ALTER TABLE master_v1_materials ADD COLUMN ${col} ${ddl}`);
+    } catch {
+      /* already exists */
+    }
+  }
+
+  const mapCols: Array<[string, string]> = [
+    ["category_main", "TEXT"],
+    ["category_sub", "TEXT"],
+    ["extra_material_ids", "TEXT DEFAULT '[]'"],
+  ];
+  for (const [col, ddl] of mapCols) {
+    try {
+      database.exec(`ALTER TABLE master_v1_symbol_mappings ADD COLUMN ${col} ${ddl}`);
+    } catch {
+      /* already exists */
+    }
+  }
+
+  database.exec(`
+    UPDATE master_v1_work_items SET category_main = category WHERE category_main IS NULL OR category_main = '';
+    UPDATE master_v1_materials SET category_main = category WHERE category_main IS NULL OR category_main = '';
+    UPDATE master_v1_work_items SET standard_sell_price = standard_cost + labor_cost
+      WHERE standard_sell_price IS NULL OR standard_sell_price = 0;
+    UPDATE master_v1_materials SET standard_sell_price = cost * 2
+      WHERE standard_sell_price IS NULL OR standard_sell_price = 0;
+  `);
+
+  seedMasterV1Categories(database);
+  seedMasterV1CategorySamples(database);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:master_v1_categories", JSON.stringify({ at: new Date().toISOString() }));
 }

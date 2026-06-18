@@ -94,14 +94,18 @@ export function exportMasterV1Csv(entity: MasterV1Entity): string {
       );
     case "work-items":
       return rowsToCsv(
-        ["category", "code", "name", "unit", "standardCost", "laborCost", "memo", "favorite", "active"],
+        ["categoryMain", "categorySub", "code", "name", "unit", "defaultQuantity", "standardCost", "laborCost", "standardSellPrice", "tags", "memo", "favorite", "active"],
         listMasterV1WorkItems({ activeOnly: false }).map((w) => [
-          w.category,
+          w.categoryMain,
+          w.categorySub,
           w.code,
           w.name,
           w.unit,
+          w.defaultQuantity,
           w.standardCost,
           w.laborCost,
+          w.standardSellPrice,
+          (w.tags || []).join("|"),
           w.memo ?? "",
           w.favorite ? 1 : 0,
           w.active ? 1 : 0,
@@ -109,15 +113,21 @@ export function exportMasterV1Csv(entity: MasterV1Entity): string {
       );
     case "materials":
       return rowsToCsv(
-        ["category", "code", "name", "maker", "model", "unit", "cost", "memo", "favorite", "active"],
+        ["categoryMain", "categorySub", "code", "name", "maker", "model", "supplier", "unit", "defaultQuantity", "cost", "standardSellPrice", "stockManaged", "tags", "memo", "favorite", "active"],
         listMasterV1Materials({ activeOnly: false }).map((m) => [
-          m.category,
+          m.categoryMain,
+          m.categorySub,
           m.code,
           m.name,
           m.maker ?? "",
           m.model ?? "",
+          m.supplier ?? "",
           m.unit,
+          m.defaultQuantity,
           m.cost,
+          m.standardSellPrice,
+          m.stockManaged ? 1 : 0,
+          (m.tags || []).join("|"),
           m.memo ?? "",
           m.favorite ? 1 : 0,
           m.active ? 1 : 0,
@@ -216,18 +226,22 @@ export function importMasterV1Csv(entity: MasterV1Entity, csvText: string): Mast
         }
         case "work-items": {
           const name = col(row, "name");
-          const category = col(row, "category") || "その他";
+          const categoryMain = col(row, "categoryMain") || col(row, "category") || "その他";
           if (!name) {
             result.skipped++;
             continue;
           }
           createMasterV1WorkItem({
-            category,
+            categoryMain,
+            categorySub: col(row, "categorySub") || "",
             code: col(row, "code") || undefined,
             name,
             unit: col(row, "unit") || "式",
+            defaultQuantity: Number(col(row, "defaultQuantity")) || 1,
             standardCost: Number(col(row, "standardCost")) || 0,
             laborCost: Number(col(row, "laborCost")) || 0,
+            standardSellPrice: Number(col(row, "standardSellPrice")) || 0,
+            tags: col(row, "tags") ? col(row, "tags").split("|") : [],
             memo: col(row, "memo") || null,
             favorite: col(row, "favorite") === "1",
             active: col(row, "active") !== "0",
@@ -237,19 +251,25 @@ export function importMasterV1Csv(entity: MasterV1Entity, csvText: string): Mast
         }
         case "materials": {
           const name = col(row, "name");
-          const category = col(row, "category") || "その他";
+          const categoryMain = col(row, "categoryMain") || col(row, "category") || "その他";
           if (!name) {
             result.skipped++;
             continue;
           }
           createMasterV1Material({
-            category,
+            categoryMain,
+            categorySub: col(row, "categorySub") || "",
             code: col(row, "code") || undefined,
             name,
             maker: col(row, "maker") || null,
             model: col(row, "model") || null,
+            supplier: col(row, "supplier") || null,
             unit: col(row, "unit") || "個",
+            defaultQuantity: Number(col(row, "defaultQuantity")) || 1,
             cost: Number(col(row, "cost")) || 0,
+            standardSellPrice: Number(col(row, "standardSellPrice")) || 0,
+            stockManaged: col(row, "stockManaged") === "1",
+            tags: col(row, "tags") ? col(row, "tags").split("|") : [],
             memo: col(row, "memo") || null,
             favorite: col(row, "favorite") === "1",
             active: col(row, "active") !== "0",

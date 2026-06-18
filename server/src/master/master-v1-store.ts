@@ -1,6 +1,8 @@
 import { v4 as uuid } from "uuid";
 import { getDatabase } from "../db/database.js";
+import { parseMaterialIdsJson, parseTagsJson, tagsToJson } from "./master-v1-categories.js";
 import type {
+  MasterV1Category,
   MasterV1Customer,
   MasterV1CustomerPrice,
   MasterV1Material,
@@ -47,16 +49,25 @@ function rowRank(r: Record<string, unknown>): MasterV1Rank {
 }
 
 function rowWorkItem(r: Record<string, unknown>): MasterV1WorkItem {
+  const favorite = Number(r.favorite ?? 0) === 1;
+  const categoryMain = String(r.category_main ?? r.category ?? "");
   return {
     id: String(r.id),
-    category: String(r.category),
+    category: categoryMain,
+    categoryMain,
+    categorySub: String(r.category_sub ?? ""),
     code: String(r.code),
     name: String(r.name),
     unit: String(r.unit ?? "式"),
+    defaultUnit: String(r.unit ?? "式"),
+    defaultQuantity: Number(r.default_quantity ?? 1),
     standardCost: Number(r.standard_cost ?? 0),
     laborCost: Number(r.labor_cost ?? 0),
+    standardSellPrice: Number(r.standard_sell_price ?? 0),
+    tags: parseTagsJson(r.tags),
     memo: r.memo != null ? String(r.memo) : null,
-    favorite: Number(r.favorite ?? 0) === 1,
+    favorite,
+    isFavorite: favorite,
     active: Number(r.active ?? 1) === 1,
     sortOrder: Number(r.sort_order ?? 0),
     createdAt: String(r.created_at),
@@ -65,17 +76,28 @@ function rowWorkItem(r: Record<string, unknown>): MasterV1WorkItem {
 }
 
 function rowMaterial(r: Record<string, unknown>): MasterV1Material {
+  const favorite = Number(r.favorite ?? 0) === 1;
+  const categoryMain = String(r.category_main ?? r.category ?? "");
   return {
     id: String(r.id),
-    category: String(r.category),
+    category: categoryMain,
+    categoryMain,
+    categorySub: String(r.category_sub ?? ""),
     code: String(r.code),
     name: String(r.name),
     maker: r.maker != null ? String(r.maker) : null,
     model: r.model != null ? String(r.model) : null,
+    supplier: r.supplier != null ? String(r.supplier) : null,
     unit: String(r.unit ?? "個"),
+    defaultUnit: String(r.unit ?? "個"),
+    defaultQuantity: Number(r.default_quantity ?? 1),
     cost: Number(r.cost ?? 0),
+    standardSellPrice: Number(r.standard_sell_price ?? 0),
+    stockManaged: Number(r.stock_managed ?? 0) === 1,
+    tags: parseTagsJson(r.tags),
     memo: r.memo != null ? String(r.memo) : null,
-    favorite: Number(r.favorite ?? 0) === 1,
+    favorite,
+    isFavorite: favorite,
     active: Number(r.active ?? 1) === 1,
     sortOrder: Number(r.sort_order ?? 0),
     createdAt: String(r.created_at),
@@ -103,8 +125,11 @@ function rowSymbolMapping(r: Record<string, unknown>): MasterV1SymbolMapping {
     mappingKind: r.mapping_kind === "line" ? "line" : "symbol",
     symbolType: String(r.symbol_type),
     label: String(r.label),
+    categoryMain: r.category_main != null ? String(r.category_main) : null,
+    categorySub: r.category_sub != null ? String(r.category_sub) : null,
     workItemId: r.work_item_id != null ? String(r.work_item_id) : null,
     materialId: r.material_id != null ? String(r.material_id) : null,
+    extraMaterialIds: parseMaterialIdsJson(r.extra_material_ids),
     qtyPerUnit: Number(r.qty_per_unit ?? 1),
     memo: r.memo != null ? String(r.memo) : null,
     active: Number(r.active ?? 1) === 1,
@@ -114,9 +139,25 @@ function rowSymbolMapping(r: Record<string, unknown>): MasterV1SymbolMapping {
   };
 }
 
+function rowCategory(r: Record<string, unknown>): MasterV1Category {
+  const kind = r.kind === "work" || r.kind === "material" ? r.kind : "both";
+  return {
+    id: String(r.id),
+    kind,
+    categoryMain: String(r.category_main),
+    categorySub: String(r.category_sub),
+    sortOrder: Number(r.sort_order ?? 0),
+    active: Number(r.active ?? 1) === 1,
+    createdAt: String(r.created_at),
+    updatedAt: String(r.updated_at),
+  };
+}
+
 export interface MasterV1ListOpts {
   q?: string;
   category?: string;
+  categoryMain?: string;
+  categorySub?: string;
   favoriteOnly?: boolean;
   activeOnly?: boolean;
 }
@@ -127,9 +168,14 @@ function buildWhere(
   opts?: MasterV1ListOpts,
   searchCols?: string[]
 ): string {
-  if (opts?.category) {
-    base.push("category = ?");
-    params.push(opts.category);
+  const catMain = opts?.categoryMain || opts?.category;
+  if (catMain) {
+    base.push("(category_main = ? OR category = ?)");
+    params.push(catMain, catMain);
+  }
+  if (opts?.categorySub) {
+    base.push("category_sub = ?");
+    params.push(opts.categorySub);
   }
   if (opts?.favoriteOnly) {
     base.push("favorite = 1");
@@ -304,9 +350,11 @@ export function deleteMasterV1Rank(id: string): boolean {
 
 export function listMasterV1WorkItems(opts?: MasterV1ListOpts): MasterV1WorkItem[] {
   const params: unknown[] = [];
-  const where = buildWhere([], params, opts, ["name", "code", "category"]);
+  const where = buildWhere([], params, opts, [
+    "name", "code", "category", "category_main", "category_sub", "tags", "memo",
+  ]);
   const rows = getDatabase()
-    .prepare(`SELECT * FROM master_v1_work_items ${where} ORDER BY favorite DESC, category ASC, sort_order ASC, name ASC`)
+    .prepare(`SELECT * FROM master_v1_work_items ${where} ORDER BY favorite DESC, category_main ASC, sort_order ASC, name ASC`)
     .all(...params) as Array<Record<string, unknown>>;
   return rows.map(rowWorkItem);
 }
@@ -318,26 +366,38 @@ export function getMasterV1WorkItem(id: string): MasterV1WorkItem | null {
   return row ? rowWorkItem(row) : null;
 }
 
-export function createMasterV1WorkItem(input: Partial<MasterV1WorkItem> & { name: string; category: string }): MasterV1WorkItem {
+export function createMasterV1WorkItem(
+  input: Partial<MasterV1WorkItem> & { name: string; category?: string; categoryMain?: string }
+): MasterV1WorkItem {
   const id = uuid();
   const now = nowIso();
   const code = input.code?.trim() || `W-${id.slice(0, 8).toUpperCase()}`;
+  const categoryMain = input.categoryMain ?? input.category ?? "その他";
+  const categorySub = input.categorySub ?? "";
+  const unit = input.unit ?? input.defaultUnit ?? "式";
+  const favorite = input.isFavorite ?? input.favorite ?? false;
   getDatabase()
     .prepare(
       `INSERT INTO master_v1_work_items (
-        id, category, code, name, unit, standard_cost, labor_cost, memo, favorite, active, sort_order, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        id, category, category_main, category_sub, code, name, unit, default_quantity,
+        standard_cost, labor_cost, standard_sell_price, tags, memo, favorite, active, sort_order, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       id,
-      input.category,
+      categoryMain,
+      categoryMain,
+      categorySub,
       code,
       input.name,
-      input.unit ?? "式",
+      unit,
+      input.defaultQuantity ?? 1,
       input.standardCost ?? 0,
       input.laborCost ?? 0,
+      input.standardSellPrice ?? 0,
+      tagsToJson(input.tags),
       input.memo ?? null,
-      input.favorite ? 1 : 0,
+      favorite ? 1 : 0,
       input.active !== false ? 1 : 0,
       input.sortOrder ?? 0,
       now,
@@ -353,21 +413,29 @@ export function updateMasterV1WorkItem(
   const existing = getMasterV1WorkItem(id);
   if (!existing) return null;
   const now = nowIso();
+  const categoryMain = patch.categoryMain ?? patch.category ?? existing.categoryMain;
+  const favorite = patch.isFavorite ?? patch.favorite ?? existing.favorite;
   getDatabase()
     .prepare(
-      `UPDATE master_v1_work_items SET category = ?, code = ?, name = ?, unit = ?,
-        standard_cost = ?, labor_cost = ?, memo = ?, favorite = ?, active = ?, sort_order = ?, updated_at = ?
+      `UPDATE master_v1_work_items SET category = ?, category_main = ?, category_sub = ?, code = ?, name = ?, unit = ?,
+        default_quantity = ?, standard_cost = ?, labor_cost = ?, standard_sell_price = ?, tags = ?,
+        memo = ?, favorite = ?, active = ?, sort_order = ?, updated_at = ?
       WHERE id = ?`
     )
     .run(
-      patch.category ?? existing.category,
+      categoryMain,
+      categoryMain,
+      patch.categorySub ?? existing.categorySub,
       patch.code ?? existing.code,
       patch.name ?? existing.name,
-      patch.unit ?? existing.unit,
+      patch.unit ?? patch.defaultUnit ?? existing.unit,
+      patch.defaultQuantity ?? existing.defaultQuantity,
       patch.standardCost ?? existing.standardCost,
       patch.laborCost ?? existing.laborCost,
+      patch.standardSellPrice ?? existing.standardSellPrice,
+      patch.tags ? tagsToJson(patch.tags) : tagsToJson(existing.tags),
       patch.memo !== undefined ? patch.memo : existing.memo,
-      (patch.favorite ?? existing.favorite) ? 1 : 0,
+      favorite ? 1 : 0,
       (patch.active ?? existing.active) ? 1 : 0,
       patch.sortOrder ?? existing.sortOrder,
       now,
@@ -385,9 +453,11 @@ export function deleteMasterV1WorkItem(id: string): boolean {
 
 export function listMasterV1Materials(opts?: MasterV1ListOpts): MasterV1Material[] {
   const params: unknown[] = [];
-  const where = buildWhere([], params, opts, ["name", "code", "category", "maker", "model"]);
+  const where = buildWhere([], params, opts, [
+    "name", "code", "category", "category_main", "category_sub", "maker", "model", "supplier", "tags", "memo",
+  ]);
   const rows = getDatabase()
-    .prepare(`SELECT * FROM master_v1_materials ${where} ORDER BY favorite DESC, category ASC, sort_order ASC, name ASC`)
+    .prepare(`SELECT * FROM master_v1_materials ${where} ORDER BY favorite DESC, category_main ASC, sort_order ASC, name ASC`)
     .all(...params) as Array<Record<string, unknown>>;
   return rows.map(rowMaterial);
 }
@@ -400,28 +470,40 @@ export function getMasterV1Material(id: string): MasterV1Material | null {
 }
 
 export function createMasterV1Material(
-  input: Partial<MasterV1Material> & { name: string; category: string }
+  input: Partial<MasterV1Material> & { name: string; category?: string; categoryMain?: string }
 ): MasterV1Material {
   const id = uuid();
   const now = nowIso();
   const code = input.code?.trim() || `M-${id.slice(0, 8).toUpperCase()}`;
+  const categoryMain = input.categoryMain ?? input.category ?? "その他";
+  const categorySub = input.categorySub ?? "";
+  const unit = input.unit ?? input.defaultUnit ?? "個";
+  const favorite = input.isFavorite ?? input.favorite ?? false;
   getDatabase()
     .prepare(
       `INSERT INTO master_v1_materials (
-        id, category, code, name, maker, model, unit, cost, memo, favorite, active, sort_order, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        id, category, category_main, category_sub, code, name, maker, model, supplier, unit, default_quantity,
+        cost, standard_sell_price, stock_managed, tags, memo, favorite, active, sort_order, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       id,
-      input.category,
+      categoryMain,
+      categoryMain,
+      categorySub,
       code,
       input.name,
       input.maker ?? null,
       input.model ?? null,
-      input.unit ?? "個",
+      input.supplier ?? null,
+      unit,
+      input.defaultQuantity ?? 1,
       input.cost ?? 0,
+      input.standardSellPrice ?? 0,
+      input.stockManaged ? 1 : 0,
+      tagsToJson(input.tags),
       input.memo ?? null,
-      input.favorite ? 1 : 0,
+      favorite ? 1 : 0,
       input.active !== false ? 1 : 0,
       input.sortOrder ?? 0,
       now,
@@ -437,21 +519,31 @@ export function updateMasterV1Material(
   const existing = getMasterV1Material(id);
   if (!existing) return null;
   const now = nowIso();
+  const categoryMain = patch.categoryMain ?? patch.category ?? existing.categoryMain;
+  const favorite = patch.isFavorite ?? patch.favorite ?? existing.favorite;
   getDatabase()
     .prepare(
-      `UPDATE master_v1_materials SET category = ?, code = ?, name = ?, maker = ?, model = ?, unit = ?,
-        cost = ?, memo = ?, favorite = ?, active = ?, sort_order = ?, updated_at = ? WHERE id = ?`
+      `UPDATE master_v1_materials SET category = ?, category_main = ?, category_sub = ?, code = ?, name = ?, maker = ?, model = ?,
+        supplier = ?, unit = ?, default_quantity = ?, cost = ?, standard_sell_price = ?, stock_managed = ?, tags = ?,
+        memo = ?, favorite = ?, active = ?, sort_order = ?, updated_at = ? WHERE id = ?`
     )
     .run(
-      patch.category ?? existing.category,
+      categoryMain,
+      categoryMain,
+      patch.categorySub ?? existing.categorySub,
       patch.code ?? existing.code,
       patch.name ?? existing.name,
       patch.maker !== undefined ? patch.maker : existing.maker,
       patch.model !== undefined ? patch.model : existing.model,
-      patch.unit ?? existing.unit,
+      patch.supplier !== undefined ? patch.supplier : existing.supplier,
+      patch.unit ?? patch.defaultUnit ?? existing.unit,
+      patch.defaultQuantity ?? existing.defaultQuantity,
       patch.cost ?? existing.cost,
+      patch.standardSellPrice ?? existing.standardSellPrice,
+      (patch.stockManaged ?? existing.stockManaged) ? 1 : 0,
+      patch.tags ? tagsToJson(patch.tags) : tagsToJson(existing.tags),
       patch.memo !== undefined ? patch.memo : existing.memo,
-      (patch.favorite ?? existing.favorite) ? 1 : 0,
+      favorite ? 1 : 0,
       (patch.active ?? existing.active) ? 1 : 0,
       patch.sortOrder ?? existing.sortOrder,
       now,
@@ -583,16 +675,20 @@ export function createMasterV1SymbolMapping(
   getDatabase()
     .prepare(
       `INSERT INTO master_v1_symbol_mappings (
-        id, mapping_kind, symbol_type, label, work_item_id, material_id, qty_per_unit, memo, active, sort_order, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        id, mapping_kind, symbol_type, label, category_main, category_sub,
+        work_item_id, material_id, extra_material_ids, qty_per_unit, memo, active, sort_order, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       id,
       input.mappingKind,
       input.symbolType,
       input.label,
+      input.categoryMain ?? null,
+      input.categorySub ?? null,
       input.workItemId ?? null,
       input.materialId ?? null,
+      JSON.stringify(input.extraMaterialIds ?? []),
       input.qtyPerUnit,
       input.memo ?? null,
       input.active !== false ? 1 : 0,
@@ -613,15 +709,19 @@ export function updateMasterV1SymbolMapping(
   getDatabase()
     .prepare(
       `UPDATE master_v1_symbol_mappings SET mapping_kind = ?, symbol_type = ?, label = ?,
-        work_item_id = ?, material_id = ?, qty_per_unit = ?, memo = ?, active = ?, sort_order = ?, updated_at = ?
+        category_main = ?, category_sub = ?, work_item_id = ?, material_id = ?, extra_material_ids = ?,
+        qty_per_unit = ?, memo = ?, active = ?, sort_order = ?, updated_at = ?
       WHERE id = ?`
     )
     .run(
       patch.mappingKind ?? existing.mappingKind,
       patch.symbolType ?? existing.symbolType,
       patch.label ?? existing.label,
+      patch.categoryMain !== undefined ? patch.categoryMain : existing.categoryMain,
+      patch.categorySub !== undefined ? patch.categorySub : existing.categorySub,
       patch.workItemId !== undefined ? patch.workItemId : existing.workItemId,
       patch.materialId !== undefined ? patch.materialId : existing.materialId,
+      JSON.stringify(patch.extraMaterialIds ?? existing.extraMaterialIds),
       patch.qtyPerUnit ?? existing.qtyPerUnit,
       patch.memo !== undefined ? patch.memo : existing.memo,
       (patch.active ?? existing.active) ? 1 : 0,
@@ -657,4 +757,90 @@ export function bulkUpdateMasterV1(
     if (result) updated++;
   }
   return updated;
+}
+
+// —— Categories ——
+
+export function listMasterV1Categories(opts?: {
+  kind?: "work" | "material" | "both";
+  categoryMain?: string;
+  activeOnly?: boolean;
+}): MasterV1Category[] {
+  const params: unknown[] = [];
+  const base: string[] = [];
+  if (opts?.kind) {
+    base.push("(kind = ? OR kind = 'both')");
+    params.push(opts.kind);
+  }
+  if (opts?.categoryMain) {
+    base.push("category_main = ?");
+    params.push(opts.categoryMain);
+  }
+  if (opts?.activeOnly !== false) {
+    base.push("active = 1");
+  }
+  const where = base.length ? `WHERE ${base.join(" AND ")}` : "";
+  const rows = getDatabase()
+    .prepare(`SELECT * FROM master_v1_categories ${where} ORDER BY sort_order ASC, category_main ASC, category_sub ASC`)
+    .all(...params) as Array<Record<string, unknown>>;
+  return rows.map(rowCategory);
+}
+
+export function getMasterV1Category(id: string): MasterV1Category | null {
+  const row = getDatabase()
+    .prepare(`SELECT * FROM master_v1_categories WHERE id = ?`)
+    .get(id) as Record<string, unknown> | undefined;
+  return row ? rowCategory(row) : null;
+}
+
+export function createMasterV1Category(
+  input: Omit<MasterV1Category, "id" | "createdAt" | "updatedAt">
+): MasterV1Category {
+  const id = uuid();
+  const now = nowIso();
+  getDatabase()
+    .prepare(
+      `INSERT INTO master_v1_categories (id, kind, category_main, category_sub, sort_order, active, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .run(
+      id,
+      input.kind,
+      input.categoryMain,
+      input.categorySub,
+      input.sortOrder ?? 0,
+      input.active !== false ? 1 : 0,
+      now,
+      now
+    );
+  return getMasterV1Category(id)!;
+}
+
+export function updateMasterV1Category(
+  id: string,
+  patch: Partial<Omit<MasterV1Category, "id" | "createdAt" | "updatedAt">>
+): MasterV1Category | null {
+  const existing = getMasterV1Category(id);
+  if (!existing) return null;
+  const now = nowIso();
+  getDatabase()
+    .prepare(
+      `UPDATE master_v1_categories SET kind = ?, category_main = ?, category_sub = ?,
+        sort_order = ?, active = ?, updated_at = ? WHERE id = ?`
+    )
+    .run(
+      patch.kind ?? existing.kind,
+      patch.categoryMain ?? existing.categoryMain,
+      patch.categorySub ?? existing.categorySub,
+      patch.sortOrder ?? existing.sortOrder,
+      (patch.active ?? existing.active) ? 1 : 0,
+      now,
+      id
+    );
+  return getMasterV1Category(id);
+}
+
+export function deleteMasterV1Category(id: string): boolean {
+  const r = getDatabase().prepare(`DELETE FROM master_v1_categories WHERE id = ?`).run(id);
+  return r.changes > 0;
 }

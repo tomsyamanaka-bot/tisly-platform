@@ -2,23 +2,37 @@
 
 export const MASTER_V1_WORK_CATEGORIES = [
   "防犯カメラ",
-  "ネットワーク",
-  "電気",
-  "センサー",
-  "設定",
+  "LAN / ネットワーク",
+  "Wi-Fi / AP",
+  "電気工事",
+  "照明",
+  "セキュリティ",
+  "現調 / 設計",
   "その他",
 ] as const;
 export type MasterV1WorkCategory = (typeof MASTER_V1_WORK_CATEGORIES)[number];
 
 export const MASTER_V1_MATERIAL_CATEGORIES = [
   "防犯カメラ",
-  "ネットワーク",
-  "ケーブル",
-  "電源",
-  "センサー",
+  "LAN / ネットワーク",
+  "Wi-Fi / AP",
+  "電気工事",
+  "照明",
+  "セキュリティ",
   "その他",
 ] as const;
 export type MasterV1MaterialCategory = (typeof MASTER_V1_MATERIAL_CATEGORIES)[number];
+
+export interface MasterV1Category {
+  id: string;
+  kind: "work" | "material" | "both";
+  categoryMain: string;
+  categorySub: string;
+  sortOrder: number;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface MasterV1Customer {
   id: string;
@@ -51,14 +65,22 @@ export interface MasterV1Rank {
 
 export interface MasterV1WorkItem {
   id: string;
+  /** @deprecated use categoryMain */
   category: string;
+  categoryMain: string;
+  categorySub: string;
   code: string;
   name: string;
   unit: string;
+  defaultUnit: string;
+  defaultQuantity: number;
   standardCost: number;
   laborCost: number;
+  standardSellPrice: number;
+  tags: string[];
   memo: string | null;
   favorite: boolean;
+  isFavorite: boolean;
   active: boolean;
   sortOrder: number;
   createdAt: string;
@@ -67,15 +89,25 @@ export interface MasterV1WorkItem {
 
 export interface MasterV1Material {
   id: string;
+  /** @deprecated use categoryMain */
   category: string;
+  categoryMain: string;
+  categorySub: string;
   code: string;
   name: string;
   maker: string | null;
   model: string | null;
+  supplier: string | null;
   unit: string;
+  defaultUnit: string;
+  defaultQuantity: number;
   cost: number;
+  standardSellPrice: number;
+  stockManaged: boolean;
+  tags: string[];
   memo: string | null;
   favorite: boolean;
+  isFavorite: boolean;
   active: boolean;
   sortOrder: number;
   createdAt: string;
@@ -103,8 +135,11 @@ export interface MasterV1SymbolMapping {
   mappingKind: MasterV1SymbolMappingKind;
   symbolType: string;
   label: string;
+  categoryMain: string | null;
+  categorySub: string | null;
   workItemId: string | null;
   materialId: string | null;
+  extraMaterialIds: string[];
   qtyPerUnit: number;
   memo: string | null;
   active: boolean;
@@ -142,4 +177,5 @@ export type MasterV1Entity =
   | "work-items"
   | "materials"
   | "customer-prices"
-  | "symbol-mappings";
+  | "symbol-mappings"
+  | "categories";
