@@ -908,3 +908,19 @@ export function deleteMasterV1Category(id: string): boolean {
   const r = getDatabase().prepare(`DELETE FROM master_v1_categories WHERE id = ?`).run(id);
   return r.changes > 0;
 }
+
+export function reorderMasterV1Categories(
+  orders: Array<{ id: string; sortOrder: number }>
+): number {
+  const db = getDatabase();
+  const stmt = db.prepare(
+    `UPDATE master_v1_categories SET sort_order = ?, updated_at = ? WHERE id = ?`
+  );
+  const now = nowIso();
+  let updated = 0;
+  for (const o of orders) {
+    const r = stmt.run(o.sortOrder, now, o.id);
+    if (r.changes) updated++;
+  }
+  return updated;
+}

@@ -228,6 +228,7 @@ export function runMigrations(database: Database.Database): void {
   migrateMasterV1(database);
   migrateMasterV1Categories(database);
   migrateMasterV1EstimatePreview(database);
+  migrateMasterV1EstimateApply(database);
 }
 
 /** 現調図面 v1 — 方眼紙写真 + 描画レイヤー */
@@ -3899,4 +3900,42 @@ function migrateMasterV1EstimatePreview(database: Database.Database): void {
       `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
     )
     .run("migration:master_v1_estimate_preview", JSON.stringify({ at: new Date().toISOString() }));
+}
+
+/** 見積マスター v1 → 見積PWA 連携 */
+function migrateMasterV1EstimateApply(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:master_v1_estimate_apply") as { value_json: string } | undefined;
+  if (marker) return;
+
+  const draftCols: Array<[string, string]> = [
+    ["business_project_id", "TEXT"],
+    ["estimate_id", "TEXT"],
+    ["applied_at", "TEXT"],
+  ];
+  for (const [col, ddl] of draftCols) {
+    try {
+      database.exec(`ALTER TABLE master_v1_estimate_drafts ADD COLUMN ${col} ${ddl}`);
+    } catch {
+      /* already exists */
+    }
+  }
+
+  try {
+    database.exec(`ALTER TABLE business_estimates ADD COLUMN master_draft_id TEXT`);
+  } catch {
+    /* already exists */
+  }
+
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_master_v1_estimate_drafts_biz ON master_v1_estimate_drafts(business_project_id);
+    CREATE INDEX IF NOT EXISTS idx_business_estimates_master_draft ON business_estimates(master_draft_id);
+  `);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:master_v1_estimate_apply", JSON.stringify({ at: new Date().toISOString() }));
 }

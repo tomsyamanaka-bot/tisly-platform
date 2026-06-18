@@ -27,6 +27,7 @@ import {
   listEstimatePriceRulePresetsV1,
   generateAndSaveSpecificationPdfV1,
 } from "../../estimate/estimate-v1-store.js";
+import { createEstimateFromMasterDraftV1 } from "../../master/master-v1-estimate-apply-service.js";
 import { maybeAutoSaveSpecificationPdfV1 } from "../../projects/project-pdf-auto-save.js";
 import {
   addCompletionPhotoV1,
@@ -64,6 +65,8 @@ import {
   resolveProjectPdfForServeV1,
 } from "../../projects/project-documents-v1.js";
 import { recordPdfShareLogV1, listPdfShareLogsForProjectV1 } from "../../projects/pdf-share-log-store.js";
+import { getMasterV1EstimateDraft } from "../../master/master-v1-draft-estimate-store.js";
+import { summarizeMasterPreviewPricing } from "../../master/master-v1-estimate-apply-service.js";
 
 export const estimateV1Router = Router();
 
@@ -175,6 +178,31 @@ estimateV1Router.post("/from-survey/:surveyProjectId", ...estimateV1Auth, async 
           : 400;
     res.status(status).json({ error: msg });
   }
+});
+
+estimateV1Router.post("/from-master-draft/:masterDraftId", ...estimateV1Auth, (req: AuthedRequest, res) => {
+  if (!assertEstimateV1Role(req, res)) return;
+  try {
+    const detail = createEstimateFromMasterDraftV1(
+      String(req.params.masterDraftId),
+      req.admin?.username
+    );
+    res.status(201).json(detail);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "create failed";
+    const status = msg === "master draft not found" ? 404 : 400;
+    res.status(status).json({ error: msg });
+  }
+});
+
+estimateV1Router.get("/master-drafts/:masterDraftId", ...estimateV1Auth, (req: AuthedRequest, res) => {
+  if (!assertEstimateV1Role(req, res)) return;
+  const draft = getMasterV1EstimateDraft(String(req.params.masterDraftId));
+  if (!draft) {
+    res.status(404).json({ error: "master draft not found" });
+    return;
+  }
+  res.json({ draft, pricingSummary: summarizeMasterPreviewPricing(draft.preview) });
 });
 
 estimateV1Router.post("/standalone-estimate", ...estimateV1Auth, (req: AuthedRequest, res) => {

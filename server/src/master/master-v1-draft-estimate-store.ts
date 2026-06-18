@@ -9,8 +9,34 @@ export interface MasterV1EstimateDraft {
   customerId: string | null;
   preview: MasterV1EstimatePreviewEnriched;
   status: "draft" | "applied";
+  businessProjectId: string | null;
+  estimateId: string | null;
+  appliedAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+function rowToDraft(row: Record<string, unknown>): MasterV1EstimateDraft | null {
+  let preview: MasterV1EstimatePreviewEnriched;
+  try {
+    preview = JSON.parse(String(row.payload_json)) as MasterV1EstimatePreviewEnriched;
+  } catch {
+    return null;
+  }
+  return {
+    id: String(row.id),
+    projectId: row.project_id != null ? String(row.project_id) : null,
+    sketchId: row.sketch_id != null ? String(row.sketch_id) : null,
+    customerId: row.customer_id != null ? String(row.customer_id) : null,
+    preview,
+    status: row.status === "applied" ? "applied" : "draft",
+    businessProjectId:
+      row.business_project_id != null ? String(row.business_project_id) : null,
+    estimateId: row.estimate_id != null ? String(row.estimate_id) : null,
+    appliedAt: row.applied_at != null ? String(row.applied_at) : null,
+    createdAt: String(row.created_at),
+    updatedAt: String(row.updated_at),
+  };
 }
 
 function nowIso(): string {
@@ -47,6 +73,9 @@ export function saveMasterV1EstimateDraft(input: {
     customerId: input.customerId ?? null,
     preview: input.preview,
     status: "draft",
+    businessProjectId: null,
+    estimateId: null,
+    appliedAt: null,
     createdAt: now,
     updatedAt: now,
   };
@@ -57,20 +86,37 @@ export function getMasterV1EstimateDraft(id: string): MasterV1EstimateDraft | nu
     .prepare(`SELECT * FROM master_v1_estimate_drafts WHERE id = ?`)
     .get(id) as Record<string, unknown> | undefined;
   if (!row) return null;
-  let preview: MasterV1EstimatePreviewEnriched;
-  try {
-    preview = JSON.parse(String(row.payload_json)) as MasterV1EstimatePreviewEnriched;
-  } catch {
-    return null;
-  }
-  return {
-    id: String(row.id),
-    projectId: row.project_id != null ? String(row.project_id) : null,
-    sketchId: row.sketch_id != null ? String(row.sketch_id) : null,
-    customerId: row.customer_id != null ? String(row.customer_id) : null,
-    preview,
-    status: row.status === "applied" ? "applied" : "draft",
-    createdAt: String(row.created_at),
-    updatedAt: String(row.updated_at),
-  };
+  return rowToDraft(row);
+}
+
+export function getLatestMasterV1EstimateDraftBySketch(
+  sketchId: string
+): MasterV1EstimateDraft | null {
+  const row = getDatabase()
+    .prepare(
+      `SELECT * FROM master_v1_estimate_drafts WHERE sketch_id = ? ORDER BY updated_at DESC LIMIT 1`
+    )
+    .get(sketchId) as Record<string, unknown> | undefined;
+  if (!row) return null;
+  return rowToDraft(row);
+}
+
+export function markMasterV1EstimateDraftApplied(
+  id: string,
+  businessProjectId: string,
+  estimateId: string
+): MasterV1EstimateDraft | null {
+  const now = nowIso();
+  getDatabase()
+    .prepare(
+      `UPDATE master_v1_estimate_drafts SET
+        status = 'applied',
+        business_project_id = ?,
+        estimate_id = ?,
+        applied_at = ?,
+        updated_at = ?
+       WHERE id = ?`
+    )
+    .run(businessProjectId, estimateId, now, now, id);
+  return getMasterV1EstimateDraft(id);
 }

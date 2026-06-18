@@ -359,6 +359,13 @@ export function getEstimateProjectV1Detail(businessProjectId: string): EstimateP
           discountPolicyMemo: row.discountPolicyMemo,
         };
       })();
+  let masterDraftId: string | null = null;
+  if (project.estimateId) {
+    const draftRow = getDatabase()
+      .prepare(`SELECT master_draft_id FROM business_estimates WHERE id = ?`)
+      .get(project.estimateId) as { master_draft_id: string | null } | undefined;
+    masterDraftId = draftRow?.master_draft_id ?? null;
+  }
   return {
     businessProjectId: project.id,
     projectNo: project.projectNo,
@@ -386,6 +393,7 @@ export function getEstimateProjectV1Detail(businessProjectId: string): EstimateP
     pdfPath: estimate?.pdfPath ?? null,
     standaloneDocKind: project.standaloneDocKind,
     tomsFormatReady: Boolean(estimate),
+    masterDraftId,
   };
 }
 

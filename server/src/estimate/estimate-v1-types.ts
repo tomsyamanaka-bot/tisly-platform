@@ -64,6 +64,7 @@ export interface EstimateProjectV1Detail {
   pdfPath: string | null;
   standaloneDocKind?: "estimate" | "invoice" | null;
   tomsFormatReady: boolean;
+  masterDraftId?: string | null;
 }
 
 export interface EstimateTotalsV1 {

@@ -49,6 +49,7 @@ import {
   updateMasterV1Rank,
   updateMasterV1SymbolMapping,
   updateMasterV1WorkItem,
+  reorderMasterV1Categories,
 } from "../../master/master-v1-store.js";
 import { exportMasterV1Csv, importMasterV1Csv } from "../../master/master-v1-csv.js";
 import {
@@ -56,7 +57,11 @@ import {
   buildEstimatePreviewFromLayers,
   listSymbolMappingSummary,
 } from "../../master/estimate-preview-service.js";
-import { saveMasterV1EstimateDraft, getMasterV1EstimateDraft } from "../../master/master-v1-draft-estimate-store.js";
+import { saveMasterV1EstimateDraft, getMasterV1EstimateDraft, getLatestMasterV1EstimateDraftBySketch } from "../../master/master-v1-draft-estimate-store.js";
+import {
+  createEstimateFromMasterDraftV1,
+  summarizeMasterPreviewPricing,
+} from "../../master/master-v1-estimate-apply-service.js";
 import {
   createStorageProvider,
   getDefaultStorageProvider,
@@ -646,7 +651,54 @@ masterV1Router.get("/estimate-drafts/:id", ...auth, (req: AuthedRequest, res) =>
     res.status(404).json({ error: "draft not found" });
     return;
   }
-  res.json({ draft });
+  res.json({
+    draft,
+    pricingSummary: summarizeMasterPreviewPricing(draft.preview),
+  });
+});
+
+masterV1Router.get("/estimate-drafts/by-sketch/:sketchId", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const draft = getLatestMasterV1EstimateDraftBySketch(String(req.params.sketchId));
+  if (!draft) {
+    res.status(404).json({ error: "draft not found" });
+    return;
+  }
+  res.json({
+    draft,
+    pricingSummary: summarizeMasterPreviewPricing(draft.preview),
+  });
+});
+
+masterV1Router.post("/estimate-drafts/:id/apply-to-estimate", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  try {
+    const detail = createEstimateFromMasterDraftV1(String(req.params.id), req.admin?.username);
+    res.status(201).json({
+      draft: getMasterV1EstimateDraft(String(req.params.id)),
+      detail,
+      businessProjectId: detail.businessProjectId,
+      estimateUrl: `/estimate-v1?project=${encodeURIComponent(detail.businessProjectId)}&masterDraftId=${encodeURIComponent(String(req.params.id))}`,
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "apply failed";
+    const status = msg === "master draft not found" ? 404 : 400;
+    res.status(status).json({ error: msg });
+  }
+});
+
+masterV1Router.post("/categories/reorder", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const body = req.body as { orders?: Array<{ id: string; sortOrder: number }> };
+  const orders = Array.isArray(body.orders) ? body.orders : [];
+  if (!orders.length) {
+    res.status(400).json({ error: "orders are required" });
+    return;
+  }
+  const updated = reorderMasterV1Categories(
+    orders.map((o) => ({ id: String(o.id), sortOrder: Number(o.sortOrder) || 0 }))
+  );
+  res.json({ updated, categories: listMasterV1Categories({ activeOnly: false }) });
 });
 
 // —— CSV ——
