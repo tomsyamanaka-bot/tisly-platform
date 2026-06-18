@@ -4,6 +4,7 @@ import {
   seedMasterV1Categories,
   seedMasterV1CategorySamples,
 } from "../master/master-v1-category-seed.js";
+import { seedMasterV1CameraExpanded } from "../master/master-v1-camera-seed.js";
 
 const EVENT_COLUMNS: Array<{ name: string; ddl: string }> = [
   { name: "event_id", ddl: "ALTER TABLE events ADD COLUMN event_id TEXT" },
@@ -226,6 +227,7 @@ export function runMigrations(database: Database.Database): void {
   migrateSurveyDrawingSketchesV1(database);
   migrateMasterV1(database);
   migrateMasterV1Categories(database);
+  migrateMasterV1EstimatePreview(database);
 }
 
 /** 現調図面 v1 — 方眼紙写真 + 描画レイヤー */
@@ -3866,4 +3868,35 @@ function migrateMasterV1Categories(database: Database.Database): void {
       `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
     )
     .run("migration:master_v1_categories", JSON.stringify({ at: new Date().toISOString() }));
+}
+
+/** 見積マスター v1 — AI見積プレビュー・draft保存・防犯カメラ拡張シード */
+function migrateMasterV1EstimatePreview(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:master_v1_estimate_preview") as { value_json: string } | undefined;
+  if (marker) return;
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS master_v1_estimate_drafts (
+      id TEXT PRIMARY KEY,
+      project_id TEXT,
+      sketch_id TEXT,
+      customer_id TEXT,
+      payload_json TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'applied')),
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_master_v1_estimate_drafts_sketch ON master_v1_estimate_drafts(sketch_id);
+    CREATE INDEX IF NOT EXISTS idx_master_v1_estimate_drafts_project ON master_v1_estimate_drafts(project_id);
+  `);
+
+  seedMasterV1CameraExpanded(database);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:master_v1_estimate_preview", JSON.stringify({ at: new Date().toISOString() }));
 }
