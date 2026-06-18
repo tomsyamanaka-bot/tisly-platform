@@ -102,7 +102,7 @@ async function main() {
   const health = await getHealth();
   const token = await getToken();
 
-  const debugListRes = await apiFetch(token, "/api/debug/google-calendar/calendar-list");
+  const debugListRes = await apiFetch(token, "/api/google-calendar/debug/calendar-list");
   const hasDebugApi = debugListRes.res.status === 200 && debugListRes.data.ok === true;
 
   if (hasDebugApi) {
@@ -145,13 +145,13 @@ async function main() {
   let eventsAllRaw = { events: [] };
   const debugEventsRes = await apiFetch(
     token,
-    `/api/debug/google-calendar/events-with-calendar?startDate=${START}&endDate=${END}`
+    `/api/google-calendar/debug/events-with-calendar?startDate=${START}&endDate=${END}`
   );
   if (debugEventsRes.res.status === 200 && debugEventsRes.data.ok) {
     eventsSyncRaw = debugEventsRes.data;
     const debugAllRes = await apiFetch(
       token,
-      `/api/debug/google-calendar/events-with-calendar?startDate=${START}&endDate=${END}&allReadable=1`
+      `/api/google-calendar/debug/events-with-calendar?startDate=${START}&endDate=${END}&allReadable=1`
     );
     eventsAllRaw = debugAllRes.data;
   } else {

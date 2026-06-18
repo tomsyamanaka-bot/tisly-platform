@@ -30,6 +30,11 @@ import {
   updateGoogleCalendarSettingsV1,
 } from "../../schedule/google-calendar-sync-service.js";
 import {
+  fetchGoogleCalendarEventsDebug,
+  fetchGoogleCalendarListDebug,
+  findDenGenAmiEvents,
+} from "../../schedule/google-calendar-debug-export.js";
+import {
   refreshGoogleCalendarGrantedScopes,
   testGoogleCalendarEventWrite,
 } from "../../services/googleOAuthService.js";
@@ -114,6 +119,36 @@ googleCalendarRouter.patch("/settings", ...calendarAuth, (req: AuthedRequest, re
     res.json({ settings });
   } catch (e) {
     res.status(400).json({ error: e instanceof Error ? e.message : "settings update failed" });
+  }
+});
+
+googleCalendarRouter.get("/debug/calendar-list", ...calendarAuth, async (req: AuthedRequest, res) => {
+  if (!assertScheduleRole(req, res)) return;
+  try {
+    const data = await fetchGoogleCalendarListDebug();
+    res.json({ ok: true, ...data });
+  } catch (e) {
+    res.status(500).json({
+      ok: false,
+      error: e instanceof Error ? e.message : "calendar list debug failed",
+    });
+  }
+});
+
+googleCalendarRouter.get("/debug/events-with-calendar", ...calendarAuth, async (req: AuthedRequest, res) => {
+  if (!assertScheduleRole(req, res)) return;
+  const startDate = String(req.query.startDate ?? req.query.start ?? "2026-06-20").slice(0, 10);
+  const endDate = String(req.query.endDate ?? req.query.end ?? "2026-06-30").slice(0, 10);
+  const allReadable = req.query.allReadable === "1" || req.query.allReadable === "true";
+  try {
+    const data = await fetchGoogleCalendarEventsDebug(startDate, endDate, { allReadable });
+    const denGen = findDenGenAmiEvents(data.events);
+    res.json({ ok: true, startDate, endDate, allReadable, ...data, denGenAmi: denGen });
+  } catch (e) {
+    res.status(500).json({
+      ok: false,
+      error: e instanceof Error ? e.message : "events debug failed",
+    });
   }
 });
 
