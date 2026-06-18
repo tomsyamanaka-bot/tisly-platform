@@ -188,6 +188,21 @@ function formatDateTime(iso) {
   });
 }
 
+async function qnapStorageApi(path, opts = {}) {
+  const token = getCustomerToken();
+  const res = await fetch(`/api/storage/qnap${path}`, {
+    ...opts,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      ...(opts.headers || {}),
+    },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
 async function storageApi(projectId) {
   const token = getCustomerToken();
   const res = await fetch(`${STORAGE_API}/${encodeURIComponent(projectId)}`, {
@@ -944,6 +959,10 @@ function renderFilesTab() {
       <div class="storage-path-label">保存先パス</div>
       <div class="storage-path">${folderPath}</div>
       <div class="storage-provider-hint">保存先: ${providerLabel}</div>
+      <div class="storage-qnap-actions" style="display:flex;flex-direction:column;gap:0.5rem;margin-top:0.75rem;">
+        <button type="button" class="storage-action-btn primary" id="btn-qnap-sync-project" style="min-height:48px;">案件まとめて保存</button>
+        <button type="button" class="storage-action-btn" id="btn-qnap-retry-failed" style="min-height:48px;">失敗分を再試行</button>
+      </div>
     </section>
     <h3 class="section-sub">書類</h3>
     <div class="storage-file-list">${docRows}</div>
@@ -1161,6 +1180,43 @@ async function uploadStorageFiles(folderType, fileList, btn) {
   }
 }
 
+function bindQnapStorageActions() {
+  document.getElementById("btn-qnap-sync-project")?.addEventListener("click", async (btn) => {
+    const el = btn.currentTarget;
+    el.disabled = true;
+    try {
+      const result = await qnapStorageApi(`/sync-project/${encodeURIComponent(detail.project.id)}`, {
+        method: "POST",
+        body: "{}",
+      });
+      toast(`QNAP保存 ${result.synced?.length ?? 0}件 / 失敗 ${result.failed?.length ?? 0}件`);
+      await refreshStorageData();
+      render();
+    } catch (e) {
+      toast(e.message || "QNAP保存に失敗しました");
+    } finally {
+      el.disabled = false;
+    }
+  });
+  document.getElementById("btn-qnap-retry-failed")?.addEventListener("click", async (btn) => {
+    const el = btn.currentTarget;
+    el.disabled = true;
+    try {
+      const result = await qnapStorageApi("/retry-failed", {
+        method: "POST",
+        body: JSON.stringify({ projectId: detail.project.id }),
+      });
+      toast(`再試行 ${result.retried}件 — 成功 ${result.synced?.length ?? 0}件`);
+      await refreshStorageData();
+      render();
+    } catch (e) {
+      toast(e.message || "再試行に失敗しました");
+    } finally {
+      el.disabled = false;
+    }
+  });
+}
+
 function bindStorageUploads() {
   const pairs = [
     ["btn-upload-photos", "input-upload-photos", "photos"],
@@ -1234,6 +1290,7 @@ function bindActions() {
 
   bindDocActions();
   bindStorageUploads();
+  bindQnapStorageActions();
   bindStorageFolders();
   document.querySelectorAll("[data-tl-filter]").forEach((btn) => {
     btn.addEventListener("click", () => {
