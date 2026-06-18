@@ -1,0 +1,18 @@
+{
+  "capturedAt": "2026-06-18T14:48:51.686Z",
+  "base": "http://127.0.0.1:3080",
+  "feature": "master-v1-category-enhancement",
+  "files": [
+    "01-iphone-customers.png",
+    "02-iphone-work-categories.png",
+    "03-iphone-materials-categories.png",
+    "04-iphone-symbol-mappings.png",
+    "05-android10-work-items.png",
+    "06-android10-materials.png"
+  ],
+  "viewports": {
+    "iphone": "390x844",
+    "android10": "800x1280"
+  },
+  "ok": true
+}

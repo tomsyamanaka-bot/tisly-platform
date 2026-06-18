@@ -51,7 +51,17 @@ describe("Master v1 — 見積マスター基盤", () => {
     assert.equal(res.status, 200);
     assert.ok(res.body.workCategories.length >= 3);
     assert.ok(res.body.materialCategories.length >= 3);
+    assert.ok(res.body.chipFilters.length >= 5);
+    assert.ok(res.body.categories.length >= 20);
     assert.deepEqual(res.body.storageProviders, ["local", "webdav", "qnap"]);
+  });
+
+  it("カテゴリ階層 API", async () => {
+    const res = await request(app)
+      .get("/api/master/v1/categories?categoryMain=防犯カメラ")
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(res.status, 200);
+    assert.ok(res.body.categories.some((c: { categorySub: string }) => c.categorySub === "カメラ設置"));
   });
 
   it("顧客・ランク・作業・材料マスター一覧", async () => {
@@ -70,10 +80,23 @@ describe("Master v1 — 見積マスター基盤", () => {
     assert.equal(cam.name, "カメラ設置");
 
     const mats = await request(app)
-      .get("/api/master/v1/materials?category=ケーブル")
+      .get(`/api/master/v1/materials?categoryMain=${encodeURIComponent("LAN / ネットワーク")}`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(mats.status, 200);
     assert.ok(mats.body.materials.some((m: { code: string }) => m.code === "M-LAN"));
+
+    const workCat = await request(app)
+      .get(`/api/master/v1/work-items?chip=${encodeURIComponent("防犯カメラ")}`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(workCat.status, 200);
+    assert.ok(workCat.body.workItems.length >= 5);
+    assert.ok(workCat.body.workItems.every((w: { categoryMain: string }) => w.categoryMain === "防犯カメラ"));
+
+    const search = await request(app)
+      .get("/api/master/v1/materials?q=RJ45")
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(search.status, 200);
+    assert.ok(search.body.materials.some((m: { name: string }) => m.name.includes("RJ45")));
   });
 
   it("symbolMapping がカメラ記号と作業を紐付ける", async () => {
@@ -83,8 +106,10 @@ describe("Master v1 — 見積マスター基盤", () => {
     assert.equal(res.status, 200);
     const dome = res.body.mappings.find((m: { symbolType: string }) => m.symbolType === "dome_camera");
     assert.ok(dome);
-    assert.equal(dome.workItemId, "work-camera-install");
+    assert.equal(dome.workItemId, "work-dome-camera");
     assert.equal(dome.materialId, "mat-v1-dome-cam");
+    assert.ok(dome.extraMaterialIds.length >= 2);
+    assert.equal(dome.categoryMain, "防犯カメラ");
     const lan = res.body.mappings.find((m: { symbolType: string }) => m.symbolType === "lan");
     assert.ok(lan);
     assert.equal(lan.mappingKind, "line");
@@ -169,10 +194,11 @@ describe("Master v1 — 見積マスター基盤", () => {
     assert.equal(preview.body.pathCount, 1);
     assert.ok(preview.body.workCandidates.length >= 2);
     const camWork = preview.body.workCandidates.find(
-      (c: { label: string }) => c.label === "カメラ設置"
+      (c: { label: string }) => c.label === "ドームカメラ設置"
     );
     assert.ok(camWork);
     assert.equal(camWork.qty, 1);
+    assert.ok(preview.body.materialCandidates.length >= 3);
     const apWork = preview.body.workCandidates.find((c: { label: string }) => c.label === "AP設置");
     assert.ok(apWork);
   });
