@@ -7,7 +7,10 @@ import {
 import { renderFriendlyErrorHtml } from "./tisly-friendly-errors.js";
 import {
   GOOGLE_OAUTH_ORG_INTERNAL_USER_MESSAGE,
+  clearGoogleCalendarUiErrorState,
+  formatSyncResultLines,
   mountOAuthSetupGuideCard,
+  renderGoogleCalendarErrorFromStatus,
   renderOAuthCallbackFromParams,
 } from "./google-calendar-oauth-ui.js";
 
@@ -60,18 +63,7 @@ function formatSyncErrorForUi(err) {
 }
 
 function formatSyncSuccessLines(result) {
-  const lastSyncedAt = result.lastSyncedAt || result.sync?.lastSyncedAt;
-  const lastSyncLabel = lastSyncedAt
-    ? lastSyncedAt.slice(0, 16).replace("T", " ")
-    : "—";
-  return [
-    "同期成功",
-    `最終同期 ${lastSyncLabel}`,
-    `取得 ${result.fetched ?? result.pulled ?? 0}件`,
-    `作成 ${result.created ?? 0}件`,
-    `更新 ${result.updated ?? 0}件`,
-    `スキップ ${result.skipped ?? 0}件`,
-  ];
+  return formatSyncResultLines(result);
 }
 
 async function api(path, opts = {}) {
@@ -344,10 +336,11 @@ async function refreshStatus() {
   $("sync-line").textContent = [
     cal.scope?.label ? `OAuthスコープ: ${cal.scope.label}` : "",
     missing,
-    cal.sync?.lastSyncError ? `直近エラー: ${cal.sync.lastSyncError}` : "",
   ]
     .filter(Boolean)
     .join(" · ") || " ";
+
+  renderGoogleCalendarErrorFromStatus(cal);
 
   const needsRelogin = Boolean(cal.needsRelogin || cal.scope?.needsReLogin);
   const canSync = cal.mode === "live" && cal.connected && !needsRelogin;
@@ -569,6 +562,7 @@ async function init() {
   const params = new URLSearchParams(window.location.search);
   const oauthView = renderOAuthCallbackFromParams(params);
   if (params.get("oauth") === "ok") {
+    clearGoogleCalendarUiErrorState();
     const refreshSaved = params.get("oauth_refresh_token_saved") === "true";
     toast(
       refreshSaved
@@ -640,8 +634,9 @@ async function init() {
         return;
       }
       const el = $("sync-result");
-      el.classList.remove("hidden");
+      el.classList.remove("hidden", "err");
       el.textContent = formatSyncSuccessLines(result).join(" · ");
+      clearGoogleCalendarUiErrorState();
       toast("同期成功");
       await refreshStatus();
     } catch (e) {

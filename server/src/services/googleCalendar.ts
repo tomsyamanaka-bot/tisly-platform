@@ -19,6 +19,7 @@ import {
   assertGoogleCalendarSyncAllowed,
   getGoogleCalendarAuthUrl,
   getGoogleCalendarGrantedScopes,
+  getGoogleCalendarLastOAuthError,
   getGoogleCalendarOAuthEnvDebug,
   type GoogleCalendarOAuthEnvDebug,
   getGoogleCalendarOAuthStatus,
@@ -82,6 +83,13 @@ export interface GoogleCalendarPublicStatus {
     label: string;
   };
   oauthDebug: GoogleCalendarOAuthEnvDebug;
+  lastOAuthError: {
+    at: string | null;
+    error: string | null;
+    errorDescription: string | null;
+    message: string | null;
+    userMessage: string | null;
+  } | null;
 }
 
 export interface GoogleCalendarConfig {
@@ -779,6 +787,7 @@ export function getGoogleCalendarPublicStatus(): GoogleCalendarPublicStatus {
       label: scopeLabel,
     },
     oauthDebug: getGoogleCalendarOAuthEnvDebug(),
+    lastOAuthError: getGoogleCalendarLastOAuthError(),
   };
 }
 

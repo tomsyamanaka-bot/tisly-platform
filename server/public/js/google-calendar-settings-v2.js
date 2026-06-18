@@ -6,9 +6,11 @@ import {
 } from "./customer-auth.js";
 import {
   GOOGLE_OAUTH_ORG_INTERNAL_USER_MESSAGE,
+  clearGoogleCalendarUiErrorState,
   formatConnectionTestLines,
   formatSyncResultLines,
   mountOAuthSetupGuideCard,
+  renderGoogleCalendarErrorFromStatus,
   renderOAuthCallbackFromParams,
 } from "./google-calendar-oauth-ui.js";
 
@@ -126,6 +128,8 @@ function renderStatus(cal) {
   const reloginBtn = $("btn-relogin");
   if (reloginBtn) reloginBtn.disabled = !cal.configured || cal.mode !== "live";
 
+  renderGoogleCalendarErrorFromStatus(cal);
+
   const banner = $("sync-mode-banner");
   if (banner) {
     const mode = settings.syncMode || "google_selected";
@@ -198,6 +202,7 @@ async function init() {
   const params = new URLSearchParams(window.location.search);
   const oauthView = renderOAuthCallbackFromParams(params);
   if (params.get("oauth") === "ok") {
+    clearGoogleCalendarUiErrorState();
     const refreshSaved = params.get("oauth_refresh_token_saved") === "true";
     toast(
       refreshSaved
@@ -243,6 +248,9 @@ async function init() {
         body: "{}",
       });
       showResultEl($("connection-test-result"), data.ok, formatConnectionTestLines(data));
+      if (data.ok) {
+        clearGoogleCalendarUiErrorState();
+      }
       toast(data.ok ? "接続テスト成功" : data.error || "接続テスト失敗");
     } catch (e) {
       showResultEl($("connection-test-result"), false, [e.message || "接続テスト失敗"]);
@@ -300,6 +308,7 @@ async function init() {
         }),
       });
       showResultEl($("sync-result"), true, formatSyncResultLines(result));
+      clearGoogleCalendarUiErrorState();
       toast("同期しました");
       await refresh();
     } catch (e) {

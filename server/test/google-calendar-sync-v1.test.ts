@@ -1363,5 +1363,47 @@ describe("Google Calendar 双方向同期 v1", () => {
       "utf8"
     );
     assert.ok(settingsJs.includes("formatSyncErrorForUi"));
+    assert.ok(settingsJs.includes("clearGoogleCalendarUiErrorState"));
+    assert.ok(settingsJs.includes("renderGoogleCalendarErrorFromStatus"));
+  });
+
+  it("oauth-ui: oauth=ok 成功時はエラーバナーを出さない", async () => {
+    const uiJs = fs.readFileSync(
+      new URL("../public/js/google-calendar-oauth-ui.js", import.meta.url),
+      "utf8"
+    );
+    assert.ok(uiJs.includes("clearGoogleCalendarUiErrorState"));
+    assert.ok(uiJs.includes('params.get("oauth") === "ok"'));
+    assert.ok(uiJs.includes("renderGoogleCalendarErrorFromStatus"));
+    assert.ok(uiJs.includes("formatSyncResultLines"));
+    assert.ok(!uiJs.includes("oauth_access_token_saved"));
+    assert.ok(uiJs.includes("最終同期"));
+    assert.ok(!uiJs.includes("`作成 ${result.created"));
+  });
+
+  it("GET /api/google-calendar/status に lastOAuthError を含む", async () => {
+    const { recordGoogleCalendarOAuthError, clearGoogleCalendarOAuthError } = await import(
+      "../src/services/googleOAuthService.js"
+    );
+    clearGoogleCalendarOAuthError();
+    const empty = await request(app)
+      .get("/api/google-calendar/status")
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(empty.status, 200);
+    assert.equal(empty.body.lastOAuthError, null);
+
+    recordGoogleCalendarOAuthError({ error: "access_denied", errorDescription: "denied" });
+    const withErr = await request(app)
+      .get("/api/google-calendar/status")
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(withErr.status, 200);
+    assert.ok(withErr.body.lastOAuthError);
+    assert.ok(withErr.body.lastOAuthError.userMessage);
+
+    clearGoogleCalendarOAuthError();
+    const cleared = await request(app)
+      .get("/api/google-calendar/status")
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(cleared.body.lastOAuthError, null);
   });
 });

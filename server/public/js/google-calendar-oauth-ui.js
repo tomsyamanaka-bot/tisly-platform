@@ -12,6 +12,14 @@ export const GOOGLE_OAUTH_SETUP_GUIDE_ITEMS = [
   "旧URI /api/google-calendar/oauth/callback は使わない",
 ];
 
+/** @type {{ errorState: string | null; oauthError: string | null; syncError: string | null; connectionError: string | null }} */
+const gcalUiErrorState = {
+  errorState: null,
+  oauthError: null,
+  syncError: null,
+  connectionError: null,
+};
+
 function escapeHtml(s) {
   return String(s)
     .replace(/&/g, "&amp;")
@@ -39,6 +47,23 @@ export function mountOAuthSetupGuideCard(containerId = "oauth-setup-guide-card")
   if (listHost) listHost.innerHTML = oauthSetupGuideHtml();
 }
 
+export function clearGoogleCalendarUiErrorState(options = {}) {
+  gcalUiErrorState.errorState = null;
+  gcalUiErrorState.oauthError = null;
+  gcalUiErrorState.syncError = null;
+  gcalUiErrorState.connectionError = null;
+  clearOAuthErrorBanner(options);
+}
+
+export function clearOAuthErrorBanner(options = {}) {
+  renderOAuthErrorBanner({
+    ...options,
+    userMessage: null,
+    technicalText: null,
+    showGuide: false,
+  });
+}
+
 export function formatOAuthTechnicalError(params) {
   const lines = [
     params.genericError ? `message: ${params.genericError}` : null,
@@ -47,8 +72,6 @@ export function formatOAuthTechnicalError(params) {
     params.callback ? `callback: ${params.callback}` : null,
     params.redirectUri ? `redirect_uri: ${params.redirectUri}` : null,
     params.clientId ? `client_id: ${params.clientId}` : null,
-    params.accessSaved != null ? `access_token_saved: ${params.accessSaved}` : null,
-    params.refreshSaved != null ? `refresh_token_saved: ${params.refreshSaved}` : null,
   ].filter(Boolean);
   return lines.join("\n");
 }
@@ -105,10 +128,16 @@ export function renderOAuthErrorBanner({
 }
 
 export function renderOAuthCallbackFromParams(params, options = {}) {
+  const oauthOk = params.get("oauth") === "ok";
   const oauthError = params.get("oauth_error");
   const oauthErrorDesc = params.get("oauth_error_description");
   const genericError = params.get("error");
   const orgInternal = isGoogleOAuthOrgInternalError(oauthError, oauthErrorDesc);
+
+  if (oauthOk && !genericError && !oauthError && !oauthErrorDesc) {
+    clearGoogleCalendarUiErrorState(options);
+    return { orgInternal: false, userMessage: null, technicalText: null, oauthOk: true };
+  }
 
   const technicalText = formatOAuthTechnicalError({
     genericError: genericError ? decodeURIComponent(genericError) : null,
@@ -117,8 +146,6 @@ export function renderOAuthCallbackFromParams(params, options = {}) {
     callback: params.get("oauth_callback"),
     redirectUri: params.get("oauth_redirect_uri"),
     clientId: params.get("oauth_client_id"),
-    accessSaved: params.get("oauth_access_token_saved"),
-    refreshSaved: params.get("oauth_refresh_token_saved"),
   });
 
   const userMessage = orgInternal
@@ -127,12 +154,18 @@ export function renderOAuthCallbackFromParams(params, options = {}) {
       ? decodeURIComponent(genericError)
       : oauthErrorDesc || oauthError || null;
 
-  renderOAuthErrorBanner({
-    ...options,
-    userMessage,
-    technicalText: technicalText || null,
-    showGuide: orgInternal || options.forceGuide === true,
-  });
+  if (userMessage || technicalText) {
+    gcalUiErrorState.oauthError = userMessage;
+    gcalUiErrorState.errorState = userMessage;
+    renderOAuthErrorBanner({
+      ...options,
+      userMessage,
+      technicalText: technicalText || null,
+      showGuide: orgInternal || options.forceGuide === true,
+    });
+  } else {
+    clearGoogleCalendarUiErrorState(options);
+  }
 
   const debugPanel = document.getElementById("oauth-debug-panel");
   const debugLog = document.getElementById("oauth-debug-log");
@@ -141,16 +174,58 @@ export function renderOAuthCallbackFromParams(params, options = {}) {
     debugLog.textContent = technicalText;
   }
 
-  return { orgInternal, userMessage, technicalText };
+  return { orgInternal, userMessage, technicalText, oauthOk: false };
+}
+
+export function resolveLastOAuthErrorMessage(cal) {
+  const raw = cal?.lastOAuthError;
+  if (!raw) return null;
+  return raw.userMessage || raw.message || raw.errorDescription || raw.error || null;
+}
+
+export function renderGoogleCalendarErrorFromStatus(cal, options = {}) {
+  const lastOauthError = resolveLastOAuthErrorMessage(cal);
+  const lastSyncError = cal?.lastSyncError ?? cal?.sync?.lastSyncError ?? null;
+
+  if (!lastOauthError && !lastSyncError) {
+    if (!gcalUiErrorState.oauthError && !gcalUiErrorState.syncError) {
+      clearGoogleCalendarUiErrorState(options);
+    }
+    return { hasError: false, lastOauthError: null, lastSyncError: null };
+  }
+
+  const userMessage = lastOauthError || lastSyncError;
+  gcalUiErrorState.oauthError = lastOauthError;
+  gcalUiErrorState.syncError = lastSyncError;
+  gcalUiErrorState.errorState = userMessage;
+
+  const technicalLines = [
+    lastOauthError ? `oauth: ${lastOauthError}` : null,
+    lastSyncError ? `sync: ${lastSyncError}` : null,
+  ].filter(Boolean);
+
+  renderOAuthErrorBanner({
+    ...options,
+    userMessage,
+    technicalText: technicalLines.length > 1 ? technicalLines.join("\n") : null,
+    showGuide: lastOauthError
+      ? isGoogleOAuthOrgInternalError(cal?.lastOAuthError?.error, cal?.lastOAuthError?.errorDescription)
+      : false,
+  });
+
+  return { hasError: true, lastOauthError, lastSyncError };
 }
 
 export function formatSyncResultLines(result) {
+  const lastSyncedAt = result.lastSyncedAt || result.sync?.lastSyncedAt;
+  const lastSyncLabel = lastSyncedAt
+    ? lastSyncedAt.slice(0, 16).replace("T", " ")
+    : "—";
   return [
     "同期成功",
     `取得 ${result.fetched ?? result.pulled ?? 0}件`,
-    `作成 ${result.created ?? 0}件`,
     `更新 ${result.updated ?? 0}件`,
-    `失敗 ${result.failed ?? 0}件`,
+    `最終同期 ${lastSyncLabel}`,
   ];
 }
 
