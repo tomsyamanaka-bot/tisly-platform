@@ -13,11 +13,65 @@ export function isCalendarWritable(c: GoogleCalendarListItem): boolean {
   return role === "owner" || role === "writer";
 }
 
+export function isCalendarReadable(c: GoogleCalendarListItem): boolean {
+  const role = (c.accessRole ?? "").toLowerCase();
+  return role === "owner" || role === "writer" || role === "reader" || c.writable === true;
+}
+
 export function filterWritableCalendars(calendars: GoogleCalendarListItem[]): GoogleCalendarListItem[] {
   return calendars.filter(isCalendarWritable);
 }
 
-export function resolveTargetCalendarIds(
+export function filterReadableCalendars(calendars: GoogleCalendarListItem[]): GoogleCalendarListItem[] {
+  return calendars.filter(isCalendarReadable);
+}
+
+export function filterGoogleSelectedCalendars(calendars: GoogleCalendarListItem[]): GoogleCalendarListItem[] {
+  return calendars.filter((c) => c.selected === true);
+}
+
+function pickAllowedIds(ids: string[], allowedIds: Set<string>, fallback: string): string[] {
+  const unique = [...new Set(ids.map((id) => id.trim()).filter(Boolean))];
+  const allowed = unique.filter((id) => allowedIds.has(id));
+  if (allowed.length) return allowed;
+  const first = [...allowedIds][0];
+  return first ? [first] : [fallback];
+}
+
+/** Google → TiSLY 取得対象（読取専用カレンダーも含む） */
+export function resolvePullTargetCalendarIds(
+  settings: GoogleCalendarSettingsV1,
+  calendars: GoogleCalendarListItem[]
+): string[] {
+  const readable = filterReadableCalendars(calendars);
+  const readableIds = new Set(readable.map((c) => c.id));
+  const fallback = settings.calendarId?.trim() || "primary";
+
+  switch (settings.syncMode) {
+    case "google_selected":
+      return pickAllowedIds(
+        filterGoogleSelectedCalendars(readable).map((c) => c.id),
+        readableIds,
+        fallback
+      );
+    case "primary_only": {
+      const primary = readable.find((c) => c.primary) ?? readable.find((c) => c.id === "primary");
+      return primary ? [primary.id] : pickAllowedIds([fallback], readableIds, fallback);
+    }
+    case "multiple": {
+      const ids = settings.calendarIds?.length ? settings.calendarIds : [fallback];
+      return pickAllowedIds(ids, readableIds, fallback);
+    }
+    case "all_writable":
+      return readable.map((c) => c.id);
+    case "selected_only":
+    default:
+      return pickAllowedIds([fallback], readableIds, fallback);
+  }
+}
+
+/** TiSLY → Google 書き込み対象（書き込み可能カレンダーのみ） */
+export function resolvePushTargetCalendarIds(
   settings: GoogleCalendarSettingsV1,
   calendars: GoogleCalendarListItem[]
 ): string[] {
@@ -25,33 +79,48 @@ export function resolveTargetCalendarIds(
   const writableIds = new Set(writable.map((c) => c.id));
   const fallback = settings.calendarId?.trim() || "primary";
 
-  const pick = (ids: string[]): string[] => {
-    const unique = [...new Set(ids.map((id) => id.trim()).filter(Boolean))];
-    const allowed = unique.filter((id) => writableIds.has(id));
-    return allowed.length ? allowed : writable.length ? [writable[0].id] : [fallback];
-  };
-
   switch (settings.syncMode) {
+    case "google_selected":
+      return pickAllowedIds(
+        filterGoogleSelectedCalendars(writable).map((c) => c.id),
+        writableIds,
+        fallback
+      );
     case "primary_only": {
       const primary = writable.find((c) => c.primary) ?? writable.find((c) => c.id === "primary");
-      return primary ? [primary.id] : pick([fallback]);
+      return primary ? [primary.id] : pickAllowedIds([fallback], writableIds, fallback);
     }
     case "multiple": {
       const ids = settings.calendarIds?.length ? settings.calendarIds : [fallback];
-      return pick(ids);
+      return pickAllowedIds(ids, writableIds, fallback);
     }
     case "all_writable":
       return writable.map((c) => c.id);
     case "selected_only":
     default:
-      return pick([fallback]);
+      return pickAllowedIds([fallback], writableIds, fallback);
   }
+}
+
+/** @deprecated pull/push 共通 — pull 側と同じ */
+export function resolveTargetCalendarIds(
+  settings: GoogleCalendarSettingsV1,
+  calendars: GoogleCalendarListItem[]
+): string[] {
+  return resolvePullTargetCalendarIds(settings, calendars);
 }
 
 export function calendarMetaMap(
   calendars: GoogleCalendarListItem[]
 ): Map<string, GoogleCalendarListItem> {
   return new Map(calendars.map((c) => [c.id, c]));
+}
+
+export function formatTargetCalendarNames(
+  ids: string[],
+  meta: Map<string, GoogleCalendarListItem>
+): string[] {
+  return ids.map((id) => meta.get(id)?.summary ?? id);
 }
 
 export function sanitizeCalendarIdForEventId(calendarId: string): string {
@@ -67,14 +136,21 @@ export const SYNC_MODE_LABELS: Record<GoogleCalendarSyncMode, string> = {
   selected_only: "選択カレンダーのみ",
   multiple: "複数カレンダー同期",
   all_writable: "全カレンダー同期",
+  google_selected: "Google表示ONと同じ",
 };
 
 export function defaultSyncModeFromSettings(settings: GoogleCalendarSettingsV1): GoogleCalendarSyncMode {
-  return settings.syncMode ?? "selected_only";
+  return settings.syncMode ?? "google_selected";
 }
 
 export function resolveTargetCalendarIdsFromSettings(
   calendars: GoogleCalendarListItem[]
 ): string[] {
-  return resolveTargetCalendarIds(getGoogleCalendarSettingsV1(), calendars);
+  return resolvePullTargetCalendarIds(getGoogleCalendarSettingsV1(), calendars);
+}
+
+export function resolvePullTargetCalendarIdsFromSettings(
+  calendars: GoogleCalendarListItem[]
+): string[] {
+  return resolvePullTargetCalendarIds(getGoogleCalendarSettingsV1(), calendars);
 }

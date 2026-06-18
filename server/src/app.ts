@@ -434,6 +434,9 @@ export function createApp(): express.Application {
   app.get("/google-calendar-settings-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "google-calendar-settings-v1.html"));
   });
+  app.get("/google-calendar-settings-v2", (_req, res) => {
+    res.sendFile(path.join(publicDir, "google-calendar-settings-v2.html"));
+  });
   app.get("/settings-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "settings-v1.html"));
   });

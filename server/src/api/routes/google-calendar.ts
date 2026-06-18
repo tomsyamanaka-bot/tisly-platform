@@ -104,7 +104,7 @@ googleCalendarRouter.patch("/settings", ...calendarAuth, (req: AuthedRequest, re
     calendarId?: string;
     calendarSummary?: string;
     calendarIds?: string[];
-    syncMode?: "primary_only" | "selected_only" | "multiple" | "all_writable";
+    syncMode?: "primary_only" | "selected_only" | "multiple" | "all_writable" | "google_selected";
     autoCreateProjects?: boolean;
     syncDirection?: "bidirectional" | "pull_only" | "push_only";
   };

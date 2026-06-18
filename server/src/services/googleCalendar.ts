@@ -9,7 +9,7 @@ import { getGoogleCalendarSettingsV1 } from "../schedule/google-calendar-sync-st
 import {
   buildGoogleEventLocalId,
   calendarMetaMap,
-  resolveTargetCalendarIds,
+  resolvePullTargetCalendarIds,
 } from "../schedule/google-calendar-target-calendars.js";
 import {
   formatScheduleCalendarDuplicateErrorForUi,
@@ -469,7 +469,7 @@ export async function fetchCalendarEventsFromTargets(
     const calendars = list.usedFallback ? [list.fallback] : list.calendars;
     const ids = targetIds?.length
       ? targetIds
-      : resolveTargetCalendarIds(settings, calendars);
+      : resolvePullTargetCalendarIds(settings, calendars);
     const meta = calendarMetaMap(calendars);
     const merged: ScheduleEvent[] = [];
     for (const calId of ids) {
@@ -501,6 +501,7 @@ function mockMultiCalendarEvents(
       id: "primary",
       summary: "メインカレンダー（モック）",
       primary: true,
+      selected: true,
       accessRole: "owner",
       writable: true,
       backgroundColor: "#9a6324",
@@ -509,6 +510,7 @@ function mockMultiCalendarEvents(
       id: "mock-work",
       summary: "★TOMS★（モック）",
       primary: false,
+      selected: true,
       accessRole: "writer",
       writable: true,
       backgroundColor: "#4986e7",
@@ -516,7 +518,7 @@ function mockMultiCalendarEvents(
   ];
   const ids = targetIds?.length
     ? targetIds
-    : resolveTargetCalendarIds(settings, mockCals);
+    : resolvePullTargetCalendarIds(settings, mockCals);
   const meta = calendarMetaMap(mockCals);
   const base = mockCalendarEvents(startDate, endDate);
   const events: ScheduleEvent[] = [];
@@ -568,7 +570,7 @@ export async function syncGoogleCalendarEvents(
   if (!calendarIds.length) {
     const list = await listGoogleCalendarsDetailed();
     const calendars = list.usedFallback ? [list.fallback] : list.calendars;
-    calendarIds = resolveTargetCalendarIds(settings, calendars);
+    calendarIds = resolvePullTargetCalendarIds(settings, calendars);
   }
   const events = await fetchCalendarEventsFromTargets(startDate, endDate, calendarIds);
   return { events, mode: oauth.mode, count: events.length, calendarIds };

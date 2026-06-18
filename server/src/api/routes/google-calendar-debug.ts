@@ -8,6 +8,11 @@ import {
 } from "../../services/googleOAuthService.js";
 import { getGoogleCalendarSettingsV1 } from "../../schedule/google-calendar-sync-store.js";
 import { formatGoogleApiErrorHint } from "../../schedule/google-calendar-safe-log.js";
+import {
+  fetchGoogleCalendarEventsDebug,
+  fetchGoogleCalendarListDebug,
+  findDenGenAmiEvents,
+} from "../../schedule/google-calendar-debug-export.js";
 
 export const googleCalendarDebugRouter = Router();
 
@@ -31,6 +36,36 @@ function assertDebugAccess(req: AuthedRequest, res: Response): boolean {
 }
 
 const debugAuth = isProduction ? [requireAdminAuth] : [requireAuth("surveyor")];
+
+googleCalendarDebugRouter.get("/calendar-list", ...debugAuth, async (req: AuthedRequest, res) => {
+  if (!assertDebugAccess(req, res)) return;
+  try {
+    const data = await fetchGoogleCalendarListDebug();
+    res.json({ ok: true, ...data });
+  } catch (e) {
+    res.status(500).json({
+      ok: false,
+      error: e instanceof Error ? e.message : "calendar list debug failed",
+    });
+  }
+});
+
+googleCalendarDebugRouter.get("/events-with-calendar", ...debugAuth, async (req: AuthedRequest, res) => {
+  if (!assertDebugAccess(req, res)) return;
+  const startDate = String(req.query.startDate ?? req.query.start ?? "2026-06-20").slice(0, 10);
+  const endDate = String(req.query.endDate ?? req.query.end ?? "2026-06-30").slice(0, 10);
+  const allReadable = req.query.allReadable === "1" || req.query.allReadable === "true";
+  try {
+    const data = await fetchGoogleCalendarEventsDebug(startDate, endDate, { allReadable });
+    const denGen = findDenGenAmiEvents(data.events);
+    res.json({ ok: true, startDate, endDate, allReadable, ...data, denGenAmi: denGen });
+  } catch (e) {
+    res.status(500).json({
+      ok: false,
+      error: e instanceof Error ? e.message : "events debug failed",
+    });
+  }
+});
 
 googleCalendarDebugRouter.get("/env", ...debugAuth, (req: AuthedRequest, res) => {
   if (!assertDebugAccess(req, res)) return;

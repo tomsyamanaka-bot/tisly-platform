@@ -137,6 +137,52 @@ describe("Google Calendar 双方向同期 v1", () => {
     assert.deepEqual(ids, ["primary"]);
   });
 
+  it("resolvePullTargetCalendarIds — google_selected は selected=true のみ", async () => {
+    const { resolvePullTargetCalendarIds } = await import(
+      "../src/schedule/google-calendar-target-calendars.js"
+    );
+    const ids = resolvePullTargetCalendarIds(
+      {
+        syncMode: "google_selected",
+        calendarId: "primary",
+        calendarIds: ["primary"],
+      } as import("../src/schedule/google-calendar-sync-store.js").GoogleCalendarSettingsV1,
+      [
+        {
+          id: "primary",
+          summary: "メイン",
+          primary: true,
+          selected: true,
+          accessRole: "owner",
+          writable: true,
+        },
+        {
+          id: "mock-work",
+          summary: "★TOMS★",
+          primary: false,
+          selected: true,
+          accessRole: "writer",
+          writable: true,
+        },
+        {
+          id: "holidays",
+          summary: "日本の祝日",
+          primary: false,
+          selected: false,
+          accessRole: "reader",
+          writable: false,
+        },
+      ]
+    );
+    assert.deepEqual(ids.sort(), ["mock-work", "primary"].sort());
+  });
+
+  it("GET /google-calendar-settings-v2 ページを配信", async () => {
+    const res = await request(app).get("/google-calendar-settings-v2");
+    assert.equal(res.status, 200);
+    assert.ok(String(res.text).includes("同期対象カレンダー"));
+  });
+
   it("calendars 403時は primary フォールバック + needsRelogin", async () => {
     const prev = {
       enabled: process.env.GOOGLE_CALENDAR_ENABLED,

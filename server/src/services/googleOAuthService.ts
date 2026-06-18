@@ -701,6 +701,8 @@ export interface GoogleCalendarListItem {
   id: string;
   summary: string;
   primary: boolean;
+  /** GoogleカレンダーUIで表示ONのカレンダー */
+  selected?: boolean;
   accessRole: string;
   writable?: boolean;
   backgroundColor?: string | null;
@@ -739,6 +741,7 @@ export async function listGoogleCalendarsDetailed(): Promise<GoogleCalendarListR
           id: "primary",
           summary: "メインカレンダー（モック）",
           primary: true,
+          selected: true,
           accessRole: "owner",
           writable: true,
           backgroundColor: "#9a6324",
@@ -747,6 +750,7 @@ export async function listGoogleCalendarsDetailed(): Promise<GoogleCalendarListR
           id: "mock-work",
           summary: "★TOMS★（モック）",
           primary: false,
+          selected: true,
           accessRole: "writer",
           writable: true,
           backgroundColor: "#4986e7",
@@ -755,6 +759,7 @@ export async function listGoogleCalendarsDetailed(): Promise<GoogleCalendarListR
           id: "mock-readonly",
           summary: "社員共有（読取のみ・モック）",
           primary: false,
+          selected: false,
           accessRole: "reader",
           writable: false,
           backgroundColor: "#ac725e",
@@ -773,6 +778,7 @@ export async function listGoogleCalendarsDetailed(): Promise<GoogleCalendarListR
       id?: string;
       summary?: string;
       primary?: boolean;
+      selected?: boolean;
       accessRole?: string;
       backgroundColor?: string;
     }>;
@@ -797,6 +803,7 @@ export async function listGoogleCalendarsDetailed(): Promise<GoogleCalendarListR
         id: i.id!,
         summary: i.summary!,
         primary: Boolean(i.primary),
+        selected: Boolean(i.selected),
         accessRole,
         writable: accessRole === "owner" || accessRole === "writer",
         backgroundColor: i.backgroundColor ?? null,

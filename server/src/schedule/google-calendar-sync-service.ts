@@ -24,7 +24,9 @@ import {
 import {
   buildGoogleEventLocalId,
   calendarMetaMap,
-  resolveTargetCalendarIds,
+  formatTargetCalendarNames,
+  resolvePullTargetCalendarIds,
+  resolvePushTargetCalendarIds,
   filterWritableCalendars,
 } from "./google-calendar-target-calendars.js";
 import { upsertCachedCalendarEvents, type CalendarUpsertStats } from "./schedule-calendar-store.js";
@@ -68,11 +70,20 @@ export interface FullSyncResultV1 {
 
 async function resolveSyncTargetCalendarIds(
   settings: GoogleCalendarSettingsV1
-): Promise<{ ids: string[]; meta: Map<string, GoogleCalendarListItem> }> {
+): Promise<{
+  pullIds: string[];
+  pushIds: string[];
+  meta: Map<string, GoogleCalendarListItem>;
+}> {
   const list = await listGoogleCalendarsDetailed();
   const calendars = list.usedFallback ? [list.fallback] : list.calendars;
-  const ids = resolveTargetCalendarIds(settings, calendars);
-  return { ids, meta: calendarMetaMap(calendars) };
+  const pullIds = resolvePullTargetCalendarIds(settings, calendars);
+  const pushIds = resolvePushTargetCalendarIds(settings, calendars);
+  const meta = calendarMetaMap(calendars);
+  const pullNames = formatTargetCalendarNames(pullIds, meta);
+  console.log("[google-calendar-sync] 取得対象カレンダー:", pullNames.join(" / "));
+  console.log("[google-calendar-sync] 書込対象カレンダー:", formatTargetCalendarNames(pushIds, meta).join(" / "));
+  return { pullIds, pushIds, meta };
 }
 
 function addDays(iso: string, n: number): string {
@@ -263,10 +274,10 @@ export async function runFullGoogleCalendarSyncV1(
 
   const direction = validated.syncDirection;
   const mode = oauth.mode;
-  const { ids: targetIds, meta } = await resolveSyncTargetCalendarIds(settings);
+  const { pullIds, pushIds, meta } = await resolveSyncTargetCalendarIds(settings);
 
   if (direction === "bidirectional" || direction === "pull_only") {
-    const pull = await pullFromGoogle(startDate, endDate, settings, targetIds);
+    const pull = await pullFromGoogle(startDate, endDate, settings, pullIds);
     pulled = pull.events.length;
     projectsCreated = pull.projectsCreated;
     linksUpdated += pull.linksUpdated;
@@ -289,7 +300,7 @@ export async function runFullGoogleCalendarSyncV1(
   const canPush =
     (direction === "bidirectional" || direction === "push_only") && hasGoogleCalendarWriteScope();
   if (canPush) {
-    const push = await pushToGoogle(startDate, endDate, settings, mode, targetIds, meta);
+    const push = await pushToGoogle(startDate, endDate, settings, mode, pushIds, meta);
     pushed = push.pushed;
     linksUpdated += push.linksUpdated;
   }
@@ -299,7 +310,7 @@ export async function runFullGoogleCalendarSyncV1(
   return {
     mode,
     calendarId: settings.calendarId,
-    calendarIds: targetIds,
+    calendarIds: pullIds,
     syncMode: settings.syncMode,
     pulled,
     pushed,

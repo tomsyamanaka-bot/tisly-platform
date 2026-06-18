@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#4285f4" />
+  <title>TiSLY — Googleカレンダー同期対象</title>
+  <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
+  <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
+  <style>
+    .gcal-status-badge { display:inline-block; font-size:0.78rem; padding:0.2rem 0.55rem; border-radius:999px; font-weight:600; }
+    .gcal-status-badge.live { background:#dcfce7; color:#166534; }
+    .gcal-status-badge.off { background:#f1f5f9; color:#64748b; }
+    .gcal-status-badge.err { background:#fee2e2; color:#b91c1c; }
+    .gcal-card { margin-bottom:0.75rem; }
+    .gcal-card h2 { margin:0 0 0.5rem; font-size:1rem; }
+    .gcal-meta { font-size:0.85rem; color:#475569; margin:0.25rem 0; }
+    .gcal-actions { display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:0.6rem; }
+    #sync-target-list { display:flex; flex-direction:column; gap:0.35rem; margin:0.5rem 0; padding:0.5rem; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0; }
+    #sync-target-list label {
+      display:flex; flex-direction:row; align-items:flex-start; gap:0.45rem;
+      font-size:0.88rem; cursor:pointer; line-height:1.4; width:100%;
+    }
+    #sync-target-list label.readonly-cal { opacity:0.85; }
+    #sync-target-list label input { flex:0 0 auto; margin-top:0.2rem; width:auto; padding:0; border:none; background:transparent; }
+    .cal-color-swatch { display:inline-block; width:0.85rem; height:0.85rem; border-radius:3px; border:1px solid rgba(0,0,0,0.15); flex-shrink:0; margin-top:0.15rem; }
+    .cal-label-text { flex:1 1 auto; min-width:0; }
+    .cal-role-hint { font-size:0.72rem; color:#94a3b8; margin-left:0.25rem; }
+    .sync-mode-banner { font-size:0.82rem; padding:0.45rem 0.6rem; background:#eff6ff; border-radius:8px; border:1px solid #bfdbfe; color:#1e40af; margin:0.5rem 0; }
+  </style>
+</head>
+<body class="tisly-friendly">
+  <main class="app-main">
+    <p class="section-hint">Googleで表示ONのカレンダーをTiSLYに同期します</p>
+
+    <div class="friendly-card gcal-card">
+      <h2>連携ステータス</h2>
+      <p id="status-line" class="gcal-meta">読み込み中…</p>
+      <div class="gcal-actions">
+        <button type="button" class="btn-primary" id="btn-login">Googleログイン</button>
+        <button type="button" class="btn-sub" id="btn-sync" disabled>今すぐ同期</button>
+      </div>
+      <p id="sync-result" class="gcal-meta hidden"></p>
+    </div>
+
+    <div class="friendly-card gcal-card">
+      <h2>同期対象カレンダー</h2>
+      <p class="section-hint">チェックONのカレンダー予定をTiSLYに表示します（Googleアプリと同じ運用）</p>
+      <div id="sync-mode-banner" class="sync-mode-banner hidden"></div>
+      <div id="sync-target-list">
+        <p class="gcal-meta">読み込み中…</p>
+      </div>
+      <div class="gcal-actions">
+        <button type="button" class="btn-sub" id="btn-match-google" disabled>Google表示と同じにする</button>
+        <button type="button" class="btn-sub" id="btn-save" disabled>保存</button>
+      </div>
+      <p id="pull-target-line" class="gcal-meta" style="margin-top:0.5rem;font-size:0.78rem;"></p>
+    </div>
+
+    <div class="friendly-card gcal-card">
+      <div class="gcal-actions">
+        <a class="btn-sub" href="/google-calendar-settings-v1">詳細設定（v1）</a>
+        <a class="btn-sub" href="/schedule-v1">日程調整を開く</a>
+      </div>
+    </div>
+  </main>
+  <div id="toast" class="toast" role="status"></div>
+  <script type="module" src="/js/google-calendar-settings-v2.js"></script>
+</body>
+</html>

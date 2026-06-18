@@ -11,7 +11,8 @@ export type GoogleCalendarSyncMode =
   | "primary_only"
   | "selected_only"
   | "multiple"
-  | "all_writable";
+  | "all_writable"
+  | "google_selected";
 
 export interface GoogleCalendarSettingsV1 {
   calendarId: string;
@@ -43,7 +44,7 @@ const DEFAULT_SETTINGS: GoogleCalendarSettingsV1 = {
   calendarId: "primary",
   calendarSummary: "メインカレンダー",
   calendarIds: ["primary"],
-  syncMode: "selected_only",
+  syncMode: "google_selected",
   autoCreateProjects: true,
   syncDirection: "bidirectional",
   lastFullSyncAt: null,
@@ -52,7 +53,13 @@ const DEFAULT_SETTINGS: GoogleCalendarSettingsV1 = {
 
 function normalizeSyncMode(raw: unknown): GoogleCalendarSyncMode {
   const v = String(raw ?? "").trim();
-  if (v === "primary_only" || v === "selected_only" || v === "multiple" || v === "all_writable") {
+  if (
+    v === "primary_only" ||
+    v === "selected_only" ||
+    v === "multiple" ||
+    v === "all_writable" ||
+    v === "google_selected"
+  ) {
     return v;
   }
   return DEFAULT_SETTINGS.syncMode;
