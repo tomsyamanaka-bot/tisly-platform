@@ -70,12 +70,27 @@
 
 - `master_v1_customers`
 - `master_v1_ranks`
-- `master_v1_work_items`
-- `master_v1_materials`
+- `master_v1_categories` — 大/中カテゴリ階層（編集可能）
+- `master_v1_work_items` — `category_main`, `category_sub`, `tags`, `standard_sell_price`, `default_quantity` 等
+- `master_v1_materials` — 同上 + `supplier`, `stock_managed`
 - `master_v1_customer_prices`
-- `master_v1_symbol_mappings`
+- `master_v1_symbol_mappings` — `category_main`, `category_sub`, `extra_material_ids`（複数材料）
 
-マイグレーション: `migration:master_v1`
+マイグレーション: `migration:master_v1`, `migration:master_v1_categories`
+
+---
+
+## カテゴリ UI チップ
+
+すべて / よく使う / 防犯カメラ / LAN / 電気 / 照明 / セキュリティ / その他
+
+---
+
+## TODO（人間が差し替え）
+
+- 作業・材料の仮単価 → スマホ入力で本番単価に更新
+- 高所作業の足場費は別途見積（`work-highplace` memo 参照）
+- 仕入先名・型番は TiSLY 実在メーカーに差し替え
 
 ---
 
