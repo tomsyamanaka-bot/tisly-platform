@@ -686,9 +686,11 @@ function estimateApplyActionsHtml() {
 }
 
 function priceSourceLabel(src) {
-  if (src === "customer_override") return '<span class="price-source override">顧客上書き</span>';
-  if (src === "rank_multiplier") return '<span class="price-source rank">ランク倍率</span>';
-  return '<span class="price-source">標準売価</span>';
+  if (src === "customer_override") return '<span class="price-source override">顧客別</span>';
+  if (src === "rank_multiplier") return '<span class="price-source rank">ランク</span>';
+  if (src === "cost_double") return '<span class="price-source warn">原価2倍</span>';
+  if (src === "missing") return '<span class="price-source warn">未入力</span>';
+  return '<span class="price-source">標準</span>';
 }
 
 function previewLineHtml(line) {

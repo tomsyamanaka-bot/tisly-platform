@@ -18,6 +18,7 @@ const API = "/api/estimate/v1";
 const WORK_API = "/api/work-session/v1";
 let currentProjectId = null;
 let currentMasterDraftId = null;
+let currentMasterPricingSummary = null;
 let currentLines = [];
 let currentCustomerName = "";
 let priceRulePresets = [];
@@ -282,6 +283,119 @@ function renderMasterDraftBadge(masterDraftId) {
   currentMasterDraftId = masterDraftId || null;
 }
 
+function masterPriceSourceLabel(src) {
+  const map = {
+    customer_override: "顧客別",
+    rank_multiplier: "ランク",
+    standard: "標準",
+    cost_double: "原価2倍",
+    missing: "未入力",
+  };
+  return map[src] || src || "—";
+}
+
+function lineMasterMetricsHtml(it) {
+  if (!it?.priceSource && !it?.fromAiCandidate && !(it?.costPrice > 0)) return "";
+  const qty = Number(it.quantity || 0);
+  const sell = Number(it.unitPrice || 0);
+  const cost = Number(it.costPrice || 0);
+  const subtotal = qty * sell;
+  const gross = subtotal - qty * cost;
+  const rate = sell > 0 ? Math.round(((sell - cost) / sell) * 1000) / 10 : 0;
+  const source = masterPriceSourceLabel(it.priceSource);
+  return `<div class="line-master-metrics">
+    原価 ${yen(cost)} · 売価 ${yen(sell)} · 数量 ${qty} · 小計 ${yen(subtotal)} · 粗利 ${yen(gross)}（${rate}%）
+    <span class="line-price-source">価格根拠：${escapeHtml(source)}</span>
+  </div>`;
+}
+
+function renderMasterPricingPanel(summary) {
+  const panel = $("master-pricing-panel");
+  if (!panel) return;
+  const show = Boolean(currentMasterDraftId);
+  panel.classList.toggle("hidden", !show);
+  if (!show) return;
+
+  currentMasterPricingSummary = summary || null;
+  const badges = $("master-pricing-badges");
+  const warning = $("master-pricing-warning");
+  const summaryEl = $("master-pricing-summary");
+
+  if (badges) {
+    const parts = [];
+    if (summary?.customerOverrideCount > 0) {
+      parts.push(`<span class="master-pricing-badge">顧客別単価あり ${summary.customerOverrideCount}件</span>`);
+    }
+    if (summary?.rankCount > 0) {
+      parts.push(`<span class="master-pricing-badge">ランク反映あり ${summary.rankCount}件</span>`);
+    }
+    if (summary?.standardCount > 0) {
+      parts.push(`<span class="master-pricing-badge">標準売価 ${summary.standardCount}件</span>`);
+    }
+    if (summary?.costDoubleCount > 0) {
+      parts.push(`<span class="master-pricing-badge">原価2倍 ${summary.costDoubleCount}件</span>`);
+    }
+    badges.innerHTML = parts.join("") || '<span class="section-hint" style="margin:0;">マスター候補から作成</span>';
+  }
+
+  if (warning) {
+    const missing = summary?.missingCostCount > 0;
+    warning.classList.toggle("hidden", !missing);
+    if (missing) {
+      const labels = (summary.missingCostLabels || []).slice(0, 5).join("、");
+      const more = (summary.missingCostLabels || []).length > 5 ? " 他" : "";
+      warning.textContent = `原価未入力あり（${summary.missingCostCount}件）${labels ? `：${labels}${more}` : ""}`;
+    }
+  }
+
+  if (summaryEl && summary) {
+    summaryEl.textContent = `合計 原価 ${yen(summary.totalCost)} / 売価 ${yen(summary.totalSell)} / 粗利 ${yen(summary.grossProfit)}（${summary.grossProfitRate}%）`;
+  } else if (summaryEl) {
+    summaryEl.textContent = "マスター候補の価格を反映しています";
+  }
+}
+
+async function loadMasterPricingSummary(masterDraftId) {
+  if (!masterDraftId) {
+    renderMasterPricingPanel(null);
+    return;
+  }
+  try {
+    const data = await api(`/master-drafts/${encodeURIComponent(masterDraftId)}`);
+    renderMasterPricingPanel(data.pricingSummary);
+  } catch {
+    renderMasterPricingPanel(null);
+  }
+}
+
+async function recalcMasterPricing() {
+  if (!currentProjectId || !currentMasterDraftId) {
+    toast("マスター候補連携の見積のみ再計算できます");
+    return;
+  }
+  try {
+    toast("価格を再計算しています…");
+    const detail = await api(`/projects/${currentProjectId}/recalculate-master-pricing`, {
+      method: "POST",
+      body: "{}",
+    });
+    renderMasterDraftBadge(detail.masterDraftId);
+    renderMasterPricingPanel(detail.pricingSummary);
+    renderLines(detail.estimate?.items || []);
+    updateTotalsFromEstimate(detail.estimate);
+    hidePdfPreview();
+    toast("価格再計算しました");
+  } catch (e) {
+    toastError(e, e.status);
+  }
+}
+
+function updateLineListLayout() {
+  const el = $("line-list");
+  if (!el) return;
+  el.classList.toggle("line-list-table-mode", window.innerWidth >= 768);
+}
+
 async function importFromMasterDraft(masterDraftId) {
   const detail = await api(`/from-master-draft/${encodeURIComponent(masterDraftId)}`, {
     method: "POST",
@@ -411,6 +525,7 @@ function renderLines(items) {
         </div>
       </div>
       <label class="line-order-target"><input type="checkbox" class="order-target-input" data-idx="${i}" ${it.orderTarget ? "checked" : ""} /> 発注対象</label>
+      ${lineMasterMetricsHtml(it)}
       <div class="line-actions">
         <button type="button" data-action="up" data-idx="${i}" ${i === 0 ? "disabled" : ""}>↑</button>
         <button type="button" data-action="down" data-idx="${i}" ${i === currentLines.length - 1 ? "disabled" : ""}>↓</button>
@@ -420,6 +535,7 @@ function renderLines(items) {
     )
     .join("");
   bindLineInputs();
+  updateLineListLayout();
   recalcLocal();
 }
 
@@ -1426,6 +1542,7 @@ async function openDetail(projectId) {
     const p = await api(`/projects/${projectId}`);
     $("detail-name").textContent = projectListTitle(p);
     renderMasterDraftBadge(p.masterDraftId);
+    await loadMasterPricingSummary(p.masterDraftId);
     renderCustomerInfo(p);
     renderPriceRulePanel(p);
     const statusEl = $("detail-status");
@@ -1623,6 +1740,17 @@ async function init() {
       toastError(e, e.status);
     }
   });
+
+  $("btn-recalc-master-pricing")?.addEventListener("click", async () => {
+    if (!currentProjectId) return;
+    try {
+      await recalcMasterPricing();
+    } catch (e) {
+      toastError(e, e.status);
+    }
+  });
+
+  window.addEventListener("resize", () => updateLineListLayout());
 
   $("btn-save-items").addEventListener("click", async () => {
     if (!currentProjectId) return;
