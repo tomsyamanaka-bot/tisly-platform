@@ -4,11 +4,12 @@ import { initPracticalNav } from "./tisly-practical-nav.js";
 const API = "/api/master/v1";
 const $ = (id) => document.getElementById(id);
 
-let meta = { workCategories: [], materialCategories: [] };
+let meta = { workCategories: [], materialCategories: [], chipFilters: [], categories: [], mainCategories: [] };
 let activeTab = "customers";
 let searchQ = "";
 let favoriteOnly = false;
 let categoryFilter = "";
+let chipFilter = "";
 let bulkMode = false;
 const bulkSelected = new Set();
 let editContext = { mode: "create", tab: "customers", item: null };
@@ -60,9 +61,26 @@ function queryString() {
   const p = new URLSearchParams();
   if (searchQ) p.set("q", searchQ);
   if (favoriteOnly) p.set("favoriteOnly", "true");
-  if (categoryFilter) p.set("category", categoryFilter);
+  if (chipFilter) p.set("chip", chipFilter);
+  else if (categoryFilter) p.set("categoryMain", categoryFilter);
   const s = p.toString();
   return s ? `?${s}` : "";
+}
+
+function categoryMainOptions(selected = "") {
+  const mains = meta.mainCategories?.length
+    ? meta.mainCategories
+    : [...new Set((meta.categories || []).map((c) => c.categoryMain))];
+  return mains.map((m) => ({ value: m, label: m, selected: m === selected }));
+}
+
+function categorySubOptions(main, selected = "") {
+  const subs = (meta.categories || [])
+    .filter((c) => c.categoryMain === main)
+    .map((c) => c.categorySub);
+  const unique = [...new Set(subs)];
+  if (!unique.length) unique.push("");
+  return unique.map((s) => ({ value: s, label: s || "—", selected: s === selected }));
 }
 
 async function loadMeta() {
@@ -107,18 +125,32 @@ function renderCategoryChips() {
     el.innerHTML = "";
     return;
   }
-  const cats =
-    activeTab === "work" ? meta.workCategories : meta.materialCategories;
-  const chips = [`<button type="button" class="cat-chip${!categoryFilter ? " active" : ""}" data-cat="">すべて</button>`];
-  for (const c of cats) {
-    chips.push(
-      `<button type="button" class="cat-chip${categoryFilter === c ? " active" : ""}" data-cat="${escapeHtml(c)}">${escapeHtml(c)}</button>`
-    );
-  }
-  el.innerHTML = chips.join("");
+  const chips = meta.chipFilters?.length
+    ? meta.chipFilters
+    : [
+        { value: "", label: "すべて" },
+        { value: "__favorite__", label: "よく使う" },
+        { value: "防犯カメラ", label: "防犯カメラ" },
+        { value: "LAN / ネットワーク", label: "LAN" },
+        { value: "電気工事", label: "電気" },
+        { value: "照明", label: "照明" },
+        { value: "セキュリティ", label: "セキュリティ" },
+        { value: "その他", label: "その他" },
+      ];
+  const activeChip = chipFilter || (favoriteOnly ? "__favorite__" : categoryFilter);
+  el.innerHTML = chips
+    .map(
+      (c) =>
+        `<button type="button" class="cat-chip${activeChip === c.value ? " active" : ""}" data-chip="${escapeHtml(c.value)}">${escapeHtml(c.label)}</button>`
+    )
+    .join("");
   el.querySelectorAll(".cat-chip").forEach((btn) => {
     btn.addEventListener("click", async () => {
-      categoryFilter = btn.dataset.cat || "";
+      const v = btn.dataset.chip || "";
+      chipFilter = v === "__favorite__" ? "" : v;
+      favoriteOnly = v === "__favorite__";
+      categoryFilter = v && v !== "__favorite__" ? v : "";
+      $("btn-favorite-filter").classList.toggle("active", favoriteOnly);
       await refresh();
     });
   });
@@ -196,14 +228,16 @@ function renderWork() {
   panel.innerHTML =
     '<div class="master-list-wrap">' +
     cache.workItems
-      .map((w) =>
-        cardHtml({
+      .map((w) => {
+        const catLabel = w.categorySub ? `${w.categoryMain} › ${w.categorySub}` : w.categoryMain;
+        const sell = w.standardSellPrice || w.standardCost + w.laborCost;
+        return cardHtml({
           id: w.id,
           title: w.name,
-          metaText: `${w.category} · ${w.code} · ${yen(w.standardCost + w.laborCost)}/${w.unit}`,
-          favorite: w.favorite,
-        })
-      )
+          metaText: `${catLabel} · ${yen(sell)}/${w.unit} · 原価${yen(w.standardCost + w.laborCost)}`,
+          favorite: w.favorite || w.isFavorite,
+        });
+      })
       .join("") +
     "</div>";
 }
@@ -217,14 +251,17 @@ function renderMaterials() {
   panel.innerHTML =
     '<div class="master-list-wrap">' +
     cache.materials
-      .map((m) =>
-        cardHtml({
+      .map((m) => {
+        const catLabel = m.categorySub ? `${m.categoryMain} › ${m.categorySub}` : m.categoryMain;
+        const model = m.model ? ` ${m.model}` : "";
+        const sell = m.standardSellPrice || m.cost * 2;
+        return cardHtml({
           id: m.id,
           title: m.name,
-          metaText: `${m.category} · ${m.code} · ${yen(m.cost)}/${m.unit}`,
-          favorite: m.favorite,
-        })
-      )
+          metaText: `${catLabel} · ${m.maker || ""}${model} · 売価${yen(sell)}`,
+          favorite: m.favorite || m.isFavorite,
+        });
+      })
       .join("") +
     "</div>";
 }
@@ -265,15 +302,17 @@ function renderMappings() {
   panel.innerHTML =
     '<div class="master-list-wrap">' +
     cache.mappings
-      .map((m) =>
-        cardHtml({
+      .map((m) => {
+        const cat = m.categoryMain ? `${m.categoryMain}${m.categorySub ? " › " + m.categorySub : ""} · ` : "";
+        const extras = (m.extraMaterialIds || []).length ? ` +${m.extraMaterialIds.length}材料` : "";
+        return cardHtml({
           id: m.id,
           title: `${m.label} (${m.symbolType})`,
-          metaText: `${m.mappingKind === "line" ? "線種" : "記号"} → 作業:${m.workItemId ? "✓" : "—"} 材料:${m.materialId ? "✓" : "—"}`,
+          metaText: `${cat}${m.mappingKind === "line" ? "線種" : "記号"} → 作業:${m.workItemId ? "✓" : "—"} 材料:${m.materialId ? "✓" : "—"}${extras}`,
           favorite: false,
           bulkEligible: false,
-        })
-      )
+        });
+      })
       .join("") +
     "</div>";
 }
@@ -325,6 +364,9 @@ async function refresh() {
 function switchTab(tab) {
   activeTab = tab;
   categoryFilter = "";
+  chipFilter = "";
+  favoriteOnly = false;
+  $("btn-favorite-filter").classList.remove("active");
   bulkSelected.clear();
   document.querySelectorAll("#bottom-nav button").forEach((b) => {
     b.classList.toggle("active", b.dataset.tab === tab);
@@ -386,15 +428,28 @@ function fieldHtml(label, name, value, type = "text", options = null) {
     const opts = options
       .map(
         (o) =>
-          `<option value="${escapeHtml(o.value)}"${String(value) === String(o.value) ? " selected" : ""}>${escapeHtml(o.label)}</option>`
+          `<option value="${escapeHtml(o.value)}"${String(value) === String(o.value) || o.selected ? " selected" : ""}>${escapeHtml(o.label)}</option>`
       )
       .join("");
-    return `<label>${escapeHtml(label)}<select name="${name}">${opts}</select></label>`;
+    return `<label>${escapeHtml(label)}<select name="${name}" data-field="${name}">${opts}</select></label>`;
   }
   if (type === "textarea") {
     return `<label>${escapeHtml(label)}<textarea name="${name}" rows="2">${escapeHtml(value || "")}</textarea></label>`;
   }
-  return `<label>${escapeHtml(label)}<input name="${name}" type="${type}" value="${escapeHtml(value ?? "")}" /></label>`;
+  if (type === "checkbox") {
+    const checked = value ? " checked" : "";
+    return `<label class="toggle-row"><input name="${name}" type="checkbox" value="1"${checked} /><span>${escapeHtml(label)}</span></label>`;
+  }
+  return `<label>${escapeHtml(label)}<input name="${name}" type="${type}" value="${escapeHtml(value ?? "")}" inputmode="${type === "number" ? "decimal" : "text"}" /></label>`;
+}
+
+function categoryFields(prefix, item = {}) {
+  const main = item.categoryMain || item.category || "防犯カメラ";
+  const sub = item.categorySub || "";
+  return (
+    fieldHtml("大カテゴリ", `${prefix}CategoryMain`, main, "select", categoryMainOptions(main)) +
+    fieldHtml("中カテゴリ", `${prefix}CategorySub`, sub, "select", categorySubOptions(main, sub))
+  );
 }
 
 function openEdit(id) {
@@ -428,22 +483,39 @@ function openEdit(id) {
     const w = id ? cache.workItems.find((x) => x.id === id) : {};
     editContext.item = w;
     fields.innerHTML =
-      fieldHtml("カテゴリ", "category", w?.category || "防犯カメラ", "select", meta.workCategories.map((c) => ({ value: c, label: c }))) +
+      '<div class="form-grid">' +
+      categoryFields("work", w) +
       fieldHtml("作業名", "name", w?.name || "") +
-      fieldHtml("コード", "code", w?.code || "") +
       fieldHtml("単位", "unit", w?.unit || "式") +
-      fieldHtml("標準単価", "standardCost", w?.standardCost ?? 0, "number") +
-      fieldHtml("労務単価", "laborCost", w?.laborCost ?? 0, "number");
+      fieldHtml("原価", "standardCost", w?.standardCost ?? 0, "number") +
+      fieldHtml("労務原価", "laborCost", w?.laborCost ?? 0, "number") +
+      fieldHtml("標準売価", "standardSellPrice", w?.standardSellPrice ?? 0, "number") +
+      fieldHtml("デフォルト数量", "defaultQuantity", w?.defaultQuantity ?? 1, "number") +
+      fieldHtml("タグ（カンマ区切り）", "tags", (w?.tags || []).join(", ")) +
+      fieldHtml("よく使う", "isFavorite", w?.favorite || w?.isFavorite, "checkbox") +
+      fieldHtml("メモ", "memo", w?.memo || "", "textarea") +
+      "</div>";
+    bindCategoryCascade("work");
   } else if (activeTab === "materials") {
     const m = id ? cache.materials.find((x) => x.id === id) : {};
     editContext.item = m;
     fields.innerHTML =
-      fieldHtml("カテゴリ", "category", m?.category || "防犯カメラ", "select", meta.materialCategories.map((c) => ({ value: c, label: c }))) +
+      '<div class="form-grid">' +
+      categoryFields("material", m) +
       fieldHtml("材料名", "name", m?.name || "") +
-      fieldHtml("コード", "code", m?.code || "") +
+      fieldHtml("型番", "model", m?.model || "") +
       fieldHtml("メーカー", "maker", m?.maker || "") +
+      fieldHtml("仕入先", "supplier", m?.supplier || "") +
+      fieldHtml("原価", "cost", m?.cost ?? 0, "number") +
+      fieldHtml("標準売価", "standardSellPrice", m?.standardSellPrice ?? 0, "number") +
       fieldHtml("単位", "unit", m?.unit || "個") +
-      fieldHtml("原価", "cost", m?.cost ?? 0, "number");
+      fieldHtml("デフォルト数量", "defaultQuantity", m?.defaultQuantity ?? 1, "number") +
+      fieldHtml("タグ（カンマ区切り）", "tags", (m?.tags || []).join(", ")) +
+      fieldHtml("在庫管理対象", "stockManaged", m?.stockManaged, "checkbox") +
+      fieldHtml("よく使う", "isFavorite", m?.favorite || m?.isFavorite, "checkbox") +
+      fieldHtml("メモ", "memo", m?.memo || "", "textarea") +
+      "</div>";
+    bindCategoryCascade("material");
   } else if (activeTab === "prices") {
     const p = id ? cache.prices.find((x) => x.id === id) : {};
     editContext.item = p;
@@ -461,25 +533,60 @@ function openEdit(id) {
     const m = id ? cache.mappings.find((x) => x.id === id) : {};
     editContext.item = m;
     fields.innerHTML =
+      '<div class="form-grid">' +
       fieldHtml("種別", "mappingKind", m?.mappingKind || "symbol", "select", [
         { value: "symbol", label: "記号" },
         { value: "line", label: "線種" },
       ]) +
       fieldHtml("symbolType", "symbolType", m?.symbolType || "") +
       fieldHtml("ラベル", "label", m?.label || "") +
+      categoryFields("map", m) +
       fieldHtml("作業ID", "workItemId", m?.workItemId || "") +
-      fieldHtml("材料ID", "materialId", m?.materialId || "") +
-      fieldHtml("数量/単位", "qtyPerUnit", m?.qtyPerUnit ?? 1, "number");
+      fieldHtml("主材料ID", "materialId", m?.materialId || "") +
+      fieldHtml("追加材料ID（カンマ区切り）", "extraMaterialIds", (m?.extraMaterialIds || []).join(", ")) +
+      fieldHtml("数量/単位", "qtyPerUnit", m?.qtyPerUnit ?? 1, "number") +
+      fieldHtml("メモ", "memo", m?.memo || "", "textarea") +
+      "</div>";
+    bindCategoryCascade("map");
   }
   $("edit-dialog").showModal();
+}
+
+function bindCategoryCascade(prefix) {
+  const mainSel = document.querySelector(`select[name="${prefix}CategoryMain"]`);
+  const subSel = document.querySelector(`select[name="${prefix}CategorySub"]`);
+  if (!mainSel || !subSel) return;
+  mainSel.addEventListener("change", () => {
+    const opts = categorySubOptions(mainSel.value, "");
+    subSel.innerHTML = opts
+      .map((o) => `<option value="${escapeHtml(o.value)}">${escapeHtml(o.label)}</option>`)
+      .join("");
+  });
 }
 
 async function saveEdit(e) {
   e.preventDefault();
   const fd = new FormData($("edit-form"));
   const body = Object.fromEntries(fd.entries());
-  for (const k of ["standardCost", "laborCost", "cost", "unitPrice", "costPrice", "costMultiplier", "laborMultiplier", "qtyPerUnit"]) {
+  for (const k of [
+    "standardCost", "laborCost", "cost", "unitPrice", "costPrice", "costMultiplier", "laborMultiplier",
+    "qtyPerUnit", "standardSellPrice", "defaultQuantity",
+  ]) {
     if (body[k] !== undefined && body[k] !== "") body[k] = Number(body[k]);
+  }
+  body.isFavorite = fd.get("isFavorite") === "1";
+  body.stockManaged = fd.get("stockManaged") === "1";
+  if (body.workCategoryMain) body.categoryMain = body.workCategoryMain;
+  if (body.workCategorySub) body.categorySub = body.workCategorySub;
+  if (body.materialCategoryMain) body.categoryMain = body.materialCategoryMain;
+  if (body.materialCategorySub) body.categorySub = body.materialCategorySub;
+  if (body.mapCategoryMain) body.categoryMain = body.mapCategoryMain;
+  if (body.mapCategorySub) body.categorySub = body.mapCategorySub;
+  if (body.tags && typeof body.tags === "string") {
+    body.tags = body.tags.split(/[,、\s]+/).filter(Boolean);
+  }
+  if (body.extraMaterialIds && typeof body.extraMaterialIds === "string") {
+    body.extraMaterialIds = body.extraMaterialIds.split(/[,、\s]+/).filter(Boolean);
   }
   try {
     if (activeTab === "prices" && body.workItemId) {
