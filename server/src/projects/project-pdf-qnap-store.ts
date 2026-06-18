@@ -6,6 +6,7 @@ import { v4 as uuid } from "uuid";
 import { getDatabase } from "../db/database.js";
 import { getStorageSettingsV1 } from "../storage/storage-settings-store.js";
 import { mirrorPdfToProjectStorageV1 } from "../storage/project-storage-v1.js";
+import { registerProjectPdfDocumentV1 } from "../storage/storage-documents-v1-store.js";
 import {
   recordProjectPdfTimelineV1,
   recordQnapTimelineV1,
@@ -217,6 +218,12 @@ export function recordProjectPdfSavedV1(
     const row = getProjectPdfMeta(projectId, kind)!;
     mirrorPdfToProjectStorageV1(projectId, kind, pdfPath);
     recordProjectPdfTimelineV1(projectId, kind, fileName, false);
+    registerProjectPdfDocumentV1({
+      projectId,
+      kind,
+      localPath: pdfPath,
+      qnapStatus: row.qnapBackupStatus,
+    });
     return row;
   }
 
@@ -241,6 +248,12 @@ export function recordProjectPdfSavedV1(
   const row = getProjectPdfMeta(projectId, kind)!;
   mirrorPdfToProjectStorageV1(projectId, kind, pdfPath);
   recordProjectPdfTimelineV1(projectId, kind, fileName, true);
+  registerProjectPdfDocumentV1({
+    projectId,
+    kind,
+    localPath: pdfPath,
+    qnapStatus: row.qnapBackupStatus,
+  });
   return row;
 }
 

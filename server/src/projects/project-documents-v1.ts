@@ -17,6 +17,12 @@ import {
 } from "./project-pdf-store.js";
 import { getProjectPdfMeta } from "./project-pdf-qnap-store.js";
 import {
+  getLatestStorageDocumentForKindV1,
+  mapPracticalKindToDocumentType,
+  storageStatusPresentation,
+  type StorageDocumentStatusV1,
+} from "../storage/storage-documents-v1-store.js";
+import {
   buildCompletionReportContextV1,
   buildSpecificationContextV1,
 } from "../estimate/estimate-v1-store.js";
@@ -47,6 +53,10 @@ export interface DocumentStatusEntryV1 {
   pdfUrl: string | null;
   shareFileName: string | null;
   updatedAt: string | null;
+  storageStatus: StorageDocumentStatusV1;
+  storageStatusLabel: string;
+  storageStatusIcon: string;
+  hasPhotos: boolean;
 }
 
 export interface ProjectDocumentsStatusV1 {
@@ -151,8 +161,39 @@ function surveyPhotoCount(projectId: string): number {
   return listSurveyPhotosV1(project.surveyProjectId).length;
 }
 
+function resolveStorageStatus(projectId: string, kind: PracticalDocKind): {
+  status: StorageDocumentStatusV1;
+  label: string;
+  icon: string;
+} {
+  const docType = mapPracticalKindToDocumentType(kind);
+  const stored = getLatestStorageDocumentForKindV1(projectId, docType);
+  if (stored) {
+    const pres = storageStatusPresentation(stored.status);
+    return { status: stored.status, label: pres.label, icon: pres.icon };
+  }
+  const pdfKind = STALE_KIND_MAP[kind];
+  const meta = pdfKind ? getProjectPdfMeta(projectId, pdfKind) : null;
+  if (meta?.qnapBackupStatus === "success") {
+    const pres = storageStatusPresentation("qnap_synced");
+    return { status: "qnap_synced", label: pres.label, icon: pres.icon };
+  }
+  if (meta?.qnapBackupStatus === "failed") {
+    const pres = storageStatusPresentation("qnap_failed");
+    return { status: "qnap_failed", label: pres.label, icon: pres.icon };
+  }
+  const pres = storageStatusPresentation("qnap_pending");
+  return { status: "qnap_pending", label: pres.label, icon: pres.icon };
+}
+
 function completionPhotoCount(projectId: string): number {
   return listCompletionPhotosV1(projectId).length;
+}
+
+function resolveHasPhotos(projectId: string, kind: PracticalDocKind): boolean {
+  if (kind === "specification") return surveyPhotoCount(projectId) > 0;
+  if (kind === "completion") return completionPhotoCount(projectId) > 0;
+  return false;
 }
 
 function resolveDocumentStatus(projectId: string, kind: PracticalDocKind): DocumentStatusEntryV1 {
@@ -188,6 +229,7 @@ function resolveDocumentStatus(projectId: string, kind: PracticalDocKind): Docum
   }
 
   const pres = statusPresentation(status);
+  const storage = resolveStorageStatus(projectId, kind);
   return {
     kind,
     label,
@@ -201,6 +243,10 @@ function resolveDocumentStatus(projectId: string, kind: PracticalDocKind): Docum
     pdfUrl: pdfApiUrl(projectId, kind),
     shareFileName: resolveShareFileName(projectId, kind),
     updatedAt: hasPdf && storedPath ? resolveLocalPdf(storedPath) ? new Date().toISOString() : null : null,
+    storageStatus: storage.status,
+    storageStatusLabel: storage.label,
+    storageStatusIcon: storage.icon,
+    hasPhotos: resolveHasPhotos(projectId, kind),
   };
 }
 
