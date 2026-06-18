@@ -201,6 +201,73 @@ describe("Master v1 — 見積マスター基盤", () => {
     assert.ok(preview.body.materialCandidates.length >= 3);
     const apWork = preview.body.workCandidates.find((c: { label: string }) => c.label === "AP設置");
     assert.ok(apWork);
+    assert.ok(Array.isArray(preview.body.workLines));
+    assert.ok(Array.isArray(preview.body.materialLines));
+    assert.ok(preview.body.totalCost >= 0);
+    assert.ok(preview.body.totalSell >= 0);
+    assert.equal(typeof preview.body.grossProfitRate, "number");
+  });
+
+  it("estimate-preview に顧客ランク・上書き単価を反映", async () => {
+    const withCustomer = await request(app)
+      .get(`/api/master/v1/estimate-preview?sketchId=${sketchId}&customerId=cust-demo-a`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(withCustomer.status, 200);
+    assert.equal(withCustomer.body.customerId, "cust-demo-a");
+    const line = withCustomer.body.workLines.find(
+      (l: { label: string }) => l.label === "ドームカメラ設置"
+    );
+    assert.ok(line);
+    assert.ok(["customer_override", "rank_multiplier", "standard"].includes(line.priceSource));
+    assert.ok(line.appliedUnitSell > 0);
+  });
+
+  it("estimate-preview apply で draft JSON を保存", async () => {
+    const preview = await request(app)
+      .get(`/api/master/v1/estimate-preview?sketchId=${sketchId}`)
+      .set("Authorization", `Bearer ${token}`);
+    const apply = await request(app)
+      .post("/api/master/v1/estimate-preview/apply")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ sketchId, preview: preview.body });
+    assert.equal(apply.status, 201);
+    assert.ok(apply.body.draft.id);
+    const got = await request(app)
+      .get(`/api/master/v1/estimate-drafts/${apply.body.draft.id}`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(got.status, 200);
+    assert.equal(got.body.draft.preview.sketchId, sketchId);
+  });
+
+  it("未入力フィルタ missingFilter=cost", async () => {
+    const res = await request(app)
+      .get("/api/master/v1/work-items?missingFilter=cost")
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(res.status, 200);
+    assert.ok(res.body.workItems.length >= 1);
+    assert.ok(
+      res.body.workItems.every(
+        (w: { standardCost: number; laborCost: number }) => w.standardCost + w.laborCost <= 0
+      )
+    );
+  });
+
+  it("作業・材料マスターが50件以上（防犯カメラ拡張シード）", async () => {
+    const work = await request(app)
+      .get("/api/master/v1/work-items")
+      .set("Authorization", `Bearer ${token}`);
+    const mats = await request(app)
+      .get("/api/master/v1/materials")
+      .set("Authorization", `Bearer ${token}`);
+    assert.ok(work.body.workItems.length >= 50, `work count ${work.body.workItems.length}`);
+    assert.ok(mats.body.materials.length >= 50, `material count ${mats.body.materials.length}`);
+  });
+
+  it("meta に missingFilters を返す", async () => {
+    const res = await request(app)
+      .get("/api/master/v1/meta")
+      .set("Authorization", `Bearer ${token}`);
+    assert.ok(res.body.missingFilters.length >= 5);
   });
 
   it("顧客別単価と CSV エクスポート", async () => {

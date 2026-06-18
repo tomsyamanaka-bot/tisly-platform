@@ -1,0 +1,19 @@
+{
+  "capturedAt": "2026-06-18T20:05:41.521Z",
+  "base": "http://127.0.0.1:3080",
+  "feature": "master-v1-estimate-preview-v1",
+  "sketchId": "a90ac08a-ee55-4f4d-b856-e76c3b92fb1c",
+  "files": [
+    "01-iphone-quick-add.png",
+    "02-iphone-continuous-input.png",
+    "03-iphone-missing-cost-filter.png",
+    "04-iphone-category-mgmt.png",
+    "05-iphone-estimate-preview.png",
+    "06-android10-estimate-preview.png"
+  ],
+  "viewports": {
+    "iphone": "390x844",
+    "android10": "800x1280"
+  },
+  "ok": true
+}
