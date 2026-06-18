@@ -22,6 +22,7 @@ import {
   storageStatusPresentation,
   type StorageDocumentStatusV1,
 } from "../storage/storage-documents-v1-store.js";
+import { isQnapWebDavConfigured, resolveQnapStorageProviderKind } from "../storage/qnap-storage-v1-config.js";
 import {
   buildCompletionReportContextV1,
   buildSpecificationContextV1,
@@ -56,11 +57,15 @@ export interface DocumentStatusEntryV1 {
   storageStatus: StorageDocumentStatusV1;
   storageStatusLabel: string;
   storageStatusIcon: string;
+  storageDocumentId: string | null;
+  qnapPath: string | null;
   hasPhotos: boolean;
 }
 
 export interface ProjectDocumentsStatusV1 {
   projectId: string;
+  qnapConfigured: boolean;
+  qnapProviderKind: string;
   documents: DocumentStatusEntryV1[];
 }
 
@@ -165,25 +170,52 @@ function resolveStorageStatus(projectId: string, kind: PracticalDocKind): {
   status: StorageDocumentStatusV1;
   label: string;
   icon: string;
+  documentId: string | null;
+  qnapPath: string | null;
 } {
+  const qnapConfigured = isQnapWebDavConfigured();
   const docType = mapPracticalKindToDocumentType(kind);
   const stored = getLatestStorageDocumentForKindV1(projectId, docType);
   if (stored) {
-    const pres = storageStatusPresentation(stored.status);
-    return { status: stored.status, label: pres.label, icon: pres.icon };
+    const pres = storageStatusPresentation(stored.status, qnapConfigured);
+    return {
+      status: stored.status,
+      label: pres.label,
+      icon: pres.icon,
+      documentId: stored.id,
+      qnapPath: stored.qnapPath,
+    };
   }
   const pdfKind = STALE_KIND_MAP[kind];
   const meta = pdfKind ? getProjectPdfMeta(projectId, pdfKind) : null;
   if (meta?.qnapBackupStatus === "success") {
-    const pres = storageStatusPresentation("qnap_synced");
-    return { status: "qnap_synced", label: pres.label, icon: pres.icon };
+    const pres = storageStatusPresentation("qnap_synced", qnapConfigured);
+    return {
+      status: "qnap_synced",
+      label: pres.label,
+      icon: pres.icon,
+      documentId: null,
+      qnapPath: meta.qnapBackupPath,
+    };
   }
   if (meta?.qnapBackupStatus === "failed") {
-    const pres = storageStatusPresentation("qnap_failed");
-    return { status: "qnap_failed", label: pres.label, icon: pres.icon };
+    const pres = storageStatusPresentation("qnap_failed", qnapConfigured);
+    return {
+      status: "qnap_failed",
+      label: pres.label,
+      icon: pres.icon,
+      documentId: null,
+      qnapPath: null,
+    };
   }
-  const pres = storageStatusPresentation("qnap_pending");
-  return { status: "qnap_pending", label: pres.label, icon: pres.icon };
+  const pres = storageStatusPresentation("qnap_pending", qnapConfigured);
+  return {
+    status: "qnap_pending",
+    label: pres.label,
+    icon: pres.icon,
+    documentId: null,
+    qnapPath: null,
+  };
 }
 
 function completionPhotoCount(projectId: string): number {
@@ -246,6 +278,8 @@ function resolveDocumentStatus(projectId: string, kind: PracticalDocKind): Docum
     storageStatus: storage.status,
     storageStatusLabel: storage.label,
     storageStatusIcon: storage.icon,
+    storageDocumentId: storage.documentId,
+    qnapPath: storage.qnapPath,
     hasPhotos: resolveHasPhotos(projectId, kind),
   };
 }
@@ -255,6 +289,8 @@ export function getProjectDocumentsStatusV1(projectId: string): ProjectDocuments
   const kinds: PracticalDocKind[] = ["estimate", "invoice", "specification", "completion"];
   return {
     projectId,
+    qnapConfigured: isQnapWebDavConfigured(),
+    qnapProviderKind: resolveQnapStorageProviderKind(),
     documents: kinds.map((k) => resolveDocumentStatus(projectId, k)),
   };
 }

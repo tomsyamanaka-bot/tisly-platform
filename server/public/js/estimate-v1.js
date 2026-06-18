@@ -113,6 +113,25 @@ function parseDescription(text) {
   return { name: lines[0], memo: lines.slice(1).join("\n") };
 }
 
+async function storageApi(path, opts = {}) {
+  const token = getCustomerToken();
+  const res = await fetch(`/api/storage/qnap${path}`, {
+    ...opts,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      ...(opts.headers || {}),
+    },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const e = new Error(data.error || `HTTP ${res.status}`);
+    e.status = res.status;
+    throw e;
+  }
+  return data;
+}
+
 async function api(path, opts = {}) {
   const token = getCustomerToken();
   const res = await fetch(`${API}${path}`, {
@@ -696,6 +715,7 @@ function renderDocumentList(documents) {
   if (!mount) return;
   if (!documents?.length) {
     mount.innerHTML = '<p class="section-hint">書類がありません</p>';
+    renderQnapActionBar(documents);
     return;
   }
   mount.innerHTML = documents
@@ -707,16 +727,26 @@ function renderDocumentList(documents) {
         const pdfBadge = doc.hasPdf ? "📄 PDFあり" : "";
         const photoBadge = doc.hasPhotos ? "📷 写真あり" : "";
         const badges = [storageBadge, pdfBadge, photoBadge].filter(Boolean).join(" · ");
+        const canQnap = doc.hasPdf && doc.storageDocumentId && doc.storageStatus !== "qnap_synced";
+        const qnapBtn = doc.storageDocumentId
+          ? `<button type="button" class="doc-qnap-row-btn" data-doc-action="qnap-sync" data-kind="${escapeHtml(doc.kind)}" ${canQnap ? "" : "disabled"}>QNAPへ保存</button>`
+          : "";
+        const pathBtn = doc.qnapPath
+          ? `<button type="button" data-doc-action="qnap-path" data-path="${escapeHtml(doc.qnapPath)}">保存先を見る</button>`
+          : "";
         return `<div class="doc-list-row" data-doc-kind="${escapeHtml(doc.kind)}">
         <div>
           <strong>${escapeHtml(doc.label)}</strong>
           <div class="doc-list-meta">${escapeHtml(doc.statusIcon)} ${escapeHtml(doc.statusLabel)}${doc.fileName ? ` · ${escapeHtml(doc.fileName)}` : ""}</div>
           ${badges ? `<div class="doc-storage-badges">${escapeHtml(badges)}</div>` : ""}
+          ${doc.qnapPath ? `<div class="doc-qnap-path">${escapeHtml(doc.qnapPath)}</div>` : ""}
         </div>
         <div class="doc-list-actions">
           <button type="button" data-doc-action="open" data-kind="${escapeHtml(doc.kind)}" ${doc.status === "not_created" || doc.status === "photos_missing" || doc.status === "completion_photos_missing" ? "disabled" : ""}>開く</button>
           <button type="button" data-doc-action="share" data-kind="${escapeHtml(doc.kind)}" ${!doc.pdfUrl ? "disabled" : ""}>共有</button>
           <button type="button" data-doc-action="save" data-kind="${escapeHtml(doc.kind)}" ${!doc.pdfUrl ? "disabled" : ""}>保存</button>
+          ${qnapBtn}
+          ${pathBtn}
         </div>
       </div>`;
       }
@@ -730,8 +760,101 @@ function renderDocumentList(documents) {
       if (action === "open") openDocumentViewer(kind);
       else if (action === "share") shareDocumentFromList(kind);
       else if (action === "save") saveDocumentFromList(kind);
+      else if (action === "qnap-sync") syncDocumentToQnap(kind);
+      else if (action === "qnap-path") showQnapPath(btn.getAttribute("data-path"));
     });
   });
+  renderQnapActionBar(documents);
+}
+
+function renderQnapActionBar(documents) {
+  const mount = $("doc-qnap-mount");
+  if (!mount) return;
+  const configured = documentsStatus?.qnapConfigured !== false || documentsStatus?.qnapProviderKind === "mock";
+  const hasFailed = (documents || []).some((d) => d.storageStatus === "qnap_failed");
+  const hasPending = (documents || []).some(
+    (d) => d.hasPdf && (d.storageStatus === "qnap_pending" || d.storageStatus === "qnap_failed")
+  );
+  if (!currentProjectId) {
+    mount.hidden = true;
+    return;
+  }
+  mount.hidden = false;
+  const configHint = configured
+    ? `<p class="section-hint" style="margin:0;">保存先: ${escapeHtml(documentsStatus?.qnapProviderKind || "mock")}</p>`
+    : `<p class="section-hint" style="margin:0;">⚙️ QNAP未設定 — Mock でテスト可能</p>`;
+  mount.innerHTML = `
+    ${configHint}
+    <button type="button" id="btn-qnap-sync-project" ${hasPending ? "" : "disabled"}>案件まとめて保存</button>
+    <button type="button" class="secondary" id="btn-qnap-retry-failed" ${hasFailed ? "" : "disabled"}>失敗分を再試行</button>
+  `;
+  $("btn-qnap-sync-project")?.addEventListener("click", () => syncProjectToQnap());
+  $("btn-qnap-retry-failed")?.addEventListener("click", () => retryFailedQnap());
+}
+
+async function resolveDocumentIdForKind(kind) {
+  const doc = findDocumentStatus(kind);
+  if (doc?.storageDocumentId) return doc.storageDocumentId;
+  const res = await storageApi(`/document-id/${encodeURIComponent(currentProjectId)}/${encodeURIComponent(kind)}`);
+  return res.documentId;
+}
+
+async function syncDocumentToQnap(kind) {
+  if (!currentProjectId) return;
+  try {
+    toast("QNAPへ保存中…");
+    const documentId = await resolveDocumentIdForKind(kind);
+    const result = await storageApi(`/sync/${encodeURIComponent(documentId)}`, {
+      method: "POST",
+      body: "{}",
+    });
+    if (result.ok) toast("QNAP保存完了");
+    else toast(result.errorMessage || "QNAP保存失敗");
+    await loadDocumentsStatus();
+  } catch (e) {
+    toastError(e, e.status);
+  }
+}
+
+async function syncProjectToQnap() {
+  if (!currentProjectId) return;
+  try {
+    toast("案件書類をQNAPへ保存中…");
+    const result = await storageApi(`/sync-project/${encodeURIComponent(currentProjectId)}`, {
+      method: "POST",
+      body: "{}",
+    });
+    toast(`保存完了 ${result.synced?.length ?? 0}件 / 失敗 ${result.failed?.length ?? 0}件`);
+    await loadDocumentsStatus();
+  } catch (e) {
+    toastError(e, e.status);
+  }
+}
+
+async function retryFailedQnap() {
+  if (!currentProjectId) return;
+  try {
+    const result = await storageApi("/retry-failed", {
+      method: "POST",
+      body: JSON.stringify({ projectId: currentProjectId }),
+    });
+    toast(`再試行 ${result.retried}件 — 成功 ${result.synced?.length ?? 0}件`);
+    await loadDocumentsStatus();
+  } catch (e) {
+    toastError(e, e.status);
+  }
+}
+
+function showQnapPath(pathValue) {
+  if (!pathValue) {
+    toast("保存先パスがありません");
+    return;
+  }
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(pathValue).then(() => toast(`保存先をコピー: ${pathValue}`)).catch(() => toast(pathValue));
+  } else {
+    toast(pathValue);
+  }
 }
 
 function findDocumentStatus(kind) {
