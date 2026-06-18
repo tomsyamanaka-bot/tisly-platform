@@ -220,6 +220,7 @@ export function runMigrations(database: Database.Database): void {
   migrateProjectTimelineV1BackfillFlag(database);
   migrateProjectTimelineV1RetroactiveBackfill(database);
   migrateSurveyDrawingSketchesV1(database);
+  migrateMasterV1(database);
 }
 
 /** 現調図面 v1 — 方眼紙写真 + 描画レイヤー */
@@ -3571,4 +3572,207 @@ function migrateProjectTimelineV1RetroactiveBackfill(database: Database.Database
       "migration:project_timeline_v1_retroactive_backfill",
       JSON.stringify({ at: new Date().toISOString(), projects, events })
     );
+}
+
+/** 見積マスター v1 — 顧客/ランク/作業/材料/顧客別単価/記号マッピング */
+function migrateMasterV1(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:master_v1") as { value_json: string } | undefined;
+  if (marker) return;
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS master_v1_ranks (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      cost_multiplier REAL NOT NULL DEFAULT 2.0,
+      labor_multiplier REAL NOT NULL DEFAULT 2.0,
+      memo TEXT,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS master_v1_customers (
+      id TEXT PRIMARY KEY,
+      customer_code TEXT NOT NULL,
+      name TEXT NOT NULL,
+      rank_id TEXT,
+      contact_name TEXT,
+      phone TEXT,
+      email TEXT,
+      address TEXT,
+      memo TEXT,
+      favorite INTEGER NOT NULL DEFAULT 0,
+      active INTEGER NOT NULL DEFAULT 1,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (rank_id) REFERENCES master_v1_ranks(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_master_v1_customers_code ON master_v1_customers(customer_code);
+    CREATE INDEX IF NOT EXISTS idx_master_v1_customers_favorite ON master_v1_customers(favorite);
+
+    CREATE TABLE IF NOT EXISTS master_v1_work_items (
+      id TEXT PRIMARY KEY,
+      category TEXT NOT NULL,
+      code TEXT NOT NULL,
+      name TEXT NOT NULL,
+      unit TEXT NOT NULL DEFAULT '式',
+      standard_cost REAL NOT NULL DEFAULT 0,
+      labor_cost REAL NOT NULL DEFAULT 0,
+      memo TEXT,
+      favorite INTEGER NOT NULL DEFAULT 0,
+      active INTEGER NOT NULL DEFAULT 1,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_master_v1_work_items_category ON master_v1_work_items(category);
+
+    CREATE TABLE IF NOT EXISTS master_v1_materials (
+      id TEXT PRIMARY KEY,
+      category TEXT NOT NULL,
+      code TEXT NOT NULL,
+      name TEXT NOT NULL,
+      maker TEXT,
+      model TEXT,
+      unit TEXT NOT NULL DEFAULT '個',
+      cost REAL NOT NULL DEFAULT 0,
+      memo TEXT,
+      favorite INTEGER NOT NULL DEFAULT 0,
+      active INTEGER NOT NULL DEFAULT 1,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_master_v1_materials_category ON master_v1_materials(category);
+
+    CREATE TABLE IF NOT EXISTS master_v1_customer_prices (
+      id TEXT PRIMARY KEY,
+      customer_id TEXT NOT NULL,
+      item_type TEXT NOT NULL CHECK (item_type IN ('work', 'material')),
+      item_id TEXT NOT NULL,
+      unit_price REAL NOT NULL DEFAULT 0,
+      cost_price REAL NOT NULL DEFAULT 0,
+      memo TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (customer_id) REFERENCES master_v1_customers(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_master_v1_customer_prices_customer ON master_v1_customer_prices(customer_id);
+
+    CREATE TABLE IF NOT EXISTS master_v1_symbol_mappings (
+      id TEXT PRIMARY KEY,
+      mapping_kind TEXT NOT NULL CHECK (mapping_kind IN ('symbol', 'line')),
+      symbol_type TEXT NOT NULL,
+      label TEXT NOT NULL,
+      work_item_id TEXT,
+      material_id TEXT,
+      qty_per_unit REAL NOT NULL DEFAULT 1,
+      memo TEXT,
+      active INTEGER NOT NULL DEFAULT 1,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (work_item_id) REFERENCES master_v1_work_items(id),
+      FOREIGN KEY (material_id) REFERENCES master_v1_materials(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_master_v1_symbol_mappings_type ON master_v1_symbol_mappings(symbol_type, mapping_kind);
+  `);
+
+  seedMasterV1(database);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:master_v1", JSON.stringify({ at: new Date().toISOString() }));
+}
+
+function seedMasterV1(database: Database.Database): void {
+  const now = new Date().toISOString();
+  const insRank = database.prepare(
+    `INSERT OR IGNORE INTO master_v1_ranks (id, name, cost_multiplier, labor_multiplier, memo, sort_order, active, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)`
+  );
+  const ranks: Array<[string, string, number, number, string, number]> = [
+    ["rank-standard", "標準", 2.0, 2.0, "一般法人向け", 1],
+    ["rank-premium", "プレミアム", 2.5, 2.5, "高品質案件", 2],
+    ["rank-mgmt", "管理会社", 1.8, 1.8, "管理会社向け", 3],
+  ];
+  for (const [id, name, cm, lm, memo, sort] of ranks) {
+    insRank.run(id, name, cm, lm, memo, sort, now, now);
+  }
+
+  const insWork = database.prepare(
+    `INSERT OR IGNORE INTO master_v1_work_items (id, category, code, name, unit, standard_cost, labor_cost, memo, favorite, sort_order, active, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`
+  );
+  const works: Array<[string, string, string, string, string, number, number, string, number, number]> = [
+    ["work-camera-install", "防犯カメラ", "W-CAM-INST", "カメラ設置", "台", 15000, 8000, "ドーム/バレット共通", 1, 1],
+    ["work-lan-wiring", "ネットワーク", "W-LAN", "LAN配線", "m", 800, 500, "UTPケーブル敷設", 1, 2],
+    ["work-ap-install", "ネットワーク", "W-AP", "AP設置", "台", 12000, 6000, "無線AP取付・設定", 1, 3],
+    ["work-nvr-setup", "設定", "W-NVR", "NVR設定", "式", 20000, 10000, "録画機初期設定", 1, 4],
+    ["work-router-setup", "ネットワーク", "W-ROUTER", "ルーター設定", "式", 8000, 5000, "", 0, 5],
+    ["work-sensor-install", "センサー", "W-SENSOR", "センサー設置", "台", 6000, 4000, "人感/ビーム/マグネット", 0, 6],
+    ["work-power-wiring", "電気", "W-PWR", "電源配線", "m", 600, 400, "100V/24V", 0, 7],
+  ];
+  for (const [id, cat, code, name, unit, sc, lc, memo, fav, sort] of works) {
+    insWork.run(id, cat, code, name, unit, sc, lc, memo, fav, sort, now, now);
+  }
+
+  const insMat = database.prepare(
+    `INSERT OR IGNORE INTO master_v1_materials (id, category, code, name, maker, model, unit, cost, memo, favorite, sort_order, active, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`
+  );
+  const mats: Array<[string, string, string, string, string | null, string | null, string, number, string, number, number]> = [
+    ["mat-v1-dome-cam", "防犯カメラ", "M-DOME", "ドームカメラ", "TiSLY", "DC-200", "台", 18000, "", 1, 1],
+    ["mat-v1-bullet-cam", "防犯カメラ", "M-BULLET", "バレットカメラ", "TiSLY", "BC-300", "台", 22000, "", 1, 2],
+    ["mat-v1-lan-cable", "ケーブル", "M-LAN", "LANケーブル UTP", "汎用", "Cat6", "m", 120, "屋外対応", 1, 3],
+    ["mat-v1-ap", "ネットワーク", "M-AP", "無線AP", "Ubiquiti", "U6-Pro", "台", 25000, "", 1, 4],
+    ["mat-v1-nvr", "防犯カメラ", "M-NVR", "4ch NVR", "TiSLY", "NVR-4", "台", 45000, "", 1, 5],
+    ["mat-v1-switch", "ネットワーク", "M-SW", "8port スイッチ", "汎用", "SW-8", "台", 8000, "", 0, 6],
+    ["mat-v1-poe-injector", "電源", "M-POE", "PoEインジェクター", "汎用", "PoE+", "台", 3500, "", 0, 7],
+  ];
+  for (const [id, cat, code, name, maker, model, unit, cost, memo, fav, sort] of mats) {
+    insMat.run(id, cat, code, name, maker, model, unit, cost, memo, fav, sort, now, now);
+  }
+
+  const insCust = database.prepare(
+    `INSERT OR IGNORE INTO master_v1_customers (id, customer_code, name, rank_id, contact_name, phone, memo, favorite, sort_order, active, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`
+  );
+  insCust.run("cust-demo-a", "DEMO-A", "デモ顧客A株式会社", "rank-standard", "山田太郎", "029-000-0001", "見積マスターデモ", 1, 1, now, now);
+  insCust.run("cust-demo-b", "DEMO-B", "デモ顧客B様", "rank-premium", "佐藤花子", "090-0000-0002", "", 0, 2, now, now);
+
+  const insMap = database.prepare(
+    `INSERT OR IGNORE INTO master_v1_symbol_mappings (id, mapping_kind, symbol_type, label, work_item_id, material_id, qty_per_unit, memo, sort_order, active, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`
+  );
+  const maps: Array<[string, string, string, string, string | null, string | null, number, string, number]> = [
+    ["map-dome-cam", "symbol", "dome_camera", "ドームカメラ", "work-camera-install", "mat-v1-dome-cam", 1, "", 1],
+    ["map-bullet-cam", "symbol", "bullet_camera", "バレットカメラ", "work-camera-install", "mat-v1-bullet-cam", 1, "", 2],
+    ["map-camera", "symbol", "camera", "カメラ", "work-camera-install", "mat-v1-dome-cam", 1, "v1互換", 3],
+    ["map-lan-port", "symbol", "lan_port", "LAN", "work-lan-wiring", "mat-v1-lan-cable", 5, "端子あたり5m仮", 4],
+    ["map-ap", "symbol", "access_point", "AP", "work-ap-install", "mat-v1-ap", 1, "", 5],
+    ["map-nvr", "symbol", "nvr", "NVR", "work-nvr-setup", "mat-v1-nvr", 1, "", 6],
+    ["map-router", "symbol", "router", "ルーター", "work-router-setup", null, 1, "", 7],
+    ["map-switch", "symbol", "network_switch", "スイッチ", "work-router-setup", "mat-v1-switch", 1, "", 8],
+    ["map-pir", "symbol", "pir_sensor", "人感センサー", "work-sensor-install", null, 1, "", 9],
+    ["map-lan-line", "line", "lan", "LAN配線", "work-lan-wiring", "mat-v1-lan-cable", 1, "延長m換算", 10],
+    ["map-power100v", "line", "power100v", "100V配線", "work-power-wiring", null, 1, "", 11],
+    ["map-power24v", "line", "power24v", "24V配線", "work-power-wiring", null, 1, "", 12],
+  ];
+  for (const [id, kind, sym, label, wid, mid, qty, memo, sort] of maps) {
+    insMap.run(id, kind, sym, label, wid, mid, qty, memo, sort, now, now);
+  }
+
+  const insPrice = database.prepare(
+    `INSERT OR IGNORE INTO master_v1_customer_prices (id, customer_id, item_type, item_id, unit_price, cost_price, memo, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+  insPrice.run("price-demo-a-cam", "cust-demo-a", "work", "work-camera-install", 28000, 23000, "顧客A カメラ設置単価", now, now);
+  insPrice.run("price-demo-a-dome", "cust-demo-a", "material", "mat-v1-dome-cam", 36000, 18000, "顧客A ドームカメラ", now, now);
 }
