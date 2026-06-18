@@ -239,6 +239,50 @@ describe("Master v1 — 見積マスター基盤", () => {
     assert.equal(got.body.draft.preview.sketchId, sketchId);
   });
 
+  it("estimate-drafts apply-to-estimate で見積PWAへ反映", async () => {
+    const preview = await request(app)
+      .get(`/api/master/v1/estimate-preview?sketchId=${sketchId}`)
+      .set("Authorization", `Bearer ${token}`);
+    const saved = await request(app)
+      .post("/api/master/v1/estimate-preview/apply")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ sketchId, preview: preview.body });
+    const apply = await request(app)
+      .post(`/api/master/v1/estimate-drafts/${saved.body.draft.id}/apply-to-estimate`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({});
+    assert.equal(apply.status, 201);
+    assert.ok(apply.body.businessProjectId);
+    assert.equal(apply.body.draft.status, "applied");
+    assert.ok(apply.body.detail.estimate?.items?.length >= 1);
+
+    const estimate = await request(app)
+      .post(`/api/estimate/v1/from-master-draft/${saved.body.draft.id}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({});
+    assert.equal(estimate.status, 201);
+    assert.equal(estimate.body.masterDraftId, saved.body.draft.id);
+  });
+
+  it("categories reorder で sort_order を保存", async () => {
+    const cats = await request(app)
+      .get("/api/master/v1/categories")
+      .set("Authorization", `Bearer ${token}`);
+    const ids = cats.body.categories.slice(0, 2).map((c: { id: string }) => c.id);
+    if (ids.length < 2) return;
+    const res = await request(app)
+      .post("/api/master/v1/categories/reorder")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        orders: [
+          { id: ids[0], sortOrder: 99 },
+          { id: ids[1], sortOrder: 100 },
+        ],
+      });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.updated, 2);
+  });
+
   it("未入力フィルタ missingFilter=cost", async () => {
     const res = await request(app)
       .get("/api/master/v1/work-items?missingFilter=cost")

@@ -1,0 +1,22 @@
+{
+  "capturedAt": "2026-06-18T20:30:01.491Z",
+  "base": "http://127.0.0.1:3080",
+  "feature": "master-v1-estimate-apply-v1",
+  "sketchId": "e6ebf091-39a7-450e-86b1-c6f512927131",
+  "masterDraftId": "25126e59-9c4c-4673-b764-4555ab69cf61",
+  "businessProjectId": "BIZ-76567B39",
+  "files": [
+    "01-iphone-estimate-preview.png",
+    "02-iphone-apply-button.png",
+    "03-iphone-estimate-pwa-applied.png",
+    "04-iphone-pricing-summary.png",
+    "05-iphone-category-sort.png",
+    "06-android10-estimate-pwa-applied.png"
+  ],
+  "viewports": {
+    "iphone": "390x844",
+    "android10": "800x1280"
+  },
+  "healthCommitShort": "50b8c20",
+  "ok": true
+}

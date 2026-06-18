@@ -798,6 +798,69 @@ describe("見積PWA v1 API", () => {
     assert.equal(detail.body.invoice.items[0].quantity, 2);
     assert.equal(detail.body.invoice.items[0].unitPrice, 5000);
   });
+
+  it("masterDraftId から見積明細をインポートできる", async () => {
+    const survey = await request(app)
+      .post("/api/survey/v1/projects")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        customerCode: "TOMS001",
+        customerName: "マスター連携テスト様",
+        siteName: "連携現場",
+        address: "茨城県守谷市",
+      });
+    const projectId = survey.body.projectId;
+    const sketchRes = await request(app)
+      .post(`/api/survey/v1/projects/${projectId}/drawing-sketches`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ title: "連携図面" });
+    const sketchId = sketchRes.body.sketch.id;
+    await request(app)
+      .patch(`/api/survey/v1/drawing-sketches/${sketchId}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        layers: {
+          schemaVersion: 2,
+          drawingVersion: 2,
+          canvasWidth: 800,
+          canvasHeight: 600,
+          paths: [],
+          symbols: [
+            {
+              id: "s1",
+              symbolType: "dome_camera",
+              label: "ドーム",
+              icon: "📷",
+              color: "#2563eb",
+              x: 50,
+              y: 50,
+              rotation: 0,
+              scale: 1,
+              memo: "",
+            },
+          ],
+          notes: [],
+          viewport: { scale: 1, offsetX: 0, offsetY: 0 },
+        },
+      });
+    const preview = await request(app)
+      .get(`/api/master/v1/estimate-preview?sketchId=${sketchId}`)
+      .set("Authorization", `Bearer ${token}`);
+    const saved = await request(app)
+      .post("/api/master/v1/estimate-preview/apply")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ sketchId, preview: preview.body });
+    const imported = await request(app)
+      .post(`/api/estimate/v1/from-master-draft/${saved.body.draft.id}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({});
+    assert.equal(imported.status, 201);
+    assert.ok(imported.body.estimate?.items?.length >= 1);
+    assert.equal(imported.body.masterDraftId, saved.body.draft.id);
+    const first = imported.body.estimate.items[0];
+    assert.ok(first.unitPrice > 0);
+    assert.ok(String(first.memo || "").includes("[マスター]"));
+  });
 });
 
 const TINY_PNG =
