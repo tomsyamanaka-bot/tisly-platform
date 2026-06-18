@@ -24,11 +24,7 @@ import { getBuildVersion } from "../../deploy/build-version.js";
 import { probePdfEngineHealth } from "../../business/pdf/pdf-engine-status.js";
 import { getWsClientCount } from "../../ws/hub.js";
 import { getGoogleMapsApiKey, isGoogleMapsApiConfigured } from "../../schedule/google-maps-service.js";
-import {
-  getGoogleCalendarOAuthEnvDebug,
-  hasGoogleCalendarAccessToken,
-  hasGoogleCalendarRefreshToken,
-} from "../../services/googleOAuthService.js";
+import { getGoogleCalendarOAuthHealthInfo } from "../../services/googleOAuthService.js";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -118,6 +114,7 @@ async function buildFullHealthResponse() {
   const googleMapsApiConfigured = isGoogleMapsApiConfigured();
   const googleMapsApiKeyPresent = Boolean(getGoogleMapsApiKey());
   const pdfStatus = await probePdfEngineHealth();
+  const googleCalendarOAuth = getGoogleCalendarOAuthHealthInfo();
 
   return {
     status: dbOk ? "ok" : "degraded",
@@ -133,6 +130,7 @@ async function buildFullHealthResponse() {
     },
     googleMapsApiConfigured,
     googleMapsApiKeyPresent,
+    googleCalendarOAuth,
     uptime: Math.round(process.uptime()),
     database: {
       status: dbOk ? "ok" : "error",
@@ -149,11 +147,7 @@ async function buildFullHealthResponse() {
     integrations: {
       googleMapsApiConfigured,
       googleMapsApiKeyPresent,
-      googleCalendarOAuth: {
-        ...getGoogleCalendarOAuthEnvDebug(),
-        hasAccessToken: hasGoogleCalendarAccessToken(),
-        hasRefreshToken: hasGoogleCalendarRefreshToken(),
-      },
+      googleCalendarOAuth,
     },
     db_provider: providerInfo.provider,
     postgres: {

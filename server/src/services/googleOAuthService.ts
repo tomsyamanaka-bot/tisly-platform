@@ -1,5 +1,6 @@
 import { getDatabase } from "../db/database.js";
 import { logBusinessIntegration } from "../business/business-integration-log.js";
+import { getCalendarSyncMeta } from "../schedule/schedule-calendar-store.js";
 import {
   extractGoogleApiSafeLog,
   saveGoogleCalendarSafeLog,
@@ -9,6 +10,10 @@ import {
 const REFRESH_TOKEN_KEY = "google_oauth_refresh_token";
 const ACCESS_TOKEN_KEY = "google_oauth_access_token";
 const SCOPES_KEY = "google_oauth_scopes";
+const LAST_OAUTH_ERROR_KEY = "google_oauth_last_error";
+
+export const GOOGLE_OAUTH_ORG_INTERNAL_USER_MESSAGE =
+  "Google連携の許可設定が未完了です。Google Cloud Consoleで外部ユーザー許可、またはテストユーザー追加をしてください。";
 
 const CALENDAR_WRITE_SCOPE = "https://www.googleapis.com/auth/calendar";
 const CALENDAR_READONLY_SCOPE = "https://www.googleapis.com/auth/calendar.readonly";
@@ -38,6 +43,24 @@ export interface GoogleCalendarOAuthEnvDebug {
   clientSecretConfigured: boolean;
   redirectUriMatchesExpected: boolean;
   expectedRedirectUri: string;
+}
+
+export type GoogleOAuthReturnTarget = "v1" | "v2";
+
+export function resolveGoogleOAuthReturnPath(state: string | null | undefined): string {
+  if (state === "schedule-v2") return "/google-calendar-settings-v2";
+  return "/google-calendar-settings-v1";
+}
+
+export function googleOAuthStateForReturnTarget(returnTo: GoogleOAuthReturnTarget = "v1"): string {
+  return returnTo === "v2" ? "schedule-v2" : "schedule";
+}
+
+export function parseGoogleOAuthReturnTarget(
+  value: string | null | undefined
+): GoogleOAuthReturnTarget {
+  if (value === "v2" || value === "schedule-v2") return "v2";
+  return "v1";
 }
 
 export function getGoogleCalendarOAuthEnvDebug(): GoogleCalendarOAuthEnvDebug {
@@ -103,12 +126,21 @@ export function buildGoogleCalendarOAuthSettingsRedirectQuery(result: {
   return params.toString();
 }
 
-export function formatGoogleOAuthErrorHint(error: string | null, errorDescription: string | null): string {
+export function isGoogleOAuthOrgInternalError(
+  error: string | null | undefined,
+  errorDescription: string | null | undefined
+): boolean {
   const code = (error ?? "").toLowerCase();
   const desc = (errorDescription ?? "").toLowerCase();
-  if (code === "org_internal" || desc.includes("org_internal")) {
-    return "OAuth User Type が Internal のため、組織外アカウントはログインできません。Google Cloud Console で External に変更するか、Test users に追加してください。";
+  return code === "org_internal" || desc.includes("org_internal");
+}
+
+export function formatGoogleOAuthErrorHint(error: string | null, errorDescription: string | null): string {
+  if (isGoogleOAuthOrgInternalError(error, errorDescription)) {
+    return GOOGLE_OAUTH_ORG_INTERNAL_USER_MESSAGE;
   }
+  const code = (error ?? "").toLowerCase();
+  const desc = (errorDescription ?? "").toLowerCase();
   if (code === "access_denied") {
     return "Googleログインがキャンセルまたは拒否されました。";
   }
@@ -273,6 +305,92 @@ export function getGoogleCalendarTokenScope(): string {
   return scopes.length ? scopes.join(" ") : "";
 }
 
+function readStoredJson(key: string): Record<string, unknown> | null {
+  const row = getDatabase()
+    .prepare(`SELECT value_json FROM platform_settings WHERE key = ?`)
+    .get(key) as { value_json: string } | undefined;
+  if (!row) return null;
+  try {
+    return JSON.parse(row.value_json) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredJson(key: string, value: Record<string, unknown>): void {
+  getDatabase()
+    .prepare(
+      `INSERT OR REPLACE INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run(key, JSON.stringify(value));
+}
+
+export function recordGoogleCalendarOAuthError(input: {
+  error?: string | null;
+  errorDescription?: string | null;
+  message?: string | null;
+}): void {
+  writeStoredJson(LAST_OAUTH_ERROR_KEY, {
+    at: new Date().toISOString(),
+    error: input.error ?? null,
+    errorDescription: input.errorDescription ?? null,
+    message: input.message ?? null,
+    userMessage: isGoogleOAuthOrgInternalError(input.error ?? null, input.errorDescription ?? null)
+      ? GOOGLE_OAUTH_ORG_INTERNAL_USER_MESSAGE
+      : input.message ?? input.errorDescription ?? input.error ?? null,
+  });
+}
+
+export function clearGoogleCalendarOAuthError(): void {
+  getDatabase().prepare(`DELETE FROM platform_settings WHERE key = ?`).run(LAST_OAUTH_ERROR_KEY);
+}
+
+export function getGoogleCalendarLastOAuthError(): {
+  at: string | null;
+  error: string | null;
+  errorDescription: string | null;
+  message: string | null;
+  userMessage: string | null;
+} | null {
+  const parsed = readStoredJson(LAST_OAUTH_ERROR_KEY);
+  if (!parsed) return null;
+  return {
+    at: typeof parsed.at === "string" ? parsed.at : null,
+    error: typeof parsed.error === "string" ? parsed.error : null,
+    errorDescription:
+      typeof parsed.errorDescription === "string" ? parsed.errorDescription : null,
+    message: typeof parsed.message === "string" ? parsed.message : null,
+    userMessage: typeof parsed.userMessage === "string" ? parsed.userMessage : null,
+  };
+}
+
+export interface GoogleCalendarOAuthHealthInfo {
+  calendarEnabled: boolean;
+  hasAccessToken: boolean;
+  hasRefreshToken: boolean;
+  redirectUri: string;
+  redirectUriMatchesExpected: boolean;
+  scopes: string;
+  clientIdMask: string;
+  lastOAuthError: ReturnType<typeof getGoogleCalendarLastOAuthError>;
+  lastSyncError: string | null;
+}
+
+export function getGoogleCalendarOAuthHealthInfo(): GoogleCalendarOAuthHealthInfo {
+  const env = getGoogleCalendarOAuthEnvDebug();
+  return {
+    calendarEnabled: env.calendarEnabled,
+    hasAccessToken: hasGoogleCalendarAccessToken(),
+    hasRefreshToken: hasGoogleCalendarRefreshToken(),
+    redirectUri: env.redirectUri,
+    redirectUriMatchesExpected: env.redirectUriMatchesExpected,
+    scopes: env.scopes,
+    clientIdMask: env.clientIdMasked,
+    lastOAuthError: getGoogleCalendarLastOAuthError(),
+    lastSyncError: getCalendarSyncMeta().lastSyncError ?? null,
+  };
+}
+
 function writeStoredToken(key: string, token: string, extra?: Record<string, unknown>): void {
   getDatabase()
     .prepare(
@@ -400,15 +518,21 @@ export function getGoogleOAuthStatus() {
   };
 }
 
-export function getGoogleCalendarAuthUrl(): {
+export function getGoogleCalendarAuthUrl(returnTo: GoogleOAuthReturnTarget = "v1"): {
   url: string;
   mode: GoogleOAuthMode;
   configured: boolean;
+  returnPath: string;
 } {
   const cfg = getGoogleCalendarOAuthConfig();
   const env = inspectGoogleCalendarEnv();
   if (!env.configured) {
-    return { mode: "mock", url: "", configured: false };
+    return {
+      mode: "mock",
+      url: "",
+      configured: false,
+      returnPath: resolveGoogleOAuthReturnPath(googleOAuthStateForReturnTarget(returnTo)),
+    };
   }
   const params = new URLSearchParams({
     client_id: cfg.clientId,
@@ -417,12 +541,13 @@ export function getGoogleCalendarAuthUrl(): {
     scope: readGoogleCalendarOAuthScope(),
     access_type: "offline",
     prompt: "consent",
-    state: "schedule",
+    state: googleOAuthStateForReturnTarget(returnTo),
   });
   return {
     mode: "real",
     configured: true,
     url: `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`,
+    returnPath: resolveGoogleOAuthReturnPath(params.get("state")),
   };
 }
 
@@ -440,6 +565,10 @@ export async function handleGoogleCalendarOAuthCallback(input: {
 }> {
   const cfg = getGoogleCalendarOAuthConfig();
   if (input.error) {
+    recordGoogleCalendarOAuthError({
+      error: input.error,
+      errorDescription: input.error_description ?? null,
+    });
     const oauthDebug = buildGoogleOAuthCallbackDebug({
       error: input.error,
       errorDescription: input.error_description ?? null,
@@ -505,6 +634,7 @@ export async function handleGoogleCalendarOAuthCallback(input: {
     if (typeof (json as { scope?: string }).scope === "string") {
       saveGrantedScopes((json as { scope: string }).scope);
     }
+    clearGoogleCalendarOAuthError();
     const refreshTokenSaved = Boolean(json.refresh_token);
     return {
       ok: true,
@@ -519,6 +649,7 @@ export async function handleGoogleCalendarOAuthCallback(input: {
     };
   } catch (e) {
     const err = e as Error;
+    recordGoogleCalendarOAuthError({ message: err.message });
     return {
       ok: false,
       mode: "real",

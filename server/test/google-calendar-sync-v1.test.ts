@@ -851,7 +851,7 @@ describe("Google Calendar 双方向同期 v1", () => {
       assert.ok(loc.includes("oauth_callback=reached"));
       assert.ok(loc.includes("oauth_redirect_uri=https://tisly.jp/auth/google/callback"));
       assert.ok(loc.includes("oauth_client_id=519543"));
-      assert.ok(loc.includes("Internal"));
+      assert.ok(loc.includes("Google連携の許可設定が未完了"));
     } finally {
       process.env.GOOGLE_CALENDAR_ENABLED = prev.enabled;
       process.env.GOOGLE_CLIENT_ID = prev.clientId;
@@ -1247,6 +1247,106 @@ describe("Google Calendar 双方向同期 v1", () => {
       assert.equal(onDay.length, 1, `expected one row on ${date}`);
       assert.match(onDay[0].title, /伝元案件 阿見/);
     }
+  });
+
+  it("GET /auth/google/callback state=schedule-v2 は v2 設定へ", async () => {
+    const res = await request(app).get("/auth/google/callback?code=mock&state=schedule-v2");
+    assert.equal(res.status, 302);
+    const loc = res.headers.location ?? "";
+    assert.ok(loc.startsWith("/google-calendar-settings-v2?"));
+    assert.ok(loc.includes("oauth=ok"));
+  });
+
+  it("GET /auth/google?return=v2 は state=schedule-v2 で Google へ", async () => {
+    const prev = {
+      enabled: process.env.GOOGLE_CALENDAR_ENABLED,
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      redirect: process.env.GOOGLE_REDIRECT_URI,
+    };
+    process.env.GOOGLE_CALENDAR_ENABLED = "true";
+    process.env.GOOGLE_CLIENT_ID = "519543-test-client-id.apps.googleusercontent.com";
+    process.env.GOOGLE_CLIENT_SECRET = "test-secret";
+    process.env.GOOGLE_REDIRECT_URI = "https://tisly.jp/auth/google/callback";
+    try {
+      const res = await request(app).get("/auth/google?return=v2");
+      assert.equal(res.status, 302);
+      const loc = decodeURIComponent(res.headers.location ?? "");
+      assert.ok(loc.includes("state=schedule-v2"));
+      assert.ok(loc.includes("519543-test-client-id"));
+    } finally {
+      process.env.GOOGLE_CALENDAR_ENABLED = prev.enabled;
+      process.env.GOOGLE_CLIENT_ID = prev.clientId;
+      process.env.GOOGLE_CLIENT_SECRET = prev.clientSecret;
+      process.env.GOOGLE_REDIRECT_URI = prev.redirect;
+    }
+  });
+
+  it("POST /api/google-calendar/auth/relogin はトークン破棄して /auth/google?return=v2 を返す", async () => {
+    const prev = {
+      enabled: process.env.GOOGLE_CALENDAR_ENABLED,
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      redirect: process.env.GOOGLE_REDIRECT_URI,
+    };
+    process.env.GOOGLE_CALENDAR_ENABLED = "true";
+    process.env.GOOGLE_CLIENT_ID = "519543-test-client-id.apps.googleusercontent.com";
+    process.env.GOOGLE_CLIENT_SECRET = "test-secret";
+    process.env.GOOGLE_REDIRECT_URI = "https://tisly.jp/auth/google/callback";
+    try {
+      await request(app).get("/auth/google/callback?code=mock");
+      const res = await request(app)
+        .post("/api/google-calendar/auth/relogin")
+        .set("Authorization", `Bearer ${token}`)
+        .send({ returnTo: "v2" });
+      assert.equal(res.status, 200);
+      assert.equal(res.body.ok, true);
+      assert.equal(res.body.url, "/auth/google?return=v2");
+      assert.equal(res.body.returnPath, "/google-calendar-settings-v2");
+      const status = await request(app)
+        .get("/api/google-calendar/status")
+        .set("Authorization", `Bearer ${token}`);
+      assert.equal(status.body.connected, false);
+    } finally {
+      process.env.GOOGLE_CALENDAR_ENABLED = prev.enabled;
+      process.env.GOOGLE_CLIENT_ID = prev.clientId;
+      process.env.GOOGLE_CLIENT_SECRET = prev.clientSecret;
+      process.env.GOOGLE_REDIRECT_URI = prev.redirect;
+    }
+  });
+
+  it("POST /api/google-calendar/diagnostics/connection-test モック", async () => {
+    const res = await request(app)
+      .post("/api/google-calendar/diagnostics/connection-test")
+      .set("Authorization", `Bearer ${token}`)
+      .send({});
+    assert.equal(res.status, 200);
+    assert.equal(res.body.ok, true);
+    assert.ok(Array.isArray(res.body.calendarNames));
+    assert.ok(res.body.calendarNames.length >= 1);
+  });
+
+  it("設定画面 v1/v2 に OAuth ガイドと再ログイン・接続テスト UI", async () => {
+    const v1 = fs.readFileSync(
+      new URL("../public/google-calendar-settings-v1.html", import.meta.url),
+      "utf8"
+    );
+    const v2 = fs.readFileSync(
+      new URL("../public/google-calendar-settings-v2.html", import.meta.url),
+      "utf8"
+    );
+    const uiJs = fs.readFileSync(
+      new URL("../public/js/google-calendar-oauth-ui.js", import.meta.url),
+      "utf8"
+    );
+    assert.ok(v1.includes("oauth-setup-guide-card"));
+    assert.ok(v1.includes("btn-relogin"));
+    assert.ok(v1.includes("btn-oauth-error-detail"));
+    assert.ok(v2.includes("btn-connection-test"));
+    assert.ok(v2.includes("btn-relogin"));
+    assert.ok(uiJs.includes("GOOGLE_OAUTH_ORG_INTERNAL_USER_MESSAGE"));
+    assert.ok(uiJs.includes("toms.yamanaka@gmail.com"));
+    assert.ok(uiJs.includes("https://tisly.jp/auth/google/callback"));
   });
 
   it("UNIQUEエラーはUI向け短文にマップされる", async () => {

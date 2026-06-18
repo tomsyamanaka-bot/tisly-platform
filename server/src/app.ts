@@ -61,10 +61,13 @@ import { estimateV1Router } from "./api/routes/estimate-v1.js";
 import { scheduleRouter } from "./api/routes/schedule.js";
 import { googleCalendarRouter } from "./api/routes/google-calendar.js";
 import { googleCalendarDebugRouter } from "./api/routes/google-calendar-debug.js";
-import { getCalendarAuthUrl, handleCalendarOAuthCallback } from "./services/googleCalendar.js";
+import { handleCalendarOAuthCallback } from "./services/googleCalendar.js";
 import {
   buildGoogleCalendarOAuthSettingsRedirectQuery,
+  getGoogleCalendarAuthUrl,
   GOOGLE_CALENDAR_NOT_CONFIGURED_MSG,
+  parseGoogleOAuthReturnTarget,
+  resolveGoogleOAuthReturnPath,
 } from "./services/googleOAuthService.js";
 import { projectsV1Router } from "./api/routes/projects-v1.js";
 import { projectMgmtV1Router } from "./api/routes/project-mgmt-v1.js";
@@ -122,11 +125,12 @@ export function createApp(): express.Application {
   app.use("/api/google-calendar", googleCalendarRouter);
   app.use("/api/debug/google-calendar", googleCalendarDebugRouter);
 
-  app.get("/auth/google", (_req, res) => {
-    const auth = getCalendarAuthUrl();
+  app.get("/auth/google", (req, res) => {
+    const returnTo = parseGoogleOAuthReturnTarget(String(req.query.return ?? ""));
+    const auth = getGoogleCalendarAuthUrl(returnTo);
     if (!auth.configured || !auth.url) {
       res.redirect(
-        `/google-calendar-settings-v1?error=${encodeURIComponent(GOOGLE_CALENDAR_NOT_CONFIGURED_MSG)}`
+        `${auth.returnPath}?error=${encodeURIComponent(GOOGLE_CALENDAR_NOT_CONFIGURED_MSG)}`
       );
       return;
     }
@@ -140,7 +144,8 @@ export function createApp(): express.Application {
       error_description: req.query.error_description as string | undefined,
     });
     const query = buildGoogleCalendarOAuthSettingsRedirectQuery(result);
-    res.redirect(`/google-calendar-settings-v1?${query}`);
+    const returnPath = resolveGoogleOAuthReturnPath(String(req.query.state ?? ""));
+    res.redirect(`${returnPath}?${query}`);
   });
   app.use("/api/projects/v1", projectsV1Router);
   app.use("/api/project-mgmt/v1", projectMgmtV1Router);

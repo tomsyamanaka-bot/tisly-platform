@@ -2,7 +2,6 @@ import { Router, type Response } from "express";
 import { requireAuth, type AuthedRequest } from "../../auth/auth-middleware.js";
 import { roleMeetsRequirement } from "../../auth/roles.js";
 import {
-  getCalendarAuthUrl,
   getGoogleCalendarDiagnosticStatus,
   getGoogleCalendarPublicStatus,
   getGoogleCalendarSafeLog,
@@ -18,7 +17,12 @@ import {
   assertGoogleCalendarSyncAllowed,
   buildGoogleCalendarOAuthSettingsRedirectQuery,
   clearGoogleCalendarTokens,
+  getGoogleCalendarAuthUrl,
+  getGoogleCalendarOAuthConfig,
   GOOGLE_CALENDAR_NOT_CONFIGURED_MSG,
+  listGoogleCalendarsDetailed,
+  parseGoogleOAuthReturnTarget,
+  resolveGoogleOAuthReturnPath,
 } from "../../services/googleOAuthService.js";
 import { resetCalendarProvider } from "../../services/googleCalendar.js";
 import {
@@ -187,7 +191,10 @@ googleCalendarRouter.get("/calendars", ...calendarAuth, async (req: AuthedReques
 
 googleCalendarRouter.get("/auth/start", ...calendarAuth, (req: AuthedRequest, res) => {
   if (!assertScheduleRole(req, res)) return;
-  const auth = getCalendarAuthUrl();
+  const returnTo = parseGoogleOAuthReturnTarget(
+    String((req.query.returnTo as string | undefined) ?? (req.query.return as string | undefined) ?? "")
+  );
+  const auth = getGoogleCalendarAuthUrl(returnTo);
   if (!auth.configured) {
     res.status(503).json({
       error: GOOGLE_CALENDAR_NOT_CONFIGURED_MSG,
@@ -200,7 +207,82 @@ googleCalendarRouter.get("/auth/start", ...calendarAuth, (req: AuthedRequest, re
     res.status(503).json({ error: "Google連携は未設定です", configured: false });
     return;
   }
-  res.json({ url: auth.url, mode: auth.mode, configured: auth.configured });
+  res.json({ url: auth.url, mode: auth.mode, configured: auth.configured, returnPath: auth.returnPath });
+});
+
+googleCalendarRouter.post("/auth/relogin", ...calendarAuth, (req: AuthedRequest, res) => {
+  if (!assertScheduleRole(req, res)) return;
+  const body = (req.body ?? {}) as { returnTo?: string; return?: string };
+  const returnTo = parseGoogleOAuthReturnTarget(body.returnTo ?? body.return ?? "v2");
+  clearGoogleCalendarTokens();
+  resetCalendarProvider();
+  const auth = getGoogleCalendarAuthUrl(returnTo);
+  if (!auth.configured || !auth.url) {
+    res.status(503).json({
+      ok: false,
+      error: GOOGLE_CALENDAR_NOT_CONFIGURED_MSG,
+      configured: false,
+    });
+    return;
+  }
+  const returnQuery = returnTo === "v2" ? "v2" : "v1";
+  res.json({
+    ok: true,
+    url: `/auth/google?return=${returnQuery}`,
+    authUrl: auth.url,
+    returnPath: auth.returnPath,
+  });
+});
+
+googleCalendarRouter.post("/diagnostics/connection-test", ...calendarAuth, async (req: AuthedRequest, res) => {
+  if (!assertScheduleRole(req, res)) return;
+  const cfg = getGoogleCalendarOAuthConfig();
+  if (cfg.mode !== "mock") {
+    const guard = assertGoogleCalendarSyncAllowed();
+    if (!guard.ok) {
+      res.status(guard.status).json({
+        ok: false,
+        error: guard.error,
+        calendarNames: [],
+        calendars: [],
+      });
+      return;
+    }
+  }
+  try {
+    const result = await listGoogleCalendarsDetailed();
+    if (result.apiError) {
+      res.json({
+        ok: false,
+        error: result.apiError,
+        httpStatus: result.httpStatus ?? null,
+        calendarNames: [],
+        calendars: result.calendars,
+        usedFallback: result.usedFallback,
+      });
+      return;
+    }
+    const calendars = result.calendars.length ? result.calendars : [result.fallback];
+    res.json({
+      ok: true,
+      calendarNames: calendars.map((c) => c.summary),
+      calendars: calendars.map((c) => ({
+        id: c.id,
+        summary: c.summary,
+        primary: c.primary,
+        writable: c.writable,
+      })),
+      count: calendars.length,
+      usedFallback: result.usedFallback,
+    });
+  } catch (e) {
+    res.status(500).json({
+      ok: false,
+      error: e instanceof Error ? e.message : "connection test failed",
+      calendarNames: [],
+      calendars: [],
+    });
+  }
 });
 
 googleCalendarRouter.post("/sync/full", ...calendarAuth, async (req: AuthedRequest, res) => {
@@ -322,5 +404,6 @@ googleCalendarRouter.get("/oauth/callback", async (req, res) => {
     error_description: req.query.error_description as string | undefined,
   });
   const query = buildGoogleCalendarOAuthSettingsRedirectQuery(result);
-  res.redirect(`/google-calendar-settings-v1?${query}`);
+  const returnPath = resolveGoogleOAuthReturnPath(String(req.query.state ?? ""));
+  res.redirect(`${returnPath}?${query}`);
 });

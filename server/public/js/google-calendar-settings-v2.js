@@ -4,6 +4,13 @@ import {
   requireCustomerLogin,
   customerCodeFromPath,
 } from "./customer-auth.js";
+import {
+  GOOGLE_OAUTH_ORG_INTERNAL_USER_MESSAGE,
+  formatConnectionTestLines,
+  formatSyncResultLines,
+  mountOAuthSetupGuideCard,
+  renderOAuthCallbackFromParams,
+} from "./google-calendar-oauth-ui.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -108,10 +115,16 @@ function renderStatus(cal) {
       : `<span class="gcal-status-badge off">未連携</span>`;
   line.innerHTML = `${badge} ${escapeHtml(cal.displayLabel || "—")}`;
 
-  $("btn-login").disabled = cal.connected && cal.mode === "live";
-  $("btn-sync").disabled = !cal.connected || cal.mode !== "live";
+  const needsRelogin = Boolean(cal.needsRelogin || cal.scope?.needsReLogin);
+  $("btn-login").disabled = cal.connected && cal.mode === "live" && !needsRelogin;
+  $("btn-login").textContent = needsRelogin ? "再ログイン" : "Googleログイン";
+  const canUseLive = cal.connected && cal.mode === "live" && !needsRelogin;
+  $("btn-sync").disabled = !canUseLive;
+  $("btn-connection-test").disabled = !canUseLive;
   $("btn-save").disabled = !cal.connected;
   $("btn-match-google").disabled = !cal.connected;
+  const reloginBtn = $("btn-relogin");
+  if (reloginBtn) reloginBtn.disabled = !cal.configured || cal.mode !== "live";
 
   const banner = $("sync-mode-banner");
   if (banner) {
@@ -165,6 +178,13 @@ async function saveSettings(syncMode, calendarIds) {
   await loadCalendars();
 }
 
+function showResultEl(el, ok, lines) {
+  if (!el) return;
+  el.classList.remove("hidden", "err");
+  if (!ok) el.classList.add("err");
+  el.textContent = lines.join(" · ");
+}
+
 async function init() {
   await requireCustomerLogin(customerCodeFromPath());
   initPracticalNav({
@@ -173,12 +193,69 @@ async function init() {
     theme: "blue",
   });
 
+  mountOAuthSetupGuideCard();
+
+  const params = new URLSearchParams(window.location.search);
+  const oauthView = renderOAuthCallbackFromParams(params);
+  if (params.get("oauth") === "ok") {
+    const refreshSaved = params.get("oauth_refresh_token_saved") === "true";
+    toast(
+      refreshSaved
+        ? "Googleログインが完了しました（トークン保存済み）"
+        : "Googleログインが完了しました（refresh_token 未取得 — 再ログインを推奨）"
+    );
+    window.history.replaceState({}, "", "/google-calendar-settings-v2");
+  }
+  const err = params.get("error");
+  if (err) {
+    const msg = oauthView.orgInternal ? GOOGLE_OAUTH_ORG_INTERNAL_USER_MESSAGE : decodeURIComponent(err);
+    toast(msg);
+    window.history.replaceState({}, "", "/google-calendar-settings-v2");
+  }
+
   await refresh();
 
   $("btn-login")?.addEventListener("click", async () => {
-    const auth = await api("/auth/start");
+    const auth = await api("/auth/start?return=v2");
     if (auth.url) window.location.href = auth.url;
     else toast("Google連携未設定");
+  });
+
+  $("btn-relogin")?.addEventListener("click", async () => {
+    try {
+      const data = await api("/auth/relogin", {
+        method: "POST",
+        body: JSON.stringify({ returnTo: "v2" }),
+      });
+      window.location.href = data.url || "/auth/google?return=v2";
+    } catch (e) {
+      toast(e.message || "再ログイン準備に失敗しました");
+    }
+  });
+
+  $("btn-connection-test")?.addEventListener("click", async () => {
+    const btn = $("btn-connection-test");
+    btn.disabled = true;
+    btn.textContent = "テスト中…";
+    try {
+      const data = await api("/diagnostics/connection-test", {
+        method: "POST",
+        body: "{}",
+      });
+      showResultEl($("connection-test-result"), data.ok, formatConnectionTestLines(data));
+      toast(data.ok ? "接続テスト成功" : data.error || "接続テスト失敗");
+    } catch (e) {
+      showResultEl($("connection-test-result"), false, [e.message || "接続テスト失敗"]);
+      toast(e.message || "接続テスト失敗");
+    } finally {
+      btn.textContent = "接続テスト";
+      const canUseLive =
+        statusData?.connected &&
+        statusData?.mode === "live" &&
+        !statusData?.needsRelogin &&
+        !statusData?.scope?.needsReLogin;
+      btn.disabled = !canUseLive;
+    }
   });
 
   $("btn-match-google")?.addEventListener("click", async () => {
@@ -222,18 +299,20 @@ async function init() {
           timezone: "Asia/Tokyo",
         }),
       });
-      const el = $("sync-result");
-      if (el) {
-        el.classList.remove("hidden");
-        el.textContent = `同期成功 — 取得 ${result.fetched ?? result.pulled ?? 0}件 / カレンダー ${(result.calendarIds || []).length}件`;
-      }
+      showResultEl($("sync-result"), true, formatSyncResultLines(result));
       toast("同期しました");
       await refresh();
     } catch (e) {
+      showResultEl($("sync-result"), false, [e.message || "同期失敗"]);
       toast(e.message || "同期失敗");
     } finally {
-      btn.disabled = !statusData?.connected;
       btn.textContent = "今すぐ同期";
+      const canUseLive =
+        statusData?.connected &&
+        statusData?.mode === "live" &&
+        !statusData?.needsRelogin &&
+        !statusData?.scope?.needsReLogin;
+      btn.disabled = !canUseLive;
     }
   });
 }

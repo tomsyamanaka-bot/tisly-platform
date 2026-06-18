@@ -782,8 +782,8 @@ export function getGoogleCalendarPublicStatus(): GoogleCalendarPublicStatus {
   };
 }
 
-export function getCalendarAuthUrl() {
-  return getGoogleCalendarAuthUrl();
+export function getCalendarAuthUrl(returnTo: "v1" | "v2" = "v1") {
+  return getGoogleCalendarAuthUrl(returnTo);
 }
 
 export async function handleCalendarOAuthCallback(input: {

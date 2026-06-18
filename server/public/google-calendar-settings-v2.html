@@ -27,6 +27,13 @@
     .cal-label-text { flex:1 1 auto; min-width:0; }
     .cal-role-hint { font-size:0.72rem; color:#94a3b8; margin-left:0.25rem; }
     .sync-mode-banner { font-size:0.82rem; padding:0.45rem 0.6rem; background:#eff6ff; border-radius:8px; border:1px solid #bfdbfe; color:#1e40af; margin:0.5rem 0; }
+    .oauth-setup-guide-list { margin:0.35rem 0 0; padding-left:1.1rem; font-size:0.85rem; color:#334155; }
+    .oauth-setup-guide-list li { margin:0.25rem 0; }
+    .oauth-error-banner { margin-top:0.65rem; padding:0.55rem 0.65rem; background:#fef2f2; border:1px solid #fecaca; border-radius:8px; }
+    .oauth-error-summary { margin:0; font-size:0.88rem; color:#b91c1c; line-height:1.45; }
+    .oauth-error-detail { margin:0.45rem 0 0; font-size:0.75rem; color:#64748b; white-space:pre-wrap; word-break:break-all; }
+    #connection-test-result, #sync-result { font-size:0.85rem; color:#166534; margin-top:0.5rem; }
+    #connection-test-result.err, #sync-result.err { color:#b91c1c; }
   </style>
 </head>
 <body class="tisly-friendly">
@@ -38,9 +45,23 @@
       <p id="status-line" class="gcal-meta">読み込み中…</p>
       <div class="gcal-actions">
         <button type="button" class="btn-primary" id="btn-login">Googleログイン</button>
+        <button type="button" class="btn-sub" id="btn-relogin">Google連携をやり直す</button>
+        <button type="button" class="btn-sub" id="btn-connection-test" disabled>接続テスト</button>
         <button type="button" class="btn-sub" id="btn-sync" disabled>今すぐ同期</button>
       </div>
+      <div id="oauth-error-banner" class="oauth-error-banner hidden">
+        <p id="oauth-error-summary" class="oauth-error-summary"></p>
+        <button type="button" class="btn-sub btn-small" id="btn-oauth-error-detail" style="margin-top:0.35rem;">詳細を見る</button>
+        <pre id="oauth-error-detail" class="oauth-error-detail hidden"></pre>
+      </div>
+      <p id="connection-test-result" class="gcal-meta hidden"></p>
       <p id="sync-result" class="gcal-meta hidden"></p>
+    </div>
+
+    <div class="friendly-card gcal-card hidden" id="oauth-setup-guide-card">
+      <h2>Google OAuth 設定ガイド（403 org_internal 対策）</h2>
+      <p class="section-hint">Google Cloud Console で以下を確認してください</p>
+      <div class="oauth-setup-guide-body"></div>
     </div>
 
     <div class="friendly-card gcal-card">

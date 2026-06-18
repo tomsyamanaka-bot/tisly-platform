@@ -38,6 +38,22 @@ describe("Health API extended (Phase 221-240)", () => {
     assert.ok("chromiumExecutablePath" in res.body);
     assert.ok("pdfLastError" in res.body);
     assert.equal(res.body.integrations.googleMapsApiConfigured, res.body.googleMapsApiConfigured);
+    const oauth = res.body.googleCalendarOAuth;
+    assert.ok(oauth);
+    assert.equal(typeof oauth.calendarEnabled, "boolean");
+    assert.equal(typeof oauth.hasAccessToken, "boolean");
+    assert.equal(typeof oauth.hasRefreshToken, "boolean");
+    assert.equal(typeof oauth.redirectUri, "string");
+    assert.equal(typeof oauth.redirectUriMatchesExpected, "boolean");
+    assert.equal(typeof oauth.scopes, "string");
+    assert.equal(typeof oauth.clientIdMask, "string");
+    assert.ok("lastOAuthError" in oauth);
+    assert.ok("lastSyncError" in oauth);
+    assert.deepEqual(res.body.integrations.googleCalendarOAuth, oauth);
+    const raw = JSON.stringify(res.body);
+    assert.ok(!raw.includes("GOCSPX-"));
+    assert.ok(!raw.includes("refresh_token"));
+    assert.ok(!/"access_token"\s*:\s*"/.test(raw));
   });
 
   it("GET /health reflects new phase", async () => {

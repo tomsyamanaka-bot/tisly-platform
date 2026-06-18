@@ -5,6 +5,11 @@ import {
   customerCodeFromPath,
 } from "./customer-auth.js";
 import { renderFriendlyErrorHtml } from "./tisly-friendly-errors.js";
+import {
+  GOOGLE_OAUTH_ORG_INTERNAL_USER_MESSAGE,
+  mountOAuthSetupGuideCard,
+  renderOAuthCallbackFromParams,
+} from "./google-calendar-oauth-ui.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -192,54 +197,7 @@ function formatGoogleApiErrorHintFromLog(safeLog) {
 }
 
 function renderOAuthDebugFromParams(params) {
-  const panel = $("oauth-debug-panel");
-  const logEl = $("oauth-debug-log");
-  if (!panel || !logEl) return;
-
-  const oauthError = params.get("oauth_error");
-  const oauthErrorDesc = params.get("oauth_error_description");
-  const callback = params.get("oauth_callback");
-  const redirectUri = params.get("oauth_redirect_uri");
-  const clientId = params.get("oauth_client_id");
-  const accessSaved = params.get("oauth_access_token_saved");
-  const refreshSaved = params.get("oauth_refresh_token_saved");
-  const genericError = params.get("error");
-
-  const hasOAuthDebug =
-    oauthError ||
-    oauthErrorDesc ||
-    callback ||
-    redirectUri ||
-    clientId ||
-    accessSaved ||
-    refreshSaved ||
-    genericError;
-
-  if (!hasOAuthDebug) {
-    panel.classList.add("hidden");
-    logEl.textContent = "";
-    return;
-  }
-
-  const lines = [
-    genericError ? `message: ${genericError}` : null,
-    oauthError ? `error: ${oauthError}` : null,
-    oauthErrorDesc ? `error_description: ${oauthErrorDesc}` : null,
-    callback ? `callback: ${callback}` : null,
-    redirectUri ? `redirect_uri: ${redirectUri}` : null,
-    clientId ? `client_id: ${clientId}` : null,
-    accessSaved != null ? `access_token_saved: ${accessSaved}` : null,
-    refreshSaved != null ? `refresh_token_saved: ${refreshSaved}` : null,
-  ].filter(Boolean);
-
-  if (oauthError === "org_internal" || (oauthErrorDesc || "").toLowerCase().includes("org_internal")) {
-    lines.push(
-      "hint: OAuth User Type が Internal です。Console → Audience → External に変更し、Testing なら Test users にログイン用 Gmail を追加してください。"
-    );
-  }
-
-  panel.classList.remove("hidden");
-  logEl.textContent = lines.join("\n");
+  renderOAuthCallbackFromParams(params);
 }
 
 function renderDevInfo(cal) {
@@ -395,6 +353,8 @@ async function refreshStatus() {
   const canSync = cal.mode === "live" && cal.connected && !needsRelogin;
   $("btn-login").classList.toggle("hidden", !cal.configured || (cal.connected && !needsRelogin));
   $("btn-login").textContent = needsRelogin ? "再ログイン" : "Googleログイン";
+  const reloginBtn = $("btn-relogin");
+  if (reloginBtn) reloginBtn.disabled = !cal.configured || cal.mode !== "live";
   $("btn-sync").disabled = !canSync;
   $("btn-disconnect").disabled = !cal.connected || cal.mode !== "live";
 
@@ -586,6 +546,8 @@ async function init() {
     theme: "blue",
   });
 
+  mountOAuthSetupGuideCard();
+
   const today = new Date().toISOString().slice(0, 10);
   const intelDate = $("intel-debug-date");
   if (intelDate && !intelDate.value) intelDate.value = today;
@@ -605,7 +567,7 @@ async function init() {
   $("btn-intel-debug")?.addEventListener("click", () => runIntelligenceDebug());
 
   const params = new URLSearchParams(window.location.search);
-  renderOAuthDebugFromParams(params);
+  const oauthView = renderOAuthCallbackFromParams(params);
   if (params.get("oauth") === "ok") {
     const refreshSaved = params.get("oauth_refresh_token_saved") === "true";
     toast(
@@ -617,14 +579,27 @@ async function init() {
   }
   const err = params.get("error");
   if (err) {
-    toast(decodeURIComponent(err));
+    const msg = oauthView.orgInternal ? GOOGLE_OAUTH_ORG_INTERNAL_USER_MESSAGE : decodeURIComponent(err);
+    toast(msg);
     window.history.replaceState({}, "", "/google-calendar-settings-v1");
   }
 
   await refreshStatus();
 
   $("btn-login")?.addEventListener("click", () => {
-    window.location.href = "/auth/google";
+    window.location.href = "/auth/google?return=v1";
+  });
+
+  $("btn-relogin")?.addEventListener("click", async () => {
+    try {
+      const data = await api("/auth/relogin", {
+        method: "POST",
+        body: JSON.stringify({ returnTo: "v1" }),
+      });
+      window.location.href = data.url || "/auth/google?return=v1";
+    } catch (e) {
+      toast(e.message || "再ログイン準備に失敗しました");
+    }
   });
 
   $("btn-sync")?.addEventListener("click", async () => {
