@@ -15,6 +15,13 @@ const CALENDAR_READONLY_SCOPE = "https://www.googleapis.com/auth/calendar.readon
 
 export const GOOGLE_CALENDAR_OAUTH_SCOPE = CALENDAR_WRITE_SCOPE;
 
+function readGoogleCalendarOAuthScope(): string {
+  const fromEnv = process.env.GOOGLE_CALENDAR_SCOPES?.trim();
+  if (!fromEnv) return GOOGLE_CALENDAR_OAUTH_SCOPE;
+  const scopes = fromEnv.split(/\s+/).filter(Boolean);
+  return scopes.length ? scopes.join(" ") : GOOGLE_CALENDAR_OAUTH_SCOPE;
+}
+
 export function maskGoogleClientId(clientId: string): string {
   const id = clientId.trim();
   if (!id) return "—";
@@ -39,7 +46,7 @@ export function getGoogleCalendarOAuthEnvDebug(): GoogleCalendarOAuthEnvDebug {
   return {
     redirectUri,
     clientIdMasked: maskGoogleClientId(readGoogleClientId()),
-    scopes: GOOGLE_CALENDAR_OAUTH_SCOPE,
+    scopes: readGoogleCalendarOAuthScope(),
     calendarEnabled: process.env.GOOGLE_CALENDAR_ENABLED === "true",
     clientIdConfigured: Boolean(readGoogleClientId().trim()),
     clientSecretConfigured: Boolean(readGoogleClientSecret().trim()),
@@ -407,7 +414,7 @@ export function getGoogleCalendarAuthUrl(): {
     client_id: cfg.clientId,
     redirect_uri: cfg.redirectUri,
     response_type: "code",
-    scope: GOOGLE_CALENDAR_OAUTH_SCOPE,
+    scope: readGoogleCalendarOAuthScope(),
     access_type: "offline",
     prompt: "consent",
     state: "schedule",
