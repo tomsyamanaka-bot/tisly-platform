@@ -27,6 +27,7 @@ import {
 import {
   buildDefaultEstimateHeader,
   generateProjectScopedDocNo,
+  generateTomsEstimateNo,
   parseEstimateHeaderJson,
   TOMS_DEFAULT_BANK_INFO,
   type TomsEstimateHeader,
@@ -600,7 +601,7 @@ export function createEstimate(
   const normalized = normalizeLineItems(items);
   const totals = calcTotals(normalized, { shuseiDiscount: opts?.shuseiDiscount });
   const id = uuid();
-  const estimateNo = generateProjectScopedDocNo(project.projectNo, "business_estimates", "estimate_no");
+  const estimateNo = generateTomsEstimateNo({ address: project.address });
   const now = new Date().toISOString();
   const draftEstimate: Estimate = {
     id,

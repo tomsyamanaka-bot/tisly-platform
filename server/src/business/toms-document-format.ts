@@ -1,6 +1,7 @@
 /** TOMS 標準見積・請求書フォーマット（Excel連携準備含む） */
 
 import { getDatabase } from "../db/database.js";
+import { resolveCityCodeForDocNo } from "../projects/project-id-v1.js";
 import type { BusinessProject, Estimate, EstimateLineItem } from "./business-types.js";
 import { getTomsCompanyInfo } from "./pdf/company.js";
 
@@ -171,8 +172,8 @@ export function generateTomsDailyDocNo(
 }
 
 /**
- * 案件番号ベース採番 — {projectNo}-001 形式（重複禁止）
- * 例: MO-26-0616-001
+ * 案件番号ベース採番 — {projectNo}-001 形式（請求番号など案件スコープ用）
+ * @deprecated 見積番号は generateTomsEstimateNo を使用
  */
 export function generateProjectScopedDocNo(
   projectNo: string,
@@ -190,6 +191,39 @@ export function generateProjectScopedDocNo(
     seq += 1;
   }
   throw new Error(`doc number exhausted for ${base}`);
+}
+
+/**
+ * TOMS 見積番号 — {市コード}-{YY}-{MMDD}-{連番}
+ * 例: MO-26-0619-001 / JY-26-0619-002
+ * projectId（案件番号）とは独立採番
+ */
+export function generateTomsEstimateNo(
+  input: { municipality?: string; address?: string; cityCode?: string },
+  at = new Date()
+): string {
+  const cityCode = resolveCityCodeForDocNo(input);
+  const yy = String(at.getFullYear()).slice(-2);
+  const mm = String(at.getMonth() + 1).padStart(2, "0");
+  const dd = String(at.getDate()).padStart(2, "0");
+  const prefix = `${cityCode}-${yy}-${mm}${dd}`;
+  const pattern = `${prefix}-%`;
+  const rows = getDatabase()
+    .prepare(`SELECT estimate_no as no FROM business_estimates WHERE estimate_no LIKE ?`)
+    .all(pattern) as { no: string }[];
+  let maxSeq = 0;
+  for (const row of rows) {
+    const no = String(row.no);
+    if (!isTomsEstimateNo(no)) continue;
+    const m = no.match(/-(\d{3})$/);
+    if (m) maxSeq = Math.max(maxSeq, Number(m[1]));
+  }
+  return `${prefix}-${String(maxSeq + 1).padStart(3, "0")}`;
+}
+
+/** TOMS 見積番号形式か */
+export function isTomsEstimateNo(value: string): boolean {
+  return /^[A-Z]{2}-\d{2}-\d{4}-\d{3}$/.test(String(value || "").trim());
 }
 
 export function lineDescription(item: EstimateLineItem): string {

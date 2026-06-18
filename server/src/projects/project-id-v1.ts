@@ -141,3 +141,30 @@ export function buildQnapFolderPathV1(projectNo: string): string {
   const safe = projectNo.replace(/[/\\]/g, "-");
   return `/案件/${safe}/`;
 }
+
+/** 見積・請求番号用 — 市区町村不明時は XX（案件ID採番の MO デフォルトとは別） */
+export function resolveCityCodeForDocNo(input: {
+  municipality?: string;
+  address?: string;
+  cityCode?: string;
+}): string {
+  if (input.cityCode) {
+    const code = input.cityCode.trim().toUpperCase();
+    const exists = getDatabase()
+      .prepare(`SELECT 1 FROM project_city_codes WHERE city_code = ? AND active = 1`)
+      .get(code);
+    if (exists) return code;
+  }
+  const fromMunicipality = input.municipality ? getCityCodeByName(input.municipality) : null;
+  if (fromMunicipality) return fromMunicipality;
+
+  const text = [input.municipality, input.address].filter(Boolean).join(" ").trim();
+  if (!text) return "XX";
+
+  for (const code of DETECT_ORDER) {
+    const entry = CITY_NAME_PATTERNS.find((c) => c.code === code);
+    if (entry?.patterns.some((p) => p.test(text))) return code;
+  }
+
+  return "XX";
+}
