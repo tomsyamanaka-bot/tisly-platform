@@ -1,0 +1,100 @@
+{
+  "testedAt": "2026-06-18T12:50:18.564Z",
+  "baseUrl": "https://tisly.jp",
+  "tests": {
+    "status": {
+      "ok": true,
+      "connected": true,
+      "mode": "live",
+      "lastOAuthError": null,
+      "lastSyncError": null,
+      "displayStatus": "sync_success"
+    },
+    "oauthWriteCreateDelete": {
+      "ok": true,
+      "eventId": "b1veemftla3q89rcrl65kjun1g",
+      "deleted": true,
+      "error": null
+    },
+    "fullSync": {
+      "ok": true,
+      "fetched": 72,
+      "updated": 74,
+      "created": 0,
+      "lastSyncedAt": "2026-06-18T12:50:25.427Z",
+      "error": null
+    },
+    "tislyCreateProject": {
+      "ok": true,
+      "projectId": "SVY-75AAF2E1",
+      "surveyDate": "2026-07-02",
+      "error": null
+    },
+    "tislyPushCreate": {
+      "ok": true,
+      "pushed": 4,
+      "linksUpdated": 4,
+      "error": null,
+      "linkFound": true,
+      "googleEventId": "jhm3p9njke90l5tda2hkl9o2g4"
+    },
+    "tislyPushUpdate": {
+      "ok": true,
+      "newDate": "2026-07-03",
+      "googleSync": {
+        "synced": true,
+        "eventId": "jhm3p9njke90l5tda2hkl9o2g4",
+        "mode": "real",
+        "updated": true
+      },
+      "updated": true,
+      "eventId": "jhm3p9njke90l5tda2hkl9o2g4",
+      "error": null
+    },
+    "googlePullReflect": {
+      "ok": true,
+      "matchedEvent": {
+        "date": "2026-07-02",
+        "title": "TiSLY双方向テスト_1781787025822_現場",
+        "id": "gcal-toms.yamanaka_gmail.com-o1ufkpjuq6m5b5023euldk7tjo"
+      },
+      "note": "TiSLY日程に反映を確認"
+    },
+    "tislyDelete": {
+      "ok": true,
+      "googleDelete": {
+        "attempted": true,
+        "status": "deleted",
+        "eventId": "jhm3p9njke90l5tda2hkl9o2g4",
+        "reason": "survey_project_deleted"
+      },
+      "note": "Google側イベント削除済み",
+      "error": null
+    },
+    "fullSyncTwice": {
+      "ok": true,
+      "first": {
+        "fetched": 73,
+        "created": 1,
+        "updated": 74,
+        "deleted": 1,
+        "skipped": 0
+      },
+      "second": {
+        "fetched": 72,
+        "created": 0,
+        "updated": 74,
+        "deleted": 0,
+        "skipped": 0,
+        "pushCreated": 0,
+        "pushUpdated": 2
+      },
+      "duplicateRisk": null
+    }
+  },
+  "summary": {
+    "passed": 8,
+    "failed": 0,
+    "skipped": 0
+  }
+}
