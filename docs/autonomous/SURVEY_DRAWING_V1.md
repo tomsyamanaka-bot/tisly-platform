@@ -39,9 +39,15 @@
 ## 未実装（次フェーズ）
 
 - AI 清書パイプライン本接続（API 送信）
-- 見積明細への自動反映
+- 見積明細への自動反映（estimate-preview → estimate_items）
 - QNAP 図面バックアップ
 - 実寸スケール（方眼紙グリッド認識）
+
+## 見積マスター連携（v1 完成）
+
+- 見積マスター PWA: `/master-v1` — [MASTER_V1.md](./MASTER_V1.md)
+- 記号マッピング: `master_v1_symbol_mappings`
+- 見積候補 API: `GET /api/master/v1/estimate-preview?sketchId=…`
 
 ## JSON 構造 v2（`layers_json`）
 

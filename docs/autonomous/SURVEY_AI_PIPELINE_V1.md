@@ -98,6 +98,8 @@
 ### 4. 見積
 
 - 材料拾い結果 → `estimate_items` ドラフト
+- **v1 準備完了:** `GET /api/master/v1/estimate-preview` — 作業/材料候補抽出（[MASTER_V1.md](./MASTER_V1.md)）
+- 記号マッピング: `master_v1_symbol_mappings`（カメラ→カメラ設置、LAN→LAN配線 等）
 - 顧客別単価ルール v1.2 を適用
 
 ### 5. 完了報告

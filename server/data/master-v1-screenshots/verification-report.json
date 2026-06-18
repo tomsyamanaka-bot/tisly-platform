@@ -1,0 +1,12 @@
+{
+  "capturedAt": "2026-06-18T14:11:54.878Z",
+  "base": "http://127.0.0.1:3090",
+  "files": [
+    "01-iphone-customers.png",
+    "02-iphone-work-items.png",
+    "03-iphone-symbol-mappings.png",
+    "04-android10-customers.png",
+    "05-android10-materials.png"
+  ],
+  "ok": true
+}
