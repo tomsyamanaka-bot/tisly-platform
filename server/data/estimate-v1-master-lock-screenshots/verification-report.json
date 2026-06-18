@@ -1,0 +1,22 @@
+{
+  "capturedAt": "2026-06-18T20:52:46.270Z",
+  "base": "http://127.0.0.1:3080",
+  "feature": "estimate-v1-master-lock-v1",
+  "businessProjectId": "BIZ-475761B8",
+  "masterDraftId": "cac02f9c-93db-4d01-900e-45cc6cf01740",
+  "estimateNo": "MO-26-0619-001",
+  "files": [
+    "01-iphone-estimate-initial.png",
+    "02-iphone-master-draft-badge.png",
+    "03-iphone-after-price-recalc.png",
+    "04-iphone-missing-cost-warning.png",
+    "05-iphone-before-pdf.png",
+    "06-android10-line-items.png"
+  ],
+  "viewports": {
+    "iphone": "390x844",
+    "android10": "800x1280"
+  },
+  "healthCommitShort": "8a260d6",
+  "ok": true
+}
