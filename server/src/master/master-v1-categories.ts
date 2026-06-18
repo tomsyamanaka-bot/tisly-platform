@@ -19,6 +19,16 @@ export const MASTER_V1_CHIP_FILTERS = [
   { value: "その他", label: "その他" },
 ] as const;
 
+/** 未入力補完フィルタ — query: missingFilter */
+export const MASTER_V1_MISSING_FILTERS = [
+  { value: "", label: "未入力なし" },
+  { value: "cost", label: "原価未入力" },
+  { value: "sell", label: "売価未入力" },
+  { value: "supplier", label: "仕入先未入力" },
+  { value: "model", label: "型番未入力" },
+  { value: "category", label: "カテゴリ未設定" },
+] as const;
+
 export const MASTER_V1_CATEGORY_SEED: MasterV1CategoryDef[] = [
   // 防犯カメラ
   { categoryMain: "防犯カメラ", categorySub: "カメラ設置", kind: "both", sortOrder: 1 },

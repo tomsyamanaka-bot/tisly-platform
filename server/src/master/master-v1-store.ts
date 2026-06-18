@@ -153,6 +153,8 @@ function rowCategory(r: Record<string, unknown>): MasterV1Category {
   };
 }
 
+import type { MasterV1MissingFilter } from "./master-v1-types.js";
+
 export interface MasterV1ListOpts {
   q?: string;
   category?: string;
@@ -160,6 +162,51 @@ export interface MasterV1ListOpts {
   categorySub?: string;
   favoriteOnly?: boolean;
   activeOnly?: boolean;
+  missingFilter?: MasterV1MissingFilter;
+}
+
+function applyMissingFilterWork(base: string[], missing?: MasterV1MissingFilter): void {
+  if (!missing) return;
+  switch (missing) {
+    case "cost":
+      base.push("(standard_cost + labor_cost) <= 0");
+      break;
+    case "sell":
+      base.push("(standard_sell_price IS NULL OR standard_sell_price <= 0)");
+      break;
+    case "category":
+      base.push(
+        "(category_sub IS NULL OR category_sub = '' OR category_main IS NULL OR category_main = '' OR category_main = 'その他')"
+      );
+      break;
+    default:
+      break;
+  }
+}
+
+function applyMissingFilterMaterial(base: string[], missing?: MasterV1MissingFilter): void {
+  if (!missing) return;
+  switch (missing) {
+    case "cost":
+      base.push("(cost IS NULL OR cost <= 0)");
+      break;
+    case "sell":
+      base.push("(standard_sell_price IS NULL OR standard_sell_price <= 0)");
+      break;
+    case "supplier":
+      base.push("(supplier IS NULL OR supplier = '')");
+      break;
+    case "model":
+      base.push("(model IS NULL OR model = '')");
+      break;
+    case "category":
+      base.push(
+        "(category_sub IS NULL OR category_sub = '' OR category_main IS NULL OR category_main = '' OR category_main = 'その他')"
+      );
+      break;
+    default:
+      break;
+  }
 }
 
 function buildWhere(
@@ -350,7 +397,9 @@ export function deleteMasterV1Rank(id: string): boolean {
 
 export function listMasterV1WorkItems(opts?: MasterV1ListOpts): MasterV1WorkItem[] {
   const params: unknown[] = [];
-  const where = buildWhere([], params, opts, [
+  const base: string[] = [];
+  applyMissingFilterWork(base, opts?.missingFilter);
+  const where = buildWhere(base, params, opts, [
     "name", "code", "category", "category_main", "category_sub", "tags", "memo",
   ]);
   const rows = getDatabase()
@@ -453,7 +502,9 @@ export function deleteMasterV1WorkItem(id: string): boolean {
 
 export function listMasterV1Materials(opts?: MasterV1ListOpts): MasterV1Material[] {
   const params: unknown[] = [];
-  const where = buildWhere([], params, opts, [
+  const base: string[] = [];
+  applyMissingFilterMaterial(base, opts?.missingFilter);
+  const where = buildWhere(base, params, opts, [
     "name", "code", "category", "category_main", "category_sub", "maker", "model", "supplier", "tags", "memo",
   ]);
   const rows = getDatabase()
@@ -558,6 +609,19 @@ export function deleteMasterV1Material(id: string): boolean {
 }
 
 // —— Customer prices ——
+
+export function findMasterV1CustomerPriceByItem(
+  customerId: string,
+  itemType: "work" | "material",
+  itemId: string
+): MasterV1CustomerPrice | null {
+  const row = getDatabase()
+    .prepare(
+      `SELECT * FROM master_v1_customer_prices WHERE customer_id = ? AND item_type = ? AND item_id = ? LIMIT 1`
+    )
+    .get(customerId, itemType, itemId) as Record<string, unknown> | undefined;
+  return row ? rowCustomerPrice(row) : null;
+}
 
 export function listMasterV1CustomerPrices(opts?: { customerId?: string }): MasterV1CustomerPrice[] {
   const params: unknown[] = [];

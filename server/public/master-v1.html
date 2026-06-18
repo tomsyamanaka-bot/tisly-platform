@@ -20,6 +20,7 @@
       <button type="button" id="btn-tools" class="chip-btn" title="CSV・設定">⚙</button>
     </div>
     <div id="category-chips" class="category-chips"></div>
+    <div id="missing-filter-chips" class="category-chips missing-chips hidden"></div>
   </header>
 
   <main class="app-main master-main">
@@ -29,7 +30,18 @@
     <div id="panel-materials" class="master-panel hidden"></div>
     <div id="panel-prices" class="master-panel hidden"></div>
     <div id="panel-mappings" class="master-panel hidden"></div>
+    <div id="panel-categories" class="master-panel hidden"></div>
+    <div id="panel-estimate-preview" class="master-panel hidden"></div>
   </main>
+
+  <div id="quick-add-bar" class="quick-add-bar hidden">
+    <input type="text" id="quick-add-name" placeholder="作業名 / 材料名" enterkeyhint="done" autocomplete="off" />
+    <div class="quick-add-actions">
+      <button type="button" id="btn-quick-save" class="btn-primary btn-touch">保存</button>
+      <button type="button" id="btn-quick-save-next" class="btn-primary btn-touch btn-save-next">保存して次へ</button>
+    </div>
+    <label class="quick-continuous"><input type="checkbox" id="chk-continuous" /> 連続入力</label>
+  </div>
 
   <nav class="master-bottom-nav" id="bottom-nav">
     <button type="button" data-tab="customers" class="active"><span>👤</span><small>顧客</small></button>
@@ -38,6 +50,8 @@
     <button type="button" data-tab="materials"><span>📦</span><small>材料</small></button>
     <button type="button" data-tab="prices"><span>💴</span><small>単価</small></button>
     <button type="button" data-tab="mappings"><span>🔗</span><small>記号</small></button>
+    <button type="button" data-tab="categories"><span>📂</span><small>カテゴリ</small></button>
+    <button type="button" data-tab="estimate-preview"><span>🧮</span><small>見積候補</small></button>
   </nav>
 
   <div id="fab-add" class="fab-add" title="追加">＋</div>

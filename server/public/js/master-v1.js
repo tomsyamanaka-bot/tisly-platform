@@ -4,12 +4,17 @@ import { initPracticalNav } from "./tisly-practical-nav.js";
 const API = "/api/master/v1";
 const $ = (id) => document.getElementById(id);
 
-let meta = { workCategories: [], materialCategories: [], chipFilters: [], categories: [], mainCategories: [] };
+let meta = { workCategories: [], materialCategories: [], chipFilters: [], missingFilters: [], categories: [], mainCategories: [] };
 let activeTab = "customers";
 let searchQ = "";
 let favoriteOnly = false;
 let categoryFilter = "";
 let chipFilter = "";
+let missingFilter = "";
+let continuousMode = false;
+let previewCustomerId = "";
+let previewData = null;
+let sketchIdFromUrl = "";
 let bulkMode = false;
 const bulkSelected = new Set();
 let editContext = { mode: "create", tab: "customers", item: null };
@@ -61,10 +66,23 @@ function queryString() {
   const p = new URLSearchParams();
   if (searchQ) p.set("q", searchQ);
   if (favoriteOnly) p.set("favoriteOnly", "true");
-  if (chipFilter) p.set("chip", chipFilter);
+  if (missingFilter) p.set("missingFilter", missingFilter);
+  else if (chipFilter) p.set("chip", chipFilter);
   else if (categoryFilter) p.set("categoryMain", categoryFilter);
   const s = p.toString();
   return s ? `?${s}` : "";
+}
+
+function currentCategoryMain() {
+  if (categoryFilter) return categoryFilter;
+  if (chipFilter && chipFilter !== "__favorite__") return chipFilter;
+  return "防犯カメラ";
+}
+
+function currentCategorySub() {
+  const main = currentCategoryMain();
+  const subs = (meta.categories || []).filter((c) => c.categoryMain === main);
+  return subs[0]?.categorySub || "";
 }
 
 function categoryMainOptions(selected = "") {
@@ -116,6 +134,14 @@ async function loadTabData(tab) {
     case "mappings":
       cache.mappings = (await api("/symbol-mappings")).mappings;
       break;
+    case "categories":
+      meta.categories = (await api("/categories")).categories;
+      break;
+    case "estimate-preview":
+      if (!cache.customers.length) {
+        cache.customers = (await api("/customers")).customers;
+      }
+      break;
   }
 }
 
@@ -154,6 +180,77 @@ function renderCategoryChips() {
       await refresh();
     });
   });
+}
+
+function renderMissingFilterChips() {
+  const el = $("missing-filter-chips");
+  if (activeTab !== "work" && activeTab !== "materials") {
+    el.classList.add("hidden");
+    return;
+  }
+  el.classList.remove("hidden");
+  const chips = meta.missingFilters?.length
+    ? meta.missingFilters
+    : [
+        { value: "", label: "未入力なし" },
+        { value: "cost", label: "原価未入力" },
+        { value: "sell", label: "売価未入力" },
+        { value: "supplier", label: "仕入先未入力" },
+        { value: "model", label: "型番未入力" },
+        { value: "category", label: "カテゴリ未設定" },
+      ];
+  el.innerHTML = chips
+    .map(
+      (c) =>
+        `<button type="button" class="cat-chip missing${missingFilter === c.value ? " active" : ""}" data-missing="${escapeHtml(c.value)}">${escapeHtml(c.label)}</button>`
+    )
+    .join("");
+  el.querySelectorAll("[data-missing]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      missingFilter = btn.dataset.missing || "";
+      await refresh();
+    });
+  });
+}
+
+function updateQuickAddBar() {
+  const bar = $("quick-add-bar");
+  const show = activeTab === "work" || activeTab === "materials";
+  bar.classList.toggle("hidden", !show);
+  document.body.classList.toggle("has-quick-bar", show);
+  if (show) {
+    $("quick-add-name").placeholder = activeTab === "work" ? "作業名を入力…" : "材料名を入力…";
+  }
+}
+
+async function quickSave(continueNext = false) {
+  const name = $("quick-add-name").value.trim();
+  if (!name) {
+    toast("名前を入力してください");
+    return;
+  }
+  const body = {
+    name,
+    categoryMain: currentCategoryMain(),
+    categorySub: currentCategorySub(),
+    unit: activeTab === "work" ? "式" : "個",
+    standardCost: 0,
+    laborCost: 0,
+    cost: 0,
+    standardSellPrice: 0,
+  };
+  const path = activeTab === "work" ? "/work-items" : "/materials";
+  try {
+    await api(path, { method: "POST", body: JSON.stringify(body) });
+    toast(continueNext || continuousMode ? "保存 — 次を入力" : "クイック追加しました");
+    $("quick-add-name").value = "";
+    if (continueNext || continuousMode) {
+      $("quick-add-name").focus();
+    }
+    await refresh();
+  } catch (err) {
+    toast(err.message || "保存に失敗");
+  }
 }
 
 function cardHtml({ id, title, metaText, favorite, bulkEligible = true }) {
@@ -317,6 +414,183 @@ function renderMappings() {
     "</div>";
 }
 
+function renderCategories() {
+  const panel = $("panel-categories");
+  const cats = meta.categories || [];
+  const toolbar =
+    `<div class="cat-mgmt-toolbar">
+      <button type="button" class="btn-sub" id="btn-cat-add-main">大カテゴリ追加</button>
+      <button type="button" class="btn-sub" id="btn-cat-add-sub">中カテゴリ追加</button>
+    </div>`;
+  if (!cats.length) {
+    panel.innerHTML = toolbar + '<div class="master-empty">カテゴリがありません</div>';
+    bindCategoryMgmtEvents();
+    return;
+  }
+  const sorted = [...cats].sort(
+    (a, b) => a.categoryMain.localeCompare(b.categoryMain, "ja") || a.sortOrder - b.sortOrder
+  );
+  panel.innerHTML =
+    toolbar +
+    '<div class="master-list-wrap">' +
+    sorted
+      .map((c) => {
+        const kindLabel = c.kind === "work" ? "作業" : c.kind === "material" ? "材料" : "共通";
+        return `<div class="cat-mgmt-card${c.active ? "" : " inactive"}" data-cat-id="${escapeHtml(c.id)}">
+          <div class="cat-mgmt-row">
+            <strong>${escapeHtml(c.categoryMain)}</strong>
+            <span>›</span>
+            <span>${escapeHtml(c.categorySub || "—")}</span>
+            <span class="cat-badge">${kindLabel}</span>
+            <small>順:${c.sortOrder}</small>
+          </div>
+          <div class="cat-mgmt-row" style="margin-top:0.4rem">
+            <button type="button" class="btn-sub btn-cat-edit" data-id="${escapeHtml(c.id)}">編集</button>
+            <button type="button" class="btn-sub btn-cat-toggle" data-id="${escapeHtml(c.id)}">${c.active ? "OFF" : "ON"}</button>
+          </div>
+        </div>`;
+      })
+      .join("") +
+    "</div>";
+  bindCategoryMgmtEvents();
+}
+
+function bindCategoryMgmtEvents() {
+  $("btn-cat-add-main")?.addEventListener("click", () => openCategoryDialog("main"));
+  $("btn-cat-add-sub")?.addEventListener("click", () => openCategoryDialog("sub"));
+  document.querySelectorAll(".btn-cat-edit").forEach((btn) => {
+    btn.addEventListener("click", () => openCategoryDialog("edit", btn.dataset.id));
+  });
+  document.querySelectorAll(".btn-cat-toggle").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const cat = (meta.categories || []).find((c) => c.id === btn.dataset.id);
+      if (!cat) return;
+      await api(`/categories/${cat.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ active: !cat.active }),
+      });
+      toast(cat.active ? "カテゴリを無効化" : "カテゴリを有効化");
+      meta.categories = (await api("/categories")).categories;
+      renderCategories();
+    });
+  });
+}
+
+function openCategoryDialog(mode, id = null) {
+  const cat = id ? (meta.categories || []).find((c) => c.id === id) : null;
+  const fields = $("edit-fields");
+  $("edit-title").textContent =
+    mode === "main" ? "大カテゴリ追加" : mode === "sub" ? "中カテゴリ追加" : "カテゴリ編集";
+  editContext.mode = mode === "edit" ? "edit" : "create";
+  editContext.tab = "categories";
+  editContext.item = cat;
+  const mainVal = cat?.categoryMain || currentCategoryMain();
+  fields.innerHTML =
+    fieldHtml("大カテゴリ", "categoryMain", mainVal) +
+    (mode !== "main"
+      ? fieldHtml("中カテゴリ", "categorySub", cat?.categorySub || "")
+      : fieldHtml("中カテゴリ", "categorySub", "（新規）")) +
+    fieldHtml("種別", "kind", cat?.kind || "both", "select", [
+      { value: "work", label: "作業用" },
+      { value: "material", label: "材料用" },
+      { value: "both", label: "共通" },
+    ]) +
+    fieldHtml("表示順", "sortOrder", cat?.sortOrder ?? 0, "number") +
+    fieldHtml("有効", "active", cat?.active !== false, "checkbox");
+  $("edit-dialog").showModal();
+}
+
+function priceSourceLabel(src) {
+  if (src === "customer_override") return '<span class="price-source override">顧客上書き</span>';
+  if (src === "rank_multiplier") return '<span class="price-source rank">ランク倍率</span>';
+  return '<span class="price-source">標準売価</span>';
+}
+
+function previewLineHtml(line) {
+  return `<div class="preview-line">
+    <div class="line-title">${escapeHtml(line.label)} × ${line.qty}${escapeHtml(line.unit)} ${priceSourceLabel(line.priceSource)}</div>
+    <div class="line-meta">
+      原価 ${yen(line.totalCost)} · 売価 ${yen(line.totalSell)} · 粗利 ${yen(line.grossProfit)} (${line.grossProfitRate}%)
+    </div>
+  </div>`;
+}
+
+function renderEstimatePreview() {
+  const panel = $("panel-estimate-preview");
+  const custOpts = [
+    { value: "", label: "顧客未選択（標準売価）" },
+    ...cache.customers.map((c) => ({ value: c.id, label: c.name })),
+  ];
+  panel.innerHTML =
+    `<div class="preview-toolbar">
+      <input type="text" id="preview-sketch-id" placeholder="sketchId（URLから自動入力可）" value="${escapeHtml(sketchIdFromUrl)}" />
+      <select id="preview-customer">${custOpts.map((o) => `<option value="${escapeHtml(o.value)}"${o.value === previewCustomerId ? " selected" : ""}>${escapeHtml(o.label)}</option>`).join("")}</select>
+      <button type="button" class="btn-primary" id="btn-preview-load">見積候補を読み込む</button>
+    </div>
+    <div id="preview-content"><div class="master-empty">sketchId を入力して読み込んでください</div></div>`;
+
+  $("btn-preview-load").addEventListener("click", loadEstimatePreview);
+  $("preview-customer").addEventListener("change", (e) => {
+    previewCustomerId = e.target.value;
+    if (previewData) loadEstimatePreview();
+  });
+  if (sketchIdFromUrl) loadEstimatePreview();
+}
+
+async function loadEstimatePreview() {
+  sketchIdFromUrl = $("preview-sketch-id")?.value.trim() || sketchIdFromUrl;
+  previewCustomerId = $("preview-customer")?.value || "";
+  if (!sketchIdFromUrl) {
+    toast("sketchId を入力してください");
+    return;
+  }
+  const q = new URLSearchParams({ sketchId: sketchIdFromUrl });
+  if (previewCustomerId) q.set("customerId", previewCustomerId);
+  try {
+    previewData = await api(`/estimate-preview?${q}`);
+    renderPreviewContent();
+  } catch (err) {
+    toast(err.message || "プレビュー取得失敗");
+  }
+}
+
+function renderPreviewContent() {
+  const el = $("preview-content");
+  if (!previewData) return;
+  const p = previewData;
+  el.innerHTML =
+    `<div class="preview-summary">
+      <div class="row"><span>記号</span><span>${p.symbolCount} / 配線 ${p.pathCount}</span></div>
+      <div class="row"><span>合計原価</span><span>${yen(p.totalCost)}</span></div>
+      <div class="row"><span>合計売価</span><span>${yen(p.totalSell)}</span></div>
+      <div class="row"><span>粗利</span><span>${yen(p.grossProfit)} (${p.grossProfitRate}%)</span></div>
+      <div class="total">税抜 ${yen(p.totalSell)}</div>
+    </div>
+    <div class="preview-section"><h3>作業候補 (${(p.workLines || []).length})</h3>${(p.workLines || []).map(previewLineHtml).join("") || '<div class="master-empty">なし</div>'}</div>
+    <div class="preview-section"><h3>材料候補 (${(p.materialLines || []).length})</h3>${(p.materialLines || []).map(previewLineHtml).join("") || '<div class="master-empty">なし</div>'}</div>
+    <button type="button" class="btn-primary btn-apply-estimate" id="btn-apply-estimate">見積に反映（draft JSON保存）</button>`;
+
+  $("btn-apply-estimate").addEventListener("click", applyEstimatePreview);
+}
+
+async function applyEstimatePreview() {
+  if (!previewData) return;
+  try {
+    const res = await api("/estimate-preview/apply", {
+      method: "POST",
+      body: JSON.stringify({
+        sketchId: sketchIdFromUrl,
+        projectId: previewData.projectId,
+        customerId: previewCustomerId || null,
+        preview: previewData,
+      }),
+    });
+    toast(`draft保存: ${res.draft.id.slice(0, 8)}…`);
+  } catch (err) {
+    toast(err.message || "反映に失敗");
+  }
+}
+
 function renderActivePanel() {
   document.querySelectorAll(".master-panel").forEach((p) => p.classList.add("hidden"));
   const map = {
@@ -326,6 +600,8 @@ function renderActivePanel() {
     materials: "panel-materials",
     prices: "panel-prices",
     mappings: "panel-mappings",
+    categories: "panel-categories",
+    "estimate-preview": "panel-estimate-preview",
   };
   $(map[activeTab]).classList.remove("hidden");
   switch (activeTab) {
@@ -347,9 +623,16 @@ function renderActivePanel() {
     case "mappings":
       renderMappings();
       break;
+    case "categories":
+      renderCategories();
+      break;
+    case "estimate-preview":
+      renderEstimatePreview();
+      break;
   }
   bindCardActions();
   updateBulkBar();
+  updateQuickAddBar();
 }
 
 async function refresh() {
@@ -358,6 +641,7 @@ async function refresh() {
     cache.ranks = (await api("/ranks")).ranks;
   }
   renderCategoryChips();
+  renderMissingFilterChips();
   renderActivePanel();
 }
 
@@ -365,6 +649,7 @@ function switchTab(tab) {
   activeTab = tab;
   categoryFilter = "";
   chipFilter = "";
+  missingFilter = "";
   favoriteOnly = false;
   $("btn-favorite-filter").classList.remove("active");
   bulkSelected.clear();
@@ -548,6 +833,8 @@ function openEdit(id) {
       fieldHtml("メモ", "memo", m?.memo || "", "textarea") +
       "</div>";
     bindCategoryCascade("map");
+  } else if (activeTab === "categories") {
+    return;
   }
   $("edit-dialog").showModal();
 }
@@ -589,6 +876,26 @@ async function saveEdit(e) {
     body.extraMaterialIds = body.extraMaterialIds.split(/[,、\s]+/).filter(Boolean);
   }
   try {
+    if (activeTab === "categories") {
+      const payload = {
+        categoryMain: body.categoryMain,
+        categorySub: body.categorySub || "（新規）",
+        kind: body.kind || "both",
+        sortOrder: body.sortOrder != null ? Number(body.sortOrder) : 0,
+        active: fd.get("active") === "1",
+      };
+      if (editContext.mode === "edit" && editContext.item?.id) {
+        await api(`/categories/${editContext.item.id}`, { method: "PATCH", body: JSON.stringify(payload) });
+      } else {
+        await api("/categories", { method: "POST", body: JSON.stringify(payload) });
+      }
+      $("edit-dialog").close();
+      toast("カテゴリを保存しました");
+      meta.categories = (await api("/categories")).categories;
+      await loadMeta();
+      renderCategories();
+      return;
+    }
     if (activeTab === "prices" && body.workItemId) {
       body.itemId = body.workItemId;
       body.itemType = "work";
@@ -668,6 +975,17 @@ function bindEvents() {
   });
 
   $("fab-add").addEventListener("click", () => openEdit(null));
+  $("btn-quick-save")?.addEventListener("click", () => quickSave(false));
+  $("btn-quick-save-next")?.addEventListener("click", () => quickSave(true));
+  $("chk-continuous")?.addEventListener("change", (e) => {
+    continuousMode = e.target.checked;
+  });
+  $("quick-add-name")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      quickSave(continuousMode);
+    }
+  });
   $("edit-form").addEventListener("submit", saveEdit);
   $("btn-edit-cancel").addEventListener("click", () => $("edit-dialog").close());
 
@@ -729,11 +1047,18 @@ function bindEvents() {
 async function init() {
   const session = await requireCustomerLogin();
   if (!session) return;
-  initPracticalNav({ active: "estimate" });
+  initPracticalNav({ appId: "estimate_v1", appName: "見積マスター", theme: "green" });
+  const params = new URLSearchParams(location.search);
+  sketchIdFromUrl = params.get("sketchId") || "";
+  if (sketchIdFromUrl) previewCustomerId = params.get("customerId") || "";
   await loadMeta();
   cache.ranks = (await api("/ranks")).ranks;
   bindEvents();
-  switchTab("customers");
+  if (sketchIdFromUrl) {
+    switchTab("estimate-preview");
+  } else {
+    switchTab("customers");
+  }
 }
 
 init();
