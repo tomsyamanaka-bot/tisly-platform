@@ -76,6 +76,19 @@
     #completion-photo-lightbox img { max-width: 100%; max-height: 92vh; object-fit: contain; border-radius: 4px; }
     #completion-photo-lightbox button { position: absolute; top: 1rem; right: 1rem; border: none; background: rgba(255,255,255,0.9); border-radius: 8px; padding: 0.35rem 0.65rem; font-size: 0.9rem; }
     .practical-hidden { display: none !important; }
+    .master-draft-badge {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 0.2rem 0.5rem;
+      border-radius: 999px;
+      background: #ecfdf5;
+      color: #047857;
+      border: 1px solid #6ee7b7;
+      margin-left: 0.35rem;
+      vertical-align: middle;
+    }
+    .master-draft-badge.hidden { display: none !important; }
     .standalone-actions { display: grid; gap: 0.45rem; margin: 0.65rem 0; }
     .standalone-form .line-qty-price { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.35rem; }
     .customer-suggest-list { list-style: none; margin: 0.25rem 0 0; padding: 0; border: 1px solid var(--tisly-border, #e2e8f0); border-radius: 8px; max-height: 160px; overflow-y: auto; }
@@ -212,6 +225,7 @@
     <div id="view-detail" class="hidden">
       <div class="friendly-card">
         <span id="detail-status" class="status-badge orange">—</span>
+        <span id="master-draft-badge" class="master-draft-badge hidden">マスター候補から作成</span>
         <h2 id="detail-name">—</h2>
         <p id="detail-meta" class="section-hint practical-hidden"></p>
         <p id="detail-customer-info" class="section-hint practical-hidden"></p>

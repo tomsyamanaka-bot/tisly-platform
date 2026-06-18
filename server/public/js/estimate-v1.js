@@ -17,6 +17,7 @@ let pdfBlobUrl = null;
 const API = "/api/estimate/v1";
 const WORK_API = "/api/work-session/v1";
 let currentProjectId = null;
+let currentMasterDraftId = null;
 let currentLines = [];
 let currentCustomerName = "";
 let priceRulePresets = [];
@@ -271,6 +272,25 @@ function renderMaterialCandidates(groups) {
         .join(" ")}</p>`
     )
     .join("");
+}
+
+function renderMasterDraftBadge(masterDraftId) {
+  const badge = $("master-draft-badge");
+  if (!badge) return;
+  const show = Boolean(masterDraftId);
+  badge.classList.toggle("hidden", !show);
+  currentMasterDraftId = masterDraftId || null;
+}
+
+async function importFromMasterDraft(masterDraftId) {
+  const detail = await api(`/from-master-draft/${encodeURIComponent(masterDraftId)}`, {
+    method: "POST",
+    body: "{}",
+  });
+  toast("マスター候補を見積に反映しました");
+  await loadProjects();
+  await openDetail(detail.businessProjectId);
+  return detail;
 }
 
 async function createEstimateFromSurvey(surveyId) {
@@ -1405,6 +1425,7 @@ async function openDetail(projectId) {
   try {
     const p = await api(`/projects/${projectId}`);
     $("detail-name").textContent = projectListTitle(p);
+    renderMasterDraftBadge(p.masterDraftId);
     renderCustomerInfo(p);
     renderPriceRulePanel(p);
     const statusEl = $("detail-status");
@@ -1778,7 +1799,14 @@ async function init() {
   });
 
   const deepLinkProject = new URLSearchParams(window.location.search).get("project");
-  if (deepLinkProject) {
+  const masterDraftId = new URLSearchParams(window.location.search).get("masterDraftId");
+  if (masterDraftId) {
+    try {
+      await importFromMasterDraft(masterDraftId);
+    } catch (e) {
+      toastError(e, e.status);
+    }
+  } else if (deepLinkProject) {
     await openDetail(deepLinkProject);
   }
 }
