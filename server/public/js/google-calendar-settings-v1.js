@@ -637,6 +637,18 @@ async function init() {
       el.classList.remove("hidden", "err");
       el.textContent = formatSyncSuccessLines(result).join(" · ");
       clearGoogleCalendarUiErrorState();
+      const errEl = $("dev-last-sync-error");
+      if (errEl) {
+        errEl.textContent = "—";
+        errEl.className = "";
+      }
+      const safeEl = $("dev-safe-log");
+      if (safeEl) {
+        safeEl.classList.add("hidden");
+        safeEl.textContent = "";
+      }
+      const debugPanel = $("oauth-debug-panel");
+      if (debugPanel) debugPanel.classList.add("hidden");
       toast("同期成功");
       await refreshStatus();
     } catch (e) {

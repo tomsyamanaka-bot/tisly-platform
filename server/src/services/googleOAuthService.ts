@@ -1089,6 +1089,73 @@ export async function testGoogleCalendarEventWrite(
   return { ok: true, mode: "real", calendarId: calId, eventId, deleted: true };
 }
 
+export type GoogleCalendarDeleteStatus = "deleted" | "cancelled" | "not_found" | "skipped";
+
+export interface GoogleCalendarDeleteEventResult {
+  ok: boolean;
+  mode: GoogleOAuthMode;
+  status: GoogleCalendarDeleteStatus;
+  eventId: string;
+  reason?: string;
+}
+
+/** Google Calendar イベント削除（410 Gone は not_found 扱い） */
+export async function deleteGoogleCalendarEventForSync(input: {
+  calendarId: string;
+  eventId: string;
+  reason?: string;
+}): Promise<GoogleCalendarDeleteEventResult> {
+  const cfg = getGoogleCalendarOAuthConfig();
+  const eventId = input.eventId.trim();
+  const calendarId = input.calendarId.trim() || "primary";
+  if (!eventId) {
+    return { ok: false, mode: cfg.mode, status: "skipped", eventId: "", reason: "empty eventId" };
+  }
+  if (cfg.mode === "mock") {
+    console.log("[google-calendar-sync] delete (mock)", {
+      calendarId,
+      eventId,
+      reason: input.reason ?? "unspecified",
+      status: "deleted",
+    });
+    return { ok: true, mode: "mock", status: "deleted", eventId };
+  }
+  const token = await refreshGoogleAccessToken("calendar");
+  const res = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
+    { method: "DELETE", headers: { Authorization: `Bearer ${token}` } }
+  );
+  if (res.status === 204 || res.status === 200) {
+    console.log("[google-calendar-sync] delete", {
+      calendarId,
+      eventId,
+      reason: input.reason ?? "unspecified",
+      status: "deleted",
+    });
+    return { ok: true, mode: "real", status: "deleted", eventId };
+  }
+  if (res.status === 410) {
+    console.log("[google-calendar-sync] delete", {
+      calendarId,
+      eventId,
+      reason: input.reason ?? "unspecified",
+      status: "not_found",
+    });
+    return { ok: true, mode: "real", status: "not_found", eventId, reason: "already deleted" };
+  }
+  const json = (await res.json().catch(() => ({}))) as GoogleApiErrorBody;
+  logGoogleCalendarApiError("events.delete", res.status, json);
+  const reason = googleApiErrorMessage(json, res.status);
+  console.error("[google-calendar-sync] delete failed", {
+    calendarId,
+    eventId,
+    reason: input.reason ?? "unspecified",
+    status: "skipped",
+    error: reason,
+  });
+  return { ok: false, mode: "real", status: "skipped", eventId, reason };
+}
+
 export async function updateGoogleCalendarEventForSync(
   input: GoogleCalendarSyncEventInput & { eventId: string }
 ): Promise<{ mode: GoogleOAuthMode; eventId: string }> {

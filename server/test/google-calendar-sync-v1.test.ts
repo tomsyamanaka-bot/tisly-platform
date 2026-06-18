@@ -15,9 +15,11 @@ const { closeDatabase, getDatabase } = await import("../src/db/database.js");
 const { runFullGoogleCalendarSyncV1 } = await import(
   "../src/schedule/google-calendar-sync-service.js"
 );
-const { reflectProjectCompletionToGoogleCalendar } = await import(
-  "../src/schedule/google-calendar-sync-service.js"
-);
+const {
+  reflectProjectCompletionToGoogleCalendar,
+  syncProjectScheduleToGoogle,
+  removeProjectGoogleCalendarEvent,
+} = await import("../src/schedule/google-calendar-sync-service.js");
 
 const app = createApp();
 
@@ -1378,7 +1380,195 @@ describe("Google Calendar 双方向同期 v1", () => {
     assert.ok(uiJs.includes("formatSyncResultLines"));
     assert.ok(!uiJs.includes("oauth_access_token_saved"));
     assert.ok(uiJs.includes("最終同期"));
-    assert.ok(!uiJs.includes("`作成 ${result.created"));
+    assert.ok(uiJs.includes("作成"));
+    assert.ok(uiJs.includes("削除"));
+    assert.ok(uiJs.includes("スキップ"));
+  });
+
+  it("syncProjectScheduleToGoogle は既存リンクを更新する（mock）", async () => {
+    const survey = await request(app)
+      .post("/api/survey/v1/projects")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        customerCode: "TOMS001",
+        customerName: "更新テスト顧客",
+        siteName: "更新テスト現場",
+        surveyDate: testDate,
+        address: "茨城県守谷市1-1",
+      });
+    assert.equal(survey.status, 201);
+    const projectId = survey.body.projectId as string;
+    getDatabase()
+      .prepare(
+        `INSERT INTO google_calendar_event_links
+         (id, google_event_id, google_calendar_id, project_source, project_id, schedule_event_id, link_kind, created_at, updated_at)
+         VALUES (?, ?, 'primary', 'survey', ?, NULL, 'to_google', datetime('now'), datetime('now'))`
+      )
+      .run("link-update-1", "mock-event-update-1", projectId);
+
+    const result = await syncProjectScheduleToGoogle(
+      { source: "survey", projectId },
+      {
+        date: testDate,
+        title: "更新後タイトル",
+        location: "茨城県守谷市2-2",
+        description: `TiSLY案件: ${projectId}\nメモ更新`,
+      }
+    );
+    assert.equal(result.updated, true);
+    assert.equal(result.eventId, "mock-event-update-1");
+    assert.equal(result.mode, "mock");
+  });
+
+  it("フル同期 push はリンク済み案件を更新し新規のみ作成する", async () => {
+    const { saveGoogleRefreshToken } = await import("../src/services/googleOAuthService.js");
+    const { saveGoogleCalendarSettingsV1 } = await import(
+      "../src/schedule/google-calendar-sync-store.js"
+    );
+    const prev = {
+      enabled: process.env.GOOGLE_CALENDAR_ENABLED,
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      redirect: process.env.GOOGLE_REDIRECT_URI,
+    };
+    process.env.GOOGLE_CALENDAR_ENABLED = "true";
+    process.env.GOOGLE_CLIENT_ID = "test-client-id.apps.googleusercontent.com";
+    process.env.GOOGLE_CLIENT_SECRET = "test-secret";
+    process.env.GOOGLE_REDIRECT_URI = "https://tisly.jp/auth/google/callback";
+    saveGoogleRefreshToken("test-refresh-token");
+    saveGoogleCalendarSettingsV1({
+      calendarId: "primary",
+      syncMode: "primary_only",
+      calendarIds: ["primary"],
+      syncDirection: "bidirectional",
+    });
+
+    let postCount = 0;
+    let patchCount = 0;
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes("oauth2.googleapis.com/token")) {
+        return new Response(JSON.stringify({ access_token: "test-access-token" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (url.includes("/events") && init?.method === "POST") {
+        postCount += 1;
+        return new Response(JSON.stringify({ id: `mock-push-${postCount}` }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (url.includes("/events/") && init?.method === "PATCH") {
+        patchCount += 1;
+        return new Response(JSON.stringify({ id: "linked-event-1" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (url.includes("googleapis.com/calendar")) {
+        return new Response(JSON.stringify({ items: [] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return originalFetch(input, init);
+    };
+
+    const survey = await request(app)
+      .post("/api/survey/v1/projects")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        customerCode: "TOMS001",
+        customerName: "Push更新テスト",
+        siteName: "Push更新現場",
+        surveyDate: testDate,
+      });
+    const projectId = survey.body.projectId as string;
+    getDatabase()
+      .prepare(
+        `INSERT INTO google_calendar_event_links
+         (id, google_event_id, google_calendar_id, project_source, project_id, link_kind, created_at, updated_at)
+         VALUES (?, 'linked-event-1', 'primary', 'survey', ?, 'to_google', datetime('now'), datetime('now'))`
+      )
+      .run("link-push-update", projectId);
+
+    try {
+      const result = await runFullGoogleCalendarSyncV1({ weeks: 4 });
+      assert.equal(result.mode, "real");
+      assert.ok(result.pushUpdated >= 1, `pushUpdated=${result.pushUpdated}`);
+      assert.ok(patchCount >= 1, `patchCount=${patchCount}`);
+    } finally {
+      globalThis.fetch = originalFetch;
+      process.env.GOOGLE_CALENDAR_ENABLED = prev.enabled;
+      process.env.GOOGLE_CLIENT_ID = prev.clientId;
+      process.env.GOOGLE_CLIENT_SECRET = prev.clientSecret;
+      process.env.GOOGLE_REDIRECT_URI = prev.redirect;
+    }
+  });
+
+  it("案件削除で Google リンクを削除する（mock）", async () => {
+    const survey = await request(app)
+      .post("/api/survey/v1/projects")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        customerCode: "TOMS001",
+        customerName: "削除テスト",
+        siteName: "削除テスト現場",
+        surveyDate: testDate,
+      });
+    const projectId = survey.body.projectId as string;
+    getDatabase()
+      .prepare(
+        `INSERT INTO google_calendar_event_links
+         (id, google_event_id, google_calendar_id, project_source, project_id, link_kind, created_at, updated_at)
+         VALUES (?, 'mock-delete-event', 'primary', 'survey', ?, 'to_google', datetime('now'), datetime('now'))`
+      )
+      .run("link-delete-1", projectId);
+
+    const outcome = await removeProjectGoogleCalendarEvent(
+      { source: "survey", projectId },
+      "test_delete"
+    );
+    assert.equal(outcome.attempted, true);
+    assert.equal(outcome.status, "deleted");
+    const remaining = (
+      getDatabase()
+        .prepare(`SELECT COUNT(*) as c FROM google_calendar_event_links WHERE project_id = ?`)
+        .get(projectId) as { c: number }
+    ).c;
+    assert.equal(remaining, 0);
+  });
+
+  it("PATCH survey/v1/projects は日程変更時に googleSync を返す", async () => {
+    const survey = await request(app)
+      .post("/api/survey/v1/projects")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        customerCode: "TOMS001",
+        customerName: "PATCH同期",
+        siteName: "PATCH同期現場",
+        surveyDate: testDate,
+      });
+    const projectId = survey.body.projectId as string;
+    getDatabase()
+      .prepare(
+        `INSERT INTO google_calendar_event_links
+         (id, google_event_id, google_calendar_id, project_source, project_id, link_kind, created_at, updated_at)
+         VALUES (?, 'mock-patch-event', 'primary', 'survey', ?, 'to_google', datetime('now'), datetime('now'))`
+      )
+      .run("link-patch-1", projectId);
+
+    const patch = await request(app)
+      .patch(`/api/survey/v1/projects/${projectId}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ siteName: "PATCH後現場名", notes: "メモ変更" });
+    assert.equal(patch.status, 200);
+    assert.equal(patch.body.googleSync?.synced, true);
+    assert.equal(patch.body.googleSync?.eventId, "mock-patch-event");
+    assert.equal(patch.body.googleSync?.updated, true);
   });
 
   it("GET /api/google-calendar/status に lastOAuthError を含む", async () => {

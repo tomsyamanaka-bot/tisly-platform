@@ -10,6 +10,11 @@ import {
 import { applyWorkTemplatesToProject } from "../../field-ops/project-materials-service.js";
 import { listProjectWorkTemplateIds, listWorkTemplatesV1 } from "../../field-ops/work-templates-store.js";
 import {
+  removeProjectGoogleCalendarEvent,
+  surveyPatchTouchesSchedule,
+  syncSurveyProjectScheduleToGoogleIfLinked,
+} from "../../schedule/google-calendar-sync-service.js";
+import {
   addSurveyMaterialV1,
   addSurveyIpEquipmentV1,
   addSurveyPhotoMemoV1,
@@ -129,7 +134,7 @@ surveyV1Router.get("/projects/:id", ...surveyV1Auth, (req: AuthedRequest, res) =
   });
 });
 
-surveyV1Router.patch("/projects/:id", ...surveyV1Auth, (req: AuthedRequest, res) => {
+surveyV1Router.patch("/projects/:id", ...surveyV1Auth, async (req: AuthedRequest, res) => {
   if (!assertSurveyRole(req, res)) return;
   const body = req.body as {
     customerName?: string;
@@ -167,7 +172,18 @@ surveyV1Router.patch("/projects/:id", ...surveyV1Auth, (req: AuthedRequest, res)
       res.status(404).json({ error: "Not found" });
       return;
     }
-    res.json(updated);
+    let googleSync: Awaited<ReturnType<typeof syncSurveyProjectScheduleToGoogleIfLinked>> | undefined;
+    if (surveyPatchTouchesSchedule(body) && updated.surveyDate) {
+      googleSync = await syncSurveyProjectScheduleToGoogleIfLinked({
+        projectId: updated.projectId,
+        surveyDate: updated.surveyDate,
+        siteName: updated.siteName,
+        customerName: updated.customerName,
+        address: updated.address,
+        notes: updated.notes,
+      });
+    }
+    res.json({ ...updated, googleSync: googleSync ?? null });
   } catch (e) {
     res.status(400).json({ error: e instanceof Error ? e.message : "update failed" });
   }
@@ -219,14 +235,19 @@ surveyV1Router.post("/projects/:id/restore", ...surveyV1Auth, (req: AuthedReques
   res.json({ ok: true, project: getSurveyProjectV1Detail(String(req.params.id)) });
 });
 
-surveyV1Router.delete("/projects/:id", ...surveyV1Auth, (req: AuthedRequest, res) => {
+surveyV1Router.delete("/projects/:id", ...surveyV1Auth, async (req: AuthedRequest, res) => {
   if (!assertSurveyRole(req, res)) return;
-  const ok = deleteSurveyProjectV1(String(req.params.id));
+  const projectId = String(req.params.id);
+  const googleDelete = await removeProjectGoogleCalendarEvent(
+    { source: "survey", projectId },
+    "survey_project_deleted"
+  );
+  const ok = deleteSurveyProjectV1(projectId);
   if (!ok) {
     res.status(404).json({ error: "Not found" });
     return;
   }
-  res.json({ ok: true });
+  res.json({ ok: true, googleDelete });
 });
 
 surveyV1Router.post(

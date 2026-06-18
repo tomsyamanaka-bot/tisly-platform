@@ -224,7 +224,10 @@ export function formatSyncResultLines(result) {
   return [
     "同期成功",
     `取得 ${result.fetched ?? result.pulled ?? 0}件`,
+    `作成 ${result.created ?? 0}件`,
     `更新 ${result.updated ?? 0}件`,
+    `削除 ${result.deleted ?? 0}件`,
+    `スキップ ${result.skipped ?? 0}件`,
     `最終同期 ${lastSyncLabel}`,
   ];
 }

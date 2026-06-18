@@ -23,6 +23,7 @@ import {
 import { runSurveyAiIntake } from "../../survey/ai-intake.js";
 import { runDrawingOcr } from "../../survey/drawing-ocr.js";
 import { processSurveySync } from "../../survey/survey-sync.js";
+import { removeProjectGoogleCalendarEvent } from "../../schedule/google-calendar-sync-service.js";
 import { generateFloorMapFromSurvey } from "../../survey/survey-to-pro-map.js";
 import { buildSurveyReportHtml } from "../../survey/survey-report.js";
 import {
@@ -105,13 +106,18 @@ surveyRouter.patch("/projects/:projectId", ...surveyAuth, (req: AuthedRequest, r
   res.json(updated);
 });
 
-surveyRouter.delete("/projects/:projectId", ...surveyAuth, (req: AuthedRequest, res) => {
+surveyRouter.delete("/projects/:projectId", ...surveyAuth, async (req: AuthedRequest, res) => {
   if (!assertSurveyRole(req, res)) return;
-  if (!deleteSurveyProject(String(req.params.projectId))) {
+  const projectId = String(req.params.projectId);
+  const googleDelete = await removeProjectGoogleCalendarEvent(
+    { source: "survey", projectId },
+    "legacy_survey_project_deleted"
+  );
+  if (!deleteSurveyProject(projectId)) {
     res.status(404).json({ error: "Not found" });
     return;
   }
-  res.json({ ok: true });
+  res.json({ ok: true, googleDelete });
 });
 
 surveyRouter.post("/photo", ...surveyAuth, (req: AuthedRequest, res) => {

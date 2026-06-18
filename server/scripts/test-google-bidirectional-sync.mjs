@@ -138,35 +138,27 @@ async function main() {
     const link = await api(
       token,
       "GET",
-      `/api/google-calendar/links?projectId=${encodeURIComponent(projectId)}`
-    ).catch(() => ({ ok: false, data: {} }));
-    if (link.status === 404) {
-      const dbLink = await api(token, "GET", `/api/schedule/v1/week?offset=2`);
-      report.tests.tislyPushCreate.linkFound = false;
-      report.tests.tislyPushCreate.weekEvents = dbLink.data?.days?.flatMap((d) => d.events || []).length ?? 0;
-    } else {
-      report.tests.tislyPushCreate.linkFound = link.ok;
-      report.tests.tislyPushCreate.googleEventId = link.data?.googleEventId ?? null;
-    }
+      `/api/google-calendar/links/project?projectId=${encodeURIComponent(projectId)}&source=survey`
+    );
+    report.tests.tislyPushCreate.linkFound = link.ok && Boolean(link.data?.link);
+    report.tests.tislyPushCreate.googleEventId = link.data?.link?.googleEventId ?? null;
   }
 
-  // 4. TiSLY→Google 予定更新
+  // 4. TiSLY→Google 予定更新（PATCH → 即時同期、リンク更新）
   if (projectId) {
     const newDate = addDays(testDate, 1);
     const patch = await api(token, "PATCH", `/api/survey/v1/projects/${projectId}`, {
       surveyDate: newDate,
-      startTime: "14:00",
-      endTime: "16:00",
-    });
-    const updateSync = await api(token, "POST", "/api/google-calendar/sync/full", {
-      weeks: 8,
-      syncDirection: "bidirectional",
+      siteName: `${marker}_更新後`,
+      notes: "双方向テスト更新メモ",
     });
     report.tests.tislyPushUpdate = {
-      ok: patch.ok && updateSync.ok,
+      ok: patch.ok && patch.data?.googleSync?.synced === true,
       newDate,
-      pushed: updateSync.data?.pushed,
-      error: patch.data?.error ?? updateSync.data?.error ?? null,
+      googleSync: patch.data?.googleSync ?? null,
+      updated: patch.data?.googleSync?.updated ?? null,
+      eventId: patch.data?.googleSync?.eventId ?? null,
+      error: patch.data?.error ?? patch.data?.googleSync?.error ?? null,
     };
   }
 
@@ -184,20 +176,54 @@ async function main() {
       : "pull反映は案件リンク経由のため push 成功で代替判定",
   };
 
-  // 6. 削除（案件 soft-delete → 再同期）
+  // 6. 削除（案件 soft-delete → Google イベント削除）
   if (projectId) {
     const del = await api(token, "DELETE", `/api/survey/v1/projects/${projectId}`);
-    const syncAfterDelete = await api(token, "POST", "/api/google-calendar/sync/full", {
-      weeks: 8,
-      syncDirection: "bidirectional",
-    });
     report.tests.tislyDelete = {
       ok: del.ok,
-      syncOk: syncAfterDelete.ok,
-      note: "TiSLY案件削除。Google側イベント自動削除は未実装の可能性あり（要手動確認）",
+      googleDelete: del.data?.googleDelete ?? null,
+      note:
+        del.data?.googleDelete?.status === "deleted" || del.data?.googleDelete?.status === "not_found"
+          ? "Google側イベント削除済み"
+          : del.data?.googleDelete?.reason ?? "削除結果を確認",
       error: del.data?.error ?? null,
     };
   }
+
+  // 7. フル同期2回連続（重複なし）
+  const fullSync1 = await api(token, "POST", "/api/google-calendar/sync/full", {
+    weeks: 8,
+    syncDirection: "bidirectional",
+    timezone: "Asia/Tokyo",
+  });
+  const fullSync2 = await api(token, "POST", "/api/google-calendar/sync/full", {
+    weeks: 8,
+    syncDirection: "bidirectional",
+    timezone: "Asia/Tokyo",
+  });
+  report.tests.fullSyncTwice = {
+    ok: fullSync1.ok && fullSync2.ok,
+    first: {
+      fetched: fullSync1.data?.fetched,
+      created: fullSync1.data?.created,
+      updated: fullSync1.data?.updated,
+      deleted: fullSync1.data?.deleted,
+      skipped: fullSync1.data?.skipped,
+    },
+    second: {
+      fetched: fullSync2.data?.fetched,
+      created: fullSync2.data?.created,
+      updated: fullSync2.data?.updated,
+      deleted: fullSync2.data?.deleted,
+      skipped: fullSync2.data?.skipped,
+      pushCreated: fullSync2.data?.pushCreated,
+      pushUpdated: fullSync2.data?.pushUpdated,
+    },
+    duplicateRisk:
+      (fullSync2.data?.created ?? 0) > 0 && (fullSync2.data?.pushCreated ?? 0) > 0
+        ? "second sync created new rows"
+        : null,
+  };
 
   for (const [key, val] of Object.entries(report.tests)) {
     if (key === "status") continue;

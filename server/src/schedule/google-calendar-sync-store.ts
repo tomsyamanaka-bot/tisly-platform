@@ -258,6 +258,45 @@ export function upsertGoogleCalendarEventLink(input: {
   return findLinkByGoogleEventId(input.googleEventId)!;
 }
 
+export function deleteGoogleCalendarEventLink(linkId: string): void {
+  getDatabase().prepare(`DELETE FROM google_calendar_event_links WHERE id = ?`).run(linkId);
+}
+
+export function deleteGoogleCalendarEventLinkByProject(ref: ProjectRefV1): boolean {
+  const link = findLinkByProject(ref);
+  if (!link) return false;
+  deleteGoogleCalendarEventLink(link.id);
+  return true;
+}
+
+export function listDeletedSurveyProjectLinks(): GoogleCalendarEventLinkV1[] {
+  const rows = getDatabase()
+    .prepare(
+      `SELECT l.* FROM google_calendar_event_links l
+       INNER JOIN survey_projects sp ON sp.project_id = l.project_id AND l.project_source = 'survey'
+       WHERE sp.deleted_at IS NOT NULL`
+    )
+    .all() as Record<string, unknown>[];
+  return rows.map(rowToLink);
+}
+
+export function listSurveyLinksOutsidePushCalendars(
+  pushCalendarIds: string[]
+): GoogleCalendarEventLinkV1[] {
+  const ids = [...new Set(pushCalendarIds.map((x) => x.trim()).filter(Boolean))];
+  if (!ids.length) return [];
+  const placeholders = ids.map(() => "?").join(",");
+  const rows = getDatabase()
+    .prepare(
+      `SELECT l.* FROM google_calendar_event_links l
+       INNER JOIN survey_projects sp ON sp.project_id = l.project_id AND l.project_source = 'survey'
+       WHERE sp.deleted_at IS NULL
+         AND l.google_calendar_id NOT IN (${placeholders})`
+    )
+    .all(...ids) as Record<string, unknown>[];
+  return rows.map(rowToLink);
+}
+
 export function listSurveyProjectsForPush(
   startDate: string,
   endDate: string,
@@ -280,14 +319,14 @@ export function listSurveyProjectsForPush(
              ON l.project_source = 'survey' AND l.project_id = sp.project_id
              AND l.google_calendar_id = ?
            WHERE sp.survey_date >= ? AND sp.survey_date <= ?
-             AND sp.status != 'deleted'
+             AND sp.deleted_at IS NULL
              AND l.id IS NULL`
         : `SELECT sp.project_id, sp.site_name, sp.customer_name, sp.survey_date, sp.address
            FROM survey_projects sp
            LEFT JOIN google_calendar_event_links l
              ON l.project_source = 'survey' AND l.project_id = sp.project_id
            WHERE sp.survey_date >= ? AND sp.survey_date <= ?
-             AND sp.status != 'deleted'
+             AND sp.deleted_at IS NULL
              AND l.id IS NULL`
     )
     .all(...(calFilter ? [calFilter, startDate, endDate] : [startDate, endDate])) as Array<
@@ -300,5 +339,58 @@ export function listSurveyProjectsForPush(
     address: r.address != null ? String(r.address) : null,
     startTime: "09:00",
     endTime: "12:00",
+  }));
+}
+
+export function listSurveyProjectsForPushUpdate(
+  startDate: string,
+  endDate: string,
+  googleCalendarId?: string
+): Array<{
+  projectId: string;
+  title: string;
+  surveyDate: string;
+  address: string | null;
+  notes: string | null;
+  startTime: string | null;
+  endTime: string | null;
+  googleEventId: string;
+  googleCalendarId: string;
+}> {
+  const calFilter = googleCalendarId?.trim();
+  const rows = getDatabase()
+    .prepare(
+      calFilter
+        ? `SELECT sp.project_id, sp.site_name, sp.customer_name, sp.survey_date, sp.address,
+                  l.google_event_id, l.google_calendar_id, n.notes
+           FROM survey_projects sp
+           INNER JOIN google_calendar_event_links l
+             ON l.project_source = 'survey' AND l.project_id = sp.project_id
+             AND l.google_calendar_id = ?
+           LEFT JOIN survey_project_notes n ON n.project_id = sp.project_id
+           WHERE sp.survey_date >= ? AND sp.survey_date <= ?
+             AND sp.deleted_at IS NULL`
+        : `SELECT sp.project_id, sp.site_name, sp.customer_name, sp.survey_date, sp.address,
+                  l.google_event_id, l.google_calendar_id, n.notes
+           FROM survey_projects sp
+           INNER JOIN google_calendar_event_links l
+             ON l.project_source = 'survey' AND l.project_id = sp.project_id
+           LEFT JOIN survey_project_notes n ON n.project_id = sp.project_id
+           WHERE sp.survey_date >= ? AND sp.survey_date <= ?
+             AND sp.deleted_at IS NULL`
+    )
+    .all(...(calFilter ? [calFilter, startDate, endDate] : [startDate, endDate])) as Array<
+    Record<string, unknown>
+  >;
+  return rows.map((r) => ({
+    projectId: String(r.project_id),
+    title: String(r.site_name || r.customer_name),
+    surveyDate: String(r.survey_date),
+    address: r.address != null ? String(r.address) : null,
+    notes: r.notes != null ? String(r.notes) : null,
+    startTime: "09:00",
+    endTime: "12:00",
+    googleEventId: String(r.google_event_id),
+    googleCalendarId: String(r.google_calendar_id),
   }));
 }

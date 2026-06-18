@@ -10,6 +10,7 @@ import {
   listProjectsV1,
   restoreProjectV1,
 } from "../../projects/projects-v1-store.js";
+import { removeProjectGoogleCalendarEvent } from "../../schedule/google-calendar-sync-service.js";
 import {
   deleteProjectPdfV1,
   listProjectPdfsV1,
@@ -242,13 +243,21 @@ projectsV1Router.get("/projects/:id", ...auth, (req: AuthedRequest, res) => {
   res.json(detail);
 });
 
-projectsV1Router.delete("/projects/:id", ...auth, (req: AuthedRequest, res) => {
+projectsV1Router.delete("/projects/:id", ...auth, async (req: AuthedRequest, res) => {
   if (!assertRole(req, res)) return;
   const source = (req.query.source as string) === "survey" ? "survey" : "business";
-  const result = deleteProjectV1(String(req.params.id), source);
+  const projectId = String(req.params.id);
+  const googleDelete =
+    source === "survey"
+      ? await removeProjectGoogleCalendarEvent(
+          { source: "survey", projectId },
+          "projects_v1_survey_deleted"
+        )
+      : null;
+  const result = deleteProjectV1(projectId, source);
   if (!result) {
     res.status(404).json({ error: "project not found" });
     return;
   }
-  res.json(result);
+  res.json({ ...result, googleDelete });
 });

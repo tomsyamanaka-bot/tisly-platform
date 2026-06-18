@@ -97,7 +97,7 @@ export function hasCachedCalendarEvents(): boolean {
   return row.c > 0;
 }
 
-function recordCalendarSyncSuccessMeta(
+export function recordCalendarSyncSuccessMeta(
   startDate: string,
   endDate: string,
   stats: CalendarUpsertStats
