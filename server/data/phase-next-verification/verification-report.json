@@ -1,0 +1,363 @@
+{
+  "capturedAt": "2026-06-18T13:00:18.730Z",
+  "baseUrl": "http://127.0.0.1:3080",
+  "phases": [
+    "google-lock",
+    "pwa-icons",
+    "project-mgmt",
+    "survey-drawing-v1"
+  ],
+  "screenshots": {
+    "01-google-settings-iphone.png": "C:/Users/yaman/TiSLY_HOME_Security_DEMO/server/data/phase-next-verification/01-google-settings-iphone.png",
+    "02-schedule-v1-iphone.png": "C:/Users/yaman/TiSLY_HOME_Security_DEMO/server/data/phase-next-verification/02-schedule-v1-iphone.png",
+    "03-app-hub-iphone.png": "C:/Users/yaman/TiSLY_HOME_Security_DEMO/server/data/phase-next-verification/03-app-hub-iphone.png",
+    "04-projects-v1-iphone.png": "C:/Users/yaman/TiSLY_HOME_Security_DEMO/server/data/phase-next-verification/04-projects-v1-iphone.png",
+    "05-survey-v1-drawing-section-iphone.png": "C:/Users/yaman/TiSLY_HOME_Security_DEMO/server/data/phase-next-verification/05-survey-v1-drawing-section-iphone.png",
+    "06-survey-drawing-v1-iphone.png": "C:/Users/yaman/TiSLY_HOME_Security_DEMO/server/data/phase-next-verification/06-survey-drawing-v1-iphone.png",
+    "07-survey-drawing-v1-android-tablet.png": "C:/Users/yaman/TiSLY_HOME_Security_DEMO/server/data/phase-next-verification/07-survey-drawing-v1-android-tablet.png",
+    "08-project-mgmt-v1-iphone.png": "C:/Users/yaman/TiSLY_HOME_Security_DEMO/server/data/phase-next-verification/08-project-mgmt-v1-iphone.png"
+  },
+  "tests": {
+    "googleBidirectional": {
+      "testedAt": "2026-06-18T12:50:18.564Z",
+      "baseUrl": "https://tisly.jp",
+      "tests": {
+        "status": {
+          "ok": true,
+          "connected": true,
+          "mode": "live",
+          "lastOAuthError": null,
+          "lastSyncError": null,
+          "displayStatus": "sync_success"
+        },
+        "oauthWriteCreateDelete": {
+          "ok": true,
+          "eventId": "b1veemftla3q89rcrl65kjun1g",
+          "deleted": true,
+          "error": null
+        },
+        "fullSync": {
+          "ok": true,
+          "fetched": 72,
+          "updated": 74,
+          "created": 0,
+          "lastSyncedAt": "2026-06-18T12:50:25.427Z",
+          "error": null
+        },
+        "tislyCreateProject": {
+          "ok": true,
+          "projectId": "SVY-75AAF2E1",
+          "surveyDate": "2026-07-02",
+          "error": null
+        },
+        "tislyPushCreate": {
+          "ok": true,
+          "pushed": 4,
+          "linksUpdated": 4,
+          "error": null,
+          "linkFound": true,
+          "googleEventId": "jhm3p9njke90l5tda2hkl9o2g4"
+        },
+        "tislyPushUpdate": {
+          "ok": true,
+          "newDate": "2026-07-03",
+          "googleSync": {
+            "synced": true,
+            "eventId": "jhm3p9njke90l5tda2hkl9o2g4",
+            "mode": "real",
+            "updated": true
+          },
+          "updated": true,
+          "eventId": "jhm3p9njke90l5tda2hkl9o2g4",
+          "error": null
+        },
+        "googlePullReflect": {
+          "ok": true,
+          "matchedEvent": {
+            "date": "2026-07-02",
+            "title": "TiSLY双方向テスト_1781787025822_現場",
+            "id": "gcal-toms.yamanaka_gmail.com-o1ufkpjuq6m5b5023euldk7tjo"
+          },
+          "note": "TiSLY日程に反映を確認"
+        },
+        "tislyDelete": {
+          "ok": true,
+          "googleDelete": {
+            "attempted": true,
+            "status": "deleted",
+            "eventId": "jhm3p9njke90l5tda2hkl9o2g4",
+            "reason": "survey_project_deleted"
+          },
+          "note": "Google側イベント削除済み",
+          "error": null
+        },
+        "fullSyncTwice": {
+          "ok": true,
+          "first": {
+            "fetched": 73,
+            "created": 1,
+            "updated": 74,
+            "deleted": 1,
+            "skipped": 0
+          },
+          "second": {
+            "fetched": 72,
+            "created": 0,
+            "updated": 74,
+            "deleted": 0,
+            "skipped": 0,
+            "pushCreated": 0,
+            "pushUpdated": 2
+          },
+          "duplicateRisk": null
+        }
+      },
+      "summary": {
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0
+      }
+    }
+  },
+  "health": {
+    "status": "ok",
+    "buildVersion": {
+      "label": "TiSLY RC2",
+      "build": "RC2-1500",
+      "commit": "d045059441db2c30d5c51635ff2957534b7b0b2a",
+      "commitShort": "d045059",
+      "date": "2026-06-18",
+      "phase": "1461-1500-conoha-vps-auto-deploy"
+    },
+    "commitShort": "d045059",
+    "pdfEngine": "puppeteer",
+    "pdfEngineReady": true,
+    "chromiumExecutablePath": "C:\\Users\\yaman\\.cache\\puppeteer\\chrome\\win64-131.0.6778.204\\chrome-win64\\chrome.exe",
+    "pdfLastError": null,
+    "runtimeFeatures": {
+      "qnapPdfBackupV1": true,
+      "storageSettingsV1": true
+    },
+    "googleMapsApiConfigured": false,
+    "googleMapsApiKeyPresent": false,
+    "uptime": 166776,
+    "database": {
+      "status": "ok",
+      "provider": "sqlite"
+    },
+    "websocket": {
+      "status": "ok",
+      "path": "/ws",
+      "clients": 0,
+      "nginxReady": true
+    },
+    "productionUrl": "https://tisly.jp",
+    "phase": "1461-1500-conoha-vps-auto-deploy",
+    "integrations": {
+      "googleMapsApiConfigured": false,
+      "googleMapsApiKeyPresent": false
+    },
+    "db_provider": "sqlite",
+    "postgres": {
+      "reachable": null,
+      "configured": false
+    },
+    "redis": {
+      "reachable": false,
+      "provider": "memory"
+    },
+    "mqtt": {
+      "status": "standby",
+      "url": "mqtt://mqtt.tisly.jp:1883",
+      "subscriberEnabled": false
+    },
+    "tv": {
+      "status": "ok",
+      "registered": 2,
+      "paired": 1,
+      "pairingActive": 0
+    },
+    "qnap": {
+      "status": "mock",
+      "mode": "mock"
+    },
+    "disk": {
+      "status": "ok",
+      "memoryFreePercent": 66
+    },
+    "memory": {
+      "status": "ok",
+      "loadAvg": 0
+    },
+    "postgres_reachable": null,
+    "redis_reachable": false,
+    "session_store": {
+      "active": 50,
+      "provider": "sqlite"
+    },
+    "rate_limit_provider": "memory",
+    "signature_check_enabled": false,
+    "replay_protection_enabled": true,
+    "siem_export_status": {
+      "enabled": true,
+      "exportCount": 2762,
+      "lastAt": "2026-06-18T12:48:59.948Z",
+      "provider": "none"
+    },
+    "infrastructure": [
+      {
+        "name": "PRO Remote",
+        "status": "GREEN",
+        "detail": "9 customers · 5 PRO_REMOTE"
+      },
+      {
+        "name": "Tenant isolation",
+        "status": "GREEN",
+        "detail": "tenant-guard active on customer APIs"
+      },
+      {
+        "name": "Customer portal",
+        "status": "GREEN",
+        "detail": "9 tenants · 798 sites"
+      },
+      {
+        "name": "TV online",
+        "status": "GREEN",
+        "detail": "3 TV device(s) online"
+      },
+      {
+        "name": "VPS",
+        "status": "GREEN",
+        "detail": "ConoHa VPS"
+      },
+      {
+        "name": "PostgreSQL",
+        "status": "YELLOW",
+        "detail": "sqlite mode · set DB_PROVIDER=postgres for production"
+      },
+      {
+        "name": "Redis",
+        "status": "YELLOW",
+        "detail": "memory fallback"
+      },
+      {
+        "name": "MQTT",
+        "status": "YELLOW",
+        "detail": "standby"
+      },
+      {
+        "name": "Node-RED",
+        "status": "RED",
+        "detail": "ingest configured"
+      },
+      {
+        "name": "Google TV",
+        "status": "GREEN",
+        "detail": "1 paired"
+      },
+      {
+        "name": "QNAP",
+        "status": "YELLOW",
+        "detail": "mock"
+      },
+      {
+        "name": "PLC Gateway",
+        "status": "RED",
+        "detail": "137/145 offline"
+      },
+      {
+        "name": "RP2350 Gateway",
+        "status": "GREEN",
+        "detail": "8 device(s) online"
+      },
+      {
+        "name": "DB",
+        "status": "GREEN",
+        "detail": "sqlite ok"
+      },
+      {
+        "name": "Workers",
+        "status": "GREEN",
+        "detail": "running=true · notify=0 · webhook=0 · email=0"
+      },
+      {
+        "name": "Stripe Billing",
+        "status": "YELLOW",
+        "detail": "mock mode (no STRIPE_* keys)"
+      },
+      {
+        "name": "Gmail SMTP",
+        "status": "YELLOW",
+        "detail": "mock mode"
+      },
+      {
+        "name": "PDF Engine",
+        "status": "YELLOW",
+        "detail": "HTML fallback"
+      }
+    ],
+    "components": {
+      "server": {
+        "status": "ok",
+        "port": 3080,
+        "nodeEnv": "development"
+      },
+      "database": {
+        "status": "ok",
+        "path": "./data/tisly_notifications.db",
+        "provider": "sqlite"
+      },
+      "mqtt": {
+        "status": "standby",
+        "url": "mqtt://mqtt.tisly.jp:1883",
+        "mockMode": false,
+        "tlsRecommended": true
+      },
+      "nodeRed": {
+        "status": "missing-ingest-secret",
+        "ingestPath": "/api/events/ingest"
+      },
+      "qnap": {
+        "status": "mock",
+        "mode": "mock",
+        "smbConfigured": false,
+        "retentionDays": 90
+      },
+      "tv": {
+        "status": "ok",
+        "registered": 2,
+        "paired": 1,
+        "pairingActive": 0,
+        "connections": 1
+      },
+      "auth": {
+        "status": "configured",
+        "failedLogins": 10
+      },
+      "notificationQueue": {
+        "status": "n/a",
+        "pending": null
+      },
+      "backup": {
+        "status": "never",
+        "lastRun": null,
+        "recent": []
+      },
+      "security": {
+        "ingestErrors": 414,
+        "ingestDuplicates": 132,
+        "signatureErrors": 264,
+        "replayBlocked": 132,
+        "rateLimit": {
+          "provider": "memory",
+          "redisReachable": false
+        }
+      }
+    },
+    "demoMode": false
+  },
+  "summary": {
+    "screenshotCount": 8,
+    "commitShort": "d045059"
+  }
+}
