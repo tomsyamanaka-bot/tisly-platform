@@ -1,0 +1,79 @@
+{
+  "capturedAt": "2026-06-18T22:35:55.677Z",
+  "feature": "qnap-storage-v1",
+  "businessProjectId": "BIZ-09940E7E",
+  "estimateDocId": "cb20e82c-4ef7-42cc-8369-0ee5f75b7ade",
+  "qnapStatus": {
+    "projectId": "BIZ-09940E7E",
+    "qnapConfigured": false,
+    "providerKind": "mock",
+    "baseDir": "/TiSLY",
+    "projectFolder": "/TiSLY/projects/MO-26-0619-001_守谷市テスト現場",
+    "documents": [
+      {
+        "id": "bd1cb133-78c8-4f1f-ab40-c563bb3d44ac",
+        "documentType": "report",
+        "title": "完了報告書",
+        "fileName": "完了報告書_QNAP保存UIテスト様_守谷市テスト現場.pdf",
+        "status": "qnap_pending",
+        "statusLabel": "QNAP未設定",
+        "statusIcon": "⚙️",
+        "qnapPath": null,
+        "syncedAt": null,
+        "errorMessage": null
+      },
+      {
+        "id": "cb20e82c-4ef7-42cc-8369-0ee5f75b7ade",
+        "documentType": "estimate",
+        "title": "見積書",
+        "fileName": "見積書_QNAP保存UIテスト様_守谷市テスト現場.pdf",
+        "status": "qnap_failed",
+        "statusLabel": "QNAP未設定",
+        "statusIcon": "⚙️",
+        "qnapPath": "/TiSLY/projects/MO-26-0619-001_守谷市テスト現場/estimates/MO-26-0619-001_守谷市テスト現場_見積書.pdf",
+        "syncedAt": "2026-06-18T22:35:46.706Z",
+        "errorMessage": "Mock 保存失敗（テスト用）"
+      },
+      {
+        "id": "7facabac-df77-43ee-a3a4-8abe0e7904cc",
+        "documentType": "pdf",
+        "title": "仕様書",
+        "fileName": "仕様書_QNAP保存UIテスト様_守谷市テスト現場.pdf",
+        "status": "qnap_pending",
+        "statusLabel": "QNAP未設定",
+        "statusIcon": "⚙️",
+        "qnapPath": null,
+        "syncedAt": null,
+        "errorMessage": null
+      }
+    ],
+    "summary": {
+      "pending": 2,
+      "syncing": 0,
+      "synced": 0,
+      "failed": 1
+    }
+  },
+  "qnapTest": {
+    "ok": true,
+    "message": "Mock 接続 OK — C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\uploads\\qnap-storage-v1-mock",
+    "configured": false,
+    "providerKind": "mock",
+    "mock": true,
+    "testedAt": "2026-06-18T22:35:55.677Z"
+  },
+  "files": [
+    "01-iphone-doc-list-qnap-pending.png",
+    "02-iphone-qnap-save-buttons.png",
+    "03-iphone-qnap-save-success.png",
+    "04-iphone-qnap-save-failed.png",
+    "05-android10-doc-list.png",
+    "06-storage-settings-qnap.png"
+  ],
+  "viewports": {
+    "iphone": "390x844",
+    "android10": "800x1280"
+  },
+  "healthCommitShort": "52283b8",
+  "ok": true
+}

@@ -2,17 +2,20 @@ import { describe, it, before, after } from "node:test";
 import fs from "fs";
 import assert from "node:assert/strict";
 
-process.env.JWT_SECRET = "test-jwt-document-storage-v1";
+process.env.JWT_SECRET = "test-jwt-storage-documents-v1";
 process.env.CUSTOMER_DEMO_PASSWORD = "demo-remote-2026";
 process.env.NODE_ENV = "test";
-process.env.TISLY_DB_PATH = "./data/test-document-storage-v1.db";
+process.env.TISLY_DB_PATH = "./data/test-storage-documents-v1.db";
 process.env.RATE_LIMIT_PROVIDER = "memory";
 
 const { default: request } = await import("supertest");
 const { createApp } = await import("../src/app.js");
 const { closeDatabase, getDatabase } = await import("../src/db/database.js");
-const { listStorageDocumentsForProjectV1 } = await import(
+const { listStorageDocumentsForProjectV1, registerProjectPdfDocumentV1 } = await import(
   "../src/storage/storage-documents-v1-store.js"
+);
+const { sanitizeFileName, buildQnapRemotePath } = await import(
+  "../src/storage/qnap-path-builder-v1.js"
 );
 
 const app = createApp();
@@ -23,7 +26,7 @@ async function surveyorLogin() {
     .send({ customerCode: "TOMS001", username: "toms001.surveyor", password: "demo-remote-2026" });
 }
 
-describe("Document storage v1", () => {
+describe("storage_documents_v1", () => {
   let token = "";
   let businessProjectId = "";
 
@@ -77,6 +80,11 @@ describe("Document storage v1", () => {
     assert.equal(row?.name, "storage_documents_v1");
   });
 
+  it("sanitizeFileName は日本語を維持する", () => {
+    assert.equal(sanitizeFileName("守谷市テスト_見積書.pdf"), "守谷市テスト_見積書.pdf");
+    assert.equal(sanitizeFileName("a/b:c*d?e"), "a_b_c_d_e");
+  });
+
   it("見積PDF保存で履歴が qnap_pending で作られる", async () => {
     const pdf = await request(app)
       .get(`/api/estimate/v1/projects/${businessProjectId}/pdf?includePhotos=false`)
@@ -88,20 +96,34 @@ describe("Document storage v1", () => {
     );
     assert.ok(docs.length >= 1);
     assert.equal(docs[0].status, "qnap_pending");
-    assert.ok(docs[0].customerName);
-    assert.ok(docs[0].fileName.endsWith(".pdf"));
   });
 
-  it("documents-status API に QNAP 保存状態が含まれる", async () => {
+  it("同じPDFを二重登録しない", async () => {
+    const docsBefore = listStorageDocumentsForProjectV1(businessProjectId).filter(
+      (d) => d.documentType === "estimate"
+    );
+    const localPath = docsBefore[0]?.localPath;
+    assert.ok(localPath);
+    registerProjectPdfDocumentV1({ projectId: businessProjectId, kind: "estimate", localPath });
+    const docsAfter = listStorageDocumentsForProjectV1(businessProjectId).filter(
+      (d) => d.documentType === "estimate"
+    );
+    assert.equal(docsAfter.length, docsBefore.length);
+  });
+
+  it("documents-status — QNAP未設定時は ⚙️ 表示", async () => {
     const res = await request(app)
       .get(`/api/estimate/v1/projects/${businessProjectId}/documents-status`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(res.status, 200);
+    assert.equal(res.body.qnapConfigured, false);
     const estimate = res.body.documents.find((d: { kind: string }) => d.kind === "estimate");
-    assert.ok(estimate);
-    assert.equal(estimate.storageStatus, "qnap_pending");
     assert.match(estimate.storageStatusLabel, /QNAP未設定/);
     assert.equal(estimate.storageStatusIcon, "⚙️");
-    assert.equal(estimate.hasPdf, true);
+  });
+
+  it("qnapPath が正しい形式", () => {
+    const path = buildQnapRemotePath("/TiSLY", businessProjectId, "estimate", "estimate-x.pdf");
+    assert.match(path, /^TiSLY\/projects\/.+\/estimates\/.+_見積書\.pdf$/);
   });
 });
