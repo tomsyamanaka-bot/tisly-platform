@@ -52,7 +52,7 @@ import {
   resolveEstimatePriceRule,
 } from "../business/customer-price-rules.js";
 import { applyPricingTierToItems, calcTotals, normalizeLineItems } from "../business/estimate-math.js";
-import { generateProjectScopedDocNo } from "../business/toms-document-format.js";
+import { generateTomsEstimateNo } from "../business/toms-document-format.js";
 import {
   clearProjectPdfStaleV1,
   markProjectPdfStaleV1,
@@ -784,7 +784,7 @@ export function buildCompletionPhotosV1(businessProjectId: string): PracticalCom
   if (!getBusinessProject(businessProjectId)) return [];
   return listCompletionPhotosV1(businessProjectId).map((p, i) => ({
     url: p.url,
-    title: `写真${i + 1}`,
+    title: (p.title || "").trim() || `写真${i + 1}`,
   }));
 }
 
@@ -933,7 +933,7 @@ export function duplicateEstimateV1(businessProjectId: string): EstimateProjectV
   const normalized = normalizeLineItems(est.items);
   const totals = calcTotals(normalized, { shuseiDiscount: est.shuseiDiscount });
   const id = uuid();
-  const estimateNo = generateProjectScopedDocNo(project.projectNo, "business_estimates", "estimate_no");
+  const estimateNo = generateTomsEstimateNo({ address: project.address });
   const now = new Date().toISOString();
   getDatabase()
     .prepare(

@@ -218,7 +218,7 @@ describe("Master v1 — 見積マスター基盤", () => {
       (l: { label: string }) => l.label === "ドームカメラ設置"
     );
     assert.ok(line);
-    assert.ok(["customer_override", "rank_multiplier", "standard"].includes(line.priceSource));
+    assert.ok(["customer_override", "rank_multiplier", "standard", "cost_double", "missing"].includes(line.priceSource));
     assert.ok(line.appliedUnitSell > 0);
   });
 

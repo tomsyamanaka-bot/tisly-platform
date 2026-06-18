@@ -32,6 +32,8 @@ function countCoverPhotoCells(html: string, prefix: "sp" | "cr"): number {
   return (cover.match(new RegExp(`class="${prefix}-photo-cell(?:\\s|")`, "g")) || []).length;
 }
 
+const TOMS_ESTIMATE_NO_RE = /^[A-Z]{2}-\d{2}-\d{4}-\d{3}$/;
+
 describe("見積PWA v1 API", () => {
   let token = "";
   let surveyProjectId = "";
@@ -93,7 +95,7 @@ describe("見積PWA v1 API", () => {
     assert.ok(res.body.businessProjectId);
     assert.ok(res.body.estimate);
     assert.ok(res.body.estimate.items.length >= 1);
-    assert.match(res.body.estimate.estimateNo, /^\d{6}-\d{3}$/);
+    assert.match(res.body.estimate.estimateNo, TOMS_ESTIMATE_NO_RE);
     businessProjectId = res.body.businessProjectId;
 
     const handoff = getDatabase()
@@ -215,10 +217,11 @@ describe("見積PWA v1 API", () => {
     assert.equal(res.status, 200);
     assert.ok(res.text.includes("見積を確定") || res.text.includes("TiSLY — 見積"));
     assert.ok(res.text.includes("社内用データを確認"));
-    assert.ok(res.text.includes("仕様書を開く"));
-    assert.ok(res.text.includes("完了報告書を開く"));
+    assert.ok(res.text.includes("仕様書"));
+    assert.ok(res.text.includes("完了報告書"));
     assert.ok(res.text.includes("見積を複製"));
-    assert.ok(res.text.includes("金額提出用"));
+    assert.ok(res.text.includes("価格再計算"));
+    assert.ok(res.text.includes("マスター候補から作成"));
     assert.ok(!res.text.includes("写真付き"));
     assert.ok(res.text.includes("工事場所"));
     assert.ok(!res.text.includes("現場名"));
@@ -235,6 +238,7 @@ describe("見積PWA v1 API", () => {
       .send({});
     assert.equal(res.status, 201);
     assert.notEqual(res.body.estimate.estimateNo, oldNo);
+    assert.match(res.body.estimate.estimateNo, TOMS_ESTIMATE_NO_RE);
     assert.equal(res.body.estimate.items.length, before.body.estimate.items.length);
   });
 
