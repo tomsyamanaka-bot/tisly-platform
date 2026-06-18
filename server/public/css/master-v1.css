@@ -2,6 +2,9 @@
 .master-v1-touch {
   padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0));
 }
+body.master-v1-touch.has-practical-nav {
+  padding-bottom: calc(5.5rem + var(--tisly-nav-bottom-h, 64px) + env(safe-area-inset-bottom, 0));
+}
 .master-header {
   position: sticky;
   top: 0;
@@ -140,6 +143,20 @@
   border-top: 1px solid #e2e8f0;
   padding-bottom: env(safe-area-inset-bottom, 0);
   z-index: 40;
+}
+/* 実務PWA下部ナビの上にマスタータブを配置 */
+body.master-v1-touch.has-practical-nav .master-bottom-nav {
+  bottom: calc(var(--tisly-nav-bottom-h, 64px) + env(safe-area-inset-bottom, 0));
+  z-index: 101;
+}
+body.master-v1-touch.has-practical-nav .quick-add-bar {
+  bottom: calc(var(--tisly-nav-bottom-h, 64px) + 3.5rem + env(safe-area-inset-bottom, 0));
+}
+body.master-v1-touch.has-practical-nav .fab-add {
+  bottom: calc(var(--tisly-nav-bottom-h, 64px) + 4.5rem + env(safe-area-inset-bottom, 0));
+}
+body.master-v1-touch.has-practical-nav .bulk-bar {
+  bottom: calc(var(--tisly-nav-bottom-h, 64px) + 3.5rem + env(safe-area-inset-bottom, 0));
 }
 .master-bottom-nav button {
   flex: 1;
