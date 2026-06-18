@@ -120,7 +120,7 @@ function htmlHas(rel: string, pattern: RegExp): boolean {
 }
 
 const HTML_SCRIPT_MODULES: Record<string, string[]> = {
-  "app-hub.html": ["js/app-hub.js"],
+  "app-hub.html": ["js/app-hub.js", "js/tisly-practical-nav.js"],
   "survey.html": ["js/tisly-pwa-shell.js"],
   "business.html": ["business.html"],
   "customer-portal.html": ["js/customer-portal.js"],

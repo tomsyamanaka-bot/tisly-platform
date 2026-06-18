@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#5cb87a" />
+  <meta name="theme-color" content="#1565c0" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="TiSLY現調" />
   <link rel="manifest" href="/manifest-survey-v1.webmanifest" />
@@ -147,7 +147,7 @@
       padding: 0 1rem;
       border: none;
       border-radius: 8px;
-      background: #5cb87a;
+      background: #1565c0;
       color: #fff;
       font-size: 0.9rem;
       font-weight: 600;
@@ -182,7 +182,7 @@
       cursor: pointer;
     }
     .photo-editor-tool.active {
-      border-color: #5cb87a;
+      border-color: #1565c0;
       background: #14532d;
     }
     .photo-editor-stage {
@@ -223,7 +223,7 @@
       cursor: pointer;
     }
     #photo-editor-save {
-      background: #5cb87a;
+      background: #1565c0;
       color: #fff;
       border: none;
     }
@@ -423,6 +423,14 @@
         </label>
         <label class="friendly-label">メモ <input id="ip-memo" placeholder="任意" /></label>
         <button type="button" class="btn-sub" id="btn-add-ip-equipment">設備を追加</button>
+      </div>
+
+      <p class="section-label">📐 現調図面</p>
+      <p class="section-hint">方眼紙の手書き図面を写真で取り込み、線・記号・メモを重ねられます</p>
+      <div class="friendly-card">
+        <div id="drawing-sketch-list" class="drawing-sketch-list"></div>
+        <button type="button" class="btn-sub" id="btn-new-drawing">＋ 新しい図面を作成</button>
+        <button type="button" class="btn-sub" id="btn-open-drawing">図面エディタを開く</button>
       </div>
 
       <div class="tisly-sticky-action">
