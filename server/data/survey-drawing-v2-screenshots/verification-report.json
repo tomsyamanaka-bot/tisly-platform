@@ -1,0 +1,27 @@
+{
+  "capturedAt": "2026-06-18T13:41:20.956Z",
+  "base": "http://127.0.0.1:3080",
+  "projectId": "SVY-863602BF",
+  "sketchId": "129b9151-4a50-4b87-9fa0-e2c52bd04bff",
+  "viewports": [
+    {
+      "name": "iPhone",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "name": "Android10",
+      "width": 800,
+      "height": 1280
+    }
+  ],
+  "files": [
+    "01-iphone-drawing-line-types.png",
+    "01-iphone-drawing-symbol-palette.png",
+    "01-iphone-drawing.png",
+    "02-android10-drawing-line-types.png",
+    "02-android10-drawing-symbol-palette.png",
+    "02-android10-drawing.png"
+  ],
+  "pass": true
+}

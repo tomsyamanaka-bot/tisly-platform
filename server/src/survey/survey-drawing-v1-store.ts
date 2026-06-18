@@ -4,26 +4,55 @@ import { v4 as uuid } from "uuid";
 import { getDatabase } from "../db/database.js";
 import { findBusinessProjectIdForSurvey } from "../projects/project-pdf-auto-save.js";
 import {
-  emptySurveyDrawingLayersV1,
-  type SurveyDrawingLayersV1,
+  buildSurveyDrawingAiExport,
+  emptySurveyDrawingLayersV2,
+  migrateLayersToV2,
+  normalizePath,
+  pathLengthPx,
+  SURVEY_DRAWING_DRAWING_VERSION,
+  SURVEY_DRAWING_SCHEMA_VERSION,
+  type SurveyDrawingAiExportV1,
+  type SurveyDrawingLayersV2,
   type SurveyDrawingSketchV1,
   type SurveyDrawingSourceType,
 } from "./survey-drawing-v1-types.js";
 import { surveyUploadsDir } from "./survey-store.js";
 
-function parseLayers(raw: string | null | undefined): SurveyDrawingLayersV1 {
-  if (!raw) return emptySurveyDrawingLayersV1();
+function parseLayers(raw: string | null | undefined): SurveyDrawingLayersV2 {
+  if (!raw) return emptySurveyDrawingLayersV2();
   try {
-    const parsed = JSON.parse(raw) as SurveyDrawingLayersV1;
-    if (parsed?.version === 1) return parsed;
+    return migrateLayersToV2(JSON.parse(raw));
   } catch {
-    /* fallback */
+    return emptySurveyDrawingLayersV2();
   }
-  return emptySurveyDrawingLayersV1();
+}
+
+function normalizeLayersForSave(layers: SurveyDrawingLayersV2): SurveyDrawingLayersV2 {
+  return {
+    schemaVersion: SURVEY_DRAWING_SCHEMA_VERSION,
+    drawingVersion: SURVEY_DRAWING_DRAWING_VERSION,
+    canvasWidth: Number(layers.canvasWidth) || 800,
+    canvasHeight: Number(layers.canvasHeight) || 600,
+    paths: (layers.paths ?? []).map((p) =>
+      normalizePath({
+        ...p,
+        lengthPx: pathLengthPx(p.points ?? []),
+      })
+    ),
+    symbols: (layers.symbols ?? []).map((s) => ({
+      ...s,
+      rotation: Number(s.rotation) || 0,
+      scale: Number(s.scale) || 1,
+    })),
+    notes: layers.notes ?? [],
+    viewport: layers.viewport ?? { scale: 1, offsetX: 0, offsetY: 0 },
+  };
 }
 
 function rowToSketch(row: Record<string, unknown>): SurveyDrawingSketchV1 {
   const bgPath = String(row.background_image_path ?? "");
+  const layers = parseLayers(row.layers_json as string);
+  const bgUrl = bgPath ? `/uploads/survey/${bgPath}` : "";
   return {
     id: String(row.id),
     projectId: String(row.project_id),
@@ -32,11 +61,21 @@ function rowToSketch(row: Record<string, unknown>): SurveyDrawingSketchV1 {
     title: String(row.title ?? "現調図面"),
     sourceType: String(row.source_type ?? "photo") as SurveyDrawingSourceType,
     backgroundImagePath: bgPath,
-    backgroundImageUrl: bgPath ? `/uploads/survey/${bgPath}` : "",
-    layers: parseLayers(row.layers_json as string),
+    backgroundImageUrl: bgUrl,
+    backgroundImage: bgPath
+      ? {
+          path: bgPath,
+          url: bgUrl,
+          width: layers.canvasWidth,
+          height: layers.canvasHeight,
+        }
+      : null,
+    layers,
     notes: String(row.notes ?? ""),
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
+    schemaVersion: SURVEY_DRAWING_SCHEMA_VERSION,
+    drawingVersion: SURVEY_DRAWING_DRAWING_VERSION,
   };
 }
 
@@ -73,7 +112,7 @@ export function createSurveyDrawingSketchV1(input: {
   const id = uuid();
   const now = new Date().toISOString();
   const businessProjectId = findBusinessProjectIdForSurvey(input.projectId);
-  const layers = emptySurveyDrawingLayersV1();
+  const layers = emptySurveyDrawingLayersV2();
   getDatabase()
     .prepare(
       `INSERT INTO survey_drawing_sketches (
@@ -100,7 +139,7 @@ export function updateSurveyDrawingSketchV1(
   patch: Partial<{
     title: string;
     sourceType: SurveyDrawingSourceType;
-    layers: SurveyDrawingLayersV1;
+    layers: SurveyDrawingLayersV2;
     notes: string;
   }>
 ): SurveyDrawingSketchV1 {
@@ -109,7 +148,7 @@ export function updateSurveyDrawingSketchV1(
   const now = new Date().toISOString();
   const nextTitle = patch.title ?? existing.title;
   const nextSource = patch.sourceType ?? existing.sourceType;
-  const nextLayers = patch.layers ?? existing.layers;
+  const nextLayers = normalizeLayersForSave(patch.layers ?? existing.layers);
   const nextNotes = patch.notes ?? existing.notes;
   getDatabase()
     .prepare(
@@ -126,6 +165,8 @@ export function saveSurveyDrawingSketchBackgroundV1(input: {
   imageBase64: string;
   fileName?: string;
   mimeType?: string;
+  canvasWidth?: number;
+  canvasHeight?: number;
 }): SurveyDrawingSketchV1 {
   const sketch = getSurveyDrawingSketchV1(input.sketchId);
   if (!sketch) throw new Error("sketch not found");
@@ -142,14 +183,25 @@ export function saveSurveyDrawingSketchBackgroundV1(input: {
   fs.writeFileSync(path.join(dir, fname), buf);
   const rel = `${sketch.projectId}/drawings/${fname}`;
   const now = new Date().toISOString();
+  const layers = normalizeLayersForSave({
+    ...sketch.layers,
+    canvasWidth: input.canvasWidth ?? sketch.layers.canvasWidth,
+    canvasHeight: input.canvasHeight ?? sketch.layers.canvasHeight,
+  });
   getDatabase()
     .prepare(
       `UPDATE survey_drawing_sketches SET
-        background_image_path = ?, source_type = 'photo', updated_at = ?
+        background_image_path = ?, source_type = 'photo', layers_json = ?, updated_at = ?
       WHERE id = ?`
     )
-    .run(rel, now, input.sketchId);
+    .run(rel, JSON.stringify(layers), now, input.sketchId);
   return getSurveyDrawingSketchV1(input.sketchId)!;
+}
+
+export function exportSurveyDrawingAiJsonV1(sketchId: string): SurveyDrawingAiExportV1 {
+  const sketch = getSurveyDrawingSketchV1(sketchId);
+  if (!sketch) throw new Error("sketch not found");
+  return buildSurveyDrawingAiExport(sketch);
 }
 
 export function deleteSurveyDrawingSketchV1(sketchId: string): boolean {

@@ -19,14 +19,17 @@
   <header class="drawing-toolbar" id="drawing-toolbar">
     <button type="button" class="drawing-tool-btn" id="btn-back" title="戻る">←</button>
     <span id="drawing-title" class="drawing-title">現調図面</span>
+    <button type="button" class="drawing-tool-btn" id="btn-ai-export" title="AI清書用出力">🤖</button>
     <button type="button" class="drawing-tool-btn primary" id="btn-save" title="保存">💾</button>
   </header>
 
   <div class="drawing-tool-strip" role="toolbar" aria-label="描画ツール">
     <button type="button" class="drawing-tool-btn active" data-tool="pen" title="ペン">✏️</button>
     <button type="button" class="drawing-tool-btn" data-tool="line" title="直線">／</button>
+    <button type="button" class="drawing-tool-btn" data-tool="route" title="配線">🔌</button>
     <button type="button" class="drawing-tool-btn" data-tool="symbol" title="記号">📍</button>
     <button type="button" class="drawing-tool-btn" data-tool="text" title="テキスト">T</button>
+    <button type="button" class="drawing-tool-btn" data-tool="select" title="選択">👆</button>
     <button type="button" class="drawing-tool-btn" data-tool="pan" title="移動">✋</button>
     <button type="button" class="drawing-tool-btn" id="btn-zoom-in" title="拡大">＋</button>
     <button type="button" class="drawing-tool-btn" id="btn-zoom-out" title="縮小">−</button>
@@ -38,7 +41,14 @@
     <input type="file" id="file-bg" accept="image/jpeg,image/png,image/heic,image/heif,image/*" capture="environment" hidden />
   </div>
 
+  <div id="line-type-palette" class="line-type-palette hidden" role="listbox" aria-label="線種"></div>
   <div id="symbol-palette" class="symbol-palette hidden" role="listbox" aria-label="記号"></div>
+  <div id="symbol-inspector" class="symbol-inspector hidden" aria-label="記号操作">
+    <span id="symbol-inspector-label" class="symbol-inspector-label"></span>
+    <button type="button" id="btn-symbol-rotate-left" title="左回転">↺</button>
+    <button type="button" id="btn-symbol-rotate-right" title="右回転">↻</button>
+    <button type="button" id="btn-symbol-delete" title="削除" class="danger">🗑</button>
+  </div>
 
   <main class="drawing-stage-wrap" id="drawing-stage-wrap">
     <div id="drawing-stage" class="drawing-stage">

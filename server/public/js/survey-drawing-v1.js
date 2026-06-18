@@ -1,6 +1,23 @@
-/** 現調図面 v1 — 方眼紙写真 + 線・記号・メモ（タッチ/ペン対応） */
+/** 現調図面 v2 — 方眼紙写真 + 線・記号・メモ + AI清書用出力 */
 
 const TOKEN_KEY = "tisly_token";
+const SCHEMA_VERSION = 2;
+const DRAWING_VERSION = 2;
+
+const LINE_TYPE_COLORS = {
+  lan: "#2563eb",
+  power100v: "#dc2626",
+  power24v: "#ca8a04",
+  rs485: "#7c3aed",
+  coax: "#64748b",
+  phone: "#059669",
+  generic: "#0f172a",
+};
+
+const LINE_TYPE_DASH = {
+  rs485: "6 4",
+  phone: "4 3",
+};
 
 function $(id) {
   return document.getElementById(id);
@@ -37,22 +54,76 @@ function setStatus(msg) {
   if (el) el.textContent = msg;
 }
 
+function emptyLayers(w = 800, h = 600) {
+  return {
+    schemaVersion: SCHEMA_VERSION,
+    drawingVersion: DRAWING_VERSION,
+    canvasWidth: w,
+    canvasHeight: h,
+    paths: [],
+    symbols: [],
+    notes: [],
+    viewport: { scale: 1, offsetX: 0, offsetY: 0 },
+  };
+}
+
+function migrateLayers(raw, w = 800, h = 600) {
+  if (!raw) return emptyLayers(w, h);
+  if (raw.schemaVersion === 2) {
+    return {
+      ...emptyLayers(w, h),
+      ...raw,
+      paths: raw.paths ?? raw.strokes ?? [],
+      notes: raw.notes ?? raw.textMemos ?? [],
+    };
+  }
+  if (raw.version === 1) {
+    return {
+      schemaVersion: SCHEMA_VERSION,
+      drawingVersion: DRAWING_VERSION,
+      canvasWidth: w,
+      canvasHeight: h,
+      paths: (raw.strokes ?? []).map((s) => ({
+        ...s,
+        lineType: s.lineType || "generic",
+        lengthPx: pathLength(s.points),
+      })),
+      symbols: (raw.symbols ?? []).map((s) => ({ ...s, scale: s.scale || 1 })),
+      notes: raw.textMemos ?? [],
+      viewport: raw.viewport ?? { scale: 1, offsetX: 0, offsetY: 0 },
+    };
+  }
+  return emptyLayers(w, h);
+}
+
+function pathLength(points) {
+  if (!points || points.length < 2) return 0;
+  let len = 0;
+  for (let i = 1; i < points.length; i++) {
+    len += Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
+  }
+  return Math.round(len * 100) / 100;
+}
+
 let sketchId = params().get("sketchId") || "";
 let projectId = params().get("projectId") || "";
 let sketch = null;
 let tool = "pen";
 let strokeColor = "#dc2626";
 let strokeWidth = 3;
+let lineType = "generic";
 let viewport = { scale: 1, offsetX: 0, offsetY: 0 };
-let layers = { version: 1, strokes: [], symbols: [], textMemos: [], viewport };
+let layers = emptyLayers();
 let symbolPalette = [];
+let lineTypePalette = [];
 let pendingSymbol = null;
 let currentStroke = null;
 let panStart = null;
-let pinchStart = null;
 let stageSize = { w: 800, h: 600 };
 let saveTimer = null;
 let dirty = false;
+let selectedSymbolId = null;
+let dragSymbol = null;
 
 function applyViewportTransform() {
   const stage = $("drawing-stage");
@@ -68,37 +139,85 @@ function imageCoords(clientX, clientY) {
   return { x, y };
 }
 
-function renderStrokes() {
+function pathColor(p) {
+  if (p.lineType && p.lineType !== "generic") return LINE_TYPE_COLORS[p.lineType] || p.color;
+  return p.color;
+}
+
+function renderPaths() {
   const svg = $("drawing-svg");
   if (!svg) return;
   svg.innerHTML = "";
   svg.setAttribute("viewBox", `0 0 ${stageSize.w} ${stageSize.h}`);
   svg.setAttribute("width", String(stageSize.w));
   svg.setAttribute("height", String(stageSize.h));
-  for (const s of layers.strokes) {
-    if (!s.points?.length) continue;
-    if (s.tool === "line" && s.points.length >= 2) {
+  for (const p of layers.paths) {
+    if (!p.points?.length) continue;
+    const color = pathColor(p);
+    const dash = LINE_TYPE_DASH[p.lineType] || undefined;
+    if ((p.tool === "line" || p.tool === "route") && p.points.length >= 2) {
       const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-      line.setAttribute("x1", s.points[0].x);
-      line.setAttribute("y1", s.points[0].y);
-      line.setAttribute("x2", s.points[s.points.length - 1].x);
-      line.setAttribute("y2", s.points[s.points.length - 1].y);
-      line.setAttribute("stroke", s.color);
-      line.setAttribute("stroke-width", s.width);
+      line.setAttribute("x1", p.points[0].x);
+      line.setAttribute("y1", p.points[0].y);
+      line.setAttribute("x2", p.points[p.points.length - 1].x);
+      line.setAttribute("y2", p.points[p.points.length - 1].y);
+      line.setAttribute("stroke", color);
+      line.setAttribute("stroke-width", p.width);
       line.setAttribute("stroke-linecap", "round");
+      if (dash) line.setAttribute("stroke-dasharray", dash);
       svg.appendChild(line);
     } else {
       const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      const d = s.points.map((p, i) => `${i ? "L" : "M"}${p.x} ${p.y}`).join(" ");
+      const d = p.points.map((pt, i) => `${i ? "L" : "M"}${pt.x} ${pt.y}`).join(" ");
       path.setAttribute("d", d);
       path.setAttribute("fill", "none");
-      path.setAttribute("stroke", s.color);
-      path.setAttribute("stroke-width", s.width);
+      path.setAttribute("stroke", color);
+      path.setAttribute("stroke-width", p.width);
       path.setAttribute("stroke-linecap", "round");
       path.setAttribute("stroke-linejoin", "round");
+      if (dash) path.setAttribute("stroke-dasharray", dash);
       svg.appendChild(path);
     }
   }
+}
+
+function symbolDef(sym) {
+  return symbolPalette.find((s) => s.symbolType === sym.symbolType) || sym;
+}
+
+function renderSymbolSvg(sym) {
+  const def = symbolDef(sym);
+  const svg = def.svg || "";
+  if (svg) {
+    const wrap = document.createElement("span");
+    wrap.className = "sym-svg";
+    wrap.style.color = sym.color || def.color || "#2563eb";
+    wrap.innerHTML = svg;
+    return wrap;
+  }
+  const span = document.createElement("span");
+  span.textContent = sym.icon || "📍";
+  span.style.fontSize = "1.5rem";
+  return span;
+}
+
+function updateSymbolInspector() {
+  const panel = $("symbol-inspector");
+  const label = $("symbol-inspector-label");
+  if (!panel) return;
+  const sym = layers.symbols.find((s) => s.id === selectedSymbolId);
+  if (!sym) {
+    panel.classList.add("hidden");
+    return;
+  }
+  panel.classList.remove("hidden");
+  if (label) label.textContent = sym.label || sym.symbolType;
+}
+
+function selectSymbol(id) {
+  selectedSymbolId = id;
+  updateSymbolInspector();
+  renderOverlay();
 }
 
 function renderOverlay() {
@@ -109,22 +228,54 @@ function renderOverlay() {
     const el = document.createElement("button");
     el.type = "button";
     el.className = "drawing-symbol";
+    if (sym.id === selectedSymbolId) el.classList.add("selected");
     el.style.left = `${sym.x}px`;
     el.style.top = `${sym.y}px`;
-    el.style.color = sym.color || "#2563eb";
+    el.style.transform = `translate(-50%, -50%) rotate(${sym.rotation || 0}deg) scale(${sym.scale || 1})`;
     el.title = sym.label;
-    el.textContent = sym.icon || "📍";
-    el.addEventListener("click", () => {
+    el.dataset.symbolId = sym.id;
+    el.appendChild(renderSymbolSvg(sym));
+
+    el.addEventListener("pointerdown", (ev) => {
+      ev.stopPropagation();
+      if (tool === "select" || tool === "symbol") {
+        selectSymbol(sym.id);
+        dragSymbol = { id: sym.id, startX: ev.clientX, startY: ev.clientY, origX: sym.x, origY: sym.y };
+        el.setPointerCapture?.(ev.pointerId);
+      }
+    });
+    el.addEventListener("pointermove", (ev) => {
+      if (!dragSymbol || dragSymbol.id !== sym.id) return;
+      ev.stopPropagation();
+      const dx = (ev.clientX - dragSymbol.startX) / viewport.scale;
+      const dy = (ev.clientY - dragSymbol.startY) / viewport.scale;
+      sym.x = dragSymbol.origX + dx;
+      sym.y = dragSymbol.origY + dy;
+      el.style.left = `${sym.x}px`;
+      el.style.top = `${sym.y}px`;
+    });
+    el.addEventListener("pointerup", (ev) => {
+      if (dragSymbol?.id === sym.id) {
+        dragSymbol = null;
+        markDirty();
+      }
+      ev.stopPropagation();
+    });
+    el.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      if (tool === "select") {
+        selectSymbol(sym.id);
+        return;
+      }
       const memo = prompt("記号メモ（任意）", sym.memo || "");
       if (memo != null) {
         sym.memo = memo;
         markDirty();
-        renderOverlay();
       }
     });
     mount.appendChild(el);
   }
-  for (const m of layers.textMemos) {
+  for (const m of layers.notes) {
     const el = document.createElement("button");
     el.type = "button";
     el.className = "drawing-memo";
@@ -133,7 +284,8 @@ function renderOverlay() {
     el.style.fontSize = `${m.fontSize || 14}px`;
     el.style.color = m.color || "#0f172a";
     el.textContent = m.text;
-    el.addEventListener("click", () => {
+    el.addEventListener("click", (ev) => {
+      ev.stopPropagation();
       const next = prompt("メモを編集", m.text);
       if (next != null && next.trim()) {
         m.text = next.trim();
@@ -146,7 +298,7 @@ function renderOverlay() {
 }
 
 function renderAll() {
-  renderStrokes();
+  renderPaths();
   renderOverlay();
   applyViewportTransform();
 }
@@ -160,13 +312,19 @@ function markDirty() {
 
 async function saveSketch() {
   if (!sketchId) return;
-  viewport = { ...viewport, ...layers.viewport };
   layers.viewport = { scale: viewport.scale, offsetX: viewport.offsetX, offsetY: viewport.offsetY };
+  layers.canvasWidth = stageSize.w;
+  layers.canvasHeight = stageSize.h;
+  layers.paths = layers.paths.map((p) => ({
+    ...p,
+    lengthPx: pathLength(p.points),
+  }));
   const data = await api("PATCH", `/api/survey/v1/drawing-sketches/${encodeURIComponent(sketchId)}`, {
     layers,
     title: sketch?.title,
   });
   sketch = data.sketch;
+  layers = migrateLayers(sketch.layers, stageSize.w, stageSize.h);
   dirty = false;
   setStatus(`保存済み ${new Date().toLocaleTimeString("ja-JP")}`);
 }
@@ -174,13 +332,18 @@ async function saveSketch() {
 function setTool(next) {
   tool = next;
   pendingSymbol = null;
+  if (next !== "select") selectedSymbolId = null;
   document.querySelectorAll("[data-tool]").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.tool === next);
   });
   $("symbol-palette")?.classList.toggle("hidden", next !== "symbol");
+  $("line-type-palette")?.classList.toggle("hidden", next !== "route");
+  updateSymbolInspector();
+  if (next !== "select") renderOverlay();
 }
 
 function onPointerDown(ev) {
+  if (ev.target.closest?.(".drawing-symbol, .drawing-memo")) return;
   if (ev.pointerType === "touch" && ev.isPrimary === false) return;
   const wrap = $("drawing-stage-wrap");
   wrap?.setPointerCapture?.(ev.pointerId);
@@ -190,16 +353,24 @@ function onPointerDown(ev) {
     panStart = { x: ev.clientX - viewport.offsetX, y: ev.clientY - viewport.offsetY };
     return;
   }
+  if (tool === "select") {
+    selectedSymbolId = null;
+    updateSymbolInspector();
+    renderOverlay();
+    return;
+  }
   if (tool === "symbol" && pendingSymbol) {
     layers.symbols.push({
       id: uid(),
       symbolType: pendingSymbol.symbolType,
       label: pendingSymbol.label,
       icon: pendingSymbol.icon,
+      svg: pendingSymbol.svg,
       color: pendingSymbol.color,
       x: pt.x,
       y: pt.y,
       rotation: 0,
+      scale: 1,
       memo: "",
     });
     markDirty();
@@ -209,7 +380,7 @@ function onPointerDown(ev) {
   if (tool === "text") {
     const text = prompt("テキストメモ");
     if (text?.trim()) {
-      layers.textMemos.push({
+      layers.notes.push({
         id: uid(),
         text: text.trim(),
         x: pt.x,
@@ -222,13 +393,17 @@ function onPointerDown(ev) {
     }
     return;
   }
-  if (tool === "pen" || tool === "line") {
+  if (tool === "pen" || tool === "line" || tool === "route") {
+    const lt = tool === "route" ? lineType : "generic";
+    const color = lt !== "generic" ? LINE_TYPE_COLORS[lt] : strokeColor;
     currentStroke = {
       id: uid(),
-      tool: tool === "line" ? "line" : "pen",
-      color: strokeColor,
+      tool: tool === "pen" ? "pen" : tool === "route" ? "route" : "line",
+      lineType: lt,
+      color,
       width: strokeWidth,
       points: [pt],
+      lengthPx: 0,
     };
   }
 }
@@ -242,27 +417,29 @@ function onPointerMove(ev) {
   }
   if (!currentStroke) return;
   const pt = imageCoords(ev.clientX, ev.clientY);
-  if (currentStroke.tool === "line") {
+  if (currentStroke.tool === "line" || currentStroke.tool === "route") {
     currentStroke.points = [currentStroke.points[0], pt];
   } else {
     currentStroke.points.push(pt);
   }
-  const temp = [...layers.strokes, currentStroke];
-  const prev = layers.strokes;
-  layers.strokes = temp;
-  renderStrokes();
-  layers.strokes = prev;
+  const temp = [...layers.paths, currentStroke];
+  const prev = layers.paths;
+  layers.paths = temp;
+  renderPaths();
+  layers.paths = prev;
 }
 
 function onPointerUp() {
   panStart = null;
   if (currentStroke) {
-    if (currentStroke.points.length >= (currentStroke.tool === "line" ? 2 : 1)) {
-      layers.strokes.push(currentStroke);
+    const minPts = currentStroke.tool === "pen" ? 1 : 2;
+    if (currentStroke.points.length >= minPts) {
+      currentStroke.lengthPx = pathLength(currentStroke.points);
+      layers.paths.push(currentStroke);
       markDirty();
     }
     currentStroke = null;
-    renderStrokes();
+    renderPaths();
   }
 }
 
@@ -278,9 +455,12 @@ function setupBgImage(url) {
   if (!img) return;
   img.onload = () => {
     stageSize = { w: img.naturalWidth || 800, h: img.naturalHeight || 600 };
+    layers.canvasWidth = stageSize.w;
+    layers.canvasHeight = stageSize.h;
     img.classList.remove("hidden");
     ph?.classList.add("hidden");
     renderAll();
+    markDirty();
   };
   img.src = url;
   if (img.complete) img.onload?.();
@@ -301,11 +481,39 @@ async function loadSketch() {
   } else {
     throw new Error("projectId または sketchId が必要です");
   }
-  layers = sketch.layers || layers;
+  layers = migrateLayers(sketch.layers, sketch.layers?.canvasWidth, sketch.layers?.canvasHeight);
   viewport = { scale: 1, offsetX: 0, offsetY: 0, ...layers.viewport };
   $("drawing-title").textContent = sketch.title || "現調図面";
   if (sketch.backgroundImageUrl) setupBgImage(sketch.backgroundImageUrl);
-  else renderAll();
+  else {
+    stageSize = { w: layers.canvasWidth || 800, h: layers.canvasHeight || 600 };
+    renderAll();
+  }
+}
+
+async function loadLineTypes() {
+  const data = await api("GET", "/api/survey/v1/drawing-sketches/line-types");
+  lineTypePalette = data.lineTypes || [];
+  const mount = $("line-type-palette");
+  if (!mount) return;
+  mount.innerHTML = lineTypePalette
+    .map(
+      (lt) =>
+        `<button type="button" data-line-type="${lt.id}" style="border-color:${lt.color};color:${lt.color}" title="${lt.label}">${lt.label}</button>`
+    )
+    .join("");
+  mount.querySelectorAll("[data-line-type]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      lineType = btn.dataset.lineType;
+      mount.querySelectorAll("[data-line-type]").forEach((b) => b.classList.toggle("active", b === btn));
+      setStatus(`線種: ${btn.textContent} — 始点と終点をタップ`);
+    });
+  });
+  const first = mount.querySelector("[data-line-type]");
+  if (first) {
+    lineType = first.dataset.lineType;
+    first.classList.add("active");
+  }
 }
 
 async function loadSymbols() {
@@ -314,13 +522,17 @@ async function loadSymbols() {
   const mount = $("symbol-palette");
   if (!mount) return;
   mount.innerHTML = symbolPalette
-    .map(
-      (s) =>
-        `<button type="button" data-symbol="${s.symbolType}" title="${s.label}">${s.icon} ${s.label}</button>`
-    )
+    .map((s) => {
+      const svgHtml = s.svg
+        ? `<span class="sym-svg" style="color:${s.color}">${s.svg}</span>`
+        : `<span>${s.icon}</span>`;
+      return `<button type="button" data-symbol="${s.symbolType}" title="${s.label}">${svgHtml}<span>${s.label}</span></button>`;
+    })
     .join("");
   mount.querySelectorAll("[data-symbol]").forEach((btn) => {
     btn.addEventListener("click", () => {
+      mount.querySelectorAll("[data-symbol]").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
       const sym = symbolPalette.find((x) => x.symbolType === btn.dataset.symbol);
       pendingSymbol = sym;
       setStatus(`${sym?.label} — 図面上をタップして配置`);
@@ -349,6 +561,39 @@ async function importBackground(file) {
   setStatus("背景写真を取り込みました");
 }
 
+async function exportAiJson() {
+  if (!sketchId) return;
+  await saveSketch().catch(() => {});
+  const data = await api("GET", `/api/survey/v1/drawing-sketches/${encodeURIComponent(sketchId)}/ai-export`);
+  const payload = data.export;
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `survey-drawing-ai-${sketchId.slice(0, 8)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  setStatus("AI清書用JSONをダウンロードしました");
+}
+
+function rotateSelectedSymbol(delta) {
+  const sym = layers.symbols.find((s) => s.id === selectedSymbolId);
+  if (!sym) return;
+  sym.rotation = ((sym.rotation || 0) + delta + 360) % 360;
+  markDirty();
+  renderOverlay();
+}
+
+function deleteSelectedSymbol() {
+  if (!selectedSymbolId) return;
+  if (!confirm("選択した記号を削除しますか？")) return;
+  layers.symbols = layers.symbols.filter((s) => s.id !== selectedSymbolId);
+  selectedSymbolId = null;
+  updateSymbolInspector();
+  markDirty();
+  renderOverlay();
+}
+
 function wireEvents() {
   const wrap = $("drawing-stage-wrap");
   wrap?.addEventListener("pointerdown", onPointerDown);
@@ -373,16 +618,20 @@ function wireEvents() {
       lastDist = Math.hypot(dx, dy);
     }
   });
-  wrap?.addEventListener("touchmove", (ev) => {
-    if (ev.touches.length === 2) {
-      ev.preventDefault();
-      const dx = ev.touches[0].clientX - ev.touches[1].clientX;
-      const dy = ev.touches[0].clientY - ev.touches[1].clientY;
-      const dist = Math.hypot(dx, dy);
-      if (lastDist > 0) zoomBy(dist / lastDist);
-      lastDist = dist;
-    }
-  }, { passive: false });
+  wrap?.addEventListener(
+    "touchmove",
+    (ev) => {
+      if (ev.touches.length === 2) {
+        ev.preventDefault();
+        const dx = ev.touches[0].clientX - ev.touches[1].clientX;
+        const dy = ev.touches[0].clientY - ev.touches[1].clientY;
+        const dist = Math.hypot(dx, dy);
+        if (lastDist > 0) zoomBy(dist / lastDist);
+        lastDist = dist;
+      }
+    },
+    { passive: false }
+  );
 
   document.querySelectorAll("[data-tool]").forEach((btn) => {
     btn.addEventListener("click", () => setTool(btn.dataset.tool));
@@ -401,6 +650,7 @@ function wireEvents() {
   });
 
   $("btn-save")?.addEventListener("click", () => saveSketch().catch((e) => setStatus(e.message)));
+  $("btn-ai-export")?.addEventListener("click", () => exportAiJson().catch((e) => setStatus(e.message)));
   $("btn-back")?.addEventListener("click", () => {
     if (dirty && !confirm("未保存の変更があります。戻りますか？")) return;
     if (projectId) location.href = `/survey-v1?projectId=${encodeURIComponent(projectId)}`;
@@ -419,6 +669,10 @@ function wireEvents() {
     ev.target.value = "";
   });
 
+  $("btn-symbol-rotate-left")?.addEventListener("click", () => rotateSelectedSymbol(-15));
+  $("btn-symbol-rotate-right")?.addEventListener("click", () => rotateSelectedSymbol(15));
+  $("btn-symbol-delete")?.addEventListener("click", () => deleteSelectedSymbol());
+
   window.addEventListener("beforeunload", (ev) => {
     if (dirty) ev.preventDefault();
   });
@@ -430,7 +684,7 @@ async function main() {
     return;
   }
   wireEvents();
-  await loadSymbols();
+  await Promise.all([loadSymbols(), loadLineTypes()]);
   await loadSketch();
   setStatus("描画できます（指・タッチペン対応）");
 }

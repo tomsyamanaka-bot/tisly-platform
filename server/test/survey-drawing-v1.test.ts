@@ -11,6 +11,11 @@ process.env.RATE_LIMIT_PROVIDER = "memory";
 const { default: request } = await import("supertest");
 const { createApp } = await import("../src/app.js");
 const { closeDatabase, getDatabase } = await import("../src/db/database.js");
+const {
+  migrateLayersToV2,
+  pathLengthPx,
+  SURVEY_DRAWING_SCHEMA_VERSION,
+} = await import("../src/survey/survey-drawing-v1-types.js");
 
 const app = createApp();
 
@@ -22,6 +27,37 @@ async function surveyorLogin() {
 
 const TINY_PNG =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
+describe("現調図面 v2 型", () => {
+  it("v1 レイヤーを v2 にマイグレーションできる", () => {
+    const v2 = migrateLayersToV2({
+      version: 1,
+      strokes: [
+        {
+          id: "s1",
+          tool: "pen",
+          color: "#dc2626",
+          width: 3,
+          points: [
+            { x: 0, y: 0 },
+            { x: 10, y: 0 },
+          ],
+        },
+      ],
+      symbols: [],
+      textMemos: [{ id: "t1", text: "メモ", x: 5, y: 5, fontSize: 14, color: "#000" }],
+      viewport: { scale: 1, offsetX: 0, offsetY: 0 },
+    });
+    assert.equal(v2.schemaVersion, 2);
+    assert.equal(v2.paths.length, 1);
+    assert.equal(v2.notes.length, 1);
+    assert.equal(v2.paths[0].lengthPx, 10);
+  });
+
+  it("パス長を計算できる", () => {
+    assert.equal(pathLengthPx([{ x: 0, y: 0 }, { x: 3, y: 4 }]), 5);
+  });
+});
 
 describe("現調図面 v1 API", () => {
   let token = "";
@@ -59,22 +95,36 @@ describe("現調図面 v1 API", () => {
 
   after(() => closeDatabase());
 
-  it("記号パレットを返す", async () => {
+  it("記号パレットを返す（設備記号ライブラリ v1）", async () => {
     const res = await request(app)
       .get("/api/survey/v1/drawing-sketches/symbols")
       .set("Authorization", `Bearer ${token}`);
     assert.equal(res.status, 200);
-    assert.ok(res.body.symbols?.length >= 4);
+    assert.ok(res.body.symbols?.length >= 16);
+    const dome = res.body.symbols.find((s: { symbolType: string }) => s.symbolType === "dome_camera");
+    assert.ok(dome?.svg?.includes("<svg"));
   });
 
-  it("図面スケッチを作成・一覧・取得できる", async () => {
+  it("線種パレットを返す", async () => {
+    const res = await request(app)
+      .get("/api/survey/v1/drawing-sketches/line-types")
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(res.status, 200);
+    assert.equal(res.body.lineTypes.length, 7);
+    const lan = res.body.lineTypes.find((l: { id: string }) => l.id === "lan");
+    assert.equal(lan.color, "#2563eb");
+  });
+
+  it("図面スケッチを作成・一覧・取得できる（v2 構造）", async () => {
     const create = await request(app)
       .post(`/api/survey/v1/projects/${projectId}/drawing-sketches`)
       .set("Authorization", `Bearer ${token}`)
       .send({ title: "1F配線図" });
     assert.equal(create.status, 201);
     sketchId = create.body.sketch.id;
-    assert.equal(create.body.sketch.layers.version, 1);
+    assert.equal(create.body.sketch.schemaVersion, SURVEY_DRAWING_SCHEMA_VERSION);
+    assert.equal(create.body.sketch.layers.schemaVersion, 2);
+    assert.equal(create.body.sketch.layers.drawingVersion, 2);
 
     const list = await request(app)
       .get(`/api/survey/v1/projects/${projectId}/drawing-sketches`)
@@ -87,44 +137,52 @@ describe("現調図面 v1 API", () => {
       .set("Authorization", `Bearer ${token}`);
     assert.equal(get.status, 200);
     assert.equal(get.body.sketch.title, "1F配線図");
+    assert.ok(get.body.sketch.backgroundImage === null || typeof get.body.sketch.backgroundImage === "object");
   });
 
-  it("背景写真と描画レイヤーを保存できる", async () => {
+  it("背景写真と描画レイヤー（配線ルート）を保存できる", async () => {
     const bg = await request(app)
       .post(`/api/survey/v1/drawing-sketches/${sketchId}/background`)
       .set("Authorization", `Bearer ${token}`)
       .send({ imageBase64: TINY_PNG, fileName: "grid.png", mimeType: "image/png" });
     assert.equal(bg.status, 200);
     assert.ok(bg.body.sketch.backgroundImageUrl.includes("/uploads/survey/"));
+    assert.ok(bg.body.sketch.backgroundImage?.path);
 
     const layers = {
-      version: 1,
-      strokes: [
+      schemaVersion: 2,
+      drawingVersion: 2,
+      canvasWidth: 1,
+      canvasHeight: 1,
+      paths: [
         {
-          id: "s1",
-          tool: "pen",
-          color: "#dc2626",
+          id: "p1",
+          tool: "route",
+          lineType: "lan",
+          color: "#2563eb",
           width: 3,
           points: [
             { x: 10, y: 10 },
             { x: 50, y: 50 },
           ],
+          lengthPx: 56.57,
         },
       ],
       symbols: [
         {
           id: "sym1",
-          symbolType: "camera",
-          label: "カメラ",
+          symbolType: "dome_camera",
+          label: "ドームカメラ",
           icon: "📷",
           color: "#2563eb",
           x: 100,
           y: 120,
-          rotation: 0,
+          rotation: 45,
+          scale: 1,
           memo: "玄関",
         },
       ],
-      textMemos: [{ id: "t1", text: "配線メモ", x: 80, y: 80, fontSize: 14, color: "#0f172a" }],
+      notes: [{ id: "t1", text: "配線メモ", x: 80, y: 80, fontSize: 14, color: "#0f172a" }],
       viewport: { scale: 1.2, offsetX: 0, offsetY: 0 },
     };
 
@@ -134,13 +192,28 @@ describe("現調図面 v1 API", () => {
       .send({ layers });
     assert.equal(patch.status, 200);
     assert.equal(patch.body.sketch.layers.symbols.length, 1);
-    assert.equal(patch.body.sketch.layers.strokes[0].points.length, 2);
+    assert.equal(patch.body.sketch.layers.paths[0].lineType, "lan");
+    assert.ok(patch.body.sketch.layers.paths[0].lengthPx > 0);
+  });
+
+  it("AI清書用JSONをエクスポートできる", async () => {
+    const res = await request(app)
+      .get(`/api/survey/v1/drawing-sketches/${sketchId}/ai-export`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(res.status, 200);
+    assert.equal(res.body.export.schemaVersion, 2);
+    assert.equal(res.body.export.projectId, projectId);
+    assert.equal(res.body.export.paths.length, 1);
+    assert.equal(res.body.export.symbols.length, 1);
+    assert.ok(res.body.export.exportedAt);
+    assert.ok(res.body.export.viewport.scale);
   });
 
   it("survey-drawing-v1 ページを配信できる", async () => {
     const res = await request(app).get("/survey-drawing-v1");
     assert.equal(res.status, 200);
     assert.ok(res.text.includes("survey-drawing-v1.js"));
+    assert.ok(res.text.includes("btn-ai-export"));
     assert.ok(res.text.includes('rel="apple-touch-icon"'));
   });
 

@@ -43,10 +43,16 @@ import {
   deleteSurveyDrawingSketchV1,
   getSurveyDrawingSketchV1,
   listSurveyDrawingSketchesV1,
+  exportSurveyDrawingAiJsonV1,
   saveSurveyDrawingSketchBackgroundV1,
   updateSurveyDrawingSketchV1,
 } from "../../survey/survey-drawing-v1-store.js";
-import { SURVEY_DRAWING_SYMBOL_PALETTE, SURVEY_DRAWING_SOURCE_TYPES } from "../../survey/survey-drawing-v1-types.js";
+import {
+  SURVEY_DRAWING_LINE_TYPE_META,
+  SURVEY_DRAWING_LINE_TYPES,
+  SURVEY_DRAWING_SYMBOL_PALETTE,
+  SURVEY_DRAWING_SOURCE_TYPES,
+} from "../../survey/survey-drawing-v1-types.js";
 
 export const surveyV1Router = Router();
 
@@ -480,6 +486,16 @@ surveyV1Router.get("/drawing-sketches/symbols", ...surveyV1Auth, (req: AuthedReq
   res.json({ symbols: SURVEY_DRAWING_SYMBOL_PALETTE });
 });
 
+surveyV1Router.get("/drawing-sketches/line-types", ...surveyV1Auth, (req: AuthedRequest, res) => {
+  if (!assertSurveyRole(req, res)) return;
+  res.json({
+    lineTypes: SURVEY_DRAWING_LINE_TYPES.map((id) => ({
+      id,
+      ...SURVEY_DRAWING_LINE_TYPE_META[id],
+    })),
+  });
+});
+
 surveyV1Router.get("/projects/:id/drawing-sketches", ...surveyV1Auth, (req: AuthedRequest, res) => {
   if (!assertSurveyRole(req, res)) return;
   res.json({ sketches: listSurveyDrawingSketchesV1(String(req.params.id)) });
@@ -557,6 +573,20 @@ surveyV1Router.post(
       res.json({ sketch });
     } catch (e) {
       res.status(400).json({ error: String(e) });
+    }
+  }
+);
+
+surveyV1Router.get(
+  "/drawing-sketches/:sketchId/ai-export",
+  ...surveyV1Auth,
+  (req: AuthedRequest, res) => {
+    if (!assertSurveyRole(req, res)) return;
+    try {
+      const payload = exportSurveyDrawingAiJsonV1(String(req.params.sketchId));
+      res.json({ export: payload });
+    } catch (e) {
+      res.status(404).json({ error: String(e) });
     }
   }
 );

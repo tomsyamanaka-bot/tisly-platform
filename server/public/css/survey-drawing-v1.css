@@ -87,7 +87,90 @@
   border: 1px solid #64748b;
   background: #0f172a;
   color: #fff;
+  font-size: 0.7rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  padding: 0.2rem;
+}
+
+.symbol-palette button .sym-svg {
+  width: 28px;
+  height: 28px;
+  color: inherit;
+}
+
+.symbol-palette button.active {
+  border-color: #60a5fa;
+  background: #1e3a5f;
+}
+
+.line-type-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.35rem 0.5rem;
+  background: #1e3a5f;
+  flex-shrink: 0;
+}
+
+.line-type-palette.hidden {
+  display: none;
+}
+
+.line-type-palette button {
+  min-height: 36px;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background: #0f172a;
+  color: #fff;
   font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.line-type-palette button.active {
+  border-color: #fff;
+  box-shadow: 0 0 0 1px #60a5fa;
+}
+
+.symbol-inspector {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.5rem;
+  background: #422006;
+  flex-shrink: 0;
+}
+
+.symbol-inspector.hidden {
+  display: none;
+}
+
+.symbol-inspector-label {
+  flex: 1;
+  font-size: 0.8rem;
+  color: #fde68a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.symbol-inspector button {
+  min-width: 44px;
+  min-height: 40px;
+  border-radius: 8px;
+  border: 1px solid #92400e;
+  background: #78350f;
+  color: #fff;
+  font-size: 1rem;
+}
+
+.symbol-inspector button.danger {
+  background: #991b1b;
+  border-color: #dc2626;
 }
 
 .drawing-stage-wrap {
@@ -163,9 +246,26 @@
 }
 
 .drawing-symbol {
-  font-size: 1.5rem;
+  width: 40px;
+  height: 40px;
   line-height: 1;
-  text-shadow: 0 0 4px #fff;
+  text-shadow: none;
+  border: none;
+  background: transparent;
+  padding: 0;
+}
+
+.drawing-symbol.selected {
+  outline: 2px solid #fbbf24;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.drawing-symbol .sym-svg {
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  display: block;
 }
 
 .drawing-memo {
