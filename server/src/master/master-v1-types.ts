@@ -161,7 +161,12 @@ export interface MasterV1EstimatePreviewCandidate {
   memo: string | null;
 }
 
-export type MasterV1PriceSource = "customer_override" | "rank_multiplier" | "standard";
+export type MasterV1PriceSource =
+  | "customer_override"
+  | "rank_multiplier"
+  | "standard"
+  | "cost_double"
+  | "missing";
 
 export interface MasterV1EstimatePreviewLine {
   sourceType: "symbol" | "line";

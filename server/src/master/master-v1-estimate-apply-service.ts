@@ -28,11 +28,10 @@ import type {
   MasterV1EstimatePreviewLine,
   MasterV1PriceSource,
 } from "./master-v1-types.js";
+import { masterPriceSourceLabel } from "./master-v1-pricing.js";
 
 function priceSourceLabel(source: MasterV1PriceSource): string {
-  if (source === "customer_override") return "顧客上書き";
-  if (source === "rank_multiplier") return "ランク倍率";
-  return "標準売価";
+  return masterPriceSourceLabel(source);
 }
 
 export function buildEstimateItemsFromMasterPreview(
@@ -64,6 +63,7 @@ function convertPreviewLineToEstimateItem(line: MasterV1EstimatePreviewLine): Es
     unitPrice: line.appliedUnitSell,
     amount: line.totalSell,
     costPrice: line.unitCost,
+    priceSource: line.priceSource,
     memo: memoParts.join(" / "),
     fromAiCandidate: true,
     orderTarget: line.itemType === "material",
@@ -258,7 +258,11 @@ export function createEstimateFromMasterDraftV1(
   return {
     ...detail,
     masterDraftId,
-  } as EstimateProjectV1Detail & { masterDraftId: string };
+    pricingSummary: summarizeMasterPreviewPricing(draft.preview),
+  } as EstimateProjectV1Detail & {
+    masterDraftId: string;
+    pricingSummary: ReturnType<typeof summarizeMasterPreviewPricing>;
+  };
 }
 
 export function summarizeMasterPreviewPricing(preview: MasterV1EstimatePreviewEnriched) {
@@ -266,7 +270,8 @@ export function summarizeMasterPreviewPricing(preview: MasterV1EstimatePreviewEn
   const customerOverrideCount = lines.filter((l) => l.priceSource === "customer_override").length;
   const rankCount = lines.filter((l) => l.priceSource === "rank_multiplier").length;
   const standardCount = lines.filter((l) => l.priceSource === "standard").length;
-  const missingCostLines = lines.filter((l) => !l.unitCost || l.unitCost <= 0);
+  const costDoubleCount = lines.filter((l) => l.priceSource === "cost_double").length;
+  const missingCostLines = lines.filter((l) => !l.unitCost || l.unitCost <= 0 || l.priceSource === "missing");
   return {
     totalCost: preview.totalCost,
     totalSell: preview.totalSell,
@@ -275,7 +280,51 @@ export function summarizeMasterPreviewPricing(preview: MasterV1EstimatePreviewEn
     customerOverrideCount,
     rankCount,
     standardCount,
+    costDoubleCount,
     missingCostCount: missingCostLines.length,
     missingCostLabels: missingCostLines.map((l) => l.label),
+  };
+}
+
+function loadMasterDraftIdForProject(businessProjectId: string): string | null {
+  const project = getBusinessProject(businessProjectId);
+  if (!project?.estimateId) return null;
+  const row = getDatabase()
+    .prepare(`SELECT master_draft_id FROM business_estimates WHERE id = ?`)
+    .get(project.estimateId) as { master_draft_id: string | null } | undefined;
+  return row?.master_draft_id ?? null;
+}
+
+/** マスター候補の最新単価で見積明細を再計算 */
+export function recalculateEstimateFromMasterDraftV1(
+  businessProjectId: string
+): EstimateProjectV1Detail {
+  const masterDraftId = loadMasterDraftIdForProject(businessProjectId);
+  if (!masterDraftId) throw new Error("master draft not linked");
+
+  const draft = getMasterV1EstimateDraft(masterDraftId);
+  if (!draft) throw new Error("master draft not found");
+
+  const project = getBusinessProject(businessProjectId);
+  if (!project?.estimateId) throw new Error("estimate not found");
+
+  const items = buildEstimateItemsFromMasterPreview(draft.preview);
+  if (!items.length) throw new Error("master draft has no line items");
+
+  const header = buildHeaderFromDraft(draft, businessProjectId);
+  updateEstimateItemsV1(businessProjectId, items, {
+    notes: header.notes,
+    forceOverwriteManualLines: true,
+  });
+  updateEstimateHeader(project.estimateId, header);
+
+  const detail = getEstimateProjectV1Detail(businessProjectId)!;
+  return {
+    ...detail,
+    masterDraftId,
+    pricingSummary: summarizeMasterPreviewPricing(draft.preview),
+  } as EstimateProjectV1Detail & {
+    masterDraftId: string;
+    pricingSummary: ReturnType<typeof summarizeMasterPreviewPricing>;
   };
 }

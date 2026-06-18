@@ -179,6 +179,8 @@ export interface EstimateLineItem {
   costPrice?: number;
   memo?: string;
   fromAiCandidate?: boolean;
+  /** マスター連携時の価格根拠 */
+  priceSource?: string;
   /** 将来の発注連携対象フラグ */
   orderTarget?: boolean;
 }

@@ -27,7 +27,7 @@ import {
   listEstimatePriceRulePresetsV1,
   generateAndSaveSpecificationPdfV1,
 } from "../../estimate/estimate-v1-store.js";
-import { createEstimateFromMasterDraftV1 } from "../../master/master-v1-estimate-apply-service.js";
+import { createEstimateFromMasterDraftV1, recalculateEstimateFromMasterDraftV1 } from "../../master/master-v1-estimate-apply-service.js";
 import { maybeAutoSaveSpecificationPdfV1 } from "../../projects/project-pdf-auto-save.js";
 import {
   addCompletionPhotoV1,
@@ -191,6 +191,21 @@ estimateV1Router.post("/from-master-draft/:masterDraftId", ...estimateV1Auth, (r
   } catch (e) {
     const msg = e instanceof Error ? e.message : "create failed";
     const status = msg === "master draft not found" ? 404 : 400;
+    res.status(status).json({ error: msg });
+  }
+});
+
+estimateV1Router.post("/projects/:id/recalculate-master-pricing", ...estimateV1Auth, (req: AuthedRequest, res) => {
+  if (!assertEstimateV1Role(req, res)) return;
+  try {
+    const detail = recalculateEstimateFromMasterDraftV1(String(req.params.id));
+    res.json(detail);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "recalculate failed";
+    const status =
+      msg === "estimate not found" || msg === "master draft not linked" || msg === "master draft not found"
+        ? 404
+        : 400;
     res.status(status).json({ error: msg });
   }
 });

@@ -6,7 +6,12 @@ import type {
 } from "./master-v1-types.js";
 import { getMasterV1Customer, getMasterV1Rank } from "./master-v1-store.js";
 
-export type MasterV1PriceSource = "customer_override" | "rank_multiplier" | "standard";
+export type MasterV1PriceSource =
+  | "customer_override"
+  | "rank_multiplier"
+  | "standard"
+  | "cost_double"
+  | "missing";
 
 export interface MasterV1ResolvedPrice {
   unitCost: number;
@@ -25,15 +30,21 @@ export function resolveMaterialUnitCost(mat: MasterV1Material): number {
   return mat.cost;
 }
 
+function resolveStandardSellFromCost(
+  standardSellPrice: number,
+  unitCost: number
+): { sell: number; source: Extract<MasterV1PriceSource, "standard" | "cost_double" | "missing"> } {
+  if (standardSellPrice > 0) return { sell: standardSellPrice, source: "standard" };
+  if (unitCost > 0) return { sell: Math.round(unitCost * 2), source: "cost_double" };
+  return { sell: 0, source: "missing" };
+}
+
 export function resolveStandardSellWork(work: MasterV1WorkItem): number {
-  if (work.standardSellPrice > 0) return work.standardSellPrice;
-  const cost = resolveWorkUnitCost(work);
-  return cost > 0 ? Math.round(cost * 2) : 0;
+  return resolveStandardSellFromCost(work.standardSellPrice, resolveWorkUnitCost(work)).sell;
 }
 
 export function resolveStandardSellMaterial(mat: MasterV1Material): number {
-  if (mat.standardSellPrice > 0) return mat.standardSellPrice;
-  return mat.cost > 0 ? Math.round(mat.cost * 2) : 0;
+  return resolveStandardSellFromCost(mat.standardSellPrice, mat.cost).sell;
 }
 
 export function resolveRankSellWork(work: MasterV1WorkItem, rank: MasterV1Rank | null): number {
@@ -54,13 +65,14 @@ export function resolveWorkPrice(
   rank: MasterV1Rank | null
 ): MasterV1ResolvedPrice {
   const unitCost = resolveWorkUnitCost(work);
-  const standardUnitSell = resolveStandardSellWork(work);
+  const standardResolved = resolveStandardSellFromCost(work.standardSellPrice, unitCost);
+  const standardUnitSell = standardResolved.sell;
   const rankUnitSell = resolveRankSellWork(work, rank);
   const customerUnitSell =
     customerPrice && customerPrice.unitPrice > 0 ? customerPrice.unitPrice : null;
 
   let appliedUnitSell = standardUnitSell;
-  let priceSource: MasterV1PriceSource = "standard";
+  let priceSource: MasterV1PriceSource = standardResolved.source;
 
   if (customerUnitSell != null) {
     appliedUnitSell = customerUnitSell;
@@ -87,13 +99,14 @@ export function resolveMaterialPrice(
   rank: MasterV1Rank | null
 ): MasterV1ResolvedPrice {
   const unitCost = resolveMaterialUnitCost(mat);
-  const standardUnitSell = resolveStandardSellMaterial(mat);
+  const standardResolved = resolveStandardSellFromCost(mat.standardSellPrice, unitCost);
+  const standardUnitSell = standardResolved.sell;
   const rankUnitSell = resolveRankSellMaterial(mat, rank);
   const customerUnitSell =
     customerPrice && customerPrice.unitPrice > 0 ? customerPrice.unitPrice : null;
 
   let appliedUnitSell = standardUnitSell;
-  let priceSource: MasterV1PriceSource = "standard";
+  let priceSource: MasterV1PriceSource = standardResolved.source;
 
   if (customerUnitSell != null) {
     appliedUnitSell = customerUnitSell;
@@ -123,4 +136,21 @@ export function resolveCustomerRank(customerId: string | null): MasterV1Rank | n
 export function calcGrossProfitRate(sell: number, cost: number): number {
   if (sell <= 0) return 0;
   return Math.round(((sell - cost) / sell) * 1000) / 10;
+}
+
+export function masterPriceSourceLabel(source: MasterV1PriceSource): string {
+  switch (source) {
+    case "customer_override":
+      return "顧客別";
+    case "rank_multiplier":
+      return "ランク";
+    case "standard":
+      return "標準";
+    case "cost_double":
+      return "原価2倍";
+    case "missing":
+      return "未入力";
+    default:
+      return "標準";
+  }
 }
