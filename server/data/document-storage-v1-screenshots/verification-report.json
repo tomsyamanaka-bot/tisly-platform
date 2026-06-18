@@ -1,0 +1,120 @@
+{
+  "capturedAt": "2026-06-18T21:06:08.558Z",
+  "feature": "document-storage-v1",
+  "businessProjectId": "BIZ-C8DCF43F",
+  "estimateNo": "MO-26-0619-001",
+  "invoiceNo": "INV-MO-26-0619-001",
+  "legacyMigration": {
+    "estimate": {
+      "beforeLegacyCount": 1,
+      "migratedCount": 1,
+      "skippedAlreadyToms": 1,
+      "afterLegacyCount": 0,
+      "examples": [
+        {
+          "oldNo": "MO-26-0619-001-001",
+          "newNo": "MO-26-0619-001",
+          "projectId": "BIZ-C8DCF43F"
+        }
+      ]
+    },
+    "invoice": {
+      "beforeLegacyCount": 0,
+      "migratedCount": 0,
+      "skippedAlreadyToms": 0,
+      "afterLegacyCount": 0,
+      "examples": []
+    },
+    "migratedAt": "2026-06-18T21:05:56.537Z"
+  },
+  "documentsStatus": {
+    "projectId": "BIZ-C8DCF43F",
+    "documents": [
+      {
+        "kind": "estimate",
+        "label": "見積書",
+        "status": "ready",
+        "statusLabel": "作成済",
+        "statusIcon": "✅",
+        "hasPdf": true,
+        "stale": false,
+        "fileName": "見積書_保存状態UIテスト様_守谷市テスト現場.pdf",
+        "viewerKind": "estimate",
+        "pdfUrl": "/api/estimate/v1/projects/BIZ-C8DCF43F/pdf?includePhotos=false",
+        "shareFileName": "見積書_保存状態UIテスト様_守谷市テスト現場.pdf",
+        "updatedAt": "2026-06-18T21:06:08.554Z",
+        "storageStatus": "qnap_pending",
+        "storageStatusLabel": "QNAP未保存",
+        "storageStatusIcon": "🟡",
+        "hasPhotos": false
+      },
+      {
+        "kind": "invoice",
+        "label": "請求書",
+        "status": "ready",
+        "statusLabel": "作成済",
+        "statusIcon": "✅",
+        "hasPdf": true,
+        "stale": false,
+        "fileName": "請求書_保存状態UIテスト様_守谷市テスト現場.pdf",
+        "viewerKind": "invoice",
+        "pdfUrl": "/api/estimate/v1/projects/BIZ-C8DCF43F/invoice/pdf?includePhotos=false",
+        "shareFileName": "請求書_保存状態UIテスト様_守谷市テスト現場.pdf",
+        "updatedAt": "2026-06-18T21:06:08.555Z",
+        "storageStatus": "qnap_pending",
+        "storageStatusLabel": "QNAP未保存",
+        "storageStatusIcon": "🟡",
+        "hasPhotos": false
+      },
+      {
+        "kind": "specification",
+        "label": "仕様書",
+        "status": "photos_missing",
+        "statusLabel": "写真不足",
+        "statusIcon": "📷",
+        "hasPdf": true,
+        "stale": false,
+        "fileName": "仕様書_保存状態UIテスト様_守谷市テスト現場.pdf",
+        "viewerKind": "specification",
+        "pdfUrl": "/api/estimate/v1/projects/BIZ-C8DCF43F/specification/pdf",
+        "shareFileName": "仕様書_保存状態UIテスト様_守谷市テスト現場.pdf",
+        "updatedAt": "2026-06-18T21:06:08.556Z",
+        "storageStatus": "qnap_pending",
+        "storageStatusLabel": "QNAP未保存",
+        "storageStatusIcon": "🟡",
+        "hasPhotos": false
+      },
+      {
+        "kind": "completion",
+        "label": "完了報告書",
+        "status": "completion_photos_missing",
+        "statusLabel": "写真不足",
+        "statusIcon": "📷",
+        "hasPdf": true,
+        "stale": false,
+        "fileName": "完了報告書_保存状態UIテスト様_守谷市テスト現場.pdf",
+        "viewerKind": "completion-report",
+        "pdfUrl": "/api/estimate/v1/projects/BIZ-C8DCF43F/completion-report/pdf",
+        "shareFileName": "完了報告書_保存状態UIテスト様_守谷市テスト現場.pdf",
+        "updatedAt": "2026-06-18T21:06:08.557Z",
+        "storageStatus": "qnap_pending",
+        "storageStatusLabel": "QNAP未保存",
+        "storageStatusIcon": "🟡",
+        "hasPhotos": false
+      }
+    ]
+  },
+  "files": [
+    "01-iphone-estimate-list-new-no.png",
+    "02-iphone-estimate-detail-storage-status.png",
+    "03-iphone-invoice-no-display.png",
+    "04-iphone-doc-list-qnap-pending.png",
+    "05-android10-doc-list.png"
+  ],
+  "viewports": {
+    "iphone": "390x844",
+    "android10": "800x1280"
+  },
+  "healthCommitShort": "9230b9f",
+  "ok": true
+}

@@ -11,7 +11,7 @@ process.env.RATE_LIMIT_PROVIDER = "memory";
 const { default: request } = await import("supertest");
 const { createApp } = await import("../src/app.js");
 const { closeDatabase, getDatabase } = await import("../src/db/database.js");
-const { generateProjectScopedDocNo } = await import("../src/business/toms-document-format.js");
+const { isTomsEstimateNo } = await import("../src/business/toms-document-format.js");
 const { markProjectPdfStaleV1, isProjectPdfStaleV1 } = await import(
   "../src/projects/project-pdf-stale-v1.js"
 );
@@ -75,9 +75,12 @@ describe("Project Documents v1", () => {
 
   after(() => closeDatabase());
 
-  it("見積番号は案件番号-001形式", () => {
-    const no = generateProjectScopedDocNo(projectNo, "business_estimates", "estimate_no");
-    assert.match(no, new RegExp(`^${projectNo.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}-\\d{3}$`));
+  it("見積番号は TOMS 標準形式", async () => {
+    const est = await request(app)
+      .get(`/api/estimate/v1/projects/${businessProjectId}`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(est.status, 200);
+    assert.ok(isTomsEstimateNo(est.body.estimate?.estimateNo || est.body.header?.estimateNo));
   });
 
   it("documents-status API が4書類を返す", async () => {
