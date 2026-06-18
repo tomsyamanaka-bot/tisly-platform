@@ -26,8 +26,8 @@ import {
 } from "./estimate-math.js";
 import {
   buildDefaultEstimateHeader,
-  generateProjectScopedDocNo,
   generateTomsEstimateNo,
+  generateTomsInvoiceNo,
   parseEstimateHeaderJson,
   TOMS_DEFAULT_BANK_INFO,
   type TomsEstimateHeader,
@@ -707,7 +707,7 @@ export function createInvoiceFromEstimate(projectId: string, paymentDueDate?: st
   const est = getEstimate(project.estimateId);
   if (!est) throw new Error("estimate not found");
   const id = uuid();
-  const invoiceNo = generateProjectScopedDocNo(project.projectNo, "business_invoices", "invoice_no");
+  const invoiceNo = generateTomsInvoiceNo({ address: project.address, municipality: project.municipality });
   const now = new Date().toISOString();
   getDatabase()
     .prepare(

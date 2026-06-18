@@ -221,9 +221,42 @@ export function generateTomsEstimateNo(
   return `${prefix}-${String(maxSeq + 1).padStart(3, "0")}`;
 }
 
-/** TOMS 見積番号形式か */
+/** TOMS 見積番号形式か — {市コード}-{YY}-{MMDD}-{連番} */
 export function isTomsEstimateNo(value: string): boolean {
   return /^[A-Z]{2}-\d{2}-\d{4}-\d{3}$/.test(String(value || "").trim());
+}
+
+/** TOMS 請求番号形式か — INV-{市コード}-{YY}-{MMDD}-{連番} */
+export function isTomsInvoiceNo(value: string): boolean {
+  return /^INV-[A-Z]{2}-\d{2}-\d{4}-\d{3}$/.test(String(value || "").trim());
+}
+
+/**
+ * TOMS 請求番号 — INV-{市コード}-{YY}-{MMDD}-{連番}
+ * 例: INV-MO-26-0619-001 / INV-JY-26-0619-002
+ * 見積番号とは独立採番
+ */
+export function generateTomsInvoiceNo(
+  input: { municipality?: string; address?: string; cityCode?: string },
+  at = new Date()
+): string {
+  const cityCode = resolveCityCodeForDocNo(input);
+  const yy = String(at.getFullYear()).slice(-2);
+  const mm = String(at.getMonth() + 1).padStart(2, "0");
+  const dd = String(at.getDate()).padStart(2, "0");
+  const prefix = `INV-${cityCode}-${yy}-${mm}${dd}`;
+  const pattern = `${prefix}-%`;
+  const rows = getDatabase()
+    .prepare(`SELECT invoice_no as no FROM business_invoices WHERE invoice_no LIKE ?`)
+    .all(pattern) as { no: string }[];
+  let maxSeq = 0;
+  for (const row of rows) {
+    const no = String(row.no);
+    if (!isTomsInvoiceNo(no)) continue;
+    const m = no.match(/-(\d{3})$/);
+    if (m) maxSeq = Math.max(maxSeq, Number(m[1]));
+  }
+  return `${prefix}-${String(maxSeq + 1).padStart(3, "0")}`;
 }
 
 export function lineDescription(item: EstimateLineItem): string {

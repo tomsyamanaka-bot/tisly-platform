@@ -1,4 +1,5 @@
 import type Database from "better-sqlite3";
+import { migrateLegacyDocNumbersIfNeededV1 } from "../business/legacy-doc-no-migration.js";
 import { applyRetroactiveBackfillFlags } from "../projects/project-timeline-v1-retroactive-backfill.js";
 import {
   seedMasterV1Categories,
@@ -229,6 +230,8 @@ export function runMigrations(database: Database.Database): void {
   migrateMasterV1Categories(database);
   migrateMasterV1EstimatePreview(database);
   migrateMasterV1EstimateApply(database);
+  migrateStorageDocumentsV1(database);
+  migrateLegacyDocNumbersIfNeededV1(database);
 }
 
 /** 現調図面 v1 — 方眼紙写真 + 描画レイヤー */
@@ -3938,4 +3941,43 @@ function migrateMasterV1EstimateApply(database: Database.Database): void {
       `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
     )
     .run("migration:master_v1_estimate_apply", JSON.stringify({ at: new Date().toISOString() }));
+}
+
+/** 保存分類 storage_documents_v1 — QNAP 状態管理 */
+function migrateStorageDocumentsV1(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:storage_documents_v1") as { value_json: string } | undefined;
+  if (marker) return;
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS storage_documents_v1 (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      document_type TEXT NOT NULL,
+      title TEXT NOT NULL DEFAULT '',
+      file_name TEXT NOT NULL DEFAULT '',
+      local_path TEXT NOT NULL DEFAULT '',
+      qnap_path TEXT,
+      mime_type TEXT NOT NULL DEFAULT 'application/pdf',
+      size INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'qnap_pending',
+      customer_name TEXT,
+      site_name TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      synced_at TEXT,
+      error_message TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_storage_documents_v1_project
+      ON storage_documents_v1(project_id, document_type, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_storage_documents_v1_status
+      ON storage_documents_v1(status);
+  `);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:storage_documents_v1", JSON.stringify({ at: new Date().toISOString() }));
 }
