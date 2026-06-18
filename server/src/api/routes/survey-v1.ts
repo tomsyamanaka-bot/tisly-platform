@@ -38,6 +38,15 @@ import {
   findBusinessProjectIdForSurvey,
   maybeAutoSaveSpecificationPdfV1,
 } from "../../projects/project-pdf-auto-save.js";
+import {
+  createSurveyDrawingSketchV1,
+  deleteSurveyDrawingSketchV1,
+  getSurveyDrawingSketchV1,
+  listSurveyDrawingSketchesV1,
+  saveSurveyDrawingSketchBackgroundV1,
+  updateSurveyDrawingSketchV1,
+} from "../../survey/survey-drawing-v1-store.js";
+import { SURVEY_DRAWING_SYMBOL_PALETTE, SURVEY_DRAWING_SOURCE_TYPES } from "../../survey/survey-drawing-v1-types.js";
 
 export const surveyV1Router = Router();
 
@@ -460,6 +469,101 @@ surveyV1Router.delete("/projects/:id/ip-equipment/:itemId", ...surveyV1Auth, (re
   if (!assertSurveyRole(req, res)) return;
   const ok = deleteSurveyIpEquipmentV1(String(req.params.id), String(req.params.itemId));
   if (!ok) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  res.json({ ok: true });
+});
+
+surveyV1Router.get("/drawing-sketches/symbols", ...surveyV1Auth, (req: AuthedRequest, res) => {
+  if (!assertSurveyRole(req, res)) return;
+  res.json({ symbols: SURVEY_DRAWING_SYMBOL_PALETTE });
+});
+
+surveyV1Router.get("/projects/:id/drawing-sketches", ...surveyV1Auth, (req: AuthedRequest, res) => {
+  if (!assertSurveyRole(req, res)) return;
+  res.json({ sketches: listSurveyDrawingSketchesV1(String(req.params.id)) });
+});
+
+surveyV1Router.post("/projects/:id/drawing-sketches", ...surveyV1Auth, (req: AuthedRequest, res) => {
+  if (!assertSurveyRole(req, res)) return;
+  const body = req.body ?? {};
+  const rawSource = body.sourceType != null ? String(body.sourceType) : undefined;
+  const sourceType =
+    rawSource && (SURVEY_DRAWING_SOURCE_TYPES as readonly string[]).includes(rawSource)
+      ? (rawSource as (typeof SURVEY_DRAWING_SOURCE_TYPES)[number])
+      : undefined;
+  try {
+    const sketch = createSurveyDrawingSketchV1({
+      projectId: String(req.params.id),
+      title: body.title != null ? String(body.title) : undefined,
+      sourceType,
+      notes: body.notes != null ? String(body.notes) : undefined,
+    });
+    res.status(201).json({ sketch });
+  } catch (e) {
+    res.status(400).json({ error: String(e) });
+  }
+});
+
+surveyV1Router.get("/drawing-sketches/:sketchId", ...surveyV1Auth, (req: AuthedRequest, res) => {
+  if (!assertSurveyRole(req, res)) return;
+  const sketch = getSurveyDrawingSketchV1(String(req.params.sketchId));
+  if (!sketch) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  res.json({ sketch });
+});
+
+surveyV1Router.patch("/drawing-sketches/:sketchId", ...surveyV1Auth, (req: AuthedRequest, res) => {
+  if (!assertSurveyRole(req, res)) return;
+  const body = req.body ?? {};
+  const rawPatchSource = body.sourceType != null ? String(body.sourceType) : undefined;
+  const patchSourceType =
+    rawPatchSource && (SURVEY_DRAWING_SOURCE_TYPES as readonly string[]).includes(rawPatchSource)
+      ? (rawPatchSource as (typeof SURVEY_DRAWING_SOURCE_TYPES)[number])
+      : undefined;
+  try {
+    const sketch = updateSurveyDrawingSketchV1(String(req.params.sketchId), {
+      title: body.title != null ? String(body.title) : undefined,
+      sourceType: patchSourceType,
+      layers: body.layers,
+      notes: body.notes != null ? String(body.notes) : undefined,
+    });
+    res.json({ sketch });
+  } catch (e) {
+    res.status(404).json({ error: String(e) });
+  }
+});
+
+surveyV1Router.post(
+  "/drawing-sketches/:sketchId/background",
+  ...surveyV1Auth,
+  (req: AuthedRequest, res) => {
+    if (!assertSurveyRole(req, res)) return;
+    const body = req.body ?? {};
+    if (!body.imageBase64) {
+      res.status(400).json({ error: "imageBase64 required" });
+      return;
+    }
+    try {
+      const sketch = saveSurveyDrawingSketchBackgroundV1({
+        sketchId: String(req.params.sketchId),
+        imageBase64: String(body.imageBase64),
+        fileName: body.fileName != null ? String(body.fileName) : undefined,
+        mimeType: body.mimeType != null ? String(body.mimeType) : undefined,
+      });
+      res.json({ sketch });
+    } catch (e) {
+      res.status(400).json({ error: String(e) });
+    }
+  }
+);
+
+surveyV1Router.delete("/drawing-sketches/:sketchId", ...surveyV1Auth, (req: AuthedRequest, res) => {
+  if (!assertSurveyRole(req, res)) return;
+  if (!deleteSurveyDrawingSketchV1(String(req.params.sketchId))) {
     res.status(404).json({ error: "Not found" });
     return;
   }

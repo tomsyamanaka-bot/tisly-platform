@@ -219,6 +219,43 @@ export function runMigrations(database: Database.Database): void {
   migrateProjectTimelineV1(database);
   migrateProjectTimelineV1BackfillFlag(database);
   migrateProjectTimelineV1RetroactiveBackfill(database);
+  migrateSurveyDrawingSketchesV1(database);
+}
+
+/** 現調図面 v1 — 方眼紙写真 + 描画レイヤー */
+function migrateSurveyDrawingSketchesV1(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:survey_drawing_sketches_v1") as { value_json: string } | undefined;
+  if (marker) return;
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS survey_drawing_sketches (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      business_project_id TEXT,
+      title TEXT NOT NULL DEFAULT '現調図面',
+      source_type TEXT NOT NULL DEFAULT 'photo',
+      background_image_path TEXT NOT NULL DEFAULT '',
+      layers_json TEXT NOT NULL DEFAULT '{}',
+      notes TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES survey_projects(project_id) ON DELETE CASCADE
+    );
+  `);
+  database.exec(
+    "CREATE INDEX IF NOT EXISTS idx_survey_drawing_sketches_project ON survey_drawing_sketches(project_id)"
+  );
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run(
+      "migration:survey_drawing_sketches_v1",
+      JSON.stringify({ at: new Date().toISOString() })
+    );
 }
 
 /** 案件一覧 v1 — 論理削除 deleted_at */

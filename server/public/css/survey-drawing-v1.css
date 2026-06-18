@@ -1,0 +1,198 @@
+.survey-drawing-body {
+  margin: 0;
+  overflow: hidden;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: #0f172a;
+  touch-action: none;
+}
+
+.drawing-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: calc(env(safe-area-inset-top, 0px) + 0.35rem) 0.5rem 0.35rem;
+  background: #1565c0;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.drawing-title {
+  flex: 1;
+  font-weight: 600;
+  font-size: 0.95rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.drawing-tool-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0.35rem 0.5rem;
+  background: #1e293b;
+  flex-shrink: 0;
+  align-items: center;
+}
+
+.drawing-tool-btn {
+  min-width: 44px;
+  min-height: 44px;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #f8fafc;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.drawing-tool-btn.active {
+  background: #2563eb;
+  border-color: #60a5fa;
+}
+
+.drawing-tool-btn.primary {
+  background: #059669;
+  border-color: #34d399;
+}
+
+.drawing-color-wrap input {
+  width: 44px;
+  height: 44px;
+  border: none;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.symbol-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.35rem 0.5rem;
+  background: #334155;
+  flex-shrink: 0;
+}
+
+.symbol-palette.hidden {
+  display: none;
+}
+
+.symbol-palette button {
+  min-width: 52px;
+  min-height: 44px;
+  border-radius: 8px;
+  border: 1px solid #64748b;
+  background: #0f172a;
+  color: #fff;
+  font-size: 0.75rem;
+}
+
+.drawing-stage-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+  background: #111827;
+}
+
+.drawing-stage {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform-origin: center center;
+  will-change: transform;
+}
+
+.drawing-bg {
+  display: block;
+  max-width: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  pointer-events: none;
+}
+
+.drawing-bg.hidden {
+  display: none;
+}
+
+.drawing-bg-placeholder {
+  width: min(90vw, 600px);
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2rem;
+  color: #94a3b8;
+  border: 2px dashed #475569;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  box-sizing: border-box;
+}
+
+.drawing-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.drawing-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.drawing-symbol,
+.drawing-memo {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+}
+
+.drawing-symbol {
+  font-size: 1.5rem;
+  line-height: 1;
+  text-shadow: 0 0 4px #fff;
+}
+
+.drawing-memo {
+  background: rgba(255, 255, 255, 0.92);
+  color: #0f172a;
+  padding: 0.2rem 0.45rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  max-width: 140px;
+  border: 1px solid #cbd5e1;
+}
+
+.drawing-status {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0.25rem 0.75rem calc(env(safe-area-inset-bottom, 0px) + 0.35rem);
+  font-size: 0.75rem;
+  color: #94a3b8;
+  background: #0f172a;
+  text-align: center;
+}
+
+@media (min-width: 768px) {
+  .drawing-tool-strip {
+    justify-content: center;
+  }
+  .drawing-stage-wrap {
+    cursor: crosshair;
+  }
+}

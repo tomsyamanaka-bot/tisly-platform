@@ -562,6 +562,35 @@ function bindDetailMemoInput() {
   });
 }
 
+function drawingEditorUrl(sketchId) {
+  return `/survey-drawing-v1?sketchId=${encodeURIComponent(sketchId)}&projectId=${encodeURIComponent(currentProjectId)}`;
+}
+
+function drawingEditorNewUrl() {
+  return `/survey-drawing-v1?projectId=${encodeURIComponent(currentProjectId)}`;
+}
+
+async function renderDrawingSketches() {
+  const mount = $("drawing-sketch-list");
+  if (!mount || !currentProjectId) return;
+  try {
+    const data = await api(`/projects/${currentProjectId}/drawing-sketches`);
+    const sketches = data.sketches || [];
+    if (!sketches.length) {
+      mount.innerHTML = `<p class="section-hint">図面はまだありません。作成して方眼紙写真を取り込んでください。</p>`;
+      return;
+    }
+    mount.innerHTML = sketches
+      .map(
+        (s) =>
+          `<p><a class="btn-sub" style="display:inline-block;margin:0.25rem 0;" href="${drawingEditorUrl(s.id)}">${escapeHtml(s.title)}</a> <span class="section-hint">${s.backgroundImageUrl ? "📷 背景あり" : "下書き"} · ${escapeHtml(s.updatedAt?.slice(0, 16) || "")}</span></p>`
+      )
+      .join("");
+  } catch {
+    mount.innerHTML = `<p class="section-hint">図面一覧を読み込めませんでした</p>`;
+  }
+}
+
 async function openDetail(projectId) {
   if (currentProjectId) {
     await flushPhotoTitlesFromDom({ quiet: true });
@@ -597,6 +626,7 @@ async function openDetail(projectId) {
     renderTemplateList("detail-work-templates", templates, [...selectedTemplateIds]);
     renderMaterials(p.materials);
     renderIpEquipment(p.ipEquipment || []);
+    await renderDrawingSketches();
     const handoffBtn = $("btn-handoff");
     const handoffInfo = $("handoff-info");
     if (p.workflowStatus === "estimate_pending" || p.handoff) {
@@ -1594,6 +1624,21 @@ async function init() {
       await openDetail(currentProjectId);
     } catch (e) {
       showFriendlyError("edit-error", e, e.status);
+    }
+  });
+
+  $("btn-new-drawing")?.addEventListener("click", () => {
+    if (!currentProjectId) return;
+    location.href = drawingEditorNewUrl();
+  });
+  $("btn-open-drawing")?.addEventListener("click", async () => {
+    if (!currentProjectId) return;
+    try {
+      const data = await api(`/projects/${currentProjectId}/drawing-sketches`);
+      const first = data.sketches?.[0];
+      location.href = first ? drawingEditorUrl(first.id) : drawingEditorNewUrl();
+    } catch {
+      location.href = drawingEditorNewUrl();
     }
   });
 
