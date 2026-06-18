@@ -4,11 +4,13 @@ import { roleMeetsRequirement } from "../../auth/roles.js";
 import {
   MASTER_V1_CHIP_FILTERS,
   MASTER_V1_MAIN_CATEGORIES,
+  MASTER_V1_MISSING_FILTERS,
 } from "../../master/master-v1-categories.js";
 import {
   MASTER_V1_MATERIAL_CATEGORIES,
   MASTER_V1_WORK_CATEGORIES,
   type MasterV1Entity,
+  type MasterV1MissingFilter,
 } from "../../master/master-v1-types.js";
 import {
   bulkUpdateMasterV1,
@@ -54,6 +56,7 @@ import {
   buildEstimatePreviewFromLayers,
   listSymbolMappingSummary,
 } from "../../master/estimate-preview-service.js";
+import { saveMasterV1EstimateDraft, getMasterV1EstimateDraft } from "../../master/master-v1-draft-estimate-store.js";
 import {
   createStorageProvider,
   getDefaultStorageProvider,
@@ -78,6 +81,15 @@ function assertRole(req: AuthedRequest, res: Response): boolean {
 function listOpts(req: AuthedRequest) {
   const chip = req.query.chip as string | undefined;
   const favoriteOnly = req.query.favoriteOnly === "true" || chip === "__favorite__";
+  const missingRaw = req.query.missingFilter as string | undefined;
+  const missingFilter: MasterV1MissingFilter | undefined =
+    missingRaw === "cost" ||
+    missingRaw === "sell" ||
+    missingRaw === "supplier" ||
+    missingRaw === "model" ||
+    missingRaw === "category"
+      ? missingRaw
+      : undefined;
   return {
     q: req.query.q as string | undefined,
     category: req.query.category as string | undefined,
@@ -85,6 +97,7 @@ function listOpts(req: AuthedRequest) {
     categorySub: req.query.categorySub as string | undefined,
     favoriteOnly,
     activeOnly: req.query.activeOnly !== "false",
+    missingFilter,
   };
 }
 
@@ -114,6 +127,7 @@ masterV1Router.get("/meta", ...auth, (req: AuthedRequest, res) => {
     materialCategories: MASTER_V1_MATERIAL_CATEGORIES,
     mainCategories: MASTER_V1_MAIN_CATEGORIES,
     chipFilters: MASTER_V1_CHIP_FILTERS,
+    missingFilters: MASTER_V1_MISSING_FILTERS,
     categories,
     storageProviders: STORAGE_PROVIDER_KINDS,
     csvEntities: ["customers", "ranks", "work-items", "materials"] as MasterV1Entity[],
@@ -570,11 +584,12 @@ masterV1Router.delete("/symbol-mappings/:id", ...auth, (req: AuthedRequest, res)
 masterV1Router.get("/estimate-preview", ...auth, async (req: AuthedRequest, res) => {
   if (!assertRole(req, res)) return;
   const sketchId = String(req.query.sketchId || "");
+  const customerId = req.query.customerId ? String(req.query.customerId) : null;
   if (!sketchId) {
     res.status(400).json({ error: "sketchId is required" });
     return;
   }
-  const preview = buildEstimatePreviewBySketchId(sketchId);
+  const preview = buildEstimatePreviewBySketchId(sketchId, customerId);
   if (!preview) {
     res.status(404).json({ error: "sketch not found" });
     return;
@@ -584,13 +599,54 @@ masterV1Router.get("/estimate-preview", ...auth, async (req: AuthedRequest, res)
 
 masterV1Router.post("/estimate-preview", ...auth, (req: AuthedRequest, res) => {
   if (!assertRole(req, res)) return;
-  const body = req.body as { sketchId?: string; projectId?: string; layers?: SurveyDrawingAiExportV1 };
+  const body = req.body as {
+    sketchId?: string;
+    projectId?: string;
+    customerId?: string | null;
+    layers?: SurveyDrawingAiExportV1;
+  };
   const preview = buildEstimatePreviewFromLayers(body);
   if (!preview) {
     res.status(400).json({ error: "sketchId or layers is required" });
     return;
   }
   res.json(preview);
+});
+
+masterV1Router.post("/estimate-preview/apply", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const body = req.body as {
+    sketchId?: string;
+    projectId?: string;
+    customerId?: string | null;
+    layers?: SurveyDrawingAiExportV1;
+    preview?: ReturnType<typeof buildEstimatePreviewFromLayers>;
+  };
+  let preview = body.preview ?? null;
+  if (!preview) {
+    preview = buildEstimatePreviewFromLayers(body);
+  }
+  if (!preview) {
+    res.status(400).json({ error: "preview data is required" });
+    return;
+  }
+  const draft = saveMasterV1EstimateDraft({
+    projectId: body.projectId ?? preview.projectId,
+    sketchId: body.sketchId ?? preview.sketchId,
+    customerId: body.customerId ?? preview.customerId,
+    preview,
+  });
+  res.status(201).json({ draft });
+});
+
+masterV1Router.get("/estimate-drafts/:id", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const draft = getMasterV1EstimateDraft(String(req.params.id));
+  if (!draft) {
+    res.status(404).json({ error: "draft not found" });
+    return;
+  }
+  res.json({ draft });
 });
 
 // —— CSV ——

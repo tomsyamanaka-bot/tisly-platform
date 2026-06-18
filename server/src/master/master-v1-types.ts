@@ -161,6 +161,31 @@ export interface MasterV1EstimatePreviewCandidate {
   memo: string | null;
 }
 
+export type MasterV1PriceSource = "customer_override" | "rank_multiplier" | "standard";
+
+export interface MasterV1EstimatePreviewLine {
+  sourceType: "symbol" | "line";
+  sourceId: string;
+  symbolType: string;
+  label: string;
+  qty: number;
+  unit: string;
+  itemType: "work" | "material";
+  itemId: string | null;
+  unitCost: number;
+  totalCost: number;
+  standardUnitSell: number;
+  rankUnitSell: number;
+  customerUnitSell: number | null;
+  appliedUnitSell: number;
+  priceSource: MasterV1PriceSource;
+  totalSell: number;
+  grossProfit: number;
+  grossProfitRate: number;
+  mappingId: string | null;
+  memo: string | null;
+}
+
 export interface MasterV1EstimatePreview {
   sketchId: string | null;
   projectId: string | null;
@@ -170,6 +195,18 @@ export interface MasterV1EstimatePreview {
   workCandidates: MasterV1EstimatePreviewCandidate[];
   materialCandidates: MasterV1EstimatePreviewCandidate[];
 }
+
+export interface MasterV1EstimatePreviewEnriched extends MasterV1EstimatePreview {
+  customerId: string | null;
+  workLines: MasterV1EstimatePreviewLine[];
+  materialLines: MasterV1EstimatePreviewLine[];
+  totalCost: number;
+  totalSell: number;
+  grossProfit: number;
+  grossProfitRate: number;
+}
+
+export type MasterV1MissingFilter = "cost" | "sell" | "supplier" | "model" | "category";
 
 export type MasterV1Entity =
   | "customers"

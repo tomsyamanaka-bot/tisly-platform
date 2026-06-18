@@ -1,8 +1,13 @@
 import type {
   MasterV1EstimatePreview,
   MasterV1EstimatePreviewCandidate,
+  MasterV1EstimatePreviewEnriched,
+  MasterV1EstimatePreviewLine,
+  MasterV1Material,
+  MasterV1WorkItem,
 } from "./master-v1-types.js";
 import {
+  findMasterV1CustomerPriceByItem,
   findSymbolMappingByType,
   getMasterV1Material,
   getMasterV1WorkItem,
@@ -12,6 +17,14 @@ import type { SurveyDrawingAiExportV1 } from "../survey/survey-drawing-v1-types.
 import { SURVEY_DRAWING_LINE_TYPE_META } from "../survey/survey-drawing-v1-types.js";
 import { getSurveyDrawingSketchV1 } from "../survey/survey-drawing-v1-store.js";
 import { buildSurveyDrawingAiExport } from "../survey/survey-drawing-v1-types.js";
+import {
+  calcGrossProfitRate,
+  resolveCustomerRank,
+  resolveMaterialPrice,
+  resolveMaterialUnitCost,
+  resolveWorkPrice,
+  resolveWorkUnitCost,
+} from "./master-v1-pricing.js";
 
 const PX_TO_METER = 0.01;
 
@@ -107,6 +120,151 @@ function buildCandidate(
   return { work, materials };
 }
 
+function enrichWorkLine(
+  c: MasterV1EstimatePreviewCandidate,
+  customerId: string | null
+): MasterV1EstimatePreviewLine | null {
+  if (!c.workItem) {
+    if (c.material) return null;
+    return {
+      sourceType: c.sourceType,
+      sourceId: c.sourceId,
+      symbolType: c.symbolType,
+      label: c.label,
+      qty: c.qty,
+      unit: c.unit,
+      itemType: "work",
+      itemId: null,
+      unitCost: 0,
+      totalCost: 0,
+      standardUnitSell: 0,
+      rankUnitSell: 0,
+      customerUnitSell: null,
+      appliedUnitSell: 0,
+      priceSource: "standard",
+      totalSell: 0,
+      grossProfit: 0,
+      grossProfitRate: 0,
+      mappingId: c.mappingId,
+      memo: c.memo,
+    };
+  }
+  return lineFromWork(c, c.workItem, customerId);
+}
+
+function enrichMaterialLine(
+  c: MasterV1EstimatePreviewCandidate,
+  customerId: string | null
+): MasterV1EstimatePreviewLine | null {
+  if (!c.material) return null;
+  return lineFromMaterial(c, c.material, customerId);
+}
+
+function lineFromWork(
+  c: MasterV1EstimatePreviewCandidate,
+  work: MasterV1WorkItem,
+  customerId: string | null
+): MasterV1EstimatePreviewLine {
+  const rank = resolveCustomerRank(customerId);
+  const override = customerId
+    ? findMasterV1CustomerPriceByItem(customerId, "work", work.id)
+    : null;
+  const price = resolveWorkPrice(work, customerId, override, rank);
+  const totalCost = Math.round(price.unitCost * c.qty);
+  const totalSell = Math.round(price.appliedUnitSell * c.qty);
+  const grossProfit = totalSell - totalCost;
+  return {
+    sourceType: c.sourceType,
+    sourceId: c.sourceId,
+    symbolType: c.symbolType,
+    label: work.name,
+    qty: c.qty,
+    unit: c.unit,
+    itemType: "work",
+    itemId: work.id,
+    unitCost: price.unitCost,
+    totalCost,
+    standardUnitSell: price.standardUnitSell,
+    rankUnitSell: price.rankUnitSell,
+    customerUnitSell: price.customerUnitSell,
+    appliedUnitSell: price.appliedUnitSell,
+    priceSource: price.priceSource,
+    totalSell,
+    grossProfit,
+    grossProfitRate: calcGrossProfitRate(totalSell, totalCost),
+    mappingId: c.mappingId,
+    memo: c.memo,
+  };
+}
+
+function lineFromMaterial(
+  c: MasterV1EstimatePreviewCandidate,
+  mat: MasterV1Material,
+  customerId: string | null
+): MasterV1EstimatePreviewLine {
+  const rank = resolveCustomerRank(customerId);
+  const override = customerId
+    ? findMasterV1CustomerPriceByItem(customerId, "material", mat.id)
+    : null;
+  const price = resolveMaterialPrice(mat, customerId, override, rank);
+  const totalCost = Math.round(price.unitCost * c.qty);
+  const totalSell = Math.round(price.appliedUnitSell * c.qty);
+  const grossProfit = totalSell - totalCost;
+  return {
+    sourceType: c.sourceType,
+    sourceId: c.sourceId,
+    symbolType: c.symbolType,
+    label: mat.name,
+    qty: c.qty,
+    unit: c.unit,
+    itemType: "material",
+    itemId: mat.id,
+    unitCost: price.unitCost,
+    totalCost,
+    standardUnitSell: price.standardUnitSell,
+    rankUnitSell: price.rankUnitSell,
+    customerUnitSell: price.customerUnitSell,
+    appliedUnitSell: price.appliedUnitSell,
+    priceSource: price.priceSource,
+    totalSell,
+    grossProfit,
+    grossProfitRate: calcGrossProfitRate(totalSell, totalCost),
+    mappingId: c.mappingId,
+    memo: c.memo,
+  };
+}
+
+export function enrichEstimatePreview(
+  preview: MasterV1EstimatePreview,
+  customerId: string | null = null
+): MasterV1EstimatePreviewEnriched {
+  const workLines = preview.workCandidates
+    .map((c) => enrichWorkLine(c, customerId))
+    .filter((l): l is MasterV1EstimatePreviewLine => l != null);
+  const materialLines = preview.materialCandidates
+    .map((c) => enrichMaterialLine(c, customerId))
+    .filter((l): l is MasterV1EstimatePreviewLine => l != null);
+
+  const totalCost =
+    workLines.reduce((s, l) => s + l.totalCost, 0) +
+    materialLines.reduce((s, l) => s + l.totalCost, 0);
+  const totalSell =
+    workLines.reduce((s, l) => s + l.totalSell, 0) +
+    materialLines.reduce((s, l) => s + l.totalSell, 0);
+  const grossProfit = totalSell - totalCost;
+
+  return {
+    ...preview,
+    customerId,
+    workLines,
+    materialLines,
+    totalCost,
+    totalSell,
+    grossProfit,
+    grossProfitRate: calcGrossProfitRate(totalSell, totalCost),
+  };
+}
+
 export function extractEstimatePreviewFromExport(
   exportData: SurveyDrawingAiExportV1,
   sketchId: string | null = exportData.sketchId
@@ -165,25 +323,33 @@ export function extractEstimatePreviewFromExport(
   };
 }
 
-export function buildEstimatePreviewBySketchId(sketchId: string): MasterV1EstimatePreview | null {
+export function buildEstimatePreviewBySketchId(
+  sketchId: string,
+  customerId: string | null = null
+): MasterV1EstimatePreviewEnriched | null {
   const sketch = getSurveyDrawingSketchV1(sketchId);
   if (!sketch) return null;
   const exportData = buildSurveyDrawingAiExport(sketch);
-  return extractEstimatePreviewFromExport(exportData, sketchId);
+  const preview = extractEstimatePreviewFromExport(exportData, sketchId);
+  return enrichEstimatePreview(preview, customerId);
 }
 
 export function buildEstimatePreviewFromLayers(body: {
   projectId?: string;
   sketchId?: string;
+  customerId?: string | null;
   layers?: SurveyDrawingAiExportV1;
-}): MasterV1EstimatePreview | null {
+}): MasterV1EstimatePreviewEnriched | null {
+  let preview: MasterV1EstimatePreview | null = null;
   if (body.layers) {
-    return extractEstimatePreviewFromExport(body.layers, body.sketchId ?? null);
+    preview = extractEstimatePreviewFromExport(body.layers, body.sketchId ?? null);
+  } else if (body.sketchId) {
+    const sketch = getSurveyDrawingSketchV1(body.sketchId);
+    if (!sketch) return null;
+    preview = extractEstimatePreviewFromExport(buildSurveyDrawingAiExport(sketch), body.sketchId);
   }
-  if (body.sketchId) {
-    return buildEstimatePreviewBySketchId(body.sketchId);
-  }
-  return null;
+  if (!preview) return null;
+  return enrichEstimatePreview(preview, body.customerId ?? null);
 }
 
 export function listSymbolMappingSummary(): {
@@ -198,3 +364,6 @@ export function listSymbolMappingSummary(): {
     lineTypes: mappings.filter((m) => m.mappingKind === "line").map((m) => m.symbolType),
   };
 }
+
+// re-export for tests
+export { resolveWorkUnitCost, resolveMaterialUnitCost };
