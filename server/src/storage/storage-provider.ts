@@ -1,6 +1,6 @@
 /** StorageProvider — local / webdav / qnap 切替可能構造（インターフェース先行） */
 
-export type StorageProviderKind = "local" | "webdav" | "qnap";
+export type StorageProviderKind = "local" | "webdav" | "qnap" | "mock";
 
 export interface StorageProviderPutOptions {
   contentType?: string;

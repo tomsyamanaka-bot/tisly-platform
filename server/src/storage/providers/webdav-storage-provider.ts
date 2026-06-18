@@ -1,3 +1,7 @@
+import fs from "fs";
+import os from "os";
+import path from "path";
+import { QnapWebDavClient } from "../../business/services/qnapWebDav.js";
 import type {
   StorageProvider,
   StorageProviderConfig,
@@ -7,7 +11,7 @@ import type {
   StorageProviderTestResult,
 } from "../storage-provider.js";
 
-/** WebDAV StorageProvider — インターフェース先行（実接続は将来） */
+/** WebDAV StorageProvider — QNAP 実保存 */
 export class WebDavStorageProvider implements StorageProvider {
   readonly kind = "webdav" as const;
   private config: StorageProviderConfig;
@@ -17,7 +21,18 @@ export class WebDavStorageProvider implements StorageProvider {
   }
 
   private get mockMode(): boolean {
-    return process.env.NODE_ENV === "test" || process.env.STORAGE_PROVIDER_MOCK === "true";
+    return process.env.STORAGE_PROVIDER_MOCK === "true" || process.env.NODE_ENV === "test";
+  }
+
+  private client(): QnapWebDavClient | null {
+    if (!this.config.webdavUrl?.trim()) return null;
+    return new QnapWebDavClient({
+      mode: "real",
+      webdavUrl: this.config.webdavUrl,
+      username: this.config.username ?? "",
+      password: this.config.password ?? "",
+      basePath: this.config.basePath ?? "/",
+    });
   }
 
   async testConnection(): Promise<StorageProviderTestResult> {
@@ -30,18 +45,44 @@ export class WebDavStorageProvider implements StorageProvider {
         mock: this.mockMode,
       };
     }
+    if (this.mockMode) {
+      return {
+        ok: true,
+        provider: "webdav",
+        message: `WebDAV モック接続 OK — ${this.config.webdavUrl}`,
+        testedAt: new Date().toISOString(),
+        mock: true,
+      };
+    }
+    const client = this.client();
+    if (!client) {
+      return {
+        ok: false,
+        provider: "webdav",
+        message: "WebDAV クライアントを作成できません",
+        testedAt: new Date().toISOString(),
+      };
+    }
+    const base = await client.testConnection();
+    if (!base.ok) {
+      return {
+        ok: false,
+        provider: "webdav",
+        message: base.message,
+        testedAt: new Date().toISOString(),
+      };
+    }
+    const share = await client.verifyShareFolder();
     return {
-      ok: true,
+      ok: share.ok,
       provider: "webdav",
-      message: this.mockMode
-        ? `WebDAV モック接続 OK — ${this.config.webdavUrl}`
-        : `WebDAV 設定確認済み — ${this.config.webdavUrl}（実送信は次フェーズ）`,
+      message: share.ok ? `✅ WebDAV 接続成功 — ${this.config.webdavUrl}` : share.message,
       testedAt: new Date().toISOString(),
-      mock: this.mockMode,
     };
   }
 
-  async put(_buffer: Buffer, options: StorageProviderPutOptions): Promise<StorageProviderPutResult> {
+  async put(buffer: Buffer, options: StorageProviderPutOptions): Promise<StorageProviderPutResult> {
+    const remotePath = options.remotePath.replace(/^\/+/, "");
     if (this.mockMode) {
       return {
         ok: true,
@@ -50,11 +91,28 @@ export class WebDavStorageProvider implements StorageProvider {
         mock: true,
       };
     }
-    return {
-      ok: false,
-      remotePath: options.remotePath,
-      message: "WebDAV 実送信は次フェーズで有効化予定",
-    };
+    const client = this.client();
+    if (!client) {
+      return {
+        ok: false,
+        remotePath: options.remotePath,
+        message: "WebDAV URL が未設定です",
+      };
+    }
+    try {
+      const dir = remotePath.includes("/") ? remotePath.slice(0, remotePath.lastIndexOf("/")) : "";
+      if (dir) await client.mkcol(dir);
+      const tmp = pathJoinTmp(buffer);
+      await client.putFile(tmp, remotePath);
+      fs.unlinkSync(tmp);
+      return { ok: true, remotePath: options.remotePath, message: "WebDAV PUT success" };
+    } catch (e) {
+      return {
+        ok: false,
+        remotePath: options.remotePath,
+        message: e instanceof Error ? e.message : String(e),
+      };
+    }
   }
 
   async get(_remotePath: string): Promise<StorageProviderGetResult> {
@@ -68,4 +126,10 @@ export class WebDavStorageProvider implements StorageProvider {
   async exists(_remotePath: string): Promise<boolean> {
     return false;
   }
+}
+
+function pathJoinTmp(buffer: Buffer): string {
+  const f = path.join(os.tmpdir(), `tisly-webdav-${Date.now()}.bin`);
+  fs.writeFileSync(f, buffer);
+  return f;
 }

@@ -79,6 +79,20 @@ export const config = {
     password: env("QNAP_PASSWORD"),
     basePath: env("QNAP_BASE_PATH", "/TiSLY"),
   },
+  qnapWebDav: {
+    get url() {
+      return env("QNAP_WEBDAV_URL");
+    },
+    get username() {
+      return env("QNAP_WEBDAV_USER") || env("QNAP_USERNAME");
+    },
+    get password() {
+      return env("QNAP_WEBDAV_PASSWORD") || env("QNAP_PASSWORD");
+    },
+    get baseDir() {
+      return env("QNAP_BASE_DIR") || env("QNAP_BASE_PATH", "/TiSLY");
+    },
+  },
   rc1Phase: "1461-1500-conoha-vps-auto-deploy",
   get dbProvider() {
     return (env("DB_PROVIDER", "sqlite") as "sqlite" | "postgres");
