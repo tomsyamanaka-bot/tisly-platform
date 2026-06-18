@@ -107,6 +107,9 @@ function pathLength(points) {
 
 let sketchId = params().get("sketchId") || "";
 let projectId = params().get("projectId") || "";
+let estimateDraftId = null;
+let estimateDraftStatus = null;
+let estimatePreviewSummary = null;
 let sketch = null;
 let tool = "pen";
 let strokeColor = "#dc2626";
@@ -576,6 +579,104 @@ async function exportAiJson() {
   setStatus("AI清書用JSONをダウンロードしました");
 }
 
+async function masterApi(path, opts = {}) {
+  const res = await fetch(`/api/master/v1${path}`, {
+    ...opts,
+    headers: { ...apiHeaders(), ...(opts.headers || {}) },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || String(res.status));
+  return data;
+}
+
+function customerCodeFromSession() {
+  return sessionStorage.getItem("tisly_customer_code") || "TOMS001";
+}
+
+function renderEstimateBar() {
+  const bar = $("drawing-estimate-bar");
+  const summary = $("drawing-estimate-summary");
+  if (!bar || !summary) return;
+  if (!sketchId) {
+    bar.classList.add("hidden");
+    return;
+  }
+  bar.classList.remove("hidden");
+  const applied = estimateDraftStatus === "applied";
+  const priceText = estimatePreviewSummary
+    ? `売価 ¥${Number(estimatePreviewSummary.totalSell || 0).toLocaleString("ja-JP")} / 粗利 ${estimatePreviewSummary.grossProfitRate || 0}%`
+    : "";
+  summary.textContent = estimateDraftId
+    ? `${applied ? "反映済み" : "draft作成済み"} (${estimateDraftId.slice(0, 8)}…) ${priceText}`
+    : "見積候補未作成";
+  $("btn-est-apply").disabled = !estimateDraftId || applied;
+  $("btn-est-open").disabled = !estimateDraftId;
+}
+
+async function refreshEstimateDraftState() {
+  if (!sketchId) return;
+  try {
+    const res = await masterApi(`/estimate-drafts/by-sketch/${encodeURIComponent(sketchId)}`);
+    estimateDraftId = res.draft?.id || null;
+    estimateDraftStatus = res.draft?.status || null;
+    estimatePreviewSummary = res.pricingSummary || null;
+  } catch {
+    estimateDraftId = null;
+    estimateDraftStatus = null;
+    estimatePreviewSummary = null;
+  }
+  renderEstimateBar();
+}
+
+async function createEstimateDraftFromDrawing() {
+  if (!sketchId) return;
+  await saveSketch();
+  const preview = await masterApi(`/estimate-preview?sketchId=${encodeURIComponent(sketchId)}`);
+  const res = await masterApi("/estimate-preview/apply", {
+    method: "POST",
+    body: JSON.stringify({ sketchId, projectId, preview }),
+  });
+  estimateDraftId = res.draft.id;
+  estimateDraftStatus = res.draft.status;
+  estimatePreviewSummary = {
+    totalSell: preview.totalSell,
+    grossProfitRate: preview.grossProfitRate,
+  };
+  renderEstimateBar();
+  setStatus("見積候補 draft を保存しました");
+}
+
+async function applyEstimateDraftFromDrawing() {
+  if (!estimateDraftId) return;
+  const res = await masterApi(`/estimate-drafts/${encodeURIComponent(estimateDraftId)}/apply-to-estimate`, {
+    method: "POST",
+    body: "{}",
+  });
+  estimateDraftStatus = "applied";
+  renderEstimateBar();
+  setStatus("見積PWAへ反映しました");
+  if (res.estimateUrl) {
+    setTimeout(() => {
+      if (confirm("見積PWAで開きますか？")) location.href = res.estimateUrl;
+    }, 250);
+  }
+}
+
+function openEstimatePwaFromDrawing() {
+  if (!estimateDraftId) return;
+  location.href = `/estimate-v1?masterDraftId=${encodeURIComponent(estimateDraftId)}`;
+}
+
+function wireEstimateEvents() {
+  $("btn-est-create")?.addEventListener("click", () =>
+    createEstimateDraftFromDrawing().catch((e) => setStatus(e.message))
+  );
+  $("btn-est-apply")?.addEventListener("click", () =>
+    applyEstimateDraftFromDrawing().catch((e) => setStatus(e.message))
+  );
+  $("btn-est-open")?.addEventListener("click", openEstimatePwaFromDrawing);
+}
+
 function rotateSelectedSymbol(delta) {
   const sym = layers.symbols.find((s) => s.id === selectedSymbolId);
   if (!sym) return;
@@ -673,6 +774,8 @@ function wireEvents() {
   $("btn-symbol-rotate-right")?.addEventListener("click", () => rotateSelectedSymbol(15));
   $("btn-symbol-delete")?.addEventListener("click", () => deleteSelectedSymbol());
 
+  wireEstimateEvents();
+
   window.addEventListener("beforeunload", (ev) => {
     if (dirty) ev.preventDefault();
   });
@@ -686,6 +789,7 @@ async function main() {
   wireEvents();
   await Promise.all([loadSymbols(), loadLineTypes()]);
   await loadSketch();
+  await refreshEstimateDraftState();
   setStatus("描画できます（指・タッチペン対応）");
 }
 

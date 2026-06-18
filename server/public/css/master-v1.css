@@ -439,6 +439,69 @@ body.master-v1-touch.has-practical-nav .bulk-bar {
   margin-top: 0.75rem;
   border-radius: 12px;
 }
+.preview-pricing-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem;
+  margin: 0.45rem 0;
+}
+.pricing-stat {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 0.35rem 0.45rem;
+  font-size: 0.78rem;
+}
+.pricing-stat strong { display: block; font-size: 0.95rem; margin-top: 0.1rem; }
+.preview-warn {
+  margin-top: 0.45rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 8px;
+  background: rgba(254, 243, 199, 0.95);
+  color: #92400e;
+  font-size: 0.78rem;
+}
+.preview-action-grid {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.65rem;
+}
+.preview-draft-id { font-size: 0.78rem; color: #64748b; margin: 0.35rem 0; }
+.applied-badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #166534;
+  margin-left: 0.35rem;
+}
+.cat-sort-list { display: grid; gap: 0.65rem; }
+.cat-main-group {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.45rem;
+  background: #fff;
+}
+.cat-main-head {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.25rem 0.55rem;
+  border-bottom: 1px dashed #e2e8f0;
+  margin-bottom: 0.35rem;
+}
+.cat-sub-list { display: grid; gap: 0.4rem; }
+.cat-drag-handle { cursor: grab; color: #94a3b8; user-select: none; }
+.cat-mgmt-card.dragging, .cat-main-head.dragging { opacity: 0.55; }
+.btn-icon {
+  min-width: 36px;
+  min-height: 32px;
+  padding: 0.15rem 0.35rem;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  font-size: 0.85rem;
+}
 
 .master-v1-touch.has-quick-bar {
   padding-bottom: calc(9.5rem + env(safe-area-inset-bottom, 0));

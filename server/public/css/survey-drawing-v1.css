@@ -281,12 +281,45 @@
 .drawing-status {
   flex-shrink: 0;
   margin: 0;
-  padding: 0.25rem 0.75rem calc(env(safe-area-inset-bottom, 0px) + 0.35rem);
+  padding: 0.25rem 0.75rem 0.35rem;
   font-size: 0.75rem;
   color: #94a3b8;
   background: #0f172a;
   text-align: center;
 }
+
+.drawing-estimate-bar {
+  flex-shrink: 0;
+  background: #0b1220;
+  border-top: 1px solid #1e293b;
+  padding: 0.45rem 0.65rem calc(env(safe-area-inset-bottom, 0px) + 0.45rem);
+}
+.drawing-estimate-bar.hidden { display: none; }
+.drawing-estimate-summary {
+  font-size: 0.78rem;
+  color: #cbd5e1;
+  margin-bottom: 0.4rem;
+}
+.drawing-estimate-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.35rem;
+}
+.drawing-est-btn {
+  min-height: 40px;
+  border-radius: 8px;
+  border: 1px solid #334155;
+  background: #1e293b;
+  color: #e2e8f0;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+.drawing-est-btn.primary {
+  background: #0369a1;
+  border-color: #0284c7;
+  color: #fff;
+}
+.drawing-est-btn:disabled { opacity: 0.45; }
 
 @media (min-width: 768px) {
   .drawing-tool-strip {

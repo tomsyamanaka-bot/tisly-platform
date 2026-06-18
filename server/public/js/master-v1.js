@@ -14,6 +14,8 @@ let missingFilter = "";
 let continuousMode = false;
 let previewCustomerId = "";
 let previewData = null;
+let previewDraftId = null;
+let previewDraftStatus = null;
 let sketchIdFromUrl = "";
 let bulkMode = false;
 const bulkSelected = new Set();
@@ -421,6 +423,7 @@ function renderCategories() {
     `<div class="cat-mgmt-toolbar">
       <button type="button" class="btn-sub" id="btn-cat-add-main">大カテゴリ追加</button>
       <button type="button" class="btn-sub" id="btn-cat-add-sub">中カテゴリ追加</button>
+      <button type="button" class="btn-sub" id="btn-cat-save-order">並び順を保存</button>
     </div>`;
   if (!cats.length) {
     panel.innerHTML = toolbar + '<div class="master-empty">カテゴリがありません</div>';
@@ -428,31 +431,165 @@ function renderCategories() {
     return;
   }
   const sorted = [...cats].sort(
-    (a, b) => a.categoryMain.localeCompare(b.categoryMain, "ja") || a.sortOrder - b.sortOrder
+    (a, b) => a.sortOrder - b.sortOrder || a.categoryMain.localeCompare(b.categoryMain, "ja") || a.categorySub.localeCompare(b.categorySub, "ja")
   );
+  const mains = [];
+  const mainIndex = new Map();
+  for (const c of sorted) {
+    if (!mainIndex.has(c.categoryMain)) {
+      mainIndex.set(c.categoryMain, mains.length);
+      mains.push({ main: c.categoryMain, subs: [] });
+    }
+    mains[mainIndex.get(c.categoryMain)].subs.push(c);
+  }
   panel.innerHTML =
     toolbar +
-    '<div class="master-list-wrap">' +
-    sorted
-      .map((c) => {
-        const kindLabel = c.kind === "work" ? "作業" : c.kind === "material" ? "材料" : "共通";
-        return `<div class="cat-mgmt-card${c.active ? "" : " inactive"}" data-cat-id="${escapeHtml(c.id)}">
-          <div class="cat-mgmt-row">
-            <strong>${escapeHtml(c.categoryMain)}</strong>
-            <span>›</span>
-            <span>${escapeHtml(c.categorySub || "—")}</span>
-            <span class="cat-badge">${kindLabel}</span>
-            <small>順:${c.sortOrder}</small>
+    '<div class="cat-sort-list" id="cat-sort-list">' +
+    mains
+      .map(
+        (group, gi) => `<div class="cat-main-group" data-main-idx="${gi}">
+          <div class="cat-main-head" draggable="true" data-cat-id="${escapeHtml(group.subs[0]?.id || "")}">
+            <span class="cat-drag-handle">☰</span>
+            <strong>${escapeHtml(group.main)}</strong>
+            <button type="button" class="btn-icon btn-cat-main-up" data-main-idx="${gi}" ${gi === 0 ? "disabled" : ""}>↑</button>
+            <button type="button" class="btn-icon btn-cat-main-down" data-main-idx="${gi}" ${gi === mains.length - 1 ? "disabled" : ""}>↓</button>
           </div>
-          <div class="cat-mgmt-row" style="margin-top:0.4rem">
-            <button type="button" class="btn-sub btn-cat-edit" data-id="${escapeHtml(c.id)}">編集</button>
-            <button type="button" class="btn-sub btn-cat-toggle" data-id="${escapeHtml(c.id)}">${c.active ? "OFF" : "ON"}</button>
-          </div>
-        </div>`;
-      })
+          <div class="cat-sub-list">${group.subs
+            .map(
+              (c, si) => {
+                const kindLabel = c.kind === "work" ? "作業" : c.kind === "material" ? "材料" : "共通";
+                return `<div class="cat-mgmt-card cat-sub-card${c.active ? "" : " inactive"}" draggable="true" data-cat-id="${escapeHtml(c.id)}" data-main-idx="${gi}" data-sub-idx="${si}">
+                  <div class="cat-mgmt-row">
+                    <span class="cat-drag-handle">☰</span>
+                    <span>${escapeHtml(c.categorySub || "—")}</span>
+                    <span class="cat-badge">${kindLabel}</span>
+                    <small>順:${c.sortOrder}</small>
+                    <button type="button" class="btn-icon btn-cat-sub-up" data-cat-id="${escapeHtml(c.id)}" ${si === 0 ? "disabled" : ""}>↑</button>
+                    <button type="button" class="btn-icon btn-cat-sub-down" data-cat-id="${escapeHtml(c.id)}" ${si === group.subs.length - 1 ? "disabled" : ""}>↓</button>
+                  </div>
+                  <div class="cat-mgmt-row" style="margin-top:0.4rem">
+                    <button type="button" class="btn-sub btn-cat-edit" data-id="${escapeHtml(c.id)}">編集</button>
+                    <button type="button" class="btn-sub btn-cat-toggle" data-id="${escapeHtml(c.id)}">${c.active ? "OFF" : "ON"}</button>
+                  </div>
+                </div>`;
+              }
+            )
+            .join("")}</div>
+        </div>`
+      )
       .join("") +
     "</div>";
   bindCategoryMgmtEvents();
+  bindCategorySortEvents(mains);
+}
+
+function rebuildCategorySortFromGroups(mains) {
+  let order = 0;
+  for (const group of mains) {
+    for (const c of group.subs) {
+      c.sortOrder = order++;
+    }
+  }
+  meta.categories = mains.flatMap((g) => g.subs);
+}
+
+function bindCategorySortEvents(mains) {
+  const list = $("cat-sort-list");
+  if (!list) return;
+
+  list.querySelectorAll(".btn-cat-main-up").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const idx = Number(btn.dataset.mainIdx);
+      if (idx <= 0) return;
+      [mains[idx - 1], mains[idx]] = [mains[idx], mains[idx - 1]];
+      rebuildCategorySortFromGroups(mains);
+      renderCategories();
+    });
+  });
+  list.querySelectorAll(".btn-cat-main-down").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const idx = Number(btn.dataset.mainIdx);
+      if (idx >= mains.length - 1) return;
+      [mains[idx + 1], mains[idx]] = [mains[idx], mains[idx + 1]];
+      rebuildCategorySortFromGroups(mains);
+      renderCategories();
+    });
+  });
+
+  list.querySelectorAll(".btn-cat-sub-up, .btn-cat-sub-down").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const card = btn.closest(".cat-sub-card");
+      const mainIdx = Number(card?.dataset.mainIdx);
+      const subIdx = Number(card?.dataset.subIdx);
+      const group = mains[mainIdx];
+      if (!group) return;
+      if (btn.classList.contains("btn-cat-sub-up") && subIdx > 0) {
+        [group.subs[subIdx - 1], group.subs[subIdx]] = [group.subs[subIdx], group.subs[subIdx - 1]];
+      } else if (btn.classList.contains("btn-cat-sub-down") && subIdx < group.subs.length - 1) {
+        [group.subs[subIdx + 1], group.subs[subIdx]] = [group.subs[subIdx], group.subs[subIdx + 1]];
+      }
+      rebuildCategorySortFromGroups(mains);
+      renderCategories();
+    });
+  });
+
+  let dragCatId = null;
+  list.querySelectorAll("[draggable=true]").forEach((el) => {
+    el.addEventListener("dragstart", (ev) => {
+      dragCatId = el.dataset.catId;
+      el.classList.add("dragging");
+      ev.dataTransfer?.setData("text/plain", dragCatId || "");
+    });
+    el.addEventListener("dragend", () => {
+      el.classList.remove("dragging");
+      dragCatId = null;
+    });
+    el.addEventListener("dragover", (ev) => {
+      ev.preventDefault();
+    });
+    el.addEventListener("drop", (ev) => {
+      ev.preventDefault();
+      const targetId = el.dataset.catId;
+      const sourceId = dragCatId || ev.dataTransfer?.getData("text/plain");
+      if (!sourceId || !targetId || sourceId === targetId) return;
+      reorderCategoryCards(sourceId, targetId);
+      renderCategories();
+    });
+  });
+
+  $("btn-cat-save-order")?.addEventListener("click", () => saveCategorySortOrder(mains), { once: true });
+}
+
+function reorderCategoryCards(sourceId, targetId) {
+  const cats = meta.categories || [];
+  const flat = [];
+  const list = $("cat-sort-list");
+  list?.querySelectorAll(".cat-sub-card").forEach((el) => {
+    const c = cats.find((x) => x.id === el.dataset.catId);
+    if (c) flat.push(c);
+  });
+  const from = flat.findIndex((c) => c.id === sourceId);
+  const to = flat.findIndex((c) => c.id === targetId);
+  if (from < 0 || to < 0) return;
+  const [item] = flat.splice(from, 1);
+  flat.splice(to, 0, item);
+  meta.categories = flat;
+}
+
+async function saveCategorySortOrder(mains) {
+  rebuildCategorySortFromGroups(mains);
+  const orders = (meta.categories || []).map((c) => ({ id: c.id, sortOrder: c.sortOrder }));
+  try {
+    const res = await api("/categories/reorder", {
+      method: "POST",
+      body: JSON.stringify({ orders }),
+    });
+    meta.categories = res.categories || meta.categories;
+    toast(`並び順を保存 (${res.updated}件)`);
+    renderCategories();
+  } catch (err) {
+    toast(err.message || "並び順保存に失敗");
+  }
 }
 
 function bindCategoryMgmtEvents() {
@@ -498,6 +635,54 @@ function openCategoryDialog(mode, id = null) {
     fieldHtml("表示順", "sortOrder", cat?.sortOrder ?? 0, "number") +
     fieldHtml("有効", "active", cat?.active !== false, "checkbox");
   $("edit-dialog").showModal();
+}
+
+function computePreviewPricingSummary(p) {
+  const lines = [...(p.workLines || []), ...(p.materialLines || [])];
+  const customerOverrideCount = lines.filter((l) => l.priceSource === "customer_override").length;
+  const rankCount = lines.filter((l) => l.priceSource === "rank_multiplier").length;
+  const standardCount = lines.filter((l) => l.priceSource === "standard").length;
+  const missingCostLines = lines.filter((l) => !l.unitCost || l.unitCost <= 0);
+  return {
+    totalCost: p.totalCost,
+    totalSell: p.totalSell,
+    grossProfit: p.grossProfit,
+    grossProfitRate: p.grossProfitRate,
+    customerOverrideCount,
+    rankCount,
+    standardCount,
+    missingCostCount: missingCostLines.length,
+    missingCostLabels: missingCostLines.map((l) => l.label),
+  };
+}
+
+function previewPricingSummaryHtml(summary) {
+  const warn =
+    summary.missingCostCount > 0
+      ? `<div class="preview-warn">⚠ 原価未入力 ${summary.missingCostCount}件: ${summary.missingCostLabels.slice(0, 3).map(escapeHtml).join("、")}${summary.missingCostCount > 3 ? "…" : ""}</div>`
+      : "";
+  return `<div class="preview-pricing-grid">
+    <div class="pricing-stat"><span>原価合計</span><strong>${yen(summary.totalCost)}</strong></div>
+    <div class="pricing-stat"><span>売価合計</span><strong>${yen(summary.totalSell)}</strong></div>
+    <div class="pricing-stat"><span>粗利額</span><strong>${yen(summary.grossProfit)}</strong></div>
+    <div class="pricing-stat"><span>粗利率</span><strong>${summary.grossProfitRate}%</strong></div>
+    <div class="pricing-stat"><span>顧客上書き</span><strong>${summary.customerOverrideCount}件</strong></div>
+    <div class="pricing-stat"><span>ランク反映</span><strong>${summary.rankCount}件</strong></div>
+    <div class="pricing-stat"><span>標準売価</span><strong>${summary.standardCount}件</strong></div>
+  </div>${warn}`;
+}
+
+function estimateApplyActionsHtml() {
+  const applied = previewDraftStatus === "applied";
+  const draftHint = previewDraftId
+    ? `<p class="preview-draft-id">draft: ${escapeHtml(previewDraftId.slice(0, 8))}… ${applied ? '<span class="applied-badge">反映済み</span>' : ""}</p>`
+    : "";
+  return `${draftHint}
+    <div class="preview-action-grid">
+      <button type="button" class="btn-primary btn-apply-estimate" id="btn-save-draft"${applied ? " disabled" : ""}>見積候補を作成（draft保存）</button>
+      <button type="button" class="btn-primary btn-apply-estimate" id="btn-apply-estimate"${!previewDraftId || applied ? " disabled" : ""}>見積に反映</button>
+      <button type="button" class="btn-sub btn-open-estimate" id="btn-open-estimate-pwa"${!previewDraftId ? " disabled" : ""}>見積PWAで開く</button>
+    </div>`;
 }
 
 function priceSourceLabel(src) {
@@ -548,6 +733,15 @@ async function loadEstimatePreview() {
   if (previewCustomerId) q.set("customerId", previewCustomerId);
   try {
     previewData = await api(`/estimate-preview?${q}`);
+    previewDraftId = null;
+    previewDraftStatus = null;
+    try {
+      const draftRes = await api(`/estimate-drafts/by-sketch/${encodeURIComponent(sketchIdFromUrl)}`);
+      previewDraftId = draftRes.draft?.id || null;
+      previewDraftStatus = draftRes.draft?.status || null;
+    } catch {
+      /* no draft yet */
+    }
     renderPreviewContent();
   } catch (err) {
     toast(err.message || "プレビュー取得失敗");
@@ -558,22 +752,23 @@ function renderPreviewContent() {
   const el = $("preview-content");
   if (!previewData) return;
   const p = previewData;
+  const summary = computePreviewPricingSummary(p);
   el.innerHTML =
     `<div class="preview-summary">
       <div class="row"><span>記号</span><span>${p.symbolCount} / 配線 ${p.pathCount}</span></div>
-      <div class="row"><span>合計原価</span><span>${yen(p.totalCost)}</span></div>
-      <div class="row"><span>合計売価</span><span>${yen(p.totalSell)}</span></div>
-      <div class="row"><span>粗利</span><span>${yen(p.grossProfit)} (${p.grossProfitRate}%)</span></div>
+      ${previewPricingSummaryHtml(summary)}
       <div class="total">税抜 ${yen(p.totalSell)}</div>
     </div>
     <div class="preview-section"><h3>作業候補 (${(p.workLines || []).length})</h3>${(p.workLines || []).map(previewLineHtml).join("") || '<div class="master-empty">なし</div>'}</div>
     <div class="preview-section"><h3>材料候補 (${(p.materialLines || []).length})</h3>${(p.materialLines || []).map(previewLineHtml).join("") || '<div class="master-empty">なし</div>'}</div>
-    <button type="button" class="btn-primary btn-apply-estimate" id="btn-apply-estimate">見積に反映（draft JSON保存）</button>`;
+    ${estimateApplyActionsHtml()}`;
 
-  $("btn-apply-estimate").addEventListener("click", applyEstimatePreview);
+  $("btn-save-draft")?.addEventListener("click", saveEstimateDraft);
+  $("btn-apply-estimate")?.addEventListener("click", applyEstimateToEstimateV1);
+  $("btn-open-estimate-pwa")?.addEventListener("click", openEstimatePwaFromDraft);
 }
 
-async function applyEstimatePreview() {
+async function saveEstimateDraft() {
   if (!previewData) return;
   try {
     const res = await api("/estimate-preview/apply", {
@@ -585,10 +780,44 @@ async function applyEstimatePreview() {
         preview: previewData,
       }),
     });
+    previewDraftId = res.draft.id;
+    previewDraftStatus = res.draft.status;
     toast(`draft保存: ${res.draft.id.slice(0, 8)}…`);
+    renderPreviewContent();
   } catch (err) {
-    toast(err.message || "反映に失敗");
+    toast(err.message || "draft保存に失敗");
   }
+}
+
+async function applyEstimateToEstimateV1() {
+  if (!previewDraftId) {
+    toast("先に見積候補を作成してください");
+    return;
+  }
+  try {
+    const res = await api(`/estimate-drafts/${encodeURIComponent(previewDraftId)}/apply-to-estimate`, {
+      method: "POST",
+      body: "{}",
+    });
+    previewDraftStatus = "applied";
+    toast("見積PWAへ反映しました");
+    renderPreviewContent();
+    if (res.estimateUrl) {
+      setTimeout(() => {
+        if (confirm("見積PWAで開きますか？")) location.href = res.estimateUrl;
+      }, 300);
+    }
+  } catch (err) {
+    toast(err.message || "見積反映に失敗");
+  }
+}
+
+function openEstimatePwaFromDraft() {
+  if (!previewDraftId) {
+    toast("先に見積候補を作成してください");
+    return;
+  }
+  location.href = `/estimate-v1?masterDraftId=${encodeURIComponent(previewDraftId)}`;
 }
 
 function renderActivePanel() {
