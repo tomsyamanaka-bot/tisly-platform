@@ -14,6 +14,7 @@ const TABS = [
   { id: "automation-tasks", label: "やる事" },
   { id: "automation-tools", label: "持ち物" },
   { id: "automation-photos", label: "施工写真" },
+  { id: "automation-spec-photos", label: "仕様書写真" },
   { id: "survey", label: "現調" },
   { id: "estimate", label: "見積" },
   { id: "invoice", label: "請求" },
@@ -496,6 +497,11 @@ function tabBadgeForTab(tabId) {
       if (!prog?.total) return "";
       return prog.percent >= 100 ? "✓" : `${prog.shot}/${prog.total}`;
     }
+    case "automation-spec-photos": {
+      const prog = detail.automation?.progress?.specPhotos;
+      if (!prog?.total) return "";
+      return prog.percent >= 100 ? "✓" : `${prog.shot}/${prog.total}`;
+    }
     default:
       return "";
   }
@@ -526,15 +532,19 @@ function renderNextActionsCard() {
     </section>`;
 }
 
-function renderProgressBar(label, done, total, percent) {
+function renderProgressBar(label, done, total, percent, fillClass = "") {
   if (!total) return "";
+  const fillStyle = fillClass === "spec"
+    ? "background:linear-gradient(90deg,#15803d,#4ade80)"
+    : "";
+  const fillCls = fillClass ? ` auto-progress-fill-${fillClass}` : "";
   return `
     <div class="auto-progress-row">
       <div class="auto-progress-head">
         <span>${escapeHtml(label)}</span>
         <span class="auto-progress-pct">${done}/${total} (${percent}%)</span>
       </div>
-      <div class="auto-progress-track"><div class="auto-progress-fill" style="width:${percent}%"></div></div>
+      <div class="auto-progress-track"><div class="auto-progress-fill${fillCls}" style="width:${percent}%;${fillStyle}"></div></div>
     </div>`;
 }
 
@@ -549,7 +559,8 @@ function renderAutomationProgressCard() {
       <h3 class="section-sub">進捗 ${auto.templateName ? `（${escapeHtml(auto.templateName)}）` : ""}</h3>
       ${renderProgressBar("やる事", prog.tasks.done, prog.tasks.total, prog.tasks.percent)}
       ${renderProgressBar("持ち物", prog.tools.checked, prog.tools.total, prog.tools.percent)}
-      ${renderProgressBar("写真", prog.photos.shot, prog.photos.total, prog.photos.percent)}
+      ${renderProgressBar("施工写真", prog.photos.shot, prog.photos.total, prog.photos.percent)}
+      ${renderProgressBar("仕様書写真", prog.specPhotos.shot, prog.specPhotos.total, prog.specPhotos.percent, "spec")}
       ${renderProgressBar("書類", prog.documents.done, prog.documents.total, prog.documents.percent)}
     </section>`;
 }
@@ -685,6 +696,45 @@ function renderAutomationPhotosTab() {
     <div class="auto-photo-links link-row">
       <a class="primary" href="/documents-v1?projectId=${encodeURIComponent(projectId)}">Document Center へ →</a>
       <a class="btn-sub" href="${escapeHtml(completionHref)}">PDFプレビュー →</a>
+    </div>`;
+}
+
+function renderAutomationSpecPhotosTab() {
+  const photos = detail.automation?.specPhotos ?? [];
+  if (!photos.length) {
+    return `<p class="section-hint">仕様書写真テンプレートがありません</p>`;
+  }
+  const prog = detail.automation?.progress?.specPhotos;
+  const unshot = detail.automation?.unshotSpecPhotos ?? [];
+  const projectId = detail.project.id;
+  const sorted = [...photos].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  const items = sorted
+    .map(
+      (p, idx) => `
+    <div class="auto-photo-item ${p.shot ? "shot" : "unshot"}" data-spec-photo-id="${escapeHtml(p.id)}" data-spec-photo-order="${idx}">
+      <button type="button" class="auto-photo-move" data-spec-move="up" data-spec-id="${escapeHtml(p.id)}" ${idx === 0 ? "disabled" : ""} aria-label="上へ">↑</button>
+      <span class="auto-photo-order">${idx + 1}</span>
+      <span class="auto-photo-icon">${p.shot ? "✅" : "📷"}</span>
+      <span class="auto-photo-label">${escapeHtml(p.label)}</span>
+      ${p.shot ? `<span class="auto-photo-meta ok-label">撮影済</span>` : `<span class="auto-photo-meta warn">未撮影</span>`}
+      <button type="button" class="auto-photo-move" data-spec-move="down" data-spec-id="${escapeHtml(p.id)}" ${idx === sorted.length - 1 ? "disabled" : ""} aria-label="下へ">↓</button>
+    </div>`
+    )
+    .join("");
+  const unshotHint =
+    unshot.length > 0
+      ? `<p class="section-hint unshot-hint">未撮影 ${unshot.length}件 — Document Center または現調図面から仕様書写真を紐付けできます</p>`
+      : `<p class="section-hint" style="color:#15803d">すべての仕様書写真が撮影済みです</p>`;
+  const specHref = `/document-viewer-v1.html?projectId=${encodeURIComponent(projectId)}&kind=specification`;
+  return `
+    ${renderAutomationProgressCard()}
+    <p class="slot-order-badge">仕様書PDF — マスター写真順で作成</p>
+    <h3 class="section-sub">仕様書PDFに使う順番 ${prog ? `（${prog.shot}/${prog.total} · ${prog.percent}%）` : ""}</h3>
+    ${unshotHint}
+    <div class="auto-photo-list" id="spec-photo-list">${items}</div>
+    <div class="auto-photo-links link-row">
+      <a class="primary" href="/documents-v1?projectId=${encodeURIComponent(projectId)}">Document Center へ →</a>
+      <a class="btn-sub" href="${escapeHtml(specHref)}">PDFプレビュー →</a>
     </div>`;
 }
 
@@ -1044,14 +1094,26 @@ function renderSurveyTab() {
 function renderSpecificationTab() {
   const s = detail.survey;
   const specEntry = findPdfEntry("specification");
-  const photoHint = s.linked
-    ? `現調写真 ${s.photoCount} 枚`
-    : "現調未連携 — 写真は仕様書に反映されません";
+  const specProg = detail.automation?.progress?.specPhotos;
+  const slotProgress =
+    specProg?.total > 0
+      ? `<div class="spec-photo-progress-mini">
+          <span>仕様書写真 ${specProg.shot}/${specProg.total}</span>
+          <div class="auto-progress-track" style="margin-top:0.35rem"><div class="auto-progress-fill" style="width:${specProg.percent}%;background:linear-gradient(90deg,#15803d,#4ade80)"></div></div>
+        </div>`
+      : "";
+  const photoHint = specProg?.total
+    ? `仕様書写真スロット ${specProg.shot}/${specProg.total} 枚撮影済`
+    : s.linked
+      ? `現調写真 ${s.photoCount} 枚（レガシー）`
+      : "現調未連携 — 写真は仕様書に反映されません";
   return `
+    ${slotProgress}
     <p class="section-hint">${escapeHtml(photoHint)}</p>
     <h3 class="section-sub">仕様書</h3>
     ${renderDocTabActions("specification", "specification", "specification", "specification")}
-    ${specEntry?.exists ? "" : `<div class="btn-row"><a class="primary" href="${escapeHtml(s.href || "/survey-v1")}">現調から仕様書を作成</a></div>`}`;
+    ${specEntry?.exists ? "" : `<div class="btn-row"><a class="primary" href="${escapeHtml(s.href || "/survey-v1")}">現調から仕様書を作成</a></div>`}
+    <p class="link-row"><button type="button" class="btn-sub" data-goto-tab="automation-spec-photos">仕様書写真タブを開く →</button></p>`;
 }
 
 function renderEstimateTab() {
@@ -1326,6 +1388,8 @@ function renderTabPanel(tab) {
       return renderAutomationToolsTab();
     case "automation-photos":
       return renderAutomationPhotosTab();
+    case "automation-spec-photos":
+      return renderAutomationSpecPhotosTab();
     default:
       return "";
   }
@@ -1772,6 +1836,43 @@ function bindAutomationActions() {
     } catch (e) {
       toast(e.message);
     }
+  });
+  document.querySelectorAll("[data-goto-tab]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const tab = btn.getAttribute("data-goto-tab");
+      if (tab) {
+        activeTab = tab;
+        render();
+        bindActions();
+      }
+    });
+  });
+  document.querySelectorAll("[data-spec-move]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (!detail?.project?.id || btn.disabled) return;
+      const photos = [...(detail.automation?.specPhotos ?? [])].sort(
+        (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
+      );
+      const id = btn.getAttribute("data-spec-id");
+      const dir = btn.getAttribute("data-spec-move");
+      const idx = photos.findIndex((p) => p.id === id);
+      if (idx < 0) return;
+      const swap = dir === "up" ? idx - 1 : idx + 1;
+      if (swap < 0 || swap >= photos.length) return;
+      const ordered = photos.map((p) => p.id);
+      [ordered[idx], ordered[swap]] = [ordered[swap], ordered[idx]];
+      try {
+        await automationApi(`/projects/${detail.project.id}/spec-photos/reorder`, {
+          method: "PUT",
+          body: JSON.stringify({ orderedIds: ordered }),
+        });
+        await refreshAutomation();
+        render();
+        bindActions();
+      } catch (e) {
+        toast(e.message);
+      }
+    });
   });
   document.querySelectorAll(".ai-dismiss-btn").forEach((btn) => {
     btn.addEventListener("click", async () => {

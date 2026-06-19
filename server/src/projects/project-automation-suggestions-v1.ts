@@ -144,3 +144,4 @@ export function dismissAiSuggestionV1(projectId: string, suggestionId: string): 
 }
 
 export { getCompletionReportPhotosV1 } from "./completion-report-photos-v1.js";
+export { getSpecificationPhotosV1 } from "./specification-photos-v1.js";

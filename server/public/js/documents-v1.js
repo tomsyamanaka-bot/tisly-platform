@@ -478,6 +478,7 @@ function openUploadSheet() {
     return;
   }
   loadPhotoSlotsForUpload().catch(() => {});
+  loadSpecPhotoSlotsForUpload().catch(() => {});
   $("upload-overlay")?.classList.remove("hidden");
   $("upload-overlay")?.setAttribute("aria-hidden", "false");
 }
@@ -523,6 +524,48 @@ async function loadPhotoSlotsForUpload() {
   }
 }
 
+async function loadSpecPhotoSlotsForUpload() {
+  const wrap = $("upload-spec-photo-slot-wrap");
+  const sel = $("upload-spec-photo-slot");
+  const hint = $("upload-unshot-spec-hint");
+  if (!sel || !currentProjectId) return;
+  try {
+    const token = getCustomerToken();
+    const res = await fetch(
+      `${AUTOMATION_API}/projects/${encodeURIComponent(currentProjectId)}/unshot-spec-photos`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    const data = await res.json().catch(() => ({}));
+    const photos = data.photos ?? [];
+    const allRes = await fetch(`${AUTOMATION_API}/projects/${encodeURIComponent(currentProjectId)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const allData = await allRes.json().catch(() => ({}));
+    const allPhotos = allData.specPhotos ?? [];
+    if (!allPhotos.length) {
+      wrap?.classList.add("hidden");
+      return;
+    }
+    wrap?.classList.remove("hidden");
+    const options = [`<option value="">— 紐付けなし —</option>`]
+      .concat(
+        allPhotos.map(
+          (p) =>
+            `<option value="${escapeHtml(p.id)}"${p.shot ? " disabled" : ""}>${escapeHtml(p.label)}${p.shot ? "（撮影済）" : ""}</option>`
+        )
+      )
+      .join("");
+    sel.innerHTML = options;
+    if (hint) {
+      hint.textContent = photos.length
+        ? `未撮影 ${photos.length}件 — 仕様書写真をアップロード時にスロットを選ぶと自動紐付けされます`
+        : "すべての仕様書写真スロットが撮影済みです";
+    }
+  } catch {
+    wrap?.classList.add("hidden");
+  }
+}
+
 function closeUploadSheet() {
   $("upload-overlay")?.classList.add("hidden");
   $("upload-overlay")?.setAttribute("aria-hidden", "true");
@@ -548,6 +591,8 @@ async function submitUpload() {
       else if (file.name.endsWith(".json")) sourceType = "drawing";
 
       const projectPhotoId = $("upload-photo-slot")?.value?.trim() || undefined;
+      const specProjectPhotoId = $("upload-spec-photo-slot")?.value?.trim() || undefined;
+      if (specProjectPhotoId) sourceType = "specification";
       await api("/upload", {
         method: "POST",
         body: JSON.stringify({
@@ -560,6 +605,7 @@ async function submitUpload() {
           mimeType: file.type,
           memo: $("upload-memo")?.value?.trim() || null,
           projectPhotoId,
+          specProjectPhotoId,
         }),
       });
       toast("書類を保存しました");

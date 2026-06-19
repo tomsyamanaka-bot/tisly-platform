@@ -25,6 +25,7 @@ import {
   type StorageDocumentWorkflowStatusV1,
 } from "../../storage/storage-documents-v1-store.js";
 import { linkProjectPhotoSlotV1 } from "../../projects/project-automation-v1-store.js";
+import { linkSpecProjectPhotoSlotV1 } from "../../projects/spec-photo-slots-v1-store.js";
 import {
   getQnapStorageStatusForProjectV1,
   syncFailedDocumentsToQnapV1,
@@ -308,6 +309,11 @@ documentsV1Router.post("/upload", ...auth, (req: AuthedRequest, res) => {
     const projectPhotoId = body.projectPhotoId != null ? String(body.projectPhotoId).trim() : "";
     if (projectPhotoId) {
       linkProjectPhotoSlotV1(projectId, projectPhotoId, { documentId: doc.id });
+    }
+    const specProjectPhotoId =
+      body.specProjectPhotoId != null ? String(body.specProjectPhotoId).trim() : "";
+    if (specProjectPhotoId) {
+      linkSpecProjectPhotoSlotV1(projectId, specProjectPhotoId, { documentId: doc.id });
     }
     res.status(201).json({ ok: true, document: doc });
   } catch (e) {

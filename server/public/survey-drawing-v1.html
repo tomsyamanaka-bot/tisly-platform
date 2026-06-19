@@ -60,6 +60,11 @@
   </main>
 
   <p id="drawing-status" class="drawing-status" aria-live="polite">読み込み中…</p>
+  <div id="spec-photo-link-bar" class="drawing-spec-link hidden" aria-label="仕様書写真スロット">
+    <label for="spec-photo-slot-select">仕様書スロットへ紐付け</label>
+    <select id="spec-photo-slot-select"><option value="">— 選択 —</option></select>
+    <button type="button" class="drawing-est-btn primary" id="btn-spec-photo-link" disabled>紐付け</button>
+  </div>
 
   <div id="drawing-estimate-bar" class="drawing-estimate-bar hidden">
     <div class="drawing-estimate-summary" id="drawing-estimate-summary">見積候補未作成</div>

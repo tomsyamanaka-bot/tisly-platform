@@ -53,6 +53,7 @@ import {
   SURVEY_DRAWING_SYMBOL_PALETTE,
   SURVEY_DRAWING_SOURCE_TYPES,
 } from "../../survey/survey-drawing-v1-types.js";
+import { linkSurveyDrawingBackgroundToSpecSlotV1 } from "../../projects/specification-photos-v1.js";
 
 export const surveyV1Router = Router();
 
@@ -587,6 +588,43 @@ surveyV1Router.get(
       res.json({ export: payload });
     } catch (e) {
       res.status(404).json({ error: String(e) });
+    }
+  }
+);
+
+surveyV1Router.post(
+  "/drawing-sketches/:sketchId/link-spec-photo",
+  ...surveyV1Auth,
+  (req: AuthedRequest, res) => {
+    if (!assertSurveyRole(req, res)) return;
+    const specPhotoSlotId = String(req.body?.specPhotoSlotId ?? "").trim();
+    if (!specPhotoSlotId) {
+      res.status(400).json({ error: "specPhotoSlotId required" });
+      return;
+    }
+    try {
+      const sketch = getSurveyDrawingSketchV1(String(req.params.sketchId));
+      if (!sketch?.backgroundImagePath) {
+        res.status(400).json({ error: "background photo not set" });
+        return;
+      }
+      const businessProjectId = sketch.businessProjectId;
+      if (!businessProjectId) {
+        res.status(400).json({ error: "business project not linked" });
+        return;
+      }
+      const ok = linkSurveyDrawingBackgroundToSpecSlotV1(
+        businessProjectId,
+        specPhotoSlotId,
+        sketch.backgroundImagePath
+      );
+      if (!ok) {
+        res.status(404).json({ error: "spec photo slot not found" });
+        return;
+      }
+      res.json({ ok: true });
+    } catch (e) {
+      res.status(400).json({ error: String(e) });
     }
   }
 );

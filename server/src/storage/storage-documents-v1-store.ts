@@ -25,6 +25,7 @@ export type StorageDocumentSourceTypeV1 =
   | "pdf"
   | "drawing"
   | "photo"
+  | "specification"
   | "voice"
   | "phone"
   | "ai";

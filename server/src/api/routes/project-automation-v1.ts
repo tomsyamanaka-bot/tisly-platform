@@ -4,19 +4,23 @@ import { roleMeetsRequirement } from "../../auth/roles.js";
 import {
   createPhotoTemplateItemV1,
   createProjectTemplateV1,
+  createSpecPhotoTemplateItemV1,
   createTaskTemplateItemV1,
   createToolTemplateItemV1,
   deletePhotoTemplateItemV1,
   deleteProjectTemplateV1,
+  deleteSpecPhotoTemplateItemV1,
   deleteTaskTemplateItemV1,
   deleteToolTemplateItemV1,
   listTemplateCategoriesV1,
   patchPhotoTemplateItemV1,
   patchProjectTemplateV1,
+  patchSpecPhotoTemplateItemV1,
   patchTaskTemplateItemV1,
   patchToolTemplateItemV1,
   reorderPhotoTemplateItemsV1,
   reorderProjectTemplatesV1,
+  reorderSpecPhotoTemplateItemsV1,
   reorderTaskTemplateItemsV1,
   reorderToolTemplateItemsV1,
 } from "../../projects/project-automation-admin-v1-store.js";
@@ -39,9 +43,15 @@ import {
 import {
   dismissAiSuggestionV1,
   getCompletionReportPhotosV1,
+  getSpecificationPhotosV1,
   listAiSuggestionsV1,
   refreshAiSuggestionsV1,
 } from "../../projects/project-automation-suggestions-v1.js";
+import {
+  linkSpecProjectPhotoSlotV1,
+  listUnshotSpecProjectPhotosV1,
+  reorderSpecProjectPhotosV1,
+} from "../../projects/spec-photo-slots-v1-store.js";
 
 export const projectAutomationV1Router = Router();
 
@@ -273,6 +283,58 @@ projectAutomationV1Router.get(
 );
 
 projectAutomationV1Router.get(
+  "/projects/:projectId/specification-photos",
+  ...auth,
+  (req: AuthedRequest, res) => {
+    if (!assertRole(req, res)) return;
+    res.json({ photos: getSpecificationPhotosV1(String(req.params.projectId)) });
+  }
+);
+
+projectAutomationV1Router.get(
+  "/projects/:projectId/unshot-spec-photos",
+  ...auth,
+  (req: AuthedRequest, res) => {
+    if (!assertRole(req, res)) return;
+    res.json({ photos: listUnshotSpecProjectPhotosV1(String(req.params.projectId)) });
+  }
+);
+
+projectAutomationV1Router.patch(
+  "/projects/:projectId/spec-photos/:photoId/link",
+  ...auth,
+  (req: AuthedRequest, res) => {
+    if (!assertRole(req, res)) return;
+    const body = req.body ?? {};
+    const updated = linkSpecProjectPhotoSlotV1(
+      String(req.params.projectId),
+      String(req.params.photoId),
+      {
+        documentId: body.documentId != null ? String(body.documentId) : undefined,
+        photoPath: body.photoPath != null ? String(body.photoPath) : undefined,
+        caption: body.caption !== undefined ? (body.caption != null ? String(body.caption) : null) : undefined,
+      }
+    );
+    if (!updated) {
+      res.status(404).json({ error: "spec photo slot not found" });
+      return;
+    }
+    res.json(updated);
+  }
+);
+
+projectAutomationV1Router.put(
+  "/projects/:projectId/spec-photos/reorder",
+  ...auth,
+  (req: AuthedRequest, res) => {
+    if (!assertRole(req, res)) return;
+    const orderedIds = Array.isArray(req.body?.orderedIds) ? req.body.orderedIds.map(String) : [];
+    reorderSpecProjectPhotosV1(String(req.params.projectId), orderedIds);
+    res.json({ ok: true });
+  }
+);
+
+projectAutomationV1Router.get(
   "/projects/:projectId/suggestions",
   ...auth,
   (req: AuthedRequest, res) => {
@@ -373,7 +435,7 @@ projectAutomationV1Router.put("/admin/templates/reorder", ...auth, (req: AuthedR
 });
 
 function adminItemRoutes(
-  kind: "tasks" | "tools" | "photos",
+  kind: "tasks" | "tools" | "photos" | "spec-photos",
   createFn: (tplId: string, input: { label: string }) => unknown,
   patchFn: (tplId: string, itemId: string, input: { label?: string; sortOrder?: number }) => unknown,
   deleteFn: (tplId: string, itemId: string) => boolean,
@@ -456,4 +518,11 @@ adminItemRoutes(
   patchPhotoTemplateItemV1,
   deletePhotoTemplateItemV1,
   reorderPhotoTemplateItemsV1
+);
+adminItemRoutes(
+  "spec-photos",
+  createSpecPhotoTemplateItemV1,
+  patchSpecPhotoTemplateItemV1,
+  deleteSpecPhotoTemplateItemV1,
+  reorderSpecPhotoTemplateItemsV1
 );

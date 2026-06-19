@@ -40,6 +40,9 @@ export function resolvePhotoSlotImageUrlV1(
     if (pp.startsWith("/uploads/") || pp.startsWith("uploads/")) {
       return `/${pp.replace(/^\//, "")}`;
     }
+    if (pp.includes("/drawings/")) {
+      return `/uploads/survey/${pp}`;
+    }
     return `/uploads/business/${projectId}/completion/${path.basename(pp)}`;
   }
   return null;

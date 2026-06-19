@@ -492,6 +492,7 @@ async function loadSketch() {
     stageSize = { w: layers.canvasWidth || 800, h: layers.canvasHeight || 600 };
     renderAll();
   }
+  await loadSpecPhotoSlotsForDrawing();
 }
 
 async function loadLineTypes() {
@@ -562,6 +563,53 @@ async function importBackground(file) {
   sketch = data.sketch;
   setupBgImage(sketch.backgroundImageUrl);
   setStatus("背景写真を取り込みました");
+  await loadSpecPhotoSlotsForDrawing();
+}
+
+async function loadSpecPhotoSlotsForDrawing() {
+  const bar = $("spec-photo-link-bar");
+  const sel = $("spec-photo-slot-select");
+  const btn = $("btn-spec-photo-link");
+  if (!bar || !sel || !sketch?.businessProjectId || !sketch?.backgroundImagePath) {
+    bar?.classList.add("hidden");
+    return;
+  }
+  try {
+    const res = await fetch(
+      `/api/project-automation/v1/projects/${encodeURIComponent(sketch.businessProjectId)}`,
+      { headers: apiHeaders() }
+    );
+    const data = await res.json().catch(() => ({}));
+    const slots = data.specPhotos ?? [];
+    if (!slots.length) {
+      bar.classList.add("hidden");
+      return;
+    }
+    bar.classList.remove("hidden");
+    sel.innerHTML = [`<option value="">— 選択 —</option>`]
+      .concat(
+        slots.map(
+          (s) =>
+            `<option value="${s.id}">${s.label}${s.shot ? "（撮影済・上書き）" : ""}</option>`
+        )
+      )
+      .join("");
+    sel.onchange = () => {
+      if (btn) btn.disabled = !sel.value;
+    };
+  } catch {
+    bar.classList.add("hidden");
+  }
+}
+
+async function linkBackgroundToSpecSlot() {
+  const slotId = $("spec-photo-slot-select")?.value;
+  if (!slotId || !sketchId) return;
+  await api("POST", `/api/survey/v1/drawing-sketches/${encodeURIComponent(sketchId)}/link-spec-photo`, {
+    specPhotoSlotId: slotId,
+  });
+  setStatus("仕様書写真スロットへ紐付けました");
+  await loadSpecPhotoSlotsForDrawing();
 }
 
 async function exportAiJson() {
@@ -759,6 +807,9 @@ function wireEvents() {
   });
 
   $("btn-import-photo")?.addEventListener("click", () => $("file-bg")?.click());
+  $("btn-spec-photo-link")?.addEventListener("click", () => {
+    linkBackgroundToSpecSlot().catch((e) => setStatus(e.message));
+  });
   $("file-bg")?.addEventListener("change", async (ev) => {
     const file = ev.target.files?.[0];
     if (!file) return;

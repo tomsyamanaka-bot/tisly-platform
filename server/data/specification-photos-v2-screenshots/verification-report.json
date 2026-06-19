@@ -1,0 +1,14 @@
+{
+  "capturedAt": "2026-06-19T13:54:54.162Z",
+  "baseUrl": "http://127.0.0.1:3099",
+  "screens": [
+    "01-project-detail-spec-photo-slots.png",
+    "02-specification-tab-progress.png",
+    "03-specification-pdf-preview.png",
+    "04-document-center-spec-slot.png"
+  ],
+  "notes": [
+    "仕様書PDF v2 — 施工写真スロット連携"
+  ],
+  "projectId": "BIZ-EABD2833"
+}

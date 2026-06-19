@@ -236,6 +236,7 @@ export function runMigrations(database: Database.Database): void {
   migrateLegacyDocNumbersIfNeededV1(database);
   migrateProjectAutomationV1(database);
   migrateProjectAutomationV15(database);
+  migrateSpecPhotoSlotsV1(database);
 }
 
 /** 現調図面 v1 — 方眼紙写真 + 描画レイヤー */
@@ -4456,4 +4457,92 @@ function migrateProjectAutomationV15(database: Database.Database): void {
       `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
     )
     .run("migration:project_automation_v15", JSON.stringify({ at: new Date().toISOString() }));
+}
+
+/** 仕様書 PDF v2 — 仕様書写真スロット */
+function migrateSpecPhotoSlotsV1(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:spec_photo_slots_v1") as { value_json: string } | undefined;
+  if (marker) return;
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS spec_photo_templates_v1 (
+      id TEXT PRIMARY KEY,
+      project_template_id TEXT NOT NULL,
+      label TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (project_template_id) REFERENCES project_templates_v1(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_spec_photo_templates_v1_tpl
+      ON spec_photo_templates_v1(project_template_id, sort_order);
+
+    CREATE TABLE IF NOT EXISTS spec_project_photos_v1 (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      template_item_id TEXT,
+      label TEXT NOT NULL,
+      photo_path TEXT,
+      document_id TEXT,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      shot_at TEXT,
+      caption TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_spec_project_photos_v1_project
+      ON spec_project_photos_v1(project_id, sort_order);
+  `);
+
+  const labels = [
+    "建物外観",
+    "玄関",
+    "設置予定位置",
+    "配線ルート",
+    "盤内",
+    "ネットワーク機器",
+    "問題箇所",
+    "その他",
+  ];
+  const tplRows = database
+    .prepare(`SELECT id FROM project_templates_v1`)
+    .all() as Array<{ id: string }>;
+  const insertTpl = database.prepare(
+    `INSERT OR IGNORE INTO spec_photo_templates_v1 (id, project_template_id, label, sort_order, created_at)
+     VALUES (?, ?, ?, ?, datetime('now'))`
+  );
+  for (const tpl of tplRows) {
+    labels.forEach((label, i) => {
+      insertTpl.run(`${tpl.id}-spec-${i}`, tpl.id, label, i);
+    });
+  }
+
+  const projectRows = database
+    .prepare(`SELECT id, project_template_id FROM business_projects WHERE project_template_id IS NOT NULL`)
+    .all() as Array<{ id: string; project_template_id: string }>;
+  const insertSlot = database.prepare(
+    `INSERT OR IGNORE INTO spec_project_photos_v1 (id, project_id, template_item_id, label, photo_path, document_id, sort_order, shot_at, caption, created_at, updated_at)
+     VALUES (?, ?, ?, ?, NULL, NULL, ?, NULL, NULL, datetime('now'), datetime('now'))`
+  );
+  for (const proj of projectRows) {
+    const hasSlots = database
+      .prepare(`SELECT COUNT(*) AS c FROM spec_project_photos_v1 WHERE project_id = ?`)
+      .get(proj.id) as { c: number };
+    if (hasSlots.c > 0) continue;
+    const specTpls = database
+      .prepare(
+        `SELECT id, label, sort_order FROM spec_photo_templates_v1 WHERE project_template_id = ? ORDER BY sort_order ASC`
+      )
+      .all(proj.project_template_id) as Array<{ id: string; label: string; sort_order: number }>;
+    for (const st of specTpls) {
+      insertSlot.run(`${proj.id}-spec-${st.sort_order}`, proj.id, st.id, st.label, st.sort_order);
+    }
+  }
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:spec_photo_slots_v1", JSON.stringify({ at: new Date().toISOString() }));
 }

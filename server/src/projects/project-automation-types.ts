@@ -18,6 +18,7 @@ export interface ProjectTemplateDetailV1 extends ProjectTemplateV1 {
   tasks: TaskTemplateItemV1[];
   tools: ToolTemplateItemV1[];
   photos: PhotoTemplateItemV1[];
+  specPhotos: SpecPhotoTemplateItemV1[];
 }
 
 export interface TaskTemplateItemV1 {
@@ -35,6 +36,13 @@ export interface ToolTemplateItemV1 {
 }
 
 export interface PhotoTemplateItemV1 {
+  id: string;
+  projectTemplateId: string;
+  label: string;
+  sortOrder: number;
+}
+
+export interface SpecPhotoTemplateItemV1 {
   id: string;
   projectTemplateId: string;
   label: string;
@@ -77,10 +85,24 @@ export interface ProjectPhotoSlotV1 {
   caption: string | null;
 }
 
+export interface SpecProjectPhotoSlotV1 {
+  id: string;
+  projectId: string;
+  templateItemId: string | null;
+  label: string;
+  photoPath: string | null;
+  documentId: string | null;
+  sortOrder: number;
+  shotAt: string | null;
+  shot: boolean;
+  caption: string | null;
+}
+
 export interface AutomationProgressV1 {
   tasks: { done: number; total: number; percent: number };
   tools: { checked: number; total: number; percent: number };
   photos: { shot: number; total: number; percent: number };
+  specPhotos: { shot: number; total: number; percent: number };
   documents: { done: number; total: number; percent: number };
 }
 
@@ -90,8 +112,10 @@ export interface ProjectAutomationBundleV1 {
   tasks: ProjectTaskV1[];
   tools: ProjectToolV1[];
   photos: ProjectPhotoSlotV1[];
+  specPhotos: SpecProjectPhotoSlotV1[];
   progress: AutomationProgressV1;
   unshotPhotos: ProjectPhotoSlotV1[];
+  unshotSpecPhotos: SpecProjectPhotoSlotV1[];
   suggestions?: AiSuggestionV1[];
 }
 
@@ -106,6 +130,20 @@ export interface AiSuggestionV1 {
 }
 
 export interface CompletionReportPhotoV1 {
+  photoSlotId: string;
+  photoSlotName: string;
+  photoOrder: number;
+  documentId: string | null;
+  fileName: string | null;
+  localPath: string | null;
+  qnapPath: string | null;
+  qnapStatus: string | null;
+  caption: string | null;
+  hasPhoto: boolean;
+  missing: boolean;
+}
+
+export interface SpecificationPhotoV1 {
   photoSlotId: string;
   photoSlotName: string;
   photoOrder: number;

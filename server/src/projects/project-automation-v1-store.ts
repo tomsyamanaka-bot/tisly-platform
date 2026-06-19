@@ -12,9 +12,14 @@ import type {
   ProjectTemplateDetailV1,
   ProjectTemplateV1,
   ProjectToolV1,
+  SpecPhotoTemplateItemV1,
   TaskTemplateItemV1,
   ToolTemplateItemV1,
 } from "./project-automation-types.js";
+import {
+  listSpecProjectPhotoSlotsV1,
+  seedSpecProjectPhotosFromTemplateV1,
+} from "./spec-photo-slots-v1-store.js";
 
 function pct(done: number, total: number): number {
   if (total <= 0) return 0;
@@ -93,11 +98,17 @@ export function getProjectTemplateV1(id: string): ProjectTemplateDetailV1 | null
       `SELECT * FROM photo_templates_v1 WHERE project_template_id = ? ORDER BY sort_order ASC, label ASC`
     )
     .all(id) as Array<Record<string, unknown>>;
+  const specPhotos = getDatabase()
+    .prepare(
+      `SELECT * FROM spec_photo_templates_v1 WHERE project_template_id = ? ORDER BY sort_order ASC, label ASC`
+    )
+    .all(id) as Array<Record<string, unknown>>;
   return {
     ...base,
     tasks: tasks.map(rowToTaskTemplate),
     tools: tools.map(rowToToolTemplate),
     photos: photos.map(rowToPhotoTemplate),
+    specPhotos: specPhotos.map(rowToSpecPhotoTemplate),
   };
 }
 
@@ -120,6 +131,15 @@ function rowToToolTemplate(r: Record<string, unknown>): ToolTemplateItemV1 {
 }
 
 function rowToPhotoTemplate(r: Record<string, unknown>): PhotoTemplateItemV1 {
+  return {
+    id: String(r.id),
+    projectTemplateId: String(r.project_template_id),
+    label: String(r.label),
+    sortOrder: Number(r.sort_order ?? 0),
+  };
+}
+
+function rowToSpecPhotoTemplate(r: Record<string, unknown>): SpecPhotoTemplateItemV1 {
   return {
     id: String(r.id),
     projectTemplateId: String(r.project_template_id),
@@ -182,6 +202,7 @@ export function applyProjectTemplateV1(projectId: string, templateId: string): P
   db.prepare(`DELETE FROM project_tasks_v1 WHERE project_id = ?`).run(projectId);
   db.prepare(`DELETE FROM project_tools_v1 WHERE project_id = ?`).run(projectId);
   db.prepare(`DELETE FROM project_photos_v1 WHERE project_id = ?`).run(projectId);
+  db.prepare(`DELETE FROM spec_project_photos_v1 WHERE project_id = ?`).run(projectId);
 
   const insertTask = db.prepare(
     `INSERT INTO project_tasks_v1 (id, project_id, template_item_id, label, done, sort_order, done_at, created_at, updated_at)
@@ -205,6 +226,7 @@ export function applyProjectTemplateV1(projectId: string, templateId: string): P
   for (const photo of tpl.photos) {
     insertPhoto.run(uuid(), projectId, photo.id, photo.label, photo.sortOrder, now, now);
   }
+  seedSpecProjectPhotosFromTemplateV1(projectId, templateId);
 
   db.prepare(
     `UPDATE business_projects SET project_template_id = ?, updated_at = ? WHERE id = ?`
@@ -253,10 +275,12 @@ export function computeAutomationProgressV1(
   const taskList = tasks ?? listProjectTasksV1(projectId);
   const toolList = tools ?? listProjectToolsV1(projectId);
   const photoList = photos ?? listProjectPhotoSlotsV1(projectId);
+  const specPhotoList = listSpecProjectPhotoSlotsV1(projectId);
 
   const tasksDone = taskList.filter((t) => t.done).length;
   const toolsChecked = toolList.filter((t) => t.checked).length;
   const photosShot = photoList.filter((p) => p.shot).length;
+  const specPhotosShot = specPhotoList.filter((p) => p.shot).length;
 
   const docStatus = getProjectDocumentsStatusV1(projectId);
   let docDone = 0;
@@ -269,6 +293,11 @@ export function computeAutomationProgressV1(
     tasks: { done: tasksDone, total: taskList.length, percent: pct(tasksDone, taskList.length) },
     tools: { checked: toolsChecked, total: toolList.length, percent: pct(toolsChecked, toolList.length) },
     photos: { shot: photosShot, total: photoList.length, percent: pct(photosShot, photoList.length) },
+    specPhotos: {
+      shot: specPhotosShot,
+      total: specPhotoList.length,
+      percent: pct(specPhotosShot, specPhotoList.length),
+    },
     documents: { done: docDone, total: docTotal, percent: pct(docDone, docTotal) },
   };
 }
@@ -290,6 +319,7 @@ export function getProjectAutomationBundleV1(projectId: string): ProjectAutomati
   const tasks = listProjectTasksV1(projectId);
   const tools = listProjectToolsV1(projectId);
   const photos = listProjectPhotoSlotsV1(projectId);
+  const specPhotos = listSpecProjectPhotoSlotsV1(projectId);
   const progress = computeAutomationProgressV1(projectId, tasks, tools, photos);
 
   return {
@@ -298,8 +328,10 @@ export function getProjectAutomationBundleV1(projectId: string): ProjectAutomati
     tasks,
     tools,
     photos,
+    specPhotos,
     progress,
     unshotPhotos: photos.filter((p) => !p.shot),
+    unshotSpecPhotos: specPhotos.filter((p) => !p.shot),
   };
 }
 

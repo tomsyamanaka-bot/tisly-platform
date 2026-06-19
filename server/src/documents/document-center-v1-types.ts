@@ -10,13 +10,14 @@ export type DocumentCenterTypeV1 =
   | "photo"
   | "other";
 
-export type DocumentSourceTypeV1 = "manual" | "pdf" | "drawing" | "photo" | "voice" | "phone" | "ai";
+export type DocumentSourceTypeV1 = "manual" | "pdf" | "drawing" | "photo" | "specification" | "voice" | "phone" | "ai";
 
 export const SOURCE_TYPE_PRESENTATION: Record<DocumentSourceTypeV1, { label: string; icon: string }> = {
   manual: { label: "手動", icon: "✋" },
   pdf: { label: "PDF生成", icon: "📄" },
   drawing: { label: "図面", icon: "📐" },
   photo: { label: "写真", icon: "📷" },
+  specification: { label: "仕様書", icon: "📋" },
   voice: { label: "音声", icon: "🎤" },
   phone: { label: "電話", icon: "📞" },
   ai: { label: "AI", icon: "🤖" },

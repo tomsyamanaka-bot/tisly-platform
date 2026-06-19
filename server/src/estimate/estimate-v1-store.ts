@@ -90,6 +90,9 @@ import {
   hasPhotoSlotsV1,
 } from "../projects/completion-report-photos-v1.js";
 import {
+  buildSpecificationPhotosForPdfV1,
+} from "../projects/specification-photos-v1.js";
+import {
   SURVEY_MATERIAL_LABELS,
   SURVEY_TO_ESTIMATE_CATEGORY,
   SURVEY_WORK_TYPE_LABELS,
@@ -765,21 +768,9 @@ function formatWorkDate(iso: string | null | undefined): string | undefined {
   return `${y}/${m}/${day}`;
 }
 
-/** 現調写真（仕様書のみ） */
+/** 仕様書写真スロット（仕様書 PDF のみ。スロット優先、なければ survey_photos） */
 export function buildReportPhotosV1(businessProjectId: string): PracticalCompletionReportPhoto[] {
-  const project = getBusinessProject(businessProjectId);
-  if (!project) return [];
-  const raw = project.surveyProjectId
-    ? listSurveyPhotosV1(project.surveyProjectId)
-        .filter((p) => !p.photoPath.startsWith("_memo:") && p.url)
-        .map((p) => ({ url: p.url, title: p.title ?? p.comment ?? "" }))
-    : (project.surveyPhotos || [])
-        .filter((p) => p.urlPath)
-        .map((p) => ({ url: p.urlPath, title: p.caption ?? "" }));
-  return raw.map((p, i) => ({
-    url: p.url,
-    title: p.title.trim() || `写真${i + 1}`,
-  }));
+  return buildSpecificationPhotosForPdfV1(businessProjectId);
 }
 
 /** 完了報告書専用写真（施工写真スロット優先、なければ completion_photos） */

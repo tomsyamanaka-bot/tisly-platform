@@ -11,10 +11,12 @@ import type {
   ProjectTemplateAdminInputV1,
   ProjectTemplateDetailV1,
   ProjectTemplateV1,
+  SpecPhotoTemplateItemV1,
   TaskTemplateItemV1,
   TemplateItemInputV1,
   ToolTemplateItemV1,
 } from "./project-automation-types.js";
+import { seedSpecPhotoTemplatesForTemplateV1 } from "./spec-photo-slots-v1-store.js";
 
 function rowToTaskTemplate(r: Record<string, unknown>): TaskTemplateItemV1 {
   return {
@@ -35,6 +37,15 @@ function rowToToolTemplate(r: Record<string, unknown>): ToolTemplateItemV1 {
 }
 
 function rowToPhotoTemplate(r: Record<string, unknown>): PhotoTemplateItemV1 {
+  return {
+    id: String(r.id),
+    projectTemplateId: String(r.project_template_id),
+    label: String(r.label),
+    sortOrder: Number(r.sort_order ?? 0),
+  };
+}
+
+function rowToSpecPhotoTemplate(r: Record<string, unknown>): SpecPhotoTemplateItemV1 {
   return {
     id: String(r.id),
     projectTemplateId: String(r.project_template_id),
@@ -75,7 +86,8 @@ export function createProjectTemplateV1(input: ProjectTemplateAdminInputV1): Pro
   );
   const tpl = getProjectTemplateV1(id);
   if (!tpl) throw new Error("create failed");
-  return tpl;
+  seedSpecPhotoTemplatesForTemplateV1(id);
+  return getProjectTemplateV1(id)!;
 }
 
 export function patchProjectTemplateV1(
@@ -275,6 +287,57 @@ export function reorderPhotoTemplateItemsV1(templateId: string, orderedIds: stri
   const db = getDatabase();
   const stmt = db.prepare(
     `UPDATE photo_templates_v1 SET sort_order = ? WHERE id = ? AND project_template_id = ?`
+  );
+  orderedIds.forEach((id, i) => stmt.run(i, id, templateId));
+}
+
+export function createSpecPhotoTemplateItemV1(
+  templateId: string,
+  input: TemplateItemInputV1
+): SpecPhotoTemplateItemV1 {
+  const db = getDatabase();
+  const id = `${templateId}-spec-${uuid().slice(0, 6)}`;
+  const sortOrder = input.sortOrder ?? nextItemSortOrder("spec_photo_templates_v1", templateId);
+  db.prepare(
+    `INSERT INTO spec_photo_templates_v1 (id, project_template_id, label, sort_order, created_at)
+     VALUES (?, ?, ?, ?, datetime('now'))`
+  ).run(id, templateId, input.label.trim(), sortOrder);
+  return rowToSpecPhotoTemplate(
+    db.prepare(`SELECT * FROM spec_photo_templates_v1 WHERE id = ?`).get(id) as Record<string, unknown>
+  );
+}
+
+export function patchSpecPhotoTemplateItemV1(
+  templateId: string,
+  itemId: string,
+  input: Partial<TemplateItemInputV1>
+): SpecPhotoTemplateItemV1 | null {
+  const db = getDatabase();
+  const existing = db
+    .prepare(`SELECT * FROM spec_photo_templates_v1 WHERE id = ? AND project_template_id = ?`)
+    .get(itemId, templateId) as Record<string, unknown> | undefined;
+  if (!existing) return null;
+  db.prepare(`UPDATE spec_photo_templates_v1 SET label = ?, sort_order = ? WHERE id = ?`).run(
+    input.label !== undefined ? input.label.trim() : String(existing.label),
+    input.sortOrder !== undefined ? input.sortOrder : Number(existing.sort_order ?? 0),
+    itemId
+  );
+  return rowToSpecPhotoTemplate(
+    db.prepare(`SELECT * FROM spec_photo_templates_v1 WHERE id = ?`).get(itemId) as Record<string, unknown>
+  );
+}
+
+export function deleteSpecPhotoTemplateItemV1(templateId: string, itemId: string): boolean {
+  const r = getDatabase()
+    .prepare(`DELETE FROM spec_photo_templates_v1 WHERE id = ? AND project_template_id = ?`)
+    .run(itemId, templateId);
+  return r.changes > 0;
+}
+
+export function reorderSpecPhotoTemplateItemsV1(templateId: string, orderedIds: string[]): void {
+  const db = getDatabase();
+  const stmt = db.prepare(
+    `UPDATE spec_photo_templates_v1 SET sort_order = ? WHERE id = ? AND project_template_id = ?`
   );
   orderedIds.forEach((id, i) => stmt.run(i, id, templateId));
 }
