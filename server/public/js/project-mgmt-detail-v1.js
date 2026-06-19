@@ -308,6 +308,59 @@ async function automationApi(path, opts = {}) {
 async function refreshAutomation() {
   if (!detail?.project?.id) return;
   detail.automation = await automationApi(`/projects/${detail.project.id}`);
+  try {
+    const specData = await automationApi(`/projects/${detail.project.id}/specification-photos`);
+    const meta = {};
+    for (const p of specData.photos ?? []) {
+      meta[p.photoSlotId] = {
+        qnapStatusIcon: p.qnapStatusIcon,
+        qnapStatusLabel: p.qnapStatusLabel,
+      };
+    }
+    detail.specPhotoMeta = meta;
+    detail.specPhotoIntegrity = specData.integrity ?? null;
+  } catch {
+    detail.specPhotoMeta = {};
+  }
+}
+
+async function showApplyTemplateDialog() {
+  if (!detail?.project?.id) return;
+  let templates = [];
+  try {
+    const data = await automationApi("/templates?activeOnly=true");
+    templates = data.templates ?? [];
+  } catch (e) {
+    toast(e.message);
+    return;
+  }
+  if (!templates.length) {
+    toast("有効なテンプレートがありません");
+    return;
+  }
+  const names = templates.map((t, i) => `${i + 1}. ${t.name}（やる事${t.taskCount}・仕様書写真${t.specPhotoCount ?? 0}）`).join("\n");
+  const pick = window.prompt(
+    `適用するテンプレート番号を入力（既存のタスク・写真は保持し不足分のみ追加）:\n\n${names}`
+  );
+  if (pick == null) return;
+  const idx = Number(pick) - 1;
+  const tpl = templates[idx];
+  if (!tpl) {
+    toast("番号が正しくありません");
+    return;
+  }
+  try {
+    await automationApi(`/projects/${detail.project.id}/apply`, {
+      method: "POST",
+      body: JSON.stringify({ templateId: tpl.id, merge: true }),
+    });
+    toast(`「${tpl.name}」を適用しました`);
+    await refreshAutomation();
+    render();
+    bindActions();
+  } catch (e) {
+    toast(e.message);
+  }
 }
 
 function getProjectId() {
@@ -550,10 +603,19 @@ function renderProgressBar(label, done, total, percent, fillClass = "") {
 
 function renderAutomationProgressCard() {
   const auto = detail.automation;
+  const needsTemplate =
+    !auto?.templateId &&
+    (!auto?.tasks?.length || !auto?.specPhotos?.length);
   if (!auto?.templateName && !auto?.tasks?.length) {
-    return `<section class="auto-card"><p class="section-hint">案件種別テンプレートが未適用です。案件一覧から種別を選んで作成してください。</p></section>`;
+    return `<section class="auto-card">
+      <p class="section-hint">案件種別テンプレートが未適用です。</p>
+      <button type="button" class="btn-primary" id="btn-apply-project-template" style="width:100%;min-height:48px;margin-top:0.5rem;border-radius:10px;">テンプレートを適用</button>
+    </section>`;
   }
   const prog = auto.progress;
+  const applyBtn = needsTemplate
+    ? `<button type="button" class="btn-sub" id="btn-apply-project-template" style="width:100%;min-height:44px;margin-top:0.5rem;">テンプレートを適用（不足分を追加）</button>`
+    : "";
   return `
     <section class="auto-card" aria-label="自動化進捗">
       <h3 class="section-sub">進捗 ${auto.templateName ? `（${escapeHtml(auto.templateName)}）` : ""}</h3>
@@ -562,6 +624,7 @@ function renderAutomationProgressCard() {
       ${renderProgressBar("施工写真", prog.photos.shot, prog.photos.total, prog.photos.percent)}
       ${renderProgressBar("仕様書写真", prog.specPhotos.shot, prog.specPhotos.total, prog.specPhotos.percent, "spec")}
       ${renderProgressBar("書類", prog.documents.done, prog.documents.total, prog.documents.percent)}
+      ${applyBtn}
     </section>`;
 }
 
@@ -702,24 +765,38 @@ function renderAutomationPhotosTab() {
 function renderAutomationSpecPhotosTab() {
   const photos = detail.automation?.specPhotos ?? [];
   if (!photos.length) {
-    return `<p class="section-hint">仕様書写真テンプレートがありません</p>`;
+    return `<p class="section-hint">仕様書写真テンプレートがありません</p>
+      <button type="button" class="btn-primary" id="btn-apply-project-template" style="width:100%;min-height:48px;margin-top:0.5rem;">テンプレートを適用</button>`;
   }
   const prog = detail.automation?.progress?.specPhotos;
   const unshot = detail.automation?.unshotSpecPhotos ?? [];
   const projectId = detail.project.id;
+  const specPhotoMeta = detail.specPhotoMeta ?? {};
   const sorted = [...photos].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
   const items = sorted
-    .map(
-      (p, idx) => `
-    <div class="auto-photo-item ${p.shot ? "shot" : "unshot"}" data-spec-photo-id="${escapeHtml(p.id)}" data-spec-photo-order="${idx}">
+    .map((p, idx) => {
+      const meta = specPhotoMeta[p.id] ?? {};
+      const qnapLine =
+        p.shot && meta.qnapStatusIcon
+          ? `<span class="auto-photo-qnap">${meta.qnapStatusIcon} ${escapeHtml(meta.qnapStatusLabel || "")}</span>`
+          : "";
+      const reqBadge = p.required ? `<span class="auto-photo-req">必須</span>` : "";
+      const inactive = p.active === false ? " inactive-slot" : "";
+      return `
+    <div class="auto-photo-item ${p.shot ? "shot" : "unshot"}${inactive}" data-spec-photo-id="${escapeHtml(p.id)}" data-spec-photo-order="${idx}">
       <button type="button" class="auto-photo-move" data-spec-move="up" data-spec-id="${escapeHtml(p.id)}" ${idx === 0 ? "disabled" : ""} aria-label="上へ">↑</button>
       <span class="auto-photo-order">${idx + 1}</span>
       <span class="auto-photo-icon">${p.shot ? "✅" : "📷"}</span>
-      <span class="auto-photo-label">${escapeHtml(p.label)}</span>
+      <div class="auto-photo-label-block">
+        <span class="auto-photo-label">${escapeHtml(p.label)}</span>
+        ${reqBadge}
+        ${qnapLine}
+        ${p.memo ? `<span class="auto-photo-memo">${escapeHtml(p.memo)}</span>` : ""}
+      </div>
       ${p.shot ? `<span class="auto-photo-meta ok-label">撮影済</span>` : `<span class="auto-photo-meta warn">未撮影</span>`}
       <button type="button" class="auto-photo-move" data-spec-move="down" data-spec-id="${escapeHtml(p.id)}" ${idx === sorted.length - 1 ? "disabled" : ""} aria-label="下へ">↓</button>
-    </div>`
-    )
+    </div>`;
+    })
     .join("");
   const unshotHint =
     unshot.length > 0
@@ -1889,6 +1966,11 @@ function bindAutomationActions() {
       } catch (e) {
         toast(e.message);
       }
+    });
+  });
+  document.querySelectorAll("#btn-apply-project-template").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      showApplyTemplateDialog().catch((e) => toast(e.message));
     });
   });
 }

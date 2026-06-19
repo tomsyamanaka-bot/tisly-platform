@@ -2,6 +2,7 @@ import { getCustomerToken, requireCustomerLogin } from "./customer-auth.js";
 import { initPracticalNav } from "./tisly-practical-nav.js";
 
 const API = "/api/project-automation/v1/admin";
+const PUBLIC_API = "/api/project-automation/v1";
 
 const $ = (id) => document.getElementById(id);
 
@@ -12,7 +13,7 @@ let sortMode = "order";
 let searchQuery = "";
 let editingId = null;
 let editTab = "tasks";
-let editItems = { tasks: [], tools: [], photos: [] };
+let editItems = { tasks: [], tools: [], photos: [], "spec-photos": [] };
 
 function toast(msg) {
   const el = $("toast");
@@ -86,7 +87,8 @@ function renderTemplateList() {
         <div class="tpl-counts">
           <span class="tpl-count">やる事 ${t.taskCount}件</span>
           <span class="tpl-count">持ち物 ${t.toolCount}件</span>
-          <span class="tpl-count">写真 ${t.photoCount}件</span>
+          <span class="tpl-count">施工写真 ${t.photoCount}件</span>
+          <span class="tpl-count">仕様書写真 ${t.specPhotoCount ?? 0}件</span>
           ${t.useCount ? `<span class="tpl-count">使用 ${t.useCount}回</span>` : ""}
         </div>
         <div class="tpl-actions sort-btns">
@@ -106,7 +108,7 @@ function renderTemplateList() {
       const id = btn.dataset.id;
       try {
         if (action === "edit") {
-          const tpl = await fetch(`${API.replace("/admin", "")}/templates/${id}`, {
+          const tpl = await fetch(`${PUBLIC_API}/templates/${id}`, {
             headers: { Authorization: `Bearer ${getCustomerToken()}` },
           }).then((r) => r.json());
           openEditor(tpl);
@@ -139,7 +141,7 @@ function renderTemplateList() {
   });
 }
 
-function renderEditItems() {
+function renderSimpleItems() {
   const items = editItems[editTab] ?? [];
   $("edit-items").innerHTML = items
     .map(
@@ -151,7 +153,42 @@ function renderEditItems() {
       </div>`
     )
     .join("");
+  bindItemRowEvents();
+}
 
+function renderSpecPhotoCards() {
+  const items = editItems["spec-photos"] ?? [];
+  $("edit-items").innerHTML = `<div class="spec-slot-grid" id="spec-slot-grid">${items
+    .map(
+      (it, i) => `
+    <article class="spec-slot-card${it.active === false ? " inactive" : ""}" data-idx="${i}">
+      <div class="spec-slot-card-head">
+        <span class="spec-slot-order">${i + 1}</span>
+        <div class="spec-slot-sort">
+          <button type="button" data-up="${i}" ${i === 0 ? "disabled" : ""} aria-label="上へ">↑</button>
+          <button type="button" data-down="${i}" ${i === items.length - 1 ? "disabled" : ""} aria-label="下へ">↓</button>
+        </div>
+        <button type="button" class="spec-slot-remove" data-remove="${i}" aria-label="削除">✕</button>
+      </div>
+      <label class="spec-slot-field">スロット名<input type="text" value="${escapeHtml(it.label)}" data-field="label" /></label>
+      <label class="spec-slot-field spec-slot-check"><input type="checkbox" data-field="required" ${it.required ? "checked" : ""} /> 必須</label>
+      <label class="spec-slot-field spec-slot-check"><input type="checkbox" data-field="active" ${it.active !== false ? "checked" : ""} /> 有効</label>
+      <label class="spec-slot-field">説明メモ<textarea rows="2" data-field="memo">${escapeHtml(it.memo || "")}</textarea></label>
+    </article>`
+    )
+    .join("")}</div>`;
+  bindItemRowEvents();
+}
+
+function renderEditItems() {
+  if (editTab === "spec-photos") {
+    renderSpecPhotoCards();
+    return;
+  }
+  renderSimpleItems();
+}
+
+function bindItemRowEvents() {
   $("edit-items").querySelectorAll("[data-remove]").forEach((btn) => {
     btn.addEventListener("click", () => {
       editItems[editTab].splice(Number(btn.dataset.remove), 1);
@@ -176,6 +213,24 @@ function renderEditItems() {
   });
 }
 
+function collectItemsFromDom() {
+  const items = editItems[editTab];
+  if (editTab === "spec-photos") {
+    $("edit-items").querySelectorAll(".spec-slot-card").forEach((row, i) => {
+      if (!items[i]) return;
+      items[i].label = row.querySelector('[data-field="label"]')?.value?.trim() ?? "";
+      items[i].required = row.querySelector('[data-field="required"]')?.checked ?? false;
+      items[i].active = row.querySelector('[data-field="active"]')?.checked ?? true;
+      items[i].memo = row.querySelector('[data-field="memo"]')?.value?.trim() || null;
+    });
+    return;
+  }
+  $("edit-items").querySelectorAll(".item-row").forEach((row, i) => {
+    const label = row.querySelector('[data-field="label"]')?.value?.trim() ?? "";
+    if (items[i]) items[i].label = label;
+  });
+}
+
 function openEditor(tpl) {
   editingId = tpl?.id ?? null;
   $("editor-title").textContent = tpl ? "テンプレート編集" : "テンプレート追加";
@@ -188,6 +243,13 @@ function openEditor(tpl) {
     tasks: (tpl?.tasks ?? []).map((t) => ({ id: t.id, label: t.label })),
     tools: (tpl?.tools ?? []).map((t) => ({ id: t.id, label: t.label })),
     photos: (tpl?.photos ?? []).map((t) => ({ id: t.id, label: t.label })),
+    "spec-photos": (tpl?.specPhotos ?? []).map((t) => ({
+      id: t.id,
+      label: t.label,
+      required: Boolean(t.required),
+      memo: t.memo ?? null,
+      active: t.active !== false,
+    })),
   };
   editTab = "tasks";
   document.querySelectorAll(".tab-btn").forEach((b) => {
@@ -203,27 +265,32 @@ function closeEditor() {
 }
 
 async function syncTemplateItems(templateId) {
-  for (const kind of ["tasks", "tools", "photos"]) {
-    const items = editItems[kind];
-    $("edit-items").querySelectorAll(".item-row").forEach((row, i) => {
-      const label = row.querySelector('[data-field="label"]')?.value?.trim() ?? "";
-      if (items[i]) items[i].label = label;
-    });
-    const filtered = items.filter((it) => it.label);
+  collectItemsFromDom();
+  for (const kind of ["tasks", "tools", "photos", "spec-photos"]) {
+    const items = editItems[kind].filter((it) => it.label);
     await api(`/templates/${templateId}/${kind}/reorder`, {
       method: "PUT",
-      body: JSON.stringify({ orderedIds: filtered.map((it) => it.id).filter(Boolean) }),
+      body: JSON.stringify({ orderedIds: items.map((it) => it.id).filter(Boolean) }),
     }).catch(() => {});
-    for (const it of filtered) {
+    for (const it of items) {
+      const body =
+        kind === "spec-photos"
+          ? {
+              label: it.label,
+              required: Boolean(it.required),
+              memo: it.memo ?? null,
+              active: it.active !== false,
+            }
+          : { label: it.label };
       if (it.id) {
         await api(`/templates/${templateId}/${kind}/${it.id}`, {
           method: "PATCH",
-          body: JSON.stringify({ label: it.label }),
+          body: JSON.stringify(body),
         });
       } else {
         const created = await api(`/templates/${templateId}/${kind}`, {
           method: "POST",
-          body: JSON.stringify({ label: it.label }),
+          body: JSON.stringify(body),
         });
         it.id = created.id;
       }
@@ -280,7 +347,11 @@ async function init() {
 
   $("btn-new-template")?.addEventListener("click", () => openEditor(null));
   $("btn-add-item")?.addEventListener("click", () => {
-    editItems[editTab].push({ label: "" });
+    if (editTab === "spec-photos") {
+      editItems[editTab].push({ label: "", required: false, memo: null, active: true });
+    } else {
+      editItems[editTab].push({ label: "" });
+    }
     renderEditItems();
   });
   $("btn-editor-cancel")?.addEventListener("click", closeEditor);
@@ -290,6 +361,7 @@ async function init() {
   });
   document.querySelectorAll(".tab-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
+      collectItemsFromDom();
       editTab = btn.dataset.tab;
       document.querySelectorAll(".tab-btn").forEach((b) => {
         b.classList.toggle("active", b.dataset.tab === editTab);

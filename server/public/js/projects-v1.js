@@ -12,6 +12,7 @@ const WORK_API = "/api/work-session/v1";
 import { bindWorkSessionPanels, renderWorkSessionPanel } from "./work-session-ui.js";
 import {
   bindFieldChecklistPanel,
+  confirmSpecificationPhotoSlotsBeforeReport,
   loadFieldChecklist,
   renderFieldChecklistPanel,
   renderFieldChecklistStatusSummary,
@@ -262,7 +263,8 @@ async function renderDetailDocuments(detail) {
     mount.innerHTML = `<div class="spec-create-row"><button type="button" class="btn-doc-action" id="btn-create-specification">仕様書作成（PDF自動保存）</button></div><p class='pdf-empty'>書類がありません</p>`;
     $("btn-create-specification")?.addEventListener("click", async () => {
       try {
-        await api(`/projects/${encodeURIComponent(p.id)}/specification/create`, { method: "POST", body: "{}" });
+        const created = await createSpecificationPdf(p.id);
+        if (!created) return;
         toast("仕様書PDFを保存しました");
         await renderDetailDocuments(detail);
       } catch (e) {
@@ -279,7 +281,8 @@ async function renderDetailDocuments(detail) {
   mount.innerHTML = `${specCreateHtml}<p class="section-hint" style="margin-top:0;">保存先: ${escapeHtml(data.storageBasePath || `uploads/business/${p.id}/pdfs/`)}</p><div class="doc-tabs">${pdfs.map((pdf) => `<button type="button" class="doc-tab${pdf.exists ? "" : " doc-tab-empty"}" data-doc-tab="${escapeHtml(pdf.kind)}">${escapeHtml(pdf.label)}</button>`).join("")}</div><div id="doc-tab-panels">${pdfs.map((pdf) => `<div class="doc-tab-panel hidden" data-doc-panel="${escapeHtml(pdf.kind)}">${renderPdfRow(p.id, pdf)}</div>`).join("")}</div>`;
   $("btn-create-specification")?.addEventListener("click", async () => {
     try {
-      await api(`/projects/${encodeURIComponent(p.id)}/specification/create`, { method: "POST", body: "{}" });
+      const created = await createSpecificationPdf(p.id);
+      if (!created) return;
       toast("仕様書PDFを保存しました");
       await renderDetailDocuments(detail);
     } catch (e) {
@@ -506,6 +509,30 @@ async function confirmDeleteProject() {
   } catch (e) {
     toast(e.message || "削除に失敗しました");
   }
+}
+
+async function createSpecificationPdf(projectId) {
+  const token = getCustomerToken();
+  const apiFetch = async (path, opts = {}) => {
+    const res = await fetch(path, {
+      ...opts,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        ...(opts.headers || {}),
+      },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data;
+  };
+  const ok = await confirmSpecificationPhotoSlotsBeforeReport(apiFetch, { projectId });
+  if (!ok) return false;
+  await api(`/projects/${encodeURIComponent(projectId)}/specification/create`, {
+    method: "POST",
+    body: "{}",
+  });
+  return true;
 }
 
 async function workApi(path, opts = {}) {

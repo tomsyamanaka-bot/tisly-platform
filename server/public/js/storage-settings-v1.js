@@ -125,8 +125,14 @@ function renderIntegrity(report) {
 }
 
 async function loadIntegrity() {
-  const report = await api("/qnap/integrity");
-  renderIntegrity(report);
+  const data = await api("/qnap/integrity");
+  renderIntegrity(data.pdfs ?? data);
+  const specEl = $("integrity-spec-photos");
+  if (specEl && data.specPhotos) {
+    const sp = data.specPhotos;
+    specEl.textContent = sp.mismatchCount > 0 ? `⚠️ ${sp.message}` : `✅ ${sp.message}`;
+    specEl.className = sp.mismatchCount > 0 ? "status-err" : "status-ok";
+  }
 }
 
 async function init() {
@@ -197,7 +203,7 @@ async function init() {
     $("btn-integrity-resync").disabled = true;
     try {
       const data = await api("/qnap/integrity/resync", { method: "POST", body: "{}" });
-      renderIntegrity(data.refreshed || data.integrity);
+      renderIntegrity(data.refreshed?.pdfs || data.refreshed || data.integrity);
       toast(`再同期: 成功 ${data.result?.succeeded ?? 0} / 失敗 ${data.result?.failed ?? 0}`);
     } catch (e) {
       toast(e.message || "再同期に失敗しました");

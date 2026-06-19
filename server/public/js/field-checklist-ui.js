@@ -389,3 +389,88 @@ export function confirmCompletionPhotoSlotsBeforeReport(apiFetch, { projectId })
     })();
   });
 }
+
+/** 仕様書PDF作成前 — 仕様書写真スロットチェック（モーダル） */
+export function confirmSpecificationPhotoSlotsBeforeReport(apiFetch, { projectId }) {
+  return new Promise((resolve) => {
+    (async () => {
+      let photos = [];
+      try {
+        const data = await apiFetch(
+          `${AUTOMATION_API}/projects/${encodeURIComponent(projectId)}/specification-photos`
+        );
+        photos = data.photos ?? [];
+      } catch {
+        resolve(true);
+        return;
+      }
+      if (!photos.length) {
+        resolve(true);
+        return;
+      }
+
+      const missing = photos.filter((p) => p.missing);
+      const requiredMissing = missing.filter((p) => p.required);
+
+      const overlay = document.createElement("div");
+      overlay.className = "cr-photo-check-overlay";
+      overlay.setAttribute("role", "dialog");
+      overlay.setAttribute("aria-modal", "true");
+      overlay.innerHTML = `
+        <div class="cr-photo-check-sheet">
+          <h2 class="cr-photo-check-title">仕様書写真チェック</h2>
+          <ul class="cr-photo-check-list">
+            ${photos
+              .map((p) => {
+                const qnap =
+                  p.hasPhoto && p.qnapStatusIcon
+                    ? ` <span class="qnap-mini">${p.qnapStatusIcon}${escapeHtml(p.qnapStatusLabel || "")}</span>`
+                    : "";
+                return `<li class="${p.hasPhoto ? "ok" : p.required ? "missing" : "warn"}">${p.hasPhoto ? "✅" : p.required ? "❌" : "⚠️"} ${escapeHtml(p.photoSlotName)}${qnap}</li>`;
+              })
+              .join("")}
+          </ul>
+          <p class="cr-photo-check-hint">PDFには撮影済みスロットのみ載せます。${missing.length ? `未撮影 ${missing.length}件` : ""}${requiredMissing.length ? `（必須不足 ${requiredMissing.length}件）` : ""}</p>
+          <div class="cr-photo-check-actions">
+            <button type="button" class="btn-sub" data-action="add-photos">写真を追加する</button>
+            <button type="button" class="btn-main blue" data-action="proceed">不足ありでもPDF作成</button>
+          </div>
+        </div>`;
+
+      if (!document.getElementById("cr-photo-check-styles")) {
+        const style = document.createElement("style");
+        style.id = "cr-photo-check-styles";
+        style.textContent = `
+          .cr-photo-check-overlay { position:fixed; inset:0; z-index:1200; background:rgba(15,23,42,0.55); display:flex; align-items:flex-end; justify-content:center; padding:1rem; }
+          .cr-photo-check-sheet { background:#fff; border-radius:16px 16px 12px 12px; width:100%; max-width:420px; padding:1rem 1rem 1.25rem; box-shadow:0 12px 40px rgba(0,0,0,0.2); }
+          .cr-photo-check-title { margin:0 0 0.65rem; font-size:1.05rem; }
+          .cr-photo-check-list { list-style:none; margin:0 0 0.75rem; padding:0; display:flex; flex-direction:column; gap:0.35rem; max-height:50vh; overflow:auto; }
+          .cr-photo-check-list li { padding:0.45rem 0.55rem; border-radius:8px; font-size:0.9rem; }
+          .cr-photo-check-list li.ok { background:#f0fdf4; color:#166534; }
+          .cr-photo-check-list li.missing { background:#fef2f2; color:#b91c1c; }
+          .cr-photo-check-list li.warn { background:#fffbeb; color:#92400e; }
+          .cr-photo-check-list .qnap-mini { font-size:0.75rem; color:#64748b; }
+          .cr-photo-check-hint { font-size:0.78rem; color:#64748b; margin:0 0 0.85rem; }
+          .cr-photo-check-actions { display:flex; flex-direction:column; gap:0.45rem; }
+        `;
+        document.head.appendChild(style);
+      }
+
+      const cleanup = (result) => {
+        overlay.remove();
+        resolve(result);
+      };
+
+      overlay.querySelector('[data-action="proceed"]')?.addEventListener("click", () => cleanup(true));
+      overlay.querySelector('[data-action="add-photos"]')?.addEventListener("click", () => {
+        cleanup(false);
+        window.location.href = `/documents-v1?projectId=${encodeURIComponent(projectId)}`;
+      });
+      overlay.addEventListener("click", (ev) => {
+        if (ev.target === overlay) cleanup(false);
+      });
+
+      document.body.appendChild(overlay);
+    })();
+  });
+}

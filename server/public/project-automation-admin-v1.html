@@ -50,6 +50,37 @@
     }
     .tab-btn.active { background:#eff6ff; border-color:#93c5fd; color:#1d4ed8; }
     .sort-btns button { min-width:36px; min-height:36px; }
+    .spec-slot-grid { display:flex; flex-direction:column; gap:0.55rem; }
+    .spec-slot-card {
+      border:1px solid #e2e8f0; border-radius:12px; padding:0.65rem; background:#f8fafc;
+    }
+    .spec-slot-card.inactive { opacity:0.55; }
+    .spec-slot-card-head { display:flex; align-items:center; gap:0.4rem; margin-bottom:0.45rem; }
+    .spec-slot-order {
+      width:28px; height:28px; border-radius:999px; background:#15803d; color:#fff;
+      display:flex; align-items:center; justify-content:center; font-weight:800; font-size:0.8rem;
+    }
+    .spec-slot-sort { display:flex; gap:0.25rem; margin-left:auto; }
+    .spec-slot-sort button, .spec-slot-remove {
+      min-width:40px; min-height:40px; border-radius:8px; border:1px solid #cbd5e1; background:#fff;
+    }
+    .spec-slot-field { display:block; margin-bottom:0.4rem; font-size:0.82rem; font-weight:700; color:#475569; }
+    .spec-slot-field input[type="text"], .spec-slot-field textarea {
+      width:100%; margin-top:0.2rem; min-height:40px; border-radius:8px; border:1px solid #cbd5e1; padding:0.35rem 0.5rem; font-weight:400;
+    }
+    .spec-slot-check { display:flex; align-items:center; gap:0.4rem; }
+    .spec-slot-check input { width:20px; height:20px; }
+    @media (min-width: 720px) {
+      .spec-slot-grid {
+        display:grid; grid-template-columns:repeat(2, 1fr); gap:0.55rem;
+      }
+    }
+    @media (min-width: 960px) {
+      .spec-slot-grid { grid-template-columns:repeat(2, 1fr); }
+      .spec-slot-card { display:grid; grid-template-columns:1fr 1fr; gap:0.35rem 0.65rem; align-items:start; }
+      .spec-slot-card-head { grid-column:1 / -1; }
+      .spec-slot-field:first-of-type { grid-column:1 / -1; }
+    }
   </style>
 </head>
 <body class="tisly-friendly">
@@ -83,7 +114,8 @@
       <div class="tab-row" id="item-tabs">
         <button type="button" class="tab-btn active" data-tab="tasks">やる事</button>
         <button type="button" class="tab-btn" data-tab="tools">持ち物</button>
-        <button type="button" class="tab-btn" data-tab="photos">写真</button>
+        <button type="button" class="tab-btn" data-tab="photos">施工写真</button>
+        <button type="button" class="tab-btn" data-tab="spec-photos">仕様書写真</button>
       </div>
       <div id="edit-items"></div>
       <button type="button" id="btn-add-item" style="width:100%;min-height:40px;margin:0.35rem 0;border-radius:8px;">＋ 項目追加</button>
