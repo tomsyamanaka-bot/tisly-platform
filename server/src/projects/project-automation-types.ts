@@ -111,9 +111,12 @@ export interface CompletionReportPhotoV1 {
   photoOrder: number;
   documentId: string | null;
   fileName: string | null;
+  localPath: string | null;
+  qnapPath: string | null;
   qnapStatus: string | null;
   caption: string | null;
-  shot: boolean;
+  hasPhoto: boolean;
+  missing: boolean;
 }
 
 export interface ProjectTemplateAdminInputV1 {

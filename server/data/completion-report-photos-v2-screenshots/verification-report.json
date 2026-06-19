@@ -1,0 +1,14 @@
+{
+  "capturedAt": "2026-06-19T13:31:33.278Z",
+  "baseUrl": "http://127.0.0.1:3099",
+  "screens": [
+    "01-project-detail-photo-slots.png",
+    "02-missing-photo-warning.png",
+    "03-completion-report-before-pdf.png",
+    "04-completion-report-pdf-preview.png",
+    "05-document-center-photo-slot.png",
+    "06-android10-photo-slots.png"
+  ],
+  "notes": [],
+  "projectId": "BIZ-2C1C5D00"
+}

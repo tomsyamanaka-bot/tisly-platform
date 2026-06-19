@@ -350,7 +350,19 @@
     .ai-suggestion-item { display:flex; justify-content:space-between; align-items:center; gap:0.5rem; font-size:0.82rem; }
     .ai-dismiss-btn { border:none; background:transparent; font-size:1rem; cursor:pointer; color:#94a3b8; }
     .auto-photo-link { font-size:0.72rem; font-weight:700; margin-left:0.35rem; }
-  </style>
+    .auto-photo-order {
+      display:inline-flex; align-items:center; justify-content:center;
+      width:1.35rem; height:1.35rem; border-radius:999px; font-size:0.68rem; font-weight:800;
+      background:#e2e8f0; color:#334155; flex-shrink:0;
+    }
+    .auto-photo-item.shot .auto-photo-order { background:#bbf7d0; color:#166534; }
+    .auto-photo-item.unshot .auto-photo-order { background:#fed7aa; color:#9a3412; }
+    .auto-photo-meta.ok-label { color:#15803d; }
+    .auto-photo-links { display:flex; flex-wrap:wrap; gap:0.45rem; margin-top:0.65rem; }
+    .slot-order-badge {
+      display:inline-block; font-size:0.72rem; font-weight:700; padding:0.25rem 0.55rem;
+      border-radius:999px; background:#ecfdf5; color:#047857; border:1px solid #6ee7b7; margin:0.35rem 0;
+    }
 </head>
 <body class="tisly-friendly">
   <main class="app-main" id="detail-root">

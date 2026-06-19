@@ -189,8 +189,17 @@ describe("Project Automation Engine v1", () => {
       .set("Authorization", `Bearer ${token}`);
     assert.equal(res.status, 200);
     assert.equal(res.body.photos.length, 6);
-    assert.ok("photoSlotName" in res.body.photos[0]);
-    assert.ok("photoOrder" in res.body.photos[0]);
+    const first = res.body.photos[0];
+    assert.ok("photoSlotName" in first);
+    assert.ok("photoOrder" in first);
+    assert.ok("hasPhoto" in first);
+    assert.ok("missing" in first);
+    assert.ok("localPath" in first);
+    assert.ok("qnapPath" in first);
+    assert.equal(first.hasPhoto, false);
+    assert.equal(first.missing, true);
+    const orders = res.body.photos.map((p: { photoOrder: number }) => p.photoOrder);
+    assert.deepEqual(orders, [...orders].sort((a, b) => a - b));
   });
 
   it("GET /project-automation-admin-v1 ページ", async () => {

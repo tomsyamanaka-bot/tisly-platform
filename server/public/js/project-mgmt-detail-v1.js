@@ -657,27 +657,35 @@ function renderAutomationPhotosTab() {
   }
   const prog = detail.automation?.progress?.photos;
   const unshot = detail.automation?.unshotPhotos ?? [];
-  const items = photos
+  const projectId = detail.project.id;
+  const sorted = [...photos].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  const items = sorted
     .map(
-      (p) => `
-    <div class="auto-photo-item ${p.shot ? "shot" : "unshot"}">
+      (p, idx) => `
+    <div class="auto-photo-item ${p.shot ? "shot" : "unshot"}" data-photo-order="${idx + 1}">
+      <span class="auto-photo-order">${idx + 1}</span>
       <span class="auto-photo-icon">${p.shot ? "✅" : "📷"}</span>
       <span class="auto-photo-label">${escapeHtml(p.label)}</span>
-      ${p.shot ? `<span class="auto-photo-meta">撮影済</span>` : `<span class="auto-photo-meta warn">未撮影</span>`}
-      ${p.documentId ? `<a class="auto-photo-link" href="/documents-v1?projectId=${encodeURIComponent(detail.project.id)}">DC</a>` : ""}
+      ${p.shot ? `<span class="auto-photo-meta ok-label">撮影済</span>` : `<span class="auto-photo-meta warn">未撮影</span>`}
     </div>`
     )
     .join("");
   const unshotHint =
     unshot.length > 0
-      ? `<p class="section-hint unshot-hint">未撮影 ${unshot.length}件 — Document Center から施工写真をアップロードして紐付けできます</p>
-         <p class="link-row"><a class="primary" href="/documents-v1?projectId=${encodeURIComponent(detail.project.id)}">Document Center で写真アップロード →</a></p>`
+      ? `<p class="section-hint unshot-hint">未撮影 ${unshot.length}件 — Document Center から施工写真をアップロードして紐付けできます</p>`
       : `<p class="section-hint" style="color:#15803d">すべての施工写真が撮影済みです</p>`;
+  const completionHref = detail.completionReport?.href
+    || `/document-viewer-v1.html?projectId=${encodeURIComponent(projectId)}&kind=completion-report`;
   return `
     ${renderAutomationProgressCard()}
-    <h3 class="section-sub">施工写真 ${prog ? `（${prog.shot}/${prog.total} · ${prog.percent}%）` : ""}</h3>
+    <p class="slot-order-badge">完了報告PDF — マスター写真順で作成</p>
+    <h3 class="section-sub">完了報告PDFに使う順番 ${prog ? `（${prog.shot}/${prog.total} · ${prog.percent}%）` : ""}</h3>
     ${unshotHint}
-    <div class="auto-photo-list">${items}</div>`;
+    <div class="auto-photo-list">${items}</div>
+    <div class="auto-photo-links link-row">
+      <a class="primary" href="/documents-v1?projectId=${encodeURIComponent(projectId)}">Document Center へ →</a>
+      <a class="btn-sub" href="${escapeHtml(completionHref)}">PDFプレビュー →</a>
+    </div>`;
 }
 
 function renderDashboard(p) {
@@ -1048,11 +1056,16 @@ function renderSpecificationTab() {
 
 function renderEstimateTab() {
   const e = detail.estimate;
+  const hasSlots = (detail.automation?.photos?.length ?? 0) > 0;
+  const slotBadge = hasSlots
+    ? `<p class="slot-order-badge">完了報告PDFはマスター写真順で作成されます</p>`
+    : "";
   return `
     <a class="link-card${e.linked ? "" : " disabled"}" href="${escapeHtml(e.href || "#")}">
       <strong>見積</strong>
       <span>${e.linked ? `${escapeHtml(e.estimateNo || "")} · ${formatYen(e.total)}` : "未作成"}</span>
     </a>
+    ${slotBadge}
     <h3 class="section-sub">見積書</h3>
     ${renderDocTabActions("estimate", "estimate", "estimate", "estimate")}
     <div class="btn-row"><a class="primary" href="${escapeHtml(e.href)}">見積PWAを開く</a></div>`;
@@ -1072,11 +1085,16 @@ function renderInvoiceTab() {
 
 function renderCompletionTab() {
   const c = detail.completionReport;
+  const hasSlots = (detail.automation?.photos?.length ?? 0) > 0;
+  const slotBadge = hasSlots
+    ? `<span class="slot-order-badge">マスター写真順で作成</span>`
+    : "";
   return `
     <a class="link-card${c.linked ? "" : " disabled"}" href="${escapeHtml(c.href || "#")}">
       <strong>完了報告書</strong>
       <span>${c.linked ? "作成済み" : "未作成"}</span>
     </a>
+    ${slotBadge}
     <h3 class="section-sub">完了報告書</h3>
     ${renderDocTabActions("report", "completion-report", "report", "completion")}
     <div class="btn-row"><a class="primary" href="${escapeHtml(c.href || detail.fieldOpsHref)}">完了報告を見る</a></div>`;

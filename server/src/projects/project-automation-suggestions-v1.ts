@@ -2,10 +2,8 @@
 
 import { v4 as uuid } from "uuid";
 import { getDatabase } from "../db/database.js";
-import { listProjectPhotoSlotsV1 } from "./project-automation-v1-store.js";
 import type {
   AiSuggestionV1,
-  CompletionReportPhotoV1,
   ProjectPhotoSlotV1,
   ProjectTaskV1,
   ProjectToolV1,
@@ -145,29 +143,4 @@ export function dismissAiSuggestionV1(projectId: string, suggestionId: string): 
   return r.changes > 0;
 }
 
-export function getCompletionReportPhotosV1(projectId: string): CompletionReportPhotoV1[] {
-  const photos = listProjectPhotoSlotsV1(projectId);
-  const db = getDatabase();
-
-  return photos.map((slot, index) => {
-    let fileName: string | null = null;
-    let qnapStatus: string | null = null;
-    if (slot.documentId) {
-      const doc = db
-        .prepare(`SELECT file_name, qnap_backup_status FROM document_center WHERE id = ?`)
-        .get(slot.documentId) as { file_name?: string; qnap_backup_status?: string } | undefined;
-      fileName = doc?.file_name != null ? String(doc.file_name) : null;
-      qnapStatus = doc?.qnap_backup_status != null ? String(doc.qnap_backup_status) : null;
-    }
-    return {
-      photoSlotId: slot.id,
-      photoSlotName: slot.label,
-      photoOrder: slot.sortOrder ?? index,
-      documentId: slot.documentId,
-      fileName,
-      qnapStatus,
-      caption: slot.caption,
-      shot: slot.shot,
-    };
-  });
-}
+export { getCompletionReportPhotosV1 } from "./completion-report-photos-v1.js";

@@ -34,6 +34,23 @@ export function resolveUploadUrlToLocalPath(src: string): string | null {
     uploadPath = `/${trimmed}`;
   }
 
+  if (trimmed.startsWith("data/project-storage/")) {
+    return path.join(process.cwd(), trimmed);
+  }
+
+  const apiMatch = trimmed.match(
+    /\/api\/project-storage\/([^/?]+)\/file\?[^#]*relativePath=([^&#]+)/
+  );
+  if (apiMatch) {
+    try {
+      const projectId = decodeURIComponent(apiMatch[1]);
+      const rel = decodeURIComponent(apiMatch[2]);
+      return path.join(process.cwd(), "data", "project-storage", projectId, rel);
+    } catch {
+      return null;
+    }
+  }
+
   if (!uploadPath) return null;
   return path.join(process.cwd(), uploadPath.replace(/^\//, ""));
 }

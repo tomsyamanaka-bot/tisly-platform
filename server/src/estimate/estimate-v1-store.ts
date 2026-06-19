@@ -85,7 +85,10 @@ import {
   listSurveyPhotosV1,
   updateSurveyProjectV1,
 } from "../survey/survey-v1-store.js";
-import { listCompletionPhotosV1 } from "./completion-photos-store.js";
+import {
+  buildCompletionPhotosForPdfV1,
+  hasPhotoSlotsV1,
+} from "../projects/completion-report-photos-v1.js";
 import {
   SURVEY_MATERIAL_LABELS,
   SURVEY_TO_ESTIMATE_CATEGORY,
@@ -779,13 +782,9 @@ export function buildReportPhotosV1(businessProjectId: string): PracticalComplet
   }));
 }
 
-/** 完了報告書専用写真（現調写真とは別管理） */
+/** 完了報告書専用写真（施工写真スロット優先、なければ completion_photos） */
 export function buildCompletionPhotosV1(businessProjectId: string): PracticalCompletionReportPhoto[] {
-  if (!getBusinessProject(businessProjectId)) return [];
-  return listCompletionPhotosV1(businessProjectId).map((p, i) => ({
-    url: p.url,
-    title: (p.title || "").trim() || `写真${i + 1}`,
-  }));
+  return buildCompletionPhotosForPdfV1(businessProjectId);
 }
 
 export function buildSpecificationContextV1(businessProjectId: string): SpecificationContext | null {
@@ -840,6 +839,7 @@ export function buildCompletionReportContextV1(
   const session = getLatestWorkSessionForProject(ref);
   const worker = session?.workerName ?? survey?.assignee ?? header?.staffName ?? "";
   const surveyDetail = project.surveyProjectId ? getSurveyProjectV1Detail(project.surveyProjectId) : null;
+  const usePhotoSlots = hasPhotoSlotsV1(businessProjectId);
   return {
     projectNo: project.projectNo,
     addressee: header?.addressee ?? project.customerName,
@@ -849,11 +849,11 @@ export function buildCompletionReportContextV1(
     issueDate: header?.issueDate ?? new Date().toISOString().slice(0, 10),
     workDate: formatWorkDate(session?.workDate ?? session?.completionTime),
     staffName: worker,
-    startTime: formatSessionTime(session?.startTime),
-    endTime: formatSessionTime(session?.completionTime),
-    workContent: buildWorkContentSummary(ref),
-    materialsUsed: buildEquipmentListSummary(surveyDetail),
-    checklistSummary: formatChecklistForPdf(ref),
+    startTime: usePhotoSlots ? undefined : formatSessionTime(session?.startTime),
+    endTime: usePhotoSlots ? undefined : formatSessionTime(session?.completionTime),
+    workContent: usePhotoSlots ? undefined : buildWorkContentSummary(ref),
+    materialsUsed: usePhotoSlots ? undefined : buildEquipmentListSummary(surveyDetail),
+    checklistSummary: usePhotoSlots ? undefined : formatChecklistForPdf(ref),
     notes: survey?.notes ?? project.surveyMemo ?? "",
     generatedAt: new Date().toISOString(),
     photos: buildCompletionPhotosV1(businessProjectId),
