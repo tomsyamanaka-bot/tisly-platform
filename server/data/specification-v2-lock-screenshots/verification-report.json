@@ -1,0 +1,16 @@
+{
+  "capturedAt": "2026-06-19T14:14:55.158Z",
+  "baseUrl": "http://127.0.0.1:3099",
+  "projectId": "BIZ-50CF7356",
+  "screens": [
+    "01-iphone-spec-photo-slots.png",
+    "02-iphone-spec-pdf-pre-modal.png",
+    "03-iphone-spec-pdf-preview.png",
+    "04-iphone-document-center-spec-link.png",
+    "05-android10-admin-spec-slots.png",
+    "06-qnap-status-display.png"
+  ],
+  "notes": [
+    "仕様書PDF v2 実務ロック検証"
+  ]
+}
