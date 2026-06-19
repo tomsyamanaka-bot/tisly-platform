@@ -75,6 +75,13 @@
     .btn-save { border: none; background: var(--tisly-blue, #4f6fa8); color: #fff; }
     .empty-hint { text-align: center; color: #94a3b8; padding: 2rem 0.5rem; font-size: 0.9rem; }
     .mgmt-progress { font-size: 0.72rem; color: #4f6fa8; font-weight: 700; margin-top: 0.2rem; }
+    .template-preview {
+      margin-top: 0.45rem; padding: 0.55rem 0.65rem; border-radius: 10px;
+      border: 1px solid #bfdbfe; background: #eff6ff; font-size: 0.82rem;
+    }
+    .template-preview.hidden { display: none; }
+    .template-preview strong { display: block; margin-bottom: 0.25rem; color: #1e40af; }
+    .template-preview ul { margin: 0; padding-left: 1.1rem; color: #334155; }
     @media (orientation: landscape) and (max-height: 500px) {
       .kpi-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
       .kpi-card { min-height: 52px; }
@@ -109,6 +116,7 @@
       <input id="create-assignee" type="text" placeholder="山中" />
       <label for="create-template">案件種別（テンプレート）</label>
       <select id="create-template"><option value="">— 選択してください —</option></select>
+      <div id="template-preview" class="template-preview hidden" aria-live="polite"></div>
       <div class="create-actions">
         <button type="button" class="btn-cancel" id="btn-cancel-create">キャンセル</button>
         <button type="button" class="btn-save" id="btn-save-create">作成</button>

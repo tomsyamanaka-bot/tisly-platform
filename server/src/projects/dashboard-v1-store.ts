@@ -23,6 +23,7 @@ import {
 import { PROJECT_STATUS_COLOR_GROUP_V1 } from "./project-status-v1.js";
 import { listProjectCityCodesV1, resolveCityCodeForProject } from "./project-id-v1.js";
 import { getProjectAutomationBundleV1 } from "./project-automation-v1-store.js";
+import { listAiSuggestionsV1 } from "./project-automation-suggestions-v1.js";
 import type { ProjectMgmtListItemV1 } from "./project-mgmt-v1-store.js";
 
 export interface DashboardKpiCardV1 {
@@ -90,12 +91,21 @@ export interface DashboardRecentItemV1 {
   mgmtStatus: ProjectMgmtStatus;
   mgmtStatusLabel: string;
   updatedAt: string;
+  templateName: string | null;
   automation: {
+    tasksDone: number;
+    tasksTotal: number;
     tasksPercent: number;
+    toolsChecked: number;
+    toolsTotal: number;
     toolsPercent: number;
+    photosShot: number;
+    photosTotal: number;
     photosPercent: number;
     documentsPercent: number;
+    qnapPending: number;
   } | null;
+  suggestions: Array<{ id: string; label: string }>;
 }
 
 export interface DashboardCityStatV1 {
@@ -527,16 +537,36 @@ export function getDashboardRecentV1(limit = 10): DashboardRecentItemV1[] {
     const item = rowToListItem(row);
     const projectId = item.id;
     let automation: DashboardRecentItemV1["automation"] = null;
+    let templateName: string | null = null;
+    let suggestions: DashboardRecentItemV1["suggestions"] = [];
     try {
       const bundle = getProjectAutomationBundleV1(projectId);
+      templateName = bundle.templateName;
       if (bundle.tasks.length > 0 || bundle.tools.length > 0 || bundle.photos.length > 0) {
+        let qnapPending = 0;
+        const docMeta = listProjectPdfMeta(projectId);
+        for (const meta of docMeta) {
+          if (meta.qnapBackupEnabled && meta.localPath && meta.qnapBackupStatus !== "success") {
+            qnapPending += 1;
+          }
+        }
         automation = {
+          tasksDone: bundle.progress.tasks.done,
+          tasksTotal: bundle.progress.tasks.total,
           tasksPercent: bundle.progress.tasks.percent,
+          toolsChecked: bundle.progress.tools.checked,
+          toolsTotal: bundle.progress.tools.total,
           toolsPercent: bundle.progress.tools.percent,
+          photosShot: bundle.progress.photos.shot,
+          photosTotal: bundle.progress.photos.total,
           photosPercent: bundle.progress.photos.percent,
           documentsPercent: bundle.progress.documents.percent,
+          qnapPending,
         };
       }
+      suggestions = listAiSuggestionsV1(projectId)
+        .slice(0, 3)
+        .map((s) => ({ id: s.id, label: s.label }));
     } catch {
       /* optional */
     }
@@ -548,7 +578,9 @@ export function getDashboardRecentV1(limit = 10): DashboardRecentItemV1[] {
       mgmtStatus: item.mgmtStatus,
       mgmtStatusLabel: item.mgmtStatusLabel,
       updatedAt: item.updatedAt,
+      templateName,
       automation,
+      suggestions,
     };
   });
 }

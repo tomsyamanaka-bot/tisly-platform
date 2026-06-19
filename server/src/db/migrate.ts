@@ -235,6 +235,7 @@ export function runMigrations(database: Database.Database): void {
   migrateDocumentCenterV15(database);
   migrateLegacyDocNumbersIfNeededV1(database);
   migrateProjectAutomationV1(database);
+  migrateProjectAutomationV15(database);
 }
 
 /** 現調図面 v1 — 方眼紙写真 + 描画レイヤー */
@@ -4421,4 +4422,38 @@ function migrateProjectAutomationV1(database: Database.Database): void {
       `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
     )
     .run("migration:project_automation_v1", JSON.stringify({ at: new Date().toISOString() }));
+}
+
+/** 案件自動化エンジン v1.5 — メモ・使用回数・キャプション */
+function migrateProjectAutomationV15(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:project_automation_v15") as { value_json: string } | undefined;
+  if (marker) return;
+
+  addColumnsIfMissing(database, "project_templates_v1", [
+    {
+      name: "use_count",
+      ddl: "ALTER TABLE project_templates_v1 ADD COLUMN use_count INTEGER NOT NULL DEFAULT 0",
+    },
+  ]);
+  addColumnsIfMissing(database, "project_tasks_v1", [
+    { name: "memo", ddl: "ALTER TABLE project_tasks_v1 ADD COLUMN memo TEXT" },
+  ]);
+  addColumnsIfMissing(database, "project_tools_v1", [
+    { name: "memo", ddl: "ALTER TABLE project_tools_v1 ADD COLUMN memo TEXT" },
+    {
+      name: "forgotten_memo",
+      ddl: "ALTER TABLE project_tools_v1 ADD COLUMN forgotten_memo TEXT",
+    },
+  ]);
+  addColumnsIfMissing(database, "project_photos_v1", [
+    { name: "caption", ddl: "ALTER TABLE project_photos_v1 ADD COLUMN caption TEXT" },
+  ]);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:project_automation_v15", JSON.stringify({ at: new Date().toISOString() }));
 }

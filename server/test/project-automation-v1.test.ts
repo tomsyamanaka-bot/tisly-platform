@@ -148,6 +148,63 @@ describe("Project Automation Engine v1", () => {
     const item = res.body.projects.find((p: { id: string }) => p.id === projectId);
     assert.ok(item);
     assert.ok(item.automation);
-    assert.ok(item.automation.tasksPercent >= 0);
+    assert.ok(item.automation.tasksTotal >= 10);
+    assert.ok(item.automation.tasksDone >= 1);
+  });
+
+  it("やる事にメモを保存できる", async () => {
+    const bundle = await request(app)
+      .get(`/api/project-automation/v1/projects/${projectId}`)
+      .set("Authorization", `Bearer ${token}`);
+    const taskId = bundle.body.tasks[0].id;
+    const patch = await request(app)
+      .patch(`/api/project-automation/v1/projects/${projectId}/tasks/${taskId}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ memo: "配線注意" });
+    assert.equal(patch.status, 200);
+    assert.equal(patch.body.memo, "配線注意");
+  });
+
+  it("現場でやる事を追加できる", async () => {
+    const res = await request(app)
+      .post(`/api/project-automation/v1/projects/${projectId}/tasks`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ label: "追加工事確認" });
+    assert.equal(res.status, 201);
+    assert.equal(res.body.label, "追加工事確認");
+  });
+
+  it("AI提案（ルールベース）が返る", async () => {
+    const res = await request(app)
+      .get(`/api/project-automation/v1/projects/${projectId}`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(res.status, 200);
+    assert.ok(Array.isArray(res.body.suggestions));
+    assert.ok(res.body.suggestions.length >= 1);
+  });
+
+  it("完了報告写真データAPI", async () => {
+    const res = await request(app)
+      .get(`/api/project-automation/v1/projects/${projectId}/completion-report-photos`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(res.status, 200);
+    assert.equal(res.body.photos.length, 6);
+    assert.ok("photoSlotName" in res.body.photos[0]);
+    assert.ok("photoOrder" in res.body.photos[0]);
+  });
+
+  it("GET /project-automation-admin-v1 ページ", async () => {
+    const res = await request(app).get("/project-automation-admin-v1");
+    assert.equal(res.status, 200);
+    assert.ok(res.text.includes("案件テンプレート管理"));
+  });
+
+  it("管理APIでテンプレート一覧を取得", async () => {
+    const res = await request(app)
+      .get("/api/project-automation/v1/admin/templates")
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(res.status, 200);
+    assert.ok(res.body.templates.length >= 15);
+    assert.ok(Array.isArray(res.body.categories));
   });
 });

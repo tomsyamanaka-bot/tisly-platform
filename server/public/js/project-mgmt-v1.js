@@ -198,6 +198,27 @@ async function loadProjectTemplates() {
     projectTemplates
       .map((t) => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name)}</option>`)
       .join("");
+  sel.addEventListener("change", () => renderTemplatePreview(sel.value));
+}
+
+function renderTemplatePreview(templateId) {
+  const el = $("template-preview");
+  if (!el) return;
+  const tpl = projectTemplates.find((t) => t.id === templateId);
+  if (!tpl) {
+    el.classList.add("hidden");
+    el.innerHTML = "";
+    return;
+  }
+  el.classList.remove("hidden");
+  el.innerHTML = `
+    <strong>このテンプレから自動生成されます</strong>
+    <div style="font-weight:700;margin-bottom:0.2rem;">${escapeHtml(tpl.name)}</div>
+    <ul>
+      <li>やる事 ${tpl.taskCount}件</li>
+      <li>持ち物 ${tpl.toolCount}件</li>
+      <li>写真 ${tpl.photoCount}件</li>
+    </ul>`;
 }
 
 async function main() {

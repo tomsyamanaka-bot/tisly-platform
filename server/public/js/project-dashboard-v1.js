@@ -168,13 +168,28 @@ function renderRecent(projects) {
   list.innerHTML = projects
     .map((p) => {
       const href = projectDetailHref(p.id);
+      const auto = p.automation;
+      const progressLine = auto
+        ? `<div class="dash-meta auto-dash-progress">
+            やる事 ${auto.tasksDone}/${auto.tasksTotal}
+            · 持ち物 ${auto.toolsChecked}/${auto.toolsTotal}
+            · 写真 ${auto.photosShot}/${auto.photosTotal}
+            ${auto.qnapPending > 0 ? `· QNAP 未保存あり` : ""}
+          </div>`
+        : "";
+      const suggestLine =
+        p.suggestions?.length > 0
+          ? `<div class="dash-meta ai-dash-hint">💡 ${escapeHtml(p.suggestions[0].label)}</div>`
+          : "";
       return `<article class="dash-card" data-href="${escapeHtml(href)}" tabindex="0" role="button">
         <div class="dash-card-head">
           <span class="dash-meta" style="font-family:ui-monospace,monospace;font-weight:700;color:#475569">${escapeHtml(p.projectNo)}</span>
           <span class="status-chip">${escapeHtml(p.mgmtStatusLabel)}</span>
         </div>
         <div class="dash-title">${escapeHtml(p.customerName)}${p.title ? ` — ${escapeHtml(p.title)}` : ""}</div>
-        ${p.automation ? `<div class="dash-meta auto-dash-progress">やる事 ${p.automation.tasksPercent}% · 写真 ${p.automation.photosPercent}% · 書類 ${p.automation.documentsPercent}%</div>` : ""}
+        ${p.templateName ? `<div class="dash-meta">${escapeHtml(p.templateName)}</div>` : ""}
+        ${progressLine}
+        ${suggestLine}
         <div class="dash-meta">更新: ${formatDateTime(p.updatedAt)}</div>
       </article>`;
     })

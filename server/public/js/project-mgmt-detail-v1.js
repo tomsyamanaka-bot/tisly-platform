@@ -57,6 +57,9 @@ let documentsData = null;
 let timelineFilter = "all";
 let timelineSearchQuery = "";
 let timelineProjectId = "";
+let autoTasksIncompleteOnly = false;
+let autoTasksCollapseDone = true;
+let autoToolsIncompleteOnly = false;
 const expandedTimelineIds = new Set();
 const openStorageFolders = new Set();
 
@@ -551,25 +554,67 @@ function renderAutomationProgressCard() {
     </section>`;
 }
 
+function renderAiSuggestionsCard() {
+  const suggestions = detail.automation?.suggestions ?? [];
+  if (!suggestions.length) return "";
+  const items = suggestions
+    .map(
+      (s) => `
+    <div class="ai-suggestion-item">
+      <span>💡 ${escapeHtml(s.label)}</span>
+      <button type="button" class="ai-dismiss-btn" data-suggestion-id="${escapeHtml(s.id)}">✕</button>
+    </div>`
+    )
+    .join("");
+  return `
+    <section class="auto-card ai-suggestions-card" aria-label="AI提案">
+      <h3 class="section-sub">現場アシスト（ルールベース）</h3>
+      <div class="ai-suggestion-list">${items}</div>
+    </section>`;
+}
+
 function renderAutomationTasksTab() {
   const tasks = detail.automation?.tasks ?? [];
   if (!tasks.length) {
     return `<p class="section-hint">やる事テンプレートがありません</p>`;
   }
   const prog = detail.automation?.progress?.tasks;
-  const items = tasks
-    .map(
-      (t) => `
-    <label class="auto-check-item">
-      <input type="checkbox" class="auto-task-check" data-task-id="${escapeHtml(t.id)}" ${t.done ? "checked" : ""} />
-      <span class="${t.done ? "done" : ""}">${escapeHtml(t.label)}</span>
-    </label>`
-    )
-    .join("");
+  const pending = tasks.filter((t) => !t.done);
+  const done = tasks.filter((t) => t.done);
+  const visible = autoTasksIncompleteOnly ? pending : tasks;
+  const doneSection =
+    !autoTasksIncompleteOnly && autoTasksCollapseDone && done.length
+      ? `<details class="auto-done-collapse"><summary>完了済み ${done.length}件</summary>
+         ${done.map((t) => renderTaskRow(t)).join("")}
+       </details>`
+      : !autoTasksIncompleteOnly
+        ? done.map((t) => renderTaskRow(t)).join("")
+        : "";
   return `
+    ${renderAiSuggestionsCard()}
     ${renderAutomationProgressCard()}
+    <div class="auto-tab-toolbar">
+      <label><input type="checkbox" id="auto-tasks-incomplete" ${autoTasksIncompleteOnly ? "checked" : ""} /> 未完了だけ</label>
+      <label><input type="checkbox" id="auto-tasks-collapse" ${autoTasksCollapseDone ? "checked" : ""} /> 完了済み折りたたみ</label>
+    </div>
     <h3 class="section-sub">チェックリスト ${prog ? `（${prog.done}/${prog.total} · ${prog.percent}%）` : ""}</h3>
-    <div class="auto-check-list">${items}</div>`;
+    <div class="auto-check-list">${visible.filter((t) => !t.done).map((t) => renderTaskRow(t)).join("")}</div>
+    ${doneSection}
+    <div class="auto-add-row">
+      <input type="text" id="auto-task-add-input" placeholder="現場で追加するやる事" />
+      <button type="button" id="btn-auto-task-add">追加</button>
+    </div>`;
+}
+
+function renderTaskRow(t) {
+  return `
+    <div class="auto-check-item-wrap" data-task-id="${escapeHtml(t.id)}">
+      <label class="auto-check-item">
+        <input type="checkbox" class="auto-task-check" data-task-id="${escapeHtml(t.id)}" ${t.done ? "checked" : ""} />
+        <span class="auto-task-label ${t.done ? "done" : ""}">${escapeHtml(t.label)}</span>
+      </label>
+      <input type="text" class="auto-memo-input" data-task-memo="${escapeHtml(t.id)}" placeholder="メモ" value="${escapeHtml(t.memo || "")}" />
+    </div>`;
 }
 
 function renderAutomationToolsTab() {
@@ -578,19 +623,31 @@ function renderAutomationToolsTab() {
     return `<p class="section-hint">持ち物テンプレートがありません</p>`;
   }
   const prog = detail.automation?.progress?.tools;
-  const items = tools
+  const visible = autoToolsIncompleteOnly ? tools.filter((t) => !t.checked) : tools;
+  const items = visible
     .map(
       (t) => `
-    <label class="auto-check-item">
-      <input type="checkbox" class="auto-tool-check" data-tool-id="${escapeHtml(t.id)}" ${t.checked ? "checked" : ""} />
-      <span class="${t.checked ? "done" : ""}">${escapeHtml(t.label)}</span>
-    </label>`
+    <div class="auto-check-item-wrap" data-tool-id="${escapeHtml(t.id)}">
+      <label class="auto-check-item">
+        <input type="checkbox" class="auto-tool-check" data-tool-id="${escapeHtml(t.id)}" ${t.checked ? "checked" : ""} />
+        <span class="${t.checked ? "done" : ""}">${escapeHtml(t.label)}</span>
+      </label>
+      <input type="text" class="auto-memo-input" data-tool-memo="${escapeHtml(t.id)}" placeholder="メモ" value="${escapeHtml(t.memo || "")}" />
+      <input type="text" class="auto-forgot-input" data-tool-forgot="${escapeHtml(t.id)}" placeholder="忘れ物メモ" value="${escapeHtml(t.forgottenMemo || "")}" />
+    </div>`
     )
     .join("");
   return `
     ${renderAutomationProgressCard()}
+    <div class="auto-tab-toolbar">
+      <label><input type="checkbox" id="auto-tools-incomplete" ${autoToolsIncompleteOnly ? "checked" : ""} /> 未確認だけ</label>
+    </div>
     <h3 class="section-sub">持ち物 ${prog ? `（${prog.checked}/${prog.total} · ${prog.percent}%）` : ""}</h3>
-    <div class="auto-check-list">${items}</div>`;
+    <div class="auto-check-list">${items}</div>
+    <div class="auto-add-row">
+      <input type="text" id="auto-tool-add-input" placeholder="現場で追加する持ち物" />
+      <button type="button" id="btn-auto-tool-add">追加</button>
+    </div>`;
 }
 
 function renderAutomationPhotosTab() {
@@ -607,12 +664,13 @@ function renderAutomationPhotosTab() {
       <span class="auto-photo-icon">${p.shot ? "✅" : "📷"}</span>
       <span class="auto-photo-label">${escapeHtml(p.label)}</span>
       ${p.shot ? `<span class="auto-photo-meta">撮影済</span>` : `<span class="auto-photo-meta warn">未撮影</span>`}
+      ${p.documentId ? `<a class="auto-photo-link" href="/documents-v1?projectId=${encodeURIComponent(detail.project.id)}">DC</a>` : ""}
     </div>`
     )
     .join("");
   const unshotHint =
     unshot.length > 0
-      ? `<p class="section-hint" style="color:#c2410c">未撮影 ${unshot.length}件 — Document Center から施工写真をアップロードして紐付けできます</p>
+      ? `<p class="section-hint unshot-hint">未撮影 ${unshot.length}件 — Document Center から施工写真をアップロードして紐付けできます</p>
          <p class="link-row"><a class="primary" href="/documents-v1?projectId=${encodeURIComponent(detail.project.id)}">Document Center で写真アップロード →</a></p>`
       : `<p class="section-hint" style="color:#15803d">すべての施工写真が撮影済みです</p>`;
   return `
@@ -642,6 +700,7 @@ function renderDashboard(p) {
       <p class="detail-subtitle">${escapeHtml(p.title)} · ${escapeHtml(p.projectNo)}</p>
     </header>
     ${renderNextActionsCard()}
+    ${renderAiSuggestionsCard()}
     <section class="dash-meta" aria-label="ワークフロー">
       <div class="wf-card-grid">${cards}</div>
     </section>`;
@@ -1601,6 +1660,115 @@ function bindAutomationActions() {
       } catch (e) {
         toast(e.message);
         el.checked = !el.checked;
+      }
+    });
+  });
+  document.querySelectorAll("[data-task-memo]").forEach((el) => {
+    el.addEventListener("change", async () => {
+      const taskId = el.getAttribute("data-task-memo");
+      if (!taskId || !detail?.project?.id) return;
+      try {
+        await automationApi(`/projects/${detail.project.id}/tasks/${taskId}`, {
+          method: "PATCH",
+          body: JSON.stringify({ memo: el.value.trim() || null }),
+        });
+        await refreshAutomation();
+      } catch (e) {
+        toast(e.message);
+      }
+    });
+  });
+  document.querySelectorAll("[data-tool-memo]").forEach((el) => {
+    el.addEventListener("change", async () => {
+      const toolId = el.getAttribute("data-tool-memo");
+      if (!toolId || !detail?.project?.id) return;
+      try {
+        await automationApi(`/projects/${detail.project.id}/tools/${toolId}`, {
+          method: "PATCH",
+          body: JSON.stringify({ memo: el.value.trim() || null }),
+        });
+        await refreshAutomation();
+      } catch (e) {
+        toast(e.message);
+      }
+    });
+  });
+  document.querySelectorAll("[data-tool-forgot]").forEach((el) => {
+    el.addEventListener("change", async () => {
+      const toolId = el.getAttribute("data-tool-forgot");
+      if (!toolId || !detail?.project?.id) return;
+      try {
+        await automationApi(`/projects/${detail.project.id}/tools/${toolId}`, {
+          method: "PATCH",
+          body: JSON.stringify({ forgottenMemo: el.value.trim() || null }),
+        });
+        await refreshAutomation();
+      } catch (e) {
+        toast(e.message);
+      }
+    });
+  });
+  $("auto-tasks-incomplete")?.addEventListener("change", (e) => {
+    autoTasksIncompleteOnly = e.target.checked;
+    render();
+    bindActions();
+  });
+  $("auto-tasks-collapse")?.addEventListener("change", (e) => {
+    autoTasksCollapseDone = e.target.checked;
+    render();
+    bindActions();
+  });
+  $("auto-tools-incomplete")?.addEventListener("change", (e) => {
+    autoToolsIncompleteOnly = e.target.checked;
+    render();
+    bindActions();
+  });
+  $("btn-auto-task-add")?.addEventListener("click", async () => {
+    const label = $("auto-task-add-input")?.value?.trim();
+    if (!label || !detail?.project?.id) return;
+    try {
+      await automationApi(`/projects/${detail.project.id}/tasks`, {
+        method: "POST",
+        body: JSON.stringify({ label }),
+      });
+      $("auto-task-add-input").value = "";
+      await refreshAutomation();
+      render();
+      bindActions();
+    } catch (e) {
+      toast(e.message);
+    }
+  });
+  $("btn-auto-tool-add")?.addEventListener("click", async () => {
+    const label = $("auto-tool-add-input")?.value?.trim();
+    if (!label || !detail?.project?.id) return;
+    try {
+      await automationApi(`/projects/${detail.project.id}/tools`, {
+        method: "POST",
+        body: JSON.stringify({ label }),
+      });
+      $("auto-tool-add-input").value = "";
+      await refreshAutomation();
+      render();
+      bindActions();
+    } catch (e) {
+      toast(e.message);
+    }
+  });
+  document.querySelectorAll(".ai-dismiss-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const id = btn.getAttribute("data-suggestion-id");
+      if (!id || !detail?.project?.id) return;
+      try {
+        await automationApi(`/projects/${detail.project.id}/suggestions/${id}/dismiss`, {
+          method: "PATCH",
+          body: "{}",
+        });
+        await refreshAutomation();
+        render();
+        bindActions();
+      } catch (e) {
+        toast(e.message);
       }
     });
   });

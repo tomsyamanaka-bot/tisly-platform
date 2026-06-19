@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#4f6fa8" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>TiSLY — 案件テンプレート管理</title>
+  <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
+  <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
+  <link rel="stylesheet" href="/css/field-ops-mobile.css" />
+  <style>
+    .toolbar { display:flex; flex-wrap:wrap; gap:0.4rem; margin-bottom:0.65rem; }
+    .toolbar input, .toolbar select {
+      flex:1; min-width:120px; min-height:44px; border-radius:10px; border:1px solid #cbd5e1; padding:0.45rem 0.6rem;
+    }
+    .chip-row { display:flex; flex-wrap:wrap; gap:0.35rem; margin-bottom:0.55rem; }
+    .filter-chip {
+      border:1px solid #cbd5e1; background:#fff; border-radius:999px; padding:0.3rem 0.65rem;
+      font-size:0.78rem; font-weight:700; cursor:pointer;
+    }
+    .filter-chip.active { background:#eff6ff; border-color:#93c5fd; color:#1d4ed8; }
+    .tpl-card {
+      border:1px solid #e2e8f0; border-radius:12px; padding:0.75rem; margin-bottom:0.55rem; background:#fff;
+    }
+    .tpl-card.inactive { opacity:0.65; }
+    .tpl-card-head { display:flex; justify-content:space-between; gap:0.5rem; align-items:flex-start; }
+    .tpl-counts { display:flex; flex-wrap:wrap; gap:0.35rem; margin:0.4rem 0; font-size:0.76rem; }
+    .tpl-count { background:#f1f5f9; border-radius:999px; padding:0.15rem 0.5rem; font-weight:700; color:#475569; }
+    .tpl-actions { display:flex; flex-wrap:wrap; gap:0.35rem; margin-top:0.45rem; }
+    .tpl-actions button {
+      min-height:40px; border-radius:8px; border:1px solid #cbd5e1; background:#fff; font-weight:700; padding:0 0.65rem;
+    }
+    .btn-primary { background:var(--tisly-blue,#4f6fa8); color:#fff; border:none; }
+    .editor-overlay {
+      position:fixed; inset:0; background:rgba(15,23,42,0.45); z-index:200;
+      display:flex; align-items:flex-end; justify-content:center;
+    }
+    .editor-overlay.hidden { display:none; }
+    .editor-sheet {
+      width:100%; max-width:520px; max-height:92vh; overflow:auto;
+      background:#fff; border-radius:16px 16px 0 0; padding:1rem 0.85rem calc(1rem + env(safe-area-inset-bottom));
+    }
+    .item-row { display:flex; gap:0.35rem; align-items:center; margin-bottom:0.35rem; }
+    .item-row input { flex:1; min-height:40px; border-radius:8px; border:1px solid #cbd5e1; padding:0.35rem 0.5rem; }
+    .item-row button { min-width:40px; min-height:40px; border-radius:8px; border:1px solid #fecaca; background:#fff7f7; }
+    .tab-row { display:flex; gap:0.35rem; margin:0.65rem 0; }
+    .tab-btn {
+      flex:1; min-height:40px; border-radius:8px; border:1px solid #cbd5e1; background:#f8fafc; font-weight:700;
+    }
+    .tab-btn.active { background:#eff6ff; border-color:#93c5fd; color:#1d4ed8; }
+    .sort-btns button { min-width:36px; min-height:36px; }
+  </style>
+</head>
+<body class="tisly-friendly">
+  <main class="app-main">
+    <p class="section-label">🤖 案件テンプレート管理</p>
+    <p class="section-hint">案件種別ごとのやる事・持ち物・施工写真をスマホから管理</p>
+
+    <div class="toolbar">
+      <input type="search" id="search-q" placeholder="テンプレート検索" autocomplete="off" />
+      <select id="sort-select">
+        <option value="order">並び順</option>
+        <option value="popular">よく使う順</option>
+      </select>
+    </div>
+    <div class="chip-row" id="category-chips"></div>
+
+    <button type="button" class="btn-primary" id="btn-new-template" style="width:100%;min-height:48px;border-radius:12px;font-weight:700;margin-bottom:0.65rem;">＋ 案件テンプレート追加</button>
+
+    <div id="template-list"></div>
+  </main>
+
+  <div class="editor-overlay hidden" id="editor-overlay" aria-hidden="true">
+    <div class="editor-sheet" role="dialog" aria-labelledby="editor-title">
+      <h2 id="editor-title" style="margin:0 0 0.5rem;font-size:1rem;">テンプレート編集</h2>
+      <label>名称<input id="edit-name" type="text" style="width:100%;min-height:42px;margin-top:0.2rem;" /></label>
+      <label style="display:block;margin-top:0.45rem;">カテゴリ<input id="edit-category" type="text" style="width:100%;min-height:42px;margin-top:0.2rem;" /></label>
+      <label style="display:block;margin-top:0.45rem;">サブカテゴリ<input id="edit-subcategory" type="text" style="width:100%;min-height:42px;margin-top:0.2rem;" /></label>
+      <label style="display:block;margin-top:0.45rem;">説明<textarea id="edit-desc" rows="2" style="width:100%;margin-top:0.2rem;"></textarea></label>
+      <label style="display:flex;align-items:center;gap:0.4rem;margin-top:0.45rem;"><input type="checkbox" id="edit-active" checked /> 有効</label>
+
+      <div class="tab-row" id="item-tabs">
+        <button type="button" class="tab-btn active" data-tab="tasks">やる事</button>
+        <button type="button" class="tab-btn" data-tab="tools">持ち物</button>
+        <button type="button" class="tab-btn" data-tab="photos">写真</button>
+      </div>
+      <div id="edit-items"></div>
+      <button type="button" id="btn-add-item" style="width:100%;min-height:40px;margin:0.35rem 0;border-radius:8px;">＋ 項目追加</button>
+
+      <div style="display:flex;gap:0.5rem;margin-top:0.65rem;">
+        <button type="button" id="btn-editor-cancel" style="flex:1;min-height:44px;border-radius:10px;">キャンセル</button>
+        <button type="button" id="btn-editor-save" class="btn-primary" style="flex:1;min-height:44px;border-radius:10px;">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status"></div>
+  <script type="module" src="/js/project-automation-admin-v1.js"></script>
+</body>
+</html>

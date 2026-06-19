@@ -40,6 +40,7 @@ import {
 import { getProjectDocumentsStatusV1, type ProjectDocumentsStatusV1 } from "./project-documents-v1.js";
 import { createProjectStorageFoldersV1 } from "../storage/project-storage-v1.js";
 import { getProjectAutomationBundleV1, applyProjectTemplateV1 } from "./project-automation-v1-store.js";
+import { refreshAiSuggestionsV1 } from "./project-automation-suggestions-v1.js";
 import { getProjectStatusV1, type ProjectStatusResultV1 } from "./project-status-v1.js";
 
 export interface ProjectMgmtListItemV1 {
@@ -265,7 +266,17 @@ export function getProjectMgmtDetailV1(projectId: string): ProjectMgmtDetailV1 |
     timeline: listProjectTimelineV2(projectId),
     shareHistory: listPdfShareHistoryV2(projectId),
     projectStatus: getProjectStatusV1(projectId),
-    automation: getProjectAutomationBundleV1(projectId),
+    automation: (() => {
+      const bundle = getProjectAutomationBundleV1(projectId);
+      return {
+        ...bundle,
+        suggestions: refreshAiSuggestionsV1(projectId, {
+          tasks: bundle.tasks,
+          tools: bundle.tools,
+          photos: bundle.photos,
+        }),
+      };
+    })(),
   };
 }
 

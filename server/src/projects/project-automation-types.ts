@@ -11,6 +11,7 @@ export interface ProjectTemplateV1 {
   taskCount: number;
   toolCount: number;
   photoCount: number;
+  useCount?: number;
 }
 
 export interface ProjectTemplateDetailV1 extends ProjectTemplateV1 {
@@ -48,6 +49,7 @@ export interface ProjectTaskV1 {
   done: boolean;
   sortOrder: number;
   doneAt: string | null;
+  memo: string | null;
 }
 
 export interface ProjectToolV1 {
@@ -58,6 +60,8 @@ export interface ProjectToolV1 {
   checked: boolean;
   sortOrder: number;
   checkedAt: string | null;
+  memo: string | null;
+  forgottenMemo: string | null;
 }
 
 export interface ProjectPhotoSlotV1 {
@@ -70,6 +74,7 @@ export interface ProjectPhotoSlotV1 {
   sortOrder: number;
   shotAt: string | null;
   shot: boolean;
+  caption: string | null;
 }
 
 export interface AutomationProgressV1 {
@@ -87,4 +92,40 @@ export interface ProjectAutomationBundleV1 {
   photos: ProjectPhotoSlotV1[];
   progress: AutomationProgressV1;
   unshotPhotos: ProjectPhotoSlotV1[];
+  suggestions?: AiSuggestionV1[];
+}
+
+export interface AiSuggestionV1 {
+  id: string;
+  projectId: string;
+  suggestionType: string;
+  label: string;
+  detail: string | null;
+  status: "pending" | "dismissed";
+  createdAt: string;
+}
+
+export interface CompletionReportPhotoV1 {
+  photoSlotId: string;
+  photoSlotName: string;
+  photoOrder: number;
+  documentId: string | null;
+  fileName: string | null;
+  qnapStatus: string | null;
+  caption: string | null;
+  shot: boolean;
+}
+
+export interface ProjectTemplateAdminInputV1 {
+  name: string;
+  category?: string;
+  subCategory?: string;
+  description?: string | null;
+  active?: boolean;
+  sortOrder?: number;
+}
+
+export interface TemplateItemInputV1 {
+  label: string;
+  sortOrder?: number;
 }

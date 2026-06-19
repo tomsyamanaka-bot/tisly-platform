@@ -1,0 +1,31 @@
+{
+  "capturedAt": "2026-06-19T12:02:56.124Z",
+  "version": "project-automation-v1.5",
+  "outDir": "server/data/project-automation-v15-screenshots",
+  "viewports": {
+    "iphone": "390x844",
+    "android10": "800x1280"
+  },
+  "screens": [
+    "01-admin-template-list.png",
+    "02-admin-task-template.png",
+    "03-admin-tool-template.png",
+    "04-admin-photo-template.png",
+    "05-project-create-template-preview.png",
+    "06-project-detail-tasks.png",
+    "07-project-detail-tools.png",
+    "08-project-detail-photos.png",
+    "09-documents-photo-slot.png",
+    "10-dashboard-progress.png"
+  ],
+  "baseUrl": "http://127.0.0.1:3099",
+  "phases": {
+    "phase1": "テンプレート管理UI /project-automation-admin-v1",
+    "phase2": "案件作成テンプレプレビュー",
+    "phase3": "案件詳細 やる事/持ち物/施工写真タブ強化",
+    "phase4": "Document Center 施工写真スロット紐付け",
+    "phase5": "完了報告写真データ API",
+    "phase6": "AI提案ルールベース（ai_suggestions_v1）",
+    "phase7": "ダッシュボード進捗カウント表示"
+  }
+}

@@ -444,6 +444,9 @@ export function createApp(): express.Application {
   app.get("/checklist-templates-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "checklist-templates-v1.html"));
   });
+  app.get("/project-automation-admin-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "project-automation-admin-v1.html"));
+  });
   app.get("/purchase-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "purchase-v1.html"));
   });
