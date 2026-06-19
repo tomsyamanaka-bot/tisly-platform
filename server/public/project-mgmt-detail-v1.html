@@ -347,6 +347,31 @@
     .auto-add-row button { min-height:42px; border-radius:8px; border:none; background:#4f6fa8; color:#fff; font-weight:700; padding:0 0.75rem; }
     .auto-done-collapse { margin-top:0.45rem; font-size:0.82rem; }
     .unshot-hint { color:#c2410c !important; font-weight:700; }
+    .tpl-modal-backdrop {
+      position:fixed; inset:0; background:rgba(15,23,42,0.45); z-index:1200;
+      display:flex; align-items:flex-end; justify-content:center; padding:0.75rem;
+    }
+    .tpl-modal-backdrop.hidden { display:none; }
+    .tpl-modal {
+      width:100%; max-width:420px; max-height:85vh; overflow:auto;
+      background:#fff; border-radius:16px 16px 12px 12px; padding:1rem 0.85rem 1.1rem;
+      box-shadow:0 8px 32px rgba(0,0,0,0.18);
+    }
+    .tpl-modal h2 { margin:0 0 0.5rem; font-size:1rem; }
+    .tpl-modal-select { width:100%; min-height:44px; margin:0.5rem 0; border-radius:8px; border:1px solid #cbd5e1; }
+    .tpl-modal-counts { font-size:0.82rem; color:#475569; margin:0.5rem 0; line-height:1.5; }
+    .tpl-modal-note { font-size:0.78rem; color:#64748b; margin:0.5rem 0 0.75rem; }
+    .tpl-modal-actions { display:flex; gap:0.5rem; }
+    .tpl-modal-actions button { flex:1; min-height:48px; border-radius:10px; font-weight:700; }
+    .spec-slot-edit { margin-top:0.25rem; display:flex; flex-direction:column; gap:0.25rem; }
+    .spec-slot-edit input[type=text] { width:100%; min-height:34px; border-radius:6px; border:1px solid #e2e8f0; font-size:0.78rem; padding:0.25rem 0.4rem; }
+    .spec-slot-edit label { font-size:0.72rem; color:#64748b; display:flex; align-items:center; gap:0.35rem; }
+    .spec-slot-edit-row { display:flex; gap:0.35rem; flex-wrap:wrap; }
+    .btn-spec-qnap-sync { width:100%; min-height:48px; margin:0.65rem 0; border-radius:10px; font-weight:700; }
+    .auto-photo-item.inactive-slot { opacity:0.55; }
+    .auto-photo-req { font-size:0.65rem; background:#fee2e2; color:#b91c1c; padding:0.1rem 0.35rem; border-radius:999px; font-weight:700; }
+    .auto-photo-qnap { font-size:0.68rem; color:#64748b; display:block; }
+    .auto-photo-memo { font-size:0.72rem; color:#64748b; display:block; }
     .ai-suggestions-card { border-color:#bfdbfe; background:#f8fbff; }
     .ai-suggestion-list { display:flex; flex-direction:column; gap:0.35rem; }
     .ai-suggestion-item { display:flex; justify-content:space-between; align-items:center; gap:0.5rem; font-size:0.82rem; }
@@ -376,6 +401,19 @@
     <p class="section-hint">読み込み中…</p>
   </main>
   <div id="toast" class="toast" role="status"></div>
+  <div id="template-apply-modal" class="tpl-modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="tpl-modal-title">
+    <div class="tpl-modal">
+      <h2 id="tpl-modal-title">テンプレートを適用</h2>
+      <label for="tpl-modal-select">適用するテンプレート</label>
+      <select id="tpl-modal-select" class="tpl-modal-select"></select>
+      <div id="tpl-modal-counts" class="tpl-modal-counts"></div>
+      <p class="tpl-modal-note">既存のやる事・持ち物・写真・メモは消しません。不足分だけ追加します（重複は作りません）。</p>
+      <div class="tpl-modal-actions">
+        <button type="button" class="btn-sub" id="tpl-modal-cancel">キャンセル</button>
+        <button type="button" class="btn-primary" id="tpl-modal-apply">不足分だけ追加</button>
+      </div>
+    </div>
+  </div>
   <script type="module" src="/js/project-mgmt-detail-v1.js"></script>
 </body>
 </html>

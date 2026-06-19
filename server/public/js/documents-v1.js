@@ -276,12 +276,14 @@ async function openProject(projectId, openDocId = "") {
           <button type="button" id="btn-qnap-sync-pending">🟠 未保存だけ同期</button>
           <button type="button" id="btn-qnap-sync-failed">🔴 失敗だけ再同期</button>
           <button type="button" id="btn-qnap-sync-all">全部同期</button>
+          <button type="button" id="btn-qnap-sync-spec-photos">📷 仕様書写真QNAP同期</button>
         </div>
         <div id="qnap-status-text" class="dc-card-meta" style="margin-top:0.35rem;"></div>`;
       $("btn-qnap-status")?.addEventListener("click", refreshQnapStatus);
       $("btn-qnap-sync-pending")?.addEventListener("click", () => syncQnap("pending"));
       $("btn-qnap-sync-failed")?.addEventListener("click", () => syncQnap("failed"));
       $("btn-qnap-sync-all")?.addEventListener("click", () => syncQnap("all"));
+      $("btn-qnap-sync-spec-photos")?.addEventListener("click", syncSpecPhotosQnap);
     } else {
       qnapBar.classList.add("hidden");
     }
@@ -388,6 +390,21 @@ async function syncQnap(mode) {
       body: "{}",
     });
     toast(mode === "failed" ? "失敗分を再同期しました" : "QNAP同期を開始しました");
+    await refreshQnapStatus();
+    openProject(currentProjectId);
+  } catch (e) {
+    toast(e.message);
+  }
+}
+
+async function syncSpecPhotosQnap() {
+  if (!currentProjectId) return;
+  try {
+    const result = await api(
+      `/projects/${encodeURIComponent(currentProjectId)}/qnap/sync-spec-photos`,
+      { method: "POST", body: "{}" }
+    );
+    toast(`仕様書写真QNAP同期: 成功 ${result.synced?.length ?? 0} / 失敗 ${result.failed?.length ?? 0}`);
     await refreshQnapStatus();
     openProject(currentProjectId);
   } catch (e) {

@@ -83,24 +83,26 @@
     </div>
 
     <div class="friendly-card storage-card">
-      <h2>接続テスト</h2>
-      <p class="storage-meta">QNAP へ接続し、指定共有フォルダの存在を確認します。</p>
+      <h2>QNAP接続テスト</h2>
+      <dl class="status-grid" id="qnap-test-grid">
+        <dt>モード</dt><dd id="qnap-mode" class="status-muted">—</dd>
+        <dt>接続状態</dt><dd id="qnap-conn-status" class="status-muted">—</dd>
+        <dt>最終テスト</dt><dd id="qnap-last-test">—</dd>
+        <dt>最終エラー</dt><dd id="qnap-last-error" class="status-muted">—</dd>
+        <dt>テストファイル</dt><dd id="qnap-test-filename">Test/tisly-test.pdf</dd>
+        <dt>削除結果</dt><dd id="qnap-delete-result" class="status-muted">—</dd>
+      </dl>
       <div class="storage-actions">
-        <button type="button" class="btn-sub" id="btn-test-connection">QNAP接続確認</button>
+        <button type="button" class="btn-sub" id="btn-test-connection">接続テスト</button>
+        <button type="button" class="btn-sub" id="btn-test-pdf">テストファイル保存</button>
+        <button type="button" class="btn-sub" id="btn-test-delete">テストファイル削除</button>
+        <button type="button" class="btn-sub" id="btn-retry-failed">失敗分を再同期</button>
       </div>
       <div id="connection-result" class="result-box hidden" role="status"></div>
-    </div>
-
-    <div class="friendly-card storage-card">
-      <h2>テストファイル送信</h2>
-      <p class="storage-meta">tisly-test.pdf を /TiSLY/Test/ へ送信します。</p>
-      <div class="storage-actions">
-        <button type="button" class="btn-sub" id="btn-test-pdf">テストPDF送信</button>
-      </div>
       <div id="pdf-result" class="result-box hidden" role="status"></div>
     </div>
 
-    <div class="friendly-card storage-card">
+    <div class="friendly-card storage-card hidden" id="legacy-connection-card" aria-hidden="true">
       <h2>QNAP PDF 整合チェック</h2>
       <p class="storage-meta">ローカル保存 PDF と QNAP バックアップ件数を比較します（日次確認用）。</p>
       <dl class="status-grid" id="integrity-grid">

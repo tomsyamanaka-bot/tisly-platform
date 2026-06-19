@@ -313,6 +313,7 @@ async function refreshAutomation() {
     const meta = {};
     for (const p of specData.photos ?? []) {
       meta[p.photoSlotId] = {
+        qnapStatus: p.qnapStatus,
         qnapStatusIcon: p.qnapStatusIcon,
         qnapStatusLabel: p.qnapStatusLabel,
       };
@@ -338,29 +339,74 @@ async function showApplyTemplateDialog() {
     toast("有効なテンプレートがありません");
     return;
   }
-  const names = templates.map((t, i) => `${i + 1}. ${t.name}（やる事${t.taskCount}・仕様書写真${t.specPhotoCount ?? 0}）`).join("\n");
-  const pick = window.prompt(
-    `適用するテンプレート番号を入力（既存のタスク・写真は保持し不足分のみ追加）:\n\n${names}`
-  );
-  if (pick == null) return;
-  const idx = Number(pick) - 1;
-  const tpl = templates[idx];
-  if (!tpl) {
-    toast("番号が正しくありません");
-    return;
+
+  const modal = document.getElementById("template-apply-modal");
+  const sel = document.getElementById("tpl-modal-select");
+  const countsEl = document.getElementById("tpl-modal-counts");
+  if (!modal || !sel || !countsEl) return;
+
+  sel.innerHTML = templates
+    .map((t) => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name)}</option>`)
+    .join("");
+
+  function renderCounts() {
+    const tpl = templates.find((t) => t.id === sel.value);
+    if (!tpl) {
+      countsEl.textContent = "";
+      return;
+    }
+    countsEl.innerHTML = `
+      <div>やる事: <strong>${tpl.taskCount ?? 0}</strong> 件</div>
+      <div>持ち物: <strong>${tpl.toolCount ?? 0}</strong> 件</div>
+      <div>施工写真: <strong>${tpl.photoCount ?? 0}</strong> 件</div>
+      <div>仕様書写真: <strong>${tpl.specPhotoCount ?? 0}</strong> 件</div>`;
   }
-  try {
-    await automationApi(`/projects/${detail.project.id}/apply`, {
-      method: "POST",
-      body: JSON.stringify({ templateId: tpl.id, merge: true }),
-    });
-    toast(`「${tpl.name}」を適用しました`);
-    await refreshAutomation();
-    render();
-    bindActions();
-  } catch (e) {
-    toast(e.message);
-  }
+
+  renderCounts();
+  sel.onchange = renderCounts;
+  modal.classList.remove("hidden");
+
+  const cancelBtn = document.getElementById("tpl-modal-cancel");
+  const applyBtn = document.getElementById("tpl-modal-apply");
+
+  const closeModal = () => {
+    modal.classList.add("hidden");
+    cancelBtn?.removeEventListener("click", onCancel);
+    applyBtn?.removeEventListener("click", onApply);
+    modal.removeEventListener("click", onBackdrop);
+  };
+
+  const onCancel = () => closeModal();
+  const onBackdrop = (e) => {
+    if (e.target === modal) closeModal();
+  };
+  const onApply = async () => {
+    const tpl = templates.find((t) => t.id === sel.value);
+    if (!tpl) {
+      toast("テンプレートを選んでください");
+      return;
+    }
+    applyBtn.disabled = true;
+    try {
+      await automationApi(`/projects/${detail.project.id}/apply`, {
+        method: "POST",
+        body: JSON.stringify({ templateId: tpl.id, merge: true }),
+      });
+      toast(`「${tpl.name}」を適用しました`);
+      closeModal();
+      await refreshAutomation();
+      render();
+      bindActions();
+    } catch (e) {
+      toast(e.message);
+    } finally {
+      applyBtn.disabled = false;
+    }
+  };
+
+  cancelBtn?.addEventListener("click", onCancel);
+  applyBtn?.addEventListener("click", onApply);
+  modal.addEventListener("click", onBackdrop);
 }
 
 function getProjectId() {
@@ -787,11 +833,16 @@ function renderAutomationSpecPhotosTab() {
       <button type="button" class="auto-photo-move" data-spec-move="up" data-spec-id="${escapeHtml(p.id)}" ${idx === 0 ? "disabled" : ""} aria-label="上へ">↑</button>
       <span class="auto-photo-order">${idx + 1}</span>
       <span class="auto-photo-icon">${p.shot ? "✅" : "📷"}</span>
-      <div class="auto-photo-label-block">
-        <span class="auto-photo-label">${escapeHtml(p.label)}</span>
-        ${reqBadge}
+      <div class="auto-photo-label-block" style="flex:1;">
+        <div class="spec-slot-edit">
+          <input type="text" class="spec-slot-label" data-spec-id="${escapeHtml(p.id)}" value="${escapeHtml(p.label)}" aria-label="スロット名" />
+          <div class="spec-slot-edit-row">
+            <label><input type="checkbox" class="spec-slot-required" data-spec-id="${escapeHtml(p.id)}" ${p.required ? "checked" : ""} />必須</label>
+            <label><input type="checkbox" class="spec-slot-active" data-spec-id="${escapeHtml(p.id)}" ${p.active !== false ? "checked" : ""} />有効</label>
+          </div>
+          <input type="text" class="spec-slot-memo auto-memo-input" data-spec-id="${escapeHtml(p.id)}" value="${escapeHtml(p.memo || "")}" placeholder="メモ（任意）" />
+        </div>
         ${qnapLine}
-        ${p.memo ? `<span class="auto-photo-memo">${escapeHtml(p.memo)}</span>` : ""}
       </div>
       ${p.shot ? `<span class="auto-photo-meta ok-label">撮影済</span>` : `<span class="auto-photo-meta warn">未撮影</span>`}
       <button type="button" class="auto-photo-move" data-spec-move="down" data-spec-id="${escapeHtml(p.id)}" ${idx === sorted.length - 1 ? "disabled" : ""} aria-label="下へ">↓</button>
@@ -803,8 +854,15 @@ function renderAutomationSpecPhotosTab() {
       ? `<p class="section-hint unshot-hint">未撮影 ${unshot.length}件 — Document Center または現調図面から仕様書写真を紐付けできます</p>`
       : `<p class="section-hint" style="color:#15803d">すべての仕様書写真が撮影済みです</p>`;
   const specHref = `/document-viewer-v1.html?projectId=${encodeURIComponent(projectId)}&kind=specification`;
+  const pendingQnap = (detail.specPhotoMeta && Object.values(detail.specPhotoMeta).some(
+    (m) => m.qnapStatus === "qnap_pending" || m.qnapStatus === "qnap_failed"
+  )) || photos.some((p) => p.shot && specPhotoMeta[p.id]?.qnapStatus !== "qnap_synced");
   return `
     ${renderAutomationProgressCard()}
+    <button type="button" class="btn-primary btn-spec-qnap-sync" id="btn-spec-photos-qnap-sync" style="width:100%;min-height:48px;border-radius:10px;">
+      仕様書写真をQNAP同期
+    </button>
+    <p class="section-hint" id="spec-qnap-sync-hint">${pendingQnap ? "未同期または失敗の写真があります" : "QNAP同期済み、または同期対象なし"}</p>
     <p class="slot-order-badge">仕様書PDF — マスター写真順で作成</p>
     <h3 class="section-sub">仕様書PDFに使う順番 ${prog ? `（${prog.shot}/${prog.total} · ${prog.percent}%）` : ""}</h3>
     ${unshotHint}
@@ -1950,6 +2008,90 @@ function bindAutomationActions() {
         toast(e.message);
       }
     });
+  });
+
+  async function saveSpecSlotPatch(photoId, patch) {
+    if (!detail?.project?.id) return;
+    await automationApi(`/projects/${detail.project.id}/spec-photos/${photoId}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    });
+  }
+
+  document.querySelectorAll(".spec-slot-label").forEach((input) => {
+    input.addEventListener("change", async () => {
+      const id = input.getAttribute("data-spec-id");
+      const label = input.value.trim();
+      if (!id || !label) return;
+      try {
+        await saveSpecSlotPatch(id, { label });
+        await refreshAutomation();
+      } catch (e) {
+        toast(e.message);
+      }
+    });
+  });
+
+  document.querySelectorAll(".spec-slot-memo").forEach((input) => {
+    input.addEventListener("change", async () => {
+      const id = input.getAttribute("data-spec-id");
+      if (!id) return;
+      try {
+        await saveSpecSlotPatch(id, { memo: input.value.trim() || null });
+      } catch (e) {
+        toast(e.message);
+      }
+    });
+  });
+
+  document.querySelectorAll(".spec-slot-required").forEach((input) => {
+    input.addEventListener("change", async () => {
+      const id = input.getAttribute("data-spec-id");
+      if (!id) return;
+      try {
+        await saveSpecSlotPatch(id, { required: input.checked });
+        await refreshAutomation();
+        render();
+        bindActions();
+      } catch (e) {
+        toast(e.message);
+      }
+    });
+  });
+
+  document.querySelectorAll(".spec-slot-active").forEach((input) => {
+    input.addEventListener("change", async () => {
+      const id = input.getAttribute("data-spec-id");
+      if (!id) return;
+      try {
+        await saveSpecSlotPatch(id, { active: input.checked });
+        await refreshAutomation();
+        render();
+        bindActions();
+      } catch (e) {
+        toast(e.message);
+      }
+    });
+  });
+
+  $("btn-spec-photos-qnap-sync")?.addEventListener("click", async () => {
+    if (!detail?.project?.id) return;
+    const btn = $("btn-spec-photos-qnap-sync");
+    btn.disabled = true;
+    try {
+      const result = await automationApi(`/projects/${detail.project.id}/spec-photos/qnap-sync`, {
+        method: "POST",
+        body: "{}",
+      });
+      toast(`QNAP同期: 成功 ${result.synced?.length ?? 0} / 失敗 ${result.failed?.length ?? 0}`);
+      await refreshAutomation();
+      render();
+      bindActions();
+    } catch (e) {
+      toast(e.message || "QNAP同期に失敗しました");
+    } finally {
+      btn.disabled = false;
+    }
   });
   document.querySelectorAll(".ai-dismiss-btn").forEach((btn) => {
     btn.addEventListener("click", async () => {

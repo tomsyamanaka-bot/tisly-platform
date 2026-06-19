@@ -61,6 +61,49 @@ function renderSummary(summary) {
   $("status-last-check").textContent = formatJaDateTime(summary.lastCheckedAt);
 }
 
+function renderQnapTestStatus(status) {
+  if (!status) return;
+  const modeEl = $("qnap-mode");
+  if (modeEl) {
+    modeEl.textContent = status.qnapMode === "webdav" ? "WebDAV（本番）" : "Mock";
+    modeEl.className = status.qnapMode === "webdav" ? "status-ok" : "status-warn";
+  }
+  const connEl = $("qnap-conn-status");
+  if (connEl) {
+    if (status.summary?.qnapLabel === "接続成功") {
+      connEl.textContent = "✅ 接続成功";
+      connEl.className = "status-ok";
+    } else if (status.summary?.qnapLabel === "接続失敗") {
+      connEl.textContent = "❌ 接続失敗";
+      connEl.className = "status-err";
+    } else if (status.qnapConfigured) {
+      connEl.textContent = "未確認";
+      connEl.className = "status-warn";
+    } else {
+      connEl.textContent = "Mock（未設定）";
+      connEl.className = "status-muted";
+    }
+  }
+  if ($("qnap-last-test")) {
+    $("qnap-last-test").textContent = formatJaDateTime(status.qnapLastTestAt);
+  }
+  const errEl = $("qnap-last-error");
+  if (errEl) {
+    errEl.textContent = status.qnapLastError || "—";
+    errEl.className = status.qnapLastError ? "status-err" : "status-muted";
+  }
+  if ($("qnap-test-filename") && status.testFileName) {
+    $("qnap-test-filename").textContent = status.testFileName;
+  }
+  const delEl = $("qnap-delete-result");
+  if (delEl && status.lastTestPdfDelete) {
+    delEl.textContent = status.lastTestPdfDelete.ok
+      ? `✅ ${status.lastTestPdfDelete.message}`
+      : `❌ ${status.lastTestPdfDelete.message}`;
+    delEl.className = status.lastTestPdfDelete.ok ? "status-ok" : "status-err";
+  }
+}
+
 function fillForm(settings) {
   $("local-enabled").checked = settings.localStorageEnabled !== false;
   $("qnap-enabled").checked = Boolean(settings.qnapBackupEnabled);
@@ -88,6 +131,16 @@ function collectForm() {
   };
 }
 
+async function loadQnapStatus() {
+  try {
+    const status = await api("/qnap/status");
+    renderQnapTestStatus(status);
+    return status;
+  } catch {
+    return null;
+  }
+}
+
 async function load() {
   const data = await api("");
   fillForm(data.settings);
@@ -102,6 +155,7 @@ async function load() {
   if (data.settings.lastTestPdfSend) {
     showResult($("pdf-result"), data.settings.lastTestPdfSend.ok, data.settings.lastTestPdfSend.message);
   }
+  await loadQnapStatus();
 }
 
 function renderIntegrity(report) {
@@ -155,6 +209,7 @@ async function init() {
       const data = await api("", { method: "PUT", body: JSON.stringify(collectForm()) });
       fillForm(data.settings);
       renderSummary(data.summary);
+      await loadQnapStatus();
       toast("保存しました");
     } catch (e) {
       toast(e.message || "保存に失敗しました");
@@ -168,6 +223,7 @@ async function init() {
       const data = await api("/qnap/test-connection", { method: "POST", body: "{}" });
       showResult($("connection-result"), data.result.ok, data.result.message);
       renderSummary(data.summary);
+      await loadQnapStatus();
     } catch (e) {
       showResult($("connection-result"), false, e.message || "接続テスト失敗");
     } finally {
@@ -182,10 +238,40 @@ async function init() {
       const data = await api("/qnap/test-pdf", { method: "POST", body: "{}" });
       showResult($("pdf-result"), data.result.ok, data.result.message);
       renderSummary(data.summary);
+      await loadQnapStatus();
     } catch (e) {
       showResult($("pdf-result"), false, e.message || "テスト送信失敗");
     } finally {
       $("btn-test-pdf").disabled = false;
+    }
+  });
+
+  $("btn-test-delete")?.addEventListener("click", async () => {
+    $("btn-test-delete").disabled = true;
+    try {
+      await api("", { method: "PUT", body: JSON.stringify(collectForm()) });
+      const data = await api("/qnap/test-delete", { method: "POST", body: "{}" });
+      showResult($("pdf-result"), data.result.ok, data.result.message);
+      await loadQnapStatus();
+      toast(data.result.ok ? "テストファイルを削除しました" : data.result.message);
+    } catch (e) {
+      toast(e.message || "削除に失敗しました");
+    } finally {
+      $("btn-test-delete").disabled = false;
+    }
+  });
+
+  $("btn-retry-failed")?.addEventListener("click", async () => {
+    if (!confirm("QNAP保存失敗分を再同期しますか？")) return;
+    $("btn-retry-failed").disabled = true;
+    try {
+      const data = await api("/qnap/retry-failed", { method: "POST", body: "{}" });
+      toast(`再同期: 成功 ${data.result?.synced?.length ?? 0} / 失敗 ${data.result?.failed?.length ?? 0}`);
+      await loadQnapStatus();
+    } catch (e) {
+      toast(e.message || "再同期に失敗しました");
+    } finally {
+      $("btn-retry-failed").disabled = false;
     }
   });
 
