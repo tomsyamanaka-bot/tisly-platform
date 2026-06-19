@@ -16,8 +16,17 @@ export type StorageDocumentTypeV1 =
   | "survey"
   | "drawing"
   | "report"
-  | "photos"
-  | "pdf";
+  | "photo"
+  | "specification"
+  | "other";
+
+export type StorageDocumentSourceTypeV1 =
+  | "manual"
+  | "pdf"
+  | "drawing"
+  | "voice"
+  | "phone"
+  | "ai";
 
 export type StorageDocumentStatusV1 =
   | "qnap_pending"
@@ -42,12 +51,13 @@ export interface StorageDocumentV1 {
   updatedAt: string;
   syncedAt: string | null;
   errorMessage: string | null;
+  sourceType: StorageDocumentSourceTypeV1;
 }
 
 const PDF_KIND_TO_DOC_TYPE: Record<ProjectPdfKind, StorageDocumentTypeV1> = {
   estimate: "estimate",
   invoice: "invoice",
-  specification: "pdf",
+  specification: "specification",
   report: "report",
 };
 
@@ -76,6 +86,7 @@ function rowFromDb(r: Record<string, unknown>): StorageDocumentV1 {
     updatedAt: String(r.updated_at),
     syncedAt: r.synced_at != null ? String(r.synced_at) : null,
     errorMessage: r.error_message != null ? String(r.error_message) : null,
+    sourceType: (r.source_type != null ? String(r.source_type) : "pdf") as StorageDocumentSourceTypeV1,
   };
 }
 
@@ -247,8 +258,8 @@ export function registerProjectPdfDocumentV1(input: RegisterProjectPdfDocumentIn
       `INSERT INTO storage_documents_v1 (
         id, project_id, document_type, title, file_name, local_path, qnap_path,
         mime_type, size, status, customer_name, site_name,
-        created_at, updated_at, synced_at, error_message
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        created_at, updated_at, synced_at, error_message, source_type
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       id,
@@ -266,7 +277,8 @@ export function registerProjectPdfDocumentV1(input: RegisterProjectPdfDocumentIn
       now,
       now,
       status === "qnap_synced" ? now : null,
-      input.errorMessage ?? null
+      input.errorMessage ?? null,
+      "pdf"
     );
 
   return rowFromDb(
@@ -312,5 +324,5 @@ export function mapPracticalKindToDocumentType(
   if (kind === "estimate") return "estimate";
   if (kind === "invoice") return "invoice";
   if (kind === "completion") return "report";
-  return "pdf";
+  return "specification";
 }

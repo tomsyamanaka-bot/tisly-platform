@@ -231,6 +231,7 @@ export function runMigrations(database: Database.Database): void {
   migrateMasterV1EstimatePreview(database);
   migrateMasterV1EstimateApply(database);
   migrateStorageDocumentsV1(database);
+  migrateDocumentCenterV1(database);
   migrateLegacyDocNumbersIfNeededV1(database);
 }
 
@@ -3980,4 +3981,59 @@ function migrateStorageDocumentsV1(database: Database.Database): void {
       `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
     )
     .run("migration:storage_documents_v1", JSON.stringify({ at: new Date().toISOString() }));
+}
+
+/** Document Center v1 — source_type / favorites / recent */
+function migrateDocumentCenterV1(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:document_center_v1") as { value_json: string } | undefined;
+  if (marker) return;
+
+  const cols = new Set(
+    (database.prepare("PRAGMA table_info(storage_documents_v1)").all() as Array<{ name: string }>).map(
+      (r) => r.name
+    )
+  );
+  if (!cols.has("source_type")) {
+    database.exec(
+      `ALTER TABLE storage_documents_v1 ADD COLUMN source_type TEXT NOT NULL DEFAULT 'pdf'`
+    );
+  }
+
+  database.exec(`
+    UPDATE storage_documents_v1 SET document_type = 'specification' WHERE document_type = 'pdf';
+    UPDATE storage_documents_v1 SET document_type = 'photo' WHERE document_type = 'photos';
+  `);
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS document_center_favorites_v1 (
+      project_id TEXT NOT NULL,
+      username TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (project_id, username)
+    );
+    CREATE INDEX IF NOT EXISTS idx_document_center_favorites_username
+      ON document_center_favorites_v1(username, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS document_center_recent_v1 (
+      id TEXT PRIMARY KEY,
+      username TEXT NOT NULL,
+      project_id TEXT NOT NULL,
+      document_id TEXT NOT NULL,
+      document_type TEXT NOT NULL,
+      title TEXT NOT NULL DEFAULT '',
+      file_name TEXT NOT NULL DEFAULT '',
+      preview_url TEXT,
+      accessed_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_document_center_recent_username
+      ON document_center_recent_v1(username, accessed_at DESC);
+  `);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:document_center_v1", JSON.stringify({ at: new Date().toISOString() }));
 }

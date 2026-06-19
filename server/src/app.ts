@@ -99,6 +99,7 @@ import { remoteTestRouter } from "./api/routes/remote-test.js";
 import { pushRouter } from "./api/routes/push.js";
 import { storageSettingsV1Router } from "./api/routes/storage-settings-v1.js";
 import { qnapStorageV1Router } from "./api/routes/qnap-storage-v1.js";
+import { documentsV1Router } from "./api/routes/documents-v1.js";
 import { masterV1Router } from "./api/routes/master-v1.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -163,6 +164,7 @@ export function createApp(): express.Application {
   app.use("/api/field-checklist/v1", fieldChecklistV1Router);
   app.use("/api/storage/v1/settings", storageSettingsV1Router);
   app.use("/api/storage/qnap", qnapStorageV1Router);
+  app.use("/api/documents/v1", documentsV1Router);
   app.use("/api/master/v1", masterV1Router);
   app.use("/api/business", businessRouter);
   app.use("/api/toms", tomsRouter);
@@ -454,6 +456,9 @@ export function createApp(): express.Application {
   });
   app.get("/storage-settings-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "storage-settings-v1.html"));
+  });
+  app.get("/documents-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "documents-v1.html"));
   });
   app.get("/master-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "master-v1.html"));

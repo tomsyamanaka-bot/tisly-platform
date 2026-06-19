@@ -324,6 +324,38 @@ function renderDocumentStatusSummary() {
   return `<div class="doc-status-grid">${rows}</div>`;
 }
 
+function renderDocumentTimeline(limit = 5) {
+  const docTypes = new Set([
+    "estimate_created",
+    "estimate_pdf_saved",
+    "invoice_created",
+    "invoice_pdf_saved",
+    "specification_created",
+    "specification_saved",
+    "completion_created",
+    "completion_saved",
+    "qnap_saved",
+    "photo_added",
+    "drawing_added",
+  ]);
+  const items = (detail.timeline ?? []).filter((e) => docTypes.has(e.eventType)).slice(0, limit);
+  if (!items.length) {
+    return `<p class="section-hint">まだドキュメント履歴がありません</p>`;
+  }
+  return `<div class="recent-history-list">${items
+    .map((e) => {
+      const d = new Date(e.date || e.createdAt || "");
+      const label = Number.isNaN(d.getTime())
+        ? String(e.dateGroup || e.date || "—").slice(5, 10).replace("-", "/")
+        : `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}`;
+      return `<div class="recent-history-row">
+        <span class="recent-history-date">${escapeHtml(label)}</span>
+        <span class="recent-history-title">${escapeHtml(e.title)}${e.description ? ` — ${escapeHtml(e.description)}` : ""}</span>
+      </div>`;
+    })
+    .join("")}</div>`;
+}
+
 function renderRecentHistory(limit = 3) {
   const items = (detail.timeline ?? []).slice(0, limit);
   if (!items.length) {
@@ -542,6 +574,11 @@ function renderOverview(p) {
     <section class="overview-section">
       <h3 class="section-sub">最近の履歴</h3>
       ${renderRecentHistory(3)}
+    </section>
+    <section class="overview-section">
+      <h3 class="section-sub">ドキュメント履歴</h3>
+      ${renderDocumentTimeline(5)}
+      <p class="link-row"><a href="/documents-v1?projectId=${encodeURIComponent(p.id)}">Document Center で開く →</a></p>
     </section>
     <section class="overview-section">
       <h3 class="section-sub">書類状態</h3>

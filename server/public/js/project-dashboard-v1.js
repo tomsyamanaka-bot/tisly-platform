@@ -230,18 +230,49 @@ function renderSearchResults(projects) {
   bindCardNavigation(wrap);
 }
 
+function renderRecentDocs(items) {
+  const list = $("recent-docs-list");
+  if (!list) return;
+  if (!items?.length) {
+    list.innerHTML = '<p class="empty-hint">まだ履歴がありません</p>';
+    return;
+  }
+  list.innerHTML = items
+    .map((item) => {
+      const href = `/documents-v1?projectId=${encodeURIComponent(item.projectId)}`;
+      return `<article class="dash-card" data-href="${escapeHtml(href)}" tabindex="0" role="button">
+        <div class="dash-card-head">
+          <span class="dash-time">${escapeHtml(item.projectNo)}</span>
+        </div>
+        <div class="dash-title">${escapeHtml(item.title)}</div>
+        <div class="dash-meta">${escapeHtml(item.customerName)} · ${escapeHtml(item.fileName)}</div>
+      </article>`;
+    })
+    .join("");
+  bindCardNavigation(list);
+}
+
 async function loadDashboard() {
-  const [summaryRes, todayRes, alertsRes, recentRes, cityRes, salesRes] = await Promise.all([
+  const token = getCustomerToken();
+  const docsPromise = fetch("/api/documents/v1/recent?limit=10", {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+    .then((r) => r.json())
+    .catch(() => ({ items: [] }));
+
+  const [summaryRes, todayRes, alertsRes, recentRes, cityRes, salesRes, docsRes] = await Promise.all([
     api("/summary"),
     api("/today"),
     api("/alerts"),
     api("/recent"),
     api("/city-stats"),
     api("/sales"),
+    docsPromise,
   ]);
   renderKpi(summaryRes.summary?.cards ?? []);
   renderToday(todayRes);
   renderAlerts(alertsRes.alerts ?? []);
+  renderRecentDocs(docsRes.items ?? []);
   renderRecent(recentRes.projects ?? []);
   renderCityStats(cityRes.cities ?? []);
   renderSales(salesRes.sales);

@@ -184,6 +184,16 @@ const PRACTICAL_PWA_DEFS: Array<
   }
 > = [
   {
+    id: "documents_v1",
+    label: "Document Center",
+    subtitle: "案件の書類・写真・図面を一元管理",
+    icon: "📁",
+    features: ["書類一覧", "QNAP連携", "検索", "プレビュー"],
+    href: "/documents-v1",
+    themeColor: "#6366f1",
+    readyRoles: ["surveyor", "manager", "owner", "admin", "super_admin"],
+  },
+  {
     id: "project_dashboard_v1",
     label: "案件ダッシュボード",
     subtitle: "今日の仕事が一目でわかる",

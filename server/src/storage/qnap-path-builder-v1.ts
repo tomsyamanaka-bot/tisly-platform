@@ -36,13 +36,13 @@ export function documentTypeToQnapFolder(documentType: StorageDocumentTypeV1): Q
       return "invoices";
     case "report":
       return "reports";
-    case "pdf":
+    case "specification":
       return "surveys";
     case "survey":
       return "surveys";
     case "drawing":
       return "drawings";
-    case "photos":
+    case "photo":
       return "photos";
     default:
       return "meta";
@@ -85,7 +85,7 @@ export function buildQnapRemoteFileName(
   if (documentType === "report") {
     return `${sanitizeFileName(projectNo)}_${sanitizeFileName(siteName)}_完了報告書.pdf`;
   }
-  if (documentType === "pdf") {
+  if (documentType === "specification") {
     return `${sanitizeFileName(projectNo)}_${sanitizeFileName(siteName)}_仕様書.pdf`;
   }
   if (documentType === "drawing") {

@@ -1,0 +1,21 @@
+{
+  "capturedAt": "2026-06-19T03:34:37.583Z",
+  "baseUrl": "/documents-v1",
+  "projectId": "BIZ-E16CBF8E",
+  "screenshots": {
+    "home": "01-documents-v1-home.png",
+    "search": "02-documents-v1-search.png",
+    "projectFolders": "03-documents-v1-project-folders.png",
+    "preview": "04-documents-v1-preview.png",
+    "qnapStatus": "05-documents-v1-qnap-status.png",
+    "dashboardRecent": "06-dashboard-recent-docs.png"
+  },
+  "checks": {
+    "homeProjects": true,
+    "searchHits": true,
+    "folderView": true,
+    "pdfPreview": true,
+    "qnapStatus": true,
+    "dashboardRecentDocs": true
+  }
+}
