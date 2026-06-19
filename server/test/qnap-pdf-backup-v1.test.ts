@@ -257,8 +257,9 @@ describe("QNAP PDF 自動バックアップ v1", () => {
       .get("/api/storage/v1/settings/qnap/integrity")
       .set("Authorization", `Bearer ${ownerToken}`);
     assert.equal(integrity.status, 200);
-    assert.equal(typeof integrity.body.localPdfCount, "number");
-    assert.equal(typeof integrity.body.qnapSuccessCount, "number");
-    assert.equal(typeof integrity.body.mismatch, "boolean");
+    assert.equal(typeof integrity.body.pdfs.localPdfCount, "number");
+    assert.equal(typeof integrity.body.pdfs.qnapSuccessCount, "number");
+    assert.equal(typeof integrity.body.pdfs.mismatch, "boolean");
+    assert.equal(typeof integrity.body.specPhotos.mismatchCount, "number");
   });
 });

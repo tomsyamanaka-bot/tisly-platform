@@ -17,6 +17,7 @@ import type {
   ToolTemplateItemV1,
 } from "./project-automation-types.js";
 import {
+  listSpecPhotoTemplatesV1,
   listSpecProjectPhotoSlotsV1,
   seedSpecProjectPhotosFromTemplateV1,
 } from "./spec-photo-slots-v1-store.js";
@@ -38,6 +39,7 @@ function rowToTemplate(r: Record<string, unknown>): ProjectTemplateV1 {
     taskCount: Number(r.task_count ?? 0),
     toolCount: Number(r.tool_count ?? 0),
     photoCount: Number(r.photo_count ?? 0),
+    specPhotoCount: Number(r.spec_photo_count ?? 0),
     useCount: Number(r.use_count ?? 0),
   };
 }
@@ -68,7 +70,8 @@ export function listProjectTemplatesV1(
       `SELECT pt.*,
         (SELECT COUNT(*) FROM task_templates_v1 t WHERE t.project_template_id = pt.id) AS task_count,
         (SELECT COUNT(*) FROM tool_templates_v1 t WHERE t.project_template_id = pt.id) AS tool_count,
-        (SELECT COUNT(*) FROM photo_templates_v1 t WHERE t.project_template_id = pt.id) AS photo_count
+        (SELECT COUNT(*) FROM photo_templates_v1 t WHERE t.project_template_id = pt.id) AS photo_count,
+        (SELECT COUNT(*) FROM spec_photo_templates_v1 t WHERE t.project_template_id = pt.id AND t.active = 1) AS spec_photo_count
        FROM project_templates_v1 pt
        ${where}
        ORDER BY ${orderBy}`
@@ -145,6 +148,9 @@ function rowToSpecPhotoTemplate(r: Record<string, unknown>): SpecPhotoTemplateIt
     projectTemplateId: String(r.project_template_id),
     label: String(r.label),
     sortOrder: Number(r.sort_order ?? 0),
+    required: Number(r.required ?? 0) === 1,
+    memo: r.memo != null ? String(r.memo) : null,
+    active: Number(r.active ?? 1) === 1,
   };
 }
 
@@ -239,6 +245,97 @@ export function applyProjectTemplateV1(projectId: string, templateId: string): P
   return getProjectAutomationBundleV1(projectId);
 }
 
+/** 既存案件へテンプレートをマージ適用（既存タスク・写真は保持、不足分のみ追加） */
+export function mergeProjectTemplateV1(projectId: string, templateId: string): ProjectAutomationBundleV1 {
+  const tpl = getProjectTemplateV1(templateId);
+  if (!tpl) throw new Error("template not found");
+
+  const db = getDatabase();
+  const now = new Date().toISOString();
+
+  const existingTasks = listProjectTasksV1(projectId);
+  const taskTplIds = new Set(existingTasks.map((t) => t.templateItemId).filter(Boolean));
+  const taskLabels = new Set(existingTasks.map((t) => t.label));
+
+  const insertTask = db.prepare(
+    `INSERT INTO project_tasks_v1 (id, project_id, template_item_id, label, done, sort_order, done_at, created_at, updated_at)
+     VALUES (?, ?, ?, ?, 0, ?, NULL, ?, ?)`
+  );
+  for (const task of tpl.tasks) {
+    if (!taskTplIds.has(task.id) && !taskLabels.has(task.label)) {
+      insertTask.run(uuid(), projectId, task.id, task.label, task.sortOrder, now, now);
+    }
+  }
+
+  const existingTools = listProjectToolsV1(projectId);
+  const toolTplIds = new Set(existingTools.map((t) => t.templateItemId).filter(Boolean));
+  const toolLabels = new Set(existingTools.map((t) => t.label));
+  const insertTool = db.prepare(
+    `INSERT INTO project_tools_v1 (id, project_id, template_item_id, label, checked, sort_order, checked_at, created_at, updated_at)
+     VALUES (?, ?, ?, ?, 0, ?, NULL, ?, ?)`
+  );
+  for (const tool of tpl.tools) {
+    if (!toolTplIds.has(tool.id) && !toolLabels.has(tool.label)) {
+      insertTool.run(uuid(), projectId, tool.id, tool.label, tool.sortOrder, now, now);
+    }
+  }
+
+  const existingPhotos = listProjectPhotoSlotsV1(projectId);
+  const photoTplIds = new Set(existingPhotos.map((p) => p.templateItemId).filter(Boolean));
+  const photoLabels = new Set(existingPhotos.map((p) => p.label));
+  const insertPhoto = db.prepare(
+    `INSERT INTO project_photos_v1 (id, project_id, template_item_id, label, photo_path, document_id, sort_order, shot_at, created_at, updated_at)
+     VALUES (?, ?, ?, ?, NULL, NULL, ?, NULL, ?, ?)`
+  );
+  for (const photo of tpl.photos) {
+    if (!photoTplIds.has(photo.id) && !photoLabels.has(photo.label)) {
+      insertPhoto.run(uuid(), projectId, photo.id, photo.label, photo.sortOrder, now, now);
+    }
+  }
+
+  const existingSpec = listSpecProjectPhotoSlotsV1(projectId);
+  const specTplIds = new Set(existingSpec.map((p) => p.templateItemId).filter(Boolean));
+  const specLabels = new Set(existingSpec.map((p) => p.label));
+  const insertSpec = db.prepare(
+    `INSERT INTO spec_project_photos_v1 (id, project_id, template_item_id, label, photo_path, document_id, sort_order, shot_at, caption, required, memo, active, created_at, updated_at)
+     VALUES (?, ?, ?, ?, NULL, NULL, ?, NULL, NULL, ?, ?, ?, ?, ?)`
+  );
+  for (const sp of tpl.specPhotos) {
+    if (!sp.active) continue;
+    if (!specTplIds.has(sp.id) && !specLabels.has(sp.label)) {
+      insertSpec.run(
+        uuid(),
+        projectId,
+        sp.id,
+        sp.label,
+        sp.sortOrder,
+        sp.required ? 1 : 0,
+        sp.memo,
+        sp.active ? 1 : 0,
+        now,
+        now
+      );
+    }
+  }
+
+  const prevRow = db
+    .prepare(`SELECT project_template_id FROM business_projects WHERE id = ?`)
+    .get(projectId) as { project_template_id?: string | null } | undefined;
+  const prevTemplateId = prevRow?.project_template_id ?? null;
+
+  db.prepare(
+    `UPDATE business_projects SET project_template_id = ?, updated_at = ? WHERE id = ?`
+  ).run(templateId, now, projectId);
+
+  if (prevTemplateId !== templateId) {
+    db.prepare(
+      `UPDATE project_templates_v1 SET use_count = COALESCE(use_count, 0) + 1, updated_at = ? WHERE id = ?`
+    ).run(now, templateId);
+  }
+
+  return getProjectAutomationBundleV1(projectId);
+}
+
 export function listProjectTasksV1(projectId: string): ProjectTaskV1[] {
   const rows = getDatabase()
     .prepare(
@@ -275,7 +372,7 @@ export function computeAutomationProgressV1(
   const taskList = tasks ?? listProjectTasksV1(projectId);
   const toolList = tools ?? listProjectToolsV1(projectId);
   const photoList = photos ?? listProjectPhotoSlotsV1(projectId);
-  const specPhotoList = listSpecProjectPhotoSlotsV1(projectId);
+  const specPhotoList = listSpecProjectPhotoSlotsV1(projectId, { activeOnly: true });
 
   const tasksDone = taskList.filter((t) => t.done).length;
   const toolsChecked = toolList.filter((t) => t.checked).length;
@@ -331,7 +428,7 @@ export function getProjectAutomationBundleV1(projectId: string): ProjectAutomati
     specPhotos,
     progress,
     unshotPhotos: photos.filter((p) => !p.shot),
-    unshotSpecPhotos: specPhotos.filter((p) => !p.shot),
+    unshotSpecPhotos: specPhotos.filter((p) => p.active && !p.shot),
   };
 }
 

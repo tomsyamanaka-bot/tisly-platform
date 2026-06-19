@@ -68,6 +68,8 @@ describe("Project Automation Engine v1", () => {
     assert.equal(detail.body.tasks.length, 10);
     assert.equal(detail.body.tools.length, 10);
     assert.equal(detail.body.photos.length, 6);
+    assert.equal(detail.body.specPhotos.length, 8);
+    assert.equal(detail.body.specPhotos[0].label, "建物外観");
   });
 
   it("案件作成時にテンプレート適用できる", async () => {

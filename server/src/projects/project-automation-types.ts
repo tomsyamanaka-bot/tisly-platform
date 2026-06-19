@@ -11,6 +11,7 @@ export interface ProjectTemplateV1 {
   taskCount: number;
   toolCount: number;
   photoCount: number;
+  specPhotoCount?: number;
   useCount?: number;
 }
 
@@ -47,6 +48,9 @@ export interface SpecPhotoTemplateItemV1 {
   projectTemplateId: string;
   label: string;
   sortOrder: number;
+  required: boolean;
+  memo: string | null;
+  active: boolean;
 }
 
 export interface ProjectTaskV1 {
@@ -96,6 +100,9 @@ export interface SpecProjectPhotoSlotV1 {
   shotAt: string | null;
   shot: boolean;
   caption: string | null;
+  required: boolean;
+  memo: string | null;
+  active: boolean;
 }
 
 export interface AutomationProgressV1 {
@@ -152,7 +159,11 @@ export interface SpecificationPhotoV1 {
   localPath: string | null;
   qnapPath: string | null;
   qnapStatus: string | null;
+  qnapStatusLabel: string | null;
+  qnapStatusIcon: string | null;
   caption: string | null;
+  required: boolean;
+  active: boolean;
   hasPhoto: boolean;
   missing: boolean;
 }
@@ -169,4 +180,7 @@ export interface ProjectTemplateAdminInputV1 {
 export interface TemplateItemInputV1 {
   label: string;
   sortOrder?: number;
+  required?: boolean;
+  memo?: string | null;
+  active?: boolean;
 }

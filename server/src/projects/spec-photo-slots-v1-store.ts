@@ -21,6 +21,9 @@ function rowToSpecPhotoTemplate(r: Record<string, unknown>): SpecPhotoTemplateIt
     projectTemplateId: String(r.project_template_id),
     label: String(r.label),
     sortOrder: Number(r.sort_order ?? 0),
+    required: Number(r.required ?? 0) === 1,
+    memo: r.memo != null ? String(r.memo) : null,
+    active: Number(r.active ?? 1) === 1,
   };
 }
 
@@ -38,6 +41,9 @@ function rowToSpecPhotoSlot(r: Record<string, unknown>): SpecProjectPhotoSlotV1 
     shotAt: r.shot_at != null ? String(r.shot_at) : null,
     shot: Boolean(photoPath || documentId),
     caption: r.caption != null ? String(r.caption) : null,
+    required: Number(r.required ?? 0) === 1,
+    memo: r.memo != null ? String(r.memo) : null,
+    active: Number(r.active ?? 1) === 1,
   };
 }
 
@@ -50,13 +56,18 @@ export function listSpecPhotoTemplatesV1(projectTemplateId: string): SpecPhotoTe
   return rows.map(rowToSpecPhotoTemplate);
 }
 
-export function listSpecProjectPhotoSlotsV1(projectId: string): SpecProjectPhotoSlotV1[] {
+export function listSpecProjectPhotoSlotsV1(
+  projectId: string,
+  opts?: { activeOnly?: boolean }
+): SpecProjectPhotoSlotV1[] {
+  const activeOnly = opts?.activeOnly ?? false;
   const rows = getDatabase()
     .prepare(
       `SELECT * FROM spec_project_photos_v1 WHERE project_id = ? ORDER BY sort_order ASC, label ASC`
     )
     .all(projectId) as Array<Record<string, unknown>>;
-  return rows.map(rowToSpecPhotoSlot);
+  const slots = rows.map(rowToSpecPhotoSlot);
+  return activeOnly ? slots.filter((s) => s.active) : slots;
 }
 
 export function seedSpecPhotoTemplatesForTemplateV1(projectTemplateId: string): void {
@@ -66,11 +77,12 @@ export function seedSpecPhotoTemplatesForTemplateV1(projectTemplateId: string): 
     .get(projectTemplateId) as { c: number };
   if (existing.c > 0) return;
   const insert = db.prepare(
-    `INSERT INTO spec_photo_templates_v1 (id, project_template_id, label, sort_order, created_at)
-     VALUES (?, ?, ?, ?, datetime('now'))`
+    `INSERT INTO spec_photo_templates_v1 (id, project_template_id, label, sort_order, required, memo, active, created_at)
+     VALUES (?, ?, ?, ?, ?, NULL, 1, datetime('now'))`
   );
   STANDARD_SPEC_PHOTO_LABELS_V1.forEach((label, i) => {
-    insert.run(`${projectTemplateId}-spec-${i}`, projectTemplateId, label, i);
+    const required = i < 4 ? 1 : 0;
+    insert.run(`${projectTemplateId}-spec-${i}`, projectTemplateId, label, i, required);
   });
 }
 
@@ -84,11 +96,22 @@ export function seedSpecProjectPhotosFromTemplateV1(projectId: string, projectTe
   if (!templates.length) return;
   const now = new Date().toISOString();
   const insert = db.prepare(
-    `INSERT INTO spec_project_photos_v1 (id, project_id, template_item_id, label, photo_path, document_id, sort_order, shot_at, caption, created_at, updated_at)
-     VALUES (?, ?, ?, ?, NULL, NULL, ?, NULL, NULL, ?, ?)`
+    `INSERT INTO spec_project_photos_v1 (id, project_id, template_item_id, label, photo_path, document_id, sort_order, shot_at, caption, required, memo, active, created_at, updated_at)
+     VALUES (?, ?, ?, ?, NULL, NULL, ?, NULL, NULL, ?, ?, ?, ?, ?)`
   );
   for (const tpl of templates) {
-    insert.run(uuid(), projectId, tpl.id, tpl.label, tpl.sortOrder, now, now);
+    insert.run(
+      uuid(),
+      projectId,
+      tpl.id,
+      tpl.label,
+      tpl.sortOrder,
+      tpl.required ? 1 : 0,
+      tpl.memo,
+      tpl.active ? 1 : 0,
+      now,
+      now
+    );
   }
 }
 
@@ -135,7 +158,7 @@ export function reorderSpecProjectPhotosV1(projectId: string, orderedIds: string
 }
 
 export function listUnshotSpecProjectPhotosV1(projectId: string): SpecProjectPhotoSlotV1[] {
-  return listSpecProjectPhotoSlotsV1(projectId).filter((p) => !p.shot);
+  return listSpecProjectPhotoSlotsV1(projectId, { activeOnly: true }).filter((p) => !p.shot);
 }
 
 export function computeSpecPhotoProgressV1(projectId: string): {
@@ -143,7 +166,7 @@ export function computeSpecPhotoProgressV1(projectId: string): {
   total: number;
   percent: number;
 } {
-  const photos = listSpecProjectPhotoSlotsV1(projectId);
+  const photos = listSpecProjectPhotoSlotsV1(projectId, { activeOnly: true });
   const shot = photos.filter((p) => p.shot).length;
   const total = photos.length;
   const percent = total <= 0 ? 0 : Math.round((shot / total) * 100);

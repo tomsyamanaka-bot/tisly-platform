@@ -51,6 +51,9 @@ function rowToSpecPhotoTemplate(r: Record<string, unknown>): SpecPhotoTemplateIt
     projectTemplateId: String(r.project_template_id),
     label: String(r.label),
     sortOrder: Number(r.sort_order ?? 0),
+    required: Number(r.required ?? 0) === 1,
+    memo: r.memo != null ? String(r.memo) : null,
+    active: Number(r.active ?? 1) === 1,
   };
 }
 
@@ -299,9 +302,17 @@ export function createSpecPhotoTemplateItemV1(
   const id = `${templateId}-spec-${uuid().slice(0, 6)}`;
   const sortOrder = input.sortOrder ?? nextItemSortOrder("spec_photo_templates_v1", templateId);
   db.prepare(
-    `INSERT INTO spec_photo_templates_v1 (id, project_template_id, label, sort_order, created_at)
-     VALUES (?, ?, ?, ?, datetime('now'))`
-  ).run(id, templateId, input.label.trim(), sortOrder);
+    `INSERT INTO spec_photo_templates_v1 (id, project_template_id, label, sort_order, required, memo, active, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`
+  ).run(
+    id,
+    templateId,
+    input.label.trim(),
+    sortOrder,
+    input.required ? 1 : 0,
+    input.memo ?? null,
+    input.active === false ? 0 : 1
+  );
   return rowToSpecPhotoTemplate(
     db.prepare(`SELECT * FROM spec_photo_templates_v1 WHERE id = ?`).get(id) as Record<string, unknown>
   );
@@ -317,9 +328,14 @@ export function patchSpecPhotoTemplateItemV1(
     .prepare(`SELECT * FROM spec_photo_templates_v1 WHERE id = ? AND project_template_id = ?`)
     .get(itemId, templateId) as Record<string, unknown> | undefined;
   if (!existing) return null;
-  db.prepare(`UPDATE spec_photo_templates_v1 SET label = ?, sort_order = ? WHERE id = ?`).run(
+  db.prepare(
+    `UPDATE spec_photo_templates_v1 SET label = ?, sort_order = ?, required = ?, memo = ?, active = ? WHERE id = ?`
+  ).run(
     input.label !== undefined ? input.label.trim() : String(existing.label),
     input.sortOrder !== undefined ? input.sortOrder : Number(existing.sort_order ?? 0),
+    input.required !== undefined ? (input.required ? 1 : 0) : Number(existing.required ?? 0),
+    input.memo !== undefined ? input.memo : (existing.memo as string | null),
+    input.active !== undefined ? (input.active ? 1 : 0) : Number(existing.active ?? 1),
     itemId
   );
   return rowToSpecPhotoTemplate(

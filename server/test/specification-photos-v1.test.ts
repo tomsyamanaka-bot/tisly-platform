@@ -103,6 +103,8 @@ describe("Specification PDF v2 — spec photo slots", () => {
     assert.equal(res.body.photos[2].photoSlotName, "設置予定位置");
     assert.ok(res.body.photos[0].localPath);
     assert.equal(res.body.photos[3].missing, true);
+    assert.ok(res.body.integrity);
+    assert.equal(typeof res.body.integrity.mismatchCount, "number");
   });
 
   it("撮影済みスロットのみ photoOrder 順で仕様書PDFに載る", async () => {
@@ -129,6 +131,43 @@ describe("Specification PDF v2 — spec photo slots", () => {
     assert.equal(res.body.specPhotos.length, 8);
     assert.equal(res.body.progress.specPhotos.shot, 3);
     assert.equal(res.body.progress.specPhotos.total, 8);
+  });
+
+  it("merge apply で既存タスクを保持し仕様書スロットを追加", async () => {
+    const legacy = await request(app)
+      .post("/api/project-mgmt/v1/projects")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        title: "マージ検証現場",
+        customerName: "マージ検証様",
+        cityCode: "MO",
+      });
+    assert.equal(legacy.status, 201);
+    const legacyId = legacy.body.project.id;
+
+    await request(app)
+      .post(`/api/project-automation/v1/projects/${legacyId}/tasks`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ label: "手動タスク" });
+
+    const tplRes = await request(app)
+      .get("/api/project-automation/v1/templates")
+      .set("Authorization", `Bearer ${token}`);
+    const camera = tplRes.body.templates.find((t: { name: string }) => t.name === "防犯カメラ工事");
+    assert.ok(camera);
+
+    await request(app)
+      .post(`/api/project-automation/v1/projects/${legacyId}/apply`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ templateId: camera.id, merge: true });
+
+    const after = await request(app)
+      .get(`/api/project-automation/v1/projects/${legacyId}`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.ok(after.body.tasks.some((t: { label: string }) => t.label === "手動タスク"));
+    assert.ok(after.body.tasks.length > 1);
+    assert.equal(after.body.specPhotos.length, 8);
+    assert.equal(after.body.templateId, camera.id);
   });
 
   it("spec-photos reorder で順番を変更できる", async () => {

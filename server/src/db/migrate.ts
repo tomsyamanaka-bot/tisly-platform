@@ -237,6 +237,7 @@ export function runMigrations(database: Database.Database): void {
   migrateProjectAutomationV1(database);
   migrateProjectAutomationV15(database);
   migrateSpecPhotoSlotsV1(database);
+  migrateSpecPhotoTemplateMetaV1(database);
 }
 
 /** 現調図面 v1 — 方眼紙写真 + 描画レイヤー */
@@ -4545,4 +4546,29 @@ function migrateSpecPhotoSlotsV1(database: Database.Database): void {
       `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
     )
     .run("migration:spec_photo_slots_v1", JSON.stringify({ at: new Date().toISOString() }));
+}
+
+/** 仕様書写真スロット — required / memo / active 列 */
+function migrateSpecPhotoTemplateMetaV1(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:spec_photo_template_meta_v1") as { value_json: string } | undefined;
+  if (marker) return;
+
+  addColumnsIfMissing(database, "spec_photo_templates_v1", [
+    { name: "required", ddl: "ALTER TABLE spec_photo_templates_v1 ADD COLUMN required INTEGER NOT NULL DEFAULT 0" },
+    { name: "memo", ddl: "ALTER TABLE spec_photo_templates_v1 ADD COLUMN memo TEXT" },
+    { name: "active", ddl: "ALTER TABLE spec_photo_templates_v1 ADD COLUMN active INTEGER NOT NULL DEFAULT 1" },
+  ]);
+  addColumnsIfMissing(database, "spec_project_photos_v1", [
+    { name: "required", ddl: "ALTER TABLE spec_project_photos_v1 ADD COLUMN required INTEGER NOT NULL DEFAULT 0" },
+    { name: "memo", ddl: "ALTER TABLE spec_project_photos_v1 ADD COLUMN memo TEXT" },
+    { name: "active", ddl: "ALTER TABLE spec_project_photos_v1 ADD COLUMN active INTEGER NOT NULL DEFAULT 1" },
+  ]);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:spec_photo_template_meta_v1", JSON.stringify({ at: new Date().toISOString() }));
 }

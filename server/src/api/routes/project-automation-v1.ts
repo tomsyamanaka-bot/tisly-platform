@@ -28,6 +28,7 @@ import {
   addProjectTaskV1,
   addProjectToolV1,
   applyProjectTemplateV1,
+  mergeProjectTemplateV1,
   deleteProjectTaskV1,
   deleteProjectToolV1,
   getProjectAutomationBundleV1,
@@ -47,6 +48,7 @@ import {
   listAiSuggestionsV1,
   refreshAiSuggestionsV1,
 } from "../../projects/project-automation-suggestions-v1.js";
+import { runQnapSpecPhotosIntegrityCheckV1 } from "../../storage/qnap-spec-photos-integrity-service.js";
 import {
   linkSpecProjectPhotoSlotV1,
   listUnshotSpecProjectPhotosV1,
@@ -117,7 +119,10 @@ projectAutomationV1Router.post("/projects/:projectId/apply", ...auth, (req: Auth
     return;
   }
   try {
-    const bundle = applyProjectTemplateV1(String(req.params.projectId), templateId);
+    const merge = Boolean(req.body?.merge);
+    const bundle = merge
+      ? mergeProjectTemplateV1(String(req.params.projectId), templateId)
+      : applyProjectTemplateV1(String(req.params.projectId), templateId);
     res.json(bundle);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "apply failed";
@@ -287,7 +292,11 @@ projectAutomationV1Router.get(
   ...auth,
   (req: AuthedRequest, res) => {
     if (!assertRole(req, res)) return;
-    res.json({ photos: getSpecificationPhotosV1(String(req.params.projectId)) });
+    const projectId = String(req.params.projectId);
+    res.json({
+      photos: getSpecificationPhotosV1(projectId),
+      integrity: runQnapSpecPhotosIntegrityCheckV1(projectId),
+    });
   }
 );
 
@@ -519,10 +528,68 @@ adminItemRoutes(
   deletePhotoTemplateItemV1,
   reorderPhotoTemplateItemsV1
 );
-adminItemRoutes(
-  "spec-photos",
-  createSpecPhotoTemplateItemV1,
-  patchSpecPhotoTemplateItemV1,
-  deleteSpecPhotoTemplateItemV1,
-  reorderSpecPhotoTemplateItemsV1
+projectAutomationV1Router.post("/admin/templates/:id/spec-photos", ...auth, (req: AuthedRequest, res) => {
+  if (!assertAdmin(req, res)) return;
+  const label = String(req.body?.label ?? "").trim();
+  if (!label) {
+    res.status(400).json({ error: "label is required" });
+    return;
+  }
+  const body = req.body ?? {};
+  try {
+    res.status(201).json(
+      createSpecPhotoTemplateItemV1(String(req.params.id), {
+        label,
+        sortOrder: body.sortOrder != null ? Number(body.sortOrder) : undefined,
+        required: body.required !== undefined ? Boolean(body.required) : undefined,
+        memo: body.memo !== undefined ? (body.memo != null ? String(body.memo) : null) : undefined,
+        active: body.active !== undefined ? Boolean(body.active) : undefined,
+      })
+    );
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : "create failed" });
+  }
+});
+projectAutomationV1Router.patch(
+  "/admin/templates/:id/spec-photos/:itemId",
+  ...auth,
+  (req: AuthedRequest, res) => {
+    if (!assertAdmin(req, res)) return;
+    const body = req.body ?? {};
+    const updated = patchSpecPhotoTemplateItemV1(String(req.params.id), String(req.params.itemId), {
+      label: body.label != null ? String(body.label) : undefined,
+      sortOrder: body.sortOrder != null ? Number(body.sortOrder) : undefined,
+      required: body.required !== undefined ? Boolean(body.required) : undefined,
+      memo: body.memo !== undefined ? (body.memo != null ? String(body.memo) : null) : undefined,
+      active: body.active !== undefined ? Boolean(body.active) : undefined,
+    });
+    if (!updated) {
+      res.status(404).json({ error: "item not found" });
+      return;
+    }
+    res.json(updated);
+  }
+);
+projectAutomationV1Router.delete(
+  "/admin/templates/:id/spec-photos/:itemId",
+  ...auth,
+  (req: AuthedRequest, res) => {
+    if (!assertAdmin(req, res)) return;
+    const ok = deleteSpecPhotoTemplateItemV1(String(req.params.id), String(req.params.itemId));
+    if (!ok) {
+      res.status(404).json({ error: "item not found" });
+      return;
+    }
+    res.status(204).send();
+  }
+);
+projectAutomationV1Router.put(
+  "/admin/templates/:id/spec-photos/reorder",
+  ...auth,
+  (req: AuthedRequest, res) => {
+    if (!assertAdmin(req, res)) return;
+    const orderedIds = Array.isArray(req.body?.orderedIds) ? req.body.orderedIds.map(String) : [];
+    reorderSpecPhotoTemplateItemsV1(String(req.params.id), orderedIds);
+    res.json({ ok: true });
+  }
 );

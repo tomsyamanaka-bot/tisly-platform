@@ -15,6 +15,7 @@ import {
   resyncAllQnapPdfMismatchesV1,
   runQnapPdfIntegrityCheckV1,
 } from "../../storage/qnap-pdf-integrity-service.js";
+import { runQnapSpecPhotosIntegrityCheckV1 } from "../../storage/qnap-spec-photos-integrity-service.js";
 
 export const storageSettingsV1Router = Router();
 
@@ -86,7 +87,11 @@ storageSettingsV1Router.post("/qnap/test-pdf", ...adminAuth, async (req: AuthedR
 
 storageSettingsV1Router.get("/qnap/integrity", ...adminAuth, (req: AuthedRequest, res) => {
   if (!assertAdminRole(req, res)) return;
-  res.json(runQnapPdfIntegrityCheckV1());
+  const projectId = String(req.query.projectId ?? "").trim() || undefined;
+  res.json({
+    pdfs: runQnapPdfIntegrityCheckV1(),
+    specPhotos: runQnapSpecPhotosIntegrityCheckV1(projectId),
+  });
 });
 
 storageSettingsV1Router.post("/qnap/integrity/resync", ...adminAuth, async (req: AuthedRequest, res) => {

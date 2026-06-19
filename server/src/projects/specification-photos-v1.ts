@@ -4,24 +4,37 @@
 import path from "path";
 import { resolvePhotoSlotImageUrlV1 } from "./completion-report-photos-v1.js";
 import type { SpecificationPhotoV1 } from "./project-automation-types.js";
-import { getStorageDocumentByIdV1 } from "../storage/storage-documents-v1-store.js";
+import {
+  getStorageDocumentByIdV1,
+  storageStatusPresentation,
+} from "../storage/storage-documents-v1-store.js";
+import { isQnapPdfBackupConfigured } from "../projects/project-pdf-qnap-store.js";
+import { getStorageSettingsV1 } from "../storage/storage-settings-store.js";
 import { listSpecProjectPhotoSlotsV1, linkSpecProjectPhotoSlotV1 } from "./spec-photo-slots-v1-store.js";
 import type { PracticalCompletionReportPhoto } from "../estimate/practical-completion-report-template.js";
 import { listSurveyPhotosV1 } from "../survey/survey-v1-store.js";
 import { getBusinessProject } from "../business/business-store.js";
+
+function qnapConfigured(): boolean {
+  const settings = getStorageSettingsV1();
+  return Boolean(settings.qnapBackupEnabled && isQnapPdfBackupConfigured());
+}
 
 export function hasSpecPhotoSlotsV1(projectId: string): boolean {
   return listSpecProjectPhotoSlotsV1(projectId).length > 0;
 }
 
 export function getSpecificationPhotosV1(projectId: string): SpecificationPhotoV1[] {
-  const photos = listSpecProjectPhotoSlotsV1(projectId);
+  const photos = listSpecProjectPhotoSlotsV1(projectId, { activeOnly: true });
+  const qnapOn = qnapConfigured();
   return photos
     .map((slot, index) => {
       let fileName: string | null = null;
       let localPath: string | null = null;
       let qnapPath: string | null = null;
       let qnapStatus: string | null = null;
+      let qnapStatusLabel: string | null = null;
+      let qnapStatusIcon: string | null = null;
       if (slot.documentId) {
         const doc = getStorageDocumentByIdV1(slot.documentId);
         if (doc) {
@@ -29,6 +42,9 @@ export function getSpecificationPhotosV1(projectId: string): SpecificationPhotoV
           localPath = doc.localPath;
           qnapPath = doc.qnapPath;
           qnapStatus = doc.status;
+          const pres = storageStatusPresentation(doc.status, qnapOn);
+          qnapStatusLabel = pres.label;
+          qnapStatusIcon = pres.icon;
         }
       } else if (slot.photoPath) {
         fileName = path.basename(slot.photoPath);
@@ -44,7 +60,11 @@ export function getSpecificationPhotosV1(projectId: string): SpecificationPhotoV
         localPath,
         qnapPath,
         qnapStatus,
+        qnapStatusLabel,
+        qnapStatusIcon,
         caption: slot.caption,
+        required: slot.required,
+        active: slot.active,
         hasPhoto,
         missing: !hasPhoto,
       };
@@ -72,7 +92,7 @@ function legacySurveyPhotosForPdfV1(businessProjectId: string): PracticalComplet
 export function buildSpecificationPhotosForPdfV1(
   businessProjectId: string
 ): PracticalCompletionReportPhoto[] {
-  const slots = listSpecProjectPhotoSlotsV1(businessProjectId);
+  const slots = listSpecProjectPhotoSlotsV1(businessProjectId, { activeOnly: true });
   if (slots.length > 0) {
     return getSpecificationPhotosV1(businessProjectId)
       .filter((p) => p.hasPhoto)
