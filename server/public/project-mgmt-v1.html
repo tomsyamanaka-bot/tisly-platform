@@ -74,6 +74,7 @@
     .btn-cancel { border: 1px solid #cbd5e1; background: #fff; }
     .btn-save { border: none; background: var(--tisly-blue, #4f6fa8); color: #fff; }
     .empty-hint { text-align: center; color: #94a3b8; padding: 2rem 0.5rem; font-size: 0.9rem; }
+    .mgmt-progress { font-size: 0.72rem; color: #4f6fa8; font-weight: 700; margin-top: 0.2rem; }
     @media (orientation: landscape) and (max-height: 500px) {
       .kpi-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
       .kpi-card { min-height: 52px; }
@@ -106,6 +107,8 @@
       <input id="create-address" type="text" placeholder="茨城県守谷市…" />
       <label for="create-assignee">担当者</label>
       <input id="create-assignee" type="text" placeholder="山中" />
+      <label for="create-template">案件種別（テンプレート）</label>
+      <select id="create-template"><option value="">— 選択してください —</option></select>
       <div class="create-actions">
         <button type="button" class="btn-cancel" id="btn-cancel-create">キャンセル</button>
         <button type="button" class="btn-save" id="btn-save-create">作成</button>

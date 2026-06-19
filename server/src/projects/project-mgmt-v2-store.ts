@@ -15,6 +15,7 @@ import {
 import { listProjectTimeline } from "../toms/project-timeline.js";
 import { getProjectDocumentsStatusV1 } from "./project-documents-v1.js";
 import type { ProjectMgmtListItemV1 } from "./project-mgmt-v1-store.js";
+import { getProjectAutomationBundleV1 } from "./project-automation-v1-store.js";
 import {
   backfillProjectTimelineV1,
   formatTimelineDateGroupV1,
@@ -383,7 +384,24 @@ export function listProjectMgmtV2(filters?: ProjectMgmtSearchFiltersV2): Project
       if (!filters?.status) return true;
       return projectStatusMatchesFilterV1(r, filters.status);
     })
-    .map(rowToListItem);
+    .map((r) => {
+      const item = rowToListItem(r);
+      let automation: ProjectMgmtListItemV1["automation"] = null;
+      try {
+        const bundle = getProjectAutomationBundleV1(item.id);
+        if (bundle.tasks.length || bundle.tools.length || bundle.photos.length) {
+          automation = {
+            tasksPercent: bundle.progress.tasks.percent,
+            toolsPercent: bundle.progress.tools.percent,
+            photosPercent: bundle.progress.photos.percent,
+            documentsPercent: bundle.progress.documents.percent,
+          };
+        }
+      } catch {
+        /* optional */
+      }
+      return { ...item, automation };
+    });
 }
 
 function monthBoundsJst(now = new Date()): { start: string; end: string; label: string } {

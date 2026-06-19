@@ -8,8 +8,12 @@ const STORAGE_API = "/api/project-storage";
 const DOCUMENTS_API = "/api/documents/v1";
 const PROJECTS_API = "/api/projects/v1";
 const ESTIMATE_API = "/api/estimate/v1";
+const AUTOMATION_API = "/api/project-automation/v1";
 const TABS = [
   { id: "overview", label: "概要" },
+  { id: "automation-tasks", label: "やる事" },
+  { id: "automation-tools", label: "持ち物" },
+  { id: "automation-photos", label: "施工写真" },
   { id: "survey", label: "現調" },
   { id: "estimate", label: "見積" },
   { id: "invoice", label: "請求" },
@@ -282,6 +286,26 @@ async function api(path, opts = {}) {
   return data;
 }
 
+async function automationApi(path, opts = {}) {
+  const token = getCustomerToken();
+  const res = await fetch(`${AUTOMATION_API}${path}`, {
+    ...opts,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      ...(opts.headers || {}),
+    },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+async function refreshAutomation() {
+  if (!detail?.project?.id) return;
+  detail.automation = await automationApi(`/projects/${detail.project.id}`);
+}
+
 function getProjectId() {
   const params = new URLSearchParams(window.location.search);
   return params.get("projectId") || params.get("id");
@@ -454,6 +478,21 @@ function tabBadgeForTab(tabId) {
       return "🟡";
     case "documents":
       return documentsData?.totalDocuments ? `📁${documentsData.totalDocuments}` : "📁";
+    case "automation-tasks": {
+      const prog = detail.automation?.progress?.tasks;
+      if (!prog?.total) return "";
+      return prog.percent >= 100 ? "✓" : `${prog.done}/${prog.total}`;
+    }
+    case "automation-tools": {
+      const prog = detail.automation?.progress?.tools;
+      if (!prog?.total) return "";
+      return prog.percent >= 100 ? "✓" : `${prog.checked}/${prog.total}`;
+    }
+    case "automation-photos": {
+      const prog = detail.automation?.progress?.photos;
+      if (!prog?.total) return "";
+      return prog.percent >= 100 ? "✓" : `${prog.shot}/${prog.total}`;
+    }
     default:
       return "";
   }
@@ -482,6 +521,105 @@ function renderNextActionsCard() {
       <h2 class="next-actions-title">次にやること</h2>
       <div class="next-actions-list">${items}</div>
     </section>`;
+}
+
+function renderProgressBar(label, done, total, percent) {
+  if (!total) return "";
+  return `
+    <div class="auto-progress-row">
+      <div class="auto-progress-head">
+        <span>${escapeHtml(label)}</span>
+        <span class="auto-progress-pct">${done}/${total} (${percent}%)</span>
+      </div>
+      <div class="auto-progress-track"><div class="auto-progress-fill" style="width:${percent}%"></div></div>
+    </div>`;
+}
+
+function renderAutomationProgressCard() {
+  const auto = detail.automation;
+  if (!auto?.templateName && !auto?.tasks?.length) {
+    return `<section class="auto-card"><p class="section-hint">案件種別テンプレートが未適用です。案件一覧から種別を選んで作成してください。</p></section>`;
+  }
+  const prog = auto.progress;
+  return `
+    <section class="auto-card" aria-label="自動化進捗">
+      <h3 class="section-sub">進捗 ${auto.templateName ? `（${escapeHtml(auto.templateName)}）` : ""}</h3>
+      ${renderProgressBar("やる事", prog.tasks.done, prog.tasks.total, prog.tasks.percent)}
+      ${renderProgressBar("持ち物", prog.tools.checked, prog.tools.total, prog.tools.percent)}
+      ${renderProgressBar("写真", prog.photos.shot, prog.photos.total, prog.photos.percent)}
+      ${renderProgressBar("書類", prog.documents.done, prog.documents.total, prog.documents.percent)}
+    </section>`;
+}
+
+function renderAutomationTasksTab() {
+  const tasks = detail.automation?.tasks ?? [];
+  if (!tasks.length) {
+    return `<p class="section-hint">やる事テンプレートがありません</p>`;
+  }
+  const prog = detail.automation?.progress?.tasks;
+  const items = tasks
+    .map(
+      (t) => `
+    <label class="auto-check-item">
+      <input type="checkbox" class="auto-task-check" data-task-id="${escapeHtml(t.id)}" ${t.done ? "checked" : ""} />
+      <span class="${t.done ? "done" : ""}">${escapeHtml(t.label)}</span>
+    </label>`
+    )
+    .join("");
+  return `
+    ${renderAutomationProgressCard()}
+    <h3 class="section-sub">チェックリスト ${prog ? `（${prog.done}/${prog.total} · ${prog.percent}%）` : ""}</h3>
+    <div class="auto-check-list">${items}</div>`;
+}
+
+function renderAutomationToolsTab() {
+  const tools = detail.automation?.tools ?? [];
+  if (!tools.length) {
+    return `<p class="section-hint">持ち物テンプレートがありません</p>`;
+  }
+  const prog = detail.automation?.progress?.tools;
+  const items = tools
+    .map(
+      (t) => `
+    <label class="auto-check-item">
+      <input type="checkbox" class="auto-tool-check" data-tool-id="${escapeHtml(t.id)}" ${t.checked ? "checked" : ""} />
+      <span class="${t.checked ? "done" : ""}">${escapeHtml(t.label)}</span>
+    </label>`
+    )
+    .join("");
+  return `
+    ${renderAutomationProgressCard()}
+    <h3 class="section-sub">持ち物 ${prog ? `（${prog.checked}/${prog.total} · ${prog.percent}%）` : ""}</h3>
+    <div class="auto-check-list">${items}</div>`;
+}
+
+function renderAutomationPhotosTab() {
+  const photos = detail.automation?.photos ?? [];
+  if (!photos.length) {
+    return `<p class="section-hint">写真テンプレートがありません</p>`;
+  }
+  const prog = detail.automation?.progress?.photos;
+  const unshot = detail.automation?.unshotPhotos ?? [];
+  const items = photos
+    .map(
+      (p) => `
+    <div class="auto-photo-item ${p.shot ? "shot" : "unshot"}">
+      <span class="auto-photo-icon">${p.shot ? "✅" : "📷"}</span>
+      <span class="auto-photo-label">${escapeHtml(p.label)}</span>
+      ${p.shot ? `<span class="auto-photo-meta">撮影済</span>` : `<span class="auto-photo-meta warn">未撮影</span>`}
+    </div>`
+    )
+    .join("");
+  const unshotHint =
+    unshot.length > 0
+      ? `<p class="section-hint" style="color:#c2410c">未撮影 ${unshot.length}件 — Document Center から施工写真をアップロードして紐付けできます</p>
+         <p class="link-row"><a class="primary" href="/documents-v1?projectId=${encodeURIComponent(detail.project.id)}">Document Center で写真アップロード →</a></p>`
+      : `<p class="section-hint" style="color:#15803d">すべての施工写真が撮影済みです</p>`;
+  return `
+    ${renderAutomationProgressCard()}
+    <h3 class="section-sub">施工写真 ${prog ? `（${prog.shot}/${prog.total} · ${prog.percent}%）` : ""}</h3>
+    ${unshotHint}
+    <div class="auto-photo-list">${items}</div>`;
 }
 
 function renderDashboard(p) {
@@ -576,6 +714,7 @@ function renderOverview(p) {
       <h3 class="section-sub">今日やること</h3>
       ${todayBlock}
     </section>
+    ${renderAutomationProgressCard()}
     <section class="overview-section">
       <h3 class="section-sub">最近の履歴</h3>
       ${renderRecentHistory(3)}
@@ -1104,6 +1243,12 @@ function renderTabPanel(tab) {
       return renderDocumentsTab();
     case "photos":
       return renderPhotosTab();
+    case "automation-tasks":
+      return renderAutomationTasksTab();
+    case "automation-tools":
+      return renderAutomationToolsTab();
+    case "automation-photos":
+      return renderAutomationPhotosTab();
     default:
       return "";
   }
@@ -1391,6 +1536,7 @@ function bindActions() {
   bindStorageUploads();
   bindQnapStorageActions();
   bindStorageFolders();
+  bindAutomationActions();
   document.querySelectorAll("[data-tl-filter]").forEach((btn) => {
     btn.addEventListener("click", () => {
       timelineFilter = btn.getAttribute("data-tl-filter") || "all";
@@ -1417,6 +1563,45 @@ function bindActions() {
       else expandedTimelineIds.add(id);
       render();
       bindActions();
+    });
+  });
+}
+
+function bindAutomationActions() {
+  document.querySelectorAll(".auto-task-check").forEach((el) => {
+    el.addEventListener("change", async () => {
+      const taskId = el.getAttribute("data-task-id");
+      if (!taskId || !detail?.project?.id) return;
+      try {
+        await automationApi(`/projects/${detail.project.id}/tasks/${taskId}`, {
+          method: "PATCH",
+          body: JSON.stringify({ done: el.checked }),
+        });
+        await refreshAutomation();
+        render();
+        bindActions();
+      } catch (e) {
+        toast(e.message);
+        el.checked = !el.checked;
+      }
+    });
+  });
+  document.querySelectorAll(".auto-tool-check").forEach((el) => {
+    el.addEventListener("change", async () => {
+      const toolId = el.getAttribute("data-tool-id");
+      if (!toolId || !detail?.project?.id) return;
+      try {
+        await automationApi(`/projects/${detail.project.id}/tools/${toolId}`, {
+          method: "PATCH",
+          body: JSON.stringify({ checked: el.checked }),
+        });
+        await refreshAutomation();
+        render();
+        bindActions();
+      } catch (e) {
+        toast(e.message);
+        el.checked = !el.checked;
+      }
     });
   });
 }

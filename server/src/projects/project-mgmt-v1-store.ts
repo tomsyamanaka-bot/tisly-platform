@@ -39,6 +39,7 @@ import {
 } from "./project-mgmt-v2-store.js";
 import { getProjectDocumentsStatusV1, type ProjectDocumentsStatusV1 } from "./project-documents-v1.js";
 import { createProjectStorageFoldersV1 } from "../storage/project-storage-v1.js";
+import { getProjectAutomationBundleV1, applyProjectTemplateV1 } from "./project-automation-v1-store.js";
 import { getProjectStatusV1, type ProjectStatusResultV1 } from "./project-status-v1.js";
 
 export interface ProjectMgmtListItemV1 {
@@ -54,6 +55,12 @@ export interface ProjectMgmtListItemV1 {
   statusColor: string;
   createdAt: string;
   updatedAt: string;
+  automation?: {
+    tasksPercent: number;
+    toolsPercent: number;
+    photosPercent: number;
+    documentsPercent: number;
+  } | null;
 }
 
 export interface ProjectMgmtDetailV1 {
@@ -104,6 +111,7 @@ export interface ProjectMgmtDetailV1 {
   timeline: ReturnType<typeof listProjectTimelineV2>;
   shareHistory: ReturnType<typeof listPdfShareHistoryV2>;
   projectStatus: ProjectStatusResultV1 | null;
+  automation: ReturnType<typeof getProjectAutomationBundleV1> | null;
 }
 
 function rowToListItem(r: Record<string, unknown>): ProjectMgmtListItemV1 {
@@ -257,6 +265,7 @@ export function getProjectMgmtDetailV1(projectId: string): ProjectMgmtDetailV1 |
     timeline: listProjectTimelineV2(projectId),
     shareHistory: listPdfShareHistoryV2(projectId),
     projectStatus: getProjectStatusV1(projectId),
+    automation: getProjectAutomationBundleV1(projectId),
   };
 }
 
@@ -271,6 +280,7 @@ export function createProjectMgmtV1(input: {
   customerId?: string;
   surveyProjectId?: string;
   mgmtStatus?: ProjectMgmtStatus;
+  templateId?: string;
 }): BusinessProject {
   const id = `BIZ-${uuid().slice(0, 8).toUpperCase()}`;
   const cityCode = resolveCityCodeForProject({
@@ -342,6 +352,19 @@ export function createProjectMgmtV1(input: {
       title: "現調作成",
       description: input.surveyProjectId,
     });
+  }
+  if (input.templateId?.trim()) {
+    try {
+      applyProjectTemplateV1(id, input.templateId.trim());
+      addProjectTimelineEventV1({
+        projectId: id,
+        eventType: "template_applied",
+        title: "案件テンプレート適用",
+        description: input.templateId.trim(),
+      });
+    } catch (e) {
+      console.error("[project-mgmt-v1] template apply:", e);
+    }
   }
   return created;
 }

@@ -22,6 +22,7 @@ import {
 } from "./project-mgmt-status-v1.js";
 import { PROJECT_STATUS_COLOR_GROUP_V1 } from "./project-status-v1.js";
 import { listProjectCityCodesV1, resolveCityCodeForProject } from "./project-id-v1.js";
+import { getProjectAutomationBundleV1 } from "./project-automation-v1-store.js";
 import type { ProjectMgmtListItemV1 } from "./project-mgmt-v1-store.js";
 
 export interface DashboardKpiCardV1 {
@@ -85,9 +86,16 @@ export interface DashboardRecentItemV1 {
   id: string;
   projectNo: string;
   customerName: string;
+  title: string;
   mgmtStatus: ProjectMgmtStatus;
   mgmtStatusLabel: string;
   updatedAt: string;
+  automation: {
+    tasksPercent: number;
+    toolsPercent: number;
+    photosPercent: number;
+    documentsPercent: number;
+  } | null;
 }
 
 export interface DashboardCityStatV1 {
@@ -517,13 +525,30 @@ export function getDashboardRecentV1(limit = 10): DashboardRecentItemV1[] {
 
   return rows.map((row) => {
     const item = rowToListItem(row);
+    const projectId = item.id;
+    let automation: DashboardRecentItemV1["automation"] = null;
+    try {
+      const bundle = getProjectAutomationBundleV1(projectId);
+      if (bundle.tasks.length > 0 || bundle.tools.length > 0 || bundle.photos.length > 0) {
+        automation = {
+          tasksPercent: bundle.progress.tasks.percent,
+          toolsPercent: bundle.progress.tools.percent,
+          photosPercent: bundle.progress.photos.percent,
+          documentsPercent: bundle.progress.documents.percent,
+        };
+      }
+    } catch {
+      /* optional */
+    }
     return {
       id: item.id,
       projectNo: item.projectNo,
       customerName: item.customerName,
+      title: item.title,
       mgmtStatus: item.mgmtStatus,
       mgmtStatusLabel: item.mgmtStatusLabel,
       updatedAt: item.updatedAt,
+      automation,
     };
   });
 }

@@ -2,6 +2,7 @@ import { getCustomerToken, requireCustomerLogin } from "./customer-auth.js";
 import { initPracticalNav } from "./tisly-practical-nav.js";
 
 const API = "/api/documents/v1";
+const AUTOMATION_API = "/api/project-automation/v1";
 let favoriteOnly = false;
 let currentProjectId = "";
 let searchTimer = null;
@@ -476,8 +477,50 @@ function openUploadSheet() {
     toast("案件を開いてからアップロードしてください");
     return;
   }
+  loadPhotoSlotsForUpload().catch(() => {});
   $("upload-overlay")?.classList.remove("hidden");
   $("upload-overlay")?.setAttribute("aria-hidden", "false");
+}
+
+async function loadPhotoSlotsForUpload() {
+  const wrap = $("upload-photo-slot-wrap");
+  const sel = $("upload-photo-slot");
+  const hint = $("upload-unshot-hint");
+  if (!sel || !currentProjectId) return;
+  try {
+    const token = getCustomerToken();
+    const res = await fetch(`${AUTOMATION_API}/projects/${encodeURIComponent(currentProjectId)}/unshot-photos`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json().catch(() => ({}));
+    const photos = data.photos ?? [];
+    const allRes = await fetch(`${AUTOMATION_API}/projects/${encodeURIComponent(currentProjectId)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const allData = await allRes.json().catch(() => ({}));
+    const allPhotos = allData.photos ?? [];
+    if (!allPhotos.length) {
+      wrap?.classList.add("hidden");
+      return;
+    }
+    wrap?.classList.remove("hidden");
+    const options = [`<option value="">— 紐付けなし —</option>`]
+      .concat(
+        allPhotos.map(
+          (p) =>
+            `<option value="${escapeHtml(p.id)}"${p.shot ? " disabled" : ""}>${escapeHtml(p.label)}${p.shot ? "（撮影済）" : ""}</option>`
+        )
+      )
+      .join("");
+    sel.innerHTML = options;
+    if (hint) {
+      hint.textContent = photos.length
+        ? `未撮影 ${photos.length}件 — 施工写真をアップロード時にスロットを選ぶと自動紐付けされます`
+        : "すべての施工写真スロットが撮影済みです";
+    }
+  } catch {
+    wrap?.classList.add("hidden");
+  }
 }
 
 function closeUploadSheet() {
@@ -504,6 +547,7 @@ async function submitUpload() {
       else if (file.type.startsWith("image/")) sourceType = "photo";
       else if (file.name.endsWith(".json")) sourceType = "drawing";
 
+      const projectPhotoId = $("upload-photo-slot")?.value?.trim() || undefined;
       await api("/upload", {
         method: "POST",
         body: JSON.stringify({
@@ -515,6 +559,7 @@ async function submitUpload() {
           fileBase64: base64,
           mimeType: file.type,
           memo: $("upload-memo")?.value?.trim() || null,
+          projectPhotoId,
         }),
       });
       toast("書類を保存しました");

@@ -1,0 +1,54 @@
+{
+  "feature": "案件自動化エンジン v1",
+  "capturedAt": "2026-06-19T10:36:57.543Z",
+  "outDir": "server/data/project-automation-v1-screenshots",
+  "baseUrl": "http://127.0.0.1:3080",
+  "screens": [
+    "01-project-mgmt-create-template.png",
+    "02-create-form-template-select.png",
+    "03-project-detail-automation-overview.png",
+    "04-project-detail-tasks-tab.png",
+    "05-project-detail-tools-tab.png",
+    "06-project-detail-photos-tab.png",
+    "07-documents-photo-slot.png",
+    "08-project-dashboard-progress.png"
+  ],
+  "phases": {
+    "phase1": "project_templates_v1 — 15種シード",
+    "phase2": "task_templates_v1",
+    "phase3": "tool_templates_v1",
+    "phase4": "photo_templates_v1",
+    "phase5": "案件作成連携 project_tasks/tools/photos_v1",
+    "phase6": "案件詳細タブ やる事/持ち物/施工写真 + 進捗率",
+    "phase7": "Document Center 施工写真スロット紐付け",
+    "phase8": "ダッシュボード・案件一覧 進捗表示",
+    "phase9": "ai_suggestions_v1 テーブルのみ（未実装）"
+  },
+  "api": "/api/project-automation/v1",
+  "urls": {
+    "projectMgmt": "/project-mgmt-v1",
+    "projectDetail": "/project-mgmt-detail-v1?projectId={id}&tab=automation-tasks",
+    "dashboard": "/project-dashboard-v1",
+    "documents": "/documents-v1?projectId={id}"
+  },
+  "tests": {
+    "file": "server/test/project-automation-v1.test.ts",
+    "passed": 7,
+    "failed": 0
+  },
+  "build": "npm run build — OK",
+  "localHealth": {
+    "url": "http://127.0.0.1:3080/api/health",
+    "commitShort": "f7da71d"
+  },
+  "remainingIssues": [
+    "ai_suggestions_v1 は将来用テーブルのみ（AI提案ロジック未実装）",
+    "既存案件へのテンプレ再適用UIは案件作成時のみ（手動 apply API は用意済み）",
+    "施工写真スロットと completion_photos / survey_photos は分離維持（Document Center 経由）"
+  ],
+  "nextPhaseCandidates": [
+    "テンプレート管理画面（管理者CRUD）",
+    "AI提案エンジン（不足写真・材料・作業）",
+    "完了報告書PDFへの施工写真スロット自動反映"
+  ]
+}

@@ -84,6 +84,7 @@ projectMgmtV1Router.post("/projects", ...auth, (req: AuthedRequest, res) => {
       mgmtStatus: body.mgmtStatus && isValidMgmtStatus(String(body.mgmtStatus))
         ? body.mgmtStatus
         : undefined,
+      templateId: body.templateId != null ? String(body.templateId) : undefined,
     });
     res.status(201).json({ project, detail: getProjectMgmtDetailV1(project.id) });
   } catch (e) {

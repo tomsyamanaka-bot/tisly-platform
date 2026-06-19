@@ -234,6 +234,7 @@ export function runMigrations(database: Database.Database): void {
   migrateDocumentCenterV1(database);
   migrateDocumentCenterV15(database);
   migrateLegacyDocNumbersIfNeededV1(database);
+  migrateProjectAutomationV1(database);
 }
 
 /** 現調図面 v1 — 方眼紙写真 + 描画レイヤー */
@@ -4072,4 +4073,352 @@ function migrateDocumentCenterV15(database: Database.Database): void {
       `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
     )
     .run("migration:document_center_v1_5", JSON.stringify({ at: new Date().toISOString() }));
+}
+
+/** 案件自動化エンジン v1 — テンプレートマスター + 案件紐付け */
+function migrateProjectAutomationV1(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:project_automation_v1") as { value_json: string } | undefined;
+  if (marker) return;
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS project_templates_v1 (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      category TEXT NOT NULL DEFAULT '',
+      sub_category TEXT NOT NULL DEFAULT '',
+      description TEXT,
+      active INTEGER NOT NULL DEFAULT 1,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_project_templates_v1_active
+      ON project_templates_v1(active, sort_order);
+
+    CREATE TABLE IF NOT EXISTS task_templates_v1 (
+      id TEXT PRIMARY KEY,
+      project_template_id TEXT NOT NULL,
+      label TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (project_template_id) REFERENCES project_templates_v1(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_task_templates_v1_tpl
+      ON task_templates_v1(project_template_id, sort_order);
+
+    CREATE TABLE IF NOT EXISTS tool_templates_v1 (
+      id TEXT PRIMARY KEY,
+      project_template_id TEXT NOT NULL,
+      label TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (project_template_id) REFERENCES project_templates_v1(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_tool_templates_v1_tpl
+      ON tool_templates_v1(project_template_id, sort_order);
+
+    CREATE TABLE IF NOT EXISTS photo_templates_v1 (
+      id TEXT PRIMARY KEY,
+      project_template_id TEXT NOT NULL,
+      label TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (project_template_id) REFERENCES project_templates_v1(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_photo_templates_v1_tpl
+      ON photo_templates_v1(project_template_id, sort_order);
+
+    CREATE TABLE IF NOT EXISTS project_tasks_v1 (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      template_item_id TEXT,
+      label TEXT NOT NULL,
+      done INTEGER NOT NULL DEFAULT 0,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      done_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_project_tasks_v1_project
+      ON project_tasks_v1(project_id, sort_order);
+
+    CREATE TABLE IF NOT EXISTS project_tools_v1 (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      template_item_id TEXT,
+      label TEXT NOT NULL,
+      checked INTEGER NOT NULL DEFAULT 0,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      checked_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_project_tools_v1_project
+      ON project_tools_v1(project_id, sort_order);
+
+    CREATE TABLE IF NOT EXISTS project_photos_v1 (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      template_item_id TEXT,
+      label TEXT NOT NULL,
+      photo_path TEXT,
+      document_id TEXT,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      shot_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_project_photos_v1_project
+      ON project_photos_v1(project_id, sort_order);
+
+    CREATE TABLE IF NOT EXISTS ai_suggestions_v1 (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      suggestion_type TEXT NOT NULL,
+      label TEXT NOT NULL,
+      detail TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_ai_suggestions_v1_project
+      ON ai_suggestions_v1(project_id, status);
+  `);
+
+  addColumnsIfMissing(database, "business_projects", [
+    {
+      name: "project_template_id",
+      ddl: "ALTER TABLE business_projects ADD COLUMN project_template_id TEXT",
+    },
+  ]);
+
+  type SeedTpl = {
+    id: string;
+    name: string;
+    category: string;
+    subCategory: string;
+    sortOrder: number;
+    tasks: string[];
+    tools: string[];
+    photos: string[];
+  };
+
+  const seeds: SeedTpl[] = [
+    {
+      id: "ptpl-camera",
+      name: "防犯カメラ工事",
+      category: "防犯",
+      subCategory: "カメラ",
+      sortOrder: 0,
+      tasks: [
+        "現場確認",
+        "カメラ位置確認",
+        "配線ルート確認",
+        "LAN配線",
+        "カメラ取付",
+        "NVR設定",
+        "録画確認",
+        "スマホ設定",
+        "操作説明",
+        "完了写真",
+      ],
+      tools: [
+        "カメラ",
+        "NVR",
+        "HDD",
+        "LANケーブル",
+        "RJ45",
+        "PoEスイッチ",
+        "ノートPC",
+        "テスター",
+        "脚立",
+        "インパクト",
+      ],
+      photos: ["施工前全景", "施工後全景", "カメラ近景", "NVR", "モニター画面", "設定画面"],
+    },
+    {
+      id: "ptpl-lan",
+      name: "LAN工事",
+      category: "ネットワーク",
+      subCategory: "LAN",
+      sortOrder: 1,
+      tasks: ["現場確認", "配線ルート確認", "ケーブル敷設", "端子処理", "通信確認", "ラベル貼付", "完了写真"],
+      tools: ["LANケーブル", "RJ45", "パンチダウンツール", "テスター", "ラベル", "脚立"],
+      photos: ["施工前", "配線経路", "端子処理", "テスター画面", "完了全景"],
+    },
+    {
+      id: "ptpl-wifi",
+      name: "Wi-Fi工事",
+      category: "ネットワーク",
+      subCategory: "Wi-Fi",
+      sortOrder: 2,
+      tasks: ["現場確認", "電波測定", "AP設置", "設定", "速度確認", "カバレッジ確認", "お客様説明", "完了写真"],
+      tools: ["Wi-Fiルーター", "AP", "LANケーブル", "ノートPC", "電波測定器"],
+      photos: ["施工前", "AP設置位置", "設定画面", "速度テスト", "完了全景"],
+    },
+    {
+      id: "ptpl-ap",
+      name: "AP設置",
+      category: "ネットワーク",
+      subCategory: "AP",
+      sortOrder: 3,
+      tasks: ["設置位置確認", "取付", "配線", "設定", "接続確認", "完了写真"],
+      tools: ["AP", "LANケーブル", "RJ45", "脚立", "ドリル"],
+      photos: ["施工前", "AP近景", "設定画面", "完了全景"],
+    },
+    {
+      id: "ptpl-intercom",
+      name: "インターホン",
+      category: "インターホン",
+      subCategory: "一般",
+      sortOrder: 4,
+      tasks: ["現場確認", "配線確認", "親機取付", "子機取付", "呼出確認", "モニター確認", "解錠確認", "お客様説明", "完了写真"],
+      tools: ["インターホン親機", "子機", "配線材", "テスター", "脚立"],
+      photos: ["施工前", "親機", "子機", "モニター画面", "完了全景"],
+    },
+    {
+      id: "ptpl-electric",
+      name: "電気工事",
+      category: "電気",
+      subCategory: "一般",
+      sortOrder: 5,
+      tasks: ["現場確認", "電源確認", "配線", "器具取付", "動作確認", "ブレーカー確認", "完了写真"],
+      tools: ["配線材", "テスター", "ドライバー", "ペンチ", "絶縁テープ"],
+      photos: ["施工前", "配線", "器具", "動作確認", "完了全景"],
+    },
+    {
+      id: "ptpl-lighting",
+      name: "照明工事",
+      category: "電気",
+      subCategory: "照明",
+      sortOrder: 6,
+      tasks: ["現場確認", "器具選定確認", "取付", "配線", "点灯確認", "完了写真"],
+      tools: ["照明器具", "配線材", "脚立", "ドライバー"],
+      photos: ["施工前", "器具近景", "点灯後", "完了全景"],
+    },
+    {
+      id: "ptpl-outlet",
+      name: "コンセント工事",
+      category: "電気",
+      subCategory: "コンセント",
+      sortOrder: 7,
+      tasks: ["現場確認", "配線", "コンセント取付", "通電確認", "完了写真"],
+      tools: ["コンセント", "配線材", "テスター", "ドライバー"],
+      photos: ["施工前", "コンセント近景", "テスター確認", "完了全景"],
+    },
+    {
+      id: "ptpl-breaker",
+      name: "ブレーカー工事",
+      category: "電気",
+      subCategory: "ブレーカー",
+      sortOrder: 8,
+      tasks: ["現場確認", "分電盤確認", "ブレーカー交換", "配線確認", "動作確認", "完了写真"],
+      tools: ["ブレーカー", "テスター", "絶縁手袋", "ドライバー"],
+      photos: ["施工前", "分電盤", "交換後", "完了全景"],
+    },
+    {
+      id: "ptpl-tv",
+      name: "TV工事",
+      category: "AV",
+      subCategory: "TV",
+      sortOrder: 9,
+      tasks: ["現場確認", "壁掛け位置確認", "取付", "配線", "チャンネル確認", "お客様説明", "完了写真"],
+      tools: ["TV", "壁掛け金具", "HDMIケーブル", "脚立", "レベル"],
+      photos: ["施工前", "壁掛け", "配線", "画面表示", "完了全景"],
+    },
+    {
+      id: "ptpl-antenna",
+      name: "アンテナ工事",
+      category: "AV",
+      subCategory: "アンテナ",
+      sortOrder: 10,
+      tasks: ["現場確認", "受信確認", "アンテナ取付", "配線", "ブースター設定", "チャンネル確認", "完了写真"],
+      tools: ["アンテナ", "同軸ケーブル", "ブースター", "脚立", "レベル"],
+      photos: ["施工前", "アンテナ", "配線", "受信画面", "完了全景"],
+    },
+    {
+      id: "ptpl-ac",
+      name: "エアコン工事",
+      category: "空調",
+      subCategory: "エアコン",
+      sortOrder: 11,
+      tasks: ["現場確認", "室外機位置確認", "室内機取付", "室外機設置", "配管", "真空引き", "試運転", "お客様説明", "完了写真"],
+      tools: ["エアコン本体", "配管セット", "真空ポンプ", "トルクレンチ", "脚立"],
+      photos: ["施工前", "室内機", "室外機", "配管", "リモコン画面", "完了全景"],
+    },
+    {
+      id: "ptpl-security",
+      name: "セキュリティ工事",
+      category: "セキュリティ",
+      subCategory: "一般",
+      sortOrder: 12,
+      tasks: ["現場確認", "センサー設置", "制御盤設定", "警報確認", "アプリ連携", "お客様説明", "完了写真"],
+      tools: ["センサー", "制御盤", "配線材", "ノートPC", "テスター"],
+      photos: ["施工前", "センサー", "制御盤", "アプリ画面", "完了全景"],
+    },
+    {
+      id: "ptpl-ev",
+      name: "EV工事",
+      category: "EV",
+      subCategory: "充電",
+      sortOrder: 13,
+      tasks: ["現場確認", "分電盤確認", "充電器設置", "配線", "通電確認", "充電テスト", "お客様説明", "完了写真"],
+      tools: ["EV充電器", "配線材", "ブレーカー", "テスター", "ケーブル"],
+      photos: ["施工前", "充電器", "配線", "充電テスト", "完了全景"],
+    },
+    {
+      id: "ptpl-other",
+      name: "その他",
+      category: "その他",
+      subCategory: "一般",
+      sortOrder: 99,
+      tasks: ["現場確認", "作業実施", "動作確認", "お客様説明", "完了写真"],
+      tools: ["工具セット", "テスター", "脚立"],
+      photos: ["施工前", "作業中", "完了全景"],
+    },
+  ];
+
+  const insertTpl = database.prepare(
+    `INSERT INTO project_templates_v1 (id, name, category, sub_category, description, active, sort_order, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, 1, ?, datetime('now'), datetime('now'))`
+  );
+  const insertTask = database.prepare(
+    `INSERT INTO task_templates_v1 (id, project_template_id, label, sort_order, created_at)
+     VALUES (?, ?, ?, ?, datetime('now'))`
+  );
+  const insertTool = database.prepare(
+    `INSERT INTO tool_templates_v1 (id, project_template_id, label, sort_order, created_at)
+     VALUES (?, ?, ?, ?, datetime('now'))`
+  );
+  const insertPhoto = database.prepare(
+    `INSERT INTO photo_templates_v1 (id, project_template_id, label, sort_order, created_at)
+     VALUES (?, ?, ?, ?, datetime('now'))`
+  );
+
+  for (const seed of seeds) {
+    insertTpl.run(
+      seed.id,
+      seed.name,
+      seed.category,
+      seed.subCategory,
+      `${seed.name}の標準テンプレート`,
+      seed.sortOrder
+    );
+    seed.tasks.forEach((label, i) => {
+      insertTask.run(`${seed.id}-task-${i}`, seed.id, label, i);
+    });
+    seed.tools.forEach((label, i) => {
+      insertTool.run(`${seed.id}-tool-${i}`, seed.id, label, i);
+    });
+    seed.photos.forEach((label, i) => {
+      insertPhoto.run(`${seed.id}-photo-${i}`, seed.id, label, i);
+    });
+  }
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:project_automation_v1", JSON.stringify({ at: new Date().toISOString() }));
 }

@@ -24,6 +24,7 @@ import {
   type StorageDocumentTypeV1,
   type StorageDocumentWorkflowStatusV1,
 } from "../../storage/storage-documents-v1-store.js";
+import { linkProjectPhotoSlotV1 } from "../../projects/project-automation-v1-store.js";
 import {
   getQnapStorageStatusForProjectV1,
   syncFailedDocumentsToQnapV1,
@@ -304,6 +305,10 @@ documentsV1Router.post("/upload", ...auth, (req: AuthedRequest, res) => {
       mimeType: body.mimeType != null ? String(body.mimeType) : undefined,
       memo: body.memo != null ? String(body.memo) : null,
     });
+    const projectPhotoId = body.projectPhotoId != null ? String(body.projectPhotoId).trim() : "";
+    if (projectPhotoId) {
+      linkProjectPhotoSlotV1(projectId, projectPhotoId, { documentId: doc.id });
+    }
     res.status(201).json({ ok: true, document: doc });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "upload failed";

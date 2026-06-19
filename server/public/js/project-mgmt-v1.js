@@ -2,6 +2,7 @@ import { getCustomerToken, requireCustomerLogin } from "./customer-auth.js";
 import { initPracticalNav } from "./tisly-practical-nav.js";
 
 const API = "/api/project-mgmt/v1";
+const AUTOMATION_API = "/api/project-automation/v1";
 
 const $ = (id) => document.getElementById(id);
 
@@ -44,6 +45,7 @@ async function api(path, opts = {}) {
 }
 
 let cityCodes = [];
+let projectTemplates = [];
 let debounceTimer = null;
 
 function renderKpi(kpi) {
@@ -81,6 +83,7 @@ function renderList(projects) {
       </div>
       <div class="mgmt-title">${escapeHtml(p.customerName)} — ${escapeHtml(p.title)}</div>
       <div class="mgmt-meta">作成: ${formatDate(p.createdAt)}${p.assignee ? ` · 担当: ${escapeHtml(p.assignee)}` : ""}${p.municipality ? ` · ${escapeHtml(p.municipality)}` : ""}</div>
+      ${p.automation ? `<div class="mgmt-progress">やる事 ${p.automation.tasksPercent}% · 写真 ${p.automation.photosPercent}% · 書類 ${p.automation.documentsPercent}%</div>` : ""}
     </article>`
     )
     .join("");
@@ -172,6 +175,7 @@ async function saveCreate() {
     municipality: city?.cityName,
     assignee: $("create-assignee")?.value?.trim() || undefined,
     cityCode,
+    templateId: $("create-template")?.value?.trim() || undefined,
   };
   const data = await api("/projects", { method: "POST", body: JSON.stringify(body) });
   toast(`案件 ${data.project.projectNo} を作成しました`);
@@ -179,11 +183,29 @@ async function saveCreate() {
   window.location.href = `/project-mgmt-detail-v1?projectId=${encodeURIComponent(data.project.id)}&listReturn=${encodeURIComponent("/project-mgmt-v1")}`;
 }
 
+async function loadProjectTemplates() {
+  const token = getCustomerToken();
+  const res = await fetch(`${AUTOMATION_API}/templates`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  projectTemplates = data.templates ?? [];
+  const sel = $("create-template");
+  if (!sel) return;
+  sel.innerHTML =
+    `<option value="">— 選択してください —</option>` +
+    projectTemplates
+      .map((t) => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name)}</option>`)
+      .join("");
+}
+
 async function main() {
   if (!requireCustomerLogin()) return;
   initPracticalNav({ appId: "project_mgmt_v1", appName: "案件", theme: "blue" });
 
   await loadCityCodes();
+  await loadProjectTemplates().catch(() => {});
   await loadProjects();
 
   $("search-q")?.addEventListener("input", scheduleLoad);

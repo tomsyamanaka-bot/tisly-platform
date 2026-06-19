@@ -173,7 +173,8 @@ function renderRecent(projects) {
           <span class="dash-meta" style="font-family:ui-monospace,monospace;font-weight:700;color:#475569">${escapeHtml(p.projectNo)}</span>
           <span class="status-chip">${escapeHtml(p.mgmtStatusLabel)}</span>
         </div>
-        <div class="dash-title">${escapeHtml(p.customerName)}</div>
+        <div class="dash-title">${escapeHtml(p.customerName)}${p.title ? ` — ${escapeHtml(p.title)}` : ""}</div>
+        ${p.automation ? `<div class="dash-meta auto-dash-progress">やる事 ${p.automation.tasksPercent}% · 写真 ${p.automation.photosPercent}% · 書類 ${p.automation.documentsPercent}%</div>` : ""}
         <div class="dash-meta">更新: ${formatDateTime(p.updatedAt)}</div>
       </article>`;
     })
