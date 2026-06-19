@@ -1,0 +1,28 @@
+{
+  "capturedAt": "2026-06-19T23:35:21.590Z",
+  "feature": "qnap-webdav-v1",
+  "businessProjectId": "BIZ-95ACF67F",
+  "qnapHealth": {
+    "storageProvider": "mock",
+    "qnapConfigured": false,
+    "qnapMode": "mock",
+    "qnapLastTestAt": "2026-06-19T23:34:48.517Z",
+    "qnapLastError": null
+  },
+  "files": [
+    "01-iphone-qnap-settings.png",
+    "02-iphone-qnap-connection-test.png",
+    "03-iphone-spec-photos-tab.png",
+    "04-iphone-spec-photos-qnap-sync.png",
+    "05-iphone-template-apply-modal.png",
+    "06-android10-qnap-status.png",
+    "07-document-center-qnap-status.png"
+  ],
+  "viewports": {
+    "iphone": "390x844",
+    "android10": "800x1280"
+  },
+  "healthCommitShort": "fca39ed",
+  "pdfEngineReady": true,
+  "ok": true
+}
