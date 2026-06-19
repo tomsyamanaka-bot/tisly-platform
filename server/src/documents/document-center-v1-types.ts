@@ -10,7 +10,25 @@ export type DocumentCenterTypeV1 =
   | "photo"
   | "other";
 
-export type DocumentSourceTypeV1 = "manual" | "pdf" | "drawing" | "voice" | "phone" | "ai";
+export type DocumentSourceTypeV1 = "manual" | "pdf" | "drawing" | "photo" | "voice" | "phone" | "ai";
+
+export const SOURCE_TYPE_PRESENTATION: Record<DocumentSourceTypeV1, { label: string; icon: string }> = {
+  manual: { label: "手動", icon: "✋" },
+  pdf: { label: "PDF生成", icon: "📄" },
+  drawing: { label: "図面", icon: "📐" },
+  photo: { label: "写真", icon: "📷" },
+  voice: { label: "音声", icon: "🎤" },
+  phone: { label: "電話", icon: "📞" },
+  ai: { label: "AI", icon: "🤖" },
+};
+
+export type DocumentWorkflowStatusV1 =
+  | "draft"
+  | "ready"
+  | "sent"
+  | "signed"
+  | "completed"
+  | "archived";
 
 export interface DocumentTypePresentationV1 {
   label: string;
@@ -67,6 +85,9 @@ export interface DocumentCenterItemV1 {
   qnapStatusIcon: string | null;
   estimateNo: string | null;
   invoiceNo: string | null;
+  workflowStatus: DocumentWorkflowStatusV1 | null;
+  workflowStatusLabel: string | null;
+  memo: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -123,12 +144,37 @@ export interface DocumentCenterSearchHitV1 {
   siteName: string;
   documentId: string;
   documentType: DocumentCenterTypeV1;
+  sourceType: DocumentSourceTypeV1;
   title: string;
   fileName: string;
   estimateNo: string | null;
   invoiceNo: string | null;
   previewUrl: string | null;
+  qnapStatus: string | null;
+  qnapStatusLabel: string | null;
+  qnapStatusIcon: string | null;
+  workflowStatus: DocumentWorkflowStatusV1 | null;
+  workflowStatusLabel: string | null;
   matchedField: string;
+  createdAt: string;
+  accessedAt?: string | null;
+}
+
+export interface DocumentCenterSearchOptionsV1 {
+  query?: string;
+  documentType?: DocumentCenterTypeV1 | "all";
+  qnapStatus?: "pending" | "synced" | "failed" | "syncing" | "all";
+  sourceType?: DocumentSourceTypeV1 | "all";
+  sort?: "recent" | "created";
+  username?: string;
+  limit?: number;
+}
+
+export interface DrawingPreviewSummaryV1 {
+  layerCount: number;
+  symbolCount: number;
+  wireCount: number;
+  title?: string;
 }
 
 export interface DocumentCenterRecentItemV1 {

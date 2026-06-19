@@ -203,6 +203,42 @@ export async function syncProjectDocumentsToQnapV1(projectId: string): Promise<{
   return { projectId, synced, skipped, failed };
 }
 
+export async function syncPendingDocumentsToQnapV1(projectId: string): Promise<{
+  projectId: string;
+  mode: "pending";
+  synced: string[];
+  failed: Array<{ documentId: string; error: string }>;
+}> {
+  if (!getBusinessProject(projectId)) throw new Error("project not found");
+  const docs = listStorageDocumentsForProjectV1(projectId).filter((d) => d.status === "qnap_pending");
+  const synced: string[] = [];
+  const failed: Array<{ documentId: string; error: string }> = [];
+  for (const doc of docs) {
+    const result = await syncStorageDocumentToQnapV1(doc.id);
+    if (result.ok) synced.push(doc.id);
+    else failed.push({ documentId: doc.id, error: result.errorMessage ?? "sync failed" });
+  }
+  return { projectId, mode: "pending", synced, failed };
+}
+
+export async function syncFailedDocumentsToQnapV1(projectId: string): Promise<{
+  projectId: string;
+  mode: "failed";
+  synced: string[];
+  failed: Array<{ documentId: string; error: string }>;
+}> {
+  if (!getBusinessProject(projectId)) throw new Error("project not found");
+  const docs = listFailedStorageDocumentsV1(projectId);
+  const synced: string[] = [];
+  const failed: Array<{ documentId: string; error: string }> = [];
+  for (const doc of docs) {
+    const result = await syncStorageDocumentToQnapV1(doc.id);
+    if (result.ok) synced.push(doc.id);
+    else failed.push({ documentId: doc.id, error: result.errorMessage ?? "retry failed" });
+  }
+  return { projectId, mode: "failed", synced, failed };
+}
+
 export async function retryFailedQnapStorageV1(projectId?: string): Promise<{
   retried: number;
   synced: string[];

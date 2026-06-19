@@ -22,22 +22,26 @@ import { listProjectStorageV1 } from "../storage/project-storage-v1.js";
 import {
   listStorageDocumentsForProjectV1,
   storageStatusPresentation,
+  workflowStatusPresentation,
   type StorageDocumentTypeV1,
   type StorageDocumentV1,
 } from "../storage/storage-documents-v1-store.js";
 import {
   DOCUMENT_CENTER_FOLDER_ORDER,
   DOCUMENT_TYPE_PRESENTATION,
+  SOURCE_TYPE_PRESENTATION,
   type DocumentCenterFolderV1,
   type DocumentCenterItemV1,
   type DocumentCenterProjectDetailV1,
   type DocumentCenterProjectSummaryV1,
   type DocumentCenterRecentItemV1,
   type DocumentCenterSearchHitV1,
+  type DocumentCenterSearchOptionsV1,
   type DocumentCenterTimelineEntryV1,
   type DocumentCenterTypeV1,
   type DocumentPreviewKindV1,
   type DocumentSourceTypeV1,
+  type DrawingPreviewSummaryV1,
 } from "./document-center-v1-types.js";
 
 const DOC_EVENT_TYPES = new Set([
@@ -105,6 +109,7 @@ function itemFromStorageDoc(
   const pres = DOCUMENT_TYPE_PRESENTATION[documentType];
   const qnapConfigured = isQnapWebDavConfigured();
   const qnapPres = storageStatusPresentation(doc.status, qnapConfigured);
+  const wfPres = workflowStatusPresentation(doc.documentType, doc.workflowStatus ?? "draft");
   const previewUrl = localUrlFromPath(doc.localPath);
   const viewerKindMap: Partial<Record<DocumentCenterTypeV1, string>> = {
     estimate: "estimate",
@@ -137,6 +142,9 @@ function itemFromStorageDoc(
     qnapStatusIcon: qnapPres.icon,
     estimateNo,
     invoiceNo,
+    workflowStatus: doc.workflowStatus ?? "draft",
+    workflowStatusLabel: wfPres.label,
+    memo: doc.memo,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
   };
@@ -202,6 +210,9 @@ function collectProjectItems(projectId: string): DocumentCenterItemV1[] {
           qnapStatusIcon: storage.qnapSyncIcon ?? null,
           estimateNo,
           invoiceNo,
+          workflowStatus: null,
+          workflowStatusLabel: null,
+          memo: null,
           createdAt: file.savedAt ?? new Date().toISOString(),
           updatedAt: file.savedAt ?? new Date().toISOString(),
         });
@@ -235,6 +246,9 @@ function collectProjectItems(projectId: string): DocumentCenterItemV1[] {
         qnapStatusIcon: null,
         estimateNo,
         invoiceNo,
+        workflowStatus: null,
+        workflowStatusLabel: null,
+        memo: null,
         createdAt: photo.createdAt ?? new Date().toISOString(),
         updatedAt: photo.createdAt ?? new Date().toISOString(),
       });
@@ -263,6 +277,9 @@ function collectProjectItems(projectId: string): DocumentCenterItemV1[] {
         qnapStatusIcon: null,
         estimateNo,
         invoiceNo,
+        workflowStatus: null,
+        workflowStatusLabel: null,
+        memo: null,
         createdAt: sketch.createdAt ?? new Date().toISOString(),
         updatedAt: sketch.updatedAt ?? sketch.createdAt ?? new Date().toISOString(),
       });
@@ -292,6 +309,9 @@ function collectProjectItems(projectId: string): DocumentCenterItemV1[] {
       qnapStatusIcon: null,
       estimateNo,
       invoiceNo,
+      workflowStatus: null,
+      workflowStatusLabel: null,
+      memo: null,
       createdAt: photo.createdAt ?? new Date().toISOString(),
       updatedAt: photo.createdAt ?? new Date().toISOString(),
     });
@@ -430,11 +450,27 @@ export function getDocumentCenterTimelineV1(projectId: string): DocumentCenterTi
   return buildDocumentTimeline(projectId);
 }
 
-export function searchDocumentCenterV1(query: string, limit = 50): DocumentCenterSearchHitV1[] {
-  const q = query.trim().toLowerCase();
-  if (!q) return [];
+export function searchDocumentCenterV1(
+  queryOrOptions: string | DocumentCenterSearchOptionsV1,
+  limitArg = 50
+): DocumentCenterSearchHitV1[] {
+  const opts: DocumentCenterSearchOptionsV1 =
+    typeof queryOrOptions === "string" ? { query: queryOrOptions, limit: limitArg } : queryOrOptions;
+  const q = (opts.query ?? "").trim().toLowerCase();
+  const limit = Math.min(100, Math.max(1, opts.limit ?? 50));
+  const docTypeFilter = opts.documentType ?? "all";
+  const qnapFilter = opts.qnapStatus ?? "all";
+  const sourceFilter = opts.sourceType ?? "all";
+  const sort = opts.sort ?? "created";
+
+  const recentAccess = new Map<string, string>();
+  if (sort === "recent" && opts.username) {
+    for (const r of listDocumentCenterRecentV1(opts.username, 30)) {
+      recentAccess.set(`${r.projectId}|${r.documentId}`, r.accessedAt);
+    }
+  }
+
   const hits: DocumentCenterSearchHitV1[] = [];
-  const started = Date.now();
 
   for (const row of listActiveProjects()) {
     if (hits.length >= limit) break;
@@ -443,28 +479,63 @@ export function searchDocumentCenterV1(query: string, limit = 50): DocumentCente
     const customerName = String(row.customer_name ?? "");
     const siteName = String(row.title ?? "");
     const projectHay = `${projectNo} ${customerName} ${siteName}`.toLowerCase();
-    const projectMatch = projectHay.includes(q);
+    const projectMatch = q ? projectHay.includes(q) : false;
 
     const items = collectProjectItems(projectId);
     for (const item of items) {
       if (hits.length >= limit) break;
+      if (docTypeFilter !== "all" && item.documentType !== docTypeFilter) continue;
+      if (sourceFilter !== "all" && item.sourceType !== sourceFilter) continue;
+      if (qnapFilter !== "all") {
+        const st = item.qnapStatus ?? "qnap_pending";
+        if (qnapFilter === "pending" && st !== "qnap_pending") continue;
+        if (qnapFilter === "synced" && st !== "qnap_synced") continue;
+        if (qnapFilter === "failed" && st !== "qnap_failed") continue;
+        if (qnapFilter === "syncing" && st !== "qnap_syncing") continue;
+      }
+
+      const typeLabel = DOCUMENT_TYPE_PRESENTATION[item.documentType]?.label ?? item.documentType;
+      const sourceLabel = SOURCE_TYPE_PRESENTATION[item.sourceType]?.label ?? item.sourceType;
+      const qnapLabel = item.qnapStatusLabel ?? "";
       const fields: Array<[string, string | null]> = [
         ["案件名", siteName],
         ["顧客名", customerName],
+        ["現場名", siteName],
         ["見積番号", item.estimateNo],
         ["請求番号", item.invoiceNo],
         ["ファイル名", item.fileName],
         ["タイトル", item.title],
+        ["書類名", item.title],
+        ["documentType", typeLabel],
+        ["sourceType", sourceLabel],
+        ["QNAP状態", qnapLabel],
       ];
       let matchedField = "";
-      if (projectMatch) matchedField = "案件";
-      for (const [label, val] of fields) {
-        if (val && val.toLowerCase().includes(q)) {
-          matchedField = label;
-          break;
+      if (!q) {
+        matchedField = "一覧";
+      } else if (projectMatch) {
+        matchedField = "案件";
+      } else {
+        for (const [label, val] of fields) {
+          if (val && val.toLowerCase().includes(q)) {
+            matchedField = label;
+            break;
+          }
+        }
+        if (!matchedField) {
+          const hay = [
+            item.documentType,
+            item.sourceType,
+            item.qnapStatus ?? "",
+            item.workflowStatus ?? "",
+          ]
+            .join(" ")
+            .toLowerCase();
+          if (hay.includes(q)) matchedField = "メタデータ";
         }
       }
-      if (!matchedField) continue;
+      if (q && !matchedField) continue;
+
       hits.push({
         projectId,
         projectNo,
@@ -472,18 +543,35 @@ export function searchDocumentCenterV1(query: string, limit = 50): DocumentCente
         siteName,
         documentId: item.id,
         documentType: item.documentType,
+        sourceType: item.sourceType,
         title: item.title,
         fileName: item.fileName,
         estimateNo: item.estimateNo,
         invoiceNo: item.invoiceNo,
         previewUrl: item.previewUrl,
+        qnapStatus: item.qnapStatus,
+        qnapStatusLabel: item.qnapStatusLabel,
+        qnapStatusIcon: item.qnapStatusIcon,
+        workflowStatus: item.workflowStatus,
+        workflowStatusLabel: item.workflowStatusLabel,
         matchedField,
+        createdAt: item.createdAt,
+        accessedAt: recentAccess.get(`${projectId}|${item.id}`) ?? null,
       });
     }
   }
 
-  void started;
-  return hits;
+  if (sort === "recent") {
+    hits.sort((a, b) => {
+      const aT = a.accessedAt ?? a.createdAt;
+      const bT = b.accessedAt ?? b.createdAt;
+      return bT.localeCompare(aT);
+    });
+  } else {
+    hits.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+
+  return hits.slice(0, limit);
 }
 
 export function toggleDocumentCenterFavoriteV1(
@@ -598,13 +686,25 @@ export function getDocumentCenterPreviewV1(
 ): {
   item: DocumentCenterItemV1;
   jsonContent?: unknown;
+  drawingSummary?: DrawingPreviewSummaryV1;
 } | null {
   const item = resolveDocumentCenterItemV1(projectId, documentId);
   if (!item) return null;
   if (item.previewKind !== "json") return { item };
   const sketchId = documentId.replace(/^drawing:sketch:/, "");
   const sketch = getSurveyDrawingSketchV1(sketchId);
-  return { item, jsonContent: sketch ?? null };
+  const layers = sketch?.layers;
+  const wirePaths = (layers?.paths ?? []).filter(
+    (p) => p.tool === "route" || p.tool === "line"
+  );
+  const lineTypes = new Set(wirePaths.map((p) => p.lineType ?? "generic"));
+  const drawingSummary: DrawingPreviewSummaryV1 = {
+    layerCount: lineTypes.size || (layers?.paths?.length ? 1 : 0),
+    symbolCount: layers?.symbols?.length ?? 0,
+    wireCount: wirePaths.length,
+    title: sketch?.title,
+  };
+  return { item, jsonContent: sketch ?? null, drawingSummary };
 }
 
 export function formatDocumentTimelineGroupV1(iso: string): string {

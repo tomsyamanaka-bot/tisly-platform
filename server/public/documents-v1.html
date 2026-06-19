@@ -14,6 +14,18 @@
       width: 100%; min-height: 48px; padding: 0.65rem 0.9rem; box-sizing: border-box;
       border: 1px solid #cbd5e1; border-radius: 12px; font-size: 1rem; background: #fff;
     }
+    .dc-filter-row { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.5rem 0; }
+    .dc-filter-chip {
+      min-height: 40px; padding: 0.3rem 0.6rem; border-radius: 999px; border: 1px solid #cbd5e1;
+      background: #f8fafc; font-size: 0.74rem; font-weight: 700; color: #64748b; cursor: pointer;
+    }
+    .dc-filter-chip.active { background: var(--tisly-blue, #4f6fa8); color: #fff; border-color: var(--tisly-blue, #4f6fa8); }
+    .dc-sort-row { display: flex; gap: 0.35rem; margin-bottom: 0.5rem; }
+    .dc-sort-row button {
+      flex: 1; min-height: 40px; border-radius: 10px; border: 1px solid #cbd5e1;
+      background: #fff; font-weight: 700; font-size: 0.78rem;
+    }
+    .dc-sort-row button.active { background: #1e3a5f; color: #fff; border-color: #1e3a5f; }
     .dc-tabs { display: flex; gap: 0.35rem; margin: 0.65rem 0; }
     .dc-tabs button {
       flex: 1; min-height: 42px; border-radius: 10px; border: 1px solid #cbd5e1;
@@ -43,14 +55,14 @@
     .dc-folder-body { border-top: 1px solid #f1f5f9; }
     .dc-folder-body.hidden { display: none; }
     .dc-doc-row {
-      padding: 0.65rem 0.85rem; border-bottom: 1px solid #f1f5f9; cursor: pointer;
+      padding: 0.65rem 0.85rem; border-bottom: 1px solid #f1f5f9;
     }
     .dc-doc-row:last-child { border-bottom: none; }
     .dc-doc-row:active { background: #f8fafc; }
     .dc-doc-title { font-weight: 600; font-size: 0.88rem; }
     .dc-doc-meta { font-size: 0.75rem; color: #64748b; margin-top: 0.2rem; }
-    .dc-doc-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.4rem; }
-    .dc-doc-actions button, .dc-doc-actions a {
+    .dc-doc-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.4rem; align-items: center; }
+    .dc-doc-actions button, .dc-doc-actions a, .dc-doc-actions select {
       min-height: 36px; padding: 0.25rem 0.55rem; font-size: 0.75rem; font-weight: 700;
       border-radius: 8px; border: 1px solid #cbd5e1; background: #f8fafc; color: #334155; text-decoration: none; cursor: pointer;
     }
@@ -65,26 +77,66 @@
     .dc-preview-overlay.hidden { display: none; }
     .dc-preview-bar {
       display: flex; align-items: center; gap: 0.5rem; padding: 0.65rem 0.85rem;
-      background: #0f172a; color: #fff;
+      background: #0f172a; color: #fff; flex-shrink: 0;
     }
-    .dc-preview-bar button { background: transparent; border: none; color: #fff; font-size: 1rem; cursor: pointer; }
-    .dc-preview-body { flex: 1; overflow: auto; background: #1e293b; display: flex; align-items: center; justify-content: center; }
+    .dc-preview-bar button { background: transparent; border: none; color: #fff; font-size: 1rem; cursor: pointer; min-height: 44px; }
+    .dc-preview-body { flex: 1; overflow: auto; background: #1e293b; display: flex; align-items: center; justify-content: center; position: relative; }
     .dc-preview-body iframe { width: 100%; height: 100%; border: none; background: #fff; }
-    .dc-preview-body img { max-width: 100%; max-height: 100%; object-fit: contain; touch-action: pinch-zoom; }
+    .dc-preview-body img { max-width: 100%; max-height: 100%; object-fit: contain; touch-action: pinch-zoom; transition: transform 0.15s; }
+    .dc-preview-body img.zoomed { transform: scale(1.8); cursor: zoom-out; }
+    .dc-preview-info {
+      position: absolute; bottom: 0; left: 0; right: 0; padding: 0.55rem 0.75rem;
+      background: rgba(15,23,42,0.85); color: #e2e8f0; font-size: 0.72rem;
+    }
     .dc-preview-json {
       width: 100%; max-height: 100%; overflow: auto; padding: 0.75rem; box-sizing: border-box;
       background: #0f172a; color: #e2e8f0; font-size: 0.72rem; font-family: ui-monospace, monospace; white-space: pre-wrap;
     }
+    .dc-drawing-summary {
+      width: 100%; padding: 0.85rem; box-sizing: border-box; background: #0f172a; color: #e2e8f0;
+    }
+    .dc-drawing-summary h3 { margin: 0 0 0.5rem; font-size: 0.95rem; }
+    .dc-drawing-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-bottom: 0.75rem; }
+    .dc-drawing-stat { text-align: center; padding: 0.5rem; background: #1e293b; border-radius: 8px; }
+    .dc-drawing-stat strong { display: block; font-size: 1.2rem; }
     .dc-qnap-bar {
       margin: 0.65rem 0; padding: 0.55rem 0.65rem; border-radius: 10px; background: #f8fafc; border: 1px solid #e2e8f0;
       font-size: 0.8rem;
     }
     .dc-qnap-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.45rem; }
     .dc-qnap-actions button {
-      min-height: 40px; padding: 0.35rem 0.65rem; border-radius: 8px; border: 1px solid #cbd5e1;
-      background: #fff; font-weight: 700; font-size: 0.8rem; cursor: pointer;
+      flex: 1 1 calc(50% - 0.2rem); min-height: 44px; padding: 0.35rem 0.5rem; border-radius: 8px; border: 1px solid #cbd5e1;
+      background: #fff; font-weight: 700; font-size: 0.78rem; cursor: pointer;
     }
-    .dc-back { display: inline-flex; align-items: center; gap: 0.35rem; margin-bottom: 0.65rem; color: var(--tisly-blue, #4f6fa8); font-weight: 700; text-decoration: none; border: none; background: none; cursor: pointer; font-size: 0.9rem; }
+    .dc-back { display: inline-flex; align-items: center; gap: 0.35rem; margin-bottom: 0.65rem; color: var(--tisly-blue, #4f6fa8); font-weight: 700; text-decoration: none; border: none; background: none; cursor: pointer; font-size: 0.9rem; min-height: 44px; }
+    .dc-fab-upload {
+      position: fixed; right: 1rem; bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+      min-width: 56px; min-height: 56px; border-radius: 999px; border: none;
+      background: var(--tisly-blue, #4f6fa8); color: #fff; font-size: 1.5rem; font-weight: 700;
+      box-shadow: 0 4px 14px rgba(79,111,168,0.45); cursor: pointer; z-index: 200;
+    }
+    .dc-upload-overlay {
+      position: fixed; inset: 0; background: rgba(15,23,42,0.5); z-index: 400;
+      display: flex; align-items: flex-end; justify-content: center;
+    }
+    .dc-upload-overlay.hidden { display: none; }
+    .dc-upload-sheet {
+      width: 100%; max-width: 480px; max-height: 90vh; overflow: auto;
+      background: #fff; border-radius: 16px 16px 0 0; padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom));
+    }
+    .dc-upload-sheet h2 { margin: 0 0 0.75rem; font-size: 1rem; }
+    .dc-upload-field { margin-bottom: 0.65rem; }
+    .dc-upload-field label { display: block; font-size: 0.78rem; font-weight: 700; color: #64748b; margin-bottom: 0.25rem; }
+    .dc-upload-field input, .dc-upload-field select, .dc-upload-field textarea {
+      width: 100%; min-height: 44px; padding: 0.5rem 0.65rem; box-sizing: border-box;
+      border: 1px solid #cbd5e1; border-radius: 10px; font-size: 0.9rem;
+    }
+    .dc-upload-actions { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
+    .dc-upload-actions button {
+      flex: 1; min-height: 48px; border-radius: 10px; border: 1px solid #cbd5e1;
+      font-weight: 700; font-size: 0.9rem; cursor: pointer;
+    }
+    .dc-upload-actions button.primary { background: var(--tisly-blue, #4f6fa8); color: #fff; border-color: var(--tisly-blue, #4f6fa8); }
     .hidden { display: none !important; }
     .empty-hint { text-align: center; color: #94a3b8; padding: 1rem 0.5rem; font-size: 0.85rem; }
   </style>
@@ -95,8 +147,15 @@
       <p class="section-label">📁 Document Center</p>
       <p class="section-hint">案件の書類・写真・図面を一元管理</p>
       <div class="dc-search">
-        <input id="search-input" type="search" placeholder="案件名・顧客名・見積番号・請求番号・ファイル名" autocomplete="off" />
+        <input id="search-input" type="search" placeholder="案件名・顧客名・見積番号・書類名…" autocomplete="off" enterkeyhint="search" />
       </div>
+      <div class="dc-sort-row">
+        <button type="button" id="sort-recent" class="active">最近使った順</button>
+        <button type="button" id="sort-created">作成日順</button>
+      </div>
+      <div class="dc-filter-row" id="filter-category"></div>
+      <div class="dc-filter-row" id="filter-qnap"></div>
+      <div class="dc-filter-row" id="filter-source"></div>
       <div class="dc-tabs" role="tablist">
         <button type="button" id="tab-all" class="active">すべて</button>
         <button type="button" id="tab-favorites">⭐ お気に入り</button>
@@ -124,10 +183,43 @@
     </div>
   </main>
 
+  <button type="button" class="dc-fab-upload hidden" id="btn-fab-upload" aria-label="書類を追加">＋</button>
+
+  <div id="upload-overlay" class="dc-upload-overlay hidden" aria-hidden="true">
+    <div class="dc-upload-sheet">
+      <h2>📎 書類を追加</h2>
+      <div class="dc-upload-field">
+        <label for="upload-file">ファイル</label>
+        <input id="upload-file" type="file" accept=".pdf,image/*,.json,application/json" />
+      </div>
+      <div class="dc-upload-field">
+        <label for="upload-title">タイトル</label>
+        <input id="upload-title" type="text" placeholder="書類タイトル" />
+      </div>
+      <div class="dc-upload-field">
+        <label for="upload-doctype">種別</label>
+        <select id="upload-doctype"></select>
+      </div>
+      <div class="dc-upload-field">
+        <label for="upload-source">ソース</label>
+        <select id="upload-source"></select>
+      </div>
+      <div class="dc-upload-field">
+        <label for="upload-memo">メモ</label>
+        <textarea id="upload-memo" rows="2" placeholder="任意"></textarea>
+      </div>
+      <div class="dc-upload-actions">
+        <button type="button" id="upload-cancel">キャンセル</button>
+        <button type="button" class="primary" id="upload-submit">保存</button>
+      </div>
+    </div>
+  </div>
+
   <div id="preview-overlay" class="dc-preview-overlay hidden" aria-hidden="true">
     <div class="dc-preview-bar">
-      <button type="button" id="preview-close">← 閉じる</button>
+      <button type="button" id="preview-close">← 戻る</button>
       <span id="preview-title" style="flex:1;font-weight:700;font-size:0.88rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+      <button type="button" id="preview-download" class="hidden">⬇</button>
     </div>
     <div id="preview-body" class="dc-preview-body"></div>
   </div>

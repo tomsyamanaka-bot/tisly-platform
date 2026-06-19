@@ -6,6 +6,21 @@ let favoriteOnly = false;
 let currentProjectId = "";
 let searchTimer = null;
 let typeMeta = {};
+let sourceMeta = {};
+let searchSort = "recent";
+let filterCategory = "all";
+let filterQnap = "all";
+let filterSource = "all";
+let previewDownloadUrl = "";
+let imageZoomed = false;
+
+const WORKFLOW_OPTIONS = {
+  estimate: ["draft", "sent", "signed", "completed", "archived"],
+  invoice: ["draft", "sent", "completed", "archived"],
+  report: ["draft", "sent", "completed", "archived"],
+  specification: ["draft", "sent", "completed", "archived"],
+  default: ["draft", "ready", "sent", "completed", "archived"],
+};
 
 const $ = (id) => document.getElementById(id);
 
@@ -45,9 +60,15 @@ function typeBadge(type) {
   return `<span class="dc-badge" style="background:${meta.bg};color:${meta.color}">${escapeHtml(meta.label)}</span>`;
 }
 
+function sourceBadge(src) {
+  const meta = sourceMeta[src] || { label: src, icon: "📎" };
+  return `<span class="dc-badge" style="background:#f1f5f9;color:#64748b">${meta.icon} ${escapeHtml(meta.label)}</span>`;
+}
+
 function showHome() {
   $("view-home").classList.remove("hidden");
   $("view-project").classList.add("hidden");
+  $("btn-fab-upload")?.classList.add("hidden");
   currentProjectId = "";
   const url = new URL(window.location.href);
   url.searchParams.delete("projectId");
@@ -58,14 +79,79 @@ function showProject(projectId) {
   currentProjectId = projectId;
   $("view-home").classList.add("hidden");
   $("view-project").classList.remove("hidden");
+  $("btn-fab-upload")?.classList.remove("hidden");
   const url = new URL(window.location.href);
   url.searchParams.set("projectId", projectId);
   window.history.replaceState({}, "", url.pathname + "?" + url.searchParams.toString());
 }
 
+function renderFilterChips() {
+  const catEl = $("filter-category");
+  const qnapEl = $("filter-qnap");
+  const srcEl = $("filter-source");
+  if (!catEl) return;
+
+  const cats = [{ id: "all", label: "すべて" }, ...Object.entries(typeMeta).map(([id, m]) => ({ id, label: m.label }))];
+  catEl.innerHTML = cats
+    .map((c) => `<button type="button" class="dc-filter-chip${filterCategory === c.id ? " active" : ""}" data-cat="${c.id}">${escapeHtml(c.label)}</button>`)
+    .join("");
+  catEl.querySelectorAll("[data-cat]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      filterCategory = btn.dataset.cat;
+      renderFilterChips();
+      runSearch($("search-input")?.value ?? "");
+    });
+  });
+
+  const qnaps = [
+    { id: "all", label: "QNAPすべて" },
+    { id: "pending", label: "🟠 未保存" },
+    { id: "synced", label: "🟢 保存済" },
+    { id: "failed", label: "🔴 失敗" },
+    { id: "syncing", label: "⚙️ 同期中" },
+  ];
+  qnapEl.innerHTML = qnaps
+    .map((q) => `<button type="button" class="dc-filter-chip${filterQnap === q.id ? " active" : ""}" data-qnap="${q.id}">${q.label}</button>`)
+    .join("");
+  qnapEl.querySelectorAll("[data-qnap]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      filterQnap = btn.dataset.qnap;
+      renderFilterChips();
+      runSearch($("search-input")?.value ?? "");
+    });
+  });
+
+  const srcs = [{ id: "all", label: "ソースすべて" }, ...Object.entries(sourceMeta).map(([id, m]) => ({ id, label: `${m.icon} ${m.label}` }))];
+  srcEl.innerHTML = srcs
+    .map((s) => `<button type="button" class="dc-filter-chip${filterSource === s.id ? " active" : ""}" data-src="${s.id}">${escapeHtml(s.label)}</button>`)
+    .join("");
+  srcEl.querySelectorAll("[data-src]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      filterSource = btn.dataset.src;
+      renderFilterChips();
+      runSearch($("search-input")?.value ?? "");
+    });
+  });
+}
+
 async function loadMeta() {
   const data = await api("/meta");
   typeMeta = data.documentTypes || {};
+  sourceMeta = data.sourceTypes || {};
+  renderFilterChips();
+
+  const doctypeSel = $("upload-doctype");
+  const sourceSel = $("upload-source");
+  if (doctypeSel) {
+    doctypeSel.innerHTML = Object.entries(typeMeta)
+      .map(([id, m]) => `<option value="${escapeHtml(id)}">${escapeHtml(m.folderLabel || m.label)}</option>`)
+      .join("");
+  }
+  if (sourceSel) {
+    sourceSel.innerHTML = Object.entries(sourceMeta)
+      .map(([id, m]) => `<option value="${escapeHtml(id)}">${m.icon} ${escapeHtml(m.label)}</option>`)
+      .join("");
+  }
 }
 
 async function loadRecent() {
@@ -151,6 +237,16 @@ async function loadProjects() {
   }
 }
 
+function workflowSelectHtml(item) {
+  if (!item.storageDocumentId) return "";
+  const opts = WORKFLOW_OPTIONS[item.documentType] || WORKFLOW_OPTIONS.default;
+  const current = item.workflowStatus || "draft";
+  const options = opts
+    .map((v) => `<option value="${v}"${v === current ? " selected" : ""}>${v}</option>`)
+    .join("");
+  return `<select data-workflow-id="${escapeHtml(item.storageDocumentId)}" aria-label="ステータス">${options}</select>`;
+}
+
 async function openProject(projectId, openDocId = "") {
   showProject(projectId);
   const header = $("project-header");
@@ -176,11 +272,15 @@ async function openProject(projectId, openDocId = "") {
       qnapBar.innerHTML = `<strong>QNAP連携</strong> — 設定済み
         <div class="dc-qnap-actions">
           <button type="button" id="btn-qnap-status">状態確認</button>
-          <button type="button" id="btn-qnap-sync-all">QNAPへ再同期</button>
+          <button type="button" id="btn-qnap-sync-pending">🟠 未保存だけ同期</button>
+          <button type="button" id="btn-qnap-sync-failed">🔴 失敗だけ再同期</button>
+          <button type="button" id="btn-qnap-sync-all">全部同期</button>
         </div>
         <div id="qnap-status-text" class="dc-card-meta" style="margin-top:0.35rem;"></div>`;
       $("btn-qnap-status")?.addEventListener("click", refreshQnapStatus);
-      $("btn-qnap-sync-all")?.addEventListener("click", syncAllQnap);
+      $("btn-qnap-sync-pending")?.addEventListener("click", () => syncQnap("pending"));
+      $("btn-qnap-sync-failed")?.addEventListener("click", () => syncQnap("failed"));
+      $("btn-qnap-sync-all")?.addEventListener("click", () => syncQnap("all"));
     } else {
       qnapBar.classList.add("hidden");
     }
@@ -191,10 +291,14 @@ async function openProject(projectId, openDocId = "") {
           .map(
             (item) => `<div class="dc-doc-row" data-doc-id="${escapeHtml(item.id)}" data-doc-type="${escapeHtml(item.documentType)}">
               <div class="dc-doc-title">${escapeHtml(item.title)}</div>
-              <div class="dc-doc-meta">${escapeHtml(item.fileName)}${item.qnapStatusLabel ? ` · ${item.qnapStatusIcon || ""} ${escapeHtml(item.qnapStatusLabel)}` : ""}</div>
+              <div class="dc-doc-meta">${escapeHtml(item.fileName)}
+                ${item.sourceType ? ` · ${sourceBadge(item.sourceType)}` : ""}
+                ${item.qnapStatusLabel ? ` · ${item.qnapStatusIcon || ""} ${escapeHtml(item.qnapStatusLabel)}` : ""}
+                ${item.workflowStatusLabel ? ` · ${escapeHtml(item.workflowStatusLabel)}` : ""}
+              </div>
               <div class="dc-doc-actions">
                 <button type="button" data-action="preview">プレビュー</button>
-                ${item.viewerUrl ? `<a href="${escapeHtml(item.viewerUrl)}" target="_blank" rel="noopener">開く</a>` : ""}
+                ${item.storageDocumentId ? workflowSelectHtml(item) : ""}
                 ${item.storageDocumentId ? `<button type="button" data-action="qnap-sync" data-storage-id="${escapeHtml(item.storageDocumentId)}">QNAP保存</button>` : ""}
               </div>
             </div>`
@@ -211,10 +315,7 @@ async function openProject(projectId, openDocId = "") {
       .join("");
 
     foldersEl.querySelectorAll(".dc-folder-head").forEach((head) => {
-      head.addEventListener("click", () => {
-        const body = head.nextElementSibling;
-        body?.classList.toggle("hidden");
-      });
+      head.addEventListener("click", () => head.nextElementSibling?.classList.toggle("hidden"));
     });
 
     foldersEl.querySelectorAll(".dc-doc-row").forEach((row) => {
@@ -224,11 +325,22 @@ async function openProject(projectId, openDocId = "") {
       });
       row.querySelector('[data-action="qnap-sync"]')?.addEventListener("click", async (e) => {
         e.stopPropagation();
-        const storageId = e.target.dataset.storageId;
         try {
-          await api(`/qnap/sync/${storageId}`, { method: "POST", body: "{}" });
+          await api(`/qnap/sync/${e.target.dataset.storageId}`, { method: "POST", body: "{}" });
           toast("QNAP保存完了");
           openProject(projectId);
+        } catch (err) {
+          toast(err.message);
+        }
+      });
+      row.querySelector("[data-workflow-id]")?.addEventListener("change", async (e) => {
+        const id = e.target.dataset.workflowId;
+        try {
+          await api(`/storage/${id}/workflow-status`, {
+            method: "PATCH",
+            body: JSON.stringify({ workflowStatus: e.target.value }),
+          });
+          toast("ステータス更新");
         } catch (err) {
           toast(err.message);
         }
@@ -260,20 +372,21 @@ async function refreshQnapStatus() {
   try {
     const status = await api(`/projects/${encodeURIComponent(currentProjectId)}/qnap/status`);
     const s = status.summary || {};
-    el.textContent = `同期済 ${s.synced ?? 0} / 未保存 ${s.pending ?? 0} / 失敗 ${s.failed ?? 0}`;
+    el.textContent = `🟢 同期済 ${s.synced ?? 0} / 🟠 未保存 ${s.pending ?? 0} / 🔴 失敗 ${s.failed ?? 0} / ⚙️ 同期中 ${s.syncing ?? 0}`;
   } catch (e) {
     el.textContent = e.message;
   }
 }
 
-async function syncAllQnap() {
+async function syncQnap(mode) {
   if (!currentProjectId) return;
+  const paths = { pending: "sync-pending", failed: "sync-failed", all: "sync-all" };
   try {
-    await api(`/projects/${encodeURIComponent(currentProjectId)}/qnap/sync-all`, {
+    await api(`/projects/${encodeURIComponent(currentProjectId)}/qnap/${paths[mode]}`, {
       method: "POST",
       body: "{}",
     });
-    toast("QNAP再同期を開始しました");
+    toast(mode === "failed" ? "失敗分を再同期しました" : "QNAP同期を開始しました");
     await refreshQnapStatus();
     openProject(currentProjectId);
   } catch (e) {
@@ -285,9 +398,13 @@ async function previewDocument(projectId, documentId, documentType) {
   const overlay = $("preview-overlay");
   const body = $("preview-body");
   const title = $("preview-title");
+  const dlBtn = $("preview-download");
   overlay.classList.remove("hidden");
   overlay.setAttribute("aria-hidden", "false");
   body.innerHTML = '<p class="empty-hint" style="color:#fff">読み込み中…</p>';
+  dlBtn?.classList.add("hidden");
+  previewDownloadUrl = "";
+  imageZoomed = false;
   try {
     const data = await api(
       `/projects/${encodeURIComponent(projectId)}/preview/${encodeURIComponent(documentId)}`
@@ -305,16 +422,42 @@ async function previewDocument(projectId, documentId, documentType) {
         previewUrl: item.previewUrl,
       }),
     });
+
     if (item.previewKind === "pdf" && item.previewUrl) {
+      previewDownloadUrl = item.previewUrl;
+      dlBtn?.classList.remove("hidden");
       body.innerHTML = `<iframe src="${escapeHtml(item.previewUrl)}" title="PDF preview"></iframe>`;
     } else if (item.previewKind === "image" && item.previewUrl) {
-      body.innerHTML = `<img src="${escapeHtml(item.previewUrl)}" alt="${escapeHtml(item.title)}" />`;
+      previewDownloadUrl = item.previewUrl;
+      dlBtn?.classList.remove("hidden");
+      const sizeKb = item.size ? `${Math.round(item.size / 1024)} KB` : "—";
+      body.innerHTML = `<img id="preview-img" src="${escapeHtml(item.previewUrl)}" alt="${escapeHtml(item.title)}" />
+        <div class="dc-preview-info">${escapeHtml(item.fileName)} · ${escapeHtml(item.mimeType || "image")} · ${sizeKb}</div>`;
+      $("preview-img")?.addEventListener("click", () => {
+        imageZoomed = !imageZoomed;
+        $("preview-img")?.classList.toggle("zoomed", imageZoomed);
+      });
     } else if (item.previewKind === "json") {
-      body.innerHTML = `<pre class="dc-preview-json">${escapeHtml(JSON.stringify(data.jsonContent ?? {}, null, 2))}</pre>`;
-    } else if (item.viewerUrl) {
-      body.innerHTML = `<iframe src="${escapeHtml(item.viewerUrl)}" title="preview"></iframe>`;
+      const sum = data.drawingSummary;
+      const summaryHtml = sum
+        ? `<div class="dc-drawing-summary">
+            <h3>${escapeHtml(sum.title || item.title || "図面")}</h3>
+            <div class="dc-drawing-stats">
+              <div class="dc-drawing-stat"><strong>${sum.layerCount}</strong>レイヤー</div>
+              <div class="dc-drawing-stat"><strong>${sum.symbolCount}</strong>記号</div>
+              <div class="dc-drawing-stat"><strong>${sum.wireCount}</strong>配線</div>
+            </div>
+          </div>`
+        : "";
+      body.innerHTML = `${summaryHtml}<pre class="dc-preview-json">${escapeHtml(JSON.stringify(data.jsonContent ?? {}, null, 2))}</pre>`;
+    } else if (item.previewUrl || item.viewerUrl) {
+      const url = item.previewUrl || item.viewerUrl;
+      previewDownloadUrl = url;
+      dlBtn?.classList.remove("hidden");
+      body.innerHTML = `<iframe src="${escapeHtml(url)}" title="preview"></iframe>`;
     } else {
-      body.innerHTML = '<p class="empty-hint" style="color:#fff">プレビュー非対応</p>';
+      body.innerHTML = `<p class="empty-hint" style="color:#fff">プレビュー非対応</p>
+        ${item.viewerUrl ? `<a href="${escapeHtml(item.viewerUrl)}" style="color:#93c5fd">別タブで開く</a>` : ""}`;
     }
   } catch (e) {
     body.innerHTML = `<p class="empty-hint" style="color:#fff">${escapeHtml(e.message)}</p>`;
@@ -325,33 +468,103 @@ function closePreview() {
   $("preview-overlay").classList.add("hidden");
   $("preview-overlay").setAttribute("aria-hidden", "true");
   $("preview-body").innerHTML = "";
+  previewDownloadUrl = "";
+}
+
+function openUploadSheet() {
+  if (!currentProjectId) {
+    toast("案件を開いてからアップロードしてください");
+    return;
+  }
+  $("upload-overlay")?.classList.remove("hidden");
+  $("upload-overlay")?.setAttribute("aria-hidden", "false");
+}
+
+function closeUploadSheet() {
+  $("upload-overlay")?.classList.add("hidden");
+  $("upload-overlay")?.setAttribute("aria-hidden", "true");
+  $("upload-file").value = "";
+  $("upload-title").value = "";
+  $("upload-memo").value = "";
+}
+
+async function submitUpload() {
+  const fileInput = $("upload-file");
+  const file = fileInput?.files?.[0];
+  if (!file) {
+    toast("ファイルを選択してください");
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = async () => {
+    try {
+      const base64 = String(reader.result);
+      let sourceType = $("upload-source")?.value || "manual";
+      if (file.type === "application/pdf") sourceType = "pdf";
+      else if (file.type.startsWith("image/")) sourceType = "photo";
+      else if (file.name.endsWith(".json")) sourceType = "drawing";
+
+      await api("/upload", {
+        method: "POST",
+        body: JSON.stringify({
+          projectId: currentProjectId,
+          documentType: $("upload-doctype")?.value || "other",
+          sourceType,
+          title: $("upload-title")?.value?.trim() || file.name,
+          fileName: file.name,
+          fileBase64: base64,
+          mimeType: file.type,
+          memo: $("upload-memo")?.value?.trim() || null,
+        }),
+      });
+      toast("書類を保存しました");
+      closeUploadSheet();
+      openProject(currentProjectId);
+    } catch (e) {
+      toast(e.message);
+    }
+  };
+  reader.readAsDataURL(file);
 }
 
 async function runSearch(q) {
   const el = $("search-results");
-  if (!q.trim()) {
+  const hasFilter = filterCategory !== "all" || filterQnap !== "all" || filterSource !== "all";
+  if (!q.trim() && !hasFilter) {
     el.classList.add("hidden");
     el.innerHTML = "";
     return;
   }
   try {
-    const data = await api(`/search?q=${encodeURIComponent(q)}&limit=30`);
+    const params = new URLSearchParams({
+      q,
+      limit: "30",
+      documentType: filterCategory,
+      qnapStatus: filterQnap,
+      sourceType: filterSource,
+      sort: searchSort,
+    });
+    const data = await api(`/search?${params}`);
     const hits = data.hits ?? [];
+    el.classList.remove("hidden");
     if (!hits.length) {
-      el.classList.remove("hidden");
       el.innerHTML = '<p class="empty-hint">該当なし</p>';
       return;
     }
-    el.classList.remove("hidden");
     el.innerHTML = `<p class="section-hint">${hits.length}件（${data.elapsedMs}ms）</p>` + hits
       .map(
         (h) => `<div class="dc-card" data-search-project="${escapeHtml(h.projectId)}" data-search-doc="${escapeHtml(h.documentId)}">
           <div class="dc-card-head">
             <div>
               <p class="dc-card-title">${escapeHtml(h.title)}</p>
-              <p class="dc-card-meta">${escapeHtml(h.projectNo)} · ${escapeHtml(h.customerName)} · ${escapeHtml(h.matchedField)}</p>
+              <p class="dc-card-meta">${escapeHtml(h.projectNo)} · ${escapeHtml(h.customerName)} · ${escapeHtml(h.matchedField)}
+                ${h.qnapStatusIcon ? ` · ${h.qnapStatusIcon}${escapeHtml(h.qnapStatusLabel || "")}` : ""}
+              </p>
             </div>
-            ${typeBadge(h.documentType)}
+            <div style="display:flex;flex-direction:column;gap:0.2rem;align-items:flex-end">
+              ${typeBadge(h.documentType)}
+              ${sourceBadge(h.sourceType)}
+            </div>
           </div>
         </div>`
       )
@@ -396,9 +609,30 @@ async function init() {
     loadProjects();
   });
   $("preview-close")?.addEventListener("click", closePreview);
+  $("preview-download")?.addEventListener("click", () => {
+    if (previewDownloadUrl) window.open(previewDownloadUrl, "_blank");
+  });
   $("search-input")?.addEventListener("input", (e) => {
     clearTimeout(searchTimer);
     searchTimer = setTimeout(() => runSearch(e.target.value), 280);
+  });
+  $("sort-recent")?.addEventListener("click", () => {
+    searchSort = "recent";
+    $("sort-recent").classList.add("active");
+    $("sort-created").classList.remove("active");
+    runSearch($("search-input")?.value ?? "");
+  });
+  $("sort-created")?.addEventListener("click", () => {
+    searchSort = "created";
+    $("sort-created").classList.add("active");
+    $("sort-recent").classList.remove("active");
+    runSearch($("search-input")?.value ?? "");
+  });
+  $("btn-fab-upload")?.addEventListener("click", openUploadSheet);
+  $("upload-cancel")?.addEventListener("click", closeUploadSheet);
+  $("upload-submit")?.addEventListener("click", submitUpload);
+  $("upload-overlay")?.addEventListener("click", (e) => {
+    if (e.target === $("upload-overlay")) closeUploadSheet();
   });
 }
 

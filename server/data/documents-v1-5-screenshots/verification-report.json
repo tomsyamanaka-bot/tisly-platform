@@ -1,0 +1,25 @@
+{
+  "capturedAt": "2026-06-19T09:01:32.845Z",
+  "version": "v1.5",
+  "baseUrl": "/documents-v1",
+  "projectId": "BIZ-7B91CD32",
+  "screenshots": {
+    "search": "01-documents-search-iphone.png",
+    "filter": "02-documents-filter-iphone.png",
+    "projectFolder": "03-documents-project-folder.png",
+    "upload": "04-documents-upload.png",
+    "preview": "05-documents-preview.png",
+    "qnapActions": "06-documents-qnap-actions.png",
+    "projectDetailDocumentsTab": "07-project-detail-documents-tab.png"
+  },
+  "checks": {
+    "searchFilters": true,
+    "categoryFilter": true,
+    "qnapFilter": true,
+    "projectFolders": true,
+    "uploadSheet": true,
+    "pdfPreview": true,
+    "qnapActions": true,
+    "projectDetailTab": true
+  }
+}

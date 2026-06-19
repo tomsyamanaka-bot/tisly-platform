@@ -5,6 +5,7 @@ import { sharePdfAsFile, prefetchPdfForShare } from "./pdf-share-v1.js";
 const API = "/api/project-mgmt/v1";
 const TIMELINE_API = "/api/project-timeline-v1";
 const STORAGE_API = "/api/project-storage";
+const DOCUMENTS_API = "/api/documents/v1";
 const PROJECTS_API = "/api/projects/v1";
 const ESTIMATE_API = "/api/estimate/v1";
 const TABS = [
@@ -14,6 +15,7 @@ const TABS = [
   { id: "invoice", label: "請求" },
   { id: "specification", label: "仕様書" },
   { id: "completion", label: "完了報告" },
+  { id: "documents", label: "書類" },
   { id: "photos", label: "写真" },
   { id: "files", label: "ファイル" },
   { id: "history", label: "履歴" },
@@ -47,6 +49,7 @@ const STATUS_COLOR_STYLES = {
 let detail = null;
 let activeTab = "overview";
 let storageData = null;
+let documentsData = null;
 let timelineFilter = "all";
 let timelineSearchQuery = "";
 let timelineProjectId = "";
@@ -449,6 +452,8 @@ function tabBadgeForTab(tabId) {
       if (qnap === "synced") return "🟢";
       if (qnap === "error") return "🔴";
       return "🟡";
+    case "documents":
+      return documentsData?.totalDocuments ? `📁${documentsData.totalDocuments}` : "📁";
     default:
       return "";
   }
@@ -1029,6 +1034,54 @@ function renderPhotosTab() {
     </div>`;
 }
 
+async function documentsApi(projectId) {
+  const token = getCustomerToken();
+  const res = await fetch(`${DOCUMENTS_API}/projects/${encodeURIComponent(projectId)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+function renderDocumentsTab() {
+  if (!documentsData) {
+    return `<p class="section-hint">読み込み中…</p>`;
+  }
+  const folders = documentsData.folders ?? [];
+  if (!folders.length) {
+    return `<p class="section-hint">書類がありません</p>
+      <p class="link-row"><a href="/documents-v1?projectId=${encodeURIComponent(detail.project.id)}">Document Center で追加 →</a></p>`;
+  }
+  const blocks = folders
+    .map((folder) => {
+      const items = (folder.items ?? [])
+        .slice(0, 5)
+        .map(
+          (item) => `<div class="storage-file-row">
+            <span class="storage-file-icon">${folder.icon}</span>
+            <div class="storage-file-body">
+              <div class="storage-file-name">${escapeHtml(item.title)}</div>
+              <div class="storage-file-meta">${escapeHtml(item.fileName)}
+                ${item.qnapStatusIcon ? ` · ${item.qnapStatusIcon}${escapeHtml(item.qnapStatusLabel || "")}` : ""}
+              </div>
+            </div>
+          </div>`
+        )
+        .join("");
+      const more = folder.count > 5 ? `<p class="section-hint">他 ${folder.count - 5} 件</p>` : "";
+      return `<h3 class="section-sub">${folder.icon} ${escapeHtml(folder.label)}（${folder.count}）</h3>
+        <div class="storage-file-list">${items}</div>${more}`;
+    })
+    .join("");
+  return `
+    <p class="section-hint">書類 ${documentsData.totalDocuments} 件 — Document Center と同じデータ</p>
+    ${blocks}
+    <p class="link-row" style="margin-top:0.75rem">
+      <a class="primary" href="/documents-v1?projectId=${encodeURIComponent(detail.project.id)}">Document Center で開く →</a>
+    </p>`;
+}
+
 function renderTabPanel(tab) {
   switch (tab) {
     case "overview":
@@ -1047,6 +1100,8 @@ function renderTabPanel(tab) {
       return renderInvoiceTab();
     case "completion":
       return renderCompletionTab();
+    case "documents":
+      return renderDocumentsTab();
     case "photos":
       return renderPhotosTab();
     default:
@@ -1075,6 +1130,13 @@ function render() {
       if (activeTab === "files" && !storageData) {
         try {
           storageData = await storageApi(detail.project.id);
+        } catch (e) {
+          toast(e.message);
+        }
+      }
+      if (activeTab === "documents" && !documentsData) {
+        try {
+          documentsData = await documentsApi(detail.project.id);
         } catch (e) {
           toast(e.message);
         }
@@ -1383,6 +1445,13 @@ async function main() {
   if (activeTab === "files") {
     try {
       storageData = await storageApi(projectId);
+    } catch {
+      /* tab will show loading hint */
+    }
+  }
+  if (activeTab === "documents") {
+    try {
+      documentsData = await documentsApi(projectId);
     } catch {
       /* tab will show loading hint */
     }

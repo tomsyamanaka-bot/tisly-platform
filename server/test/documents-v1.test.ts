@@ -87,6 +87,8 @@ describe("Document Center v1", () => {
     }
     const cols = db.prepare("PRAGMA table_info(storage_documents_v1)").all() as Array<{ name: string }>;
     assert.ok(cols.some((c) => c.name === "source_type"));
+    assert.ok(cols.some((c) => c.name === "workflow_status"));
+    assert.ok(cols.some((c) => c.name === "memo"));
   });
 
   it("GET /api/documents/v1/projects — 案件一覧", async () => {
@@ -200,5 +202,94 @@ describe("Document Center v1", () => {
     const doc = listStorageDocumentsForProjectV1(businessProjectId)[0];
     assert.ok(doc);
     assert.equal(doc.sourceType, "pdf");
+    assert.equal(doc.workflowStatus, "draft");
+  });
+
+  it("検索 — カテゴリ絞り込み・QNAP状態・ソート", async () => {
+    const filtered = await request(app)
+      .get("/api/documents/v1/search?q=&documentType=estimate&qnapStatus=all&sort=created&limit=20")
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(filtered.status, 200);
+    assert.ok(Array.isArray(filtered.body.hits));
+    for (const h of filtered.body.hits) {
+      assert.equal(h.documentType, "estimate");
+    }
+
+    const byCustomer = await request(app)
+      .get("/api/documents/v1/search?q=DocumentCenter&sort=recent")
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(byCustomer.status, 200);
+    assert.ok(byCustomer.body.count >= 1);
+    assert.ok(byCustomer.body.filters);
+  });
+
+  it("書類アップロード登録", async () => {
+    const tinyPdf = Buffer.from("%PDF-1.4 test").toString("base64");
+    const upload = await request(app)
+      .post("/api/documents/v1/upload")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        projectId: businessProjectId,
+        documentType: "other",
+        sourceType: "manual",
+        title: "テスト添付",
+        fileName: "test-upload.pdf",
+        fileBase64: tinyPdf,
+        mimeType: "application/pdf",
+        memo: "v1.5 upload test",
+      });
+    assert.equal(upload.status, 201);
+    assert.equal(upload.body.ok, true);
+    assert.equal(upload.body.document.documentType, "other");
+    assert.equal(upload.body.document.memo, "v1.5 upload test");
+  });
+
+  it("workflow status 変更", async () => {
+    const doc = listStorageDocumentsForProjectV1(businessProjectId).find(
+      (d) => d.documentType === "estimate"
+    );
+    assert.ok(doc);
+    const patch = await request(app)
+      .patch(`/api/documents/v1/storage/${doc!.id}/workflow-status`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ workflowStatus: "sent" });
+    assert.equal(patch.status, 200);
+    assert.equal(patch.body.document.workflowStatus, "sent");
+  });
+
+  it("QNAP — pending / failed 同期 API", async () => {
+    const pending = await request(app)
+      .post(`/api/documents/v1/projects/${businessProjectId}/qnap/sync-pending`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({});
+    assert.equal(pending.status, 200);
+    assert.equal(pending.body.mode, "pending");
+
+    const failed = await request(app)
+      .post(`/api/documents/v1/projects/${businessProjectId}/qnap/sync-failed`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({});
+    assert.equal(failed.status, 200);
+    assert.equal(failed.body.mode, "failed");
+  });
+
+  it("GET /meta — sourceTypes 表示", async () => {
+    const res = await request(app)
+      .get("/api/documents/v1/meta")
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(res.status, 200);
+    assert.ok(res.body.sourceTypes.voice);
+    assert.ok(res.body.sourceTypes.phone);
+    assert.ok(res.body.sourceTypes.ai);
+    assert.ok(res.body.qnapStatuses);
+  });
+
+  it("案件詳細 documents API 連携", async () => {
+    const res = await request(app)
+      .get(`/api/documents/v1/projects/${businessProjectId}`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(res.status, 200);
+    assert.ok(res.body.folders.length >= 1);
+    assert.ok(res.body.totalDocuments >= 1);
   });
 });

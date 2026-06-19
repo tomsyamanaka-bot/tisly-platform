@@ -15,9 +15,19 @@ import {
   searchDocumentCenterV1,
   toggleDocumentCenterFavoriteV1,
 } from "../../documents/document-center-v1-store.js";
-import { DOCUMENT_TYPE_PRESENTATION } from "../../documents/document-center-v1-types.js";
+import { DOCUMENT_TYPE_PRESENTATION, SOURCE_TYPE_PRESENTATION } from "../../documents/document-center-v1-types.js";
+import type { DocumentCenterTypeV1, DocumentSourceTypeV1 } from "../../documents/document-center-v1-types.js";
+import {
+  getStorageDocumentByIdV1,
+  registerUploadedDocumentV1,
+  updateStorageDocumentWorkflowStatusV1,
+  type StorageDocumentTypeV1,
+  type StorageDocumentWorkflowStatusV1,
+} from "../../storage/storage-documents-v1-store.js";
 import {
   getQnapStorageStatusForProjectV1,
+  syncFailedDocumentsToQnapV1,
+  syncPendingDocumentsToQnapV1,
   syncProjectDocumentsToQnapV1,
   syncStorageDocumentToQnapV1,
 } from "../../storage/qnap-storage-v1-service.js";
@@ -42,7 +52,14 @@ function username(req: AuthedRequest): string {
 documentsV1Router.get("/meta", ...auth, (_req: AuthedRequest, res) => {
   res.json({
     documentTypes: DOCUMENT_TYPE_PRESENTATION,
-    sourceTypes: ["manual", "pdf", "drawing", "voice", "phone", "ai"],
+    sourceTypes: SOURCE_TYPE_PRESENTATION,
+    workflowStatuses: ["draft", "ready", "sent", "signed", "completed", "archived"],
+    qnapStatuses: [
+      { id: "pending", label: "QNAP未保存", icon: "🟠" },
+      { id: "synced", label: "QNAP保存済み", icon: "🟢" },
+      { id: "failed", label: "保存失敗", icon: "🔴" },
+      { id: "syncing", label: "再同期中", icon: "⚙️" },
+    ],
   });
 });
 
@@ -81,10 +98,23 @@ documentsV1Router.get("/search", ...auth, (req: AuthedRequest, res) => {
   if (!assertRole(req, res)) return;
   const q = String(req.query.q ?? "").trim();
   const limit = Math.min(100, Math.max(1, Number(req.query.limit ?? 50) || 50));
+  const documentType = String(req.query.documentType ?? "all");
+  const qnapStatus = String(req.query.qnapStatus ?? "all");
+  const sourceType = String(req.query.sourceType ?? "all");
+  const sort = String(req.query.sort ?? "created") === "recent" ? "recent" : "created";
   const started = Date.now();
-  const hits = searchDocumentCenterV1(q, limit);
+  const hits = searchDocumentCenterV1({
+    query: q,
+    limit,
+    documentType: documentType as DocumentCenterTypeV1 | "all",
+    qnapStatus: qnapStatus as "pending" | "synced" | "failed" | "syncing" | "all",
+    sourceType: sourceType as DocumentSourceTypeV1 | "all",
+    sort,
+    username: username(req),
+  });
   res.json({
     query: q,
+    filters: { documentType, qnapStatus, sourceType, sort },
     hits,
     count: hits.length,
     elapsedMs: Date.now() - started,
@@ -213,5 +243,95 @@ documentsV1Router.post("/projects/:projectId/qnap/sync-all", ...auth, async (req
     res.json(result);
   } catch (e) {
     res.status(500).json({ error: e instanceof Error ? e.message : "sync failed" });
+  }
+});
+
+documentsV1Router.post("/projects/:projectId/qnap/sync-pending", ...auth, async (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const projectId = String(req.params.projectId);
+  if (!getBusinessProject(projectId)) {
+    res.status(404).json({ error: "project not found" });
+    return;
+  }
+  try {
+    const result = await syncPendingDocumentsToQnapV1(projectId);
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : "sync failed" });
+  }
+});
+
+documentsV1Router.post("/projects/:projectId/qnap/sync-failed", ...auth, async (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const projectId = String(req.params.projectId);
+  if (!getBusinessProject(projectId)) {
+    res.status(404).json({ error: "project not found" });
+    return;
+  }
+  try {
+    const result = await syncFailedDocumentsToQnapV1(projectId);
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : "sync failed" });
+  }
+});
+
+documentsV1Router.post("/upload", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const body = req.body ?? {};
+  const projectId = String(body.projectId ?? "").trim();
+  const documentType = String(body.documentType ?? "").trim() as StorageDocumentTypeV1;
+  const sourceType = String(body.sourceType ?? "manual").trim() as import("../../storage/storage-documents-v1-store.js").StorageDocumentSourceTypeV1;
+  const title = String(body.title ?? "").trim();
+  const fileName = String(body.fileName ?? "").trim();
+  const fileBase64 = String(body.fileBase64 ?? "");
+  if (!projectId || !documentType || !fileName || !fileBase64) {
+    res.status(400).json({ error: "projectId, documentType, fileName, fileBase64 are required" });
+    return;
+  }
+  if (!getBusinessProject(projectId)) {
+    res.status(404).json({ error: "project not found" });
+    return;
+  }
+  try {
+    const doc = registerUploadedDocumentV1({
+      projectId,
+      documentType,
+      sourceType,
+      title: title || fileName,
+      fileName,
+      fileBase64,
+      mimeType: body.mimeType != null ? String(body.mimeType) : undefined,
+      memo: body.memo != null ? String(body.memo) : null,
+    });
+    res.status(201).json({ ok: true, document: doc });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "upload failed";
+    if (msg === "project not found") {
+      res.status(404).json({ error: msg });
+      return;
+    }
+    res.status(400).json({ error: msg });
+  }
+});
+
+documentsV1Router.patch("/storage/:documentId/workflow-status", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const documentId = String(req.params.documentId);
+  const workflowStatus = String(req.body?.workflowStatus ?? "").trim() as StorageDocumentWorkflowStatusV1;
+  if (!workflowStatus) {
+    res.status(400).json({ error: "workflowStatus is required" });
+    return;
+  }
+  const existing = getStorageDocumentByIdV1(documentId);
+  if (!existing) {
+    res.status(404).json({ error: "document not found" });
+    return;
+  }
+  try {
+    const updated = updateStorageDocumentWorkflowStatusV1(documentId, workflowStatus);
+    res.json({ ok: true, document: updated });
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : "update failed" });
   }
 });

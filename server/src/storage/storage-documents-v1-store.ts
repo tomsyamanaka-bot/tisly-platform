@@ -24,6 +24,7 @@ export type StorageDocumentSourceTypeV1 =
   | "manual"
   | "pdf"
   | "drawing"
+  | "photo"
   | "voice"
   | "phone"
   | "ai";
@@ -33,6 +34,14 @@ export type StorageDocumentStatusV1 =
   | "qnap_syncing"
   | "qnap_synced"
   | "qnap_failed";
+
+export type StorageDocumentWorkflowStatusV1 =
+  | "draft"
+  | "ready"
+  | "sent"
+  | "signed"
+  | "completed"
+  | "archived";
 
 export interface StorageDocumentV1 {
   id: string;
@@ -52,6 +61,8 @@ export interface StorageDocumentV1 {
   syncedAt: string | null;
   errorMessage: string | null;
   sourceType: StorageDocumentSourceTypeV1;
+  workflowStatus: StorageDocumentWorkflowStatusV1;
+  memo: string | null;
 }
 
 const PDF_KIND_TO_DOC_TYPE: Record<ProjectPdfKind, StorageDocumentTypeV1> = {
@@ -87,6 +98,10 @@ function rowFromDb(r: Record<string, unknown>): StorageDocumentV1 {
     syncedAt: r.synced_at != null ? String(r.synced_at) : null,
     errorMessage: r.error_message != null ? String(r.error_message) : null,
     sourceType: (r.source_type != null ? String(r.source_type) : "pdf") as StorageDocumentSourceTypeV1,
+    workflowStatus: (r.workflow_status != null
+      ? String(r.workflow_status)
+      : "draft") as StorageDocumentWorkflowStatusV1,
+    memo: r.memo != null ? String(r.memo) : null,
   };
 }
 
@@ -112,10 +127,29 @@ export function storageStatusPresentation(
     case "qnap_failed":
       return { label: "保存失敗", icon: "🔴" };
     case "qnap_syncing":
-      return { label: "保存中", icon: "🔵" };
+      return { label: "再同期中", icon: "⚙️" };
     default:
-      return { label: "QNAP未保存", icon: "🟡" };
+      return { label: "QNAP未保存", icon: "🟠" };
   }
+}
+
+export function workflowStatusPresentation(
+  documentType: StorageDocumentTypeV1,
+  status: StorageDocumentWorkflowStatusV1
+): { label: string; value: StorageDocumentWorkflowStatusV1 } {
+  const labels: Record<StorageDocumentTypeV1, Partial<Record<StorageDocumentWorkflowStatusV1, string>>> = {
+    estimate: { draft: "作成中", sent: "送付済み", signed: "成約", ready: "準備完了", completed: "完了", archived: "保管" },
+    invoice: { draft: "未送付", sent: "送付済み", completed: "入金済み", ready: "準備完了", signed: "確認済", archived: "保管" },
+    report: { draft: "作成中", sent: "提出済み", completed: "完了", ready: "準備完了", signed: "承認済", archived: "保管" },
+    specification: { draft: "作成中", sent: "送付済み", ready: "準備完了", completed: "完了", signed: "承認済", archived: "保管" },
+    project: { draft: "下書き", ready: "準備完了", sent: "送付済", completed: "完了", archived: "保管" },
+    survey: { draft: "作成中", sent: "送付済", completed: "完了", archived: "保管" },
+    drawing: { draft: "作成中", sent: "共有済", completed: "完了", archived: "保管" },
+    photo: { draft: "未整理", ready: "準備完了", completed: "完了", archived: "保管" },
+    other: { draft: "下書き", ready: "準備完了", sent: "送付済", completed: "完了", archived: "保管" },
+  };
+  const typeLabels = labels[documentType] ?? labels.other;
+  return { value: status, label: typeLabels[status] ?? status };
 }
 
 export function getStorageDocumentByIdV1(id: string): StorageDocumentV1 | null {
@@ -258,8 +292,8 @@ export function registerProjectPdfDocumentV1(input: RegisterProjectPdfDocumentIn
       `INSERT INTO storage_documents_v1 (
         id, project_id, document_type, title, file_name, local_path, qnap_path,
         mime_type, size, status, customer_name, site_name,
-        created_at, updated_at, synced_at, error_message, source_type
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        created_at, updated_at, synced_at, error_message, source_type, workflow_status, memo
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       id,
@@ -278,7 +312,9 @@ export function registerProjectPdfDocumentV1(input: RegisterProjectPdfDocumentIn
       now,
       status === "qnap_synced" ? now : null,
       input.errorMessage ?? null,
-      "pdf"
+      "pdf",
+      "draft",
+      null
     );
 
   return rowFromDb(
@@ -325,4 +361,121 @@ export function mapPracticalKindToDocumentType(
   if (kind === "invoice") return "invoice";
   if (kind === "completion") return "report";
   return "specification";
+}
+
+const DOC_TYPE_TO_FOLDER: Record<StorageDocumentTypeV1, string> = {
+  estimate: "02_見積",
+  invoice: "03_請求",
+  specification: "04_仕様書",
+  report: "05_完了報告",
+  survey: "01_現調",
+  drawing: "07_図面",
+  photo: "06_写真",
+  project: "08_その他",
+  other: "08_その他",
+};
+
+function guessMimeType(fileName: string, fallback?: string): string {
+  if (fallback?.trim()) return fallback;
+  const ext = path.extname(fileName).toLowerCase();
+  if (ext === ".pdf") return "application/pdf";
+  if ([".jpg", ".jpeg"].includes(ext)) return "image/jpeg";
+  if (ext === ".png") return "image/png";
+  if (ext === ".webp") return "image/webp";
+  if (ext === ".json") return "application/json";
+  return "application/octet-stream";
+}
+
+export interface RegisterUploadedDocumentInputV1 {
+  projectId: string;
+  documentType: StorageDocumentTypeV1;
+  sourceType: StorageDocumentSourceTypeV1;
+  title: string;
+  fileName: string;
+  fileBase64: string;
+  mimeType?: string;
+  memo?: string | null;
+  workflowStatus?: StorageDocumentWorkflowStatusV1;
+}
+
+/** Document Center からのアップロード登録 */
+export function registerUploadedDocumentV1(input: RegisterUploadedDocumentInputV1): StorageDocumentV1 {
+  const project = getBusinessProject(input.projectId);
+  if (!project) throw new Error("project not found");
+
+  const raw = input.fileBase64.replace(/^data:[^;]+;base64,/, "");
+  if (!raw.trim()) throw new Error("fileBase64 is required");
+  const buffer = Buffer.from(raw, "base64");
+  if (!buffer.length) throw new Error("file is empty");
+
+  const safeName = path.basename(input.fileName || "upload.bin").replace(/[^\w.\-ぁ-んァ-ヶ一-龥]+/g, "_");
+  const subFolder = DOC_TYPE_TO_FOLDER[input.documentType] ?? "08_その他";
+  const relDir = `data/project-storage/${input.projectId}/${subFolder}`;
+  const absDir = path.join(process.cwd(), relDir);
+  fs.mkdirSync(absDir, { recursive: true });
+  const absPath = path.join(absDir, safeName);
+  fs.writeFileSync(absPath, buffer);
+  const localPath = `${relDir}/${safeName}`.replace(/\\/g, "/");
+
+  const mimeType = guessMimeType(safeName, input.mimeType);
+  const now = new Date().toISOString();
+  const id = uuid();
+  const workflowStatus = input.workflowStatus ?? "draft";
+
+  getDatabase()
+    .prepare(
+      `INSERT INTO storage_documents_v1 (
+        id, project_id, document_type, title, file_name, local_path, qnap_path,
+        mime_type, size, status, customer_name, site_name,
+        created_at, updated_at, synced_at, error_message, source_type, workflow_status, memo
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .run(
+      id,
+      input.projectId,
+      input.documentType,
+      input.title || safeName,
+      safeName,
+      localPath,
+      null,
+      mimeType,
+      buffer.length,
+      "qnap_pending",
+      project.customerName ?? null,
+      project.title ?? null,
+      now,
+      now,
+      null,
+      null,
+      input.sourceType,
+      workflowStatus,
+      input.memo ?? null
+    );
+
+  return rowFromDb(
+    getDatabase().prepare(`SELECT * FROM storage_documents_v1 WHERE id = ?`).get(id) as Record<
+      string,
+      unknown
+    >
+  );
+}
+
+export function updateStorageDocumentWorkflowStatusV1(
+  id: string,
+  workflowStatus: StorageDocumentWorkflowStatusV1
+): StorageDocumentV1 | null {
+  const valid: StorageDocumentWorkflowStatusV1[] = [
+    "draft",
+    "ready",
+    "sent",
+    "signed",
+    "completed",
+    "archived",
+  ];
+  if (!valid.includes(workflowStatus)) throw new Error("invalid workflow status");
+  const now = new Date().toISOString();
+  getDatabase()
+    .prepare(`UPDATE storage_documents_v1 SET workflow_status = ?, updated_at = ? WHERE id = ?`)
+    .run(workflowStatus, now, id);
+  return getStorageDocumentByIdV1(id);
 }

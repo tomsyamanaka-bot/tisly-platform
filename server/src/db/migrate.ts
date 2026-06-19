@@ -232,6 +232,7 @@ export function runMigrations(database: Database.Database): void {
   migrateMasterV1EstimateApply(database);
   migrateStorageDocumentsV1(database);
   migrateDocumentCenterV1(database);
+  migrateDocumentCenterV15(database);
   migrateLegacyDocNumbersIfNeededV1(database);
 }
 
@@ -4036,4 +4037,39 @@ function migrateDocumentCenterV1(database: Database.Database): void {
       `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
     )
     .run("migration:document_center_v1", JSON.stringify({ at: new Date().toISOString() }));
+}
+
+/** Document Center v1.5 — workflow_status / memo */
+function migrateDocumentCenterV15(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:document_center_v1_5") as { value_json: string } | undefined;
+  if (marker) return;
+
+  const cols = new Set(
+    (database.prepare("PRAGMA table_info(storage_documents_v1)").all() as Array<{ name: string }>).map(
+      (r) => r.name
+    )
+  );
+  if (!cols.has("workflow_status")) {
+    database.exec(
+      `ALTER TABLE storage_documents_v1 ADD COLUMN workflow_status TEXT NOT NULL DEFAULT 'draft'`
+    );
+  }
+  if (!cols.has("memo")) {
+    database.exec(`ALTER TABLE storage_documents_v1 ADD COLUMN memo TEXT`);
+  }
+
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_storage_documents_v1_workflow
+      ON storage_documents_v1(workflow_status);
+    CREATE INDEX IF NOT EXISTS idx_storage_documents_v1_source_type
+      ON storage_documents_v1(source_type);
+  `);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:document_center_v1_5", JSON.stringify({ at: new Date().toISOString() }));
 }
