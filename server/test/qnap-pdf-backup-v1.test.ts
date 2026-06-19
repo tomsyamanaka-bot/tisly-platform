@@ -18,6 +18,13 @@ const { buildQnapPdfRemotePath } = await import("../src/projects/project-pdf-qna
 
 const app = createApp();
 
+/** TOMS QNAP PDF パス — 日本語ファイル名・案件名・見積/請求番号対応 */
+const QNAP_PDF_PATH_RE = {
+  estimate: /\/TiSLY\/projects\/.+\/estimate\/.*\.pdf$/,
+  invoice: /\/TiSLY\/projects\/.+\/invoice\/.*\.pdf$/,
+  report: /\/TiSLY\/projects\/.+\/(completion-report|report)\/.*\.pdf$/,
+};
+
 async function ownerLogin() {
   return request(app)
     .post("/api/auth/customer/login")
@@ -115,7 +122,8 @@ describe("QNAP PDF 自動バックアップ v1", () => {
     assert.equal(pdfs.status, 200);
     const estimate = pdfs.body.pdfs.find((p: { kind: string }) => p.kind === "estimate");
     assert.equal(estimate.qnap.status, "success", estimate.qnap?.error);
-    assert.match(estimate.qnap.path, /\/TiSLY\/projects\/.+\/estimate\/estimate-.*\.pdf/);
+    assert.match(estimate.qnap.path, QNAP_PDF_PATH_RE.estimate, estimate.qnap.path);
+    assert.match(estimate.fileName, /^見積書_.*\.pdf$/);
     const remote = path.join(
       process.cwd(),
       "uploads",

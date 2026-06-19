@@ -49,10 +49,12 @@ import {
   refreshAiSuggestionsV1,
 } from "../../projects/project-automation-suggestions-v1.js";
 import { runQnapSpecPhotosIntegrityCheckV1 } from "../../storage/qnap-spec-photos-integrity-service.js";
+import { syncSpecPhotosToQnapV1 } from "../../storage/qnap-spec-photos-sync-service.js";
 import {
   linkSpecProjectPhotoSlotV1,
   listUnshotSpecProjectPhotosV1,
   reorderSpecProjectPhotosV1,
+  updateSpecProjectPhotoSlotV1,
 } from "../../projects/spec-photo-slots-v1-store.js";
 
 export const projectAutomationV1Router = Router();
@@ -340,6 +342,45 @@ projectAutomationV1Router.put(
     const orderedIds = Array.isArray(req.body?.orderedIds) ? req.body.orderedIds.map(String) : [];
     reorderSpecProjectPhotosV1(String(req.params.projectId), orderedIds);
     res.json({ ok: true });
+  }
+);
+
+projectAutomationV1Router.patch(
+  "/projects/:projectId/spec-photos/:photoId",
+  ...auth,
+  (req: AuthedRequest, res) => {
+    if (!assertRole(req, res)) return;
+    const body = req.body ?? {};
+    const updated = updateSpecProjectPhotoSlotV1(
+      String(req.params.projectId),
+      String(req.params.photoId),
+      {
+        label: body.label != null ? String(body.label) : undefined,
+        required: body.required !== undefined ? Boolean(body.required) : undefined,
+        memo: body.memo !== undefined ? (body.memo != null ? String(body.memo) : null) : undefined,
+        active: body.active !== undefined ? Boolean(body.active) : undefined,
+        sortOrder: body.sortOrder !== undefined ? Number(body.sortOrder) : undefined,
+      }
+    );
+    if (!updated) {
+      res.status(404).json({ error: "spec photo slot not found" });
+      return;
+    }
+    res.json(updated);
+  }
+);
+
+projectAutomationV1Router.post(
+  "/projects/:projectId/spec-photos/qnap-sync",
+  ...auth,
+  async (req: AuthedRequest, res) => {
+    if (!assertRole(req, res)) return;
+    try {
+      const result = await syncSpecPhotosToQnapV1(String(req.params.projectId));
+      res.json(result);
+    } catch (e) {
+      res.status(500).json({ error: e instanceof Error ? e.message : "sync failed" });
+    }
   }
 );
 

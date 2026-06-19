@@ -6,6 +6,7 @@ import {
   getStorageSettingsV1,
   updateStorageSettingsV1,
   type QnapConnectionTestResult,
+  type QnapTestPdfDeleteResult,
   type QnapTestPdfSendResult,
   type StorageSettingsV1,
 } from "./storage-settings-store.js";
@@ -205,5 +206,73 @@ export async function runQnapTestPdfSend(
   }
 
   updateStorageSettingsV1({ lastTestPdfSend: result });
+  return result;
+}
+
+async function mockTestPdfDelete(settings: StorageSettingsV1): Promise<QnapTestPdfDeleteResult> {
+  const err = validateQnapSettings(settings);
+  if (err) {
+    return { ok: false, message: err, deletedAt: new Date().toISOString(), mock: true };
+  }
+  const remotePath = `${settings.qnap.shareName}/${QNAP_TEST_PDF_REMOTE}`.replace(/\\/g, "/");
+  const dest = path.join(mockMirrorRoot(), remotePath);
+  if (fs.existsSync(dest)) {
+    fs.unlinkSync(dest);
+    return {
+      ok: true,
+      message: `モック削除成功 — ${dest}`,
+      remotePath: `/${remotePath}`,
+      deletedAt: new Date().toISOString(),
+      mock: true,
+    };
+  }
+  return {
+    ok: true,
+    message: "テストファイルは存在しません（既に削除済み）",
+    remotePath: `/${remotePath}`,
+    deletedAt: new Date().toISOString(),
+    mock: true,
+  };
+}
+
+export async function runQnapTestPdfDelete(
+  settings?: StorageSettingsV1
+): Promise<QnapTestPdfDeleteResult> {
+  const current = settings ?? getStorageSettingsV1();
+  const validationError = validateQnapSettings(current);
+  if (validationError) {
+    const result: QnapTestPdfDeleteResult = {
+      ok: false,
+      message: validationError,
+      deletedAt: new Date().toISOString(),
+    };
+    updateStorageSettingsV1({ lastTestPdfDelete: result });
+    return result;
+  }
+
+  let result: QnapTestPdfDeleteResult;
+  if (isQnapStorageMockMode(current)) {
+    result = await mockTestPdfDelete(current);
+  } else {
+    try {
+      const cfg = settingsToWebDavConfig(current);
+      const client = new QnapWebDavClient(cfg);
+      await client.deleteFile(QNAP_TEST_PDF_REMOTE);
+      result = {
+        ok: true,
+        message: `✅ テストPDF削除成功 — /${current.qnap.shareName}/${QNAP_TEST_PDF_REMOTE}`,
+        remotePath: `/${current.qnap.shareName}/${QNAP_TEST_PDF_REMOTE}`,
+        deletedAt: new Date().toISOString(),
+      };
+    } catch (e) {
+      result = {
+        ok: false,
+        message: (e as Error).message,
+        deletedAt: new Date().toISOString(),
+      };
+    }
+  }
+
+  updateStorageSettingsV1({ lastTestPdfDelete: result });
   return result;
 }

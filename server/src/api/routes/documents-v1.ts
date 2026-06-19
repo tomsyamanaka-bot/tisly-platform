@@ -33,6 +33,7 @@ import {
   syncProjectDocumentsToQnapV1,
   syncStorageDocumentToQnapV1,
 } from "../../storage/qnap-storage-v1-service.js";
+import { syncSpecPhotosToQnapV1 } from "../../storage/qnap-spec-photos-sync-service.js";
 
 export const documentsV1Router = Router();
 
@@ -272,6 +273,21 @@ documentsV1Router.post("/projects/:projectId/qnap/sync-failed", ...auth, async (
   }
   try {
     const result = await syncFailedDocumentsToQnapV1(projectId);
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : "sync failed" });
+  }
+});
+
+documentsV1Router.post("/projects/:projectId/qnap/sync-spec-photos", ...auth, async (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const projectId = String(req.params.projectId);
+  if (!getBusinessProject(projectId)) {
+    res.status(404).json({ error: "project not found" });
+    return;
+  }
+  try {
+    const result = await syncSpecPhotosToQnapV1(projectId);
     res.json(result);
   } catch (e) {
     res.status(500).json({ error: e instanceof Error ? e.message : "sync failed" });

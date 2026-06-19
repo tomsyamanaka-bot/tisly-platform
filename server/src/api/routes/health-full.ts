@@ -22,6 +22,7 @@ import { getRateLimitProviderName } from "../../redis/rate-limit-redis.js";
 import { getInfrastructureStatuses } from "../../infrastructure/status.js";
 import { getBuildVersion } from "../../deploy/build-version.js";
 import { probePdfEngineHealth } from "../../business/pdf/pdf-engine-status.js";
+import { getQnapStorageHealthV1 } from "../../storage/qnap-storage-v1-config.js";
 import { getWsClientCount } from "../../ws/hub.js";
 import { getGoogleMapsApiKey, isGoogleMapsApiConfigured } from "../../schedule/google-maps-service.js";
 import { getGoogleCalendarOAuthHealthInfo } from "../../services/googleOAuthService.js";
@@ -115,6 +116,7 @@ async function buildFullHealthResponse() {
   const googleMapsApiKeyPresent = Boolean(getGoogleMapsApiKey());
   const pdfStatus = await probePdfEngineHealth();
   const googleCalendarOAuth = getGoogleCalendarOAuthHealthInfo();
+  const qnapStorageHealth = getQnapStorageHealthV1();
 
   return {
     status: dbOk ? "ok" : "degraded",
@@ -124,6 +126,11 @@ async function buildFullHealthResponse() {
     pdfEngineReady: pdfStatus.pdfEngineReady,
     chromiumExecutablePath: pdfStatus.chromiumExecutablePath,
     pdfLastError: pdfStatus.pdfLastError,
+    storageProvider: qnapStorageHealth.storageProvider,
+    qnapConfigured: qnapStorageHealth.qnapConfigured,
+    qnapMode: qnapStorageHealth.qnapMode,
+    qnapLastTestAt: qnapStorageHealth.qnapLastTestAt,
+    qnapLastError: qnapStorageHealth.qnapLastError,
     runtimeFeatures: {
       qnapPdfBackupV1: true,
       storageSettingsV1: true,

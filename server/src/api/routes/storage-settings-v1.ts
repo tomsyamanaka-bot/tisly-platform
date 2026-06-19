@@ -9,8 +9,11 @@ import {
 } from "../../storage/storage-settings-store.js";
 import {
   runQnapConnectionTest,
+  runQnapTestPdfDelete,
   runQnapTestPdfSend,
 } from "../../storage/qnap-storage-service.js";
+import { getQnapStorageHealthV1 } from "../../storage/qnap-storage-v1-config.js";
+import { retryFailedQnapStorageV1 } from "../../storage/qnap-storage-v1-service.js";
 import {
   resyncAllQnapPdfMismatchesV1,
   runQnapPdfIntegrityCheckV1,
@@ -82,7 +85,43 @@ storageSettingsV1Router.post("/qnap/test-pdf", ...adminAuth, async (req: AuthedR
     ok: result.ok,
     result,
     summary: getStorageStatusSummary(settings),
+    qnapHealth: getQnapStorageHealthV1(),
   });
+});
+
+storageSettingsV1Router.post("/qnap/test-delete", ...adminAuth, async (req: AuthedRequest, res) => {
+  if (!assertAdminRole(req, res)) return;
+  const result = await runQnapTestPdfDelete();
+  const settings = getStorageSettingsV1();
+  res.json({
+    ok: result.ok,
+    result,
+    summary: getStorageStatusSummary(settings),
+    qnapHealth: getQnapStorageHealthV1(),
+  });
+});
+
+storageSettingsV1Router.get("/qnap/status", ...adminAuth, (req: AuthedRequest, res) => {
+  if (!assertAdminRole(req, res)) return;
+  const settings = getStorageSettingsV1();
+  res.json({
+    ...getQnapStorageHealthV1(),
+    summary: getStorageStatusSummary(settings),
+    lastTestPdfSend: settings.lastTestPdfSend ?? null,
+    lastTestPdfDelete: settings.lastTestPdfDelete ?? null,
+    testFileName: "Test/tisly-test.pdf",
+  });
+});
+
+storageSettingsV1Router.post("/qnap/retry-failed", ...adminAuth, async (req: AuthedRequest, res) => {
+  if (!assertAdminRole(req, res)) return;
+  const projectId = req.body?.projectId ? String(req.body.projectId) : undefined;
+  try {
+    const result = await retryFailedQnapStorageV1(projectId);
+    res.json({ ok: true, result, qnapHealth: getQnapStorageHealthV1() });
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : "retry failed" });
+  }
 });
 
 storageSettingsV1Router.get("/qnap/integrity", ...adminAuth, (req: AuthedRequest, res) => {

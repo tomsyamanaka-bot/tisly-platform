@@ -115,4 +115,15 @@ export class QnapWebDavClient {
     }
     return count;
   }
+
+  async deleteFile(remotePath: string): Promise<void> {
+    const url = joinUrl(this.cfg.webdavUrl, remotePath.replace(/^\/+/, ""));
+    const res = await fetch(url, {
+      method: "DELETE",
+      headers: this.headers(),
+    });
+    if (!res.ok && res.status !== 404) {
+      throw new Error(`DELETE ${remotePath} failed: ${res.status}`);
+    }
+  }
 }

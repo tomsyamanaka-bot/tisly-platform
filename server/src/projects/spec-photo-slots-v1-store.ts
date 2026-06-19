@@ -157,6 +157,42 @@ export function reorderSpecProjectPhotosV1(projectId: string, orderedIds: string
   orderedIds.forEach((id, i) => stmt.run(i, now, id, projectId));
 }
 
+export function updateSpecProjectPhotoSlotV1(
+  projectId: string,
+  photoSlotId: string,
+  patch: {
+    label?: string;
+    required?: boolean;
+    memo?: string | null;
+    active?: boolean;
+    sortOrder?: number;
+  }
+): SpecProjectPhotoSlotV1 | null {
+  const db = getDatabase();
+  const existing = db
+    .prepare(`SELECT * FROM spec_project_photos_v1 WHERE id = ? AND project_id = ?`)
+    .get(photoSlotId, projectId) as Record<string, unknown> | undefined;
+  if (!existing) return null;
+
+  const label = patch.label !== undefined ? String(patch.label).trim() || String(existing.label) : String(existing.label);
+  const required = patch.required !== undefined ? (patch.required ? 1 : 0) : Number(existing.required ?? 0);
+  const memo = patch.memo !== undefined ? patch.memo : existing.memo;
+  const active = patch.active !== undefined ? (patch.active ? 1 : 0) : Number(existing.active ?? 1);
+  const sortOrder =
+    patch.sortOrder !== undefined ? Number(patch.sortOrder) : Number(existing.sort_order ?? 0);
+  const now = new Date().toISOString();
+
+  db.prepare(
+    `UPDATE spec_project_photos_v1 SET label = ?, required = ?, memo = ?, active = ?, sort_order = ?, updated_at = ?
+     WHERE id = ? AND project_id = ?`
+  ).run(label, required, memo ?? null, active, sortOrder, now, photoSlotId, projectId);
+
+  const row = db
+    .prepare(`SELECT * FROM spec_project_photos_v1 WHERE id = ?`)
+    .get(photoSlotId) as Record<string, unknown>;
+  return rowToSpecPhotoSlot(row);
+}
+
 export function listUnshotSpecProjectPhotosV1(projectId: string): SpecProjectPhotoSlotV1[] {
   return listSpecProjectPhotoSlotsV1(projectId, { activeOnly: true }).filter((p) => !p.shot);
 }

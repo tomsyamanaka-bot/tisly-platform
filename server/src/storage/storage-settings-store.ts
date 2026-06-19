@@ -19,6 +19,14 @@ export interface QnapTestPdfSendResult {
   mock?: boolean;
 }
 
+export interface QnapTestPdfDeleteResult {
+  ok: boolean;
+  message: string;
+  remotePath?: string;
+  deletedAt: string;
+  mock?: boolean;
+}
+
 export interface StorageQnapConfigV1 {
   host: string;
   port: number;
@@ -33,6 +41,7 @@ export interface StorageSettingsV1 {
   qnap: StorageQnapConfigV1;
   lastConnectionTest?: QnapConnectionTestResult;
   lastTestPdfSend?: QnapTestPdfSendResult;
+  lastTestPdfDelete?: QnapTestPdfDeleteResult;
   updatedAt: string;
 }
 
@@ -72,6 +81,7 @@ function parseSettings(raw: string | undefined): StorageSettingsV1 {
       },
       lastConnectionTest: parsed.lastConnectionTest,
       lastTestPdfSend: parsed.lastTestPdfSend,
+      lastTestPdfDelete: parsed.lastTestPdfDelete,
       updatedAt: parsed.updatedAt ?? new Date().toISOString(),
     };
   } catch {
@@ -139,6 +149,7 @@ export function updateStorageSettingsV1(
     Pick<StorageSettingsV1, "localStorageEnabled" | "qnapBackupEnabled" | "qnap"> & {
       lastConnectionTest?: QnapConnectionTestResult | null;
       lastTestPdfSend?: QnapTestPdfSendResult | null;
+      lastTestPdfDelete?: QnapTestPdfDeleteResult | null;
     }
   >
 ): StorageSettingsV1 {
@@ -186,6 +197,10 @@ export function updateStorageSettingsV1(
       patch.lastTestPdfSend === null
         ? undefined
         : patch.lastTestPdfSend ?? current.lastTestPdfSend,
+    lastTestPdfDelete:
+      patch.lastTestPdfDelete === null
+        ? undefined
+        : patch.lastTestPdfDelete ?? current.lastTestPdfDelete,
     updatedAt: new Date().toISOString(),
   };
 
