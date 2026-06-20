@@ -15,6 +15,7 @@ import {
   getKnowledgeSearchIndexPath,
   getWorkCategoriesMasterPath,
 } from "./knowledge-paths-v1.js";
+import { enqueueKnowledgeQnapSyncV1 } from "./knowledge-qnap-sync-store-v1.js";
 
 const ID_RE = /^[A-Z0-9][A-Z0-9_-]{2,63}$/i;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -35,6 +36,24 @@ function readJsonFile<T>(filePath: string): T | null {
 function writeJsonFile(filePath: string, data: unknown): void {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, `${JSON.stringify(data, null, 2)}\n`, "utf8");
+}
+
+function normalizeStringArray(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return [...new Set(raw.map((v) => String(v ?? "").trim()).filter(Boolean))];
+}
+
+function normalizeOptionalCardFields(input: KnowledgeCardInputV1): Partial<KnowledgeCardV1> {
+  const out: Partial<KnowledgeCardV1> = {};
+  if (input.sourceType) out.sourceType = input.sourceType;
+  const related = normalizeStringArray(input.relatedProjectIds);
+  if (related.length) out.relatedProjectIds = related;
+  if (input.projectNo?.trim()) out.projectNo = input.projectNo.trim();
+  if (input.customerName?.trim()) out.customerName = input.customerName.trim();
+  if (input.photoMeta?.photoId) out.photoMeta = input.photoMeta;
+  if (input.pdfMeta?.localPath) out.pdfMeta = input.pdfMeta;
+  if (input.qnapSyncStatus) out.qnapSyncStatus = input.qnapSyncStatus;
+  return out;
 }
 
 function normalizeTags(tags: unknown): string[] {
@@ -92,6 +111,7 @@ export function normalizeKnowledgeCardInput(input: KnowledgeCardInputV1): Knowle
     summary,
     files: normalizeFiles(input.files),
     updatedAt,
+    ...normalizeOptionalCardFields(input),
   };
 }
 
@@ -113,12 +133,22 @@ export function getKnowledgeCardV1(id: string): KnowledgeCardV1 | null {
   return readJsonFile<KnowledgeCardV1>(filePath);
 }
 
-export function saveKnowledgeCardV1(input: KnowledgeCardInputV1): KnowledgeCardV1 {
+export function saveKnowledgeCardV1(input: KnowledgeCardInputV1, opts?: { skipQnapQueue?: boolean }): KnowledgeCardV1 {
   ensureKnowledgeFolderStructure();
-  const card = normalizeKnowledgeCardInput(input);
+  const card = normalizeKnowledgeCardInput({
+    ...input,
+    qnapSyncStatus: input.qnapSyncStatus ?? "pending",
+  });
   const filePath = path.join(getKnowledgeCardsDir(), buildKnowledgeCardFileName(card.id));
   writeJsonFile(filePath, card);
   rebuildKnowledgeSearchIndexV1();
+  if (!opts?.skipQnapQueue) {
+    enqueueKnowledgeQnapSyncV1({
+      localPath: filePath,
+      relativePath: `AI/KnowledgeCards/${buildKnowledgeCardFileName(card.id)}`,
+      cardId: card.id,
+    });
+  }
   return card;
 }
 
@@ -141,6 +171,9 @@ export function rebuildKnowledgeSearchIndexV1(): KnowledgeSearchIndexV1 {
       tags: c.tags,
       summary: c.summary,
       updatedAt: c.updatedAt,
+      projectNo: c.projectNo,
+      customerName: c.customerName,
+      sourceType: c.sourceType,
     })),
   };
   writeJsonFile(getKnowledgeSearchIndexPath(), index);
@@ -161,6 +194,9 @@ export function getKnowledgeStructureV1() {
       "Materials",
       "Tools",
       "Notes",
+      "PLC",
+      "RP",
+      "3DPrint",
       "KnowledgeCards",
       "SearchIndex",
     ],

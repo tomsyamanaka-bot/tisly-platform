@@ -54,6 +54,14 @@ export function searchKnowledgeIndexV1(
       matchedFields.push("category");
       score += 3;
     }
+    if (entry.projectNo && fieldMatches(entry.projectNo, tokens)) {
+      matchedFields.push("projectNo");
+      score += 6;
+    }
+    if (entry.customerName && fieldMatches(entry.customerName, tokens)) {
+      matchedFields.push("customerName");
+      score += 4;
+    }
 
     if (matchedFields.length > 0) {
       hits.push({
@@ -63,6 +71,9 @@ export function searchKnowledgeIndexV1(
         tags: entry.tags,
         summary: entry.summary,
         updatedAt: entry.updatedAt,
+        projectNo: entry.projectNo,
+        customerName: entry.customerName,
+        sourceType: entry.sourceType,
         score,
         matchedFields,
       });

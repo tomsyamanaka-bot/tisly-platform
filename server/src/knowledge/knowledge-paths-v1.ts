@@ -6,7 +6,7 @@
 import fs from "fs";
 import path from "path";
 import type { KnowledgeFolderName } from "./knowledge-types.js";
-import { KNOWLEDGE_FOLDERS } from "./knowledge-types.js";
+import { KNOWLEDGE_FOLDERS, THREEDPRINT_SUBFOLDERS_V1 } from "./knowledge-types.js";
 
 export { KNOWLEDGE_FOLDERS };
 
@@ -51,12 +51,19 @@ export function getWorkCategoriesMasterPath(): string {
   return path.join(process.cwd(), "..", "master", "work-categories.json");
 }
 
+export function getKnowledgeQnapSyncQueuePath(): string {
+  return path.join(getKnowledgeDataRoot(), "qnap-sync-queue.json");
+}
+
 /** ローカル Knowledge フォルダ構造を初期化 */
 export function ensureKnowledgeFolderStructure(): void {
   const root = getKnowledgeDataRoot();
   fs.mkdirSync(root, { recursive: true });
   for (const folder of KNOWLEDGE_FOLDERS) {
     fs.mkdirSync(getKnowledgeFolderPath(folder), { recursive: true });
+  }
+  for (const sub of THREEDPRINT_SUBFOLDERS_V1) {
+    fs.mkdirSync(path.join(getKnowledgeFolderPath("3DPrint"), sub), { recursive: true });
   }
   fs.mkdirSync(getKnowledgeAttachmentsDir(), { recursive: true });
 }

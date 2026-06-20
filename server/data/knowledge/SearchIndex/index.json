@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-20T22:38:36.144Z",
+  "updatedAt": "2026-06-20T23:00:00.783Z",
   "entries": [
     {
       "id": "PLC-SELF-HOLD-001",
@@ -15,15 +15,221 @@
       "updatedAt": "2026-06-21"
     },
     {
-      "id": "TEST-KNOW-1781995116112",
-      "title": "テストナレッジ",
+      "id": "PDF-MO260621099-ESTIMATE-001",
+      "title": "見積書 — MO-26-0621-099",
+      "category": "防犯カメラ",
+      "tags": [
+        "見積書",
+        "MO-26-0621-099",
+        "テスト顧客",
+        "PDF"
+      ],
+      "summary": "テスト顧客 · 案件 MO-26-0621-099 の見積書。",
+      "updatedAt": "2026-06-20",
+      "projectNo": "MO-26-0621-099",
+      "customerName": "テスト顧客",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "PHOTO-COMP-CPKNOW1",
+      "title": "盤内配線",
       "category": "LAN",
       "tags": [
-        "テスト",
-        "VLAN"
+        "盤内配線",
+        "RJ45",
+        "LAN",
+        "完了報告"
       ],
-      "summary": "VLAN 設定のテストメモ",
-      "updatedAt": "2026-06-20"
+      "summary": "完了報告写真: 盤内配線（案件 MO-26-0621-099）",
+      "updatedAt": "2026-06-20",
+      "projectNo": "MO-26-0621-099",
+      "customerName": "テスト顧客",
+      "sourceType": "photo"
+    },
+    {
+      "id": "PLC-BLINK-001",
+      "title": "PLC 点滅",
+      "category": "PLC",
+      "tags": [
+        "PLC",
+        "点滅",
+        "テンプレート",
+        "GX Works3"
+      ],
+      "summary": "PLC 点滅 の標準テンプレート。将来 GX Works3 部品ライブラリ化予定。",
+      "updatedAt": "2026-06-20",
+      "sourceType": "plc-template"
+    },
+    {
+      "id": "PLC-E-STOP-001",
+      "title": "PLC 非常停止",
+      "category": "PLC",
+      "tags": [
+        "PLC",
+        "非常停止",
+        "テンプレート",
+        "GX Works3"
+      ],
+      "summary": "PLC 非常停止 の標準テンプレート。将来 GX Works3 部品ライブラリ化予定。",
+      "updatedAt": "2026-06-20",
+      "sourceType": "plc-template"
+    },
+    {
+      "id": "PLC-INTERLOCK-001",
+      "title": "PLC インターロック",
+      "category": "PLC",
+      "tags": [
+        "PLC",
+        "インターロック",
+        "テンプレート",
+        "GX Works3"
+      ],
+      "summary": "PLC インターロック の標準テンプレート。将来 GX Works3 部品ライブラリ化予定。",
+      "updatedAt": "2026-06-20",
+      "sourceType": "plc-template"
+    },
+    {
+      "id": "PLC-TIMER-001",
+      "title": "PLC タイマー",
+      "category": "PLC",
+      "tags": [
+        "PLC",
+        "タイマー",
+        "テンプレート",
+        "GX Works3"
+      ],
+      "summary": "PLC タイマー の標準テンプレート。将来 GX Works3 部品ライブラリ化予定。",
+      "updatedAt": "2026-06-20",
+      "sourceType": "plc-template"
+    },
+    {
+      "id": "PROJ-MO260621099-COMP-001",
+      "title": "盤内",
+      "category": "その他",
+      "tags": [
+        "MO-26-0621-099",
+        "完了報告",
+        "その他"
+      ],
+      "summary": "完了報告写真: 盤内（案件 MO-26-0621-099）",
+      "updatedAt": "2026-06-20",
+      "projectNo": "MO-26-0621-099",
+      "customerName": "テスト顧客",
+      "sourceType": "photo"
+    },
+    {
+      "id": "PROJ-MO260621099-SUMMARY-001",
+      "title": "ナレッジテスト（案件ナレッジ）",
+      "category": "その他",
+      "tags": [
+        "案件",
+        "MO-26-0621-099",
+        "テスト顧客",
+        "その他"
+      ],
+      "summary": "テスト顧客 · 守谷 — 完了案件の概要。仕様書・完了報告・PDF・写真をナレッジ化。",
+      "updatedAt": "2026-06-20",
+      "projectNo": "MO-26-0621-099",
+      "customerName": "テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "QUICK-MQMYN0FF",
+      "title": "PoE配線メモ",
+      "category": "LAN",
+      "tags": [
+        "PoE給電",
+        "RJ45",
+        "現場",
+        "クイック登録"
+      ],
+      "summary": "ラック内配線の注意点",
+      "updatedAt": "2026-06-20",
+      "sourceType": "quick"
+    },
+    {
+      "id": "QUICK-MQMYNAP3",
+      "title": "PoE配線メモ",
+      "category": "LAN",
+      "tags": [
+        "PoE給電",
+        "RJ45",
+        "現場",
+        "クイック登録"
+      ],
+      "summary": "ラック内配線の注意点",
+      "updatedAt": "2026-06-20",
+      "sourceType": "quick"
+    },
+    {
+      "id": "RP-CONFIG-001",
+      "title": "設定例 ナレッジ",
+      "category": "TiSLY",
+      "tags": [
+        "RP",
+        "ESP",
+        "設定例",
+        "PlatformIO"
+      ],
+      "summary": "設定例 の配線・設定・回路図ナレッジ。RP2350 / ESP 系テンプレート。",
+      "updatedAt": "2026-06-20",
+      "sourceType": "rp-template"
+    },
+    {
+      "id": "RP-ESP32-001",
+      "title": "ESP32 ナレッジ",
+      "category": "TiSLY",
+      "tags": [
+        "RP",
+        "ESP",
+        "ESP32",
+        "PlatformIO"
+      ],
+      "summary": "ESP32 の配線・設定・回路図ナレッジ。RP2350 / ESP 系テンプレート。",
+      "updatedAt": "2026-06-20",
+      "sourceType": "rp-template"
+    },
+    {
+      "id": "RP-RP2350-001",
+      "title": "RP2350 ナレッジ",
+      "category": "TiSLY",
+      "tags": [
+        "RP",
+        "ESP",
+        "RP2350",
+        "PlatformIO"
+      ],
+      "summary": "RP2350 の配線・設定・回路図ナレッジ。RP2350 / ESP 系テンプレート。",
+      "updatedAt": "2026-06-20",
+      "sourceType": "rp-template"
+    },
+    {
+      "id": "RP-SCHEMATIC-001",
+      "title": "回路図 ナレッジ",
+      "category": "TiSLY",
+      "tags": [
+        "RP",
+        "ESP",
+        "回路図",
+        "PlatformIO"
+      ],
+      "summary": "回路図 の配線・設定・回路図ナレッジ。RP2350 / ESP 系テンプレート。",
+      "updatedAt": "2026-06-20",
+      "sourceType": "rp-template"
+    },
+    {
+      "id": "RP-WIRING-001",
+      "title": "配線例 ナレッジ",
+      "category": "TiSLY",
+      "tags": [
+        "RP",
+        "ESP",
+        "配線例",
+        "PlatformIO"
+      ],
+      "summary": "配線例 の配線・設定・回路図ナレッジ。RP2350 / ESP 系テンプレート。",
+      "updatedAt": "2026-06-20",
+      "sourceType": "rp-template"
     }
   ]
 }

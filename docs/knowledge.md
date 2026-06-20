@@ -76,14 +76,21 @@ server/data/knowledge/
 
 ---
 
-## API · UI（v1 雛形）
+## API · UI（v1 + Acquisition v1）
 
 | 種別 | パス |
 |------|------|
 | 登録 UI | `/knowledge-v1` |
-| 検索 | `GET /api/knowledge/search?q=` |
+| 現場クイック | `/knowledge-quick-v1` — 写真+メモ30秒登録 |
+| 案件→ナレッジ | 案件詳細 `/projects-v1` →「Knowledgeへ登録」 |
+| 検索 | `GET /api/knowledge/search?q=` · `?type=photo` · `?type=pdf` |
 | 一覧 | `GET /api/knowledge/cards` |
 | 登録 | `POST /api/knowledge/cards` |
+| 案件変換 | `POST /api/knowledge/from-project/:projectId` |
+| 写真タグ | `POST /api/knowledge/photos/tag` |
+| PDF登録 | `POST /api/knowledge/pdfs/register` |
+| クイック | `POST /api/knowledge/quick` |
+| QNAP同期 | Worker `knowledge-qnap-sync` · `GET /api/knowledge/qnap-sync/status` |
 | カテゴリ | `GET /api/knowledge/categories` |
 
 検索対象（v1）: **タイトル · タグ · 概要** のみ。AI セマンティック検索は未実装。

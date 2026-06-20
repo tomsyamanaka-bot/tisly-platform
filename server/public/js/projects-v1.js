@@ -559,6 +559,57 @@ function setDetailTab(tab) {
   });
 }
 
+async function knowledgeApi(path, opts = {}) {
+  const token = getCustomerToken();
+  const res = await fetch(`/api/knowledge${path}`, {
+    ...opts,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      ...(opts.headers || {}),
+    },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw Object.assign(new Error(data.error || `HTTP ${res.status}`), { status: res.status });
+  return data;
+}
+
+async function renderDetailKnowledge(detail) {
+  const mount = $("detail-knowledge");
+  if (!mount) return;
+  const p = detail.project;
+  if (p.source !== "business") {
+    mount.innerHTML = '<p class="section-hint">business 案件のみナレッジ登録できます</p>';
+    return;
+  }
+  try {
+    const status = await knowledgeApi(`/from-project/${encodeURIComponent(p.id)}/status`);
+    const workDone = p.pipeline?.work_done === "done";
+    const registered = status.registered;
+    mount.innerHTML = `
+      <p class="section-hint">${registered ? `✅ 登録済み（${status.cardCount} 件）` : "未登録 — 完了案件をナレッジ化"}</p>
+      <button type="button" class="btn-doc-action" id="btn-knowledge-register" ${!workDone && !registered ? "disabled" : ""}>
+        📚 Knowledgeへ登録
+      </button>
+      ${registered ? `<a href="/knowledge-v1" class="btn-sub" style="display:block;margin-top:0.45rem;text-align:center;">ナレッジを見る</a>` : ""}
+    `;
+    $("btn-knowledge-register")?.addEventListener("click", async () => {
+      try {
+        const result = await knowledgeApi(`/from-project/${encodeURIComponent(p.id)}`, {
+          method: "POST",
+          body: "{}",
+        });
+        toast(`✅ ${result.cardsCreated.length} 件登録（スキップ ${result.cardsSkipped.length}）`);
+        await renderDetailKnowledge(detail);
+      } catch (e) {
+        toast(e.message || "ナレッジ登録失敗");
+      }
+    });
+  } catch (e) {
+    mount.innerHTML = `<p class="section-hint">${escapeHtml(e.message || "読み込み失敗")}</p>`;
+  }
+}
+
 async function renderDetailChecklistOverview(detail) {
   const mount = $("detail-checklist-overview");
   if (!mount) return;
@@ -646,6 +697,7 @@ async function openDetail(id, source) {
       <p><span class="status-badge">${escapeHtml(p.statusLabel)}</span></p>`;
     $("detail-pipeline").innerHTML = pipelineBarHtml(p.pipeline);
     renderDetailWorkSession(detail);
+    await renderDetailKnowledge(detail);
     await renderDetailChecklistOverview(detail);
     await renderDetailChecklist(detail);
     await renderDetailDocuments(detail);

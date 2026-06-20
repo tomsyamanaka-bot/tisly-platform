@@ -1,6 +1,6 @@
 # TiSLY MotherShip — QNAP TS-464 統合仕様
 
-**最終更新:** 2026-06-20  
+**最終更新:** 2026-06-21  
 **役割:** 本番サーバーではない。TiSLY の **AI知識庫・案件保管庫・バックアップ母艦**。
 
 ---
@@ -28,6 +28,7 @@
 | **PLC** | GX Works3 テンプレート | 機種別 `.gxw` / ラダー |
 | **ESP** | PlatformIO テンプレート | ボード別 `platformio.ini` + `src/` |
 | **Scan** | LiDAR スキャンデータ | `.ply` / `.las` |
+| **3DPrint** | 3Dプリント資産 | `CAD/` · `STL/` · `STEP/` · `GCode/` · `Photos/` · `Prototypes/` · `Parts/` · `Manuals/` |
 | **SiteMaps** | 俯瞰図・フロアマップ | PNG / PDF |
 | **AI** | AI 学習データ・統計エクスポート · **TiSLY Knowledge** | マスタ CSV · KnowledgeCards · SearchIndex |
 | **Backups** | 自動バックアップ | `repo-mirror/`（Git リポジトリミラー） |

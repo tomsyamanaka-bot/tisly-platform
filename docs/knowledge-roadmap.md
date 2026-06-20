@@ -28,8 +28,9 @@ flowchart TD
 
 | フェーズ | 内容 | 状態 |
 |----------|------|------|
-| **v1** | フォルダ構造 · Knowledge Card · キーワード検索 | ✅ 本 PR |
-| **v2** | QNAP 同期ワーカー（KnowledgeCards → NAS） | 未着手 |
+| **v1** | フォルダ構造 · Knowledge Card · キーワード検索 | ✅ 完成 |
+| **v1.5** | Knowledge Acquisition Engine — 案件/写真/PDF/クイック登録 · QNAP同期キュー | ✅ 完成 |
+| **v2** | QNAP 同期ワーカー（KnowledgeCards → NAS）本番運用強化 | 部分完成（キュー+Worker） |
 | **v3** | Qsirch / Document Center インデックス連携 | 調査中 → [qnap-ai-plan.md](./qnap-ai-plan.md) |
 | **v4** | Whisper 音声入力（PWA / オフライン候補） | 未着手 |
 | **v5** | RAG 回答（ローカル LLM or クラウド API） | 未着手 |

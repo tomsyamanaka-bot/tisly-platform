@@ -1,7 +1,7 @@
 # プロジェクト標準仕様（完成状態）
 
 **最終更新:** 2026-06-21  
-**対象:** TiSLY Practical PWA（現調 v1 / 見積 v1 / 日程 v1 / 持ち物 v1 / 発注 v1 / 到着・作業完了 v1 / 書類閲覧 UX v1）
+**対象:** TiSLY Practical PWA（現調 v1 / 見積 v1 / 日程 v1 / 持ち物 v1 / 発注 v1 / 到着・作業完了 v1 / 書類閲覧 UX v1 / Knowledge Acquisition v1）
 
 Cursor が長時間自走する際の **「壊してはいけない完成仕様」** の単一ソースです。新しい実装を始める前に必ず読んでください。
 
@@ -361,6 +361,21 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | ロードマップ | [knowledge-roadmap.md](../knowledge-roadmap.md) |
 | QNAP 連携案 | [qnap-ai-plan.md](../qnap-ai-plan.md) |
 | テスト | `server/test/knowledge-v1.test.ts` |
+
+### Knowledge Acquisition Engine v1（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | **知識が集まる仕組み** — AI 検索の作り込みは次フェーズ |
+| Phase1 案件変換 | 案件詳細「Knowledgeへ登録」→ `POST /api/knowledge/from-project/:id` |
+| Phase2 写真 | タイトル/タグ/カテゴリ — `POST /api/knowledge/photos/tag` · `?type=photo` 検索 |
+| Phase3 PDF | 見積/請求/仕様/完了報告 — `POST /api/knowledge/pdfs/register` · `?type=pdf` 検索 |
+| Phase4 3DPrint | MotherShip `3DPrint/` + ローカル `knowledge/3DPrint/{CAD,STL,...}` |
+| Phase5 PLC | テンプレ: 自己保持/非常停止/点滅/タイマー/インターロック — `POST /templates/seed` |
+| Phase6 RP | RP2350/ESP/配線例/回路図/設定例テンプレ |
+| Phase7 QNAP | カード保存 → キュー → `knowledge-qnap-sync` Worker（失敗時リトライ最大3回） |
+| Phase8 現場 UI | `/knowledge-quick-v1` — 写真+メモ+保存（30秒目標） |
+| テスト | `server/test/knowledge-acquisition-v1.test.ts` |
 
 ---
 

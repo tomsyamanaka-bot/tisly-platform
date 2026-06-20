@@ -239,6 +239,7 @@ export function runMigrations(database: Database.Database): void {
   migrateProjectAutomationV15(database);
   migrateSpecPhotoSlotsV1(database);
   migrateSpecPhotoTemplateMetaV1(database);
+  migrateKnowledgePhotoMetaV1(database);
 }
 
 /** 現調図面 v1 — 方眼紙写真 + 描画レイヤー */
@@ -4669,4 +4670,29 @@ function migrateSpecPhotoTemplateMetaV1(database: Database.Database): void {
       `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
     )
     .run("migration:spec_photo_template_meta_v1", JSON.stringify({ at: new Date().toISOString() }));
+}
+
+/** Knowledge Acquisition — 写真ナレッジ用メタ列 */
+function migrateKnowledgePhotoMetaV1(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:knowledge_photo_meta_v1") as { value_json: string } | undefined;
+  if (marker) return;
+
+  addColumnsIfMissing(database, "survey_photos", [
+    { name: "knowledge_title", ddl: "ALTER TABLE survey_photos ADD COLUMN knowledge_title TEXT" },
+    { name: "knowledge_category", ddl: "ALTER TABLE survey_photos ADD COLUMN knowledge_category TEXT" },
+    { name: "knowledge_tags_json", ddl: "ALTER TABLE survey_photos ADD COLUMN knowledge_tags_json TEXT DEFAULT '[]'" },
+  ]);
+  addColumnsIfMissing(database, "completion_photos", [
+    { name: "knowledge_title", ddl: "ALTER TABLE completion_photos ADD COLUMN knowledge_title TEXT" },
+    { name: "knowledge_category", ddl: "ALTER TABLE completion_photos ADD COLUMN knowledge_category TEXT" },
+    { name: "knowledge_tags_json", ddl: "ALTER TABLE completion_photos ADD COLUMN knowledge_tags_json TEXT DEFAULT '[]'" },
+  ]);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:knowledge_photo_meta_v1", JSON.stringify({ at: new Date().toISOString() }));
 }

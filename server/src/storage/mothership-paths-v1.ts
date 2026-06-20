@@ -25,7 +25,29 @@ export const MOTHERSHIP_TOP_FOLDERS = [
   "Reports",
   "Scan",
   "SiteMaps",
+  "3DPrint",
 ] as const;
+
+/** 3DPrint 配下サブフォルダ（MotherShip 手動/自動作成） */
+export const MOTHERSHIP_3DPRINT_SUBFOLDERS = [
+  "CAD",
+  "STL",
+  "STEP",
+  "GCode",
+  "Photos",
+  "Prototypes",
+  "Parts",
+  "Manuals",
+] as const;
+
+export type Mothership3DPrintSubfolder = (typeof MOTHERSHIP_3DPRINT_SUBFOLDERS)[number];
+
+/** 例: 3DPrint/STL/bracket-v2.stl */
+export function buildMothership3DPrintRelativePath(subFolder: Mothership3DPrintSubfolder, fileName = ""): string {
+  const base = `3DPrint/${subFolder}`;
+  const file = String(fileName ?? "").trim().replace(/^\/+|\/+$/g, "");
+  return file ? `${base}/${sanitizePathSegment(file)}` : base;
+}
 
 export type MothershipTopFolder = (typeof MOTHERSHIP_TOP_FOLDERS)[number];
 
@@ -149,6 +171,9 @@ export const MOTHERSHIP_KNOWLEDGE_FOLDERS = [
   "Materials",
   "Tools",
   "Notes",
+  "PLC",
+  "RP",
+  "3DPrint",
   "KnowledgeCards",
   "SearchIndex",
 ] as const;
