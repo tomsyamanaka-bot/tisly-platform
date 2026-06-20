@@ -29,7 +29,23 @@ TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。
 | 詳細手順 | [`docs/autonomous/VPS_AUTO_DEPLOY.md`](docs/autonomous/VPS_AUTO_DEPLOY.md) |
 | 成功確認 | https://tisly.jp/api/health の `commitShort` が push した commit の先頭 7 文字と一致 |
 
-### GitHub Actions が失敗したときのログの見方
+## TiSLY MotherShip — QNAP TS-464（バックアップ母艦）
+
+QNAP **TiSLYNAS**（`192.168.1.10` / `\\192.168.1.10\TiSLY`）を本番サーバーではなく **AI知識庫・案件保管庫・バックアップ母艦** として運用します。
+
+| 項目 | 内容 |
+|------|------|
+| 詳細仕様 | [`docs/mothership.md`](docs/mothership.md) |
+| リポジトリ同期 | `.\scripts\backup-qnap.ps1` — robocopy ミラー → `Backups\repo-mirror` |
+| 接続診断 | `.\scripts\qnap-diagnose.ps1` — 接続/書込/読込/速度/空き容量 |
+| 統合デプロイ | `.\scripts\deploy-all.ps1` — lint → test → build → commit → push → QNAP → health |
+| 案件 ID | `{市コード}-{YY}-{MMDD}-{連番}` 例: `MO-26-0620-001` |
+| パス生成 | `server/src/storage/mothership-paths-v1.ts` |
+
+**MotherShip トップフォルダ:** AI · Backups · Customers · Documents · ESP · Estimates · Photos · PLC · Projects · Reports · Scan · SiteMaps
+
+WebDAV PDF バックアップ（`/storage-settings-v1`）と **並行運用**。既存 PDF 連携は変更しません。
+
 
 1. GitHub リポジトリ → **Actions** タブを開く
 2. 赤い ❌ の実行をクリック → 失敗した **ジョブ** を開く

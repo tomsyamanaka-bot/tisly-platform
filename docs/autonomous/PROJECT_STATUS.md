@@ -246,6 +246,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 書類閲覧 UX v1 | `server/public/document-viewer-v1.html`, `server/public/js/document-viewer-v1.js`, `server/src/estimate/document-view-v1.ts` |
 | QNAP ストレージ設定 | `server/public/storage-settings-v1.html`, `server/src/storage/storage-settings-store.ts`, `server/src/storage/qnap-storage-service.ts` |
 | QNAP PDF バックアップ | `server/src/projects/project-pdf-qnap-store.ts`, `server/src/storage/qnap-pdf-backup-service.ts`, `server/src/workers/qnap-pdf-backup-worker.ts` |
+| TiSLY MotherShip | `scripts/backup-qnap.ps1`, `scripts/qnap-diagnose.ps1`, `scripts/deploy-all.ps1`, `server/src/storage/mothership-paths-v1.ts` |
 | 人間設定一覧 | [HUMAN_ACTIONS.md](./HUMAN_ACTIONS.md) |
 
 ---
@@ -330,6 +331,21 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 有効化 | VPS `.env` で `TISLY_PDF_PUPPETEER=true` |
 | フォールバック | Puppeteer 失敗時は HTML minimal PDF（`renderWithPdfFallback`） |
 | health | `GET /api/health` → `pdfEngine: puppeteer` または `html_fallback` |
+
+### TiSLY MotherShip 統合 v1（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 役割 | QNAP TS-464 = **本番サーバーではない** — AI知識庫・案件保管庫・バックアップ母艦 |
+| NAS | TiSLYNAS · `192.168.1.10` · `\\192.168.1.10\TiSLY` |
+| リポジトリ同期 | `scripts/backup-qnap.ps1` — robocopy `/MIR` → `Backups/repo-mirror` |
+| 接続診断 | `scripts/qnap-diagnose.ps1` — 接続/書込/読込/速度/空き容量/フォルダ確認 |
+| 統合デプロイ | `scripts/deploy-all.ps1` — lint → test → build → commit → push → QNAP → health |
+| 案件 ID | `{市コード}-{YY}-{MMDD}-{連番}` — `server/src/projects/project-id-v1.ts` |
+| MotherShip パス | `server/src/storage/mothership-paths-v1.ts` |
+| 詳細 | [mothership.md](../mothership.md) |
+| テスト | `server/test/mothership-paths-v1.test.ts` |
+| WebDAV PDF | **既存 v1 を維持** — MotherShip SMB フォルダと並行運用 |
 
 ---
 
