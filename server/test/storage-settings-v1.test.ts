@@ -57,8 +57,8 @@ describe("Storage settings v1 — QNAP 接続設定", () => {
   it("GET /storage-settings-v1 ページを配信", async () => {
     const res = await request(app).get("/storage-settings-v1");
     assert.equal(res.status, 200);
-    assert.ok(res.text.includes("QNAP接続確認"));
-    assert.ok(res.text.includes("テストPDF送信"));
+    assert.ok(res.text.includes("QNAP接続テスト"));
+    assert.ok(res.text.includes("VPS .env"));
   });
 
   it("GET /api/storage/v1/settings — owner", async () => {
@@ -108,7 +108,8 @@ describe("Storage settings v1 — QNAP 接続設定", () => {
     assert.equal(res.status, 200);
     assert.equal(res.body.ok, true);
     assert.equal(res.body.result.mock, true);
-    assert.equal(res.body.summary.qnapLabel, "接続成功");
+    assert.equal(res.body.result.steps?.length, 7);
+    assert.ok(res.body.qnapEnv);
   });
 
   it("POST テストPDF送信 — モック成功", async () => {

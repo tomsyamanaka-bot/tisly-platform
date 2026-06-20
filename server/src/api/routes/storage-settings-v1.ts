@@ -8,17 +8,17 @@ import {
   updateStorageSettingsV1,
 } from "../../storage/storage-settings-store.js";
 import {
-  runQnapConnectionTest,
   runQnapTestPdfDelete,
   runQnapTestPdfSend,
 } from "../../storage/qnap-storage-service.js";
-import { getQnapStorageHealthV1 } from "../../storage/qnap-storage-v1-config.js";
-import { retryFailedQnapStorageV1 } from "../../storage/qnap-storage-v1-service.js";
+import { getQnapStorageHealthV1, getQnapWebDavEnvStatus } from "../../storage/qnap-storage-v1-config.js";
+import { retryFailedQnapStorageV1, runQnapStorageConnectionTestV1 } from "../../storage/qnap-storage-v1-service.js";
 import {
-  resyncAllQnapPdfMismatchesV1,
-  runQnapPdfIntegrityCheckV1,
-} from "../../storage/qnap-pdf-integrity-service.js";
-import { runQnapSpecPhotosIntegrityCheckV1 } from "../../storage/qnap-spec-photos-integrity-service.js";
+  resyncAllFailedQnapStorageV1,
+  resyncAllPendingQnapStorageV1,
+  runQnapStorageIntegrityCheckV1,
+  runQnapStorageIntegrityResyncV1,
+} from "../../storage/qnap-storage-integrity-v1-service.js";
 
 export const storageSettingsV1Router = Router();
 
@@ -40,6 +40,8 @@ storageSettingsV1Router.get("/", ...adminAuth, (req: AuthedRequest, res) => {
   res.json({
     settings: toPublicStorageSettings(settings),
     summary,
+    qnapHealth: getQnapStorageHealthV1(),
+    qnapEnv: getQnapWebDavEnvStatus(),
   });
 });
 
@@ -63,17 +65,21 @@ storageSettingsV1Router.put("/", ...adminAuth, (req: AuthedRequest, res) => {
     ok: true,
     settings: toPublicStorageSettings(next),
     summary,
+    qnapHealth: getQnapStorageHealthV1(),
+    qnapEnv: getQnapWebDavEnvStatus(),
   });
 });
 
 storageSettingsV1Router.post("/qnap/test-connection", ...adminAuth, async (req: AuthedRequest, res) => {
   if (!assertAdminRole(req, res)) return;
-  const result = await runQnapConnectionTest();
+  const result = await runQnapStorageConnectionTestV1();
   const settings = getStorageSettingsV1();
   res.json({
     ok: result.ok,
     result,
     summary: getStorageStatusSummary(settings),
+    qnapHealth: getQnapStorageHealthV1(),
+    qnapEnv: getQnapWebDavEnvStatus(),
   });
 });
 
@@ -107,9 +113,11 @@ storageSettingsV1Router.get("/qnap/status", ...adminAuth, (req: AuthedRequest, r
   res.json({
     ...getQnapStorageHealthV1(),
     summary: getStorageStatusSummary(settings),
+    qnapEnv: getQnapWebDavEnvStatus(),
     lastTestPdfSend: settings.lastTestPdfSend ?? null,
     lastTestPdfDelete: settings.lastTestPdfDelete ?? null,
-    testFileName: "Test/tisly-test.pdf",
+    lastConnectionTest: settings.lastConnectionTest ?? null,
+    testFileName: ".tisly-webdav-connection-test/connection-test.txt",
   });
 });
 
@@ -124,23 +132,40 @@ storageSettingsV1Router.post("/qnap/retry-failed", ...adminAuth, async (req: Aut
   }
 });
 
-storageSettingsV1Router.get("/qnap/integrity", ...adminAuth, (req: AuthedRequest, res) => {
+storageSettingsV1Router.get("/qnap/integrity", ...adminAuth, async (req: AuthedRequest, res) => {
   if (!assertAdminRole(req, res)) return;
   const projectId = String(req.query.projectId ?? "").trim() || undefined;
-  res.json({
-    pdfs: runQnapPdfIntegrityCheckV1(),
-    specPhotos: runQnapSpecPhotosIntegrityCheckV1(projectId),
-  });
+  const report = await runQnapStorageIntegrityCheckV1(projectId);
+  res.json(report);
 });
 
 storageSettingsV1Router.post("/qnap/integrity/resync", ...adminAuth, async (req: AuthedRequest, res) => {
   if (!assertAdminRole(req, res)) return;
-  const integrity = runQnapPdfIntegrityCheckV1();
-  const result = await resyncAllQnapPdfMismatchesV1();
+  const mode = req.body?.mode === "pending" || req.body?.mode === "failed" ? req.body.mode : "all";
+  const result = await runQnapStorageIntegrityResyncV1({ mode });
   res.json({
     ok: true,
-    integrity,
-    result,
-    refreshed: runQnapPdfIntegrityCheckV1(),
+    ...result,
+    qnapHealth: getQnapStorageHealthV1(),
   });
+});
+
+storageSettingsV1Router.post("/qnap/resync/pending", ...adminAuth, async (req: AuthedRequest, res) => {
+  if (!assertAdminRole(req, res)) return;
+  try {
+    const result = await resyncAllPendingQnapStorageV1();
+    res.json({ ok: true, result, qnapHealth: getQnapStorageHealthV1() });
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : "resync failed" });
+  }
+});
+
+storageSettingsV1Router.post("/qnap/resync/failed", ...adminAuth, async (req: AuthedRequest, res) => {
+  if (!assertAdminRole(req, res)) return;
+  try {
+    const result = await resyncAllFailedQnapStorageV1();
+    res.json({ ok: true, result, qnapHealth: getQnapStorageHealthV1() });
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : "resync failed" });
+  }
 });

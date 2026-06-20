@@ -25,6 +25,7 @@ import {
   storageStatusPresentation,
   type StorageDocumentV1,
 } from "./storage-documents-v1-store.js";
+import { updateStorageSettingsV1 } from "./storage-settings-store.js";
 
 export interface QnapStorageStatusV1 {
   projectId: string;
@@ -74,31 +75,48 @@ export async function runQnapStorageConnectionTestV1(): Promise<{
   providerKind: string;
   mock?: boolean;
   testedAt: string;
+  steps?: Array<{ step: number; label: string; ok: boolean; message: string }>;
 }> {
   const env = getQnapWebDavEnvConfig();
   const providerKind = resolveQnapStorageProviderKind();
-  if (!env.configured && providerKind === "mock") {
-    const provider = getQnapStorageProvider();
-    const result = await provider.testConnection();
-    return {
-      ok: result.ok,
-      message: result.message,
-      configured: false,
-      providerKind,
-      mock: true,
-      testedAt: result.testedAt,
-    };
-  }
   const provider = getQnapStorageProvider();
   const result = await provider.testConnection();
+
+  const humanMessage = result.ok
+    ? result.message
+    : translateQnapTestError(result.message);
+
+  const stored = updateStorageSettingsV1({
+    lastConnectionTest: {
+      ok: result.ok,
+      message: humanMessage,
+      testedAt: result.testedAt,
+      mock: result.mock,
+      steps: result.steps,
+    },
+  });
+
+  void stored;
+
   return {
     ok: result.ok,
-    message: result.message,
+    message: humanMessage,
     configured: env.configured,
     providerKind,
     mock: result.mock,
     testedAt: result.testedAt,
+    steps: result.steps,
   };
+}
+
+function translateQnapTestError(message: string): string {
+  if (message.includes("QNAP_WEBDAV_URL")) return "QNAP_WEBDAV_URL が未設定です";
+  if (message.includes("401")) return "認証に失敗しました。ユーザー名またはパスワードを確認してください";
+  if (message.includes("404")) return "共有フォルダまたはベースパスが見つかりません";
+  if (message.includes("ECONNREFUSED") || message.includes("fetch failed")) {
+    return "QNAPに接続できません。URL・ネットワーク・ポートを確認してください";
+  }
+  return message;
 }
 
 export async function syncStorageDocumentToQnapV1(

@@ -131,6 +131,7 @@ async function buildFullHealthResponse() {
     qnapMode: qnapStorageHealth.qnapMode,
     qnapLastTestAt: qnapStorageHealth.qnapLastTestAt,
     qnapLastError: qnapStorageHealth.qnapLastError,
+    qnapEnv: qnapStorageHealth.qnapEnv,
     runtimeFeatures: {
       qnapPdfBackupV1: true,
       storageSettingsV1: true,

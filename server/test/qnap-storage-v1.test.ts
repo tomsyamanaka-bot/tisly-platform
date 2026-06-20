@@ -143,4 +143,33 @@ describe("QNAP storage v1", () => {
     assert.ok(res.body.summary);
     assert.ok(res.body.documents.length >= 1);
   });
+
+  it("POST /test — 7段階接続テスト（mock）", async () => {
+    const res = await request(app)
+      .post("/api/storage/qnap/test")
+      .set("Authorization", `Bearer ${token}`)
+      .send({});
+    assert.equal(res.status, 200);
+    assert.equal(res.body.ok, true);
+    assert.equal(res.body.steps?.length, 7);
+    assert.ok(res.body.qnapHealth);
+  });
+
+  it("GET /integrity — 整合チェック", async () => {
+    const res = await request(app)
+      .get("/api/storage/qnap/integrity")
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(res.status, 200);
+    assert.ok(res.body.checkedAt);
+    assert.equal(typeof res.body.issueCount, "number");
+  });
+
+  it("POST /resync/pending", async () => {
+    const res = await request(app)
+      .post("/api/storage/qnap/resync/pending")
+      .set("Authorization", `Bearer ${token}`)
+      .send({});
+    assert.equal(res.status, 200);
+    assert.ok(Array.isArray(res.body.result?.synced));
+  });
 });

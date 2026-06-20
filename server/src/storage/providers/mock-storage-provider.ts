@@ -30,12 +30,29 @@ export class MockStorageProvider implements StorageProvider {
   async testConnection(): Promise<StorageProviderTestResult> {
     const root = this.mirrorRoot();
     fs.mkdirSync(root, { recursive: true });
+    const testedAt = new Date().toISOString();
+    const labels = [
+      "WebDAV疎通",
+      "TiSLYベースフォルダ確認",
+      "テストフォルダ作成",
+      "テストファイル保存",
+      "テストファイル読み取り",
+      "テストファイル削除",
+      "結果ログ保存",
+    ];
+    const steps = labels.map((label, i) => ({
+      step: i + 1,
+      label,
+      ok: true,
+      message: `Mock OK — ${label}`,
+    }));
     return {
       ok: true,
       provider: "mock",
-      message: `Mock 接続 OK — ${root}`,
-      testedAt: new Date().toISOString(),
+      message: `Mock 接続テスト成功（7/7）— ${root}`,
+      testedAt,
       mock: true,
+      steps,
     };
   }
 

@@ -45,6 +45,19 @@
     </div>
 
     <div class="friendly-card storage-card">
+      <h2>VPS .env — QNAP WebDAV 設定</h2>
+      <p class="hint-small">本番実保存は <code>/opt/tisly/server/.env</code> の環境変数で有効化します（secret は表示しません）。</p>
+      <dl class="status-grid" id="qnap-env-grid">
+        <dt>状態</dt><dd id="qnap-env-ready" class="status-muted">—</dd>
+        <dt>WebDAV URL</dt><dd id="qnap-env-url">—</dd>
+        <dt>ベースDir</dt><dd id="qnap-env-basedir">—</dd>
+        <dt>ユーザー</dt><dd id="qnap-env-user">—</dd>
+        <dt>不足項目</dt><dd id="qnap-env-missing" class="status-muted">—</dd>
+        <dt>ガイド</dt><dd id="qnap-env-guide">—</dd>
+      </dl>
+    </div>
+
+    <div class="friendly-card storage-card">
       <h2>保存方式</h2>
       <label class="toggle-row">
         <input type="checkbox" id="local-enabled" checked disabled />
@@ -97,25 +110,38 @@
         <button type="button" class="btn-sub" id="btn-test-pdf">テストファイル保存</button>
         <button type="button" class="btn-sub" id="btn-test-delete">テストファイル削除</button>
         <button type="button" class="btn-sub" id="btn-retry-failed">失敗分を再同期</button>
+        <button type="button" class="btn-sub" id="btn-resync-pending">未保存だけ同期</button>
+        <button type="button" class="btn-sub" id="btn-resync-failed">失敗だけ再同期</button>
       </div>
+      <div id="connection-steps" class="result-box hidden" role="status"></div>
       <div id="connection-result" class="result-box hidden" role="status"></div>
       <div id="pdf-result" class="result-box hidden" role="status"></div>
     </div>
 
-    <div class="friendly-card storage-card hidden" id="legacy-connection-card" aria-hidden="true">
-      <h2>QNAP PDF 整合チェック</h2>
-      <p class="storage-meta">ローカル保存 PDF と QNAP バックアップ件数を比較します（日次確認用）。</p>
+    <div class="friendly-card storage-card" id="integrity-card">
+      <h2>QNAP 整合チェック</h2>
+      <p class="storage-meta">storage_documents_v1 / 仕様書写真 — DB と QNAP の突合（日次確認用）。</p>
       <dl class="status-grid" id="integrity-grid">
-        <dt>ローカル PDF</dt><dd id="integrity-local">—</dd>
-        <dt>QNAP 成功</dt><dd id="integrity-qnap">—</dd>
+        <dt>書類件数</dt><dd id="integrity-doc-count">—</dd>
+        <dt>要確認</dt><dd id="integrity-issue-count">—</dd>
         <dt>状態</dt><dd id="integrity-status" class="status-muted">—</dd>
         <dt>仕様書写真</dt><dd id="integrity-spec-photos" class="status-muted">—</dd>
       </dl>
       <div id="integrity-warning" class="result-box err hidden" role="alert"></div>
       <div class="storage-actions">
         <button type="button" class="btn-sub" id="btn-integrity-check">整合チェック</button>
-        <button type="button" class="btn-sub hidden" id="btn-integrity-resync">QNAPへ再同期</button>
+        <button type="button" class="btn-sub" id="btn-integrity-resync">全部再チェック＋再同期</button>
+        <button type="button" class="btn-sub" id="btn-integrity-pending">未保存だけ同期</button>
+        <button type="button" class="btn-sub" id="btn-integrity-failed">失敗だけ再同期</button>
       </div>
+    </div>
+
+    <div class="friendly-card storage-card hidden" id="legacy-connection-card" aria-hidden="true">
+      <h2>QNAP PDF 整合チェック（旧）</h2>
+      <dl class="status-grid">
+        <dt>ローカル PDF</dt><dd id="integrity-local">—</dd>
+        <dt>QNAP 成功</dt><dd id="integrity-qnap">—</dd>
+      </dl>
     </div>
 
     <div class="storage-actions" style="margin-top:0.5rem;">

@@ -47,6 +47,31 @@ function showResult(el, ok, message) {
   el.textContent = `${ok ? "✅" : "❌"} ${message}`;
 }
 
+function renderEnvStatus(env) {
+  if (!env) return;
+  const readyEl = $("qnap-env-ready");
+  if (readyEl) {
+    readyEl.textContent = env.ready ? "✅ 設定済み" : "⚠️ 不足あり";
+    readyEl.className = env.ready ? "status-ok" : "status-warn";
+  }
+  if ($("qnap-env-url")) $("qnap-env-url").textContent = env.urlPreview || "未設定";
+  if ($("qnap-env-basedir")) {
+    $("qnap-env-basedir").textContent = env.baseDirPreview
+      ? `${env.baseDirPreview}${env.baseDirIsDefault ? "（デフォルト）" : ""}`
+      : "未設定";
+  }
+  if ($("qnap-env-user")) {
+    $("qnap-env-user").textContent = env.userConfigured ? "設定済み（非表示）" : "未設定";
+  }
+  const missingEl = $("qnap-env-missing");
+  if (missingEl) {
+    const missing = env.missingKeys?.length ? env.missingKeys.join(", ") : "なし";
+    missingEl.textContent = missing;
+    missingEl.className = env.missingKeys?.length ? "status-warn" : "status-ok";
+  }
+  if ($("qnap-env-guide")) $("qnap-env-guide").textContent = env.setupGuide || "—";
+}
+
 function renderSummary(summary) {
   $("status-local").textContent = "✅";
   $("status-local").className = "status-ok";
@@ -61,8 +86,23 @@ function renderSummary(summary) {
   $("status-last-check").textContent = formatJaDateTime(summary.lastCheckedAt);
 }
 
+function renderConnectionSteps(steps) {
+  const el = $("connection-steps");
+  if (!el || !steps?.length) {
+    el?.classList.add("hidden");
+    return;
+  }
+  el.classList.remove("hidden", "ok", "err");
+  const allOk = steps.every((s) => s.ok);
+  el.classList.add(allOk ? "ok" : "err");
+  el.innerHTML = steps
+    .map((s) => `<div>${s.ok ? "✅" : "❌"} ${s.step}. ${s.label} — ${s.message}</div>`)
+    .join("");
+}
+
 function renderQnapTestStatus(status) {
   if (!status) return;
+  renderEnvStatus(status.qnapEnv);
   const modeEl = $("qnap-mode");
   if (modeEl) {
     modeEl.textContent = status.qnapMode === "webdav" ? "WebDAV（本番）" : "Mock";
@@ -70,17 +110,17 @@ function renderQnapTestStatus(status) {
   }
   const connEl = $("qnap-conn-status");
   if (connEl) {
-    if (status.summary?.qnapLabel === "接続成功") {
-      connEl.textContent = "✅ 接続成功";
+    if (status.qnapConfigured) {
+      connEl.textContent = "✅ 接続成功（実保存有効）";
       connEl.className = "status-ok";
-    } else if (status.summary?.qnapLabel === "接続失敗") {
-      connEl.textContent = "❌ 接続失敗";
+    } else if (status.qnapMode === "webdav") {
+      connEl.textContent = "❌ 接続未確認または失敗";
       connEl.className = "status-err";
-    } else if (status.qnapConfigured) {
+    } else if (status.qnapEnv?.ready) {
       connEl.textContent = "未確認";
       connEl.className = "status-warn";
     } else {
-      connEl.textContent = "Mock（未設定）";
+      connEl.textContent = "Mock（.env 未設定）";
       connEl.className = "status-muted";
     }
   }
@@ -102,6 +142,7 @@ function renderQnapTestStatus(status) {
       : `❌ ${status.lastTestPdfDelete.message}`;
     delEl.className = status.lastTestPdfDelete.ok ? "status-ok" : "status-err";
   }
+  renderConnectionSteps(status.lastConnectionTest?.steps);
 }
 
 function fillForm(settings) {
@@ -145,12 +186,14 @@ async function load() {
   const data = await api("");
   fillForm(data.settings);
   renderSummary(data.summary);
+  renderEnvStatus(data.qnapEnv);
   if (data.settings.lastConnectionTest) {
     showResult(
       $("connection-result"),
       data.settings.lastConnectionTest.ok,
       data.settings.lastConnectionTest.message
     );
+    renderConnectionSteps(data.settings.lastConnectionTest.steps);
   }
   if (data.settings.lastTestPdfSend) {
     showResult($("pdf-result"), data.settings.lastTestPdfSend.ok, data.settings.lastTestPdfSend.message);
@@ -159,34 +202,31 @@ async function load() {
 }
 
 function renderIntegrity(report) {
-  $("integrity-local").textContent = String(report.localPdfCount ?? "—");
-  $("integrity-qnap").textContent = String(report.qnapSuccessCount ?? "—");
+  $("integrity-doc-count").textContent = String(report.documentCount ?? "—");
+  $("integrity-issue-count").textContent = String(report.issueCount ?? "—");
   const statusEl = $("integrity-status");
   const warnEl = $("integrity-warning");
-  const resyncBtn = $("btn-integrity-resync");
-  if (report.mismatch) {
+  if ((report.issueCount ?? 0) > 0) {
     statusEl.textContent = "⚠️ 差分あり";
     statusEl.className = "status-err";
     warnEl.classList.remove("hidden");
-    warnEl.textContent = report.message || "ローカルとQNAPの件数が一致しません";
-    resyncBtn?.classList.remove("hidden");
+    warnEl.textContent = report.message || "整合性に問題があります";
   } else {
-    statusEl.textContent = report.qnapBackupEnabled ? "✅ 整合" : "未設定";
-    statusEl.className = report.qnapBackupEnabled ? "status-ok" : "status-muted";
+    statusEl.textContent = report.qnapMode === "webdav" ? "✅ 整合" : "Mock（未設定）";
+    statusEl.className = report.qnapMode === "webdav" ? "status-ok" : "status-muted";
     warnEl.classList.add("hidden");
-    resyncBtn?.classList.add("hidden");
+  }
+  const specEl = $("integrity-spec-photos");
+  if (specEl && report.specPhotos) {
+    const sp = report.specPhotos;
+    specEl.textContent = sp.mismatchCount > 0 ? `⚠️ ${sp.message}` : `✅ ${sp.message}`;
+    specEl.className = sp.mismatchCount > 0 ? "status-err" : "status-ok";
   }
 }
 
 async function loadIntegrity() {
   const data = await api("/qnap/integrity");
-  renderIntegrity(data.pdfs ?? data);
-  const specEl = $("integrity-spec-photos");
-  if (specEl && data.specPhotos) {
-    const sp = data.specPhotos;
-    specEl.textContent = sp.mismatchCount > 0 ? `⚠️ ${sp.message}` : `✅ ${sp.message}`;
-    specEl.className = sp.mismatchCount > 0 ? "status-err" : "status-ok";
-  }
+  renderIntegrity(data);
 }
 
 async function init() {
@@ -209,6 +249,7 @@ async function init() {
       const data = await api("", { method: "PUT", body: JSON.stringify(collectForm()) });
       fillForm(data.settings);
       renderSummary(data.summary);
+      renderEnvStatus(data.qnapEnv);
       await loadQnapStatus();
       toast("保存しました");
     } catch (e) {
@@ -219,10 +260,11 @@ async function init() {
   $("btn-test-connection")?.addEventListener("click", async () => {
     $("btn-test-connection").disabled = true;
     try {
-      await api("", { method: "PUT", body: JSON.stringify(collectForm()) });
       const data = await api("/qnap/test-connection", { method: "POST", body: "{}" });
       showResult($("connection-result"), data.result.ok, data.result.message);
+      renderConnectionSteps(data.result.steps);
       renderSummary(data.summary);
+      renderEnvStatus(data.qnapEnv);
       await loadQnapStatus();
     } catch (e) {
       showResult($("connection-result"), false, e.message || "接続テスト失敗");
@@ -275,6 +317,32 @@ async function init() {
     }
   });
 
+  $("btn-resync-pending")?.addEventListener("click", async () => {
+    $("btn-resync-pending").disabled = true;
+    try {
+      const data = await api("/qnap/resync/pending", { method: "POST", body: "{}" });
+      toast(`未保存同期: 成功 ${data.result?.synced?.length ?? 0} / 失敗 ${data.result?.failed?.length ?? 0}`);
+      await loadIntegrity();
+    } catch (e) {
+      toast(e.message || "同期に失敗しました");
+    } finally {
+      $("btn-resync-pending").disabled = false;
+    }
+  });
+
+  $("btn-resync-failed")?.addEventListener("click", async () => {
+    $("btn-resync-failed").disabled = true;
+    try {
+      const data = await api("/qnap/resync/failed", { method: "POST", body: "{}" });
+      toast(`失敗再同期: 成功 ${data.result?.synced?.length ?? 0} / 失敗 ${data.result?.failed?.length ?? 0}`);
+      await loadIntegrity();
+    } catch (e) {
+      toast(e.message || "再同期に失敗しました");
+    } finally {
+      $("btn-resync-failed").disabled = false;
+    }
+  });
+
   $("btn-integrity-check")?.addEventListener("click", async () => {
     try {
       await loadIntegrity();
@@ -285,16 +353,36 @@ async function init() {
   });
 
   $("btn-integrity-resync")?.addEventListener("click", async () => {
-    if (!confirm("QNAPへ未同期のPDFを再送信しますか？")) return;
+    if (!confirm("整合チェック後、未保存・失敗分を再同期しますか？")) return;
     $("btn-integrity-resync").disabled = true;
     try {
-      const data = await api("/qnap/integrity/resync", { method: "POST", body: "{}" });
-      renderIntegrity(data.refreshed?.pdfs || data.refreshed || data.integrity);
-      toast(`再同期: 成功 ${data.result?.succeeded ?? 0} / 失敗 ${data.result?.failed ?? 0}`);
+      const data = await api("/qnap/integrity/resync", { method: "POST", body: JSON.stringify({ mode: "all" }) });
+      renderIntegrity(data.integrityAfter ?? data);
+      toast(`再同期: 書類成功 ${data.documents?.synced?.length ?? 0} / 失敗 ${data.documents?.failed?.length ?? 0}`);
     } catch (e) {
       toast(e.message || "再同期に失敗しました");
     } finally {
       $("btn-integrity-resync").disabled = false;
+    }
+  });
+
+  $("btn-integrity-pending")?.addEventListener("click", async () => {
+    try {
+      const data = await api("/qnap/integrity/resync", { method: "POST", body: JSON.stringify({ mode: "pending" }) });
+      renderIntegrity(data.integrityAfter ?? data);
+      toast(`未保存同期: ${data.documents?.synced?.length ?? 0} 件`);
+    } catch (e) {
+      toast(e.message || "同期に失敗しました");
+    }
+  });
+
+  $("btn-integrity-failed")?.addEventListener("click", async () => {
+    try {
+      const data = await api("/qnap/integrity/resync", { method: "POST", body: JSON.stringify({ mode: "failed" }) });
+      renderIntegrity(data.integrityAfter ?? data);
+      toast(`失敗再同期: ${data.documents?.synced?.length ?? 0} 件`);
+    } catch (e) {
+      toast(e.message || "再同期に失敗しました");
     }
   });
 

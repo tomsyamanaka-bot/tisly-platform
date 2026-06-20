@@ -21,12 +21,20 @@ export interface StorageProviderPutResult {
   mock?: boolean;
 }
 
+export interface StorageProviderTestStepV1 {
+  step: number;
+  label: string;
+  ok: boolean;
+  message: string;
+}
+
 export interface StorageProviderTestResult {
   ok: boolean;
   provider: StorageProviderKind;
   message: string;
   testedAt: string;
   mock?: boolean;
+  steps?: StorageProviderTestStepV1[];
 }
 
 export interface StorageProviderConfig {

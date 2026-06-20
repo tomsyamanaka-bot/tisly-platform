@@ -1,0 +1,44 @@
+{
+  "capturedAt": "2026-06-20T07:59:38.973Z",
+  "feature": "qnap-webdav-real-v1",
+  "businessProjectId": "BIZ-9632F56F",
+  "estimateDocId": "fbc02611-0901-474f-8bb2-ad996532a54e",
+  "qnapHealth": {
+    "storageProvider": "mock",
+    "qnapConfigured": false,
+    "qnapMode": "mock",
+    "qnapLastTestAt": "2026-06-20T07:59:25.983Z",
+    "qnapLastError": null,
+    "qnapEnv": {
+      "ready": false,
+      "missingKeys": [
+        "QNAP_WEBDAV_URL",
+        "QNAP_WEBDAV_USER",
+        "QNAP_WEBDAV_PASSWORD",
+        "QNAP_BASE_DIR（未設定 — デフォルト /TiSLY を使用）"
+      ],
+      "urlPreview": null,
+      "baseDirPreview": "/TiSLY",
+      "userConfigured": false,
+      "passwordConfigured": false,
+      "baseDirIsDefault": true,
+      "setupGuide": "不足: QNAP_WEBDAV_URL, QNAP_WEBDAV_USER, QNAP_WEBDAV_PASSWORD, QNAP_BASE_DIR（未設定 — デフォルト /TiSLY を使用） — VPS /opt/tisly/server/.env を確認"
+    }
+  },
+  "integritySummary": {
+    "issueCount": 0,
+    "message": "QNAP WebDAV 未設定（Mock モード）"
+  },
+  "files": [
+    "01-storage-settings-qnap-env.png",
+    "02-qnap-connection-test-result.png",
+    "03-estimate-pdf-qnap-saved.png",
+    "04-spec-photos-qnap-tab.png",
+    "05-document-center-qnap-green.png",
+    "06-qnap-integrity-check-result.png"
+  ],
+  "healthCommitShort": "5576852",
+  "pdfEngineReady": true,
+  "ok": true,
+  "note": "Mock mode — VPS .env 未設定時の検証スクショ"
+}

@@ -9,6 +9,7 @@ export interface QnapConnectionTestResult {
   message: string;
   testedAt: string;
   mock?: boolean;
+  steps?: Array<{ step: number; label: string; ok: boolean; message: string }>;
 }
 
 export interface QnapTestPdfSendResult {

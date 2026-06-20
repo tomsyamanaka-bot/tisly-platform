@@ -13,6 +13,13 @@ import {
   syncProjectDocumentsToQnapV1,
   syncStorageDocumentToQnapV1,
 } from "../../storage/qnap-storage-v1-service.js";
+import {
+  resyncAllFailedQnapStorageV1,
+  resyncAllPendingQnapStorageV1,
+  runQnapStorageIntegrityCheckV1,
+  runQnapStorageIntegrityResyncV1,
+} from "../../storage/qnap-storage-integrity-v1-service.js";
+import { getQnapStorageHealthV1 } from "../../storage/qnap-storage-v1-config.js";
 
 export const qnapStorageV1Router = Router();
 
@@ -31,9 +38,54 @@ qnapStorageV1Router.post("/test", ...auth, async (req: AuthedRequest, res) => {
   if (!assertRole(req, res)) return;
   try {
     const result = await runQnapStorageConnectionTestV1();
-    res.json(result);
+    res.json({ ...result, qnapHealth: getQnapStorageHealthV1() });
   } catch (e) {
     res.status(500).json({ error: e instanceof Error ? e.message : "test failed" });
+  }
+});
+
+qnapStorageV1Router.get("/integrity", ...auth, async (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const projectId = String(req.query.projectId ?? "").trim() || undefined;
+  try {
+    const report = await runQnapStorageIntegrityCheckV1(projectId);
+    res.json(report);
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : "integrity check failed" });
+  }
+});
+
+qnapStorageV1Router.post("/integrity/run", ...auth, async (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const projectId = req.body?.projectId ? String(req.body.projectId) : undefined;
+  const mode = req.body?.mode === "pending" || req.body?.mode === "failed" ? req.body.mode : "all";
+  try {
+    const result = await runQnapStorageIntegrityResyncV1({ mode, projectId });
+    res.json({ ok: true, ...result, qnapHealth: getQnapStorageHealthV1() });
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : "integrity resync failed" });
+  }
+});
+
+qnapStorageV1Router.post("/resync/pending", ...auth, async (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const projectId = req.body?.projectId ? String(req.body.projectId) : undefined;
+  try {
+    const result = await resyncAllPendingQnapStorageV1(projectId);
+    res.json({ ok: true, result, qnapHealth: getQnapStorageHealthV1() });
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : "resync failed" });
+  }
+});
+
+qnapStorageV1Router.post("/resync/failed", ...auth, async (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const projectId = req.body?.projectId ? String(req.body.projectId) : undefined;
+  try {
+    const result = await resyncAllFailedQnapStorageV1(projectId);
+    res.json({ ok: true, result, qnapHealth: getQnapStorageHealthV1() });
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : "resync failed" });
   }
 });
 
