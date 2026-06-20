@@ -5,6 +5,7 @@ import {
   createBusinessProject,
   createEstimate,
   getBusinessProject,
+  getEstimate,
   updateBusinessProject,
   updateEstimateHeader,
 } from "../business/business-store.js";
@@ -17,6 +18,9 @@ import {
 import type { EstimateProjectV1Detail } from "../estimate/estimate-v1-types.js";
 import { getSurveyProjectV1Detail } from "../survey/survey-v1-store.js";
 import { getSurveyDrawingSketchV1 } from "../survey/survey-drawing-v1-store.js";
+import {
+  getSelectedPreviewLines,
+} from "./ai-estimate-engine-v2.js";
 import {
   getMasterV1EstimateDraft,
   markMasterV1EstimateDraftApplied,
@@ -37,7 +41,7 @@ function priceSourceLabel(source: MasterV1PriceSource): string {
 export function buildEstimateItemsFromMasterPreview(
   preview: MasterV1EstimatePreviewEnriched
 ): EstimateLineItem[] {
-  const lines = [...(preview.workLines || []), ...(preview.materialLines || [])];
+  const lines = getSelectedPreviewLines(preview);
   return normalizeLineItems(lines.map(convertPreviewLineToEstimateItem));
 }
 
@@ -223,15 +227,23 @@ function persistEstimateMasterDraftLink(estimateId: string, masterDraftId: strin
 
 export function createEstimateFromMasterDraftV1(
   masterDraftId: string,
-  createdBy?: string
+  createdBy?: string,
+  opts?: { mode?: "create" | "append"; businessProjectId?: string }
 ): EstimateProjectV1Detail {
   const draft = getMasterV1EstimateDraft(masterDraftId);
   if (!draft) throw new Error("master draft not found");
 
-  const businessProjectId = ensureBusinessProjectForMasterDraft(draft);
+  const mode = opts?.mode ?? "create";
   const items = buildEstimateItemsFromMasterPreview(draft.preview);
   if (!items.length) throw new Error("master draft has no line items");
 
+  if (mode === "append") {
+    const targetId = opts?.businessProjectId ?? draft.businessProjectId;
+    if (!targetId) throw new Error("businessProjectId is required for append");
+    return appendEstimateFromMasterDraftV1(masterDraftId, targetId, createdBy);
+  }
+
+  const businessProjectId = ensureBusinessProjectForMasterDraft(draft);
   let project = getBusinessProject(businessProjectId)!;
   const header = buildHeaderFromDraft(draft, businessProjectId);
 
@@ -265,8 +277,45 @@ export function createEstimateFromMasterDraftV1(
   };
 }
 
+export function appendEstimateFromMasterDraftV1(
+  masterDraftId: string,
+  businessProjectId: string,
+  createdBy?: string
+): EstimateProjectV1Detail {
+  const draft = getMasterV1EstimateDraft(masterDraftId);
+  if (!draft) throw new Error("master draft not found");
+
+  const project = getBusinessProject(businessProjectId);
+  if (!project?.estimateId) throw new Error("estimate not found");
+
+  const existing = getEstimate(project.estimateId);
+  const newItems = buildEstimateItemsFromMasterPreview(draft.preview);
+  if (!newItems.length) throw new Error("master draft has no line items");
+
+  const merged = normalizeLineItems([...(existing?.items ?? []), ...newItems]);
+  const header = buildHeaderFromDraft(draft, businessProjectId);
+  const noteSuffix = createdBy ? ` / 追加: ${createdBy}` : "";
+
+  updateEstimateItemsV1(businessProjectId, merged, {
+    notes: header.notes,
+    forceOverwriteManualLines: false,
+  });
+  persistEstimateMasterDraftLink(project.estimateId, masterDraftId);
+  markMasterV1EstimateDraftApplied(masterDraftId, businessProjectId, project.estimateId);
+
+  const detail = getEstimateProjectV1Detail(businessProjectId)!;
+  return {
+    ...detail,
+    masterDraftId,
+    pricingSummary: summarizeMasterPreviewPricing(draft.preview),
+  } as EstimateProjectV1Detail & {
+    masterDraftId: string;
+    pricingSummary: ReturnType<typeof summarizeMasterPreviewPricing>;
+  };
+}
+
 export function summarizeMasterPreviewPricing(preview: MasterV1EstimatePreviewEnriched) {
-  const lines = [...(preview.workLines || []), ...(preview.materialLines || [])];
+  const lines = getSelectedPreviewLines(preview);
   const customerOverrideCount = lines.filter((l) => l.priceSource === "customer_override").length;
   const rankCount = lines.filter((l) => l.priceSource === "rank_multiplier").length;
   const standardCount = lines.filter((l) => l.priceSource === "standard").length;

@@ -288,6 +288,22 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | テスト | `server/test/ai-estimate-engine-v1.test.ts` |
 | 詳細 | [AI_ESTIMATE_ENGINE_V1.md](./AI_ESTIMATE_ENGINE_V1.md) |
 
+### AI見積エンジン v2（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | 現調図面・案件テンプレから見積候補を生成し見積書へ反映 |
+| 候補抽出 | 記号/SVG/path/lineType → symbol_mappings → 作業/材料 |
+| 配線長 | mmPerPx 仮値 2.0 · 余長 1.2× · 数量切り上げ |
+| プレビュー UI | `/master-v1?tab=estimate-preview` — 作業/材料/未設定/警告 |
+| 価格 | 顧客上書き → ランク → 標準 → 原価×2 → 警告 |
+| 反映 | ドラフト保存 · 見積候補から作成 · 既存見積へ追加 |
+| テンプレ | 工事種別=防犯カメラ → 標準作業6件（重複排除） |
+| Document Center | source_type 構造（survey_drawing / specification_photo / completion_photo / pdf / project_template） |
+| API | `/api/master/v1/estimate-preview` · `/api/ai-estimate-engine/v1/candidates-v2` |
+| テスト | `server/test/ai-estimate-engine-v2.test.ts` |
+| 詳細 | [AI_ESTIMATE_ENGINE_V2.md](./AI_ESTIMATE_ENGINE_V2.md) |
+
 ### 仕様書 / 完了報告書 PDF 自動保存 v1（完成済み）
 
 | トリガー | 動作 |

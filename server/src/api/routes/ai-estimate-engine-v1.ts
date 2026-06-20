@@ -10,6 +10,7 @@ import {
   toRankMasterV1,
   toWorkMasterV1,
 } from "../../master/ai-estimate-engine-v1.js";
+import { buildAiEstimateCandidatesV2 } from "../../master/ai-estimate-engine-v2.js";
 import { MASTER_V1_CUSTOMER_TYPES } from "../../master/master-v1-types.js";
 import {
   createMasterV1Customer,
@@ -406,4 +407,24 @@ aiEstimateEngineV1Router.delete("/customer-price-override/:id", ...auth, (req: A
     return;
   }
   res.json({ ok: true });
+});
+
+// —— AI見積エンジン v2 — 見積候補 ——
+
+aiEstimateEngineV1Router.get("/candidates-v2", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const sketchId = req.query.sketchId ? String(req.query.sketchId) : undefined;
+  const projectId = req.query.projectId ? String(req.query.projectId) : undefined;
+  const customerId = req.query.customerId ? String(req.query.customerId) : null;
+  const mmPerPx = req.query.mmPerPx ? Number(req.query.mmPerPx) : undefined;
+  if (!sketchId && !projectId) {
+    res.status(400).json({ error: "sketchId or projectId is required" });
+    return;
+  }
+  const preview = buildAiEstimateCandidatesV2({ sketchId, projectId, customerId, mmPerPx });
+  if (!preview) {
+    res.status(404).json({ error: "candidates not found" });
+    return;
+  }
+  res.json(preview);
 });

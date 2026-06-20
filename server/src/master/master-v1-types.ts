@@ -167,8 +167,14 @@ export interface MasterV1SymbolMapping {
   updatedAt: string;
 }
 
+export type MasterV1EstimateCandidateSourceType =
+  | "symbol"
+  | "line"
+  | "template"
+  | "document";
+
 export interface MasterV1EstimatePreviewCandidate {
-  sourceType: "symbol" | "line";
+  sourceType: MasterV1EstimateCandidateSourceType;
   sourceId: string;
   symbolType: string;
   label: string;
@@ -188,7 +194,8 @@ export type MasterV1PriceSource =
   | "missing";
 
 export interface MasterV1EstimatePreviewLine {
-  sourceType: "symbol" | "line";
+  lineKey: string;
+  sourceType: MasterV1EstimateCandidateSourceType;
   sourceId: string;
   symbolType: string;
   label: string;
@@ -203,11 +210,15 @@ export interface MasterV1EstimatePreviewLine {
   customerUnitSell: number | null;
   appliedUnitSell: number;
   priceSource: MasterV1PriceSource;
+  priceBasis: string;
   totalSell: number;
   grossProfit: number;
   grossProfitRate: number;
   mappingId: string | null;
   memo: string | null;
+  enabled: boolean;
+  isUnmapped: boolean;
+  sourceKind: "drawing" | "template" | "document";
 }
 
 export interface MasterV1EstimatePreview {
@@ -228,6 +239,46 @@ export interface MasterV1EstimatePreviewEnriched extends MasterV1EstimatePreview
   totalSell: number;
   grossProfit: number;
   grossProfitRate: number;
+}
+
+/** AI見積エンジン v2 — 候補プレビュー拡張 */
+export const AI_ESTIMATE_ENGINE_V2_SCHEMA = "ai_estimate_engine_v2" as const;
+
+export type AiEstimateDocumentSourceType =
+  | "survey_drawing"
+  | "specification_photo"
+  | "completion_photo"
+  | "pdf"
+  | "project_template";
+
+export interface AiEstimateDocumentSourceV2 {
+  sourceType: AiEstimateDocumentSourceType;
+  label: string;
+  projectId: string;
+  resourceId: string | null;
+  viewerUrl: string | null;
+  apiUrl: string | null;
+  status: "available" | "placeholder" | "missing";
+  note: string | null;
+}
+
+export interface AiEstimateWarningV2 {
+  code: string;
+  severity: "info" | "warn" | "error";
+  message: string;
+  relatedLineKey: string | null;
+}
+
+export interface MasterV1EstimatePreviewEnrichedV2 extends MasterV1EstimatePreviewEnriched {
+  schemaVersion: typeof AI_ESTIMATE_ENGINE_V2_SCHEMA;
+  mmPerPx: number;
+  wasteFactor: number;
+  workTypes: string[];
+  templateName: string | null;
+  sources: AiEstimateDocumentSourceV2[];
+  unmappedLines: MasterV1EstimatePreviewLine[];
+  templateLines: MasterV1EstimatePreviewLine[];
+  warnings: AiEstimateWarningV2[];
 }
 
 export type MasterV1MissingFilter = "cost" | "sell" | "supplier" | "model" | "category";

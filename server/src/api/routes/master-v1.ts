@@ -53,12 +53,16 @@ import {
 } from "../../master/master-v1-store.js";
 import { exportMasterV1Csv, importMasterV1Csv } from "../../master/master-v1-csv.js";
 import {
+  applyPreviewLineEditsV2,
+  buildAiEstimateCandidatesV2,
+} from "../../master/ai-estimate-engine-v2.js";
+import {
   buildEstimatePreviewBySketchId,
   buildEstimatePreviewFromLayers,
   listSymbolMappingSummary,
 } from "../../master/estimate-preview-service.js";
 import { getAiEstimateEngineStatsV1 } from "../../master/ai-estimate-engine-v1.js";
-import { saveMasterV1EstimateDraft, getMasterV1EstimateDraft, getLatestMasterV1EstimateDraftBySketch } from "../../master/master-v1-draft-estimate-store.js";
+import { saveMasterV1EstimateDraft, getMasterV1EstimateDraft, getLatestMasterV1EstimateDraftBySketch, updateMasterV1EstimateDraft } from "../../master/master-v1-draft-estimate-store.js";
 import {
   createEstimateFromMasterDraftV1,
   summarizeMasterPreviewPricing,
@@ -617,8 +621,19 @@ masterV1Router.get("/estimate-preview", ...auth, async (req: AuthedRequest, res)
   if (!assertRole(req, res)) return;
   const sketchId = String(req.query.sketchId || "");
   const customerId = req.query.customerId ? String(req.query.customerId) : null;
+  const mmPerPx = req.query.mmPerPx ? Number(req.query.mmPerPx) : undefined;
+  const useV2 = req.query.v !== "1";
   if (!sketchId) {
     res.status(400).json({ error: "sketchId is required" });
+    return;
+  }
+  if (useV2) {
+    const preview = buildAiEstimateCandidatesV2({ sketchId, customerId, mmPerPx });
+    if (!preview) {
+      res.status(404).json({ error: "sketch not found" });
+      return;
+    }
+    res.json(preview);
     return;
   }
   const preview = buildEstimatePreviewBySketchId(sketchId, customerId);
@@ -636,7 +651,18 @@ masterV1Router.post("/estimate-preview", ...auth, (req: AuthedRequest, res) => {
     projectId?: string;
     customerId?: string | null;
     layers?: SurveyDrawingAiExportV1;
+    mmPerPx?: number;
+    v?: number;
   };
+  if (body.v !== 1) {
+    const preview = buildAiEstimateCandidatesV2(body);
+    if (!preview) {
+      res.status(400).json({ error: "sketchId or layers is required" });
+      return;
+    }
+    res.json(preview);
+    return;
+  }
   const preview = buildEstimatePreviewFromLayers(body);
   if (!preview) {
     res.status(400).json({ error: "sketchId or layers is required" });
@@ -699,8 +725,12 @@ masterV1Router.get("/estimate-drafts/by-sketch/:sketchId", ...auth, (req: Authed
 
 masterV1Router.post("/estimate-drafts/:id/apply-to-estimate", ...auth, (req: AuthedRequest, res) => {
   if (!assertRole(req, res)) return;
+  const body = req.body as { mode?: "create" | "append"; businessProjectId?: string };
   try {
-    const detail = createEstimateFromMasterDraftV1(String(req.params.id), req.admin?.username);
+    const detail = createEstimateFromMasterDraftV1(String(req.params.id), req.admin?.username, {
+      mode: body.mode ?? "create",
+      businessProjectId: body.businessProjectId,
+    });
     res.status(201).json({
       draft: getMasterV1EstimateDraft(String(req.params.id)),
       detail,
@@ -712,6 +742,38 @@ masterV1Router.post("/estimate-drafts/:id/apply-to-estimate", ...auth, (req: Aut
     const status = msg === "master draft not found" ? 404 : 400;
     res.status(status).json({ error: msg });
   }
+});
+
+masterV1Router.patch("/estimate-drafts/:id", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const body = req.body as {
+    preview?: ReturnType<typeof buildAiEstimateCandidatesV2>;
+    lineEdits?: Array<{
+      lineKey: string;
+      enabled?: boolean;
+      qty?: number;
+      appliedUnitSell?: number;
+      memo?: string | null;
+    }>;
+    customerId?: string | null;
+  };
+  const existing = getMasterV1EstimateDraft(String(req.params.id));
+  if (!existing) {
+    res.status(404).json({ error: "draft not found" });
+    return;
+  }
+  let preview = body.preview ?? existing.preview;
+  if (body.lineEdits?.length) {
+    preview = applyPreviewLineEditsV2(preview as import("../../master/master-v1-types.js").MasterV1EstimatePreviewEnrichedV2, body.lineEdits);
+  }
+  const draft = updateMasterV1EstimateDraft(String(req.params.id), {
+    preview,
+    customerId: body.customerId,
+  });
+  res.json({
+    draft,
+    pricingSummary: summarizeMasterPreviewPricing(draft!.preview),
+  });
 });
 
 masterV1Router.post("/categories/reorder", ...auth, (req: AuthedRequest, res) => {

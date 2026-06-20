@@ -475,6 +475,52 @@ body.master-v1-touch.has-practical-nav .bulk-bar {
   color: #166534;
   margin-left: 0.35rem;
 }
+.preview-line.line-off { opacity: 0.55; }
+.line-edit-row {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+.line-edit-row label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+}
+.line-edit-row input[type="number"],
+.line-edit-row input[type="text"] {
+  flex: 1;
+  min-height: 36px;
+  padding: 0.3rem 0.45rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+}
+.line-basis { font-size: 0.72rem; color: #64748b; margin-top: 0.15rem; }
+.line-badge {
+  display: inline-block;
+  font-size: 0.62rem;
+  padding: 0.05rem 0.3rem;
+  border-radius: 4px;
+  margin-left: 0.15rem;
+  background: #f1f5f9;
+}
+.line-badge.warn { background: #fef3c7; color: #92400e; }
+.line-badge.override { background: #fef3c7; color: #92400e; }
+.line-badge.rank { background: #dbeafe; color: #1d4ed8; }
+.line-badge.template { background: #ede9fe; color: #6d28d9; }
+.preview-warn-line { font-size: 0.78rem; padding: 0.35rem 0.45rem; border-radius: 6px; margin-bottom: 0.3rem; background: #fff7ed; }
+.preview-warn-line.warn { background: #fef3c7; }
+.preview-warn-line.info { background: #eff6ff; }
+.preview-source { font-size: 0.78rem; padding: 0.3rem 0; border-bottom: 1px solid #f1f5f9; }
+.source-type {
+  display: inline-block;
+  font-size: 0.62rem;
+  padding: 0.05rem 0.3rem;
+  border-radius: 4px;
+  background: #e0f2fe;
+  color: #0369a1;
+  margin-right: 0.25rem;
+}
 .cat-sort-list { display: grid; gap: 0.65rem; }
 .cat-main-group {
   border: 1px solid #e2e8f0;

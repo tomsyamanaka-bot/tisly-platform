@@ -120,3 +120,34 @@ export function markMasterV1EstimateDraftApplied(
     .run(businessProjectId, estimateId, now, now, id);
   return getMasterV1EstimateDraft(id);
 }
+
+export function updateMasterV1EstimateDraft(
+  id: string,
+  input: {
+    preview?: MasterV1EstimatePreviewEnriched;
+    customerId?: string | null;
+    status?: "draft" | "applied";
+  }
+): MasterV1EstimateDraft | null {
+  const existing = getMasterV1EstimateDraft(id);
+  if (!existing) return null;
+  const now = nowIso();
+  const preview = input.preview ?? existing.preview;
+  getDatabase()
+    .prepare(
+      `UPDATE master_v1_estimate_drafts SET
+        payload_json = ?,
+        customer_id = COALESCE(?, customer_id),
+        status = COALESCE(?, status),
+        updated_at = ?
+       WHERE id = ?`
+    )
+    .run(
+      JSON.stringify(preview),
+      input.customerId !== undefined ? input.customerId : null,
+      input.status ?? null,
+      now,
+      id
+    );
+  return getMasterV1EstimateDraft(id);
+}

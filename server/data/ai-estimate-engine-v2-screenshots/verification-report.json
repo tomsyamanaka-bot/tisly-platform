@@ -1,0 +1,27 @@
+{
+  "capturedAt": "2026-06-20T11:11:32.686Z",
+  "base": "http://127.0.0.1:3105",
+  "phase": "ai_estimate_engine_v2",
+  "sketchId": "02ed6557-008e-4a48-bf99-9865343469b9",
+  "files": [
+    "01-iphone-estimate-candidates-v2.png",
+    "02-iphone-estimate-candidates-loaded.png",
+    "03-android-tablet-estimate-candidates-v2.png"
+  ],
+  "previewSummary": {
+    "workLineCount": 3,
+    "materialLineCount": 8,
+    "unmappedCount": 0,
+    "warningCount": 0,
+    "totalSell": 188280,
+    "grossProfitRate": 33.5
+  },
+  "apiEndpoints": [
+    "/api/master/v1/estimate-preview",
+    "/api/master/v1/estimate-preview/apply",
+    "/api/master/v1/estimate-drafts/:id",
+    "/api/master/v1/estimate-drafts/:id/apply-to-estimate",
+    "/api/ai-estimate-engine/v1/candidates-v2"
+  ],
+  "uiPath": "/master-v1?tab=estimate-preview"
+}

@@ -19,6 +19,7 @@ import { getSurveyDrawingSketchV1 } from "../survey/survey-drawing-v1-store.js";
 import { buildSurveyDrawingAiExport } from "../survey/survey-drawing-v1-types.js";
 import {
   calcGrossProfitRate,
+  masterPriceSourceLabel,
   resolveCustomerRank,
   resolveMaterialPrice,
   resolveMaterialUnitCost,
@@ -26,7 +27,42 @@ import {
   resolveWorkUnitCost,
 } from "./master-v1-pricing.js";
 
-const PX_TO_METER = 0.01;
+/** 仮値: 1px = 2mm（mmPerPx 未設定時） */
+export const DEFAULT_MM_PER_PX = 2.0;
+/** 配線余長率（仮採用） */
+export const WIRE_WASTE_FACTOR = 1.2;
+
+export function calcWireLengthMeters(
+  lengthPx: number,
+  mmPerPx: number = DEFAULT_MM_PER_PX,
+  wasteFactor: number = WIRE_WASTE_FACTOR
+): number {
+  if (lengthPx <= 0) return 0;
+  const meters = (lengthPx * mmPerPx) / 1000 * wasteFactor;
+  return Math.ceil(meters);
+}
+
+export function buildPriceBasis(line: {
+  priceSource: string;
+  customerUnitSell: number | null;
+  rankUnitSell: number;
+  standardUnitSell: number;
+  appliedUnitSell: number;
+}): string {
+  if (line.priceSource === "customer_override" && line.customerUnitSell != null) {
+    return `顧客別上書き ¥${line.customerUnitSell.toLocaleString("ja-JP")}`;
+  }
+  if (line.priceSource === "rank_multiplier") {
+    return `ランク反映 ¥${line.rankUnitSell.toLocaleString("ja-JP")}（標準 ¥${line.standardUnitSell.toLocaleString("ja-JP")}）`;
+  }
+  if (line.priceSource === "cost_double") {
+    return `原価×2 ¥${line.appliedUnitSell.toLocaleString("ja-JP")}`;
+  }
+  if (line.priceSource === "missing") {
+    return "原価/売価未入力";
+  }
+  return `標準売価 ¥${line.standardUnitSell.toLocaleString("ja-JP")}（${masterPriceSourceLabel(line.priceSource as import("./master-v1-types.js").MasterV1PriceSource)}）`;
+}
 
 function aggregateCandidates(
   raw: MasterV1EstimatePreviewCandidate[]
@@ -120,13 +156,23 @@ function buildCandidate(
   return { work, materials };
 }
 
+function lineKeyFromCandidate(
+  c: MasterV1EstimatePreviewCandidate,
+  itemType: "work" | "material",
+  itemId: string | null,
+  label: string
+): string {
+  return [itemType, itemId ?? "unmapped", c.sourceId, label].join("|");
+}
+
 function enrichWorkLine(
   c: MasterV1EstimatePreviewCandidate,
   customerId: string | null
 ): MasterV1EstimatePreviewLine | null {
   if (!c.workItem) {
     if (c.material) return null;
-    return {
+    const line: MasterV1EstimatePreviewLine = {
+      lineKey: lineKeyFromCandidate(c, "work", null, c.label),
       sourceType: c.sourceType,
       sourceId: c.sourceId,
       symbolType: c.symbolType,
@@ -141,13 +187,18 @@ function enrichWorkLine(
       rankUnitSell: 0,
       customerUnitSell: null,
       appliedUnitSell: 0,
-      priceSource: "standard",
+      priceSource: "missing",
+      priceBasis: "マッピング未設定",
       totalSell: 0,
       grossProfit: 0,
       grossProfitRate: 0,
       mappingId: c.mappingId,
       memo: c.memo,
+      enabled: false,
+      isUnmapped: true,
+      sourceKind: c.sourceType === "template" ? "template" : "drawing",
     };
+    return line;
   }
   return lineFromWork(c, c.workItem, customerId);
 }
@@ -173,7 +224,8 @@ function lineFromWork(
   const totalCost = Math.round(price.unitCost * c.qty);
   const totalSell = Math.round(price.appliedUnitSell * c.qty);
   const grossProfit = totalSell - totalCost;
-  return {
+  const line: MasterV1EstimatePreviewLine = {
+    lineKey: lineKeyFromCandidate(c, "work", work.id, work.name),
     sourceType: c.sourceType,
     sourceId: c.sourceId,
     symbolType: c.symbolType,
@@ -189,12 +241,18 @@ function lineFromWork(
     customerUnitSell: price.customerUnitSell,
     appliedUnitSell: price.appliedUnitSell,
     priceSource: price.priceSource,
+    priceBasis: "",
     totalSell,
     grossProfit,
     grossProfitRate: calcGrossProfitRate(totalSell, totalCost),
     mappingId: c.mappingId,
     memo: c.memo,
+    enabled: true,
+    isUnmapped: false,
+    sourceKind: c.sourceType === "template" ? "template" : "drawing",
   };
+  line.priceBasis = buildPriceBasis(line);
+  return line;
 }
 
 function lineFromMaterial(
@@ -210,7 +268,8 @@ function lineFromMaterial(
   const totalCost = Math.round(price.unitCost * c.qty);
   const totalSell = Math.round(price.appliedUnitSell * c.qty);
   const grossProfit = totalSell - totalCost;
-  return {
+  const line: MasterV1EstimatePreviewLine = {
+    lineKey: lineKeyFromCandidate(c, "material", mat.id, mat.name),
     sourceType: c.sourceType,
     sourceId: c.sourceId,
     symbolType: c.symbolType,
@@ -226,12 +285,18 @@ function lineFromMaterial(
     customerUnitSell: price.customerUnitSell,
     appliedUnitSell: price.appliedUnitSell,
     priceSource: price.priceSource,
+    priceBasis: "",
     totalSell,
     grossProfit,
     grossProfitRate: calcGrossProfitRate(totalSell, totalCost),
     mappingId: c.mappingId,
     memo: c.memo,
+    enabled: true,
+    isUnmapped: false,
+    sourceKind: "drawing",
   };
+  line.priceBasis = buildPriceBasis(line);
+  return line;
 }
 
 export function enrichEstimatePreview(
@@ -245,12 +310,11 @@ export function enrichEstimatePreview(
     .map((c) => enrichMaterialLine(c, customerId))
     .filter((l): l is MasterV1EstimatePreviewLine => l != null);
 
-  const totalCost =
-    workLines.reduce((s, l) => s + l.totalCost, 0) +
-    materialLines.reduce((s, l) => s + l.totalCost, 0);
-  const totalSell =
-    workLines.reduce((s, l) => s + l.totalSell, 0) +
-    materialLines.reduce((s, l) => s + l.totalSell, 0);
+  const billable = [...workLines, ...materialLines].filter(
+    (l) => l.enabled !== false && !l.isUnmapped
+  );
+  const totalCost = billable.reduce((s, l) => s + l.totalCost, 0);
+  const totalSell = billable.reduce((s, l) => s + l.totalSell, 0);
   const grossProfit = totalSell - totalCost;
 
   return {
@@ -267,7 +331,8 @@ export function enrichEstimatePreview(
 
 export function extractEstimatePreviewFromExport(
   exportData: SurveyDrawingAiExportV1,
-  sketchId: string | null = exportData.sketchId
+  sketchId: string | null = exportData.sketchId,
+  mmPerPx: number = DEFAULT_MM_PER_PX
 ): MasterV1EstimatePreview {
   const workRaw: MasterV1EstimatePreviewCandidate[] = [];
   const materialRaw: MasterV1EstimatePreviewCandidate[] = [];
@@ -298,15 +363,15 @@ export function extractEstimatePreviewFromExport(
   for (const [lineType, totals] of lineTotals) {
     const meta = SURVEY_DRAWING_LINE_TYPE_META[lineType as keyof typeof SURVEY_DRAWING_LINE_TYPE_META];
     const label = meta?.label ?? lineType;
-    const meters = Math.round(totals.lengthPx * PX_TO_METER * 100) / 100;
+    const meters = calcWireLengthMeters(totals.lengthPx, mmPerPx);
     const { work, materials } = buildCandidate(
       "line",
       `line-${lineType}`,
       lineType,
       `${label}配線`,
-      meters > 0 ? meters : totals.count,
+      meters > 0 ? meters : Math.ceil(totals.count),
       meters > 0 ? "m" : "本",
-      `${totals.count}ルート / ${Math.round(totals.lengthPx)}px`
+      `${totals.count}ルート / ${Math.round(totals.lengthPx)}px → ${meters}m（余長${WIRE_WASTE_FACTOR}×）`
     );
     if (work) workRaw.push(work);
     materialRaw.push(...materials);

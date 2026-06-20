@@ -642,11 +642,12 @@ function openCategoryDialog(mode, id = null) {
 }
 
 function computePreviewPricingSummary(p) {
-  const lines = [...(p.workLines || []), ...(p.materialLines || [])];
+  const lines = [...(p.workLines || []), ...(p.materialLines || [])].filter((l) => l.enabled !== false);
   const customerOverrideCount = lines.filter((l) => l.priceSource === "customer_override").length;
   const rankCount = lines.filter((l) => l.priceSource === "rank_multiplier").length;
-  const standardCount = lines.filter((l) => l.priceSource === "standard").length;
-  const missingCostLines = lines.filter((l) => !l.unitCost || l.unitCost <= 0);
+  const standardCount = lines.filter((l) => l.priceSource === "standard" || l.priceSource === "cost_double").length;
+  const missingCostLines = lines.filter((l) => !l.unitCost || l.unitCost <= 0 || l.priceSource === "missing");
+  const missingSellLines = lines.filter((l) => !l.appliedUnitSell || l.appliedUnitSell <= 0);
   return {
     totalCost: p.totalCost,
     totalSell: p.totalSell,
@@ -657,13 +658,18 @@ function computePreviewPricingSummary(p) {
     standardCount,
     missingCostCount: missingCostLines.length,
     missingCostLabels: missingCostLines.map((l) => l.label),
+    missingSellCount: missingSellLines.length,
   };
 }
 
 function previewPricingSummaryHtml(summary) {
   const warn =
     summary.missingCostCount > 0
-      ? `<div class="preview-warn">⚠ 原価未入力 ${summary.missingCostCount}件: ${summary.missingCostLabels.slice(0, 3).map(escapeHtml).join("、")}${summary.missingCostCount > 3 ? "…" : ""}</div>`
+      ? `<div class="preview-warn">⚠ 原価未入力 ${summary.missingCostCount}件</div>`
+      : "";
+  const sellWarn =
+    summary.missingSellCount > 0
+      ? `<div class="preview-warn">⚠ 売価未入力 ${summary.missingSellCount}件</div>`
       : "";
   return `<div class="preview-pricing-grid">
     <div class="pricing-stat"><span>原価合計</span><strong>${yen(summary.totalCost)}</strong></div>
@@ -673,7 +679,7 @@ function previewPricingSummaryHtml(summary) {
     <div class="pricing-stat"><span>顧客上書き</span><strong>${summary.customerOverrideCount}件</strong></div>
     <div class="pricing-stat"><span>ランク反映</span><strong>${summary.rankCount}件</strong></div>
     <div class="pricing-stat"><span>標準売価</span><strong>${summary.standardCount}件</strong></div>
-  </div>${warn}`;
+  </div>${warn}${sellWarn}`;
 }
 
 function estimateApplyActionsHtml() {
@@ -683,10 +689,63 @@ function estimateApplyActionsHtml() {
     : "";
   return `${draftHint}
     <div class="preview-action-grid">
-      <button type="button" class="btn-primary btn-apply-estimate" id="btn-save-draft"${applied ? " disabled" : ""}>見積候補を作成（draft保存）</button>
-      <button type="button" class="btn-primary btn-apply-estimate" id="btn-apply-estimate"${!previewDraftId || applied ? " disabled" : ""}>見積に反映</button>
+      <button type="button" class="btn-primary btn-apply-estimate" id="btn-save-draft"${applied ? " disabled" : ""}>ドラフト保存</button>
+      <button type="button" class="btn-primary btn-apply-estimate" id="btn-apply-estimate"${!previewDraftId || applied ? " disabled" : ""}>見積候補から作成</button>
+      <button type="button" class="btn-sub btn-apply-estimate" id="btn-append-estimate"${!previewDraftId || applied ? " disabled" : ""}>既存見積へ追加</button>
       <button type="button" class="btn-sub btn-open-estimate" id="btn-open-estimate-pwa"${!previewDraftId ? " disabled" : ""}>見積PWAで開く</button>
-    </div>`;
+    </div>
+    <p class="hint-small" style="margin-top:0.35rem;">既存見積へ追加は businessProjectId がある案件のみ</p>`;
+}
+
+function priceBadges(line) {
+  const badges = [];
+  if (!line.unitCost || line.unitCost <= 0) badges.push('<span class="line-badge warn">原価未</span>');
+  if (!line.appliedUnitSell || line.appliedUnitSell <= 0) badges.push('<span class="line-badge warn">売価未</span>');
+  if (line.priceSource === "customer_override") badges.push('<span class="line-badge override">顧客単価</span>');
+  if (line.priceSource === "rank_multiplier") badges.push('<span class="line-badge rank">ランク</span>');
+  if (line.sourceKind === "template") badges.push('<span class="line-badge template">テンプレ</span>');
+  return badges.join(" ");
+}
+
+function previewLineHtml(line, editable = true) {
+  const checked = line.enabled !== false ? "checked" : "";
+  const disabled = line.isUnmapped ? "disabled" : "";
+  const inputs = editable
+    ? `<div class="line-edit-row">
+        <label><input type="checkbox" class="line-enabled" data-line-key="${escapeHtml(line.lineKey)}" ${checked} ${disabled} /> 採用</label>
+        <label>数量 <input type="number" class="line-qty" data-line-key="${escapeHtml(line.lineKey)}" value="${line.qty}" min="0" step="0.1" ${disabled} /></label>
+        <label>売単価 <input type="number" class="line-sell" data-line-key="${escapeHtml(line.lineKey)}" value="${line.appliedUnitSell}" min="0" step="100" ${disabled} /></label>
+        <input type="text" class="line-memo" data-line-key="${escapeHtml(line.lineKey)}" value="${escapeHtml(line.memo || "")}" placeholder="備考" ${disabled} />
+      </div>`
+    : "";
+  return `<div class="preview-line${line.enabled === false ? " line-off" : ""}" data-line-key="${escapeHtml(line.lineKey)}">
+    <div class="line-title">${escapeHtml(line.label)} × ${line.qty}${escapeHtml(line.unit)} ${priceSourceLabel(line.priceSource)} ${priceBadges(line)}</div>
+    <div class="line-meta">
+      原価 ${yen(line.unitCost)}/${escapeHtml(line.unit)} · 売価 ${yen(line.appliedUnitSell)} · 小計 ${yen(line.totalSell)} · 粗利 ${yen(line.grossProfit)} (${line.grossProfitRate}%)
+    </div>
+    <div class="line-basis">${escapeHtml(line.priceBasis || "")}</div>
+    ${inputs}
+  </div>`;
+}
+
+function warningsHtml(warnings) {
+  if (!warnings?.length) return "";
+  return `<div class="preview-section preview-warnings"><h3>警告 (${warnings.length})</h3>${warnings
+    .map(
+      (w) =>
+        `<div class="preview-warn-line ${w.severity}">${w.severity === "error" ? "⛔" : w.severity === "warn" ? "⚠" : "ℹ"} ${escapeHtml(w.message)}</div>`
+    )
+    .join("")}</div>`;
+}
+
+function sourcesHtml(sources) {
+  if (!sources?.length) return "";
+  return `<div class="preview-section"><h3>生成元 Document Center</h3>${sources
+    .map(
+      (s) =>
+        `<div class="preview-source"><span class="source-type">${escapeHtml(s.sourceType)}</span> ${escapeHtml(s.label)} <small>(${s.status})</small></div>`
+    )
+    .join("")}</div>`;
 }
 
 function priceSourceLabel(src) {
@@ -697,13 +756,52 @@ function priceSourceLabel(src) {
   return '<span class="price-source">標準</span>';
 }
 
-function previewLineHtml(line) {
-  return `<div class="preview-line">
-    <div class="line-title">${escapeHtml(line.label)} × ${line.qty}${escapeHtml(line.unit)} ${priceSourceLabel(line.priceSource)}</div>
-    <div class="line-meta">
-      原価 ${yen(line.totalCost)} · 売価 ${yen(line.totalSell)} · 粗利 ${yen(line.grossProfit)} (${line.grossProfitRate}%)
-    </div>
-  </div>`;
+function recalcPreviewClientSide() {
+  if (!previewData) return;
+  const allLines = [
+    ...(previewData.workLines || []),
+    ...(previewData.materialLines || []),
+    ...(previewData.unmappedLines || []),
+  ];
+  document.querySelectorAll(".preview-line").forEach((row) => {
+    const key = row.dataset.lineKey;
+    const line = allLines.find((l) => l.lineKey === key);
+    if (!line) return;
+    const enabled = row.querySelector(".line-enabled")?.checked ?? line.enabled !== false;
+    const qty = Number(row.querySelector(".line-qty")?.value ?? line.qty);
+    const sell = Number(row.querySelector(".line-sell")?.value ?? line.appliedUnitSell);
+    const memo = row.querySelector(".line-memo")?.value ?? line.memo;
+    line.enabled = enabled;
+    line.qty = qty;
+    line.appliedUnitSell = sell;
+    line.memo = memo;
+    line.totalCost = Math.round(line.unitCost * qty);
+    line.totalSell = Math.round(sell * qty);
+    line.grossProfit = line.totalSell - line.totalCost;
+    line.grossProfitRate = line.totalSell > 0 ? Math.round((line.grossProfit / line.totalSell) * 1000) / 10 : 0;
+    row.classList.toggle("line-off", !enabled);
+  });
+  const billable = [...(previewData.workLines || []), ...(previewData.materialLines || [])].filter(
+    (l) => l.enabled !== false
+  );
+  previewData.totalCost = billable.reduce((s, l) => s + l.totalCost, 0);
+  previewData.totalSell = billable.reduce((s, l) => s + l.totalSell, 0);
+  previewData.grossProfit = previewData.totalSell - previewData.totalCost;
+  previewData.grossProfitRate =
+    previewData.totalSell > 0
+      ? Math.round((previewData.grossProfit / previewData.totalSell) * 1000) / 10
+      : 0;
+  const summaryEl = $("preview-summary-inner");
+  if (summaryEl) summaryEl.innerHTML = previewPricingSummaryHtml(computePreviewPricingSummary(previewData));
+  const totalEl = $("preview-total-sell");
+  if (totalEl) totalEl.textContent = yen(previewData.totalSell);
+}
+
+function bindPreviewLineEditors() {
+  document.querySelectorAll(".line-enabled, .line-qty, .line-sell, .line-memo").forEach((el) => {
+    el.addEventListener("change", recalcPreviewClientSide);
+    el.addEventListener("input", recalcPreviewClientSide);
+  });
 }
 
 function renderEstimatePreview() {
@@ -759,23 +857,35 @@ function renderPreviewContent() {
   if (!previewData) return;
   const p = previewData;
   const summary = computePreviewPricingSummary(p);
+  const v2meta =
+    p.schemaVersion === "ai_estimate_engine_v2"
+      ? `<div class="row"><span>換算</span><span>${p.mmPerPx}mm/px · 余長×${p.wasteFactor}</span></div>
+         ${p.templateName ? `<div class="row"><span>テンプレ</span><span>${escapeHtml(p.templateName)}</span></div>` : ""}`
+      : "";
   el.innerHTML =
     `<div class="preview-summary">
       <div class="row"><span>記号</span><span>${p.symbolCount} / 配線 ${p.pathCount}</span></div>
-      ${previewPricingSummaryHtml(summary)}
-      <div class="total">税抜 ${yen(p.totalSell)}</div>
+      ${v2meta}
+      <div id="preview-summary-inner">${previewPricingSummaryHtml(summary)}</div>
+      <div class="total">税抜 <span id="preview-total-sell">${yen(p.totalSell)}</span></div>
     </div>
-    <div class="preview-section"><h3>作業候補 (${(p.workLines || []).length})</h3>${(p.workLines || []).map(previewLineHtml).join("") || '<div class="master-empty">なし</div>'}</div>
-    <div class="preview-section"><h3>材料候補 (${(p.materialLines || []).length})</h3>${(p.materialLines || []).map(previewLineHtml).join("") || '<div class="master-empty">なし</div>'}</div>
+    ${sourcesHtml(p.sources)}
+    <div class="preview-section"><h3>作業 (${(p.workLines || []).length})</h3>${(p.workLines || []).map((l) => previewLineHtml(l)).join("") || '<div class="master-empty">なし</div>'}</div>
+    <div class="preview-section"><h3>材料 (${(p.materialLines || []).length})</h3>${(p.materialLines || []).map((l) => previewLineHtml(l)).join("") || '<div class="master-empty">なし</div>'}</div>
+    <div class="preview-section"><h3>未設定 (${(p.unmappedLines || []).length})</h3>${(p.unmappedLines || []).map((l) => previewLineHtml(l, false)).join("") || '<div class="master-empty">なし ✅</div>'}</div>
+    ${warningsHtml(p.warnings)}
     ${estimateApplyActionsHtml()}`;
 
+  bindPreviewLineEditors();
   $("btn-save-draft")?.addEventListener("click", saveEstimateDraft);
-  $("btn-apply-estimate")?.addEventListener("click", applyEstimateToEstimateV1);
+  $("btn-apply-estimate")?.addEventListener("click", () => applyEstimateToEstimateV1("create"));
+  $("btn-append-estimate")?.addEventListener("click", () => applyEstimateToEstimateV1("append"));
   $("btn-open-estimate-pwa")?.addEventListener("click", openEstimatePwaFromDraft);
 }
 
 async function saveEstimateDraft() {
   if (!previewData) return;
+  recalcPreviewClientSide();
   try {
     const res = await api("/estimate-preview/apply", {
       method: "POST",
@@ -795,20 +905,32 @@ async function saveEstimateDraft() {
   }
 }
 
-async function applyEstimateToEstimateV1() {
+async function applyEstimateToEstimateV1(mode = "create") {
   if (!previewDraftId) {
-    toast("先に見積候補を作成してください");
+    toast("先にドラフト保存してください");
     return;
   }
+  recalcPreviewClientSide();
   try {
+    await api(`/estimate-drafts/${encodeURIComponent(previewDraftId)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ preview: previewData }),
+    });
+    const body =
+      mode === "append"
+        ? {
+            mode: "append",
+            businessProjectId: previewData.businessProjectId || undefined,
+          }
+        : { mode: "create" };
     const res = await api(`/estimate-drafts/${encodeURIComponent(previewDraftId)}/apply-to-estimate`, {
       method: "POST",
-      body: "{}",
+      body: JSON.stringify(body),
     });
     previewDraftStatus = "applied";
-    toast("見積PWAへ反映しました");
+    toast(mode === "append" ? "既存見積へ追加しました" : "見積PWAへ反映しました");
     renderPreviewContent();
-    if (res.estimateUrl) {
+    if (res.estimateUrl && mode === "create") {
       setTimeout(() => {
         if (confirm("見積PWAで開きますか？")) location.href = res.estimateUrl;
       }, 300);
