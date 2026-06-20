@@ -57,6 +57,7 @@ import {
   buildEstimatePreviewFromLayers,
   listSymbolMappingSummary,
 } from "../../master/estimate-preview-service.js";
+import { getAiEstimateEngineStatsV1 } from "../../master/ai-estimate-engine-v1.js";
 import { saveMasterV1EstimateDraft, getMasterV1EstimateDraft, getLatestMasterV1EstimateDraftBySketch } from "../../master/master-v1-draft-estimate-store.js";
 import {
   createEstimateFromMasterDraftV1,
@@ -136,7 +137,13 @@ masterV1Router.get("/meta", ...auth, (req: AuthedRequest, res) => {
     categories,
     storageProviders: STORAGE_PROVIDER_KINDS,
     csvEntities: ["customers", "ranks", "work-items", "materials"] as MasterV1Entity[],
+    aiEstimateEngineApi: "/api/ai-estimate-engine/v1",
   });
+});
+
+masterV1Router.get("/stats", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  res.json(getAiEstimateEngineStatsV1());
 });
 
 // —— Categories ——
@@ -217,6 +224,12 @@ masterV1Router.post("/customers", ...auth, (req: AuthedRequest, res) => {
   }
   const item = createMasterV1Customer({
     name: String(body.name),
+    customerType: body.customerType != null ? String(body.customerType) : undefined,
+    standardMarkupRate: body.standardMarkupRate != null ? Number(body.standardMarkupRate) : undefined,
+    standardDiscountRate: body.standardDiscountRate != null ? Number(body.standardDiscountRate) : undefined,
+    standardLaborUnitPrice:
+      body.standardLaborUnitPrice != null ? Number(body.standardLaborUnitPrice) : undefined,
+    standardTravelFee: body.standardTravelFee != null ? Number(body.standardTravelFee) : undefined,
     customerCode: body.customerCode != null ? String(body.customerCode) : undefined,
     rankId: body.rankId != null ? String(body.rankId) : null,
     contactName: body.contactName != null ? String(body.contactName) : null,
@@ -237,6 +250,12 @@ masterV1Router.patch("/customers/:id", ...auth, (req: AuthedRequest, res) => {
   const item = updateMasterV1Customer(String(req.params.id), {
     customerCode: body.customerCode != null ? String(body.customerCode) : undefined,
     name: body.name != null ? String(body.name) : undefined,
+    customerType: body.customerType != null ? String(body.customerType) : undefined,
+    standardMarkupRate: body.standardMarkupRate != null ? Number(body.standardMarkupRate) : undefined,
+    standardDiscountRate: body.standardDiscountRate != null ? Number(body.standardDiscountRate) : undefined,
+    standardLaborUnitPrice:
+      body.standardLaborUnitPrice != null ? Number(body.standardLaborUnitPrice) : undefined,
+    standardTravelFee: body.standardTravelFee != null ? Number(body.standardTravelFee) : undefined,
     rankId: body.rankId !== undefined ? (body.rankId != null ? String(body.rankId) : null) : undefined,
     contactName: body.contactName !== undefined ? (body.contactName != null ? String(body.contactName) : null) : undefined,
     phone: body.phone !== undefined ? (body.phone != null ? String(body.phone) : null) : undefined,
@@ -281,6 +300,8 @@ masterV1Router.post("/ranks", ...auth, (req: AuthedRequest, res) => {
     name: String(body.name),
     costMultiplier: body.costMultiplier != null ? Number(body.costMultiplier) : undefined,
     laborMultiplier: body.laborMultiplier != null ? Number(body.laborMultiplier) : undefined,
+    grossMarginRate: body.grossMarginRate != null ? Number(body.grossMarginRate) : undefined,
+    discountRate: body.discountRate != null ? Number(body.discountRate) : undefined,
     memo: body.memo != null ? String(body.memo) : null,
     sortOrder: body.sortOrder != null ? Number(body.sortOrder) : 0,
     active: body.active !== false,
@@ -295,6 +316,8 @@ masterV1Router.patch("/ranks/:id", ...auth, (req: AuthedRequest, res) => {
     name: body.name != null ? String(body.name) : undefined,
     costMultiplier: body.costMultiplier != null ? Number(body.costMultiplier) : undefined,
     laborMultiplier: body.laborMultiplier != null ? Number(body.laborMultiplier) : undefined,
+    grossMarginRate: body.grossMarginRate != null ? Number(body.grossMarginRate) : undefined,
+    discountRate: body.discountRate != null ? Number(body.discountRate) : undefined,
     memo: body.memo !== undefined ? (body.memo != null ? String(body.memo) : null) : undefined,
     sortOrder: body.sortOrder != null ? Number(body.sortOrder) : undefined,
     active: body.active !== undefined ? Boolean(body.active) : undefined,
@@ -343,6 +366,8 @@ masterV1Router.post("/work-items", ...auth, (req: AuthedRequest, res) => {
     defaultQuantity: body.defaultQuantity != null ? Number(body.defaultQuantity) : undefined,
     standardCost: body.standardCost != null ? Number(body.standardCost) : undefined,
     laborCost: body.laborCost != null ? Number(body.laborCost) : undefined,
+    standardLabor: body.standardLabor != null ? Number(body.standardLabor) : undefined,
+    standardHours: body.standardHours != null ? Number(body.standardHours) : undefined,
     standardSellPrice: body.standardSellPrice != null ? Number(body.standardSellPrice) : undefined,
     tags: parseTagsBody(body),
     memo: body.memo != null ? String(body.memo) : null,
@@ -365,6 +390,8 @@ masterV1Router.patch("/work-items/:id", ...auth, (req: AuthedRequest, res) => {
     defaultQuantity: body.defaultQuantity != null ? Number(body.defaultQuantity) : undefined,
     standardCost: body.standardCost != null ? Number(body.standardCost) : undefined,
     laborCost: body.laborCost != null ? Number(body.laborCost) : undefined,
+    standardLabor: body.standardLabor != null ? Number(body.standardLabor) : undefined,
+    standardHours: body.standardHours != null ? Number(body.standardHours) : undefined,
     standardSellPrice: body.standardSellPrice != null ? Number(body.standardSellPrice) : undefined,
     tags: parseTagsBody(body),
     memo: body.memo !== undefined ? (body.memo != null ? String(body.memo) : null) : undefined,

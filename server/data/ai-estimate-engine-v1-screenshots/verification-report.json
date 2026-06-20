@@ -1,0 +1,31 @@
+{
+  "capturedAt": "2026-06-20T10:50:03.600Z",
+  "base": "http://127.0.0.1:3105",
+  "phase": "ai_estimate_engine_v1",
+  "files": [
+    "01-iphone-customer-master.png",
+    "02-iphone-rank-master.png",
+    "03-iphone-work-master.png",
+    "04-iphone-master-stats.png",
+    "05-iphone-material-master.png",
+    "06-iphone-price-override.png",
+    "07-android10-master-stats.png"
+  ],
+  "statsSummary": {
+    "workCount": 51,
+    "materialCount": 52,
+    "missingCostWork": 1,
+    "missingSellMaterials": 2
+  },
+  "apiEndpoints": [
+    "/api/ai-estimate-engine/v1/customer-master",
+    "/api/ai-estimate-engine/v1/rank-master",
+    "/api/ai-estimate-engine/v1/work-master",
+    "/api/ai-estimate-engine/v1/material-master",
+    "/api/ai-estimate-engine/v1/customer-price-override",
+    "/api/ai-estimate-engine/v1/stats",
+    "/api/ai-estimate-engine/v1/document-center/:projectId"
+  ],
+  "uiPath": "/master-v1",
+  "redirectPath": "/ai-estimate-engine-v1"
+}

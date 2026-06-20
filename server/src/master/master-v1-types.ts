@@ -34,10 +34,25 @@ export interface MasterV1Category {
   updatedAt: string;
 }
 
+export const MASTER_V1_CUSTOMER_TYPES = [
+  "一般",
+  "法人",
+  "管理会社",
+  "元請",
+  "個人",
+  "その他",
+] as const;
+export type MasterV1CustomerType = (typeof MASTER_V1_CUSTOMER_TYPES)[number];
+
 export interface MasterV1Customer {
   id: string;
   customerCode: string;
   name: string;
+  customerType: string;
+  standardMarkupRate: number;
+  standardDiscountRate: number;
+  standardLaborUnitPrice: number;
+  standardTravelFee: number;
   rankId: string | null;
   contactName: string | null;
   phone: string | null;
@@ -56,6 +71,8 @@ export interface MasterV1Rank {
   name: string;
   costMultiplier: number;
   laborMultiplier: number;
+  grossMarginRate: number;
+  discountRate: number;
   memo: string | null;
   sortOrder: number;
   active: boolean;
@@ -76,6 +93,8 @@ export interface MasterV1WorkItem {
   defaultQuantity: number;
   standardCost: number;
   laborCost: number;
+  standardLabor: number;
+  standardHours: number;
   standardSellPrice: number;
   tags: string[];
   memo: string | null;

@@ -20,6 +20,11 @@ function rowCustomer(r: Record<string, unknown>): MasterV1Customer {
     id: String(r.id),
     customerCode: String(r.customer_code),
     name: String(r.name),
+    customerType: String(r.customer_type ?? "一般"),
+    standardMarkupRate: Number(r.standard_markup_rate ?? 2),
+    standardDiscountRate: Number(r.standard_discount_rate ?? 0),
+    standardLaborUnitPrice: Number(r.standard_labor_unit_price ?? 8000),
+    standardTravelFee: Number(r.standard_travel_fee ?? 5000),
     rankId: r.rank_id != null ? String(r.rank_id) : null,
     contactName: r.contact_name != null ? String(r.contact_name) : null,
     phone: r.phone != null ? String(r.phone) : null,
@@ -40,6 +45,8 @@ function rowRank(r: Record<string, unknown>): MasterV1Rank {
     name: String(r.name),
     costMultiplier: Number(r.cost_multiplier ?? 1),
     laborMultiplier: Number(r.labor_multiplier ?? 1),
+    grossMarginRate: Number(r.gross_margin_rate ?? 50),
+    discountRate: Number(r.discount_rate ?? 0),
     memo: r.memo != null ? String(r.memo) : null,
     sortOrder: Number(r.sort_order ?? 0),
     active: Number(r.active ?? 1) === 1,
@@ -63,6 +70,8 @@ function rowWorkItem(r: Record<string, unknown>): MasterV1WorkItem {
     defaultQuantity: Number(r.default_quantity ?? 1),
     standardCost: Number(r.standard_cost ?? 0),
     laborCost: Number(r.labor_cost ?? 0),
+    standardLabor: Number(r.standard_labor ?? 1),
+    standardHours: Number(r.standard_hours ?? 1),
     standardSellPrice: Number(r.standard_sell_price ?? 0),
     tags: parseTagsJson(r.tags),
     memo: r.memo != null ? String(r.memo) : null,
@@ -263,14 +272,20 @@ export function createMasterV1Customer(input: Partial<MasterV1Customer> & { name
   getDatabase()
     .prepare(
       `INSERT INTO master_v1_customers (
-        id, customer_code, name, rank_id, contact_name, phone, email, address, memo,
+        id, customer_code, name, customer_type, standard_markup_rate, standard_discount_rate,
+        standard_labor_unit_price, standard_travel_fee, rank_id, contact_name, phone, email, address, memo,
         favorite, active, sort_order, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       id,
       code,
       input.name,
+      input.customerType ?? "一般",
+      input.standardMarkupRate ?? 2.0,
+      input.standardDiscountRate ?? 0,
+      input.standardLaborUnitPrice ?? 8000,
+      input.standardTravelFee ?? 5000,
       input.rankId ?? null,
       input.contactName ?? null,
       input.phone ?? null,
@@ -296,13 +311,19 @@ export function updateMasterV1Customer(
   getDatabase()
     .prepare(
       `UPDATE master_v1_customers SET
-        customer_code = ?, name = ?, rank_id = ?, contact_name = ?, phone = ?,
+        customer_code = ?, name = ?, customer_type = ?, standard_markup_rate = ?, standard_discount_rate = ?,
+        standard_labor_unit_price = ?, standard_travel_fee = ?, rank_id = ?, contact_name = ?, phone = ?,
         email = ?, address = ?, memo = ?, favorite = ?, active = ?, sort_order = ?, updated_at = ?
       WHERE id = ?`
     )
     .run(
       patch.customerCode ?? existing.customerCode,
       patch.name ?? existing.name,
+      patch.customerType ?? existing.customerType,
+      patch.standardMarkupRate ?? existing.standardMarkupRate,
+      patch.standardDiscountRate ?? existing.standardDiscountRate,
+      patch.standardLaborUnitPrice ?? existing.standardLaborUnitPrice,
+      patch.standardTravelFee ?? existing.standardTravelFee,
       patch.rankId !== undefined ? patch.rankId : existing.rankId,
       patch.contactName !== undefined ? patch.contactName : existing.contactName,
       patch.phone !== undefined ? patch.phone : existing.phone,
@@ -346,14 +367,16 @@ export function createMasterV1Rank(input: Partial<MasterV1Rank> & { name: string
   const now = nowIso();
   getDatabase()
     .prepare(
-      `INSERT INTO master_v1_ranks (id, name, cost_multiplier, labor_multiplier, memo, sort_order, active, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO master_v1_ranks (id, name, cost_multiplier, labor_multiplier, gross_margin_rate, discount_rate, memo, sort_order, active, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       id,
       input.name,
       input.costMultiplier ?? 2.0,
       input.laborMultiplier ?? 2.0,
+      input.grossMarginRate ?? 50,
+      input.discountRate ?? 0,
       input.memo ?? null,
       input.sortOrder ?? 0,
       input.active !== false ? 1 : 0,
@@ -372,13 +395,15 @@ export function updateMasterV1Rank(
   const now = nowIso();
   getDatabase()
     .prepare(
-      `UPDATE master_v1_ranks SET name = ?, cost_multiplier = ?, labor_multiplier = ?, memo = ?,
-        sort_order = ?, active = ?, updated_at = ? WHERE id = ?`
+      `UPDATE master_v1_ranks SET name = ?, cost_multiplier = ?, labor_multiplier = ?, gross_margin_rate = ?,
+        discount_rate = ?, memo = ?, sort_order = ?, active = ?, updated_at = ? WHERE id = ?`
     )
     .run(
       patch.name ?? existing.name,
       patch.costMultiplier ?? existing.costMultiplier,
       patch.laborMultiplier ?? existing.laborMultiplier,
+      patch.grossMarginRate ?? existing.grossMarginRate,
+      patch.discountRate ?? existing.discountRate,
       patch.memo !== undefined ? patch.memo : existing.memo,
       patch.sortOrder ?? existing.sortOrder,
       (patch.active ?? existing.active) ? 1 : 0,
@@ -429,8 +454,8 @@ export function createMasterV1WorkItem(
     .prepare(
       `INSERT INTO master_v1_work_items (
         id, category, category_main, category_sub, code, name, unit, default_quantity,
-        standard_cost, labor_cost, standard_sell_price, tags, memo, favorite, active, sort_order, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        standard_cost, labor_cost, standard_labor, standard_hours, standard_sell_price, tags, memo, favorite, active, sort_order, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       id,
@@ -443,6 +468,8 @@ export function createMasterV1WorkItem(
       input.defaultQuantity ?? 1,
       input.standardCost ?? 0,
       input.laborCost ?? 0,
+      input.standardLabor ?? 1,
+      input.standardHours ?? 1,
       input.standardSellPrice ?? 0,
       tagsToJson(input.tags),
       input.memo ?? null,
@@ -467,7 +494,8 @@ export function updateMasterV1WorkItem(
   getDatabase()
     .prepare(
       `UPDATE master_v1_work_items SET category = ?, category_main = ?, category_sub = ?, code = ?, name = ?, unit = ?,
-        default_quantity = ?, standard_cost = ?, labor_cost = ?, standard_sell_price = ?, tags = ?,
+        default_quantity = ?, standard_cost = ?, labor_cost = ?, standard_labor = ?, standard_hours = ?,
+        standard_sell_price = ?, tags = ?,
         memo = ?, favorite = ?, active = ?, sort_order = ?, updated_at = ?
       WHERE id = ?`
     )
@@ -481,6 +509,8 @@ export function updateMasterV1WorkItem(
       patch.defaultQuantity ?? existing.defaultQuantity,
       patch.standardCost ?? existing.standardCost,
       patch.laborCost ?? existing.laborCost,
+      patch.standardLabor ?? existing.standardLabor,
+      patch.standardHours ?? existing.standardHours,
       patch.standardSellPrice ?? existing.standardSellPrice,
       patch.tags ? tagsToJson(patch.tags) : tagsToJson(existing.tags),
       patch.memo !== undefined ? patch.memo : existing.memo,

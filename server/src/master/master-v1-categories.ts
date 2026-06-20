@@ -13,8 +13,13 @@ export const MASTER_V1_CHIP_FILTERS = [
   { value: "__favorite__", label: "よく使う" },
   { value: "防犯カメラ", label: "防犯カメラ" },
   { value: "LAN / ネットワーク", label: "LAN" },
+  { value: "Wi-Fi / AP", label: "Wi-Fi" },
   { value: "電気工事", label: "電気" },
   { value: "照明", label: "照明" },
+  { value: "コンセント", label: "コンセント" },
+  { value: "インターホン", label: "インターホン" },
+  { value: "電話", label: "電話" },
+  { value: "エアコン", label: "エアコン" },
   { value: "セキュリティ", label: "セキュリティ" },
   { value: "その他", label: "その他" },
 ] as const;

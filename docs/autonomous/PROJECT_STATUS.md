@@ -1,6 +1,6 @@
 # プロジェクト標準仕様（完成状態）
 
-**最終更新:** 2026-06-18  
+**最終更新:** 2026-06-20  
 **対象:** TiSLY Practical PWA（現調 v1 / 見積 v1 / 日程 v1 / 持ち物 v1 / 発注 v1 / 到着・作業完了 v1 / 書類閲覧 UX v1）
 
 Cursor が長時間自走する際の **「壊してはいけない完成仕様」** の単一ソースです。新しい実装を始める前に必ず読んでください。
@@ -95,6 +95,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 設定（管理者） | `/settings-v1` |
 | ストレージ設定 | `/storage-settings-v1` |
 | 見積マスター | `/master-v1` |
+| AI見積エンジン基盤 | `/ai-estimate-engine-v1` → `/master-v1?tab=stats` |
 | 現調図面 | `/survey-drawing-v1` |
 
 ログイン例: `TOMS001` / `toms001.surveyor` / `.env` の `CUSTOMER_DEMO_PASSWORD`
@@ -270,6 +271,22 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | API | `GET /api/storage/v1/settings/qnap/integrity` / `POST .../integrity/resync` |
 | 再同期 | 未成功 PDF を `pending` に戻し Worker / 即時送信 |
 | テスト | `server/test/qnap-pdf-backup-v1.test.ts` |
+
+### AI見積エンジン基盤 v1（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | 将来 AI 自動見積のマスター・単価・統計土台 |
+| 顧客マスター | 区分・標準掛率・値引率・人工単価・出張費 |
+| ランク | S/A/B/C — 掛率・粗利率・値引率 |
+| 作業/材料 | 標準人工・時間・カテゴリ（防犯/LAN/Wi-Fi/電気/照明/コンセント/インターホン/電話/エアコン/その他） |
+| 顧客別単価 | 人工・材料の上書き |
+| スマホ UI | `/master-v1` — 連続入力・保存して次へ・⭐ |
+| 統計 | `/master-v1?tab=stats` — 原価/売価未設定一覧 |
+| Document Center | `GET /api/ai-estimate-engine/v1/document-center/:projectId` |
+| API | `/api/ai-estimate-engine/v1/*` + `/api/master/v1/stats` |
+| テスト | `server/test/ai-estimate-engine-v1.test.ts` |
+| 詳細 | [AI_ESTIMATE_ENGINE_V1.md](./AI_ESTIMATE_ENGINE_V1.md) |
 
 ### 仕様書 / 完了報告書 PDF 自動保存 v1（完成済み）
 

@@ -102,6 +102,7 @@ import { qnapStorageV1Router } from "./api/routes/qnap-storage-v1.js";
 import { documentsV1Router } from "./api/routes/documents-v1.js";
 import { projectAutomationV1Router } from "./api/routes/project-automation-v1.js";
 import { masterV1Router } from "./api/routes/master-v1.js";
+import { aiEstimateEngineV1Router } from "./api/routes/ai-estimate-engine-v1.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(__dirname, "..", "public");
@@ -167,6 +168,7 @@ export function createApp(): express.Application {
   app.use("/api/storage/qnap", qnapStorageV1Router);
   app.use("/api/documents/v1", documentsV1Router);
   app.use("/api/master/v1", masterV1Router);
+  app.use("/api/ai-estimate-engine/v1", aiEstimateEngineV1Router);
   app.use("/api/project-automation/v1", projectAutomationV1Router);
   app.use("/api/business", businessRouter);
   app.use("/api/toms", tomsRouter);
@@ -467,6 +469,9 @@ export function createApp(): express.Application {
   });
   app.get("/master-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "master-v1.html"));
+  });
+  app.get("/ai-estimate-engine-v1", (_req, res) => {
+    res.redirect(302, "/master-v1?tab=stats");
   });
   app.get("/google-calendar-v1", (_req, res) => {
     res.redirect(301, "/google-calendar-settings-v1");

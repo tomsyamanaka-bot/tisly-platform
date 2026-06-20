@@ -28,6 +28,7 @@ let cache = {
   materials: [],
   prices: [],
   mappings: [],
+  stats: null,
 };
 
 function toast(msg) {
@@ -143,6 +144,9 @@ async function loadTabData(tab) {
       if (!cache.customers.length) {
         cache.customers = (await api("/customers")).customers;
       }
+      break;
+    case "stats":
+      cache.stats = await api("/stats");
       break;
   }
 }
@@ -288,7 +292,7 @@ function renderCustomers() {
         cardHtml({
           id: c.id,
           title: c.name,
-          metaText: `${c.customerCode} · ${rankMap[c.rankId] || "ランク未設定"}`,
+          metaText: `${c.customerCode} · ${c.customerType || "一般"} · ${rankMap[c.rankId] || "ランク未設定"} · 掛率×${c.standardMarkupRate ?? 2}`,
           favorite: c.favorite,
         })
       )
@@ -309,7 +313,7 @@ function renderRanks() {
         cardHtml({
           id: r.id,
           title: r.name,
-          metaText: `材料×${r.costMultiplier} / 労務×${r.laborMultiplier}`,
+          metaText: `掛率×${r.costMultiplier} · 粗利${r.grossMarginRate ?? 50}% · 値引${r.discountRate ?? 0}%`,
           favorite: false,
           bulkEligible: false,
         })
@@ -333,7 +337,7 @@ function renderWork() {
         return cardHtml({
           id: w.id,
           title: w.name,
-          metaText: `${catLabel} · ${yen(sell)}/${w.unit} · 原価${yen(w.standardCost + w.laborCost)}`,
+          metaText: `${catLabel} · ${yen(sell)}/${w.unit} · 人工${w.standardLabor ?? 1} · ${w.standardHours ?? 1}h`,
           favorite: w.favorite || w.isFavorite,
         });
       })
@@ -822,6 +826,57 @@ function openEstimatePwaFromDraft() {
   location.href = `/estimate-v1?masterDraftId=${encodeURIComponent(previewDraftId)}`;
 }
 
+function statsListHtml(items, label) {
+  if (!items?.length) {
+    return `<div class="stats-block ok"><h4>${escapeHtml(label)}</h4><p class="hint-small">未入力なし ✅</p></div>`;
+  }
+  const rows = items
+    .slice(0, 10)
+    .map((i) => `<li>${escapeHtml(i.name)}${i.categoryMain ? ` <small>(${escapeHtml(i.categoryMain)})</small>` : ""}</li>`)
+    .join("");
+  const more = items.length > 10 ? `<li class="hint-small">…他 ${items.length - 10} 件</li>` : "";
+  return `<div class="stats-block warn"><h4>${escapeHtml(label)} <span>${items.length}件</span></h4><ul>${rows}${more}</ul></div>`;
+}
+
+function renderStats() {
+  const panel = $("panel-stats");
+  const s = cache.stats;
+  if (!s) {
+    panel.innerHTML = '<div class="master-empty">統計を読み込み中…</div>';
+    return;
+  }
+  panel.innerHTML = `<div class="stats-wrap">
+    <div class="stats-hero">
+      <h2>📊 マスター統計</h2>
+      <p class="hint-small">AI見積エンジン基盤 v1 — 原価・売価の未入力を確認</p>
+    </div>
+    <div class="stats-grid">
+      <div class="stats-card"><span>作業</span><strong>${s.workCount}</strong></div>
+      <div class="stats-card"><span>材料</span><strong>${s.materialCount}</strong></div>
+      <div class="stats-card"><span>顧客</span><strong>${s.customerCount}</strong></div>
+      <div class="stats-card"><span>ランク</span><strong>${s.rankCount}</strong></div>
+      <div class="stats-card"><span>単価上書き</span><strong>${s.priceOverrideCount}</strong></div>
+      <div class="stats-card"><span>⭐ よく使う</span><strong>${(s.favoriteCount?.work ?? 0) + (s.favoriteCount?.materials ?? 0)}</strong></div>
+    </div>
+    ${statsListHtml(s.missingCost?.work, "作業 — 原価未設定")}
+    ${statsListHtml(s.missingCost?.materials, "材料 — 原価未設定")}
+    ${statsListHtml(s.missingSell?.work, "作業 — 売価未設定")}
+    ${statsListHtml(s.missingSell?.materials, "材料 — 売価未設定")}
+    <div class="stats-actions">
+      <button type="button" class="btn-sub" id="btn-stats-work-cost">作業の原価未入力を見る</button>
+      <button type="button" class="btn-sub" id="btn-stats-mat-sell">材料の売価未入力を見る</button>
+    </div>
+  </div>`;
+  $("btn-stats-work-cost")?.addEventListener("click", () => {
+    missingFilter = "cost";
+    switchTab("work");
+  });
+  $("btn-stats-mat-sell")?.addEventListener("click", () => {
+    missingFilter = "sell";
+    switchTab("materials");
+  });
+}
+
 function renderActivePanel() {
   document.querySelectorAll(".master-panel").forEach((p) => p.classList.add("hidden"));
   const map = {
@@ -833,6 +888,7 @@ function renderActivePanel() {
     mappings: "panel-mappings",
     categories: "panel-categories",
     "estimate-preview": "panel-estimate-preview",
+    stats: "panel-stats",
   };
   $(map[activeTab]).classList.remove("hidden");
   switch (activeTab) {
@@ -859,6 +915,9 @@ function renderActivePanel() {
       break;
     case "estimate-preview":
       renderEstimatePreview();
+      break;
+    case "stats":
+      renderStats();
       break;
   }
   bindCardActions();
@@ -979,7 +1038,19 @@ function openEdit(id) {
     editContext.item = c;
     fields.innerHTML =
       fieldHtml("顧客名", "name", c?.name || "") +
+      fieldHtml("顧客区分", "customerType", c?.customerType || "一般", "select", [
+        { value: "一般", label: "一般" },
+        { value: "法人", label: "法人" },
+        { value: "管理会社", label: "管理会社" },
+        { value: "元請", label: "元請" },
+        { value: "個人", label: "個人" },
+        { value: "その他", label: "その他" },
+      ]) +
       fieldHtml("顧客コード", "customerCode", c?.customerCode || "") +
+      fieldHtml("標準掛率", "standardMarkupRate", c?.standardMarkupRate ?? 2, "number") +
+      fieldHtml("標準値引率(%)", "standardDiscountRate", c?.standardDiscountRate ?? 0, "number") +
+      fieldHtml("標準人工単価", "standardLaborUnitPrice", c?.standardLaborUnitPrice ?? 8000, "number") +
+      fieldHtml("標準出張費", "standardTravelFee", c?.standardTravelFee ?? 5000, "number") +
       fieldHtml("ランク", "rankId", c?.rankId || "", "select", [
         { value: "", label: "—" },
         ...cache.ranks.map((r) => ({ value: r.id, label: r.name })),
@@ -992,8 +1063,10 @@ function openEdit(id) {
     editContext.item = r;
     fields.innerHTML =
       fieldHtml("ランク名", "name", r?.name || "") +
-      fieldHtml("材料倍率", "costMultiplier", r?.costMultiplier ?? 2, "number") +
-      fieldHtml("労務倍率", "laborMultiplier", r?.laborMultiplier ?? 2, "number") +
+      fieldHtml("掛率（材料）", "costMultiplier", r?.costMultiplier ?? 2, "number") +
+      fieldHtml("掛率（労務）", "laborMultiplier", r?.laborMultiplier ?? 2, "number") +
+      fieldHtml("粗利率(%)", "grossMarginRate", r?.grossMarginRate ?? 50, "number") +
+      fieldHtml("値引率(%)", "discountRate", r?.discountRate ?? 0, "number") +
       fieldHtml("メモ", "memo", r?.memo || "", "textarea");
   } else if (activeTab === "work") {
     const w = id ? cache.workItems.find((x) => x.id === id) : {};
@@ -1005,6 +1078,8 @@ function openEdit(id) {
       fieldHtml("単位", "unit", w?.unit || "式") +
       fieldHtml("原価", "standardCost", w?.standardCost ?? 0, "number") +
       fieldHtml("労務原価", "laborCost", w?.laborCost ?? 0, "number") +
+      fieldHtml("標準人工", "standardLabor", w?.standardLabor ?? 1, "number") +
+      fieldHtml("標準時間(h)", "standardHours", w?.standardHours ?? 1, "number") +
       fieldHtml("標準売価", "standardSellPrice", w?.standardSellPrice ?? 0, "number") +
       fieldHtml("デフォルト数量", "defaultQuantity", w?.defaultQuantity ?? 1, "number") +
       fieldHtml("タグ（カンマ区切り）", "tags", (w?.tags || []).join(", ")) +
@@ -1088,7 +1163,8 @@ async function saveEdit(e) {
   const body = Object.fromEntries(fd.entries());
   for (const k of [
     "standardCost", "laborCost", "cost", "unitPrice", "costPrice", "costMultiplier", "laborMultiplier",
-    "qtyPerUnit", "standardSellPrice", "defaultQuantity",
+    "qtyPerUnit", "standardSellPrice", "defaultQuantity", "standardMarkupRate", "standardDiscountRate",
+    "standardLaborUnitPrice", "standardTravelFee", "grossMarginRate", "discountRate", "standardLabor", "standardHours",
   ]) {
     if (body[k] !== undefined && body[k] !== "") body[k] = Number(body[k]);
   }
@@ -1288,7 +1364,9 @@ async function init() {
   if (sketchIdFromUrl) {
     switchTab("estimate-preview");
   } else {
-    switchTab("customers");
+    const initialTab = params.get("tab");
+    const validTabs = ["customers", "ranks", "work", "materials", "prices", "mappings", "categories", "estimate-preview", "stats"];
+    switchTab(validTabs.includes(initialTab) ? initialTab : "customers");
   }
 }
 

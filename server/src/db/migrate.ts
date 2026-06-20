@@ -230,6 +230,7 @@ export function runMigrations(database: Database.Database): void {
   migrateMasterV1Categories(database);
   migrateMasterV1EstimatePreview(database);
   migrateMasterV1EstimateApply(database);
+  migrateAiEstimateEngineV1(database);
   migrateStorageDocumentsV1(database);
   migrateDocumentCenterV1(database);
   migrateDocumentCenterV15(database);
@@ -3947,6 +3948,103 @@ function migrateMasterV1EstimateApply(database: Database.Database): void {
       `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
     )
     .run("migration:master_v1_estimate_apply", JSON.stringify({ at: new Date().toISOString() }));
+}
+
+/** AI見積エンジン基盤 v1 — 顧客/ランク/作業の拡張フィールド + S/A/B/C ランク */
+function migrateAiEstimateEngineV1(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:ai_estimate_engine_v1") as { value_json: string } | undefined;
+  if (marker) return;
+
+  const custCols: Array<[string, string]> = [
+    ["customer_type", "TEXT DEFAULT '一般'"],
+    ["standard_markup_rate", "REAL NOT NULL DEFAULT 2.0"],
+    ["standard_discount_rate", "REAL NOT NULL DEFAULT 0"],
+    ["standard_labor_unit_price", "REAL NOT NULL DEFAULT 8000"],
+    ["standard_travel_fee", "REAL NOT NULL DEFAULT 5000"],
+  ];
+  for (const [col, ddl] of custCols) {
+    try {
+      database.exec(`ALTER TABLE master_v1_customers ADD COLUMN ${col} ${ddl}`);
+    } catch {
+      /* already exists */
+    }
+  }
+
+  const rankCols: Array<[string, string]> = [
+    ["gross_margin_rate", "REAL NOT NULL DEFAULT 50"],
+    ["discount_rate", "REAL NOT NULL DEFAULT 0"],
+  ];
+  for (const [col, ddl] of rankCols) {
+    try {
+      database.exec(`ALTER TABLE master_v1_ranks ADD COLUMN ${col} ${ddl}`);
+    } catch {
+      /* already exists */
+    }
+  }
+
+  const workCols: Array<[string, string]> = [
+    ["standard_labor", "REAL NOT NULL DEFAULT 1"],
+    ["standard_hours", "REAL NOT NULL DEFAULT 1"],
+  ];
+  for (const [col, ddl] of workCols) {
+    try {
+      database.exec(`ALTER TABLE master_v1_work_items ADD COLUMN ${col} ${ddl}`);
+    } catch {
+      /* already exists */
+    }
+  }
+
+  const now = new Date().toISOString();
+  const insRank = database.prepare(
+    `INSERT OR IGNORE INTO master_v1_ranks (
+      id, name, cost_multiplier, labor_multiplier, gross_margin_rate, discount_rate, memo, sort_order, active, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`
+  );
+  const aiRanks: Array<[string, string, number, number, number, number, string, number]> = [
+    ["rank-s", "S", 2.5, 2.5, 55, 0, "最優先顧客", 1],
+    ["rank-a", "A", 2.2, 2.2, 50, 2, "優良顧客", 2],
+    ["rank-b", "B", 2.0, 2.0, 45, 5, "標準顧客", 3],
+    ["rank-c", "C", 1.8, 1.8, 40, 8, "値引き多め", 4],
+  ];
+  for (const [id, name, cm, lm, gm, dr, memo, sort] of aiRanks) {
+    insRank.run(id, name, cm, lm, gm, dr, memo, sort, now, now);
+  }
+
+  database.exec(`
+    UPDATE master_v1_customers SET customer_type = '一般' WHERE customer_type IS NULL OR customer_type = '';
+    UPDATE master_v1_customers SET standard_markup_rate = 2.0 WHERE standard_markup_rate IS NULL OR standard_markup_rate = 0;
+    UPDATE master_v1_customers SET standard_labor_unit_price = 8000 WHERE standard_labor_unit_price IS NULL OR standard_labor_unit_price = 0;
+    UPDATE master_v1_customers SET standard_travel_fee = 5000 WHERE standard_travel_fee IS NULL OR standard_travel_fee = 0;
+    UPDATE master_v1_ranks SET gross_margin_rate = 50 WHERE gross_margin_rate IS NULL OR gross_margin_rate = 0;
+    UPDATE master_v1_work_items SET standard_labor = 1 WHERE standard_labor IS NULL OR standard_labor = 0;
+    UPDATE master_v1_work_items SET standard_hours = 1 WHERE standard_hours IS NULL OR standard_hours = 0;
+  `);
+
+  seedAiEstimateEngineCategories(database);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:ai_estimate_engine_v1", JSON.stringify({ at: new Date().toISOString() }));
+}
+
+function seedAiEstimateEngineCategories(database: Database.Database): void {
+  const now = new Date().toISOString();
+  const ins = database.prepare(
+    `INSERT OR IGNORE INTO master_v1_categories (id, kind, category_main, category_sub, sort_order, active, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, 1, ?, ?)`
+  );
+  const cats: Array<[string, string, string, string, number]> = [
+    ["cat-phone-install", "both", "電話", "設置", 35],
+    ["cat-phone-wiring", "both", "電話", "配線", 36],
+    ["cat-wifi-setup", "work", "Wi-Fi / AP", "設定", 22],
+  ];
+  for (const [id, kind, main, sub, sort] of cats) {
+    ins.run(id, kind, main, sub, sort, now, now);
+  }
 }
 
 /** 保存分類 storage_documents_v1 — QNAP 状態管理 */
