@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#475569" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>TiSLY — ナレッジ候補</title>
+  <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
+  <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
+  <style>
+    .stats-row { display:flex; gap:0.5rem; flex-wrap:wrap; margin:0.5rem 0; }
+    .stat-chip {
+      flex:1; min-width:5rem; text-align:center; padding:0.45rem; border-radius:8px;
+      background:#f1f5f9; font-size:0.82rem;
+    }
+    .stat-chip strong { display:block; font-size:1.1rem; }
+    .filter-row { display:flex; gap:0.4rem; flex-wrap:wrap; margin:0.5rem 0; }
+    .filter-row button.active { background:#334155; color:#fff; }
+    .candidate-list { display:flex; flex-direction:column; gap:0.55rem; margin-top:0.5rem; }
+    .candidate-item {
+      border:1px solid #e2e8f0; border-radius:10px; padding:0.65rem 0.75rem; background:#fff;
+    }
+    .candidate-item h3 { margin:0 0 0.25rem; font-size:0.95rem; }
+    .candidate-meta { font-size:0.78rem; color:#64748b; margin:0.1rem 0; }
+    .candidate-summary { font-size:0.85rem; color:#334155; margin:0.35rem 0; }
+    .candidate-actions { display:flex; gap:0.4rem; flex-wrap:wrap; margin-top:0.45rem; }
+    .tag-chip {
+      display:inline-block; font-size:0.72rem; background:#f1f5f9; color:#475569;
+      border-radius:999px; padding:0.1rem 0.45rem; margin:0.1rem 0.15rem 0 0;
+    }
+    .status-pending { border-left:4px solid #f59e0b; }
+    .status-approved { border-left:4px solid #22c55e; opacity:0.85; }
+    .status-rejected { border-left:4px solid #94a3b8; opacity:0.7; }
+  </style>
+</head>
+<body class="tisly-friendly">
+  <main class="app-main">
+    <p class="section-hint">自動収集されたナレッジ候補 — 承認後のみ登録</p>
+
+    <div class="friendly-card">
+      <h2>📥 候補一覧</h2>
+      <div class="stats-row" id="stats-row">
+        <div class="stat-chip"><strong id="stat-pending">—</strong>承認待ち</div>
+        <div class="stat-chip"><strong id="stat-approved">—</strong>承認済</div>
+        <div class="stat-chip"><strong id="stat-rejected">—</strong>却下</div>
+      </div>
+      <div class="filter-row">
+        <button type="button" class="friendly-btn active" data-status="">すべて</button>
+        <button type="button" class="friendly-btn" data-status="pending">承認待ち</button>
+        <button type="button" class="friendly-btn" data-status="approved">承認済</button>
+        <button type="button" class="friendly-btn" data-status="rejected">却下</button>
+      </div>
+      <div id="candidate-list" class="candidate-list status-muted">読み込み中…</div>
+    </div>
+
+    <a href="/knowledge-v1" class="friendly-btn" style="display:block;text-align:center;margin-top:0.65rem;">ナレッジ登録画面へ</a>
+    <a href="/mothership-explorer-v1" class="friendly-btn" style="display:block;text-align:center;margin-top:0.45rem;">MotherShip Explorer</a>
+  </main>
+  <div id="toast" class="toast" role="status"></div>
+  <script type="module" src="/js/knowledge-candidates-v1.js"></script>
+</body>
+</html>

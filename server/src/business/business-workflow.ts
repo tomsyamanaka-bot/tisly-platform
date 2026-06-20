@@ -28,6 +28,7 @@ import { logBusinessIntegration } from "./business-integration-log.js";
 import { createQnapSavePlan, uploadBusinessToQnap } from "./services/qnapBusinessArchive.js";
 import { recordWorkflowFromBusinessStatus } from "../toms/workflow-engine.js";
 import { appendProjectTimeline, timelineTitleFor } from "../toms/project-timeline.js";
+import { runKnowledgeAutomationOnStatusChangeV1 } from "../knowledge/knowledge-automation-hooks-v1.js";
 
 export interface StatusTransitionResult {
   project: BusinessProject;
@@ -133,6 +134,9 @@ export function transitionProjectStatus(
     status: "success",
     request: { from: project.status, to: target },
     response: side,
+  });
+  void runKnowledgeAutomationOnStatusChangeV1(projectId, target).catch((e) => {
+    console.error("[knowledge-automation] status change:", e);
   });
   return { project: updated, ...side };
 }

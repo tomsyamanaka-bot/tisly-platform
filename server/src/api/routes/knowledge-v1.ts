@@ -12,6 +12,32 @@ import {
 } from "../../knowledge/knowledge-photo-v1.js";
 import { captureQuickKnowledgeV1 } from "../../knowledge/knowledge-quick-v1.js";
 import {
+  approveKnowledgeCandidateV1,
+  getKnowledgeCandidateV1,
+  getKnowledgeCandidatesStatsV1,
+  listKnowledgeCandidatesV1,
+  rejectKnowledgeCandidateV1,
+} from "../../knowledge/knowledge-candidates-store-v1.js";
+import {
+  runKnowledgeAutomationForProjectV1,
+} from "../../knowledge/knowledge-automation-hooks-v1.js";
+import { parseProjectPdfKnowledgeV1 } from "../../knowledge/knowledge-pdf-parser-v1.js";
+import { runPhotoOcrV1 } from "../../knowledge/knowledge-photo-ocr-v1.js";
+import {
+  listKnowledgeAssetsV1,
+  registerKnowledgeAssetV1,
+  seedDefaultKnowledgeAssetsV1,
+} from "../../knowledge/knowledge-assets-v1.js";
+import {
+  getMothershipExplorerProjectLinksV1,
+  getMothershipExplorerTreeV1,
+  searchMothershipExplorerV1,
+} from "../../knowledge/mothership-explorer-v1.js";
+import {
+  SOURCE_LABELS_V1,
+  STAGE_LABELS_V1,
+} from "../../knowledge/knowledge-automation-types.js";
+import {
   getKnowledgeQnapSyncStatusV1,
   resetKnowledgeQnapQueueItemV1,
 } from "../../knowledge/knowledge-qnap-sync-store-v1.js";
@@ -206,4 +232,163 @@ knowledgeV1Router.post("/quick", ...auth, (req: AuthedRequest, res) => {
   } catch (e) {
     res.status(400).json({ error: e instanceof Error ? e.message : "Quick capture failed" });
   }
+});
+
+/** Knowledge Automation Engine v1 — 候補一覧 */
+knowledgeV1Router.get("/candidates", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const status = String(req.query.status ?? "") as "pending" | "approved" | "rejected" | "";
+  const projectId = String(req.query.projectId ?? "");
+  const candidates = listKnowledgeCandidatesV1({
+    status: status || undefined,
+    projectId: projectId || undefined,
+  });
+  res.json({
+    candidates,
+    stats: getKnowledgeCandidatesStatsV1(),
+    labels: { stage: STAGE_LABELS_V1, source: SOURCE_LABELS_V1 },
+  });
+});
+
+knowledgeV1Router.get("/candidates/:id", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const candidate = getKnowledgeCandidateV1(String(req.params.id));
+  if (!candidate) {
+    res.status(404).json({ error: "Candidate not found" });
+    return;
+  }
+  res.json({ candidate });
+});
+
+knowledgeV1Router.post("/candidates/:id/approve", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  try {
+    const result = approveKnowledgeCandidateV1(String(req.params.id));
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : "Approve failed" });
+  }
+});
+
+knowledgeV1Router.post("/candidates/:id/reject", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  try {
+    const body = req.body ?? {};
+    const candidate = rejectKnowledgeCandidateV1(
+      String(req.params.id),
+      String(body.reason ?? "")
+    );
+    res.json({ candidate });
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : "Reject failed" });
+  }
+});
+
+/** 手動トリガー — 案件の自動収集を再実行 */
+knowledgeV1Router.post("/automation/run/:projectId", ...auth, async (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  try {
+    const project = getBusinessProject(String(req.params.projectId));
+    if (!project) {
+      res.status(404).json({ error: "project not found" });
+      return;
+    }
+    const result = await runKnowledgeAutomationForProjectV1(project.id, project.status);
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : "Automation failed" });
+  }
+});
+
+/** PDF ルールベース解析プレビュー */
+knowledgeV1Router.get("/automation/pdf-parse/:projectId", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  try {
+    const kind = String(req.query.kind ?? "estimate") as "estimate" | "invoice" | "specification" | "report";
+    const extract = parseProjectPdfKnowledgeV1({
+      projectId: String(req.params.projectId),
+      pdfKind: kind,
+    });
+    res.json({ extract, engine: "rule_based_v1" });
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : "Parse failed" });
+  }
+});
+
+/** 写真 OCR プレビュー */
+knowledgeV1Router.post("/automation/photo-ocr", ...auth, async (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  try {
+    const body = req.body ?? {};
+    const extract = await runPhotoOcrV1({
+      photoId: String(body.photoId ?? ""),
+      photoKind: body.photoKind === "completion" ? "completion" : "survey",
+      title: String(body.title ?? ""),
+      comment: body.comment ? String(body.comment) : undefined,
+      fileName: body.fileName ? String(body.fileName) : undefined,
+      url: body.url ? String(body.url) : undefined,
+    });
+    res.json({ extract });
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : "OCR failed" });
+  }
+});
+
+/** PLC / 3DPrint / Factory 資産 */
+knowledgeV1Router.get("/assets", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const domain = String(req.query.domain ?? "") as "PLC" | "3DPrint" | "Factory" | "";
+  const projectNo = String(req.query.projectNo ?? "");
+  res.json({
+    assets: listKnowledgeAssetsV1({
+      domain: domain || undefined,
+      projectNo: projectNo || undefined,
+    }),
+  });
+});
+
+knowledgeV1Router.post("/assets", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  try {
+    const body = req.body ?? {};
+    const domain = String(body.domain ?? "PLC") as "PLC" | "3DPrint" | "Factory";
+    const result = registerKnowledgeAssetV1({
+      domain,
+      subFolder: String(body.subFolder ?? "Templates"),
+      fileName: String(body.fileName ?? "asset.txt"),
+      title: String(body.title ?? "資産"),
+      category: String(body.category ?? "その他"),
+      tags: Array.isArray(body.tags) ? body.tags.map(String) : [],
+      summary: String(body.summary ?? ""),
+      projectNo: body.projectNo ? String(body.projectNo) : undefined,
+      projectId: body.projectId ? String(body.projectId) : undefined,
+      ladderDescription: body.ladderDescription ? String(body.ladderDescription) : undefined,
+    });
+    res.status(201).json(result);
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : "Asset register failed" });
+  }
+});
+
+knowledgeV1Router.post("/assets/seed", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  res.json(seedDefaultKnowledgeAssetsV1());
+});
+
+/** MotherShip Explorer */
+knowledgeV1Router.get("/mothership/explorer", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  res.json(getMothershipExplorerTreeV1());
+});
+
+knowledgeV1Router.get("/mothership/search", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const q = String(req.query.q ?? "");
+  const projectNo = String(req.query.projectNo ?? "");
+  res.json({ hits: searchMothershipExplorerV1(q, projectNo || undefined) });
+});
+
+knowledgeV1Router.get("/mothership/project/:projectNo", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  res.json(getMothershipExplorerProjectLinksV1(String(req.params.projectNo)));
 });

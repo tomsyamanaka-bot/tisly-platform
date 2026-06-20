@@ -86,6 +86,10 @@ server/data/knowledge/
 | 検索 | `GET /api/knowledge/search?q=` · `?type=photo` · `?type=pdf` |
 | 一覧 | `GET /api/knowledge/cards` |
 | 登録 | `POST /api/knowledge/cards` |
+| **候補一覧** | `/knowledge-candidates-v1` · `GET /api/knowledge/candidates` |
+| **候補承認** | `POST /api/knowledge/candidates/:id/approve` |
+| **自動収集** | 案件ステータス変更で候補生成 · `POST /api/knowledge/automation/run/:projectId` |
+| **MotherShip Explorer** | `/mothership-explorer-v1` · `GET /api/knowledge/mothership/explorer` |
 | 案件変換 | `POST /api/knowledge/from-project/:projectId` |
 | 写真タグ | `POST /api/knowledge/photos/tag` |
 | PDF登録 | `POST /api/knowledge/pdfs/register` |

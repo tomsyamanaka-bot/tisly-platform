@@ -42,9 +42,9 @@ QNAP **TiSLYNAS**（`192.168.1.10` / `\\192.168.1.10\TiSLY`）を本番サーバ
 | 案件 ID | `{市コード}-{YY}-{MMDD}-{連番}` 例: `MO-26-0620-001` |
 | パス生成 | `server/src/storage/mothership-paths-v1.ts` |
 
-**MotherShip トップフォルダ:** AI · Backups · Customers · Documents · ESP · Estimates · Photos · PLC · Projects · Reports · Scan · SiteMaps
+**MotherShip トップフォルダ:** AI · Backups · Customers · Documents · ESP · Estimates · Photos · PLC · Projects · Reports · Scan · SiteMaps · 3DPrint · **Factory**
 
-**TiSLY Knowledge（AI 配下）:** [`docs/knowledge.md`](docs/knowledge.md) — Standards · Procedures · KnowledgeCards · SearchIndex 等
+**Knowledge Automation v1:** `/knowledge-candidates-v1` · `/mothership-explorer-v1` — 詳細は [knowledge.md](docs/knowledge.md)
 
 WebDAV PDF バックアップ（`/storage-settings-v1`）と **並行運用**。既存 PDF 連携は変更しません。
 

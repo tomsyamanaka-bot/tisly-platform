@@ -377,6 +377,24 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | Phase8 現場 UI | `/knowledge-quick-v1` — 写真+メモ+保存（30秒目標） |
 | テスト | `server/test/knowledge-acquisition-v1.test.ts` |
 
+### Knowledge Automation Engine v1（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | **人間が入力しなくても Knowledge が増える** — Embedding/Qdrant/LLM は未実装 |
+| Phase1 案件自動収集 | 案件作成/現調/見積/施工/完了で候補自動生成 · 承認後のみ登録 |
+| Phase2 PDF解析 | 見積/請求/仕様/完了報告 — ルールベース（DB+メタ）で機器/材料/備考抽出 |
+| Phase3 写真OCR | 盤/ラベル/型番写真 — `rule_based_v1`（将来差し替え可能） |
+| Phase4 PLC資産 | `PLC/{Templates,Projects,Libraries,IOMaps,Manuals,Examples}` + ラダー説明文 |
+| Phase5 3DPrint資産 | `3DPrint/{Parts,Assemblies,Fixtures,RP2350,PLC,Camera,DINRail,...}` STL/STEP |
+| Phase6 Factory資産 | `Factory/{Conveyor,Crusher,Sorter,Tank,Sensor,PLC,HMI,Modbus,Demo}` |
+| Phase7 案件ID統合 | `MO-26-0621-001` 形式で候補/資産/Explorer 横断紐付け |
+| Phase8 Explorer | `/mothership-explorer-v1` — QNAP · Knowledge · Projects · PLC · 3DPrint · Factory |
+| 候補 UI | `/knowledge-candidates-v1` — 一覧 · 承認 · 却下 |
+| API | `/api/knowledge/candidates` · `/automation/run/:id` · `/assets` · `/mothership/explorer` |
+| フック | `createBusinessProject` · `transitionProjectStatus` で自動候補生成 |
+| テスト | `server/test/knowledge-automation-v1.test.ts`（10ケース） |
+
 ---
 
 ## 関連ドキュメント

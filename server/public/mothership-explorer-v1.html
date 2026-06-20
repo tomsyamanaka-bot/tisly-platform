@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#334155" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>TiSLY — MotherShip Explorer</title>
+  <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
+  <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
+  <style>
+    .summary-grid {
+      display:grid; grid-template-columns:repeat(auto-fit,minmax(6.5rem,1fr));
+      gap:0.45rem; margin:0.5rem 0;
+    }
+    .summary-grid div {
+      background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;
+      padding:0.45rem; text-align:center; font-size:0.78rem;
+    }
+    .summary-grid strong { display:block; font-size:1rem; color:#0f172a; }
+    .explorer-layout { display:grid; grid-template-columns:1fr; gap:0.65rem; }
+    @media (min-width:768px) {
+      .explorer-layout { grid-template-columns:minmax(12rem,1fr) minmax(0,2fr); }
+    }
+    .tree-panel, .detail-panel {
+      border:1px solid #e2e8f0; border-radius:10px; background:#fff;
+      padding:0.55rem 0.65rem; min-height:12rem;
+    }
+    .tree-node { margin:0.15rem 0 0.15rem 0.75rem; font-size:0.85rem; }
+    .tree-node summary {
+      cursor:pointer; list-style:none; padding:0.2rem 0;
+    }
+    .tree-node summary::-webkit-details-marker { display:none; }
+    .tree-node summary::before { content:"📁 "; }
+    .tree-node[data-kind="file"] summary::before { content:"📄 "; }
+    .tree-node[data-kind="link"] summary::before { content:"🔗 "; }
+    .search-row { display:flex; gap:0.4rem; margin:0.5rem 0; }
+    .search-row input { flex:1; }
+    .hit-list { display:flex; flex-direction:column; gap:0.35rem; margin-top:0.45rem; }
+    .hit-item {
+      border:1px solid #e2e8f0; border-radius:8px; padding:0.45rem 0.55rem; font-size:0.84rem;
+    }
+    .path-text { font-family:monospace; font-size:0.76rem; color:#64748b; word-break:break-all; }
+  </style>
+</head>
+<body class="tisly-friendly">
+  <main class="app-main">
+    <p class="section-hint">QNAP MotherShip — Knowledge · Projects · PLC · 3DPrint · Factory</p>
+
+    <div class="friendly-card">
+      <h2>🛸 MotherShip Explorer</h2>
+      <p class="path-text" id="unc-path">—</p>
+      <div class="summary-grid" id="summary-grid"></div>
+      <div class="search-row">
+        <input type="search" id="search-input" placeholder="案件ID · タイトル · タグ…" />
+        <button type="button" class="friendly-btn" id="search-btn">検索</button>
+      </div>
+      <div id="search-hits" class="hit-list"></div>
+    </div>
+
+    <div class="explorer-layout">
+      <div class="tree-panel">
+        <h3 style="margin:0 0 0.35rem;font-size:0.92rem;">フォルダ</h3>
+        <div id="tree-root">読み込み中…</div>
+      </div>
+      <div class="detail-panel">
+        <h3 style="margin:0 0 0.35rem;font-size:0.92rem;">詳細</h3>
+        <div id="detail-pane" class="status-muted">ノードを選択してください</div>
+      </div>
+    </div>
+
+    <a href="/knowledge-candidates-v1" class="friendly-btn" style="display:block;text-align:center;margin-top:0.65rem;">ナレッジ候補一覧</a>
+  </main>
+  <div id="toast" class="toast" role="status"></div>
+  <script type="module" src="/js/mothership-explorer-v1.js"></script>
+</body>
+</html>

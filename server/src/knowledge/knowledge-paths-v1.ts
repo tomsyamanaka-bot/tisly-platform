@@ -66,4 +66,7 @@ export function ensureKnowledgeFolderStructure(): void {
     fs.mkdirSync(path.join(getKnowledgeFolderPath("3DPrint"), sub), { recursive: true });
   }
   fs.mkdirSync(getKnowledgeAttachmentsDir(), { recursive: true });
+  fs.mkdirSync(path.join(root, "Candidates"), { recursive: true });
+  fs.mkdirSync(path.join(root, "Assets"), { recursive: true });
+  fs.mkdirSync(path.join(root, "Factory"), { recursive: true });
 }

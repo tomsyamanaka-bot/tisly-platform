@@ -42,11 +42,91 @@ export const MOTHERSHIP_3DPRINT_SUBFOLDERS = [
 
 export type Mothership3DPrintSubfolder = (typeof MOTHERSHIP_3DPRINT_SUBFOLDERS)[number];
 
+/** PLC 資産サブフォルダ（GX Works3） */
+export const MOTHERSHIP_PLC_SUBFOLDERS = [
+  "Templates",
+  "Projects",
+  "Libraries",
+  "IOMaps",
+  "Manuals",
+  "Examples",
+] as const;
+
+export type MothershipPlcSubfolder = (typeof MOTHERSHIP_PLC_SUBFOLDERS)[number];
+
+/** 3DPrint 拡張サブフォルダ（Knowledge Automation v1） */
+export const MOTHERSHIP_3DPRINT_ASSET_SUBFOLDERS = [
+  "Parts",
+  "Assemblies",
+  "Fixtures",
+  "RP2350",
+  "PLC",
+  "Camera",
+  "DINRail",
+  "FactoryMiniature",
+  "Manuals",
+  ...MOTHERSHIP_3DPRINT_SUBFOLDERS,
+] as const;
+
+export type Mothership3DPrintAssetSubfolder = (typeof MOTHERSHIP_3DPRINT_ASSET_SUBFOLDERS)[number];
+
+/** TiSLY Factory 専用サブフォルダ */
+export const MOTHERSHIP_FACTORY_SUBFOLDERS = [
+  "Conveyor",
+  "Crusher",
+  "Sorter",
+  "Tank",
+  "Sensor",
+  "PLC",
+  "HMI",
+  "Modbus",
+  "Demo",
+] as const;
+
+export type MothershipFactorySubfolder = (typeof MOTHERSHIP_FACTORY_SUBFOLDERS)[number];
+
+/** MotherShip トップに Factory を追加（Explorer 用） */
+export const MOTHERSHIP_TOP_FOLDERS_WITH_FACTORY = [
+  ...MOTHERSHIP_TOP_FOLDERS,
+  "Factory",
+] as const;
+
 /** 例: 3DPrint/STL/bracket-v2.stl */
 export function buildMothership3DPrintRelativePath(subFolder: Mothership3DPrintSubfolder, fileName = ""): string {
   const base = `3DPrint/${subFolder}`;
   const file = String(fileName ?? "").trim().replace(/^\/+|\/+$/g, "");
   return file ? `${base}/${sanitizePathSegment(file)}` : base;
+}
+
+/** 例: PLC/Templates/self-hold.gxw */
+export function buildMothershipPlcRelativePath(subFolder: MothershipPlcSubfolder, fileName = ""): string {
+  const base = `PLC/${subFolder}`;
+  const file = String(fileName ?? "").trim().replace(/^\/+|\/+$/g, "");
+  return file ? `${base}/${sanitizePathSegment(file)}` : base;
+}
+
+/** 例: 3DPrint/Parts/bracket.stl（拡張サブフォルダ） */
+export function buildMothership3DPrintAssetRelativePath(
+  subFolder: Mothership3DPrintAssetSubfolder,
+  fileName = ""
+): string {
+  const base = `3DPrint/${subFolder}`;
+  const file = String(fileName ?? "").trim().replace(/^\/+|\/+$/g, "");
+  return file ? `${base}/${sanitizePathSegment(file)}` : base;
+}
+
+/** 例: Factory/Conveyor/line-demo.json */
+export function buildMothershipFactoryRelativePath(subFolder: MothershipFactorySubfolder, fileName = ""): string {
+  const base = `Factory/${subFolder}`;
+  const file = String(fileName ?? "").trim().replace(/^\/+|\/+$/g, "");
+  return file ? `${base}/${sanitizePathSegment(file)}` : base;
+}
+
+/** 案件IDで全資産を横断検索する際のプレフィックス */
+export function buildMothershipProjectNoQueryPrefix(projectNo: string): string {
+  const parsed = parseProjectNoV1(projectNo);
+  if (!parsed) throw new Error(`Invalid project number: ${projectNo}`);
+  return parsed.raw;
 }
 
 export type MothershipTopFolder = (typeof MOTHERSHIP_TOP_FOLDERS)[number];

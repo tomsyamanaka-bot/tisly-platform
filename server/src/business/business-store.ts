@@ -61,6 +61,7 @@ import {
   resolveCityCodeForProject,
 } from "../projects/project-id-v1.js";
 import { createProjectStorageFoldersV1 } from "../storage/project-storage-v1.js";
+import { triggerKnowledgeAutomationOnProjectCreatedV1 } from "../knowledge/knowledge-automation-hooks-v1.js";
 
 let projectNoSeq = 0;
 
@@ -232,6 +233,7 @@ export function createBusinessProject(input: {
       description: input.surveyProjectId,
     });
   }
+  triggerKnowledgeAutomationOnProjectCreatedV1(id);
   return created;
 }
 
