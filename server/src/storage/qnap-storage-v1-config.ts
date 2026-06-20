@@ -166,6 +166,10 @@ export function getQnapStorageHealthV1(): QnapStorageHealthV1 {
   const qnapConfigured =
     qnapMode === "webdav" && env.configured && connectionOk;
 
+  if (!envStatus.ready && envStatus.missingKeys.length) {
+    qnapLastError = envStatus.setupGuide;
+  }
+
   return {
     storageProvider: providerKind,
     qnapConfigured,
