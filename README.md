@@ -44,6 +44,8 @@ QNAP **TiSLYNAS**（`192.168.1.10` / `\\192.168.1.10\TiSLY`）を本番サーバ
 
 **MotherShip トップフォルダ:** AI · Backups · Customers · Documents · ESP · Estimates · Photos · PLC · Projects · Reports · Scan · SiteMaps
 
+**TiSLY Knowledge（AI 配下）:** [`docs/knowledge.md`](docs/knowledge.md) — Standards · Procedures · KnowledgeCards · SearchIndex 等
+
 WebDAV PDF バックアップ（`/storage-settings-v1`）と **並行運用**。既存 PDF 連携は変更しません。
 
 

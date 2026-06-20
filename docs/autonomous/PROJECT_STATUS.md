@@ -1,6 +1,6 @@
 # プロジェクト標準仕様（完成状態）
 
-**最終更新:** 2026-06-20  
+**最終更新:** 2026-06-21  
 **対象:** TiSLY Practical PWA（現調 v1 / 見積 v1 / 日程 v1 / 持ち物 v1 / 発注 v1 / 到着・作業完了 v1 / 書類閲覧 UX v1）
 
 Cursor が長時間自走する際の **「壊してはいけない完成仕様」** の単一ソースです。新しい実装を始める前に必ず読んでください。
@@ -346,6 +346,21 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 詳細 | [mothership.md](../mothership.md) |
 | テスト | `server/test/mothership-paths-v1.test.ts` |
 | WebDAV PDF | **既存 v1 を維持** — MotherShip SMB フォルダと並行運用 |
+
+### TiSLY Knowledge Core v1（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | QNAP を **TiSLY Knowledge（会社の頭脳）** の土台に — AI 検索は未実装 |
+| QNAP 構成 | `AI/Standards` … `KnowledgeCards` · `SearchIndex` |
+| ローカル | `server/data/knowledge/` |
+| カード仕様 | [knowledge-card-spec.md](../knowledge-card-spec.md) |
+| 工事カテゴリ | [master/work-categories.json](../../master/work-categories.json) |
+| 登録 UI | `/knowledge-v1`（設定メニューから） |
+| 検索 API | `GET /api/knowledge/search?q=` — タイトル/タグ/概要（keyword_v1） |
+| ロードマップ | [knowledge-roadmap.md](../knowledge-roadmap.md) |
+| QNAP 連携案 | [qnap-ai-plan.md](../qnap-ai-plan.md) |
+| テスト | `server/test/knowledge-v1.test.ts` |
 
 ---
 

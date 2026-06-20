@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   buildMothershipFileRelativePath,
+  buildMothershipKnowledgeRelativePath,
   buildMothershipProjectRelativePath,
   buildMothershipProjectSegment,
   buildMothershipRepoBackupRelativePath,
@@ -64,5 +65,9 @@ describe("mothership-paths-v1", () => {
 
   it("buildMothershipRepoBackupRelativePath", () => {
     assert.equal(buildMothershipRepoBackupRelativePath(), "Backups/repo-mirror");
+  });
+
+  it("buildMothershipKnowledgeRelativePath", () => {
+    assert.equal(buildMothershipKnowledgeRelativePath("SearchIndex"), "AI/SearchIndex");
   });
 });

@@ -29,7 +29,7 @@
 | **ESP** | PlatformIO テンプレート | ボード別 `platformio.ini` + `src/` |
 | **Scan** | LiDAR スキャンデータ | `.ply` / `.las` |
 | **SiteMaps** | 俯瞰図・フロアマップ | PNG / PDF |
-| **AI** | AI 学習データ・統計エクスポート | マスタ CSV · 候補 JSON |
+| **AI** | AI 学習データ・統計エクスポート · **TiSLY Knowledge** | マスタ CSV · KnowledgeCards · SearchIndex |
 | **Backups** | 自動バックアップ | `repo-mirror/`（Git リポジトリミラー） |
 | **Customers** | 顧客マスター export | CSV / JSON |
 | **Estimates** | 見積テンプレート共有 | 標準工事テンプレ |
@@ -77,6 +77,18 @@ Projects/MO-26-0620-001_守谷市テスト/source/
 | **MotherShip SMB**（本仕様） | `/TiSLY/Projects/` · `Photos/` · `Documents/` 等 | ローカル開発 PC からの robocopy · 将来の統合保管 |
 
 両系統は **並行運用**。WebDAV 側を壊さず、MotherShip フォルダへ段階的に整理する。
+
+### TiSLY Knowledge（AI 配下）
+
+```
+AI/
+├─ Standards/ · Procedures/ · Troubles/ · Templates/
+├─ Ladder/ · Materials/ · Tools/ · Notes/
+├─ KnowledgeCards/   … knowledge-card.json
+└─ SearchIndex/      … キーワードインデックス
+```
+
+詳細: [knowledge.md](./knowledge.md) · [knowledge-roadmap.md](./knowledge-roadmap.md) · [qnap-ai-plan.md](./qnap-ai-plan.md)
 
 ---
 

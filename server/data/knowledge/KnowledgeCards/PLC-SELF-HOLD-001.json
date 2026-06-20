@@ -1,0 +1,11 @@
+{
+  "id": "PLC-SELF-HOLD-001",
+  "title": "自己保持回路",
+  "category": "PLC",
+  "tags": ["PLC", "自己保持", "ラダー"],
+  "summary": "基本自己保持回路。押ボタン起動・停止回路の標準パターン。",
+  "files": [
+    "Ladder/self-hold-example.pdf"
+  ],
+  "updatedAt": "2026-06-21"
+}

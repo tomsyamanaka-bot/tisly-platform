@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "updatedAt": "2026-06-20T22:38:36.144Z",
+  "entries": [
+    {
+      "id": "PLC-SELF-HOLD-001",
+      "title": "自己保持回路",
+      "category": "PLC",
+      "tags": [
+        "PLC",
+        "自己保持",
+        "ラダー"
+      ],
+      "summary": "基本自己保持回路。押ボタン起動・停止回路の標準パターン。",
+      "updatedAt": "2026-06-21"
+    },
+    {
+      "id": "TEST-KNOW-1781995116112",
+      "title": "テストナレッジ",
+      "category": "LAN",
+      "tags": [
+        "テスト",
+        "VLAN"
+      ],
+      "summary": "VLAN 設定のテストメモ",
+      "updatedAt": "2026-06-20"
+    }
+  ]
+}

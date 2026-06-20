@@ -139,6 +139,32 @@ export function buildMothershipRepoBackupRelativePath(): string {
   return "Backups/repo-mirror";
 }
 
+/** TiSLY Knowledge — AI 配下サブフォルダ（QNAP 手動作成済み想定） */
+export const MOTHERSHIP_KNOWLEDGE_FOLDERS = [
+  "Standards",
+  "Procedures",
+  "Troubles",
+  "Templates",
+  "Ladder",
+  "Materials",
+  "Tools",
+  "Notes",
+  "KnowledgeCards",
+  "SearchIndex",
+] as const;
+
+export type MothershipKnowledgeFolder = (typeof MOTHERSHIP_KNOWLEDGE_FOLDERS)[number];
+
+/** 例: AI/KnowledgeCards/PLC-SELF-HOLD-001.json */
+export function buildMothershipKnowledgeRelativePath(
+  folder: MothershipKnowledgeFolder,
+  subPath = ""
+): string {
+  const sub = subPath.replace(/^\/+|\/+$/g, "");
+  const base = `AI/${folder}`;
+  return sub ? `${base}/${sub}` : base;
+}
+
 /** ライブラリ系（案件ID不要） */
 export function buildMothershipLibraryRelativePath(
   folder: "PLC" | "ESP" | "AI" | "Scan" | "SiteMaps" | "Customers" | "Estimates",
