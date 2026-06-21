@@ -549,6 +549,25 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 非表示 | QNAP/SMB/WebDAV/API URL · projectId生表示 · usage-log詳細 · mock/debug |
 | コード | `knowledge-customer-v2.html/js/css` · `knowledge-customer-project-v1.*` · `knowledge-customer-site-map-v1.*` · `knowledge-customer-project-v1.ts` · `knowledge-customer-home-v2.ts` |
 
+### Knowledge Customer UI V3（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | **実案件IDに近い Customer ページ** — 営業・現調・引き渡しで写真/PDF/配置図を説明 · AI/Embedding/Qdrant/RAG/Whisper/TTS は未実装 |
+| Phase1 本番 ref | `MO-26-0709` / `MO-26-0709-01` / `JY-26-0711` 等 · DEMO ref 継続 · 不明 ref は fallback |
+| Phase2 メタ adapter | `knowledge-customer-project-adapter-v1.ts` — displayName/city/workType/areas/relatedIds |
+| Phase3 ファイル adapter | `knowledge-customer-project-files-v1.ts` — 現調/施工前後写真 · 仕様/完了/見積/請求 PDF · 部品資料 |
+| Phase4 現場写真 | 案件ページ — 施工前/中/後/メモ · 大カード · タップ拡大モーダル · placeholder |
+| Phase5 PDF資料 | 案件ページ — 仕様/完了/見積/請求/取説/部品 · 写真より下 · 「PDFを見る」「資料を確認する」 |
+| Phase6 Site Map連動 | エリア詳細 — 関連写真/PDF/ナレッジ · Before/After · 注意点 |
+| Phase7 安全表示 | ref は URL のみ · 生 ID 非強調 · 404 ではなく「資料を準備中です」 |
+| Phase8 スマホUI | 5タブ下部ナビ · 大写真/PDFボタン · 押しやすいエリアカード |
+| Phase9 テスト | `server/test/knowledge-customer-v3.test.ts`（20ケース） |
+| API | `customer-project-v1` · `customer-site-map-v1/area` · `customer-project-file-v1` |
+| 本番例 | `/knowledge-customer-project-v1?ref=MO-26-0709` |
+| 非表示 | QNAP/SMB/WebDAV/project-storage パス · projectId 生表示 · mock/debug |
+| コード | `knowledge-customer-v3.css` · adapter/files · project/site-map JS 更新 |
+
 ---
 
 ## 関連ドキュメント

@@ -1,5 +1,17 @@
-/** Knowledge Customer UI V2 — 案件別お客様向けページ（mock · 将来案件DB連動） */
+/** Knowledge Customer UI V2/V3 — 案件別お客様向けページ */
 
+import {
+  getCustomerProjectTemplateKeyV1,
+  normalizeCustomerProjectRefV1,
+  resolveCustomerProjectMetaV1,
+  sanitizeCustomerProjectMetaV1,
+} from "./knowledge-customer-project-adapter-v1.js";
+import {
+  getCustomerProjectPdfsV1,
+  getCustomerProjectPhotosV1,
+  listCustomerProjectFilesV1,
+  type KnowledgeCustomerProjectFileV1,
+} from "./knowledge-customer-project-files-v1.js";
 import { getKnowledgeCustomerDetailV1 } from "./knowledge-customer-detail-v1.js";
 import {
   getCustomerSiteMapForProjectV1,
@@ -33,9 +45,43 @@ export interface KnowledgeCustomerMaterialItemV1 {
   detailUrl: string;
 }
 
+export interface KnowledgeCustomerPhotoSectionItemV1 {
+  fileId: string;
+  title: string;
+  safeLabel: string;
+  previewUrl?: string;
+  openUrl?: string;
+  placeholder?: boolean;
+}
+
+export interface KnowledgeCustomerPhotoSectionsV1 {
+  before: KnowledgeCustomerPhotoSectionItemV1[];
+  during: KnowledgeCustomerPhotoSectionItemV1[];
+  after: KnowledgeCustomerPhotoSectionItemV1[];
+  memo: KnowledgeCustomerPhotoSectionItemV1[];
+}
+
+export interface KnowledgeCustomerPdfSectionItemV1 {
+  fileId: string;
+  title: string;
+  safeLabel: string;
+  openUrl?: string;
+  viewLabel: string;
+}
+
+export interface KnowledgeCustomerPdfSectionsV1 {
+  specification: KnowledgeCustomerPdfSectionItemV1[];
+  completion: KnowledgeCustomerPdfSectionItemV1[];
+  estimate: KnowledgeCustomerPdfSectionItemV1[];
+  invoice: KnowledgeCustomerPdfSectionItemV1[];
+  manual: KnowledgeCustomerPdfSectionItemV1[];
+  parts: KnowledgeCustomerPdfSectionItemV1[];
+}
+
 export interface KnowledgeCustomerProjectPageV1 {
   propertyName: string;
   workGenre: string;
+  customerSafeTitle: string;
   customerExplanation: string;
   capabilities: string[];
   relatedKnowledge: Array<{
@@ -47,11 +93,17 @@ export interface KnowledgeCustomerProjectPageV1 {
   }>;
   relatedPhotos: Array<{ label: string; previewUrl?: string }>;
   relatedPdfs: Array<{ label: string; viewUrl?: string }>;
+  photoSections: KnowledgeCustomerPhotoSectionsV1;
+  pdfSections: KnowledgeCustomerPdfSectionsV1;
   materials: KnowledgeCustomerMaterialItemV1[];
   siteMapUrl: string;
   materialsSectionLabel: string;
   customerHomeUrl: string;
   customerHomeV2Url: string;
+  statusLabel?: string;
+  visitDateLabel?: string;
+  isFallback?: boolean;
+  preparingMessage?: string;
 }
 
 const DEMO_PROJECT_DEFS: Record<
@@ -122,8 +174,51 @@ const DEMO_PROJECT_DEFS: Record<
 
 function safeUrl(url?: string): string | undefined {
   if (!url) return undefined;
-  if (/QNAP|SMB|WebDAV|192\.168\.|filemanager|mock fallback/i.test(url)) return undefined;
+  if (/QNAP|SMB|WebDAV|192\.168\.|filemanager|mock fallback|projectId=/i.test(url)) return undefined;
   return url;
+}
+
+function fileToPhotoItem(f: KnowledgeCustomerProjectFileV1): KnowledgeCustomerPhotoSectionItemV1 {
+  return {
+    fileId: f.fileId,
+    title: f.title,
+    safeLabel: f.safeLabel,
+    previewUrl: safeUrl(f.previewUrl),
+    openUrl: safeUrl(f.openUrl),
+    placeholder: !f.previewUrl,
+  };
+}
+
+function fileToPdfItem(f: KnowledgeCustomerProjectFileV1): KnowledgeCustomerPdfSectionItemV1 {
+  return {
+    fileId: f.fileId,
+    title: f.title,
+    safeLabel: f.safeLabel,
+    openUrl: safeUrl(f.openUrl),
+    viewLabel: f.type === "part_doc" || f.type === "print3d" ? "資料を確認する" : "PDFを見る",
+  };
+}
+
+function buildPhotoSections(files: KnowledgeCustomerProjectFileV1[]): KnowledgeCustomerPhotoSectionsV1 {
+  const photos = files.filter((f) => f.type.includes("photo"));
+  return {
+    before: photos.filter((f) => f.type === "before_photo" || f.type === "survey_photo").map(fileToPhotoItem),
+    during: photos.filter((f) => f.type === "during_photo").map(fileToPhotoItem),
+    after: photos.filter((f) => f.type === "after_photo").map(fileToPhotoItem),
+    memo: photos.filter((f) => f.type === "memo_photo").map(fileToPhotoItem),
+  };
+}
+
+function buildPdfSections(files: KnowledgeCustomerProjectFileV1[]): KnowledgeCustomerPdfSectionsV1 {
+  const pdfs = files.filter((f) => f.type.includes("pdf") || f.type === "part_doc" || f.type === "print3d");
+  return {
+    specification: pdfs.filter((f) => f.type === "specification_pdf").map(fileToPdfItem),
+    completion: pdfs.filter((f) => f.type === "completion_pdf").map(fileToPdfItem),
+    estimate: pdfs.filter((f) => f.type === "estimate_pdf").map(fileToPdfItem),
+    invoice: pdfs.filter((f) => f.type === "invoice_pdf").map(fileToPdfItem),
+    manual: pdfs.filter((f) => f.type === "manual_pdf").map(fileToPdfItem),
+    parts: pdfs.filter((f) => f.type === "part_doc" || f.type === "print3d").map(fileToPdfItem),
+  };
 }
 
 function buildMaterialsForProject(
@@ -252,7 +347,7 @@ function buildMaterialsForProject(
 }
 
 export function listCustomerDemoProjectsV1(): KnowledgeCustomerProjectSummaryV1[] {
-  return Object.entries(DEMO_PROJECT_DEFS).map(([ref, def]) => ({
+  const demos = Object.entries(DEMO_PROJECT_DEFS).map(([ref, def]) => ({
     ref,
     propertyName: def.propertyName,
     workGenre: def.workGenre,
@@ -260,13 +355,36 @@ export function listCustomerDemoProjectsV1(): KnowledgeCustomerProjectSummaryV1[
     pageUrl: `/knowledge-customer-project-v1?ref=${encodeURIComponent(ref)}`,
     siteMapUrl: `/knowledge-customer-site-map-v1?ref=${encodeURIComponent(ref)}`,
   }));
+
+  const productionSamples = ["MO-26-0709", "MO-26-0709-01"].map((ref) => {
+    const meta = resolveCustomerProjectMetaV1(ref);
+    return {
+      ref,
+      propertyName: meta.displayName,
+      workGenre: meta.workType,
+      icon: "🏡",
+      pageUrl: `/knowledge-customer-project-v1?ref=${encodeURIComponent(ref)}`,
+      siteMapUrl: `/knowledge-customer-site-map-v1?ref=${encodeURIComponent(ref)}`,
+    };
+  });
+
+  return [...productionSamples, ...demos];
 }
 
-export function getCustomerProjectPageV1(ref: string): KnowledgeCustomerProjectPageV1 | null {
-  const def = DEMO_PROJECT_DEFS[ref.trim()];
-  if (!def) return null;
+export function getCustomerProjectPageV1(ref: string): KnowledgeCustomerProjectPageV1 {
+  const normalized = normalizeCustomerProjectRefV1(ref);
+  const meta = resolveCustomerProjectMetaV1(normalized);
+  const templateKey = meta.templateKey ?? getCustomerProjectTemplateKeyV1(normalized);
+  const def = DEMO_PROJECT_DEFS[templateKey] ?? DEMO_PROJECT_DEFS["DEMO-HOME-001"];
 
-  const relatedKnowledge = def.knowledgeRefs
+  const projectFiles = listCustomerProjectFilesV1(normalized);
+  const photoSections = buildPhotoSections(projectFiles);
+  const pdfSections = buildPdfSections(projectFiles);
+
+  const knowledgeRefs =
+    meta.relatedKnowledgeIds.length > 0 ? meta.relatedKnowledgeIds : def.knowledgeRefs;
+
+  const relatedKnowledge = knowledgeRefs
     .map((kref) => {
       const detail = getKnowledgeCustomerDetailV1(kref.id, kref.kind as never);
       if (!detail) return null;
@@ -275,24 +393,24 @@ export function getCustomerProjectPageV1(ref: string): KnowledgeCustomerProjectP
         kind: detail.kind,
         title: detail.title,
         category: detail.category,
-        detailUrl: `/knowledge-customer-detail-v1?id=${encodeURIComponent(detail.id)}&kind=${encodeURIComponent(detail.kind)}&ref=${encodeURIComponent(ref)}`,
+        detailUrl: `/knowledge-customer-detail-v1?id=${encodeURIComponent(detail.id)}&kind=${encodeURIComponent(detail.kind)}&ref=${encodeURIComponent(normalized)}`,
       };
     })
     .filter(Boolean) as KnowledgeCustomerProjectPageV1["relatedKnowledge"];
 
-  const relatedPhotos: KnowledgeCustomerProjectPageV1["relatedPhotos"] = [];
-  const relatedPdfs: KnowledgeCustomerProjectPageV1["relatedPdfs"] = [];
+  const relatedPhotos: KnowledgeCustomerProjectPageV1["relatedPhotos"] = getCustomerProjectPhotosV1(
+    normalized
+  ).map((f) => ({
+    label: f.safeLabel,
+    previewUrl: safeUrl(f.previewUrl),
+  }));
 
-  for (const k of relatedKnowledge) {
-    const detail = getKnowledgeCustomerDetailV1(k.id, k.kind as never);
-    if (!detail) continue;
-    for (const p of detail.photos) {
-      relatedPhotos.push({ label: p.label, previewUrl: safeUrl(p.previewUrl) });
-    }
-    for (const pdf of detail.pdfs) {
-      relatedPdfs.push({ label: pdf.label, viewUrl: safeUrl(pdf.viewUrl) });
-    }
-  }
+  const relatedPdfs: KnowledgeCustomerProjectPageV1["relatedPdfs"] = getCustomerProjectPdfsV1(
+    normalized
+  ).map((f) => ({
+    label: f.safeLabel,
+    viewUrl: safeUrl(f.openUrl),
+  }));
 
   for (const q of def.searchQueries) {
     const hits = unifiedKnowledgeSearchV1({ query: q, limit: 3 }).hits;
@@ -303,45 +421,59 @@ export function getCustomerProjectPageV1(ref: string): KnowledgeCustomerProjectP
         kind: hit.kind,
         title: hit.title,
         category: hit.category || "—",
-        detailUrl: `/knowledge-customer-detail-v1?id=${encodeURIComponent(hit.id)}&kind=${encodeURIComponent(hit.kind)}&ref=${encodeURIComponent(ref)}`,
+        detailUrl: `/knowledge-customer-detail-v1?id=${encodeURIComponent(hit.id)}&kind=${encodeURIComponent(hit.kind)}&ref=${encodeURIComponent(normalized)}`,
       });
       if (relatedKnowledge.length >= 6) break;
     }
     if (relatedKnowledge.length >= 6) break;
   }
 
-  const materials = buildMaterialsForProject(ref, def);
-  if (!materials.some((m) => m.type === "photo")) {
-    materials.unshift({
-      id: `${ref}-photo-demo-1`,
-      kind: "photo",
-      type: "photo",
-      title: `${def.propertyName} — 設置イメージ`,
-      category: def.workGenre,
-      description: "施工イメージ写真（デモ）",
-      tags: [...def.categoryTags, "写真"],
-      hasPhoto: true,
-      hasPdf: false,
-      hasPart: false,
-      hasExplanation: true,
-      detailUrl: relatedKnowledge[0]?.detailUrl || `#materials`,
-    });
+  const materials = buildMaterialsForProject(normalized, def);
+
+  for (const pf of projectFiles) {
+    if (pf.type.includes("photo")) {
+      materials.unshift({
+        id: `file-${pf.fileId}`,
+        kind: "project_file",
+        type: "photo",
+        title: pf.safeLabel,
+        category: pf.category,
+        previewUrl: safeUrl(pf.previewUrl),
+        tags: [pf.category, "写真"],
+        hasPhoto: true,
+        hasPdf: false,
+        hasPart: false,
+        hasExplanation: false,
+        detailUrl: safeUrl(pf.openUrl) || "#photos-section",
+      });
+    }
   }
 
   return {
-    propertyName: def.propertyName,
-    workGenre: def.workGenre,
-    customerExplanation: def.customerExplanation,
+    propertyName: meta.displayName,
+    workGenre: meta.workType || def.workGenre,
+    customerSafeTitle: meta.customerSafeTitle,
+    customerExplanation: meta.workSummary || def.customerExplanation,
     capabilities: def.capabilities,
     relatedKnowledge,
     relatedPhotos,
     relatedPdfs,
+    photoSections,
+    pdfSections,
     materials,
-    siteMapUrl: `/knowledge-customer-site-map-v1?ref=${encodeURIComponent(ref)}`,
+    siteMapUrl: `/knowledge-customer-site-map-v1?ref=${encodeURIComponent(normalized)}`,
     materialsSectionLabel: "資料一覧",
     customerHomeUrl: "/knowledge-customer-v1",
     customerHomeV2Url: "/knowledge-customer-v2",
+    statusLabel: meta.status,
+    visitDateLabel: meta.visitDate ? `現調日: ${meta.visitDate}` : undefined,
+    isFallback: meta.isFallback,
+    preparingMessage: meta.isFallback ? "資料を準備中です。順次追加しております。" : undefined,
   };
+}
+
+export function getCustomerProjectMetaForApiV1(ref: string) {
+  return sanitizeCustomerProjectMetaV1(resolveCustomerProjectMetaV1(normalizeCustomerProjectRefV1(ref)));
 }
 
 export function filterCustomerMaterialsV1(
@@ -379,3 +511,5 @@ export function getSiteAreaKnowledgeLinksV1(
     detailUrl: `/knowledge-customer-detail-v1?id=${encodeURIComponent(k.id)}&kind=${encodeURIComponent(k.kind)}&ref=${encodeURIComponent(ref)}`,
   }));
 }
+
+export { sanitizeCustomerProjectMetaV1 };

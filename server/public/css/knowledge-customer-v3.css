@@ -1,0 +1,269 @@
+/** Knowledge Customer UI V3 — 現場写真 · PDF · スマホUI */
+
+.customer-bottom-nav-v3 .customer-nav-item {
+  min-height: 3.75rem;
+  font-size: 0.68rem;
+  padding: 0.35rem 0.15rem;
+}
+
+.customer-status-badge {
+  display: inline-block;
+  margin-bottom: 0.45rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #0369a1;
+  background: #e0f2fe;
+  border-radius: 999px;
+  padding: 0.18rem 0.65rem;
+}
+
+.customer-visit-date {
+  margin: 0 0 0.45rem;
+  font-size: 0.88rem;
+  color: #64748b;
+}
+
+.customer-preparing-note {
+  margin: 0 0 0.75rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 12px;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.customer-photos-v3 h2,
+.customer-pdfs-v3 h2 {
+  margin-top: 0;
+}
+
+.customer-photo-section {
+  margin-bottom: 1rem;
+}
+
+.customer-photo-section h3 {
+  margin: 0 0 0.55rem;
+  font-size: 0.95rem;
+  color: #334155;
+}
+
+.customer-photo-section.before h3 {
+  color: #64748b;
+}
+
+.customer-photo-section.after h3 {
+  color: #166534;
+}
+
+.customer-photo-grid-v3 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.65rem;
+}
+
+.customer-photo-card-v3 {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 2px solid #e0f2fe;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+}
+
+.customer-photo-card-v3 img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  display: block;
+}
+
+.customer-photo-card-placeholder {
+  aspect-ratio: 4 / 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f1f5f9;
+  font-size: 2.5rem;
+}
+
+.customer-photo-card-label {
+  display: block;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #0c4a6e;
+}
+
+.customer-pdf-group {
+  margin-bottom: 0.85rem;
+}
+
+.customer-pdf-group h3 {
+  margin: 0 0 0.45rem;
+  font-size: 0.92rem;
+  color: #475569;
+}
+
+.customer-pdf-btn-v3 {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 3.75rem;
+  padding: 0.85rem 1rem;
+  margin-bottom: 0.55rem;
+  border-radius: 16px;
+  border: 2px solid #bae6fd;
+  background: #fff;
+  text-decoration: none;
+  color: inherit;
+  box-shadow: 0 2px 6px rgba(14, 116, 144, 0.06);
+}
+
+.customer-pdf-btn-icon {
+  font-size: 1.75rem;
+  flex-shrink: 0;
+}
+
+.customer-pdf-btn-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.customer-pdf-btn-text strong {
+  font-size: 1rem;
+  color: #0c4a6e;
+  line-height: 1.35;
+}
+
+.customer-pdf-btn-text small {
+  font-size: 0.85rem;
+  color: #0284c7;
+  font-weight: 700;
+}
+
+.customer-sitemap-area {
+  min-height: 9.5rem;
+  touch-action: manipulation;
+}
+
+.customer-sitemap-photo-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.55rem;
+}
+
+.customer-sitemap-photo-card {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  border: 1px solid #e0f2fe;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+}
+
+.customer-sitemap-photo-card img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+}
+
+.customer-sitemap-photo-card span {
+  padding: 0.45rem 0.55rem;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: #334155;
+}
+
+.customer-warnings-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: #92400e;
+}
+
+.customer-warnings-list li {
+  margin-bottom: 0.3rem;
+  line-height: 1.5;
+}
+
+.customer-photo-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.customer-photo-modal.open {
+  display: flex;
+}
+
+.customer-photo-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.customer-photo-modal-panel {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 520px);
+  max-height: 90vh;
+  overflow: auto;
+  padding: 0.75rem;
+}
+
+.customer-photo-modal-panel img {
+  width: 100%;
+  border-radius: 12px;
+  display: block;
+}
+
+.customer-photo-modal-close {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  font-size: 1.1rem;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.customer-photo-modal-label {
+  margin: 0.55rem 0 0;
+  text-align: center;
+  font-size: 0.92rem;
+  color: #334155;
+}
+
+@media (min-width: 520px) {
+  .customer-photo-grid-v3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 767px) {
+  body.knowledge-customer-project .app-main.customer-main,
+  body.knowledge-customer-sitemap .app-main.customer-main {
+    padding-bottom: 5.5rem;
+  }
+
+  .customer-action-btn {
+    min-height: 3.25rem;
+    font-size: 1.02rem;
+  }
+}

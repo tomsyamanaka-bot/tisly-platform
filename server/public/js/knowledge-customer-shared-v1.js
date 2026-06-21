@@ -43,9 +43,13 @@ export function renderCustomerBottomNavV1(active) {
 }
 
 export function renderCustomerBottomNavV2(active, options = {}) {
+  return renderCustomerBottomNavV3(active, options);
+}
+
+export function renderCustomerBottomNavV3(active, options = {}) {
   const ref = options.projectRef || "DEMO-HOME-001";
   const projectQs = `ref=${encodeURIComponent(ref)}`;
-  return `<nav class="customer-bottom-nav customer-bottom-nav-v2" aria-label="お客様向けナビ">
+  return `<nav class="customer-bottom-nav customer-bottom-nav-v2 customer-bottom-nav-v3" aria-label="お客様向けナビ">
     <a class="customer-nav-item${active === "home" ? " active" : ""}" href="/knowledge-customer-v2">
       <span class="customer-nav-icon">🏠</span>
       <span class="customer-nav-label">ホーム</span>
@@ -58,11 +62,26 @@ export function renderCustomerBottomNavV2(active, options = {}) {
       <span class="customer-nav-icon">🗺</span>
       <span class="customer-nav-label">配置</span>
     </a>
+    <a class="customer-nav-item${active === "materials" ? " active" : ""}" href="/knowledge-customer-project-v1?${projectQs}#materials-section">
+      <span class="customer-nav-icon">📚</span>
+      <span class="customer-nav-label">資料</span>
+    </a>
     <a class="customer-nav-item${active === "field" ? " active" : ""}" href="/knowledge-field-v1">
       <span class="customer-nav-icon">🔧</span>
       <span class="customer-nav-label">現場</span>
     </a>
   </nav>`;
+}
+
+export function renderCustomerPhotoModalV1() {
+  return `<div id="customer-photo-modal" class="customer-photo-modal" aria-hidden="true" role="dialog" aria-label="写真拡大">
+    <div class="customer-photo-modal-backdrop"></div>
+    <div class="customer-photo-modal-panel friendly-card">
+      <button type="button" class="customer-photo-modal-close" aria-label="閉じる">✕</button>
+      <img id="customer-photo-modal-img" alt="" />
+      <p id="customer-photo-modal-label" class="customer-photo-modal-label"></p>
+    </div>
+  </div>`;
 }
 
 export function renderMaterialBadgesV1(item) {

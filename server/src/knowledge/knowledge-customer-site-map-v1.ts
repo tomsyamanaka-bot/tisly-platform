@@ -1,4 +1,15 @@
-/** Knowledge Customer UI V1/V2 — Site Map 連携（mock · 将来 LiDAR / 3D俯瞰 / 図面連動） */
+/** Knowledge Customer UI V1/V2/V3 — Site Map 連携（mock · 将来 LiDAR / 3D俯瞰 / 図面連動） */
+
+import {
+  getCustomerProjectTemplateKeyV1,
+  normalizeCustomerProjectRefV1,
+  resolveCustomerProjectMetaV1,
+} from "./knowledge-customer-project-adapter-v1.js";
+import {
+  getCustomerProjectFilesByAreaV1,
+  type KnowledgeCustomerProjectFileV1,
+} from "./knowledge-customer-project-files-v1.js";
+import { getKnowledgeCustomerDetailV1 } from "./knowledge-customer-detail-v1.js";
 
 export interface KnowledgeCustomerSiteLocationV1 {
   id: string;
@@ -26,12 +37,33 @@ export interface KnowledgeCustomerSiteAreaV1 {
   knowledgeCount: number;
 }
 
+export interface KnowledgeCustomerSiteAreaDetailV1 extends KnowledgeCustomerSiteAreaV1 {
+  relatedPhotos: Array<{
+    fileId: string;
+    safeLabel: string;
+    previewUrl?: string;
+    openUrl?: string;
+  }>;
+  relatedPdfs: Array<{
+    fileId: string;
+    safeLabel: string;
+    openUrl?: string;
+    viewLabel: string;
+  }>;
+  beforePoints: string[];
+  afterPoints: string[];
+  customerWarnings: string[];
+}
+
 export interface KnowledgeCustomerSiteMapPageV1 {
   propertyName: string;
   workGenre: string;
+  customerSafeTitle: string;
   areas: KnowledgeCustomerSiteAreaV1[];
   projectPageUrl: string;
   customerHomeV2Url: string;
+  isFallback?: boolean;
+  preparingMessage?: string;
 }
 
 const CATEGORY_LOCATIONS: Record<string, KnowledgeCustomerSiteLocationV1[]> = {
@@ -99,8 +131,8 @@ const PROJECT_SITE_MAPS: Record<
         icon: "🏡",
         description: "建物の外まわり。カメラとセンサーライトで動きを確認しやすくします。",
         relatedKnowledgeIds: [{ id: "RP-RP2350-001", kind: "knowledge_card" }],
-        relatedPhotoIds: ["perimeter-cam-1", "perimeter-light-1"],
-        relatedPdfIds: ["spec-perimeter"],
+        relatedPhotoIds: ["perimeter-before-1", "perimeter-after-1"],
+        relatedPdfIds: ["spec-pdf"],
         customerExplanation: "外周からの来客や荷物の搬入を、ライト連動で見やすくします。",
         statusLabel: "設計済み",
         equipmentCount: 3,
@@ -113,8 +145,8 @@ const PROJECT_SITE_MAPS: Record<
         icon: "🚪",
         description: "来客確認の要所。カメラで顔や荷物まで確認しやすい位置に設置します。",
         relatedKnowledgeIds: [{ id: "RP-RP2350-001", kind: "knowledge_card" }],
-        relatedPhotoIds: ["entrance-cam-1"],
-        relatedPdfIds: ["spec-entrance"],
+        relatedPhotoIds: ["entrance-before-1", "entrance-after-1"],
+        relatedPdfIds: ["manual-camera"],
         customerExplanation: "玄関前の来客を、スマホやモニターで確認できます。",
         statusLabel: "設計済み",
         equipmentCount: 2,
@@ -127,7 +159,7 @@ const PROJECT_SITE_MAPS: Record<
         icon: "💡",
         description: "室内の明るさと見守りのバランスを整えます。",
         relatedKnowledgeIds: [],
-        relatedPhotoIds: ["living-light-1"],
+        relatedPhotoIds: [],
         relatedPdfIds: [],
         customerExplanation: "リビング周辺の足元灯で、夜間も安全に移動できます。",
         statusLabel: "検討中",
@@ -142,7 +174,7 @@ const PROJECT_SITE_MAPS: Record<
         description: "電源供給の起点。カメラ・ライト用の回路を整理します。",
         relatedKnowledgeIds: [{ id: "PLC-SELF-HOLD-001", kind: "plc" }],
         relatedPhotoIds: ["breaker-1"],
-        relatedPdfIds: ["spec-electrical"],
+        relatedPdfIds: ["spec-pdf"],
         customerExplanation: "分電盤から安全に電源を供給し、ラベルで分かりやすく整理します。",
         statusLabel: "設計済み",
         equipmentCount: 2,
@@ -203,7 +235,7 @@ const PROJECT_SITE_MAPS: Record<
         icon: "🔌",
         description: "動力・制御回路の電源供給。",
         relatedKnowledgeIds: [],
-        relatedPhotoIds: ["breaker-factory-1"],
+        relatedPhotoIds: [],
         relatedPdfIds: [],
         customerExplanation: "停電・ロックアウト手順を共有し、安全作業を徹底します。",
         statusLabel: "確認済み",
@@ -262,6 +294,70 @@ const PROJECT_SITE_MAPS: Record<
   },
 };
 
+function safeUrl(url?: string): string | undefined {
+  if (!url) return undefined;
+  if (/QNAP|SMB|WebDAV|192\.168\.|filemanager|mock fallback|projectId=/i.test(url)) return undefined;
+  return url;
+}
+
+function buildAreaBeforeAfter(area: KnowledgeCustomerSiteAreaV1): {
+  beforePoints: string[];
+  afterPoints: string[];
+  customerWarnings: string[];
+} {
+  if (area.areaType === "electrical" || area.areaName.includes("分電盤")) {
+    return {
+      beforePoints: ["回路が分かりにくい", "ラベルが不足している"],
+      afterPoints: ["専用回路を整理", "ラベルで一目で分かる"],
+      customerWarnings: ["ブレーカー操作は専門スタッフにお任せください"],
+    };
+  }
+  if (area.areaType === "entrance" || area.areaName.includes("玄関")) {
+    return {
+      beforePoints: ["来客確認がしづらい", "夜間が暗い"],
+      afterPoints: ["カメラで来客を確認", "ライト連動で明るく"],
+      customerWarnings: ["プライバシーに配慮した画角で設置します"],
+    };
+  }
+  if (area.areaType === "factory" || area.areaName.includes("ライン")) {
+    return {
+      beforePoints: ["停止手順が複雑", "異常時の対応が遅れやすい"],
+      afterPoints: ["非常停止が確実", "状態がランプで分かる"],
+      customerWarnings: ["試運転時は立入禁止区域を守ってください"],
+    };
+  }
+  return {
+    beforePoints: ["確認に時間がかかる", "記録が残りにくい"],
+    afterPoints: ["写真と資料で説明しやすい", "施工後も見返せる"],
+    customerWarnings: ["設置後は定期的な動作確認をおすすめします"],
+  };
+}
+
+function enrichAreaFiles(
+  ref: string,
+  area: KnowledgeCustomerSiteAreaV1
+): Pick<KnowledgeCustomerSiteAreaDetailV1, "relatedPhotos" | "relatedPdfs"> {
+  const areaFiles = getCustomerProjectFilesByAreaV1(ref, area.areaId);
+  const photoFiles = areaFiles.filter((f) => f.type.includes("photo"));
+  const pdfFiles = areaFiles.filter((f) => f.type.includes("pdf") || f.type === "manual_pdf" || f.type === "part_doc");
+
+  const relatedPhotos = photoFiles.map((f) => ({
+    fileId: f.fileId,
+    safeLabel: f.safeLabel,
+    previewUrl: safeUrl(f.previewUrl),
+    openUrl: safeUrl(f.openUrl),
+  }));
+
+  const relatedPdfs = pdfFiles.map((f) => ({
+    fileId: f.fileId,
+    safeLabel: f.safeLabel,
+    openUrl: safeUrl(f.openUrl),
+    viewLabel: f.type === "part_doc" ? "資料を確認する" : "PDFを見る",
+  }));
+
+  return { relatedPhotos, relatedPdfs };
+}
+
 /** カテゴリ・タグから関連場所を推定（mock · V1 互換） */
 export function buildCustomerSiteLocationsV1(category: string, tags: string[] = []): KnowledgeCustomerSiteLocationV1[] {
   const haystack = `${category} ${tags.join(" ")}`;
@@ -286,23 +382,69 @@ export function buildCustomerSiteLocationsV1(category: string, tags: string[] = 
   return found;
 }
 
-export function getCustomerSiteMapForProjectV1(ref: string): KnowledgeCustomerSiteMapPageV1 | null {
-  const entry = PROJECT_SITE_MAPS[ref.trim()];
-  if (!entry) return null;
+export function getCustomerSiteMapForProjectV1(ref: string): KnowledgeCustomerSiteMapPageV1 {
+  const normalized = normalizeCustomerProjectRefV1(ref);
+  const meta = resolveCustomerProjectMetaV1(normalized);
+  const templateKey = meta.templateKey ?? getCustomerProjectTemplateKeyV1(normalized);
+  const entry = PROJECT_SITE_MAPS[templateKey] ?? PROJECT_SITE_MAPS["DEMO-HOME-001"];
+
   return {
-    propertyName: entry.propertyName,
-    workGenre: entry.workGenre,
+    propertyName: meta.displayName,
+    workGenre: meta.workType || entry.workGenre,
+    customerSafeTitle: meta.customerSafeTitle,
     areas: entry.areas.map((a) => ({
       ...a,
       knowledgeCount: a.relatedKnowledgeIds.length,
     })),
-    projectPageUrl: `/knowledge-customer-project-v1?ref=${encodeURIComponent(ref)}`,
+    projectPageUrl: `/knowledge-customer-project-v1?ref=${encodeURIComponent(normalized)}`,
     customerHomeV2Url: "/knowledge-customer-v2",
+    isFallback: meta.isFallback,
+    preparingMessage: meta.isFallback ? "配置図を準備中です。" : undefined,
   };
 }
 
 export function getCustomerSiteAreaV1(ref: string, areaId: string): KnowledgeCustomerSiteAreaV1 | null {
   const map = getCustomerSiteMapForProjectV1(ref);
-  if (!map) return null;
   return map.areas.find((a) => a.areaId === areaId) ?? null;
+}
+
+export function getCustomerSiteAreaDetailV1(
+  ref: string,
+  areaId: string
+): KnowledgeCustomerSiteAreaDetailV1 | null {
+  const area = getCustomerSiteAreaV1(ref, areaId);
+  if (!area) return null;
+
+  const normalized = normalizeCustomerProjectRefV1(ref);
+  const fileData = enrichAreaFiles(normalized, area);
+  const ba = buildAreaBeforeAfter(area);
+
+  return {
+    ...area,
+    ...fileData,
+    ...ba,
+  };
+}
+
+export function listAreaFilesForSiteMapV1(
+  ref: string,
+  areaId: string
+): KnowledgeCustomerProjectFileV1[] {
+  return getCustomerProjectFilesByAreaV1(normalizeCustomerProjectRefV1(ref), areaId);
+}
+
+export function getSiteAreaKnowledgeDetailV1(
+  area: KnowledgeCustomerSiteAreaV1,
+  ref: string
+): Array<{ id: string; kind: string; title: string; detailUrl: string; summary?: string }> {
+  return area.relatedKnowledgeIds.map((k) => {
+    const detail = getKnowledgeCustomerDetailV1(k.id, k.kind as never);
+    return {
+      id: k.id,
+      kind: k.kind,
+      title: detail?.title || k.id,
+      summary: detail?.explanation?.simpleDescription,
+      detailUrl: `/knowledge-customer-detail-v1?id=${encodeURIComponent(k.id)}&kind=${encodeURIComponent(k.kind)}&ref=${encodeURIComponent(ref)}`,
+    };
+  });
 }
