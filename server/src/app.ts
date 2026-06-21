@@ -103,6 +103,7 @@ import { documentsV1Router } from "./api/routes/documents-v1.js";
 import { projectAutomationV1Router } from "./api/routes/project-automation-v1.js";
 import { masterV1Router } from "./api/routes/master-v1.js";
 import { knowledgeV1Router } from "./api/routes/knowledge-v1.js";
+import { tislyMonitoringV1Router } from "./api/routes/tisly-monitoring-v1.js";
 import { aiEstimateEngineV1Router } from "./api/routes/ai-estimate-engine-v1.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -170,6 +171,7 @@ export function createApp(): express.Application {
   app.use("/api/documents/v1", documentsV1Router);
   app.use("/api/master/v1", masterV1Router);
   app.use("/api/knowledge", knowledgeV1Router);
+  app.use("/api/monitoring/v1", tislyMonitoringV1Router);
   app.use("/api/ai-estimate-engine/v1", aiEstimateEngineV1Router);
   app.use("/api/project-automation/v1", projectAutomationV1Router);
   app.use("/api/business", businessRouter);
@@ -516,6 +518,15 @@ export function createApp(): express.Application {
   });
   app.get("/knowledge-customer-document-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "knowledge-customer-document-v1.html"));
+  });
+  app.get("/tisly-monitoring-3d-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "tisly-monitoring-3d-v1.html"));
+  });
+  app.get("/tisly-monitoring-home-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "tisly-monitoring-home-v1.html"));
+  });
+  app.get("/tisly-monitoring-plant-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "tisly-monitoring-plant-v1.html"));
   });
   app.get("/ai-estimate-engine-v1", (_req, res) => {
     res.redirect(302, "/master-v1?tab=stats");

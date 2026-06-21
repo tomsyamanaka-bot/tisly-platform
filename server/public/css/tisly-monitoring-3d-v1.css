@@ -1,0 +1,636 @@
+:root {
+  --mon-bg: #0b1120;
+  --mon-panel: #111827;
+  --mon-card: #1e293b;
+  --mon-border: #334155;
+  --mon-blue: #38bdf8;
+  --mon-blue-deep: #2563eb;
+  --mon-purple: #a78bfa;
+  --mon-green: #34d399;
+  --mon-yellow: #fbbf24;
+  --mon-red: #f87171;
+  --mon-text: #e2e8f0;
+  --mon-muted: #94a3b8;
+  --mon-neon: 0 0 12px rgba(56, 189, 248, 0.45);
+  --mon-alarm-glow: 0 0 24px rgba(248, 113, 113, 0.65);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--mon-bg);
+  color: var(--mon-text);
+  font-family: "Segoe UI", "Hiragino Sans", "Yu Gothic UI", sans-serif;
+}
+
+.mon3d-body {
+  padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+}
+
+.mon3d-shell {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  min-height: 100vh;
+}
+
+.mon3d-side-nav {
+  background: linear-gradient(180deg, #0f172a 0%, #111827 100%);
+  border-right: 1px solid var(--mon-border);
+  padding: 1rem 0.75rem;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.mon3d-logo-block {
+  display: flex;
+  gap: 0.65rem;
+  align-items: center;
+  margin-bottom: 1.25rem;
+  padding: 0.5rem;
+}
+
+.mon3d-logo {
+  border-radius: 14px;
+  box-shadow: var(--mon-neon);
+}
+
+.mon3d-brand {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--mon-blue);
+  text-shadow: var(--mon-neon);
+}
+
+.mon3d-brand-sub {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--mon-muted);
+}
+
+.mon3d-nav-links {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.mon3d-nav-links a {
+  color: var(--mon-muted);
+  text-decoration: none;
+  padding: 0.55rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.92rem;
+}
+
+.mon3d-nav-links a.active,
+.mon3d-nav-links a:hover {
+  background: rgba(37, 99, 235, 0.2);
+  color: var(--mon-text);
+}
+
+.mon3d-floor-jump {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.mon3d-floor-jump button {
+  border: 1px solid var(--mon-border);
+  background: var(--mon-card);
+  color: var(--mon-text);
+  border-radius: 8px;
+  padding: 0.5rem 0.65rem;
+  cursor: pointer;
+  text-align: left;
+  font-size: 0.88rem;
+}
+
+.mon3d-floor-jump button:hover {
+  border-color: var(--mon-blue);
+  box-shadow: var(--mon-neon);
+}
+
+.mon3d-main {
+  padding: 1rem 1.25rem 2rem;
+  max-width: 1600px;
+}
+
+.mon3d-topbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.mon3d-topbar h1 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.mon3d-muted { color: var(--mon-muted); margin: 0.25rem 0 0; }
+
+.mon3d-topbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.mon3d-clock {
+  font-variant-numeric: tabular-nums;
+  color: var(--mon-blue);
+  font-size: 1.1rem;
+  min-width: 5.5rem;
+}
+
+.mon3d-btn {
+  border: none;
+  border-radius: 8px;
+  padding: 0.55rem 0.9rem;
+  background: linear-gradient(135deg, var(--mon-blue-deep), #1d4ed8);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.88rem;
+}
+
+.mon3d-btn.secondary {
+  background: var(--mon-card);
+  border: 1px solid var(--mon-border);
+  color: var(--mon-text);
+}
+
+.mon3d-btn.danger {
+  background: linear-gradient(135deg, #dc2626, #991b1b);
+}
+
+.mon3d-btn.ghost {
+  background: transparent;
+  border: 1px dashed var(--mon-border);
+  color: var(--mon-muted);
+}
+
+.mon3d-alert-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: linear-gradient(90deg, #7f1d1d, #991b1b);
+  color: #fecaca;
+  padding: 0.75rem 1rem;
+  font-weight: 700;
+  text-align: center;
+  box-shadow: var(--mon-alarm-glow);
+  animation: mon3d-banner-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes mon3d-banner-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.85; }
+}
+
+.mon3d-alert-card {
+  margin-bottom: 1rem;
+  border-radius: 14px;
+  border: 2px solid #ef4444;
+  background: linear-gradient(135deg, rgba(127, 29, 29, 0.35), rgba(30, 41, 59, 0.95));
+  box-shadow: var(--mon-alarm-glow);
+}
+
+.mon3d-alert-card-inner { padding: 1rem 1.25rem; }
+
+.mon3d-alert-label {
+  margin: 0 0 0.35rem;
+  color: #fca5a5;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.mon3d-alert-card h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.65rem;
+  color: #fff;
+}
+
+.mon3d-alert-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.5rem 1rem;
+  margin: 0 0 1rem;
+}
+
+.mon3d-alert-meta dt {
+  font-size: 0.75rem;
+  color: var(--mon-muted);
+}
+
+.mon3d-alert-meta dd {
+  margin: 0.15rem 0 0;
+  font-weight: 600;
+}
+
+.mon3d-alert-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.mon3d-content-grid {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 1rem;
+  align-items: start;
+}
+
+.mon3d-floor-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-height: 72vh;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  padding-right: 0.25rem;
+}
+
+.mon3d-floor-card {
+  scroll-snap-align: start;
+  border-radius: 16px;
+  border: 1px solid var(--mon-border);
+  background: var(--mon-panel);
+  padding: 0.85rem;
+  transition: box-shadow 0.25s, border-color 0.25s;
+}
+
+.mon3d-floor-card.is-alert {
+  border-color: #ef4444;
+  box-shadow: var(--mon-alarm-glow);
+  animation: mon3d-floor-alert 1s ease-in-out infinite;
+}
+
+@keyframes mon3d-floor-alert {
+  0%, 100% { border-color: #ef4444; }
+  50% { border-color: #fca5a5; }
+}
+
+.mon3d-floor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.65rem;
+}
+
+.mon3d-floor-header h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  color: var(--mon-blue);
+}
+
+.mon3d-floor-scene {
+  position: relative;
+  min-height: 220px;
+  border-radius: 12px;
+  overflow: hidden;
+  transform: perspective(900px) rotateX(12deg);
+  transform-origin: center top;
+  background:
+    linear-gradient(145deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.85)),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 24px,
+      rgba(148, 163, 184, 0.06) 24px,
+      rgba(148, 163, 184, 0.06) 25px
+    );
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  box-shadow: inset 0 0 40px rgba(37, 99, 235, 0.15);
+}
+
+.mon3d-floor-scene::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 60%, rgba(0, 0, 0, 0.35));
+  pointer-events: none;
+}
+
+.mon3d-device-pin {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 50%;
+  border: 2px solid var(--mon-green);
+  background: rgba(15, 23, 42, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  cursor: pointer;
+  box-shadow: var(--mon-neon);
+  transition: transform 0.15s;
+}
+
+.mon3d-device-pin:hover { transform: translate(-50%, -50%) scale(1.08); }
+
+.mon3d-device-pin.status-warning {
+  border-color: var(--mon-yellow);
+  box-shadow: 0 0 14px rgba(251, 191, 36, 0.55);
+}
+
+.mon3d-device-pin.status-alert,
+.mon3d-device-pin.is-blink {
+  border-color: var(--mon-red);
+  box-shadow: var(--mon-alarm-glow);
+  animation: mon3d-pin-blink 0.8s step-end infinite;
+}
+
+@keyframes mon3d-pin-blink {
+  0%, 100% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+  50% { opacity: 0.45; transform: translate(-50%, -50%) scale(1); }
+}
+
+.mon3d-device-pin .pin-label {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 0.68rem;
+  color: var(--mon-muted);
+  margin-top: 0.2rem;
+  pointer-events: none;
+}
+
+.mon3d-right-panel { display: flex; flex-direction: column; gap: 1rem; }
+
+.mon3d-panel-card {
+  background: var(--mon-panel);
+  border: 1px solid var(--mon-border);
+  border-radius: 14px;
+  padding: 0.85rem;
+}
+
+.mon3d-panel-card h2 {
+  margin: 0 0 0.65rem;
+  font-size: 1rem;
+  color: var(--mon-purple);
+}
+
+.mon3d-live-badge {
+  display: inline-block;
+  background: #dc2626;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+  animation: mon3d-live 1.5s ease infinite;
+}
+
+@keyframes mon3d-live {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.mon3d-camera-frame {
+  aspect-ratio: 16/10;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #000;
+  border: 1px solid var(--mon-border);
+}
+
+.mon3d-camera-placeholder {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 30% 20%, #1e3a5f, #0f172a);
+  gap: 0.35rem;
+}
+
+.mon3d-camera-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+.mon3d-camera-switch button {
+  border: 1px solid var(--mon-border);
+  background: var(--mon-card);
+  color: var(--mon-text);
+  border-radius: 6px;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.mon3d-camera-switch button.active {
+  border-color: var(--mon-blue);
+  color: var(--mon-blue);
+}
+
+.mon3d-stats-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mon3d-stats-list li {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid rgba(51, 65, 85, 0.5);
+}
+
+.mon3d-stats-list strong { color: var(--mon-blue); }
+
+.mon3d-log-section {
+  margin-top: 1.25rem;
+  background: var(--mon-panel);
+  border: 1px solid var(--mon-border);
+  border-radius: 14px;
+  padding: 0.85rem;
+}
+
+.mon3d-log-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.mon3d-log-header h2 { margin: 0; font-size: 1.05rem; }
+
+.mon3d-log-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.mon3d-log-tabs button,
+.mon3d-view-toggle button {
+  border: 1px solid var(--mon-border);
+  background: var(--mon-card);
+  color: var(--mon-muted);
+  border-radius: 6px;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.mon3d-log-tabs button.active,
+.mon3d-view-toggle button.active {
+  border-color: var(--mon-blue);
+  color: var(--mon-blue);
+}
+
+.mon3d-log-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.65rem;
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.mon3d-log-cards.view-table {
+  display: block;
+  overflow-x: auto;
+}
+
+.mon3d-log-card {
+  border: 1px solid var(--mon-border);
+  border-radius: 10px;
+  padding: 0.65rem 0.75rem;
+  background: var(--mon-card);
+}
+
+.mon3d-log-card.level-alert { border-left: 4px solid var(--mon-red); }
+.mon3d-log-card.level-warning { border-left: 4px solid var(--mon-yellow); }
+.mon3d-log-card.level-info { border-left: 4px solid var(--mon-blue); }
+
+.mon3d-log-card time {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--mon-muted);
+  margin-bottom: 0.25rem;
+}
+
+.mon3d-log-card .log-level {
+  font-size: 0.75rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.mon3d-log-card .log-place { font-weight: 600; margin: 0 0 0.2rem; }
+.mon3d-log-card .log-content { font-size: 0.88rem; color: var(--mon-muted); margin: 0; }
+
+.mon3d-log-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.mon3d-log-table th,
+.mon3d-log-table td {
+  border-bottom: 1px solid var(--mon-border);
+  padding: 0.45rem 0.5rem;
+  text-align: left;
+}
+
+.mon3d-log-table th { color: var(--mon-muted); font-weight: 600; }
+
+.mon3d-bottom-nav {
+  display: none;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  background: rgba(15, 23, 42, 0.96);
+  border-top: 1px solid var(--mon-border);
+  padding: 0.35rem 0.5rem calc(0.35rem + env(safe-area-inset-bottom, 0px));
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.25rem;
+}
+
+.mon3d-bottom-nav button {
+  border: none;
+  background: transparent;
+  color: var(--mon-muted);
+  padding: 0.55rem 0.25rem;
+  font-size: 0.78rem;
+  border-radius: 8px;
+}
+
+.mon3d-bottom-nav button.active {
+  color: var(--mon-blue);
+  background: rgba(37, 99, 235, 0.15);
+}
+
+/* Tablet */
+@media (max-width: 1100px) {
+  .mon3d-content-grid { grid-template-columns: 1fr; }
+  .mon3d-right-panel {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .mon3d-shell { grid-template-columns: 1fr; }
+  .mon3d-side-nav { display: none; }
+  .mon3d-bottom-nav { display: grid; }
+  .mon3d-floor-stack { max-height: 55vh; }
+  .mon3d-right-panel { grid-template-columns: 1fr; }
+  .mon3d-alert-card h2 { font-size: 1.25rem; }
+}
+
+/* TV mode */
+body.mon3d-tv .mon3d-side-nav,
+body.mon3d-tv .mon3d-topbar-actions .mon3d-btn,
+body.mon3d-tv .mon3d-bottom-nav,
+body.mon3d-tv .mon3d-log-section { display: none; }
+
+body.mon3d-tv .mon3d-shell { grid-template-columns: 1fr; }
+
+body.mon3d-tv .mon3d-content-grid { grid-template-columns: 1fr 280px; }
+
+body.mon3d-tv .mon3d-floor-stack {
+  max-height: 82vh;
+}
+
+body.mon3d-tv .mon3d-floor-card.is-alert {
+  position: relative;
+  z-index: 2;
+}
+
+body.mon3d-tv .mon3d-log-section {
+  display: block;
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  width: 360px;
+  max-height: 240px;
+  opacity: 0.92;
+}
+
+body.mon3d-tv .mon3d-log-cards { max-height: 160px; }

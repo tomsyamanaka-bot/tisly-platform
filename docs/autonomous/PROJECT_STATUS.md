@@ -587,6 +587,24 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 非表示 | QNAP/SMB/WebDAV/project-storage · projectId生表示 · share時請求書 · API URL（share payload） |
 | コード | `knowledge-business-projects-adapter-v1.ts` · `knowledge-customer-share-filter-v1.ts` · `knowledge-customer-document-v1.ts` · `knowledge-customer-projects-v1.*` |
 
+### TiSLY Monitoring 3D Dashboard UI V1（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | **発報場所が一瞬でわかる 3D俯瞰監視 UI** — 疑似3D/CSS · Three.js は次フェーズ |
+| 画面 | `/tisly-monitoring-3d-v1` · `/tisly-monitoring-home-v1` · `/tisly-monitoring-plant-v1` |
+| フロア | 外周 · 1階 · 2階 · 屋根（任意）— 縦スクロール · サイドジャンプ |
+| 発報フォーカス | alert/warning で該当 floor scrollIntoView · ピン赤点滅 · フロア枠発光 · 右上バナー |
+| 文字説明 | 発報種別 · フロア · 場所 · 機器 · 時刻 · 対応ボタン |
+| ログ | 最新/アラーム/情報/対応済み · カード/テーブル切替 · UNKNOWN→未登録機器 |
+| 配置データ | `tisly-monitoring-layout-v1.ts` · `tisly-monitoring-layout-v1.js` |
+| ライブカメラ | 右パネル placeholder · linkedCameraId 自動選択 · LIVE バッジ |
+| 通知統合 | `events` + `notification_logs` 正規化 · level 日本語化 |
+| 表示モード | PC（左ナビ/中央マップ/右カメラ/下ログ）· スマホ（下部ナビ）· TV（`?mode=tv`） |
+| Customer連動 | 設備説明 · 関連資料 · 案件ページリンク準備 |
+| API | `GET /api/monitoring/v1/dashboard` · `/logs` · `POST /ack/:id` · `/test-alert` |
+| テスト | `server/test/tisly-monitoring-3d-v1.test.ts` |
+
 ---
 
 ## 関連ドキュメント

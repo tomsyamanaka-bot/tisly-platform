@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>TiSLY — 3D監視ダッシュボード</title>
+  <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2003" />
+  <link rel="stylesheet" href="/css/tisly-monitoring-3d-v1.css" />
+</head>
+<body class="mon3d-body" data-site-kind="home">
+  <div id="mon3d-alert-banner" class="mon3d-alert-banner" hidden aria-live="assertive"></div>
+
+  <div class="mon3d-shell">
+    <aside class="mon3d-side-nav" aria-label="監視ナビ">
+      <div class="mon3d-logo-block">
+        <img src="/icons/icon-128.png" alt="" width="56" height="56" class="mon3d-logo" />
+        <div>
+          <p class="mon3d-brand">TiSLY</p>
+          <p class="mon3d-brand-sub">Smart Monitoring</p>
+        </div>
+      </div>
+      <nav class="mon3d-nav-links">
+        <a href="/tisly-monitoring-3d-v1" class="active">3D俯瞰</a>
+        <a href="/tisly-monitoring-home-v1">戸建て</a>
+        <a href="/tisly-monitoring-plant-v1">工場</a>
+        <a href="/operations">運用コンソール</a>
+        <a href="/notifications">通知履歴</a>
+      </nav>
+      <div class="mon3d-floor-jump" id="mon3d-floor-jump"></div>
+    </aside>
+
+    <main class="mon3d-main">
+      <header class="mon3d-topbar">
+        <div>
+          <h1 id="mon3d-site-title">監視ダッシュボード</h1>
+          <p id="mon3d-site-sub" class="mon3d-muted">読み込み中…</p>
+        </div>
+        <div class="mon3d-topbar-actions">
+          <span id="mon3d-clock" class="mon3d-clock"></span>
+          <button type="button" class="mon3d-btn secondary" id="mon3d-btn-refresh">更新</button>
+          <button type="button" class="mon3d-btn" id="mon3d-btn-test">通知テスト</button>
+        </div>
+      </header>
+
+      <section id="mon3d-alert-card" class="mon3d-alert-card" hidden>
+        <div class="mon3d-alert-card-inner">
+          <p class="mon3d-alert-label" id="mon3d-alert-level">警報</p>
+          <h2 id="mon3d-alert-headline">—</h2>
+          <dl class="mon3d-alert-meta">
+            <div><dt>場所</dt><dd id="mon3d-alert-place">—</dd></div>
+            <div><dt>機器</dt><dd id="mon3d-alert-device">—</dd></div>
+            <div><dt>時刻</dt><dd id="mon3d-alert-time">—</dd></div>
+            <div><dt>状態</dt><dd id="mon3d-alert-status">未対応</dd></div>
+          </dl>
+          <div class="mon3d-alert-actions">
+            <button type="button" class="mon3d-btn" id="mon3d-btn-camera">カメラを見る</button>
+            <button type="button" class="mon3d-btn secondary" id="mon3d-btn-log-focus">ログを見る</button>
+            <button type="button" class="mon3d-btn danger" id="mon3d-btn-ack">対応済みにする</button>
+            <a class="mon3d-btn ghost" id="mon3d-link-equipment" href="#">設備説明を見る</a>
+            <a class="mon3d-btn ghost" id="mon3d-link-materials" href="#">関連資料を見る</a>
+          </div>
+        </div>
+      </section>
+
+      <div class="mon3d-content-grid">
+        <section class="mon3d-map-column" aria-label="3D俯瞰マップ">
+          <div id="mon3d-floor-stack" class="mon3d-floor-stack"></div>
+        </section>
+
+        <aside class="mon3d-right-panel" aria-label="カメラとステータス">
+          <section class="mon3d-panel-card">
+            <h2>ライブカメラ</h2>
+            <div class="mon3d-live-badge">LIVE</div>
+            <div id="mon3d-camera-frame" class="mon3d-camera-frame">
+              <div class="mon3d-camera-placeholder">
+                <span id="mon3d-camera-label">玄関カメラ</span>
+                <p class="mon3d-muted">ライブ映像（準備中）</p>
+              </div>
+            </div>
+            <div id="mon3d-camera-switch" class="mon3d-camera-switch"></div>
+          </section>
+          <section class="mon3d-panel-card mon3d-stats-card">
+            <h2>ステータス</h2>
+            <ul class="mon3d-stats-list">
+              <li><span>侵入警報</span><strong id="mon3d-stat-alert">0</strong></li>
+              <li><span>警報</span><strong id="mon3d-stat-warning">0</strong></li>
+              <li><span>情報</span><strong id="mon3d-stat-info">0</strong></li>
+              <li><span>対応済み</span><strong id="mon3d-stat-acked">0</strong></li>
+            </ul>
+          </section>
+        </aside>
+      </div>
+
+      <section class="mon3d-log-section" aria-label="受信ログ">
+        <div class="mon3d-log-header">
+          <h2>受信ログ</h2>
+          <div class="mon3d-log-controls">
+            <div class="mon3d-log-tabs">
+              <button type="button" class="active" data-log-filter="all">最新</button>
+              <button type="button" data-log-filter="alarm">アラーム</button>
+              <button type="button" data-log-filter="info">情報</button>
+              <button type="button" data-log-filter="acked">対応済み</button>
+            </div>
+            <div class="mon3d-view-toggle">
+              <button type="button" class="active" data-log-view="cards">カード</button>
+              <button type="button" data-log-view="table">テーブル</button>
+            </div>
+          </div>
+        </div>
+        <div id="mon3d-log-body" class="mon3d-log-cards"></div>
+      </section>
+    </main>
+  </div>
+
+  <nav class="mon3d-bottom-nav" aria-label="モバイルナビ">
+    <button type="button" data-scroll="map" class="active">マップ</button>
+    <button type="button" data-scroll="alert">発報</button>
+    <button type="button" data-scroll="camera">カメラ</button>
+    <button type="button" data-scroll="logs">ログ</button>
+  </nav>
+
+  <script type="module" src="/js/tisly-monitoring-3d-v1.js"></script>
+</body>
+</html>
