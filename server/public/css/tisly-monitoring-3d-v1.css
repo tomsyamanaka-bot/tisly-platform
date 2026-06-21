@@ -1,18 +1,28 @@
+/* TiSLY Monitoring UI V2 — Security Command Center */
 :root {
-  --mon-bg: #0b1120;
-  --mon-panel: #111827;
-  --mon-card: #1e293b;
-  --mon-border: #334155;
+  --mon-bg: #050b18;
+  --mon-bg-deep: #020617;
+  --mon-panel: #0a1224;
+  --mon-card: #111827;
+  --mon-glass: rgba(15, 23, 42, 0.72);
+  --mon-border: #1e3a5f;
+  --mon-border-glow: rgba(56, 189, 248, 0.35);
   --mon-blue: #38bdf8;
   --mon-blue-deep: #2563eb;
+  --mon-cyan: #22d3ee;
   --mon-purple: #a78bfa;
   --mon-green: #34d399;
   --mon-yellow: #fbbf24;
+  --mon-orange: #fb923c;
   --mon-red: #f87171;
-  --mon-text: #e2e8f0;
+  --mon-red-deep: #dc2626;
+  --mon-text: #f1f5f9;
   --mon-muted: #94a3b8;
-  --mon-neon: 0 0 12px rgba(56, 189, 248, 0.45);
-  --mon-alarm-glow: 0 0 24px rgba(248, 113, 113, 0.65);
+  --mon-neon: 0 0 16px rgba(56, 189, 248, 0.5);
+  --mon-alarm-glow: 0 0 32px rgba(248, 113, 113, 0.75);
+  --mon-shadow-building: 0 18px 40px rgba(0, 0, 0, 0.55);
+  --mon-radius: 12px;
+  --mon-font: "Segoe UI", "Hiragino Sans", "Yu Gothic UI", sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -21,8 +31,11 @@ html, body {
   margin: 0;
   min-height: 100%;
   background: var(--mon-bg);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(37, 99, 235, 0.18), transparent),
+    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(14, 165, 233, 0.08), transparent);
   color: var(--mon-text);
-  font-family: "Segoe UI", "Hiragino Sans", "Yu Gothic UI", sans-serif;
+  font-family: var(--mon-font);
 }
 
 .mon3d-body {
@@ -31,14 +44,14 @@ html, body {
 
 .mon3d-shell {
   display: grid;
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: 240px 1fr;
   min-height: 100vh;
 }
 
 .mon3d-side-nav {
-  background: linear-gradient(180deg, #0f172a 0%, #111827 100%);
+  background: linear-gradient(180deg, #070f1f 0%, #0a1224 100%);
   border-right: 1px solid var(--mon-border);
-  padding: 1rem 0.75rem;
+  padding: 1rem 0.85rem;
   position: sticky;
   top: 0;
   height: 100vh;
@@ -62,15 +75,17 @@ html, body {
   margin: 0;
   font-size: 1.35rem;
   font-weight: 800;
-  letter-spacing: 0.04em;
-  color: var(--mon-blue);
+  letter-spacing: 0.06em;
+  color: var(--mon-cyan);
   text-shadow: var(--mon-neon);
 }
 
 .mon3d-brand-sub {
   margin: 0;
-  font-size: 0.75rem;
+  font-size: 0.68rem;
   color: var(--mon-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .mon3d-nav-links {
@@ -85,12 +100,15 @@ html, body {
   padding: 0.55rem 0.75rem;
   border-radius: 8px;
   font-size: 0.92rem;
+  border: 1px solid transparent;
 }
 
 .mon3d-nav-links a.active,
 .mon3d-nav-links a:hover {
-  background: rgba(37, 99, 235, 0.2);
+  background: rgba(37, 99, 235, 0.22);
+  border-color: var(--mon-border-glow);
   color: var(--mon-text);
+  box-shadow: inset 0 0 20px rgba(37, 99, 235, 0.12);
 }
 
 .mon3d-floor-jump {
@@ -102,23 +120,42 @@ html, body {
 
 .mon3d-floor-jump button {
   border: 1px solid var(--mon-border);
-  background: var(--mon-card);
+  background: var(--mon-glass);
+  backdrop-filter: blur(8px);
   color: var(--mon-text);
   border-radius: 8px;
-  padding: 0.5rem 0.65rem;
+  padding: 0.55rem 0.7rem;
   cursor: pointer;
   text-align: left;
   font-size: 0.88rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.mon3d-floor-jump button:hover {
-  border-color: var(--mon-blue);
+.mon3d-floor-jump button:hover,
+.mon3d-floor-jump button.is-active {
+  border-color: var(--mon-cyan);
   box-shadow: var(--mon-neon);
+}
+
+.mon3d-side-status {
+  margin-top: 1.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--mon-border);
+  border-radius: var(--mon-radius);
+  background: var(--mon-glass);
+}
+
+.mon3d-side-status-label {
+  margin: 0 0 0.4rem;
+  font-size: 0.72rem;
+  color: var(--mon-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .mon3d-main {
   padding: 1rem 1.25rem 2rem;
-  max-width: 1600px;
+  max-width: 1680px;
 }
 
 .mon3d-topbar {
@@ -132,10 +169,13 @@ html, body {
 
 .mon3d-topbar h1 {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: 1.55rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 .mon3d-muted { color: var(--mon-muted); margin: 0.25rem 0 0; }
+.mon3d-log-sub { font-size: 0.78rem; margin: 0.2rem 0 0; }
 
 .mon3d-topbar-actions {
   display: flex;
@@ -146,9 +186,10 @@ html, body {
 
 .mon3d-clock {
   font-variant-numeric: tabular-nums;
-  color: var(--mon-blue);
-  font-size: 1.1rem;
-  min-width: 5.5rem;
+  color: var(--mon-cyan);
+  font-size: 1.15rem;
+  min-width: 6rem;
+  text-shadow: 0 0 12px rgba(34, 211, 238, 0.4);
 }
 
 .mon3d-btn {
@@ -164,7 +205,10 @@ html, body {
   align-items: center;
   justify-content: center;
   font-size: 0.88rem;
+  transition: transform 0.15s, box-shadow 0.15s;
 }
+
+.mon3d-btn:hover { transform: translateY(-1px); box-shadow: var(--mon-neon); }
 
 .mon3d-btn.secondary {
   background: var(--mon-card);
@@ -174,6 +218,7 @@ html, body {
 
 .mon3d-btn.danger {
   background: linear-gradient(135deg, #dc2626, #991b1b);
+  box-shadow: 0 0 16px rgba(220, 38, 38, 0.35);
 }
 
 .mon3d-btn.ghost {
@@ -187,27 +232,75 @@ html, body {
   top: 0;
   left: 0;
   right: 0;
-  z-index: 100;
-  background: linear-gradient(90deg, #7f1d1d, #991b1b);
+  z-index: 200;
+  background: linear-gradient(90deg, #450a0a 0%, #7f1d1d 40%, #991b1b 60%, #450a0a 100%);
   color: #fecaca;
-  padding: 0.75rem 1rem;
-  font-weight: 700;
-  text-align: center;
+  padding: 0.85rem 1.25rem;
   box-shadow: var(--mon-alarm-glow);
   animation: mon3d-banner-pulse 1.2s ease-in-out infinite;
+  border-bottom: 2px solid #ef4444;
+}
+
+.mon3d-alert-banner-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.mon3d-alert-banner-icon {
+  font-size: 1.75rem;
+  animation: mon3d-icon-shake 0.6s ease-in-out infinite;
+}
+
+.mon3d-alert-banner-text {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.75rem 1.25rem;
+  font-weight: 700;
+}
+
+.mon3d-alert-banner-text strong {
+  font-size: 1.15rem;
+  color: #fff;
+  letter-spacing: 0.04em;
+}
+
+.mon3d-alert-banner-text time {
+  font-variant-numeric: tabular-nums;
+  color: #fca5a5;
 }
 
 @keyframes mon3d-banner-pulse {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.85; }
+  50% { opacity: 0.88; }
+}
+
+@keyframes mon3d-icon-shake {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-8deg); }
+  75% { transform: rotate(8deg); }
+}
+
+body:has(.mon3d-alert-banner:not([hidden])) .mon3d-shell {
+  padding-top: 3.5rem;
 }
 
 .mon3d-alert-card {
   margin-bottom: 1rem;
-  border-radius: 14px;
+  border-radius: 16px;
   border: 2px solid #ef4444;
-  background: linear-gradient(135deg, rgba(127, 29, 29, 0.35), rgba(30, 41, 59, 0.95));
+  background: linear-gradient(135deg, rgba(127, 29, 29, 0.45), rgba(10, 18, 36, 0.95));
   box-shadow: var(--mon-alarm-glow);
+  animation: mon3d-card-glow 1.5s ease-in-out infinite;
+}
+
+@keyframes mon3d-card-glow {
+  0%, 100% { box-shadow: var(--mon-alarm-glow); }
+  50% { box-shadow: 0 0 48px rgba(248, 113, 113, 0.9); }
 }
 
 .mon3d-alert-card-inner { padding: 1rem 1.25rem; }
@@ -217,11 +310,12 @@ html, body {
   color: #fca5a5;
   font-size: 0.85rem;
   font-weight: 700;
+  letter-spacing: 0.06em;
 }
 
 .mon3d-alert-card h2 {
   margin: 0 0 0.75rem;
-  font-size: 1.65rem;
+  font-size: 1.75rem;
   color: #fff;
 }
 
@@ -232,15 +326,8 @@ html, body {
   margin: 0 0 1rem;
 }
 
-.mon3d-alert-meta dt {
-  font-size: 0.75rem;
-  color: var(--mon-muted);
-}
-
-.mon3d-alert-meta dd {
-  margin: 0.15rem 0 0;
-  font-weight: 600;
-}
+.mon3d-alert-meta dt { font-size: 0.72rem; color: var(--mon-muted); text-transform: uppercase; }
+.mon3d-alert-meta dd { margin: 0.15rem 0 0; font-weight: 600; }
 
 .mon3d-alert-actions {
   display: flex;
@@ -250,7 +337,7 @@ html, body {
 
 .mon3d-content-grid {
   display: grid;
-  grid-template-columns: 1fr 320px;
+  grid-template-columns: 1fr 360px;
   gap: 1rem;
   align-items: start;
 }
@@ -258,25 +345,28 @@ html, body {
 .mon3d-floor-stack {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  max-height: 72vh;
+  gap: 1.25rem;
+  max-height: 74vh;
   overflow-y: auto;
   scroll-snap-type: y mandatory;
-  padding-right: 0.25rem;
+  padding-right: 0.35rem;
 }
 
 .mon3d-floor-card {
   scroll-snap-align: start;
-  border-radius: 16px;
+  border-radius: 18px;
   border: 1px solid var(--mon-border);
-  background: var(--mon-panel);
-  padding: 0.85rem;
-  transition: box-shadow 0.25s, border-color 0.25s;
+  background: linear-gradient(145deg, var(--mon-panel), var(--mon-bg-deep));
+  padding: 0.9rem;
+  transition: transform 0.4s ease, box-shadow 0.4s, border-color 0.3s;
+  box-shadow: var(--mon-shadow-building);
 }
 
 .mon3d-floor-card.is-alert {
   border-color: #ef4444;
-  box-shadow: var(--mon-alarm-glow);
+  box-shadow: var(--mon-alarm-glow), var(--mon-shadow-building);
+  transform: scale(1.02);
+  z-index: 5;
   animation: mon3d-floor-alert 1s ease-in-out infinite;
 }
 
@@ -289,51 +379,270 @@ html, body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.65rem;
+  margin-bottom: 0.7rem;
 }
 
 .mon3d-floor-header h3 {
   margin: 0;
-  font-size: 1.15rem;
-  color: var(--mon-blue);
+  font-size: 1.2rem;
+  color: var(--mon-cyan);
+  text-shadow: 0 0 10px rgba(34, 211, 238, 0.35);
+}
+
+.mon3d-floor-badge {
+  font-size: 0.72rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--mon-border-glow);
+  color: var(--mon-muted);
+}
+
+.mon3d-floor-badge.alert-active {
+  background: rgba(220, 38, 38, 0.25);
+  border-color: #ef4444;
+  color: #fca5a5;
+  animation: mon3d-badge-blink 0.8s step-end infinite;
+}
+
+@keyframes mon3d-badge-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
 .mon3d-floor-scene {
   position: relative;
-  min-height: 220px;
-  border-radius: 12px;
+  min-height: 260px;
+  border-radius: 14px;
   overflow: hidden;
-  transform: perspective(900px) rotateX(12deg);
-  transform-origin: center top;
-  background:
-    linear-gradient(145deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.85)),
-    repeating-linear-gradient(
-      90deg,
-      transparent,
-      transparent 24px,
-      rgba(148, 163, 184, 0.06) 24px,
-      rgba(148, 163, 184, 0.06) 25px
-    );
-  border: 1px solid rgba(56, 189, 248, 0.25);
-  box-shadow: inset 0 0 40px rgba(37, 99, 235, 0.15);
+  transform: perspective(1100px) rotateX(14deg);
+  transform-origin: center 35%;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  box-shadow:
+    inset 0 0 60px rgba(37, 99, 235, 0.12),
+    0 24px 48px rgba(0, 0, 0, 0.45);
 }
 
-.mon3d-floor-scene::before {
+.mon3d-floor-scene::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, transparent 60%, rgba(0, 0, 0, 0.35));
+  background: linear-gradient(180deg, transparent 55%, rgba(0, 0, 0, 0.45));
   pointer-events: none;
+  z-index: 2;
+}
+
+.mon3d-arch-layer { position: absolute; inset: 0; z-index: 0; }
+
+.mon3d-arch-shadow {
+  position: absolute;
+  bottom: 8%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 72%;
+  height: 18%;
+  background: radial-gradient(ellipse, rgba(0, 0, 0, 0.55) 0%, transparent 70%);
+  filter: blur(8px);
+  z-index: 0;
+}
+
+.mon3d-scene-perimeter {
+  background: linear-gradient(180deg, #0c4a6e 0%, #0f172a 35%, #14532d 100%);
+}
+
+.mon3d-fence {
+  position: absolute;
+  inset: 12% 8% 18% 8%;
+  border: 3px dashed rgba(148, 163, 184, 0.55);
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 2px rgba(56, 189, 248, 0.15);
+}
+
+.mon3d-fence::before,
+.mon3d-fence::after {
+  content: "";
+  position: absolute;
+  width: 100%;
+  height: 2px;
+  background: repeating-linear-gradient(90deg, rgba(148,163,184,0.4) 0 8px, transparent 8px 16px);
+}
+
+.mon3d-fence::before { top: 33%; }
+.mon3d-fence::after { top: 66%; }
+
+.mon3d-garden {
+  position: absolute;
+  left: 10%;
+  top: 22%;
+  width: 28%;
+  height: 35%;
+  background: radial-gradient(circle at 40% 40%, #166534, #14532d);
+  border-radius: 40% 60% 50% 50%;
+  box-shadow: inset 0 0 20px rgba(52, 211, 153, 0.2);
+}
+
+.mon3d-garden::after {
+  content: "庭";
+  position: absolute;
+  bottom: 8%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.65rem;
+  color: rgba(255,255,255,0.5);
+}
+
+.mon3d-parking {
+  position: absolute;
+  right: 8%;
+  bottom: 20%;
+  width: 32%;
+  height: 28%;
+  background: linear-gradient(135deg, #334155, #1e293b);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 6px;
+}
+
+.mon3d-parking::before {
+  content: "";
+  position: absolute;
+  left: 15%;
+  top: 25%;
+  width: 55%;
+  height: 45%;
+  background: linear-gradient(135deg, #475569, #64748b);
+  border-radius: 8px 8px 4px 4px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+
+.mon3d-parking::after {
+  content: "駐車場";
+  position: absolute;
+  bottom: 6%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.62rem;
+  color: rgba(255,255,255,0.45);
+}
+
+.mon3d-house-footprint {
+  position: absolute;
+  left: 50%;
+  top: 38%;
+  transform: translate(-50%, -50%);
+  width: 38%;
+  height: 32%;
+  background: linear-gradient(145deg, #1e3a5f, #0f172a);
+  border: 2px solid rgba(56, 189, 248, 0.4);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5), inset 0 0 30px rgba(56,189,248,0.08);
+}
+
+.mon3d-house-footprint::before {
+  content: "";
+  position: absolute;
+  top: -18%;
+  left: 10%;
+  width: 80%;
+  height: 22%;
+  background: linear-gradient(135deg, #334155, #475569);
+  clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
+}
+
+.mon3d-entrance-path {
+  position: absolute;
+  left: 50%;
+  bottom: 18%;
+  transform: translateX(-50%);
+  width: 12%;
+  height: 14%;
+  background: linear-gradient(180deg, #64748b, #475569);
+  border-radius: 2px;
+}
+
+.mon3d-entrance-path::after {
+  content: "玄関";
+  position: absolute;
+  bottom: -1.2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.62rem;
+  color: rgba(255,255,255,0.5);
+  white-space: nowrap;
+}
+
+.mon3d-back-door-zone {
+  position: absolute;
+  left: 6%;
+  top: 42%;
+  width: 10%;
+  height: 18%;
+  border: 2px solid rgba(148, 163, 184, 0.35);
+  border-radius: 2px;
+  background: rgba(15, 23, 42, 0.5);
+}
+
+.mon3d-back-door-zone::after {
+  content: "勝手口";
+  position: absolute;
+  bottom: -1.1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.58rem;
+  color: rgba(255,255,255,0.45);
+  white-space: nowrap;
+}
+
+.mon3d-scene-interior {
+  background:
+    linear-gradient(145deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.9)),
+    repeating-linear-gradient(0deg, transparent, transparent 20px, rgba(148, 163, 184, 0.04) 20px, rgba(148, 163, 184, 0.04) 21px),
+    repeating-linear-gradient(90deg, transparent, transparent 20px, rgba(148, 163, 184, 0.04) 20px, rgba(148, 163, 184, 0.04) 21px);
+}
+
+.mon3d-room {
+  position: absolute;
+  border: 2px solid rgba(56, 189, 248, 0.25);
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 4px;
+}
+
+.mon3d-room-label {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.6rem;
+  color: rgba(148, 163, 184, 0.7);
+  white-space: nowrap;
+}
+
+.mon3d-glass {
+  position: absolute;
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.25), rgba(34, 211, 238, 0.08));
+  border: 1px solid rgba(125, 211, 252, 0.45);
+  box-shadow: inset 0 0 12px rgba(56, 189, 248, 0.2);
+}
+
+.mon3d-glow-light {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(251, 191, 36, 0.35) 0%, transparent 70%);
+  animation: mon3d-light-pulse 2s ease-in-out infinite;
+}
+
+@keyframes mon3d-light-pulse {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.15); }
 }
 
 .mon3d-device-pin {
   position: absolute;
   transform: translate(-50%, -50%);
-  width: 2.4rem;
-  height: 2.4rem;
+  width: 2.5rem;
+  height: 2.5rem;
   border-radius: 50%;
   border: 2px solid var(--mon-green);
-  background: rgba(15, 23, 42, 0.92);
+  background: rgba(5, 11, 24, 0.92);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -341,13 +650,14 @@ html, body {
   cursor: pointer;
   box-shadow: var(--mon-neon);
   transition: transform 0.15s;
+  z-index: 10;
 }
 
-.mon3d-device-pin:hover { transform: translate(-50%, -50%) scale(1.08); }
+.mon3d-device-pin:hover { transform: translate(-50%, -50%) scale(1.12); z-index: 11; }
 
 .mon3d-device-pin.status-warning {
-  border-color: var(--mon-yellow);
-  box-shadow: 0 0 14px rgba(251, 191, 36, 0.55);
+  border-color: var(--mon-orange);
+  box-shadow: 0 0 18px rgba(251, 146, 60, 0.55);
 }
 
 .mon3d-device-pin.status-alert,
@@ -355,11 +665,32 @@ html, body {
   border-color: var(--mon-red);
   box-shadow: var(--mon-alarm-glow);
   animation: mon3d-pin-blink 0.8s step-end infinite;
+  z-index: 12;
 }
 
 @keyframes mon3d-pin-blink {
-  0%, 100% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
-  50% { opacity: 0.45; transform: translate(-50%, -50%) scale(1); }
+  0%, 100% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+  50% { opacity: 0.5; transform: translate(-50%, -50%) scale(1); }
+}
+
+.mon3d-alert-ring {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  border: 3px solid rgba(239, 68, 68, 0.8);
+  pointer-events: none;
+  z-index: 9;
+  animation: mon3d-ring-ripple 1.8s ease-out infinite;
+}
+
+.mon3d-alert-ring:nth-child(2) { animation-delay: 0.6s; }
+.mon3d-alert-ring:nth-child(3) { animation-delay: 1.2s; }
+
+@keyframes mon3d-ring-ripple {
+  0% { transform: translate(-50%, -50%) scale(0.6); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(2.8); opacity: 0; }
 }
 
 .mon3d-device-pin .pin-label {
@@ -368,42 +699,73 @@ html, body {
   left: 50%;
   transform: translateX(-50%);
   white-space: nowrap;
-  font-size: 0.68rem;
+  font-size: 0.65rem;
   color: var(--mon-muted);
-  margin-top: 0.2rem;
+  margin-top: 0.25rem;
   pointer-events: none;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.8);
 }
 
-.mon3d-right-panel { display: flex; flex-direction: column; gap: 1rem; }
+.mon3d-right-panel { display: flex; flex-direction: column; gap: 0.85rem; }
 
 .mon3d-panel-card {
-  background: var(--mon-panel);
+  background: var(--mon-glass);
+  backdrop-filter: blur(12px);
   border: 1px solid var(--mon-border);
-  border-radius: 14px;
-  padding: 0.85rem;
+  border-radius: var(--mon-radius);
+  padding: 0.9rem;
 }
 
 .mon3d-panel-card h2 {
   margin: 0 0 0.65rem;
-  font-size: 1rem;
+  font-size: 0.82rem;
   color: var(--mon-purple);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.mon3d-panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.mon3d-panel-head h2 { margin: 0; }
+
+.mon3d-panel-alert {
+  border-color: #ef4444;
+  background: linear-gradient(135deg, rgba(127,29,29,0.35), var(--mon-glass));
+}
+
+.mon3d-mini-alert {
+  display: flex;
+  gap: 0.65rem;
+  align-items: flex-start;
+}
+
+.mon3d-mini-alert-icon { font-size: 1.5rem; }
+
+.mon3d-mini-alert-title {
+  margin: 0 0 0.2rem;
+  font-weight: 700;
+  color: #fca5a5;
 }
 
 .mon3d-live-badge {
   display: inline-block;
   background: #dc2626;
   color: #fff;
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   font-weight: 800;
   padding: 0.15rem 0.45rem;
   border-radius: 4px;
-  margin-bottom: 0.5rem;
   animation: mon3d-live 1.5s ease infinite;
 }
 
 @keyframes mon3d-live {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+  50% { opacity: 0.55; }
 }
 
 .mon3d-camera-frame {
@@ -411,7 +773,13 @@ html, body {
   border-radius: 10px;
   overflow: hidden;
   background: #000;
-  border: 1px solid var(--mon-border);
+  border: 2px solid var(--mon-border);
+  position: relative;
+}
+
+.mon3d-camera-frame.is-alert-linked {
+  border-color: #ef4444;
+  box-shadow: var(--mon-alarm-glow);
 }
 
 .mon3d-camera-placeholder {
@@ -420,8 +788,30 @@ html, body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(circle at 30% 20%, #1e3a5f, #0f172a);
-  gap: 0.35rem;
+  background:
+    radial-gradient(circle at 30% 25%, rgba(30, 58, 95, 0.9), rgba(5, 11, 24, 0.95)),
+    repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px);
+  gap: 0.3rem;
+  position: relative;
+}
+
+.mon3d-camera-scanline {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(transparent 48%, rgba(56, 189, 248, 0.06) 50%, transparent 52%);
+  animation: mon3d-scan 3s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes mon3d-scan {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+
+.mon3d-camera-mock-note {
+  font-size: 0.72rem;
+  color: var(--mon-muted);
+  margin: 0;
 }
 
 .mon3d-camera-switch {
@@ -437,14 +827,70 @@ html, body {
   color: var(--mon-text);
   border-radius: 6px;
   padding: 0.35rem 0.55rem;
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   cursor: pointer;
 }
 
 .mon3d-camera-switch button.active {
-  border-color: var(--mon-blue);
-  color: var(--mon-blue);
+  border-color: var(--mon-cyan);
+  color: var(--mon-cyan);
+  box-shadow: var(--mon-neon);
 }
+
+.mon3d-sensor-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.mon3d-sensor-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid rgba(30, 58, 95, 0.5);
+  font-size: 0.82rem;
+  gap: 0.5rem;
+}
+
+.mon3d-sensor-list .sensor-name { flex: 1; }
+.mon3d-sensor-list .sensor-status { font-weight: 600; font-size: 0.75rem; }
+.mon3d-sensor-list .sensor-status.ok { color: var(--mon-green); }
+.mon3d-sensor-list .sensor-status.warn { color: var(--mon-orange); }
+.mon3d-sensor-list .sensor-status.alert { color: var(--mon-red); }
+
+.mon3d-guard-badge {
+  display: inline-block;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.88rem;
+  margin: 0 0 0.65rem;
+}
+
+.mon3d-guard-badge.guard-armed {
+  background: rgba(220, 38, 38, 0.2);
+  border: 1px solid #ef4444;
+  color: #fca5a5;
+}
+
+.mon3d-guard-badge.guard-normal {
+  background: rgba(52, 211, 153, 0.15);
+  border: 1px solid var(--mon-green);
+  color: var(--mon-green);
+}
+
+.mon3d-guard-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.mon3d-guard-meta dt { font-size: 0.68rem; color: var(--mon-muted); }
+.mon3d-guard-meta dd { margin: 0.1rem 0 0; font-size: 0.82rem; font-weight: 600; }
 
 .mon3d-stats-list {
   list-style: none;
@@ -456,17 +902,19 @@ html, body {
   display: flex;
   justify-content: space-between;
   padding: 0.4rem 0;
-  border-bottom: 1px solid rgba(51, 65, 85, 0.5);
+  border-bottom: 1px solid rgba(30, 58, 95, 0.5);
+  font-size: 0.85rem;
 }
 
-.mon3d-stats-list strong { color: var(--mon-blue); }
+.mon3d-stats-list strong { color: var(--mon-cyan); }
 
 .mon3d-log-section {
   margin-top: 1.25rem;
-  background: var(--mon-panel);
+  background: var(--mon-glass);
+  backdrop-filter: blur(12px);
   border: 1px solid var(--mon-border);
-  border-radius: 14px;
-  padding: 0.85rem;
+  border-radius: var(--mon-radius);
+  padding: 0.9rem;
 }
 
 .mon3d-log-header {
@@ -492,15 +940,86 @@ html, body {
   color: var(--mon-muted);
   border-radius: 6px;
   padding: 0.35rem 0.6rem;
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   cursor: pointer;
 }
 
 .mon3d-log-tabs button.active,
 .mon3d-view-toggle button.active {
-  border-color: var(--mon-blue);
-  color: var(--mon-blue);
+  border-color: var(--mon-cyan);
+  color: var(--mon-cyan);
 }
+
+.mon3d-log-disaster {
+  max-height: 360px;
+  overflow-y: auto;
+  border-radius: 8px;
+  border: 1px solid var(--mon-border);
+}
+
+.mon3d-disaster-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.mon3d-disaster-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #0a1628;
+}
+
+.mon3d-disaster-table th {
+  padding: 0.55rem 0.65rem;
+  text-align: left;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--mon-muted);
+  border-bottom: 2px solid var(--mon-border);
+}
+
+.mon3d-disaster-table td {
+  padding: 0.5rem 0.65rem;
+  border-bottom: 1px solid rgba(30, 58, 95, 0.4);
+}
+
+.mon3d-disaster-table tr:hover { background: rgba(37, 99, 235, 0.08); }
+
+.mon3d-disaster-table tr.level-intrusion {
+  background: rgba(127, 29, 29, 0.35);
+  border-left: 4px solid var(--mon-red-deep);
+}
+
+.mon3d-disaster-table tr.level-alarm {
+  background: rgba(124, 45, 18, 0.25);
+  border-left: 4px solid var(--mon-orange);
+}
+
+.mon3d-disaster-table tr.level-caution {
+  background: rgba(113, 63, 18, 0.2);
+  border-left: 4px solid var(--mon-yellow);
+}
+
+.mon3d-disaster-table tr.level-info {
+  background: rgba(15, 23, 42, 0.5);
+  border-left: 4px solid var(--mon-blue);
+}
+
+.mon3d-disaster-table .priority-badge {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.mon3d-disaster-table .priority-badge.intrusion { background: #7f1d1d; color: #fecaca; }
+.mon3d-disaster-table .priority-badge.alarm { background: #7c2d12; color: #fed7aa; }
+.mon3d-disaster-table .priority-badge.caution { background: #713f12; color: #fef08a; }
+.mon3d-disaster-table .priority-badge.info { background: #1e3a5f; color: #bae6fd; }
 
 .mon3d-log-cards {
   display: grid;
@@ -523,7 +1042,7 @@ html, body {
 }
 
 .mon3d-log-card.level-alert { border-left: 4px solid var(--mon-red); }
-.mon3d-log-card.level-warning { border-left: 4px solid var(--mon-yellow); }
+.mon3d-log-card.level-warning { border-left: 4px solid var(--mon-orange); }
 .mon3d-log-card.level-info { border-left: 4px solid var(--mon-blue); }
 
 .mon3d-log-card time {
@@ -533,12 +1052,7 @@ html, body {
   margin-bottom: 0.25rem;
 }
 
-.mon3d-log-card .log-level {
-  font-size: 0.75rem;
-  font-weight: 700;
-  margin-bottom: 0.25rem;
-}
-
+.mon3d-log-card .log-level { font-size: 0.75rem; font-weight: 700; margin-bottom: 0.25rem; }
 .mon3d-log-card .log-place { font-weight: 600; margin: 0 0 0.2rem; }
 .mon3d-log-card .log-content { font-size: 0.88rem; color: var(--mon-muted); margin: 0; }
 
@@ -564,7 +1078,8 @@ html, body {
   right: 0;
   bottom: 0;
   z-index: 50;
-  background: rgba(15, 23, 42, 0.96);
+  background: rgba(5, 11, 24, 0.96);
+  backdrop-filter: blur(12px);
   border-top: 1px solid var(--mon-border);
   padding: 0.35rem 0.5rem calc(0.35rem + env(safe-area-inset-bottom, 0px));
   grid-template-columns: repeat(4, 1fr);
@@ -581,20 +1096,15 @@ html, body {
 }
 
 .mon3d-bottom-nav button.active {
-  color: var(--mon-blue);
-  background: rgba(37, 99, 235, 0.15);
+  color: var(--mon-cyan);
+  background: rgba(37, 99, 235, 0.18);
 }
 
-/* Tablet */
 @media (max-width: 1100px) {
   .mon3d-content-grid { grid-template-columns: 1fr; }
-  .mon3d-right-panel {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-  }
+  .mon3d-right-panel { display: grid; grid-template-columns: 1fr 1fr; }
 }
 
-/* Mobile */
 @media (max-width: 768px) {
   .mon3d-shell { grid-template-columns: 1fr; }
   .mon3d-side-nav { display: none; }
@@ -602,35 +1112,37 @@ html, body {
   .mon3d-floor-stack { max-height: 55vh; }
   .mon3d-right-panel { grid-template-columns: 1fr; }
   .mon3d-alert-card h2 { font-size: 1.25rem; }
+  .mon3d-floor-scene { min-height: 220px; transform: perspective(900px) rotateX(10deg); }
 }
 
-/* TV mode */
+body.mon3d-tv { font-size: 1.15rem; }
+
 body.mon3d-tv .mon3d-side-nav,
-body.mon3d-tv .mon3d-topbar-actions .mon3d-btn,
-body.mon3d-tv .mon3d-bottom-nav,
-body.mon3d-tv .mon3d-log-section { display: none; }
+body.mon3d-tv .mon3d-topbar-actions .mon3d-btn:not(#mon3d-btn-refresh),
+body.mon3d-tv .mon3d-bottom-nav { display: none; }
 
 body.mon3d-tv .mon3d-shell { grid-template-columns: 1fr; }
-
-body.mon3d-tv .mon3d-content-grid { grid-template-columns: 1fr 280px; }
-
-body.mon3d-tv .mon3d-floor-stack {
-  max-height: 82vh;
-}
-
-body.mon3d-tv .mon3d-floor-card.is-alert {
-  position: relative;
-  z-index: 2;
-}
-
+body.mon3d-tv .mon3d-topbar h1 { font-size: 2rem; }
+body.mon3d-tv .mon3d-clock { font-size: 1.75rem; }
+body.mon3d-tv .mon3d-content-grid { grid-template-columns: 1fr 420px; }
+body.mon3d-tv .mon3d-floor-stack { max-height: 85vh; }
+body.mon3d-tv .mon3d-floor-scene { min-height: 340px; transform: perspective(1200px) rotateX(12deg); }
+body.mon3d-tv .mon3d-floor-card.is-alert { transform: scale(1.04); }
+body.mon3d-tv .mon3d-alert-banner { padding: 1.1rem 1.5rem; }
+body.mon3d-tv .mon3d-alert-banner-text strong { font-size: 1.5rem; }
+body.mon3d-tv .mon3d-alert-banner-icon { font-size: 2.25rem; }
+body.mon3d-tv .mon3d-device-pin { width: 3.2rem; height: 3.2rem; font-size: 1.25rem; }
+body.mon3d-tv .mon3d-panel-card h2 { font-size: 1rem; }
+body.mon3d-tv .mon3d-guard-badge { font-size: 1.1rem; }
 body.mon3d-tv .mon3d-log-section {
-  display: block;
   position: fixed;
   right: 1rem;
   bottom: 1rem;
-  width: 360px;
-  max-height: 240px;
-  opacity: 0.92;
+  width: 420px;
+  max-height: 280px;
+  opacity: 0.95;
+  z-index: 30;
 }
-
-body.mon3d-tv .mon3d-log-cards { max-height: 160px; }
+body.mon3d-tv .mon3d-log-disaster { max-height: 180px; }
+body.mon3d-tv .mon3d-disaster-table { font-size: 0.95rem; }
+body.mon3d-tv .mon3d-alert-card h2 { font-size: 2rem; }

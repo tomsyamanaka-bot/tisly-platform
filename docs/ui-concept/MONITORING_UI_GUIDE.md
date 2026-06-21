@@ -1,0 +1,136 @@
+# TiSLY Monitoring UI 標準ガイド
+
+**コンセプト:** TiSLY Security Command Center  
+**参考:** SECOM / ALSOK / 空港管制室 / 防災センター / SOC監視室  
+**対象 URL:** `/tisly-monitoring-3d-v1` · `/tisly-monitoring-home-v1` · `/tisly-monitoring-plant-v1` · `?mode=tv`
+
+---
+
+## 色（Color Palette）
+
+| 用途 | CSS変数 | 値 | 説明 |
+|------|---------|-----|------|
+| 背景 | `--mon-bg` | `#050b18` | 最深ネイビー |
+| パネル | `--mon-panel` | `#0a1224` | サイド/ログ背景 |
+| ガラス | `--mon-glass` | `rgba(15,23,42,0.72)` | カード半透明 |
+| 枠線 | `--mon-border` | `#1e3a5f` | 青系ボーダー |
+| アクセント | `--mon-cyan` | `#22d3ee` | タイトル・時計・正常系 |
+| プライマリ | `--mon-blue-deep` | `#2563eb` | ボタン |
+| 侵入 | `--mon-red-deep` | `#dc2626` | 最高優先度 |
+| 警報 | `--mon-orange` | `#fb923c` | 中優先度 |
+| 注意 | `--mon-yellow` | `#fbbf24` | 低警報 |
+| 情報 | `--mon-blue` | `#38bdf8` | 通常イベント |
+| 正常 | `--mon-green` | `#34d399` | センサー正常 |
+
+---
+
+## カード（Cards）
+
+- **角丸:** `12px`（`--mon-radius`）
+- **背景:** ガラスモーフィズム + `backdrop-filter: blur(12px)`
+- **枠:** `1px solid var(--mon-border)`
+- **影:** 建物カード `--mon-shadow-building`、発報時 `--mon-alarm-glow`
+- **右パネル構成:** 現在警報 → ライブカメラ → センサー状態 → 警戒状態 → 集計
+
+---
+
+## 警報表現（Alert Expression）
+
+### 優先度（ログ・バッジ共通）
+
+| 優先度 | 日本語 | 行背景 | 左ボーダー |
+|--------|--------|--------|------------|
+| 侵入 | 侵入警報 | 深赤 `#7f1d1d` 系 | `#dc2626` |
+| 警報 | 警報 | オレンジ `#7c2d12` 系 | `#fb923c` |
+| 注意 | 注意 | 黄 `#713f12` 系 | `#fbbf24` |
+| 情報 | 情報 | ネイビー | `#38bdf8` |
+
+### 発報演出
+
+1. **画面上部バー** — 🚨 + レベル + 場所 + 時刻（固定・パルス）
+2. **フロア拡大** — `.is-alert` で `scale(1.02)` + 赤枠点滅
+3. **赤リング波紋** — 発報ピン位置に `.mon3d-alert-ring` ×3
+4. **ピン点滅** — `.is-blink` + `--mon-alarm-glow`
+5. **カメラ枠連動** — `.is-alert-linked` 赤枠
+
+---
+
+## ボタン（Buttons）
+
+| 種別 | クラス | 用途 |
+|------|--------|------|
+| プライマリ | `.mon3d-btn` | 更新・対応・テスト |
+| セカンダリ | `.mon3d-btn.secondary` | TV表示・ログ |
+| 危険 | `.mon3d-btn.danger` | 対応済みにする |
+| ゴースト | `.mon3d-btn.ghost` | 資料リンク |
+
+- **角丸:** `8px`
+- **ホバー:** 軽い浮き上がり + ネオングロー
+
+---
+
+## フォント（Typography）
+
+- **ファミリー:** `"Segoe UI", "Hiragino Sans", "Yu Gothic UI", sans-serif`
+- **ブランド:** 800 weight · シアン · letter-spacing 0.06em
+- **セクション見出し:** 0.82rem · uppercase · 紫 `--mon-purple`
+- **時計:** tabular-nums · シアン
+- **TVモード:** ベース 1.15rem · タイトル 2rem · バナー 1.5rem
+
+---
+
+## 余白（Spacing）
+
+| 要素 | 値 |
+|------|-----|
+| メイン padding | `1rem 1.25rem 2rem` |
+| カード内 padding | `0.9rem` |
+| フロアスタック gap | `1.25rem` |
+| 右パネル gap | `0.85rem` |
+| グリッド gap | `1rem` |
+| モバイル下部ナビ | `4.5rem + safe-area` |
+
+---
+
+## 3Dマップ（Floor Scene）
+
+### 戸建てデモ — フロア識別
+
+| フロア | 視覚要素 |
+|--------|----------|
+| 外周 | フェンス · 庭 · 駐車場 · 建物影 · 玄関通路 · 勝手口 |
+| 1階 | 間取り · リビング/ホール/玄関/勝手口 · ガラス · 照明グロー |
+| 2階 | 寝室 · ホール · 階段 · ガラス |
+| 屋根 | 屋根フットプリント |
+
+- **perspective:** `1100px` · **rotateX:** `14deg`
+- **発光:** `.mon3d-glow-light` パルスアニメーション
+
+---
+
+## 表示モード
+
+| モード | 条件 | 要点 |
+|--------|------|------|
+| PC | デフォルト | 左ナビ + 中央マップ + 右パネル + 下ログ |
+| モバイル | `<768px` | 下部4タブナビ |
+| TV | `?mode=tv` | 大文字 · 大マップ · 警報最優先 · ログ右下固定 |
+
+---
+
+## ファイル参照
+
+| ファイル | 役割 |
+|----------|------|
+| `server/public/tisly-monitoring-3d-v1.html` | シェル |
+| `server/public/css/tisly-monitoring-3d-v1.css` | V2 スタイル |
+| `server/public/js/tisly-monitoring-3d-v1.js` | 描画・API |
+| `server/src/monitoring/tisly-monitoring-layout-v1.ts` | 配置データ |
+
+---
+
+## 今後の TiSLY UI への適用
+
+- ダーク系監視画面は本ガイドの色・警報表現を優先
+- お客様向け（Customer UI）は明るい背景のまま — 混在しない
+- 機能追加より **視認性・発報の一瞬理解** を最優先

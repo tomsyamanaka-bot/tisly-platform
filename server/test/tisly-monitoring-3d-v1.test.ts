@@ -45,6 +45,12 @@ describe("TiSLY Monitoring 3D Dashboard V1 — layout", () => {
     assert.equal(dev?.deviceType, "door");
   });
 
+  it("finds back door sensor on 1f", () => {
+    const dev = findMonitoringDeviceV1("DEMO-HOME-001", "door-back-01");
+    assert.ok(dev);
+    assert.equal(dev?.areaName, "勝手口");
+  });
+
   it("plant site resolves separately", () => {
     const site = getMonitoringLayoutSiteV1("DEMO-PLANT-001");
     assert.equal(site.siteKind, "plant");
@@ -117,6 +123,8 @@ describe("TiSLY Monitoring 3D Dashboard V1 — static pages", () => {
     const res = await request(app).get("/tisly-monitoring-3d-v1");
     assert.equal(res.status, 200);
     assert.match(res.text, /mon3d-floor-stack/);
+    assert.match(res.text, /Security Command Center/);
+    assert.match(res.text, /data-ui-version="v2"/);
     assert.doesNotMatch(res.text, /\/api\/monitoring\/v1\/dashboard\?/);
   });
 
@@ -132,16 +140,22 @@ describe("TiSLY Monitoring 3D Dashboard V1 — static pages", () => {
     assert.match(res.text, /DEMO-PLANT-001/);
   });
 
-  it("CSS includes mobile bottom nav", () => {
+  it("CSS includes mobile bottom nav and V2 disaster log", () => {
     const css = fs.readFileSync(path.join(publicDir, "css/tisly-monitoring-3d-v1.css"), "utf8");
     assert.match(css, /mon3d-bottom-nav/);
     assert.match(css, /max-width:\s*768px/);
+    assert.match(css, /mon3d-disaster-table/);
+    assert.match(css, /mon3d-alert-ring/);
+    assert.match(css, /mon3d-tv/);
   });
 
-  it("JS includes floor focus and layout module", () => {
+  it("JS includes floor architecture and disaster log view", () => {
     const js = fs.readFileSync(path.join(publicDir, "js/tisly-monitoring-3d-v1.js"), "utf8");
     assert.match(js, /scrollIntoView/);
     assert.match(js, /is-blink/);
+    assert.match(js, /buildArchitecture/);
+    assert.match(js, /mon3d-alert-ring/);
+    assert.match(js, /disasterRowClass/);
     assert.match(js, /tisly-monitoring-layout-v1/);
     assert.doesNotMatch(js, FORBIDDEN);
   });

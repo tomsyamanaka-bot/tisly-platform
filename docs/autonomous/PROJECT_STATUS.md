@@ -605,6 +605,21 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | API | `GET /api/monitoring/v1/dashboard` · `/logs` · `POST /ack/:id` · `/test-alert` |
 | テスト | `server/test/tisly-monitoring-3d-v1.test.ts` |
 
+### TiSLY Monitoring UI V2 Visual Upgrade（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | **営業デモで感動する Security Command Center** — 機能追加より UI/UX 品質優先 |
+| Phase1 3Dマップ | 建物影 · 立体感 · 発光 · ガラス · 外周フェンス · 庭 · 駐車場 · 玄関 · 勝手口 · 1F/2F間取り |
+| Phase2 発報演出 | フロア拡大 · 赤リング波紋 · 上部アラートバー（🚨 侵入警報 / 場所 / 時刻） |
+| Phase3 右パネル | 現在警報 · ライブカメラ · センサー状態 · 警戒状態 · 最終検知 · オンライン機器 |
+| Phase4 ログ | 防災センター風テーブル · 優先度色分け（侵入/警報/注意/情報） |
+| Phase5 カメラ | 発報連動モック · スキャンライン · 赤枠 · 地点ラベル |
+| Phase6 TV | `?mode=tv` — 大文字 · 大マップ · 警報最優先 · ログ右下固定 |
+| Phase7 UI標準 | [docs/ui-concept/MONITORING_UI_GUIDE.md](../ui-concept/MONITORING_UI_GUIDE.md) |
+| レイアウト追加 | 勝手口ドア/カメラ（`door-back-01` · `cam-back-01`） |
+| テスト | `server/test/tisly-monitoring-3d-v1.test.ts`（V2 CSS/JS アサーション追加） |
+
 ---
 
 ## 関連ドキュメント
