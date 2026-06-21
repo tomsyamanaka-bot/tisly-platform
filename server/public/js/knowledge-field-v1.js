@@ -9,15 +9,25 @@ import {
   STORAGE_FIELD_RECENT,
   escapeHtml,
   getFieldFavorites,
-  hitFlags,
   pushFieldRecent,
   readJson,
   tokenizeFieldMemo,
   writeJson,
 } from "./knowledge-field-shared-v1.js";
+import {
+  bindHitCardActions,
+  buildHitActionButtons,
+  hitCapabilities,
+  loadLastSearchResultsV2,
+  logKnowledgeUsedV2,
+  pushRecentSearchV2,
+  renderFlagRow,
+  saveLastSearchResultsV2,
+} from "./knowledge-field-ux-v2.js";
 
 const $ = (id) => document.getElementById(id);
 let lastHits = [];
+let lastQuery = "";
 let activeKinds = "";
 let activeCategory = "";
 
@@ -54,15 +64,15 @@ function renderKindChips() {
   if (!mount) return;
   mount.innerHTML = KIND_LAUNCHERS.map(
     (k) =>
-      `<button type="button" class="field-chip kind" data-kinds="${escapeHtml(k.kinds)}" data-query="${escapeHtml(k.query)}">${escapeHtml(k.label)}</button>`
+      `<button type="button" class="field-chip kind${activeKinds === k.kinds ? " active" : ""}" data-kinds="${escapeHtml(k.kinds)}" data-query="${escapeHtml(k.query)}">${escapeHtml(k.label)}</button>`
   ).join("");
   mount.querySelectorAll("[data-kinds]").forEach((btn) => {
     btn.addEventListener("click", () => {
       activeKinds = btn.getAttribute("data-kinds") || "";
       activeCategory = "";
       const q = btn.getAttribute("data-query") || "";
-      $("search-input").value = q;
-      runSearch(q);
+      if (!$("search-input").value.trim()) $("search-input").value = q;
+      runSearch($("search-input").value.trim() || q);
     });
   });
 }
@@ -71,14 +81,16 @@ function renderCategoryChips() {
   const mount = $("category-chips");
   if (!mount) return;
   mount.innerHTML = CATEGORY_LAUNCHERS.map(
-    (c) => `<button type="button" class="field-chip category" data-category="${escapeHtml(c)}">${escapeHtml(c)}</button>`
+    (c) =>
+      `<button type="button" class="field-chip category${activeCategory === c ? " active" : ""}" data-category="${escapeHtml(c)}">${escapeHtml(c)}</button>`
   ).join("");
   mount.querySelectorAll("[data-category]").forEach((btn) => {
     btn.addEventListener("click", () => {
       activeCategory = btn.getAttribute("data-category") || "";
       activeKinds = "";
-      $("search-input").value = activeCategory;
-      runSearch(activeCategory);
+      const currentQ = $("search-input").value.trim();
+      if (!currentQ) $("search-input").value = activeCategory;
+      runSearch(currentQ || activeCategory);
     });
   });
 }
@@ -108,6 +120,17 @@ function renderRecentChips() {
     .map((q) => `<button type="button" class="field-chip recent" data-query="${escapeHtml(q)}">${escapeHtml(q)}</button>`)
     .join("");
   bindQueryButtons(mount);
+}
+
+function renderOfflineCacheHint() {
+  const cached = loadLastSearchResultsV2();
+  const mount = $("offline-cache-hint");
+  if (!mount || !cached?.hits?.length) return;
+  mount.innerHTML = `<button type="button" class="field-chip recent" id="restore-cache-btn">📶 前回の結果 (${cached.hits.length}件) を表示</button>`;
+  $("restore-cache-btn")?.addEventListener("click", () => {
+    renderHits(cached.hits, cached.hits.length, `${cached.query}（オフラインキャッシュ）`);
+    toast("前回の検索結果を表示しました");
+  });
 }
 
 function bindQueryButtons(mount, allowRemove = false) {
@@ -166,42 +189,19 @@ function updateMemoPreview() {
 }
 
 function renderFieldCard(hit) {
-  const flags = hitFlags(hit);
+  const flags = hitCapabilities(hit);
   const kindLabel = KIND_LABELS[hit.kind] || hit.kind;
   const reasons = (hit.matchReasons || [])
     .map((r) => `<span class="reason-chip">${escapeHtml(r)}</span>`)
     .join("");
-  const files = hit.filePath ? escapeHtml(hit.filePath.split(/[/\\]/).pop()) : "—";
   const detailUrl = `/knowledge-detail-v1?id=${encodeURIComponent(hit.id)}&kind=${encodeURIComponent(hit.kind)}`;
-
-  const actions = [];
-  actions.push(`<a class="primary" href="${detailUrl}">詳細</a>`);
-  if (flags.pdf && hit.openUrl) {
-    actions.push(`<a href="${escapeHtml(hit.openUrl)}">PDFを開く</a>`);
-  }
-  if (flags.photo && hit.openUrl) {
-    actions.push(`<a href="${escapeHtml(hit.openUrl)}">写真を見る</a>`);
-  }
-  if (flags.plc || hit.kind === "esp") {
-    actions.push(`<a href="${detailUrl}#template">テンプレを見る</a>`);
-  }
-  if (hit.filePath || hit.projectNo) {
-    actions.push(
-      `<button type="button" class="full" data-qnap="${escapeHtml(hit.filePath || hit.projectNo || "")}" data-title="${escapeHtml(hit.title)}">QNAP場所を表示</button>`
-    );
-  }
+  const actions = buildHitActionButtons(hit, flags, detailUrl);
 
   return `<article class="field-card" data-id="${escapeHtml(hit.id)}">
     <h3>${escapeHtml(hit.title)}</h3>
     <p class="field-card-meta">${escapeHtml(kindLabel)} · ${escapeHtml(hit.category || "—")} · 案件 ${escapeHtml(hit.projectNo || "—")}</p>
     <div class="field-card-reasons">${reasons || '<span class="reason-chip">キーワード一致</span>'}</div>
-    <p class="field-card-meta">関連ファイル: ${files}</p>
-    <div class="flag-row">
-      <span class="flag-badge${flags.photo ? " on" : ""}">📷 写真${flags.photo ? "あり" : ""}</span>
-      <span class="flag-badge${flags.pdf ? " on" : ""}">📄 PDF${flags.pdf ? "あり" : ""}</span>
-      <span class="flag-badge${flags.plc ? " on" : ""}">⚙ PLC${flags.plc ? "あり" : ""}</span>
-      <span class="flag-badge${flags.print3d ? " on" : ""}">🖨 3DPrint${flags.print3d ? "あり" : ""}</span>
-    </div>
+    ${renderFlagRow(flags, true)}
     <div class="card-actions">${actions.join("")}</div>
   </article>`;
 }
@@ -215,24 +215,23 @@ function renderHits(hits, total, queryLabel) {
     return;
   }
   mount.innerHTML = hits.map(renderFieldCard).join("");
-  mount.querySelectorAll("[data-qnap]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const path = btn.getAttribute("data-qnap") || "";
-      const title = btn.getAttribute("data-title") || "";
-      toast(`QNAP: ${title} → ${path || "AI/KnowledgeCards/"}`);
-    });
+  bindHitCardActions(mount, toast, (entry) => {
+    logKnowledgeUsedV2({ ...entry, query: lastQuery });
+    toast(`「${entry.title}」を使った記録を保存しました`);
   });
 }
 
 async function searchWithQuery(q) {
   const trimmed = q.trim();
-  if (!trimmed) {
+  if (!trimmed && !activeCategory) {
     $("search-results").innerHTML = '<p class="status-muted">キーワードを入力してください</p>';
     $("result-count").textContent = "—";
     return;
   }
 
-  const params = { q: trimmed, limit: "30" };
+  const searchQ = trimmed || activeCategory;
+  lastQuery = searchQ;
+  const params = { q: searchQ, limit: "30" };
   if (activeCategory) params.category = activeCategory;
   if (activeKinds) params.kinds = activeKinds;
 
@@ -240,6 +239,7 @@ async function searchWithQuery(q) {
   try {
     let data = await apiSearch(params);
     let hits = data.hits || [];
+    let modeLabel = data.searchMode === "or_fallback" ? "（カテゴリを広げて検索）" : "";
 
     if (!hits.length && trimmed.includes(" ")) {
       const tokens = trimmed.split(/\s+/).filter(Boolean);
@@ -255,11 +255,19 @@ async function searchWithQuery(q) {
       data = { ...data, hits, total: hits.length };
     }
 
-    renderHits(hits, data.total ?? hits.length, trimmed);
-    pushFieldRecent(trimmed);
+    renderHits(hits, data.total ?? hits.length, `${searchQ}${modeLabel}`);
+    pushFieldRecent(searchQ);
+    pushRecentSearchV2(searchQ);
+    saveLastSearchResultsV2(searchQ, hits);
   } catch (e) {
     toast(e.message || "検索失敗");
-    $("search-results").innerHTML = `<p class="status-muted">${escapeHtml(e.message || "検索失敗")}</p>`;
+    const cached = loadLastSearchResultsV2();
+    if (cached?.hits?.length) {
+      renderHits(cached.hits, cached.hits.length, `${cached.query}（オフライン）`);
+      toast("回線エラー — 前回の結果を表示");
+    } else {
+      $("search-results").innerHTML = `<p class="status-muted">${escapeHtml(e.message || "検索失敗")}</p>`;
+    }
   }
 }
 
@@ -280,7 +288,6 @@ async function searchFromMemo() {
     return;
   }
   activeKinds = "";
-  activeCategory = "";
   const query = tokens.join(" ");
   $("search-input").value = query;
   updateMemoPreview();
@@ -296,23 +303,20 @@ async function init() {
   renderCategoryChips();
   renderFavoriteChips();
   renderRecentChips();
+  renderOfflineCacheHint();
 
-  $("search-btn")?.addEventListener("click", () => {
-    activeKinds = "";
-    runSearch();
-  });
+  $("search-btn")?.addEventListener("click", () => runSearch());
   $("clear-btn")?.addEventListener("click", () => {
     $("search-input").value = "";
     activeKinds = "";
     activeCategory = "";
+    renderKindChips();
+    renderCategoryChips();
     $("search-results").innerHTML = '<p class="status-muted">キーワードまたはチップをタップして検索</p>';
     $("result-count").textContent = "—";
   });
   $("search-input")?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      activeKinds = "";
-      runSearch();
-    }
+    if (e.key === "Enter") runSearch();
   });
   $("fav-add-btn")?.addEventListener("click", addFavorite);
   $("fav-add-input")?.addEventListener("keydown", (e) => {

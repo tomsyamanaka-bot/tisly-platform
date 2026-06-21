@@ -47,7 +47,7 @@ import {
 } from "../../knowledge/knowledge-qnap-sync-store-v1.js";
 import { getKnowledgeQnapConnectionInfoV1 } from "../../knowledge/knowledge-qnap-sync-service-v1.js";
 import { searchKnowledgeIndexV1 } from "../../knowledge/knowledge-search-v1.js";
-import { getKnowledgeDetailV1 } from "../../knowledge/knowledge-detail-v1.js";
+import { getKnowledgeDetailV1, buildQnapDeepLinksV1 } from "../../knowledge/knowledge-detail-v1.js";
 import { tokenizeFieldMemoV1 } from "../../knowledge/knowledge-field-memo-v1.js";
 import {
   parseUnifiedKnowledgeKindsV1,
@@ -132,6 +132,17 @@ knowledgeV1Router.get("/detail-v1", ...auth, (req: AuthedRequest, res) => {
     return;
   }
   res.json({ detail });
+});
+
+/** GET /api/knowledge/qnap-links-v1?path= — QNAP 深リンク（SMB / Web / コピー用） */
+knowledgeV1Router.get("/qnap-links-v1", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const relPath = String(req.query.path ?? "").trim();
+  if (!relPath) {
+    res.status(400).json({ error: "path is required" });
+    return;
+  }
+  res.json({ links: buildQnapDeepLinksV1(relPath) });
 });
 
 /** GET /api/knowledge/field-memo-tokenize?q= — 現場メモ単語分解（ルールベース） */

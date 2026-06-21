@@ -40,6 +40,14 @@ export interface UnifiedKnowledgeSearchHitV1 {
   filePath?: string;
   openUrl?: string;
   status?: string;
+  hasPhoto?: boolean;
+  hasPdf?: boolean;
+  hasPlc?: boolean;
+  has3dPrint?: boolean;
+  hasQnap?: boolean;
+  hasProject?: boolean;
+  qnapPath?: string;
+  relatedCount?: number;
 }
 
 export interface UnifiedKnowledgeSearchOptionsV1 {
@@ -55,6 +63,7 @@ export interface UnifiedKnowledgeSearchOptionsV1 {
 export interface UnifiedKnowledgeSearchResultV1 {
   query: string;
   engine: "keyword_unified_v1";
+  searchMode?: "and" | "or_fallback";
   filters: {
     category?: string;
     projectNo?: string;
@@ -172,6 +181,117 @@ function inDateRange(isoDate: string, from?: string, to?: string): boolean {
   if (from && d < from) return false;
   if (to && d > to) return false;
   return true;
+}
+
+function matchesCategoryFilter(doc: SearchDocV1, category: string): boolean {
+  const filter = category.trim().toLowerCase();
+  if (!filter) return true;
+  const docCat = doc.category.toLowerCase();
+  return docCat === filter || docCat.includes(filter) || filter.includes(docCat);
+}
+
+function resolveHitQnapPath(doc: SearchDocV1): string | undefined {
+  if (doc.filePath?.startsWith("AI/")) return doc.filePath;
+  if (doc.kind === "plc" && doc.filePath) return `PLC/${doc.filePath.replace(/^[/\\]+/, "")}`;
+  if (doc.kind === "3dprint" && doc.filePath) return `3DPrint/${doc.filePath.replace(/^[/\\]+/, "")}`;
+  if (doc.kind === "factory" && doc.filePath) return `Factory/${doc.filePath.replace(/^[/\\]+/, "")}`;
+  if (doc.kind === "candidate") return `AI/Candidates/${doc.id}.json`;
+  if (doc.kind === "project" && doc.projectNo) return `Projects/${doc.projectNo}`;
+  if (doc.filePath) return doc.filePath;
+  if (doc.kind === "knowledge_card" || doc.kind === "pdf" || doc.kind === "photo" || doc.kind === "esp") {
+    return `AI/KnowledgeCards/${doc.id}.json`;
+  }
+  return undefined;
+}
+
+function enrichHit(doc: SearchDocV1, score: number, matchReasons: string[]): UnifiedKnowledgeSearchHitV1 {
+  const qnapPath = resolveHitQnapPath(doc);
+  const hasPhoto = doc.kind === "photo" || doc.tags.some((t) => /写真|photo/i.test(t));
+  const hasPdf =
+    doc.kind === "pdf" ||
+    Boolean(doc.openUrl?.includes("document-viewer")) ||
+    doc.tags.some((t) => /pdf/i.test(t));
+  const hasPlc = doc.kind === "plc";
+  const has3dPrint =
+    doc.kind === "3dprint" ||
+    Boolean(doc.fileFormats?.some((f) => /stl|step|gcode/i.test(f)));
+  const hasProject = doc.kind === "project" || Boolean(doc.projectNo);
+  const hasQnap = Boolean(qnapPath);
+
+  return {
+    id: doc.id,
+    kind: doc.kind,
+    title: doc.title,
+    category: doc.category,
+    tags: doc.tags,
+    summary: doc.body.slice(0, 280),
+    projectNo: doc.projectNo,
+    projectId: doc.projectId,
+    customerName: doc.customerName,
+    propertyName: doc.propertyName,
+    createdAt: doc.createdAt,
+    score,
+    matchReasons,
+    ladderDescription: doc.ladderDescription,
+    usage: doc.usage,
+    cautions: doc.cautions,
+    fileFormats: doc.fileFormats,
+    filePath: doc.filePath,
+    openUrl: doc.openUrl,
+    status: doc.status,
+    hasPhoto,
+    hasPdf,
+    hasPlc,
+    has3dPrint,
+    hasQnap,
+    hasProject,
+    qnapPath,
+    relatedCount: doc.tags.length,
+  };
+}
+
+const OR_FALLBACK_MIN_HITS = 3;
+
+function runUnifiedSearchPass(
+  options: UnifiedKnowledgeSearchOptionsV1,
+  mode: "and" | "or_fallback"
+): UnifiedKnowledgeSearchHitV1[] {
+  const tokens = tokenize(options.query);
+  const kinds = options.kinds?.length ? new Set(options.kinds) : null;
+  const corpus = buildUnifiedKnowledgeSearchCorpusV1();
+  const hits: UnifiedKnowledgeSearchHitV1[] = [];
+  const categoryFilter = options.category?.trim();
+
+  for (const doc of corpus) {
+    if (options.projectNo && doc.projectNo !== options.projectNo) continue;
+    if (!inDateRange(doc.createdAt, options.dateFrom, options.dateTo)) continue;
+    if (kinds && !kinds.has(doc.kind)) continue;
+
+    const categoryMatches = categoryFilter ? matchesCategoryFilter(doc, categoryFilter) : true;
+    if (mode === "and" && categoryFilter && !categoryMatches) continue;
+    if (tokens.length === 0) continue;
+
+    const { score, matchReasons } = scoreDoc(doc, tokens);
+    if (score <= 0 && !(mode === "or_fallback" && categoryMatches)) continue;
+
+    let finalScore = score;
+    const reasons = [...matchReasons];
+    if (categoryFilter && categoryMatches) {
+      finalScore += 4;
+      if (!reasons.includes(FIELD_LABELS.category)) reasons.push(FIELD_LABELS.category);
+    }
+    if (mode === "or_fallback" && categoryMatches && score <= 0) {
+      finalScore = 3;
+      if (!reasons.length) reasons.push("カテゴリ一致");
+    }
+    if (finalScore <= 0) continue;
+
+    hits.push(enrichHit(doc, finalScore, reasons));
+  }
+
+  return hits.sort(
+    (a, b) => b.score - a.score || a.title.localeCompare(b.title, "ja")
+  );
 }
 
 function cardKind(card: KnowledgeCardV1): UnifiedKnowledgeKindV1 {
@@ -324,54 +444,31 @@ export function unifiedKnowledgeSearchV1(
   const corpus = buildUnifiedKnowledgeSearchCorpusV1();
   const kindCounts: Partial<Record<UnifiedKnowledgeKindV1, number>> = {};
 
-  let hits: UnifiedKnowledgeSearchHitV1[] = [];
-
   for (const doc of corpus) {
-    if (options.category && doc.category !== options.category) continue;
+    if (options.category && !matchesCategoryFilter(doc, options.category)) continue;
     if (options.projectNo && doc.projectNo !== options.projectNo) continue;
     if (!inDateRange(doc.createdAt, options.dateFrom, options.dateTo)) continue;
     if (kinds && !kinds.has(doc.kind)) continue;
-
     kindCounts[doc.kind] = (kindCounts[doc.kind] ?? 0) + 1;
-
-    if (tokens.length === 0) continue;
-
-    const { score, matchReasons } = scoreDoc(doc, tokens);
-    if (score <= 0) continue;
-
-    hits.push({
-      id: doc.id,
-      kind: doc.kind,
-      title: doc.title,
-      category: doc.category,
-      tags: doc.tags,
-      summary: doc.body.slice(0, 280),
-      projectNo: doc.projectNo,
-      projectId: doc.projectId,
-      customerName: doc.customerName,
-      propertyName: doc.propertyName,
-      createdAt: doc.createdAt,
-      score,
-      matchReasons,
-      ladderDescription: doc.ladderDescription,
-      usage: doc.usage,
-      cautions: doc.cautions,
-      fileFormats: doc.fileFormats,
-      filePath: doc.filePath,
-      openUrl: doc.openUrl,
-      status: doc.status,
-    });
   }
 
-  hits = hits.sort(
-    (a, b) => b.score - a.score || a.title.localeCompare(b.title, "ja")
-  );
+  let searchMode: "and" | "or_fallback" = "and";
+  let hits = runUnifiedSearchPass(options, "and");
+
+  if (options.category?.trim() && tokens.length > 0 && hits.length < OR_FALLBACK_MIN_HITS) {
+    const orHits = runUnifiedSearchPass(options, "or_fallback");
+    if (orHits.length > hits.length) {
+      hits = orHits;
+      searchMode = "or_fallback";
+    }
+  }
 
   const categories = loadWorkCategoriesMaster().categories;
 
   return {
     query: options.query,
     engine: "keyword_unified_v1",
+    searchMode,
     filters: {
       category: options.category || undefined,
       projectNo: options.projectNo || undefined,
@@ -385,6 +482,8 @@ export function unifiedKnowledgeSearchV1(
     kindCounts,
   };
 }
+
+export { buildQnapDeepLinksV1 } from "./knowledge-qnap-links-v1.js";
 
 export const UNIFIED_KNOWLEDGE_KIND_LABELS_V1: Record<UnifiedKnowledgeKindV1, string> = {
   knowledge_card: "ナレッジカード",

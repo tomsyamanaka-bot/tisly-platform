@@ -1,0 +1,145 @@
+/* Knowledge Field UX V2 — QNAP modal / attachment cards / enhanced hit cards */
+
+.field-chip.active,
+.chip-btn.active-category {
+  background: #334155 !important;
+  color: #fff !important;
+  border-color: #334155 !important;
+}
+
+.card-actions .full,
+.card-actions .used-btn {
+  grid-column: 1 / -1;
+  background: #ecfdf5;
+  border-color: #86efac;
+  color: #166534;
+}
+
+.hit-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem;
+  margin-top: 0.55rem;
+}
+
+.hit-actions a,
+.hit-actions button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.5rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #1e293b;
+  text-decoration: none;
+  padding: 0.3rem;
+  cursor: pointer;
+}
+
+.hit-actions .primary {
+  background: #334155;
+  color: #fff;
+  border-color: #334155;
+}
+
+.hit-actions .full {
+  grid-column: 1 / -1;
+}
+
+.flag-row { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0.35rem 0; }
+.flag-badge {
+  font-size: 0.75rem; border-radius: 8px; padding: 0.15rem 0.45rem;
+  background: #f1f5f9; color: #475569;
+}
+.flag-badge.on { background: #dbeafe; color: #1d4ed8; font-weight: 600; }
+
+.qnap-modal-overlay {
+  display: none;
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(15, 23, 42, 0.55);
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0.75rem;
+}
+.qnap-modal-overlay.show { display: flex; }
+.qnap-modal {
+  background: #fff; border-radius: 16px 16px 12px 12px;
+  padding: 1rem; width: 100%; max-width: 28rem;
+  max-height: 85vh; overflow-y: auto;
+  box-shadow: 0 -4px 24px rgba(0,0,0,0.15);
+}
+.qnap-modal h3 { margin: 0 0 0.25rem; font-size: 1.05rem; }
+.qnap-modal-sub { margin: 0 0 0.75rem; color: #64748b; font-size: 0.85rem; }
+.qnap-modal label {
+  display: block; font-size: 0.78rem; color: #64748b;
+  margin: 0.55rem 0 0.2rem; font-weight: 600;
+}
+.qnap-path-row {
+  display: flex; gap: 0.35rem; align-items: stretch;
+}
+.qnap-path-text {
+  flex: 1; font-size: 0.72rem; background: #f8fafc;
+  border: 1px solid #e2e8f0; border-radius: 8px;
+  padding: 0.45rem; word-break: break-all;
+  display: block;
+}
+.qnap-path-text.small { font-size: 0.68rem; }
+.qnap-copy-btn {
+  flex: 0 0 auto; min-width: 3.5rem; min-height: 2.5rem;
+  border-radius: 8px; border: 1px solid #cbd5e1;
+  background: #334155; color: #fff; font-size: 0.82rem; font-weight: 600;
+  cursor: pointer;
+}
+.qnap-hint { font-size: 0.78rem; color: #94a3b8; margin: 0.65rem 0 0; line-height: 1.45; }
+
+.attach-card {
+  display: flex; gap: 0.65rem; border: 1px solid #e2e8f0;
+  border-radius: 12px; padding: 0.65rem; margin: 0.35rem 0;
+  background: #fafafa;
+}
+.attach-preview-placeholder {
+  flex: 0 0 5rem; width: 5rem; height: 5rem;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: #e2e8f0; border-radius: 10px; font-size: 0.78rem; text-align: center;
+  color: #475569;
+}
+.attach-preview-placeholder small { font-size: 0.65rem; color: #94a3b8; margin-top: 0.15rem; }
+.attach-preview-img {
+  flex: 0 0 5rem; width: 5rem; height: 5rem;
+  object-fit: cover; border-radius: 10px;
+}
+.attach-card-body { flex: 1; min-width: 0; }
+.attach-card-body strong { display: block; font-size: 0.92rem; margin-bottom: 0.2rem; }
+.attach-path {
+  display: block; font-size: 0.72rem; color: #64748b;
+  word-break: break-all; margin: 0.15rem 0;
+}
+.attach-actions { display: flex; gap: 0.35rem; flex-wrap: wrap; margin-top: 0.35rem; }
+.attach-open-btn, .attach-qnap-btn {
+  font-size: 0.78rem; padding: 0.25rem 0.55rem;
+  border-radius: 8px; border: 1px solid #cbd5e1;
+  background: #fff; color: #334155; text-decoration: none;
+  cursor: pointer;
+}
+
+.detail-used-row { margin-top: 0.65rem; }
+.detail-used-row button {
+  width: 100%; min-height: 3rem; font-size: 0.95rem; font-weight: 700;
+  border-radius: 12px; border: 1px solid #86efac;
+  background: #ecfdf5; color: #166534; cursor: pointer;
+}
+
+.offline-hint { margin-top: 0.35rem; }
+
+.settings-knowledge-group {
+  border-top: 1px solid #e2e8f0;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+}
+.settings-knowledge-group .group-label {
+  font-size: 0.78rem; color: #64748b; font-weight: 700;
+  padding: 0.35rem 0.75rem 0.15rem;
+}

@@ -1,5 +1,14 @@
 import { initPracticalNav } from "./tisly-practical-nav.js";
 import { requireCustomerLogin, getCustomerToken } from "./customer-auth.js";
+import {
+  bindHitCardActions,
+  buildHitActionButtons,
+  hitCapabilities,
+  logKnowledgeUsedV2,
+  pushRecentSearchV2,
+  renderFlagRow,
+  saveLastSearchResultsV2,
+} from "./knowledge-field-ux-v2.js";
 
 const STORAGE_HISTORY = "tisly_knowledge_search_history_v1";
 const STORAGE_FAVORITES = "tisly_knowledge_search_favorites_v1";
@@ -23,6 +32,7 @@ const $ = (id) => document.getElementById(id);
 let viewMode = "list";
 let selectedKinds = new Set();
 let lastHits = [];
+let lastQuery = "";
 
 function toast(msg) {
   const el = $("toast");
@@ -75,6 +85,7 @@ function pushRecentQuery(q) {
   let recent = readJson(STORAGE_RECENT, []);
   recent = [trimmed, ...recent.filter((x) => x !== trimmed)].slice(0, 10);
   writeJson(STORAGE_RECENT, recent);
+  pushRecentSearchV2(trimmed);
   renderRecentChips();
 }
 
@@ -157,7 +168,7 @@ function renderKindChips() {
       if (selectedKinds.has(kind)) selectedKinds.delete(kind);
       else selectedKinds.add(kind);
       renderKindChips();
-      runSearch();
+      if ($("search-input")?.value?.trim()) runSearch();
     });
   });
 }
@@ -183,6 +194,7 @@ async function loadCategories() {
 
 function renderHit(hit) {
   const kindLabel = KIND_LABELS[hit.kind] || hit.kind;
+  const flags = hitCapabilities(hit);
   const reasons = (hit.matchReasons || [])
     .map((r) => `<span class="reason-chip">${escapeHtml(r)}</span>`)
     .join("");
@@ -200,8 +212,10 @@ function renderHit(hit) {
       : "";
   const formats =
     hit.fileFormats?.length ? `<span class="tag-chip">${escapeHtml(hit.fileFormats.join("/"))}</span>` : "";
+  const detailUrl = `/knowledge-detail-v1?id=${encodeURIComponent(hit.id)}&kind=${encodeURIComponent(hit.kind)}`;
+  const actions = buildHitActionButtons(hit, flags, detailUrl);
 
-  return `<article class="hit-item" data-open="${escapeHtml(hit.openUrl || "")}" data-id="${escapeHtml(hit.id)}">
+  return `<article class="hit-item" data-id="${escapeHtml(hit.id)}">
     <h3>${escapeHtml(hit.title)}</h3>
     <p class="hit-meta">
       <span class="kind-chip">${escapeHtml(kindLabel)}</span>
@@ -210,14 +224,19 @@ function renderHit(hit) {
     </p>
     <p class="hit-summary">${escapeHtml(hit.summary)}</p>
     <div class="hit-reasons">${reasons}${formats}${tags}</div>
+    ${renderFlagRow(flags, true)}
     ${plcExtra}
+    <div class="hit-actions">${actions.join("")}</div>
   </article>`;
 }
 
-function renderHits(hits, total) {
+function renderHits(hits, total, searchMode) {
   lastHits = hits;
   const mount = $("search-results");
-  $("result-meta").textContent = total ? `${total}件ヒット（上位${hits.length}件表示）` : "該当なし";
+  const modeHint = searchMode === "or_fallback" ? " · カテゴリを広げて検索" : "";
+  $("result-meta").textContent = total
+    ? `${total}件ヒット（上位${hits.length}件表示${modeHint}）`
+    : "該当なし";
   if (!hits.length) {
     mount.innerHTML = '<p class="status-muted">該当するナレッジがありません</p>';
     mount.className = "status-muted";
@@ -225,15 +244,9 @@ function renderHits(hits, total) {
   }
   mount.className = viewMode === "cards" ? "results-cards" : "results-list";
   mount.innerHTML = hits.map(renderHit).join("");
-  mount.querySelectorAll(".hit-item").forEach((el) => {
-    el.addEventListener("click", () => {
-      const url = el.getAttribute("data-open");
-      if (url && url.startsWith("/")) {
-        location.href = url;
-      } else if (url) {
-        window.open(url, "_blank", "noopener");
-      }
-    });
+  bindHitCardActions(mount, toast, (entry) => {
+    logKnowledgeUsedV2({ ...entry, query: lastQuery });
+    toast(`「${entry.title}」を使った記録を保存しました`);
   });
 }
 
@@ -244,6 +257,7 @@ async function runSearch() {
     $("result-meta").textContent = "キーワードを入力して検索";
     return;
   }
+  lastQuery = q;
   const params = { q, limit: isMobileMode() ? "30" : "50" };
   const category = $("filter-category")?.value?.trim();
   const projectNo = $("filter-project-no")?.value?.trim();
@@ -258,8 +272,9 @@ async function runSearch() {
   $("search-results").innerHTML = '<p class="status-muted">検索中…</p>';
   try {
     const data = await apiSearch(params);
-    renderHits(data.hits || [], data.total ?? 0);
+    renderHits(data.hits || [], data.total ?? 0, data.searchMode);
     pushRecentQuery(q);
+    saveLastSearchResultsV2(q, data.hits || []);
     pushHistory({ q, category, projectNo, dateFrom, dateTo, kinds: [...selectedKinds] });
   } catch (e) {
     toast(e.message || "検索失敗");
