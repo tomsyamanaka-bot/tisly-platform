@@ -62,7 +62,17 @@ import {
 import { listProjectKnowledgeV1 } from "../../knowledge/knowledge-project-knowledge-v1.js";
 import { runKnowledgeQnapConnectionTestV1 } from "../../knowledge/knowledge-qnap-connection-test-v1.js";
 import { buildCustomerHomeV1 } from "../../knowledge/knowledge-customer-home-v1.js";
+import { buildCustomerHomeV2 } from "../../knowledge/knowledge-customer-home-v2.js";
 import { getKnowledgeCustomerDetailV1 } from "../../knowledge/knowledge-customer-detail-v1.js";
+import {
+  filterCustomerMaterialsV1,
+  getCustomerProjectPageV1,
+  getSiteAreaKnowledgeLinksV1,
+} from "../../knowledge/knowledge-customer-project-v1.js";
+import {
+  getCustomerSiteAreaV1,
+  getCustomerSiteMapForProjectV1,
+} from "../../knowledge/knowledge-customer-site-map-v1.js";
 import { tokenizeFieldMemoV1 } from "../../knowledge/knowledge-field-memo-v1.js";
 import {
   parseUnifiedKnowledgeKindsV1,
@@ -716,7 +726,8 @@ knowledgeV1Router.get("/customer-detail-v1", ...auth, (req: AuthedRequest, res) 
     "factory",
   ]);
   const kind = allowedKinds.has(kindRaw) ? (kindRaw as UnifiedKnowledgeKindV1) : undefined;
-  const detail = getKnowledgeCustomerDetailV1(id, kind);
+  const projectRef = String(req.query.ref ?? req.query.projectId ?? "").trim() || undefined;
+  const detail = getKnowledgeCustomerDetailV1(id, kind, projectRef);
   if (!detail) {
     res.status(404).json({ error: "Knowledge item not found" });
     return;
@@ -746,6 +757,87 @@ knowledgeV1Router.get("/customer-search-v1", ...auth, (req: AuthedRequest, res) 
     detailUrl: `/knowledge-customer-detail-v1?id=${encodeURIComponent(hit.id)}&kind=${encodeURIComponent(hit.kind)}`,
   }));
   res.json({ hits, total: result.total, query: q, category: category || undefined });
+});
+
+/** GET /api/knowledge/customer-home-v2 — お客様向けホーム V2（案件一覧） */
+knowledgeV1Router.get("/customer-home-v2", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  ensureKnowledgeLibraryTemplatesV1();
+  res.json(buildCustomerHomeV2());
+});
+
+/** GET /api/knowledge/customer-project-v1?projectId= — 案件別お客様向けページ */
+knowledgeV1Router.get("/customer-project-v1", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  ensureKnowledgeLibraryTemplatesV1();
+  const ref = String(req.query.ref ?? req.query.projectId ?? "").trim();
+  if (!ref) {
+    res.status(400).json({ error: "project ref is required" });
+    return;
+  }
+  const page = getCustomerProjectPageV1(ref);
+  if (!page) {
+    res.status(404).json({ error: "Project not found" });
+    return;
+  }
+  res.json({ page });
+});
+
+/** GET /api/knowledge/customer-site-map-v1?projectId= — 案件別 Site Map */
+knowledgeV1Router.get("/customer-site-map-v1", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const ref = String(req.query.ref ?? req.query.projectId ?? "").trim();
+  if (!ref) {
+    res.status(400).json({ error: "project ref is required" });
+    return;
+  }
+  const siteMap = getCustomerSiteMapForProjectV1(ref);
+  if (!siteMap) {
+    res.status(404).json({ error: "Site map not found" });
+    return;
+  }
+  res.json({ siteMap });
+});
+
+/** GET /api/knowledge/customer-site-map-v1/area — エリア詳細 + 関連ナレッジ */
+knowledgeV1Router.get("/customer-site-map-v1/area", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const ref = String(req.query.ref ?? req.query.projectId ?? "").trim();
+  const areaId = String(req.query.areaId ?? "").trim();
+  if (!ref || !areaId) {
+    res.status(400).json({ error: "ref and areaId are required" });
+    return;
+  }
+  const area = getCustomerSiteAreaV1(ref, areaId);
+  if (!area) {
+    res.status(404).json({ error: "Area not found" });
+    return;
+  }
+  const knowledgeLinks = getSiteAreaKnowledgeLinksV1(area, ref);
+  res.json({
+    area,
+    knowledgeLinks,
+    projectPageUrl: `/knowledge-customer-project-v1?ref=${encodeURIComponent(ref)}`,
+  });
+});
+
+/** GET /api/knowledge/customer-materials-v1?projectId=&filter= — 資料一覧フィルタ */
+knowledgeV1Router.get("/customer-materials-v1", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  ensureKnowledgeLibraryTemplatesV1();
+  const ref = String(req.query.ref ?? req.query.projectId ?? "").trim();
+  const filter = String(req.query.filter ?? "").trim();
+  if (!ref) {
+    res.status(400).json({ error: "project ref is required" });
+    return;
+  }
+  const page = getCustomerProjectPageV1(ref);
+  if (!page) {
+    res.status(404).json({ error: "Project not found" });
+    return;
+  }
+  const materials = filterCustomerMaterialsV1(page.materials, filter);
+  res.json({ materials, filter: filter || "all" });
 });
 
 /** MotherShip Explorer */

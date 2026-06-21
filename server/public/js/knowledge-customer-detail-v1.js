@@ -38,10 +38,17 @@ function renderDetail(d) {
     .join("");
 
   const beforeAfter = d.beforeAfter
-    ? `<div class="customer-before-after">
-        <div class="customer-ba-box before"><strong>${escapeHtml(d.beforeAfter.beforeLabel)}</strong><span>いまの状態</span></div>
-        <div class="customer-ba-box after"><strong>${escapeHtml(d.beforeAfter.afterLabel)}</strong><span>${escapeHtml(sanitizeCustomerTextV1(d.beforeAfter.summary))}</span></div>
-      </div>`
+    ? `<div class="customer-before-after-v2">
+        <div class="customer-ba-column before">
+          <h3>${escapeHtml(d.beforeAfter.beforeLabel)}</h3>
+          <ul>${(d.beforeAfter.beforePoints || []).map((p) => `<li>${escapeHtml(sanitizeCustomerTextV1(p))}</li>`).join("")}</ul>
+        </div>
+        <div class="customer-ba-column after">
+          <h3>${escapeHtml(d.beforeAfter.afterLabel)}</h3>
+          <ul>${(d.beforeAfter.afterPoints || []).map((p) => `<li>${escapeHtml(sanitizeCustomerTextV1(p))}</li>`).join("")}</ul>
+        </div>
+      </div>
+      <p class="customer-ba-summary">${escapeHtml(sanitizeCustomerTextV1(d.beforeAfter.summary))}</p>`
     : "";
 
   const pdfsHtml =
@@ -103,6 +110,8 @@ function renderDetail(d) {
     ${relatedHtml ? `<section class="customer-card"><h2>関連資料</h2>${relatedHtml}</section>` : ""}
     ${questions ? `<section class="customer-card"><h2>よくあるご質問</h2>${questions}</section>` : ""}
     <div class="customer-field-link-row">
+      ${d.projectPageUrl ? `<a href="${escapeHtml(d.projectPageUrl)}">← 物件ページへ戻る</a>` : ""}
+      <a href="${escapeHtml(d.customerHomeV2Url || "/knowledge-customer-v2")}">🏠 お客様ホームへ</a>
       <a href="${escapeHtml(d.fieldDetailUrl)}">🔧 現場向け詳細へ戻る</a>
     </div>
   `;
@@ -114,6 +123,19 @@ function bindDetailEvents(d) {
 
   const fieldLink = $("customer-field-link");
   if (fieldLink) fieldLink.href = d.fieldDetailUrl;
+
+  const projectLink = $("customer-project-link");
+  if (projectLink) {
+    if (d.projectPageUrl) {
+      projectLink.href = d.projectPageUrl;
+      projectLink.hidden = false;
+    } else {
+      projectLink.hidden = true;
+    }
+  }
+
+  const homeLink = $("customer-home-link");
+  if (homeLink) homeLink.href = d.customerHomeV2Url || "/knowledge-customer-v2";
 
   $("customer-use-btn")?.addEventListener("click", () => {
     logKnowledgeUsedV3(
@@ -136,6 +158,7 @@ async function loadDetail() {
   const params = new URLSearchParams(location.search);
   const id = params.get("id");
   const kind = params.get("kind") || "";
+  const ref = params.get("ref") || "";
   if (!id) {
     $("customer-detail-root").innerHTML = '<p class="status-muted">資料が指定されていません</p>';
     return;
@@ -144,6 +167,7 @@ async function loadDetail() {
   const token = getCustomerToken();
   const qs = new URLSearchParams({ id });
   if (kind) qs.set("kind", kind);
+  if (ref) qs.set("ref", ref);
   const res = await fetch(`/api/knowledge/customer-detail-v1?${qs}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });

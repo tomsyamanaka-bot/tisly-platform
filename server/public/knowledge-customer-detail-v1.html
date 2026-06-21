@@ -8,14 +8,16 @@
   <title>TiSLY Knowledge — 資料のご説明</title>
   <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
   <link rel="stylesheet" href="/css/knowledge-customer-v1.css" />
+  <link rel="stylesheet" href="/css/knowledge-customer-v2.css" />
 </head>
 <body class="tisly-friendly knowledge-customer-v1 knowledge-customer-detail">
   <main class="app-main customer-main" id="customer-detail-root">
     <p class="status-muted">読み込み中…</p>
   </main>
   <div id="customer-detail-bar" class="customer-detail-bar" hidden>
-    <a href="/knowledge-customer-v1" class="customer-bar-btn">← 一覧</a>
+    <a href="/knowledge-customer-v2" id="customer-home-link" class="customer-bar-btn">← ホーム</a>
     <button type="button" id="customer-use-btn" class="customer-bar-btn primary">この資料を使う</button>
+    <a href="#" id="customer-project-link" class="customer-bar-btn" hidden>物件へ</a>
     <a href="#" id="customer-field-link" class="customer-bar-btn">現場向け</a>
   </div>
   <div id="toast" class="toast customer-toast" role="status"></div>

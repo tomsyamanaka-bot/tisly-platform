@@ -34,6 +34,8 @@ export interface KnowledgeCustomerBeforeAfterV1 {
   beforeLabel: string;
   afterLabel: string;
   summary: string;
+  beforePoints: string[];
+  afterPoints: string[];
 }
 
 export interface KnowledgeCustomerDetailV1 {
@@ -50,6 +52,8 @@ export interface KnowledgeCustomerDetailV1 {
   siteLocations: KnowledgeCustomerSiteLocationV1[];
   fieldDetailUrl: string;
   customerHomeUrl: string;
+  customerHomeV2Url: string;
+  projectPageUrl?: string;
 }
 
 function safePreviewUrl(att: KnowledgeAttachmentV1): string | undefined {
@@ -69,35 +73,53 @@ function safeViewUrl(att: KnowledgeAttachmentV1): string | undefined {
 function buildBeforeAfter(category: string, title: string): KnowledgeCustomerBeforeAfterV1 {
   if (category.includes("防犯") || category.includes("カメラ")) {
     return {
-      beforeLabel: "施工前",
-      afterLabel: "施工後",
+      beforeLabel: "Before",
+      afterLabel: "After",
       summary: "見えにくかった場所も、設置後は見守りやすくなります。",
+      beforePoints: ["夜間が暗い", "誰が来たかわかりにくい", "異常時に気づきにくい"],
+      afterPoints: ["ライトとカメラで確認しやすい", "スマホで通知を受け取れる", "記録を後から確認できる"],
     };
   }
   if (category.includes("PLC") || category.includes("工場")) {
     return {
-      beforeLabel: "改善前",
-      afterLabel: "改善後",
+      beforeLabel: "Before",
+      afterLabel: "After",
       summary: "手作業や不安定な動作から、安全で分かりやすい制御へ整えます。",
+      beforePoints: ["停止方法が分かりにくい", "異常時の対応が遅れやすい", "配線・ラベルが乱れている"],
+      afterPoints: ["非常停止が確実に動く", "ランプで状態が分かる", "メンテナンスしやすい配線"],
     };
   }
   if (category.includes("照明") || category.includes("ライト")) {
     return {
-      beforeLabel: "施工前",
-      afterLabel: "施工後",
+      beforeLabel: "Before",
+      afterLabel: "After",
       summary: "暗かった場所も、足元まで明るく使いやすくなります。",
+      beforePoints: ["夜間の足元が暗い", "来客時に明るさが足りない", "スイッチ位置が分かりにくい"],
+      afterPoints: ["人感で自動点灯", "必要な場所だけ明るく", "安全に移動できる"],
+    };
+  }
+  if (category.includes("ネットワーク") || category.includes("LAN") || category.includes("Wi-Fi")) {
+    return {
+      beforeLabel: "Before",
+      afterLabel: "After",
+      summary: "通信の届きにくい場所を改善し、安定した接続環境に整えます。",
+      beforePoints: ["Wi-Fiが届きにくい席がある", "配線が分かりにくい", "障害時の切り分けが難しい"],
+      afterPoints: ["主要エリアで安定接続", "ラベルで配線が分かる", "保守しやすい構成"],
     };
   }
   return {
-    beforeLabel: "施工前",
-    afterLabel: "施工後",
+    beforeLabel: "Before",
+    afterLabel: "After",
     summary: `「${title}」の施工により、使いやすさと安心感が高まります。`,
+    beforePoints: ["確認に時間がかかる", "説明が口頭だけになりがち", "記録が残りにくい"],
+    afterPoints: ["資料でイメージを共有できる", "施工後の確認ポイントが明確", "後から見返せる"],
   };
 }
 
 export function getKnowledgeCustomerDetailV1(
   id: string,
-  kindHint?: UnifiedKnowledgeKindV1
+  kindHint?: UnifiedKnowledgeKindV1,
+  projectRef?: string
 ): KnowledgeCustomerDetailV1 | null {
   const detail = getKnowledgeDetailV1(id, kindHint);
   if (!detail) return null;
@@ -165,6 +187,10 @@ export function getKnowledgeCustomerDetailV1(
     siteLocations: buildCustomerSiteLocationsV1(detail.category, detail.tags),
     fieldDetailUrl: `/knowledge-detail-v1?id=${encodeURIComponent(detail.id)}${kindQs}`,
     customerHomeUrl: "/knowledge-customer-v1",
+    customerHomeV2Url: "/knowledge-customer-v2",
+    projectPageUrl: projectRef
+      ? `/knowledge-customer-project-v1?ref=${encodeURIComponent(projectRef)}`
+      : undefined,
   };
 }
 

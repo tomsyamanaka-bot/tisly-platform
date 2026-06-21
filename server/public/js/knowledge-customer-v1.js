@@ -66,6 +66,7 @@ function renderHome(home) {
     <h2 class="customer-section-title">最近使った資料</h2>
     <div class="customer-recent-list">${recent}</div>
     <div class="customer-field-link-row">
+      <a href="/knowledge-customer-v2">✨ V2（物件別）へ</a>
       <a href="/knowledge-field-v1">🔧 現場向けナレッジへ</a>
     </div>
   `;

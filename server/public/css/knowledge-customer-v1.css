@@ -375,7 +375,7 @@ body.knowledge-customer-v1 .app-main.customer-main {
   bottom: 0;
   z-index: 40;
   display: grid;
-  grid-template-columns: 1fr 1.2fr 1fr;
+  grid-template-columns: 1fr 1.4fr 1fr 1fr;
   gap: 0.35rem;
   padding: 0.45rem 0.55rem calc(0.45rem + env(safe-area-inset-bottom));
   background: rgba(255, 255, 255, 0.96);
@@ -411,9 +411,18 @@ body.knowledge-customer-detail .app-main.customer-main {
   background: #0c4a6e;
 }
 
+.customer-ba-summary {
+  margin: 0.55rem 0 0;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: #475569;
+  text-align: center;
+}
+
 .customer-field-link-row {
   margin-top: 0.75rem;
 }
+
 .customer-field-link-row a {
   display: flex;
   align-items: center;

@@ -42,6 +42,56 @@ export function renderCustomerBottomNavV1(active) {
   </nav>`;
 }
 
+export function renderCustomerBottomNavV2(active, options = {}) {
+  const ref = options.projectRef || "DEMO-HOME-001";
+  const projectQs = `ref=${encodeURIComponent(ref)}`;
+  return `<nav class="customer-bottom-nav customer-bottom-nav-v2" aria-label="お客様向けナビ">
+    <a class="customer-nav-item${active === "home" ? " active" : ""}" href="/knowledge-customer-v2">
+      <span class="customer-nav-icon">🏠</span>
+      <span class="customer-nav-label">ホーム</span>
+    </a>
+    <a class="customer-nav-item${active === "project" ? " active" : ""}" href="/knowledge-customer-project-v1?${projectQs}">
+      <span class="customer-nav-icon">📋</span>
+      <span class="customer-nav-label">物件</span>
+    </a>
+    <a class="customer-nav-item${active === "sitemap" ? " active" : ""}" href="/knowledge-customer-site-map-v1?${projectQs}">
+      <span class="customer-nav-icon">🗺</span>
+      <span class="customer-nav-label">配置</span>
+    </a>
+    <a class="customer-nav-item${active === "field" ? " active" : ""}" href="/knowledge-field-v1">
+      <span class="customer-nav-icon">🔧</span>
+      <span class="customer-nav-label">現場</span>
+    </a>
+  </nav>`;
+}
+
+export function renderMaterialBadgesV1(item) {
+  const badges = [];
+  if (item.hasPhoto || item.type === "photo") badges.push("📷 写真あり");
+  if (item.hasPdf || item.type === "pdf") badges.push("📄 PDFあり");
+  if (item.hasPart || item.type === "part") badges.push("🖨 部品資料あり");
+  if (item.hasExplanation || item.type === "explanation") badges.push("💬 説明あり");
+  return badges.map((b) => `<span class="customer-material-badge">${escapeHtml(b)}</span>`).join("");
+}
+
+export function renderMaterialFilterChipsV1(activeFilter) {
+  const filters = [
+    { id: "all", label: "すべて" },
+    { id: "写真", label: "📷 写真" },
+    { id: "pdf", label: "📄 PDF" },
+    { id: "防犯", label: "防犯" },
+    { id: "電気", label: "電気" },
+    { id: "工場", label: "工場" },
+    { id: "ネットワーク", label: "ネットワーク" },
+  ];
+  return filters
+    .map(
+      (f) =>
+        `<button type="button" class="customer-filter-chip${activeFilter === f.id ? " active" : ""}" data-filter="${escapeHtml(f.id)}">${escapeHtml(f.label)}</button>`
+    )
+    .join("");
+}
+
 export function renderCustomerPhotoGalleryV1(photos) {
   if (!photos?.length) {
     return `<div class="customer-photo-placeholder friendly-card">

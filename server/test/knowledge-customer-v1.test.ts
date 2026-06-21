@@ -131,6 +131,8 @@ describe("Knowledge Customer UI V1 API & pages", () => {
     const detail = res.body.detail;
     assert.ok(detail.explanation?.headline);
     assert.ok(detail.beforeAfter?.summary);
+    assert.ok(detail.beforeAfter?.beforePoints?.length >= 2);
+    assert.ok(detail.beforeAfter?.afterPoints?.length >= 2);
     assert.ok(Array.isArray(detail.siteLocations));
     const json = JSON.stringify(detail);
     assert.doesNotMatch(json, FORBIDDEN);

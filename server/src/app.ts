@@ -502,6 +502,15 @@ export function createApp(): express.Application {
   app.get("/knowledge-customer-detail-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "knowledge-customer-detail-v1.html"));
   });
+  app.get("/knowledge-customer-v2", (_req, res) => {
+    res.sendFile(path.join(publicDir, "knowledge-customer-v2.html"));
+  });
+  app.get("/knowledge-customer-project-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "knowledge-customer-project-v1.html"));
+  });
+  app.get("/knowledge-customer-site-map-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "knowledge-customer-site-map-v1.html"));
+  });
   app.get("/ai-estimate-engine-v1", (_req, res) => {
     res.redirect(302, "/master-v1?tab=stats");
   });

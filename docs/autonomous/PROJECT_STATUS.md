@@ -97,6 +97,9 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 現場ナレッジ | `/knowledge-field-v1` |
 | ナレッジ詳細 | `/knowledge-detail-v1?id=` |
 | お客様向けナレッジ | `/knowledge-customer-v1` |
+| お客様向けナレッジ V2 | `/knowledge-customer-v2` |
+| お客様向け案件ページ | `/knowledge-customer-project-v1?ref=DEMO-HOME-001` |
+| お客様向け Site Map | `/knowledge-customer-site-map-v1?ref=DEMO-HOME-001` |
 | お客様向け詳細 | `/knowledge-customer-detail-v1?id=` |
 | ナレッジ使用ログ | `/knowledge-usage-dashboard-v1` |
 | ストレージ設定 | `/storage-settings-v1` |
@@ -527,6 +530,24 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | API | `GET /api/knowledge/customer-home-v1` · `customer-detail-v1` · `customer-search-v1` |
 | 非表示 | QNAP/SMB/WebDAV/API URL表示 · projectId · userId · usage-log詳細 · mock/debug |
 | コード | `knowledge-customer-v1.html/js/css` · `knowledge-customer-detail-v1.html/js` · `knowledge-customer-home-v1.ts` · `knowledge-customer-detail-v1.ts` |
+
+### Knowledge Customer UI V2（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | **案件単位でお客さんに見せる** — 営業デモ · 現調説明 · 引き渡し説明 · Site Map連動 · AI/Embedding/Qdrant/RAG/Whisper/TTS は未実装 |
+| Phase1 案件別ページ | `/knowledge-customer-project-v1?ref=` — 物件名 · 工事ジャンル · 説明 · できること · 関連ナレッジ/写真/PDF · Site Map/資料一覧導線 |
+| Phase2 Site Map | `/knowledge-customer-site-map-v1?ref=` — 2Dカード型マップ · エリアタップで関連資料/説明/ナレッジ |
+| Phase3 連動データ | `knowledge-customer-site-map-v1.ts` — areaId · relatedKnowledgeIds · customerExplanation · statusLabel（mock · 将来3D/LiDAR連動） |
+| Phase4 資料一覧 | 案件ページ — 写真→動画placeholder→説明→PDF→部品→ナレッジ · 絞り込み（写真/PDF/防犯/電気/工場/ネットワーク） |
+| Phase5 Before/After | Customer Detail — beforePoints/afterPoints 強化 |
+| Phase6 導線 | V2 Home → 案件 → Site Map → Detail → 案件/現場詳細へ戻る · V1 は維持 |
+| Phase7 スマホUI | 下部4タブナビ · 大カード · 44px+ボタン · 写真優先 |
+| Phase8 テスト | `server/test/knowledge-customer-v2.test.ts`（18ケース） |
+| mock案件 | `DEMO-HOME-001`（戸建て防犯） · `DEMO-FACTORY-001`（工場） · `DEMO-NETWORK-001`（ネットワーク） |
+| API | `customer-home-v2` · `customer-project-v1` · `customer-site-map-v1` · `customer-materials-v1` |
+| 非表示 | QNAP/SMB/WebDAV/API URL · projectId生表示 · usage-log詳細 · mock/debug |
+| コード | `knowledge-customer-v2.html/js/css` · `knowledge-customer-project-v1.*` · `knowledge-customer-site-map-v1.*` · `knowledge-customer-project-v1.ts` · `knowledge-customer-home-v2.ts` |
 
 ---
 
