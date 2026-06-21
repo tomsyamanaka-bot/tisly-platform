@@ -15,15 +15,23 @@ import {
   writeJson,
 } from "./knowledge-field-shared-v1.js";
 import {
-  bindHitCardActions,
-  buildHitActionButtons,
+  STORAGE_V2_RECENT_KNOWLEDGE,
   hitCapabilities,
   loadLastSearchResultsV2,
-  logKnowledgeUsedV2,
-  pushRecentSearchV2,
   renderFlagRow,
   saveLastSearchResultsV2,
 } from "./knowledge-field-ux-v2.js";
+import {
+  aggregateLocalUsageRankingV3,
+  bindHitCardActionsV3,
+  buildHitActionButtonsV3,
+  fetchUsageRankingV3,
+  logKnowledgeUsedV3,
+  mergeUsageRankings,
+  pushRecentSearchV3,
+  renderRecentKnowledgeHtml,
+  renderUsageRankingHtml,
+} from "./knowledge-field-ux-v3.js";
 
 const $ = (id) => document.getElementById(id);
 let lastHits = [];
@@ -122,6 +130,23 @@ function renderRecentChips() {
   bindQueryButtons(mount);
 }
 
+function renderRecentKnowledgeSection() {
+  const mount = $("recent-knowledge-mount");
+  if (!mount) return;
+  const recent = readJson(STORAGE_V2_RECENT_KNOWLEDGE, []);
+  mount.innerHTML = renderRecentKnowledgeHtml(recent);
+}
+
+async function renderUsageRankingSection() {
+  const mount = $("usage-ranking-mount");
+  if (!mount) return;
+  const token = getCustomerToken();
+  const serverRanking = await fetchUsageRankingV3(token, 10);
+  const localRanking = aggregateLocalUsageRankingV3(10);
+  const merged = mergeUsageRankings(serverRanking, localRanking, 10);
+  mount.innerHTML = renderUsageRankingHtml(merged);
+}
+
 function renderOfflineCacheHint() {
   const cached = loadLastSearchResultsV2();
   const mount = $("offline-cache-hint");
@@ -195,7 +220,7 @@ function renderFieldCard(hit) {
     .map((r) => `<span class="reason-chip">${escapeHtml(r)}</span>`)
     .join("");
   const detailUrl = `/knowledge-detail-v1?id=${encodeURIComponent(hit.id)}&kind=${encodeURIComponent(hit.kind)}`;
-  const actions = buildHitActionButtons(hit, flags, detailUrl);
+  const actions = buildHitActionButtonsV3(hit, flags, detailUrl);
 
   return `<article class="field-card" data-id="${escapeHtml(hit.id)}">
     <h3>${escapeHtml(hit.title)}</h3>
@@ -215,9 +240,10 @@ function renderHits(hits, total, queryLabel) {
     return;
   }
   mount.innerHTML = hits.map(renderFieldCard).join("");
-  bindHitCardActions(mount, toast, (entry) => {
-    logKnowledgeUsedV2({ ...entry, query: lastQuery });
+  bindHitCardActionsV3(mount, toast, (entry) => {
+    logKnowledgeUsedV3({ ...entry, query: lastQuery, source: "field-search" }, getCustomerToken());
     toast(`「${entry.title}」を使った記録を保存しました`);
+    renderUsageRankingSection();
   });
 }
 
@@ -257,7 +283,7 @@ async function searchWithQuery(q) {
 
     renderHits(hits, data.total ?? hits.length, `${searchQ}${modeLabel}`);
     pushFieldRecent(searchQ);
-    pushRecentSearchV2(searchQ);
+    pushRecentSearchV3(searchQ);
     saveLastSearchResultsV2(searchQ, hits);
   } catch (e) {
     toast(e.message || "検索失敗");
@@ -303,6 +329,8 @@ async function init() {
   renderCategoryChips();
   renderFavoriteChips();
   renderRecentChips();
+  renderRecentKnowledgeSection();
+  await renderUsageRankingSection();
   renderOfflineCacheHint();
 
   $("search-btn")?.addEventListener("click", () => runSearch());

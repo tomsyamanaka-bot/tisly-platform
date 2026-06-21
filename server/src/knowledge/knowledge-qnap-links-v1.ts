@@ -7,6 +7,10 @@ export interface QnapDeepLinksV1 {
   webUrl: string;
   copyPath: string;
   relativePath: string;
+  /** フォルダのみの SMB パス */
+  folderPath: string;
+  /** ファイル名のみ */
+  fileName: string;
 }
 
 function normalizeRelativePath(relativePath: string): string {
@@ -27,10 +31,19 @@ export function buildQnapDeepLinksV1(relativePath: string): QnapDeepLinksV1 {
     ? `http://${MOTHERSHIP_HOST}/cgi-bin/filemanager/utilRequest.cgi?func=locate&path=/${rel}`
     : `http://${MOTHERSHIP_HOST}/cgi-bin/filemanager/`;
 
+  const segments = smbSegments;
+  const fileName = segments.length ? segments[segments.length - 1]! : "";
+  const folderSegments = segments.slice(0, -1);
+  const folderPath = folderSegments.length
+    ? `${MOTHERSHIP_UNC}\\${folderSegments.join("\\")}`
+    : MOTHERSHIP_UNC;
+
   return {
     smbPath,
     webUrl,
     copyPath: smbPath,
     relativePath: rel,
+    folderPath,
+    fileName,
   };
 }

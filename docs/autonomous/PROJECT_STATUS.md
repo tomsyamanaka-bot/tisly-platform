@@ -460,6 +460,21 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | コード | `knowledge-field-ux-v2.js` · `knowledge-qnap-links-v1.ts` · `knowledge-attachments-v1.ts` |
 | テスト | `server/test/knowledge-field-v2.test.ts` |
 
+### Knowledge Field UX V3（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | **現場で探した資料を見て・使って・すぐ戻れる** — AI/Embedding/Qdrant/RAG/Whisper/TTS は未実装 |
+| Phase1 実ファイル配信 | `knowledge-file-delivery-v1.ts` adapter — ローカル/mock 配信 · `GET /api/knowledge/files-v1?path=` |
+| Phase2 インライン表示 | 詳細画面 — PDF iframe · 写真 img · STL/STEP/GCode ファイルカード · URLなし時 QNAP/コピー/placeholder |
+| Phase3 最近開いた強化 | localStorage 20件 — 最近開いたKnowledge · 最近検索 · お気に入り · 使ったログ · `/knowledge-field-v1` 表示 |
+| Phase4 使ったログAPI | `POST /api/knowledge/usage-log` · `server/data/knowledge/usage-log.json` |
+| Phase5 使用頻度ランキング | `/knowledge-field-v1` — usage-log + localStorage 集計 · タイトル/回数/最終使用日/カテゴリ |
+| Phase6 QNAPコピー改善 | SMB / File Station URL / フォルダパス / ファイル名 — タップでコピー + トースト |
+| Phase7 スマホUI | 検索窓 sticky 上部 · 下部固定ナビ · PDF/写真ボタン大型化 · カード余白整理 |
+| Phase8 テスト/build | `server/test/knowledge-field-v3.test.ts` |
+| コード | `knowledge-field-ux-v3.js` · `knowledge-field-ux-v3.css` · `knowledge-usage-log-v1.ts` |
+
 ---
 
 ## 関連ドキュメント

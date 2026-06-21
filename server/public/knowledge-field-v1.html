@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
   <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
   <link rel="stylesheet" href="/css/knowledge-field-ux-v2.css" />
+  <link rel="stylesheet" href="/css/knowledge-field-ux-v3.css" />
   <style>
     .field-hero { text-align: center; margin-bottom: 0.5rem; }
     .field-hero h1 { margin: 0; font-size: 1.25rem; }
@@ -96,14 +97,14 @@
     }
   </style>
 </head>
-<body class="tisly-friendly">
+<body class="tisly-friendly knowledge-field-v3">
   <main class="app-main">
     <div class="field-hero">
       <h1>🔧 現場ナレッジ</h1>
-      <p>3秒で検索開始 — キーワードのみ（AI未使用）</p>
+      <p>探す · 見る · 使う · すぐ戻る（AI未使用）</p>
     </div>
 
-    <div class="friendly-card">
+    <div class="field-sticky-search friendly-card">
       <input type="search" id="search-input" class="search-big"
         placeholder="キーワード検索（例: 自己保持 / 5.5kW）"
         autocomplete="off" enterkeyhint="search" />
@@ -111,7 +112,17 @@
         <button type="button" class="friendly-btn primary" id="search-btn">🔍 検索</button>
         <button type="button" class="friendly-btn" id="clear-btn">クリア</button>
       </div>
+    </div>
 
+    <div class="friendly-card">
+      <p class="section-label">🕐 最近開いたナレッジ</p>
+      <div id="recent-knowledge-mount"></div>
+
+      <p class="section-label">📊 よく使われているナレッジ</p>
+      <div id="usage-ranking-mount"></div>
+    </div>
+
+    <div class="friendly-card">
       <p class="section-label">検索例</p>
       <div class="chip-row" id="example-chips"></div>
 

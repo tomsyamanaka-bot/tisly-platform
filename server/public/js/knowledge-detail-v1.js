@@ -2,12 +2,12 @@ import { initPracticalNav } from "./tisly-practical-nav.js";
 import { requireCustomerLogin, getCustomerToken } from "./customer-auth.js";
 import { KIND_LABELS, escapeHtml } from "./knowledge-field-shared-v1.js";
 import {
-  bindAttachmentCards,
-  logKnowledgeUsedV2,
-  pushRecentKnowledgeV2,
-  renderAttachmentCard,
-  showQnapModal,
-} from "./knowledge-field-ux-v2.js";
+  bindAttachmentCardsV3,
+  logKnowledgeUsedV3,
+  pushRecentKnowledgeV3,
+  renderAttachmentCardV3,
+  showQnapModalV3,
+} from "./knowledge-field-ux-v3.js";
 
 const $ = (id) => document.getElementById(id);
 let currentDetail = null;
@@ -29,7 +29,7 @@ function section(title, content, empty = "—", id) {
 
 function renderAttachmentSection(items) {
   if (!items?.length) return "";
-  return items.map(renderAttachmentCard).join("");
+  return items.map(renderAttachmentCardV3).join("");
 }
 
 function renderProjectLinks(projects) {
@@ -70,11 +70,11 @@ function renderDetail(d) {
 
   const actions = [];
   if (d.openUrl) {
-    actions.push(`<a class="primary" href="${escapeHtml(d.openUrl)}">開く</a>`);
+    actions.push(`<a class="primary action-open-lg" href="${escapeHtml(d.openUrl)}" target="_blank" rel="noopener">開く</a>`);
   }
   actions.push(`<a href="/knowledge-field-v1?q=${encodeURIComponent(d.title)}">現場検索へ</a>`);
   if (d.qnapPath) {
-    actions.push(`<button type="button" id="qnap-btn">QNAP場所</button>`);
+    actions.push(`<button type="button" id="qnap-btn">📁 QNAP場所</button>`);
   }
   if (d.hasPlc || d.kind === "esp") {
     actions.push(`<a href="#template" id="template-link">テンプレを見る</a>`);
@@ -82,7 +82,7 @@ function renderDetail(d) {
 
   const qnapSection = d.qnapLinks
     ? `<p id="qnap-path"><code>${escapeHtml(d.qnapLinks.smbPath)}</code></p>
-       <button type="button" class="friendly-btn" id="qnap-copy-btn" style="margin-top:0.35rem;min-height:2.5rem;">パスをコピー</button>`
+       <button type="button" class="friendly-btn qnap-copy-options-btn" id="qnap-copy-btn" style="margin-top:0.35rem;min-height:2.75rem;width:100%;">コピー種類を選ぶ</button>`
     : `<p id="qnap-path">${escapeHtml(d.qnapPath || "—")}</p>`;
 
   return `
@@ -97,11 +97,11 @@ function renderDetail(d) {
       ${section("注意点", d.cautions ? `<p>${escapeHtml(d.cautions)}</p>` : "")}
       ${d.ladderDescription ? section("ラダー", `<p id="template">${escapeHtml(d.ladderDescription)}</p>`) : ""}
       ${d.usage ? section("用途", `<p>${escapeHtml(d.usage)}</p>`) : ""}
-      ${section("関連写真", renderAttachmentSection(d.relatedPhotos))}
       ${section("関連PDF", renderAttachmentSection(d.relatedPdfs))}
+      ${section("関連写真", renderAttachmentSection(d.relatedPhotos))}
+      ${section("関連3DPrint", renderAttachmentSection(d.related3dPrint))}
       ${section("関連案件", renderProjectLinks(d.relatedProjects))}
       ${section("関連PLC", renderAttachmentSection(d.relatedPlc))}
-      ${section("関連3DPrint", renderAttachmentSection(d.related3dPrint))}
       ${section("QNAP保存パス", qnapSection)}
       ${section("タグ", tags ? `<div class="tag-row">${tags}</div>` : "")}
       ${section("関連ナレッジ", related, "—", "related")}
@@ -115,28 +115,27 @@ function renderDetail(d) {
 
 function bindDetailEvents(d) {
   $("qnap-btn")?.addEventListener("click", () => {
-    showQnapModal(d.qnapPath || "", d.title, toast);
+    showQnapModalV3(d.qnapPath || "", d.title, toast);
   });
-  $("qnap-copy-btn")?.addEventListener("click", async () => {
-    const text = d.qnapLinks?.copyPath || d.qnapPath || "";
-    try {
-      await navigator.clipboard.writeText(text);
-      toast("パスをコピーしました");
-    } catch {
-      toast(`QNAP: ${text}`);
-    }
+  $("qnap-copy-btn")?.addEventListener("click", () => {
+    showQnapModalV3(d.qnapPath || "", d.title, toast);
   });
   $("used-btn")?.addEventListener("click", () => {
-    logKnowledgeUsedV2({
-      knowledgeId: d.id,
-      kind: d.kind,
-      title: d.title,
-      query: lastQuery,
-      projectId: d.projectId || "",
-    });
+    logKnowledgeUsedV3(
+      {
+        knowledgeId: d.id,
+        kind: d.kind,
+        title: d.title,
+        query: lastQuery,
+        projectId: d.projectId || "",
+        category: d.category || "",
+        source: "field-detail",
+      },
+      getCustomerToken()
+    );
     toast("使った記録を保存しました");
   });
-  bindAttachmentCards($("detail-root"), toast);
+  bindAttachmentCardsV3($("detail-root"), toast);
 
   if (location.hash === "#template") {
     document.getElementById("template")?.scrollIntoView({ behavior: "smooth" });
@@ -171,10 +170,11 @@ async function loadDetail() {
   currentDetail = data.detail;
   $("detail-root").innerHTML = renderDetail(data.detail);
   document.title = `TiSLY — ${data.detail.title}`;
-  pushRecentKnowledgeV2({
+  pushRecentKnowledgeV3({
     id: data.detail.id,
     kind: data.detail.kind,
     title: data.detail.title,
+    category: data.detail.category,
   });
   bindDetailEvents(data.detail);
 }

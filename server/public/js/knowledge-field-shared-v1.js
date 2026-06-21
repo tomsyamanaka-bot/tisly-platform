@@ -160,7 +160,7 @@ export function pushFieldRecent(q) {
   const trimmed = q.trim();
   if (!trimmed) return;
   let recent = readJson(STORAGE_FIELD_RECENT, []);
-  recent = [trimmed, ...recent.filter((x) => x !== trimmed)].slice(0, 12);
+  recent = [trimmed, ...recent.filter((x) => x !== trimmed)].slice(0, 20);
   writeJson(STORAGE_FIELD_RECENT, recent);
 }
 

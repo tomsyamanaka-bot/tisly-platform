@@ -2,6 +2,7 @@
 
 import { getBusinessProject } from "../business/business-store.js";
 import { buildAttachmentV1, type KnowledgeAttachmentV1 } from "./knowledge-attachments-v1.js";
+import { enrichAttachmentWithDelivery } from "./knowledge-file-delivery-v1.js";
 import { buildMothershipKnowledgeRelativePath } from "./knowledge-paths-v1.js";
 import { buildQnapDeepLinksV1, type QnapDeepLinksV1 } from "./knowledge-qnap-links-v1.js";
 import { listKnowledgeAssetsV1 } from "./knowledge-assets-v1.js";
@@ -218,6 +219,22 @@ function buildAttachmentsForDetail(input: {
   return { relatedPhotos, relatedPdfs, relatedPlc, related3dPrint, attachments };
 }
 
+function enrichAttachments(groups: {
+  relatedPhotos: KnowledgeAttachmentV1[];
+  relatedPdfs: KnowledgeAttachmentV1[];
+  relatedPlc: KnowledgeAttachmentV1[];
+  related3dPrint: KnowledgeAttachmentV1[];
+  attachments: KnowledgeAttachmentV1[];
+}) {
+  return {
+    relatedPhotos: groups.relatedPhotos.map(enrichAttachmentWithDelivery),
+    relatedPdfs: groups.relatedPdfs.map(enrichAttachmentWithDelivery),
+    relatedPlc: groups.relatedPlc.map(enrichAttachmentWithDelivery),
+    related3dPrint: groups.related3dPrint.map(enrichAttachmentWithDelivery),
+    attachments: groups.attachments.map(enrichAttachmentWithDelivery),
+  };
+}
+
 function buildRelatedProjects(
   projectNo?: string,
   projectId?: string,
@@ -256,14 +273,16 @@ export function getKnowledgeDetailV1(
   const kind = resolveEffectiveKind(doc.kind, card);
   const qnapPath = buildQnapPath(kind, doc.id, doc.filePath ?? files[0], doc.projectNo);
   const qnapLinks = qnapPath ? buildQnapDeepLinksV1(qnapPath) : undefined;
-  const attachmentGroups = buildAttachmentsForDetail({
-    kind,
-    files,
-    qnapPath,
-    openUrl: doc.openUrl,
-    card,
-    asset,
-  });
+  const attachmentGroups = enrichAttachments(
+    buildAttachmentsForDetail({
+      kind,
+      files,
+      qnapPath,
+      openUrl: doc.openUrl,
+      card,
+      asset,
+    })
+  );
 
   return {
     id: doc.id,

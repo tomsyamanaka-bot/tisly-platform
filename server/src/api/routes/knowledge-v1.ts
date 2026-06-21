@@ -48,6 +48,12 @@ import {
 import { getKnowledgeQnapConnectionInfoV1 } from "../../knowledge/knowledge-qnap-sync-service-v1.js";
 import { searchKnowledgeIndexV1 } from "../../knowledge/knowledge-search-v1.js";
 import { getKnowledgeDetailV1, buildQnapDeepLinksV1 } from "../../knowledge/knowledge-detail-v1.js";
+import { resolveKnowledgeFileForServeV1 } from "../../knowledge/knowledge-file-delivery-v1.js";
+import {
+  aggregateKnowledgeUsageRankingV1,
+  appendKnowledgeUsageLogV1,
+  listKnowledgeUsageLogsV1,
+} from "../../knowledge/knowledge-usage-log-v1.js";
 import { tokenizeFieldMemoV1 } from "../../knowledge/knowledge-field-memo-v1.js";
 import {
   parseUnifiedKnowledgeKindsV1,
@@ -143,6 +149,67 @@ knowledgeV1Router.get("/qnap-links-v1", ...auth, (req: AuthedRequest, res) => {
     return;
   }
   res.json({ links: buildQnapDeepLinksV1(relPath) });
+});
+
+/** GET /api/knowledge/files-v1?path= — ナレッジ添付ファイル配信（ローカル/mock） */
+knowledgeV1Router.get("/files-v1", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const relPath = String(req.query.path ?? "").trim();
+  if (!relPath) {
+    res.status(400).json({ error: "path is required" });
+    return;
+  }
+  const resolved = resolveKnowledgeFileForServeV1(relPath);
+  if (!resolved) {
+    res.status(404).json({ error: "File not found" });
+    return;
+  }
+  res.setHeader("Content-Type", resolved.contentType);
+  res.setHeader("Content-Disposition", `inline; filename="${encodeURIComponent(resolved.fileName)}"`);
+  res.sendFile(resolved.absPath);
+});
+
+/** POST /api/knowledge/usage-log — 使ったログ保存 */
+knowledgeV1Router.post("/usage-log", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const body = req.body ?? {};
+  const knowledgeId = String(body.knowledgeId ?? "").trim();
+  const title = String(body.title ?? "").trim();
+  if (!knowledgeId || !title) {
+    res.status(400).json({ error: "knowledgeId and title are required" });
+    return;
+  }
+  try {
+    const entry = appendKnowledgeUsageLogV1({
+      knowledgeId,
+      title,
+      query: body.query != null ? String(body.query) : undefined,
+      projectId: body.projectId != null ? String(body.projectId) : undefined,
+      userId: req.admin?.username ?? (body.userId != null ? String(body.userId) : undefined),
+      category: body.category != null ? String(body.category) : undefined,
+      source: body.source != null ? String(body.source) : "field",
+      kind: body.kind != null ? String(body.kind) : undefined,
+    });
+    res.status(201).json({ entry });
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : String(e) });
+  }
+});
+
+/** GET /api/knowledge/usage-log/ranking — 使用頻度ランキング */
+knowledgeV1Router.get("/usage-log/ranking", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const limitRaw = Number(req.query.limit ?? 10);
+  const limit = Number.isFinite(limitRaw) ? limitRaw : 10;
+  res.json({ ranking: aggregateKnowledgeUsageRankingV1(limit) });
+});
+
+/** GET /api/knowledge/usage-log — 使ったログ一覧 */
+knowledgeV1Router.get("/usage-log", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const limitRaw = Number(req.query.limit ?? 50);
+  const limit = Number.isFinite(limitRaw) ? limitRaw : 50;
+  res.json({ entries: listKnowledgeUsageLogsV1(limit) });
 });
 
 /** GET /api/knowledge/field-memo-tokenize?q= — 現場メモ単語分解（ルールベース） */
