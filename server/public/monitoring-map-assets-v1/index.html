@@ -4,15 +4,25 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#050b18" />
-  <title>TiSLY — mapAsset Manager V3.1</title>
+  <title>TiSLY — mapAsset Manager V3.2</title>
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2003" />
   <link rel="stylesheet" href="/monitoring-map-assets-v1/css/monitoring-map-assets-v1.css" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
 </head>
 <body class="mma-body">
+  <div id="mma-toast" class="mma-toast" hidden role="status"></div>
+
   <header class="mma-header">
     <div>
       <p class="mma-brand">TiSLY Monitoring</p>
-      <h1>mapAsset Manager V3.1</h1>
+      <h1>mapAsset Manager V3.2</h1>
       <p id="mma-site-label" class="mma-muted">siteId —</p>
     </div>
     <div class="mma-header-actions">
@@ -23,10 +33,13 @@
 
   <main class="mma-main">
     <section class="mma-panel">
-      <h2>アップロード / メタデータ登録</h2>
-      <p class="mma-hint">実ファイル保存は次フェーズ。今回はメタデータ + mock preview 登録。</p>
+      <h2>3D スキャンファイル アップロード</h2>
+      <p class="mma-hint">GLB/GLTF を最優先。Polycam · Scaniverse · RoomPlan 出力を登録できます。</p>
       <form id="mma-upload-form" class="mma-form">
         <label>タイトル<input name="title" required placeholder="Polycam 1F scan" /></label>
+        <label>3D/画像ファイル（必須）
+          <input type="file" name="scanFile" id="mma-scan-file" accept=".glb,.gltf,.obj,.ply,.usdz,.json,.jpg,.jpeg,.png" required />
+        </label>
         <label>sourceType
           <select name="sourceType" required>
             <option value="polycam">polycam（GLB推奨）</option>
@@ -34,18 +47,6 @@
             <option value="scaniverse">scaniverse（GLB/OBJ）</option>
             <option value="manual">manual</option>
             <option value="mock">mock</option>
-          </select>
-        </label>
-        <label>fileType
-          <select name="fileType">
-            <option value="glb">glb</option>
-            <option value="gltf">gltf</option>
-            <option value="obj">obj</option>
-            <option value="ply">ply</option>
-            <option value="usdz">usdz</option>
-            <option value="json">json</option>
-            <option value="image">image</option>
-            <option value="unknown">unknown</option>
           </select>
         </label>
         <label>floorLevel
@@ -65,10 +66,13 @@
             <option value="building_shell">building_shell</option>
           </select>
         </label>
-        <label>ファイル名（任意）<input name="fileName" placeholder="scan-1f.glb" /></label>
         <label>メモ<textarea name="notes" rows="2" placeholder="現調メモ"></textarea></label>
         <label class="mma-check"><input type="checkbox" name="setActive" /> 登録後 active にする</label>
-        <button type="submit" class="mma-btn">メタデータ登録</button>
+        <button type="submit" class="mma-btn" id="mma-btn-upload">ファイルをアップロード</button>
+        <div id="mma-upload-progress" class="mma-progress" hidden>
+          <div class="mma-progress-bar" id="mma-upload-progress-bar"></div>
+          <p id="mma-upload-progress-text" class="mma-muted">準備中…</p>
+        </div>
       </form>
       <p id="mma-upload-msg" class="mma-msg" hidden></p>
     </section>
@@ -76,6 +80,21 @@
     <section class="mma-panel">
       <h2>登録済み 3D マップ</h2>
       <div id="mma-asset-list" class="mma-asset-list"></div>
+    </section>
+
+    <section class="mma-panel" id="mma-preview-panel" hidden>
+      <h2>プレビュー</h2>
+      <p id="mma-preview-title" class="mma-muted">—</p>
+      <div id="mma-preview-image-wrap" class="mma-preview-wrap" hidden>
+        <img id="mma-preview-image" class="mma-preview-large" alt="" />
+      </div>
+      <div id="mma-preview-3d-wrap" class="mma-preview-wrap" hidden>
+        <canvas id="mma-preview-canvas" class="mma-preview-canvas" aria-label="3D preview"></canvas>
+      </div>
+      <div id="mma-preview-placeholder" class="mma-preview-placeholder" hidden>
+        <p>未対応形式 — placeholder 表示（GLB/GLTF で 3D プレビュー可能）</p>
+      </div>
+      <p id="mma-preview-msg" class="mma-muted"></p>
     </section>
 
     <section class="mma-panel" id="mma-calibration-panel" hidden>
@@ -96,7 +115,7 @@
       <div class="mma-actions">
         <button type="button" class="mma-btn" id="mma-btn-save-transform">保存</button>
         <button type="button" class="mma-btn secondary" id="mma-btn-reset-transform">リセット</button>
-        <a class="mma-btn secondary" id="mma-btn-preview-3d" href="#" target="_blank">3Dプレビュー</a>
+        <a class="mma-btn secondary" id="mma-btn-preview-3d" href="#" target="_blank">3D Dashboard</a>
       </div>
       <p id="mma-cal-msg" class="mma-msg" hidden></p>
     </section>

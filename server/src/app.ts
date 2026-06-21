@@ -16,6 +16,7 @@ import { eventsRouter } from "./api/routes/events.js";
 import { heartbeatRouter } from "./api/routes/heartbeat.js";
 import { notificationsRouter } from "./api/routes/notifications.js";
 import { PWA_MANIFEST_ICONS } from "./pwa/pwa-manifest-icons.js";
+import { getMonitoringMapAssetUploadRootV1 } from "./monitoring/monitoring-map-asset-storage-adapter-v1.js";
 import { qnapRouter } from "./api/routes/qnap.js";
 import { recoveryRouter } from "./api/routes/recovery.js";
 import { settingsRouter } from "./api/routes/settings.js";
@@ -672,6 +673,7 @@ export function createApp(): express.Application {
   app.use("/uploads/survey", express.static(path.join(process.cwd(), "uploads", "survey")));
   app.use("/uploads/business", express.static(path.join(process.cwd(), "uploads", "business")));
   app.use("/uploads/sales-demo", express.static(path.join(process.cwd(), "uploads", "sales-demo")));
+  app.use("/uploads/monitoring", express.static(getMonitoringMapAssetUploadRootV1()));
   app.get("/tv/:customerCode", (_req, res) => {
     res.sendFile(tvDashboardHtml);
   });

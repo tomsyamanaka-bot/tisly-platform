@@ -601,3 +601,7 @@ body.mon3dv3-tv .mon3dv3-alert-banner {
     min-height: 50vh;
   }
 }
+
+.mon3dv3-mapasset-note #mon3dv3-mapasset-status.is-error {
+  color: #fca5a5;
+}

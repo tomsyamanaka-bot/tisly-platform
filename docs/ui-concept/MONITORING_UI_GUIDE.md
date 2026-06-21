@@ -129,12 +129,21 @@
 
 ---
 
-## mapAsset V3.1（スキャンデータ受け皿）
+## mapAsset V3.2（実ファイルアップロード + GLTF 表示）
 
 | 画面 | パス |
 |------|------|
 | mapAsset Manager | `/monitoring-map-assets-v1?siteId=DEMO-HOME-001` |
 | 3D Dashboard | `/monitoring-3d-v2?siteId=DEMO-HOME-001` |
+
+### V3.2 追加要素
+
+- **ファイルアップロード:** GLB/GLTF/OBJ/PLY/USDZ/JSON/JPG/PNG — 進行表示 · トースト
+- **GLB/GLTF:** Three.js `GLTFLoader` で activeAsset を表示（placeholder 非表示）
+- **未対応形式:** OBJ/PLY/USDZ — placeholder + やさしいメッセージ
+- **Manager プレビュー:** GLB 簡易 3D · 画像 img · その他 placeholder
+- **fileType バッジ · fileSize 表示**
+- **保存:** `server/uploads/monitoring/{siteId}/` — `/uploads/monitoring/...` で配信
 
 ### placeholder mesh 色（sourceType）
 
@@ -146,7 +155,7 @@
 | manual | `#fbbf24` | 手動登録 |
 | mock | `#64748b` | デモ |
 
-- **fileUrl 未接続:** wireframe placeholder + ラベルスプライト
+- **fileUrl 未接続 / 未対応形式:** wireframe placeholder + ラベルスプライト
 - **プロシージャル box:** 登録 scan の下に重ねて表示
 - **詳細:** [docs/monitoring/MAP_ASSET_GUIDE.md](../monitoring/MAP_ASSET_GUIDE.md)
 

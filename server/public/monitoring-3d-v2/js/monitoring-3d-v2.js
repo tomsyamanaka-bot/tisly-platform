@@ -3,6 +3,8 @@
  */
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+// TODO: bundle Three.js + loaders locally instead of CDN importmap
 
 const params = new URLSearchParams(location.search);
 const siteId = params.get("siteId") || "DEMO-HOME-001";
@@ -34,7 +36,16 @@ const layerGroups = {
   "2f": new THREE.Group(),
 };
 
-/** @type {Map<string, { mesh: THREE.Mesh, sensor: object, ripples: THREE.Mesh[] }>} */
+/** @type {Map<string, THREE.Object3D[]>} */
+const mapAssetMeshes = new Map();
+
+/** @type {THREE.Object3D|null} */
+let loadedGltfRoot = null;
+
+/** @type {THREE.Group|null} */
+let gltfLoadingOverlay = null;
+
+/** @type {Map<string, { mesh: THREE.Mesh, sensor: object, ring?: THREE.Mesh, sprite?: THREE.Sprite }>} */
 const sensorMeshes = new Map();
 
 const raycaster = new THREE.Raycaster();
@@ -222,7 +233,10 @@ function buildRegisteredMapAssetPlaceholder(asset, group, sourceColors) {
   if (asset.rotation) mesh.rotation.set(asset.rotation.x, asset.rotation.y, asset.rotation.z);
   mesh.userData.mapAssetId = asset.assetId;
   mesh.userData.isRegisteredScan = true;
+  mesh.userData.isPlaceholderMesh = true;
   group.add(mesh);
+
+  const objects = [mesh];
 
   const labelCanvas = document.createElement("canvas");
   labelCanvas.width = 256;
@@ -238,7 +252,107 @@ function buildRegisteredMapAssetPlaceholder(asset, group, sourceColors) {
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
   sprite.scale.set(4, 0.75, 1);
   sprite.position.set(asset.position.x, asset.position.y + asset.scale.y * 0.55 + 0.5, asset.position.z);
+  sprite.userData.mapAssetId = asset.assetId;
+  sprite.userData.isPlaceholderMesh = true;
   group.add(sprite);
+  objects.push(sprite);
+
+  mapAssetMeshes.set(asset.assetId, objects);
+}
+
+function hidePlaceholderForAsset(assetId) {
+  const objects = mapAssetMeshes.get(assetId);
+  if (!objects) return;
+  objects.forEach((obj) => {
+    obj.visible = false;
+  });
+}
+
+function showPlaceholderForAsset(assetId) {
+  const objects = mapAssetMeshes.get(assetId);
+  if (!objects) return;
+  objects.forEach((obj) => {
+    obj.visible = true;
+  });
+}
+
+function showMapAssetLoadStatus(message, isError = false) {
+  const el = $("#mon3dv3-mapasset-status");
+  if (!el) return;
+  el.textContent = message;
+  el.classList.toggle("is-error", isError);
+}
+
+function applyTransformToObject(obj, asset) {
+  obj.position.set(asset.position.x, asset.position.y, asset.position.z);
+  if (asset.rotation) {
+    obj.rotation.set(
+      THREE.MathUtils.degToRad(asset.rotation.x),
+      THREE.MathUtils.degToRad(asset.rotation.y),
+      THREE.MathUtils.degToRad(asset.rotation.z)
+    );
+  }
+  obj.scale.set(asset.scale.x, asset.scale.y, asset.scale.z);
+}
+
+function loadActiveGltfAsset(mapAsset) {
+  const active = mapAsset.activeAsset;
+  if (!active?.fileUrl) return;
+
+  const entry = mapAsset.assets.find((a) => a.assetId === active.assetId && a.isRegistered);
+  const sceneEntry = entry || {
+    assetId: active.assetId,
+    fileUrl: active.fileUrl,
+    fileType: active.fileType,
+    floorLevel: active.floorLevel,
+    position: active.transform?.position || { x: 0, y: 0, z: 0 },
+    rotation: active.transform?.rotation || { x: 0, y: 0, z: 0 },
+    scale: active.transform?.scale || { x: 1, y: 1, z: 1 },
+    label: active.title,
+  };
+
+  const ft = sceneEntry.fileType || fileType;
+  if (ft !== "glb" && ft !== "gltf") {
+    if (["obj", "ply", "usdz"].includes(ft)) {
+      showMapAssetLoadStatus(
+        `${active.title}（${ft}）— 未対応形式のため placeholder 表示。GLB/GLTF を推奨します。`
+      );
+    }
+    return;
+  }
+
+  const group = layerGroups[sceneEntry.floorLevel] || layerGroups["1f"];
+  if (!group) return;
+
+  showMapAssetLoadStatus(`${active.title} — 3D mesh 読み込み中…`);
+
+  const loader = new GLTFLoader();
+  loader.load(
+    active.fileUrl,
+    (gltf) => {
+      if (loadedGltfRoot) {
+        loadedGltfRoot.parent?.remove(loadedGltfRoot);
+        loadedGltfRoot = null;
+      }
+      const root = gltf.scene;
+      root.userData.mapAssetId = active.assetId;
+      root.userData.isGltfMesh = true;
+      applyTransformToObject(root, sceneEntry);
+      group.add(root);
+      loadedGltfRoot = root;
+      hidePlaceholderForAsset(active.assetId);
+      showMapAssetLoadStatus(`${active.title} — GLB/GLTF mesh 表示中`);
+    },
+    undefined,
+    (err) => {
+      console.warn("GLTF load failed", err);
+      showPlaceholderForAsset(active.assetId);
+      showMapAssetLoadStatus(
+        `${active.title} — 読み込みに失敗しました。placeholder を表示しています。`,
+        true
+      );
+    }
+  );
 }
 
 function createSensorMarker(sensor) {
@@ -752,7 +866,7 @@ async function boot() {
   }
 
   $("#mon3dv3-site-title").textContent = sceneData.siteName;
-  $("#mon3dv3-site-sub").textContent = `${sceneData.siteId} · Three.js V3.1 · mapAsset`;
+  $("#mon3dv3-site-sub").textContent = `${sceneData.siteId} · Three.js V3.2 · mapAsset`;
   const activeLabel = sceneData.mapAsset.activeAsset?.title;
   const statusText = activeLabel
     ? `${sceneData.mapAsset.integrationStatusLabel} — active: ${activeLabel}`
@@ -760,6 +874,7 @@ async function boot() {
   $("#mon3dv3-mapasset-status").textContent = statusText;
 
   buildFromMapAsset(sceneData.mapAsset);
+  loadActiveGltfAsset(sceneData.mapAsset);
   sceneData.sensors.forEach(createSensorMarker);
   renderSensorList();
   applyLayerFilter("all");

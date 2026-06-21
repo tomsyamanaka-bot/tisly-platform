@@ -46,7 +46,7 @@ export interface Monitoring3dScenePayloadV1 {
   siteId: string;
   siteName: string;
   customerRef: string;
-  uiVersion: "v3.1";
+  uiVersion: "v3.2";
   layers: Array<{ floorLevel: MonitoringMapFloorLevelV1; label: string }>;
   sensors: Monitoring3dSensorV1[];
   cameras: Monitoring3dCameraMockV1[];
@@ -217,7 +217,7 @@ export function buildMonitoring3dSceneV1(siteIdInput?: string): Monitoring3dScen
     siteId,
     siteName,
     customerRef,
-    uiVersion: "v3.1",
+    uiVersion: "v3.2",
     layers: [
       { floorLevel: "perimeter", label: "外周" },
       { floorLevel: "1f", label: "1F" },

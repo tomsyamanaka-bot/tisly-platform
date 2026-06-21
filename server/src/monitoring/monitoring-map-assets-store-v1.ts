@@ -44,7 +44,11 @@ export interface MonitoringMapAssetRecordV1 {
   title: string;
   sourceType: MonitoringMapAssetSourceTypeV1;
   fileType: MonitoringMapAssetFileTypeV1;
+  /** 元ファイル名 */
   fileName: string;
+  /** 保存先 safe 名（V3.2） */
+  safeFileName?: string;
+  mimeType?: string;
   fileSize: number;
   uploadedAt: string;
   floorLevel: MonitoringMapFloorLevelV1;
@@ -81,12 +85,15 @@ export const MONITORING_MAP_ASSET_SUPPORTED_FILE_TYPES: MonitoringMapAssetFileTy
 
 export const MONITORING_MAP_ASSET_UPLOAD_GUIDE_V1 = {
   audience: "開発者・現調担当向け",
-  polycam: "Polycam は GLB エクスポートを推奨。1F/2F/外周ごとに別スキャンを登録。",
-  roomplan: "RoomPlan は JSON または USDZ を想定。iPhone LiDAR スキャン後に floorLevel を指定。",
+  polycam: "Polycam は GLB エクスポートを最優先。1F/2F/外周ごとに別スキャンを登録。",
+  roomplan: "RoomPlan は JSON または USDZ を想定（3D表示は GLB 優先）。iPhone LiDAR スキャン後に floorLevel を指定。",
   scaniverse: "Scaniverse は GLB または OBJ を想定。外周は perimeter、室内は 1f/2f。",
   floorSplit: "1F / 2F / 外周（perimeter）を分けて登録し、activeAsset で表示対象を切替。",
   calibration: "transform.position / rotation / scale / heightOffset でセンサー位置との合わせ込み。",
-  futureStorage: "将来: 実ファイルは QNAP MotherShip /TiSLY/monitoring/{siteId}/map-assets/ へ保存予定。",
+  uploadApi: "POST /api/monitoring/v1/map-assets/upload — fileBase64 + sourceType + floorLevel",
+  maxSize3d: "3D mesh 最大 100MB · 画像 10MB · JSON 5MB",
+  unsupportedPreview: "OBJ / PLY / USDZ は登録可だが Three.js 表示は placeholder fallback",
+  futureStorage: "将来: QNAP WebDAV — \\\\192.168.1.10\\TiSLY\\monitoring\\{siteId}\\ （adapter mode: qnap-webdav）",
 };
 
 const DEFAULT_TRANSFORM: MonitoringMapAssetTransformV1 = {
@@ -279,10 +286,13 @@ export function listMonitoringMapAssetsV1(siteId: string): {
 
 export interface RegisterMonitoringMapAssetInputV1 {
   siteId: string;
+  assetId?: string;
   title: string;
   sourceType: MonitoringMapAssetSourceTypeV1;
   fileType?: MonitoringMapAssetFileTypeV1;
   fileName?: string;
+  safeFileName?: string;
+  mimeType?: string;
   fileSize?: number;
   floorLevel: MonitoringMapFloorLevelV1;
   mapType?: MonitoringMapAssetMapTypeV1;
@@ -297,7 +307,7 @@ export interface RegisterMonitoringMapAssetInputV1 {
 export function registerMonitoringMapAssetV1(input: RegisterMonitoringMapAssetInputV1): MonitoringMapAssetRecordV1 {
   const store = readStore();
   const site = ensureSite(store, input.siteId);
-  const assetId = `MA-${input.siteId}-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
+  const assetId = input.assetId ?? `MA-${input.siteId}-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
   const record: MonitoringMapAssetRecordV1 = {
     assetId,
     siteId: input.siteId,
@@ -305,6 +315,8 @@ export function registerMonitoringMapAssetV1(input: RegisterMonitoringMapAssetIn
     sourceType: input.sourceType,
     fileType: input.fileType ?? "unknown",
     fileName: input.fileName ?? "",
+    safeFileName: input.safeFileName,
+    mimeType: input.mimeType,
     fileSize: Number(input.fileSize ?? 0),
     uploadedAt: new Date().toISOString(),
     floorLevel: input.floorLevel,

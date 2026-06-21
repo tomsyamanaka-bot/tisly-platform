@@ -25,6 +25,8 @@ import {
   registerMonitoringMapAssetV1,
   updateMonitoringMapAssetV1,
 } from "../../monitoring/monitoring-map-assets-store-v1.js";
+import { uploadMonitoringMapAssetFileV1 } from "../../monitoring/monitoring-map-asset-upload-v1.js";
+import { resolveMonitoringMapAssetStorageModeV1 } from "../../monitoring/monitoring-map-asset-storage-adapter-v1.js";
 
 export const tislyMonitoringV1Router = Router();
 
@@ -86,7 +88,55 @@ tislyMonitoringV1Router.get("/customer-links", (req, res) => {
 
 tislyMonitoringV1Router.get("/map-assets", (req, res) => {
   const siteId = resolveMonitoringSiteIdV1(req.query.siteId as string | undefined);
-  res.json(listMonitoringMapAssetsV1(siteId));
+  res.json({
+    ...listMonitoringMapAssetsV1(siteId),
+    storageMode: resolveMonitoringMapAssetStorageModeV1(),
+    uploadMaxBytes: {
+      mesh3d: 100 * 1024 * 1024,
+      image: 10 * 1024 * 1024,
+      json: 5 * 1024 * 1024,
+    },
+  });
+});
+
+tislyMonitoringV1Router.post("/map-assets/upload", async (req, res) => {
+  try {
+    const body = req.body ?? {};
+    const siteId = resolveMonitoringSiteIdV1(body.siteId ?? req.query.siteId);
+    if (!body.sourceType || !body.floorLevel || !body.fileName || !body.fileBase64) {
+      res.status(400).json({
+        error: "sourceType, floorLevel, fileName, fileBase64 are required",
+      });
+      return;
+    }
+    const result = await uploadMonitoringMapAssetFileV1({
+      siteId,
+      title: body.title != null ? String(body.title) : undefined,
+      sourceType: body.sourceType,
+      floorLevel: body.floorLevel,
+      mapType: body.mapType,
+      status: body.status,
+      notes: body.notes != null ? String(body.notes) : undefined,
+      setActive: Boolean(body.setActive),
+      originalFileName: String(body.fileName),
+      fileBase64: String(body.fileBase64),
+      mimeType: body.mimeType != null ? String(body.mimeType) : undefined,
+    });
+    if (!result.ok || !result.asset) {
+      res.status(400).json({ error: result.error ?? "upload failed" });
+      return;
+    }
+    const listed = listMonitoringMapAssetsV1(siteId);
+    res.status(201).json({
+      ok: true,
+      asset: result.asset,
+      storageMode: result.storageMode,
+      loaderHint: result.loaderHint,
+      ...listed,
+    });
+  } catch {
+    res.status(500).json({ error: "upload failed" });
+  }
 });
 
 tislyMonitoringV1Router.post("/map-assets", (req, res) => {

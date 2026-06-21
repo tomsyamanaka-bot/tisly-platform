@@ -94,7 +94,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 発注管理 | `/purchase-v1` |
 | TiSLY Monitoring 3D V1 | `/tisly-monitoring-3d-v1` |
 | TiSLY Monitoring 3D V3 | `/monitoring-3d-v2` |
-| TiSLY Monitoring mapAsset Manager V3.1 | `/monitoring-map-assets-v1` |
+| TiSLY Monitoring mapAsset Manager V3.2 | `/monitoring-map-assets-v1` |
 | 設定（管理者） | `/settings-v1` |
 | ナレッジ検索 | `/knowledge-search-v1` |
 | 現場ナレッジ | `/knowledge-field-v1` |
@@ -658,6 +658,24 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | Phase9 テスト | `server/test/tisly-monitoring-3d-v31.test.ts` |
 | API | `PATCH /map-assets/:id` · `GET/POST /device-layout-overrides` |
 | コード | `monitoring-map-assets-store-v1.ts` · `monitoring-device-layout-overrides-store-v1.ts` · `monitoring-map-assets-v1/` |
+
+### TiSLY Monitoring 3D Dashboard V3.2（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | **実3Dファイルを監視画面に載せる入口** — GLB/GLTF アップロード · GLTFLoader 表示 |
+| Phase1 upload API | `POST /api/monitoring/v1/map-assets/upload` — fileBase64 · 許可拡張子 · サイズ上限 |
+| Phase2 static | `/uploads/monitoring/{siteId}/{safeFileName}` — express.static 配信 |
+| Phase3 GLTFLoader | `/monitoring-3d-v2` — activeAsset が glb/gltf なら mesh 読込 · 失敗時 placeholder |
+| Phase4 fallback | OBJ/PLY/USDZ — 登録可 · 3D は placeholder + メッセージ |
+| Phase5 Manager UI | ファイル選択 · 進行表示 · トースト · fileType バッジ · fileSize |
+| Phase6 プレビュー | Manager 内 — GLB 簡易3D · 画像 img · 未対応 placeholder |
+| Phase7 QNAP adapter | `monitoring-map-asset-storage-adapter-v1.ts` — local / qnap-webdav(TODO) / mock |
+| Phase8 セキュリティ | sanitize · MIME · 絶対パス非公開 · stack trace 非公開 |
+| Phase9 ドキュメント | MAP_ASSET_GUIDE V3.2 · MONITORING_UI_GUIDE 追記 |
+| Phase10 テスト | `server/test/tisly-monitoring-3d-v32.test.ts` |
+| コード | `monitoring-map-asset-upload-v1.ts` · `monitoring-map-asset-storage-adapter-v1.ts` |
+| uiVersion | `v3.2` |
 
 ---
 

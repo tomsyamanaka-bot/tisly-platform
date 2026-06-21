@@ -1,6 +1,11 @@
 /**
- * TiSLY Monitoring mapAsset Manager V3.1
+ * TiSLY Monitoring mapAsset Manager V3.2
  */
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+// TODO: bundle Three.js + GLTFLoader locally instead of CDN importmap
+
 const params = new URLSearchParams(location.search);
 const siteId = params.get("siteId") || "DEMO-HOME-001";
 
@@ -8,6 +13,11 @@ const $ = (sel) => document.querySelector(sel);
 
 let listData = null;
 let selectedAssetId = null;
+let previewRenderer = null;
+let previewScene = null;
+let previewCamera = null;
+let previewControls = null;
+let previewAnimId = null;
 
 function api(path, opts = {}) {
   return fetch(path, {
@@ -27,6 +37,25 @@ function showMsg(el, text, isError = false) {
   el.classList.toggle("error", isError);
 }
 
+function showToast(text, isError = false) {
+  const toast = $("#mma-toast");
+  if (!toast) return;
+  toast.textContent = text;
+  toast.classList.toggle("error", isError);
+  toast.hidden = false;
+  clearTimeout(showToast._timer);
+  showToast._timer = setTimeout(() => {
+    toast.hidden = true;
+  }, 4200);
+}
+
+function formatFileSize(bytes) {
+  if (!bytes) return "0 B";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 function renderGuide(guide) {
   const box = $("#mma-upload-guide");
   if (!box || !guide) return;
@@ -37,6 +66,9 @@ function renderGuide(guide) {
     <p><strong>Scaniverse:</strong> ${guide.scaniverse}</p>
     <p><strong>フロア分割:</strong> ${guide.floorSplit}</p>
     <p><strong>位置合わせ:</strong> ${guide.calibration}</p>
+    <p><strong>アップロード:</strong> ${guide.uploadApi ?? "POST /api/monitoring/v1/map-assets/upload"}</p>
+    <p><strong>サイズ上限:</strong> ${guide.maxSize3d ?? "3D 100MB · 画像 10MB · JSON 5MB"}</p>
+    <p><strong>未対応表示:</strong> ${guide.unsupportedPreview ?? "OBJ/PLY/USDZ は placeholder"}</p>
     <p><strong>将来保存:</strong> ${guide.futureStorage}</p>
   `;
 }
@@ -59,6 +91,119 @@ function fillTransformForm(asset) {
   if (preview) preview.href = `/monitoring-3d-v2?siteId=${encodeURIComponent(siteId)}`;
 }
 
+function stopPreview3d() {
+  if (previewAnimId) cancelAnimationFrame(previewAnimId);
+  previewAnimId = null;
+  previewRenderer?.dispose();
+  previewRenderer = null;
+  previewScene = null;
+  previewCamera = null;
+  previewControls = null;
+}
+
+function showAssetPreview(asset) {
+  const panel = $("#mma-preview-panel");
+  const imgWrap = $("#mma-preview-image-wrap");
+  const canvasWrap = $("#mma-preview-3d-wrap");
+  const placeholder = $("#mma-preview-placeholder");
+  const msg = $("#mma-preview-msg");
+  if (!panel) return;
+
+  panel.hidden = false;
+  $("#mma-preview-title").textContent = `${asset.title} · ${asset.fileType} · ${formatFileSize(asset.fileSize)}`;
+  imgWrap.hidden = true;
+  canvasWrap.hidden = true;
+  placeholder.hidden = true;
+  stopPreview3d();
+
+  if (!asset.fileUrl) {
+    placeholder.hidden = false;
+    if (msg) msg.textContent = "fileUrl 未接続 — placeholder";
+    return;
+  }
+
+  if (asset.fileType === "image" || /\.(jpg|jpeg|png)$/i.test(asset.fileName || "")) {
+    imgWrap.hidden = false;
+    const img = $("#mma-preview-image");
+    img.src = asset.fileUrl;
+    if (msg) msg.textContent = "画像プレビュー";
+    return;
+  }
+
+  if (asset.fileType === "glb" || asset.fileType === "gltf") {
+    canvasWrap.hidden = false;
+    initGltfPreview(asset, msg);
+    return;
+  }
+
+  placeholder.hidden = false;
+  if (msg) msg.textContent = `${asset.fileType} — 3D プレビュー未対応（Monitoring 3D でも placeholder）`;
+}
+
+function initGltfPreview(asset, msgEl) {
+  const canvas = $("#mma-preview-canvas");
+  if (!canvas) return;
+
+  previewRenderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  previewRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  previewRenderer.setSize(canvas.clientWidth || 320, canvas.clientHeight || 200, false);
+
+  previewScene = new THREE.Scene();
+  previewScene.background = new THREE.Color(0x0f172a);
+  previewCamera = new THREE.PerspectiveCamera(45, (canvas.clientWidth || 320) / (canvas.clientHeight || 200), 0.1, 200);
+  previewCamera.position.set(3, 2.5, 4);
+
+  previewControls = new OrbitControls(previewCamera, canvas);
+  previewControls.enableDamping = true;
+
+  previewScene.add(new THREE.AmbientLight(0xffffff, 0.7));
+  const dir = new THREE.DirectionalLight(0x22d3ee, 1);
+  dir.position.set(4, 6, 3);
+  previewScene.add(dir);
+
+  const loader = new GLTFLoader();
+  if (msgEl) msgEl.textContent = "GLB/GLTF 読み込み中…";
+
+  loader.load(
+    asset.fileUrl,
+    (gltf) => {
+      previewScene.add(gltf.scene);
+      const box = new THREE.Box3().setFromObject(gltf.scene);
+      const center = box.getCenter(new THREE.Vector3());
+      const size = box.getSize(new THREE.Vector3());
+      gltf.scene.position.sub(center);
+      const maxDim = Math.max(size.x, size.y, size.z, 0.1);
+      previewCamera.position.set(maxDim * 1.2, maxDim, maxDim * 1.4);
+      previewControls.target.set(0, 0, 0);
+      if (msgEl) msgEl.textContent = "GLB/GLTF プレビュー";
+      animatePreview();
+    },
+    undefined,
+    () => {
+      canvasWrapFallback(canvas, msgEl);
+    }
+  );
+}
+
+function canvasWrapFallback(canvas, msgEl) {
+  const parent = canvas?.parentElement;
+  if (parent) parent.hidden = true;
+  const placeholder = $("#mma-preview-placeholder");
+  if (placeholder) placeholder.hidden = false;
+  if (msgEl) msgEl.textContent = "読み込み失敗 — placeholder";
+}
+
+function animatePreview() {
+  function loop() {
+    previewAnimId = requestAnimationFrame(loop);
+    previewControls?.update();
+    if (previewRenderer && previewScene && previewCamera) {
+      previewRenderer.render(previewScene, previewCamera);
+    }
+  }
+  loop();
+}
+
 function renderAssets(data) {
   const list = $("#mma-asset-list");
   if (!list) return;
@@ -71,20 +216,26 @@ function renderAssets(data) {
   list.innerHTML = data.assets
     .map((a) => {
       const isActive = data.activeAsset?.assetId === a.assetId;
+      const previewSrc = a.fileType === "image" && a.fileUrl ? a.fileUrl : a.previewUrl || "/icons/icon-128.png";
       return `<article class="mma-asset-card${isActive ? " is-active" : ""}" data-id="${a.assetId}">
         <header>
           <div class="mma-card-row">
-            <img class="mma-preview" src="${a.previewUrl || "/icons/icon-128.png"}" alt="" width="64" height="64" />
+            <img class="mma-preview" src="${previewSrc}" alt="" width="64" height="64" />
             <div>
               <h3>${escapeHtml(a.title)}</h3>
-              <p class="mma-meta">${a.sourceType} · ${a.fileType} · ${a.floorLevel} · ${a.mapType}</p>
+              <p class="mma-meta">
+                <span class="mma-filetype-badge">${a.fileType}</span>
+                ${a.sourceType} · ${a.floorLevel} · ${a.mapType}
+              </p>
+              <p class="mma-meta">${formatFileSize(a.fileSize)}${a.fileUrl ? " · 実ファイルあり" : " · placeholder"}</p>
             </div>
           </div>
           <span class="mma-badge${isActive ? " active" : ""}">${isActive ? "ACTIVE" : a.status}</span>
         </header>
-        <p class="mma-meta">${escapeHtml(a.notes || "")}${a.fileUrl ? "" : " · fileUrl 未接続（placeholder）"}</p>
+        <p class="mma-meta">${escapeHtml(a.notes || "")}</p>
         <div class="mma-actions">
           <button type="button" class="mma-btn secondary mma-set-active" data-id="${a.assetId}">active</button>
+          <button type="button" class="mma-btn secondary mma-preview" data-id="${a.assetId}">プレビュー</button>
           <button type="button" class="mma-btn secondary mma-edit-transform" data-id="${a.assetId}">transform</button>
         </div>
       </article>`;
@@ -93,6 +244,12 @@ function renderAssets(data) {
 
   list.querySelectorAll(".mma-set-active").forEach((btn) => {
     btn.addEventListener("click", () => setActive(btn.dataset.id));
+  });
+  list.querySelectorAll(".mma-preview").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const asset = data.assets.find((a) => a.assetId === btn.dataset.id);
+      if (asset) showAssetPreview(asset);
+    });
   });
   list.querySelectorAll(".mma-edit-transform").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -124,7 +281,79 @@ async function setActive(assetId) {
     method: "PATCH",
     body: JSON.stringify({ setActive: true }),
   });
+  showToast("active に切り替えました");
   await loadList();
+}
+
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || "");
+      const base64 = result.includes(",") ? result.split(",")[1] : result;
+      resolve(base64);
+    };
+    reader.onerror = () => reject(new Error("file read failed"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function setUploadProgress(visible, pct = 0, text = "") {
+  const box = $("#mma-upload-progress");
+  const bar = $("#mma-upload-progress-bar");
+  const label = $("#mma-upload-progress-text");
+  if (box) box.hidden = !visible;
+  if (bar) bar.style.width = `${pct}%`;
+  if (label) label.textContent = text;
+}
+
+async function uploadScanFile(form) {
+  const msg = $("#mma-upload-msg");
+  const fileInput = $("#mma-scan-file");
+  const file = fileInput?.files?.[0];
+  if (!file) {
+    showMsg(msg, "ファイルを選択してください", true);
+    return;
+  }
+
+  const btn = $("#mma-btn-upload");
+  if (btn) btn.disabled = true;
+  setUploadProgress(true, 10, "ファイル読込中…");
+
+  try {
+    const fileBase64 = await readFileAsBase64(file);
+    setUploadProgress(true, 45, "アップロード中…");
+
+    const fd = new FormData(form);
+    const res = await api("/api/monitoring/v1/map-assets/upload", {
+      method: "POST",
+      body: JSON.stringify({
+        siteId,
+        title: fd.get("title"),
+        sourceType: fd.get("sourceType"),
+        floorLevel: fd.get("floorLevel"),
+        mapType: fd.get("mapType"),
+        notes: fd.get("notes"),
+        setActive: fd.get("setActive") === "on",
+        fileName: file.name,
+        fileBase64,
+        mimeType: file.type || undefined,
+      }),
+    });
+
+    setUploadProgress(true, 100, "完了");
+    showMsg(msg, `アップロード成功 — ${res.asset?.assetId ?? ""}`);
+    showToast(`登録完了: ${res.asset?.title ?? file.name}`);
+    form.reset();
+    await loadList();
+    if (res.asset) showAssetPreview(res.asset);
+  } catch (err) {
+    showMsg(msg, err.message, true);
+    showToast(err.message, true);
+  } finally {
+    if (btn) btn.disabled = false;
+    setTimeout(() => setUploadProgress(false), 800);
+  }
 }
 
 async function saveTransform() {
@@ -154,7 +383,8 @@ async function saveTransform() {
         },
       }),
     });
-    showMsg(msg, "transform を保存しました — 3Dプレビューで確認してください");
+    showMsg(msg, "transform を保存しました — 3D Dashboard で確認してください");
+    showToast("transform 保存完了");
     await loadList();
   } catch (e) {
     showMsg(msg, e.message, true);
@@ -185,31 +415,7 @@ function bindUi() {
 
   $("#mma-upload-form")?.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const msg = $("#mma-upload-msg");
-    const fd = new FormData(e.target);
-    try {
-      await api("/api/monitoring/v1/map-assets", {
-        method: "POST",
-        body: JSON.stringify({
-          siteId,
-          title: fd.get("title"),
-          sourceType: fd.get("sourceType"),
-          fileType: fd.get("fileType"),
-          fileName: fd.get("fileName"),
-          floorLevel: fd.get("floorLevel"),
-          mapType: fd.get("mapType"),
-          notes: fd.get("notes"),
-          setActive: fd.get("setActive") === "on",
-          previewUrl: "/icons/icon-128.png",
-          fileUrl: "",
-        }),
-      });
-      showMsg(msg, "登録しました");
-      e.target.reset();
-      await loadList();
-    } catch (err) {
-      showMsg(msg, err.message, true);
-    }
+    await uploadScanFile(e.target);
   });
 
   $("#mma-btn-save-transform")?.addEventListener("click", saveTransform);

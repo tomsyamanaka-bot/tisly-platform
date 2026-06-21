@@ -42,6 +42,7 @@ export interface MonitoringMapAssetEntryV1 {
   sourceType?: MonitoringMapAssetSourceTypeV1;
   mapType?: string;
   status?: string;
+  fileType?: string;
 }
 
 export interface MonitoringMapAssetBundleV1 {
@@ -134,9 +135,10 @@ function recordToSceneEntry(record: MonitoringMapAssetRecordV1): MonitoringMapAs
     fileUrl: record.fileUrl || undefined,
     previewUrl: record.previewUrl,
     isRegistered: true,
-    isPlaceholder: !record.fileUrl,
+    isPlaceholder: !record.fileUrl || !["glb", "gltf"].includes(record.fileType),
     mapType: record.mapType,
     status: record.status,
+    fileType: record.fileType,
   };
 }
 
@@ -147,12 +149,16 @@ export function getMonitoringMapAssetBundleV1(siteId: string): MonitoringMapAsse
   const hasActive = Boolean(listed.activeAsset);
 
   const integrationStatusLabel = hasActive
-    ? "mapAsset 登録済み — placeholder 表示中"
+    ? listed.activeAsset!.fileUrl
+      ? "mapAsset 実ファイル接続済み"
+      : "mapAsset 登録済み — placeholder 表示中"
     : "LiDAR連携準備中";
 
   const integrationNote = hasActive
-    ? `${listed.activeAsset!.title}（${listed.activeAsset!.sourceType} · ${listed.activeAsset!.floorLevel}）を active 表示。fileUrl 未接続時は placeholder mesh。`
-    : "Polycam · Scaniverse · RoomPlan から mesh / pointcloud を投入できる構造です。現時点はプロシージャル建物＋受け皿のみ。";
+    ? listed.activeAsset!.fileUrl
+      ? `${listed.activeAsset!.title}（${listed.activeAsset!.fileType} · ${listed.activeAsset!.floorLevel}）— GLB/GLTF は mesh 読込、OBJ/PLY/USDZ は placeholder。`
+      : `${listed.activeAsset!.title}（${listed.activeAsset!.sourceType} · ${listed.activeAsset!.floorLevel}）を active 表示。fileUrl 未接続時は placeholder mesh。`
+    : "Polycam · Scaniverse · RoomPlan から mesh / pointcloud を投入できる構造です。GLB アップロードで Three.js 表示可能。";
 
   return {
     bundleId: `map-asset-${siteId}`,
