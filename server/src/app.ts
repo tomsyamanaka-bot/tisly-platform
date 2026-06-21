@@ -701,6 +701,12 @@ export function createApp(): express.Application {
     res.sendFile(path.join(publicDir, "service-worker.js"));
   });
 
+  app.get("/sw-knowledge-field-v5.js", (_req, res) => {
+    res.setHeader("Service-Worker-Allowed", "/");
+    res.type("application/javascript");
+    res.sendFile(path.join(publicDir, "sw-knowledge-field-v5.js"));
+  });
+
   app.use(express.static(publicDir));
 
   app.get("/notifications", (_req, res) => {

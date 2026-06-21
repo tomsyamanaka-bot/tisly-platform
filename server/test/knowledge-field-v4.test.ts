@@ -97,6 +97,7 @@ describe("Knowledge Field UX V4 — usage analytics", () => {
     assert.ok(Array.isArray(dash.byCategory));
     assert.ok(Array.isArray(dash.byProject));
     assert.ok(Array.isArray(dash.recentLogs));
+    assert.ok(typeof dash.totalLogCount === "number");
     assert.ok(aggregateUsageByCategoryV1(5).length >= 1);
     assert.ok(aggregateUsageByProjectV1(5).some((p) => p.projectId === "MO-26-0616-001"));
   });

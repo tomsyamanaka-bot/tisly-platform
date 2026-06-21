@@ -12,6 +12,10 @@ import {
   buildUnifiedKnowledgeSearchCorpusV1,
   type UnifiedKnowledgeKindV1,
 } from "./unified-knowledge-search-v1.js";
+import {
+  buildCustomerExplanationV1,
+  type KnowledgeCustomerExplanationV1,
+} from "./knowledge-customer-explanation-v1.js";
 
 export interface KnowledgeDetailRelatedV1 {
   id: string;
@@ -61,6 +65,7 @@ export interface KnowledgeDetailV1 {
   hasPlc: boolean;
   has3dPrint: boolean;
   status?: string;
+  customerExplanation?: KnowledgeCustomerExplanationV1;
 }
 
 function parseSection(summary: string, label: string): string | undefined {
@@ -284,7 +289,7 @@ export function getKnowledgeDetailV1(
     })
   );
 
-  return {
+  const detail: KnowledgeDetailV1 = {
     id: doc.id,
     kind,
     title: doc.title,
@@ -318,6 +323,11 @@ export function getKnowledgeDetailV1(
     hasPlc: kind === "plc" || card?.sourceType === "plc-template" || attachmentGroups.relatedPlc.length > 0,
     has3dPrint: kind === "3dprint" || asset?.domain === "3DPrint" || attachmentGroups.related3dPrint.length > 0,
     status: doc.status ?? candidate?.status,
+  };
+
+  return {
+    ...detail,
+    customerExplanation: buildCustomerExplanationV1(detail),
   };
 }
 

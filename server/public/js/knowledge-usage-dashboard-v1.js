@@ -3,6 +3,13 @@ import { escapeHtml } from "./knowledge-field-shared-v1.js";
 
 const $ = (id) => document.getElementById(id);
 
+let filterState = {
+  dateFrom: "",
+  dateTo: "",
+  category: "",
+  projectId: "",
+};
+
 function renderRankingTable(items) {
   if (!items?.length) return '<p class="status-muted">データなし</p>';
   return `<table class="usage-stat-table">
@@ -70,11 +77,47 @@ function renderRecentLogs(items) {
   </table>`;
 }
 
-function renderDashboard(data) {
+function renderFilters(categories, projects) {
+  const catOpts = ['<option value="">すべて</option>']
+    .concat((categories || []).map((c) => `<option value="${escapeHtml(c)}"${filterState.category === c ? " selected" : ""}>${escapeHtml(c)}</option>`))
+    .join("");
+  const projOpts = ['<option value="">すべて</option>']
+    .concat((projects || []).map((p) => `<option value="${escapeHtml(p)}"${filterState.projectId === p ? " selected" : ""}>${escapeHtml(p)}</option>`))
+    .join("");
+  return `<div class="usage-dash-filters friendly-card">
+    <label>開始日<input type="date" id="filter-date-from" value="${escapeHtml(filterState.dateFrom)}" /></label>
+    <label>終了日<input type="date" id="filter-date-to" value="${escapeHtml(filterState.dateTo)}" /></label>
+    <label>カテゴリ<select id="filter-category">${catOpts}</select></label>
+    <label>案件<select id="filter-project">${projOpts}</select></label>
+  </div>
+  <div class="usage-dash-actions">
+    <button type="button" class="friendly-btn primary" id="apply-filters-btn">フィルタ適用</button>
+    <button type="button" class="friendly-btn" id="clear-filters-btn">クリア</button>
+    <a id="csv-export-link" href="#" role="button">CSVエクスポート</a>
+  </div>`;
+}
+
+function buildQueryParams() {
+  const qs = new URLSearchParams();
+  if (filterState.dateFrom) qs.set("dateFrom", filterState.dateFrom);
+  if (filterState.dateTo) qs.set("dateTo", filterState.dateTo);
+  if (filterState.category) qs.set("category", filterState.category);
+  if (filterState.projectId) qs.set("projectId", filterState.projectId);
+  return qs.toString();
+}
+
+function renderDashboard(data, filterMeta) {
+  const top10 = (data.topKnowledge || []).slice(0, 10);
   return `
+    ${renderFilters(filterMeta.categories, filterMeta.projects)}
+    <p class="usage-dash-count">使用ログ JSON 件数: <strong>${data.totalLogCount ?? 0}</strong> 件</p>
     <section class="friendly-card dash-section">
-      <h2>よく使われたナレッジ</h2>
-      ${renderRankingTable(data.topKnowledge)}
+      <h2>よく使われた資料 TOP10</h2>
+      ${renderRankingTable(top10)}
+    </section>
+    <section class="friendly-card dash-section">
+      <h2>最近使われていない資料</h2>
+      ${renderRankingTable(data.unusedKnowledge)}
     </section>
     <section class="friendly-card dash-section">
       <h2>カテゴリ別使用回数</h2>
@@ -91,20 +134,63 @@ function renderDashboard(data) {
   `;
 }
 
-async function init() {
-  await requireCustomerLogin();
-  const token = getCustomerToken();
+function bindFilterEvents(token) {
+  $("apply-filters-btn")?.addEventListener("click", () => {
+    filterState.dateFrom = $("filter-date-from")?.value || "";
+    filterState.dateTo = $("filter-date-to")?.value || "";
+    filterState.category = $("filter-category")?.value || "";
+    filterState.projectId = $("filter-project")?.value || "";
+    loadDashboard(token);
+  });
+  $("clear-filters-btn")?.addEventListener("click", () => {
+    filterState = { dateFrom: "", dateTo: "", category: "", projectId: "" };
+    loadDashboard(token);
+  });
+  const csvLink = $("csv-export-link");
+  csvLink?.addEventListener("click", async (e) => {
+    e.preventDefault();
+    try {
+      const qs = buildQueryParams();
+      const res = await fetch(`/api/knowledge/usage-analytics-v1/export.csv${qs ? `?${qs}` : ""}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error("CSV export failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "knowledge-usage-log.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(err.message || "CSVエクスポート失敗");
+    }
+  });
+}
+
+async function loadDashboard(token) {
   const root = $("dashboard-root");
   try {
-    const res = await fetch("/api/knowledge/usage-analytics-v1/dashboard", {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-    root.innerHTML = renderDashboard(data);
+    const qs = buildQueryParams();
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const [dashRes, filterRes] = await Promise.all([
+      fetch(`/api/knowledge/usage-analytics-v1/dashboard${qs ? `?${qs}` : ""}`, { headers }),
+      fetch("/api/knowledge/usage-analytics-v1/filters", { headers }),
+    ]);
+    const data = await dashRes.json().catch(() => ({}));
+    const filterMeta = await filterRes.json().catch(() => ({}));
+    if (!dashRes.ok) throw new Error(data.error || `HTTP ${dashRes.status}`);
+    root.innerHTML = renderDashboard(data, filterMeta);
+    bindFilterEvents(token);
   } catch (e) {
     root.innerHTML = `<p class="status-muted">${escapeHtml(e.message || "読み込み失敗")}</p>`;
   }
+}
+
+async function init() {
+  await requireCustomerLogin();
+  const token = getCustomerToken();
+  await loadDashboard(token);
 }
 
 init();

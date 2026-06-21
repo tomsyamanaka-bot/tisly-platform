@@ -1,0 +1,85 @@
+/** Knowledge Field UX V5 — オフライン / 見せるモード / 案件ワンタップ */
+
+.knowledge-field-v5 .field-v5-toolbar {
+  display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.65rem;
+}
+.knowledge-field-v5 .field-v5-toolbar .field-mode-btn {
+  flex: 1 1 calc(50% - 0.2rem); min-height: 2.75rem; font-size: 0.88rem;
+}
+.knowledge-field-v5 .field-v5-toolbar .dashboard-link {
+  flex: 1 1 100%; text-align: center; text-decoration: none;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 10px; border: 1px solid #cbd5e1; background: #f8fafc; color: #1e293b; font-weight: 600;
+}
+
+.offline-field-panel { margin-bottom: 0.75rem; }
+.offline-field-header {
+  display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+}
+.offline-field-header h2 { margin: 0; font-size: 1rem; }
+.offline-field-meta { font-size: 0.82rem; color: #64748b; margin: 0.4rem 0; }
+.offline-field-actions { display: flex; gap: 0.4rem; margin-bottom: 0.55rem; }
+.offline-field-actions button { flex: 1; min-height: 2.75rem; }
+
+.v5-card-list { display: flex; flex-direction: column; gap: 0.45rem; }
+.v5-summary-card {
+  display: block; text-decoration: none; color: inherit;
+  border: 1px solid #e2e8f0; border-radius: 12px; padding: 0.65rem 0.75rem; background: #fff;
+}
+.v5-summary-card strong { display: block; font-size: 0.95rem; line-height: 1.35; }
+.v5-summary-card small { color: #64748b; font-size: 0.8rem; }
+
+body.knowledge-offline-mode .field-sticky-search,
+body.knowledge-offline-mode #example-chips,
+body.knowledge-offline-mode #kind-chips,
+body.knowledge-offline-mode #category-chips,
+body.knowledge-offline-mode #favorite-chips,
+body.knowledge-offline-mode #recent-chips,
+body.knowledge-offline-mode .memo-box,
+body.knowledge-offline-mode #memo-search-btn {
+  display: none;
+}
+body.knowledge-offline-mode #offline-field-panel { border: 2px solid #0ea5e9; }
+
+.customer-explanation-card h2 { margin: 0 0 0.5rem; font-size: 1rem; }
+.customer-explain-list { margin: 0; }
+.customer-explain-row { margin-bottom: 0.55rem; }
+.customer-explain-row dt { font-size: 0.78rem; font-weight: 700; color: #475569; margin-bottom: 0.15rem; }
+.customer-explain-row dd { margin: 0; font-size: 0.92rem; line-height: 1.5; color: #1e293b; }
+.customer-explain-source { font-size: 0.75rem; color: #94a3b8; margin: 0.5rem 0 0; }
+
+.project-knowledge-panel h2 { margin: 0 0 0.35rem; font-size: 1rem; }
+.project-knowledge-meta { font-size: 0.85rem; color: #64748b; margin: 0 0 0.5rem; }
+.project-knowledge-list { margin-bottom: 0.55rem; }
+.project-used-btn { width: 100%; min-height: 3rem; }
+
+body.knowledge-presentation-mode .customer-explain-source,
+body.knowledge-presentation-mode .attach-path,
+body.knowledge-presentation-mode .attach-mode-hint,
+body.knowledge-presentation-mode .qnap-path-hidden,
+body.knowledge-presentation-mode #qnap-path,
+body.knowledge-presentation-mode .project-knowledge-meta,
+body.knowledge-presentation-mode .detail-meta,
+body.knowledge-presentation-mode .field-card-meta,
+body.knowledge-presentation-mode .project-filter-banner,
+body.knowledge-presentation-mode .offline-field-meta {
+  display: none !important;
+}
+
+.usage-dash-filters {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem; margin-bottom: 0.65rem;
+}
+.usage-dash-filters label { font-size: 0.78rem; color: #475569; display: flex; flex-direction: column; gap: 0.2rem; }
+.usage-dash-filters input, .usage-dash-filters select {
+  min-height: 2.5rem; border-radius: 8px; border: 1px solid #cbd5e1; padding: 0.35rem 0.5rem;
+}
+.usage-dash-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.65rem; }
+.usage-dash-actions button, .usage-dash-actions a {
+  min-height: 2.65rem; padding: 0 0.75rem; border-radius: 10px; font-weight: 600; text-decoration: none;
+  display: inline-flex; align-items: center; border: 1px solid #cbd5e1; background: #f8fafc; color: #1e293b;
+}
+.usage-dash-count { font-size: 0.85rem; color: #64748b; margin-bottom: 0.5rem; }
+
+@media (max-width: 767px) {
+  .usage-dash-filters { grid-template-columns: 1fr; }
+}

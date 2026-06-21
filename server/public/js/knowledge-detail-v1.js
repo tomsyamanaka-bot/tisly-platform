@@ -15,6 +15,12 @@ import {
   setPresentationModeV4,
   toggleFavoriteKnowledgeV4,
 } from "./knowledge-field-ux-v4.js";
+import {
+  registerKnowledgeServiceWorkerV5,
+  renderCustomerExplanationCardV5,
+  sanitizePresentationTextV5,
+  syncKnowledgeCacheToSwV5,
+} from "./knowledge-field-ux-v5.js";
 
 const $ = (id) => document.getElementById(id);
 let currentDetail = null;
@@ -43,6 +49,8 @@ function renderAttachmentSection(items) {
 
 function renderProjectLinks(projects) {
   if (!projects?.length) return "";
+  const presentation = isPresentationModeV4();
+  if (presentation) return "";
   return `<div class="related-list">${projects
     .map(
       (p) =>
@@ -102,13 +110,16 @@ function renderDetail(d) {
       : `<p id="qnap-path">${escapeHtml(d.qnapPath || "—")}</p>`;
 
   const usedLabel = presentation ? "この資料を使う" : "✓ このナレッジを使った";
+  const customerCard = renderCustomerExplanationCardV5(d.customerExplanation, presentation);
+  const summaryText = presentation ? sanitizePresentationTextV5(d.summary || "—") : escapeHtml(d.summary || "—");
 
   return `
     <div class="friendly-card${presentation ? " presentation-card" : ""}">
       <h1 class="detail-title">${escapeHtml(d.title)}</h1>
       <p class="detail-meta">${escapeHtml(kindLabel)} · ${escapeHtml(d.category || "—")}${presentation ? "" : ` · ${escapeHtml(d.createdAt || "")}`}</p>
       <div class="flag-row">${flags.join("")}</div>
-      ${section("概要", `<p>${escapeHtml(d.summary || "—")}</p>`)}
+      ${customerCard}
+      ${section("概要", `<p>${summaryText}</p>`)}
       ${section("手順", d.procedure ? `<p>${escapeHtml(d.procedure)}</p>` : "")}
       ${section("材料", materials)}
       ${section("工具", tools)}
@@ -250,6 +261,8 @@ async function init() {
   if (params.get("presentation") === "1") {
     setPresentationModeV4(true);
   }
+  await registerKnowledgeServiceWorkerV5();
+  syncKnowledgeCacheToSwV5();
   await loadDetail();
 }
 

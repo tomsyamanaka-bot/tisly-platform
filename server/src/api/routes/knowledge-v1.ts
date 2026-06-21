@@ -54,11 +54,13 @@ import {
   appendKnowledgeUsageLogV1,
   listKnowledgeUsageLogsV1,
 } from "../../knowledge/knowledge-usage-log-v1.js";
-import { buildKnowledgeUsageDashboardV1 } from "../../knowledge/knowledge-usage-analytics-v1.js";
+import { buildKnowledgeUsageDashboardV1, exportKnowledgeUsageCsvV1, listUsageFilterCategoriesV1, listUsageFilterProjectsV1 } from "../../knowledge/knowledge-usage-analytics-v1.js";
 import {
   listKnowledgeProjectAccessV1,
   listProjectUsageLogsV1,
 } from "../../knowledge/knowledge-project-access-v1.js";
+import { listProjectKnowledgeV1 } from "../../knowledge/knowledge-project-knowledge-v1.js";
+import { runKnowledgeQnapConnectionTestV1 } from "../../knowledge/knowledge-qnap-connection-test-v1.js";
 import { tokenizeFieldMemoV1 } from "../../knowledge/knowledge-field-memo-v1.js";
 import {
   parseUnifiedKnowledgeKindsV1,
@@ -181,6 +183,27 @@ knowledgeV1Router.get("/files-v1", ...auth, async (req: AuthedRequest, res) => {
   res.status(404).json({ error: "File not found" });
 });
 
+/** GET /api/knowledge/qnap-connection-test — QNAP WebDAV 接続確認（V5） */
+knowledgeV1Router.get("/qnap-connection-test", ...auth, async (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  try {
+    const result = await runKnowledgeQnapConnectionTestV1();
+    res.json(result);
+  } catch (e) {
+    res.status(200).json({
+      mode: "mock",
+      configured: false,
+      reachable: false,
+      baseUrl: "(確認失敗)",
+      shareRoot: "TiSLY",
+      checkedAt: new Date().toISOString(),
+      fallbackReason: "接続テスト処理エラー — アプリは継続",
+      sampleListResult: { ok: false, count: 0, sample: [], source: "none" },
+      errorMessage: e instanceof Error ? e.message : "接続テスト失敗",
+    });
+  }
+});
+
 /** GET /api/knowledge/delivery-status-v1 — QNAP mock/webdav 配信モード */
 knowledgeV1Router.get("/delivery-status-v1", ...auth, (req: AuthedRequest, res) => {
   if (!assertRole(req, res)) return;
@@ -195,6 +218,15 @@ knowledgeV1Router.get("/project-access-v1", ...auth, (req: AuthedRequest, res) =
   res.json({ projects: listKnowledgeProjectAccessV1(limit) });
 });
 
+/** GET /api/knowledge/project-access-v1/:projectId/knowledge — 案件別関連ナレッジ（V5） */
+knowledgeV1Router.get("/project-access-v1/:projectId/knowledge", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const projectId = String(req.params.projectId ?? "").trim();
+  const limitRaw = Number(req.query.limit ?? 30);
+  const limit = Number.isFinite(limitRaw) ? limitRaw : 30;
+  res.json({ projectId, items: listProjectKnowledgeV1(projectId, limit) });
+});
+
 /** GET /api/knowledge/project-access-v1/:projectId/logs — 案件別使ったログ */
 knowledgeV1Router.get("/project-access-v1/:projectId/logs", ...auth, (req: AuthedRequest, res) => {
   if (!assertRole(req, res)) return;
@@ -204,10 +236,48 @@ knowledgeV1Router.get("/project-access-v1/:projectId/logs", ...auth, (req: Authe
   res.json({ projectId, entries: listProjectUsageLogsV1(projectId, limit) });
 });
 
-/** GET /api/knowledge/usage-analytics-v1/dashboard — 使用ログ簡易ダッシュボード */
+/** GET /api/knowledge/usage-analytics-v1/dashboard — 使用ログ簡易ダッシュボード（V5 フィルタ対応） */
 knowledgeV1Router.get("/usage-analytics-v1/dashboard", ...auth, (req: AuthedRequest, res) => {
   if (!assertRole(req, res)) return;
-  res.json(buildKnowledgeUsageDashboardV1());
+  const dateFrom = String(req.query.dateFrom ?? "");
+  const dateTo = String(req.query.dateTo ?? "");
+  const category = String(req.query.category ?? "");
+  const projectId = String(req.query.projectId ?? "");
+  res.json(
+    buildKnowledgeUsageDashboardV1({
+      dateFrom: dateFrom || undefined,
+      dateTo: dateTo || undefined,
+      category: category || undefined,
+      projectId: projectId || undefined,
+    })
+  );
+});
+
+/** GET /api/knowledge/usage-analytics-v1/export.csv — 使用ログ CSV エクスポート */
+knowledgeV1Router.get("/usage-analytics-v1/export.csv", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const dateFrom = String(req.query.dateFrom ?? "");
+  const dateTo = String(req.query.dateTo ?? "");
+  const category = String(req.query.category ?? "");
+  const projectId = String(req.query.projectId ?? "");
+  const csv = exportKnowledgeUsageCsvV1({
+    dateFrom: dateFrom || undefined,
+    dateTo: dateTo || undefined,
+    category: category || undefined,
+    projectId: projectId || undefined,
+  });
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", 'attachment; filename="knowledge-usage-log.csv"');
+  res.send(`\uFEFF${csv}`);
+});
+
+/** GET /api/knowledge/usage-analytics-v1/filters — ダッシュボードフィルタ候補 */
+knowledgeV1Router.get("/usage-analytics-v1/filters", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  res.json({
+    categories: listUsageFilterCategoriesV1(),
+    projects: listUsageFilterProjectsV1(),
+  });
 });
 
 /** POST /api/knowledge/usage-log — 使ったログ保存 */

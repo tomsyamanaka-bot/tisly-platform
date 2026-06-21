@@ -39,7 +39,6 @@ import {
   isCacheEnabledV4,
   isPresentationModeV4,
   readJson,
-  renderFieldToolbarV4,
   renderProjectQuickAccessHtmlV4,
   renderProjectUsageLogsHtmlV4,
   renderRecentKnowledgeHtmlV4,
@@ -47,6 +46,21 @@ import {
   setPresentationModeV4,
   setProjectFilterV4,
 } from "./knowledge-field-ux-v4.js";
+import {
+  bindOfflineFieldPanelV5,
+  clearKnowledgeCachesV5,
+  estimateCacheSizeV5,
+  fetchProjectKnowledgeV5,
+  isOfflineFieldModeV5,
+  registerKnowledgeServiceWorkerV5,
+  renderFieldToolbarV5,
+  renderOfflineFieldModePanelV5,
+  renderProjectKnowledgePanelV5,
+  refreshAllKnowledgeCacheV5,
+  setOfflineFieldModeV5,
+  stripInternalFromHitV5,
+  syncKnowledgeCacheToSwV5,
+} from "./knowledge-field-ux-v5.js";
 
 const $ = (id) => document.getElementById(id);
 let lastHits = [];
@@ -77,27 +91,74 @@ async function apiSearch(params) {
 function renderToolbar() {
   const mount = $("field-toolbar-mount");
   if (!mount) return;
-  mount.innerHTML = renderFieldToolbarV4();
+  mount.innerHTML = renderFieldToolbarV5();
   if (isPresentationModeV4()) {
     document.body.classList.add("knowledge-presentation-mode");
+  }
+  if (isOfflineFieldModeV5()) {
+    document.body.classList.add("knowledge-offline-mode");
   }
   $("presentation-mode-btn")?.addEventListener("click", () => {
     const next = !isPresentationModeV4();
     setPresentationModeV4(next);
     renderToolbar();
     if (lastHits.length) renderHits(lastHits, lastHits.length, lastQuery);
-    toast(next ? "見せるモード ON — 内部パスを非表示" : "通常モードに戻しました");
+    toast(next ? "見せるモード ON — 内部情報を非表示" : "通常モードに戻しました");
   });
   $("cache-toggle-btn")?.addEventListener("click", async () => {
     const next = !isCacheEnabledV4();
     setCacheEnabledV4(next);
+    syncKnowledgeCacheToSwV5();
     renderToolbar();
+    renderOfflineFieldSection();
     renderRecentKnowledgeSection();
     if (next) {
       await cacheRecentKnowledgeFilesV4(getCustomerToken());
       renderRecentKnowledgeSection();
     }
     toast(next ? "資料キャッシュ ON" : "資料キャッシュ OFF");
+  });
+  $("offline-mode-quick-btn")?.addEventListener("click", () => {
+    const next = !isOfflineFieldModeV5();
+    setOfflineFieldModeV5(next);
+    renderToolbar();
+    renderOfflineFieldSection();
+    toast(next ? "キャッシュ済み資料のみ表示" : "通常表示に戻しました");
+  });
+}
+
+async function renderOfflineFieldSection() {
+  const mount = $("offline-field-mount");
+  if (!mount) return;
+  const size = await estimateCacheSizeV5();
+  mount.innerHTML = renderOfflineFieldModePanelV5({ sizeLabel: size.label });
+  bindOfflineFieldPanelV5(mount, {
+    onOfflineToggle: (on) => {
+      renderToolbar();
+      renderOfflineFieldSection();
+      toast(on ? "オフラインモード — キャッシュ済みのみ" : "オンライン表示に戻しました");
+    },
+    onRefreshCache: async () => {
+      toast("キャッシュ更新中…");
+      await refreshAllKnowledgeCacheV5(getCustomerToken());
+      await renderOfflineFieldSection();
+      renderRecentKnowledgeSection();
+      toast("キャッシュを更新しました");
+    },
+    onClearCache: async () => {
+      await clearKnowledgeCachesV5();
+      if (navigator.serviceWorker?.controller) {
+        navigator.serviceWorker.controller.postMessage({ type: "CLEAR_KNOWLEDGE_CACHE_V5" });
+      }
+      await renderOfflineFieldSection();
+      renderRecentKnowledgeSection();
+      toast("キャッシュを削除しました");
+    },
+    onOnlineRestore: () => {
+      renderToolbar();
+      renderOfflineFieldSection();
+      toast("オンライン復帰 — 通常表示に戻しました");
+    },
   });
 }
 
@@ -204,6 +265,7 @@ async function renderProjectAccessSection() {
       setProjectFilterV4(activeProjectFilter);
       renderProjectFilterBanner();
       await renderProjectUsageSection();
+      await renderProjectKnowledgeSection();
       renderProjectAccessSection();
       if (lastHits.length) {
         renderHits(filterHitsByProjectV4(lastHits, projectId), lastHits.length, `${lastQuery} · 案件 ${projectId}`);
@@ -235,6 +297,21 @@ function renderProjectFilterBanner() {
     $("project-usage-mount").innerHTML = "";
     if (lastHits.length) renderHits(lastHits, lastHits.length, lastQuery);
     toast("案件フィルタを解除しました");
+  });
+}
+
+async function renderProjectKnowledgeSection() {
+  const mount = $("project-knowledge-mount");
+  if (!mount || !activeProjectFilter?.projectId) {
+    if (mount) mount.innerHTML = "";
+    return;
+  }
+  const token = getCustomerToken();
+  const items = await fetchProjectKnowledgeV5(activeProjectFilter.projectId, token);
+  mount.innerHTML = renderProjectKnowledgePanelV5(activeProjectFilter, items);
+  mount.querySelector(".project-used-btn")?.addEventListener("click", () => {
+    toast(`案件「${activeProjectFilter.propertyName}」の使用ログを確認できます`);
+    renderProjectUsageSection();
   });
 }
 
@@ -315,14 +392,15 @@ function updateMemoPreview() {
 }
 
 function renderFieldCard(hit) {
-  const flags = hitCapabilities(hit);
+  const presentation = isPresentationModeV4();
+  const safeHit = stripInternalFromHitV5(hit, presentation);
+  const flags = hitCapabilities(safeHit);
   const kindLabel = KIND_LABELS[hit.kind] || hit.kind;
   const reasons = (hit.matchReasons || [])
     .map((r) => `<span class="reason-chip">${escapeHtml(r)}</span>`)
     .join("");
-  const detailUrl = `/knowledge-detail-v1?id=${encodeURIComponent(hit.id)}&kind=${encodeURIComponent(hit.kind)}`;
-  const presentation = isPresentationModeV4();
-  const actions = buildHitActionButtonsV4(hit, flags, detailUrl, { presentation });
+  const detailUrl = `/knowledge-detail-v1?id=${encodeURIComponent(hit.id)}&kind=${encodeURIComponent(hit.kind)}${presentation ? "&presentation=1" : ""}`;
+  const actions = buildHitActionButtonsV4(safeHit, flags, detailUrl, { presentation });
 
   return `<article class="field-card" data-id="${escapeHtml(hit.id)}">
     <h3>${escapeHtml(hit.title)}</h3>
@@ -447,7 +525,10 @@ async function init() {
   renderCategoryChips();
   renderFavoriteChips();
   renderRecentChips();
+  await renderOfflineFieldSection();
   renderRecentKnowledgeSection();
+  await registerKnowledgeServiceWorkerV5();
+  syncKnowledgeCacheToSwV5();
   await renderUsageRankingSection();
   await renderProjectAccessSection();
   renderProjectFilterBanner();

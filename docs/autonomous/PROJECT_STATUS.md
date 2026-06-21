@@ -491,6 +491,24 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 環境変数 | `QNAP_MODE` · `QNAP_WEBDAV_BASE_URL` · `QNAP_FILESTATION_BASE_URL` · `QNAP_SHARE_ROOT` · `QNAP_SMB_ROOT`（`.env.example` 参照） |
 | コード | `knowledge-field-ux-v4.js` · `knowledge-field-ux-v4.css` · `knowledge-file-delivery-v1.ts`（WebDAV拡張） |
 
+### Knowledge Field UX V5（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | **QNAP本番接続準備 · 現場オフライン運用 · 見せるモード安全強化** — AI/Embedding/Qdrant/RAG/Whisper/TTS は未実装 |
+| Phase1 QNAP接続テスト | `GET /api/knowledge/qnap-connection-test` — mode/configured/reachable/fallbackReason/sampleListResult（認証情報は返さない） |
+| Phase2 Service Worker | `sw-knowledge-field-v5.js` — files-v1/detail-v1/search-v1/project-access stale-while-revalidate · 最大20件 · キャッシュON/OFF |
+| Phase3 オフライン現場モード | `/knowledge-field-v1` — キャッシュ済み資料一覧 · 最終更新 · 容量目安 · 削除/全更新 · オンライン復帰で通常表示 |
+| Phase4 見せるモード強化 | QNAP/SMB/WebDAV/API URL/projectId/userId/usage-log詳細/mock表示を非表示 · 資料名/PDF/写真/説明/カテゴリ/関連資料のみ |
+| Phase5 お客様向け説明 | `knowledge-customer-explanation-v1.ts` — 詳細画面カード（mock_v1 · 将来AI差し替え可能） |
+| Phase6 案件ワンタップ | 案件カード → `GET /api/knowledge/project-access-v1/:id/knowledge` · 使用順 · PDF/写真バッジ · 案件別ログ |
+| Phase7 使用ログ改善 | 期間/カテゴリ/案件フィルタ · CSV export · TOP10 · 未使用資料 · JSON件数 |
+| Phase8 テスト | `server/test/knowledge-field-v5.test.ts` |
+| 確認 | `GET /api/knowledge/qnap-connection-test` · `/knowledge-field-v1` · `/knowledge-usage-dashboard-v1` |
+| コード | `knowledge-field-ux-v5.js` · `knowledge-field-ux-v5.css` · `sw-knowledge-field-v5.js` · `knowledge-qnap-connection-test-v1.ts` |
+
+**VPS QNAP WebDAV 本番接続:** `.env` に `QNAP_MODE=webdav` + WebDAV URL/認証を設定後、`GET /api/knowledge/qnap-connection-test` で `reachable:true` を確認。
+
 ---
 
 ## 関連ドキュメント
