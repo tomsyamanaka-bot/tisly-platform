@@ -484,6 +484,9 @@ export function createApp(): express.Application {
   app.get("/mothership-explorer-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "mothership-explorer-v1.html"));
   });
+  app.get("/knowledge-search-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "knowledge-search-v1.html"));
+  });
   app.get("/ai-estimate-engine-v1", (_req, res) => {
     res.redirect(302, "/master-v1?tab=stats");
   });

@@ -1,0 +1,18 @@
+{
+  "id": "PLC-SEQUENCE-001",
+  "title": "PLC 順序制御",
+  "category": "PLC",
+  "tags": [
+    "PLC",
+    "順序制御",
+    "テンプレート",
+    "GX Works3"
+  ],
+  "summary": "PLC 順序制御 の GX Works3 向け標準テンプレート。\nラダー: ステップ番号・遷移条件・完了フラグによる順序制御\n用途: 複数工程の自動運転、コンベア段取り替え\n注意点: 異常時は全ステップリセット手順をマニュアル化",
+  "files": [
+    "Ladder/sequence-template.md"
+  ],
+  "updatedAt": "2026-06-21",
+  "sourceType": "plc-template",
+  "qnapSyncStatus": "pending"
+}

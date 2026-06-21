@@ -126,7 +126,45 @@ export const PLC_TEMPLATE_TOPICS_V1 = [
   "点滅",
   "タイマー",
   "インターロック",
+  "順序制御",
 ] as const;
+
+/** PLC テンプレ — GX Works3 向けメタ（検索・UI 表示用） */
+export const PLC_TEMPLATE_META_V1: Record<
+  (typeof PLC_TEMPLATE_TOPICS_V1)[number],
+  { ladder: string; usage: string; cautions: string }
+> = {
+  自己保持: {
+    ladder: "押ボタン起動・停止の基本自己保持回路（SET/RESET またはラッチ）",
+    usage: "モータ起動、ランプ点灯、運転中フラグの保持",
+    cautions: "非常停止回路とは独立配線。停止ボタンは NC 接点推奨",
+  },
+  非常停止: {
+    ladder: "E-STOP 入力で全出力遮断、復帰は手動リセット",
+    usage: "コンベア・プレス・自動装置の安全回路",
+    cautions: "ハードウェア E-STOP とソフト停止を混同しない。復帰前に原因確認",
+  },
+  点滅: {
+    ladder: "タイマーまたはトグルで ON/OFF 周期出力",
+    usage: "警報ランプ・メンテ表示・待機中インジケータ",
+    cautions: "スキャン周期に依存するため点滅周期はタイマー定数で調整",
+  },
+  タイマー: {
+    ladder: "TON/TOF/TP タイマーブロックの標準接続",
+    usage: "起動遅延、停止遅延、パルス出力、インターロック時間",
+    cautions: "設定値単位（0.1s/1s）を機種設定と一致させる",
+  },
+  インターロック: {
+    ladder: "相互排他条件で同時起動を禁止",
+    usage: "正転/逆転、排他バルブ、二重起動防止",
+    cautions: "機械側ハードインターロックと論理 AND で二重化推奨",
+  },
+  順序制御: {
+    ladder: "ステップ番号・遷移条件・完了フラグによる順序制御",
+    usage: "複数工程の自動運転、コンベア段取り替え",
+    cautions: "異常時は全ステップリセット手順をマニュアル化",
+  },
+};
 
 /** RP / ESP テンプレートトピック */
 export const RP_TEMPLATE_TOPICS_V1 = ["RP2350", "ESP32", "配線例", "回路図", "設定例"] as const;

@@ -93,6 +93,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | チェックリスト管理 | `/checklist-templates-v1`（設定から） |
 | 発注管理 | `/purchase-v1` |
 | 設定（管理者） | `/settings-v1` |
+| ナレッジ検索 | `/knowledge-search-v1` |
 | ストレージ設定 | `/storage-settings-v1` |
 | 見積マスター | `/master-v1` |
 | AI見積エンジン基盤 | `/ai-estimate-engine-v1` → `/master-v1?tab=stats` |
@@ -409,6 +410,22 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | Phase4 OCR準備 | `PhotoOcrEngineV1` interface · `rule_based_v1` · `dummy_v1` · 写真種別（盤/ブレーカ/ラベル/カメラ/NVR） |
 | Phase5 Explorer | `/mothership-explorer-v1` — トップフォルダ件数 · 最近更新 · QNAP接続/同期状態 · Knowledge対象表示 |
 | テスト | `server/test/knowledge-sync-stabilization-v1.test.ts`（10ケース） |
+
+### Knowledge Search V1（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | 蓄積 Knowledge を **高速キーワード検索** — Embedding/Qdrant/RAG/Whisper/TTS は未実装 |
+| 統合API | `GET /api/knowledge/search-v1` — Cards · Candidates · Projects · PDF · Photos · Assets · PLC · ESP · 3DPrint · Factory |
+| スコア | タイトル +10 · タグ +7 · 本文 +5 · 案件ID +6 · 顧客/物件 +4 · カテゴリ +3 |
+| フィルタ | カテゴリ · 案件ID · 期間 · 種別（`kinds=`） |
+| 検索UI | `/knowledge-search-v1` — 一覧/カード切替 · 一致理由表示 |
+| 現場モード | `/knowledge-search-v1?mobile=1` — 大ボタン · 3タップ以内で PDF/写真へ |
+| PLC強化 | 自己保持/非常停止/点滅/タイマー/インターロック/順序制御 — ラダー説明 · 用途 · 注意点 |
+| 3DPrint | STL/STEP/GCode/部品表 — DINレール · RP2350 · カメラ等をタグ検索 |
+| 履歴 | localStorage — 最近検索 · お気に入り · よく使う検索チップ |
+| コード | `server/src/knowledge/unified-knowledge-search-v1.ts` · `server/public/knowledge-search-v1.html` |
+| テスト | `server/test/knowledge-search-v1.test.ts` |
 
 ---
 

@@ -1,0 +1,18 @@
+{
+  "id": "PLC-INTERLOCK-001",
+  "title": "PLC インターロック",
+  "category": "PLC",
+  "tags": [
+    "PLC",
+    "インターロック",
+    "テンプレート",
+    "GX Works3"
+  ],
+  "summary": "PLC インターロック の GX Works3 向け標準テンプレート。\nラダー: 相互排他条件で同時起動を禁止\n用途: 正転/逆転、排他バルブ、二重起動防止\n注意点: 機械側ハードインターロックと論理 AND で二重化推奨",
+  "files": [
+    "Ladder/interlock-template.md"
+  ],
+  "updatedAt": "2026-06-21",
+  "sourceType": "plc-template",
+  "qnapSyncStatus": "pending"
+}

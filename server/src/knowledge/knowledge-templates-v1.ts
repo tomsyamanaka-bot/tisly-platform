@@ -5,6 +5,7 @@ import path from "path";
 import { getKnowledgeFolderPath } from "./knowledge-paths-v1.js";
 import { getKnowledgeCardV1, saveKnowledgeCardV1 } from "./knowledge-store-v1.js";
 import {
+  PLC_TEMPLATE_META_V1,
   PLC_TEMPLATE_TOPICS_V1,
   RP_TEMPLATE_TOPICS_V1,
   type KnowledgeCardV1,
@@ -20,6 +21,7 @@ const PLC_TOPIC_SLUG: Record<(typeof PLC_TEMPLATE_TOPICS_V1)[number], string> = 
   点滅: "BLINK",
   タイマー: "TIMER",
   インターロック: "INTERLOCK",
+  順序制御: "SEQUENCE",
 };
 
 const RP_TOPIC_SLUG: Record<(typeof RP_TEMPLATE_TOPICS_V1)[number], string> = {
@@ -30,29 +32,74 @@ const RP_TOPIC_SLUG: Record<(typeof RP_TEMPLATE_TOPICS_V1)[number], string> = {
   設定例: "CONFIG",
 };
 
-function ensureTemplatePlaceholder(folder: "PLC" | "RP" | "Ladder", fileName: string): void {
+function buildPlcSummary(topic: (typeof PLC_TEMPLATE_TOPICS_V1)[number]): string {
+  const meta = PLC_TEMPLATE_META_V1[topic];
+  return [
+    `PLC ${topic} の GX Works3 向け標準テンプレート。`,
+    `ラダー: ${meta.ladder}`,
+    `用途: ${meta.usage}`,
+    `注意点: ${meta.cautions}`,
+  ].join("\n");
+}
+
+function buildLadderMarkdown(topic: (typeof PLC_TEMPLATE_TOPICS_V1)[number], slug: string): string {
+  const meta = PLC_TEMPLATE_META_V1[topic];
+  return `# PLC ${topic} — GX Works3 テンプレート
+
+## ラダー説明
+${meta.ladder}
+
+## 用途
+${meta.usage}
+
+## 注意点
+${meta.cautions}
+
+## 関連ファイル
+- Ladder/${slug.toLowerCase()}-template.md
+- PLC/Templates/（MotherShip 同期）
+
+TiSLY Knowledge — keyword search v1
+`;
+}
+
+function ensureTemplatePlaceholder(folder: "PLC" | "RP" | "Ladder", fileName: string, content?: string): void {
   const dir = getKnowledgeFolderPath(folder === "Ladder" ? "Ladder" : folder);
   const filePath = path.join(dir, fileName);
-  if (!fs.existsSync(filePath)) {
-    fs.writeFileSync(filePath, `# ${fileName}\n\nTiSLY Knowledge template placeholder.\n`, "utf8");
+  if (!fs.existsSync(filePath) || content) {
+    fs.writeFileSync(filePath, content ?? `# ${fileName}\n\nTiSLY Knowledge template placeholder.\n`, "utf8");
   }
 }
 
 export function seedPlcKnowledgeTemplatesV1(): KnowledgeCardV1[] {
   const created: KnowledgeCardV1[] = [];
-  PLC_TEMPLATE_TOPICS_V1.forEach((topic, idx) => {
+  PLC_TEMPLATE_TOPICS_V1.forEach((topic) => {
     const slug = PLC_TOPIC_SLUG[topic];
     const id = `PLC-${slug}-001`;
-    if (getKnowledgeCardV1(id)) return;
     const fileName = `${slug.toLowerCase()}-template.md`;
-    ensureTemplatePlaceholder("Ladder", fileName);
+    const summary = buildPlcSummary(topic);
+    ensureTemplatePlaceholder("Ladder", fileName, buildLadderMarkdown(topic, slug));
+
+    const existing = getKnowledgeCardV1(id);
+    if (existing) {
+      if (!existing.summary.includes("用途:") || !existing.summary.includes("ラダー:")) {
+        saveKnowledgeCardV1({
+          ...existing,
+          summary,
+          tags: [...new Set([...(existing.tags ?? []), "PLC", topic, "テンプレート", "GX Works3"])],
+          updatedAt: todayIsoDate(),
+        });
+      }
+      return;
+    }
+
     created.push(
       saveKnowledgeCardV1({
         id,
         title: `PLC ${topic}`,
         category: "PLC",
         tags: ["PLC", topic, "テンプレート", "GX Works3"],
-        summary: `PLC ${topic} の標準テンプレート。将来 GX Works3 部品ライブラリ化予定。`,
+        summary,
         files: [`Ladder/${fileName}`],
         updatedAt: todayIsoDate(),
         sourceType: "plc-template",

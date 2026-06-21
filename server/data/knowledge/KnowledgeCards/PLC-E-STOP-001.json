@@ -1,0 +1,18 @@
+{
+  "id": "PLC-E-STOP-001",
+  "title": "PLC 非常停止",
+  "category": "PLC",
+  "tags": [
+    "PLC",
+    "非常停止",
+    "テンプレート",
+    "GX Works3"
+  ],
+  "summary": "PLC 非常停止 の GX Works3 向け標準テンプレート。\nラダー: E-STOP 入力で全出力遮断、復帰は手動リセット\n用途: コンベア・プレス・自動装置の安全回路\n注意点: ハードウェア E-STOP とソフト停止を混同しない。復帰前に原因確認",
+  "files": [
+    "Ladder/e-stop-template.md"
+  ],
+  "updatedAt": "2026-06-21",
+  "sourceType": "plc-template",
+  "qnapSyncStatus": "pending"
+}

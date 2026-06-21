@@ -84,6 +84,7 @@ server/data/knowledge/
 | 現場クイック | `/knowledge-quick-v1` — 写真+メモ30秒登録 |
 | 案件→ナレッジ | 案件詳細 `/projects-v1` →「Knowledgeへ登録」 |
 | 検索 | `GET /api/knowledge/search?q=` · `?type=photo` · `?type=pdf` |
+| **統合検索 v1** | `/knowledge-search-v1` · `GET /api/knowledge/search-v1` |
 | 一覧 | `GET /api/knowledge/cards` |
 | 登録 | `POST /api/knowledge/cards` |
 | **候補一覧** | `/knowledge-candidates-v1` · `GET /api/knowledge/candidates` |

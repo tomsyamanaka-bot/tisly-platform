@@ -1,0 +1,18 @@
+{
+  "id": "PLC-BLINK-001",
+  "title": "PLC 点滅",
+  "category": "PLC",
+  "tags": [
+    "PLC",
+    "点滅",
+    "テンプレート",
+    "GX Works3"
+  ],
+  "summary": "PLC 点滅 の GX Works3 向け標準テンプレート。\nラダー: タイマーまたはトグルで ON/OFF 周期出力\n用途: 警報ランプ・メンテ表示・待機中インジケータ\n注意点: スキャン周期に依存するため点滅周期はタイマー定数で調整",
+  "files": [
+    "Ladder/blink-template.md"
+  ],
+  "updatedAt": "2026-06-21",
+  "sourceType": "plc-template",
+  "qnapSyncStatus": "pending"
+}

@@ -1,18 +1,47 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-20T23:00:00.783Z",
+  "updatedAt": "2026-06-21T08:22:20.712Z",
   "entries": [
     {
-      "id": "PLC-SELF-HOLD-001",
-      "title": "自己保持回路",
-      "category": "PLC",
+      "id": "AUTO-MO260621200-ESTIMATE-001",
+      "title": "防犯カメラ設置（見積）",
+      "category": "防犯カメラ",
       "tags": [
-        "PLC",
-        "自己保持",
-        "ラダー"
+        "見積",
+        "MO-26-0621-200",
+        "同期テスト顧客"
       ],
-      "summary": "基本自己保持回路。押ボタン起動・停止回路の標準パターン。",
-      "updatedAt": "2026-06-21"
+      "summary": "同期テスト顧客 · 案件 MO-26-0621-200 の見積ナレッジ。",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMQNFKI8B-1",
+      "title": "一括承認1",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 1",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMQNFKI8B-2",
+      "title": "一括承認2",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 2",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
     },
     {
       "id": "PDF-MO260621099-ESTIMATE-001",
@@ -25,7 +54,7 @@
         "PDF"
       ],
       "summary": "テスト顧客 · 案件 MO-26-0621-099 の見積書。",
-      "updatedAt": "2026-06-20",
+      "updatedAt": "2026-06-21",
       "projectNo": "MO-26-0621-099",
       "customerName": "テスト顧客",
       "sourceType": "pdf"
@@ -41,7 +70,7 @@
         "完了報告"
       ],
       "summary": "完了報告写真: 盤内配線（案件 MO-26-0621-099）",
-      "updatedAt": "2026-06-20",
+      "updatedAt": "2026-06-21",
       "projectNo": "MO-26-0621-099",
       "customerName": "テスト顧客",
       "sourceType": "photo"
@@ -56,8 +85,8 @@
         "テンプレート",
         "GX Works3"
       ],
-      "summary": "PLC 点滅 の標準テンプレート。将来 GX Works3 部品ライブラリ化予定。",
-      "updatedAt": "2026-06-20",
+      "summary": "PLC 点滅 の GX Works3 向け標準テンプレート。\nラダー: タイマーまたはトグルで ON/OFF 周期出力\n用途: 警報ランプ・メンテ表示・待機中インジケータ\n注意点: スキャン周期に依存するため点滅周期はタイマー定数で調整",
+      "updatedAt": "2026-06-21",
       "sourceType": "plc-template"
     },
     {
@@ -70,8 +99,8 @@
         "テンプレート",
         "GX Works3"
       ],
-      "summary": "PLC 非常停止 の標準テンプレート。将来 GX Works3 部品ライブラリ化予定。",
-      "updatedAt": "2026-06-20",
+      "summary": "PLC 非常停止 の GX Works3 向け標準テンプレート。\nラダー: E-STOP 入力で全出力遮断、復帰は手動リセット\n用途: コンベア・プレス・自動装置の安全回路\n注意点: ハードウェア E-STOP とソフト停止を混同しない。復帰前に原因確認",
+      "updatedAt": "2026-06-21",
       "sourceType": "plc-template"
     },
     {
@@ -84,8 +113,36 @@
         "テンプレート",
         "GX Works3"
       ],
-      "summary": "PLC インターロック の標準テンプレート。将来 GX Works3 部品ライブラリ化予定。",
-      "updatedAt": "2026-06-20",
+      "summary": "PLC インターロック の GX Works3 向け標準テンプレート。\nラダー: 相互排他条件で同時起動を禁止\n用途: 正転/逆転、排他バルブ、二重起動防止\n注意点: 機械側ハードインターロックと論理 AND で二重化推奨",
+      "updatedAt": "2026-06-21",
+      "sourceType": "plc-template"
+    },
+    {
+      "id": "PLC-SELF-HOLD-001",
+      "title": "自己保持回路",
+      "category": "PLC",
+      "tags": [
+        "PLC",
+        "自己保持",
+        "ラダー",
+        "テンプレート",
+        "GX Works3"
+      ],
+      "summary": "PLC 自己保持 の GX Works3 向け標準テンプレート。\nラダー: 押ボタン起動・停止の基本自己保持回路（SET/RESET またはラッチ）\n用途: モータ起動、ランプ点灯、運転中フラグの保持\n注意点: 非常停止回路とは独立配線。停止ボタンは NC 接点推奨",
+      "updatedAt": "2026-06-21"
+    },
+    {
+      "id": "PLC-SEQUENCE-001",
+      "title": "PLC 順序制御",
+      "category": "PLC",
+      "tags": [
+        "PLC",
+        "順序制御",
+        "テンプレート",
+        "GX Works3"
+      ],
+      "summary": "PLC 順序制御 の GX Works3 向け標準テンプレート。\nラダー: ステップ番号・遷移条件・完了フラグによる順序制御\n用途: 複数工程の自動運転、コンベア段取り替え\n注意点: 異常時は全ステップリセット手順をマニュアル化",
+      "updatedAt": "2026-06-21",
       "sourceType": "plc-template"
     },
     {
@@ -98,9 +155,105 @@
         "テンプレート",
         "GX Works3"
       ],
-      "summary": "PLC タイマー の標準テンプレート。将来 GX Works3 部品ライブラリ化予定。",
-      "updatedAt": "2026-06-20",
+      "summary": "PLC タイマー の GX Works3 向け標準テンプレート。\nラダー: TON/TOF/TP タイマーブロックの標準接続\n用途: 起動遅延、停止遅延、パルス出力、インターロック時間\n注意点: 設定値単位（0.1s/1s）を機種設定と一致させる",
+      "updatedAt": "2026-06-21",
       "sourceType": "plc-template"
+    },
+    {
+      "id": "QUICK-MQNFEXGM",
+      "title": "PoE配線メモ",
+      "category": "LAN",
+      "tags": [
+        "PoE給電",
+        "RJ45",
+        "現場",
+        "クイック登録"
+      ],
+      "summary": "ラック内配線の注意点",
+      "updatedAt": "2026-06-21",
+      "sourceType": "quick"
+    },
+    {
+      "id": "QUICK-MQNFHFSO",
+      "title": "PoE配線メモ",
+      "category": "LAN",
+      "tags": [
+        "PoE給電",
+        "RJ45",
+        "現場",
+        "クイック登録"
+      ],
+      "summary": "ラック内配線の注意点",
+      "updatedAt": "2026-06-21",
+      "sourceType": "quick"
+    },
+    {
+      "id": "QUICK-MQNFIVFL",
+      "title": "PoE配線メモ",
+      "category": "LAN",
+      "tags": [
+        "PoE給電",
+        "RJ45",
+        "現場",
+        "クイック登録"
+      ],
+      "summary": "ラック内配線の注意点",
+      "updatedAt": "2026-06-21",
+      "sourceType": "quick"
+    },
+    {
+      "id": "QUICK-MQNFJP6S",
+      "title": "PoE配線メモ",
+      "category": "LAN",
+      "tags": [
+        "PoE給電",
+        "RJ45",
+        "現場",
+        "クイック登録"
+      ],
+      "summary": "ラック内配線の注意点",
+      "updatedAt": "2026-06-21",
+      "sourceType": "quick"
+    },
+    {
+      "id": "QUICK-MQNFKI8E",
+      "title": "PoE配線メモ",
+      "category": "LAN",
+      "tags": [
+        "PoE給電",
+        "RJ45",
+        "現場",
+        "クイック登録"
+      ],
+      "summary": "ラック内配線の注意点",
+      "updatedAt": "2026-06-21",
+      "sourceType": "quick"
+    },
+    {
+      "id": "SEARCH-PROJ-1782030140701",
+      "title": "案件フィルタテスト",
+      "category": "LAN",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "project filter test",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-99-9999-001"
+    },
+    {
+      "id": "AUTO-MO260621100-ESTIMATE-001",
+      "title": "防犯カメラ工事（見積）",
+      "category": "防犯カメラ",
+      "tags": [
+        "見積",
+        "MO-26-0621-100",
+        "自動収集テスト"
+      ],
+      "summary": "自動収集テスト · 案件 MO-26-0621-100 の見積ナレッジ。",
+      "updatedAt": "2026-06-20",
+      "projectNo": "MO-26-0621-100",
+      "customerName": "自動収集テスト",
+      "sourceType": "project"
     },
     {
       "id": "PROJ-MO260621099-COMP-001",

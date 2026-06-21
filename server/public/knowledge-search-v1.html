@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#334155" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>TiSLY — ナレッジ検索</title>
+  <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
+  <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
+  <style>
+    .search-hero { margin-bottom: 0.65rem; }
+    .search-row { display: flex; gap: 0.4rem; align-items: stretch; }
+    .search-row input { flex: 1; font-size: 1rem; min-height: 2.75rem; }
+    .search-row button { flex: 0 0 auto; white-space: nowrap; min-height: 2.75rem; }
+    .filter-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; margin: 0.55rem 0;
+    }
+    .filter-grid label { display: block; font-size: 0.78rem; color: #64748b; }
+    .filter-grid input, .filter-grid select { width: 100%; box-sizing: border-box; margin-top: 0.15rem; }
+    .kind-chips, .quick-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.45rem 0; }
+    .chip-btn {
+      border: 1px solid #cbd5e1; background: #fff; border-radius: 999px;
+      padding: 0.25rem 0.55rem; font-size: 0.78rem; color: #334155;
+    }
+    .chip-btn.active { background: #334155; color: #fff; border-color: #334155; }
+    .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin: 0.35rem 0; }
+    .view-toggle { display: flex; gap: 0.25rem; }
+    .view-toggle button.active { background: #475569; color: #fff; }
+    .result-meta { font-size: 0.82rem; color: #64748b; }
+    .results-list { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem; }
+    .results-cards {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: 0.5rem; margin-top: 0.5rem;
+    }
+    .hit-item {
+      border: 1px solid #e2e8f0; border-radius: 12px; padding: 0.7rem 0.8rem; background: #fff;
+      cursor: pointer; transition: border-color 0.15s;
+    }
+    .hit-item:active { border-color: #64748b; }
+    .hit-item h3 { margin: 0 0 0.25rem; font-size: 0.98rem; line-height: 1.35; }
+    .hit-meta { font-size: 0.76rem; color: #64748b; margin: 0.1rem 0; }
+    .hit-summary { font-size: 0.84rem; color: #334155; margin: 0.3rem 0 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .hit-reasons { margin-top: 0.35rem; }
+    .reason-chip, .tag-chip, .kind-chip {
+      display: inline-block; font-size: 0.7rem; border-radius: 999px; padding: 0.08rem 0.42rem; margin: 0.08rem 0.12rem 0 0;
+    }
+    .reason-chip { background: #ecfdf5; color: #166534; }
+    .kind-chip { background: #eff6ff; color: #1d4ed8; }
+    .tag-chip { background: #f1f5f9; color: #475569; }
+    .plc-extra { font-size: 0.78rem; color: #475569; margin-top: 0.35rem; padding-top: 0.35rem; border-top: 1px dashed #e2e8f0; }
+    .history-section h3 { font-size: 0.88rem; margin: 0 0 0.35rem; color: #475569; }
+    .history-section { margin-top: 0.75rem; }
+    .status-muted { color: #64748b; font-size: 0.82rem; }
+    body.mobile-mode .app-main { padding-bottom: 5.5rem; }
+    body.mobile-mode .search-row input { font-size: 1.05rem; min-height: 3rem; }
+    body.mobile-mode .hit-item { padding: 0.85rem 0.9rem; min-height: 4.5rem; }
+    body.mobile-mode .filter-grid { grid-template-columns: 1fr; }
+    body.mobile-mode .results-cards { grid-template-columns: 1fr; }
+    @media (max-width: 767px) {
+      .filter-grid { grid-template-columns: 1fr; }
+      .results-cards { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body class="tisly-friendly">
+  <main class="app-main">
+    <p class="section-hint search-hero">TiSLY Knowledge 統合検索 — カード · 候補 · 案件 · PDF · 写真 · PLC · 3DPrint</p>
+
+    <div class="friendly-card">
+      <div class="search-row">
+        <input type="search" id="search-input" placeholder="キーワード（例: 自己保持 / DINレール / PoEカメラ）" autocomplete="off" enterkeyhint="search" />
+        <button type="button" class="friendly-btn primary" id="search-btn">検索</button>
+      </div>
+
+      <div class="filter-grid">
+        <label>カテゴリ
+          <select id="filter-category"><option value="">すべて</option></select>
+        </label>
+        <label>案件ID
+          <input type="text" id="filter-project-no" placeholder="MO-26-0621-001" autocomplete="off" />
+        </label>
+        <label>期間（開始）
+          <input type="date" id="filter-date-from" />
+        </label>
+        <label>期間（終了）
+          <input type="date" id="filter-date-to" />
+        </label>
+      </div>
+
+      <div class="kind-chips" id="kind-chips" aria-label="種別フィルタ"></div>
+
+      <div class="toolbar">
+        <span class="result-meta" id="result-meta">キーワードを入力して検索</span>
+        <div class="view-toggle">
+          <button type="button" class="friendly-btn active" id="view-list">一覧</button>
+          <button type="button" class="friendly-btn" id="view-cards">カード</button>
+        </div>
+      </div>
+
+      <div id="search-results" class="status-muted">検索結果がここに表示されます</div>
+    </div>
+
+    <div class="friendly-card history-section">
+      <h3>⭐ よく使う検索</h3>
+      <div class="quick-chips" id="favorite-chips"></div>
+      <h3 style="margin-top:0.65rem;">🕐 最近の検索</h3>
+      <div class="quick-chips" id="recent-chips"></div>
+    </div>
+  </main>
+  <div id="toast" class="toast" role="status"></div>
+  <script type="module" src="/js/knowledge-search-v1.js"></script>
+</body>
+</html>

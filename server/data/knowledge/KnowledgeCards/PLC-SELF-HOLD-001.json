@@ -2,10 +2,17 @@
   "id": "PLC-SELF-HOLD-001",
   "title": "自己保持回路",
   "category": "PLC",
-  "tags": ["PLC", "自己保持", "ラダー"],
-  "summary": "基本自己保持回路。押ボタン起動・停止回路の標準パターン。",
+  "tags": [
+    "PLC",
+    "自己保持",
+    "ラダー",
+    "テンプレート",
+    "GX Works3"
+  ],
+  "summary": "PLC 自己保持 の GX Works3 向け標準テンプレート。\nラダー: 押ボタン起動・停止の基本自己保持回路（SET/RESET またはラッチ）\n用途: モータ起動、ランプ点灯、運転中フラグの保持\n注意点: 非常停止回路とは独立配線。停止ボタンは NC 接点推奨",
   "files": [
     "Ladder/self-hold-example.pdf"
   ],
-  "updatedAt": "2026-06-21"
+  "updatedAt": "2026-06-21",
+  "qnapSyncStatus": "pending"
 }

@@ -1,0 +1,18 @@
+{
+  "id": "PLC-TIMER-001",
+  "title": "PLC タイマー",
+  "category": "PLC",
+  "tags": [
+    "PLC",
+    "タイマー",
+    "テンプレート",
+    "GX Works3"
+  ],
+  "summary": "PLC タイマー の GX Works3 向け標準テンプレート。\nラダー: TON/TOF/TP タイマーブロックの標準接続\n用途: 起動遅延、停止遅延、パルス出力、インターロック時間\n注意点: 設定値単位（0.1s/1s）を機種設定と一致させる",
+  "files": [
+    "Ladder/timer-template.md"
+  ],
+  "updatedAt": "2026-06-21",
+  "sourceType": "plc-template",
+  "qnapSyncStatus": "pending"
+}

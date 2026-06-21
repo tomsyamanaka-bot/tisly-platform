@@ -47,6 +47,10 @@ import {
 } from "../../knowledge/knowledge-qnap-sync-store-v1.js";
 import { getKnowledgeQnapConnectionInfoV1 } from "../../knowledge/knowledge-qnap-sync-service-v1.js";
 import { searchKnowledgeIndexV1 } from "../../knowledge/knowledge-search-v1.js";
+import {
+  parseUnifiedKnowledgeKindsV1,
+  unifiedKnowledgeSearchV1,
+} from "../../knowledge/unified-knowledge-search-v1.js";
 import { ensureKnowledgeLibraryTemplatesV1 } from "../../knowledge/knowledge-templates-v1.js";
 import {
   getKnowledgeCardV1,
@@ -70,6 +74,31 @@ function assertRole(req: AuthedRequest, res: Response): boolean {
   }
   return true;
 }
+
+/** GET /api/knowledge/search-v1 — 統合キーワード検索（Cards/Candidates/Projects/PDF/Assets/Photos/PLC/ESP/3DPrint） */
+knowledgeV1Router.get("/search-v1", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  ensureKnowledgeLibraryTemplatesV1();
+  const q = String(req.query.q ?? "");
+  const category = String(req.query.category ?? "");
+  const projectNo = String(req.query.projectNo ?? "");
+  const dateFrom = String(req.query.dateFrom ?? "");
+  const dateTo = String(req.query.dateTo ?? "");
+  const kindsRaw = String(req.query.kinds ?? "");
+  const limitRaw = Number(req.query.limit ?? 50);
+  const kinds = kindsRaw ? parseUnifiedKnowledgeKindsV1(kindsRaw) : undefined;
+  res.json(
+    unifiedKnowledgeSearchV1({
+      query: q,
+      category: category || undefined,
+      projectNo: projectNo || undefined,
+      dateFrom: dateFrom || undefined,
+      dateTo: dateTo || undefined,
+      kinds,
+      limit: Number.isFinite(limitRaw) ? limitRaw : 50,
+    })
+  );
+});
 
 /** GET /api/knowledge/search?q= — v1 キーワード検索 */
 knowledgeV1Router.get("/search", ...auth, (req: AuthedRequest, res) => {
