@@ -128,9 +128,23 @@ function resizeCanvas() {
 }
 
 function buildFromMapAsset(mapAsset) {
+  const sourceColors = {
+    polycam: 0x22c55e,
+    roomplan: 0xa855f7,
+    scaniverse: 0x0ea5e9,
+    manual: 0xfbbf24,
+    mock: 0x64748b,
+    procedural: 0x2563eb,
+  };
+
   mapAsset.assets.forEach((asset) => {
     const group = layerGroups[asset.floorLevel];
     if (!group) return;
+
+    if (asset.isRegistered) {
+      buildRegisteredMapAssetPlaceholder(asset, group, sourceColors);
+      return;
+    }
 
     let geo;
     if (asset.type === "pointcloud") {
@@ -190,6 +204,41 @@ function buildFromMapAsset(mapAsset) {
     line.position.copy(mesh.position);
     group.add(line);
   });
+}
+
+function buildRegisteredMapAssetPlaceholder(asset, group, sourceColors) {
+  const color = sourceColors[asset.source] ?? sourceColors[asset.sourceType] ?? 0x22d3ee;
+  const geo = new THREE.BoxGeometry(asset.scale.x, asset.scale.y, asset.scale.z);
+  const mat = new THREE.MeshStandardMaterial({
+    color,
+    transparent: true,
+    opacity: asset.isPlaceholder ? 0.42 : 0.72,
+    wireframe: Boolean(asset.isPlaceholder),
+    metalness: 0.15,
+    roughness: 0.7,
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set(asset.position.x, asset.position.y, asset.position.z);
+  if (asset.rotation) mesh.rotation.set(asset.rotation.x, asset.rotation.y, asset.rotation.z);
+  mesh.userData.mapAssetId = asset.assetId;
+  mesh.userData.isRegisteredScan = true;
+  group.add(mesh);
+
+  const labelCanvas = document.createElement("canvas");
+  labelCanvas.width = 256;
+  labelCanvas.height = 48;
+  const ctx = labelCanvas.getContext("2d");
+  ctx.fillStyle = "rgba(5,11,24,0.9)";
+  ctx.fillRect(0, 0, 256, 48);
+  ctx.fillStyle = "#22d3ee";
+  ctx.font = "bold 16px sans-serif";
+  const label = asset.label || `${asset.sourceType || asset.source} scan`;
+  ctx.fillText(label.slice(0, 28), 8, 30);
+  const tex = new THREE.CanvasTexture(labelCanvas);
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
+  sprite.scale.set(4, 0.75, 1);
+  sprite.position.set(asset.position.x, asset.position.y + asset.scale.y * 0.55 + 0.5, asset.position.z);
+  group.add(sprite);
 }
 
 function createSensorMarker(sensor) {
@@ -585,6 +634,8 @@ function bindUi() {
   $("#mon3dv3-demo-fire")?.addEventListener("click", () => triggerDemoScenario("fire"));
   $("#mon3dv3-demo-equipment")?.addEventListener("click", () => triggerDemoScenario("equipment"));
 
+  initSensorLayoutPanel();
+
   const tvBtn = $("#mon3dv3-btn-tv");
   if (tvBtn) {
     const u = new URL(location.href);
@@ -597,6 +648,87 @@ function bindUi() {
       tvBtn.href = u.pathname + u.search;
     }
   }
+}
+
+function initSensorLayoutPanel() {
+  const select = $("#mon3dv3-layout-device");
+  const link = $("#mon3dv3-link-mapassets");
+  if (link) link.href = `/monitoring-map-assets-v1?siteId=${encodeURIComponent(siteId)}`;
+  if (!select || !sceneData) return;
+
+  const deviceTypes = {
+    frontGate: "gate",
+    frontDoor: "door",
+    living: "sensor",
+    stairs: "sensor",
+    balcony: "sensor",
+    garage: "sensor",
+  };
+
+  select.innerHTML = sceneData.sensors
+    .map(
+      (s) =>
+        `<option value="${s.sensorId}">${s.label} (${deviceTypes[s.sensorId] || "sensor"})</option>`
+    )
+    .join("");
+
+  function fillFromSensor(sensorId) {
+    const sensor = sceneData.sensors.find((s) => s.sensorId === sensorId);
+    if (!sensor) return;
+    $("#mon3dv3-layout-x").value = sensor.position.x;
+    $("#mon3dv3-layout-y").value = sensor.position.y;
+    $("#mon3dv3-layout-z").value = sensor.position.z;
+  }
+
+  select.addEventListener("change", () => fillFromSensor(select.value));
+  fillFromSensor(select.value);
+
+  $("#mon3dv3-layout-preview")?.addEventListener("click", () => {
+    const sensorId = select.value;
+    const entry = sensorMeshes.get(sensorId);
+    if (!entry) return;
+    const x = Number($("#mon3dv3-layout-x").value);
+    const y = Number($("#mon3dv3-layout-y").value);
+    const z = Number($("#mon3dv3-layout-z").value);
+    entry.mesh.position.set(x, y, z);
+    if (entry.sprite) entry.sprite.position.set(x, y + 0.9, z);
+    if (entry.ring) entry.ring.position.set(x, y + 0.05, z);
+    $("#mon3dv3-layout-msg").textContent = "プレビュー反映（未保存）";
+  });
+
+  $("#mon3dv3-layout-save")?.addEventListener("click", async () => {
+    const sensorId = select.value;
+    const sensor = sceneData.sensors.find((s) => s.sensorId === sensorId);
+    const msg = $("#mon3dv3-layout-msg");
+    const position = {
+      x: Number($("#mon3dv3-layout-x").value),
+      y: Number($("#mon3dv3-layout-y").value),
+      z: Number($("#mon3dv3-layout-z").value),
+    };
+    try {
+      await fetch("/api/monitoring/v1/device-layout-overrides", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          siteId,
+          deviceId: sensorId,
+          deviceType: deviceTypes[sensorId] || "sensor",
+          label: sensor?.label,
+          floorLevel: sensor?.floorLevel,
+          position,
+          rotation: { x: 0, y: 0, z: 0 },
+        }),
+      }).then((r) => {
+        if (!r.ok) throw new Error(String(r.status));
+        return r.json();
+      });
+      if (sensor) sensor.position = position;
+      $("#mon3dv3-layout-preview")?.click();
+      if (msg) msg.textContent = "device-layout-overrides に保存しました";
+    } catch (e) {
+      if (msg) msg.textContent = "保存失敗";
+    }
+  });
 }
 
 function $$(sel) {
@@ -620,8 +752,12 @@ async function boot() {
   }
 
   $("#mon3dv3-site-title").textContent = sceneData.siteName;
-  $("#mon3dv3-site-sub").textContent = `${sceneData.siteId} · Three.js V3 · LiDAR準備`;
-  $("#mon3dv3-mapasset-status").textContent = `${sceneData.mapAsset.integrationStatusLabel} — ${sceneData.mapAsset.integrationNote}`;
+  $("#mon3dv3-site-sub").textContent = `${sceneData.siteId} · Three.js V3.1 · mapAsset`;
+  const activeLabel = sceneData.mapAsset.activeAsset?.title;
+  const statusText = activeLabel
+    ? `${sceneData.mapAsset.integrationStatusLabel} — active: ${activeLabel}`
+    : `${sceneData.mapAsset.integrationStatusLabel} — ${sceneData.mapAsset.integrationNote}`;
+  $("#mon3dv3-mapasset-status").textContent = statusText;
 
   buildFromMapAsset(sceneData.mapAsset);
   sceneData.sensors.forEach(createSensorMarker);

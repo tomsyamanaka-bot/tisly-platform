@@ -1,0 +1,183 @@
+:root {
+  --mma-bg: #050b18;
+  --mma-panel: #0a1224;
+  --mma-border: #1e3a5f;
+  --mma-cyan: #22d3ee;
+  --mma-muted: #94a3b8;
+  --mma-radius: 12px;
+}
+
+* { box-sizing: border-box; }
+
+body.mma-body {
+  margin: 0;
+  font-family: "Segoe UI", "Hiragino Sans", "Yu Gothic UI", sans-serif;
+  background: var(--mma-bg);
+  color: #e2e8f0;
+  min-height: 100vh;
+}
+
+.mma-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--mma-border);
+  background: var(--mma-panel);
+}
+
+.mma-brand {
+  margin: 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  color: var(--mma-cyan);
+  text-transform: uppercase;
+}
+
+.mma-header h1 { margin: 0.2rem 0; font-size: 1.35rem; }
+.mma-muted { color: var(--mma-muted); font-size: 0.88rem; margin: 0.25rem 0 0; }
+
+.mma-header-actions { display: flex; gap: 0.5rem; align-items: flex-start; }
+
+.mma-main {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1rem 1.25rem 2rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.mma-panel {
+  background: var(--mma-panel);
+  border: 1px solid var(--mma-border);
+  border-radius: var(--mma-radius);
+  padding: 1rem;
+}
+
+.mma-panel h2 {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+  color: var(--mma-cyan);
+}
+
+.mma-hint { font-size: 0.82rem; color: var(--mma-muted); margin: 0 0 0.75rem; }
+
+.mma-form {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.mma-form label {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--mma-muted);
+}
+
+.mma-form input,
+.mma-form select,
+.mma-form textarea {
+  width: 100%;
+  margin-top: 0.25rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid var(--mma-border);
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+.mma-check { display: flex; align-items: center; gap: 0.5rem; }
+.mma-check input { width: auto; margin: 0; }
+
+.mma-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.55rem 0.9rem;
+  border-radius: 8px;
+  border: 1px solid var(--mma-border);
+  background: #2563eb;
+  color: #fff;
+  font-size: 0.88rem;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.mma-btn.secondary { background: transparent; color: var(--mma-cyan); }
+
+.mma-asset-list { display: grid; gap: 0.75rem; }
+
+.mma-asset-card {
+  border: 1px solid var(--mma-border);
+  border-radius: 10px;
+  padding: 0.85rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.mma-asset-card.is-active { border-color: var(--mma-cyan); box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.25); }
+
+.mma-asset-card header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+
+.mma-asset-card h3 { margin: 0; font-size: 1rem; }
+
+.mma-badge {
+  font-size: 0.72rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--mma-border);
+  color: var(--mma-cyan);
+}
+
+.mma-badge.active { background: rgba(34, 211, 238, 0.15); }
+
+.mma-meta { font-size: 0.8rem; color: var(--mma-muted); margin: 0; }
+
+.mma-preview {
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+  border: 1px solid var(--mma-border);
+  object-fit: cover;
+  background: #0f172a;
+}
+
+.mma-card-row { display: flex; gap: 0.75rem; align-items: center; }
+
+.mma-actions { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 0.5rem; }
+
+.mma-transform-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 0.5rem;
+}
+
+.mma-transform-grid label { font-size: 0.78rem; color: var(--mma-muted); }
+.mma-transform-grid input {
+  width: 100%;
+  margin-top: 0.2rem;
+  padding: 0.4rem;
+  border-radius: 6px;
+  border: 1px solid var(--mma-border);
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+.mma-guide { font-size: 0.85rem; line-height: 1.55; color: #cbd5e1; }
+.mma-guide p { margin: 0.35rem 0; }
+
+.mma-msg {
+  margin-top: 0.65rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  background: rgba(34, 211, 238, 0.12);
+  color: var(--mma-cyan);
+}
+
+.mma-msg.error { background: rgba(220, 38, 38, 0.15); color: #fca5a5; }

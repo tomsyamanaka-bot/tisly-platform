@@ -525,6 +525,59 @@ body.mon3dv3-tv .mon3dv3-alert-banner {
   padding: 1rem;
 }
 
+.mon3dv3-layout-panel {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--mon-border);
+}
+
+.mon3dv3-select {
+  width: 100%;
+  margin: 0.35rem 0 0.5rem;
+  padding: 0.45rem 0.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--mon-border);
+  background: #0f172a;
+  color: #e2e8f0;
+  font-size: 0.82rem;
+}
+
+.mon3dv3-layout-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.35rem;
+}
+
+.mon3dv3-layout-grid label {
+  font-size: 0.72rem;
+  color: var(--mon-muted);
+}
+
+.mon3dv3-layout-grid input {
+  width: 100%;
+  margin-top: 0.15rem;
+  padding: 0.35rem;
+  border-radius: 6px;
+  border: 1px solid var(--mon-border);
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+.mon3dv3-layout-actions {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.45rem;
+}
+
+.mon3dv3-btn.ghost {
+  display: block;
+  margin-top: 0.75rem;
+  text-align: center;
+  text-decoration: none;
+  background: transparent;
+  color: var(--mon-cyan);
+}
+
 @media (max-width: 1024px) {
   .mon3dv3-shell {
     grid-template-columns: 1fr;

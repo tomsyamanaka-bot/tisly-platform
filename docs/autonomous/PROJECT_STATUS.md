@@ -94,6 +94,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 発注管理 | `/purchase-v1` |
 | TiSLY Monitoring 3D V1 | `/tisly-monitoring-3d-v1` |
 | TiSLY Monitoring 3D V3 | `/monitoring-3d-v2` |
+| TiSLY Monitoring mapAsset Manager V3.1 | `/monitoring-map-assets-v1` |
 | 設定（管理者） | `/settings-v1` |
 | ナレッジ検索 | `/knowledge-search-v1` |
 | 現場ナレッジ | `/knowledge-field-v1` |
@@ -640,6 +641,23 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | API | `GET /api/monitoring/v1/3d-scene` · `/3d-sensor/:id` |
 | コード | `monitoring-3d-v2/` · `tisly-monitoring-3d-v3.ts` · `tisly-monitoring-map-asset-v1.ts` |
 | テスト | `server/test/tisly-monitoring-3d-v3.test.ts` |
+
+### TiSLY Monitoring 3D Dashboard V3.1（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | **現調スキャンデータ受け入れ入口** — Polycam/RoomPlan/Scaniverse の GLB/JSON/USDZ 将来読込準備 |
+| Phase1 upload API | `POST /api/monitoring/v1/map-assets` → `server/data/monitoring/map-assets.json` |
+| Phase2 list API | `GET /api/monitoring/v1/map-assets?siteId=` — assets · activeAsset · fallback · uploadGuide |
+| Phase3 Manager UI | `/monitoring-map-assets-v1` — 一覧 · アップロード · transform · active 切替 |
+| Phase4 Three.js | `/monitoring-3d-v2` — 登録 mapAsset placeholder mesh（sourceType 色 · ラベル） |
+| Phase5 calibration | transform position/rotation/scale/heightOffset — 保存 · リセット · プレビュー |
+| Phase6 センサー再配置 | 座標入力 + プレビュー → `device-layout-overrides.json` |
+| Phase7 Customer | `relatedKnowledgeIds` · Customer Detail · Site Map · PDF リンク維持 |
+| Phase8 ドキュメント | [MAP_ASSET_GUIDE.md](../monitoring/MAP_ASSET_GUIDE.md) · MONITORING_UI_GUIDE 追記 |
+| Phase9 テスト | `server/test/tisly-monitoring-3d-v31.test.ts` |
+| API | `PATCH /map-assets/:id` · `GET/POST /device-layout-overrides` |
+| コード | `monitoring-map-assets-store-v1.ts` · `monitoring-device-layout-overrides-store-v1.ts` · `monitoring-map-assets-v1/` |
 
 ---
 

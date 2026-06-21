@@ -2,7 +2,7 @@
 
 **コンセプト:** TiSLY Security Command Center  
 **参考:** SECOM / ALSOK / 空港管制室 / 防災センター / SOC監視室  
-**対象 URL:** `/tisly-monitoring-3d-v1` · `/tisly-monitoring-home-v1` · `/tisly-monitoring-plant-v1` · `/monitoring-3d-v2` · `?mode=tv`
+**対象 URL:** `/tisly-monitoring-3d-v1` · `/tisly-monitoring-home-v1` · `/tisly-monitoring-plant-v1` · `/monitoring-3d-v2` · `/monitoring-map-assets-v1` · `?mode=tv`
 
 ---
 
@@ -126,6 +126,29 @@
 | `server/public/css/tisly-monitoring-3d-v1.css` | V2 スタイル |
 | `server/public/js/tisly-monitoring-3d-v1.js` | 描画・API |
 | `server/src/monitoring/tisly-monitoring-layout-v1.ts` | 配置データ |
+
+---
+
+## mapAsset V3.1（スキャンデータ受け皿）
+
+| 画面 | パス |
+|------|------|
+| mapAsset Manager | `/monitoring-map-assets-v1?siteId=DEMO-HOME-001` |
+| 3D Dashboard | `/monitoring-3d-v2?siteId=DEMO-HOME-001` |
+
+### placeholder mesh 色（sourceType）
+
+| sourceType | 色 | 用途 |
+|------------|-----|------|
+| polycam | `#22c55e` | GLB mesh 想定 |
+| roomplan | `#a855f7` | JSON/USDZ 想定 |
+| scaniverse | `#0ea5e9` | GLB/OBJ 想定 |
+| manual | `#fbbf24` | 手動登録 |
+| mock | `#64748b` | デモ |
+
+- **fileUrl 未接続:** wireframe placeholder + ラベルスプライト
+- **プロシージャル box:** 登録 scan の下に重ねて表示
+- **詳細:** [docs/monitoring/MAP_ASSET_GUIDE.md](../monitoring/MAP_ASSET_GUIDE.md)
 
 ---
 

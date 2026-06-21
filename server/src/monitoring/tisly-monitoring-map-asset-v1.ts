@@ -1,6 +1,13 @@
-/** TiSLY Monitoring 3D V3 — LiDAR / 3D mapAsset 受け皿（Polycam · Scaniverse · RoomPlan 将来投入） */
+/** TiSLY Monitoring 3D V3 / V3.1 — LiDAR / 3D mapAsset 受け皿（Polycam · Scaniverse · RoomPlan 将来投入） */
 
-export type MonitoringMapAssetSourceV1 = "polycam" | "scaniverse" | "roomplan" | "manual" | "procedural";
+import {
+  buildFallbackMapAssetRecordV1,
+  listMonitoringMapAssetsV1,
+  type MonitoringMapAssetRecordV1,
+  type MonitoringMapAssetSourceTypeV1,
+} from "./monitoring-map-assets-store-v1.js";
+
+export type MonitoringMapAssetSourceV1 = MonitoringMapAssetSourceTypeV1 | "procedural";
 
 export type MonitoringMapAssetTypeV1 =
   | "mesh"
@@ -17,6 +24,7 @@ export interface MonitoringMapTransformV1 {
   z: number;
 }
 
+/** Three.js 描画用 — 登録 mapAsset + プロシージャル fallback を統合 */
 export interface MonitoringMapAssetEntryV1 {
   assetId: string;
   type: MonitoringMapAssetTypeV1;
@@ -26,8 +34,14 @@ export interface MonitoringMapAssetEntryV1 {
   rotation: MonitoringMapTransformV1;
   scale: MonitoringMapTransformV1;
   label?: string;
-  /** 将来: glb / ply / usdz 等の相対パス */
   fileRef?: string;
+  fileUrl?: string;
+  previewUrl?: string;
+  isRegistered?: boolean;
+  isPlaceholder?: boolean;
+  sourceType?: MonitoringMapAssetSourceTypeV1;
+  mapType?: string;
+  status?: string;
 }
 
 export interface MonitoringMapAssetBundleV1 {
@@ -37,9 +51,25 @@ export interface MonitoringMapAssetBundleV1 {
   integrationStatusLabel: string;
   integrationNote: string;
   assets: MonitoringMapAssetEntryV1[];
+  activeAsset: MonitoringMapAssetRecordV1 | null;
+  fallbackAsset: MonitoringMapAssetRecordV1;
+  registeredAssets: MonitoringMapAssetRecordV1[];
 }
 
-const DEMO_HOME_ASSETS: MonitoringMapAssetEntryV1[] = [
+const SOURCE_COLORS: Record<string, number> = {
+  polycam: 0x22c55e,
+  roomplan: 0xa855f7,
+  scaniverse: 0x0ea5e9,
+  manual: 0xfbbf24,
+  mock: 0x64748b,
+  procedural: 0x2563eb,
+};
+
+export function getMapAssetSourceColorV1(source: string): number {
+  return SOURCE_COLORS[source] ?? 0x22d3ee;
+}
+
+const PROCEDURAL_ASSETS: MonitoringMapAssetEntryV1[] = [
   {
     assetId: "perimeter-ground",
     type: "placeholder",
@@ -49,6 +79,7 @@ const DEMO_HOME_ASSETS: MonitoringMapAssetEntryV1[] = [
     rotation: { x: 0, y: 0, z: 0 },
     scale: { x: 24, y: 0.1, z: 18 },
     label: "外周グラウンド",
+    isPlaceholder: false,
   },
   {
     assetId: "perimeter-fence",
@@ -80,28 +111,58 @@ const DEMO_HOME_ASSETS: MonitoringMapAssetEntryV1[] = [
     scale: { x: 9, y: 2.8, z: 7 },
     label: "2階ボリューム",
   },
-  {
-    assetId: "lidar-mock-home",
-    type: "pointcloud",
-    source: "roomplan",
-    floorLevel: "1f",
-    position: { x: 0, y: 1.5, z: 0 },
-    rotation: { x: 0, y: 0, z: 0 },
-    scale: { x: 1, y: 1, z: 1 },
-    label: "RoomPlan LiDAR（準備中）",
-    fileRef: "knowledge/lidar/DEMO-HOME-001/scan-placeholder.ply",
-  },
 ];
+
+function recordToSceneEntry(record: MonitoringMapAssetRecordV1): MonitoringMapAssetEntryV1 {
+  const t = record.transform;
+  const yOffset = t.heightOffset ?? 0;
+  return {
+    assetId: record.assetId,
+    type: (record.mapType as MonitoringMapAssetTypeV1) || "placeholder",
+    source: record.sourceType,
+    sourceType: record.sourceType,
+    floorLevel: record.floorLevel,
+    position: {
+      x: t.position.x,
+      y: t.position.y + yOffset,
+      z: t.position.z,
+    },
+    rotation: { ...t.rotation },
+    scale: { ...t.scale },
+    label: record.title,
+    fileRef: record.fileName || undefined,
+    fileUrl: record.fileUrl || undefined,
+    previewUrl: record.previewUrl,
+    isRegistered: true,
+    isPlaceholder: !record.fileUrl,
+    mapType: record.mapType,
+    status: record.status,
+  };
+}
 
 export function getMonitoringMapAssetBundleV1(siteId: string): MonitoringMapAssetBundleV1 {
   const customerRef = siteId.includes("PLANT") ? "DEMO-FACTORY-001" : "DEMO-HOME-001";
+  const listed = listMonitoringMapAssetsV1(siteId);
+  const registeredEntries = listed.assets.map(recordToSceneEntry);
+  const hasActive = Boolean(listed.activeAsset);
+
+  const integrationStatusLabel = hasActive
+    ? "mapAsset 登録済み — placeholder 表示中"
+    : "LiDAR連携準備中";
+
+  const integrationNote = hasActive
+    ? `${listed.activeAsset!.title}（${listed.activeAsset!.sourceType} · ${listed.activeAsset!.floorLevel}）を active 表示。fileUrl 未接続時は placeholder mesh。`
+    : "Polycam · Scaniverse · RoomPlan から mesh / pointcloud を投入できる構造です。現時点はプロシージャル建物＋受け皿のみ。";
+
   return {
     bundleId: `map-asset-${siteId}`,
     siteId,
     customerRef,
-    integrationStatusLabel: "LiDAR連携準備中",
-    integrationNote:
-      "Polycam · Scaniverse · RoomPlan から mesh / pointcloud を投入できる構造です。現時点はプロシージャル建物＋受け皿のみ。",
-    assets: DEMO_HOME_ASSETS,
+    integrationStatusLabel,
+    integrationNote,
+    assets: [...PROCEDURAL_ASSETS, ...registeredEntries],
+    activeAsset: listed.activeAsset,
+    fallbackAsset: listed.fallbackAsset ?? buildFallbackMapAssetRecordV1(siteId),
+    registeredAssets: listed.assets,
   };
 }

@@ -16,6 +16,15 @@ import {
   getMonitoringLayoutSiteV1,
   resolveMonitoringSiteIdV1,
 } from "../../monitoring/tisly-monitoring-layout-v1.js";
+import {
+  listMonitoringDeviceLayoutOverridesV1,
+  saveMonitoringDeviceLayoutOverrideV1,
+} from "../../monitoring/monitoring-device-layout-overrides-store-v1.js";
+import {
+  listMonitoringMapAssetsV1,
+  registerMonitoringMapAssetV1,
+  updateMonitoringMapAssetV1,
+} from "../../monitoring/monitoring-map-assets-store-v1.js";
 
 export const tislyMonitoringV1Router = Router();
 
@@ -73,6 +82,83 @@ tislyMonitoringV1Router.get("/customer-links", (req, res) => {
     deviceName: dev?.deviceName ?? null,
     links: buildMonitoringCustomerLinksV1(siteId, deviceId),
   });
+});
+
+tislyMonitoringV1Router.get("/map-assets", (req, res) => {
+  const siteId = resolveMonitoringSiteIdV1(req.query.siteId as string | undefined);
+  res.json(listMonitoringMapAssetsV1(siteId));
+});
+
+tislyMonitoringV1Router.post("/map-assets", (req, res) => {
+  const siteId = resolveMonitoringSiteIdV1(req.body?.siteId ?? req.query.siteId);
+  const body = req.body ?? {};
+  if (!body.title || !body.sourceType || !body.floorLevel) {
+    res.status(400).json({ error: "title, sourceType, floorLevel are required" });
+    return;
+  }
+  const record = registerMonitoringMapAssetV1({
+    siteId,
+    title: String(body.title),
+    sourceType: body.sourceType,
+    fileType: body.fileType,
+    fileName: body.fileName,
+    fileSize: body.fileSize,
+    floorLevel: body.floorLevel,
+    mapType: body.mapType,
+    previewUrl: body.previewUrl,
+    fileUrl: body.fileUrl,
+    transform: body.transform,
+    status: body.status,
+    notes: body.notes,
+    setActive: Boolean(body.setActive),
+  });
+  res.status(201).json({ ok: true, asset: record, ...listMonitoringMapAssetsV1(siteId) });
+});
+
+tislyMonitoringV1Router.patch("/map-assets/:assetId", (req, res) => {
+  const siteId = resolveMonitoringSiteIdV1(req.body?.siteId ?? req.query.siteId);
+  const assetId = req.params.assetId ?? "";
+  const body = req.body ?? {};
+  const updated = updateMonitoringMapAssetV1({
+    siteId,
+    assetId,
+    title: body.title,
+    transform: body.transform,
+    status: body.status,
+    notes: body.notes,
+    setActive: body.setActive,
+    resetTransform: body.resetTransform,
+  });
+  if (!updated) {
+    res.status(404).json({ error: "Asset not found" });
+    return;
+  }
+  res.json({ ok: true, asset: updated, ...listMonitoringMapAssetsV1(siteId) });
+});
+
+tislyMonitoringV1Router.get("/device-layout-overrides", (req, res) => {
+  const siteId = resolveMonitoringSiteIdV1(req.query.siteId as string | undefined);
+  res.json(listMonitoringDeviceLayoutOverridesV1(siteId));
+});
+
+tislyMonitoringV1Router.post("/device-layout-overrides", (req, res) => {
+  const siteId = resolveMonitoringSiteIdV1(req.body?.siteId ?? req.query.siteId);
+  const body = req.body ?? {};
+  if (!body.deviceId || !body.deviceType || !body.position) {
+    res.status(400).json({ error: "deviceId, deviceType, position are required" });
+    return;
+  }
+  const record = saveMonitoringDeviceLayoutOverrideV1({
+    siteId,
+    deviceId: String(body.deviceId),
+    deviceType: body.deviceType,
+    label: body.label,
+    floorLevel: body.floorLevel,
+    position: body.position,
+    rotation: body.rotation,
+    notes: body.notes,
+  });
+  res.status(201).json({ ok: true, override: record, ...listMonitoringDeviceLayoutOverridesV1(siteId) });
 });
 
 tislyMonitoringV1Router.post("/test-alert", async (req, res) => {

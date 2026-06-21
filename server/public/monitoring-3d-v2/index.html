@@ -68,6 +68,21 @@
           <input type="checkbox" id="mon3dv3-auto-orbit" checked /> 自動アニメーション
         </label>
       </div>
+      <div class="mon3dv3-layout-panel">
+        <p class="mon3dv3-section-label">センサー再配置</p>
+        <select id="mon3dv3-layout-device" class="mon3dv3-select"></select>
+        <div class="mon3dv3-layout-grid">
+          <label>X<input type="number" step="0.1" id="mon3dv3-layout-x" /></label>
+          <label>Y<input type="number" step="0.1" id="mon3dv3-layout-y" /></label>
+          <label>Z<input type="number" step="0.1" id="mon3dv3-layout-z" /></label>
+        </div>
+        <div class="mon3dv3-layout-actions">
+          <button type="button" class="mon3dv3-btn secondary" id="mon3dv3-layout-preview">プレビュー</button>
+          <button type="button" class="mon3dv3-btn" id="mon3dv3-layout-save">保存</button>
+        </div>
+        <p id="mon3dv3-layout-msg" class="mon3dv3-muted"></p>
+      </div>
+      <a class="mon3dv3-btn ghost" id="mon3dv3-link-mapassets" href="#">mapAsset Manager</a>
     </aside>
 
     <main class="mon3dv3-main">

@@ -1,5 +1,10 @@
 /** TiSLY Monitoring 3D Dashboard V3 — Three.js シーン · センサー · デモシナリオ */
 
+import {
+  findMonitoringDeviceLayoutOverrideV1,
+  listMonitoringDeviceLayoutOverridesV1,
+  type MonitoringDeviceLayoutOverrideV1,
+} from "./monitoring-device-layout-overrides-store-v1.js";
 import { getMonitoringMapAssetBundleV1, type MonitoringMapFloorLevelV1 } from "./tisly-monitoring-map-asset-v1.js";
 import { resolveMonitoringSiteIdV1 } from "./tisly-monitoring-layout-v1.js";
 
@@ -41,17 +46,30 @@ export interface Monitoring3dScenePayloadV1 {
   siteId: string;
   siteName: string;
   customerRef: string;
-  uiVersion: "v3";
+  uiVersion: "v3.1";
   layers: Array<{ floorLevel: MonitoringMapFloorLevelV1; label: string }>;
   sensors: Monitoring3dSensorV1[];
   cameras: Monitoring3dCameraMockV1[];
   mapAsset: ReturnType<typeof getMonitoringMapAssetBundleV1>;
+  deviceLayoutOverrides: MonitoringDeviceLayoutOverrideV1[];
   customerLinks: {
     projectPageUrl: string;
     siteMapUrl: string;
     knowledgeCustomerUrl: string;
   };
   demoScenarios: Monitoring3dDemoScenarioV1[];
+}
+
+function applyDeviceLayoutOverridesToSensorsV1(siteId: string, sensors: Monitoring3dSensorV1[]) {
+  return sensors.map((sensor) => {
+    const override = findMonitoringDeviceLayoutOverrideV1(siteId, sensor.sensorId);
+    if (!override) return sensor;
+    return {
+      ...sensor,
+      position: { ...override.position },
+      floorLevel: (override.floorLevel as MonitoringMapFloorLevelV1) || sensor.floorLevel,
+    };
+  });
 }
 
 const SENSORS: Monitoring3dSensorV1[] = [
@@ -192,19 +210,23 @@ export function buildMonitoring3dSceneV1(siteIdInput?: string): Monitoring3dScen
   const siteName = siteId.includes("PLANT") ? "デモ工場" : "デモ戸建て";
   const customerRef = siteId.includes("PLANT") ? "DEMO-FACTORY-001" : "DEMO-HOME-001";
 
+  const baseSensors = SENSORS.map((s) => ({ ...s, status: "normal" as const }));
+  const sensors = applyDeviceLayoutOverridesToSensorsV1(siteId, baseSensors);
+
   return {
     siteId,
     siteName,
     customerRef,
-    uiVersion: "v3",
+    uiVersion: "v3.1",
     layers: [
       { floorLevel: "perimeter", label: "外周" },
       { floorLevel: "1f", label: "1F" },
       { floorLevel: "2f", label: "2F" },
     ],
-    sensors: SENSORS.map((s) => ({ ...s, status: "normal" as const })),
+    sensors,
     cameras: CAMERAS,
     mapAsset: getMonitoringMapAssetBundleV1(siteId),
+    deviceLayoutOverrides: listMonitoringDeviceLayoutOverridesV1(siteId).overrides,
     customerLinks: {
       projectPageUrl: `/knowledge-customer-project-v1?ref=${encodeURIComponent(customerRef)}`,
       siteMapUrl: `/knowledge-customer-site-map-v1?ref=${encodeURIComponent(customerRef)}`,

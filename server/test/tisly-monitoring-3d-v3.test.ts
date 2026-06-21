@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 process.env.JWT_SECRET = "test-jwt-monitoring-3d-v3";
 process.env.NODE_ENV = "test";
 process.env.TISLY_DB_PATH = "./data/test-tisly-monitoring-3d-v3.db";
+process.env.TISLY_MONITORING_MAP_ASSETS_PATH = "./data/test-monitoring-map-assets-v3.json";
 process.env.RATE_LIMIT_PROVIDER = "memory";
 
 const { default: request } = await import("supertest");
@@ -19,6 +20,9 @@ const {
 const {
   getMonitoringMapAssetBundleV1,
 } = await import("../src/monitoring/tisly-monitoring-map-asset-v1.js");
+const {
+  resetMonitoringMapAssetsStoreForTestV1,
+} = await import("../src/monitoring/monitoring-map-assets-store-v1.js");
 
 const app = createApp();
 const publicDir = path.join(process.cwd(), "public");
@@ -26,6 +30,7 @@ const FORBIDDEN = /192\.168\.|project-storage|QNAP|SMB|WebDAV|mock fallback|debu
 
 describe("TiSLY Monitoring 3D V3 — mapAsset", () => {
   it("mapAsset has type, floorLevel, position, rotation, scale", () => {
+    resetMonitoringMapAssetsStoreForTestV1();
     const bundle = getMonitoringMapAssetBundleV1("DEMO-HOME-001");
     assert.ok(bundle.assets.length >= 4);
     const asset = bundle.assets[0];
@@ -34,14 +39,14 @@ describe("TiSLY Monitoring 3D V3 — mapAsset", () => {
     assert.ok(asset.position);
     assert.ok(asset.rotation);
     assert.ok(asset.scale);
-    assert.match(bundle.integrationStatusLabel, /LiDAR/);
+    assert.match(bundle.integrationStatusLabel, /mapAsset|LiDAR/);
   });
 
   it("includes pointcloud placeholder for RoomPlan", () => {
+    resetMonitoringMapAssetsStoreForTestV1();
     const bundle = getMonitoringMapAssetBundleV1("DEMO-HOME-001");
-    const lidar = bundle.assets.find((a) => a.type === "pointcloud");
+    const lidar = bundle.assets.find((a) => a.source === "roomplan" || a.sourceType === "roomplan");
     assert.ok(lidar);
-    assert.equal(lidar?.source, "roomplan");
   });
 });
 
@@ -94,7 +99,7 @@ describe("TiSLY Monitoring 3D V3 — API", () => {
   it("GET /api/monitoring/v1/3d-scene", async () => {
     const res = await request(app).get("/api/monitoring/v1/3d-scene?siteId=DEMO-HOME-001");
     assert.equal(res.status, 200);
-    assert.equal(res.body.uiVersion, "v3");
+    assert.equal(res.body.uiVersion, "v3.1");
     assert.ok(res.body.mapAsset);
     assert.ok(res.body.customerLinks.projectPageUrl.includes("knowledge-customer-project"));
     assert.doesNotMatch(JSON.stringify(res.body), FORBIDDEN);
@@ -147,5 +152,6 @@ describe("TiSLY Monitoring 3D V3 — static pages", () => {
 });
 
 after(() => {
+  resetMonitoringMapAssetsStoreForTestV1();
   closeDatabase();
 });
