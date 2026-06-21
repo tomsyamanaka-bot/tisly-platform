@@ -519,6 +519,12 @@ export function createApp(): express.Application {
   app.get("/knowledge-customer-document-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "knowledge-customer-document-v1.html"));
   });
+  app.get("/monitoring-3d-v2", (_req, res) => {
+    res.sendFile(path.join(publicDir, "monitoring-3d-v2", "index.html"));
+  });
+  app.get("/tisly-monitoring-3d-v3", (_req, res) => {
+    res.redirect(302, "/monitoring-3d-v2");
+  });
   app.get("/tisly-monitoring-3d-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "tisly-monitoring-3d-v1.html"));
   });

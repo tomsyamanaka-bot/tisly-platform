@@ -7,12 +7,40 @@ import {
   listMonitoringLogsV1,
 } from "../../monitoring/tisly-monitoring-dashboard-v1.js";
 import {
+  buildMonitoring3dSceneV1,
+  findMonitoring3dCameraV1,
+  findMonitoring3dSensorV1,
+} from "../../monitoring/tisly-monitoring-3d-v3.js";
+import {
   findMonitoringDeviceV1,
   getMonitoringLayoutSiteV1,
   resolveMonitoringSiteIdV1,
 } from "../../monitoring/tisly-monitoring-layout-v1.js";
 
 export const tislyMonitoringV1Router = Router();
+
+tislyMonitoringV1Router.get("/3d-scene", (req, res) => {
+  const siteId = resolveMonitoringSiteIdV1(req.query.siteId as string | undefined);
+  res.json(buildMonitoring3dSceneV1(siteId));
+});
+
+tislyMonitoringV1Router.get("/3d-sensor/:sensorId", (req, res) => {
+  const sensor = findMonitoring3dSensorV1(req.params.sensorId ?? "");
+  if (!sensor) {
+    res.status(404).json({ error: "Sensor not found" });
+    return;
+  }
+  const links = buildMonitoringCustomerLinksV1(
+    resolveMonitoringSiteIdV1(req.query.siteId as string | undefined),
+    sensor.sensorId
+  );
+  res.json({
+    sensor,
+    relatedKnowledgeIds: sensor.relatedKnowledgeIds,
+    knowledgeLinks: links,
+    camera: sensor.cameraId ? findMonitoring3dCameraV1(sensor.cameraId) ?? null : null,
+  });
+});
 
 tislyMonitoringV1Router.get("/dashboard", (req, res) => {
   const siteId = resolveMonitoringSiteIdV1(req.query.siteId as string | undefined);

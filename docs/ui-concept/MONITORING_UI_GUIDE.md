@@ -2,7 +2,7 @@
 
 **コンセプト:** TiSLY Security Command Center  
 **参考:** SECOM / ALSOK / 空港管制室 / 防災センター / SOC監視室  
-**対象 URL:** `/tisly-monitoring-3d-v1` · `/tisly-monitoring-home-v1` · `/tisly-monitoring-plant-v1` · `?mode=tv`
+**対象 URL:** `/tisly-monitoring-3d-v1` · `/tisly-monitoring-home-v1` · `/tisly-monitoring-plant-v1` · `/monitoring-3d-v2` · `?mode=tv`
 
 ---
 

@@ -92,6 +92,8 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 現場チェックリスト | `/field-checklist-v1` |
 | チェックリスト管理 | `/checklist-templates-v1`（設定から） |
 | 発注管理 | `/purchase-v1` |
+| TiSLY Monitoring 3D V1 | `/tisly-monitoring-3d-v1` |
+| TiSLY Monitoring 3D V3 | `/monitoring-3d-v2` |
 | 設定（管理者） | `/settings-v1` |
 | ナレッジ検索 | `/knowledge-search-v1` |
 | 現場ナレッジ | `/knowledge-field-v1` |
@@ -619,6 +621,25 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | Phase7 UI標準 | [docs/ui-concept/MONITORING_UI_GUIDE.md](../ui-concept/MONITORING_UI_GUIDE.md) |
 | レイアウト追加 | 勝手口ドア/カメラ（`door-back-01` · `cam-back-01`） |
 | テスト | `server/test/tisly-monitoring-3d-v1.test.ts`（V2 CSS/JS アサーション追加） |
+
+### TiSLY Monitoring 3D Dashboard V3（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | **未来の TiSLY 監視センター** — LiDAR · Three.js · 案件データ統合基盤 |
+| 画面 | `/monitoring-3d-v2` · エイリアス `/tisly-monitoring-3d-v3` |
+| Phase1 Three.js | OrbitControls — 回転 · ズーム · パン · 自動アニメーション |
+| Phase2 階層 | 外周 · 1F · 2F レイヤー — 全表示/外周のみ/1F/2F 切替 |
+| Phase3 センサー | frontGate · frontDoor · living · stairs · balcony · garage — normal/warning/alert |
+| Phase4 発報 | 赤点滅 · 波紋 · カメラ移動 · アラートカード自動表示 |
+| Phase5 カメラ | cameraId 連携 · クリックで右パネルモック LIVE 表示 |
+| Phase6 LiDAR | `mapAsset` — type · floorLevel · position · rotation · scale（Polycam/Scaniverse/RoomPlan 受け皿） |
+| Phase7 Customer | `relatedKnowledgeIds` · センサークリック → Knowledge Customer 資料 |
+| Phase8 TV | `?mode=tv` — 全画面赤警報 · 対象拡大 · 30秒固定 |
+| Phase9 デモ | 侵入 · 火災 · 設備異常 — 営業デモ自動再生ボタン |
+| API | `GET /api/monitoring/v1/3d-scene` · `/3d-sensor/:id` |
+| コード | `monitoring-3d-v2/` · `tisly-monitoring-3d-v3.ts` · `tisly-monitoring-map-asset-v1.ts` |
+| テスト | `server/test/tisly-monitoring-3d-v3.test.ts` |
 
 ---
 

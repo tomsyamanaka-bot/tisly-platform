@@ -1,0 +1,10 @@
+{
+  "capturedAt": "2026-06-21T13:02:30.241Z",
+  "baseUrl": "http://localhost:3091",
+  "files": [
+    "01-dashboard-normal.png",
+    "02-demo-intrusion-alert.png",
+    "03-tv-mode-fire-alert.png"
+  ],
+  "pageUrl": "http://localhost:3091/monitoring-3d-v2?siteId=DEMO-HOME-001"
+}

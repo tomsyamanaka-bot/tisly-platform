@@ -1,0 +1,550 @@
+/* TiSLY Monitoring 3D V3 — Future Monitoring Center */
+
+:root {
+  --mon-bg: #050b18;
+  --mon-panel: #0a1224;
+  --mon-glass: rgba(15, 23, 42, 0.72);
+  --mon-border: #1e3a5f;
+  --mon-cyan: #22d3ee;
+  --mon-blue-deep: #2563eb;
+  --mon-red-deep: #dc2626;
+  --mon-orange: #fb923c;
+  --mon-yellow: #fbbf24;
+  --mon-blue: #38bdf8;
+  --mon-green: #34d399;
+  --mon-purple: #a78bfa;
+  --mon-radius: 12px;
+  --mon-shadow-building: 0 20px 60px rgba(0, 0, 0, 0.45);
+  --mon-alarm-glow: 0 0 24px rgba(220, 38, 38, 0.85);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--mon-bg);
+  color: #e2e8f0;
+  font-family: "Segoe UI", "Hiragino Sans", "Yu Gothic UI", sans-serif;
+}
+
+.mon3dv3-body {
+  overflow: hidden;
+}
+
+.mon3dv3-shell {
+  display: grid;
+  grid-template-columns: 240px 1fr 320px;
+  grid-template-rows: 1fr;
+  height: 100vh;
+  height: 100dvh;
+}
+
+.mon3dv3-side,
+.mon3dv3-right {
+  background: var(--mon-panel);
+  border-color: var(--mon-border);
+  overflow-y: auto;
+  padding: 1rem;
+}
+
+.mon3dv3-side {
+  border-right: 1px solid var(--mon-border);
+}
+
+.mon3dv3-right {
+  border-left: 1px solid var(--mon-border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.mon3dv3-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 1rem 1.25rem;
+}
+
+.mon3dv3-brand-block {
+  display: flex;
+  gap: 0.65rem;
+  align-items: center;
+  margin-bottom: 1.25rem;
+}
+
+.mon3dv3-brand {
+  margin: 0;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--mon-cyan);
+}
+
+.mon3dv3-brand-sub {
+  margin: 0.15rem 0 0;
+  font-size: 0.72rem;
+  color: #94a3b8;
+}
+
+.mon3dv3-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 1.25rem;
+}
+
+.mon3dv3-nav a {
+  color: #cbd5e1;
+  text-decoration: none;
+  padding: 0.45rem 0.65rem;
+  border-radius: 8px;
+  font-size: 0.88rem;
+}
+
+.mon3dv3-nav a.active,
+.mon3dv3-nav a:hover {
+  background: rgba(37, 99, 235, 0.25);
+  color: #fff;
+}
+
+.mon3dv3-section-label {
+  margin: 0 0 0.5rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--mon-purple);
+}
+
+.mon3dv3-layer-btns,
+.mon3dv3-demo-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.mon3dv3-btn {
+  appearance: none;
+  border: 1px solid var(--mon-blue-deep);
+  background: linear-gradient(180deg, #3b82f6, var(--mon-blue-deep));
+  color: #fff;
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  text-decoration: none;
+  text-align: center;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.mon3dv3-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.35);
+}
+
+.mon3dv3-btn.secondary {
+  background: var(--mon-glass);
+  border-color: var(--mon-border);
+}
+
+.mon3dv3-btn.secondary.active {
+  border-color: var(--mon-cyan);
+  box-shadow: 0 0 12px rgba(34, 211, 238, 0.25);
+}
+
+.mon3dv3-btn.danger {
+  background: linear-gradient(180deg, #ef4444, var(--mon-red-deep));
+  border-color: var(--mon-red-deep);
+}
+
+.mon3dv3-controls-hint {
+  font-size: 0.75rem;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.mon3dv3-auto-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+  color: #94a3b8;
+}
+
+.mon3dv3-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.mon3dv3-topbar h1 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.mon3dv3-muted {
+  color: #94a3b8;
+  font-size: 0.88rem;
+}
+
+.mon3dv3-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.mon3dv3-clock {
+  font-variant-numeric: tabular-nums;
+  color: var(--mon-cyan);
+  font-size: 0.95rem;
+}
+
+.mon3dv3-viewport-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 280px;
+  border-radius: var(--mon-radius);
+  border: 1px solid var(--mon-border);
+  overflow: hidden;
+  background: radial-gradient(ellipse at 50% 30%, #0f172a, #020617);
+  box-shadow: var(--mon-shadow-building);
+}
+
+#mon3dv3-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.mon3dv3-ripple-layer {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+}
+
+.mon3dv3-ripple {
+  position: absolute;
+  width: 80px;
+  height: 80px;
+  margin: -40px 0 0 -40px;
+  border: 2px solid var(--mon-red-deep);
+  border-radius: 50%;
+  animation: mon3dv3-ripple 1.8s ease-out infinite;
+}
+
+.mon3dv3-ripple:nth-child(2) {
+  animation-delay: 0.5s;
+}
+
+.mon3dv3-ripple:nth-child(3) {
+  animation-delay: 1s;
+}
+
+@keyframes mon3dv3-ripple {
+  0% {
+    transform: scale(0.3);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(2.5);
+    opacity: 0;
+  }
+}
+
+.mon3dv3-alert-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 0.65rem 1rem;
+  background: linear-gradient(90deg, #7f1d1d, #dc2626, #7f1d1d);
+  animation: mon3dv3-banner-pulse 1.2s ease-in-out infinite;
+  font-size: 0.95rem;
+}
+
+@keyframes mon3dv3-banner-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+.mon3dv3-alert-card {
+  margin-top: 0.75rem;
+  padding: 0.9rem;
+  border-radius: var(--mon-radius);
+  background: var(--mon-glass);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--mon-red-deep);
+  box-shadow: var(--mon-alarm-glow);
+}
+
+.mon3dv3-alert-card h2 {
+  margin: 0.25rem 0;
+  font-size: 1.1rem;
+}
+
+.mon3dv3-alert-label {
+  margin: 0;
+  color: var(--mon-red-deep);
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
+.mon3dv3-alert-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.75rem;
+}
+
+.mon3dv3-panel {
+  padding: 0.9rem;
+  border-radius: var(--mon-radius);
+  background: var(--mon-glass);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--mon-border);
+}
+
+.mon3dv3-camera-view {
+  aspect-ratio: 16 / 10;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #020617;
+  border: 1px solid var(--mon-border);
+  position: relative;
+}
+
+.mon3dv3-camera-view.is-alert {
+  border-color: var(--mon-red-deep);
+  box-shadow: var(--mon-alarm-glow);
+}
+
+.mon3dv3-camera-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.mon3dv3-live-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: var(--mon-red-deep);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  animation: mon3dv3-live-blink 1.5s infinite;
+}
+
+@keyframes mon3dv3-live-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.mon3dv3-camera-mock {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: contrast(1.1) saturate(0.8);
+}
+
+.mon3dv3-camera-label {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  right: 8px;
+  font-size: 0.75rem;
+  background: rgba(0, 0, 0, 0.55);
+  padding: 0.35rem 0.5rem;
+  border-radius: 4px;
+}
+
+.mon3dv3-sensor-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.mon3dv3-sensor-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.45rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.mon3dv3-sensor-item:hover {
+  background: rgba(37, 99, 235, 0.15);
+}
+
+.mon3dv3-sensor-item.is-selected {
+  border-color: var(--mon-cyan);
+}
+
+.mon3dv3-sensor-item.status-normal .mon3dv3-status-dot {
+  background: var(--mon-green);
+}
+
+.mon3dv3-sensor-item.status-warning .mon3dv3-status-dot {
+  background: var(--mon-orange);
+}
+
+.mon3dv3-sensor-item.status-alert .mon3dv3-status-dot {
+  background: var(--mon-red-deep);
+  animation: mon3dv3-dot-blink 0.8s infinite;
+}
+
+@keyframes mon3dv3-dot-blink {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 8px var(--mon-red-deep);
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.mon3dv3-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 0.4rem;
+}
+
+.mon3dv3-knowledge-links a {
+  display: block;
+  color: var(--mon-blue);
+  text-decoration: none;
+  padding: 0.4rem 0;
+  font-size: 0.85rem;
+  border-bottom: 1px solid rgba(30, 58, 95, 0.5);
+}
+
+.mon3dv3-knowledge-links a:hover {
+  color: var(--mon-cyan);
+}
+
+.mon3dv3-alert-banner[hidden],
+.mon3dv3-tv-overlay[hidden],
+.mon3dv3-alert-card[hidden] {
+  display: none !important;
+}
+
+.mon3dv3-tv-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(127, 29, 29, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: mon3dv3-tv-flash 0.8s ease-in-out infinite;
+}
+
+@keyframes mon3dv3-tv-flash {
+  0%,
+  100% {
+    background: rgba(127, 29, 29, 0.92);
+  }
+  50% {
+    background: rgba(220, 38, 38, 0.95);
+  }
+}
+
+.mon3dv3-tv-overlay-inner {
+  text-align: center;
+}
+
+.mon3dv3-tv-overlay-icon {
+  font-size: 4rem;
+  margin: 0;
+}
+
+.mon3dv3-tv-overlay h2 {
+  font-size: 2.5rem;
+  margin: 0.5rem 0;
+}
+
+.mon3dv3-tv-countdown {
+  font-size: 3rem;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  margin: 1rem 0 0;
+}
+
+body.mon3dv3-tv .mon3dv3-shell {
+  grid-template-columns: 1fr;
+}
+
+body.mon3dv3-tv .mon3dv3-side,
+body.mon3dv3-tv .mon3dv3-right {
+  display: none;
+}
+
+body.mon3dv3-tv .mon3dv3-topbar h1 {
+  font-size: 2rem;
+}
+
+body.mon3dv3-tv .mon3dv3-alert-banner {
+  font-size: 1.5rem;
+  padding: 1rem;
+}
+
+@media (max-width: 1024px) {
+  .mon3dv3-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr auto;
+    overflow-y: auto;
+    height: auto;
+    min-height: 100dvh;
+  }
+
+  .mon3dv3-side {
+    border-right: none;
+    border-bottom: 1px solid var(--mon-border);
+  }
+
+  .mon3dv3-right {
+    border-left: none;
+    border-top: 1px solid var(--mon-border);
+  }
+
+  .mon3dv3-viewport-wrap {
+    min-height: 50vh;
+  }
+}
