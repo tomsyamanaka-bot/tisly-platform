@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#050b18" />
-  <title>TiSLY — mapAsset Manager V3.2</title>
+  <title>TiSLY — mapAsset Manager V3.3</title>
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2003" />
   <link rel="stylesheet" href="/monitoring-map-assets-v1/css/monitoring-map-assets-v1.css" />
   <script type="importmap">
@@ -22,7 +22,7 @@
   <header class="mma-header">
     <div>
       <p class="mma-brand">TiSLY Monitoring</p>
-      <h1>mapAsset Manager V3.2</h1>
+      <h1>mapAsset Manager V3.3</h1>
       <p id="mma-site-label" class="mma-muted">siteId —</p>
     </div>
     <div class="mma-header-actions">
@@ -78,7 +78,11 @@
     </section>
 
     <section class="mma-panel">
-      <h2>登録済み 3D マップ</h2>
+      <div class="mma-list-header">
+        <h2>登録済み 3D マップ</h2>
+        <button type="button" class="mma-btn secondary" id="mma-btn-reset-all-transforms">transform 一括リセット</button>
+      </div>
+      <div id="mma-floor-tabs" class="mma-floor-tabs"></div>
       <div id="mma-asset-list" class="mma-asset-list"></div>
     </section>
 

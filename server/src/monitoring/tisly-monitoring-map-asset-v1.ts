@@ -6,6 +6,7 @@ import {
   type MonitoringMapAssetRecordV1,
   type MonitoringMapAssetSourceTypeV1,
 } from "./monitoring-map-assets-store-v1.js";
+import { isMeshLoadableFileTypeV1 } from "./monitoring-map-asset-upload-v1.js";
 
 export type MonitoringMapAssetSourceV1 = MonitoringMapAssetSourceTypeV1 | "procedural";
 
@@ -17,6 +18,33 @@ export type MonitoringMapAssetTypeV1 =
   | "building_shell";
 
 export type MonitoringMapFloorLevelV1 = "perimeter" | "1f" | "2f" | "roof";
+
+export type MonitoringMapAssetDisplayModeV1 =
+  | "active_only"
+  | "all_floors"
+  | "perimeter_only"
+  | "1f_only"
+  | "2f_only";
+
+export interface MonitoringMapAssetDisplayModeOptionV1 {
+  mode: MonitoringMapAssetDisplayModeV1;
+  label: string;
+}
+
+export const MONITORING_MAP_ASSET_DISPLAY_MODES_V1: MonitoringMapAssetDisplayModeOptionV1[] = [
+  { mode: "active_only", label: "active のみ" },
+  { mode: "all_floors", label: "全フロア合成" },
+  { mode: "perimeter_only", label: "外周のみ" },
+  { mode: "1f_only", label: "1Fのみ" },
+  { mode: "2f_only", label: "2Fのみ" },
+];
+
+export const MONITORING_MAP_FLOOR_HEIGHT_OFFSETS_V1: Record<MonitoringMapFloorLevelV1, number> = {
+  perimeter: 0,
+  "1f": 0,
+  "2f": 3,
+  roof: 5,
+};
 
 export interface MonitoringMapTransformV1 {
   x: number;
@@ -43,6 +71,8 @@ export interface MonitoringMapAssetEntryV1 {
   mapType?: string;
   status?: string;
   fileType?: string;
+  visibleInDashboard?: boolean;
+  opacity?: number;
 }
 
 export interface MonitoringMapAssetBundleV1 {
@@ -55,6 +85,10 @@ export interface MonitoringMapAssetBundleV1 {
   activeAsset: MonitoringMapAssetRecordV1 | null;
   fallbackAsset: MonitoringMapAssetRecordV1;
   registeredAssets: MonitoringMapAssetRecordV1[];
+  displayModes: MonitoringMapAssetDisplayModeOptionV1[];
+  defaultDisplayMode: MonitoringMapAssetDisplayModeV1;
+  floorHeightOffsets: Record<MonitoringMapFloorLevelV1, number>;
+  assetsByFloor: Partial<Record<MonitoringMapFloorLevelV1, MonitoringMapAssetEntryV1[]>>;
 }
 
 const SOURCE_COLORS: Record<string, number> = {
@@ -114,9 +148,20 @@ const PROCEDURAL_ASSETS: MonitoringMapAssetEntryV1[] = [
   },
 ];
 
+function isFactorySiteId(siteId: string): boolean {
+  return siteId.includes("FACTORY") || siteId.includes("PLANT");
+}
+
+function resolveCustomerRef(siteId: string): string {
+  return isFactorySiteId(siteId) ? "DEMO-FACTORY-001" : "DEMO-HOME-001";
+}
+
 function recordToSceneEntry(record: MonitoringMapAssetRecordV1): MonitoringMapAssetEntryV1 {
   const t = record.transform;
-  const yOffset = t.heightOffset ?? 0;
+  const floorOffset = MONITORING_MAP_FLOOR_HEIGHT_OFFSETS_V1[record.floorLevel] ?? 0;
+  const yOffset = (t.heightOffset ?? 0) + floorOffset;
+  const hasLoadableMesh = Boolean(record.fileUrl) && isMeshLoadableFileTypeV1(record.fileType);
+  const isUsdz = record.fileType === "usdz";
   return {
     assetId: record.assetId,
     type: (record.mapType as MonitoringMapAssetTypeV1) || "placeholder",
@@ -135,15 +180,17 @@ function recordToSceneEntry(record: MonitoringMapAssetRecordV1): MonitoringMapAs
     fileUrl: record.fileUrl || undefined,
     previewUrl: record.previewUrl,
     isRegistered: true,
-    isPlaceholder: !record.fileUrl || !["glb", "gltf"].includes(record.fileType),
+    isPlaceholder: !hasLoadableMesh || isUsdz,
     mapType: record.mapType,
     status: record.status,
     fileType: record.fileType,
+    visibleInDashboard: record.visibleInDashboard !== false,
+    opacity: record.opacity ?? 1,
   };
 }
 
 export function getMonitoringMapAssetBundleV1(siteId: string): MonitoringMapAssetBundleV1 {
-  const customerRef = siteId.includes("PLANT") ? "DEMO-FACTORY-001" : "DEMO-HOME-001";
+  const customerRef = resolveCustomerRef(siteId);
   const listed = listMonitoringMapAssetsV1(siteId);
   const registeredEntries = listed.assets.map(recordToSceneEntry);
   const hasActive = Boolean(listed.activeAsset);
@@ -156,9 +203,15 @@ export function getMonitoringMapAssetBundleV1(siteId: string): MonitoringMapAsse
 
   const integrationNote = hasActive
     ? listed.activeAsset!.fileUrl
-      ? `${listed.activeAsset!.title}（${listed.activeAsset!.fileType} · ${listed.activeAsset!.floorLevel}）— GLB/GLTF は mesh 読込、OBJ/PLY/USDZ は placeholder。`
+      ? `${listed.activeAsset!.title}（${listed.activeAsset!.fileType} · ${listed.activeAsset!.floorLevel}）— GLB/GLTF/OBJ/PLY mesh 読込 · USDZ は GLB 変換推奨 · 全フロア合成対応。`
       : `${listed.activeAsset!.title}（${listed.activeAsset!.sourceType} · ${listed.activeAsset!.floorLevel}）を active 表示。fileUrl 未接続時は placeholder mesh。`
-    : "Polycam · Scaniverse · RoomPlan から mesh / pointcloud を投入できる構造です。GLB アップロードで Three.js 表示可能。";
+    : "Polycam · Scaniverse · RoomPlan から mesh / pointcloud を投入。V3.3: OBJ/PLY 表示 · 複数フロア同時表示。";
+
+  const assetsByFloor: Partial<Record<MonitoringMapFloorLevelV1, MonitoringMapAssetEntryV1[]>> = {};
+  registeredEntries.forEach((entry) => {
+    if (!assetsByFloor[entry.floorLevel]) assetsByFloor[entry.floorLevel] = [];
+    assetsByFloor[entry.floorLevel]!.push(entry);
+  });
 
   return {
     bundleId: `map-asset-${siteId}`,
@@ -170,5 +223,9 @@ export function getMonitoringMapAssetBundleV1(siteId: string): MonitoringMapAsse
     activeAsset: listed.activeAsset,
     fallbackAsset: listed.fallbackAsset ?? buildFallbackMapAssetRecordV1(siteId),
     registeredAssets: listed.assets,
+    displayModes: MONITORING_MAP_ASSET_DISPLAY_MODES_V1,
+    defaultDisplayMode: "all_floors",
+    floorHeightOffsets: { ...MONITORING_MAP_FLOOR_HEIGHT_OFFSETS_V1 },
+    assetsByFloor,
   };
 }

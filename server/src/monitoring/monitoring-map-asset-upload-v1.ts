@@ -75,8 +75,30 @@ export function isGltfLoadableFileTypeV1(fileType: MonitoringMapAssetFileTypeV1)
   return fileType === "glb" || fileType === "gltf";
 }
 
+export function isObjLoadableFileTypeV1(fileType: MonitoringMapAssetFileTypeV1): boolean {
+  return fileType === "obj";
+}
+
+export function isPlyLoadableFileTypeV1(fileType: MonitoringMapAssetFileTypeV1): boolean {
+  return fileType === "ply";
+}
+
+export function isMeshLoadableFileTypeV1(fileType: MonitoringMapAssetFileTypeV1): boolean {
+  return isGltfLoadableFileTypeV1(fileType) || isObjLoadableFileTypeV1(fileType) || isPlyLoadableFileTypeV1(fileType);
+}
+
 export function isUnsupported3dPreviewFileTypeV1(fileType: MonitoringMapAssetFileTypeV1): boolean {
-  return fileType === "obj" || fileType === "ply" || fileType === "usdz";
+  return fileType === "usdz";
+}
+
+export function resolveMapAssetLoaderHintV1(
+  fileType: MonitoringMapAssetFileTypeV1
+): "gltf" | "obj" | "ply" | "placeholder" | "image" {
+  if (isGltfLoadableFileTypeV1(fileType)) return "gltf";
+  if (isObjLoadableFileTypeV1(fileType)) return "obj";
+  if (isPlyLoadableFileTypeV1(fileType)) return "ply";
+  if (fileType === "image") return "image";
+  return "placeholder";
 }
 
 export function buildSafeMapAssetFileNameV1(assetId: string, originalFileName: string): string {
@@ -119,7 +141,7 @@ export interface UploadMonitoringMapAssetResultV1 {
   ok: boolean;
   asset?: MonitoringMapAssetRecordV1;
   storageMode?: MonitoringMapAssetStorageModeV1;
-  loaderHint?: "gltf" | "placeholder" | "image";
+  loaderHint?: "gltf" | "obj" | "ply" | "placeholder" | "image";
   error?: string;
 }
 
@@ -191,11 +213,7 @@ export async function uploadMonitoringMapAssetFileV1(
     setActive: input.setActive,
   });
 
-  const loaderHint = isGltfLoadableFileTypeV1(fileType)
-    ? "gltf"
-    : fileType === "image"
-      ? "image"
-      : "placeholder";
+  const loaderHint = resolveMapAssetLoaderHintV1(fileType);
 
   return {
     ok: true,

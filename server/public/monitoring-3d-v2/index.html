@@ -48,6 +48,16 @@
         <a href="/knowledge-customer-site-map-v1?ref=DEMO-HOME-001">Site Map</a>
       </nav>
       <div class="mon3dv3-layer-panel">
+        <p class="mon3dv3-section-label">mapAsset 表示</p>
+        <div class="mon3dv3-layer-btns" id="mon3dv3-mapasset-mode-btns">
+          <button type="button" class="mon3dv3-btn secondary active" data-map-mode="all_floors">全フロア合成</button>
+          <button type="button" class="mon3dv3-btn secondary" data-map-mode="active_only">activeのみ</button>
+          <button type="button" class="mon3dv3-btn secondary" data-map-mode="perimeter_only">外周のみ</button>
+          <button type="button" class="mon3dv3-btn secondary" data-map-mode="1f_only">1Fのみ</button>
+          <button type="button" class="mon3dv3-btn secondary" data-map-mode="2f_only">2Fのみ</button>
+        </div>
+      </div>
+      <div class="mon3dv3-layer-panel">
         <p class="mon3dv3-section-label">フロア表示</p>
         <div class="mon3dv3-layer-btns" id="mon3dv3-layer-btns">
           <button type="button" class="mon3dv3-btn secondary active" data-layer="all">全表示</button>
@@ -69,12 +79,33 @@
         </label>
       </div>
       <div class="mon3dv3-layout-panel">
-        <p class="mon3dv3-section-label">センサー再配置</p>
+        <p class="mon3dv3-section-label">センサー位置合わせ</p>
+        <label class="mon3dv3-auto-label">
+          <input type="checkbox" id="mon3dv3-layout-edit-mode" /> 編集モード
+        </label>
         <select id="mon3dv3-layout-device" class="mon3dv3-select"></select>
         <div class="mon3dv3-layout-grid">
-          <label>X<input type="number" step="0.1" id="mon3dv3-layout-x" /></label>
-          <label>Y<input type="number" step="0.1" id="mon3dv3-layout-y" /></label>
-          <label>Z<input type="number" step="0.1" id="mon3dv3-layout-z" /></label>
+          <label>X
+            <span class="mon3dv3-nudge-row">
+              <button type="button" class="mon3dv3-nudge" data-axis="x" data-delta="-0.5">−</button>
+              <input type="number" step="0.1" id="mon3dv3-layout-x" />
+              <button type="button" class="mon3dv3-nudge" data-axis="x" data-delta="0.5">+</button>
+            </span>
+          </label>
+          <label>Y
+            <span class="mon3dv3-nudge-row">
+              <button type="button" class="mon3dv3-nudge" data-axis="y" data-delta="-0.5">−</button>
+              <input type="number" step="0.1" id="mon3dv3-layout-y" />
+              <button type="button" class="mon3dv3-nudge" data-axis="y" data-delta="0.5">+</button>
+            </span>
+          </label>
+          <label>Z
+            <span class="mon3dv3-nudge-row">
+              <button type="button" class="mon3dv3-nudge" data-axis="z" data-delta="-0.5">−</button>
+              <input type="number" step="0.1" id="mon3dv3-layout-z" />
+              <button type="button" class="mon3dv3-nudge" data-axis="z" data-delta="0.5">+</button>
+            </span>
+          </label>
         </div>
         <div class="mon3dv3-layout-actions">
           <button type="button" class="mon3dv3-btn secondary" id="mon3dv3-layout-preview">プレビュー</button>

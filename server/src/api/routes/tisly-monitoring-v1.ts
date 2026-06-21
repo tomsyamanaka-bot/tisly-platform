@@ -24,27 +24,32 @@ import {
   listMonitoringMapAssetsV1,
   registerMonitoringMapAssetV1,
   updateMonitoringMapAssetV1,
+  deleteMonitoringMapAssetV1,
+  resetAllMonitoringMapAssetTransformsV1,
 } from "../../monitoring/monitoring-map-assets-store-v1.js";
 import { uploadMonitoringMapAssetFileV1 } from "../../monitoring/monitoring-map-asset-upload-v1.js";
-import { resolveMonitoringMapAssetStorageModeV1 } from "../../monitoring/monitoring-map-asset-storage-adapter-v1.js";
+import {
+  resolveMonitoringMapAssetStorageModeV1,
+  getBackupStatus,
+  deleteLocalAsset,
+} from "../../monitoring/monitoring-map-asset-storage-adapter-v1.js";
 
 export const tislyMonitoringV1Router = Router();
 
 tislyMonitoringV1Router.get("/3d-scene", (req, res) => {
   const siteId = resolveMonitoringSiteIdV1(req.query.siteId as string | undefined);
-  res.json(buildMonitoring3dSceneV1(siteId));
+  const displayMode = (req.query.mapAssetDisplayMode as string | undefined) ?? "all_floors";
+  res.json(buildMonitoring3dSceneV1(siteId, displayMode as Parameters<typeof buildMonitoring3dSceneV1>[1]));
 });
 
 tislyMonitoringV1Router.get("/3d-sensor/:sensorId", (req, res) => {
-  const sensor = findMonitoring3dSensorV1(req.params.sensorId ?? "");
+  const siteId = resolveMonitoringSiteIdV1(req.query.siteId as string | undefined);
+  const sensor = findMonitoring3dSensorV1(req.params.sensorId ?? "", siteId);
   if (!sensor) {
     res.status(404).json({ error: "Sensor not found" });
     return;
   }
-  const links = buildMonitoringCustomerLinksV1(
-    resolveMonitoringSiteIdV1(req.query.siteId as string | undefined),
-    sensor.sensorId
-  );
+  const links = buildMonitoringCustomerLinksV1(siteId, sensor.sensorId);
   res.json({
     sensor,
     relatedKnowledgeIds: sensor.relatedKnowledgeIds,
@@ -91,6 +96,7 @@ tislyMonitoringV1Router.get("/map-assets", (req, res) => {
   res.json({
     ...listMonitoringMapAssetsV1(siteId),
     storageMode: resolveMonitoringMapAssetStorageModeV1(),
+    backupStatus: getBackupStatus(),
     uploadMaxBytes: {
       mesh3d: 100 * 1024 * 1024,
       image: 10 * 1024 * 1024,
@@ -132,6 +138,7 @@ tislyMonitoringV1Router.post("/map-assets/upload", async (req, res) => {
       asset: result.asset,
       storageMode: result.storageMode,
       loaderHint: result.loaderHint,
+      backupStatus: getBackupStatus(),
       ...listed,
     });
   } catch {
@@ -178,12 +185,42 @@ tislyMonitoringV1Router.patch("/map-assets/:assetId", (req, res) => {
     notes: body.notes,
     setActive: body.setActive,
     resetTransform: body.resetTransform,
+    visibleInDashboard: body.visibleInDashboard,
+    opacity: body.opacity,
   });
   if (!updated) {
     res.status(404).json({ error: "Asset not found" });
     return;
   }
   res.json({ ok: true, asset: updated, ...listMonitoringMapAssetsV1(siteId) });
+});
+
+tislyMonitoringV1Router.delete("/map-assets/:assetId", (req, res) => {
+  const siteId = resolveMonitoringSiteIdV1(req.body?.siteId ?? req.query.siteId);
+  const assetId = req.params.assetId ?? "";
+  const deleteFile = req.query.deleteFile === "true" || Boolean(req.body?.deleteFile);
+  const result = deleteMonitoringMapAssetV1({ siteId, assetId, deleteFile });
+  if (!result.ok || !result.deleted) {
+    res.status(404).json({ error: result.error ?? "Asset not found" });
+    return;
+  }
+  let fileDeleted = false;
+  if (deleteFile && result.deleted.safeFileName) {
+    fileDeleted = deleteLocalAsset(siteId, result.deleted.safeFileName);
+  }
+  res.json({
+    ok: true,
+    deleted: result.deleted,
+    fileDeleted,
+    backupStatus: getBackupStatus(),
+    ...listMonitoringMapAssetsV1(siteId),
+  });
+});
+
+tislyMonitoringV1Router.post("/map-assets/reset-transforms", (req, res) => {
+  const siteId = resolveMonitoringSiteIdV1(req.body?.siteId ?? req.query.siteId);
+  const count = resetAllMonitoringMapAssetTransformsV1(siteId);
+  res.json({ ok: true, resetCount: count, ...listMonitoringMapAssetsV1(siteId) });
 });
 
 tislyMonitoringV1Router.get("/device-layout-overrides", (req, res) => {

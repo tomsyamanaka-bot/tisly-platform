@@ -563,6 +563,41 @@ body.mon3dv3-tv .mon3dv3-alert-banner {
   color: #e2e8f0;
 }
 
+.mon3dv3-nudge-row {
+  display: flex;
+  gap: 0.2rem;
+  align-items: center;
+  margin-top: 0.15rem;
+}
+
+.mon3dv3-nudge-row input {
+  flex: 1;
+  margin-top: 0;
+}
+
+.mon3dv3-nudge {
+  flex-shrink: 0;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid var(--mon-border);
+  background: #1e293b;
+  color: var(--mon-cyan);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.mon3dv3-nudge:hover {
+  background: #334155;
+}
+
+.mon3dv3-layout-panel.is-editing {
+  outline: 1px solid var(--mon-cyan);
+  border-radius: var(--mon-radius);
+  padding: 0.5rem;
+}
+
 .mon3dv3-layout-actions {
   display: flex;
   gap: 0.4rem;

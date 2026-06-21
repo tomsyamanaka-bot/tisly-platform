@@ -58,6 +58,10 @@ export interface MonitoringMapAssetRecordV1 {
   transform: MonitoringMapAssetTransformV1;
   status: MonitoringMapAssetStatusV1;
   notes: string;
+  /** V3.3 — 3D Dashboard 同時表示 ON/OFF */
+  visibleInDashboard?: boolean;
+  /** V3.3 — 透明度 0–1（将来 UI 調整用） */
+  opacity?: number;
 }
 
 export interface MonitoringMapAssetsSiteEntryV1 {
@@ -92,7 +96,10 @@ export const MONITORING_MAP_ASSET_UPLOAD_GUIDE_V1 = {
   calibration: "transform.position / rotation / scale / heightOffset でセンサー位置との合わせ込み。",
   uploadApi: "POST /api/monitoring/v1/map-assets/upload — fileBase64 + sourceType + floorLevel",
   maxSize3d: "3D mesh 最大 100MB · 画像 10MB · JSON 5MB",
-  unsupportedPreview: "OBJ / PLY / USDZ は登録可だが Three.js 表示は placeholder fallback",
+  unsupportedPreview: "USDZ は GLB 変換推奨 — 3D Dashboard ではプレビュー準備中",
+  objPlySupport: "V3.3: OBJ/PLY は Three.js OBJLoader/PLYLoader で表示可能",
+  multiFloorDisplay: "V3.3: active のみ / 全フロア合成 / フロア別表示 — visibleInDashboard でレイヤー ON/OFF",
+  usdzConversion: "USDZ → GLB 変換（Polycam/Reality Converter）を推奨",
   futureStorage: "将来: QNAP WebDAV — \\\\192.168.1.10\\TiSLY\\monitoring\\{siteId}\\ （adapter mode: qnap-webdav）",
 };
 
@@ -181,6 +188,10 @@ export function buildFallbackMapAssetRecordV1(siteId: string): MonitoringMapAsse
 }
 
 export function seedDemoMapAssetsIfEmpty(siteId: string): void {
+  if (siteId === "DEMO-FACTORY-001" || siteId.includes("FACTORY") || siteId.includes("PLANT")) {
+    seedDemoFactoryMapAssetsIfEmpty(siteId);
+    return;
+  }
   const store = readStore();
   const site = ensureSite(store, siteId);
   if (site.assets.length > 0) return;
@@ -258,6 +269,90 @@ export function seedDemoMapAssetsIfEmpty(siteId: string): void {
   writeStore(store);
 }
 
+export function seedDemoFactoryMapAssetsIfEmpty(siteId: string): void {
+  const store = readStore();
+  const site = ensureSite(store, siteId);
+  if (site.assets.length > 0) return;
+
+  const now = new Date().toISOString();
+  site.assets = [
+    {
+      assetId: `MA-${siteId}-PERIMETER-YARD`,
+      siteId,
+      title: "骨材ヤード 外周スキャン",
+      sourceType: "scaniverse",
+      fileType: "obj",
+      fileName: "factory-yard-perimeter.obj",
+      fileSize: 0,
+      uploadedAt: now,
+      floorLevel: "perimeter",
+      mapType: "mesh",
+      previewUrl: "/icons/icon-128.png",
+      fileUrl: "",
+      transform: {
+        position: { x: 0, y: 0.2, z: 0 },
+        rotation: { x: 0, y: 0, z: 0 },
+        scale: { x: 28, y: 0.5, z: 20 },
+        heightOffset: 0,
+      },
+      status: "draft",
+      notes: "骨材ヤード · 外周 OBJ placeholder",
+      visibleInDashboard: true,
+      opacity: 0.85,
+    },
+    {
+      assetId: `MA-${siteId}-1F-PLANT`,
+      siteId,
+      title: "生コンプラント 1F スキャン",
+      sourceType: "polycam",
+      fileType: "glb",
+      fileName: "factory-plant-1f.glb",
+      fileSize: 0,
+      uploadedAt: now,
+      floorLevel: "1f",
+      mapType: "mesh",
+      previewUrl: "/icons/icon-128.png",
+      fileUrl: "",
+      transform: {
+        position: { x: 0, y: 1.2, z: 0 },
+        rotation: { x: 0, y: 0, z: 0 },
+        scale: { x: 18, y: 4, z: 14 },
+        heightOffset: 0,
+      },
+      status: "active",
+      notes: "生コンプラント · サイロ/ミキサー/コンベアエリア",
+      visibleInDashboard: true,
+      opacity: 0.9,
+    },
+    {
+      assetId: `MA-${siteId}-2F-CONTROL`,
+      siteId,
+      title: "操作室 2F スキャン",
+      sourceType: "scaniverse",
+      fileType: "ply",
+      fileName: "factory-control-room.ply",
+      fileSize: 0,
+      uploadedAt: now,
+      floorLevel: "2f",
+      mapType: "pointcloud",
+      previewUrl: "/icons/icon-128.png",
+      fileUrl: "",
+      transform: {
+        position: { x: 0, y: 4.8, z: 0 },
+        rotation: { x: 0, y: 0, z: 0 },
+        scale: { x: 8, y: 2.5, z: 6 },
+        heightOffset: 0,
+      },
+      status: "draft",
+      notes: "操作室 · PLY 点群 placeholder",
+      visibleInDashboard: true,
+      opacity: 0.75,
+    },
+  ];
+  site.activeAssetId = site.assets[1].assetId;
+  writeStore(store);
+}
+
 export function listMonitoringMapAssetsV1(siteId: string): {
   siteId: string;
   assets: MonitoringMapAssetRecordV1[];
@@ -302,6 +397,8 @@ export interface RegisterMonitoringMapAssetInputV1 {
   status?: MonitoringMapAssetStatusV1;
   notes?: string;
   setActive?: boolean;
+  visibleInDashboard?: boolean;
+  opacity?: number;
 }
 
 export function registerMonitoringMapAssetV1(input: RegisterMonitoringMapAssetInputV1): MonitoringMapAssetRecordV1 {
@@ -326,6 +423,8 @@ export function registerMonitoringMapAssetV1(input: RegisterMonitoringMapAssetIn
     transform: normalizeTransform(input.transform),
     status: input.status ?? "draft",
     notes: input.notes ?? "",
+    visibleInDashboard: input.visibleInDashboard ?? true,
+    opacity: input.opacity ?? 1,
   };
 
   if (input.setActive || record.status === "active") {
@@ -350,6 +449,8 @@ export interface UpdateMonitoringMapAssetInputV1 {
   notes?: string;
   setActive?: boolean;
   resetTransform?: boolean;
+  visibleInDashboard?: boolean;
+  opacity?: number;
 }
 
 export function updateMonitoringMapAssetV1(input: UpdateMonitoringMapAssetInputV1): MonitoringMapAssetRecordV1 | null {
@@ -361,6 +462,8 @@ export function updateMonitoringMapAssetV1(input: UpdateMonitoringMapAssetInputV
   if (input.title !== undefined) asset.title = input.title.trim();
   if (input.notes !== undefined) asset.notes = input.notes;
   if (input.resetTransform) asset.transform = { ...DEFAULT_TRANSFORM };
+  if (input.visibleInDashboard !== undefined) asset.visibleInDashboard = Boolean(input.visibleInDashboard);
+  if (input.opacity !== undefined) asset.opacity = Math.min(1, Math.max(0, Number(input.opacity)));
   if (input.transform) {
     asset.transform = normalizeTransform(input.transform, asset.transform);
   }
@@ -383,6 +486,43 @@ export function updateMonitoringMapAssetV1(input: UpdateMonitoringMapAssetInputV
 
   writeStore(store);
   return asset;
+}
+
+export interface DeleteMonitoringMapAssetInputV1 {
+  siteId: string;
+  assetId: string;
+  deleteFile?: boolean;
+}
+
+export function deleteMonitoringMapAssetV1(input: DeleteMonitoringMapAssetInputV1): {
+  ok: boolean;
+  deleted?: MonitoringMapAssetRecordV1;
+  fileDeleted?: boolean;
+  error?: string;
+} {
+  const store = readStore();
+  const site = ensureSite(store, input.siteId);
+  const idx = site.assets.findIndex((a) => a.assetId === input.assetId);
+  if (idx < 0) return { ok: false, error: "Asset not found" };
+
+  const [removed] = site.assets.splice(idx, 1);
+  if (site.activeAssetId === removed.assetId) {
+    site.activeAssetId = site.assets.find((a) => a.status === "active")?.assetId ?? site.assets[0]?.assetId ?? null;
+  }
+  writeStore(store);
+  return { ok: true, deleted: removed, fileDeleted: false };
+}
+
+export function resetAllMonitoringMapAssetTransformsV1(siteId: string): number {
+  const store = readStore();
+  const site = ensureSite(store, siteId);
+  let count = 0;
+  site.assets.forEach((a) => {
+    a.transform = { ...DEFAULT_TRANSFORM };
+    count += 1;
+  });
+  if (count > 0) writeStore(store);
+  return count;
 }
 
 /** テスト用 — store を空に戻す */

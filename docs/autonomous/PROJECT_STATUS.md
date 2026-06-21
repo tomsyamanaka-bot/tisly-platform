@@ -677,6 +677,23 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | コード | `monitoring-map-asset-upload-v1.ts` · `monitoring-map-asset-storage-adapter-v1.ts` |
 | uiVersion | `v3.2` |
 
+### TiSLY Monitoring 3D Dashboard V3.3（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | **複数3Dスキャンを現場運用に近い形で表示** — OBJ/PLY · 複数フロア · センサー合わせ |
+| Phase1 OBJLoader | Scaniverse `.obj` — transform · 読込中表示 · fallback · material なし対応 |
+| Phase2 PLYLoader | `.ply` — mesh/点群 · transform · fallback |
+| Phase3 USDZ | 登録継続 · Dashboard「プレビュー準備中」· GLB 変換案内 |
+| Phase4 複数mapAsset | activeのみ / 全フロア合成 / 外周/1F/2F · floorHeightOffsets · visibleInDashboard |
+| Phase5 センサー合わせ | 編集モード · X/Y/Z ± · device-layout-overrides 永続化 |
+| Phase6 工場seed | `DEMO-FACTORY-001` — サイロ/コンベア/ミキサー/水タンク/出荷ゲート/操作室 |
+| Phase7 Manager | floorLevel タブ · 削除 API · transform 一括リセット · OBJ/PLY バッジ |
+| Phase8 QNAP adapter | `saveLocalAsset` · `saveQnapAssetMock` · `getBackupStatus` |
+| Phase9 ドキュメント | MAP_ASSET_GUIDE · MONITORING_UI_GUIDE · PROJECT_STATUS |
+| Phase10 テスト | `server/test/tisly-monitoring-3d-v33.test.ts` |
+| uiVersion | `v3.3` |
+
 ---
 
 ## 関連ドキュメント

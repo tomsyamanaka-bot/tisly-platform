@@ -12,6 +12,13 @@ export const MONITORING_DEVICE_LAYOUT_OVERRIDE_TYPES: MonitoringDeviceTypeV1[] =
   "light",
   "panel",
   "gate",
+  "silo",
+  "conveyor",
+  "mixer",
+  "tank",
+  "pump",
+  "scale",
+  "yardSensor",
 ];
 
 export interface MonitoringDeviceLayoutOverrideV1 {

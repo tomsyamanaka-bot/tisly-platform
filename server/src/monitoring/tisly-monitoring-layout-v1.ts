@@ -8,7 +8,14 @@ export type MonitoringDeviceTypeV1 =
   | "window"
   | "panel"
   | "gate"
-  | "emergency";
+  | "emergency"
+  | "silo"
+  | "conveyor"
+  | "mixer"
+  | "tank"
+  | "pump"
+  | "scale"
+  | "yardSensor";
 
 export type MonitoringDeviceStatusV1 = "normal" | "warning" | "alert" | "offline";
 
@@ -241,7 +248,7 @@ const HOME_FLOORS: MonitoringLayoutFloorV1[] = [
   },
 ];
 
-const PLANT_FLOORS: MonitoringLayoutFloorV1[] = [
+const FACTORY_FLOORS: MonitoringLayoutFloorV1[] = [
   {
     floorId: "perimeter",
     floorName: "外周",
@@ -249,25 +256,36 @@ const PLANT_FLOORS: MonitoringLayoutFloorV1[] = [
     accent: "#0ea5e9",
     devices: [
       {
-        deviceId: "gate-factory-01",
-        deviceName: "正門ゲート",
+        deviceId: "gate-shipping-01",
+        deviceName: "出荷ゲート",
         deviceType: "gate",
-        areaId: "main-gate",
-        areaName: "正門",
+        areaId: "shipping-gate",
+        areaName: "出荷ゲート",
         x: 50,
-        y: 20,
+        y: 18,
         z: 0,
         status: "normal",
-        linkedCameraId: "cam-gate-factory-01",
+        linkedCameraId: "cam-shipping-01",
       },
       {
-        deviceId: "cam-gate-factory-01",
-        deviceName: "正門カメラ",
+        deviceId: "yard-aggregate-01",
+        deviceName: "骨材ヤード",
+        deviceType: "yardSensor",
+        areaId: "aggregate-yard",
+        areaName: "骨材ヤード",
+        x: 22,
+        y: 42,
+        z: 0,
+        status: "normal",
+      },
+      {
+        deviceId: "cam-shipping-01",
+        deviceName: "出荷ゲートカメラ",
         deviceType: "camera",
-        areaId: "main-gate",
-        areaName: "正門",
+        areaId: "shipping-gate",
+        areaName: "出荷ゲート",
         x: 58,
-        y: 24,
+        y: 22,
         z: 0,
         status: "normal",
       },
@@ -275,35 +293,115 @@ const PLANT_FLOORS: MonitoringLayoutFloorV1[] = [
   },
   {
     floorId: "1f",
-    floorName: "1階 製造",
+    floorName: "1F 生コンプラント",
     sortOrder: 1,
     accent: "#2563eb",
     devices: [
       {
-        deviceId: "plc-line-01",
-        deviceName: "ライン制御盤",
-        deviceType: "panel",
-        areaId: "line-a",
-        areaName: "ラインA",
-        x: 35,
-        y: 50,
+        deviceId: "silo-01",
+        deviceName: "サイロ",
+        deviceType: "silo",
+        areaId: "silo",
+        areaName: "サイロ",
+        x: 30,
+        y: 55,
+        z: 1,
+        status: "normal",
+        linkedKnowledgeIds: ["PLC-SEQUENCE-001"],
+      },
+      {
+        deviceId: "mixer-01",
+        deviceName: "ミキサー",
+        deviceType: "mixer",
+        areaId: "mixer",
+        areaName: "ミキサー",
+        x: 50,
+        y: 48,
         z: 1,
         status: "normal",
       },
       {
-        deviceId: "emergency-stop-01",
-        deviceName: "非常停止",
-        deviceType: "emergency",
-        areaId: "line-a",
-        areaName: "ラインA",
-        x: 55,
-        y: 45,
+        deviceId: "conveyor-01",
+        deviceName: "コンベア",
+        deviceType: "conveyor",
+        areaId: "conveyor",
+        areaName: "コンベア",
+        x: 68,
+        y: 52,
+        z: 1,
+        status: "normal",
+        linkedKnowledgeIds: ["PLC-SELF-HOLD-001"],
+      },
+      {
+        deviceId: "tank-water-01",
+        deviceName: "水タンク",
+        deviceType: "tank",
+        areaId: "water-tank",
+        areaName: "水タンク",
+        x: 18,
+        y: 38,
+        z: 1,
+        status: "normal",
+      },
+      {
+        deviceId: "pump-01",
+        deviceName: "送水ポンプ",
+        deviceType: "pump",
+        areaId: "pump-room",
+        areaName: "ポンプ室",
+        x: 12,
+        y: 48,
+        z: 1,
+        status: "normal",
+      },
+      {
+        deviceId: "scale-01",
+        deviceName: "計量スケール",
+        deviceType: "scale",
+        areaId: "scale",
+        areaName: "計量所",
+        x: 42,
+        y: 62,
         z: 1,
         status: "normal",
       },
     ],
   },
+  {
+    floorId: "2f",
+    floorName: "2F 操作室",
+    sortOrder: 2,
+    accent: "#7c3aed",
+    devices: [
+      {
+        deviceId: "panel-control-01",
+        deviceName: "操作室制御盤",
+        deviceType: "panel",
+        areaId: "control-room",
+        areaName: "操作室",
+        x: 50,
+        y: 45,
+        z: 2,
+        status: "normal",
+        linkedKnowledgeIds: ["PLC-SEQUENCE-001"],
+      },
+      {
+        deviceId: "cam-control-01",
+        deviceName: "操作室カメラ",
+        deviceType: "camera",
+        areaId: "control-room",
+        areaName: "操作室",
+        x: 62,
+        y: 40,
+        z: 2,
+        status: "normal",
+        linkedCameraId: "cam-control-01",
+      },
+    ],
+  },
 ];
+
+const PLANT_FLOORS: MonitoringLayoutFloorV1[] = FACTORY_FLOORS;
 
 export const MONITORING_LAYOUT_SITES_V1: Record<string, MonitoringLayoutSiteV1> = {
   "DEMO-HOME-001": {
@@ -327,7 +425,19 @@ export const MONITORING_LAYOUT_SITES_V1: Record<string, MonitoringLayoutSiteV1> 
     customerRef: "DEMO-FACTORY-001",
     floors: PLANT_FLOORS,
     defaultCameras: [
-      { cameraId: "cam-gate-factory-01", label: "正門", floorId: "perimeter" },
+      { cameraId: "cam-shipping-01", label: "出荷ゲート", floorId: "perimeter" },
+      { cameraId: "cam-control-01", label: "操作室", floorId: "2f" },
+    ],
+  },
+  "DEMO-FACTORY-001": {
+    siteId: "DEMO-FACTORY-001",
+    siteName: "生コンプラント デモ工場",
+    siteKind: "factory",
+    customerRef: "DEMO-FACTORY-001",
+    floors: FACTORY_FLOORS,
+    defaultCameras: [
+      { cameraId: "cam-shipping-01", label: "出荷ゲート", floorId: "perimeter" },
+      { cameraId: "cam-control-01", label: "操作室", floorId: "2f" },
     ],
   },
 };
@@ -342,9 +452,8 @@ const DEVICE_ALIASES: Record<string, string> = {
 export function resolveMonitoringSiteIdV1(siteId?: string | null): string {
   const key = (siteId ?? "DEMO-HOME-001").trim();
   if (MONITORING_LAYOUT_SITES_V1[key]) return key;
-  if (key.toLowerCase().includes("plant") || key.toLowerCase().includes("factory")) {
-    return "DEMO-PLANT-001";
-  }
+  if (key.toLowerCase().includes("factory")) return "DEMO-FACTORY-001";
+  if (key.toLowerCase().includes("plant")) return "DEMO-PLANT-001";
   return "DEMO-HOME-001";
 }
 
@@ -393,6 +502,13 @@ export function guessDeviceNameFromIdV1(deviceId: string): string {
       gate: "ゲート",
       light: "照明",
       emergency: "非常停止",
+      silo: "サイロ",
+      conveyor: "コンベア",
+      mixer: "ミキサー",
+      tank: "水タンク",
+      pump: "ポンプ",
+      scale: "計量スケール",
+      yardSensor: "ヤードセンサー",
     };
     if (map[kind]) return map[kind]!;
   }

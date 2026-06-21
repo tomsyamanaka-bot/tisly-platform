@@ -129,20 +129,28 @@
 
 ---
 
-## mapAsset V3.2（実ファイルアップロード + GLTF 表示）
+## mapAsset V3.3（OBJ/PLY · 複数フロア · センサー合わせ）
 
 | 画面 | パス |
 |------|------|
 | mapAsset Manager | `/monitoring-map-assets-v1?siteId=DEMO-HOME-001` |
 | 3D Dashboard | `/monitoring-3d-v2?siteId=DEMO-HOME-001` |
+| 工場デモ | `/monitoring-3d-v2?siteId=DEMO-FACTORY-001` |
 
-### V3.2 追加要素
+### V3.3 追加要素
+
+- **OBJ/PLY:** `OBJLoader` / `PLYLoader` — Scaniverse 出力対応
+- **USDZ:** 登録可 · Dashboard「プレビュー準備中」· Manager「GLB 変換推奨」
+- **複数フロア合成:** active のみ / 全フロア / 外周 / 1F / 2F — `visibleInDashboard` で ON/OFF
+- **センサー位置合わせ:** 編集モード · X/Y/Z ± 微調整 · device-layout-overrides 保存
+- **Manager V3.3:** floorLevel タブ · 削除 · transform 一括リセット · OBJ/PLY バッジ
+- **DEMO-FACTORY-001:** サイロ/コンベア/ミキサー/水タンク/出荷ゲート/操作室 seed
+- **backupStatus:** API レスポンスに QNAP adapter 状態
+
+### V3.2 要素（維持）
 
 - **ファイルアップロード:** GLB/GLTF/OBJ/PLY/USDZ/JSON/JPG/PNG — 進行表示 · トースト
-- **GLB/GLTF:** Three.js `GLTFLoader` で activeAsset を表示（placeholder 非表示）
-- **未対応形式:** OBJ/PLY/USDZ — placeholder + やさしいメッセージ
-- **Manager プレビュー:** GLB 簡易 3D · 画像 img · その他 placeholder
-- **fileType バッジ · fileSize 表示**
+- **GLB/GLTF:** Three.js `GLTFLoader` で mesh 表示
 - **保存:** `server/uploads/monitoring/{siteId}/` — `/uploads/monitoring/...` で配信
 
 ### placeholder mesh 色（sourceType）

@@ -99,7 +99,7 @@ describe("TiSLY Monitoring 3D V3 — API", () => {
   it("GET /api/monitoring/v1/3d-scene", async () => {
     const res = await request(app).get("/api/monitoring/v1/3d-scene?siteId=DEMO-HOME-001");
     assert.equal(res.status, 200);
-    assert.equal(res.body.uiVersion, "v3.2");
+    assert.equal(res.body.uiVersion, "v3.3");
     assert.ok(res.body.mapAsset);
     assert.ok(res.body.customerLinks.projectPageUrl.includes("knowledge-customer-project"));
     assert.doesNotMatch(JSON.stringify(res.body), FORBIDDEN);

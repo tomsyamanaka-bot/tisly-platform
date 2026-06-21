@@ -4,6 +4,8 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
+import { PLYLoader } from "three/addons/loaders/PLYLoader.js";
 // TODO: bundle Three.js + loaders locally instead of CDN importmap
 
 const params = new URLSearchParams(location.search);
@@ -15,6 +17,8 @@ const $ = (sel) => document.querySelector(sel);
 
 let sceneData = null;
 let layerFilter = "all";
+let mapAssetDisplayMode = "all_floors";
+let sensorEditMode = false;
 let autoOrbit = true;
 let selectedSensorId = null;
 let activeAlert = null;
@@ -39,11 +43,8 @@ const layerGroups = {
 /** @type {Map<string, THREE.Object3D[]>} */
 const mapAssetMeshes = new Map();
 
-/** @type {THREE.Object3D|null} */
-let loadedGltfRoot = null;
-
-/** @type {THREE.Group|null} */
-let gltfLoadingOverlay = null;
+/** @type {Map<string, THREE.Object3D>} */
+const loadedMeshRoots = new Map();
 
 /** @type {Map<string, { mesh: THREE.Mesh, sensor: object, ring?: THREE.Mesh, sprite?: THREE.Sprite }>} */
 const sensorMeshes = new Map();
@@ -295,64 +296,172 @@ function applyTransformToObject(obj, asset) {
   obj.scale.set(asset.scale.x, asset.scale.y, asset.scale.z);
 }
 
-function loadActiveGltfAsset(mapAsset) {
-  const active = mapAsset.activeAsset;
-  if (!active?.fileUrl) return;
-
-  const entry = mapAsset.assets.find((a) => a.assetId === active.assetId && a.isRegistered);
-  const sceneEntry = entry || {
-    assetId: active.assetId,
-    fileUrl: active.fileUrl,
-    fileType: active.fileType,
-    floorLevel: active.floorLevel,
-    position: active.transform?.position || { x: 0, y: 0, z: 0 },
-    rotation: active.transform?.rotation || { x: 0, y: 0, z: 0 },
-    scale: active.transform?.scale || { x: 1, y: 1, z: 1 },
-    label: active.title,
-  };
-
-  const ft = sceneEntry.fileType || fileType;
-  if (ft !== "glb" && ft !== "gltf") {
-    if (["obj", "ply", "usdz"].includes(ft)) {
-      showMapAssetLoadStatus(
-        `${active.title}（${ft}）— 未対応形式のため placeholder 表示。GLB/GLTF を推奨します。`
-      );
+function applyOpacityToObject(obj, opacity = 1) {
+  obj.traverse((child) => {
+    if (child.isMesh || child.isPoints) {
+      if (child.material) {
+        const mats = Array.isArray(child.material) ? child.material : [child.material];
+        mats.forEach((m) => {
+          m.transparent = opacity < 1;
+          m.opacity = opacity;
+        });
+      }
     }
+  });
+}
+
+function ensureObjMaterials(obj) {
+  obj.traverse((child) => {
+    if (child.isMesh && !child.material) {
+      child.material = new THREE.MeshStandardMaterial({
+        color: 0x94a3b8,
+        metalness: 0.1,
+        roughness: 0.8,
+      });
+    }
+  });
+}
+
+function clearLoadedMeshes() {
+  loadedMeshRoots.forEach((root) => {
+    root.parent?.remove(root);
+  });
+  loadedMeshRoots.clear();
+}
+
+function resolveAssetsToLoad(mapAsset, mode) {
+  const registered = mapAsset.assets.filter((a) => a.isRegistered);
+  if (mode === "active_only") {
+    const activeId = mapAsset.activeAsset?.assetId;
+    if (!activeId) return [];
+    return registered.filter((a) => a.assetId === activeId);
+  }
+  if (mode === "all_floors") {
+    return registered.filter((a) => a.visibleInDashboard !== false);
+  }
+  const floorMap = { perimeter_only: "perimeter", "1f_only": "1f", "2f_only": "2f" };
+  const floor = floorMap[mode];
+  if (floor) {
+    return registered.filter((a) => a.floorLevel === floor && a.visibleInDashboard !== false);
+  }
+  return registered;
+}
+
+function onMeshLoaded(asset, root, group) {
+  root.userData.mapAssetId = asset.assetId;
+  root.userData.isLoadedMesh = true;
+  applyTransformToObject(root, asset);
+  applyOpacityToObject(root, asset.opacity ?? 1);
+  group.add(root);
+  loadedMeshRoots.set(asset.assetId, root);
+  hidePlaceholderForAsset(asset.assetId);
+  const ft = asset.fileType || "mesh";
+  showMapAssetLoadStatus(`${asset.label || asset.assetId} — ${ft.toUpperCase()} mesh 表示中`);
+}
+
+function onMeshLoadFailed(asset, err) {
+  console.warn("Mesh load failed", asset.assetId, err);
+  showPlaceholderForAsset(asset.assetId);
+  showMapAssetLoadStatus(
+    `${asset.label || asset.assetId} — 読み込み失敗。placeholder を表示しています。`,
+    true
+  );
+}
+
+function loadGltfAsset(asset, group) {
+  const loader = new GLTFLoader();
+  loader.load(
+    asset.fileUrl,
+    (gltf) => onMeshLoaded(asset, gltf.scene, group),
+    undefined,
+    (err) => onMeshLoadFailed(asset, err)
+  );
+}
+
+function loadObjAsset(asset, group) {
+  const loader = new OBJLoader();
+  loader.load(
+    asset.fileUrl,
+    (obj) => {
+      ensureObjMaterials(obj);
+      onMeshLoaded(asset, obj, group);
+    },
+    undefined,
+    (err) => onMeshLoadFailed(asset, err)
+  );
+}
+
+function loadPlyAsset(asset, group) {
+  const loader = new PLYLoader();
+  loader.load(
+    asset.fileUrl,
+    (geometry) => {
+      let root;
+      if (geometry.index) {
+        root = new THREE.Mesh(
+          geometry,
+          new THREE.MeshStandardMaterial({ color: 0x22d3ee, flatShading: true })
+        );
+      } else {
+        root = new THREE.Points(
+          geometry,
+          new THREE.PointsMaterial({ color: 0x22d3ee, size: 0.05 })
+        );
+      }
+      onMeshLoaded(asset, root, group);
+    },
+    undefined,
+    (err) => onMeshLoadFailed(asset, err)
+  );
+}
+
+function loadSingleMapAsset(asset) {
+  if (!asset.fileUrl) return;
+
+  const ft = asset.fileType;
+  if (ft === "usdz") {
+    showMapAssetLoadStatus(`${asset.label || asset.title} — USDZはプレビュー準備中。GLB変換を推奨します。`);
     return;
   }
 
-  const group = layerGroups[sceneEntry.floorLevel] || layerGroups["1f"];
+  if (ft !== "glb" && ft !== "gltf" && ft !== "obj" && ft !== "ply") {
+    if (["json", "image", "unknown"].includes(ft)) return;
+    showMapAssetLoadStatus(`${asset.label}（${ft}）— 未対応形式`, true);
+    return;
+  }
+
+  const group = layerGroups[asset.floorLevel] || layerGroups["1f"];
   if (!group) return;
 
-  showMapAssetLoadStatus(`${active.title} — 3D mesh 読み込み中…`);
+  showMapAssetLoadStatus(`${asset.label || asset.assetId} — 3D mesh 読み込み中…`);
 
-  const loader = new GLTFLoader();
-  loader.load(
-    active.fileUrl,
-    (gltf) => {
-      if (loadedGltfRoot) {
-        loadedGltfRoot.parent?.remove(loadedGltfRoot);
-        loadedGltfRoot = null;
-      }
-      const root = gltf.scene;
-      root.userData.mapAssetId = active.assetId;
-      root.userData.isGltfMesh = true;
-      applyTransformToObject(root, sceneEntry);
-      group.add(root);
-      loadedGltfRoot = root;
-      hidePlaceholderForAsset(active.assetId);
-      showMapAssetLoadStatus(`${active.title} — GLB/GLTF mesh 表示中`);
-    },
-    undefined,
-    (err) => {
-      console.warn("GLTF load failed", err);
-      showPlaceholderForAsset(active.assetId);
-      showMapAssetLoadStatus(
-        `${active.title} — 読み込みに失敗しました。placeholder を表示しています。`,
-        true
-      );
+  if (ft === "glb" || ft === "gltf") loadGltfAsset(asset, group);
+  else if (ft === "obj") loadObjAsset(asset, group);
+  else if (ft === "ply") loadPlyAsset(asset, group);
+}
+
+function loadMapAssets(mapAsset, mode = mapAssetDisplayMode) {
+  clearLoadedMeshes();
+  const toLoad = resolveAssetsToLoad(mapAsset, mode);
+  if (!toLoad.length) {
+    showMapAssetLoadStatus(mapAsset.integrationNote || "表示対象 mapAsset なし");
+    return;
+  }
+  toLoad.forEach((asset) => {
+    if (asset.isPlaceholder || !asset.fileUrl) {
+      showPlaceholderForAsset(asset.assetId);
+      return;
     }
-  );
+    loadSingleMapAsset(asset);
+  });
+}
+
+function setMapAssetDisplayMode(mode) {
+  mapAssetDisplayMode = mode;
+  $$("#mon3dv3-mapasset-mode-btns button").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.mapMode === mode);
+  });
+  if (sceneData?.mapAsset) loadMapAssets(sceneData.mapAsset, mode);
 }
 
 function createSensorMarker(sensor) {
@@ -725,6 +834,10 @@ function animate(time) {
 }
 
 function bindUi() {
+  $$("#mon3dv3-mapasset-mode-btns button").forEach((btn) => {
+    btn.addEventListener("click", () => setMapAssetDisplayMode(btn.dataset.mapMode));
+  });
+
   $$(".mon3dv3-layer-btns button").forEach((btn) => {
     btn.addEventListener("click", () => applyLayerFilter(btn.dataset.layer));
   });
@@ -767,22 +880,15 @@ function bindUi() {
 function initSensorLayoutPanel() {
   const select = $("#mon3dv3-layout-device");
   const link = $("#mon3dv3-link-mapassets");
+  const editPanel = $(".mon3dv3-layout-panel");
+  const editToggle = $("#mon3dv3-layout-edit-mode");
   if (link) link.href = `/monitoring-map-assets-v1?siteId=${encodeURIComponent(siteId)}`;
   if (!select || !sceneData) return;
-
-  const deviceTypes = {
-    frontGate: "gate",
-    frontDoor: "door",
-    living: "sensor",
-    stairs: "sensor",
-    balcony: "sensor",
-    garage: "sensor",
-  };
 
   select.innerHTML = sceneData.sensors
     .map(
       (s) =>
-        `<option value="${s.sensorId}">${s.label} (${deviceTypes[s.sensorId] || "sensor"})</option>`
+        `<option value="${s.sensorId}">${s.label} (${s.deviceType || "sensor"})</option>`
     )
     .join("");
 
@@ -794,10 +900,7 @@ function initSensorLayoutPanel() {
     $("#mon3dv3-layout-z").value = sensor.position.z;
   }
 
-  select.addEventListener("change", () => fillFromSensor(select.value));
-  fillFromSensor(select.value);
-
-  $("#mon3dv3-layout-preview")?.addEventListener("click", () => {
+  function applyPreview() {
     const sensorId = select.value;
     const entry = sensorMeshes.get(sensorId);
     if (!entry) return;
@@ -807,6 +910,32 @@ function initSensorLayoutPanel() {
     entry.mesh.position.set(x, y, z);
     if (entry.sprite) entry.sprite.position.set(x, y + 0.9, z);
     if (entry.ring) entry.ring.position.set(x, y + 0.05, z);
+  }
+
+  select.addEventListener("change", () => fillFromSensor(select.value));
+  fillFromSensor(select.value);
+
+  editToggle?.addEventListener("change", (e) => {
+    sensorEditMode = e.target.checked;
+    editPanel?.classList.toggle("is-editing", sensorEditMode);
+    $("#mon3dv3-layout-msg").textContent = sensorEditMode
+      ? "編集モード ON — 座標を調整して保存"
+      : "";
+  });
+
+  $$(".mon3dv3-nudge").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const axis = btn.dataset.axis;
+      const delta = Number(btn.dataset.delta);
+      const input = $(`#mon3dv3-layout-${axis}`);
+      if (input) input.value = Number(input.value) + delta;
+      applyPreview();
+      $("#mon3dv3-layout-msg").textContent = "プレビュー反映（未保存）";
+    });
+  });
+
+  $("#mon3dv3-layout-preview")?.addEventListener("click", () => {
+    applyPreview();
     $("#mon3dv3-layout-msg").textContent = "プレビュー反映（未保存）";
   });
 
@@ -826,7 +955,7 @@ function initSensorLayoutPanel() {
         body: JSON.stringify({
           siteId,
           deviceId: sensorId,
-          deviceType: deviceTypes[sensorId] || "sensor",
+          deviceType: sensor?.deviceType || "sensor",
           label: sensor?.label,
           floorLevel: sensor?.floorLevel,
           position,
@@ -837,9 +966,9 @@ function initSensorLayoutPanel() {
         return r.json();
       });
       if (sensor) sensor.position = position;
-      $("#mon3dv3-layout-preview")?.click();
+      applyPreview();
       if (msg) msg.textContent = "device-layout-overrides に保存しました";
-    } catch (e) {
+    } catch {
       if (msg) msg.textContent = "保存失敗";
     }
   });
@@ -866,7 +995,8 @@ async function boot() {
   }
 
   $("#mon3dv3-site-title").textContent = sceneData.siteName;
-  $("#mon3dv3-site-sub").textContent = `${sceneData.siteId} · Three.js V3.2 · mapAsset`;
+  $("#mon3dv3-site-sub").textContent = `${sceneData.siteId} · Three.js V3.3 · mapAsset`;
+  mapAssetDisplayMode = sceneData.mapAssetDisplayMode || sceneData.mapAsset?.defaultDisplayMode || "all_floors";
   const activeLabel = sceneData.mapAsset.activeAsset?.title;
   const statusText = activeLabel
     ? `${sceneData.mapAsset.integrationStatusLabel} — active: ${activeLabel}`
@@ -874,7 +1004,7 @@ async function boot() {
   $("#mon3dv3-mapasset-status").textContent = statusText;
 
   buildFromMapAsset(sceneData.mapAsset);
-  loadActiveGltfAsset(sceneData.mapAsset);
+  setMapAssetDisplayMode(mapAssetDisplayMode);
   sceneData.sensors.forEach(createSensorMarker);
   renderSensorList();
   applyLayerFilter("all");

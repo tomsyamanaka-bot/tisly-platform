@@ -122,7 +122,7 @@ describe("Monitoring 3D V3.1 — scene + bundle", () => {
       position: { x: 9, y: 9, z: 9 },
     });
     const scene = buildMonitoring3dSceneV1(SITE);
-    assert.equal(scene.uiVersion, "v3.2");
+    assert.equal(scene.uiVersion, "v3.3");
     const living = scene.sensors.find((s) => s.sensorId === "living");
     assert.equal(living?.position.x, 9);
     assert.ok(scene.customerLinks.projectPageUrl.includes("knowledge-customer-project"));
@@ -187,7 +187,7 @@ describe("Monitoring 3D V3.1 — API", () => {
   it("GET /api/monitoring/v1/3d-scene includes mapAsset activeAsset", async () => {
     const res = await request(app).get(`/api/monitoring/v1/3d-scene?siteId=${SITE}`);
     assert.equal(res.status, 200);
-    assert.equal(res.body.uiVersion, "v3.2");
+    assert.equal(res.body.uiVersion, "v3.3");
     assert.ok(res.body.mapAsset.registeredAssets || res.body.mapAsset.activeAsset !== undefined);
     assert.ok(Array.isArray(res.body.sensors[0].relatedKnowledgeIds));
   });

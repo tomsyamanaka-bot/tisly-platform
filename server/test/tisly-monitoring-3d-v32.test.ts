@@ -63,6 +63,7 @@ describe("Monitoring 3D V3.2 — upload validation", () => {
     assert.equal(isGltfLoadableFileTypeV1("gltf"), true);
     assert.equal(isGltfLoadableFileTypeV1("obj"), false);
     assert.equal(isUnsupported3dPreviewFileTypeV1("usdz"), true);
+    assert.equal(isUnsupported3dPreviewFileTypeV1("obj"), false);
   });
 });
 
@@ -197,7 +198,7 @@ describe("Monitoring 3D V3.2 — API", () => {
     assert.equal(res.status, 200);
   });
 
-  it("GET /3d-scene uiVersion v3.2 with gltf-loadable active asset", async () => {
+  it("GET /3d-scene uiVersion v3.3 with gltf-loadable active asset", async () => {
     resetAll();
     await uploadMonitoringMapAssetFileV1({
       siteId: SITE,
@@ -209,14 +210,14 @@ describe("Monitoring 3D V3.2 — API", () => {
       setActive: true,
     });
     const scene = buildMonitoring3dSceneV1(SITE);
-    assert.equal(scene.uiVersion, "v3.2");
+    assert.equal(scene.uiVersion, "v3.3");
     assert.ok(scene.mapAsset.activeAsset?.fileUrl);
     const entry = scene.mapAsset.assets.find((a) => a.isRegistered && a.assetId === scene.mapAsset.activeAsset?.assetId);
     assert.equal(entry?.fileType, "glb");
     assert.equal(entry?.isPlaceholder, false);
   });
 
-  it("OBJ active asset remains placeholder in bundle", async () => {
+  it("OBJ active asset is loadable in bundle when file uploaded", async () => {
     resetAll();
     await uploadMonitoringMapAssetFileV1({
       siteId: SITE,
@@ -230,22 +231,22 @@ describe("Monitoring 3D V3.2 — API", () => {
     const bundle = getMonitoringMapAssetBundleV1(SITE);
     const entry = bundle.assets.find((a) => a.isRegistered && a.assetId === bundle.activeAsset?.assetId);
     assert.equal(entry?.fileType, "obj");
-    assert.equal(entry?.isPlaceholder, true);
+    assert.equal(entry?.isPlaceholder, false);
   });
 });
 
 describe("Monitoring 3D V3.2 — static pages", () => {
-  it("mapAsset manager page mentions V3.2 upload", async () => {
+  it("mapAsset manager page mentions V3.3 upload", async () => {
     const res = await request(app).get("/monitoring-map-assets-v1");
     assert.equal(res.status, 200);
-    assert.match(res.text, /V3\.2/);
+    assert.match(res.text, /V3\.3/);
     assert.match(res.text, /map-assets-v1\.js/);
   });
 
-  it("3D JS includes GLTFLoader", () => {
+  it("3D JS includes GLTFLoader and loadMapAssets", () => {
     const js = fs.readFileSync(path.join(publicDir, "monitoring-3d-v2/js/monitoring-3d-v2.js"), "utf8");
     assert.match(js, /GLTFLoader/);
-    assert.match(js, /loadActiveGltfAsset/);
+    assert.match(js, /loadMapAssets/);
   });
 
   it("Manager JS includes file upload", () => {
