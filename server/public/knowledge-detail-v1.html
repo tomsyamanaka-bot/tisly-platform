@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
   <link rel="stylesheet" href="/css/knowledge-field-ux-v2.css" />
   <link rel="stylesheet" href="/css/knowledge-field-ux-v3.css" />
+  <link rel="stylesheet" href="/css/knowledge-field-ux-v4.css" />
   <style>
     .detail-title { margin: 0 0 0.35rem; font-size: 1.2rem; line-height: 1.4; }
     .detail-meta { font-size: 0.85rem; color: #64748b; margin: 0.2rem 0 0.65rem; }
@@ -47,12 +48,18 @@
     .related-item small { display: block; color: #64748b; font-size: 0.78rem; margin-top: 0.1rem; }
     .empty-hint { color: #94a3b8; font-size: 0.88rem; }
     body.has-practical-nav .app-main { padding-bottom: 5.5rem; }
+    body.has-detail-fixed-bar.has-practical-nav .app-main { padding-bottom: 10rem; }
   </style>
 </head>
-<body class="tisly-friendly">
+<body class="tisly-friendly knowledge-field-v4 has-detail-fixed-bar">
   <main class="app-main" id="detail-root">
     <p class="status-muted">読み込み中…</p>
   </main>
+  <div id="detail-fixed-bar" class="detail-fixed-bar" hidden>
+    <a href="/knowledge-field-v1" id="detail-back-btn">← 戻る</a>
+    <button type="button" id="detail-fav-btn">☆ お気に入り</button>
+    <button type="button" class="primary-used" id="detail-used-btn">✓ 使った</button>
+  </div>
   <div id="toast" class="toast" role="status"></div>
   <script type="module" src="/js/knowledge-detail-v1.js"></script>
 </body>

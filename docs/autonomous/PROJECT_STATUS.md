@@ -96,6 +96,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | ナレッジ検索 | `/knowledge-search-v1` |
 | 現場ナレッジ | `/knowledge-field-v1` |
 | ナレッジ詳細 | `/knowledge-detail-v1?id=` |
+| ナレッジ使用ログ | `/knowledge-usage-dashboard-v1` |
 | ストレージ設定 | `/storage-settings-v1` |
 | 見積マスター | `/master-v1` |
 | AI見積エンジン基盤 | `/ai-estimate-engine-v1` → `/master-v1?tab=stats` |
@@ -474,6 +475,21 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | Phase7 スマホUI | 検索窓 sticky 上部 · 下部固定ナビ · PDF/写真ボタン大型化 · カード余白整理 |
 | Phase8 テスト/build | `server/test/knowledge-field-v3.test.ts` |
 | コード | `knowledge-field-ux-v3.js` · `knowledge-field-ux-v3.css` · `knowledge-usage-log-v1.ts` |
+
+### Knowledge Field UX V4（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | **現場で使いやすい · お客さんに見せやすい · 最近使った資料にすぐ戻れる · QNAP本番接続へ差し替えやすい** — AI/Embedding/Qdrant/RAG/Whisper/TTS は未実装 |
+| Phase1 QNAP WebDAV | `knowledge-qnap-delivery-config-v1.ts` · `QNAP_MODE=mock\|webdav` · 設定不足時 mock 自動 fallback · `GET /api/knowledge/delivery-status-v1` |
+| Phase2 資料キャッシュ | Cache API · 最大20件 · ON/OFF UI · localStorage `cacheStatus` · キャッシュ済み/未キャッシュ/オフライン表示 |
+| Phase3 案件クイックアクセス | `/knowledge-field-v1` — 最近の案件 · projectId · 物件名 · 関連件数 · 最終使用日 · 案件フィルタ · 案件別ログ |
+| Phase4 見せるモード | 通常/見せる切替 — QNAP/SMB/File Station/内部パス非表示 · 明るいカードUI · 「この資料を使う」 |
+| Phase5 使用ログダッシュボード | `/knowledge-usage-dashboard-v1` · `knowledge-usage-analytics-v1.ts` — ランキング/カテゴリ/案件/最近ログ |
+| Phase6 スマホUI | sticky検索修正 · 下部固定バー（戻る/お気に入り/使った） · PDF/写真ボタン大型化 · カード整理 |
+| Phase7 テスト | `server/test/knowledge-field-v4.test.ts` |
+| 環境変数 | `QNAP_MODE` · `QNAP_WEBDAV_BASE_URL` · `QNAP_FILESTATION_BASE_URL` · `QNAP_SHARE_ROOT` · `QNAP_SMB_ROOT`（`.env.example` 参照） |
+| コード | `knowledge-field-ux-v4.js` · `knowledge-field-ux-v4.css` · `knowledge-file-delivery-v1.ts`（WebDAV拡張） |
 
 ---
 

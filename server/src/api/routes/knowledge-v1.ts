@@ -48,12 +48,17 @@ import {
 import { getKnowledgeQnapConnectionInfoV1 } from "../../knowledge/knowledge-qnap-sync-service-v1.js";
 import { searchKnowledgeIndexV1 } from "../../knowledge/knowledge-search-v1.js";
 import { getKnowledgeDetailV1, buildQnapDeepLinksV1 } from "../../knowledge/knowledge-detail-v1.js";
-import { resolveKnowledgeFileForServeV1 } from "../../knowledge/knowledge-file-delivery-v1.js";
+import { resolveKnowledgeFileForServeV1, fetchKnowledgeFileFromWebDavV1, getKnowledgeFileDeliveryStatusV1 } from "../../knowledge/knowledge-file-delivery-v1.js";
 import {
   aggregateKnowledgeUsageRankingV1,
   appendKnowledgeUsageLogV1,
   listKnowledgeUsageLogsV1,
 } from "../../knowledge/knowledge-usage-log-v1.js";
+import { buildKnowledgeUsageDashboardV1 } from "../../knowledge/knowledge-usage-analytics-v1.js";
+import {
+  listKnowledgeProjectAccessV1,
+  listProjectUsageLogsV1,
+} from "../../knowledge/knowledge-project-access-v1.js";
 import { tokenizeFieldMemoV1 } from "../../knowledge/knowledge-field-memo-v1.js";
 import {
   parseUnifiedKnowledgeKindsV1,
@@ -151,8 +156,8 @@ knowledgeV1Router.get("/qnap-links-v1", ...auth, (req: AuthedRequest, res) => {
   res.json({ links: buildQnapDeepLinksV1(relPath) });
 });
 
-/** GET /api/knowledge/files-v1?path= — ナレッジ添付ファイル配信（ローカル/mock） */
-knowledgeV1Router.get("/files-v1", ...auth, (req: AuthedRequest, res) => {
+/** GET /api/knowledge/files-v1?path= — ナレッジ添付ファイル配信（ローカル/mock/WebDAV） */
+knowledgeV1Router.get("/files-v1", ...auth, async (req: AuthedRequest, res) => {
   if (!assertRole(req, res)) return;
   const relPath = String(req.query.path ?? "").trim();
   if (!relPath) {
@@ -160,13 +165,49 @@ knowledgeV1Router.get("/files-v1", ...auth, (req: AuthedRequest, res) => {
     return;
   }
   const resolved = resolveKnowledgeFileForServeV1(relPath);
-  if (!resolved) {
-    res.status(404).json({ error: "File not found" });
+  if (resolved) {
+    res.setHeader("Content-Type", resolved.contentType);
+    res.setHeader("Content-Disposition", `inline; filename="${encodeURIComponent(resolved.fileName)}"`);
+    res.sendFile(resolved.absPath);
     return;
   }
-  res.setHeader("Content-Type", resolved.contentType);
-  res.setHeader("Content-Disposition", `inline; filename="${encodeURIComponent(resolved.fileName)}"`);
-  res.sendFile(resolved.absPath);
+  const webdav = await fetchKnowledgeFileFromWebDavV1(relPath);
+  if (webdav) {
+    res.setHeader("Content-Type", webdav.contentType);
+    res.setHeader("Content-Disposition", `inline; filename="${encodeURIComponent(webdav.fileName)}"`);
+    res.send(webdav.data);
+    return;
+  }
+  res.status(404).json({ error: "File not found" });
+});
+
+/** GET /api/knowledge/delivery-status-v1 — QNAP mock/webdav 配信モード */
+knowledgeV1Router.get("/delivery-status-v1", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  res.json(getKnowledgeFileDeliveryStatusV1());
+});
+
+/** GET /api/knowledge/project-access-v1 — 案件クイックアクセス一覧 */
+knowledgeV1Router.get("/project-access-v1", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const limitRaw = Number(req.query.limit ?? 10);
+  const limit = Number.isFinite(limitRaw) ? limitRaw : 10;
+  res.json({ projects: listKnowledgeProjectAccessV1(limit) });
+});
+
+/** GET /api/knowledge/project-access-v1/:projectId/logs — 案件別使ったログ */
+knowledgeV1Router.get("/project-access-v1/:projectId/logs", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const projectId = String(req.params.projectId ?? "").trim();
+  const limitRaw = Number(req.query.limit ?? 50);
+  const limit = Number.isFinite(limitRaw) ? limitRaw : 50;
+  res.json({ projectId, entries: listProjectUsageLogsV1(projectId, limit) });
+});
+
+/** GET /api/knowledge/usage-analytics-v1/dashboard — 使用ログ簡易ダッシュボード */
+knowledgeV1Router.get("/usage-analytics-v1/dashboard", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  res.json(buildKnowledgeUsageDashboardV1());
 });
 
 /** POST /api/knowledge/usage-log — 使ったログ保存 */

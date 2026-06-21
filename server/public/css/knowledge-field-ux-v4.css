@@ -1,0 +1,298 @@
+/* Knowledge Field UX V4 — キャッシュ / 見せるモード / 案件 / スマホ最終調整 */
+
+body.knowledge-field-v4 .app-main {
+  padding-bottom: 6.5rem;
+}
+
+.field-v4-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0.5rem 0 0.75rem;
+  position: sticky;
+  top: 0;
+  z-index: 110;
+  background: #f8fafc;
+}
+
+.field-mode-btn {
+  flex: 1 1 calc(50% - 0.25rem);
+  min-height: 3rem;
+  border-radius: 12px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #334155;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem 0.5rem;
+}
+
+.field-mode-btn.active {
+  background: #ecfdf5;
+  border-color: #86efac;
+  color: #166534;
+}
+
+.field-mode-btn.dashboard-link {
+  flex: 1 1 100%;
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
+.v4-section-card {
+  margin-bottom: 0.65rem;
+}
+
+.v4-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.v4-summary-card {
+  border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.cache-badge {
+  display: inline-block;
+  margin-top: 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 0.12rem 0.5rem;
+}
+
+.cache-badge.cache-ok {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.cache-badge.cache-pending {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.cache-badge.cache-off {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.cache-badge.cache-offline {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.project-access-card {
+  width: 100%;
+  text-align: left;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  padding: 0.75rem 0.85rem;
+  cursor: pointer;
+  min-height: 3.25rem;
+}
+
+.project-access-card.active {
+  border-color: #334155;
+  background: #f8fafc;
+  box-shadow: inset 0 0 0 1px #334155;
+}
+
+.project-access-card strong {
+  display: block;
+  font-size: 0.98rem;
+  line-height: 1.35;
+}
+
+.project-access-card small {
+  display: block;
+  margin-top: 0.15rem;
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.project-filter-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 12px;
+  background: #eff6ff;
+  border: 1px solid #93c5fd;
+  margin: 0.5rem 0;
+  font-size: 0.88rem;
+}
+
+.project-filter-banner button {
+  min-height: 2.5rem;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  font-weight: 700;
+  padding: 0 0.75rem;
+}
+
+/* 見せるモード — 明るく・余白多め・文字大きめ */
+body.knowledge-presentation-mode {
+  background: #f8fafc;
+}
+
+body.knowledge-presentation-mode .friendly-card {
+  background: #fff;
+  border-color: #e2e8f0;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.05);
+}
+
+body.knowledge-presentation-mode .detail-title,
+body.knowledge-presentation-mode .field-hero h1 {
+  font-size: 1.35rem;
+}
+
+body.knowledge-presentation-mode .detail-section p,
+body.knowledge-presentation-mode .detail-section li {
+  font-size: 1.05rem;
+}
+
+body.knowledge-presentation-mode .qnap-path-hidden,
+body.knowledge-presentation-mode .attach-path,
+body.knowledge-presentation-mode .attach-mode-hint,
+body.knowledge-presentation-mode .qnap-link-btn,
+body.knowledge-presentation-mode #qnap-btn,
+body.knowledge-presentation-mode #qnap-copy-btn,
+body.knowledge-presentation-mode .detail-section:has(#qnap-path) {
+  display: none !important;
+}
+
+body.knowledge-presentation-mode .presentation-action,
+body.knowledge-presentation-mode .presentation-used {
+  min-height: 3.5rem !important;
+  font-size: 1.05rem !important;
+}
+
+body.knowledge-presentation-mode .presentation-pdf iframe {
+  height: 18rem;
+}
+
+/* 詳細画面 — 固定アクションバー */
+.detail-fixed-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 200;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.35rem;
+  padding: 0.55rem 0.65rem calc(0.55rem + env(safe-area-inset-bottom, 0px));
+  background: rgba(255, 255, 255, 0.96);
+  border-top: 1px solid #e2e8f0;
+  backdrop-filter: blur(8px);
+}
+
+.detail-fixed-bar a,
+.detail-fixed-bar button {
+  min-height: 3.25rem;
+  border-radius: 12px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #1e293b;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.detail-fixed-bar .primary-used {
+  background: #334155;
+  color: #fff;
+  border-color: #334155;
+}
+
+.detail-fixed-bar .fav-on {
+  background: #ecfdf5;
+  border-color: #86efac;
+  color: #166534;
+}
+
+body.has-detail-fixed-bar .app-main {
+  padding-bottom: 5.5rem;
+}
+
+body.has-detail-fixed-bar.has-practical-nav .app-main {
+  padding-bottom: 10rem;
+}
+
+/* 検索窓 sticky ズレ修正 */
+body.knowledge-field-v4 .field-sticky-search {
+  top: 0;
+  margin-top: 0;
+  padding-top: 0.25rem;
+}
+
+/* ダッシュボード */
+.usage-dashboard-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.usage-stat-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.usage-stat-table th,
+.usage-stat-table td {
+  text-align: left;
+  padding: 0.55rem 0.45rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.usage-stat-table th {
+  color: #64748b;
+  font-weight: 700;
+  font-size: 0.78rem;
+}
+
+.usage-log-table td small {
+  color: #64748b;
+}
+
+@media (max-width: 767px) {
+  body.knowledge-field-v4 .field-sticky-search {
+    top: 0;
+  }
+
+  body.knowledge-field-v4 .search-big {
+    font-size: 1.12rem;
+    min-height: 3.6rem;
+  }
+
+  body.knowledge-field-v4 .card-actions .action-pdf-lg,
+  body.knowledge-field-v4 .card-actions .action-photo-lg {
+    min-height: 3.5rem;
+    font-size: 1.05rem;
+  }
+
+  .field-v4-toolbar {
+    top: 0;
+  }
+
+  .detail-fixed-bar {
+    bottom: calc(3.5rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  body.has-detail-fixed-bar.has-practical-nav .app-main {
+    padding-bottom: 11rem;
+  }
+}

@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
   <link rel="stylesheet" href="/css/knowledge-field-ux-v2.css" />
   <link rel="stylesheet" href="/css/knowledge-field-ux-v3.css" />
+  <link rel="stylesheet" href="/css/knowledge-field-ux-v4.css" />
   <style>
     .field-hero { text-align: center; margin-bottom: 0.5rem; }
     .field-hero h1 { margin: 0; font-size: 1.25rem; }
@@ -97,12 +98,14 @@
     }
   </style>
 </head>
-<body class="tisly-friendly knowledge-field-v3">
+<body class="tisly-friendly knowledge-field-v3 knowledge-field-v4">
   <main class="app-main">
     <div class="field-hero">
       <h1>🔧 現場ナレッジ</h1>
-      <p>探す · 見る · 使う · すぐ戻る（AI未使用）</p>
+      <p>探す · 見る · 使う · すぐ戻る · お客さんに見せる</p>
     </div>
+
+    <div id="field-toolbar-mount"></div>
 
     <div class="field-sticky-search friendly-card">
       <input type="search" id="search-input" class="search-big"
@@ -114,12 +117,19 @@
       </div>
     </div>
 
-    <div class="friendly-card">
+    <div class="friendly-card v4-section-card">
       <p class="section-label">🕐 最近開いたナレッジ</p>
       <div id="recent-knowledge-mount"></div>
 
       <p class="section-label">📊 よく使われているナレッジ</p>
       <div id="usage-ranking-mount"></div>
+    </div>
+
+    <div class="friendly-card v4-section-card">
+      <p class="section-label">🏗 案件から探す</p>
+      <div id="project-access-mount"></div>
+      <div id="project-filter-banner"></div>
+      <div id="project-usage-mount"></div>
     </div>
 
     <div class="friendly-card">

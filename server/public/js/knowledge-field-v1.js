@@ -10,7 +10,6 @@ import {
   escapeHtml,
   getFieldFavorites,
   pushFieldRecent,
-  readJson,
   tokenizeFieldMemo,
   writeJson,
 } from "./knowledge-field-shared-v1.js";
@@ -24,20 +23,37 @@ import {
 import {
   aggregateLocalUsageRankingV3,
   bindHitCardActionsV3,
-  buildHitActionButtonsV3,
   fetchUsageRankingV3,
   logKnowledgeUsedV3,
   mergeUsageRankings,
   pushRecentSearchV3,
-  renderRecentKnowledgeHtml,
   renderUsageRankingHtml,
 } from "./knowledge-field-ux-v3.js";
+import {
+  buildHitActionButtonsV4,
+  cacheRecentKnowledgeFilesV4,
+  fetchProjectQuickAccessV4,
+  fetchProjectUsageLogsV4,
+  filterHitsByProjectV4,
+  getProjectFilterV4,
+  isCacheEnabledV4,
+  isPresentationModeV4,
+  readJson,
+  renderFieldToolbarV4,
+  renderProjectQuickAccessHtmlV4,
+  renderProjectUsageLogsHtmlV4,
+  renderRecentKnowledgeHtmlV4,
+  setCacheEnabledV4,
+  setPresentationModeV4,
+  setProjectFilterV4,
+} from "./knowledge-field-ux-v4.js";
 
 const $ = (id) => document.getElementById(id);
 let lastHits = [];
 let lastQuery = "";
 let activeKinds = "";
 let activeCategory = "";
+let activeProjectFilter = getProjectFilterV4();
 
 function toast(msg) {
   const el = $("toast");
@@ -56,6 +72,33 @@ async function apiSearch(params) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
   return data;
+}
+
+function renderToolbar() {
+  const mount = $("field-toolbar-mount");
+  if (!mount) return;
+  mount.innerHTML = renderFieldToolbarV4();
+  if (isPresentationModeV4()) {
+    document.body.classList.add("knowledge-presentation-mode");
+  }
+  $("presentation-mode-btn")?.addEventListener("click", () => {
+    const next = !isPresentationModeV4();
+    setPresentationModeV4(next);
+    renderToolbar();
+    if (lastHits.length) renderHits(lastHits, lastHits.length, lastQuery);
+    toast(next ? "見せるモード ON — 内部パスを非表示" : "通常モードに戻しました");
+  });
+  $("cache-toggle-btn")?.addEventListener("click", async () => {
+    const next = !isCacheEnabledV4();
+    setCacheEnabledV4(next);
+    renderToolbar();
+    renderRecentKnowledgeSection();
+    if (next) {
+      await cacheRecentKnowledgeFilesV4(getCustomerToken());
+      renderRecentKnowledgeSection();
+    }
+    toast(next ? "資料キャッシュ ON" : "資料キャッシュ OFF");
+  });
 }
 
 function renderExampleChips() {
@@ -134,7 +177,7 @@ function renderRecentKnowledgeSection() {
   const mount = $("recent-knowledge-mount");
   if (!mount) return;
   const recent = readJson(STORAGE_V2_RECENT_KNOWLEDGE, []);
-  mount.innerHTML = renderRecentKnowledgeHtml(recent);
+  mount.innerHTML = renderRecentKnowledgeHtmlV4(recent);
 }
 
 async function renderUsageRankingSection() {
@@ -145,6 +188,64 @@ async function renderUsageRankingSection() {
   const localRanking = aggregateLocalUsageRankingV3(10);
   const merged = mergeUsageRankings(serverRanking, localRanking, 10);
   mount.innerHTML = renderUsageRankingHtml(merged);
+}
+
+async function renderProjectAccessSection() {
+  const mount = $("project-access-mount");
+  if (!mount) return;
+  const token = getCustomerToken();
+  const projects = await fetchProjectQuickAccessV4(token, 8);
+  mount.innerHTML = renderProjectQuickAccessHtmlV4(projects, activeProjectFilter?.projectId);
+  mount.querySelectorAll(".project-access-card").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const projectId = btn.getAttribute("data-project-id") || "";
+      const propertyName = btn.getAttribute("data-project-name") || projectId;
+      activeProjectFilter = { projectId, propertyName };
+      setProjectFilterV4(activeProjectFilter);
+      renderProjectFilterBanner();
+      await renderProjectUsageSection();
+      renderProjectAccessSection();
+      if (lastHits.length) {
+        renderHits(filterHitsByProjectV4(lastHits, projectId), lastHits.length, `${lastQuery} · 案件 ${projectId}`);
+      } else {
+        $("search-input").value = projectId;
+        runSearch(projectId);
+      }
+      toast(`案件「${propertyName}」で絞り込み`);
+    });
+  });
+}
+
+function renderProjectFilterBanner() {
+  const mount = $("project-filter-banner");
+  if (!mount) return;
+  if (!activeProjectFilter?.projectId) {
+    mount.innerHTML = "";
+    return;
+  }
+  mount.innerHTML = `<div class="project-filter-banner">
+    <span>🏗 ${escapeHtml(activeProjectFilter.propertyName)}（${escapeHtml(activeProjectFilter.projectId)}）</span>
+    <button type="button" id="clear-project-filter">解除</button>
+  </div>`;
+  $("clear-project-filter")?.addEventListener("click", () => {
+    activeProjectFilter = null;
+    setProjectFilterV4(null);
+    renderProjectFilterBanner();
+    renderProjectAccessSection();
+    $("project-usage-mount").innerHTML = "";
+    if (lastHits.length) renderHits(lastHits, lastHits.length, lastQuery);
+    toast("案件フィルタを解除しました");
+  });
+}
+
+async function renderProjectUsageSection() {
+  const mount = $("project-usage-mount");
+  if (!mount || !activeProjectFilter?.projectId) {
+    if (mount) mount.innerHTML = "";
+    return;
+  }
+  const entries = await fetchProjectUsageLogsV4(activeProjectFilter.projectId, getCustomerToken());
+  mount.innerHTML = `<p class="section-label">この案件で使ったログ</p>${renderProjectUsageLogsHtmlV4(entries)}`;
 }
 
 function renderOfflineCacheHint() {
@@ -220,30 +321,46 @@ function renderFieldCard(hit) {
     .map((r) => `<span class="reason-chip">${escapeHtml(r)}</span>`)
     .join("");
   const detailUrl = `/knowledge-detail-v1?id=${encodeURIComponent(hit.id)}&kind=${encodeURIComponent(hit.kind)}`;
-  const actions = buildHitActionButtonsV3(hit, flags, detailUrl);
+  const presentation = isPresentationModeV4();
+  const actions = buildHitActionButtonsV4(hit, flags, detailUrl, { presentation });
 
   return `<article class="field-card" data-id="${escapeHtml(hit.id)}">
     <h3>${escapeHtml(hit.title)}</h3>
-    <p class="field-card-meta">${escapeHtml(kindLabel)} · ${escapeHtml(hit.category || "—")} · 案件 ${escapeHtml(hit.projectNo || "—")}</p>
+    <p class="field-card-meta">${escapeHtml(kindLabel)} · ${escapeHtml(hit.category || "—")}${presentation ? "" : ` · 案件 ${escapeHtml(hit.projectNo || "—")}`}</p>
     <div class="field-card-reasons">${reasons || '<span class="reason-chip">キーワード一致</span>'}</div>
-    ${renderFlagRow(flags, true)}
+    ${renderFlagRow(flags, !presentation)}
     <div class="card-actions">${actions.join("")}</div>
   </article>`;
 }
 
 function renderHits(hits, total, queryLabel) {
+  let filtered = hits;
+  if (activeProjectFilter?.projectId) {
+    filtered = filterHitsByProjectV4(hits, activeProjectFilter.projectId);
+  }
   lastHits = hits;
-  $("result-count").textContent = total ? `${total}件（${queryLabel}）` : "該当なし";
+  $("result-count").textContent = filtered.length
+    ? `${filtered.length}件（${queryLabel}${activeProjectFilter ? " · 案件絞込" : ""}）`
+    : "該当なし";
   const mount = $("search-results");
-  if (!hits.length) {
+  if (!filtered.length) {
     mount.innerHTML = '<p class="status-muted">該当するナレッジがありません</p>';
     return;
   }
-  mount.innerHTML = hits.map(renderFieldCard).join("");
+  mount.innerHTML = filtered.map(renderFieldCard).join("");
   bindHitCardActionsV3(mount, toast, (entry) => {
-    logKnowledgeUsedV3({ ...entry, query: lastQuery, source: "field-search" }, getCustomerToken());
+    logKnowledgeUsedV3(
+      {
+        ...entry,
+        query: lastQuery,
+        projectId: activeProjectFilter?.projectId || entry.projectId || "",
+        source: "field-search",
+      },
+      getCustomerToken()
+    );
     toast(`「${entry.title}」を使った記録を保存しました`);
     renderUsageRankingSection();
+    if (activeProjectFilter) renderProjectUsageSection();
   });
 }
 
@@ -324,6 +441,7 @@ async function init() {
   await requireCustomerLogin();
   initPracticalNav({ appId: "projects_v1", appName: "現場ナレッジ", theme: "hub" });
 
+  renderToolbar();
   renderExampleChips();
   renderKindChips();
   renderCategoryChips();
@@ -331,7 +449,14 @@ async function init() {
   renderRecentChips();
   renderRecentKnowledgeSection();
   await renderUsageRankingSection();
+  await renderProjectAccessSection();
+  renderProjectFilterBanner();
+  await renderProjectUsageSection();
   renderOfflineCacheHint();
+  if (isCacheEnabledV4()) {
+    await cacheRecentKnowledgeFilesV4(getCustomerToken());
+    renderRecentKnowledgeSection();
+  }
 
   $("search-btn")?.addEventListener("click", () => runSearch());
   $("clear-btn")?.addEventListener("click", () => {

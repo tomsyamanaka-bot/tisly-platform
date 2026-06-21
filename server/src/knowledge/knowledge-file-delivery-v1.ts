@@ -1,14 +1,20 @@
-/** Knowledge Field UX V3 — QNAP/ローカル実ファイル配信 adapter（将来 WebDAV 差し替え可能） */
+/** Knowledge Field UX V3/V4 — QNAP/ローカル/WebDAV 実ファイル配信 adapter */
 
 import fs from "fs";
 import path from "path";
 import { getStorageSettingsV1 } from "../storage/storage-settings-store.js";
+import { buildStorageProviderConfig } from "../storage/qnap-storage-v1-config.js";
+import { WebDavStorageProvider } from "../storage/providers/webdav-storage-provider.js";
 import { buildQnapDeepLinksV1 } from "./knowledge-qnap-links-v1.js";
 import { getKnowledgeDataRoot } from "./knowledge-paths-v1.js";
+import {
+  getKnowledgeQnapDeliveryConfigV1,
+} from "./knowledge-qnap-delivery-config-v1.js";
 
 export type KnowledgeFileDeliveryModeV1 =
   | "local"
   | "mock_mirror"
+  | "webdav"
   | "external"
   | "placeholder";
 
@@ -75,6 +81,16 @@ function mapToLocalKnowledgePath(relativePath: string): string | null {
   return null;
 }
 
+let webdavProvider: WebDavStorageProvider | null = null;
+
+function getWebDavProvider(): WebDavStorageProvider | null {
+  const cfg = getKnowledgeQnapDeliveryConfigV1();
+  if (cfg.effectiveMode !== "webdav") return null;
+  if (!webdavProvider) {
+    webdavProvider = new WebDavStorageProvider(buildStorageProviderConfig("webdav"));
+  }
+  return webdavProvider;
+}
 function resolvePhysicalPath(relativePath: string): { absPath: string; mode: KnowledgeFileDeliveryModeV1 } | null {
   const rel = normalizeRelativePath(relativePath);
   if (!rel) return null;
@@ -138,10 +154,79 @@ export function resolveKnowledgeFileDeliveryV1(input: {
     };
   }
 
+  const cfg = getKnowledgeQnapDeliveryConfigV1();
+  if (cfg.effectiveMode === "webdav") {
+    const servePath = normalizeRelativePath(qnapPath || sourcePath);
+    const url = buildServeUrl(servePath);
+    const ext = path.extname(servePath).toLowerCase();
+    const previewable = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".pdf"].includes(ext);
+    return {
+      previewUrl: previewable ? url : undefined,
+      openUrl: url,
+      qnapPath,
+      deliveryMode: "webdav",
+      fileExists: true,
+      servePath,
+    };
+  }
+
   return {
     qnapPath,
     deliveryMode: "placeholder",
     fileExists: false,
+  };
+}
+
+/** WebDAV からファイル取得（ローカル/mock 未ヒット時） */
+export async function fetchKnowledgeFileFromWebDavV1(relativePath: string): Promise<{
+  data: Buffer;
+  contentType: string;
+  fileName: string;
+} | null> {
+  const rel = normalizeRelativePath(relativePath);
+  if (!rel || rel.includes("..")) return null;
+
+  const cfg = getKnowledgeQnapDeliveryConfigV1();
+  if (cfg.effectiveMode !== "webdav") return null;
+
+  const provider = getWebDavProvider();
+  if (!provider) return null;
+
+  const remotePath = `${cfg.shareRoot.replace(/^\/+|\/+$/g, "")}/${rel}`.replace(/\/+/g, "/");
+  const result = await provider.get(remotePath);
+  if (!result.ok || !result.data) return null;
+
+  const ext = path.extname(rel).toLowerCase();
+  const contentTypes: Record<string, string> = {
+    ".pdf": "application/pdf",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+    ".stl": "model/stl",
+    ".step": "application/step",
+    ".stp": "application/step",
+    ".gcode": "text/plain",
+  };
+
+  return {
+    data: result.data,
+    contentType: result.contentType ?? contentTypes[ext] ?? "application/octet-stream",
+    fileName: path.basename(rel),
+  };
+}
+
+export function getKnowledgeFileDeliveryStatusV1() {
+  const cfg = getKnowledgeQnapDeliveryConfigV1();
+  return {
+    qnapMode: cfg.qnapMode,
+    effectiveMode: cfg.effectiveMode,
+    webdavConfigured: cfg.webdavConfigured,
+    fallbackReason: cfg.fallbackReason ?? null,
+    shareRoot: cfg.shareRoot,
+    smbRoot: cfg.smbRoot,
+    fileStationBaseUrl: cfg.fileStationBaseUrl,
   };
 }
 

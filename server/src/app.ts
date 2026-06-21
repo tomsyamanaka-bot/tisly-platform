@@ -493,6 +493,9 @@ export function createApp(): express.Application {
   app.get("/knowledge-detail-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "knowledge-detail-v1.html"));
   });
+  app.get("/knowledge-usage-dashboard-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "knowledge-usage-dashboard-v1.html"));
+  });
   app.get("/ai-estimate-engine-v1", (_req, res) => {
     res.redirect(302, "/master-v1?tab=stats");
   });
