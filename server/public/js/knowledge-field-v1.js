@@ -400,7 +400,11 @@ function renderFieldCard(hit) {
     .map((r) => `<span class="reason-chip">${escapeHtml(r)}</span>`)
     .join("");
   const detailUrl = `/knowledge-detail-v1?id=${encodeURIComponent(hit.id)}&kind=${encodeURIComponent(hit.kind)}${presentation ? "&presentation=1" : ""}`;
+  const customerUrl = `/knowledge-customer-detail-v1?id=${encodeURIComponent(hit.id)}&kind=${encodeURIComponent(hit.kind)}`;
   const actions = buildHitActionButtonsV4(safeHit, flags, detailUrl, { presentation });
+  if (!presentation) {
+    actions.push(`<a class="customer-view-link" href="${customerUrl}">👥 お客様向け</a>`);
+  }
 
   return `<article class="field-card" data-id="${escapeHtml(hit.id)}">
     <h3>${escapeHtml(hit.title)}</h3>

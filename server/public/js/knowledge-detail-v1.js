@@ -87,6 +87,10 @@ function renderDetail(d) {
     : "";
 
   const actions = [];
+  const customerUrl = `/knowledge-customer-detail-v1?id=${encodeURIComponent(d.id)}&kind=${encodeURIComponent(d.kind)}`;
+  if (!presentation) {
+    actions.push(`<a class="customer-view-link" href="${customerUrl}">👥 お客様向けで見る</a>`);
+  }
   if (d.openUrl) {
     actions.push(
       `<a class="primary action-open-lg${presentation ? " presentation-action" : ""}" href="${escapeHtml(d.openUrl)}" target="_blank" rel="noopener">${presentation ? "資料を見る" : "開く"}</a>`

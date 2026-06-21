@@ -321,6 +321,7 @@ export function renderFieldToolbarV5() {
       ${offlineOn ? "📶 オフライン" : "📶 オフライン"}
     </button>
     <a class="field-mode-btn dashboard-link" href="/knowledge-usage-dashboard-v1">📊 使用ログ</a>
+    <a class="field-mode-btn dashboard-link customer-mode-link" href="/knowledge-customer-v1">👥 お客様向け</a>
   </div>`;
 }
 

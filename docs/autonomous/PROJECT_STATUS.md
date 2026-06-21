@@ -96,6 +96,8 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | ナレッジ検索 | `/knowledge-search-v1` |
 | 現場ナレッジ | `/knowledge-field-v1` |
 | ナレッジ詳細 | `/knowledge-detail-v1?id=` |
+| お客様向けナレッジ | `/knowledge-customer-v1` |
+| お客様向け詳細 | `/knowledge-customer-detail-v1?id=` |
 | ナレッジ使用ログ | `/knowledge-usage-dashboard-v1` |
 | ストレージ設定 | `/storage-settings-v1` |
 | 見積マスター | `/master-v1` |
@@ -508,6 +510,23 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | コード | `knowledge-field-ux-v5.js` · `knowledge-field-ux-v5.css` · `sw-knowledge-field-v5.js` · `knowledge-qnap-connection-test-v1.ts` |
 
 **VPS QNAP WebDAV 本番接続:** `.env` に `QNAP_MODE=webdav` + WebDAV URL/認証を設定後、`GET /api/knowledge/qnap-connection-test` で `reachable:true` を確認。
+
+### Knowledge Customer UI V1（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | **お客さんに見せる専用ナレッジ UI** — 営業・現調・施工説明・引き渡し向け · AI/Embedding/Qdrant/RAG/Whisper/TTS は未実装 |
+| Phase1 ホーム | `/knowledge-customer-v1` — TiSLY Knowledge · 大検索窓 · 8カテゴリカード · 最近使った資料 |
+| Phase2 詳細 | `/knowledge-customer-detail-v1?id=&kind=` — 写真優先 · 説明 · Before/After · 良くなること · 注意点 · PDF · 関連資料 |
+| Phase3 説明データ | `knowledge-customer-explanation-v1.ts` — headline/simpleDescription/customerBenefits/customerWarnings/afterWorkCheckpoints/recommendedFor/relatedQuestions（mock_v1） |
+| Phase4 写真中心 | 複数写真は横スクロール · なしは placeholder · PDFは写真の下 · 3DPrintは「部品資料」 |
+| Phase5 Site Map | `knowledge-customer-site-map-v1.ts` — 玄関/外周/分電盤/工場ライン/制御盤（mock · 将来図面連動） |
+| Phase6 導線 | 現場 `/knowledge-field-v1` · `/knowledge-detail-v1` から「お客様向けで見る」→ Customer Detail · Customer Detail から現場詳細へ戻る |
+| Phase7 スマホ | 明るい背景 · 白カード · 44px+ボタン · 下部固定ナビ · 大きい文字/余白 |
+| Phase8 テスト | `server/test/knowledge-customer-v1.test.ts`（12ケース） |
+| API | `GET /api/knowledge/customer-home-v1` · `customer-detail-v1` · `customer-search-v1` |
+| 非表示 | QNAP/SMB/WebDAV/API URL表示 · projectId · userId · usage-log詳細 · mock/debug |
+| コード | `knowledge-customer-v1.html/js/css` · `knowledge-customer-detail-v1.html/js` · `knowledge-customer-home-v1.ts` · `knowledge-customer-detail-v1.ts` |
 
 ---
 

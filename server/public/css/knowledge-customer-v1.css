@@ -1,0 +1,434 @@
+/** Knowledge Customer UI V1 — 明るい・大きい・お客様向け */
+
+body.knowledge-customer-v1 {
+  background: linear-gradient(180deg, #f0f9ff 0%, #f8fafc 40%, #ffffff 100%);
+  color: #0f172a;
+}
+
+body.knowledge-customer-v1 .app-main.customer-main {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 1rem 1rem 6.5rem;
+}
+
+.customer-hero {
+  text-align: center;
+  margin-bottom: 1.25rem;
+}
+.customer-hero h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #0c4a6e;
+}
+.customer-hero p {
+  margin: 0.5rem 0 0;
+  font-size: 1.05rem;
+  line-height: 1.55;
+  color: #475569;
+}
+
+.customer-search-wrap {
+  margin-bottom: 1.25rem;
+}
+.customer-search-input {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 3.25rem;
+  font-size: 1.12rem;
+  padding: 0.75rem 1rem;
+  border: 2px solid #bae6fd;
+  border-radius: 16px;
+  background: #fff;
+}
+.customer-search-input:focus {
+  outline: none;
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
+}
+.customer-search-btn {
+  width: 100%;
+  min-height: 3rem;
+  margin-top: 0.55rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  border: none;
+  border-radius: 14px;
+  background: #0284c7;
+  color: #fff;
+}
+
+.customer-section-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #334155;
+  margin: 1.1rem 0 0.55rem;
+}
+
+.customer-category-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+}
+.customer-category-card {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  background: #fff;
+  border: 1px solid #e0f2fe;
+  border-radius: 16px;
+  padding: 0.85rem 0.75rem;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  min-height: 7.5rem;
+}
+.customer-category-card:active {
+  transform: scale(0.98);
+}
+.customer-category-icon {
+  font-size: 1.75rem;
+  line-height: 1;
+  margin-bottom: 0.35rem;
+}
+.customer-category-card strong {
+  display: block;
+  font-size: 1rem;
+  line-height: 1.35;
+  margin-bottom: 0.2rem;
+}
+.customer-category-card small {
+  display: block;
+  font-size: 0.82rem;
+  color: #64748b;
+  line-height: 1.4;
+  margin-bottom: 0.35rem;
+}
+.customer-category-count {
+  display: inline-block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #0369a1;
+  background: #e0f2fe;
+  border-radius: 999px;
+  padding: 0.12rem 0.5rem;
+}
+
+.customer-recent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.customer-recent-item {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 0.75rem 0.85rem;
+}
+.customer-recent-item strong {
+  display: block;
+  font-size: 1rem;
+  line-height: 1.4;
+}
+.customer-recent-item small {
+  color: #64748b;
+  font-size: 0.82rem;
+}
+
+.customer-search-results {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-top: 0.75rem;
+}
+
+.customer-bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  display: flex;
+  background: rgba(255, 255, 255, 0.96);
+  border-top: 1px solid #e2e8f0;
+  padding: 0.35rem 0.5rem calc(0.35rem + env(safe-area-inset-bottom));
+  backdrop-filter: blur(8px);
+}
+.customer-nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 3.25rem;
+  text-decoration: none;
+  color: #64748b;
+  border-radius: 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.customer-nav-item.active {
+  color: #0284c7;
+  background: #f0f9ff;
+}
+.customer-nav-icon {
+  font-size: 1.25rem;
+  line-height: 1.2;
+}
+
+/* Detail */
+.customer-detail-head {
+  margin-bottom: 0.85rem;
+}
+.customer-detail-head h1 {
+  margin: 0 0 0.35rem;
+  font-size: 1.35rem;
+  line-height: 1.4;
+  color: #0c4a6e;
+}
+.customer-detail-headline {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0369a1;
+  margin: 0 0 0.35rem;
+}
+.customer-detail-category {
+  font-size: 0.88rem;
+  color: #64748b;
+}
+
+.customer-photo-hero img,
+.customer-photo-slide img {
+  width: 100%;
+  border-radius: 14px;
+  display: block;
+  max-height: 320px;
+  object-fit: cover;
+}
+.customer-photo-scroll {
+  overflow: hidden;
+  padding: 0.65rem;
+}
+.customer-photo-track {
+  display: flex;
+  gap: 0.65rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 0.25rem;
+}
+.customer-photo-slide {
+  flex: 0 0 85%;
+  scroll-snap-align: start;
+  margin: 0;
+}
+.customer-photo-slide figcaption {
+  font-size: 0.82rem;
+  color: #64748b;
+  margin-top: 0.35rem;
+  text-align: center;
+}
+.customer-photo-placeholder {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: #64748b;
+}
+.customer-photo-placeholder-icon {
+  font-size: 2.5rem;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.customer-card {
+  background: #fff;
+  border: 1px solid #e0f2fe;
+  border-radius: 16px;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+.customer-card h2 {
+  margin: 0 0 0.55rem;
+  font-size: 1rem;
+  color: #334155;
+}
+.customer-card p,
+.customer-card li {
+  font-size: 1.02rem;
+  line-height: 1.65;
+  color: #1e293b;
+}
+.customer-card ul {
+  margin: 0;
+  padding-left: 1.15rem;
+}
+.customer-card li {
+  margin-bottom: 0.35rem;
+}
+
+.customer-before-after {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
+  margin-bottom: 0.65rem;
+}
+.customer-ba-box {
+  border-radius: 12px;
+  padding: 0.75rem 0.55rem;
+  text-align: center;
+  min-height: 4.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.customer-ba-box.before {
+  background: #f1f5f9;
+  color: #475569;
+}
+.customer-ba-box.after {
+  background: #ecfdf5;
+  color: #166534;
+}
+.customer-ba-box strong {
+  display: block;
+  font-size: 0.82rem;
+  margin-bottom: 0.25rem;
+}
+.customer-ba-box span {
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.customer-site-locations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+.customer-site-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 999px;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.92rem;
+  color: #0c4a6e;
+}
+
+.customer-pdf-btn,
+.customer-part-btn,
+.customer-related-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3rem;
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 14px;
+  font-size: 1rem;
+  font-weight: 700;
+  text-decoration: none;
+  margin-bottom: 0.45rem;
+}
+.customer-pdf-btn {
+  background: #0284c7;
+  color: #fff;
+  border: none;
+}
+.customer-part-btn {
+  background: #f8fafc;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+.customer-related-item {
+  background: #fff;
+  color: #1e293b;
+  border: 1px solid #e2e8f0;
+  justify-content: flex-start;
+  padding: 0.75rem 0.85rem;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.customer-related-item small {
+  color: #64748b;
+  font-size: 0.82rem;
+  margin-top: 0.15rem;
+}
+
+.customer-question-chip {
+  display: inline-block;
+  background: #fefce8;
+  border: 1px solid #fde68a;
+  border-radius: 999px;
+  padding: 0.4rem 0.7rem;
+  font-size: 0.88rem;
+  margin: 0.15rem 0.2rem 0 0;
+  color: #854d0e;
+}
+
+.customer-detail-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  display: grid;
+  grid-template-columns: 1fr 1.2fr 1fr;
+  gap: 0.35rem;
+  padding: 0.45rem 0.55rem calc(0.45rem + env(safe-area-inset-bottom));
+  background: rgba(255, 255, 255, 0.96);
+  border-top: 1px solid #e2e8f0;
+  backdrop-filter: blur(8px);
+}
+.customer-bar-btn {
+  min-height: 2.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-decoration: none;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #334155;
+  padding: 0 0.35rem;
+  text-align: center;
+}
+.customer-bar-btn.primary {
+  background: #0284c7;
+  color: #fff;
+  border-color: #0284c7;
+}
+
+body.knowledge-customer-detail .app-main.customer-main {
+  padding-bottom: 5.5rem;
+}
+
+.customer-toast.show {
+  background: #0c4a6e;
+}
+
+.customer-field-link-row {
+  margin-top: 0.75rem;
+}
+.customer-field-link-row a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  border-radius: 12px;
+  background: #f1f5f9;
+  color: #475569;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+@media (min-width: 480px) {
+  .customer-category-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

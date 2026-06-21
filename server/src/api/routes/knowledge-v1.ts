@@ -61,6 +61,8 @@ import {
 } from "../../knowledge/knowledge-project-access-v1.js";
 import { listProjectKnowledgeV1 } from "../../knowledge/knowledge-project-knowledge-v1.js";
 import { runKnowledgeQnapConnectionTestV1 } from "../../knowledge/knowledge-qnap-connection-test-v1.js";
+import { buildCustomerHomeV1 } from "../../knowledge/knowledge-customer-home-v1.js";
+import { getKnowledgeCustomerDetailV1 } from "../../knowledge/knowledge-customer-detail-v1.js";
 import { tokenizeFieldMemoV1 } from "../../knowledge/knowledge-field-memo-v1.js";
 import {
   parseUnifiedKnowledgeKindsV1,
@@ -682,6 +684,68 @@ knowledgeV1Router.post("/assets", ...auth, (req: AuthedRequest, res) => {
 knowledgeV1Router.post("/assets/seed", ...auth, (req: AuthedRequest, res) => {
   if (!assertRole(req, res)) return;
   res.json(seedDefaultKnowledgeAssetsV1());
+});
+
+/** GET /api/knowledge/customer-home-v1 — お客様向けホーム（カテゴリ・最近使った資料） */
+knowledgeV1Router.get("/customer-home-v1", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  ensureKnowledgeLibraryTemplatesV1();
+  res.json(buildCustomerHomeV1());
+});
+
+/** GET /api/knowledge/customer-detail-v1?id=&kind= — お客様向け詳細（内部情報除外） */
+knowledgeV1Router.get("/customer-detail-v1", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  ensureKnowledgeLibraryTemplatesV1();
+  const id = String(req.query.id ?? "").trim();
+  if (!id) {
+    res.status(400).json({ error: "id is required" });
+    return;
+  }
+  const kindRaw = String(req.query.kind ?? "").trim();
+  const allowedKinds = new Set([
+    "knowledge_card",
+    "candidate",
+    "project",
+    "pdf",
+    "photo",
+    "asset",
+    "plc",
+    "esp",
+    "3dprint",
+    "factory",
+  ]);
+  const kind = allowedKinds.has(kindRaw) ? (kindRaw as UnifiedKnowledgeKindV1) : undefined;
+  const detail = getKnowledgeCustomerDetailV1(id, kind);
+  if (!detail) {
+    res.status(404).json({ error: "Knowledge item not found" });
+    return;
+  }
+  res.json({ detail });
+});
+
+/** GET /api/knowledge/customer-search-v1?q=&category= — お客様向けキーワード検索（簡易） */
+knowledgeV1Router.get("/customer-search-v1", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  ensureKnowledgeLibraryTemplatesV1();
+  const q = String(req.query.q ?? "").trim();
+  const category = String(req.query.category ?? "").trim();
+  const limitRaw = Number(req.query.limit ?? 30);
+  const result = unifiedKnowledgeSearchV1({
+    query: q,
+    category: category || undefined,
+    limit: Number.isFinite(limitRaw) ? limitRaw : 30,
+  });
+  const hits = result.hits.map((hit) => ({
+    id: hit.id,
+    kind: hit.kind,
+    title: hit.title,
+    category: hit.category,
+    hasPhoto: hit.hasPhoto,
+    hasPdf: hit.hasPdf,
+    detailUrl: `/knowledge-customer-detail-v1?id=${encodeURIComponent(hit.id)}&kind=${encodeURIComponent(hit.kind)}`,
+  }));
+  res.json({ hits, total: result.total, query: q, category: category || undefined });
 });
 
 /** MotherShip Explorer */
