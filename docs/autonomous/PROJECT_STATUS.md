@@ -100,6 +100,8 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | お客様向けナレッジ V2 | `/knowledge-customer-v2` |
 | お客様向け案件ページ | `/knowledge-customer-project-v1?ref=DEMO-HOME-001` |
 | お客様向け Site Map | `/knowledge-customer-site-map-v1?ref=DEMO-HOME-001` |
+| お客様向け案件一覧 | `/knowledge-customer-projects-v1` |
+| お客様向けPDF閲覧 | `/knowledge-customer-document-v1?ref=&fileId=` |
 | お客様向け詳細 | `/knowledge-customer-detail-v1?id=` |
 | ナレッジ使用ログ | `/knowledge-usage-dashboard-v1` |
 | ストレージ設定 | `/storage-settings-v1` |
@@ -567,6 +569,23 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 本番例 | `/knowledge-customer-project-v1?ref=MO-26-0709` |
 | 非表示 | QNAP/SMB/WebDAV/project-storage パス · projectId 生表示 · mock/debug |
 | コード | `knowledge-customer-v3.css` · adapter/files · project/site-map JS 更新 |
+
+### Knowledge Customer UI V4（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | **PWA案件DBとCustomer UIをつなぐ準備** · refベースPDF閲覧 · お客様共有read-only · AI/Embedding/Qdrant/RAG/Whisper/TTS は未実装 |
+| Phase1 PWA adapter | `knowledge-business-projects-adapter-v1.ts` — business_projects → Customer meta · 無い時V3 mock fallback |
+| Phase2 案件一覧 | `/knowledge-customer-projects-v1` — 最近の案件 · 検索 · 絞り込み（防犯/電気/工場/ネットワーク/完了/準備中） |
+| Phase3 PDF閲覧 | `/knowledge-customer-document-v1?ref=&fileId=` — ref+fileId · 閲覧優先 · 準備中メッセージ |
+| Phase4 共有read-only | `view=share` — 現場/管理者リンク非表示 · 下部ナビ「資料を確認する/閉じる」 |
+| Phase5 共有フィルタ | `knowledge-customer-share-filter-v1.ts` — 請求書/内部メモ/QNAP/project-storage非表示 |
+| Phase6 Site Map 3D準備 | `mapAsset` — mapType/lidar/floorplan/threeD · cameraPositions · areaPolygons（mock） |
+| Phase7 スマホUI | `knowledge-customer-v4.css` — 案件カード · 大PDFボタン · 共有ナビ |
+| Phase8 テスト | `server/test/knowledge-customer-v4.test.ts`（18ケース） |
+| API | `customer-projects-v1` · `customer-document-v1` · share view on project/site-map |
+| 非表示 | QNAP/SMB/WebDAV/project-storage · projectId生表示 · share時請求書 · API URL（share payload） |
+| コード | `knowledge-business-projects-adapter-v1.ts` · `knowledge-customer-share-filter-v1.ts` · `knowledge-customer-document-v1.ts` · `knowledge-customer-projects-v1.*` |
 
 ---
 

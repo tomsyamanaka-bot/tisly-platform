@@ -1,4 +1,6 @@
-/** Knowledge Customer UI V3 — 案件メタデータ adapter（mock · 将来 PWA/カレンダー/QNAP/DB 差し替え） */
+/** Knowledge Customer UI V3/V4 — 案件メタデータ adapter（mock · PWA business_projects · 将来 QNAP/DB 差し替え） */
+
+import { createRequire } from "module";
 
 export interface KnowledgeCustomerProjectKnowledgeRefV1 {
   id: string;
@@ -26,6 +28,8 @@ export interface KnowledgeCustomerProjectMetaV1 {
   storageRef?: string;
   isFallback?: boolean;
 }
+
+const requireModule = createRequire(import.meta.url);
 
 const PRODUCTION_REF_RE = /^([A-Z]{2})-(\d{2})-(\d{4})(?:-(\d{2,3}))?$/;
 
@@ -239,6 +243,13 @@ export function normalizeCustomerProjectRefV1(ref: string): string {
 export function resolveCustomerProjectMetaV1(ref: string): KnowledgeCustomerProjectMetaV1 {
   const normalized = normalizeCustomerProjectRefV1(ref);
 
+  try {
+    const fromBusiness = tryResolveCustomerMetaFromBusinessProjects(normalized);
+    if (fromBusiness) return fromBusiness;
+  } catch {
+    /* business_projects unavailable — mock fallback */
+  }
+
   if (DEMO_META[normalized]) {
     return { ref: normalized, ...DEMO_META[normalized] };
   }
@@ -295,6 +306,15 @@ export function resolveCustomerProjectMetaV1(ref: string): KnowledgeCustomerProj
   }
 
   return buildFallbackMeta(normalized);
+}
+
+function tryResolveCustomerMetaFromBusinessProjects(
+  ref: string
+): KnowledgeCustomerProjectMetaV1 | null {
+  const mod = requireModule("./knowledge-business-projects-adapter-v1.js") as {
+    tryResolveCustomerMetaFromBusinessProjectsV1: (r: string) => KnowledgeCustomerProjectMetaV1 | null;
+  };
+  return mod.tryResolveCustomerMetaFromBusinessProjectsV1(ref);
 }
 
 /** API レスポンス用 — 内部フィールドを除外 */

@@ -47,12 +47,19 @@ export function renderCustomerBottomNavV2(active, options = {}) {
 }
 
 export function renderCustomerBottomNavV3(active, options = {}) {
+  if (options.shareView) {
+    return renderCustomerBottomNavShareV1(options);
+  }
   const ref = options.projectRef || "DEMO-HOME-001";
   const projectQs = `ref=${encodeURIComponent(ref)}`;
   return `<nav class="customer-bottom-nav customer-bottom-nav-v2 customer-bottom-nav-v3" aria-label="お客様向けナビ">
     <a class="customer-nav-item${active === "home" ? " active" : ""}" href="/knowledge-customer-v2">
       <span class="customer-nav-icon">🏠</span>
       <span class="customer-nav-label">ホーム</span>
+    </a>
+    <a class="customer-nav-item${active === "projects" ? " active" : ""}" href="/knowledge-customer-projects-v1">
+      <span class="customer-nav-icon">📁</span>
+      <span class="customer-nav-label">案件</span>
     </a>
     <a class="customer-nav-item${active === "project" ? " active" : ""}" href="/knowledge-customer-project-v1?${projectQs}">
       <span class="customer-nav-icon">📋</span>
@@ -62,15 +69,72 @@ export function renderCustomerBottomNavV3(active, options = {}) {
       <span class="customer-nav-icon">🗺</span>
       <span class="customer-nav-label">配置</span>
     </a>
-    <a class="customer-nav-item${active === "materials" ? " active" : ""}" href="/knowledge-customer-project-v1?${projectQs}#materials-section">
-      <span class="customer-nav-icon">📚</span>
-      <span class="customer-nav-label">資料</span>
-    </a>
     <a class="customer-nav-item${active === "field" ? " active" : ""}" href="/knowledge-field-v1">
       <span class="customer-nav-icon">🔧</span>
       <span class="customer-nav-label">現場</span>
     </a>
   </nav>`;
+}
+
+export function isShareViewV1() {
+  const params = new URLSearchParams(location.search);
+  return params.get("view") === "share";
+}
+
+export function appendShareViewQuery(url) {
+  if (!isShareViewV1()) return url;
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}view=share`;
+}
+
+export function renderCustomerBottomNavShareV1(options = {}) {
+  const closeUrl = options.closeUrl || options.projectPageUrl || "#";
+  const projectUrl = options.projectPageUrl || closeUrl;
+  return `<nav class="customer-bottom-nav customer-bottom-nav-v2 customer-bottom-nav-v3 customer-bottom-nav-share" aria-label="お客様共有ナビ">
+    <a class="customer-nav-item primary" href="${escapeHtml(appendShareViewQuery(projectUrl))}#pdfs-section">
+      <span class="customer-nav-icon">📄</span>
+      <span class="customer-nav-label">資料を確認する</span>
+    </a>
+    <button type="button" class="customer-nav-item" id="customer-share-close-btn" data-close-url="${escapeHtml(closeUrl)}">
+      <span class="customer-nav-icon">✕</span>
+      <span class="customer-nav-label">閉じる</span>
+    </button>
+  </nav>`;
+}
+
+export function bindCustomerShareCloseV1() {
+  const btn = document.getElementById("customer-share-close-btn");
+  if (!btn) return;
+  btn.addEventListener("click", () => {
+    const closeUrl = btn.getAttribute("data-close-url");
+    if (closeUrl && closeUrl !== "#") {
+      location.href = closeUrl;
+      return;
+    }
+    if (history.length > 1) {
+      history.back();
+      return;
+    }
+    window.close();
+  });
+}
+
+export function renderCustomerProjectListFiltersV4(activeFilter) {
+  const filters = [
+    { id: "all", label: "すべて" },
+    { id: "防犯", label: "防犯" },
+    { id: "電気", label: "電気" },
+    { id: "工場", label: "工場" },
+    { id: "ネットワーク", label: "ネットワーク" },
+    { id: "完了", label: "完了" },
+    { id: "準備中", label: "準備中" },
+  ];
+  return `<div class="customer-filter-row-v4">${filters
+    .map(
+      (f) =>
+        `<button type="button" class="customer-filter-chip${activeFilter === f.id ? " active" : ""}" data-filter="${escapeHtml(f.id)}">${escapeHtml(f.label)}</button>`
+    )
+    .join("")}</div>`;
 }
 
 export function renderCustomerPhotoModalV1() {

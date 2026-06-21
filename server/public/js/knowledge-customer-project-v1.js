@@ -4,11 +4,15 @@ import { requireCustomerLogin, getCustomerToken } from "./customer-auth.js";
 import {
   escapeHtml,
   renderCustomerBottomNavV3,
+  renderCustomerBottomNavShareV1,
   renderCustomerPhotoGalleryV1,
   renderCustomerPhotoModalV1,
   renderMaterialBadgesV1,
   renderMaterialFilterChipsV1,
   sanitizeCustomerTextV1,
+  isShareViewV1,
+  appendShareViewQuery,
+  bindCustomerShareCloseV1,
 } from "./knowledge-customer-shared-v1.js";
 
 const $ = (id) => document.getElementById(id);
@@ -73,7 +77,7 @@ function renderPdfGroup(title, items) {
   const buttons = items
     .map(
       (pdf) =>
-        `<a class="customer-pdf-btn-v3" href="${escapeHtml(pdf.openUrl || "#")}" target="_blank" rel="noopener">
+        `<a class="customer-pdf-btn-v3 customer-pdf-btn-v4" href="${escapeHtml(pdf.openUrl || "#")}">
           <span class="customer-pdf-btn-icon">📄</span>
           <span class="customer-pdf-btn-text">
             <strong>${escapeHtml(pdf.safeLabel || pdf.title)}</strong>
@@ -144,16 +148,18 @@ function renderMaterialCard(item) {
   </${tag}>`;
 }
 
-function renderProject(page, projectRef) {
+function renderProject(page, projectRef, shareView) {
   const caps = (page.capabilities || [])
     .map((c) => `<li>${escapeHtml(sanitizeCustomerTextV1(c))}</li>`)
     .join("");
-  const knowledge = (page.relatedKnowledge || [])
-    .map(
-      (k) =>
-        `<a class="customer-related-item" href="${escapeHtml(k.detailUrl)}">${escapeHtml(k.title)}<small>${escapeHtml(k.category)}</small></a>`
-    )
-    .join("");
+  const knowledge = shareView
+    ? ""
+    : (page.relatedKnowledge || [])
+        .map(
+          (k) =>
+            `<a class="customer-related-item" href="${escapeHtml(k.detailUrl)}">${escapeHtml(k.title)}<small>${escapeHtml(k.category)}</small></a>`
+        )
+        .join("");
   const materials = (page.materials || []).map(renderMaterialCard).join("");
   const title = page.customerSafeTitle || page.propertyName;
   const statusBadge = page.statusLabel
@@ -161,6 +167,7 @@ function renderProject(page, projectRef) {
     : "";
 
   return `
+    ${shareView ? '<p class="customer-share-banner">お客様共有モード — 閲覧専用です</p>' : ""}
     <header class="customer-project-hero friendly-card">
       <p class="customer-project-genre">${escapeHtml(page.workGenre)}</p>
       <h1>${escapeHtml(title)}</h1>
@@ -168,7 +175,7 @@ function renderProject(page, projectRef) {
       ${page.visitDateLabel ? `<p class="customer-visit-date">${escapeHtml(page.visitDateLabel)}</p>` : ""}
       <p class="customer-project-intro">${escapeHtml(sanitizeCustomerTextV1(page.customerExplanation))}</p>
       <div class="customer-project-actions">
-        <a class="customer-action-btn primary" href="${escapeHtml(page.siteMapUrl)}">🗺 配置図を見る</a>
+        <a class="customer-action-btn primary" href="${escapeHtml(appendShareViewQuery(page.siteMapUrl))}">🗺 配置図を見る</a>
         <a class="customer-action-btn" href="#photos-section">📷 現場写真</a>
         <a class="customer-action-btn" href="#pdfs-section">📄 資料を見る</a>
       </div>
@@ -177,14 +184,22 @@ function renderProject(page, projectRef) {
     ${renderSection("工事でできること", caps ? `<ul>${caps}</ul>` : "")}
     ${knowledge ? renderSection("関連ナレッジ", knowledge) : ""}
     ${renderPdfSections(page)}
-    <section class="customer-card" id="materials-section">
+    ${
+      shareView
+        ? ""
+        : `<section class="customer-card" id="materials-section">
       <h2>${escapeHtml(page.materialsSectionLabel || "資料一覧")}</h2>
       <div class="customer-filter-row" id="material-filter-row">${renderMaterialFilterChipsV1("all")}</div>
       <div class="customer-material-list" id="material-list">${materials || '<p class="status-muted">資料は準備中です</p>'}</div>
-    </section>
-    <div class="customer-field-link-row">
+    </section>`
+    }
+    ${
+      shareView || !page.customerHomeV2Url
+        ? ""
+        : `<div class="customer-field-link-row">
       <a href="${escapeHtml(page.customerHomeV2Url)}">← ホームへ</a>
-    </div>
+    </div>`
+    }
     ${renderCustomerPhotoModalV1()}
   `;
 }
@@ -254,22 +269,35 @@ function bindEvents() {
 
 async function loadProject() {
   const projectRef = getProjectRef();
+  const shareView = isShareViewV1();
   const token = getCustomerToken();
   const qs = new URLSearchParams({ ref: projectRef });
+  if (shareView) qs.set("view", "share");
   const res = await fetch(`/api/knowledge/customer-project-v1?${qs}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     $("customer-project-root").innerHTML = `<div class="customer-card friendly-card"><p class="status-muted">資料を準備中です。しばらくしてから再度お試しください。</p></div>`;
-    $("customer-bottom-nav-mount").innerHTML = renderCustomerBottomNavV3("project", { projectRef });
+    $("customer-bottom-nav-mount").innerHTML = shareView
+      ? renderCustomerBottomNavShareV1({ projectPageUrl: location.pathname + location.search })
+      : renderCustomerBottomNavV3("project", { projectRef });
+    if (shareView) bindCustomerShareCloseV1();
     return;
   }
   const page = data.page;
-  $("customer-project-root").innerHTML = renderProject(page, projectRef);
+  $("customer-project-root").innerHTML = renderProject(page, projectRef, shareView || page.isShareView);
   document.title = `TiSLY — ${page.customerSafeTitle || page.propertyName}`;
-  $("customer-bottom-nav-mount").innerHTML = renderCustomerBottomNavV3("project", { projectRef });
-  bindEvents();
+  if (shareView || page.isShareView) {
+    $("customer-bottom-nav-mount").innerHTML = renderCustomerBottomNavShareV1({
+      projectPageUrl: `/knowledge-customer-project-v1?ref=${encodeURIComponent(projectRef)}&view=share`,
+      closeUrl: `/knowledge-customer-project-v1?ref=${encodeURIComponent(projectRef)}&view=share`,
+    });
+    bindCustomerShareCloseV1();
+  } else {
+    $("customer-bottom-nav-mount").innerHTML = renderCustomerBottomNavV3("project", { projectRef });
+    bindEvents();
+  }
 }
 
 async function init() {

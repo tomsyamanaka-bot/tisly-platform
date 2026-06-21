@@ -4,8 +4,12 @@ import { requireCustomerLogin, getCustomerToken } from "./customer-auth.js";
 import {
   escapeHtml,
   renderCustomerBottomNavV3,
+  renderCustomerBottomNavShareV1,
   renderCustomerPhotoModalV1,
   sanitizeCustomerTextV1,
+  isShareViewV1,
+  appendShareViewQuery,
+  bindCustomerShareCloseV1,
 } from "./knowledge-customer-shared-v1.js";
 
 const $ = (id) => document.getElementById(id);
@@ -64,7 +68,7 @@ function renderAreaPdfs(pdfs) {
   return pdfs
     .map(
       (pdf) =>
-        `<a class="customer-pdf-btn-v3" href="${escapeHtml(pdf.openUrl || "#")}" target="_blank" rel="noopener">
+        `<a class="customer-pdf-btn-v3 customer-pdf-btn-v4" href="${escapeHtml(pdf.openUrl || "#")}">
           <span class="customer-pdf-btn-icon">📄</span>
           <span class="customer-pdf-btn-text"><strong>${escapeHtml(pdf.safeLabel)}</strong><small>${escapeHtml(pdf.viewLabel || "PDFを見る")}</small></span>
         </a>`
@@ -72,13 +76,15 @@ function renderAreaPdfs(pdfs) {
     .join("");
 }
 
-function renderAreaDetail(area, data, projectRef) {
-  const knowledge = (data.knowledgeLinks || [])
-    .map(
-      (k) =>
-        `<a class="customer-related-item" href="${escapeHtml(k.detailUrl)}">${escapeHtml(k.title)}<small>詳細を見る</small></a>`
-    )
-    .join("");
+function renderAreaDetail(area, data, projectRef, shareView) {
+  const knowledge = shareView
+    ? ""
+    : (data.knowledgeLinks || [])
+        .map(
+          (k) =>
+            `<a class="customer-related-item" href="${escapeHtml(k.detailUrl)}">${escapeHtml(k.title)}<small>詳細を見る</small></a>`
+        )
+        .join("");
 
   const warnings = (data.customerWarnings || [])
     .map((w) => `<li>${escapeHtml(sanitizeCustomerTextV1(w))}</li>`)
@@ -95,7 +101,7 @@ function renderAreaDetail(area, data, projectRef) {
       ${renderSubSection("Before / After", renderBeforeAfter(data.beforePoints, data.afterPoints))}
       ${knowledge ? renderSubSection("該当ナレッジ", knowledge) : ""}
       ${warnings ? renderSubSection("注意点", `<ul class="customer-warnings-list">${warnings}</ul>`) : ""}
-      <a class="customer-action-btn" href="/knowledge-customer-project-v1?ref=${encodeURIComponent(projectRef)}">← 物件ページへ</a>
+      <a class="customer-action-btn" href="${escapeHtml(appendShareViewQuery(`/knowledge-customer-project-v1?ref=${encodeURIComponent(projectRef)}`))}">← 物件ページへ</a>
     </section>
   `;
 }
@@ -105,23 +111,33 @@ function renderSubSection(title, inner) {
   return `<div class="customer-sitemap-sub"><h3>${escapeHtml(title)}</h3>${typeof inner === "string" && inner.startsWith("<") ? inner : `<p>${escapeHtml(sanitizeCustomerTextV1(inner))}</p>`}</div>`;
 }
 
-function renderSiteMap(siteMap, projectRef) {
+function renderSiteMap(siteMap, projectRef, shareView) {
   const areas = (siteMap.areas || []).map(renderAreaCard).join("");
   const title = siteMap.customerSafeTitle || siteMap.propertyName;
+  const mapAsset = siteMap.mapAsset;
+  const integrationNote = mapAsset
+    ? `<p class="customer-sitemap-integration-note"><strong>${escapeHtml(mapAsset.integrationStatusLabel || "図面連携準備中")}</strong><br />${escapeHtml(sanitizeCustomerTextV1(mapAsset.integrationNote || ""))}</p>`
+    : "";
   return `
+    ${shareView ? '<p class="customer-share-banner">お客様共有モード — 閲覧専用です</p>' : ""}
     <header class="customer-project-hero friendly-card">
       <p class="customer-project-genre">${escapeHtml(siteMap.workGenre)}</p>
       <h1>${escapeHtml(title)}</h1>
       <p class="customer-project-intro">エリアをタップすると、関連する写真・資料・説明が表示されます。</p>
       ${siteMap.preparingMessage ? `<p class="customer-preparing-note">${escapeHtml(siteMap.preparingMessage)}</p>` : ""}
     </header>
+    ${integrationNote}
     <h2 class="customer-section-title">配置図（2D）</h2>
     <div class="customer-sitemap-grid">${areas}</div>
     <div id="area-detail-mount"></div>
-    <div class="customer-field-link-row">
+    ${
+      shareView
+        ? ""
+        : `<div class="customer-field-link-row">
       <a href="${escapeHtml(siteMap.projectPageUrl)}">← 物件ページへ</a>
-      <a href="${escapeHtml(siteMap.customerHomeV2Url)}">ホームへ</a>
-    </div>
+      ${siteMap.customerHomeV2Url ? `<a href="${escapeHtml(siteMap.customerHomeV2Url)}">ホームへ</a>` : ""}
+    </div>`
+    }
     ${renderCustomerPhotoModalV1()}
   `;
 }
@@ -156,6 +172,7 @@ function bindPhotoModal() {
 async function loadAreaDetail(areaId, projectRef) {
   const token = getCustomerToken();
   const qs = new URLSearchParams({ ref: projectRef, areaId });
+  if (isShareViewV1()) qs.set("view", "share");
   const res = await fetch(`/api/knowledge/customer-site-map-v1/area?${qs}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
@@ -168,7 +185,7 @@ async function loadAreaDetail(areaId, projectRef) {
     return;
   }
 
-  mount.innerHTML = renderAreaDetail(data.area, data, projectRef);
+  mount.innerHTML = renderAreaDetail(data.area, data, projectRef, isShareViewV1());
   bindPhotoModal();
   mount.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
@@ -185,21 +202,34 @@ function bindSiteMapEvents(projectRef) {
 
 async function loadSiteMap() {
   const projectRef = getProjectRef();
+  const shareView = isShareViewV1();
   const token = getCustomerToken();
   const qs = new URLSearchParams({ ref: projectRef });
+  if (shareView) qs.set("view", "share");
   const res = await fetch(`/api/knowledge/customer-site-map-v1?${qs}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     $("customer-sitemap-root").innerHTML = `<div class="customer-card"><p class="status-muted">配置図を準備中です。しばらくしてから再度お試しください。</p></div>`;
-    $("customer-bottom-nav-mount").innerHTML = renderCustomerBottomNavV3("sitemap", { projectRef });
+    $("customer-bottom-nav-mount").innerHTML = shareView
+      ? renderCustomerBottomNavShareV1({ projectPageUrl: `/knowledge-customer-project-v1?ref=${encodeURIComponent(projectRef)}&view=share` })
+      : renderCustomerBottomNavV3("sitemap", { projectRef });
+    if (shareView) bindCustomerShareCloseV1();
     return;
   }
   const siteMap = data.siteMap;
-  $("customer-sitemap-root").innerHTML = renderSiteMap(siteMap, projectRef);
+  $("customer-sitemap-root").innerHTML = renderSiteMap(siteMap, projectRef, shareView || siteMap.isShareView);
   document.title = `TiSLY — ${siteMap.customerSafeTitle || siteMap.propertyName} 配置図`;
-  $("customer-bottom-nav-mount").innerHTML = renderCustomerBottomNavV3("sitemap", { projectRef });
+  if (shareView || siteMap.isShareView) {
+    $("customer-bottom-nav-mount").innerHTML = renderCustomerBottomNavShareV1({
+      projectPageUrl: siteMap.projectPageUrl,
+      closeUrl: siteMap.projectPageUrl,
+    });
+    bindCustomerShareCloseV1();
+  } else {
+    $("customer-bottom-nav-mount").innerHTML = renderCustomerBottomNavV3("sitemap", { projectRef });
+  }
   bindSiteMapEvents(projectRef);
 }
 

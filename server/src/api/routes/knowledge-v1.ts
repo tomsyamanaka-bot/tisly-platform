@@ -78,6 +78,9 @@ import {
   getCustomerSiteAreaDetailV1,
   getCustomerSiteMapForProjectV1,
 } from "../../knowledge/knowledge-customer-site-map-v1.js";
+import { buildCustomerProjectsPageV1 } from "../../knowledge/knowledge-customer-projects-v1.js";
+import { resolveCustomerDocumentPageV1 } from "../../knowledge/knowledge-customer-document-v1.js";
+import { isBusinessProjectsTableAvailableV1 } from "../../knowledge/knowledge-business-projects-adapter-v1.js";
 import { tokenizeFieldMemoV1 } from "../../knowledge/knowledge-field-memo-v1.js";
 import {
   parseUnifiedKnowledgeKindsV1,
@@ -764,6 +767,10 @@ knowledgeV1Router.get("/customer-search-v1", ...auth, (req: AuthedRequest, res) 
   res.json({ hits, total: result.total, query: q, category: category || undefined });
 });
 
+function parseCustomerShareView(req: AuthedRequest): boolean {
+  return String(req.query.view ?? "").trim().toLowerCase() === "share";
+}
+
 /** GET /api/knowledge/customer-home-v2 — お客様向けホーム V2（案件一覧） */
 knowledgeV1Router.get("/customer-home-v2", ...auth, (req: AuthedRequest, res) => {
   if (!assertRole(req, res)) return;
@@ -771,7 +778,19 @@ knowledgeV1Router.get("/customer-home-v2", ...auth, (req: AuthedRequest, res) =>
   res.json(buildCustomerHomeV2());
 });
 
-/** GET /api/knowledge/customer-project-v1?ref= — 案件別お客様向けページ（V3: 本番 ref · fallback） */
+/** GET /api/knowledge/customer-projects-v1 — お客様向け案件一覧 V4 */
+knowledgeV1Router.get("/customer-projects-v1", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  ensureKnowledgeLibraryTemplatesV1();
+  const filter = String(req.query.filter ?? "").trim();
+  const query = String(req.query.q ?? req.query.query ?? "").trim();
+  res.json({
+    ...buildCustomerProjectsPageV1({ filter, query }),
+    businessProjectsAvailable: isBusinessProjectsTableAvailableV1(),
+  });
+});
+
+/** GET /api/knowledge/customer-project-v1?ref= — 案件別お客様向けページ（V3/V4: 本番 ref · share view） */
 knowledgeV1Router.get("/customer-project-v1", ...auth, (req: AuthedRequest, res) => {
   if (!assertRole(req, res)) return;
   ensureKnowledgeLibraryTemplatesV1();
@@ -780,9 +799,10 @@ knowledgeV1Router.get("/customer-project-v1", ...auth, (req: AuthedRequest, res)
     res.status(400).json({ error: "project ref is required" });
     return;
   }
-  const page = getCustomerProjectPageV1(ref);
+  const shareView = parseCustomerShareView(req);
+  const page = getCustomerProjectPageV1(ref, { shareView });
   const meta = getCustomerProjectMetaForApiV1(ref);
-  res.json({ page, meta, isFallback: Boolean(page.isFallback) });
+  res.json({ page, meta, isFallback: Boolean(page.isFallback), shareView });
 });
 
 /** GET /api/knowledge/customer-site-map-v1?ref= — 案件別 Site Map */
@@ -793,8 +813,9 @@ knowledgeV1Router.get("/customer-site-map-v1", ...auth, (req: AuthedRequest, res
     res.status(400).json({ error: "project ref is required" });
     return;
   }
-  const siteMap = getCustomerSiteMapForProjectV1(ref);
-  res.json({ siteMap, isFallback: Boolean(siteMap.isFallback) });
+  const shareView = parseCustomerShareView(req);
+  const siteMap = getCustomerSiteMapForProjectV1(ref, { shareView });
+  res.json({ siteMap, isFallback: Boolean(siteMap.isFallback), shareView });
 });
 
 /** GET /api/knowledge/customer-site-map-v1/area — エリア詳細 + 関連写真/PDF/ナレッジ */
@@ -806,7 +827,9 @@ knowledgeV1Router.get("/customer-site-map-v1/area", ...auth, (req: AuthedRequest
     res.status(400).json({ error: "ref and areaId are required" });
     return;
   }
-  const areaDetail = getCustomerSiteAreaDetailV1(ref, areaId);
+  const shareView = parseCustomerShareView(req);
+  const areaDetail = getCustomerSiteAreaDetailV1(ref, areaId, { shareView });
+  const shareQs = shareView ? `&view=share` : "";
   if (!areaDetail) {
     res.json({
       area: null,
@@ -817,7 +840,8 @@ knowledgeV1Router.get("/customer-site-map-v1/area", ...auth, (req: AuthedRequest
       afterPoints: [],
       customerWarnings: [],
       preparingMessage: "このエリアの資料を準備中です。",
-      projectPageUrl: `/knowledge-customer-project-v1?ref=${encodeURIComponent(ref)}`,
+      projectPageUrl: `/knowledge-customer-project-v1?ref=${encodeURIComponent(ref)}${shareQs}`,
+      shareView,
     });
     return;
   }
@@ -830,8 +854,24 @@ knowledgeV1Router.get("/customer-site-map-v1/area", ...auth, (req: AuthedRequest
     beforePoints: areaDetail.beforePoints,
     afterPoints: areaDetail.afterPoints,
     customerWarnings: areaDetail.customerWarnings,
-    projectPageUrl: `/knowledge-customer-project-v1?ref=${encodeURIComponent(ref)}`,
+    projectPageUrl: `/knowledge-customer-project-v1?ref=${encodeURIComponent(ref)}${shareQs}`,
+    mapAsset: getCustomerSiteMapForProjectV1(ref, { shareView }).mapAsset,
+    shareView,
   });
+});
+
+/** GET /api/knowledge/customer-document-v1?ref=&fileId= — お客様向け PDF 閲覧 V4 */
+knowledgeV1Router.get("/customer-document-v1", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const ref = String(req.query.ref ?? "").trim();
+  const fileId = String(req.query.fileId ?? "").trim();
+  if (!ref || !fileId) {
+    res.status(400).json({ error: "ref and fileId are required" });
+    return;
+  }
+  const shareView = parseCustomerShareView(req);
+  const document = resolveCustomerDocumentPageV1({ ref, fileId, shareView });
+  res.json({ document, shareView });
 });
 
 /** GET /api/knowledge/customer-project-file-v1 — お客様向け案件ファイル配信 */

@@ -511,6 +511,12 @@ export function createApp(): express.Application {
   app.get("/knowledge-customer-site-map-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "knowledge-customer-site-map-v1.html"));
   });
+  app.get("/knowledge-customer-projects-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "knowledge-customer-projects-v1.html"));
+  });
+  app.get("/knowledge-customer-document-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "knowledge-customer-document-v1.html"));
+  });
   app.get("/ai-estimate-engine-v1", (_req, res) => {
     res.redirect(302, "/master-v1?tab=stats");
   });

@@ -18,6 +18,11 @@ import {
   type KnowledgeCustomerSiteAreaV1,
 } from "./knowledge-customer-site-map-v1.js";
 import { unifiedKnowledgeSearchV1 } from "./unified-knowledge-search-v1.js";
+import { buildCustomerDocumentLinkV1 } from "./knowledge-customer-document-v1.js";
+import {
+  filterCustomerMaterialsForShareV1,
+  filterCustomerPdfSectionsForShareV1,
+} from "./knowledge-customer-share-filter-v1.js";
 
 export interface KnowledgeCustomerProjectSummaryV1 {
   ref: string;
@@ -98,12 +103,14 @@ export interface KnowledgeCustomerProjectPageV1 {
   materials: KnowledgeCustomerMaterialItemV1[];
   siteMapUrl: string;
   materialsSectionLabel: string;
-  customerHomeUrl: string;
-  customerHomeV2Url: string;
+  customerHomeUrl?: string;
+  customerHomeV2Url?: string;
   statusLabel?: string;
   visitDateLabel?: string;
   isFallback?: boolean;
   preparingMessage?: string;
+  isShareView?: boolean;
+  shareView?: boolean;
 }
 
 const DEMO_PROJECT_DEFS: Record<
@@ -189,36 +196,58 @@ function fileToPhotoItem(f: KnowledgeCustomerProjectFileV1): KnowledgeCustomerPh
   };
 }
 
-function fileToPdfItem(f: KnowledgeCustomerProjectFileV1): KnowledgeCustomerPdfSectionItemV1 {
+function fileToPdfItem(
+  ref: string,
+  f: KnowledgeCustomerProjectFileV1,
+  shareView: boolean
+): KnowledgeCustomerPdfSectionItemV1 {
+  const docUrl = buildCustomerDocumentLinkV1(ref, f.fileId, shareView);
   return {
     fileId: f.fileId,
     title: f.title,
     safeLabel: f.safeLabel,
-    openUrl: safeUrl(f.openUrl),
+    openUrl: safeUrl(docUrl),
     viewLabel: f.type === "part_doc" || f.type === "print3d" ? "資料を確認する" : "PDFを見る",
   };
 }
 
-function buildPhotoSections(files: KnowledgeCustomerProjectFileV1[]): KnowledgeCustomerPhotoSectionsV1 {
+function buildPhotoSections(
+  files: KnowledgeCustomerProjectFileV1[],
+  shareView = false
+): KnowledgeCustomerPhotoSectionsV1 {
   const photos = files.filter((f) => f.type.includes("photo"));
+  const mapItem = (f: KnowledgeCustomerProjectFileV1) => {
+    const item = fileToPhotoItem(f);
+    if (!shareView) return item;
+    return {
+      ...item,
+      previewUrl: item.previewUrl && !/\/api\//i.test(item.previewUrl) ? item.previewUrl : undefined,
+      openUrl: undefined,
+    };
+  };
   return {
-    before: photos.filter((f) => f.type === "before_photo" || f.type === "survey_photo").map(fileToPhotoItem),
-    during: photos.filter((f) => f.type === "during_photo").map(fileToPhotoItem),
-    after: photos.filter((f) => f.type === "after_photo").map(fileToPhotoItem),
-    memo: photos.filter((f) => f.type === "memo_photo").map(fileToPhotoItem),
+    before: photos.filter((f) => f.type === "before_photo" || f.type === "survey_photo").map(mapItem),
+    during: photos.filter((f) => f.type === "during_photo").map(mapItem),
+    after: photos.filter((f) => f.type === "after_photo").map(mapItem),
+    memo: photos.filter((f) => f.type === "memo_photo").map(mapItem),
   };
 }
 
-function buildPdfSections(files: KnowledgeCustomerProjectFileV1[]): KnowledgeCustomerPdfSectionsV1 {
+function buildPdfSections(
+  ref: string,
+  files: KnowledgeCustomerProjectFileV1[],
+  shareView: boolean
+): KnowledgeCustomerPdfSectionsV1 {
   const pdfs = files.filter((f) => f.type.includes("pdf") || f.type === "part_doc" || f.type === "print3d");
-  return {
-    specification: pdfs.filter((f) => f.type === "specification_pdf").map(fileToPdfItem),
-    completion: pdfs.filter((f) => f.type === "completion_pdf").map(fileToPdfItem),
-    estimate: pdfs.filter((f) => f.type === "estimate_pdf").map(fileToPdfItem),
-    invoice: pdfs.filter((f) => f.type === "invoice_pdf").map(fileToPdfItem),
-    manual: pdfs.filter((f) => f.type === "manual_pdf").map(fileToPdfItem),
-    parts: pdfs.filter((f) => f.type === "part_doc" || f.type === "print3d").map(fileToPdfItem),
+  const sections: KnowledgeCustomerPdfSectionsV1 = {
+    specification: pdfs.filter((f) => f.type === "specification_pdf").map((f) => fileToPdfItem(ref, f, shareView)),
+    completion: pdfs.filter((f) => f.type === "completion_pdf").map((f) => fileToPdfItem(ref, f, shareView)),
+    estimate: pdfs.filter((f) => f.type === "estimate_pdf").map((f) => fileToPdfItem(ref, f, shareView)),
+    invoice: pdfs.filter((f) => f.type === "invoice_pdf").map((f) => fileToPdfItem(ref, f, shareView)),
+    manual: pdfs.filter((f) => f.type === "manual_pdf").map((f) => fileToPdfItem(ref, f, shareView)),
+    parts: pdfs.filter((f) => f.type === "part_doc" || f.type === "print3d").map((f) => fileToPdfItem(ref, f, shareView)),
   };
+  return shareView ? filterCustomerPdfSectionsForShareV1(sections) : sections;
 }
 
 function buildMaterialsForProject(
@@ -371,15 +400,19 @@ export function listCustomerDemoProjectsV1(): KnowledgeCustomerProjectSummaryV1[
   return [...productionSamples, ...demos];
 }
 
-export function getCustomerProjectPageV1(ref: string): KnowledgeCustomerProjectPageV1 {
+export function getCustomerProjectPageV1(
+  ref: string,
+  options?: { shareView?: boolean }
+): KnowledgeCustomerProjectPageV1 {
+  const shareView = Boolean(options?.shareView);
   const normalized = normalizeCustomerProjectRefV1(ref);
   const meta = resolveCustomerProjectMetaV1(normalized);
   const templateKey = meta.templateKey ?? getCustomerProjectTemplateKeyV1(normalized);
   const def = DEMO_PROJECT_DEFS[templateKey] ?? DEMO_PROJECT_DEFS["DEMO-HOME-001"];
 
   const projectFiles = listCustomerProjectFilesV1(normalized);
-  const photoSections = buildPhotoSections(projectFiles);
-  const pdfSections = buildPdfSections(projectFiles);
+  const photoSections = buildPhotoSections(projectFiles, shareView);
+  const pdfSections = buildPdfSections(normalized, projectFiles, shareView);
 
   const knowledgeRefs =
     meta.relatedKnowledgeIds.length > 0 ? meta.relatedKnowledgeIds : def.knowledgeRefs;
@@ -402,15 +435,17 @@ export function getCustomerProjectPageV1(ref: string): KnowledgeCustomerProjectP
     normalized
   ).map((f) => ({
     label: f.safeLabel,
-    previewUrl: safeUrl(f.previewUrl),
+    previewUrl: shareView ? undefined : safeUrl(f.previewUrl),
   }));
 
   const relatedPdfs: KnowledgeCustomerProjectPageV1["relatedPdfs"] = getCustomerProjectPdfsV1(
     normalized
-  ).map((f) => ({
-    label: f.safeLabel,
-    viewUrl: safeUrl(f.openUrl),
-  }));
+  )
+    .filter((f) => !shareView || f.type !== "invoice_pdf")
+    .map((f) => ({
+      label: f.safeLabel,
+      viewUrl: safeUrl(buildCustomerDocumentLinkV1(normalized, f.fileId, shareView)),
+    }));
 
   for (const q of def.searchQueries) {
     const hits = unifiedKnowledgeSearchV1({ query: q, limit: 3 }).hits;
@@ -428,7 +463,10 @@ export function getCustomerProjectPageV1(ref: string): KnowledgeCustomerProjectP
     if (relatedKnowledge.length >= 6) break;
   }
 
-  const materials = buildMaterialsForProject(normalized, def);
+  let materials = buildMaterialsForProject(normalized, def);
+  if (shareView) {
+    materials = filterCustomerMaterialsForShareV1(materials);
+  }
 
   for (const pf of projectFiles) {
     if (pf.type.includes("photo")) {
@@ -438,16 +476,19 @@ export function getCustomerProjectPageV1(ref: string): KnowledgeCustomerProjectP
         type: "photo",
         title: pf.safeLabel,
         category: pf.category,
-        previewUrl: safeUrl(pf.previewUrl),
+        previewUrl: shareView ? undefined : safeUrl(pf.previewUrl),
         tags: [pf.category, "写真"],
         hasPhoto: true,
         hasPdf: false,
         hasPart: false,
         hasExplanation: false,
-        detailUrl: safeUrl(pf.openUrl) || "#photos-section",
+        detailUrl: shareView ? "#photos-section" : safeUrl(pf.openUrl) || "#photos-section",
       });
     }
   }
+
+  const shareQs = shareView ? "&view=share" : "";
+  const siteMapUrl = `/knowledge-customer-site-map-v1?ref=${encodeURIComponent(normalized)}${shareQs}`;
 
   return {
     propertyName: meta.displayName,
@@ -461,14 +502,16 @@ export function getCustomerProjectPageV1(ref: string): KnowledgeCustomerProjectP
     photoSections,
     pdfSections,
     materials,
-    siteMapUrl: `/knowledge-customer-site-map-v1?ref=${encodeURIComponent(normalized)}`,
+    siteMapUrl,
     materialsSectionLabel: "資料一覧",
-    customerHomeUrl: "/knowledge-customer-v1",
-    customerHomeV2Url: "/knowledge-customer-v2",
+    customerHomeUrl: shareView ? undefined : "/knowledge-customer-v1",
+    customerHomeV2Url: shareView ? undefined : "/knowledge-customer-v2",
     statusLabel: meta.status,
     visitDateLabel: meta.visitDate ? `現調日: ${meta.visitDate}` : undefined,
     isFallback: meta.isFallback,
     preparingMessage: meta.isFallback ? "資料を準備中です。順次追加しております。" : undefined,
+    isShareView: shareView,
+    shareView,
   };
 }
 

@@ -1,0 +1,158 @@
+/** Knowledge Customer UI V4 — 案件一覧 · PDF閲覧 · 共有モード · スマホUI */
+
+.customer-projects-page .customer-search-row {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  padding: 0.75rem 0 0.5rem;
+  background: linear-gradient(180deg, #f0f9ff 85%, transparent);
+}
+
+.customer-search-input-v4 {
+  width: 100%;
+  min-height: 3rem;
+  border: 1px solid #bae6fd;
+  border-radius: 14px;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  background: #fff;
+}
+
+.customer-project-card-v4 {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  cursor: pointer;
+  margin-bottom: 0.85rem;
+  padding: 1rem;
+}
+
+.customer-project-card-v4 .customer-project-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.customer-project-card-v4 .customer-project-card-icon {
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.customer-project-card-v4 .customer-project-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.55rem;
+}
+
+.customer-project-card-v4 .customer-project-chip {
+  font-size: 0.72rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.customer-filter-row-v4 {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  padding: 0.35rem 0 0.75rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.customer-document-page {
+  padding-bottom: 5.5rem;
+}
+
+.customer-document-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 0.85rem;
+  background: rgba(240, 249, 255, 0.96);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.customer-document-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.customer-document-title strong {
+  display: block;
+  font-size: 0.95rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.customer-document-title small {
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.customer-document-frame-wrap {
+  margin: 0.75rem;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  min-height: 60vh;
+}
+
+.customer-document-frame {
+  width: 100%;
+  min-height: 60vh;
+  border: 0;
+  background: #f8fafc;
+}
+
+.customer-document-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+  padding: 0 0.75rem 1rem;
+}
+
+.customer-document-actions .customer-action-btn {
+  min-height: 3.25rem;
+  font-size: 1rem;
+}
+
+.customer-pdf-btn-v3,
+.customer-pdf-btn-v4 {
+  min-height: 3.5rem;
+}
+
+.customer-bottom-nav-share {
+  grid-template-columns: 1fr 1fr;
+}
+
+.customer-bottom-nav-share .customer-nav-item {
+  min-height: 3.75rem;
+}
+
+.customer-sitemap-integration-note {
+  margin: 0 0 1rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 12px;
+  background: #eff6ff;
+  color: #1e40af;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.customer-share-banner {
+  margin: 0 0 0.75rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 12px;
+  background: #ecfdf5;
+  color: #166534;
+  font-size: 0.88rem;
+}

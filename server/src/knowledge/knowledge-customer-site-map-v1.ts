@@ -10,6 +10,39 @@ import {
   type KnowledgeCustomerProjectFileV1,
 } from "./knowledge-customer-project-files-v1.js";
 import { getKnowledgeCustomerDetailV1 } from "./knowledge-customer-detail-v1.js";
+import { buildCustomerDocumentLinkV1 } from "./knowledge-customer-document-v1.js";
+import { filterCustomerProjectFilesForShareV1 } from "./knowledge-customer-share-filter-v1.js";
+
+export type KnowledgeCustomerSiteMapTypeV1 = "2d" | "lidar" | "floorplan" | "threeD";
+
+export interface KnowledgeCustomerMapPointV1 {
+  x: number;
+  y: number;
+  label: string;
+}
+
+export interface KnowledgeCustomerMapLineV1 {
+  points: KnowledgeCustomerMapPointV1[];
+  label: string;
+}
+
+export interface KnowledgeCustomerMapPolygonV1 {
+  areaId: string;
+  points: KnowledgeCustomerMapPointV1[];
+}
+
+export interface KnowledgeCustomerSiteMapAssetV1 {
+  mapType: KnowledgeCustomerSiteMapTypeV1;
+  floorLevel?: number;
+  lidarAssetId?: string;
+  floorplanAssetId?: string;
+  cameraPositions?: KnowledgeCustomerMapPointV1[];
+  sensorPositions?: KnowledgeCustomerMapPointV1[];
+  routeLines?: KnowledgeCustomerMapLineV1[];
+  areaPolygons?: KnowledgeCustomerMapPolygonV1[];
+  integrationStatusLabel: string;
+  integrationNote: string;
+}
 
 export interface KnowledgeCustomerSiteLocationV1 {
   id: string;
@@ -61,9 +94,39 @@ export interface KnowledgeCustomerSiteMapPageV1 {
   customerSafeTitle: string;
   areas: KnowledgeCustomerSiteAreaV1[];
   projectPageUrl: string;
-  customerHomeV2Url: string;
+  customerHomeV2Url?: string;
   isFallback?: boolean;
   preparingMessage?: string;
+  mapAsset?: KnowledgeCustomerSiteMapAssetV1;
+  isShareView?: boolean;
+}
+
+function buildMockSiteMapAssetV1(ref: string, areas: KnowledgeCustomerSiteAreaV1[]): KnowledgeCustomerSiteMapAssetV1 {
+  const polygons = areas.slice(0, 5).map((area, idx) => ({
+    areaId: area.areaId,
+    points: [
+      { x: 10 + idx * 18, y: 20, label: area.areaName },
+      { x: 24 + idx * 18, y: 20, label: "" },
+      { x: 24 + idx * 18, y: 40, label: "" },
+      { x: 10 + idx * 18, y: 40, label: "" },
+    ],
+  }));
+
+  return {
+    mapType: "2d",
+    floorLevel: 1,
+    lidarAssetId: `lidar-mock-${ref.replace(/[^\w-]/g, "")}`,
+    floorplanAssetId: `floorplan-mock-${ref.replace(/[^\w-]/g, "")}`,
+    cameraPositions: [
+      { x: 30, y: 25, label: "玄関カメラ" },
+      { x: 70, y: 35, label: "外周カメラ" },
+    ],
+    sensorPositions: [{ x: 55, y: 60, label: "センサーライト" }],
+    routeLines: [{ points: [{ x: 20, y: 80, label: "導線" }, { x: 80, y: 80, label: "" }], label: "点検導線" }],
+    areaPolygons: polygons,
+    integrationStatusLabel: "図面連携準備中",
+    integrationNote: "将来の3D・LiDAR・図面アップロード連携に備えたデータ構造です。",
+  };
 }
 
 const CATEGORY_LOCATIONS: Record<string, KnowledgeCustomerSiteLocationV1[]> = {
@@ -335,9 +398,13 @@ function buildAreaBeforeAfter(area: KnowledgeCustomerSiteAreaV1): {
 
 function enrichAreaFiles(
   ref: string,
-  area: KnowledgeCustomerSiteAreaV1
+  area: KnowledgeCustomerSiteAreaV1,
+  shareView = false
 ): Pick<KnowledgeCustomerSiteAreaDetailV1, "relatedPhotos" | "relatedPdfs"> {
-  const areaFiles = getCustomerProjectFilesByAreaV1(ref, area.areaId);
+  let areaFiles = getCustomerProjectFilesByAreaV1(ref, area.areaId);
+  if (shareView) {
+    areaFiles = filterCustomerProjectFilesForShareV1(areaFiles);
+  }
   const photoFiles = areaFiles.filter((f) => f.type.includes("photo"));
   const pdfFiles = areaFiles.filter((f) => f.type.includes("pdf") || f.type === "manual_pdf" || f.type === "part_doc");
 
@@ -351,7 +418,7 @@ function enrichAreaFiles(
   const relatedPdfs = pdfFiles.map((f) => ({
     fileId: f.fileId,
     safeLabel: f.safeLabel,
-    openUrl: safeUrl(f.openUrl),
+    openUrl: safeUrl(buildCustomerDocumentLinkV1(ref, f.fileId, shareView)),
     viewLabel: f.type === "part_doc" ? "資料を確認する" : "PDFを見る",
   }));
 
@@ -382,24 +449,32 @@ export function buildCustomerSiteLocationsV1(category: string, tags: string[] = 
   return found;
 }
 
-export function getCustomerSiteMapForProjectV1(ref: string): KnowledgeCustomerSiteMapPageV1 {
+export function getCustomerSiteMapForProjectV1(
+  ref: string,
+  options?: { shareView?: boolean }
+): KnowledgeCustomerSiteMapPageV1 {
+  const shareView = Boolean(options?.shareView);
   const normalized = normalizeCustomerProjectRefV1(ref);
   const meta = resolveCustomerProjectMetaV1(normalized);
   const templateKey = meta.templateKey ?? getCustomerProjectTemplateKeyV1(normalized);
   const entry = PROJECT_SITE_MAPS[templateKey] ?? PROJECT_SITE_MAPS["DEMO-HOME-001"];
+  const areas = entry.areas.map((a) => ({
+    ...a,
+    knowledgeCount: a.relatedKnowledgeIds.length,
+  }));
+  const shareQs = shareView ? "&view=share" : "";
 
   return {
     propertyName: meta.displayName,
     workGenre: meta.workType || entry.workGenre,
     customerSafeTitle: meta.customerSafeTitle,
-    areas: entry.areas.map((a) => ({
-      ...a,
-      knowledgeCount: a.relatedKnowledgeIds.length,
-    })),
-    projectPageUrl: `/knowledge-customer-project-v1?ref=${encodeURIComponent(normalized)}`,
-    customerHomeV2Url: "/knowledge-customer-v2",
+    areas,
+    projectPageUrl: `/knowledge-customer-project-v1?ref=${encodeURIComponent(normalized)}${shareQs}`,
+    customerHomeV2Url: shareView ? undefined : "/knowledge-customer-v2",
     isFallback: meta.isFallback,
     preparingMessage: meta.isFallback ? "配置図を準備中です。" : undefined,
+    mapAsset: buildMockSiteMapAssetV1(normalized, areas),
+    isShareView: shareView,
   };
 }
 
@@ -410,13 +485,15 @@ export function getCustomerSiteAreaV1(ref: string, areaId: string): KnowledgeCus
 
 export function getCustomerSiteAreaDetailV1(
   ref: string,
-  areaId: string
+  areaId: string,
+  options?: { shareView?: boolean }
 ): KnowledgeCustomerSiteAreaDetailV1 | null {
   const area = getCustomerSiteAreaV1(ref, areaId);
   if (!area) return null;
 
   const normalized = normalizeCustomerProjectRefV1(ref);
-  const fileData = enrichAreaFiles(normalized, area);
+  const shareView = Boolean(options?.shareView);
+  const fileData = enrichAreaFiles(normalized, area, shareView);
   const ba = buildAreaBeforeAfter(area);
 
   return {
