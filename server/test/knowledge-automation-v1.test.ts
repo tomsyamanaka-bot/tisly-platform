@@ -130,16 +130,19 @@ describe("Knowledge Automation Engine v1", () => {
   });
 
   it("POST /api/knowledge/candidates/:id/approve registers knowledge card", async () => {
-    const list = await request(app)
-      .get("/api/knowledge/candidates?status=pending")
+    const run = await request(app)
+      .post(`/api/knowledge/automation/run/${projectId}`)
       .set("Authorization", `Bearer ${token}`);
-    const candidate = list.body.candidates[0];
-    assert.ok(candidate?.id);
+    assert.equal(run.status, 200);
+    const candidate =
+      run.body.candidates?.find((c: { status?: string }) => c.status === "pending") ??
+      run.body.candidates?.[0];
+    assert.ok(candidate?.id, run.body?.error ?? "no candidate from automation run");
 
     const res = await request(app)
       .post(`/api/knowledge/candidates/${candidate.id}/approve`)
       .set("Authorization", `Bearer ${token}`);
-    assert.equal(res.status, 200);
+    assert.equal(res.status, 200, res.body?.error);
     assert.ok(res.body.card?.id);
     assert.equal(res.body.candidate.status, "approved");
   });

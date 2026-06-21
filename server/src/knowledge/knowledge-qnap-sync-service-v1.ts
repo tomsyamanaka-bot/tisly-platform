@@ -1,9 +1,8 @@
-/** TiSLY Knowledge QNAP 同期サービス v1 */
+/** TiSLY Knowledge QNAP 同期サービス v1 — KnowledgeCards / Candidates / Assets / SearchIndex */
 
 import fs from "fs";
 import path from "path";
 import { QnapWebDavClient } from "../business/services/qnapWebDav.js";
-import { buildMothershipKnowledgeRelativePath } from "../storage/mothership-paths-v1.js";
 import {
   getStorageSettingsV1,
   type StorageSettingsV1,
@@ -55,49 +54,84 @@ async function realUpload(
   }
 }
 
+async function uploadItem(
+  settings: StorageSettingsV1,
+  item: KnowledgeQnapQueueItemV1
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  return isQnapStorageMockMode(settings) ? mockUpload(settings, item) : realUpload(settings, item);
+}
+
 function updateCardQnapStatus(cardId: string, status: "pending" | "success" | "failed"): void {
   const card = getKnowledgeCardV1(cardId);
   if (!card) return;
   saveKnowledgeCardV1({ ...card, qnapSyncStatus: status }, { skipQnapQueue: true });
 }
 
+export function getKnowledgeQnapConnectionInfoV1(): {
+  enabled: boolean;
+  mockMode: boolean;
+  host: string;
+  shareName: string;
+  connected: boolean;
+  message: string;
+} {
+  const settings = getStorageSettingsV1();
+  const mockMode = isQnapStorageMockMode(settings);
+  const enabled = settings.qnapBackupEnabled;
+  if (!enabled) {
+    return {
+      enabled: false,
+      mockMode: true,
+      host: settings.qnap.host,
+      shareName: settings.qnap.shareName,
+      connected: false,
+      message: "QNAP backup disabled — local queue only",
+    };
+  }
+  if (mockMode) {
+    return {
+      enabled: true,
+      mockMode: true,
+      host: settings.qnap.host,
+      shareName: settings.qnap.shareName,
+      connected: true,
+      message: "Mock mode — files mirrored to uploads/qnap-storage-mock",
+    };
+  }
+  return {
+    enabled: true,
+    mockMode: false,
+    host: settings.qnap.host,
+    shareName: settings.qnap.shareName,
+    connected: true,
+    message: "WebDAV configured — worker syncs on tick",
+  };
+}
+
 export async function processKnowledgeQnapSyncItemV1(item: KnowledgeQnapQueueItemV1): Promise<boolean> {
   const settings = getStorageSettingsV1();
   if (!settings.qnapBackupEnabled) {
     markKnowledgeQnapFailedV1(item.id, "QNAP backup disabled");
-    updateCardQnapStatus(item.cardId, "failed");
+    if (item.syncKind === "KnowledgeCards") {
+      updateCardQnapStatus(item.resourceId, "failed");
+    }
     return false;
   }
 
   markKnowledgeQnapUploadingV1(item.id);
-  const result = isQnapStorageMockMode(settings)
-    ? await mockUpload(settings, item)
-    : await realUpload(settings, item);
+  const result = await uploadItem(settings, item);
 
   if (result.ok) {
     markKnowledgeQnapSuccessV1(item.id);
-    updateCardQnapStatus(item.cardId, "success");
-
-    const indexPath = path.join(
-      process.cwd(),
-      "data",
-      "knowledge",
-      "SearchIndex",
-      "index.json"
-    );
-    if (fs.existsSync(indexPath)) {
-      const indexRel = buildMothershipKnowledgeRelativePath("SearchIndex", "index.json");
-      const indexUpload = isQnapStorageMockMode(settings)
-        ? await mockUpload(settings, { ...item, relativePath: indexRel, localPath: indexPath })
-        : await realUpload(settings, { ...item, relativePath: indexRel, localPath: indexPath });
-      if (!indexUpload.ok) {
-        /* index sync is best-effort */
-      }
+    if (item.syncKind === "KnowledgeCards") {
+      updateCardQnapStatus(item.resourceId, "success");
     }
     return true;
   }
 
   markKnowledgeQnapFailedV1(item.id, result.error);
-  updateCardQnapStatus(item.cardId, "failed");
+  if (item.syncKind === "KnowledgeCards") {
+    updateCardQnapStatus(item.resourceId, "failed");
+  }
   return false;
 }

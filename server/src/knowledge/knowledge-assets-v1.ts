@@ -19,6 +19,7 @@ import {
   buildMothership3DPrintAssetRelativePath,
 } from "../storage/mothership-paths-v1.js";
 import { saveKnowledgeCandidateV1 } from "./knowledge-candidates-store-v1.js";
+import { enqueueKnowledgeAssetSyncV1 } from "./knowledge-qnap-enqueue-v1.js";
 
 function assetsRegistryPath(): string {
   ensureKnowledgeFolderStructure();
@@ -65,7 +66,7 @@ function ensureLocalAssetDirs(): void {
 
 function safeId(prefix: string, name: string): string {
   const slug = name
-    .replace(/[^a-zA-Z0-9\u3040-\u30ff\u4e00-\u9faf]+/g, "-")
+    .replace(/[^a-zA-Z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 24)
     .toUpperCase();
@@ -154,6 +155,10 @@ export function registerKnowledgeAssetV1(input: {
   const assets = readRegistry().filter((a) => a.id !== asset.id);
   assets.push(asset);
   writeRegistry(assets);
+
+  enqueueKnowledgeAssetSyncV1(asset.id, localPath, relativePath);
+  const registryPath = assetsRegistryPath();
+  enqueueKnowledgeAssetSyncV1(`${asset.id}-registry`, registryPath, "AI/Assets/registry.json");
 
   const source =
     domain === "PLC" ? "plc_asset" : domain === "3DPrint" ? "threedprint_asset" : "factory_asset";

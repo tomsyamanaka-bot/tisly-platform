@@ -395,6 +395,21 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | フック | `createBusinessProject` · `transitionProjectStatus` で自動候補生成 |
 | テスト | `server/test/knowledge-automation-v1.test.ts`（10ケース） |
 
+### Knowledge Sync Stabilization v1（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | QNAP MotherShip と Knowledge 候補運用の安定化 — AI検索/Embedding/RAG は未実装 |
+| Phase1 QNAP同期 | `KnowledgeCards` · `Candidates` · `Assets` · `SearchIndex` を WebDAV/mock へ実ファイル同期 |
+| 同期キュー | `qnap-sync-queue.json` — 未接続時ローカル保持 · 再接続時 Worker 自動再送 · 失敗ログ `qnap-sync-failures.json` |
+| 同期API | `GET /api/knowledge/qnap-sync/status`（byKind · connection · recentFailures）· `POST .../retry-all` |
+| Phase2 候補UI | `/knowledge-candidates-v1` — 複数選択 · 全選択 · 一括承認/却下 · カテゴリ/案件IDフィルター |
+| 一括API | `POST /api/knowledge/candidates/bulk/approve` · `POST .../bulk/reject` |
+| Phase3 PDF解析 | 見積/請求/仕様/完了報告 — 案件ID · 顧客名 · 物件名 · 工事件名 · 金額 · 部材 · 写真枚数 · 備考 |
+| Phase4 OCR準備 | `PhotoOcrEngineV1` interface · `rule_based_v1` · `dummy_v1` · 写真種別（盤/ブレーカ/ラベル/カメラ/NVR） |
+| Phase5 Explorer | `/mothership-explorer-v1` — トップフォルダ件数 · 最近更新 · QNAP接続/同期状態 · Knowledge対象表示 |
+| テスト | `server/test/knowledge-sync-stabilization-v1.test.ts`（10ケース） |
+
 ---
 
 ## 関連ドキュメント

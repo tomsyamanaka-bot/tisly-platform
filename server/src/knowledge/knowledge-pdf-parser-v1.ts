@@ -1,8 +1,9 @@
 /** TiSLY Knowledge Automation Engine v1 — PDF ルールベース解析（AI 不使用） */
 
 import { getBusinessProject, getEstimate, getInvoice, getCompletionReport } from "../business/business-store.js";
+import { listCompletionPhotosV1 } from "../estimate/completion-photos-store.js";
 import { listProjectPdfsV1, type ProjectPdfKind } from "../projects/project-pdf-store.js";
-import { listSurveyMaterialsV1, listSurveyIpEquipmentV1 } from "../survey/survey-v1-store.js";
+import { listSurveyMaterialsV1, listSurveyIpEquipmentV1, listSurveyPhotosV1 } from "../survey/survey-v1-store.js";
 import type { KnowledgePdfExtractV1 } from "./knowledge-automation-types.js";
 
 const EQUIPMENT_CATEGORIES = new Set(["equipment", "機器", "カメラ", "防犯", "nvr", "recorder"]);
@@ -84,6 +85,34 @@ function collectFromSurvey(project: NonNullable<ReturnType<typeof getBusinessPro
   return { equipment: uniqueStrings(equipment), materials: uniqueStrings(materials) };
 }
 
+function countPhotosForKind(
+  project: NonNullable<ReturnType<typeof getBusinessProject>>,
+  pdfKind: KnowledgePdfExtractV1["pdfKind"]
+): number {
+  if (pdfKind === "specification" && project.surveyProjectId) {
+    return listSurveyPhotosV1(project.surveyProjectId).length;
+  }
+  if (pdfKind === "report") {
+    return listCompletionPhotosV1(project.id).length;
+  }
+  return 0;
+}
+
+function collectAmounts(
+  project: NonNullable<ReturnType<typeof getBusinessProject>>,
+  pdfKind: KnowledgePdfExtractV1["pdfKind"]
+): { amount?: number; subtotal?: number } {
+  if (pdfKind === "estimate" && project.estimateId) {
+    const est = getEstimate(project.estimateId);
+    if (est) return { amount: est.total, subtotal: est.subtotal };
+  }
+  if (pdfKind === "invoice" && project.invoiceId) {
+    const inv = getInvoice(project.invoiceId);
+    if (inv) return { amount: inv.total, subtotal: inv.subtotal };
+  }
+  return {};
+}
+
 export function parseProjectPdfKnowledgeV1(input: {
   projectId: string;
   pdfKind: "estimate" | "invoice" | "specification" | "report";
@@ -95,6 +124,8 @@ export function parseProjectPdfKnowledgeV1(input: {
   const fromEstimate = collectFromEstimateItems(project.id);
   const fromSurvey = collectFromSurvey(project);
   const notes = collectNotes(project);
+  const amounts = collectAmounts(project, input.pdfKind);
+  const photoCount = countPhotosForKind(project, input.pdfKind);
 
   let extraEquipment: string[] = [];
   let extraMaterials: string[] = [];
@@ -127,10 +158,15 @@ export function parseProjectPdfKnowledgeV1(input: {
   return {
     projectNo: project.projectNo,
     customerName: project.customerName,
+    propertyName: project.address?.trim() || project.title,
+    constructionName: project.title,
     category,
     equipmentNames: uniqueStrings([...fromSurvey.equipment, ...fromEstimate.equipment, ...extraEquipment]),
     materialNames: uniqueStrings([...fromSurvey.materials, ...fromEstimate.materials, ...extraMaterials]),
     notes: uniqueStrings(notes),
+    amount: amounts.amount,
+    subtotal: amounts.subtotal,
+    photoCount,
     pdfKind: input.pdfKind,
     fileName: pdfMeta?.fileName ?? undefined,
     localPath: pdfMeta?.pdfPath ?? undefined,
@@ -140,8 +176,12 @@ export function parseProjectPdfKnowledgeV1(input: {
 export function buildPdfCandidateSummaryV1(extract: KnowledgePdfExtractV1): string {
   const parts: string[] = [
     `${extract.customerName} · 案件 ${extract.projectNo}`,
+    extract.constructionName ? `工事: ${extract.constructionName}` : "",
+    extract.propertyName ? `物件: ${extract.propertyName}` : "",
+    extract.amount != null ? `金額: ¥${extract.amount.toLocaleString("ja-JP")}` : "",
     extract.equipmentNames.length ? `機器: ${extract.equipmentNames.slice(0, 8).join("、")}` : "",
     extract.materialNames.length ? `材料: ${extract.materialNames.slice(0, 8).join("、")}` : "",
+    extract.photoCount != null && extract.photoCount > 0 ? `写真: ${extract.photoCount}枚` : "",
     extract.notes.length ? `備考: ${extract.notes.slice(0, 2).join(" / ")}` : "",
   ].filter(Boolean);
   return parts.join(" — ");
@@ -166,6 +206,8 @@ export function buildPdfCandidateTagsV1(extract: KnowledgePdfExtractV1): string[
     extract.customerName,
     extract.category,
     extract.pdfKind ? PDF_KIND_LABELS[extract.pdfKind] : "PDF",
+    ...(extract.propertyName ? [extract.propertyName] : []),
+    ...(extract.constructionName ? [extract.constructionName] : []),
     ...extract.equipmentNames.slice(0, 5),
     ...extract.materialNames.slice(0, 5),
   ];

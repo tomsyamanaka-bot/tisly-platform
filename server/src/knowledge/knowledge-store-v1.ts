@@ -15,7 +15,10 @@ import {
   getKnowledgeSearchIndexPath,
   getWorkCategoriesMasterPath,
 } from "./knowledge-paths-v1.js";
-import { enqueueKnowledgeQnapSyncV1 } from "./knowledge-qnap-sync-store-v1.js";
+import {
+  enqueueKnowledgeCardSyncV1,
+  enqueueKnowledgeSearchIndexSyncV1,
+} from "./knowledge-qnap-enqueue-v1.js";
 
 const ID_RE = /^[A-Z0-9][A-Z0-9_-]{2,63}$/i;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -143,11 +146,8 @@ export function saveKnowledgeCardV1(input: KnowledgeCardInputV1, opts?: { skipQn
   writeJsonFile(filePath, card);
   rebuildKnowledgeSearchIndexV1();
   if (!opts?.skipQnapQueue) {
-    enqueueKnowledgeQnapSyncV1({
-      localPath: filePath,
-      relativePath: `AI/KnowledgeCards/${buildKnowledgeCardFileName(card.id)}`,
-      cardId: card.id,
-    });
+    enqueueKnowledgeCardSyncV1(card.id, filePath);
+    enqueueKnowledgeSearchIndexSyncV1();
   }
   return card;
 }
@@ -177,6 +177,7 @@ export function rebuildKnowledgeSearchIndexV1(): KnowledgeSearchIndexV1 {
     })),
   };
   writeJsonFile(getKnowledgeSearchIndexPath(), index);
+  enqueueKnowledgeSearchIndexSyncV1();
   return index;
 }
 

@@ -15,11 +15,20 @@
       background:#f1f5f9; font-size:0.82rem;
     }
     .stat-chip strong { display:block; font-size:1.1rem; }
+    .stat-chip.pending-highlight { background:#fef3c7; border:1px solid #f59e0b; }
     .filter-row { display:flex; gap:0.4rem; flex-wrap:wrap; margin:0.5rem 0; }
     .filter-row button.active { background:#334155; color:#fff; }
+    .filter-inputs { display:grid; grid-template-columns:1fr 1fr; gap:0.4rem; margin:0.5rem 0; }
+    .filter-inputs input, .filter-inputs select { width:100%; font-size:0.85rem; }
+    .bulk-bar {
+      display:flex; gap:0.4rem; flex-wrap:wrap; align-items:center;
+      padding:0.45rem; background:#f8fafc; border-radius:8px; margin:0.5rem 0;
+    }
+    .bulk-bar label { font-size:0.82rem; display:flex; align-items:center; gap:0.3rem; }
     .candidate-list { display:flex; flex-direction:column; gap:0.55rem; margin-top:0.5rem; }
     .candidate-item {
       border:1px solid #e2e8f0; border-radius:10px; padding:0.65rem 0.75rem; background:#fff;
+      display:grid; grid-template-columns:auto 1fr; gap:0.5rem; align-items:start;
     }
     .candidate-item h3 { margin:0 0 0.25rem; font-size:0.95rem; }
     .candidate-meta { font-size:0.78rem; color:#64748b; margin:0.1rem 0; }
@@ -32,16 +41,17 @@
     .status-pending { border-left:4px solid #f59e0b; }
     .status-approved { border-left:4px solid #22c55e; opacity:0.85; }
     .status-rejected { border-left:4px solid #94a3b8; opacity:0.7; }
+    .candidate-check { margin-top:0.2rem; }
   </style>
 </head>
 <body class="tisly-friendly">
   <main class="app-main">
-    <p class="section-hint">自動収集されたナレッジ候補 — 承認後のみ登録</p>
+    <p class="section-hint">自動収集されたナレッジ候補 — 承認後のみ登録 · QNAP同期キューへ</p>
 
     <div class="friendly-card">
       <h2>📥 候補一覧</h2>
       <div class="stats-row" id="stats-row">
-        <div class="stat-chip"><strong id="stat-pending">—</strong>承認待ち</div>
+        <div class="stat-chip pending-highlight"><strong id="stat-pending">—</strong>承認待ち</div>
         <div class="stat-chip"><strong id="stat-approved">—</strong>承認済</div>
         <div class="stat-chip"><strong id="stat-rejected">—</strong>却下</div>
       </div>
@@ -50,6 +60,16 @@
         <button type="button" class="friendly-btn" data-status="pending">承認待ち</button>
         <button type="button" class="friendly-btn" data-status="approved">承認済</button>
         <button type="button" class="friendly-btn" data-status="rejected">却下</button>
+      </div>
+      <div class="filter-inputs">
+        <input type="search" id="filter-project-no" placeholder="案件ID (MO-26-…)" />
+        <select id="filter-category"><option value="">カテゴリ（すべて）</option></select>
+      </div>
+      <div class="bulk-bar" id="bulk-bar">
+        <label><input type="checkbox" id="select-all" /> 全選択</label>
+        <span id="selected-count" class="status-muted">0件選択</span>
+        <button type="button" class="friendly-btn primary" id="bulk-approve" disabled>一括承認</button>
+        <button type="button" class="friendly-btn" id="bulk-reject" disabled>一括却下</button>
       </div>
       <div id="candidate-list" class="candidate-list status-muted">読み込み中…</div>
     </div>

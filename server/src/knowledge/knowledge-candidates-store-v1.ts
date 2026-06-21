@@ -5,6 +5,7 @@ import path from "path";
 import { randomBytes } from "crypto";
 import type { KnowledgeCandidateStatusV1, KnowledgeCandidateV1 } from "./knowledge-automation-types.js";
 import { getKnowledgeDataRoot, ensureKnowledgeFolderStructure } from "./knowledge-paths-v1.js";
+import { enqueueKnowledgeCandidateSyncV1 } from "./knowledge-qnap-enqueue-v1.js";
 import { saveKnowledgeCardV1, getKnowledgeCardV1 } from "./knowledge-store-v1.js";
 import type { KnowledgeCardV1 } from "./knowledge-types.js";
 
@@ -30,9 +31,12 @@ function readCandidate(filePath: string): KnowledgeCandidateV1 | null {
   }
 }
 
-function writeCandidate(candidate: KnowledgeCandidateV1): void {
+function writeCandidate(candidate: KnowledgeCandidateV1, opts?: { skipQnapQueue?: boolean }): void {
   const filePath = path.join(candidatesDir(), `${candidate.id}.json`);
   fs.writeFileSync(filePath, `${JSON.stringify(candidate, null, 2)}\n`, "utf8");
+  if (!opts?.skipQnapQueue) {
+    enqueueKnowledgeCandidateSyncV1(candidate.id);
+  }
 }
 
 export function generateKnowledgeCandidateIdV1(): string {
@@ -42,6 +46,8 @@ export function generateKnowledgeCandidateIdV1(): string {
 export function listKnowledgeCandidatesV1(filter?: {
   status?: KnowledgeCandidateStatusV1;
   projectId?: string;
+  projectNo?: string;
+  category?: string;
   source?: KnowledgeCandidateV1["source"];
 }): KnowledgeCandidateV1[] {
   const dir = candidatesDir();
@@ -53,6 +59,8 @@ export function listKnowledgeCandidatesV1(filter?: {
   }
   if (filter?.status) items = items.filter((c) => c.status === filter.status);
   if (filter?.projectId) items = items.filter((c) => c.projectId === filter.projectId);
+  if (filter?.projectNo) items = items.filter((c) => c.projectNo === filter.projectNo);
+  if (filter?.category) items = items.filter((c) => c.category === filter.category);
   if (filter?.source) items = items.filter((c) => c.source === filter.source);
   return items.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
@@ -151,6 +159,45 @@ export function approveKnowledgeCandidateV1(id: string): {
   };
   writeCandidate(updated);
   return { candidate: updated, card };
+}
+
+export function bulkApproveKnowledgeCandidatesV1(ids: string[]): {
+  approved: Array<{ id: string; cardId: string }>;
+  errors: Array<{ id: string; error: string }>;
+} {
+  const approved: Array<{ id: string; cardId: string }> = [];
+  const errors: Array<{ id: string; error: string }> = [];
+  for (const id of ids) {
+    try {
+      const result = approveKnowledgeCandidateV1(id);
+      approved.push({ id, cardId: result.card.id });
+    } catch (e) {
+      errors.push({ id, error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+  return { approved, errors };
+}
+
+export function bulkRejectKnowledgeCandidatesV1(
+  ids: string[],
+  reason = "一括却下"
+): { rejected: string[]; errors: Array<{ id: string; error: string }> } {
+  const rejected: string[] = [];
+  const errors: Array<{ id: string; error: string }> = [];
+  for (const id of ids) {
+    try {
+      rejectKnowledgeCandidateV1(id, reason);
+      rejected.push(id);
+    } catch (e) {
+      errors.push({ id, error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+  return { rejected, errors };
+}
+
+export function listKnowledgeCandidateCategoriesV1(): string[] {
+  const cats = new Set(listKnowledgeCandidatesV1().map((c) => c.category).filter(Boolean));
+  return [...cats].sort();
 }
 
 export function rejectKnowledgeCandidateV1(id: string, reason = ""): KnowledgeCandidateV1 {

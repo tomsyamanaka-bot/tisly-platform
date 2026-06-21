@@ -28,10 +28,19 @@ export type KnowledgeCandidateSourceV1 =
 export interface KnowledgePdfExtractV1 {
   projectNo: string;
   customerName: string;
+  /** 物件名（現場名・住所） */
+  propertyName?: string;
+  /** 工事件名 */
+  constructionName?: string;
   category: string;
   equipmentNames: string[];
   materialNames: string[];
   notes: string[];
+  /** 税込合計など */
+  amount?: number;
+  /** 見積/請求の税抜小計 */
+  subtotal?: number;
+  photoCount?: number;
   pdfKind?: KnowledgePdfKindV1;
   fileName?: string;
   localPath?: string;
@@ -42,9 +51,24 @@ export interface KnowledgePhotoOcrExtractV1 {
   partNumbers: string[];
   breakerCapacities: string[];
   deviceNames: string[];
+  /** 容量（GB/TB/Ah 等） */
+  capacities: string[];
+  manufacturers: string[];
+  ipAddresses: string[];
+  portNumbers: string[];
   rawText: string;
   engine: string;
+  photoType?: KnowledgePhotoOcrTypeV1;
 }
+
+/** 写真種別 — OCR エンジン差し替え用 */
+export type KnowledgePhotoOcrTypeV1 =
+  | "panel"
+  | "breaker"
+  | "model_label"
+  | "camera_body"
+  | "router_nvr"
+  | "unknown";
 
 export interface KnowledgeCandidateCardDraftV1 extends KnowledgeCardInputV1 {
   photoMeta?: {

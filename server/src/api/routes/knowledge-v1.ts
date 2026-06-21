@@ -13,8 +13,11 @@ import {
 import { captureQuickKnowledgeV1 } from "../../knowledge/knowledge-quick-v1.js";
 import {
   approveKnowledgeCandidateV1,
+  bulkApproveKnowledgeCandidatesV1,
+  bulkRejectKnowledgeCandidatesV1,
   getKnowledgeCandidateV1,
   getKnowledgeCandidatesStatsV1,
+  listKnowledgeCandidateCategoriesV1,
   listKnowledgeCandidatesV1,
   rejectKnowledgeCandidateV1,
 } from "../../knowledge/knowledge-candidates-store-v1.js";
@@ -40,7 +43,9 @@ import {
 import {
   getKnowledgeQnapSyncStatusV1,
   resetKnowledgeQnapQueueItemV1,
+  resetAllFailedKnowledgeQnapQueueV1,
 } from "../../knowledge/knowledge-qnap-sync-store-v1.js";
+import { getKnowledgeQnapConnectionInfoV1 } from "../../knowledge/knowledge-qnap-sync-service-v1.js";
 import { searchKnowledgeIndexV1 } from "../../knowledge/knowledge-search-v1.js";
 import { ensureKnowledgeLibraryTemplatesV1 } from "../../knowledge/knowledge-templates-v1.js";
 import {
@@ -202,7 +207,9 @@ knowledgeV1Router.post("/templates/seed", ...auth, (req: AuthedRequest, res) => 
 /** Phase7 — QNAP 同期ステータス */
 knowledgeV1Router.get("/qnap-sync/status", ...auth, (req: AuthedRequest, res) => {
   if (!assertRole(req, res)) return;
-  res.json(getKnowledgeQnapSyncStatusV1());
+  const status = getKnowledgeQnapSyncStatusV1();
+  const connection = getKnowledgeQnapConnectionInfoV1();
+  res.json({ ...status, connection });
 });
 
 knowledgeV1Router.post("/qnap-sync/retry/:id", ...auth, (req: AuthedRequest, res) => {
@@ -213,6 +220,12 @@ knowledgeV1Router.post("/qnap-sync/retry/:id", ...auth, (req: AuthedRequest, res
     return;
   }
   res.json({ ok: true });
+});
+
+knowledgeV1Router.post("/qnap-sync/retry-all", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const reset = resetAllFailedKnowledgeQnapQueueV1();
+  res.json({ ok: true, reset });
 });
 
 /** Phase8 — 現場クイック登録 */
@@ -239,13 +252,18 @@ knowledgeV1Router.get("/candidates", ...auth, (req: AuthedRequest, res) => {
   if (!assertRole(req, res)) return;
   const status = String(req.query.status ?? "") as "pending" | "approved" | "rejected" | "";
   const projectId = String(req.query.projectId ?? "");
+  const projectNo = String(req.query.projectNo ?? "");
+  const category = String(req.query.category ?? "");
   const candidates = listKnowledgeCandidatesV1({
     status: status || undefined,
     projectId: projectId || undefined,
+    projectNo: projectNo || undefined,
+    category: category || undefined,
   });
   res.json({
     candidates,
     stats: getKnowledgeCandidatesStatsV1(),
+    categories: listKnowledgeCandidateCategoriesV1(),
     labels: { stage: STAGE_LABELS_V1, source: SOURCE_LABELS_V1 },
   });
 });
@@ -258,6 +276,37 @@ knowledgeV1Router.get("/candidates/:id", ...auth, (req: AuthedRequest, res) => {
     return;
   }
   res.json({ candidate });
+});
+
+knowledgeV1Router.post("/candidates/bulk/approve", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  try {
+    const body = req.body ?? {};
+    const ids = Array.isArray(body.ids) ? body.ids.map(String) : [];
+    if (!ids.length) {
+      res.status(400).json({ error: "ids required" });
+      return;
+    }
+    res.json(bulkApproveKnowledgeCandidatesV1(ids));
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : "Bulk approve failed" });
+  }
+});
+
+knowledgeV1Router.post("/candidates/bulk/reject", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  try {
+    const body = req.body ?? {};
+    const ids = Array.isArray(body.ids) ? body.ids.map(String) : [];
+    if (!ids.length) {
+      res.status(400).json({ error: "ids required" });
+      return;
+    }
+    const reason = String(body.reason ?? "一括却下");
+    res.json(bulkRejectKnowledgeCandidatesV1(ids, reason));
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : "Bulk reject failed" });
+  }
 });
 
 knowledgeV1Router.post("/candidates/:id/approve", ...auth, (req: AuthedRequest, res) => {
