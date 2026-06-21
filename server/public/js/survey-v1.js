@@ -50,6 +50,8 @@ let selectedMaterialCategory = "camera";
 
 const API = "/api/survey/v1";
 let currentProjectId = null;
+let currentSiteId = null;
+let currentCustomerId = null;
 let cachedPhotos = [];
 let pendingPreviewUrls = [];
 let photoDisplayLimit = 12;
@@ -562,12 +564,21 @@ function bindDetailMemoInput() {
   });
 }
 
+function drawingEditorQuery(sketchId) {
+  const q = new URLSearchParams();
+  if (sketchId) q.set("sketchId", sketchId);
+  if (currentProjectId) q.set("projectId", currentProjectId);
+  if (currentSiteId) q.set("siteId", currentSiteId);
+  if (currentCustomerId) q.set("customerId", currentCustomerId);
+  return q.toString();
+}
+
 function drawingEditorUrl(sketchId) {
-  return `/survey-drawing-v1?sketchId=${encodeURIComponent(sketchId)}&projectId=${encodeURIComponent(currentProjectId)}`;
+  return `/survey-drawing-v1?${drawingEditorQuery(sketchId)}`;
 }
 
 function drawingEditorNewUrl() {
-  return `/survey-drawing-v1?projectId=${encodeURIComponent(currentProjectId)}`;
+  return `/survey-drawing-v1?${drawingEditorQuery()}`;
 }
 
 async function renderDrawingSketches() {
@@ -601,6 +612,8 @@ async function openDetail(projectId) {
   showView("detail");
   try {
     const p = await api(`/projects/${projectId}`);
+    currentSiteId = p.siteId || p.projectId || null;
+    currentCustomerId = p.customerId || p.customerCode || null;
     $("detail-name").textContent = p.siteName || p.customerName;
     const statusEl = $("detail-status");
     statusEl.textContent = WORKFLOW_LABELS[p.workflowStatus] || p.workflowStatus;
@@ -1429,7 +1442,7 @@ async function init() {
   await loadList();
 
   const params = new URLSearchParams(location.search);
-  const projectId = params.get("project");
+  const projectId = params.get("project") || params.get("projectId");
   if (projectId) await openDetail(projectId);
 
   $("btn-new").addEventListener("click", () => {

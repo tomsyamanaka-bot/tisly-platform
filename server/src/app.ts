@@ -106,6 +106,7 @@ import { masterV1Router } from "./api/routes/master-v1.js";
 import { knowledgeV1Router } from "./api/routes/knowledge-v1.js";
 import { tislyMonitoringV1Router } from "./api/routes/tisly-monitoring-v1.js";
 import { aiEstimateEngineV1Router } from "./api/routes/ai-estimate-engine-v1.js";
+import { registerPwaLegacyRedirects } from "./pwa/pwa-legacy-redirects.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(__dirname, "..", "public");
@@ -409,7 +410,8 @@ export function createApp(): express.Application {
   app.get("/field/new", (_req, res) => {
     res.sendFile(path.join(publicDir, "field-new.html"));
   });
-  app.get("/survey", (_req, res) => {
+  registerPwaLegacyRedirects(app);
+  app.get("/survey-legacy", (_req, res) => {
     res.sendFile(path.join(publicDir, "survey.html"));
   });
   app.get("/survey-v1", (_req, res) => {
@@ -528,6 +530,9 @@ export function createApp(): express.Application {
   });
   app.get("/route-map", (_req, res) => {
     res.sendFile(path.join(publicDir, "route-map.html"));
+  });
+  app.get("/route-health", (_req, res) => {
+    res.sendFile(path.join(publicDir, "route-health.html"));
   });
   app.get("/tisly-monitoring-3d-v3", (_req, res) => {
     res.redirect(302, "/monitoring-3d-v2");

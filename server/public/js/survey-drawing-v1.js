@@ -106,7 +106,25 @@ function pathLength(points) {
 }
 
 let sketchId = params().get("sketchId") || "";
-let projectId = params().get("projectId") || "";
+let projectId = params().get("projectId") || params().get("project") || "";
+let siteId = params().get("siteId") || "";
+let customerId = params().get("customerId") || "";
+function drawingUrlQuery() {
+  const q = new URLSearchParams();
+  if (sketchId) q.set("sketchId", sketchId);
+  if (projectId) q.set("projectId", projectId);
+  if (siteId) q.set("siteId", siteId);
+  if (customerId) q.set("customerId", customerId);
+  return q.toString();
+}
+
+function surveyBackUrl() {
+  if (!projectId) return "/survey-v1";
+  const q = new URLSearchParams({ projectId });
+  if (siteId) q.set("siteId", siteId);
+  if (customerId) q.set("customerId", customerId);
+  return `/survey-v1?${q}`;
+}
 let estimateDraftId = null;
 let estimateDraftStatus = null;
 let estimatePreviewSummary = null;
@@ -476,7 +494,7 @@ async function loadSketch() {
     });
     sketch = created.sketch;
     sketchId = sketch.id;
-    history.replaceState(null, "", `?sketchId=${encodeURIComponent(sketchId)}&projectId=${encodeURIComponent(projectId)}`);
+    history.replaceState(null, "", `?${drawingUrlQuery()}`);
   } else if (sketchId) {
     const data = await api("GET", `/api/survey/v1/drawing-sketches/${encodeURIComponent(sketchId)}`);
     sketch = data.sketch;
@@ -802,7 +820,7 @@ function wireEvents() {
   $("btn-ai-export")?.addEventListener("click", () => exportAiJson().catch((e) => setStatus(e.message)));
   $("btn-back")?.addEventListener("click", () => {
     if (dirty && !confirm("未保存の変更があります。戻りますか？")) return;
-    if (projectId) location.href = `/survey-v1?projectId=${encodeURIComponent(projectId)}`;
+    if (projectId) location.href = surveyBackUrl();
     else history.back();
   });
 
@@ -834,7 +852,7 @@ function wireEvents() {
 
 async function main() {
   if (!sessionStorage.getItem(TOKEN_KEY)) {
-    location.href = `/survey-v1?projectId=${encodeURIComponent(projectId)}`;
+    location.href = surveyBackUrl();
     return;
   }
   wireEvents();

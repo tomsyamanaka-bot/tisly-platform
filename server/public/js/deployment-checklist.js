@@ -4,7 +4,7 @@
 
 const PRODUCTION_URLS = [
   { path: "/app", label: "App Hub" },
-  { path: "/survey", label: "現調 PWA" },
+  { path: "/survey-v1", label: "現調 PWA" },
   { path: "/business", label: "TOMS Business" },
   { path: "/sales", label: "営業デモ" },
   { path: "/customer/TOMS001", label: "顧客ポータル" },

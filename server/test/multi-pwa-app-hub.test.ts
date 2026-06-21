@@ -233,10 +233,12 @@ describe("Phase 461-480 multi PWA app hub", () => {
     const m = await request(app).get("/maintenance");
     assert.equal(m.status, 200);
     assert.ok(m.text.includes("保守 PWA") || m.text.includes("保守 Maintenance"));
-    const s = await request(app).get("/survey");
-    assert.equal(s.status, 200);
-    assert.ok(s.text.includes("案件管理"));
-    assert.ok(s.text.includes("見積候補"));
+    const redirect = await request(app).get("/survey").redirects(0);
+    assert.equal(redirect.status, 301);
+    assert.match(String(redirect.headers.location), /\/survey-v1/);
+    const legacy = await request(app).get("/survey-legacy");
+    assert.equal(legacy.status, 200);
+    assert.ok(legacy.text.includes("案件管理") || legacy.text.includes("見積候補"));
   });
 
   it("serves pro-remote PWA entry", async () => {

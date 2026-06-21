@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>TiSLY Route Health</title>
+  <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 1rem; background: #f8fafc; }
+    h1 { font-size: 1.2rem; margin: 0 0 0.25rem; }
+    .hint { color: #64748b; font-size: 0.9rem; margin-bottom: 1rem; }
+    .toolbar { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+    .toolbar button { padding: 0.55rem 0.9rem; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+    th, td { border-bottom: 1px solid #e2e8f0; padding: 0.55rem 0.65rem; text-align: left; font-size: 0.88rem; vertical-align: top; }
+    th { background: #f1f5f9; }
+    .ok { color: #047857; font-weight: 600; }
+    .warn { color: #b45309; font-weight: 600; }
+    .fail { color: #b91c1c; font-weight: 600; }
+    .summary { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+    .summary div { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.6rem 0.9rem; min-width: 5rem; }
+    code { font-size: 0.82rem; word-break: break-all; }
+    a { color: #2563eb; }
+  </style>
+</head>
+<body>
+  <h1>TiSLY Route Health</h1>
+  <p class="hint">PWA ルート診断 — スマホから確認可能 · <a href="/route-map">Route Map</a> · <a href="/app">App Hub</a></p>
+  <div class="summary" id="summary">
+    <div>✅ <span id="sum-ok">0</span></div>
+    <div>⚠ <span id="sum-warn">0</span></div>
+    <div>❌ <span id="sum-fail">0</span></div>
+  </div>
+  <div class="toolbar">
+    <button type="button" id="btn-run">再チェック</button>
+  </div>
+  <table>
+    <thead>
+      <tr><th>パス</th><th>状態</th><th>詳細</th></tr>
+    </thead>
+    <tbody id="results">
+      <tr><td colspan="3">読み込み中…</td></tr>
+    </tbody>
+  </table>
+  <script type="module" src="/js/route-health.js"></script>
+</body>
+</html>

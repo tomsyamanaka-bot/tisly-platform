@@ -43,6 +43,26 @@ const COMPLETION_PHOTO_FAIL_MSG = "写真の形式か容量で失敗しました
 
 const $ = (id) => document.getElementById(id);
 
+function readUrlProjectId() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("project") || params.get("projectId") || "";
+}
+
+function readInitialListTab() {
+  const tab = new URLSearchParams(window.location.search).get("tab");
+  if (tab === "invoice") return "invoices";
+  if (tab === "projects") return "projects";
+  if (tab === "pending") return "pending";
+  return null;
+}
+
+function clearListLoading(el, fallbackHtml) {
+  if (!el) return;
+  if (el.textContent?.includes("読み込み中")) {
+    el.innerHTML = fallbackHtml;
+  }
+}
+
 function toast(msg) {
   const el = $("toast");
   el.textContent = msg;
@@ -241,13 +261,19 @@ function renderInvoiceList(projects) {
 
 async function loadInvoices() {
   const code = customerCodeFromPath();
+  const el = $("invoice-list");
   try {
     const data = await api(`/invoices?customerCode=${encodeURIComponent(code)}`);
     renderInvoiceList(data.projects || []);
   } catch (e) {
-    if ($("invoice-list")) {
-      $("invoice-list").innerHTML = `<div class="error-friendly">${renderFriendlyErrorHtml(e, e.status)}</div>`;
+    if (el) {
+      el.innerHTML = `<div class="error-friendly">${renderFriendlyErrorHtml(e, e.status)}</div>`;
     }
+  } finally {
+    clearListLoading(
+      el,
+      '<div class="empty-icon">🧾</div><p>請求書はまだありません</p><p class="section-hint">（データ取得に失敗した場合は再読み込みしてください）</p>'
+    );
   }
 }
 
@@ -1142,7 +1168,9 @@ async function loadPriceRulePresets() {
     priceRulePresets = data.presets || [];
   } catch (e) {
     console.warn("[estimate-v1] price-rules load failed", e);
-    priceRulePresets = [];
+    priceRulePresets = [
+      { id: "manual", label: "手動調整", ruleName: "手動調整", costMultiplier: 1, laborMultiplier: 1 },
+    ];
   }
 }
 
@@ -1778,21 +1806,37 @@ async function saveItems() {
 
 async function loadPending() {
   const code = customerCodeFromPath();
+  const el = $("pending-list");
   try {
     const data = await api(`/pending-surveys?customerCode=${encodeURIComponent(code)}`);
     renderPendingList(data.surveys || []);
   } catch (e) {
-    $("pending-list").innerHTML = `<div class="error-friendly">${renderFriendlyErrorHtml(e, e.status)}</div>`;
+    if (el) {
+      el.innerHTML = `<div class="error-friendly">${renderFriendlyErrorHtml(e, e.status)}</div>`;
+    }
+  } finally {
+    clearListLoading(
+      el,
+      '<div class="empty-icon">💰</div><p>見積待ちの案件はありません</p><p class="section-hint">（オフラインまたは API 未応答 — 再読み込みしてください）</p>'
+    );
   }
 }
 
 async function loadProjects() {
   const code = customerCodeFromPath();
+  const el = $("project-list");
   try {
     const data = await api(`/projects?customerCode=${encodeURIComponent(code)}`);
     renderProjectList(data.projects || []);
   } catch (e) {
-    $("project-list").innerHTML = `<div class="error-friendly">${renderFriendlyErrorHtml(e, e.status)}</div>`;
+    if (el) {
+      el.innerHTML = `<div class="error-friendly">${renderFriendlyErrorHtml(e, e.status)}</div>`;
+    }
+  } finally {
+    clearListLoading(
+      el,
+      '<div class="empty-icon">📋</div><p>まだ見積がありません</p><p class="section-hint">（データ取得に失敗した場合は再読み込みしてください）</p>'
+    );
   }
 }
 
@@ -1807,7 +1851,8 @@ function setListTab(tab) {
 }
 
 async function init() {
-  await requireCustomerLogin(customerCodeFromPath());
+  const session = await requireCustomerLogin(customerCodeFromPath());
+  if (!session) return;
   await loadPriceRulePresets();
   practicalNav = initPracticalNav({
     appId: "estimate_v1",
@@ -1817,6 +1862,8 @@ async function init() {
   });
   practicalNav.setToast(toast);
   showView("list");
+  const initialTab = readInitialListTab();
+  if (initialTab) setListTab(initialTab);
   await loadPending();
   await loadProjects();
   await loadInvoices();
@@ -2100,7 +2147,7 @@ async function init() {
     }
   });
 
-  const deepLinkProject = new URLSearchParams(window.location.search).get("project");
+  const deepLinkProject = readUrlProjectId();
   const masterDraftId = new URLSearchParams(window.location.search).get("masterDraftId");
   if (masterDraftId) {
     try {

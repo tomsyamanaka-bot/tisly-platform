@@ -58,20 +58,20 @@ export function buildHubWorkflowLinks(customerCode: string, role: string): HubWo
       id: "survey_active",
       label: "現調中案件",
       description: "進行中の現調プロジェクト",
-      href: "/survey",
+      href: "/survey-v1",
       count: activeSurveys,
     });
     links.push({
       id: "survey_unsynced",
       label: "未同期あり",
       description: "現調PWAでオフライン保存 → オンライン時に同期",
-      href: "/survey",
+      href: "/survey-v1",
     });
     links.push({
       id: "survey_ai_pending",
       label: "AI解析待ち",
       description: "AI Intake 未実行の案件",
-      href: "/survey",
+      href: "/survey-v1",
       count: pendingAi,
     });
     links.push({

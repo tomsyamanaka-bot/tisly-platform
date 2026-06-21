@@ -678,7 +678,7 @@ async function loadHubApps() {
     opsEl.innerHTML = `
       <h3 class="hub-workflows-title">今日のオペレーション</h3>
       <div class="hub-workflow-grid">
-        <a class="hub-workflow-card" href="/survey">今日の現調 <strong>${ops.todaySurveys}</strong></a>
+        <a class="hub-workflow-card" href="/survey-v1">今日の現調 <strong>${ops.todaySurveys}</strong></a>
         <a class="hub-workflow-card" href="/business/projects">今日の工事 <strong>${ops.todayConstruction}</strong></a>
         <a class="hub-workflow-card" href="/maintenance">今日の保守 <strong>${ops.todayMaintenance ?? 0}</strong></a>
         <a class="hub-workflow-card" href="/business/projects?status=estimate_created">未送信見積 <strong>${ops.unsentEstimates ?? 0}</strong></a>

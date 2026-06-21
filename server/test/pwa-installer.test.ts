@@ -75,11 +75,12 @@ describe("Phase 441-460 installer PWA app shell", () => {
   });
 
   it("serves survey placeholder", async () => {
-    const res = await request(app).get("/survey");
-    assert.equal(res.status, 200);
-    assert.ok(res.text.includes("現調 Survey"));
-    assert.ok(res.text.includes("見積候補"));
-    assert.ok(res.text.includes("案件管理"));
+    const redirect = await request(app).get("/survey").redirects(0);
+    assert.equal(redirect.status, 301);
+    assert.match(String(redirect.headers.location), /\/survey-v1/);
+    const legacy = await request(app).get("/survey-legacy");
+    assert.equal(legacy.status, 200);
+    assert.ok(legacy.text.includes("現調 Survey") || legacy.text.includes("案件管理"));
   });
 
   it("installer home page has iOS meta and Android install UI", async () => {

@@ -7,27 +7,34 @@
   <style>
     body { font-family: system-ui, sans-serif; margin: 1.5rem; line-height: 1.5; }
     h1 { font-size: 1.25rem; }
-    table { border-collapse: collapse; width: 100%; max-width: 720px; }
+    table { border-collapse: collapse; width: 100%; max-width: 960px; }
     th, td { border: 1px solid #cbd5e1; padding: 0.45rem 0.6rem; text-align: left; }
     th { background: #f1f5f9; }
     .warn { color: #b45309; }
     .ok { color: #047857; }
+    .redirect { color: #2563eb; }
   </style>
 </head>
 <body>
   <h1>TiSLY PWA Route Map</h1>
-  <p>開発・検証用 — 主要ルートと既知の不具合メモ</p>
+  <p>開発・検証用 — <a href="/route-health">Route Health 診断 →</a> · 詳細: <code>docs/routes/ROUTE_MAP.md</code></p>
   <table>
-    <thead><tr><th>パス</th><th>状態</th><th>代替</th></tr></thead>
+    <thead><tr><th>パス</th><th>状態</th><th>備考</th></tr></thead>
     <tbody>
       <tr><td>/estimate-v1</td><td class="ok">OK</td><td>見積・請求・完了報告 PWA</td></tr>
-      <tr><td>/estimate</td><td class="warn">404</td><td>/estimate-v1</td></tr>
-      <tr><td>/invoice</td><td class="warn">404</td><td>/estimate-v1（請求タブ）</td></tr>
+      <tr><td>/estimate</td><td class="redirect">301 → /estimate-v1</td><td>後方互換</td></tr>
+      <tr><td>/invoice</td><td class="redirect">301 → /estimate-v1?tab=invoice</td><td>請求タブ</td></tr>
+      <tr><td>/survey-v1</td><td class="ok">OK</td><td>現調 v1</td></tr>
+      <tr><td>/survey</td><td class="redirect">301 → /survey-v1</td><td>後方互換</td></tr>
       <tr><td>/survey-drawing-v1</td><td class="ok">OK</td><td>現調図面</td></tr>
-      <tr><td>/drawing-editor</td><td class="warn">404</td><td>/survey-drawing-v1</td></tr>
+      <tr><td>/drawing-editor</td><td class="redirect">301 → /survey-drawing-v1</td><td>後方互換</td></tr>
+      <tr><td>/projects-v1</td><td class="ok">OK</td><td>現場 PWA</td></tr>
+      <tr><td>/projects</td><td class="redirect">301 → /projects-v1</td><td>後方互換</td></tr>
+      <tr><td>/field-check-v1</td><td class="ok">OK</td><td>持ち物（/materials 相当）</td></tr>
+      <tr><td>/materials</td><td class="redirect">301 → /field-check-v1</td><td>後方互換</td></tr>
       <tr><td>/monitoring-3d-v2</td><td class="ok">OK</td><td>3D監視 V3.4</td></tr>
       <tr><td>/monitoring-map-assets-v1</td><td class="ok">OK</td><td>mapAsset Manager</td></tr>
-      <tr><td>/knowledge-customer-project-v1</td><td class="ok">OK</td><td>Customer 案件ページ</td></tr>
+      <tr><td>/route-health</td><td class="ok">OK</td><td>ルート診断</td></tr>
     </tbody>
   </table>
 </body>

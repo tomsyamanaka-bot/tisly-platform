@@ -239,21 +239,24 @@ describe("Monitoring 3D V3.4 — UI assets", () => {
 });
 
 describe("Monitoring 3D V3.4 — PWA route issues (Phase0)", () => {
-  it("/estimate returns 404 — use /estimate-v1", async () => {
-    const res = await request(app).get("/estimate");
-    assert.equal(res.status, 404);
+  it("/estimate redirects to /estimate-v1", async () => {
+    const res = await request(app).get("/estimate").redirects(0);
+    assert.equal(res.status, 301);
+    assert.match(String(res.headers.location), /\/estimate-v1/);
     const ok = await request(app).get("/estimate-v1");
     assert.equal(ok.status, 200);
   });
 
-  it("/invoice returns 404 — use /estimate-v1", async () => {
-    const res = await request(app).get("/invoice");
-    assert.equal(res.status, 404);
+  it("/invoice redirects to /estimate-v1?tab=invoice", async () => {
+    const res = await request(app).get("/invoice").redirects(0);
+    assert.equal(res.status, 301);
+    assert.match(String(res.headers.location), /tab=invoice/);
   });
 
-  it("/drawing-editor returns 404 — use /survey-drawing-v1", async () => {
-    const res = await request(app).get("/drawing-editor");
-    assert.equal(res.status, 404);
+  it("/drawing-editor redirects to /survey-drawing-v1", async () => {
+    const res = await request(app).get("/drawing-editor").redirects(0);
+    assert.equal(res.status, 301);
+    assert.match(String(res.headers.location), /\/survey-drawing-v1/);
     const ok = await request(app).get("/survey-drawing-v1");
     assert.equal(ok.status, 200);
   });
