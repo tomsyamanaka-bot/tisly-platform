@@ -47,8 +47,11 @@ import {
 } from "../../knowledge/knowledge-qnap-sync-store-v1.js";
 import { getKnowledgeQnapConnectionInfoV1 } from "../../knowledge/knowledge-qnap-sync-service-v1.js";
 import { searchKnowledgeIndexV1 } from "../../knowledge/knowledge-search-v1.js";
+import { getKnowledgeDetailV1 } from "../../knowledge/knowledge-detail-v1.js";
+import { tokenizeFieldMemoV1 } from "../../knowledge/knowledge-field-memo-v1.js";
 import {
   parseUnifiedKnowledgeKindsV1,
+  type UnifiedKnowledgeKindV1,
   unifiedKnowledgeSearchV1,
 } from "../../knowledge/unified-knowledge-search-v1.js";
 import { ensureKnowledgeLibraryTemplatesV1 } from "../../knowledge/knowledge-templates-v1.js";
@@ -98,6 +101,45 @@ knowledgeV1Router.get("/search-v1", ...auth, (req: AuthedRequest, res) => {
       limit: Number.isFinite(limitRaw) ? limitRaw : 50,
     })
   );
+});
+
+/** GET /api/knowledge/detail-v1?id=&kind= — 現場向けナレッジ詳細 */
+knowledgeV1Router.get("/detail-v1", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  ensureKnowledgeLibraryTemplatesV1();
+  const id = String(req.query.id ?? "").trim();
+  if (!id) {
+    res.status(400).json({ error: "id is required" });
+    return;
+  }
+  const kindRaw = String(req.query.kind ?? "").trim();
+  const allowedKinds = new Set([
+    "knowledge_card",
+    "candidate",
+    "project",
+    "pdf",
+    "photo",
+    "asset",
+    "plc",
+    "esp",
+    "3dprint",
+    "factory",
+  ]);
+  const kind = allowedKinds.has(kindRaw) ? (kindRaw as UnifiedKnowledgeKindV1) : undefined;
+  const detail = getKnowledgeDetailV1(id, kind);
+  if (!detail) {
+    res.status(404).json({ error: "Knowledge item not found" });
+    return;
+  }
+  res.json({ detail });
+});
+
+/** GET /api/knowledge/field-memo-tokenize?q= — 現場メモ単語分解（ルールベース） */
+knowledgeV1Router.get("/field-memo-tokenize", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const q = String(req.query.q ?? "");
+  const tokens = tokenizeFieldMemoV1(q);
+  res.json({ text: q, engine: "rule_based_v1", tokens });
 });
 
 /** GET /api/knowledge/search?q= — v1 キーワード検索 */

@@ -94,6 +94,8 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 発注管理 | `/purchase-v1` |
 | 設定（管理者） | `/settings-v1` |
 | ナレッジ検索 | `/knowledge-search-v1` |
+| 現場ナレッジ | `/knowledge-field-v1` |
+| ナレッジ詳細 | `/knowledge-detail-v1?id=` |
 | ストレージ設定 | `/storage-settings-v1` |
 | 見積マスター | `/master-v1` |
 | AI見積エンジン基盤 | `/ai-estimate-engine-v1` → `/master-v1?tab=stats` |
@@ -426,6 +428,21 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 履歴 | localStorage — 最近検索 · お気に入り · よく使う検索チップ |
 | コード | `server/src/knowledge/unified-knowledge-search-v1.ts` · `server/public/knowledge-search-v1.html` |
 | テスト | `server/test/knowledge-search-v1.test.ts` |
+
+### Knowledge Field UX V1（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | **現場 iPhone 向けナレッジ入口** — 3秒で検索開始 · AI/Embedding/RAG/Whisper/TTS は未実装 |
+| 現場検索トップ | `/knowledge-field-v1` — 大検索窓 · 検索例 · 種別/カテゴリ · よく使う検索 · 最近検索 |
+| 現場メモ検索 | ルールベース単語分解 → キーワード検索（`rule_based_v1`） |
+| 検索結果 UI | カード表示 · 一致理由 · 写真/PDF/PLC/3DPrint フラグ · 詳細/PDF/写真/テンプレ/QNAP ボタン |
+| 詳細画面 | `/knowledge-detail-v1?id=&kind=` — 概要 · タグ · 案件ID · QNAP · 手順/材料/工具 · 関連ナレッジ |
+| よく使う検索 | localStorage `tisly_knowledge_field_favorites_v1` — 追加/長押し削除 |
+| 設定連携 | `/settings-v1` → 「ナレッジ検索」「現場ナレッジ」 |
+| API | `GET /api/knowledge/detail-v1` · `GET /api/knowledge/field-memo-tokenize` |
+| コード | `server/public/knowledge-field-v1.html` · `knowledge-detail-v1.html` · `knowledge-field-shared-v1.js` |
+| テスト | `server/test/knowledge-field-v1.test.ts` |
 
 ---
 

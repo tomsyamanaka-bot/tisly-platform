@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#1e293b" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>TiSLY — 現場ナレッジ</title>
+  <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
+  <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
+  <style>
+    .field-hero { text-align: center; margin-bottom: 0.5rem; }
+    .field-hero h1 { margin: 0; font-size: 1.25rem; }
+    .field-hero p { margin: 0.3rem 0 0; color: #64748b; font-size: 0.88rem; }
+    .search-big {
+      width: 100%; box-sizing: border-box; font-size: 1.12rem;
+      min-height: 3.25rem; padding: 0.65rem 0.85rem; border-radius: 14px;
+      border: 2px solid #cbd5e1;
+    }
+    .search-big:focus { border-color: #334155; outline: none; }
+    .search-actions { display: flex; gap: 0.45rem; margin-top: 0.55rem; }
+    .search-actions button { flex: 1; min-height: 3rem; font-size: 1rem; font-weight: 700; border-radius: 12px; }
+    .section-label {
+      font-size: 0.82rem; font-weight: 700; color: #475569;
+      margin: 0.85rem 0 0.4rem;
+    }
+    .chip-grid, .chip-row {
+      display: flex; flex-wrap: wrap; gap: 0.4rem;
+    }
+    .field-chip {
+      border: 1px solid #cbd5e1; background: #fff; border-radius: 999px;
+      padding: 0.45rem 0.75rem; font-size: 0.92rem; color: #1e293b;
+      min-height: 2.5rem; line-height: 1.2;
+    }
+    .field-chip.kind { background: #f8fafc; font-weight: 600; }
+    .field-chip.category { background: #eff6ff; border-color: #bfdbfe; }
+    .field-chip.example { background: #fff; }
+    .field-chip.recent { background: #f1f5f9; font-size: 0.88rem; }
+    .field-chip.fav { background: #ecfdf5; border-color: #86efac; }
+    .memo-box {
+      width: 100%; box-sizing: border-box; min-height: 4.5rem;
+      font-size: 1rem; padding: 0.65rem; border-radius: 12px; border: 1px solid #cbd5e1;
+    }
+    .memo-tokens { margin-top: 0.35rem; font-size: 0.82rem; color: #64748b; }
+    .memo-tokens span {
+      display: inline-block; background: #fef3c7; color: #92400e;
+      border-radius: 999px; padding: 0.12rem 0.45rem; margin: 0.1rem 0.15rem 0 0;
+      font-size: 0.82rem;
+    }
+    .fav-manage { display: flex; gap: 0.35rem; margin-top: 0.45rem; }
+    .fav-manage input { flex: 1; min-height: 2.75rem; font-size: 0.95rem; }
+    .fav-manage button { min-height: 2.75rem; white-space: nowrap; }
+    .results-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin: 0.75rem 0 0.45rem;
+    }
+    .results-header h2 { margin: 0; font-size: 1rem; }
+    .result-count { font-size: 0.85rem; color: #64748b; }
+    .field-results { display: flex; flex-direction: column; gap: 0.65rem; }
+    .field-card {
+      border: 1px solid #e2e8f0; border-radius: 14px; padding: 0.85rem;
+      background: #fff;
+    }
+    .field-card h3 { margin: 0 0 0.35rem; font-size: 1.05rem; line-height: 1.35; }
+    .field-card-meta { font-size: 0.82rem; color: #64748b; margin: 0.15rem 0; }
+    .field-card-reasons { margin: 0.35rem 0; }
+    .reason-chip {
+      display: inline-block; font-size: 0.72rem; border-radius: 999px;
+      padding: 0.1rem 0.45rem; margin: 0.08rem 0.12rem 0 0;
+      background: #ecfdf5; color: #166534;
+    }
+    .flag-row { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0.35rem 0; }
+    .flag-badge {
+      font-size: 0.75rem; border-radius: 8px; padding: 0.15rem 0.45rem;
+      background: #f1f5f9; color: #475569;
+    }
+    .flag-badge.on { background: #dbeafe; color: #1d4ed8; font-weight: 600; }
+    .card-actions {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 0.35rem; margin-top: 0.55rem;
+    }
+    .card-actions button, .card-actions a {
+      display: flex; align-items: center; justify-content: center;
+      min-height: 2.75rem; font-size: 0.88rem; font-weight: 600;
+      border-radius: 10px; border: 1px solid #cbd5e1; background: #f8fafc;
+      color: #1e293b; text-decoration: none; padding: 0.35rem;
+    }
+    .card-actions .primary { background: #334155; color: #fff; border-color: #334155; }
+    .card-actions .full { grid-column: 1 / -1; }
+    .status-muted { color: #64748b; font-size: 0.88rem; }
+    body.has-practical-nav .app-main { padding-bottom: 5.5rem; }
+    @media (max-width: 767px) {
+      .search-big { font-size: 1.15rem; min-height: 3.5rem; }
+      .field-chip { font-size: 0.95rem; min-height: 2.65rem; }
+      .card-actions button, .card-actions a { min-height: 3rem; font-size: 0.92rem; }
+    }
+  </style>
+</head>
+<body class="tisly-friendly">
+  <main class="app-main">
+    <div class="field-hero">
+      <h1>🔧 現場ナレッジ</h1>
+      <p>3秒で検索開始 — キーワードのみ（AI未使用）</p>
+    </div>
+
+    <div class="friendly-card">
+      <input type="search" id="search-input" class="search-big"
+        placeholder="キーワード検索（例: 自己保持 / 5.5kW）"
+        autocomplete="off" enterkeyhint="search" />
+      <div class="search-actions">
+        <button type="button" class="friendly-btn primary" id="search-btn">🔍 検索</button>
+        <button type="button" class="friendly-btn" id="clear-btn">クリア</button>
+      </div>
+
+      <p class="section-label">検索例</p>
+      <div class="chip-row" id="example-chips"></div>
+
+      <p class="section-label">種別</p>
+      <div class="chip-row" id="kind-chips"></div>
+
+      <p class="section-label">カテゴリ</p>
+      <div class="chip-grid" id="category-chips"></div>
+    </div>
+
+    <div class="friendly-card">
+      <p class="section-label">⭐ よく使う検索</p>
+      <div class="chip-row" id="favorite-chips"></div>
+      <div class="fav-manage">
+        <input type="text" id="fav-add-input" placeholder="追加する語句" autocomplete="off" />
+        <button type="button" class="friendly-btn" id="fav-add-btn">＋追加</button>
+      </div>
+      <p class="status-muted" style="margin-top:0.35rem;">長押しで削除</p>
+
+      <p class="section-label">🕐 最近の検索</p>
+      <div class="chip-row" id="recent-chips"></div>
+    </div>
+
+    <div class="friendly-card">
+      <p class="section-label">📝 現場メモから検索</p>
+      <textarea id="memo-input" class="memo-box"
+        placeholder="例: 厨房の5.5kW機器で30Aブレーカーか確認したい"></textarea>
+      <div class="memo-tokens" id="memo-tokens-preview"></div>
+      <button type="button" class="friendly-btn primary" id="memo-search-btn"
+        style="width:100%;min-height:3rem;margin-top:0.55rem;font-size:1rem;font-weight:700;">
+        メモから検索
+      </button>
+    </div>
+
+    <div class="results-header">
+      <h2>検索結果</h2>
+      <span class="result-count" id="result-count">—</span>
+    </div>
+    <div id="search-results" class="field-results">
+      <p class="status-muted">キーワードまたはチップをタップして検索</p>
+    </div>
+  </main>
+  <div id="toast" class="toast" role="status"></div>
+  <script type="module" src="/js/knowledge-field-v1.js"></script>
+</body>
+</html>
