@@ -33,6 +33,17 @@ import {
   getBackupStatus,
   deleteLocalAsset,
 } from "../../monitoring/monitoring-map-asset-storage-adapter-v1.js";
+import {
+  addMonitoringDeviceAttachmentV1,
+  deleteMonitoringDeviceAttachmentV1,
+  findMonitoringDeviceAttachmentRecordV1,
+  listMonitoringDeviceAttachmentsV1,
+} from "../../monitoring/monitoring-device-attachments-v1.js";
+import {
+  addMonitoringReportPhotoSlotV1,
+  getMonitoringReportPhotoSlotsV1,
+  listReportVisiblePhotoCandidatesV1,
+} from "../../monitoring/monitoring-report-photo-slots-v1.js";
 
 export const tislyMonitoringV1Router = Router();
 
@@ -50,11 +61,98 @@ tislyMonitoringV1Router.get("/3d-sensor/:sensorId", (req, res) => {
     return;
   }
   const links = buildMonitoringCustomerLinksV1(siteId, sensor.sensorId);
+  const attachmentRecord = findMonitoringDeviceAttachmentRecordV1(siteId, sensor.sensorId);
+  const attachments = attachmentRecord?.attachments.map(({ source: _s, ...rest }) => rest) ?? [];
+  const reportPhotoCandidates = listReportVisiblePhotoCandidatesV1(siteId, sensor.sensorId);
   res.json({
     sensor,
     relatedKnowledgeIds: sensor.relatedKnowledgeIds,
     knowledgeLinks: links,
+    customerLinks: links,
+    attachments,
+    deviceAttachment: attachmentRecord
+      ? {
+          deviceId: attachmentRecord.deviceId,
+          deviceName: attachmentRecord.deviceName,
+          floorLevel: attachmentRecord.floorLevel,
+          areaName: attachmentRecord.areaName,
+          attachments,
+        }
+      : null,
+    reportPhotoCandidates,
     camera: sensor.cameraId ? findMonitoring3dCameraV1(sensor.cameraId) ?? null : null,
+  });
+});
+
+tislyMonitoringV1Router.get("/device-attachments", (req, res) => {
+  const siteId = resolveMonitoringSiteIdV1(req.query.siteId as string | undefined);
+  const deviceId = req.query.deviceId as string | undefined;
+  res.json(listMonitoringDeviceAttachmentsV1(siteId, deviceId));
+});
+
+tislyMonitoringV1Router.post("/device-attachments", (req, res) => {
+  const body = req.body ?? {};
+  const siteId = resolveMonitoringSiteIdV1(body.siteId ?? req.query.siteId);
+  if (!body.deviceId || !body.type || !body.title || !body.openUrl) {
+    res.status(400).json({ error: "deviceId, type, title, openUrl are required" });
+    return;
+  }
+  const result = addMonitoringDeviceAttachmentV1({
+    siteId,
+    deviceId: String(body.deviceId),
+    deviceName: body.deviceName,
+    floorLevel: body.floorLevel,
+    areaName: body.areaName,
+    type: body.type,
+    title: String(body.title),
+    safeLabel: body.safeLabel,
+    source: body.source,
+    previewUrl: body.previewUrl,
+    openUrl: String(body.openUrl),
+    customerVisible: body.customerVisible,
+    reportVisible: body.reportVisible,
+  });
+  if ("error" in result) {
+    res.status(400).json({ error: result.error });
+    return;
+  }
+  res.status(201).json({ ok: true, attachment: result, ...listMonitoringDeviceAttachmentsV1(siteId, String(body.deviceId)) });
+});
+
+tislyMonitoringV1Router.delete("/device-attachments/:attachmentId", (req, res) => {
+  const result = deleteMonitoringDeviceAttachmentV1(req.params.attachmentId ?? "");
+  if (!result.ok) {
+    res.status(404).json({ error: result.error ?? "Not found" });
+    return;
+  }
+  res.json({ ok: true });
+});
+
+tislyMonitoringV1Router.get("/report-photo-slots", (req, res) => {
+  const siteId = resolveMonitoringSiteIdV1(req.query.siteId as string | undefined);
+  res.json(getMonitoringReportPhotoSlotsV1(siteId));
+});
+
+tislyMonitoringV1Router.post("/report-photo-slots", (req, res) => {
+  const body = req.body ?? {};
+  const siteId = resolveMonitoringSiteIdV1(body.siteId ?? req.query.siteId);
+  if (!body.deviceId || !body.attachmentId) {
+    res.status(400).json({ error: "deviceId and attachmentId are required" });
+    return;
+  }
+  const result = addMonitoringReportPhotoSlotV1({
+    siteId,
+    deviceId: String(body.deviceId),
+    attachmentId: String(body.attachmentId),
+  });
+  if (!result.ok) {
+    res.status(400).json({ error: result.error });
+    return;
+  }
+  res.status(201).json({
+    ok: true,
+    slot: result.slot,
+    ...getMonitoringReportPhotoSlotsV1(siteId),
   });
 });
 

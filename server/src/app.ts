@@ -526,6 +526,9 @@ export function createApp(): express.Application {
   app.get("/monitoring-map-assets-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "monitoring-map-assets-v1", "index.html"));
   });
+  app.get("/route-map", (_req, res) => {
+    res.sendFile(path.join(publicDir, "route-map.html"));
+  });
   app.get("/tisly-monitoring-3d-v3", (_req, res) => {
     res.redirect(302, "/monitoring-3d-v2");
   });

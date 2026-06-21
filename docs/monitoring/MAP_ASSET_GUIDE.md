@@ -207,10 +207,21 @@ Adapter: `server/src/monitoring/monitoring-map-asset-storage-adapter-v1.ts`
 - https://tisly.jp/monitoring-3d-v2?siteId=DEMO-HOME-001
 - https://tisly.jp/monitoring-3d-v2?siteId=DEMO-FACTORY-001
 - https://tisly.jp/api/monitoring/v1/map-assets?siteId=DEMO-HOME-001
+- https://tisly.jp/api/monitoring/v1/device-attachments?siteId=DEMO-HOME-001&deviceId=frontDoor
+- https://tisly.jp/api/monitoring/v1/report-photo-slots?siteId=DEMO-HOME-001
 
 ---
 
-## 残課題（V3.3 以降）
+## V3.4 device attachment
+
+- **データ:** `server/data/monitoring/device-attachments.json`
+- **完了報告スロット:** `report-photo-slots.json` — 最大6枚 · reportVisible 写真のみ
+- **工場 seed:** DEMO-FACTORY-001 — サイロ/ミキサー/コンベア/出荷ゲート等
+- **詳細:** [DEVICE_ATTACHMENT_GUIDE.md](./DEVICE_ATTACHMENT_GUIDE.md)
+
+---
+
+## 残課題（V3.4 以降）
 
 - Three.js CDN 依存解消（バンドル化）
 - QNAP WebDAV 本接続

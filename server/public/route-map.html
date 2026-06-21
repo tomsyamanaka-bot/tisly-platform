@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TiSLY Route Map</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 1.5rem; line-height: 1.5; }
+    h1 { font-size: 1.25rem; }
+    table { border-collapse: collapse; width: 100%; max-width: 720px; }
+    th, td { border: 1px solid #cbd5e1; padding: 0.45rem 0.6rem; text-align: left; }
+    th { background: #f1f5f9; }
+    .warn { color: #b45309; }
+    .ok { color: #047857; }
+  </style>
+</head>
+<body>
+  <h1>TiSLY PWA Route Map</h1>
+  <p>開発・検証用 — 主要ルートと既知の不具合メモ</p>
+  <table>
+    <thead><tr><th>パス</th><th>状態</th><th>代替</th></tr></thead>
+    <tbody>
+      <tr><td>/estimate-v1</td><td class="ok">OK</td><td>見積・請求・完了報告 PWA</td></tr>
+      <tr><td>/estimate</td><td class="warn">404</td><td>/estimate-v1</td></tr>
+      <tr><td>/invoice</td><td class="warn">404</td><td>/estimate-v1（請求タブ）</td></tr>
+      <tr><td>/survey-drawing-v1</td><td class="ok">OK</td><td>現調図面</td></tr>
+      <tr><td>/drawing-editor</td><td class="warn">404</td><td>/survey-drawing-v1</td></tr>
+      <tr><td>/monitoring-3d-v2</td><td class="ok">OK</td><td>3D監視 V3.4</td></tr>
+      <tr><td>/monitoring-map-assets-v1</td><td class="ok">OK</td><td>mapAsset Manager</td></tr>
+      <tr><td>/knowledge-customer-project-v1</td><td class="ok">OK</td><td>Customer 案件ページ</td></tr>
+    </tbody>
+  </table>
+</body>
+</html>

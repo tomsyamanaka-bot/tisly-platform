@@ -284,16 +284,29 @@ export function ackMonitoringLogV1(logId: string): boolean {
 export function buildMonitoringCustomerLinksV1(
   siteId: string,
   deviceId: string
-): { equipmentUrl: string; materialsUrl: string; projectUrl: string } {
+): {
+  equipmentUrl: string;
+  materialsUrl: string;
+  projectUrl: string;
+  siteMapUrl: string;
+  relatedMaterialsUrl: string;
+  customerExplanationUrl: string;
+} {
   const site = getMonitoringLayoutSiteV1(siteId);
   const dev = findMonitoringDeviceV1(siteId, deviceId);
   const ref = site.customerRef;
   const kid = dev?.linkedKnowledgeIds?.[0];
+  const kind = kid?.startsWith("PLC-") ? "plc" : "card";
   return {
     projectUrl: `/knowledge-customer-project-v1?ref=${encodeURIComponent(ref)}`,
+    siteMapUrl: `/knowledge-customer-site-map-v1?ref=${encodeURIComponent(ref)}`,
     equipmentUrl: kid
-      ? `/knowledge-customer-detail-v1?id=${encodeURIComponent(kid)}&kind=card`
+      ? `/knowledge-customer-detail-v1?id=${encodeURIComponent(kid)}&kind=${kind}&ref=${encodeURIComponent(ref)}`
       : `/knowledge-customer-site-map-v1?ref=${encodeURIComponent(ref)}`,
+    customerExplanationUrl: kid
+      ? `/knowledge-customer-detail-v1?id=${encodeURIComponent(kid)}&kind=${kind}&ref=${encodeURIComponent(ref)}`
+      : `/knowledge-customer-project-v1?ref=${encodeURIComponent(ref)}`,
     materialsUrl: `/knowledge-customer-document-v1?ref=${encodeURIComponent(ref)}&fileId=spec-pdf-001`,
+    relatedMaterialsUrl: `/knowledge-customer-project-v1?ref=${encodeURIComponent(ref)}#materials`,
   };
 }

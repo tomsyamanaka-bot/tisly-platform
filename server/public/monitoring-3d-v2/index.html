@@ -146,29 +146,61 @@
     </main>
 
     <aside class="mon3dv3-right" aria-label="詳細パネル">
-      <section class="mon3dv3-panel">
-        <h2 class="mon3dv3-section-label">ライブカメラ</h2>
-        <div id="mon3dv3-camera-view" class="mon3dv3-camera-view">
-          <div class="mon3dv3-camera-placeholder">
-            <span class="mon3dv3-live-badge">LIVE</span>
-            <p>センサーを選択してください</p>
+      <div class="mon3dv3-right-tabs" role="tablist">
+        <button type="button" class="mon3dv3-tab active" data-tab="status" role="tab" aria-selected="true">状態</button>
+        <button type="button" class="mon3dv3-tab" data-tab="camera" role="tab">カメラ</button>
+        <button type="button" class="mon3dv3-tab" data-tab="materials" role="tab">資料</button>
+        <button type="button" class="mon3dv3-tab" data-tab="logs" role="tab">ログ</button>
+      </div>
+
+      <div class="mon3dv3-tab-panel active" data-panel="status">
+        <section class="mon3dv3-panel">
+          <h2 class="mon3dv3-section-label">センサー状態</h2>
+          <ul id="mon3dv3-sensor-list" class="mon3dv3-sensor-list"></ul>
+        </section>
+        <section class="mon3dv3-panel mon3dv3-mapasset-note">
+          <h2 class="mon3dv3-section-label">LiDAR mapAsset</h2>
+          <p id="mon3dv3-mapasset-status" class="mon3dv3-muted">読み込み中…</p>
+        </section>
+      </div>
+
+      <div class="mon3dv3-tab-panel" data-panel="camera" hidden>
+        <section class="mon3dv3-panel">
+          <h2 class="mon3dv3-section-label">ライブカメラ</h2>
+          <div id="mon3dv3-camera-view" class="mon3dv3-camera-view">
+            <div class="mon3dv3-camera-placeholder">
+              <span class="mon3dv3-live-badge">LIVE</span>
+              <p>センサーを選択してください</p>
+            </div>
           </div>
-        </div>
-      </section>
-      <section class="mon3dv3-panel">
-        <h2 class="mon3dv3-section-label">センサー状態</h2>
-        <ul id="mon3dv3-sensor-list" class="mon3dv3-sensor-list"></ul>
-      </section>
-      <section class="mon3dv3-panel">
-        <h2 class="mon3dv3-section-label">関連資料</h2>
-        <div id="mon3dv3-knowledge-links" class="mon3dv3-knowledge-links">
-          <p class="mon3dv3-muted">センサーをクリックすると Knowledge Customer 連携資料が表示されます</p>
-        </div>
-      </section>
-      <section class="mon3dv3-panel mon3dv3-mapasset-note">
-        <h2 class="mon3dv3-section-label">LiDAR mapAsset</h2>
-        <p id="mon3dv3-mapasset-status" class="mon3dv3-muted">読み込み中…</p>
-      </section>
+        </section>
+      </div>
+
+      <div class="mon3dv3-tab-panel" data-panel="materials" hidden>
+        <section class="mon3dv3-panel">
+          <h2 class="mon3dv3-section-label">設備資料</h2>
+          <p id="mon3dv3-materials-device" class="mon3dv3-muted">センサーを選択してください</p>
+          <div id="mon3dv3-attachments-list" class="mon3dv3-attachments-list"></div>
+        </section>
+        <section class="mon3dv3-panel">
+          <h2 class="mon3dv3-section-label">Customer 連携</h2>
+          <div id="mon3dv3-customer-links" class="mon3dv3-knowledge-links">
+            <p class="mon3dv3-muted">センサーを選択すると Customer UI へ飛べます</p>
+          </div>
+        </section>
+        <section class="mon3dv3-panel">
+          <h2 class="mon3dv3-section-label">完了報告写真候補</h2>
+          <p id="mon3dv3-report-slots-status" class="mon3dv3-muted">reportVisible 写真を最大6枚まで追加</p>
+          <ul id="mon3dv3-report-slots-list" class="mon3dv3-report-slots"></ul>
+        </section>
+      </div>
+
+      <div class="mon3dv3-tab-panel" data-panel="logs" hidden>
+        <section class="mon3dv3-panel">
+          <h2 class="mon3dv3-section-label">イベントログ</h2>
+          <ul id="mon3dv3-device-logs" class="mon3dv3-device-logs"></ul>
+        </section>
+      </div>
     </aside>
   </div>
 

@@ -694,6 +694,24 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | Phase10 テスト | `server/test/tisly-monitoring-3d-v33.test.ts` |
 | uiVersion | `v3.3` |
 
+### TiSLY Monitoring 3D Dashboard V3.4（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | **3D監視を現調写真 · PDF · Customer UI の入口に** — 設備クリックで資料へ |
+| Phase0 PWAルート | `/estimate` · `/invoice` · `/drawing-editor` は 404 — `/route-map` で一覧 · 正: `/estimate-v1` · `/survey-drawing-v1` |
+| Phase1 attachment | `monitoring-device-attachments-v1.ts` · `device-attachments.json` — 12 type · customerVisible/reportVisible |
+| Phase2 API | `GET/POST/DELETE /device-attachments` — sanitize · source 非公開 · mock seed |
+| Phase3 資料タブ | 右パネル 状態/カメラ/**資料**/ログ — 写真/PDF/Customer/完了報告ボタン |
+| Phase4 完了報告スロット | `report-photo-slots.json` — 最大6枚 · reportVisible 写真のみ |
+| Phase5 Customer | 案件ページ · Site Map · お客様向け説明 · 関連資料リンク強化 |
+| Phase6 写真ピン | 3D上 📷 — 青/緑/灰 · クリックで資料タブ |
+| Phase7 工場 | DEMO-FACTORY-001 attachment seed — サイロ/ミキサー/コンベア/出荷ゲート等 |
+| Phase8 docs | DEVICE_ATTACHMENT_GUIDE · MONITORING_UI_GUIDE · MAP_ASSET_GUIDE · PROJECT_STATUS |
+| Phase9 テスト | `server/test/tisly-monitoring-3d-v34.test.ts` |
+| uiVersion | `v3.4` |
+| 確認 | `/monitoring-3d-v2?siteId=DEMO-HOME-001` · `/api/monitoring/v1/device-attachments?siteId=DEMO-HOME-001&deviceId=frontDoor` |
+
 ---
 
 ## 関連ドキュメント

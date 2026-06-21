@@ -198,7 +198,7 @@ describe("Monitoring 3D V3.2 — API", () => {
     assert.equal(res.status, 200);
   });
 
-  it("GET /3d-scene uiVersion v3.3 with gltf-loadable active asset", async () => {
+  it("GET /3d-scene uiVersion v3.4 with gltf-loadable active asset", async () => {
     resetAll();
     await uploadMonitoringMapAssetFileV1({
       siteId: SITE,
@@ -210,7 +210,7 @@ describe("Monitoring 3D V3.2 — API", () => {
       setActive: true,
     });
     const scene = buildMonitoring3dSceneV1(SITE);
-    assert.equal(scene.uiVersion, "v3.3");
+    assert.equal(scene.uiVersion, "v3.4");
     assert.ok(scene.mapAsset.activeAsset?.fileUrl);
     const entry = scene.mapAsset.assets.find((a) => a.isRegistered && a.assetId === scene.mapAsset.activeAsset?.assetId);
     assert.equal(entry?.fileType, "glb");

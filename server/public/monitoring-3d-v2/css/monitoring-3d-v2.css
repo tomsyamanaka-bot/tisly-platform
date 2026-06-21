@@ -613,6 +613,163 @@ body.mon3dv3-tv .mon3dv3-alert-banner {
   color: var(--mon-cyan);
 }
 
+/* V3.4 — 右パネルタブ · 資料 · 写真ピン */
+.mon3dv3-right-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+}
+
+.mon3dv3-tab {
+  padding: 0.45rem 0.25rem;
+  border-radius: 8px;
+  border: 1px solid var(--mon-border);
+  background: #0f172a;
+  color: #94a3b8;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mon3dv3-tab.active {
+  background: var(--mon-blue-deep);
+  color: #fff;
+  border-color: var(--mon-cyan);
+}
+
+.mon3dv3-tab-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.mon3dv3-tab-panel[hidden] {
+  display: none;
+}
+
+.mon3dv3-attachments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.mon3dv3-attachment-group {
+  margin-bottom: 0.35rem;
+}
+
+.mon3dv3-attachment-group h3 {
+  margin: 0 0 0.35rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  color: var(--mon-purple);
+  letter-spacing: 0.04em;
+}
+
+.mon3dv3-attachment-card {
+  display: flex;
+  gap: 0.55rem;
+  align-items: center;
+  padding: 0.55rem;
+  border-radius: 8px;
+  border: 1px solid var(--mon-border);
+  background: var(--mon-glass);
+}
+
+.mon3dv3-attachment-thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: #1e293b;
+  flex-shrink: 0;
+}
+
+.mon3dv3-attachment-thumb.is-pdf {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+}
+
+.mon3dv3-attachment-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.mon3dv3-attachment-meta strong {
+  display: block;
+  font-size: 0.82rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mon3dv3-attachment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.35rem;
+}
+
+.mon3dv3-attachment-actions .mon3dv3-btn {
+  padding: 0.25rem 0.45rem;
+  font-size: 0.68rem;
+}
+
+.mon3dv3-report-slots {
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding: 0;
+}
+
+.mon3dv3-report-slots li {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid rgba(30, 58, 95, 0.5);
+  font-size: 0.78rem;
+}
+
+.mon3dv3-report-slots img {
+  width: 36px;
+  height: 36px;
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+.mon3dv3-device-logs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.mon3dv3-device-logs li {
+  padding: 0.45rem 0.5rem;
+  border-left: 3px solid var(--mon-blue);
+  margin-bottom: 0.35rem;
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 0 6px 6px 0;
+  font-size: 0.75rem;
+}
+
+.mon3dv3-device-logs li.level-alert {
+  border-left-color: var(--mon-red-deep);
+}
+
+.mon3dv3-device-logs li.level-warning {
+  border-left-color: var(--mon-orange);
+}
+
+.mon3dv3-photo-pin-hint {
+  font-size: 0.68rem;
+  color: #64748b;
+  margin-top: 0.25rem;
+}
+
 @media (max-width: 1024px) {
   .mon3dv3-shell {
     grid-template-columns: 1fr;

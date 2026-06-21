@@ -101,11 +101,11 @@ describe("Monitoring 3D V3.3 — API", () => {
     assert.equal(typeof res.body.backupStatus.localOk, "boolean");
   });
 
-  it("GET /3d-scene uiVersion v3.3", async () => {
+  it("GET /3d-scene uiVersion v3.4", async () => {
     resetAll();
     const res = await request(app).get(`/api/monitoring/v1/3d-scene?siteId=${SITE}`);
     assert.equal(res.status, 200);
-    assert.equal(res.body.uiVersion, "v3.3");
+    assert.equal(res.body.uiVersion, "v3.4");
     assert.ok(res.body.mapAsset.displayModes);
     assert.equal(res.body.mapAssetDisplayMode, "all_floors");
   });

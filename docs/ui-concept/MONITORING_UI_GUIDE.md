@@ -167,6 +167,20 @@
 - **プロシージャル box:** 登録 scan の下に重ねて表示
 - **詳細:** [docs/monitoring/MAP_ASSET_GUIDE.md](../monitoring/MAP_ASSET_GUIDE.md)
 
+### V3.4 資料連携（device attachment · 写真ピン）
+
+| 画面 | パス |
+|------|------|
+| 3D Dashboard V3.4 | `/monitoring-3d-v2?siteId=DEMO-HOME-001` |
+| device attachments API | `GET /api/monitoring/v1/device-attachments?siteId=&deviceId=` |
+| 完了報告スロット | `GET/POST /api/monitoring/v1/report-photo-slots` |
+
+- **右パネル 4 タブ:** 状態 · カメラ · **資料** · ログ
+- **資料タブ:** 現調/施工前後/配線写真 · 仕様書/完了報告 PDF · Customer 説明 · 完了報告候補追加
+- **3D 写真ピン:** 📷 — 青=customer · 緑=report · 灰=内部
+- **Customer 連携:** 案件ページ · Site Map · お客様向け説明 · 関連資料
+- **詳細:** [DEVICE_ATTACHMENT_GUIDE.md](../monitoring/DEVICE_ATTACHMENT_GUIDE.md)
+
 ---
 
 ## 今後の TiSLY UI への適用

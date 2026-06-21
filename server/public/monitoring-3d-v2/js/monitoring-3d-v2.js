@@ -24,6 +24,13 @@ let selectedSensorId = null;
 let activeAlert = null;
 let tvCountdownTimer = null;
 let demoPlaying = false;
+let activeRightTab = "status";
+/** @type {Array<object>} */
+let siteAttachmentRecords = [];
+/** @type {object|null} */
+let reportPhotoSlotsData = null;
+/** @type {Map<string, THREE.Sprite>} */
+const photoPinSprites = new Map();
 
 /** @type {THREE.WebGLRenderer|null} */
 let renderer = null;
@@ -510,6 +517,265 @@ function createSensorMarker(sensor) {
   sensorMeshes.set(sensor.sensorId, { mesh, sensor, ring, sprite });
 }
 
+const PHOTO_ATTACHMENT_TYPES = new Set([
+  "survey_photo",
+  "before_photo",
+  "after_photo",
+  "wiring_photo",
+  "device_photo",
+]);
+
+function resolvePhotoPinColor(attachments) {
+  const photos = attachments.filter((a) => PHOTO_ATTACHMENT_TYPES.has(a.type));
+  if (!photos.length) return null;
+  if (photos.some((a) => a.customerVisible)) return 0x2563eb;
+  if (photos.some((a) => a.reportVisible)) return 0x34d399;
+  return 0x64748b;
+}
+
+function createPhotoPinSprite(sensorId, colorHex) {
+  const entry = sensorMeshes.get(sensorId);
+  if (!entry) return;
+
+  const size = 64;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = `#${colorHex.toString(16).padStart(6, "0")}`;
+  ctx.beginPath();
+  ctx.arc(size / 2, size / 2, size / 2 - 4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#fff";
+  ctx.font = "bold 28px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("📷", size / 2, size / 2 + 2);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
+  sprite.scale.set(0.55, 0.55, 1);
+  sprite.position.set(entry.mesh.position.x, entry.mesh.position.y + 1.35, entry.mesh.position.z);
+  sprite.userData.photoPinSensorId = sensorId;
+
+  const group = layerGroups[entry.sensor.floorLevel];
+  if (group) group.add(sprite);
+  photoPinSprites.set(sensorId, sprite);
+}
+
+function buildPhotoPinsFromAttachments(records) {
+  photoPinSprites.forEach((sprite) => sprite.parent?.remove(sprite));
+  photoPinSprites.clear();
+
+  records.forEach((record) => {
+    const color = resolvePhotoPinColor(record.attachments ?? []);
+    if (color != null) createPhotoPinSprite(record.deviceId, color);
+  });
+}
+
+function switchRightTab(tabId, opts = {}) {
+  activeRightTab = tabId;
+  $$(".mon3dv3-tab").forEach((btn) => {
+    const active = btn.dataset.tab === tabId;
+    btn.classList.toggle("active", active);
+    btn.setAttribute("aria-selected", active ? "true" : "false");
+  });
+  $$(".mon3dv3-tab-panel").forEach((panel) => {
+    const show = panel.dataset.panel === tabId;
+    panel.classList.toggle("active", show);
+    panel.hidden = !show;
+  });
+  if (tabId === "logs" && selectedSensorId && !opts.skipLogReload) {
+    loadDeviceLogs(selectedSensorId);
+  }
+}
+
+const ATTACHMENT_GROUP_LABELS = {
+  survey_photo: "現調写真",
+  before_photo: "施工前写真",
+  after_photo: "施工後写真",
+  wiring_photo: "配線写真",
+  device_photo: "設備写真",
+  spec_pdf: "仕様書 PDF",
+  completion_report_pdf: "完了報告 PDF",
+  estimate_pdf: "見積 PDF",
+  invoice_pdf: "請求 PDF",
+  manual_pdf: "取扱説明",
+  customer_knowledge: "Customer 説明",
+  site_drawing: "図面",
+};
+
+function isPdfAttachment(type) {
+  return type.includes("_pdf") || type === "site_drawing";
+}
+
+function renderAttachmentsPanel(deviceAttachment, reportCandidates) {
+  const listEl = $("#mon3dv3-attachments-list");
+  const deviceEl = $("#mon3dv3-materials-device");
+  if (!listEl) return;
+
+  if (!deviceAttachment?.attachments?.length) {
+    if (deviceEl) deviceEl.textContent = selectedSensorId ? "この設備の資料はまだ登録されていません" : "センサーを選択してください";
+    listEl.innerHTML = `<p class="mon3dv3-muted">資料なし</p>`;
+    return;
+  }
+
+  if (deviceEl) {
+    deviceEl.textContent = `${deviceAttachment.deviceName} · ${deviceAttachment.areaName} · ${deviceAttachment.floorLevel}`;
+  }
+
+  const grouped = {};
+  deviceAttachment.attachments.forEach((att) => {
+    if (!grouped[att.type]) grouped[att.type] = [];
+    grouped[att.type].push(att);
+  });
+
+  listEl.innerHTML = Object.entries(grouped)
+    .map(([type, items]) => {
+      const label = ATTACHMENT_GROUP_LABELS[type] || type;
+      const cards = items
+        .map((att) => {
+          const thumb = isPdfAttachment(type)
+            ? `<div class="mon3dv3-attachment-thumb is-pdf" aria-hidden="true">📄</div>`
+            : `<img class="mon3dv3-attachment-thumb" src="${att.previewUrl || att.openUrl}" alt="" />`;
+          const photoBtn = !isPdfAttachment(type)
+            ? `<a class="mon3dv3-btn secondary" href="${att.openUrl}" target="_blank" rel="noopener">写真を見る</a>`
+            : "";
+          const pdfBtn = isPdfAttachment(type)
+            ? `<a class="mon3dv3-btn secondary" href="${att.openUrl}" target="_blank" rel="noopener">PDFを見る</a>`
+            : "";
+          const customerBtn =
+            type === "customer_knowledge"
+              ? `<a class="mon3dv3-btn" href="${att.openUrl}" target="_blank" rel="noopener">Customer説明を見る</a>`
+              : "";
+          const reportBtn =
+            att.reportVisible && PHOTO_ATTACHMENT_TYPES.has(type)
+              ? `<button type="button" class="mon3dv3-btn" data-report-add="${att.attachmentId}">完了報告に使う</button>`
+              : "";
+          return `<div class="mon3dv3-attachment-card">${thumb}<div class="mon3dv3-attachment-meta"><strong>${att.safeLabel}</strong><div class="mon3dv3-attachment-actions">${photoBtn}${pdfBtn}${customerBtn}${reportBtn}</div></div></div>`;
+        })
+        .join("");
+      return `<div class="mon3dv3-attachment-group"><h3>${label}</h3>${cards}</div>`;
+    })
+    .join("");
+
+  listEl.querySelectorAll("[data-report-add]").forEach((btn) => {
+    btn.addEventListener("click", () => addReportPhotoSlot(selectedSensorId, btn.dataset.reportAdd));
+  });
+
+  const statusEl = $("#mon3dv3-report-slots-status");
+  if (statusEl && reportCandidates?.length) {
+    statusEl.textContent = `reportVisible 写真 ${reportCandidates.length} 件 — 最大6枚まで完了報告候補に追加可能`;
+  }
+}
+
+function renderCustomerLinksPanel(links, ids) {
+  const box = $("#mon3dv3-customer-links");
+  if (!box || !sceneData) return;
+
+  const ref = sceneData.customerRef;
+  const linkItems = [];
+  if (links?.customerExplanationUrl) {
+    linkItems.push({ label: "お客様向け説明を見る", url: links.customerExplanationUrl });
+  }
+  if (links?.projectUrl) linkItems.push({ label: "案件ページで見る", url: links.projectUrl });
+  if (links?.siteMapUrl) linkItems.push({ label: "Site Mapで見る", url: links.siteMapUrl });
+  if (links?.relatedMaterialsUrl) linkItems.push({ label: "関連資料を見る", url: links.relatedMaterialsUrl });
+
+  ids.forEach((id) => {
+    const kind = id.startsWith("PLC-") ? "plc" : "card";
+    linkItems.push({
+      label: `Knowledge: ${id}`,
+      url: `/knowledge-customer-detail-v1?id=${encodeURIComponent(id)}&kind=${kind}&ref=${encodeURIComponent(ref)}`,
+    });
+  });
+
+  if (!linkItems.length) {
+    box.innerHTML = `<p class="mon3dv3-muted">Customer リンクなし</p>`;
+    return;
+  }
+
+  box.innerHTML = linkItems
+    .map((l) => `<a href="${l.url}" target="_blank" rel="noopener">${l.label}</a>`)
+    .join("");
+}
+
+async function loadReportPhotoSlots() {
+  try {
+    reportPhotoSlotsData = await apiGet(
+      `/api/monitoring/v1/report-photo-slots?siteId=${encodeURIComponent(siteId)}`
+    );
+    renderReportPhotoSlotsList();
+  } catch {
+    reportPhotoSlotsData = { slots: [], maxSlots: 6 };
+  }
+}
+
+function renderReportPhotoSlotsList() {
+  const ul = $("#mon3dv3-report-slots-list");
+  const status = $("#mon3dv3-report-slots-status");
+  if (!ul) return;
+  const slots = reportPhotoSlotsData?.slots ?? [];
+  if (status) {
+    status.textContent = `完了報告候補 ${slots.length} / ${reportPhotoSlotsData?.maxSlots ?? 6} 枚 — 1ページ2枚×3段`;
+  }
+  if (!slots.length) {
+    ul.innerHTML = `<li class="mon3dv3-muted">まだ追加されていません</li>`;
+    return;
+  }
+  ul.innerHTML = slots
+    .map(
+      (s) =>
+        `<li><img src="${s.previewUrl}" alt="" /><span>${s.safeLabel}</span><span class="mon3dv3-muted">${s.deviceName}</span></li>`
+    )
+    .join("");
+}
+
+async function addReportPhotoSlot(deviceId, attachmentId) {
+  const msg = $("#mon3dv3-report-slots-status");
+  try {
+    const res = await fetch("/api/monitoring/v1/report-photo-slots", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ siteId, deviceId, attachmentId }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || String(res.status));
+    reportPhotoSlotsData = data;
+    renderReportPhotoSlotsList();
+    if (msg) msg.textContent = `「${data.slot?.safeLabel}」を完了報告候補に追加しました`;
+  } catch (err) {
+    if (msg) msg.textContent = err.message || "追加失敗";
+  }
+}
+
+async function loadDeviceLogs(sensorId) {
+  const ul = $("#mon3dv3-device-logs");
+  if (!ul) return;
+  ul.innerHTML = `<li class="mon3dv3-muted">読み込み中…</li>`;
+  try {
+    const data = await apiGet(`/api/monitoring/v1/logs?siteId=${encodeURIComponent(siteId)}&limit=30`);
+    const sensor = sceneData?.sensors.find((s) => s.sensorId === sensorId);
+    const label = sensor?.label ?? sensorId;
+    const filtered = (data.logs ?? []).filter(
+      (log) =>
+        log.deviceId === sensorId ||
+        log.place?.includes(label) ||
+        log.content?.includes(label)
+    );
+    const rows = filtered.length ? filtered.slice(0, 12) : (data.logs ?? []).slice(0, 8);
+    ul.innerHTML = rows
+      .map((log) => {
+        const cls =
+          log.level === "侵入警報" ? "level-alert" : log.level === "警報" ? "level-warning" : "";
+        return `<li class="${cls}"><strong>${log.level}</strong> · ${log.place || log.content}<br /><span class="mon3dv3-muted">${log.timeLabel || log.createdAt || ""}</span></li>`;
+      })
+      .join("");
+  } catch {
+    ul.innerHTML = `<li class="mon3dv3-muted">ログ取得に失敗しました</li>`;
+  }
+}
+
 function applyLayerFilter(filter) {
   layerFilter = filter;
   $$(".mon3dv3-layer-btns button").forEach((btn) => {
@@ -709,17 +975,21 @@ async function selectSensor(sensorId, opts = {}) {
   const entry = sensorMeshes.get(sensorId);
   if (entry && !opts.skipFly && !demoPlaying) flyToSensor(sensorId, 800);
 
+  if (opts.openMaterialsTab) switchRightTab("materials", { skipLogReload: true });
+
   try {
     const data = await apiGet(
       `/api/monitoring/v1/3d-sensor/${encodeURIComponent(sensorId)}?siteId=${encodeURIComponent(siteId)}`
     );
     showCameraPanel(data.camera);
-    showKnowledgeLinks(data.relatedKnowledgeIds, data.knowledgeLinks);
+    renderCustomerLinksPanel(data.customerLinks || data.knowledgeLinks, data.relatedKnowledgeIds ?? []);
+    renderAttachmentsPanel(data.deviceAttachment, data.reportPhotoCandidates ?? []);
   } catch {
     const sensor = sceneData?.sensors.find((s) => s.sensorId === sensorId);
     const cam = sceneData?.cameras.find((c) => c.cameraId === sensor?.cameraId);
     showCameraPanel(cam ?? null);
-    showKnowledgeLinks(sensor?.relatedKnowledgeIds ?? [], []);
+    renderCustomerLinksPanel(sceneData?.customerLinks, sensor?.relatedKnowledgeIds ?? []);
+    renderAttachmentsPanel(null, []);
   }
 }
 
@@ -740,36 +1010,6 @@ function showCameraPanel(cameraData) {
     <img class="mon3dv3-camera-mock" src="${cameraData.placeholderImage}" alt="" />
     <div class="mon3dv3-camera-label">${cameraData.streamLabel} · ${cameraData.label}</div>
   `;
-}
-
-function showKnowledgeLinks(ids, apiLinks) {
-  const box = $("#mon3dv3-knowledge-links");
-  if (!box || !sceneData) return;
-
-  const links = [];
-  if (apiLinks && typeof apiLinks === "object" && !Array.isArray(apiLinks)) {
-    if (apiLinks.equipmentUrl) links.push({ label: "設備説明（Customer）", url: apiLinks.equipmentUrl });
-    if (apiLinks.materialsUrl) links.push({ label: "関連資料 PDF", url: apiLinks.materialsUrl });
-    if (apiLinks.projectUrl) links.push({ label: "案件ページ", url: apiLinks.projectUrl });
-  }
-  ids.forEach((id) => {
-    links.push({
-      label: `Knowledge: ${id}`,
-      url: `/knowledge-customer-detail-v1?id=${encodeURIComponent(id)}&kind=card`,
-    });
-  });
-  links.push({
-    label: "案件ページを見る",
-    url: sceneData.customerLinks.projectPageUrl,
-  });
-  links.push({
-    label: "Site Map（Customer）",
-    url: sceneData.customerLinks.siteMapUrl,
-  });
-
-  box.innerHTML = links
-    .map((l) => `<a href="${l.url}" target="_blank" rel="noopener">${l.label}</a>`)
-    .join("");
 }
 
 function triggerDemoScenario(scenarioId) {
@@ -804,6 +1044,14 @@ function onPointerDown(event) {
   pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
   raycaster.setFromCamera(pointer, camera);
+
+  const pinSprites = [...photoPinSprites.values()];
+  const pinHits = raycaster.intersectObjects(pinSprites);
+  if (pinHits[0]?.object?.userData?.photoPinSensorId) {
+    selectSensor(pinHits[0].object.userData.photoPinSensorId, { openMaterialsTab: true });
+    return;
+  }
+
   const meshes = [...sensorMeshes.values()].map((e) => e.mesh);
   const hits = raycaster.intersectObjects(meshes);
   if (hits[0]?.object?.userData?.sensorId) {
@@ -834,6 +1082,10 @@ function animate(time) {
 }
 
 function bindUi() {
+  $$(".mon3dv3-tab").forEach((btn) => {
+    btn.addEventListener("click", () => switchRightTab(btn.dataset.tab));
+  });
+
   $$("#mon3dv3-mapasset-mode-btns button").forEach((btn) => {
     btn.addEventListener("click", () => setMapAssetDisplayMode(btn.dataset.mapMode));
   });
@@ -995,7 +1247,7 @@ async function boot() {
   }
 
   $("#mon3dv3-site-title").textContent = sceneData.siteName;
-  $("#mon3dv3-site-sub").textContent = `${sceneData.siteId} · Three.js V3.3 · mapAsset`;
+  $("#mon3dv3-site-sub").textContent = `${sceneData.siteId} · Three.js V3.4 · 資料連携`;
   mapAssetDisplayMode = sceneData.mapAssetDisplayMode || sceneData.mapAsset?.defaultDisplayMode || "all_floors";
   const activeLabel = sceneData.mapAsset.activeAsset?.title;
   const statusText = activeLabel
@@ -1003,12 +1255,22 @@ async function boot() {
     : `${sceneData.mapAsset.integrationStatusLabel} — ${sceneData.mapAsset.integrationNote}`;
   $("#mon3dv3-mapasset-status").textContent = statusText;
 
+  try {
+    const attData = await apiGet(`/api/monitoring/v1/device-attachments?siteId=${encodeURIComponent(siteId)}`);
+    siteAttachmentRecords = attData.records ?? [];
+  } catch {
+    siteAttachmentRecords = [];
+  }
+
   buildFromMapAsset(sceneData.mapAsset);
   setMapAssetDisplayMode(mapAssetDisplayMode);
   sceneData.sensors.forEach(createSensorMarker);
+  buildPhotoPinsFromAttachments(siteAttachmentRecords);
+  await loadReportPhotoSlots();
   renderSensorList();
   applyLayerFilter("all");
   bindUi();
+  switchRightTab("status", { skipLogReload: true });
   animate(0);
 }
 
