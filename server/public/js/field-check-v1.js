@@ -1,5 +1,6 @@
 import { getCustomerToken, requireCustomerLogin } from "./customer-auth.js";
 import { initPracticalNav } from "./tisly-practical-nav.js";
+import { DEFAULT_FETCH_TIMEOUT_MS, fetchJson } from "./tisly-fetch-v1.js";
 
 const CHECK_API = "/api/field-check/v1";
 
@@ -32,18 +33,19 @@ function escapeHtml(s) {
 
 async function api(base, path, opts = {}) {
   const token = getCustomerToken();
-  const res = await fetch(`${base}${path}`, {
-    ...opts,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-      ...(opts.headers || {}),
+  return fetchJson(
+    `${base}${path}`,
+    {
+      ...opts,
+      label: opts.label || "現場API",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        ...(opts.headers || {}),
+      },
     },
-  });
-  if (res.status === 204) return {};
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-  return data;
+    opts.timeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS
+  );
 }
 
 function itemsQuery() {

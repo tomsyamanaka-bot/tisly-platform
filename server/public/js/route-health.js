@@ -32,14 +32,14 @@ const BOTTOM_NAV_LINKS = [
 ];
 
 const JS_ASSETS = [
-  { path: "/js/estimate-v1.js?v=estimate-ui-v6", label: "estimate-v1 JS" },
+  { path: "/js/estimate-v1.js?v=estimate-ui-v7", label: "estimate-v1 JS" },
   { path: "/js/survey-v1.js?v=survey-ui-v4", label: "survey-v1 JS" },
   { path: "/js/survey-drawing-v1.js?v=survey-drawing-ui-v3", label: "survey-drawing-v1 JS" },
   { path: "/js/tisly-practical-nav.js", label: "bottom nav JS" },
 ];
 
-const ESTIMATE_UI_VERSION = "estimate-ui-v6";
-const SW_CACHE_TOKEN = "v2392";
+const ESTIMATE_UI_VERSION = "estimate-ui-v7";
+const SW_CACHE_TOKEN = "v2393";
 
 async function checkPage(path) {
   try {
@@ -316,6 +316,36 @@ async function checkDrawingPdfButtons() {
   }
 }
 
+async function checkDataApi(path, label, { countField } = {}) {
+  const token =
+    localStorage.getItem("tisly_admin_token") || sessionStorage.getItem("tisly_token") || "";
+  const started = performance.now();
+  try {
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const res = await fetch(path, { cache: "no-store", headers });
+    const ms = Math.round(performance.now() - started);
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 401) {
+      return { status: "warn", detail: `${ms}ms · 401 要ログイン · endpoint OK` };
+    }
+    if (!res.ok) {
+      return { status: "fail", detail: `${ms}ms · HTTP ${res.status}` };
+    }
+    let count = "—";
+    if (countField) {
+      const v = data[countField];
+      if (Array.isArray(v)) count = String(v.length);
+      else if (v && typeof v === "object" && Array.isArray(v.projects)) count = String(v.projects.length);
+      else if (v && typeof v === "object" && Array.isArray(v.days)) count = String(v.days.length);
+      else if (typeof v === "number") count = String(v);
+    }
+    return { status: "ok", detail: `${ms}ms · 件数 ${count}` };
+  } catch (e) {
+    const ms = Math.round(performance.now() - started);
+    return { status: "fail", detail: `${ms}ms · ${e.message || String(e)}` };
+  }
+}
+
 async function runChecks() {
   document.getElementById("results").innerHTML = '<tr><td colspan="3">チェック中…</td></tr>';
   const checkedAt = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
@@ -354,6 +384,18 @@ async function runChecks() {
 
   const estApi = await checkEstimateApi();
   rows.push({ path: "/api/estimate/v1", label: "estimate API", ...estApi });
+
+  const dataApis = [
+    { path: "/api/schedule/v1/week?offset=0", label: "Schedule API", countField: "days" },
+    { path: "/api/estimate/v1/projects?customerCode=TOMS001", label: "Estimate API", countField: "projects" },
+    { path: "/api/estimate/v1/invoices?customerCode=TOMS001", label: "Invoice API", countField: "projects" },
+    { path: "/api/projects/v1/projects", label: "Project API", countField: "projects" },
+    { path: "/api/estimate/v1/customers/suggest?q=t", label: "Customer API", countField: "suggestions" },
+    { path: "/api/field-check/v1/projects", label: "Field API", countField: "projects" },
+  ];
+  for (const a of dataApis) {
+    rows.push({ path: a.path, label: a.label, ...(await checkDataApi(a.path, a.label, a)) });
+  }
 
   const estUi = await checkEstimateUiVersion();
   rows.push({ path: "estimate-v1 UI", label: "UI version", ...estUi });

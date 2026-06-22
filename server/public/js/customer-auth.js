@@ -1,5 +1,7 @@
 /** Shared customer session helpers — Phase 2081–2120 */
 
+import { DEFAULT_FETCH_TIMEOUT_MS, fetchJson } from "./tisly-fetch-v1.js";
+
 const ADMIN_TOKEN_KEY = "tisly_admin_token";
 const SESSION_TOKEN_KEY = "tisly_token";
 const CUSTOMER_CODE_KEY = "tisly_customer_code";
@@ -36,11 +38,14 @@ export async function fetchCustomerSession() {
   const token = getCustomerToken();
   if (!token) return null;
   try {
-    const res = await fetch("/api/pwa/hub", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) return null;
-    return res.json();
+    return await fetchJson(
+      "/api/pwa/hub",
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        label: "ログイン確認",
+      },
+      DEFAULT_FETCH_TIMEOUT_MS
+    );
   } catch {
     return null;
   }

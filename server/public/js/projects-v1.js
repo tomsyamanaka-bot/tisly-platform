@@ -6,6 +6,8 @@ import {
 import { initPracticalNav } from "./tisly-practical-nav.js";
 import { renderFriendlyErrorHtml } from "./tisly-friendly-errors.js";
 import { sharePdfAsFile, prefetchPdfForShare } from "./pdf-share-v1.js";
+import { DEFAULT_FETCH_TIMEOUT_MS, fetchJson, createLoadWatchdog } from "./tisly-fetch-v1.js";
+import { cacheGet, cacheSet } from "./tisly-data-cache-v1.js";
 
 const API = "/api/projects/v1";
 const WORK_API = "/api/work-session/v1";
@@ -85,32 +87,36 @@ function formatSize(bytes) {
 
 async function api(path, opts = {}) {
   const token = getCustomerToken();
-  const res = await fetch(`${API}${path}`, {
-    ...opts,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      ...(opts.headers || {}),
+  return fetchJson(
+    `${API}${path}`,
+    {
+      ...opts,
+      label: opts.label || "案件API",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        ...(opts.headers || {}),
+      },
     },
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw Object.assign(new Error(data.error || `HTTP ${res.status}`), { status: res.status });
-  return data;
+    opts.timeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS
+  );
 }
 
 async function workApi(path, opts = {}) {
   const token = getCustomerToken();
-  const res = await fetch(path, {
-    ...opts,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      ...(opts.headers || {}),
+  return fetchJson(
+    path,
+    {
+      ...opts,
+      label: opts.label || "作業API",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        ...(opts.headers || {}),
+      },
     },
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw Object.assign(new Error(data.error || `HTTP ${res.status}`), { status: res.status });
-  return data;
+    opts.timeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS
+  );
 }
 
 let currentDetailRef = null;
@@ -734,13 +740,40 @@ async function loadDeletedList() {
 }
 
 async function loadList() {
+  const mount = $("project-list");
+  const watchdog = createLoadWatchdog(DEFAULT_FETCH_TIMEOUT_MS, () => {
+    if (mount?.textContent?.includes("読み込み中")) {
+      mount.innerHTML =
+        '<p class="section-hint">読み込みがタイムアウトしました。再読み込みしてください。</p>';
+    }
+  });
   try {
-    const [dash, data] = await Promise.all([api("/dashboard"), api("/projects")]);
+    const [dash, data] = await Promise.all([
+      api("/dashboard", { label: "案件ダッシュボード" }),
+      api("/projects", { label: "案件一覧" }),
+    ]);
+    cacheSet("projects", "list", data);
+    cacheSet("projects", "dashboard", dash);
     renderTodayDeparture(dash.todayDeparture);
     renderDashboard(dash.cards || []);
     renderList(data.projects || []);
   } catch (e) {
-    $("project-list").innerHTML = `<div class="error-friendly">${renderFriendlyErrorHtml(e, e.status)}</div>`;
+    const cached = cacheGet("projects", "list");
+    const dashCached = cacheGet("projects", "dashboard");
+    if (cached?.projects?.length) {
+      if (dashCached) {
+        renderTodayDeparture(dashCached.todayDeparture);
+        renderDashboard(dashCached.cards || []);
+      }
+      renderList(cached.projects);
+    } else if (mount) {
+      mount.innerHTML = `<div class="error-friendly">${renderFriendlyErrorHtml(e, e.status)}</div>`;
+    }
+  } finally {
+    watchdog.clear();
+    if (mount?.textContent?.includes("読み込み中")) {
+      mount.innerHTML = '<p class="section-hint">データがありません</p>';
+    }
   }
 }
 

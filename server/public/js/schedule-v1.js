@@ -28,6 +28,12 @@ import {
   renderBaseWeatherHtml,
   renderWeekIntelligenceEventItemHtml,
 } from "./schedule-intelligence-ui.js";
+import {
+  createLoadWatchdog,
+  DEFAULT_FETCH_TIMEOUT_MS,
+  fetchJson,
+} from "./tisly-fetch-v1.js";
+import { cacheGet, cacheMeta, cacheSet } from "./tisly-data-cache-v1.js";
 
 const API = "/api/schedule/v1";
 const CAT_ICON = {
@@ -195,6 +201,45 @@ function buildSyncStatusView(cal, { lastError, lastSyncBody } = {}) {
 }
 
 let lastSyncRequestBody = null;
+let initWatchdog = null;
+
+function scheduleErrorHtml(err, status) {
+  const code = err?.code || "";
+  const st = status ?? err?.status ?? 0;
+  const msg = String(err?.message || "");
+  if (st === 401 || /unauthorized|ログイン/i.test(msg)) {
+    return `<strong>ログイン期限切れ</strong>もう一度ログインしてください。<br><small>→ App Hub（/app）からログインし直してください。</small>`;
+  }
+  if (code === "timeout" || /timeout|タイムアウト/i.test(msg)) {
+    return `<strong>予定取得がタイムアウトしました</strong>サーバー応答がありません（${Math.round(DEFAULT_FETCH_TIMEOUT_MS / 1000)}秒）。<br><small>→ 電波を確認して「再読み込み」をお試しください。</small>`;
+  }
+  if (code === "network_error" || /通信に失敗|load failed|failed to fetch/i.test(msg)) {
+    return `<strong>予定取得に失敗しました</strong>通信できませんでした。電波またはWi-Fiを確認してください。<br><small>→ 接続が戻ったらページを再読み込みしてください。</small>`;
+  }
+  if (st === 503 && /google|カレンダー/i.test(msg)) {
+    return `<strong>Google同期未設定</strong>Googleカレンダー連携が完了していません。<br><small>→ 「連携」からログインしてください。</small>`;
+  }
+  if (st >= 500) {
+    return `<strong>予定取得失敗（サーバーエラー）</strong>しばらくしてからもう一度お試しください。<br><small>→ 続く場合は担当者に連絡してください。</small>`;
+  }
+  return renderFriendlyErrorHtml(err, st);
+}
+
+function showScheduleOfflineBanner(savedAt) {
+  const card = $("sync-status-card");
+  const summaryEl = $("sync-status-summary");
+  if (!card || !summaryEl) return;
+  card.classList.remove("hidden");
+  card.classList.add("sync-error-state");
+  const when = savedAt
+    ? new Date(savedAt).toLocaleString("ja-JP", { timeZone: SCHEDULE_TZ })
+    : "—";
+  summaryEl.innerHTML = `<p class="schedule-sync-line"><strong>オフライン表示</strong></p><p class="schedule-sync-line">前回保存した予定を表示しています（${escapeHtml(when)}）</p>`;
+}
+
+function clearScheduleOfflineBanner() {
+  /* refreshSyncStatus が上書きする */
+}
 
 function renderSyncStatusCard(cal, { lastError, expandDetail = false } = {}) {
   const card = $("sync-status-card");
@@ -270,23 +315,20 @@ function toastError(err, status) {
 
 async function api(path, opts = {}) {
   const token = getCustomerToken();
-  const res = await fetch(`${API}${path}`, {
-    ...opts,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      ...(opts.headers || {}),
+  const label = opts.label || "日程API";
+  const data = await fetchJson(
+    `${API}${path}`,
+    {
+      ...opts,
+      label,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        ...(opts.headers || {}),
+      },
     },
-  });
-  if (res.status === 204) return {};
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const e = new Error(apiErrorMessage(data, res.status));
-    e.status = res.status;
-    e.code = data.code;
-    e.details = data.details;
-    throw e;
-  }
+    opts.timeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS
+  );
   return data;
 }
 
@@ -521,8 +563,10 @@ function refreshTodayDepartureAlert() {
 }
 
 async function loadWeek() {
+  const cacheKey = `week:${weekOffset}`;
   try {
-    const data = await api(`/week?offset=${weekOffset}`);
+    const data = await api(`/week?offset=${weekOffset}`, { label: "週間予定" });
+    cacheSet("schedule", cacheKey, data);
     const today = data.today || todayIso();
     $("week-label").textContent = data.label;
     $("week-range").textContent = `${formatDateShort(data.startDate)}〜${formatDateShort(data.endDate)}`;
@@ -530,18 +574,43 @@ async function loadWeek() {
     renderWeekDays(data.days, today);
     updateWeekNavState(data.offset ?? weekOffset);
     refreshTodayDepartureAlert();
+    clearScheduleOfflineBanner();
   } catch (e) {
-    $("week-days").innerHTML = `<div class="error-friendly">${renderFriendlyErrorHtml(e, e.status)}</div>`;
+    const cached = cacheGet("schedule", cacheKey);
+    if (cached?.days?.length) {
+      const meta = cacheMeta("schedule", cacheKey);
+      showScheduleOfflineBanner(meta?.savedAt);
+      const today = cached.today || todayIso();
+      $("week-label").textContent = cached.label || "週間（保存済み）";
+      $("week-range").textContent = cached.startDate
+        ? `${formatDateShort(cached.startDate)}〜${formatDateShort(cached.endDate)}`
+        : "";
+      renderSummary(cached.summary);
+      renderWeekDays(cached.days, today);
+      updateWeekNavState(cached.offset ?? weekOffset);
+      refreshTodayDepartureAlert();
+      return;
+    }
+    $("week-days").innerHTML = `<div class="error-friendly">${scheduleErrorHtml(e, e.status)}</div>`;
   }
 }
 
 async function loadThreeWeeks() {
+  const cacheKey = `three:${threeOffset}`;
   try {
-    const data = await api(`/three-weeks?offset=${threeOffset}`);
+    const data = await api(`/three-weeks?offset=${threeOffset}`, { label: "3週間予定" });
+    cacheSet("schedule", cacheKey, data);
     $("three-label").textContent = threeOffset === 0 ? "今から3週間" : `${threeOffset > 0 ? "+" : ""}${threeOffset}週`;
     renderThreeWeekBlocks(data.blocks || []);
   } catch (e) {
-    $("three-blocks").innerHTML = `<div class="error-friendly">${renderFriendlyErrorHtml(e, e.status)}</div>`;
+    const cached = cacheGet("schedule", cacheKey);
+    if (cached?.blocks?.length) {
+      showScheduleOfflineBanner(cacheMeta("schedule", cacheKey)?.savedAt);
+      $("three-label").textContent = "3週間（保存済み）";
+      renderThreeWeekBlocks(cached.blocks);
+      return;
+    }
+    $("three-blocks").innerHTML = `<div class="error-friendly">${scheduleErrorHtml(e, e.status)}</div>`;
   }
 }
 
@@ -582,11 +651,19 @@ function renderMonthGrid(view) {
 }
 
 async function loadMonth() {
+  const cacheKey = `month:${monthYear}-${monthMonth}`;
   try {
-    const data = await api(`/month?year=${monthYear}&month=${monthMonth}`);
+    const data = await api(`/month?year=${monthYear}&month=${monthMonth}`, { label: "月間予定" });
+    cacheSet("schedule", cacheKey, data);
     renderMonthGrid(data);
   } catch (e) {
-    $("month-grid").innerHTML = `<div class="error-friendly">${renderFriendlyErrorHtml(e, e.status)}</div>`;
+    const cached = cacheGet("schedule", cacheKey);
+    if (cached?.weeks?.length) {
+      showScheduleOfflineBanner(cacheMeta("schedule", cacheKey)?.savedAt);
+      renderMonthGrid(cached);
+      return;
+    }
+    $("month-grid").innerHTML = `<div class="error-friendly">${scheduleErrorHtml(e, e.status)}</div>`;
   }
 }
 
@@ -676,17 +753,14 @@ function openUnavailForm(date) {
 
 async function fetchGoogleCalendarStatus() {
   const token = getCustomerToken();
-  const res = await fetch("/api/google-calendar/status", {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const e = new Error(apiErrorMessage(data, res.status));
-    e.status = res.status;
-    e.code = data.code;
-    throw e;
-  }
-  return data;
+  return fetchJson(
+    "/api/google-calendar/status",
+    {
+      headers: { Authorization: `Bearer ${token}` },
+      label: "Googleカレンダー状態",
+    },
+    DEFAULT_FETCH_TIMEOUT_MS
+  );
 }
 
 function renderCalendarStatusLine(cal) {
@@ -733,46 +807,56 @@ async function refreshCurrent() {
 }
 
 async function init() {
-  await requireCustomerLogin(customerCodeFromPath());
-  practicalNav = initPracticalNav({
-    appId: "schedule_v1",
-    appName: "日程調整",
-    theme: "orange",
+  initWatchdog = createLoadWatchdog(DEFAULT_FETCH_TIMEOUT_MS, () => {
+    if ($("week-days") && !$("week-days").innerHTML.trim()) {
+      $("week-days").innerHTML = `<div class="error-friendly">${scheduleErrorHtml({ code: "timeout", message: "init timeout" })}</div>`;
+    }
   });
-  practicalNav.setToast(toast);
-  practicalNav.setBackVisible(false);
 
-  let reasonPresets = [];
   try {
-    const presetData = await api("/presets");
-    reasonPresets = presetData.reasonPresets || [];
-  } catch {
-    reasonPresets = [];
+    await requireCustomerLogin(customerCodeFromPath());
+    practicalNav = initPracticalNav({
+      appId: "schedule_v1",
+      appName: "日程調整",
+      theme: "orange",
+    });
+    practicalNav.setToast(toast);
+    practicalNav.setBackVisible(false);
+
+    let reasonPresets = [];
+    try {
+      const presetData = await api("/presets", { label: "プリセット" });
+      reasonPresets = presetData.reasonPresets || [];
+    } catch {
+      reasonPresets = [];
+    }
+    initDayEditModal({
+      api: Object.assign(
+        (path, opts) => api(path, opts),
+        { token: () => getCustomerToken() }
+      ),
+      toast,
+      reasonPresets,
+    });
+
+    const urlDate = new URLSearchParams(window.location.search).get("date")?.slice(0, 10) ?? "";
+    weekOffset = weekOffsetFromDateParam(urlDate);
+
+    showMode("week");
+    bindSyncDetailToggle();
+    await loadWeek();
+    await refreshSyncStatus();
+    await initDepartureReminderClient({
+      apiFetch: (path, opts) => api(path, opts),
+      toast,
+      departure: todayDeparture,
+    });
+
+    const oauth = new URLSearchParams(window.location.search).get("oauth");
+    if (oauth === "ok") toast("Google連携が完了しました");
+  } finally {
+    initWatchdog?.clear();
   }
-  initDayEditModal({
-    api: Object.assign(
-      (path, opts) => api(path, opts),
-      { token: () => getCustomerToken() }
-    ),
-    toast,
-    reasonPresets,
-  });
-
-  const urlDate = new URLSearchParams(window.location.search).get("date")?.slice(0, 10) ?? "";
-  weekOffset = weekOffsetFromDateParam(urlDate);
-
-  showMode("week");
-  bindSyncDetailToggle();
-  await loadWeek();
-  await refreshSyncStatus();
-  await initDepartureReminderClient({
-    apiFetch: (path, opts) => api(path, opts),
-    toast,
-    departure: todayDeparture,
-  });
-
-  const oauth = new URLSearchParams(window.location.search).get("oauth");
-  if (oauth === "ok") toast("Google連携が完了しました");
 
   $("btn-sync-calendar")?.addEventListener("click", async () => {
     const btn = $("btn-sync-calendar");
@@ -937,5 +1021,6 @@ async function init() {
 
 init().catch((e) => {
   console.error(e);
-  $("week-days").innerHTML = `<div class="error-friendly">${renderFriendlyErrorHtml(e, e.status)}</div>`;
+  initWatchdog?.clear();
+  $("week-days").innerHTML = `<div class="error-friendly">${scheduleErrorHtml(e, e.status)}</div>`;
 });

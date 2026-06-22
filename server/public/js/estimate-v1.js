@@ -9,6 +9,13 @@ import { resolveProjectDisplayName } from "./project-display-name.js";
 import { friendlyHttpError, renderFriendlyErrorHtml } from "./tisly-friendly-errors.js";
 import { confirmChecklistBeforeReport, confirmCompletionPhotoSlotsBeforeReport } from "./field-checklist-ui.js";
 import { prefetchPdfForShare, sharePdfAsFile, triggerDownload } from "./pdf-share-v1.js";
+import {
+  createLoadWatchdog,
+  DEFAULT_FETCH_TIMEOUT_MS,
+  fetchJson,
+  withTimeout,
+} from "./tisly-fetch-v1.js";
+import { cacheGet, cacheMeta, cacheSet } from "./tisly-data-cache-v1.js";
 
 let practicalNav = null;
 let currentView = "list";
@@ -41,8 +48,8 @@ const COMPLETION_TITLE_SAVE_OK = "タイトルを保存しました";
 const MAX_COMPLETION_PHOTOS = 30;
 const IMAGE_EXT_RE = /\.(jpe?g|png|gif|webp|heic|heif)$/i;
 const COMPLETION_PHOTO_FAIL_MSG = "写真の形式か容量で失敗しました。別の写真で試してください";
-export const ESTIMATE_UI_VERSION = "estimate-ui-v6";
-const INIT_LOAD_TIMEOUT_MS = 5000;
+export const ESTIMATE_UI_VERSION = "estimate-ui-v7";
+const INIT_LOAD_TIMEOUT_MS = DEFAULT_FETCH_TIMEOUT_MS;
 const LOCAL_DRAFTS_KEY = "tisly_estimate_local_drafts_v1";
 const PENDING_SAVE_PREFIX = "tisly_estimate_pending_v1:";
 const TOMS_COMPANY_NAME = "株式会社TOMS";
@@ -53,13 +60,9 @@ let bootstrapWatchdog = null;
 
 const $ = (id) => document.getElementById(id);
 
-function withTimeout(promise, ms, label = "load") {
-  return Promise.race([
-    promise,
-    new Promise((_, reject) => {
-      setTimeout(() => reject(new Error(`${label} timeout (${ms}ms)`)), ms);
-    }),
-  ]);
+function setLoadStage(stage) {
+  const el = $("estimate-load-debug");
+  if (el) el.textContent = stage || "";
 }
 
 function readUrlProjectId() {
@@ -111,30 +114,39 @@ function hideStatusBanner() {
 }
 
 function scheduleBootstrapWatchdog() {
-  if (bootstrapWatchdog) clearTimeout(bootstrapWatchdog);
-  bootstrapWatchdog = setTimeout(() => {
+  if (bootstrapWatchdog) bootstrapWatchdog.clear();
+  bootstrapWatchdog = createLoadWatchdog(INIT_LOAD_TIMEOUT_MS, () => {
     forceClearAllListLoading();
+    setLoadStage("");
     if (!authSession) {
       showStatusBanner("読み込みが完了しませんでした。再読み込みするか、手動で新規作成してください。");
+    } else {
+      showStatusBanner("一部のデータ取得がタイムアウトしました。保存済みデータを表示しています。");
     }
-  }, INIT_LOAD_TIMEOUT_MS);
+  });
 }
 
 async function resolveAuthSession() {
   const code = customerCodeFromPath();
+  setLoadStage("Loading auth…");
   if (!getCustomerToken()) {
+    setLoadStage("");
     return { ok: false, code, reason: "no_token" };
   }
   try {
     const session = await withTimeout(fetchCustomerSession(), INIT_LOAD_TIMEOUT_MS, "auth");
     if (!session) {
+      setLoadStage("");
       return { ok: false, code, reason: "invalid_session" };
     }
     if (session.customerCode && session.customerCode.toUpperCase() !== code) {
+      setLoadStage("");
       return { ok: false, code, reason: "customer_mismatch" };
     }
+    setLoadStage("Auth OK");
     return { ok: true, code, session };
   } catch {
+    setLoadStage("");
     return { ok: false, code, reason: "auth_timeout" };
   }
 }
@@ -157,21 +169,42 @@ async function reloadEstimateData() {
 }
 
 async function bootstrapEstimateData() {
-  const results = await Promise.allSettled([
-    withTimeout(loadPriceRulePresets(), INIT_LOAD_TIMEOUT_MS, "price-rules"),
-    withTimeout(loadPending(), INIT_LOAD_TIMEOUT_MS, "pending"),
-    withTimeout(loadProjects(), INIT_LOAD_TIMEOUT_MS, "projects"),
-    withTimeout(loadInvoices(), INIT_LOAD_TIMEOUT_MS, "invoices"),
-    withTimeout(loadLineTemplates(), INIT_LOAD_TIMEOUT_MS, "line-templates"),
-  ]);
+  const code = customerCodeFromPath();
+  const stages = [
+    ["Loading price-rules…", () => loadPriceRulePresets()],
+    ["Loading pending…", () => loadPending()],
+    ["Loading projects…", () => loadProjects()],
+    ["Loading invoices…", () => loadInvoices()],
+    ["Loading templates…", () => loadLineTemplates()],
+  ];
+  const results = [];
+  for (const [label, fn] of stages) {
+    setLoadStage(label);
+    results.push(
+      await Promise.resolve()
+        .then(() => withTimeout(fn(), INIT_LOAD_TIMEOUT_MS, label))
+        .then(() => ({ status: "fulfilled" }))
+        .catch((reason) => ({ status: "rejected", reason }))
+    );
+  }
   const failed = results.filter((r) => r.status === "rejected");
   if (failed.length) {
     console.warn("[estimate-v1] partial bootstrap failure", failed);
-    showStatusBanner("一部のデータを読み込めませんでした。再読み込みするか、手動で新規作成できます。");
+    const hasCache =
+      cacheGet("estimate", `pending:${code}`) ||
+      cacheGet("estimate", `projects:${code}`) ||
+      cacheGet("estimate", `invoices:${code}`);
+    showStatusBanner(
+      hasCache
+        ? "一部のデータを読み込めませんでした。前回保存分を表示しています。"
+        : "一部のデータを読み込めませんでした。再読み込みするか、手動で新規作成できます。"
+    );
   } else {
     hideStatusBanner();
   }
+  setLoadStage("");
   forceClearAllListLoading();
+  bootstrapWatchdog?.clear();
 }
 
 function toast(msg) {
@@ -433,21 +466,20 @@ async function storageApi(path, opts = {}) {
 
 async function api(path, opts = {}) {
   const token = getCustomerToken();
-  const res = await fetch(`${API}${path}`, {
-    ...opts,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      ...(opts.headers || {}),
+  const label = opts.label || "見積API";
+  return fetchJson(
+    `${API}${path}`,
+    {
+      ...opts,
+      label,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        ...(opts.headers || {}),
+      },
     },
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const e = new Error(data.error || `HTTP ${res.status}`);
-    e.status = res.status;
-    throw e;
-  }
-  return data;
+    opts.timeoutMs ?? INIT_LOAD_TIMEOUT_MS
+  );
 }
 
 function projectListTitle(p) {
@@ -540,19 +572,22 @@ function renderInvoiceList(projects) {
 async function loadInvoices() {
   const code = customerCodeFromPath();
   const el = $("invoice-list");
+  const cacheKey = `invoices:${code}`;
+  const localInvoices = listLocalDrafts(code)
+    .filter((d) => d.mode === "invoice" || d.invoice)
+    .map(localDraftAsProject);
   try {
-    const data = await api(`/invoices?customerCode=${encodeURIComponent(code)}`);
-    const localInvoices = listLocalDrafts(code)
-      .filter((d) => d.mode === "invoice" || d.invoice)
-      .map(localDraftAsProject);
+    const data = await api(`/invoices?customerCode=${encodeURIComponent(code)}`, { label: "請求書" });
+    cacheSet("estimate", cacheKey, data);
     renderInvoiceList([...localInvoices, ...(data.projects || [])]);
   } catch (e) {
-    const localInvoices = listLocalDrafts(code)
-      .filter((d) => d.mode === "invoice" || d.invoice)
-      .map(localDraftAsProject);
+    const cached = cacheGet("estimate", cacheKey);
+    const merged = cached?.projects
+      ? [...localInvoices, ...cached.projects]
+      : localInvoices;
     if (el) {
-      if (localInvoices.length) {
-        renderInvoiceList(localInvoices);
+      if (merged.length) {
+        renderInvoiceList(merged);
       } else {
         el.innerHTML = `<div class="error-friendly">${renderFriendlyErrorHtml(e, e.status)}</div>`;
       }
@@ -560,7 +595,7 @@ async function loadInvoices() {
   } finally {
     clearListLoading(
       el,
-      '<div class="empty-icon">🧾</div><p>請求書はまだありません</p><p class="section-hint">（データ取得に失敗した場合は再読み込みしてください）</p>'
+      '<div class="empty-icon">🧾</div><p>請求書はまだありません</p><p class="section-hint">データがありません</p>'
     );
   }
 }
@@ -2156,17 +2191,24 @@ async function saveItems() {
 async function loadPending() {
   const code = customerCodeFromPath();
   const el = $("pending-list");
+  const cacheKey = `pending:${code}`;
   try {
-    const data = await api(`/pending-surveys?customerCode=${encodeURIComponent(code)}`);
+    const data = await api(`/pending-surveys?customerCode=${encodeURIComponent(code)}`, {
+      label: "見積待ち",
+    });
+    cacheSet("estimate", cacheKey, data);
     renderPendingList(data.surveys || []);
   } catch (e) {
-    if (el) {
+    const cached = cacheGet("estimate", cacheKey);
+    if (cached?.surveys) {
+      renderPendingList(cached.surveys);
+    } else if (el) {
       el.innerHTML = `<div class="error-friendly">${renderFriendlyErrorHtml(e, e.status)}</div>`;
     }
   } finally {
     clearListLoading(
       el,
-      '<div class="empty-icon">💰</div><p>見積待ちの案件はありません</p><p class="section-hint">（オフラインまたは API 未応答 — 再読み込みしてください）</p>'
+      '<div class="empty-icon">💰</div><p>見積待ちの案件はありません</p><p class="section-hint">データがありません</p>'
     );
   }
 }
@@ -2174,19 +2216,22 @@ async function loadPending() {
 async function loadProjects() {
   const code = customerCodeFromPath();
   const el = $("project-list");
+  const cacheKey = `projects:${code}`;
+  const localProjects = listLocalDrafts(code)
+    .filter((d) => d.mode !== "invoice" && !d.invoice)
+    .map(localDraftAsProject);
   try {
-    const data = await api(`/projects?customerCode=${encodeURIComponent(code)}`);
-    const localProjects = listLocalDrafts(code)
-      .filter((d) => d.mode !== "invoice" && !d.invoice)
-      .map(localDraftAsProject);
+    const data = await api(`/projects?customerCode=${encodeURIComponent(code)}`, { label: "見積案件" });
+    cacheSet("estimate", cacheKey, data);
     renderProjectList([...localProjects, ...(data.projects || [])]);
   } catch (e) {
-    const localProjects = listLocalDrafts(code)
-      .filter((d) => d.mode !== "invoice" && !d.invoice)
-      .map(localDraftAsProject);
+    const cached = cacheGet("estimate", cacheKey);
+    const merged = cached?.projects
+      ? [...localProjects, ...cached.projects]
+      : localProjects;
     if (el) {
-      if (localProjects.length) {
-        renderProjectList(localProjects);
+      if (merged.length) {
+        renderProjectList(merged);
       } else {
         el.innerHTML = `<div class="error-friendly">${renderFriendlyErrorHtml(e, e.status)}</div>`;
       }
@@ -2194,7 +2239,7 @@ async function loadProjects() {
   } finally {
     clearListLoading(
       el,
-      '<div class="empty-icon">📋</div><p>まだ見積がありません</p><p class="section-hint">（データ取得に失敗した場合は再読み込みしてください）</p>'
+      '<div class="empty-icon">📋</div><p>まだ見積がありません</p><p class="section-hint">データがありません</p>'
     );
   }
 }
@@ -2206,7 +2251,7 @@ function setListTab(tab) {
   $("tab-projects").classList.toggle("active", tab === "projects");
   $("tab-invoices")?.classList.toggle("active", invoices);
   refreshListTabVisibility();
-  if (invoices) loadInvoices();
+  if (invoices && authSession) loadInvoices();
 }
 
 async function init() {

@@ -39,11 +39,16 @@ export function friendlyHttpError(message, status) {
       action: "続く場合は担当者に連絡してください。",
     };
   }
-  if (/network|fetch|offline|ネットワーク/i.test(msg)) {
+  if (
+    /network|fetch|offline|ネットワーク|load failed|failed to fetch|timeout|タイムアウト/i.test(msg)
+  ) {
+    const timeout = /timeout|タイムアウト/i.test(msg);
     return {
-      title: "通信できませんでした",
-      body: "電波やWi-Fiの状態を確認してください。",
-      action: "接続が戻ったら、もう一度ボタンを押してください。",
+      title: timeout ? "応答がタイムアウトしました" : "通信できませんでした",
+      body: timeout
+        ? "サーバーからの応答がありませんでした。"
+        : "電波やWi-Fiの状態を確認してください。",
+      action: "接続が戻ったら、もう一度お試しください。",
     };
   }
   return {
