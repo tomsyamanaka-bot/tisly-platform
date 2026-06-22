@@ -35,14 +35,14 @@ const BOTTOM_NAV_LINKS = [
 ];
 
 const JS_ASSETS = [
-  { path: "/js/estimate-v1.js?v=estimate-ui-v7", label: "estimate-v1 JS" },
+  { path: "/js/estimate-v1.js?v=estimate-ui-v8", label: "estimate-v1 JS" },
   { path: "/js/survey-v1.js?v=survey-ui-v4", label: "survey-v1 JS" },
   { path: "/js/survey-drawing-v1.js?v=survey-drawing-ui-v3", label: "survey-drawing-v1 JS" },
   { path: "/js/tisly-practical-nav.js", label: "bottom nav JS" },
 ];
 
-const ESTIMATE_UI_VERSION = "estimate-ui-v7";
-const SW_CACHE_TOKEN = "v2395";
+const ESTIMATE_UI_VERSION = "estimate-ui-v8";
+const SW_CACHE_TOKEN = "v2396";
 
 const DATA_API_PROBES = [
   {

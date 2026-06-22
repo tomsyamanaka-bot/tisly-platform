@@ -32,7 +32,7 @@ describe("PWA Route Repair Phase2", () => {
   it("estimate-v1 HTML includes fallback UI and invoice tab", async () => {
     const res = await request(app).get("/estimate-v1");
     assert.equal(res.status, 200);
-    assert.match(res.text, /estimate-ui-v7/);
+    assert.match(res.text, /estimate-ui-v8/);
     assert.match(res.text, /btn-estimate-reload/);
     assert.match(res.text, /btn-new-standalone-invoice/);
     assert.match(res.text, /tab-invoices/);
@@ -41,7 +41,7 @@ describe("PWA Route Repair Phase2", () => {
 
   it("estimate-v1 JS has loading fallback and version constant", () => {
     const js = fs.readFileSync(path.join(publicDir, "js/estimate-v1.js"), "utf-8");
-    assert.match(js, /ESTIMATE_UI_VERSION = "estimate-ui-v7"/);
+    assert.match(js, /ESTIMATE_UI_VERSION = "estimate-ui-v8"/);
     assert.match(js, /INIT_LOAD_TIMEOUT_MS = DEFAULT_FETCH_TIMEOUT_MS/);
     assert.match(js, /forceClearAllListLoading/);
     assert.match(js, /resolveAuthSession/);
@@ -100,7 +100,7 @@ describe("PWA Route Repair Phase2", () => {
 
   it("service worker cache version bumped for route repair", () => {
     const sw = fs.readFileSync(path.join(publicDir, "service-worker.js"), "utf-8");
-    assert.match(sw, /v2395-production/);
+    assert.match(sw, /v2396-production/);
     assert.match(sw, /survey-drawing-v1/);
   });
 });

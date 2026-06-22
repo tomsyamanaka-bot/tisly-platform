@@ -19,7 +19,7 @@ describe("PWA Route Repair Phase3", () => {
   it("estimate-v1 HTML includes PDF quick bar and bank panel", async () => {
     const res = await request(app).get("/estimate-v1");
     assert.equal(res.status, 200);
-    assert.match(res.text, /estimate-ui-v7/);
+    assert.match(res.text, /estimate-ui-v8/);
     assert.match(res.text, /btn-pdf-quick-generate/);
     assert.match(res.text, /btn-pdf-quick-save/);
     assert.match(res.text, /btn-pdf-quick-share/);
@@ -30,7 +30,7 @@ describe("PWA Route Repair Phase3", () => {
 
   it("estimate-v1 JS has localStorage fallback and TOMS bank labels", () => {
     const js = fs.readFileSync(path.join(publicDir, "js/estimate-v1.js"), "utf-8");
-    assert.match(js, /ESTIMATE_UI_VERSION = "estimate-ui-v7"/);
+    assert.match(js, /ESTIMATE_UI_VERSION = "estimate-ui-v8"/);
     assert.match(js, /LOCAL_DRAFTS_KEY/);
     assert.match(js, /createLocalDraftFromStandalone/);
     assert.match(js, /resolveTomsBankInfoClient/);
@@ -80,7 +80,7 @@ describe("PWA Route Repair Phase3", () => {
 
   it("service worker cache version bumped for PDF restore Phase4", () => {
     const sw = fs.readFileSync(path.join(publicDir, "service-worker.js"), "utf-8");
-    assert.match(sw, /v2395-production/);
+    assert.match(sw, /v2396-production/);
     assert.match(sw, /survey-drawing-v1/);
     assert.match(sw, /estimate-v1/);
   });
