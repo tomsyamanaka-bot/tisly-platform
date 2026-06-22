@@ -42,7 +42,7 @@ const JS_ASSETS = [
 ];
 
 const ESTIMATE_UI_VERSION = "estimate-ui-v7";
-const SW_CACHE_TOKEN = "v2394";
+const SW_CACHE_TOKEN = "v2395";
 
 const DATA_API_PROBES = [
   {
@@ -166,7 +166,7 @@ async function checkEstimateUiVersion() {
 
 async function checkFieldChecklistJs() {
   try {
-    const res = await fetch("/js/field-checklist-ui.js", { cache: "no-store" });
+    const res = await fetch("/js/field-checklist-ui.js?v=fc-ui-v2", { cache: "no-store" });
     const js = await res.text();
     if (!res.ok) return { status: "fail", detail: `HTTP ${res.status}` };
     const count = (js.match(/function escapeHtml/g) || []).length;
@@ -211,7 +211,7 @@ async function checkEstimateOperational() {
       ["PDF導線", html.includes("btn-pdf-quick-generate") && html.includes("btn-pdf-estimate")],
       ["localStorage fallback", js.includes("LOCAL_DRAFTS_KEY") && js.includes("createLocalDraftFromStandalone")],
       ["振込先表記", js.includes("株式会社TOMS") && js.includes("TOMS_DEFAULT_BANK_INFO") && js.includes("トムズ")],
-      ["field-checklist import", js.includes("field-checklist-ui.js")],
+      ["field-checklist import", js.includes("field-checklist-ui.js?v=fc-ui-v2")],
     ];
     const failed = checks.filter(([, ok]) => !ok).map(([label]) => label);
     if (!failed.length) return { status: "ok", detail: `${checks.length}項目 OK` };

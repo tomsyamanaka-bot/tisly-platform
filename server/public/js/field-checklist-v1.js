@@ -5,7 +5,7 @@ import {
   bindFieldChecklistPanel,
   loadFieldChecklist,
   renderFieldChecklistPanel,
-} from "./field-checklist-ui.js";
+} from "./field-checklist-ui.js?v=fc-ui-v2";
 import { bindWorkSessionPanels, renderWorkSessionPanel } from "./work-session-ui.js";
 
 const PROJECTS_API = "/api/projects/v1";

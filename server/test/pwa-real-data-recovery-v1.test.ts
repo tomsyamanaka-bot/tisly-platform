@@ -40,6 +40,7 @@ describe("PWA real data recovery v1", () => {
     assert.match(js, /Loading projects/);
     assert.match(js, /tisly-fetch-v1\.js/);
     assert.match(js, /cacheSet\("estimate"/);
+    assert.match(js, /field-checklist-ui\.js\?v=fc-ui-v2/);
   });
 
   it("estimate-v1 HTML exposes load debug element", async () => {
@@ -59,7 +60,7 @@ describe("PWA real data recovery v1", () => {
     assert.match(js, /Schedule API/);
     assert.match(js, /Invoice API/);
     assert.match(js, /estimate-ui-v7/);
-    assert.match(js, /v2394/);
+    assert.match(js, /v2395/);
     assert.match(html, /verify-steps-list/);
     assert.match(html, /btn-iphone-refresh/);
     assert.match(html, /route-health-v6/);
@@ -78,7 +79,7 @@ describe("PWA real data recovery v1", () => {
 
   it("service worker cache bumped for recovery deploy", () => {
     const sw = fs.readFileSync(path.join(publicDir, "service-worker.js"), "utf-8");
-    assert.match(sw, /v2394-production/);
+    assert.match(sw, /v2395-production/);
   });
 });
 
