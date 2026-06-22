@@ -1,7 +1,8 @@
 import {
   customerCodeFromPath,
+  fetchCustomerSession,
   getCustomerToken,
-  requireCustomerLogin,
+  redirectToPortalLogin,
 } from "./customer-auth.js";
 import { initPracticalNav } from "./tisly-practical-nav.js";
 import { resolveProjectDisplayName } from "./project-display-name.js";
@@ -40,12 +41,26 @@ const COMPLETION_TITLE_SAVE_OK = "タイトルを保存しました";
 const MAX_COMPLETION_PHOTOS = 30;
 const IMAGE_EXT_RE = /\.(jpe?g|png|gif|webp|heic|heif)$/i;
 const COMPLETION_PHOTO_FAIL_MSG = "写真の形式か容量で失敗しました。別の写真で試してください";
+export const ESTIMATE_UI_VERSION = "estimate-ui-v5";
+const INIT_LOAD_TIMEOUT_MS = 5000;
+
+let authSession = null;
+let bootstrapWatchdog = null;
 
 const $ = (id) => document.getElementById(id);
 
+function withTimeout(promise, ms, label = "load") {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      setTimeout(() => reject(new Error(`${label} timeout (${ms}ms)`)), ms);
+    }),
+  ]);
+}
+
 function readUrlProjectId() {
   const params = new URLSearchParams(window.location.search);
-  return params.get("project") || params.get("projectId") || "";
+  return params.get("project") || params.get("projectId") || params.get("ref") || "";
 }
 
 function readInitialListTab() {
@@ -61,6 +76,98 @@ function clearListLoading(el, fallbackHtml) {
   if (el.textContent?.includes("読み込み中")) {
     el.innerHTML = fallbackHtml;
   }
+}
+
+function forceClearAllListLoading() {
+  clearListLoading(
+    $("pending-list"),
+    '<div class="empty-icon">💰</div><p>見積待ちの案件はありません</p><p class="section-hint">（オフラインまたは API 未応答 — 再読み込みしてください）</p>'
+  );
+  clearListLoading(
+    $("project-list"),
+    '<div class="empty-icon">📋</div><p>まだ見積がありません</p><p class="section-hint">（データ取得に失敗した場合は再読み込みしてください）</p>'
+  );
+  clearListLoading(
+    $("invoice-list"),
+    '<div class="empty-icon">🧾</div><p>請求書はまだありません</p><p class="section-hint">（データ取得に失敗した場合は再読み込みしてください）</p>'
+  );
+}
+
+function showStatusBanner(message, kind = "warn") {
+  const banner = $("estimate-status-banner");
+  const msg = $("estimate-status-message");
+  if (!banner || !msg) return;
+  banner.classList.remove("hidden", "status-error", "status-warn");
+  banner.classList.add(kind === "error" ? "status-error" : "status-warn");
+  msg.textContent = message;
+}
+
+function hideStatusBanner() {
+  $("estimate-status-banner")?.classList.add("hidden");
+}
+
+function scheduleBootstrapWatchdog() {
+  if (bootstrapWatchdog) clearTimeout(bootstrapWatchdog);
+  bootstrapWatchdog = setTimeout(() => {
+    forceClearAllListLoading();
+    if (!authSession) {
+      showStatusBanner("読み込みが完了しませんでした。再読み込みするか、手動で新規作成してください。");
+    }
+  }, INIT_LOAD_TIMEOUT_MS);
+}
+
+async function resolveAuthSession() {
+  const code = customerCodeFromPath();
+  if (!getCustomerToken()) {
+    return { ok: false, code, reason: "no_token" };
+  }
+  try {
+    const session = await withTimeout(fetchCustomerSession(), INIT_LOAD_TIMEOUT_MS, "auth");
+    if (!session) {
+      return { ok: false, code, reason: "invalid_session" };
+    }
+    if (session.customerCode && session.customerCode.toUpperCase() !== code) {
+      return { ok: false, code, reason: "customer_mismatch" };
+    }
+    return { ok: true, code, session };
+  } catch {
+    return { ok: false, code, reason: "auth_timeout" };
+  }
+}
+
+async function reloadEstimateData() {
+  scheduleBootstrapWatchdog();
+  hideStatusBanner();
+  const auth = await resolveAuthSession();
+  if (!auth.ok) {
+    const msg =
+      auth.reason === "no_token"
+        ? "ログインが必要です。ログインするか、手動で新規作成できます。"
+        : "セッションを確認できませんでした。再読み込みまたはログインしてください。";
+    showStatusBanner(msg);
+    forceClearAllListLoading();
+    return;
+  }
+  authSession = auth.session;
+  await bootstrapEstimateData();
+}
+
+async function bootstrapEstimateData() {
+  const results = await Promise.allSettled([
+    withTimeout(loadPriceRulePresets(), INIT_LOAD_TIMEOUT_MS, "price-rules"),
+    withTimeout(loadPending(), INIT_LOAD_TIMEOUT_MS, "pending"),
+    withTimeout(loadProjects(), INIT_LOAD_TIMEOUT_MS, "projects"),
+    withTimeout(loadInvoices(), INIT_LOAD_TIMEOUT_MS, "invoices"),
+    withTimeout(loadLineTemplates(), INIT_LOAD_TIMEOUT_MS, "line-templates"),
+  ]);
+  const failed = results.filter((r) => r.status === "rejected");
+  if (failed.length) {
+    console.warn("[estimate-v1] partial bootstrap failure", failed);
+    showStatusBanner("一部のデータを読み込めませんでした。再読み込みするか、手動で新規作成できます。");
+  } else {
+    hideStatusBanner();
+  }
+  forceClearAllListLoading();
 }
 
 function toast(msg) {
@@ -1851,23 +1958,48 @@ function setListTab(tab) {
 }
 
 async function init() {
-  const session = await requireCustomerLogin(customerCodeFromPath());
-  if (!session) return;
-  await loadPriceRulePresets();
+  scheduleBootstrapWatchdog();
+
+  const initialTab = readInitialListTab();
+  const navAppId = initialTab === "invoices" ? "billing_v1" : "estimate_v1";
+  const navTitle = initialTab === "invoices" ? "請求" : "見積";
+
   practicalNav = initPracticalNav({
-    appId: "estimate_v1",
-    appName: "見積",
+    appId: navAppId,
+    appName: navTitle,
     theme: "blue",
     onBack: handlePracticalBack,
   });
   practicalNav.setToast(toast);
   showView("list");
-  const initialTab = readInitialListTab();
   if (initialTab) setListTab(initialTab);
-  await loadPending();
-  await loadProjects();
-  await loadInvoices();
-  await loadLineTemplates();
+  else refreshListTabVisibility();
+
+  $("btn-estimate-reload")?.addEventListener("click", () => {
+    reloadEstimateData().catch((e) => {
+      console.error(e);
+      showStatusBanner("再読み込みに失敗しました。");
+      forceClearAllListLoading();
+    });
+  });
+  $("btn-estimate-login")?.addEventListener("click", () => {
+    redirectToPortalLogin(customerCodeFromPath());
+  });
+  $("btn-manual-create-estimate")?.addEventListener("click", () => resetStandaloneForm("estimate"));
+  $("btn-manual-create-invoice")?.addEventListener("click", () => resetStandaloneForm("invoice"));
+
+  const auth = await resolveAuthSession();
+  if (!auth.ok) {
+    const msg =
+      auth.reason === "no_token"
+        ? "ログインが必要です。ログインするか、手動で新規作成できます。"
+        : "セッションを確認できませんでした。再読み込みまたはログインしてください。";
+    showStatusBanner(msg);
+    forceClearAllListLoading();
+  } else {
+    authSession = auth.session;
+    await bootstrapEstimateData();
+  }
 
   bindCustomerSuggest($("standalone-addressee"), $("standalone-customer-suggest"), (s) => {
     $("standalone-addressee").value = s.name;
@@ -2162,5 +2294,10 @@ async function init() {
 
 init().catch((e) => {
   console.error(e);
-  $("pending-list").innerHTML = `<div class="error-friendly">${renderFriendlyErrorHtml(e, e.status)}</div>`;
+  forceClearAllListLoading();
+  showStatusBanner("画面の初期化に失敗しました。再読み込みするか、手動で新規作成してください。", "error");
+  const pending = $("pending-list");
+  if (pending?.textContent?.includes("読み込み中")) {
+    pending.innerHTML = `<div class="error-friendly">${renderFriendlyErrorHtml(e, e.status)}</div>`;
+  }
 });

@@ -395,6 +395,15 @@ async function completeSession() {
 }
 
 async function main() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("tab") === "orders") {
+    const q = new URLSearchParams(params);
+    q.delete("tab");
+    const qs = q.toString();
+    location.replace(`/purchase-v1${qs ? `?${qs}` : ""}`);
+    return;
+  }
+
   await requireCustomerLogin();
   const nav = initPracticalNav({ appId: "field_check_v1", appName: "材料チェック", theme: "hub" });
   nav.setToast(toast);

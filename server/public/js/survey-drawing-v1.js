@@ -1,5 +1,7 @@
 /** 現調図面 v2 — 方眼紙写真 + 線・記号・メモ + AI清書用出力 */
 
+export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v2";
+
 const TOKEN_KEY = "tisly_token";
 const SCHEMA_VERSION = 2;
 const DRAWING_VERSION = 2;

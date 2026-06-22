@@ -6,6 +6,8 @@ import {
 import { initPracticalNav } from "./tisly-practical-nav.js";
 import { friendlyHttpError, renderFriendlyErrorHtml } from "./tisly-friendly-errors.js";
 
+export const SURVEY_UI_VERSION = "survey-ui-v3";
+
 let practicalNav = null;
 
 const WORKFLOW_LABELS = {
@@ -567,9 +569,11 @@ function bindDetailMemoInput() {
 function drawingEditorQuery(sketchId) {
   const q = new URLSearchParams();
   if (sketchId) q.set("sketchId", sketchId);
-  if (currentProjectId) q.set("projectId", currentProjectId);
-  if (currentSiteId) q.set("siteId", currentSiteId);
-  if (currentCustomerId) q.set("customerId", currentCustomerId);
+  const projectId = currentProjectId || `TEMP-SURVEY-${Date.now()}`;
+  q.set("projectId", projectId);
+  q.set("surveyId", projectId);
+  q.set("siteId", currentSiteId || projectId);
+  q.set("customerId", currentCustomerId || customerCodeFromPath());
   return q.toString();
 }
 

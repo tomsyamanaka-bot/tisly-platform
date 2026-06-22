@@ -6,26 +6,36 @@
   <title>TiSLY Route Health</title>
   <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
   <style>
-    body { font-family: system-ui, sans-serif; margin: 0; padding: 1rem; background: #f8fafc; }
-    h1 { font-size: 1.2rem; margin: 0 0 0.25rem; }
-    .hint { color: #64748b; font-size: 0.9rem; margin-bottom: 1rem; }
-    .toolbar { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
-    .toolbar button { padding: 0.55rem 0.9rem; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; }
-    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
-    th, td { border-bottom: 1px solid #e2e8f0; padding: 0.55rem 0.65rem; text-align: left; font-size: 0.88rem; vertical-align: top; }
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 0.75rem; padding-bottom: 5rem; background: #f8fafc; }
+    h1 { font-size: 1.15rem; margin: 0 0 0.25rem; }
+    .hint { color: #64748b; font-size: 0.88rem; margin-bottom: 0.75rem; line-height: 1.45; }
+    .toolbar { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+    .toolbar button { min-height: 44px; padding: 0.55rem 0.9rem; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; font-size: 0.95rem; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.08); display: block; overflow-x: auto; }
+    thead, tbody, tr { display: table; width: 100%; table-layout: fixed; }
+    th, td { border-bottom: 1px solid #e2e8f0; padding: 0.55rem 0.5rem; text-align: left; font-size: 0.82rem; vertical-align: top; word-break: break-word; }
     th { background: #f1f5f9; }
     .ok { color: #047857; font-weight: 600; }
     .warn { color: #b45309; font-weight: 600; }
     .fail { color: #b91c1c; font-weight: 600; }
-    .summary { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
-    .summary div { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.6rem 0.9rem; min-width: 5rem; }
-    code { font-size: 0.82rem; word-break: break-all; }
+    .summary { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+    .summary div { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.55rem 0.75rem; min-width: 4.5rem; font-size: 0.9rem; }
+    code { font-size: 0.78rem; }
     a { color: #2563eb; }
+    .meta-bar { font-size: 0.82rem; color: #475569; margin-bottom: 0.75rem; }
+    #sw-stale-banner { background: #fff7ed; border: 2px solid #f59e0b; border-radius: 10px; padding: 0.75rem; margin-bottom: 0.75rem; }
+    #sw-stale-banner.hidden { display: none; }
+    #btn-sw-update { min-height: 44px; margin-top: 0.5rem; padding: 0.5rem 1rem; border-radius: 8px; border: none; background: #ea580c; color: #fff; font-weight: 600; width: 100%; }
   </style>
 </head>
 <body>
   <h1>TiSLY Route Health</h1>
-  <p class="hint">PWA ルート診断 — スマホから確認可能 · <a href="/route-map">Route Map</a> · <a href="/app">App Hub</a></p>
+  <p class="hint">見積・請求・現調・図面のルート診断 — <a href="/route-map">Route Map</a> · <a href="/app">App Hub</a></p>
+  <p class="meta-bar">最終確認: <strong id="checked-at">—</strong></p>
+  <div id="sw-stale-banner" class="hidden" role="alert">
+    古い Service Worker キャッシュを検出しました。最新版を反映するには更新してください。
+    <button type="button" id="btn-sw-update">更新してください</button>
+  </div>
   <div class="summary" id="summary">
     <div>✅ <span id="sum-ok">0</span></div>
     <div>⚠ <span id="sum-warn">0</span></div>
@@ -42,6 +52,6 @@
       <tr><td colspan="3">読み込み中…</td></tr>
     </tbody>
   </table>
-  <script type="module" src="/js/route-health.js"></script>
+  <script type="module" src="/js/route-health.js?v=route-health-v2"></script>
 </body>
 </html>

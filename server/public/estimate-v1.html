@@ -276,6 +276,19 @@
     <p class="section-hint" id="page-hint">お仕事の料金をまとめます</p>
 
     <div id="view-list">
+      <div id="estimate-status-banner" class="friendly-card hidden" role="alert">
+        <p id="estimate-status-message" class="section-hint"></p>
+        <div class="standalone-actions">
+          <button type="button" class="btn-sub" id="btn-estimate-reload">再読み込み</button>
+          <button type="button" class="btn-sub blue" id="btn-estimate-login">ログイン</button>
+          <button type="button" class="btn-main blue" id="btn-manual-create-estimate">手動作成（新規見積）</button>
+          <button type="button" class="btn-sub blue" id="btn-manual-create-invoice">手動作成（新規請求書）</button>
+        </div>
+      </div>
+      <style>
+        #estimate-status-banner.status-warn { border: 2px solid #f59e0b; background: #fffbeb; }
+        #estimate-status-banner.status-error { border: 2px solid #dc2626; background: #fef2f2; }
+      </style>
       <div class="standalone-actions">
         <button type="button" class="btn-main blue" id="btn-new-standalone-estimate">【新規見積】</button>
         <button type="button" class="btn-sub blue" id="btn-new-standalone-invoice">【新規請求書】</button>
@@ -486,6 +499,6 @@
     <button type="button" id="completion-lightbox-close">閉じる</button>
     <img id="completion-lightbox-img" src="" alt="" />
   </div>
-  <script type="module" src="/js/estimate-v1.js?v=estimate-ui-v4"></script>
+  <script type="module" src="/js/estimate-v1.js?v=estimate-ui-v5"></script>
 </body>
 </html>
