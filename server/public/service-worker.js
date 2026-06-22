@@ -1,7 +1,7 @@
 /* TiSLY Multi PWA — Phase 2161 customer portal shell + TiSLY blue logo icon */
-const SW_VERSION = "tisly-pwa-v2396-production";
-const OFFLINE_CACHE = "tisly-pwa-shell-v2396-production";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2396-production";
+const SW_VERSION = "tisly-pwa-v2397-production";
+const OFFLINE_CACHE = "tisly-pwa-shell-v2397-production";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2397-production";
 const ICON_V = "?v=2003";
 const SHELL_URLS = [
   "/customer-portal.html",
@@ -75,8 +75,21 @@ const SHELL_URLS = [
   "/css/survey-drawing-v1.css",
   "/route-health.html",
   "/js/route-health.js",
-  "/js/tisly-practical-nav.js",
+  "/js/tisly-practical-nav.js?v=practical-nav-v2",
   "/js/customer-auth.js",
+  "/js/tisly-fetch-v1.js",
+  "/schedule-v1.html",
+  "/projects-v1.html",
+  "/field-check-v1.html",
+  "/field-checklist-v1.html",
+  "/purchase-v1.html",
+  "/js/schedule-v1.js",
+  "/js/projects-v1.js",
+  "/js/field-check-v1.js",
+  "/js/field-checklist-v1.js",
+  "/js/purchase-v1.js",
+  "/js/field-checklist-ui.js?v=fc-ui-v2",
+  "/css/field-ops-mobile.css",
   "/manifest-survey-v1.webmanifest",
   "/manifest-estimate-v1.webmanifest",
   "/css/pro-remote-pwa.css",

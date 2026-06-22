@@ -60,10 +60,10 @@ describe("PWA real data recovery v1", () => {
     assert.match(js, /Schedule API/);
     assert.match(js, /Invoice API/);
     assert.match(js, /estimate-ui-v8/);
-    assert.match(js, /v2396/);
+    assert.match(js, /v2397/);
     assert.match(html, /verify-steps-list/);
     assert.match(html, /btn-iphone-refresh/);
-    assert.match(html, /route-health-v6/);
+    assert.match(html, /route-health-v7/);
   });
 
   it("field-checklist-ui.js has single escapeHtml declaration", () => {
@@ -79,7 +79,7 @@ describe("PWA real data recovery v1", () => {
 
   it("service worker cache bumped for recovery deploy", () => {
     const sw = fs.readFileSync(path.join(publicDir, "service-worker.js"), "utf-8");
-    assert.match(sw, /v2396-production/);
+    assert.match(sw, /v2397-production/);
   });
 });
 

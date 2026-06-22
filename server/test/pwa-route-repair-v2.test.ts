@@ -66,8 +66,9 @@ describe("PWA Route Repair Phase2", () => {
     assert.match(js, /href: "\/estimate-v1"/);
     assert.match(js, /href: "\/estimate-v1\?tab=invoice"/);
     assert.match(js, /href: "\/projects-v1"/);
-    assert.match(js, /href: "\/field-check-v1"/);
-    assert.match(js, /href: "\/field-check-v1\?tab=orders"/);
+    assert.match(js, /field_site_v1.*href: "\/field-checklist-v1"/s);
+    assert.match(js, /field_check_v1.*href: "\/field-check-v1"/s);
+    assert.match(js, /purchase_v1.*href: "\/field-check-v1\?tab=orders"/s);
     assert.doesNotMatch(js, /project-dashboard-v1/);
     assert.doesNotMatch(js, /href: "\/purchase-v1"/);
   });
@@ -100,7 +101,7 @@ describe("PWA Route Repair Phase2", () => {
 
   it("service worker cache version bumped for route repair", () => {
     const sw = fs.readFileSync(path.join(publicDir, "service-worker.js"), "utf-8");
-    assert.match(sw, /v2396-production/);
+    assert.match(sw, /v2397-production/);
     assert.match(sw, /survey-drawing-v1/);
   });
 });

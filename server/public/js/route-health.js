@@ -8,8 +8,10 @@ const PAGE_ROUTES = [
   { path: "/estimate-v1", label: "見積" },
   { path: "/estimate-v1?tab=invoice", label: "請求タブ" },
   { path: "/projects-v1", label: "案件" },
-  { path: "/field-check-v1", label: "持ち物/現場" },
+  { path: "/field-check-v1", label: "材料チェック" },
+  { path: "/field-checklist-v1", label: "現場チェック" },
   { path: "/field-check-v1?tab=orders", label: "発注タブ" },
+  { path: "/purchase-v1", label: "発注" },
   { path: "/app", label: "App Hub" },
   { path: "/route-map", label: "Route Map" },
 ];
@@ -29,7 +31,7 @@ const BOTTOM_NAV_LINKS = [
   { label: "見積", href: "/estimate-v1" },
   { label: "請求", href: "/estimate-v1?tab=invoice" },
   { label: "案件", href: "/projects-v1" },
-  { label: "現場", href: "/field-check-v1" },
+  { label: "現場", href: "/field-checklist-v1" },
   { label: "材料", href: "/field-check-v1" },
   { label: "発注", href: "/field-check-v1?tab=orders" },
 ];
@@ -42,7 +44,7 @@ const JS_ASSETS = [
 ];
 
 const ESTIMATE_UI_VERSION = "estimate-ui-v8";
-const SW_CACHE_TOKEN = "v2396";
+const SW_CACHE_TOKEN = "v2397";
 
 const DATA_API_PROBES = [
   {
@@ -85,11 +87,17 @@ const DATA_API_PROBES = [
 
 const VERIFY_STEPS = [
   { n: 1, label: "更新してください（下のボタン）", href: null, action: "refresh" },
-  { n: 2, label: "schedule-v1 — Load failed にならない", href: "/schedule-v1" },
-  { n: 3, label: "estimate-v1 — 読み込み中で止まらない", href: "/estimate-v1" },
-  { n: 4, label: "invoice tab — 請求書一覧が開く", href: "/estimate-v1?tab=invoice" },
-  { n: 5, label: "projects-v1 — 案件一覧", href: "/projects-v1" },
-  { n: 6, label: "field-check-v1 — 材料チェック", href: "/field-check-v1" },
+  { n: 2, label: "下部ナビ — 日程", href: "/schedule-v1" },
+  { n: 3, label: "下部ナビ — 現調", href: "/survey-v1" },
+  { n: 4, label: "下部ナビ — 見積", href: "/estimate-v1" },
+  { n: 5, label: "下部ナビ — 請求", href: "/estimate-v1?tab=invoice" },
+  { n: 6, label: "下部ナビ — 案件", href: "/projects-v1" },
+  { n: 7, label: "下部ナビ — 現場", href: "/field-checklist-v1" },
+  { n: 8, label: "下部ナビ — 材料", href: "/field-check-v1" },
+  { n: 9, label: "下部ナビ — 発注", href: "/field-check-v1?tab=orders" },
+  { n: 10, label: "schedule-v1 — Load failed にならない", href: "/schedule-v1" },
+  { n: 11, label: "estimate-v1 — 読み込み中で止まらない", href: "/estimate-v1" },
+  { n: 12, label: "invoice tab — 請求書一覧が開く", href: "/estimate-v1?tab=invoice" },
 ];
 
 const CACHE_PREFIX = "tisly_api_cache_v1:";
@@ -241,6 +249,56 @@ async function checkDrawingOperational() {
   }
 }
 
+async function checkOldJsVersions() {
+  const issues = [];
+  try {
+    const estRes = await fetch("/js/estimate-v1.js", { cache: "no-store" });
+    const estJs = await estRes.text();
+    if (estJs.includes("estimate-ui-v7")) issues.push("estimate-ui-v7");
+    if (!estJs.includes("estimate-ui-v8")) issues.push("estimate-ui-v8 missing");
+  } catch (e) {
+    issues.push(`estimate JS: ${e.message}`);
+  }
+  try {
+    const fcRes = await fetch("/js/field-checklist-ui.js", { cache: "no-store" });
+    const fcJs = await fcRes.text();
+    const dup = (fcJs.match(/function escapeHtml/g) || []).length;
+    if (dup > 1) issues.push("field-checklist-ui escapeHtml×2");
+  } catch (e) {
+    issues.push(`field-checklist JS: ${e.message}`);
+  }
+  if (!issues.length) return { status: "ok", detail: "古いJS未検出 · estimate-ui-v8" };
+  return { status: "fail", detail: issues.join(" · ") };
+}
+
+async function checkBottomNavPages() {
+  const targets = [
+    { path: "/field-checklist-v1", label: "現場", must: "現場チェックリスト" },
+    { path: "/purchase-v1", label: "発注", must: "発注管理" },
+  ];
+  const failed = [];
+  for (const t of targets) {
+    try {
+      const res = await fetch(t.path, { cache: "no-store" });
+      const html = await res.text();
+      if (!res.ok || !html.includes(t.must)) failed.push(t.label);
+    } catch {
+      failed.push(t.label);
+    }
+  }
+  if (!failed.length) return { status: "ok", detail: "現場/発注ページ OK" };
+  return { status: "fail", detail: `未検出: ${failed.join(", ")}` };
+}
+
+function renderBottomNavQuickLinks() {
+  const mount = document.getElementById("bottom-nav-quick");
+  if (!mount) return;
+  mount.innerHTML = BOTTOM_NAV_LINKS.map(
+    (item) =>
+      `<a class="nav-quick-btn" href="${item.href}">${item.label}</a>`
+  ).join("");
+}
+
 async function checkBottomNavJs() {
   try {
     const res = await fetch("/js/tisly-practical-nav.js", { cache: "no-store" });
@@ -252,11 +310,19 @@ async function checkBottomNavJs() {
       '/estimate-v1"',
       '/estimate-v1?tab=invoice"',
       '/projects-v1"',
+      '/field-checklist-v1"',
       '/field-check-v1"',
       '/field-check-v1?tab=orders"',
     ];
     const missing = required.filter((href) => !js.includes(href));
-    if (!missing.length) return { status: "ok", detail: "8タブリンク OK" };
+    const dupField =
+      js.includes('label: "現場"') &&
+      js.includes('label: "材料"') &&
+      (js.match(/href: "\/field-check-v1"/g) || []).length > 1;
+    if (dupField) {
+      return { status: "fail", detail: "現場/材料が同じURL（field-check-v1）" };
+    }
+    if (!missing.length) return { status: "ok", detail: "8タブリンク OK · 現場≠材料" };
     return { status: "warn", detail: `不足: ${missing.join(", ")}` };
   } catch (e) {
     return { status: "fail", detail: e.message || String(e) };
@@ -566,6 +632,7 @@ async function runChecks() {
   const checkedAt = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
   document.getElementById("checked-at").textContent = checkedAt;
   renderVerifySteps();
+  renderBottomNavQuickLinks();
 
   const rows = [];
   const diagRows = [];
@@ -651,6 +718,12 @@ async function runChecks() {
 
   const navJs = await checkBottomNavJs();
   rows.push({ path: "bottom nav JS", label: "下部ナビリンク", ...navJs });
+
+  const navPages = await checkBottomNavPages();
+  rows.push({ path: "bottom nav pages", label: "現場/発注ページ", ...navPages });
+
+  const oldJs = await checkOldJsVersions();
+  rows.push({ path: "old JS detection", label: "古いJS検出", ...oldJs });
 
   const sw = await checkSwCache();
   rows.push({ path: "Service Worker", label: "cache version", ...sw });

@@ -141,7 +141,7 @@ async function loadProjects() {
 
 async function init() {
   await requireCustomerLogin(customerCodeFromPath());
-  const nav = initPracticalNav({ appId: "field_checklist_v1", appName: "現場チェック", theme: "green" });
+  const nav = initPracticalNav({ appId: "field_site_v1", appName: "現場チェック", theme: "green" });
   nav.setToast(toast);
   nav.setBackVisible(false);
 
