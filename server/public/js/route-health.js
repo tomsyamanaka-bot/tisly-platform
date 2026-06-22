@@ -32,11 +32,14 @@ const BOTTOM_NAV_LINKS = [
 ];
 
 const JS_ASSETS = [
-  { path: "/js/estimate-v1.js?v=estimate-ui-v5", label: "estimate-v1 JS" },
+  { path: "/js/estimate-v1.js?v=estimate-ui-v6", label: "estimate-v1 JS" },
   { path: "/js/survey-v1.js?v=survey-ui-v3", label: "survey-v1 JS" },
   { path: "/js/survey-drawing-v1.js?v=survey-drawing-ui-v2", label: "survey-drawing-v1 JS" },
   { path: "/js/tisly-practical-nav.js", label: "bottom nav JS" },
 ];
+
+const ESTIMATE_UI_VERSION = "estimate-ui-v6";
+const SW_CACHE_TOKEN = "v2391";
 
 async function checkPage(path) {
   try {
@@ -96,7 +99,8 @@ async function checkInvoiceTabHtml() {
     if (!res.ok) return { status: "fail", detail: `HTTP ${res.status}` };
     const hasInvoiceTab = html.includes('id="tab-invoices"') || html.includes("請求書一覧");
     const hasInvoiceBtn = html.includes("btn-new-standalone-invoice");
-    if (hasInvoiceTab && hasInvoiceBtn) {
+    const tabActive = html.includes("tab=invoice");
+    if (hasInvoiceTab && hasInvoiceBtn && tabActive) {
       return { status: "ok", detail: "請求タブ UI 検出" };
     }
     return { status: "warn", detail: "請求タブ UI 未検出" };
@@ -107,13 +111,81 @@ async function checkInvoiceTabHtml() {
 
 async function checkEstimateUiVersion() {
   try {
-    const res = await fetch("/js/estimate-v1.js?v=estimate-ui-v5", { cache: "no-store" });
+    const res = await fetch(`/js/estimate-v1.js?v=${ESTIMATE_UI_VERSION}`, { cache: "no-store" });
     const js = await res.text();
     if (!res.ok) return { status: "fail", detail: `HTTP ${res.status}` };
-    if (js.includes('ESTIMATE_UI_VERSION = "estimate-ui-v5"')) {
-      return { status: "ok", detail: "estimate-ui-v5" };
+    if (js.includes(`ESTIMATE_UI_VERSION = "${ESTIMATE_UI_VERSION}"`)) {
+      return { status: "ok", detail: ESTIMATE_UI_VERSION };
     }
     return { status: "warn", detail: "バージョン定数未検出" };
+  } catch (e) {
+    return { status: "fail", detail: e.message || String(e) };
+  }
+}
+
+async function checkEstimateOperational() {
+  try {
+    const [htmlRes, jsRes] = await Promise.all([
+      fetch("/estimate-v1", { cache: "no-store" }),
+      fetch(`/js/estimate-v1.js?v=${ESTIMATE_UI_VERSION}`, { cache: "no-store" }),
+    ]);
+    const html = await htmlRes.text();
+    const js = await jsRes.text();
+    if (!htmlRes.ok) return { status: "fail", detail: `HTML HTTP ${htmlRes.status}` };
+    const checks = [
+      ["見積トップ", html.includes("view-list") && html.includes("btn-new-standalone-estimate")],
+      ["新規見積ボタン", html.includes("【新規見積】")],
+      ["請求タブ", html.includes("tab-invoices")],
+      ["新規請求書ボタン", html.includes("btn-new-standalone-invoice")],
+      ["PDF導線", html.includes("btn-pdf-quick-generate") && html.includes("btn-pdf-estimate")],
+      ["localStorage fallback", js.includes("LOCAL_DRAFTS_KEY") && js.includes("createLocalDraftFromStandalone")],
+      ["振込先表記", js.includes("株式会社TOMS") && js.includes("TOMS_DEFAULT_BANK_INFO") && js.includes("トムズ")],
+    ];
+    const failed = checks.filter(([, ok]) => !ok).map(([label]) => label);
+    if (!failed.length) return { status: "ok", detail: `${checks.length}項目 OK` };
+    return { status: "warn", detail: `未検出: ${failed.join(", ")}` };
+  } catch (e) {
+    return { status: "fail", detail: e.message || String(e) };
+  }
+}
+
+async function checkDrawingOperational() {
+  try {
+    const res = await fetch("/survey-drawing-v1", { cache: "no-store" });
+    const html = await res.text();
+    if (!res.ok) return { status: "fail", detail: `HTTP ${res.status}` };
+    const checks = [
+      html.includes("drawing-stage"),
+      html.includes("btn-import-photo") || html.includes("file-bg"),
+      html.includes("btn-save"),
+      html.includes("btn-back"),
+      html.includes("drawing-svg"),
+    ];
+    const okCount = checks.filter(Boolean).length;
+    if (okCount === checks.length) return { status: "ok", detail: "方眼紙・保存・戻る UI OK" };
+    return { status: "warn", detail: `${okCount}/${checks.length} 項目検出` };
+  } catch (e) {
+    return { status: "fail", detail: e.message || String(e) };
+  }
+}
+
+async function checkBottomNavJs() {
+  try {
+    const res = await fetch("/js/tisly-practical-nav.js", { cache: "no-store" });
+    const js = await res.text();
+    if (!res.ok) return { status: "fail", detail: `HTTP ${res.status}` };
+    const required = [
+      '/schedule-v1"',
+      '/survey-v1"',
+      '/estimate-v1"',
+      '/estimate-v1?tab=invoice"',
+      '/projects-v1"',
+      '/field-check-v1"',
+      '/field-check-v1?tab=orders"',
+    ];
+    const missing = required.filter((href) => !js.includes(href));
+    if (!missing.length) return { status: "ok", detail: "8タブリンク OK" };
+    return { status: "warn", detail: `不足: ${missing.join(", ")}` };
   } catch (e) {
     return { status: "fail", detail: e.message || String(e) };
   }
@@ -137,7 +209,7 @@ async function checkSwCache() {
   try {
     if ("caches" in window) {
       cacheNames = await caches.keys();
-      stale = cacheNames.some((n) => !n.includes("v2390"));
+      stale = cacheNames.some((n) => !n.includes(SW_CACHE_TOKEN));
     }
   } catch {
     /* ignore */
@@ -146,7 +218,7 @@ async function checkSwCache() {
   const active = reg?.active?.scriptURL?.split("/").pop() || "—";
   const detail = `SW ${swVersion} · active ${active} · caches ${cacheNames.length || 0}${stale ? " · 古いcacheあり" : ""}`;
   return {
-    status: stale ? "warn" : "ok",
+    status: stale ? "warn" : swVersion.includes(SW_CACHE_TOKEN) ? "ok" : "warn",
     detail,
     swVersion,
     stale,
@@ -219,6 +291,15 @@ async function runChecks() {
 
   const invTab = await checkInvoiceTabHtml();
   rows.push({ path: "invoice tab", label: "請求タブ", ...invTab });
+
+  const estOps = await checkEstimateOperational();
+  rows.push({ path: "estimate ops", label: "見積操作チェック", ...estOps });
+
+  const drawOps = await checkDrawingOperational();
+  rows.push({ path: "drawing ops", label: "図面エディタ操作", ...drawOps });
+
+  const navJs = await checkBottomNavJs();
+  rows.push({ path: "bottom nav JS", label: "下部ナビリンク", ...navJs });
 
   const sw = await checkSwCache();
   rows.push({ path: "Service Worker", label: "cache version", ...sw });

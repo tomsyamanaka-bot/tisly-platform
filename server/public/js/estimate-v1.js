@@ -41,8 +41,12 @@ const COMPLETION_TITLE_SAVE_OK = "タイトルを保存しました";
 const MAX_COMPLETION_PHOTOS = 30;
 const IMAGE_EXT_RE = /\.(jpe?g|png|gif|webp|heic|heif)$/i;
 const COMPLETION_PHOTO_FAIL_MSG = "写真の形式か容量で失敗しました。別の写真で試してください";
-export const ESTIMATE_UI_VERSION = "estimate-ui-v5";
+export const ESTIMATE_UI_VERSION = "estimate-ui-v6";
 const INIT_LOAD_TIMEOUT_MS = 5000;
+const LOCAL_DRAFTS_KEY = "tisly_estimate_local_drafts_v1";
+const PENDING_SAVE_PREFIX = "tisly_estimate_pending_v1:";
+const TOMS_COMPANY_NAME = "株式会社TOMS";
+const TOMS_DEFAULT_BANK_INFO = "常陽銀行 越谷支店\n普通 1370414\nトムズ";
 
 let authSession = null;
 let bootstrapWatchdog = null;
@@ -212,6 +216,173 @@ function newEmptyLine() {
   };
 }
 
+function isLocalProjectId(id) {
+  return String(id || "").startsWith("LOCAL-");
+}
+
+function readLocalDraftStore() {
+  try {
+    return JSON.parse(localStorage.getItem(LOCAL_DRAFTS_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function writeLocalDraftStore(store) {
+  localStorage.setItem(LOCAL_DRAFTS_KEY, JSON.stringify(store));
+}
+
+function upsertLocalDraft(draft) {
+  const store = readLocalDraftStore();
+  store[draft.businessProjectId] = draft;
+  writeLocalDraftStore(store);
+}
+
+function getLocalDraft(id) {
+  return readLocalDraftStore()[id] || null;
+}
+
+function listLocalDrafts(customerCode) {
+  const code = String(customerCode || "").toUpperCase();
+  return Object.values(readLocalDraftStore()).filter(
+    (d) => String(d.customerCode || "").toUpperCase() === code
+  );
+}
+
+function resolveTomsBankInfoClient(bankInfo) {
+  const trimmed = (bankInfo ?? "").trim();
+  const base = !trimmed || /^\?{3,}$/.test(trimmed) ? TOMS_DEFAULT_BANK_INFO : trimmed;
+  return base.replace(/トムス/g, "トムズ");
+}
+
+function createLocalDraftFromStandalone(mode, body) {
+  const id = `LOCAL-${Date.now()}`;
+  const now = new Date().toISOString();
+  const items = body.items?.length ? body.items : [newEmptyLine()];
+  const draft = {
+    businessProjectId: id,
+    mode,
+    customerCode: customerCodeFromPath(),
+    createdAt: now,
+    updatedAt: now,
+    localOnly: true,
+    customerName: body.addressee,
+    projectNo: id,
+    header: {
+      addressee: body.addressee,
+      subject: body.subject,
+      staffName: body.staffName || "",
+      workLocation: body.workLocation || "",
+      notes: body.notes || "",
+      issueDate: todayIsoDate().replace(/-/g, "/"),
+      estimateNo: "",
+    },
+    estimate: {
+      items,
+      shuseiDiscount: 0,
+      shuseiDiscountMemo: "",
+      subtotal: 0,
+      tax: 0,
+      total: 0,
+    },
+    estimateNotes: body.notes || "",
+    invoice: null,
+  };
+  if (mode === "invoice") {
+    draft.invoice = {
+      customerName: body.addressee,
+      createdAt: body.invoiceDate || todayIsoDate(),
+      paymentDueDate: body.paymentDueDate || "",
+      bankInfo: TOMS_DEFAULT_BANK_INFO,
+    };
+  }
+  upsertLocalDraft(draft);
+  return draft;
+}
+
+function localDraftAsProject(draft) {
+  return {
+    businessProjectId: draft.businessProjectId,
+    customerName: draft.customerName || draft.header?.addressee,
+    projectNo: draft.projectNo || draft.businessProjectId,
+    header: draft.header,
+    estimate: draft.estimate,
+    estimateNotes: draft.estimateNotes,
+    invoice: draft.invoice,
+    localOnly: true,
+  };
+}
+
+function saveLocalDraftFromCurrentState() {
+  if (!currentProjectId || !isLocalProjectId(currentProjectId)) return null;
+  const draft = getLocalDraft(currentProjectId) || {
+    businessProjectId: currentProjectId,
+    mode: hasInvoice ? "invoice" : "estimate",
+    customerCode: customerCodeFromPath(),
+    createdAt: new Date().toISOString(),
+    invoice: hasInvoice
+      ? {
+          customerName: $("hdr-addressee")?.value?.trim() || "",
+          createdAt: $("hdr-invoice-date")?.value || todayIsoDate(),
+          paymentDueDate: $("hdr-payment-due")?.value || "",
+          bankInfo: TOMS_DEFAULT_BANK_INFO,
+        }
+      : null,
+  };
+  recalcLocal();
+  draft.header = { ...(draft.header || {}), ...readHeaderForm() };
+  draft.estimateNotes = $("estimate-notes")?.value?.trim() ?? "";
+  draft.estimate = {
+    ...(draft.estimate || {}),
+    items: currentLines,
+    shuseiDiscount: readShuseiDiscount(),
+    shuseiDiscountMemo: $("shusei-discount-memo")?.value?.trim() ?? "",
+  };
+  if (hasInvoice) {
+    draft.invoice = {
+      ...(draft.invoice || {}),
+      customerName: draft.header?.addressee || draft.customerName,
+      createdAt: $("hdr-invoice-date")?.value || draft.invoice?.createdAt || todayIsoDate(),
+      paymentDueDate: $("hdr-payment-due")?.value || "",
+      bankInfo: resolveTomsBankInfoClient(draft.invoice?.bankInfo),
+    };
+    draft.mode = "invoice";
+  }
+  draft.updatedAt = new Date().toISOString();
+  upsertLocalDraft(draft);
+  return draft;
+}
+
+function savePendingOverlay(projectId, payload) {
+  localStorage.setItem(
+    PENDING_SAVE_PREFIX + projectId,
+    JSON.stringify({ ...payload, savedAt: new Date().toISOString() })
+  );
+}
+
+function showPdfQuickError(message) {
+  const el = $("pdf-quick-error");
+  if (!el) return;
+  if (!message) {
+    el.textContent = "";
+    el.classList.remove("visible");
+    return;
+  }
+  el.textContent = message;
+  el.classList.add("visible");
+}
+
+function renderInvoiceBankPanel(invoice) {
+  const panel = $("invoice-bank-panel");
+  if (!panel) return;
+  panel.classList.toggle("hidden", !invoice);
+  if (!invoice) return;
+  const companyEl = $("invoice-company-label");
+  if (companyEl) companyEl.textContent = TOMS_COMPANY_NAME;
+  const bankEl = $("invoice-bank-display");
+  if (bankEl) bankEl.textContent = resolveTomsBankInfoClient(invoice.bankInfo);
+}
+
 const LINE_FIELD_ORDER = ["desc", "qty", "price"];
 
 function focusLineField(rowIdx, fieldName) {
@@ -355,7 +526,7 @@ function renderInvoiceList(projects) {
     .map(
       (p) => `
     <div class="friendly-card list-card" data-id="${p.businessProjectId}">
-      <span class="status-badge done">${escapeHtml(p.invoiceNo || "請求書")}</span>
+      <span class="status-badge done">${escapeHtml(p.localOnly ? "端末内" : p.invoiceNo || "請求書")}</span>
       <h2>${escapeHtml(projectListTitle(p))}</h2>
       <p>${escapeHtml(p.projectNo)} · ${p.invoiceTotal != null ? yen(p.invoiceTotal) : p.total != null ? yen(p.total) : "—"}</p>
     </div>`
@@ -371,10 +542,20 @@ async function loadInvoices() {
   const el = $("invoice-list");
   try {
     const data = await api(`/invoices?customerCode=${encodeURIComponent(code)}`);
-    renderInvoiceList(data.projects || []);
+    const localInvoices = listLocalDrafts(code)
+      .filter((d) => d.mode === "invoice" || d.invoice)
+      .map(localDraftAsProject);
+    renderInvoiceList([...localInvoices, ...(data.projects || [])]);
   } catch (e) {
+    const localInvoices = listLocalDrafts(code)
+      .filter((d) => d.mode === "invoice" || d.invoice)
+      .map(localDraftAsProject);
     if (el) {
-      el.innerHTML = `<div class="error-friendly">${renderFriendlyErrorHtml(e, e.status)}</div>`;
+      if (localInvoices.length) {
+        renderInvoiceList(localInvoices);
+      } else {
+        el.innerHTML = `<div class="error-friendly">${renderFriendlyErrorHtml(e, e.status)}</div>`;
+      }
     }
   } finally {
     clearListLoading(
@@ -404,7 +585,7 @@ function renderProjectList(projects) {
     .map(
       (p) => `
     <div class="friendly-card list-card" data-id="${p.businessProjectId}">
-      <span class="status-badge ${p.pdfPath ? "done" : "orange"}">${p.pdfPath ? "見積書の準備ができました" : p.estimateNo || "下書き"}</span>
+      <span class="status-badge ${p.localOnly ? "orange" : p.pdfPath ? "done" : "orange"}">${p.localOnly ? "端末内" : p.pdfPath ? "見積書の準備ができました" : p.estimateNo || "下書き"}</span>
       <h2>${escapeHtml(projectListTitle(p))}</h2>
       <p>${escapeHtml(p.projectNo)} · ${p.total != null ? yen(p.total) : "—"}</p>
     </div>`
@@ -766,13 +947,17 @@ function fillHeaderForm(header) {
 
 function fillInvoiceHeaderForm(project, invoice) {
   $("invoice-header-fields")?.classList.toggle("hidden", !invoice);
-  if (!invoice) return;
+  if (!invoice) {
+    renderInvoiceBankPanel(null);
+    return;
+  }
   if ($("hdr-invoice-date")) {
     $("hdr-invoice-date").value = (invoice.createdAt || "").slice(0, 10) || todayIsoDate();
   }
   if ($("hdr-payment-due")) {
     $("hdr-payment-due").value = invoice.paymentDueDate || project?.paymentDueDate || "";
   }
+  renderInvoiceBankPanel(invoice);
 }
 
 function readHeaderForm() {
@@ -790,6 +975,10 @@ function readHeaderForm() {
 }
 
 async function saveHeader() {
+  if (isLocalProjectId(currentProjectId)) {
+    const draft = saveLocalDraftFromCurrentState();
+    return { header: draft?.header || readHeaderForm() };
+  }
   const result = await api(`/projects/${currentProjectId}/header`, {
     method: "PATCH",
     body: JSON.stringify(readHeaderForm()),
@@ -1282,6 +1471,21 @@ async function loadPriceRulePresets() {
 }
 
 async function patchItems(body) {
+  if (isLocalProjectId(currentProjectId)) {
+    const draft = getLocalDraft(currentProjectId);
+    if (draft) {
+      draft.estimate = {
+        ...(draft.estimate || {}),
+        items: body.items || currentLines,
+        shuseiDiscount: body.shuseiDiscount ?? 0,
+        shuseiDiscountMemo: body.shuseiDiscountMemo ?? "",
+      };
+      draft.estimateNotes = body.notes ?? draft.estimateNotes ?? "";
+      draft.updatedAt = new Date().toISOString();
+      upsertLocalDraft(draft);
+      return { estimate: draft.estimate };
+    }
+  }
   const res = await fetch(`${API}/projects/${currentProjectId}/items`, {
     method: "PATCH",
     headers: {
@@ -1844,7 +2048,13 @@ async function submitStandaloneForm() {
     await loadInvoices();
     await openDetail(detail.businessProjectId);
   } catch (e) {
-    toastError(e, e.status);
+    console.warn("[estimate-v1] standalone API failed, using localStorage fallback", e);
+    const draft = createLocalDraftFromStandalone(standaloneMode, body);
+    hideStandaloneForm();
+    toast("オフラインで保存しました（端末内）");
+    await loadProjects();
+    await loadInvoices();
+    await openDetail(draft.businessProjectId);
   }
 }
 
@@ -1854,7 +2064,39 @@ async function openDetail(projectId) {
   $("toms-section").classList.add("hidden");
   lastTomsData = null;
   hidePdfPreview();
+  showPdfQuickError("");
   completionPhotos = [];
+  if (isLocalProjectId(projectId)) {
+    const draft = getLocalDraft(projectId);
+    if (!draft) {
+      toast("ローカル草稿が見つかりません");
+      showView("list");
+      return;
+    }
+    const p = localDraftAsProject(draft);
+    $("detail-name").textContent = projectListTitle(p);
+    renderMasterDraftBadge(null);
+    await loadMasterPricingSummary(null);
+    renderCustomerInfo(p);
+    renderPriceRulePanel(p);
+    $("detail-status").textContent = "オフライン保存";
+    $("detail-status").className = "status-badge orange";
+    hasInvoice = Boolean(p.invoice);
+    currentSurveyProjectId = null;
+    $("detail-meta").textContent = `${p.projectNo} · 端末内保存`;
+    $("estimate-notes").value = p.estimateNotes || "";
+    if ($("hdr-notes") && p.estimateNotes) $("hdr-notes").value = p.estimateNotes;
+    fillHeaderForm(p.header);
+    fillInvoiceHeaderForm(p, p.invoice);
+    $("btn-invoice")?.classList.toggle("hidden", hasInvoice);
+    renderLines(p.estimate?.items || [newEmptyLine()]);
+    if ($("shusei-discount")) $("shusei-discount").value = String(p.estimate?.shuseiDiscount ?? 0);
+    if ($("shusei-discount-memo")) $("shusei-discount-memo").value = p.estimate?.shuseiDiscountMemo ?? "";
+    updateTotalsFromEstimate(p.estimate);
+    $("doc-list-mount").innerHTML =
+      '<p class="section-hint">端末内保存のためPDFはサーバー保存後に作成できます</p>';
+    return;
+  }
   try {
     const p = await api(`/projects/${projectId}`);
     $("detail-name").textContent = projectListTitle(p);
@@ -1934,10 +2176,20 @@ async function loadProjects() {
   const el = $("project-list");
   try {
     const data = await api(`/projects?customerCode=${encodeURIComponent(code)}`);
-    renderProjectList(data.projects || []);
+    const localProjects = listLocalDrafts(code)
+      .filter((d) => d.mode !== "invoice" && !d.invoice)
+      .map(localDraftAsProject);
+    renderProjectList([...localProjects, ...(data.projects || [])]);
   } catch (e) {
+    const localProjects = listLocalDrafts(code)
+      .filter((d) => d.mode !== "invoice" && !d.invoice)
+      .map(localDraftAsProject);
     if (el) {
-      el.innerHTML = `<div class="error-friendly">${renderFriendlyErrorHtml(e, e.status)}</div>`;
+      if (localProjects.length) {
+        renderProjectList(localProjects);
+      } else {
+        el.innerHTML = `<div class="error-friendly">${renderFriendlyErrorHtml(e, e.status)}</div>`;
+      }
     }
   } finally {
     clearListLoading(
@@ -2063,8 +2315,18 @@ async function init() {
       await saveHeader();
       toast("ヘッダーを保存しました");
       hidePdfPreview();
+      showPdfQuickError("");
     } catch (e) {
-      toastError(e, e.status);
+      if (!isLocalProjectId(currentProjectId)) {
+        savePendingOverlay(currentProjectId, {
+          header: readHeaderForm(),
+          items: currentLines,
+          notes: $("estimate-notes")?.value?.trim() ?? "",
+        });
+        toast("オフライン保存しました。接続後に再保存してください");
+      } else {
+        toastError(e, e.status);
+      }
     }
   });
 
@@ -2119,17 +2381,32 @@ async function init() {
       const result = await saveItems();
       toast("内訳を保存しました");
       updateTotalsFromEstimate(result.estimate);
-      const refreshed = await api(`/projects/${currentProjectId}`);
-      renderPriceRulePanel({
-        customerName: refreshed.customerName,
-        priceRule: refreshed.priceRule,
-        estimate: result.estimate,
-      });
+      if (!isLocalProjectId(currentProjectId)) {
+        const refreshed = await api(`/projects/${currentProjectId}`);
+        renderPriceRulePanel({
+          customerName: refreshed.customerName,
+          priceRule: refreshed.priceRule,
+          estimate: result.estimate,
+        });
+      }
       hidePdfPreview();
-      $("detail-status").textContent = "下書き";
+      showPdfQuickError("");
+      $("detail-status").textContent = isLocalProjectId(currentProjectId) ? "オフライン保存" : "下書き";
       $("detail-status").className = "status-badge orange";
     } catch (e) {
-      toastError(e, e.status);
+      if (!isLocalProjectId(currentProjectId)) {
+        recalcLocal();
+        savePendingOverlay(currentProjectId, {
+          header: readHeaderForm(),
+          items: currentLines,
+          notes: $("estimate-notes")?.value?.trim() ?? "",
+          shuseiDiscount: readShuseiDiscount(),
+          shuseiDiscountMemo: $("shusei-discount-memo")?.value?.trim() ?? "",
+        });
+        toast("オフライン保存しました。接続後に再保存してください");
+      } else {
+        toastError(e, e.status);
+      }
     }
   });
 
@@ -2167,6 +2444,62 @@ async function init() {
   $("btn-pdf-invoice").addEventListener("click", () => openDocumentViewer("invoice"));
   $("btn-pdf-specification").addEventListener("click", () => openDocumentViewer("specification"));
   $("btn-pdf-completion").addEventListener("click", () => openDocumentViewer("completion"));
+
+  $("btn-pdf-quick-generate")?.addEventListener("click", async () => {
+    if (!currentProjectId) return;
+    const kind = hasInvoice ? "invoice" : "estimate";
+    try {
+      if (isLocalProjectId(currentProjectId)) {
+        showPdfQuickError("端末内保存のためPDFは作成できません。ログインしてサーバー保存後にお試しください。");
+        return;
+      }
+      showPdfQuickError("");
+      await openDocumentViewer(kind);
+    } catch (e) {
+      showPdfQuickError(e.message || "PDF作成に失敗しました");
+    }
+  });
+  $("btn-pdf-quick-save")?.addEventListener("click", async () => {
+    const kind = hasInvoice ? "invoice" : "estimate";
+    try {
+      if (isLocalProjectId(currentProjectId)) {
+        showPdfQuickError("端末内保存のためPDFは保存できません。");
+        return;
+      }
+      showPdfQuickError("");
+      await saveDocumentFromList(kind);
+    } catch (e) {
+      showPdfQuickError(e.message || "PDF保存に失敗しました");
+    }
+  });
+  $("btn-pdf-quick-share")?.addEventListener("click", async () => {
+    const kind = hasInvoice ? "invoice" : "estimate";
+    try {
+      if (isLocalProjectId(currentProjectId)) {
+        showPdfQuickError("端末内保存のため共有できません。");
+        return;
+      }
+      showPdfQuickError("");
+      await shareDocumentFromList(kind);
+    } catch (e) {
+      if (e?.name !== "AbortError") showPdfQuickError(e.message || "共有に失敗しました");
+    }
+  });
+
+  $("btn-copy-bank")?.addEventListener("click", async () => {
+    const text = $("invoice-bank-display")?.textContent?.trim();
+    if (!text) {
+      toast("振込先がありません");
+      return;
+    }
+    const full = `${TOMS_COMPANY_NAME}\n${text}`;
+    try {
+      await navigator.clipboard.writeText(full);
+      toast("振込先をコピーしました");
+    } catch {
+      toast(full);
+    }
+  });
 
   $("btn-create-completion-report")?.addEventListener("click", async () => {
     if (!currentProjectId) return;
