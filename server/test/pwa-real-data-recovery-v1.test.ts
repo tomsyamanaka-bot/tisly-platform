@@ -49,13 +49,26 @@ describe("PWA real data recovery v1", () => {
     assert.match(res.text, /estimate-load-debug/);
   });
 
-  it("route-health checks data APIs with timing", () => {
+  it("route-health checks data APIs with timing and diagnostics", () => {
     const js = fs.readFileSync(path.join(publicDir, "js/route-health.js"), "utf-8");
-    assert.match(js, /checkDataApi/);
+    const html = fs.readFileSync(path.join(publicDir, "route-health.html"), "utf-8");
+    assert.match(js, /probeDataApi/);
+    assert.match(js, /checkAuthState/);
+    assert.match(js, /checkGoogleCalendarState/);
+    assert.match(js, /checkFieldChecklistJs/);
     assert.match(js, /Schedule API/);
     assert.match(js, /Invoice API/);
     assert.match(js, /estimate-ui-v7/);
-    assert.match(js, /v2393/);
+    assert.match(js, /v2394/);
+    assert.match(html, /verify-steps-list/);
+    assert.match(html, /btn-iphone-refresh/);
+    assert.match(html, /route-health-v6/);
+  });
+
+  it("field-checklist-ui.js has single escapeHtml declaration", () => {
+    const js = fs.readFileSync(path.join(publicDir, "js/field-checklist-ui.js"), "utf-8");
+    const count = (js.match(/function escapeHtml/g) || []).length;
+    assert.equal(count, 1, "duplicate escapeHtml breaks estimate-v1 module load");
   });
 
   it("friendly errors map Load failed to network message", () => {
@@ -65,7 +78,7 @@ describe("PWA real data recovery v1", () => {
 
   it("service worker cache bumped for recovery deploy", () => {
     const sw = fs.readFileSync(path.join(publicDir, "service-worker.js"), "utf-8");
-    assert.match(sw, /v2393-production/);
+    assert.match(sw, /v2394-production/);
   });
 });
 

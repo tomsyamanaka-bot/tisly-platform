@@ -1,3 +1,6 @@
+import { getCustomerToken } from "./customer-auth.js";
+import { DEFAULT_FETCH_TIMEOUT_MS, fetchJson } from "./tisly-fetch-v1.js";
+
 const PAGE_ROUTES = [
   { path: "/schedule-v1", label: "日程" },
   { path: "/survey-v1", label: "現調" },
@@ -39,7 +42,57 @@ const JS_ASSETS = [
 ];
 
 const ESTIMATE_UI_VERSION = "estimate-ui-v7";
-const SW_CACHE_TOKEN = "v2393";
+const SW_CACHE_TOKEN = "v2394";
+
+const DATA_API_PROBES = [
+  {
+    path: "/api/schedule/v1/week?offset=0",
+    label: "Schedule API",
+    countLabel: "schedule days",
+    countFn: (d) => (Array.isArray(d.days) ? d.days.length : null),
+  },
+  {
+    path: "/api/estimate/v1/projects?customerCode=TOMS001",
+    label: "Estimate projects",
+    countLabel: "estimate projects",
+    countFn: (d) => (Array.isArray(d.projects) ? d.projects.length : null),
+  },
+  {
+    path: "/api/estimate/v1/invoices?customerCode=TOMS001",
+    label: "Invoice API",
+    countLabel: "invoices",
+    countFn: (d) => (Array.isArray(d.projects) ? d.projects.length : null),
+  },
+  {
+    path: "/api/projects/v1/projects",
+    label: "Project API",
+    countLabel: "projects",
+    countFn: (d) => (Array.isArray(d.projects) ? d.projects.length : null),
+  },
+  {
+    path: "/api/estimate/v1/customers/suggest?q=t",
+    label: "Customer suggest",
+    countLabel: "customer suggest",
+    countFn: (d) => (Array.isArray(d.suggestions) ? d.suggestions.length : null),
+  },
+  {
+    path: "/api/field-check/v1/projects",
+    label: "Field check",
+    countLabel: "field check projects",
+    countFn: (d) => (Array.isArray(d.projects) ? d.projects.length : null),
+  },
+];
+
+const VERIFY_STEPS = [
+  { n: 1, label: "更新してください（下のボタン）", href: null, action: "refresh" },
+  { n: 2, label: "schedule-v1 — Load failed にならない", href: "/schedule-v1" },
+  { n: 3, label: "estimate-v1 — 読み込み中で止まらない", href: "/estimate-v1" },
+  { n: 4, label: "invoice tab — 請求書一覧が開く", href: "/estimate-v1?tab=invoice" },
+  { n: 5, label: "projects-v1 — 案件一覧", href: "/projects-v1" },
+  { n: 6, label: "field-check-v1 — 材料チェック", href: "/field-check-v1" },
+];
+
+const CACHE_PREFIX = "tisly_api_cache_v1:";
 
 async function checkPage(path) {
   try {
@@ -92,6 +145,38 @@ async function checkEstimateApi() {
   }
 }
 
+async function checkEstimateUiVersion() {
+  try {
+    const res = await fetch(`/js/estimate-v1.js?v=${ESTIMATE_UI_VERSION}`, { cache: "no-store" });
+    const js = await res.text();
+    if (!res.ok) return { status: "fail", detail: `HTTP ${res.status}` };
+    if (js.includes(`ESTIMATE_UI_VERSION = "${ESTIMATE_UI_VERSION}"`)) {
+      const dupEscape = (js.match(/function escapeHtml/g) || []).length;
+      const importOk = !js.includes("Identifier 'escapeHtml' has already been declared");
+      if (dupEscape > 1 || !importOk) {
+        return { status: "fail", detail: "JS構文エラー（escapeHtml重複の可能性）" };
+      }
+      return { status: "ok", detail: ESTIMATE_UI_VERSION };
+    }
+    return { status: "warn", detail: "バージョン定数未検出" };
+  } catch (e) {
+    return { status: "fail", detail: e.message || String(e) };
+  }
+}
+
+async function checkFieldChecklistJs() {
+  try {
+    const res = await fetch("/js/field-checklist-ui.js", { cache: "no-store" });
+    const js = await res.text();
+    if (!res.ok) return { status: "fail", detail: `HTTP ${res.status}` };
+    const count = (js.match(/function escapeHtml/g) || []).length;
+    if (count > 1) return { status: "fail", detail: `escapeHtml ${count}回宣言（import失敗原因）` };
+    return { status: "ok", detail: "field-checklist-ui.js OK" };
+  } catch (e) {
+    return { status: "fail", detail: e.message || String(e) };
+  }
+}
+
 async function checkInvoiceTabHtml() {
   try {
     const res = await fetch("/estimate-v1?tab=invoice", { cache: "no-store" });
@@ -104,20 +189,6 @@ async function checkInvoiceTabHtml() {
       return { status: "ok", detail: "請求タブ UI 検出" };
     }
     return { status: "warn", detail: "請求タブ UI 未検出" };
-  } catch (e) {
-    return { status: "fail", detail: e.message || String(e) };
-  }
-}
-
-async function checkEstimateUiVersion() {
-  try {
-    const res = await fetch(`/js/estimate-v1.js?v=${ESTIMATE_UI_VERSION}`, { cache: "no-store" });
-    const js = await res.text();
-    if (!res.ok) return { status: "fail", detail: `HTTP ${res.status}` };
-    if (js.includes(`ESTIMATE_UI_VERSION = "${ESTIMATE_UI_VERSION}"`)) {
-      return { status: "ok", detail: ESTIMATE_UI_VERSION };
-    }
-    return { status: "warn", detail: "バージョン定数未検出" };
   } catch (e) {
     return { status: "fail", detail: e.message || String(e) };
   }
@@ -140,6 +211,7 @@ async function checkEstimateOperational() {
       ["PDF導線", html.includes("btn-pdf-quick-generate") && html.includes("btn-pdf-estimate")],
       ["localStorage fallback", js.includes("LOCAL_DRAFTS_KEY") && js.includes("createLocalDraftFromStandalone")],
       ["振込先表記", js.includes("株式会社TOMS") && js.includes("TOMS_DEFAULT_BANK_INFO") && js.includes("トムズ")],
+      ["field-checklist import", js.includes("field-checklist-ui.js")],
     ];
     const failed = checks.filter(([, ok]) => !ok).map(([label]) => label);
     if (!failed.length) return { status: "ok", detail: `${checks.length}項目 OK` };
@@ -231,8 +303,9 @@ function statusLabel(s) {
   return '<span class="fail">❌ 異常</span>';
 }
 
-function renderRows(rows) {
-  const tbody = document.getElementById("results");
+function renderRows(rows, tbodyId = "results") {
+  const tbody = document.getElementById(tbodyId);
+  if (!tbody) return;
   tbody.innerHTML = rows
     .map(
       (r) =>
@@ -245,6 +318,178 @@ function renderRows(rows) {
   document.getElementById("sum-ok").textContent = String(ok);
   document.getElementById("sum-warn").textContent = String(warn);
   document.getElementById("sum-fail").textContent = String(fail);
+}
+
+function scanLocalCacheStats() {
+  const entries = [];
+  try {
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i);
+      if (!key?.startsWith(CACHE_PREFIX)) continue;
+      let savedAt = "—";
+      try {
+        const payload = JSON.parse(localStorage.getItem(key) || "{}");
+        savedAt = payload.savedAt || "—";
+      } catch {
+        /* ignore */
+      }
+      entries.push({ key: key.slice(CACHE_PREFIX.length), savedAt });
+    }
+  } catch {
+    /* ignore */
+  }
+  return entries;
+}
+
+function authHeaders() {
+  const token = getCustomerToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function probeDataApi(probe) {
+  const started = performance.now();
+  const token = getCustomerToken();
+  try {
+    const res = await fetch(probe.path, {
+      cache: "no-store",
+      headers: authHeaders(),
+    });
+    const ms = Math.round(performance.now() - started);
+    const data = await res.json().catch(() => ({}));
+    const count = probe.countFn(data);
+    const countText = count == null ? "—" : String(count);
+    if (res.status === 401) {
+      return {
+        status: "warn",
+        detail: `${ms}ms · 401 要ログイン · endpoint OK`,
+        httpStatus: 401,
+        count: null,
+        bodyPreview: data.message || data.error || "Unauthorized",
+        fallback: false,
+      };
+    }
+    if (!res.ok) {
+      return {
+        status: "fail",
+        detail: `${ms}ms · HTTP ${res.status} · ${data.message || data.error || ""}`.trim(),
+        httpStatus: res.status,
+        count: null,
+        bodyPreview: JSON.stringify(data).slice(0, 120),
+        fallback: false,
+      };
+    }
+    const cacheKey = probe.path.includes("schedule")
+      ? "schedule:week:0"
+      : probe.path.includes("invoices")
+        ? "estimate:invoices:TOMS001"
+        : probe.path.includes("customers/suggest")
+          ? null
+          : probe.path.includes("field-check")
+            ? null
+            : probe.path.includes("/projects/v1")
+              ? "projects:list"
+              : probe.path.includes("estimate/v1/projects")
+                ? "estimate:projects:TOMS001"
+                : null;
+    let fallback = false;
+    if (cacheKey) {
+      try {
+        const raw = localStorage.getItem(`${CACHE_PREFIX}${cacheKey.split(":").slice(0, 2).join(":")}`);
+        fallback = Boolean(raw);
+      } catch {
+        fallback = false;
+      }
+    }
+    return {
+      status: "ok",
+      detail: `${ms}ms · ${probe.countLabel} ${countText}${token ? "" : " · 未ログイン"}`,
+      httpStatus: res.status,
+      count,
+      bodyPreview: `${countText}件`,
+      fallback,
+    };
+  } catch (e) {
+    const ms = Math.round(performance.now() - started);
+    return {
+      status: "fail",
+      detail: `${ms}ms · ${e.message || String(e)}`,
+      httpStatus: 0,
+      count: null,
+      bodyPreview: e.message || String(e),
+      fallback: false,
+    };
+  }
+}
+
+async function checkAuthState() {
+  const token = getCustomerToken();
+  if (!token) {
+    return { status: "warn", detail: "未ログイン — App Hub からログインしてください" };
+  }
+  try {
+    const session = await fetchJson(
+      "/api/pwa/hub",
+      { headers: authHeaders(), label: "auth" },
+      DEFAULT_FETCH_TIMEOUT_MS
+    );
+    return {
+      status: "ok",
+      detail: `${session.customerCode || "—"} · ${session.role || "—"} · token OK`,
+    };
+  } catch (e) {
+    return { status: "fail", detail: `セッション無効 · ${e.message || String(e)}` };
+  }
+}
+
+async function checkGoogleCalendarState() {
+  const token = getCustomerToken();
+  try {
+    const res = await fetch("/api/google-calendar/status", {
+      cache: "no-store",
+      headers: token ? authHeaders() : {},
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { status: "warn", detail: `HTTP ${res.status}` };
+    }
+    const parts = [
+      data.connected ? "connected" : "未接続",
+      data.displayStatus || data.mode || "",
+      data.lastSyncAt ? `sync ${new Date(data.lastSyncAt).toLocaleString("ja-JP")}` : "sync —",
+    ].filter(Boolean);
+    return {
+      status: data.connected ? "ok" : "warn",
+      detail: parts.join(" · "),
+    };
+  } catch (e) {
+    return { status: "fail", detail: e.message || String(e) };
+  }
+}
+
+function renderVerifySteps() {
+  const mount = document.getElementById("verify-steps-list");
+  if (!mount) return;
+  mount.innerHTML = VERIFY_STEPS.map((step) => {
+    if (step.action === "refresh") {
+      return `<li><strong>${step.n}.</strong> ${step.label}</li>`;
+    }
+    return `<li><strong>${step.n}.</strong> <a href="${step.href}">${step.label}</a></li>`;
+  }).join("");
+}
+
+function renderCacheDiagnostics(entries) {
+  const mount = document.getElementById("cache-diag-body");
+  if (!mount) return;
+  if (!entries.length) {
+    mount.innerHTML = "<tr><td colspan='3'>localStorage キャッシュなし（初回または未使用）</td></tr>";
+    return;
+  }
+  mount.innerHTML = entries
+    .map(
+      (e) =>
+        `<tr><td><code>${e.key}</code></td><td>${e.savedAt !== "—" ? new Date(e.savedAt).toLocaleString("ja-JP") : "—"}</td><td>保存済み</td></tr>`
+    )
+    .join("");
 }
 
 async function checkPdfDiagnostics() {
@@ -316,42 +561,16 @@ async function checkDrawingPdfButtons() {
   }
 }
 
-async function checkDataApi(path, label, { countField } = {}) {
-  const token =
-    localStorage.getItem("tisly_admin_token") || sessionStorage.getItem("tisly_token") || "";
-  const started = performance.now();
-  try {
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
-    const res = await fetch(path, { cache: "no-store", headers });
-    const ms = Math.round(performance.now() - started);
-    const data = await res.json().catch(() => ({}));
-    if (res.status === 401) {
-      return { status: "warn", detail: `${ms}ms · 401 要ログイン · endpoint OK` };
-    }
-    if (!res.ok) {
-      return { status: "fail", detail: `${ms}ms · HTTP ${res.status}` };
-    }
-    let count = "—";
-    if (countField) {
-      const v = data[countField];
-      if (Array.isArray(v)) count = String(v.length);
-      else if (v && typeof v === "object" && Array.isArray(v.projects)) count = String(v.projects.length);
-      else if (v && typeof v === "object" && Array.isArray(v.days)) count = String(v.days.length);
-      else if (typeof v === "number") count = String(v);
-    }
-    return { status: "ok", detail: `${ms}ms · 件数 ${count}` };
-  } catch (e) {
-    const ms = Math.round(performance.now() - started);
-    return { status: "fail", detail: `${ms}ms · ${e.message || String(e)}` };
-  }
-}
-
 async function runChecks() {
   document.getElementById("results").innerHTML = '<tr><td colspan="3">チェック中…</td></tr>';
   const checkedAt = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
   document.getElementById("checked-at").textContent = checkedAt;
+  renderVerifySteps();
 
   const rows = [];
+  const diagRows = [];
+  let lastError = null;
+  let lastSuccess = checkedAt;
 
   for (const r of PAGE_ROUTES) {
     rows.push({ path: r.path, label: r.label, ...(await checkPage(r.path)) });
@@ -382,20 +601,41 @@ async function runChecks() {
     detail: health.detail,
   });
 
+  const auth = await checkAuthState();
+  rows.push({ path: "auth", label: "認証状態", ...auth });
+  diagRows.push({ path: "auth", label: "認証", ...auth });
+
+  const google = await checkGoogleCalendarState();
+  rows.push({ path: "Google Calendar", label: "Google連携", ...google });
+  diagRows.push({ path: "/api/google-calendar/status", label: "Google Calendar", ...google });
+
+  for (const probe of DATA_API_PROBES) {
+    const result = await probeDataApi(probe);
+    rows.push({ path: probe.path, label: probe.label, ...result });
+    diagRows.push({
+      path: probe.path,
+      label: probe.label,
+      status: result.status,
+      detail: `${result.detail}${result.fallback ? " · cacheあり" : ""}`,
+    });
+    if (result.status === "fail") lastError = result.detail;
+    else if (result.status === "ok") lastSuccess = checkedAt;
+  }
+
+  const cacheEntries = scanLocalCacheStats();
+  rows.push({
+    path: "localStorage cache",
+    label: "APIキャッシュ",
+    status: cacheEntries.length ? "ok" : "warn",
+    detail: `${cacheEntries.length}件`,
+  });
+  renderCacheDiagnostics(cacheEntries);
+
   const estApi = await checkEstimateApi();
   rows.push({ path: "/api/estimate/v1", label: "estimate API", ...estApi });
 
-  const dataApis = [
-    { path: "/api/schedule/v1/week?offset=0", label: "Schedule API", countField: "days" },
-    { path: "/api/estimate/v1/projects?customerCode=TOMS001", label: "Estimate API", countField: "projects" },
-    { path: "/api/estimate/v1/invoices?customerCode=TOMS001", label: "Invoice API", countField: "projects" },
-    { path: "/api/projects/v1/projects", label: "Project API", countField: "projects" },
-    { path: "/api/estimate/v1/customers/suggest?q=t", label: "Customer API", countField: "suggestions" },
-    { path: "/api/field-check/v1/projects", label: "Field API", countField: "projects" },
-  ];
-  for (const a of dataApis) {
-    rows.push({ path: a.path, label: a.label, ...(await checkDataApi(a.path, a.label, a)) });
-  }
+  const checklistJs = await checkFieldChecklistJs();
+  rows.push({ path: "field-checklist-ui.js", label: "見積import依存", ...checklistJs });
 
   const estUi = await checkEstimateUiVersion();
   rows.push({ path: "estimate-v1 UI", label: "UI version", ...estUi });
@@ -444,31 +684,65 @@ async function runChecks() {
   const drawingPdf = await checkDrawingPdfButtons();
   rows.push({ path: "survey-drawing PDF", label: "図面PDFボタン", ...drawingPdf });
 
+  rows.push({
+    path: "最終成功",
+    label: "probe",
+    status: "ok",
+    detail: lastSuccess,
+  });
+  rows.push({
+    path: "最終エラー",
+    label: "probe",
+    status: lastError ? "fail" : "ok",
+    detail: lastError || "なし",
+  });
+
   renderRows(rows);
+  renderRows(diagRows, "diag-results");
+
+  try {
+    sessionStorage.setItem(
+      "tisly_route_health_last_probe_v1",
+      JSON.stringify({ checkedAt, lastSuccess, lastError, cacheCount: cacheEntries.length })
+    );
+  } catch {
+    /* ignore */
+  }
 
   const staleBanner = document.getElementById("sw-stale-banner");
   const btnUpdate = document.getElementById("btn-sw-update");
   if (sw.stale && staleBanner) {
     staleBanner.classList.remove("hidden");
-    btnUpdate?.addEventListener(
-      "click",
-      async () => {
-        try {
-          const keys = await caches.keys();
-          await Promise.all(keys.map((k) => caches.delete(k)));
-          const reg = await navigator.serviceWorker?.getRegistration?.();
-          await reg?.update?.();
-          location.reload();
-        } catch (e) {
-          alert(e.message || String(e));
-        }
-      },
-      { once: true }
-    );
   } else {
     staleBanner?.classList.add("hidden");
   }
+  btnUpdate?.addEventListener(
+    "click",
+    async () => {
+      try {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+        const reg = await navigator.serviceWorker?.getRegistration?.();
+        await reg?.update?.();
+        location.reload();
+      } catch (e) {
+        alert(e.message || String(e));
+      }
+    },
+    { once: true }
+  );
 }
 
 document.getElementById("btn-run")?.addEventListener("click", () => runChecks().catch(console.error));
+document.getElementById("btn-iphone-refresh")?.addEventListener("click", async () => {
+  try {
+    const keys = await caches.keys();
+    await Promise.all(keys.map((k) => caches.delete(k)));
+    const reg = await navigator.serviceWorker?.getRegistration?.();
+    await reg?.update?.();
+    location.reload();
+  } catch (e) {
+    alert(e.message || String(e));
+  }
+});
 runChecks().catch(console.error);

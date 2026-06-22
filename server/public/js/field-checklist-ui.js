@@ -307,14 +307,6 @@ export async function confirmChecklistBeforeReport(apiFetch, { projectSource, pr
 
 const AUTOMATION_API = "/api/project-automation/v1";
 
-function escapeHtml(s) {
-  return String(s)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
 /** 完了報告PDF作成前 — 施工写真スロットチェック（モーダル） */
 export function confirmCompletionPhotoSlotsBeforeReport(apiFetch, { projectId }) {
   return new Promise((resolve) => {

@@ -8,10 +8,11 @@
   <style>
     body { font-family: system-ui, sans-serif; margin: 0; padding: 0.75rem; padding-bottom: 5rem; background: #f8fafc; }
     h1 { font-size: 1.15rem; margin: 0 0 0.25rem; }
+    h2 { font-size: 1rem; margin: 1rem 0 0.5rem; }
     .hint { color: #64748b; font-size: 0.88rem; margin-bottom: 0.75rem; line-height: 1.45; }
     .toolbar { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
     .toolbar button { min-height: 44px; padding: 0.55rem 0.9rem; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; font-size: 0.95rem; }
-    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.08); display: block; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.08); display: block; overflow-x: auto; margin-bottom: 0.75rem; }
     thead, tbody, tr { display: table; width: 100%; table-layout: fixed; }
     th, td { border-bottom: 1px solid #e2e8f0; padding: 0.55rem 0.5rem; text-align: left; font-size: 0.82rem; vertical-align: top; word-break: break-word; }
     th { background: #f1f5f9; }
@@ -23,19 +24,38 @@
     code { font-size: 0.78rem; }
     a { color: #2563eb; }
     .meta-bar { font-size: 0.82rem; color: #475569; margin-bottom: 0.75rem; }
-    #sw-stale-banner { background: #fff7ed; border: 2px solid #f59e0b; border-radius: 10px; padding: 0.75rem; margin-bottom: 0.75rem; }
+    #sw-stale-banner, #iphone-refresh-banner { background: #fff7ed; border: 2px solid #f59e0b; border-radius: 10px; padding: 0.75rem; margin-bottom: 0.75rem; }
     #sw-stale-banner.hidden { display: none; }
-    #btn-sw-update { min-height: 44px; margin-top: 0.5rem; padding: 0.5rem 1rem; border-radius: 8px; border: none; background: #ea580c; color: #fff; font-weight: 600; width: 100%; }
+    .btn-refresh { min-height: 44px; margin-top: 0.5rem; padding: 0.5rem 1rem; border-radius: 8px; border: none; background: #ea580c; color: #fff; font-weight: 600; width: 100%; }
+    .verify-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.75rem; margin-bottom: 0.75rem; }
+    .verify-card ol { margin: 0.5rem 0 0; padding-left: 1.25rem; line-height: 1.6; font-size: 0.9rem; }
+    .section-note { font-size: 0.82rem; color: #64748b; margin: 0 0 0.5rem; }
   </style>
 </head>
 <body>
   <h1>TiSLY Route Health</h1>
-  <p class="hint">見積・請求・現調・図面のルート診断 — <a href="/route-map">Route Map</a> · <a href="/app">App Hub</a></p>
+  <p class="hint">見積・請求・日程の実機診断 — <a href="/route-map">Route Map</a> · <a href="/app">App Hub</a></p>
   <p class="meta-bar">最終確認: <strong id="checked-at">—</strong></p>
+
+  <div id="iphone-refresh-banner" role="alert">
+    <strong>iPhone Safari / PWA</strong><br />
+    古い JS が残っていると「読み込み中…」のまま止まることがあります。下のボタンでキャッシュを消して更新してください。
+    <button type="button" id="btn-iphone-refresh" class="btn-refresh">更新してください</button>
+  </div>
+
   <div id="sw-stale-banner" class="hidden" role="alert">
     古い Service Worker キャッシュを検出しました。最新版を反映するには更新してください。
-    <button type="button" id="btn-sw-update">更新してください</button>
+    <button type="button" id="btn-sw-update" class="btn-refresh">更新してください</button>
   </div>
+
+  <div class="verify-card">
+    <h2 style="margin-top:0;">実機確認手順</h2>
+    <p class="section-note">App Hub でログインしてから各画面を開き、Load failed / 読み込み中停止がないか確認します。</p>
+    <ol id="verify-steps-list">
+      <li>読み込み中…</li>
+    </ol>
+  </div>
+
   <div class="summary" id="summary">
     <div>✅ <span id="sum-ok">0</span></div>
     <div>⚠ <span id="sum-warn">0</span></div>
@@ -44,6 +64,29 @@
   <div class="toolbar">
     <button type="button" id="btn-run">再チェック</button>
   </div>
+
+  <h2>実用診断（API · 認証 · キャッシュ）</h2>
+  <p class="section-note">ログイン済みの場合は Bearer トークン付きで API を直接叩きます。</p>
+  <table>
+    <thead>
+      <tr><th>項目</th><th>状態</th><th>詳細</th></tr>
+    </thead>
+    <tbody id="diag-results">
+      <tr><td colspan="3">読み込み中…</td></tr>
+    </tbody>
+  </table>
+
+  <h2>localStorage キャッシュ</h2>
+  <table>
+    <thead>
+      <tr><th>キー</th><th>保存日時</th><th>状態</th></tr>
+    </thead>
+    <tbody id="cache-diag-body">
+      <tr><td colspan="3">—</td></tr>
+    </tbody>
+  </table>
+
+  <h2>ルート・操作チェック</h2>
   <table>
     <thead>
       <tr><th>パス</th><th>状態</th><th>詳細</th></tr>
@@ -52,6 +95,6 @@
       <tr><td colspan="3">読み込み中…</td></tr>
     </tbody>
   </table>
-  <script type="module" src="/js/route-health.js?v=route-health-v5"></script>
+  <script type="module" src="/js/route-health.js?v=route-health-v6"></script>
 </body>
 </html>

@@ -100,7 +100,7 @@ describe("PWA Route Repair Phase2", () => {
 
   it("service worker cache version bumped for route repair", () => {
     const sw = fs.readFileSync(path.join(publicDir, "service-worker.js"), "utf-8");
-    assert.match(sw, /v2393-production/);
+    assert.match(sw, /v2394-production/);
     assert.match(sw, /survey-drawing-v1/);
   });
 });

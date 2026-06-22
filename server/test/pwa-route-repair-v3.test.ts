@@ -73,14 +73,14 @@ describe("PWA Route Repair Phase3", () => {
     assert.match(js, /checkEstimateOperational/);
     assert.match(js, /checkDrawingOperational/);
     assert.match(js, /checkBottomNavJs/);
-    assert.match(js, /checkPdfDiagnostics/);
-    assert.match(js, /estimate-ui-v7/);
-    assert.match(js, /v2393/);
+    assert.match(js, /checkFieldChecklistJs/);
+    assert.match(html.text, /verify-steps-list/);
+    assert.match(html.text, /route-health-v6/);
   });
 
   it("service worker cache version bumped for PDF restore Phase4", () => {
     const sw = fs.readFileSync(path.join(publicDir, "service-worker.js"), "utf-8");
-    assert.match(sw, /v2393-production/);
+    assert.match(sw, /v2394-production/);
     assert.match(sw, /survey-drawing-v1/);
     assert.match(sw, /estimate-v1/);
   });
