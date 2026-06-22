@@ -22,6 +22,7 @@ import { getRateLimitProviderName } from "../../redis/rate-limit-redis.js";
 import { getInfrastructureStatuses } from "../../infrastructure/status.js";
 import { getBuildVersion } from "../../deploy/build-version.js";
 import { probePdfEngineHealth } from "../../business/pdf/pdf-engine-status.js";
+import { runPdfDiagnosticsV1 } from "../../business/pdf/pdf-diagnostics-v1.js";
 import { getQnapStorageHealthV1 } from "../../storage/qnap-storage-v1-config.js";
 import { getWsClientCount } from "../../ws/hub.js";
 import { getGoogleMapsApiKey, isGoogleMapsApiConfigured } from "../../schedule/google-maps-service.js";
@@ -253,4 +254,15 @@ healthFullRouter.get("/", async (_req, res) => {
 healthFullRouter.get("/full", async (_req, res) => {
   const body = await buildFullHealthResponse();
   res.json({ ...body, endpoint: "/api/health/full" });
+});
+
+healthFullRouter.get("/pdf-diagnostics", async (_req, res) => {
+  try {
+    res.json(await runPdfDiagnosticsV1());
+  } catch (e) {
+    res.status(500).json({
+      error: e instanceof Error ? e.message : String(e),
+      checkedAt: new Date().toISOString(),
+    });
+  }
 });

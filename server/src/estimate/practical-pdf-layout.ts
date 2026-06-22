@@ -24,6 +24,11 @@ export interface PracticalPdfCoverSection {
   body: string;
 }
 
+export interface PracticalPdfDrawingImage {
+  url: string;
+  title: string;
+}
+
 export interface PracticalPdfLayoutOptions {
   prefix: "sp" | "cr";
   pageTitle: string;
@@ -34,6 +39,7 @@ export interface PracticalPdfLayoutOptions {
   coverFields: PracticalPdfCoverField[];
   coverSections?: PracticalPdfCoverSection[];
   photos: PracticalPdfPhoto[];
+  drawings?: PracticalPdfDrawingImage[];
   noPhotosMessage?: string;
 }
 
@@ -98,6 +104,19 @@ function renderPageFooter(
   </div>`;
 }
 
+function renderDrawingBlocks(prefix: string, drawings: PracticalPdfDrawingImage[]): string {
+  if (!drawings.length) return "";
+  return drawings
+    .map(
+      (d) =>
+        `<div class="${prefix}-drawing-block">
+      <h3 class="${prefix}-drawing-title">${escapeHtml(d.title?.trim() || "図面")}</h3>
+      <div class="${prefix}-drawing-img-wrap"><img src="${escapeHtml(d.url)}" alt="${escapeHtml(d.title || "図面")}" /></div>
+    </div>`
+    )
+    .join("");
+}
+
 function renderCoverPage(
   prefix: string,
   documentTitle: string,
@@ -105,6 +124,7 @@ function renderCoverPage(
   sections: PracticalPdfCoverSection[] | undefined,
   coverPhotos: PracticalPdfPhoto[],
   footerHtml: string,
+  drawings: PracticalPdfDrawingImage[] | undefined,
   noPhotosMessage?: string,
   showNoPhotosOnCover?: boolean
 ): string {
@@ -146,6 +166,7 @@ function renderCoverPage(
   </div>
   <table class="${prefix}-cover-fields">${fieldRows}</table>
   ${sectionBlocks ? `<div class="${prefix}-cover-rule"></div>${sectionBlocks}` : ""}
+  ${renderDrawingBlocks(prefix, drawings ?? [])}
   ${coverPhotoGrid}
   ${noPhotos}
   ${footerHtml}
@@ -244,6 +265,7 @@ function renderAllPages(opts: PracticalPdfLayoutOptions): string {
     coverFields,
     coverSections,
     photos,
+    drawings,
     noPhotosMessage = "写真未登録",
   } = opts;
 
@@ -259,6 +281,7 @@ function renderAllPages(opts: PracticalPdfLayoutOptions): string {
       coverSections,
       coverPhotos,
       renderPageFooter(prefix, projectNo, generatedAt, 1, totalPages),
+      drawings,
       noPhotosMessage,
       false
     )
@@ -317,6 +340,10 @@ export function buildPracticalPdfStyles(prefix: string): string {
   .${prefix}-cover-section { margin: 0.4mm 0; flex: 0 0 auto; }
   .${prefix}-cover-section h3 { margin: 0 0 0.25mm; font-size: 7.5pt; font-weight: 700; color: #334155; line-height: 1.15; }
   .${prefix}-cover-section-body { font-size: 7pt; line-height: 1.25; color: #0f172a; white-space: pre-wrap; max-height: 14mm; overflow: hidden; }
+  .${prefix}-drawing-block { margin: 0.5mm 0; flex: 0 0 auto; page-break-inside: avoid; }
+  .${prefix}-drawing-title { margin: 0 0 0.3mm; font-size: 7.5pt; font-weight: 700; color: #334155; }
+  .${prefix}-drawing-img-wrap { width: 100%; max-height: 42mm; overflow: hidden; border: 1px solid #e2e8f0; border-radius: 1mm; }
+  .${prefix}-drawing-img-wrap img { width: 100%; height: auto; max-height: 42mm; object-fit: contain; display: block; }
   .${prefix}-no-photos-cover { margin-top: 1.5mm; text-align: center; font-size: 8.5pt; color: #64748b; flex: 0 0 auto; }
   .${prefix}-photo-page { padding: 0; }
   .${prefix}-photo-grid {

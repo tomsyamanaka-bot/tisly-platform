@@ -433,6 +433,19 @@
         <button type="button" class="btn-sub" id="btn-open-drawing">図面エディタを開く</button>
       </div>
 
+      <div id="survey-pdf-bar" class="friendly-card hidden" aria-label="仕様書PDF操作">
+        <p class="section-label" style="margin-top:0;">📄 仕様書PDF</p>
+        <p class="section-hint">見積送り済みの案件から仕様書PDFを作成・保存・共有できます。</p>
+        <div class="pdf-quick-actions" style="display:flex;flex-wrap:wrap;gap:0.5rem;">
+          <button type="button" class="btn-main blue" id="btn-survey-pdf-create">PDF作成</button>
+          <button type="button" class="btn-sub blue" id="btn-survey-pdf-save">PDF保存</button>
+          <button type="button" class="btn-sub blue" id="btn-survey-pdf-share">共有</button>
+          <button type="button" class="btn-sub blue" id="btn-survey-pdf-preview">プレビュー</button>
+          <button type="button" class="btn-sub" id="btn-survey-pdf-redo">やり直し</button>
+        </div>
+        <p id="survey-pdf-error" class="error-friendly" role="alert" style="display:none;margin-top:0.5rem;"></p>
+      </div>
+
       <div class="tisly-sticky-action">
         <button type="button" class="btn-main blue" id="btn-handoff">見積へ送る</button>
         <p id="handoff-info" class="section-hint hidden"></p>
@@ -478,6 +491,6 @@
   </div>
 
   <div id="toast" class="toast" role="status"></div>
-  <script type="module" src="/js/survey-v1.js?v=survey-ui-v3"></script>
+  <script type="module" src="/js/survey-v1.js?v=survey-ui-v4"></script>
 </body>
 </html>

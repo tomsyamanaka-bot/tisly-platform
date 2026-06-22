@@ -72,6 +72,8 @@ import {
   renderSpecificationHtml,
   type SpecificationContext,
 } from "./specification-template.js";
+import { sanitizeSpecificationNotes } from "./specification-pdf-content.js";
+import { listSurveyDrawingSketchesV1 } from "../survey/survey-drawing-v1-store.js";
 import {
   normalizeProjectStatus,
   statusAfterSurveyDone,
@@ -778,6 +780,16 @@ export function buildCompletionPhotosV1(businessProjectId: string): PracticalCom
   return buildCompletionPhotosForPdfV1(businessProjectId);
 }
 
+function buildSpecificationDrawingsV1(surveyProjectId: string | null | undefined) {
+  if (!surveyProjectId) return [];
+  return listSurveyDrawingSketchesV1(surveyProjectId)
+    .filter((s) => s.backgroundImageUrl)
+    .map((s) => ({
+      url: s.backgroundImageUrl,
+      title: s.title?.trim() || "現調図面",
+    }));
+}
+
 export function buildSpecificationContextV1(businessProjectId: string): SpecificationContext | null {
   const project = getBusinessProject(businessProjectId);
   if (!project) return null;
@@ -800,8 +812,9 @@ export function buildSpecificationContextV1(businessProjectId: string): Specific
     wiringSummary: buildWiringSummary(survey),
     ipList: buildIpListSummary(survey),
     installationLocations: buildInstallationLocationsSummary(photos),
-    notes: survey?.notes ?? project.surveyMemo ?? "",
+    notes: sanitizeSpecificationNotes(survey?.notes ?? project.surveyMemo ?? ""),
     photos,
+    drawings: buildSpecificationDrawingsV1(project.surveyProjectId),
   };
 }
 

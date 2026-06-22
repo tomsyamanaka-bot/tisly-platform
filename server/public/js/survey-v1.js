@@ -5,8 +5,14 @@ import {
 } from "./customer-auth.js";
 import { initPracticalNav } from "./tisly-practical-nav.js";
 import { friendlyHttpError, renderFriendlyErrorHtml } from "./tisly-friendly-errors.js";
+import {
+  openSpecificationPreview,
+  regenerateSpecificationPdf,
+  saveSpecificationPdf,
+  shareSpecificationPdf,
+} from "./survey-pdf-actions-v1.js";
 
-export const SURVEY_UI_VERSION = "survey-ui-v3";
+export const SURVEY_UI_VERSION = "survey-ui-v4";
 
 let practicalNav = null;
 
@@ -54,6 +60,7 @@ const API = "/api/survey/v1";
 let currentProjectId = null;
 let currentSiteId = null;
 let currentCustomerId = null;
+let linkedBusinessProjectId = null;
 let cachedPhotos = [];
 let pendingPreviewUrls = [];
 let photoDisplayLimit = 12;
@@ -606,6 +613,31 @@ async function renderDrawingSketches() {
   }
 }
 
+function showSurveyPdfError(msg) {
+  const el = $("survey-pdf-error");
+  if (!el) return;
+  if (!msg) {
+    el.style.display = "none";
+    el.textContent = "";
+    return;
+  }
+  el.style.display = "block";
+  el.textContent = msg;
+}
+
+function updateSurveyPdfBar(p) {
+  const bar = $("survey-pdf-bar");
+  if (!bar) return;
+  linkedBusinessProjectId = p.handoff?.businessProjectId || null;
+  if (linkedBusinessProjectId) {
+    bar.classList.remove("hidden");
+    showSurveyPdfError("");
+  } else {
+    bar.classList.add("hidden");
+    linkedBusinessProjectId = null;
+  }
+}
+
 async function openDetail(projectId) {
   if (currentProjectId) {
     await flushPhotoTitlesFromDom({ quiet: true });
@@ -644,6 +676,7 @@ async function openDetail(projectId) {
     renderMaterials(p.materials);
     renderIpEquipment(p.ipEquipment || []);
     await renderDrawingSketches();
+    updateSurveyPdfBar(p);
     const handoffBtn = $("btn-handoff");
     const handoffInfo = $("handoff-info");
     if (p.workflowStatus === "estimate_pending" || p.handoff) {
@@ -1668,6 +1701,47 @@ async function init() {
       await openDetail(currentProjectId);
     } catch (e) {
       toastError(e, e.status);
+    }
+  });
+
+  $("btn-survey-pdf-create")?.addEventListener("click", () => {
+    if (!linkedBusinessProjectId) {
+      showSurveyPdfError("見積送り後にPDFを作成できます");
+      return;
+    }
+    showSurveyPdfError("");
+    openSpecificationPreview(linkedBusinessProjectId, window.location.pathname + window.location.search);
+  });
+  $("btn-survey-pdf-preview")?.addEventListener("click", () => {
+    if (!linkedBusinessProjectId) return;
+    openSpecificationPreview(linkedBusinessProjectId, window.location.pathname + window.location.search);
+  });
+  $("btn-survey-pdf-save")?.addEventListener("click", async () => {
+    if (!linkedBusinessProjectId) return;
+    try {
+      showSurveyPdfError("");
+      await saveSpecificationPdf(linkedBusinessProjectId, "仕様書.pdf", toast);
+    } catch (e) {
+      showSurveyPdfError(e.message || "PDF保存に失敗しました");
+    }
+  });
+  $("btn-survey-pdf-share")?.addEventListener("click", async () => {
+    if (!linkedBusinessProjectId) return;
+    try {
+      showSurveyPdfError("");
+      await shareSpecificationPdf(linkedBusinessProjectId, "仕様書.pdf", toast);
+    } catch (e) {
+      if (e?.name !== "AbortError") showSurveyPdfError(e.message || "共有に失敗しました");
+    }
+  });
+  $("btn-survey-pdf-redo")?.addEventListener("click", async () => {
+    if (!linkedBusinessProjectId) return;
+    if (!confirm("仕様書PDFを再作成しますか？")) return;
+    try {
+      showSurveyPdfError("");
+      await regenerateSpecificationPdf(linkedBusinessProjectId, toast);
+    } catch (e) {
+      showSurveyPdfError(e.message || "PDF再作成に失敗しました");
     }
   });
 }

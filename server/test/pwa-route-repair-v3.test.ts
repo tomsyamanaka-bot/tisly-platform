@@ -46,9 +46,10 @@ describe("PWA Route Repair Phase3", () => {
 
   it("survey drawing editor passes surveyId in query builder", () => {
     const js = fs.readFileSync(path.join(publicDir, "js/survey-v1.js"), "utf-8");
+    assert.match(js, /SURVEY_UI_VERSION = "survey-ui-v4"/);
     assert.match(js, /surveyId/);
     assert.match(js, /survey-drawing-v1/);
-    assert.match(js, /TEMP-SURVEY/);
+    assert.match(js, /survey-pdf-actions-v1/);
   });
 
   it("bottom nav links are valid in tisly-practical-nav.js", () => {
@@ -72,13 +73,14 @@ describe("PWA Route Repair Phase3", () => {
     assert.match(js, /checkEstimateOperational/);
     assert.match(js, /checkDrawingOperational/);
     assert.match(js, /checkBottomNavJs/);
+    assert.match(js, /checkPdfDiagnostics/);
     assert.match(js, /estimate-ui-v6/);
-    assert.match(js, /v2391/);
+    assert.match(js, /v2392/);
   });
 
-  it("service worker cache version bumped for Phase3", () => {
+  it("service worker cache version bumped for PDF restore Phase4", () => {
     const sw = fs.readFileSync(path.join(publicDir, "service-worker.js"), "utf-8");
-    assert.match(sw, /v2391-production/);
+    assert.match(sw, /v2392-production/);
     assert.match(sw, /survey-drawing-v1/);
     assert.match(sw, /estimate-v1/);
   });
@@ -86,10 +88,18 @@ describe("PWA Route Repair Phase3", () => {
   it("survey-drawing-v1 route exists with grid and tools", async () => {
     const res = await request(app).get("/survey-drawing-v1");
     assert.equal(res.status, 200);
-    assert.match(res.text, /survey-drawing-ui-v2/);
+    assert.match(res.text, /survey-drawing-ui-v3/);
     assert.match(res.text, /drawing-svg/);
     assert.match(res.text, /btn-save/);
     assert.match(res.text, /btn-back/);
+    assert.match(res.text, /btn-drawing-pdf-create/);
+  });
+
+  it("survey-v1 includes specification PDF action buttons", async () => {
+    const res = await request(app).get("/survey-v1");
+    assert.equal(res.status, 200);
+    assert.match(res.text, /btn-survey-pdf-create/);
+    assert.match(res.text, /btn-survey-pdf-preview/);
   });
 });
 

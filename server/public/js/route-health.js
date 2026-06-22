@@ -33,13 +33,13 @@ const BOTTOM_NAV_LINKS = [
 
 const JS_ASSETS = [
   { path: "/js/estimate-v1.js?v=estimate-ui-v6", label: "estimate-v1 JS" },
-  { path: "/js/survey-v1.js?v=survey-ui-v3", label: "survey-v1 JS" },
-  { path: "/js/survey-drawing-v1.js?v=survey-drawing-ui-v2", label: "survey-drawing-v1 JS" },
+  { path: "/js/survey-v1.js?v=survey-ui-v4", label: "survey-v1 JS" },
+  { path: "/js/survey-drawing-v1.js?v=survey-drawing-ui-v3", label: "survey-drawing-v1 JS" },
   { path: "/js/tisly-practical-nav.js", label: "bottom nav JS" },
 ];
 
 const ESTIMATE_UI_VERSION = "estimate-ui-v6";
-const SW_CACHE_TOKEN = "v2391";
+const SW_CACHE_TOKEN = "v2392";
 
 async function checkPage(path) {
   try {
@@ -247,6 +247,75 @@ function renderRows(rows) {
   document.getElementById("sum-fail").textContent = String(fail);
 }
 
+async function checkPdfDiagnostics() {
+  try {
+    const res = await fetch("/api/health/pdf-diagnostics", { cache: "no-store" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return { status: "fail", detail: `HTTP ${res.status}` };
+
+    const shareSupported = (() => {
+      if (typeof navigator.share !== "function") return false;
+      if (typeof navigator.canShare !== "function") return true;
+      try {
+        const file = new File([new Blob(["%PDF-"], { type: "application/pdf" })], "probe.pdf", {
+          type: "application/pdf",
+        });
+        return navigator.canShare({ files: [file] });
+      } catch {
+        return false;
+      }
+    })();
+
+    const typeSummary = (data.types || [])
+      .map((t) => `${t.label}:${t.status === "ok" ? "OK" : "NG"}`)
+      .join(" · ");
+    const blobOk = data.blobGeneration === "ok" ? "Blob OK" : "Blob NG";
+    const shareLabel = shareSupported ? "Web Share OK" : "download fallback";
+    const detail = `${typeSummary || "—"} · ${blobOk} · ${shareLabel} · engine ${data.pdfEngine || "—"}`;
+
+    const allOk = (data.types || []).every((t) => t.status === "ok");
+    return { status: allOk ? "ok" : "warn", detail, data, shareSupported };
+  } catch (e) {
+    return { status: "fail", detail: e.message || String(e) };
+  }
+}
+
+async function checkSurveyPdfButtons() {
+  try {
+    const res = await fetch("/survey-v1", { cache: "no-store" });
+    const html = await res.text();
+    if (!res.ok) return { status: "fail", detail: `HTTP ${res.status}` };
+    const hasButtons =
+      html.includes("btn-survey-pdf-create") &&
+      html.includes("btn-survey-pdf-save") &&
+      html.includes("btn-survey-pdf-share") &&
+      html.includes("btn-survey-pdf-preview") &&
+      html.includes("btn-survey-pdf-redo");
+    return hasButtons
+      ? { status: "ok", detail: "仕様書PDF操作ボタンあり" }
+      : { status: "warn", detail: "仕様書PDFボタン未検出" };
+  } catch (e) {
+    return { status: "fail", detail: e.message || String(e) };
+  }
+}
+
+async function checkDrawingPdfButtons() {
+  try {
+    const res = await fetch("/survey-drawing-v1", { cache: "no-store" });
+    const html = await res.text();
+    if (!res.ok) return { status: "fail", detail: `HTTP ${res.status}` };
+    const hasButtons =
+      html.includes("btn-drawing-pdf-create") &&
+      html.includes("btn-drawing-pdf-save") &&
+      html.includes("btn-drawing-pdf-share");
+    return hasButtons
+      ? { status: "ok", detail: "図面PDF操作ボタンあり" }
+      : { status: "warn", detail: "図面PDFボタン未検出" };
+  } catch (e) {
+    return { status: "fail", detail: e.message || String(e) };
+  }
+}
+
 async function runChecks() {
   document.getElementById("results").innerHTML = '<tr><td colspan="3">チェック中…</td></tr>';
   const checkedAt = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
@@ -303,6 +372,35 @@ async function runChecks() {
 
   const sw = await checkSwCache();
   rows.push({ path: "Service Worker", label: "cache version", ...sw });
+
+  const pdfDiag = await checkPdfDiagnostics();
+  rows.push({ path: "PDF診断 API", label: "4帳票生成", status: pdfDiag.status, detail: pdfDiag.detail });
+  for (const t of pdfDiag.data?.types || []) {
+    rows.push({
+      path: `PDF: ${t.kind}`,
+      label: t.label,
+      status: t.status === "ok" ? "ok" : "fail",
+      detail: t.detail,
+    });
+  }
+  rows.push({
+    path: "Web Share API",
+    label: "iPhone共有",
+    status: pdfDiag.shareSupported ? "ok" : "warn",
+    detail: pdfDiag.shareSupported ? "files共有対応" : "download fallback",
+  });
+  rows.push({
+    path: "PDFライブラリ",
+    label: "pdfEngine",
+    status: pdfDiag.data?.pdfEngineReady ? "ok" : "warn",
+    detail: `${pdfDiag.data?.pdfEngine || "—"}${pdfDiag.data?.pdfLastError ? ` · ${pdfDiag.data.pdfLastError}` : ""}`,
+  });
+
+  const surveyPdf = await checkSurveyPdfButtons();
+  rows.push({ path: "survey-v1 PDF", label: "現調PDFボタン", ...surveyPdf });
+
+  const drawingPdf = await checkDrawingPdfButtons();
+  rows.push({ path: "survey-drawing PDF", label: "図面PDFボタン", ...drawingPdf });
 
   renderRows(rows);
 

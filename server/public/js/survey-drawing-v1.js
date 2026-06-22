@@ -1,6 +1,13 @@
 /** 現調図面 v2 — 方眼紙写真 + 線・記号・メモ + AI清書用出力 */
 
-export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v2";
+import {
+  openSpecificationPreview,
+  regenerateSpecificationPdf,
+  saveSpecificationPdf,
+  shareSpecificationPdf,
+} from "./survey-pdf-actions-v1.js";
+
+export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v3";
 
 const TOKEN_KEY = "tisly_token";
 const SCHEMA_VERSION = 2;
@@ -513,6 +520,59 @@ async function loadSketch() {
     renderAll();
   }
   await loadSpecPhotoSlotsForDrawing();
+  updateDrawingPdfBar();
+}
+
+function toastDrawingPdf(msg) {
+  setStatus(msg);
+}
+
+function updateDrawingPdfBar() {
+  const bar = $("drawing-pdf-bar");
+  if (!bar) return;
+  if (sketch?.businessProjectId) bar.classList.remove("hidden");
+  else bar.classList.add("hidden");
+}
+
+function drawingReturnPath() {
+  return window.location.pathname + window.location.search;
+}
+
+function wireDrawingPdfEvents() {
+  const bizId = () => sketch?.businessProjectId;
+  $("btn-drawing-pdf-create")?.addEventListener("click", () => {
+    if (!bizId()) return setStatus("見積送り後にPDFを作成できます");
+    openSpecificationPreview(bizId(), drawingReturnPath());
+  });
+  $("btn-drawing-pdf-preview")?.addEventListener("click", () => {
+    if (!bizId()) return;
+    openSpecificationPreview(bizId(), drawingReturnPath());
+  });
+  $("btn-drawing-pdf-save")?.addEventListener("click", async () => {
+    if (!bizId()) return;
+    try {
+      await saveSpecificationPdf(bizId(), "仕様書.pdf", toastDrawingPdf);
+    } catch (e) {
+      setStatus(e.message || "PDF保存に失敗しました");
+    }
+  });
+  $("btn-drawing-pdf-share")?.addEventListener("click", async () => {
+    if (!bizId()) return;
+    try {
+      await shareSpecificationPdf(bizId(), "仕様書.pdf", toastDrawingPdf);
+    } catch (e) {
+      if (e?.name !== "AbortError") setStatus(e.message || "共有に失敗しました");
+    }
+  });
+  $("btn-drawing-pdf-redo")?.addEventListener("click", async () => {
+    if (!bizId()) return;
+    if (!confirm("仕様書PDFを再作成しますか？")) return;
+    try {
+      await regenerateSpecificationPdf(bizId(), toastDrawingPdf);
+    } catch (e) {
+      setStatus(e.message || "PDF再作成に失敗しました");
+    }
+  });
 }
 
 async function loadLineTypes() {
@@ -846,6 +906,7 @@ function wireEvents() {
   $("btn-symbol-delete")?.addEventListener("click", () => deleteSelectedSymbol());
 
   wireEstimateEvents();
+  wireDrawingPdfEvents();
 
   window.addEventListener("beforeunload", (ev) => {
     if (dirty) ev.preventDefault();

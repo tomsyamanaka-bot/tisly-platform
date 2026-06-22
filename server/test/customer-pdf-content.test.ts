@@ -97,14 +97,20 @@ describe("お客様向けPDFコンテンツ", () => {
       issueDate: "2026/06/13",
       staffName: "山中 智紀",
       generatedAt: "2026-06-13T12:00:00+09:00",
-      systemConfig: "内部構成",
+      systemConfig: "防犯カメラ",
+      equipmentList: "・防犯カメラ: 屋外 × 4",
       installationLocations: "設置場所",
       notes: "Google予定から自動生成",
       photos: [{ url: "/p.jpg", title: "写真1" }],
+      drawings: [{ url: "/drawing.jpg", title: "現調図面" }],
     });
     assert.match(html, /仕様書/);
-    assert.doesNotMatch(html, /システム仕様書/);
+    assert.match(html, /現場名/);
+    assert.match(html, /工事内容/);
+    assert.match(html, /設備一覧/);
     assert.match(html, /写真1/);
+    assert.match(html, /現調図面/);
+    assert.doesNotMatch(html, /システム仕様書/);
     assert.ok(!html.includes("システム構成"));
     assert.ok(!html.includes("設置場所一覧"));
     assert.ok(!html.includes("Google予定"));
