@@ -1,7 +1,9 @@
 import { getCustomerToken } from "./customer-auth.js";
 import { DEFAULT_FETCH_TIMEOUT_MS, fetchJson } from "./tisly-fetch-v1.js";
+import { refreshTislyPwaCache } from "./tisly-sw-refresh-v1.js";
 
 const PAGE_ROUTES = [
+  { path: "/route-health", label: "Route Health" },
   { path: "/project-dashboard-v1", label: "案件ダッシュボード" },
   { path: "/project-mgmt-detail-v1", label: "案件詳細" },
   { path: "/schedule-v1", label: "日程" },
@@ -10,6 +12,8 @@ const PAGE_ROUTES = [
   { path: "/estimate-v1", label: "見積" },
   { path: "/estimate-v1?tab=invoice", label: "請求タブ" },
   { path: "/projects-v1", label: "案件" },
+  { path: "/document-center-v1", label: "書類センター" },
+  { path: "/document-viewer-v1.html", label: "書類閲覧" },
   { path: "/field-check-v1", label: "材料チェック" },
   { path: "/field-checklist-v1", label: "現場チェック" },
   { path: "/field-check-v1?tab=orders", label: "発注タブ" },
@@ -25,6 +29,8 @@ const LEGACY_REDIRECTS = [
   { from: "/survey", expect: "/survey-v1" },
   { from: "/projects", expect: "/projects-v1" },
   { from: "/materials", expect: "/field-check-v1" },
+  { from: "/materials-v1", expect: "/field-check-v1" },
+  { from: "/purchase", expect: "/field-check-v1" },
 ];
 
 const BOTTOM_NAV_LINKS = [
@@ -41,14 +47,14 @@ const BOTTOM_NAV_LINKS = [
 const JS_ASSETS = [
   { path: "/js/estimate-v1.js?v=estimate-ui-v8", label: "estimate-v1 JS" },
   { path: "/js/survey-v1.js?v=survey-ui-v4", label: "survey-v1 JS" },
-  { path: "/js/survey-drawing-v1.js?v=survey-drawing-ui-v4", label: "survey-drawing-v1 JS" },
+  { path: "/js/survey-drawing-v1.js?v=survey-drawing-ui-v5", label: "survey-drawing-v1 JS" },
   { path: "/js/tisly-practical-nav.js", label: "bottom nav JS" },
 ];
 
 const ESTIMATE_UI_VERSION = "estimate-ui-v8";
-const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v4";
+const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v5";
 const PHASE9_JS_VERSION = "phase9-iphone-v1";
-const SW_CACHE_TOKEN = "v2399";
+const SW_CACHE_TOKEN = "v2400";
 
 const PROJECT_OPERATIONAL_PROBES = [
   {
@@ -271,6 +277,109 @@ async function checkEstimateOperational() {
   }
 }
 
+async function checkDocumentViewerPhase17() {
+  try {
+    const [htmlRes, jsRes] = await Promise.all([
+      fetch("/document-viewer-v1.html", { cache: "no-store" }),
+      fetch("/js/document-viewer-v1.js?v=doc-viewer-phase17", { cache: "no-store" }),
+    ]);
+    const html = await htmlRes.text();
+    const js = await jsRes.text();
+    if (!htmlRes.ok) return { status: "fail", detail: `HTML HTTP ${htmlRes.status}` };
+    const noLine = !html.includes("LINEで送る") && !html.includes('id="btn-share"');
+    const hasPdfSave = html.includes("PDFにする") && html.includes('id="btn-save"');
+    const backNav = js.includes("DOCUMENT_CENTER_FALLBACK") && js.includes("resolveDocumentReturn");
+    const noShareHandler = !js.includes('getElementById("btn-share")');
+    if (noLine && hasPdfSave && backNav && noShareHandler) {
+      return { status: "ok", detail: "PDFにする/保存のみ · document-center戻り" };
+    }
+    return { status: "fail", detail: `LINE除去:${noLine} 戻り:${backNav}` };
+  } catch (e) {
+    return { status: "fail", detail: e.message || String(e) };
+  }
+}
+
+async function checkEstimatePdfShareRemoved() {
+  try {
+    const res = await fetch("/estimate-v1", { cache: "no-store" });
+    const html = await res.text();
+    if (!res.ok) return { status: "fail", detail: `HTTP ${res.status}` };
+    const noShareBtn = !html.includes("btn-pdf-quick-share");
+    const hasUnderline = html.includes("doc-meta-underline-label");
+    return noShareBtn && hasUnderline
+      ? { status: "ok", detail: "共有ボタン削除 · 帳票アンダーライン UI" }
+      : { status: "warn", detail: `share削除:${noShareBtn} underline:${hasUnderline}` };
+  } catch (e) {
+    return { status: "fail", detail: e.message || String(e) };
+  }
+}
+
+async function checkPdfMetaUnderline() {
+  try {
+    const [estRes, swRes, pdfRes] = await Promise.all([
+      fetch("/js/estimate-v1.js", { cache: "no-store" }),
+      fetch("/service-worker.js", { cache: "no-store" }),
+      fetch("/api/health/pdf-diagnostics", { cache: "no-store" }),
+    ]);
+    const estJs = await estRes.text();
+    const swText = await swRes.text();
+    const hasToken = swText.includes("v2400-phase17");
+    const estOk = !estJs.includes("btn-pdf-quick-share");
+    const layoutOk = pdfRes.ok;
+    if (hasToken && estOk && layoutOk) {
+      return { status: "ok", detail: "SW v2400 · PDF診断OK · 見積共有削除" };
+    }
+    return { status: "warn", detail: `SW:${hasToken} est:${estOk} pdf:${layoutOk}` };
+  } catch (e) {
+    return { status: "fail", detail: e.message || String(e) };
+  }
+}
+
+function renderPhase17Manifest(healthDetail, swInfo) {
+  const mount = document.getElementById("phase17-manifest-body");
+  if (!mount) return;
+  const cacheNames =
+    swInfo.cacheNames?.length > 0 ? swInfo.cacheNames.join(", ") : "（ブラウザキャッシュなし）";
+  const rows = [
+    { label: "Commit Short", value: healthDetail.commitShort || "—" },
+    { label: "最終Deploy日時", value: healthDetail.buildDate || "—" },
+    { label: "JS Version (estimate)", value: ESTIMATE_UI_VERSION },
+    { label: "JS Version (drawing)", value: SURVEY_DRAWING_UI_VERSION },
+    { label: "SW Version", value: swInfo.swVersion || "—" },
+    { label: "Cache Name", value: cacheNames },
+    { label: "現行URL数", value: String(PAGE_ROUTES.length) },
+    { label: "旧URL診断数", value: String(LEGACY_REDIRECTS.length) },
+  ];
+  mount.innerHTML = rows
+    .map((r) => `<tr><td>${r.label}</td><td><code>${r.value}</code></td></tr>`)
+    .join("");
+}
+
+async function gatherPhase17Health() {
+  try {
+    const res = await fetch("/api/health", { cache: "no-store" });
+    const data = await res.json().catch(() => ({}));
+    return {
+      commitShort: data.commitShort || data.buildVersion?.commitShort || "—",
+      buildDate: data.buildVersion?.date || "—",
+      httpStatus: res.status,
+    };
+  } catch {
+    return { commitShort: "—", buildDate: "—", httpStatus: 0 };
+  }
+}
+
+async function gatherSwInfo() {
+  const swVersion = await readServiceWorkerVersion();
+  let cacheNames = [];
+  try {
+    if ("caches" in window) cacheNames = await caches.keys();
+  } catch {
+    /* ignore */
+  }
+  return { swVersion, cacheNames };
+}
+
 async function checkDrawingDirectLaunch() {
   try {
     const [pageRes, jsRes] = await Promise.all([
@@ -285,11 +394,12 @@ async function checkDrawingDirectLaunch() {
       js.includes("isLocalOnlyMode"),
       js.includes("SURVEY_DRAWING_TEMP_BANNER"),
       js.includes("saveDrawingToLocalStorage"),
-      html.includes("survey-drawing-ui-v4"),
+      js.includes("syncGridStageSize"),
+      html.includes("survey-drawing-ui-v5"),
       !js.includes("projectId または sketchId が必要です"),
     ];
     const ok = checks.filter(Boolean).length;
-    if (ok === checks.length) return { status: "ok", detail: "TEMP直接起動対応 OK" };
+    if (ok === checks.length) return { status: "ok", detail: "方眼紙全面描画 + TEMP直接起動 OK" };
     return { status: "fail", detail: `${ok}/${checks.length} 項目` };
   } catch (e) {
     return { status: "fail", detail: e.message || String(e) };
@@ -908,6 +1018,26 @@ async function runChecks() {
   const fcSave = await checkFieldChecklistSave();
   rows.push({ path: "Phase9 checklist save", label: "現場チェック保存", ...fcSave });
 
+  const phase17Health = await gatherPhase17Health();
+  const swInfo = await gatherSwInfo();
+  renderPhase17Manifest(phase17Health, swInfo);
+
+  const docViewer17 = await checkDocumentViewerPhase17();
+  rows.push({ path: "Phase17 document-viewer", label: "PDF UI", ...docViewer17 });
+
+  const estShareRemoved = await checkEstimatePdfShareRemoved();
+  rows.push({ path: "Phase17 estimate PDF", label: "見積PDF操作", ...estShareRemoved });
+
+  const pdfUnderline = await checkPdfMetaUnderline();
+  rows.push({ path: "Phase17 PDF/SW", label: "帳票/SW", ...pdfUnderline });
+
+  rows.push({
+    path: "/api/health commit",
+    label: "HTTP Status",
+    status: phase17Health.httpStatus === 200 ? "ok" : "fail",
+    detail: `HTTP ${phase17Health.httpStatus} · ${phase17Health.commitShort}`,
+  });
+
   rows.push({
     path: "Phase9 JS version",
     label: PHASE9_JS_VERSION,
@@ -972,31 +1102,18 @@ async function runChecks() {
   }
   btnUpdate?.addEventListener(
     "click",
-    async () => {
-      try {
-        const keys = await caches.keys();
-        await Promise.all(keys.map((k) => caches.delete(k)));
-        const reg = await navigator.serviceWorker?.getRegistration?.();
-        await reg?.update?.();
-        location.reload();
-      } catch (e) {
-        alert(e.message || String(e));
-      }
+    () => {
+      refreshTislyPwaCache().catch((e) => alert(e.message || String(e)));
     },
     { once: true }
   );
 }
 
 document.getElementById("btn-run")?.addEventListener("click", () => runChecks().catch(console.error));
-document.getElementById("btn-iphone-refresh")?.addEventListener("click", async () => {
-  try {
-    const keys = await caches.keys();
-    await Promise.all(keys.map((k) => caches.delete(k)));
-    const reg = await navigator.serviceWorker?.getRegistration?.();
-    await reg?.update?.();
-    location.reload();
-  } catch (e) {
-    alert(e.message || String(e));
-  }
+document.getElementById("btn-iphone-refresh")?.addEventListener("click", () => {
+  refreshTislyPwaCache().catch((e) => alert(e.message || String(e)));
+});
+document.getElementById("btn-sw-refresh-always")?.addEventListener("click", () => {
+  refreshTislyPwaCache().catch((e) => alert(e.message || String(e)));
 });
 runChecks().catch(console.error);

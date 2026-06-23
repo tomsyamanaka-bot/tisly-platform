@@ -100,18 +100,22 @@ function formatDocNoDisplay(docNo: string): string {
 
 function renderMetaRows(ctx: TomsV2PageContext): string {
   const co = getTomsCompanyInfo();
+  const metaCell = (label: string, value: string) =>
+    `<tr class="toms-v2-meta-row"><th><span class="toms-v2-meta-label">${escapeHtml(label)}</span><span class="toms-v2-meta-underline" aria-hidden="true"></span></th><td><span class="toms-v2-meta-value">${escapeHtml(value || "—")}</span><span class="toms-v2-meta-underline" aria-hidden="true"></span></td></tr>`;
   const rows: string[] = [
-    `<tr><th>${escapeHtml(ctx.issueDateLabel)}</th><td>${escapeHtml(ctx.issueDate || "—")}</td></tr>`,
-    `<tr><th>${escapeHtml(ctx.docNoLabel)}</th><td>${escapeHtml(formatDocNoDisplay(ctx.docNo))}</td></tr>`,
+    metaCell(ctx.issueDateLabel, ctx.issueDate || "—"),
+    metaCell(ctx.docNoLabel, formatDocNoDisplay(ctx.docNo)),
   ];
   if (ctx.includeRegistrationNo) {
-    rows.push(`<tr><th>登録番号</th><td>${escapeHtml(co.registrationNo)}</td></tr>`);
+    rows.push(metaCell("登録番号", co.registrationNo));
   }
   for (const row of ctx.extraMetaRows ?? []) {
     if (row.value.trim()) {
-      rows.push(`<tr><th>${escapeHtml(row.label)}</th><td>${escapeHtml(row.value)}</td></tr>`);
+      rows.push(metaCell(row.label, row.value));
     }
   }
+  const staff = ctx.staffName?.trim() || co.representativeName;
+  rows.push(metaCell("担当", staff));
   return rows.join("");
 }
 
@@ -469,8 +473,11 @@ body {
   margin: 0 0 1mm auto;
   font-size: 7.5pt;
 }
-.toms-v2-meta th, .toms-v2-meta td { padding: 0.2mm 0 0.2mm 1.5mm; text-align: left; vertical-align: top; }
+.toms-v2-meta th, .toms-v2-meta td { padding: 0.2mm 0 0.8mm 1.5mm; text-align: left; vertical-align: top; }
 .toms-v2-meta th { font-weight: 700; white-space: nowrap; }
+.toms-v2-meta-label, .toms-v2-meta-value { display: block; min-height: 3mm; }
+.toms-v2-meta-underline { display: block; border-bottom: 1px solid #000; margin-top: 0.3mm; min-width: 16mm; min-height: 2.5mm; }
+.toms-v2-meta td .toms-v2-meta-underline { min-width: 22mm; }
 .toms-v2-company-wrap { position: relative; text-align: left; display: inline-block; max-width: 100%; }
 .toms-v2-company-band {
   background: ${TOMS_V2_GRAY};

@@ -44,4 +44,8 @@ export function registerPwaLegacyRedirects(app: express.Application): void {
   app.get("/materials-v1", (req, res) => {
     res.redirect(301, mergeRedirectQuery(req, "/field-check-v1"));
   });
+
+  app.get("/purchase", (req, res) => {
+    res.redirect(301, mergeRedirectQuery(req, "/field-check-v1", { tab: "orders" }));
+  });
 }

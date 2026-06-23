@@ -474,6 +474,9 @@ export function createApp(): express.Application {
   app.get("/documents-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "documents-v1.html"));
   });
+  app.get("/document-center-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "documents-v1.html"));
+  });
   app.get("/master-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "master-v1.html"));
   });

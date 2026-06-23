@@ -114,6 +114,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 案件ダッシュボード | `/project-dashboard-v1` |
 | 案件詳細（実運用） | `/project-mgmt-detail-v1?projectId=` |
 | Route Health | `/route-health` |
+| 書類センター | `/document-center-v1`（別名 `/documents-v1`） |
 
 ログイン例: `TOMS001` / `toms001.surveyor` / `.env` の `CUSTOMER_DEMO_PASSWORD`
 
@@ -747,6 +748,22 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | コード | `operational-checklist-v1.ts` · `project-profit-v1.ts` · `project-pdf-center-v1.ts` |
 | テスト | `server/test/operational-phase16-v1.test.ts`（8ケース） |
 | 確認 | `/project-mgmt-detail-v1?projectId=` · `/route-health` · https://tisly.jp/api/health |
+
+### 実運用 Phase17 — PDF・図面・URL安定化（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | **PDF/図面/URL事故の再発防止** — LINE送信廃止 · 戻る統一 · 帳票アンダーライン · 方眼紙全面描画 · SW更新 |
+| PDF UI | `document-viewer-v1` — 「PDFにする」「保存」のみ（LINEで送る削除） |
+| 戻る | `return` / `returnUrl` 優先 · 無ければ `/document-center-v1?projectId=` |
+| 帳票 | 見積/請求 右上メタ欄アンダーライン（画面 + `toms-excel-doc-layout-v2`） |
+| 図面 | `syncGridStageSize` — 方眼紙白エリア全面を描画領域に |
+| 旧URL | `/estimate` `/invoice` `/drawing-editor` `/survey` `/projects` `/materials` `/materials-v1` `/purchase` → 301 |
+| URL契約 | [docs/routes/ROUTE_CONTRACT.md](../routes/ROUTE_CONTRACT.md) |
+| route-health | Phase17 診断 · Commit/SW/Cache · 更新ボタン常設 |
+| SW | `tisly-pwa-v2400-phase17` · activate時古cache削除 |
+| テスト | `server/test/operational-phase17-v1.test.ts` |
+| 確認 | `/route-health` · `/document-center-v1` · https://tisly.jp/api/health |
 
 ---
 

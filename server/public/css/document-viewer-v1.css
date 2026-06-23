@@ -7,7 +7,7 @@
   --doc-pdf-chrome-h: max(52px, calc(env(safe-area-inset-top, 0px) + 44px));
 }
 
-/* プレビューモード — HTMLプレビュー + 上部クローム（PDFにする / 保存 / LINEで送る） */
+/* プレビューモード — HTMLプレビュー + 上部クローム（PDFにする / 保存） */
 .doc-preview-mode {
   overflow-x: hidden;
 }

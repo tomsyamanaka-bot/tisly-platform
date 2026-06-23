@@ -14,7 +14,7 @@ import {
   saveDrawingToLocalStorage,
 } from "./survey-drawing-local-v1.js";
 
-export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v4";
+export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v5";
 export const SURVEY_DRAWING_TEMP_BANNER =
   "一時図面として作成中。現調から開くと案件に紐づきます。";
 
@@ -178,6 +178,33 @@ function applyViewportTransform() {
   const stage = $("drawing-stage");
   if (!stage) return;
   stage.style.transform = `translate(calc(-50% + ${viewport.offsetX}px), calc(-50% + ${viewport.offsetY}px)) scale(${viewport.scale})`;
+}
+
+function syncGridStageSize() {
+  const stage = $("drawing-stage");
+  const wrap = $("drawing-stage-wrap");
+  const ph = $("drawing-bg-placeholder");
+  if (!stage?.classList.contains("drawing-grid-paper") || !wrap) return;
+  const rect = wrap.getBoundingClientRect();
+  const w = Math.max(320, Math.floor(rect.width));
+  const h = Math.max(240, Math.floor(rect.height));
+  stageSize = { w, h };
+  layers.canvasWidth = w;
+  layers.canvasHeight = h;
+  stage.style.width = `${w}px`;
+  stage.style.height = `${h}px`;
+  if (ph) {
+    ph.style.width = "100%";
+    ph.style.height = "100%";
+    ph.style.minHeight = "100%";
+    ph.style.maxWidth = "none";
+    ph.style.border = "none";
+    ph.style.borderRadius = "0";
+    ph.style.boxSizing = "border-box";
+    ph.style.margin = "0";
+  }
+  applyViewportTransform();
+  renderAll();
 }
 
 function imageCoords(clientX, clientY) {
@@ -582,11 +609,8 @@ function applyGridPaper() {
   const ph = $("drawing-bg-placeholder");
   stage?.classList.add("drawing-grid-paper");
   ph?.classList.remove("hidden");
-  ph.textContent = "方眼紙モード — 描画・保存できます";
-  stageSize = { w: 800, h: 600 };
-  layers.canvasWidth = stageSize.w;
-  layers.canvasHeight = stageSize.h;
-  renderAll();
+  ph.textContent = "方眼紙モード — 全面を描画できます";
+  syncGridStageSize();
 }
 
 function loadSketchFromLocal() {
@@ -1073,6 +1097,8 @@ function wireEvents() {
 
   wireEstimateEvents();
   wireDrawingPdfEvents();
+
+  window.addEventListener("resize", () => syncGridStageSize());
 
   window.addEventListener("beforeunload", (ev) => {
     if (dirty) ev.preventDefault();

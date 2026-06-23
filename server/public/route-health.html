@@ -44,11 +44,21 @@
     <strong>iPhone Safari / PWA</strong><br />
     古い JS が残っていると「読み込み中…」のまま止まることがあります。下のボタンでキャッシュを消して更新してください。
     <button type="button" id="btn-iphone-refresh" class="btn-refresh">更新してください</button>
+    <button type="button" id="btn-sw-refresh-always" class="btn-refresh" style="margin-top:0.35rem;background:#1d4ed8;">更新してください（常設）</button>
   </div>
 
   <div id="sw-stale-banner" class="hidden" role="alert">
     古い Service Worker キャッシュを検出しました。最新版を反映するには更新してください。
     <button type="button" id="btn-sw-update" class="btn-refresh">更新してください</button>
+  </div>
+
+  <div class="verify-card">
+    <h2 style="margin-top:0;">Phase17 — URL / PDF / SW 診断</h2>
+    <p class="section-note">現行URL · 旧URLリダイレクト · Commit · SW · Cache — ROUTE_CONTRACT.md（リポジトリ docs/routes/）</p>
+    <table>
+      <thead><tr><th>項目</th><th>値</th></tr></thead>
+      <tbody id="phase17-manifest-body"><tr><td colspan="2">再チェックで更新</td></tr></tbody>
+    </table>
   </div>
 
   <div class="verify-card">
@@ -119,6 +129,6 @@
       <tr><td colspan="3">読み込み中…</td></tr>
     </tbody>
   </table>
-  <script type="module" src="/js/route-health.js?v=route-health-v9"></script>
+  <script type="module" src="/js/route-health.js?v=route-health-v10"></script>
 </body>
 </html>

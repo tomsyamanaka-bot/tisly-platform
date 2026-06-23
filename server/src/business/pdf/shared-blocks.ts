@@ -200,7 +200,7 @@ export function renderTomsDocLayoutHeader(input: TomsDocHeaderInput): string {
   const addressee = formatTomsAddressee(input.addressee);
   const regRow =
     input.includeRegistrationNo !== false
-      ? `<tr><th>登録番号</th><td>${escapeHtml(co.registrationNo)}</td></tr>`
+      ? `<tr><th><span class="toms-meta-label">登録番号</span><span class="toms-meta-underline" aria-hidden="true"></span></th><td><span class="toms-meta-value">${escapeHtml(co.registrationNo)}</span><span class="toms-meta-underline" aria-hidden="true"></span></td></tr>`
       : "";
   return `<div class="toms-doc-header">
   <div class="toms-doc-left">
@@ -211,8 +211,8 @@ export function renderTomsDocLayoutHeader(input: TomsDocHeaderInput): string {
   </div>
   <div class="toms-doc-right">
     <table class="toms-meta-table">
-      <tr><th>${escapeHtml(input.issueDateLabel)}</th><td>${escapeHtml(input.issueDate)}</td></tr>
-      <tr><th>${escapeHtml(input.docNoLabel)}</th><td>${escapeHtml(input.docNo)}</td></tr>
+      <tr><th><span class="toms-meta-label">${escapeHtml(input.issueDateLabel)}</span><span class="toms-meta-underline" aria-hidden="true"></span></th><td><span class="toms-meta-value">${escapeHtml(input.issueDate)}</span><span class="toms-meta-underline" aria-hidden="true"></span></td></tr>
+      <tr><th><span class="toms-meta-label">${escapeHtml(input.docNoLabel)}</span><span class="toms-meta-underline" aria-hidden="true"></span></th><td><span class="toms-meta-value">${escapeHtml(input.docNo)}</span><span class="toms-meta-underline" aria-hidden="true"></span></td></tr>
       ${regRow}
     </table>
     <div class="toms-company-block">

@@ -994,6 +994,9 @@ function fillInvoiceHeaderForm(project, invoice) {
   if ($("hdr-payment-due")) {
     $("hdr-payment-due").value = invoice.paymentDueDate || project?.paymentDueDate || "";
   }
+  if ($("hdr-invoice-no")) {
+    $("hdr-invoice-no").value = invoice.invoiceNo || "";
+  }
   renderInvoiceBankPanel(invoice);
 }
 
@@ -2517,19 +2520,6 @@ async function init() {
       await saveDocumentFromList(kind);
     } catch (e) {
       showPdfQuickError(e.message || "PDF保存に失敗しました");
-    }
-  });
-  $("btn-pdf-quick-share")?.addEventListener("click", async () => {
-    const kind = hasInvoice ? "invoice" : "estimate";
-    try {
-      if (isLocalProjectId(currentProjectId)) {
-        showPdfQuickError("端末内保存のため共有できません。");
-        return;
-      }
-      showPdfQuickError("");
-      await shareDocumentFromList(kind);
-    } catch (e) {
-      if (e?.name !== "AbortError") showPdfQuickError(e.message || "共有に失敗しました");
     }
   });
 

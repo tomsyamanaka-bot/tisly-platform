@@ -65,7 +65,7 @@ describe("PWA Route Repair Phase8 — route-health & cache", () => {
   it("route-health includes bottom nav quick links and v7", async () => {
     const html = await request(app).get("/route-health");
     assert.equal(html.status, 200);
-    assert.match(html.text, /route-health-v8/);
+    assert.match(html.text, /route-health-v10/);
     assert.match(html.text, /bottom-nav-quick/);
     assert.match(html.text, /nav-quick-grid/);
 
@@ -74,7 +74,7 @@ describe("PWA Route Repair Phase8 — route-health & cache", () => {
     assert.match(js, /checkOldJsVersions/);
     assert.match(js, /checkBottomNavPages/);
     assert.match(js, /field-checklist-v1/);
-    assert.match(js, /v2399/);
+    assert.match(js, /v2400/);
   });
 
   it("estimate-ui-v8 is referenced in estimate HTML", async () => {
@@ -84,9 +84,9 @@ describe("PWA Route Repair Phase8 — route-health & cache", () => {
     assert.doesNotMatch(res.text, /estimate-ui-v7/);
   });
 
-  it("service worker cache version bumped to v2399", () => {
+  it("service worker cache version bumped to v2400", () => {
     const sw = fs.readFileSync(path.join(publicDir, "service-worker.js"), "utf-8");
-    assert.match(sw, /v2399-production/);
+    assert.match(sw, /v2400-phase17/);
     assert.match(sw, /field-checklist-v1\.html/);
     assert.match(sw, /purchase-v1\.html/);
     assert.match(sw, /schedule-v1\.html/);

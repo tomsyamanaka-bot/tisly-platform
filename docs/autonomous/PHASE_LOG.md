@@ -1,5 +1,18 @@
 # Phase 完了ログ
 
+## 実運用 Phase17 — PDF・図面・URL安定化（2026-06-24）
+
+### 完了
+
+- [x] PDF画面 LINE送信廃止（document-viewer · 見積クイック共有削除）
+- [x] 書類閲覧戻る → `returnUrl` 優先 · 無ければ `/document-center-v1`
+- [x] 見積/請求 右上メタ欄アンダーライン（画面 + PDF v2）
+- [x] 方眼紙キャンバス全面描画（`syncGridStageSize` · drawing-ui-v5）
+- [x] 旧URLリダイレクト固定（`/purchase` 追加含む）
+- [x] `docs/routes/ROUTE_CONTRACT.md` 新規
+- [x] route-health Phase17 診断 · SW v2400 · 更新ボタン常設
+- [x] `operational-phase17-v1.test.ts`（17ケース）
+
 ## 実案件完走 Phase16（2026-06-23）
 
 ### 完了

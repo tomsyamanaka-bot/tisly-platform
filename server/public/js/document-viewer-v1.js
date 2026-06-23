@@ -11,6 +11,7 @@ import {
 
 const MOBILE_BREAKPOINT = 768;
 const API = "/api/estimate/v1";
+const DOCUMENT_CENTER_FALLBACK = "/document-center-v1";
 
 const $ = (id) => document.getElementById(id);
 
@@ -50,8 +51,16 @@ function parseParams() {
   const q = new URLSearchParams(window.location.search);
   const kind = q.get("kind") || "estimate";
   const projectId = q.get("projectId") || "";
-  const returnUrl = q.get("return") || "";
+  const returnUrl = q.get("return") || q.get("returnUrl") || "";
   return { kind, projectId, returnUrl };
+}
+
+function resolveDocumentReturn(returnUrl, projectId) {
+  if (returnUrl && returnUrl.startsWith("/")) return returnUrl;
+  if (projectId) {
+    return `${DOCUMENT_CENTER_FALLBACK}?projectId=${encodeURIComponent(projectId)}`;
+  }
+  return DOCUMENT_CENTER_FALLBACK;
 }
 
 function buildPdfTabUrl(pdfPath) {
@@ -534,19 +543,7 @@ function handleBack(returnUrl) {
     showPreviewMode();
     return;
   }
-  if (returnUrl && returnUrl.startsWith("/")) {
-    window.location.href = returnUrl;
-    return;
-  }
-  if (window.history.length > 1) {
-    window.history.back();
-    return;
-  }
-  if (payload?.projectId) {
-    window.location.href = `/projects-v1?projectId=${encodeURIComponent(payload.projectId)}`;
-    return;
-  }
-  window.location.href = "/estimate-v1";
+  window.location.href = resolveDocumentReturn(returnUrl, payload?.projectId);
 }
 
 async function init() {
@@ -564,8 +561,6 @@ async function init() {
   $("btn-regenerate")?.addEventListener("click", () => {
     regenerateStoredPdf().catch((e) => toast(e.message || "PDF再作成に失敗しました"));
   });
-  $("btn-share").addEventListener("click", () => handleShare());
-  $("btn-share").addEventListener("touchstart", prefetchPdfOnTouch, { passive: true });
   $("btn-save")?.addEventListener("click", () => handleSaveFile());
   $("btn-save")?.addEventListener("touchstart", prefetchPdfOnTouch, { passive: true });
   $("btn-pdf").addEventListener("click", () => handlePdfOpen());

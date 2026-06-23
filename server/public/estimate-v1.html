@@ -35,6 +35,24 @@
     .btn-doc-action .doc-btn-label { display: block; font-weight: 600; }
     .btn-doc-action .doc-btn-status { display: block; font-size: 0.78rem; font-weight: 500; margin-top: 0.15rem; color: var(--tisly-muted, #64748b); }
     .doc-list-section { margin-top: 0.75rem; }
+    .doc-meta-underline-label .doc-meta-label-line {
+      display: block;
+      border-bottom: 1px solid #64748b;
+      margin: 0.1rem 0 0.35rem;
+      max-width: 14rem;
+    }
+    .doc-meta-underline-label input[readonly] {
+      border: none;
+      border-bottom: 1px solid #cbd5e1;
+      border-radius: 0;
+      padding-left: 0;
+      background: transparent;
+    }
+    .doc-meta-underline-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+    }
     .doc-list-row {
       display: grid;
       grid-template-columns: 1fr auto;
@@ -362,21 +380,23 @@
         </label>
         <ul id="hdr-customer-suggest" class="customer-suggest-list hidden"></ul>
         <label class="friendly-label">件名 <input type="text" id="hdr-subject" placeholder="工事件名" /></label>
-        <div class="line-qty-price">
-          <label class="friendly-label">発行日 <input type="text" id="hdr-issue-date" readonly /></label>
-          <label class="friendly-label">見積番号 <input type="text" id="hdr-estimate-no" readonly /></label>
+        <div class="line-qty-price doc-meta-underline-row">
+          <label class="friendly-label doc-meta-underline-label">発行日 <span class="doc-meta-label-line" aria-hidden="true"></span><input type="text" id="hdr-issue-date" readonly /></label>
+          <label class="friendly-label doc-meta-underline-label">見積番号 <span class="doc-meta-label-line" aria-hidden="true"></span><input type="text" id="hdr-estimate-no" readonly /></label>
         </div>
-        <label class="friendly-label">担当者 <input type="text" id="hdr-staff" /></label>
+        <label class="friendly-label doc-meta-underline-label">担当者 <span class="doc-meta-label-line" aria-hidden="true"></span><input type="text" id="hdr-staff" /></label>
         <label class="friendly-label">工事場所 <input type="text" id="hdr-work-location" placeholder="建物名・フロアなど" /></label>
         <label class="friendly-label">住所 <input type="text" id="hdr-address" placeholder="〒・住所" /></label>
         <label class="friendly-label">電話 <input type="tel" id="hdr-phone" inputmode="tel" /></label>
         <label class="friendly-label practical-hidden">メール <input type="email" id="hdr-email" inputmode="email" /></label>
         <label class="friendly-label">備考 <textarea id="hdr-notes" rows="2" placeholder="帳票備考（社内メモと共有可）"></textarea></label>
         <div id="invoice-header-fields" class="hidden">
-          <div class="line-qty-price">
-            <label class="friendly-label">請求日 <input type="date" id="hdr-invoice-date" /></label>
-            <label class="friendly-label">支払期限 <input type="date" id="hdr-payment-due" /></label>
+          <div class="line-qty-price doc-meta-underline-row">
+            <label class="friendly-label doc-meta-underline-label">請求日 <span class="doc-meta-label-line" aria-hidden="true"></span><input type="date" id="hdr-invoice-date" /></label>
+            <label class="friendly-label doc-meta-underline-label">支払期限 <span class="doc-meta-label-line" aria-hidden="true"></span><input type="date" id="hdr-payment-due" /></label>
           </div>
+          <label class="friendly-label doc-meta-underline-label">請求番号 <span class="doc-meta-label-line" aria-hidden="true"></span><input type="text" id="hdr-invoice-no" readonly /></label>
+          <label class="friendly-label doc-meta-underline-label">登録番号 <span class="doc-meta-label-line" aria-hidden="true"></span><input type="text" id="hdr-registration-no" readonly value="T-2030001139320" /></label>
         </div>
         <div id="invoice-bank-panel" class="invoice-bank-panel hidden">
           <p class="section-label" style="margin:0.5rem 0 0.25rem;">振込先</p>
@@ -480,7 +500,6 @@
         <div class="pdf-quick-actions">
           <button type="button" class="btn-main blue" id="btn-pdf-quick-generate">PDF作成</button>
           <button type="button" class="btn-sub blue" id="btn-pdf-quick-save">PDF保存</button>
-          <button type="button" class="btn-sub blue" id="btn-pdf-quick-share">共有</button>
         </div>
         <p id="pdf-quick-error" class="error-friendly" role="alert"></p>
       </div>
