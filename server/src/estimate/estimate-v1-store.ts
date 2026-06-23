@@ -81,6 +81,7 @@ import {
   canTransitionStatus,
 } from "../business/business-status.js";
 import { transitionProjectStatus } from "../business/business-workflow.js";
+import { syncProjectStatusAutoV1 } from "../projects/project-status-auto-v1.js";
 import {
   getSurveyProjectV1,
   getSurveyProjectV1Detail,
@@ -494,6 +495,8 @@ export function createEstimateFromSurveyV1(
     businessProjectId: project.id,
     customerCode: detail.customerCode,
   });
+
+  syncProjectStatusAutoV1(project.id, "estimate_created");
 
   return getEstimateProjectV1Detail(project.id)!;
 }
@@ -927,6 +930,7 @@ export async function createCompletionReportV1(
   ) {
     transitionProjectStatus(businessProjectId, "completion_report_created");
   }
+  syncProjectStatusAutoV1(businessProjectId, "completion_saved");
   return { reportId: report.id, pdfPath };
 }
 
@@ -994,6 +998,7 @@ export async function createInvoiceFromEstimateV1(businessProjectId: string): Pr
   setInvoicePdfPath(invoice.id, pdfPath);
   recordProjectPdfSavedV1(businessProjectId, "invoice", pdfPath);
   clearProjectPdfStaleV1(businessProjectId, "invoice");
+  syncProjectStatusAutoV1(businessProjectId, "invoice_created");
   return { invoice: getInvoice(invoice.id)!, pdfPath };
 }
 

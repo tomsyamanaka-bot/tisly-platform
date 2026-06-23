@@ -50,6 +50,13 @@ import {
   buildDetailReturnUrl,
   buildOperationalWorkflowHrefsV1,
 } from "./operational-href-v1.js";
+import {
+  buildOperationalChecklistV1,
+  type OperationalChecklistV1,
+} from "./operational-checklist-v1.js";
+import { buildProjectProfitSummaryV1, type ProjectProfitSummaryV1 } from "./project-profit-v1.js";
+import { buildProjectPdfCenterV1, type ProjectPdfCenterV1 } from "./project-pdf-center-v1.js";
+import { syncProjectStatusAutoV1 } from "./project-status-auto-v1.js";
 
 export interface ProjectMgmtListItemV1 {
   id: string;
@@ -121,6 +128,9 @@ export interface ProjectMgmtDetailV1 {
   shareHistory: ReturnType<typeof listPdfShareHistoryV2>;
   projectStatus: ProjectStatusResultV1 | null;
   operational: OperationalStatusBundleV1;
+  checklist: OperationalChecklistV1;
+  profit: ProjectProfitSummaryV1;
+  pdfCenter: ProjectPdfCenterV1;
   automation: ReturnType<typeof getProjectAutomationBundleV1> | null;
 }
 
@@ -232,6 +242,11 @@ export function getProjectMgmtDetailV1(projectId: string): ProjectMgmtDetailV1 |
   ]);
   const businessStatus = String(row.status ?? "new").toLowerCase();
 
+  const completionDoc = getProjectDocumentsStatusV1(projectId)?.documents.find(
+    (d) => d.kind === "completion"
+  );
+  const hasCompletionPdf = Boolean(completionDoc?.hasPdf);
+
   const operational = buildOperationalStatusBundleV1({
     projectId,
     mgmtStatus: base.mgmtStatus,
@@ -240,6 +255,7 @@ export function getProjectMgmtDetailV1(projectId: string): ProjectMgmtDetailV1 |
     hasInvoice: Boolean(invoiceId),
     isOrdered: orderedStatuses.has(businessStatus),
     hasWorkCompleted: workDoneStatuses.has(businessStatus),
+    hasCompletionPdf,
   });
 
   return {
@@ -307,6 +323,14 @@ export function getProjectMgmtDetailV1(projectId: string): ProjectMgmtDetailV1 |
     shareHistory: listPdfShareHistoryV2(projectId),
     projectStatus: getProjectStatusV1(projectId),
     operational,
+    checklist: buildOperationalChecklistV1({
+      projectId,
+      surveyProjectId,
+      hasEstimate: Boolean(estimateId),
+      hasInvoice: Boolean(invoiceId),
+    }),
+    profit: buildProjectProfitSummaryV1({ estimateId, invoiceId }),
+    pdfCenter: buildProjectPdfCenterV1(projectId),
     automation: (() => {
       const bundle = getProjectAutomationBundleV1(projectId);
       return {
@@ -404,6 +428,7 @@ export function createProjectMgmtV1(input: {
       title: "現調作成",
       description: input.surveyProjectId,
     });
+    syncProjectStatusAutoV1(id, "survey_saved");
   }
   if (input.templateId?.trim()) {
     try {

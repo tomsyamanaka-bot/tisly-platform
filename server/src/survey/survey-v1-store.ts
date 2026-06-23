@@ -15,6 +15,7 @@ import {
   type SurveyWorkflowStatus,
 } from "./survey-v1-types.js";
 import { surveyUploadsDir } from "./survey-store.js";
+import { syncProjectStatusAutoBySurveyV1 } from "../projects/project-status-auto-v1.js";
 
 export interface SurveyHandoffLogV1 {
   id: string;
@@ -340,7 +341,9 @@ export function updateSurveyProjectV1(
     saveProjectNotes(projectId, String(patch.notes).trim());
   }
   const updated = getSurveyProjectV1(projectId);
-  return updated ? withProjectNotes(updated) : null;
+  const result = updated ? withProjectNotes(updated) : null;
+  if (result) syncProjectStatusAutoBySurveyV1(projectId, "survey_saved");
+  return result;
 }
 
 export function listSurveyPhotosV1(projectId: string): SurveyPhotoV1[] {

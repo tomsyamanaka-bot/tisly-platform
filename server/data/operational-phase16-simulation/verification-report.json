@@ -1,0 +1,284 @@
+{
+  "phase": "実案件完走 Phase16",
+  "projectId": "BIZ-69FA97C6",
+  "surveyProjectId": "SVY-C44E0978",
+  "municipality": "守谷市",
+  "allOk": true,
+  "operational": {
+    "status": "completed",
+    "statusLabel": "完了",
+    "statusColor": "#7c3aed",
+    "progress": {
+      "percent": 100,
+      "doneCount": 8,
+      "total": 8,
+      "currentStep": "invoice",
+      "currentLabel": "請求",
+      "steps": [
+        {
+          "key": "created",
+          "label": "案件作成",
+          "done": true,
+          "current": false
+        },
+        {
+          "key": "survey",
+          "label": "現調",
+          "done": true,
+          "current": false
+        },
+        {
+          "key": "drawing",
+          "label": "図面",
+          "done": true,
+          "current": false
+        },
+        {
+          "key": "estimate",
+          "label": "見積",
+          "done": true,
+          "current": false
+        },
+        {
+          "key": "ordered",
+          "label": "受注",
+          "done": true,
+          "current": false
+        },
+        {
+          "key": "construction",
+          "label": "施工",
+          "done": true,
+          "current": false
+        },
+        {
+          "key": "completion",
+          "label": "完了報告",
+          "done": true,
+          "current": false
+        },
+        {
+          "key": "invoice",
+          "label": "請求",
+          "done": true,
+          "current": false
+        }
+      ]
+    }
+  },
+  "checklist": {
+    "items": [
+      {
+        "key": "survey",
+        "label": "現調",
+        "done": true
+      },
+      {
+        "key": "drawing",
+        "label": "図面",
+        "done": true
+      },
+      {
+        "key": "estimate",
+        "label": "見積",
+        "done": true
+      },
+      {
+        "key": "invoice",
+        "label": "請求",
+        "done": true
+      },
+      {
+        "key": "completion",
+        "label": "完了報告",
+        "done": true
+      }
+    ],
+    "doneCount": 5,
+    "total": 5,
+    "allDone": true
+  },
+  "profit": {
+    "estimateAmount": 198000,
+    "invoiceAmount": 198000,
+    "materialCost": 90000,
+    "grossProfit": 90000,
+    "grossProfitRate": 50,
+    "isProvisional": false,
+    "currency": "JPY"
+  },
+  "pdfCenter": {
+    "projectId": "BIZ-69FA97C6",
+    "items": [
+      {
+        "kind": "estimate",
+        "label": "見積書",
+        "viewerKind": "estimate",
+        "viewerUrl": "/document-viewer-v1.html?projectId=BIZ-69FA97C6&kind=estimate",
+        "hasPdf": false,
+        "statusLabel": "更新あり",
+        "statusIcon": "🔄",
+        "fileName": null,
+        "updatedAt": null
+      },
+      {
+        "kind": "invoice",
+        "label": "請求書",
+        "viewerKind": "invoice",
+        "viewerUrl": "/document-viewer-v1.html?projectId=BIZ-69FA97C6&kind=invoice",
+        "hasPdf": true,
+        "statusLabel": "作成済",
+        "statusIcon": "✅",
+        "fileName": "請求書_守谷テスト様_守谷市実案件完走テスト.pdf",
+        "updatedAt": "2026-06-23T13:30:06.557Z"
+      },
+      {
+        "kind": "specification",
+        "label": "仕様書",
+        "viewerKind": "specification",
+        "viewerUrl": "/document-viewer-v1.html?projectId=BIZ-69FA97C6&kind=specification",
+        "hasPdf": true,
+        "statusLabel": "写真不足",
+        "statusIcon": "📷",
+        "fileName": "仕様書_守谷テスト様_守谷市実案件完走テスト.pdf",
+        "updatedAt": "2026-06-23T13:30:06.558Z"
+      },
+      {
+        "kind": "completion",
+        "label": "完了報告書",
+        "viewerKind": "completion-report",
+        "viewerUrl": "/document-viewer-v1.html?projectId=BIZ-69FA97C6&kind=completion-report",
+        "hasPdf": true,
+        "statusLabel": "写真不足",
+        "statusIcon": "📷",
+        "fileName": "完了報告書_守谷テスト様_守谷市実案件完走テスト.pdf",
+        "updatedAt": "2026-06-23T13:30:06.559Z"
+      }
+    ],
+    "readyCount": 3,
+    "total": 4
+  },
+  "steps": [
+    {
+      "step": "現調作成",
+      "ok": true,
+      "detail": "SVY-C44E0978",
+      "at": "2026-06-23T13:30:02.276Z"
+    },
+    {
+      "step": "案件作成+現調連携",
+      "ok": true,
+      "detail": "MO-26-0623-001",
+      "at": "2026-06-23T13:30:02.341Z"
+    },
+    {
+      "step": "現調後ステータス",
+      "ok": true,
+      "detail": "現調中",
+      "at": "2026-06-23T13:30:02.372Z"
+    },
+    {
+      "step": "不足一覧（現調のみ）",
+      "ok": true,
+      "detail": "1/5",
+      "at": "2026-06-23T13:30:02.372Z"
+    },
+    {
+      "step": "図面作成",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T13:30:02.376Z"
+    },
+    {
+      "step": "見積連携",
+      "ok": true,
+      "detail": "BIZ-69FA97C6",
+      "at": "2026-06-23T13:30:03.646Z"
+    },
+    {
+      "step": "見積後ステータス",
+      "ok": true,
+      "detail": "見積提出",
+      "at": "2026-06-23T13:30:03.695Z"
+    },
+    {
+      "step": "粗利表示",
+      "ok": true,
+      "detail": "¥90000",
+      "at": "2026-06-23T13:30:03.695Z"
+    },
+    {
+      "step": "PDFセンター",
+      "ok": true,
+      "detail": "1件準備済",
+      "at": "2026-06-23T13:30:03.695Z"
+    },
+    {
+      "step": "請求作成",
+      "ok": true,
+      "detail": "INV-MO-26-0623-001",
+      "at": "2026-06-23T13:30:05.371Z"
+    },
+    {
+      "step": "請求後ステータス",
+      "ok": true,
+      "detail": "請求済",
+      "at": "2026-06-23T13:30:05.425Z"
+    },
+    {
+      "step": "完了報告",
+      "ok": true,
+      "detail": "7d80c637-3e51-4ebf-a168-4a2709a4793b",
+      "at": "2026-06-23T13:30:06.514Z"
+    },
+    {
+      "step": "完了後ステータス",
+      "ok": true,
+      "detail": "完了",
+      "at": "2026-06-23T13:30:06.565Z"
+    },
+    {
+      "step": "不足一覧完走",
+      "ok": true,
+      "detail": "5/5",
+      "at": "2026-06-23T13:30:06.565Z"
+    },
+    {
+      "step": "案件一覧反映",
+      "ok": true,
+      "detail": "請求済",
+      "at": "2026-06-23T13:30:06.590Z"
+    },
+    {
+      "step": "ダッシュボードKPI",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T13:30:06.598Z"
+    },
+    {
+      "step": "画面 /project-mgmt-detail-v1",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T13:30:06.605Z"
+    },
+    {
+      "step": "画面 /project-dashboard-v1",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T13:30:06.608Z"
+    },
+    {
+      "step": "画面 /route-health",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T13:30:06.611Z"
+    }
+  ],
+  "urls": {
+    "projectDetail": "/project-mgmt-detail-v1?projectId=BIZ-69FA97C6",
+    "dashboard": "/project-dashboard-v1",
+    "routeHealth": "/route-health",
+    "health": "https://tisly.jp/api/health"
+  },
+  "generatedAt": "2026-06-23T13:30:06.611Z"
+}

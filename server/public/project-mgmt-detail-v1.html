@@ -64,6 +64,48 @@
     }
     .op-step-chip.done { color: #15803d; border-color: #86efac; background: #f0fdf4; }
     .op-step-chip.current { color: #1d4ed8; border-color: #93c5fd; background: #eff6ff; }
+    .section-sub-meta { font-weight: 600; color: #94a3b8; font-size: 0.72rem; margin-left: 0.35rem; }
+    .op-checklist-grid { display: flex; flex-direction: column; gap: 0.35rem; }
+    .op-check-row {
+      display: grid; grid-template-columns: auto 1fr auto; gap: 0.45rem; align-items: center;
+      padding: 0.45rem 0.55rem; border-radius: 10px; border: 1px solid #e2e8f0; background: #fff;
+      font-size: 0.84rem;
+    }
+    .op-check-row.done { border-color: #86efac; background: #f0fdf4; }
+    .op-check-box { font-size: 1rem; line-height: 1; }
+    .op-check-label { font-weight: 700; color: #1e293b; }
+    .op-check-state { font-size: 0.72rem; color: #64748b; font-weight: 600; }
+    .op-check-row.done .op-check-state { color: #15803d; }
+    .profit-grid {
+      display: grid; grid-template-columns: minmax(5rem, auto) 1fr;
+      gap: 0.35rem 0.65rem; font-size: 0.84rem;
+    }
+    .profit-grid dt { color: #64748b; margin: 0; }
+    .profit-grid dd { margin: 0; font-weight: 700; color: #1e293b; text-align: right; }
+    .profit-prov {
+      display: inline-block; font-size: 0.65rem; font-weight: 800; color: #a16207;
+      background: #fef9c3; border: 1px solid #fde047; border-radius: 4px; padding: 0 0.25rem;
+      vertical-align: middle;
+    }
+    .pdf-center-grid {
+      display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.45rem;
+    }
+    @media (min-width: 520px) { .pdf-center-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+    .pdf-center-card {
+      display: flex; flex-direction: column; gap: 0.35rem; padding: 0.55rem;
+      border-radius: 10px; border: 1px solid #e2e8f0; background: #fff; min-height: 96px;
+    }
+    .pdf-center-card.ready { border-color: #93c5fd; background: #f8fafc; }
+    .pdf-center-head { display: flex; align-items: center; gap: 0.35rem; }
+    .pdf-center-label { font-weight: 700; font-size: 0.82rem; color: #1e293b; }
+    .pdf-center-meta { font-size: 0.68rem; color: #64748b; flex: 1; }
+    .pdf-center-btn {
+      display: block; text-align: center; padding: 0.4rem 0.5rem; border-radius: 8px;
+      background: #4f6fa8; color: #fff; font-weight: 700; font-size: 0.78rem; text-decoration: none;
+    }
+    .pdf-center-btn.disabled {
+      background: #e2e8f0; color: #94a3b8; pointer-events: none;
+    }
     .wf-card-grid {
       display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.45rem;
     }

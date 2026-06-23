@@ -1,5 +1,16 @@
 # Phase 完了ログ
 
+## 実案件完走 Phase16（2026-06-23）
+
+### 完了
+
+- [x] Phase16-1 案件ステータス自動化（現調/見積/請求/完了報告保存時）
+- [x] Phase16-2 不足一覧（案件詳細）
+- [x] Phase16-3 案件利益計算（仮粗利）
+- [x] Phase16-4 案件 PDF センター
+- [x] Phase16-5 守谷市実案件フルフローテスト
+- [x] `operational-phase16-v1.test.ts` · `operational-phase16-simulation.mjs`
+
 ## Phase B — 実務 PWA ナビ・スマホ確認（2026-06-08）
 
 ### 完了

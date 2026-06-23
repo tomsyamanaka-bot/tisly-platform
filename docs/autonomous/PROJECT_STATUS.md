@@ -732,6 +732,22 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | テスト | `server/test/operational-phase1-v1.test.ts`（7ケース） |
 | 確認 | `/project-dashboard-v1` · `/project-mgmt-detail-v1` · `/route-health` |
 
+### 実案件完走 Phase16（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | **実案件フロー1件完走** — 手動ではなく各保存操作でステータス自動更新 · 不足一覧 · 粗利 · PDFセンター |
+| Phase16-1 ステータス自動化 | 現調保存→現調中 · 見積作成→見積提出 · 請求作成→請求済 · 完了報告保存→完了 — 案件一覧即反映 |
+| Phase16-2 不足一覧 | 案件詳細 — □現調/図面/見積/請求/完了報告 · 完成で自動チェック |
+| Phase16-3 案件利益 | 見積金額/請求金額/材料費/粗利/粗利率（仮計算可） |
+| Phase16-4 PDFセンター | 見積/請求/仕様書/完了報告 PDF 一覧 · ワンタップ `/document-viewer-v1` |
+| Phase16-5 実案件テスト | `server/scripts/operational-phase16-simulation.mjs` — 守谷市テスト案件フルフロー整合確認 |
+| API | `checklist` · `profit` · `pdfCenter` in `GET /api/project-mgmt/v1/projects/:id` |
+| フック | `project-status-auto-v1.ts` — survey/estimate/invoice/completion 保存時 |
+| コード | `operational-checklist-v1.ts` · `project-profit-v1.ts` · `project-pdf-center-v1.ts` |
+| テスト | `server/test/operational-phase16-v1.test.ts`（8ケース） |
+| 確認 | `/project-mgmt-detail-v1?projectId=` · `/route-health` · https://tisly.jp/api/health |
+
 ---
 
 ## 関連ドキュメント

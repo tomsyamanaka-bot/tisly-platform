@@ -963,6 +963,70 @@ function renderOperationalProgress() {
     </section>`;
 }
 
+function renderOperationalChecklist() {
+  const cl = detail?.checklist;
+  if (!cl?.items?.length) return "";
+  const rows = cl.items
+    .map(
+      (item) => `
+    <div class="op-check-row${item.done ? " done" : ""}">
+      <span class="op-check-box" aria-hidden="true">${item.done ? "☑" : "□"}</span>
+      <span class="op-check-label">${escapeHtml(item.label)}</span>
+      <span class="op-check-state">${item.done ? "完成" : "未作成"}</span>
+    </div>`
+    )
+    .join("");
+  return `
+    <section class="overview-section op-checklist-section" aria-label="不足一覧">
+      <h3 class="section-sub">不足一覧 <span class="section-sub-meta">${cl.doneCount}/${cl.total}</span></h3>
+      <div class="op-checklist-grid">${rows}</div>
+    </section>`;
+}
+
+function renderProfitSummary() {
+  const p = detail?.profit;
+  if (!p) return "";
+  const prov = p.isProvisional ? '<span class="profit-prov">仮</span>' : "";
+  return `
+    <section class="overview-section profit-section" aria-label="案件利益">
+      <h3 class="section-sub">案件利益 ${prov}</h3>
+      <dl class="profit-grid">
+        <dt>見積金額</dt><dd>${formatYen(p.estimateAmount)}</dd>
+        <dt>請求金額</dt><dd>${formatYen(p.invoiceAmount)}</dd>
+        <dt>材料費</dt><dd>${formatYen(p.materialCost)}</dd>
+        <dt>粗利</dt><dd>${formatYen(p.grossProfit)}</dd>
+        <dt>粗利率</dt><dd>${p.grossProfitRate != null ? `${p.grossProfitRate}%` : "—"}</dd>
+      </dl>
+    </section>`;
+}
+
+function renderPdfCenter() {
+  const center = detail?.pdfCenter;
+  if (!center?.items?.length) return "";
+  const cards = center.items
+    .map((item) => {
+      const cls = item.hasPdf ? "ready" : "missing";
+      const action = item.hasPdf
+        ? `<a class="pdf-center-btn" href="${escapeHtml(item.viewerUrl)}">閲覧</a>`
+        : `<span class="pdf-center-btn disabled">未作成</span>`;
+      return `
+    <div class="pdf-center-card ${cls}">
+      <div class="pdf-center-head">
+        <span class="pdf-center-icon">${item.statusIcon}</span>
+        <span class="pdf-center-label">${escapeHtml(item.label)}</span>
+      </div>
+      <div class="pdf-center-meta">${escapeHtml(item.statusLabel)}</div>
+      ${action}
+    </div>`;
+    })
+    .join("");
+  return `
+    <section class="overview-section pdf-center-section" aria-label="PDFセンター">
+      <h3 class="section-sub">PDFセンター <span class="section-sub-meta">${center.readyCount}/${center.total}</span></h3>
+      <div class="pdf-center-grid">${cards}</div>
+    </section>`;
+}
+
 function renderOverview(p) {
   const ps = detail.projectStatus;
   const autoStatus = ps?.statusLabel ?? p.mgmtStatusLabel;
@@ -981,6 +1045,9 @@ function renderOverview(p) {
 
   return `
     ${renderStatusHero()}
+    ${renderOperationalChecklist()}
+    ${renderProfitSummary()}
+    ${renderPdfCenter()}
     <section class="overview-section">
       <h3 class="section-sub">基本情報</h3>
       <dl class="info-grid overview-info-grid">

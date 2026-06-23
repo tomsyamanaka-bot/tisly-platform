@@ -89,7 +89,11 @@ const MGMT_TO_OPERATIONAL: Record<ProjectMgmtStatus, OperationalStatusV1> = {
   completed: "invoiced",
 };
 
-export function deriveOperationalStatusV1(mgmtStatus: ProjectMgmtStatus): OperationalStatusV1 {
+export function deriveOperationalStatusV1(
+  mgmtStatus: ProjectMgmtStatus,
+  opts?: { hasCompletionPdf?: boolean }
+): OperationalStatusV1 {
+  if (opts?.hasCompletionPdf) return "completed";
   return MGMT_TO_OPERATIONAL[mgmtStatus] ?? "not_started";
 }
 
@@ -184,8 +188,11 @@ export function buildOperationalStatusBundleV1(input: {
   hasInvoice: boolean;
   isOrdered: boolean;
   hasWorkCompleted: boolean;
+  hasCompletionPdf?: boolean;
 }): OperationalStatusBundleV1 {
-  const status = deriveOperationalStatusV1(input.mgmtStatus);
+  const status = deriveOperationalStatusV1(input.mgmtStatus, {
+    hasCompletionPdf: input.hasCompletionPdf,
+  });
   return {
     status,
     statusLabel: OPERATIONAL_STATUS_LABELS_V1[status],
