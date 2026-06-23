@@ -74,7 +74,7 @@ describe("PWA Route Repair Phase8 — route-health & cache", () => {
     assert.match(js, /checkOldJsVersions/);
     assert.match(js, /checkBottomNavPages/);
     assert.match(js, /field-checklist-v1/);
-    assert.match(js, /v2397/);
+    assert.match(js, /v2398/);
   });
 
   it("estimate-ui-v8 is referenced in estimate HTML", async () => {
@@ -84,12 +84,26 @@ describe("PWA Route Repair Phase8 — route-health & cache", () => {
     assert.doesNotMatch(res.text, /estimate-ui-v7/);
   });
 
-  it("service worker cache version bumped to v2397", () => {
+  it("service worker cache version bumped to v2398", () => {
     const sw = fs.readFileSync(path.join(publicDir, "service-worker.js"), "utf-8");
-    assert.match(sw, /v2397-production/);
+    assert.match(sw, /v2398-production/);
     assert.match(sw, /field-checklist-v1\.html/);
     assert.match(sw, /purchase-v1\.html/);
     assert.match(sw, /schedule-v1\.html/);
+  });
+
+  it("projects-v1 JS has single workApi declaration", () => {
+    const js = fs.readFileSync(path.join(publicDir, "js/projects-v1.js"), "utf-8");
+    const matches = js.match(/async function workApi/g) || [];
+    assert.equal(matches.length, 1, "workApi must be declared once");
+  });
+
+  it("schedule-v1 binds UI handlers before async data load", () => {
+    const js = fs.readFileSync(path.join(publicDir, "js/schedule-v1.js"), "utf-8");
+    const initBlock = js.slice(js.indexOf("async function init()"), js.indexOf("function bindScheduleUiHandlers()"));
+    const bindCallIdx = initBlock.indexOf("bindScheduleUiHandlers()");
+    const loadWeekIdx = initBlock.indexOf("await loadWeek()");
+    assert.ok(bindCallIdx > 0 && bindCallIdx < loadWeekIdx, "bindScheduleUiHandlers called before loadWeek in init");
   });
 
   it("schedule-v1 JS has fallback and no infinite loading guard", () => {

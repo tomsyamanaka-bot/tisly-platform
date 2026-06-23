@@ -21,7 +21,11 @@ export async function requestNotificationPermissionOnce() {
   if (localStorage.getItem(PERM_KEY) === "1") return Notification.permission;
   localStorage.setItem(PERM_KEY, "1");
   try {
-    return await Notification.requestPermission();
+    const result = await Promise.race([
+      Notification.requestPermission(),
+      new Promise((resolve) => setTimeout(() => resolve(Notification.permission), 3000)),
+    ]);
+    return result;
   } catch {
     return Notification.permission;
   }

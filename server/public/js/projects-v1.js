@@ -102,23 +102,6 @@ async function api(path, opts = {}) {
   );
 }
 
-async function workApi(path, opts = {}) {
-  const token = getCustomerToken();
-  return fetchJson(
-    path,
-    {
-      ...opts,
-      label: opts.label || "作業API",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-        ...(opts.headers || {}),
-      },
-    },
-    opts.timeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS
-  );
-}
-
 let currentDetailRef = null;
 let pendingDeleteRef = null;
 let practicalNavRef = null;

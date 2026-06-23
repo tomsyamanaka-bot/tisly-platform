@@ -44,7 +44,7 @@ const JS_ASSETS = [
 ];
 
 const ESTIMATE_UI_VERSION = "estimate-ui-v8";
-const SW_CACHE_TOKEN = "v2397";
+const SW_CACHE_TOKEN = "v2398";
 
 const DATA_API_PROBES = [
   {

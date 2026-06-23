@@ -823,6 +823,8 @@ async function init() {
     practicalNav.setToast(toast);
     practicalNav.setBackVisible(false);
 
+    bindScheduleUiHandlers();
+
     let reasonPresets = [];
     try {
       const presetData = await api("/presets", { label: "プリセット" });
@@ -857,7 +859,9 @@ async function init() {
   } finally {
     initWatchdog?.clear();
   }
+}
 
+function bindScheduleUiHandlers() {
   $("btn-sync-calendar")?.addEventListener("click", async () => {
     const btn = $("btn-sync-calendar");
     if (btn.disabled) return;
