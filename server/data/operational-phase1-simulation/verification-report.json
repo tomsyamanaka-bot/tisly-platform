@@ -1,0 +1,105 @@
+{
+  "phase": "実運用フェーズ1 Phase15",
+  "projectId": "BIZ-BEE9A574",
+  "surveyProjectId": "SVY-A7E48572",
+  "municipality": "守谷市",
+  "allOk": true,
+  "steps": [
+    {
+      "step": "案件作成",
+      "ok": true,
+      "detail": "MO-26-0623-001",
+      "at": "2026-06-23T12:43:21.063Z"
+    },
+    {
+      "step": "現調作成",
+      "ok": true,
+      "detail": "SVY-A7E48572",
+      "at": "2026-06-23T12:43:21.068Z"
+    },
+    {
+      "step": "現調連携",
+      "ok": true,
+      "detail": "SVY-A7E48572",
+      "at": "2026-06-23T12:43:21.111Z"
+    },
+    {
+      "step": "図面作成",
+      "ok": true,
+      "detail": "8023ecdf-9d9a-47eb-9ed4-b3644b26ebb4",
+      "at": "2026-06-23T12:43:21.116Z"
+    },
+    {
+      "step": "見積連携",
+      "ok": true,
+      "detail": "BIZ-BEE9A574",
+      "at": "2026-06-23T12:43:22.454Z"
+    },
+    {
+      "step": "進捗確認（中間）",
+      "ok": true,
+      "detail": "50% · 見積提出",
+      "at": "2026-06-23T12:43:22.486Z"
+    },
+    {
+      "step": "タイムライン",
+      "ok": true,
+      "detail": "4件",
+      "at": "2026-06-23T12:43:22.491Z"
+    },
+    {
+      "step": "ダッシュボードKPI",
+      "ok": true,
+      "detail": "7カード",
+      "at": "2026-06-23T12:43:22.506Z"
+    },
+    {
+      "step": "画面 /project-mgmt-detail-v1",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T12:43:22.512Z"
+    },
+    {
+      "step": "画面 /project-dashboard-v1",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T12:43:22.517Z"
+    },
+    {
+      "step": "画面 /survey-v1",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T12:43:22.520Z"
+    },
+    {
+      "step": "画面 /survey-drawing-v1",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T12:43:22.524Z"
+    },
+    {
+      "step": "画面 /estimate-v1",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T12:43:22.527Z"
+    },
+    {
+      "step": "画面 /projects-v1",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T12:43:22.530Z"
+    },
+    {
+      "step": "画面 /route-health",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T12:43:22.534Z"
+    }
+  ],
+  "urls": {
+    "projectDetail": "/project-mgmt-detail-v1?projectId=BIZ-BEE9A574",
+    "dashboard": "/project-dashboard-v1",
+    "routeHealth": "/route-health"
+  },
+  "generatedAt": "2026-06-23T12:43:22.534Z"
+}

@@ -37,6 +37,8 @@ const LINE_TYPE_DASH = {
   phone: "4 3",
 };
 
+import { navigatePracticalReturn } from "./tisly-return-nav-v1.js";
+
 function $(id) {
   return document.getElementById(id);
 }
@@ -1041,6 +1043,7 @@ function wireEvents() {
   $("btn-ai-export")?.addEventListener("click", () => exportAiJson().catch((e) => setStatus(e.message)));
   $("btn-back")?.addEventListener("click", () => {
     if (dirty && !confirm("未保存の変更があります。戻りますか？")) return;
+    if (navigatePracticalReturn(() => {})) return;
     if (isLocalOnlyMode || isTempDrawingId(projectId)) {
       location.href = "/survey-v1";
       return;

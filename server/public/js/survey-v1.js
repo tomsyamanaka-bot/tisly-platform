@@ -4,6 +4,7 @@ import {
   requireCustomerLogin,
 } from "./customer-auth.js";
 import { initPracticalNav } from "./tisly-practical-nav.js";
+import { navigatePracticalReturn } from "./tisly-return-nav-v1.js";
 import { friendlyHttpError, renderFriendlyErrorHtml } from "./tisly-friendly-errors.js";
 import {
   openSpecificationPreview,
@@ -1433,6 +1434,7 @@ function handleBack() {
     showView("list");
     return;
   }
+  if (navigatePracticalReturn(() => showView("list"))) return;
   showView("list");
 }
 

@@ -1,6 +1,6 @@
 # プロジェクト標準仕様（完成状態）
 
-**最終更新:** 2026-06-21  
+**最終更新:** 2026-06-23  
 **対象:** TiSLY Practical PWA（現調 v1 / 見積 v1 / 日程 v1 / 持ち物 v1 / 発注 v1 / 到着・作業完了 v1 / 書類閲覧 UX v1 / Knowledge Acquisition v1）
 
 Cursor が長時間自走する際の **「壊してはいけない完成仕様」** の単一ソースです。新しい実装を始める前に必ず読んでください。
@@ -111,6 +111,9 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 見積マスター | `/master-v1` |
 | AI見積エンジン基盤 | `/ai-estimate-engine-v1` → `/master-v1?tab=stats` |
 | 現調図面 | `/survey-drawing-v1` |
+| 案件ダッシュボード | `/project-dashboard-v1` |
+| 案件詳細（実運用） | `/project-mgmt-detail-v1?projectId=` |
+| Route Health | `/route-health` |
 
 ログイン例: `TOMS001` / `toms001.surveyor` / `.env` の `CUSTOMER_DEMO_PASSWORD`
 
@@ -711,6 +714,23 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | Phase9 テスト | `server/test/tisly-monitoring-3d-v34.test.ts` |
 | uiVersion | `v3.4` |
 | 確認 | `/monitoring-3d-v2?siteId=DEMO-HOME-001` · `/api/monitoring/v1/device-attachments?siteId=DEMO-HOME-001&deviceId=frontDoor` |
+
+### 実運用フェーズ1 Phase10–15（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | **実案件1件を完走できる** — 案件作成→現調→図面→見積→請求→完了報告→案件完了 |
+| Phase10 案件詳細 | `/project-mgmt-detail-v1?projectId=` — 案件名/顧客/住所/電話/担当 · 7段階ステータス · 8段階進捗バー |
+| Phase11 タイムライン | `project_timeline_events` — 案件作成/現調/見積送付等を時系列表示（履歴タブ） |
+| Phase12 画面遷移 | 現調/図面/見積/請求/完了報告 — `projectId` + `return` 引継ぎ · 戻るで案件詳細へ |
+| Phase13 ダッシュボード | `/project-dashboard-v1` — 進行中/見積待ち/請求待ち/未完了/今週売上/今月売上/粗利（仮） |
+| Phase14 route-health | `/route-health` — projects · survey · estimate · invoice · completion 件数監視 |
+| Phase15 シミュレーション | `server/scripts/operational-phase1-simulation.mjs` — 守谷市テスト案件自動生成・全画面検証 |
+| 案件センター | `/projects-v1` — business 案件タップで案件詳細へ |
+| API | `GET /api/dashboard-v1/operational-kpi` · `operational` in project-mgmt detail |
+| コード | `operational-status-v1.ts` · `operational-href-v1.ts` · `tisly-return-nav-v1.js` |
+| テスト | `server/test/operational-phase1-v1.test.ts`（7ケース） |
+| 確認 | `/project-dashboard-v1` · `/project-mgmt-detail-v1` · `/route-health` |
 
 ---
 

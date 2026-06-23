@@ -42,6 +42,14 @@ import { createProjectStorageFoldersV1 } from "../storage/project-storage-v1.js"
 import { getProjectAutomationBundleV1, applyProjectTemplateV1 } from "./project-automation-v1-store.js";
 import { refreshAiSuggestionsV1 } from "./project-automation-suggestions-v1.js";
 import { getProjectStatusV1, type ProjectStatusResultV1 } from "./project-status-v1.js";
+import {
+  buildOperationalStatusBundleV1,
+  type OperationalStatusBundleV1,
+} from "./operational-status-v1.js";
+import {
+  buildDetailReturnUrl,
+  buildOperationalWorkflowHrefsV1,
+} from "./operational-href-v1.js";
 
 export interface ProjectMgmtListItemV1 {
   id: string;
@@ -112,6 +120,7 @@ export interface ProjectMgmtDetailV1 {
   timeline: ReturnType<typeof listProjectTimelineV2>;
   shareHistory: ReturnType<typeof listPdfShareHistoryV2>;
   projectStatus: ProjectStatusResultV1 | null;
+  operational: OperationalStatusBundleV1;
   automation: ReturnType<typeof getProjectAutomationBundleV1> | null;
 }
 
@@ -193,6 +202,46 @@ export function getProjectMgmtDetailV1(projectId: string): ProjectMgmtDetailV1 |
   const surveyPhotos = surveyProjectId ? listSurveyPhotosV1(surveyProjectId) : [];
   const completionPhotos = listCompletionPhotosV1(projectId);
 
+  const detailReturnUrl = buildDetailReturnUrl(projectId);
+  const workflowHrefs = buildOperationalWorkflowHrefsV1({
+    projectId,
+    surveyProjectId,
+    detailReturnUrl,
+  });
+
+  const orderedStatuses = new Set([
+    "accepted",
+    "ordered",
+    "construction_scheduled",
+    "construction_done",
+    "completion_report_created",
+    "invoice_created",
+    "invoice_sent",
+    "invoiced",
+    "paid",
+    "closed",
+  ]);
+  const workDoneStatuses = new Set([
+    "construction_done",
+    "completion_report_created",
+    "invoice_created",
+    "invoice_sent",
+    "invoiced",
+    "paid",
+    "closed",
+  ]);
+  const businessStatus = String(row.status ?? "new").toLowerCase();
+
+  const operational = buildOperationalStatusBundleV1({
+    projectId,
+    mgmtStatus: base.mgmtStatus,
+    surveyProjectId,
+    hasEstimate: Boolean(estimateId),
+    hasInvoice: Boolean(invoiceId),
+    isOrdered: orderedStatuses.has(businessStatus),
+    hasWorkCompleted: workDoneStatuses.has(businessStatus),
+  });
+
   return {
     project: {
       ...base,
@@ -209,28 +258,26 @@ export function getProjectMgmtDetailV1(projectId: string): ProjectMgmtDetailV1 |
       linked: Boolean(surveyProjectId),
       surveyProjectId,
       photoCount: surveyPhotos.length,
-      href: surveyProjectId ? `/survey-v1?projectId=${encodeURIComponent(surveyProjectId)}` : null,
+      href: workflowHrefs.survey,
     },
     estimate: {
       linked: Boolean(estimateId),
       estimateId,
       estimateNo: estimate?.estimateNo ?? null,
       total: estimate?.total ?? null,
-      href: estimateId
-        ? `/estimate-v1?projectId=${encodeURIComponent(projectId)}`
-        : `/estimate-v1?projectId=${encodeURIComponent(projectId)}`,
+      href: workflowHrefs.estimate,
     },
     invoice: {
       linked: Boolean(invoiceId),
       invoiceId,
       invoiceNo: invoice?.invoiceNo ?? null,
       total: invoice?.total ?? null,
-      href: `/estimate-v1?projectId=${encodeURIComponent(projectId)}&tab=invoice`,
+      href: workflowHrefs.invoice,
     },
     completionReport: {
       linked: Boolean(completionReportId),
       completionReportId,
-      href: `/document-viewer-v1.html?projectId=${encodeURIComponent(projectId)}&kind=completion-report`,
+      href: workflowHrefs.completion,
     },
     photos: {
       surveyCount: surveyPhotos.length,
@@ -241,31 +288,25 @@ export function getProjectMgmtDetailV1(projectId: string): ProjectMgmtDetailV1 |
     workflowCards: buildWorkflowCardsV2({
       projectId,
       surveyProjectId,
-      surveyHref: surveyProjectId
-        ? `/survey-v1?projectId=${encodeURIComponent(surveyProjectId)}`
-        : null,
-      estimateHref: `/estimate-v1?projectId=${encodeURIComponent(projectId)}`,
-      invoiceHref: `/estimate-v1?projectId=${encodeURIComponent(projectId)}&tab=invoice`,
-      completionHref: completionReportId
-        ? `/document-viewer-v1.html?projectId=${encodeURIComponent(projectId)}&kind=completion-report`
-        : `/projects-v1?projectId=${encodeURIComponent(projectId)}&source=business`,
+      surveyHref: workflowHrefs.survey,
+      drawingHref: workflowHrefs.drawing,
+      estimateHref: workflowHrefs.estimate,
+      invoiceHref: workflowHrefs.invoice,
+      completionHref: workflowHrefs.completion,
     }),
     nextActions: buildNextActionsV1({
       projectId,
-      estimateHref: `/estimate-v1?projectId=${encodeURIComponent(projectId)}`,
-      invoiceHref: `/estimate-v1?projectId=${encodeURIComponent(projectId)}&tab=invoice`,
-      completionHref: completionReportId
-        ? `/document-viewer-v1.html?projectId=${encodeURIComponent(projectId)}&kind=completion-report`
-        : `/projects-v1?projectId=${encodeURIComponent(projectId)}&source=business`,
-      surveyHref: surveyProjectId
-        ? `/survey-v1?projectId=${encodeURIComponent(surveyProjectId)}`
-        : null,
+      estimateHref: workflowHrefs.estimate,
+      invoiceHref: workflowHrefs.invoice,
+      completionHref: workflowHrefs.completion,
+      surveyHref: workflowHrefs.survey,
       qnapSyncStatus: String(row.qnap_sync_status ?? "pending"),
     }),
     documentsStatus: getProjectDocumentsStatusV1(projectId),
     timeline: listProjectTimelineV2(projectId),
     shareHistory: listPdfShareHistoryV2(projectId),
     projectStatus: getProjectStatusV1(projectId),
+    operational,
     automation: (() => {
       const bundle = getProjectAutomationBundleV1(projectId);
       return {

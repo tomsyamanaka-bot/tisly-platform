@@ -673,7 +673,17 @@ function renderDetailWorkSession(detail) {
   });
 }
 
+const PROJECTS_RETURN = encodeURIComponent("/projects-v1");
+
+function projectMgmtDetailHref(projectId) {
+  return `/project-mgmt-detail-v1?projectId=${encodeURIComponent(projectId)}&return=${PROJECTS_RETURN}&listReturn=${PROJECTS_RETURN}`;
+}
+
 async function openDetail(id, source) {
+  if (source === "business") {
+    window.location.href = projectMgmtDetailHref(id);
+    return;
+  }
   try {
     const detail = await api(`/projects/${encodeURIComponent(id)}?source=${encodeURIComponent(source)}`);
     currentDetailRef = { id, source };
@@ -797,7 +807,7 @@ async function init() {
   });
 
   const params = new URLSearchParams(window.location.search);
-  const id = params.get("id");
+  const id = params.get("id") || params.get("projectId");
   const source = params.get("source") ?? "business";
   if (id) {
     await openDetail(id, source);

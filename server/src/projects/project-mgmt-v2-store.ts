@@ -37,7 +37,7 @@ export interface NextActionItemV1 {
 export type WorkflowCardState = "not_created" | "created" | "updated" | "photos_missing";
 
 export interface WorkflowCardV2 {
-  key: "survey" | "estimate" | "invoice" | "specification" | "completion";
+  key: "survey" | "drawing" | "estimate" | "invoice" | "specification" | "completion";
   label: string;
   state: WorkflowCardState;
   stateLabel: string;
@@ -103,6 +103,7 @@ export function buildWorkflowCardsV2(input: {
   projectId: string;
   surveyProjectId: string | null;
   surveyHref: string | null;
+  drawingHref?: string | null;
   estimateHref: string | null;
   invoiceHref: string | null;
   completionHref: string | null;
@@ -130,6 +131,15 @@ export function buildWorkflowCardsV2(input: {
     ? `/document-viewer-v1.html?projectId=${encodeURIComponent(input.projectId)}&kind=specification`
     : null;
 
+  let drawingCount = 0;
+  if (input.surveyProjectId) {
+    const row = getDatabase()
+      .prepare(`SELECT COUNT(*) AS c FROM survey_drawing_sketches WHERE project_id = ?`)
+      .get(input.surveyProjectId) as { c?: number } | undefined;
+    drawingCount = Number(row?.c ?? 0);
+  }
+  const drawingState: WorkflowCardState = drawingCount > 0 ? "created" : "not_created";
+
   const cards: Array<Omit<WorkflowCardV2, "stateLabel" | "stateIcon">> = [
     {
       key: "survey",
@@ -137,6 +147,13 @@ export function buildWorkflowCardsV2(input: {
       state: surveyState,
       href: input.surveyHref,
       summary: input.surveyProjectId ? `写真 ${surveyPhotos} 枚` : "未連携",
+    },
+    {
+      key: "drawing",
+      label: "図面",
+      state: drawingState,
+      href: input.drawingHref ?? null,
+      summary: drawingCount > 0 ? `図面 ${drawingCount} 件` : "未作成",
     },
     {
       key: "estimate",

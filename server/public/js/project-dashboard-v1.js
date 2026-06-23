@@ -57,6 +57,31 @@ async function api(path) {
 
 let searchTimer = null;
 
+function renderOperationalKpi(operational) {
+  const grid = $("op-kpi-grid");
+  const period = $("op-kpi-period");
+  if (!grid || !operational) return;
+  if (period) {
+    period.textContent = `今週 ${operational.weekLabel ?? ""} · 今月 ${operational.monthLabel ?? ""}`;
+  }
+  grid.innerHTML = (operational.cards ?? [])
+    .map((c) => {
+      const val =
+        c.format === "yen"
+          ? formatYen(c.value)
+          : c.format === "percent"
+            ? `${c.value}%`
+            : `${c.value}<span style="font-size:0.72rem;font-weight:600">件</span>`;
+      const cls =
+        c.key === "in_progress" || c.key === "month_sales" ? "op-kpi-card highlight" : "op-kpi-card";
+      return `<div class="${cls}">
+        <div class="val">${val}</div>
+        <div class="lbl">${escapeHtml(c.label)}</div>
+      </div>`;
+    })
+    .join("");
+}
+
 function renderKpi(cards) {
   const el = $("kpi-scroll");
   if (!el) return;
@@ -276,15 +301,17 @@ async function loadDashboard() {
     .then((r) => r.json())
     .catch(() => ({ items: [] }));
 
-  const [summaryRes, todayRes, alertsRes, recentRes, cityRes, salesRes, docsRes] = await Promise.all([
+  const [summaryRes, todayRes, alertsRes, recentRes, cityRes, salesRes, opRes, docsRes] = await Promise.all([
     api("/summary"),
     api("/today"),
     api("/alerts"),
     api("/recent"),
     api("/city-stats"),
     api("/sales"),
+    api("/operational-kpi"),
     docsPromise,
   ]);
+  renderOperationalKpi(opRes.operational);
   renderKpi(summaryRes.summary?.cards ?? []);
   renderToday(todayRes);
   renderAlerts(alertsRes.alerts ?? []);

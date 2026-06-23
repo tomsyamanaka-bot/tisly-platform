@@ -4,6 +4,7 @@ import { roleMeetsRequirement } from "../../auth/roles.js";
 import {
   getDashboardAlertsV1,
   getDashboardCityStatsV1,
+  getDashboardOperationalKpiV1,
   getDashboardRecentV1,
   getDashboardSalesV1,
   getDashboardSummaryV1,
@@ -62,4 +63,9 @@ dashboardV1Router.get("/city-stats", ...auth, (req: AuthedRequest, res) => {
 dashboardV1Router.get("/sales", ...auth, (req: AuthedRequest, res) => {
   if (!assertRole(req, res)) return;
   res.json({ sales: getDashboardSalesV1() });
+});
+
+dashboardV1Router.get("/operational-kpi", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  res.json({ operational: getDashboardOperationalKpiV1() });
 });

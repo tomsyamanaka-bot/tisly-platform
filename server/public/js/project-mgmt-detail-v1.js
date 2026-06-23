@@ -417,6 +417,7 @@ function getProjectId() {
 function cardTabForKey(key) {
   const map = {
     survey: "survey",
+    drawing: "survey",
     estimate: "estimate",
     invoice: "invoice",
     specification: "specification",
@@ -922,14 +923,43 @@ function statusBadgeStyle(colorGroup) {
 }
 
 function renderStatusHero() {
+  const op = detail?.operational;
   const ps = detail?.projectStatus;
-  if (!ps) return "";
-  const style = statusBadgeStyle(ps.statusColor);
+  if (!op && !ps) return "";
+  const label = op?.statusLabel ?? ps?.statusLabel ?? "—";
+  const color = op?.statusColor ?? ps?.statusColor ?? "gray";
+  const style = op
+    ? `background:${color}22;color:${color};border:1px solid ${color}55`
+    : statusBadgeStyle(color);
+  const updated = ps?.updatedAt ? formatDateTime(ps.updatedAt) : "—";
   return `
     <section class="status-hero" aria-label="現在ステータス">
-      <p class="status-hero-label">現在ステータス</p>
-      <p class="status-hero-value" style="${style}">${escapeHtml(ps.statusLabel)}</p>
-      <p class="status-hero-updated">自動判定 · 更新 ${formatDateTime(ps.updatedAt)}</p>
+      <p class="status-hero-label">案件ステータス</p>
+      <p class="status-hero-value" style="${style}">${escapeHtml(label)}</p>
+      <p class="status-hero-updated">自動判定 · 更新 ${updated}</p>
+    </section>
+    ${renderOperationalProgress()}`;
+}
+
+function renderOperationalProgress() {
+  const op = detail?.operational?.progress;
+  if (!op) return "";
+  const chips = (op.steps ?? [])
+    .map((s) => {
+      const cls = s.done ? "done" : s.current ? "current" : "";
+      return `<span class="op-step-chip ${cls}">${escapeHtml(s.label)}</span>`;
+    })
+    .join("");
+  return `
+    <section class="op-progress-section" aria-label="案件進捗">
+      <div class="op-progress-head">
+        <span>進捗 <strong>${op.doneCount}/${op.total}</strong></span>
+        <span>${op.percent}% · 次: ${escapeHtml(op.currentLabel)}</span>
+      </div>
+      <div class="op-progress-track" role="progressbar" aria-valuenow="${op.percent}" aria-valuemin="0" aria-valuemax="100">
+        <div class="op-progress-fill" style="width:${op.percent}%"></div>
+      </div>
+      <div class="op-progress-steps">${chips}</div>
     </section>`;
 }
 
@@ -954,12 +984,13 @@ function renderOverview(p) {
     <section class="overview-section">
       <h3 class="section-sub">基本情報</h3>
       <dl class="info-grid overview-info-grid">
-        <dt>案件ID</dt><dd>${escapeHtml(p.projectNo)}</dd>
+        <dt>案件名</dt><dd>${escapeHtml(p.title)}</dd>
         <dt>顧客名</dt><dd>${escapeHtml(p.customerName)}</dd>
-        <dt>現場名</dt><dd>${escapeHtml(p.title)}</dd>
         <dt>住所</dt><dd>${escapeHtml(p.address || "—")}</dd>
+        <dt>電話</dt><dd>${escapeHtml(p.phone || "—")}</dd>
         <dt>担当</dt><dd>${escapeHtml(p.assignee || "—")}</dd>
-        <dt>ステータス</dt><dd><span class="detail-status" style="${statusBadgeStyle(autoColor)}">${escapeHtml(autoStatus)}</span></dd>
+        <dt>案件ID</dt><dd>${escapeHtml(p.projectNo)}</dd>
+        <dt>状態</dt><dd><span class="detail-status" style="${statusBadgeStyle(autoColor)}">${escapeHtml(detail.operational?.statusLabel ?? autoStatus)}</span></dd>
       </dl>
     </section>
     <section class="overview-section">

@@ -37,6 +37,18 @@
     .kpi-pill.total { border-color: #4f6fa8; background: #eff6ff; min-width: 100px; }
     .kpi-pill .val { font-size: 1.2rem; font-weight: 800; color: #1e293b; line-height: 1.25; }
     .kpi-pill .lbl { font-size: 0.65rem; color: #64748b; margin-top: 0.2rem; line-height: 1.3; }
+    .op-kpi-grid {
+      display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.55rem;
+      margin-bottom: 1rem;
+    }
+    @media (min-width: 420px) { .op-kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    .op-kpi-card {
+      border: 1px solid #e2e8f0; border-radius: 12px; background: #fff;
+      padding: 0.7rem 0.75rem; min-height: 72px;
+    }
+    .op-kpi-card .val { font-size: 1.05rem; font-weight: 800; color: #1e293b; line-height: 1.25; font-variant-numeric: tabular-nums; }
+    .op-kpi-card .lbl { font-size: 0.72rem; color: #64748b; margin-top: 0.25rem; line-height: 1.35; }
+    .op-kpi-card.highlight { border-color: #4f6fa8; background: #eff6ff; }
     .dash-section {
       margin-bottom: 1.1rem;
     }
@@ -113,6 +125,12 @@
     </div>
 
     <div id="search-results" class="search-results hidden"></div>
+
+    <section class="dash-section" aria-label="実運用KPI">
+      <h2>📈 実運用サマリー</h2>
+      <p id="op-kpi-period" class="month-label"></p>
+      <div id="op-kpi-grid" class="op-kpi-grid"></div>
+    </section>
 
     <div id="kpi-scroll" class="kpi-scroll" aria-label="案件KPI"></div>
 

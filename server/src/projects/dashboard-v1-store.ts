@@ -121,6 +121,101 @@ export interface DashboardSalesV1 {
   paidTotal: number;
 }
 
+export interface DashboardOperationalKpiCardV1 {
+  key: string;
+  label: string;
+  value: number;
+  format: "count" | "yen" | "percent";
+}
+
+export interface DashboardOperationalKpiV1 {
+  cards: DashboardOperationalKpiCardV1[];
+  weekLabel: string;
+  monthLabel: string;
+}
+
+function weekBoundsJst(now = new Date()): { start: string; end: string; label: string } {
+  const d = new Date(now);
+  const day = d.getDay();
+  const diffToMon = day === 0 ? -6 : 1 - day;
+  const mon = new Date(d);
+  mon.setDate(d.getDate() + diffToMon);
+  mon.setHours(0, 0, 0, 0);
+  const sun = new Date(mon);
+  sun.setDate(mon.getDate() + 6);
+  sun.setHours(23, 59, 59, 999);
+  const fmt = (x: Date) =>
+    `${x.getMonth() + 1}/${x.getDate()}`;
+  return {
+    start: mon.toISOString(),
+    end: sun.toISOString(),
+    label: `${fmt(mon)}–${fmt(sun)}`,
+  };
+}
+
+function sumInvoicesBetween(start: string, end: string): number {
+  const row = getDatabase()
+    .prepare(
+      `SELECT COALESCE(SUM(i.total), 0) AS total
+       FROM business_invoices i
+       INNER JOIN business_projects p ON p.id = i.project_id
+       WHERE p.deleted_at IS NULL
+         AND i.created_at >= ? AND i.created_at <= ?`
+    )
+    .get(start, end) as { total: number };
+  return Number(row?.total ?? 0);
+}
+
+export function getDashboardOperationalKpiV1(now = new Date()): DashboardOperationalKpiV1 {
+  const rows = listActiveProjectRows();
+  let inProgress = 0;
+  let estimateWaiting = 0;
+  let invoiceWaiting = 0;
+  let incomplete = 0;
+
+  for (const row of rows) {
+    const mgmt = deriveRowMgmt(row);
+    if (mgmt !== "completed") incomplete += 1;
+    if (
+      mgmt !== "completed" &&
+      mgmt !== "invoiced" &&
+      mgmt !== "awaiting_payment"
+    ) {
+      inProgress += 1;
+    }
+    if (
+      mgmt === "survey_done" ||
+      mgmt === "estimate_creating" ||
+      (mgmt === "survey_scheduled" && !row.estimate_id)
+    ) {
+      estimateWaiting += 1;
+    }
+    if (mgmt === "awaiting_invoice" || (mgmt === "completion_report_creating" && !row.invoice_id)) {
+      invoiceWaiting += 1;
+    }
+  }
+
+  const week = weekBoundsJst(now);
+  const month = monthBoundsJst(now);
+  const weekSales = sumInvoicesBetween(week.start, week.end);
+  const monthSales = sumInvoicesBetween(month.start, month.end);
+  const grossProfitEstimate = Math.round(monthSales * 0.3);
+
+  return {
+    weekLabel: week.label,
+    monthLabel: month.label,
+    cards: [
+      { key: "in_progress", label: "進行中案件", value: inProgress, format: "count" },
+      { key: "estimate_waiting", label: "見積待ち", value: estimateWaiting, format: "count" },
+      { key: "invoice_waiting", label: "請求待ち", value: invoiceWaiting, format: "count" },
+      { key: "incomplete", label: "未完了案件", value: incomplete, format: "count" },
+      { key: "week_sales", label: "今週売上", value: weekSales, format: "yen" },
+      { key: "month_sales", label: "今月売上", value: monthSales, format: "yen" },
+      { key: "gross_profit", label: "粗利（仮）", value: grossProfitEstimate, format: "yen" },
+    ],
+  };
+}
+
 type ProjectRow = Record<string, unknown>;
 
 const DASHBOARD_RETURN = encodeURIComponent("/project-dashboard-v1");

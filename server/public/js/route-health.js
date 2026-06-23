@@ -2,6 +2,8 @@ import { getCustomerToken } from "./customer-auth.js";
 import { DEFAULT_FETCH_TIMEOUT_MS, fetchJson } from "./tisly-fetch-v1.js";
 
 const PAGE_ROUTES = [
+  { path: "/project-dashboard-v1", label: "案件ダッシュボード" },
+  { path: "/project-mgmt-detail-v1", label: "案件詳細" },
   { path: "/schedule-v1", label: "日程" },
   { path: "/survey-v1", label: "現調" },
   { path: "/survey-drawing-v1", label: "現調図面" },
@@ -47,6 +49,36 @@ const ESTIMATE_UI_VERSION = "estimate-ui-v8";
 const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v4";
 const PHASE9_JS_VERSION = "phase9-iphone-v1";
 const SW_CACHE_TOKEN = "v2399";
+
+const PROJECT_OPERATIONAL_PROBES = [
+  {
+    path: "/api/project-mgmt/v1/projects",
+    label: "案件管理 projects",
+    countLabel: "mgmt projects",
+    countFn: (d) => (Array.isArray(d.projects) ? d.projects.length : null),
+  },
+  {
+    path: "/api/survey/v1/projects?customerCode=TOMS001",
+    label: "Survey API",
+    countLabel: "survey projects",
+    countFn: (d) => (Array.isArray(d.projects) ? d.projects.length : null),
+  },
+  {
+    path: "/api/dashboard-v1/operational-kpi",
+    label: "案件ダッシュボード KPI",
+    countLabel: "kpi cards",
+    countFn: (d) => (Array.isArray(d.operational?.cards) ? d.operational.cards.length : null),
+  },
+  {
+    path: "/api/estimate/v1/projects?customerCode=TOMS001",
+    label: "Completion proxy",
+    countLabel: "completion reports",
+    countFn: (d) =>
+      Array.isArray(d.projects)
+        ? d.projects.filter((p) => p.completionReportId || p.hasCompletionReport).length
+        : null,
+  },
+];
 
 const DATA_API_PROBES = [
   {
@@ -781,6 +813,21 @@ async function runChecks() {
     else if (result.status === "ok") lastSuccess = checkedAt;
   }
 
+  const phase14Results = [];
+  for (const probe of PROJECT_OPERATIONAL_PROBES) {
+    const result = await probeDataApi(probe);
+    rows.push({ path: probe.path, label: `Phase14 ${probe.label}`, ...result });
+    diagRows.push({
+      path: probe.path,
+      label: `Phase14 ${probe.label}`,
+      status: result.status,
+      detail: result.detail,
+    });
+    phase14Results.push({ probe, result });
+    if (result.status === "fail") lastError = result.detail;
+    else if (result.status === "ok") lastSuccess = checkedAt;
+  }
+
   const cacheEntries = scanLocalCacheStats();
   rows.push({
     path: "localStorage cache",
@@ -891,6 +938,21 @@ async function runChecks() {
 
   renderRows(rows);
   renderRows(diagRows, "diag-results");
+
+  const phase14Mount = document.getElementById("phase14-api-body");
+  if (phase14Mount) {
+    renderRows(
+      phase14Results.map(({ probe, result }) => {
+        const countMatch = result.detail?.match(/(\d+)件/);
+        return {
+          path: probe.label,
+          status: result.status,
+          detail: countMatch ? `${countMatch[1]}件` : result.detail,
+        };
+      }),
+      "phase14-api-body"
+    );
+  }
 
   try {
     sessionStorage.setItem(

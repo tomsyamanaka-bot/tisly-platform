@@ -29,6 +29,24 @@ TiSLY HOME Security のデモ展示用 PLC ラダープログラムです。
 | 詳細手順 | [`docs/autonomous/VPS_AUTO_DEPLOY.md`](docs/autonomous/VPS_AUTO_DEPLOY.md) |
 | 成功確認 | https://tisly.jp/api/health の `commitShort` が push した commit の先頭 7 文字と一致 |
 
+## 実運用フェーズ1（Phase10–15）
+
+実案件1件を **案件作成 → 現調 → 図面 → 見積 → 請求 → 完了報告 → 案件完了** まで通すための案件センター強化です。
+
+| 画面 | URL |
+|------|-----|
+| 案件ダッシュボード | `/project-dashboard-v1` |
+| 案件詳細 | `/project-mgmt-detail-v1?projectId=` |
+| 案件センター（下部ナビ） | `/projects-v1` |
+| Route Health | `/route-health` |
+
+| 検証 | コマンド |
+|------|----------|
+| 自動テスト | `cd server && npx tsx --test test/operational-phase1-v1.test.ts` |
+| 守谷市シミュレーション | `cd server && npm run build && node scripts/operational-phase1-simulation.mjs` |
+
+詳細: [`docs/autonomous/PROJECT_STATUS.md`](docs/autonomous/PROJECT_STATUS.md) の「実運用フェーズ1 Phase10–15」
+
 ## TiSLY MotherShip — QNAP TS-464（バックアップ母艦）
 
 QNAP **TiSLYNAS**（`192.168.1.10` / `\\192.168.1.10\TiSLY`）を本番サーバーではなく **AI知識庫・案件保管庫・バックアップ母艦** として運用します。
