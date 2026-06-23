@@ -12,7 +12,7 @@ export interface CustomerSitePhotoV1 {
 export interface CustomerDocumentLinkV1 {
   fileId: string;
   label: string;
-  kind: "specification" | "completion" | "manual" | "other";
+  kind: "specification" | "completion" | "estimate" | "invoice" | "manual" | "inspection" | "other";
   openUrl: string;
 }
 
@@ -23,23 +23,103 @@ export interface CustomerContactV1 {
   staffName?: string;
 }
 
+export interface CustomerHomeCardV1 {
+  id: string;
+  emoji: string;
+  label: string;
+  href: string;
+}
+
+export interface CustomerHomeViewV1 {
+  title: string;
+  subtitle: string;
+  shareId: string;
+  propertyName: string;
+  systemStatus: string;
+  systemStatusLabel: string;
+  systemStatusEmoji: string;
+  systemStatusShort: string;
+  lastCheckedAt: string;
+  lastCheckedLabel: string;
+  cards: CustomerHomeCardV1[];
+  projectPageUrl: string;
+  documentsPageUrl: string;
+  monitoringPageUrl: string;
+  contactPhone: string;
+  contactCompany: string;
+}
+
+export interface CustomerMonitoringSensorV1 {
+  sensorId: string;
+  sensorName: string;
+  status: string;
+  statusKey: string;
+  areaName: string;
+  isCamera: boolean;
+}
+
+export interface CustomerMonitoringFloorV1 {
+  floorId: string;
+  floorName: string;
+  sensors: CustomerMonitoringSensorV1[];
+}
+
+export interface CustomerMonitoringAlertV1 {
+  floorId: string;
+  floorName: string;
+  areaName: string;
+  sensorName: string;
+  message: string;
+  subMessage: string;
+  timestamp: string;
+  highlightSensorId: string;
+}
+
+export interface CustomerMonitoringLogV1 {
+  id: string;
+  time: string;
+  place: string;
+  what: string;
+  isAlert: boolean;
+}
+
+export interface CustomerMonitoringViewV1 {
+  shareId: string;
+  propertyName: string;
+  systemStatus: string;
+  systemStatusLabel: string;
+  systemStatusEmoji: string;
+  lastCheckedAt: string;
+  lastCheckedIso: string;
+  floors: CustomerMonitoringFloorV1[];
+  activeAlert: CustomerMonitoringAlertV1 | null;
+  alertLogs: CustomerMonitoringLogV1[];
+  notificationLogs: CustomerMonitoringLogV1[];
+  allLogs: CustomerMonitoringLogV1[];
+  noActiveIssues: boolean;
+  emptyMessage: string;
+}
+
+export interface CustomerMaintenanceItemV1 {
+  label: string;
+  value: string;
+}
+
 export interface CustomerProjectViewV1 {
   shareId: string;
-  customerCode?: string;
   propertyName: string;
   workDescription: string;
   statusLabel: string;
   sitePhotos: CustomerSitePhotoV1[];
   documents: CustomerDocumentLinkV1[];
+  maintenanceItems: CustomerMaintenanceItemV1[];
   customerExplanation?: string;
   monitoringUrl?: string;
   contact: CustomerContactV1;
   projectPageUrl: string;
-  documentCenterUrl: string;
 }
 
-export interface CustomerHomeViewV1 {
-  customerCode: string;
+export interface CustomerHomeListViewV1 {
   customerName: string;
   projects: Array<{
     shareId: string;
@@ -47,16 +127,27 @@ export interface CustomerHomeViewV1 {
     workDescription: string;
     statusLabel: string;
     projectPageUrl: string;
+    homePageUrl: string;
   }>;
   contact: CustomerContactV1;
 }
 
 export interface CustomerPortalLandingV1 {
-  title: string;
-  subtitle: string;
+  home: CustomerHomeViewV1;
   demoProjects: Array<{
     shareId: string;
     propertyName: string;
     projectPageUrl: string;
+    homePageUrl: string;
   }>;
+}
+
+export interface CustomerDocumentViewV1 {
+  shareId: string;
+  propertyName: string;
+  fileId: string;
+  label: string;
+  previewUrl?: string;
+  pdfUrl?: string;
+  backUrl: string;
 }

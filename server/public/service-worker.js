@@ -1,7 +1,7 @@
 /* TiSLY Multi PWA — Phase18 URL/customer separation + RN-ready shared logic */
-const SW_VERSION = "tisly-pwa-v2400-phase18";
-const OFFLINE_CACHE = "tisly-pwa-shell-v2400-phase18";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2400-phase18";
+const SW_VERSION = "tisly-pwa-v2400-phase19";
+const OFFLINE_CACHE = "tisly-pwa-shell-v2400-phase19";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2400-phase19";
 const ICON_V = "?v=2003";
 const SHELL_URLS = [
   "/customer-portal.html",
@@ -93,6 +93,7 @@ const SHELL_URLS = [
   "/js/customer-document-v1.js",
   "/js/customer-monitoring-v1.js",
   "/js/customer-nav-v1.js",
+  "/js/customer-shared-v1.js",
   "/css/customer-v1.css",
   "/manifest-customer-v1.webmanifest",
   "/js/tisly-practical-nav.js?v=practical-nav-v2",

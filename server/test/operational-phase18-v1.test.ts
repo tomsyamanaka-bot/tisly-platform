@@ -179,9 +179,9 @@ describe("Operational Phase18 — PDF & drawing (Phase17 carry-over)", () => {
     assert.match(js, /getBoundingClientRect/);
   });
 
-  it("service worker bumped to v2400-phase18", () => {
+  it("service worker bumped to v2400-phase19", () => {
     const sw = fs.readFileSync(path.join(publicDir, "service-worker.js"), "utf-8");
-    assert.match(sw, /v2400-phase18/);
+    assert.match(sw, /v2400-phase19/);
     assert.match(sw, /customer-v1\.html/);
   });
 

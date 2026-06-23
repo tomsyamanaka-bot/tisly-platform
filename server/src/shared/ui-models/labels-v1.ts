@@ -3,8 +3,8 @@
  */
 
 export const TISLY_UI_LABELS_V1 = {
-  customerPortalTitle: "TiSLY お客様ポータル",
-  customerPortalSubtitle: "工事の進捗と資料をご確認いただけます",
+  customerPortalTitle: "TiSLY お客様ページ",
+  customerPortalSubtitle: "システムの状態と資料をご確認いただけます",
   propertyName: "物件名",
   workDescription: "工事内容",
   sitePhotos: "現場写真",

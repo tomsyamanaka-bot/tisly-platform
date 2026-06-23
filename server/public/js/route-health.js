@@ -54,16 +54,29 @@ const JS_ASSETS = [
 const ESTIMATE_UI_VERSION = "estimate-ui-v8";
 const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v5";
 const PHASE9_JS_VERSION = "phase9-iphone-v1";
-const SW_CACHE_TOKEN = "v2400-phase18";
+const SW_CACHE_TOKEN = "v2400-phase19";
+
+const CUSTOMER_FORBIDDEN_WORDS = [
+  "MQTT", "QNAP", "Mock", "Gmail mock", "PDF puppeteer", "App Hub",
+  "Map Editor", "保守PWA", "顧客コード", "customerCode", "shareId",
+  "route-health", "PRO Remote", "dashboard", "technical",
+  "見積作成", "projectId", "粗利",
+];
 
 const CUSTOMER_ROUTES = [
-  { path: "/customer", label: "お客様ポータル" },
-  { path: "/customer/TOMS001", label: "お客様案件一覧" },
+  { path: "/customer", label: "お客様ページ" },
+  { path: "/customer/TOMS001", label: "お客様物件一覧" },
+];
+
+const CUSTOMER_SHARE_ROUTES = (shareId) => [
+  { path: `/customer/project/${shareId}`, label: "お客様案件詳細" },
+  { path: `/customer/document/${shareId}`, label: "お客様資料閲覧" },
+  { path: `/customer/monitoring/${shareId}`, label: "お客様監視画面" },
 ];
 
 const IPHONE_CUSTOMER_LINKS = [
-  { href: "/customer", label: "お客様ポータル" },
-  { href: "/customer/TOMS001", label: "案件一覧" },
+  { href: "/customer", label: "お客様ページ" },
+  { href: "/customer/TOMS001", label: "物件一覧" },
 ];
 
 const PROJECT_OPERATIONAL_PROBES = [
@@ -333,13 +346,59 @@ async function checkPdfMetaUnderline() {
     ]);
     const estJs = await estRes.text();
     const swText = await swRes.text();
-    const hasToken = swText.includes("v2400-phase18");
+    const hasToken = swText.includes("v2400-phase19");
     const estOk = !estJs.includes("btn-pdf-quick-share");
     const layoutOk = pdfRes.ok;
     if (hasToken && estOk && layoutOk) {
       return { status: "ok", detail: "SW v2400 · PDF診断OK · 見積共有削除" };
     }
     return { status: "warn", detail: `SW:${hasToken} est:${estOk} pdf:${layoutOk}` };
+  } catch (e) {
+    return { status: "fail", detail: e.message || String(e) };
+  }
+}
+
+async function checkCustomerSeparationPhase19(shareId) {
+  try {
+    const paths = [
+      "/customer",
+      `/customer/project/${shareId}`,
+      `/customer/document/${shareId}`,
+      `/customer/monitoring/${shareId}`,
+    ];
+    const [pages, landingRes, contractRes, manifestRes, legacyRes] = await Promise.all([
+      Promise.all(paths.map((p) => fetch(p, { cache: "no-store" }).then((r) => ({ p, ok: r.ok, text: r.text() })))),
+      fetch("/api/customer-portal/v1/landing", { cache: "no-store" }),
+      fetch("/api/customer-portal/v1/route-contract", { cache: "no-store" }),
+      fetch("/manifest-customer-v1.webmanifest", { cache: "no-store" }),
+      fetch("/customer-portal", { redirect: "manual", cache: "no-store" }),
+    ]);
+
+    const pageResults = await Promise.all(
+      pages.map(async ({ p, ok, text }) => ({ p, ok, html: await text }))
+    );
+
+    const all200 = pageResults.every((r) => r.ok);
+    const noAppLinks = pageResults.every((r) => !r.html.includes('href="/app"'));
+    const noForbidden = pageResults.every((r) =>
+      CUSTOMER_FORBIDDEN_WORDS.every((w) => !r.html.includes(w))
+    );
+
+    const landing = await landingRes.json().catch(() => ({}));
+    const contract = await contractRes.json().catch(() => ({}));
+    const manifest = await manifestRes.json().catch(() => ({}));
+    const startUrlOk = manifest.start_url === "/customer";
+    const separated = contract.separation?.crossNavigationBlocked === true;
+    const legacy301 = legacyRes.status === 301 && String(legacyRes.headers.get("location") || "").includes("/customer");
+    const hasHome = landing.home?.cards?.length >= 6;
+
+    if (all200 && noAppLinks && noForbidden && startUrlOk && separated && legacy301 && hasHome) {
+      return { status: "ok", detail: `Phase19 OK · ${paths.length} pages · 禁止語0 · start_url=/customer` };
+    }
+    return {
+      status: "warn",
+      detail: `200:${all200} app:${noAppLinks} forbid:${noForbidden} start:${startUrlOk} legacy:${legacy301}`,
+    };
   } catch (e) {
     return { status: "fail", detail: e.message || String(e) };
   }
@@ -1097,8 +1156,12 @@ async function runChecks() {
   renderPhase18Manifest(phase17Health, swInfo, routeContract);
   renderPhase17Manifest(phase17Health, swInfo);
 
-  const customerSep = await checkCustomerSeparationPhase18();
-  rows.push({ path: "Phase18 customer", label: "/app分離", ...customerSep });
+  const customerSep = await checkCustomerSeparationPhase19(
+    (await fetch("/api/customer-portal/v1/landing", { cache: "no-store" })
+      .then((r) => r.json())
+      .catch(() => ({}))).home?.shareId || ""
+  );
+  rows.push({ path: "Phase19 customer", label: "お客様UI分離", ...customerSep });
 
   const docViewer17 = await checkDocumentViewerPhase17();
   rows.push({ path: "Phase17 document-viewer", label: "PDF UI", ...docViewer17 });

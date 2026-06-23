@@ -1,7 +1,8 @@
 import { Router } from "express";
 import {
   buildCustomerPortalLandingV1,
-  buildCustomerHomeViewV1,
+  buildCustomerHomeListViewV1,
+  buildCustomerHomeByShareIdV1,
   buildCustomerProjectViewV1,
   buildCustomerDocumentViewV1,
   buildCustomerMonitoringViewV1,
@@ -19,7 +20,16 @@ customerPortalV1Router.get("/landing", (_req, res) => {
 });
 
 customerPortalV1Router.get("/home/:customerCode", (req, res) => {
-  const data = buildCustomerHomeViewV1(String(req.params.customerCode));
+  const data = buildCustomerHomeListViewV1(String(req.params.customerCode));
+  res.json({ status: "ok", ...data });
+});
+
+customerPortalV1Router.get("/home-by-share/:shareId", (req, res) => {
+  const data = buildCustomerHomeByShareIdV1(String(req.params.shareId));
+  if (!data) {
+    res.status(404).json({ status: "error", error: "物件が見つかりません" });
+    return;
+  }
   res.json({ status: "ok", ...data });
 });
 

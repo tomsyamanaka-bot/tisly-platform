@@ -1,11 +1,11 @@
 {
-  "name": "TiSLY お客様ポータル",
+  "name": "TiSLY お客様ページ",
   "short_name": "TiSLY",
-  "description": "TiSLY お客様向け工事・資料ポータル",
+  "description": "TiSLY お客様向け — システム状態と書類の確認",
   "start_url": "/customer",
   "scope": "/customer",
   "display": "standalone",
-  "background_color": "#f0f9ff",
+  "background_color": "#f8fbff",
   "theme_color": "#0ea5e9",
   "orientation": "portrait-primary",
   "icons": [

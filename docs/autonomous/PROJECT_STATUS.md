@@ -784,6 +784,23 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | API | `/api/customer-portal/v1/*` |
 | 確認 | `/customer` · `/route-health` · https://tisly.jp/api/health |
 
+### 実運用 Phase19 — お客様UI全面整理（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | **一般のお客様が説明なしで使える /customer UI** — 開発者向け情報を完全非表示 |
+| Phase19-1 ホーム | `/customer` — 物件名 · システム状態 · 最終確認 · 6大カードボタン |
+| Phase19-2 監視 | `/customer/monitoring/:shareId` — フロア別センサー · 発報赤バナー · 点滅スクロール（iframe廃止） |
+| Phase19-3 案件 | `/customer/project/:shareId` — 見積/請求/仕様/完了/写真/点検のみ |
+| Phase19-4 書類 | `/customer/document/:shareId` — 戻る/PDFにする/保存 · customerReturnUrl |
+| Phase19-5 shared | `customer-labels-v1` · `customer-home-state-v1` · `customer-monitoring-state-v1` · `customer-project-files-filter-v1` |
+| Phase19-6 禁止語 | DOM/API から MQTT/QNAP/mock/API/debug 等を排除 |
+| Phase19-7 route-health | Phase19 分離診断 · 禁止語 · start_url · 全サブルート200 |
+| Phase19-8 テスト | `server/test/customer-portal-v1.test.ts` |
+| SW | `tisly-pwa-v2400-phase19` |
+| PWA | `manifest-customer-v1.webmanifest` — `start_url: /customer` |
+| 確認 | `/customer` · `/route-health` · https://tisly.jp/api/health |
+
 ---
 
 ## 関連ドキュメント

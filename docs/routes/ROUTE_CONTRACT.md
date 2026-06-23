@@ -1,6 +1,6 @@
 # TiSLY PWA URL 契約（Route Contract）
 
-**最終更新:** 2026-06-24（Phase18）  
+**最終更新:** 2026-06-24（Phase19）  
 **ルール:** URL を変更・追加したら **必ずこのファイルを更新** し、`/route-health` で旧URLリダイレクトを確認する。
 
 ---
@@ -46,16 +46,28 @@
 | 画面名 | 正式 URL |
 |--------|----------|
 | お客様ポータル入口 | `/customer` |
-| お客様案件一覧 | `/customer/:customerCode` |
+| お客様物件一覧 | `/customer/:customerCode` |
 | お客様案件詳細 | `/customer/project/:shareId` |
 | お客様資料閲覧 | `/customer/document/:shareId` |
 | お客様監視画面 | `/customer/monitoring/:shareId` |
 
-PWA manifest: `/manifest-customer-v1.webmanifest`（`start_url: /customer`）
+PWA manifest: `/manifest-customer-v1.webmanifest`（`start_url: /customer` · `scope: /customer`）
 
-表示するもの: 物件名 · 工事内容 · 現場写真 · 仕様書PDF · 完了報告書PDF · お客様向け説明 · 監視リンク · 連絡先
+### お客様向け表示（Phase19）
 
-表示しないもの: 見積作成 · 請求書 · 案件管理 · 粗利 · 材料 · 発注 · 社内メモ · QNAP/WebDAV/API URL · projectId · debug
+| 項目 | 内容 |
+|------|------|
+| タイトル | TiSLY お客様ページ |
+| ホーム | 物件名 · システム状態 · 最終確認 · 6大カードボタン |
+| カード | カメラ · 警報履歴 · 通知履歴 · 書類 · 点検保守 · トムズへ連絡 |
+| 監視 | フロア別センサー · 正常/注意/警報 · 発報時赤バナー |
+| 書類 | 見積書 · 請求書 · 仕様書 · 完了報告書 · 写真 · 点検記録 |
+
+表示しないもの: 案件管理 · 原価 · 粗利 · 材料 · 発注 · QNAP/WebDAV · projectId · 社内メモ · debug · MQTT · API URL · App Hub · route-health
+
+禁止語（DOM）: MQTT · WS · QNAP · Mock · Gmail mock · PDF puppeteer · App Hub · 管理 · Map Editor · 施工 · 保守PWA · 顧客コード · customerCode · shareId · API · debug · route-health · PRO Remote · portal · remote · mock · sync · dashboard · technical
+
+戻る制御: `customerReturnUrl`（sessionStorage）— /customer 内のみ · history.back 不使用
 
 ---
 
