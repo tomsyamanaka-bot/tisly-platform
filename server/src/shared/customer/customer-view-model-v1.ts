@@ -104,6 +104,8 @@ export interface CustomerMonitoringViewV1 {
   alertHistoryLabel: string;
   notificationHistoryLabel: string;
   pageTitle: string;
+  contactTelHref?: string;
+  contactLabel?: string;
 }
 
 export interface CustomerMaintenanceItemV1 {
@@ -122,6 +124,12 @@ export interface CustomerProjectViewV1 {
   customerExplanation?: string;
   monitoringUrl?: string;
   contact: CustomerContactV1;
+  quickActions?: Array<{
+    id: string;
+    emoji: string;
+    label: string;
+    href: string;
+  }>;
   projectPageUrl: string;
 }
 

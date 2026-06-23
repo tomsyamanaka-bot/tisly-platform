@@ -150,9 +150,9 @@ describe("Customer Portal V1 — assets", () => {
     assert.match(js, /\/customer\/project\//);
   });
 
-  it("service worker bumped to v2400-phase20", () => {
+  it("service worker bumped to v2401-phase21", () => {
     const sw = fs.readFileSync(path.join(publicDir, "service-worker.js"), "utf-8");
-    assert.match(sw, /v2400-phase20/);
+    assert.match(sw, /v2401-phase21/);
     assert.match(sw, /customer-shared-v1\.js/);
   });
 
@@ -175,7 +175,7 @@ describe("Customer Portal V1 — Phase20 production polish", () => {
     assert.ok(first.actions?.length >= 3);
     assert.ok(first.actions.some((a: { label: string }) => a.label === "書類を見る"));
     assert.ok(first.actions.some((a: { label: string }) => a.label === "見守りを見る"));
-    assert.ok(first.actions.some((a: { label: string }) => a.label === "連絡する"));
+    assert.ok(first.actions.some((a: { label: string }) => a.label === "トムズへ連絡"));
   });
 
   it("monitoring API uses customer-friendly labels", async () => {
@@ -212,6 +212,46 @@ describe("Customer Portal V1 — Phase20 production polish", () => {
     );
     const back = resolveCustomerDocumentBackUrlV1(DEMO_SHARE);
     assert.equal(back, `/customer/project/${DEMO_SHARE}`);
+  });
+});
+
+describe("Customer Portal V1 — Phase21 final polish", () => {
+  it("project API includes quick actions", async () => {
+    const res = await request(app).get(`/api/customer-portal/v1/project/${DEMO_SHARE}`);
+    assert.equal(res.status, 200);
+    assert.ok(Array.isArray(res.body.quickActions));
+    assert.ok(res.body.quickActions.some((a: { label: string }) => a.label === "書類を見る"));
+    assert.ok(res.body.quickActions.some((a: { label: string }) => a.label === "見守りを見る"));
+    assert.ok(res.body.quickActions.some((a: { label: string }) => a.label === "トムズへ連絡"));
+  });
+
+  it("monitoring API includes contact without technical fields", async () => {
+    const res = await request(app).get(`/api/customer-portal/v1/monitoring/${DEMO_SHARE}`);
+    assert.equal(res.status, 200);
+    assert.ok(res.body.contactTelHref?.startsWith("tel:"));
+    assert.equal(res.body.contactLabel, "トムズへ連絡");
+    const json = JSON.stringify(res.body);
+    assert.doesNotMatch(json, /deviceId|sensorId|topic|mqtt|statusCode|JSON/i);
+  });
+
+  it("customer CSS uses light theme", () => {
+    const css = fs.readFileSync(path.join(publicDir, "css/customer-v1.css"), "utf-8");
+    assert.match(css, /--cv-bg: #f8fafc/);
+    assert.match(css, /background: var\(--cv-card\)/);
+    assert.match(css, /safe-area-inset-bottom/);
+  });
+
+  it("customer-shared has property tap hint", () => {
+    const js = fs.readFileSync(path.join(publicDir, "js/customer-shared-v1.js"), "utf-8");
+    assert.match(js, /cv-property-card-main/);
+    assert.match(js, /cv-tap-hint/);
+    assert.match(js, /トムズへ連絡/);
+  });
+
+  it("shared customer-project-actions module exists", () => {
+    assert.ok(
+      fs.existsSync(path.join(process.cwd(), "src/shared/customer/customer-project-actions-v1.ts"))
+    );
   });
 });
 

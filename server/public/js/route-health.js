@@ -54,13 +54,13 @@ const JS_ASSETS = [
 const ESTIMATE_UI_VERSION = "estimate-ui-v8";
 const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v5";
 const PHASE9_JS_VERSION = "phase9-iphone-v1";
-const SW_CACHE_TOKEN = "v2400-phase20";
+const SW_CACHE_TOKEN = "v2401-phase21";
 
 const CUSTOMER_FORBIDDEN_WORDS = [
-  "MQTT", "QNAP", "Mock", "Gmail mock", "PDF puppeteer", "App Hub",
-  "Map Editor", "保守PWA", "顧客コード", "customerCode", "shareId",
-  "route-health", "PRO Remote", "dashboard", "technical",
-  "見積作成", "projectId", "粗利",
+  "MQTT", "WS", "QNAP", "Mock", "Gmail mock", "PDF puppeteer", "App Hub",
+  "管理", "Map Editor", "施工", "保守PWA", "顧客コード", "customerCode", "shareId",
+  "projectId", "API", "route-health", "PRO Remote", "dashboard", "technical",
+  "見積作成", "粗利", "portal", "remote", "mock", "sync",
 ];
 
 const CUSTOMER_ROUTES = [
@@ -353,6 +353,89 @@ async function checkPdfMetaUnderline() {
       return { status: "ok", detail: "SW v2400 · PDF診断OK · 見積共有削除" };
     }
     return { status: "warn", detail: `SW:${hasToken} est:${estOk} pdf:${layoutOk}` };
+  } catch (e) {
+    return { status: "fail", detail: e.message || String(e) };
+  }
+}
+
+async function checkCustomerSeparationPhase21(shareId) {
+  try {
+    const paths = [
+      "/customer",
+      "/customer/TOMS001",
+      `/customer/project/${shareId}`,
+      `/customer/document/${shareId}`,
+      `/customer/monitoring/${shareId}`,
+    ];
+    const [pages, landingRes, contractRes, manifestRes, legacyRes, docJsRes, swRes, cssRes, sharedJsRes] =
+      await Promise.all([
+        Promise.all(paths.map((p) => fetch(p, { cache: "no-store" }).then((r) => ({ p, ok: r.ok, text: r.text() })))),
+        fetch("/api/customer-portal/v1/landing", { cache: "no-store" }),
+        fetch("/api/customer-portal/v1/route-contract", { cache: "no-store" }),
+        fetch("/manifest-customer-v1.webmanifest", { cache: "no-store" }),
+        fetch("/customer-portal", { redirect: "manual", cache: "no-store" }),
+        fetch("/js/customer-document-v1.js", { cache: "no-store" }),
+        fetch("/service-worker.js", { cache: "no-store" }),
+        fetch("/css/customer-v1.css", { cache: "no-store" }),
+        fetch("/js/customer-shared-v1.js", { cache: "no-store" }),
+      ]);
+
+    const pageResults = await Promise.all(
+      pages.map(async ({ p, ok, text }) => ({ p, ok, html: await text }))
+    );
+
+    const all200 = pageResults.every((r) => r.ok);
+    const noAppLinks = pageResults.every((r) => !r.html.includes('href="/app"'));
+    const noForbidden = pageResults.every((r) =>
+      CUSTOMER_FORBIDDEN_WORDS.every((w) => !r.html.includes(w))
+    );
+
+    const landing = await landingRes.json().catch(() => ({}));
+    const contract = await contractRes.json().catch(() => ({}));
+    const manifest = await manifestRes.json().catch(() => ({}));
+    const docJs = await docJsRes.text();
+    const swText = await swRes.text();
+    const cssText = await cssRes.text();
+    const sharedJs = await sharedJsRes.text();
+    const startUrlOk = manifest.start_url === "/customer";
+    const separated = contract.separation?.crossNavigationBlocked === true;
+    const legacy301 = legacyRes.status === 301 && String(legacyRes.headers.get("location") || "").includes("/customer");
+    const hasHome = landing.home?.cards?.length >= 6;
+    const docBackOk =
+      docJs.includes("/customer/project/") &&
+      !docJs.includes("history.back") &&
+      !docJs.includes("LINE");
+    const tomsHtml = pageResults.find((r) => r.p === "/customer/TOMS001")?.html ?? "";
+    const tomsOk =
+      tomsHtml.includes("customer-home-v1") &&
+      sharedJs.includes("cv-property-card-main") &&
+      sharedJs.includes("cv-tap-hint") &&
+      sharedJs.includes("トムズへ連絡");
+    const swOk = swText.includes("v2401-phase21");
+    const lightThemeOk = cssText.includes("--cv-bg: #f8fafc") && cssText.includes("background: var(--cv-card)");
+
+    if (
+      all200 &&
+      noAppLinks &&
+      noForbidden &&
+      startUrlOk &&
+      separated &&
+      legacy301 &&
+      hasHome &&
+      docBackOk &&
+      tomsOk &&
+      swOk &&
+      lightThemeOk
+    ) {
+      return {
+        status: "ok",
+        detail: `Phase21 OK · ${paths.length} pages · 禁止語0 · SW v2401 · 白基調UI`,
+      };
+    }
+    return {
+      status: "warn",
+      detail: `200:${all200} app:${noAppLinks} forbid:${noForbidden} start:${startUrlOk} docBack:${docBackOk} toms:${tomsOk} sw:${swOk} theme:${lightThemeOk}`,
+    };
   } catch (e) {
     return { status: "fail", detail: e.message || String(e) };
   }
@@ -1224,6 +1307,13 @@ async function runChecks() {
       .catch(() => ({}))).home?.shareId || ""
   );
   rows.push({ path: "Phase20 customer", label: "お客様UI実運用", ...customerSep20 });
+
+  const customerSep21 = await checkCustomerSeparationPhase21(
+    (await fetch("/api/customer-portal/v1/landing", { cache: "no-store" })
+      .then((r) => r.json())
+      .catch(() => ({}))).home?.shareId || ""
+  );
+  rows.push({ path: "Phase21 customer", label: "お客様UI最終版", ...customerSep21 });
 
   const docViewer17 = await checkDocumentViewerPhase17();
   rows.push({ path: "Phase17 document-viewer", label: "PDF UI", ...docViewer17 });

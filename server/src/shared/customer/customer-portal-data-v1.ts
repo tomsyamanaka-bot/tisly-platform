@@ -20,6 +20,7 @@ import { TISLY_UI_LABELS_V1 } from "../ui-models/labels-v1.js";
 import { buildCustomerHomeStateV1 } from "./customer-home-state-v1.js";
 import { buildCustomerMonitoringDetailV1 } from "./customer-monitoring-state-v1.js";
 import { buildCustomerPropertyListItemV1 } from "./customer-property-list-v1.js";
+import { buildCustomerProjectQuickActionsV1 } from "./customer-project-actions-v1.js";
 import { encodeCustomerShareIdV1, decodeCustomerShareIdV1 } from "./customer-share-id-v1.js";
 import {
   customerPortalDocLabelV1,
@@ -202,6 +203,7 @@ export function buildCustomerProjectViewV1(shareId: string): CustomerProjectView
     customerExplanation: sanitizeSharePayloadTextV1(explanationText),
     monitoringUrl: buildCustomerMonitoringUrlV1(encodedShareId),
     contact: defaultContact(),
+    quickActions: buildCustomerProjectQuickActionsV1(encodedShareId, defaultContact()),
     projectPageUrl: buildCustomerProjectUrlV1(encodedShareId),
   };
 }

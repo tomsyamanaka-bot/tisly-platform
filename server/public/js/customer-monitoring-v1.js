@@ -18,6 +18,18 @@ document.getElementById("btn-back")?.addEventListener("click", () => {
   goCustomerBack({ shareId });
 });
 
+function wireContactButton(contactTelHref, contactLabel) {
+  const bottomBar = document.querySelector(".cv-bottom-bar");
+  if (!bottomBar || !contactTelHref) return;
+  bottomBar.innerHTML = `
+    <button type="button" class="cv-btn secondary" id="btn-back">戻る</button>
+    <a class="cv-btn" href="${escapeHtml(contactTelHref)}" data-tel-action="1">📞 ${escapeHtml(contactLabel)}</a>
+  `;
+  document.getElementById("btn-back")?.addEventListener("click", () => {
+    goCustomerBack({ shareId });
+  });
+}
+
 async function load() {
   const res = await fetch(`/api/customer-portal/v1/monitoring/${encodeURIComponent(shareId)}`, {
     cache: "no-store",
@@ -34,13 +46,9 @@ async function load() {
 
   const showFloors = view === "all" || view === "camera" || !view;
   const showAlerts = view === "all" || view === "alerts";
-  const showNotifications = view === "all" || view === "notifications";
-
-  const sensorLabel = data.sensorStatusLabel || CUSTOMER_MONITORING_LABELS.sensorStatus;
   const lastDetectionLabel = data.lastDetectionLabel || CUSTOMER_MONITORING_LABELS.lastDetection;
   const alertLabel = data.alertHistoryLabel || CUSTOMER_MONITORING_LABELS.alertHistory;
-  const notifyLabel = data.notificationHistoryLabel || CUSTOMER_MONITORING_LABELS.notificationHistory;
-  const emptyMessage = data.emptyMessage || "現在異常はありません";
+  const emptyMessage = data.emptyMessage || CUSTOMER_MONITORING_LABELS.allClear;
 
   const cameraFloors = showFloors
     ? data.floors.map((f) => ({
@@ -62,26 +70,16 @@ async function load() {
         ? `<section class="cv-card cv-all-ok"><p class="cv-all-ok-text">✅ ${escapeHtml(emptyMessage)}</p></section>`
         : ""
     }
-    ${
-      showFloors
-        ? `<section class="cv-card cv-sensor-section">
-            <h2>${escapeHtml(sensorLabel)}</h2>
-            <div class="cv-floors">${renderMonitoringFloors(cameraFloors, highlightKey)}</div>
-          </section>`
-        : ""
-    }
+    ${showFloors ? renderMonitoringFloors(cameraFloors, highlightKey) : ""}
     ${
       showAlerts
         ? `<section class="cv-card" id="alerts"><h2>${escapeHtml(alertLabel)}</h2>${renderMonitoringLogs(data.alertLogs)}</section>`
         : ""
     }
-    ${
-      showNotifications
-        ? `<section class="cv-card" id="notifications"><h2>${escapeHtml(notifyLabel)}</h2>${renderMonitoringLogs(data.notificationLogs)}</section>`
-        : ""
-    }
     <p class="cv-last-checked cv-footer-note">${escapeHtml(lastDetectionLabel)}：${escapeHtml(data.lastCheckedAt)}</p>
   `;
+
+  wireContactButton(data.contactTelHref, data.contactLabel);
 
   if (data.activeAlert) {
     requestAnimationFrame(() => {

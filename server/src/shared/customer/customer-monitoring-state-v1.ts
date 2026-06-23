@@ -3,9 +3,11 @@
  */
 
 import { buildMonitoringDashboardV1 } from "../../monitoring/tisly-monitoring-dashboard-v1.js";
+import { buildCustomerContactTelHrefV1 } from "./customer-project-actions-v1.js";
 import { resolveMonitoringSiteIdV1 } from "../../monitoring/tisly-monitoring-layout-v1.js";
 import type { MonitoringDeviceStatusV1 } from "../../monitoring/tisly-monitoring-layout-v1.js";
 import {
+  CUSTOMER_CONTACT_LABEL_V1,
   CUSTOMER_MONITORING_LABELS_V1,
   CUSTOMER_SENSOR_STATUS_V1,
   CUSTOMER_SYSTEM_STATUS_V1,
@@ -114,6 +116,8 @@ export function buildCustomerMonitoringDetailV1(
     alertHistoryLabel: CUSTOMER_MONITORING_LABELS_V1.alertHistory,
     notificationHistoryLabel: CUSTOMER_MONITORING_LABELS_V1.notificationHistory,
     pageTitle: CUSTOMER_MONITORING_LABELS_V1.pageTitle,
+    contactTelHref: buildCustomerContactTelHrefV1({ companyName: "株式会社TOMS", phone: "048-000-0000" }),
+    contactLabel: CUSTOMER_CONTACT_LABEL_V1,
   };
 }
 
@@ -152,6 +156,8 @@ export interface CustomerMonitoringApiV1 {
   alertHistoryLabel: string;
   notificationHistoryLabel: string;
   pageTitle: string;
+  contactTelHref?: string;
+  contactLabel?: string;
 }
 
 export function sanitizeCustomerMonitoringApiV1(view: CustomerMonitoringViewV1): CustomerMonitoringApiV1 {
@@ -191,5 +197,7 @@ export function sanitizeCustomerMonitoringApiV1(view: CustomerMonitoringViewV1):
     alertHistoryLabel: view.alertHistoryLabel,
     notificationHistoryLabel: view.notificationHistoryLabel,
     pageTitle: view.pageTitle,
+    contactTelHref: view.contactTelHref,
+    contactLabel: view.contactLabel,
   };
 }

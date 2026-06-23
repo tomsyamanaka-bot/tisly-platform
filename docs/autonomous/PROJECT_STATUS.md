@@ -1,6 +1,6 @@
 # プロジェクト標準仕様（完成状態）
 
-**最終更新:** 2026-06-23  
+**最終更新:** 2026-06-24  
 **対象:** TiSLY Practical PWA（現調 v1 / 見積 v1 / 日程 v1 / 持ち物 v1 / 発注 v1 / 到着・作業完了 v1 / 書類閲覧 UX v1 / Knowledge Acquisition v1）
 
 Cursor が長時間自走する際の **「壊してはいけない完成仕様」** の単一ソースです。新しい実装を始める前に必ず読んでください。
@@ -815,6 +815,23 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | Phase20-7 route-health | Phase20 診断 · TOMS001 200 · 資料戻る先 · 禁止語 |
 | Phase20-8 テスト | `customer-portal-v1.test.ts` Phase20 ブロック |
 | SW | `tisly-pwa-v2400-phase20` |
+| 確認 | `/customer` · `/customer/TOMS001` · `/route-health` · https://tisly.jp/api/health |
+
+### 実運用 Phase21 — お客様UI最終版（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | **iPhone Safari 実機確認を踏まえた最終版** — 白基調カードUI · React Native 流用構造維持 |
+| Phase21-1 ホーム | `/customer` — 物件名 · 現在の状態 · 最終確認 · 6大カードのみ |
+| Phase21-2 物件一覧 | `/customer/TOMS001` — タップ誘導 · 大ボタン · トムズへ連絡 |
+| Phase21-3 資料 | `/customer/project/:shareId` — 工事写真 · 書類 · 見守り · 連絡 |
+| Phase21-4 PDF | `/customer/document/:shareId` — 戻る/PDF/保存のみ · project固定戻り |
+| Phase21-5 見守り | `/customer/monitoring/:shareId` — フロア別 · 警報履歴 · 連絡ボタン |
+| Phase21-6 デザイン | 白〜薄グレー · 太字 · safe-area · 黒ベース廃止 |
+| Phase21-7 shared | `customer-project-actions-v1` · ラベル集約 · DOM/ロジック分離 |
+| Phase21-8 route-health | Phase21 診断 · SW v2401-phase21 |
+| Phase21-9 テスト | `customer-portal-v1.test.ts` · `operational-phase21-v1.test.ts` |
+| SW | `tisly-pwa-v2401-phase21` |
 | 確認 | `/customer` · `/customer/TOMS001` · `/route-health` · https://tisly.jp/api/health |
 
 ---

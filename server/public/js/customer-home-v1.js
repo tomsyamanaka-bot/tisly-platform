@@ -1,6 +1,5 @@
 import {
   bindCustomerNavLinks,
-  escapeHtml,
   renderPropertyList,
 } from "./customer-shared-v1.js";
 import { goCustomerBack, initCustomerPage, navigateCustomer } from "./customer-nav-v1.js";
@@ -25,17 +24,16 @@ async function load() {
   document.getElementById("page-subtitle").textContent = "ご契約中の物件";
 
   main.innerHTML = `
-    <section class="cv-card cv-list-wrap">
+    <section class="cv-list-wrap">
       ${renderPropertyList(data.projects)}
     </section>
   `;
 
   bindCustomerNavLinks();
-  document.querySelectorAll(".cv-action-btn").forEach((el) => {
+  document.querySelectorAll(".cv-property-card-main, .cv-action-btn").forEach((el) => {
     el.addEventListener("click", (e) => {
       const href = el.getAttribute("href");
-      if (!href) return;
-      if (href.startsWith("tel:")) return;
+      if (!href || href.startsWith("tel:")) return;
       e.preventDefault();
       navigateCustomer(href);
     });

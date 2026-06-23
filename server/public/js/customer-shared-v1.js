@@ -1,5 +1,6 @@
 /**
  * お客様 UI 描画ロジック — DOM 操作を集約（React Native 移植時は差し替え）
+ * 文言は server/src/shared/customer/customer-labels-v1.ts と同期
  */
 
 export const CUSTOMER_HOME_LABELS = {
@@ -9,18 +10,20 @@ export const CUSTOMER_HOME_LABELS = {
 
 export const CUSTOMER_MONITORING_LABELS = {
   pageTitle: "見守り",
-  sensorStatus: "センサー状態",
   lastDetection: "最終検知",
   alertHistory: "警報履歴",
-  notificationHistory: "通知履歴",
+  allClear: "現在異常はありません",
 };
 
 export const CUSTOMER_PROJECT_LABELS = {
-  documents: "書類一覧",
-  photos: "写真",
-  inspectionRecords: "点検記録",
+  documents: "書類を見る",
+  photos: "工事写真",
+  inspectionRecords: "点検・保守情報",
   workName: "工事名",
 };
+
+export const CUSTOMER_CONTACT_LABEL = "トムズへ連絡";
+export const CUSTOMER_PROPERTY_TAP_HINT = "▶ タップして詳細を見る";
 
 export function escapeHtml(s) {
   return String(s ?? "")
@@ -75,13 +78,17 @@ export function renderPropertyList(projects) {
             }>${escapeHtml(a.emoji)} ${escapeHtml(a.label)}</a>`
         )
         .join("");
+      const mainHref = p.projectPageUrl || p.documentsPageUrl || "#";
       return `
         <article class="cv-property-card">
-          <div class="cv-property-head">
-            <h3 class="cv-property-name">${escapeHtml(p.propertyName)}</h3>
-            <span class="cv-property-status">${escapeHtml(p.statusLabel)}</span>
-          </div>
-          <p class="cv-property-work">${escapeHtml(p.workDescription)}</p>
+          <a class="cv-property-card-main" href="${escapeHtml(mainHref)}" data-customer-nav>
+            <div class="cv-property-head">
+              <h3 class="cv-property-name">${escapeHtml(p.propertyName)}</h3>
+              <span class="cv-property-status">${escapeHtml(p.statusLabel)}</span>
+            </div>
+            <p class="cv-property-work">${escapeHtml(p.workDescription)}</p>
+            <p class="cv-tap-hint">${escapeHtml(CUSTOMER_PROPERTY_TAP_HINT)}</p>
+          </a>
           <div class="cv-action-row">${actions}</div>
         </article>`;
     })
@@ -110,6 +117,24 @@ export function renderProjectPhotos(photos) {
           .map(
             (p) =>
               `<figure><img src="${escapeHtml(p.previewUrl)}" alt="${escapeHtml(p.title)}" loading="lazy" /><figcaption>${escapeHtml(p.title)}</figcaption></figure>`
+          )
+          .join("")}
+      </div>
+    </section>
+  `;
+}
+
+export function renderProjectQuickActions(actions) {
+  if (!actions?.length) return "";
+  return `
+    <section class="cv-card cv-quick-actions" id="contact">
+      <div class="cv-action-row cv-action-row-prominent">
+        ${actions
+          .map(
+            (a) =>
+              `<a class="cv-action-btn cv-action-btn-primary" href="${escapeHtml(a.href)}" data-customer-nav ${
+                a.id === "contact" && a.href.startsWith("tel:") ? 'data-tel-action="1"' : ""
+              }>${escapeHtml(a.emoji)} ${escapeHtml(a.label)}</a>`
           )
           .join("")}
       </div>
@@ -191,6 +216,15 @@ export function renderMonitoringLogs(logs) {
         )
         .join("")}
     </ul>
+  `;
+}
+
+export function renderMonitoringContactBar(contactTelHref, contactLabel) {
+  if (!contactTelHref) return "";
+  return `
+    <a class="cv-btn cv-contact-bar" href="${escapeHtml(contactTelHref)}" data-tel-action="1">
+      📞 ${escapeHtml(contactLabel || CUSTOMER_CONTACT_LABEL)}
+    </a>
   `;
 }
 

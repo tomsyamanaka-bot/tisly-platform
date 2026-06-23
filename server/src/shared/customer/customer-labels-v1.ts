@@ -18,13 +18,16 @@ export const CUSTOMER_SENSOR_STATUS_V1 = {
   offline: "確認中",
 } as const;
 
+/** 連絡ボタン共通ラベル */
+export const CUSTOMER_CONTACT_LABEL_V1 = "トムズへ連絡";
+
 export const CUSTOMER_HOME_CARDS_V1 = [
   { id: "camera", emoji: "📷", label: "カメラを見る", view: "camera" },
   { id: "alerts", emoji: "🚨", label: "警報履歴", view: "alerts" },
   { id: "notifications", emoji: "🔔", label: "通知履歴", view: "notifications" },
   { id: "documents", emoji: "📄", label: "書類を見る", section: "documents" },
   { id: "maintenance", emoji: "🔧", label: "点検・保守情報", section: "maintenance" },
-  { id: "contact", emoji: "📞", label: "トムズへ連絡", section: "contact" },
+  { id: "contact", emoji: "📞", label: CUSTOMER_CONTACT_LABEL_V1, section: "contact" },
 ] as const;
 
 /** /customer DOM・API に出してはいけない語（検査用） */
@@ -43,6 +46,7 @@ export const CUSTOMER_FORBIDDEN_WORDS_V1 = [
   "顧客コード",
   "customerCode",
   "shareId",
+  "projectId",
   "API",
   "debug",
   "route-health",
@@ -57,6 +61,9 @@ export const CUSTOMER_FORBIDDEN_WORDS_V1 = [
 ] as const;
 
 export const CUSTOMER_PAGE_TITLE_V1 = "TiSLY お客様ページ";
+
+/** 物件一覧カードのタップ誘導 */
+export const CUSTOMER_PROPERTY_TAP_HINT_V1 = "▶ タップして詳細を見る";
 
 /** ホーム画面セクション見出し */
 export const CUSTOMER_HOME_LABELS_V1 = {
@@ -77,9 +84,9 @@ export const CUSTOMER_MONITORING_LABELS_V1 = {
 /** 資料ページセクション見出し */
 export const CUSTOMER_PROJECT_LABELS_V1 = {
   pageTitle: "資料",
-  documents: "書類一覧",
-  photos: "写真",
-  inspectionRecords: "点検記録",
+  documents: "書類を見る",
+  photos: "工事写真",
+  inspectionRecords: "点検・保守情報",
   workName: "工事名",
 } as const;
 

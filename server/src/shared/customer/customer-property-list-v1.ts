@@ -7,11 +7,14 @@ import {
   buildCustomerProjectUrlV1,
 } from "../routes/tisly-routes-v1.js";
 import type { CustomerContactV1 } from "./customer-view-model-v1.js";
+import { CUSTOMER_CONTACT_LABEL_V1, CUSTOMER_PROPERTY_TAP_HINT_V1 } from "./customer-labels-v1.js";
+
+export { CUSTOMER_PROPERTY_TAP_HINT_V1 };
 
 export const CUSTOMER_PROPERTY_ACTIONS_V1 = [
   { id: "documents", emoji: "📄", label: "書類を見る" },
   { id: "monitoring", emoji: "👁", label: "見守りを見る" },
-  { id: "contact", emoji: "📞", label: "連絡する" },
+  { id: "contact", emoji: "📞", label: CUSTOMER_CONTACT_LABEL_V1 },
 ] as const;
 
 export type CustomerPropertyActionIdV1 = (typeof CUSTOMER_PROPERTY_ACTIONS_V1)[number]["id"];

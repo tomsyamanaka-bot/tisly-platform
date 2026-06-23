@@ -1,10 +1,10 @@
 import {
   bindCustomerNavLinks,
-  escapeHtml,
   CUSTOMER_PROJECT_LABELS,
   renderMaintenance,
   renderProjectDocuments,
   renderProjectPhotos,
+  renderProjectQuickActions,
 } from "./customer-shared-v1.js";
 import { goCustomerBack, initCustomerPage, navigateCustomer } from "./customer-nav-v1.js";
 
@@ -13,6 +13,19 @@ const shareId = decodeURIComponent(location.pathname.split("/").pop() || "");
 
 initCustomerPage();
 document.getElementById("btn-back")?.addEventListener("click", () => goCustomerBack());
+
+function wireActionButtons() {
+  bindCustomerNavLinks();
+  document.querySelectorAll(".cv-doc-btn, .cv-action-btn").forEach((el) => {
+    el.addEventListener("click", (e) => {
+      const href = el.getAttribute("href");
+      if (!href || href.startsWith("tel:")) return;
+      if (href.includes("#")) return;
+      e.preventDefault();
+      navigateCustomer(href);
+    });
+  });
+}
 
 async function load() {
   const res = await fetch(`/api/customer-portal/v1/project/${encodeURIComponent(shareId)}`, {
@@ -30,21 +43,16 @@ async function load() {
     : "";
 
   main.innerHTML = `
+    ${renderProjectPhotos(data.sitePhotos)}
     <section class="cv-card" id="documents">
       <h2>${escapeHtml(CUSTOMER_PROJECT_LABELS.documents)}</h2>
       <div class="cv-doc-list">${renderProjectDocuments(data.documents)}</div>
     </section>
-    ${renderProjectPhotos(data.sitePhotos)}
     ${renderMaintenance(data.maintenanceItems)}
+    ${renderProjectQuickActions(data.quickActions)}
   `;
 
-  bindCustomerNavLinks();
-  document.querySelectorAll(".cv-doc-btn").forEach((el) => {
-    el.addEventListener("click", (e) => {
-      e.preventDefault();
-      navigateCustomer(el.getAttribute("href"));
-    });
-  });
+  wireActionButtons();
 
   const hash = location.hash.replace("#", "");
   if (hash) {
@@ -52,6 +60,14 @@ async function load() {
       document.getElementById(hash)?.scrollIntoView({ behavior: "smooth" });
     });
   }
+}
+
+function escapeHtml(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 load().catch(() => {
