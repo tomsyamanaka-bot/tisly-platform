@@ -60,7 +60,9 @@ async function injectSession(page, token) {
 function pageLooksBroken(text) {
   if (!text || text.length < 80) return "画面がほぼ空です";
   if (/\b404 Not Found\b|Cannot GET \/[^\s]+/i.test(text)) return "404 表示";
-  if (/Load failed/i.test(text)) return "Load failed";
+  if (/Load failed/i.test(text) && !/Load failed にならない|Load failed \/ 読み込み停止/i.test(text)) {
+    return "Load failed";
+  }
   if (/^読み込み中…?$/m.test(text) && text.replace(/\s/g, "").length < 200) return "読み込み中で停止";
   return null;
 }

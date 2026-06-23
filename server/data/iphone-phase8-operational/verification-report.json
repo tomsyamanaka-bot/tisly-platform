@@ -1,0 +1,379 @@
+{
+  "phase": "iPhone Phase8 operational",
+  "capturedAt": "2026-06-23T09:29:39.675Z",
+  "baseUrl": "https://tisly.jp",
+  "health": {
+    "commitShort": "3ead462",
+    "status": "ok"
+  },
+  "summary": {
+    "total": 50,
+    "passed": 50,
+    "failed": 0
+  },
+  "failedChecks": [],
+  "results": [
+    {
+      "screen": "route-health",
+      "check": "更新してくださいボタン表示",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T09:28:22.483Z"
+    },
+    {
+      "screen": "route-health",
+      "check": "8タブ表示",
+      "ok": true,
+      "detail": "count=8",
+      "at": "2026-06-23T09:28:22.484Z"
+    },
+    {
+      "screen": "route-health",
+      "check": "JS version表示",
+      "ok": true,
+      "detail": "{\"hasJsVersion\":true,\"hasSwVersion\":true,\"sumOk\":\"8\"}",
+      "at": "2026-06-23T09:28:22.485Z"
+    },
+    {
+      "screen": "route-health",
+      "check": "SW version表示",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T09:28:22.485Z"
+    },
+    {
+      "screen": "route-health",
+      "check": "再チェック後も表示OK",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T09:28:30.513Z"
+    },
+    {
+      "screen": "route-health",
+      "check": "キャッシュ削除",
+      "ok": true,
+      "detail": "caches.delete 実行",
+      "at": "2026-06-23T09:28:30.531Z"
+    },
+    {
+      "screen": "日程",
+      "check": "Load failedなし",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T09:28:35.070Z"
+    },
+    {
+      "screen": "日程",
+      "check": "週間表示",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T09:28:35.070Z"
+    },
+    {
+      "screen": "日程",
+      "check": "3週間切替",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T09:28:37.076Z"
+    },
+    {
+      "screen": "日程",
+      "check": "月間切替",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T09:28:39.088Z"
+    },
+    {
+      "screen": "日程",
+      "check": "Google同期ボタン表示",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T09:28:39.916Z"
+    },
+    {
+      "screen": "日程",
+      "check": "同期ボタン後も表示OK",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T09:28:43.925Z"
+    },
+    {
+      "screen": "日程",
+      "check": "予定0件でも画面表示",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T09:28:43.925Z"
+    },
+    {
+      "screen": "現調",
+      "check": "詳細画面表示",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T09:28:50.687Z"
+    },
+    {
+      "screen": "現調",
+      "check": "設備追加ボタン",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T09:28:50.689Z"
+    },
+    {
+      "screen": "現調",
+      "check": "設備追加クリック反応",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T09:28:51.508Z"
+    },
+    {
+      "screen": "現調",
+      "check": "図面エディタを開くボタン",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T09:28:51.510Z"
+    },
+    {
+      "screen": "現調",
+      "check": "見積へ送るボタン",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T09:28:51.511Z"
+    },
+    {
+      "screen": "現調",
+      "check": "保存ボタン",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T09:28:51.512Z"
+    },
+    {
+      "screen": "現調",
+      "check": "保存クリック反応",
+      "ok": true,
+      "detail": "設備を追加しました",
+      "at": "2026-06-23T09:28:52.721Z"
+    },
+    {
+      "screen": "図面",
+      "check": "方眼紙/キャンバス領域",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T09:28:56.251Z"
+    },
+    {
+      "screen": "図面",
+      "check": "描画ツール表示",
+      "ok": true,
+      "detail": "tools=7",
+      "at": "2026-06-23T09:28:56.261Z"
+    },
+    {
+      "screen": "図面",
+      "check": "線/記号/メモツール切替",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T09:28:57.102Z"
+    },
+    {
+      "screen": "図面",
+      "check": "保存ボタン",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T09:28:57.103Z"
+    },
+    {
+      "screen": "図面",
+      "check": "保存クリック反応",
+      "ok": true,
+      "detail": "エラー: projectId または sketchId が必要です",
+      "at": "2026-06-23T09:28:58.641Z"
+    },
+    {
+      "screen": "図面",
+      "check": "戻るボタン",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T09:28:58.643Z"
+    },
+    {
+      "screen": "図面",
+      "check": "現調へ戻る",
+      "ok": true,
+      "detail": "https://tisly.jp/survey-v1",
+      "at": "2026-06-23T09:28:59.668Z"
+    },
+    {
+      "screen": "見積",
+      "check": "読み込み中停止なし",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T09:29:04.669Z"
+    },
+    {
+      "screen": "見積",
+      "check": "新規見積ボタン",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T09:29:04.669Z"
+    },
+    {
+      "screen": "見積",
+      "check": "PDFボタン表示",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T09:29:04.669Z"
+    },
+    {
+      "screen": "見積",
+      "check": "共有ボタン表示",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T09:29:04.669Z"
+    },
+    {
+      "screen": "見積",
+      "check": "新規見積フォーム表示",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T09:29:05.885Z"
+    },
+    {
+      "screen": "見積",
+      "check": "明細追加（案件なしスキップ）",
+      "ok": true,
+      "detail": "見積案件0件",
+      "at": "2026-06-23T09:29:06.508Z"
+    },
+    {
+      "screen": "請求",
+      "check": "請求タブactive",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T09:29:11.681Z"
+    },
+    {
+      "screen": "請求",
+      "check": "新規請求書ボタン",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T09:29:11.681Z"
+    },
+    {
+      "screen": "請求",
+      "check": "PDFボタン表示",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T09:29:11.681Z"
+    },
+    {
+      "screen": "請求",
+      "check": "TOMS/トムズ表記",
+      "ok": true,
+      "detail": "株式会社TOMS",
+      "at": "2026-06-23T09:29:11.681Z"
+    },
+    {
+      "screen": "請求",
+      "check": "新規請求書クリック反応",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T09:29:12.716Z"
+    },
+    {
+      "screen": "請求",
+      "check": "保存クリック",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T09:29:13.939Z"
+    },
+    {
+      "screen": "案件",
+      "check": "案件一覧表示",
+      "ok": true,
+      "detail": "cards=15",
+      "at": "2026-06-23T09:29:20.750Z"
+    },
+    {
+      "screen": "案件",
+      "check": "案件詳細へ遷移",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T09:29:23.267Z"
+    },
+    {
+      "screen": "案件",
+      "check": "戻る",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T09:29:24.776Z"
+    },
+    {
+      "screen": "現場",
+      "check": "URLがfield-checklist-v1",
+      "ok": true,
+      "detail": "https://tisly.jp/field-checklist-v1",
+      "at": "2026-06-23T09:29:28.798Z"
+    },
+    {
+      "screen": "現場",
+      "check": "持ち物チェック表示",
+      "ok": true,
+      "detail": "進む →\n現場チェック\n🏠\n\n✅ 現場チェックリスト — 案件を選択\n\n本社ビル\n\n未入金デモ案件\n\nトムズ設備デモ\n\n工場監視デモ セキュリティ導入\n\n工場監視デモ\n\n民泊セキュリティデモ セキュリティ導入\n\n民泊セキュリティデモ\n\nT",
+      "at": "2026-06-23T09:29:28.799Z"
+    },
+    {
+      "screen": "現場",
+      "check": "チェック項目（未到着）",
+      "ok": true,
+      "detail": "チェック項目未生成",
+      "at": "2026-06-23T09:29:31.324Z"
+    },
+    {
+      "screen": "材料",
+      "check": "URLがfield-check-v1",
+      "ok": true,
+      "detail": "/field-check-v1",
+      "at": "2026-06-23T09:29:35.348Z"
+    },
+    {
+      "screen": "材料",
+      "check": "材料チェック表示",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T09:29:35.348Z"
+    },
+    {
+      "screen": "材料",
+      "check": "現場と誤遷移しない",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T09:29:35.348Z"
+    },
+    {
+      "screen": "発注",
+      "check": "発注画面表示",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T09:29:39.377Z"
+    },
+    {
+      "screen": "発注",
+      "check": "再生成ボタン",
+      "ok": true,
+      "detail": "",
+      "at": "2026-06-23T09:29:39.381Z"
+    }
+  ],
+  "screenshots": [
+    "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\iphone-phase8-operational\\route-health.png",
+    "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\iphone-phase8-operational\\schedule.png",
+    "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\iphone-phase8-operational\\survey.png",
+    "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\iphone-phase8-operational\\drawing.png",
+    "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\iphone-phase8-operational\\estimate.png",
+    "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\iphone-phase8-operational\\invoice.png",
+    "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\iphone-phase8-operational\\projects.png",
+    "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\iphone-phase8-operational\\field-checklist.png",
+    "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\iphone-phase8-operational\\field-check.png",
+    "C:\\Users\\yaman\\TiSLY_HOME_Security_DEMO\\server\\data\\iphone-phase8-operational\\purchase.png"
+  ]
+}
