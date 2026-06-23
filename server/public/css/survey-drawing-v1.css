@@ -8,6 +8,28 @@
   touch-action: none;
 }
 
+.drawing-temp-banner {
+  margin: 0;
+  padding: 0.4rem 0.65rem;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 0.82rem;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.drawing-temp-banner.hidden {
+  display: none;
+}
+
+.drawing-stage.drawing-grid-paper {
+  background-color: #f8fafc;
+  background-image:
+    linear-gradient(#e2e8f0 1px, transparent 1px),
+    linear-gradient(90deg, #e2e8f0 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
 .drawing-toolbar {
   display: flex;
   align-items: center;

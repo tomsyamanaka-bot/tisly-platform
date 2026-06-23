@@ -1,7 +1,7 @@
 /* TiSLY Multi PWA — Phase 2161 customer portal shell + TiSLY blue logo icon */
-const SW_VERSION = "tisly-pwa-v2398-production";
-const OFFLINE_CACHE = "tisly-pwa-shell-v2398-production";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2398-production";
+const SW_VERSION = "tisly-pwa-v2399-production";
+const OFFLINE_CACHE = "tisly-pwa-shell-v2399-production";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2399-production";
 const ICON_V = "?v=2003";
 const SHELL_URLS = [
   "/customer-portal.html",
@@ -88,7 +88,9 @@ const SHELL_URLS = [
   "/js/field-check-v1.js",
   "/js/field-checklist-v1.js",
   "/js/purchase-v1.js",
-  "/js/field-checklist-ui.js?v=fc-ui-v2",
+  "/js/field-checklist-ui.js?v=fc-ui-v3",
+  "/js/field-checklist-defaults-v1.js",
+  "/js/survey-drawing-local-v1.js",
   "/css/field-ops-mobile.css",
   "/manifest-survey-v1.webmanifest",
   "/manifest-estimate-v1.webmanifest",

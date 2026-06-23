@@ -1,6 +1,16 @@
 /** 現場チェックリスト UI（案件詳細 / field-checklist-v1 共通） */
 
+import {
+  buildDefaultChecklistItems,
+  checklistStatusFromItems,
+  loadFieldChecklistLocal,
+  saveFieldChecklistLocal,
+  TEMP_FIELD_PROJECT_ID,
+} from "./field-checklist-defaults-v1.js?v=fc-defaults-v1";
+
 const WORK_API = "/api/work-session/v1";
+
+export { buildDefaultChecklistItems, checklistStatusFromItems, TEMP_FIELD_PROJECT_ID };
 
 function escapeHtml(s) {
   return String(s)
@@ -185,8 +195,52 @@ export function bindFieldChecklistPanel(root, {
   showHeader = true,
   showSyncButton = false,
   onRefresh,
+  localOnly = false,
+  items: localItems = null,
 }) {
   if (!root) return;
+
+  if (localOnly && localItems) {
+    root.querySelectorAll("[data-check-id]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.dataset.checkId;
+        const nextChecked = btn.getAttribute("aria-pressed") !== "true";
+        const updated = localItems.map((it) => (it.id === id ? { ...it, checked: nextChecked } : it));
+        saveFieldChecklistLocal(projectId, updated);
+        localItems.splice(0, localItems.length, ...updated);
+        root.innerHTML = renderFieldChecklistPanel({
+          items: updated,
+          status: checklistStatusFromItems(updated),
+          showHeader,
+          showSyncButton: false,
+        });
+        bindFieldChecklistPanel(root, {
+          toast,
+          projectId,
+          showHeader,
+          localOnly: true,
+          items: localItems,
+        });
+        toast?.(nextChecked ? "確認済みにしました" : "未確認に戻しました");
+      });
+    });
+
+    root.querySelectorAll("textarea[data-memo-for]").forEach((input) => {
+      let timer = null;
+      const saveMemo = () => {
+        const itemId = input.dataset.memoFor;
+        const updated = localItems.map((it) => (it.id === itemId ? { ...it, memo: input.value } : it));
+        saveFieldChecklistLocal(projectId, updated);
+        localItems.splice(0, localItems.length, ...updated);
+      };
+      input.addEventListener("input", () => {
+        clearTimeout(timer);
+        timer = setTimeout(saveMemo, 400);
+      });
+      input.addEventListener("blur", saveMemo);
+    });
+    return;
+  }
 
   root.querySelectorAll("[data-check-id]").forEach((btn) => {
     btn.addEventListener("click", async () => {
@@ -276,15 +330,44 @@ export function bindFieldChecklistPanel(root, {
 
 export async function loadFieldChecklist(apiFetch, { projectSource, projectId }) {
   const q = new URLSearchParams({ source: projectSource, projectId });
-  const data = await apiFetch(`${WORK_API}/session?${q.toString()}`);
-  if (!data.checklist?.length && data.session?.arrivalTime) {
-    await apiFetch(`${WORK_API}/completion-checklist/generate`, {
-      method: "POST",
-      body: JSON.stringify({ projectSource, projectId }),
-    });
-    return apiFetch(`${WORK_API}/session?${q.toString()}`);
+  try {
+    const data = await apiFetch(`${WORK_API}/session?${q.toString()}`);
+    if (!data.checklist?.length) {
+      if (data.session?.arrivalTime) {
+        try {
+          await apiFetch(`${WORK_API}/completion-checklist/generate`, {
+            method: "POST",
+            body: JSON.stringify({ projectSource, projectId }),
+          });
+          const regen = await apiFetch(`${WORK_API}/session?${q.toString()}`);
+          if (regen.checklist?.length) return regen;
+        } catch {
+          /* fall through to defaults */
+        }
+      }
+      const local = loadFieldChecklistLocal(projectId);
+      const defaults = local || buildDefaultChecklistItems();
+      if (defaults.length) {
+        saveFieldChecklistLocal(projectId, defaults);
+        return {
+          ...data,
+          checklist: defaults,
+          checklistStatus: checklistStatusFromItems(defaults),
+          defaultItemsApplied: true,
+        };
+      }
+    }
+    return data;
+  } catch {
+    const local = loadFieldChecklistLocal(projectId);
+    const defaults = local || buildDefaultChecklistItems();
+    return {
+      session: null,
+      checklist: defaults,
+      checklistStatus: checklistStatusFromItems(defaults),
+      defaultItemsApplied: true,
+    };
   }
-  return data;
 }
 
 /** 完了報告書作成前の未確認チェック（確認ダイアログ付き） */

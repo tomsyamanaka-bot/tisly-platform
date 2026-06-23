@@ -39,12 +39,14 @@ const BOTTOM_NAV_LINKS = [
 const JS_ASSETS = [
   { path: "/js/estimate-v1.js?v=estimate-ui-v8", label: "estimate-v1 JS" },
   { path: "/js/survey-v1.js?v=survey-ui-v4", label: "survey-v1 JS" },
-  { path: "/js/survey-drawing-v1.js?v=survey-drawing-ui-v3", label: "survey-drawing-v1 JS" },
+  { path: "/js/survey-drawing-v1.js?v=survey-drawing-ui-v4", label: "survey-drawing-v1 JS" },
   { path: "/js/tisly-practical-nav.js", label: "bottom nav JS" },
 ];
 
 const ESTIMATE_UI_VERSION = "estimate-ui-v8";
-const SW_CACHE_TOKEN = "v2398";
+const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v4";
+const PHASE9_JS_VERSION = "phase9-iphone-v1";
+const SW_CACHE_TOKEN = "v2399";
 
 const DATA_API_PROBES = [
   {
@@ -83,6 +85,14 @@ const DATA_API_PROBES = [
     countLabel: "field check projects",
     countFn: (d) => (Array.isArray(d.projects) ? d.projects.length : null),
   },
+];
+
+const IPHONE_VERIFY_LINKS = [
+  { href: "/survey-drawing-v1", label: "図面（直接起動）" },
+  { href: "/field-checklist-v1?temp=1", label: "現場チェック（TEMP）" },
+  { href: "/field-check-v1", label: "材料チェック" },
+  { href: "/field-check-v1?tab=orders", label: "発注タブ" },
+  { href: "/purchase-v1", label: "発注管理" },
 ];
 
 const VERIFY_STEPS = [
@@ -174,7 +184,7 @@ async function checkEstimateUiVersion() {
 
 async function checkFieldChecklistJs() {
   try {
-    const res = await fetch("/js/field-checklist-ui.js?v=fc-ui-v2", { cache: "no-store" });
+    const res = await fetch("/js/field-checklist-ui.js?v=fc-ui-v3", { cache: "no-store" });
     const js = await res.text();
     if (!res.ok) return { status: "fail", detail: `HTTP ${res.status}` };
     const count = (js.match(/function escapeHtml/g) || []).length;
@@ -219,7 +229,7 @@ async function checkEstimateOperational() {
       ["PDF導線", html.includes("btn-pdf-quick-generate") && html.includes("btn-pdf-estimate")],
       ["localStorage fallback", js.includes("LOCAL_DRAFTS_KEY") && js.includes("createLocalDraftFromStandalone")],
       ["振込先表記", js.includes("株式会社TOMS") && js.includes("TOMS_DEFAULT_BANK_INFO") && js.includes("トムズ")],
-      ["field-checklist import", js.includes("field-checklist-ui.js?v=fc-ui-v2")],
+      ["field-checklist import", js.includes("field-checklist-ui.js?v=fc-ui-v3")],
     ];
     const failed = checks.filter(([, ok]) => !ok).map(([label]) => label);
     if (!failed.length) return { status: "ok", detail: `${checks.length}項目 OK` };
@@ -227,6 +237,87 @@ async function checkEstimateOperational() {
   } catch (e) {
     return { status: "fail", detail: e.message || String(e) };
   }
+}
+
+async function checkDrawingDirectLaunch() {
+  try {
+    const [pageRes, jsRes] = await Promise.all([
+      fetch("/survey-drawing-v1", { cache: "no-store" }),
+      fetch(`/js/survey-drawing-v1.js?v=${SURVEY_DRAWING_UI_VERSION}`, { cache: "no-store" }),
+    ]);
+    const html = await pageRes.text();
+    const js = await jsRes.text();
+    if (!pageRes.ok) return { status: "fail", detail: `HTTP ${pageRes.status}` };
+    const checks = [
+      js.includes("resolveDrawingIds"),
+      js.includes("isLocalOnlyMode"),
+      js.includes("SURVEY_DRAWING_TEMP_BANNER"),
+      js.includes("saveDrawingToLocalStorage"),
+      html.includes("survey-drawing-ui-v4"),
+      !js.includes("projectId または sketchId が必要です"),
+    ];
+    const ok = checks.filter(Boolean).length;
+    if (ok === checks.length) return { status: "ok", detail: "TEMP直接起動対応 OK" };
+    return { status: "fail", detail: `${ok}/${checks.length} 項目` };
+  } catch (e) {
+    return { status: "fail", detail: e.message || String(e) };
+  }
+}
+
+async function checkDrawingTempSave() {
+  try {
+    const res = await fetch(`/js/survey-drawing-local-v1.js`, { cache: "no-store" });
+    const js = await res.text();
+    if (!res.ok) return { status: "fail", detail: `HTTP ${res.status}` };
+    const ok =
+      js.includes("tisly:survey-drawing:") &&
+      js.includes("buildLocalDrawingPayload") &&
+      js.includes("TEMP-PROJECT-");
+    return ok
+      ? { status: "ok", detail: "localStorage fallback モジュール OK" }
+      : { status: "fail", detail: "fallback 未検出" };
+  } catch (e) {
+    return { status: "fail", detail: e.message || String(e) };
+  }
+}
+
+async function checkFieldChecklistDefaults() {
+  try {
+    const res = await fetch("/js/field-checklist-defaults-v1.js", { cache: "no-store" });
+    const js = await res.text();
+    if (!res.ok) return { status: "fail", detail: `HTTP ${res.status}` };
+    const required = ["工具一式", "脚立", "駐車場所", "お客様確認", "DEFAULT_FIELD_CHECKLIST_ITEMS"];
+    const missing = required.filter((t) => !js.includes(t));
+    if (!missing.length) return { status: "ok", detail: `${required.length - 1} デフォルト項目 OK` };
+    return { status: "fail", detail: `未検出: ${missing.join(", ")}` };
+  } catch (e) {
+    return { status: "fail", detail: e.message || String(e) };
+  }
+}
+
+async function checkFieldChecklistSave() {
+  try {
+    const res = await fetch("/js/field-checklist-ui.js?v=fc-ui-v3", { cache: "no-store" });
+    const js = await res.text();
+    if (!res.ok) return { status: "fail", detail: `HTTP ${res.status}` };
+    const ok =
+      js.includes("saveFieldChecklistLocal") &&
+      js.includes("localOnly") &&
+      js.includes("buildDefaultChecklistItems");
+    return ok
+      ? { status: "ok", detail: "チェック保存/localOnly OK" }
+      : { status: "fail", detail: "保存ロジック未検出" };
+  } catch (e) {
+    return { status: "fail", detail: e.message || String(e) };
+  }
+}
+
+function renderIphoneVerifyLinks() {
+  const mount = document.getElementById("iphone-verify-links");
+  if (!mount) return;
+  mount.innerHTML = IPHONE_VERIFY_LINKS.map(
+    (item) => `<a class="nav-quick-btn" href="${item.href}">${item.label}</a>`
+  ).join("");
 }
 
 async function checkDrawingOperational() {
@@ -633,6 +724,7 @@ async function runChecks() {
   document.getElementById("checked-at").textContent = checkedAt;
   renderVerifySteps();
   renderBottomNavQuickLinks();
+  renderIphoneVerifyLinks();
 
   const rows = [];
   const diagRows = [];
@@ -756,6 +848,33 @@ async function runChecks() {
 
   const drawingPdf = await checkDrawingPdfButtons();
   rows.push({ path: "survey-drawing PDF", label: "図面PDFボタン", ...drawingPdf });
+
+  const drawDirect = await checkDrawingDirectLaunch();
+  rows.push({ path: "Phase9 drawing direct", label: "図面直接起動", ...drawDirect });
+
+  const drawTempSave = await checkDrawingTempSave();
+  rows.push({ path: "Phase9 drawing local", label: "図面TEMP保存", ...drawTempSave });
+
+  const fcDefaults = await checkFieldChecklistDefaults();
+  rows.push({ path: "Phase9 checklist defaults", label: "現場チェック項目生成", ...fcDefaults });
+
+  const fcSave = await checkFieldChecklistSave();
+  rows.push({ path: "Phase9 checklist save", label: "現場チェック保存", ...fcSave });
+
+  rows.push({
+    path: "Phase9 JS version",
+    label: PHASE9_JS_VERSION,
+    status: "ok",
+    detail: `${SURVEY_DRAWING_UI_VERSION} · fc-defaults-v1`,
+  });
+
+  for (const link of IPHONE_VERIFY_LINKS) {
+    rows.push({
+      path: link.href,
+      label: `実機: ${link.label}`,
+      ...(await checkPage(link.href)),
+    });
+  }
 
   rows.push({
     path: "最終成功",

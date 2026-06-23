@@ -63,7 +63,7 @@ describe("PWA real data recovery v1", () => {
     assert.match(js, /v2397/);
     assert.match(html, /verify-steps-list/);
     assert.match(html, /btn-iphone-refresh/);
-    assert.match(html, /route-health-v7/);
+    assert.match(html, /route-health-v8/);
   });
 
   it("field-checklist-ui.js has single escapeHtml declaration", () => {

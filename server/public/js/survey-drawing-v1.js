@@ -1,4 +1,4 @@
-/** 現調図面 v2 — 方眼紙写真 + 線・記号・メモ + AI清書用出力 */
+/** 現調図面 v2 — 方眼紙写真 + 線・記号・メモ + AI清書用出力 + Phase9 TEMP/localStorage */
 
 import {
   openSpecificationPreview,
@@ -6,8 +6,17 @@ import {
   saveSpecificationPdf,
   shareSpecificationPdf,
 } from "./survey-pdf-actions-v1.js";
+import {
+  buildLocalDrawingPayload,
+  isTempDrawingId,
+  loadDrawingFromLocalStorage,
+  resolveDrawingIds,
+  saveDrawingToLocalStorage,
+} from "./survey-drawing-local-v1.js";
 
-export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v3";
+export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v4";
+export const SURVEY_DRAWING_TEMP_BANNER =
+  "一時図面として作成中。現調から開くと案件に紐づきます。";
 
 const TOKEN_KEY = "tisly_token";
 const SCHEMA_VERSION = 2;
@@ -114,10 +123,18 @@ function pathLength(points) {
   return Math.round(len * 100) / 100;
 }
 
-let sketchId = params().get("sketchId") || "";
-let projectId = params().get("projectId") || params().get("project") || "";
-let siteId = params().get("siteId") || "";
-let customerId = params().get("customerId") || "";
+const initialIds = resolveDrawingIds({
+  projectId: params().get("projectId") || params().get("project") || "",
+  sketchId: params().get("sketchId") || "",
+  siteId: params().get("siteId") || "",
+  customerId: params().get("customerId") || "",
+});
+let sketchId = initialIds.sketchId;
+let projectId = initialIds.projectId;
+let siteId = initialIds.siteId;
+let customerId = initialIds.customerId;
+let isTempMode = initialIds.isTempMode;
+let isLocalOnlyMode = initialIds.isLocalOnly;
 function drawingUrlQuery() {
   const q = new URLSearchParams();
   if (sketchId) q.set("sketchId", sketchId);
@@ -340,8 +357,7 @@ function markDirty() {
   saveTimer = setTimeout(() => saveSketch().catch(() => {}), 2000);
 }
 
-async function saveSketch() {
-  if (!sketchId) return;
+function prepareLayersForSave() {
   layers.viewport = { scale: viewport.scale, offsetX: viewport.offsetX, offsetY: viewport.offsetY };
   layers.canvasWidth = stageSize.w;
   layers.canvasHeight = stageSize.h;
@@ -349,14 +365,63 @@ async function saveSketch() {
     ...p,
     lengthPx: pathLength(p.points),
   }));
-  const data = await api("PATCH", `/api/survey/v1/drawing-sketches/${encodeURIComponent(sketchId)}`, {
+}
+
+function photoRefsFromSketch() {
+  if (!sketch?.backgroundImageUrl) return [];
+  return [{ url: sketch.backgroundImageUrl, path: sketch.backgroundImagePath || null }];
+}
+
+function saveSketchLocal() {
+  prepareLayersForSave();
+  const payload = buildLocalDrawingPayload({
+    projectId,
+    sketchId,
+    siteId,
+    customerId,
     layers,
-    title: sketch?.title,
+    photoRefs: photoRefsFromSketch(),
   });
-  sketch = data.sketch;
-  layers = migrateLayers(sketch.layers, stageSize.w, stageSize.h);
+  saveDrawingToLocalStorage(projectId, sketchId, payload);
   dirty = false;
-  setStatus(`保存済み ${new Date().toLocaleTimeString("ja-JP")}`);
+  setStatus(`端末内に保存しました ${new Date().toLocaleTimeString("ja-JP")}`);
+  return payload;
+}
+
+async function saveSketch() {
+  if (!sketchId) return;
+  prepareLayersForSave();
+
+  if (isLocalOnlyMode || isTempDrawingId(sketchId)) {
+    saveSketchLocal();
+    return;
+  }
+
+  try {
+    const data = await api("PATCH", `/api/survey/v1/drawing-sketches/${encodeURIComponent(sketchId)}`, {
+      layers,
+      title: sketch?.title,
+    });
+    sketch = data.sketch;
+    layers = migrateLayers(sketch.layers, stageSize.w, stageSize.h);
+    dirty = false;
+    setStatus(`サーバーに保存しました ${new Date().toLocaleTimeString("ja-JP")}`);
+    saveDrawingToLocalStorage(
+      projectId,
+      sketchId,
+      buildLocalDrawingPayload({
+        projectId,
+        sketchId,
+        siteId,
+        customerId,
+        layers,
+        photoRefs: photoRefsFromSketch(),
+      })
+    );
+  } catch (e) {
+    saveSketchLocal();
+    setStatus(`端末内に保存しました（API: ${e.message || "失敗"}）`);
+  }
 }
 
 function setTool(next) {
@@ -496,29 +561,107 @@ function setupBgImage(url) {
   if (img.complete) img.onload?.();
 }
 
+function showTempBanner() {
+  let bar = document.getElementById("drawing-temp-banner");
+  if (!bar) {
+    bar = document.createElement("p");
+    bar.id = "drawing-temp-banner";
+    bar.className = "drawing-temp-banner";
+    bar.setAttribute("role", "status");
+    const toolbar = $("drawing-toolbar");
+    toolbar?.parentNode?.insertBefore(bar, toolbar.nextSibling);
+  }
+  bar.textContent = SURVEY_DRAWING_TEMP_BANNER;
+  bar.classList.toggle("hidden", !isTempMode);
+}
+
+function applyGridPaper() {
+  const stage = $("drawing-stage");
+  const ph = $("drawing-bg-placeholder");
+  stage?.classList.add("drawing-grid-paper");
+  ph?.classList.remove("hidden");
+  ph.textContent = "方眼紙モード — 描画・保存できます";
+  stageSize = { w: 800, h: 600 };
+  layers.canvasWidth = stageSize.w;
+  layers.canvasHeight = stageSize.h;
+  renderAll();
+}
+
+function loadSketchFromLocal() {
+  const saved = loadDrawingFromLocalStorage(projectId, sketchId);
+  if (!saved) return false;
+  layers = migrateLayers(saved.layers || saved, saved.layers?.canvasWidth, saved.layers?.canvasHeight);
+  if (saved.lines?.length && !layers.paths?.length) {
+    layers.paths = saved.lines;
+  }
+  if (saved.symbols?.length && !layers.symbols?.length) {
+    layers.symbols = saved.symbols;
+  }
+  if (saved.memos?.length && !layers.notes?.length) {
+    layers.notes = saved.memos;
+  }
+  return true;
+}
+
 async function loadSketch() {
-  if (!sketchId && projectId) {
+  if (isLocalOnlyMode) {
+    sketch = { id: sketchId, projectId, title: "一時図面", layers: emptyLayers() };
+    if (!loadSketchFromLocal()) {
+      layers = emptyLayers(800, 600);
+    }
+    viewport = { scale: 1, offsetX: 0, offsetY: 0, ...layers.viewport };
+    $("drawing-title").textContent = "一時図面";
+    showTempBanner();
+    history.replaceState(null, "", `?${drawingUrlQuery()}`);
+    applyGridPaper();
+    updateDrawingPdfBar();
+    return;
+  }
+
+  if (!sketchId && projectId && !isTempDrawingId(projectId)) {
     const created = await api("POST", `/api/survey/v1/projects/${encodeURIComponent(projectId)}/drawing-sketches`, {
       title: "現調図面",
     });
     sketch = created.sketch;
     sketchId = sketch.id;
+    isTempMode = false;
     history.replaceState(null, "", `?${drawingUrlQuery()}`);
-  } else if (sketchId) {
-    const data = await api("GET", `/api/survey/v1/drawing-sketches/${encodeURIComponent(sketchId)}`);
-    sketch = data.sketch;
-    projectId = sketch.projectId;
+  } else if (sketchId && !isTempDrawingId(sketchId)) {
+    try {
+      const data = await api("GET", `/api/survey/v1/drawing-sketches/${encodeURIComponent(sketchId)}`);
+      sketch = data.sketch;
+      projectId = sketch.projectId;
+    } catch (e) {
+      if (loadSketchFromLocal()) {
+        sketch = { id: sketchId, projectId, title: "現調図面（端末内）", layers };
+        isLocalOnlyMode = true;
+        isTempMode = true;
+        showTempBanner();
+        applyGridPaper();
+        updateDrawingPdfBar();
+        return;
+      }
+      throw e;
+    }
   } else {
-    throw new Error("projectId または sketchId が必要です");
+    sketch = { id: sketchId, projectId, title: "一時図面", layers: emptyLayers() };
+    loadSketchFromLocal();
+    showTempBanner();
+    history.replaceState(null, "", `?${drawingUrlQuery()}`);
+    applyGridPaper();
+    updateDrawingPdfBar();
+    return;
   }
+
   layers = migrateLayers(sketch.layers, sketch.layers?.canvasWidth, sketch.layers?.canvasHeight);
   viewport = { scale: 1, offsetX: 0, offsetY: 0, ...layers.viewport };
   $("drawing-title").textContent = sketch.title || "現調図面";
   if (sketch.backgroundImageUrl) setupBgImage(sketch.backgroundImageUrl);
   else {
     stageSize = { w: layers.canvasWidth || 800, h: layers.canvasHeight || 600 };
-    renderAll();
+    applyGridPaper();
   }
+  loadSketchFromLocal();
   await loadSpecPhotoSlotsForDrawing();
   updateDrawingPdfBar();
 }
@@ -635,15 +778,31 @@ function fileToBase64(file) {
 
 async function importBackground(file) {
   const imageBase64 = await fileToBase64(file);
-  const data = await api(
-    "POST",
-    `/api/survey/v1/drawing-sketches/${encodeURIComponent(sketchId)}/background`,
-    { imageBase64, fileName: file.name, mimeType: file.type }
-  );
-  sketch = data.sketch;
-  setupBgImage(sketch.backgroundImageUrl);
-  setStatus("背景写真を取り込みました");
-  await loadSpecPhotoSlotsForDrawing();
+  if (isLocalOnlyMode || isTempDrawingId(sketchId)) {
+    setupBgImage(imageBase64);
+    if (!sketch) sketch = { id: sketchId, projectId, title: "一時図面" };
+    sketch.backgroundImageUrl = imageBase64;
+    markDirty();
+    setStatus("背景写真を取り込みました（端末内保存）");
+    return;
+  }
+  try {
+    const data = await api(
+      "POST",
+      `/api/survey/v1/drawing-sketches/${encodeURIComponent(sketchId)}/background`,
+      { imageBase64, fileName: file.name, mimeType: file.type }
+    );
+    sketch = data.sketch;
+    setupBgImage(sketch.backgroundImageUrl);
+    setStatus("背景写真を取り込みました");
+    await loadSpecPhotoSlotsForDrawing();
+  } catch (e) {
+    setupBgImage(imageBase64);
+    if (!sketch) sketch = { id: sketchId, projectId, title: "一時図面" };
+    sketch.backgroundImageUrl = imageBase64;
+    markDirty();
+    setStatus(`端末内に保存しました（背景 · API: ${e.message || "失敗"}）`);
+  }
 }
 
 async function loadSpecPhotoSlotsForDrawing() {
@@ -882,6 +1041,10 @@ function wireEvents() {
   $("btn-ai-export")?.addEventListener("click", () => exportAiJson().catch((e) => setStatus(e.message)));
   $("btn-back")?.addEventListener("click", () => {
     if (dirty && !confirm("未保存の変更があります。戻りますか？")) return;
+    if (isLocalOnlyMode || isTempDrawingId(projectId)) {
+      location.href = "/survey-v1";
+      return;
+    }
     if (projectId) location.href = surveyBackUrl();
     else history.back();
   });

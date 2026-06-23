@@ -18,7 +18,7 @@ import {
   loadFieldChecklist,
   renderFieldChecklistPanel,
   renderFieldChecklistStatusSummary,
-} from "./field-checklist-ui.js?v=fc-ui-v2";
+} from "./field-checklist-ui.js?v=fc-ui-v3";
 
 const STAGE_ORDER = [
   "survey",

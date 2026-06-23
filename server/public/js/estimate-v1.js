@@ -7,7 +7,7 @@ import {
 import { initPracticalNav } from "./tisly-practical-nav.js";
 import { resolveProjectDisplayName } from "./project-display-name.js";
 import { friendlyHttpError, renderFriendlyErrorHtml } from "./tisly-friendly-errors.js";
-import { confirmChecklistBeforeReport, confirmCompletionPhotoSlotsBeforeReport } from "./field-checklist-ui.js?v=fc-ui-v2";
+import { confirmChecklistBeforeReport, confirmCompletionPhotoSlotsBeforeReport } from "./field-checklist-ui.js?v=fc-ui-v3";
 import { prefetchPdfForShare, sharePdfAsFile, triggerDownload } from "./pdf-share-v1.js";
 import {
   createLoadWatchdog,
