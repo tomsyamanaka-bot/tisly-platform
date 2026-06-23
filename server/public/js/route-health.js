@@ -54,7 +54,17 @@ const JS_ASSETS = [
 const ESTIMATE_UI_VERSION = "estimate-ui-v8";
 const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v5";
 const PHASE9_JS_VERSION = "phase9-iphone-v1";
-const SW_CACHE_TOKEN = "v2400";
+const SW_CACHE_TOKEN = "v2400-phase18";
+
+const CUSTOMER_ROUTES = [
+  { path: "/customer", label: "お客様ポータル" },
+  { path: "/customer/TOMS001", label: "お客様案件一覧" },
+];
+
+const IPHONE_CUSTOMER_LINKS = [
+  { href: "/customer", label: "お客様ポータル" },
+  { href: "/customer/TOMS001", label: "案件一覧" },
+];
 
 const PROJECT_OPERATIONAL_PROBES = [
   {
@@ -323,7 +333,7 @@ async function checkPdfMetaUnderline() {
     ]);
     const estJs = await estRes.text();
     const swText = await swRes.text();
-    const hasToken = swText.includes("v2400-phase17");
+    const hasToken = swText.includes("v2400-phase18");
     const estOk = !estJs.includes("btn-pdf-quick-share");
     const layoutOk = pdfRes.ok;
     if (hasToken && estOk && layoutOk) {
@@ -332,6 +342,65 @@ async function checkPdfMetaUnderline() {
     return { status: "warn", detail: `SW:${hasToken} est:${estOk} pdf:${layoutOk}` };
   } catch (e) {
     return { status: "fail", detail: e.message || String(e) };
+  }
+}
+
+async function checkCustomerSeparationPhase18() {
+  try {
+    const [landingRes, contractRes, landingHtml] = await Promise.all([
+      fetch("/api/customer-portal/v1/landing", { cache: "no-store" }),
+      fetch("/api/customer-portal/v1/route-contract", { cache: "no-store" }),
+      fetch("/customer", { cache: "no-store" }).then((r) => r.text()),
+    ]);
+    const landing = await landingRes.json().catch(() => ({}));
+    const contract = await contractRes.json().catch(() => ({}));
+    const noAppLink = !landingHtml.includes('href="/app"');
+    const noInternal = !landingHtml.includes("見積作成") && !landingHtml.includes("projectId");
+    const separated = contract.separation?.crossNavigationBlocked === true;
+    const hasCustomerRoutes = Array.isArray(contract.customerRoutes) && contract.customerRoutes.length >= 4;
+    if (landingRes.ok && contractRes.ok && noAppLink && noInternal && separated && hasCustomerRoutes) {
+      return { status: "ok", detail: `/customer 分離 OK · ${contract.customerRoutes.length} routes` };
+    }
+    return { status: "warn", detail: `app除去:${noAppLink} 分離:${separated}` };
+  } catch (e) {
+    return { status: "fail", detail: e.message || String(e) };
+  }
+}
+
+function renderPhase18Manifest(healthDetail, swInfo, contractData) {
+  const mount = document.getElementById("phase18-manifest-body");
+  if (!mount) return;
+  const legacy = contractData?.legacyRedirects || LEGACY_REDIRECTS;
+  const rows = [
+    { label: "Commit Short", value: healthDetail.commitShort || "—" },
+    { label: "SW Version", value: swInfo.swVersion || "—" },
+    { label: "/app ゾーン", value: "社内専用" },
+    { label: "/customer ゾーン", value: "お客様専用（PWA start_url）" },
+    { label: "分離状態", value: contractData?.separation?.crossNavigationBlocked ? "分離済み" : "要確認" },
+    { label: "社内正式URL数", value: String(PAGE_ROUTES.length) },
+    { label: "お客様正式URL数", value: String((contractData?.customerRoutes || []).length) },
+    { label: "旧URLリダイレクト数", value: String(legacy.length) },
+    { label: "shared/routes", value: "tisly-routes-v1.ts" },
+  ];
+  mount.innerHTML = rows
+    .map((r) => `<tr><td>${r.label}</td><td><code>${r.value}</code></td></tr>`)
+    .join("");
+}
+
+function renderIphoneCustomerLinks() {
+  const mount = document.getElementById("iphone-customer-links");
+  if (!mount) return;
+  mount.innerHTML = IPHONE_CUSTOMER_LINKS.map(
+    (item) => `<a class="nav-quick-btn" href="${item.href}">${item.label}</a>`
+  ).join("");
+}
+
+async function gatherRouteContract() {
+  try {
+    const res = await fetch("/api/customer-portal/v1/route-contract", { cache: "no-store" });
+    return await res.json().catch(() => ({}));
+  } catch {
+    return {};
   }
 }
 
@@ -867,6 +936,7 @@ async function runChecks() {
   renderVerifySteps();
   renderBottomNavQuickLinks();
   renderIphoneVerifyLinks();
+  renderIphoneCustomerLinks();
 
   const rows = [];
   const diagRows = [];
@@ -875,6 +945,9 @@ async function runChecks() {
 
   for (const r of PAGE_ROUTES) {
     rows.push({ path: r.path, label: r.label, ...(await checkPage(r.path)) });
+  }
+  for (const r of CUSTOMER_ROUTES) {
+    rows.push({ path: r.path, label: `customer: ${r.label}`, ...(await checkPage(r.path)) });
   }
   for (const r of LEGACY_REDIRECTS) {
     rows.push({
@@ -1020,7 +1093,12 @@ async function runChecks() {
 
   const phase17Health = await gatherPhase17Health();
   const swInfo = await gatherSwInfo();
+  const routeContract = await gatherRouteContract();
+  renderPhase18Manifest(phase17Health, swInfo, routeContract);
   renderPhase17Manifest(phase17Health, swInfo);
+
+  const customerSep = await checkCustomerSeparationPhase18();
+  rows.push({ path: "Phase18 customer", label: "/app分離", ...customerSep });
 
   const docViewer17 = await checkDocumentViewerPhase17();
   rows.push({ path: "Phase17 document-viewer", label: "PDF UI", ...docViewer17 });
@@ -1049,6 +1127,14 @@ async function runChecks() {
     rows.push({
       path: link.href,
       label: `実機: ${link.label}`,
+      ...(await checkPage(link.href)),
+    });
+  }
+
+  for (const link of IPHONE_CUSTOMER_LINKS) {
+    rows.push({
+      path: link.href,
+      label: `実機(customer): ${link.label}`,
       ...(await checkPage(link.href)),
     });
   }

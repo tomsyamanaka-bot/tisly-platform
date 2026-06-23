@@ -51,4 +51,6 @@ export const PWA_LEGACY_REDIRECTS_V1: Array<{ from: string; to: string; note: st
   { from: "/projects", to: "/projects-v1", note: "現場 PWA" },
   { from: "/materials", to: "/field-check-v1", note: "持ち物（materials-v1 ページ未実装）" },
   { from: "/materials-v1", to: "/field-check-v1", note: "持ち物 alias" },
+  { from: "/purchase", to: "/field-check-v1?tab=orders", note: "発注タブ" },
+  { from: "/customer-portal", to: "/customer", note: "旧顧客ポータル入口" },
 ];

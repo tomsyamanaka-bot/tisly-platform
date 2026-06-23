@@ -48,4 +48,12 @@ export function registerPwaLegacyRedirects(app: express.Application): void {
   app.get("/purchase", (req, res) => {
     res.redirect(301, mergeRedirectQuery(req, "/field-check-v1", { tab: "orders" }));
   });
+
+  app.get("/customer-portal", (_req, res) => {
+    res.redirect(301, "/customer");
+  });
+
+  app.get("/customer-portal/:customerCode", (req, res) => {
+    res.redirect(301, `/customer/${encodeURIComponent(String(req.params.customerCode))}`);
+  });
 }

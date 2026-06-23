@@ -765,6 +765,25 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | テスト | `server/test/operational-phase17-v1.test.ts` |
 | 確認 | `/route-health` · `/document-center-v1` · https://tisly.jp/api/health |
 
+### 実運用 Phase18 — /customer 分離 · RN流用準備（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | **PWA資産を壊さず整理** — /app と /customer 完全分離 · React Native 流用の shared モジュール |
+| Phase18-1 URL契約 | `server/src/shared/routes/tisly-routes-v1.ts` — 社内/お客様/旧URL一覧 |
+| Phase18-2 /customer | `/customer` PWA入口 · project/document/monitoring · 内部情報非表示 |
+| Phase18-3 shared | `server/src/shared/{routes,business,pdf,customer,project,navigation,ui-models}/` |
+| Phase18-4 PDF戻る | document-center 優先 · history.back 不使用 |
+| Phase18-5 帳票 | 右上メタ欄アンダーライン · 株式会社TOMS · 口座名義トムズ |
+| Phase18-6 図面 | `syncGridStageSize` + `getBoundingClientRect` 座標正規化 |
+| Phase18-7 テスト | `server/test/operational-phase18-v1.test.ts` |
+| Phase18-8 route-health | Phase18 分離診断 · route契約API · iPhone customer リンク |
+| SW | `tisly-pwa-v2400-phase18` |
+| PWA start_url | `https://tisly.jp/customer` |
+| 旧PRO Remote | `/customer/:code/portal`（レガシー） |
+| API | `/api/customer-portal/v1/*` |
+| 確認 | `/customer` · `/route-health` · https://tisly.jp/api/health |
+
 ---
 
 ## 関連ドキュメント

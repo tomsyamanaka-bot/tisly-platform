@@ -107,6 +107,8 @@ import { knowledgeV1Router } from "./api/routes/knowledge-v1.js";
 import { tislyMonitoringV1Router } from "./api/routes/tisly-monitoring-v1.js";
 import { aiEstimateEngineV1Router } from "./api/routes/ai-estimate-engine-v1.js";
 import { registerPwaLegacyRedirects } from "./pwa/pwa-legacy-redirects.js";
+import { customerPortalV1Router } from "./api/routes/customer-portal-v1.js";
+import { isCustomerReservedSegmentV1 } from "./shared/routes/tisly-routes-v1.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(__dirname, "..", "public");
@@ -175,6 +177,7 @@ export function createApp(): express.Application {
   app.use("/api/knowledge", knowledgeV1Router);
   app.use("/api/monitoring/v1", tislyMonitoringV1Router);
   app.use("/api/ai-estimate-engine/v1", aiEstimateEngineV1Router);
+  app.use("/api/customer-portal/v1", customerPortalV1Router);
   app.use("/api/project-automation/v1", projectAutomationV1Router);
   app.use("/api/business", businessRouter);
   app.use("/api/toms", tomsRouter);
@@ -243,10 +246,10 @@ export function createApp(): express.Application {
   const adminCustomerHtml = path.join(publicDir, "admin-customer.html");
 
   app.get("/customer-portal", (_req, res) => {
-    res.redirect("/customer/TOMS001");
+    res.redirect(301, "/customer");
   });
   app.get("/customer-portal/:customerCode", (req, res) => {
-    res.redirect(`/customer/${String(req.params.customerCode)}`);
+    res.redirect(301, `/customer/${String(req.params.customerCode)}`);
   });
 
   app.get("/customer/new", (_req, res) => {
@@ -257,8 +260,25 @@ export function createApp(): express.Application {
     res.sendFile(path.join(publicDir, "onboarding-new.html"));
   });
 
-  app.get("/customer/:customerCode", (_req, res) => {
+  app.get("/customer/project/:shareId", (_req, res) => {
+    res.sendFile(path.join(publicDir, "customer-project-v1.html"));
+  });
+  app.get("/customer/document/:shareId", (_req, res) => {
+    res.sendFile(path.join(publicDir, "customer-document-v1.html"));
+  });
+  app.get("/customer/monitoring/:shareId", (_req, res) => {
+    res.sendFile(path.join(publicDir, "customer-monitoring-v1.html"));
+  });
+  app.get("/customer/:customerCode/portal", (_req, res) => {
     res.sendFile(customerPortalHtml);
+  });
+  app.get("/customer/:customerCode", (req, res) => {
+    const code = String(req.params.customerCode);
+    if (isCustomerReservedSegmentV1(code)) {
+      res.status(404).send("Not found");
+      return;
+    }
+    res.sendFile(path.join(publicDir, "customer-home-v1.html"));
   });
   app.get("/customer/:customerCode/map", (_req, res) => {
     res.sendFile(path.join(publicDir, "map-editor.html"));
@@ -692,7 +712,11 @@ export function createApp(): express.Application {
     res.sendFile(adminCustomerHtml);
   });
   app.get("/customer", (_req, res) => {
-    res.sendFile(path.join(publicDir, "customer-index.html"));
+    res.sendFile(path.join(publicDir, "customer-v1.html"));
+  });
+  app.get("/manifest-customer-v1.webmanifest", (_req, res) => {
+    res.type("application/manifest+json");
+    res.sendFile(path.join(publicDir, "manifest-customer-v1.webmanifest"));
   });
 
   app.get("/site/new", (_req, res) => {

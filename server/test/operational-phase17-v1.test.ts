@@ -77,9 +77,9 @@ describe("Operational Phase17 — routes & SW", () => {
     assert.match(res.text, /Document Center/);
   });
 
-  it("service worker bumped to v2400-phase17", () => {
+  it("service worker bumped to v2400-phase18", () => {
     const sw = fs.readFileSync(path.join(publicDir, "service-worker.js"), "utf-8");
-    assert.match(sw, /v2400-phase17/);
+    assert.match(sw, /v2400-phase18/);
     assert.match(sw, /document-viewer-v1\.html/);
   });
 

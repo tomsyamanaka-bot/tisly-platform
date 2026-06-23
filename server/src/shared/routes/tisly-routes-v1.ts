@@ -1,0 +1,99 @@
+/**
+ * TiSLY URL契約 v1 — React Native / Expo 流用前提の単一ソース
+ * DOM・Express 双方から参照する。
+ */
+
+export type TislyRouteZoneV1 = "internal" | "customer" | "diagnostics";
+
+export interface TislyRouteEntryV1 {
+  path: string;
+  label: string;
+  zone: TislyRouteZoneV1;
+  /** 下部ナビに含まれるか（社内PWAのみ） */
+  bottomNav?: boolean;
+}
+
+/** 社内 PWA — 正式 URL */
+export const TISLY_INTERNAL_ROUTES_V1: TislyRouteEntryV1[] = [
+  { path: "/app", label: "App Hub", zone: "internal" },
+  { path: "/schedule-v1", label: "日程調整", zone: "internal", bottomNav: true },
+  { path: "/survey-v1", label: "現調", zone: "internal", bottomNav: true },
+  { path: "/survey-drawing-v1", label: "現調図面", zone: "internal" },
+  { path: "/estimate-v1", label: "見積", zone: "internal", bottomNav: true },
+  { path: "/estimate-v1?tab=invoice", label: "請求", zone: "internal", bottomNav: true },
+  { path: "/projects-v1", label: "案件一覧", zone: "internal", bottomNav: true },
+  { path: "/field-checklist-v1", label: "現場チェック", zone: "internal", bottomNav: true },
+  { path: "/field-check-v1", label: "材料チェック", zone: "internal", bottomNav: true },
+  { path: "/field-check-v1?tab=orders", label: "発注タブ", zone: "internal", bottomNav: true },
+  { path: "/project-dashboard-v1", label: "案件ダッシュボード", zone: "internal" },
+  { path: "/project-mgmt-detail-v1", label: "案件詳細", zone: "internal" },
+  { path: "/document-center-v1", label: "書類センター", zone: "internal" },
+  { path: "/route-health", label: "Route Health", zone: "diagnostics" },
+];
+
+/** お客様ポータル — 正式 URL（PWA start_url = /customer） */
+export const TISLY_CUSTOMER_ROUTES_V1: TislyRouteEntryV1[] = [
+  { path: "/customer", label: "お客様ポータル", zone: "customer" },
+  { path: "/customer/:customerCode", label: "お客様案件一覧", zone: "customer" },
+  { path: "/customer/project/:shareId", label: "お客様案件詳細", zone: "customer" },
+  { path: "/customer/document/:shareId", label: "お客様資料閲覧", zone: "customer" },
+  { path: "/customer/monitoring/:shareId", label: "お客様監視画面", zone: "customer" },
+];
+
+/** 旧 URL → 新 URL（301 永久リダイレクト） */
+export const TISLY_LEGACY_REDIRECTS_V1: Array<{
+  from: string;
+  to: string;
+  note: string;
+}> = [
+  { from: "/estimate", to: "/estimate-v1", note: "見積 PWA" },
+  { from: "/invoice", to: "/estimate-v1?tab=invoice", note: "請求タブ" },
+  { from: "/drawing-editor", to: "/survey-drawing-v1", note: "現調図面" },
+  { from: "/survey", to: "/survey-v1", note: "現調 v1" },
+  { from: "/projects", to: "/projects-v1", note: "案件一覧" },
+  { from: "/materials", to: "/field-check-v1", note: "材料チェック" },
+  { from: "/materials-v1", to: "/field-check-v1", note: "材料 alias" },
+  { from: "/purchase", to: "/field-check-v1?tab=orders", note: "発注タブ" },
+  { from: "/customer-portal", to: "/customer", note: "旧顧客ポータル入口" },
+];
+
+export const TISLY_CUSTOMER_PWA_START_URL = "/customer";
+
+export const TISLY_CUSTOMER_RESERVED_SEGMENTS = new Set([
+  "project",
+  "document",
+  "monitoring",
+  "new",
+]);
+
+export function isCustomerReservedSegmentV1(segment: string): boolean {
+  return TISLY_CUSTOMER_RESERVED_SEGMENTS.has(String(segment ?? "").toLowerCase());
+}
+
+export function buildCustomerProjectUrlV1(shareId: string): string {
+  return `/customer/project/${encodeURIComponent(shareId)}`;
+}
+
+export function buildCustomerDocumentUrlV1(shareId: string, fileId?: string): string {
+  const base = `/customer/document/${encodeURIComponent(shareId)}`;
+  return fileId ? `${base}?fileId=${encodeURIComponent(fileId)}` : base;
+}
+
+export function buildCustomerMonitoringUrlV1(shareId: string): string {
+  return `/customer/monitoring/${encodeURIComponent(shareId)}`;
+}
+
+export function buildCustomerHomeUrlV1(customerCode: string): string {
+  return `/customer/${encodeURIComponent(customerCode)}`;
+}
+
+export function buildDocumentCenterUrlV1(projectId?: string): string {
+  return projectId
+    ? `/document-center-v1?projectId=${encodeURIComponent(projectId)}`
+    : "/document-center-v1";
+}
+
+export const TISLY_ALL_CANONICAL_ROUTES_V1: TislyRouteEntryV1[] = [
+  ...TISLY_INTERNAL_ROUTES_V1,
+  ...TISLY_CUSTOMER_ROUTES_V1,
+];
