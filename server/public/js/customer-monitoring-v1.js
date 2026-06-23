@@ -1,9 +1,11 @@
 import {
   escapeHtml,
+  CUSTOMER_MONITORING_LABELS,
   renderMonitoringAlert,
   renderMonitoringFloors,
   renderMonitoringLogs,
   scrollToFloorAndBlink,
+  findHighlightKey,
 } from "./customer-shared-v1.js";
 import { goCustomerBack, initCustomerPage, setCustomerReturnUrl } from "./customer-nav-v1.js";
 
@@ -26,12 +28,19 @@ async function load() {
     return;
   }
 
-  document.getElementById("page-title").textContent = data.propertyName;
-  document.getElementById("page-subtitle").textContent = `${data.systemStatusEmoji} ${data.systemStatusLabel}`;
+  const pageTitle = data.pageTitle || CUSTOMER_MONITORING_LABELS.pageTitle;
+  document.getElementById("page-title").textContent = pageTitle;
+  document.getElementById("page-subtitle").textContent = data.propertyName || "";
 
   const showFloors = view === "all" || view === "camera" || !view;
   const showAlerts = view === "all" || view === "alerts";
   const showNotifications = view === "all" || view === "notifications";
+
+  const sensorLabel = data.sensorStatusLabel || CUSTOMER_MONITORING_LABELS.sensorStatus;
+  const lastDetectionLabel = data.lastDetectionLabel || CUSTOMER_MONITORING_LABELS.lastDetection;
+  const alertLabel = data.alertHistoryLabel || CUSTOMER_MONITORING_LABELS.alertHistory;
+  const notifyLabel = data.notificationHistoryLabel || CUSTOMER_MONITORING_LABELS.notificationHistory;
+  const emptyMessage = data.emptyMessage || "現在異常はありません";
 
   const cameraFloors = showFloors
     ? data.floors.map((f) => ({
@@ -40,36 +49,43 @@ async function load() {
       }))
     : [];
 
-  const highlightId = data.activeAlert?.highlightSensorId ?? null;
+  const highlightKey = findHighlightKey(
+    data.floors,
+    data.activeAlert?.highlightSensorId,
+    data.activeAlert?.sensorName
+  );
 
   main.innerHTML = `
     ${renderMonitoringAlert(data.activeAlert)}
     ${
       data.noActiveIssues && view === "all"
-        ? `<section class="cv-card cv-all-ok"><p class="cv-all-ok-text">✅ ${escapeHtml(data.emptyMessage)}</p></section>`
+        ? `<section class="cv-card cv-all-ok"><p class="cv-all-ok-text">✅ ${escapeHtml(emptyMessage)}</p></section>`
         : ""
     }
-  ${
-    showFloors
-      ? `<div class="cv-floors">${renderMonitoringFloors(cameraFloors, highlightId)}</div>`
-      : ""
-  }
+    ${
+      showFloors
+        ? `<section class="cv-card cv-sensor-section">
+            <h2>${escapeHtml(sensorLabel)}</h2>
+            <div class="cv-floors">${renderMonitoringFloors(cameraFloors, highlightKey)}</div>
+          </section>`
+        : ""
+    }
     ${
       showAlerts
-        ? `<section class="cv-card" id="alerts"><h2>警報履歴</h2>${renderMonitoringLogs(data.alertLogs, "警報履歴")}</section>`
+        ? `<section class="cv-card" id="alerts"><h2>${escapeHtml(alertLabel)}</h2>${renderMonitoringLogs(data.alertLogs)}</section>`
         : ""
     }
     ${
       showNotifications
-        ? `<section class="cv-card" id="notifications"><h2>通知履歴</h2>${renderMonitoringLogs(data.notificationLogs, "通知履歴")}</section>`
+        ? `<section class="cv-card" id="notifications"><h2>${escapeHtml(notifyLabel)}</h2>${renderMonitoringLogs(data.notificationLogs)}</section>`
         : ""
     }
-    <p class="cv-last-checked cv-footer-note">最終確認：${escapeHtml(data.lastCheckedAt)}</p>
+    <p class="cv-last-checked cv-footer-note">${escapeHtml(lastDetectionLabel)}：${escapeHtml(data.lastCheckedAt)}</p>
   `;
 
   if (data.activeAlert) {
     requestAnimationFrame(() => {
-      scrollToFloorAndBlink(data.activeAlert.floorId, data.activeAlert.highlightSensorId);
+      scrollToFloorAndBlink(data.activeAlert.floorId, highlightKey);
     });
   }
 }

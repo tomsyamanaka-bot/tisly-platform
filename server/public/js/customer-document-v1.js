@@ -1,5 +1,5 @@
 import { escapeHtml } from "./customer-shared-v1.js";
-import { goCustomerBack, initCustomerPage } from "./customer-nav-v1.js";
+import { initCustomerPage } from "./customer-nav-v1.js";
 
 const main = document.getElementById("main-content");
 const shareId = decodeURIComponent(location.pathname.split("/").filter(Boolean)[2] || "");
@@ -7,10 +7,11 @@ const fileId = new URLSearchParams(location.search).get("fileId") || "";
 
 let docData = null;
 
+function goProjectBack() {
+  location.href = `/customer/project/${encodeURIComponent(shareId)}`;
+}
+
 initCustomerPage();
-document.getElementById("btn-back")?.addEventListener("click", () => {
-  goCustomerBack({ shareId });
-});
 
 function toast(msg) {
   const el = document.createElement("div");
@@ -50,6 +51,19 @@ async function handleSave() {
   }
 }
 
+function wireBottomBar() {
+  const bottomBar = document.querySelector(".cv-bottom-bar");
+  if (!bottomBar) return;
+  bottomBar.innerHTML = `
+    <button type="button" class="cv-btn secondary" id="btn-back">戻る</button>
+    <button type="button" class="cv-btn" id="btn-pdf">PDFにする</button>
+    <button type="button" class="cv-btn secondary" id="btn-save">保存</button>
+  `;
+  document.getElementById("btn-back")?.addEventListener("click", goProjectBack);
+  document.getElementById("btn-pdf")?.addEventListener("click", () => handlePdfOpen());
+  document.getElementById("btn-save")?.addEventListener("click", () => handleSave());
+}
+
 async function load() {
   const qs = fileId ? `?fileId=${encodeURIComponent(fileId)}` : "";
   const res = await fetch(
@@ -66,17 +80,7 @@ async function load() {
   document.getElementById("page-title").textContent = data.label || "書類";
   document.getElementById("page-subtitle").textContent = data.propertyName || "";
 
-  const bottomBar = document.querySelector(".cv-bottom-bar");
-  if (bottomBar) {
-    bottomBar.innerHTML = `
-      <button type="button" class="cv-btn secondary" id="btn-back">戻る</button>
-      <button type="button" class="cv-btn" id="btn-pdf">PDFにする</button>
-      <button type="button" class="cv-btn secondary" id="btn-save">保存</button>
-    `;
-    document.getElementById("btn-back")?.addEventListener("click", () => goCustomerBack({ shareId }));
-    document.getElementById("btn-pdf")?.addEventListener("click", () => handlePdfOpen());
-    document.getElementById("btn-save")?.addEventListener("click", () => handleSave());
-  }
+  wireBottomBar();
 
   if (data.previewUrl) {
     main.innerHTML = `
@@ -89,6 +93,7 @@ async function load() {
   }
 }
 
+wireBottomBar();
 load().catch(() => {
   main.innerHTML = `<p class="cv-preparing">読み込みに失敗しました</p>`;
 });

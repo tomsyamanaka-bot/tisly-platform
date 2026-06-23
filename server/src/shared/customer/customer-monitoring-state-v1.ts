@@ -6,6 +6,7 @@ import { buildMonitoringDashboardV1 } from "../../monitoring/tisly-monitoring-da
 import { resolveMonitoringSiteIdV1 } from "../../monitoring/tisly-monitoring-layout-v1.js";
 import type { MonitoringDeviceStatusV1 } from "../../monitoring/tisly-monitoring-layout-v1.js";
 import {
+  CUSTOMER_MONITORING_LABELS_V1,
   CUSTOMER_SENSOR_STATUS_V1,
   CUSTOMER_SYSTEM_STATUS_V1,
   formatCustomerEventTimeV1,
@@ -107,6 +108,88 @@ export function buildCustomerMonitoringDetailV1(
     notificationLogs: infoLogs,
     allLogs: logs,
     noActiveIssues: !activeAlert,
-    emptyMessage: "現在異常はありません",
+    emptyMessage: CUSTOMER_MONITORING_LABELS_V1.allClear,
+    lastDetectionLabel: CUSTOMER_MONITORING_LABELS_V1.lastDetection,
+    sensorStatusLabel: CUSTOMER_MONITORING_LABELS_V1.sensorStatus,
+    alertHistoryLabel: CUSTOMER_MONITORING_LABELS_V1.alertHistory,
+    notificationHistoryLabel: CUSTOMER_MONITORING_LABELS_V1.notificationHistory,
+    pageTitle: CUSTOMER_MONITORING_LABELS_V1.pageTitle,
+  };
+}
+
+/** API レスポンス用 — 技術フィールドを除去 */
+export interface CustomerMonitoringApiV1 {
+  propertyName: string;
+  systemStatus: string;
+  systemStatusLabel: string;
+  systemStatusEmoji: string;
+  lastCheckedAt: string;
+  floors: Array<{
+    floorId: string;
+    floorName: string;
+    sensors: Array<{
+      sensorName: string;
+      status: string;
+      areaName: string;
+      isCamera: boolean;
+    }>;
+  }>;
+  activeAlert: {
+    floorId: string;
+    floorName: string;
+    areaName: string;
+    sensorName: string;
+    message: string;
+    subMessage: string;
+    timestamp: string;
+  } | null;
+  alertLogs: CustomerMonitoringLogV1[];
+  notificationLogs: CustomerMonitoringLogV1[];
+  noActiveIssues: boolean;
+  emptyMessage: string;
+  lastDetectionLabel: string;
+  sensorStatusLabel: string;
+  alertHistoryLabel: string;
+  notificationHistoryLabel: string;
+  pageTitle: string;
+}
+
+export function sanitizeCustomerMonitoringApiV1(view: CustomerMonitoringViewV1): CustomerMonitoringApiV1 {
+  return {
+    propertyName: view.propertyName,
+    systemStatus: view.systemStatus,
+    systemStatusLabel: view.systemStatusLabel,
+    systemStatusEmoji: view.systemStatusEmoji,
+    lastCheckedAt: view.lastCheckedAt,
+    floors: view.floors.map((f) => ({
+      floorId: f.floorId,
+      floorName: f.floorName,
+      sensors: f.sensors.map((s) => ({
+        sensorName: s.sensorName,
+        status: s.status,
+        areaName: s.areaName,
+        isCamera: s.isCamera,
+      })),
+    })),
+    activeAlert: view.activeAlert
+      ? {
+          floorId: view.activeAlert.floorId,
+          floorName: view.activeAlert.floorName,
+          areaName: view.activeAlert.areaName,
+          sensorName: view.activeAlert.sensorName,
+          message: view.activeAlert.message,
+          subMessage: view.activeAlert.subMessage,
+          timestamp: view.activeAlert.timestamp,
+        }
+      : null,
+    alertLogs: view.alertLogs,
+    notificationLogs: view.notificationLogs,
+    noActiveIssues: view.noActiveIssues,
+    emptyMessage: view.emptyMessage,
+    lastDetectionLabel: view.lastDetectionLabel,
+    sensorStatusLabel: view.sensorStatusLabel,
+    alertHistoryLabel: view.alertHistoryLabel,
+    notificationHistoryLabel: view.notificationHistoryLabel,
+    pageTitle: view.pageTitle,
   };
 }

@@ -1,7 +1,7 @@
 import {
   bindCustomerNavLinks,
   escapeHtml,
-  renderContact,
+  CUSTOMER_PROJECT_LABELS,
   renderMaintenance,
   renderProjectDocuments,
   renderProjectPhotos,
@@ -25,40 +25,21 @@ async function load() {
   }
 
   document.getElementById("page-title").textContent = data.propertyName;
-  document.getElementById("page-subtitle").textContent = data.workDescription || "";
-
-  const cards = `
-    <section class="cv-card-grid cv-card-grid-compact">
-      <a class="cv-big-card" href="${escapeHtml(data.monitoringUrl)}?view=camera" data-customer-nav>
-        <span class="cv-big-card-emoji">📷</span><span class="cv-big-card-label">カメラを見る</span>
-      </a>
-      <a class="cv-big-card" href="${escapeHtml(data.monitoringUrl)}?view=alerts" data-customer-nav>
-        <span class="cv-big-card-emoji">🚨</span><span class="cv-big-card-label">警報履歴</span>
-      </a>
-      <a class="cv-big-card" href="${escapeHtml(data.monitoringUrl)}?view=notifications" data-customer-nav>
-        <span class="cv-big-card-emoji">🔔</span><span class="cv-big-card-label">通知履歴</span>
-      </a>
-    </section>
-  `;
+  document.getElementById("page-subtitle").textContent = data.workDescription
+    ? `${CUSTOMER_PROJECT_LABELS.workName}：${data.workDescription}`
+    : "";
 
   main.innerHTML = `
-    ${cards}
     <section class="cv-card" id="documents">
-      <h2>書類</h2>
+      <h2>${escapeHtml(CUSTOMER_PROJECT_LABELS.documents)}</h2>
       <div class="cv-doc-list">${renderProjectDocuments(data.documents)}</div>
     </section>
     ${renderProjectPhotos(data.sitePhotos)}
     ${renderMaintenance(data.maintenanceItems)}
-    ${
-      data.customerExplanation
-        ? `<section class="cv-card"><h2>ご説明</h2><p class="cv-explanation">${escapeHtml(data.customerExplanation)}</p></section>`
-        : ""
-    }
-    ${renderContact(data.contact)}
   `;
 
   bindCustomerNavLinks();
-  document.querySelectorAll(".cv-big-card, .cv-doc-btn").forEach((el) => {
+  document.querySelectorAll(".cv-doc-btn").forEach((el) => {
     el.addEventListener("click", (e) => {
       e.preventDefault();
       navigateCustomer(el.getAttribute("href"));

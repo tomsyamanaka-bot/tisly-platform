@@ -41,6 +41,7 @@ export interface CustomerHomeViewV1 {
   systemStatusShort: string;
   lastCheckedAt: string;
   lastCheckedLabel: string;
+  currentStatusLabel: string;
   cards: CustomerHomeCardV1[];
   projectPageUrl: string;
   documentsPageUrl: string;
@@ -98,6 +99,11 @@ export interface CustomerMonitoringViewV1 {
   allLogs: CustomerMonitoringLogV1[];
   noActiveIssues: boolean;
   emptyMessage: string;
+  lastDetectionLabel: string;
+  sensorStatusLabel: string;
+  alertHistoryLabel: string;
+  notificationHistoryLabel: string;
+  pageTitle: string;
 }
 
 export interface CustomerMaintenanceItemV1 {
@@ -119,16 +125,27 @@ export interface CustomerProjectViewV1 {
   projectPageUrl: string;
 }
 
+export interface CustomerPropertyListItemViewV1 {
+  shareId: string;
+  propertyName: string;
+  workDescription: string;
+  statusLabel: string;
+  projectPageUrl: string;
+  homePageUrl: string;
+  monitoringPageUrl: string;
+  documentsPageUrl: string;
+  contactTelHref: string;
+  actions: Array<{
+    id: string;
+    emoji: string;
+    label: string;
+    href: string;
+  }>;
+}
+
 export interface CustomerHomeListViewV1 {
   customerName: string;
-  projects: Array<{
-    shareId: string;
-    propertyName: string;
-    workDescription: string;
-    statusLabel: string;
-    projectPageUrl: string;
-    homePageUrl: string;
-  }>;
+  projects: CustomerPropertyListItemViewV1[];
   contact: CustomerContactV1;
 }
 

@@ -801,9 +801,23 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | PWA | `manifest-customer-v1.webmanifest` — `start_url: /customer` |
 | 確認 | `/customer` · `/route-health` · https://tisly.jp/api/health |
 
----
+### 実運用 Phase20 — お客様UI実運用磨き込み（完成済み）
 
-## 関連ドキュメント
+| 領域 | 内容 |
+|------|------|
+| 目的 | **説明不要のお客様向け UI** — 資料ページ · 見守り · 物件一覧 · iPhone Safari 可読性 |
+| Phase20-1 ホーム | `/customer` — 現在の状態 · 最終確認 · 6大カードのみ（デモ切替非表示） |
+| Phase20-2 資料 | `/customer/project/:shareId` — 書類一覧 · 写真 · 点検記録（社内情報非表示） |
+| Phase20-3 PDF | `/customer/document/:shareId` — 戻る先固定 `/customer/project/:shareId` · LINE非表示 |
+| Phase20-4 見守り | `/customer/monitoring/:shareId` — センサー状態 · 最終検知 · 技術語API非返却 |
+| Phase20-5 物件一覧 | `/customer/TOMS001` — 書類/見守り/連絡の大ボタンカード |
+| Phase20-6 shared | `customer-property-list-v1` · `customer-document-nav-v1` · ラベル定数集約 |
+| Phase20-7 route-health | Phase20 診断 · TOMS001 200 · 資料戻る先 · 禁止語 |
+| Phase20-8 テスト | `customer-portal-v1.test.ts` Phase20 ブロック |
+| SW | `tisly-pwa-v2400-phase20` |
+| 確認 | `/customer` · `/customer/TOMS001` · `/route-health` · https://tisly.jp/api/health |
+
+---
 
 - [CURSOR_SELF_DRIVE_RULES.md](./CURSOR_SELF_DRIVE_RULES.md) — 自走時の行動規範
 - [checklists/REGRESSION_TEST.md](./checklists/REGRESSION_TEST.md) — 回帰テスト項目

@@ -41,6 +41,8 @@ describe("Customer Portal V1 — Phase19 home UI", () => {
     assert.ok(res.body.home.cards?.length >= 6);
     assert.ok(res.body.home.systemStatusLabel);
     assert.ok(res.body.home.lastCheckedAt);
+    assert.equal(res.body.home.currentStatusLabel, "現在の状態");
+    assert.equal(res.body.home.lastCheckedLabel, "最終確認");
   });
 
   it("/customer HTML has no /app links or forbidden words", async () => {
@@ -67,6 +69,7 @@ describe("Customer Portal V1 — sub-routes HTTP 200", () => {
     `/customer/project/${DEMO_SHARE}`,
     `/customer/document/${DEMO_SHARE}`,
     `/customer/monitoring/${DEMO_SHARE}`,
+    "/customer/TOMS001",
   ];
 
   for (const route of routes) {
@@ -144,11 +147,12 @@ describe("Customer Portal V1 — assets", () => {
     assert.match(js, /btn-save/);
     assert.doesNotMatch(js, /history\.back/);
     assert.doesNotMatch(js, /LINE/);
+    assert.match(js, /\/customer\/project\//);
   });
 
-  it("service worker bumped to v2400-phase19", () => {
+  it("service worker bumped to v2400-phase20", () => {
     const sw = fs.readFileSync(path.join(publicDir, "service-worker.js"), "utf-8");
-    assert.match(sw, /v2400-phase19/);
+    assert.match(sw, /v2400-phase20/);
     assert.match(sw, /customer-shared-v1\.js/);
   });
 
@@ -156,6 +160,58 @@ describe("Customer Portal V1 — assets", () => {
     assert.ok(fs.existsSync(path.join(process.cwd(), "src/shared/customer/customer-labels-v1.ts")));
     assert.ok(fs.existsSync(path.join(process.cwd(), "src/shared/customer/customer-home-state-v1.ts")));
     assert.ok(fs.existsSync(path.join(process.cwd(), "src/shared/customer/customer-monitoring-state-v1.ts")));
+    assert.ok(fs.existsSync(path.join(process.cwd(), "src/shared/customer/customer-property-list-v1.ts")));
+  });
+});
+
+describe("Customer Portal V1 — Phase20 production polish", () => {
+  it("TOMS001 list API returns property actions", async () => {
+    const res = await request(app).get("/api/customer-portal/v1/home/TOMS001");
+    assert.equal(res.status, 200);
+    assert.equal(res.body.customerName, "トムズ設備");
+    assert.ok(Array.isArray(res.body.projects));
+    assert.ok(res.body.projects.length >= 1);
+    const first = res.body.projects[0];
+    assert.ok(first.actions?.length >= 3);
+    assert.ok(first.actions.some((a: { label: string }) => a.label === "書類を見る"));
+    assert.ok(first.actions.some((a: { label: string }) => a.label === "見守りを見る"));
+    assert.ok(first.actions.some((a: { label: string }) => a.label === "連絡する"));
+  });
+
+  it("monitoring API uses customer-friendly labels", async () => {
+    const res = await request(app).get(`/api/customer-portal/v1/monitoring/${DEMO_SHARE}`);
+    assert.equal(res.status, 200);
+    assert.equal(res.body.pageTitle, "見守り");
+    assert.equal(res.body.emptyMessage, "現在異常はありません");
+    assert.equal(res.body.sensorStatusLabel, "センサー状態");
+    assert.equal(res.body.lastDetectionLabel, "最終検知");
+    const json = JSON.stringify(res.body);
+    assert.doesNotMatch(json, /deviceId|sensorId|topic|mqtt|statusCode/i);
+  });
+
+  it("project API returns customer documents only", async () => {
+    const res = await request(app).get(`/api/customer-portal/v1/project/${DEMO_SHARE}`);
+    assert.equal(res.status, 200);
+    for (const doc of res.body.documents || []) {
+      assert.ok(["見積書", "請求書", "仕様書", "完了報告書", "取扱説明書"].includes(doc.label));
+    }
+  });
+
+  it("/customer/TOMS001 HTML has no forbidden words or /app links", async () => {
+    const res = await request(app).get("/customer/TOMS001");
+    assert.equal(res.status, 200);
+    assert.doesNotMatch(res.text, /href="\/app"/);
+    for (const word of FORBIDDEN_DOM) {
+      assert.doesNotMatch(res.text, new RegExp(word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    }
+  });
+
+  it("document back URL resolver stays on project page", async () => {
+    const { resolveCustomerDocumentBackUrlV1 } = await import(
+      "../src/shared/navigation/customer-document-nav-v1.js"
+    );
+    const back = resolveCustomerDocumentBackUrlV1(DEMO_SHARE);
+    assert.equal(back, `/customer/project/${DEMO_SHARE}`);
   });
 });
 

@@ -9,6 +9,7 @@ import {
 } from "../routes/tisly-routes-v1.js";
 import {
   CUSTOMER_HOME_CARDS_V1,
+  CUSTOMER_HOME_LABELS_V1,
   CUSTOMER_PAGE_TITLE_V1,
   CUSTOMER_SYSTEM_STATUS_V1,
   formatCustomerLastCheckedV1,
@@ -61,7 +62,8 @@ export function buildCustomerHomeStateV1(opts: {
     systemStatusEmoji: system.emoji,
     systemStatusShort: system.short,
     lastCheckedAt: monitoring.lastCheckedAt,
-    lastCheckedLabel: "最終確認",
+    lastCheckedLabel: CUSTOMER_HOME_LABELS_V1.lastChecked,
+    currentStatusLabel: CUSTOMER_HOME_LABELS_V1.currentStatus,
     cards,
     projectPageUrl: buildCustomerProjectUrlV1(opts.shareId),
     documentsPageUrl: buildCustomerDocumentUrlV1(opts.shareId),

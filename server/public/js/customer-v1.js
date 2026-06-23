@@ -1,10 +1,9 @@
 import {
   bindCustomerNavLinks,
-  escapeHtml,
   renderHomeCards,
   renderHomeStatus,
 } from "./customer-shared-v1.js";
-import { goCustomerBack, navigateCustomer, setCustomerReturnUrl } from "./customer-nav-v1.js";
+import { navigateCustomer, setCustomerReturnUrl } from "./customer-nav-v1.js";
 
 const main = document.getElementById("main-content");
 
@@ -33,29 +32,11 @@ async function load() {
   }
 
   document.getElementById("page-title").textContent = data.title;
-  document.getElementById("page-subtitle").textContent = data.subtitle || data.propertyName;
-
-  const demos = (await fetch("/api/customer-portal/v1/landing", { cache: "no-store" })
-    .then((r) => r.json())
-    .catch(() => ({}))).demoProjects;
-
-  const demoLinks =
-    demos?.length > 1
-      ? `<section class="cv-card cv-demo-switch">
-          <h2>物件を切り替える</h2>
-          ${demos
-            .map(
-              (p) =>
-                `<a class="cv-project-link" href="/customer?project=${encodeURIComponent(p.shareId)}" data-customer-nav>${escapeHtml(p.propertyName)}</a>`
-            )
-            .join("")}
-        </section>`
-      : "";
+  document.getElementById("page-subtitle").textContent = "";
 
   main.innerHTML = `
     ${renderHomeStatus(data)}
     ${renderHomeCards(data.cards)}
-    ${demoLinks}
   `;
 
   bindCustomerNavLinks();

@@ -58,6 +58,46 @@ export const CUSTOMER_FORBIDDEN_WORDS_V1 = [
 
 export const CUSTOMER_PAGE_TITLE_V1 = "TiSLY お客様ページ";
 
+/** ホーム画面セクション見出し */
+export const CUSTOMER_HOME_LABELS_V1 = {
+  currentStatus: "現在の状態",
+  lastChecked: "最終確認",
+} as const;
+
+/** 監視画面セクション見出し */
+export const CUSTOMER_MONITORING_LABELS_V1 = {
+  pageTitle: "見守り",
+  sensorStatus: "センサー状態",
+  lastDetection: "最終検知",
+  alertHistory: "警報履歴",
+  notificationHistory: "通知履歴",
+  allClear: "現在異常はありません",
+} as const;
+
+/** 資料ページセクション見出し */
+export const CUSTOMER_PROJECT_LABELS_V1 = {
+  pageTitle: "資料",
+  documents: "書類一覧",
+  photos: "写真",
+  inspectionRecords: "点検記録",
+  workName: "工事名",
+} as const;
+
+/** 物件一覧ページ */
+export const CUSTOMER_LIST_LABELS_V1 = {
+  pageTitle: "物件一覧",
+  subtitle: "ご契約中の物件",
+} as const;
+
+/** 監視画面で表示してはいけない技術語（検査用） */
+export const CUSTOMER_MONITORING_FORBIDDEN_DISPLAY_V1 = [
+  "device",
+  "sensorId",
+  "topic",
+  "mqtt",
+  "statusCode",
+] as const;
+
 export function formatCustomerLastCheckedV1(iso?: string | null): string {
   if (!iso) return "—";
   try {

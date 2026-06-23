@@ -1,6 +1,6 @@
 # TiSLY PWA URL 契約（Route Contract）
 
-**最終更新:** 2026-06-24（Phase19）  
+**最終更新:** 2026-06-24（Phase20）  
 **ルール:** URL を変更・追加したら **必ずこのファイルを更新** し、`/route-health` で旧URLリダイレクトを確認する。
 
 ---
@@ -53,21 +53,25 @@
 
 PWA manifest: `/manifest-customer-v1.webmanifest`（`start_url: /customer` · `scope: /customer`）
 
-### お客様向け表示（Phase19）
+### お客様向け表示（Phase20）
 
 | 項目 | 内容 |
 |------|------|
 | タイトル | TiSLY お客様ページ |
-| ホーム | 物件名 · システム状態 · 最終確認 · 6大カードボタン |
+| ホーム | 物件名 · **現在の状態** · **最終確認** · 6大カードボタンのみ |
 | カード | カメラ · 警報履歴 · 通知履歴 · 書類 · 点検保守 · トムズへ連絡 |
-| 監視 | フロア別センサー · 正常/注意/警報 · 発報時赤バナー |
-| 書類 | 見積書 · 請求書 · 仕様書 · 完了報告書 · 写真 · 点検記録 |
+| 資料ページ | `/customer/project/:shareId` — 書類一覧 · 写真 · 点検記録 |
+| 見守り | `/customer/monitoring/:shareId` — センサー状態 · 最終検知 · 警報履歴 |
+| 物件一覧 | `/customer/TOMS001` — 状態 · 書類/見守り/連絡ボタン |
+| PDF閲覧 | 戻る → **必ず** `/customer/project/:shareId`（history.back 不使用） |
 
 表示しないもの: 案件管理 · 原価 · 粗利 · 材料 · 発注 · QNAP/WebDAV · projectId · 社内メモ · debug · MQTT · API URL · App Hub · route-health
 
 禁止語（DOM）: MQTT · WS · QNAP · Mock · Gmail mock · PDF puppeteer · App Hub · 管理 · Map Editor · 施工 · 保守PWA · 顧客コード · customerCode · shareId · API · debug · route-health · PRO Remote · portal · remote · mock · sync · dashboard · technical
 
-戻る制御: `customerReturnUrl`（sessionStorage）— /customer 内のみ · history.back 不使用
+監視API非返却: device · sensorId · topic · mqtt · statusCode
+
+戻る制御: PDF閲覧は `/customer/project/:shareId` 固定 · その他は `customerReturnUrl`（/customer 内のみ）
 
 ---
 

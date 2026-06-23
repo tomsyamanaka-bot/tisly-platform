@@ -54,7 +54,7 @@ const JS_ASSETS = [
 const ESTIMATE_UI_VERSION = "estimate-ui-v8";
 const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v5";
 const PHASE9_JS_VERSION = "phase9-iphone-v1";
-const SW_CACHE_TOKEN = "v2400-phase19";
+const SW_CACHE_TOKEN = "v2400-phase20";
 
 const CUSTOMER_FORBIDDEN_WORDS = [
   "MQTT", "QNAP", "Mock", "Gmail mock", "PDF puppeteer", "App Hub",
@@ -353,6 +353,61 @@ async function checkPdfMetaUnderline() {
       return { status: "ok", detail: "SW v2400 · PDF診断OK · 見積共有削除" };
     }
     return { status: "warn", detail: `SW:${hasToken} est:${estOk} pdf:${layoutOk}` };
+  } catch (e) {
+    return { status: "fail", detail: e.message || String(e) };
+  }
+}
+
+async function checkCustomerSeparationPhase20(shareId) {
+  try {
+    const paths = [
+      "/customer",
+      "/customer/TOMS001",
+      `/customer/project/${shareId}`,
+      `/customer/document/${shareId}`,
+      `/customer/monitoring/${shareId}`,
+    ];
+    const [pages, landingRes, contractRes, manifestRes, legacyRes, docJsRes] = await Promise.all([
+      Promise.all(paths.map((p) => fetch(p, { cache: "no-store" }).then((r) => ({ p, ok: r.ok, text: r.text() })))),
+      fetch("/api/customer-portal/v1/landing", { cache: "no-store" }),
+      fetch("/api/customer-portal/v1/route-contract", { cache: "no-store" }),
+      fetch("/manifest-customer-v1.webmanifest", { cache: "no-store" }),
+      fetch("/customer-portal", { redirect: "manual", cache: "no-store" }),
+      fetch("/js/customer-document-v1.js", { cache: "no-store" }),
+    ]);
+
+    const pageResults = await Promise.all(
+      pages.map(async ({ p, ok, text }) => ({ p, ok, html: await text }))
+    );
+
+    const all200 = pageResults.every((r) => r.ok);
+    const noAppLinks = pageResults.every((r) => !r.html.includes('href="/app"'));
+    const noForbidden = pageResults.every((r) =>
+      CUSTOMER_FORBIDDEN_WORDS.every((w) => !r.html.includes(w))
+    );
+
+    const landing = await landingRes.json().catch(() => ({}));
+    const contract = await contractRes.json().catch(() => ({}));
+    const manifest = await manifestRes.json().catch(() => ({}));
+    const docJs = await docJsRes.text();
+    const startUrlOk = manifest.start_url === "/customer";
+    const separated = contract.separation?.crossNavigationBlocked === true;
+    const legacy301 = legacyRes.status === 301 && String(legacyRes.headers.get("location") || "").includes("/customer");
+    const hasHome = landing.home?.cards?.length >= 6;
+    const docBackOk =
+      docJs.includes("/customer/project/") &&
+      !docJs.includes("history.back") &&
+      !docJs.includes("LINE");
+    const tomsOk = pageResults.find((r) => r.p === "/customer/TOMS001")?.html.includes("cv-property-card") ||
+      pageResults.find((r) => r.p === "/customer/TOMS001")?.html.includes("customer-home-v1");
+
+    if (all200 && noAppLinks && noForbidden && startUrlOk && separated && legacy301 && hasHome && docBackOk && tomsOk) {
+      return { status: "ok", detail: `Phase20 OK · ${paths.length} pages · 禁止語0 · 資料戻る先=project` };
+    }
+    return {
+      status: "warn",
+      detail: `200:${all200} app:${noAppLinks} forbid:${noForbidden} start:${startUrlOk} docBack:${docBackOk} toms:${!!tomsOk}`,
+    };
   } catch (e) {
     return { status: "fail", detail: e.message || String(e) };
   }
@@ -1162,6 +1217,13 @@ async function runChecks() {
       .catch(() => ({}))).home?.shareId || ""
   );
   rows.push({ path: "Phase19 customer", label: "お客様UI分離", ...customerSep });
+
+  const customerSep20 = await checkCustomerSeparationPhase20(
+    (await fetch("/api/customer-portal/v1/landing", { cache: "no-store" })
+      .then((r) => r.json())
+      .catch(() => ({}))).home?.shareId || ""
+  );
+  rows.push({ path: "Phase20 customer", label: "お客様UI実運用", ...customerSep20 });
 
   const docViewer17 = await checkDocumentViewerPhase17();
   rows.push({ path: "Phase17 document-viewer", label: "PDF UI", ...docViewer17 });

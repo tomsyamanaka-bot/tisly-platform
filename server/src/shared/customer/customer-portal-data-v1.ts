@@ -19,10 +19,12 @@ import {
 import { TISLY_UI_LABELS_V1 } from "../ui-models/labels-v1.js";
 import { buildCustomerHomeStateV1 } from "./customer-home-state-v1.js";
 import { buildCustomerMonitoringDetailV1 } from "./customer-monitoring-state-v1.js";
+import { buildCustomerPropertyListItemV1 } from "./customer-property-list-v1.js";
 import { encodeCustomerShareIdV1, decodeCustomerShareIdV1 } from "./customer-share-id-v1.js";
 import {
   customerPortalDocLabelV1,
   filterCustomerPortalProjectFilesV1,
+  CUSTOMER_VISIBLE_DOC_TYPES_V1,
 } from "./customer-project-files-filter-v1.js";
 import type {
   CustomerContactV1,
@@ -82,7 +84,7 @@ function mapDocuments(
   files: ReturnType<typeof filterCustomerPortalProjectFilesV1>
 ): CustomerDocumentLinkV1[] {
   return files
-    .filter((f) => f.type.endsWith("_pdf"))
+    .filter((f) => f.type.endsWith("_pdf") && CUSTOMER_VISIBLE_DOC_TYPES_V1.has(f.type))
     .map((f) => ({
       fileId: f.fileId,
       label: customerPortalDocLabelV1(f.type, sanitizeSharePayloadTextV1(f.safeLabel || f.title)),
@@ -95,7 +97,7 @@ function defaultMaintenanceItems(ref: string): CustomerProjectViewV1["maintenanc
   return [
     { label: "点検予定", value: "次回点検は担当よりご連絡いたします" },
     { label: "保守状況", value: "正常" },
-    { label: "最終確認", value: new Date().toLocaleDateString("ja-JP") },
+    { label: "最終点検", value: new Date().toLocaleDateString("ja-JP") },
   ];
 }
 
@@ -140,28 +142,33 @@ export function buildCustomerHomeListViewV1(customerCode: string): CustomerHomeL
           status: "進行中",
         }));
 
+  const contact = defaultContact();
+
   return {
-    customerName: code === "TOMS001" ? "トムズ設備 様" : `${code} 様`,
+    customerName: code === "TOMS001" ? "トムズ設備" : `${code} 様`,
     projects: projects.map((p) => {
       const ref = "ref" in p ? String(p.ref) : refFromShareId((p as { shareId: string }).shareId);
       const shareId = shareIdFromRef(ref);
       const meta = resolveCustomerProjectMetaV1(ref);
-      return {
-        shareId,
-        propertyName: sanitizeSharePayloadTextV1(
-          "propertyName" in p ? p.propertyName : meta.displayName
-        ),
-        workDescription: sanitizeSharePayloadTextV1(
-          "workGenre" in p ? p.workGenre : meta.workType
-        ),
-        statusLabel: sanitizeSharePayloadTextV1(
-          "status" in p ? p.status : meta.status
-        ),
-        projectPageUrl: buildCustomerProjectUrlV1(shareId),
-        homePageUrl: `/customer?project=${encodeURIComponent(shareId)}`,
-      };
+      return buildCustomerPropertyListItemV1(
+        {
+          shareId,
+          propertyName: sanitizeSharePayloadTextV1(
+            "propertyName" in p ? p.propertyName : meta.displayName
+          ),
+          workDescription: sanitizeSharePayloadTextV1(
+            "workGenre" in p ? p.workGenre : meta.workType
+          ),
+          statusLabel: sanitizeSharePayloadTextV1(
+            "status" in p ? p.status : meta.status
+          ),
+          projectPageUrl: buildCustomerProjectUrlV1(shareId),
+          homePageUrl: `/customer?project=${encodeURIComponent(shareId)}`,
+        },
+        contact
+      );
     }),
-    contact: defaultContact(),
+    contact,
   };
 }
 
@@ -175,7 +182,9 @@ export function buildCustomerProjectViewV1(shareId: string): CustomerProjectView
   const meta = resolveCustomerProjectMetaV1(ref);
   if (!meta) return null;
 
-  const files = filterCustomerPortalProjectFilesV1(listCustomerProjectFilesV1(ref));
+  const files = filterCustomerPortalProjectFilesV1(listCustomerProjectFilesV1(ref), {
+    documentsOnly: true,
+  });
   const encodedShareId = shareIdFromRef(meta.ref);
 
   const explanationText =
@@ -213,7 +222,9 @@ export function buildCustomerDocumentViewV1(
   if (!project) return null;
 
   const ref = refFromShareId(shareId);
-  const files = filterCustomerPortalProjectFilesV1(listCustomerProjectFilesV1(ref));
+  const files = filterCustomerPortalProjectFilesV1(listCustomerProjectFilesV1(ref), {
+    documentsOnly: true,
+  });
   const target =
     files.find((f) => f.fileId === fileId) ??
     files.find((f) => f.type === "specification_pdf") ??

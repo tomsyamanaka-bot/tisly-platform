@@ -7,6 +7,7 @@ import {
   buildCustomerDocumentViewV1,
   buildCustomerMonitoringViewV1,
 } from "../../shared/customer/customer-portal-data-v1.js";
+import { sanitizeCustomerMonitoringApiV1 } from "../../shared/customer/customer-monitoring-state-v1.js";
 import {
   TISLY_LEGACY_REDIRECTS_V1,
   TISLY_INTERNAL_ROUTES_V1,
@@ -58,7 +59,7 @@ customerPortalV1Router.get("/monitoring/:shareId", (req, res) => {
     res.status(404).json({ status: "error", error: "監視画面が見つかりません" });
     return;
   }
-  res.json({ status: "ok", ...data });
+  res.json({ status: "ok", ...sanitizeCustomerMonitoringApiV1(data) });
 });
 
 customerPortalV1Router.get("/route-contract", (_req, res) => {

@@ -10,11 +10,23 @@ const INTERNAL_LABEL_RE =
 
 const HIDDEN_FILE_TYPES = new Set(["internal_memo", "work_memo", "admin_pdf"]);
 
+/** お客様資料ページに表示する PDF 種別のみ */
+export const CUSTOMER_VISIBLE_DOC_TYPES_V1 = new Set([
+  "specification_pdf",
+  "completion_pdf",
+  "estimate_pdf",
+  "invoice_pdf",
+]);
+
 export function filterCustomerPortalProjectFilesV1(
-  files: KnowledgeCustomerProjectFileV1[]
+  files: KnowledgeCustomerProjectFileV1[],
+  opts?: { documentsOnly?: boolean }
 ): KnowledgeCustomerProjectFileV1[] {
   return files.filter((f) => {
     if (HIDDEN_FILE_TYPES.has(f.type)) return false;
+    if (opts?.documentsOnly && f.type.endsWith("_pdf") && !CUSTOMER_VISIBLE_DOC_TYPES_V1.has(f.type)) {
+      return false;
+    }
     const label = `${f.safeLabel ?? ""} ${f.title ?? ""} ${f.category ?? ""}`;
     if (INTERNAL_LABEL_RE.test(label)) return false;
     return true;
