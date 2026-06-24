@@ -138,6 +138,11 @@ export interface CustomerPropertyListItemViewV1 {
   propertyName: string;
   workDescription: string;
   statusLabel: string;
+  systemStatusLabel: string;
+  systemStatusEmoji: string;
+  lastCheckedAt: string;
+  currentStatusLabel: string;
+  lastCheckedLabel: string;
   projectPageUrl: string;
   homePageUrl: string;
   monitoringPageUrl: string;

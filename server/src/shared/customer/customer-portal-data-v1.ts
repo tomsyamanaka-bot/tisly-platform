@@ -20,6 +20,7 @@ import { TISLY_UI_LABELS_V1 } from "../ui-models/labels-v1.js";
 import { buildCustomerHomeStateV1 } from "./customer-home-state-v1.js";
 import { buildCustomerMonitoringDetailV1 } from "./customer-monitoring-state-v1.js";
 import { buildCustomerPropertyListItemV1 } from "./customer-property-list-v1.js";
+import type { CustomerSystemStatusKeyV1 } from "./customer-labels-v1.js";
 import { buildCustomerProjectQuickActionsV1 } from "./customer-project-actions-v1.js";
 import { encodeCustomerShareIdV1, decodeCustomerShareIdV1 } from "./customer-share-id-v1.js";
 import {
@@ -151,12 +152,14 @@ export function buildCustomerHomeListViewV1(customerCode: string): CustomerHomeL
       const ref = "ref" in p ? String(p.ref) : refFromShareId((p as { shareId: string }).shareId);
       const shareId = shareIdFromRef(ref);
       const meta = resolveCustomerProjectMetaV1(ref);
+      const propertyName = sanitizeSharePayloadTextV1(
+        "propertyName" in p ? p.propertyName : meta.displayName
+      );
+      const monitoring = buildCustomerMonitoringDetailV1(shareId, propertyName, ref);
       return buildCustomerPropertyListItemV1(
         {
           shareId,
-          propertyName: sanitizeSharePayloadTextV1(
-            "propertyName" in p ? p.propertyName : meta.displayName
-          ),
+          propertyName,
           workDescription: sanitizeSharePayloadTextV1(
             "workGenre" in p ? p.workGenre : meta.workType
           ),
@@ -165,6 +168,8 @@ export function buildCustomerHomeListViewV1(customerCode: string): CustomerHomeL
           ),
           projectPageUrl: buildCustomerProjectUrlV1(shareId),
           homePageUrl: `/customer?project=${encodeURIComponent(shareId)}`,
+          systemStatusKey: monitoring.systemStatus as CustomerSystemStatusKeyV1,
+          lastCheckedIso: monitoring.lastCheckedIso,
         },
         contact
       );

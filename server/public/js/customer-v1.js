@@ -4,8 +4,11 @@ import {
   renderHomeStatus,
 } from "./customer-shared-v1.js";
 import { navigateCustomer, setCustomerReturnUrl } from "./customer-nav-v1.js";
+import { initCustomerCacheGuard } from "./customer-cache-v1.js";
 
 const main = document.getElementById("main-content");
+
+initCustomerCacheGuard().catch(() => {});
 
 async function load() {
   const params = new URLSearchParams(location.search);

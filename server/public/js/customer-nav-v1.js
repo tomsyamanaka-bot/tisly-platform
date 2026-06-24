@@ -1,4 +1,6 @@
 /* お客様ポータル共通ナビ — /app へ戻らない · customerReturnUrl 管理 */
+import { initCustomerCacheGuard } from "./customer-cache-v1.js";
+
 export const CUSTOMER_FALLBACK = "/customer";
 const RETURN_KEY = "tisly_customer_return_url_v1";
 
@@ -70,6 +72,10 @@ export function escapeHtml(s) {
 
 export function initCustomerPage() {
   const path = location.pathname;
-  if (path === "/customer" || path === "/customer/") return;
+  if (path === "/customer" || path === "/customer/") {
+    initCustomerCacheGuard().catch(() => {});
+    return;
+  }
   setCustomerReturnUrl(getCustomerReturnUrl() || CUSTOMER_FALLBACK);
+  initCustomerCacheGuard().catch(() => {});
 }

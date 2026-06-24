@@ -1,6 +1,6 @@
 # TiSLY PWA URL 契約（Route Contract）
 
-**最終更新:** 2026-06-24（Phase21）  
+**最終更新:** 2026-06-24（Phase22）  
 **ルール:** URL を変更・追加したら **必ずこのファイルを更新** し、`/route-health` で旧URLリダイレクトを確認する。
 
 ---
@@ -53,26 +53,28 @@
 
 PWA manifest: `/manifest-customer-v1.webmanifest`（`start_url: /customer` · `scope: /customer`）
 
-### お客様向け表示（Phase21）
+### お客様向け表示（Phase22）
 
 | 項目 | 内容 |
 |------|------|
 | タイトル | TiSLY お客様ページ |
 | ホーム | 物件名 · **現在の状態** · **最終確認** · 6大カードボタンのみ |
-| カード | カメラ · 警報履歴 · 通知履歴 · 書類 · 点検保守 · トムズへ連絡 |
-| 資料ページ | `/customer/project/:shareId` — 工事写真 · 書類 · 見守り · 連絡 |
-| 見守り | `/customer/monitoring/:shareId` — フロア別 · 最終検知 · 警報履歴 · 連絡 |
-| 物件一覧 | `/customer/TOMS001` — タップ誘導 · 書類/見守り/トムズへ連絡 |
-| PDF閲覧 | 戻る → **必ず** `/customer/project/:shareId`（history.back 不使用） |
+| 物件一覧 | `/customer/TOMS001` — 物件名 · 現在の状態 · 最終確認 · 書類/見守り/連絡 |
+| 資料ページ | `/customer/project/:shareId` — 工事写真 · 書類一覧 · 点検記録 · 下部バー（戻る/PDF/保存/連絡） |
+| 見守り | `/customer/monitoring/:shareId` — 外周/1階/2階 · **最終確認** · 警報履歴 · 連絡 |
+| PDF閲覧 | 戻る · PDFにする · 保存のみ（LINE非表示）→ `/customer/project/:shareId` 固定 |
+| キャッシュ | SW `v2402-phase22` · JS `customer-v1-phase22` · 古いJS時「更新してください」バナー |
 | デザイン | 白〜薄グレー背景 · カード型 · iPhone safe-area 対応 |
 
-表示しないもの: 案件管理 · 原価 · 粗利 · 材料 · 発注 · QNAP/WebDAV · projectId · 社内メモ · debug · MQTT · API URL · App Hub · route-health
+表示しないもの: 案件管理 · 原価 · 粗利 · 材料 · 発注 · QNAP/WebDAV · projectId · 社内メモ · debug · MQTT · API URL · App Hub · route-health · sensorId · deviceId · topic · JSON
 
-禁止語（DOM）: MQTT · WS · QNAP · Mock · Gmail mock · PDF puppeteer · App Hub · 管理 · Map Editor · 施工 · 保守PWA · 顧客コード · customerCode · shareId · projectId · API · debug · route-health · PRO Remote · portal · remote · mock · sync · dashboard · technical
+禁止語（DOM）: MQTT · WS · QNAP · Mock · Gmail mock · PDF puppeteer · App Hub · 管理 · Map Editor · 施工 · 保守PWA · 顧客コード · customerCode · shareId · projectId · API · debug · route-health · PRO Remote · portal · remote · mock · sync · dashboard · technical · 原価 · 粗利 · 社内メモ · deviceId · mqtt · topic · JSON
 
-監視API非返却: device · sensorId · topic · mqtt · statusCode
+監視API非返却: device · sensorId · topic · mqtt · statusCode · deviceId
 
-戻る制御: PDF閲覧は `/customer/project/:shareId` 固定 · その他は `customerReturnUrl`（/customer 内のみ）
+戻る制御: PDF閲覧は `/customer/project/:shareId` 固定 · history.back **禁止** · その他は `customerReturnUrl`（/customer 内のみ）
+
+route-health Phase22: 全customerルート200 · 禁止語0 · /appリンク0 · LINE0 · SW/JS version表示
 
 ---
 

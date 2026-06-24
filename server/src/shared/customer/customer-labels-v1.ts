@@ -58,6 +58,13 @@ export const CUSTOMER_FORBIDDEN_WORDS_V1 = [
   "customer code",
   "dashboard",
   "technical",
+  "原価",
+  "粗利",
+  "社内メモ",
+  "deviceId",
+  "mqtt",
+  "topic",
+  "JSON",
 ] as const;
 
 export const CUSTOMER_PAGE_TITLE_V1 = "TiSLY お客様ページ";
@@ -75,7 +82,7 @@ export const CUSTOMER_HOME_LABELS_V1 = {
 export const CUSTOMER_MONITORING_LABELS_V1 = {
   pageTitle: "見守り",
   sensorStatus: "センサー状態",
-  lastDetection: "最終検知",
+  lastDetection: "最終確認",
   alertHistory: "警報履歴",
   notificationHistory: "通知履歴",
   allClear: "現在異常はありません",
@@ -84,9 +91,9 @@ export const CUSTOMER_MONITORING_LABELS_V1 = {
 /** 資料ページセクション見出し */
 export const CUSTOMER_PROJECT_LABELS_V1 = {
   pageTitle: "資料",
-  documents: "書類を見る",
+  documents: "書類一覧",
   photos: "工事写真",
-  inspectionRecords: "点検・保守情報",
+  inspectionRecords: "点検記録",
   workName: "工事名",
 } as const;
 

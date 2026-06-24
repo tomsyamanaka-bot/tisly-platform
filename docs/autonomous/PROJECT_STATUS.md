@@ -834,6 +834,24 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | SW | `tisly-pwa-v2401-phase21` |
 | 確認 | `/customer` · `/customer/TOMS001` · `/route-health` · https://tisly.jp/api/health |
 
+### 実運用 Phase22 — お客様UI iPhone Safari 最終確認（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | **本番 iPhone Safari でお客様UI最終確認** — 見た目 · 文言 · 導線 · 古いキャッシュ対策 |
+| Phase22-1 ホーム | `/customer` — 白〜薄グレー · カード視認性 · 社内語非表示 |
+| Phase22-2 物件一覧 | `/customer/TOMS001` — 物件名 · 現在の状態 · 最終確認 · 3大ボタン |
+| Phase22-3 資料 | `/customer/project/:shareId` — 工事写真 · 書類一覧 · 点検記録 · 下部バー |
+| Phase22-4 PDF | `/customer/document/:shareId` — 戻る/PDF/保存 · LINE非表示 · project固定戻り |
+| Phase22-5 見守り | `/customer/monitoring/:shareId` — 外周/1階/2階 · 最終確認 · 技術語非表示 |
+| Phase22-6 キャッシュ | SW v2402-phase22 · network-first · 更新バナー · cache clear |
+| Phase22-7 shared | `customer-cache-v1` · `customer-document-actions-v1` · ラベル集約 |
+| Phase22-8 route-health | Phase22 診断 · SW/JS version 表示 |
+| Phase22-9 テスト | `customer-portal-v1.test.ts` · `operational-phase22-v1.test.ts` |
+| SW | `tisly-pwa-v2402-phase22` |
+| JS | `customer-v1-phase22` |
+| 確認 | `/customer` · `/customer/TOMS001` · `/route-health` · https://tisly.jp/api/health |
+
 ---
 
 - [CURSOR_SELF_DRIVE_RULES.md](./CURSOR_SELF_DRIVE_RULES.md) — 自走時の行動規範

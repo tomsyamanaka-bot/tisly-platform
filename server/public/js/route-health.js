@@ -54,13 +54,15 @@ const JS_ASSETS = [
 const ESTIMATE_UI_VERSION = "estimate-ui-v8";
 const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v5";
 const PHASE9_JS_VERSION = "phase9-iphone-v1";
-const SW_CACHE_TOKEN = "v2401-phase21";
+const SW_CACHE_TOKEN = "v2402-phase22";
+const CUSTOMER_JS_VERSION = "customer-v1-phase22";
 
 const CUSTOMER_FORBIDDEN_WORDS = [
   "MQTT", "WS", "QNAP", "Mock", "Gmail mock", "PDF puppeteer", "App Hub",
   "管理", "Map Editor", "施工", "保守PWA", "顧客コード", "customerCode", "shareId",
   "projectId", "API", "route-health", "PRO Remote", "dashboard", "technical",
-  "見積作成", "粗利", "portal", "remote", "mock", "sync",
+  "見積作成", "粗利", "原価", "社内メモ", "portal", "remote", "mock", "sync",
+  "deviceId", "mqtt", "topic", "JSON",
 ];
 
 const CUSTOMER_ROUTES = [
@@ -358,6 +360,119 @@ async function checkPdfMetaUnderline() {
   }
 }
 
+async function checkCustomerSeparationPhase22(shareId) {
+  try {
+    const paths = [
+      "/customer",
+      "/customer/TOMS001",
+      `/customer/project/${shareId}`,
+      `/customer/document/${shareId}`,
+      `/customer/monitoring/${shareId}`,
+    ];
+    const [
+      pages,
+      manifestRes,
+      docJsRes,
+      projectJsRes,
+      sharedJsRes,
+      cacheJsRes,
+      swRes,
+      cssRes,
+      homeJsRes,
+      monJsRes,
+    ] = await Promise.all([
+      Promise.all(paths.map((p) => fetch(p, { cache: "no-store" }).then((r) => ({ p, ok: r.ok, text: r.text() })))),
+      fetch("/manifest-customer-v1.webmanifest", { cache: "no-store" }),
+      fetch("/js/customer-document-v1.js", { cache: "no-store" }),
+      fetch("/js/customer-project-v1.js", { cache: "no-store" }),
+      fetch("/js/customer-shared-v1.js", { cache: "no-store" }),
+      fetch(`/js/customer-cache-v1.js?v=${CUSTOMER_JS_VERSION}`, { cache: "no-store" }),
+      fetch("/service-worker.js", { cache: "no-store" }),
+      fetch("/css/customer-v1.css", { cache: "no-store" }),
+      fetch("/js/customer-home-v1.js", { cache: "no-store" }),
+      fetch("/js/customer-monitoring-v1.js", { cache: "no-store" }),
+    ]);
+
+    const pageResults = await Promise.all(
+      pages.map(async ({ p, ok, text }) => ({ p, ok, html: await text }))
+    );
+
+    const all200 = pageResults.every((r) => r.ok);
+    const noAppLinks = pageResults.every((r) => !r.html.includes('href="/app"'));
+    const noForbidden = pageResults.every((r) =>
+      CUSTOMER_FORBIDDEN_WORDS.every((w) => !r.html.includes(w))
+    );
+
+    const manifest = await manifestRes.json().catch(() => ({}));
+    const docJs = await docJsRes.text();
+    const projectJs = await projectJsRes.text();
+    const sharedJs = await sharedJsRes.text();
+    const cacheJs = await cacheJsRes.text();
+    const swText = await swRes.text();
+    const cssText = await cssRes.text();
+    const homeJs = await homeJsRes.text();
+    const monJs = await monJsRes.text();
+
+    const startUrlOk = manifest.start_url === "/customer";
+    const swOk = swText.includes(SW_CACHE_TOKEN);
+    const jsOk = cacheJs.includes(CUSTOMER_JS_VERSION) && sharedJs.includes(CUSTOMER_JS_VERSION);
+    const docBackOk =
+      docJs.includes("/customer/project/") &&
+      !docJs.includes("history.back") &&
+      !docJs.includes("LINE");
+    const noHistoryBack =
+      !docJs.includes("history.back") &&
+      !projectJs.includes("history.back") &&
+      !homeJs.includes("history.back") &&
+      !monJs.includes("history.back");
+    const noLine =
+      !docJs.includes("LINE") &&
+      !projectJs.includes("LINE") &&
+      !sharedJs.includes("LINE");
+    const tomsHtml = pageResults.find((r) => r.p === "/customer/TOMS001")?.html ?? "";
+    const tomsOk =
+      tomsHtml.includes("customer-v1-phase22") || tomsHtml.includes("customer-home-v1");
+    const propertyOk =
+      sharedJs.includes("最終確認") &&
+      sharedJs.includes("現在の状態") &&
+      sharedJs.includes("書類を見る");
+    const projectOk =
+      projectJs.includes("CUSTOMER_DOCUMENT_ACTIONS.pdfView") && sharedJs.includes("点検記録");
+    const cacheOk = cacheJs.includes("performCustomerCacheRefresh") && swText.includes("isCustomerFreshAsset");
+    const lightThemeOk = cssText.includes("--cv-bg: #f8fafc");
+    const networkFirstOk = swText.includes("isCustomerFreshAsset");
+
+    if (
+      all200 &&
+      noAppLinks &&
+      noForbidden &&
+      startUrlOk &&
+      docBackOk &&
+      noHistoryBack &&
+      noLine &&
+      tomsOk &&
+      propertyOk &&
+      projectOk &&
+      cacheOk &&
+      swOk &&
+      jsOk &&
+      lightThemeOk &&
+      networkFirstOk
+    ) {
+      return {
+        status: "ok",
+        detail: `Phase22 OK · SW ${SW_CACHE_TOKEN} · JS ${CUSTOMER_JS_VERSION} · 禁止語0 · /app分離0`,
+      };
+    }
+    return {
+      status: "warn",
+      detail: `200:${all200} forbid:${noForbidden} app:${noAppLinks} sw:${swOk} js:${jsOk} cache:${cacheOk} proj:${projectOk}`,
+    };
+  } catch (e) {
+    return { status: "fail", detail: e.message || String(e) };
+  }
+}
+
 async function checkCustomerSeparationPhase21(shareId) {
   try {
     const paths = [
@@ -571,6 +686,7 @@ function renderPhase18Manifest(healthDetail, swInfo, contractData) {
   const rows = [
     { label: "Commit Short", value: healthDetail.commitShort || "—" },
     { label: "SW Version", value: swInfo.swVersion || "—" },
+    { label: "Customer JS Version", value: swInfo.customerJsVersion || CUSTOMER_JS_VERSION },
     { label: "/app ゾーン", value: "社内専用" },
     { label: "/customer ゾーン", value: "お客様専用（PWA start_url）" },
     { label: "分離状態", value: contractData?.separation?.crossNavigationBlocked ? "分離済み" : "要確認" },
@@ -612,6 +728,7 @@ function renderPhase17Manifest(healthDetail, swInfo) {
     { label: "JS Version (estimate)", value: ESTIMATE_UI_VERSION },
     { label: "JS Version (drawing)", value: SURVEY_DRAWING_UI_VERSION },
     { label: "SW Version", value: swInfo.swVersion || "—" },
+    { label: "Customer JS Version", value: swInfo.customerJsVersion || CUSTOMER_JS_VERSION },
     { label: "Cache Name", value: cacheNames },
     { label: "現行URL数", value: String(PAGE_ROUTES.length) },
     { label: "旧URL診断数", value: String(LEGACY_REDIRECTS.length) },
@@ -637,13 +754,22 @@ async function gatherPhase17Health() {
 
 async function gatherSwInfo() {
   const swVersion = await readServiceWorkerVersion();
+  let customerJsVersion = CUSTOMER_JS_VERSION;
+  try {
+    const res = await fetch(`/js/customer-cache-v1.js?v=${CUSTOMER_JS_VERSION}`, { cache: "no-store" });
+    const text = await res.text();
+    const match = text.match(/customer-v1-phase\d+/);
+    if (match) customerJsVersion = match[0];
+  } catch {
+    /* ignore */
+  }
   let cacheNames = [];
   try {
     if ("caches" in window) cacheNames = await caches.keys();
   } catch {
     /* ignore */
   }
-  return { swVersion, cacheNames };
+  return { swVersion, customerJsVersion, cacheNames };
 }
 
 async function checkDrawingDirectLaunch() {
@@ -1314,6 +1440,13 @@ async function runChecks() {
       .catch(() => ({}))).home?.shareId || ""
   );
   rows.push({ path: "Phase21 customer", label: "お客様UI最終版", ...customerSep21 });
+
+  const customerSep22 = await checkCustomerSeparationPhase22(
+    (await fetch("/api/customer-portal/v1/landing", { cache: "no-store" })
+      .then((r) => r.json())
+      .catch(() => ({}))).home?.shareId || ""
+  );
+  rows.push({ path: "Phase22 customer", label: "お客様UI iPhone最終確認", ...customerSep22 });
 
   const docViewer17 = await checkDocumentViewerPhase17();
   rows.push({ path: "Phase17 document-viewer", label: "PDF UI", ...docViewer17 });

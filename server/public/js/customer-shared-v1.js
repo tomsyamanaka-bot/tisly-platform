@@ -1,7 +1,10 @@
+// @tisly-customer-js-version customer-v1-phase22
 /**
  * お客様 UI 描画ロジック — DOM 操作を集約（React Native 移植時は差し替え）
  * 文言は server/src/shared/customer/customer-labels-v1.ts と同期
  */
+
+export const CUSTOMER_JS_VERSION = "customer-v1-phase22";
 
 export const CUSTOMER_HOME_LABELS = {
   currentStatus: "現在の状態",
@@ -10,20 +13,26 @@ export const CUSTOMER_HOME_LABELS = {
 
 export const CUSTOMER_MONITORING_LABELS = {
   pageTitle: "見守り",
-  lastDetection: "最終検知",
+  lastDetection: "最終確認",
   alertHistory: "警報履歴",
   allClear: "現在異常はありません",
 };
 
 export const CUSTOMER_PROJECT_LABELS = {
-  documents: "書類を見る",
+  documents: "書類一覧",
   photos: "工事写真",
-  inspectionRecords: "点検・保守情報",
+  inspectionRecords: "点検記録",
   workName: "工事名",
 };
 
+export const CUSTOMER_DOCUMENT_ACTIONS = {
+  back: "戻る",
+  pdf: "PDFにする",
+  pdfView: "PDFを見る",
+  save: "保存",
+};
+
 export const CUSTOMER_CONTACT_LABEL = "トムズへ連絡";
-export const CUSTOMER_PROPERTY_TAP_HINT = "▶ タップして詳細を見る";
 
 export function escapeHtml(s) {
   return String(s ?? "")
@@ -79,15 +88,18 @@ export function renderPropertyList(projects) {
         )
         .join("");
       const mainHref = p.projectPageUrl || p.documentsPageUrl || "#";
+      const statusLabel = p.currentStatusLabel || CUSTOMER_HOME_LABELS.currentStatus;
+      const lastLabel = p.lastCheckedLabel || CUSTOMER_HOME_LABELS.lastChecked;
+      const systemLabel = p.systemStatusLabel || p.statusLabel || "正常";
+      const systemEmoji = p.systemStatusEmoji || "🟢";
+      const lastChecked = p.lastCheckedAt || "—";
       return `
         <article class="cv-property-card">
           <a class="cv-property-card-main" href="${escapeHtml(mainHref)}" data-customer-nav>
-            <div class="cv-property-head">
-              <h3 class="cv-property-name">${escapeHtml(p.propertyName)}</h3>
-              <span class="cv-property-status">${escapeHtml(p.statusLabel)}</span>
-            </div>
-            <p class="cv-property-work">${escapeHtml(p.workDescription)}</p>
-            <p class="cv-tap-hint">${escapeHtml(CUSTOMER_PROPERTY_TAP_HINT)}</p>
+            <h3 class="cv-property-name">${escapeHtml(p.propertyName)}</h3>
+            <p class="cv-section-label">${escapeHtml(statusLabel)}</p>
+            <p class="cv-status-inline">${escapeHtml(systemEmoji)} ${escapeHtml(systemLabel)}</p>
+            <p class="cv-last-checked">${escapeHtml(lastLabel)}：${escapeHtml(lastChecked)}</p>
           </a>
           <div class="cv-action-row">${actions}</div>
         </article>`;

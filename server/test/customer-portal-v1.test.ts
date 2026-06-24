@@ -150,10 +150,11 @@ describe("Customer Portal V1 — assets", () => {
     assert.match(js, /\/customer\/project\//);
   });
 
-  it("service worker bumped to v2401-phase21", () => {
+  it("service worker bumped to v2402-phase22", () => {
     const sw = fs.readFileSync(path.join(publicDir, "service-worker.js"), "utf-8");
-    assert.match(sw, /v2401-phase21/);
-    assert.match(sw, /customer-shared-v1\.js/);
+    assert.match(sw, /v2402-phase22/);
+    assert.match(sw, /customer-cache-v1\.js/);
+    assert.match(sw, /isCustomerFreshAsset/);
   });
 
   it("shared customer modules exist", () => {
@@ -184,7 +185,7 @@ describe("Customer Portal V1 — Phase20 production polish", () => {
     assert.equal(res.body.pageTitle, "見守り");
     assert.equal(res.body.emptyMessage, "現在異常はありません");
     assert.equal(res.body.sensorStatusLabel, "センサー状態");
-    assert.equal(res.body.lastDetectionLabel, "最終検知");
+    assert.equal(res.body.lastDetectionLabel, "最終確認");
     const json = JSON.stringify(res.body);
     assert.doesNotMatch(json, /deviceId|sensorId|topic|mqtt|statusCode/i);
   });
@@ -215,6 +216,31 @@ describe("Customer Portal V1 — Phase20 production polish", () => {
   });
 });
 
+describe("Customer Portal V1 — Phase22 iPhone polish", () => {
+  it("customer HTML references phase22 assets", async () => {
+    const res = await request(app).get("/customer");
+    assert.match(res.text, /customer-v1-phase22/);
+    assert.match(res.text, /tisly-customer-js-version/);
+  });
+
+  it("project page labels use 書類一覧 and 点検記録", () => {
+    const js = fs.readFileSync(path.join(publicDir, "js/customer-shared-v1.js"), "utf-8");
+    assert.match(js, /書類一覧/);
+    assert.match(js, /点検記録/);
+  });
+
+  it("customer-cache-v1.js exists with update banner", () => {
+    const js = fs.readFileSync(path.join(publicDir, "js/customer-cache-v1.js"), "utf-8");
+    assert.match(js, /更新してください/);
+    assert.match(js, /customer-v1-phase22/);
+  });
+
+  it("shared customer-cache module exists", () => {
+    assert.ok(fs.existsSync(path.join(process.cwd(), "src/shared/customer/customer-cache-v1.ts")));
+    assert.ok(fs.existsSync(path.join(process.cwd(), "src/shared/customer/customer-document-actions-v1.ts")));
+  });
+});
+
 describe("Customer Portal V1 — Phase21 final polish", () => {
   it("project API includes quick actions", async () => {
     const res = await request(app).get(`/api/customer-portal/v1/project/${DEMO_SHARE}`);
@@ -241,11 +267,13 @@ describe("Customer Portal V1 — Phase21 final polish", () => {
     assert.match(css, /safe-area-inset-bottom/);
   });
 
-  it("customer-shared has property tap hint", () => {
+  it("customer-shared has property status fields", () => {
     const js = fs.readFileSync(path.join(publicDir, "js/customer-shared-v1.js"), "utf-8");
     assert.match(js, /cv-property-card-main/);
-    assert.match(js, /cv-tap-hint/);
+    assert.match(js, /最終確認/);
+    assert.match(js, /現在の状態/);
     assert.match(js, /トムズへ連絡/);
+    assert.match(js, /customer-v1-phase22/);
   });
 
   it("shared customer-project-actions module exists", () => {

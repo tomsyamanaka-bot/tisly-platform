@@ -7,7 +7,14 @@ import {
   buildCustomerProjectUrlV1,
 } from "../routes/tisly-routes-v1.js";
 import type { CustomerContactV1 } from "./customer-view-model-v1.js";
-import { CUSTOMER_CONTACT_LABEL_V1, CUSTOMER_PROPERTY_TAP_HINT_V1 } from "./customer-labels-v1.js";
+import {
+  CUSTOMER_CONTACT_LABEL_V1,
+  CUSTOMER_HOME_LABELS_V1,
+  CUSTOMER_PROPERTY_TAP_HINT_V1,
+  CUSTOMER_SYSTEM_STATUS_V1,
+  formatCustomerLastCheckedV1,
+  type CustomerSystemStatusKeyV1,
+} from "./customer-labels-v1.js";
 
 export { CUSTOMER_PROPERTY_TAP_HINT_V1 };
 
@@ -24,6 +31,11 @@ export interface CustomerPropertyListItemV1 {
   propertyName: string;
   workDescription: string;
   statusLabel: string;
+  systemStatusLabel: string;
+  systemStatusEmoji: string;
+  lastCheckedAt: string;
+  currentStatusLabel: string;
+  lastCheckedLabel: string;
   projectPageUrl: string;
   homePageUrl: string;
   monitoringPageUrl: string;
@@ -45,6 +57,8 @@ export function buildCustomerPropertyListItemV1(
     statusLabel: string;
     projectPageUrl: string;
     homePageUrl: string;
+    systemStatusKey?: CustomerSystemStatusKeyV1;
+    lastCheckedIso?: string | null;
   },
   contact: CustomerContactV1
 ): CustomerPropertyListItemV1 {
@@ -61,8 +75,16 @@ export function buildCustomerPropertyListItemV1(
     contact: telHref || projectPageUrl,
   };
 
+  const systemKey = project.systemStatusKey ?? "normal";
+  const system = CUSTOMER_SYSTEM_STATUS_V1[systemKey];
+
   return {
     ...project,
+    systemStatusLabel: system.label,
+    systemStatusEmoji: system.emoji,
+    lastCheckedAt: formatCustomerLastCheckedV1(project.lastCheckedIso),
+    currentStatusLabel: CUSTOMER_HOME_LABELS_V1.currentStatus,
+    lastCheckedLabel: CUSTOMER_HOME_LABELS_V1.lastChecked,
     projectPageUrl,
     monitoringPageUrl,
     documentsPageUrl,

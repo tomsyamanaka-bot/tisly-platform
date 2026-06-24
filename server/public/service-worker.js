@@ -1,7 +1,7 @@
 /* TiSLY Multi PWA — Phase18 URL/customer separation + RN-ready shared logic */
-const SW_VERSION = "tisly-pwa-v2401-phase21";
-const OFFLINE_CACHE = "tisly-pwa-shell-v2401-phase21";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2401-phase21";
+const SW_VERSION = "tisly-pwa-v2402-phase22";
+const OFFLINE_CACHE = "tisly-pwa-shell-v2402-phase22";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2402-phase22";
 const ICON_V = "?v=2003";
 const SHELL_URLS = [
   "/customer-portal.html",
@@ -94,6 +94,7 @@ const SHELL_URLS = [
   "/js/customer-monitoring-v1.js",
   "/js/customer-nav-v1.js",
   "/js/customer-shared-v1.js",
+  "/js/customer-cache-v1.js",
   "/css/customer-v1.css",
   "/manifest-customer-v1.webmanifest",
   "/js/tisly-practical-nav.js?v=practical-nav-v2",
@@ -186,11 +187,38 @@ function isShellPath(pathname) {
   );
 }
 
+/** Phase22 — お客様 HTML/JS/CSS は常にネットワーク優先 */
+function isCustomerFreshAsset(pathname) {
+  return (
+    pathname === "/customer" ||
+    pathname.startsWith("/customer/") ||
+    pathname.startsWith("/js/customer-") ||
+    pathname === "/css/customer-v1.css" ||
+    pathname === "/manifest-customer-v1.webmanifest"
+  );
+}
+
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith("/api/")) return;
   if (event.request.method !== "GET") return;
+
+  if (isCustomerFreshAsset(url.pathname)) {
+    event.respondWith(
+      fetch(event.request)
+        .then((res) => {
+          if (res.ok && isShellPath(url.pathname)) {
+            const clone = res.clone();
+            caches.open(OFFLINE_CACHE).then((c) => c.put(event.request, clone));
+          }
+          return res;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
   const isHubOrProject =
     url.pathname.startsWith("/app") ||
     url.pathname.startsWith("/project/") ||
