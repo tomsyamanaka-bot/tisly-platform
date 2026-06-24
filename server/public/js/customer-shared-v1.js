@@ -1,10 +1,10 @@
-// @tisly-customer-js-version customer-v1-phase22
+// @tisly-customer-js-version customer-v1-phase23
 /**
  * お客様 UI 描画ロジック — DOM 操作を集約（React Native 移植時は差し替え）
  * 文言は server/src/shared/customer/customer-labels-v1.ts と同期
  */
 
-export const CUSTOMER_JS_VERSION = "customer-v1-phase22";
+export const CUSTOMER_JS_VERSION = "customer-v1-phase23";
 
 export const CUSTOMER_HOME_LABELS = {
   currentStatus: "現在の状態",
@@ -231,13 +231,29 @@ export function renderMonitoringLogs(logs) {
   `;
 }
 
-export function renderMonitoringContactBar(contactTelHref, contactLabel) {
-  if (!contactTelHref) return "";
+export function renderContactActionsBar(contactActions, fallbackTelHref, fallbackLabel) {
+  const actions = contactActions?.length
+    ? contactActions
+    : fallbackTelHref
+      ? [{ id: "phone", emoji: "📞", label: fallbackLabel || CUSTOMER_CONTACT_LABEL, href: fallbackTelHref }]
+      : [];
+  if (!actions.length) return "";
   return `
-    <a class="cv-btn cv-contact-bar" href="${escapeHtml(contactTelHref)}" data-tel-action="1">
-      📞 ${escapeHtml(contactLabel || CUSTOMER_CONTACT_LABEL)}
-    </a>
+    <div class="cv-contact-actions">
+      ${actions
+        .map(
+          (a) =>
+            `<a class="cv-btn cv-contact-action" href="${escapeHtml(a.href)}" data-customer-nav ${
+              a.id === "phone" || a.href.startsWith("tel:") ? 'data-tel-action="1"' : ""
+            }>${escapeHtml(a.emoji)} ${escapeHtml(a.label)}</a>`
+        )
+        .join("")}
+    </div>
   `;
+}
+
+export function renderMonitoringContactBar(contactTelHref, contactLabel, contactActions) {
+  return renderContactActionsBar(contactActions, contactTelHref, contactLabel);
 }
 
 export function bindCustomerNavLinks() {

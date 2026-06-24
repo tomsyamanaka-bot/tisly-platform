@@ -2,6 +2,8 @@
  * お客様ポータル表示用データ構造 — API レスポンス専用（内部情報非含有）
  */
 
+import type { CustomerContactActionV1 } from "./customer-contact-settings-v1.js";
+
 export interface CustomerSitePhotoV1 {
   photoId: string;
   title: string;
@@ -106,6 +108,7 @@ export interface CustomerMonitoringViewV1 {
   pageTitle: string;
   contactTelHref?: string;
   contactLabel?: string;
+  contactActions?: CustomerContactActionV1[];
 }
 
 export interface CustomerMaintenanceItemV1 {
@@ -124,6 +127,7 @@ export interface CustomerProjectViewV1 {
   customerExplanation?: string;
   monitoringUrl?: string;
   contact: CustomerContactV1;
+  contactActions?: CustomerContactActionV1[];
   quickActions?: Array<{
     id: string;
     emoji: string;
@@ -148,6 +152,7 @@ export interface CustomerPropertyListItemViewV1 {
   monitoringPageUrl: string;
   documentsPageUrl: string;
   contactTelHref: string;
+  contactActions?: CustomerContactActionV1[];
   actions: Array<{
     id: string;
     emoji: string;
@@ -160,6 +165,7 @@ export interface CustomerHomeListViewV1 {
   customerName: string;
   projects: CustomerPropertyListItemViewV1[];
   contact: CustomerContactV1;
+  contactActions?: CustomerContactActionV1[];
 }
 
 export interface CustomerPortalLandingV1 {

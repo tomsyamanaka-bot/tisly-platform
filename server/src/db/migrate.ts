@@ -240,6 +240,7 @@ export function runMigrations(database: Database.Database): void {
   migrateSpecPhotoSlotsV1(database);
   migrateSpecPhotoTemplateMetaV1(database);
   migrateKnowledgePhotoMetaV1(database);
+  migrateCustomerPortalMasterPhase23V1(database);
 }
 
 /** 現調図面 v1 — 方眼紙写真 + 描画レイヤー */
@@ -4695,4 +4696,104 @@ function migrateKnowledgePhotoMetaV1(database: Database.Database): void {
       `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
     )
     .run("migration:knowledge_photo_meta_v1", JSON.stringify({ at: new Date().toISOString() }));
+}
+
+/** Phase23 — Customer Master / Property Master / customer-files PDF 統合 */
+function migrateCustomerPortalMasterPhase23V1(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:customer_portal_master_phase23_v1") as { value_json: string } | undefined;
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS customer_portal_master (
+      customer_code TEXT PRIMARY KEY,
+      customer_name TEXT NOT NULL,
+      address TEXT DEFAULT '',
+      contact_name TEXT DEFAULT '',
+      contact_phone TEXT DEFAULT '',
+      contact_email TEXT DEFAULT '',
+      plan TEXT DEFAULT 'PRO_REMOTE',
+      status TEXT DEFAULT 'active',
+      business_customer_id TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS customer_portal_properties (
+      property_id TEXT PRIMARY KEY,
+      customer_code TEXT NOT NULL,
+      property_name TEXT NOT NULL,
+      address TEXT DEFAULT '',
+      project_ref TEXT,
+      installed_date TEXT,
+      next_inspection_date TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_cpp_customer ON customer_portal_properties(customer_code);
+    CREATE INDEX IF NOT EXISTS idx_cpp_project_ref ON customer_portal_properties(project_ref);
+    CREATE TABLE IF NOT EXISTS customer_portal_documents (
+      id TEXT PRIMARY KEY,
+      customer_code TEXT NOT NULL,
+      property_id TEXT,
+      project_ref TEXT NOT NULL,
+      doc_type TEXT NOT NULL,
+      file_name TEXT NOT NULL,
+      relative_path TEXT NOT NULL,
+      label TEXT DEFAULT '',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_cpd_project_ref ON customer_portal_documents(project_ref);
+    CREATE TABLE IF NOT EXISTS customer_contact_settings (
+      customer_code TEXT PRIMARY KEY,
+      phone_enabled INTEGER NOT NULL DEFAULT 1,
+      email_enabled INTEGER NOT NULL DEFAULT 1,
+      form_enabled INTEGER NOT NULL DEFAULT 1,
+      form_url TEXT DEFAULT 'https://toms.co.jp/contact',
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+  `);
+
+  if (marker) return;
+
+  const now = new Date().toISOString();
+  database
+    .prepare(
+      `INSERT OR IGNORE INTO customer_portal_master
+       (customer_code, customer_name, address, contact_name, contact_phone, contact_email, plan, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .run("TOMS001", "トムズ設備デモ", "守谷市", "山中様", "048-594-7077", "info@toms.co.jp", "PRO_REMOTE", "active", now, now);
+
+  database
+    .prepare(
+      `INSERT OR IGNORE INTO customer_portal_properties
+       (property_id, customer_code, property_name, address, project_ref, installed_date, next_inspection_date, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .run(
+      "PROP-DEMOHOME001",
+      "TOMS001",
+      "デモ戸建て防犯",
+      "守谷市",
+      "DEMO-HOME-001",
+      null,
+      null,
+      now,
+      now
+    );
+
+  database
+    .prepare(
+      `INSERT OR IGNORE INTO customer_contact_settings
+       (customer_code, phone_enabled, email_enabled, form_enabled, form_url, updated_at)
+       VALUES (?, 1, 1, 1, ?, ?)`
+    )
+    .run("TOMS001", "https://toms.co.jp/contact", now);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:customer_portal_master_phase23_v1", JSON.stringify({ at: now }));
 }

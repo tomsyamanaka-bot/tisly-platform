@@ -150,9 +150,9 @@ describe("Customer Portal V1 — assets", () => {
     assert.match(js, /\/customer\/project\//);
   });
 
-  it("service worker bumped to v2402-phase22", () => {
+  it("service worker bumped to v2403-phase23", () => {
     const sw = fs.readFileSync(path.join(publicDir, "service-worker.js"), "utf-8");
-    assert.match(sw, /v2402-phase22/);
+    assert.match(sw, /v2403-phase23/);
     assert.match(sw, /customer-cache-v1\.js/);
     assert.match(sw, /isCustomerFreshAsset/);
   });
@@ -169,7 +169,7 @@ describe("Customer Portal V1 — Phase20 production polish", () => {
   it("TOMS001 list API returns property actions", async () => {
     const res = await request(app).get("/api/customer-portal/v1/home/TOMS001");
     assert.equal(res.status, 200);
-    assert.equal(res.body.customerName, "トムズ設備");
+    assert.equal(res.body.customerName, "トムズ設備デモ");
     assert.ok(Array.isArray(res.body.projects));
     assert.ok(res.body.projects.length >= 1);
     const first = res.body.projects[0];
@@ -216,10 +216,38 @@ describe("Customer Portal V1 — Phase20 production polish", () => {
   });
 });
 
+describe("Customer Portal V1 — Phase23 master integration", () => {
+  it("stats API returns master metrics", async () => {
+    const res = await request(app).get("/api/customer-portal/v1/stats");
+    assert.equal(res.status, 200);
+    assert.ok(res.body.customerMasterCount >= 1);
+    assert.ok(res.body.propertyCount >= 1);
+    assert.equal(res.body.apiStatus, "ok");
+  });
+
+  it("home API includes phone email form contact actions", async () => {
+    const res = await request(app).get("/api/customer-portal/v1/home/TOMS001");
+    assert.equal(res.status, 200);
+    assert.ok(res.body.contactActions?.some((a: { id: string }) => a.id === "phone"));
+    assert.ok(res.body.contactActions?.some((a: { id: string }) => a.id === "email"));
+    assert.ok(res.body.contactActions?.some((a: { id: string }) => a.id === "form"));
+  });
+
+  it("customer HTML references phase23 assets", async () => {
+    const res = await request(app).get("/customer");
+    assert.match(res.text, /customer-v1-phase23/);
+  });
+
+  it("shared customer master modules exist", () => {
+    assert.ok(fs.existsSync(path.join(process.cwd(), "src/shared/customer/customer-master-v1.ts")));
+    assert.ok(fs.existsSync(path.join(process.cwd(), "src/shared/customer/customer-data-service-v1.ts")));
+  });
+});
+
 describe("Customer Portal V1 — Phase22 iPhone polish", () => {
   it("customer HTML references phase22 assets", async () => {
     const res = await request(app).get("/customer");
-    assert.match(res.text, /customer-v1-phase22/);
+    assert.match(res.text, /customer-v1-phase23/);
     assert.match(res.text, /tisly-customer-js-version/);
   });
 
@@ -232,7 +260,7 @@ describe("Customer Portal V1 — Phase22 iPhone polish", () => {
   it("customer-cache-v1.js exists with update banner", () => {
     const js = fs.readFileSync(path.join(publicDir, "js/customer-cache-v1.js"), "utf-8");
     assert.match(js, /更新してください/);
-    assert.match(js, /customer-v1-phase22/);
+    assert.match(js, /customer-v1-phase23/);
   });
 
   it("shared customer-cache module exists", () => {
@@ -273,7 +301,7 @@ describe("Customer Portal V1 — Phase21 final polish", () => {
     assert.match(js, /最終確認/);
     assert.match(js, /現在の状態/);
     assert.match(js, /トムズへ連絡/);
-    assert.match(js, /customer-v1-phase22/);
+    assert.match(js, /customer-v1-phase23/);
   });
 
   it("shared customer-project-actions module exists", () => {

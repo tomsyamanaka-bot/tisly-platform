@@ -54,8 +54,8 @@ const JS_ASSETS = [
 const ESTIMATE_UI_VERSION = "estimate-ui-v8";
 const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v5";
 const PHASE9_JS_VERSION = "phase9-iphone-v1";
-const SW_CACHE_TOKEN = "v2402-phase22";
-const CUSTOMER_JS_VERSION = "customer-v1-phase22";
+const SW_CACHE_TOKEN = "v2403-phase23";
+const CUSTOMER_JS_VERSION = "customer-v1-phase23";
 
 const CUSTOMER_FORBIDDEN_WORDS = [
   "MQTT", "WS", "QNAP", "Mock", "Gmail mock", "PDF puppeteer", "App Hub",
@@ -431,7 +431,7 @@ async function checkCustomerSeparationPhase22(shareId) {
       !sharedJs.includes("LINE");
     const tomsHtml = pageResults.find((r) => r.p === "/customer/TOMS001")?.html ?? "";
     const tomsOk =
-      tomsHtml.includes("customer-v1-phase22") || tomsHtml.includes("customer-home-v1");
+      tomsHtml.includes("customer-v1-phase23") || tomsHtml.includes("customer-home-v1");
     const propertyOk =
       sharedJs.includes("最終確認") &&
       sharedJs.includes("現在の状態") &&
@@ -467,6 +467,47 @@ async function checkCustomerSeparationPhase22(shareId) {
     return {
       status: "warn",
       detail: `200:${all200} forbid:${noForbidden} app:${noAppLinks} sw:${swOk} js:${jsOk} cache:${cacheOk} proj:${projectOk}`,
+    };
+  } catch (e) {
+    return { status: "fail", detail: e.message || String(e) };
+  }
+}
+
+async function checkCustomerMasterIntegrationPhase23() {
+  try {
+    const [statsRes, homeRes, sharedJsRes, swRes] = await Promise.all([
+      fetch("/api/customer-portal/v1/stats", { cache: "no-store" }),
+      fetch("/api/customer-portal/v1/home/TOMS001", { cache: "no-store" }),
+      fetch("/js/customer-shared-v1.js", { cache: "no-store" }),
+      fetch("/service-worker.js", { cache: "no-store" }),
+    ]);
+    const stats = await statsRes.json().catch(() => ({}));
+    const home = await homeRes.json().catch(() => ({}));
+    const sharedJs = await sharedJsRes.text();
+    const swText = await swRes.text();
+
+    const masterOk = Number(stats.customerMasterCount) >= 1;
+    const propertyOk = Number(stats.propertyCount) >= 1;
+    const apiOk = stats.apiStatus === "ok";
+    const contactOk =
+      Array.isArray(home.contactActions) &&
+      home.contactActions.some((a) => a.id === "phone") &&
+      home.contactActions.some((a) => a.id === "email");
+    const sharedOk =
+      sharedJs.includes("renderContactActionsBar") &&
+      sharedJs.includes("問い合わせフォーム") &&
+      sharedJs.includes(CUSTOMER_JS_VERSION);
+    const swOk = swText.includes(SW_CACHE_TOKEN);
+
+    if (masterOk && propertyOk && apiOk && contactOk && sharedOk && swOk) {
+      return {
+        status: "ok",
+        detail: `Phase23 OK · master:${stats.customerMasterCount} property:${stats.propertyCount} doc:${stats.documentCount} · SW ${SW_CACHE_TOKEN}`,
+      };
+    }
+    return {
+      status: "warn",
+      detail: `master:${masterOk} property:${propertyOk} api:${apiOk} contact:${contactOk} shared:${sharedOk} sw:${swOk}`,
     };
   } catch (e) {
     return { status: "fail", detail: e.message || String(e) };
@@ -1447,6 +1488,9 @@ async function runChecks() {
       .catch(() => ({}))).home?.shareId || ""
   );
   rows.push({ path: "Phase22 customer", label: "お客様UI iPhone最終確認", ...customerSep22 });
+
+  const customerSep23 = await checkCustomerMasterIntegrationPhase23();
+  rows.push({ path: "Phase23 customer-master", label: "案件マスター統合", ...customerSep23 });
 
   const docViewer17 = await checkDocumentViewerPhase17();
   rows.push({ path: "Phase17 document-viewer", label: "PDF UI", ...docViewer17 });

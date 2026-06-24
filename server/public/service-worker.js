@@ -1,7 +1,7 @@
 /* TiSLY Multi PWA — Phase18 URL/customer separation + RN-ready shared logic */
-const SW_VERSION = "tisly-pwa-v2402-phase22";
-const OFFLINE_CACHE = "tisly-pwa-shell-v2402-phase22";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2402-phase22";
+const SW_VERSION = "tisly-pwa-v2403-phase23";
+const OFFLINE_CACHE = "tisly-pwa-shell-v2403-phase23";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2403-phase23";
 const ICON_V = "?v=2003";
 const SHELL_URLS = [
   "/customer-portal.html",

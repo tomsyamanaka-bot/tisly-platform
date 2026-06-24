@@ -4,6 +4,8 @@
 
 import { buildMonitoringDashboardV1 } from "../../monitoring/tisly-monitoring-dashboard-v1.js";
 import { buildCustomerContactTelHrefV1 } from "./customer-project-actions-v1.js";
+import type { CustomerContactActionV1 } from "./customer-contact-settings-v1.js";
+import type { CustomerContactV1 } from "./customer-view-model-v1.js";
 import { resolveMonitoringSiteIdV1 } from "../../monitoring/tisly-monitoring-layout-v1.js";
 import type { MonitoringDeviceStatusV1 } from "../../monitoring/tisly-monitoring-layout-v1.js";
 import {
@@ -44,7 +46,9 @@ function formatLogWhat(content: string, deviceName: string): string {
 export function buildCustomerMonitoringDetailV1(
   shareId: string,
   propertyName: string,
-  ref: string
+  ref: string,
+  contact?: CustomerContactV1,
+  contactActions?: CustomerContactActionV1[]
 ): CustomerMonitoringViewV1 {
   const siteRef = ref.includes("-") ? ref.split("-").slice(0, 3).join("-") : ref;
   const siteId = resolveMonitoringSiteIdV1(siteRef);
@@ -96,6 +100,12 @@ export function buildCustomerMonitoringDetailV1(
 
   const lastChecked = dash.recentLogs[0]?.timestamp ?? new Date().toISOString();
 
+  const resolvedContact: CustomerContactV1 = contact ?? {
+    companyName: "株式会社TOMS",
+    phone: "048-594-7077",
+  };
+  const telHref = buildCustomerContactTelHrefV1(resolvedContact);
+
   return {
     shareId,
     propertyName,
@@ -116,8 +126,9 @@ export function buildCustomerMonitoringDetailV1(
     alertHistoryLabel: CUSTOMER_MONITORING_LABELS_V1.alertHistory,
     notificationHistoryLabel: CUSTOMER_MONITORING_LABELS_V1.notificationHistory,
     pageTitle: CUSTOMER_MONITORING_LABELS_V1.pageTitle,
-    contactTelHref: buildCustomerContactTelHrefV1({ companyName: "株式会社TOMS", phone: "048-000-0000" }),
+    contactTelHref: telHref,
     contactLabel: CUSTOMER_CONTACT_LABEL_V1,
+    contactActions: contactActions ?? [],
   };
 }
 
@@ -158,6 +169,7 @@ export interface CustomerMonitoringApiV1 {
   pageTitle: string;
   contactTelHref?: string;
   contactLabel?: string;
+  contactActions?: Array<{ id: string; emoji: string; label: string; href: string }>;
 }
 
 export function sanitizeCustomerMonitoringApiV1(view: CustomerMonitoringViewV1): CustomerMonitoringApiV1 {
@@ -199,5 +211,6 @@ export function sanitizeCustomerMonitoringApiV1(view: CustomerMonitoringViewV1):
     pageTitle: view.pageTitle,
     contactTelHref: view.contactTelHref,
     contactLabel: view.contactLabel,
+    contactActions: view.contactActions,
   };
 }

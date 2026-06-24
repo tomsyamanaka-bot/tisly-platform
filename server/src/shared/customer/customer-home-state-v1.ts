@@ -16,7 +16,7 @@ import {
   type CustomerSystemStatusKeyV1,
 } from "./customer-labels-v1.js";
 import { buildCustomerMonitoringDetailV1 } from "./customer-monitoring-state-v1.js";
-import type { CustomerHomeCardV1, CustomerHomeViewV1 } from "./customer-view-model-v1.js";
+import type { CustomerContactV1, CustomerHomeCardV1, CustomerHomeViewV1 } from "./customer-view-model-v1.js";
 import { decodeCustomerShareIdV1 } from "./customer-share-id-v1.js";
 
 function buildCardUrl(
@@ -39,6 +39,7 @@ export function buildCustomerHomeStateV1(opts: {
   shareId: string;
   propertyName: string;
   ref?: string;
+  contact?: CustomerContactV1;
 }): CustomerHomeViewV1 {
   const ref = opts.ref ?? decodeCustomerShareIdV1(opts.shareId);
   const monitoring = buildCustomerMonitoringDetailV1(opts.shareId, opts.propertyName, ref);
@@ -51,6 +52,9 @@ export function buildCustomerHomeStateV1(opts: {
     label: c.label,
     href: buildCardUrl(opts.shareId, c),
   }));
+
+  const contactPhone = opts.contact?.phone ?? "048-594-7077";
+  const contactCompany = opts.contact?.companyName ?? "株式会社TOMS";
 
   return {
     title: CUSTOMER_PAGE_TITLE_V1,
@@ -68,8 +72,8 @@ export function buildCustomerHomeStateV1(opts: {
     projectPageUrl: buildCustomerProjectUrlV1(opts.shareId),
     documentsPageUrl: buildCustomerDocumentUrlV1(opts.shareId),
     monitoringPageUrl: buildCustomerMonitoringUrlV1(opts.shareId),
-    contactPhone: "048-000-0000",
-    contactCompany: "株式会社TOMS",
+    contactPhone,
+    contactCompany,
   };
 }
 

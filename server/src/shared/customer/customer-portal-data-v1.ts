@@ -1,13 +1,9 @@
 /**
- * お客様ポータルデータ整形 — business_projects → CustomerView（内部情報フィルタ）
+ * お客様ポータルデータ整形 — Customer/Property Master から自動生成
  */
 
-import {
-  listCustomerProjectsFromBusinessDbV1,
-  tryResolveCustomerMetaFromBusinessProjectsV1,
-} from "../../knowledge/knowledge-business-projects-adapter-v1.js";
+import { tryResolveCustomerMetaFromBusinessProjectsV1 } from "../../knowledge/knowledge-business-projects-adapter-v1.js";
 import { resolveCustomerProjectMetaV1 } from "../../knowledge/knowledge-customer-project-adapter-v1.js";
-import { listCustomerProjectFilesV1 } from "../../knowledge/knowledge-customer-project-files-v1.js";
 import { sanitizeSharePayloadTextV1 } from "../../knowledge/knowledge-customer-share-filter-v1.js";
 import {
   buildCustomerDocumentUrlV1,
@@ -17,50 +13,32 @@ import {
   TISLY_CUSTOMER_PWA_START_URL,
 } from "../routes/tisly-routes-v1.js";
 import { TISLY_UI_LABELS_V1 } from "../ui-models/labels-v1.js";
+import {
+  buildContactFromMasterV1,
+  buildCustomerContactActionsV1,
+  buildMaintenanceFromPropertyV1,
+  fetchCustomerProjectFilesV1,
+  getCustomerContactSettingsV1,
+  getDefaultCustomerLandingPropertyV1,
+  listProjectListItemsForCustomerV1,
+  mapPortalFilesToDocuments,
+  mapPortalFilesToPhotos,
+  resolveCustomerCodeForProjectRefV1,
+} from "./customer-data-service-v1.js";
 import { buildCustomerHomeStateV1 } from "./customer-home-state-v1.js";
 import { buildCustomerMonitoringDetailV1 } from "./customer-monitoring-state-v1.js";
 import { buildCustomerPropertyListItemV1 } from "./customer-property-list-v1.js";
 import type { CustomerSystemStatusKeyV1 } from "./customer-labels-v1.js";
 import { buildCustomerProjectQuickActionsV1 } from "./customer-project-actions-v1.js";
+import { getPropertyByProjectRefV1 } from "./customer-property-master-v1.js";
+import { getCustomerMasterV1 } from "./customer-master-v1.js";
 import { encodeCustomerShareIdV1, decodeCustomerShareIdV1 } from "./customer-share-id-v1.js";
-import {
-  customerPortalDocLabelV1,
-  filterCustomerPortalProjectFilesV1,
-  CUSTOMER_VISIBLE_DOC_TYPES_V1,
-} from "./customer-project-files-filter-v1.js";
 import type {
   CustomerContactV1,
-  CustomerDocumentLinkV1,
   CustomerHomeListViewV1,
   CustomerPortalLandingV1,
   CustomerProjectViewV1,
-  CustomerSitePhotoV1,
 } from "./customer-view-model-v1.js";
-
-const PHOTO_TYPES = new Set([
-  "survey_photo",
-  "before_photo",
-  "during_photo",
-  "after_photo",
-  "memo_photo",
-]);
-
-const DOC_TYPE_MAP: Record<string, CustomerDocumentLinkV1["kind"]> = {
-  specification_pdf: "specification",
-  completion_pdf: "completion",
-  estimate_pdf: "estimate",
-  invoice_pdf: "invoice",
-  manual_pdf: "manual",
-};
-
-function defaultContact(): CustomerContactV1 {
-  return {
-    companyName: TISLY_UI_LABELS_V1.companyName,
-    phone: "048-000-0000",
-    email: "info@toms.co.jp",
-    staffName: "担当営業",
-  };
-}
 
 function refFromShareId(shareId: string): string {
   return decodeCustomerShareIdV1(shareId);
@@ -70,111 +48,78 @@ export function shareIdFromRef(ref: string): string {
   return encodeCustomerShareIdV1(ref);
 }
 
-function mapPhotos(files: ReturnType<typeof filterCustomerPortalProjectFilesV1>): CustomerSitePhotoV1[] {
-  return files
-    .filter((f) => PHOTO_TYPES.has(f.type) && f.previewUrl)
-    .map((f) => ({
-      photoId: f.fileId,
-      title: sanitizeSharePayloadTextV1(f.safeLabel || f.title),
-      previewUrl: f.previewUrl!,
-      capturedAt: f.capturedAt,
-    }));
-}
-
-function mapDocuments(
-  shareId: string,
-  files: ReturnType<typeof filterCustomerPortalProjectFilesV1>
-): CustomerDocumentLinkV1[] {
-  return files
-    .filter((f) => f.type.endsWith("_pdf") && CUSTOMER_VISIBLE_DOC_TYPES_V1.has(f.type))
-    .map((f) => ({
-      fileId: f.fileId,
-      label: customerPortalDocLabelV1(f.type, sanitizeSharePayloadTextV1(f.safeLabel || f.title)),
-      kind: DOC_TYPE_MAP[f.type] ?? "other",
-      openUrl: buildCustomerDocumentUrlV1(shareId, f.fileId),
-    }));
-}
-
-function defaultMaintenanceItems(ref: string): CustomerProjectViewV1["maintenanceItems"] {
-  return [
-    { label: "点検予定", value: "次回点検は担当よりご連絡いたします" },
-    { label: "保守状況", value: "正常" },
-    { label: "最終点検", value: new Date().toLocaleDateString("ja-JP") },
-  ];
-}
-
-const DEMO_PROJECTS = [
-  { ref: "MO-26-0709", propertyName: "守谷市 戸建て防犯設備" },
-  { ref: "DEMO-HOME-001", propertyName: "デモ戸建て防犯" },
-];
-
 export function buildCustomerPortalLandingV1(): CustomerPortalLandingV1 {
-  const primary = DEMO_PROJECTS[1];
-  const primaryShareId = shareIdFromRef(primary.ref);
+  const primary = getDefaultCustomerLandingPropertyV1();
+  if (!primary) {
+    const home = buildCustomerHomeStateV1({
+      shareId: "",
+      propertyName: "お客様の物件",
+      ref: "",
+      contact: buildContactFromMasterV1("TOMS001"),
+    });
+    return { home, demoProjects: [] };
+  }
+
   const home = buildCustomerHomeStateV1({
-    shareId: primaryShareId,
+    shareId: primary.shareId,
     propertyName: primary.propertyName,
     ref: primary.ref,
+    contact: buildContactFromMasterV1(primary.customerCode),
   });
 
-  return {
-    home,
-    demoProjects: DEMO_PROJECTS.map((d) => {
-      const shareId = shareIdFromRef(d.ref);
-      return {
-        shareId,
-        propertyName: d.propertyName,
-        projectPageUrl: buildCustomerProjectUrlV1(shareId),
-        homePageUrl: `/customer?project=${encodeURIComponent(shareId)}`,
-      };
-    }),
-  };
+  const projects = listProjectListItemsForCustomerV1(primary.customerCode).map((p) => {
+    const shareId = shareIdFromRef(p.ref);
+    return {
+      shareId,
+      propertyName: p.propertyName,
+      projectPageUrl: buildCustomerProjectUrlV1(shareId),
+      homePageUrl: `/customer?project=${encodeURIComponent(shareId)}`,
+    };
+  });
+
+  return { home, demoProjects: projects };
 }
 
 export function buildCustomerHomeListViewV1(customerCode: string): CustomerHomeListViewV1 {
   const code = String(customerCode ?? "").trim().toUpperCase();
-  const fromDb = listCustomerProjectsFromBusinessDbV1();
-  const projects =
-    fromDb.length > 0
-      ? fromDb.slice(0, 12)
-      : DEMO_PROJECTS.map((d) => ({
-          ref: d.ref,
-          propertyName: d.propertyName,
-          workGenre: "設備工事",
-          status: "進行中",
-        }));
+  const masterContact = buildContactFromMasterV1(code);
+  const contactSettings = getCustomerContactSettingsV1(code);
+  const contactActions = buildCustomerContactActionsV1(masterContact, contactSettings);
+  const projects = listProjectListItemsForCustomerV1(code);
 
-  const contact = defaultContact();
+  const masterRecord = getCustomerMasterV1(code);
+  const customerName = masterRecord?.customerName ?? (code === "TOMS001" ? "トムズ設備デモ" : `${code} 様`);
 
   return {
-    customerName: code === "TOMS001" ? "トムズ設備" : `${code} 様`,
+    customerName,
     projects: projects.map((p) => {
-      const ref = "ref" in p ? String(p.ref) : refFromShareId((p as { shareId: string }).shareId);
-      const shareId = shareIdFromRef(ref);
-      const meta = resolveCustomerProjectMetaV1(ref);
-      const propertyName = sanitizeSharePayloadTextV1(
-        "propertyName" in p ? p.propertyName : meta.displayName
+      const shareId = shareIdFromRef(p.ref);
+      const meta = resolveCustomerProjectMetaV1(p.ref);
+      const propertyName = sanitizeSharePayloadTextV1(p.propertyName || meta?.displayName || "物件");
+      const monitoring = buildCustomerMonitoringDetailV1(
+        shareId,
+        propertyName,
+        p.ref,
+        masterContact,
+        contactActions
       );
-      const monitoring = buildCustomerMonitoringDetailV1(shareId, propertyName, ref);
       return buildCustomerPropertyListItemV1(
         {
           shareId,
           propertyName,
-          workDescription: sanitizeSharePayloadTextV1(
-            "workGenre" in p ? p.workGenre : meta.workType
-          ),
-          statusLabel: sanitizeSharePayloadTextV1(
-            "status" in p ? p.status : meta.status
-          ),
+          workDescription: sanitizeSharePayloadTextV1(p.workGenre),
+          statusLabel: sanitizeSharePayloadTextV1(p.status),
           projectPageUrl: buildCustomerProjectUrlV1(shareId),
           homePageUrl: `/customer?project=${encodeURIComponent(shareId)}`,
           systemStatusKey: monitoring.systemStatus as CustomerSystemStatusKeyV1,
           lastCheckedIso: monitoring.lastCheckedIso,
         },
-        contact
+        masterContact,
+        contactActions
       );
     }),
-    contact,
+    contact: masterContact,
+    contactActions,
   };
 }
 
@@ -185,30 +130,43 @@ export function buildCustomerHomeViewV1(customerCode: string) {
 
 export function buildCustomerProjectViewV1(shareId: string): CustomerProjectViewV1 | null {
   const ref = refFromShareId(shareId);
-  const meta = resolveCustomerProjectMetaV1(ref);
-  if (!meta) return null;
+  const meta =
+    tryResolveCustomerMetaFromBusinessProjectsV1(ref) ?? resolveCustomerProjectMetaV1(ref);
+  const property = getPropertyByProjectRefV1(ref);
+  if (!meta && !property) return null;
 
-  const files = filterCustomerPortalProjectFilesV1(listCustomerProjectFilesV1(ref), {
-    documentsOnly: true,
-  });
-  const encodedShareId = shareIdFromRef(meta.ref);
+  const customerCode = resolveCustomerCodeForProjectRefV1(ref) ?? "TOMS001";
+  const contact = buildContactFromMasterV1(customerCode);
+  const contactSettings = getCustomerContactSettingsV1(customerCode);
+  const contactActions = buildCustomerContactActionsV1(contact, contactSettings);
 
+  const files = fetchCustomerProjectFilesV1(shareId, customerCode);
+  const encodedShareId = shareIdFromRef(ref);
+
+  const propertyName = sanitizeSharePayloadTextV1(
+    property?.propertyName ?? meta?.displayName ?? "物件"
+  );
+  const workDescription = sanitizeSharePayloadTextV1(
+    meta?.workSummary ?? meta?.workType ?? "設備工事"
+  );
+  const statusLabel = sanitizeSharePayloadTextV1(meta?.status ?? "進行中");
   const explanationText =
-    meta.customerNotes?.trim() ||
-    `${meta.city}の${meta.workType}に関する工事内容をご確認いただけます。`;
+    meta?.customerNotes?.trim() ||
+    `${meta?.city ?? property?.address ?? ""}の${meta?.workType ?? "設備"}に関する工事内容をご確認いただけます。`;
 
   return {
     shareId: encodedShareId,
-    propertyName: sanitizeSharePayloadTextV1(meta.displayName),
-    workDescription: sanitizeSharePayloadTextV1(meta.workSummary || meta.workType),
-    statusLabel: sanitizeSharePayloadTextV1(meta.status),
-    sitePhotos: mapPhotos(files),
-    documents: mapDocuments(encodedShareId, files),
-    maintenanceItems: defaultMaintenanceItems(ref),
+    propertyName,
+    workDescription,
+    statusLabel,
+    sitePhotos: mapPortalFilesToPhotos(files),
+    documents: mapPortalFilesToDocuments(encodedShareId, files),
+    maintenanceItems: buildMaintenanceFromPropertyV1(property),
     customerExplanation: sanitizeSharePayloadTextV1(explanationText),
     monitoringUrl: buildCustomerMonitoringUrlV1(encodedShareId),
-    contact: defaultContact(),
-    quickActions: buildCustomerProjectQuickActionsV1(encodedShareId, defaultContact()),
+    contact,
+    contactActions,
+    quickActions: buildCustomerProjectQuickActionsV1(encodedShareId, contact, contactActions),
     projectPageUrl: buildCustomerProjectUrlV1(encodedShareId),
   };
 }
@@ -229,13 +187,14 @@ export function buildCustomerDocumentViewV1(
   if (!project) return null;
 
   const ref = refFromShareId(shareId);
-  const files = filterCustomerPortalProjectFilesV1(listCustomerProjectFilesV1(ref), {
-    documentsOnly: true,
-  });
+  const customerCode = resolveCustomerCodeForProjectRefV1(ref) ?? "TOMS001";
+  const files = fetchCustomerProjectFilesV1(shareId, customerCode).filter(
+    (f) => !f.type.includes("photo")
+  );
   const target =
     files.find((f) => f.fileId === fileId) ??
-    files.find((f) => f.type === "specification_pdf") ??
-    files.find((f) => f.type === "completion_pdf") ??
+    files.find((f) => f.type === "specification") ??
+    files.find((f) => f.type === "completion") ??
     files[0];
 
   if (!target) {
@@ -253,10 +212,7 @@ export function buildCustomerDocumentViewV1(
     shareId: project.shareId,
     propertyName: project.propertyName,
     fileId: target.fileId,
-    label: customerPortalDocLabelV1(
-      target.type,
-      sanitizeSharePayloadTextV1(target.safeLabel || target.title)
-    ),
+    label: target.safeLabel || target.title,
     previewUrl: preview,
     pdfUrl: preview,
     backUrl: buildCustomerProjectUrlV1(project.shareId),
@@ -268,7 +224,18 @@ export function buildCustomerMonitoringViewV1(shareId: string) {
   if (!project) return null;
 
   const ref = refFromShareId(shareId);
-  return buildCustomerMonitoringDetailV1(project.shareId, project.propertyName, ref);
+  const customerCode = resolveCustomerCodeForProjectRefV1(ref) ?? "TOMS001";
+  const contact = buildContactFromMasterV1(customerCode);
+  const contactSettings = getCustomerContactSettingsV1(customerCode);
+  const contactActions = buildCustomerContactActionsV1(contact, contactSettings);
+
+  return buildCustomerMonitoringDetailV1(
+    project.shareId,
+    project.propertyName,
+    ref,
+    contact,
+    contactActions
+  );
 }
 
 export function resolveBusinessProjectForCustomerPortalV1(ref: string) {
@@ -277,14 +244,18 @@ export function resolveBusinessProjectForCustomerPortalV1(ref: string) {
   return resolveCustomerProjectMetaV1(ref);
 }
 
-export function buildCustomerHomeByShareIdV1(shareId: string): ReturnType<typeof buildCustomerHomeStateV1> | null {
+export function buildCustomerHomeByShareIdV1(
+  shareId: string
+): ReturnType<typeof buildCustomerHomeStateV1> | null {
   const project = buildCustomerProjectViewV1(shareId);
   if (!project) return null;
   const ref = refFromShareId(shareId);
+  const customerCode = resolveCustomerCodeForProjectRefV1(ref) ?? "TOMS001";
   return buildCustomerHomeStateV1({
     shareId: project.shareId,
     propertyName: project.propertyName,
     ref,
+    contact: buildContactFromMasterV1(customerCode),
   });
 }
 

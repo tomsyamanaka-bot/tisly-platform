@@ -1,6 +1,7 @@
 import {
   escapeHtml,
   CUSTOMER_MONITORING_LABELS,
+  renderContactActionsBar,
   renderMonitoringAlert,
   renderMonitoringFloors,
   renderMonitoringLogs,
@@ -18,12 +19,17 @@ document.getElementById("btn-back")?.addEventListener("click", () => {
   goCustomerBack({ shareId });
 });
 
-function wireContactButton(contactTelHref, contactLabel) {
+function wireContactButton(data) {
   const bottomBar = document.querySelector(".cv-bottom-bar");
-  if (!bottomBar || !contactTelHref) return;
+  if (!bottomBar) return;
+  const contactHtml = renderContactActionsBar(
+    data.contactActions,
+    data.contactTelHref,
+    data.contactLabel
+  );
   bottomBar.innerHTML = `
     <button type="button" class="cv-btn secondary" id="btn-back">戻る</button>
-    <a class="cv-btn" href="${escapeHtml(contactTelHref)}" data-tel-action="1">📞 ${escapeHtml(contactLabel)}</a>
+    ${contactHtml}
   `;
   document.getElementById("btn-back")?.addEventListener("click", () => {
     goCustomerBack({ shareId });
@@ -79,7 +85,7 @@ async function load() {
     <p class="cv-last-checked cv-footer-note">${escapeHtml(lastDetectionLabel)}：${escapeHtml(data.lastCheckedAt)}</p>
   `;
 
-  wireContactButton(data.contactTelHref, data.contactLabel);
+  wireContactButton(data);
 
   if (data.activeAlert) {
     requestAnimationFrame(() => {

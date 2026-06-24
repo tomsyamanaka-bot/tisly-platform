@@ -1,0 +1,313 @@
+/**
+ * お客様 PDF / 写真一元管理 — /customer-files/ 配下
+ * 種別: estimate · invoice · specification · completion · inspection
+ */
+
+import fs from "fs";
+import path from "path";
+import { v4 as uuid } from "uuid";
+import { getDatabase } from "../../db/database.js";
+import { findBusinessProjectByRefV1 } from "../../knowledge/knowledge-business-projects-adapter-v1.js";
+import {
+  listProjectPdfsV1,
+  resolveProjectPdfFile,
+  type ProjectPdfKind,
+} from "../../projects/project-pdf-store.js";
+
+export type CustomerFileDocTypeV1 =
+  | "estimate"
+  | "invoice"
+  | "specification"
+  | "completion"
+  | "inspection";
+
+export type CustomerPortalFileKindV1 =
+  | "survey_photo"
+  | "before_photo"
+  | "during_photo"
+  | "after_photo"
+  | "memo_photo"
+  | CustomerFileDocTypeV1;
+
+export interface CustomerPortalFileRecordV1 {
+  fileId: string;
+  title: string;
+  safeLabel: string;
+  type: CustomerPortalFileKindV1;
+  category: string;
+  previewUrl?: string;
+  openUrl: string;
+  capturedAt?: string;
+  sortOrder: number;
+}
+
+export interface CustomerPortalDocumentRowV1 {
+  id: string;
+  customerCode: string;
+  propertyId: string | null;
+  projectRef: string;
+  docType: CustomerFileDocTypeV1;
+  fileName: string;
+  relativePath: string;
+  label: string;
+}
+
+const DOC_TYPE_LABELS: Record<CustomerFileDocTypeV1, string> = {
+  estimate: "見積書",
+  invoice: "請求書",
+  specification: "仕様書",
+  completion: "完了報告書",
+  inspection: "点検報告書",
+};
+
+const PDF_KIND_MAP: Record<ProjectPdfKind, CustomerFileDocTypeV1> = {
+  estimate: "estimate",
+  invoice: "invoice",
+  specification: "specification",
+  report: "completion",
+};
+
+const IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif"]);
+
+function customerFilesRoot(): string {
+  return path.join(process.cwd(), "customer-files");
+}
+
+function publicUrl(relativePath: string): string {
+  return `/customer-files/${relativePath.replace(/\\/g, "/")}`;
+}
+
+function portalFileUrl(shareId: string, fileId: string): string {
+  return `/api/customer-portal/v1/file/${encodeURIComponent(shareId)}/${encodeURIComponent(fileId)}`;
+}
+
+function inferPhotoType(relPath: string): CustomerPortalFileKindV1 {
+  const lower = relPath.toLowerCase();
+  if (lower.includes("before") || lower.includes("施工前")) return "before_photo";
+  if (lower.includes("during") || lower.includes("施工中")) return "during_photo";
+  if (lower.includes("after") || lower.includes("施工後") || lower.includes("completion")) return "after_photo";
+  if (lower.includes("survey") || lower.includes("現調")) return "survey_photo";
+  return "memo_photo";
+}
+
+function rowToDocument(row: Record<string, unknown>): CustomerPortalDocumentRowV1 {
+  return {
+    id: String(row.id),
+    customerCode: String(row.customer_code),
+    propertyId: row.property_id != null ? String(row.property_id) : null,
+    projectRef: String(row.project_ref),
+    docType: String(row.doc_type) as CustomerFileDocTypeV1,
+    fileName: String(row.file_name),
+    relativePath: String(row.relative_path),
+    label: String(row.label ?? ""),
+  };
+}
+
+export function countCustomerPortalDocumentsV1(): number {
+  const row = getDatabase()
+    .prepare(`SELECT COUNT(*) AS c FROM customer_portal_documents`)
+    .get() as { c: number };
+  return row.c;
+}
+
+export function listDocumentsForProjectRefV1(projectRef: string): CustomerPortalDocumentRowV1[] {
+  const ref = String(projectRef ?? "").trim();
+  return (
+    getDatabase()
+      .prepare(`SELECT * FROM customer_portal_documents WHERE project_ref = ? ORDER BY doc_type ASC`)
+      .all(ref) as Array<Record<string, unknown>>
+  ).map(rowToDocument);
+}
+
+export function upsertCustomerPortalDocumentV1(input: {
+  customerCode: string;
+  propertyId?: string | null;
+  projectRef: string;
+  docType: CustomerFileDocTypeV1;
+  fileName: string;
+  relativePath: string;
+  label?: string;
+}): CustomerPortalDocumentRowV1 {
+  const existing = getDatabase()
+    .prepare(
+      `SELECT id FROM customer_portal_documents WHERE project_ref = ? AND doc_type = ? LIMIT 1`
+    )
+    .get(input.projectRef, input.docType) as { id: string } | undefined;
+
+  const id = existing?.id ?? `DOC-${uuid().slice(0, 8).toUpperCase()}`;
+  const now = new Date().toISOString();
+  getDatabase()
+    .prepare(
+      `INSERT INTO customer_portal_documents
+       (id, customer_code, property_id, project_ref, doc_type, file_name, relative_path, label, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         file_name = excluded.file_name,
+         relative_path = excluded.relative_path,
+         label = excluded.label,
+         updated_at = excluded.updated_at`
+    )
+    .run(
+      id,
+      input.customerCode.toUpperCase(),
+      input.propertyId ?? null,
+      input.projectRef,
+      input.docType,
+      input.fileName,
+      input.relativePath,
+      input.label ?? DOC_TYPE_LABELS[input.docType],
+      now,
+      now
+    );
+  const row = getDatabase()
+    .prepare(`SELECT * FROM customer_portal_documents WHERE id = ?`)
+    .get(id) as Record<string, unknown>;
+  return rowToDocument(row);
+}
+
+/** business PDF → customer-files へコピー登録 */
+export function syncProjectPdfsToCustomerFilesV1(
+  customerCode: string,
+  projectRef: string,
+  propertyId?: string | null
+): number {
+  const project = findBusinessProjectByRefV1(projectRef);
+  if (!project) return 0;
+
+  const destBase = path.join(customerFilesRoot(), customerCode.toUpperCase(), projectRef);
+  let synced = 0;
+
+  for (const entry of listProjectPdfsV1(project.id)) {
+    if (!entry.exists) continue;
+    const docType = PDF_KIND_MAP[entry.kind];
+    if (!docType) continue;
+
+    const localPath = resolveProjectPdfFile(project.id, entry.kind);
+    if (!localPath || !fs.existsSync(localPath)) continue;
+
+    const destDir = path.join(destBase, docType);
+    fs.mkdirSync(destDir, { recursive: true });
+    const fileName = path.basename(localPath);
+    const destPath = path.join(destDir, fileName);
+    if (!fs.existsSync(destPath)) {
+      fs.copyFileSync(localPath, destPath);
+    }
+
+    const relativePath = path.relative(customerFilesRoot(), destPath).replace(/\\/g, "/");
+    upsertCustomerPortalDocumentV1({
+      customerCode,
+      propertyId,
+      projectRef,
+      docType,
+      fileName,
+      relativePath,
+      label: DOC_TYPE_LABELS[docType],
+    });
+    synced += 1;
+  }
+  return synced;
+}
+
+function scanCustomerFilesPhotos(
+  customerCode: string,
+  projectRef: string,
+  shareId: string
+): CustomerPortalFileRecordV1[] {
+  const base = path.join(customerFilesRoot(), customerCode.toUpperCase());
+  if (!fs.existsSync(base)) return [];
+
+  const records: CustomerPortalFileRecordV1[] = [];
+  let order = 0;
+
+  function walk(dir: string): void {
+    for (const name of fs.readdirSync(dir).sort((a, b) => a.localeCompare(b, "ja"))) {
+      const abs = path.join(dir, name);
+      const stat = fs.statSync(abs);
+      if (stat.isDirectory()) {
+        walk(abs);
+        continue;
+      }
+      const ext = path.extname(name).toLowerCase();
+      if (!IMAGE_EXTS.has(ext)) continue;
+      const rel = path.relative(customerFilesRoot(), abs).replace(/\\/g, "/");
+      if (projectRef && !rel.includes(projectRef)) continue;
+      order += 1;
+      const fileId = `photo-${rel.replace(/[/\\]/g, "-").slice(0, 48)}`;
+      const openUrl = publicUrl(rel);
+      records.push({
+        fileId,
+        title: path.basename(name, ext).replace(/_/g, " "),
+        safeLabel: path.basename(name, ext).replace(/_/g, " "),
+        type: inferPhotoType(rel),
+        category: "工事写真",
+        previewUrl: openUrl,
+        openUrl,
+        capturedAt: stat.mtime.toISOString(),
+        sortOrder: order,
+      });
+    }
+  }
+
+  walk(base);
+  return records;
+}
+
+function documentsToFileRecords(
+  docs: CustomerPortalDocumentRowV1[],
+  shareId: string
+): CustomerPortalFileRecordV1[] {
+  return docs.map((d, idx) => {
+    const staticUrl = publicUrl(d.relativePath);
+    const fileId = `doc-${d.docType}`;
+    return {
+      fileId,
+      title: d.label || DOC_TYPE_LABELS[d.docType],
+      safeLabel: d.label || DOC_TYPE_LABELS[d.docType],
+      type: d.docType,
+      category: DOC_TYPE_LABELS[d.docType],
+      openUrl: portalFileUrl(shareId, fileId),
+      previewUrl: staticUrl,
+      sortOrder: 100 + idx,
+    };
+  });
+}
+
+export function listCustomerPortalFilesV1(opts: {
+  customerCode: string;
+  projectRef: string;
+  shareId: string;
+}): CustomerPortalFileRecordV1[] {
+  const docs = listDocumentsForProjectRefV1(opts.projectRef);
+  const pdfRecords = documentsToFileRecords(docs, opts.shareId);
+  const photos = scanCustomerFilesPhotos(opts.customerCode, opts.projectRef, opts.shareId);
+  return [...photos, ...pdfRecords].sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
+export function resolveCustomerPortalFileV1(
+  projectRef: string,
+  fileId: string
+): { absolutePath: string; contentType: string; downloadName: string } | null {
+  if (fileId.startsWith("photo-")) {
+    const rel = fileId.replace(/^photo-/, "").replace(/-/g, "/");
+    const abs = path.normalize(path.join(customerFilesRoot(), rel));
+    const root = path.normalize(customerFilesRoot());
+    if (!abs.startsWith(root) || !fs.existsSync(abs)) return null;
+    const ext = path.extname(abs).toLowerCase();
+    const contentType = ext === ".png" ? "image/png" : ext === ".webp" ? "image/webp" : "image/jpeg";
+    return { absolutePath: abs, contentType, downloadName: path.basename(abs) };
+  }
+
+  const docType = fileId.replace(/^doc-/, "") as CustomerFileDocTypeV1;
+  const doc = listDocumentsForProjectRefV1(projectRef).find((d) => d.docType === docType);
+  if (!doc) return null;
+  const abs = path.normalize(path.join(customerFilesRoot(), doc.relativePath));
+  const root = path.normalize(customerFilesRoot());
+  if (!abs.startsWith(root) || !fs.existsSync(abs)) return null;
+  return {
+    absolutePath: abs,
+    contentType: "application/pdf",
+    downloadName: doc.fileName,
+  };
+}
+
+export { DOC_TYPE_LABELS as CUSTOMER_FILE_DOC_LABELS_V1 };

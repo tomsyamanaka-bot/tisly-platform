@@ -76,9 +76,9 @@ describe("Operational Phase22 — customer separation", () => {
     assert.equal(res.body.start_url, "/customer");
   });
 
-  it("service worker is v2402-phase22", () => {
+  it("service worker is v2403-phase23", () => {
     const sw = fs.readFileSync(path.join(publicDir, "service-worker.js"), "utf-8");
-    assert.match(sw, /v2402-phase22/);
+    assert.match(sw, new RegExp(CUSTOMER_SW_TOKEN_V1));
     assert.match(sw, /isCustomerFreshAsset/);
   });
 

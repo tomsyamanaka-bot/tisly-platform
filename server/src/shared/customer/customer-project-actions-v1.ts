@@ -6,6 +6,7 @@ import {
   buildCustomerMonitoringUrlV1,
   buildCustomerProjectUrlV1,
 } from "../routes/tisly-routes-v1.js";
+import type { CustomerContactActionV1 } from "./customer-contact-settings-v1.js";
 import type { CustomerContactV1 } from "./customer-view-model-v1.js";
 import { CUSTOMER_CONTACT_LABEL_V1 } from "./customer-labels-v1.js";
 
@@ -34,16 +35,21 @@ export function buildCustomerContactTelHrefV1(contact: CustomerContactV1): strin
 
 export function buildCustomerProjectQuickActionsV1(
   shareId: string,
-  contact: CustomerContactV1
+  contact: CustomerContactV1,
+  contactActions?: CustomerContactActionV1[]
 ): CustomerProjectQuickActionV1[] {
   const projectUrl = buildCustomerProjectUrlV1(shareId);
   const monitoringUrl = buildCustomerMonitoringUrlV1(shareId);
   const telHref = buildCustomerContactTelHrefV1(contact);
+  const contactHref =
+    contactActions?.find((a) => a.id === "phone")?.href ||
+    telHref ||
+    `${projectUrl}#contact`;
 
   const hrefs: Record<CustomerProjectQuickActionIdV1, string> = {
     documents: `${projectUrl}#documents`,
     monitoring: monitoringUrl,
-    contact: telHref || projectUrl,
+    contact: contactHref,
   };
 
   return CUSTOMER_PROJECT_QUICK_ACTIONS_V1.map((a) => ({

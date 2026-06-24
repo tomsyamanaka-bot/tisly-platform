@@ -1,4 +1,5 @@
 import { Router } from "express";
+import fs from "fs";
 import {
   buildCustomerPortalLandingV1,
   buildCustomerHomeListViewV1,
@@ -7,6 +8,9 @@ import {
   buildCustomerDocumentViewV1,
   buildCustomerMonitoringViewV1,
 } from "../../shared/customer/customer-portal-data-v1.js";
+import { getCustomerPortalStatsV1 } from "../../shared/customer/customer-data-service-v1.js";
+import { resolveCustomerPortalFileV1 } from "../../shared/customer/customer-files-v1.js";
+import { decodeCustomerShareIdV1 } from "../../shared/customer/customer-share-id-v1.js";
 import { sanitizeCustomerMonitoringApiV1 } from "../../shared/customer/customer-monitoring-state-v1.js";
 import {
   TISLY_LEGACY_REDIRECTS_V1,
@@ -60,6 +64,25 @@ customerPortalV1Router.get("/monitoring/:shareId", (req, res) => {
     return;
   }
   res.json({ status: "ok", ...sanitizeCustomerMonitoringApiV1(data) });
+});
+
+customerPortalV1Router.get("/file/:shareId/:fileId", (req, res) => {
+  const shareId = String(req.params.shareId);
+  const fileId = String(req.params.fileId);
+  const ref = decodeCustomerShareIdV1(shareId);
+  const resolved = resolveCustomerPortalFileV1(ref, fileId);
+  if (!resolved) {
+    res.status(404).json({ status: "error", error: "資料が見つかりません" });
+    return;
+  }
+  res.setHeader("Content-Type", resolved.contentType);
+  res.setHeader("Content-Disposition", `inline; filename="${resolved.downloadName}"`);
+  fs.createReadStream(resolved.absolutePath).pipe(res);
+});
+
+customerPortalV1Router.get("/stats", (_req, res) => {
+  const stats = getCustomerPortalStatsV1();
+  res.json({ status: stats.apiStatus, ...stats });
 });
 
 customerPortalV1Router.get("/route-contract", (_req, res) => {

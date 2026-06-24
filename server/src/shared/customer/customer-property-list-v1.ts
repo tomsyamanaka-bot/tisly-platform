@@ -6,6 +6,7 @@ import {
   buildCustomerMonitoringUrlV1,
   buildCustomerProjectUrlV1,
 } from "../routes/tisly-routes-v1.js";
+import type { CustomerContactActionV1 } from "./customer-contact-settings-v1.js";
 import type { CustomerContactV1 } from "./customer-view-model-v1.js";
 import {
   CUSTOMER_CONTACT_LABEL_V1,
@@ -41,6 +42,7 @@ export interface CustomerPropertyListItemV1 {
   monitoringPageUrl: string;
   documentsPageUrl: string;
   contactTelHref: string;
+  contactActions?: CustomerContactActionV1[];
   actions: Array<{
     id: CustomerPropertyActionIdV1;
     emoji: string;
@@ -60,7 +62,8 @@ export function buildCustomerPropertyListItemV1(
     systemStatusKey?: CustomerSystemStatusKeyV1;
     lastCheckedIso?: string | null;
   },
-  contact: CustomerContactV1
+  contact: CustomerContactV1,
+  contactActions?: CustomerContactActionV1[]
 ): CustomerPropertyListItemV1 {
   const phone = String(contact.phone ?? "").replace(/[^\d+]/g, "");
   const telHref = phone ? `tel:${phone}` : "";
@@ -68,11 +71,18 @@ export function buildCustomerPropertyListItemV1(
   const projectPageUrl = project.projectPageUrl || buildCustomerProjectUrlV1(project.shareId);
   const monitoringPageUrl = buildCustomerMonitoringUrlV1(project.shareId);
   const documentsPageUrl = `${projectPageUrl}#documents`;
+  const contactPageUrl = `${projectPageUrl}#contact`;
+
+  const primaryContactHref =
+    contactActions?.find((a) => a.id === "phone")?.href ||
+    telHref ||
+    contactActions?.[0]?.href ||
+    contactPageUrl;
 
   const actionHrefs: Record<CustomerPropertyActionIdV1, string> = {
     documents: documentsPageUrl,
     monitoring: monitoringPageUrl,
-    contact: telHref || projectPageUrl,
+    contact: primaryContactHref,
   };
 
   const systemKey = project.systemStatusKey ?? "normal";
@@ -89,6 +99,7 @@ export function buildCustomerPropertyListItemV1(
     monitoringPageUrl,
     documentsPageUrl,
     contactTelHref: telHref,
+    contactActions: contactActions ?? [],
     actions: CUSTOMER_PROPERTY_ACTIONS_V1.map((a) => ({
       id: a.id,
       emoji: a.emoji,

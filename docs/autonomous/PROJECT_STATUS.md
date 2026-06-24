@@ -834,6 +834,25 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | SW | `tisly-pwa-v2401-phase21` |
 | 確認 | `/customer` · `/customer/TOMS001` · `/route-health` · https://tisly.jp/api/health |
 
+### 実運用 Phase23 — 案件マスター統合（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | **デモ画面ではなく実案件登録→顧客渡し可能** — Customer/Property Master から /customer 自動生成 |
+| Phase23-1 Customer Master | `customer-master-v1.ts` · `customer_portal_master` — customerCode/customerName/address/contactName/contactPhone/plan/status |
+| Phase23-2 Property Master | `customer-property-master-v1.ts` · `customer_portal_properties` — propertyId/customerCode/propertyName/address/installedDate/nextInspectionDate |
+| Phase23-3 ホーム自動生成 | `/customer` · `/customer/:code` — マスターから物件一覧 · HTML固定廃止 |
+| Phase23-4 資料自動生成 | `/customer/project/:shareId` — business PDF + `/customer-files/` から取得 · mock 廃止 |
+| Phase23-5 PDF統一 | `customer-files-v1.ts` · `/customer-files/{code}/{ref}/{docType}/` — estimate/invoice/specification/completion/inspection |
+| Phase23-6 連絡ボタン | 電話/メール/問い合わせフォーム · `customer_contact_settings` ON/OFF |
+| Phase23-7 RN準備 | `customer-data-service-v1.ts` — データ取得集約 · UI/データ分離 |
+| Phase23-8 route-health | Phase23 診断 · master/property/document 件数 · customer api status |
+| Phase23-9 テスト | `customer-portal-v1.test.ts` · `operational-phase23-v1.test.ts` |
+| API | `GET /api/customer-portal/v1/stats` · `/file/:shareId/:fileId` |
+| SW | `tisly-pwa-v2403-phase23` |
+| JS | `customer-v1-phase23` |
+| 確認 | `/customer` · `/customer/TOMS001` · `/route-health` · https://tisly.jp/api/health |
+
 ### 実運用 Phase22 — お客様UI iPhone Safari 最終確認（完成済み）
 
 | 領域 | 内容 |

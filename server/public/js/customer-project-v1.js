@@ -3,6 +3,7 @@ import {
   CUSTOMER_CONTACT_LABEL,
   CUSTOMER_DOCUMENT_ACTIONS,
   CUSTOMER_PROJECT_LABELS,
+  renderContactActionsBar,
   renderMaintenance,
   renderProjectDocuments,
   renderProjectPhotos,
@@ -61,19 +62,23 @@ async function handleSave() {
   }
 }
 
-function wireBottomBar(contactTelHref) {
+function wireBottomBar(data) {
   const bottomBar = document.querySelector(".cv-bottom-bar");
   if (!bottomBar) return;
   bottomBar.classList.add("cv-bottom-bar-4");
-  const contactBtn = contactTelHref
-    ? `<a class="cv-btn" href="${escapeHtml(contactTelHref)}" data-tel-action="1">📞 ${escapeHtml(CUSTOMER_CONTACT_LABEL)}</a>`
-    : "";
+  const contactHtml = renderContactActionsBar(
+    data.contactActions,
+    contactTelHrefFromData(data, ""),
+    CUSTOMER_CONTACT_LABEL
+  );
   bottomBar.innerHTML = `
     <button type="button" class="cv-btn secondary" id="btn-back-bar">${escapeHtml(CUSTOMER_DOCUMENT_ACTIONS.back)}</button>
     <button type="button" class="cv-btn" id="btn-pdf-view">${escapeHtml(CUSTOMER_DOCUMENT_ACTIONS.pdfView)}</button>
     <button type="button" class="cv-btn secondary" id="btn-save">${escapeHtml(CUSTOMER_DOCUMENT_ACTIONS.save)}</button>
-    ${contactBtn}
   `;
+  if (contactHtml) {
+    bottomBar.insertAdjacentHTML("beforeend", contactHtml);
+  }
   document.getElementById("btn-back-bar")?.addEventListener("click", () => goCustomerBack());
   document.getElementById("btn-pdf-view")?.addEventListener("click", () => handlePdfView());
   document.getElementById("btn-save")?.addEventListener("click", () => handleSave());
@@ -116,7 +121,7 @@ async function load() {
     ${renderMaintenance(data.maintenanceItems)}
   `;
 
-  wireBottomBar(contactTelHrefFromData(data, contactTel));
+  wireBottomBar(data);
   wireActionButtons();
 
   const hash = location.hash.replace("#", "");
