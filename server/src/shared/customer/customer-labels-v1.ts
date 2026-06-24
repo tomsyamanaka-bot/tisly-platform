@@ -19,7 +19,7 @@ export const CUSTOMER_SENSOR_STATUS_V1 = {
 } as const;
 
 /** 連絡ボタン共通ラベル */
-export const CUSTOMER_CONTACT_LABEL_V1 = "トムズへ連絡";
+export const CUSTOMER_CONTACT_LABEL_V1 = "TOMSへ連絡";
 
 export const CUSTOMER_HOME_CARDS_V1 = [
   { id: "camera", emoji: "📷", label: "カメラを見る", view: "camera" },

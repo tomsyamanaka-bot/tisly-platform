@@ -1,5 +1,9 @@
 /** Knowledge Customer UI V4 — お客様共有URL用 安全フィルタ */
 
+import {
+  isCorruptQuestionMarkText,
+  sanitizePdfRequiredField,
+} from "../business/pdf/pdf-text-sanitize.js";
 import type { KnowledgeCustomerMaterialItemV1 } from "./knowledge-customer-project-v1.js";
 import type {
   KnowledgeCustomerPdfSectionItemV1,
@@ -101,8 +105,8 @@ export function filterCustomerMaterialsForShareV1(
   });
 }
 
-export function sanitizeSharePayloadTextV1(text: string): string {
-  return String(text ?? "")
+export function sanitizeSharePayloadTextV1(text: string, fallback = ""): string {
+  let result = String(text ?? "")
     .replace(/https?:\/\/[^\s]+/gi, "")
     .replace(/\\\\[^\s]+/gi, "")
     .replace(/\/api\/[^\s]+/gi, "")
@@ -110,7 +114,12 @@ export function sanitizeSharePayloadTextV1(text: string): string {
     .replace(/QNAP[^\s]*/gi, "")
     .replace(/WebDAV[^\s]*/gi, "")
     .replace(/SMB[^\s]*/gi, "")
+    .replace(/\?{3,}/g, "")
     .trim();
+  if (!result || isCorruptQuestionMarkText(result)) {
+    return fallback;
+  }
+  return sanitizePdfRequiredField(result, fallback || "—");
 }
 
 export function assertSharePayloadSanitizedV1(payload: unknown): boolean {

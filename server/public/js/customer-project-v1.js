@@ -42,11 +42,11 @@ async function handlePdfView() {
 
 async function handleSave() {
   const doc = projectData?.documents?.[0];
-  const url = doc?.openUrl;
-  if (!url) {
+  if (!doc?.fileId) {
     toast("書類を準備中です");
     return;
   }
+  const url = `/api/customer-portal/v1/file/${encodeURIComponent(shareId)}/${encodeURIComponent(doc.fileId)}`;
   try {
     const res = await fetch(url);
     const blob = await res.blob();

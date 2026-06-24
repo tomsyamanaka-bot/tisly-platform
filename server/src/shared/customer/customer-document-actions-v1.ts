@@ -6,7 +6,7 @@ import { resolveCustomerDocumentBackUrlV1 } from "../navigation/customer-documen
 
 export const CUSTOMER_DOCUMENT_BOTTOM_ACTIONS_V1 = [
   { id: "back", label: "戻る", variant: "secondary" as const },
-  { id: "pdf", label: "PDFにする", variant: "primary" as const },
+  { id: "pdf", label: "PDFを見る", variant: "primary" as const },
   { id: "save", label: "保存", variant: "secondary" as const },
 ] as const;
 
@@ -15,7 +15,7 @@ export const CUSTOMER_PROJECT_BOTTOM_ACTIONS_V1 = [
   { id: "back", label: "戻る", variant: "secondary" as const },
   { id: "pdf", label: "PDFを見る", variant: "primary" as const },
   { id: "save", label: "保存", variant: "secondary" as const },
-  { id: "contact", label: "トムズへ連絡", variant: "contact" as const },
+  { id: "contact", label: "TOMSへ連絡", variant: "contact" as const },
 ] as const;
 
 export type CustomerDocumentBottomActionIdV1 =

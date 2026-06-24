@@ -5,6 +5,8 @@
 import { v4 as uuid } from "uuid";
 import { getDatabase } from "../../db/database.js";
 import { listBusinessProjects } from "../../business/business-store.js";
+import { sanitizeSharePayloadTextV1 } from "../../knowledge/knowledge-customer-share-filter-v1.js";
+import { sanitizePdfRequiredField } from "../../business/pdf/pdf-text-sanitize.js";
 import { getCustomerMasterV1 } from "./customer-master-v1.js";
 
 export interface PropertyMasterV1 {
@@ -23,8 +25,8 @@ function rowToProperty(row: Record<string, unknown>): PropertyMasterV1 {
   return {
     propertyId: String(row.property_id),
     customerCode: String(row.customer_code),
-    propertyName: String(row.property_name),
-    address: String(row.address ?? ""),
+    propertyName: sanitizePdfRequiredField(String(row.property_name), "物件"),
+    address: sanitizeSharePayloadTextV1(String(row.address ?? ""), ""),
     projectRef: row.project_ref != null ? String(row.project_ref) : null,
     installedDate: row.installed_date != null ? String(row.installed_date) : null,
     nextInspectionDate: row.next_inspection_date != null ? String(row.next_inspection_date) : null,
@@ -120,6 +122,7 @@ export function syncPropertiesFromBusinessProjectsV1(customerCode: string): numb
     const nameMatch =
       master.customerName &&
       (project.customerName.includes(master.customerName.replace(/デモ$/, "")) ||
+        project.customerName.includes("TOMS") ||
         project.customerName.includes("トムズ") ||
         project.customerName.includes("山中"));
     const codeIsDemo = customerCode === "TOMS001";
@@ -128,7 +131,10 @@ export function syncPropertiesFromBusinessProjectsV1(customerCode: string): numb
     upsertPropertyMasterV1({
       propertyId: `PROP-${ref.replace(/[^A-Za-z0-9]/g, "").slice(0, 12)}`,
       customerCode,
-      propertyName: project.title?.trim() || `${project.municipality || "現場"} ${project.title}`,
+      propertyName: sanitizePdfRequiredField(
+        project.title?.trim() || `${project.municipality || "現場"} ${project.title}`,
+        "TOMS設備デモ"
+      ),
       address: project.address?.trim() || master.address,
       projectRef: ref,
       installedDate: project.constructionSchedule?.date ?? null,

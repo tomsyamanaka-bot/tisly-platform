@@ -88,7 +88,7 @@ export function buildCustomerHomeListViewV1(customerCode: string): CustomerHomeL
   const projects = listProjectListItemsForCustomerV1(code);
 
   const masterRecord = getCustomerMasterV1(code);
-  const customerName = masterRecord?.customerName ?? (code === "TOMS001" ? "トムズ設備デモ" : `${code} 様`);
+  const customerName = masterRecord?.customerName ?? (code === "TOMS001" ? "TOMS設備デモ" : `${code} 様`);
 
   return {
     customerName,
@@ -173,7 +173,7 @@ export function buildCustomerProjectViewV1(shareId: string): CustomerProjectView
 
 export function buildCustomerDocumentViewV1(
   shareId: string,
-  fileId?: string
+  opts?: { fileId?: string; docType?: string }
 ): {
   shareId: string;
   propertyName: string;
@@ -182,6 +182,8 @@ export function buildCustomerDocumentViewV1(
   previewUrl?: string;
   pdfUrl?: string;
   backUrl: string;
+  status?: "ok" | "preparing";
+  message?: string;
 } | null {
   const project = buildCustomerProjectViewV1(shareId);
   if (!project) return null;
@@ -191,31 +193,45 @@ export function buildCustomerDocumentViewV1(
   const files = fetchCustomerProjectFilesV1(shareId, customerCode).filter(
     (f) => !f.type.includes("photo")
   );
+
+  const docType = opts?.docType?.trim();
+  const fileId = opts?.fileId?.trim();
+
   const target =
-    files.find((f) => f.fileId === fileId) ??
-    files.find((f) => f.type === "specification") ??
+    (fileId ? files.find((f) => f.fileId === fileId) : null) ??
+    (docType ? files.find((f) => f.type === docType) : null) ??
     files.find((f) => f.type === "completion") ??
+    files.find((f) => f.type === "estimate") ??
+    files.find((f) => f.type === "invoice") ??
+    files.find((f) => f.type === "specification") ??
     files[0];
 
-  if (!target) {
+  const backUrl = buildCustomerProjectUrlV1(project.shareId);
+  const preparingMessage =
+    "書類を準備中です。時間をおいて再度開いてください。お急ぎの場合はTOMSへご連絡ください。";
+
+  if (!target || !target.fileId) {
     return {
       shareId: project.shareId,
       propertyName: project.propertyName,
-      fileId: fileId ?? "",
+      fileId: fileId ?? (docType ? `doc-${docType}` : ""),
       label: TISLY_UI_LABELS_V1.preparing,
-      backUrl: buildCustomerProjectUrlV1(project.shareId),
+      status: "preparing",
+      message: preparingMessage,
+      backUrl,
     };
   }
 
-  const preview = target.openUrl ?? target.previewUrl;
+  const apiUrl = target.openUrl;
   return {
     shareId: project.shareId,
     propertyName: project.propertyName,
     fileId: target.fileId,
     label: target.safeLabel || target.title,
-    previewUrl: preview,
-    pdfUrl: preview,
-    backUrl: buildCustomerProjectUrlV1(project.shareId),
+    previewUrl: apiUrl,
+    pdfUrl: apiUrl,
+    backUrl,
+    status: "ok",
   };
 }
 

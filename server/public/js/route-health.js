@@ -54,8 +54,8 @@ const JS_ASSETS = [
 const ESTIMATE_UI_VERSION = "estimate-ui-v8";
 const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v5";
 const PHASE9_JS_VERSION = "phase9-iphone-v1";
-const SW_CACHE_TOKEN = "v2403-phase23";
-const CUSTOMER_JS_VERSION = "customer-v1-phase23";
+const SW_CACHE_TOKEN = "v2405-phase25";
+const CUSTOMER_JS_VERSION = "customer-v1-phase25";
 
 const CUSTOMER_FORBIDDEN_WORDS = [
   "MQTT", "WS", "QNAP", "Mock", "Gmail mock", "PDF puppeteer", "App Hub",
@@ -431,7 +431,7 @@ async function checkCustomerSeparationPhase22(shareId) {
       !sharedJs.includes("LINE");
     const tomsHtml = pageResults.find((r) => r.p === "/customer/TOMS001")?.html ?? "";
     const tomsOk =
-      tomsHtml.includes("customer-v1-phase23") || tomsHtml.includes("customer-home-v1");
+      tomsHtml.includes("customer-v1-phase25") || tomsHtml.includes("customer-home-v1");
     const propertyOk =
       sharedJs.includes("最終確認") &&
       sharedJs.includes("現在の状態") &&
@@ -467,6 +467,90 @@ async function checkCustomerSeparationPhase22(shareId) {
     return {
       status: "warn",
       detail: `200:${all200} forbid:${noForbidden} app:${noAppLinks} sw:${swOk} js:${jsOk} cache:${cacheOk} proj:${projectOk}`,
+    };
+  } catch (e) {
+    return { status: "fail", detail: e.message || String(e) };
+  }
+}
+
+async function checkCustomerPhase24Phase25(shareId) {
+  try {
+    const docTypes = ["completion", "estimate", "invoice"];
+    const paths = [
+      "/customer",
+      "/customer/TOMS001",
+      `/customer/project/${shareId}`,
+      `/customer/monitoring/${shareId}`,
+      ...docTypes.map((dt) => `/customer/document/${shareId}?docType=${dt}`),
+    ];
+    const [
+      pages,
+      statsRes,
+      sharedJsRes,
+      docJsRes,
+      swRes,
+      adminRes,
+      ...pdfChecks
+    ] = await Promise.all([
+      Promise.all(paths.map((p) => fetch(p, { cache: "no-store" }).then((r) => ({ p, ok: r.ok, text: r.text() })))),
+      fetch("/api/customer-portal/v1/stats", { cache: "no-store" }),
+      fetch("/js/customer-shared-v1.js", { cache: "no-store" }),
+      fetch("/js/customer-document-v1.js", { cache: "no-store" }),
+      fetch("/service-worker.js", { cache: "no-store" }),
+      fetch("/customer-admin-v1", { cache: "no-store" }),
+      ...docTypes.map((dt) =>
+        fetch(`/api/customer-portal/v1/file/${encodeURIComponent(shareId)}/doc-${dt}`, {
+          cache: "no-store",
+        }).then((r) => ({ dt, status: r.status }))
+      ),
+    ]);
+    const pageResults = await Promise.all(pages.map(async (p) => ({ ...p, text: await p.text })));
+    const stats = await statsRes.json().catch(() => ({}));
+    const sharedJs = await sharedJsRes.text();
+    const docJs = await docJsRes.text();
+    const swText = await swRes.text();
+
+    const all200 = pageResults.every((p) => p.ok);
+    const noAppLinks = pageResults.every((p) => !p.text.includes('href="/app"'));
+    const tomsCount = (sharedJs.match(/トムズ/g) || []).length;
+    const tomsOk = sharedJs.includes("TOMSへ連絡") && !sharedJs.includes("トムズへ連絡");
+    const forbidHits = CUSTOMER_FORBIDDEN_WORDS.filter((w) =>
+      pageResults.some((p) => p.text.includes(w))
+    );
+    const noForbidden = forbidHits.length === 0;
+    const pdfOk = pdfChecks.every((p) => p.status === 200);
+    const mojibakeOk = !pageResults.some((p) => /\?{4,}/.test(p.text));
+    const adminOk = adminRes.ok;
+    const swOk = swText.includes(SW_CACHE_TOKEN);
+    const jsOk = sharedJs.includes(CUSTOMER_JS_VERSION);
+    const docNavOk =
+      docJs.includes("goProjectBack") &&
+      docJs.includes("PDFを見る") &&
+      !docJs.includes("history.back");
+    const preparingOk =
+      docJs.includes("書類を準備中です") && docJs.includes("TOMSへご連絡");
+
+    if (
+      all200 &&
+      noAppLinks &&
+      tomsOk &&
+      noForbidden &&
+      pdfOk &&
+      mojibakeOk &&
+      adminOk &&
+      swOk &&
+      jsOk &&
+      docNavOk &&
+      preparingOk
+    ) {
+      return {
+        status: "ok",
+        detail: `Phase24-25 OK · トムズ残${tomsCount} · PDF:${pdfChecks.length}/${pdfChecks.length} · C:${stats.customerMasterCount} P:${stats.propertyCount} D:${stats.documentCount}`,
+      };
+    }
+    return {
+      status: "warn",
+      detail: `200:${all200} toms:${tomsOk}(${tomsCount}) forbid:${noForbidden} pdf:${pdfOk} moji:${mojibakeOk} admin:${adminOk} sw:${swOk} js:${jsOk} doc:${docNavOk}`,
     };
   } catch (e) {
     return { status: "fail", detail: e.message || String(e) };
@@ -1491,6 +1575,17 @@ async function runChecks() {
 
   const customerSep23 = await checkCustomerMasterIntegrationPhase23();
   rows.push({ path: "Phase23 customer-master", label: "案件マスター統合", ...customerSep23 });
+
+  const customerSep2425 = await checkCustomerPhase24Phase25(
+    (await fetch("/api/customer-portal/v1/landing", { cache: "no-store" })
+      .then((r) => r.json())
+      .catch(() => ({}))).home?.shareId ||
+      (await fetch("/api/customer-portal/v1/home/TOMS001", { cache: "no-store" })
+        .then((r) => r.json())
+        .catch(() => ({}))).projects?.[0]?.shareId ||
+      ""
+  );
+  rows.push({ path: "Phase24-25 customer", label: "TOMS統一·PDF·文字化け", ...customerSep2425 });
 
   const docViewer17 = await checkDocumentViewerPhase17();
   rows.push({ path: "Phase17 document-viewer", label: "PDF UI", ...docViewer17 });

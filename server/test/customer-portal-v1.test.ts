@@ -143,16 +143,17 @@ describe("Customer Portal V1 — assets", () => {
 
   it("customer document page has PDF and save buttons in JS", () => {
     const js = fs.readFileSync(path.join(publicDir, "js/customer-document-v1.js"), "utf-8");
-    assert.match(js, /PDFにする/);
+    assert.match(js, /CUSTOMER_DOCUMENT_ACTIONS\.pdfView/);
+    assert.match(js, /CUSTOMER_DOCUMENT_ACTIONS/);
     assert.match(js, /btn-save/);
     assert.doesNotMatch(js, /history\.back/);
     assert.doesNotMatch(js, /LINE/);
     assert.match(js, /\/customer\/project\//);
   });
 
-  it("service worker bumped to v2403-phase23", () => {
+  it("service worker bumped to v2405-phase25", () => {
     const sw = fs.readFileSync(path.join(publicDir, "service-worker.js"), "utf-8");
-    assert.match(sw, /v2403-phase23/);
+    assert.match(sw, /v2405-phase25/);
     assert.match(sw, /customer-cache-v1\.js/);
     assert.match(sw, /isCustomerFreshAsset/);
   });
@@ -169,14 +170,14 @@ describe("Customer Portal V1 — Phase20 production polish", () => {
   it("TOMS001 list API returns property actions", async () => {
     const res = await request(app).get("/api/customer-portal/v1/home/TOMS001");
     assert.equal(res.status, 200);
-    assert.equal(res.body.customerName, "トムズ設備デモ");
+    assert.equal(res.body.customerName, "TOMS設備デモ");
     assert.ok(Array.isArray(res.body.projects));
     assert.ok(res.body.projects.length >= 1);
     const first = res.body.projects[0];
     assert.ok(first.actions?.length >= 3);
     assert.ok(first.actions.some((a: { label: string }) => a.label === "書類を見る"));
     assert.ok(first.actions.some((a: { label: string }) => a.label === "見守りを見る"));
-    assert.ok(first.actions.some((a: { label: string }) => a.label === "トムズへ連絡"));
+    assert.ok(first.actions.some((a: { label: string }) => a.label === "TOMSへ連絡"));
   });
 
   it("monitoring API uses customer-friendly labels", async () => {
@@ -235,7 +236,7 @@ describe("Customer Portal V1 — Phase23 master integration", () => {
 
   it("customer HTML references phase23 assets", async () => {
     const res = await request(app).get("/customer");
-    assert.match(res.text, /customer-v1-phase23/);
+    assert.match(res.text, /customer-v1-phase25/);
   });
 
   it("shared customer master modules exist", () => {
@@ -247,7 +248,7 @@ describe("Customer Portal V1 — Phase23 master integration", () => {
 describe("Customer Portal V1 — Phase22 iPhone polish", () => {
   it("customer HTML references phase22 assets", async () => {
     const res = await request(app).get("/customer");
-    assert.match(res.text, /customer-v1-phase23/);
+    assert.match(res.text, /customer-v1-phase25/);
     assert.match(res.text, /tisly-customer-js-version/);
   });
 
@@ -260,7 +261,7 @@ describe("Customer Portal V1 — Phase22 iPhone polish", () => {
   it("customer-cache-v1.js exists with update banner", () => {
     const js = fs.readFileSync(path.join(publicDir, "js/customer-cache-v1.js"), "utf-8");
     assert.match(js, /更新してください/);
-    assert.match(js, /customer-v1-phase23/);
+    assert.match(js, /customer-v1-phase25/);
   });
 
   it("shared customer-cache module exists", () => {
@@ -276,14 +277,14 @@ describe("Customer Portal V1 — Phase21 final polish", () => {
     assert.ok(Array.isArray(res.body.quickActions));
     assert.ok(res.body.quickActions.some((a: { label: string }) => a.label === "書類を見る"));
     assert.ok(res.body.quickActions.some((a: { label: string }) => a.label === "見守りを見る"));
-    assert.ok(res.body.quickActions.some((a: { label: string }) => a.label === "トムズへ連絡"));
+    assert.ok(res.body.quickActions.some((a: { label: string }) => a.label === "TOMSへ連絡"));
   });
 
   it("monitoring API includes contact without technical fields", async () => {
     const res = await request(app).get(`/api/customer-portal/v1/monitoring/${DEMO_SHARE}`);
     assert.equal(res.status, 200);
     assert.ok(res.body.contactTelHref?.startsWith("tel:"));
-    assert.equal(res.body.contactLabel, "トムズへ連絡");
+    assert.equal(res.body.contactLabel, "TOMSへ連絡");
     const json = JSON.stringify(res.body);
     assert.doesNotMatch(json, /deviceId|sensorId|topic|mqtt|statusCode|JSON/i);
   });
@@ -300,8 +301,8 @@ describe("Customer Portal V1 — Phase21 final polish", () => {
     assert.match(js, /cv-property-card-main/);
     assert.match(js, /最終確認/);
     assert.match(js, /現在の状態/);
-    assert.match(js, /トムズへ連絡/);
-    assert.match(js, /customer-v1-phase23/);
+    assert.match(js, /TOMSへ連絡/);
+    assert.match(js, /customer-v1-phase25/);
   });
 
   it("shared customer-project-actions module exists", () => {

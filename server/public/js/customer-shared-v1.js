@@ -1,10 +1,10 @@
-// @tisly-customer-js-version customer-v1-phase23
+// @tisly-customer-js-version customer-v1-phase25
 /**
  * お客様 UI 描画ロジック — DOM 操作を集約（React Native 移植時は差し替え）
  * 文言は server/src/shared/customer/customer-labels-v1.ts と同期
  */
 
-export const CUSTOMER_JS_VERSION = "customer-v1-phase23";
+export const CUSTOMER_JS_VERSION = "customer-v1-phase25";
 
 export const CUSTOMER_HOME_LABELS = {
   currentStatus: "現在の状態",
@@ -27,12 +27,12 @@ export const CUSTOMER_PROJECT_LABELS = {
 
 export const CUSTOMER_DOCUMENT_ACTIONS = {
   back: "戻る",
-  pdf: "PDFにする",
+  pdf: "PDFを見る",
   pdfView: "PDFを見る",
   save: "保存",
 };
 
-export const CUSTOMER_CONTACT_LABEL = "トムズへ連絡";
+export const CUSTOMER_CONTACT_LABEL = "TOMSへ連絡";
 
 export function escapeHtml(s) {
   return String(s ?? "")

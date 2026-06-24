@@ -106,7 +106,7 @@ export function syncCustomerMasterFromTenantsV1(): number {
     if (existing) continue;
     const defaults: Record<string, Partial<CustomerMasterV1>> = {
       TOMS001: {
-        customerName: "トムズ設備デモ",
+        customerName: "TOMS設備デモ",
         address: "守谷市",
         contactName: "山中様",
         contactPhone: "048-594-7077",

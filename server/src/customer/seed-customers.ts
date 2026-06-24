@@ -11,7 +11,7 @@ const DEMO_CUSTOMERS = [
   {
     customerId: "cust-toms",
     customerCode: "TOMS001",
-    customerName: "トムズ設備デモ",
+    customerName: "TOMS設備デモ",
     plan: "PRO_REMOTE" as const,
     companyColor: "#1a7f37",
     siteId: "site-toms-main",

@@ -28,6 +28,7 @@ export const TISLY_INTERNAL_ROUTES_V1: TislyRouteEntryV1[] = [
   { path: "/project-dashboard-v1", label: "案件ダッシュボード", zone: "internal" },
   { path: "/project-mgmt-detail-v1", label: "案件詳細", zone: "internal" },
   { path: "/document-center-v1", label: "書類センター", zone: "internal" },
+  { path: "/customer-admin-v1", label: "Customer Master管理", zone: "internal" },
   { path: "/route-health", label: "Route Health", zone: "diagnostics" },
 ];
 
@@ -74,9 +75,18 @@ export function buildCustomerProjectUrlV1(shareId: string): string {
   return `/customer/project/${encodeURIComponent(shareId)}`;
 }
 
-export function buildCustomerDocumentUrlV1(shareId: string, fileId?: string): string {
+export function buildCustomerDocumentUrlV1(
+  shareId: string,
+  fileIdOrOpts?: string | { fileId?: string; docType?: string }
+): string {
   const base = `/customer/document/${encodeURIComponent(shareId)}`;
-  return fileId ? `${base}?fileId=${encodeURIComponent(fileId)}` : base;
+  const opts =
+    typeof fileIdOrOpts === "string" ? { fileId: fileIdOrOpts } : fileIdOrOpts;
+  const params = new URLSearchParams();
+  if (opts?.docType) params.set("docType", opts.docType);
+  if (opts?.fileId) params.set("fileId", opts.fileId);
+  const qs = params.toString();
+  return qs ? `${base}?${qs}` : base;
 }
 
 export function buildCustomerMonitoringUrlV1(shareId: string): string {

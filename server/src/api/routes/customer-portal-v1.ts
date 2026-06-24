@@ -8,7 +8,10 @@ import {
   buildCustomerDocumentViewV1,
   buildCustomerMonitoringViewV1,
 } from "../../shared/customer/customer-portal-data-v1.js";
-import { getCustomerPortalStatsV1 } from "../../shared/customer/customer-data-service-v1.js";
+import {
+  buildCustomerAdminListV1,
+  getCustomerPortalStatsV1,
+} from "../../shared/customer/customer-data-service-v1.js";
 import { resolveCustomerPortalFileV1 } from "../../shared/customer/customer-files-v1.js";
 import { decodeCustomerShareIdV1 } from "../../shared/customer/customer-share-id-v1.js";
 import { sanitizeCustomerMonitoringApiV1 } from "../../shared/customer/customer-monitoring-state-v1.js";
@@ -49,7 +52,8 @@ customerPortalV1Router.get("/project/:shareId", (req, res) => {
 
 customerPortalV1Router.get("/document/:shareId", (req, res) => {
   const fileId = typeof req.query.fileId === "string" ? req.query.fileId : undefined;
-  const data = buildCustomerDocumentViewV1(String(req.params.shareId), fileId);
+  const docType = typeof req.query.docType === "string" ? req.query.docType : undefined;
+  const data = buildCustomerDocumentViewV1(String(req.params.shareId), { fileId, docType });
   if (!data) {
     res.status(404).json({ status: "error", error: "資料が見つかりません" });
     return;
@@ -76,13 +80,47 @@ customerPortalV1Router.get("/file/:shareId/:fileId", (req, res) => {
     return;
   }
   res.setHeader("Content-Type", resolved.contentType);
-  res.setHeader("Content-Disposition", `inline; filename="${resolved.downloadName}"`);
-  fs.createReadStream(resolved.absolutePath).pipe(res);
+  res.setHeader(
+    "Content-Disposition",
+    `inline; filename="${encodeURIComponent(resolved.downloadName)}"`
+  );
+  const stream = fs.createReadStream(resolved.absolutePath);
+  stream.on("error", () => {
+    if (!res.headersSent) {
+      res.status(404).json({ status: "error", error: "資料が見つかりません" });
+      return;
+    }
+    res.end();
+  });
+  stream.pipe(res);
 });
 
 customerPortalV1Router.get("/stats", (_req, res) => {
   const stats = getCustomerPortalStatsV1();
   res.json({ status: stats.apiStatus, ...stats });
+});
+
+customerPortalV1Router.get("/admin/list", (req, res) => {
+  const customerCode =
+    typeof req.query.customerCode === "string" ? req.query.customerCode : undefined;
+  const propertyQuery =
+    typeof req.query.propertyQuery === "string" ? req.query.propertyQuery : undefined;
+  const customers = buildCustomerAdminListV1({ customerCode, propertyQuery });
+  const stats = getCustomerPortalStatsV1();
+  res.json({
+    status: "ok",
+    stats,
+    customers,
+    masters: customers.reduce(
+      (acc, row) => {
+        if (!acc.some((m) => m.customerCode === row.customerCode)) {
+          acc.push({ customerCode: row.customerCode, customerName: row.customerName });
+        }
+        return acc;
+      },
+      [] as Array<{ customerCode: string; customerName: string }>
+    ),
+  });
 });
 
 customerPortalV1Router.get("/route-contract", (_req, res) => {

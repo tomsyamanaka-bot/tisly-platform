@@ -12,6 +12,7 @@ import {
 } from "./customer-contact-settings-v1.js";
 import {
   CUSTOMER_FILE_DOC_LABELS_V1,
+  ensureDemoCustomerPortalDocumentsV1,
   listCustomerPortalFilesV1,
   syncProjectPdfsToCustomerFilesV1,
   type CustomerPortalFileRecordV1,
@@ -30,6 +31,12 @@ import {
 } from "./customer-property-master-v1.js";
 import { countCustomerPortalDocumentsV1 } from "./customer-files-v1.js";
 import { encodeCustomerShareIdV1, decodeCustomerShareIdV1 } from "./customer-share-id-v1.js";
+import {
+  buildCustomerDocumentUrlV1,
+  buildCustomerHomeUrlV1,
+  buildCustomerMonitoringUrlV1,
+  buildCustomerProjectUrlV1,
+} from "../routes/tisly-routes-v1.js";
 
 function shareIdFromRef(ref: string): string {
   return encodeCustomerShareIdV1(ref);
@@ -65,6 +72,7 @@ export function ensureCustomerPortalMastersV1(): void {
     for (const p of listPropertiesForCustomerV1(m.customerCode)) {
       if (p.projectRef) {
         syncProjectPdfsToCustomerFilesV1(m.customerCode, p.projectRef, p.propertyId);
+        ensureDemoCustomerPortalDocumentsV1(m.customerCode, p.projectRef, p.propertyId);
       }
     }
   }
@@ -150,6 +158,7 @@ export function fetchCustomerProjectFilesV1(
   const ref = refFromShareId(shareId);
   const code = customerCode ?? resolveCustomerCodeForProjectRefV1(ref) ?? "TOMS001";
   syncProjectPdfsToCustomerFilesV1(code, ref);
+  ensureDemoCustomerPortalDocumentsV1(code, ref);
   return listCustomerPortalFilesV1({ customerCode: code, projectRef: ref, shareId });
 }
 
@@ -180,9 +189,10 @@ export function mapPortalFilesToDocuments(
     .filter((f) => !PHOTO_TYPES.has(f.type))
     .map((f) => ({
       fileId: f.fileId,
-      label: CUSTOMER_FILE_DOC_LABELS_V1[f.type as keyof typeof CUSTOMER_FILE_DOC_LABELS_V1] ?? f.title,
+      label:
+        CUSTOMER_FILE_DOC_LABELS_V1[f.type as keyof typeof CUSTOMER_FILE_DOC_LABELS_V1] ?? f.title,
       kind: DOC_KIND_MAP[f.type] ?? "other",
-      openUrl: f.openUrl,
+      openUrl: buildCustomerDocumentUrlV1(shareId, { docType: f.type, fileId: f.fileId }),
     }));
 }
 
@@ -243,3 +253,54 @@ export {
   buildCustomerContactActionsV1,
   getCustomerContactSettingsV1,
 };
+
+export interface CustomerAdminRowV1 {
+  customerCode: string;
+  customerName: string;
+  propertyId: string;
+  propertyName: string;
+  projectRef: string | null;
+  shareId: string | null;
+  urls: {
+    customer: string;
+    project: string | null;
+    document: string | null;
+    monitoring: string | null;
+  };
+}
+
+export function buildCustomerAdminListV1(opts?: {
+  customerCode?: string;
+  propertyQuery?: string;
+}): CustomerAdminRowV1[] {
+  ensureCustomerPortalMastersV1();
+  const codeFilter = opts?.customerCode?.trim().toUpperCase();
+  const propertyQuery = opts?.propertyQuery?.trim().toLowerCase() ?? "";
+
+  const rows: CustomerAdminRowV1[] = [];
+  for (const master of listCustomerMastersV1()) {
+    if (codeFilter && master.customerCode !== codeFilter) continue;
+    for (const property of listPropertiesForCustomerV1(master.customerCode)) {
+      if (propertyQuery) {
+        const hay = `${property.propertyName} ${property.projectRef ?? ""} ${property.address}`.toLowerCase();
+        if (!hay.includes(propertyQuery)) continue;
+      }
+      const shareId = property.projectRef ? shareIdFromRef(property.projectRef) : null;
+      rows.push({
+        customerCode: master.customerCode,
+        customerName: master.customerName,
+        propertyId: property.propertyId,
+        propertyName: property.propertyName,
+        projectRef: property.projectRef,
+        shareId,
+        urls: {
+          customer: buildCustomerHomeUrlV1(master.customerCode),
+          project: shareId ? buildCustomerProjectUrlV1(shareId) : null,
+          document: shareId ? buildCustomerDocumentUrlV1(shareId) : null,
+          monitoring: shareId ? buildCustomerMonitoringUrlV1(shareId) : null,
+        },
+      });
+    }
+  }
+  return rows;
+}

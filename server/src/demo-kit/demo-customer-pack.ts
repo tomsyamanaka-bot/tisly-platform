@@ -45,7 +45,7 @@ export const DEMO_PACK_CUSTOMERS: DemoPackCustomerDef[] = [
   {
     customerId: "cust-toms",
     customerCode: "TOMS001",
-    customerName: "トムズ設備デモ",
+    customerName: "TOMS設備デモ",
     plan: "PRO_REMOTE",
     companyColor: "#1a7f37",
     siteId: "site-toms-main",
@@ -55,7 +55,7 @@ export const DEMO_PACK_CUSTOMERS: DemoPackCustomerDef[] = [
   {
     customerId: "cust-toms2",
     customerCode: "TOMS002",
-    customerName: "トムズ設備デモ（第2拠点）",
+    customerName: "TOMS設備デモ（第2拠点）",
     plan: "PRO_REMOTE",
     companyColor: "#15803d",
     siteId: "site-toms2-main",

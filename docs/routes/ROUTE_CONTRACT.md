@@ -1,6 +1,6 @@
 # TiSLY PWA URL 契約（Route Contract）
 
-**最終更新:** 2026-06-24（Phase22）  
+**最終更新:** 2026-06-25（Phase24-25）  
 **ルール:** URL を変更・追加したら **必ずこのファイルを更新** し、`/route-health` で旧URLリダイレクトを確認する。
 
 ---
@@ -33,6 +33,7 @@
 | 案件ダッシュボード | `/project-dashboard-v1` |
 | 案件詳細（実運用） | `/project-mgmt-detail-v1?projectId=` |
 | 書類センター | `/document-center-v1` |
+| Customer Master管理 | `/customer-admin-v1` |
 | 現場チェックリスト | `/field-checklist-v1` |
 | 材料チェック | `/field-check-v1` |
 | 発注タブ | `/field-check-v1?tab=orders` |

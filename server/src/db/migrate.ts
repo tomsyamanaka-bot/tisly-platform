@@ -241,6 +241,7 @@ export function runMigrations(database: Database.Database): void {
   migrateSpecPhotoTemplateMetaV1(database);
   migrateKnowledgePhotoMetaV1(database);
   migrateCustomerPortalMasterPhase23V1(database);
+  migrateCustomerPortalPhase24V1(database);
 }
 
 /** 現調図面 v1 — 方眼紙写真 + 描画レイヤー */
@@ -4763,7 +4764,7 @@ function migrateCustomerPortalMasterPhase23V1(database: Database.Database): void
        (customer_code, customer_name, address, contact_name, contact_phone, contact_email, plan, status, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
-    .run("TOMS001", "トムズ設備デモ", "守谷市", "山中様", "048-594-7077", "info@toms.co.jp", "PRO_REMOTE", "active", now, now);
+    .run("TOMS001", "TOMS設備デモ", "守谷市", "山中様", "048-594-7077", "info@toms.co.jp", "PRO_REMOTE", "active", now, now);
 
   database
     .prepare(
@@ -4796,4 +4797,41 @@ function migrateCustomerPortalMasterPhase23V1(database: Database.Database): void
       `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
     )
     .run("migration:customer_portal_master_phase23_v1", JSON.stringify({ at: now }));
+}
+
+/** Phase24 — TOMS表記統一 · 文字化け修正 · デモ物件名更新 */
+function migrateCustomerPortalPhase24V1(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:customer_portal_phase24_v1") as { value_json: string } | undefined;
+  if (marker) return;
+
+  const now = new Date().toISOString();
+  database
+    .prepare(
+      `UPDATE customer_portal_master SET customer_name = ?, updated_at = ? WHERE customer_code = ?`
+    )
+    .run("TOMS設備デモ", now, "TOMS001");
+
+  database
+    .prepare(`UPDATE customer_portal_master SET customer_name = REPLACE(customer_name, 'トムズ', 'TOMS') WHERE customer_name LIKE '%トムズ%'`)
+    .run();
+
+  database
+    .prepare(
+      `UPDATE customer_portal_properties SET property_name = ?, updated_at = ? WHERE project_ref = ?`
+    )
+    .run("TOMS設備デモ", now, "DEMO-HOME-001");
+
+  database
+    .prepare(
+      `UPDATE customer_portal_properties SET property_name = REPLACE(property_name, '????', '') WHERE property_name LIKE '%?%'`
+    )
+    .run();
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:customer_portal_phase24_v1", JSON.stringify({ at: now }));
 }

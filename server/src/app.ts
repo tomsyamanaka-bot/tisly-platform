@@ -500,6 +500,9 @@ export function createApp(): express.Application {
   app.get("/master-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "master-v1.html"));
   });
+  app.get("/customer-admin-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "customer-admin-v1.html"));
+  });
   app.get("/knowledge-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "knowledge-v1.html"));
   });

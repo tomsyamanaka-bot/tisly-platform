@@ -3,10 +3,10 @@
  */
 
 /** HTML script クエリ・検出用 */
-export const CUSTOMER_JS_VERSION_V1 = "customer-v1-phase23";
+export const CUSTOMER_JS_VERSION_V1 = "customer-v1-phase25";
 
 /** service-worker.js 内トークン */
-export const CUSTOMER_SW_TOKEN_V1 = "v2403-phase23";
+export const CUSTOMER_SW_TOKEN_V1 = "v2405-phase25";
 
 export const CUSTOMER_SW_FULL_VERSION_V1 = `tisly-pwa-${CUSTOMER_SW_TOKEN_V1}`;
 

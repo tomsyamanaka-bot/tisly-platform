@@ -849,9 +849,25 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | Phase23-8 route-health | Phase23 診断 · master/property/document 件数 · customer api status |
 | Phase23-9 テスト | `customer-portal-v1.test.ts` · `operational-phase23-v1.test.ts` |
 | API | `GET /api/customer-portal/v1/stats` · `/file/:shareId/:fileId` |
-| SW | `tisly-pwa-v2403-phase23` |
-| JS | `customer-v1-phase23` |
+| SW | `tisly-pwa-v2405-phase25` |
+| JS | `customer-v1-phase25` |
 | 確認 | `/customer` · `/customer/TOMS001` · `/route-health` · https://tisly.jp/api/health |
+
+### 実運用 Phase24-25 — customer実運用完成（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | **customer側PDF復旧 · TOMS表記統一 · 文字化け修正 · Customer Master管理** |
+| Phase24-1 TOMS表記 | 「トムズ」→「TOMS」（振込口座名義「トムズ」は例外維持） |
+| Phase24-2 管理画面 | `/customer-admin-v1` — Customer/Property一覧 · URLコピー（社内専用） |
+| Phase25-1 PDF | `/customer/document/:shareId?docType=` · demo PDF自動生成 · file API stream error処理 |
+| Phase25-2 500防止 | customer側 Internal Server Error 非表示 · 「書類を準備中です」メッセージ |
+| Phase25-3 文字化け | `sanitizeSharePayloadTextV1` + Property Master sanitize · Phase24 migration |
+| Phase25-4 route-health | Phase24-25 診断 · TOMS残存 · PDF200 · 禁止語 · 文字化け |
+| API | `GET /api/customer-portal/v1/admin/list` |
+| SW | `tisly-pwa-v2405-phase25` |
+| テスト | `operational-phase24-v1.test.ts` · `operational-phase25-v1.test.ts` |
+| 確認 | `/customer/document/:shareId?docType=estimate` · `/customer-admin-v1` · `/route-health` |
 
 ### 実運用 Phase22 — お客様UI iPhone Safari 最終確認（完成済み）
 

@@ -41,7 +41,7 @@ describe("Operational Phase23 — customer master integration", () => {
   it("TOMS001 home API uses master and contact actions", async () => {
     const res = await request(app).get("/api/customer-portal/v1/home/TOMS001");
     assert.equal(res.status, 200);
-    assert.equal(res.body.customerName, "トムズ設備デモ");
+    assert.equal(res.body.customerName, "TOMS設備デモ");
     assert.ok(Array.isArray(res.body.projects));
     assert.ok(res.body.projects.length >= 1);
     assert.ok(Array.isArray(res.body.contactActions));
@@ -84,7 +84,7 @@ describe("Operational Phase23 — customer routes 200", () => {
 });
 
 describe("Operational Phase23 — assets version", () => {
-  it("service worker is v2403-phase23", () => {
+  it("service worker is v2405-phase25", () => {
     const sw = fs.readFileSync(path.join(publicDir, "service-worker.js"), "utf-8");
     assert.match(sw, new RegExp(CUSTOMER_SW_TOKEN_V1));
   });
