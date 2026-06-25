@@ -1,6 +1,7 @@
 import {
   bindCustomerNavLinks,
   renderPropertyList,
+  renderNotifications,
 } from "./customer-shared-v1.js";
 import { goCustomerBack, initCustomerPage, navigateCustomer } from "./customer-nav-v1.js";
 
@@ -24,6 +25,7 @@ async function load() {
   document.getElementById("page-subtitle").textContent = "ご契約中の物件";
 
   main.innerHTML = `
+    ${data.notifications?.length ? renderNotifications(data.notifications) : ""}
     <section class="cv-list-wrap">
       ${renderPropertyList(data.projects)}
     </section>

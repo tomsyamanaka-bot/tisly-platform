@@ -18,6 +18,7 @@ import {
 import { buildCustomerMonitoringDetailV1 } from "./customer-monitoring-state-v1.js";
 import type { CustomerContactV1, CustomerHomeCardV1, CustomerHomeViewV1 } from "./customer-view-model-v1.js";
 import { decodeCustomerShareIdV1 } from "./customer-share-id-v1.js";
+import type { CustomerNotificationV1 } from "./customer-notifications-v1.js";
 
 function buildCardUrl(
   shareId: string,
@@ -40,6 +41,7 @@ export function buildCustomerHomeStateV1(opts: {
   propertyName: string;
   ref?: string;
   contact?: CustomerContactV1;
+  notifications?: CustomerNotificationV1[];
 }): CustomerHomeViewV1 {
   const ref = opts.ref ?? decodeCustomerShareIdV1(opts.shareId);
   const monitoring = buildCustomerMonitoringDetailV1(opts.shareId, opts.propertyName, ref);
@@ -74,6 +76,7 @@ export function buildCustomerHomeStateV1(opts: {
     monitoringPageUrl: buildCustomerMonitoringUrlV1(opts.shareId),
     contactPhone,
     contactCompany,
+    notifications: opts.notifications ?? [],
   };
 }
 
@@ -81,6 +84,7 @@ export function buildDefaultCustomerHomeV1(): CustomerHomeViewV1 {
   return buildCustomerHomeStateV1({
     shareId: "",
     propertyName: "お客様の物件",
-    ref: "DEMO-HOME-001",
+    ref: "",
+    notifications: [],
   });
 }

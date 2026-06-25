@@ -1,8 +1,8 @@
-// @tisly-customer-js-version customer-v1-phase25
+// @tisly-customer-js-version customer-v1-phase26
 /** お客様ポータル キャッシュ検出・強制更新 — shared/customer/customer-cache-v1.ts と同期 */
 
-export const CUSTOMER_JS_VERSION = "customer-v1-phase25";
-export const CUSTOMER_SW_TOKEN = "v2405-phase25";
+export const CUSTOMER_JS_VERSION = "customer-v1-phase26";
+export const CUSTOMER_SW_TOKEN = "v2406-phase26";
 
 const BANNER_ID = "cv-update-banner";
 

@@ -12,7 +12,6 @@ import {
 } from "./customer-contact-settings-v1.js";
 import {
   CUSTOMER_FILE_DOC_LABELS_V1,
-  ensureDemoCustomerPortalDocumentsV1,
   listCustomerPortalFilesV1,
   syncProjectPdfsToCustomerFilesV1,
   type CustomerPortalFileRecordV1,
@@ -21,12 +20,13 @@ import {
   countCustomerMastersV1,
   getCustomerMasterV1,
   listCustomerMastersV1,
+  normalizeCustomerPortalPlanV1,
   syncCustomerMasterFromTenantsV1,
 } from "./customer-master-v1.js";
 import {
   countPropertiesV1,
+  getPropertyByProjectRefV1,
   listPropertiesForCustomerV1,
-  syncPropertiesFromBusinessProjectsV1,
   type PropertyMasterV1,
 } from "./customer-property-master-v1.js";
 import { countCustomerPortalDocumentsV1 } from "./customer-files-v1.js";
@@ -37,6 +37,20 @@ import {
   buildCustomerMonitoringUrlV1,
   buildCustomerProjectUrlV1,
 } from "../routes/tisly-routes-v1.js";
+import { syncAllBusinessProjectsToCustomerPortalV1 } from "./customer-business-sync-v1.js";
+import {
+  ensureCustomerMasterForBusinessProjectV1,
+  ensurePropertyForBusinessProjectV1,
+  syncBusinessPhotosToCustomerFilesV1,
+} from "./customer-business-sync-v1.js";
+import { getBusinessProject, listBusinessProjects } from "../../business/business-store.js";
+import {
+  listCustomerNotificationsV1,
+  notifyInspectionDeadlinesV1,
+  buildSyntheticMonitoringNotificationsV1,
+} from "./customer-notifications-v1.js";
+import { classifyInspectionDeadlineV1 } from "./customer-inspection-v1.js";
+import type { CustomerContactV1, CustomerDocumentLinkV1, CustomerSitePhotoV1 } from "./customer-view-model-v1.js";
 
 function shareIdFromRef(ref: string): string {
   return encodeCustomerShareIdV1(ref);
@@ -45,13 +59,13 @@ function shareIdFromRef(ref: string): string {
 function refFromShareId(shareId: string): string {
   return decodeCustomerShareIdV1(shareId);
 }
-import type { CustomerContactV1, CustomerDocumentLinkV1, CustomerSitePhotoV1 } from "./customer-view-model-v1.js";
 
 export interface CustomerPortalStatsV1 {
   customerMasterCount: number;
   propertyCount: number;
   documentCount: number;
   apiStatus: "ok" | "degraded";
+  businessProjectSyncCount?: number;
 }
 
 const PHOTO_TYPES = new Set([
@@ -67,16 +81,29 @@ let masterSynced = false;
 export function ensureCustomerPortalMastersV1(): void {
   if (masterSynced) return;
   syncCustomerMasterFromTenantsV1();
+  for (const row of listBusinessProjects()) {
+    const project = getBusinessProject(row.id);
+    if (!project) continue;
+    const customerCode = ensureCustomerMasterForBusinessProjectV1(project);
+    const property = ensurePropertyForBusinessProjectV1(project, customerCode);
+    const ref = property.projectRef ?? project.projectNo;
+    syncProjectPdfsToCustomerFilesV1(customerCode, ref, property.propertyId);
+    syncBusinessPhotosToCustomerFilesV1(customerCode, project, property.propertyId);
+  }
   for (const m of listCustomerMastersV1()) {
-    syncPropertiesFromBusinessProjectsV1(m.customerCode);
-    for (const p of listPropertiesForCustomerV1(m.customerCode)) {
-      if (p.projectRef) {
-        syncProjectPdfsToCustomerFilesV1(m.customerCode, p.projectRef, p.propertyId);
-        ensureDemoCustomerPortalDocumentsV1(m.customerCode, p.projectRef, p.propertyId);
-      }
-    }
+    notifyInspectionDeadlinesV1(m.customerCode, listPropertiesForCustomerV1(m.customerCode));
   }
   masterSynced = true;
+}
+
+/** 非同期フル同期（PDF 自動生成込み） */
+export async function ensureCustomerPortalMastersAsyncV1(): Promise<void> {
+  ensureCustomerPortalMastersV1();
+  await syncAllBusinessProjectsToCustomerPortalV1();
+}
+
+export function resetCustomerPortalMasterSyncV1(): void {
+  masterSynced = false;
 }
 
 export function getCustomerPortalStatsV1(): CustomerPortalStatsV1 {
@@ -98,7 +125,8 @@ export function resolveCustomerCodeForProjectRefV1(projectRef: string): string |
     const props = listPropertiesForCustomerV1(m.customerCode);
     if (props.some((p) => p.projectRef === projectRef)) return m.customerCode;
   }
-  return "TOMS001";
+  const prop = getPropertyByProjectRefV1(projectRef);
+  return prop?.customerCode ?? null;
 }
 
 export function buildContactFromMasterV1(customerCode: string): CustomerContactV1 {
@@ -128,24 +156,44 @@ export function listPropertiesForCustomerPortalV1(customerCode: string): Propert
 
 export function listProjectListItemsForCustomerV1(customerCode: string): Array<{
   ref: string;
+  propertyId: string;
   propertyName: string;
   workGenre: string;
   status: string;
   address: string;
+  installedDate: string | null;
   nextInspectionDate: string | null;
+  contractPlan: string;
+  coverPhotoUrl: string | null;
+  inspectionStatus: ReturnType<typeof classifyInspectionDeadlineV1>;
 }> {
+  const master = getCustomerMasterV1(customerCode);
+  const planLabel = master ? normalizeCustomerPortalPlanV1(master.plan) : "Standard";
   const properties = listPropertiesForCustomerPortalV1(customerCode);
   return properties.map((p) => {
     const ref = p.projectRef ?? p.propertyId;
+    const shareId = shareIdFromRef(ref);
     const meta =
       tryResolveCustomerMetaFromBusinessProjectsV1(ref) ?? resolveCustomerProjectMetaV1(ref);
+    const files = listCustomerPortalFilesV1({
+      customerCode,
+      projectRef: ref,
+      shareId,
+      propertyId: p.propertyId,
+    });
+    const cover = files.find((f) => PHOTO_TYPES.has(f.type) && f.previewUrl);
     return {
       ref,
+      propertyId: p.propertyId,
       propertyName: sanitizeSharePayloadTextV1(p.propertyName || meta?.displayName || "物件"),
       workGenre: sanitizeSharePayloadTextV1(meta?.workType ?? "設備工事"),
       status: sanitizeSharePayloadTextV1(meta?.status ?? "進行中"),
       address: sanitizeSharePayloadTextV1(p.address),
+      installedDate: p.installedDate,
       nextInspectionDate: p.nextInspectionDate,
+      contractPlan: planLabel,
+      coverPhotoUrl: cover?.previewUrl ?? null,
+      inspectionStatus: classifyInspectionDeadlineV1(p.nextInspectionDate),
     };
   });
 }
@@ -156,10 +204,16 @@ export function fetchCustomerProjectFilesV1(
 ): CustomerPortalFileRecordV1[] {
   ensureCustomerPortalMastersV1();
   const ref = refFromShareId(shareId);
-  const code = customerCode ?? resolveCustomerCodeForProjectRefV1(ref) ?? "TOMS001";
-  syncProjectPdfsToCustomerFilesV1(code, ref);
-  ensureDemoCustomerPortalDocumentsV1(code, ref);
-  return listCustomerPortalFilesV1({ customerCode: code, projectRef: ref, shareId });
+  const code = customerCode ?? resolveCustomerCodeForProjectRefV1(ref);
+  if (!code) return [];
+  const property = getPropertyByProjectRefV1(ref);
+  syncProjectPdfsToCustomerFilesV1(code, ref, property?.propertyId);
+  return listCustomerPortalFilesV1({
+    customerCode: code,
+    projectRef: ref,
+    shareId,
+    propertyId: property?.propertyId,
+  });
 }
 
 export function mapPortalFilesToPhotos(files: CustomerPortalFileRecordV1[]): CustomerSitePhotoV1[] {
@@ -206,15 +260,16 @@ export function buildMaintenanceFromPropertyV1(
     ];
   }
   const items: Array<{ label: string; value: string }> = [];
+  const inspection = classifyInspectionDeadlineV1(property.nextInspectionDate);
   if (property.nextInspectionDate) {
     items.push({
       label: "点検予定",
-      value: new Date(property.nextInspectionDate).toLocaleDateString("ja-JP"),
+      value: `${new Date(property.nextInspectionDate).toLocaleDateString("ja-JP")}（${inspection.label}）`,
     });
   } else {
     items.push({ label: "点検予定", value: "次回点検は担当よりご連絡いたします" });
   }
-  items.push({ label: "保守状況", value: "正常" });
+  items.push({ label: "保守状況", value: inspection.color === "red" ? "要確認" : "正常" });
   if (property.installedDate) {
     items.push({
       label: "設置日",
@@ -249,6 +304,24 @@ export function getDefaultCustomerLandingPropertyV1(): {
   };
 }
 
+export function listCustomerNotificationsForHomeV1(customerCode: string) {
+  ensureCustomerPortalMastersV1();
+  const master = getCustomerMasterV1(customerCode);
+  const stored = listCustomerNotificationsV1(customerCode, { limit: 12 });
+  const synthetic =
+    master && stored.length < 3
+      ? buildSyntheticMonitoringNotificationsV1(master, listPropertiesForCustomerV1(customerCode))
+      : [];
+  const merged = [...stored, ...synthetic];
+  const seen = new Set<string>();
+  return merged.filter((n) => {
+    const key = `${n.kind}:${n.title}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 export {
   buildCustomerContactActionsV1,
   getCustomerContactSettingsV1,
@@ -261,6 +334,12 @@ export interface CustomerAdminRowV1 {
   propertyName: string;
   projectRef: string | null;
   shareId: string | null;
+  plan: string;
+  address: string;
+  contactPhone: string;
+  contactEmail: string;
+  installedDate: string | null;
+  nextInspectionDate: string | null;
   urls: {
     customer: string;
     project: string | null;
@@ -293,6 +372,12 @@ export function buildCustomerAdminListV1(opts?: {
         propertyName: property.propertyName,
         projectRef: property.projectRef,
         shareId,
+        plan: normalizeCustomerPortalPlanV1(master.plan),
+        address: property.address || master.address,
+        contactPhone: master.contactPhone,
+        contactEmail: master.contactEmail,
+        installedDate: property.installedDate,
+        nextInspectionDate: property.nextInspectionDate,
         urls: {
           customer: buildCustomerHomeUrlV1(master.customerCode),
           project: shareId ? buildCustomerProjectUrlV1(shareId) : null,

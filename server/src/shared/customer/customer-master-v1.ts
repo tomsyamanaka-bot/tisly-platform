@@ -5,7 +5,7 @@
 import { getDatabase } from "../../db/database.js";
 import { getCustomerByCode } from "../../customer/customer-store.js";
 
-export type CustomerPortalPlanV1 = "Lite" | "Standard" | "PRO" | "PRO_REMOTE";
+export type CustomerPortalPlanV1 = "Free" | "Notify" | "Standard" | "PRO" | "Enterprise";
 export type CustomerPortalStatusV1 = "active" | "suspended" | "deleted";
 
 export interface CustomerMasterV1 {
@@ -30,12 +30,21 @@ function rowToMaster(row: Record<string, unknown>): CustomerMasterV1 {
     contactName: String(row.contact_name ?? ""),
     contactPhone: String(row.contact_phone ?? ""),
     contactEmail: String(row.contact_email ?? ""),
-    plan: (String(row.plan ?? "PRO_REMOTE") as CustomerPortalPlanV1) || "PRO_REMOTE",
+    plan: normalizeCustomerPortalPlanV1(String(row.plan ?? "Standard")),
     status: (String(row.status ?? "active") as CustomerPortalStatusV1) || "active",
     businessCustomerId: row.business_customer_id != null ? String(row.business_customer_id) : null,
     createdAt: String(row.created_at ?? ""),
     updatedAt: String(row.updated_at ?? ""),
   };
+}
+
+export function normalizeCustomerPortalPlanV1(plan: string): CustomerPortalPlanV1 {
+  const p = String(plan ?? "").trim();
+  if (p === "Free" || p === "Notify" || p === "Standard" || p === "PRO" || p === "Enterprise") {
+    return p;
+  }
+  if (p === "PRO_REMOTE" || p === "Lite") return "PRO";
+  return "Standard";
 }
 
 export function listCustomerMastersV1(activeOnly = true): CustomerMasterV1[] {
@@ -80,7 +89,7 @@ export function upsertCustomerMasterV1(input: Omit<CustomerMasterV1, "createdAt"
       input.contactName ?? "",
       input.contactPhone ?? "",
       input.contactEmail ?? "",
-      input.plan ?? "PRO_REMOTE",
+      normalizeCustomerPortalPlanV1(input.plan ?? "Standard"),
       input.status ?? "active",
       input.businessCustomerId,
       now,
@@ -111,7 +120,7 @@ export function syncCustomerMasterFromTenantsV1(): number {
         contactName: "山中様",
         contactPhone: "048-594-7077",
         contactEmail: "info@toms.co.jp",
-        plan: "PRO_REMOTE",
+        plan: "PRO",
       },
     };
     const d = defaults[code] ?? {};
@@ -122,7 +131,7 @@ export function syncCustomerMasterFromTenantsV1(): number {
       contactName: d.contactName ?? "",
       contactPhone: d.contactPhone ?? "",
       contactEmail: d.contactEmail ?? "info@toms.co.jp",
-      plan: (d.plan ?? tenant.plan ?? "PRO_REMOTE") as CustomerPortalPlanV1,
+      plan: normalizeCustomerPortalPlanV1(String(d.plan ?? tenant.plan ?? "PRO")),
       status: "active",
       businessCustomerId: null,
     });

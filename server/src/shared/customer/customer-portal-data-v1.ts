@@ -20,6 +20,7 @@ import {
   fetchCustomerProjectFilesV1,
   getCustomerContactSettingsV1,
   getDefaultCustomerLandingPropertyV1,
+  listCustomerNotificationsForHomeV1,
   listProjectListItemsForCustomerV1,
   mapPortalFilesToDocuments,
   mapPortalFilesToPhotos,
@@ -31,7 +32,7 @@ import { buildCustomerPropertyListItemV1 } from "./customer-property-list-v1.js"
 import type { CustomerSystemStatusKeyV1 } from "./customer-labels-v1.js";
 import { buildCustomerProjectQuickActionsV1 } from "./customer-project-actions-v1.js";
 import { getPropertyByProjectRefV1 } from "./customer-property-master-v1.js";
-import { getCustomerMasterV1 } from "./customer-master-v1.js";
+import { getCustomerMasterV1, normalizeCustomerPortalPlanV1 } from "./customer-master-v1.js";
 import { encodeCustomerShareIdV1, decodeCustomerShareIdV1 } from "./customer-share-id-v1.js";
 import type {
   CustomerContactV1,
@@ -65,6 +66,7 @@ export function buildCustomerPortalLandingV1(): CustomerPortalLandingV1 {
     propertyName: primary.propertyName,
     ref: primary.ref,
     contact: buildContactFromMasterV1(primary.customerCode),
+    notifications: listCustomerNotificationsForHomeV1(primary.customerCode),
   });
 
   const projects = listProjectListItemsForCustomerV1(primary.customerCode).map((p) => {
@@ -92,6 +94,8 @@ export function buildCustomerHomeListViewV1(customerCode: string): CustomerHomeL
 
   return {
     customerName,
+    contractPlan: normalizeCustomerPortalPlanV1(masterRecord?.plan ?? "Standard"),
+    notifications: listCustomerNotificationsForHomeV1(code),
     projects: projects.map((p) => {
       const shareId = shareIdFromRef(p.ref);
       const meta = resolveCustomerProjectMetaV1(p.ref);
@@ -107,6 +111,13 @@ export function buildCustomerHomeListViewV1(customerCode: string): CustomerHomeL
         {
           shareId,
           propertyName,
+          address: p.address,
+          coverPhotoUrl: p.coverPhotoUrl,
+          contractPlan: p.contractPlan,
+          installedDate: p.installedDate,
+          nextInspectionDate: p.nextInspectionDate,
+          inspectionColor: p.inspectionStatus.color,
+          inspectionLabel: p.inspectionStatus.label,
           workDescription: sanitizeSharePayloadTextV1(p.workGenre),
           statusLabel: sanitizeSharePayloadTextV1(p.status),
           projectPageUrl: buildCustomerProjectUrlV1(shareId),
@@ -272,6 +283,7 @@ export function buildCustomerHomeByShareIdV1(
     propertyName: project.propertyName,
     ref,
     contact: buildContactFromMasterV1(customerCode),
+    notifications: listCustomerNotificationsForHomeV1(customerCode),
   });
 }
 

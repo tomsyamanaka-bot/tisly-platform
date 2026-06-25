@@ -151,9 +151,9 @@ describe("Customer Portal V1 — assets", () => {
     assert.match(js, /\/customer\/project\//);
   });
 
-  it("service worker bumped to v2405-phase25", () => {
+  it("service worker bumped to v2406-phase26", () => {
     const sw = fs.readFileSync(path.join(publicDir, "service-worker.js"), "utf-8");
-    assert.match(sw, /v2405-phase25/);
+    assert.match(sw, /v2406-phase26/);
     assert.match(sw, /customer-cache-v1\.js/);
     assert.match(sw, /isCustomerFreshAsset/);
   });
@@ -236,7 +236,7 @@ describe("Customer Portal V1 — Phase23 master integration", () => {
 
   it("customer HTML references phase23 assets", async () => {
     const res = await request(app).get("/customer");
-    assert.match(res.text, /customer-v1-phase25/);
+    assert.match(res.text, /customer-v1-phase26/);
   });
 
   it("shared customer master modules exist", () => {
@@ -248,7 +248,7 @@ describe("Customer Portal V1 — Phase23 master integration", () => {
 describe("Customer Portal V1 — Phase22 iPhone polish", () => {
   it("customer HTML references phase22 assets", async () => {
     const res = await request(app).get("/customer");
-    assert.match(res.text, /customer-v1-phase25/);
+    assert.match(res.text, /customer-v1-phase26/);
     assert.match(res.text, /tisly-customer-js-version/);
   });
 
@@ -261,7 +261,7 @@ describe("Customer Portal V1 — Phase22 iPhone polish", () => {
   it("customer-cache-v1.js exists with update banner", () => {
     const js = fs.readFileSync(path.join(publicDir, "js/customer-cache-v1.js"), "utf-8");
     assert.match(js, /更新してください/);
-    assert.match(js, /customer-v1-phase25/);
+    assert.match(js, /customer-v1-phase26/);
   });
 
   it("shared customer-cache module exists", () => {
@@ -302,7 +302,7 @@ describe("Customer Portal V1 — Phase21 final polish", () => {
     assert.match(js, /最終確認/);
     assert.match(js, /現在の状態/);
     assert.match(js, /TOMSへ連絡/);
-    assert.match(js, /customer-v1-phase25/);
+    assert.match(js, /customer-v1-phase26/);
   });
 
   it("shared customer-project-actions module exists", () => {

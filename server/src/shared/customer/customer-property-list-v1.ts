@@ -30,6 +30,13 @@ export type CustomerPropertyActionIdV1 = (typeof CUSTOMER_PROPERTY_ACTIONS_V1)[n
 export interface CustomerPropertyListItemV1 {
   shareId: string;
   propertyName: string;
+  address: string;
+  coverPhotoUrl: string | null;
+  contractPlan: string;
+  installedDate: string | null;
+  nextInspectionDate: string | null;
+  inspectionColor: string;
+  inspectionLabel: string;
   workDescription: string;
   statusLabel: string;
   systemStatusLabel: string;
@@ -55,6 +62,13 @@ export function buildCustomerPropertyListItemV1(
   project: {
     shareId: string;
     propertyName: string;
+    address?: string;
+    coverPhotoUrl?: string | null;
+    contractPlan?: string;
+    installedDate?: string | null;
+    nextInspectionDate?: string | null;
+    inspectionColor?: string;
+    inspectionLabel?: string;
     workDescription: string;
     statusLabel: string;
     projectPageUrl: string;
@@ -90,6 +104,13 @@ export function buildCustomerPropertyListItemV1(
 
   return {
     ...project,
+    address: project.address ?? "",
+    coverPhotoUrl: project.coverPhotoUrl ?? null,
+    contractPlan: project.contractPlan ?? "Standard",
+    installedDate: project.installedDate ?? null,
+    nextInspectionDate: project.nextInspectionDate ?? null,
+    inspectionColor: project.inspectionColor ?? "gray",
+    inspectionLabel: project.inspectionLabel ?? "",
     systemStatusLabel: system.label,
     systemStatusEmoji: system.emoji,
     lastCheckedAt: formatCustomerLastCheckedV1(project.lastCheckedIso),

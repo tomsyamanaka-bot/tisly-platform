@@ -169,7 +169,7 @@ export function upsertCustomerPortalDocumentV1(input: {
   return rowToDocument(row);
 }
 
-/** business PDF → customer-files へコピー登録 */
+/** business PDF → customer-files/{code}/{propertyId}/ へコピー登録 */
 export function syncProjectPdfsToCustomerFilesV1(
   customerCode: string,
   projectRef: string,
@@ -178,7 +178,8 @@ export function syncProjectPdfsToCustomerFilesV1(
   const project = findBusinessProjectByRefV1(projectRef);
   if (!project) return 0;
 
-  const destBase = path.join(customerFilesRoot(), customerCode.toUpperCase(), projectRef);
+  const folderKey = propertyId?.trim() || projectRef;
+  const destBase = path.join(customerFilesRoot(), customerCode.toUpperCase(), folderKey);
   let synced = 0;
 
   for (const entry of listProjectPdfsV1(project.id)) {
@@ -215,12 +216,18 @@ export function syncProjectPdfsToCustomerFilesV1(
 function scanCustomerFilesPhotos(
   customerCode: string,
   projectRef: string,
-  shareId: string
+  shareId: string,
+  propertyId?: string | null
 ): CustomerPortalFileRecordV1[] {
-  const base = path.join(customerFilesRoot(), customerCode.toUpperCase());
-  if (!fs.existsSync(base)) return [];
+  const code = customerCode.toUpperCase();
+  const bases = [
+    propertyId ? path.join(customerFilesRoot(), code, propertyId) : "",
+    path.join(customerFilesRoot(), code, projectRef),
+    path.join(customerFilesRoot(), code),
+  ].filter((b) => b && fs.existsSync(b));
 
   const records: CustomerPortalFileRecordV1[] = [];
+  const seen = new Set<string>();
   let order = 0;
 
   function walk(dir: string): void {
@@ -234,7 +241,9 @@ function scanCustomerFilesPhotos(
       const ext = path.extname(name).toLowerCase();
       if (!IMAGE_EXTS.has(ext)) continue;
       const rel = path.relative(customerFilesRoot(), abs).replace(/\\/g, "/");
-      if (projectRef && !rel.includes(projectRef)) continue;
+      if (propertyId && !rel.includes(propertyId) && projectRef && !rel.includes(projectRef)) continue;
+      if (seen.has(rel)) continue;
+      seen.add(rel);
       order += 1;
       const fileId = `photo-${Buffer.from(rel, "utf-8").toString("base64url")}`;
       const openUrl = publicUrl(rel);
@@ -252,7 +261,7 @@ function scanCustomerFilesPhotos(
     }
   }
 
-  walk(base);
+  for (const base of bases) walk(base);
   return records;
 }
 
@@ -280,10 +289,16 @@ export function listCustomerPortalFilesV1(opts: {
   customerCode: string;
   projectRef: string;
   shareId: string;
+  propertyId?: string | null;
 }): CustomerPortalFileRecordV1[] {
   const docs = listDocumentsForProjectRefV1(opts.projectRef);
   const pdfRecords = documentsToFileRecords(docs, opts.shareId);
-  const photos = scanCustomerFilesPhotos(opts.customerCode, opts.projectRef, opts.shareId);
+  const photos = scanCustomerFilesPhotos(
+    opts.customerCode,
+    opts.projectRef,
+    opts.shareId,
+    opts.propertyId
+  );
   return [...photos, ...pdfRecords].sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
@@ -321,73 +336,3 @@ export function resolveCustomerPortalFileV1(
 }
 
 export { DOC_TYPE_LABELS as CUSTOMER_FILE_DOC_LABELS_V1 };
-
-const DEMO_PDF_REFS: Record<
-  string,
-  { customerCode: string; propertyId: string; docs: CustomerFileDocTypeV1[] }
-> = {
-  "DEMO-HOME-001": {
-    customerCode: "TOMS001",
-    propertyId: "PROP-DEMOHOME001",
-    docs: ["estimate", "invoice", "completion", "specification"],
-  },
-};
-
-function writeMinimalDemoPdf(destPath: string, title: string): void {
-  const safeTitle = title.replace(/[^\u0020-\u007e\u3040-\u30ff\u4e00-\u9faf]/g, " ").slice(0, 40);
-  const stream = `BT /F1 18 Tf 72 720 Td (${safeTitle}) Tj ET`;
-  const pdf = `%PDF-1.4
-1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj
-2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj
-3 0 obj<</Type/Page/MediaBox[0 0 612 792]/Parent 2 0 R/Contents 4 0 R/Resources<</Font<</F1<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>>>>>>>>endobj
-4 0 obj<</Length ${stream.length}>>stream
-${stream}
-endstream endobj
-xref
-0 5
-0000000000 65535 f 
-trailer<</Size 5/Root 1 0 R>>
-startxref
-9
-%%EOF`;
-  fs.mkdirSync(path.dirname(destPath), { recursive: true });
-  fs.writeFileSync(destPath, pdf, "utf-8");
-}
-
-/** business 案件が無いデモ ref 向けに customer-files PDF を保証 */
-export function ensureDemoCustomerPortalDocumentsV1(
-  customerCode: string,
-  projectRef: string,
-  propertyId?: string | null
-): number {
-  const demo = DEMO_PDF_REFS[projectRef];
-  if (!demo || demo.customerCode !== customerCode.toUpperCase()) return 0;
-
-  let ensured = 0;
-  for (const docType of demo.docs) {
-    const existing = listDocumentsForProjectRefV1(projectRef).find((d) => d.docType === docType);
-    const fileName = `${docType}-demo.pdf`;
-    const destPath = path.join(
-      customerFilesRoot(),
-      customerCode.toUpperCase(),
-      projectRef,
-      docType,
-      fileName
-    );
-    if (!existing || !fs.existsSync(path.join(customerFilesRoot(), existing.relativePath))) {
-      writeMinimalDemoPdf(destPath, DOC_TYPE_LABELS[docType]);
-      const relativePath = path.relative(customerFilesRoot(), destPath).replace(/\\/g, "/");
-      upsertCustomerPortalDocumentV1({
-        customerCode,
-        propertyId: propertyId ?? demo.propertyId,
-        projectRef,
-        docType,
-        fileName,
-        relativePath,
-        label: DOC_TYPE_LABELS[docType],
-      });
-      ensured += 1;
-    }
-  }
-  return ensured;
-}

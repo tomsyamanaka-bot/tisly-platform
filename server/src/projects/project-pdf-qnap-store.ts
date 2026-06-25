@@ -12,6 +12,7 @@ import {
   recordQnapTimelineV1,
 } from "./project-timeline-v1-store.js";
 import type { ProjectPdfKind } from "./project-pdf-store.js";
+import { onProjectPdfSavedForCustomerV1 } from "../shared/customer/customer-business-sync-v1.js";
 
 export type QnapBackupStatus = "pending" | "uploading" | "success" | "failed";
 
@@ -224,6 +225,7 @@ export function recordProjectPdfSavedV1(
       localPath: pdfPath,
       qnapStatus: row.qnapBackupStatus,
     });
+    onProjectPdfSavedForCustomerV1(projectId, kind);
     return row;
   }
 
@@ -254,6 +256,7 @@ export function recordProjectPdfSavedV1(
     localPath: pdfPath,
     qnapStatus: row.qnapBackupStatus,
   });
+  onProjectPdfSavedForCustomerV1(projectId, kind);
   return row;
 }
 

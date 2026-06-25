@@ -242,6 +242,7 @@ export function runMigrations(database: Database.Database): void {
   migrateKnowledgePhotoMetaV1(database);
   migrateCustomerPortalMasterPhase23V1(database);
   migrateCustomerPortalPhase24V1(database);
+  migrateCustomerPortalPhase26V1(database);
 }
 
 /** 現調図面 v1 — 方眼紙写真 + 描画レイヤー */
@@ -4834,4 +4835,51 @@ function migrateCustomerPortalPhase24V1(database: Database.Database): void {
       `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
     )
     .run("migration:customer_portal_phase24_v1", JSON.stringify({ at: now }));
+}
+
+/** Phase26 — 実運用同期 · 通知 · 契約プラン */
+function migrateCustomerPortalPhase26V1(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:customer_portal_phase26_v1") as { value_json: string } | undefined;
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS customer_portal_notifications (
+      id TEXT PRIMARY KEY,
+      customer_code TEXT NOT NULL,
+      property_id TEXT,
+      project_ref TEXT,
+      kind TEXT NOT NULL,
+      severity TEXT NOT NULL DEFAULT 'info',
+      title TEXT NOT NULL,
+      body TEXT NOT NULL DEFAULT '',
+      href TEXT,
+      dedupe_key TEXT,
+      push_payload_json TEXT,
+      read_at TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_cpn_customer ON customer_portal_notifications(customer_code);
+    CREATE INDEX IF NOT EXISTS idx_cpn_dedupe ON customer_portal_notifications(customer_code, dedupe_key);
+  `);
+
+  if (marker) return;
+
+  const now = new Date().toISOString();
+  database
+    .prepare(
+      `UPDATE customer_portal_master SET plan = 'PRO' WHERE plan IN ('PRO_REMOTE', 'Lite')`
+    )
+    .run();
+  database
+    .prepare(
+      `UPDATE customer_portal_master SET plan = 'Standard' WHERE plan NOT IN ('Free','Notify','Standard','PRO','Enterprise')`
+    )
+    .run();
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run("migration:customer_portal_phase26_v1", JSON.stringify({ at: now }));
 }

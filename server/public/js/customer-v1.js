@@ -2,6 +2,7 @@ import {
   bindCustomerNavLinks,
   renderHomeCards,
   renderHomeStatus,
+  renderNotifications,
 } from "./customer-shared-v1.js";
 import { navigateCustomer, setCustomerReturnUrl } from "./customer-nav-v1.js";
 import { initCustomerCacheGuard } from "./customer-cache-v1.js";
@@ -39,6 +40,7 @@ async function load() {
 
   main.innerHTML = `
     ${renderHomeStatus(data)}
+    ${renderNotifications(data.notifications)}
     ${renderHomeCards(data.cards)}
   `;
 

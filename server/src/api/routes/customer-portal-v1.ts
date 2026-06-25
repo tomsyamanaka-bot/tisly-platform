@@ -11,10 +11,17 @@ import {
 import {
   buildCustomerAdminListV1,
   getCustomerPortalStatsV1,
+  listCustomerNotificationsForHomeV1,
 } from "../../shared/customer/customer-data-service-v1.js";
 import { resolveCustomerPortalFileV1 } from "../../shared/customer/customer-files-v1.js";
 import { decodeCustomerShareIdV1 } from "../../shared/customer/customer-share-id-v1.js";
 import { sanitizeCustomerMonitoringApiV1 } from "../../shared/customer/customer-monitoring-state-v1.js";
+import {
+  CUSTOMER_PORTAL_PLANS_V1,
+  patchCustomerMasterAdminV1,
+  patchPropertyMasterAdminV1,
+  uploadCustomerAdminFilesV1,
+} from "../../shared/customer/customer-admin-api-v1.js";
 import {
   TISLY_LEGACY_REDIRECTS_V1,
   TISLY_INTERNAL_ROUTES_V1,
@@ -100,6 +107,12 @@ customerPortalV1Router.get("/stats", (_req, res) => {
   res.json({ status: stats.apiStatus, ...stats });
 });
 
+customerPortalV1Router.get("/notifications/:customerCode", (req, res) => {
+  const code = String(req.params.customerCode);
+  const items = listCustomerNotificationsForHomeV1(code);
+  res.json({ status: "ok", notifications: items });
+});
+
 customerPortalV1Router.get("/admin/list", (req, res) => {
   const customerCode =
     typeof req.query.customerCode === "string" ? req.query.customerCode : undefined;
@@ -121,6 +134,59 @@ customerPortalV1Router.get("/admin/list", (req, res) => {
       [] as Array<{ customerCode: string; customerName: string }>
     ),
   });
+});
+
+customerPortalV1Router.get("/admin/plans", (_req, res) => {
+  res.json({ status: "ok", plans: CUSTOMER_PORTAL_PLANS_V1 });
+});
+
+customerPortalV1Router.patch("/admin/customer/:customerCode", (req, res) => {
+  try {
+    const updated = patchCustomerMasterAdminV1({
+      customerCode: String(req.params.customerCode),
+      ...req.body,
+    });
+    res.json({ status: "ok", customer: updated });
+  } catch (e) {
+    res.status(400).json({ status: "error", error: (e as Error).message });
+  }
+});
+
+customerPortalV1Router.patch("/admin/property/:propertyId", (req, res) => {
+  try {
+    const updated = patchPropertyMasterAdminV1({
+      propertyId: String(req.params.propertyId),
+      ...req.body,
+    });
+    res.json({ status: "ok", property: updated });
+  } catch (e) {
+    res.status(400).json({ status: "error", error: (e as Error).message });
+  }
+});
+
+customerPortalV1Router.post("/admin/upload", (req, res) => {
+  try {
+    const body = req.body ?? {};
+    const filesRaw = Array.isArray(body.files) ? body.files : body.fileBase64 ? [body] : [];
+    const files = filesRaw.map((f: { fileName?: string; fileBase64?: string }) => ({
+      fileName: String(f.fileName ?? "upload.bin"),
+      buffer: Buffer.from(String(f.fileBase64 ?? ""), "base64"),
+    }));
+    if (!files.length || files.some((f: { buffer: Buffer }) => !f.buffer.length)) {
+      res.status(400).json({ status: "error", error: "files or fileBase64 required" });
+      return;
+    }
+    const saved = uploadCustomerAdminFilesV1({
+      customerCode: String(body.customerCode ?? ""),
+      propertyId: String(body.propertyId ?? ""),
+      projectRef: body.projectRef != null ? String(body.projectRef) : null,
+      fileType: String(body.fileType ?? "photo"),
+      files,
+    });
+    res.json({ status: "ok", saved });
+  } catch (e) {
+    res.status(400).json({ status: "error", error: (e as Error).message });
+  }
 });
 
 customerPortalV1Router.get("/route-contract", (_req, res) => {

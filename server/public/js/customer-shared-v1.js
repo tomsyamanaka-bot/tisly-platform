@@ -1,10 +1,10 @@
-// @tisly-customer-js-version customer-v1-phase25
+// @tisly-customer-js-version customer-v1-phase26
 /**
  * お客様 UI 描画ロジック — DOM 操作を集約（React Native 移植時は差し替え）
  * 文言は server/src/shared/customer/customer-labels-v1.ts と同期
  */
 
-export const CUSTOMER_JS_VERSION = "customer-v1-phase25";
+export const CUSTOMER_JS_VERSION = "customer-v1-phase26";
 
 export const CUSTOMER_HOME_LABELS = {
   currentStatus: "現在の状態",
@@ -73,6 +73,27 @@ export function renderHomeCards(cards) {
   `;
 }
 
+export function renderNotifications(notifications) {
+  if (!notifications?.length) return "";
+  return `
+    <section class="cv-card cv-notifications" aria-label="お知らせ">
+      <h2 class="cv-section-title">お知らせ</h2>
+      <ul class="cv-notif-list">
+        ${notifications
+          .slice(0, 8)
+          .map((n) => {
+            const sev = n.severity === "danger" ? "cv-notif-danger" : n.severity === "warning" ? "cv-notif-warn" : "cv-notif-info";
+            const inner = `<span class="cv-notif-title">${escapeHtml(n.title)}</span><span class="cv-notif-body">${escapeHtml(n.body)}</span>`;
+            return n.href
+              ? `<li class="cv-notif-item ${sev}"><a href="${escapeHtml(n.href)}" data-customer-nav>${inner}</a></li>`
+              : `<li class="cv-notif-item ${sev}">${inner}</li>`;
+          })
+          .join("")}
+      </ul>
+    </section>
+  `;
+}
+
 export function renderPropertyList(projects) {
   if (!projects?.length) {
     return `<p class="cv-preparing">物件を準備中です</p>`;
@@ -93,10 +114,31 @@ export function renderPropertyList(projects) {
       const systemLabel = p.systemStatusLabel || p.statusLabel || "正常";
       const systemEmoji = p.systemStatusEmoji || "🟢";
       const lastChecked = p.lastCheckedAt || "—";
+      const inspectionClass = `cv-inspection-${p.inspectionColor || "gray"}`;
+      const cover = p.coverPhotoUrl
+        ? `<img class="cv-property-thumb" src="${escapeHtml(p.coverPhotoUrl)}" alt="" loading="lazy" />`
+        : `<div class="cv-property-thumb cv-property-thumb-empty" aria-hidden="true">🏠</div>`;
+      const plan = p.contractPlan ? `<span class="cv-plan-badge">${escapeHtml(p.contractPlan)}</span>` : "";
+      const addr = p.address ? `<p class="cv-property-address">${escapeHtml(p.address)}</p>` : "";
+      const installed = p.installedDate
+        ? `<p class="cv-meta-line">設置日：${escapeHtml(String(p.installedDate).slice(0, 10))}</p>`
+        : "";
+      const inspection = p.nextInspectionDate
+        ? `<p class="cv-meta-line ${inspectionClass}">次回点検：${escapeHtml(String(p.nextInspectionDate).slice(0, 10))} ${escapeHtml(p.inspectionLabel || "")}</p>`
+        : "";
       return `
         <article class="cv-property-card">
           <a class="cv-property-card-main" href="${escapeHtml(mainHref)}" data-customer-nav>
-            <h3 class="cv-property-name">${escapeHtml(p.propertyName)}</h3>
+            <div class="cv-property-card-top">
+              ${cover}
+              <div class="cv-property-card-body">
+                <h3 class="cv-property-name">${escapeHtml(p.propertyName)}</h3>
+                ${plan}
+                ${addr}
+                ${installed}
+                ${inspection}
+              </div>
+            </div>
             <p class="cv-section-label">${escapeHtml(statusLabel)}</p>
             <p class="cv-status-inline">${escapeHtml(systemEmoji)} ${escapeHtml(systemLabel)}</p>
             <p class="cv-last-checked">${escapeHtml(lastLabel)}：${escapeHtml(lastChecked)}</p>

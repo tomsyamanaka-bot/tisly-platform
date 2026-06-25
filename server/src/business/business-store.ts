@@ -62,6 +62,10 @@ import {
 } from "../projects/project-id-v1.js";
 import { createProjectStorageFoldersV1 } from "../storage/project-storage-v1.js";
 import { triggerKnowledgeAutomationOnProjectCreatedV1 } from "../knowledge/knowledge-automation-hooks-v1.js";
+import {
+  onBusinessProjectCreatedV1,
+  onBusinessProjectUpdatedV1,
+} from "../shared/customer/customer-business-sync-v1.js";
 
 let projectNoSeq = 0;
 
@@ -234,6 +238,7 @@ export function createBusinessProject(input: {
     });
   }
   triggerKnowledgeAutomationOnProjectCreatedV1(id);
+  onBusinessProjectCreatedV1(id);
   return created;
 }
 
@@ -313,7 +318,9 @@ export function updateBusinessProject(
       now,
       id
     );
-  return getBusinessProject(id)!;
+  const updated = getBusinessProject(id)!;
+  onBusinessProjectUpdatedV1(id);
+  return updated;
 }
 
 export function saveBusinessPhoto(

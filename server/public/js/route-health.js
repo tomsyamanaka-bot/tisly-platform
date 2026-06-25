@@ -54,8 +54,8 @@ const JS_ASSETS = [
 const ESTIMATE_UI_VERSION = "estimate-ui-v8";
 const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v5";
 const PHASE9_JS_VERSION = "phase9-iphone-v1";
-const SW_CACHE_TOKEN = "v2405-phase25";
-const CUSTOMER_JS_VERSION = "customer-v1-phase25";
+const SW_CACHE_TOKEN = "v2406-phase26";
+const CUSTOMER_JS_VERSION = "customer-v1-phase26";
 
 const CUSTOMER_FORBIDDEN_WORDS = [
   "MQTT", "WS", "QNAP", "Mock", "Gmail mock", "PDF puppeteer", "App Hub",
@@ -431,7 +431,7 @@ async function checkCustomerSeparationPhase22(shareId) {
       !sharedJs.includes("LINE");
     const tomsHtml = pageResults.find((r) => r.p === "/customer/TOMS001")?.html ?? "";
     const tomsOk =
-      tomsHtml.includes("customer-v1-phase25") || tomsHtml.includes("customer-home-v1");
+      tomsHtml.includes("customer-v1-phase26") || tomsHtml.includes("customer-home-v1");
     const propertyOk =
       sharedJs.includes("最終確認") &&
       sharedJs.includes("現在の状態") &&
@@ -551,6 +551,50 @@ async function checkCustomerPhase24Phase25(shareId) {
     return {
       status: "warn",
       detail: `200:${all200} toms:${tomsOk}(${tomsCount}) forbid:${noForbidden} pdf:${pdfOk} moji:${mojibakeOk} admin:${adminOk} sw:${swOk} js:${jsOk} doc:${docNavOk}`,
+    };
+  } catch (e) {
+    return { status: "fail", detail: e.message || String(e) };
+  }
+}
+
+async function checkCustomerPhase26(shareId) {
+  try {
+    const [statsRes, homeRes, plansRes, sharedJs, pdfShareJs, swText, adminRes] = await Promise.all([
+      fetch("/api/customer-portal/v1/stats", { cache: "no-store" }),
+      fetch("/api/customer-portal/v1/home/TOMS001", { cache: "no-store" }),
+      fetch("/api/customer-portal/v1/admin/plans", { cache: "no-store" }),
+      fetch("/js/customer-shared-v1.js", { cache: "no-store" }).then((r) => r.text()),
+      fetch("/js/pdf-share-v1.js", { cache: "no-store" }).then((r) => r.text()),
+      fetch("/service-worker.js", { cache: "no-store" }).then((r) => r.text()),
+      fetch("/customer-admin-v1", { cache: "no-store" }),
+    ]);
+    const stats = await statsRes.json().catch(() => ({}));
+    const home = await homeRes.json().catch(() => ({}));
+    const plans = await plansRes.json().catch(() => ({}));
+    const planOk = Array.isArray(plans.plans) && plans.plans.includes("PRO") && plans.plans.includes("Free");
+    const syncOk = stats.customerMasterCount >= 1 && stats.propertyCount >= 1;
+    const notifOk = Array.isArray(home.notifications);
+    const propertyCardOk =
+      Array.isArray(home.projects) &&
+      home.projects.some((p) => "contractPlan" in p || "inspectionColor" in p || p.propertyName);
+    const shareFilesOnly =
+      pdfShareJs.includes("navigator.share({ files: [file]") &&
+      !pdfShareJs.includes("navigator.share({ title, url") &&
+      !pdfShareJs.includes("navigator.share({ url");
+    const noBlobShare = !pdfShareJs.includes("navigator.share({ text");
+    const swOk = swText.includes(SW_CACHE_TOKEN);
+    const jsOk = sharedJs.includes(CUSTOMER_JS_VERSION) && sharedJs.includes("renderNotifications");
+    const tomsOk = sharedJs.includes("TOMSへ連絡") && !sharedJs.includes("トムズへ連絡");
+    const adminOk = adminRes.ok;
+  if (planOk && syncOk && notifOk && propertyCardOk && shareFilesOnly && noBlobShare && swOk && jsOk && tomsOk && adminOk) {
+      return {
+        status: "ok",
+        detail: `Phase26 OK · sync C:${stats.customerMasterCount} P:${stats.propertyCount} D:${stats.documentCount} · Share:files-only`,
+      };
+    }
+    return {
+      status: "warn",
+      detail: `plan:${planOk} sync:${syncOk} notif:${notifOk} card:${propertyCardOk} share:${shareFilesOnly} sw:${swOk} js:${jsOk}`,
     };
   } catch (e) {
     return { status: "fail", detail: e.message || String(e) };
@@ -1586,6 +1630,17 @@ async function runChecks() {
       ""
   );
   rows.push({ path: "Phase24-25 customer", label: "TOMS統一·PDF·文字化け", ...customerSep2425 });
+
+  const customerSep26 = await checkCustomerPhase26(
+    (await fetch("/api/customer-portal/v1/home/TOMS001", { cache: "no-store" })
+      .then((r) => r.json())
+      .catch(() => ({}))).projects?.[0]?.shareId ||
+      (await fetch("/api/customer-portal/v1/landing", { cache: "no-store" })
+        .then((r) => r.json())
+        .catch(() => ({}))).home?.shareId ||
+      ""
+  );
+  rows.push({ path: "Phase26 customer", label: "実運用同期·通知·Share", ...customerSep26 });
 
   const docViewer17 = await checkDocumentViewerPhase17();
   rows.push({ path: "Phase17 document-viewer", label: "PDF UI", ...docViewer17 });

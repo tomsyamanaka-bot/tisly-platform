@@ -50,6 +50,15 @@ export interface CustomerHomeViewV1 {
   monitoringPageUrl: string;
   contactPhone: string;
   contactCompany: string;
+  notifications?: Array<{
+    id: string;
+    kind: string;
+    severity: string;
+    title: string;
+    body: string;
+    href?: string;
+    createdAt: string;
+  }>;
 }
 
 export interface CustomerMonitoringSensorV1 {
@@ -140,6 +149,13 @@ export interface CustomerProjectViewV1 {
 export interface CustomerPropertyListItemViewV1 {
   shareId: string;
   propertyName: string;
+  address?: string;
+  coverPhotoUrl?: string | null;
+  contractPlan?: string;
+  installedDate?: string | null;
+  nextInspectionDate?: string | null;
+  inspectionColor?: string;
+  inspectionLabel?: string;
   workDescription: string;
   statusLabel: string;
   systemStatusLabel: string;
@@ -163,6 +179,16 @@ export interface CustomerPropertyListItemViewV1 {
 
 export interface CustomerHomeListViewV1 {
   customerName: string;
+  contractPlan?: string;
+  notifications?: Array<{
+    id: string;
+    kind: string;
+    severity: string;
+    title: string;
+    body: string;
+    href?: string;
+    createdAt: string;
+  }>;
   projects: CustomerPropertyListItemViewV1[];
   contact: CustomerContactV1;
   contactActions?: CustomerContactActionV1[];

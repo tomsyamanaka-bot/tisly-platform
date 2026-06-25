@@ -39,6 +39,7 @@ import {
 } from "./project-mgmt-v2-store.js";
 import { getProjectDocumentsStatusV1, type ProjectDocumentsStatusV1 } from "./project-documents-v1.js";
 import { createProjectStorageFoldersV1 } from "../storage/project-storage-v1.js";
+import { onBusinessProjectCreatedV1 } from "../shared/customer/customer-business-sync-v1.js";
 import { getProjectAutomationBundleV1, applyProjectTemplateV1 } from "./project-automation-v1-store.js";
 import { refreshAiSuggestionsV1 } from "./project-automation-suggestions-v1.js";
 import { getProjectStatusV1, type ProjectStatusResultV1 } from "./project-status-v1.js";
@@ -443,6 +444,7 @@ export function createProjectMgmtV1(input: {
       console.error("[project-mgmt-v1] template apply:", e);
     }
   }
+  onBusinessProjectCreatedV1(id);
   return created;
 }
 
