@@ -26,6 +26,7 @@ import {
   type StorageDocumentV1,
 } from "./storage-documents-v1-store.js";
 import { updateStorageSettingsV1 } from "./storage-settings-store.js";
+import { isCertificateFetchError } from "../business/services/qnap-webdav-fetch-v1.js";
 
 export interface QnapStorageStatusV1 {
   projectId: string;
@@ -115,6 +116,9 @@ function translateQnapTestError(message: string): string {
   if (message.includes("404")) return "共有フォルダまたはベースパスが見つかりません";
   if (message.includes("ECONNREFUSED") || message.includes("fetch failed")) {
     return "QNAPに接続できません。URL・ネットワーク・ポートを確認してください";
+  }
+  if (isCertificateFetchError(message)) {
+    return "QNAP WebDAV の SSL 証明書を検証できません（自己署名証明書の可能性）";
   }
   return message;
 }

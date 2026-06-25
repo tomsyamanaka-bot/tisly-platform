@@ -2,6 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { QnapWebDavClient } from "../../business/services/qnapWebDav.js";
+import { qnapWebDavFetch } from "../../business/services/qnap-webdav-fetch-v1.js";
 import type {
   StorageProvider,
   StorageProviderConfig,
@@ -289,7 +290,7 @@ export class WebDavStorageProvider implements StorageProvider {
     if (!client) return { ok: false, message: "WebDAV URL が未設定です" };
     try {
       const url = `${this.config.webdavUrl!.replace(/\/+$/, "")}/${rel}`;
-      const res = await fetch(url, {
+      const res = await qnapWebDavFetch(url, {
         method: "GET",
         headers: {
           Authorization: `Basic ${Buffer.from(`${this.config.username ?? ""}:${this.config.password ?? ""}`).toString("base64")}`,
@@ -331,7 +332,7 @@ export class WebDavStorageProvider implements StorageProvider {
     if (!client) return false;
     try {
       const url = `${this.config.webdavUrl!.replace(/\/+$/, "")}/${rel}`;
-      const res = await fetch(url, {
+      const res = await qnapWebDavFetch(url, {
         method: "HEAD",
         headers: {
           Authorization: `Basic ${Buffer.from(`${this.config.username ?? ""}:${this.config.password ?? ""}`).toString("base64")}`,
