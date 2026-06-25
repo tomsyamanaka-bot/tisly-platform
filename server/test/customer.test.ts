@@ -77,6 +77,6 @@ describe("Phase 221-240 PRO Remote", () => {
   it("GET /customer/TOMS001 serves portal HTML", async () => {
     const res = await request(app).get("/customer/TOMS001");
     assert.equal(res.status, 200);
-    assert.match(res.text, /customer-home-v1|customer-v1-phase26/);
+    assert.match(res.text, /customer-home-v1|customer-v1-phase27/);
   });
 });

@@ -37,7 +37,8 @@ const LINE_TYPE_DASH = {
   phone: "4 3",
 };
 
-import { navigatePracticalReturn } from "./tisly-return-nav-v1.js";
+import { navigatePracticalReturn, navigateTo } from "./tisly-return-nav-v1.js";
+import { navigateBackOne } from "./tisly-navigation-stack-v1.js";
 
 function $(id) {
   return document.getElementById(id);
@@ -638,7 +639,6 @@ async function loadSketch() {
     viewport = { scale: 1, offsetX: 0, offsetY: 0, ...layers.viewport };
     $("drawing-title").textContent = "一時図面";
     showTempBanner();
-    history.replaceState(null, "", `?${drawingUrlQuery()}`);
     applyGridPaper();
     updateDrawingPdfBar();
     return;
@@ -651,7 +651,6 @@ async function loadSketch() {
     sketch = created.sketch;
     sketchId = sketch.id;
     isTempMode = false;
-    history.replaceState(null, "", `?${drawingUrlQuery()}`);
   } else if (sketchId && !isTempDrawingId(sketchId)) {
     try {
       const data = await api("GET", `/api/survey/v1/drawing-sketches/${encodeURIComponent(sketchId)}`);
@@ -673,7 +672,6 @@ async function loadSketch() {
     sketch = { id: sketchId, projectId, title: "一時図面", layers: emptyLayers() };
     loadSketchFromLocal();
     showTempBanner();
-    history.replaceState(null, "", `?${drawingUrlQuery()}`);
     applyGridPaper();
     updateDrawingPdfBar();
     return;
@@ -1069,11 +1067,11 @@ function wireEvents() {
     if (dirty && !confirm("未保存の変更があります。戻りますか？")) return;
     if (navigatePracticalReturn(() => {})) return;
     if (isLocalOnlyMode || isTempDrawingId(projectId)) {
-      location.href = "/survey-v1";
+      navigateTo("/survey-v1", { record: false });
       return;
     }
-    if (projectId) location.href = surveyBackUrl();
-    else history.back();
+    if (projectId) navigateTo(surveyBackUrl(), { record: false });
+    else navigateBackOne("/survey-v1");
   });
 
   $("btn-import-photo")?.addEventListener("click", () => $("file-bg")?.click());

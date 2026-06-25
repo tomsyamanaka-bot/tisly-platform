@@ -1,5 +1,5 @@
 import { escapeHtml, CUSTOMER_DOCUMENT_ACTIONS } from "./customer-shared-v1.js";
-import { initCustomerPage } from "./customer-nav-v1.js";
+import { initCustomerPage, goCustomerBack } from "./customer-nav-v1.js";
 
 const main = document.getElementById("main-content");
 const shareId = decodeURIComponent(location.pathname.split("/").filter(Boolean)[2] || "");
@@ -18,7 +18,7 @@ const PREPARING_HTML = `
 let docData = null;
 
 function goProjectBack() {
-  location.href = `/customer/project/${encodeURIComponent(shareId)}`;
+  goCustomerBack({ shareId });
 }
 
 initCustomerPage();

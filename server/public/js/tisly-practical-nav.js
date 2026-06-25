@@ -1,5 +1,12 @@
 /** TiSLY 実務 PWA 共通ナビ — 戻る/進む/アプリ一覧 + 下部タブ */
 
+import {
+  initNavigationStack,
+  navigateBackOne,
+  navigateTo,
+  getDefaultNavFallbackV1,
+} from "./tisly-navigation-stack-v1.js";
+
 const BOTTOM_ITEMS = [
   { id: "schedule_v1", label: "日程", icon: "📅", href: "/schedule-v1" },
   { id: "survey_v1", label: "現調", icon: "📋", href: "/survey-v1" },
@@ -12,7 +19,6 @@ const BOTTOM_ITEMS = [
 ];
 
 let toastFn = null;
-let historySyncBound = false;
 
 function defaultToast(msg) {
   const el = document.getElementById("toast");
@@ -22,21 +28,32 @@ function defaultToast(msg) {
   setTimeout(() => el.classList.remove("show"), 2000);
 }
 
+function bindNavLink(el) {
+  el.addEventListener("click", (e) => {
+    const href = el.getAttribute("href");
+    if (!href || !href.startsWith("/") || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    navigateTo(href);
+  });
+}
+
 /**
  * @param {{ appId: string; appName: string; theme?: 'green'|'blue'|'hub'|'orange'; onBack?: () => void }} opts
  */
 export function initPracticalNav(opts) {
   const { appId, appName, theme = "green", onBack } = opts;
+  initNavigationStack();
   document.body.classList.add("has-practical-nav");
 
-  let backHandler = onBack || (() => window.history.back());
+  const defaultBack = () => navigateBackOne(getDefaultNavFallbackV1(location.pathname));
+  let backHandler = onBack || defaultBack;
 
   const topRoot = document.createElement("div");
   topRoot.id = "tisly-practical-topbar-root";
   topRoot.innerHTML = `
     <nav class="tisly-practical-topbar theme-${theme}" aria-label="画面上部ナビ">
       <button type="button" class="nav-btn" id="tisly-nav-back" aria-label="戻る">← 戻る</button>
-      <button type="button" class="nav-btn" id="tisly-nav-forward" aria-label="進む">進む →</button>
+      <button type="button" class="nav-btn" id="tisly-nav-forward" aria-label="進む" disabled>進む →</button>
       <span class="nav-title" id="tisly-nav-title">${escapeHtml(appName)}</span>
       <a class="nav-btn" id="tisly-nav-home" href="/app" aria-label="アプリ一覧">🏠</a>
     </nav>`;
@@ -62,35 +79,18 @@ export function initPracticalNav(opts) {
   const btnBack = document.getElementById("tisly-nav-back");
   const btnForward = document.getElementById("tisly-nav-forward");
   const titleEl = document.getElementById("tisly-nav-title");
-
-  const usesCustomBack = Boolean(onBack);
-
-  function syncHistoryButtons() {
-    if (usesCustomBack) {
-      btnForward?.toggleAttribute("disabled", true);
-      return;
-    }
-    btnBack?.toggleAttribute("disabled", window.history.length <= 1);
-  }
+  const homeLink = document.getElementById("tisly-nav-home");
 
   btnBack?.addEventListener("click", () => {
     if (btnBack?.hasAttribute("disabled")) return;
     backHandler();
   });
   btnForward?.addEventListener("click", () => {
-    if (btnForward?.hasAttribute("disabled")) {
-      (toastFn || defaultToast)("この画面では「進む」は使えません");
-      return;
-    }
-    window.history.forward();
+    (toastFn || defaultToast)("この画面では「進む」は使えません");
   });
 
-  if (!usesCustomBack && !historySyncBound) {
-    historySyncBound = true;
-    window.addEventListener("popstate", () => {
-      btnBack?.toggleAttribute("disabled", window.history.length <= 1);
-    });
-  }
+  bottomRoot.querySelectorAll("a[href]").forEach(bindNavLink);
+  homeLink && bindNavLink(homeLink);
 
   bottomRoot.querySelectorAll("[data-coming-soon]").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -102,8 +102,6 @@ export function initPracticalNav(opts) {
     navigator.serviceWorker.register("/service-worker.js").catch(() => {});
   }
 
-  syncHistoryButtons();
-
   return {
     setTitle(title) {
       if (titleEl) titleEl.textContent = title;
@@ -113,16 +111,17 @@ export function initPracticalNav(opts) {
       if (visible) btnBack?.removeAttribute("disabled");
     },
     setBackHandler(fn) {
-      backHandler = fn || (() => window.history.back());
+      backHandler = fn || defaultBack;
     },
-    setForwardEnabled(enabled) {
-      if (enabled) btnForward?.removeAttribute("disabled");
-      else btnForward?.toggleAttribute("disabled", true);
+    setForwardEnabled(_enabled) {
+      btnForward?.toggleAttribute("disabled", true);
     },
     setToast(fn) {
       toastFn = fn;
     },
-    syncHistoryButtons,
+    syncHistoryButtons() {
+      /* ブラウザ履歴非依存 — 互換のため空実装 */
+    },
   };
 }
 

@@ -85,23 +85,24 @@ describe("Operational Phase26 — customer UI & share", () => {
 
   it("customer shared JS phase26", () => {
     const js = fs.readFileSync(path.join(publicDir, "js/customer-shared-v1.js"), "utf-8");
-    assert.match(js, /customer-v1-phase26/);
+    assert.match(js, /customer-v1-phase27/);
     assert.match(js, /renderNotifications/);
     assert.match(js, /cv-inspection-/);
   });
 
   it("pdf-share uses files only", () => {
     const js = fs.readFileSync(path.join(publicDir, "js/pdf-share-v1.js"), "utf-8");
-    assert.ok(js.includes("navigator.share({ files: [file]"));
+    assert.ok(js.includes("navigatorShareFilesOnly"));
+    assert.ok(js.includes("clearBlobUrlsFromPage"));
     assert.ok(!js.includes("navigator.share({ title, url"));
     assert.ok(!js.includes("navigator.share({ url"));
   });
 
-  it("SW and cache version phase26", () => {
-    assert.equal(CUSTOMER_JS_VERSION_V1, "customer-v1-phase26");
-    assert.equal(CUSTOMER_SW_TOKEN_V1, "v2406-phase26");
+  it("SW and cache version bumped", () => {
+    assert.equal(CUSTOMER_JS_VERSION_V1, "customer-v1-phase27");
+    assert.equal(CUSTOMER_SW_TOKEN_V1, "v2406-phase27");
     const sw = fs.readFileSync(path.join(publicDir, "service-worker.js"), "utf-8");
-    assert.ok(sw.includes("v2406-phase26"));
+    assert.ok(sw.includes(CUSTOMER_SW_TOKEN_V1));
   });
 });
 

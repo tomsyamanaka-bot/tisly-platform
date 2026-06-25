@@ -4,6 +4,7 @@ import {
   requireCustomerLogin,
 } from "./customer-auth.js";
 import { initPracticalNav } from "./tisly-practical-nav.js";
+import { navigateTo, navigateBackOne } from "./tisly-navigation-stack-v1.js";
 import { renderFriendlyErrorHtml } from "./tisly-friendly-errors.js";
 import { sharePdfAsFile, prefetchPdfForShare } from "./pdf-share-v1.js";
 import { DEFAULT_FETCH_TIMEOUT_MS, fetchJson, createLoadWatchdog } from "./tisly-fetch-v1.js";
@@ -124,7 +125,7 @@ function showList() {
   $("view-list").classList.remove("hidden");
   $("view-detail").classList.add("hidden");
   practicalNavRef?.setBackHandler(() => {
-    window.location.href = "/app";
+    navigateTo("/app", { record: false });
   });
 }
 
@@ -133,7 +134,6 @@ function showDetail() {
   $("view-detail").classList.remove("hidden");
   practicalNavRef?.setBackHandler(() => {
     showList();
-    history.replaceState({}, "", "/projects-v1");
     loadList();
   });
 }
@@ -491,7 +491,6 @@ async function confirmDeleteProject() {
     toast("案件を削除しました");
     if (currentDetailRef?.id === id) {
       showList();
-      history.replaceState({}, "", "/projects-v1");
       currentDetailRef = null;
     }
     await loadList();
@@ -681,7 +680,7 @@ function projectMgmtDetailHref(projectId) {
 
 async function openDetail(id, source) {
   if (source === "business") {
-    window.location.href = projectMgmtDetailHref(id);
+    navigateTo(projectMgmtDetailHref(id));
     return;
   }
   try {
@@ -707,7 +706,6 @@ async function openDetail(id, source) {
       : "<p>履歴はまだありません</p>";
     setDetailTab("overview");
     showDetail();
-    history.pushState({ projectId: id }, "", `?id=${id}&source=${source}`);
   } catch (e) {
     $("project-list").innerHTML = `<div class="error-friendly">${renderFriendlyErrorHtml(e, e.status)}</div>`;
   }
@@ -779,11 +777,10 @@ async function init() {
     onBack: () => {
       if (!$("view-detail")?.classList.contains("hidden")) {
         showList();
-        history.replaceState({}, "", "/projects-v1");
         loadList();
         return;
       }
-      window.location.href = "/app";
+      navigateBackOne("/app");
     },
   });
   practicalNavRef = nav;
@@ -792,7 +789,6 @@ async function init() {
 
   $("btn-back-list").addEventListener("click", () => {
     showList();
-    history.replaceState({}, "", "/projects-v1");
   });
 
   $("tab-active").addEventListener("click", () => setListTab("active"));

@@ -105,17 +105,15 @@ export function renderCustomerBottomNavShareV1(options = {}) {
 export function bindCustomerShareCloseV1() {
   const btn = document.getElementById("customer-share-close-btn");
   if (!btn) return;
-  btn.addEventListener("click", () => {
+  btn.addEventListener("click", async () => {
     const closeUrl = btn.getAttribute("data-close-url");
     if (closeUrl && closeUrl !== "#") {
-      location.href = closeUrl;
+      const { goCustomerBack } = await import("./customer-nav-v1.js");
+      goCustomerBack({ explicitReturn: closeUrl });
       return;
     }
-    if (history.length > 1) {
-      history.back();
-      return;
-    }
-    window.close();
+    const { goCustomerBack } = await import("./customer-nav-v1.js");
+    goCustomerBack();
   });
 }
 

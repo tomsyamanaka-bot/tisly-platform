@@ -4,7 +4,7 @@ import {
   requireCustomerLogin,
 } from "./customer-auth.js";
 import { initPracticalNav } from "./tisly-practical-nav.js";
-import { navigatePracticalReturn } from "./tisly-return-nav-v1.js";
+import { navigatePracticalReturn, navigateTo } from "./tisly-return-nav-v1.js";
 import { friendlyHttpError, renderFriendlyErrorHtml } from "./tisly-friendly-errors.js";
 import {
   openSpecificationPreview,
@@ -1681,16 +1681,16 @@ async function init() {
 
   $("btn-new-drawing")?.addEventListener("click", () => {
     if (!currentProjectId) return;
-    location.href = drawingEditorNewUrl();
+    navigateTo(drawingEditorNewUrl());
   });
   $("btn-open-drawing")?.addEventListener("click", async () => {
     if (!currentProjectId) return;
     try {
       const data = await api(`/projects/${currentProjectId}/drawing-sketches`);
       const first = data.sketches?.[0];
-      location.href = first ? drawingEditorUrl(first.id) : drawingEditorNewUrl();
+      navigateTo(first ? drawingEditorUrl(first.id) : drawingEditorNewUrl());
     } catch {
-      location.href = drawingEditorNewUrl();
+      navigateTo(drawingEditorNewUrl());
     }
   });
 

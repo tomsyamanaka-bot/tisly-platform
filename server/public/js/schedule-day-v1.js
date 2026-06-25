@@ -4,6 +4,7 @@ import {
   requireCustomerLogin,
 } from "./customer-auth.js";
 import { initPracticalNav } from "./tisly-practical-nav.js";
+import { navigateBackOne } from "./tisly-navigation-stack-v1.js";
 import { friendlyHttpError } from "./tisly-friendly-errors.js";
 import {
   initDayEditModal,
@@ -333,7 +334,7 @@ async function init() {
     appName: "日程詳細",
     theme: "orange",
     onBack: () => {
-      window.location.href = "/schedule-v1";
+      navigateBackOne("/schedule-v1");
     },
   });
   nav.setToast(toast);

@@ -1,5 +1,6 @@
 import { getCustomerToken, requireCustomerLogin } from "./customer-auth.js";
 import { initPracticalNav } from "./tisly-practical-nav.js";
+import { navigateTo } from "./tisly-navigation-stack-v1.js";
 
 const API = "/api/project-mgmt/v1";
 const AUTOMATION_API = "/api/project-automation/v1";
@@ -91,7 +92,7 @@ function renderList(projects) {
   list.querySelectorAll(".mgmt-card").forEach((card) => {
     const open = () => {
       const id = card.getAttribute("data-id");
-      window.location.href = `/project-mgmt-detail-v1?projectId=${encodeURIComponent(id)}&listReturn=${encodeURIComponent("/project-mgmt-v1")}`;
+      navigateTo(`/project-mgmt-detail-v1?projectId=${encodeURIComponent(id)}&listReturn=${encodeURIComponent("/project-mgmt-v1")}`);
     };
     card.addEventListener("click", open);
     card.addEventListener("keydown", (e) => {
@@ -180,7 +181,7 @@ async function saveCreate() {
   const data = await api("/projects", { method: "POST", body: JSON.stringify(body) });
   toast(`案件 ${data.project.projectNo} を作成しました`);
   toggleCreate(false);
-  window.location.href = `/project-mgmt-detail-v1?projectId=${encodeURIComponent(data.project.id)}&listReturn=${encodeURIComponent("/project-mgmt-v1")}`;
+  navigateTo(`/project-mgmt-detail-v1?projectId=${encodeURIComponent(data.project.id)}&listReturn=${encodeURIComponent("/project-mgmt-v1")}`);
 }
 
 async function loadProjectTemplates() {

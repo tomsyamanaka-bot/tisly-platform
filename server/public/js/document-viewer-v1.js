@@ -7,7 +7,9 @@ import {
   isValidPdfBlob,
   prefetchPdfForShare,
   triggerDownload,
+  clearBlobUrlsFromPage,
 } from "./pdf-share-v1.js";
+import { navigateBackOne } from "./tisly-navigation-stack-v1.js";
 
 const MOBILE_BREAKPOINT = 768;
 const API = "/api/estimate/v1";
@@ -502,6 +504,9 @@ async function handleShare() {
   }
   const fileName = getShareFileName();
   try {
+    if (viewMode === "pdf") {
+      clearPdfFrame();
+    }
     const pdfBlob = await resolvePdfBlob();
     await sharePdfBlobAsFile(pdfBlob, fileName, toast);
     await logPdfShare();
@@ -543,7 +548,7 @@ function handleBack(returnUrl) {
     showPreviewMode();
     return;
   }
-  window.location.href = resolveDocumentReturn(returnUrl, payload?.projectId);
+  navigateBackOne(resolveDocumentReturn(returnUrl, payload?.projectId));
 }
 
 async function init() {

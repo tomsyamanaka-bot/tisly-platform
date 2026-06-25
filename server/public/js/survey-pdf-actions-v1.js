@@ -2,6 +2,7 @@
  * 現調PWA向け — 仕様書PDF操作（見積送り済み案件のみ）
  */
 import { getCustomerToken } from "./customer-auth.js";
+import { navigateTo } from "./tisly-navigation-stack-v1.js";
 import { sharePdfAsFile, triggerDownload, prefetchPdfForShare } from "./pdf-share-v1.js";
 
 function pdfAuthHeaders() {
@@ -32,7 +33,7 @@ export function getSpecificationRegenerateUrl(businessProjectId) {
 }
 
 export function openSpecificationPreview(businessProjectId, returnPath) {
-  window.location.href = buildSpecificationDocumentViewerUrl(businessProjectId, returnPath);
+  navigateTo(buildSpecificationDocumentViewerUrl(businessProjectId, returnPath));
 }
 
 export async function saveSpecificationPdf(businessProjectId, fileName, toast) {

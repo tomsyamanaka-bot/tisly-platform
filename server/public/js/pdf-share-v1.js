@@ -201,6 +201,36 @@ function pdfFileFromBlob(pdfBlob, fileName) {
   return new File([pdfBlob], safeName, { type: "application/pdf" });
 }
 
+/** 共有前に DOM 上の blob: URL を除去（LINE が iframe src をテキスト送信するのを防ぐ） */
+export function clearBlobUrlsFromPage() {
+  document.querySelectorAll('[src^="blob:"]').forEach((el) => {
+    if (el.tagName === "IFRAME" || el.tagName === "EMBED") {
+      el.setAttribute("src", "about:blank");
+    } else {
+      el.removeAttribute("src");
+    }
+  });
+  document.querySelectorAll('a[href^="blob:"]').forEach((a) => {
+    a.removeAttribute("href");
+  });
+  document.querySelectorAll('link[href^="blob:"]').forEach((link) => {
+    link.remove();
+  });
+}
+
+/**
+ * Web Share API — files のみ（text / url / title は絶対に付与しない）
+ * @param {File} file
+ */
+export async function navigatorShareFilesOnly(file) {
+  clearBlobUrlsFromPage();
+  const sharePayload = { files: [file] };
+  if (typeof navigator.canShare === "function" && !navigator.canShare(sharePayload)) {
+    throw new Error("この端末ではPDFファイル共有に対応していません");
+  }
+  await navigator.share(sharePayload);
+}
+
 /**
  * 取得済み PDF Blob を即座に File 共有（iOS ユーザージェスチャー維持用）。
  * navigator.share には files のみ渡す（url / title 禁止 — LINE が HTML URL を送るのを防ぐ）。
@@ -217,7 +247,7 @@ export async function sharePdfBlobAsFile(pdfBlob, fileName, toast, { showHint = 
 
   if (canShareFiles(file)) {
     try {
-      await navigator.share({ files: [file] });
+      await navigatorShareFilesOnly(file);
       return "share-files";
     } catch (e) {
       if (e?.name === "AbortError") throw e;

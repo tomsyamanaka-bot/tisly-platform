@@ -1,5 +1,6 @@
 import { getCustomerToken, requireCustomerLogin } from "./customer-auth.js";
 import { initPracticalNav } from "./tisly-practical-nav.js";
+import { navigateBackOne, navigateTo } from "./tisly-navigation-stack-v1.js";
 
 const API = "/api/dashboard-v1";
 const DASHBOARD_RETURN = encodeURIComponent("/project-dashboard-v1");
@@ -100,7 +101,7 @@ function bindCardNavigation(root) {
   root.querySelectorAll(".dash-card[data-href]").forEach((card) => {
     const open = () => {
       const href = card.getAttribute("data-href");
-      if (href) window.location.href = href;
+      if (href) navigateTo(href);
     };
     card.addEventListener("click", open);
     card.addEventListener("keydown", (e) => {
@@ -345,7 +346,7 @@ async function main() {
     appName: "案件ダッシュボード",
     theme: "blue",
     onBack: () => {
-      window.location.href = "/app";
+      navigateBackOne("/app");
     },
   });
   $("search-input")?.addEventListener("input", scheduleSearch);

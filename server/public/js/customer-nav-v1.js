@@ -1,5 +1,12 @@
-/* お客様ポータル共通ナビ — /app へ戻らない · customerReturnUrl 管理 */
+/* お客様ポータル共通ナビ — /app へ戻らない · ナビスタック管理 */
 import { initCustomerCacheGuard } from "./customer-cache-v1.js";
+import {
+  getDefaultNavFallbackV1,
+  hasNavStackEntry,
+  initNavigationStack,
+  navigateBackOne,
+  navigateTo,
+} from "./tisly-navigation-stack-v1.js";
 
 export const CUSTOMER_FALLBACK = "/customer";
 const RETURN_KEY = "tisly_customer_return_url_v1";
@@ -52,14 +59,18 @@ export function resolveCustomerBackUrl(opts = {}) {
 }
 
 export function goCustomerBack(opts = {}) {
-  const target = resolveCustomerBackUrl(opts);
   clearCustomerReturnUrl();
-  location.href = target;
+  if (hasNavStackEntry()) {
+    navigateBackOne(getDefaultNavFallbackV1(location.pathname));
+    return;
+  }
+  const target = resolveCustomerBackUrl(opts);
+  navigateTo(target, { record: false });
 }
 
 export function navigateCustomer(href) {
   setCustomerReturnUrl(location.pathname + location.search);
-  location.href = href;
+  navigateTo(href);
 }
 
 export function escapeHtml(s) {
@@ -71,6 +82,7 @@ export function escapeHtml(s) {
 }
 
 export function initCustomerPage() {
+  initNavigationStack();
   const path = location.pathname;
   if (path === "/customer" || path === "/customer/") {
     initCustomerCacheGuard().catch(() => {});

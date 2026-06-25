@@ -5,7 +5,7 @@ import {
   redirectToPortalLogin,
 } from "./customer-auth.js";
 import { initPracticalNav } from "./tisly-practical-nav.js";
-import { navigatePracticalReturn } from "./tisly-return-nav-v1.js";
+import { navigatePracticalReturn, navigateTo } from "./tisly-return-nav-v1.js";
 import { resolveProjectDisplayName } from "./project-display-name.js";
 import { friendlyHttpError, renderFriendlyErrorHtml } from "./tisly-friendly-errors.js";
 import { confirmChecklistBeforeReport, confirmCompletionPhotoSlotsBeforeReport } from "./field-checklist-ui.js?v=fc-ui-v3";
@@ -517,7 +517,7 @@ function handlePracticalBack() {
     return;
   }
   if (navigatePracticalReturn(() => {})) return;
-  window.location.href = "/app";
+  navigateTo("/app", { record: false });
 }
 
 function renderPendingList(surveys) {
@@ -1345,7 +1345,7 @@ async function openDocumentViewer(kind) {
       await saveHeader().catch(() => ({}));
       await saveItems().catch(() => ({}));
     }
-    window.location.href = buildDocumentViewerUrl(kind);
+    navigateTo(buildDocumentViewerUrl(kind));
   } catch (e) {
     toastError(e, e.status);
   }

@@ -1,6 +1,7 @@
 import { getCustomerToken } from "./customer-auth.js";
 import { DEFAULT_FETCH_TIMEOUT_MS, fetchJson } from "./tisly-fetch-v1.js";
 import { refreshTislyPwaCache } from "./tisly-sw-refresh-v1.js";
+import { navigationStackDiagnostics } from "./tisly-navigation-stack-v1.js";
 
 const PAGE_ROUTES = [
   { path: "/route-health", label: "Route Health" },
@@ -54,8 +55,8 @@ const JS_ASSETS = [
 const ESTIMATE_UI_VERSION = "estimate-ui-v8";
 const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v5";
 const PHASE9_JS_VERSION = "phase9-iphone-v1";
-const SW_CACHE_TOKEN = "v2406-phase26";
-const CUSTOMER_JS_VERSION = "customer-v1-phase26";
+const SW_CACHE_TOKEN = "v2406-phase27";
+const CUSTOMER_JS_VERSION = "customer-v1-phase27";
 
 const CUSTOMER_FORBIDDEN_WORDS = [
   "MQTT", "WS", "QNAP", "Mock", "Gmail mock", "PDF puppeteer", "App Hub",
@@ -431,7 +432,7 @@ async function checkCustomerSeparationPhase22(shareId) {
       !sharedJs.includes("LINE");
     const tomsHtml = pageResults.find((r) => r.p === "/customer/TOMS001")?.html ?? "";
     const tomsOk =
-      tomsHtml.includes("customer-v1-phase26") || tomsHtml.includes("customer-home-v1");
+      tomsHtml.includes("customer-v1-phase27") || tomsHtml.includes("customer-home-v1");
     const propertyOk =
       sharedJs.includes("最終確認") &&
       sharedJs.includes("現在の状態") &&
@@ -557,6 +558,60 @@ async function checkCustomerPhase24Phase25(shareId) {
   }
 }
 
+async function checkPhase27NavigationAndShare() {
+  try {
+    const [navJs, navStackJs, returnJs, pdfShareJs, practicalNavJs, docJs] = await Promise.all([
+      fetch("/js/tisly-navigation-stack-v1.js", { cache: "no-store" }).then((r) => r.text()),
+      fetch("/js/tisly-navigation-stack-shared-v1.js", { cache: "no-store" }).then((r) => r.text()),
+      fetch("/js/tisly-return-nav-v1.js", { cache: "no-store" }).then((r) => r.text()),
+      fetch("/js/pdf-share-v1.js", { cache: "no-store" }).then((r) => r.text()),
+      fetch("/js/tisly-practical-nav.js", { cache: "no-store" }).then((r) => r.text()),
+      fetch("/js/document-viewer-v1.js", { cache: "no-store" }).then((r) => r.text()),
+    ]);
+
+    const stackOk =
+      navJs.includes("navigateBackOne") &&
+      navJs.includes("navigateTo") &&
+      navStackJs.includes("popNavStackV1") &&
+      returnJs.includes("hasNavStackEntry");
+    const backOk =
+      practicalNavJs.includes("navigateBackOne") &&
+      !practicalNavJs.includes("history.back") &&
+      !docJs.includes("history.back");
+    const shareOk =
+      pdfShareJs.includes("navigatorShareFilesOnly") &&
+      pdfShareJs.includes("clearBlobUrlsFromPage") &&
+      pdfShareJs.includes("{ files: [file] }") &&
+      !pdfShareJs.includes("navigator.share({ title") &&
+      !pdfShareJs.includes("navigator.share({ url") &&
+      !pdfShareJs.includes("navigator.share({ text");
+
+    const stackDiag =
+      typeof navigationStackDiagnostics === "function"
+        ? navigationStackDiagnostics()
+        : { depth: 0, peek: null };
+
+    if (stackOk && backOk && shareOk) {
+      return {
+        status: "ok",
+        detail: `Phase27 OK · Back:stack · Share:files-only · stackDepth:${stackDiag.depth}`,
+        stackOk,
+        backOk,
+        shareOk,
+      };
+    }
+    return {
+      status: "warn",
+      detail: `stack:${stackOk} back:${backOk} share:${shareOk}`,
+      stackOk,
+      backOk,
+      shareOk,
+    };
+  } catch (e) {
+    return { status: "fail", detail: e.message || String(e) };
+  }
+}
+
 async function checkCustomerPhase26(shareId) {
   try {
     const [statsRes, homeRes, plansRes, sharedJs, pdfShareJs, swText, adminRes] = await Promise.all([
@@ -578,7 +633,8 @@ async function checkCustomerPhase26(shareId) {
       Array.isArray(home.projects) &&
       home.projects.some((p) => "contractPlan" in p || "inspectionColor" in p || p.propertyName);
     const shareFilesOnly =
-      pdfShareJs.includes("navigator.share({ files: [file]") &&
+      pdfShareJs.includes("navigatorShareFilesOnly") &&
+      pdfShareJs.includes("clearBlobUrlsFromPage") &&
       !pdfShareJs.includes("navigator.share({ title, url") &&
       !pdfShareJs.includes("navigator.share({ url");
     const noBlobShare = !pdfShareJs.includes("navigator.share({ text");
@@ -1641,6 +1697,39 @@ async function runChecks() {
       ""
   );
   rows.push({ path: "Phase26 customer", label: "実運用同期·通知·Share", ...customerSep26 });
+
+  const phase27 = await checkPhase27NavigationAndShare();
+  rows.push({ path: "Phase27 navigation", label: "Back Navigation · Navigation Stack", ...phase27 });
+  diagRows.push({
+    path: "Back Navigation",
+    label: "1画面戻るスタック",
+    status: phase27.backOk ? "ok" : phase27.status,
+    detail: phase27.detail,
+  });
+  diagRows.push({
+    path: "Navigation Stack",
+    label: "sessionStorage stack",
+    status: phase27.stackOk ? "ok" : phase27.status,
+    detail: phase27.detail,
+  });
+  diagRows.push({
+    path: "Share API",
+    label: "files-only share",
+    status: phase27.shareOk ? "ok" : phase27.status,
+    detail: phase27.detail,
+  });
+  diagRows.push({
+    path: "PDF Share",
+    label: "blob URL 除去",
+    status: phase27.shareOk ? "ok" : phase27.status,
+    detail: phase27.detail,
+  });
+  diagRows.push({
+    path: "History Stack",
+    label: "history.back 不使用",
+    status: phase27.backOk ? "ok" : phase27.status,
+    detail: phase27.detail,
+  });
 
   const docViewer17 = await checkDocumentViewerPhase17();
   rows.push({ path: "Phase17 document-viewer", label: "PDF UI", ...docViewer17 });

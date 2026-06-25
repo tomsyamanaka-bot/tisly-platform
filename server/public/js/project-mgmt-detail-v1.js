@@ -1,6 +1,7 @@
 import { getCustomerToken, requireCustomerLogin } from "./customer-auth.js";
 import { initPracticalNav } from "./tisly-practical-nav.js";
 import { sharePdfAsFile, prefetchPdfForShare } from "./pdf-share-v1.js";
+import { navigateTo, navigateBackOne } from "./tisly-navigation-stack-v1.js";
 
 const API = "/api/project-mgmt/v1";
 const TIMELINE_API = "/api/project-timeline-v1";
@@ -1670,7 +1671,7 @@ function render() {
       const href = card.getAttribute("data-href");
       const key = card.getAttribute("data-card-key");
       if (href) {
-        window.location.href = href;
+        navigateTo(href);
         return;
       }
       activeTab = cardTabForKey(key);
@@ -1684,7 +1685,7 @@ function render() {
       const href = btn.getAttribute("data-next-href");
       const tab = btn.getAttribute("data-next-tab");
       if (href) {
-        window.location.href = href;
+        navigateTo(href);
         return;
       }
       if (tab) {
@@ -1900,7 +1901,7 @@ function bindActions() {
     try {
       await api(`/projects/${detail.project.id}`, { method: "DELETE" });
       toast("削除しました");
-      window.location.href = "/project-mgmt-v1";
+      navigateTo("/project-mgmt-v1", { record: false });
     } catch (e) {
       toast(e.message);
     }
@@ -2219,7 +2220,7 @@ async function main() {
   if (!requireCustomerLogin()) return;
   const projectId = getProjectId();
   if (!projectId) {
-    window.location.href = "/project-mgmt-v1";
+    navigateTo("/project-mgmt-v1", { record: false });
     return;
   }
 
@@ -2228,7 +2229,7 @@ async function main() {
     appName: "案件詳細",
     theme: "blue",
     onBack: () => {
-      window.location.href = resolveDashboardReturnUrl();
+      navigateBackOne(resolveDashboardReturnUrl());
     },
   });
 

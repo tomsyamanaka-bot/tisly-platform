@@ -145,7 +145,6 @@ async function openProject(p) {
   currentProject = p;
   showChecklist();
   await renderChecklistView();
-  history.pushState({ projectId: p.id }, "", `?projectId=${encodeURIComponent(p.id)}&source=${encodeURIComponent(p.source)}`);
 }
 
 async function loadProjects() {
@@ -191,7 +190,6 @@ function openTempSite() {
   };
   showChecklist();
   renderTempChecklistView();
-  history.pushState({ temp: true }, "", "/field-checklist-v1?temp=1");
 }
 
 async function init() {
@@ -202,7 +200,6 @@ async function init() {
 
   $("btn-back").addEventListener("click", () => {
     showProjects();
-    history.replaceState({}, "", "/field-checklist-v1");
     loadProjects();
   });
 
