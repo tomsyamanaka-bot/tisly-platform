@@ -59,12 +59,13 @@ export function resolveCustomerBackUrl(opts = {}) {
 }
 
 export function goCustomerBack(opts = {}) {
-  clearCustomerReturnUrl();
   if (hasNavStackEntry()) {
+    clearCustomerReturnUrl();
     navigateBackOne(getDefaultNavFallbackV1(location.pathname));
     return;
   }
   const target = resolveCustomerBackUrl(opts);
+  clearCustomerReturnUrl();
   navigateTo(target, { record: false });
 }
 

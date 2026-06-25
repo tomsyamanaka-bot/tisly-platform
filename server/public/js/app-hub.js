@@ -1,4 +1,5 @@
 import { initPracticalNav } from "./tisly-practical-nav.js";
+import { navigateBackOne } from "./tisly-navigation-stack-v1.js";
 import { friendlyLoginError } from "./tisly-friendly-errors.js";
 import { syncHubSnapshot, renderHubFromCache } from "./hub-offline-snapshot.js";
 import { highlightAnomalyCard } from "./connection-badges.js";
@@ -739,6 +740,6 @@ const hubNav = initPracticalNav({
   appId: "hub",
   appName: "業務アプリ",
   theme: "hub",
-  onBack: () => window.history.back(),
+  onBack: () => navigateBackOne("/app"),
 });
 hubNav.setBackVisible(false);

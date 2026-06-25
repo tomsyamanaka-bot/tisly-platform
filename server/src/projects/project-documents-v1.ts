@@ -174,10 +174,12 @@ function resolveStorageStatus(projectId: string, kind: PracticalDocKind): {
   qnapPath: string | null;
 } {
   const qnapConfigured = isQnapWebDavConfigured();
+  const qnapMockMode = resolveQnapStorageProviderKind() === "mock";
+  const storageOpts = { mockMode: qnapMockMode };
   const docType = mapPracticalKindToDocumentType(kind);
   const stored = getLatestStorageDocumentForKindV1(projectId, docType);
   if (stored) {
-    const pres = storageStatusPresentation(stored.status, qnapConfigured);
+    const pres = storageStatusPresentation(stored.status, qnapConfigured, storageOpts);
     return {
       status: stored.status,
       label: pres.label,
@@ -189,7 +191,7 @@ function resolveStorageStatus(projectId: string, kind: PracticalDocKind): {
   const pdfKind = STALE_KIND_MAP[kind];
   const meta = pdfKind ? getProjectPdfMeta(projectId, pdfKind) : null;
   if (meta?.qnapBackupStatus === "success") {
-    const pres = storageStatusPresentation("qnap_synced", qnapConfigured);
+    const pres = storageStatusPresentation("qnap_synced", qnapConfigured, storageOpts);
     return {
       status: "qnap_synced",
       label: pres.label,
@@ -199,7 +201,7 @@ function resolveStorageStatus(projectId: string, kind: PracticalDocKind): {
     };
   }
   if (meta?.qnapBackupStatus === "failed") {
-    const pres = storageStatusPresentation("qnap_failed", qnapConfigured);
+    const pres = storageStatusPresentation("qnap_failed", qnapConfigured, storageOpts);
     return {
       status: "qnap_failed",
       label: pres.label,
@@ -208,7 +210,7 @@ function resolveStorageStatus(projectId: string, kind: PracticalDocKind): {
       qnapPath: null,
     };
   }
-  const pres = storageStatusPresentation("qnap_pending", qnapConfigured);
+  const pres = storageStatusPresentation("qnap_pending", qnapConfigured, storageOpts);
   return {
     status: "qnap_pending",
     label: pres.label,

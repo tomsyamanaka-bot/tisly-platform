@@ -4,10 +4,10 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import {
   getDefaultNavFallbackV1,
-  popNavStackV1,
-  pushNavStackV1,
+  backOne as popNavStackV1,
+  pushScreen as pushNavStackV1,
   sanitizeNavPathV1,
-} from "../src/shared/navigation/practical-nav-stack-v1.js";
+} from "../src/shared/navigation/tisly-navigation-stack-v1.js";
 
 const publicDir = path.join(process.cwd(), "public");
 
@@ -34,7 +34,8 @@ describe("Operational Phase27 — navigation stack", () => {
 
   it("customer fallback stays in customer zone", () => {
     assert.equal(getDefaultNavFallbackV1("/customer/project/abc"), "/customer");
-    assert.equal(getDefaultNavFallbackV1("/estimate-v1"), "/app");
+    assert.equal(getDefaultNavFallbackV1("/estimate-v1"), "/projects-v1");
+    assert.equal(getDefaultNavFallbackV1("/project-mgmt-detail-v1"), "/project-dashboard-v1");
   });
 });
 
@@ -55,6 +56,7 @@ describe("Operational Phase27 — back navigation (no browser history)", () => {
     "js/tisly-practical-nav.js",
     "js/tisly-navigation-stack-v1.js",
     "js/tisly-return-nav-v1.js",
+    "js/app-hub.js",
     "js/document-viewer-v1.js",
     "js/estimate-v1.js",
     "js/survey-v1.js",
@@ -74,8 +76,11 @@ describe("Operational Phase27 — back navigation (no browser history)", () => {
 
   it("practical nav uses navigateBackOne", () => {
     const js = fs.readFileSync(path.join(publicDir, "js/tisly-practical-nav.js"), "utf-8");
+    const navStack = fs.readFileSync(path.join(publicDir, "js/tisly-navigation-stack-shared-v1.js"), "utf-8");
     assert.ok(js.includes("navigateBackOne"));
     assert.ok(js.includes("navigateTo"));
+    assert.ok(navStack.includes("safeReturn"));
+    assert.ok(navStack.includes("getNavZoneV1"));
     assert.doesNotMatch(js, /history\.forward/);
   });
 });

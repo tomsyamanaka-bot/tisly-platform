@@ -114,13 +114,20 @@ function qnapStatusToStorageStatus(status: QnapBackupStatus | null): StorageDocu
 
 export function storageStatusPresentation(
   status: StorageDocumentStatusV1,
-  qnapConfigured = true
+  qnapConfigured = true,
+  opts?: { mockMode?: boolean }
 ): {
   label: string;
   icon: string;
 } {
   if (!qnapConfigured && status !== "qnap_synced") {
     return { label: "QNAP未設定", icon: "⚙️" };
+  }
+  if (opts?.mockMode && status === "qnap_synced") {
+    return { label: "Mock保存（疑似）", icon: "🟡" };
+  }
+  if (opts?.mockMode && status === "qnap_pending") {
+    return { label: "Mock待機（疑似）", icon: "🟠" };
   }
   switch (status) {
     case "qnap_synced":

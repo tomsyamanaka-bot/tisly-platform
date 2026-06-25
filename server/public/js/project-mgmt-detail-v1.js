@@ -2,6 +2,7 @@ import { getCustomerToken, requireCustomerLogin } from "./customer-auth.js";
 import { initPracticalNav } from "./tisly-practical-nav.js";
 import { sharePdfAsFile, prefetchPdfForShare } from "./pdf-share-v1.js";
 import { navigateTo, navigateBackOne } from "./tisly-navigation-stack-v1.js";
+import { navigatePracticalReturn } from "./tisly-return-nav-v1.js";
 
 const API = "/api/project-mgmt/v1";
 const TIMELINE_API = "/api/project-timeline-v1";
@@ -511,12 +512,17 @@ function renderRecentHistory(limit = 3) {
 
 function renderQnapStatusSummary(p) {
   const qnap = qnapSyncBadge(p.qnapSyncStatus);
+  const mockMode = detail?.documentsStatus?.qnapProviderKind === "mock";
+  const mockHint = mockMode
+    ? `<p class="section-hint status-warn">⚠️ QNAPはMockモード（VPSローカルミラー保存）。本番NASへは <a href="/storage-settings-v1">ストレージ設定</a> でWebDAV接続が必要です。</p>`
+    : "";
   return `
     <div class="qnap-status-summary">
       <span class="qnap-status-icon">${qnap.icon}</span>
-      <span class="qnap-status-label">${escapeHtml(qnap.label)}</span>
+      <span class="qnap-status-label">${escapeHtml(qnap.label)}${mockMode ? "（Mock）" : ""}</span>
     </div>
-    <p class="qnap-path-hint">${escapeHtml(p.qnapFolderPath || "—")}</p>`;
+    <p class="qnap-path-hint">${escapeHtml(p.qnapFolderPath || "—")}</p>
+    ${mockHint}`;
 }
 
 function resolveDashboardReturnUrl() {
@@ -544,8 +550,8 @@ function renderBackLinks() {
   const listHref = resolveListReturnUrl();
   return `
     <nav class="detail-back-nav" aria-label="戻る">
-      <a href="${escapeHtml(dashHref)}" class="dash-back-link">← ダッシュボード</a>
-      <a href="${escapeHtml(listHref)}" class="dash-back-link dash-back-link-secondary">← 案件一覧</a>
+      <button type="button" class="dash-back-link" data-nav-back="${escapeHtml(dashHref)}">← ダッシュボード</button>
+      <button type="button" class="dash-back-link dash-back-link-secondary" data-nav-back="${escapeHtml(listHref)}">← 案件一覧</button>
     </nav>`;
 }
 
@@ -1908,6 +1914,12 @@ function bindActions() {
   });
 
   bindDocActions();
+  document.querySelectorAll("[data-nav-back]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const href = btn.getAttribute("data-nav-back");
+      if (href?.startsWith("/")) navigateTo(href);
+    });
+  });
   bindStorageUploads();
   bindQnapStorageActions();
   bindStorageFolders();
@@ -2229,7 +2241,7 @@ async function main() {
     appName: "案件詳細",
     theme: "blue",
     onBack: () => {
-      navigateBackOne(resolveDashboardReturnUrl());
+      navigatePracticalReturn(() => navigateBackOne(resolveDashboardReturnUrl()));
     },
   });
 

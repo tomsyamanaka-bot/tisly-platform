@@ -560,24 +560,31 @@ async function checkCustomerPhase24Phase25(shareId) {
 
 async function checkPhase27NavigationAndShare() {
   try {
-    const [navJs, navStackJs, returnJs, pdfShareJs, practicalNavJs, docJs] = await Promise.all([
+    const [navJs, navSharedJs, returnJs, pdfShareJs, practicalNavJs, docJs, appHubJs] =
+      await Promise.all([
       fetch("/js/tisly-navigation-stack-v1.js", { cache: "no-store" }).then((r) => r.text()),
       fetch("/js/tisly-navigation-stack-shared-v1.js", { cache: "no-store" }).then((r) => r.text()),
       fetch("/js/tisly-return-nav-v1.js", { cache: "no-store" }).then((r) => r.text()),
       fetch("/js/pdf-share-v1.js", { cache: "no-store" }).then((r) => r.text()),
       fetch("/js/tisly-practical-nav.js", { cache: "no-store" }).then((r) => r.text()),
       fetch("/js/document-viewer-v1.js", { cache: "no-store" }).then((r) => r.text()),
+      fetch("/js/app-hub.js", { cache: "no-store" }).then((r) => r.text()),
     ]);
 
     const stackOk =
       navJs.includes("navigateBackOne") &&
       navJs.includes("navigateTo") &&
-      navStackJs.includes("popNavStackV1") &&
+      navJs.includes("safeReturn") &&
+      navSharedJs.includes("getNavZoneV1") &&
+      navSharedJs.includes("isValidReturnUrlV1") &&
+      navSharedJs.includes("popNavStackV1") &&
       returnJs.includes("hasNavStackEntry");
     const backOk =
       practicalNavJs.includes("navigateBackOne") &&
       !practicalNavJs.includes("history.back") &&
-      !docJs.includes("history.back");
+      !docJs.includes("history.back") &&
+      !appHubJs.includes("history.back") &&
+      !/\bhistory\.go\s*\(/.test(navJs);
     const shareOk =
       pdfShareJs.includes("navigatorShareFilesOnly") &&
       pdfShareJs.includes("clearBlobUrlsFromPage") &&
@@ -585,27 +592,33 @@ async function checkPhase27NavigationAndShare() {
       !pdfShareJs.includes("navigator.share({ title") &&
       !pdfShareJs.includes("navigator.share({ url") &&
       !pdfShareJs.includes("navigator.share({ text");
+    const zoneOk =
+      navJs.includes("toZone !== fromZone") &&
+      navSharedJs.includes('return "customer"') &&
+      navSharedJs.includes('return "/customer"');
 
     const stackDiag =
       typeof navigationStackDiagnostics === "function"
         ? navigationStackDiagnostics()
-        : { depth: 0, peek: null };
+        : { depth: 0, peek: null, zone: "internal" };
 
-    if (stackOk && backOk && shareOk) {
+    if (stackOk && backOk && shareOk && zoneOk) {
       return {
         status: "ok",
-        detail: `Phase27 OK · Back:stack · Share:files-only · stackDepth:${stackDiag.depth}`,
+        detail: `Phase27 OK · zone:${stackDiag.zone} · Back:stack · Share:files-only · stackDepth:${stackDiag.depth}`,
         stackOk,
         backOk,
         shareOk,
+        zoneOk,
       };
     }
     return {
       status: "warn",
-      detail: `stack:${stackOk} back:${backOk} share:${shareOk}`,
+      detail: `stack:${stackOk} back:${backOk} share:${shareOk} zone:${zoneOk}`,
       stackOk,
       backOk,
       shareOk,
+      zoneOk,
     };
   } catch (e) {
     return { status: "fail", detail: e.message || String(e) };

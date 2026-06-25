@@ -41,6 +41,9 @@ async function mockUploadPdf(
       row.fileName,
       row.kind
     );
+    console.log(
+      `[QNAP MOCK] PDF backup simulated — local mirror: uploads/qnap-storage-mock/${settings.qnap.shareName}/${remoteRel}`
+    );
     return { ok: true, displayPath };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
