@@ -4,6 +4,11 @@
  */
 import { escapeHtml, escapeHtmlMultiline } from "./shared-blocks.js";
 import { getTomsCompanyInfo } from "./company.js";
+import {
+  renderPdfPageNumberFooter,
+  renderPdfSealImg,
+  wrapPdfHtmlDocument,
+} from "./pdf-base-template.js";
 
 export const TOMS_V2_PAGE_MARGIN_MM = 8;
 export const TOMS_V2_FRAME_WIDTH_MM = 194;
@@ -85,9 +90,7 @@ export function splitTomsV2Addressee(raw: string): { name: string; honorific: st
   return { name: trimmed, honorific: "様" };
 }
 
-export function resolveTomsSealUrl(): string {
-  return process.env.TOMS_SEAL_URL ?? "/assets/toms-seal.svg";
-}
+export { resolvePdfSealUrl as resolveTomsSealUrl } from "./pdf-base-template.js";
 
 function formatDocNoDisplay(docNo: string): string {
   const trimmed = (docNo || "").trim();
@@ -144,7 +147,7 @@ function renderCompanyBlock(staffName: string, bankInfo?: string): string {
 }
 
 function renderSeal(): string {
-  return `<img class="toms-v2-seal" src="${escapeHtml(resolveTomsSealUrl())}" alt="印"/>`;
+  return renderPdfSealImg();
 }
 
 function renderHeaderLeft(ctx: TomsV2PageContext): string {
@@ -239,7 +242,7 @@ function renderNotesBlock(notes: string): string {
 }
 
 function renderPageFooter(pageNum: number, totalPages: number): string {
-  return `<div class="toms-v2-page-num">Page ${pageNum} / ${totalPages}</div>`;
+  return renderPdfPageNumberFooter(pageNum, totalPages);
 }
 
 export interface TomsV2CoverHeaderInput {
@@ -621,15 +624,5 @@ body {
 `;
 
 export function wrapTomsV2Html(title: string, body: string, extraStyles = ""): string {
-  return `<!DOCTYPE html><html lang="ja"><head>
-<meta charset="UTF-8"/>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet"/>
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-<title>${escapeHtml(title)}</title>
-<style>${TOMS_V2_STYLES}${extraStyles}</style>
-</head><body>
-${body}
-</body></html>`;
+  return wrapPdfHtmlDocument(title, `${TOMS_V2_STYLES}${extraStyles}`, body);
 }

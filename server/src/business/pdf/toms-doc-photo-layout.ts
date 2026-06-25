@@ -1,11 +1,14 @@
 import type { BusinessPhoto } from "../business-types.js";
-import { escapeHtml } from "./shared-blocks.js";
+import {
+  renderPdfStandardPageFooter,
+  slicePdfPhotosForPages,
+  PDF_PHOTOS_PER_PAGE,
+} from "./pdf-base-template.js";
 import {
   buildPracticalPdfStyles,
   countPhotoLayoutPages,
   renderPhotoContinuationPagesHtml,
   renderPhotoGridHtml,
-  slicePhotosForPages,
   type PracticalPdfPhoto,
 } from "../../estimate/practical-pdf-layout.js";
 
@@ -29,33 +32,6 @@ export interface TomsDocPhotoLayoutInput {
   documentBodyHtml: string;
 }
 
-function renderPageFooter(
-  prefix: string,
-  projectNo: string,
-  generatedAt: string,
-  pageNum: number,
-  totalPages: number
-): string {
-  const trimmed = (generatedAt ?? "").trim();
-  let dt = trimmed;
-  const d = new Date(trimmed);
-  if (!Number.isNaN(d.getTime())) {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    const h = String(d.getHours()).padStart(2, "0");
-    const min = String(d.getMinutes()).padStart(2, "0");
-    dt = `${y}/${m}/${day} ${h}:${min}`;
-  } else {
-    dt = trimmed.replace(/^(\d{4})-(\d{2})-(\d{2})/, "$1/$2/$3");
-  }
-  return `<div class="${prefix}-page-footer">
-    <span class="${prefix}-footer-project">${escapeHtml(projectNo || "—")}</span>
-    <span class="${prefix}-footer-datetime">${escapeHtml(dt)}</span>
-    <span class="${prefix}-footer-pagenum">Page ${pageNum} / ${totalPages}</span>
-  </div>`;
-}
-
 /** @deprecated 見積・請求では使用禁止。仕様書・完了報告書は practical-pdf-layout を直接使用 */
 export function renderTomsDocWithPhotoLayout(input: TomsDocPhotoLayoutInput): {
   photoPageStyles: string;
@@ -63,18 +39,22 @@ export function renderTomsDocWithPhotoLayout(input: TomsDocPhotoLayoutInput): {
 } {
   const { prefix, photos, projectNo, generatedAt, coverHeaderHtml, documentBodyHtml } = input;
   const pdfPhotos = businessPhotosToPdfPhotos(photos);
-  const { coverPhotos, continuationPages } = slicePhotosForPages(pdfPhotos);
+  const { coverPhotos, continuationPages } = slicePdfPhotosForPages(
+    pdfPhotos,
+    PDF_PHOTOS_PER_PAGE,
+    PDF_PHOTOS_PER_PAGE
+  );
   const photoPageCount = countPhotoLayoutPages(pdfPhotos.length);
   const totalPages = photoPageCount + 1;
 
   const coverPhotoGrid = coverPhotos.length
-    ? renderPhotoGridHtml(prefix, coverPhotos, 1, `${prefix}-cover-photo-grid`)
+    ? renderPhotoGridHtml(prefix, coverPhotos, 1, `${prefix}-cover-photo-grid`, PDF_PHOTOS_PER_PAGE)
     : "";
 
   const page1 = `<div class="${prefix}-page ${prefix}-cover-page">
   <div class="${prefix}-doc-header-compact">${coverHeaderHtml}</div>
   ${coverPhotoGrid}
-  ${renderPageFooter(prefix, projectNo, generatedAt, 1, totalPages)}
+  ${renderPdfStandardPageFooter({ prefix, projectNo, generatedAt, pageNum: 1, totalPages })}
 </div>`;
 
   const photoContinuation =
@@ -85,7 +65,8 @@ export function renderTomsDocWithPhotoLayout(input: TomsDocPhotoLayoutInput): {
           projectNo,
           generatedAt,
           2,
-          totalPages
+          totalPages,
+          coverPhotos.length + 1
         )
       : "";
 

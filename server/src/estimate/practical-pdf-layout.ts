@@ -1,13 +1,21 @@
 import { escapeHtml, escapeHtmlMultiline, formatPhotoCircledNumber } from "../business/pdf/shared-blocks.js";
-import { getTomsCompanyInfo } from "../business/pdf/company.js";
-import { TOMS_PDF_VIEWPORT_META } from "../business/pdf/styles.js";
+import {
+  buildPdfPhotoGridStyles,
+  countPdfPhotoLayoutPages,
+  renderPdfCoverHeader,
+  renderPdfStandardPageFooter,
+  resolveCoverPhotoCapacity,
+  slicePdfPhotosForPages,
+  wrapPdfHtmlDocument,
+} from "../business/pdf/pdf-base-template.js";
+import {
+  PDF_PHOTO_COLS as COLS,
+  PDF_PHOTO_ROWS as ROWS,
+  PDF_PHOTOS_PER_PAGE as PHOTOS_PER_PAGE,
+  PDF_PRACTICAL_PAGE_MARGIN_MM as PAGE_MARGIN_MM,
+} from "../business/pdf/pdf-constants.js";
 
-export const PAGE_MARGIN_MM = 2.5;
-export const COLS = 2;
-export const ROWS = 3;
-export const PHOTOS_PER_PAGE = COLS * ROWS;
-/** 1ページ目（表紙）に載せる写真の上限。7枚目以降は2ページ目へ */
-export const FIRST_PAGE_PHOTOS_MAX = PHOTOS_PER_PAGE;
+export { COLS, ROWS, PHOTOS_PER_PAGE, PAGE_MARGIN_MM };
 
 export interface PracticalPdfPhoto {
   url: string;
@@ -43,66 +51,32 @@ export interface PracticalPdfLayoutOptions {
   noPhotosMessage?: string;
 }
 
-function chunk<T>(arr: T[], size: number): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) {
-    out.push(arr.slice(i, i + size));
-  }
-  return out;
-}
+/** 1ページ目（表紙）に載せる写真の上限。7枚目以降は2ページ目へ */
+export const FIRST_PAGE_PHOTOS_MAX = PHOTOS_PER_PAGE;
 
 export function slicePhotosForPages(photos: PracticalPdfPhoto[]): {
   coverPhotos: PracticalPdfPhoto[];
   continuationPages: PracticalPdfPhoto[][];
 } {
-  const coverPhotos = photos.slice(0, FIRST_PAGE_PHOTOS_MAX);
-  const remainingPhotos = photos.slice(FIRST_PAGE_PHOTOS_MAX);
-  return {
-    coverPhotos,
-    continuationPages: remainingPhotos.length ? chunk(remainingPhotos, PHOTOS_PER_PAGE) : [],
-  };
+  return slicePdfPhotosForPages(photos, FIRST_PAGE_PHOTOS_MAX, PHOTOS_PER_PAGE);
 }
 
-export function countPhotoLayoutPages(photoCount: number): number {
-  if (photoCount <= 0) return 0;
-  const { continuationPages } = slicePhotosForPages(
-    Array.from({ length: photoCount }, () => ({ url: "", title: "" }))
-  );
-  return 1 + continuationPages.length;
+export function slicePhotosForPagesWithCapacity(
+  photos: PracticalPdfPhoto[],
+  firstPageMax: number
+): {
+  coverPhotos: PracticalPdfPhoto[];
+  continuationPages: PracticalPdfPhoto[][];
+} {
+  return slicePdfPhotosForPages(photos, firstPageMax, PHOTOS_PER_PAGE);
+}
+
+export function countPhotoLayoutPages(photoCount: number, firstPageMax?: number): number {
+  return countPdfPhotoLayoutPages(photoCount, firstPageMax ?? FIRST_PAGE_PHOTOS_MAX);
 }
 
 /** 写真番号 ① ② … （PDF 2列×3段レイアウト用） */
 export { formatPhotoCircledNumber } from "../business/pdf/shared-blocks.js";
-
-function formatFooterDateTime(isoOrDate: string): string {
-  const trimmed = (isoOrDate ?? "").trim();
-  if (!trimmed) return "—";
-  const d = new Date(trimmed);
-  if (!Number.isNaN(d.getTime())) {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    const h = String(d.getHours()).padStart(2, "0");
-    const min = String(d.getMinutes()).padStart(2, "0");
-    return `${y}/${m}/${day} ${h}:${min}`;
-  }
-  return trimmed.replace(/^(\d{4})-(\d{2})-(\d{2})/, "$1/$2/$3");
-}
-
-function renderPageFooter(
-  prefix: string,
-  projectNo: string,
-  generatedAt: string,
-  pageNum: number,
-  totalPages: number
-): string {
-  const dt = formatFooterDateTime(generatedAt);
-  return `<div class="${prefix}-page-footer">
-    <span class="${prefix}-footer-project">${escapeHtml(projectNo || "—")}</span>
-    <span class="${prefix}-footer-datetime">${escapeHtml(dt)}</span>
-    <span class="${prefix}-footer-pagenum">Page ${pageNum} / ${totalPages}</span>
-  </div>`;
-}
 
 function renderDrawingBlocks(prefix: string, drawings: PracticalPdfDrawingImage[]): string {
   if (!drawings.length) return "";
@@ -126,9 +100,9 @@ function renderCoverPage(
   footerHtml: string,
   drawings: PracticalPdfDrawingImage[] | undefined,
   noPhotosMessage?: string,
-  showNoPhotosOnCover?: boolean
+  showNoPhotosOnCover?: boolean,
+  coverPhotoSlotCount: number = PHOTOS_PER_PAGE
 ): string {
-  const co = getTomsCompanyInfo();
   const fieldRows = fields
     .filter((f) => f.value?.trim())
     .map(
@@ -150,20 +124,18 @@ function renderCoverPage(
     showNoPhotosOnCover && noPhotosMessage
       ? `<div class="${prefix}-no-photos-cover">${escapeHtml(noPhotosMessage)}</div>`
       : "";
-  const coverPhotoGrid = renderPhotoGrid(
-    prefix,
-    coverPhotos,
-    1,
-    `${prefix}-cover-photo-grid`,
-    PHOTOS_PER_PAGE
-  );
+  const coverPhotoGrid =
+    coverPhotoSlotCount > 0
+      ? renderPhotoGrid(
+          prefix,
+          coverPhotos,
+          1,
+          `${prefix}-cover-photo-grid`,
+          coverPhotoSlotCount
+        )
+      : "";
   return `<div class="${prefix}-page ${prefix}-cover-page">
-  <div class="${prefix}-cover-header">
-    <div class="${prefix}-cover-rule"></div>
-    <div class="${prefix}-cover-company">${escapeHtml(co.name)}</div>
-    <h1 class="${prefix}-cover-title">${escapeHtml(documentTitle)}</h1>
-    <div class="${prefix}-cover-rule"></div>
-  </div>
+  ${renderPdfCoverHeader(prefix, documentTitle)}
   <table class="${prefix}-cover-fields">${fieldRows}</table>
   ${sectionBlocks ? `<div class="${prefix}-cover-rule"></div>${sectionBlocks}` : ""}
   ${renderDrawingBlocks(prefix, drawings ?? [])}
@@ -223,15 +195,22 @@ export function renderPhotoContinuationPagesHtml(
   projectNo: string,
   generatedAt: string,
   startPageNum: number,
-  totalPages: number
+  totalPages: number,
+  photoStartIndex: number
 ): string {
   return continuationPages
     .map((batch, idx) =>
       renderPhotoPage(
         prefix,
         batch,
-        renderPageFooter(prefix, projectNo, generatedAt, startPageNum + idx, totalPages),
-        FIRST_PAGE_PHOTOS_MAX + idx * PHOTOS_PER_PAGE + 1
+        renderPdfStandardPageFooter({
+          prefix,
+          projectNo,
+          generatedAt,
+          pageNum: startPageNum + idx,
+          totalPages,
+        }),
+        photoStartIndex + idx * PHOTOS_PER_PAGE
       )
     )
     .join("");
@@ -256,6 +235,27 @@ function renderNoPhotosPage(prefix: string, message: string, footerHtml: string)
 </div>`;
 }
 
+function resolveLayoutSlices(opts: PracticalPdfLayoutOptions): {
+  coverPhotos: PracticalPdfPhoto[];
+  continuationPages: PracticalPdfPhoto[][];
+  firstPageMax: number;
+  coverPhotoSlotCount: number;
+} {
+  const sections = (opts.coverSections ?? []).filter((s) => s.body?.trim());
+  const firstPageMax = resolveCoverPhotoCapacity({
+    sectionCount: sections.length,
+    hasDrawings: (opts.drawings ?? []).length > 0,
+    defaultMax: FIRST_PAGE_PHOTOS_MAX,
+  });
+  const { coverPhotos, continuationPages } = slicePhotosForPagesWithCapacity(
+    opts.photos,
+    firstPageMax
+  );
+  const coverPhotoSlotCount =
+    firstPageMax > 0 ? PHOTOS_PER_PAGE : 0;
+  return { coverPhotos, continuationPages, firstPageMax, coverPhotoSlotCount };
+}
+
 function renderAllPages(opts: PracticalPdfLayoutOptions): string {
   const {
     prefix,
@@ -269,8 +269,10 @@ function renderAllPages(opts: PracticalPdfLayoutOptions): string {
     noPhotosMessage = "写真未登録",
   } = opts;
 
-  const { coverPhotos, continuationPages } = slicePhotosForPages(photos);
+  const { coverPhotos, continuationPages, coverPhotoSlotCount } = resolveLayoutSlices(opts);
   const totalPages = photos.length ? 1 + continuationPages.length : 2;
+  const continuationStartIndex =
+    coverPhotoSlotCount > 0 ? coverPhotos.length + 1 : 1;
 
   const pages: string[] = [];
   pages.push(
@@ -280,10 +282,17 @@ function renderAllPages(opts: PracticalPdfLayoutOptions): string {
       coverFields,
       coverSections,
       coverPhotos,
-      renderPageFooter(prefix, projectNo, generatedAt, 1, totalPages),
+      renderPdfStandardPageFooter({
+        prefix,
+        projectNo,
+        generatedAt,
+        pageNum: 1,
+        totalPages,
+      }),
       drawings,
       noPhotosMessage,
-      false
+      false,
+      coverPhotoSlotCount
     )
   );
 
@@ -292,124 +301,39 @@ function renderAllPages(opts: PracticalPdfLayoutOptions): string {
       renderNoPhotosPage(
         prefix,
         noPhotosMessage,
-        renderPageFooter(prefix, projectNo, generatedAt, 2, totalPages)
+        renderPdfStandardPageFooter({
+          prefix,
+          projectNo,
+          generatedAt,
+          pageNum: 2,
+          totalPages,
+        })
       )
     );
-  } else {
-    continuationPages.forEach((batch, idx) => {
-      pages.push(
-        renderPhotoPage(
-          prefix,
-          batch,
-          renderPageFooter(prefix, projectNo, generatedAt, idx + 2, totalPages),
-          FIRST_PAGE_PHOTOS_MAX + idx * PHOTOS_PER_PAGE + 1
-        )
-      );
-    });
+  } else if (continuationPages.length > 0) {
+    pages.push(
+      renderPhotoContinuationPagesHtml(
+        prefix,
+        continuationPages,
+        projectNo,
+        generatedAt,
+        2,
+        totalPages,
+        continuationStartIndex
+      )
+    );
   }
 
   return pages.join("");
 }
 
 export function buildPracticalPdfStyles(prefix: string): string {
-  const m = PAGE_MARGIN_MM;
-  const contentH = 297 - m * 2;
-  const contentW = 210 - m * 2;
-  return `
-  @page { size: A4 portrait; margin: ${m}mm; }
-  * { box-sizing: border-box; }
-  body { font-family: "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif; color: #1a1a1a; margin: 0; padding: 0; font-size: 9pt; word-break: keep-all; }
-  .${prefix}-page {
-    width: ${contentW}mm;
-    height: ${contentH}mm;
-    page-break-after: always;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    position: relative;
-  }
-  .${prefix}-page:last-child { page-break-after: auto; }
-  .${prefix}-cover-page { padding: 0.3mm 0 0; }
-  .${prefix}-cover-header { text-align: center; margin-bottom: 0.6mm; flex: 0 0 auto; }
-  .${prefix}-cover-rule { height: 0; border-top: 1px solid #94a3b8; margin: 0.5mm 0; }
-  .${prefix}-cover-company { font-size: 9pt; font-weight: 700; letter-spacing: 0.08em; margin: 0.3mm 0; line-height: 1.15; }
-  .${prefix}-cover-title { font-size: 12.5pt; font-weight: 700; margin: 0.5mm 0; letter-spacing: 0.12em; line-height: 1.15; }
-  .${prefix}-cover-fields { width: 100%; border-collapse: collapse; margin: 0.3mm 0 0.6mm; font-size: 7.5pt; flex: 0 0 auto; }
-  .${prefix}-cover-fields th { text-align: left; width: 20%; padding: 0.25mm 0.8mm; color: #475569; font-weight: 600; vertical-align: top; border-bottom: 1px solid #e2e8f0; line-height: 1.15; }
-  .${prefix}-cover-fields td { padding: 0.25mm 0.8mm; color: #0f172a; vertical-align: top; border-bottom: 1px solid #f1f5f9; line-height: 1.15; }
-  .${prefix}-cover-section { margin: 0.4mm 0; flex: 0 0 auto; }
-  .${prefix}-cover-section h3 { margin: 0 0 0.25mm; font-size: 7.5pt; font-weight: 700; color: #334155; line-height: 1.15; }
-  .${prefix}-cover-section-body { font-size: 7pt; line-height: 1.25; color: #0f172a; white-space: pre-wrap; max-height: 14mm; overflow: hidden; }
-  .${prefix}-drawing-block { margin: 0.5mm 0; flex: 0 0 auto; page-break-inside: avoid; }
-  .${prefix}-drawing-title { margin: 0 0 0.3mm; font-size: 7.5pt; font-weight: 700; color: #334155; }
-  .${prefix}-drawing-img-wrap { width: 100%; max-height: 42mm; overflow: hidden; border: 1px solid #e2e8f0; border-radius: 1mm; }
-  .${prefix}-drawing-img-wrap img { width: 100%; height: auto; max-height: 42mm; object-fit: contain; display: block; }
-  .${prefix}-no-photos-cover { margin-top: 1.5mm; text-align: center; font-size: 8.5pt; color: #64748b; flex: 0 0 auto; }
-  .${prefix}-photo-page { padding: 0; }
-  .${prefix}-photo-grid {
-    display: grid;
-    grid-template-columns: repeat(${COLS}, 1fr);
-    grid-auto-flow: row;
-    gap: 1.5mm;
-    align-content: start;
-  }
-  .${prefix}-cover-photo-grid {
-    flex: 1 1 0;
-    min-height: 0;
-    margin: 0.4mm 0 0;
-    grid-template-rows: repeat(${ROWS}, 1fr);
-    align-content: start;
-  }
-  .${prefix}-cover-photo-grid .${prefix}-photo-cell {
-    min-height: 0;
-    overflow: hidden;
-  }
-  .${prefix}-cover-photo-grid .${prefix}-photo-img-wrap {
-    flex: 1 1 0;
-    min-height: 0;
-    aspect-ratio: unset;
-  }
-  .${prefix}-photo-page .${prefix}-photo-grid {
-    flex: 1;
-    min-height: 0;
-    grid-template-rows: repeat(${ROWS}, 1fr);
-    margin-bottom: 1mm;
-  }
-  .${prefix}-photo-page .${prefix}-photo-img-wrap { aspect-ratio: unset; flex: 1; min-height: 0; }
-  .${prefix}-photo-cell { display: flex; flex-direction: column; width: 100%; min-height: 0; }
-  .${prefix}-photo-title { margin: 0.3mm 0 0; text-align: center; font-size: 6pt; color: #334155; line-height: 1.1; flex: 0 0 auto; }
-  .${prefix}-photo-num { font-weight: 700; margin-right: 0.4mm; }
-  .${prefix}-photo-img-wrap { width: 100%; aspect-ratio: 4 / 3; overflow: hidden; border: 1px solid #cbd5e1; border-radius: 1px; background: #f8fafc; flex: 0 0 auto; }
-  .${prefix}-photo-img-wrap img { width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
-  .${prefix}-photo-cell-empty .${prefix}-photo-img-wrap { background: #d1d5db; }
-  .${prefix}-no-photos { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 10pt; color: #64748b; letter-spacing: 0.05em; }
-  .${prefix}-page-footer {
-    flex: 0 0 auto;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 6.5pt;
-    color: #64748b;
-    border-top: 1px solid #e2e8f0;
-    padding-top: 1mm;
-    margin-top: auto;
-    gap: 2mm;
-  }
-  .${prefix}-footer-project { font-weight: 600; color: #334155; }
-  .${prefix}-footer-datetime { flex: 1; text-align: center; }
-  .${prefix}-footer-pagenum { font-weight: 600; white-space: nowrap; }
-`;
+  return buildPdfPhotoGridStyles(prefix, PAGE_MARGIN_MM);
 }
 
 export function renderPracticalPdfHtml(opts: PracticalPdfLayoutOptions): string {
-  const { prefix, pageTitle } = opts;
-  const styles = buildPracticalPdfStyles(prefix);
+  const { pageTitle } = opts;
+  const styles = buildPracticalPdfStyles(opts.prefix);
   const body = renderAllPages(opts);
-  const safeTitle = escapeHtml(pageTitle);
-  return `<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"/>
-${TOMS_PDF_VIEWPORT_META}
-<title>${safeTitle}</title>
-<style>${styles}</style></head><body>
-${body}
-</body></html>`;
+  return wrapPdfHtmlDocument(pageTitle, styles, body);
 }

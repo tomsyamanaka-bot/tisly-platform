@@ -152,4 +152,27 @@ describe("practical-pdf-layout 写真グリッド", () => {
       assert.match(html, /grid-template-rows:\s*repeat\(3,\s*1fr\)/);
     }
   });
+
+  it("図面+複数セクション時は表紙写真を0にし継続ページへ（型崩れ防止）", () => {
+    const html = renderPracticalPdfHtml({
+      prefix: "sp",
+      pageTitle: "仕様書テスト",
+      documentTitle: "仕様書",
+      projectNo: "PRJ-TEST",
+      generatedAt: "2026-06-13T12:00:00+09:00",
+      coverFields: [{ label: "件名", value: "テスト" }],
+      coverSections: [
+        { title: "工事内容", body: "防犯カメラ設置" },
+        { title: "設備一覧", body: "カメラ4台" },
+      ],
+      drawings: [{ url: "/drawing.jpg", title: "現調図面" }],
+      photos: photos(4),
+    });
+    const cover = coverPageHtml(html, "sp");
+    assert.doesNotMatch(cover, /sp-cover-photo-grid/);
+    assert.equal(countContinuationPhotoPages(html, "sp"), 1);
+    assert.equal(countPhotoCells(html, "sp"), 6);
+    assert.match(html, /Page 1 \/ 2/);
+    assert.match(html, /Page 2 \/ 2/);
+  });
 });
