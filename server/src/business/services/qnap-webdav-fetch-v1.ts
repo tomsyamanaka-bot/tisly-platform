@@ -2,6 +2,18 @@ import http from "node:http";
 import https from "node:https";
 import { URL } from "node:url";
 
+const DEFAULT_WEBDAV_TIMEOUT_MS = Number(process.env.QNAP_WEBDAV_TIMEOUT_MS || "12000");
+
+function formatFetchError(e: unknown): string {
+  if (!(e instanceof Error)) return String(e);
+  const parts = [e.message];
+  const err = e as NodeJS.ErrnoException;
+  if (err.code) parts.push(`code=${err.code}`);
+  const cause = (e as { cause?: Error }).cause;
+  if (cause?.message) parts.push(`cause=${cause.message}`);
+  return parts.join(" · ");
+}
+
 const insecureHttpsAgent = new https.Agent({ rejectUnauthorized: false });
 
 function envFlag(key: string): boolean | null {
@@ -44,21 +56,29 @@ export function isCertificateFetchError(message: string): boolean {
   );
 }
 
-/** HTTPS:5006 → HTTP:8080 などの候補 URL */
+/** HTTPS:5006 → HTTP:8080 / HTTPS:5001 などの候補 URL */
 export function listWebDavUrlCandidates(primary: string): string[] {
   const out: string[] = [primary.trim()];
   try {
     const u = new URL(primary);
-    if (u.protocol === "https:" && u.port !== "8080") {
-      const httpUrl = new URL(primary);
-      httpUrl.protocol = "http:";
-      httpUrl.port = "8080";
-      out.push(httpUrl.toString());
-    } else if (u.protocol === "http:" && (u.port === "8080" || !u.port)) {
-      const httpsUrl = new URL(primary);
-      httpsUrl.protocol = "https:";
-      httpsUrl.port = u.port === "8080" ? "5006" : "5006";
-      out.push(httpsUrl.toString());
+    const path = `${u.pathname}${u.search}`;
+    const host = u.hostname;
+    const add = (protocol: string, port: string) => {
+      const next = new URL(primary);
+      next.protocol = protocol;
+      next.hostname = host;
+      next.port = port;
+      next.pathname = path;
+      out.push(next.toString());
+    };
+    if (u.protocol === "https:") {
+      if (u.port !== "8080") add("http:", "8080");
+      if (u.port !== "5001") add("https:", "5001");
+      if (u.port !== "5006") add("https:", "5006");
+    } else if (u.protocol === "http:") {
+      if (u.port !== "5006") add("https:", "5006");
+      if (u.port !== "5001") add("https:", "5001");
+      if (u.port !== "8080") add("http:", "8080");
     }
   } catch {
     /* invalid URL */
@@ -105,6 +125,7 @@ async function nodeFetchWithOptionalAgent(
         method: init.method ?? "GET",
         headers,
         agent: isHttps ? agent : undefined,
+        timeout: DEFAULT_WEBDAV_TIMEOUT_MS,
       },
       (res) => {
         const chunks: Buffer[] = [];
@@ -120,6 +141,9 @@ async function nodeFetchWithOptionalAgent(
         });
       }
     );
+    req.on("timeout", () => {
+      req.destroy(new Error(`WebDAV timeout after ${DEFAULT_WEBDAV_TIMEOUT_MS}ms`));
+    });
     req.on("error", reject);
     try {
       writeRequestBody(req, init.body);
@@ -149,3 +173,5 @@ export async function qnapWebDavFetch(url: string, init: RequestInit = {}): Prom
     throw e;
   }
 }
+
+export { formatFetchError };

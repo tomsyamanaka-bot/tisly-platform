@@ -28,12 +28,11 @@ describe("qnap-webdav-fetch-v1", () => {
     delete process.env.QNAP_WEBDAV_TLS_INSECURE;
   });
 
-  it("lists HTTP 8080 fallback for HTTPS WebDAV URL", () => {
+  it("lists HTTP 8080 and HTTPS 5001 fallbacks for Tailscale WebDAV URL", () => {
     const candidates = listWebDavUrlCandidates("https://100.99.31.120:5006/TiSLY");
-    assert.deepEqual(candidates, [
-      "https://100.99.31.120:5006/TiSLY",
-      "http://100.99.31.120:8080/TiSLY",
-    ]);
+    assert.ok(candidates.includes("https://100.99.31.120:5006/TiSLY"));
+    assert.ok(candidates.includes("http://100.99.31.120:8080/TiSLY"));
+    assert.ok(candidates.includes("https://100.99.31.120:5001/TiSLY"));
   });
 
   it("detects certificate-related fetch errors", () => {

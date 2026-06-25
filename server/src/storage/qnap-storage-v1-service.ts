@@ -114,7 +114,7 @@ function translateQnapTestError(message: string): string {
   if (message.includes("QNAP_WEBDAV_URL")) return "QNAP_WEBDAV_URL が未設定です";
   if (message.includes("401")) return "認証に失敗しました。ユーザー名またはパスワードを確認してください";
   if (message.includes("404")) return "共有フォルダまたはベースパスが見つかりません";
-  if (message.includes("ECONNREFUSED") || message.includes("fetch failed")) {
+  if (message.includes("ECONNREFUSED") || message.includes("fetch failed") || message.includes("ETIMEDOUT") || message.includes("timeout")) {
     return "QNAPに接続できません。URL・ネットワーク・ポートを確認してください";
   }
   if (isCertificateFetchError(message)) {
