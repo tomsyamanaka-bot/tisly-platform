@@ -11,7 +11,7 @@ import {
   sanitizePdfNotesText,
   sanitizePdfRequiredField,
 } from "./pdf-text-sanitize.js";
-import { escapeHtml } from "./shared-blocks.js";
+import { escapeHtml, resolvePdfProjectNo } from "./pdf-base-template.js";
 import {
   renderTomsV2DocumentBody,
   TOMS_V2_STYLES,
@@ -72,6 +72,7 @@ function buildEstimateV2Context(
     addressee: header.addressee,
     subject: header.subject,
     workLocation: header.workLocation,
+    projectNo: resolvePdfProjectNo(project.projectNo, header.estimateNo),
     issueDateLabel: "発行日",
     issueDate: header.issueDate,
     docNoLabel: "見積番号",

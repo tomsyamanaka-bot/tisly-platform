@@ -85,6 +85,8 @@ describe("TOMS Excel layout v2 templates", () => {
     assert.match(html, />摘要</);
     assert.match(html, /#e6f2ff/);
     assert.match(html, /下記の通り、お見積り申し上げます。/);
+    assert.match(html, /案件番号/);
+    assert.match(html, /PRJ-2026-0099/);
     assert.match(html, /Page 1 \/ 1/);
     assert.match(html, /toms-seal/);
     assert.match(html, /toms-v2-row-data/);
@@ -113,6 +115,8 @@ describe("TOMS Excel layout v2 templates", () => {
     assert.match(html, /税率内訳/);
     assert.match(html, /登録番号/);
     assert.match(html, /施工場所/);
+    assert.match(html, /案件番号/);
+    assert.match(html, /PRJ-2026-0099/);
     assert.match(html, /下記の通り、御請求申し上げます。/);
     assert.match(html, /＜備考＞/);
   });

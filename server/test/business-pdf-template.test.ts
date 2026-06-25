@@ -65,6 +65,8 @@ describe("Phase 561-580 TOMS PDF templates", () => {
     assert.match(html.text, /お見積書/);
     assert.match(html.text, /税込合計/);
     assert.match(html.text, /株式会社TOMS/);
-    assert.match(html.text, /項目/);
+    assert.match(html.text, /摘要/);
+    assert.match(html.text, /案件番号/);
+    assert.match(html.text, /toms-v2-frame/);
   });
 });

@@ -8,6 +8,7 @@ import {
   renderPdfPageNumberFooter,
   renderPdfStandardPageFooter,
   resolveCoverPhotoCapacity,
+  resolvePdfProjectNo,
   slicePdfPhotosForPages,
   wrapPdfHtmlDocument,
 } from "../src/business/pdf/pdf-base-template.js";
@@ -82,5 +83,11 @@ describe("pdf-base-template 共通部品", () => {
     assert.equal(countPdfPhotoLayoutPages(6), 1);
     assert.equal(countPdfPhotoLayoutPages(7), 2);
     assert.equal(countPdfPhotoLayoutPages(0), 0);
+  });
+
+  it("resolvePdfProjectNo は projectNo 優先、未設定時は docNo プレフィックス", () => {
+    assert.equal(resolvePdfProjectNo("MO-26-0616", "MO-26-0616-001"), "MO-26-0616");
+    assert.equal(resolvePdfProjectNo("", "PRJ-2026-0099-001"), "PRJ-2026-0099");
+    assert.equal(resolvePdfProjectNo("  ", ""), "");
   });
 });

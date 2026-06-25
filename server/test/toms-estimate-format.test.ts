@@ -264,7 +264,11 @@ describe("TOMS標準見積フォーマット", () => {
     assert.match(invoiceHtml, /支払期限/);
     assert.match(invoiceHtml, /担当/);
     assert.match(invoiceHtml, /税率内訳/);
-    assert.match(invoiceHtml, /PRJ-\d{4}-\d{4}-\d{3}|MO-[\d-]+-\d{3}/);
+    assert.match(invoiceHtml, /案件番号/);
+    assert.ok(
+      project.projectNo.trim().length > 0 && invoiceHtml.includes(project.projectNo),
+      `請求書HTMLに案件番号 ${project.projectNo} が含まれること`
+    );
   });
 
   it("renderEstimateHtml はヘッダーテーブルを生成する", () => {

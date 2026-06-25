@@ -2,15 +2,18 @@
  * TOMS Excel-style document layout v2 — 見積書・請求書共通
  * 添付マスタ画像（Excel帳票風）に合わせた HTML/CSS
  */
-import { escapeHtml, escapeHtmlMultiline } from "./shared-blocks.js";
 import { getTomsCompanyInfo } from "./company.js";
 import {
+  PDF_TOMS_V2_PAGE_MARGIN_MM,
+  escapeHtml,
+  escapeHtmlMultiline,
+  renderPdfCompanyDetailBlock,
   renderPdfPageNumberFooter,
   renderPdfSealImg,
   wrapPdfHtmlDocument,
 } from "./pdf-base-template.js";
 
-export const TOMS_V2_PAGE_MARGIN_MM = 8;
+export const TOMS_V2_PAGE_MARGIN_MM = PDF_TOMS_V2_PAGE_MARGIN_MM;
 export const TOMS_V2_FRAME_WIDTH_MM = 194;
 export const TOMS_V2_FRAME_HEIGHT_MM = 281;
 
@@ -50,6 +53,7 @@ export interface TomsV2PageContext {
   addressee: string;
   subject: string;
   workLocation?: string;
+  projectNo?: string;
   issueDateLabel: string;
   issueDate: string;
   docNoLabel: string;
@@ -109,6 +113,9 @@ function renderMetaRows(ctx: TomsV2PageContext): string {
     metaCell(ctx.issueDateLabel, ctx.issueDate || "—"),
     metaCell(ctx.docNoLabel, formatDocNoDisplay(ctx.docNo)),
   ];
+  if (ctx.projectNo?.trim()) {
+    rows.push(metaCell("案件番号", ctx.projectNo.trim()));
+  }
   if (ctx.includeRegistrationNo) {
     rows.push(metaCell("登録番号", co.registrationNo));
   }
@@ -122,28 +129,14 @@ function renderMetaRows(ctx: TomsV2PageContext): string {
   return rows.join("");
 }
 
-function formatBankBlock(bankInfo?: string): string | undefined {
-  if (!bankInfo?.trim()) return undefined;
-  const lines = bankInfo.trim().split(/\n/).filter(Boolean);
-  if (!lines.length) return undefined;
-  return `振込口座\n${lines.join("\n")}`;
-}
-
 function renderCompanyBlock(staffName: string, bankInfo?: string): string {
-  const co = getTomsCompanyInfo();
-  const staff = staffName?.trim() || co.representativeName;
-  const bankText = formatBankBlock(bankInfo);
-  const bank = bankText
-    ? `<div class="toms-v2-bank">${escapeHtmlMultiline(bankText)}</div>`
-    : "";
-  return `<div class="toms-v2-company-band">${escapeHtml(co.name)}</div>
-<div class="toms-v2-company-body">
-  <div>〒${escapeHtml(co.postalCode)}</div>
-  <div>${escapeHtml(co.address)}</div>
-  <div>TEL: ${escapeHtml(co.phone)}</div>
-  <div>担当: ${escapeHtml(staff)}</div>
-  ${bank}
-</div>`;
+  return renderPdfCompanyDetailBlock({
+    staffName,
+    bankInfo,
+    bandCssClass: "toms-v2-company-band",
+    bodyCssClass: "toms-v2-company-body",
+    bankCssClass: "toms-v2-bank",
+  });
 }
 
 function renderSeal(): string {
@@ -252,6 +245,7 @@ export interface TomsV2CoverHeaderInput {
   addressee: string;
   subject: string;
   workLocation?: string;
+  projectNo?: string;
   issueDateLabel: string;
   issueDate: string;
   docNoLabel: string;

@@ -13,7 +13,7 @@ import {
   sanitizePdfNotesText,
   sanitizePdfRequiredField,
 } from "./pdf-text-sanitize.js";
-import { escapeHtml } from "./shared-blocks.js";
+import { escapeHtml, resolvePdfProjectNo } from "./pdf-base-template.js";
 import {
   renderTomsV2DocumentBody,
   TOMS_V2_STYLES,
@@ -98,6 +98,7 @@ function buildInvoiceV2Context(
     addressee: header.addressee,
     subject: header.subject,
     workLocation: header.workLocation,
+    projectNo: resolvePdfProjectNo(project.projectNo, header.invoiceNo),
     issueDateLabel: "発行日",
     issueDate: header.invoiceDate,
     docNoLabel: "請求番号",

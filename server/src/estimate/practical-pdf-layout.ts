@@ -1,7 +1,9 @@
-import { escapeHtml, escapeHtmlMultiline, formatPhotoCircledNumber } from "../business/pdf/shared-blocks.js";
 import {
   buildPdfPhotoGridStyles,
   countPdfPhotoLayoutPages,
+  escapeHtml,
+  escapeHtmlMultiline,
+  formatPhotoCircledNumber,
   renderPdfCoverHeader,
   renderPdfStandardPageFooter,
   resolveCoverPhotoCapacity,
@@ -76,7 +78,7 @@ export function countPhotoLayoutPages(photoCount: number, firstPageMax?: number)
 }
 
 /** 写真番号 ① ② … （PDF 2列×3段レイアウト用） */
-export { formatPhotoCircledNumber } from "../business/pdf/shared-blocks.js";
+export { formatPhotoCircledNumber };
 
 function renderDrawingBlocks(prefix: string, drawings: PracticalPdfDrawingImage[]): string {
   if (!drawings.length) return "";

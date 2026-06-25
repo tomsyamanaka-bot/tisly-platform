@@ -27,7 +27,7 @@ export {
   PDF_TOMS_V2_PAGE_MARGIN_MM,
 } from "./pdf-constants.js";
 
-function escapeHtml(s: string): string {
+export function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -35,8 +35,29 @@ function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
-function escapeHtmlMultiline(s: string): string {
+export function escapeHtmlMultiline(s: string): string {
   return escapeHtml(s).replace(/\n/g, "<br/>");
+}
+
+/** 写真番号 ① ② … （PDF 2列×3段レイアウト用） */
+export function formatPhotoCircledNumber(index: number): string {
+  if (index >= 1 && index <= 20) {
+    return String.fromCharCode(0x2460 + index - 1);
+  }
+  return String(index);
+}
+
+/** 見積・請求 v2 — 案件番号（未設定時は docNo プレフィックスから推定） */
+export function resolvePdfProjectNo(
+  projectNo: string | null | undefined,
+  docNo?: string | null
+): string {
+  const fromProject = (projectNo ?? "").trim();
+  if (fromProject) return fromProject;
+  const doc = (docNo ?? "").trim();
+  const scoped = doc.match(/^(.+)-(\d{3})$/);
+  if (scoped?.[1]?.includes("-")) return scoped[1].trim();
+  return "";
 }
 
 export function chunkPdfArray<T>(arr: T[], size: number): T[][] {
@@ -157,6 +178,7 @@ export interface PdfCompanyDetailInput {
   bankInfo?: string;
   bandCssClass?: string;
   bodyCssClass?: string;
+  bankCssClass?: string;
 }
 
 /** 会社情報ブロック（株式会社TOMS 帯 + 住所・TEL・担当） */
@@ -165,9 +187,10 @@ export function renderPdfCompanyDetailBlock(input: PdfCompanyDetailInput = {}): 
   const staff = input.staffName?.trim() || co.representativeName;
   const bandClass = input.bandCssClass ?? "pdf-company-band";
   const bodyClass = input.bodyCssClass ?? "pdf-company-body";
+  const bankClass = input.bankCssClass ?? "pdf-company-bank";
   const bankText = formatPdfBankBlock(input.bankInfo);
   const bank = bankText
-    ? `<div class="pdf-company-bank">${escapeHtmlMultiline(bankText)}</div>`
+    ? `<div class="${bankClass}">${escapeHtmlMultiline(bankText)}</div>`
     : "";
   return `<div class="${bandClass}">${escapeHtml(co.name)}</div>
 <div class="${bodyClass}">
