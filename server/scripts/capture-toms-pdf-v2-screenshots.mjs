@@ -11,8 +11,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const outDir = path.join(__dirname, "../data/toms-pdf-v2-screenshots");
 fs.mkdirSync(outDir, { recursive: true });
 
-const { renderEstimateHtmlV2 } = await import("../dist/business/pdf/estimate-template-v2.js");
-const { renderInvoiceHtmlV2 } = await import("../dist/business/pdf/invoice-template-v2.js");
+const { renderEstimateHtml } = await import("../dist/business/pdf/estimate-template.js");
+const { renderInvoiceHtml } = await import("../dist/business/pdf/invoice-template.js");
 
 const project = {
   id: "pdf-v2-sample",
@@ -121,11 +121,11 @@ const invoice = {
 
 const invoiceProject = { ...project, customerName: "株式会社 伝元", title: invoice.title, address: "阿見町" };
 
-const estimateV2 = renderEstimateHtmlV2(project, estimate, {
+const estimateV2 = renderEstimateHtml(project, estimate, {
   header: estimate.header,
   notes: project.surveyMemo,
 });
-const invoiceV2 = renderInvoiceHtmlV2(invoiceProject, invoice, estimate, {
+const invoiceV2 = renderInvoiceHtml(invoiceProject, invoice, estimate, {
   header: {
     addressee: "株式会社 伝元",
     subject: invoice.title,

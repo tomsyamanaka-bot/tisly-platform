@@ -1,8 +1,8 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { renderEstimateHtmlV2 } from "../src/business/pdf/estimate-template-v2.js";
-import { renderInvoiceHtmlV2 } from "../src/business/pdf/invoice-template-v2.js";
-import { splitTomsV2Addressee } from "../src/business/pdf/toms-excel-doc-layout-v2.js";
+import { renderEstimateHtml } from "../src/business/pdf/estimate-template.js";
+import { renderInvoiceHtml } from "../src/business/pdf/invoice-template.js";
+import { splitPdfAddressee } from "../src/business/pdf/pdf-base-template.js";
 
 const baseProject = {
   id: "p1",
@@ -68,16 +68,16 @@ const baseEstimate = {
 };
 
 describe("TOMS Excel layout v2 templates", () => {
-  it("splitTomsV2Addressee は個人名に様・法人名に御中", () => {
-    assert.deepEqual(splitTomsV2Addressee("富塚"), { name: "富塚", honorific: "様" });
-    assert.deepEqual(splitTomsV2Addressee("株式会社 伝元"), {
+  it("splitPdfAddressee は個人名に様・法人名に御中", () => {
+    assert.deepEqual(splitPdfAddressee("富塚"), { name: "富塚", honorific: "様" });
+    assert.deepEqual(splitPdfAddressee("株式会社 伝元"), {
       name: "株式会社 伝元",
       honorific: "御中",
     });
   });
 
   it("見積書 v2 は Excel 帳票風クラスと黒枠を含む", () => {
-    const html = renderEstimateHtmlV2(baseProject, baseEstimate);
+    const html = renderEstimateHtml(baseProject, baseEstimate);
     assert.match(html, /お見積書/);
     assert.match(html, /toms-v2-frame/);
     assert.match(html, /toms-v2-title-band/);
@@ -109,7 +109,7 @@ describe("TOMS Excel layout v2 templates", () => {
       createdAt: "2026-06-13T00:00:00.000Z",
       updatedAt: "2026-06-13T00:00:00.000Z",
     };
-    const html = renderInvoiceHtmlV2(baseProject, invoice, baseEstimate);
+    const html = renderInvoiceHtml(baseProject, invoice, baseEstimate);
     assert.match(html, /御請求書/);
     assert.match(html, /振込口座/);
     assert.match(html, /税率内訳/);
@@ -141,7 +141,7 @@ describe("TOMS Excel layout v2 templates", () => {
       ...baseEstimate,
       estimateNo: "MO-26-0619-001",
     };
-    const html = renderInvoiceHtmlV2(projectWithoutNo, invoice, estimateWithNo);
+    const html = renderInvoiceHtml(projectWithoutNo, invoice, estimateWithNo);
     assert.match(html, /案件番号[\s\S]*?toms-v2-meta-value">MO-26-0619</);
   });
 });

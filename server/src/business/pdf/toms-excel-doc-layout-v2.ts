@@ -85,10 +85,8 @@ function chunkLines(lines: TomsV2LineItem[], firstMax: number, contMax: number):
   return pages;
 }
 
-/** 宛名を名前部分と敬称に分割（Excel帳票風下線レイアウト用） */
-export const splitTomsV2Addressee = splitPdfAddressee;
-
-export { resolvePdfSealUrl as resolveTomsSealUrl } from "./pdf-base-template.js";
+/** 宛名を名前部分と敬称に分割 — pdf-base-template へ委譲 */
+export { splitPdfAddressee as splitTomsV2Addressee } from "./pdf-base-template.js";
 
 function renderMetaRows(ctx: TomsV2PageContext): string {
   return renderPdfV2MetaTableRows({
@@ -118,7 +116,7 @@ function renderSeal(): string {
 }
 
 function renderHeaderLeft(ctx: TomsV2PageContext): string {
-  const { name, honorific } = splitTomsV2Addressee(ctx.addressee);
+  const { name, honorific } = splitPdfAddressee(ctx.addressee);
   const subject = ctx.subject?.trim() || "未設定";
   const workLoc = ctx.workLocation?.trim()
     ? `<div class="toms-v2-subject-row">

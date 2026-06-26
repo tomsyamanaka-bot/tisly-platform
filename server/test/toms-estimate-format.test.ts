@@ -149,6 +149,12 @@ describe("TOMS標準見積フォーマット", () => {
     assert.match(res.text, /担当/);
     assert.match(res.text, /toms-v2-frame/);
     assert.match(res.text, /Page 1 \/ 1/);
+    assert.match(res.text, /案件番号/);
+    const project = getBusinessProject(businessProjectId)!;
+    assert.ok(
+      project.projectNo.trim().length > 0 && res.text.includes(project.projectNo),
+      `見積HTMLに案件番号 ${project.projectNo} が含まれること`
+    );
   });
 
   it("includePhotos=1 でも見積書に写真レイアウトは出ない", async () => {

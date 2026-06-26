@@ -9,12 +9,11 @@ import {
   type PdfStorageProvider,
 } from "../../projects/project-pdf-store.js";
 import { renderPdfPlaceholderHtml } from "./pdf-templates.js";
-import { renderEstimateHtml } from "./estimatePdfTemplate.js";
-import { renderInvoiceHtml } from "./invoicePdfTemplate.js";
+import { renderEstimateHtml } from "../pdf/estimate-template.js";
+import { renderInvoiceHtml } from "../pdf/invoice-template.js";
 import { renderWithPdfFallback } from "../pdf/render.js";
 import { assertValidPdfBuffer } from "../pdf/pdf-validation.js";
 import type { TomsEstimateHeader } from "../toms-document-format.js";
-/** Phase601+ v3: HTML templates live in estimatePdfTemplate / invoicePdfTemplate / completionReportPdfTemplate */
 
 /** @see PDF_STORAGE_PROVIDER — 現状 local 固定、将来 qnap 切替 */
 export function getPdfStorageProvider(): PdfStorageProvider {

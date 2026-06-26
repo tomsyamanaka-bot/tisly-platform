@@ -26,7 +26,7 @@ const {
 const { getGmailSendMode, canGmailRealSend } = await import("../src/business/services/gmailRealSend.js");
 const { getQnapUploadConfig } = await import("../src/business/services/qnapBusinessArchive.js");
 const { buildProjectFolderList } = await import("../src/business/services/qnapProjectFolders.js");
-const { renderEstimateHtml } = await import("../src/business/services/estimatePdfTemplate.js");
+const { renderEstimateHtml } = await import("../src/business/pdf/estimate-template.js");
 
 const app = createApp();
 

@@ -99,7 +99,7 @@ function parseJson<T>(raw: string | null | undefined, fallback: T): T {
 function rowToProject(r: Record<string, unknown>): BusinessProject {
   return {
     id: String(r.id),
-    projectNo: String(r.project_no),
+    projectNo: r.project_no != null && String(r.project_no).trim() !== "" ? String(r.project_no) : "",
     customerId: String(r.customer_id),
     customerName: String(r.customer_name),
     title: String(r.title),

@@ -7,14 +7,12 @@ import {
 } from "../src/business/pdf/toms-document-templates.js";
 
 describe("TOMS document template registry", () => {
-  it("lists six templates including v2 estimate and invoice", () => {
+  it("lists four templates (estimate, invoice, specification, completion)", () => {
     const ids = listTomsDocumentTemplates().map((t) => t.id);
     assert.deepEqual(ids.sort(), [
       "completion-report-template",
       "estimate-template",
-      "estimate-template-v2",
       "invoice-template",
-      "invoice-template-v2",
       "specification-template",
     ]);
   });
