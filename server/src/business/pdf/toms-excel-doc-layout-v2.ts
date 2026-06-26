@@ -2,30 +2,35 @@
  * TOMS Excel-style document layout v2 — 見積書・請求書共通
  * 添付マスタ画像（Excel帳票風）に合わせた HTML/CSS
  */
-import { getTomsCompanyInfo } from "./company.js";
 import {
+  PDF_TOMS_V2_CONTINUATION_PAGE_ROWS,
+  PDF_TOMS_V2_FIRST_PAGE_ROWS,
+  PDF_TOMS_V2_FRAME_HEIGHT_MM,
+  PDF_TOMS_V2_FRAME_WIDTH_MM,
+  PDF_TOMS_V2_GRAY,
+  PDF_TOMS_V2_LINE_ROW_HEIGHT_MM,
   PDF_TOMS_V2_PAGE_MARGIN_MM,
+  PDF_TOMS_V2_ROW_BLUE,
+} from "./pdf-constants.js";
+import {
   escapeHtml,
   escapeHtmlMultiline,
   renderPdfCompanyDetailBlock,
   renderPdfPageNumberFooter,
   renderPdfSealImg,
+  renderPdfV2MetaTableRows,
+  splitPdfAddressee,
   wrapPdfHtmlDocument,
 } from "./pdf-base-template.js";
 
 export const TOMS_V2_PAGE_MARGIN_MM = PDF_TOMS_V2_PAGE_MARGIN_MM;
-export const TOMS_V2_FRAME_WIDTH_MM = 194;
-export const TOMS_V2_FRAME_HEIGHT_MM = 281;
-
-/** 1ページ目の明細行上限（ヘッダー・合計欄の余白込み・空行で表を下まで伸ばす） */
-export const TOMS_V2_FIRST_PAGE_ROWS = 18;
-/** 2ページ目以降の明細行上限 */
-export const TOMS_V2_CONTINUATION_PAGE_ROWS = 22;
-
-export const TOMS_V2_GRAY = "#d3d3d3";
-export const TOMS_V2_ROW_BLUE = "#e6f2ff";
-/** 明細 tbody 行の固定高さ（データ行・空行共通） */
-export const TOMS_V2_LINE_ROW_HEIGHT_MM = 6.2;
+export const TOMS_V2_FRAME_WIDTH_MM = PDF_TOMS_V2_FRAME_WIDTH_MM;
+export const TOMS_V2_FRAME_HEIGHT_MM = PDF_TOMS_V2_FRAME_HEIGHT_MM;
+export const TOMS_V2_FIRST_PAGE_ROWS = PDF_TOMS_V2_FIRST_PAGE_ROWS;
+export const TOMS_V2_CONTINUATION_PAGE_ROWS = PDF_TOMS_V2_CONTINUATION_PAGE_ROWS;
+export const TOMS_V2_GRAY = PDF_TOMS_V2_GRAY;
+export const TOMS_V2_ROW_BLUE = PDF_TOMS_V2_ROW_BLUE;
+export const TOMS_V2_LINE_ROW_HEIGHT_MM = PDF_TOMS_V2_LINE_ROW_HEIGHT_MM;
 
 export type TomsV2DocKind = "estimate" | "invoice";
 
@@ -81,52 +86,21 @@ function chunkLines(lines: TomsV2LineItem[], firstMax: number, contMax: number):
 }
 
 /** 宛名を名前部分と敬称に分割（Excel帳票風下線レイアウト用） */
-export function splitTomsV2Addressee(raw: string): { name: string; honorific: string } {
-  const trimmed = (raw || "").trim();
-  if (!trimmed || trimmed === "未設定") return { name: "未設定", honorific: "様" };
-  const sama = trimmed.match(/^(.+?)\s*様\s*$/);
-  if (sama) return { name: sama[1].trim(), honorific: "様" };
-  const onchu = trimmed.match(/^(.+?)\s*御中\s*$/);
-  if (onchu) return { name: onchu[1].trim(), honorific: "御中" };
-  if (/株式会社|有限会社|合同会社|一般社団|学校法人|医療法人/.test(trimmed)) {
-    return { name: trimmed, honorific: "御中" };
-  }
-  return { name: trimmed, honorific: "様" };
-}
+export const splitTomsV2Addressee = splitPdfAddressee;
 
 export { resolvePdfSealUrl as resolveTomsSealUrl } from "./pdf-base-template.js";
 
-function formatDocNoDisplay(docNo: string): string {
-  const trimmed = (docNo || "").trim();
-  if (!trimmed) return "—";
-  if (/^no\s*/i.test(trimmed)) return trimmed;
-  const m = trimmed.match(/-(\d+)$/);
-  if (m) return `No ${Number(m[1])}`;
-  return trimmed;
-}
-
 function renderMetaRows(ctx: TomsV2PageContext): string {
-  const co = getTomsCompanyInfo();
-  const metaCell = (label: string, value: string) =>
-    `<tr class="toms-v2-meta-row"><th><span class="toms-v2-meta-label">${escapeHtml(label)}</span><span class="toms-v2-meta-underline" aria-hidden="true"></span></th><td><span class="toms-v2-meta-value">${escapeHtml(value || "—")}</span><span class="toms-v2-meta-underline" aria-hidden="true"></span></td></tr>`;
-  const rows: string[] = [
-    metaCell(ctx.issueDateLabel, ctx.issueDate || "—"),
-    metaCell(ctx.docNoLabel, formatDocNoDisplay(ctx.docNo)),
-  ];
-  if (ctx.projectNo?.trim()) {
-    rows.push(metaCell("案件番号", ctx.projectNo.trim()));
-  }
-  if (ctx.includeRegistrationNo) {
-    rows.push(metaCell("登録番号", co.registrationNo));
-  }
-  for (const row of ctx.extraMetaRows ?? []) {
-    if (row.value.trim()) {
-      rows.push(metaCell(row.label, row.value));
-    }
-  }
-  const staff = ctx.staffName?.trim() || co.representativeName;
-  rows.push(metaCell("担当", staff));
-  return rows.join("");
+  return renderPdfV2MetaTableRows({
+    issueDateLabel: ctx.issueDateLabel,
+    issueDate: ctx.issueDate,
+    docNoLabel: ctx.docNoLabel,
+    docNo: ctx.docNo,
+    projectNo: ctx.projectNo,
+    includeRegistrationNo: ctx.includeRegistrationNo,
+    staffName: ctx.staffName,
+    extraRows: ctx.extraMetaRows,
+  });
 }
 
 function renderCompanyBlock(staffName: string, bankInfo?: string): string {

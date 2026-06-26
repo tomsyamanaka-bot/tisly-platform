@@ -1,5 +1,5 @@
 /**
- * TOMS PDF v2 — 現行版(before) vs 新版(after) 比較スクショ + iPhone Safari/PWA 検証
+ * TOMS PDF v2 — 見積・請求 v2 スクショ + iPhone Safari/PWA 検証
  * Usage: npm run build && node scripts/capture-toms-pdf-v2-screenshots.mjs
  */
 import fs from "fs";
@@ -13,18 +13,6 @@ fs.mkdirSync(outDir, { recursive: true });
 
 const { renderEstimateHtmlV2 } = await import("../dist/business/pdf/estimate-template-v2.js");
 const { renderInvoiceHtmlV2 } = await import("../dist/business/pdf/invoice-template-v2.js");
-const { TOMS_PDF_STYLES } = await import("../dist/business/pdf/styles.js");
-const {
-  renderTomsOfficialDocLayout,
-  renderTomsLineItemsTable,
-  renderTotals,
-  renderNotes,
-  renderTomsDocFooter,
-  escapeHtml,
-} = await import("../dist/business/pdf/shared-blocks.js");
-const { TOMS_PDF_CHARSET_META, TOMS_PDF_FONT_LINKS, TOMS_PDF_VIEWPORT_META } = await import(
-  "../dist/business/pdf/styles.js"
-);
 
 const project = {
   id: "pdf-v2-sample",
@@ -131,44 +119,8 @@ const invoice = {
   updatedAt: "2026-06-14T00:00:00.000Z",
 };
 
-function renderEstimateV1Html() {
-  const header = estimate.header;
-  const coverHeaderHtml = renderTomsOfficialDocLayout({
-    docTitle: "お見積書",
-    amountLabel: "御見積金額",
-    addressee: header.addressee,
-    subject: header.subject,
-    workLocation: header.workLocation,
-    issueDateLabel: "発行日",
-    issueDate: header.issueDate,
-    docNoLabel: "見積番号",
-    docNo: header.estimateNo,
-    total: estimate.total,
-    includeRegistrationNo: false,
-  });
-  const lines = items.map((it, i) => ({
-    lineNo: i + 1,
-    description: it.memo ? `${it.name}\n${it.memo}` : it.name,
-    quantity: it.quantity,
-    unit: it.unit,
-    unitPrice: it.unitPrice,
-    amount: it.amount,
-  }));
-  const documentBodyHtml = `<div class="toms-doc-lower">${renderTomsLineItemsTable(lines)}
-<div class="toms-doc-footer-cluster">${renderTotals({
-    subtotal: estimate.subtotal,
-    tax: estimate.tax,
-    total: estimate.total,
-  })}
-${renderNotes(project.surveyMemo)}
-${renderTomsDocFooter({ staffName: header.staffName, validUntil: "2026/07/14" })}</div></div>`;
-  return `<!DOCTYPE html><html lang="ja"><head>${TOMS_PDF_CHARSET_META}${TOMS_PDF_FONT_LINKS}${TOMS_PDF_VIEWPORT_META}<title>お見積書 v1</title><style>${TOMS_PDF_STYLES}</style></head><body>
-<div class="doc single-page">${coverHeaderHtml}${documentBodyHtml}</div></body></html>`;
-}
-
 const invoiceProject = { ...project, customerName: "株式会社 伝元", title: invoice.title, address: "阿見町" };
 
-const estimateV1 = renderEstimateV1Html();
 const estimateV2 = renderEstimateHtmlV2(project, estimate, {
   header: estimate.header,
   notes: project.surveyMemo,
@@ -189,7 +141,6 @@ const invoiceV2 = renderInvoiceHtmlV2(invoiceProject, invoice, estimate, {
 });
 
 for (const [name, html] of [
-  ["01-estimate-v1-before", estimateV1],
   ["02-estimate-v2-after", estimateV2],
   ["03-invoice-v2-after", invoiceV2],
 ]) {
@@ -213,7 +164,6 @@ async function capture(name, html, viewport) {
   console.log("wrote", name);
 }
 
-await capture("01-estimate-v1-before", estimateV1, { width: 900, height: 1200, deviceScaleFactor: 2 });
 await capture("02-estimate-v2-after", estimateV2, { width: 900, height: 1200, deviceScaleFactor: 2 });
 await capture("03-invoice-v2-after", invoiceV2, { width: 900, height: 1200, deviceScaleFactor: 2 });
 

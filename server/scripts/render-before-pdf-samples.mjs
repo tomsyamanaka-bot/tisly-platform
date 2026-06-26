@@ -12,7 +12,6 @@ const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "tisly-before-pdf-"));
 for (const file of [
   "server/src/estimate/specification-template.ts",
   "server/src/estimate/practical-completion-report-template.ts",
-  "server/src/business/pdf/shared-blocks.ts",
   "server/src/business/pdf/company.ts",
 ]) {
   const target = path.join(tmpDir, file);

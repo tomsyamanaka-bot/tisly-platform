@@ -25,6 +25,13 @@ export {
   PDF_PHOTOS_PER_PAGE,
   PDF_PRACTICAL_PAGE_MARGIN_MM,
   PDF_TOMS_V2_PAGE_MARGIN_MM,
+  PDF_TOMS_V2_FRAME_WIDTH_MM,
+  PDF_TOMS_V2_FRAME_HEIGHT_MM,
+  PDF_TOMS_V2_FIRST_PAGE_ROWS,
+  PDF_TOMS_V2_CONTINUATION_PAGE_ROWS,
+  PDF_TOMS_V2_GRAY,
+  PDF_TOMS_V2_ROW_BLUE,
+  PDF_TOMS_V2_LINE_ROW_HEIGHT_MM,
 } from "./pdf-constants.js";
 
 export function escapeHtml(s: string): string {
@@ -69,6 +76,71 @@ export function derivePdfProjectNoFromDocNo(docNo?: string | null): string {
   const scoped = normalized.match(/^(.+)-(\d{3})$/);
   if (scoped?.[1]?.includes("-")) return scoped[1].trim();
   return "";
+}
+
+/** 見積・請求 v2 — 番号表示（末尾連番を No N 形式に） */
+export function formatPdfDocNoDisplay(docNo: string): string {
+  const trimmed = (docNo || "").trim();
+  if (!trimmed) return "—";
+  if (/^no\s*/i.test(trimmed)) return trimmed;
+  const m = trimmed.match(/-(\d+)$/);
+  if (m) return `No ${Number(m[1])}`;
+  return trimmed;
+}
+
+/** 宛名を名前部分と敬称に分割（Excel帳票風下線レイアウト用） */
+export function splitPdfAddressee(raw: string): { name: string; honorific: string } {
+  const trimmed = (raw || "").trim();
+  if (!trimmed || trimmed === "未設定") return { name: "未設定", honorific: "様" };
+  const sama = trimmed.match(/^(.+?)\s*様\s*$/);
+  if (sama) return { name: sama[1].trim(), honorific: "様" };
+  const onchu = trimmed.match(/^(.+?)\s*御中\s*$/);
+  if (onchu) return { name: onchu[1].trim(), honorific: "御中" };
+  if (/株式会社|有限会社|合同会社|一般社団|学校法人|医療法人/.test(trimmed)) {
+    return { name: trimmed, honorific: "御中" };
+  }
+  return { name: trimmed, honorific: "様" };
+}
+
+export interface PdfV2MetaRow {
+  label: string;
+  value: string;
+}
+
+export interface PdfV2MetaTableInput {
+  issueDateLabel: string;
+  issueDate: string;
+  docNoLabel: string;
+  docNo: string;
+  projectNo?: string;
+  includeRegistrationNo?: boolean;
+  staffName?: string;
+  extraRows?: PdfV2MetaRow[];
+}
+
+/** 見積・請求 v2 — 右上メタ欄テーブル行 */
+export function renderPdfV2MetaTableRows(input: PdfV2MetaTableInput): string {
+  const co = getTomsCompanyInfo();
+  const metaCell = (label: string, value: string) =>
+    `<tr class="toms-v2-meta-row"><th><span class="toms-v2-meta-label">${escapeHtml(label)}</span><span class="toms-v2-meta-underline" aria-hidden="true"></span></th><td><span class="toms-v2-meta-value">${escapeHtml(value || "—")}</span><span class="toms-v2-meta-underline" aria-hidden="true"></span></td></tr>`;
+  const rows: string[] = [
+    metaCell(input.issueDateLabel, input.issueDate || "—"),
+    metaCell(input.docNoLabel, formatPdfDocNoDisplay(input.docNo)),
+  ];
+  if (input.projectNo?.trim()) {
+    rows.push(metaCell("案件番号", input.projectNo.trim()));
+  }
+  if (input.includeRegistrationNo) {
+    rows.push(metaCell("登録番号", co.registrationNo));
+  }
+  for (const row of input.extraRows ?? []) {
+    if (row.value.trim()) {
+      rows.push(metaCell(row.label, row.value));
+    }
+  }
+  const staff = input.staffName?.trim() || co.representativeName;
+  rows.push(metaCell("担当", staff));
+  return rows.join("");
 }
 
 export function chunkPdfArray<T>(arr: T[], size: number): T[][] {

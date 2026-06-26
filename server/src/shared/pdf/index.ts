@@ -23,9 +23,12 @@ export {
   renderPdfStandardPageFooter,
   resolveCoverPhotoCapacity,
   derivePdfProjectNoFromDocNo,
+  formatPdfDocNoDisplay,
+  renderPdfV2MetaTableRows,
   resolvePdfProjectNo,
   resolvePdfSealUrl,
   slicePdfPhotosForPages,
+  splitPdfAddressee,
   wrapPdfHtmlDocument,
 } from "../../business/pdf/pdf-base-template.js";
 

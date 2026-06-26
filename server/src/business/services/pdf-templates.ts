@@ -12,21 +12,21 @@ export interface PdfTemplateMeta {
 const TEMPLATES: Record<PdfDocumentKind, PdfTemplateMeta> = {
   estimate: {
     id: "estimate",
-    version: "placeholder-1",
-    provider: "placeholder",
-    description: "簡易見積PDF — 将来 TOMS 標準テンプレに差し替え",
+    version: "v2-excel",
+    provider: "toms_standard",
+    description: "TOMS Excel帳票風見積書（pdf-base-template + toms-excel-doc-layout-v2）",
   },
   invoice: {
     id: "invoice",
-    version: "placeholder-1",
-    provider: "placeholder",
-    description: "簡易請求PDF — 将来 TOMS 標準テンプレに差し替え",
+    version: "v2-excel",
+    provider: "toms_standard",
+    description: "TOMS Excel帳票風請求書（pdf-base-template + toms-excel-doc-layout-v2）",
   },
   completion_report: {
     id: "completion_report",
-    version: "placeholder-1",
-    provider: "placeholder",
-    description: "簡易完了報告PDF — 将来 TOMS 標準テンプレに差し替え",
+    version: "practical-v1",
+    provider: "toms_standard",
+    description: "実務PWA完了報告書（practical-pdf-layout + pdf-base-template）",
   },
 };
 

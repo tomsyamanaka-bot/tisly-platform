@@ -8,6 +8,7 @@ import {
   renderPdfCoverHeader,
   renderPdfPageNumberFooter,
   renderPdfStandardPageFooter,
+  renderPdfV2MetaTableRows,
   resolveCoverPhotoCapacity,
   resolvePdfProjectNo,
   slicePdfPhotosForPages,
@@ -97,5 +98,24 @@ describe("pdf-base-template 共通部品", () => {
   it("derivePdfProjectNoFromDocNo は INV- プレフィックスを除去して推定", () => {
     assert.equal(derivePdfProjectNoFromDocNo("INV-MO-26-0619-001"), "MO-26-0619");
     assert.equal(derivePdfProjectNoFromDocNo("260613-002"), "");
+  });
+
+  it("renderPdfV2MetaTableRows は案件番号・登録番号・担当を含む", () => {
+    const html = renderPdfV2MetaTableRows({
+      issueDateLabel: "発行日",
+      issueDate: "2026/06/13",
+      docNoLabel: "請求番号",
+      docNo: "MO-26-0619-002",
+      projectNo: "PRJ-2026-0099",
+      includeRegistrationNo: true,
+      staffName: "山中 智紀",
+      extraRows: [{ label: "見積参照番号", value: "MO-26-0619-001" }],
+    });
+    assert.match(html, /案件番号/);
+    assert.match(html, /PRJ-2026-0099/);
+    assert.match(html, /登録番号/);
+    assert.match(html, /見積参照番号/);
+    assert.match(html, /山中 智紀/);
+    assert.match(html, /No 2/);
   });
 });
