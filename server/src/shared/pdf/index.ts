@@ -22,6 +22,7 @@ export {
   renderPdfSealImg,
   renderPdfStandardPageFooter,
   resolveCoverPhotoCapacity,
+  derivePdfProjectNoFromDocNo,
   resolvePdfProjectNo,
   resolvePdfSealUrl,
   slicePdfPhotosForPages,

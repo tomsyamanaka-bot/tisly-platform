@@ -1,8 +1,7 @@
+/** @deprecated pdf-base-template を直接使用してください */
 export {
   escapeHtml,
-  renderCustomerBlock,
-  renderNotes,
-  renderPdfHeader,
-  renderPhotoGrid,
-  renderSealPlaceholder,
-} from "../pdf/shared-blocks.js";
+  escapeHtmlMultiline,
+  formatPhotoCircledNumber,
+  renderPdfSealImg as renderSealPlaceholder,
+} from "../pdf/pdf-base-template.js";

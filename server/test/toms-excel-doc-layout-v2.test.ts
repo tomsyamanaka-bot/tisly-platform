@@ -120,4 +120,28 @@ describe("TOMS Excel layout v2 templates", () => {
     assert.match(html, /下記の通り、御請求申し上げます。/);
     assert.match(html, /＜備考＞/);
   });
+
+  it("請求書 v2 は projectNo 未設定時に見積参照番号から案件番号を推定", () => {
+    const projectWithoutNo = { ...baseProject, projectNo: "" };
+    const invoice = {
+      id: "i1",
+      projectId: "p1",
+      invoiceNo: "INV-MO-26-0619-002",
+      title: "防犯カメラ工事",
+      customerName: "株式会社 伝元",
+      items: baseEstimate.items,
+      subtotal: 210000,
+      tax: 21000,
+      total: 231000,
+      bankInfo: "常陽銀行 越谷支店\n普通 1370414\nトムズ",
+      createdAt: "2026-06-13T00:00:00.000Z",
+      updatedAt: "2026-06-13T00:00:00.000Z",
+    };
+    const estimateWithNo = {
+      ...baseEstimate,
+      estimateNo: "MO-26-0619-001",
+    };
+    const html = renderInvoiceHtmlV2(projectWithoutNo, invoice, estimateWithNo);
+    assert.match(html, /案件番号[\s\S]*?toms-v2-meta-value">MO-26-0619</);
+  });
 });

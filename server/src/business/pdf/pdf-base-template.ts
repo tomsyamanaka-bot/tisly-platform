@@ -50,12 +50,23 @@ export function formatPhotoCircledNumber(index: number): string {
 /** 見積・請求 v2 — 案件番号（未設定時は docNo プレフィックスから推定） */
 export function resolvePdfProjectNo(
   projectNo: string | null | undefined,
-  docNo?: string | null
+  ...docNos: Array<string | null | undefined>
 ): string {
   const fromProject = (projectNo ?? "").trim();
   if (fromProject) return fromProject;
-  const doc = (docNo ?? "").trim();
-  const scoped = doc.match(/^(.+)-(\d{3})$/);
+  for (const docNo of docNos) {
+    const derived = derivePdfProjectNoFromDocNo(docNo);
+    if (derived) return derived;
+  }
+  return "";
+}
+
+/** 見積番号・請求番号（INV- 付き）から案件番号プレフィックスを抽出 */
+export function derivePdfProjectNoFromDocNo(docNo?: string | null): string {
+  const trimmed = (docNo ?? "").trim();
+  if (!trimmed) return "";
+  const normalized = trimmed.replace(/^INV-/i, "");
+  const scoped = normalized.match(/^(.+)-(\d{3})$/);
   if (scoped?.[1]?.includes("-")) return scoped[1].trim();
   return "";
 }

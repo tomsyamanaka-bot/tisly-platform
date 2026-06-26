@@ -98,7 +98,12 @@ function buildInvoiceV2Context(
     addressee: header.addressee,
     subject: header.subject,
     workLocation: header.workLocation,
-    projectNo: resolvePdfProjectNo(project.projectNo, header.invoiceNo),
+    projectNo: resolvePdfProjectNo(
+      project.projectNo,
+      header.estimateRefNo,
+      estimate.estimateNo,
+      header.invoiceNo
+    ),
     issueDateLabel: "発行日",
     issueDate: header.invoiceDate,
     docNoLabel: "請求番号",

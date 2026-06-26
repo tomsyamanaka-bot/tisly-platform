@@ -238,39 +238,6 @@ function renderPageFooter(pageNum: number, totalPages: number): string {
   return renderPdfPageNumberFooter(pageNum, totalPages);
 }
 
-export interface TomsV2CoverHeaderInput {
-  kind: TomsV2DocKind;
-  docTitle: string;
-  introText: string;
-  addressee: string;
-  subject: string;
-  workLocation?: string;
-  projectNo?: string;
-  issueDateLabel: string;
-  issueDate: string;
-  docNoLabel: string;
-  docNo: string;
-  includeRegistrationNo: boolean;
-  staffName: string;
-  total: number;
-  bankInfo?: string;
-  extraMetaRows?: Array<{ label: string; value: string }>;
-}
-
-/** 写真レイアウト用 — ヘッダー＋金額のみ */
-export function renderTomsV2CoverHeader(input: TomsV2CoverHeaderInput): string {
-  const ctx: TomsV2PageContext = {
-    ...input,
-    lines: [],
-    totals: { subtotal: 0, tax: 0, total: input.total },
-    notes: "",
-  };
-  return `<div class="toms-v2-cover-header">
-  <div class="toms-v2-header">${renderHeaderLeft(ctx)}${renderHeaderRight(ctx)}</div>
-  ${renderAmountRow(input.total)}
-</div>`;
-}
-
 function renderLastPageFooter(
   ctx: TomsV2PageContext,
   linePages: TomsV2LineItem[][],
@@ -337,46 +304,6 @@ ${renderLineItemsTable(chunk, filler)}`;
 export function renderTomsV2DocumentBody(ctx: TomsV2PageContext): string {
   return renderSinglePage(ctx);
 }
-
-/** 写真レイアウト用 — ヘッダー・金額行なし（明細以降のみ） */
-export function renderTomsV2DocumentLower(ctx: TomsV2PageContext): string {
-  const linePages = chunkLines(ctx.lines, TOMS_V2_FIRST_PAGE_ROWS, TOMS_V2_CONTINUATION_PAGE_ROWS);
-  const totalPages = linePages.length;
-  if (totalPages === 0) {
-    return `<div class="toms-v2-page"><div class="toms-v2-frame">${renderLastPageFooter(ctx, [[]], 0, 1)}</div></div>`;
-  }
-
-  let body = "";
-  for (let p = 0; p < totalPages; p++) {
-    const chunk = linePages[p] ?? [];
-    const isLast = p === totalPages - 1;
-    const filler = isLast ? Math.max(0, TOMS_V2_FIRST_PAGE_ROWS - chunk.length) : 0;
-    body += `<div class="toms-v2-page"><div class="toms-v2-frame${p > 0 ? " toms-v2-frame-continuation" : ""}">`;
-    body += renderLineItemsTable(chunk, filler);
-    if (isLast) {
-      body += renderLastPageFooter(ctx, linePages, p, totalPages);
-    }
-    body += `</div>`;
-    if (!isLast) {
-      body += renderPageFooter(p + 1, totalPages);
-    }
-    body += `</div>`;
-  }
-  return body;
-}
-
-export const TOMS_V2_PHOTO_EXTRA_STYLES = `
-body:has(.est-page, .inv-page) { padding: 0; margin: 0; }
-.est-doc-body-page, .inv-doc-body-page { max-width: none; width: 100%; padding: 0; margin: 0; }
-.est-doc-header-compact, .inv-doc-header-compact { font-size: 8pt; transform-origin: top left; }
-.est-doc-header-compact .toms-v2-title-band, .inv-doc-header-compact .toms-v2-title-band { font-size: 10pt; padding: 0.8mm 3mm; }
-.est-doc-header-compact .toms-v2-addressee-name, .inv-doc-header-compact .toms-v2-addressee-name { font-size: 11pt; }
-.est-doc-header-compact .toms-v2-amount-value, .inv-doc-header-compact .toms-v2-amount-value { font-size: 14pt; }
-@media print {
-  body:has(.est-page, .inv-page) { padding: 0; }
-  .est-doc-body-page, .inv-doc-body-page { padding: 0; }
-}
-`;
 
 export const TOMS_V2_STYLES = `
 @page { size: A4 portrait; margin: ${TOMS_V2_PAGE_MARGIN_MM}mm; }
