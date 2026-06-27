@@ -160,8 +160,48 @@ export function seedNavigationStackFromReferrer() {
   }
 }
 
+/** return クエリから戻り先を 1 件シード（スタック空・ゾーン一致時のみ） */
+export function seedNavigationStackFromReturnQuery() {
+  if (readStack().length > 0) return;
+  try {
+    const ret = new URLSearchParams(location.search).get("return");
+    if (!ret?.startsWith("/")) return;
+    const path = sanitizeNavPathV1(ret);
+    if (!path || path === getCurrentPageUrl()) return;
+    const zone = currentZone();
+    if (!isValidReturnUrlV1(path, zone)) return;
+    writeStack([path]);
+  } catch {
+    /* ignore */
+  }
+}
+
+const LINK_CAPTURE_FLAG = "__tislyNavLinkCaptureV1";
+
+/** 通常の <a href> 遷移前に現在 URL をスタックへ記録 */
+export function bindInternalLinkDepartureCapture() {
+  if (typeof document === "undefined" || window[LINK_CAPTURE_FLAG]) return;
+  window[LINK_CAPTURE_FLAG] = true;
+
+  document.addEventListener(
+    "click",
+    (e) => {
+      const a = e.target?.closest?.("a[href]");
+      if (!a || a.hasAttribute("data-nav-no-record")) return;
+      const href = a.getAttribute("href");
+      if (!href?.startsWith("/") || href.startsWith("//")) return;
+      if (a.target === "_blank" || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      if (a.closest("#tisly-practical-bottomnav-root, #tisly-practical-topbar-root")) return;
+      recordNavDeparture();
+    },
+    true
+  );
+}
+
 export function initNavigationStack() {
   seedNavigationStackFromReferrer();
+  seedNavigationStackFromReturnQuery();
+  bindInternalLinkDepartureCapture();
 }
 
 /** 診断用 */

@@ -117,17 +117,20 @@ export function getReturnUrl(stack, fallback, zone) {
 }
 
 export function safeReturn(stack, opts) {
-  const explicit = opts.explicitReturn ? sanitizeNavPathV1(opts.explicitReturn) : null;
-  if (explicit && isValidReturnUrlV1(explicit, opts.zone)) {
-    return { stack, target: explicit };
-  }
-
+  // スタック優先 — 必ず 1 件だけ pop して直前画面へ
   const popped = backOne(stack);
   const fromStack = popped.target;
   if (fromStack && isValidReturnUrlV1(fromStack, opts.zone)) {
     return { stack: popped.stack, target: fromStack };
   }
 
+  // スタック空 — return クエリをフォールバック
+  const explicit = opts.explicitReturn ? sanitizeNavPathV1(opts.explicitReturn) : null;
+  if (explicit && isValidReturnUrlV1(explicit, opts.zone)) {
+    return { stack: popped.stack, target: explicit };
+  }
+
+  // 親階層フォールバック
   return {
     stack: popped.stack,
     target: getReturnUrl(popped.stack, opts.fallback, opts.zone),

@@ -198,16 +198,19 @@ export function createDrawingEditorCanvasV1(opts) {
   }
 
   /**
-   * ???????? ? ??? 0?1
+   * ???? ? ??? 0?1
+   * transform ?? getBoundingClientRect ??????
    */
   function clientToNormalized(clientX, clientY) {
     const rect = stageEl.getBoundingClientRect();
-    if (rect.width <= 0 || rect.height <= 0) {
+    const rw = Math.max(rect.width, 1);
+    const rh = Math.max(rect.height, 1);
+    if (rw <= 0 || rh <= 0) {
       return { x: 0.5, y: 0.5 };
     }
     return {
-      x: Math.min(1, Math.max(0, (clientX - rect.left) / rect.width)),
-      y: Math.min(1, Math.max(0, (clientY - rect.top) / rect.height)),
+      x: Math.min(1, Math.max(0, (clientX - rect.left) / rw)),
+      y: Math.min(1, Math.max(0, (clientY - rect.top) / rh)),
     };
   }
 

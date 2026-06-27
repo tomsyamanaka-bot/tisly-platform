@@ -11,10 +11,24 @@ function basicAuthHeader(username: string, password: string): string {
   return `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`;
 }
 
-function joinUrl(base: string, segment: string): string {
+/** 日本語・スペース・アンダースコアを含むパスを WebDAV 向けにエンコード */
+function encodeWebDavPath(remotePath: string): string {
+  return remotePath
+    .replace(/^\/+/, "")
+    .split("/")
+    .filter(Boolean)
+    .map((seg) => encodeURIComponent(seg))
+    .join("/");
+}
+
+function buildRemoteUrl(base: string, remotePath: string): string {
   const b = base.replace(/\/+$/, "");
-  const s = segment.replace(/^\/+/, "");
-  return `${b}/${s}`;
+  const encoded = encodeWebDavPath(remotePath);
+  return encoded ? `${b}/${encoded}` : b;
+}
+
+function joinUrl(base: string, segment: string): string {
+  return buildRemoteUrl(base, segment);
 }
 
 export class QnapWebDavClient {
@@ -100,30 +114,38 @@ export class QnapWebDavClient {
     const parts = remoteDir.split("/").filter(Boolean);
     let acc = "";
     for (const part of parts) {
-      acc = acc ? `${acc}/${part}` : part;
-      const url = joinUrl(this.baseUrl(), acc);
+      acc = acc ? `${acc}/${encodeURIComponent(part)}` : encodeURIComponent(part);
+      const url = `${this.baseUrl()}/${acc}`;
       const res = await qnapWebDavFetch(url, {
         method: "MKCOL",
         headers: this.headers(),
       });
       if (!res.ok && res.status !== 405 && res.status !== 409) {
-        throw new Error(`MKCOL ${acc} failed: ${res.status}`);
+        throw new Error(`MKCOL ${part} failed: ${res.status}`);
       }
     }
   }
 
-  async putFile(localPath: string, remotePath: string): Promise<void> {
-    const url = joinUrl(this.baseUrl(), remotePath.replace(/^\/+/, ""));
+  async putFile(localPath: string, remotePath: string, attempt = 1): Promise<void> {
+    const url = buildRemoteUrl(this.baseUrl(), remotePath);
     const body = fs.readFileSync(localPath);
-    const res = await qnapWebDavFetch(url, {
-      method: "PUT",
-      headers: {
-        ...this.headers({ "Content-Type": "application/octet-stream" }),
-      },
-      body,
-    });
-    if (!res.ok) {
-      throw new Error(`PUT ${remotePath} failed: ${res.status}`);
+    const maxAttempts = 3;
+    try {
+      const res = await qnapWebDavFetch(url, {
+        method: "PUT",
+        headers: {
+          ...this.headers({ "Content-Type": "application/octet-stream" }),
+        },
+        body,
+      });
+      if (!res.ok) {
+        throw new Error(`PUT ${remotePath} failed: ${res.status}`);
+      }
+    } catch (e) {
+      if (attempt >= maxAttempts) throw e;
+      const delayMs = 1500 * attempt;
+      await new Promise((r) => setTimeout(r, delayMs));
+      return this.putFile(localPath, remotePath, attempt + 1);
     }
   }
 
@@ -148,7 +170,7 @@ export class QnapWebDavClient {
   }
 
   async deleteFile(remotePath: string): Promise<void> {
-    const url = joinUrl(this.baseUrl(), remotePath.replace(/^\/+/, ""));
+    const url = buildRemoteUrl(this.baseUrl(), remotePath);
     const res = await qnapWebDavFetch(url, {
       method: "DELETE",
       headers: this.headers(),

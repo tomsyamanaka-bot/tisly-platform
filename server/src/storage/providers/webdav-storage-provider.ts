@@ -16,6 +16,12 @@ import type {
 const TEST_DIR = ".tisly-webdav-connection-test";
 const TEST_FILE = "connection-test.txt";
 const TEST_PAYLOAD = "TiSLY WebDAV connection test";
+const WEBDAV_PUT_MAX_RETRIES_V1 = 3;
+const WEBDAV_PUT_RETRY_BASE_MS_V1 = 1500;
+
+function sleepMs(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 /** WebDAV StorageProvider — QNAP 実保存 */
 export class WebDavStorageProvider implements StorageProvider {
@@ -265,20 +271,28 @@ export class WebDavStorageProvider implements StorageProvider {
         message: "WebDAV URL が未設定です",
       };
     }
-    try {
-      const dir = remotePath.includes("/") ? remotePath.slice(0, remotePath.lastIndexOf("/")) : "";
-      if (dir) await client.mkcol(dir);
-      const tmp = pathJoinTmp(buffer);
-      await client.putFile(tmp, remotePath);
-      fs.unlinkSync(tmp);
-      return { ok: true, remotePath: options.remotePath, message: "WebDAV PUT success" };
-    } catch (e) {
-      return {
-        ok: false,
-        remotePath: options.remotePath,
-        message: e instanceof Error ? e.message : String(e),
-      };
+
+    let lastError = "QNAP保存失敗";
+    for (let attempt = 1; attempt <= WEBDAV_PUT_MAX_RETRIES_V1; attempt += 1) {
+      try {
+        const dir = remotePath.includes("/") ? remotePath.slice(0, remotePath.lastIndexOf("/")) : "";
+        if (dir) await client.mkcol(dir);
+        const tmp = pathJoinTmp(buffer);
+        await client.putFile(tmp, remotePath);
+        fs.unlinkSync(tmp);
+        return { ok: true, remotePath: options.remotePath, message: "WebDAV PUT success" };
+      } catch (e) {
+        lastError = e instanceof Error ? e.message : String(e);
+        if (attempt < WEBDAV_PUT_MAX_RETRIES_V1) {
+          await sleepMs(WEBDAV_PUT_RETRY_BASE_MS_V1 * attempt);
+        }
+      }
     }
+    return {
+      ok: false,
+      remotePath: options.remotePath,
+      message: lastError,
+    };
   }
 
   async get(remotePath: string): Promise<StorageProviderGetResult> {

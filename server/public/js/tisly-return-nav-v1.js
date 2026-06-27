@@ -23,19 +23,19 @@ export function readReturnUrl() {
 export function navigatePracticalReturn(fallback) {
   const zone = getNavZoneV1(location.pathname) || "internal";
   const ret = readReturnUrl();
+  const fb = getDefaultNavFallbackV1(location.pathname);
+
   if (hasNavStackEntry()) {
-    navigateBackOne({
-      fallback: getDefaultNavFallbackV1(location.pathname),
-      explicitReturn: ret,
-    });
+    navigateBackOne({ fallback: fb });
     return true;
   }
   if (ret && isValidReturnUrlV1(ret, zone)) {
     navigateTo(ret, { record: false });
     return true;
   }
+  navigateBackOne({ fallback: fb, explicitReturn: ret });
   if (typeof fallback === "function") fallback();
-  return false;
+  return true;
 }
 
 export { navigateTo, navigateBackOne };

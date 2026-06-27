@@ -6,6 +6,7 @@ import {
 } from "./customer-auth.js";
 import { initPracticalNav } from "./tisly-practical-nav.js";
 import { navigatePracticalReturn, navigateTo } from "./tisly-return-nav-v1.js";
+import { getDefaultNavFallbackV1, navigateBackOne } from "./tisly-navigation-stack-v1.js";
 import { resolveProjectDisplayName } from "./project-display-name.js";
 import { friendlyHttpError, renderFriendlyErrorHtml } from "./tisly-friendly-errors.js";
 import { confirmChecklistBeforeReport, confirmCompletionPhotoSlotsBeforeReport } from "./field-checklist-ui.js?v=fc-ui-v3";
@@ -517,7 +518,7 @@ function handlePracticalBack() {
     return;
   }
   if (navigatePracticalReturn(() => {})) return;
-  navigateTo("/app", { record: false });
+  navigateBackOne(getDefaultNavFallbackV1(location.pathname));
 }
 
 function renderPendingList(surveys) {

@@ -2,7 +2,7 @@ import http from "node:http";
 import https from "node:https";
 import { URL } from "node:url";
 
-const DEFAULT_WEBDAV_TIMEOUT_MS = Number(process.env.QNAP_WEBDAV_TIMEOUT_MS || "12000");
+const DEFAULT_WEBDAV_TIMEOUT_MS = Number(process.env.QNAP_WEBDAV_TIMEOUT_MS || "30000");
 
 function formatFetchError(e: unknown): string {
   if (!(e instanceof Error)) return String(e);

@@ -20,7 +20,7 @@ import {
   updateOfflineResilienceBadgeV1,
 } from "./offline-resilience-v1.js";
 
-export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v6";
+export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v7";
 export const SURVEY_DRAWING_TEMP_BANNER =
   "一時図面として作成中。現調から開くと案件に紐づきます。";
 
@@ -211,6 +211,32 @@ function surveyBackUrl() {
   if (customerId) q.set("customerId", customerId);
   return `/survey-v1?${q}`;
 }
+
+/**
+ * business 案件 ID が渡された場合は
+ * 現調 projectId へ解決する
+ */
+async function resolveSurveyProjectIdIfNeeded() {
+  if (!projectId || isTempDrawingId(projectId)) return;
+  try {
+    await api("GET", `/api/survey/v1/projects/${encodeURIComponent(projectId)}`);
+    return;
+  } catch {
+    /* 現調 ID でない — business から逆引き */
+  }
+  try {
+    const data = await api(
+      "GET",
+      `/api/project-mgmt/v1/projects/${encodeURIComponent(projectId)}`
+    );
+    const surveyId = data?.project?.surveyProjectId;
+    if (surveyId && surveyId !== projectId) {
+      projectId = surveyId;
+    }
+  } catch {
+    /* 解決不能 — 以降の API でエラー表示 */
+  }
+}
 let estimateDraftId = null;
 let estimateDraftStatus = null;
 let estimatePreviewSummary = null;
@@ -269,10 +295,20 @@ function syncGridStageSize() {
 
 function imageCoords(clientX, clientY) {
   const stage = $("drawing-stage");
+  if (!stage) return { x: 0, y: 0 };
+  // getBoundingClientRect は transform 後の表示矩形
+  // （scale / translate 済み）を返す
   const rect = stage.getBoundingClientRect();
-  const x = (clientX - rect.left) / viewport.scale;
-  const y = (clientY - rect.top) / viewport.scale;
-  return { x, y };
+  const w = stageSize.w || stage.clientWidth || rect.width || 1;
+  const h = stageSize.h || stage.clientHeight || rect.height || 1;
+  const rw = Math.max(rect.width, 1);
+  const rh = Math.max(rect.height, 1);
+  const x = ((clientX - rect.left) / rw) * w;
+  const y = ((clientY - rect.top) / rh) * h;
+  return {
+    x: Math.min(w, Math.max(0, x)),
+    y: Math.min(h, Math.max(0, y)),
+  };
 }
 
 function pathColor(p) {
@@ -517,10 +553,13 @@ async function saveSketch() {
     const data = await api("PATCH", `/api/survey/v1/drawing-sketches/${encodeURIComponent(sketchId)}`, {
       layers,
       title: sketch?.title,
+      projectId,
     });
     sketch = data.sketch;
+    projectId = sketch.projectId || projectId;
     layers = migrateLayers(sketch.layers, stageSize.w, stageSize.h);
     dirty = false;
+    isLocalOnlyMode = false;
     setStatus(`サーバーに保存しました ${new Date().toLocaleTimeString("ja-JP")}`);
     saveDrawingToLocalStorage(
       projectId,
@@ -559,6 +598,8 @@ function onPointerDown(ev) {
   if (drawingEditorState?.canvas?.isRouteMode?.()) return;
   if (ev.target.closest?.(".drawing-symbol, .drawing-memo")) return;
   if (ev.pointerType === "touch" && ev.isPrimary === false) return;
+  ev.preventDefault();
+  ev.stopPropagation();
   const wrap = $("drawing-stage-wrap");
   wrap?.setPointerCapture?.(ev.pointerId);
   const pt = imageCoords(ev.clientX, ev.clientY);
@@ -1344,6 +1385,7 @@ async function main() {
   }
   wireEvents();
   await Promise.all([loadSymbols(), loadLineTypes()]);
+  await resolveSurveyProjectIdIfNeeded();
   await loadSketch();
   await refreshEstimateDraftState();
   drawingEditorState = initDrawingEditorFoundationV1({

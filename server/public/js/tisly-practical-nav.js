@@ -83,7 +83,9 @@ export function initPracticalNav(opts) {
   const titleEl = document.getElementById("tisly-nav-title");
   const homeLink = document.getElementById("tisly-nav-home");
 
-  btnBack?.addEventListener("click", () => {
+  btnBack?.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
     if (btnBack?.hasAttribute("disabled")) return;
     backHandler();
   });

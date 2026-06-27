@@ -137,20 +137,20 @@ export interface SafeReturnOptionsV1 {
   explicitReturn?: string | null;
 }
 
-/** 1 画面戻る — explicitReturn → stack pop → fallback（すべてゾーン検証） */
+/** 1 画面戻る — stack pop → explicitReturn → fallback（すべてゾーン検証） */
 export function safeReturn(
   stack: string[],
   opts: SafeReturnOptionsV1
 ): { stack: string[]; target: string } {
-  const explicit = opts.explicitReturn ? sanitizeNavPathV1(opts.explicitReturn) : null;
-  if (explicit && isValidReturnUrlV1(explicit, opts.zone)) {
-    return { stack, target: explicit };
-  }
-
   const popped = backOne(stack);
   const fromStack = popped.target;
   if (fromStack && isValidReturnUrlV1(fromStack, opts.zone)) {
     return { stack: popped.stack, target: fromStack };
+  }
+
+  const explicit = opts.explicitReturn ? sanitizeNavPathV1(opts.explicitReturn) : null;
+  if (explicit && isValidReturnUrlV1(explicit, opts.zone)) {
+    return { stack: popped.stack, target: explicit };
   }
 
   return {
