@@ -1,9 +1,9 @@
 /**
- * ?????? v1 ? ??????? + SVG ?????
- * ??????0?1?????????
+ * ?????? v1 ? ????? + SVG ??????
+ * ??? 0?1 ??????
  */
 
-/** ??????????data URL SVG? */
+/** ??????data URL SVG? */
 export const DRAWING_EDITOR_DUMMY_BG_V1 =
   "data:image/svg+xml," +
   encodeURIComponent(`<?xml version="1.0" encoding="UTF-8"?>
@@ -42,7 +42,7 @@ export function createDrawingEditorCanvasV1(opts) {
   if (!bgImage) {
     bgImage = document.createElement("img");
     bgImage.className = "drawing-editor-v1-bg";
-    bgImage.alt = "??????";
+    bgImage.alt = "????";
     stageEl.prepend(bgImage);
   } else {
     bgImage.classList.add("drawing-editor-v1-bg");
@@ -92,10 +92,36 @@ export function createDrawingEditorCanvasV1(opts) {
     return { w, h };
   }
 
+  /** blob URL ? ???????? */
+  let bgObjectUrl = null;
+
+  function releaseBgImageMemory() {
+    if (bgObjectUrl) {
+      URL.revokeObjectURL(bgObjectUrl);
+      bgObjectUrl = null;
+    }
+  }
+
+  function withBgCacheBust(url) {
+    if (!url || url.startsWith("data:") || url.startsWith("blob:")) return url;
+    try {
+      const u = new URL(url, location.origin);
+      if (!u.searchParams.has("v")) {
+        u.searchParams.set("v", "drawing-editor-v1");
+      }
+      return u.toString();
+    } catch {
+      return url;
+    }
+  }
+
   function setBackgroundUrl(url) {
-    const src = (url || "").trim() || DRAWING_EDITOR_DUMMY_BG_V1;
+    releaseBgImageMemory();
+    const src = withBgCacheBust((url || "").trim() || DRAWING_EDITOR_DUMMY_BG_V1);
+    if (src.startsWith("blob:")) bgObjectUrl = src;
     bgImage.src = src;
     bgImage.classList.remove("hidden");
+    bgImage.decode?.().catch(() => {});
     return src;
   }
 
@@ -172,8 +198,7 @@ export function createDrawingEditorCanvasV1(opts) {
   }
 
   /**
-   * ????????????
-   * ??? 0?1 ???
+   * ???????? ? ??? 0?1
    */
   function clientToNormalized(clientX, clientY) {
     const rect = stageEl.getBoundingClientRect();
@@ -296,6 +321,7 @@ export function createDrawingEditorCanvasV1(opts) {
     bgImage,
     svg,
     setBackgroundUrl,
+    releaseBgImageMemory,
     getBackgroundUrl,
     clientToNormalized,
     addPlot,

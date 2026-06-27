@@ -2,7 +2,7 @@
 /** お客様ポータル キャッシュ検出・強制更新 — shared/customer/customer-cache-v1.ts と同期 */
 
 export const CUSTOMER_JS_VERSION = "customer-v1-phase27";
-export const CUSTOMER_SW_TOKEN = "v2406-phase27";
+export const CUSTOMER_SW_TOKEN = "v2407-phase28";
 
 const BANNER_ID = "cv-update-banner";
 

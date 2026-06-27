@@ -60,7 +60,7 @@ describe("route-contract-phase27-v1 — stable URLs", () => {
 describe("route-contract-phase27-v1 — phase27 assets", () => {
   it("SW and customer JS version phase27", () => {
     const sw = fs.readFileSync(path.join(publicDir, "service-worker.js"), "utf-8");
-    assert.equal(CUSTOMER_SW_TOKEN_V1, "v2406-phase27");
+    assert.equal(CUSTOMER_SW_TOKEN_V1, "v2407-phase28");
     assert.equal(CUSTOMER_JS_VERSION_V1, "customer-v1-phase27");
     assert.ok(sw.includes(CUSTOMER_SW_TOKEN_V1));
   });

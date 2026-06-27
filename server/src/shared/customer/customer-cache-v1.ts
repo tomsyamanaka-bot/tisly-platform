@@ -6,7 +6,7 @@
 export const CUSTOMER_JS_VERSION_V1 = "customer-v1-phase27";
 
 /** service-worker.js 内トークン */
-export const CUSTOMER_SW_TOKEN_V1 = "v2406-phase27";
+export const CUSTOMER_SW_TOKEN_V1 = "v2407-phase28";
 
 export const CUSTOMER_SW_FULL_VERSION_V1 = `tisly-pwa-${CUSTOMER_SW_TOKEN_V1}`;
 

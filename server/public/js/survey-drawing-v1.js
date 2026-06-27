@@ -663,20 +663,53 @@ function zoomBy(factor) {
   markDirty();
 }
 
+/** 背景画像 blob URL — 差し替え時に解放 */
+let bgObjectUrl = null;
+
+/** HTTP背景URLへキャッシュバスター付与 */
+function withDrawingBgCacheBust(url) {
+  if (!url || url.startsWith("data:") || url.startsWith("blob:")) return url;
+  try {
+    const u = new URL(url, location.origin);
+    if (!u.searchParams.has("v")) {
+      u.searchParams.set("v", SURVEY_DRAWING_UI_VERSION);
+    }
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
+/** 旧 blob URL を解放してメモリを返却 */
+function releaseBgObjectUrl() {
+  if (bgObjectUrl) {
+    URL.revokeObjectURL(bgObjectUrl);
+    bgObjectUrl = null;
+  }
+}
+
 function setupBgImage(url) {
   const img = $("drawing-bg");
   const ph = $("drawing-bg-placeholder");
   if (!img) return;
+  releaseBgObjectUrl();
+  const src = withDrawingBgCacheBust(url);
+  if (src.startsWith("blob:")) bgObjectUrl = src;
   img.onload = () => {
     stageSize = { w: img.naturalWidth || 800, h: img.naturalHeight || 600 };
     layers.canvasWidth = stageSize.w;
     layers.canvasHeight = stageSize.h;
     img.classList.remove("hidden");
     ph?.classList.add("hidden");
+    img.decode?.().catch(() => {});
     renderAll();
     markDirty();
   };
-  img.src = url;
+  img.onerror = () => {
+    ph?.classList.remove("hidden");
+    setStatus("背景画像の読み込みに失敗しました");
+  };
+  img.src = src;
   if (img.complete) img.onload?.();
 }
 

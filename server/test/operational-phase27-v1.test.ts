@@ -100,8 +100,10 @@ describe("Operational Phase27 — cache version", () => {
       "../src/shared/customer/customer-cache-v1.js"
     );
     assert.equal(CUSTOMER_JS_VERSION_V1, "customer-v1-phase27");
-    assert.equal(CUSTOMER_SW_TOKEN_V1, "v2406-phase27");
+    assert.equal(CUSTOMER_SW_TOKEN_V1, "v2407-phase28");
     const sw = fs.readFileSync(path.join(publicDir, "service-worker.js"), "utf-8");
-    assert.ok(sw.includes("v2406-phase27"));
+    assert.ok(sw.includes("v2407-phase28"));
+    assert.ok(sw.includes("FIELD_OPS_CACHE"));
+    assert.ok(sw.includes("cacheFirstStaleWhileRevalidate"));
   });
 });

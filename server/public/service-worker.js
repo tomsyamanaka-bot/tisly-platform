@@ -1,8 +1,44 @@
-/* TiSLY Multi PWA — Phase18 URL/customer separation + RN-ready shared logic */
-const SW_VERSION = "tisly-pwa-v2406-phase27";
-const OFFLINE_CACHE = "tisly-pwa-shell-v2406-phase27";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2406-phase27";
-const ICON_V = "?v=2003";
+/* TiSLY Multi PWA — Phase28 現場PWA爆速化
+ * 図面エディタ / 音声ナビ含む
+ * フィールドオペ用アセットを優先キャッシュ */
+const SW_VERSION = "tisly-pwa-v2407-phase28";
+const OFFLINE_CACHE = "tisly-pwa-shell-v2407-phase28";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2407-phase28";
+const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2407-phase28";
+const ICON_V = "?v=2004";
+
+/** 図面エディタ v1 — ES module 群 */
+const DRAWING_EDITOR_URLS = [
+  "/js/features/drawing/drawing-editor-v1.js",
+  "/js/features/drawing/drawing-editor-canvas-v1.js",
+  "/js/features/drawing/drawing-symbol-palette-v1.js",
+  "/css/features/drawing/drawing-editor-v1.css",
+];
+
+/** 音声ナビ v1 — 静的アセット */
+const VOICE_NAV_URLS = [
+  "/voice-nav-v1.html",
+  "/js/features/voice-nav/voice-nav-v1.js",
+  "/js/features/voice-nav/voice-nav-ui-v1.js",
+  "/js/features/voice-nav/voice-nav-state-v1.js",
+  "/js/features/voice-nav/voice-nav-sequence-v1.js",
+  "/js/features/voice-nav/voice-nav-speech-v1.js",
+  "/js/features/voice-nav/voice-nav-offline-v1.js",
+  "/css/features/voice-nav/voice-nav-v1.css",
+];
+
+/** 現場ナビ・オフライン連携 */
+const FIELD_OPS_SUPPORT_URLS = [
+  "/js/offline-resilience-v1.js",
+  "/js/tisly-navigation-stack-v1.js",
+  "/js/tisly-navigation-stack-shared-v1.js",
+  "/js/tisly-return-nav-v1.js",
+  "/js/survey-pdf-actions-v1.js",
+  "/js/pdf-share-v1.js",
+  "/master-v1.html",
+  "/js/master-v1.js",
+];
+
 const SHELL_URLS = [
   "/customer-portal.html",
   "/js/customer-portal.js",
@@ -154,26 +190,34 @@ const SHELL_URLS = [
   "/manifest-maintenance.webmanifest",
   "/manifest-pro-remote.webmanifest",
   "/manifest-customer.webmanifest",
+  ...DRAWING_EDITOR_URLS,
+  ...VOICE_NAV_URLS,
+  ...FIELD_OPS_SUPPORT_URLS,
 ];
 
 const PRIORITY_URLS = ["/app-hub.html", "/offline-fallback.html"];
 
+/** install — 3系統キャッシュを同時プリロード */
 self.addEventListener("install", (event) => {
   event.waitUntil(
     Promise.all([
       caches.open(PRIORITY_CACHE).then((c) => c.addAll(PRIORITY_URLS).catch(() => {})),
+      caches.open(FIELD_OPS_CACHE).then((c) =>
+        c.addAll([...DRAWING_EDITOR_URLS, ...VOICE_NAV_URLS, ...FIELD_OPS_SUPPORT_URLS]).catch(() => {})
+      ),
       caches.open(OFFLINE_CACHE).then((cache) => cache.addAll(SHELL_URLS).catch(() => {})),
     ])
   );
   self.skipWaiting();
 });
 
+/** activate — 旧世代キャッシュを一括削除 */
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(
         keys
-          .filter((k) => k !== OFFLINE_CACHE && k !== PRIORITY_CACHE)
+          .filter((k) => k !== OFFLINE_CACHE && k !== PRIORITY_CACHE && k !== FIELD_OPS_CACHE)
           .map((k) => caches.delete(k))
       )
     )
@@ -187,7 +231,7 @@ function isShellPath(pathname) {
   );
 }
 
-/** Phase22 — お客様 HTML/JS/CSS は常にネットワーク優先 */
+/** お客様ゾーン — 常にネットワーク優先 */
 function isCustomerFreshAsset(pathname) {
   return (
     pathname === "/customer" ||
@@ -198,6 +242,95 @@ function isCustomerFreshAsset(pathname) {
   );
 }
 
+/** 現場PWA — キャッシュ優先 + 裏で更新
+ * 図面 / 音声ナビ / 日程 / 見積 等 */
+function isFieldOpsFastAsset(pathname) {
+  if (pathname.startsWith("/api/")) return false;
+  const prefixes = [
+    "/survey-v1",
+    "/survey-drawing-v1",
+    "/estimate-v1",
+    "/schedule-v1",
+    "/projects-v1",
+    "/field-check",
+    "/field-checklist",
+    "/purchase-v1",
+    "/voice-nav-v1",
+    "/document-viewer",
+    "/document-center",
+    "/documents-v1",
+    "/project-dashboard-v1",
+    "/project-mgmt-detail-v1",
+    "/master-v1",
+    "/js/survey-",
+    "/js/estimate-",
+    "/js/schedule-",
+    "/js/projects-",
+    "/js/field-",
+    "/js/purchase-",
+    "/js/features/drawing/",
+    "/js/features/voice-nav/",
+    "/js/offline-resilience",
+    "/js/tisly-navigation",
+    "/js/tisly-return-nav",
+    "/js/master-v1",
+    "/css/survey-",
+    "/css/features/drawing/",
+    "/css/features/voice-nav/",
+    "/css/field-ops",
+    "/css/document-viewer",
+  ];
+  return prefixes.some((p) => pathname === p || pathname.startsWith(p));
+}
+
+/** アイコン類 — 長期キャッシュファースト */
+function isStaticIconAsset(pathname) {
+  return (
+    pathname.startsWith("/icons/") ||
+    pathname === "/apple-touch-icon.png" ||
+    pathname.endsWith(".webmanifest")
+  );
+}
+
+/** stale-while-revalidate — 即返却 + 裏更新 */
+async function cacheFirstStaleWhileRevalidate(request, cacheName) {
+  const cache = await caches.open(cacheName);
+  const cached = await cache.match(request);
+  const networkRefresh = fetch(request)
+    .then((res) => {
+      if (res.ok) cache.put(request, res.clone());
+      return res;
+    })
+    .catch(() => null);
+
+  if (cached) {
+    networkRefresh.catch(() => {});
+    return cached;
+  }
+
+  const fetched = await networkRefresh;
+  if (fetched) return fetched;
+
+  const shell =
+    (await caches.match("/offline-fallback.html")) ||
+    (await caches.match("/installer-mode.html"));
+  return shell || new Response("Offline", { status: 503 });
+}
+
+/** ネットワーク優先 — 成功時のみキャッシュ更新 */
+async function networkFirstWithCache(request) {
+  try {
+    const res = await fetch(request);
+    if (res.ok && isShellPath(new URL(request.url).pathname)) {
+      const clone = res.clone();
+      caches.open(OFFLINE_CACHE).then((c) => c.put(request, clone));
+    }
+    return res;
+  } catch {
+    return (await caches.match(request)) || new Response("Offline", { status: 503 });
+  }
+}
+
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
@@ -205,17 +338,17 @@ self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
 
   if (isCustomerFreshAsset(url.pathname)) {
-    event.respondWith(
-      fetch(event.request)
-        .then((res) => {
-          if (res.ok && isShellPath(url.pathname)) {
-            const clone = res.clone();
-            caches.open(OFFLINE_CACHE).then((c) => c.put(event.request, clone));
-          }
-          return res;
-        })
-        .catch(() => caches.match(event.request))
-    );
+    event.respondWith(networkFirstWithCache(event.request));
+    return;
+  }
+
+  if (isFieldOpsFastAsset(url.pathname)) {
+    event.respondWith(cacheFirstStaleWhileRevalidate(event.request, FIELD_OPS_CACHE));
+    return;
+  }
+
+  if (isStaticIconAsset(url.pathname)) {
+    event.respondWith(cacheFirstStaleWhileRevalidate(event.request, OFFLINE_CACHE));
     return;
   }
 
@@ -223,26 +356,27 @@ self.addEventListener("fetch", (event) => {
     url.pathname.startsWith("/app") ||
     url.pathname.startsWith("/project/") ||
     url.pathname === "/business/kpi";
+
   event.respondWith(
-    (isHubOrProject ? caches.match(event.request, { cacheName: PRIORITY_CACHE }) : null).then(
-      (priority) => priority || caches.match(event.request)
-    ).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request)
-        .then((res) => {
-          if (res.ok && isShellPath(url.pathname)) {
-            const clone = res.clone();
-            caches.open(OFFLINE_CACHE).then((c) => c.put(event.request, clone));
-          }
-          return res;
-        })
-        .catch(async () => {
-          const fb =
-            (await caches.match("/offline-fallback.html")) ||
-            (await caches.match("/installer-mode.html"));
-          return fb || new Response("Offline", { status: 503 });
-        });
-    })
+    (isHubOrProject ? caches.match(event.request, { cacheName: PRIORITY_CACHE }) : null)
+      .then((priority) => priority || caches.match(event.request))
+      .then((cached) => {
+        if (cached) return cached;
+        return fetch(event.request)
+          .then((res) => {
+            if (res.ok && isShellPath(url.pathname)) {
+              const clone = res.clone();
+              caches.open(OFFLINE_CACHE).then((c) => c.put(event.request, clone));
+            }
+            return res;
+          })
+          .catch(async () => {
+            const fb =
+              (await caches.match("/offline-fallback.html")) ||
+              (await caches.match("/installer-mode.html"));
+            return fb || new Response("Offline", { status: 503 });
+          });
+      })
   );
 });
 

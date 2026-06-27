@@ -48,14 +48,14 @@ const BOTTOM_NAV_LINKS = [
 const JS_ASSETS = [
   { path: "/js/estimate-v1.js?v=estimate-ui-v8", label: "estimate-v1 JS" },
   { path: "/js/survey-v1.js?v=survey-ui-v5", label: "survey-v1 JS" },
-  { path: "/js/survey-drawing-v1.js?v=survey-drawing-ui-v5", label: "survey-drawing-v1 JS" },
+  { path: "/js/survey-drawing-v1.js?v=survey-drawing-ui-v6", label: "survey-drawing-v1 JS" },
   { path: "/js/tisly-practical-nav.js", label: "bottom nav JS" },
 ];
 
 const ESTIMATE_UI_VERSION = "estimate-ui-v8";
-const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v5";
+const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v6";
 const PHASE9_JS_VERSION = "phase9-iphone-v1";
-const SW_CACHE_TOKEN = "v2406-phase27";
+const SW_CACHE_TOKEN = "v2407-phase28";
 const CUSTOMER_JS_VERSION = "customer-v1-phase27";
 
 const CUSTOMER_FORBIDDEN_WORDS = [
@@ -625,6 +625,37 @@ async function checkPhase27NavigationAndShare() {
   }
 }
 
+async function checkPhase28PwaSpeed() {
+  try {
+    const swText = await fetch("/service-worker.js", { cache: "no-store" }).then((r) => r.text());
+    const drawingJs = await fetch("/js/features/drawing/drawing-editor-canvas-v1.js", {
+      cache: "no-store",
+    }).then((r) => r.text());
+    const swOk =
+      swText.includes(SW_CACHE_TOKEN) &&
+      swText.includes("FIELD_OPS_CACHE") &&
+      swText.includes("cacheFirstStaleWhileRevalidate") &&
+      swText.includes("/js/features/drawing/drawing-editor-v1.js") &&
+      swText.includes("/voice-nav-v1.html");
+    const drawingOk =
+      drawingJs.includes("releaseBgImageMemory") &&
+      drawingJs.includes("withBgCacheBust") &&
+      drawingJs.includes("decode?.()");
+    if (swOk && drawingOk) {
+      return {
+        status: "ok",
+        detail: `Phase28 OK · SW:${SW_CACHE_TOKEN} · fieldops SWR · drawing memory`,
+      };
+    }
+    return {
+      status: "warn",
+      detail: `sw:${swOk} drawing:${drawingOk}`,
+    };
+  } catch (e) {
+    return { status: "fail", detail: e.message || String(e) };
+  }
+}
+
 async function checkCustomerPhase26(shareId) {
   try {
     const [statsRes, homeRes, plansRes, sharedJs, pdfShareJs, swText, adminRes] = await Promise.all([
@@ -1025,7 +1056,7 @@ async function checkDrawingDirectLaunch() {
       js.includes("SURVEY_DRAWING_TEMP_BANNER"),
       js.includes("saveDrawingToLocalStorage"),
       js.includes("syncGridStageSize"),
-      html.includes("survey-drawing-ui-v5"),
+      html.includes("survey-drawing-ui-v6"),
       !js.includes("projectId または sketchId が必要です"),
     ];
     const ok = checks.filter(Boolean).length;
@@ -1713,6 +1744,15 @@ async function runChecks() {
 
   const phase27 = await checkPhase27NavigationAndShare();
   rows.push({ path: "Phase27 navigation", label: "Back Navigation · Navigation Stack", ...phase27 });
+
+  const phase28 = await checkPhase28PwaSpeed();
+  rows.push({ path: "Phase28 pwa-speed", label: "PWA爆速化 · 図面/音声ナビキャッシュ", ...phase28 });
+  diagRows.push({
+    path: "PWA FieldOps Cache",
+    label: "stale-while-revalidate",
+    status: phase28.status === "ok" ? "ok" : phase28.status,
+    detail: phase28.detail,
+  });
   diagRows.push({
     path: "Back Navigation",
     label: "1画面戻るスタック",
