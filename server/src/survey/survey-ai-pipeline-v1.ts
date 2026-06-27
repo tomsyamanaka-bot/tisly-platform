@@ -3,9 +3,12 @@
  * 図面データ · 音声ログ → 見積候補 · PDF 図面
  * SURVEY_AI_PIPELINE_V1 / AI_ESTIMATE_ENGINE_V2 接続
  */
+import path from "path";
 import {
   buildAiEstimateCandidatesV2,
   buildAiEstimateDocumentSourcesV2,
+  postSymbolCountsToAiEstimateEngineV2,
+  type PostSymbolCountsToAiEstimateEngineV2Result,
 } from "../master/ai-estimate-engine-v2.js";
 import type { MasterV1EstimatePreviewEnrichedV2 } from "../master/master-v1-types.js";
 import { buildDrawingEditorPdfPayloadV1 } from "../features/drawing/drawing-editor-export-v1.js";
@@ -16,6 +19,12 @@ import {
   getSurveyDrawingSketchV1,
 } from "./survey-drawing-v1-store.js";
 import type { SurveyDrawingSketchV1 } from "./survey-drawing-v1-types.js";
+import {
+  mapGridOcrMemosToSurveyNotesV1,
+  mapGridOcrToDrawingAutoPlotV1,
+  runSurveyGridOcrV1,
+  type SurveyGridOcrResultV1,
+} from "./survey-grid-ocr-v1.js";
 
 export const SURVEY_AI_PIPELINE_V1_SCHEMA = 1 as const;
 
@@ -55,6 +64,10 @@ export interface SurveyAiPipelineInputV1 {
   sketchId: string;
   businessProjectId?: string | null;
   voiceLog?: SurveyAiPipelineVoiceLogEntryV1[];
+  /** 方眼紙 OCR を実行する */
+  runGridOcr?: boolean;
+  /** OCR 結果を現調メモへ反映 */
+  applyOcrToSurveyNotes?: boolean;
 }
 
 export interface SurveyAiPipelineResultV1 {
@@ -71,6 +84,14 @@ export interface SurveyAiPipelineResultV1 {
   documentSources: ReturnType<typeof buildAiEstimateDocumentSourcesV2>;
   /** 音声ログ要約（仕様書メモ用） */
   voiceLogSummary: string | null;
+  /** 方眼紙 OCR 結果（任意） */
+  gridOcr: SurveyGridOcrResultV1 | null;
+  /** 自動プロット用ペイロード */
+  autoPlot: ReturnType<typeof mapGridOcrToDrawingAutoPlotV1> | null;
+  /** 現調メモ反映結果 */
+  surveyNotesMapping: ReturnType<typeof mapGridOcrMemosToSurveyNotesV1> | null;
+  /** 記号集計 → 見積 v2 */
+  symbolCountHandoff: PostSymbolCountsToAiEstimateEngineV2Result | null;
   processedAt: string;
 }
 
@@ -200,7 +221,13 @@ function summarizeVoiceLog(entries: SurveyAiPipelineVoiceLogEntryV1[]): string |
 
 function runSurveyAiPipelineCoreV1(
   input: SurveyAiPipelineInputV1
-): SurveyAiPipelineResultV1 {
+): Promise<SurveyAiPipelineResultV1> {
+  return runSurveyAiPipelineCoreV1Async(input);
+}
+
+async function runSurveyAiPipelineCoreV1Async(
+  input: SurveyAiPipelineInputV1
+): Promise<SurveyAiPipelineResultV1> {
   const sketch = getSurveyDrawingSketchV1(input.sketchId);
   if (!sketch) {
     throw new SurveyAiPipelineError(
@@ -273,6 +300,53 @@ function runSurveyAiPipelineCoreV1(
     );
   }
 
+  let gridOcr: SurveyGridOcrResultV1 | null = null;
+  let autoPlot: ReturnType<typeof mapGridOcrToDrawingAutoPlotV1> | null = null;
+  let surveyNotesMapping: ReturnType<typeof mapGridOcrMemosToSurveyNotesV1> | null = null;
+
+  if (input.runGridOcr !== false && sketch.backgroundImagePath) {
+    gridOcr = await runSurveyGridOcrV1({
+      imagePath: sketch.backgroundImagePath,
+      fileName: path.basename(sketch.backgroundImagePath),
+      canvasWidth: sketch.layers.canvasWidth,
+      canvasHeight: sketch.layers.canvasHeight,
+      sketchNotes: sketch.notes,
+    });
+    autoPlot = mapGridOcrToDrawingAutoPlotV1(
+      gridOcr,
+      sketch.layers.canvasWidth,
+      sketch.layers.canvasHeight
+    );
+    if (input.applyOcrToSurveyNotes !== false && gridOcr.marginMemos.length) {
+      surveyNotesMapping = mapGridOcrMemosToSurveyNotesV1(sketch.projectId, gridOcr);
+    }
+  }
+
+  const allSymbols = [
+    ...(sketch.layers.symbols ?? []),
+    ...(autoPlot?.symbols ?? []),
+    ...(sketch.layers.editorV1?.symbols ?? []).map((s) => ({
+      symbolType: s.symbolType,
+      label: s.label,
+      id: s.id,
+    })),
+  ];
+
+  let symbolCountHandoff: PostSymbolCountsToAiEstimateEngineV2Result | null = null;
+  if (allSymbols.length) {
+    symbolCountHandoff = postSymbolCountsToAiEstimateEngineV2({
+      sketchId: input.sketchId,
+      projectId: sketch.projectId,
+      businessProjectId,
+      symbols: allSymbols.map((s) => ({
+        symbolType: s.symbolType,
+        label: "label" in s ? s.label : undefined,
+        id: "id" in s ? s.id : undefined,
+      })),
+      paths: sketch.layers.paths,
+    });
+  }
+
   return {
     schemaVersion: SURVEY_AI_PIPELINE_V1_SCHEMA,
     sketchId: input.sketchId,
@@ -282,6 +356,10 @@ function runSurveyAiPipelineCoreV1(
     estimatePreview,
     documentSources,
     voiceLogSummary: summarizeVoiceLog(input.voiceLog ?? []),
+    gridOcr,
+    autoPlot,
+    surveyNotesMapping,
+    symbolCountHandoff,
     processedAt: new Date().toISOString(),
   };
 }
@@ -290,21 +368,21 @@ function runSurveyAiPipelineCoreV1(
  * 現調図面 + 音声ログから
  * 見積候補 · PDF ペイロードを一括生成
  */
-export function runSurveyAiPipelineV1(
+export async function runSurveyAiPipelineV1(
   input: SurveyAiPipelineInputV1
-): SurveyAiPipelineResultV1 {
-  return runSurveyAiPipelineCoreV1(input);
+): Promise<SurveyAiPipelineResultV1> {
+  return runSurveyAiPipelineCoreV1Async(input);
 }
 
 /**
  * タイムアウト付きで安全実行
  * クラッシュせず職人向けメッセージを返す
  */
-export function runSurveyAiPipelineV1Safe(
+export async function runSurveyAiPipelineV1Safe(
   input: SurveyAiPipelineInputV1
-): SurveyAiPipelineSafeResponseV1 {
+): Promise<SurveyAiPipelineSafeResponseV1> {
   try {
-    const pipeline = runSurveyAiPipelineCoreV1(input);
+    const pipeline = await runSurveyAiPipelineCoreV1Async(input);
     return { ok: true, pipeline };
   } catch (error) {
     return toSurveyAiPipelineUserError(error);
@@ -320,7 +398,7 @@ export async function runSurveyAiPipelineV1SafeAsync(
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     const pipeline = await Promise.race([
-      Promise.resolve().then(() => runSurveyAiPipelineCoreV1(input)),
+      runSurveyAiPipelineCoreV1Async(input),
       new Promise<never>((_, reject) => {
         timer = setTimeout(() => {
           reject(

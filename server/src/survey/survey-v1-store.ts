@@ -177,6 +177,20 @@ function saveProjectNotes(projectId: string, notes: string): void {
     .run(projectId, notes);
 }
 
+/**
+ * 現調メモへ行を追記
+ * （OCR 等 — 既存メモは保持）
+ */
+export function appendSurveyProjectNotesV1(projectId: string, lines: string[]): string {
+  const trimmed = lines.map((l) => l.trim()).filter(Boolean);
+  if (!trimmed.length) return getProjectNotes(projectId) ?? "";
+  const existing = getProjectNotes(projectId)?.trim() ?? "";
+  const block = trimmed.join("\n");
+  const merged = existing ? `${existing}\n${block}` : block;
+  saveProjectNotes(projectId, merged);
+  return merged;
+}
+
 function withProjectNotes(project: SurveyProjectV1): SurveyProjectV1 {
   return { ...project, notes: getProjectNotes(project.projectId) };
 }

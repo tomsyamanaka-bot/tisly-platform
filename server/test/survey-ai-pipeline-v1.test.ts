@@ -6,8 +6,8 @@ import {
   toSurveyAiPipelineUserError,
   SurveyAiPipelineError,
   runSurveyAiPipelineV1Safe,
+  sketchToDrawingPdfPayloadV1,
 } from "../src/survey/survey-ai-pipeline-v1.js";
-import { sketchToDrawingPdfPayloadV1 } from "../src/survey/survey-ai-pipeline-v1.js";
 import type { SurveyDrawingSketchV1 } from "../src/survey/survey-drawing-v1-types.js";
 
 describe("survey-ai-pipeline-v1", () => {
@@ -87,8 +87,8 @@ describe("survey-ai-pipeline-v1", () => {
     assert.match(svg, /example\.com\/bg\.jpg/);
   });
 
-  it("runSurveyAiPipelineV1Safe は存在しない sketch で職人向けメッセージを返す", () => {
-    const result = runSurveyAiPipelineV1Safe({ sketchId: "missing-sketch-id" });
+  it("runSurveyAiPipelineV1Safe は存在しない sketch で職人向けメッセージを返す", async () => {
+    const result = await runSurveyAiPipelineV1Safe({ sketchId: "missing-sketch-id" });
     assert.equal(result.ok, false);
     if (!result.ok) {
       assert.equal(result.code, "SKETCH_NOT_FOUND");

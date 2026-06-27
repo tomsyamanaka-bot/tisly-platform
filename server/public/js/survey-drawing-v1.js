@@ -20,7 +20,7 @@ import {
   updateOfflineResilienceBadgeV1,
 } from "./offline-resilience-v1.js";
 
-export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v5";
+export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v6";
 export const SURVEY_DRAWING_TEMP_BANNER =
   "一時図面として作成中。現調から開くと案件に紐づきます。";
 
@@ -983,6 +983,87 @@ async function linkBackgroundToSpecSlot() {
   await loadSpecPhotoSlotsForDrawing();
 }
 
+async function runGridOcrAndAutoPlot() {
+  if (!sketchId) {
+    setStatus("保存後に AI 解析を実行してください");
+    return;
+  }
+  if (!sketch?.backgroundImageUrl && !sketch?.backgroundImagePath) {
+    setStatus("方眼紙写真を取り込んでから AI 解析してください");
+    return;
+  }
+  setStatus("方眼紙を解析中…");
+  await saveSketch().catch(() => {});
+
+  const data = await api(
+    "POST",
+    `/api/survey/v1/drawing-sketches/${encodeURIComponent(sketchId)}/grid-ocr`,
+    { applyToCanvas: true, applyToSurveyNotes: true }
+  );
+
+  if (data.sketch?.layers) {
+    layers = migrateLayers(
+      data.sketch.layers,
+      data.sketch.layers.canvasWidth,
+      data.sketch.layers.canvasHeight
+    );
+    sketch = data.sketch;
+  } else if (data.autoPlot) {
+    applyAutoPlotPayloadToLayers(data.autoPlot);
+  }
+
+  syncEditorPlotsFromLayers();
+  renderAll();
+  markDirty();
+
+  const symCount = data.autoPlot?.symbols?.length ?? 0;
+  const memoCount = data.autoPlot?.notes?.length ?? 0;
+  const counts = data.symbolCountHandoff?.symbolCounts ?? [];
+  const countText = counts.map((c) => `${c.label}${c.count}`).join(" · ");
+  setStatus(
+    `AI解析完了 — 記号${symCount}件 · メモ${memoCount}件${countText ? ` · ${countText}` : ""}（位置は手動修正可）`
+  );
+}
+
+/**
+ * サーバー autoPlot を
+ * layers 配列へ反映（完全同期）
+ */
+function applyAutoPlotPayloadToLayers(autoPlot) {
+  if (!autoPlot) return;
+  const existingSymIds = new Set(layers.symbols.map((s) => s.id));
+  for (const s of autoPlot.symbols ?? []) {
+    if (!existingSymIds.has(s.id)) {
+      layers.symbols.push({ ...s, memo: s.memo || "自動プロット" });
+    }
+  }
+  const existingNoteIds = new Set(layers.notes.map((n) => n.id));
+  for (const n of autoPlot.notes ?? []) {
+    if (!existingNoteIds.has(n.id)) layers.notes.push(n);
+  }
+  if (autoPlot.marginSummary && sketch) {
+    const tag = `[OCR] ${autoPlot.marginSummary}`;
+    sketch.notes = sketch.notes?.includes(tag) ? sketch.notes : `${sketch.notes || ""}\n${tag}`.trim();
+  }
+}
+
+/** editorV1 記号配列を layers.symbols と同期 */
+function syncEditorPlotsFromLayers() {
+  if (!drawingEditorState?.canvas) return;
+  const w = stageSize.w || layers.canvasWidth || 800;
+  const h = stageSize.h || layers.canvasHeight || 600;
+  const plots = layers.symbols.map((s) => ({
+    id: s.id,
+    symbolType: s.symbolType,
+    icon: s.icon,
+    label: s.label,
+    x: w > 0 ? s.x / w : 0,
+    y: h > 0 ? s.y / h : 0,
+  }));
+  drawingEditorState.canvas.setPlots(plots);
+  layers.editorV1 = editorStateToLayerV1(drawingEditorState);
+}
+
 async function exportAiJson() {
   if (!sketchId) return;
   await saveSketch().catch(() => {});
@@ -1171,6 +1252,9 @@ function wireEvents() {
 
   $("btn-save")?.addEventListener("click", () => saveSketch().catch((e) => setStatus(e.message)));
   $("btn-ai-export")?.addEventListener("click", () => exportAiJson().catch((e) => setStatus(e.message)));
+  $("btn-grid-ocr")?.addEventListener("click", () =>
+    runGridOcrAndAutoPlot().catch((e) => setStatus(e.message || "AI解析に失敗しました"))
+  );
   $("btn-back")?.addEventListener("click", () => {
     if (dirty && !confirm("未保存の変更があります。戻りますか？")) return;
     if (navigatePracticalReturn(() => {})) return;

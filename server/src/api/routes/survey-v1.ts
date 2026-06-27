@@ -46,6 +46,7 @@ import {
   exportSurveyDrawingAiJsonV1,
   saveSurveyDrawingSketchBackgroundV1,
   updateSurveyDrawingSketchV1,
+  mergeAutoPlotIntoSurveyDrawingV1,
 } from "../../survey/survey-drawing-v1-store.js";
 import {
   SURVEY_DRAWING_LINE_TYPE_META,
@@ -55,6 +56,12 @@ import {
 } from "../../survey/survey-drawing-v1-types.js";
 import { linkSurveyDrawingBackgroundToSpecSlotV1 } from "../../projects/specification-photos-v1.js";
 import { runSurveyAiPipelineV1SafeAsync } from "../../survey/survey-ai-pipeline-v1.js";
+import {
+  mapGridOcrMemosToSurveyNotesV1,
+  mapGridOcrToDrawingAutoPlotV1,
+  runSurveyGridOcrV1,
+} from "../../survey/survey-grid-ocr-v1.js";
+import { postSymbolCountsToAiEstimateEngineV2 } from "../../master/ai-estimate-engine-v2.js";
 
 export const surveyV1Router = Router();
 
@@ -603,6 +610,8 @@ surveyV1Router.post(
       sketchId: String(req.params.sketchId),
       businessProjectId: req.body?.businessProjectId ?? null,
       voiceLog: Array.isArray(req.body?.voiceLog) ? req.body.voiceLog : [],
+      runGridOcr: req.body?.runGridOcr !== false,
+      applyOcrToSurveyNotes: req.body?.applyOcrToSurveyNotes !== false,
     });
     if (!result.ok) {
       res.status(503).json({
@@ -613,6 +622,80 @@ surveyV1Router.post(
       return;
     }
     res.json({ pipeline: result.pipeline });
+  }
+);
+
+/** 方眼紙 OCR + 記号自動プロット v1 */
+surveyV1Router.post(
+  "/drawing-sketches/:sketchId/grid-ocr",
+  ...surveyV1Auth,
+  async (req: AuthedRequest, res) => {
+    if (!assertSurveyRole(req, res)) return;
+    const sketchId = String(req.params.sketchId);
+    const sketch = getSurveyDrawingSketchV1(sketchId);
+    if (!sketch) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    const applyToCanvas = req.body?.applyToCanvas !== false;
+    const applyToSurveyNotes = req.body?.applyToSurveyNotes !== false;
+
+    const ocr = await runSurveyGridOcrV1({
+      imagePath: sketch.backgroundImagePath || null,
+      fileName: sketch.backgroundImagePath
+        ? sketch.backgroundImagePath.split("/").pop() ?? null
+        : null,
+      canvasWidth: sketch.layers.canvasWidth,
+      canvasHeight: sketch.layers.canvasHeight,
+      sketchNotes: sketch.notes,
+      testHints:
+        process.env.NODE_ENV === "test" && req.body?.testHints
+          ? req.body.testHints
+          : undefined,
+    });
+
+    const autoPlot = mapGridOcrToDrawingAutoPlotV1(
+      ocr,
+      sketch.layers.canvasWidth,
+      sketch.layers.canvasHeight
+    );
+
+    let sketchAfter = sketch;
+    if (applyToCanvas && autoPlot.symbols.length) {
+      sketchAfter = mergeAutoPlotIntoSurveyDrawingV1(sketchId, autoPlot);
+    }
+
+    let surveyNotesMapping = null;
+    if (applyToSurveyNotes && ocr.marginMemos.length) {
+      surveyNotesMapping = mapGridOcrMemosToSurveyNotesV1(sketch.projectId, ocr);
+    }
+
+    const allSymbols = [
+      ...sketchAfter.layers.symbols,
+      ...(sketchAfter.layers.editorV1?.symbols ?? []).map((s) => ({
+        symbolType: s.symbolType,
+        label: s.label,
+        id: s.id,
+      })),
+    ];
+
+    const symbolCountHandoff = allSymbols.length
+      ? postSymbolCountsToAiEstimateEngineV2({
+          sketchId,
+          projectId: sketch.projectId,
+          businessProjectId: sketch.businessProjectId,
+          symbols: allSymbols,
+          paths: sketchAfter.layers.paths,
+        })
+      : null;
+
+    res.json({
+      ocr,
+      autoPlot,
+      sketch: sketchAfter,
+      surveyNotesMapping,
+      symbolCountHandoff,
+    });
   }
 );
 

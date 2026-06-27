@@ -540,3 +540,107 @@ export function extractAiEstimatePreviewV2FromExport(
   const enriched = enrichEstimatePreview(preview, customerId);
   return finalizeAiEstimatePreviewV2(enriched, { sketchId, mmPerPx });
 }
+
+/** 記号種別ごとの集計（見積 v2 引き渡し用） */
+export interface AiEstimateSymbolCountLineV2 {
+  symbolType: string;
+  label: string;
+  count: number;
+}
+
+/**
+ * プロット記号配列から
+ * 種別別件数を集計
+ */
+export function aggregateSymbolCountsV2(
+  symbols: Array<{ symbolType: string; label?: string }>
+): AiEstimateSymbolCountLineV2[] {
+  const map = new Map<string, AiEstimateSymbolCountLineV2>();
+  for (const s of symbols) {
+    const key = s.symbolType || "unknown";
+    const existing = map.get(key);
+    if (existing) {
+      existing.count += 1;
+    } else {
+      map.set(key, {
+        symbolType: key,
+        label: s.label?.trim() || key,
+        count: 1,
+      });
+    }
+  }
+  return [...map.values()].sort((a, b) => a.label.localeCompare(b.label, "ja"));
+}
+
+export interface PostSymbolCountsToAiEstimateEngineV2Input {
+  sketchId?: string;
+  projectId?: string;
+  customerId?: string | null;
+  businessProjectId?: string | null;
+  /** 確定 · 自動プロット含む全記号 */
+  symbols: Array<{ symbolType: string; label?: string; id?: string }>;
+  paths?: SurveyDrawingAiExportV1["paths"];
+  mmPerPx?: number;
+}
+
+export interface PostSymbolCountsToAiEstimateEngineV2Result {
+  schemaVersion: typeof AI_ESTIMATE_ENGINE_V2_SCHEMA;
+  symbolCounts: AiEstimateSymbolCountLineV2[];
+  totalSymbols: number;
+  estimatePreview: MasterV1EstimatePreviewEnrichedV2 | null;
+}
+
+/**
+ * 記号総数を AI見積エンジン v2 へ一括引き渡し
+ * （モック · 図面エクスポート経由）
+ */
+export function postSymbolCountsToAiEstimateEngineV2(
+  input: PostSymbolCountsToAiEstimateEngineV2Input
+): PostSymbolCountsToAiEstimateEngineV2Result {
+  const symbolCounts = aggregateSymbolCountsV2(input.symbols);
+  const totalSymbols = input.symbols.length;
+
+  const exportData: SurveyDrawingAiExportV1 = {
+    schemaVersion: 2,
+    drawingVersion: 2,
+    exportedAt: new Date().toISOString(),
+    projectId: input.projectId ?? "unknown",
+    sketchId: input.sketchId ?? "symbol-count-batch",
+    title: "記号集計",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    canvas: { width: 800, height: 600 },
+    backgroundImage: null,
+    viewport: { scale: 1, offsetX: 0, offsetY: 0 },
+    paths: input.paths ?? [],
+    symbols: input.symbols.map((s, i) => ({
+      id: s.id ?? `sym-${i}`,
+      symbolType: s.symbolType,
+      label: s.label ?? s.symbolType,
+      icon: "📍",
+      svg: "",
+      color: "#2563eb",
+      x: 0,
+      y: 0,
+      rotation: 0,
+      scale: 1,
+      memo: "",
+    })),
+    notes: [],
+    sketchNotes: "",
+  };
+
+  const estimatePreview = extractAiEstimatePreviewV2FromExport(
+    exportData,
+    input.sketchId ?? exportData.sketchId,
+    input.customerId ?? null,
+    input.mmPerPx
+  );
+
+  return {
+    schemaVersion: AI_ESTIMATE_ENGINE_V2_SCHEMA,
+    symbolCounts,
+    totalSymbols,
+    estimatePreview,
+  };
+}

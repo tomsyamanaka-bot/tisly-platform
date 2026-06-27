@@ -205,6 +205,34 @@ export function exportSurveyDrawingAiJsonV1(sketchId: string): SurveyDrawingAiEx
   return buildSurveyDrawingAiExport(sketch);
 }
 
+/**
+ * OCR 自動プロットを
+ * 既存レイヤーへマージ（手動記号は保持）
+ */
+export function mergeAutoPlotIntoSurveyDrawingV1(
+  sketchId: string,
+  autoPlot: {
+    symbols: SurveyDrawingLayersV2["symbols"];
+    notes: SurveyDrawingLayersV2["notes"];
+  }
+): SurveyDrawingSketchV1 {
+  const sketch = getSurveyDrawingSketchV1(sketchId);
+  if (!sketch) throw new Error("sketch not found");
+
+  const existingIds = new Set(sketch.layers.symbols.map((s) => s.id));
+  const newSymbols = autoPlot.symbols.filter((s) => !existingIds.has(s.id));
+  const existingNoteIds = new Set(sketch.layers.notes.map((n) => n.id));
+  const newNotes = autoPlot.notes.filter((n) => !existingNoteIds.has(n.id));
+
+  const layers = normalizeLayersForSave({
+    ...sketch.layers,
+    symbols: [...sketch.layers.symbols, ...newSymbols],
+    notes: [...sketch.layers.notes, ...newNotes],
+  });
+
+  return updateSurveyDrawingSketchV1(sketchId, { layers });
+}
+
 export function deleteSurveyDrawingSketchV1(sketchId: string): boolean {
   const sketch = getSurveyDrawingSketchV1(sketchId);
   if (!sketch) return false;
