@@ -74,6 +74,8 @@ import {
 } from "./specification-template.js";
 import { sanitizeSpecificationNotes } from "./specification-pdf-content.js";
 import { listSurveyDrawingSketchesV1 } from "../survey/survey-drawing-v1-store.js";
+import { sketchToDrawingPdfPayloadV1 } from "../survey/survey-ai-pipeline-v1.js";
+import { buildDrawingEditorSvgMarkupV1 } from "../features/drawing/drawing-editor-pdf-render-v1.js";
 import {
   normalizeProjectStatus,
   statusAfterSurveyDone,
@@ -786,11 +788,19 @@ export function buildCompletionPhotosV1(businessProjectId: string): PracticalCom
 function buildSpecificationDrawingsV1(surveyProjectId: string | null | undefined) {
   if (!surveyProjectId) return [];
   return listSurveyDrawingSketchesV1(surveyProjectId)
-    .filter((s) => s.backgroundImageUrl)
-    .map((s) => ({
-      url: s.backgroundImageUrl,
-      title: s.title?.trim() || "現調図面",
-    }));
+    .filter((s) => s.backgroundImageUrl || s.layers.editorV1 || s.layers.paths?.length)
+    .map((s) => {
+      const payload = sketchToDrawingPdfPayloadV1(s);
+      const hasVector =
+        (payload.symbols?.length ?? 0) > 0 || (payload.routes?.length ?? 0) > 0;
+      return {
+        url: s.backgroundImageUrl || payload.backgroundImageUrl || "",
+        title: s.title?.trim() || "現調図面",
+        svgHtml: hasVector || payload.backgroundImageUrl
+          ? buildDrawingEditorSvgMarkupV1(payload)
+          : undefined,
+      };
+    });
 }
 
 export function buildSpecificationContextV1(businessProjectId: string): SpecificationContext | null {

@@ -6,6 +6,7 @@ import {
   buildVoiceNavMqttTopicV1,
   patchVoiceNavSessionV1,
   buildVoiceNavDemoSequenceV1,
+  buildVoiceNavMultiCircuitSequenceV1,
   isVoiceNavAckCommandV1,
   startVoiceNavSequenceV1,
   advanceVoiceNavSequenceV1,
@@ -63,5 +64,30 @@ describe("voice-nav-v1 音声誘導基盤", () => {
     const s = createInitialVoiceNavSessionV1(1);
     const next = patchVoiceNavSessionV1(s, { targetCircuitNumber: 5 });
     assert.equal(next.mqttRelayTopic, buildVoiceNavMqttTopicV1(5));
+  });
+
+  it("複数回路シーケンスで連続チェックが進む", () => {
+    const steps = buildVoiceNavMultiCircuitSequenceV1([1, 2, 3]);
+    assert.equal(steps.length, 3);
+    assert.equal(steps[0].prompt, "1番ブレーカーを落としてください");
+    assert.equal(steps[0].nextPrompt, "1番の停電を検知、次へ進みます。2番を落としてください");
+
+    let state = createInitialVoiceNavSessionV1(1);
+    const started = startVoiceNavSequenceV1(state, steps);
+    state = started.state;
+    assert.equal(started.prompt, "1番ブレーカーを落としてください");
+
+    const step1 = advanceVoiceNavSequenceV1(state, steps, "落とした");
+    assert.equal(step1.advanced, true);
+    assert.match(step1.prompt ?? "", /1番の停電を検知/);
+    assert.equal(step1.state.targetCircuitNumber, 2);
+    assert.equal(step1.state.investigationStatus, "awaiting_breaker_off");
+
+    const step2 = advanceVoiceNavSequenceV1(step1.state, steps, "落とした");
+    assert.equal(step2.state.targetCircuitNumber, 3);
+
+    const step3 = advanceVoiceNavSequenceV1(step2.state, steps, "落とした");
+    assert.equal(step3.state.investigationStatus, "completed");
+    assert.match(step3.prompt ?? "", /すべての回路チェックが完了/);
   });
 });

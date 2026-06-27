@@ -1,6 +1,6 @@
 /**
  * 図面エディタ v1 — ブートストラップ
- * survey-drawing-v1 から呼び出すモック基盤
+ * survey-drawing-v1 から呼び出す実務連携基盤
  */
 import { createDrawingEditorCanvasV1 } from "./drawing-editor-canvas-v1.js";
 import { createDrawingSymbolPaletteV1 } from "./drawing-symbol-palette-v1.js";
@@ -20,8 +20,53 @@ export function buildDrawingEditorPdfPayloadClientV1(state) {
     canvasWidth: size.width,
     canvasHeight: size.height,
     symbols: state.canvas.getPlots(),
+    routes: state.canvas.getRoutes(),
     exportedAt: new Date().toISOString(),
   };
+}
+
+/**
+ * 保存済みペイロードをキャンバスへ復元
+ * @param {ReturnType<typeof initDrawingEditorFoundationV1>} editorState
+ * @param {object|null|undefined} payload
+ */
+export function applyDrawingEditorPayloadClientV1(editorState, payload) {
+  if (!editorState?.canvas || !payload) return;
+  if (payload.backgroundImageUrl) {
+    editorState.canvas.setBackgroundUrl(payload.backgroundImageUrl);
+  }
+  if (Array.isArray(payload.symbols)) {
+    editorState.canvas.setPlots(payload.symbols);
+  }
+  if (Array.isArray(payload.routes)) {
+    editorState.canvas.setRoutes(payload.routes);
+  }
+  editorState.lastPayload = buildDrawingEditorPdfPayloadClientV1(editorState);
+}
+
+/**
+ * layers.editorV1 からペイロードを抽出
+ * @param {object|null|undefined} editorV1
+ */
+export function editorV1LayerToPayload(editorV1) {
+  if (!editorV1) return null;
+  return {
+    schemaVersion: 1,
+    backgroundImageUrl: editorV1.backgroundImageUrl || "",
+    canvasWidth: editorV1.canvasWidth || 800,
+    canvasHeight: editorV1.canvasHeight || 600,
+    symbols: editorV1.symbols || [],
+    routes: editorV1.routes || [],
+    exportedAt: editorV1.exportedAt || new Date().toISOString(),
+  };
+}
+
+/**
+ * エディタ状態を layers.editorV1 保存形式へ
+ * @param {ReturnType<typeof initDrawingEditorFoundationV1>} editorState
+ */
+export function editorStateToLayerV1(editorState) {
+  return buildDrawingEditorPdfPayloadClientV1(editorState);
 }
 
 /**
@@ -32,6 +77,8 @@ export function buildDrawingEditorPdfPayloadClientV1(state) {
  * @param {SVGSVGElement|null} [opts.svgEl]
  * @param {HTMLElement|null} [opts.dockEl]
  * @param {(msg: string) => void} [opts.onStatus]
+ * @param {object|null} [opts.initialPayload]
+ * @param {(payload: object) => void} [opts.onPayloadChange]
  */
 export function initDrawingEditorFoundationV1(opts = {}) {
   const stageEl =
@@ -51,7 +98,11 @@ export function initDrawingEditorFoundationV1(opts = {}) {
   /** @type {{ canvas: ReturnType<typeof createDrawingEditorCanvasV1>, palette: ReturnType<typeof createDrawingSymbolPaletteV1>|null, lastPayload: object|null, _bgObserver?: MutationObserver }} */
   const state = { canvas, palette: null, lastPayload: null };
 
-  // 既存 bg があれば引き継ぎ、なければダミー
+  function notifyChange() {
+    state.lastPayload = buildDrawingEditorPdfPayloadClientV1(state);
+    opts.onPayloadChange?.(state.lastPayload);
+  }
+
   if (bgEl?.src && !bgEl.classList.contains("hidden")) {
     canvas.setBackgroundUrl(bgEl.src);
   }
@@ -60,24 +111,33 @@ export function initDrawingEditorFoundationV1(opts = {}) {
     dockEl,
     canvas,
     onStatus: opts.onStatus,
-    onPlotsChange: () => {
-      state.lastPayload = buildDrawingEditorPdfPayloadClientV1(state);
+    onPlotsChange: () => notifyChange(),
+    onRouteModeChange: (enabled) => {
+      if (enabled) {
+        opts.onStatus?.("通線モード — 始点と終点をドラッグ");
+      }
     },
   });
 
-  // 背景画像が後から読み込まれた場合に追従
+  canvas.setOnRoutesChange(() => notifyChange());
+
   if (bgEl) {
     const obs = new MutationObserver(() => {
       if (bgEl.src && !bgEl.classList.contains("hidden")) {
         canvas.setBackgroundUrl(bgEl.src);
-        state.lastPayload = buildDrawingEditorPdfPayloadClientV1(state);
+        notifyChange();
       }
     });
     obs.observe(bgEl, { attributes: true, attributeFilter: ["src", "class"] });
     state._bgObserver = obs;
   }
 
-  state.lastPayload = buildDrawingEditorPdfPayloadClientV1(state);
+  if (opts.initialPayload) {
+    applyDrawingEditorPayloadClientV1(state, opts.initialPayload);
+  } else {
+    notifyChange();
+  }
+
   return state;
 }
 

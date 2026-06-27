@@ -37,6 +37,8 @@ export interface PracticalPdfCoverSection {
 export interface PracticalPdfDrawingImage {
   url: string;
   title: string;
+  /** デジタル図面 SVG（url の代わりに優先） */
+  svgHtml?: string;
 }
 
 export interface PracticalPdfLayoutOptions {
@@ -83,13 +85,15 @@ export { formatPhotoCircledNumber };
 function renderDrawingBlocks(prefix: string, drawings: PracticalPdfDrawingImage[]): string {
   if (!drawings.length) return "";
   return drawings
-    .map(
-      (d) =>
-        `<div class="${prefix}-drawing-block">
+    .map((d) => {
+      const visual = d.svgHtml
+        ? `<div class="${prefix}-drawing-svg-wrap">${d.svgHtml}</div>`
+        : `<div class="${prefix}-drawing-img-wrap"><img src="${escapeHtml(d.url)}" alt="${escapeHtml(d.title || "図面")}" /></div>`;
+      return `<div class="${prefix}-drawing-block">
       <h3 class="${prefix}-drawing-title">${escapeHtml(d.title?.trim() || "図面")}</h3>
-      <div class="${prefix}-drawing-img-wrap"><img src="${escapeHtml(d.url)}" alt="${escapeHtml(d.title || "図面")}" /></div>
-    </div>`
-    )
+      ${visual}
+    </div>`;
+    })
     .join("");
 }
 

@@ -14,3 +14,8 @@ export {
   buildDrawingEditorPdfPayloadV1,
   type BuildDrawingEditorPdfPayloadInputV1,
 } from "./drawing-editor-export-v1.js";
+
+export {
+  buildDrawingEditorSvgMarkupV1,
+  renderDigitalDrawingBlockHtmlV1,
+} from "./drawing-editor-pdf-render-v1.js";

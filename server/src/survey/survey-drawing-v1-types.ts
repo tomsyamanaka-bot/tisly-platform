@@ -99,6 +99,29 @@ export interface SurveyDrawingLayersV1 {
   viewport: SurveyDrawingViewport;
 }
 
+/** 図面エディタ v1 永続化（正規化座標） */
+export interface SurveyDrawingEditorV1Persist {
+  backgroundImageUrl?: string;
+  canvasWidth?: number;
+  canvasHeight?: number;
+  symbols: Array<{
+    id: string;
+    symbolType: string;
+    icon: string;
+    label: string;
+    x: number;
+    y: number;
+  }>;
+  routes: Array<{
+    id: string;
+    lineType: string;
+    color: string;
+    width: number;
+    points: SurveyDrawingPoint[];
+  }>;
+  exportedAt?: string;
+}
+
 /** v2 正規レイヤー — AI清書パイプライン入力 */
 export interface SurveyDrawingLayersV2 {
   schemaVersion: typeof SURVEY_DRAWING_SCHEMA_VERSION;
@@ -109,6 +132,8 @@ export interface SurveyDrawingLayersV2 {
   symbols: SurveyDrawingPlacedSymbol[];
   notes: SurveyDrawingTextMemo[];
   viewport: SurveyDrawingViewport;
+  /** 図面エディタ v1 — 記号・通線（案件紐付け保存） */
+  editorV1?: SurveyDrawingEditorV1Persist;
 }
 
 export type SurveyDrawingLayers = SurveyDrawingLayersV2;
@@ -411,6 +436,7 @@ export function migrateLayersToV2(
       })),
       notes: layers.notes ?? [],
       viewport: layers.viewport ?? { scale: 1, offsetX: 0, offsetY: 0 },
+      editorV1: layers.editorV1,
     };
   }
 

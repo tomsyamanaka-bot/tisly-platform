@@ -1,6 +1,6 @@
 /**
  * 図面エディタ v1 — 手袋対応記号パレット
- * 記号選択 → ステージタップでプロット
+ * 記号選択 · 通線モード切替
  */
 import { createDrawingEditorCanvasV1 } from "./drawing-editor-canvas-v1.js";
 
@@ -23,9 +23,10 @@ function uid() {
  * @param {import('./drawing-editor-canvas-v1.js').ReturnType<typeof createDrawingEditorCanvasV1>} opts.canvas
  * @param {(msg: string) => void} [opts.onStatus]
  * @param {(plots: unknown[]) => void} [opts.onPlotsChange]
+ * @param {(enabled: boolean) => void} [opts.onRouteModeChange]
  */
 export function createDrawingSymbolPaletteV1(opts) {
-  const { dockEl, canvas, onStatus, onPlotsChange } = opts;
+  const { dockEl, canvas, onStatus, onPlotsChange, onRouteModeChange } = opts;
   if (!dockEl) throw new Error("dockEl が必要です");
 
   dockEl.classList.add("drawing-symbol-dock-v1");
@@ -37,12 +38,15 @@ export function createDrawingSymbolPaletteV1(opts) {
 
   const hint = document.createElement("p");
   hint.className = "drawing-symbol-dock-v1__hint";
-  hint.textContent = "記号を選んでから、図面をタップして配置";
+  hint.textContent = "記号を選んでタップ配置 / 通線でケーブル描画";
   dockEl.appendChild(hint);
 
   const btnWrap = document.createElement("div");
   btnWrap.className = "drawing-symbol-dock-v1__row";
   dockEl.appendChild(btnWrap);
+
+  /** @type {HTMLButtonElement|null} */
+  let routeBtn = null;
 
   /** @type {HTMLButtonElement[]} */
   const buttons = [];
@@ -56,8 +60,26 @@ export function createDrawingSymbolPaletteV1(opts) {
       const type = btn.dataset.symbolType;
       btn.classList.toggle("is-active", !!activeSymbol && activeSymbol.symbolType === type);
     }
-    canvas.stageEl.classList.toggle("is-plot-ready", !!activeSymbol);
+    const routeOn = canvas.isRouteMode();
+    routeBtn?.classList.toggle("is-active", routeOn);
+    canvas.stageEl.classList.toggle("is-plot-ready", !!activeSymbol && !routeOn);
+    canvas.stageEl.classList.toggle("is-route-ready", routeOn);
   }
+
+  routeBtn = document.createElement("button");
+  routeBtn.type = "button";
+  routeBtn.className = "drawing-symbol-dock-v1__btn drawing-symbol-dock-v1__btn-route";
+  routeBtn.innerHTML = `〰️<span>通線</span>`;
+  routeBtn.setAttribute("aria-label", "通線ルート描画");
+  routeBtn.addEventListener("click", () => {
+    const next = !canvas.isRouteMode();
+    if (next) activeSymbol = null;
+    canvas.setRouteMode(next);
+    onRouteModeChange?.(next);
+    setStatus(next ? "通線モード — ドラッグでケーブルルート" : "通線モードを解除");
+    refreshActiveUi();
+  });
+  btnWrap.appendChild(routeBtn);
 
   for (const meta of DRAWING_SYMBOL_CATALOG_V1) {
     const btn = document.createElement("button");
@@ -67,6 +89,7 @@ export function createDrawingSymbolPaletteV1(opts) {
     btn.setAttribute("aria-label", meta.label);
     btn.innerHTML = `${meta.icon}<span>${meta.label}</span>`;
     btn.addEventListener("click", () => {
+      canvas.setRouteMode(false);
       if (activeSymbol?.symbolType === meta.symbolType) {
         activeSymbol = null;
         setStatus("記号選択を解除しました");
@@ -81,13 +104,14 @@ export function createDrawingSymbolPaletteV1(opts) {
   }
 
   function handleStagePointer(ev) {
+    if (canvas.isRouteMode()) return;
     if (!activeSymbol) return;
     if (ev.target?.closest?.(".drawing-symbol-dock-v1")) return;
 
     ev.preventDefault();
     ev.stopPropagation();
     const pt = canvas.clientToNormalized(ev.clientX, ev.clientY);
-    const plot = canvas.addPlot({
+    canvas.addPlot({
       id: uid(),
       symbolType: activeSymbol.symbolType,
       icon: activeSymbol.icon,

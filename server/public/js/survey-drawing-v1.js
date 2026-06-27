@@ -39,7 +39,12 @@ const LINE_TYPE_DASH = {
 
 import { navigatePracticalReturn, navigateTo } from "./tisly-return-nav-v1.js";
 import { navigateBackOne } from "./tisly-navigation-stack-v1.js";
-import { initDrawingEditorFoundationV1 } from "./features/drawing/drawing-editor-v1.js";
+import {
+  initDrawingEditorFoundationV1,
+  editorStateToLayerV1,
+  editorV1LayerToPayload,
+  applyDrawingEditorPayloadClientV1,
+} from "./features/drawing/drawing-editor-v1.js";
 
 function $(id) {
   return document.getElementById(id);
@@ -175,6 +180,8 @@ let saveTimer = null;
 let dirty = false;
 let selectedSymbolId = null;
 let dragSymbol = null;
+/** @type {ReturnType<typeof initDrawingEditorFoundationV1>|null} */
+let drawingEditorState = null;
 
 function applyViewportTransform() {
   const stage = $("drawing-stage");
@@ -396,6 +403,19 @@ function prepareLayersForSave() {
     ...p,
     lengthPx: pathLength(p.points),
   }));
+  if (drawingEditorState) {
+    layers.editorV1 = editorStateToLayerV1(drawingEditorState);
+  }
+}
+
+function restoreDrawingEditorFromLayers() {
+  if (!drawingEditorState) return;
+  const payload = editorV1LayerToPayload(layers.editorV1);
+  if (payload) {
+    applyDrawingEditorPayloadClientV1(drawingEditorState, payload);
+  } else if (sketch?.backgroundImageUrl) {
+    drawingEditorState.canvas.setBackgroundUrl(sketch.backgroundImageUrl);
+  }
 }
 
 function photoRefsFromSketch() {
@@ -469,6 +489,7 @@ function setTool(next) {
 }
 
 function onPointerDown(ev) {
+  if (drawingEditorState?.canvas?.isRouteMode?.()) return;
   if (ev.target.closest?.(".drawing-symbol, .drawing-memo")) return;
   if (ev.pointerType === "touch" && ev.isPrimary === false) return;
   const wrap = $("drawing-stage-wrap");
@@ -1113,8 +1134,13 @@ async function main() {
   await Promise.all([loadSymbols(), loadLineTypes()]);
   await loadSketch();
   await refreshEstimateDraftState();
-  initDrawingEditorFoundationV1({ onStatus: setStatus });
-  setStatus("描画できます（指・タッチペン対応）");
+  drawingEditorState = initDrawingEditorFoundationV1({
+    onStatus: setStatus,
+    initialPayload: editorV1LayerToPayload(layers.editorV1),
+    onPayloadChange: () => markDirty(),
+  });
+  restoreDrawingEditorFromLayers();
+  setStatus("描画できます（指・タッチペン · 通線ルート対応）");
 }
 
 main().catch((e) => setStatus(`エラー: ${e.message}`));

@@ -39,7 +39,31 @@ describe("drawing-editor-v1 基盤", () => {
     assert.equal(payload.canvasHeight, 800);
     assert.equal(payload.symbols.length, 1);
     assert.equal(payload.symbols[0].symbolType, "outlet");
+    assert.equal(payload.routes.length, 0);
     assert.equal(payload.exportedAt, "2026-06-27T00:00:00.000Z");
+  });
+
+  it("通線ルート付き PDF ペイロードを組み立てられる", () => {
+    const payload = buildDrawingEditorPdfPayloadV1({
+      backgroundImageUrl: "/dummy.png",
+      canvasWidth: 100,
+      canvasHeight: 100,
+      symbols: [],
+      routes: [
+        {
+          id: "r1",
+          lineType: "lan",
+          color: "#2563eb",
+          width: 3,
+          points: [
+            { x: 0.1, y: 0.2 },
+            { x: 0.9, y: 0.8 },
+          ],
+        },
+      ],
+    });
+    assert.equal(payload.routes.length, 1);
+    assert.equal(payload.routes[0].points[1].x, 0.9);
   });
 
   it("座標は 0〜1 にクランプされる", () => {

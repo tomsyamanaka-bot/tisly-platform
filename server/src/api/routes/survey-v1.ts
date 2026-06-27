@@ -54,6 +54,7 @@ import {
   SURVEY_DRAWING_SOURCE_TYPES,
 } from "../../survey/survey-drawing-v1-types.js";
 import { linkSurveyDrawingBackgroundToSpecSlotV1 } from "../../projects/specification-photos-v1.js";
+import { runSurveyAiPipelineV1 } from "../../survey/survey-ai-pipeline-v1.js";
 
 export const surveyV1Router = Router();
 
@@ -588,6 +589,25 @@ surveyV1Router.get(
       res.json({ export: payload });
     } catch (e) {
       res.status(404).json({ error: String(e) });
+    }
+  }
+);
+
+/** 現調 AI パイプライン v1 — 図面 + 音声ログ → 見積候補 · PDF ペイロード */
+surveyV1Router.post(
+  "/drawing-sketches/:sketchId/ai-pipeline",
+  ...surveyV1Auth,
+  (req: AuthedRequest, res) => {
+    if (!assertSurveyRole(req, res)) return;
+    try {
+      const result = runSurveyAiPipelineV1({
+        sketchId: String(req.params.sketchId),
+        businessProjectId: req.body?.businessProjectId ?? null,
+        voiceLog: Array.isArray(req.body?.voiceLog) ? req.body.voiceLog : [],
+      });
+      res.json({ pipeline: result });
+    } catch (e) {
+      res.status(400).json({ error: String(e) });
     }
   }
 );

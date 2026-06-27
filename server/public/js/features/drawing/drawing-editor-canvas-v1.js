@@ -1,9 +1,9 @@
 /**
- * 蝗ｳ髱｢繧ｨ繝・ぅ繧ｿ v1 窶・謇区嶌縺榊・逵溯レ譎ｯ + SVG 險伜捷繝ｬ繧､繝､
- * 豁｣隕丞喧蠎ｧ讓呻ｼ・縲・・峨〒繝励Ο繝・ヨ繧剃ｿ晄戟
+ * ?????? v1 ? ??????? + SVG ?????
+ * ??????0?1?????????
  */
 
-/** 譁ｹ逵ｼ邏咎｢ｨ繝繝溘・閭梧勹・・ata URL SVG・・*/
+/** ??????????data URL SVG? */
 export const DRAWING_EDITOR_DUMMY_BG_V1 =
   "data:image/svg+xml," +
   encodeURIComponent(`<?xml version="1.0" encoding="UTF-8"?>
@@ -15,8 +15,15 @@ export const DRAWING_EDITOR_DUMMY_BG_V1 =
     </pattern>
   </defs>
   <rect width="1200" height="800" fill="url(#g)"/>
-  <text x="600" y="400" text-anchor="middle" font-family="sans-serif" font-size="28" fill="#64748b">謇区嶌縺肴婿逵ｼ邏呻ｼ医ム繝溘・・・/text>
+  <text x="600" y="400" text-anchor="middle" font-family="sans-serif" font-size="28" fill="#64748b">???????????</text>
 </svg>`);
+
+const ROUTE_COLORS = {
+  lan: "#2563eb",
+  power100v: "#dc2626",
+  power24v: "#ca8a04",
+  generic: "#0f172a",
+};
 
 /**
  * @param {object} opts
@@ -26,7 +33,7 @@ export const DRAWING_EDITOR_DUMMY_BG_V1 =
  */
 export function createDrawingEditorCanvasV1(opts) {
   const { stageEl, bgEl, svgEl } = opts;
-  if (!stageEl) throw new Error("stageEl 縺悟ｿ・ｦ√〒縺・);
+  if (!stageEl) throw new Error("stageEl ?????");
 
   stageEl.classList.add("drawing-editor-v1-stage");
 
@@ -35,7 +42,7 @@ export function createDrawingEditorCanvasV1(opts) {
   if (!bgImage) {
     bgImage = document.createElement("img");
     bgImage.className = "drawing-editor-v1-bg";
-    bgImage.alt = "謇区嶌縺肴婿逵ｼ邏・;
+    bgImage.alt = "??????";
     stageEl.prepend(bgImage);
   } else {
     bgImage.classList.add("drawing-editor-v1-bg");
@@ -51,6 +58,13 @@ export function createDrawingEditorCanvasV1(opts) {
     svg.classList.add("drawing-editor-v1-svg");
   }
 
+  let routeLayer = svg.querySelector("#de-v1-route-layer");
+  if (!routeLayer) {
+    routeLayer = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    routeLayer.setAttribute("id", "de-v1-route-layer");
+    svg.appendChild(routeLayer);
+  }
+
   let symbolLayer = svg.querySelector("#de-v1-symbol-layer");
   if (!symbolLayer) {
     symbolLayer = document.createElementNS("http://www.w3.org/2000/svg", "g");
@@ -60,6 +74,14 @@ export function createDrawingEditorCanvasV1(opts) {
 
   /** @type {Array<{id:string,symbolType:string,icon:string,label:string,x:number,y:number}>} */
   let plots = [];
+  /** @type {Array<{id:string,lineType:string,color:string,width:number,points:Array<{x:number,y:number}>}>} */
+  let routes = [];
+  /** @type {boolean} */
+  let routeMode = false;
+  /** @type {{points:Array<{x:number,y:number}>}|null} */
+  let currentRoute = null;
+  /** @type {((routes: unknown[]) => void)|null} */
+  let onRoutesChange = null;
 
   function syncSvgViewBox() {
     const w = stageEl.clientWidth || 800;
@@ -81,6 +103,50 @@ export function createDrawingEditorCanvasV1(opts) {
     return bgImage.src || DRAWING_EDITOR_DUMMY_BG_V1;
   }
 
+  function renderRoutes() {
+    routeLayer.replaceChildren();
+    const { w, h } = syncSvgViewBox();
+    for (const route of routes) {
+      if (!route.points?.length) continue;
+      const color = route.color || ROUTE_COLORS[route.lineType] || ROUTE_COLORS.generic;
+      const d = route.points
+        .map((pt, i) => {
+          const px = pt.x * w;
+          const py = pt.y * h;
+          return `${i ? "L" : "M"}${px} ${py}`;
+        })
+        .join(" ");
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("d", d);
+      path.setAttribute("fill", "none");
+      path.setAttribute("stroke", color);
+      path.setAttribute("stroke-width", String(route.width || 3));
+      path.setAttribute("stroke-linecap", "round");
+      path.setAttribute("stroke-linejoin", "round");
+      path.setAttribute("class", "de-v1-route");
+      routeLayer.appendChild(path);
+    }
+    if (currentRoute?.points?.length) {
+      const color = ROUTE_COLORS.generic;
+      const d = currentRoute.points
+        .map((pt, i) => {
+          const px = pt.x * w;
+          const py = pt.y * h;
+          return `${i ? "L" : "M"}${px} ${py}`;
+        })
+        .join(" ");
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("d", d);
+      path.setAttribute("fill", "none");
+      path.setAttribute("stroke", color);
+      path.setAttribute("stroke-width", "3");
+      path.setAttribute("stroke-linecap", "round");
+      path.setAttribute("stroke-dasharray", "6 4");
+      path.setAttribute("class", "de-v1-route de-v1-route-preview");
+      routeLayer.appendChild(path);
+    }
+  }
+
   function renderPlots() {
     symbolLayer.replaceChildren();
     const { w, h } = syncSvgViewBox();
@@ -100,9 +166,14 @@ export function createDrawingEditorCanvasV1(opts) {
     }
   }
 
+  function renderAll() {
+    renderRoutes();
+    renderPlots();
+  }
+
   /**
-   * 繧ｹ繝・・繧ｸ荳翫・繧ｿ繝・・蠎ｧ讓吶ｒ
-   * 豁｣隕丞喧 0縲・ 縺ｫ螟画鋤
+   * ????????????
+   * ??? 0?1 ???
    */
   function clientToNormalized(clientX, clientY) {
     const rect = stageEl.getBoundingClientRect();
@@ -113,6 +184,10 @@ export function createDrawingEditorCanvasV1(opts) {
       x: Math.min(1, Math.max(0, (clientX - rect.left) / rect.width)),
       y: Math.min(1, Math.max(0, (clientY - rect.top) / rect.height)),
     };
+  }
+
+  function uid() {
+    return crypto.randomUUID?.() || `de-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   }
 
   function addPlot(plot) {
@@ -130,14 +205,91 @@ export function createDrawingEditorCanvasV1(opts) {
     renderPlots();
   }
 
+  function getRoutes() {
+    return routes.slice();
+  }
+
+  function setRoutes(next) {
+    routes = Array.isArray(next) ? next.slice() : [];
+    renderRoutes();
+  }
+
+  function addRoute(route) {
+    routes = [...routes, route];
+    renderRoutes();
+    onRoutesChange?.(routes);
+    return route;
+  }
+
+  function setRouteMode(enabled) {
+    routeMode = !!enabled;
+    stageEl.classList.toggle("is-route-mode", routeMode);
+    if (!routeMode) {
+      currentRoute = null;
+      renderRoutes();
+    }
+  }
+
+  function isRouteMode() {
+    return routeMode;
+  }
+
+  function onRoutePointerDown(ev) {
+    if (!routeMode) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    const pt = clientToNormalized(ev.clientX, ev.clientY);
+    currentRoute = { points: [pt] };
+    stageEl.setPointerCapture?.(ev.pointerId);
+    renderRoutes();
+  }
+
+  function onRoutePointerMove(ev) {
+    if (!routeMode || !currentRoute) return;
+    ev.preventDefault();
+    const pt = clientToNormalized(ev.clientX, ev.clientY);
+    const start = currentRoute.points[0];
+    currentRoute.points = [start, pt];
+    renderRoutes();
+  }
+
+  function onRoutePointerUp(ev) {
+    if (!routeMode || !currentRoute) return;
+    ev.preventDefault();
+    const pts = currentRoute.points;
+    if (pts.length >= 2) {
+      addRoute({
+        id: uid(),
+        lineType: "generic",
+        color: ROUTE_COLORS.generic,
+        width: 3,
+        points: pts.map((p) => ({ x: p.x, y: p.y })),
+      });
+    }
+    currentRoute = null;
+    stageEl.releasePointerCapture?.(ev.pointerId);
+    renderRoutes();
+  }
+
+  function bindRouteDrawing() {
+    stageEl.addEventListener("pointerdown", onRoutePointerDown);
+    stageEl.addEventListener("pointermove", onRoutePointerMove);
+    stageEl.addEventListener("pointerup", onRoutePointerUp);
+    stageEl.addEventListener("pointercancel", onRoutePointerUp);
+  }
+
+  function setOnRoutesChange(fn) {
+    onRoutesChange = fn;
+  }
+
   function getCanvasSize() {
     const { w, h } = syncSvgViewBox();
     return { width: w, height: h };
   }
 
-  // 蛻晄悄繝繝溘・閭梧勹
+  bindRouteDrawing();
   setBackgroundUrl("");
-  renderPlots();
+  renderAll();
 
   return {
     stageEl,
@@ -149,7 +301,15 @@ export function createDrawingEditorCanvasV1(opts) {
     addPlot,
     getPlots,
     setPlots,
+    getRoutes,
+    setRoutes,
+    addRoute,
+    setRouteMode,
+    isRouteMode,
+    setOnRoutesChange,
     renderPlots,
+    renderRoutes,
+    renderAll,
     getCanvasSize,
     syncSvgViewBox,
   };

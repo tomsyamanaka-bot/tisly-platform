@@ -1,6 +1,6 @@
 /**
  * 音声誘導ナビ v1 — メインブートストラップ
- * 音声合成 · 認識 · 疑似シーケンスを連動
+ * 音声合成 · 認識 · 複数回路シーケンス連動
  */
 import {
   createVoiceNavSpeechV1,
@@ -12,7 +12,7 @@ import {
   patchVoiceNavClientStateV1,
 } from "./voice-nav-state-v1.js";
 import {
-  buildVoiceNavDemoSequenceClientV1,
+  buildVoiceNavMultiCircuitSequenceClientV1,
   startVoiceNavSequenceClientV1,
   advanceVoiceNavSequenceClientV1,
 } from "./voice-nav-sequence-v1.js";
@@ -25,10 +25,16 @@ export const VOICE_NAV_V1_VERSION = "voice-nav-v1";
 
 /**
  * @param {object} [opts]
- * @param {number} [opts.circuitNumber]
+ * @param {number} [opts.circuitCount] チェックする回路数（1〜8）
+ * @param {number} [opts.startCircuit] 開始回路番号
  */
 export function initVoiceNavV1(opts = {}) {
-  const circuitNumber = opts.circuitNumber ?? 1;
+  const circuitCount = Math.min(8, Math.max(1, opts.circuitCount ?? 3));
+  const startCircuit = opts.startCircuit ?? 1;
+  const circuitNumbers = Array.from(
+    { length: circuitCount },
+    (_, i) => startCircuit + i
+  );
 
   const els = {
     circuitEl: document.getElementById("voice-nav-circuit"),
@@ -40,6 +46,7 @@ export function initVoiceNavV1(opts = {}) {
     logEl: document.getElementById("voice-nav-log"),
     startBtn: document.getElementById("voice-nav-start"),
     resetBtn: document.getElementById("voice-nav-reset"),
+    circuitCountEl: document.getElementById("voice-nav-circuit-count"),
   };
 
   if (!els.startBtn) {
@@ -59,13 +66,13 @@ export function initVoiceNavV1(opts = {}) {
     return null;
   }
 
-  /** @type {ReturnType<typeof buildVoiceNavDemoSequenceClientV1>} */
-  let steps = buildVoiceNavDemoSequenceClientV1(circuitNumber);
+  /** @type {ReturnType<typeof buildVoiceNavMultiCircuitSequenceClientV1>} */
+  let steps = buildVoiceNavMultiCircuitSequenceClientV1(circuitNumbers);
   let sessionActive = false;
   let busy = false;
 
   const store = createVoiceNavStateStoreV1(
-    createInitialVoiceNavClientStateV1(circuitNumber),
+    createInitialVoiceNavClientStateV1(startCircuit),
     (state) => {
       renderVoiceNavPanelV1(els, state, {
         listening: speech.isListening(),
@@ -85,6 +92,15 @@ export function initVoiceNavV1(opts = {}) {
     onListenStart: () => syncPanel(),
     onListenEnd: () => syncPanel(),
   });
+
+  function readCircuitNumbers() {
+    const count = Math.min(
+      8,
+      Math.max(1, Number(els.circuitCountEl?.value) || circuitCount)
+    );
+    const start = startCircuit;
+    return Array.from({ length: count }, (_, i) => start + i);
+  }
 
   function syncPanel() {
     renderVoiceNavPanelV1(els, store.getState(), {
@@ -134,6 +150,7 @@ export function initVoiceNavV1(opts = {}) {
     if (!sessionActive || busy) return;
     appendVoiceNavLogV1(els.logEl, `🎤 ${transcript}`);
     busy = true;
+    speech.stopListen();
 
     const prev = store.getState();
     const result = advanceVoiceNavSequenceClientV1(
@@ -153,16 +170,17 @@ export function initVoiceNavV1(opts = {}) {
 
     if (result.prompt) {
       await speakAndShow(result.prompt);
-      if (result.state.investigationStatus === "verifying_outage") {
-        store.patch({
-          investigationStatus: "completed",
-        });
-        appendVoiceNavLogV1(els.logEl, "✓ 停電確認シーケンス完了（モック）");
-      }
     }
 
-    sessionActive = false;
-    if (els.startBtn) els.startBtn.disabled = false;
+    if (result.state.investigationStatus === "completed") {
+      sessionActive = false;
+      if (els.startBtn) els.startBtn.disabled = false;
+      if (els.circuitCountEl) els.circuitCountEl.disabled = false;
+      appendVoiceNavLogV1(els.logEl, "✓ 全回路の停電チェック完了");
+    } else {
+      scheduleListenRetry();
+    }
+
     busy = false;
     syncPanel();
   }
@@ -172,15 +190,23 @@ export function initVoiceNavV1(opts = {}) {
     busy = true;
     sessionActive = true;
     if (els.startBtn) els.startBtn.disabled = true;
+    if (els.circuitCountEl) els.circuitCountEl.disabled = true;
 
-    store.reset(circuitNumber);
-    steps = buildVoiceNavDemoSequenceClientV1(circuitNumber);
+    const nums = readCircuitNumbers();
+    steps = buildVoiceNavMultiCircuitSequenceClientV1(nums);
+    store.reset(nums[0] ?? startCircuit);
+
     const started = startVoiceNavSequenceClientV1(
       store.getState(),
       steps,
       patchVoiceNavClientStateV1
     );
     store.patch(started.state);
+
+    appendVoiceNavLogV1(
+      els.logEl,
+      `▶ ${nums.length}回路チェック開始 (${nums.join(" → ")})`
+    );
 
     await speakAndShow(started.prompt);
     speech.startListen();
@@ -193,10 +219,13 @@ export function initVoiceNavV1(opts = {}) {
     busy = false;
     speech.stopListen();
     speech.stopSpeak();
-    store.reset(circuitNumber);
+    const nums = readCircuitNumbers();
+    store.reset(nums[0] ?? startCircuit);
+    steps = buildVoiceNavMultiCircuitSequenceClientV1(nums);
     setPrompt("スタートを押して音声誘導を開始");
     if (els.logEl) els.logEl.innerHTML = "";
     if (els.startBtn) els.startBtn.disabled = false;
+    if (els.circuitCountEl) els.circuitCountEl.disabled = false;
     syncPanel();
   }
 

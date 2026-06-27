@@ -24,6 +24,8 @@ export const VOICE_NAV_ACK_PATTERNS = [
  * @property {VoiceNavClientState['investigationStatus']} awaitStatus
  * @property {VoiceNavClientState['investigationStatus']} nextStatus
  * @property {string} [nextPrompt]
+ * @property {number} [targetCircuitNumber]
+ * @property {number|null} [nextCircuitNumber]
  */
 
 /**
@@ -47,6 +49,36 @@ export function buildVoiceNavDemoSequenceClientV1(circuitNumber) {
       nextStatus: "outage_confirmed",
     },
   ];
+}
+
+/**
+ * 複数回路連続チェック用シーケンス
+ * @param {number[]} circuitNumbers
+ * @returns {VoiceNavSequenceStep[]}
+ */
+export function buildVoiceNavMultiCircuitSequenceClientV1(circuitNumbers) {
+  const nums = (circuitNumbers || []).filter((n) => Number.isFinite(n) && n > 0);
+  if (!nums.length) return buildVoiceNavDemoSequenceClientV1(1);
+
+  /** @type {VoiceNavSequenceStep[]} */
+  const steps = [];
+  for (let i = 0; i < nums.length; i++) {
+    const n = nums[i];
+    const next = nums[i + 1];
+    const ns = String(n);
+    steps.push({
+      id: `breaker_off_${n}`,
+      prompt: `${ns}番ブレーカーを落としてください`,
+      awaitStatus: "awaiting_breaker_off",
+      nextStatus: next ? "awaiting_breaker_off" : "completed",
+      nextPrompt: next
+        ? `${ns}番の停電を検知、次へ進みます。${next}番を落としてください`
+        : `${ns}番の停電を検知、すべての回路チェックが完了しました`,
+      targetCircuitNumber: n,
+      nextCircuitNumber: next ?? null,
+    });
+  }
+  return steps;
 }
 
 /**
@@ -79,6 +111,7 @@ export function startVoiceNavSequenceClientV1(state, steps, patchFn) {
     state: patchFn(state, {
       investigationStatus: first.awaitStatus,
       currentStepIndex: 0,
+      targetCircuitNumber: first.targetCircuitNumber ?? state.targetCircuitNumber,
       startedAt: state.startedAt ?? new Date().toISOString(),
       lastError: null,
     }),
@@ -118,16 +151,14 @@ export function advanceVoiceNavSequenceClientV1(
     };
   }
 
-  const promptAfterAck = step.nextPrompt ?? null;
-  const nextIndex = step.nextPrompt ? state.currentStepIndex : state.currentStepIndex + 1;
+  const nextIndex = state.currentStepIndex + 1;
   const nextStep = steps[nextIndex];
+  const promptAfterAck = step.nextPrompt ?? nextStep?.prompt ?? null;
 
   let nextStatus = step.nextStatus;
-  if (step.nextPrompt) {
-    nextStatus = "verifying_outage";
-  } else if (!nextStep) {
+  if (!nextStep && !step.nextPrompt) {
     nextStatus = "completed";
-  } else {
+  } else if (nextStep && !step.nextPrompt) {
     nextStatus = nextStep.awaitStatus;
   }
 
@@ -135,9 +166,15 @@ export function advanceVoiceNavSequenceClientV1(
     lastVoiceCommand: transcript,
     investigationStatus: nextStatus,
     currentStepIndex: nextIndex,
+    targetCircuitNumber:
+      nextStatus === "completed"
+        ? step.targetCircuitNumber ?? state.targetCircuitNumber
+        : step.nextCircuitNumber ??
+          nextStep?.targetCircuitNumber ??
+          state.targetCircuitNumber,
   });
 
-  if (nextStatus === "outage_confirmed") {
+  if (nextStatus === "outage_confirmed" && !nextStep) {
     nextState = patchFn(nextState, {
       investigationStatus: "completed",
     });

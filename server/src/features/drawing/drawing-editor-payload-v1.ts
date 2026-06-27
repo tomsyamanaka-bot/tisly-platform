@@ -22,6 +22,17 @@ export interface DrawingEditorPlotPointV1 {
   y: number;
 }
 
+/** 通線ルート 1 本（正規化座標） */
+export interface DrawingEditorRouteV1 {
+  id: string;
+  /** 線種 ID（lan / power100v / generic 等） */
+  lineType: string;
+  color: string;
+  width: number;
+  /** 正規化座標の折れ点列 */
+  points: DrawingEditorPlotPointV1[];
+}
+
 /** プロット済み記号 1 件 */
 export interface DrawingEditorSymbolPlotV1 {
   id: string;
@@ -50,11 +61,13 @@ export interface DrawingEditorPdfPayloadV1 {
   canvasHeight: number;
   /** プロット済み記号一覧 */
   symbols: DrawingEditorSymbolPlotV1[];
+  /** 通線ルート一覧 */
+  routes: DrawingEditorRouteV1[];
   /** 生成日時 ISO8601 */
   exportedAt: string;
 }
 
-/** 記号メタ（UI・PDF 凡例共通） */
+/** 記号メタ（UI・PDF 凡例用） */
 export interface DrawingEditorSymbolMetaV1 {
   symbolType: DrawingEditorSymbolTypeV1;
   icon: string;

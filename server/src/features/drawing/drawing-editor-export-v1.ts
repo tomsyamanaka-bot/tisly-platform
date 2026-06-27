@@ -6,6 +6,7 @@
 import {
   DRAWING_EDITOR_PAYLOAD_SCHEMA_VERSION,
   type DrawingEditorPdfPayloadV1,
+  type DrawingEditorRouteV1,
   type DrawingEditorSymbolPlotV1,
 } from "./drawing-editor-payload-v1.js";
 
@@ -14,6 +15,7 @@ export interface BuildDrawingEditorPdfPayloadInputV1 {
   canvasWidth: number;
   canvasHeight: number;
   symbols: DrawingEditorSymbolPlotV1[];
+  routes?: DrawingEditorRouteV1[];
   exportedAt?: string;
 }
 
@@ -31,6 +33,10 @@ export function buildDrawingEditorPdfPayloadV1(
     x: clamp01(s.x),
     y: clamp01(s.y),
   }));
+  const routes = (input.routes ?? []).map((r) => ({
+    ...r,
+    points: r.points.map((p) => ({ x: clamp01(p.x), y: clamp01(p.y) })),
+  }));
 
   return {
     schemaVersion: DRAWING_EDITOR_PAYLOAD_SCHEMA_VERSION,
@@ -38,6 +44,7 @@ export function buildDrawingEditorPdfPayloadV1(
     canvasWidth: w,
     canvasHeight: h,
     symbols,
+    routes,
     exportedAt: input.exportedAt ?? new Date().toISOString(),
   };
 }

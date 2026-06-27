@@ -343,6 +343,8 @@ export function buildPdfPhotoGridStyles(
   .${prefix}-drawing-title { margin: 0 0 0.3mm; font-size: 7.5pt; font-weight: 700; color: #334155; }
   .${prefix}-drawing-img-wrap { width: 100%; max-height: 42mm; overflow: hidden; border: 1px solid #e2e8f0; border-radius: 1mm; }
   .${prefix}-drawing-img-wrap img { width: 100%; height: auto; max-height: 42mm; object-fit: contain; display: block; }
+  .${prefix}-drawing-svg-wrap { width: 100%; max-height: 42mm; overflow: hidden; border: 1px solid #e2e8f0; border-radius: 1mm; background: #fff; }
+  .${prefix}-drawing-svg-wrap svg { width: 100%; height: auto; max-height: 42mm; display: block; }
   .${prefix}-no-photos-cover { margin-top: 1.5mm; text-align: center; font-size: 8.5pt; color: #64748b; flex: 0 0 auto; }
   .${prefix}-photo-page { padding: 0; }
   .${prefix}-photo-grid {

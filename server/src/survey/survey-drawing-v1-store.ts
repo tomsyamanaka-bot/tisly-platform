@@ -46,6 +46,7 @@ function normalizeLayersForSave(layers: SurveyDrawingLayersV2): SurveyDrawingLay
     })),
     notes: layers.notes ?? [],
     viewport: layers.viewport ?? { scale: 1, offsetX: 0, offsetY: 0 },
+    editorV1: layers.editorV1 ?? undefined,
   };
 }
 

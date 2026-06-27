@@ -15,6 +15,7 @@ export {
 export {
   VOICE_NAV_ACK_PATTERNS,
   buildVoiceNavDemoSequenceV1,
+  buildVoiceNavMultiCircuitSequenceV1,
   isVoiceNavAckCommandV1,
   startVoiceNavSequenceV1,
   advanceVoiceNavSequenceV1,
