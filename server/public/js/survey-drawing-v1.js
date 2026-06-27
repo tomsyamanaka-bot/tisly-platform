@@ -39,6 +39,7 @@ const LINE_TYPE_DASH = {
 
 import { navigatePracticalReturn, navigateTo } from "./tisly-return-nav-v1.js";
 import { navigateBackOne } from "./tisly-navigation-stack-v1.js";
+import { initDrawingEditorFoundationV1 } from "./features/drawing/drawing-editor-v1.js";
 
 function $(id) {
   return document.getElementById(id);
@@ -1112,6 +1113,7 @@ async function main() {
   await Promise.all([loadSymbols(), loadLineTypes()]);
   await loadSketch();
   await refreshEstimateDraftState();
+  initDrawingEditorFoundationV1({ onStatus: setStatus });
   setStatus("描画できます（指・タッチペン対応）");
 }
 

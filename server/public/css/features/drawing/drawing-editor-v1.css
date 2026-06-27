@@ -1,0 +1,137 @@
+/**
+ * 図面エディタ v1 — サイバーパンク共通ダークトーン
+ * ディープネイビー × チャコールグレー
+ */
+
+:root {
+  --de-v1-navy: #0f172a;
+  --de-v1-charcoal: #1e293b;
+  --de-v1-panel: #334155;
+  --de-v1-accent: #38bdf8;
+  --de-v1-accent-glow: rgba(56, 189, 248, 0.35);
+  --de-v1-text: #e2e8f0;
+  --de-v1-muted: #94a3b8;
+}
+
+/* 図面ステージ — 手書き写真を全幅背景に */
+.drawing-editor-v1-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  background: linear-gradient(
+    180deg,
+    var(--de-v1-navy) 0%,
+    var(--de-v1-charcoal) 100%
+  );
+  border: 1px solid var(--de-v1-panel);
+  border-radius: 10px;
+  box-shadow:
+    inset 0 0 40px rgba(0, 0, 0, 0.45),
+    0 0 18px var(--de-v1-accent-glow);
+}
+
+.drawing-editor-v1-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  pointer-events: none;
+  user-select: none;
+  opacity: 0.92;
+}
+
+.drawing-editor-v1-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+.drawing-editor-v1-svg .de-v1-symbol {
+  cursor: default;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.55));
+}
+
+.drawing-editor-v1-svg .de-v1-symbol text {
+  font-family: "Segoe UI Emoji", "Apple Color Emoji", sans-serif;
+  font-size: 28px;
+  user-select: none;
+}
+
+/* 手袋対応 — 下部大型記号ドック */
+.drawing-symbol-dock-v1 {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.5rem 0.65rem;
+  padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(
+    180deg,
+    var(--de-v1-charcoal) 0%,
+    var(--de-v1-navy) 100%
+  );
+  border-top: 1px solid var(--de-v1-panel);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.35);
+}
+
+.drawing-symbol-dock-v1__row {
+  display: flex;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.drawing-symbol-dock-v1__hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--de-v1-muted);
+  text-align: center;
+}
+
+.drawing-symbol-dock-v1__btn {
+  flex: 1 1 0;
+  min-width: 72px;
+  min-height: 72px;
+  border: 2px solid var(--de-v1-panel);
+  border-radius: 14px;
+  background: var(--de-v1-navy);
+  color: var(--de-v1-text);
+  font-size: 1.65rem;
+  line-height: 1.1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  touch-action: manipulation;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.1s ease;
+}
+
+.drawing-symbol-dock-v1__btn span {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--de-v1-muted);
+}
+
+.drawing-symbol-dock-v1__btn:active {
+  transform: scale(0.97);
+}
+
+.drawing-symbol-dock-v1__btn.is-active {
+  border-color: var(--de-v1-accent);
+  box-shadow:
+    0 0 0 2px var(--de-v1-accent-glow),
+    0 0 16px var(--de-v1-accent-glow);
+}
+
+.drawing-editor-v1-stage.is-plot-ready {
+  outline: 2px solid var(--de-v1-accent);
+  outline-offset: -2px;
+}

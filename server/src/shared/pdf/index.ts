@@ -48,3 +48,14 @@ export interface PdfGenerationPayloadV1 {
   bankInfo?: string;
   includePhotos?: boolean;
 }
+
+/** 図面エディタ v1 — PDF 連携用ペイロード型 */
+export type {
+  DrawingEditorPdfPayloadV1,
+  DrawingEditorSymbolPlotV1,
+  DrawingEditorSymbolTypeV1,
+} from "../../features/drawing/index.js";
+export {
+  DRAWING_EDITOR_PAYLOAD_SCHEMA_VERSION,
+  buildDrawingEditorPdfPayloadV1,
+} from "../../features/drawing/index.js";
