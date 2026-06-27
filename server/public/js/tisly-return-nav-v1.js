@@ -1,6 +1,13 @@
 /** 実運用フェーズ — 案件詳細から戻る際の return URL / ナビスタック処理 */
 
-import { hasNavStackEntry, navigateBackOne, navigateTo } from "./tisly-navigation-stack-v1.js";
+import {
+  getDefaultNavFallbackV1,
+  getNavZoneV1,
+  hasNavStackEntry,
+  isValidReturnUrlV1,
+  navigateBackOne,
+  navigateTo,
+} from "./tisly-navigation-stack-v1.js";
 
 export function readReturnUrl() {
   const ret = new URLSearchParams(location.search).get("return");
@@ -14,12 +21,16 @@ export function readReturnUrl() {
  * @returns {boolean} navigated away
  */
 export function navigatePracticalReturn(fallback) {
+  const zone = getNavZoneV1(location.pathname) || "internal";
+  const ret = readReturnUrl();
   if (hasNavStackEntry()) {
-    navigateBackOne();
+    navigateBackOne({
+      fallback: getDefaultNavFallbackV1(location.pathname),
+      explicitReturn: ret,
+    });
     return true;
   }
-  const ret = readReturnUrl();
-  if (ret) {
+  if (ret && isValidReturnUrlV1(ret, zone)) {
     navigateTo(ret, { record: false });
     return true;
   }

@@ -1,6 +1,7 @@
 /** TiSLY 実務 PWA 共通ナビ — 戻る/進む/アプリ一覧 + 下部タブ */
 
 import {
+  bindPopstateBackGuard,
   initNavigationStack,
   navigateBackOne,
   navigateTo,
@@ -47,6 +48,7 @@ export function initPracticalNav(opts) {
 
   const defaultBack = () => navigateBackOne(getDefaultNavFallbackV1(location.pathname));
   let backHandler = onBack || defaultBack;
+  bindPopstateBackGuard(() => backHandler());
 
   const topRoot = document.createElement("div");
   topRoot.id = "tisly-practical-topbar-root";

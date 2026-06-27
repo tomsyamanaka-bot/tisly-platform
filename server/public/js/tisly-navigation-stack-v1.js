@@ -77,15 +77,59 @@ export function navigateTo(href, { record = true } = {}) {
 
 /**
  * 1 画面だけ戻る（スタック pop · ブラウザ履歴は使わない）
- * @param {string} [fallback]
+ * @param {string | { fallback?: string; explicitReturn?: string | null }} [fallbackOrOpts]
  */
-export function navigateBackOne(fallback) {
+export function navigateBackOne(fallbackOrOpts) {
   const zone = currentZone();
   const stack = readStack();
+  let fallback;
+  let explicitReturn;
+  if (fallbackOrOpts && typeof fallbackOrOpts === "object") {
+    fallback = fallbackOrOpts.fallback;
+    explicitReturn = fallbackOrOpts.explicitReturn;
+  } else {
+    fallback = fallbackOrOpts;
+  }
   const fb = sanitizeNavPathV1(fallback) || getDefaultNavFallbackV1(location.pathname);
-  const result = safeReturn(stack, { fallback: fb, zone });
+  const result = safeReturn(stack, { fallback: fb, zone, explicitReturn });
   writeStack(result.stack);
   location.href = result.target;
+}
+
+const POPSTATE_GUARD_FLAG = "__tislyPopstateGuardV1";
+
+/** @type {(() => void) | null} */
+let popstateBackHandler = null;
+
+/**
+ * iPhone Safari / PWA のスワイプ戻りをナビスタック経由に統一（ゾーン混在防止）
+ * @param {() => void} [handler] — 未指定時は navigateBackOne
+ */
+export function bindPopstateBackGuard(handler) {
+  if (typeof window === "undefined") return;
+  popstateBackHandler = handler || null;
+  if (window[POPSTATE_GUARD_FLAG]) return;
+  window[POPSTATE_GUARD_FLAG] = true;
+
+  try {
+    const seed = { ...(history.state || {}), tislyNavGuard: 1 };
+    history.replaceState(seed, "", location.href);
+    history.pushState({ tislyNavGuard: 2 }, "", location.href);
+  } catch {
+    /* ignore */
+  }
+
+  window.addEventListener("popstate", () => {
+    try {
+      history.pushState({ tislyNavGuard: 2 }, "", location.href);
+    } catch {
+      /* ignore */
+    }
+    const fn =
+      popstateBackHandler ||
+      (() => navigateBackOne(getDefaultNavFallbackV1(location.pathname)));
+    fn();
+  });
 }
 
 /** 現在画面 URL をスタック先頭で置換 */

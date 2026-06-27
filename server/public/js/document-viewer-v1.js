@@ -9,7 +9,7 @@ import {
   triggerDownload,
   clearBlobUrlsFromPage,
 } from "./pdf-share-v1.js";
-import { initNavigationStack, navigateBackOne } from "./tisly-navigation-stack-v1.js";
+import { bindPopstateBackGuard, initNavigationStack, navigateBackOne } from "./tisly-navigation-stack-v1.js";
 
 const MOBILE_BREAKPOINT = 768;
 const API = "/api/estimate/v1";
@@ -554,6 +554,8 @@ async function init() {
   initNavigationStack();
   await requireCustomerLogin(customerCodeFromPath());
   const { kind, projectId, returnUrl } = parseParams();
+
+  bindPopstateBackGuard(() => handleBack(returnUrl));
 
   if (!projectId) {
     $("doc-loading").classList.add("hidden");

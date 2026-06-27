@@ -22,7 +22,7 @@ describe("PWA Route Repair Phase3", () => {
     assert.match(res.text, /estimate-ui-v8/);
     assert.match(res.text, /btn-pdf-quick-generate/);
     assert.match(res.text, /btn-pdf-quick-save/);
-    assert.match(res.text, /btn-pdf-quick-share/);
+    assert.match(res.text, /doc-action-grid/);
     assert.match(res.text, /invoice-bank-panel/);
     assert.match(res.text, /btn-new-standalone-estimate/);
     assert.match(res.text, /btn-new-standalone-invoice/);
@@ -46,7 +46,7 @@ describe("PWA Route Repair Phase3", () => {
 
   it("survey drawing editor passes surveyId in query builder", () => {
     const js = fs.readFileSync(path.join(publicDir, "js/survey-v1.js"), "utf-8");
-    assert.match(js, /SURVEY_UI_VERSION = "survey-ui-v4"/);
+    assert.match(js, /SURVEY_UI_VERSION = "survey-ui-v5"/);
     assert.match(js, /surveyId/);
     assert.match(js, /survey-drawing-v1/);
     assert.match(js, /survey-pdf-actions-v1/);
@@ -75,12 +75,12 @@ describe("PWA Route Repair Phase3", () => {
     assert.match(js, /checkBottomNavJs/);
     assert.match(js, /checkFieldChecklistJs/);
     assert.match(html.text, /verify-steps-list/);
-    assert.match(html.text, /route-health-v7/);
+    assert.match(html.text, /route-health-v10/);
   });
 
   it("service worker cache version bumped for PDF restore Phase4", () => {
     const sw = fs.readFileSync(path.join(publicDir, "service-worker.js"), "utf-8");
-    assert.match(sw, /v2397-production/);
+    assert.match(sw, /v2406-phase27/);
     assert.match(sw, /survey-drawing-v1/);
     assert.match(sw, /estimate-v1/);
   });
@@ -88,7 +88,7 @@ describe("PWA Route Repair Phase3", () => {
   it("survey-drawing-v1 route exists with grid and tools", async () => {
     const res = await request(app).get("/survey-drawing-v1");
     assert.equal(res.status, 200);
-    assert.match(res.text, /survey-drawing-ui-v3/);
+    assert.match(res.text, /survey-drawing-ui-v5/);
     assert.match(res.text, /drawing-svg/);
     assert.match(res.text, /btn-save/);
     assert.match(res.text, /btn-back/);
@@ -100,6 +100,8 @@ describe("PWA Route Repair Phase3", () => {
     assert.equal(res.status, 200);
     assert.match(res.text, /btn-survey-pdf-create/);
     assert.match(res.text, /btn-survey-pdf-preview/);
+    assert.match(res.text, /btn-hero-neon/);
+    assert.match(res.text, /btn-drawing-create/);
   });
 });
 

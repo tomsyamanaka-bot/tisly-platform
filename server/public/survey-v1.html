@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#1565c0" />
+  <meta name="theme-color" content="#0f172a" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="TiSLY現調" />
   <link rel="manifest" href="/manifest-survey-v1.webmanifest" />
@@ -238,10 +238,10 @@
     }
     .photo-title-label-text {
       display: block;
-      font-size: 0.8rem;
-      color: var(--tisly-muted);
-      margin-bottom: 0.3rem;
-      font-weight: 600;
+      font-size: 0.95rem;
+      color: #0f172a;
+      margin-bottom: 0.35rem;
+      font-weight: 700;
     }
     .photo-title-status {
       display: block;
@@ -295,14 +295,153 @@
       opacity: 0.35;
       cursor: not-allowed;
     }
+
+    /* STEP1 — 現調トップ：ネオン緑ヒーロー＋
+       リストカードのダークモード統合 */
+    body.survey-v1-page {
+      background: #0f172a;
+      color: #e2e8f0;
+    }
+    body.survey-v1-page #page-hint {
+      color: #94a3b8;
+    }
+    body.survey-v1-page #view-list .section-hint,
+    body.survey-v1-page #view-list .section-label {
+      color: #94a3b8;
+    }
+    body.survey-v1-page #view-list .empty-state {
+      color: #94a3b8;
+    }
+    body.survey-v1-page #view-list .btn-hero-neon {
+      background: linear-gradient(
+        180deg,
+        #6ee7b7 0%,
+        #5cb87a 45%,
+        #3d9a5c 100%
+      );
+      color: #052e16;
+      font-weight: 800;
+      border: none;
+      box-shadow:
+        0 0 0 1px rgba(110, 231, 183, 0.45),
+        0 0 22px rgba(74, 222, 128, 0.42),
+        0 6px 20px rgba(92, 184, 122, 0.55);
+      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.25);
+    }
+    body.survey-v1-page #view-list .btn-hero-neon:active {
+      transform: scale(0.98);
+      box-shadow:
+        0 0 0 1px rgba(110, 231, 183, 0.35),
+        0 0 14px rgba(74, 222, 128, 0.3),
+        0 3px 12px rgba(92, 184, 122, 0.4);
+    }
+    body.survey-v1-page #view-list .list-card {
+      background: linear-gradient(
+        180deg,
+        #1e293b 0%,
+        #273548 100%
+      );
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+    }
+    body.survey-v1-page #view-list .list-card h2 {
+      color: #f1f5f9;
+      font-weight: 700;
+    }
+    body.survey-v1-page #view-list .list-card p {
+      color: #94a3b8;
+    }
+    body.survey-v1-page #view-list .list-card:active {
+      box-shadow:
+        0 0 0 2px rgba(74, 222, 128, 0.55),
+        0 4px 14px rgba(0, 0, 0, 0.28);
+    }
+    body.survey-v1-page #view-list .list-card-action {
+      background: rgba(15, 23, 42, 0.65);
+      border-color: rgba(148, 163, 184, 0.35);
+      color: #e2e8f0;
+    }
+    body.survey-v1-page #view-list .status-badge.green {
+      background: rgba(74, 222, 128, 0.18);
+      color: #6ee7b7;
+      border: 1px solid rgba(74, 222, 128, 0.35);
+    }
+    body.survey-v1-page #view-list .status-badge.blue,
+    body.survey-v1-page #view-list .status-badge.done {
+      background: rgba(56, 189, 248, 0.15);
+      color: #7dd3fc;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+    body.survey-v1-page #view-list .status-badge.orange {
+      background: rgba(251, 191, 36, 0.15);
+      color: #fcd34d;
+      border: 1px solid rgba(251, 191, 36, 0.3);
+    }
+
+    /* STEP2 — 図面アクション強弱＋
+       入力フォームの余白拡大 */
+    body.survey-v1-page .drawing-actions-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+      margin-top: 0.65rem;
+    }
+    body.survey-v1-page .btn-drawing-create {
+      background: linear-gradient(
+        180deg,
+        #6ee7b7 0%,
+        #5cb87a 50%,
+        #4aa86a 100%
+      );
+      color: #052e16;
+      font-weight: 700;
+      margin-top: 0;
+      box-shadow:
+        0 0 0 1px rgba(110, 231, 183, 0.4),
+        0 4px 16px rgba(92, 184, 122, 0.45);
+    }
+    body.survey-v1-page .drawing-actions-stack .btn-sub {
+      margin-top: 0;
+      background: transparent;
+      color: #5cb87a;
+      border-color: rgba(92, 184, 122, 0.65);
+    }
+    body.survey-v1-page #view-detail .friendly-label,
+    body.survey-v1-page #view-edit .friendly-label,
+    body.survey-v1-page #project-form .friendly-label {
+      margin: 1.05rem 0 0.55rem;
+      font-size: 0.92rem;
+      font-weight: 600;
+    }
+    body.survey-v1-page #view-detail .section-label,
+    body.survey-v1-page #view-edit .section-label,
+    body.survey-v1-page #project-form .section-label {
+      margin: 1.35rem 0 0.65rem;
+    }
+    body.survey-v1-page #view-detail textarea,
+    body.survey-v1-page #view-edit textarea,
+    body.survey-v1-page #project-form textarea {
+      margin-top: 0.4rem;
+      padding: 0.75rem 0.85rem;
+      line-height: 1.55;
+    }
+    body.survey-v1-page #view-detail input,
+    body.survey-v1-page #view-edit input,
+    body.survey-v1-page #project-form input {
+      margin-top: 0.35rem;
+      padding: 0.7rem 0.85rem;
+    }
+    body.survey-v1-page #detail-memo {
+      margin-top: 0.45rem;
+    }
   </style>
 </head>
-<body class="tisly-friendly field-ops-touch">
+<body class="tisly-friendly field-ops-touch survey-v1-page">
   <main class="app-main">
     <p class="section-hint" id="page-hint">お客様の現場を見に行く記録を残します</p>
 
     <div id="view-list">
-      <button type="button" class="btn-hero" id="btn-new">＋ 新しい現調を作る</button>
+      <button type="button" class="btn-hero btn-hero-neon" id="btn-new">＋ 新しい現調を作る</button>
       <p class="section-label">📋 これまでの現調</p>
       <div id="project-list" class="empty-state">読み込み中…</div>
     </div>
@@ -368,19 +507,19 @@
 
       <p class="section-label">📷 現場の写真</p>
       <p class="section-hint">カメラで撮るか、写真ライブラリから複数枚選べます</p>
-      <div class="friendly-card">
+      <div class="friendly-card photo-section-card">
+        <p class="photo-guide-tip">追加した写真は<strong>仕様書 PDF</strong>に載ります。各写真の下に場所の名前（例：玄関・分電盤）を入れてください。見積書・請求書には写真を載せません。</p>
+        <div class="photo-action-row">
+          <button type="button" class="btn-hero photo-add-btn" id="btn-camera">📷 カメラで撮る</button>
+          <button type="button" class="btn-hero photo-add-btn" id="btn-library">🖼 写真を選ぶ</button>
+        </div>
+        <button type="button" class="btn-sub" id="btn-photo-memo">📝 文字だけメモ（写真なし）</button>
         <div id="photo-list" class="photo-scroll-container"></div>
         <p id="photo-count" class="section-hint hidden"></p>
         <button type="button" class="btn-sub hidden" id="btn-load-more-photos">さらに写真を表示</button>
-        <p class="section-hint">写真は仕様書・完了報告書に使えます。見積書と請求書には載せません。</p>
         <label class="friendly-label">文字だけメモ（任意） <textarea id="photo-comment" rows="2" placeholder="写真なしのメモ"></textarea></label>
         <input type="file" id="file-input-camera" accept="image/jpeg,image/png,image/heic,image/heif,image/*" capture="environment" style="display:none" />
         <input type="file" id="file-input-library" accept="image/jpeg,image/png,image/heic,image/heif,image/*" multiple style="display:none" />
-        <div class="photo-action-row">
-          <button type="button" class="btn-sub" id="btn-camera">📷 カメラで撮る</button>
-          <button type="button" class="btn-sub" id="btn-library">🖼 写真を選ぶ</button>
-        </div>
-        <button type="button" class="btn-sub" id="btn-photo-memo">📝 文字だけメモ</button>
         <p id="photo-upload-progress" class="section-hint hidden"></p>
       </div>
 
@@ -429,8 +568,10 @@
       <p class="section-hint">方眼紙の手書き図面を写真で取り込み、線・記号・メモを重ねられます</p>
       <div class="friendly-card">
         <div id="drawing-sketch-list" class="drawing-sketch-list"></div>
-        <button type="button" class="btn-sub" id="btn-new-drawing">＋ 新しい図面を作成</button>
-        <button type="button" class="btn-sub" id="btn-open-drawing">図面エディタを開く</button>
+        <div class="drawing-actions-stack">
+          <button type="button" class="btn-main btn-drawing-create" id="btn-new-drawing">＋ 新しい図面を作成</button>
+          <button type="button" class="btn-sub" id="btn-open-drawing">図面エディタを開く</button>
+        </div>
       </div>
 
       <div id="survey-pdf-bar" class="friendly-card hidden" aria-label="仕様書PDF操作">
@@ -491,6 +632,6 @@
   </div>
 
   <div id="toast" class="toast" role="status"></div>
-  <script type="module" src="/js/survey-v1.js?v=survey-ui-v4"></script>
+  <script type="module" src="/js/survey-v1.js?v=survey-ui-v5"></script>
 </body>
 </html>

@@ -36,17 +36,18 @@ body.tisly-friendly {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: var(--tisly-green);
-  color: #fff;
+  /* Phase3: 共通ダークトーン */
+  background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+  color: #e2e8f0;
   padding: 0.85rem 1rem;
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  box-shadow: var(--tisly-shadow);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.22);
 }
 
 .tisly-friendly header.app-header.blue {
-  background: var(--tisly-blue);
+  background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
 }
 
 .tisly-friendly header.app-header h1 {
@@ -175,6 +176,15 @@ body.tisly-friendly {
   background: var(--tisly-blue);
 }
 
+/* 決定ボタン — 塗り青＋ネ発光 */
+.tisly-friendly .btn-main.blue.btn-decision,
+.tisly-friendly .btn-decision {
+  background: linear-gradient(180deg, #5ba3f0 0%, var(--tisly-blue) 100%);
+  box-shadow:
+    0 0 0 1px rgba(74, 144, 217, 0.35),
+    0 4px 18px rgba(74, 144, 217, 0.45);
+}
+
 .tisly-friendly .btn-main:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -193,9 +203,31 @@ body.tisly-friendly {
   margin-top: 0.5rem;
 }
 
+/* サブボタン — 透過＋青枠 */
 .tisly-friendly .btn-sub.blue {
   color: var(--tisly-blue);
   border-color: var(--tisly-blue);
+  background: transparent;
+}
+
+/* 書類管理 — 誤タップ防止の縦余白 */
+.tisly-friendly .doc-workflow-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+  margin: 1.25rem 0 0.85rem;
+  padding: 0.15rem 0;
+}
+
+.tisly-friendly .doc-workflow-stack--invoice {
+  margin-top: 0.65rem;
+  gap: 0;
+}
+
+.tisly-friendly .doc-workflow-stack .btn-main,
+.tisly-friendly .doc-workflow-stack .btn-sub {
+  margin-top: 0;
+  width: 100%;
 }
 
 .tisly-friendly .list-card {
@@ -268,6 +300,34 @@ body.tisly-friendly {
 
 .tisly-friendly .photo-action-row .btn-sub {
   flex: 1;
+}
+
+.tisly-friendly .photo-action-row .btn-hero.photo-add-btn {
+  flex: 1;
+  margin: 0.35rem 0;
+  min-height: 56px;
+  font-size: 1.05rem;
+  padding: 0.85rem 0.75rem;
+}
+
+.tisly-friendly .photo-guide-tip {
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  margin: 0 0 0.75rem;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: #0c4a6e;
+}
+
+.tisly-friendly .photo-section-card {
+  padding: 1rem;
+}
+
+.tisly-friendly .photo-title-label-text {
+  font-size: 0.95rem;
+  font-weight: 700;
 }
 
 .tisly-friendly .photo-card {
@@ -698,10 +758,45 @@ body.tisly-friendly {
 
 .tisly-friendly .schedule-event-list li {
   font-size: 0.88rem;
-  padding: 0.25rem 0;
+  padding: 0.35rem 0;
   display: flex;
   gap: 0.35rem;
   align-items: flex-start;
+}
+
+/* 日程カード — 時間・案件名を最優先表示 */
+.tisly-friendly .schedule-event-practical .event-time-line {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.35;
+}
+
+.tisly-friendly .schedule-event-practical .event-title-line {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.35;
+  margin-top: 0.15rem;
+}
+
+.tisly-friendly .schedule-weather-mini {
+  font-size: 0.78rem;
+  line-height: 1.5;
+  margin: 0.35rem 0;
+  color: #94a3b8;
+}
+
+.tisly-friendly .weather-block-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #94a3b8;
+  margin-bottom: 0.12rem;
+}
+
+.tisly-friendly .weather-block-status {
+  font-size: 0.75rem;
+  color: #94a3b8;
 }
 
 .tisly-friendly .schedule-summary-grid {

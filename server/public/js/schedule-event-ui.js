@@ -60,8 +60,8 @@ export function renderWeekEventItemHtml(ev, { dayDate, catIcon, previewLen = 48,
     const styleAttr = liStyle ? ` style="${liStyle.replace(/border-left:[^;]+;?/, "")}"` : "";
     return `<li class="schedule-event-item schedule-event-practical"${styleAttr}>
       <div class="schedule-event-body">
-        ${time ? `<div class="event-time-line">${escapeScheduleHtml(time)}</div>` : ""}
-        <div class="event-title-line">${escapeScheduleHtml(ev.title)}</div>
+        ${time ? `<div class="event-time-line font-bold">${escapeScheduleHtml(time)}</div>` : ""}
+        <div class="event-title-line font-bold">${escapeScheduleHtml(ev.title)}</div>
       </div>
     </li>`;
   }
@@ -198,7 +198,7 @@ export function renderTravelBlocksHtml(travelBlocks, mapsIntegration) {
     .map((block, i) => {
       const dur =
         block.durationMin != null
-          ? `<strong>${block.durationMin}分</strong>${block.durationSource === "api" ? "（API）" : block.durationSource === "mock" ? "（目安）" : ""}`
+          ? `<strong>${block.durationMin}分</strong>${block.durationSource === "mock" ? "（目安）" : ""}`
           : "—";
       const inner = `<div class="travel-block-head">
           <div class="travel-block-label">${escapeScheduleHtml(block.label)}</div>

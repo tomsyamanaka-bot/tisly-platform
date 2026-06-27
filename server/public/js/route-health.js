@@ -47,7 +47,7 @@ const BOTTOM_NAV_LINKS = [
 
 const JS_ASSETS = [
   { path: "/js/estimate-v1.js?v=estimate-ui-v8", label: "estimate-v1 JS" },
-  { path: "/js/survey-v1.js?v=survey-ui-v4", label: "survey-v1 JS" },
+  { path: "/js/survey-v1.js?v=survey-ui-v5", label: "survey-v1 JS" },
   { path: "/js/survey-drawing-v1.js?v=survey-drawing-ui-v5", label: "survey-drawing-v1 JS" },
   { path: "/js/tisly-practical-nav.js", label: "bottom nav JS" },
 ];

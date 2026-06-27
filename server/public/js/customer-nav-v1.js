@@ -1,6 +1,7 @@
 /* お客様ポータル共通ナビ — /app へ戻らない · ナビスタック管理 */
 import { initCustomerCacheGuard } from "./customer-cache-v1.js";
 import {
+  bindPopstateBackGuard,
   getDefaultNavFallbackV1,
   hasNavStackEntry,
   initNavigationStack,
@@ -84,6 +85,7 @@ export function escapeHtml(s) {
 
 export function initCustomerPage() {
   initNavigationStack();
+  bindPopstateBackGuard(() => goCustomerBack());
   const path = location.pathname;
   if (path === "/customer" || path === "/customer/") {
     initCustomerCacheGuard().catch(() => {});

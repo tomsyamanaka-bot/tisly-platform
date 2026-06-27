@@ -5,6 +5,7 @@ import {
 } from "./customer-auth.js";
 import { initPracticalNav } from "./tisly-practical-nav.js";
 import { navigatePracticalReturn, navigateTo } from "./tisly-return-nav-v1.js";
+import { getDefaultNavFallbackV1, navigateBackOne } from "./tisly-navigation-stack-v1.js";
 import { friendlyHttpError, renderFriendlyErrorHtml } from "./tisly-friendly-errors.js";
 import {
   openSpecificationPreview,
@@ -13,7 +14,7 @@ import {
   shareSpecificationPdf,
 } from "./survey-pdf-actions-v1.js";
 
-export const SURVEY_UI_VERSION = "survey-ui-v4";
+export const SURVEY_UI_VERSION = "survey-ui-v5";
 
 let practicalNav = null;
 
@@ -1415,7 +1416,7 @@ async function uploadPhotos(files) {
   progress.classList.add("hidden");
   $("photo-comment").value = "";
   if (!failed && done === batch.length) {
-    toast(`写真を${done}枚追加しました`);
+    toast(`写真を${done}枚追加しました。下の「写真タイトル」に場所の名前を入れてください`);
   }
   await openDetail(currentProjectId);
 }
@@ -1434,8 +1435,8 @@ function handleBack() {
     showView("list");
     return;
   }
-  if (navigatePracticalReturn(() => showView("list"))) return;
-  showView("list");
+  if (navigatePracticalReturn(() => {})) return;
+  navigateBackOne(getDefaultNavFallbackV1(location.pathname));
 }
 
 function projectBodyFromForm(fd) {

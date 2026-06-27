@@ -1710,7 +1710,8 @@ function renderCompletionPhotos(pendingFiles = []) {
     })
     .join("");
   if (!completionPhotos.length && !pendingHtml) {
-    el.innerHTML = '<p class="survey-photo-hint">まだ写真がありません</p>';
+    el.innerHTML =
+      '<p class="photo-guide-tip" style="margin:0;">完了報告書用の写真を追加してください。現調写真は含まれません。</p>';
     return;
   }
   el.innerHTML =
@@ -1934,7 +1935,11 @@ async function uploadCompletionPhotos(files) {
   renderCompletionPhotos();
   hidePdfPreview();
   if (done > 0) {
-    toast(failed ? `${done}枚追加（一部失敗）` : "写真を追加しました");
+    toast(
+      failed
+        ? `${done}枚追加（一部失敗）`
+        : "写真を追加しました。タイトルに作業内容を入れてください"
+    );
     scheduleDocumentsStatusRefresh();
     prefetchProjectPdfsBackground();
   } else toast(COMPLETION_PHOTO_FAIL_MSG);

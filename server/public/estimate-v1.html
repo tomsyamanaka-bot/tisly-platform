@@ -463,7 +463,11 @@
 
       <label class="friendly-label">備考 <textarea id="estimate-notes" rows="3" placeholder="見積書に記載する備考"></textarea></label>
 
-      <button type="button" class="btn-sub blue" id="btn-save-items">内訳を保存</button>
+      <div class="doc-workflow-stack" aria-label="書類ワークフロー">
+        <button type="button" class="btn-sub blue" id="btn-save-items">内訳を保存</button>
+        <button type="button" class="btn-sub blue" id="btn-duplicate-estimate">見積を複製</button>
+        <button type="button" class="btn-main blue btn-decision" id="btn-finalize">見積を確定（印刷用）</button>
+      </div>
 
       <p class="section-label practical-hidden">🔧 現場作業・完了チェック</p>
       <div id="estimate-work-session" class="practical-hidden"></div>
@@ -478,20 +482,20 @@
         </div>
         <div>
           <p class="section-label" style="margin:0;">完了報告書用写真</p>
-          <p class="section-hint" style="margin:0.25rem 0 0.5rem;">完了報告書PDF専用。現調写真とは別管理です。</p>
+          <p class="section-hint" style="margin:0.25rem 0 0.5rem;">完了報告書 PDF 専用。現調写真とは別管理です。下のボタンで追加してください。</p>
           <input type="file" id="completion-photo-input-camera" accept="image/jpeg,image/png,image/heic,image/heif,image/*" capture="environment" style="display:none" />
           <input type="file" id="completion-photo-input-library" accept="image/*" multiple style="display:none" />
           <div class="photo-action-row">
-            <button type="button" class="btn-sub" id="btn-completion-camera">📷 カメラで撮る</button>
-            <button type="button" class="btn-sub" id="btn-completion-library">🖼 写真を選ぶ</button>
+            <button type="button" class="btn-hero photo-add-btn" id="btn-completion-camera">📷 カメラで撮る</button>
+            <button type="button" class="btn-hero photo-add-btn" id="btn-completion-library">🖼 写真を選ぶ</button>
           </div>
           <div id="completion-photo-list" class="photo-mgmt-grid" style="margin-top:0.5rem;"></div>
         </div>
       </div>
 
-      <button type="button" class="btn-sub blue" id="btn-duplicate-estimate">見積を複製</button>
-      <button type="button" class="btn-main blue" id="btn-finalize">見積を確定（印刷用）</button>
-      <button type="button" class="btn-main blue" id="btn-invoice">【請求書作成】</button>
+      <div class="doc-workflow-stack doc-workflow-stack--invoice">
+        <button type="button" class="btn-sub blue" id="btn-invoice">【請求書作成】</button>
+      </div>
 
       <p class="section-label">📄 書類の確認・印刷</p>
       <p class="section-hint">案件を開くと書類PDFをバックグラウンド生成します。「開く」で即表示できます。</p>

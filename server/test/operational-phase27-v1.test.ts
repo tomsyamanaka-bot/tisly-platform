@@ -74,14 +74,23 @@ describe("Operational Phase27 — back navigation (no browser history)", () => {
     });
   }
 
-  it("practical nav uses navigateBackOne", () => {
+  it("practical nav uses navigateBackOne and popstate guard", () => {
     const js = fs.readFileSync(path.join(publicDir, "js/tisly-practical-nav.js"), "utf-8");
     const navStack = fs.readFileSync(path.join(publicDir, "js/tisly-navigation-stack-shared-v1.js"), "utf-8");
+    const navStackJs = fs.readFileSync(path.join(publicDir, "js/tisly-navigation-stack-v1.js"), "utf-8");
     assert.ok(js.includes("navigateBackOne"));
     assert.ok(js.includes("navigateTo"));
+    assert.ok(js.includes("bindPopstateBackGuard"));
     assert.ok(navStack.includes("safeReturn"));
     assert.ok(navStack.includes("getNavZoneV1"));
+    assert.ok(navStackJs.includes("bindPopstateBackGuard"));
     assert.doesNotMatch(js, /history\.forward/);
+  });
+
+  it("return nav validates zone on return query", () => {
+    const js = fs.readFileSync(path.join(publicDir, "js/tisly-return-nav-v1.js"), "utf-8");
+    assert.ok(js.includes("isValidReturnUrlV1"));
+    assert.ok(js.includes("explicitReturn"));
   });
 });
 
