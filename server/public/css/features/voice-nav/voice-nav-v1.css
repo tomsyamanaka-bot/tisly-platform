@@ -1,0 +1,308 @@
+/**
+ * 音声誘導ナビ v1 — サイバーパンク UI
+ * ディープネイビー × チャコールグレー基調
+ */
+
+:root {
+  --vn-v1-navy: #0a0f1a;
+  --vn-v1-charcoal: #141c2b;
+  --vn-v1-panel: #1f2a3d;
+  --vn-v1-neon-blue: #00d4ff;
+  --vn-v1-neon-green: #39ff14;
+  --vn-v1-neon-glow-blue: rgba(0, 212, 255, 0.45);
+  --vn-v1-neon-glow-green: rgba(57, 255, 20, 0.4);
+  --vn-v1-text: #e8eef7;
+  --vn-v1-muted: #8b9cb8;
+  --vn-v1-danger: #ff4d6d;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--vn-v1-navy);
+  color: var(--vn-v1-text);
+  font-family: "Segoe UI", "Hiragino Sans", "Meiryo", sans-serif;
+}
+
+.voice-nav-v1-root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  background: linear-gradient(
+    165deg,
+    var(--vn-v1-navy) 0%,
+    var(--vn-v1-charcoal) 55%,
+    #0d1320 100%
+  );
+}
+
+/* ヘッダ — 現場モード表示 */
+.voice-nav-v1-header {
+  flex-shrink: 0;
+  padding: 1rem 1.1rem 0.65rem;
+  padding-top: calc(1rem + env(safe-area-inset-top, 0px));
+  border-bottom: 1px solid var(--vn-v1-panel);
+  background: rgba(10, 15, 26, 0.85);
+  backdrop-filter: blur(8px);
+}
+
+.voice-nav-v1-header h1 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--vn-v1-neon-blue);
+  text-shadow: 0 0 12px var(--vn-v1-neon-glow-blue);
+}
+
+.voice-nav-v1-header p {
+  margin: 0.35rem 0 0;
+  font-size: 0.82rem;
+  color: var(--vn-v1-muted);
+}
+
+/* メイン — マイクとステータス */
+.voice-nav-v1-main {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  padding: 1.5rem 1rem 2rem;
+}
+
+/* 巨大マイク状態インジケーター */
+.voice-nav-v1-mic-btn {
+  position: relative;
+  width: min(72vw, 280px);
+  height: min(72vw, 280px);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  background: radial-gradient(
+    circle at 35% 30%,
+    var(--vn-v1-panel) 0%,
+    var(--vn-v1-charcoal) 55%,
+    var(--vn-v1-navy) 100%
+  );
+  box-shadow:
+    inset 0 0 30px rgba(0, 0, 0, 0.5),
+    0 0 24px rgba(0, 212, 255, 0.12);
+  transition:
+    box-shadow 0.35s ease,
+    transform 0.2s ease;
+}
+
+.voice-nav-v1-mic-btn:active {
+  transform: scale(0.97);
+}
+
+.voice-nav-v1-mic-btn.is-listening {
+  box-shadow:
+    inset 0 0 40px rgba(0, 212, 255, 0.15),
+    0 0 48px var(--vn-v1-neon-glow-blue),
+    0 0 80px var(--vn-v1-neon-glow-green);
+  animation: vn-v1-mic-pulse 1.6s ease-in-out infinite;
+}
+
+.voice-nav-v1-mic-btn.is-speaking {
+  box-shadow:
+    inset 0 0 36px rgba(57, 255, 20, 0.12),
+    0 0 40px var(--vn-v1-neon-glow-green);
+}
+
+@keyframes vn-v1-mic-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.03);
+  }
+}
+
+.voice-nav-v1-mic-ring {
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  pointer-events: none;
+}
+
+.voice-nav-v1-mic-btn.is-listening .voice-nav-v1-mic-ring {
+  border-color: var(--vn-v1-neon-blue);
+  animation: vn-v1-ring-spin 3s linear infinite;
+}
+
+@keyframes vn-v1-ring-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.voice-nav-v1-mic-icon {
+  font-size: clamp(3.5rem, 18vw, 5.5rem);
+  line-height: 1;
+  filter: drop-shadow(0 0 8px rgba(0, 212, 255, 0.35));
+}
+
+.voice-nav-v1-mic-label {
+  display: block;
+  margin-top: 0.65rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  color: var(--vn-v1-muted);
+  text-align: center;
+}
+
+.voice-nav-v1-mic-btn.is-listening + .voice-nav-v1-mic-label,
+.voice-nav-v1-mic-wrap .voice-nav-v1-mic-label.is-active {
+  color: var(--vn-v1-neon-blue);
+  text-shadow: 0 0 10px var(--vn-v1-neon-glow-blue);
+}
+
+/* 制御パネル */
+.voice-nav-v1-panel {
+  width: min(100%, 420px);
+  padding: 1rem 1.1rem;
+  background: linear-gradient(
+    180deg,
+    rgba(31, 42, 61, 0.92) 0%,
+    rgba(20, 28, 43, 0.95) 100%
+  );
+  border: 1px solid var(--vn-v1-panel);
+  border-radius: 12px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+.voice-nav-v1-panel-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 0.88rem;
+}
+
+.voice-nav-v1-panel-row:last-child {
+  border-bottom: none;
+}
+
+.voice-nav-v1-panel-row dt {
+  margin: 0;
+  color: var(--vn-v1-muted);
+  font-weight: 500;
+}
+
+.voice-nav-v1-panel-row dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+  word-break: break-all;
+}
+
+.voice-nav-v1-status-idle {
+  color: var(--vn-v1-muted);
+}
+
+.voice-nav-v1-status-active {
+  color: var(--vn-v1-neon-blue);
+}
+
+.voice-nav-v1-status-verify {
+  color: var(--vn-v1-neon-green);
+}
+
+.voice-nav-v1-status-error {
+  color: var(--vn-v1-danger);
+}
+
+.voice-nav-v1-prompt {
+  margin: 0.75rem 0 0;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 8px;
+  border-left: 3px solid var(--vn-v1-neon-blue);
+  min-height: 2.8em;
+}
+
+/* スタート / リセット */
+.voice-nav-v1-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  justify-content: center;
+  width: min(100%, 420px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.voice-nav-v1-btn {
+  flex: 1 1 140px;
+  min-height: 52px;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--vn-v1-panel);
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  background: var(--vn-v1-charcoal);
+  color: var(--vn-v1-text);
+  transition:
+    background 0.2s,
+    box-shadow 0.2s;
+}
+
+.voice-nav-v1-btn-primary {
+  background: linear-gradient(
+    135deg,
+    rgba(0, 212, 255, 0.2) 0%,
+    rgba(0, 120, 160, 0.35) 100%
+  );
+  border-color: var(--vn-v1-neon-blue);
+  box-shadow: 0 0 16px rgba(0, 212, 255, 0.2);
+}
+
+.voice-nav-v1-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.voice-nav-v1-log {
+  width: min(100%, 420px);
+  max-height: 120px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0.5rem 0.65rem;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--vn-v1-muted);
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  list-style: none;
+}
+
+.voice-nav-v1-log li {
+  padding: 0.15rem 0;
+}
+
+.voice-nav-v1-unsupported {
+  padding: 1rem;
+  color: var(--vn-v1-danger);
+  text-align: center;
+  font-size: 0.9rem;
+}

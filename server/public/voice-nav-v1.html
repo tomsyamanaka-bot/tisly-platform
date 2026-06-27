@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0f1a" />
+  <title>音声誘導ナビ v1 — TiSLY</title>
+  <link rel="stylesheet" href="/css/features/voice-nav/voice-nav-v1.css" />
+</head>
+<body>
+  <div id="voice-nav-v1-app" class="voice-nav-v1-root">
+    <header class="voice-nav-v1-header">
+      <h1>Voice Nav</h1>
+      <p>分電盤回路特定 · 停電チェック（音声誘導デモ）</p>
+    </header>
+    <main class="voice-nav-v1-main">
+      <div class="voice-nav-v1-mic-wrap">
+        <button
+          type="button"
+          id="voice-nav-mic"
+          class="voice-nav-v1-mic-btn"
+          aria-label="マイク状態"
+        >
+          <span class="voice-nav-v1-mic-ring" aria-hidden="true"></span>
+          <span class="voice-nav-v1-mic-icon" aria-hidden="true">🎙</span>
+        </button>
+        <span id="voice-nav-mic-label" class="voice-nav-v1-mic-label">待機中</span>
+      </div>
+
+      <section class="voice-nav-v1-panel" aria-label="セッション状態">
+        <dl>
+          <div class="voice-nav-v1-panel-row">
+            <dt>対象回路</dt>
+            <dd id="voice-nav-circuit">—</dd>
+          </div>
+          <div class="voice-nav-v1-panel-row">
+            <dt>調査ステータス</dt>
+            <dd id="voice-nav-status">idle</dd>
+          </div>
+          <div class="voice-nav-v1-panel-row">
+            <dt>MQTT（将来）</dt>
+            <dd id="voice-nav-mqtt">—</dd>
+          </div>
+        </dl>
+        <p id="voice-nav-prompt" class="voice-nav-v1-prompt">スタートを押して音声誘導を開始</p>
+      </section>
+
+      <ul id="voice-nav-log" class="voice-nav-v1-log" aria-live="polite"></ul>
+
+      <div class="voice-nav-v1-actions">
+        <button type="button" id="voice-nav-start" class="voice-nav-v1-btn voice-nav-v1-btn-primary">
+          スタート
+        </button>
+        <button type="button" id="voice-nav-reset" class="voice-nav-v1-btn">
+          リセット
+        </button>
+      </div>
+    </main>
+  </div>
+  <script type="module" src="/js/features/voice-nav/voice-nav-v1.js?v=voice-nav-v1"></script>
+</body>
+</html>

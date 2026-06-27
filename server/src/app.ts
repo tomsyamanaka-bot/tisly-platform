@@ -440,6 +440,9 @@ export function createApp(): express.Application {
   app.get("/survey-drawing-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "survey-drawing-v1.html"));
   });
+  app.get("/voice-nav-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "voice-nav-v1.html"));
+  });
   app.get("/estimate-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "estimate-v1.html"));
   });
