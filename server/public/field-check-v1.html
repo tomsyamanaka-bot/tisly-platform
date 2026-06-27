@@ -3,41 +3,252 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#7c5cbf" />
+  <meta name="theme-color" content="#0f172a" />
   <title>TiSLY — 材料チェック</title>
   <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
   <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
   <link rel="stylesheet" href="/css/field-ops-mobile.css" />
   <style>
-    .material-add-row { display:flex; gap:0.5rem; margin:0.75rem 0; }
-    .material-add-row input { flex:1; min-height:48px; padding:0.5rem 0.75rem; border:1px solid #e2e8f0; border-radius:8px; font-size:1rem; }
-    .material-add-row .btn-primary { flex-shrink:0; min-width:5.5rem; padding:0 1rem; }
-    .check-item { display:flex; align-items:center; gap:0.75rem; padding:0.65rem 0; border-bottom:1px solid #e8ecf0; position:relative; }
-    .check-item:last-child { border-bottom:none; }
-    .check-item input[type=checkbox] { width:1.35rem; height:1.35rem; flex-shrink:0; }
-    .check-item-label { flex:1; cursor:pointer; user-select:none; }
-    .check-item.checked .check-item-label { text-decoration:line-through; color:#94a3b8; }
-    .check-item.checked input[type=checkbox] { accent-color:#7c5cbf; }
-    .check-item-actions { display:flex; gap:0.25rem; opacity:0; pointer-events:none; transition:opacity 0.15s; }
+    /* STEP1 — 材料画面：ディープネイビー基調＋
+       ネオンブルー発光アクセント */
+    body.field-check-v1-page {
+      background: linear-gradient(
+        180deg,
+        #0f172a 0%,
+        #1a2332 50%,
+        #141c28 100%
+      );
+      color: #e2e8f0;
+    }
+    body.field-check-v1-page .section-label,
+    body.field-check-v1-page .section-hint {
+      color: #94a3b8;
+    }
+    body.field-check-v1-page .empty-state {
+      color: #94a3b8;
+    }
+    body.field-check-v1-page .friendly-card {
+      background: linear-gradient(
+        180deg,
+        #1e293b 0%,
+        #273548 100%
+      );
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      box-shadow:
+        0 0 12px rgba(56, 189, 248, 0.12),
+        0 4px 16px rgba(0, 0, 0, 0.32);
+    }
+    body.field-check-v1-page .friendly-card h3 {
+      color: #f1f5f9;
+      margin: 0 0 0.35rem;
+    }
+    body.field-check-v1-page .friendly-card p {
+      color: #94a3b8;
+    }
+    body.field-check-v1-page .project-card {
+      cursor: pointer;
+      transition: box-shadow 0.15s ease;
+    }
+    body.field-check-v1-page .project-card:active {
+      box-shadow:
+        0 0 0 2px rgba(56, 189, 248, 0.55),
+        0 4px 16px rgba(0, 0, 0, 0.32);
+    }
+    body.field-check-v1-page .project-card strong {
+      color: #f1f5f9;
+    }
+
+    /* 資材追加行：手袋対応タップ領域 */
+    .material-add-row {
+      display: flex;
+      gap: 0.65rem;
+      margin: 0.85rem 0;
+    }
+    body.field-check-v1-page .material-add-row input {
+      flex: 1;
+      min-height: 52px;
+      padding: 0.65rem 0.85rem;
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      border-radius: 10px;
+      font-size: 1rem;
+      background: rgba(15, 23, 42, 0.65);
+      color: #e2e8f0;
+    }
+    body.field-check-v1-page .material-add-row input::placeholder {
+      color: #64748b;
+    }
+    body.field-check-v1-page .material-add-row .btn-primary {
+      flex-shrink: 0;
+      min-width: 5.5rem;
+      min-height: 52px;
+      padding: 0 1.1rem;
+      background: transparent;
+      color: #38bdf8;
+      border: 1px solid rgba(56, 189, 248, 0.65);
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.2);
+    }
+    body.field-check-v1-page .material-add-row .btn-primary:active {
+      background: rgba(56, 189, 248, 0.12);
+    }
+
+    /* チェックリスト行：広いタップ領域 */
+    .check-item {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+      padding: 0.85rem 0.35rem;
+      margin: 0.15rem 0;
+      border-bottom: 1px solid rgba(56, 189, 248, 0.15);
+      position: relative;
+      min-height: 56px;
+    }
+    .check-item:last-child { border-bottom: none; }
+    body.field-check-v1-page .check-item input[type=checkbox] {
+      width: 1.65rem;
+      height: 1.65rem;
+      flex-shrink: 0;
+      accent-color: #38bdf8;
+      cursor: pointer;
+    }
+    .check-item-label {
+      flex: 1;
+      cursor: pointer;
+      user-select: none;
+      font-size: 1rem;
+      line-height: 1.45;
+      padding: 0.35rem 0;
+      color: #e2e8f0;
+    }
+    .check-item.checked .check-item-label {
+      text-decoration: line-through;
+      color: #64748b;
+    }
+    .check-item-actions {
+      display: flex;
+      gap: 0.35rem;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s;
+    }
     .check-item:hover .check-item-actions,
     .check-item:focus-within .check-item-actions,
-    .check-item.menu-open .check-item-actions { opacity:1; pointer-events:auto; }
-    .check-item-menu-btn { background:none; border:none; font-size:1.25rem; line-height:1; padding:0.25rem 0.5rem; cursor:pointer; color:#64748b; min-width:44px; min-height:44px; }
-    .check-item-menu { position:absolute; right:0; top:100%; z-index:20; background:#fff; border:1px solid #e2e8f0; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1); min-width:8rem; }
-    .check-item-menu button { display:block; width:100%; text-align:left; padding:0.65rem 0.85rem; border:none; background:none; font-size:0.95rem; cursor:pointer; }
-    .check-item-menu button:hover { background:#f1f5f9; }
-    .check-item-menu button.danger { color:#b91c1c; }
-    .material-empty { text-align:center; padding:1.5rem 0.5rem; color:#64748b; }
-    .material-empty .btn-primary { margin-top:0.75rem; }
-    .progress-bar { height:6px; background:#e2e8f0; border-radius:3px; overflow:hidden; margin:0.5rem 0; }
-    .progress-fill { height:100%; background:#7c5cbf; transition:width 0.2s; }
-    .session-row { font-size:0.85rem; color:#475569; padding:0.35rem 0; }
+    .check-item.menu-open .check-item-actions {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    body.field-check-v1-page .check-item-menu-btn {
+      background: rgba(56, 189, 248, 0.08);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      border-radius: 8px;
+      font-size: 1.35rem;
+      line-height: 1;
+      padding: 0.45rem 0.65rem;
+      cursor: pointer;
+      color: #7dd3fc;
+      min-width: 48px;
+      min-height: 48px;
+    }
+    body.field-check-v1-page .check-item-menu {
+      position: absolute;
+      right: 0;
+      top: 100%;
+      z-index: 20;
+      background: #1e293b;
+      border: 1px solid rgba(56, 189, 248, 0.45);
+      border-radius: 10px;
+      box-shadow:
+        0 0 16px rgba(56, 189, 248, 0.18),
+        0 6px 20px rgba(0, 0, 0, 0.4);
+      min-width: 9rem;
+    }
+    body.field-check-v1-page .check-item-menu button {
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 0.75rem 0.95rem;
+      min-height: 48px;
+      border: none;
+      background: none;
+      font-size: 0.95rem;
+      cursor: pointer;
+      color: #e2e8f0;
+    }
+    body.field-check-v1-page .check-item-menu button:hover {
+      background: rgba(56, 189, 248, 0.1);
+    }
+    body.field-check-v1-page .check-item-menu button.danger {
+      color: #f87171;
+    }
+    .material-empty {
+      text-align: center;
+      padding: 1.75rem 0.75rem;
+      color: #94a3b8;
+    }
+    .material-empty .btn-primary { margin-top: 0.85rem; }
+
+    /* 進捗バー：ネオンブルーグロー */
+    body.field-check-v1-page .progress-bar {
+      height: 8px;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      border-radius: 4px;
+      overflow: hidden;
+      margin: 0.65rem 0;
+    }
+    body.field-check-v1-page .progress-fill {
+      height: 100%;
+      background: linear-gradient(
+        90deg,
+        #0ea5e9 0%,
+        #38bdf8 50%,
+        #7dd3fc 100%
+      );
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.55);
+      transition: width 0.2s;
+    }
+    body.field-check-v1-page .check-rate-badge {
+      background: rgba(56, 189, 248, 0.15);
+      color: #7dd3fc;
+      border: 1px solid rgba(56, 189, 248, 0.35);
+    }
+    body.field-check-v1-page .session-row {
+      font-size: 0.88rem;
+      color: #94a3b8;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid rgba(56, 189, 248, 0.1);
+    }
+    body.field-check-v1-page .session-row:last-child {
+      border-bottom: none;
+    }
+
+    /* 主要ボタン：ネオンブルー枠 */
+    body.field-check-v1-page .btn-primary {
+      background: transparent;
+      color: #38bdf8;
+      border: 1px solid rgba(56, 189, 248, 0.7);
+      box-shadow:
+        0 0 12px rgba(56, 189, 248, 0.22),
+        inset 0 0 8px rgba(56, 189, 248, 0.05);
+      font-weight: 700;
+    }
+    body.field-check-v1-page .btn-primary:active {
+      background: rgba(56, 189, 248, 0.12);
+    }
+    body.field-check-v1-page .btn-sub {
+      background: transparent;
+      color: #94a3b8;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+    }
+
     @media (max-width: 640px) {
-      .check-item-actions { opacity:1; pointer-events:auto; }
+      .check-item-actions {
+        opacity: 1;
+        pointer-events: auto;
+      }
     }
   </style>
 </head>
-<body class="tisly-friendly field-ops-touch">
+<body class="tisly-friendly field-ops-touch field-check-v1-page">
   <main class="app-main">
     <div id="view-projects">
       <p class="section-label">🎒 材料チェック — 案件を選択</p>

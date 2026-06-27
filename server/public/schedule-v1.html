@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#e8a54b" />
+  <meta name="theme-color" content="#0f172a" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="TiSLY日程" />
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2003" />
@@ -217,88 +217,138 @@
     }
     a.schedule-intel-material { color: #1d4ed8; }
     .schedule-intel-address-btn { margin-top: 0; position: relative; z-index: 2; }
-    .schedule-header-card {
-      margin-bottom: 0.5rem;
-      padding: 0.55rem 0.65rem;
+    /* STEP2 — 上部同期パネル：ダークトーン＋
+       ネオンブルー枠コントロール */
+    .schedule-top-panel {
+      margin: -1rem -1rem 0.65rem;
+      padding: 1rem 1rem 0.75rem;
+      background: linear-gradient(
+        180deg,
+        #0f172a 0%,
+        #1a2332 85%,
+        rgba(26, 35, 50, 0) 100%
+      );
     }
-    .schedule-header-hint {
-      margin: 0 0 0.45rem;
-      font-size: 0.88rem;
-      line-height: 1.35;
-      color: #475569;
+    body.schedule-v1-page .schedule-header-card {
+      margin-bottom: 0.5rem;
+      padding: 0.75rem 0.85rem;
+      background: linear-gradient(
+        180deg,
+        rgba(30, 41, 59, 0.95) 0%,
+        rgba(39, 53, 72, 0.92) 100%
+      );
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      box-shadow:
+        0 0 18px rgba(56, 189, 248, 0.14),
+        0 4px 16px rgba(0, 0, 0, 0.35);
+    }
+    body.schedule-v1-page .schedule-header-hint {
+      margin: 0 0 0.55rem;
+      font-size: 0.92rem;
+      line-height: 1.4;
+      color: #94a3b8;
       white-space: normal;
       writing-mode: horizontal-tb;
       word-break: keep-all;
+      font-weight: 600;
+      letter-spacing: 0.02em;
     }
-    .schedule-header-actions {
+    body.schedule-v1-page .schedule-header-actions {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.35rem;
-      align-items: center;
+      gap: 0.5rem;
+      align-items: stretch;
     }
-    .schedule-header-actions .btn-sub {
+    body.schedule-v1-page .schedule-header-actions .btn-sub {
       flex: 1 1 auto;
       min-width: 0;
       max-width: 100%;
       white-space: nowrap;
       writing-mode: horizontal-tb;
       text-align: center;
-      font-size: 0.78rem;
-      padding: 0.38rem 0.5rem;
+      font-size: 0.85rem;
+      font-weight: 700;
+      padding: 0.65rem 0.75rem;
+      min-height: 48px;
+      background: rgba(15, 23, 42, 0.55);
+      color: #7dd3fc;
+      border: 1px solid rgba(56, 189, 248, 0.55);
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.12);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+      text-decoration: none;
+      transition: background 0.15s, box-shadow 0.15s;
     }
-    .schedule-header-actions #btn-sync-calendar {
+    body.schedule-v1-page .schedule-header-actions .btn-sub:active {
+      background: rgba(56, 189, 248, 0.15);
+      box-shadow: 0 0 14px rgba(56, 189, 248, 0.28);
+    }
+    body.schedule-v1-page .schedule-header-actions #btn-sync-calendar {
       flex: 1 1 100%;
+      color: #e0f2fe;
+      border-color: rgba(56, 189, 248, 0.75);
+      box-shadow:
+        0 0 14px rgba(56, 189, 248, 0.2),
+        inset 0 0 8px rgba(56, 189, 248, 0.06);
     }
     @media (min-width: 360px) {
-      .schedule-header-actions #btn-sync-calendar {
+      body.schedule-v1-page .schedule-header-actions #btn-sync-calendar {
         flex: 1 1 auto;
       }
     }
-    .schedule-sync-card {
+    body.schedule-v1-page .schedule-sync-card {
       margin: 0 0 0.5rem;
-      padding: 0.45rem 0.55rem;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      font-size: 0.82rem;
-      line-height: 1.45;
-      color: #334155;
+      padding: 0.65rem 0.75rem;
+      background: rgba(30, 41, 59, 0.88);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      border-radius: 10px;
+      font-size: 0.84rem;
+      line-height: 1.5;
+      color: #cbd5e1;
       white-space: normal;
       writing-mode: horizontal-tb;
       word-break: keep-all;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.1);
     }
-    .schedule-sync-card.sync-error-state {
-      background: #fef2f2;
-      border-color: #fecaca;
-      color: #991b1b;
+    body.schedule-v1-page .schedule-sync-card.sync-error-state {
+      background: rgba(69, 10, 10, 0.55);
+      border-color: rgba(248, 113, 113, 0.55);
+      color: #fecaca;
+      box-shadow: 0 0 12px rgba(248, 113, 113, 0.15);
     }
-    .schedule-sync-card.sync-success-state {
-      background: #f0fdf4;
-      border-color: #bbf7d0;
+    body.schedule-v1-page .schedule-sync-card.sync-success-state {
+      background: rgba(6, 78, 59, 0.35);
+      border-color: rgba(52, 211, 153, 0.45);
+      color: #a7f3d0;
+      box-shadow: 0 0 12px rgba(52, 211, 153, 0.12);
     }
-    .schedule-sync-line { margin: 0; }
-    .schedule-sync-detail-btn {
+    body.schedule-v1-page .schedule-sync-detail-btn {
       display: inline-block;
-      margin: 0.25rem 0 0;
-      padding: 0;
-      border: none;
-      background: none;
-      color: #1d4ed8;
-      font-size: 0.78rem;
+      margin: 0.35rem 0 0;
+      padding: 0.35rem 0.55rem;
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      border-radius: 6px;
+      background: rgba(56, 189, 248, 0.08);
+      color: #7dd3fc;
+      font-size: 0.8rem;
+      font-weight: 600;
       cursor: pointer;
-      text-decoration: underline;
+      text-decoration: none;
       white-space: nowrap;
     }
-    .schedule-sync-detail {
-      margin-top: 0.35rem;
-      padding-top: 0.35rem;
-      border-top: 1px dashed #cbd5e1;
-      font-size: 0.75rem;
-      color: #64748b;
+    body.schedule-v1-page .schedule-sync-detail {
+      margin-top: 0.45rem;
+      padding-top: 0.45rem;
+      border-top: 1px dashed rgba(56, 189, 248, 0.25);
+      font-size: 0.78rem;
+      color: #94a3b8;
       white-space: pre-wrap;
       word-break: break-word;
-      line-height: 1.4;
+      line-height: 1.45;
     }
+    .schedule-sync-line { margin: 0; }
     .schedule-sync-detail.hidden { display: none; }
     .schedule-intel-address-unset {
       display: flex;
@@ -332,23 +382,25 @@
     }
   </style>
 </head>
-<body class="tisly-friendly">
+<body class="tisly-friendly schedule-v1-page">
   <main class="app-main">
+    <div class="schedule-top-panel">
     <div class="friendly-card schedule-header-card">
       <p class="schedule-header-hint" id="page-hint">空き日確認・Google同期</p>
       <div class="schedule-header-actions">
         <a class="btn-sub btn-small" href="/settings-v1" title="管理者設定">⚙️ 設定</a>
         <a class="btn-sub btn-small" href="/google-calendar-settings-v1" title="Googleカレンダー連携設定">📅 連携</a>
-        <button type="button" class="btn-sub btn-small" id="btn-sync-calendar" title="Googleカレンダー同期">Google予定を同期</button>
+        <button type="button" class="btn-sub btn-small" id="btn-sync-calendar" title="Googleカレンダー同期">🔄 Google予定を同期</button>
       </div>
     </div>
-    <div id="integration-badges"></div>
-    <div id="departure-alert-mount" class="hidden" aria-live="polite"></div>
     <div id="sync-status-card" class="schedule-sync-card hidden" aria-live="polite">
       <div id="sync-status-summary"></div>
       <button type="button" class="schedule-sync-detail-btn hidden" id="btn-sync-detail-toggle" aria-expanded="false">詳細</button>
       <div id="sync-status-detail" class="schedule-sync-detail hidden" aria-hidden="true"></div>
     </div>
+    </div>
+    <div id="integration-badges"></div>
+    <div id="departure-alert-mount" class="hidden" aria-live="polite"></div>
 
     <div class="schedule-mode-tabs tab-row" role="tablist">
       <button type="button" class="tab-btn active" id="mode-week" role="tab">週間</button>
