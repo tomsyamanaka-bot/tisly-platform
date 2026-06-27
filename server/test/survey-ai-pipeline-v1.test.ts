@@ -2,6 +2,11 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { buildDrawingEditorSvgMarkupV1 } from "../src/features/drawing/drawing-editor-pdf-render-v1.js";
 import { buildDrawingEditorPdfPayloadV1 } from "../src/features/drawing/index.js";
+import {
+  toSurveyAiPipelineUserError,
+  SurveyAiPipelineError,
+  runSurveyAiPipelineV1Safe,
+} from "../src/survey/survey-ai-pipeline-v1.js";
 import { sketchToDrawingPdfPayloadV1 } from "../src/survey/survey-ai-pipeline-v1.js";
 import type { SurveyDrawingSketchV1 } from "../src/survey/survey-drawing-v1-types.js";
 
@@ -80,5 +85,26 @@ describe("survey-ai-pipeline-v1", () => {
     assert.match(svg, /<path/);
     assert.match(svg, /💡/);
     assert.match(svg, /example\.com\/bg\.jpg/);
+  });
+
+  it("runSurveyAiPipelineV1Safe は存在しない sketch で職人向けメッセージを返す", () => {
+    const result = runSurveyAiPipelineV1Safe({ sketchId: "missing-sketch-id" });
+    assert.equal(result.ok, false);
+    if (!result.ok) {
+      assert.equal(result.code, "SKETCH_NOT_FOUND");
+      assert.match(result.userMessage, /図面データが見つかりません/);
+    }
+  });
+
+  it("toSurveyAiPipelineUserError は TIMEOUT を日本語で案内する", () => {
+    const mapped = toSurveyAiPipelineUserError(
+      new SurveyAiPipelineError(
+        "TIMEOUT",
+        "処理がタイムアウトしました。電波状況を確認して再試行してください。",
+        "timeout"
+      )
+    );
+    assert.equal(mapped.code, "TIMEOUT");
+    assert.match(mapped.userMessage, /電波状況/);
   });
 });

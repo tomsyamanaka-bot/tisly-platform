@@ -13,6 +13,12 @@ import {
   resolveDrawingIds,
   saveDrawingToLocalStorage,
 } from "./survey-drawing-local-v1.js";
+import {
+  bindOfflineResilienceAutoSyncV1,
+  enqueueOfflineResilienceV1,
+  isNetworkOnlineV1,
+  updateOfflineResilienceBadgeV1,
+} from "./offline-resilience-v1.js";
 
 export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v5";
 export const SURVEY_DRAWING_TEMP_BANNER =
@@ -62,6 +68,9 @@ function apiHeaders() {
 }
 
 async function api(method, path, body) {
+  if (!isNetworkOnlineV1()) {
+    throw new Error("offline");
+  }
   const res = await fetch(path, {
     method,
     headers: apiHeaders(),
@@ -70,6 +79,48 @@ async function api(method, path, body) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || String(res.status));
   return data;
+}
+
+/**
+ * オフラインキュー 1 件をサーバーへ再送
+ * @param {{ kind: string, payload: object }} entry
+ */
+async function processOfflineResilienceEntry(entry) {
+  const { kind, payload } = entry;
+  if (kind === "drawing_sketch_patch") {
+    await api("PATCH", `/api/survey/v1/drawing-sketches/${encodeURIComponent(payload.sketchId)}`, {
+      layers: payload.layers,
+      title: payload.title,
+    });
+    return true;
+  }
+  if (kind === "drawing_background") {
+    await api(
+      "POST",
+      `/api/survey/v1/drawing-sketches/${encodeURIComponent(payload.sketchId)}/background`,
+      {
+        imageBase64: payload.imageBase64,
+        fileName: payload.fileName,
+        mimeType: payload.mimeType,
+      }
+    );
+    return true;
+  }
+  if (kind === "voice_nav_log" && payload.sketchId) {
+    const res = await fetch(
+      `/api/survey/v1/drawing-sketches/${encodeURIComponent(payload.sketchId)}/ai-pipeline`,
+      {
+        method: "POST",
+        headers: apiHeaders(),
+        body: JSON.stringify({
+          voiceLog: payload.voiceLog,
+          businessProjectId: payload.businessProjectId ?? null,
+        }),
+      }
+    );
+    return res.ok;
+  }
+  return false;
 }
 
 function uid() {
@@ -448,6 +499,20 @@ async function saveSketch() {
     return;
   }
 
+  const patchPayload = {
+    sketchId,
+    projectId,
+    layers,
+    title: sketch?.title,
+  };
+
+  if (!isNetworkOnlineV1()) {
+    saveSketchLocal();
+    enqueueOfflineResilienceV1("drawing_sketch_patch", patchPayload);
+    setStatus("オフライン — 端末内保存（復帰後に自動同期）");
+    return;
+  }
+
   try {
     const data = await api("PATCH", `/api/survey/v1/drawing-sketches/${encodeURIComponent(sketchId)}`, {
       layers,
@@ -471,7 +536,9 @@ async function saveSketch() {
     );
   } catch (e) {
     saveSketchLocal();
-    setStatus(`端末内に保存しました（API: ${e.message || "失敗"}）`);
+    enqueueOfflineResilienceV1("drawing_sketch_patch", patchPayload);
+    const hint = e.message === "offline" ? "オフライン" : e.message || "失敗";
+    setStatus(`端末内に保存しました（${hint} · 復帰後に再送）`);
   }
 }
 
@@ -832,6 +899,23 @@ async function importBackground(file) {
     setStatus("背景写真を取り込みました（端末内保存）");
     return;
   }
+  const bgPayload = {
+    sketchId,
+    imageBase64,
+    fileName: file.name,
+    mimeType: file.type,
+  };
+
+  if (!isNetworkOnlineV1()) {
+    setupBgImage(imageBase64);
+    if (!sketch) sketch = { id: sketchId, projectId, title: "一時図面" };
+    sketch.backgroundImageUrl = imageBase64;
+    markDirty();
+    enqueueOfflineResilienceV1("drawing_background", bgPayload);
+    setStatus("オフライン — 背景を端末内保存（復帰後に自動同期）");
+    return;
+  }
+
   try {
     const data = await api(
       "POST",
@@ -847,7 +931,9 @@ async function importBackground(file) {
     if (!sketch) sketch = { id: sketchId, projectId, title: "一時図面" };
     sketch.backgroundImageUrl = imageBase64;
     markDirty();
-    setStatus(`端末内に保存しました（背景 · API: ${e.message || "失敗"}）`);
+    enqueueOfflineResilienceV1("drawing_background", bgPayload);
+    const hint = e.message === "offline" ? "オフライン" : e.message || "失敗";
+    setStatus(`端末内に保存しました（背景 · ${hint} · 復帰後に再送）`);
   }
 }
 
@@ -1123,6 +1209,15 @@ function wireEvents() {
   window.addEventListener("beforeunload", (ev) => {
     if (dirty) ev.preventDefault();
   });
+
+  bindOfflineResilienceAutoSyncV1(processOfflineResilienceEntry, {
+    onFlushed: (r) => {
+      if (r.flushed > 0) {
+        setStatus(`未同期 ${r.flushed} 件をサーバーへ反映しました`);
+      }
+    },
+  });
+  updateOfflineResilienceBadgeV1("drawing-offline-badge");
 }
 
 async function main() {

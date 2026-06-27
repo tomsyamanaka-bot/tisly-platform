@@ -20,6 +20,15 @@ import {
   renderVoiceNavPanelV1,
   appendVoiceNavLogV1,
 } from "./voice-nav-ui-v1.js";
+import {
+  appendVoiceNavLogLocalV1,
+  readVoiceNavLogLocalV1,
+  syncVoiceNavLogToServerV1,
+} from "./voice-nav-offline-v1.js";
+import {
+  bindOfflineResilienceAutoSyncV1,
+  updateOfflineResilienceBadgeV1,
+} from "../../offline-resilience-v1.js";
 
 export const VOICE_NAV_V1_VERSION = "voice-nav-v1";
 
@@ -35,6 +44,16 @@ export function initVoiceNavV1(opts = {}) {
     { length: circuitCount },
     (_, i) => startCircuit + i
   );
+  const urlParams = new URLSearchParams(location.search);
+  const linkedSketchId = urlParams.get("sketchId") || opts.sketchId || null;
+  const linkedProjectId = urlParams.get("projectId") || opts.projectId || null;
+  const linkedBusinessProjectId =
+    urlParams.get("businessProjectId") || opts.businessProjectId || null;
+
+  /** @type {string} */
+  let sessionId = crypto.randomUUID?.() || `vn-${Date.now()}`;
+  /** @type {Array<{ at: string, role: string, text: string, circuitNumber?: number }>} */
+  let voiceLogEntries = [];
 
   const els = {
     circuitEl: document.getElementById("voice-nav-circuit"),
@@ -52,6 +71,69 @@ export function initVoiceNavV1(opts = {}) {
   if (!els.startBtn) {
     return null;
   }
+
+  function persistVoiceLogLine(role, text, circuitNumber) {
+    const entry = {
+      at: new Date().toISOString(),
+      role,
+      text,
+      circuitNumber,
+    };
+    voiceLogEntries.push(entry);
+    appendVoiceNavLogLocalV1(sessionId, entry);
+  }
+
+  function appendLogUi(line, role = "system", circuitNumber) {
+    appendVoiceNavLogV1(els.logEl, line);
+    persistVoiceLogLine(role, line, circuitNumber);
+  }
+
+  async function flushVoiceLogToServer() {
+    if (!voiceLogEntries.length) return;
+    const token = sessionStorage.getItem("tisly_token");
+    const headers = token
+      ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
+      : { "Content-Type": "application/json" };
+
+    const result = await syncVoiceNavLogToServerV1(
+      {
+        sessionId,
+        sketchId: linkedSketchId,
+        projectId: linkedProjectId,
+        businessProjectId: linkedBusinessProjectId,
+        voiceLog: voiceLogEntries,
+      },
+      (url, init) => fetch(url, { ...init, headers: { ...headers, ...init.headers } })
+    );
+
+    if (result.queued) {
+      appendVoiceNavLogV1(
+        els.logEl,
+        "オフライン — 音声ログを端末内に退避（復帰後に自動同期）"
+      );
+    }
+  }
+
+  bindOfflineResilienceAutoSyncV1(async (entry) => {
+    if (entry.kind !== "voice_nav_log") return false;
+    const token = sessionStorage.getItem("tisly_token");
+    if (!entry.payload?.sketchId) return false;
+    const res = await fetch(
+      `/api/survey/v1/drawing-sketches/${encodeURIComponent(entry.payload.sketchId)}/ai-pipeline`,
+      {
+        method: "POST",
+        headers: token
+          ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
+          : { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          voiceLog: entry.payload.voiceLog,
+          businessProjectId: entry.payload.businessProjectId ?? null,
+        }),
+      }
+    );
+    return res.ok;
+  });
+  updateOfflineResilienceBadgeV1("voice-nav-offline-badge");
 
   if (!isVoiceNavSpeechSupportedV1()) {
     const main = document.querySelector(".voice-nav-v1-main");
@@ -84,7 +166,7 @@ export function initVoiceNavV1(opts = {}) {
   const speech = createVoiceNavSpeechV1({
     onTranscript: (text) => handleTranscript(text),
     onError: (err) => {
-      appendVoiceNavLogV1(els.logEl, `認識エラー: ${err}`);
+      appendLogUi(`認識エラー: ${err}`, "system");
       if (sessionActive && !busy) {
         scheduleListenRetry();
       }
@@ -121,7 +203,7 @@ export function initVoiceNavV1(opts = {}) {
    */
   async function speakAndShow(text) {
     setPrompt(text);
-    appendVoiceNavLogV1(els.logEl, `🔊 ${text}`);
+    appendLogUi(`🔊 ${text}`, "system", store.getState().targetCircuitNumber);
     syncPanel();
     try {
       await speech.speak(text);
@@ -148,7 +230,7 @@ export function initVoiceNavV1(opts = {}) {
    */
   async function handleTranscript(transcript) {
     if (!sessionActive || busy) return;
-    appendVoiceNavLogV1(els.logEl, `🎤 ${transcript}`);
+    appendLogUi(`🎤 ${transcript}`, "user", store.getState().targetCircuitNumber);
     busy = true;
     speech.stopListen();
 
@@ -162,7 +244,7 @@ export function initVoiceNavV1(opts = {}) {
     store.patch(result.state);
 
     if (!result.advanced) {
-      appendVoiceNavLogV1(els.logEl, "もう一度「落とした」または「オッケー」と");
+      appendLogUi("もう一度「落とした」または「オッケー」と", "system");
       busy = false;
       scheduleListenRetry();
       return;
@@ -176,7 +258,8 @@ export function initVoiceNavV1(opts = {}) {
       sessionActive = false;
       if (els.startBtn) els.startBtn.disabled = false;
       if (els.circuitCountEl) els.circuitCountEl.disabled = false;
-      appendVoiceNavLogV1(els.logEl, "✓ 全回路の停電チェック完了");
+      appendLogUi("✓ 全回路の停電チェック完了", "system");
+      void flushVoiceLogToServer();
     } else {
       scheduleListenRetry();
     }
@@ -192,6 +275,10 @@ export function initVoiceNavV1(opts = {}) {
     if (els.startBtn) els.startBtn.disabled = true;
     if (els.circuitCountEl) els.circuitCountEl.disabled = true;
 
+    sessionId = crypto.randomUUID?.() || `vn-${Date.now()}`;
+    voiceLogEntries = [];
+    if (els.logEl) els.logEl.innerHTML = "";
+
     const nums = readCircuitNumbers();
     steps = buildVoiceNavMultiCircuitSequenceClientV1(nums);
     store.reset(nums[0] ?? startCircuit);
@@ -203,10 +290,7 @@ export function initVoiceNavV1(opts = {}) {
     );
     store.patch(started.state);
 
-    appendVoiceNavLogV1(
-      els.logEl,
-      `▶ ${nums.length}回路チェック開始 (${nums.join(" → ")})`
-    );
+    appendLogUi(`▶ ${nums.length}回路チェック開始 (${nums.join(" → ")})`, "system");
 
     await speakAndShow(started.prompt);
     speech.startListen();
@@ -222,6 +306,8 @@ export function initVoiceNavV1(opts = {}) {
     const nums = readCircuitNumbers();
     store.reset(nums[0] ?? startCircuit);
     steps = buildVoiceNavMultiCircuitSequenceClientV1(nums);
+    sessionId = crypto.randomUUID?.() || `vn-${Date.now()}`;
+    voiceLogEntries = [];
     setPrompt("スタートを押して音声誘導を開始");
     if (els.logEl) els.logEl.innerHTML = "";
     if (els.startBtn) els.startBtn.disabled = false;

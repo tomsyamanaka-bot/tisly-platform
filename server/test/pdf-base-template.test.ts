@@ -5,6 +5,7 @@ import {
   countPdfPhotoLayoutPages,
   derivePdfProjectNoFromDocNo,
   formatPdfFooterDateTime,
+  formatPdfYenAmountV1,
   renderPdfCoverHeader,
   renderPdfPageNumberFooter,
   renderPdfStandardPageFooter,
@@ -25,6 +26,11 @@ describe("pdf-base-template 共通部品", () => {
       formatPdfFooterDateTime("2026-06-13T12:00:00+09:00"),
       "2026/06/13 12:00"
     );
+  });
+
+  it("formatPdfYenAmountV1 は末尾「円」表記（¥ なし）", () => {
+    assert.equal(formatPdfYenAmountV1(110000), "110,000円");
+    assert.equal(formatPdfYenAmountV1(0), "0円");
   });
 
   it("renderPdfStandardPageFooter は案件番号・日時・ページ番号を含む", () => {

@@ -88,6 +88,17 @@ export function formatPdfDocNoDisplay(docNo: string): string {
   return trimmed;
 }
 
+/**
+ * 見積・請求 PDF 用の金額表記
+ * 先頭 ¥ なし · 末尾に「円」
+ * 例: 110,000円
+ */
+export function formatPdfYenAmountV1(amount: number): string {
+  const n = Number(amount);
+  if (!Number.isFinite(n)) return "—";
+  return `${Math.round(n).toLocaleString("ja-JP")}円`;
+}
+
 /** 宛名を名前部分と敬称に分割（Excel帳票風下線レイアウト用） */
 export function splitPdfAddressee(raw: string): { name: string; honorific: string } {
   const trimmed = (raw || "").trim();

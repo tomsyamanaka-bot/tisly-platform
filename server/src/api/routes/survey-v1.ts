@@ -54,7 +54,7 @@ import {
   SURVEY_DRAWING_SOURCE_TYPES,
 } from "../../survey/survey-drawing-v1-types.js";
 import { linkSurveyDrawingBackgroundToSpecSlotV1 } from "../../projects/specification-photos-v1.js";
-import { runSurveyAiPipelineV1 } from "../../survey/survey-ai-pipeline-v1.js";
+import { runSurveyAiPipelineV1SafeAsync } from "../../survey/survey-ai-pipeline-v1.js";
 
 export const surveyV1Router = Router();
 
@@ -597,18 +597,22 @@ surveyV1Router.get(
 surveyV1Router.post(
   "/drawing-sketches/:sketchId/ai-pipeline",
   ...surveyV1Auth,
-  (req: AuthedRequest, res) => {
+  async (req: AuthedRequest, res) => {
     if (!assertSurveyRole(req, res)) return;
-    try {
-      const result = runSurveyAiPipelineV1({
-        sketchId: String(req.params.sketchId),
-        businessProjectId: req.body?.businessProjectId ?? null,
-        voiceLog: Array.isArray(req.body?.voiceLog) ? req.body.voiceLog : [],
+    const result = await runSurveyAiPipelineV1SafeAsync({
+      sketchId: String(req.params.sketchId),
+      businessProjectId: req.body?.businessProjectId ?? null,
+      voiceLog: Array.isArray(req.body?.voiceLog) ? req.body.voiceLog : [],
+    });
+    if (!result.ok) {
+      res.status(503).json({
+        error: result.error,
+        userMessage: result.userMessage,
+        code: result.code,
       });
-      res.json({ pipeline: result });
-    } catch (e) {
-      res.status(400).json({ error: String(e) });
+      return;
     }
+    res.json({ pipeline: result.pipeline });
   }
 );
 

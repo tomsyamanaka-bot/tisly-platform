@@ -19,6 +19,30 @@ import type { SurveyDrawingSketchV1 } from "./survey-drawing-v1-types.js";
 
 export const SURVEY_AI_PIPELINE_V1_SCHEMA = 1 as const;
 
+/** パイプライン既定タイムアウト（ミリ秒） */
+export const SURVEY_AI_PIPELINE_TIMEOUT_MS = 25_000;
+
+/** 職人向けエラーコード */
+export type SurveyAiPipelineErrorCode =
+  | "SKETCH_NOT_FOUND"
+  | "ESTIMATE_UNAVAILABLE"
+  | "PDF_PAYLOAD_FAILED"
+  | "TIMEOUT"
+  | "UNKNOWN";
+
+/** 職人向けに安全なパイプラインエラー */
+export class SurveyAiPipelineError extends Error {
+  readonly code: SurveyAiPipelineErrorCode;
+  readonly userMessage: string;
+
+  constructor(code: SurveyAiPipelineErrorCode, userMessage: string, detail?: string) {
+    super(detail ?? userMessage);
+    this.name = "SurveyAiPipelineError";
+    this.code = code;
+    this.userMessage = userMessage;
+  }
+}
+
 /** 音声ナビログ 1 行 */
 export interface SurveyAiPipelineVoiceLogEntryV1 {
   at: string;
@@ -48,6 +72,63 @@ export interface SurveyAiPipelineResultV1 {
   /** 音声ログ要約（仕様書メモ用） */
   voiceLogSummary: string | null;
   processedAt: string;
+}
+
+export interface SurveyAiPipelineSafeResultV1 {
+  ok: true;
+  pipeline: SurveyAiPipelineResultV1;
+}
+
+export interface SurveyAiPipelineSafeErrorV1 {
+  ok: false;
+  error: string;
+  userMessage: string;
+  code: SurveyAiPipelineErrorCode;
+}
+
+export type SurveyAiPipelineSafeResponseV1 =
+  | SurveyAiPipelineSafeResultV1
+  | SurveyAiPipelineSafeErrorV1;
+
+/**
+ * 任意の Error を
+ * 職人向けメッセージへ変換
+ */
+export function toSurveyAiPipelineUserError(error: unknown): SurveyAiPipelineSafeErrorV1 {
+  if (error instanceof SurveyAiPipelineError) {
+    return {
+      ok: false,
+      error: error.message,
+      userMessage: error.userMessage,
+      code: error.code,
+    };
+  }
+  const msg = error instanceof Error ? error.message : String(error);
+  const lower = msg.toLowerCase();
+  if (lower.includes("timeout") || lower.includes("timed out")) {
+    return {
+      ok: false,
+      error: msg,
+      userMessage:
+        "処理がタイムアウトしました。電波状況を確認して再試行してください。",
+      code: "TIMEOUT",
+    };
+  }
+  if (lower.includes("sketch not found") || lower.includes("not found")) {
+    return {
+      ok: false,
+      error: msg,
+      userMessage: "図面データが見つかりません。保存後にもう一度お試しください。",
+      code: "SKETCH_NOT_FOUND",
+    };
+  }
+  return {
+    ok: false,
+    error: msg,
+    userMessage:
+      "AI処理中にエラーが発生しました。電波状況を確認して再試行してください。",
+    code: "UNKNOWN",
+  };
 }
 
 /**
@@ -117,35 +198,80 @@ function summarizeVoiceLog(entries: SurveyAiPipelineVoiceLogEntryV1[]): string |
   return lines.length ? lines.join("\n") : null;
 }
 
-/**
- * 現調図面 + 音声ログから
- * 見積候補 · PDF ペイロードを一括生成
- */
-export function runSurveyAiPipelineV1(
+function runSurveyAiPipelineCoreV1(
   input: SurveyAiPipelineInputV1
 ): SurveyAiPipelineResultV1 {
   const sketch = getSurveyDrawingSketchV1(input.sketchId);
-  if (!sketch) throw new Error("sketch not found");
+  if (!sketch) {
+    throw new SurveyAiPipelineError(
+      "SKETCH_NOT_FOUND",
+      "図面データが見つかりません。保存後にもう一度お試しください。",
+      "sketch not found"
+    );
+  }
 
-  const drawingExport = exportSurveyDrawingAiJsonV1(input.sketchId);
-  const drawingPdfPayload = sketchToDrawingPdfPayloadV1(sketch);
+  let drawingExport: ReturnType<typeof exportSurveyDrawingAiJsonV1>;
+  try {
+    drawingExport = exportSurveyDrawingAiJsonV1(input.sketchId);
+  } catch (e) {
+    throw new SurveyAiPipelineError(
+      "UNKNOWN",
+      "AI処理中にエラーが発生しました。電波状況を確認して再試行してください。",
+      String(e)
+    );
+  }
+
+  let drawingPdfPayload: DrawingEditorPdfPayloadV1;
+  try {
+    drawingPdfPayload = sketchToDrawingPdfPayloadV1(sketch);
+  } catch (e) {
+    throw new SurveyAiPipelineError(
+      "PDF_PAYLOAD_FAILED",
+      "PDF図面の生成に失敗しました。図面を保存してから再試行してください。",
+      String(e)
+    );
+  }
+
   const businessProjectId =
     input.businessProjectId ?? sketch.businessProjectId ?? null;
 
-  const estimatePreview = buildAiEstimateCandidatesV2({
-    sketchId: input.sketchId,
-    projectId: sketch.projectId,
-    businessProjectId: businessProjectId ?? undefined,
-  });
-  if (!estimatePreview) {
-    throw new Error("estimate preview unavailable for sketch");
+  let estimatePreview: MasterV1EstimatePreviewEnrichedV2 | null;
+  try {
+    estimatePreview = buildAiEstimateCandidatesV2({
+      sketchId: input.sketchId,
+      projectId: sketch.projectId,
+      businessProjectId: businessProjectId ?? undefined,
+    });
+  } catch (e) {
+    throw new SurveyAiPipelineError(
+      "ESTIMATE_UNAVAILABLE",
+      "見積候補の生成に失敗しました。電波状況を確認して再試行してください。",
+      String(e)
+    );
   }
 
-  const documentSources = buildAiEstimateDocumentSourcesV2({
-    projectId: sketch.projectId,
-    sketchId: input.sketchId,
-    businessProjectId,
-  });
+  if (!estimatePreview) {
+    throw new SurveyAiPipelineError(
+      "ESTIMATE_UNAVAILABLE",
+      "見積候補を取得できませんでした。図面に記号を追加して再試行してください。",
+      "estimate preview unavailable for sketch"
+    );
+  }
+
+  let documentSources: ReturnType<typeof buildAiEstimateDocumentSourcesV2>;
+  try {
+    documentSources = buildAiEstimateDocumentSourcesV2({
+      projectId: sketch.projectId,
+      sketchId: input.sketchId,
+      businessProjectId,
+    });
+  } catch (e) {
+    throw new SurveyAiPipelineError(
+      "UNKNOWN",
+      "AI処理中にエラーが発生しました。電波状況を確認して再試行してください。",
+      String(e)
+    );
+  }
 
   return {
     schemaVersion: SURVEY_AI_PIPELINE_V1_SCHEMA,
@@ -158,4 +284,59 @@ export function runSurveyAiPipelineV1(
     voiceLogSummary: summarizeVoiceLog(input.voiceLog ?? []),
     processedAt: new Date().toISOString(),
   };
+}
+
+/**
+ * 現調図面 + 音声ログから
+ * 見積候補 · PDF ペイロードを一括生成
+ */
+export function runSurveyAiPipelineV1(
+  input: SurveyAiPipelineInputV1
+): SurveyAiPipelineResultV1 {
+  return runSurveyAiPipelineCoreV1(input);
+}
+
+/**
+ * タイムアウト付きで安全実行
+ * クラッシュせず職人向けメッセージを返す
+ */
+export function runSurveyAiPipelineV1Safe(
+  input: SurveyAiPipelineInputV1
+): SurveyAiPipelineSafeResponseV1 {
+  try {
+    const pipeline = runSurveyAiPipelineCoreV1(input);
+    return { ok: true, pipeline };
+  } catch (error) {
+    return toSurveyAiPipelineUserError(error);
+  }
+}
+
+/** 非同期タイムアウトラッパー（将来の外部 AI 呼び出し用） */
+export async function runSurveyAiPipelineV1SafeAsync(
+  input: SurveyAiPipelineInputV1,
+  opts?: { timeoutMs?: number }
+): Promise<SurveyAiPipelineSafeResponseV1> {
+  const timeoutMs = opts?.timeoutMs ?? SURVEY_AI_PIPELINE_TIMEOUT_MS;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const pipeline = await Promise.race([
+      Promise.resolve().then(() => runSurveyAiPipelineCoreV1(input)),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          reject(
+            new SurveyAiPipelineError(
+              "TIMEOUT",
+              "処理がタイムアウトしました。電波状況を確認して再試行してください。",
+              "pipeline timeout"
+            )
+          );
+        }, timeoutMs);
+      }),
+    ]);
+    return { ok: true, pipeline };
+  } catch (error) {
+    return toSurveyAiPipelineUserError(error);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }

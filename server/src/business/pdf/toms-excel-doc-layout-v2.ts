@@ -15,6 +15,7 @@ import {
 import {
   escapeHtml,
   escapeHtmlMultiline,
+  formatPdfYenAmountV1,
   renderPdfCompanyDetailBlock,
   renderPdfPageNumberFooter,
   renderPdfSealImg,
@@ -152,10 +153,12 @@ function renderHeaderRight(ctx: TomsV2PageContext): string {
 }
 
 function renderAmountRow(total: number): string {
-  return `<div class="toms-v2-amount-row">
+  return `<div class="toms-v2-amount-wrap">
+  <div class="toms-v2-amount-row">
   <span class="toms-v2-amount-label">金額</span>
-  <span class="toms-v2-amount-value">¥${total.toLocaleString("ja-JP")}</span>
+  <span class="toms-v2-amount-value">${formatPdfYenAmountV1(total)}</span>
   <span class="toms-v2-amount-tax">（税込）</span>
+  </div>
 </div>`;
 }
 
@@ -395,13 +398,21 @@ body {
   opacity: 0.92;
   mix-blend-mode: multiply;
 }
+.toms-v2-amount-wrap {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin: 0.8mm 0 1.2mm;
+}
 .toms-v2-amount-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   border: 2px solid #000;
   padding: 1.8mm 2.5mm;
-  margin: 0.8mm 0 1.2mm;
+  margin: 0;
+  width: 50%;
+  max-width: 50%;
   gap: 2mm;
   background: #fff;
 }
@@ -506,6 +517,7 @@ body {
   font-weight: 600;
 }
 .toms-v2-cover-header .toms-v2-header { margin-bottom: 0.5mm; }
+.toms-v2-cover-header .toms-v2-amount-wrap { margin-bottom: 0; }
 .toms-v2-cover-header .toms-v2-amount-row { margin-bottom: 0; }
 .toms-v2-footer-extras { font-size: 7.5pt; margin-top: 1mm; line-height: 1.35; }
 @media print {
