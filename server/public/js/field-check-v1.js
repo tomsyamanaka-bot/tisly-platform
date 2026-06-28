@@ -8,6 +8,7 @@ const $ = (id) => document.getElementById(id);
 
 let currentProject = null;
 let items = [];
+let drawingSyncMeta = null;
 let checkDate = todayIso();
 let openMenuId = null;
 let longPressTimer = null;
@@ -49,7 +50,7 @@ async function api(base, path, opts = {}) {
 }
 
 function itemsQuery() {
-  return `/items?source=${encodeURIComponent(currentProject.source)}&projectId=${encodeURIComponent(currentProject.id)}&date=${encodeURIComponent(checkDate)}`;
+  return `/items?source=${encodeURIComponent(currentProject.source)}&projectId=${encodeURIComponent(currentProject.id)}&date=${encodeURIComponent(checkDate)}&withDrawing=1`;
 }
 
 function showProjects() {
@@ -106,11 +107,57 @@ function toggleItemMenu(itemId, anchor) {
   });
 }
 
+function renderDrawingSyncBanner() {
+  const el = $("drawing-sync-banner");
+  if (!el) return;
+  if (!drawingSyncMeta) {
+    el.classList.add("hidden");
+    el.innerHTML = "";
+    return;
+  }
+  const { needsResync, syncState, totalSymbols } = drawingSyncMeta;
+  if (!syncState && totalSymbols === 0) {
+    el.classList.add("hidden");
+    el.innerHTML = "";
+    return;
+  }
+  el.classList.remove("hidden");
+  if (needsResync) {
+    el.className = "drawing-sync-banner is-stale";
+    el.innerHTML = `<p>⚠️ 図面が更新されています。材料リストを再同期してください。</p>
+      <button type="button" class="btn-sub" id="btn-resync-drawing">図面から再同期</button>`;
+  } else if (syncState) {
+    el.className = "drawing-sync-banner";
+    const symHint = totalSymbols > 0 ? `記号 ${totalSymbols} 件` : "配線のみ";
+    el.innerHTML = `<p>📐 現調図面から自動生成済み（${escapeHtml(symHint)} · ${escapeHtml(syncState.syncedAt.slice(0, 16).replace("T", " "))}）</p>
+      <button type="button" class="btn-sub" id="btn-resync-drawing">図面から再同期</button>`;
+  } else {
+    el.className = "drawing-sync-banner";
+    el.innerHTML = `<p>📐 図面に記号 ${totalSymbols} 件 — 材料を自動生成できます</p>
+      <button type="button" class="btn-primary" id="btn-resync-drawing">図面から材料を生成</button>`;
+  }
+  el.querySelector("#btn-resync-drawing")?.addEventListener("click", syncFromDrawing);
+}
+
+function drawingBadgeHtml(item) {
+  if (item.source !== "auto" || !item.syncKey) return "";
+  if (item.drawingSync === "stale") {
+    return `<span class="drawing-sync-badge is-stale">要再同期</span>`;
+  }
+  return `<span class="drawing-sync-badge">図面連動</span>`;
+}
+
 function renderItemRow(item) {
   const checkedCls = item.checked ? " checked" : "";
+  const qtyHint =
+    item.quantity > 1 && item.unit
+      ? ` <span class="section-hint">×${item.quantity}${escapeHtml(item.unit)}</span>`
+      : item.quantity > 1
+        ? ` <span class="section-hint">×${item.quantity}</span>`
+        : "";
   return `<div class="check-item${checkedCls}" data-item-id="${escapeHtml(item.id)}">
     <input type="checkbox" id="chk-${escapeHtml(item.id)}" data-id="${escapeHtml(item.id)}" ${item.checked ? "checked" : ""} aria-label="${escapeHtml(item.label)}" />
-    <label class="check-item-label" for="chk-${escapeHtml(item.id)}">${escapeHtml(item.label)}</label>
+    <label class="check-item-label" for="chk-${escapeHtml(item.id)}">${escapeHtml(item.label)}${qtyHint}${drawingBadgeHtml(item)}</label>
     <div class="check-item-actions">
       <button type="button" class="check-item-menu-btn" data-menu-id="${escapeHtml(item.id)}" aria-label="編集・削除">…</button>
     </div>
@@ -119,9 +166,11 @@ function renderItemRow(item) {
 
 function renderChecklist() {
   const el = $("checklist");
+  renderDrawingSyncBanner();
   if (!items.length) {
     el.innerHTML = `<div class="material-empty">
       <p>材料がまだ登録されていません</p>
+      <p class="section-hint">図面に記号をプロットすると自動生成されます</p>
       <button type="button" class="btn-primary" id="btn-empty-add">＋材料を追加</button>
     </div>`;
     el.querySelector("#btn-empty-add")?.addEventListener("click", () => $("material-input")?.focus());
@@ -320,7 +369,40 @@ async function loadProjects() {
 async function loadItems() {
   const data = await api(CHECK_API, itemsQuery());
   items = sortItems(data.items || []);
+  drawingSyncMeta = data.drawingSync ?? null;
+  if (drawingSyncMeta?.needsResync && items.length === 0) {
+    await syncFromDrawing({ silent: true });
+    return;
+  }
   renderChecklist();
+}
+
+async function syncFromDrawing(opts = {}) {
+  if (!currentProject) return;
+  try {
+    const result = await api(CHECK_API, "/items/sync-from-drawing", {
+      method: "POST",
+      body: JSON.stringify({
+        projectSource: currentProject.source,
+        projectId: currentProject.id,
+        checkDate,
+      }),
+    });
+    items = sortItems(result.items || []);
+    drawingSyncMeta = {
+      needsResync: false,
+      syncState: result.syncState,
+      symbolCounts: result.mapper?.symbolCounts ?? [],
+      totalSymbols: result.mapper?.totalSymbols ?? 0,
+    };
+    renderChecklist();
+    if (!opts.silent) {
+      const n = (result.inserted ?? 0) + (result.updated ?? 0);
+      toast(n > 0 ? `図面から ${n} 件の材料を反映しました` : "図面と材料は最新です");
+    }
+  } catch (e) {
+    if (!opts.silent) toast(e.message);
+  }
 }
 
 async function openProject(dataset) {

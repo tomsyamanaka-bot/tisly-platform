@@ -14,6 +14,10 @@ import {
   listFieldCheckSessionsV1,
   updateFieldCheckItemV1,
 } from "../../field-ops/field-check-v1-store.js";
+import {
+  getFieldCheckDrawingSyncStatusV1,
+  syncFieldCheckFromDrawingV1,
+} from "../../field-ops/field-check-drawing-sync-v1.js";
 
 export const fieldCheckV1Router = Router();
 
@@ -72,7 +76,56 @@ fieldCheckV1Router.get("/items", ...auth, (req: AuthedRequest, res) => {
     return;
   }
   const checkDate = parseCheckDate(req.query as Record<string, unknown>);
+  const sketchId =
+    req.query.sketchId != null ? String(req.query.sketchId) : undefined;
+  const withDrawing = req.query.withDrawing === "1" || req.query.withDrawing === "true";
+  if (withDrawing) {
+    const status = getFieldCheckDrawingSyncStatusV1({ ref, sketchId, checkDate });
+    res.json({
+      items: status.items,
+      drawingSync: {
+        needsResync: status.needsResync,
+        syncState: status.syncState,
+        symbolCounts: status.mapper?.symbolCounts ?? [],
+        totalSymbols: status.mapper?.totalSymbols ?? 0,
+      },
+    });
+    return;
+  }
   res.json({ items: listFieldCheckItemsV1(ref, checkDate) });
+});
+
+fieldCheckV1Router.post("/items/sync-from-drawing", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const body = req.body as Record<string, unknown>;
+  const ref = parseRef(body);
+  if (!ref) {
+    res.status(400).json({ error: "projectSource and projectId are required" });
+    return;
+  }
+  const checkDate = parseCheckDate(body);
+  const sketchId = body.sketchId != null ? String(body.sketchId) : undefined;
+  try {
+    const result = syncFieldCheckFromDrawingV1({ ref, sketchId, checkDate });
+    res.json(result);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "sync failed";
+    res.status(404).json({ error: msg });
+  }
+});
+
+fieldCheckV1Router.get("/drawing-sync/status", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const ref = parseRef(req.query as Record<string, unknown>);
+  if (!ref) {
+    res.status(400).json({ error: "source and projectId query params are required" });
+    return;
+  }
+  const checkDate = parseCheckDate(req.query as Record<string, unknown>);
+  const sketchId =
+    req.query.sketchId != null ? String(req.query.sketchId) : undefined;
+  const status = getFieldCheckDrawingSyncStatusV1({ ref, sketchId, checkDate });
+  res.json(status);
 });
 
 fieldCheckV1Router.get("/progress", ...auth, (req: AuthedRequest, res) => {

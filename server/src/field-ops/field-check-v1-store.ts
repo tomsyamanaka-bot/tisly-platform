@@ -30,6 +30,7 @@ function rowToItem(
     unit: r.unit != null ? String(r.unit) : null,
     materialId: r.material_id != null ? String(r.material_id) : null,
     source: String(r.source) === "manual" ? "manual" : "auto",
+    syncKey: r.sync_key != null ? String(r.sync_key) : null,
     checked: checkedFromDay,
     checkedAt: dayState?.checked_at != null ? String(dayState.checked_at) : null,
     checkedBy: dayState?.checked_by != null ? String(dayState.checked_by) : null,

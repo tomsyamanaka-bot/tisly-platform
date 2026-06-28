@@ -71,6 +71,10 @@ export interface FieldCheckItemV1 {
   unit: string | null;
   materialId: string | null;
   source: "auto" | "manual";
+  /** 図面同期マージキー（source=auto のみ） */
+  syncKey?: string | null;
+  /** 図面連動状態 — synced / stale / null */
+  drawingSync?: "synced" | "stale" | null;
   checked: boolean;
   checkedAt: string | null;
   checkedBy: string | null;

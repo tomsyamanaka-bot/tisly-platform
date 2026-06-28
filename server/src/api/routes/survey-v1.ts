@@ -62,6 +62,7 @@ import {
   runSurveyGridOcrV1,
 } from "../../survey/survey-grid-ocr-v1.js";
 import { postSymbolCountsToAiEstimateEngineV2 } from "../../master/ai-estimate-engine-v2.js";
+import { syncFieldCheckAfterDrawingSaveV1 } from "../../field-ops/field-check-drawing-sync-v1.js";
 
 export const surveyV1Router = Router();
 
@@ -556,6 +557,13 @@ surveyV1Router.patch("/drawing-sketches/:sketchId", ...surveyV1Auth, (req: Authe
       layers: body.layers,
       notes: body.notes != null ? String(body.notes) : undefined,
     });
+    if (body.layers) {
+      try {
+        syncFieldCheckAfterDrawingSaveV1(sketch.projectId, sketch.id);
+      } catch {
+        /* 材料同期失敗は図面保存を阻害しない */
+      }
+    }
     res.json({ sketch });
   } catch (e) {
     res.status(404).json({ error: String(e) });

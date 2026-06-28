@@ -243,6 +243,46 @@ export function runMigrations(database: Database.Database): void {
   migrateCustomerPortalMasterPhase23V1(database);
   migrateCustomerPortalPhase24V1(database);
   migrateCustomerPortalPhase26V1(database);
+  migrateFieldCheckDrawingSyncV1(database);
+}
+
+/** 図面 ➔ 材料チェック自動同期 v1 */
+function migrateFieldCheckDrawingSyncV1(database: Database.Database): void {
+  addColumnsIfMissing(database, "field_check_items", [
+    {
+      name: "sync_key",
+      ddl: "ALTER TABLE field_check_items ADD COLUMN sync_key TEXT",
+    },
+  ]);
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS field_check_drawing_sync_state (
+      project_source TEXT NOT NULL CHECK (project_source IN ('survey', 'business')),
+      project_id TEXT NOT NULL,
+      sketch_id TEXT,
+      content_hash TEXT NOT NULL DEFAULT '',
+      symbol_count INTEGER NOT NULL DEFAULT 0,
+      line_count INTEGER NOT NULL DEFAULT 0,
+      synced_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (project_source, project_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_field_check_drawing_sync_sketch
+      ON field_check_drawing_sync_state(sketch_id);
+  `);
+
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:field_check_drawing_sync_v1") as { value_json: string } | undefined;
+  if (marker) return;
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run(
+      "migration:field_check_drawing_sync_v1",
+      JSON.stringify({ at: new Date().toISOString() })
+    );
 }
 
 /** 現調図面 v1 — 方眼紙写真 + 描画レイヤー */

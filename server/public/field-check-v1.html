@@ -123,6 +123,42 @@
       text-decoration: line-through;
       color: #64748b;
     }
+    /* 図面自動生成バッジ */
+    .drawing-sync-badge {
+      display: inline-block;
+      margin-left: 0.35rem;
+      padding: 0.1rem 0.45rem;
+      border-radius: 999px;
+      font-size: 0.68rem;
+      font-weight: 600;
+      vertical-align: middle;
+      background: rgba(56, 189, 248, 0.18);
+      color: #7dd3fc;
+      border: 1px solid rgba(56, 189, 248, 0.45);
+    }
+    .drawing-sync-badge.is-stale {
+      background: rgba(251, 191, 36, 0.15);
+      color: #fcd34d;
+      border-color: rgba(251, 191, 36, 0.55);
+    }
+    .drawing-sync-banner {
+      margin: 0.65rem 0 0.85rem;
+      padding: 0.75rem 0.85rem;
+      border-radius: 10px;
+      background: rgba(56, 189, 248, 0.08);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      font-size: 0.88rem;
+      color: #bae6fd;
+    }
+    .drawing-sync-banner.is-stale {
+      background: rgba(251, 191, 36, 0.08);
+      border-color: rgba(251, 191, 36, 0.45);
+      color: #fde68a;
+    }
+    .drawing-sync-banner .btn-sub {
+      margin-top: 0.55rem;
+      min-height: 44px;
+    }
     .check-item-actions {
       display: flex;
       gap: 0.35rem;
@@ -262,6 +298,7 @@
       <div id="project-header" class="friendly-card"></div>
       <div class="progress-bar"><div id="progress-fill" class="progress-fill" style="width:0%"></div></div>
       <p id="progress-text" class="section-hint"></p>
+      <div id="drawing-sync-banner" class="hidden"></div>
       <div class="friendly-card">
         <div class="material-add-row">
           <input type="text" id="material-input" placeholder="材料を追加" autocomplete="off" enterkeyhint="done" />
