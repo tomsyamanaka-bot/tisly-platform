@@ -20,7 +20,9 @@ import {
   updateOfflineResilienceBadgeV1,
 } from "./offline-resilience-v1.js";
 
-export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v7";
+export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v8";
+/** タッチ配置時に指で隠れないよう上へずらす（画面px） */
+const PLOT_TOUCH_OFFSET_Y = 32;
 export const SURVEY_DRAWING_TEMP_BANNER =
   "一時図面として作成中。現調から開くと案件に紐づきます。";
 
@@ -252,6 +254,10 @@ let lineTypePalette = [];
 let pendingSymbol = null;
 let currentStroke = null;
 let panStart = null;
+/** @type {{ lastMid: {x:number,y:number}, lastDist: number }|null} */
+let touchGesture = null;
+let plotPreviewEl = null;
+let toolStripCollapsed = false;
 let stageSize = { w: 800, h: 600 };
 let saveTimer = null;
 let dirty = false;
@@ -264,6 +270,53 @@ function applyViewportTransform() {
   const stage = $("drawing-stage");
   if (!stage) return;
   stage.style.transform = `translate(calc(-50% + ${viewport.offsetX}px), calc(-50% + ${viewport.offsetY}px)) scale(${viewport.scale})`;
+}
+
+function setGestureActive(active) {
+  const stage = $("drawing-stage");
+  if (stage) {
+    if (active) stage.dataset.gestureActive = "1";
+    else delete stage.dataset.gestureActive;
+  }
+}
+
+function isGestureActive() {
+  return !!touchGesture || $("drawing-stage")?.dataset.gestureActive === "1";
+}
+
+function touchMidpoint(touches) {
+  return {
+    x: (touches[0].clientX + touches[1].clientX) / 2,
+    y: (touches[0].clientY + touches[1].clientY) / 2,
+  };
+}
+
+function touchDistance(touches) {
+  const dx = touches[0].clientX - touches[1].clientX;
+  const dy = touches[0].clientY - touches[1].clientY;
+  return Math.hypot(dx, dy);
+}
+
+/**
+ * 指定点を中心にズーム（scale / translate 補正）
+ * @param {number} factor
+ * @param {number} clientX
+ * @param {number} clientY
+ */
+function zoomAt(factor, clientX, clientY) {
+  const wrap = $("drawing-stage-wrap");
+  if (!wrap) return;
+  const rect = wrap.getBoundingClientRect();
+  const mx = clientX - rect.left - rect.width / 2;
+  const my = clientY - rect.top - rect.height / 2;
+  const prevScale = viewport.scale;
+  const nextScale = Math.min(6, Math.max(0.25, prevScale * factor));
+  if (nextScale === prevScale) return;
+  const ratio = nextScale / prevScale;
+  viewport.offsetX = mx - (mx - viewport.offsetX) * ratio;
+  viewport.offsetY = my - (my - viewport.offsetY) * ratio;
+  viewport.scale = nextScale;
+  applyViewportTransform();
 }
 
 function syncGridStageSize() {
@@ -296,8 +349,8 @@ function syncGridStageSize() {
 function imageCoords(clientX, clientY) {
   const stage = $("drawing-stage");
   if (!stage) return { x: 0, y: 0 };
-  // getBoundingClientRect は transform 後の表示矩形
-  // （scale / translate 済み）を返す
+  // getBoundingClientRect は CSS transform
+  // （scale / translate）適用後の表示矩形を返す
   const rect = stage.getBoundingClientRect();
   const w = stageSize.w || stage.clientWidth || rect.width || 1;
   const h = stageSize.h || stage.clientHeight || rect.height || 1;
@@ -309,6 +362,70 @@ function imageCoords(clientX, clientY) {
     x: Math.min(w, Math.max(0, x)),
     y: Math.min(h, Math.max(0, y)),
   };
+}
+
+/** タッチ配置用 — 画面上方へオフセットしてから座標変換 */
+function imageCoordsForPlot(clientX, clientY, pointerType) {
+  const offsetY = pointerType === "touch" ? PLOT_TOUCH_OFFSET_Y : 0;
+  return imageCoords(clientX, clientY - offsetY);
+}
+
+function ensurePlotPreview() {
+  if (plotPreviewEl) return plotPreviewEl;
+  const wrap = $("drawing-stage-wrap");
+  if (!wrap) return null;
+  plotPreviewEl = document.createElement("div");
+  plotPreviewEl.id = "drawing-plot-preview";
+  plotPreviewEl.className = "drawing-plot-preview hidden";
+  plotPreviewEl.setAttribute("aria-hidden", "true");
+  wrap.appendChild(plotPreviewEl);
+  return plotPreviewEl;
+}
+
+function hidePlotPreview() {
+  plotPreviewEl?.classList.add("hidden");
+}
+
+function updatePlotPreview(clientX, clientY) {
+  if (tool !== "symbol" || !pendingSymbol) {
+    hidePlotPreview();
+    return;
+  }
+  const el = ensurePlotPreview();
+  if (!el) return;
+  const wrap = $("drawing-stage-wrap");
+  const rect = wrap?.getBoundingClientRect();
+  if (!rect) return;
+  el.textContent = pendingSymbol.icon || "📍";
+  el.style.left = `${clientX - rect.left}px`;
+  el.style.top = `${clientY - rect.top - PLOT_TOUCH_OFFSET_Y}px`;
+  el.classList.remove("hidden");
+}
+
+function applyToolStripCollapsed(collapsed) {
+  toolStripCollapsed = collapsed;
+  const strip = document.querySelector(".drawing-tool-strip");
+  const btn = $("btn-toggle-tools");
+  strip?.classList.toggle("collapsed", collapsed);
+  btn?.classList.toggle("active", !collapsed);
+  btn?.setAttribute("aria-expanded", collapsed ? "false" : "true");
+  try {
+    localStorage.setItem("tisly_drawing_tools_collapsed_v1", collapsed ? "1" : "0");
+  } catch {
+    /* ignore */
+  }
+}
+
+function initToolStripCollapse() {
+  let collapsed = window.matchMedia("(max-width: 767px)").matches;
+  try {
+    const saved = localStorage.getItem("tisly_drawing_tools_collapsed_v1");
+    if (saved === "1") collapsed = true;
+    if (saved === "0") collapsed = false;
+  } catch {
+    /* ignore */
+  }
+  applyToolStripCollapsed(collapsed);
 }
 
 function pathColor(p) {
@@ -584,6 +701,7 @@ async function saveSketch() {
 function setTool(next) {
   tool = next;
   pendingSymbol = null;
+  if (next !== "symbol") hidePlotPreview();
   if (next !== "select") selectedSymbolId = null;
   document.querySelectorAll("[data-tool]").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.tool === next);
@@ -596,13 +714,14 @@ function setTool(next) {
 
 function onPointerDown(ev) {
   if (drawingEditorState?.canvas?.isRouteMode?.()) return;
+  if (isGestureActive()) return;
   if (ev.target.closest?.(".drawing-symbol, .drawing-memo")) return;
   if (ev.pointerType === "touch" && ev.isPrimary === false) return;
   ev.preventDefault();
   ev.stopPropagation();
   const wrap = $("drawing-stage-wrap");
   wrap?.setPointerCapture?.(ev.pointerId);
-  const pt = imageCoords(ev.clientX, ev.clientY);
+  const pt = imageCoordsForPlot(ev.clientX, ev.clientY, ev.pointerType);
 
   if (tool === "pan") {
     panStart = { x: ev.clientX - viewport.offsetX, y: ev.clientY - viewport.offsetY };
@@ -628,6 +747,7 @@ function onPointerDown(ev) {
       scale: 1,
       memo: "",
     });
+    hidePlotPreview();
     markDirty();
     renderOverlay();
     return;
@@ -664,13 +784,18 @@ function onPointerDown(ev) {
 }
 
 function onPointerMove(ev) {
+  if (tool === "symbol" && pendingSymbol && !isGestureActive()) {
+    updatePlotPreview(ev.clientX, ev.clientY);
+  } else {
+    hidePlotPreview();
+  }
   if (tool === "pan" && panStart) {
     viewport.offsetX = ev.clientX - panStart.x;
     viewport.offsetY = ev.clientY - panStart.y;
     applyViewportTransform();
     return;
   }
-  if (!currentStroke) return;
+  if (!currentStroke || isGestureActive()) return;
   const pt = imageCoords(ev.clientX, ev.clientY);
   if (currentStroke.tool === "line" || currentStroke.tool === "route") {
     currentStroke.points = [currentStroke.points[0], pt];
@@ -686,6 +811,7 @@ function onPointerMove(ev) {
 
 function onPointerUp() {
   panStart = null;
+  hidePlotPreview();
   if (currentStroke) {
     const minPts = currentStroke.tool === "pen" ? 1 : 2;
     if (currentStroke.points.length >= minPts) {
@@ -698,10 +824,48 @@ function onPointerUp() {
   }
 }
 
-function zoomBy(factor) {
-  viewport.scale = Math.min(6, Math.max(0.25, viewport.scale * factor));
-  applyViewportTransform();
+function zoomBy(factor, clientX, clientY) {
+  const wrap = $("drawing-stage-wrap");
+  const rect = wrap?.getBoundingClientRect();
+  const cx = clientX ?? (rect ? rect.left + rect.width / 2 : window.innerWidth / 2);
+  const cy = clientY ?? (rect ? rect.top + rect.height / 2 : window.innerHeight / 2);
+  zoomAt(factor, cx, cy);
   markDirty();
+}
+
+function onTouchStart(ev) {
+  if (ev.touches.length === 2) {
+    touchGesture = {
+      lastMid: touchMidpoint(ev.touches),
+      lastDist: touchDistance(ev.touches),
+    };
+    currentStroke = null;
+    panStart = null;
+    hidePlotPreview();
+    setGestureActive(true);
+  }
+}
+
+function onTouchMove(ev) {
+  if (!touchGesture || ev.touches.length !== 2) return;
+  ev.preventDefault();
+  const mid = touchMidpoint(ev.touches);
+  const dist = touchDistance(ev.touches);
+  viewport.offsetX += mid.x - touchGesture.lastMid.x;
+  viewport.offsetY += mid.y - touchGesture.lastMid.y;
+  if (touchGesture.lastDist > 0) {
+    zoomAt(dist / touchGesture.lastDist, mid.x, mid.y);
+  }
+  touchGesture.lastMid = mid;
+  touchGesture.lastDist = dist;
+  markDirty();
+}
+
+function onTouchEnd(ev) {
+  if (ev.touches.length < 2) {
+    touchGesture = null;
+    setGestureActive(false);
+  }
 }
 
 /** 背景画像 blob URL — 差し替え時に解放 */
@@ -1280,37 +1444,24 @@ function wireEvents() {
     "wheel",
     (ev) => {
       ev.preventDefault();
-      zoomBy(ev.deltaY < 0 ? 1.1 : 0.9);
+      zoomBy(ev.deltaY < 0 ? 1.1 : 0.9, ev.clientX, ev.clientY);
     },
     { passive: false }
   );
 
-  let lastDist = 0;
-  wrap?.addEventListener("touchstart", (ev) => {
-    if (ev.touches.length === 2) {
-      const dx = ev.touches[0].clientX - ev.touches[1].clientX;
-      const dy = ev.touches[0].clientY - ev.touches[1].clientY;
-      lastDist = Math.hypot(dx, dy);
-    }
-  });
-  wrap?.addEventListener(
-    "touchmove",
-    (ev) => {
-      if (ev.touches.length === 2) {
-        ev.preventDefault();
-        const dx = ev.touches[0].clientX - ev.touches[1].clientX;
-        const dy = ev.touches[0].clientY - ev.touches[1].clientY;
-        const dist = Math.hypot(dx, dy);
-        if (lastDist > 0) zoomBy(dist / lastDist);
-        lastDist = dist;
-      }
-    },
-    { passive: false }
-  );
+  wrap?.addEventListener("touchstart", onTouchStart, { passive: true });
+  wrap?.addEventListener("touchmove", onTouchMove, { passive: false });
+  wrap?.addEventListener("touchend", onTouchEnd, { passive: true });
+  wrap?.addEventListener("touchcancel", onTouchEnd, { passive: true });
 
   document.querySelectorAll("[data-tool]").forEach((btn) => {
     btn.addEventListener("click", () => setTool(btn.dataset.tool));
   });
+
+  $("btn-toggle-tools")?.addEventListener("click", () => {
+    applyToolStripCollapsed(!toolStripCollapsed);
+  });
+  initToolStripCollapse();
 
   $("btn-zoom-in")?.addEventListener("click", () => zoomBy(1.2));
   $("btn-zoom-out")?.addEventListener("click", () => zoomBy(1 / 1.2));
@@ -1394,7 +1545,7 @@ async function main() {
     onPayloadChange: () => markDirty(),
   });
   restoreDrawingEditorFromLayers();
-  setStatus("描画できます（指・タッチペン · 通線ルート対応）");
+  setStatus("描画できます（ピンチズーム · 二本指移動 · 通線ルート対応）");
 }
 
 main().catch((e) => setStatus(`エラー: ${e.message}`));

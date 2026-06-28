@@ -68,6 +68,22 @@
   background: #1e293b;
   flex-shrink: 0;
   align-items: center;
+  max-height: 220px;
+  overflow: hidden;
+  transition: max-height 0.2s ease, padding 0.2s ease, opacity 0.2s ease;
+}
+
+.drawing-tool-strip.collapsed {
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.drawing-tool-btn#btn-toggle-tools.active {
+  background: #2563eb;
+  border-color: #60a5fa;
 }
 
 .drawing-tool-btn {
@@ -212,6 +228,27 @@
   overflow: hidden;
   position: relative;
   background: #111827;
+  touch-action: none;
+}
+
+.drawing-plot-preview {
+  position: absolute;
+  z-index: 12;
+  width: 40px;
+  height: 40px;
+  margin-left: -20px;
+  margin-top: -20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  pointer-events: none;
+  opacity: 0.72;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.45));
+}
+
+.drawing-plot-preview.hidden {
+  display: none;
 }
 
 .drawing-stage {
@@ -353,6 +390,29 @@
   color: #fff;
 }
 .drawing-est-btn:disabled { opacity: 0.45; }
+
+@media (max-width: 767px) {
+  .drawing-toolbar {
+    padding-top: calc(env(safe-area-inset-top, 0px) + 0.25rem);
+    padding-bottom: 0.25rem;
+  }
+
+  .drawing-tool-btn {
+    min-width: 40px;
+    min-height: 40px;
+    font-size: 0.95rem;
+  }
+
+  .drawing-title {
+    font-size: 0.88rem;
+  }
+
+  .drawing-status {
+    padding-top: 0.15rem;
+    padding-bottom: 0.2rem;
+    font-size: 0.7rem;
+  }
+}
 
 @media (min-width: 768px) {
   .drawing-tool-strip {

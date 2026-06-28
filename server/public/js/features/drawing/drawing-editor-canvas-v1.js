@@ -199,18 +199,21 @@ export function createDrawingEditorCanvasV1(opts) {
 
   /**
    * ???? ? ??? 0?1
-   * transform ?? getBoundingClientRect ??????
+   * stage ? getBoundingClientRect ?
+   * CSS transform?scale/translate?????
+   * ???????????????????
    */
-  function clientToNormalized(clientX, clientY) {
+  function clientToNormalized(clientX, clientY, pointerType) {
     const rect = stageEl.getBoundingClientRect();
     const rw = Math.max(rect.width, 1);
     const rh = Math.max(rect.height, 1);
     if (rw <= 0 || rh <= 0) {
       return { x: 0.5, y: 0.5 };
     }
+    const offsetY = pointerType === "touch" ? 32 : 0;
     return {
       x: Math.min(1, Math.max(0, (clientX - rect.left) / rw)),
-      y: Math.min(1, Math.max(0, (clientY - rect.top) / rh)),
+      y: Math.min(1, Math.max(0, (clientY - rect.top - offsetY) / rh)),
     };
   }
 
@@ -266,7 +269,7 @@ export function createDrawingEditorCanvasV1(opts) {
     if (!routeMode) return;
     ev.preventDefault();
     ev.stopPropagation();
-    const pt = clientToNormalized(ev.clientX, ev.clientY);
+    const pt = clientToNormalized(ev.clientX, ev.clientY, ev.pointerType);
     currentRoute = { points: [pt] };
     stageEl.setPointerCapture?.(ev.pointerId);
     renderRoutes();
@@ -275,7 +278,7 @@ export function createDrawingEditorCanvasV1(opts) {
   function onRoutePointerMove(ev) {
     if (!routeMode || !currentRoute) return;
     ev.preventDefault();
-    const pt = clientToNormalized(ev.clientX, ev.clientY);
+    const pt = clientToNormalized(ev.clientX, ev.clientY, ev.pointerType);
     const start = currentRoute.points[0];
     currentRoute.points = [start, pt];
     renderRoutes();

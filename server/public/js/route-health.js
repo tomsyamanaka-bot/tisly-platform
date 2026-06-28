@@ -48,12 +48,12 @@ const BOTTOM_NAV_LINKS = [
 const JS_ASSETS = [
   { path: "/js/estimate-v1.js?v=estimate-ui-v8", label: "estimate-v1 JS" },
   { path: "/js/survey-v1.js?v=survey-ui-v5", label: "survey-v1 JS" },
-  { path: "/js/survey-drawing-v1.js?v=survey-drawing-ui-v6", label: "survey-drawing-v1 JS" },
+  { path: "/js/survey-drawing-v1.js?v=survey-drawing-ui-v8", label: "survey-drawing-v1 JS" },
   { path: "/js/tisly-practical-nav.js", label: "bottom nav JS" },
 ];
 
 const ESTIMATE_UI_VERSION = "estimate-ui-v8";
-const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v6";
+const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v8";
 const PHASE9_JS_VERSION = "phase9-iphone-v1";
 const SW_CACHE_TOKEN = "v2407-phase28";
 const CUSTOMER_JS_VERSION = "customer-v1-phase27";
@@ -1056,7 +1056,7 @@ async function checkDrawingDirectLaunch() {
       js.includes("SURVEY_DRAWING_TEMP_BANNER"),
       js.includes("saveDrawingToLocalStorage"),
       js.includes("syncGridStageSize"),
-      html.includes("survey-drawing-ui-v6"),
+      html.includes("survey-drawing-ui-v8"),
       !js.includes("projectId または sketchId が必要です"),
     ];
     const ok = checks.filter(Boolean).length;

@@ -106,11 +106,13 @@ export function createDrawingSymbolPaletteV1(opts) {
   function handleStagePointer(ev) {
     if (canvas.isRouteMode()) return;
     if (!activeSymbol) return;
+    if (stageEl.dataset.gestureActive === "1") return;
+    if (ev.pointerType === "touch" && ev.isPrimary === false) return;
     if (ev.target?.closest?.(".drawing-symbol-dock-v1")) return;
 
     ev.preventDefault();
     ev.stopPropagation();
-    const pt = canvas.clientToNormalized(ev.clientX, ev.clientY);
+    const pt = canvas.clientToNormalized(ev.clientX, ev.clientY, ev.pointerType);
     canvas.addPlot({
       id: uid(),
       symbolType: activeSymbol.symbolType,

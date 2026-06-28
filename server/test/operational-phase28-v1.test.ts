@@ -8,7 +8,7 @@ const publicDir = path.join(process.cwd(), "public");
 describe("Operational Phase28 — PWA speed & drawing assets", () => {
   it("service worker has field-ops cache and drawing/voice-nav shells", () => {
     const sw = fs.readFileSync(path.join(publicDir, "service-worker.js"), "utf-8");
-    assert.ok(sw.includes("tisly-pwa-v2407-phase28"));
+    assert.ok(sw.includes("tisly-pwa-v2408-phase30"));
     assert.ok(sw.includes("FIELD_OPS_CACHE"));
     assert.ok(sw.includes("cacheFirstStaleWhileRevalidate"));
     assert.ok(sw.includes("isFieldOpsFastAsset"));
@@ -17,11 +17,11 @@ describe("Operational Phase28 — PWA speed & drawing assets", () => {
     assert.ok(sw.includes("/js/features/voice-nav/voice-nav-v1.js"));
   });
 
-  it("survey-drawing UI version v6 aligned in HTML and JS", () => {
+  it("survey-drawing UI version v8 aligned in HTML and JS", () => {
     const html = fs.readFileSync(path.join(publicDir, "survey-drawing-v1.html"), "utf-8");
     const js = fs.readFileSync(path.join(publicDir, "js/survey-drawing-v1.js"), "utf-8");
-    assert.match(html, /survey-drawing-ui-v6/);
-    assert.match(js, /SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v6"/);
+    assert.match(html, /survey-drawing-ui-v8/);
+    assert.match(js, /SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v8"/);
     assert.ok(js.includes("releaseBgObjectUrl"));
     assert.ok(js.includes("withDrawingBgCacheBust"));
   });

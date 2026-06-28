@@ -19,13 +19,14 @@
 <body class="tisly-friendly field-ops-touch survey-drawing-body">
   <header class="drawing-toolbar" id="drawing-toolbar">
     <button type="button" class="drawing-tool-btn" id="btn-back" title="戻る">←</button>
+    <button type="button" class="drawing-tool-btn" id="btn-toggle-tools" title="描画ツール" aria-expanded="true" aria-controls="drawing-tool-strip">🛠</button>
     <span id="drawing-title" class="drawing-title">現調図面</span>
     <button type="button" class="drawing-tool-btn" id="btn-ai-export" title="AI清書用出力">🤖</button>
     <button type="button" class="drawing-tool-btn" id="btn-grid-ocr" title="方眼紙AI解析">🔍</button>
     <button type="button" class="drawing-tool-btn primary" id="btn-save" title="保存">💾</button>
   </header>
 
-  <div class="drawing-tool-strip" role="toolbar" aria-label="描画ツール">
+  <div class="drawing-tool-strip" id="drawing-tool-strip" role="toolbar" aria-label="描画ツール">
     <button type="button" class="drawing-tool-btn active" data-tool="pen" title="ペン">✏️</button>
     <button type="button" class="drawing-tool-btn" data-tool="line" title="直線">／</button>
     <button type="button" class="drawing-tool-btn" data-tool="route" title="配線">🔌</button>
@@ -91,6 +92,6 @@
     </div>
   </div>
 
-  <script type="module" src="/js/survey-drawing-v1.js?v=survey-drawing-ui-v7"></script>
+  <script type="module" src="/js/survey-drawing-v1.js?v=survey-drawing-ui-v8"></script>
 </body>
 </html>
