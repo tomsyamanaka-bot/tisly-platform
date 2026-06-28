@@ -37,6 +37,7 @@ export const PWA_ROUTE_CATALOG_V1: PwaRouteEntryV1[] = [
   { path: "/business", label: "TOMS業務", group: "business", kind: "page" },
   { path: "/knowledge-search-v1", label: "ナレッジ検索", group: "knowledge", kind: "page" },
   { path: "/knowledge-field-v1", label: "現場ナレッジ", group: "knowledge", kind: "page" },
+  { path: "/knowledge-module-v1", label: "ナレッジモジュール", group: "knowledge", kind: "page" },
   { path: "/api/health", label: "Health API", group: "api", kind: "api" },
   { path: "/api/survey/v1/projects", label: "Survey API", group: "api", kind: "api" },
   { path: "/api/estimate/v1/projects", label: "Estimate API", group: "api", kind: "api" },

@@ -5,7 +5,8 @@
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc && node scripts/copy-db-assets.mjs && tsx scripts/sync-release-gate-commit.ts",
+    "build": "node scripts/build-knowledge-module.mjs && tsc && node scripts/copy-db-assets.mjs && tsx scripts/sync-release-gate-commit.ts",
+    "build:knowledge-module": "node scripts/build-knowledge-module.mjs",
     "hash:admin-password": "node scripts/hash-admin-password.mjs",
     "vapid:generate": "node scripts/generate-vapid-keys.mjs",
     "vapid:setup": "node scripts/generate-vapid-keys.mjs --setup",
@@ -50,6 +51,8 @@
     "node": ">=20"
   },
   "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "better-sqlite3": "^11.7.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
@@ -67,7 +70,10 @@
     "ws": "^8.18.0"
   },
   "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
     "@types/better-sqlite3": "^7.6.12",
+    "esbuild": "^0.25.0",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.2",

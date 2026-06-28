@@ -524,6 +524,9 @@ export function createApp(): express.Application {
   app.get("/knowledge-field-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "knowledge-field-v1.html"));
   });
+  app.get("/knowledge-module-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "knowledge-module-v1.html"));
+  });
   app.get("/knowledge-detail-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "knowledge-detail-v1.html"));
   });
