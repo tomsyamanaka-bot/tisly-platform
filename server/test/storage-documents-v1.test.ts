@@ -123,7 +123,14 @@ describe("storage_documents_v1", () => {
   });
 
   it("qnapPath が正しい形式", () => {
-    const path = buildQnapRemotePath("/TiSLY", businessProjectId, "estimate", "estimate-x.pdf");
-    assert.match(path, /^TiSLY\/projects\/.+\/estimates\/.+_見積書\.pdf$/);
+    const remotePath = buildQnapRemotePath("/TiSLY", businessProjectId, "estimate", "estimate-x.pdf");
+    assert.match(remotePath, /^TiSLY\/projects\/.+\/estimates\/estimate-x\.pdf$/);
+    const jpPath = buildQnapRemotePath(
+      "/TiSLY",
+      businessProjectId,
+      "estimate",
+      "見積書_上田様_防犯カメラ工事.pdf"
+    );
+    assert.match(jpPath, /^TiSLY\/projects\/.+\/estimates\/見積書_上田様_防犯カメラ工事\.pdf$/);
   });
 });

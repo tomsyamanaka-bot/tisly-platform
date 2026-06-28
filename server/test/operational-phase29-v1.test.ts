@@ -72,9 +72,10 @@ describe("Operational Phase29 — QNAP WebDAV path encoding", () => {
       path.join(process.cwd(), "src/business/services/qnapWebDav.ts"),
       "utf-8"
     );
-    assert.ok(ts.includes("encodeURIComponent"));
     assert.ok(ts.includes("encodeWebDavPath"));
+    assert.ok(ts.includes("stripDuplicateWebDavSharePrefix"));
     assert.ok(ts.includes("maxAttempts = 3"));
+    assert.ok(ts.includes("[QNAP WebDAV PUT]"));
   });
 
   it("webdav fetch default timeout extended to 30s", () => {

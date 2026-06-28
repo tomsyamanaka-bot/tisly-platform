@@ -3,6 +3,7 @@ import os from "os";
 import path from "path";
 import { QnapWebDavClient } from "../../business/services/qnapWebDav.js";
 import { qnapWebDavFetch } from "../../business/services/qnap-webdav-fetch-v1.js";
+import { buildWebDavFullUrl } from "../../business/services/webdav-path-encoding-v1.js";
 import type {
   StorageProvider,
   StorageProviderConfig,
@@ -303,7 +304,8 @@ export class WebDavStorageProvider implements StorageProvider {
     const client = this.client();
     if (!client) return { ok: false, message: "WebDAV URL が未設定です" };
     try {
-      const url = `${this.config.webdavUrl!.replace(/\/+$/, "")}/${rel}`;
+      const base = this.config.webdavUrl!.replace(/\/+$/, "");
+      const url = buildWebDavFullUrl(base, rel);
       const res = await qnapWebDavFetch(url, {
         method: "GET",
         headers: {
@@ -345,7 +347,8 @@ export class WebDavStorageProvider implements StorageProvider {
     const client = this.client();
     if (!client) return false;
     try {
-      const url = `${this.config.webdavUrl!.replace(/\/+$/, "")}/${rel}`;
+      const base = this.config.webdavUrl!.replace(/\/+$/, "");
+      const url = buildWebDavFullUrl(base, rel);
       const res = await qnapWebDavFetch(url, {
         method: "HEAD",
         headers: {

@@ -68,6 +68,12 @@ export function buildQnapRemoteFileName(
   documentType: StorageDocumentTypeV1,
   fallbackFileName: string
 ): string {
+  const safeFallback = sanitizeFileName(fallbackFileName);
+  // ローカル PDF 名（日本語含む）をそのまま QNAP へ送る
+  if (safeFallback.toLowerCase().endsWith(".pdf") && safeFallback.length > 4) {
+    return safeFallback;
+  }
+
   const project = getBusinessProject(projectId);
   const siteName = project?.title ?? project?.customerName ?? "現場";
   const projectNo = project?.projectNo ?? projectId.slice(0, 12);
