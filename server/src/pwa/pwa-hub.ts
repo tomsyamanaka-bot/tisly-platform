@@ -263,6 +263,16 @@ const PRACTICAL_PWA_DEFS: Array<
     themeColor: "#6a737d",
     readyRoles: [],
   },
+  {
+    id: "knowledge_module_v1",
+    label: "ナレッジを見る",
+    subtitle: "現場のノウハウ・アイデアを検索する",
+    icon: "💡",
+    features: ["ナレッジ検索", "現場メモ", "アイデア共有", "QNAP連携"],
+    href: "/knowledge-module-v1",
+    themeColor: "#0d9488",
+    readyRoles: ["surveyor", "manager", "owner", "admin", "super_admin"],
+  },
 ];
 
 export function buildPracticalHubCards(role: string): PracticalPwaCard[] {

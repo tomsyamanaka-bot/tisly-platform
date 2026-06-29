@@ -93,6 +93,10 @@ describe("Phase 461-480 multi PWA app hub", () => {
     const work = apps.find((a: { id: string }) => a.id === "work_report");
     assert.equal(work?.status, "coming_soon");
     assert.equal(work?.statusLabel, "準備中");
+    const knowledge = apps.find((a: { id: string }) => a.id === "knowledge_module_v1");
+    assert.equal(knowledge?.status, "ready");
+    assert.equal(knowledge?.statusLabel, "使えます");
+    assert.equal(knowledge?.url, "/knowledge-module-v1");
   });
 
   it("installer hub shows install only", async () => {
