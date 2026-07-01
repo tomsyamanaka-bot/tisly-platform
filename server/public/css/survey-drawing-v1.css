@@ -5,7 +5,19 @@
   display: flex;
   flex-direction: column;
   background: #0f172a;
-  touch-action: none;
+  touch-action: manipulation;
+}
+
+/* iOS で display:none だと
+   プログラム click が効かない場合がある */
+.survey-file-input-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  pointer-events: none;
 }
 
 .drawing-temp-banner {

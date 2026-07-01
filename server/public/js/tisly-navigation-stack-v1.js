@@ -72,7 +72,12 @@ export function navigateTo(href, { record = true } = {}) {
   const toZone = getNavZoneV1(safe);
   if (toZone && fromZone && toZone !== fromZone) return;
   if (record) recordNavDeparture();
-  location.href = safe;
+  if (record) {
+    location.href = safe;
+  } else {
+    // 戻る遷移は履歴を汚さない
+    location.replace(safe);
+  }
 }
 
 /**
@@ -93,7 +98,9 @@ export function navigateBackOne(fallbackOrOpts) {
   const fb = sanitizeNavPathV1(fallback) || getDefaultNavFallbackV1(location.pathname);
   const result = safeReturn(stack, { fallback: fb, zone, explicitReturn });
   writeStack(result.stack);
-  location.href = result.target;
+  // スタック戻りは replace で
+  // 無限ループを防ぐ
+  location.replace(result.target);
 }
 
 const POPSTATE_GUARD_FLAG = "__tislyPopstateGuardV1";

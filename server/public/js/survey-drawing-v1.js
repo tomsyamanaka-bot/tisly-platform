@@ -20,7 +20,7 @@ import {
   updateOfflineResilienceBadgeV1,
 } from "./offline-resilience-v1.js";
 
-export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v10";
+export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v11";
 /** タッチ配置時に指で隠れないよう上へずらす（画面px） */
 const PLOT_TOUCH_OFFSET_Y = 32;
 export const SURVEY_DRAWING_TEMP_BANNER =
@@ -662,8 +662,8 @@ function togglePhotoPicker(show) {
   picker.classList.toggle("hidden", !show);
 }
 
-function wireBackgroundFileInput(inputId) {
-  const input = $(inputId);
+function wireSurveyFileInput() {
+  const input = $("survey-file-input");
   input?.addEventListener("change", async (ev) => {
     const file = ev.target.files?.[0];
     if (!file) return;
@@ -671,7 +671,7 @@ function wireBackgroundFileInput(inputId) {
     try {
       await importBackground(file);
     } catch (e) {
-      setStatus(e.message);
+      setStatus(e?.message || "写真の取り込みに失敗しました");
     }
     ev.target.value = "";
   });
@@ -713,8 +713,38 @@ function photoRefsFromSketch() {
   if (!sketch?.backgroundImageUrl) return [];
   return [{ url: sketch.backgroundImageUrl, path: sketch.backgroundImagePath || null }];
 }
-  if (!sketch?.backgroundImageUrl) return [];
-  return [{ url: sketch.backgroundImageUrl, path: sketch.backgroundImagePath || null }];
+
+/**
+ * 非表示 file input を
+ * ユーザ操作の直後に起動
+ * （iOS カメラ/アルバム用）
+ */
+function triggerSurveyFileInput() {
+  const input = $("survey-file-input");
+  if (!input) {
+    setStatus("写真入力が見つかりません");
+    return;
+  }
+  try {
+    input.value = "";
+    input.click();
+  } catch (e) {
+    setStatus(`写真選択を開けません: ${e?.message || e}`);
+  }
+}
+
+/** 写真ボタンにタップ/クリック連動を付与 */
+function bindPhotoTriggerButton(btnId) {
+  const btn = $(btnId);
+  if (!btn) return;
+  const open = (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    togglePhotoPicker(false);
+    triggerSurveyFileInput();
+  };
+  btn.addEventListener("click", open);
+  btn.addEventListener("touchend", open, { passive: false });
 }
 
 function saveSketchLocal() {
@@ -1109,11 +1139,25 @@ async function loadSketch() {
       sketch = data.sketch;
       projectId = sketch.projectId;
     } catch (e) {
+      const msg = String(e?.message || e || "");
       if (loadSketchFromLocal()) {
         sketch = { id: sketchId, projectId, title: "現調図面（端末内）", layers };
         isLocalOnlyMode = true;
         isTempMode = true;
         showTempBanner();
+        applyGridPaper();
+        updateDrawingPdfBar();
+        return;
+      }
+      if (/sketch not found|not found/i.test(msg)) {
+        sketch = {
+          id: sketchId,
+          projectId,
+          title: "現調図面",
+          layers: emptyLayers(),
+        };
+        layers = migrateLayers(sketch.layers);
+        setStatus("図面が見つかりません。新規モードで続行します");
         applyGridPaper();
         updateDrawingPdfBar();
         return;
@@ -1129,9 +1173,13 @@ async function loadSketch() {
     return;
   }
 
-  layers = migrateLayers(sketch.layers, sketch.layers?.canvasWidth, sketch.layers?.canvasHeight);
+  layers = migrateLayers(
+    sketch?.layers,
+    sketch?.layers?.canvasWidth,
+    sketch?.layers?.canvasHeight
+  );
   viewport = { scale: 1, offsetX: 0, offsetY: 0, ...layers.viewport };
-  $("drawing-title").textContent = sketch.title || "現調図面";
+  $("drawing-title").textContent = sketch?.title || "現調図面";
   if (sketch.backgroundImageUrl) {
     setupBgImage(sketch.backgroundImageUrl);
     syncMaterialBarUi();
@@ -1649,19 +1697,12 @@ function wireEvents() {
     else navigateBackOne("/survey-v1");
   });
 
-  $("btn-import-photo")?.addEventListener("click", () => {
-    togglePhotoPicker($("drawing-photo-picker")?.classList.contains("hidden"));
-  });
-  $("btn-photo-camera")?.addEventListener("click", () => {
-    togglePhotoPicker(false);
-    $("file-bg-camera")?.click();
-  });
-  $("btn-photo-album")?.addEventListener("click", () => {
-    togglePhotoPicker(false);
-    $("file-bg-album")?.click();
-  });
-  wireBackgroundFileInput("file-bg-camera");
-  wireBackgroundFileInput("file-bg-album");
+  // 📷 カメラアイコンは
+  // 直接 OS 写真メニューを起動
+  bindPhotoTriggerButton("btn-import-photo");
+  bindPhotoTriggerButton("btn-photo-camera");
+  bindPhotoTriggerButton("btn-photo-album");
+  wireSurveyFileInput();
   $("btn-undo")?.addEventListener("click", () => undoLastStroke());
 
   $("btn-spec-photo-link")?.addEventListener("click", () => {
@@ -1711,7 +1752,24 @@ async function main() {
   wireEvents();
   await Promise.all([loadSymbols(), loadLineTypes()]);
   await resolveSurveyProjectIdIfNeeded();
-  await loadSketch();
+  try {
+    await loadSketch();
+  } catch (e) {
+    const msg = String(e?.message || e || "");
+    if (/sketch not found|not found/i.test(msg)) {
+      sketch = sketch || {
+        id: sketchId || `temp-${Date.now()}`,
+        projectId,
+        title: "現調図面",
+        layers: emptyLayers(),
+      };
+      layers = migrateLayers(sketch?.layers);
+      applyGridPaper();
+      setStatus("図面データ未取得。オフラインモードで続行します");
+    } else {
+      setStatus(`読み込み警告: ${msg}`);
+    }
+  }
   syncMaterialBarUi();
   fieldInnovations?.checkKnowledgeOnOpen(sketch);
   await refreshEstimateDraftState();
