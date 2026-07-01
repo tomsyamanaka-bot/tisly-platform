@@ -72,12 +72,9 @@ export function navigateTo(href, { record = true } = {}) {
   const toZone = getNavZoneV1(safe);
   if (toZone && fromZone && toZone !== fromZone) return;
   if (record) recordNavDeparture();
-  if (record) {
-    location.href = safe;
-  } else {
-    // 戻る遷移は履歴を汚さない
-    location.replace(safe);
-  }
+  // 履歴を汚さず replace で遷移
+  // （戻るボタン無限ループ防止）
+  location.replace(safe);
 }
 
 /**

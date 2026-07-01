@@ -1,10 +1,10 @@
 /* TiSLY Multi PWA — Phase28 現場PWA爆速化
  * 図面エディタ / 音声ナビ含む
  * フィールドオペ用アセットを優先キャッシュ */
-const SW_VERSION = "tisly-pwa-v2408-phase30";
-const OFFLINE_CACHE = "tisly-pwa-shell-v2408-phase30";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2408-phase30";
-const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2408-phase30";
+const SW_VERSION = "tisly-pwa-v2409-phase31";
+const OFFLINE_CACHE = "tisly-pwa-shell-v2409-phase31";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2409-phase31";
+const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2409-phase31";
 const ICON_V = "?v=2004";
 
 /** 図面エディタ v1 — ES module 群 */

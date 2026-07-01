@@ -50,25 +50,28 @@ describe("PWA Route Repair Phase2", () => {
   it("invoice tab query is recognized in estimate-v1 JS", () => {
     const js = fs.readFileSync(path.join(publicDir, "js/estimate-v1.js"), "utf-8");
     assert.match(js, /tab === "invoice"/);
-    assert.match(js, /billing_v1/);
+    assert.match(js, /estimate_billing_v1/);
   });
 
   it("survey-drawing-v1 route exists", async () => {
     const res = await request(app).get("/survey-drawing-v1");
     assert.equal(res.status, 200);
-    assert.match(res.text, /survey-drawing-ui-v3/);
+    assert.match(res.text, /survey-drawing-ui-v12/);
   });
 
   it("bottom nav links are valid in tisly-practical-nav.js", () => {
     const js = fs.readFileSync(path.join(publicDir, "js/tisly-practical-nav.js"), "utf-8");
     assert.match(js, /href: "\/schedule-v1"/);
     assert.match(js, /href: "\/survey-v1"/);
+    assert.match(js, /見積・請求/);
     assert.match(js, /href: "\/estimate-v1"/);
-    assert.match(js, /href: "\/estimate-v1\?tab=invoice"/);
+    assert.match(js, /href: "\/knowledge-module-v1"/);
+    assert.match(js, /ナレッジ/);
     assert.match(js, /href: "\/projects-v1"/);
     assert.match(js, /field_site_v1.*href: "\/field-checklist-v1"/s);
     assert.match(js, /field_check_v1.*href: "\/field-check-v1"/s);
     assert.match(js, /purchase_v1.*href: "\/field-check-v1\?tab=orders"/s);
+    assert.doesNotMatch(js, /id: "billing_v1"/);
     assert.doesNotMatch(js, /project-dashboard-v1/);
     assert.doesNotMatch(js, /href: "\/purchase-v1"/);
   });
@@ -101,7 +104,7 @@ describe("PWA Route Repair Phase2", () => {
 
   it("service worker cache version bumped for route repair", () => {
     const sw = fs.readFileSync(path.join(publicDir, "service-worker.js"), "utf-8");
-    assert.match(sw, /v2397-production/);
+    assert.match(sw, /v2409-phase31/);
     assert.match(sw, /survey-drawing-v1/);
   });
 });

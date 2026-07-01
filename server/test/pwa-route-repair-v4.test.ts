@@ -115,7 +115,7 @@ describe("PWA Route Repair Phase8 — route-health & cache", () => {
   it("invoice tab active via tab=invoice query in estimate JS", () => {
     const js = fs.readFileSync(path.join(publicDir, "js/estimate-v1.js"), "utf-8");
     assert.match(js, /tab === "invoice"/);
-    assert.match(js, /billing_v1/);
+    assert.match(js, /estimate_billing_v1/);
     assert.match(js, /LOCAL_DRAFTS_KEY/);
   });
 });

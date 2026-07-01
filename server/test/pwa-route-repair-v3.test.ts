@@ -41,7 +41,7 @@ describe("PWA Route Repair Phase3", () => {
   it("invoice tab query is recognized in estimate-v1 JS", () => {
     const js = fs.readFileSync(path.join(publicDir, "js/estimate-v1.js"), "utf-8");
     assert.match(js, /tab === "invoice"/);
-    assert.match(js, /billing_v1/);
+    assert.match(js, /estimate_billing_v1/);
   });
 
   it("survey drawing editor passes surveyId in query builder", () => {

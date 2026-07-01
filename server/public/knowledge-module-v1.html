@@ -2,21 +2,18 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#1e293b" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <title>TiSLY — ナレッジ</title>
   <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
+  <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
   <link rel="stylesheet" href="/css/features/knowledge/knowledge-module-v1.css" />
 </head>
 <body class="tisly-friendly">
-  <header class="app-header blue">
-    <a href="/settings-v1" class="header-back" aria-label="戻る">←</a>
-    <span class="header-title">ナレッジ</span>
-  </header>
-
   <main class="kn-page" id="kn-root" aria-live="polite"></main>
 
+  <script type="module" src="/js/knowledge-module-v1-nav.js"></script>
   <script type="module" src="/js/features/knowledge/knowledge-module.bundle.js"></script>
 </body>
 </html>

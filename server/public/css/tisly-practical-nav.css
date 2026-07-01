@@ -137,16 +137,27 @@ body.has-practical-nav #ops-panels-wrap {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.15rem;
-  padding: 0.35rem 0.15rem;
+  gap: 0.12rem;
+  padding: 0.3rem 0.08rem;
   border: none;
   background: transparent;
   color: var(--tisly-muted, #6a737d);
-  font-size: 0.62rem;
+  /* 7タブ向け — 画面幅に応じてラベル縮小 */
+  font-size: clamp(0.54rem, 2.5vw, 0.66rem);
   font-weight: 500;
   text-decoration: none;
   cursor: pointer;
   min-height: 44px;
+  min-width: 0;
+}
+
+.tisly-practical-bottomnav .nav-label {
+  max-width: 100%;
+  text-align: center;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .tisly-practical-bottomnav .nav-icon {

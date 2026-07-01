@@ -1,3 +1,7 @@
+html:has(.survey-drawing-body) {
+  touch-action: manipulation;
+}
+
 .survey-drawing-body {
   margin: 0;
   overflow: hidden;
@@ -6,18 +10,20 @@
   flex-direction: column;
   background: #0f172a;
   touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
 }
 
-/* iOS で display:none だと
-   プログラム click が効かない場合がある */
+/* iOS: display:none / pointer-events:none
+   だと programmatic click が無効化される */
 .survey-file-input-hidden {
-  position: absolute;
+  position: fixed;
+  left: 0;
+  top: 0;
   width: 1px;
   height: 1px;
-  opacity: 0;
+  opacity: 0.01;
   overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  pointer-events: none;
+  z-index: 9999;
 }
 
 .drawing-temp-banner {

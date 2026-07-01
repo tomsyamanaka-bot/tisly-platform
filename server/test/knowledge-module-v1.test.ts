@@ -28,6 +28,8 @@ describe("knowledge-module-v1 PWA", () => {
     assert.equal(res.status, 200);
     assert.match(res.text, /id="kn-root"/);
     assert.match(res.text, /knowledge-module\.bundle\.js/);
+    assert.match(res.text, /knowledge-module-v1-nav\.js/);
+    assert.match(res.text, /tisly-practical-nav\.css/);
   });
 
   it("bundle includes required mock entries and genre tabs", () => {

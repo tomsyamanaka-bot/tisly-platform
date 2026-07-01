@@ -2269,7 +2269,8 @@ async function init() {
   scheduleBootstrapWatchdog();
 
   const initialTab = readInitialListTab();
-  const navAppId = initialTab === "invoices" ? "billing_v1" : "estimate_v1";
+  // 見積・請求はフッター統合 ID でハイライト
+  const navAppId = "estimate_billing_v1";
   const navTitle = initialTab === "invoices" ? "請求" : "見積";
 
   practicalNav = initPracticalNav({

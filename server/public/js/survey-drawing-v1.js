@@ -20,7 +20,7 @@ import {
   updateOfflineResilienceBadgeV1,
 } from "./offline-resilience-v1.js";
 
-export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v11";
+export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v12";
 /** タッチ配置時に指で隠れないよう上へずらす（画面px） */
 const PLOT_TOUCH_OFFSET_Y = 32;
 export const SURVEY_DRAWING_TEMP_BANNER =
@@ -717,13 +717,18 @@ function photoRefsFromSketch() {
 /**
  * 非表示 file input を
  * ユーザ操作の直後に起動
- * （iOS カメラ/アルバム用）
+ * @param {string | null} [capture] — environment でカメラ直起動
  */
-function triggerSurveyFileInput() {
+function triggerSurveyFileInput(capture) {
   const input = $("survey-file-input");
   if (!input) {
     setStatus("写真入力が見つかりません");
     return;
+  }
+  if (capture) {
+    input.setAttribute("capture", capture);
+  } else {
+    input.removeAttribute("capture");
   }
   try {
     input.value = "";
@@ -733,18 +738,31 @@ function triggerSurveyFileInput() {
   }
 }
 
-/** 写真ボタンにタップ/クリック連動を付与 */
-function bindPhotoTriggerButton(btnId) {
+/**
+ * 写真ボタンにタップ/クリック連動
+ * iOS は touchstart 同期で input.click
+ */
+function bindPhotoTriggerButton(btnId, capture) {
   const btn = $(btnId);
   if (!btn) return;
   const open = (ev) => {
     ev.preventDefault();
     ev.stopPropagation();
     togglePhotoPicker(false);
-    triggerSurveyFileInput();
+    triggerSurveyFileInput(capture ?? null);
   };
-  btn.addEventListener("click", open);
-  btn.addEventListener("touchend", open, { passive: false });
+  btn.addEventListener(
+    "touchstart",
+    (ev) => {
+      if (ev.touches.length > 1) return;
+      open(ev);
+    },
+    { passive: false }
+  );
+  btn.addEventListener("click", (ev) => {
+    if (ev.pointerType === "touch") return;
+    open(ev);
+  });
 }
 
 function saveSketchLocal() {
@@ -1601,14 +1619,18 @@ async function applyEstimateDraftFromDrawing() {
   setStatus("見積PWAへ反映しました");
   if (res.estimateUrl) {
     setTimeout(() => {
-      if (confirm("見積PWAで開きますか？")) location.href = res.estimateUrl;
+      if (confirm("見積PWAで開きますか？")) {
+        navigateTo(res.estimateUrl, { record: false });
+      }
     }, 250);
   }
 }
 
 function openEstimatePwaFromDrawing() {
   if (!estimateDraftId) return;
-  location.href = `/estimate-v1?masterDraftId=${encodeURIComponent(estimateDraftId)}`;
+  navigateTo(`/estimate-v1?masterDraftId=${encodeURIComponent(estimateDraftId)}`, {
+    record: false,
+  });
 }
 
 function wireEstimateEvents() {
@@ -1698,9 +1720,9 @@ function wireEvents() {
   });
 
   // 📷 カメラアイコンは
-  // 直接 OS 写真メニューを起動
+  // 非表示 input を同期 click で起動
   bindPhotoTriggerButton("btn-import-photo");
-  bindPhotoTriggerButton("btn-photo-camera");
+  bindPhotoTriggerButton("btn-photo-camera", "environment");
   bindPhotoTriggerButton("btn-photo-album");
   wireSurveyFileInput();
   $("btn-undo")?.addEventListener("click", () => undoLastStroke());
@@ -1734,7 +1756,7 @@ function wireEvents() {
 
 async function main() {
   if (!sessionStorage.getItem(TOKEN_KEY)) {
-    location.href = surveyBackUrl();
+    location.replace(surveyBackUrl());
     return;
   }
   fieldInnovations = initDrawingFieldInnovationsV1({

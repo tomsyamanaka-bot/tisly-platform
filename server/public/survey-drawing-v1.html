@@ -44,14 +44,6 @@
       <input type="color" id="stroke-color" value="#dc2626" />
     </label>
     <button type="button" class="drawing-tool-btn drawing-tool-photo" id="btn-import-photo" title="写真を背景に敷く">📷</button>
-    <input
-      type="file"
-      id="survey-file-input"
-      accept="image/*"
-      class="survey-file-input-hidden"
-      tabindex="-1"
-      aria-hidden="true"
-    />
   </div>
   <div id="drawing-photo-picker" class="drawing-photo-picker hidden" role="menu" aria-label="背景写真の取り込み">
     <button type="button" class="drawing-photo-picker-btn" id="btn-photo-camera">📷 その場で撮影</button>
@@ -114,6 +106,17 @@
     </div>
   </div>
 
-  <script type="module" src="/js/survey-drawing-v1.js?v=survey-drawing-ui-v11"></script>
+  <!-- iOS で input は body 直下が
+       プログラム click に最も安定 -->
+  <input
+    type="file"
+    id="survey-file-input"
+    accept="image/*"
+    class="survey-file-input-hidden"
+    tabindex="-1"
+    aria-hidden="true"
+  />
+
+  <script type="module" src="/js/survey-drawing-v1.js?v=survey-drawing-ui-v12"></script>
 </body>
 </html>

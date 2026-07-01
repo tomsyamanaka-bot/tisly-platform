@@ -39,6 +39,6 @@ describe("Operational Phase30 — drawing editor zoom/pan UX", () => {
 
   it("service worker bumped for phase30 drawing UX", () => {
     const sw = fs.readFileSync(path.join(publicDir, "service-worker.js"), "utf-8");
-    assert.ok(sw.includes("tisly-pwa-v2408-phase30"));
+    assert.ok(sw.includes("tisly-pwa-v2409-phase31"));
   });
 });

@@ -11,13 +11,28 @@ import {
 const BOTTOM_ITEMS = [
   { id: "schedule_v1", label: "日程", icon: "📅", href: "/schedule-v1" },
   { id: "survey_v1", label: "現調", icon: "📋", href: "/survey-v1" },
-  { id: "estimate_v1", label: "見積", icon: "💰", href: "/estimate-v1" },
-  { id: "billing_v1", label: "請求", icon: "🧾", href: "/estimate-v1?tab=invoice" },
+  // 見積・請求は同一 PWA 内タブ切替のため
+  // フッターは1ボタンに統合
+  {
+    id: "estimate_billing_v1",
+    label: "見積・請求",
+    icon: "💰",
+    href: "/estimate-v1",
+    activeIds: ["estimate_v1", "billing_v1"],
+  },
+  { id: "knowledge_module_v1", label: "ナレッジ", icon: "💡", href: "/knowledge-module-v1" },
   { id: "projects_v1", label: "案件", icon: "📊", href: "/projects-v1" },
   { id: "field_site_v1", label: "現場", icon: "📂", href: "/field-checklist-v1" },
   { id: "field_check_v1", label: "材料", icon: "🎒", href: "/field-check-v1" },
   { id: "purchase_v1", label: "発注", icon: "📦", href: "/field-check-v1?tab=orders" },
 ];
+
+/** フッター項目が現在画面と一致するか */
+function isBottomItemActive(item, appId) {
+  if (item.id === appId) return true;
+  if (Array.isArray(item.activeIds) && item.activeIds.includes(appId)) return true;
+  return false;
+}
 
 let toastFn = null;
 
@@ -66,15 +81,16 @@ export function initPracticalNav(opts) {
   bottomRoot.className = "tisly-practical-bottomnav";
   bottomRoot.setAttribute("aria-label", "アプリ切替");
   bottomRoot.innerHTML = BOTTOM_ITEMS.map((item) => {
-    const active = item.id === appId ? " active" : "";
+    const isActive = isBottomItemActive(item, appId);
+    const active = isActive ? " active" : "";
     const themeCls =
-      (theme === "blue" || theme === "orange") && item.id === appId ? ` theme-${theme}` : "";
+      (theme === "blue" || theme === "orange") && isActive ? ` theme-${theme}` : "";
     if (item.comingSoon || !item.href) {
       return `<button type="button" class="coming-soon${active}${themeCls}" data-coming-soon="1" aria-label="${item.label}（準備中）">
-        <span class="nav-icon">${item.icon}</span><span>${item.label}</span><span class="nav-soon-badge">準備中</span></button>`;
+        <span class="nav-icon">${item.icon}</span><span class="nav-label">${item.label}</span><span class="nav-soon-badge">準備中</span></button>`;
     }
-    return `<a href="${item.href}" class="${active.trim()}${themeCls}" aria-current="${item.id === appId ? "page" : "false"}">
-      <span class="nav-icon">${item.icon}</span><span>${item.label}</span></a>`;
+    return `<a href="${item.href}" class="${active.trim()}${themeCls}" aria-current="${isActive ? "page" : "false"}">
+      <span class="nav-icon">${item.icon}</span><span class="nav-label">${item.label}</span></a>`;
   }).join("");
   document.body.appendChild(bottomRoot);
 
