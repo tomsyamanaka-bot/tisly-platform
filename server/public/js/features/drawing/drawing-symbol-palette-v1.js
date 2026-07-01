@@ -106,23 +106,26 @@ export function createDrawingSymbolPaletteV1(opts) {
   function handleStagePointer(ev) {
     if (canvas.isRouteMode()) return;
     if (!activeSymbol) return;
-    if (stageEl.dataset.gestureActive === "1") return;
+    if (canvas.stageEl.dataset.gestureActive === "1") return;
     if (ev.pointerType === "touch" && ev.isPrimary === false) return;
     if (ev.target?.closest?.(".drawing-symbol-dock-v1")) return;
 
     ev.preventDefault();
     ev.stopPropagation();
     const pt = canvas.clientToNormalized(ev.clientX, ev.clientY, ev.pointerType);
+    const placed = activeSymbol;
     canvas.addPlot({
       id: uid(),
-      symbolType: activeSymbol.symbolType,
-      icon: activeSymbol.icon,
-      label: activeSymbol.label,
+      symbolType: placed.symbolType,
+      icon: placed.icon,
+      label: placed.label,
       x: pt.x,
       y: pt.y,
     });
     onPlotsChange?.(canvas.getPlots());
-    setStatus(`${activeSymbol.label} を配置 (${Math.round(pt.x * 100)}%, ${Math.round(pt.y * 100)}%)`);
+    activeSymbol = null;
+    refreshActiveUi();
+    setStatus(`${placed.label} を配置しました`);
   }
 
   canvas.stageEl.addEventListener("pointerdown", handleStagePointer);
@@ -133,6 +136,11 @@ export function createDrawingSymbolPaletteV1(opts) {
     getActiveSymbol: () => activeSymbol,
     setActiveSymbol: (meta) => {
       activeSymbol = meta;
+      refreshActiveUi();
+    },
+    clearAfterPlot: () => {
+      activeSymbol = null;
+      canvas.setRouteMode(false);
       refreshActiveUi();
     },
     destroy: () => {

@@ -20,7 +20,7 @@ import {
   updateOfflineResilienceBadgeV1,
 } from "./offline-resilience-v1.js";
 
-export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v12";
+export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v13";
 /** タッチ配置時に指で隠れないよう上へずらす（画面px） */
 const PLOT_TOUCH_OFFSET_Y = 32;
 export const SURVEY_DRAWING_TEMP_BANNER =
@@ -400,6 +400,21 @@ function hidePlotPreview() {
   plotPreviewEl?.classList.add("hidden");
 }
 
+/**
+ * 記号配置直後に
+ * 選択メニューを自動で閉じる
+ */
+function closeSymbolMenusAfterPlot(label) {
+  pendingSymbol = null;
+  hidePlotPreview();
+  $("symbol-palette")?.classList.add("hidden");
+  $("symbol-palette")
+    ?.querySelectorAll("[data-symbol]")
+    .forEach((b) => b.classList.remove("active"));
+  drawingEditorState?.palette?.clearAfterPlot?.();
+  setStatus(label ? `${label} を配置しました` : "記号を配置しました");
+}
+
 function updatePlotPreview(clientX, clientY) {
   if (tool !== "symbol" || !pendingSymbol) {
     hidePlotPreview();
@@ -443,7 +458,6 @@ function initToolStripCollapse() {
 }
 
 function pathColor(p) {
-  if (p.tool === "eraser") return "#000000";
   if (p.lineType && p.lineType !== "generic") return LINE_TYPE_COLORS[p.lineType] || p.color;
   return p.color;
 }
@@ -455,7 +469,7 @@ function pathColor(p) {
 function appendPathToSvg(parent, p) {
   if (!p.points?.length) return;
   const color = pathColor(p);
-  const dash = p.tool === "eraser" ? undefined : LINE_TYPE_DASH[p.lineType] || undefined;
+  const dash = LINE_TYPE_DASH[p.lineType] || undefined;
   const width = p.width || strokeWidth;
   if ((p.tool === "line" || p.tool === "route") && p.points.length >= 2) {
     const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
@@ -482,6 +496,38 @@ function appendPathToSvg(parent, p) {
   parent.appendChild(path);
 }
 
+/**
+ * 消しゴム用マスクへ黒線を追加
+ * （マスク黒 = 描画を透明化）
+ * @param {SVGElement} parent
+ * @param {object} p
+ */
+function appendEraserMaskPath(parent, p) {
+  if (!p.points?.length) return;
+  const width = p.width || ERASER_WIDTH;
+  if (p.points.length >= 2 && (p.tool === "line" || p.tool === "route")) {
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("x1", p.points[0].x);
+    line.setAttribute("y1", p.points[0].y);
+    line.setAttribute("x2", p.points[p.points.length - 1].x);
+    line.setAttribute("y2", p.points[p.points.length - 1].y);
+    line.setAttribute("stroke", "#000");
+    line.setAttribute("stroke-width", width);
+    line.setAttribute("stroke-linecap", "round");
+    parent.appendChild(line);
+    return;
+  }
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  const d = p.points.map((pt, i) => `${i ? "L" : "M"}${pt.x} ${pt.y}`).join(" ");
+  path.setAttribute("d", d);
+  path.setAttribute("fill", "none");
+  path.setAttribute("stroke", "#000");
+  path.setAttribute("stroke-width", width);
+  path.setAttribute("stroke-linecap", "round");
+  path.setAttribute("stroke-linejoin", "round");
+  parent.appendChild(path);
+}
+
 function renderPaths() {
   const svg = $("drawing-svg");
   if (!svg) return;
@@ -489,17 +535,32 @@ function renderPaths() {
   svg.setAttribute("viewBox", `0 0 ${stageSize.w} ${stageSize.h}`);
   svg.setAttribute("width", String(stageSize.w));
   svg.setAttribute("height", String(stageSize.h));
-  const normalGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
-  const eraserGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
-  // 消しゴムは描画レイヤーだけを
-  // destination-out で抜く
-  eraserGroup.setAttribute("style", "mix-blend-mode: destination-out");
-  for (const p of layers.paths) {
-    if (p.tool === "eraser") appendPathToSvg(eraserGroup, p);
-    else appendPathToSvg(normalGroup, p);
+
+  const eraserPaths = layers.paths.filter((p) => p.tool === "eraser");
+  const drawPaths = layers.paths.filter((p) => p.tool !== "eraser");
+
+  const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+  const mask = document.createElementNS("http://www.w3.org/2000/svg", "mask");
+  mask.setAttribute("id", "drawing-eraser-mask-v1");
+  const maskBg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+  maskBg.setAttribute("width", String(stageSize.w));
+  maskBg.setAttribute("height", String(stageSize.h));
+  maskBg.setAttribute("fill", "#fff");
+  mask.appendChild(maskBg);
+  if (eraserPaths.length) {
+    const eraserMaskGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    for (const p of eraserPaths) appendEraserMaskPath(eraserMaskGroup, p);
+    mask.appendChild(eraserMaskGroup);
   }
+  defs.appendChild(mask);
+  svg.appendChild(defs);
+
+  const normalGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+  if (eraserPaths.length) {
+    normalGroup.setAttribute("mask", "url(#drawing-eraser-mask-v1)");
+  }
+  for (const p of drawPaths) appendPathToSvg(normalGroup, p);
   svg.appendChild(normalGroup);
-  if (eraserGroup.childNodes.length) svg.appendChild(eraserGroup);
 }
 
 function symbolDef(sym) {
@@ -889,26 +950,27 @@ function onPointerDown(ev) {
     return;
   }
   if (tool === "symbol" && pendingSymbol) {
+    const placed = pendingSymbol;
     layers.symbols.push({
       id: uid(),
-      symbolType: pendingSymbol.symbolType,
-      label: pendingSymbol.label,
-      icon: pendingSymbol.icon,
-      svg: pendingSymbol.svg,
-      color: pendingSymbol.color,
+      symbolType: placed.symbolType,
+      label: placed.label,
+      icon: placed.icon,
+      svg: placed.svg,
+      color: placed.color,
       x: pt.x,
       y: pt.y,
       rotation: 0,
       scale: 1,
       memo: "",
     });
-    hidePlotPreview();
     markDirty();
     renderOverlay();
     fieldInnovations?.checkKnowledgeOnSymbol({
-      label: pendingSymbol.label,
-      symbolType: pendingSymbol.symbolType,
+      label: placed.label,
+      symbolType: placed.symbolType,
     });
+    closeSymbolMenusAfterPlot(placed.label);
     return;
   }
   if (tool === "text") {
@@ -945,7 +1007,7 @@ function onPointerDown(ev) {
             ? "route"
             : "line",
       lineType: lt,
-      color: isEraser ? "#000000" : color,
+      color: isEraser ? "#ffffff" : color,
       width: isEraser ? ERASER_WIDTH : strokeWidth,
       points: [pt],
       lengthPx: 0,
@@ -1661,6 +1723,30 @@ function deleteSelectedSymbol() {
   renderOverlay();
 }
 
+function bindImportPhotoButton() {
+  const btn = $("btn-import-photo");
+  if (!btn) return;
+  const toggle = (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const picker = $("drawing-photo-picker");
+    const show = picker?.classList.contains("hidden");
+    togglePhotoPicker(!!show);
+  };
+  btn.addEventListener(
+    "touchstart",
+    (ev) => {
+      if (ev.touches.length > 1) return;
+      toggle(ev);
+    },
+    { passive: false }
+  );
+  btn.addEventListener("click", (ev) => {
+    if (ev.pointerType === "touch") return;
+    toggle(ev);
+  });
+}
+
 function wireEvents() {
   const wrap = $("drawing-stage-wrap");
   wrap?.addEventListener("pointerdown", onPointerDown);
@@ -1719,9 +1805,7 @@ function wireEvents() {
     else navigateBackOne("/survey-v1");
   });
 
-  // 📷 カメラアイコンは
-  // 非表示 input を同期 click で起動
-  bindPhotoTriggerButton("btn-import-photo");
+  bindImportPhotoButton();
   bindPhotoTriggerButton("btn-photo-camera", "environment");
   bindPhotoTriggerButton("btn-photo-album");
   wireSurveyFileInput();
@@ -1799,6 +1883,7 @@ async function main() {
     onStatus: setStatus,
     initialPayload: editorV1LayerToPayload(layers.editorV1),
     onPayloadChange: () => markDirty(),
+    skipSymbolDock: true,
   });
   restoreDrawingEditorFromLayers();
   updateUndoButton();

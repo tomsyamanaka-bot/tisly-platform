@@ -87,9 +87,11 @@ export function initDrawingEditorFoundationV1(opts = {}) {
     document.getElementById("drawing-stage");
   const bgEl = opts.bgEl || document.getElementById("drawing-bg");
   const svgEl = opts.svgEl || document.getElementById("drawing-svg");
-  const dockEl = opts.dockEl || document.getElementById("drawing-symbol-dock-v1");
+  const dockEl = opts.skipSymbolDock
+    ? null
+    : opts.dockEl || document.getElementById("drawing-symbol-dock-v1");
 
-  if (!stageEl || !dockEl) {
+  if (!stageEl) {
     return null;
   }
 
@@ -107,17 +109,19 @@ export function initDrawingEditorFoundationV1(opts = {}) {
     canvas.setBackgroundUrl(bgEl.src);
   }
 
-  state.palette = createDrawingSymbolPaletteV1({
-    dockEl,
-    canvas,
-    onStatus: opts.onStatus,
-    onPlotsChange: () => notifyChange(),
-    onRouteModeChange: (enabled) => {
-      if (enabled) {
-        opts.onStatus?.("通線モード — 始点と終点をドラッグ");
-      }
-    },
-  });
+  if (dockEl) {
+    state.palette = createDrawingSymbolPaletteV1({
+      dockEl,
+      canvas,
+      onStatus: opts.onStatus,
+      onPlotsChange: () => notifyChange(),
+      onRouteModeChange: (enabled) => {
+        if (enabled) {
+          opts.onStatus?.("通線モード — 始点と終点をドラッグ");
+        }
+      },
+    });
+  }
 
   canvas.setOnRoutesChange(() => notifyChange());
 

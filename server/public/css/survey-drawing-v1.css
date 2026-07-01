@@ -89,6 +89,8 @@ html:has(.survey-drawing-body) {
   max-height: 240px;
   overflow: hidden;
   transition: max-height 0.2s ease, padding 0.2s ease, opacity 0.2s ease;
+  position: relative;
+  z-index: 20;
 }
 
 .drawing-tool-strip.collapsed {
@@ -135,6 +137,9 @@ html:has(.survey-drawing-body) {
 .drawing-tool-photo {
   background: #1e3a5f;
   border-color: #38bdf8;
+  position: relative;
+  z-index: 35;
+  pointer-events: auto;
 }
 
 .drawing-photo-picker {
@@ -145,6 +150,9 @@ html:has(.survey-drawing-body) {
   background: #0c4a6e;
   flex-shrink: 0;
   justify-content: center;
+  position: relative;
+  z-index: 30;
+  pointer-events: auto;
 }
 
 .drawing-photo-picker.hidden {
@@ -163,6 +171,9 @@ html:has(.survey-drawing-body) {
   font-weight: 600;
   cursor: pointer;
   touch-action: manipulation;
+  position: relative;
+  z-index: 36;
+  pointer-events: auto;
 }
 
 .drawing-tool-btn.active {
@@ -362,6 +373,7 @@ html:has(.survey-drawing-body) {
   height: 100%;
   pointer-events: none;
   overflow: visible;
+  isolation: isolate;
 }
 
 .drawing-overlay {
@@ -695,4 +707,10 @@ html:has(.survey-drawing-body) {
   padding: 0.35rem 0.5rem;
   border-radius: 8px;
   border: 1px solid #22c55e;
+}
+
+/* 下部記号ドックは非表示
+   （描画エリアを最大化） */
+#drawing-symbol-dock-v1 {
+  display: none !important;
 }
