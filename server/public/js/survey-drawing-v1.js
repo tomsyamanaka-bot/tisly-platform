@@ -20,7 +20,7 @@ import {
   updateOfflineResilienceBadgeV1,
 } from "./offline-resilience-v1.js";
 
-export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v9";
+export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v10";
 /** タッチ配置時に指で隠れないよう上へずらす（画面px） */
 const PLOT_TOUCH_OFFSET_Y = 32;
 export const SURVEY_DRAWING_TEMP_BANNER =
@@ -53,6 +53,11 @@ import {
   editorV1LayerToPayload,
   applyDrawingEditorPayloadClientV1,
 } from "./features/drawing/drawing-editor-v1.js";
+import {
+  initDrawingFieldInnovationsV1,
+  materialItemsToPreviewCandidates,
+  updateMaterialBarVisibility,
+} from "./features/drawing/drawing-field-innovations-v1.js";
 
 function $(id) {
   return document.getElementById(id);
@@ -242,6 +247,10 @@ async function resolveSurveyProjectIdIfNeeded() {
 let estimateDraftId = null;
 let estimateDraftStatus = null;
 let estimatePreviewSummary = null;
+/** AI材料解析の候補（見積候補作成へ引き渡し） */
+let aiMaterialCandidates = [];
+/** @type {ReturnType<typeof initDrawingFieldInnovationsV1>|null} */
+let fieldInnovations = null;
 let sketch = null;
 let tool = "pen";
 let strokeColor = "#dc2626";
@@ -591,6 +600,7 @@ function renderOverlay() {
     const el = document.createElement("button");
     el.type = "button";
     el.className = "drawing-memo";
+    if (m.voicePin) el.classList.add("voice-pin");
     el.style.left = `${m.x}px`;
     el.style.top = `${m.y}px`;
     el.style.fontSize = `${m.fontSize || 14}px`;
@@ -690,7 +700,19 @@ function restoreDrawingEditorFromLayers() {
   }
 }
 
+function hasBackgroundPhoto() {
+  const img = $("drawing-bg");
+  return !!(sketch?.backgroundImageUrl || (img && !img.classList.contains("hidden") && img.src));
+}
+
+function syncMaterialBarUi() {
+  updateMaterialBarVisibility({ hasPhoto: hasBackgroundPhoto(), $ });
+}
+
 function photoRefsFromSketch() {
+  if (!sketch?.backgroundImageUrl) return [];
+  return [{ url: sketch.backgroundImageUrl, path: sketch.backgroundImagePath || null }];
+}
   if (!sketch?.backgroundImageUrl) return [];
   return [{ url: sketch.backgroundImageUrl, path: sketch.backgroundImagePath || null }];
 }
@@ -766,6 +788,20 @@ async function saveSketch() {
   }
 }
 
+function addDrawingNote({ text, x, y, color, voicePin = false }) {
+  layers.notes.push({
+    id: uid(),
+    text,
+    x,
+    y,
+    fontSize: 14,
+    color: color || strokeColor,
+    voicePin,
+  });
+  markDirty();
+  renderOverlay();
+}
+
 function setTool(next) {
   tool = next;
   pendingSymbol = null;
@@ -778,6 +814,9 @@ function setTool(next) {
   $("line-type-palette")?.classList.toggle("hidden", next !== "route");
   updateSymbolInspector();
   if (next !== "select") renderOverlay();
+  if (next === "voice-pin") {
+    setStatus("🎤 音声ピン — 図面上をタップして話してください");
+  }
 }
 
 function onPointerDown(ev) {
@@ -818,22 +857,30 @@ function onPointerDown(ev) {
     hidePlotPreview();
     markDirty();
     renderOverlay();
+    fieldInnovations?.checkKnowledgeOnSymbol({
+      label: pendingSymbol.label,
+      symbolType: pendingSymbol.symbolType,
+    });
     return;
   }
   if (tool === "text") {
     const text = prompt("テキストメモ");
     if (text?.trim()) {
-      layers.notes.push({
-        id: uid(),
+      addDrawingNote({
         text: text.trim(),
         x: pt.x,
         y: pt.y,
-        fontSize: 14,
         color: strokeColor,
       });
-      markDirty();
-      renderOverlay();
     }
+    return;
+  }
+  if (tool === "voice-pin") {
+    fieldInnovations?.captureVoicePinAt({
+      x: pt.x,
+      y: pt.y,
+      color: strokeColor,
+    });
     return;
   }
   if (tool === "pen" || tool === "line" || tool === "route" || tool === "eraser") {
@@ -986,6 +1033,7 @@ function setupBgImage(url) {
     img.decode?.().catch(() => {});
     renderAll();
     markDirty();
+    syncMaterialBarUi();
   };
   img.onerror = () => {
     ph?.classList.remove("hidden");
@@ -1084,12 +1132,17 @@ async function loadSketch() {
   layers = migrateLayers(sketch.layers, sketch.layers?.canvasWidth, sketch.layers?.canvasHeight);
   viewport = { scale: 1, offsetX: 0, offsetY: 0, ...layers.viewport };
   $("drawing-title").textContent = sketch.title || "現調図面";
-  if (sketch.backgroundImageUrl) setupBgImage(sketch.backgroundImageUrl);
-  else {
+  if (sketch.backgroundImageUrl) {
+    setupBgImage(sketch.backgroundImageUrl);
+    syncMaterialBarUi();
+  } else {
     stageSize = { w: layers.canvasWidth || 800, h: layers.canvasHeight || 600 };
     applyGridPaper();
   }
   loadSketchFromLocal();
+  if (layers.aiMaterialCandidates?.length) {
+    aiMaterialCandidates = layers.aiMaterialCandidates;
+  }
   await loadSpecPhotoSlotsForDrawing();
   updateDrawingPdfBar();
 }
@@ -1191,6 +1244,10 @@ async function loadSymbols() {
       const sym = symbolPalette.find((x) => x.symbolType === btn.dataset.symbol);
       pendingSymbol = sym;
       setStatus(`${sym?.label} — 図面上をタップして配置`);
+      fieldInnovations?.checkKnowledgeOnSymbol({
+        label: sym?.label,
+        symbolType: sym?.symbolType,
+      });
     });
   });
 }
@@ -1212,6 +1269,7 @@ async function importBackground(file) {
     sketch.backgroundImageUrl = imageBase64;
     markDirty();
     setStatus("背景写真を取り込みました（端末内保存）");
+    syncMaterialBarUi();
     return;
   }
   const bgPayload = {
@@ -1240,6 +1298,7 @@ async function importBackground(file) {
     sketch = data.sketch;
     setupBgImage(sketch.backgroundImageUrl);
     setStatus("背景写真を取り込みました");
+    syncMaterialBarUi();
     await loadSpecPhotoSlotsForDrawing();
   } catch (e) {
     setupBgImage(imageBase64);
@@ -1421,9 +1480,15 @@ function renderEstimateBar() {
   const priceText = estimatePreviewSummary
     ? `売価 ¥${Number(estimatePreviewSummary.totalSell || 0).toLocaleString("ja-JP")} / 粗利 ${estimatePreviewSummary.grossProfitRate || 0}%`
     : "";
+  const aiHint =
+    aiMaterialCandidates.length > 0
+      ? ` · AI材料${aiMaterialCandidates.length}件`
+      : "";
   summary.textContent = estimateDraftId
-    ? `${applied ? "反映済み" : "draft作成済み"} (${estimateDraftId.slice(0, 8)}…) ${priceText}`
-    : "見積候補未作成";
+    ? `${applied ? "反映済み" : "draft作成済み"} (${estimateDraftId.slice(0, 8)}…) ${priceText}${aiHint}`
+    : aiMaterialCandidates.length
+      ? `見積候補未作成（AI材料${aiMaterialCandidates.length}件待機）`
+      : "見積候補未作成";
   $("btn-est-apply").disabled = !estimateDraftId || applied;
   $("btn-est-open").disabled = !estimateDraftId;
 }
@@ -1447,6 +1512,19 @@ async function createEstimateDraftFromDrawing() {
   if (!sketchId) return;
   await saveSketch();
   const preview = await masterApi(`/estimate-preview?sketchId=${encodeURIComponent(sketchId)}`);
+  if (aiMaterialCandidates.length) {
+    const aiRows = materialItemsToPreviewCandidates(aiMaterialCandidates);
+    const existing = new Set(
+      (preview.materialCandidates ?? []).map((c) => `${c.label}:${c.unit}`)
+    );
+    for (const row of aiRows) {
+      const key = `${row.label}:${row.unit}`;
+      if (!existing.has(key)) {
+        preview.materialCandidates = [...(preview.materialCandidates ?? []), row];
+        existing.add(key);
+      }
+    }
+  }
   const res = await masterApi("/estimate-preview/apply", {
     method: "POST",
     body: JSON.stringify({ sketchId, projectId, preview }),
@@ -1458,7 +1536,10 @@ async function createEstimateDraftFromDrawing() {
     grossProfitRate: preview.grossProfitRate,
   };
   renderEstimateBar();
-  setStatus("見積候補 draft を保存しました");
+  const aiMsg = aiMaterialCandidates.length
+    ? `（AI材料${aiMaterialCandidates.length}件を含む）`
+    : "";
+  setStatus(`見積候補 draft を保存しました${aiMsg}`);
 }
 
 async function applyEstimateDraftFromDrawing() {
@@ -1615,10 +1696,24 @@ async function main() {
     location.href = surveyBackUrl();
     return;
   }
+  fieldInnovations = initDrawingFieldInnovationsV1({
+    $,
+    getLayers: () => layers,
+    getHasPhoto: hasBackgroundPhoto,
+    setAiMaterialCandidates: (items) => {
+      aiMaterialCandidates = items ?? [];
+      layers.aiMaterialCandidates = aiMaterialCandidates;
+      renderEstimateBar();
+    },
+    addNote: addDrawingNote,
+    setStatus,
+  });
   wireEvents();
   await Promise.all([loadSymbols(), loadLineTypes()]);
   await resolveSurveyProjectIdIfNeeded();
   await loadSketch();
+  syncMaterialBarUi();
+  fieldInnovations?.checkKnowledgeOnOpen(sketch);
   await refreshEstimateDraftState();
   drawingEditorState = initDrawingEditorFoundationV1({
     onStatus: setStatus,
@@ -1627,7 +1722,7 @@ async function main() {
   });
   restoreDrawingEditorFromLayers();
   updateUndoButton();
-  setStatus("描画できます（ピンチズーム · 二本指移動 · 消しゴム · Undo対応）");
+  setStatus("描画できます（音声ピン · AI材料 · 教訓アラート対応）");
 }
 
 main().catch((e) => setStatus(`エラー: ${e.message}`));
