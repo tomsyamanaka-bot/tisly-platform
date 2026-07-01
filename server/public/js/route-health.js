@@ -37,8 +37,8 @@ const LEGACY_REDIRECTS = [
 const BOTTOM_NAV_LINKS = [
   { label: "日程", href: "/schedule-v1" },
   { label: "現調", href: "/survey-v1" },
-  { label: "見積", href: "/estimate-v1" },
-  { label: "請求", href: "/estimate-v1?tab=invoice" },
+  { label: "見積・請求", href: "/estimate-v1" },
+  { label: "ナレッジ", href: "/knowledge-module-v1" },
   { label: "案件", href: "/projects-v1" },
   { label: "現場", href: "/field-checklist-v1" },
   { label: "材料", href: "/field-check-v1" },
@@ -48,12 +48,12 @@ const BOTTOM_NAV_LINKS = [
 const JS_ASSETS = [
   { path: "/js/estimate-v1.js?v=estimate-ui-v8", label: "estimate-v1 JS" },
   { path: "/js/survey-v1.js?v=survey-ui-v5", label: "survey-v1 JS" },
-  { path: "/js/survey-drawing-v1.js?v=survey-drawing-ui-v8", label: "survey-drawing-v1 JS" },
+  { path: "/js/survey-drawing-v1.js?v=survey-drawing-ui-v9", label: "survey-drawing-v1 JS" },
   { path: "/js/tisly-practical-nav.js", label: "bottom nav JS" },
 ];
 
 const ESTIMATE_UI_VERSION = "estimate-ui-v8";
-const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v8";
+const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v9";
 const PHASE9_JS_VERSION = "phase9-iphone-v1";
 const SW_CACHE_TOKEN = "v2407-phase28";
 const CUSTOMER_JS_VERSION = "customer-v1-phase27";
@@ -1056,7 +1056,7 @@ async function checkDrawingDirectLaunch() {
       js.includes("SURVEY_DRAWING_TEMP_BANNER"),
       js.includes("saveDrawingToLocalStorage"),
       js.includes("syncGridStageSize"),
-      html.includes("survey-drawing-ui-v8"),
+      html.includes("survey-drawing-ui-v9"),
       !js.includes("projectId または sketchId が必要です"),
     ];
     const ok = checks.filter(Boolean).length;
@@ -1130,7 +1130,9 @@ async function checkDrawingOperational() {
     if (!res.ok) return { status: "fail", detail: `HTTP ${res.status}` };
     const checks = [
       html.includes("drawing-stage"),
-      html.includes("btn-import-photo") || html.includes("file-bg"),
+      html.includes("btn-import-photo") || html.includes("file-bg-album"),
+      html.includes("btn-undo"),
+      html.includes('data-tool="eraser"'),
       html.includes("btn-save"),
       html.includes("btn-back"),
       html.includes("drawing-svg"),

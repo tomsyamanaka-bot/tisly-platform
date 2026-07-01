@@ -20,7 +20,7 @@ import {
   updateOfflineResilienceBadgeV1,
 } from "./offline-resilience-v1.js";
 
-export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v8";
+export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v9";
 /** タッチ配置時に指で隠れないよう上へずらす（画面px） */
 const PLOT_TOUCH_OFFSET_Y = 32;
 export const SURVEY_DRAWING_TEMP_BANNER =
@@ -246,6 +246,8 @@ let sketch = null;
 let tool = "pen";
 let strokeColor = "#dc2626";
 let strokeWidth = 3;
+/** 消しゴムの線幅（手袋操作向けに太め） */
+const ERASER_WIDTH = 14;
 let lineType = "generic";
 let viewport = { scale: 1, offsetX: 0, offsetY: 0 };
 let layers = emptyLayers();
@@ -265,6 +267,9 @@ let selectedSymbolId = null;
 let dragSymbol = null;
 /** @type {ReturnType<typeof initDrawingEditorFoundationV1>|null} */
 let drawingEditorState = null;
+/** 描画Undo用 — paths のスナップショット */
+let undoStack = [];
+const UNDO_MAX = 40;
 
 function applyViewportTransform() {
   const stage = $("drawing-stage");
@@ -429,8 +434,43 @@ function initToolStripCollapse() {
 }
 
 function pathColor(p) {
+  if (p.tool === "eraser") return "#000000";
   if (p.lineType && p.lineType !== "generic") return LINE_TYPE_COLORS[p.lineType] || p.color;
   return p.color;
+}
+
+/**
+ * 1本のストロークを SVG 要素へ変換
+ * @param {object} p
+ */
+function appendPathToSvg(parent, p) {
+  if (!p.points?.length) return;
+  const color = pathColor(p);
+  const dash = p.tool === "eraser" ? undefined : LINE_TYPE_DASH[p.lineType] || undefined;
+  const width = p.width || strokeWidth;
+  if ((p.tool === "line" || p.tool === "route") && p.points.length >= 2) {
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("x1", p.points[0].x);
+    line.setAttribute("y1", p.points[0].y);
+    line.setAttribute("x2", p.points[p.points.length - 1].x);
+    line.setAttribute("y2", p.points[p.points.length - 1].y);
+    line.setAttribute("stroke", color);
+    line.setAttribute("stroke-width", width);
+    line.setAttribute("stroke-linecap", "round");
+    if (dash) line.setAttribute("stroke-dasharray", dash);
+    parent.appendChild(line);
+    return;
+  }
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  const d = p.points.map((pt, i) => `${i ? "L" : "M"}${pt.x} ${pt.y}`).join(" ");
+  path.setAttribute("d", d);
+  path.setAttribute("fill", "none");
+  path.setAttribute("stroke", color);
+  path.setAttribute("stroke-width", width);
+  path.setAttribute("stroke-linecap", "round");
+  path.setAttribute("stroke-linejoin", "round");
+  if (dash) path.setAttribute("stroke-dasharray", dash);
+  parent.appendChild(path);
 }
 
 function renderPaths() {
@@ -440,34 +480,17 @@ function renderPaths() {
   svg.setAttribute("viewBox", `0 0 ${stageSize.w} ${stageSize.h}`);
   svg.setAttribute("width", String(stageSize.w));
   svg.setAttribute("height", String(stageSize.h));
+  const normalGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+  const eraserGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+  // 消しゴムは描画レイヤーだけを
+  // destination-out で抜く
+  eraserGroup.setAttribute("style", "mix-blend-mode: destination-out");
   for (const p of layers.paths) {
-    if (!p.points?.length) continue;
-    const color = pathColor(p);
-    const dash = LINE_TYPE_DASH[p.lineType] || undefined;
-    if ((p.tool === "line" || p.tool === "route") && p.points.length >= 2) {
-      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-      line.setAttribute("x1", p.points[0].x);
-      line.setAttribute("y1", p.points[0].y);
-      line.setAttribute("x2", p.points[p.points.length - 1].x);
-      line.setAttribute("y2", p.points[p.points.length - 1].y);
-      line.setAttribute("stroke", color);
-      line.setAttribute("stroke-width", p.width);
-      line.setAttribute("stroke-linecap", "round");
-      if (dash) line.setAttribute("stroke-dasharray", dash);
-      svg.appendChild(line);
-    } else {
-      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      const d = p.points.map((pt, i) => `${i ? "L" : "M"}${pt.x} ${pt.y}`).join(" ");
-      path.setAttribute("d", d);
-      path.setAttribute("fill", "none");
-      path.setAttribute("stroke", color);
-      path.setAttribute("stroke-width", p.width);
-      path.setAttribute("stroke-linecap", "round");
-      path.setAttribute("stroke-linejoin", "round");
-      if (dash) path.setAttribute("stroke-dasharray", dash);
-      svg.appendChild(path);
-    }
+    if (p.tool === "eraser") appendPathToSvg(eraserGroup, p);
+    else appendPathToSvg(normalGroup, p);
   }
+  svg.appendChild(normalGroup);
+  if (eraserGroup.childNodes.length) svg.appendChild(eraserGroup);
 }
 
 function symbolDef(sym) {
@@ -597,6 +620,51 @@ function markDirty() {
   setStatus("未保存の変更があります");
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => saveSketch().catch(() => {}), 2000);
+}
+
+/** 線描画の直前状態を Undo 履歴へ積む */
+function pushUndoSnapshot() {
+  undoStack.push(JSON.stringify(layers.paths));
+  if (undoStack.length > UNDO_MAX) undoStack.shift();
+  updateUndoButton();
+}
+
+/** Undo ボタンの有効/無効を反映 */
+function updateUndoButton() {
+  const btn = $("btn-undo");
+  if (!btn) return;
+  btn.disabled = undoStack.length === 0;
+}
+
+/** 一つ前の描画状態へ戻す */
+function undoLastStroke() {
+  if (!undoStack.length) return;
+  layers.paths = JSON.parse(undoStack.pop());
+  updateUndoButton();
+  markDirty();
+  renderPaths();
+  setStatus("元に戻しました");
+}
+
+function togglePhotoPicker(show) {
+  const picker = $("drawing-photo-picker");
+  if (!picker) return;
+  picker.classList.toggle("hidden", !show);
+}
+
+function wireBackgroundFileInput(inputId) {
+  const input = $(inputId);
+  input?.addEventListener("change", async (ev) => {
+    const file = ev.target.files?.[0];
+    if (!file) return;
+    togglePhotoPicker(false);
+    try {
+      await importBackground(file);
+    } catch (e) {
+      setStatus(e.message);
+    }
+    ev.target.value = "";
+  });
 }
 
 function prepareLayersForSave() {
@@ -768,15 +836,22 @@ function onPointerDown(ev) {
     }
     return;
   }
-  if (tool === "pen" || tool === "line" || tool === "route") {
+  if (tool === "pen" || tool === "line" || tool === "route" || tool === "eraser") {
     const lt = tool === "route" ? lineType : "generic";
     const color = lt !== "generic" ? LINE_TYPE_COLORS[lt] : strokeColor;
+    const isEraser = tool === "eraser";
     currentStroke = {
       id: uid(),
-      tool: tool === "pen" ? "pen" : tool === "route" ? "route" : "line",
+      tool: isEraser
+        ? "eraser"
+        : tool === "pen"
+          ? "pen"
+          : tool === "route"
+            ? "route"
+            : "line",
       lineType: lt,
-      color,
-      width: strokeWidth,
+      color: isEraser ? "#000000" : color,
+      width: isEraser ? ERASER_WIDTH : strokeWidth,
       points: [pt],
       lengthPx: 0,
     };
@@ -813,8 +888,10 @@ function onPointerUp() {
   panStart = null;
   hidePlotPreview();
   if (currentStroke) {
-    const minPts = currentStroke.tool === "pen" ? 1 : 2;
+    const minPts =
+      currentStroke.tool === "pen" || currentStroke.tool === "eraser" ? 1 : 2;
     if (currentStroke.points.length >= minPts) {
+      pushUndoSnapshot();
       currentStroke.lengthPx = pathLength(currentStroke.points);
       layers.paths.push(currentStroke);
       markDirty();
@@ -1491,19 +1568,23 @@ function wireEvents() {
     else navigateBackOne("/survey-v1");
   });
 
-  $("btn-import-photo")?.addEventListener("click", () => $("file-bg")?.click());
+  $("btn-import-photo")?.addEventListener("click", () => {
+    togglePhotoPicker($("drawing-photo-picker")?.classList.contains("hidden"));
+  });
+  $("btn-photo-camera")?.addEventListener("click", () => {
+    togglePhotoPicker(false);
+    $("file-bg-camera")?.click();
+  });
+  $("btn-photo-album")?.addEventListener("click", () => {
+    togglePhotoPicker(false);
+    $("file-bg-album")?.click();
+  });
+  wireBackgroundFileInput("file-bg-camera");
+  wireBackgroundFileInput("file-bg-album");
+  $("btn-undo")?.addEventListener("click", () => undoLastStroke());
+
   $("btn-spec-photo-link")?.addEventListener("click", () => {
     linkBackgroundToSpecSlot().catch((e) => setStatus(e.message));
-  });
-  $("file-bg")?.addEventListener("change", async (ev) => {
-    const file = ev.target.files?.[0];
-    if (!file) return;
-    try {
-      await importBackground(file);
-    } catch (e) {
-      setStatus(e.message);
-    }
-    ev.target.value = "";
   });
 
   $("btn-symbol-rotate-left")?.addEventListener("click", () => rotateSelectedSymbol(-15));
@@ -1545,7 +1626,8 @@ async function main() {
     onPayloadChange: () => markDirty(),
   });
   restoreDrawingEditorFromLayers();
-  setStatus("描画できます（ピンチズーム · 二本指移動 · 通線ルート対応）");
+  updateUndoButton();
+  setStatus("描画できます（ピンチズーム · 二本指移動 · 消しゴム · Undo対応）");
 }
 
 main().catch((e) => setStatus(`エラー: ${e.message}`));

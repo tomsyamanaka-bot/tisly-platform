@@ -17,11 +17,11 @@ describe("Operational Phase28 — PWA speed & drawing assets", () => {
     assert.ok(sw.includes("/js/features/voice-nav/voice-nav-v1.js"));
   });
 
-  it("survey-drawing UI version v8 aligned in HTML and JS", () => {
+  it("survey-drawing UI version v9 aligned in HTML and JS", () => {
     const html = fs.readFileSync(path.join(publicDir, "survey-drawing-v1.html"), "utf-8");
     const js = fs.readFileSync(path.join(publicDir, "js/survey-drawing-v1.js"), "utf-8");
-    assert.match(html, /survey-drawing-ui-v8/);
-    assert.match(js, /SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v8"/);
+    assert.match(html, /survey-drawing-ui-v9/);
+    assert.match(js, /SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v9"/);
     assert.ok(js.includes("releaseBgObjectUrl"));
     assert.ok(js.includes("withDrawingBgCacheBust"));
   });

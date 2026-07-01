@@ -27,7 +27,9 @@
   </header>
 
   <div class="drawing-tool-strip" id="drawing-tool-strip" role="toolbar" aria-label="描画ツール">
+    <button type="button" class="drawing-tool-btn drawing-tool-undo" id="btn-undo" title="元に戻す（Undo）" disabled aria-label="元に戻す">↩</button>
     <button type="button" class="drawing-tool-btn active" data-tool="pen" title="ペン">✏️</button>
+    <button type="button" class="drawing-tool-btn" data-tool="eraser" title="消しゴム">🧽</button>
     <button type="button" class="drawing-tool-btn" data-tool="line" title="直線">／</button>
     <button type="button" class="drawing-tool-btn" data-tool="route" title="配線">🔌</button>
     <button type="button" class="drawing-tool-btn" data-tool="symbol" title="記号">📍</button>
@@ -40,8 +42,13 @@
     <label class="drawing-color-wrap" title="線の色">
       <input type="color" id="stroke-color" value="#dc2626" />
     </label>
-    <button type="button" class="drawing-tool-btn" id="btn-import-photo" title="写真取り込み">📷</button>
-    <input type="file" id="file-bg" accept="image/jpeg,image/png,image/heic,image/heif,image/*" capture="environment" hidden />
+    <button type="button" class="drawing-tool-btn drawing-tool-photo" id="btn-import-photo" title="写真を背景に敷く">📷</button>
+    <input type="file" id="file-bg-camera" accept="image/*" capture="environment" hidden />
+    <input type="file" id="file-bg-album" accept="image/*" hidden />
+  </div>
+  <div id="drawing-photo-picker" class="drawing-photo-picker hidden" role="menu" aria-label="背景写真の取り込み">
+    <button type="button" class="drawing-photo-picker-btn" id="btn-photo-camera">📷 その場で撮影</button>
+    <button type="button" class="drawing-photo-picker-btn" id="btn-photo-album">🖼 アルバムから選択</button>
   </div>
 
   <div id="line-type-palette" class="line-type-palette hidden" role="listbox" aria-label="線種"></div>
@@ -92,6 +99,6 @@
     </div>
   </div>
 
-  <script type="module" src="/js/survey-drawing-v1.js?v=survey-drawing-ui-v8"></script>
+  <script type="module" src="/js/survey-drawing-v1.js?v=survey-drawing-ui-v9"></script>
 </body>
 </html>
