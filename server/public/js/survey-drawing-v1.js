@@ -20,7 +20,7 @@ import {
   updateOfflineResilienceBadgeV1,
 } from "./offline-resilience-v1.js";
 
-export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v13";
+export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v14";
 /** タッチ配置時に指で隠れないよう上へずらす（画面px） */
 const PLOT_TOUCH_OFFSET_Y = 32;
 export const SURVEY_DRAWING_TEMP_BANNER =
@@ -47,6 +47,7 @@ const LINE_TYPE_DASH = {
 
 import { navigatePracticalReturn, navigateTo } from "./tisly-return-nav-v1.js";
 import { navigateBackOne } from "./tisly-navigation-stack-v1.js";
+import { initPracticalNav } from "./tisly-practical-nav.js";
 import {
   initDrawingEditorFoundationV1,
   editorStateToLayerV1,
@@ -411,7 +412,9 @@ function closeSymbolMenusAfterPlot(label) {
   $("symbol-palette")
     ?.querySelectorAll("[data-symbol]")
     .forEach((b) => b.classList.remove("active"));
+  $("line-type-palette")?.classList.add("hidden");
   drawingEditorState?.palette?.clearAfterPlot?.();
+  setTool("pen");
   setStatus(label ? `${label} を配置しました` : "記号を配置しました");
 }
 
@@ -496,14 +499,22 @@ function appendPathToSvg(parent, p) {
   parent.appendChild(path);
 }
 
+/** 消しゴムの上書き色（方眼紙は白、写真は白） */
+function getEraserStrokeColor() {
+  const stage = $("drawing-stage");
+  if (stage?.classList.contains("drawing-grid-paper")) return "#f8fafc";
+  return "#ffffff";
+}
+
 /**
- * 消しゴム用マスクへ黒線を追加
- * （マスク黒 = 描画を透明化）
+ * 消しゴム — 背景色で上書き
+ * （iOS で黒マスクが見える不具合を回避）
  * @param {SVGElement} parent
  * @param {object} p
  */
-function appendEraserMaskPath(parent, p) {
+function appendEraserOverlayPath(parent, p) {
   if (!p.points?.length) return;
+  const color = getEraserStrokeColor();
   const width = p.width || ERASER_WIDTH;
   if (p.points.length >= 2 && (p.tool === "line" || p.tool === "route")) {
     const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
@@ -511,7 +522,7 @@ function appendEraserMaskPath(parent, p) {
     line.setAttribute("y1", p.points[0].y);
     line.setAttribute("x2", p.points[p.points.length - 1].x);
     line.setAttribute("y2", p.points[p.points.length - 1].y);
-    line.setAttribute("stroke", "#000");
+    line.setAttribute("stroke", color);
     line.setAttribute("stroke-width", width);
     line.setAttribute("stroke-linecap", "round");
     parent.appendChild(line);
@@ -521,46 +532,54 @@ function appendEraserMaskPath(parent, p) {
   const d = p.points.map((pt, i) => `${i ? "L" : "M"}${pt.x} ${pt.y}`).join(" ");
   path.setAttribute("d", d);
   path.setAttribute("fill", "none");
-  path.setAttribute("stroke", "#000");
+  path.setAttribute("stroke", color);
   path.setAttribute("stroke-width", width);
   path.setAttribute("stroke-linecap", "round");
   path.setAttribute("stroke-linejoin", "round");
   parent.appendChild(path);
 }
 
+const PATH_ROOT_ID = "drawing-paths-root-v1";
+
+/** 線描画専用グループ（エディタ SVG レイヤーを壊さない） */
+function ensurePathsRoot(svg) {
+  let root = svg.querySelector(`#${PATH_ROOT_ID}`);
+  if (!root) {
+    root = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    root.setAttribute("id", PATH_ROOT_ID);
+    const routeLayer = svg.querySelector("#de-v1-route-layer");
+    if (routeLayer) svg.insertBefore(root, routeLayer);
+    else svg.appendChild(root);
+  }
+  return root;
+}
+
 function renderPaths() {
   const svg = $("drawing-svg");
   if (!svg) return;
-  svg.innerHTML = "";
   svg.setAttribute("viewBox", `0 0 ${stageSize.w} ${stageSize.h}`);
   svg.setAttribute("width", String(stageSize.w));
   svg.setAttribute("height", String(stageSize.h));
 
+  const root = ensurePathsRoot(svg);
+  root.innerHTML = "";
+
   const eraserPaths = layers.paths.filter((p) => p.tool === "eraser");
   const drawPaths = layers.paths.filter((p) => p.tool !== "eraser");
 
-  const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
-  const mask = document.createElementNS("http://www.w3.org/2000/svg", "mask");
-  mask.setAttribute("id", "drawing-eraser-mask-v1");
-  const maskBg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-  maskBg.setAttribute("width", String(stageSize.w));
-  maskBg.setAttribute("height", String(stageSize.h));
-  maskBg.setAttribute("fill", "#fff");
-  mask.appendChild(maskBg);
-  if (eraserPaths.length) {
-    const eraserMaskGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
-    for (const p of eraserPaths) appendEraserMaskPath(eraserMaskGroup, p);
-    mask.appendChild(eraserMaskGroup);
-  }
-  defs.appendChild(mask);
-  svg.appendChild(defs);
+  const drawGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+  drawGroup.setAttribute("class", "drawing-draw-layer");
+  for (const p of drawPaths) appendPathToSvg(drawGroup, p);
+  root.appendChild(drawGroup);
 
-  const normalGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
   if (eraserPaths.length) {
-    normalGroup.setAttribute("mask", "url(#drawing-eraser-mask-v1)");
+    const eraserGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    eraserGroup.setAttribute("class", "drawing-eraser-layer");
+    for (const p of eraserPaths) appendEraserOverlayPath(eraserGroup, p);
+    root.appendChild(eraserGroup);
   }
-  for (const p of drawPaths) appendPathToSvg(normalGroup, p);
-  svg.appendChild(normalGroup);
+
+  drawingEditorState?.canvas?.renderAll?.();
 }
 
 function symbolDef(sym) {
@@ -1843,6 +1862,21 @@ async function main() {
     location.replace(surveyBackUrl());
     return;
   }
+  initPracticalNav({
+    appId: "survey_v1",
+    appName: "現調図面",
+    theme: "blue",
+    onBack: () => {
+      if (dirty && !confirm("未保存の変更があります。戻りますか？")) return;
+      if (navigatePracticalReturn(() => {})) return;
+      if (isLocalOnlyMode || isTempDrawingId(projectId)) {
+        navigateTo("/survey-v1", { record: false });
+        return;
+      }
+      if (projectId) navigateTo(surveyBackUrl(), { record: false });
+      else navigateBackOne("/survey-v1");
+    },
+  });
   fieldInnovations = initDrawingFieldInnovationsV1({
     $,
     getLayers: () => layers,

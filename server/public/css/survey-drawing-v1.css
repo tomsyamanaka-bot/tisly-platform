@@ -13,6 +13,16 @@ html:has(.survey-drawing-body) {
   -webkit-text-size-adjust: 100%;
 }
 
+/* 図面は独自ヘッダー — 共通上部バーは非表示 */
+body.survey-drawing-body.has-practical-nav {
+  padding-top: 0;
+  padding-bottom: calc(var(--tisly-nav-bottom-h, 64px) + env(safe-area-inset-bottom, 0px));
+}
+
+body.survey-drawing-body .tisly-practical-topbar {
+  display: none;
+}
+
 /* iOS: display:none / pointer-events:none
    だと programmatic click が無効化される */
 .survey-file-input-hidden {
@@ -151,8 +161,17 @@ html:has(.survey-drawing-body) {
   flex-shrink: 0;
   justify-content: center;
   position: relative;
-  z-index: 30;
+  z-index: 100;
   pointer-events: auto;
+}
+
+.drawing-photo-picker:not(.hidden) {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 6.5rem);
+  left: 0.35rem;
+  right: 0.35rem;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
 }
 
 .drawing-photo-picker.hidden {
@@ -172,7 +191,7 @@ html:has(.survey-drawing-body) {
   cursor: pointer;
   touch-action: manipulation;
   position: relative;
-  z-index: 36;
+  z-index: 101;
   pointer-events: auto;
 }
 
@@ -202,6 +221,11 @@ html:has(.survey-drawing-body) {
   padding: 0.35rem 0.5rem;
   background: #334155;
   flex-shrink: 0;
+  max-height: 28vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  position: relative;
+  z-index: 15;
 }
 
 .symbol-palette.hidden {
@@ -374,6 +398,10 @@ html:has(.survey-drawing-body) {
   pointer-events: none;
   overflow: visible;
   isolation: isolate;
+}
+
+.drawing-eraser-layer {
+  pointer-events: none;
 }
 
 .drawing-overlay {
