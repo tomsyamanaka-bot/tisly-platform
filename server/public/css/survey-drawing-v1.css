@@ -400,10 +400,6 @@ body.survey-drawing-body .tisly-practical-topbar {
   isolation: isolate;
 }
 
-.drawing-eraser-layer {
-  pointer-events: none;
-}
-
 .drawing-overlay {
   position: absolute;
   top: 0;

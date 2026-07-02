@@ -499,22 +499,54 @@ function appendPathToSvg(parent, p) {
   parent.appendChild(path);
 }
 
-/** 消しゴムの上書き色（方眼紙は白、写真は白） */
-function getEraserStrokeColor() {
-  const stage = $("drawing-stage");
-  if (stage?.classList.contains("drawing-grid-paper")) return "#f8fafc";
-  return "#ffffff";
+const DRAW_MASK_ID = "drawing-draw-mask-v1";
+const DRAW_DEFS_ID = "drawing-defs-v1";
+
+/**
+ * 手書きレイヤー用マスクを確保
+ * （白=表示・黒=消去＝destination-out 相当）
+ * @param {SVGSVGElement} svg
+ * @param {number} w
+ * @param {number} h
+ */
+function ensureDrawMask(svg, w, h) {
+  let defs = svg.querySelector(`#${DRAW_DEFS_ID}`);
+  if (!defs) {
+    defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+    defs.setAttribute("id", DRAW_DEFS_ID);
+    svg.insertBefore(defs, svg.firstChild);
+  }
+  let mask = defs.querySelector(`#${DRAW_MASK_ID}`);
+  if (!mask) {
+    mask = document.createElementNS("http://www.w3.org/2000/svg", "mask");
+    mask.setAttribute("id", DRAW_MASK_ID);
+    mask.setAttribute("maskUnits", "userSpaceOnUse");
+    mask.setAttribute("maskContentUnits", "userSpaceOnUse");
+    defs.appendChild(mask);
+  }
+  mask.setAttribute("x", "0");
+  mask.setAttribute("y", "0");
+  mask.setAttribute("width", String(w));
+  mask.setAttribute("height", String(h));
+  mask.innerHTML = "";
+  const base = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+  base.setAttribute("x", "0");
+  base.setAttribute("y", "0");
+  base.setAttribute("width", String(w));
+  base.setAttribute("height", String(h));
+  base.setAttribute("fill", "white");
+  mask.appendChild(base);
+  return mask;
 }
 
 /**
- * 消しゴム — 背景色で上書き
- * （iOS で黒マスクが見える不具合を回避）
+ * 消しゴム — マスク内に黒ストローク
+ * （手書き線だけを透明化、方眼紙は無傷）
  * @param {SVGElement} parent
  * @param {object} p
  */
-function appendEraserOverlayPath(parent, p) {
+function appendEraserMaskStroke(parent, p) {
   if (!p.points?.length) return;
-  const color = getEraserStrokeColor();
   const width = p.width || ERASER_WIDTH;
   if (p.points.length >= 2 && (p.tool === "line" || p.tool === "route")) {
     const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
@@ -522,7 +554,7 @@ function appendEraserOverlayPath(parent, p) {
     line.setAttribute("y1", p.points[0].y);
     line.setAttribute("x2", p.points[p.points.length - 1].x);
     line.setAttribute("y2", p.points[p.points.length - 1].y);
-    line.setAttribute("stroke", color);
+    line.setAttribute("stroke", "#000000");
     line.setAttribute("stroke-width", width);
     line.setAttribute("stroke-linecap", "round");
     parent.appendChild(line);
@@ -532,7 +564,7 @@ function appendEraserOverlayPath(parent, p) {
   const d = p.points.map((pt, i) => `${i ? "L" : "M"}${pt.x} ${pt.y}`).join(" ");
   path.setAttribute("d", d);
   path.setAttribute("fill", "none");
-  path.setAttribute("stroke", color);
+  path.setAttribute("stroke", "#000000");
   path.setAttribute("stroke-width", width);
   path.setAttribute("stroke-linecap", "round");
   path.setAttribute("stroke-linejoin", "round");
@@ -567,17 +599,18 @@ function renderPaths() {
   const eraserPaths = layers.paths.filter((p) => p.tool === "eraser");
   const drawPaths = layers.paths.filter((p) => p.tool !== "eraser");
 
+  if (eraserPaths.length) {
+    const mask = ensureDrawMask(svg, stageSize.w, stageSize.h);
+    for (const p of eraserPaths) appendEraserMaskStroke(mask, p);
+  }
+
   const drawGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
   drawGroup.setAttribute("class", "drawing-draw-layer");
+  if (eraserPaths.length) {
+    drawGroup.setAttribute("mask", `url(#${DRAW_MASK_ID})`);
+  }
   for (const p of drawPaths) appendPathToSvg(drawGroup, p);
   root.appendChild(drawGroup);
-
-  if (eraserPaths.length) {
-    const eraserGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
-    eraserGroup.setAttribute("class", "drawing-eraser-layer");
-    for (const p of eraserPaths) appendEraserOverlayPath(eraserGroup, p);
-    root.appendChild(eraserGroup);
-  }
 
   drawingEditorState?.canvas?.renderAll?.();
 }
@@ -1026,7 +1059,7 @@ function onPointerDown(ev) {
             ? "route"
             : "line",
       lineType: lt,
-      color: isEraser ? "#ffffff" : color,
+      color: isEraser ? "transparent" : color,
       width: isEraser ? ERASER_WIDTH : strokeWidth,
       points: [pt],
       lengthPx: 0,
