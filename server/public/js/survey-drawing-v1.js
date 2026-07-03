@@ -270,6 +270,10 @@ let panStart = null;
 let touchGesture = null;
 let plotPreviewEl = null;
 let toolStripCollapsed = false;
+/** 写真ピッカー表示中 — 親ツール誤クローズ防止 */
+let photoPickerOpen = false;
+/** file input 起動時刻（キャンセル検知用） */
+let photoPickerFileOpenedAt = 0;
 let stageSize = { w: 800, h: 600 };
 let saveTimer = null;
 let dirty = false;
@@ -772,21 +776,41 @@ function undoLastStroke() {
 function togglePhotoPicker(show) {
   const picker = $("drawing-photo-picker");
   if (!picker) return;
+  photoPickerOpen = !!show;
   picker.classList.toggle("hidden", !show);
+  picker.setAttribute("aria-hidden", show ? "false" : "true");
+}
+
+/** 写真ピッカー内タップが
+   親へ伝播しないよう固定 */
+function wirePhotoPickerShell() {
+  const picker = $("drawing-photo-picker");
+  if (!picker) return;
+  const stop = (ev) => {
+    ev.stopPropagation();
+  };
+  picker.addEventListener("pointerdown", stop, true);
+  picker.addEventListener("touchstart", stop, { capture: true, passive: false });
+  picker.addEventListener("click", stop, true);
 }
 
 function wireSurveyFileInput() {
   const input = $("survey-file-input");
   input?.addEventListener("change", async (ev) => {
     const file = ev.target.files?.[0];
-    if (!file) return;
+    photoPickerOpen = false;
     togglePhotoPicker(false);
+    if (!file) return;
     try {
       await importBackground(file);
     } catch (e) {
       setStatus(e?.message || "写真の取り込みに失敗しました");
     }
     ev.target.value = "";
+  });
+  input?.addEventListener("cancel", () => {
+    photoPickerOpen = false;
+    togglePhotoPicker(false);
   });
 }
 
@@ -845,6 +869,7 @@ function triggerSurveyFileInput(capture) {
   }
   try {
     input.value = "";
+    photoPickerFileOpenedAt = Date.now();
     input.click();
   } catch (e) {
     setStatus(`写真選択を開けません: ${e?.message || e}`);
@@ -861,7 +886,8 @@ function bindPhotoTriggerButton(btnId, capture) {
   const open = (ev) => {
     ev.preventDefault();
     ev.stopPropagation();
-    togglePhotoPicker(false);
+    // 選択肢表示中はピッカーを閉じない
+    // （file 確定/キャンセルまで維持）
     triggerSurveyFileInput(capture ?? null);
   };
   btn.addEventListener(
@@ -1418,7 +1444,8 @@ async function loadSymbols() {
     })
     .join("");
   mount.querySelectorAll("[data-symbol]").forEach((btn) => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", (ev) => {
+      ev.stopPropagation();
       mount.querySelectorAll("[data-symbol]").forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
       const sym = symbolPalette.find((x) => x.symbolType === btn.dataset.symbol);
@@ -1781,6 +1808,8 @@ function bindImportPhotoButton() {
   const toggle = (ev) => {
     ev.preventDefault();
     ev.stopPropagation();
+    // ピッカー内操作は親トグルを無視
+    if (ev.target?.closest?.("#drawing-photo-picker")) return;
     const picker = $("drawing-photo-picker");
     const show = picker?.classList.contains("hidden");
     togglePhotoPicker(!!show);
@@ -1858,6 +1887,7 @@ function wireEvents() {
   });
 
   bindImportPhotoButton();
+  wirePhotoPickerShell();
   bindPhotoTriggerButton("btn-photo-camera", "environment");
   bindPhotoTriggerButton("btn-photo-album");
   wireSurveyFileInput();
@@ -1888,6 +1918,19 @@ function wireEvents() {
     },
   });
   updateOfflineResilienceBadgeV1("drawing-offline-badge");
+
+  // ネイティブ file ピッカー
+  // キャンセル時にメニューを閉じる
+  window.addEventListener("focus", () => {
+    if (!photoPickerOpen || !photoPickerFileOpenedAt) return;
+    if (Date.now() - photoPickerFileOpenedAt < 500) return;
+    const input = $("survey-file-input");
+    window.setTimeout(() => {
+      if (!photoPickerOpen) return;
+      if (input?.files?.length) return;
+      togglePhotoPicker(false);
+    }, 250);
+  });
 }
 
 async function main() {
