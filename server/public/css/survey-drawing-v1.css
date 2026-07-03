@@ -69,6 +69,20 @@ body.survey-drawing-body .tisly-practical-topbar {
   pointer-events: none;
 }
 
+/* 現場写真背景 — ステージ全面に敷き詰め */
+.drawing-stage.has-photo-bg {
+  background: #0f172a;
+}
+
+.drawing-stage.has-photo-bg .drawing-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+}
+
 .drawing-toolbar {
   display: flex;
   align-items: center;

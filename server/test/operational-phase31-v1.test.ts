@@ -17,7 +17,7 @@ describe("Operational Phase31 — camera nav footer zoom", () => {
     assert.ok(cameraIdx < scriptIdx && albumIdx < scriptIdx, "file inputs should be before script at body end");
     assert.match(html, /capture="environment"/);
     assert.match(html, /user-scalable=no/);
-    assert.match(js, /SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v16"/);
+    assert.match(js, /SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v17"/);
     assert.ok(js.includes("bindPhotoTriggerButton"));
     assert.ok(js.includes('bindPhotoTriggerButton("btn-photo-album", "survey-album-input")'));
     assert.ok(js.includes("touchstart"));
