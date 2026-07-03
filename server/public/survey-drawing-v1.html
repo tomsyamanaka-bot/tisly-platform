@@ -106,17 +106,26 @@
     </div>
   </div>
 
-  <!-- iOS で input は body 直下が
-       プログラム click に最も安定 -->
+  <!-- iOS: body 直下の非表示 input
+       をタップ直後に click 連動 -->
   <input
     type="file"
-    id="survey-file-input"
+    id="survey-camera-input"
+    accept="image/*"
+    capture="environment"
+    class="survey-file-input-hidden"
+    tabindex="-1"
+    aria-hidden="true"
+  />
+  <input
+    type="file"
+    id="survey-album-input"
     accept="image/*"
     class="survey-file-input-hidden"
     tabindex="-1"
     aria-hidden="true"
   />
 
-  <script type="module" src="/js/survey-drawing-v1.js?v=survey-drawing-ui-v15"></script>
+  <script type="module" src="/js/survey-drawing-v1.js?v=survey-drawing-ui-v16"></script>
 </body>
 </html>

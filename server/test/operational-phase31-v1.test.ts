@@ -11,13 +11,15 @@ describe("Operational Phase31 — camera nav footer zoom", () => {
     const js = fs.readFileSync(path.join(publicDir, "js/survey-drawing-v1.js"), "utf-8");
     const css = fs.readFileSync(path.join(publicDir, "css/survey-drawing-v1.css"), "utf-8");
     const scriptIdx = html.indexOf('<script type="module" src="/js/survey-drawing-v1.js');
-    const inputIdx = html.indexOf('id="survey-file-input"');
-    assert.ok(inputIdx > 0 && scriptIdx > 0);
-    assert.ok(inputIdx < scriptIdx, "file input should be before script at body end");
+    const cameraIdx = html.indexOf('id="survey-camera-input"');
+    const albumIdx = html.indexOf('id="survey-album-input"');
+    assert.ok(cameraIdx > 0 && albumIdx > 0 && scriptIdx > 0);
+    assert.ok(cameraIdx < scriptIdx && albumIdx < scriptIdx, "file inputs should be before script at body end");
+    assert.match(html, /capture="environment"/);
     assert.match(html, /user-scalable=no/);
-    assert.match(js, /SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v12"/);
+    assert.match(js, /SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v16"/);
     assert.ok(js.includes("bindPhotoTriggerButton"));
-    assert.ok(js.includes('bindPhotoTriggerButton("btn-photo-album")'));
+    assert.ok(js.includes('bindPhotoTriggerButton("btn-photo-album", "survey-album-input")'));
     assert.ok(js.includes("touchstart"));
     assert.ok(css.includes("touch-action: manipulation"));
     const inputRule = css.slice(

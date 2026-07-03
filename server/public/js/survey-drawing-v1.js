@@ -20,7 +20,7 @@ import {
   updateOfflineResilienceBadgeV1,
 } from "./offline-resilience-v1.js";
 
-export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v14";
+export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v16";
 /** タッチ配置時に指で隠れないよう上へずらす（画面px） */
 const PLOT_TOUCH_OFFSET_Y = 32;
 export const SURVEY_DRAWING_TEMP_BANNER =
@@ -781,37 +781,44 @@ function togglePhotoPicker(show) {
   picker.setAttribute("aria-hidden", show ? "false" : "true");
 }
 
-/** 写真ピッカー内タップが
-   親へ伝播しないよう固定 */
+/** ピッカー内タップは子ボタンへ届け
+   親トグルへの伝播だけ遮断 */
 function wirePhotoPickerShell() {
   const picker = $("drawing-photo-picker");
   if (!picker) return;
-  const stop = (ev) => {
+  const stopBubble = (ev) => {
     ev.stopPropagation();
   };
-  picker.addEventListener("pointerdown", stop, true);
-  picker.addEventListener("touchstart", stop, { capture: true, passive: false });
-  picker.addEventListener("click", stop, true);
+  picker.addEventListener("pointerdown", stopBubble);
+  picker.addEventListener("touchstart", stopBubble, { passive: false });
+  picker.addEventListener("click", stopBubble);
+}
+
+/** 写真選択後に背景へ取り込み
+   メニューを閉じる */
+async function handleSurveyFileSelected(ev) {
+  const file = ev.target.files?.[0];
+  photoPickerOpen = false;
+  togglePhotoPicker(false);
+  if (!file) return;
+  try {
+    await importBackground(file);
+  } catch (e) {
+    setStatus(e?.message || "写真の取り込みに失敗しました");
+  }
+  ev.target.value = "";
 }
 
 function wireSurveyFileInput() {
-  const input = $("survey-file-input");
-  input?.addEventListener("change", async (ev) => {
-    const file = ev.target.files?.[0];
+  const onCancel = () => {
     photoPickerOpen = false;
     togglePhotoPicker(false);
-    if (!file) return;
-    try {
-      await importBackground(file);
-    } catch (e) {
-      setStatus(e?.message || "写真の取り込みに失敗しました");
-    }
-    ev.target.value = "";
-  });
-  input?.addEventListener("cancel", () => {
-    photoPickerOpen = false;
-    togglePhotoPicker(false);
-  });
+  };
+  for (const id of ["survey-camera-input", "survey-album-input"]) {
+    const input = $(id);
+    input?.addEventListener("change", handleSurveyFileSelected);
+    input?.addEventListener("cancel", onCancel);
+  }
 }
 
 function prepareLayersForSave() {
@@ -852,43 +859,27 @@ function photoRefsFromSketch() {
 }
 
 /**
- * 非表示 file input を
- * ユーザ操作の直後に起動
- * @param {string | null} [capture] — environment でカメラ直起動
+ * メニューボタンと専用 input を
+ * 同一イベント内で直接 click 連動
+ * @param {string} btnId
+ * @param {string} inputId
  */
-function triggerSurveyFileInput(capture) {
-  const input = $("survey-file-input");
-  if (!input) {
-    setStatus("写真入力が見つかりません");
-    return;
-  }
-  if (capture) {
-    input.setAttribute("capture", capture);
-  } else {
-    input.removeAttribute("capture");
-  }
-  try {
-    input.value = "";
-    photoPickerFileOpenedAt = Date.now();
-    input.click();
-  } catch (e) {
-    setStatus(`写真選択を開けません: ${e?.message || e}`);
-  }
-}
-
-/**
- * 写真ボタンにタップ/クリック連動
- * iOS は touchstart 同期で input.click
- */
-function bindPhotoTriggerButton(btnId, capture) {
+function bindPhotoTriggerButton(btnId, inputId) {
   const btn = $(btnId);
-  if (!btn) return;
+  const input = $(inputId);
+  if (!btn || !input) return;
   const open = (ev) => {
     ev.preventDefault();
     ev.stopPropagation();
-    // 選択肢表示中はピッカーを閉じない
-    // （file 確定/キャンセルまで維持）
-    triggerSurveyFileInput(capture ?? null);
+    // iOS: 非同期を挟まず
+    // 同一コールバック内で click
+    try {
+      input.value = "";
+      photoPickerFileOpenedAt = Date.now();
+      input.click();
+    } catch (e) {
+      setStatus(`写真選択を開けません: ${e?.message || e}`);
+    }
   };
   btn.addEventListener(
     "touchstart",
@@ -1888,8 +1879,8 @@ function wireEvents() {
 
   bindImportPhotoButton();
   wirePhotoPickerShell();
-  bindPhotoTriggerButton("btn-photo-camera", "environment");
-  bindPhotoTriggerButton("btn-photo-album");
+  bindPhotoTriggerButton("btn-photo-camera", "survey-camera-input");
+  bindPhotoTriggerButton("btn-photo-album", "survey-album-input");
   wireSurveyFileInput();
   $("btn-undo")?.addEventListener("click", () => undoLastStroke());
 
@@ -1924,10 +1915,11 @@ function wireEvents() {
   window.addEventListener("focus", () => {
     if (!photoPickerOpen || !photoPickerFileOpenedAt) return;
     if (Date.now() - photoPickerFileOpenedAt < 500) return;
-    const input = $("survey-file-input");
+    const cameraInput = $("survey-camera-input");
+    const albumInput = $("survey-album-input");
     window.setTimeout(() => {
       if (!photoPickerOpen) return;
-      if (input?.files?.length) return;
+      if (cameraInput?.files?.length || albumInput?.files?.length) return;
       togglePhotoPicker(false);
     }, 250);
   });
