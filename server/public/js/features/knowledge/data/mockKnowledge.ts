@@ -9,6 +9,8 @@ export interface KnowledgeItem {
   /** 大分類（ジャンルタブで絞り込み） */
   genre: string;
   tags: string[];
+  /** 添付PDF（サーバー保存後のURL） */
+  pdf_url?: string | null;
   createdAt: string;
 }
 

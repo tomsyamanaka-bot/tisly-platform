@@ -158,6 +158,34 @@
   box-shadow: var(--tisly-shadow, 0 2px 8px rgba(0, 0, 0, 0.06));
 }
 
+.kn-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.65rem;
+  margin-bottom: 0.5rem;
+}
+
+.kn-card-pdf {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 2.5rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 10px;
+  background: #fef2f2;
+  border: 2px solid #fca5a5;
+  color: #b91c1c;
+  font-size: 0.88rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.kn-card-pdf:active {
+  transform: scale(0.98);
+}
+
 .kn-card-title {
   margin: 0 0 0.5rem;
   font-size: 1.12rem;
@@ -254,6 +282,143 @@
 
 .kn-add-btn:active {
   transform: scale(0.99);
+}
+
+.kn-add-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* タグ入力 */
+.kn-tag-input {
+  margin-bottom: 0.55rem;
+}
+
+.kn-tag-input-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 3rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--tisly-border, #e1e4e8);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.kn-tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 8px;
+  background: #e8f2fc;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #1a5a9e;
+}
+
+.kn-tag-chip-remove {
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0.15rem;
+}
+
+.kn-tag-input-field {
+  flex: 1;
+  min-width: 6rem;
+  border: none;
+  outline: none;
+  font-size: 1rem;
+  padding: 0.25rem;
+  background: transparent;
+}
+
+.kn-tag-input-hint {
+  margin: 0.25rem 0 0;
+  font-size: 0.78rem;
+  color: var(--tisly-muted, #6a737d);
+}
+
+/* PDF添付 */
+.kn-pdf-upload {
+  margin-bottom: 0.55rem;
+}
+
+.kn-pdf-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 6.5rem;
+  padding: 0.85rem;
+  border: 2px dashed #c8d4e0;
+  border-radius: 12px;
+  background: #f8fafc;
+  text-align: center;
+}
+
+.kn-pdf-drop.is-dragover {
+  border-color: #4a90d9;
+  background: #eef6ff;
+}
+
+.kn-pdf-drop.has-file {
+  flex-direction: row;
+  justify-content: flex-start;
+  min-height: 3.5rem;
+}
+
+.kn-pdf-icon {
+  font-size: 1.5rem;
+}
+
+.kn-pdf-hint {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--tisly-muted, #6a737d);
+}
+
+.kn-pdf-name {
+  flex: 1;
+  text-align: left;
+  font-size: 0.92rem;
+  font-weight: 700;
+  word-break: break-all;
+}
+
+.kn-pdf-select-btn,
+.kn-pdf-clear {
+  min-height: 2.75rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 10px;
+  border: 2px solid #4a90d9;
+  background: #fff;
+  color: #1a5a9e;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.kn-pdf-clear {
+  border-color: #cbd5e1;
+  color: #64748b;
+}
+
+.kn-pdf-file-input {
+  display: none;
+}
+
+.kn-pdf-error {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+  color: #b91c1c;
+  font-weight: 700;
 }
 
 /* トースト */

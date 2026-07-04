@@ -6,12 +6,28 @@ export interface KnowledgeCardProps {
 
 /**
  * ナレッジ1件のカード
- * タイトル大きめ・要約3行想定
+ * タイトル大きめ · 要約 · タグ · 添付PDF
  */
 export function KnowledgeCard({ item }: KnowledgeCardProps) {
+  const pdfUrl = item.pdf_url?.trim() || null;
+
   return (
     <article className="kn-card" data-id={item.id}>
-      <h2 className="kn-card-title">{item.title}</h2>
+      <div className="kn-card-head">
+        <h2 className="kn-card-title">{item.title}</h2>
+        {pdfUrl ? (
+          <a
+            className="kn-card-pdf"
+            href={pdfUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`${item.title} のPDFを開く`}
+          >
+            <span aria-hidden="true">📄</span>
+            <span>PDF</span>
+          </a>
+        ) : null}
+      </div>
       <p className="kn-card-summary">{item.summary}</p>
       <div className="kn-card-tags">
         {item.tags.map((tag) => (

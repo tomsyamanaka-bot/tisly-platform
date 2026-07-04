@@ -97,6 +97,12 @@ import {
   saveKnowledgeCardV1,
 } from "../../knowledge/knowledge-store-v1.js";
 import { getBusinessProject } from "../../business/business-store.js";
+import {
+  collectKnowledgeModuleTagsV1,
+  createKnowledgeModuleItemV1,
+  listKnowledgeModuleItemsV1,
+  saveKnowledgeModulePdfV1,
+} from "../../knowledge/knowledge-module-v1.js";
 
 export const knowledgeV1Router = Router();
 
@@ -929,4 +935,42 @@ knowledgeV1Router.get("/mothership/search", ...auth, (req: AuthedRequest, res) =
 knowledgeV1Router.get("/mothership/project/:projectNo", ...auth, (req: AuthedRequest, res) => {
   if (!assertRole(req, res)) return;
   res.json(getMothershipExplorerProjectLinksV1(String(req.params.projectNo)));
+});
+
+/** Knowledge Module v1 — 現場ナレッジ（PDF · タグ） */
+knowledgeV1Router.get("/module-v1/items", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  const items = listKnowledgeModuleItemsV1();
+  res.json({ items, tags: collectKnowledgeModuleTagsV1(items) });
+});
+
+knowledgeV1Router.post("/module-v1/items", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  try {
+    const body = req.body ?? {};
+    const item = createKnowledgeModuleItemV1({
+      title: String(body.title ?? ""),
+      summary: String(body.summary ?? ""),
+      genre: String(body.genre ?? ""),
+      tags: Array.isArray(body.tags) ? body.tags : undefined,
+      pdf_url: body.pdf_url ?? null,
+    });
+    res.status(201).json({ item });
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : "Invalid item" });
+  }
+});
+
+knowledgeV1Router.post("/module-v1/upload-pdf", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  try {
+    const body = req.body ?? {};
+    const result = saveKnowledgeModulePdfV1({
+      fileName: String(body.fileName ?? "attachment.pdf"),
+      fileBase64: String(body.fileBase64 ?? ""),
+    });
+    res.status(201).json(result);
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : "PDF upload failed" });
+  }
 });

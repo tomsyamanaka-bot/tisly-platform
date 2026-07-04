@@ -714,6 +714,10 @@ export function createApp(): express.Application {
   app.use("/uploads/business", express.static(path.join(process.cwd(), "uploads", "business")));
   app.use("/uploads/sales-demo", express.static(path.join(process.cwd(), "uploads", "sales-demo")));
   app.use("/uploads/monitoring", express.static(getMonitoringMapAssetUploadRootV1()));
+  app.use(
+    "/uploads/knowledge",
+    express.static(path.join(process.cwd(), "uploads", "knowledge"))
+  );
   app.get("/tv/:customerCode", (_req, res) => {
     res.sendFile(tvDashboardHtml);
   });

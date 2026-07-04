@@ -59,6 +59,22 @@ describe("knowledge-module-v1 PWA", () => {
     const base = path.join(publicDir, "js/features/knowledge");
     assert.ok(fs.existsSync(path.join(base, "components/SearchBar.tsx")));
     assert.ok(fs.existsSync(path.join(base, "components/KnowledgeCard.tsx")));
+    assert.ok(fs.existsSync(path.join(base, "components/TagInput.tsx")));
+    assert.ok(fs.existsSync(path.join(base, "components/PdfUpload.tsx")));
+    assert.ok(fs.existsSync(path.join(base, "api/knowledgeModuleApi.ts")));
     assert.ok(fs.existsSync(path.join(base, "pages/index.tsx")));
+  });
+
+  it("bundle includes PDF upload and tag input UI", () => {
+    const bundlePath = path.join(
+      publicDir,
+      "js/features/knowledge/knowledge-module.bundle.js"
+    );
+    const src = fs.readFileSync(bundlePath, "utf8");
+    assert.match(src, /kn-tag-input/);
+    assert.match(src, /kn-pdf-drop/);
+    assert.match(src, /module-v1\/items/);
+    assert.match(src, /module-v1\/upload-pdf/);
+    assert.match(src, /kn-card-pdf/);
   });
 });
