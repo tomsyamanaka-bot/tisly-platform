@@ -1,5 +1,7 @@
 /** Knowledge Module API — 認証付き fetch */
 
+import { getCustomerToken } from "../../../customer-auth.js";
+
 export interface KnowledgeModuleItemDto {
   id: string;
   title: string;
@@ -10,20 +12,15 @@ export interface KnowledgeModuleItemDto {
   createdAt: string;
 }
 
-function getToken(): string {
-  if (typeof localStorage === "undefined") return "";
-  return (
-    localStorage.getItem("tisly_admin_token") ||
-    sessionStorage.getItem("tisly_token") ||
-    ""
-  );
-}
-
 async function api<T>(path: string, opts: RequestInit = {}): Promise<T> {
+  const token = getCustomerToken();
+  if (!token) {
+    throw new Error("ログインが必要です");
+  }
   const res = await fetch(`/api/knowledge${path}`, {
     ...opts,
     headers: {
-      Authorization: `Bearer ${getToken()}`,
+      Authorization: `Bearer ${token}`,
       ...(opts.body ? { "Content-Type": "application/json" } : {}),
       ...(opts.headers as Record<string, string> | undefined),
     },

@@ -27,23 +27,22 @@ describe("knowledge-module-v1 PWA", () => {
     const res = await request(app).get("/knowledge-module-v1");
     assert.equal(res.status, 200);
     assert.match(res.text, /id="kn-root"/);
-    assert.match(res.text, /knowledge-module\.bundle\.js/);
+    assert.doesNotMatch(res.text, /knowledge-module\.bundle\.js/);
     assert.match(res.text, /knowledge-module-v1-nav\.js/);
     assert.match(res.text, /tisly-practical-nav\.css/);
   });
 
-  it("bundle includes required mock entries and genre tabs", () => {
+  it("bundle uses API routes and has no mock fallback toast", () => {
     const bundlePath = path.join(
       publicDir,
       "js/features/knowledge/knowledge-module.bundle.js"
     );
     assert.ok(fs.existsSync(bundlePath), "bundle must exist — run npm run build:knowledge-module");
     const src = fs.readFileSync(bundlePath, "utf8");
-    assert.match(src, /kn-mock-cola-silo/);
-    assert.match(src, /kn-mock-belt-tape/);
-    assert.match(src, /kn-mock-rp2350-poe/);
-    assert.match(src, /kn-mock-plc-self-hold/);
-    assert.match(src, /RP2350-POE-ETH-8DI-8RO/);
+    assert.doesNotMatch(src, /kn-mock-cola-silo/);
+    assert.doesNotMatch(src, /モック表示/);
+    assert.match(src, /module-v1\/items/);
+    assert.match(src, /module-v1\/upload-pdf/);
     assert.match(src, /kn-genre-tab/);
     assert.match(src, /data-genre/);
     assert.match(src, /kn-genre-tabs/);
@@ -53,6 +52,13 @@ describe("knowledge-module-v1 PWA", () => {
     assert.match(mockSrc, /セキュリティー/);
     assert.match(mockSrc, /TV工事/);
     assert.match(mockSrc, /空調/);
+  });
+
+  it("nav script requires login before loading bundle", () => {
+    const navPath = path.join(publicDir, "js/knowledge-module-v1-nav.js");
+    const src = fs.readFileSync(navPath, "utf8");
+    assert.match(src, /requireCustomerLogin/);
+    assert.match(src, /knowledge-module\.bundle\.js/);
   });
 
   it("TSX source files exist under features/knowledge", () => {

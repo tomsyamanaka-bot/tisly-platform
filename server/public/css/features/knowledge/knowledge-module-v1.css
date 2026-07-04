@@ -441,6 +441,30 @@
   transform: translateX(-50%) translateY(0);
 }
 
+.kn-load-error {
+  margin: 0.5rem 0 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.kn-retry-btn {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid #fca5a5;
+  border-radius: 8px;
+  background: #fff;
+  color: #b91c1c;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 /* 下部ナビ余白 */
 @media (max-width: 480px) {
   .kn-search-input {

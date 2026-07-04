@@ -7,7 +7,6 @@ import {
   type KnowledgeModuleItemDto,
 } from "../api/knowledgeModuleApi";
 import {
-  INITIAL_KNOWLEDGE_MOCK,
   KNOWLEDGE_GENRES,
   type KnowledgeGenre,
   type KnowledgeItem,
@@ -26,22 +25,14 @@ function dtoToItem(dto: KnowledgeModuleItemDto): KnowledgeItem {
     title: dto.title,
     summary: dto.summary,
     genre: dto.genre,
-    tags: dto.tags,
-    pdf_url: dto.pdf_url,
+    tags: dto.tags ?? [],
+    pdf_url: dto.pdf_url ?? null,
     createdAt: dto.createdAt,
   };
 }
 
-/** モック + API を ID でマージ（API優先） */
-function mergeItems(apiItems: KnowledgeItem[]): KnowledgeItem[] {
-  const byId = new Map<string, KnowledgeItem>();
-  for (const mock of INITIAL_KNOWLEDGE_MOCK) {
-    byId.set(mock.id, mock);
-  }
-  for (const item of apiItems) {
-    byId.set(item.id, item);
-  }
-  return [...byId.values()].sort(
+function sortItems(items: KnowledgeItem[]): KnowledgeItem[] {
+  return [...items].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 }
@@ -79,8 +70,9 @@ function Toast({ message }: { message: string }) {
  * ジャンル → タグの二段階絞り込み · PDF添付 · タグ入力
  */
 function KnowledgeModulePage() {
-  const [items, setItems] = useState<KnowledgeItem[]>(() => [...INITIAL_KNOWLEDGE_MOCK]);
+  const [items, setItems] = useState<KnowledgeItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [query, setQuery] = useState("");
   const [activeGenre, setActiveGenre] = useState<KnowledgeGenre>("すべて");
   const [activeTag, setActiveTag] = useState("すべて");
@@ -99,12 +91,16 @@ function KnowledgeModulePage() {
   }, []);
 
   const reloadItems = useCallback(async () => {
+    setLoading(true);
+    setLoadError("");
     try {
       const { items: apiItems } = await fetchKnowledgeModuleItems();
-      setItems(mergeItems(apiItems.map(dtoToItem)));
-    } catch {
-      showToast("サーバーから読み込めませんでした（モック表示）");
-      setItems([...INITIAL_KNOWLEDGE_MOCK]);
+      setItems(sortItems(apiItems.map(dtoToItem)));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "読み込みに失敗しました";
+      setLoadError(msg);
+      setItems([]);
+      showToast(`サーバーから読み込めませんでした: ${msg}`);
     } finally {
       setLoading(false);
     }
@@ -176,7 +172,9 @@ function KnowledgeModulePage() {
         pdf_url: pdfUrl,
       });
 
-      setItems((prev) => mergeItems([dtoToItem(created), ...prev.filter((x) => x.id !== created.id)]));
+      setItems((prev) =>
+        sortItems([dtoToItem(created), ...prev.filter((x) => x.id !== created.id)])
+      );
       setDraftTitle("");
       setDraftBody("");
       setDraftTags([]);
@@ -235,6 +233,15 @@ function KnowledgeModulePage() {
         </span>
       </div>
 
+      {loadError && !loading ? (
+        <p className="kn-load-error" role="alert">
+          読み込みエラー: {loadError}
+          <button type="button" className="kn-retry-btn" onClick={() => void reloadItems()}>
+            再読み込み
+          </button>
+        </p>
+      ) : null}
+
       <KnowledgeCardList items={filtered} />
 
       <section className="kn-quick-add">
@@ -286,7 +293,7 @@ function KnowledgeModulePage() {
         <button
           type="button"
           className="kn-add-btn"
-          disabled={saving}
+          disabled={saving || !!loadError}
           onClick={() => void handleAdd()}
         >
           {saving ? "保存中…" : "＋ ナレッジを追加"}
