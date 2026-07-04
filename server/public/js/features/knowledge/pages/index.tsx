@@ -34,9 +34,11 @@ function loadItems(): KnowledgeItem[] {
 
 /** 旧データ向け：タグからジャンルを推定 */
 function inferGenreFromTags(tags: string[]): string {
-  if (tags.includes("IoT")) return "IoT";
+  const genreTags = KNOWLEDGE_GENRES.filter((g) => g !== "すべて");
+  for (const genre of genreTags) {
+    if (tags.includes(genre)) return genre;
+  }
   if (tags.includes("PLC")) return "制御";
-  if (tags.includes("プラント")) return "プラント";
   return "プラント";
 }
 

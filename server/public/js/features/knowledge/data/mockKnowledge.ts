@@ -12,8 +12,20 @@ export interface KnowledgeItem {
   createdAt: string;
 }
 
-/** 画面上部のジャンルタブ */
-export const KNOWLEDGE_GENRES = ["すべて", "プラント", "IoT", "制御"] as const;
+/** 画面上部のジャンルタブ・かんたん登録セレクト */
+export const KNOWLEDGE_GENRES = [
+  "すべて",
+  "プラント",
+  "IoT",
+  "制御",
+  "電気",
+  "ネットワーク",
+  "セキュリティー",
+  "TV工事",
+  "防犯カメラ",
+  "エアコン",
+  "空調",
+] as const;
 
 export type KnowledgeGenre = (typeof KNOWLEDGE_GENRES)[number];
 

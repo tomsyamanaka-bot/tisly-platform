@@ -47,6 +47,12 @@ describe("knowledge-module-v1 PWA", () => {
     assert.match(src, /kn-genre-tab/);
     assert.match(src, /data-genre/);
     assert.match(src, /kn-genre-tabs/);
+    const mockPath = path.join(publicDir, "js/features/knowledge/data/mockKnowledge.ts");
+    const mockSrc = fs.readFileSync(mockPath, "utf8");
+    assert.match(mockSrc, /防犯カメラ/);
+    assert.match(mockSrc, /セキュリティー/);
+    assert.match(mockSrc, /TV工事/);
+    assert.match(mockSrc, /空調/);
   });
 
   it("TSX source files exist under features/knowledge", () => {

@@ -1,0 +1,23 @@
+{
+  "id": "ELEC-CABLE-AMPACITY-001",
+  "title": "TiSLY 強電選定規格（施工条件別）",
+  "category": "コンセント",
+  "tags": [
+    "強電",
+    "許容電流",
+    "VVF",
+    "IV",
+    "HIV",
+    "CV",
+    "CVT",
+    "配管",
+    "露出配線",
+    "天井裏",
+    "電線選定"
+  ],
+  "summary": "日本標準ケーブルの施工条件別許容電流マスター。基準周囲温度30°C、配管内3本以下（0.70係数適用済み）、3線通電ベース。VVF/IV/HIV/CV/CVT/DV/OW/VCT等の露出・配管内・天井裏露出の安全閾値と不可条件を定義。",
+  "files": [
+    "Standards/cable-ampacity-installation-v1.md"
+  ],
+  "updatedAt": "2026-07-04"
+}
