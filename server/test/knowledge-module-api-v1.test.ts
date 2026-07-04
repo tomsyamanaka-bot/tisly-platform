@@ -73,6 +73,29 @@ describe("knowledge-module-v1 store", () => {
     assert.ok(listed.some((x) => x.id === item.id));
   });
 
+  it("createKnowledgeModuleItemV1 allows empty summary when pdf_url is set", () => {
+    const item = createKnowledgeModuleItemV1({
+      title: "PDFのみ",
+      summary: "",
+      genre: "IoT",
+      pdf_url: "/uploads/knowledge/module/sample.pdf",
+    });
+    assert.equal(item.summary, "");
+    assert.equal(item.pdf_url, "/uploads/knowledge/module/sample.pdf");
+  });
+
+  it("createKnowledgeModuleItemV1 rejects empty summary without pdf_url", () => {
+    assert.throws(
+      () =>
+        createKnowledgeModuleItemV1({
+          title: "メモなし",
+          summary: "",
+          genre: "IoT",
+        }),
+      /summary is required when no PDF is attached/
+    );
+  });
+
   it("saveKnowledgeModulePdfV1 rejects non-PDF", () => {
     assert.throws(
       () =>
@@ -135,6 +158,20 @@ describe("knowledge-module-v1 API", () => {
     assert.equal(res.body.item.pdf_url, null);
   });
 
+  it("POST /module-v1/items rejects empty summary without pdf_url", async () => {
+    const res = await request(app)
+      .post("/api/knowledge/module-v1/items")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        title: "メモなし",
+        summary: "",
+        genre: "IoT",
+        pdf_url: null,
+      });
+    assert.equal(res.status, 400);
+    assert.match(String(res.body.error ?? ""), /summary is required/);
+  });
+
   it("POST /module-v1/upload-pdf + GET items returns pdf_url", async () => {
     const pdfBytes = Buffer.from("%PDF-1.4 api test");
     const upload = await request(app)
@@ -159,6 +196,20 @@ describe("knowledge-module-v1 API", () => {
       });
     assert.equal(create.status, 201);
     assert.equal(create.body.item.pdf_url, upload.body.pdf_url);
+
+    const createPdfOnly = await request(app)
+      .post("/api/knowledge/module-v1/items")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        title: "PDFのみタイトル",
+        summary: "",
+        genre: "IoT",
+        tags: ["IoT"],
+        pdf_url: upload.body.pdf_url,
+      });
+    assert.equal(createPdfOnly.status, 201);
+    assert.equal(createPdfOnly.body.item.summary, "");
+    assert.equal(createPdfOnly.body.item.pdf_url, upload.body.pdf_url);
 
     const list = await request(app)
       .get("/api/knowledge/module-v1/items")

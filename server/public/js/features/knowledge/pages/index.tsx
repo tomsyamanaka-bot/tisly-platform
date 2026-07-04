@@ -146,8 +146,12 @@ function KnowledgeModulePage() {
   const handleAdd = useCallback(async () => {
     const title = draftTitle.trim();
     const summary = draftBody.trim();
-    if (!title || !summary) {
-      showToast("タイトルとメモを入力してください");
+    if (!title) {
+      showToast("タイトルを入力してください");
+      return;
+    }
+    if (!summary && !draftPdf) {
+      showToast("メモを入力するか、PDFを添付してください");
       return;
     }
 

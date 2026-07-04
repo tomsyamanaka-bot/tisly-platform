@@ -115,14 +115,14 @@ export function createKnowledgeModuleItemV1(
   const title = String(input.title ?? "").trim();
   const summary = String(input.summary ?? "").trim();
   const genre = String(input.genre ?? "").trim();
-  if (!title) throw new Error("title is required");
-  if (!summary) throw new Error("summary is required");
-  if (!genre) throw new Error("genre is required");
-
   const pdfUrl =
     input.pdf_url === null || input.pdf_url === undefined
       ? null
       : String(input.pdf_url).trim() || null;
+
+  if (!title) throw new Error("title is required");
+  if (!summary && !pdfUrl) throw new Error("summary is required when no PDF is attached");
+  if (!genre) throw new Error("genre is required");
 
   const item: KnowledgeModuleItemV1 = {
     id: `kn-${Date.now()}-${uuid().slice(0, 8)}`,
