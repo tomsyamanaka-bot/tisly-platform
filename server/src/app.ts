@@ -329,6 +329,9 @@ export function createApp(): express.Application {
   app.get("/remote-test", (_req, res) => {
     res.sendFile(path.join(publicDir, "remote-test.html"));
   });
+  app.get("/remote-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "remote-v1.html"));
+  });
   app.get("/remote-test/app.js", (_req, res) => {
     res.type("application/javascript");
     res.sendFile(path.join(publicDir, "js", "remote-test.js"));
@@ -508,6 +511,9 @@ export function createApp(): express.Application {
   });
   app.get("/knowledge-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "knowledge-v1.html"));
+  });
+  app.get("/knowledge-register-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "knowledge-register-v1.html"));
   });
   app.get("/knowledge-quick-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "knowledge-quick-v1.html"));

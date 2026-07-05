@@ -1,0 +1,302 @@
+/* Knowledge v1 — ナレッジ検索 PWA（スマホファースト） */
+:root {
+  --kn-bg: #f8fafc;
+  --kn-card: #ffffff;
+  --kn-accent: #2563eb;
+  --kn-accent-soft: #eff6ff;
+  --kn-text: #0f172a;
+  --kn-muted: #64748b;
+  --kn-tag: #1e293b;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--kn-bg);
+  color: var(--kn-text);
+  font-family: "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.kn-page {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 1rem 1rem calc(1.5rem + var(--safe-b));
+}
+
+.kn-hero {
+  text-align: center;
+  margin-bottom: 1.25rem;
+}
+
+.kn-hero h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+.kn-hero p {
+  margin: 0.35rem 0 0;
+  font-size: 0.88rem;
+  color: var(--kn-muted);
+}
+
+/* 大きな検索窓 */
+.kn-search-wrap {
+  position: relative;
+  margin-bottom: 1rem;
+}
+
+.kn-search-input {
+  width: 100%;
+  min-height: 3.75rem;
+  padding: 0.85rem 3.5rem 0.85rem 1.1rem;
+  font-size: 1.15rem;
+  font-weight: 600;
+  border: 2px solid #cbd5e1;
+  border-radius: 18px;
+  background: var(--kn-card);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.kn-search-input:focus {
+  border-color: var(--kn-accent);
+  box-shadow: 0 8px 28px rgba(37, 99, 235, 0.15);
+}
+
+.kn-mic-btn {
+  position: absolute;
+  right: 0.55rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2.85rem;
+  height: 2.85rem;
+  border: none;
+  border-radius: 14px;
+  background: var(--kn-accent-soft);
+  color: var(--kn-accent);
+  font-size: 1.35rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, transform 0.15s;
+}
+
+.kn-mic-btn:active {
+  transform: translateY(-50%) scale(0.95);
+}
+
+.kn-mic-btn.listening {
+  background: #fef2f2;
+  color: #dc2626;
+  animation: kn-pulse 1s infinite;
+}
+
+@keyframes kn-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(220, 38, 38, 0);
+  }
+}
+
+.kn-section-label {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--kn-muted);
+  margin: 0 0 0.55rem;
+  letter-spacing: 0.06em;
+}
+
+.kn-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.kn-tag {
+  border: none;
+  background: var(--kn-card);
+  color: var(--kn-tag);
+  font-size: 0.92rem;
+  font-weight: 700;
+  padding: 0.55rem 0.95rem;
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+}
+
+.kn-tag:active {
+  transform: scale(0.97);
+}
+
+.kn-tag.active {
+  background: var(--kn-accent);
+  color: #fff;
+}
+
+.kn-results {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.kn-card {
+  background: var(--kn-card);
+  border-radius: 18px;
+  padding: 1.1rem 1.15rem;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.07);
+  border: 1px solid #e2e8f0;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.2s;
+  touch-action: manipulation;
+}
+
+.kn-card:active {
+  transform: scale(0.985);
+}
+
+.kn-card-icon {
+  font-size: 2.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.kn-card h2 {
+  margin: 0;
+  font-size: 1.12rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.kn-card-meta {
+  margin: 0.35rem 0 0;
+  font-size: 0.82rem;
+  color: var(--kn-muted);
+  font-weight: 600;
+}
+
+.kn-card-tags {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.kn-card-tags span {
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: var(--kn-accent-soft);
+  color: var(--kn-accent);
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+}
+
+.kn-empty {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: var(--kn-muted);
+  font-size: 0.95rem;
+}
+
+/* 詳細ポップアップ */
+.kn-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(4px);
+  z-index: 200;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+.kn-modal-backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.kn-modal {
+  background: var(--kn-card);
+  width: 100%;
+  max-width: 480px;
+  max-height: 85vh;
+  border-radius: 24px 24px 0 0;
+  padding: 1.25rem 1.25rem calc(1.25rem + var(--safe-b));
+  overflow-y: auto;
+  transform: translateY(100%);
+  transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.kn-modal-backdrop.open .kn-modal {
+  transform: translateY(0);
+}
+
+.kn-modal-handle {
+  width: 2.5rem;
+  height: 0.3rem;
+  background: #cbd5e1;
+  border-radius: 999px;
+  margin: 0 auto 1rem;
+}
+
+.kn-modal h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.kn-modal-body {
+  font-size: 0.95rem;
+  line-height: 1.65;
+  color: #334155;
+}
+
+.kn-modal-body h3 {
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: var(--kn-text);
+  margin: 1rem 0 0.35rem;
+}
+
+.kn-modal-close {
+  width: 100%;
+  min-height: 3rem;
+  margin-top: 1.25rem;
+  border: none;
+  border-radius: 14px;
+  background: var(--kn-accent);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.kn-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--kn-muted);
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-decoration: none;
+  margin-bottom: 0.75rem;
+}

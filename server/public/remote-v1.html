@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0e17" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>TiSLY — Remote v1</title>
+  <link rel="stylesheet" href="/css/remote-v1.css" />
+</head>
+<body>
+  <div class="rv-page">
+    <header class="rv-header">
+      <h1>⚡ Remote v1</h1>
+      <p>Waveshare RP2350 · 8ch リレー遠隔操作</p>
+    </header>
+
+    <div class="rv-status-bar">
+      <span class="rv-badge" id="device-badge">接続確認中…</span>
+      <span class="rv-badge" id="sync-badge">同期 —</span>
+    </div>
+
+    <div class="rv-token-panel hidden" id="token-panel">
+      <label for="token-input">REMOTE_TEST_TOKEN</label>
+      <input id="token-input" type="password" autocomplete="off" placeholder="サーバーと同じトークン" />
+      <button type="button" id="token-save">保存して接続</button>
+    </div>
+
+    <div class="rv-grid" id="device-grid" aria-live="polite"></div>
+  </div>
+
+  <nav class="rv-footer-nav" aria-label="Remote ナビ">
+    <a href="/app">App Hub</a>
+    <button type="button" id="refresh-btn">状態更新</button>
+    <a href="/remote-test">PoC版</a>
+  </nav>
+
+  <div class="rv-toast" id="toast" role="status"></div>
+  <script type="module" src="/js/remote-v1.js"></script>
+</body>
+</html>

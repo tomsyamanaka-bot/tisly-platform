@@ -2,96 +2,49 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#475569" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#f8fafc" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <title>TiSLY — ナレッジ登録</title>
-  <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
-  <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
-  <style>
-    .knowledge-card { margin-bottom: 0.75rem; }
-    .knowledge-card h2 { margin: 0 0 0.5rem; font-size: 1rem; }
-    .form-grid label { display: block; margin: 0.45rem 0; font-size: 0.88rem; }
-    .form-grid input, .form-grid select, .form-grid textarea {
-      width: 100%; box-sizing: border-box; margin-top: 0.2rem;
-    }
-    .form-grid textarea { min-height: 4.5rem; resize: vertical; }
-    .hint-small { font-size: 0.78rem; color: #64748b; margin: 0.35rem 0 0; }
-    .search-row { display: flex; gap: 0.4rem; align-items: stretch; }
-    .search-row input { flex: 1; }
-    .search-row button { flex: 0 0 auto; white-space: nowrap; }
-    .hit-list { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem; }
-    .hit-item {
-      border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.65rem 0.75rem; background: #fff;
-    }
-    .hit-item h3 { margin: 0 0 0.25rem; font-size: 0.95rem; }
-    .hit-meta { font-size: 0.78rem; color: #64748b; margin: 0.15rem 0; }
-    .hit-summary { font-size: 0.85rem; color: #334155; margin: 0.25rem 0 0; }
-    .tag-chip {
-      display: inline-block; font-size: 0.72rem; background: #f1f5f9; color: #475569;
-      border-radius: 999px; padding: 0.1rem 0.45rem; margin: 0.1rem 0.15rem 0 0;
-    }
-    .card-list { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.5rem; }
-    .card-list-item {
-      display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;
-      padding: 0.55rem 0.65rem; border: 1px solid #e2e8f0; border-radius: 8px; background: #fafafa;
-      font-size: 0.85rem;
-    }
-    .status-muted { color: #64748b; font-size: 0.82rem; }
-    .actions-row { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.6rem; }
-  </style>
+  <title>TiSLY — Knowledge v1</title>
+  <link rel="stylesheet" href="/css/knowledge-v1.css" />
 </head>
-<body class="tisly-friendly">
-  <main class="app-main">
-    <p class="section-hint">現場メモ · 写真 · PDF を後からナレッジ化（ローカル保存 v1）</p>
-    <a href="/knowledge-quick-v1" class="friendly-btn primary" style="display:block;text-align:center;margin-bottom:0.75rem;">＋ 現場クイック登録（30秒）</a>
+<body>
+  <div class="kn-page">
+    <a href="/app" class="kn-back-link">← App Hub</a>
 
-    <div class="friendly-card knowledge-card">
-      <h2>🔍 ナレッジ検索</h2>
-      <div class="search-row">
-        <input type="search" id="search-input" placeholder="タイトル · タグ · 概要…" autocomplete="off" />
-        <button type="button" class="friendly-btn" id="search-btn">検索</button>
-      </div>
-      <p class="hint-small">v1: キーワード検索のみ（AI 未実装）</p>
-      <div id="search-results" class="status-muted">キーワードを入力してください</div>
+    <header class="kn-hero">
+      <h1>📚 Knowledge</h1>
+      <p>現場ナレッジを3秒で検索</p>
+    </header>
+
+    <div class="kn-search-wrap">
+      <input
+        type="search"
+        id="search-input"
+        class="kn-search-input"
+        placeholder="キーワード検索…"
+        autocomplete="off"
+        enterkeyhint="search"
+      />
+      <button type="button" class="kn-mic-btn" id="mic-btn" aria-label="音声入力">🎤</button>
     </div>
 
-    <div class="friendly-card knowledge-card">
-      <h2>📝 ナレッジ登録</h2>
-      <form id="card-form" class="form-grid">
-        <label>ID（例: PLC-SELF-HOLD-001）
-          <input id="card-id" type="text" required pattern="[A-Za-z0-9_-]+" autocomplete="off" />
-        </label>
-        <label>タイトル
-          <input id="card-title" type="text" required autocomplete="off" />
-        </label>
-        <label>カテゴリ
-          <select id="card-category" required></select>
-        </label>
-        <label>タグ（カンマ区切り）
-          <input id="card-tags" type="text" placeholder="PLC, 自己保持, ラダー" autocomplete="off" />
-        </label>
-        <label>概要
-          <textarea id="card-summary" required placeholder="1〜3文で要点"></textarea>
-        </label>
-        <label>添付ファイルパス（1行1件 · AI 配下相対）
-          <textarea id="card-files" placeholder="Ladder/self-hold-example.pdf"></textarea>
-        </label>
-        <div class="actions-row">
-          <button type="submit" class="friendly-btn primary">保存</button>
-          <button type="button" class="friendly-btn" id="form-reset">クリア</button>
-        </div>
-      </form>
-      <p class="hint-small">保存先: <code>server/data/knowledge/KnowledgeCards/</code></p>
-    </div>
+    <p class="kn-section-label">クイック選択</p>
+    <div class="kn-tags" id="tag-row"></div>
 
-    <div class="friendly-card knowledge-card">
-      <h2>📚 登録済みカード</h2>
-      <p class="status-muted" id="card-count">読み込み中…</p>
-      <div id="card-list" class="card-list"></div>
+    <p class="kn-section-label">ナレッジカード</p>
+    <div class="kn-results" id="results" aria-live="polite"></div>
+  </div>
+
+  <div class="kn-modal-backdrop" id="modal-backdrop" aria-hidden="true">
+    <div class="kn-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="kn-modal-handle"></div>
+      <h2 id="modal-title"></h2>
+      <div class="kn-modal-body" id="modal-body"></div>
+      <button type="button" class="kn-modal-close" id="modal-close">閉じる</button>
     </div>
-  </main>
-  <div id="toast" class="toast" role="status"></div>
+  </div>
+
   <script type="module" src="/js/knowledge-v1.js"></script>
 </body>
 </html>

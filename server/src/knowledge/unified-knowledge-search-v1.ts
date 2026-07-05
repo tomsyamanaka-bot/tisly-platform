@@ -316,7 +316,7 @@ function cardOpenUrl(card: KnowledgeCardV1): string | undefined {
   if (card.sourceType === "photo" && card.photoMeta?.url) {
     return card.photoMeta.url;
   }
-  return `/knowledge-v1#card-${encodeURIComponent(card.id)}`;
+  return `/knowledge-register-v1#card-${encodeURIComponent(card.id)}`;
 }
 
 function parsePlcMeta(summary: string): { usage?: string; cautions?: string } {
