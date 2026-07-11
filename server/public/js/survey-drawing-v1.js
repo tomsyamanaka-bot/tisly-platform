@@ -20,7 +20,7 @@ import {
   updateOfflineResilienceBadgeV1,
 } from "./offline-resilience-v1.js";
 
-export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v21";
+export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v22";
 /** タッチ配置時に指で隠れないよう上へずらす（画面px） */
 const PLOT_TOUCH_OFFSET_Y = 32;
 export const SURVEY_DRAWING_TEMP_BANNER =
@@ -1285,7 +1285,7 @@ async function dataUrlToBlobUrl(dataUrl) {
 }
 
 /** 背景 img の onload を待つ
-   data URL は blob 化して iOS 対応 */
+   blob URL 優先で iOS メモリを守る */
 async function setupBgImage(url) {
   const img = $("drawing-bg");
   const ph = $("drawing-bg-placeholder");
@@ -1294,6 +1294,7 @@ async function setupBgImage(url) {
   releaseBgObjectUrl();
   let src = withDrawingBgCacheBust(url);
 
+  // data URL は重いので blob 化して表示
   if (src.startsWith("data:")) {
     try {
       src = await dataUrlToBlobUrl(src);
@@ -1319,7 +1320,8 @@ async function setupBgImage(url) {
         renderAll();
         markDirty();
         syncMaterialBarUi();
-        drawingEditorState?.canvas?.setBackgroundUrl?.(url);
+        // 表示用 src（blob）をキャンバスへ渡す
+        drawingEditorState?.canvas?.setBackgroundUrl?.(src);
         resolve({ width: stageSize.w, height: stageSize.h });
       };
       if (img.decode) {
@@ -1606,29 +1608,6 @@ function isLargeDrawingImageFile(file) {
   return Number(file?.size || 0) >= DRAWING_BG_LARGE_FILE_BYTES;
 }
 
-/** FileReader で DataURL へ変換
-   例外は try-catch で包む */
-function readFileAsDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    try {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = String(reader.result || "");
-        if (!result.startsWith("data:")) {
-          reject(new Error("DataURL 変換に失敗しました"));
-          return;
-        }
-        resolve(result);
-      };
-      reader.onerror = () => reject(reader.error || new Error("FileReader failed"));
-      reader.onabort = () => reject(new Error("FileReader aborted"));
-      reader.readAsDataURL(file);
-    } catch (err) {
-      reject(err);
-    }
-  });
-}
-
 /** Image 要素で URL デコードを待つ
    タイムアウトと onerror を監視 */
 function loadImageElementFromUrl(url, timeoutMs = DRAWING_IMAGE_DECODE_TIMEOUT_MS) {
@@ -1667,13 +1646,8 @@ function loadImageElementFromUrl(url, timeoutMs = DRAWING_IMAGE_DECODE_TIMEOUT_M
   });
 }
 
-/** DataURL 経由で Image をデコード */
-function loadImageFromDataUrl(dataUrl, timeoutMs = DRAWING_IMAGE_DECODE_TIMEOUT_MS) {
-  return loadImageElementFromUrl(dataUrl, timeoutMs);
-}
-
 /** Object URL 経由で Image をデコード
-   DataURL よりメモリ効率が良い */
+   Base64 展開は一切しない */
 function loadImageFromObjectUrl(objectUrl, timeoutMs = DRAWING_IMAGE_DECODE_TIMEOUT_MS) {
   return loadImageElementFromUrl(objectUrl, timeoutMs);
 }
@@ -1705,7 +1679,7 @@ async function tryDecodeWithImageBitmap(file, options) {
 }
 
 /** 縮小付き bitmap を段階試行
-   resizeQuality 非対応端末も吸収 */
+   フル解像度デコードを避ける */
 async function tryDecodeResizedBitmap(file, resizeWidth) {
   const optionSets = [
     { resizeWidth, resizeQuality: "high", imageOrientation: "from-image" },
@@ -1725,106 +1699,93 @@ function wrapDecodedSource(source, width, height, cleanup) {
   return { source, width, height, cleanup };
 }
 
-/** 複数経路で画像ソースをデコード
-   大容量PNGは縮小を先に試す */
+/** createObjectURL のみで画像をデコード
+   FileReader / Base64 は完全禁止 */
 async function decodeImageSource(file) {
-  const cleanups = [];
-  const trackCleanup = (fn) => {
-    cleanups.push(fn);
-  };
-  const runCleanups = () => {
-    cleanups.forEach((fn) => {
-      try {
-        fn();
-      } catch (_) {
-        /* noop */
-      }
-    });
-  };
-  const preferResizeFirst = isLargeDrawingImageFile(file);
-
-  // A: 縮小付き createImageBitmap（大容量優先）
-  if (preferResizeFirst) {
-    const resizedFirst = await tryDecodeResizedBitmap(file, DRAWING_BG_MAX_WIDTH);
-    if (resizedFirst) {
+  // A: 縮小幅を段階的に試し
+  // フル解像度デコードを絶対に避ける
+  const resizeWidths = [
+    DRAWING_BG_MAX_WIDTH,
+    1600,
+    1280,
+    1024,
+    800,
+  ];
+  for (const resizeWidth of resizeWidths) {
+    const resized = await tryDecodeResizedBitmap(file, resizeWidth);
+    if (resized) {
       return wrapDecodedSource(
-        resizedFirst,
-        resizedFirst.width,
-        resizedFirst.height,
-        () => resizedFirst.close?.()
+        resized,
+        resized.width,
+        resized.height,
+        () => resized.close?.()
       );
     }
   }
 
-  // B: フル解像度 createImageBitmap
-  if (!preferResizeFirst) {
-    const full = await tryDecodeWithImageBitmap(file, {
-      imageOrientation: "from-image",
-    });
-    if (full) {
-      return wrapDecodedSource(full, full.width, full.height, () => full.close?.());
-    }
-    const fullPlain = await tryDecodeWithImageBitmap(file);
-    if (fullPlain) {
-      return wrapDecodedSource(
-        fullPlain,
-        fullPlain.width,
-        fullPlain.height,
-        () => fullPlain.close?.()
-      );
-    }
-  }
-
-  // C: 縮小付き（小ファイルや B 失敗後）
-  const resized = await tryDecodeResizedBitmap(file, DRAWING_BG_MAX_WIDTH);
-  if (resized) {
-    return wrapDecodedSource(resized, resized.width, resized.height, () => resized.close?.());
-  }
-
-  // D: Object URL + Image（Base64 回避）
-  let objectUrl = "";
+  // B: Object URL + Image（軽量フォールバック）
+  const objectUrl = URL.createObjectURL(file);
   try {
-    objectUrl = URL.createObjectURL(file);
-    trackCleanup(() => URL.revokeObjectURL(objectUrl));
     const img = await loadImageFromObjectUrl(objectUrl);
     return wrapDecodedSource(
       img,
       img.naturalWidth || img.width,
       img.naturalHeight || img.height,
-      () => runCleanups()
+      () => URL.revokeObjectURL(objectUrl)
     );
   } catch (objErr) {
+    URL.revokeObjectURL(objectUrl);
     console.warn("[survey-drawing] object URL decode failed", objErr, file?.name);
-    runCleanups();
+    throw objErr;
   }
-
-  // E: FileReader DataURL（最終手段）
-  const dataUrl = await readFileAsDataUrl(file);
-  const img = await loadImageFromDataUrl(dataUrl);
-  return wrapDecodedSource(
-    img,
-    img.naturalWidth || img.width,
-    img.naturalHeight || img.height,
-    () => {}
-  );
 }
 
-/** canvas を JPEG DataURL へ */
-function canvasToJpegDataUrl(canvas, quality = DRAWING_BG_JPEG_QUALITY) {
-  let out;
-  try {
-    out = canvas.toDataURL("image/jpeg", quality);
-  } catch (err) {
-    console.error("[survey-drawing] canvas.toDataURL failed", err);
-    throw err;
+/** Blob を DataURL へ変換
+   FileReader は使わず arrayBuffer で */
+async function blobToBase64DataUrl(blob) {
+  const buffer = await blob.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode.apply(
+      null,
+      bytes.subarray(i, i + chunkSize)
+    );
   }
-  if (!out || out.length < 32) throw new Error("compression failed");
-  return out;
+  const mime = blob.type || "image/jpeg";
+  return `data:${mime};base64,${btoa(binary)}`;
+}
+
+/** canvas を JPEG Blob へ変換
+   toDataURL よりピークメモリが低い */
+function canvasToJpegBlob(canvas, quality = DRAWING_BG_JPEG_QUALITY) {
+  return new Promise((resolve, reject) => {
+    try {
+      if (typeof canvas.toBlob !== "function") {
+        reject(new Error("toBlob unavailable"));
+        return;
+      }
+      canvas.toBlob(
+        (blob) => {
+          if (!blob || blob.size < 32) {
+            reject(new Error("compression failed"));
+            return;
+          }
+          resolve(blob);
+        },
+        "image/jpeg",
+        quality
+      );
+    } catch (err) {
+      reject(err);
+    }
+  });
 }
 
 /** 指定幅・画質で JPEG ラスタ化
-   失敗時は例外を上位へ返す */
-function rasterizeDecodedImageToJpegAt(decoded, maxWidth, quality) {
+   表示用 blob URL も同時生成 */
+async function rasterizeDecodedImageToJpegAt(decoded, maxWidth, quality) {
   let width = decoded.width;
   let height = decoded.height;
   if (!width || !height) throw new Error("invalid image dimensions");
@@ -1838,21 +1799,50 @@ function rasterizeDecodedImageToJpegAt(decoded, maxWidth, quality) {
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("canvas unavailable");
   ctx.drawImage(decoded.source, 0, 0, width, height);
+
+  let jpegBlob;
+  try {
+    jpegBlob = await canvasToJpegBlob(canvas, quality);
+  } catch (blobErr) {
+    // 縮小済み canvas のみ最終手段で DataURL
+    console.warn("[survey-drawing] toBlob failed, canvas toDataURL", blobErr);
+    const dataUrl = canvas.toDataURL("image/jpeg", quality);
+    if (!dataUrl || dataUrl.length < 32) throw new Error("compression failed");
+    const displayUrl = await dataUrlToBlobUrl(dataUrl);
+    return {
+      dataUrl,
+      displayUrl,
+      width,
+      height,
+      mimeType: "image/jpeg",
+      retainObjectUrl: true,
+    };
+  }
+
+  // 表示は軽量 blob URL、送信は縮小 JPEG の DataURL
+  const displayUrl = URL.createObjectURL(jpegBlob);
+  const dataUrl = await blobToBase64DataUrl(jpegBlob);
   return {
-    dataUrl: canvasToJpegDataUrl(canvas, quality),
+    dataUrl,
+    displayUrl,
     width,
     height,
     mimeType: "image/jpeg",
+    retainObjectUrl: true,
   };
 }
 
 /** 段階縮小で JPEG 化を試行
    メモリ不足でも次の段へ進む */
-function rasterizeDecodedImageToJpeg(decoded) {
+async function rasterizeDecodedImageToJpeg(decoded) {
   let lastErr = null;
   for (const step of DRAWING_BG_RASTER_STEPS) {
     try {
-      return rasterizeDecodedImageToJpegAt(decoded, step.maxWidth, step.quality);
+      return await rasterizeDecodedImageToJpegAt(
+        decoded,
+        step.maxWidth,
+        step.quality
+      );
     } catch (err) {
       lastErr = err;
       console.warn(
@@ -1876,11 +1866,12 @@ async function prepareBackgroundViaObjectUrl(file) {
     if (!width || !height) throw new Error("image decode failed");
     // デコード済み Image でもう一度 JPEG 化を試す
     try {
-      const prepared = rasterizeDecodedImageToJpeg({
+      const prepared = await rasterizeDecodedImageToJpeg({
         source: img,
         width,
         height,
       });
+      // 描画完了後に一時 URL を即解放
       URL.revokeObjectURL(objectUrl);
       return prepared;
     } catch (rasterErr) {
@@ -1889,6 +1880,7 @@ async function prepareBackgroundViaObjectUrl(file) {
     // 表示だけは object URL で通す
     return {
       dataUrl: objectUrl,
+      displayUrl: objectUrl,
       width,
       height,
       mimeType: file.type || "image/png",
@@ -1901,7 +1893,7 @@ async function prepareBackgroundViaObjectUrl(file) {
 }
 
 /** 現場写真を JPEG に正規化
-   複数デコード経路で iOS 実機対応 */
+   createObjectURL のみで iOS クラッシュ回避 */
 async function prepareDrawingBackgroundFromFile(file) {
   if (!file || !(file instanceof Blob)) throw new Error("file missing");
   if (file.size <= 0) throw new Error("file empty");
@@ -1910,7 +1902,7 @@ async function prepareDrawingBackgroundFromFile(file) {
   let decoded = null;
   try {
     decoded = await decodeImageSource(file);
-    return rasterizeDecodedImageToJpeg(decoded);
+    return await rasterizeDecodedImageToJpeg(decoded);
   } catch (err) {
     console.warn("[survey-drawing] prepare background failed", err, file.name);
     try {
@@ -1918,37 +1910,28 @@ async function prepareDrawingBackgroundFromFile(file) {
     } catch (fallbackErr) {
       console.warn("[survey-drawing] objectURL fallback failed", fallbackErr);
     }
-    try {
-      // 生 DataURL でも背景表示を優先する
-      const rawDataUrl = await readFileAsDataUrl(file);
-      const img = await loadImageFromDataUrl(rawDataUrl);
-      return {
-        dataUrl: rawDataUrl,
-        width: img.naturalWidth || img.width,
-        height: img.naturalHeight || img.height,
-        mimeType: file.type || "image/png",
-      };
-    } catch (rawErr) {
-      console.warn("[survey-drawing] raw dataURL fallback failed", rawErr);
-    }
     if (isHeicLike(file)) {
       throw new Error("HEIC形式は変換できません。JPEGで保存した写真を選んでください");
     }
     throw new Error("写真の読み込みに失敗しました。別の写真をお試しください");
   } finally {
+    // デコード用リソースを即解放
     decoded?.cleanup?.();
   }
 }
 
 async function importBackground(file) {
   const prepared = await prepareDrawingBackgroundFromFile(file);
-  const imageBase64 = prepared.dataUrl;
-  await setupBgImage(imageBase64);
+  // 表示は blob URL 優先（Base64 を画面に載せない）
+  const displayUrl = prepared.displayUrl || prepared.dataUrl;
+  await setupBgImage(displayUrl);
 
-  // blob URL は端末表示専用（サーバー送信不可）
-  if (prepared.retainObjectUrl) {
+  const imageBase64 = prepared.dataUrl;
+
+  // blob URL のみの場合は端末表示専用
+  if (prepared.retainObjectUrl && String(imageBase64).startsWith("blob:")) {
     if (!sketch) sketch = { id: sketchId, projectId, title: "一時図面" };
-    sketch.backgroundImageUrl = imageBase64;
+    sketch.backgroundImageUrl = displayUrl;
     markDirty();
     setStatus("背景写真を取り込みました（端末内表示）");
     syncMaterialBarUi();
