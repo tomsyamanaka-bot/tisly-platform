@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
   <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
   <link rel="stylesheet" href="/css/field-ops-mobile.css" />
-  <link rel="stylesheet" href="/css/survey-drawing-v1.css?v=survey-drawing-ui-v22" />
+  <link rel="stylesheet" href="/css/survey-drawing-v1.css?v=survey-drawing-ui-v25" />
   <link rel="stylesheet" href="/css/features/drawing/drawing-editor-v1.css" />
 </head>
 <body class="tisly-friendly field-ops-touch survey-drawing-body">
@@ -66,9 +66,9 @@
 
   <main class="drawing-stage-wrap" id="drawing-stage-wrap">
     <div id="drawing-stage" class="drawing-stage">
-      <!-- 背面写真層 — CSS背景のみ（Canvas不使用） -->
-      <div id="survey-bg-photo-layer" class="survey-bg-photo-layer hidden" aria-hidden="true"></div>
       <div id="drawing-bg-placeholder" class="drawing-bg-placeholder">📷 写真を取り込むか、下のボタンで方眼紙を撮影してください</div>
+      <!-- JSが探すIDと完全一致（SVG直前） -->
+      <div id="survey-bg-photo-layer" class="survey-bg-photo-layer hidden" aria-hidden="true"></div>
       <!-- 手書きは透明SVGレイヤーとして前面に重ねる -->
       <svg id="drawing-svg" class="drawing-svg" xmlns="http://www.w3.org/2000/svg"></svg>
       <div id="drawing-overlay" class="drawing-overlay"></div>
@@ -134,6 +134,6 @@
     <button type="button" hidden aria-hidden="true" tabindex="-1" id="survey-photo-form-dummy-btn"></button>
   </form>
 
-  <script type="module" src="/js/survey-drawing-v1.js?v=survey-drawing-ui-v22"></script>
+  <script type="module" src="/js/survey-drawing-v1.js?v=survey-drawing-ui-v25"></script>
 </body>
 </html>

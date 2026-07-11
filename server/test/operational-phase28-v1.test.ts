@@ -20,10 +20,12 @@ describe("Operational Phase28 — PWA speed & drawing assets", () => {
   it("survey-drawing UI version v9 aligned in HTML and JS", () => {
     const html = fs.readFileSync(path.join(publicDir, "survey-drawing-v1.html"), "utf-8");
     const js = fs.readFileSync(path.join(publicDir, "js/survey-drawing-v1.js"), "utf-8");
-    assert.match(html, /survey-drawing-ui-v12/);
-    assert.match(js, /SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v22"/);
+    assert.match(html, /survey-drawing-ui-v25/);
+    assert.match(js, /SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v25"/);
     assert.ok(js.includes("releaseBgObjectUrl"));
     assert.ok(js.includes("withDrawingBgCacheBust"));
+    assert.ok(js.includes("ensureSurveyBgPhotoLayer"));
+    assert.ok(html.includes('id="survey-bg-photo-layer"'));
   });
 
   it("drawing canvas releases blob memory on background swap", () => {

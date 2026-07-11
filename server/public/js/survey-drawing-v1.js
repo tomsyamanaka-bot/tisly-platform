@@ -20,7 +20,7 @@ import {
   updateOfflineResilienceBadgeV1,
 } from "./offline-resilience-v1.js";
 
-export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v24";
+export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v25";
 /** タッチ配置時に指で隠れないよう上へずらす（画面px） */
 const PLOT_TOUCH_OFFSET_Y = 32;
 export const SURVEY_DRAWING_TEMP_BANNER =
@@ -67,6 +67,39 @@ import {
 
 function $(id) {
   return document.getElementById(id);
+}
+
+/** 背面写真層を必ず確保する
+ * 旧HTMLのdrawing-bgにも対応 */
+function ensureSurveyBgPhotoLayer() {
+  let layer = document.getElementById("survey-bg-photo-layer");
+  if (layer) return layer;
+
+  const stage = document.getElementById("drawing-stage");
+  if (!stage) throw new Error("bg element missing");
+
+  layer = document.createElement("div");
+  layer.id = "survey-bg-photo-layer";
+  layer.className = "survey-bg-photo-layer";
+  layer.setAttribute("aria-hidden", "true");
+
+  // 旧img(drawing-bg)があれば置換
+  const legacy = document.getElementById("drawing-bg");
+  const svg = document.getElementById("drawing-svg");
+  const ph = document.getElementById("drawing-bg-placeholder");
+
+  if (legacy && legacy.parentElement === stage) {
+    stage.insertBefore(layer, legacy);
+    legacy.remove();
+  } else if (svg && svg.parentElement === stage) {
+    // SVGの直前＝真後ろに配置
+    stage.insertBefore(layer, svg);
+  } else if (ph && ph.parentElement === stage) {
+    stage.insertBefore(layer, ph);
+  } else {
+    stage.prepend(layer);
+  }
+  return layer;
 }
 
 function params() {
@@ -932,7 +965,7 @@ function restoreDrawingEditorFromLayers() {
 }
 
 function hasBackgroundPhoto() {
-  const layer = $("survey-bg-photo-layer");
+  const layer = document.getElementById("survey-bg-photo-layer");
   const cssBg = layer?.style?.backgroundImage || "";
   return !!(
     sketch?.backgroundImageUrl ||
@@ -1255,7 +1288,7 @@ function releaseBgObjectUrl() {
 function syncPhotoStageSize() {
   const stage = $("drawing-stage");
   const wrap = $("drawing-stage-wrap");
-  const layer = $("survey-bg-photo-layer");
+  const layer = ensureSurveyBgPhotoLayer();
   if (!stage || !wrap) return;
   const rect = wrap.getBoundingClientRect();
   const w = Math.max(320, Math.floor(rect.width));
@@ -1267,10 +1300,8 @@ function syncPhotoStageSize() {
   stage.classList.add("has-photo-bg");
   stage.style.width = `${w}px`;
   stage.style.height = `${h}px`;
-  if (layer) {
-    layer.style.width = "100%";
-    layer.style.height = "100%";
-  }
+  layer.style.width = "100%";
+  layer.style.height = "100%";
   applyViewportTransform();
   renderAll();
 }
@@ -1278,13 +1309,15 @@ function syncPhotoStageSize() {
 /** 背面divへCSS背景のみ適用
    Image/Canvasは一切使わない */
 function applyCssPhotoBackground(url) {
-  const layer = $("survey-bg-photo-layer");
+  // ID完全一致の背面層を必ず取得
+  const layer = ensureSurveyBgPhotoLayer();
   const ph = $("drawing-bg-placeholder");
-  if (!layer) throw new Error("bg photo layer missing");
   const safeUrl = String(url || "").trim();
   if (!safeUrl) throw new Error("bg url missing");
   // url() 内の引用符をエスケープ
   const escaped = safeUrl.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  // display:none を外してblobを敷く
+  layer.style.display = "";
   layer.style.backgroundImage = `url("${escaped}")`;
   layer.style.backgroundSize = "contain";
   layer.style.backgroundRepeat = "no-repeat";
@@ -1328,9 +1361,8 @@ function isLikelyImageFile(file) {
 /** 背景を背面divのCSSへセット
    createObjectURLのみ・デコードなし */
 async function setupBgImage(url) {
-  const layer = $("survey-bg-photo-layer");
+  const layer = ensureSurveyBgPhotoLayer();
   const ph = $("drawing-bg-placeholder");
-  if (!layer) throw new Error("bg photo layer missing");
 
   releaseBgObjectUrl();
   let src = withDrawingBgCacheBust(url);
@@ -1373,7 +1405,7 @@ function showTempBanner() {
 function applyGridPaper() {
   const stage = $("drawing-stage");
   const ph = $("drawing-bg-placeholder");
-  const layer = $("survey-bg-photo-layer");
+  const layer = document.getElementById("survey-bg-photo-layer");
   // 方眼紙へ戻すとき写真CSS背景をクリア
   if (layer) {
     layer.style.backgroundImage = "";

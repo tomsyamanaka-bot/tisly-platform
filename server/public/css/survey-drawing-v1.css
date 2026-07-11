@@ -92,7 +92,12 @@ body.survey-drawing-body .tisly-practical-topbar {
 }
 
 .survey-bg-photo-layer.hidden {
-  display: none;
+  display: none !important;
+}
+
+/* 写真適用時は必ず可視化する */
+.survey-bg-photo-layer:not(.hidden) {
+  display: block;
 }
 
 .drawing-bg-placeholder.hidden {
