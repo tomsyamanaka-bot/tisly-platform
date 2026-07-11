@@ -1,10 +1,11 @@
 /* TiSLY Multi PWA — Phase28 現場PWA爆速化
  * 図面エディタ / 音声ナビ含む
  * フィールドオペ用アセットを優先キャッシュ */
-const SW_VERSION = "tisly-pwa-v2411-phase36";
-const OFFLINE_CACHE = "tisly-pwa-shell-v2411-phase36";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2411-phase36";
-const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2411-phase36";
+// 写真選択時のblob再読み込み対策で更新
+const SW_VERSION = "tisly-pwa-v2411-phase37";
+const OFFLINE_CACHE = "tisly-pwa-shell-v2411-phase37";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2411-phase37";
+const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2411-phase37";
 const ICON_V = "?v=2004";
 
 /** 図面エディタ v1 — ES module 群 */
@@ -340,6 +341,15 @@ async function networkFirstWithCache(request) {
 }
 
 self.addEventListener("fetch", (event) => {
+  // blob/dataはSWで触れず
+  // ブラウザ側に完全委譲する
+  if (
+    event.request.url.startsWith("blob:") ||
+    event.request.url.startsWith("data:")
+  ) {
+    return;
+  }
+
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith("/api/")) return;

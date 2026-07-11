@@ -26,6 +26,14 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
+  // blob/dataはSWで触れず
+  if (
+    event.request.url.startsWith("blob:") ||
+    event.request.url.startsWith("data:")
+  ) {
+    return;
+  }
+
   const url = new URL(event.request.url);
   if (url.pathname.startsWith("/api/")) return;
   if (event.request.method !== "GET") return;
