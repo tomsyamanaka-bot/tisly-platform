@@ -19,19 +19,22 @@ describe("Operational Phase31 — camera nav footer zoom", () => {
     assert.match(html, /user-scalable=no/);
     assert.match(html, /<label for="survey-camera-input"/);
     assert.match(html, /<label for="survey-album-input"/);
-    assert.match(js, /SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v25"/);
+    assert.match(js, /SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v26"/);
     assert.match(js, /suppressPopstateBackGuard/);
     assert.match(js, /ev\.preventDefault\(\)/);
     assert.match(html, /id="survey-photo-pick-form"/);
+    assert.match(html, /id="drawing-photo-picker-backdrop"/);
     assert.match(html, /onsubmit="return false;"/);
     assert.doesNotMatch(js, /bindPhotoTriggerButton/);
     assert.doesNotMatch(js, /input\.click\(\)/);
-    assert.ok(js.includes("prepareBackgroundViaObjectUrl"));
-    assert.ok(js.includes("DRAWING_BG_RASTER_STEPS"));
+    assert.ok(js.includes("dismissPhotoPickerChrome"));
+    assert.ok(js.includes("setupBgImage"));
+    assert.ok(js.includes("applyCssPhotoBackground"));
     assert.ok(css.includes("touch-action: manipulation"));
     assert.ok(css.includes("z-index: 9999"));
+    assert.ok(css.includes("drawing-photo-picker-backdrop"));
     const inputRule = css.slice(
-      css.indexOf(".survey-file-input-hidden"),
+      css.indexOf(".survey-file-input-hidden {"),
       css.indexOf(".drawing-temp-banner")
     );
     assert.doesNotMatch(inputRule, /pointer-events:\s*none/);
@@ -53,6 +56,6 @@ describe("Operational Phase31 — camera nav footer zoom", () => {
 
   it("service worker bumped for phase31", () => {
     const sw = fs.readFileSync(path.join(publicDir, "service-worker.js"), "utf-8");
-    assert.ok(sw.includes("tisly-pwa-v2411-phase38"));
+    assert.ok(sw.includes("tisly-pwa-v2412-phase39"));
   });
 });

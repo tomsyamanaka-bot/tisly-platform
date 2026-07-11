@@ -51,6 +51,14 @@ body.survey-drawing-body .tisly-practical-topbar {
   display: none;
 }
 
+/* ピッカー閉鎖中はfileもタッチ遮断
+   （labelのfor起動は開時のみ） */
+body:not(.drawing-photo-picker-open) #survey-photo-pick-form,
+body:not(.drawing-photo-picker-open) .survey-file-input-hidden {
+  pointer-events: none !important;
+  z-index: -1 !important;
+}
+
 .drawing-stage.drawing-grid-paper {
   background-color: #f8fafc;
   background-image:
@@ -193,23 +201,40 @@ body.survey-drawing-body .tisly-practical-topbar {
   pointer-events: auto;
 }
 
+/* 暗い遮断幕 — 開いている時だけ前面 */
+.drawing-photo-picker-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  background: rgba(15, 23, 42, 0.45);
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.drawing-photo-picker-backdrop.hidden {
+  display: none !important;
+  pointer-events: none !important;
+  visibility: hidden;
+  z-index: -1;
+}
+
 /* 写真ピッカーは最前面固定。
    図面キャンバスの裏に隠さない */
 .drawing-photo-picker {
-  display: flex;
+  display: none;
   flex-wrap: wrap;
   gap: 0.45rem;
   padding: 0.45rem 0.55rem;
   background: #0c4a6e;
   flex-shrink: 0;
   justify-content: center;
-  position: relative;
+  position: fixed;
   z-index: 9999;
-  pointer-events: auto;
+  pointer-events: none;
 }
 
 .drawing-photo-picker:not(.hidden) {
-  position: fixed;
+  display: flex;
   top: calc(env(safe-area-inset-top, 0px) + 6.5rem);
   left: 0.35rem;
   right: 0.35rem;
@@ -219,8 +244,18 @@ body.survey-drawing-body .tisly-practical-topbar {
   pointer-events: auto;
 }
 
+/* 閉じたら物理撤去＋タッチ完全解放 */
 .drawing-photo-picker.hidden {
-  display: none;
+  display: none !important;
+  pointer-events: none !important;
+  visibility: hidden;
+  z-index: -1;
+}
+
+body:not(.drawing-photo-picker-open) .drawing-photo-picker,
+body:not(.drawing-photo-picker-open) .drawing-photo-picker-backdrop,
+body:not(.drawing-photo-picker-open) .drawing-photo-picker-btn {
+  pointer-events: none !important;
 }
 
 /* label自体をボタン見た目に。
@@ -245,6 +280,10 @@ body.survey-drawing-body .tisly-practical-topbar {
   z-index: 9999;
   pointer-events: auto;
   -webkit-tap-highlight-color: transparent;
+}
+
+.drawing-photo-picker.hidden .drawing-photo-picker-btn {
+  pointer-events: none !important;
 }
 
 .drawing-tool-btn.active {

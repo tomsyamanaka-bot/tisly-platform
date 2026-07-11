@@ -20,7 +20,7 @@ import {
   updateOfflineResilienceBadgeV1,
 } from "./offline-resilience-v1.js";
 
-export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v25";
+export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v26";
 /** タッチ配置時に指で隠れないよう上へずらす（画面px） */
 const PLOT_TOUCH_OFFSET_Y = 32;
 export const SURVEY_DRAWING_TEMP_BANNER =
@@ -811,12 +811,71 @@ function undoLastStroke() {
   setStatus("元に戻しました");
 }
 
-function togglePhotoPicker(show) {
+/** ピッカー／遮断幕を画面から撤去
+   透明タッチブロックを残さない */
+function dismissPhotoPickerChrome() {
+  photoPickerOpen = false;
+  document.body.classList.remove("drawing-photo-picker-open");
   const picker = $("drawing-photo-picker");
-  if (!picker) return;
-  photoPickerOpen = !!show;
-  picker.classList.toggle("hidden", !show);
-  picker.setAttribute("aria-hidden", show ? "false" : "true");
+  if (picker) {
+    picker.classList.add("hidden");
+    picker.setAttribute("aria-hidden", "true");
+    // インラインで物理非表示を強制
+    picker.style.display = "none";
+    picker.style.pointerEvents = "none";
+    picker.style.visibility = "hidden";
+  }
+  const backdrop = $("drawing-photo-picker-backdrop");
+  if (backdrop) {
+    backdrop.classList.add("hidden");
+    backdrop.setAttribute("aria-hidden", "true");
+    backdrop.style.display = "none";
+    backdrop.style.pointerEvents = "none";
+  }
+  // 隠しfileもキャンバスを吸わない
+  for (const id of ["survey-camera-input", "survey-album-input"]) {
+    const input = $(id);
+    if (!input) continue;
+    input.style.pointerEvents = "none";
+  }
+  const form = $("survey-photo-pick-form");
+  if (form) form.style.pointerEvents = "none";
+}
+
+/** ピッカーと暗い遮断幕を前面表示 */
+function showPhotoPickerChrome() {
+  photoPickerOpen = true;
+  document.body.classList.add("drawing-photo-picker-open");
+  const backdrop = $("drawing-photo-picker-backdrop");
+  if (backdrop) {
+    backdrop.classList.remove("hidden");
+    backdrop.setAttribute("aria-hidden", "false");
+    backdrop.style.display = "";
+    backdrop.style.pointerEvents = "auto";
+  }
+  const picker = $("drawing-photo-picker");
+  if (picker) {
+    picker.classList.remove("hidden");
+    picker.setAttribute("aria-hidden", "false");
+    picker.style.display = "";
+    picker.style.pointerEvents = "auto";
+    picker.style.visibility = "";
+  }
+  for (const id of ["survey-camera-input", "survey-album-input"]) {
+    const input = $(id);
+    if (!input) continue;
+    input.style.pointerEvents = "";
+  }
+  const form = $("survey-photo-pick-form");
+  if (form) form.style.pointerEvents = "";
+}
+
+function togglePhotoPicker(show) {
+  if (show) {
+    showPhotoPickerChrome();
+  } else {
+    dismissPhotoPickerChrome();
+  }
 }
 
 /** ピッカー内タップは子ボタンへ届け
@@ -830,6 +889,16 @@ function wirePhotoPickerShell() {
   picker.addEventListener("pointerdown", stopBubble);
   picker.addEventListener("touchstart", stopBubble, { passive: false });
   picker.addEventListener("click", stopBubble);
+  // 遮断幕タップでメニューを閉じる
+  const backdrop = $("drawing-photo-picker-backdrop");
+  backdrop?.addEventListener("pointerdown", (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    dismissPhotoPickerChrome();
+    setTool("pen");
+  });
+  // 起動時は必ず閉じた状態から開始
+  dismissPhotoPickerChrome();
 }
 
 /** 写真読み込み失敗を
@@ -838,7 +907,10 @@ function notifySurveyPhotoLoadError(fileName, detail) {
   const label = fileName || "写真";
   setStatus(`写真を読み込めません（${label}）`);
   const hint = detail || "別の写真でもう一度お試しください。";
+  // alert前に遮断幕を撤去して解放
+  dismissPhotoPickerChrome();
   alert(`写真を読み込めません（${label}）\n${hint}`);
+  dismissPhotoPickerChrome();
 }
 
 /** 写真選択後に背景へ取り込み
@@ -851,8 +923,8 @@ async function handleSurveyFileSelected(ev) {
   suppressPopstateBackGuard(8000);
   const input = ev.target;
   const file = input?.files?.[0];
-  photoPickerOpen = false;
-  togglePhotoPicker(false);
+  // 選択直後に最前面ブロックを撤去
+  dismissPhotoPickerChrome();
   if (!file) {
     setTool("pen");
     return;
@@ -866,6 +938,8 @@ async function handleSurveyFileSelected(ev) {
     }
     setStatus("写真を読み込んでいます…");
     await importBackground(file);
+    // 背景適用直後も念のため再撤去
+    dismissPhotoPickerChrome();
     // 背景適用後はペン描画へ戻す
     setTool("pen");
     suppressPopstateBackGuard(3000);
@@ -875,6 +949,8 @@ async function handleSurveyFileSelected(ev) {
     setTool("pen");
   } finally {
     if (input) input.value = "";
+    // 成否問わずタッチを解放
+    dismissPhotoPickerChrome();
   }
 }
 
@@ -883,8 +959,7 @@ function wireSurveyFileInput() {
     ev?.preventDefault?.();
     ev?.stopPropagation?.();
     suppressPopstateBackGuard(3000);
-    photoPickerOpen = false;
-    togglePhotoPicker(false);
+    dismissPhotoPickerChrome();
     setTool("pen");
   };
   // labelタップで開いた時刻を記録し
@@ -1378,8 +1453,12 @@ async function setupBgImage(url) {
     syncMaterialBarUi();
     // エディタへも同じURLをCSS背景で共有
     drawingEditorState?.canvas?.setBackgroundUrl?.(src);
+    // 背景セット完了＝ピッカー完全撤去
+    dismissPhotoPickerChrome();
     return { width: stageSize.w, height: stageSize.h };
   } catch (err) {
+    // 失敗時も透明ブロックを残さない
+    dismissPhotoPickerChrome();
     layer.classList.add("hidden");
     layer.style.backgroundImage = "";
     delete layer.dataset.bgUrl;
@@ -2128,7 +2207,7 @@ function wireEvents() {
     window.setTimeout(() => {
       if (!photoPickerOpen) return;
       if (cameraInput?.files?.length || albumInput?.files?.length) return;
-      togglePhotoPicker(false);
+      dismissPhotoPickerChrome();
       setTool("pen");
     }, 250);
   });
