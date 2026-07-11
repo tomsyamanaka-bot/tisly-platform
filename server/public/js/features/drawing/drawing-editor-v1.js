@@ -73,7 +73,7 @@ export function editorStateToLayerV1(editorState) {
  * @param {object} [opts]
  * @param {HTMLElement|null} [opts.stageWrapEl]
  * @param {HTMLElement|null} [opts.stageEl]
- * @param {HTMLImageElement|null} [opts.bgEl]
+ * @param {HTMLElement|null} [opts.bgEl]
  * @param {SVGSVGElement|null} [opts.svgEl]
  * @param {HTMLElement|null} [opts.dockEl]
  * @param {(msg: string) => void} [opts.onStatus]
@@ -85,7 +85,11 @@ export function initDrawingEditorFoundationV1(opts = {}) {
     opts.stageEl ||
     opts.stageWrapEl?.querySelector("#drawing-stage") ||
     document.getElementById("drawing-stage");
-  const bgEl = opts.bgEl || document.getElementById("drawing-bg");
+  // img廃止 — 背面divのCSS背景層を参照
+  const bgEl =
+    opts.bgEl ||
+    document.getElementById("survey-bg-photo-layer") ||
+    document.getElementById("drawing-bg");
   const svgEl = opts.svgEl || document.getElementById("drawing-svg");
   const dockEl = opts.skipSymbolDock
     ? null
@@ -105,8 +109,9 @@ export function initDrawingEditorFoundationV1(opts = {}) {
     opts.onPayloadChange?.(state.lastPayload);
   }
 
-  if (bgEl?.src && !bgEl.classList.contains("hidden")) {
-    canvas.setBackgroundUrl(bgEl.src);
+  const existingBg = bgEl?.dataset?.bgUrl || "";
+  if (existingBg && !bgEl.classList.contains("hidden")) {
+    canvas.setBackgroundUrl(existingBg);
   }
 
   if (dockEl) {
@@ -126,13 +131,18 @@ export function initDrawingEditorFoundationV1(opts = {}) {
   canvas.setOnRoutesChange(() => notifyChange());
 
   if (bgEl) {
+    // data-bg-url の変化のみ監視（ループ防止）
     const obs = new MutationObserver(() => {
-      if (bgEl.src && !bgEl.classList.contains("hidden")) {
-        canvas.setBackgroundUrl(bgEl.src);
-        notifyChange();
-      }
+      const url = bgEl.dataset?.bgUrl || "";
+      if (!url || bgEl.classList.contains("hidden")) return;
+      if (url === canvas.getBackgroundUrl()) return;
+      canvas.setBackgroundUrl(url);
+      notifyChange();
     });
-    obs.observe(bgEl, { attributes: true, attributeFilter: ["src", "class"] });
+    obs.observe(bgEl, {
+      attributes: true,
+      attributeFilter: ["data-bg-url", "class"],
+    });
     state._bgObserver = obs;
   }
 

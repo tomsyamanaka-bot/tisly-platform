@@ -31,16 +31,19 @@
     0 0 18px var(--de-v1-accent-glow);
 }
 
-.drawing-editor-v1-bg {
+/* 背面写真 — imgではなくdiv+CSS背景 */
+.drawing-editor-v1-bg,
+#survey-bg-photo-layer.drawing-editor-v1-bg {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: contain;
-  object-position: center;
   pointer-events: none;
   user-select: none;
   opacity: 0.92;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
 }
 
 .drawing-editor-v1-svg {

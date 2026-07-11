@@ -1,9 +1,9 @@
 /**
- * ?????? v1 ? ????? + SVG ??????
- * ??? 0?1 ??????
+ * 図面エディタキャンバス v1
+ * 背面divのCSS背景 + SVG描画
  */
 
-/** ??????data URL SVG? */
+/** ダミー方眼紙（data URL SVG） */
 export const DRAWING_EDITOR_DUMMY_BG_V1 =
   "data:image/svg+xml," +
   encodeURIComponent(`<?xml version="1.0" encoding="UTF-8"?>
@@ -15,7 +15,7 @@ export const DRAWING_EDITOR_DUMMY_BG_V1 =
     </pattern>
   </defs>
   <rect width="1200" height="800" fill="url(#g)"/>
-  <text x="600" y="400" text-anchor="middle" font-family="sans-serif" font-size="28" fill="#64748b">???????????</text>
+  <text x="600" y="400" text-anchor="middle" font-family="sans-serif" font-size="28" fill="#64748b">図面背景</text>
 </svg>`);
 
 const ROUTE_COLORS = {
@@ -28,24 +28,25 @@ const ROUTE_COLORS = {
 /**
  * @param {object} opts
  * @param {HTMLElement} opts.stageEl
- * @param {HTMLImageElement|null} opts.bgEl
+ * @param {HTMLElement|null} opts.bgEl
  * @param {SVGSVGElement|null} opts.svgEl
  */
 export function createDrawingEditorCanvasV1(opts) {
   const { stageEl, bgEl, svgEl } = opts;
-  if (!stageEl) throw new Error("stageEl ?????");
+  if (!stageEl) throw new Error("stageEl が必要です");
 
   stageEl.classList.add("drawing-editor-v1-stage");
 
-  /** @type {HTMLImageElement} */
-  let bgImage = bgEl;
-  if (!bgImage) {
-    bgImage = document.createElement("img");
-    bgImage.className = "drawing-editor-v1-bg";
-    bgImage.alt = "????";
-    stageEl.prepend(bgImage);
+  /** @type {HTMLElement} 背面写真層（img禁止） */
+  let bgLayer = bgEl;
+  if (!bgLayer) {
+    bgLayer = document.createElement("div");
+    bgLayer.id = "survey-bg-photo-layer";
+    bgLayer.className = "survey-bg-photo-layer drawing-editor-v1-bg";
+    bgLayer.setAttribute("aria-hidden", "true");
+    stageEl.prepend(bgLayer);
   } else {
-    bgImage.classList.add("drawing-editor-v1-bg");
+    bgLayer.classList.add("drawing-editor-v1-bg");
   }
 
   /** @type {SVGSVGElement} */
@@ -83,6 +84,11 @@ export function createDrawingEditorCanvasV1(opts) {
   /** @type {((routes: unknown[]) => void)|null} */
   let onRoutesChange = null;
 
+  /** 現在の背景URL（CSS用） */
+  let currentBgUrl = "";
+  /** 自前blobの解放用 */
+  let bgObjectUrl = null;
+
   function syncSvgViewBox() {
     const w = stageEl.clientWidth || 800;
     const h = stageEl.clientHeight || 600;
@@ -91,9 +97,6 @@ export function createDrawingEditorCanvasV1(opts) {
     svg.setAttribute("height", String(h));
     return { w, h };
   }
-
-  /** blob URL ? ???????? */
-  let bgObjectUrl = null;
 
   function releaseBgImageMemory() {
     if (bgObjectUrl) {
@@ -115,18 +118,29 @@ export function createDrawingEditorCanvasV1(opts) {
     }
   }
 
+  /** 背面divへCSS背景のみ設定
+   Image.src / drawImage は使わない */
   function setBackgroundUrl(url) {
-    releaseBgImageMemory();
-    const src = withBgCacheBust((url || "").trim() || DRAWING_EDITOR_DUMMY_BG_V1);
-    if (src.startsWith("blob:")) bgObjectUrl = src;
-    bgImage.src = src;
-    bgImage.classList.remove("hidden");
-    bgImage.decode?.().catch(() => {});
+    const src =
+      withBgCacheBust((url || "").trim()) || DRAWING_EDITOR_DUMMY_BG_V1;
+    // 同一URLなら再適用しない（解放事故防止）
+    if (src === currentBgUrl && bgLayer.style.backgroundImage) {
+      return src;
+    }
+    currentBgUrl = src;
+    const escaped = src.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+    bgLayer.style.backgroundImage = `url("${escaped}")`;
+    bgLayer.style.backgroundSize = "contain";
+    bgLayer.style.backgroundRepeat = "no-repeat";
+    bgLayer.style.backgroundPosition = "center";
+    bgLayer.dataset.bgUrl = src;
+    bgLayer.classList.remove("hidden");
+    bgLayer.setAttribute("aria-hidden", "false");
     return src;
   }
 
   function getBackgroundUrl() {
-    return bgImage.src || DRAWING_EDITOR_DUMMY_BG_V1;
+    return currentBgUrl || bgLayer.dataset.bgUrl || DRAWING_EDITOR_DUMMY_BG_V1;
   }
 
   function renderRoutes() {
@@ -198,10 +212,10 @@ export function createDrawingEditorCanvasV1(opts) {
   }
 
   /**
-   * ???? ? ??? 0?1
-   * stage ? getBoundingClientRect ?
-   * CSS transform?scale/translate?????
-   * ???????????????????
+   * クライアント座標 → 正規化 0〜1
+   * stage の getBoundingClientRect は
+   * CSS transform（scale/translate）適用後の
+   * 表示矩形を返すためそのまま使う
    */
   function clientToNormalized(clientX, clientY, pointerType) {
     const rect = stageEl.getBoundingClientRect();
@@ -324,7 +338,8 @@ export function createDrawingEditorCanvasV1(opts) {
 
   return {
     stageEl,
-    bgImage,
+    bgImage: bgLayer,
+    bgLayer,
     svg,
     setBackgroundUrl,
     releaseBgImageMemory,

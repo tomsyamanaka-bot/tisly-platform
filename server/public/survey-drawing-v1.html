@@ -66,8 +66,10 @@
 
   <main class="drawing-stage-wrap" id="drawing-stage-wrap">
     <div id="drawing-stage" class="drawing-stage">
-      <img id="drawing-bg" class="drawing-bg hidden" alt="方眼紙・手書き図面" />
+      <!-- 背面写真層 — CSS背景のみ（Canvas不使用） -->
+      <div id="survey-bg-photo-layer" class="survey-bg-photo-layer hidden" aria-hidden="true"></div>
       <div id="drawing-bg-placeholder" class="drawing-bg-placeholder">📷 写真を取り込むか、下のボタンで方眼紙を撮影してください</div>
+      <!-- 手書きは透明SVGレイヤーとして前面に重ねる -->
       <svg id="drawing-svg" class="drawing-svg" xmlns="http://www.w3.org/2000/svg"></svg>
       <div id="drawing-overlay" class="drawing-overlay"></div>
     </div>

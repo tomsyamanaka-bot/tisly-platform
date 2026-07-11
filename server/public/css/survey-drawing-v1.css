@@ -70,18 +70,39 @@ body.survey-drawing-body .tisly-practical-topbar {
   pointer-events: none;
 }
 
-/* 現場写真背景 — ステージ全面に敷き詰め */
+/* 現場写真背景 — 背面divへCSSで敷く */
 .drawing-stage.has-photo-bg {
   background: #0f172a;
 }
 
-.drawing-stage.has-photo-bg .drawing-bg {
+/* 写真専用背面層 — JSメモリを使わない */
+#survey-bg-photo-layer,
+.survey-bg-photo-layer {
   position: absolute;
-  top: 0;
-  left: 0;
+  inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: fill;
+  pointer-events: none;
+  z-index: 0;
+  /* システム側が安全にデコード表示 */
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-color: transparent;
+}
+
+.survey-bg-photo-layer.hidden {
+  display: none;
+}
+
+.drawing-bg-placeholder.hidden {
+  display: none;
+}
+
+/* 手書きSVGは写真の上に透明重ね */
+.drawing-stage.has-photo-bg .drawing-svg,
+.drawing-stage.has-photo-bg .drawing-overlay {
+  z-index: 1;
 }
 
 .drawing-toolbar {
@@ -415,19 +436,9 @@ body.survey-drawing-body .tisly-practical-topbar {
   will-change: transform;
 }
 
-.drawing-bg {
-  display: block;
-  max-width: none;
-  user-select: none;
-  -webkit-user-drag: none;
-  pointer-events: none;
-}
-
-.drawing-bg.hidden {
-  display: none;
-}
-
 .drawing-bg-placeholder {
+  position: relative;
+  z-index: 2;
   width: min(90vw, 600px);
   min-height: 200px;
   display: flex;
