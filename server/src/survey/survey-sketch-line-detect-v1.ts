@@ -10,8 +10,8 @@ import type { SurveyDrawingPath } from "./survey-drawing-v1-types.js";
 
 export const SURVEY_SKETCH_LINE_DETECT_V1_SCHEMA = 1 as const;
 
-/** 解析用最大辺（細部保持） */
-const ANALYZE_MAX = 768;
+/** 解析用最大辺（細い手書き線を潰さない） */
+const ANALYZE_MAX = 1500;
 /** フォールバック許可の最小検出本数 */
 const FALLBACK_MIN_PATHS = 2;
 

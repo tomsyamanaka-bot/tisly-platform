@@ -20,7 +20,7 @@ import {
   updateOfflineResilienceBadgeV1,
 } from "./offline-resilience-v1.js";
 
-export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v27";
+export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v28";
 /** タッチ配置時に指で隠れないよう上へずらす（画面px） */
 const PLOT_TOUCH_OFFSET_Y = 32;
 export const SURVEY_DRAWING_TEMP_BANNER =
@@ -1883,13 +1883,15 @@ async function runServerAutoDrawLines(file, fileName) {
   if (!file || !(file instanceof Blob) || file.size <= 0) return null;
   if (!isNetworkOnlineV1()) return null;
 
-  // 一時IDでも解析用に送る（サーバは sketch 無しでも検出）
+  // 一時IDでも解析用に送る
+  // （サーバは sketch 無しでも検出）
   const apiSketchId =
     sketchId && !isTempDrawingId(sketchId) ? sketchId : "ephemeral-auto-draw";
 
+  // 1500px JPEG・拡張子付きで送信
   const uploadFile = await prepareSketchUploadFileV1(file);
   const formData = new FormData();
-  // ファイル名・MIME を明示（iPhone対策）
+  // 第3引数で sketch.jpg を必ず指定
   formData.append("file", uploadFile, "sketch.jpg");
   formData.append("image", uploadFile, "sketch.jpg");
   formData.append("fileName", fileName || "sketch.jpg");

@@ -1,15 +1,16 @@
 /**
  * 手書き間取り → デジタル線の自動作図 v1
- * 表示用CSS背景とは分離し、解析専用の縮小デコードのみ使う
+ * 表示用CSS背景とは分離し、
+ * 解析専用の高解像度デコードのみ使う
  */
 
-/** 解析用最大辺（細部保持） */
-const ANALYZE_MAX_EDGE = 768;
+/** 解析用最大辺（細い手書き線を潰さない） */
+const ANALYZE_MAX_EDGE = 1500;
 /** フォールバック許可の最小本数 */
 const FALLBACK_MIN_PATHS = 2;
 
 /**
- * 解析専用に縮小ビットマップを取得
+ * 解析専用に高解像度ビットマップを取得
  * 表示経路には絶対に載せない
  * @param {Blob} file
  */
@@ -21,7 +22,8 @@ async function decodeForAnalyze(file) {
     return null;
   }
   try {
-    // 縦横比維持で縮小（フル解像度禁止）
+    // 縦横比維持で最大1500pxまで縮小
+    // （細部を残しつつ送信負荷を抑える）
     const probe = await createImageBitmap(file);
     const maxEdge = Math.max(probe.width, probe.height);
     const scale = maxEdge > ANALYZE_MAX_EDGE ? ANALYZE_MAX_EDGE / maxEdge : 1;
@@ -307,7 +309,8 @@ export async function prepareSketchUploadFileV1(file) {
       throw new Error("no bitmap");
     }
     const bitmap = await createImageBitmap(file);
-    const maxEdge = 1600;
+    // サーバ輪郭抽出向けに最大1500px
+    const maxEdge = 1500;
     const scale =
       Math.max(bitmap.width, bitmap.height) > maxEdge
         ? maxEdge / Math.max(bitmap.width, bitmap.height)
@@ -324,6 +327,7 @@ export async function prepareSketchUploadFileV1(file) {
     }
     ctx.drawImage(bitmap, 0, 0, w, h);
     bitmap.close?.();
+    // JPEG MIME を明示（受信ミスマッチ防止）
     const blob = await new Promise((resolve, reject) => {
       canvas.toBlob(
         (b) => (b ? resolve(b) : reject(new Error("toBlob failed"))),
