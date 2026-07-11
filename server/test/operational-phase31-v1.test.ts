@@ -19,7 +19,11 @@ describe("Operational Phase31 — camera nav footer zoom", () => {
     assert.match(html, /user-scalable=no/);
     assert.match(html, /<label for="survey-camera-input"/);
     assert.match(html, /<label for="survey-album-input"/);
-    assert.match(js, /SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v20"/);
+    assert.match(js, /SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v21"/);
+    assert.match(js, /suppressPopstateBackGuard/);
+    assert.match(js, /ev\.preventDefault\(\)/);
+    assert.match(html, /id="survey-photo-pick-form"/);
+    assert.match(html, /onsubmit="return false;"/);
     assert.doesNotMatch(js, /bindPhotoTriggerButton/);
     assert.doesNotMatch(js, /input\.click\(\)/);
     assert.ok(js.includes("prepareBackgroundViaObjectUrl"));
@@ -49,6 +53,6 @@ describe("Operational Phase31 — camera nav footer zoom", () => {
 
   it("service worker bumped for phase31", () => {
     const sw = fs.readFileSync(path.join(publicDir, "service-worker.js"), "utf-8");
-    assert.ok(sw.includes("tisly-pwa-v2410-phase35"));
+    assert.ok(sw.includes("tisly-pwa-v2411-phase36"));
   });
 });

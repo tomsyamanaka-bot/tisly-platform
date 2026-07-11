@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
   <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
   <link rel="stylesheet" href="/css/field-ops-mobile.css" />
-  <link rel="stylesheet" href="/css/survey-drawing-v1.css?v=survey-drawing-ui-v20" />
+  <link rel="stylesheet" href="/css/survey-drawing-v1.css?v=survey-drawing-ui-v21" />
   <link rel="stylesheet" href="/css/features/drawing/drawing-editor-v1.css" />
 </head>
 <body class="tisly-friendly field-ops-touch survey-drawing-body">
@@ -109,25 +109,29 @@
   </div>
 
   <!-- labelのfor先。JS仲介なしで
-       カメラ／アルバムをOS起動 -->
-  <input
-    type="file"
-    id="survey-camera-input"
-    accept="image/jpeg,image/png,image/heic,image/heif,image/*"
-    capture="environment"
-    class="survey-file-input-hidden"
-    tabindex="-1"
-    aria-hidden="true"
-  />
-  <input
-    type="file"
-    id="survey-album-input"
-    accept="image/jpeg,image/png,image/heic,image/heif,image/*"
-    class="survey-file-input-hidden"
-    tabindex="-1"
-    aria-hidden="true"
-  />
+       カメラ／アルバムをOS起動。
+       formで囲み誤submitを物理遮断 -->
+  <form id="survey-photo-pick-form" action="#" method="post" onsubmit="return false;">
+    <input
+      type="file"
+      id="survey-camera-input"
+      accept="image/jpeg,image/png,image/heic,image/heif,image/*"
+      capture="environment"
+      class="survey-file-input-hidden"
+      tabindex="-1"
+      aria-hidden="true"
+    />
+    <input
+      type="file"
+      id="survey-album-input"
+      accept="image/jpeg,image/png,image/heic,image/heif,image/*"
+      class="survey-file-input-hidden"
+      tabindex="-1"
+      aria-hidden="true"
+    />
+    <button type="button" hidden aria-hidden="true" tabindex="-1" id="survey-photo-form-dummy-btn"></button>
+  </form>
 
-  <script type="module" src="/js/survey-drawing-v1.js?v=survey-drawing-ui-v20"></script>
+  <script type="module" src="/js/survey-drawing-v1.js?v=survey-drawing-ui-v21"></script>
 </body>
 </html>

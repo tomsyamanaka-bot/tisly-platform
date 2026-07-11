@@ -105,6 +105,18 @@ const POPSTATE_GUARD_FLAG = "__tislyPopstateGuardV1";
 /** @type {(() => void) | null} */
 let popstateBackHandler = null;
 
+/** 写真ピッカー復帰の誤 popstate を無視する期限 */
+let popstateSuppressUntilMs = 0;
+
+/**
+ * iOS 写真選択直後の誤った戻る遷移を抑止
+ * @param {number} [ms]
+ */
+export function suppressPopstateBackGuard(ms = 5000) {
+  const until = Date.now() + Math.max(0, Number(ms) || 0);
+  if (until > popstateSuppressUntilMs) popstateSuppressUntilMs = until;
+}
+
 /**
  * iPhone Safari / PWA のスワイプ戻りをナビスタック経由に統一（ゾーン混在防止）
  * @param {() => void} [handler] — 未指定時は navigateBackOne
@@ -129,6 +141,8 @@ export function bindPopstateBackGuard(handler) {
     } catch {
       /* ignore */
     }
+    // 写真ピッカー復帰の誤発火は遷移しない
+    if (Date.now() < popstateSuppressUntilMs) return;
     const fn =
       popstateBackHandler ||
       (() => navigateBackOne(getDefaultNavFallbackV1(location.pathname)));

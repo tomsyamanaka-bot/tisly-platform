@@ -20,7 +20,7 @@ import {
   updateOfflineResilienceBadgeV1,
 } from "./offline-resilience-v1.js";
 
-export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v20";
+export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v21";
 /** タッチ配置時に指で隠れないよう上へずらす（画面px） */
 const PLOT_TOUCH_OFFSET_Y = 32;
 export const SURVEY_DRAWING_TEMP_BANNER =
@@ -46,7 +46,10 @@ const LINE_TYPE_DASH = {
 };
 
 import { navigatePracticalReturn, navigateTo } from "./tisly-return-nav-v1.js";
-import { navigateBackOne } from "./tisly-navigation-stack-v1.js";
+import {
+  navigateBackOne,
+  suppressPopstateBackGuard,
+} from "./tisly-navigation-stack-v1.js";
 import { initPracticalNav } from "./tisly-practical-nav.js";
 import {
   initDrawingEditorFoundationV1,
@@ -804,13 +807,21 @@ function notifySurveyPhotoLoadError(fileName, detail) {
 }
 
 /** 写真選択後に背景へ取り込み
-   メニューを閉じる */
+   メニューを閉じ描画モードへ復帰 */
 async function handleSurveyFileSelected(ev) {
+  // 親form送信・画面リロードを阻止
+  ev.preventDefault();
+  ev.stopPropagation();
+  // iOSピッカー復帰の誤popstateを抑止
+  suppressPopstateBackGuard(8000);
   const input = ev.target;
   const file = input?.files?.[0];
   photoPickerOpen = false;
   togglePhotoPicker(false);
-  if (!file) return;
+  if (!file) {
+    setTool("pen");
+    return;
+  }
   try {
     if (!(file instanceof Blob) || file.size <= 0) {
       throw new Error("写真ファイルが空です");
@@ -820,30 +831,79 @@ async function handleSurveyFileSelected(ev) {
     }
     setStatus("写真を読み込んでいます…");
     await importBackground(file);
+    // 背景適用後はペン描画へ戻す
+    setTool("pen");
+    suppressPopstateBackGuard(3000);
   } catch (e) {
     console.error("[survey-drawing] photo import failed", e, file?.name, file?.size);
     notifySurveyPhotoLoadError(file.name, e?.message);
+    setTool("pen");
   } finally {
     if (input) input.value = "";
   }
 }
 
 function wireSurveyFileInput() {
-  const onCancel = () => {
+  const onCancel = (ev) => {
+    ev?.preventDefault?.();
+    ev?.stopPropagation?.();
+    suppressPopstateBackGuard(3000);
     photoPickerOpen = false;
     togglePhotoPicker(false);
+    setTool("pen");
   };
   // labelタップで開いた時刻を記録し
   // focus復帰でキャンセル判定する
-  const onInputActivate = () => {
+  const onInputActivate = (ev) => {
+    // 起動自体は止めず伝播のみ遮断
+    ev?.stopPropagation?.();
+    photoPickerFileOpenedAt = Date.now();
+    // ピッカー表示中の誤った戻るを防ぐ
+    suppressPopstateBackGuard(15000);
+  };
+  // ピッカーlabelの伝播だけ遮断
+  // （for起動は妨げない）
+  const stopLabelBubble = (ev) => {
+    ev.stopPropagation();
+    suppressPopstateBackGuard(15000);
     photoPickerFileOpenedAt = Date.now();
   };
+  for (const id of ["btn-photo-camera", "btn-photo-album"]) {
+    const label = $(id);
+    label?.addEventListener("click", stopLabelBubble);
+    label?.addEventListener("pointerdown", stopLabelBubble);
+  }
   for (const id of ["survey-camera-input", "survey-album-input"]) {
     const input = $(id);
     input?.addEventListener("change", handleSurveyFileSelected);
     input?.addEventListener("cancel", onCancel);
     input?.addEventListener("click", onInputActivate);
   }
+  // 写真formのsubmitを完全に遮断
+  const photoForm = $("survey-photo-pick-form");
+  photoForm?.addEventListener(
+    "submit",
+    (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+    },
+    true
+  );
+  document.addEventListener(
+    "submit",
+    (ev) => {
+      const t = ev.target;
+      if (
+        t?.id === "survey-photo-pick-form" ||
+        t?.contains?.($("survey-camera-input")) ||
+        t?.contains?.($("survey-album-input"))
+      ) {
+        ev.preventDefault();
+        ev.stopPropagation();
+      }
+    },
+    true
+  );
 }
 
 function prepareLayersForSave() {
@@ -2242,6 +2302,7 @@ function bindImportPhotoButton() {
     if (ev.target?.closest?.("#drawing-photo-picker")) return;
     const picker = $("drawing-photo-picker");
     const show = picker?.classList.contains("hidden");
+    if (show) suppressPopstateBackGuard(15000);
     togglePhotoPicker(!!show);
   };
   btn.addEventListener(
@@ -2354,12 +2415,15 @@ function wireEvents() {
   window.addEventListener("focus", () => {
     if (!photoPickerOpen || !photoPickerFileOpenedAt) return;
     if (Date.now() - photoPickerFileOpenedAt < 500) return;
+    // focus復帰時の誤popstateも抑止
+    suppressPopstateBackGuard(5000);
     const cameraInput = $("survey-camera-input");
     const albumInput = $("survey-album-input");
     window.setTimeout(() => {
       if (!photoPickerOpen) return;
       if (cameraInput?.files?.length || albumInput?.files?.length) return;
       togglePhotoPicker(false);
+      setTool("pen");
     }, 250);
   });
 }
