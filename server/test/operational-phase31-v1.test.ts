@@ -17,10 +17,12 @@ describe("Operational Phase31 — camera nav footer zoom", () => {
     assert.ok(cameraIdx < scriptIdx && albumIdx < scriptIdx, "file inputs should be before script at body end");
     assert.match(html, /capture="environment"/);
     assert.match(html, /user-scalable=no/);
-    assert.match(js, /SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v18"/);
+    assert.match(js, /SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v19"/);
     assert.ok(js.includes("bindPhotoTriggerButton"));
     assert.ok(js.includes('bindPhotoTriggerButton("btn-photo-album", "survey-album-input")'));
     assert.ok(js.includes("touchstart"));
+    assert.ok(js.includes("prepareBackgroundViaObjectUrl"));
+    assert.ok(js.includes("DRAWING_BG_RASTER_STEPS"));
     assert.ok(css.includes("touch-action: manipulation"));
     const inputRule = css.slice(
       css.indexOf(".survey-file-input-hidden"),
@@ -45,6 +47,6 @@ describe("Operational Phase31 — camera nav footer zoom", () => {
 
   it("service worker bumped for phase31", () => {
     const sw = fs.readFileSync(path.join(publicDir, "service-worker.js"), "utf-8");
-    assert.ok(sw.includes("tisly-pwa-v2410-phase32"));
+    assert.ok(sw.includes("tisly-pwa-v2410-phase34"));
   });
 });
