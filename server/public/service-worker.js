@@ -1,11 +1,11 @@
 /* TiSLY Multi PWA — Phase28 現場PWA爆速化
  * 図面エディタ / 音声ナビ含む
  * フィールドオペ用アセットを優先キャッシュ */
-/* 写真選択後の背景div ID一致対策で更新 */
-const SW_VERSION = "tisly-pwa-v2412-phase39";
-const OFFLINE_CACHE = "tisly-pwa-shell-v2412-phase39";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2412-phase39";
-const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2412-phase39";
+/* 自動作図フォールバック・線検出対応で更新 */
+const SW_VERSION = "tisly-pwa-v2413-phase39";
+const OFFLINE_CACHE = "tisly-pwa-shell-v2413-phase39";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2413-phase39";
+const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2413-phase39";
 const ICON_V = "?v=2004";
 
 /** 図面エディタ v1 — ES module 群 */
@@ -13,6 +13,8 @@ const DRAWING_EDITOR_URLS = [
   "/js/features/drawing/drawing-editor-v1.js",
   "/js/features/drawing/drawing-editor-canvas-v1.js",
   "/js/features/drawing/drawing-symbol-palette-v1.js",
+  "/js/features/drawing/drawing-field-innovations-v1.js",
+  "/js/features/drawing/survey-sketch-auto-draw-v1.js",
   "/css/features/drawing/drawing-editor-v1.css",
 ];
 

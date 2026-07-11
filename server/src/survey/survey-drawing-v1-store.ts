@@ -214,6 +214,8 @@ export function mergeAutoPlotIntoSurveyDrawingV1(
   autoPlot: {
     symbols: SurveyDrawingLayersV2["symbols"];
     notes: SurveyDrawingLayersV2["notes"];
+    /** 間取り線（自動作図） */
+    paths?: SurveyDrawingLayersV2["paths"];
   }
 ): SurveyDrawingSketchV1 {
   const sketch = getSurveyDrawingSketchV1(sketchId);
@@ -223,11 +225,16 @@ export function mergeAutoPlotIntoSurveyDrawingV1(
   const newSymbols = autoPlot.symbols.filter((s) => !existingIds.has(s.id));
   const existingNoteIds = new Set(sketch.layers.notes.map((n) => n.id));
   const newNotes = autoPlot.notes.filter((n) => !existingNoteIds.has(n.id));
+  const existingPathIds = new Set(sketch.layers.paths.map((p) => p.id));
+  const newPaths = (autoPlot.paths ?? []).filter(
+    (p) => !existingPathIds.has(p.id)
+  );
 
   const layers = normalizeLayersForSave({
     ...sketch.layers,
     symbols: [...sketch.layers.symbols, ...newSymbols],
     notes: [...sketch.layers.notes, ...newNotes],
+    paths: [...sketch.layers.paths, ...newPaths],
   });
 
   return updateSurveyDrawingSketchV1(sketchId, { layers });

@@ -58,9 +58,9 @@ import { linkSurveyDrawingBackgroundToSpecSlotV1 } from "../../projects/specific
 import { runSurveyAiPipelineV1SafeAsync } from "../../survey/survey-ai-pipeline-v1.js";
 import {
   mapGridOcrMemosToSurveyNotesV1,
-  mapGridOcrToDrawingAutoPlotV1,
-  runSurveyGridOcrV1,
+  runSurveyGridOcrWithLineDetectV1,
 } from "../../survey/survey-grid-ocr-v1.js";
+import { detectSketchLinesFromBase64V1 } from "../../survey/survey-sketch-line-detect-v1.js";
 import { postSymbolCountsToAiEstimateEngineV2 } from "../../master/ai-estimate-engine-v2.js";
 import { syncFieldCheckAfterDrawingSaveV1 } from "../../field-ops/field-check-drawing-sync-v1.js";
 
@@ -586,11 +586,96 @@ surveyV1Router.post(
         imageBase64: String(body.imageBase64),
         fileName: body.fileName != null ? String(body.fileName) : undefined,
         mimeType: body.mimeType != null ? String(body.mimeType) : undefined,
+        canvasWidth:
+          body.canvasWidth != null ? Number(body.canvasWidth) : undefined,
+        canvasHeight:
+          body.canvasHeight != null ? Number(body.canvasHeight) : undefined,
       });
       res.json({ sketch });
     } catch (e) {
-      res.status(400).json({ error: String(e) });
+      // String(Error) は "Error: …" になるため message のみ返す
+      const msg = e instanceof Error ? e.message : String(e);
+      const code = /sketch not found/i.test(msg) ? 404 : 400;
+      res.status(code).json({ error: msg, code: /sketch not found/i.test(msg) ? "SKETCH_NOT_FOUND" : "BAD_REQUEST" });
     }
+  }
+);
+
+/** 生画像 Base64 から間取り線を自動作図
+ * 線0本でも外枠フォールバックで正常着地 */
+surveyV1Router.post(
+  "/drawing-sketches/:sketchId/auto-draw-lines",
+  ...surveyV1Auth,
+  async (req: AuthedRequest, res) => {
+    if (!assertSurveyRole(req, res)) return;
+    const sketchId = String(req.params.sketchId);
+    const body = req.body ?? {};
+    const sketch = getSurveyDrawingSketchV1(sketchId);
+
+    const canvasW =
+      Number(body.canvasWidth) ||
+      sketch?.layers.canvasWidth ||
+      800;
+    const canvasH =
+      Number(body.canvasHeight) ||
+      sketch?.layers.canvasHeight ||
+      600;
+    const fileName =
+      body.fileName != null ? String(body.fileName) : null;
+
+    let lineResult;
+    if (body.imageBase64) {
+      // クライアント生 Blob 経路（優先）
+      lineResult = await detectSketchLinesFromBase64V1({
+        imageBase64: String(body.imageBase64),
+        fileName,
+        canvasWidth: canvasW,
+        canvasHeight: canvasH,
+      });
+    } else if (sketch?.backgroundImagePath) {
+      const { detectSketchLinesFromImagePathV1 } = await import(
+        "../../survey/survey-sketch-line-detect-v1.js"
+      );
+      lineResult = await detectSketchLinesFromImagePathV1({
+        imagePath: sketch.backgroundImagePath,
+        fileName: fileName ?? sketch.backgroundImagePath.split("/").pop() ?? null,
+        canvasWidth: canvasW,
+        canvasHeight: canvasH,
+      });
+    } else {
+      // スケッチ未登録でも外枠で正常系着地
+      const { buildFallbackOuterFramePathsV1 } = await import(
+        "../../survey/survey-sketch-line-detect-v1.js"
+      );
+      lineResult = {
+        schemaVersion: 1 as const,
+        ok: true as const,
+        usedFallback: true,
+        reason: "sketch_not_found",
+        fileName,
+        paths: buildFallbackOuterFramePathsV1(canvasW, canvasH),
+      };
+    }
+
+    let sketchAfter = sketch;
+    if (sketch && body.applyToCanvas !== false && lineResult.paths.length) {
+      try {
+        sketchAfter = mergeAutoPlotIntoSurveyDrawingV1(sketchId, {
+          symbols: [],
+          notes: [],
+          paths: lineResult.paths,
+        });
+      } catch {
+        // マージ失敗でも検出結果は返す（フリーズ回避）
+        sketchAfter = sketch;
+      }
+    }
+
+    res.json({
+      ok: true,
+      lineDetect: lineResult,
+      sketch: sketchAfter,
+    });
   }
 );
 
@@ -648,7 +733,7 @@ surveyV1Router.post(
     const applyToCanvas = req.body?.applyToCanvas !== false;
     const applyToSurveyNotes = req.body?.applyToSurveyNotes !== false;
 
-    const ocr = await runSurveyGridOcrV1({
+    const { ocr, autoPlot } = await runSurveyGridOcrWithLineDetectV1({
       imagePath: sketch.backgroundImagePath || null,
       fileName: sketch.backgroundImagePath
         ? sketch.backgroundImagePath.split("/").pop() ?? null
@@ -662,15 +747,18 @@ surveyV1Router.post(
           : undefined,
     });
 
-    const autoPlot = mapGridOcrToDrawingAutoPlotV1(
-      ocr,
-      sketch.layers.canvasWidth,
-      sketch.layers.canvasHeight
-    );
-
     let sketchAfter = sketch;
-    if (applyToCanvas && autoPlot.symbols.length) {
-      sketchAfter = mergeAutoPlotIntoSurveyDrawingV1(sketchId, autoPlot);
+    if (
+      applyToCanvas &&
+      (autoPlot.symbols.length || autoPlot.paths.length)
+    ) {
+      try {
+        sketchAfter = mergeAutoPlotIntoSurveyDrawingV1(sketchId, autoPlot);
+      } catch (e) {
+        // sketch not found でも OCR 結果は返す
+        const msg = e instanceof Error ? e.message : String(e);
+        if (!/sketch not found/i.test(msg)) throw e;
+      }
     }
 
     let surveyNotesMapping = null;

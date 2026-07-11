@@ -21,8 +21,8 @@ import {
 import type { SurveyDrawingSketchV1 } from "./survey-drawing-v1-types.js";
 import {
   mapGridOcrMemosToSurveyNotesV1,
-  mapGridOcrToDrawingAutoPlotV1,
-  runSurveyGridOcrV1,
+  runSurveyGridOcrWithLineDetectV1,
+  type SurveyGridOcrAutoPlotPayloadV1,
   type SurveyGridOcrResultV1,
 } from "./survey-grid-ocr-v1.js";
 
@@ -87,7 +87,7 @@ export interface SurveyAiPipelineResultV1 {
   /** 方眼紙 OCR 結果（任意） */
   gridOcr: SurveyGridOcrResultV1 | null;
   /** 自動プロット用ペイロード */
-  autoPlot: ReturnType<typeof mapGridOcrToDrawingAutoPlotV1> | null;
+  autoPlot: SurveyGridOcrAutoPlotPayloadV1 | null;
   /** 現調メモ反映結果 */
   surveyNotesMapping: ReturnType<typeof mapGridOcrMemosToSurveyNotesV1> | null;
   /** 記号集計 → 見積 v2 */
@@ -301,22 +301,19 @@ async function runSurveyAiPipelineCoreV1Async(
   }
 
   let gridOcr: SurveyGridOcrResultV1 | null = null;
-  let autoPlot: ReturnType<typeof mapGridOcrToDrawingAutoPlotV1> | null = null;
+  let autoPlot: SurveyGridOcrAutoPlotPayloadV1 | null = null;
   let surveyNotesMapping: ReturnType<typeof mapGridOcrMemosToSurveyNotesV1> | null = null;
 
   if (input.runGridOcr !== false && sketch.backgroundImagePath) {
-    gridOcr = await runSurveyGridOcrV1({
+    const bundled = await runSurveyGridOcrWithLineDetectV1({
       imagePath: sketch.backgroundImagePath,
       fileName: path.basename(sketch.backgroundImagePath),
       canvasWidth: sketch.layers.canvasWidth,
       canvasHeight: sketch.layers.canvasHeight,
       sketchNotes: sketch.notes,
     });
-    autoPlot = mapGridOcrToDrawingAutoPlotV1(
-      gridOcr,
-      sketch.layers.canvasWidth,
-      sketch.layers.canvasHeight
-    );
+    gridOcr = bundled.ocr;
+    autoPlot = bundled.autoPlot;
     if (input.applyOcrToSurveyNotes !== false && gridOcr.marginMemos.length) {
       surveyNotesMapping = mapGridOcrMemosToSurveyNotesV1(sketch.projectId, gridOcr);
     }

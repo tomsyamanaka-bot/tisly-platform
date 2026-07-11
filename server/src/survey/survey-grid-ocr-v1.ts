@@ -8,10 +8,12 @@ import sharp from "sharp";
 import { v4 as uuid } from "uuid";
 import {
   SURVEY_DRAWING_SYMBOL_PALETTE,
+  type SurveyDrawingPath,
   type SurveyDrawingPlacedSymbol,
   type SurveyDrawingTextMemo,
 } from "./survey-drawing-v1-types.js";
 import { appendSurveyProjectNotesV1 } from "./survey-v1-store.js";
+import { detectSketchLinesFromImagePathV1 } from "./survey-sketch-line-detect-v1.js";
 
 function surveyImageFullPath(imagePath: string): string {
   const base =
@@ -107,6 +109,10 @@ export interface SurveyGridOcrSurveyMemoMappingV1 {
 export interface SurveyGridOcrAutoPlotPayloadV1 {
   symbols: SurveyDrawingPlacedSymbol[];
   notes: SurveyDrawingTextMemo[];
+  /** 間取り線（自動作図） */
+  paths: SurveyDrawingPath[];
+  /** 線検出が外枠フォールバックか */
+  pathsUsedFallback?: boolean;
   marginSummary: string | null;
 }
 
@@ -360,7 +366,11 @@ export function mapGridOcrMemosToSurveyNotesV1(
 export function mapGridOcrToDrawingAutoPlotV1(
   ocr: Pick<SurveyGridOcrResultV1, "detectedSymbols" | "marginMemos">,
   canvasWidth: number,
-  canvasHeight: number
+  canvasHeight: number,
+  extra?: {
+    paths?: SurveyDrawingPath[];
+    pathsUsedFallback?: boolean;
+  }
 ): SurveyGridOcrAutoPlotPayloadV1 {
   const symbols: SurveyDrawingPlacedSymbol[] = ocr.detectedSymbols.map((s) => {
     const meta = paletteMeta(s.symbolType);
@@ -393,5 +403,43 @@ export function mapGridOcrToDrawingAutoPlotV1(
       ? ocr.marginMemos.map((m) => m.text).join(" / ")
       : null;
 
-  return { symbols, notes, marginSummary };
+  return {
+    symbols,
+    notes,
+    paths: extra?.paths ?? [],
+    pathsUsedFallback: extra?.pathsUsedFallback ?? false,
+    marginSummary,
+  };
+}
+
+/**
+ * OCR + 間取り線検出をまとめて autoPlot 化
+ * 線0本でも外枠で正常着地
+ */
+export async function runSurveyGridOcrWithLineDetectV1(input: {
+  imagePath?: string | null;
+  fileName?: string | null;
+  canvasWidth?: number;
+  canvasHeight?: number;
+  sketchNotes?: string | null;
+  testHints?: SurveyGridOcrInputV1["testHints"];
+}): Promise<{
+  ocr: SurveyGridOcrResultV1;
+  autoPlot: SurveyGridOcrAutoPlotPayloadV1;
+}> {
+  const canvasW = input.canvasWidth ?? 800;
+  const canvasH = input.canvasHeight ?? 600;
+  const ocr = await runSurveyGridOcrV1(input);
+  const lineResult = await detectSketchLinesFromImagePathV1({
+    imagePath: input.imagePath,
+    fileName: input.fileName,
+    canvasWidth: canvasW,
+    canvasHeight: canvasH,
+    forceFallback: Boolean(input.testHints),
+  });
+  const autoPlot = mapGridOcrToDrawingAutoPlotV1(ocr, canvasW, canvasH, {
+    paths: lineResult.paths,
+    pathsUsedFallback: lineResult.usedFallback,
+  });
+  return { ocr, autoPlot };
 }

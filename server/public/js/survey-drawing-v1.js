@@ -20,7 +20,7 @@ import {
   updateOfflineResilienceBadgeV1,
 } from "./offline-resilience-v1.js";
 
-export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v26";
+export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v27";
 /** タッチ配置時に指で隠れないよう上へずらす（画面px） */
 const PLOT_TOUCH_OFFSET_Y = 32;
 export const SURVEY_DRAWING_TEMP_BANNER =
@@ -64,6 +64,11 @@ import {
   materialItemsToPreviewCandidates,
   updateMaterialBarVisibility,
 } from "./features/drawing/drawing-field-innovations-v1.js";
+import {
+  buildFallbackOuterFramePaths,
+  detectSketchLinesFromBlobV1,
+  isSketchNotFoundError,
+} from "./features/drawing/survey-sketch-auto-draw-v1.js";
 
 function $(id) {
   return document.getElementById(id);
@@ -937,6 +942,7 @@ async function handleSurveyFileSelected(ev) {
       throw new Error("画像ファイルではありません");
     }
     setStatus("写真を読み込んでいます…");
+    // 生 File を背景＋AI作図へそのまま渡す
     await importBackground(file);
     // 背景適用直後も念のため再撤去
     dismissPhotoPickerChrome();
@@ -945,8 +951,20 @@ async function handleSurveyFileSelected(ev) {
     suppressPopstateBackGuard(3000);
   } catch (e) {
     console.error("[survey-drawing] photo import failed", e, file?.name, file?.size);
-    notifySurveyPhotoLoadError(file.name, e?.message);
-    setTool("pen");
+    // sketch not found は致命エラーにしない
+    if (isSketchNotFoundError(e)) {
+      dismissPhotoPickerChrome();
+      setStatus("図面未登録のため端末内で自動作図を続行します");
+      setTool("pen");
+      try {
+        await runClientAutoDrawFromFile(file);
+      } catch {
+        /* フォールバック済み */
+      }
+    } else {
+      notifySurveyPhotoLoadError(file.name, e?.message);
+      setTool("pen");
+    }
   } finally {
     if (input) input.value = "";
     // 成否問わずタッチを解放
@@ -1561,6 +1579,9 @@ async function loadSketch() {
           layers: emptyLayers(),
         };
         layers = migrateLayers(sketch.layers);
+        // サーバ未登録時は端末内モードへ切替
+        isLocalOnlyMode = true;
+        isTempMode = true;
         setStatus("図面が見つかりません。新規モードで続行します");
         applyGridPaper();
         updateDrawingPdfBar();
@@ -1706,7 +1727,7 @@ async function loadSymbols() {
 }
 
 /** 写真選択直後はCSS背景のみ適用
-   Canvas/createImageBitmapは完全廃止 */
+   Canvas/createImageBitmapは表示に使わない */
 async function importBackground(file) {
   if (!file || !(file instanceof Blob)) {
     throw new Error("file missing");
@@ -1725,9 +1746,12 @@ async function importBackground(file) {
   markDirty();
   syncMaterialBarUi();
 
+  // 生 File で端末内AI自動作図（表示と分離）
+  await runClientAutoDrawFromFile(file);
+
   // 一時図面は端末表示のみで十分
   if (isLocalOnlyMode || isTempDrawingId(sketchId)) {
-    setStatus("背景写真を取り込みました（端末内表示）");
+    setStatus("背景写真を取り込み・自動作図しました（端末内）");
     return;
   }
 
@@ -1774,16 +1798,117 @@ async function importBackground(file) {
       // サーバURLへ差し替え（表示は引き続きCSS）
       await setupBgImage(sketch.backgroundImageUrl);
     }
-    setStatus("背景写真を取り込みました");
+    // サーバ側でも線検出を補強（失敗しても端末結果を維持）
+    await runServerAutoDrawLines(imageBase64, file.name).catch(() => {});
+    setStatus("背景写真を取り込み・自動作図しました");
     syncMaterialBarUi();
     await loadSpecPhotoSlotsForDrawing();
   } catch (e) {
+    // sketch not found は端末内モードへ落として続行
+    if (isSketchNotFoundError(e)) {
+      isLocalOnlyMode = true;
+      isTempMode = true;
+      sketch.backgroundImageUrl = displayUrl;
+      markDirty();
+      setStatus("図面未登録のため端末内で自動作図を維持します");
+      return;
+    }
     sketch.backgroundImageUrl = displayUrl;
     markDirty();
     enqueueOfflineResilienceV1("drawing_background", bgPayload);
     const hint = e.message === "offline" ? "オフライン" : e.message || "失敗";
     setStatus(`端末内に保存しました（背景 · ${hint} · 復帰後に再送）`);
   }
+}
+
+/**
+ * 生 File から間取り線を検出し layers へ反映
+ * 線0本でも外枠フォールバックで正常着地
+ * @param {Blob} file
+ */
+async function runClientAutoDrawFromFile(file) {
+  if (!file || !(file instanceof Blob)) return;
+  try {
+    pushUndoSnapshot();
+    const result = await detectSketchLinesFromBlobV1(file, {
+      canvasWidth: stageSize.w || layers.canvasWidth || 800,
+      canvasHeight: stageSize.h || layers.canvasHeight || 600,
+      fileName: file.name,
+    });
+    applyAutoDrawnPaths(result.paths);
+    const n = result.paths?.length ?? 0;
+    if (result.usedFallback) {
+      setStatus(`自動作図（外枠フォールバック）· ${n}本`);
+    } else {
+      setStatus(`自動作図完了 · 間取り線 ${n} 本`);
+    }
+  } catch (err) {
+    console.warn("[survey-drawing] client auto-draw fallback", err);
+    // 例外時も外枠で着地（フリーズ回避）
+    applyAutoDrawnPaths(
+      buildFallbackOuterFramePaths(
+        stageSize.w || 800,
+        stageSize.h || 600
+      )
+    );
+    setStatus("自動作図（外枠フォールバック）を適用しました");
+  }
+}
+
+/**
+ * サーバ auto-draw-lines API（生 Base64 優先）
+ * @param {string} imageBase64
+ * @param {string} fileName
+ */
+async function runServerAutoDrawLines(imageBase64, fileName) {
+  if (!sketchId || isLocalOnlyMode || isTempDrawingId(sketchId)) return;
+  if (!isNetworkOnlineV1()) return;
+  const data = await api(
+    "POST",
+    `/api/survey/v1/drawing-sketches/${encodeURIComponent(sketchId)}/auto-draw-lines`,
+    {
+      imageBase64,
+      fileName,
+      canvasWidth: stageSize.w,
+      canvasHeight: stageSize.h,
+      applyToCanvas: true,
+    }
+  );
+  if (data.sketch?.layers) {
+    layers = migrateLayers(
+      data.sketch.layers,
+      data.sketch.layers.canvasWidth,
+      data.sketch.layers.canvasHeight
+    );
+    sketch = data.sketch;
+    renderAll();
+    markDirty();
+  } else if (data.lineDetect?.paths?.length) {
+    applyAutoDrawnPaths(data.lineDetect.paths);
+  }
+}
+
+/**
+ * 自動作図パスを layers へマージして再描画
+ * @param {Array<object>} paths
+ */
+function applyAutoDrawnPaths(paths) {
+  if (!Array.isArray(paths) || !paths.length) return;
+  const existing = new Set((layers.paths ?? []).map((p) => p.id));
+  for (const p of paths) {
+    if (!p?.id || existing.has(p.id)) continue;
+    layers.paths.push({
+      id: p.id,
+      tool: p.tool || "line",
+      lineType: p.lineType || "generic",
+      color: p.color || "#0f172a",
+      width: p.width || 3,
+      points: p.points || [],
+      lengthPx: p.lengthPx || pathLength(p.points || []),
+    });
+  }
+  renderAll();
+  markDirty();
 }
 
 async function loadSpecPhotoSlotsForDrawing() {
@@ -1867,10 +1992,12 @@ async function runGridOcrAndAutoPlot() {
 
   const symCount = data.autoPlot?.symbols?.length ?? 0;
   const memoCount = data.autoPlot?.notes?.length ?? 0;
+  const pathCount = data.autoPlot?.paths?.length ?? 0;
   const counts = data.symbolCountHandoff?.symbolCounts ?? [];
   const countText = counts.map((c) => `${c.label}${c.count}`).join(" · ");
+  const fallbackHint = data.autoPlot?.pathsUsedFallback ? "（外枠フォールバック）" : "";
   setStatus(
-    `AI解析完了 — 記号${symCount}件 · メモ${memoCount}件${countText ? ` · ${countText}` : ""}（位置は手動修正可）`
+    `AI解析完了 — 線${pathCount}本 · 記号${symCount}件 · メモ${memoCount}件${countText ? ` · ${countText}` : ""}${fallbackHint}（位置は手動修正可）`
   );
 }
 
@@ -1889,6 +2016,10 @@ function applyAutoPlotPayloadToLayers(autoPlot) {
   const existingNoteIds = new Set(layers.notes.map((n) => n.id));
   for (const n of autoPlot.notes ?? []) {
     if (!existingNoteIds.has(n.id)) layers.notes.push(n);
+  }
+  // 間取り線（自動作図）も反映
+  if (autoPlot.paths?.length) {
+    applyAutoDrawnPaths(autoPlot.paths);
   }
   if (autoPlot.marginSummary && sketch) {
     const tag = `[OCR] ${autoPlot.marginSummary}`;
@@ -2142,7 +2273,17 @@ function wireEvents() {
   $("btn-save")?.addEventListener("click", () => saveSketch().catch((e) => setStatus(e.message)));
   $("btn-ai-export")?.addEventListener("click", () => exportAiJson().catch((e) => setStatus(e.message)));
   $("btn-grid-ocr")?.addEventListener("click", () =>
-    runGridOcrAndAutoPlot().catch((e) => setStatus(e.message || "AI解析に失敗しました"))
+    runGridOcrAndAutoPlot().catch((e) => {
+      // sketch not found でも外枠で着地
+      if (isSketchNotFoundError(e)) {
+        applyAutoDrawnPaths(
+          buildFallbackOuterFramePaths(stageSize.w || 800, stageSize.h || 600)
+        );
+        setStatus("図面未登録のため外枠フォールバックで作図しました");
+        return;
+      }
+      setStatus(e.message || "AI解析に失敗しました");
+    })
   );
   $("btn-back")?.addEventListener("click", () => {
     if (dirty && !confirm("未保存の変更があります。戻りますか？")) return;
@@ -2260,6 +2401,8 @@ async function main() {
         layers: emptyLayers(),
       };
       layers = migrateLayers(sketch?.layers);
+      isLocalOnlyMode = true;
+      isTempMode = true;
       applyGridPaper();
       setStatus("図面データ未取得。オフラインモードで続行します");
     } else {
