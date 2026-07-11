@@ -20,9 +20,13 @@ import {
   updateOfflineResilienceBadgeV1,
 } from "./offline-resilience-v1.js";
 
-export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v28";
+export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v29";
 /** タッチ配置時に指で隠れないよう上へずらす（画面px） */
 const PLOT_TOUCH_OFFSET_Y = 32;
+/** 写真解析の上限（超えたらUI解放） */
+const PHOTO_IMPORT_TIMEOUT_MS = 45000;
+/** 写真取込中フラグ（画面ロック用） */
+let photoImportBusy = false;
 export const SURVEY_DRAWING_TEMP_BANNER =
   "一時図面として作成中。現調から開くと案件に紐づきます。";
 /** 画像拡張子（MIME空のHEIC等向け） */
@@ -919,8 +923,42 @@ function notifySurveyPhotoLoadError(fileName, detail) {
   dismissPhotoPickerChrome();
 }
 
+/** 読み込み中表示と画面ロックを
+   成否問わず必ず解除する */
+function releasePhotoImportUiLock() {
+  photoImportBusy = false;
+  document.body.classList.remove("drawing-photo-import-busy");
+  dismissPhotoPickerChrome();
+  setTool("pen");
+  const el = $("drawing-status");
+  const text = el?.textContent || "";
+  // 読み込み中表示が残っていれば消す
+  if (text.includes("読み込み中")) {
+    setStatus("操作できます。写真を選び直すか描画を続けてください");
+  }
+}
+
+/**
+ * タイムアウト付きで Promise を待つ
+ * ハング時も finally へ確実に到達させる
+ * @param {Promise<any>} promise
+ * @param {number} ms
+ * @param {string} label
+ */
+function withPhotoImportTimeout(promise, ms, label) {
+  let timerId = 0;
+  const timeoutP = new Promise((_, reject) => {
+    timerId = setTimeout(() => {
+      reject(new Error(`${label || "処理"}がタイムアウトしました`));
+    }, ms);
+  });
+  return Promise.race([promise, timeoutP]).finally(() => {
+    if (timerId) clearTimeout(timerId);
+  });
+}
+
 /** 写真選択後に背景へ取り込み
-   メニューを閉じ描画モードへ復帰 */
+   try/catch/finally で画面を必ず解放 */
 async function handleSurveyFileSelected(ev) {
   // 親form送信・画面リロードを阻止
   ev.preventDefault();
@@ -932,9 +970,17 @@ async function handleSurveyFileSelected(ev) {
   // 選択直後に最前面ブロックを撤去
   dismissPhotoPickerChrome();
   if (!file) {
-    setTool("pen");
+    releasePhotoImportUiLock();
     return;
   }
+  // 二重起動を避け、読み込み中を明示
+  if (photoImportBusy) {
+    setStatus(`読み込み中…（${file.name || "写真"}）`);
+    return;
+  }
+  photoImportBusy = true;
+  document.body.classList.add("drawing-photo-import-busy");
+  setStatus(`読み込み中…（${file.name || "写真"}）`);
   try {
     if (!(file instanceof Blob) || file.size <= 0) {
       throw new Error("写真ファイルが空です");
@@ -942,34 +988,50 @@ async function handleSurveyFileSelected(ev) {
     if (!isLikelyImageFile(file)) {
       throw new Error("画像ファイルではありません");
     }
-    setStatus("写真を読み込んでいます…");
-    // 生 File を背景＋AI作図へそのまま渡す
-    await importBackground(file);
+    // 背景＋AI作図（タイムアウト付き）
+    await withPhotoImportTimeout(
+      importBackground(file),
+      PHOTO_IMPORT_TIMEOUT_MS,
+      "写真解析"
+    );
     // 背景適用直後も念のため再撤去
     dismissPhotoPickerChrome();
     // 背景適用後はペン描画へ戻す
     setTool("pen");
     suppressPopstateBackGuard(3000);
-  } catch (e) {
-    console.error("[survey-drawing] photo import failed", e, file?.name, file?.size);
+  } catch (err) {
+    console.error(err);
+    console.error(
+      "[survey-drawing] photo import failed",
+      err,
+      file?.name,
+      file?.size
+    );
     // sketch not found は致命エラーにしない
-    if (isSketchNotFoundError(e)) {
+    if (isSketchNotFoundError(err)) {
       dismissPhotoPickerChrome();
       setStatus("図面未登録のため端末内で自動作図を続行します");
       setTool("pen");
       try {
-        await runClientAutoDrawFromFile(file);
-      } catch {
-        /* フォールバック済み */
+        await withPhotoImportTimeout(
+          runClientAutoDrawFromFile(file),
+          PHOTO_IMPORT_TIMEOUT_MS,
+          "端末内自動作図"
+        );
+      } catch (fallbackErr) {
+        console.error(fallbackErr);
+        alert("解析中にエラーが発生しました。再度お試しください");
       }
     } else {
-      notifySurveyPhotoLoadError(file.name, e?.message);
+      // 実機で原因をすぐ追えるよう通知
+      alert("解析中にエラーが発生しました。再度お試しください");
+      notifySurveyPhotoLoadError(file.name, err?.message);
       setTool("pen");
     }
   } finally {
+    // 成功・失敗・例外・タイムアウト問わず解放
     if (input) input.value = "";
-    // 成否問わずタッチを解放
-    dismissPhotoPickerChrome();
+    releasePhotoImportUiLock();
   }
 }
 
@@ -1730,108 +1792,120 @@ async function loadSymbols() {
 /** 写真選択直後はCSS背景のみ適用
    Canvas/createImageBitmapは表示に使わない */
 async function importBackground(file) {
-  if (!file || !(file instanceof Blob)) {
-    throw new Error("file missing");
-  }
-  if (file.size <= 0) throw new Error("file empty");
-  if (!isLikelyImageFile(file)) {
-    throw new Error("not an image");
-  }
-
-  // 一時URLを背面divへ直接セット（デコードなし）
-  const displayUrl = URL.createObjectURL(file);
-  await setupBgImage(displayUrl);
-
-  if (!sketch) sketch = { id: sketchId, projectId, title: "一時図面" };
-  sketch.backgroundImageUrl = displayUrl;
-  markDirty();
-  syncMaterialBarUi();
-
-  // 生 File で端末内AI自動作図（表示と分離）
-  await runClientAutoDrawFromFile(file);
-
-  // サーバ AI 作図は FormData で必ず送る
-  // （一時図面でも画像解析は実行）
-  const serverDrawPromise = runServerAutoDrawLines(file, file.name).catch(
-    (err) => {
-      console.warn("[survey-drawing] server auto-draw", err);
-      return null;
-    }
-  );
-
-  // 一時図面は背景APIをスキップし作図のみ
-  if (isLocalOnlyMode || isTempDrawingId(sketchId)) {
-    await serverDrawPromise;
-    setStatus("背景写真を取り込み・自動作図しました（端末内）");
-    return;
-  }
-
-  // サーバ保存はバイト読取のみ（drawImageなし）
-  let imageBase64;
   try {
-    imageBase64 = await fileToBase64DataUrl(file);
-  } catch (readErr) {
-    console.warn("[survey-drawing] base64 read skipped", readErr);
-    await serverDrawPromise;
-    setStatus("背景写真を取り込みました（端末内表示）");
-    return;
-  }
+    if (!file || !(file instanceof Blob)) {
+      throw new Error("file missing");
+    }
+    if (file.size <= 0) throw new Error("file empty");
+    if (!isLikelyImageFile(file)) {
+      throw new Error("not an image");
+    }
 
-  const mimeType = file.type || "image/jpeg";
-  const bgPayload = {
-    sketchId,
-    imageBase64,
-    fileName: file.name || "sketch.jpg",
-    mimeType,
-  };
+    // 一時URLを背面divへ直接セット（デコードなし）
+    const displayUrl = URL.createObjectURL(file);
+    await setupBgImage(displayUrl);
 
-  if (!isNetworkOnlineV1()) {
+    if (!sketch) sketch = { id: sketchId, projectId, title: "一時図面" };
     sketch.backgroundImageUrl = displayUrl;
     markDirty();
-    enqueueOfflineResilienceV1("drawing_background", bgPayload);
-    setStatus("オフライン — 背景を端末内保存（復帰後に自動同期）");
-    return;
-  }
+    syncMaterialBarUi();
 
-  try {
-    const data = await api(
-      "POST",
-      `/api/survey/v1/drawing-sketches/${encodeURIComponent(sketchId)}/background`,
-      {
-        imageBase64,
-        fileName: file.name || "sketch.jpg",
-        mimeType,
-        canvasWidth: stageSize.w,
-        canvasHeight: stageSize.h,
+    // 生 File で端末内AI自動作図（表示と分離）
+    await runClientAutoDrawFromFile(file);
+
+    // サーバ AI 作図は FormData で必ず送る
+    // （一時図面でも画像解析は実行）
+    const serverDrawPromise = runServerAutoDrawLines(file, file.name).catch(
+      (err) => {
+        console.error(err);
+        console.warn("[survey-drawing] server auto-draw", err);
+        return null;
       }
     );
-    sketch = data.sketch;
-    if (sketch.backgroundImageUrl) {
-      // サーバURLへ差し替え（表示は引き続きCSS）
-      await setupBgImage(sketch.backgroundImageUrl);
-    }
-    await serverDrawPromise;
-    setStatus("背景写真を取り込み・自動作図しました");
-    syncMaterialBarUi();
-    await loadSpecPhotoSlotsForDrawing();
-  } catch (e) {
-    // sketch not found でも FormData 作図は待つ
-    await serverDrawPromise;
-    if (isSketchNotFoundError(e)) {
-      isLocalOnlyMode = true;
-      isTempMode = true;
-      sketch.backgroundImageUrl = displayUrl;
-      markDirty();
-      setStatus(
-        `図面未登録のため端末内で自動作図を維持します（${file.name || "sketch.jpg"}）`
-      );
+
+    // 一時図面は背景APIをスキップし作図のみ
+    if (isLocalOnlyMode || isTempDrawingId(sketchId)) {
+      await serverDrawPromise;
+      setStatus("背景写真を取り込み・自動作図しました（端末内）");
       return;
     }
-    sketch.backgroundImageUrl = displayUrl;
-    markDirty();
-    enqueueOfflineResilienceV1("drawing_background", bgPayload);
-    const hint = e.message === "offline" ? "オフライン" : e.message || "失敗";
-    setStatus(`端末内に保存しました（背景 · ${hint} · 復帰後に再送）`);
+
+    // サーバ保存はバイト読取のみ（drawImageなし）
+    let imageBase64;
+    try {
+      imageBase64 = await fileToBase64DataUrl(file);
+    } catch (readErr) {
+      console.error(readErr);
+      console.warn("[survey-drawing] base64 read skipped", readErr);
+      await serverDrawPromise;
+      setStatus("背景写真を取り込みました（端末内表示）");
+      return;
+    }
+
+    const mimeType = file.type || "image/jpeg";
+    const bgPayload = {
+      sketchId,
+      imageBase64,
+      fileName: file.name || "sketch.jpg",
+      mimeType,
+    };
+
+    if (!isNetworkOnlineV1()) {
+      sketch.backgroundImageUrl = displayUrl;
+      markDirty();
+      enqueueOfflineResilienceV1("drawing_background", bgPayload);
+      setStatus("オフライン — 背景を端末内保存（復帰後に自動同期）");
+      return;
+    }
+
+    try {
+      const data = await api(
+        "POST",
+        `/api/survey/v1/drawing-sketches/${encodeURIComponent(sketchId)}/background`,
+        {
+          imageBase64,
+          fileName: file.name || "sketch.jpg",
+          mimeType,
+          canvasWidth: stageSize.w,
+          canvasHeight: stageSize.h,
+        }
+      );
+      sketch = data.sketch;
+      if (sketch.backgroundImageUrl) {
+        // サーバURLへ差し替え（表示は引き続きCSS）
+        await setupBgImage(sketch.backgroundImageUrl);
+      }
+      await serverDrawPromise;
+      setStatus("背景写真を取り込み・自動作図しました");
+      syncMaterialBarUi();
+      await loadSpecPhotoSlotsForDrawing();
+    } catch (e) {
+      console.error(e);
+      // sketch not found でも FormData 作図は待つ
+      await serverDrawPromise;
+      if (isSketchNotFoundError(e)) {
+        isLocalOnlyMode = true;
+        isTempMode = true;
+        sketch.backgroundImageUrl = displayUrl;
+        markDirty();
+        setStatus(
+          `図面未登録のため端末内で自動作図を維持します（${file.name || "sketch.jpg"}）`
+        );
+        return;
+      }
+      sketch.backgroundImageUrl = displayUrl;
+      markDirty();
+      enqueueOfflineResilienceV1("drawing_background", bgPayload);
+      const hint = e.message === "offline" ? "オフライン" : e.message || "失敗";
+      setStatus(`端末内に保存しました（背景 · ${hint} · 復帰後に再送）`);
+    }
+  } catch (err) {
+    console.error(err);
+    // 上位の handleSurveyFileSelected へ再送出
+    throw err;
+  } finally {
+    // 取込処理の途中失敗でも遮断幕を撤去
+    dismissPhotoPickerChrome();
   }
 }
 
@@ -1859,17 +1933,26 @@ async function runClientAutoDrawFromFile(file) {
       setStatus(`自動作図完了 · 間取り線 ${n} 本`);
     }
   } catch (err) {
+    console.error(err);
     console.warn("[survey-drawing] client auto-draw fallback", err);
     // 例外時も外枠で着地（フリーズ回避）
-    applyAutoDrawnPaths(
-      buildFallbackOuterFramePaths(
-        stageSize.w || 800,
-        stageSize.h || 600
-      )
-    );
-    setStatus(
-      `自動作図（外枠フォールバック）を適用しました（${file?.name || "sketch.jpg"}）`
-    );
+    try {
+      applyAutoDrawnPaths(
+        buildFallbackOuterFramePaths(
+          stageSize.w || 800,
+          stageSize.h || 600
+        )
+      );
+      setStatus(
+        `自動作図（外枠フォールバック）を適用しました（${file?.name || "sketch.jpg"}）`
+      );
+    } catch (applyErr) {
+      console.error(applyErr);
+      alert("解析中にエラーが発生しました。再度お試しください");
+    }
+  } finally {
+    // 端末内解析後もタッチを解放
+    dismissPhotoPickerChrome();
   }
 }
 
@@ -1883,65 +1966,74 @@ async function runServerAutoDrawLines(file, fileName) {
   if (!file || !(file instanceof Blob) || file.size <= 0) return null;
   if (!isNetworkOnlineV1()) return null;
 
-  // 一時IDでも解析用に送る
-  // （サーバは sketch 無しでも検出）
-  const apiSketchId =
-    sketchId && !isTempDrawingId(sketchId) ? sketchId : "ephemeral-auto-draw";
+  try {
+    // 一時IDでも解析用に送る
+    // （サーバは sketch 無しでも検出）
+    const apiSketchId =
+      sketchId && !isTempDrawingId(sketchId) ? sketchId : "ephemeral-auto-draw";
 
-  // 1500px JPEG・拡張子付きで送信
-  const uploadFile = await prepareSketchUploadFileV1(file);
-  const formData = new FormData();
-  // 第3引数で sketch.jpg を必ず指定
-  formData.append("file", uploadFile, "sketch.jpg");
-  formData.append("image", uploadFile, "sketch.jpg");
-  formData.append("fileName", fileName || "sketch.jpg");
-  formData.append("canvasWidth", String(stageSize.w || 800));
-  formData.append("canvasHeight", String(stageSize.h || 600));
-  formData.append("applyToCanvas", "true");
+    // 1500px JPEG・拡張子付きで送信
+    const uploadFile = await prepareSketchUploadFileV1(file);
+    const formData = new FormData();
+    // 第3引数で sketch.jpg を必ず指定
+    formData.append("file", uploadFile, "sketch.jpg");
+    formData.append("image", uploadFile, "sketch.jpg");
+    formData.append("fileName", fileName || "sketch.jpg");
+    formData.append("canvasWidth", String(stageSize.w || 800));
+    formData.append("canvasHeight", String(stageSize.h || 600));
+    formData.append("applyToCanvas", "true");
 
-  const token = sessionStorage.getItem(TOKEN_KEY);
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  // Content-Type は付けない（boundary 自動）
+    const token = sessionStorage.getItem(TOKEN_KEY);
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    // Content-Type は付けない（boundary 自動）
 
-  const res = await fetch(
-    `/api/survey/v1/drawing-sketches/${encodeURIComponent(apiSketchId)}/auto-draw-lines`,
-    { method: "POST", headers, body: formData }
-  );
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(data.error || String(res.status));
-  }
-
-  if (data.sketch?.layers && data.sketchFound) {
-    layers = migrateLayers(
-      data.sketch.layers,
-      data.sketch.layers.canvasWidth,
-      data.sketch.layers.canvasHeight
+    const res = await fetch(
+      `/api/survey/v1/drawing-sketches/${encodeURIComponent(apiSketchId)}/auto-draw-lines`,
+      { method: "POST", headers, body: formData }
     );
-    sketch = data.sketch;
-    renderAll();
-    markDirty();
-  } else if (data.lineDetect?.paths?.length) {
-    const usedFb = Boolean(data.lineDetect.usedFallback);
-    const paths = data.lineDetect.paths.map((p) => ({
-      ...p,
-      autoDrawn: true,
-      fallbackFrame: usedFb,
-    }));
-    if (!usedFb) {
-      // 実検出成功時は端末側の外枠を捨てる
-      layers.paths = (layers.paths ?? []).filter(
-        (p) => !p?.fallbackFrame && !p?.autoDrawn
-      );
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.error || String(res.status));
     }
-    applyAutoDrawnPaths(paths);
-    if (!usedFb) {
-      setStatus(
-        `自動作図完了 · 間取り線 ${paths.length} 本（サーバ）`
+
+    if (data.sketch?.layers && data.sketchFound) {
+      layers = migrateLayers(
+        data.sketch.layers,
+        data.sketch.layers.canvasWidth,
+        data.sketch.layers.canvasHeight
       );
+      sketch = data.sketch;
+      renderAll();
+      markDirty();
+    } else if (data.lineDetect?.paths?.length) {
+      const usedFb = Boolean(data.lineDetect.usedFallback);
+      const paths = data.lineDetect.paths.map((p) => ({
+        ...p,
+        autoDrawn: true,
+        fallbackFrame: usedFb,
+      }));
+      if (!usedFb) {
+        // 実検出成功時は端末側の外枠を捨てる
+        layers.paths = (layers.paths ?? []).filter(
+          (p) => !p?.fallbackFrame && !p?.autoDrawn
+        );
+      }
+      applyAutoDrawnPaths(paths);
+      if (!usedFb) {
+        setStatus(
+          `自動作図完了 · 間取り線 ${paths.length} 本（サーバ）`
+        );
+      }
     }
+    return data;
+  } catch (err) {
+    console.error(err);
+    console.warn("[survey-drawing] runServerAutoDrawLines failed", err);
+    throw err;
+  } finally {
+    // fetch失敗時も遮断幕を残さない
+    dismissPhotoPickerChrome();
   }
-  return data;
 }
 
 /**

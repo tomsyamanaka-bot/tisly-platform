@@ -21,15 +21,17 @@ async function decodeForAnalyze(file) {
   if (typeof createImageBitmap !== "function") {
     return null;
   }
+  let probe = null;
   try {
     // 縦横比維持で最大1500pxまで縮小
     // （細部を残しつつ送信負荷を抑える）
-    const probe = await createImageBitmap(file);
+    probe = await createImageBitmap(file);
     const maxEdge = Math.max(probe.width, probe.height);
     const scale = maxEdge > ANALYZE_MAX_EDGE ? ANALYZE_MAX_EDGE / maxEdge : 1;
     const rw = Math.max(1, Math.round(probe.width * scale));
     const rh = Math.max(1, Math.round(probe.height * scale));
     probe.close?.();
+    probe = null;
     const bitmap = await createImageBitmap(file, {
       resizeWidth: rw,
       resizeHeight: rh,
@@ -41,8 +43,16 @@ async function decodeForAnalyze(file) {
     }
     return bitmap;
   } catch (err) {
+    console.error(err);
     console.warn("[sketch-auto-draw] bitmap decode failed", err);
     return null;
+  } finally {
+    // probe が残っていれば必ず解放
+    try {
+      probe?.close?.();
+    } catch (closeErr) {
+      console.error(closeErr);
+    }
   }
 }
 
@@ -304,11 +314,12 @@ export async function prepareSketchUploadFileV1(file) {
     file?.type && String(file.type).startsWith("image/")
       ? file.type
       : "image/jpeg";
+  let bitmap = null;
   try {
     if (typeof createImageBitmap !== "function") {
       throw new Error("no bitmap");
     }
-    const bitmap = await createImageBitmap(file);
+    bitmap = await createImageBitmap(file);
     // サーバ輪郭抽出向けに最大1500px
     const maxEdge = 1500;
     const scale =
@@ -322,11 +333,9 @@ export async function prepareSketchUploadFileV1(file) {
     canvas.height = h;
     const ctx = canvas.getContext("2d");
     if (!ctx) {
-      bitmap.close?.();
       throw new Error("no ctx");
     }
     ctx.drawImage(bitmap, 0, 0, w, h);
-    bitmap.close?.();
     // JPEG MIME を明示（受信ミスマッチ防止）
     const blob = await new Promise((resolve, reject) => {
       canvas.toBlob(
@@ -336,8 +345,17 @@ export async function prepareSketchUploadFileV1(file) {
       );
     });
     return new File([blob], "sketch.jpg", { type: "image/jpeg" });
-  } catch {
+  } catch (err) {
+    console.error(err);
+    console.warn("[sketch-auto-draw] prepare upload fallback", err);
     return new File([file], "sketch.jpg", { type: fallbackType });
+  } finally {
+    // ビットマップは成否問わず解放
+    try {
+      bitmap?.close?.();
+    } catch (closeErr) {
+      console.error(closeErr);
+    }
   }
 }
 
@@ -419,6 +437,7 @@ export async function detectSketchLinesFromBlobV1(file, opts = {}) {
       paths,
     };
   } catch (err) {
+    console.error(err);
     console.warn("[sketch-auto-draw] detect failed → fallback", err, fileName);
     return {
       ok: true,

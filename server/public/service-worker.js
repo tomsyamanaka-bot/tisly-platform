@@ -2,10 +2,10 @@
  * 図面エディタ / 音声ナビ含む
  * フィールドオペ用アセットを優先キャッシュ */
 /* AI解析1500px送信ルール強制適用 */
-const SW_VERSION = "tisly-pwa-v2414-phase41";
-const OFFLINE_CACHE = "tisly-pwa-shell-v2414-phase41";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2414-phase41";
-const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2414-phase41";
+const SW_VERSION = "tisly-pwa-v2414-phase42";
+const OFFLINE_CACHE = "tisly-pwa-shell-v2414-phase42";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2414-phase42";
+const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2414-phase42";
 const ICON_V = "?v=2004";
 
 /** 図面エディタ v1 — ES module 群 */
