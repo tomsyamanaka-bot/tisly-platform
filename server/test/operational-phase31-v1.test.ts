@@ -6,7 +6,7 @@ import { describe, it } from "node:test";
 const publicDir = path.join(process.cwd(), "public");
 
 describe("Operational Phase31 — camera nav footer zoom", () => {
-  it("survey-drawing file input at body + iOS click trigger", () => {
+  it("survey-drawing uses native label for iOS file open", () => {
     const html = fs.readFileSync(path.join(publicDir, "survey-drawing-v1.html"), "utf-8");
     const js = fs.readFileSync(path.join(publicDir, "js/survey-drawing-v1.js"), "utf-8");
     const css = fs.readFileSync(path.join(publicDir, "css/survey-drawing-v1.css"), "utf-8");
@@ -17,13 +17,15 @@ describe("Operational Phase31 — camera nav footer zoom", () => {
     assert.ok(cameraIdx < scriptIdx && albumIdx < scriptIdx, "file inputs should be before script at body end");
     assert.match(html, /capture="environment"/);
     assert.match(html, /user-scalable=no/);
-    assert.match(js, /SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v19"/);
-    assert.ok(js.includes("bindPhotoTriggerButton"));
-    assert.ok(js.includes('bindPhotoTriggerButton("btn-photo-album", "survey-album-input")'));
-    assert.ok(js.includes("touchstart"));
+    assert.match(html, /<label for="survey-camera-input"/);
+    assert.match(html, /<label for="survey-album-input"/);
+    assert.match(js, /SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v20"/);
+    assert.doesNotMatch(js, /bindPhotoTriggerButton/);
+    assert.doesNotMatch(js, /input\.click\(\)/);
     assert.ok(js.includes("prepareBackgroundViaObjectUrl"));
     assert.ok(js.includes("DRAWING_BG_RASTER_STEPS"));
     assert.ok(css.includes("touch-action: manipulation"));
+    assert.ok(css.includes("z-index: 9999"));
     const inputRule = css.slice(
       css.indexOf(".survey-file-input-hidden"),
       css.indexOf(".drawing-temp-banner")
@@ -47,6 +49,6 @@ describe("Operational Phase31 — camera nav footer zoom", () => {
 
   it("service worker bumped for phase31", () => {
     const sw = fs.readFileSync(path.join(publicDir, "service-worker.js"), "utf-8");
-    assert.ok(sw.includes("tisly-pwa-v2410-phase34"));
+    assert.ok(sw.includes("tisly-pwa-v2410-phase35"));
   });
 });

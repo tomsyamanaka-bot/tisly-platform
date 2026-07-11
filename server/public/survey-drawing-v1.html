@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
   <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
   <link rel="stylesheet" href="/css/field-ops-mobile.css" />
-  <link rel="stylesheet" href="/css/survey-drawing-v1.css" />
+  <link rel="stylesheet" href="/css/survey-drawing-v1.css?v=survey-drawing-ui-v20" />
   <link rel="stylesheet" href="/css/features/drawing/drawing-editor-v1.css" />
 </head>
 <body class="tisly-friendly field-ops-touch survey-drawing-body">
@@ -45,9 +45,11 @@
     </label>
     <button type="button" class="drawing-tool-btn drawing-tool-photo" id="btn-import-photo" title="写真を背景に敷く">📷</button>
   </div>
+  <!-- iOS: JSの.click()は使わず
+       labelのforでOS直起動 -->
   <div id="drawing-photo-picker" class="drawing-photo-picker hidden" role="menu" aria-label="背景写真の取り込み">
-    <button type="button" class="drawing-photo-picker-btn" id="btn-photo-camera">📷 その場で撮影</button>
-    <button type="button" class="drawing-photo-picker-btn" id="btn-photo-album">🖼 アルバムから選択</button>
+    <label for="survey-camera-input" class="drawing-photo-picker-btn" id="btn-photo-camera">📷 その場で撮影</label>
+    <label for="survey-album-input" class="drawing-photo-picker-btn" id="btn-photo-album">🖼 アルバムから選択</label>
   </div>
 
   <div id="line-type-palette" class="line-type-palette hidden" role="listbox" aria-label="線種"></div>
@@ -106,8 +108,8 @@
     </div>
   </div>
 
-  <!-- iOS: body 直下の非表示 input
-       をタップ直後に click 連動 -->
+  <!-- labelのfor先。JS仲介なしで
+       カメラ／アルバムをOS起動 -->
   <input
     type="file"
     id="survey-camera-input"
@@ -126,6 +128,6 @@
     aria-hidden="true"
   />
 
-  <script type="module" src="/js/survey-drawing-v1.js?v=survey-drawing-ui-v19"></script>
+  <script type="module" src="/js/survey-drawing-v1.js?v=survey-drawing-ui-v20"></script>
 </body>
 </html>

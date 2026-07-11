@@ -23,8 +23,8 @@ body.survey-drawing-body .tisly-practical-topbar {
   display: none;
 }
 
-/* iOS: display:none / pointer-events:none
-   だと programmatic click が無効化される */
+/* labelのfor先。非表示でも
+   ネイティブ起動できる位置に置く */
 .survey-file-input-hidden {
   position: fixed;
   left: 0;
@@ -34,6 +34,7 @@ body.survey-drawing-body .tisly-practical-topbar {
   opacity: 0.01;
   overflow: hidden;
   z-index: 9999;
+  pointer-events: auto;
 }
 
 .drawing-temp-banner {
@@ -166,6 +167,8 @@ body.survey-drawing-body .tisly-practical-topbar {
   pointer-events: auto;
 }
 
+/* 写真ピッカーは最前面固定。
+   図面キャンバスの裏に隠さない */
 .drawing-photo-picker {
   display: flex;
   flex-wrap: wrap;
@@ -175,7 +178,7 @@ body.survey-drawing-body .tisly-practical-topbar {
   flex-shrink: 0;
   justify-content: center;
   position: relative;
-  z-index: 100;
+  z-index: 9999;
   pointer-events: auto;
 }
 
@@ -186,13 +189,21 @@ body.survey-drawing-body .tisly-practical-topbar {
   right: 0.35rem;
   border-radius: 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  z-index: 9999;
+  pointer-events: auto;
 }
 
 .drawing-photo-picker.hidden {
   display: none;
 }
 
+/* label自体をボタン見た目に。
+   JS無しでinputを直接起動 */
 .drawing-photo-picker-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
   flex: 1;
   min-width: 9rem;
   min-height: 52px;
@@ -205,8 +216,9 @@ body.survey-drawing-body .tisly-practical-topbar {
   cursor: pointer;
   touch-action: manipulation;
   position: relative;
-  z-index: 101;
+  z-index: 9999;
   pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .drawing-tool-btn.active {

@@ -20,7 +20,7 @@ import {
   updateOfflineResilienceBadgeV1,
 } from "./offline-resilience-v1.js";
 
-export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v19";
+export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v20";
 /** タッチ配置時に指で隠れないよう上へずらす（画面px） */
 const PLOT_TOUCH_OFFSET_Y = 32;
 export const SURVEY_DRAWING_TEMP_BANNER =
@@ -833,10 +833,16 @@ function wireSurveyFileInput() {
     photoPickerOpen = false;
     togglePhotoPicker(false);
   };
+  // labelタップで開いた時刻を記録し
+  // focus復帰でキャンセル判定する
+  const onInputActivate = () => {
+    photoPickerFileOpenedAt = Date.now();
+  };
   for (const id of ["survey-camera-input", "survey-album-input"]) {
     const input = $(id);
     input?.addEventListener("change", handleSurveyFileSelected);
     input?.addEventListener("cancel", onCancel);
+    input?.addEventListener("click", onInputActivate);
   }
 }
 
@@ -875,43 +881,6 @@ function syncMaterialBarUi() {
 function photoRefsFromSketch() {
   if (!sketch?.backgroundImageUrl) return [];
   return [{ url: sketch.backgroundImageUrl, path: sketch.backgroundImagePath || null }];
-}
-
-/**
- * メニューボタンと専用 input を
- * 同一イベント内で直接 click 連動
- * @param {string} btnId
- * @param {string} inputId
- */
-function bindPhotoTriggerButton(btnId, inputId) {
-  const btn = $(btnId);
-  const input = $(inputId);
-  if (!btn || !input) return;
-  const open = (ev) => {
-    ev.preventDefault();
-    ev.stopPropagation();
-    // iOS: 非同期を挟まず
-    // 同一コールバック内で click
-    try {
-      input.value = "";
-      photoPickerFileOpenedAt = Date.now();
-      input.click();
-    } catch (e) {
-      setStatus(`写真選択を開けません: ${e?.message || e}`);
-    }
-  };
-  btn.addEventListener(
-    "touchstart",
-    (ev) => {
-      if (ev.touches.length > 1) return;
-      open(ev);
-    },
-    { passive: false }
-  );
-  btn.addEventListener("click", (ev) => {
-    if (ev.pointerType === "touch") return;
-    open(ev);
-  });
 }
 
 function saveSketchLocal() {
@@ -2349,8 +2318,8 @@ function wireEvents() {
 
   bindImportPhotoButton();
   wirePhotoPickerShell();
-  bindPhotoTriggerButton("btn-photo-camera", "survey-camera-input");
-  bindPhotoTriggerButton("btn-photo-album", "survey-album-input");
+  // labelのforでOS直起動。
+  // JSの.click()連動は使わない
   wireSurveyFileInput();
   $("btn-undo")?.addEventListener("click", () => undoLastStroke());
 
