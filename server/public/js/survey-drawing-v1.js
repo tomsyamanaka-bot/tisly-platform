@@ -68,6 +68,7 @@ import {
   buildFallbackOuterFramePaths,
   detectSketchLinesFromBlobV1,
   isSketchNotFoundError,
+  prepareSketchUploadFileV1,
 } from "./features/drawing/survey-sketch-auto-draw-v1.js";
 
 function $(id) {
@@ -1749,8 +1750,18 @@ async function importBackground(file) {
   // 生 File で端末内AI自動作図（表示と分離）
   await runClientAutoDrawFromFile(file);
 
-  // 一時図面は端末表示のみで十分
+  // サーバ AI 作図は FormData で必ず送る
+  // （一時図面でも画像解析は実行）
+  const serverDrawPromise = runServerAutoDrawLines(file, file.name).catch(
+    (err) => {
+      console.warn("[survey-drawing] server auto-draw", err);
+      return null;
+    }
+  );
+
+  // 一時図面は背景APIをスキップし作図のみ
   if (isLocalOnlyMode || isTempDrawingId(sketchId)) {
+    await serverDrawPromise;
     setStatus("背景写真を取り込み・自動作図しました（端末内）");
     return;
   }
@@ -1761,6 +1772,7 @@ async function importBackground(file) {
     imageBase64 = await fileToBase64DataUrl(file);
   } catch (readErr) {
     console.warn("[survey-drawing] base64 read skipped", readErr);
+    await serverDrawPromise;
     setStatus("背景写真を取り込みました（端末内表示）");
     return;
   }
@@ -1769,7 +1781,7 @@ async function importBackground(file) {
   const bgPayload = {
     sketchId,
     imageBase64,
-    fileName: file.name,
+    fileName: file.name || "sketch.jpg",
     mimeType,
   };
 
@@ -1787,7 +1799,7 @@ async function importBackground(file) {
       `/api/survey/v1/drawing-sketches/${encodeURIComponent(sketchId)}/background`,
       {
         imageBase64,
-        fileName: file.name,
+        fileName: file.name || "sketch.jpg",
         mimeType,
         canvasWidth: stageSize.w,
         canvasHeight: stageSize.h,
@@ -1798,19 +1810,21 @@ async function importBackground(file) {
       // サーバURLへ差し替え（表示は引き続きCSS）
       await setupBgImage(sketch.backgroundImageUrl);
     }
-    // サーバ側でも線検出を補強（失敗しても端末結果を維持）
-    await runServerAutoDrawLines(imageBase64, file.name).catch(() => {});
+    await serverDrawPromise;
     setStatus("背景写真を取り込み・自動作図しました");
     syncMaterialBarUi();
     await loadSpecPhotoSlotsForDrawing();
   } catch (e) {
-    // sketch not found は端末内モードへ落として続行
+    // sketch not found でも FormData 作図は待つ
+    await serverDrawPromise;
     if (isSketchNotFoundError(e)) {
       isLocalOnlyMode = true;
       isTempMode = true;
       sketch.backgroundImageUrl = displayUrl;
       markDirty();
-      setStatus("図面未登録のため端末内で自動作図を維持します");
+      setStatus(
+        `図面未登録のため端末内で自動作図を維持します（${file.name || "sketch.jpg"}）`
+      );
       return;
     }
     sketch.backgroundImageUrl = displayUrl;
@@ -1823,7 +1837,7 @@ async function importBackground(file) {
 
 /**
  * 生 File から間取り線を検出し layers へ反映
- * 線0本でも外枠フォールバックで正常着地
+ * 2本未満のときだけ外枠へ落とす
  * @param {Blob} file
  */
 async function runClientAutoDrawFromFile(file) {
@@ -1833,12 +1847,14 @@ async function runClientAutoDrawFromFile(file) {
     const result = await detectSketchLinesFromBlobV1(file, {
       canvasWidth: stageSize.w || layers.canvasWidth || 800,
       canvasHeight: stageSize.h || layers.canvasHeight || 600,
-      fileName: file.name,
+      fileName: file.name || "sketch.jpg",
     });
     applyAutoDrawnPaths(result.paths);
     const n = result.paths?.length ?? 0;
     if (result.usedFallback) {
-      setStatus(`自動作図（外枠フォールバック）· ${n}本`);
+      setStatus(
+        `自動作図（外枠フォールバック）· ${n}本（${result.fileName || "sketch.jpg"}）`
+      );
     } else {
       setStatus(`自動作図完了 · 間取り線 ${n} 本`);
     }
@@ -1851,30 +1867,50 @@ async function runClientAutoDrawFromFile(file) {
         stageSize.h || 600
       )
     );
-    setStatus("自動作図（外枠フォールバック）を適用しました");
+    setStatus(
+      `自動作図（外枠フォールバック）を適用しました（${file?.name || "sketch.jpg"}）`
+    );
   }
 }
 
 /**
- * サーバ auto-draw-lines API（生 Base64 優先）
- * @param {string} imageBase64
+ * サーバ auto-draw-lines API
+ * FormData で file=sketch.jpg を明示送信
+ * @param {Blob} file
  * @param {string} fileName
  */
-async function runServerAutoDrawLines(imageBase64, fileName) {
-  if (!sketchId || isLocalOnlyMode || isTempDrawingId(sketchId)) return;
-  if (!isNetworkOnlineV1()) return;
-  const data = await api(
-    "POST",
-    `/api/survey/v1/drawing-sketches/${encodeURIComponent(sketchId)}/auto-draw-lines`,
-    {
-      imageBase64,
-      fileName,
-      canvasWidth: stageSize.w,
-      canvasHeight: stageSize.h,
-      applyToCanvas: true,
-    }
+async function runServerAutoDrawLines(file, fileName) {
+  if (!file || !(file instanceof Blob) || file.size <= 0) return null;
+  if (!isNetworkOnlineV1()) return null;
+
+  // 一時IDでも解析用に送る（サーバは sketch 無しでも検出）
+  const apiSketchId =
+    sketchId && !isTempDrawingId(sketchId) ? sketchId : "ephemeral-auto-draw";
+
+  const uploadFile = await prepareSketchUploadFileV1(file);
+  const formData = new FormData();
+  // ファイル名・MIME を明示（iPhone対策）
+  formData.append("file", uploadFile, "sketch.jpg");
+  formData.append("image", uploadFile, "sketch.jpg");
+  formData.append("fileName", fileName || "sketch.jpg");
+  formData.append("canvasWidth", String(stageSize.w || 800));
+  formData.append("canvasHeight", String(stageSize.h || 600));
+  formData.append("applyToCanvas", "true");
+
+  const token = sessionStorage.getItem(TOKEN_KEY);
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  // Content-Type は付けない（boundary 自動）
+
+  const res = await fetch(
+    `/api/survey/v1/drawing-sketches/${encodeURIComponent(apiSketchId)}/auto-draw-lines`,
+    { method: "POST", headers, body: formData }
   );
-  if (data.sketch?.layers) {
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.error || String(res.status));
+  }
+
+  if (data.sketch?.layers && data.sketchFound) {
     layers = migrateLayers(
       data.sketch.layers,
       data.sketch.layers.canvasWidth,
@@ -1884,16 +1920,41 @@ async function runServerAutoDrawLines(imageBase64, fileName) {
     renderAll();
     markDirty();
   } else if (data.lineDetect?.paths?.length) {
-    applyAutoDrawnPaths(data.lineDetect.paths);
+    const usedFb = Boolean(data.lineDetect.usedFallback);
+    const paths = data.lineDetect.paths.map((p) => ({
+      ...p,
+      autoDrawn: true,
+      fallbackFrame: usedFb,
+    }));
+    if (!usedFb) {
+      // 実検出成功時は端末側の外枠を捨てる
+      layers.paths = (layers.paths ?? []).filter(
+        (p) => !p?.fallbackFrame && !p?.autoDrawn
+      );
+    }
+    applyAutoDrawnPaths(paths);
+    if (!usedFb) {
+      setStatus(
+        `自動作図完了 · 間取り線 ${paths.length} 本（サーバ）`
+      );
+    }
   }
+  return data;
 }
 
 /**
  * 自動作図パスを layers へマージして再描画
+ * 実検出時は外枠フォールバックを置き換える
  * @param {Array<object>} paths
+ * @param {{ replaceFallback?: boolean }} opts
  */
-function applyAutoDrawnPaths(paths) {
+function applyAutoDrawnPaths(paths, opts = {}) {
   if (!Array.isArray(paths) || !paths.length) return;
+  const hasRealWalls = paths.some((p) => !p?.fallbackFrame);
+  if (opts.replaceFallback !== false && hasRealWalls) {
+    // 外枠だけ残っている場合は実線で置換
+    layers.paths = (layers.paths ?? []).filter((p) => !p?.fallbackFrame);
+  }
   const existing = new Set((layers.paths ?? []).map((p) => p.id));
   for (const p of paths) {
     if (!p?.id || existing.has(p.id)) continue;
@@ -1905,6 +1966,8 @@ function applyAutoDrawnPaths(paths) {
       width: p.width || 3,
       points: p.points || [],
       lengthPx: p.lengthPx || pathLength(p.points || []),
+      fallbackFrame: Boolean(p.fallbackFrame),
+      autoDrawn: true,
     });
   }
   renderAll();
@@ -2279,7 +2342,9 @@ function wireEvents() {
         applyAutoDrawnPaths(
           buildFallbackOuterFramePaths(stageSize.w || 800, stageSize.h || 600)
         );
-        setStatus("図面未登録のため外枠フォールバックで作図しました");
+        setStatus(
+          `図面未登録のため外枠フォールバックで作図しました（${sketch?.backgroundImagePath?.split("/").pop() || "sketch.jpg"}）`
+        );
         return;
       }
       setStatus(e.message || "AI解析に失敗しました");

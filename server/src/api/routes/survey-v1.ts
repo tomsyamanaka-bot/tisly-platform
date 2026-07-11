@@ -60,7 +60,15 @@ import {
   mapGridOcrMemosToSurveyNotesV1,
   runSurveyGridOcrWithLineDetectV1,
 } from "../../survey/survey-grid-ocr-v1.js";
-import { detectSketchLinesFromBase64V1 } from "../../survey/survey-sketch-line-detect-v1.js";
+import {
+  detectSketchLinesFromBase64V1,
+  detectSketchLinesFromBufferV1,
+} from "../../survey/survey-sketch-line-detect-v1.js";
+import {
+  parseMultipartBufferV1,
+  pickMultipartImageV1,
+  readRequestBodyBufferV1,
+} from "../../survey/multipart-image-v1.js";
 import { postSymbolCountsToAiEstimateEngineV2 } from "../../master/ai-estimate-engine-v2.js";
 import { syncFieldCheckAfterDrawingSaveV1 } from "../../field-ops/field-check-drawing-sync-v1.js";
 
@@ -601,17 +609,53 @@ surveyV1Router.post(
   }
 );
 
-/** 生画像 Base64 から間取り線を自動作図
- * 線0本でも外枠フォールバックで正常着地 */
+/** FormData(file) / Base64 から間取り線を自動作図
+ * 画像が届いたら必ず輪郭抽出を実行する */
 surveyV1Router.post(
   "/drawing-sketches/:sketchId/auto-draw-lines",
   ...surveyV1Auth,
   async (req: AuthedRequest, res) => {
     if (!assertSurveyRole(req, res)) return;
     const sketchId = String(req.params.sketchId);
-    const body = req.body ?? {};
-    const sketch = getSurveyDrawingSketchV1(sketchId);
+    const contentType = String(req.headers["content-type"] || "");
+    const isMultipart = /multipart\/form-data/i.test(contentType);
 
+    // multipart は JSON 未パースのため生ボディを読む
+    let body: Record<string, unknown> = (req.body ?? {}) as Record<
+      string,
+      unknown
+    >;
+    let uploadBuffer: Buffer | null = null;
+    let uploadFileName: string | null = null;
+
+    if (isMultipart) {
+      try {
+        const raw = await readRequestBodyBufferV1(req);
+        const parsed = parseMultipartBufferV1(raw, contentType);
+        body = { ...parsed.fields };
+        const part = pickMultipartImageV1(parsed);
+        if (part) {
+          uploadBuffer = part.data;
+          uploadFileName = part.fileName || "sketch.jpg";
+          // MIME 不正でも JPEG 名で解析継続
+          if (
+            !part.mimeType.startsWith("image/") &&
+            part.data.length > 32
+          ) {
+            uploadFileName = uploadFileName.replace(/\.\w+$/, "") + ".jpg";
+          }
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        res.status(400).json({
+          error: msg,
+          code: "MULTIPART_PARSE_FAILED",
+        });
+        return;
+      }
+    }
+
+    const sketch = getSurveyDrawingSketchV1(sketchId);
     const canvasW =
       Number(body.canvasWidth) ||
       sketch?.layers.canvasWidth ||
@@ -621,11 +665,21 @@ surveyV1Router.post(
       sketch?.layers.canvasHeight ||
       600;
     const fileName =
-      body.fileName != null ? String(body.fileName) : null;
+      uploadFileName ??
+      (body.fileName != null ? String(body.fileName) : null);
+    const applyToCanvas = String(body.applyToCanvas ?? "true") !== "false";
 
     let lineResult;
-    if (body.imageBase64) {
-      // クライアント生 Blob 経路（優先）
+    if (uploadBuffer && uploadBuffer.length > 32) {
+      // FormData file 経路（本命）
+      lineResult = await detectSketchLinesFromBufferV1({
+        buffer: uploadBuffer,
+        fileName: fileName ?? "sketch.jpg",
+        canvasWidth: canvasW,
+        canvasHeight: canvasH,
+      });
+    } else if (body.imageBase64) {
+      // JSON Base64 互換経路
       lineResult = await detectSketchLinesFromBase64V1({
         imageBase64: String(body.imageBase64),
         fileName,
@@ -638,12 +692,15 @@ surveyV1Router.post(
       );
       lineResult = await detectSketchLinesFromImagePathV1({
         imagePath: sketch.backgroundImagePath,
-        fileName: fileName ?? sketch.backgroundImagePath.split("/").pop() ?? null,
+        fileName:
+          fileName ??
+          sketch.backgroundImagePath.split("/").pop() ??
+          null,
         canvasWidth: canvasW,
         canvasHeight: canvasH,
       });
     } else {
-      // スケッチ未登録でも外枠で正常系着地
+      // 画像未着のみ外枠（sketch 有無は問わない）
       const { buildFallbackOuterFramePathsV1 } = await import(
         "../../survey/survey-sketch-line-detect-v1.js"
       );
@@ -651,14 +708,14 @@ surveyV1Router.post(
         schemaVersion: 1 as const,
         ok: true as const,
         usedFallback: true,
-        reason: "sketch_not_found",
+        reason: "empty_blob",
         fileName,
         paths: buildFallbackOuterFramePathsV1(canvasW, canvasH),
       };
     }
 
     let sketchAfter = sketch;
-    if (sketch && body.applyToCanvas !== false && lineResult.paths.length) {
+    if (sketch && applyToCanvas && lineResult.paths.length) {
       try {
         sketchAfter = mergeAutoPlotIntoSurveyDrawingV1(sketchId, {
           symbols: [],
@@ -666,7 +723,7 @@ surveyV1Router.post(
           paths: lineResult.paths,
         });
       } catch {
-        // マージ失敗でも検出結果は返す（フリーズ回避）
+        // マージ失敗でも検出結果は返す
         sketchAfter = sketch;
       }
     }
@@ -675,6 +732,8 @@ surveyV1Router.post(
       ok: true,
       lineDetect: lineResult,
       sketch: sketchAfter,
+      // sketch 未登録でも 200（検出優先）
+      sketchFound: Boolean(sketch),
     });
   }
 );
