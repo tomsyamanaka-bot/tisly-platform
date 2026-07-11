@@ -20,7 +20,7 @@ import {
   updateOfflineResilienceBadgeV1,
 } from "./offline-resilience-v1.js";
 
-export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v29";
+export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v30";
 /** タッチ配置時に指で隠れないよう上へずらす（画面px） */
 const PLOT_TOUCH_OFFSET_Y = 32;
 /** 写真解析の上限（超えたらUI解放） */
@@ -821,35 +821,37 @@ function undoLastStroke() {
   setStatus("元に戻しました");
 }
 
+/** 要素を display:none で物理撤去
+   透明膜を残さない（iOS対策） */
+function forceNukeTouchBlockerEl(el) {
+  if (!el) return;
+  el.classList.add("hidden");
+  el.setAttribute("aria-hidden", "true");
+  // インラインでCSSより優先して消す
+  el.style.setProperty("display", "none", "important");
+  el.style.setProperty("pointer-events", "none", "important");
+  el.style.setProperty("visibility", "hidden", "important");
+  el.style.setProperty("z-index", "-1", "important");
+}
+
 /** ピッカー／遮断幕を画面から撤去
    透明タッチブロックを残さない */
 function dismissPhotoPickerChrome() {
   photoPickerOpen = false;
   document.body.classList.remove("drawing-photo-picker-open");
-  const picker = $("drawing-photo-picker");
-  if (picker) {
-    picker.classList.add("hidden");
-    picker.setAttribute("aria-hidden", "true");
-    // インラインで物理非表示を強制
-    picker.style.display = "none";
-    picker.style.pointerEvents = "none";
-    picker.style.visibility = "hidden";
-  }
-  const backdrop = $("drawing-photo-picker-backdrop");
-  if (backdrop) {
-    backdrop.classList.add("hidden");
-    backdrop.setAttribute("aria-hidden", "true");
-    backdrop.style.display = "none";
-    backdrop.style.pointerEvents = "none";
-  }
+  // 親コンテナごと物理 display:none
+  forceNukeTouchBlockerEl($("drawing-photo-picker"));
+  forceNukeTouchBlockerEl($("drawing-photo-picker-backdrop"));
   // 隠しfileもキャンバスを吸わない
   for (const id of ["survey-camera-input", "survey-album-input"]) {
     const input = $(id);
     if (!input) continue;
-    input.style.pointerEvents = "none";
+    input.style.setProperty("pointer-events", "none", "important");
   }
   const form = $("survey-photo-pick-form");
-  if (form) form.style.pointerEvents = "none";
+  if (form) {
+    form.style.setProperty("pointer-events", "none", "important");
+  }
 }
 
 /** ピッカーと暗い遮断幕を前面表示 */
@@ -860,24 +862,33 @@ function showPhotoPickerChrome() {
   if (backdrop) {
     backdrop.classList.remove("hidden");
     backdrop.setAttribute("aria-hidden", "false");
-    backdrop.style.display = "";
+    // 物理非表示を解除して前面へ復帰
+    backdrop.style.removeProperty("display");
+    backdrop.style.removeProperty("pointer-events");
+    backdrop.style.removeProperty("visibility");
+    backdrop.style.removeProperty("z-index");
+    backdrop.style.display = "block";
     backdrop.style.pointerEvents = "auto";
   }
   const picker = $("drawing-photo-picker");
   if (picker) {
     picker.classList.remove("hidden");
     picker.setAttribute("aria-hidden", "false");
-    picker.style.display = "";
+    picker.style.removeProperty("display");
+    picker.style.removeProperty("pointer-events");
+    picker.style.removeProperty("visibility");
+    picker.style.removeProperty("z-index");
+    picker.style.display = "flex";
     picker.style.pointerEvents = "auto";
-    picker.style.visibility = "";
+    picker.style.visibility = "visible";
   }
   for (const id of ["survey-camera-input", "survey-album-input"]) {
     const input = $(id);
     if (!input) continue;
-    input.style.pointerEvents = "";
+    input.style.removeProperty("pointer-events");
   }
   const form = $("survey-photo-pick-form");
-  if (form) form.style.pointerEvents = "";
+  if (form) form.style.removeProperty("pointer-events");
 }
 
 function togglePhotoPicker(show) {
@@ -923,18 +934,40 @@ function notifySurveyPhotoLoadError(fileName, detail) {
   dismissPhotoPickerChrome();
 }
 
+/** 取込ロック幕を前面表示
+   （処理中だけタッチを遮断） */
+function showPhotoImportLockOverlay() {
+  document.body.classList.add("drawing-photo-import-busy");
+  const lock = $("drawing-photo-import-lock");
+  if (!lock) return;
+  lock.classList.remove("hidden");
+  lock.setAttribute("aria-hidden", "false");
+  lock.style.setProperty("display", "block", "important");
+  lock.style.setProperty("pointer-events", "auto", "important");
+  lock.style.setProperty("visibility", "visible", "important");
+  lock.style.setProperty("z-index", "10000", "important");
+}
+
 /** 読み込み中表示と画面ロックを
    成否問わず必ず解除する */
 function releasePhotoImportUiLock() {
   photoImportBusy = false;
+  // busyクラスを先に剥がしCSSも解放
   document.body.classList.remove("drawing-photo-import-busy");
+  // 取込ロック幕を物理 display:none
+  forceNukeTouchBlockerEl($("drawing-photo-import-lock"));
+  // ピッカー／暗い遮断幕も全滅
   dismissPhotoPickerChrome();
   setTool("pen");
   const el = $("drawing-status");
   const text = el?.textContent || "";
-  // 読み込み中表示が残っていれば消す
-  if (text.includes("読み込み中")) {
+  // 読み込み中表示は無条件で書き換える
+  if (!text || text.includes("読み込み中")) {
     setStatus("操作できます。写真を選び直すか描画を続けてください");
+  }
+  // ステータス帯もタッチを通す
+  if (el) {
+    el.style.setProperty("pointer-events", "none", "important");
   }
 }
 
@@ -976,10 +1009,13 @@ async function handleSurveyFileSelected(ev) {
   // 二重起動を避け、読み込み中を明示
   if (photoImportBusy) {
     setStatus(`読み込み中…（${file.name || "写真"}）`);
+    // 二重起動時も遮断幕だけは撤去
+    dismissPhotoPickerChrome();
     return;
   }
   photoImportBusy = true;
-  document.body.classList.add("drawing-photo-import-busy");
+  // 処理中だけ全面ロック幕を出す
+  showPhotoImportLockOverlay();
   setStatus(`読み込み中…（${file.name || "写真"}）`);
   try {
     if (!(file instanceof Blob) || file.size <= 0) {
@@ -1031,7 +1067,12 @@ async function handleSurveyFileSelected(ev) {
   } finally {
     // 成功・失敗・例外・タイムアウト問わず解放
     if (input) input.value = "";
+    // フラグ解除＋DOM物理 display:none
     releasePhotoImportUiLock();
+    // 念のためもう一度全遮断幕を粉砕
+    forceNukeTouchBlockerEl($("drawing-photo-import-lock"));
+    forceNukeTouchBlockerEl($("drawing-photo-picker-backdrop"));
+    forceNukeTouchBlockerEl($("drawing-photo-picker"));
   }
 }
 

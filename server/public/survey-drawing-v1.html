@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
   <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
   <link rel="stylesheet" href="/css/field-ops-mobile.css" />
-  <link rel="stylesheet" href="/css/survey-drawing-v1.css?v=survey-drawing-ui-v29" />
+  <link rel="stylesheet" href="/css/survey-drawing-v1.css?v=survey-drawing-ui-v30" />
   <link rel="stylesheet" href="/css/features/drawing/drawing-editor-v1.css" />
 </head>
 <body class="tisly-friendly field-ops-touch survey-drawing-body">
@@ -53,6 +53,16 @@
     class="drawing-photo-picker-backdrop hidden"
     aria-hidden="true"
   ></div>
+  <!-- 写真取込中の全面タッチ遮断幕
+       finallyで物理 display:none する -->
+  <div
+    id="drawing-photo-import-lock"
+    class="drawing-photo-import-lock hidden"
+    aria-hidden="true"
+    aria-live="polite"
+  >
+    <span class="drawing-photo-import-lock-label">読み込み中…</span>
+  </div>
   <div id="drawing-photo-picker" class="drawing-photo-picker hidden" role="menu" aria-label="背景写真の取り込み" aria-hidden="true">
     <label for="survey-camera-input" class="drawing-photo-picker-btn" id="btn-photo-camera">📷 その場で撮影</label>
     <label for="survey-album-input" class="drawing-photo-picker-btn" id="btn-photo-album">🖼 アルバムから選択</label>
@@ -140,6 +150,6 @@
     <button type="button" hidden aria-hidden="true" tabindex="-1" id="survey-photo-form-dummy-btn"></button>
   </form>
 
-  <script type="module" src="/js/survey-drawing-v1.js?v=survey-drawing-ui-v29"></script>
+  <script type="module" src="/js/survey-drawing-v1.js?v=survey-drawing-ui-v30"></script>
 </body>
 </html>
