@@ -268,4 +268,24 @@ export const config = {
       return Number(env("SECURITY_UNLOCK_COOLDOWN_SEC", "120"));
     },
   },
+  /**
+   * 現調スケッチ壁輪郭 Vision（Gemini）
+   * キー未設定時は mock プロバイダへ自動フォールバック
+   */
+  gemini: {
+    get apiKey() {
+      return env("GEMINI_API_KEY");
+    },
+    get sketchModel() {
+      return env("GEMINI_SKETCH_MODEL", "gemini-2.0-flash");
+    },
+    get sketchProvider() {
+      const p = env(
+        "SURVEY_SKETCH_AI_SVG_PROVIDER",
+        "auto"
+      ).toLowerCase();
+      if (p === "mock" || p === "gemini") return p;
+      return "auto" as const;
+    },
+  },
 };

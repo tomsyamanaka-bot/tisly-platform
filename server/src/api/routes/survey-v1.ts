@@ -61,9 +61,10 @@ import {
   runSurveyGridOcrWithLineDetectV1,
 } from "../../survey/survey-grid-ocr-v1.js";
 import {
-  detectSketchLinesFromBase64V1,
-  detectSketchLinesFromBufferV1,
-} from "../../survey/survey-sketch-line-detect-v1.js";
+  extractAiWallSvgFromBase64V1,
+  extractAiWallSvgFromBufferV1,
+  extractAiWallSvgFromImagePathV1,
+} from "../../survey/survey-sketch-ai-svg-v1.js";
 import {
   parseMultipartBufferV1,
   pickMultipartImageV1,
@@ -609,8 +610,10 @@ surveyV1Router.post(
   }
 );
 
-/** FormData(file) / Base64 から間取り線を自動作図
- * 画像が届いたら必ず輪郭抽出を実行する */
+/**
+ * FormData(file) / Base64 から壁輪郭 SVG を自動抽出
+ * Vision API（Gemini）経路 — OpenCV/Canny は使わない
+ */
 surveyV1Router.post(
   "/drawing-sketches/:sketchId/auto-draw-lines",
   ...surveyV1Auth,
@@ -627,6 +630,7 @@ surveyV1Router.post(
     >;
     let uploadBuffer: Buffer | null = null;
     let uploadFileName: string | null = null;
+    let uploadMime: string | null = null;
 
     if (isMultipart) {
       try {
@@ -637,12 +641,14 @@ surveyV1Router.post(
         if (part) {
           uploadBuffer = part.data;
           uploadFileName = part.fileName || "sketch.jpg";
+          uploadMime = part.mimeType || null;
           // MIME 不正でも JPEG 名で解析継続
           if (
             !part.mimeType.startsWith("image/") &&
             part.data.length > 32
           ) {
-            uploadFileName = uploadFileName.replace(/\.\w+$/, "") + ".jpg";
+            uploadFileName =
+              uploadFileName.replace(/\.\w+$/, "") + ".jpg";
           }
         }
       } catch (e) {
@@ -667,30 +673,27 @@ surveyV1Router.post(
     const fileName =
       uploadFileName ??
       (body.fileName != null ? String(body.fileName) : null);
-    const applyToCanvas = String(body.applyToCanvas ?? "true") !== "false";
 
-    let lineResult;
+    let aiResult;
     if (uploadBuffer && uploadBuffer.length > 32) {
       // FormData file 経路（本命）
-      lineResult = await detectSketchLinesFromBufferV1({
+      aiResult = await extractAiWallSvgFromBufferV1({
         buffer: uploadBuffer,
+        mimeType: uploadMime,
         fileName: fileName ?? "sketch.jpg",
         canvasWidth: canvasW,
         canvasHeight: canvasH,
       });
     } else if (body.imageBase64) {
       // JSON Base64 互換経路
-      lineResult = await detectSketchLinesFromBase64V1({
+      aiResult = await extractAiWallSvgFromBase64V1({
         imageBase64: String(body.imageBase64),
         fileName,
         canvasWidth: canvasW,
         canvasHeight: canvasH,
       });
     } else if (sketch?.backgroundImagePath) {
-      const { detectSketchLinesFromImagePathV1 } = await import(
-        "../../survey/survey-sketch-line-detect-v1.js"
-      );
-      lineResult = await detectSketchLinesFromImagePathV1({
+      aiResult = await extractAiWallSvgFromImagePathV1({
         imagePath: sketch.backgroundImagePath,
         fileName:
           fileName ??
@@ -700,39 +703,25 @@ surveyV1Router.post(
         canvasHeight: canvasH,
       });
     } else {
-      // 画像未着のみ外枠（sketch 有無は問わない）
-      const { buildFallbackOuterFramePathsV1 } = await import(
-        "../../survey/survey-sketch-line-detect-v1.js"
-      );
-      lineResult = {
-        schemaVersion: 1 as const,
-        ok: true as const,
-        usedFallback: true,
-        reason: "empty_blob",
+      // 画像未着 — mock ダミー SVG（sketch 有無は問わない）
+      aiResult = await extractAiWallSvgFromBufferV1({
+        buffer: Buffer.alloc(0),
         fileName,
-        paths: buildFallbackOuterFramePathsV1(canvasW, canvasH),
-      };
-    }
-
-    let sketchAfter = sketch;
-    if (sketch && applyToCanvas && lineResult.paths.length) {
-      try {
-        sketchAfter = mergeAutoPlotIntoSurveyDrawingV1(sketchId, {
-          symbols: [],
-          notes: [],
-          paths: lineResult.paths,
-        });
-      } catch {
-        // マージ失敗でも検出結果は返す
-        sketchAfter = sketch;
-      }
+        canvasWidth: canvasW,
+        canvasHeight: canvasH,
+      });
     }
 
     res.json({
       ok: true,
-      lineDetect: lineResult,
-      sketch: sketchAfter,
-      // sketch 未登録でも 200（検出優先）
+      aiWallSvg: aiResult.aiWallSvg,
+      provider: aiResult.provider,
+      usedMock: aiResult.usedMock,
+      reason: aiResult.reason,
+      fileName: aiResult.fileName,
+      schemaVersion: aiResult.schemaVersion,
+      sketch,
+      // sketch 未登録でも 200（抽出優先）
       sketchFound: Boolean(sketch),
     });
   }
