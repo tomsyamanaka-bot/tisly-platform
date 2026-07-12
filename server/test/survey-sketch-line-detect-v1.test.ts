@@ -73,6 +73,49 @@ describe("survey-sketch-line-detect-v1", () => {
     );
   });
 
+  it("方眼紙＋影ムラでも手書き壁を実検出できる", async () => {
+    // 細い方眼 + グラデーション影 + 太い手書き矩形
+    const svg = Buffer.from(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="480" height="360">
+        <defs>
+          <linearGradient id="shade" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#f8f8f8"/>
+            <stop offset="100%" stop-color="#d0d0d0"/>
+          </linearGradient>
+        </defs>
+        <rect width="480" height="360" fill="url(#shade)"/>
+        ${Array.from({ length: 24 }, (_, i) => {
+          const x = 20 + i * 18;
+          return `<line x1="${x}" y1="10" x2="${x}" y2="350" stroke="#c8c8c8" stroke-width="1"/>`;
+        }).join("")}
+        ${Array.from({ length: 18 }, (_, i) => {
+          const y = 20 + i * 18;
+          return `<line x1="10" y1="${y}" x2="470" y2="${y}" stroke="#c8c8c8" stroke-width="1"/>`;
+        }).join("")}
+        <rect x="60" y="50" width="340" height="250" fill="none" stroke="#222" stroke-width="7"/>
+        <line x1="230" y1="50" x2="230" y2="300" stroke="#222" stroke-width="6"/>
+        <line x1="60" y1="170" x2="230" y2="170" stroke="#333" stroke-width="5"/>
+      </svg>`
+    );
+    const png = await sharp(svg).png().toBuffer();
+    const result = await detectSketchLinesFromBufferV1({
+      buffer: png,
+      fileName: "grid-sketch.jpg",
+      canvasWidth: 800,
+      canvasHeight: 600,
+    });
+    assert.equal(result.ok, true);
+    assert.equal(
+      result.usedFallback,
+      false,
+      `grid sketch should not fallback, got reason=${result.reason} paths=${result.paths.length}`
+    );
+    assert.ok(
+      result.paths.length >= 2,
+      `expected >=2 paths on grid paper, got ${result.paths.length}`
+    );
+  });
+
   it("multipart file パートを name 付きで抽出できる", () => {
     const boundary = "----TislyBound123";
     const jpegish = Buffer.from([0xff, 0xd8, 0xff, 0xd9, ...Buffer.alloc(40, 1)]);

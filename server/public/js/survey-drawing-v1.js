@@ -20,7 +20,7 @@ import {
   updateOfflineResilienceBadgeV1,
 } from "./offline-resilience-v1.js";
 
-export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v33";
+export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v34";
 /** タッチ配置時に指で隠れないよう上へずらす（画面px） */
 const PLOT_TOUCH_OFFSET_Y = 32;
 /** 写真解析の上限（AI完了まで待機） */
@@ -319,6 +319,10 @@ let strokeColor = "#dc2626";
 let strokeWidth = 3;
 /** 消しゴムの線幅（手袋操作向けに太め） */
 const ERASER_WIDTH = 14;
+/** iOS 誤座標で長い対角線ができないよう上限 */
+const ERASER_MAX_JUMP_PX = 72;
+/** タップ判定のストローク長上限 */
+const ERASER_TAP_MAX_LEN = 36;
 let lineType = "generic";
 let viewport = { scale: 1, offsetX: 0, offsetY: 0 };
 let layers = emptyLayers();
@@ -578,28 +582,125 @@ function distPointToSegment(px, py, ax, ay, bx, by) {
   return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
 }
 
+/** 線分同士の最短距離（交差なら 0） */
+function distSegmentToSegment(ax, ay, bx, by, cx, cy, dx, dy) {
+  const abx = bx - ax;
+  const aby = by - ay;
+  const cdx = dx - cx;
+  const cdy = dy - cy;
+  const acx = cx - ax;
+  const acy = cy - ay;
+  const den = abx * cdy - aby * cdx;
+  if (Math.abs(den) > 1e-9) {
+    const t = (acx * cdy - acy * cdx) / den;
+    const u = (acx * aby - acy * abx) / den;
+    if (t >= 0 && t <= 1 && u >= 0 && u <= 1) return 0;
+  }
+  return Math.min(
+    distPointToSegment(ax, ay, cx, cy, dx, dy),
+    distPointToSegment(bx, by, cx, cy, dx, dy),
+    distPointToSegment(cx, cy, ax, ay, bx, by),
+    distPointToSegment(dx, dy, ax, ay, bx, by)
+  );
+}
+
 /**
- * 消しゴム軌跡が描画パスに触れているか
- * （触れたパスは丸ごと物理削除する）
- * @param {object} drawPath
- * @param {object} eraserStroke
+ * テレポートを繋がない消しゴム線分を作る
+ * （iOS の飛躍座標で全パスが消えるのを防ぐ）
+ * @param {Array<{x:number,y:number}>} points
  */
-function pathTouchesEraser(drawPath, eraserStroke) {
-  const aPts = drawPath?.points;
-  const bPts = eraserStroke?.points;
-  if (!aPts?.length || !bPts?.length) return false;
-  const threshold =
+function buildEraserSegments(points) {
+  /** @type {Array<[{x:number,y:number},{x:number,y:number}]>} */
+  const segs = [];
+  if (!points?.length) return segs;
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1];
+    const b = points[i];
+    if (
+      !a ||
+      !b ||
+      !Number.isFinite(a.x) ||
+      !Number.isFinite(a.y) ||
+      !Number.isFinite(b.x) ||
+      !Number.isFinite(b.y)
+    ) {
+      continue;
+    }
+    const jump = Math.hypot(b.x - a.x, b.y - a.y);
+    if (jump <= 0 || jump > ERASER_MAX_JUMP_PX) continue;
+    segs.push([a, b]);
+  }
+  return segs;
+}
+
+/** パス点列の AABB（パディング付き） */
+function pathPointsBBox(points, pad) {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const p of points) {
+    if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) continue;
+    if (p.x < minX) minX = p.x;
+    if (p.y < minY) minY = p.y;
+    if (p.x > maxX) maxX = p.x;
+    if (p.y > maxY) maxY = p.y;
+  }
+  if (!Number.isFinite(minX)) {
+    return { minX: 0, minY: 0, maxX: 0, maxY: 0 };
+  }
+  return {
+    minX: minX - pad,
+    minY: minY - pad,
+    maxX: maxX + pad,
+    maxY: maxY + pad,
+  };
+}
+
+function bboxOverlap(a, b) {
+  return !(
+    a.maxX < b.minX ||
+    a.minX > b.maxX ||
+    a.maxY < b.minY ||
+    a.minY > b.maxY
+  );
+}
+
+/** 消しゴム当たり半径（過大にしない） */
+function eraserHitThreshold(drawPath, eraserStroke) {
+  const raw =
     ((drawPath.width || strokeWidth) +
       (eraserStroke.width || ERASER_WIDTH)) /
       2 +
-    1;
+    2;
+  return Math.min(20, Math.max(6, raw));
+}
 
-  // 消しゴム各点 → 描画線分
+/**
+ * 消しゴムと描画パスの最短距離
+ * （AABB → 線分同士。全点逆引きはしない）
+ * @param {object} drawPath
+ * @param {object} eraserStroke
+ */
+function minDistPathToEraser(drawPath, eraserStroke) {
+  const aPts = drawPath?.points;
+  const bPts = eraserStroke?.points;
+  if (!aPts?.length || !bPts?.length) return Infinity;
+  const threshold = eraserHitThreshold(drawPath, eraserStroke);
+  const eraserSegs = buildEraserSegments(bPts);
+  const pathBox = pathPointsBBox(aPts, threshold);
+  const eraserBox = pathPointsBBox(bPts, threshold);
+  if (!bboxOverlap(pathBox, eraserBox)) return Infinity;
+
+  let best = Infinity;
+  // タップ（点のみ）: 消しゴム各点 → 描画線分
   for (const bp of bPts) {
+    if (!bp || !Number.isFinite(bp.x) || !Number.isFinite(bp.y)) continue;
     if (aPts.length === 1) {
-      if (Math.hypot(bp.x - aPts[0].x, bp.y - aPts[0].y) <= threshold) {
-        return true;
-      }
+      best = Math.min(
+        best,
+        Math.hypot(bp.x - aPts[0].x, bp.y - aPts[0].y)
+      );
       continue;
     }
     for (let i = 1; i < aPts.length; i++) {
@@ -611,46 +712,94 @@ function pathTouchesEraser(drawPath, eraserStroke) {
         aPts[i].x,
         aPts[i].y
       );
-      if (d <= threshold) return true;
+      if (d < best) best = d;
+      if (best <= threshold) return best;
     }
   }
-
-  // 描画各点 → 消しゴム線分（短い擦り残し防止）
-  for (const ap of aPts) {
-    if (bPts.length === 1) {
-      if (Math.hypot(ap.x - bPts[0].x, ap.y - bPts[0].y) <= threshold) {
-        return true;
+  // 連続区間のみ線分同士（テレポート区間は除外済み）
+  if (aPts.length >= 2 && eraserSegs.length) {
+    for (const [e0, e1] of eraserSegs) {
+      for (let i = 1; i < aPts.length; i++) {
+        const d = distSegmentToSegment(
+          aPts[i - 1].x,
+          aPts[i - 1].y,
+          aPts[i].x,
+          aPts[i].y,
+          e0.x,
+          e0.y,
+          e1.x,
+          e1.y
+        );
+        if (d < best) best = d;
+        if (best <= threshold) return best;
       }
-      continue;
-    }
-    for (let i = 1; i < bPts.length; i++) {
-      const d = distPointToSegment(
-        ap.x,
-        ap.y,
-        bPts[i - 1].x,
-        bPts[i - 1].y,
-        bPts[i].x,
-        bPts[i].y
-      );
-      if (d <= threshold) return true;
     }
   }
-  return false;
+  return best;
 }
 
 /**
- * 消しゴム軌跡に触れたパスを DOM/配列から完全削除
- * 消しゴム自身は残さない（上書き透明線にしない）
+ * 消しゴム軌跡が描画パスに触れているか
+ * （触れたパスは丸ごと物理削除する）
+ * @param {object} drawPath
+ * @param {object} eraserStroke
+ */
+function pathTouchesEraser(drawPath, eraserStroke) {
+  const threshold = eraserHitThreshold(drawPath, eraserStroke);
+  return minDistPathToEraser(drawPath, eraserStroke) <= threshold;
+}
+
+/** 消しゴム軌跡の長さ（テレポート除外） */
+function eraserStrokeLength(eraserStroke) {
+  const segs = buildEraserSegments(eraserStroke?.points);
+  let len = 0;
+  for (const [a, b] of segs) {
+    len += Math.hypot(b.x - a.x, b.y - a.y);
+  }
+  if (!segs.length && eraserStroke?.points?.length) {
+    return 0;
+  }
+  return len;
+}
+
+/**
+ * 触れたパスだけ splice 相当で物理削除
+ * 全消去は絶対にしない
  * @param {object} eraserStroke
  * @returns {number} 削除本数
  */
 function applyEraserPhysicalDelete(eraserStroke) {
-  const before = layers.paths.length;
-  // 触れた描画パスだけ除去。eraser 自身は残さない
-  layers.paths = stripLegacyEraserPaths(layers.paths).filter(
-    (p) => !pathTouchesEraser(p, eraserStroke)
+  const cleaned = stripLegacyEraserPaths(layers.paths);
+  const before = cleaned.length;
+  /** @type {{ id: string, dist: number }[]} */
+  const hits = [];
+  for (const p of cleaned) {
+    if (!p?.id) continue;
+    const dist = minDistPathToEraser(p, eraserStroke);
+    const threshold = eraserHitThreshold(p, eraserStroke);
+    if (dist <= threshold) {
+      hits.push({ id: p.id, dist });
+    }
+  }
+  if (!hits.length) {
+    layers.paths = cleaned;
+    return 0;
+  }
+  hits.sort((a, b) => a.dist - b.dist);
+  // 短いタップで大量ヒットは誤判定 → 最近傍の1本だけ
+  const strokeLen = eraserStrokeLength(eraserStroke);
+  const removeIds = new Set(
+    strokeLen <= ERASER_TAP_MAX_LEN && hits.length > 1
+      ? [hits[0].id]
+      : hits.map((h) => h.id)
   );
-  return before - layers.paths.length;
+  // 配列から該当 id のみ除去（一括クリア禁止）
+  const next = [];
+  for (const p of cleaned) {
+    if (!removeIds.has(p.id)) next.push(p);
+  }
+  layers.paths = next;
+  return before - next.length;
 }
 
 /** 線描画専用グループ（エディタ SVG レイヤーを壊さない） */
@@ -1423,7 +1572,11 @@ function onPointerDown(ev) {
   ev.stopPropagation();
   const wrap = $("drawing-stage-wrap");
   wrap?.setPointerCapture?.(ev.pointerId);
-  const pt = imageCoordsForPlot(ev.clientX, ev.clientY, ev.pointerType);
+  // 消しゴムは指オフセット無し（当たり判定を正確に）
+  const pt =
+    tool === "eraser"
+      ? imageCoords(ev.clientX, ev.clientY)
+      : imageCoordsForPlot(ev.clientX, ev.clientY, ev.pointerType);
 
   if (tool === "pan") {
     panStart = { x: ev.clientX - viewport.offsetX, y: ev.clientY - viewport.offsetY };

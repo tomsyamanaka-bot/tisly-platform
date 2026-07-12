@@ -80,52 +80,169 @@ function bitmapToGray(bitmap) {
     if (g < min) min = g;
     if (g > max) max = g;
   }
-  // コントラスト伸長（薄い線を拾う）
   const span = Math.max(1, max - min);
   for (let i = 0; i < gray.length; i += 1) {
-    let v = ((gray[i] - min) / span) * 255;
-    v = (v - 28) * 1.45;
+    const v = ((gray[i] - min) / span) * 255;
     gray[i] = v < 0 ? 0 : v > 255 ? 255 : v | 0;
   }
   return { gray, w, h };
 }
 
+/** 積分画像（適応的2値化用） */
+function buildIntegralImage(gray, w, h) {
+  const integ = new Float64Array((w + 1) * (h + 1));
+  for (let y = 1; y <= h; y += 1) {
+    let rowSum = 0;
+    for (let x = 1; x <= w; x += 1) {
+      rowSum += gray[(y - 1) * w + (x - 1)];
+      integ[y * (w + 1) + x] = integ[(y - 1) * (w + 1) + x] + rowSum;
+    }
+  }
+  return integ;
+}
+
+function integralRectSum(integ, w, x0, y0, x1, y1) {
+  const ww = w + 1;
+  return (
+    integ[y1 * ww + x1] -
+    integ[y0 * ww + x1] -
+    integ[y1 * ww + x0] +
+    integ[y0 * ww + x0]
+  );
+}
+
 /**
- * 簡易エッジ走査で水平・垂直セグメントを拾う
- * 閾値は薄線でも拾えるよう多段緩和
- * @param {Uint8Array} gray
- * @param {number} w
- * @param {number} h
- * @param {number} darkThreshold
- * @param {number} edgeDelta
- * @param {number} minSeg
- * @param {number} gapAllow
- * @param {boolean} requireDark
+ * 適応的2値化（照明ムラ吸収）
+ * インク=1 / 背景=0
  */
-function extractAxisSegments(
-  gray,
-  w,
-  h,
-  darkThreshold,
-  edgeDelta,
-  minSeg,
-  gapAllow,
-  requireDark
-) {
-  const edge = new Uint8Array(w * h);
-  for (let y = 1; y < h - 1; y += 1) {
-    for (let x = 1; x < w - 1; x += 1) {
-      const i = y * w + x;
-      const gx = Math.abs(gray[i + 1] - gray[i - 1]);
-      const gy = Math.abs(gray[i + w] - gray[i - w]);
-      const isEdge = gx > edgeDelta || gy > edgeDelta;
-      const isDark = gray[i] < darkThreshold;
-      if (requireDark ? isDark && isEdge : isEdge || isDark) {
-        edge[i] = 1;
+function adaptiveThresholdMean(gray, w, h, blockSize, C) {
+  const odd = blockSize % 2 === 0 ? blockSize + 1 : blockSize;
+  const r = Math.max(1, (odd - 1) >> 1);
+  const integ = buildIntegralImage(gray, w, h);
+  const out = new Uint8Array(w * h);
+  for (let y = 0; y < h; y += 1) {
+    const y0 = Math.max(0, y - r);
+    const y1 = Math.min(h, y + r + 1);
+    for (let x = 0; x < w; x += 1) {
+      const x0 = Math.max(0, x - r);
+      const x1 = Math.min(w, x + r + 1);
+      const area = (x1 - x0) * (y1 - y0);
+      const mean =
+        integralRectSum(integ, w, x0, y0, x1, y1) / Math.max(1, area);
+      out[y * w + x] = gray[y * w + x] < mean - C ? 1 : 0;
+    }
+  }
+  return out;
+}
+
+function erodeBinary(src, w, h, radius) {
+  if (radius <= 0) return src.slice();
+  const out = new Uint8Array(w * h);
+  for (let y = 0; y < h; y += 1) {
+    for (let x = 0; x < w; x += 1) {
+      let keep = 1;
+      for (let dy = -radius; dy <= radius && keep; dy += 1) {
+        const yy = y + dy;
+        if (yy < 0 || yy >= h) {
+          keep = 0;
+          break;
+        }
+        for (let dx = -radius; dx <= radius; dx += 1) {
+          const xx = x + dx;
+          if (xx < 0 || xx >= w || !src[yy * w + xx]) {
+            keep = 0;
+            break;
+          }
+        }
+      }
+      out[y * w + x] = keep;
+    }
+  }
+  return out;
+}
+
+function dilateBinary(src, w, h, radius) {
+  if (radius <= 0) return src.slice();
+  const out = new Uint8Array(w * h);
+  for (let y = 0; y < h; y += 1) {
+    for (let x = 0; x < w; x += 1) {
+      if (!src[y * w + x]) continue;
+      for (let dy = -radius; dy <= radius; dy += 1) {
+        const yy = y + dy;
+        if (yy < 0 || yy >= h) continue;
+        for (let dx = -radius; dx <= radius; dx += 1) {
+          const xx = x + dx;
+          if (xx < 0 || xx >= w) continue;
+          out[yy * w + xx] = 1;
+        }
       }
     }
   }
+  return out;
+}
 
+function morphOpen(src, w, h, radius) {
+  return dilateBinary(erodeBinary(src, w, h, radius), w, h, radius);
+}
+
+function morphClose(src, w, h, radius) {
+  return erodeBinary(dilateBinary(src, w, h, radius), w, h, radius);
+}
+
+function removeSmallComponents(src, w, h, minArea) {
+  const seen = new Uint8Array(w * h);
+  const out = src.slice();
+  const qx = new Int32Array(w * h);
+  const qy = new Int32Array(w * h);
+  for (let y = 0; y < h; y += 1) {
+    for (let x = 0; x < w; x += 1) {
+      const start = y * w + x;
+      if (!src[start] || seen[start]) continue;
+      let qh = 0;
+      let qt = 0;
+      qx[qt] = x;
+      qy[qt] = y;
+      qt += 1;
+      seen[start] = 1;
+      const cells = [];
+      while (qh < qt) {
+        const cx = qx[qh];
+        const cy = qy[qh];
+        qh += 1;
+        cells.push(cy * w + cx);
+        const n4 = [
+          [cx - 1, cy],
+          [cx + 1, cy],
+          [cx, cy - 1],
+          [cx, cy + 1],
+        ];
+        for (const [nx, ny] of n4) {
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+          const ni = ny * w + nx;
+          if (!src[ni] || seen[ni]) continue;
+          seen[ni] = 1;
+          qx[qt] = nx;
+          qy[qt] = ny;
+          qt += 1;
+        }
+      }
+      if (cells.length < minArea) {
+        for (const i of cells) out[i] = 0;
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * インクマスクから水平・垂直セグメント抽出
+ * @param {Uint8Array} mask
+ * @param {number} w
+ * @param {number} h
+ * @param {number} minSeg
+ * @param {number} gapAllow
+ */
+function extractAxisSegmentsFromMask(mask, w, h, minSeg, gapAllow) {
   /** @type {Array<{x1:number,y1:number,x2:number,y2:number}>} */
   const segs = [];
 
@@ -134,7 +251,7 @@ function extractAxisSegments(
     let gap = 0;
     let startX = 0;
     for (let x = 1; x < w - 1; x += 1) {
-      if (edge[y * w + x]) {
+      if (mask[y * w + x]) {
         if (run === 0) startX = x;
         run += 1 + gap;
         gap = 0;
@@ -159,7 +276,7 @@ function extractAxisSegments(
     let gap = 0;
     let startY = 0;
     for (let y = 1; y < h - 1; y += 1) {
-      if (edge[y * w + x]) {
+      if (mask[y * w + x]) {
         if (run === 0) startY = y;
         run += 1 + gap;
         gap = 0;
@@ -179,6 +296,21 @@ function extractAxisSegments(
     }
   }
 
+  return segs;
+}
+
+function filterGridLikeSegments(segs, w, h) {
+  if (segs.length < 12) return segs;
+  const short = segs.filter((s) => {
+    const len = Math.hypot(s.x2 - s.x1, s.y2 - s.y1);
+    return len < Math.min(w, h) * 0.08;
+  });
+  if (short.length > segs.length * 0.65) {
+    const minKeep = Math.max(6, Math.round(Math.min(w, h) * 0.035));
+    return segs.filter(
+      (s) => Math.hypot(s.x2 - s.x1, s.y2 - s.y1) >= minKeep
+    );
+  }
   return segs;
 }
 
@@ -243,14 +375,14 @@ function segmentsToPaths(segs, srcW, srcH, canvasW, canvasH) {
   for (const s of segs) {
     const tooClose = kept.some(
       (k) =>
-        Math.abs(k.x1 - s.x1) < 5 &&
-        Math.abs(k.y1 - s.y1) < 5 &&
-        Math.abs(k.x2 - s.x2) < 5 &&
-        Math.abs(k.y2 - s.y2) < 5
+        Math.abs(k.x1 - s.x1) < 4 &&
+        Math.abs(k.y1 - s.y1) < 4 &&
+        Math.abs(k.x2 - s.x2) < 4 &&
+        Math.abs(k.y2 - s.y2) < 4
     );
     if (!tooClose) kept.push(s);
   }
-  return kept.slice(0, 96).map((s, i) => {
+  return kept.slice(0, 160).map((s, i) => {
     const points = [
       { x: Math.round(s.x1 * sx), y: Math.round(s.y1 * sy) },
       { x: Math.round(s.x2 * sx), y: Math.round(s.y2 * sy) },
@@ -272,31 +404,28 @@ function segmentsToPaths(segs, srcW, srcH, canvasW, canvasH) {
 }
 
 /**
- * 多段閾値で線検出（薄線・影対策）
+ * 適応的2値化 + モルフォロジーで線検出
+ * 方眼紙・影対策の本命経路
  * @param {Uint8Array} gray
  * @param {number} w
  * @param {number} h
  * @param {number} canvasW
  * @param {number} canvasH
  */
-function detectPathsMultiPass(gray, w, h, canvasW, canvasH) {
+function detectPathsAdaptivePipeline(gray, w, h, canvasW, canvasH) {
   const passes = [
-    { dark: 140, edge: 18, minSeg: 14, gap: 2, requireDark: true },
-    { dark: 165, edge: 12, minSeg: 10, gap: 3, requireDark: true },
-    { dark: 180, edge: 10, minSeg: 8, gap: 4, requireDark: false },
+    { block: 31, C: 7, openR: 1, closeR: 2, minSeg: 6, gap: 3, minArea: 6 },
+    { block: 25, C: 5, openR: 0, closeR: 2, minSeg: 4, gap: 4, minArea: 3 },
+    { block: 21, C: 3, openR: 0, closeR: 1, minSeg: 4, gap: 5, minArea: 2 },
   ];
   let best = [];
   for (const p of passes) {
-    const segs = extractAxisSegments(
-      gray,
-      w,
-      h,
-      p.dark,
-      p.edge,
-      p.minSeg,
-      p.gap,
-      p.requireDark
-    );
+    let mask = adaptiveThresholdMean(gray, w, h, p.block, p.C);
+    if (p.openR > 0) mask = morphOpen(mask, w, h, p.openR);
+    if (p.closeR > 0) mask = morphClose(mask, w, h, p.closeR);
+    mask = removeSmallComponents(mask, w, h, p.minArea);
+    let segs = extractAxisSegmentsFromMask(mask, w, h, p.minSeg, p.gap);
+    segs = filterGridLikeSegments(segs, w, h);
     const paths = segmentsToPaths(segs, w, h, canvasW, canvasH);
     if (paths.length > best.length) best = paths;
     if (best.length >= FALLBACK_MIN_PATHS + 2) break;
@@ -410,7 +539,7 @@ export async function detectSketchLinesFromBlobV1(file, opts = {}) {
       };
     }
 
-    const paths = detectPathsMultiPass(
+    const paths = detectPathsAdaptivePipeline(
       grayPack.gray,
       grayPack.w,
       grayPack.h,
