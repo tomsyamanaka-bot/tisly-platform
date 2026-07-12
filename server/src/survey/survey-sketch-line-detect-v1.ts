@@ -13,18 +13,22 @@ export const SURVEY_SKETCH_LINE_DETECT_V1_SCHEMA = 1 as const;
 
 /** 解析用最大辺（細い手書き線を潰さない） */
 const ANALYZE_MAX = 1500;
-/** フォールバック許可の最小検出本数 */
-const FALLBACK_MIN_PATHS = 2;
+/** フォールバック許可の最小検出本数（1本でも外枠に落とさない） */
+const FALLBACK_MIN_PATHS = 1;
 /** 適応的2値化のブロックサイズ（奇数） */
 const ADAPTIVE_BLOCK = 31;
 /** 適応的2値化の減算定数 C */
 const ADAPTIVE_C = 7;
-/** 輪郭（線分）面積しきい値を極限まで下げる */
-const MIN_SEG_LEN = 4;
-/** 方眼除去用オープニング半径 */
-const OPEN_RADIUS = 1;
+/** 輪郭（線分）長さしきい値を極限まで下げる */
+const MIN_SEG_LEN = 1;
+/** 方眼除去用オープニング半径（0=細い線を殺さない） */
+const OPEN_RADIUS = 0;
 /** 途切れ橋渡し用クロージング半径 */
-const CLOSE_RADIUS = 2;
+const CLOSE_RADIUS = 1;
+/** 連結成分の最小面積（ほぼ0＝ノイズも残す） */
+const MIN_AREA = 1;
+/** 返却パス本数上限（途切れ線も全て返す） */
+const MAX_RETURN_PATHS = 800;
 
 export interface SurveySketchLineDetectResultV1 {
   schemaVersion: typeof SURVEY_SKETCH_LINE_DETECT_V1_SCHEMA;
@@ -347,25 +351,14 @@ function extractAxisSegmentsFromMask(
 
 /**
  * 周期的な短いマス目線を間引き
- * （方眼ピッチに近い短線を弾く）
+ * ※現状は閾値極小化方針のためパススルー
+ * （外枠フォールバック回避を最優先）
  */
 function filterGridLikeSegments(
   segs: Array<{ x1: number; y1: number; x2: number; y2: number }>,
-  w: number,
-  h: number
+  _w: number,
+  _h: number
 ): Array<{ x1: number; y1: number; x2: number; y2: number }> {
-  if (segs.length < 12) return segs;
-  const short = segs.filter((s) => {
-    const len = Math.hypot(s.x2 - s.x1, s.y2 - s.y1);
-    return len < Math.min(w, h) * 0.08;
-  });
-  // 短線が大半なら方眼ノイズとみなし長めだけ残す
-  if (short.length > segs.length * 0.65) {
-    const minKeep = Math.max(MIN_SEG_LEN + 2, Math.round(Math.min(w, h) * 0.035));
-    return segs.filter(
-      (s) => Math.hypot(s.x2 - s.x1, s.y2 - s.y1) >= minKeep
-    );
-  }
   return segs;
 }
 
@@ -396,7 +389,7 @@ function segmentsToPaths(
   const sx = canvasW / Math.max(1, srcW);
   const sy = canvasH / Math.max(1, srcH);
   const kept = mergeCollinearNear(segs);
-  return kept.slice(0, 160).map((s) => {
+  return kept.slice(0, MAX_RETURN_PATHS).map((s) => {
     const points = [
       { x: Math.round(s.x1 * sx), y: Math.round(s.y1 * sy) },
       { x: Math.round(s.x2 * sx), y: Math.round(s.y2 * sy) },
@@ -469,35 +462,35 @@ function detectPathsAdaptivePipeline(
     gap: number;
     minArea: number;
   }> = [
-    // 標準: 方眼除去強め
+    // 標準: 細い線も殺さない（open無し）
     {
       block: ADAPTIVE_BLOCK,
       C: ADAPTIVE_C,
       openR: OPEN_RADIUS,
       closeR: CLOSE_RADIUS,
-      minSeg: MIN_SEG_LEN + 2,
+      minSeg: MIN_SEG_LEN,
       gap: 3,
-      minArea: 6,
+      minArea: MIN_AREA,
     },
     // 緩和: 薄い鉛筆・途切れ壁向け
     {
       block: 25,
       C: 5,
       openR: 0,
-      closeR: 2,
+      closeR: 1,
       minSeg: MIN_SEG_LEN,
       gap: 4,
-      minArea: 3,
+      minArea: MIN_AREA,
     },
-    // 最終: 極限まで拾う
+    // 最終: 極限まで拾う（長さ1px・面積1）
     {
       block: 21,
-      C: 3,
+      C: 2,
       openR: 0,
       closeR: 1,
       minSeg: MIN_SEG_LEN,
-      gap: 5,
-      minArea: 2,
+      gap: 6,
+      minArea: MIN_AREA,
     },
   ];
 
@@ -527,7 +520,7 @@ function detectPathsAdaptivePipeline(
 }
 
 function shouldUseFallback(paths: SurveyDrawingPath[]): boolean {
-  // 2本未満のみ外枠へ（厳格）
+  // 0本のときだけ外枠へ（1本でも実検出を返す）
   return paths.length < FALLBACK_MIN_PATHS;
 }
 

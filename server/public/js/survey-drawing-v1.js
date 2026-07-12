@@ -20,7 +20,7 @@ import {
   updateOfflineResilienceBadgeV1,
 } from "./offline-resilience-v1.js";
 
-export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v34";
+export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v35";
 /** タッチ配置時に指で隠れないよう上へずらす（画面px） */
 const PLOT_TOUCH_OFFSET_Y = 32;
 /** 写真解析の上限（AI完了まで待機） */
@@ -321,8 +321,11 @@ let strokeWidth = 3;
 const ERASER_WIDTH = 14;
 /** iOS 誤座標で長い対角線ができないよう上限 */
 const ERASER_MAX_JUMP_PX = 72;
-/** タップ判定のストローク長上限 */
-const ERASER_TAP_MAX_LEN = 36;
+/**
+ * タッチ点〜パス線分の許容距離（px）
+ * この範囲内の【最短1本だけ】を消す
+ */
+const ERASER_HIT_TOLERANCE_PX = 10;
 let lineType = "generic";
 let viewport = { scale: 1, offsetX: 0, offsetY: 0 };
 let layers = emptyLayers();
@@ -666,19 +669,22 @@ function bboxOverlap(a, b) {
   );
 }
 
-/** 消しゴム当たり半径（過大にしない） */
+/** 消しゴム当たり半径（過大にしない・最大10px） */
 function eraserHitThreshold(drawPath, eraserStroke) {
   const raw =
     ((drawPath.width || strokeWidth) +
       (eraserStroke.width || ERASER_WIDTH)) /
       2 +
     2;
-  return Math.min(20, Math.max(6, raw));
+  return Math.min(
+    ERASER_HIT_TOLERANCE_PX,
+    Math.max(6, raw)
+  );
 }
 
 /**
  * 消しゴムと描画パスの最短距離
- * （AABB → 線分同士。全点逆引きはしない）
+ * （AABB → 点-線分距離。全点逆引きはしない）
  * @param {object} drawPath
  * @param {object} eraserStroke
  */
@@ -688,12 +694,17 @@ function minDistPathToEraser(drawPath, eraserStroke) {
   if (!aPts?.length || !bPts?.length) return Infinity;
   const threshold = eraserHitThreshold(drawPath, eraserStroke);
   const eraserSegs = buildEraserSegments(bPts);
+  // AABB は有効線分の点だけで作る（テレポート点を除外）
+  const eraserPtsForBox = eraserSegs.length
+    ? eraserSegs.flatMap(([a, b]) => [a, b])
+    : bPts;
   const pathBox = pathPointsBBox(aPts, threshold);
-  const eraserBox = pathPointsBBox(bPts, threshold);
+  const eraserBox = pathPointsBBox(eraserPtsForBox, threshold);
   if (!bboxOverlap(pathBox, eraserBox)) return Infinity;
 
   let best = Infinity;
   // タップ（点のみ）: 消しゴム各点 → 描画線分
+  // ※最短1本選定のため早期 return せず全探索する
   for (const bp of bPts) {
     if (!bp || !Number.isFinite(bp.x) || !Number.isFinite(bp.y)) continue;
     if (aPts.length === 1) {
@@ -713,7 +724,6 @@ function minDistPathToEraser(drawPath, eraserStroke) {
         aPts[i].y
       );
       if (d < best) best = d;
-      if (best <= threshold) return best;
     }
   }
   // 連続区間のみ線分同士（テレポート区間は除外済み）
@@ -731,7 +741,6 @@ function minDistPathToEraser(drawPath, eraserStroke) {
           e1.y
         );
         if (d < best) best = d;
-        if (best <= threshold) return best;
       }
     }
   }
@@ -739,67 +748,47 @@ function minDistPathToEraser(drawPath, eraserStroke) {
 }
 
 /**
- * 消しゴム軌跡が描画パスに触れているか
- * （触れたパスは丸ごと物理削除する）
- * @param {object} drawPath
+ * 許容距離内で最も近いパスのインデックスを1つだけ返す
+ * （見つからなければ -1）
+ * @param {object[]} paths
  * @param {object} eraserStroke
+ * @returns {number}
  */
-function pathTouchesEraser(drawPath, eraserStroke) {
-  const threshold = eraserHitThreshold(drawPath, eraserStroke);
-  return minDistPathToEraser(drawPath, eraserStroke) <= threshold;
-}
-
-/** 消しゴム軌跡の長さ（テレポート除外） */
-function eraserStrokeLength(eraserStroke) {
-  const segs = buildEraserSegments(eraserStroke?.points);
-  let len = 0;
-  for (const [a, b] of segs) {
-    len += Math.hypot(b.x - a.x, b.y - a.y);
+function findClosestEraserHitIndex(paths, eraserStroke) {
+  if (!paths?.length || !eraserStroke?.points?.length) return -1;
+  let hitIndex = -1;
+  let bestDist = Infinity;
+  for (let i = 0; i < paths.length; i++) {
+    const p = paths[i];
+    if (!p?.points?.length) continue;
+    const dist = minDistPathToEraser(p, eraserStroke);
+    const threshold = eraserHitThreshold(p, eraserStroke);
+    // 許容内かつ最短のものだけ採用
+    if (dist <= threshold && dist < bestDist) {
+      bestDist = dist;
+      hitIndex = i;
+    }
   }
-  if (!segs.length && eraserStroke?.points?.length) {
-    return 0;
-  }
-  return len;
+  return hitIndex;
 }
 
 /**
- * 触れたパスだけ splice 相当で物理削除
- * 全消去は絶対にしない
+ * 触れたパスを splice で【1本だけ】物理削除
+ * 全消去は絶対にしない（見つかったら即 return）
  * @param {object} eraserStroke
- * @returns {number} 削除本数
+ * @returns {number} 削除本数（0 or 1）
  */
 function applyEraserPhysicalDelete(eraserStroke) {
   const cleaned = stripLegacyEraserPaths(layers.paths);
-  const before = cleaned.length;
-  /** @type {{ id: string, dist: number }[]} */
-  const hits = [];
-  for (const p of cleaned) {
-    if (!p?.id) continue;
-    const dist = minDistPathToEraser(p, eraserStroke);
-    const threshold = eraserHitThreshold(p, eraserStroke);
-    if (dist <= threshold) {
-      hits.push({ id: p.id, dist });
-    }
-  }
-  if (!hits.length) {
+  const hitIndex = findClosestEraserHitIndex(cleaned, eraserStroke);
+  if (hitIndex < 0) {
     layers.paths = cleaned;
     return 0;
   }
-  hits.sort((a, b) => a.dist - b.dist);
-  // 短いタップで大量ヒットは誤判定 → 最近傍の1本だけ
-  const strokeLen = eraserStrokeLength(eraserStroke);
-  const removeIds = new Set(
-    strokeLen <= ERASER_TAP_MAX_LEN && hits.length > 1
-      ? [hits[0].id]
-      : hits.map((h) => h.id)
-  );
-  // 配列から該当 id のみ除去（一括クリア禁止）
-  const next = [];
-  for (const p of cleaned) {
-    if (!removeIds.has(p.id)) next.push(p);
-  }
-  layers.paths = next;
-  return before - next.length;
+  // 確実に1本だけ削除して即終了
+  cleaned.splice(hitIndex, 1);
+  layers.paths = cleaned;
+  return 1;
 }
 
 /** 線描画専用グループ（エディタ SVG レイヤーを壊さない） */
@@ -856,9 +845,14 @@ function renderPaths(previewEraserStroke = null) {
   // 描画パスのみ（消しゴムは物理削除済み）
   let drawPaths = stripLegacyEraserPaths(layers.paths);
   if (previewEraserStroke) {
-    drawPaths = drawPaths.filter(
-      (p) => !pathTouchesEraser(p, previewEraserStroke)
+    // プレビューも【最短1本だけ】非表示（全消し誤認を防ぐ）
+    const hitIndex = findClosestEraserHitIndex(
+      drawPaths,
+      previewEraserStroke
     );
+    if (hitIndex >= 0) {
+      drawPaths = drawPaths.filter((_, i) => i !== hitIndex);
+    }
   }
 
   const drawGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");

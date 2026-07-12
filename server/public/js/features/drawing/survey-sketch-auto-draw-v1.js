@@ -6,8 +6,14 @@
 
 /** 解析用最大辺（細い手書き線を潰さない） */
 const ANALYZE_MAX_EDGE = 1500;
-/** フォールバック許可の最小本数 */
-const FALLBACK_MIN_PATHS = 2;
+/** フォールバック許可の最小本数（1本でも外枠に落とさない） */
+const FALLBACK_MIN_PATHS = 1;
+/** 線分長さしきい値を極限まで下げる */
+const MIN_SEG_LEN = 1;
+/** 連結成分の最小面積（ほぼ0） */
+const MIN_AREA = 1;
+/** 返却パス本数上限 */
+const MAX_RETURN_PATHS = 800;
 
 /**
  * 解析専用に高解像度ビットマップを取得
@@ -299,18 +305,8 @@ function extractAxisSegmentsFromMask(mask, w, h, minSeg, gapAllow) {
   return segs;
 }
 
-function filterGridLikeSegments(segs, w, h) {
-  if (segs.length < 12) return segs;
-  const short = segs.filter((s) => {
-    const len = Math.hypot(s.x2 - s.x1, s.y2 - s.y1);
-    return len < Math.min(w, h) * 0.08;
-  });
-  if (short.length > segs.length * 0.65) {
-    const minKeep = Math.max(6, Math.round(Math.min(w, h) * 0.035));
-    return segs.filter(
-      (s) => Math.hypot(s.x2 - s.x1, s.y2 - s.y1) >= minKeep
-    );
-  }
+function filterGridLikeSegments(segs, _w, _h) {
+  // 閾値極小化方針: 短線も弾かず全て返す
   return segs;
 }
 
@@ -382,7 +378,7 @@ function segmentsToPaths(segs, srcW, srcH, canvasW, canvasH) {
     );
     if (!tooClose) kept.push(s);
   }
-  return kept.slice(0, 160).map((s, i) => {
+  return kept.slice(0, MAX_RETURN_PATHS).map((s, i) => {
     const points = [
       { x: Math.round(s.x1 * sx), y: Math.round(s.y1 * sy) },
       { x: Math.round(s.x2 * sx), y: Math.round(s.y2 * sy) },
@@ -414,9 +410,34 @@ function segmentsToPaths(segs, srcW, srcH, canvasW, canvasH) {
  */
 function detectPathsAdaptivePipeline(gray, w, h, canvasW, canvasH) {
   const passes = [
-    { block: 31, C: 7, openR: 1, closeR: 2, minSeg: 6, gap: 3, minArea: 6 },
-    { block: 25, C: 5, openR: 0, closeR: 2, minSeg: 4, gap: 4, minArea: 3 },
-    { block: 21, C: 3, openR: 0, closeR: 1, minSeg: 4, gap: 5, minArea: 2 },
+    // open無し・minSeg/minArea 極小
+    {
+      block: 31,
+      C: 7,
+      openR: 0,
+      closeR: 1,
+      minSeg: MIN_SEG_LEN,
+      gap: 3,
+      minArea: MIN_AREA,
+    },
+    {
+      block: 25,
+      C: 5,
+      openR: 0,
+      closeR: 1,
+      minSeg: MIN_SEG_LEN,
+      gap: 4,
+      minArea: MIN_AREA,
+    },
+    {
+      block: 21,
+      C: 2,
+      openR: 0,
+      closeR: 1,
+      minSeg: MIN_SEG_LEN,
+      gap: 6,
+      minArea: MIN_AREA,
+    },
   ];
   let best = [];
   for (const p of passes) {
@@ -547,7 +568,7 @@ export async function detectSketchLinesFromBlobV1(file, opts = {}) {
       canvasH
     );
 
-    // 2本未満のみ外枠（厳格）
+    // 0本のみ外枠（1本でも実検出を返す）
     if (paths.length < FALLBACK_MIN_PATHS) {
       return {
         ok: true,
