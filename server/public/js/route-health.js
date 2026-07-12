@@ -53,7 +53,7 @@ const JS_ASSETS = [
 ];
 
 const ESTIMATE_UI_VERSION = "estimate-ui-v8";
-const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v35";
+const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v36";
 const PHASE9_JS_VERSION = "phase9-iphone-v1";
 const SW_CACHE_TOKEN = "v2407-phase28";
 const CUSTOMER_JS_VERSION = "customer-v1-phase27";

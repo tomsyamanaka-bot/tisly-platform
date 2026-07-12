@@ -1,7 +1,7 @@
 /**
  * 手書き間取り線検出 v1（サーバ）
- * 適応的2値化 + モルフォロジーで
- * 方眼紙・照明ムラを吸収して線を拾う
+ * 複雑な2値化・モルフォロジーは使わず
+ * Cannyエッジ検出で全線を強制抽出する
  */
 import fs from "fs";
 import path from "path";
@@ -11,23 +11,17 @@ import type { SurveyDrawingPath } from "./survey-drawing-v1-types.js";
 
 export const SURVEY_SKETCH_LINE_DETECT_V1_SCHEMA = 1 as const;
 
-/** 解析用最大辺（細い手書き線を潰さない） */
+/** 解析用最大辺 */
 const ANALYZE_MAX = 1500;
-/** フォールバック許可の最小検出本数（1本でも外枠に落とさない） */
+/** 0本だけ外枠へ落とす */
 const FALLBACK_MIN_PATHS = 1;
-/** 適応的2値化のブロックサイズ（奇数） */
-const ADAPTIVE_BLOCK = 31;
-/** 適応的2値化の減算定数 C */
-const ADAPTIVE_C = 7;
-/** 輪郭（線分）長さしきい値を極限まで下げる */
+/** Canny 下側しきい値（広く拾う） */
+const CANNY_T1 = 30;
+/** Canny 上側しきい値 */
+const CANNY_T2 = 100;
+/** 線分長さしきい値（ほぼ全て拾う） */
 const MIN_SEG_LEN = 1;
-/** 方眼除去用オープニング半径（0=細い線を殺さない） */
-const OPEN_RADIUS = 0;
-/** 途切れ橋渡し用クロージング半径 */
-const CLOSE_RADIUS = 1;
-/** 連結成分の最小面積（ほぼ0＝ノイズも残す） */
-const MIN_AREA = 1;
-/** 返却パス本数上限（途切れ線も全て返す） */
+/** 返却パス本数上限 */
 const MAX_RETURN_PATHS = 800;
 
 export interface SurveySketchLineDetectResultV1 {
@@ -86,206 +80,167 @@ export function buildFallbackOuterFramePathsV1(
   }));
 }
 
-/** 積分画像（適応的2値化用） */
-function buildIntegralImage(
+/**
+ * 軽い3x3ガウシアンぼかし
+ * ノイズだけ抑え、細い線は残す
+ */
+function gaussianBlur3(
   gray: Buffer | Uint8Array,
   w: number,
   h: number
-): Float64Array {
-  const integ = new Float64Array((w + 1) * (h + 1));
-  for (let y = 1; y <= h; y += 1) {
-    let rowSum = 0;
-    for (let x = 1; x <= w; x += 1) {
-      rowSum += gray[(y - 1) * w + (x - 1)]!;
-      integ[y * (w + 1) + x] =
-        integ[(y - 1) * (w + 1) + x]! + rowSum;
+): Float32Array {
+  // 1 2 1 / 2 4 2 / 1 2 1
+  const out = new Float32Array(w * h);
+  for (let y = 0; y < h; y += 1) {
+    for (let x = 0; x < w; x += 1) {
+      let sum = 0;
+      let weight = 0;
+      for (let dy = -1; dy <= 1; dy += 1) {
+        const yy = y + dy;
+        if (yy < 0 || yy >= h) continue;
+        for (let dx = -1; dx <= 1; dx += 1) {
+          const xx = x + dx;
+          if (xx < 0 || xx >= w) continue;
+          const kw = (dx === 0 ? 2 : 1) * (dy === 0 ? 2 : 1);
+          sum += gray[yy * w + xx]! * kw;
+          weight += kw;
+        }
+      }
+      out[y * w + x] = sum / Math.max(1, weight);
     }
   }
-  return integ;
-}
-
-function integralRectSum(
-  integ: Float64Array,
-  w: number,
-  x0: number,
-  y0: number,
-  x1: number,
-  y1: number
-): number {
-  const ww = w + 1;
-  return (
-    integ[y1 * ww + x1]! -
-    integ[y0 * ww + x1]! -
-    integ[y1 * ww + x0]! +
-    integ[y0 * ww + x0]!
-  );
+  return out;
 }
 
 /**
- * 適応的2値化（Mean Adaptive Threshold）
- * 照明ムラを吸収し、インク=1 / 背景=0
+ * Cannyエッジ検出
+ * threshold1/2 を広く取り薄い線も強制検知
  */
-function adaptiveThresholdMean(
+function cannyEdgeDetect(
   gray: Buffer | Uint8Array,
   w: number,
   h: number,
-  blockSize: number,
-  C: number
+  t1: number,
+  t2: number
 ): Uint8Array {
-  const odd = blockSize % 2 === 0 ? blockSize + 1 : blockSize;
-  const r = Math.max(1, (odd - 1) >> 1);
-  const integ = buildIntegralImage(gray, w, h);
-  const out = new Uint8Array(w * h);
-  for (let y = 0; y < h; y += 1) {
-    const y0 = Math.max(0, y - r);
-    const y1 = Math.min(h, y + r + 1);
-    for (let x = 0; x < w; x += 1) {
-      const x0 = Math.max(0, x - r);
-      const x1 = Math.min(w, x + r + 1);
-      const area = (x1 - x0) * (y1 - y0);
-      const mean = integralRectSum(integ, w, x0, y0, x1, y1) / Math.max(1, area);
-      // 局所平均より暗い画素をインクとする
-      out[y * w + x] = gray[y * w + x]! < mean - C ? 1 : 0;
-    }
-  }
-  return out;
-}
+  const blur = gaussianBlur3(gray, w, h);
+  const mag = new Float32Array(w * h);
+  // 0=0°, 1=45°, 2=90°, 3=135°
+  const dir = new Uint8Array(w * h);
 
-/** バイナリ画像の収縮（細い方眼を消す） */
-function erodeBinary(
-  src: Uint8Array,
-  w: number,
-  h: number,
-  radius: number
-): Uint8Array {
-  if (radius <= 0) return src.slice();
-  const out = new Uint8Array(w * h);
-  for (let y = 0; y < h; y += 1) {
-    for (let x = 0; x < w; x += 1) {
-      let keep = 1;
-      for (let dy = -radius; dy <= radius && keep; dy += 1) {
-        const yy = y + dy;
-        if (yy < 0 || yy >= h) {
-          keep = 0;
-          break;
-        }
-        for (let dx = -radius; dx <= radius; dx += 1) {
-          const xx = x + dx;
-          if (xx < 0 || xx >= w || !src[yy * w + xx]) {
-            keep = 0;
-            break;
-          }
-        }
-      }
-      out[y * w + x] = keep;
-    }
-  }
-  return out;
-}
-
-/** バイナリ画像の膨張（途切れ線をつなぐ） */
-function dilateBinary(
-  src: Uint8Array,
-  w: number,
-  h: number,
-  radius: number
-): Uint8Array {
-  if (radius <= 0) return src.slice();
-  const out = new Uint8Array(w * h);
-  for (let y = 0; y < h; y += 1) {
-    for (let x = 0; x < w; x += 1) {
-      if (!src[y * w + x]) continue;
-      for (let dy = -radius; dy <= radius; dy += 1) {
-        const yy = y + dy;
-        if (yy < 0 || yy >= h) continue;
-        for (let dx = -radius; dx <= radius; dx += 1) {
-          const xx = x + dx;
-          if (xx < 0 || xx >= w) continue;
-          out[yy * w + xx] = 1;
-        }
+  for (let y = 1; y < h - 1; y += 1) {
+    for (let x = 1; x < w - 1; x += 1) {
+      const gx =
+        -blur[(y - 1) * w + (x - 1)]! +
+        blur[(y - 1) * w + (x + 1)]! +
+        -2 * blur[y * w + (x - 1)]! +
+        2 * blur[y * w + (x + 1)]! +
+        -blur[(y + 1) * w + (x - 1)]! +
+        blur[(y + 1) * w + (x + 1)]!;
+      const gy =
+        -blur[(y - 1) * w + (x - 1)]! -
+        2 * blur[(y - 1) * w + x]! -
+        blur[(y - 1) * w + (x + 1)]! +
+        blur[(y + 1) * w + (x - 1)]! +
+        2 * blur[(y + 1) * w + x]! +
+        blur[(y + 1) * w + (x + 1)]!;
+      const m = Math.hypot(gx, gy);
+      mag[y * w + x] = m;
+      // 勾配方向を4象限に量子化
+      const ang = (Math.atan2(gy, gx) * 180) / Math.PI;
+      const a = ang < 0 ? ang + 180 : ang;
+      if ((a >= 0 && a < 22.5) || (a >= 157.5 && a <= 180)) {
+        dir[y * w + x] = 0;
+      } else if (a >= 22.5 && a < 67.5) {
+        dir[y * w + x] = 1;
+      } else if (a >= 67.5 && a < 112.5) {
+        dir[y * w + x] = 2;
+      } else {
+        dir[y * w + x] = 3;
       }
     }
   }
-  return out;
-}
 
-/** オープニング = 収縮→膨張（細いマス目除去） */
-function morphOpen(
-  src: Uint8Array,
-  w: number,
-  h: number,
-  radius: number
-): Uint8Array {
-  return dilateBinary(erodeBinary(src, w, h, radius), w, h, radius);
-}
+  // 非最大値抑制
+  const nms = new Float32Array(w * h);
+  for (let y = 1; y < h - 1; y += 1) {
+    for (let x = 1; x < w - 1; x += 1) {
+      const i = y * w + x;
+      const m = mag[i]!;
+      if (m <= 0) continue;
+      let n1 = 0;
+      let n2 = 0;
+      const d = dir[i]!;
+      if (d === 0) {
+        n1 = mag[y * w + (x - 1)]!;
+        n2 = mag[y * w + (x + 1)]!;
+      } else if (d === 1) {
+        n1 = mag[(y - 1) * w + (x + 1)]!;
+        n2 = mag[(y + 1) * w + (x - 1)]!;
+      } else if (d === 2) {
+        n1 = mag[(y - 1) * w + x]!;
+        n2 = mag[(y + 1) * w + x]!;
+      } else {
+        n1 = mag[(y - 1) * w + (x - 1)]!;
+        n2 = mag[(y + 1) * w + (x + 1)]!;
+      }
+      if (m >= n1 && m >= n2) nms[i] = m;
+    }
+  }
 
-/** クロージング = 膨張→収縮（途切れ橋渡し） */
-function morphClose(
-  src: Uint8Array,
-  w: number,
-  h: number,
-  radius: number
-): Uint8Array {
-  return erodeBinary(dilateBinary(src, w, h, radius), w, h, radius);
-}
-
-/**
- * 微小連結成分を除去（ノイズ掃除）
- * 面積しきい値は極限まで低く保つ
- */
-function removeSmallComponents(
-  src: Uint8Array,
-  w: number,
-  h: number,
-  minArea: number
-): Uint8Array {
-  const seen = new Uint8Array(w * h);
-  const out = src.slice();
+  // ヒステリシス: 強=2 / 弱=1 / 無=0
+  const mark = new Uint8Array(w * h);
   const qx = new Int32Array(w * h);
   const qy = new Int32Array(w * h);
-  for (let y = 0; y < h; y += 1) {
-    for (let x = 0; x < w; x += 1) {
-      const start = y * w + x;
-      if (!src[start] || seen[start]) continue;
-      let qh = 0;
-      let qt = 0;
-      qx[qt] = x;
-      qy[qt] = y;
-      qt += 1;
-      seen[start] = 1;
-      const cells: number[] = [];
-      while (qh < qt) {
-        const cx = qx[qh]!;
-        const cy = qy[qh]!;
-        qh += 1;
-        cells.push(cy * w + cx);
-        const n4: Array<[number, number]> = [
-          [cx - 1, cy],
-          [cx + 1, cy],
-          [cx, cy - 1],
-          [cx, cy + 1],
-        ];
-        for (const [nx, ny] of n4) {
-          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-          const ni = ny * w + nx;
-          if (!src[ni] || seen[ni]) continue;
-          seen[ni] = 1;
+  let qh = 0;
+  let qt = 0;
+  for (let y = 1; y < h - 1; y += 1) {
+    for (let x = 1; x < w - 1; x += 1) {
+      const i = y * w + x;
+      const v = nms[i]!;
+      if (v >= t2) {
+        mark[i] = 2;
+        qx[qt] = x;
+        qy[qt] = y;
+        qt += 1;
+      } else if (v >= t1) {
+        mark[i] = 1;
+      }
+    }
+  }
+
+  // 強エッジから弱エッジを接続
+  while (qh < qt) {
+    const cx = qx[qh]!;
+    const cy = qy[qh]!;
+    qh += 1;
+    for (let dy = -1; dy <= 1; dy += 1) {
+      for (let dx = -1; dx <= 1; dx += 1) {
+        if (dx === 0 && dy === 0) continue;
+        const nx = cx + dx;
+        const ny = cy + dy;
+        if (nx < 1 || ny < 1 || nx >= w - 1 || ny >= h - 1) continue;
+        const ni = ny * w + nx;
+        if (mark[ni] === 1) {
+          mark[ni] = 2;
           qx[qt] = nx;
           qy[qt] = ny;
           qt += 1;
         }
       }
-      if (cells.length < minArea) {
-        for (const i of cells) out[i] = 0;
-      }
     }
+  }
+
+  const out = new Uint8Array(w * h);
+  for (let i = 0; i < out.length; i += 1) {
+    out[i] = mark[i] === 2 ? 1 : 0;
   }
   return out;
 }
 
 /**
- * インクマスクから水平・垂直セグメント抽出
- * minSeg を極限まで下げて途切れ壁も拾う
+ * エッジマスクから水平・垂直セグメント抽出
+ * ゴミ線でも構わず全て拾う
  */
 function extractAxisSegmentsFromMask(
   mask: Uint8Array,
@@ -346,19 +301,6 @@ function extractAxisSegmentsFromMask(
     }
   }
 
-  return segs;
-}
-
-/**
- * 周期的な短いマス目線を間引き
- * ※現状は閾値極小化方針のためパススルー
- * （外枠フォールバック回避を最優先）
- */
-function filterGridLikeSegments(
-  segs: Array<{ x1: number; y1: number; x2: number; y2: number }>,
-  _w: number,
-  _h: number
-): Array<{ x1: number; y1: number; x2: number; y2: number }> {
   return segs;
 }
 
@@ -443,84 +385,42 @@ async function loadGrayForDetect(
 }
 
 /**
- * 適応的2値化パイプラインで線検出
- * 方眼・影を抑え、手書き壁を残す
+ * Cannyパイプラインで線検出
+ * ノイズ混入より「0本回避」を最優先
  */
-function detectPathsAdaptivePipeline(
+function detectPathsCannyPipeline(
   data: Buffer,
   width: number,
   height: number,
   canvasW: number,
   canvasH: number
 ): SurveyDrawingPath[] {
-  const passes: Array<{
-    block: number;
-    C: number;
-    openR: number;
-    closeR: number;
-    minSeg: number;
-    gap: number;
-    minArea: number;
-  }> = [
-    // 標準: 細い線も殺さない（open無し）
-    {
-      block: ADAPTIVE_BLOCK,
-      C: ADAPTIVE_C,
-      openR: OPEN_RADIUS,
-      closeR: CLOSE_RADIUS,
-      minSeg: MIN_SEG_LEN,
-      gap: 3,
-      minArea: MIN_AREA,
-    },
-    // 緩和: 薄い鉛筆・途切れ壁向け
-    {
-      block: 25,
-      C: 5,
-      openR: 0,
-      closeR: 1,
-      minSeg: MIN_SEG_LEN,
-      gap: 4,
-      minArea: MIN_AREA,
-    },
-    // 最終: 極限まで拾う（長さ1px・面積1）
-    {
-      block: 21,
-      C: 2,
-      openR: 0,
-      closeR: 1,
-      minSeg: MIN_SEG_LEN,
-      gap: 6,
-      minArea: MIN_AREA,
-    },
+  // 広いしきい値で薄い線も強制検知
+  const passes: Array<{ t1: number; t2: number; gap: number }> = [
+    { t1: CANNY_T1, t2: CANNY_T2, gap: 3 },
+    { t1: 20, t2: 80, gap: 4 },
+    { t1: 10, t2: 50, gap: 6 },
   ];
 
   let best: SurveyDrawingPath[] = [];
   for (const p of passes) {
-    let mask = adaptiveThresholdMean(data, width, height, p.block, p.C);
-    if (p.openR > 0) {
-      mask = morphOpen(mask, width, height, p.openR);
-    }
-    if (p.closeR > 0) {
-      mask = morphClose(mask, width, height, p.closeR);
-    }
-    mask = removeSmallComponents(mask, width, height, p.minArea);
-    let segs = extractAxisSegmentsFromMask(
+    const mask = cannyEdgeDetect(data, width, height, p.t1, p.t2);
+    const segs = extractAxisSegmentsFromMask(
       mask,
       width,
       height,
-      p.minSeg,
+      MIN_SEG_LEN,
       p.gap
     );
-    segs = filterGridLikeSegments(segs, width, height);
     const paths = segmentsToPaths(segs, width, height, canvasW, canvasH);
     if (paths.length > best.length) best = paths;
-    if (best.length >= FALLBACK_MIN_PATHS + 2) break;
+    // 1本以上取れたら即返す（外枠回避）
+    if (best.length >= FALLBACK_MIN_PATHS) break;
   }
   return best;
 }
 
 function shouldUseFallback(paths: SurveyDrawingPath[]): boolean {
-  // 0本のときだけ外枠へ（1本でも実検出を返す）
   return paths.length < FALLBACK_MIN_PATHS;
 }
 
@@ -549,7 +449,7 @@ export async function detectSketchLinesFromBufferV1(input: {
     }
 
     const gray = await loadGrayForDetect(input.buffer);
-    const paths = detectPathsAdaptivePipeline(
+    const paths = detectPathsCannyPipeline(
       gray.data,
       gray.width,
       gray.height,
@@ -614,7 +514,7 @@ export async function detectSketchLinesFromImagePathV1(input: {
 
   try {
     const gray = await loadGrayForDetect(full);
-    const paths = detectPathsAdaptivePipeline(
+    const paths = detectPathsCannyPipeline(
       gray.data,
       gray.width,
       gray.height,

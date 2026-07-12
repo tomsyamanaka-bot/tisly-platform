@@ -20,7 +20,7 @@ import {
   updateOfflineResilienceBadgeV1,
 } from "./offline-resilience-v1.js";
 
-export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v35";
+export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v36";
 /** タッチ配置時に指で隠れないよう上へずらす（画面px） */
 const PLOT_TOUCH_OFFSET_Y = 32;
 /** 写真解析の上限（AI完了まで待機） */
