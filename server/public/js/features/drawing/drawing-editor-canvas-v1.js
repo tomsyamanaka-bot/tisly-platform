@@ -90,8 +90,18 @@ export function createDrawingEditorCanvasV1(opts) {
   let bgObjectUrl = null;
 
   function syncSvgViewBox() {
-    const w = stageEl.clientWidth || 800;
-    const h = stageEl.clientHeight || 600;
+    // survey-drawing が stageSize で付けた
+    // width/height を優先（上書きで線が消えるのを防ぐ）
+    const attrW = Number(svg.getAttribute("width"));
+    const attrH = Number(svg.getAttribute("height"));
+    const w =
+      Number.isFinite(attrW) && attrW > 0
+        ? attrW
+        : stageEl.clientWidth || 800;
+    const h =
+      Number.isFinite(attrH) && attrH > 0
+        ? attrH
+        : stageEl.clientHeight || 600;
     svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
     svg.setAttribute("width", String(w));
     svg.setAttribute("height", String(h));

@@ -19,7 +19,7 @@ describe("Operational Phase31 — camera nav footer zoom", () => {
     assert.match(html, /user-scalable=no/);
     assert.match(html, /<label for="survey-camera-input"/);
     assert.match(html, /<label for="survey-album-input"/);
-    assert.match(js, /SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v37"/);
+    assert.match(js, /SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v38"/);
     assert.match(js, /suppressPopstateBackGuard/);
     assert.match(js, /ev\.preventDefault\(\)/);
     assert.match(html, /id="survey-photo-pick-form"/);
@@ -34,11 +34,9 @@ describe("Operational Phase31 — camera nav footer zoom", () => {
     assert.ok(js.includes("PHOTO_IMPORT_FORCE_RELEASE_MS = 60000"));
     assert.ok(js.includes("applyEraserPhysicalDelete"));
     assert.ok(js.includes("findClosestEraserHitIndex"));
-    assert.ok(js.includes("buildEraserSegments"));
-    assert.ok(js.includes("minDistPathToEraser"));
-    assert.ok(js.includes("ERASER_MAX_JUMP_PX"));
+    assert.ok(js.includes("eraseClosestPathOnly"));
+    assert.ok(js.includes("survey-eraser-hit-v1.js"));
     assert.ok(js.includes("ERASER_HIT_TOLERANCE_PX"));
-    assert.ok(js.includes("cleaned.splice(hitIndex, 1)"));
     assert.doesNotMatch(js, /destination-out/);
     assert.doesNotMatch(js, /drawing-draw-mask-v1/);
     assert.ok(js.includes("処理がタイムアウトしました"));
@@ -71,6 +69,6 @@ describe("Operational Phase31 — camera nav footer zoom", () => {
 
   it("service worker bumped for phase31", () => {
     const sw = fs.readFileSync(path.join(publicDir, "service-worker.js"), "utf-8");
-    assert.ok(sw.includes("tisly-pwa-v2415-phase50"));
+    assert.ok(sw.includes("tisly-pwa-v2415-phase51"));
   });
 });

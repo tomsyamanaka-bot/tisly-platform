@@ -2,10 +2,10 @@
  * 図面エディタ / 音声ナビ含む
  * フィールドオペ用アセットを優先キャッシュ */
 /* AI解析1500px送信ルール強制適用 */
-const SW_VERSION = "tisly-pwa-v2415-phase50";
-const OFFLINE_CACHE = "tisly-pwa-shell-v2415-phase50";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2415-phase50";
-const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2415-phase50";
+const SW_VERSION = "tisly-pwa-v2415-phase51";
+const OFFLINE_CACHE = "tisly-pwa-shell-v2415-phase51";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2415-phase51";
+const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2415-phase51";
 const ICON_V = "?v=2004";
 
 /** 図面エディタ v1 — ES module 群 */
@@ -16,6 +16,7 @@ const DRAWING_EDITOR_URLS = [
   "/js/features/drawing/drawing-field-innovations-v1.js",
   "/js/features/drawing/survey-sketch-auto-draw-v1.js",
   "/js/features/drawing/survey-ai-wall-svg-v1.js",
+  "/js/features/drawing/survey-eraser-hit-v1.js",
   "/css/features/drawing/drawing-editor-v1.css",
 ];
 

@@ -6,8 +6,25 @@ export function drawingLocalStorageKey(projectId, sketchId) {
   return `${SURVEY_DRAWING_LOCAL_PREFIX}${projectId}:${sketchId}`;
 }
 
+/**
+ * 未保存・一時・仮 ID かどうか
+ * （サーバ PATCH / auto-draw 永続化をスキップする）
+ */
 export function isTempDrawingId(id) {
-  return typeof id === "string" && id.startsWith("TEMP-");
+  if (id == null) return true;
+  const s = String(id).trim();
+  if (!s) return true;
+  const lower = s.toLowerCase();
+  return (
+    s.startsWith("TEMP-") ||
+    lower === "tmp" ||
+    lower === "temp" ||
+    lower === "new" ||
+    lower === "undefined" ||
+    lower === "null" ||
+    lower.startsWith("ephemeral") ||
+    lower.startsWith("temp-")
+  );
 }
 
 export function resolveDrawingIds(raw = {}) {

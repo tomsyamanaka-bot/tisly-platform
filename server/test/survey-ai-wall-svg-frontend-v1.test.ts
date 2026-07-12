@@ -70,8 +70,8 @@ describe("survey aiWallSvg Phase3–5", () => {
     );
 
     assert.match(html, /id="survey-ai-wall-svg-layer"/);
-    assert.match(html, /survey-drawing-ui-v37/);
-    assert.match(js, /SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v37"/);
+    assert.match(html, /survey-drawing-ui-v38/);
+    assert.match(js, /SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v38"/);
     assert.match(js, /applyAiWallSvgFromApi/);
     assert.match(js, /renderAiWallSvgLayerV1/);
     assert.doesNotMatch(js, /detectSketchLinesFromBlobV1/);
@@ -79,7 +79,7 @@ describe("survey aiWallSvg Phase3–5", () => {
     assert.doesNotMatch(autoDraw, /cannyEdgeDetect/);
     assert.match(wallJs, /DOMParser/);
     assert.match(wallJs, /mountSafeAiWallSvgV1/);
-    assert.ok(sw.includes("tisly-pwa-v2415-phase50"));
+    assert.ok(sw.includes("tisly-pwa-v2415-phase51"));
     assert.ok(sw.includes("survey-ai-wall-svg-v1.js"));
   });
 });

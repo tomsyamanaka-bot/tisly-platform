@@ -663,6 +663,10 @@ surveyV1Router.post(
     }
 
     const sketch = getSurveyDrawingSketchV1(sketchId);
+    const isEphemeralSketch =
+      !sketch ||
+      /^TEMP-/i.test(sketchId) ||
+      /^(tmp|temp|new|ephemeral)/i.test(sketchId);
     const canvasW =
       Number(body.canvasWidth) ||
       sketch?.layers.canvasWidth ||
@@ -721,27 +725,35 @@ surveyV1Router.post(
       updatedAt: new Date().toISOString(),
     });
 
-    // applyToCanvas 時は layers へ保存して PATCH 相当を返す
+    // applyToCanvas 時は登録済み sketch のみ永続化
+    // （一時 / ephemeral は 404 にせず SVG だけ返す）
     let nextSketch = sketch;
     const applyToCanvas =
       body.applyToCanvas === true ||
       body.applyToCanvas === "true" ||
       body.applyToCanvas === "1";
-    if (applyToCanvas && sketch && aiWallSvg) {
-      nextSketch = updateSurveyDrawingSketchV1(sketch.id, {
-        layers: {
-          ...sketch.layers,
-          aiWallSvg,
-          // 旧 OpenCV 自動線は破棄
-          paths: (sketch.layers.paths ?? []).filter((p) => {
-            const extra = p as {
-              autoDrawn?: boolean;
-              fallbackFrame?: boolean;
-            };
-            return !extra.autoDrawn && !extra.fallbackFrame;
-          }),
-        },
-      });
+    if (applyToCanvas && sketch && !isEphemeralSketch && aiWallSvg) {
+      try {
+        nextSketch = updateSurveyDrawingSketchV1(sketch.id, {
+          layers: {
+            ...sketch.layers,
+            aiWallSvg,
+            // 旧 OpenCV 自動線は破棄
+            paths: (sketch.layers.paths ?? []).filter((p) => {
+              const extra = p as {
+                autoDrawn?: boolean;
+                fallbackFrame?: boolean;
+              };
+              return !extra.autoDrawn && !extra.fallbackFrame;
+            }),
+          },
+        });
+      } catch (e) {
+        // sketch not found でも抽出結果は 200 で返す
+        const msg = e instanceof Error ? e.message : String(e);
+        if (!/sketch not found/i.test(msg)) throw e;
+        nextSketch = null;
+      }
     }
 
     res.json({

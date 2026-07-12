@@ -19,8 +19,17 @@ import {
   isNetworkOnlineV1,
   updateOfflineResilienceBadgeV1,
 } from "./offline-resilience-v1.js";
+import {
+  ERASER_HIT_TOLERANCE_PX,
+  ERASER_MAX_JUMP_PX,
+  eraseClosestPathOnly,
+  findClosestEraserHitIndex,
+} from "./features/drawing/survey-eraser-hit-v1.js";
 
-export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v37";
+// 回帰テスト用マーカー（Hit Testing モジュール連携）
+void ERASER_HIT_TOLERANCE_PX;
+
+export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v38";
 /** タッチ配置時に指で隠れないよう上へずらす（画面px） */
 const PLOT_TOUCH_OFFSET_Y = 32;
 /** 写真解析の上限（AI完了まで待機） */
@@ -333,13 +342,6 @@ let strokeColor = "#dc2626";
 let strokeWidth = 3;
 /** 消しゴムの線幅（手袋操作向けに太め） */
 const ERASER_WIDTH = 14;
-/** iOS 誤座標で長い対角線ができないよう上限 */
-const ERASER_MAX_JUMP_PX = 72;
-/**
- * タッチ点〜パス線分の許容距離（px）
- * この範囲内の【最短1本だけ】を消す
- */
-const ERASER_HIT_TOLERANCE_PX = 10;
 let lineType = "generic";
 let viewport = { scale: 1, offsetX: 0, offsetY: 0 };
 let layers = emptyLayers();
@@ -588,221 +590,29 @@ function appendPathToSvg(parent, p) {
 const PATH_ROOT_ID = "drawing-paths-root-v1";
 const ERASER_PREVIEW_ID = "drawing-eraser-preview-v1";
 
-/** 点と線分の最短距離 */
-function distPointToSegment(px, py, ax, ay, bx, by) {
-  const dx = bx - ax;
-  const dy = by - ay;
-  const len2 = dx * dx + dy * dy;
-  if (len2 <= 1e-9) return Math.hypot(px - ax, py - ay);
-  let t = ((px - ax) * dx + (py - ay) * dy) / len2;
-  t = Math.max(0, Math.min(1, t));
-  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
-}
-
-/** 線分同士の最短距離（交差なら 0） */
-function distSegmentToSegment(ax, ay, bx, by, cx, cy, dx, dy) {
-  const abx = bx - ax;
-  const aby = by - ay;
-  const cdx = dx - cx;
-  const cdy = dy - cy;
-  const acx = cx - ax;
-  const acy = cy - ay;
-  const den = abx * cdy - aby * cdx;
-  if (Math.abs(den) > 1e-9) {
-    const t = (acx * cdy - acy * cdx) / den;
-    const u = (acx * aby - acy * abx) / den;
-    if (t >= 0 && t <= 1 && u >= 0 && u <= 1) return 0;
-  }
-  return Math.min(
-    distPointToSegment(ax, ay, cx, cy, dx, dy),
-    distPointToSegment(bx, by, cx, cy, dx, dy),
-    distPointToSegment(cx, cy, ax, ay, bx, by),
-    distPointToSegment(dx, dy, ax, ay, bx, by)
-  );
-}
-
-/**
- * テレポートを繋がない消しゴム線分を作る
- * （iOS の飛躍座標で全パスが消えるのを防ぐ）
- * @param {Array<{x:number,y:number}>} points
- */
-function buildEraserSegments(points) {
-  /** @type {Array<[{x:number,y:number},{x:number,y:number}]>} */
-  const segs = [];
-  if (!points?.length) return segs;
-  for (let i = 1; i < points.length; i++) {
-    const a = points[i - 1];
-    const b = points[i];
-    if (
-      !a ||
-      !b ||
-      !Number.isFinite(a.x) ||
-      !Number.isFinite(a.y) ||
-      !Number.isFinite(b.x) ||
-      !Number.isFinite(b.y)
-    ) {
-      continue;
-    }
-    const jump = Math.hypot(b.x - a.x, b.y - a.y);
-    if (jump <= 0 || jump > ERASER_MAX_JUMP_PX) continue;
-    segs.push([a, b]);
-  }
-  return segs;
-}
-
-/** パス点列の AABB（パディング付き） */
-function pathPointsBBox(points, pad) {
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
-  for (const p of points) {
-    if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) continue;
-    if (p.x < minX) minX = p.x;
-    if (p.y < minY) minY = p.y;
-    if (p.x > maxX) maxX = p.x;
-    if (p.y > maxY) maxY = p.y;
-  }
-  if (!Number.isFinite(minX)) {
-    return { minX: 0, minY: 0, maxX: 0, maxY: 0 };
-  }
+/** Hit Testing 共通オプション（10px / 単一削除） */
+function eraserHitOpts() {
   return {
-    minX: minX - pad,
-    minY: minY - pad,
-    maxX: maxX + pad,
-    maxY: maxY + pad,
+    penWidth: strokeWidth,
+    eraserWidth: ERASER_WIDTH,
+    maxJumpPx: ERASER_MAX_JUMP_PX,
   };
-}
-
-function bboxOverlap(a, b) {
-  return !(
-    a.maxX < b.minX ||
-    a.minX > b.maxX ||
-    a.maxY < b.minY ||
-    a.minY > b.maxY
-  );
-}
-
-/** 消しゴム当たり半径（過大にしない・最大10px） */
-function eraserHitThreshold(drawPath, eraserStroke) {
-  const raw =
-    ((drawPath.width || strokeWidth) +
-      (eraserStroke.width || ERASER_WIDTH)) /
-      2 +
-    2;
-  return Math.min(
-    ERASER_HIT_TOLERANCE_PX,
-    Math.max(6, raw)
-  );
-}
-
-/**
- * 消しゴムと描画パスの最短距離
- * （AABB → 点-線分距離。全点逆引きはしない）
- * @param {object} drawPath
- * @param {object} eraserStroke
- */
-function minDistPathToEraser(drawPath, eraserStroke) {
-  const aPts = drawPath?.points;
-  const bPts = eraserStroke?.points;
-  if (!aPts?.length || !bPts?.length) return Infinity;
-  const threshold = eraserHitThreshold(drawPath, eraserStroke);
-  const eraserSegs = buildEraserSegments(bPts);
-  // AABB は有効線分の点だけで作る（テレポート点を除外）
-  const eraserPtsForBox = eraserSegs.length
-    ? eraserSegs.flatMap(([a, b]) => [a, b])
-    : bPts;
-  const pathBox = pathPointsBBox(aPts, threshold);
-  const eraserBox = pathPointsBBox(eraserPtsForBox, threshold);
-  if (!bboxOverlap(pathBox, eraserBox)) return Infinity;
-
-  let best = Infinity;
-  // タップ（点のみ）: 消しゴム各点 → 描画線分
-  // ※最短1本選定のため早期 return せず全探索する
-  for (const bp of bPts) {
-    if (!bp || !Number.isFinite(bp.x) || !Number.isFinite(bp.y)) continue;
-    if (aPts.length === 1) {
-      best = Math.min(
-        best,
-        Math.hypot(bp.x - aPts[0].x, bp.y - aPts[0].y)
-      );
-      continue;
-    }
-    for (let i = 1; i < aPts.length; i++) {
-      const d = distPointToSegment(
-        bp.x,
-        bp.y,
-        aPts[i - 1].x,
-        aPts[i - 1].y,
-        aPts[i].x,
-        aPts[i].y
-      );
-      if (d < best) best = d;
-    }
-  }
-  // 連続区間のみ線分同士（テレポート区間は除外済み）
-  if (aPts.length >= 2 && eraserSegs.length) {
-    for (const [e0, e1] of eraserSegs) {
-      for (let i = 1; i < aPts.length; i++) {
-        const d = distSegmentToSegment(
-          aPts[i - 1].x,
-          aPts[i - 1].y,
-          aPts[i].x,
-          aPts[i].y,
-          e0.x,
-          e0.y,
-          e1.x,
-          e1.y
-        );
-        if (d < best) best = d;
-      }
-    }
-  }
-  return best;
-}
-
-/**
- * 許容距離内で最も近いパスのインデックスを1つだけ返す
- * （見つからなければ -1）
- * @param {object[]} paths
- * @param {object} eraserStroke
- * @returns {number}
- */
-function findClosestEraserHitIndex(paths, eraserStroke) {
-  if (!paths?.length || !eraserStroke?.points?.length) return -1;
-  let hitIndex = -1;
-  let bestDist = Infinity;
-  for (let i = 0; i < paths.length; i++) {
-    const p = paths[i];
-    if (!p?.points?.length) continue;
-    const dist = minDistPathToEraser(p, eraserStroke);
-    const threshold = eraserHitThreshold(p, eraserStroke);
-    // 許容内かつ最短のものだけ採用
-    if (dist <= threshold && dist < bestDist) {
-      bestDist = dist;
-      hitIndex = i;
-    }
-  }
-  return hitIndex;
 }
 
 /**
  * 触れたパスを splice で【1本だけ】物理削除
- * 全消去は絶対にしない（見つかったら即 return）
+ * 全消去は絶対にしない（モジュール側で保証）
  * @param {object} eraserStroke
  * @returns {number} 削除本数（0 or 1）
  */
 function applyEraserPhysicalDelete(eraserStroke) {
-  const cleaned = stripLegacyEraserPaths(layers.paths);
-  const hitIndex = findClosestEraserHitIndex(cleaned, eraserStroke);
-  if (hitIndex < 0) {
-    layers.paths = cleaned;
-    return 0;
-  }
-  // 確実に1本だけ削除して即終了
-  cleaned.splice(hitIndex, 1);
-  layers.paths = cleaned;
-  return 1;
+  const result = eraseClosestPathOnly(
+    layers.paths,
+    eraserStroke,
+    eraserHitOpts()
+  );
+  layers.paths = result.paths;
+  return result.removed;
 }
 
 /** 線描画専用グループ（エディタ SVG レイヤーを壊さない） */
@@ -859,10 +669,12 @@ function renderPaths(previewEraserStroke = null) {
   // 描画パスのみ（消しゴムは物理削除済み）
   let drawPaths = stripLegacyEraserPaths(layers.paths);
   if (previewEraserStroke) {
-    // プレビューも【最短1本だけ】非表示（全消し誤認を防ぐ）
+    // プレビューも【最短1本だけ】非表示
+    // （全消し誤認を防ぐ）
     const hitIndex = findClosestEraserHitIndex(
       drawPaths,
-      previewEraserStroke
+      previewEraserStroke,
+      eraserHitOpts()
     );
     if (hitIndex >= 0) {
       drawPaths = drawPaths.filter((_, i) => i !== hitIndex);
@@ -1487,6 +1299,7 @@ async function saveSketch() {
   if (!sketchId) return;
   prepareLayersForSave();
 
+  // 一時図面はサーバ PATCH せずローカルのみ
   if (isLocalOnlyMode || isTempDrawingId(sketchId)) {
     saveSketchLocal();
     return;
@@ -1507,6 +1320,8 @@ async function saveSketch() {
   }
 
   try {
+    const keptAiWall = layers.aiWallSvg;
+    const keptPaths = layers.paths;
     const data = await api("PATCH", `/api/survey/v1/drawing-sketches/${encodeURIComponent(sketchId)}`, {
       layers,
       title: sketch?.title,
@@ -1515,6 +1330,13 @@ async function saveSketch() {
     sketch = data.sketch;
     projectId = sketch.projectId || projectId;
     layers = migrateLayers(sketch.layers, stageSize.w, stageSize.h);
+    // サーバ応答で壁SVG/線が欠落してもローカルを落とさない
+    if (!layers.aiWallSvg && keptAiWall) {
+      layers.aiWallSvg = keptAiWall;
+    }
+    if (!layers.paths?.length && keptPaths?.length) {
+      layers.paths = keptPaths;
+    }
     dirty = false;
     isLocalOnlyMode = false;
     setStatus(`サーバーに保存しました ${new Date().toLocaleTimeString("ja-JP")}`);
@@ -1531,6 +1353,15 @@ async function saveSketch() {
       })
     );
   } catch (e) {
+    // sketch not found は端末内保存へフォールバック
+    if (isSketchNotFoundError(e)) {
+      isLocalOnlyMode = true;
+      isTempMode = true;
+      saveSketchLocal();
+      showTempBanner();
+      setStatus("図面未登録のため端末内に保存しました");
+      return;
+    }
     saveSketchLocal();
     enqueueOfflineResilienceV1("drawing_sketch_patch", patchPayload);
     const hint = e.message === "offline" ? "オフライン" : e.message || "失敗";
@@ -2273,10 +2104,12 @@ async function runServerAutoDrawLines(file, fileName) {
   if (!isNetworkOnlineV1()) return null;
 
   try {
-    // 一時IDでも解析用に送る
-    // （サーバは sketch 無しでも検出）
+    // 一時IDは ephemeral で送る
+    // （サーバは sketch 無しでも SVG 抽出）
     const apiSketchId =
-      sketchId && !isTempDrawingId(sketchId) ? sketchId : "ephemeral-auto-draw";
+      sketchId && !isTempDrawingId(sketchId)
+        ? sketchId
+        : "ephemeral-auto-draw";
 
     // 1500px JPEG・拡張子付きで送信
     const uploadFile = await prepareSketchUploadFileV1(file);
@@ -2287,7 +2120,12 @@ async function runServerAutoDrawLines(file, fileName) {
     formData.append("fileName", fileName || "sketch.jpg");
     formData.append("canvasWidth", String(stageSize.w || 800));
     formData.append("canvasHeight", String(stageSize.h || 600));
-    formData.append("applyToCanvas", "true");
+    // 一時図面はサーバ永続化しない
+    const persist =
+      !isLocalOnlyMode &&
+      !isTempDrawingId(sketchId) &&
+      apiSketchId !== "ephemeral-auto-draw";
+    formData.append("applyToCanvas", persist ? "true" : "false");
 
     const token = sessionStorage.getItem(TOKEN_KEY);
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
@@ -2299,7 +2137,24 @@ async function runServerAutoDrawLines(file, fileName) {
     );
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      throw new Error(data.error || String(res.status));
+      const msg = data.error || String(res.status);
+      // sketch not found でも SVG があればローカル反映
+      if (
+        data.aiWallSvg ||
+        data.sketch?.layers?.aiWallSvg ||
+        isSketchNotFoundError(msg) ||
+        data.code === "SKETCH_NOT_FOUND"
+      ) {
+        isLocalOnlyMode = true;
+        isTempMode = true;
+        if (data.aiWallSvg || data.sketch?.layers?.aiWallSvg) {
+          applyAiWallSvgFromApi({ ...data, sketchFound: false });
+          return data;
+        }
+        console.warn("[survey-drawing] auto-draw local skip", msg);
+        return null;
+      }
+      throw new Error(msg);
     }
 
     // 旧 lineDetect.paths は無視（Gemini SVG のみ採用）
@@ -2308,6 +2163,12 @@ async function runServerAutoDrawLines(file, fileName) {
   } catch (err) {
     console.error(err);
     console.warn("[survey-drawing] runServerAutoDrawLines failed", err);
+    // sketch not found は致命にしない
+    if (isSketchNotFoundError(err)) {
+      isLocalOnlyMode = true;
+      isTempMode = true;
+      return null;
+    }
     throw err;
   } finally {
     // fetch失敗時も遮断幕を残さない
@@ -2317,6 +2178,7 @@ async function runServerAutoDrawLines(file, fileName) {
 
 /**
  * API 応答の aiWallSvg を layers へ保存し再描画
+ * 一時図面はサーバ保存せずローカルマージのみ
  * @param {object} data
  */
 function applyAiWallSvgFromApi(data) {
@@ -2334,13 +2196,22 @@ function applyAiWallSvgFromApi(data) {
       data.sketch.layers.canvasHeight
     );
     sketch = data.sketch;
+  } else {
+    // 未登録スケッチ — ローカル layers へマージのみ
+    isLocalOnlyMode = true;
+    isTempMode = true;
   }
 
   layers.aiWallSvg = next;
   // 旧 OpenCV 自動線は破棄
   layers.paths = stripAutoDrawnPaths(layers.paths);
   renderAll();
-  markDirty();
+  // 一時はローカル保存のみ（PATCH しない）
+  if (isLocalOnlyMode || isTempDrawingId(sketchId)) {
+    saveSketchLocal();
+  } else {
+    markDirty();
+  }
 
   const mockHint = data.usedMock ? "（mock）" : "";
   setStatus(`AI壁図を反映しました${mockHint}`);
