@@ -19,7 +19,7 @@ describe("Operational Phase31 — camera nav footer zoom", () => {
     assert.match(html, /user-scalable=no/);
     assert.match(html, /<label for="survey-camera-input"/);
     assert.match(html, /<label for="survey-album-input"/);
-    assert.match(js, /SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v30"/);
+    assert.match(js, /SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v31"/);
     assert.match(js, /suppressPopstateBackGuard/);
     assert.match(js, /ev\.preventDefault\(\)/);
     assert.match(html, /id="survey-photo-pick-form"/);
@@ -28,11 +28,15 @@ describe("Operational Phase31 — camera nav footer zoom", () => {
     assert.doesNotMatch(js, /bindPhotoTriggerButton/);
     assert.doesNotMatch(js, /input\.click\(\)/);
     assert.ok(js.includes("dismissPhotoPickerChrome"));
+    assert.ok(js.includes("armPhotoImportForceReleaseTimer"));
+    assert.ok(js.includes("PHOTO_IMPORT_FORCE_RELEASE_MS"));
+    assert.ok(js.includes("処理がタイムアウトしました"));
     assert.ok(js.includes("setupBgImage"));
     assert.ok(js.includes("applyCssPhotoBackground"));
     assert.ok(css.includes("touch-action: manipulation"));
     assert.ok(css.includes("z-index: 9999"));
     assert.ok(css.includes("drawing-photo-picker-backdrop"));
+    assert.ok(css.includes("pointer-events: none !important"));
     const inputRule = css.slice(
       css.indexOf(".survey-file-input-hidden {"),
       css.indexOf(".drawing-temp-banner")
@@ -56,6 +60,6 @@ describe("Operational Phase31 — camera nav footer zoom", () => {
 
   it("service worker bumped for phase31", () => {
     const sw = fs.readFileSync(path.join(publicDir, "service-worker.js"), "utf-8");
-    assert.ok(sw.includes("tisly-pwa-v2414-phase43"));
+    assert.ok(sw.includes("tisly-pwa-v2414-phase44"));
   });
 });

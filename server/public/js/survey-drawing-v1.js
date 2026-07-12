@@ -20,13 +20,17 @@ import {
   updateOfflineResilienceBadgeV1,
 } from "./offline-resilience-v1.js";
 
-export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v30";
+export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v31";
 /** タッチ配置時に指で隠れないよう上へずらす（画面px） */
 const PLOT_TOUCH_OFFSET_Y = 32;
 /** 写真解析の上限（超えたらUI解放） */
-const PHOTO_IMPORT_TIMEOUT_MS = 45000;
+const PHOTO_IMPORT_TIMEOUT_MS = 10000;
+/** onChange直後の問答無用強制解放（秒） */
+const PHOTO_IMPORT_FORCE_RELEASE_MS = 10000;
 /** 写真取込中フラグ（画面ロック用） */
 let photoImportBusy = false;
+/** 強制解放タイマーID（0=未セット） */
+let photoImportForceTimerId = 0;
 export const SURVEY_DRAWING_TEMP_BANNER =
   "一時図面として作成中。現調から開くと案件に紐づきます。";
 /** 画像拡張子（MIME空のHEIC等向け） */
@@ -185,7 +189,10 @@ function uid() {
 
 function setStatus(msg) {
   const el = $("drawing-status");
-  if (el) el.textContent = msg;
+  if (!el) return;
+  el.textContent = msg;
+  // Toast帯は常にタッチを通す（無力化）
+  el.style.setProperty("pointer-events", "none", "important");
 }
 
 function emptyLayers(w = 800, h = 600) {
@@ -934,16 +941,63 @@ function notifySurveyPhotoLoadError(fileName, detail) {
   dismissPhotoPickerChrome();
 }
 
+/** 強制解放タイマーを取り消す */
+function clearPhotoImportForceTimer() {
+  if (!photoImportForceTimerId) return;
+  clearTimeout(photoImportForceTimerId);
+  photoImportForceTimerId = 0;
+}
+
+/** onChange直後に仕込む時限爆弾
+   10秒後は問答無用でUIを解放する */
+function armPhotoImportForceReleaseTimer(fileLabel) {
+  clearPhotoImportForceTimer();
+  photoImportForceTimerId = setTimeout(() => {
+    photoImportForceTimerId = 0;
+    const el = $("drawing-status");
+    const text = el?.textContent || "";
+    const stillBusy =
+      photoImportBusy || text.includes("読み込み中");
+    if (!stillBusy) return;
+    console.error(
+      "[survey-drawing] force release timeout",
+      fileLabel
+    );
+    // JS側の読込フラグを全滅
+    photoImportBusy = false;
+    document.body.classList.remove("drawing-photo-import-busy");
+    forceNukeTouchBlockerEl($("drawing-photo-import-lock"));
+    forceNukeTouchBlockerEl($("drawing-photo-picker-backdrop"));
+    forceNukeTouchBlockerEl($("drawing-photo-picker"));
+    dismissPhotoPickerChrome();
+    setTool("pen");
+    setStatus("処理がタイムアウトしました");
+    if (el) {
+      el.style.setProperty(
+        "pointer-events",
+        "none",
+        "important"
+      );
+    }
+    alert("処理がタイムアウトしました");
+  }, PHOTO_IMPORT_FORCE_RELEASE_MS);
+}
+
 /** 取込ロック幕を前面表示
-   （処理中だけタッチを遮断） */
+   （見た目のみ・タッチは吸わない） */
 function showPhotoImportLockOverlay() {
   document.body.classList.add("drawing-photo-import-busy");
   const lock = $("drawing-photo-import-lock");
   if (!lock) return;
   lock.classList.remove("hidden");
   lock.setAttribute("aria-hidden", "false");
-  lock.style.setProperty("display", "block", "important");
-  lock.style.setProperty("pointer-events", "auto", "important");
+  lock.style.setProperty("display", "flex", "important");
+  // タッチ遮断を禁止（視覚フィードバックのみ）
+  lock.style.setProperty(
+    "pointer-events",
+    "none",
+    "important"
+  );
   lock.style.setProperty("visibility", "visible", "important");
   lock.style.setProperty("z-index", "10000", "important");
 }
@@ -951,7 +1005,9 @@ function showPhotoImportLockOverlay() {
 /** 読み込み中表示と画面ロックを
    成否問わず必ず解除する */
 function releasePhotoImportUiLock() {
+  // Stateフラグを確実に false へ
   photoImportBusy = false;
+  clearPhotoImportForceTimer();
   // busyクラスを先に剥がしCSSも解放
   document.body.classList.remove("drawing-photo-import-busy");
   // 取込ロック幕を物理 display:none
@@ -963,11 +1019,17 @@ function releasePhotoImportUiLock() {
   const text = el?.textContent || "";
   // 読み込み中表示は無条件で書き換える
   if (!text || text.includes("読み込み中")) {
-    setStatus("操作できます。写真を選び直すか描画を続けてください");
+    setStatus(
+      "操作できます。写真を選び直すか描画を続けてください"
+    );
   }
   // ステータス帯もタッチを通す
   if (el) {
-    el.style.setProperty("pointer-events", "none", "important");
+    el.style.setProperty(
+      "pointer-events",
+      "none",
+      "important"
+    );
   }
 }
 
@@ -996,25 +1058,29 @@ async function handleSurveyFileSelected(ev) {
   // 親form送信・画面リロードを阻止
   ev.preventDefault();
   ev.stopPropagation();
-  // iOSピッカー復帰の誤popstateを抑止
-  suppressPopstateBackGuard(8000);
   const input = ev.target;
   const file = input?.files?.[0];
+  // 【一番最初】10秒強制解放タイマーを仕込む
+  armPhotoImportForceReleaseTimer(file?.name || "写真");
+  // iOSピッカー復帰の誤popstateを抑止
+  suppressPopstateBackGuard(8000);
   // 選択直後に最前面ブロックを撤去
   dismissPhotoPickerChrome();
   if (!file) {
+    // Stateリセット＋タイマー解除
+    photoImportBusy = false;
     releasePhotoImportUiLock();
     return;
   }
-  // 二重起動を避け、読み込み中を明示
+  // 残留busyは強制クリアして続行可能にする
   if (photoImportBusy) {
-    setStatus(`読み込み中…（${file.name || "写真"}）`);
-    // 二重起動時も遮断幕だけは撤去
+    photoImportBusy = false;
+    document.body.classList.remove("drawing-photo-import-busy");
+    forceNukeTouchBlockerEl($("drawing-photo-import-lock"));
     dismissPhotoPickerChrome();
-    return;
   }
   photoImportBusy = true;
-  // 処理中だけ全面ロック幕を出す
+  // 処理中は見た目だけのロック幕を出す
   showPhotoImportLockOverlay();
   setStatus(`読み込み中…（${file.name || "写真"}）`);
   try {
@@ -1043,12 +1109,15 @@ async function handleSurveyFileSelected(ev) {
       file?.name,
       file?.size
     );
+    // エラー時点で読込フラグを落とす
+    photoImportBusy = false;
     // sketch not found は致命エラーにしない
     if (isSketchNotFoundError(err)) {
       dismissPhotoPickerChrome();
       setStatus("図面未登録のため端末内で自動作図を続行します");
       setTool("pen");
       try {
+        photoImportBusy = true;
         await withPhotoImportTimeout(
           runClientAutoDrawFromFile(file),
           PHOTO_IMPORT_TIMEOUT_MS,
@@ -1056,6 +1125,7 @@ async function handleSurveyFileSelected(ev) {
         );
       } catch (fallbackErr) {
         console.error(fallbackErr);
+        photoImportBusy = false;
         alert("解析中にエラーが発生しました。再度お試しください");
       }
     } else {
@@ -1067,6 +1137,8 @@ async function handleSurveyFileSelected(ev) {
   } finally {
     // 成功・失敗・例外・タイムアウト問わず解放
     if (input) input.value = "";
+    // JS側の読込Stateを確実に false
+    photoImportBusy = false;
     // フラグ解除＋DOM物理 display:none
     releasePhotoImportUiLock();
     // 念のためもう一度全遮断幕を粉砕

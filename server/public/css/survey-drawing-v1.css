@@ -219,7 +219,7 @@ body:not(.drawing-photo-picker-open) .survey-file-input-hidden {
 }
 
 /* 写真取込中の全面ロック幕
-   処理中だけタッチを遮断する */
+   見た目のみ — タッチは絶対に吸わない */
 .drawing-photo-import-lock {
   position: fixed;
   inset: 0;
@@ -228,7 +228,7 @@ body:not(.drawing-photo-picker-open) .survey-file-input-hidden {
   align-items: center;
   justify-content: center;
   background: rgba(15, 23, 42, 0.4);
-  pointer-events: auto;
+  pointer-events: none !important;
   touch-action: none;
 }
 
@@ -239,7 +239,7 @@ body:not(.drawing-photo-picker-open) .survey-file-input-hidden {
   color: #e2e8f0;
   font-size: 0.9rem;
   font-weight: 600;
-  pointer-events: none;
+  pointer-events: none !important;
 }
 
 /* 非表示時は物理撤去＋タッチ完全解放 */
@@ -608,8 +608,8 @@ body:not(.drawing-photo-picker-open) .drawing-photo-picker-btn {
   color: #94a3b8;
   background: #0f172a;
   text-align: center;
-  /* ステータス帯がタッチを吸わない */
-  pointer-events: none;
+  /* 読み込み中Toastがタッチを吸わない */
+  pointer-events: none !important;
 }
 
 .drawing-tool-btn[data-tool="voice-pin"].active {
