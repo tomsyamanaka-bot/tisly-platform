@@ -20,13 +20,13 @@ import {
   updateOfflineResilienceBadgeV1,
 } from "./offline-resilience-v1.js";
 
-export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v31";
+export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v33";
 /** タッチ配置時に指で隠れないよう上へずらす（画面px） */
 const PLOT_TOUCH_OFFSET_Y = 32;
-/** 写真解析の上限（超えたらUI解放） */
-const PHOTO_IMPORT_TIMEOUT_MS = 10000;
-/** onChange直後の問答無用強制解放（秒） */
-const PHOTO_IMPORT_FORCE_RELEASE_MS = 10000;
+/** 写真解析の上限（AI完了まで待機） */
+const PHOTO_IMPORT_TIMEOUT_MS = 60000;
+/** onChange直後の強制解放（AI解析待ち） */
+const PHOTO_IMPORT_FORCE_RELEASE_MS = 60000;
 /** 写真取込中フラグ（画面ロック用） */
 let photoImportBusy = false;
 /** 強制解放タイマーID（0=未セット） */
@@ -208,13 +208,19 @@ function emptyLayers(w = 800, h = 600) {
   };
 }
 
+/** 旧マスク消しゴムパスを捨てる
+ * （物理削除方式へ移行済み） */
+function stripLegacyEraserPaths(paths) {
+  return (paths ?? []).filter((p) => p && p.tool !== "eraser");
+}
+
 function migrateLayers(raw, w = 800, h = 600) {
   if (!raw) return emptyLayers(w, h);
   if (raw.schemaVersion === 2) {
     return {
       ...emptyLayers(w, h),
       ...raw,
-      paths: raw.paths ?? raw.strokes ?? [],
+      paths: stripLegacyEraserPaths(raw.paths ?? raw.strokes ?? []),
       notes: raw.notes ?? raw.textMemos ?? [],
     };
   }
@@ -224,7 +230,7 @@ function migrateLayers(raw, w = 800, h = 600) {
       drawingVersion: DRAWING_VERSION,
       canvasWidth: w,
       canvasHeight: h,
-      paths: (raw.strokes ?? []).map((s) => ({
+      paths: stripLegacyEraserPaths(raw.strokes ?? []).map((s) => ({
         ...s,
         lineType: s.lineType || "generic",
         lengthPx: pathLength(s.points),
@@ -558,79 +564,94 @@ function appendPathToSvg(parent, p) {
   parent.appendChild(path);
 }
 
-const DRAW_MASK_ID = "drawing-draw-mask-v1";
-const DRAW_DEFS_ID = "drawing-defs-v1";
-
-/**
- * 手書きレイヤー用マスクを確保
- * （白=表示・黒=消去＝destination-out 相当）
- * @param {SVGSVGElement} svg
- * @param {number} w
- * @param {number} h
- */
-function ensureDrawMask(svg, w, h) {
-  let defs = svg.querySelector(`#${DRAW_DEFS_ID}`);
-  if (!defs) {
-    defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
-    defs.setAttribute("id", DRAW_DEFS_ID);
-    svg.insertBefore(defs, svg.firstChild);
-  }
-  let mask = defs.querySelector(`#${DRAW_MASK_ID}`);
-  if (!mask) {
-    mask = document.createElementNS("http://www.w3.org/2000/svg", "mask");
-    mask.setAttribute("id", DRAW_MASK_ID);
-    mask.setAttribute("maskUnits", "userSpaceOnUse");
-    mask.setAttribute("maskContentUnits", "userSpaceOnUse");
-    defs.appendChild(mask);
-  }
-  mask.setAttribute("x", "0");
-  mask.setAttribute("y", "0");
-  mask.setAttribute("width", String(w));
-  mask.setAttribute("height", String(h));
-  mask.innerHTML = "";
-  const base = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-  base.setAttribute("x", "0");
-  base.setAttribute("y", "0");
-  base.setAttribute("width", String(w));
-  base.setAttribute("height", String(h));
-  base.setAttribute("fill", "white");
-  mask.appendChild(base);
-  return mask;
-}
-
-/**
- * 消しゴム — マスク内に黒ストローク
- * （手書き線だけを透明化、方眼紙は無傷）
- * @param {SVGElement} parent
- * @param {object} p
- */
-function appendEraserMaskStroke(parent, p) {
-  if (!p.points?.length) return;
-  const width = p.width || ERASER_WIDTH;
-  if (p.points.length >= 2 && (p.tool === "line" || p.tool === "route")) {
-    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-    line.setAttribute("x1", p.points[0].x);
-    line.setAttribute("y1", p.points[0].y);
-    line.setAttribute("x2", p.points[p.points.length - 1].x);
-    line.setAttribute("y2", p.points[p.points.length - 1].y);
-    line.setAttribute("stroke", "#000000");
-    line.setAttribute("stroke-width", width);
-    line.setAttribute("stroke-linecap", "round");
-    parent.appendChild(line);
-    return;
-  }
-  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  const d = p.points.map((pt, i) => `${i ? "L" : "M"}${pt.x} ${pt.y}`).join(" ");
-  path.setAttribute("d", d);
-  path.setAttribute("fill", "none");
-  path.setAttribute("stroke", "#000000");
-  path.setAttribute("stroke-width", width);
-  path.setAttribute("stroke-linecap", "round");
-  path.setAttribute("stroke-linejoin", "round");
-  parent.appendChild(path);
-}
-
 const PATH_ROOT_ID = "drawing-paths-root-v1";
+const ERASER_PREVIEW_ID = "drawing-eraser-preview-v1";
+
+/** 点と線分の最短距離 */
+function distPointToSegment(px, py, ax, ay, bx, by) {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const len2 = dx * dx + dy * dy;
+  if (len2 <= 1e-9) return Math.hypot(px - ax, py - ay);
+  let t = ((px - ax) * dx + (py - ay) * dy) / len2;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+}
+
+/**
+ * 消しゴム軌跡が描画パスに触れているか
+ * （触れたパスは丸ごと物理削除する）
+ * @param {object} drawPath
+ * @param {object} eraserStroke
+ */
+function pathTouchesEraser(drawPath, eraserStroke) {
+  const aPts = drawPath?.points;
+  const bPts = eraserStroke?.points;
+  if (!aPts?.length || !bPts?.length) return false;
+  const threshold =
+    ((drawPath.width || strokeWidth) +
+      (eraserStroke.width || ERASER_WIDTH)) /
+      2 +
+    1;
+
+  // 消しゴム各点 → 描画線分
+  for (const bp of bPts) {
+    if (aPts.length === 1) {
+      if (Math.hypot(bp.x - aPts[0].x, bp.y - aPts[0].y) <= threshold) {
+        return true;
+      }
+      continue;
+    }
+    for (let i = 1; i < aPts.length; i++) {
+      const d = distPointToSegment(
+        bp.x,
+        bp.y,
+        aPts[i - 1].x,
+        aPts[i - 1].y,
+        aPts[i].x,
+        aPts[i].y
+      );
+      if (d <= threshold) return true;
+    }
+  }
+
+  // 描画各点 → 消しゴム線分（短い擦り残し防止）
+  for (const ap of aPts) {
+    if (bPts.length === 1) {
+      if (Math.hypot(ap.x - bPts[0].x, ap.y - bPts[0].y) <= threshold) {
+        return true;
+      }
+      continue;
+    }
+    for (let i = 1; i < bPts.length; i++) {
+      const d = distPointToSegment(
+        ap.x,
+        ap.y,
+        bPts[i - 1].x,
+        bPts[i - 1].y,
+        bPts[i].x,
+        bPts[i].y
+      );
+      if (d <= threshold) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * 消しゴム軌跡に触れたパスを DOM/配列から完全削除
+ * 消しゴム自身は残さない（上書き透明線にしない）
+ * @param {object} eraserStroke
+ * @returns {number} 削除本数
+ */
+function applyEraserPhysicalDelete(eraserStroke) {
+  const before = layers.paths.length;
+  // 触れた描画パスだけ除去。eraser 自身は残さない
+  layers.paths = stripLegacyEraserPaths(layers.paths).filter(
+    (p) => !pathTouchesEraser(p, eraserStroke)
+  );
+  return before - layers.paths.length;
+}
 
 /** 線描画専用グループ（エディタ SVG レイヤーを壊さない） */
 function ensurePathsRoot(svg) {
@@ -642,10 +663,38 @@ function ensurePathsRoot(svg) {
     if (routeLayer) svg.insertBefore(root, routeLayer);
     else svg.appendChild(root);
   }
+  // 旧マスク defs が残っていれば除去
+  svg.querySelector("#drawing-defs-v1")?.remove();
   return root;
 }
 
-function renderPaths() {
+/**
+ * 消しゴム操作中のプレビュー線
+ * （半透明・削除確定前のガイド）
+ * @param {SVGElement} parent
+ * @param {object|null} eraserStroke
+ */
+function appendEraserPreview(parent, eraserStroke) {
+  if (!eraserStroke?.points?.length) return;
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  const d = eraserStroke.points
+    .map((pt, i) => `${i ? "L" : "M"}${pt.x} ${pt.y}`)
+    .join(" ");
+  path.setAttribute("id", ERASER_PREVIEW_ID);
+  path.setAttribute("d", d);
+  path.setAttribute("fill", "none");
+  path.setAttribute("stroke", "rgba(148, 163, 184, 0.55)");
+  path.setAttribute(
+    "stroke-width",
+    String(eraserStroke.width || ERASER_WIDTH)
+  );
+  path.setAttribute("stroke-linecap", "round");
+  path.setAttribute("stroke-linejoin", "round");
+  path.setAttribute("pointer-events", "none");
+  parent.appendChild(path);
+}
+
+function renderPaths(previewEraserStroke = null) {
   const svg = $("drawing-svg");
   if (!svg) return;
   svg.setAttribute("viewBox", `0 0 ${stageSize.w} ${stageSize.h}`);
@@ -655,21 +704,23 @@ function renderPaths() {
   const root = ensurePathsRoot(svg);
   root.innerHTML = "";
 
-  const eraserPaths = layers.paths.filter((p) => p.tool === "eraser");
-  const drawPaths = layers.paths.filter((p) => p.tool !== "eraser");
-
-  if (eraserPaths.length) {
-    const mask = ensureDrawMask(svg, stageSize.w, stageSize.h);
-    for (const p of eraserPaths) appendEraserMaskStroke(mask, p);
+  // 描画パスのみ（消しゴムは物理削除済み）
+  let drawPaths = stripLegacyEraserPaths(layers.paths);
+  if (previewEraserStroke) {
+    drawPaths = drawPaths.filter(
+      (p) => !pathTouchesEraser(p, previewEraserStroke)
+    );
   }
 
   const drawGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
   drawGroup.setAttribute("class", "drawing-draw-layer");
-  if (eraserPaths.length) {
-    drawGroup.setAttribute("mask", `url(#${DRAW_MASK_ID})`);
-  }
+  // mask は使わない — 消した場所にも再描画できる
   for (const p of drawPaths) appendPathToSvg(drawGroup, p);
   root.appendChild(drawGroup);
+
+  if (previewEraserStroke) {
+    appendEraserPreview(root, previewEraserStroke);
+  }
 
   drawingEditorState?.canvas?.renderAll?.();
 }
@@ -949,7 +1000,7 @@ function clearPhotoImportForceTimer() {
 }
 
 /** onChange直後に仕込む時限爆弾
-   10秒後は問答無用でUIを解放する */
+   60秒後は問答無用でUIを解放する */
 function armPhotoImportForceReleaseTimer(fileLabel) {
   clearPhotoImportForceTimer();
   photoImportForceTimerId = setTimeout(() => {
@@ -1060,7 +1111,7 @@ async function handleSurveyFileSelected(ev) {
   ev.stopPropagation();
   const input = ev.target;
   const file = input?.files?.[0];
-  // 【一番最初】10秒強制解放タイマーを仕込む
+  // 【一番最初】60秒強制解放タイマーを仕込む
   armPhotoImportForceReleaseTimer(file?.name || "写真");
   // iOSピッカー復帰の誤popstateを抑止
   suppressPopstateBackGuard(8000);
@@ -1337,6 +1388,10 @@ function addDrawingNote({ text, x, y, color, voicePin = false }) {
 }
 
 function setTool(next) {
+  // ツール切替時は描画状態を完全リセット
+  // （消しゴム→ペンで描画モードが残らないように）
+  currentStroke = null;
+  panStart = null;
   tool = next;
   pendingSymbol = null;
   if (next !== "symbol") hidePlotPreview();
@@ -1347,9 +1402,15 @@ function setTool(next) {
   $("symbol-palette")?.classList.toggle("hidden", next !== "symbol");
   $("line-type-palette")?.classList.toggle("hidden", next !== "route");
   updateSymbolInspector();
+  // プレビュー残骸を消して通常描画へ復帰
+  renderPaths();
   if (next !== "select") renderOverlay();
   if (next === "voice-pin") {
     setStatus("🎤 音声ピン — 図面上をタップして話してください");
+  } else if (next === "eraser") {
+    setStatus("消しゴム — 触れた線を完全削除します");
+  } else if (next === "pen") {
+    setStatus("ペン — 自由に書き込めます");
   }
 }
 
@@ -1432,7 +1493,8 @@ function onPointerDown(ev) {
             ? "route"
             : "line",
       lineType: lt,
-      color: isEraser ? "transparent" : color,
+      // 消しゴムは透明上書きしない（確定時に物理削除）
+      color: isEraser ? "#94a3b8" : color,
       width: isEraser ? ERASER_WIDTH : strokeWidth,
       points: [pt],
       lengthPx: 0,
@@ -1459,6 +1521,11 @@ function onPointerMove(ev) {
   } else {
     currentStroke.points.push(pt);
   }
+  // 消しゴムは触れた線をプレビュー削除（マスクしない）
+  if (currentStroke.tool === "eraser") {
+    renderPaths(currentStroke);
+    return;
+  }
   const temp = [...layers.paths, currentStroke];
   const prev = layers.paths;
   layers.paths = temp;
@@ -1473,10 +1540,17 @@ function onPointerUp() {
     const minPts =
       currentStroke.tool === "pen" || currentStroke.tool === "eraser" ? 1 : 2;
     if (currentStroke.points.length >= minPts) {
-      pushUndoSnapshot();
-      currentStroke.lengthPx = pathLength(currentStroke.points);
-      layers.paths.push(currentStroke);
-      markDirty();
+      if (currentStroke.tool === "eraser") {
+        // 触れたパスを配列から完全削除（再描画可能）
+        pushUndoSnapshot();
+        applyEraserPhysicalDelete(currentStroke);
+        markDirty();
+      } else {
+        pushUndoSnapshot();
+        currentStroke.lengthPx = pathLength(currentStroke.points);
+        layers.paths.push(currentStroke);
+        markDirty();
+      }
     }
     currentStroke = null;
     renderPaths();
