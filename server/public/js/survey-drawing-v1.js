@@ -20,7 +20,7 @@ import {
   updateOfflineResilienceBadgeV1,
 } from "./offline-resilience-v1.js";
 
-export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v36";
+export const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v37";
 /** タッチ配置時に指で隠れないよう上へずらす（画面px） */
 const PLOT_TOUCH_OFFSET_Y = 32;
 /** 写真解析の上限（AI完了まで待機） */
@@ -73,11 +73,13 @@ import {
   updateMaterialBarVisibility,
 } from "./features/drawing/drawing-field-innovations-v1.js";
 import {
-  buildFallbackOuterFramePaths,
-  detectSketchLinesFromBlobV1,
   isSketchNotFoundError,
   prepareSketchUploadFileV1,
 } from "./features/drawing/survey-sketch-auto-draw-v1.js";
+import {
+  normalizeAiWallSvgClientV1,
+  renderAiWallSvgLayerV1,
+} from "./features/drawing/survey-ai-wall-svg-v1.js";
 
 function $(id) {
   return document.getElementById(id);
@@ -205,6 +207,7 @@ function emptyLayers(w = 800, h = 600) {
     symbols: [],
     notes: [],
     viewport: { scale: 1, offsetX: 0, offsetY: 0 },
+    aiWallSvg: null,
   };
 }
 
@@ -214,14 +217,24 @@ function stripLegacyEraserPaths(paths) {
   return (paths ?? []).filter((p) => p && p.tool !== "eraser");
 }
 
+/** 旧 OpenCV 自動線を layers.paths から除去 */
+function stripAutoDrawnPaths(paths) {
+  return (paths ?? []).filter(
+    (p) => p && !p.autoDrawn && !p.fallbackFrame
+  );
+}
+
 function migrateLayers(raw, w = 800, h = 600) {
   if (!raw) return emptyLayers(w, h);
   if (raw.schemaVersion === 2) {
     return {
       ...emptyLayers(w, h),
       ...raw,
-      paths: stripLegacyEraserPaths(raw.paths ?? raw.strokes ?? []),
+      paths: stripAutoDrawnPaths(
+        stripLegacyEraserPaths(raw.paths ?? raw.strokes ?? [])
+      ),
       notes: raw.notes ?? raw.textMemos ?? [],
+      aiWallSvg: normalizeAiWallSvgClientV1(raw.aiWallSvg),
     };
   }
   if (raw.version === 1) {
@@ -238,6 +251,7 @@ function migrateLayers(raw, w = 800, h = 600) {
       symbols: (raw.symbols ?? []).map((s) => ({ ...s, scale: s.scale || 1 })),
       notes: raw.textMemos ?? [],
       viewport: raw.viewport ?? { scale: 1, offsetX: 0, offsetY: 0 },
+      aiWallSvg: null,
     };
   }
   return emptyLayers(w, h);
@@ -986,6 +1000,11 @@ function renderOverlay() {
 }
 
 function renderAll() {
+  // AI 壁 SVG は最背面（ペン／記号の下）
+  renderAiWallSvgLayerV1(layers.aiWallSvg, {
+    canvasW: stageSize.w || layers.canvasWidth,
+    canvasH: stageSize.h || layers.canvasHeight,
+  });
   renderPaths();
   renderOverlay();
   applyViewportTransform();
@@ -1308,14 +1327,14 @@ async function handleSurveyFileSelected(ev) {
     // sketch not found は致命エラーにしない
     if (isSketchNotFoundError(err)) {
       dismissPhotoPickerChrome();
-      setStatus("図面未登録のため端末内で自動作図を続行します");
+      setStatus("図面未登録のため Gemini SVG 作図を続行します");
       setTool("pen");
       try {
         photoImportBusy = true;
         await withPhotoImportTimeout(
-          runClientAutoDrawFromFile(file),
+          runServerAutoDrawLines(file, file?.name || "sketch.jpg"),
           PHOTO_IMPORT_TIMEOUT_MS,
-          "端末内自動作図"
+          "サーバAI作図"
         );
       } catch (fallbackErr) {
         console.error(fallbackErr);
@@ -1408,10 +1427,13 @@ function prepareLayersForSave() {
   layers.viewport = { scale: viewport.scale, offsetX: viewport.offsetX, offsetY: viewport.offsetY };
   layers.canvasWidth = stageSize.w;
   layers.canvasHeight = stageSize.h;
-  layers.paths = layers.paths.map((p) => ({
-    ...p,
-    lengthPx: pathLength(p.points),
-  }));
+  layers.paths = stripAutoDrawnPaths(
+    layers.paths.map((p) => ({
+      ...p,
+      lengthPx: pathLength(p.points),
+    }))
+  );
+  layers.aiWallSvg = normalizeAiWallSvgClientV1(layers.aiWallSvg);
   if (drawingEditorState) {
     layers.editorV1 = editorStateToLayerV1(drawingEditorState);
   }
@@ -2144,15 +2166,12 @@ async function importBackground(file) {
     markDirty();
     syncMaterialBarUi();
 
-    // 生 File で端末内AI自動作図（表示と分離）
-    await runClientAutoDrawFromFile(file);
-
-    // サーバ AI 作図は FormData で必ず送る
-    // （一時図面でも画像解析は実行）
+    // サーバ Gemini SVG 作図（FormData）
+    // 旧端末内 Canny / lineDetect は使わない
     const serverDrawPromise = runServerAutoDrawLines(file, file.name).catch(
       (err) => {
         console.error(err);
-        console.warn("[survey-drawing] server auto-draw", err);
+        console.warn("[survey-drawing] server ai-wall-svg", err);
         return null;
       }
     );
@@ -2160,7 +2179,7 @@ async function importBackground(file) {
     // 一時図面は背景APIをスキップし作図のみ
     if (isLocalOnlyMode || isTempDrawingId(sketchId)) {
       await serverDrawPromise;
-      setStatus("背景写真を取り込み・自動作図しました（端末内）");
+      setStatus("背景写真を取り込み・AI壁図を生成しました（端末内）");
       return;
     }
 
@@ -2210,7 +2229,7 @@ async function importBackground(file) {
         await setupBgImage(sketch.backgroundImageUrl);
       }
       await serverDrawPromise;
-      setStatus("背景写真を取り込み・自動作図しました");
+      setStatus("背景写真を取り込み・AI壁図を生成しました");
       syncMaterialBarUi();
       await loadSpecPhotoSlotsForDrawing();
     } catch (e) {
@@ -2223,7 +2242,7 @@ async function importBackground(file) {
         sketch.backgroundImageUrl = displayUrl;
         markDirty();
         setStatus(
-          `図面未登録のため端末内で自動作図を維持します（${file.name || "sketch.jpg"}）`
+          `図面未登録のため端末内表示を維持します（${file.name || "sketch.jpg"}）`
         );
         return;
       }
@@ -2244,55 +2263,8 @@ async function importBackground(file) {
 }
 
 /**
- * 生 File から間取り線を検出し layers へ反映
- * 2本未満のときだけ外枠へ落とす
- * @param {Blob} file
- */
-async function runClientAutoDrawFromFile(file) {
-  if (!file || !(file instanceof Blob)) return;
-  try {
-    pushUndoSnapshot();
-    const result = await detectSketchLinesFromBlobV1(file, {
-      canvasWidth: stageSize.w || layers.canvasWidth || 800,
-      canvasHeight: stageSize.h || layers.canvasHeight || 600,
-      fileName: file.name || "sketch.jpg",
-    });
-    applyAutoDrawnPaths(result.paths);
-    const n = result.paths?.length ?? 0;
-    if (result.usedFallback) {
-      setStatus(
-        `自動作図（外枠フォールバック）· ${n}本（${result.fileName || "sketch.jpg"}）`
-      );
-    } else {
-      setStatus(`自動作図完了 · 間取り線 ${n} 本`);
-    }
-  } catch (err) {
-    console.error(err);
-    console.warn("[survey-drawing] client auto-draw fallback", err);
-    // 例外時も外枠で着地（フリーズ回避）
-    try {
-      applyAutoDrawnPaths(
-        buildFallbackOuterFramePaths(
-          stageSize.w || 800,
-          stageSize.h || 600
-        )
-      );
-      setStatus(
-        `自動作図（外枠フォールバック）を適用しました（${file?.name || "sketch.jpg"}）`
-      );
-    } catch (applyErr) {
-      console.error(applyErr);
-      alert("解析中にエラーが発生しました。再度お試しください");
-    }
-  } finally {
-    // 端末内解析後もタッチを解放
-    dismissPhotoPickerChrome();
-  }
-}
-
-/**
  * サーバ auto-draw-lines API
- * FormData で file=sketch.jpg を明示送信
+ * → Gemini 壁 SVG（aiWallSvg）を取得して最背面へ
  * @param {Blob} file
  * @param {string} fileName
  */
@@ -2330,35 +2302,8 @@ async function runServerAutoDrawLines(file, fileName) {
       throw new Error(data.error || String(res.status));
     }
 
-    if (data.sketch?.layers && data.sketchFound) {
-      layers = migrateLayers(
-        data.sketch.layers,
-        data.sketch.layers.canvasWidth,
-        data.sketch.layers.canvasHeight
-      );
-      sketch = data.sketch;
-      renderAll();
-      markDirty();
-    } else if (data.lineDetect?.paths?.length) {
-      const usedFb = Boolean(data.lineDetect.usedFallback);
-      const paths = data.lineDetect.paths.map((p) => ({
-        ...p,
-        autoDrawn: true,
-        fallbackFrame: usedFb,
-      }));
-      if (!usedFb) {
-        // 実検出成功時は端末側の外枠を捨てる
-        layers.paths = (layers.paths ?? []).filter(
-          (p) => !p?.fallbackFrame && !p?.autoDrawn
-        );
-      }
-      applyAutoDrawnPaths(paths);
-      if (!usedFb) {
-        setStatus(
-          `自動作図完了 · 間取り線 ${paths.length} 本（サーバ）`
-        );
-      }
-    }
+    // 旧 lineDetect.paths は無視（Gemini SVG のみ採用）
+    applyAiWallSvgFromApi(data);
     return data;
   } catch (err) {
     console.error(err);
@@ -2371,35 +2316,35 @@ async function runServerAutoDrawLines(file, fileName) {
 }
 
 /**
- * 自動作図パスを layers へマージして再描画
- * 実検出時は外枠フォールバックを置き換える
- * @param {Array<object>} paths
- * @param {{ replaceFallback?: boolean }} opts
+ * API 応答の aiWallSvg を layers へ保存し再描画
+ * @param {object} data
  */
-function applyAutoDrawnPaths(paths, opts = {}) {
-  if (!Array.isArray(paths) || !paths.length) return;
-  const hasRealWalls = paths.some((p) => !p?.fallbackFrame);
-  if (opts.replaceFallback !== false && hasRealWalls) {
-    // 外枠だけ残っている場合は実線で置換
-    layers.paths = (layers.paths ?? []).filter((p) => !p?.fallbackFrame);
+function applyAiWallSvgFromApi(data) {
+  const fromLayers = data?.sketch?.layers
+    ? normalizeAiWallSvgClientV1(data.sketch.layers.aiWallSvg)
+    : null;
+  const fromRoot = normalizeAiWallSvgClientV1(data?.aiWallSvg);
+  const next = fromLayers || fromRoot;
+  if (!next) return false;
+
+  if (data.sketch?.layers && data.sketchFound) {
+    layers = migrateLayers(
+      data.sketch.layers,
+      data.sketch.layers.canvasWidth,
+      data.sketch.layers.canvasHeight
+    );
+    sketch = data.sketch;
   }
-  const existing = new Set((layers.paths ?? []).map((p) => p.id));
-  for (const p of paths) {
-    if (!p?.id || existing.has(p.id)) continue;
-    layers.paths.push({
-      id: p.id,
-      tool: p.tool || "line",
-      lineType: p.lineType || "generic",
-      color: p.color || "#0f172a",
-      width: p.width || 3,
-      points: p.points || [],
-      lengthPx: p.lengthPx || pathLength(p.points || []),
-      fallbackFrame: Boolean(p.fallbackFrame),
-      autoDrawn: true,
-    });
-  }
+
+  layers.aiWallSvg = next;
+  // 旧 OpenCV 自動線は破棄
+  layers.paths = stripAutoDrawnPaths(layers.paths);
   renderAll();
   markDirty();
+
+  const mockHint = data.usedMock ? "（mock）" : "";
+  setStatus(`AI壁図を反映しました${mockHint}`);
+  return true;
 }
 
 async function loadSpecPhotoSlotsForDrawing() {
@@ -2483,18 +2428,17 @@ async function runGridOcrAndAutoPlot() {
 
   const symCount = data.autoPlot?.symbols?.length ?? 0;
   const memoCount = data.autoPlot?.notes?.length ?? 0;
-  const pathCount = data.autoPlot?.paths?.length ?? 0;
   const counts = data.symbolCountHandoff?.symbolCounts ?? [];
   const countText = counts.map((c) => `${c.label}${c.count}`).join(" · ");
-  const fallbackHint = data.autoPlot?.pathsUsedFallback ? "（外枠フォールバック）" : "";
   setStatus(
-    `AI解析完了 — 線${pathCount}本 · 記号${symCount}件 · メモ${memoCount}件${countText ? ` · ${countText}` : ""}${fallbackHint}（位置は手動修正可）`
+    `AI解析完了 — 記号${symCount}件 · メモ${memoCount}件${countText ? ` · ${countText}` : ""}（位置は手動修正可）`
   );
 }
 
 /**
  * サーバー autoPlot を
  * layers 配列へ反映（完全同期）
+ * ※ 旧 lineDetect.paths は採用しない
  */
 function applyAutoPlotPayloadToLayers(autoPlot) {
   if (!autoPlot) return;
@@ -2508,10 +2452,8 @@ function applyAutoPlotPayloadToLayers(autoPlot) {
   for (const n of autoPlot.notes ?? []) {
     if (!existingNoteIds.has(n.id)) layers.notes.push(n);
   }
-  // 間取り線（自動作図）も反映
-  if (autoPlot.paths?.length) {
-    applyAutoDrawnPaths(autoPlot.paths);
-  }
+  // OpenCV 由来の paths は破棄（壁は aiWallSvg）
+  layers.paths = stripAutoDrawnPaths(layers.paths);
   if (autoPlot.marginSummary && sketch) {
     const tag = `[OCR] ${autoPlot.marginSummary}`;
     sketch.notes = sketch.notes?.includes(tag) ? sketch.notes : `${sketch.notes || ""}\n${tag}`.trim();
@@ -2765,13 +2707,9 @@ function wireEvents() {
   $("btn-ai-export")?.addEventListener("click", () => exportAiJson().catch((e) => setStatus(e.message)));
   $("btn-grid-ocr")?.addEventListener("click", () =>
     runGridOcrAndAutoPlot().catch((e) => {
-      // sketch not found でも外枠で着地
       if (isSketchNotFoundError(e)) {
-        applyAutoDrawnPaths(
-          buildFallbackOuterFramePaths(stageSize.w || 800, stageSize.h || 600)
-        );
         setStatus(
-          `図面未登録のため外枠フォールバックで作図しました（${sketch?.backgroundImagePath?.split("/").pop() || "sketch.jpg"}）`
+          "図面未登録のため記号OCRはスキップしました。先に案件図面を保存してください"
         );
         return;
       }

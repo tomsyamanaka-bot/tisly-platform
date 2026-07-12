@@ -108,14 +108,41 @@ body:not(.drawing-photo-picker-open) .survey-file-input-hidden {
   display: block;
 }
 
+/* Gemini 壁 SVG — 写真の上・手書きの下 */
+.survey-ai-wall-svg-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+  overflow: hidden;
+}
+
+.survey-ai-wall-svg-layer.hidden {
+  display: none !important;
+}
+
+.survey-ai-wall-svg-layer .survey-ai-wall-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 .drawing-bg-placeholder.hidden {
   display: none;
 }
 
-/* 手書きSVGは写真の上に透明重ね */
+/* 手書きSVGは写真・AI壁の上に透明重ね */
 .drawing-stage.has-photo-bg .drawing-svg,
-.drawing-stage.has-photo-bg .drawing-overlay {
-  z-index: 1;
+.drawing-stage.has-photo-bg .drawing-overlay,
+.drawing-stage.has-ai-wall-svg .drawing-svg,
+.drawing-stage.has-ai-wall-svg .drawing-overlay {
+  z-index: 2;
+}
+
+.drawing-stage.has-ai-wall-svg .survey-bg-photo-layer:not(.hidden) {
+  opacity: 0.28;
 }
 
 .drawing-toolbar {

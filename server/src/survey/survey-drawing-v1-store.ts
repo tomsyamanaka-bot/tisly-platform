@@ -7,6 +7,7 @@ import {
   buildSurveyDrawingAiExport,
   emptySurveyDrawingLayersV2,
   migrateLayersToV2,
+  normalizeAiWallSvgV1,
   normalizePath,
   pathLengthPx,
   SURVEY_DRAWING_DRAWING_VERSION,
@@ -28,6 +29,7 @@ function parseLayers(raw: string | null | undefined): SurveyDrawingLayersV2 {
 }
 
 function normalizeLayersForSave(layers: SurveyDrawingLayersV2): SurveyDrawingLayersV2 {
+  const aiWallSvg = normalizeAiWallSvgV1(layers.aiWallSvg);
   return {
     schemaVersion: SURVEY_DRAWING_SCHEMA_VERSION,
     drawingVersion: SURVEY_DRAWING_DRAWING_VERSION,
@@ -47,6 +49,8 @@ function normalizeLayersForSave(layers: SurveyDrawingLayersV2): SurveyDrawingLay
     notes: layers.notes ?? [],
     viewport: layers.viewport ?? { scale: 1, offsetX: 0, offsetY: 0 },
     editorV1: layers.editorV1 ?? undefined,
+    // Gemini SVG 背景を PATCH 永続化
+    aiWallSvg: aiWallSvg ?? null,
   };
 }
 

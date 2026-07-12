@@ -49,6 +49,7 @@ import {
   mergeAutoPlotIntoSurveyDrawingV1,
 } from "../../survey/survey-drawing-v1-store.js";
 import {
+  normalizeAiWallSvgV1,
   SURVEY_DRAWING_LINE_TYPE_META,
   SURVEY_DRAWING_LINE_TYPES,
   SURVEY_DRAWING_SYMBOL_PALETTE,
@@ -712,17 +713,48 @@ surveyV1Router.post(
       });
     }
 
+    // markup / viewBox 付きオブジェクトで返却
+    // （文字列互換も normalize 側で吸収）
+    const aiWallSvg = normalizeAiWallSvgV1({
+      markup: aiResult.aiWallSvg,
+      provider: aiResult.provider,
+      updatedAt: new Date().toISOString(),
+    });
+
+    // applyToCanvas 時は layers へ保存して PATCH 相当を返す
+    let nextSketch = sketch;
+    const applyToCanvas =
+      body.applyToCanvas === true ||
+      body.applyToCanvas === "true" ||
+      body.applyToCanvas === "1";
+    if (applyToCanvas && sketch && aiWallSvg) {
+      nextSketch = updateSurveyDrawingSketchV1(sketch.id, {
+        layers: {
+          ...sketch.layers,
+          aiWallSvg,
+          // 旧 OpenCV 自動線は破棄
+          paths: (sketch.layers.paths ?? []).filter((p) => {
+            const extra = p as {
+              autoDrawn?: boolean;
+              fallbackFrame?: boolean;
+            };
+            return !extra.autoDrawn && !extra.fallbackFrame;
+          }),
+        },
+      });
+    }
+
     res.json({
       ok: true,
-      aiWallSvg: aiResult.aiWallSvg,
+      aiWallSvg,
       provider: aiResult.provider,
       usedMock: aiResult.usedMock,
       reason: aiResult.reason,
       fileName: aiResult.fileName,
       schemaVersion: aiResult.schemaVersion,
-      sketch,
+      sketch: nextSketch,
       // sketch 未登録でも 200（抽出優先）
-      sketchFound: Boolean(sketch),
+      sketchFound: Boolean(nextSketch),
     });
   }
 );

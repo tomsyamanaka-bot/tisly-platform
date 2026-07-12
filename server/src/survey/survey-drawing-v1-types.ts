@@ -134,6 +134,27 @@ export interface SurveyDrawingLayersV2 {
   viewport: SurveyDrawingViewport;
   /** 図面エディタ v1 — 記号・通線（案件紐付け保存） */
   editorV1?: SurveyDrawingEditorV1Persist;
+  /**
+   * Gemini 生成の壁輪郭 SVG（最背面レイヤー）
+   * markup はサニタイズ済み文字列
+   */
+  aiWallSvg?: SurveyDrawingAiWallSvgV1 | null;
+}
+
+/**
+ * 永続化する AI 壁 SVG メタ
+ * API 文字列応答からも正規化できる
+ */
+export interface SurveyDrawingAiWallSvgV1 {
+  /** サニタイズ済み <svg>…</svg> */
+  markup: string;
+  /** viewBox 属性値（例: "0 0 800 600"） */
+  viewBox?: string | null;
+  width?: number | null;
+  height?: number | null;
+  /** 取得元プロバイダ（任意） */
+  provider?: string | null;
+  updatedAt?: string | null;
 }
 
 export type SurveyDrawingLayers = SurveyDrawingLayersV2;
@@ -386,6 +407,57 @@ export function normalizePath(raw: Partial<SurveyDrawingPath> & { points?: Surve
   };
 }
 
+/**
+ * SVG 文字列 / オブジェクトから
+ * 永続化用 aiWallSvg を正規化する
+ */
+export function normalizeAiWallSvgV1(
+  raw: unknown
+): SurveyDrawingAiWallSvgV1 | null {
+  if (raw == null) return null;
+  if (typeof raw === "string") {
+    const markup = raw.trim();
+    if (!markup || !/^<svg\b/i.test(markup)) return null;
+    const vb = markup.match(/\bviewBox\s*=\s*("([^"]*)"|'([^']*)')/i);
+    return {
+      markup,
+      viewBox: vb?.[2] || vb?.[3] || null,
+      width: null,
+      height: null,
+      provider: null,
+      updatedAt: null,
+    };
+  }
+  if (typeof raw !== "object") return null;
+  const obj = raw as Record<string, unknown>;
+  const markup =
+    typeof obj.markup === "string"
+      ? obj.markup.trim()
+      : typeof obj.aiWallSvg === "string"
+        ? String(obj.aiWallSvg).trim()
+        : "";
+  if (!markup || !/^<svg\b/i.test(markup)) return null;
+  const vbAttr =
+    typeof obj.viewBox === "string"
+      ? obj.viewBox
+      : (() => {
+          const m = markup.match(
+            /\bviewBox\s*=\s*("([^"]*)"|'([^']*)')/i
+          );
+          return m?.[2] || m?.[3] || null;
+        })();
+  return {
+    markup,
+    viewBox: vbAttr,
+    width: obj.width != null ? Number(obj.width) || null : null,
+    height: obj.height != null ? Number(obj.height) || null : null,
+    provider:
+      obj.provider != null ? String(obj.provider) : null,
+    updatedAt:
+      obj.updatedAt != null ? String(obj.updatedAt) : null,
+  };
+}
+
 export function emptySurveyDrawingLayersV2(
   canvasWidth = 800,
   canvasHeight = 600
@@ -399,6 +471,7 @@ export function emptySurveyDrawingLayersV2(
     symbols: [],
     notes: [],
     viewport: { scale: 1, offsetX: 0, offsetY: 0 },
+    aiWallSvg: null,
   };
 }
 
@@ -437,6 +510,7 @@ export function migrateLayersToV2(
       notes: layers.notes ?? [],
       viewport: layers.viewport ?? { scale: 1, offsetX: 0, offsetY: 0 },
       editorV1: layers.editorV1,
+      aiWallSvg: normalizeAiWallSvgV1(layers.aiWallSvg),
     };
   }
 
