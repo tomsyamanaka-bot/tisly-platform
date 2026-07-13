@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b1220" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>TiSLY — 3Dプリント ビューワー</title>
+  <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2003" />
+  <link rel="stylesheet" href="/print-model-viewer-v1/css/print-model-viewer-v1.css" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body class="pmv-body">
+  <header class="pmv-header">
+    <div class="pmv-brand">
+      <p class="pmv-eyebrow">TiSLY · AIものづくり</p>
+      <h1>3Dプリント ビューワー</h1>
+      <p id="pmv-subtitle" class="pmv-muted">STL とスライス概要をリアルタイム表示</p>
+    </div>
+    <div class="pmv-header-actions">
+      <a class="pmv-btn secondary" href="/app">App Hub</a>
+      <button type="button" class="pmv-btn secondary" id="pmv-btn-reload">再読込</button>
+    </div>
+  </header>
+
+  <main class="pmv-main">
+    <aside class="pmv-list-panel" aria-label="モデル一覧">
+      <h2>アップロード済み</h2>
+      <p id="pmv-list-status" class="pmv-muted">読み込み中…</p>
+      <ul id="pmv-model-list" class="pmv-model-list"></ul>
+    </aside>
+
+    <section class="pmv-viewer-panel" aria-label="3Dビュー">
+      <div id="pmv-canvas-wrap" class="pmv-canvas-wrap">
+        <div id="pmv-viewer-empty" class="pmv-viewer-empty">モデルを選択してください</div>
+        <div id="pmv-viewer-loading" class="pmv-viewer-loading" hidden>STL を読み込み中…</div>
+      </div>
+      <div class="pmv-viewer-toolbar">
+        <button type="button" class="pmv-btn secondary" id="pmv-btn-reset-camera">カメラリセット</button>
+        <label class="pmv-check"><input type="checkbox" id="pmv-auto-rotate" checked /> 自動回転</label>
+        <span id="pmv-viewer-hint" class="pmv-muted">ドラッグで回転 · ホイールでズーム</span>
+      </div>
+    </section>
+
+    <aside class="pmv-dash-panel" aria-label="スライス概要">
+      <h2 id="pmv-model-name">スライス概要</h2>
+      <p id="pmv-model-meta" class="pmv-muted">—</p>
+
+      <div class="pmv-hero-stat" id="pmv-stat-time-wrap">
+        <p class="pmv-stat-label">推定印刷時間</p>
+        <p class="pmv-stat-value" id="pmv-stat-time">—</p>
+      </div>
+
+      <div class="pmv-stat-grid" id="pmv-stat-grid">
+        <div class="pmv-stat-card">
+          <p class="pmv-stat-label">レイヤー数</p>
+          <p class="pmv-stat-value sm" id="pmv-stat-layers">—</p>
+        </div>
+        <div class="pmv-stat-card">
+          <p class="pmv-stat-label">層厚</p>
+          <p class="pmv-stat-value sm" id="pmv-stat-layer-h">—</p>
+        </div>
+        <div class="pmv-stat-card">
+          <p class="pmv-stat-label">ノズル温度</p>
+          <p class="pmv-stat-value sm" id="pmv-stat-nozzle">—</p>
+        </div>
+        <div class="pmv-stat-card">
+          <p class="pmv-stat-label">ベッド温度</p>
+          <p class="pmv-stat-value sm" id="pmv-stat-bed">—</p>
+        </div>
+        <div class="pmv-stat-card">
+          <p class="pmv-stat-label">ノズル径</p>
+          <p class="pmv-stat-value sm" id="pmv-stat-nozzle-size">—</p>
+        </div>
+        <div class="pmv-stat-card">
+          <p class="pmv-stat-label">インフィル</p>
+          <p class="pmv-stat-value sm" id="pmv-stat-infill">—</p>
+        </div>
+        <div class="pmv-stat-card">
+          <p class="pmv-stat-label">フィラメント</p>
+          <p class="pmv-stat-value sm" id="pmv-stat-filament">—</p>
+        </div>
+        <div class="pmv-stat-card">
+          <p class="pmv-stat-label">STL サイズ</p>
+          <p class="pmv-stat-value sm" id="pmv-stat-stl-size">—</p>
+        </div>
+      </div>
+
+      <dl class="pmv-dl" id="pmv-extra-dl"></dl>
+      <div class="pmv-dash-actions">
+        <a class="pmv-btn" id="pmv-link-stl" href="#" download hidden>STL ダウンロード</a>
+        <a class="pmv-btn secondary" id="pmv-link-gcode" href="#" download hidden>G-code</a>
+      </div>
+    </aside>
+  </main>
+
+  <script type="module" src="/print-model-viewer-v1/js/print-model-viewer-v1.js"></script>
+</body>
+</html>

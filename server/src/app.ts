@@ -105,6 +105,7 @@ import { projectAutomationV1Router } from "./api/routes/project-automation-v1.js
 import { masterV1Router } from "./api/routes/master-v1.js";
 import { knowledgeV1Router } from "./api/routes/knowledge-v1.js";
 import { tislyMonitoringV1Router } from "./api/routes/tisly-monitoring-v1.js";
+import { printModelsV1Router } from "./api/routes/print-models-v1.js";
 import { aiEstimateEngineV1Router } from "./api/routes/ai-estimate-engine-v1.js";
 import { registerPwaLegacyRedirects } from "./pwa/pwa-legacy-redirects.js";
 import { customerPortalV1Router } from "./api/routes/customer-portal-v1.js";
@@ -176,6 +177,7 @@ export function createApp(): express.Application {
   app.use("/api/master/v1", masterV1Router);
   app.use("/api/knowledge", knowledgeV1Router);
   app.use("/api/monitoring/v1", tislyMonitoringV1Router);
+  app.use("/api/print-models/v1", printModelsV1Router);
   app.use("/api/ai-estimate-engine/v1", aiEstimateEngineV1Router);
   app.use("/api/customer-portal/v1", customerPortalV1Router);
   app.use("/api/project-automation/v1", projectAutomationV1Router);
@@ -565,6 +567,9 @@ export function createApp(): express.Application {
   });
   app.get("/monitoring-map-assets-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "monitoring-map-assets-v1", "index.html"));
+  });
+  app.get("/print-model-viewer-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "print-model-viewer-v1", "index.html"));
   });
   app.get("/route-map", (_req, res) => {
     res.sendFile(path.join(publicDir, "route-map.html"));

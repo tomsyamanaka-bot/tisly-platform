@@ -273,6 +273,16 @@ const PRACTICAL_PWA_DEFS: Array<
     themeColor: "#0d9488",
     readyRoles: ["surveyor", "manager", "owner", "admin", "super_admin"],
   },
+  {
+    id: "print_model_viewer_v1",
+    label: "3Dプリントを見る",
+    subtitle: "STL をグリグリ確認・印刷時間ダッシュボード",
+    icon: "🖨",
+    features: ["Three.js 3D表示", "印刷時間", "ノズル温度", "レイヤー数"],
+    href: "/print-model-viewer-v1",
+    themeColor: "#0ea5e9",
+    readyRoles: ["surveyor", "manager", "owner", "admin", "super_admin"],
+  },
 ];
 
 export function buildPracticalHubCards(role: string): PracticalPwaCard[] {
