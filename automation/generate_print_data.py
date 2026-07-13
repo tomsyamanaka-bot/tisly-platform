@@ -5,17 +5,21 @@ AIものづくり自動化 - 印刷データ生成バケツリレー（ベース
 パイプライン:
   1. OpenSCAD  : .scad  -> .stl
   2. CuraEngine: .stl   -> .gcode
-  3. (将来)    : TiSLY ナレッジ API / 3Dプリンター Web API へ送信
+  3. TiSLY Print Models API へアップロード
+  4. OctoPrint / Moonraker へ G-code 送信＋印刷開始
 
 使い方:
   python generate_print_data.py samples/cube.scad
   python generate_print_data.py path/to/model.scad --skip-upload --skip-print
   python generate_print_data.py path/to/model.scad -o output/custom_name
+  python generate_print_data.py path/to/model.scad --skip-upload --start-print
 
 環境変数（任意・未設定時は下記 DEFAULT_* を使用）:
   OPENSCAD_PATH, CURAENGINE_PATH, CURA_DEFINITION, CURA_EXTRUDER
   CURA_ENGINE_SEARCH_PATH, TISLY_PRINT_API_URL / TISLY_KNOWLEDGE_API_URL,
-  TISLY_PRINT_UPLOAD_TOKEN, PRINTER_API_URL
+  TISLY_PRINT_UPLOAD_TOKEN,
+  PRINTER_API_URL, PRINTER_API_KEY, PRINTER_BACKEND (octoprint|moonraker|auto),
+  PRINTER_AUTO_START, PRINTER_DRY_RUN, PRINTER_VERIFY_SSL
 """
 
 from __future__ import annotations
@@ -25,12 +29,15 @@ import base64
 import json
 import os
 import re
+import ssl
 import subprocess
 import sys
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from urllib import error, request
+from urllib import error, parse, request
+from urllib.request import Request
 
 DEFAULT_TISLY_PRINT_API_URL = "http://127.0.0.1:3080/api/print-models/v1/upload"
 
@@ -79,14 +86,199 @@ DEFAULT_SLICE_SETTINGS: dict[str, str] = {
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_OUTPUT_DIR = SCRIPT_DIR / "output"
+_ENV_LOADED = False
 
 
 # ---------------------------------------------------------------------------
 # ユーティリティ
 # ---------------------------------------------------------------------------
+def _env_truthy(name: str, default: str = "false") -> bool:
+    return os.environ.get(name, default).strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def load_env_files(*, force: bool = False) -> list[Path]:
+    """
+    automation/.env → リポジトリルート .env → server/.env を読み込む。
+    既に OS 環境変数にあるキーは上書きしない（シェル設定を優先）。
+    """
+    global _ENV_LOADED
+    if _ENV_LOADED and not force:
+        return []
+    _ENV_LOADED = True
+
+    candidates = [
+        SCRIPT_DIR / ".env",
+        SCRIPT_DIR.parent / ".env",
+        SCRIPT_DIR.parent / "server" / ".env",
+    ]
+    loaded: list[Path] = []
+    for path in candidates:
+        if not path.is_file():
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError as exc:
+            print(f"[env] 読み込み失敗: {path} ({exc})", file=sys.stderr)
+            continue
+        for raw_line in text.splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            key = key.strip()
+            if not key or key.startswith("#"):
+                continue
+            value = value.strip()
+            if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+                value = value[1:-1]
+            if key not in os.environ:
+                os.environ[key] = value
+        loaded.append(path)
+    return loaded
+
+
 def _env_path(name: str, default: Path) -> Path:
     raw = os.environ.get(name, "").strip()
     return Path(raw) if raw else default
+
+
+def _ssl_context() -> ssl.SSLContext | None:
+    """PRINTER_VERIFY_SSL=false のとき自己署名証明書を許容する。"""
+    if _env_truthy("PRINTER_VERIFY_SSL", "true"):
+        return None
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    return ctx
+
+
+def _http_json(
+    method: str,
+    url: str,
+    *,
+    headers: dict[str, str] | None = None,
+    data: bytes | None = None,
+    timeout_sec: float = 120.0,
+) -> dict[str, Any]:
+    """HTTP リクエストを送り、JSON（または raw）を dict にまとめる。"""
+    req_headers = {
+        "Accept": "application/json",
+        "User-Agent": "TiSLY-print-automation/1.0",
+        **(headers or {}),
+    }
+    req = Request(url, data=data, headers=req_headers, method=method.upper())
+    try:
+        with request.urlopen(req, timeout=timeout_sec, context=_ssl_context()) as resp:
+            body = resp.read().decode("utf-8", errors="replace")
+            try:
+                parsed: Any = json.loads(body) if body else {}
+            except json.JSONDecodeError:
+                parsed = {"raw": body}
+            return {
+                "ok": True,
+                "status": getattr(resp, "status", 200),
+                "response": parsed,
+            }
+    except error.HTTPError as exc:
+        err_body = exc.read().decode("utf-8", errors="replace") if exc.fp else ""
+        try:
+            parsed_err: Any = json.loads(err_body) if err_body else {}
+        except json.JSONDecodeError:
+            parsed_err = {"raw": err_body}
+        return {
+            "ok": False,
+            "status": exc.code,
+            "error": f"http_{exc.code}",
+            "response": parsed_err,
+            "detail": err_body[:2000],
+        }
+    except error.URLError as exc:
+        return {
+            "ok": False,
+            "error": "connection_failed",
+            "detail": str(exc.reason if hasattr(exc, "reason") else exc),
+        }
+
+
+def _encode_multipart(
+    fields: dict[str, str],
+    files: dict[str, tuple[str, bytes, str]],
+) -> tuple[bytes, str]:
+    """stdlib だけで multipart/form-data を組み立てる。"""
+    boundary = f"----TislyPrinterBoundary{uuid.uuid4().hex}"
+    body = bytearray()
+
+    for name, value in fields.items():
+        body.extend(f"--{boundary}\r\n".encode("utf-8"))
+        body.extend(
+            f'Content-Disposition: form-data; name="{name}"\r\n\r\n'.encode("utf-8")
+        )
+        body.extend(str(value).encode("utf-8"))
+        body.extend(b"\r\n")
+
+    for name, (filename, content, content_type) in files.items():
+        body.extend(f"--{boundary}\r\n".encode("utf-8"))
+        body.extend(
+            (
+                f'Content-Disposition: form-data; name="{name}"; '
+                f'filename="{filename}"\r\n'
+            ).encode("utf-8")
+        )
+        body.extend(f"Content-Type: {content_type}\r\n\r\n".encode("utf-8"))
+        body.extend(content)
+        body.extend(b"\r\n")
+
+    body.extend(f"--{boundary}--\r\n".encode("utf-8"))
+    return bytes(body), f"multipart/form-data; boundary={boundary}"
+
+
+def _normalize_printer_base_url(api_url: str) -> str:
+    return api_url.strip().rstrip("/")
+
+
+def resolve_printer_backend(api_url: str, backend: str | None = None) -> str:
+    """
+    PRINTER_BACKEND:
+      - octoprint / moonraker / auto（既定）
+    auto は URL パスや既定ポートから推定する。
+    """
+    raw = (backend or os.environ.get("PRINTER_BACKEND", "auto") or "auto").strip().lower()
+    if raw in {"octoprint", "octo", "op"}:
+        return "octoprint"
+    if raw in {"moonraker", "klipper", "mainsail", "fluidd"}:
+        return "moonraker"
+    if raw not in {"", "auto"}:
+        raise ValueError(
+            f"未対応の PRINTER_BACKEND: {raw} "
+            "(対応: octoprint / moonraker / auto)"
+        )
+
+    lower = api_url.lower()
+    if any(token in lower for token in ("/server/", "moonraker", "7125")):
+        return "moonraker"
+    if any(token in lower for token in ("octoprint", ":5000", "/api/files")):
+        return "octoprint"
+    # Creality / Bambu ブリッジの多くは Moonraker 互換
+    if any(token in lower for token in ("creality", "bambu")):
+        return "moonraker"
+    return "octoprint"
+
+
+def resolve_printer_api_key() -> str:
+    for name in (
+        "PRINTER_API_KEY",
+        "OCTOPRINT_API_KEY",
+        "MOONRAKER_API_KEY",
+    ):
+        value = os.environ.get(name, "").strip()
+        if value:
+            return value
+    return ""
 
 
 def _run(
@@ -544,44 +736,258 @@ def upload_to_tisly(
 
 
 # ---------------------------------------------------------------------------
-# Step 3b: 3Dプリンター Web API へ送信（枠組み）
+# Step 3b: 3Dプリンター Web API へ送信（OctoPrint / Moonraker）
 # ---------------------------------------------------------------------------
+def _send_octoprint(
+    gcode_path: Path,
+    *,
+    base_url: str,
+    api_key: str,
+    start_print: bool,
+    printer_id: str | None,
+    timeout_sec: float,
+) -> dict[str, Any]:
+    """
+    OctoPrint: POST /api/files/local （multipart）
+    select/print フラグでアップロード直後に印刷開始可能。
+    """
+    upload_url = f"{base_url}/api/files/local"
+    file_bytes = gcode_path.read_bytes()
+    fields = {
+        "select": "true",
+        "print": "true" if start_print else "false",
+    }
+    if printer_id:
+        # OctoPrint の path サブフォルダ（存在すれば）
+        fields["path"] = printer_id.strip("/\\")
+
+    body, content_type = _encode_multipart(
+        fields,
+        {
+            "file": (
+                gcode_path.name,
+                file_bytes,
+                "application/octet-stream",
+            )
+        },
+    )
+    headers = {
+        "Content-Type": content_type,
+        "X-Api-Key": api_key,
+    }
+    print(
+        f"[Printer/OctoPrint] POST {upload_url} "
+        f"({len(file_bytes)} bytes, start_print={start_print})"
+    )
+    upload = _http_json(
+        "POST",
+        upload_url,
+        headers=headers,
+        data=body,
+        timeout_sec=timeout_sec,
+    )
+    if not upload.get("ok"):
+        return {
+            "ok": False,
+            "backend": "octoprint",
+            "api_url": upload_url,
+            "step": "upload",
+            **{k: v for k, v in upload.items() if k != "ok"},
+        }
+
+    # print=true で足りるが、失敗時や明示 start のフォールバック
+    job_result: dict[str, Any] | None = None
+    if start_print:
+        # アップロード時 print=true 成功時は追加 start は不要。
+        # ただしレスポンスに done/effectivePrint が無い環境向けに、
+        # PRINTER_FORCE_JOB_START=true のときだけ /api/job を叩く。
+        if _env_truthy("PRINTER_FORCE_JOB_START", "false"):
+            job_url = f"{base_url}/api/job"
+            job_body = json.dumps({"command": "start"}).encode("utf-8")
+            print(f"[Printer/OctoPrint] POST {job_url} command=start")
+            job_result = _http_json(
+                "POST",
+                job_url,
+                headers={
+                    "Content-Type": "application/json",
+                    "X-Api-Key": api_key,
+                },
+                data=job_body,
+                timeout_sec=timeout_sec,
+            )
+            if not job_result.get("ok"):
+                return {
+                    "ok": False,
+                    "backend": "octoprint",
+                    "api_url": job_url,
+                    "step": "start",
+                    "upload": upload,
+                    **{k: v for k, v in job_result.items() if k != "ok"},
+                }
+
+    return {
+        "ok": True,
+        "backend": "octoprint",
+        "api_url": upload_url,
+        "uploaded": True,
+        "print_started": start_print,
+        "upload": upload,
+        "job": job_result,
+        "filename": gcode_path.name,
+    }
+
+
+def _send_moonraker(
+    gcode_path: Path,
+    *,
+    base_url: str,
+    api_key: str,
+    start_print: bool,
+    printer_id: str | None,
+    timeout_sec: float,
+) -> dict[str, Any]:
+    """
+    Moonraker (Klipper / Mainsail / Fluidd / 多くの Creality):
+      POST /server/files/upload
+    print=true でアップロード直後に印刷開始。
+    """
+    upload_url = f"{base_url}/server/files/upload"
+    file_bytes = gcode_path.read_bytes()
+    fields = {
+        "root": "gcodes",
+        "print": "true" if start_print else "false",
+    }
+    if printer_id:
+        fields["path"] = printer_id.strip("/\\")
+
+    body, content_type = _encode_multipart(
+        fields,
+        {
+            "file": (
+                gcode_path.name,
+                file_bytes,
+                "application/octet-stream",
+            )
+        },
+    )
+    headers: dict[str, str] = {"Content-Type": content_type}
+    if api_key:
+        # Moonraker は API Key 認証を有効化している場合がある
+        headers["X-Api-Key"] = api_key
+        headers["Authorization"] = f"Bearer {api_key}"
+
+    print(
+        f"[Printer/Moonraker] POST {upload_url} "
+        f"({len(file_bytes)} bytes, start_print={start_print})"
+    )
+    upload = _http_json(
+        "POST",
+        upload_url,
+        headers=headers,
+        data=body,
+        timeout_sec=timeout_sec,
+    )
+    if not upload.get("ok"):
+        return {
+            "ok": False,
+            "backend": "moonraker",
+            "api_url": upload_url,
+            "step": "upload",
+            **{k: v for k, v in upload.items() if k != "ok"},
+        }
+
+    job_result: dict[str, Any] | None = None
+    if start_print and _env_truthy("PRINTER_FORCE_JOB_START", "false"):
+        # 明示 start: POST /printer/print/start?filename=...
+        fname = gcode_path.name
+        if printer_id:
+            fname = f"{printer_id.strip('/\\')}/{gcode_path.name}"
+        start_url = (
+            f"{base_url}/printer/print/start?"
+            f"{parse.urlencode({'filename': fname})}"
+        )
+        print(f"[Printer/Moonraker] POST {start_url}")
+        job_result = _http_json(
+            "POST",
+            start_url,
+            headers={k: v for k, v in headers.items() if k != "Content-Type"},
+            timeout_sec=timeout_sec,
+        )
+        if not job_result.get("ok"):
+            return {
+                "ok": False,
+                "backend": "moonraker",
+                "api_url": start_url,
+                "step": "start",
+                "upload": upload,
+                **{k: v for k, v in job_result.items() if k != "ok"},
+            }
+
+    return {
+        "ok": True,
+        "backend": "moonraker",
+        "api_url": upload_url,
+        "uploaded": True,
+        "print_started": start_print,
+        "upload": upload,
+        "job": job_result,
+        "filename": gcode_path.name,
+    }
+
+
 def send_to_printer(
     gcode_path: Path,
     *,
     api_url: str | None = None,
+    api_key: str | None = None,
+    backend: str | None = None,
     printer_id: str | None = None,
-    start_print: bool = False,
+    start_print: bool | None = None,
+    timeout_sec: float = 180.0,
 ) -> dict[str, Any]:
     """
-    G-code を 3Dプリンター（または中継ゲートウェイ）へ送る枠組み。
+    G-code を 3Dプリンター（OctoPrint / Moonraker）へ送信する。
 
-    TODO（後続実装）:
-      - OctoPrint / Moonraker / メーカー固有 Web API への対応
-      - 認証・ジョブ名指定・ベッド温度プリヒート
-      - start_print=True のとき印刷開始、False ならアップロードのみ
-      - ジョブ状態ポーリング
+    環境変数:
+      PRINTER_API_URL      例) http://192.168.1.50:5000
+      PRINTER_API_KEY      OctoPrint / Moonraker API Key
+      PRINTER_BACKEND      octoprint | moonraker | auto
+      PRINTER_AUTO_START   送信成功後に印刷開始 (既定: true)
+      PRINTER_DRY_RUN      true なら HTTP を飛ばさず検証のみ
+      PRINTER_VERIFY_SSL   https 証明書検証 (既定: true)
 
     Args:
         gcode_path: 送信する .gcode
-        api_url: プリンター API。未指定時は環境変数 PRINTER_API_URL
-        printer_id: 複数台運用時の識別子
-        start_print: True ならアップロード後に印刷開始
+        api_url: プリンター API ベース URL。未指定時は PRINTER_API_URL
+        api_key: API キー。未指定時は PRINTER_API_KEY 等
+        backend: バックエンド種別
+        printer_id: サブフォルダ等の識別子（複数台・整理用）
+        start_print: True ならアップロード後に印刷開始。
+                     None なら PRINTER_AUTO_START（既定 true）
 
     Returns:
-        API レスポンス相当の dict（未実装時は stub 結果）
+        送信結果 dict（ok / backend / uploaded / print_started など）
     """
+    load_env_files()
+    gcode_path = Path(gcode_path)
     if not gcode_path.is_file():
         raise FileNotFoundError(f"G-code がありません: {gcode_path}")
 
-    api_url = (api_url or os.environ.get("PRINTER_API_URL", "")).strip()
+    api_url = _normalize_printer_base_url(
+        api_url or os.environ.get("PRINTER_API_URL", "")
+    )
+    api_key = (api_key if api_key is not None else resolve_printer_api_key()).strip()
+    if start_print is None:
+        start_print = _env_truthy("PRINTER_AUTO_START", "true")
+
     info = {
         "gcode": str(gcode_path),
         "size_bytes": gcode_path.stat().st_size,
-        "printer_id": printer_id,
+        "printer_id": printer_id or os.environ.get("PRINTER_ID", "").strip() or None,
         "start_print": start_print,
         "queued_at": datetime.now(timezone.utc).isoformat(),
     }
+    printer_id = info["printer_id"]
 
     if not api_url:
         print("[Printer] PRINTER_API_URL 未設定 - 送信をスキップ (stub)")
@@ -592,21 +998,80 @@ def send_to_printer(
             "info": info,
         }
 
-    print(f"[Printer] 送信準備（未実装）: {api_url}")
-    print(f"[Printer] info: {json.dumps(info, ensure_ascii=False)}")
+    try:
+        resolved_backend = resolve_printer_backend(api_url, backend)
+    except ValueError as exc:
+        return {
+            "ok": False,
+            "error": "invalid_backend",
+            "detail": str(exc),
+            "info": info,
+            "api_url": api_url,
+        }
 
-    # --- 実装プレースホルダ ---
-    # 将来: gcode を POST /api/files/local 等へアップロードし、
-    #       start_print なら /api/job で印刷開始。
-    _ = (request, error)  # 将来の HTTP 実装用に import を保持
+    # OctoPrint は API Key 必須。Moonraker は設定による。
+    if resolved_backend == "octoprint" and not api_key:
+        print("[Printer] PRINTER_API_KEY / OCTOPRINT_API_KEY 未設定", file=sys.stderr)
+        return {
+            "ok": False,
+            "skipped": True,
+            "reason": "api_key_not_configured",
+            "backend": resolved_backend,
+            "api_url": api_url,
+            "info": info,
+        }
 
-    return {
-        "ok": False,
-        "skipped": True,
-        "reason": "not_implemented",
-        "api_url": api_url,
-        "info": info,
-    }
+    if _env_truthy("PRINTER_DRY_RUN", "false"):
+        print(
+            f"[Printer] DRY_RUN: backend={resolved_backend} url={api_url} "
+            f"file={gcode_path.name} start_print={start_print}"
+        )
+        return {
+            "ok": True,
+            "dry_run": True,
+            "backend": resolved_backend,
+            "api_url": api_url,
+            "uploaded": False,
+            "print_started": False,
+            "would_start_print": start_print,
+            "info": info,
+        }
+
+    print(
+        f"[Printer] 送信開始: backend={resolved_backend} url={api_url} "
+        f"file={gcode_path.name} ({info['size_bytes']} bytes)"
+    )
+
+    if resolved_backend == "octoprint":
+        result = _send_octoprint(
+            gcode_path,
+            base_url=api_url,
+            api_key=api_key,
+            start_print=start_print,
+            printer_id=printer_id,
+            timeout_sec=timeout_sec,
+        )
+    else:
+        result = _send_moonraker(
+            gcode_path,
+            base_url=api_url,
+            api_key=api_key,
+            start_print=start_print,
+            printer_id=printer_id,
+            timeout_sec=timeout_sec,
+        )
+
+    result["info"] = info
+    if result.get("ok"):
+        print(
+            f"[Printer] 成功: uploaded=True print_started={result.get('print_started')}"
+        )
+    else:
+        print(
+            f"[Printer] 失敗: {result.get('error') or result.get('detail')}",
+            file=sys.stderr,
+        )
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -622,7 +1087,7 @@ def generate_print_data(
     extruder: Path | None = None,
     skip_upload: bool = False,
     skip_print: bool = False,
-    start_print: bool = False,
+    start_print: bool | None = None,
     printer_id: str | None = None,
     metadata: dict[str, Any] | None = None,
     extra_settings: dict[str, str] | None = None,
@@ -633,6 +1098,7 @@ def generate_print_data(
     Returns:
         生成パスと各ステップ結果を含む dict
     """
+    load_env_files()
     scad_path = scad_path.resolve()
     if output_stem is None:
         out_dir = DEFAULT_OUTPUT_DIR
@@ -770,17 +1236,28 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--skip-print",
         action="store_true",
-        help="プリンター送信枠を呼ばない",
+        help="プリンター送信を呼ばない",
     )
     p.add_argument(
         "--start-print",
         action="store_true",
-        help="プリンターへ送ったあと印刷開始 (実装後に有効)",
+        help="プリンターへ送ったあと印刷開始 (PRINTER_AUTO_START より優先)",
+    )
+    p.add_argument(
+        "--no-start-print",
+        action="store_true",
+        help="アップロードのみ（印刷開始しない）",
     )
     p.add_argument(
         "--printer-id",
         default=None,
-        help="プリンター識別子 (複数台運用用)",
+        help="プリンター識別子 / サブフォルダ (複数台運用用)",
+    )
+    p.add_argument(
+        "--printer-backend",
+        default=None,
+        choices=["octoprint", "moonraker", "auto"],
+        help="プリンター API 種別 (省略時は PRINTER_BACKEND / auto)",
     )
     return p
 
@@ -791,8 +1268,19 @@ def main(argv: list[str] | None = None) -> int:
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8", errors="replace")
 
+    load_env_files()
     args = build_arg_parser().parse_args(argv)
+    start_print: bool | None = None
+    if args.no_start_print:
+        start_print = False
+    elif args.start_print:
+        start_print = True
+
     try:
+        # backend は環境変数経由でも渡せるよう、CLI 指定時は一時セット
+        if args.printer_backend:
+            os.environ["PRINTER_BACKEND"] = args.printer_backend
+
         generate_print_data(
             args.scad,
             output_stem=args.output,
@@ -802,7 +1290,7 @@ def main(argv: list[str] | None = None) -> int:
             extruder=args.extruder,
             skip_upload=args.skip_upload,
             skip_print=args.skip_print,
-            start_print=args.start_print,
+            start_print=start_print,
             printer_id=args.printer_id,
         )
     except (OSError, RuntimeError, ValueError) as exc:
