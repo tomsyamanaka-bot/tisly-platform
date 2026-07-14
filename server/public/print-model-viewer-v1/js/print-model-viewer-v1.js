@@ -284,6 +284,21 @@ async function selectModel(id) {
   }
 }
 
+/**
+ * Default model when ?id= is missing/invalid:
+ * prefer s5m_pulley_50mm.stl (latest upload name match), else newest by updatedAt.
+ */
+function pickDefaultModelId() {
+  const needle = "s5m_pulley_50mm";
+  const byName = models.find((m) => {
+    const name = String(m.name || "").toLowerCase();
+    const file = String(m.stlFileName || "").toLowerCase();
+    return name.includes(needle) || file.includes(needle);
+  });
+  if (byName) return byName.id;
+  return models[0]?.id || null;
+}
+
 async function loadModels() {
   const status = $("#pmv-list-status");
   status.textContent = "読み込み中…";
@@ -294,10 +309,13 @@ async function loadModels() {
   renderList();
   if (selectedId && models.some((m) => m.id === selectedId)) {
     await selectModel(selectedId);
-  } else if (models[0]) {
-    await selectModel(models[0].id);
   } else {
-    renderDashboard(null);
+    const fallbackId = pickDefaultModelId();
+    if (fallbackId) {
+      await selectModel(fallbackId);
+    } else {
+      renderDashboard(null);
+    }
   }
 }
 

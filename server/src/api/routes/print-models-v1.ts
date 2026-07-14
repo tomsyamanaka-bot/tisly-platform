@@ -36,7 +36,7 @@ printModelsV1Router.get("/models", (_req, res) => {
     ok: true,
     count: models.length,
     models,
-    viewerPath: "/print-model-viewer-v1",
+    viewerPath: "/print-model-viewer",
   });
 });
 
@@ -100,7 +100,7 @@ printModelsV1Router.post("/upload", (req, res) => {
     res.status(201).json({
       ok: true,
       model,
-      viewerUrl: `/print-model-viewer-v1?id=${encodeURIComponent(model.id)}`,
+      viewerUrl: `/print-model-viewer?id=${encodeURIComponent(model.id)}`,
     });
   } catch (e) {
     res.status(400).json({

@@ -568,9 +568,12 @@ export function createApp(): express.Application {
   app.get("/monitoring-map-assets-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "monitoring-map-assets-v1", "index.html"));
   });
-  app.get("/print-model-viewer-v1", (_req, res) => {
+  const sendPrintModelViewer = (_req: import("express").Request, res: import("express").Response) => {
     res.sendFile(path.join(publicDir, "print-model-viewer-v1", "index.html"));
-  });
+  };
+  // Canonical short URL for phones / share links (alias of -v1)
+  app.get("/print-model-viewer", sendPrintModelViewer);
+  app.get("/print-model-viewer-v1", sendPrintModelViewer);
   app.get("/route-map", (_req, res) => {
     res.sendFile(path.join(publicDir, "route-map.html"));
   });

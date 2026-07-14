@@ -73,12 +73,14 @@ describe("Print Models V1 — API", () => {
     }
   });
 
-  it("serves viewer page", async () => {
-    const res = await request(app).get("/print-model-viewer-v1");
-    assert.equal(res.status, 200);
-    assert.match(res.text, /3Dプリント ビューワー/);
-    assert.match(res.text, /three\.module\.js/);
-    assert.match(res.text, /STLLoader|print-model-viewer-v1\.js/);
+  it("serves viewer page at /print-model-viewer and /print-model-viewer-v1", async () => {
+    for (const pathUrl of ["/print-model-viewer", "/print-model-viewer-v1"]) {
+      const res = await request(app).get(pathUrl);
+      assert.equal(res.status, 200, pathUrl);
+      assert.match(res.text, /3Dプリント ビューワー/);
+      assert.match(res.text, /three\.module\.js/);
+      assert.match(res.text, /STLLoader|print-model-viewer-v1\.js/);
+    }
   });
 
   it("uploads STL + slice metadata and lists model", async () => {
@@ -103,7 +105,7 @@ describe("Print Models V1 — API", () => {
     assert.equal(upload.body.ok, true);
     assert.ok(upload.body.model?.id);
     assert.equal(upload.body.model.slice.printTimeLabel, "1時間51分");
-    assert.match(upload.body.viewerUrl, /\/print-model-viewer-v1\?id=/);
+    assert.match(upload.body.viewerUrl, /\/print-model-viewer\?id=/);
 
     const list = await request(app).get("/api/print-models/v1/models");
     assert.equal(list.status, 200);

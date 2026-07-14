@@ -99,7 +99,7 @@ describe("Phase 461-480 multi PWA app hub", () => {
     assert.equal(knowledge?.url, "/knowledge-module-v1");
     const printViewer = apps.find((a: { id: string }) => a.id === "print_model_viewer_v1");
     assert.equal(printViewer?.status, "ready");
-    assert.equal(printViewer?.url, "/print-model-viewer-v1");
+    assert.equal(printViewer?.url, "/print-model-viewer");
   });
 
   it("installer hub shows install only", async () => {
