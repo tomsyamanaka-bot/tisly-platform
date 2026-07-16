@@ -19,6 +19,12 @@ const {
   saveKnowledgeModulePdfV1,
   getKnowledgeModulePdfUploadDir,
 } = await import("../src/knowledge/knowledge-module-v1.js");
+const {
+  FAB_FINISH_MODULE_SEED_IDS,
+  getFabFinishModuleSeedItemsV1,
+  seedFabFinishKnowledgeCardsV1,
+} = await import("../src/knowledge/knowledge-fab-finish-seed-v1.js");
+const { getKnowledgeCardV1 } = await import("../src/knowledge/knowledge-store-v1.js");
 
 const app = createApp();
 const moduleItemsPath = path.join(process.cwd(), "data", "knowledge", "module-items.json");
@@ -29,9 +35,12 @@ async function surveyorLogin() {
     .send({ customerCode: "TOMS001", username: "toms001.surveyor", password: "demo-remote-2026" });
 }
 
+/** 仕上げシード以外を消して初期状態に戻す */
 function cleanupModuleData() {
   try {
-    fs.unlinkSync(moduleItemsPath);
+    const seeds = getFabFinishModuleSeedItemsV1();
+    fs.mkdirSync(path.dirname(moduleItemsPath), { recursive: true });
+    fs.writeFileSync(moduleItemsPath, JSON.stringify(seeds, null, 2), "utf8");
   } catch {
     /* */
   }
@@ -116,6 +125,29 @@ describe("knowledge-module-v1 store", () => {
     assert.match(result.pdf_url, /^\/uploads\/knowledge\/module\/.*\.pdf$/);
     const diskPath = path.join(process.cwd(), result.pdf_url.replace(/^\//, ""));
     assert.ok(fs.existsSync(diskPath));
+  });
+
+  it("listKnowledgeModuleItemsV1 includes fab-finish seed knowhow", () => {
+    cleanupModuleData();
+    const listed = listKnowledgeModuleItemsV1();
+    for (const id of FAB_FINISH_MODULE_SEED_IDS) {
+      assert.ok(
+        listed.some((x) => x.id === id),
+        `missing seed ${id}`
+      );
+    }
+    assert.ok(listed.some((x) => x.title.includes("パテ盛り")));
+    assert.ok(listed.some((x) => x.tags.includes("製作ノウハウ")));
+    assert.ok(listed.some((x) => x.title.includes("スカイブ")));
+  });
+
+  it("seedFabFinishKnowledgeCardsV1 upserts searchable cards", () => {
+    seedFabFinishKnowledgeCardsV1();
+    const card = getKnowledgeCardV1("FAB-PUTTY-SAND-001");
+    assert.ok(card);
+    assert.match(card!.title, /パテ盛り/);
+    assert.ok(card!.tags.includes("製作ノウハウ"));
+    assert.equal(card!.category, "その他");
   });
 });
 

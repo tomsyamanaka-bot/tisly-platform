@@ -37,11 +37,12 @@ function sortItems(items: KnowledgeItem[]): KnowledgeItem[] {
   );
 }
 
-/** タイトル・要約のあいまい検索 */
+/** タイトル・要約・タグのあいまい検索 */
 function matchesQuery(item: KnowledgeItem, q: string) {
   if (!q.trim()) return true;
   const needle = q.trim().toLowerCase();
-  return `${item.title} ${item.summary}`.toLowerCase().includes(needle);
+  const haystack = `${item.title} ${item.summary} ${item.tags.join(" ")}`.toLowerCase();
+  return haystack.includes(needle);
 }
 
 /** ジャンルタブでの絞り込み（第1段階） */

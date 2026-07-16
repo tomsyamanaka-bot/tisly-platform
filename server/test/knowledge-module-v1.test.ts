@@ -52,6 +52,10 @@ describe("knowledge-module-v1 PWA", () => {
     assert.match(mockSrc, /セキュリティー/);
     assert.match(mockSrc, /TV工事/);
     assert.match(mockSrc, /空調/);
+    assert.match(mockSrc, /製作ノウハウ/);
+    assert.match(mockSrc, /パテ盛り＋サンディング/);
+    assert.match(mockSrc, /プラサフ/);
+    assert.match(mockSrc, /スカイブ接合/);
   });
 
   it("nav script requires login before loading bundle", () => {
@@ -82,5 +86,6 @@ describe("knowledge-module-v1 PWA", () => {
     assert.match(src, /module-v1\/items/);
     assert.match(src, /module-v1\/upload-pdf/);
     assert.match(src, /kn-card-pdf/);
+    assert.match(src, /\.tags\.join\(/);
   });
 });

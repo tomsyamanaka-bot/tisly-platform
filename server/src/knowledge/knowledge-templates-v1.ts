@@ -10,6 +10,7 @@ import {
   RP_TEMPLATE_TOPICS_V1,
   type KnowledgeCardV1,
 } from "./knowledge-types.js";
+import { seedFabFinishKnowledgeCardsV1 } from "./knowledge-fab-finish-seed-v1.js";
 
 function todayIsoDate(): string {
   return new Date().toISOString().slice(0, 10);
@@ -136,8 +137,14 @@ export function seedRpKnowledgeTemplatesV1(): KnowledgeCardV1[] {
 export function ensureKnowledgeLibraryTemplatesV1(): {
   plcCreated: number;
   rpCreated: number;
+  fabFinishCreated: number;
 } {
   const plc = seedPlcKnowledgeTemplatesV1();
   const rp = seedRpKnowledgeTemplatesV1();
-  return { plcCreated: plc.length, rpCreated: rp.length };
+  const fab = seedFabFinishKnowledgeCardsV1();
+  return {
+    plcCreated: plc.length,
+    rpCreated: rp.length,
+    fabFinishCreated: fab.length,
+  };
 }

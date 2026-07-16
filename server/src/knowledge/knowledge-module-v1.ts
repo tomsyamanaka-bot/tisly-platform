@@ -3,6 +3,10 @@
 import fs from "fs";
 import path from "path";
 import { v4 as uuid } from "uuid";
+import {
+  FAB_FINISH_MODULE_SEED_IDS,
+  getFabFinishModuleSeedItemsV1,
+} from "./knowledge-fab-finish-seed-v1.js";
 
 export interface KnowledgeModuleItemV1 {
   id: string;
@@ -38,17 +42,65 @@ function ensureDirs(): void {
   fs.mkdirSync(getKnowledgeModulePdfUploadDir(), { recursive: true });
 }
 
+/**
+ * 仕上げノウハウ 4 件を upsert。
+ * 既存ユーザー登録は保持し、シード ID のみ更新する。
+ */
+function mergeFabFinishSeed(
+  items: KnowledgeModuleItemV1[]
+): { items: KnowledgeModuleItemV1[]; changed: boolean } {
+  const seedIds = new Set<string>(FAB_FINISH_MODULE_SEED_IDS);
+  const seeds = getFabFinishModuleSeedItemsV1();
+  const byId = new Map(items.map((item) => [item.id, item]));
+  let changed = false;
+
+  for (const seed of seeds) {
+    const existing = byId.get(seed.id);
+    if (!existing) {
+      byId.set(seed.id, { ...seed });
+      changed = true;
+      continue;
+    }
+    const same =
+      existing.title === seed.title &&
+      existing.summary === seed.summary &&
+      existing.genre === seed.genre &&
+      JSON.stringify(existing.tags) === JSON.stringify(seed.tags);
+    if (!same) {
+      byId.set(seed.id, {
+        ...seed,
+        createdAt: existing.createdAt,
+        pdf_url: existing.pdf_url ?? null,
+      });
+      changed = true;
+    }
+  }
+
+  const nonSeed = items.filter((item) => !seedIds.has(item.id));
+  const seedItems = seeds.map((seed) => byId.get(seed.id)!);
+  return { items: [...seedItems, ...nonSeed], changed };
+}
+
 function readAll(): KnowledgeModuleItemV1[] {
   ensureDirs();
   const filePath = getModuleDataPath();
-  if (!fs.existsSync(filePath)) return [];
-  try {
-    const parsed = JSON.parse(fs.readFileSync(filePath, "utf8")) as unknown;
-    if (!Array.isArray(parsed)) return [];
-    return parsed.map(normalizeItem);
-  } catch {
-    return [];
+  let items: KnowledgeModuleItemV1[] = [];
+  if (fs.existsSync(filePath)) {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(filePath, "utf8")) as unknown;
+      if (Array.isArray(parsed)) {
+        items = parsed.map(normalizeItem);
+      }
+    } catch {
+      items = [];
+    }
   }
+
+  const merged = mergeFabFinishSeed(items);
+  if (merged.changed) {
+    writeAll(merged.items);
+  }
+  return merged.items;
 }
 
 function writeAll(items: KnowledgeModuleItemV1[]): void {
