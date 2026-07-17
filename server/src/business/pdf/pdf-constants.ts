@@ -8,13 +8,15 @@ export const PDF_PHOTO_ROWS = 3;
 export const PDF_PHOTOS_PER_PAGE = PDF_PHOTO_COLS * PDF_PHOTO_ROWS;
 
 export const PDF_PRACTICAL_PAGE_MARGIN_MM = 2.5;
-export const PDF_TOMS_V2_PAGE_MARGIN_MM = 8;
+/** A4 余白を詰めて見積・請求を1ページに収めやすくする */
+export const PDF_TOMS_V2_PAGE_MARGIN_MM = 5;
 
-/** 見積・請求 v2 Excel帳票風レイアウト */
-export const PDF_TOMS_V2_FRAME_WIDTH_MM = 194;
-export const PDF_TOMS_V2_FRAME_HEIGHT_MM = 281;
+/** 見積・請求 v2 Excel帳票風レイアウト（A4=210×297、余白5mm → 200×287） */
+export const PDF_TOMS_V2_FRAME_WIDTH_MM = 200;
+export const PDF_TOMS_V2_FRAME_HEIGHT_MM = 287;
 export const PDF_TOMS_V2_FIRST_PAGE_ROWS = 18;
 export const PDF_TOMS_V2_CONTINUATION_PAGE_ROWS = 22;
 export const PDF_TOMS_V2_GRAY = "#d3d3d3";
 export const PDF_TOMS_V2_ROW_BLUE = "#e6f2ff";
-export const PDF_TOMS_V2_LINE_ROW_HEIGHT_MM = 6.2;
+/** 摘要2行（名称+メモ）でも行が膨らまない高さ */
+export const PDF_TOMS_V2_LINE_ROW_HEIGHT_MM = 5.5;

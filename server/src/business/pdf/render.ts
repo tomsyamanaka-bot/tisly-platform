@@ -60,9 +60,11 @@ export async function htmlToPdfBuffer(html: string): Promise<Buffer | null> {
             setContent: (h: string, o: { waitUntil: string }) => Promise<void>;
             evaluateHandle: (fn: string) => Promise<{ jsonValue: () => Promise<unknown> }>;
             pdf: (o: {
-              format: string;
+              format?: string;
               landscape?: boolean;
               printBackground: boolean;
+              preferCSSPageSize?: boolean;
+              margin?: { top?: string; right?: string; bottom?: string; left?: string };
             }) => Promise<Uint8Array>;
           }>;
           close: () => Promise<void>;
@@ -90,7 +92,14 @@ export async function htmlToPdfBuffer(html: string): Promise<Buffer | null> {
       page.setDefaultTimeout(90_000);
       await page.setContent(embedPdfImagesInHtml(html), { waitUntil: "load" });
       await page.evaluateHandle("document.fonts.ready");
-      const buf = await page.pdf({ format: "A4", landscape: false, printBackground: true });
+      // @page 余白のみ適用（Puppeteer 既定余白との二重マージンで2ページ化するのを防ぐ）
+      const buf = await page.pdf({
+        format: "A4",
+        landscape: false,
+        printBackground: true,
+        preferCSSPageSize: true,
+        margin: { top: "0", right: "0", bottom: "0", left: "0" },
+      });
       const pdfBuf = Buffer.from(buf);
       notePdfGenerationSuccess(resolvedPath ?? null);
       return pdfBuf;
