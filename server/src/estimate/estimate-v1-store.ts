@@ -303,7 +303,8 @@ export function listEstimateProjectsV1(opts?: { customerCode?: string }): Estima
        LEFT JOIN survey_projects sp ON sp.project_id = bp.survey_project_id
        LEFT JOIN business_estimates be ON be.id = bp.estimate_id
        LEFT JOIN business_invoices bi ON bi.id = bp.invoice_id
-       WHERE (bp.survey_project_id IS NOT NULL OR bp.standalone_doc_kind IS NOT NULL)
+       WHERE bp.deleted_at IS NULL
+         AND (bp.survey_project_id IS NOT NULL OR bp.standalone_doc_kind IS NOT NULL)
        ${customerFilter}
        ORDER BY bp.updated_at DESC`
     )

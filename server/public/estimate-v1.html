@@ -301,6 +301,122 @@
         grid-column: 1 / -1;
       }
     }
+    .list-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 0.5rem;
+      margin: 0.35rem 0 0.15rem;
+    }
+    .list-toolbar .btn-select-mode {
+      min-height: 40px;
+      font-size: 0.88rem;
+      padding: 0.35rem 0.85rem;
+    }
+    .list-toolbar .btn-select-mode.active {
+      background: #1d4ed8;
+      color: #fff;
+      border-color: #1d4ed8;
+    }
+    .list-card.select-mode-card {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.65rem;
+    }
+    .list-card .list-select-check {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 44px;
+      min-height: 44px;
+      margin: -0.15rem 0 0 -0.25rem;
+      cursor: pointer;
+    }
+    .list-card .list-select-check input {
+      width: 1.25rem;
+      height: 1.25rem;
+      accent-color: #1d4ed8;
+      pointer-events: none;
+    }
+    .list-card .list-card-main { flex: 1; min-width: 0; }
+    .list-card.is-selected {
+      outline: 2px solid #1d4ed8;
+      background: #eff6ff;
+    }
+    .estimate-bulk-bar {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: calc(3.5rem + env(safe-area-inset-bottom, 0));
+      background: #1e293b;
+      color: #fff;
+      padding: 0.65rem 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      flex-wrap: wrap;
+      z-index: 38;
+      box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.18);
+    }
+    .estimate-bulk-bar.hidden { display: none; }
+    .estimate-bulk-bar #bulk-count { flex: 1; font-size: 0.9rem; font-weight: 600; }
+    .estimate-bulk-bar .btn-bulk-delete {
+      border: none;
+      background: #dc2626;
+      color: #fff;
+      font-weight: 700;
+      min-height: 44px;
+      padding: 0.4rem 1.1rem;
+      border-radius: 10px;
+      font-size: 0.95rem;
+    }
+    .estimate-bulk-bar .btn-bulk-delete:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    .estimate-bulk-bar .btn-bulk-cancel {
+      border: 1px solid rgba(255,255,255,0.35);
+      background: transparent;
+      color: #fff;
+      min-height: 44px;
+      padding: 0.4rem 0.85rem;
+      border-radius: 10px;
+      font-size: 0.88rem;
+    }
+    body.has-estimate-bulk-bar .app-main {
+      padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0));
+    }
+    .delete-dialog-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 60;
+      padding: 1rem;
+    }
+    .delete-dialog-overlay.hidden { display: none; }
+    .delete-dialog {
+      background: #fff;
+      border-radius: 14px;
+      padding: 1.1rem 1.15rem;
+      width: min(100%, 22rem);
+      box-shadow: 0 12px 40px rgba(15, 23, 42, 0.25);
+    }
+    .delete-dialog h4 { margin: 0 0 0.65rem; font-size: 1.05rem; }
+    .delete-dialog .stats { font-size: 0.92rem; line-height: 1.55; margin-bottom: 0.9rem; color: #334155; }
+    .delete-dialog .dialog-actions { display: flex; gap: 0.5rem; }
+    .delete-dialog .dialog-actions button {
+      flex: 1;
+      min-height: 44px;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 0.95rem;
+    }
+    .delete-dialog .btn-cancel { border: 1px solid #cbd5e1; background: #f8fafc; color: #334155; }
+    .delete-dialog .btn-confirm-delete { border: none; background: #dc2626; color: #fff; }
   </style>
 </head>
 <body class="tisly-friendly field-ops-touch">
@@ -350,6 +466,9 @@
         <button type="button" class="tab-btn active" id="tab-pending">見積待ち一覧</button>
         <button type="button" class="tab-btn" id="tab-projects">確定した見積</button>
         <button type="button" class="tab-btn" id="tab-invoices">請求書一覧</button>
+      </div>
+      <div class="list-toolbar" id="list-select-toolbar">
+        <button type="button" class="btn-sub btn-select-mode" id="btn-select-mode" aria-pressed="false">選択</button>
       </div>
       <p id="estimate-load-debug" class="section-hint" style="font-size:0.75rem;color:#64748b;margin:0.15rem 0" aria-live="polite"></p>
       <div id="material-candidates-panel" class="friendly-card hidden">
@@ -547,11 +666,28 @@
     </div>
   </main>
 
+  <div id="estimate-bulk-bar" class="estimate-bulk-bar hidden" role="toolbar" aria-label="一括操作">
+    <span id="bulk-count">0件選択</span>
+    <button type="button" class="btn-bulk-cancel" id="btn-bulk-cancel">やめる</button>
+    <button type="button" class="btn-bulk-delete" id="btn-bulk-delete" disabled>削除</button>
+  </div>
+
+  <div id="delete-dialog-overlay" class="delete-dialog-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="delete-dialog-title">
+    <div class="delete-dialog">
+      <h4 id="delete-dialog-title">一括削除の確認</h4>
+      <div id="delete-dialog-body" class="stats"></div>
+      <div class="dialog-actions">
+        <button type="button" class="btn-cancel" id="delete-dialog-cancel">キャンセル</button>
+        <button type="button" class="btn-confirm-delete" id="delete-dialog-confirm">削除する</button>
+      </div>
+    </div>
+  </div>
+
   <div id="toast" class="toast" role="status"></div>
   <div id="completion-photo-lightbox" class="hidden" role="dialog" aria-modal="true" aria-label="写真プレビュー">
     <button type="button" id="completion-lightbox-close">閉じる</button>
     <img id="completion-lightbox-img" src="" alt="" />
   </div>
-  <script type="module" src="/js/estimate-v1.js?v=estimate-ui-v8"></script>
+  <script type="module" src="/js/estimate-v1.js?v=estimate-ui-v9"></script>
 </body>
 </html>

@@ -865,6 +865,53 @@ describe("見積PWA v1 API", () => {
     assert.ok(first.unitPrice > 0);
     assert.ok(String(first.memo || "").includes("[マスター]"));
   });
+
+  it("案件 soft-delete 後は見積・請求一覧から除外される", async () => {
+    const est = await request(app)
+      .post("/api/estimate/v1/standalone-estimate")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        addressee: "一括削除テスト株式会社",
+        subject: "削除確認見積",
+        items: [{ name: "カメラ", quantity: 1, unitPrice: 10000, unit: "式" }],
+      });
+    assert.equal(est.status, 201, est.body?.error);
+    const bizId = est.body.businessProjectId;
+    const inv = await request(app)
+      .post(`/api/estimate/v1/projects/${bizId}/invoice`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({});
+    assert.equal(inv.status, 201, inv.body?.error);
+
+    const beforeProjects = await request(app)
+      .get("/api/estimate/v1/projects?customerCode=TOMS001")
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(beforeProjects.status, 200);
+    assert.ok(beforeProjects.body.projects.some((p: { businessProjectId: string }) => p.businessProjectId === bizId));
+
+    const beforeInvoices = await request(app)
+      .get("/api/estimate/v1/invoices?customerCode=TOMS001")
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(beforeInvoices.status, 200);
+    assert.ok(beforeInvoices.body.projects.some((p: { businessProjectId: string }) => p.businessProjectId === bizId));
+
+    const del = await request(app)
+      .delete(`/api/projects/v1/projects/${bizId}?source=business`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(del.status, 200, del.body?.error);
+
+    const afterProjects = await request(app)
+      .get("/api/estimate/v1/projects?customerCode=TOMS001")
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(afterProjects.status, 200);
+    assert.ok(!afterProjects.body.projects.some((p: { businessProjectId: string }) => p.businessProjectId === bizId));
+
+    const afterInvoices = await request(app)
+      .get("/api/estimate/v1/invoices?customerCode=TOMS001")
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(afterInvoices.status, 200);
+    assert.ok(!afterInvoices.body.projects.some((p: { businessProjectId: string }) => p.businessProjectId === bizId));
+  });
 });
 
 const TINY_PNG =

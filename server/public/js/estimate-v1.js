@@ -23,8 +23,12 @@ let practicalNav = null;
 let currentView = "list";
 let currentSurveyProjectId = null;
 let pdfBlobUrl = null;
+let selectionMode = false;
+const selectedIds = new Set();
+let bulkDeleteInProgress = false;
 
 const API = "/api/estimate/v1";
+const PROJECTS_API = "/api/projects/v1";
 const WORK_API = "/api/work-session/v1";
 const AUTOMATION_API = "/api/project-automation/v1";
 let currentProjectId = null;
@@ -277,6 +281,14 @@ function getLocalDraft(id) {
   return readLocalDraftStore()[id] || null;
 }
 
+function removeLocalDraft(id) {
+  const store = readLocalDraftStore();
+  if (!store[id]) return false;
+  delete store[id];
+  writeLocalDraftStore(store);
+  return true;
+}
+
 function listLocalDrafts(customerCode) {
   const code = String(customerCode || "").toUpperCase();
   return Object.values(readLocalDraftStore()).filter(
@@ -484,6 +496,24 @@ async function api(path, opts = {}) {
   );
 }
 
+async function projectsApi(path, opts = {}) {
+  const token = getCustomerToken();
+  const label = opts.label || "案件API";
+  return fetchJson(
+    `${PROJECTS_API}${path}`,
+    {
+      ...opts,
+      label,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        ...(opts.headers || {}),
+      },
+    },
+    opts.timeoutMs ?? INIT_LOAD_TIMEOUT_MS
+  );
+}
+
 function projectListTitle(p) {
   return resolveProjectDisplayName({
     customerName: p.customerName,
@@ -501,11 +531,25 @@ function showView(name) {
   $("view-detail").classList.toggle("hidden", name !== "detail");
   practicalNav?.setTitle(name === "detail" ? "見積の内容" : "見積");
   practicalNav?.setBackVisible(true);
+  if (name === "detail" && selectionMode) setSelectionMode(false, { reload: false });
   $("page-hint").textContent =
-    name === "detail" ? "部材の数量・単価を直して、見積もりを確定できます" : "お仕事の料金をまとめます";
+    name === "detail"
+      ? "部材の数量・単価を直して、見積もりを確定できます"
+      : selectionMode
+        ? "削除する見積・請求書にチェックを入れてください"
+        : "お仕事の料金をまとめます";
+  syncBulkBar();
 }
 
 function handlePracticalBack() {
+  if (!$("delete-dialog-overlay")?.classList.contains("hidden")) {
+    hideBulkDeleteDialog();
+    return;
+  }
+  if (selectionMode) {
+    setSelectionMode(false);
+    return;
+  }
   if (!$("standalone-form-panel")?.classList.contains("hidden")) {
     hideStandaloneForm();
     return;
@@ -560,16 +604,17 @@ function renderInvoiceList(projects) {
   el.innerHTML = projects
     .map(
       (p) => `
-    <div class="friendly-card list-card" data-id="${p.businessProjectId}">
-      <span class="status-badge done">${escapeHtml(p.localOnly ? "端末内" : p.invoiceNo || "請求書")}</span>
-      <h2>${escapeHtml(projectListTitle(p))}</h2>
-      <p>${escapeHtml(p.projectNo)} · ${p.invoiceTotal != null ? yen(p.invoiceTotal) : p.total != null ? yen(p.total) : "—"}</p>
+    <div class="friendly-card list-card${selectionMode ? " select-mode-card" : ""}${selectedIds.has(p.businessProjectId) ? " is-selected" : ""}" data-id="${escapeHtml(p.businessProjectId)}" data-local="${p.localOnly ? "1" : "0"}">
+      ${selectionMode ? listSelectCheckboxHtml(p.businessProjectId) : ""}
+      <div class="list-card-main">
+        <span class="status-badge done">${escapeHtml(p.localOnly ? "端末内" : p.invoiceNo || "請求書")}</span>
+        <h2>${escapeHtml(projectListTitle(p))}</h2>
+        <p>${escapeHtml(p.projectNo)} · ${p.invoiceTotal != null ? yen(p.invoiceTotal) : p.total != null ? yen(p.total) : "—"}</p>
+      </div>
     </div>`
     )
     .join("");
-  el.querySelectorAll(".list-card").forEach((node) => {
-    node.addEventListener("click", () => openDetail(node.dataset.id));
-  });
+  bindSelectableListCards(el);
 }
 
 async function loadInvoices() {
@@ -609,6 +654,143 @@ function refreshListTabVisibility() {
   $("pending-list")?.classList.toggle("hidden", !pending);
   $("project-list")?.classList.toggle("hidden", pending || invoices);
   $("invoice-list")?.classList.toggle("hidden", !invoices);
+  updateSelectToolbarVisibility();
+  syncBulkBar();
+}
+
+function listSelectCheckboxHtml(id) {
+  const checked = selectedIds.has(id) ? "checked" : "";
+  return `<label class="list-select-check" aria-label="選択"><input type="checkbox" class="bulk-check" data-bulk-id="${escapeHtml(id)}" ${checked} tabindex="-1" /></label>`;
+}
+
+function bindSelectableListCards(container) {
+  container.querySelectorAll(".list-card").forEach((node) => {
+    node.addEventListener("click", (ev) => {
+      const id = node.dataset.id;
+      if (!id) return;
+      if (selectionMode) {
+        ev.preventDefault();
+        toggleSelection(id, node);
+        return;
+      }
+      openDetail(id);
+    });
+  });
+}
+
+function toggleSelection(id, cardNode) {
+  if (selectedIds.has(id)) selectedIds.delete(id);
+  else selectedIds.add(id);
+  const checked = selectedIds.has(id);
+  cardNode?.classList.toggle("is-selected", checked);
+  const cb = cardNode?.querySelector(".bulk-check");
+  if (cb) cb.checked = checked;
+  syncBulkBar();
+}
+
+function currentListTab() {
+  if ($("tab-invoices")?.classList.contains("active")) return "invoices";
+  if ($("tab-projects")?.classList.contains("active")) return "projects";
+  return "pending";
+}
+
+function updateSelectToolbarVisibility() {
+  const toolbar = $("list-select-toolbar");
+  if (!toolbar) return;
+  const tab = currentListTab();
+  const show = tab === "projects" || tab === "invoices";
+  toolbar.classList.toggle("hidden", !show);
+  if (!show && selectionMode) setSelectionMode(false);
+}
+
+function setSelectionMode(on, { reload = true } = {}) {
+  selectionMode = Boolean(on);
+  if (!selectionMode) selectedIds.clear();
+  const btn = $("btn-select-mode");
+  if (btn) {
+    btn.classList.toggle("active", selectionMode);
+    btn.setAttribute("aria-pressed", selectionMode ? "true" : "false");
+    btn.textContent = selectionMode ? "選択解除" : "選択";
+  }
+  document.body.classList.toggle("has-estimate-bulk-bar", selectionMode && currentView === "list");
+  if (currentView === "list") {
+    $("page-hint").textContent = selectionMode
+      ? "削除する見積・請求書にチェックを入れてください"
+      : "お仕事の料金をまとめます";
+  }
+  syncBulkBar();
+  if (!reload) return;
+  // 再描画してチェックボックスの表示を切替
+  if (currentListTab() === "projects" || currentListTab() === "invoices") {
+    loadProjects();
+    loadInvoices();
+  }
+}
+
+function syncBulkBar() {
+  const bar = $("estimate-bulk-bar");
+  if (!bar) return;
+  const show = selectionMode && currentView === "list" && currentListTab() !== "pending";
+  bar.classList.toggle("hidden", !show);
+  document.body.classList.toggle("has-estimate-bulk-bar", show);
+  const count = selectedIds.size;
+  const countEl = $("bulk-count");
+  if (countEl) countEl.textContent = `${count}件選択`;
+  const delBtn = $("btn-bulk-delete");
+  if (delBtn) delBtn.disabled = count === 0 || bulkDeleteInProgress;
+}
+
+function hideBulkDeleteDialog() {
+  $("delete-dialog-overlay")?.classList.add("hidden");
+}
+
+function showBulkDeleteDialog() {
+  const count = selectedIds.size;
+  if (!count) return;
+  const body = $("delete-dialog-body");
+  if (body) {
+    body.innerHTML = `
+      <p><strong>${count}件</strong>の見積・請求書を削除します。</p>
+      <p>削除後は一覧から非表示になります（復元は案件一覧の削除済みから可能です）。</p>
+      <p style="margin-top:0.55rem;">本当に削除しますか？</p>`;
+  }
+  $("delete-dialog-overlay")?.classList.remove("hidden");
+}
+
+async function deleteSelectedProjects() {
+  const ids = [...selectedIds];
+  if (!ids.length || bulkDeleteInProgress) return;
+  hideBulkDeleteDialog();
+  bulkDeleteInProgress = true;
+  syncBulkBar();
+  let ok = 0;
+  let fail = 0;
+  for (const id of ids) {
+    try {
+      if (isLocalProjectId(id)) {
+        removeLocalDraft(id);
+        ok += 1;
+        continue;
+      }
+      await projectsApi(`/projects/${encodeURIComponent(id)}?source=business`, {
+        method: "DELETE",
+        label: "一括削除",
+      });
+      ok += 1;
+    } catch (e) {
+      console.error("[estimate-v1] bulk delete failed", id, e);
+      fail += 1;
+    }
+  }
+  bulkDeleteInProgress = false;
+  selectedIds.clear();
+  setSelectionMode(false, { reload: false });
+  const code = customerCodeFromPath();
+  cacheSet("estimate", `projects:${code}`, null);
+  cacheSet("estimate", `invoices:${code}`, null);
+  await Promise.all([loadProjects(), loadInvoices()]);
+  if (fail === 0) toast(`${ok}件を削除しました`);
+  else toast(`${ok}件削除 · ${fail}件失敗`);
 }
 
 function renderProjectList(projects) {
@@ -622,16 +804,17 @@ function renderProjectList(projects) {
   el.innerHTML = projects
     .map(
       (p) => `
-    <div class="friendly-card list-card" data-id="${p.businessProjectId}">
-      <span class="status-badge ${p.localOnly ? "orange" : p.pdfPath ? "done" : "orange"}">${p.localOnly ? "端末内" : p.pdfPath ? "見積書の準備ができました" : p.estimateNo || "下書き"}</span>
-      <h2>${escapeHtml(projectListTitle(p))}</h2>
-      <p>${escapeHtml(p.projectNo)} · ${p.total != null ? yen(p.total) : "—"}</p>
+    <div class="friendly-card list-card${selectionMode ? " select-mode-card" : ""}${selectedIds.has(p.businessProjectId) ? " is-selected" : ""}" data-id="${escapeHtml(p.businessProjectId)}" data-local="${p.localOnly ? "1" : "0"}">
+      ${selectionMode ? listSelectCheckboxHtml(p.businessProjectId) : ""}
+      <div class="list-card-main">
+        <span class="status-badge ${p.localOnly ? "orange" : p.pdfPath ? "done" : "orange"}">${p.localOnly ? "端末内" : p.pdfPath ? "見積書の準備ができました" : p.estimateNo || "下書き"}</span>
+        <h2>${escapeHtml(projectListTitle(p))}</h2>
+        <p>${escapeHtml(p.projectNo)} · ${p.total != null ? yen(p.total) : "—"}</p>
+      </div>
     </div>`
     )
     .join("");
-  el.querySelectorAll(".list-card").forEach((node) => {
-    node.addEventListener("click", () => openDetail(node.dataset.id));
-  });
+  bindSelectableListCards(el);
 }
 
 let pendingSurveyForEstimate = null;
@@ -2261,6 +2444,16 @@ function setListTab(tab) {
   $("tab-pending").classList.toggle("active", pending);
   $("tab-projects").classList.toggle("active", tab === "projects");
   $("tab-invoices")?.classList.toggle("active", invoices);
+  if (pending && selectionMode) {
+    setSelectionMode(false, { reload: false });
+  } else if (selectedIds.size) {
+    selectedIds.clear();
+    document.querySelectorAll("#project-list .list-card, #invoice-list .list-card").forEach((card) => {
+      card.classList.remove("is-selected");
+      const cb = card.querySelector(".bulk-check");
+      if (cb) cb.checked = false;
+    });
+  }
   refreshListTabVisibility();
   if (invoices && authSession) loadInvoices();
 }
@@ -2325,6 +2518,31 @@ async function init() {
   $("tab-pending").addEventListener("click", () => setListTab("pending"));
   $("tab-projects").addEventListener("click", () => setListTab("projects"));
   $("tab-invoices")?.addEventListener("click", () => setListTab("invoices"));
+
+  $("btn-select-mode")?.addEventListener("click", () => {
+    if (currentListTab() === "pending") {
+      toast("見積・請求書一覧で選択できます");
+      return;
+    }
+    setSelectionMode(!selectionMode);
+  });
+  $("btn-bulk-cancel")?.addEventListener("click", () => setSelectionMode(false));
+  $("btn-bulk-delete")?.addEventListener("click", () => {
+    if (!selectedIds.size) return;
+    showBulkDeleteDialog();
+  });
+  $("delete-dialog-cancel")?.addEventListener("click", hideBulkDeleteDialog);
+  $("delete-dialog-confirm")?.addEventListener("click", () => {
+    deleteSelectedProjects().catch((e) => {
+      bulkDeleteInProgress = false;
+      syncBulkBar();
+      toastError(e, e.status);
+    });
+  });
+  $("delete-dialog-overlay")?.addEventListener("click", (ev) => {
+    if (ev.target === $("delete-dialog-overlay")) hideBulkDeleteDialog();
+  });
+  updateSelectToolbarVisibility();
 
   $("btn-new-standalone-estimate")?.addEventListener("click", () => resetStandaloneForm("estimate"));
   $("btn-new-standalone-invoice")?.addEventListener("click", () => resetStandaloneForm("invoice"));
