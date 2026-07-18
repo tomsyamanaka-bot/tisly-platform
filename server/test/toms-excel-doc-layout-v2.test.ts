@@ -88,7 +88,10 @@ describe("TOMS Excel layout v2 templates", () => {
     assert.match(html, /案件番号/);
     assert.match(html, /PRJ-2026-0099/);
     assert.match(html, /Page 1 \/ 1/);
-    assert.match(html, /toms-seal/);
+    assert.match(html, /company-seal\.png|toms-seal/);
+    assert.match(html, /toms-v2-seal-slot/);
+    assert.match(html, /mix-blend-mode:\s*multiply/);
+    assert.match(html, /z-index:\s*30/);
     assert.match(html, /toms-v2-row-data/);
     assert.match(html, /height:\s*5\.5mm/);
     assert.ok(!html.includes("インボイス番号"));

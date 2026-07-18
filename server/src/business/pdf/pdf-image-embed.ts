@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 
 const MIME_BY_EXT: Record<string, string> = {
   ".jpg": "image/jpeg",
@@ -7,6 +8,7 @@ const MIME_BY_EXT: Record<string, string> = {
   ".png": "image/png",
   ".gif": "image/gif",
   ".webp": "image/webp",
+  ".svg": "image/svg+xml",
 };
 
 const MISSING_IMAGE_MARKER = "<!-- pdf-missing-image -->";
@@ -15,10 +17,55 @@ function guessMime(filePath: string): string {
   return MIME_BY_EXT[path.extname(filePath).toLowerCase()] ?? "image/jpeg";
 }
 
+function publicAssetsDirCandidates(): string[] {
+  const fromModule = path.join(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "..",
+    "..",
+    "..",
+    "public",
+    "assets"
+  );
+  return [
+    fromModule,
+    path.join(process.cwd(), "public", "assets"),
+    path.join(process.cwd(), "server", "public", "assets"),
+  ];
+}
+
+/** /assets/...（社判など静的アセット）をローカルファイルへ */
+export function resolvePublicAssetUrlToLocalPath(src: string): string | null {
+  const trimmed = src.trim();
+  if (!trimmed || trimmed.startsWith("data:")) return null;
+
+  let assetRel: string | null = null;
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    try {
+      const pathname = new URL(trimmed).pathname;
+      if (pathname.startsWith("/assets/")) assetRel = pathname.slice("/assets/".length);
+    } catch {
+      return null;
+    }
+  } else if (trimmed.startsWith("/assets/")) {
+    assetRel = trimmed.slice("/assets/".length);
+  }
+
+  if (!assetRel || assetRel.includes("..") || path.isAbsolute(assetRel)) return null;
+
+  for (const dir of publicAssetsDirCandidates()) {
+    const full = path.join(dir, assetRel);
+    if (fs.existsSync(full)) return full;
+  }
+  return null;
+}
+
 /** /uploads/... または絶対URLの uploads パスをローカルファイルへ */
 export function resolveUploadUrlToLocalPath(src: string): string | null {
   const trimmed = src.trim();
   if (!trimmed || trimmed.startsWith("data:")) return null;
+
+  const assetLocal = resolvePublicAssetUrlToLocalPath(trimmed);
+  if (assetLocal) return assetLocal;
 
   let uploadPath: string | null = null;
   if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {

@@ -90,6 +90,20 @@ describe("PDF 写真 embed / ファイル名", () => {
     assert.ok(local?.includes(path.join("uploads", "business")));
   });
 
+  it("resolveUploadUrlToLocalPath — /assets/company-seal.png をローカルへ", () => {
+    const local = resolveUploadUrlToLocalPath("/assets/company-seal.png");
+    assert.ok(local, "company-seal.png が解決できること");
+    assert.ok(local.includes("company-seal.png"));
+    assert.ok(fs.existsSync(local));
+  });
+
+  it("embedPdfImagesInHtml — 社判 /assets を base64 に変換", () => {
+    const html = `<div class="toms-v2-seal-slot"><img class="toms-v2-seal" src="/assets/company-seal.png" alt=""/></div>`;
+    const out = embedPdfImagesInHtml(html);
+    assert.match(out, /src="data:image\/png;base64,/);
+    assert.ok(!out.includes("/assets/company-seal.png"));
+  });
+
   it("embedPdfImagesInHtml — img を base64 data URL に変換", () => {
     const uploadDir = path.join(process.cwd(), "uploads", "business", "embed-test", "survey");
     fs.mkdirSync(uploadDir, { recursive: true });

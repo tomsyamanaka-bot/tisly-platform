@@ -2,6 +2,9 @@
  * PDF Base Template — 全帳票共通のレイアウト部品・ユーティリティ
  * 見積・請求・仕様書・完了報告書で同一のデザイン思想（TOMS 表記・フッター・印鑑・ページ番号）を適用
  */
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import { getTomsCompanyInfo } from "./company.js";
 import {
   PDF_A4_HEIGHT_MM,
@@ -258,13 +261,27 @@ export function renderPdfCoverHeader(prefix: string, documentTitle: string): str
 </div>`;
 }
 
-export function resolvePdfSealUrl(): string {
-  return process.env.TOMS_SEAL_URL ?? "/assets/toms-seal.svg";
+function resolvePublicAssetsDir(): string {
+  // src/business/pdf → ../../../public/assets  /  dist/business/pdf → 同相対
+  return path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "public", "assets");
 }
 
-/** 印鑑スペース（見積・請求 v2） */
+/**
+ * 社判画像 URL。
+ * 暫定: public/assets/company-seal.png があればそれを強制使用。
+ * 本番差し替えは TOMS_SEAL_URL、なければ toms-seal.svg。
+ */
+export function resolvePdfSealUrl(): string {
+  const envUrl = process.env.TOMS_SEAL_URL?.trim();
+  if (envUrl) return envUrl;
+  const companySeal = path.join(resolvePublicAssetsDir(), "company-seal.png");
+  if (fs.existsSync(companySeal)) return "/assets/company-seal.png";
+  return "/assets/toms-seal.svg";
+}
+
+/** 印鑑スペース（見積・請求 v2）— 会社情報エリア右下に絶対配置で重ねる */
 export function renderPdfSealImg(cssClass = "toms-v2-seal"): string {
-  return `<img class="${cssClass}" src="${escapeHtml(resolvePdfSealUrl())}" alt="印"/>`;
+  return `<div class="toms-v2-seal-slot" aria-hidden="true"><img class="${cssClass}" src="${escapeHtml(resolvePdfSealUrl())}" alt=""/></div>`;
 }
 
 export interface PdfCompanyDetailInput {

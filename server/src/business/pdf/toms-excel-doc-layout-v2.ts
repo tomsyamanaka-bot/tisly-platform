@@ -385,7 +385,7 @@ body {
 .toms-v2-meta-label, .toms-v2-meta-value { display: block; min-height: 2.5mm; }
 .toms-v2-meta-underline { display: block; border-bottom: 1px solid #000; margin-top: 0.2mm; min-width: 16mm; min-height: 2.2mm; }
 .toms-v2-meta td .toms-v2-meta-underline { min-width: 22mm; }
-.toms-v2-company-wrap { position: relative; text-align: left; display: inline-block; max-width: 100%; }
+.toms-v2-company-wrap { position: relative; text-align: left; display: inline-block; max-width: 100%; z-index: 1; }
 .toms-v2-company-band {
   background: ${TOMS_V2_GRAY};
   border: 1px solid #000;
@@ -394,17 +394,28 @@ body {
   font-size: 8pt;
   margin-bottom: 0.4mm;
 }
-.toms-v2-company-body { font-size: 7pt; line-height: 1.3; padding-right: 13mm; }
+.toms-v2-company-body { font-size: 7pt; line-height: 1.3; padding-right: 16mm; }
 .toms-v2-bank { margin-top: 0.5mm; white-space: pre-line; }
-.toms-v2-seal {
+/* 会社情報帯の下〜住所行に重ねる社判スロット（レイアウト高さは増やさない） */
+.toms-v2-seal-slot {
   position: absolute;
-  right: -2mm;
-  top: 0;
-  width: 13mm;
-  height: 13mm;
+  right: -1.5mm;
+  top: 4.5mm;
+  width: 15mm;
+  height: 15mm;
+  z-index: 30;
+  pointer-events: none;
+  overflow: visible;
+}
+.toms-v2-seal {
+  display: block;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
-  opacity: 0.92;
+  opacity: 0.95;
   mix-blend-mode: multiply;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
 .toms-v2-amount-wrap {
   display: flex;
