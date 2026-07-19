@@ -99,6 +99,20 @@ export function formatTomsDateDisplay(raw: string | null | undefined): string {
   return trimmed;
 }
 
+/**
+ * 帳票の発行日表示。入力候補を順に試し、どれもなければ当日。
+ * HTML date(YYYY-MM-DD) / YYYY/MM/DD / ISO いずれも可。
+ */
+export function resolveTomsIssueDateDisplay(
+  ...candidates: Array<string | null | undefined>
+): string {
+  for (const c of candidates) {
+    const formatted = formatTomsDateDisplay(c);
+    if (formatted) return formatted;
+  }
+  return formatTomsIssueDate();
+}
+
 function parseTomsDateInput(raw: string): Date | null {
   const trimmed = raw.trim();
   const slash = trimmed.match(/^(\d{4})\/(\d{2})\/(\d{2})$/);

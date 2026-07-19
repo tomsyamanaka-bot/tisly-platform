@@ -1,10 +1,10 @@
 import type { BusinessProject, Estimate, Invoice } from "../business-types.js";
 import { buildCustomerFacingPdfNotes, filterCustomerFacingLineDescription } from "../customer-price-rules.js";
 import {
-  formatTomsIssueDate,
   formatTomsPaymentDueDate,
   itemsToTomsLines,
   resolveTomsBankInfo,
+  resolveTomsIssueDateDisplay,
   TOMS_DEFAULT_STAFF,
   type TomsInvoiceHeader,
 } from "../toms-document-format.js";
@@ -54,11 +54,17 @@ export function buildInvoiceHeader(
   opts?: InvoiceHtmlOptions
 ): TomsInvoiceHeader {
   const estHeader = estimate.header;
+  // 請求日（invoice.createdAt）＞見積ヘッダー発行日＞当日
+  const invoiceDate = resolveTomsIssueDateDisplay(
+    opts?.header?.invoiceDate,
+    invoice.createdAt,
+    estHeader?.issueDate
+  );
   return (
     opts?.header ?? {
       addressee: invoice.customerName,
       subject: invoice.title,
-      invoiceDate: formatTomsIssueDate(new Date(invoice.createdAt)),
+      invoiceDate,
       invoiceNo: invoice.invoiceNo,
       staffName: estHeader?.staffName ?? TOMS_DEFAULT_STAFF,
       siteName: estHeader?.siteName ?? project.title,
@@ -105,7 +111,11 @@ function buildInvoiceContext(
       header.invoiceNo
     ),
     issueDateLabel: "発行日",
-    issueDate: header.invoiceDate,
+    issueDate: resolveTomsIssueDateDisplay(
+      header.invoiceDate,
+      invoice.createdAt,
+      estimate.header?.issueDate
+    ),
     docNoLabel: "請求番号",
     docNo: header.invoiceNo,
     includeRegistrationNo: true,

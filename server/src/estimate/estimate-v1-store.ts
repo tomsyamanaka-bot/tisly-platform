@@ -18,10 +18,13 @@ import {
   syncInvoiceItemsFromEstimate,
   updateBusinessProject,
   updateEstimateHeader,
+  updateInvoiceIssueDate,
   updateInvoicePaymentDue,
 } from "../business/business-store.js";
 import {
   buildTomsEstimateDocument,
+  formatTomsDateDisplay,
+  formatTomsIssueDate,
   mergeEstimateHeader,
   type TomsEstimateHeader,
 } from "../business/toms-document-format.js";
@@ -657,7 +660,22 @@ export function updateEstimateHeaderV1(
 ): TomsEstimateHeader {
   const project = getBusinessProject(businessProjectId);
   if (!project?.estimateId) throw new Error("estimate not found");
-  const updated = updateEstimateHeader(project.estimateId, header);
+  const { invoiceDate, paymentDueDate, ...estimateHeader } = header;
+  if (estimateHeader.issueDate != null) {
+    const formatted = formatTomsDateDisplay(estimateHeader.issueDate);
+    estimateHeader.issueDate = formatted || estimateHeader.issueDate.trim();
+  }
+  const updated = updateEstimateHeader(project.estimateId, estimateHeader);
+  if (project.invoiceId) {
+    if (invoiceDate != null && invoiceDate.trim()) {
+      updateInvoiceIssueDate(project.invoiceId, invoiceDate.trim());
+    }
+    if (paymentDueDate !== undefined) {
+      const due = paymentDueDate.trim() || null;
+      updateInvoicePaymentDue(project.invoiceId, due);
+      updateBusinessProject(businessProjectId, { paymentDueDate: due });
+    }
+  }
   return updated.header!;
 }
 
@@ -1055,7 +1073,7 @@ function applyStandaloneDocHeader(
     workLocation: input.workLocation?.trim() ?? "",
     siteName: input.subject.trim(),
     staffName: input.staffName?.trim() || createdBy || "",
-    issueDate: input.invoiceDate?.trim() || new Date().toISOString().slice(0, 10),
+    issueDate: formatTomsDateDisplay(input.invoiceDate) || formatTomsIssueDate(),
   });
   if (input.notes?.trim()) {
     updateBusinessProject(projectId, { surveyMemo: input.notes.trim() });
@@ -1172,9 +1190,14 @@ export function createStandaloneInvoiceV1(
   applyStandaloneDocHeader(project.id, refreshed.estimateId, input, createdBy);
   createInvoiceFromEstimateV1(refreshed.id);
   const withInvoice = getBusinessProject(refreshed.id)!;
-  if (withInvoice.invoiceId && input.paymentDueDate?.trim()) {
-    updateInvoicePaymentDue(withInvoice.invoiceId, input.paymentDueDate.trim());
-    updateBusinessProject(refreshed.id, { paymentDueDate: input.paymentDueDate.trim() });
+  if (withInvoice.invoiceId) {
+    if (input.invoiceDate?.trim()) {
+      updateInvoiceIssueDate(withInvoice.invoiceId, input.invoiceDate.trim());
+    }
+    if (input.paymentDueDate?.trim()) {
+      updateInvoicePaymentDue(withInvoice.invoiceId, input.paymentDueDate.trim());
+      updateBusinessProject(refreshed.id, { paymentDueDate: input.paymentDueDate.trim() });
+    }
   }
   return getEstimateProjectV1Detail(refreshed.id)!;
 }

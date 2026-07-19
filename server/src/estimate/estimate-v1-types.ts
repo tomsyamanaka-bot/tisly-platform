@@ -83,4 +83,9 @@ export type TomsEstimateFormatV1 = TomsEstimateDocumentV1;
 
 export type EstimateLineInputV1 = Partial<EstimateLineItem>;
 
-export type EstimateHeaderInputV1 = Partial<TomsEstimateHeader>;
+export type EstimateHeaderInputV1 = Partial<TomsEstimateHeader> & {
+  /** 請求書の請求日（YYYY-MM-DD / YYYY/MM/DD）。請求書がある場合のみ反映 */
+  invoiceDate?: string;
+  /** 請求書の支払期限。請求書がある場合のみ反映 */
+  paymentDueDate?: string;
+};

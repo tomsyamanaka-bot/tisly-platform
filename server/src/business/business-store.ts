@@ -784,6 +784,22 @@ export function updateInvoicePaymentDue(invoiceId: string, paymentDueDate: strin
   return getInvoice(invoiceId)!;
 }
 
+/** 請求書の発行日（請求日）を更新。PDF の発行日表示に使う created_at を揃える */
+export function updateInvoiceIssueDate(invoiceId: string, invoiceDate: string): Invoice {
+  const day = invoiceDate.trim().match(/^(\d{4})[/-](\d{2})[/-](\d{2})/);
+  if (!day) throw new Error("invalid invoiceDate");
+  const createdAt = `${day[1]}-${day[2]}-${day[3]}T12:00:00.000Z`;
+  const now = new Date().toISOString();
+  getDatabase()
+    .prepare(
+      `UPDATE business_invoices SET created_at = ?, pdf_path = NULL, updated_at = ? WHERE id = ?`
+    )
+    .run(createdAt, now, invoiceId);
+  const inv = getInvoice(invoiceId);
+  if (inv) markProjectPdfStaleV1(inv.projectId, "invoice");
+  return getInvoice(invoiceId)!;
+}
+
 export function updateEstimateHeader(estimateId: string, header: Partial<TomsEstimateHeader>): Estimate {
   const existing = getEstimate(estimateId);
   if (!existing) throw new Error("estimate not found");

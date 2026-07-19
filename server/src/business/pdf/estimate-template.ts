@@ -4,6 +4,7 @@ import {
   computeTomsEstimateValidUntil,
   itemsToTomsLines,
   mergeEstimateHeader,
+  resolveTomsIssueDateDisplay,
   type TomsEstimateHeader,
 } from "../toms-document-format.js";
 import {
@@ -74,7 +75,7 @@ function buildEstimateContext(
     workLocation: header.workLocation,
     projectNo: resolvePdfProjectNo(project.projectNo, header.estimateNo),
     issueDateLabel: "発行日",
-    issueDate: header.issueDate,
+    issueDate: resolveTomsIssueDateDisplay(header.issueDate),
     docNoLabel: "見積番号",
     docNo: header.estimateNo,
     includeRegistrationNo: false,

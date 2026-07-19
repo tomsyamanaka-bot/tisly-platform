@@ -1156,7 +1156,7 @@ function fillHeaderForm(header) {
   if (!header) return;
   $("hdr-addressee").value = header.addressee || "";
   $("hdr-subject").value = header.subject || "";
-  $("hdr-issue-date").value = header.issueDate || "";
+  $("hdr-issue-date").value = toDateInputValue(header.issueDate) || todayIsoDate();
   $("hdr-estimate-no").value = header.estimateNo || "";
   $("hdr-staff").value = header.staffName || "";
   $("hdr-work-location").value = header.workLocation || header.siteName || "";
@@ -1173,10 +1173,12 @@ function fillInvoiceHeaderForm(project, invoice) {
     return;
   }
   if ($("hdr-invoice-date")) {
-    $("hdr-invoice-date").value = (invoice.createdAt || "").slice(0, 10) || todayIsoDate();
+    $("hdr-invoice-date").value =
+      toDateInputValue(invoice.createdAt) || todayIsoDate();
   }
   if ($("hdr-payment-due")) {
-    $("hdr-payment-due").value = invoice.paymentDueDate || project?.paymentDueDate || "";
+    $("hdr-payment-due").value =
+      toDateInputValue(invoice.paymentDueDate || project?.paymentDueDate) || "";
   }
   if ($("hdr-invoice-no")) {
     $("hdr-invoice-no").value = invoice.invoiceNo || "";
@@ -1188,7 +1190,7 @@ function readHeaderForm() {
   return {
     addressee: $("hdr-addressee").value.trim(),
     subject: $("hdr-subject").value.trim(),
-    issueDate: $("hdr-issue-date").value.trim(),
+    issueDate: $("hdr-issue-date").value.trim() || todayIsoDate(),
     estimateNo: $("hdr-estimate-no").value.trim(),
     staffName: $("hdr-staff").value.trim(),
     workLocation: $("hdr-work-location").value.trim(),
@@ -1198,14 +1200,25 @@ function readHeaderForm() {
   };
 }
 
+function readInvoiceHeaderForm() {
+  return {
+    invoiceDate: $("hdr-invoice-date")?.value?.trim() || todayIsoDate(),
+    paymentDueDate: $("hdr-payment-due")?.value?.trim() || "",
+  };
+}
+
 async function saveHeader() {
+  const body = {
+    ...readHeaderForm(),
+    ...(hasInvoice ? readInvoiceHeaderForm() : {}),
+  };
   if (isLocalProjectId(currentProjectId)) {
     const draft = saveLocalDraftFromCurrentState();
-    return { header: draft?.header || readHeaderForm() };
+    return { header: draft?.header || body };
   }
   const result = await api(`/projects/${currentProjectId}/header`, {
     method: "PATCH",
-    body: JSON.stringify(readHeaderForm()),
+    body: JSON.stringify(body),
   });
   scheduleDocumentsStatusRefresh();
   return result;
@@ -2134,7 +2147,20 @@ function renderStandalonePreview() {
 }
 
 function todayIsoDate() {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/** YYYY/MM/DD・ISO・その他を <input type="date"> 用 YYYY-MM-DD へ */
+function toDateInputValue(raw) {
+  const s = String(raw || "").trim();
+  if (!s) return "";
+  const m = s.match(/^(\d{4})[/-](\d{2})[/-](\d{2})/);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  return s.length >= 10 ? s.slice(0, 10) : "";
 }
 
 function renderCustomerSuggestList(el, suggestions, onPick) {

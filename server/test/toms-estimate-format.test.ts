@@ -116,6 +116,50 @@ describe("TOMS標準見積フォーマット", () => {
     assert.equal(formatTomsIssueDate(new Date("2026-06-08")), "2026/06/08");
   });
 
+  it("ヘッダー発行日を変更すると見積HTMLに YYYY/MM/DD で反映される", async () => {
+    const patch = await request(app)
+      .patch(`/api/estimate/v1/projects/${businessProjectId}/header`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ issueDate: "2026-07-20" });
+    assert.equal(patch.status, 200, JSON.stringify(patch.body));
+    assert.equal(patch.body.header.issueDate, "2026/07/20");
+
+    const res = await request(app)
+      .get(`/api/estimate/v1/projects/${businessProjectId}/pdf?format=html&includePhotos=0&regenerate=1`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(res.status, 200);
+    assert.match(res.text, /2026\/07\/20/);
+  });
+
+  it("請求日を変更すると請求HTMLの発行日に YYYY/MM/DD で反映される", async () => {
+    const invCreate = await request(app)
+      .post(`/api/estimate/v1/projects/${businessProjectId}/invoice`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({});
+    assert.ok([200, 201].includes(invCreate.status), JSON.stringify(invCreate.body));
+
+    const patch = await request(app)
+      .patch(`/api/estimate/v1/projects/${businessProjectId}/header`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        issueDate: "2026-07-01",
+        invoiceDate: "2026-07-15",
+        paymentDueDate: "2026-08-15",
+      });
+    assert.equal(patch.status, 200, JSON.stringify(patch.body));
+
+    const res = await request(app)
+      .get(
+        `/api/estimate/v1/projects/${businessProjectId}/invoice/pdf?format=html&includePhotos=0&regenerate=1`
+      )
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(res.status, 200);
+    assert.match(res.text, /発行日/);
+    assert.match(res.text, /2026\/07\/15/);
+    assert.ok(!res.text.includes("2026/07/01"), "請求日が発行日より優先されること");
+    assert.match(res.text, /2026\/08\/15/);
+  });
+
   it("伝元/KSフロンティア案件の見積HTMLにTOMSヘッダーと明細列がある", async () => {
     const res = await request(app)
       .get(`/api/estimate/v1/projects/${businessProjectId}/pdf?format=html&includePhotos=0`)
