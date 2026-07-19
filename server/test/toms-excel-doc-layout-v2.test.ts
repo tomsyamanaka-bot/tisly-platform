@@ -88,8 +88,12 @@ describe("TOMS Excel layout v2 templates", () => {
     assert.match(html, /案件番号/);
     assert.match(html, /PRJ-2026-0099/);
     assert.match(html, /Page 1 \/ 1/);
-    assert.match(html, /company-seal\.png|toms-seal/);
-    assert.match(html, /toms-v2-seal-slot/);
+    assert.ok(
+      !html.includes('<div class="toms-v2-seal-slot"'),
+      "見積書には社印 DOM を出さない"
+    );
+    assert.ok(!html.includes('class="toms-v2-seal"'), "見積書に印鑑 img を出さない");
+    assert.ok(!/src="[^"]*company-seal\.png/.test(html), "見積書 HTML に印鑑画像 URL を含めない");
     assert.match(html, /mix-blend-mode:\s*multiply/);
     assert.match(html, /z-index:\s*30/);
     assert.match(html, /toms-v2-row-data/);
@@ -122,6 +126,10 @@ describe("TOMS Excel layout v2 templates", () => {
     assert.match(html, /PRJ-2026-0099/);
     assert.match(html, /下記の通り、御請求申し上げます。/);
     assert.match(html, /＜備考＞/);
+    assert.match(html, /<div class="toms-v2-seal-slot"/);
+    assert.match(html, /class="toms-v2-seal"/);
+    assert.match(html, /company-seal\.png|toms-seal/);
+    assert.match(html, /mix-blend-mode:\s*multiply/);
   });
 
   it("請求書 v2 は projectNo 未設定時に見積参照番号から案件番号を推定", () => {

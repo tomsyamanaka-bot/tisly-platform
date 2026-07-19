@@ -1,6 +1,7 @@
 /**
  * PDF Base Template — 全帳票共通のレイアウト部品・ユーティリティ
- * 見積・請求・仕様書・完了報告書で同一のデザイン思想（TOMS 表記・フッター・印鑑・ページ番号）を適用
+ * 見積・請求・仕様書・完了報告書で同一のデザイン思想（TOMS 表記・フッター・ページ番号）を適用
+ * ※社印オーバーレイは請求書 PDF のみ
  */
 import fs from "fs";
 import path from "path";
@@ -267,9 +268,9 @@ function resolvePublicAssetsDir(): string {
 }
 
 /**
- * 社判画像 URL。
- * 暫定: public/assets/company-seal.png があればそれを強制使用。
- * 本番差し替えは TOMS_SEAL_URL、なければ toms-seal.svg。
+ * 社判画像 URL（請求書 PDF 用）。
+ * public/assets/company-seal.png があればそれを使用。
+ * 上書きは TOMS_SEAL_URL、なければ toms-seal.svg。
  */
 export function resolvePdfSealUrl(): string {
   const envUrl = process.env.TOMS_SEAL_URL?.trim();
@@ -279,7 +280,7 @@ export function resolvePdfSealUrl(): string {
   return "/assets/toms-seal.svg";
 }
 
-/** 印鑑スペース（見積・請求 v2）— 会社情報エリア右下に絶対配置で重ねる */
+/** 印鑑スペース（請求書 v2 のみ）— 会社情報エリアに絶対配置で重ねる（mix-blend-mode: multiply） */
 export function renderPdfSealImg(cssClass = "toms-v2-seal"): string {
   return `<div class="toms-v2-seal-slot" aria-hidden="true"><img class="${cssClass}" src="${escapeHtml(resolvePdfSealUrl())}" alt=""/></div>`;
 }

@@ -112,7 +112,9 @@ function renderCompanyBlock(staffName: string, bankInfo?: string): string {
   });
 }
 
-function renderSeal(): string {
+/** 社印は請求書のみ（見積書では DOM を出さない） */
+function renderSeal(kind: TomsV2DocKind): string {
+  if (kind !== "invoice") return "";
   return renderPdfSealImg();
 }
 
@@ -147,7 +149,7 @@ function renderHeaderRight(ctx: TomsV2PageContext): string {
   <table class="toms-v2-meta">${renderMetaRows(ctx)}</table>
   <div class="toms-v2-company-wrap">
     ${renderCompanyBlock(ctx.staffName, ctx.bankInfo)}
-    ${renderSeal()}
+    ${renderSeal(ctx.kind)}
   </div>
 </div>`;
 }

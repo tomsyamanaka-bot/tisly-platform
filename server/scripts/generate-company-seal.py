@@ -1,4 +1,8 @@
-"""Generate provisional company-seal.png (white bg + red 角印) for estimate PDF."""
+"""Generate provisional company-seal.png (white bg + red 角印) for invoice PDF.
+
+Note: Production uses the official seal image at public/assets/company-seal.png.
+Do not overwrite that file unless intentionally regenerating a placeholder.
+"""
 from __future__ import annotations
 
 import os
