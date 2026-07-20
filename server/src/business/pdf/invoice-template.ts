@@ -60,19 +60,24 @@ export function buildInvoiceHeader(
     invoice.createdAt,
     estHeader?.issueDate
   );
-  return (
-    opts?.header ?? {
-      addressee: invoice.customerName,
-      subject: invoice.title,
+  if (opts?.header) {
+    return {
+      ...opts.header,
       invoiceDate,
-      invoiceNo: invoice.invoiceNo,
-      staffName: estHeader?.staffName ?? TOMS_DEFAULT_STAFF,
-      siteName: estHeader?.siteName ?? project.title,
-      workLocation: estHeader?.workLocation ?? project.address,
-      estimateRefNo: opts?.estimateRefNo ?? estimate.estimateNo,
-      bankInfo: invoice.bankInfo,
-    }
-  );
+      bankInfo: resolveTomsBankInfo(opts.header.bankInfo ?? invoice.bankInfo),
+    };
+  }
+  return {
+    addressee: invoice.customerName,
+    subject: invoice.title,
+    invoiceDate,
+    invoiceNo: invoice.invoiceNo,
+    staffName: estHeader?.staffName ?? TOMS_DEFAULT_STAFF,
+    siteName: estHeader?.siteName ?? project.title,
+    workLocation: estHeader?.workLocation ?? project.address,
+    estimateRefNo: opts?.estimateRefNo ?? estimate.estimateNo,
+    bankInfo: invoice.bankInfo,
+  };
 }
 
 function buildInvoiceContext(

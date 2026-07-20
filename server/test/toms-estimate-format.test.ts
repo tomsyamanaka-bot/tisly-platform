@@ -124,8 +124,14 @@ describe("TOMS標準見積フォーマット", () => {
     assert.equal(patch.status, 200, JSON.stringify(patch.body));
     assert.equal(patch.body.header.issueDate, "2026/07/20");
 
+    const detail = await request(app)
+      .get(`/api/estimate/v1/projects/${businessProjectId}`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(detail.status, 200);
+    assert.equal(detail.body.header?.issueDate, "2026/07/20");
+
     const res = await request(app)
-      .get(`/api/estimate/v1/projects/${businessProjectId}/pdf?format=html&includePhotos=0&regenerate=1`)
+      .get(`/api/estimate/v1/projects/${businessProjectId}/pdf?format=html&includePhotos=0`)
       .set("Authorization", `Bearer ${token}`);
     assert.equal(res.status, 200);
     assert.match(res.text, /2026\/07\/20/);
@@ -148,9 +154,27 @@ describe("TOMS標準見積フォーマット", () => {
       });
     assert.equal(patch.status, 200, JSON.stringify(patch.body));
 
+    const detail = await request(app)
+      .get(`/api/estimate/v1/projects/${businessProjectId}`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(detail.status, 200);
+    assert.equal(detail.body.header?.issueDate, "2026/07/01");
+    assert.ok(
+      String(detail.body.invoice?.createdAt || "").startsWith("2026-07-15"),
+      `invoice.createdAt should start with 2026-07-15, got ${detail.body.invoice?.createdAt}`
+    );
+    assert.equal(detail.body.invoice?.paymentDueDate, "2026-08-15");
+
+    const view = await request(app)
+      .get(`/api/estimate/v1/projects/${businessProjectId}/document-view?kind=invoice`)
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(view.status, 200);
+    assert.equal(view.body.invoice?.issueDate, "2026/07/15");
+    assert.match(String(view.body.pdfUrl || ""), /regenerate=1/);
+
     const res = await request(app)
       .get(
-        `/api/estimate/v1/projects/${businessProjectId}/invoice/pdf?format=html&includePhotos=0&regenerate=1`
+        `/api/estimate/v1/projects/${businessProjectId}/invoice/pdf?format=html&includePhotos=0`
       )
       .set("Authorization", `Bearer ${token}`);
     assert.equal(res.status, 200);

@@ -354,19 +354,25 @@ estimateV1Router.get("/projects/:id/pdf", ...estimateV1Auth, async (req: AuthedR
     return;
   }
   const regenerate = parseRegenerate(req.query as Record<string, unknown>);
-  const pdfCtx = getEstimatePdfContextV1(projectId) ?? undefined;
   if (parseFormatHtml(req.query as Record<string, unknown>)) {
-    const { contentType, path: filePath } = getEstimatePdfOrPlaceholder(project, estimate, pdfCtx, {
-      regenerate,
-    });
+    const freshEstimate = getEstimate(project.estimateId)!;
+    const { contentType, path: filePath } = getEstimatePdfOrPlaceholder(
+      getBusinessProject(projectId)!,
+      freshEstimate,
+      getEstimatePdfContextV1(projectId) ?? undefined,
+      { regenerate: true }
+    );
     res.type(contentType).sendFile(filePath);
     return;
   }
   let filePath = regenerate ? null : await resolveProjectPdfForServeV1(projectId, "estimate");
   if (!filePath || !isValidPdfFile(filePath)) {
     try {
-      const pdfPath = await generateEstimatePdf(project, estimate, pdfCtx);
-      setEstimatePdfPath(estimate.id, pdfPath);
+      const freshProject = getBusinessProject(projectId)!;
+      const freshEstimate = getEstimate(freshProject.estimateId!)!;
+      const freshCtx = getEstimatePdfContextV1(projectId) ?? undefined;
+      const pdfPath = await generateEstimatePdf(freshProject, freshEstimate, freshCtx);
+      setEstimatePdfPath(freshEstimate.id, pdfPath);
       recordProjectPdfSavedV1(projectId, "estimate", pdfPath);
       filePath = resolveProjectPdfFile(projectId, "estimate");
     } catch (e) {
@@ -381,7 +387,8 @@ estimateV1Router.get("/projects/:id/pdf", ...estimateV1Auth, async (req: AuthedR
     res.status(500).json({ error: PDF_GENERATION_FAILED_MSG });
     return;
   }
-  sendPdfFile(res, filePath, buildProjectPdfFileNameForProject("estimate", project, estimate), {
+  const freshForName = getEstimate(project.estimateId);
+  sendPdfFile(res, filePath, buildProjectPdfFileNameForProject("estimate", project, freshForName ?? estimate), {
     documentType: "estimate",
     projectId,
   });
@@ -394,14 +401,15 @@ estimateV1Router.post("/projects/:id/pdf/regenerate", ...estimateV1Auth, async (
     res.status(404).json({ error: "No estimate" });
     return;
   }
-  const estimate = getEstimate(project.estimateId);
-  if (!estimate) {
-    res.status(404).json({ error: "No estimate" });
-    return;
-  }
   try {
-    const pdfCtx = getEstimatePdfContextV1(project.id) ?? undefined;
-    const pdfPath = await generateEstimatePdf(project, estimate, pdfCtx);
+    const freshProject = getBusinessProject(project.id)!;
+    const estimate = getEstimate(freshProject.estimateId!);
+    if (!estimate) {
+      res.status(404).json({ error: "No estimate" });
+      return;
+    }
+    const pdfCtx = getEstimatePdfContextV1(freshProject.id) ?? undefined;
+    const pdfPath = await generateEstimatePdf(freshProject, estimate, pdfCtx);
     setEstimatePdfPath(estimate.id, pdfPath);
     recordProjectPdfSavedV1(project.id, "estimate", pdfPath);
     res.json({ pdfPath, estimate: getEstimate(estimate.id) });
@@ -436,14 +444,17 @@ estimateV1Router.get("/projects/:id/invoice/pdf", ...estimateV1Auth, async (req:
     return;
   }
   const regenerate = parseRegenerate(req.query as Record<string, unknown>);
-  const pdfCtx = getEstimatePdfContextV1(projectId) ?? undefined;
   if (parseFormatHtml(req.query as Record<string, unknown>)) {
+    const freshProject = getBusinessProject(projectId)!;
+    const freshInvoice = getInvoice(freshProject.invoiceId!)!;
+    const freshEstimate = getEstimate(freshProject.estimateId!)!;
+    const freshCtx = getEstimatePdfContextV1(projectId) ?? undefined;
     const { contentType, path: filePath } = getInvoicePdfOrPlaceholder(
-      project,
-      invoice,
-      estimate,
-      { notes: pdfCtx?.notes },
-      { regenerate }
+      freshProject,
+      freshInvoice,
+      freshEstimate,
+      { notes: freshCtx?.notes },
+      { regenerate: true }
     );
     res.type(contentType).sendFile(filePath);
     return;
@@ -451,10 +462,14 @@ estimateV1Router.get("/projects/:id/invoice/pdf", ...estimateV1Auth, async (req:
   let filePath = regenerate ? null : await resolveProjectPdfForServeV1(projectId, "invoice");
   if (!filePath || !isValidPdfFile(filePath)) {
     try {
-      const pdfPath = await generateInvoicePdf(project, invoice, estimate, {
-        notes: pdfCtx?.notes,
+      const freshProject = getBusinessProject(projectId)!;
+      const freshInvoice = getInvoice(freshProject.invoiceId!)!;
+      const freshEstimate = getEstimate(freshProject.estimateId!)!;
+      const freshCtx = getEstimatePdfContextV1(projectId) ?? undefined;
+      const pdfPath = await generateInvoicePdf(freshProject, freshInvoice, freshEstimate, {
+        notes: freshCtx?.notes,
       });
-      setInvoicePdfPath(invoice.id, pdfPath);
+      setInvoicePdfPath(freshInvoice.id, pdfPath);
       recordProjectPdfSavedV1(projectId, "invoice", pdfPath);
       filePath = resolveProjectPdfFile(projectId, "invoice");
     } catch (e) {
@@ -485,15 +500,16 @@ estimateV1Router.post(
       res.status(404).json({ error: "No invoice" });
       return;
     }
-    const invoice = getInvoice(project.invoiceId);
-    const estimate = getEstimate(project.estimateId);
-    if (!invoice || !estimate) {
-      res.status(404).json({ error: "No invoice" });
-      return;
-    }
     try {
-      const pdfCtx = getEstimatePdfContextV1(project.id) ?? undefined;
-      const pdfPath = await generateInvoicePdf(project, invoice, estimate, {
+      const freshProject = getBusinessProject(project.id)!;
+      const invoice = getInvoice(freshProject.invoiceId!);
+      const estimate = getEstimate(freshProject.estimateId!);
+      if (!invoice || !estimate) {
+        res.status(404).json({ error: "No invoice" });
+        return;
+      }
+      const pdfCtx = getEstimatePdfContextV1(freshProject.id) ?? undefined;
+      const pdfPath = await generateInvoicePdf(freshProject, invoice, estimate, {
         notes: pdfCtx?.notes,
       });
       setInvoicePdfPath(invoice.id, pdfPath);

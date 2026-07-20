@@ -303,6 +303,11 @@ export function openPdfUrlDirect(fetchUrl) {
  */
 const prefetchPdfCache = new Map();
 
+/** ヘッダー日付変更後など、古い PDF 先読みを破棄する */
+export function clearPrefetchPdfCache() {
+  prefetchPdfCache.clear();
+}
+
 /** 共有ボタン touchstart 等で先読み（iOS ユーザージェスチャー切れ防止） */
 export function prefetchPdfForShare({ fetchUrl, getHeaders, regenerateUrl }) {
   assertPdfApiFetchUrl(fetchUrl);
@@ -334,6 +339,7 @@ export async function sharePdfAsFile({ fetchUrl, fileName, title, getHeaders, re
 export {
   fetchPdfBlob,
   fetchPdfBlobWithRegenerate,
+  clearPrefetchPdfCache,
   triggerDownload,
   PDF_FAIL_MSG,
   isValidPdfBlob,

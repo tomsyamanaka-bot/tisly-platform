@@ -3,7 +3,7 @@ import { buildCustomerFacingPdfNotes } from "../business/customer-price-rules.js
 import { resolveProjectDisplayName } from "../business/pdf/pdf-text-sanitize.js";
 import { getBusinessProject, getEstimate, getInvoice, getCompletionReport } from "../business/business-store.js";
 import type { EstimateLineItem } from "../business/business-types.js";
-import { resolveTomsBankInfo } from "../business/toms-document-format.js";
+import { resolveTomsBankInfo, resolveTomsIssueDateDisplay } from "../business/toms-document-format.js";
 import { listCompletionChecklistV1 } from "../field-ops/work-session-v1-store.js";
 import { getSurveyProjectV1Detail } from "../survey/survey-v1-store.js";
 import { getProjectPdfMeta } from "../projects/project-pdf-qnap-store.js";
@@ -153,9 +153,10 @@ function pdfPathForKind(projectId: string, kind: DocumentViewKindV1): string {
   const estimateBase = `/api/estimate/v1/projects/${projectId}`;
   switch (kind) {
     case "estimate":
-      return `${estimateBase}/pdf?includePhotos=false`;
+      // 日付変更後も古いキャッシュPDFを返さないよう再生成を強制
+      return `${estimateBase}/pdf?includePhotos=false&regenerate=1`;
     case "invoice":
-      return `${estimateBase}/invoice/pdf?includePhotos=false`;
+      return `${estimateBase}/invoice/pdf?includePhotos=false&regenerate=1`;
     case "specification":
     case "field-report":
       return `${estimateBase}/specification/pdf`;
@@ -279,7 +280,7 @@ export function buildDocumentViewPayloadV1(
         docNo: invoice.invoiceNo,
         addressee: detail.header.addressee,
         subject: detail.header.subject,
-        issueDate: detail.header.issueDate || invoice.createdAt.slice(0, 10),
+        issueDate: resolveTomsIssueDateDisplay(invoice.createdAt, detail.header.issueDate),
         paymentDueDate: invoice.paymentDueDate ?? "",
         estimateRefNo: invoice.estimateRefNo ?? "",
         bankInfo: resolveTomsBankInfo(invoice.bankInfo),

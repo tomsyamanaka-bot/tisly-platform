@@ -10,7 +10,7 @@ import { getDefaultNavFallbackV1, navigateBackOne } from "./tisly-navigation-sta
 import { resolveProjectDisplayName } from "./project-display-name.js";
 import { friendlyHttpError, renderFriendlyErrorHtml } from "./tisly-friendly-errors.js";
 import { confirmChecklistBeforeReport, confirmCompletionPhotoSlotsBeforeReport } from "./field-checklist-ui.js?v=fc-ui-v3";
-import { prefetchPdfForShare, sharePdfAsFile, triggerDownload } from "./pdf-share-v1.js";
+import { clearPrefetchPdfCache, prefetchPdfForShare, sharePdfAsFile, triggerDownload } from "./pdf-share-v1.js";
 import {
   createLoadWatchdog,
   DEFAULT_FETCH_TIMEOUT_MS,
@@ -1164,6 +1164,7 @@ function fillHeaderForm(header) {
   $("hdr-phone").value = header.phone || "";
   $("hdr-email").value = header.email || "";
   if ($("hdr-notes")) $("hdr-notes").value = header.notes || "";
+  bindHeaderDateAutoSave();
 }
 
 function fillInvoiceHeaderForm(project, invoice) {
@@ -1184,6 +1185,7 @@ function fillInvoiceHeaderForm(project, invoice) {
     $("hdr-invoice-no").value = invoice.invoiceNo || "";
   }
   renderInvoiceBankPanel(invoice);
+  bindHeaderDateAutoSave();
 }
 
 function readHeaderForm() {
@@ -1220,8 +1222,35 @@ async function saveHeader() {
     method: "PATCH",
     body: JSON.stringify(body),
   });
+  clearPrefetchPdfCache();
   scheduleDocumentsStatusRefresh();
   return result;
+}
+
+/** 発行日・請求日・支払期限の変更をサーバーへ即座に同期 */
+let headerDateSaveTimer = null;
+function scheduleHeaderDateSave() {
+  if (!currentProjectId) return;
+  clearTimeout(headerDateSaveTimer);
+  headerDateSaveTimer = setTimeout(() => {
+    saveHeader()
+      .then(() => {
+        hidePdfPreview();
+        showPdfQuickError("");
+      })
+      .catch(() => {
+        /* オフライン等は明示保存ボタンで再試行 */
+      });
+  }, 250);
+}
+
+function bindHeaderDateAutoSave() {
+  for (const id of ["hdr-issue-date", "hdr-invoice-date", "hdr-payment-due"]) {
+    const el = $(id);
+    if (!el || el.dataset.dateAutosaveBound === "1") continue;
+    el.dataset.dateAutosaveBound = "1";
+    el.addEventListener("change", scheduleHeaderDateSave);
+  }
 }
 
 function buildPdfUrl(kind) {
@@ -1232,8 +1261,8 @@ function buildPdfUrl(kind) {
     return `/api/estimate/v1/projects/${currentProjectId}/specification/pdf`;
   }
   return kind === "invoice"
-    ? `/api/estimate/v1/projects/${currentProjectId}/invoice/pdf?includePhotos=false`
-    : `/api/estimate/v1/projects/${currentProjectId}/pdf?includePhotos=false`;
+    ? `/api/estimate/v1/projects/${currentProjectId}/invoice/pdf?includePhotos=false&regenerate=1`
+    : `/api/estimate/v1/projects/${currentProjectId}/pdf?includePhotos=false&regenerate=1`;
 }
 
 function buildPdfTabUrl(kind, token) {
@@ -1539,8 +1568,10 @@ async function openDocumentViewer(kind) {
   }
   try {
     if (kind === "estimate" || kind === "invoice") {
+      clearTimeout(headerDateSaveTimer);
       await saveHeader().catch(() => ({}));
       await saveItems().catch(() => ({}));
+      clearPrefetchPdfCache();
     }
     navigateTo(buildDocumentViewerUrl(kind));
   } catch (e) {

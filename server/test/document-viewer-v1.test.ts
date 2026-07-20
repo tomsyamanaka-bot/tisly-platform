@@ -81,7 +81,7 @@ describe("Document Viewer UX v1 API", () => {
     assert.match(res.text, /doc-pdf-chrome/);
     assert.match(res.text, /id="btn-pdf"[^>]*>PDFにする/);
     assert.match(res.text, /id="btn-save"[^>]*>保存/);
-    assert.match(res.text, /id="btn-share"[^>]*>LINEで送る/);
+    assert.match(res.text, /id="btn-regenerate"[^>]*>PDF再作成/);
     assert.match(res.text, /doc-preview-mode/);
     assert.match(res.text, /doc-pdf-chrome-actions/);
     assert.doesNotMatch(res.text, /navigator\.share\(\{\s*title,\s*url/);
@@ -97,7 +97,7 @@ describe("Document Viewer UX v1 API", () => {
     assert.ok(res.body.estimate);
     assert.ok(res.body.estimate.items.length >= 1);
     assert.ok(res.body.estimate.total > 0);
-    assert.match(res.body.pdfUrl, /\/pdf\?includePhotos=false$/);
+    assert.match(res.body.pdfUrl, /\/pdf\?includePhotos=false&regenerate=1$/);
   });
 
   it("仕様書・現場報告 document-view JSON を返す", async () => {
