@@ -170,7 +170,7 @@ describe("TOMS標準見積フォーマット", () => {
       .set("Authorization", `Bearer ${token}`);
     assert.equal(view.status, 200);
     assert.equal(view.body.invoice?.issueDate, "2026/07/15");
-    assert.match(String(view.body.pdfUrl || ""), /regenerate=1/);
+    assert.match(String(view.body.pdfUrl || ""), /\/invoice\/pdf\?includePhotos=false$/);
 
     const res = await request(app)
       .get(

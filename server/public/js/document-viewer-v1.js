@@ -73,12 +73,27 @@ function buildPdfTabUrl(pdfPath) {
 
 async function fetchPayload(projectId, kind) {
   const token = getCustomerToken();
-  const res = await fetch(`${API}/projects/${encodeURIComponent(projectId)}/document-view?kind=${encodeURIComponent(kind)}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw Object.assign(new Error(data.error || `HTTP ${res.status}`), { status: res.status });
-  return data;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 20_000);
+  try {
+    const res = await fetch(
+      `${API}/projects/${encodeURIComponent(projectId)}/document-view?kind=${encodeURIComponent(kind)}`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: controller.signal,
+      }
+    );
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw Object.assign(new Error(data.error || `HTTP ${res.status}`), { status: res.status });
+    return data;
+  } catch (e) {
+    if (e?.name === "AbortError") {
+      throw Object.assign(new Error("書類の読み込みがタイムアウトしました"), { code: "timeout" });
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function pdfAuthHeaders() {

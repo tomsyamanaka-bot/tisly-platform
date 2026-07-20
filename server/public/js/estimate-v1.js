@@ -54,8 +54,10 @@ const COMPLETION_TITLE_SAVE_OK = "タイトルを保存しました";
 const MAX_COMPLETION_PHOTOS = 30;
 const IMAGE_EXT_RE = /\.(jpe?g|png|gif|webp|heic|heif)$/i;
 const COMPLETION_PHOTO_FAIL_MSG = "写真の形式か容量で失敗しました。別の写真で試してください";
-export const ESTIMATE_UI_VERSION = "estimate-ui-v8";
+export const ESTIMATE_UI_VERSION = "estimate-ui-v11";
 const INIT_LOAD_TIMEOUT_MS = DEFAULT_FETCH_TIMEOUT_MS;
+const HEADER_DATE_SAVE_DEBOUNCE_MS = 800;
+const HEADER_DATE_SAVE_TIMEOUT_MS = 12_000;
 const LOCAL_DRAFTS_KEY = "tisly_estimate_local_drafts_v1";
 const PENDING_SAVE_PREFIX = "tisly_estimate_pending_v1:";
 const TOMS_COMPANY_NAME = "株式会社TOMS";
@@ -63,6 +65,10 @@ const TOMS_DEFAULT_BANK_INFO = "常陽銀行 越谷支店\n普通 1370414\nト�
 
 let authSession = null;
 let bootstrapWatchdog = null;
+let headerDateSaveTimer = null;
+let headerDateSaveInFlight = false;
+let headerDateSaveQueued = false;
+let suppressHeaderDateAutosave = false;
 
 const $ = (id) => document.getElementById(id);
 
@@ -1154,16 +1160,25 @@ function hidePdfPreview() {
 
 function fillHeaderForm(header) {
   if (!header) return;
-  $("hdr-addressee").value = header.addressee || "";
-  $("hdr-subject").value = header.subject || "";
-  $("hdr-issue-date").value = toDateInputValue(header.issueDate) || todayIsoDate();
-  $("hdr-estimate-no").value = header.estimateNo || "";
-  $("hdr-staff").value = header.staffName || "";
-  $("hdr-work-location").value = header.workLocation || header.siteName || "";
-  $("hdr-address").value = header.address || "";
-  $("hdr-phone").value = header.phone || "";
-  $("hdr-email").value = header.email || "";
-  if ($("hdr-notes")) $("hdr-notes").value = header.notes || "";
+  // プログラムからの値セットで change が発火しても自動保存しない
+  suppressHeaderDateAutosave = true;
+  try {
+    $("hdr-addressee").value = header.addressee || "";
+    $("hdr-subject").value = header.subject || "";
+    $("hdr-issue-date").value = toDateInputValue(header.issueDate) || todayIsoDate();
+    $("hdr-estimate-no").value = header.estimateNo || "";
+    $("hdr-staff").value = header.staffName || "";
+    $("hdr-work-location").value = header.workLocation || header.siteName || "";
+    $("hdr-address").value = header.address || "";
+    $("hdr-phone").value = header.phone || "";
+    $("hdr-email").value = header.email || "";
+    if ($("hdr-notes")) $("hdr-notes").value = header.notes || "";
+  } finally {
+    // iOS 等で同期的に change が飛ぶケースを吸収
+    setTimeout(() => {
+      suppressHeaderDateAutosave = false;
+    }, 0);
+  }
   bindHeaderDateAutoSave();
 }
 
@@ -1173,16 +1188,23 @@ function fillInvoiceHeaderForm(project, invoice) {
     renderInvoiceBankPanel(null);
     return;
   }
-  if ($("hdr-invoice-date")) {
-    $("hdr-invoice-date").value =
-      toDateInputValue(invoice.createdAt) || todayIsoDate();
-  }
-  if ($("hdr-payment-due")) {
-    $("hdr-payment-due").value =
-      toDateInputValue(invoice.paymentDueDate || project?.paymentDueDate) || "";
-  }
-  if ($("hdr-invoice-no")) {
-    $("hdr-invoice-no").value = invoice.invoiceNo || "";
+  suppressHeaderDateAutosave = true;
+  try {
+    if ($("hdr-invoice-date")) {
+      $("hdr-invoice-date").value =
+        toDateInputValue(invoice.createdAt) || todayIsoDate();
+    }
+    if ($("hdr-payment-due")) {
+      $("hdr-payment-due").value =
+        toDateInputValue(invoice.paymentDueDate || project?.paymentDueDate) || "";
+    }
+    if ($("hdr-invoice-no")) {
+      $("hdr-invoice-no").value = invoice.invoiceNo || "";
+    }
+  } finally {
+    setTimeout(() => {
+      suppressHeaderDateAutosave = false;
+    }, 0);
   }
   renderInvoiceBankPanel(invoice);
   bindHeaderDateAutoSave();
@@ -1209,7 +1231,12 @@ function readInvoiceHeaderForm() {
   };
 }
 
-async function saveHeader() {
+/**
+ * @param {{ quiet?: boolean }} [opts]
+ * quiet=true: 日付自動保存用。書類状態リフレッシュ等の重い後処理を避ける
+ */
+async function saveHeader(opts = {}) {
+  const quiet = opts.quiet === true;
   const body = {
     ...readHeaderForm(),
     ...(hasInvoice ? readInvoiceHeaderForm() : {}),
@@ -1221,27 +1248,46 @@ async function saveHeader() {
   const result = await api(`/projects/${currentProjectId}/header`, {
     method: "PATCH",
     body: JSON.stringify(body),
+    label: quiet ? "日付保存" : "ヘッダー保存",
+    timeoutMs: quiet ? HEADER_DATE_SAVE_TIMEOUT_MS : INIT_LOAD_TIMEOUT_MS,
   });
   clearPrefetchPdfCache();
-  scheduleDocumentsStatusRefresh();
+  if (!quiet) {
+    scheduleDocumentsStatusRefresh();
+  }
   return result;
 }
 
-/** 発行日・請求日・支払期限の変更をサーバーへ即座に同期 */
-let headerDateSaveTimer = null;
+/** 発行日・請求日・支払期限の変更をデバウンスして静かに同期（UIをブロックしない） */
 function scheduleHeaderDateSave() {
-  if (!currentProjectId) return;
+  if (suppressHeaderDateAutosave || !currentProjectId) return;
   clearTimeout(headerDateSaveTimer);
   headerDateSaveTimer = setTimeout(() => {
-    saveHeader()
-      .then(() => {
-        hidePdfPreview();
-        showPdfQuickError("");
-      })
-      .catch(() => {
-        /* オフライン等は明示保存ボタンで再試行 */
-      });
-  }, 250);
+    void persistHeaderDatesQuietly();
+  }, HEADER_DATE_SAVE_DEBOUNCE_MS);
+}
+
+async function persistHeaderDatesQuietly() {
+  if (suppressHeaderDateAutosave || !currentProjectId) return;
+  if (headerDateSaveInFlight) {
+    headerDateSaveQueued = true;
+    return;
+  }
+  headerDateSaveInFlight = true;
+  try {
+    await saveHeader({ quiet: true });
+    hidePdfPreview();
+    showPdfQuickError("");
+  } catch (e) {
+    // 失敗しても画面は操作可能のまま。トーストのみ。
+    toastError(e, e.status);
+  } finally {
+    headerDateSaveInFlight = false;
+    if (headerDateSaveQueued) {
+      headerDateSaveQueued = false;
+      scheduleHeaderDateSave();
+    }
+  }
 }
 
 function bindHeaderDateAutoSave() {
@@ -1260,9 +1306,10 @@ function buildPdfUrl(kind) {
   if (kind === "specification") {
     return `/api/estimate/v1/projects/${currentProjectId}/specification/pdf`;
   }
+  // regenerate=1 を常時付けない（毎回PDF再生成でサーバー・UIが固まるため）
   return kind === "invoice"
-    ? `/api/estimate/v1/projects/${currentProjectId}/invoice/pdf?includePhotos=false&regenerate=1`
-    : `/api/estimate/v1/projects/${currentProjectId}/pdf?includePhotos=false&regenerate=1`;
+    ? `/api/estimate/v1/projects/${currentProjectId}/invoice/pdf?includePhotos=false`
+    : `/api/estimate/v1/projects/${currentProjectId}/pdf?includePhotos=false`;
 }
 
 function buildPdfTabUrl(kind, token) {
@@ -1452,13 +1499,25 @@ function findDocumentStatus(kind) {
 
 async function loadDocumentsStatus() {
   if (!currentProjectId) return;
+  const mount = $("doc-list-mount");
   try {
-    const data = await api(`/projects/${currentProjectId}/documents-status`);
+    const data = await api(`/projects/${currentProjectId}/documents-status`, {
+      label: "書類状態",
+      timeoutMs: 15_000,
+    });
     documentsStatus = data;
     renderDocumentStatusBadges(data.documents);
     renderDocumentList(data.documents);
-  } catch {
-    /* optional */
+  } catch (e) {
+    console.warn("[estimate-v1] documents-status failed", e);
+    if (mount?.textContent?.includes("読み込み中")) {
+      mount.innerHTML =
+        '<p class="section-hint">書類状態を取得できませんでした。再読み込みしてください。</p>';
+    }
+  } finally {
+    if (mount?.textContent?.includes("読み込み中")) {
+      mount.innerHTML = '<p class="section-hint">書類がありません</p>';
+    }
   }
 }
 
@@ -1471,19 +1530,13 @@ function scheduleDocumentsStatusRefresh() {
 
 async function prefetchProjectPdfsBackground() {
   if (!currentProjectId || prefetchInFlight) return prefetchInFlight;
-  const docs = documentsStatus?.documents || [];
-  for (const doc of docs) {
-    if (doc.pdfUrl && doc.status !== "not_created") {
-      prefetchPdfForShare({
-        fetchUrl: buildPdfFetchUrl(doc.pdfUrl),
-        getHeaders: pdfAuthHeaders,
-        regenerateUrl: null,
-      });
-    }
-  }
+  // クライアント側の個別PDF先読みはしない（regenerate 連鎖・モバイル固まり防止）
+  // サーバー側 prefetch のみ（stale なPDFだけ再生成）
   prefetchInFlight = api(`/projects/${currentProjectId}/pdfs/prefetch`, {
     method: "POST",
     body: "{}",
+    label: "PDF先読み",
+    timeoutMs: 20_000,
   })
     .then(() => loadDocumentsStatus())
     .catch(() => {})
@@ -2419,9 +2472,16 @@ async function openDetail(projectId) {
     }
     await loadCompletionPhotos();
     await loadDocumentsStatus();
+    // 先読みは待たない（失敗しても詳細画面は操作可能）
     prefetchProjectPdfsBackground();
   } catch (e) {
     toastError(e, e.status);
+    const mount = $("doc-list-mount");
+    if (mount?.textContent?.includes("読み込み中")) {
+      mount.innerHTML =
+        '<p class="section-hint">読み込みに失敗しました。一覧に戻って再試行してください。</p>';
+    }
+    forceClearAllListLoading();
     showView("list");
   }
 }

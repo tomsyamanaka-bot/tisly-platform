@@ -148,15 +148,15 @@ function resolveStoredPdfLocal(storedPath: string | null | undefined): string | 
   return isValidPdfFile(local) ? local : null;
 }
 
-/** PDF取得は常に estimate-v1 API（無効PDFはサーバー側で再生成） */
+/** PDF取得は常に estimate-v1 API（無効・stale PDFはサーバー側で再生成） */
 function pdfPathForKind(projectId: string, kind: DocumentViewKindV1): string {
   const estimateBase = `/api/estimate/v1/projects/${projectId}`;
   switch (kind) {
     case "estimate":
-      // 日付変更後も古いキャッシュPDFを返さないよう再生成を強制
-      return `${estimateBase}/pdf?includePhotos=false&regenerate=1`;
+      // regenerate=1 を常時付けない（毎回再生成でモバイルが固まる）
+      return `${estimateBase}/pdf?includePhotos=false`;
     case "invoice":
-      return `${estimateBase}/invoice/pdf?includePhotos=false&regenerate=1`;
+      return `${estimateBase}/invoice/pdf?includePhotos=false`;
     case "specification":
     case "field-report":
       return `${estimateBase}/specification/pdf`;
