@@ -46,13 +46,13 @@ const BOTTOM_NAV_LINKS = [
 ];
 
 const JS_ASSETS = [
-  { path: "/js/estimate-v1.js?v=estimate-ui-v8", label: "estimate-v1 JS" },
+  { path: "/js/estimate-v1.js?v=estimate-ui-v12", label: "estimate-v1 JS" },
   { path: "/js/survey-v1.js?v=survey-ui-v5", label: "survey-v1 JS" },
   { path: "/js/survey-drawing-v1.js?v=survey-drawing-ui-v12", label: "survey-drawing-v1 JS" },
   { path: "/js/tisly-practical-nav.js", label: "bottom nav JS" },
 ];
 
-const ESTIMATE_UI_VERSION = "estimate-ui-v8";
+const ESTIMATE_UI_VERSION = "estimate-ui-v12";
 const SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v38";
 const PHASE9_JS_VERSION = "phase9-iphone-v1";
 const SW_CACHE_TOKEN = "v2407-phase28";
@@ -1150,8 +1150,10 @@ async function checkOldJsVersions() {
   try {
     const estRes = await fetch("/js/estimate-v1.js", { cache: "no-store" });
     const estJs = await estRes.text();
-    if (estJs.includes("estimate-ui-v7")) issues.push("estimate-ui-v7");
-    if (!estJs.includes("estimate-ui-v8")) issues.push("estimate-ui-v8 missing");
+    if (estJs.includes("estimate-ui-v7") || estJs.includes("estimate-ui-v8") || estJs.includes("estimate-ui-v11")) {
+      issues.push("古い estimate-ui バージョン");
+    }
+    if (!estJs.includes("estimate-ui-v12")) issues.push("estimate-ui-v12 missing");
   } catch (e) {
     issues.push(`estimate JS: ${e.message}`);
   }
@@ -1163,7 +1165,7 @@ async function checkOldJsVersions() {
   } catch (e) {
     issues.push(`field-checklist JS: ${e.message}`);
   }
-  if (!issues.length) return { status: "ok", detail: "古いJS未検出 · estimate-ui-v8" };
+  if (!issues.length) return { status: "ok", detail: "古いJS未検出 · estimate-ui-v12" };
   return { status: "fail", detail: issues.join(" · ") };
 }
 

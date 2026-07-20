@@ -225,6 +225,18 @@ describe("見積PWA v1 API", () => {
     assert.ok(!res.text.includes("写真付き"));
     assert.ok(res.text.includes("工事場所"));
     assert.ok(!res.text.includes("現場名"));
+    assert.match(res.text, /estimate-ui-v12/);
+  });
+
+  it("estimate-v1 JS: 自動保存無効・ローディング強制解除・UI先バインド", () => {
+    const js = fs.readFileSync(new URL("../public/js/estimate-v1.js", import.meta.url), "utf-8");
+    assert.match(js, /ESTIMATE_UI_VERSION = "estimate-ui-v12"/);
+    assert.match(js, /ENABLE_HEADER_DATE_AUTOSAVE = false/);
+    assert.match(js, /BOOTSTRAP_WATCHDOG_MS = 10_000/);
+    assert.match(js, /データの取得に失敗しました/);
+    assert.match(js, /UI ハンドラをすべてバインドする/);
+    assert.doesNotMatch(js, /persistHeaderDatesQuietly/);
+    assert.doesNotMatch(js, /addEventListener\("change", scheduleHeaderDateSave\)/);
   });
 
   it("見積を複製すると見積番号だけ再発番される", async () => {

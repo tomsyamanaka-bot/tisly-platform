@@ -8,7 +8,7 @@ const publicDir = path.join(process.cwd(), "public");
 describe("Operational Phase28 — PWA speed & drawing assets", () => {
   it("service worker has field-ops cache and drawing/voice-nav shells", () => {
     const sw = fs.readFileSync(path.join(publicDir, "service-worker.js"), "utf-8");
-    assert.ok(sw.includes("tisly-pwa-v2415-phase51"));
+    assert.ok(sw.includes("tisly-pwa-v2416-freeze-fix"));
     assert.ok(sw.includes("FIELD_OPS_CACHE"));
     assert.ok(sw.includes("cacheFirstStaleWhileRevalidate"));
     assert.ok(sw.includes("isFieldOpsFastAsset"));

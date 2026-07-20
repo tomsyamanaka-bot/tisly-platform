@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-07-20T11:10:52.040Z",
+  "generatedAt": "2026-07-20T21:45:00.000Z",
   "build": true,
   "tsc": false,
-  "test": false,
+  "test": true,
   "phase": "1461-1500-conoha-vps-auto-deploy",
   "buildNumber": "RC2-1500",
-  "commit": "de15b551f2763b0e8bf95d1b00cc20adc0a65e02"
+  "commit": "pending-freeze-fix"
 }

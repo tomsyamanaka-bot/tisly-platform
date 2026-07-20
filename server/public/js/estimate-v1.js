@@ -13,7 +13,6 @@ import { confirmChecklistBeforeReport, confirmCompletionPhotoSlotsBeforeReport }
 import { clearPrefetchPdfCache, prefetchPdfForShare, sharePdfAsFile, triggerDownload } from "./pdf-share-v1.js";
 import {
   createLoadWatchdog,
-  DEFAULT_FETCH_TIMEOUT_MS,
   fetchJson,
   withTimeout,
 } from "./tisly-fetch-v1.js";
@@ -54,21 +53,24 @@ const COMPLETION_TITLE_SAVE_OK = "タイトルを保存しました";
 const MAX_COMPLETION_PHOTOS = 30;
 const IMAGE_EXT_RE = /\.(jpe?g|png|gif|webp|heic|heif)$/i;
 const COMPLETION_PHOTO_FAIL_MSG = "写真の形式か容量で失敗しました。別の写真で試してください";
-export const ESTIMATE_UI_VERSION = "estimate-ui-v11";
-const INIT_LOAD_TIMEOUT_MS = DEFAULT_FETCH_TIMEOUT_MS;
-const HEADER_DATE_SAVE_DEBOUNCE_MS = 800;
-const HEADER_DATE_SAVE_TIMEOUT_MS = 12_000;
+export const ESTIMATE_UI_VERSION = "estimate-ui-v12";
+/** 一覧・初期化のタイムアウト（短めにして無限ローディングを防ぐ） */
+const INIT_LOAD_TIMEOUT_MS = 12_000;
+const BOOTSTRAP_WATCHDOG_MS = 10_000;
+/**
+ * 緊急修復: 入力変更時の即時自動保存は UI フリーズの原因になるため無効。
+ * 日付・ヘッダーは「ヘッダーを保存」ボタン（および確定/請求作成時の明示保存）のみ。
+ */
+const ENABLE_HEADER_DATE_AUTOSAVE = false;
 const LOCAL_DRAFTS_KEY = "tisly_estimate_local_drafts_v1";
 const PENDING_SAVE_PREFIX = "tisly_estimate_pending_v1:";
 const TOMS_COMPANY_NAME = "株式会社TOMS";
 const TOMS_DEFAULT_BANK_INFO = "常陽銀行 越谷支店\n普通 1370414\nトムズ";
+const FETCH_FAIL_HINT = "データの取得に失敗しました。再読み込みするか、手動で新規作成できます。";
 
 let authSession = null;
 let bootstrapWatchdog = null;
-let headerDateSaveTimer = null;
-let headerDateSaveInFlight = false;
-let headerDateSaveQueued = false;
-let suppressHeaderDateAutosave = false;
+let bootstrapInFlight = false;
 
 const $ = (id) => document.getElementById(id);
 
@@ -97,19 +99,28 @@ function clearListLoading(el, fallbackHtml) {
   }
 }
 
-function forceClearAllListLoading() {
+function forceClearAllListLoading(failed = false) {
+  const hint = failed
+    ? `<p class="section-hint">${FETCH_FAIL_HINT}</p>`
+    : '<p class="section-hint">データがありません</p>';
   clearListLoading(
     $("pending-list"),
-    '<div class="empty-icon">💰</div><p>見積待ちの案件はありません</p><p class="section-hint">（オフラインまたは API 未応答 — 再読み込みしてください）</p>'
+    `<div class="empty-icon">💰</div><p>見積待ちの案件はありません</p>${hint}`
   );
   clearListLoading(
     $("project-list"),
-    '<div class="empty-icon">📋</div><p>まだ見積がありません</p><p class="section-hint">（データ取得に失敗した場合は再読み込みしてください）</p>'
+    `<div class="empty-icon">📋</div><p>まだ見積がありません</p>${hint}`
   );
   clearListLoading(
     $("invoice-list"),
-    '<div class="empty-icon">🧾</div><p>請求書はまだありません</p><p class="section-hint">（データ取得に失敗した場合は再読み込みしてください）</p>'
+    `<div class="empty-icon">🧾</div><p>請求書はまだありません</p>${hint}`
   );
+  const mount = $("doc-list-mount");
+  if (mount?.textContent?.includes("読み込み中")) {
+    mount.innerHTML = failed
+      ? `<p class="section-hint">${FETCH_FAIL_HINT}</p>`
+      : '<p class="section-hint">書類がありません</p>';
+  }
 }
 
 function showStatusBanner(message, kind = "warn") {
@@ -127,14 +138,10 @@ function hideStatusBanner() {
 
 function scheduleBootstrapWatchdog() {
   if (bootstrapWatchdog) bootstrapWatchdog.clear();
-  bootstrapWatchdog = createLoadWatchdog(INIT_LOAD_TIMEOUT_MS, () => {
-    forceClearAllListLoading();
+  bootstrapWatchdog = createLoadWatchdog(BOOTSTRAP_WATCHDOG_MS, () => {
+    forceClearAllListLoading(true);
     setLoadStage("");
-    if (!authSession) {
-      showStatusBanner("読み込みが完了しませんでした。再読み込みするか、手動で新規作成してください。");
-    } else {
-      showStatusBanner("一部のデータ取得がタイムアウトしました。保存済みデータを表示しています。");
-    }
+    showStatusBanner(FETCH_FAIL_HINT);
   });
 }
 
@@ -173,7 +180,7 @@ async function reloadEstimateData() {
         ? "ログインが必要です。ログインするか、手動で新規作成できます。"
         : "セッションを確認できませんでした。再読み込みまたはログインしてください。";
     showStatusBanner(msg);
-    forceClearAllListLoading();
+    forceClearAllListLoading(true);
     return;
   }
   authSession = auth.session;
@@ -181,42 +188,53 @@ async function reloadEstimateData() {
 }
 
 async function bootstrapEstimateData() {
+  if (bootstrapInFlight) return;
+  bootstrapInFlight = true;
   const code = customerCodeFromPath();
+  setLoadStage("Loading…");
   const stages = [
-    ["Loading price-rules…", () => loadPriceRulePresets()],
-    ["Loading pending…", () => loadPending()],
-    ["Loading projects…", () => loadProjects()],
-    ["Loading invoices…", () => loadInvoices()],
-    ["Loading templates…", () => loadLineTemplates()],
+    ["price-rules", () => loadPriceRulePresets()],
+    ["pending", () => loadPending()],
+    ["projects", () => loadProjects()],
+    ["invoices", () => loadInvoices()],
+    ["templates", () => loadLineTemplates()],
   ];
-  const results = [];
-  for (const [label, fn] of stages) {
-    setLoadStage(label);
-    results.push(
-      await Promise.resolve()
-        .then(() => withTimeout(fn(), INIT_LOAD_TIMEOUT_MS, label))
-        .then(() => ({ status: "fulfilled" }))
-        .catch((reason) => ({ status: "rejected", reason }))
+  try {
+    // 並列取得 — 直列だとタイムアウト合算で UI が長時間「読み込み中」のままになる
+    const results = await Promise.all(
+      stages.map(([label, fn]) =>
+        Promise.resolve()
+          .then(() => withTimeout(fn(), INIT_LOAD_TIMEOUT_MS, label))
+          .then(() => ({ status: "fulfilled", label }))
+          .catch((reason) => ({ status: "rejected", label, reason }))
+      )
     );
+    const failed = results.filter((r) => r.status === "rejected");
+    if (failed.length) {
+      console.warn("[estimate-v1] partial bootstrap failure", failed);
+      const hasCache =
+        cacheGet("estimate", `pending:${code}`) ||
+        cacheGet("estimate", `projects:${code}`) ||
+        cacheGet("estimate", `invoices:${code}`);
+      showStatusBanner(
+        hasCache
+          ? "一部のデータを読み込めませんでした。前回保存分を表示しています。"
+          : FETCH_FAIL_HINT
+      );
+      forceClearAllListLoading(true);
+    } else {
+      hideStatusBanner();
+      forceClearAllListLoading(false);
+    }
+  } catch (e) {
+    console.error("[estimate-v1] bootstrap crashed", e);
+    showStatusBanner(FETCH_FAIL_HINT, "error");
+    forceClearAllListLoading(true);
+  } finally {
+    setLoadStage("");
+    bootstrapWatchdog?.clear();
+    bootstrapInFlight = false;
   }
-  const failed = results.filter((r) => r.status === "rejected");
-  if (failed.length) {
-    console.warn("[estimate-v1] partial bootstrap failure", failed);
-    const hasCache =
-      cacheGet("estimate", `pending:${code}`) ||
-      cacheGet("estimate", `projects:${code}`) ||
-      cacheGet("estimate", `invoices:${code}`);
-    showStatusBanner(
-      hasCache
-        ? "一部のデータを読み込めませんでした。前回保存分を表示しています。"
-        : "一部のデータを読み込めませんでした。再読み込みするか、手動で新規作成できます。"
-    );
-  } else {
-    hideStatusBanner();
-  }
-  setLoadStage("");
-  forceClearAllListLoading();
-  bootstrapWatchdog?.clear();
 }
 
 function toast(msg) {
@@ -1160,26 +1178,16 @@ function hidePdfPreview() {
 
 function fillHeaderForm(header) {
   if (!header) return;
-  // プログラムからの値セットで change が発火しても自動保存しない
-  suppressHeaderDateAutosave = true;
-  try {
-    $("hdr-addressee").value = header.addressee || "";
-    $("hdr-subject").value = header.subject || "";
-    $("hdr-issue-date").value = toDateInputValue(header.issueDate) || todayIsoDate();
-    $("hdr-estimate-no").value = header.estimateNo || "";
-    $("hdr-staff").value = header.staffName || "";
-    $("hdr-work-location").value = header.workLocation || header.siteName || "";
-    $("hdr-address").value = header.address || "";
-    $("hdr-phone").value = header.phone || "";
-    $("hdr-email").value = header.email || "";
-    if ($("hdr-notes")) $("hdr-notes").value = header.notes || "";
-  } finally {
-    // iOS 等で同期的に change が飛ぶケースを吸収
-    setTimeout(() => {
-      suppressHeaderDateAutosave = false;
-    }, 0);
-  }
-  bindHeaderDateAutoSave();
+  $("hdr-addressee").value = header.addressee || "";
+  $("hdr-subject").value = header.subject || "";
+  $("hdr-issue-date").value = toDateInputValue(header.issueDate) || todayIsoDate();
+  $("hdr-estimate-no").value = header.estimateNo || "";
+  $("hdr-staff").value = header.staffName || "";
+  $("hdr-work-location").value = header.workLocation || header.siteName || "";
+  $("hdr-address").value = header.address || "";
+  $("hdr-phone").value = header.phone || "";
+  $("hdr-email").value = header.email || "";
+  if ($("hdr-notes")) $("hdr-notes").value = header.notes || "";
 }
 
 function fillInvoiceHeaderForm(project, invoice) {
@@ -1188,26 +1196,18 @@ function fillInvoiceHeaderForm(project, invoice) {
     renderInvoiceBankPanel(null);
     return;
   }
-  suppressHeaderDateAutosave = true;
-  try {
-    if ($("hdr-invoice-date")) {
-      $("hdr-invoice-date").value =
-        toDateInputValue(invoice.createdAt) || todayIsoDate();
-    }
-    if ($("hdr-payment-due")) {
-      $("hdr-payment-due").value =
-        toDateInputValue(invoice.paymentDueDate || project?.paymentDueDate) || "";
-    }
-    if ($("hdr-invoice-no")) {
-      $("hdr-invoice-no").value = invoice.invoiceNo || "";
-    }
-  } finally {
-    setTimeout(() => {
-      suppressHeaderDateAutosave = false;
-    }, 0);
+  if ($("hdr-invoice-date")) {
+    $("hdr-invoice-date").value =
+      toDateInputValue(invoice.createdAt) || todayIsoDate();
+  }
+  if ($("hdr-payment-due")) {
+    $("hdr-payment-due").value =
+      toDateInputValue(invoice.paymentDueDate || project?.paymentDueDate) || "";
+  }
+  if ($("hdr-invoice-no")) {
+    $("hdr-invoice-no").value = invoice.invoiceNo || "";
   }
   renderInvoiceBankPanel(invoice);
-  bindHeaderDateAutoSave();
 }
 
 function readHeaderForm() {
@@ -1231,12 +1231,7 @@ function readInvoiceHeaderForm() {
   };
 }
 
-/**
- * @param {{ quiet?: boolean }} [opts]
- * quiet=true: 日付自動保存用。書類状態リフレッシュ等の重い後処理を避ける
- */
-async function saveHeader(opts = {}) {
-  const quiet = opts.quiet === true;
+async function saveHeader() {
   const body = {
     ...readHeaderForm(),
     ...(hasInvoice ? readInvoiceHeaderForm() : {}),
@@ -1248,55 +1243,21 @@ async function saveHeader(opts = {}) {
   const result = await api(`/projects/${currentProjectId}/header`, {
     method: "PATCH",
     body: JSON.stringify(body),
-    label: quiet ? "日付保存" : "ヘッダー保存",
-    timeoutMs: quiet ? HEADER_DATE_SAVE_TIMEOUT_MS : INIT_LOAD_TIMEOUT_MS,
+    label: "ヘッダー保存",
+    timeoutMs: INIT_LOAD_TIMEOUT_MS,
   });
   clearPrefetchPdfCache();
-  if (!quiet) {
-    scheduleDocumentsStatusRefresh();
-  }
+  scheduleDocumentsStatusRefresh();
   return result;
 }
 
-/** 発行日・請求日・支払期限の変更をデバウンスして静かに同期（UIをブロックしない） */
+/** 緊急修復: 日付変更時の自動保存は無効（手動保存のみ） */
 function scheduleHeaderDateSave() {
-  if (suppressHeaderDateAutosave || !currentProjectId) return;
-  clearTimeout(headerDateSaveTimer);
-  headerDateSaveTimer = setTimeout(() => {
-    void persistHeaderDatesQuietly();
-  }, HEADER_DATE_SAVE_DEBOUNCE_MS);
-}
-
-async function persistHeaderDatesQuietly() {
-  if (suppressHeaderDateAutosave || !currentProjectId) return;
-  if (headerDateSaveInFlight) {
-    headerDateSaveQueued = true;
-    return;
-  }
-  headerDateSaveInFlight = true;
-  try {
-    await saveHeader({ quiet: true });
-    hidePdfPreview();
-    showPdfQuickError("");
-  } catch (e) {
-    // 失敗しても画面は操作可能のまま。トーストのみ。
-    toastError(e, e.status);
-  } finally {
-    headerDateSaveInFlight = false;
-    if (headerDateSaveQueued) {
-      headerDateSaveQueued = false;
-      scheduleHeaderDateSave();
-    }
-  }
+  /* ENABLE_HEADER_DATE_AUTOSAVE === false */
 }
 
 function bindHeaderDateAutoSave() {
-  for (const id of ["hdr-issue-date", "hdr-invoice-date", "hdr-payment-due"]) {
-    const el = $(id);
-    if (!el || el.dataset.dateAutosaveBound === "1") continue;
-    el.dataset.dateAutosaveBound = "1";
-    el.addEventListener("change", scheduleHeaderDateSave);
-  }
+  if (!ENABLE_HEADER_DATE_AUTOSAVE) return;
 }
 
 function buildPdfUrl(kind) {
@@ -1621,7 +1582,6 @@ async function openDocumentViewer(kind) {
   }
   try {
     if (kind === "estimate" || kind === "invoice") {
-      clearTimeout(headerDateSaveTimer);
       await saveHeader().catch(() => ({}));
       await saveItems().catch(() => ({}));
       clearPrefetchPdfCache();
@@ -2405,10 +2365,13 @@ async function openDetail(projectId) {
   hidePdfPreview();
   showPdfQuickError("");
   completionPhotos = [];
+  const mount = $("doc-list-mount");
+  if (mount) mount.innerHTML = '<p class="section-hint">読み込み中…</p>';
   if (isLocalProjectId(projectId)) {
     const draft = getLocalDraft(projectId);
     if (!draft) {
       toast("ローカル草稿が見つかりません");
+      if (mount) mount.innerHTML = `<p class="section-hint">${FETCH_FAIL_HINT}</p>`;
       showView("list");
       return;
     }
@@ -2432,12 +2395,14 @@ async function openDetail(projectId) {
     if ($("shusei-discount")) $("shusei-discount").value = String(p.estimate?.shuseiDiscount ?? 0);
     if ($("shusei-discount-memo")) $("shusei-discount-memo").value = p.estimate?.shuseiDiscountMemo ?? "";
     updateTotalsFromEstimate(p.estimate);
-    $("doc-list-mount").innerHTML =
-      '<p class="section-hint">端末内保存のためPDFはサーバー保存後に作成できます</p>';
+    if (mount) {
+      mount.innerHTML =
+        '<p class="section-hint">端末内保存のためPDFはサーバー保存後に作成できます</p>';
+    }
     return;
   }
   try {
-    const p = await api(`/projects/${projectId}`);
+    const p = await api(`/projects/${projectId}`, { label: "案件詳細", timeoutMs: INIT_LOAD_TIMEOUT_MS });
     $("detail-name").textContent = projectListTitle(p);
     renderMasterDraftBadge(p.masterDraftId);
     await loadMasterPricingSummary(p.masterDraftId);
@@ -2470,19 +2435,21 @@ async function openDetail(projectId) {
         ? `/survey-v1?project=${encodeURIComponent(p.surveyProjectId)}`
         : "/survey-v1";
     }
-    await loadCompletionPhotos();
-    await loadDocumentsStatus();
-    // 先読みは待たない（失敗しても詳細画面は操作可能）
+    // 写真・書類は待たない（失敗しても明細操作は可能）
+    loadCompletionPhotos().catch((e) => console.warn("[estimate-v1] completion photos", e));
+    loadDocumentsStatus().catch((e) => console.warn("[estimate-v1] documents status", e));
     prefetchProjectPdfsBackground();
   } catch (e) {
     toastError(e, e.status);
-    const mount = $("doc-list-mount");
-    if (mount?.textContent?.includes("読み込み中")) {
-      mount.innerHTML =
-        '<p class="section-hint">読み込みに失敗しました。一覧に戻って再試行してください。</p>';
+    if (mount) {
+      mount.innerHTML = `<p class="section-hint">${FETCH_FAIL_HINT}</p>`;
     }
-    forceClearAllListLoading();
+    forceClearAllListLoading(true);
     showView("list");
+  } finally {
+    if (mount?.textContent?.includes("読み込み中")) {
+      mount.innerHTML = '<p class="section-hint">書類状態を取得中です…</p>';
+    }
   }
 }
 
@@ -2598,7 +2565,7 @@ async function init() {
     reloadEstimateData().catch((e) => {
       console.error(e);
       showStatusBanner("再読み込みに失敗しました。");
-      forceClearAllListLoading();
+      forceClearAllListLoading(true);
     });
   });
   $("btn-estimate-login")?.addEventListener("click", () => {
@@ -2607,18 +2574,8 @@ async function init() {
   $("btn-manual-create-estimate")?.addEventListener("click", () => resetStandaloneForm("estimate"));
   $("btn-manual-create-invoice")?.addEventListener("click", () => resetStandaloneForm("invoice"));
 
-  const auth = await resolveAuthSession();
-  if (!auth.ok) {
-    const msg =
-      auth.reason === "no_token"
-        ? "ログインが必要です。ログインするか、手動で新規作成できます。"
-        : "セッションを確認できませんでした。再読み込みまたはログインしてください。";
-    showStatusBanner(msg);
-    forceClearAllListLoading();
-  } else {
-    authSession = auth.session;
-    await bootstrapEstimateData();
-  }
+  // ★重要: 非同期データ取得の前に UI ハンドラをすべてバインドする
+  // （以前は await bootstrap の後だったため、読み込み中はタブ・ボタンが無反応だった）
 
   bindCustomerSuggest($("standalone-addressee"), $("standalone-customer-suggest"), (s) => {
     $("standalone-addressee").value = s.name;
@@ -2991,6 +2948,26 @@ async function init() {
     }
   });
 
+  // UI 操作可能にした後でデータ取得（失敗してもボタンは反応する）
+  try {
+    const auth = await resolveAuthSession();
+    if (!auth.ok) {
+      const msg =
+        auth.reason === "no_token"
+          ? "ログインが必要です。ログインするか、手動で新規作成できます。"
+          : "セッションを確認できませんでした。再読み込みまたはログインしてください。";
+      showStatusBanner(msg);
+      forceClearAllListLoading(true);
+    } else {
+      authSession = auth.session;
+      await bootstrapEstimateData();
+    }
+  } catch (e) {
+    console.error("[estimate-v1] auth/bootstrap failed", e);
+    showStatusBanner(FETCH_FAIL_HINT, "error");
+    forceClearAllListLoading(true);
+  }
+
   const deepLinkProject = readUrlProjectId();
   const masterDraftId = new URLSearchParams(window.location.search).get("masterDraftId");
   if (masterDraftId) {
@@ -3000,14 +2977,18 @@ async function init() {
       toastError(e, e.status);
     }
   } else if (deepLinkProject) {
-    await openDetail(deepLinkProject);
+    await openDetail(deepLinkProject).catch((e) => {
+      console.error(e);
+      toastError(e, e.status);
+      forceClearAllListLoading(true);
+    });
   }
 }
 
 init().catch((e) => {
   console.error(e);
-  forceClearAllListLoading();
-  showStatusBanner("画面の初期化に失敗しました。再読み込みするか、手動で新規作成してください。", "error");
+  forceClearAllListLoading(true);
+  showStatusBanner(FETCH_FAIL_HINT, "error");
   const pending = $("pending-list");
   if (pending?.textContent?.includes("読み込み中")) {
     pending.innerHTML = `<div class="error-friendly">${renderFriendlyErrorHtml(e, e.status)}</div>`;
