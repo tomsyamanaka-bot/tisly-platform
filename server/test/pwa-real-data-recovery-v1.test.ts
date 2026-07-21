@@ -35,7 +35,7 @@ describe("PWA real data recovery v1", () => {
 
   it("estimate-v1 uses bootstrap watchdog and load stage debug", () => {
     const js = fs.readFileSync(path.join(publicDir, "js/estimate-v1.js"), "utf-8");
-    assert.match(js, /ESTIMATE_UI_VERSION = "estimate-ui-v13"/);
+    assert.match(js, /ESTIMATE_UI_VERSION = "estimate-ui-v14"/);
     assert.match(js, /setLoadStage/);
     assert.match(js, /BOOTSTRAP_WATCHDOG_MS/);
     assert.match(js, /ENABLE_HEADER_DATE_AUTOSAVE = false/);
@@ -49,7 +49,7 @@ describe("PWA real data recovery v1", () => {
   it("estimate-v1 HTML exposes load debug element", async () => {
     const res = await request(app).get("/estimate-v1");
     assert.equal(res.status, 200);
-    assert.match(res.text, /estimate-ui-v13/);
+    assert.match(res.text, /estimate-ui-v14/);
     assert.match(res.text, /estimate-load-debug/);
     assert.match(res.text, /HTML watchdog/);
   });
@@ -80,7 +80,7 @@ describe("PWA real data recovery v1", () => {
     assert.match(js, /checkFieldChecklistJs/);
     assert.match(js, /Schedule API/);
     assert.match(js, /Invoice API/);
-    assert.match(js, /estimate-ui-v13/);
+    assert.match(js, /estimate-ui-v14/);
     assert.match(js, /checkOldJsVersions/);
     assert.match(html, /verify-steps-list/);
     assert.match(html, /btn-iphone-refresh/);
@@ -100,7 +100,7 @@ describe("PWA real data recovery v1", () => {
 
   it("service worker cache bumped for recovery deploy", () => {
     const sw = fs.readFileSync(path.join(publicDir, "service-worker.js"), "utf-8");
-    assert.match(sw, /v2417-module-fix/);
+    assert.match(sw, /v2418-pdf-share-bust/);
   });
 });
 

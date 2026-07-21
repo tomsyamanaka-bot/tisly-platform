@@ -10,7 +10,7 @@ import { getDefaultNavFallbackV1, navigateBackOne } from "./tisly-navigation-sta
 import { resolveProjectDisplayName } from "./project-display-name.js";
 import { friendlyHttpError, renderFriendlyErrorHtml } from "./tisly-friendly-errors.js";
 import { confirmChecklistBeforeReport, confirmCompletionPhotoSlotsBeforeReport } from "./field-checklist-ui.js?v=fc-ui-v3";
-import { clearPrefetchPdfCache, prefetchPdfForShare, sharePdfAsFile, triggerDownload } from "./pdf-share-v1.js";
+import { clearPrefetchPdfCache, prefetchPdfForShare, sharePdfAsFile, triggerDownload } from "./pdf-share-v1.js?v=pdf-share-v2";
 import {
   createLoadWatchdog,
   fetchJson,
@@ -53,7 +53,7 @@ const COMPLETION_TITLE_SAVE_OK = "タイトルを保存しました";
 const MAX_COMPLETION_PHOTOS = 30;
 const IMAGE_EXT_RE = /\.(jpe?g|png|gif|webp|heic|heif)$/i;
 const COMPLETION_PHOTO_FAIL_MSG = "写真の形式か容量で失敗しました。別の写真で試してください";
-export const ESTIMATE_UI_VERSION = "estimate-ui-v13";
+export const ESTIMATE_UI_VERSION = "estimate-ui-v14";
 /** 一覧・初期化のタイムアウト（短めにして無限ローディングを防ぐ） */
 const INIT_LOAD_TIMEOUT_MS = 12_000;
 const BOOTSTRAP_WATCHDOG_MS = 10_000;
