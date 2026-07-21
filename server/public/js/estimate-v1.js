@@ -53,7 +53,7 @@ const COMPLETION_TITLE_SAVE_OK = "タイトルを保存しました";
 const MAX_COMPLETION_PHOTOS = 30;
 const IMAGE_EXT_RE = /\.(jpe?g|png|gif|webp|heic|heif)$/i;
 const COMPLETION_PHOTO_FAIL_MSG = "写真の形式か容量で失敗しました。別の写真で試してください";
-export const ESTIMATE_UI_VERSION = "estimate-ui-v12";
+export const ESTIMATE_UI_VERSION = "estimate-ui-v13";
 /** 一覧・初期化のタイムアウト（短めにして無限ローディングを防ぐ） */
 const INIT_LOAD_TIMEOUT_MS = 12_000;
 const BOOTSTRAP_WATCHDOG_MS = 10_000;
@@ -199,6 +199,7 @@ async function bootstrapEstimateData() {
     ["invoices", () => loadInvoices()],
     ["templates", () => loadLineTemplates()],
   ];
+  let failedCount = 0;
   try {
     // 並列取得 — 直列だとタイムアウト合算で UI が長時間「読み込み中」のままになる
     const results = await Promise.all(
@@ -206,10 +207,14 @@ async function bootstrapEstimateData() {
         Promise.resolve()
           .then(() => withTimeout(fn(), INIT_LOAD_TIMEOUT_MS, label))
           .then(() => ({ status: "fulfilled", label }))
-          .catch((reason) => ({ status: "rejected", label, reason }))
+          .catch((reason) => {
+            console.error(`[estimate-v1] bootstrap stage failed: ${label}`, reason);
+            return { status: "rejected", label, reason };
+          })
       )
     );
     const failed = results.filter((r) => r.status === "rejected");
+    failedCount = failed.length;
     if (failed.length) {
       console.warn("[estimate-v1] partial bootstrap failure", failed);
       const hasCache =
@@ -221,19 +226,28 @@ async function bootstrapEstimateData() {
           ? "一部のデータを読み込めませんでした。前回保存分を表示しています。"
           : FETCH_FAIL_HINT
       );
-      forceClearAllListLoading(true);
     } else {
       hideStatusBanner();
-      forceClearAllListLoading(false);
     }
   } catch (e) {
+    failedCount = stages.length;
     console.error("[estimate-v1] bootstrap crashed", e);
     showStatusBanner(FETCH_FAIL_HINT, "error");
-    forceClearAllListLoading(true);
   } finally {
+    // 成功・失敗・例外いずれでもローダーを必ず解除（空リスト or エラー表示）
+    try {
+      forceClearAllListLoading(failedCount > 0);
+    } catch (clearErr) {
+      console.error("[estimate-v1] forceClearAllListLoading failed", clearErr);
+    }
     setLoadStage("");
     bootstrapWatchdog?.clear();
     bootstrapInFlight = false;
+    try {
+      window.__estimateBootOk = true;
+    } catch {
+      /* ignore */
+    }
   }
 }
 
@@ -2543,6 +2557,11 @@ function setListTab(tab) {
 }
 
 async function init() {
+  try {
+    window.__estimateBootOk = true;
+  } catch {
+    /* ignore */
+  }
   scheduleBootstrapWatchdog();
 
   const initialTab = readInitialListTab();
@@ -2958,6 +2977,7 @@ async function init() {
           : "セッションを確認できませんでした。再読み込みまたはログインしてください。";
       showStatusBanner(msg);
       forceClearAllListLoading(true);
+      bootstrapWatchdog?.clear();
     } else {
       authSession = auth.session;
       await bootstrapEstimateData();
@@ -2966,6 +2986,19 @@ async function init() {
     console.error("[estimate-v1] auth/bootstrap failed", e);
     showStatusBanner(FETCH_FAIL_HINT, "error");
     forceClearAllListLoading(true);
+    bootstrapWatchdog?.clear();
+  } finally {
+    // まだ「読み込み中」が残っていれば必ず解除（API 失敗時も操作可能な状態を維持）
+    try {
+      const stillLoading =
+        $("pending-list")?.textContent?.includes("読み込み中") ||
+        $("project-list")?.textContent?.includes("読み込み中") ||
+        $("invoice-list")?.textContent?.includes("読み込み中");
+      if (stillLoading) forceClearAllListLoading(true);
+    } catch (clearErr) {
+      console.error("[estimate-v1] init finally clear failed", clearErr);
+    }
+    setLoadStage("");
   }
 
   const deepLinkProject = readUrlProjectId();

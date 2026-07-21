@@ -339,7 +339,7 @@ export async function sharePdfAsFile({ fetchUrl, fileName, title, getHeaders, re
 export {
   fetchPdfBlob,
   fetchPdfBlobWithRegenerate,
-  clearPrefetchPdfCache,
+  // prefetch cache clearer は上で export function 済み — 二重 export 禁止（estimate-v1 が SyntaxError で起動不能になる）
   triggerDownload,
   PDF_FAIL_MSG,
   isValidPdfBlob,

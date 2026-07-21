@@ -77,16 +77,16 @@ describe("PWA Route Repair Phase8 — route-health & cache", () => {
     assert.match(js, /v2400/);
   });
 
-  it("estimate-ui-v12 is referenced in estimate HTML", async () => {
+  it("estimate-ui-v13 is referenced in estimate HTML", async () => {
     const res = await request(app).get("/estimate-v1");
     assert.equal(res.status, 200);
-    assert.match(res.text, /estimate-ui-v12/);
+    assert.match(res.text, /estimate-ui-v13/);
     assert.doesNotMatch(res.text, /estimate-ui-v7/);
   });
 
-  it("service worker cache version bumped to v2416 freeze-fix", () => {
+  it("service worker cache version bumped to v2417 module-fix", () => {
     const sw = fs.readFileSync(path.join(publicDir, "service-worker.js"), "utf-8");
-    assert.match(sw, /v2416-freeze-fix/);
+    assert.match(sw, /v2417-module-fix/);
     assert.match(sw, /field-checklist-v1\.html/);
     assert.match(sw, /purchase-v1\.html/);
     assert.match(sw, /schedule-v1\.html/);

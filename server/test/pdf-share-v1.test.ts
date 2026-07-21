@@ -38,6 +38,11 @@ describe("Web Share API 用 PDF File 生成", () => {
     assert.ok(!js.includes("copyPdfShareUrl"));
     assert.ok(js.includes("PDF_MIN_CLIENT_BYTES"));
     assert.ok(js.includes("10000"));
+    // 二重 export は estimate-v1 を SyntaxError で起動不能にする（本番フリーズの原因）
+    const exportFn = (js.match(/export\s+function\s+clearPrefetchPdfCache/g) || []).length;
+    const exportList = (js.match(/^\s*clearPrefetchPdfCache\s*,/gm) || []).length;
+    assert.equal(exportFn, 1, "clearPrefetchPdfCache must be export function once");
+    assert.equal(exportList, 0, "clearPrefetchPdfCache must not appear again in export { } list");
     assert.ok(js.includes("PDF API 404"));
     assert.ok(js.includes("PDFサイズ不足"));
     assert.ok(js.includes("Content-Type不正"));
