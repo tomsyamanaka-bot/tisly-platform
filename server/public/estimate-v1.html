@@ -359,6 +359,22 @@
       outline: 2px solid #1d4ed8;
       background: #eff6ff;
     }
+    .list-card.has-card-delete {
+      padding-right: 2.85rem;
+    }
+    .list-card .list-card-actions {
+      position: absolute;
+      top: 0.55rem;
+      right: 0.55rem;
+    }
+    .list-card .list-card-action[data-action="delete"] {
+      min-width: 40px;
+      min-height: 40px;
+      font-size: 1.05rem;
+      border-color: #fecaca;
+      background: #fef2f2;
+      color: #b91c1c;
+    }
     .estimate-bulk-bar {
       position: fixed;
       left: 0;
@@ -689,11 +705,11 @@
 
   <div id="delete-dialog-overlay" class="delete-dialog-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="delete-dialog-title">
     <div class="delete-dialog">
-      <h4 id="delete-dialog-title">一括削除の確認</h4>
+      <h4 id="delete-dialog-title">削除の確認</h4>
       <div id="delete-dialog-body" class="stats"></div>
       <div class="dialog-actions">
         <button type="button" class="btn-cancel" id="delete-dialog-cancel">キャンセル</button>
-        <button type="button" class="btn-confirm-delete" id="delete-dialog-confirm">削除する</button>
+        <button type="button" class="btn-confirm-delete" id="delete-dialog-confirm">OK</button>
       </div>
     </div>
   </div>

@@ -24,6 +24,10 @@ let currentSurveyProjectId = null;
 let pdfBlobUrl = null;
 let selectionMode = false;
 const selectedIds = new Set();
+/** @type {Map<string, object>} */
+const listProjectById = new Map();
+/** @type {string[]} */
+let pendingDeleteIds = [];
 let bulkDeleteInProgress = false;
 
 const API = "/api/estimate/v1";
@@ -570,9 +574,32 @@ function projectListTitle(p) {
   });
 }
 
+function projectSubject(p) {
+  return (p?.subject || p?.header?.subject || p?.title || "").trim();
+}
+
+/** 削除確認用：『〇〇様 - 件名』 */
+function deleteConfirmLabel(p) {
+  if (!p) return "（不明）様 - （件名なし）";
+  const name = (projectListTitle(p) || "（名前なし）").trim();
+  const subject = projectSubject(p) || "（件名なし）";
+  const withSama = /様$/.test(name) ? name : `${name}様`;
+  return `${withSama} - ${subject}`;
+}
+
+function rememberListProjects(projects) {
+  for (const p of projects || []) {
+    if (p?.businessProjectId) listProjectById.set(p.businessProjectId, p);
+  }
+}
+
+function listCardDeleteBtnHtml() {
+  return `<div class="list-card-actions"><button type="button" class="list-card-action" data-action="delete" title="削除" aria-label="削除">🗑</button></div>`;
+}
+
 /** 一覧カード用：件名・現場・金額（番号は出さない） */
 function listCardDetailHtml(p, amount) {
-  const subject = (p.subject || p.header?.subject || p.title || "").trim();
+  const subject = projectSubject(p);
   const workLocation = (p.workLocation || p.header?.workLocation || p.address || "").trim();
   const lines = [
     `<h2>${escapeHtml(projectListTitle(p))}</h2>`,
@@ -612,7 +639,7 @@ function showView(name) {
 
 function handlePracticalBack() {
   if (!$("delete-dialog-overlay")?.classList.contains("hidden")) {
-    hideBulkDeleteDialog();
+    hideDeleteConfirmDialog();
     return;
   }
   if (selectionMode) {
@@ -670,11 +697,12 @@ function renderInvoiceList(projects) {
     return;
   }
   el.className = "";
+  rememberListProjects(projects);
   el.innerHTML = projects
     .map(
       (p) => `
-    <div class="friendly-card list-card${selectionMode ? " select-mode-card" : ""}${selectedIds.has(p.businessProjectId) ? " is-selected" : ""}" data-id="${escapeHtml(p.businessProjectId)}" data-local="${p.localOnly ? "1" : "0"}">
-      ${selectionMode ? listSelectCheckboxHtml(p.businessProjectId) : ""}
+    <div class="friendly-card list-card${selectionMode ? " select-mode-card" : " has-card-delete"}${selectedIds.has(p.businessProjectId) ? " is-selected" : ""}" data-id="${escapeHtml(p.businessProjectId)}" data-local="${p.localOnly ? "1" : "0"}">
+      ${selectionMode ? listSelectCheckboxHtml(p.businessProjectId) : listCardDeleteBtnHtml()}
       <div class="list-card-main">
         ${invoiceListStatusBadge(p)}
         ${listCardDetailHtml(p, p.invoiceTotal != null ? p.invoiceTotal : p.total)}
@@ -734,6 +762,7 @@ function listSelectCheckboxHtml(id) {
 function bindSelectableListCards(container) {
   container.querySelectorAll(".list-card").forEach((node) => {
     node.addEventListener("click", (ev) => {
+      if (ev.target.closest(".list-card-action")) return;
       const id = node.dataset.id;
       if (!id) return;
       if (selectionMode) {
@@ -742,6 +771,13 @@ function bindSelectableListCards(container) {
         return;
       }
       openDetail(id);
+    });
+    node.querySelector('[data-action="delete"]')?.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const id = node.dataset.id;
+      if (!id || bulkDeleteInProgress) return;
+      showDeleteConfirmDialog([id]);
     });
   });
 }
@@ -808,27 +844,48 @@ function syncBulkBar() {
   if (delBtn) delBtn.disabled = count === 0 || bulkDeleteInProgress;
 }
 
-function hideBulkDeleteDialog() {
+function hideDeleteConfirmDialog() {
   $("delete-dialog-overlay")?.classList.add("hidden");
+  pendingDeleteIds = [];
 }
 
-function showBulkDeleteDialog() {
-  const count = selectedIds.size;
-  if (!count) return;
+function showDeleteConfirmDialog(ids) {
+  const list = [...ids].filter(Boolean);
+  if (!list.length) return;
+  pendingDeleteIds = list;
+  const title = $("delete-dialog-title");
   const body = $("delete-dialog-body");
-  if (body) {
-    body.innerHTML = `
-      <p><strong>${count}件</strong>の見積・請求書を削除します。</p>
-      <p>削除後は一覧から非表示になります（復元は案件一覧の削除済みから可能です）。</p>
-      <p style="margin-top:0.55rem;">本当に削除しますか？</p>`;
+  if (list.length === 1) {
+    const label = deleteConfirmLabel(listProjectById.get(list[0]));
+    if (title) title.textContent = "削除の確認";
+    if (body) {
+      body.innerHTML = `
+      <p>『${escapeHtml(label)}』を削除してもよろしいですか？</p>
+      <p style="margin-top:0.55rem;color:#64748b;font-size:0.88rem;">削除後は一覧から非表示になります（復元は案件一覧の削除済みから可能です）。</p>`;
+    }
+  } else {
+    const labels = list.map((id) => deleteConfirmLabel(listProjectById.get(id)));
+    if (title) title.textContent = "一括削除の確認";
+    if (body) {
+      const preview = labels
+        .slice(0, 5)
+        .map((l) => `<li>${escapeHtml(l)}</li>`)
+        .join("");
+      const more = labels.length > 5 ? `<li>ほか ${labels.length - 5} 件</li>` : "";
+      body.innerHTML = `
+      <p><strong>${list.length}件</strong>の見積・請求書を削除します。</p>
+      <ul style="margin:0.4rem 0 0.6rem;padding-left:1.2rem;line-height:1.45;">${preview}${more}</ul>
+      <p>削除してもよろしいですか？</p>
+      <p style="margin-top:0.45rem;color:#64748b;font-size:0.88rem;">復元は案件一覧の削除済みから可能です。</p>`;
+    }
   }
   $("delete-dialog-overlay")?.classList.remove("hidden");
 }
 
 async function deleteSelectedProjects() {
-  const ids = [...selectedIds];
+  const ids = pendingDeleteIds.length ? [...pendingDeleteIds] : [...selectedIds];
   if (!ids.length || bulkDeleteInProgress) return;
-  hideBulkDeleteDialog();
+  hideDeleteConfirmDialog();
   bulkDeleteInProgress = true;
   syncBulkBar();
   let ok = 0;
@@ -837,27 +894,32 @@ async function deleteSelectedProjects() {
     try {
       if (isLocalProjectId(id)) {
         removeLocalDraft(id);
+        listProjectById.delete(id);
         ok += 1;
         continue;
       }
       await projectsApi(`/projects/${encodeURIComponent(id)}?source=business`, {
         method: "DELETE",
-        label: "一括削除",
+        label: "削除",
       });
+      listProjectById.delete(id);
+      selectedIds.delete(id);
       ok += 1;
     } catch (e) {
-      console.error("[estimate-v1] bulk delete failed", id, e);
+      console.error("[estimate-v1] delete failed", id, e);
       fail += 1;
     }
   }
   bulkDeleteInProgress = false;
-  selectedIds.clear();
-  setSelectionMode(false, { reload: false });
+  if (selectionMode) {
+    selectedIds.clear();
+    setSelectionMode(false, { reload: false });
+  }
   const code = customerCodeFromPath();
   cacheSet("estimate", `projects:${code}`, null);
   cacheSet("estimate", `invoices:${code}`, null);
   await Promise.all([loadProjects(), loadInvoices()]);
-  if (fail === 0) toast(`${ok}件を削除しました`);
+  if (fail === 0) toast(ok === 1 ? "削除しました" : `${ok}件を削除しました`);
   else toast(`${ok}件削除 · ${fail}件失敗`);
 }
 
@@ -869,11 +931,12 @@ function renderProjectList(projects) {
     return;
   }
   el.className = "";
+  rememberListProjects(projects);
   el.innerHTML = projects
     .map(
       (p) => `
-    <div class="friendly-card list-card${selectionMode ? " select-mode-card" : ""}${selectedIds.has(p.businessProjectId) ? " is-selected" : ""}" data-id="${escapeHtml(p.businessProjectId)}" data-local="${p.localOnly ? "1" : "0"}">
-      ${selectionMode ? listSelectCheckboxHtml(p.businessProjectId) : ""}
+    <div class="friendly-card list-card${selectionMode ? " select-mode-card" : " has-card-delete"}${selectedIds.has(p.businessProjectId) ? " is-selected" : ""}" data-id="${escapeHtml(p.businessProjectId)}" data-local="${p.localOnly ? "1" : "0"}">
+      ${selectionMode ? listSelectCheckboxHtml(p.businessProjectId) : listCardDeleteBtnHtml()}
       <div class="list-card-main">
         ${estimateListStatusBadge(p)}
         ${listCardDetailHtml(p, p.total)}
@@ -2651,9 +2714,9 @@ async function init() {
   $("btn-bulk-cancel")?.addEventListener("click", () => setSelectionMode(false));
   $("btn-bulk-delete")?.addEventListener("click", () => {
     if (!selectedIds.size) return;
-    showBulkDeleteDialog();
+    showDeleteConfirmDialog([...selectedIds]);
   });
-  $("delete-dialog-cancel")?.addEventListener("click", hideBulkDeleteDialog);
+  $("delete-dialog-cancel")?.addEventListener("click", hideDeleteConfirmDialog);
   $("delete-dialog-confirm")?.addEventListener("click", () => {
     deleteSelectedProjects().catch((e) => {
       bulkDeleteInProgress = false;
@@ -2662,7 +2725,7 @@ async function init() {
     });
   });
   $("delete-dialog-overlay")?.addEventListener("click", (ev) => {
-    if (ev.target === $("delete-dialog-overlay")) hideBulkDeleteDialog();
+    if (ev.target === $("delete-dialog-overlay")) hideDeleteConfirmDialog();
   });
   updateSelectToolbarVisibility();
 

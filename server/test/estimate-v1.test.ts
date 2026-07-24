@@ -940,6 +940,22 @@ describe("見積PWA v1 API", () => {
     assert.equal(afterInvoices.status, 200);
     assert.ok(!afterInvoices.body.projects.some((p: { businessProjectId: string }) => p.businessProjectId === bizId));
   });
+
+  it("estimate list UI has card delete and confirm dialog", async () => {
+    const html = await request(app).get("/estimate-v1.html");
+    assert.equal(html.status, 200);
+    assert.match(html.text, /btn-select-mode/);
+    assert.match(html.text, /delete-dialog-overlay/);
+    assert.match(html.text, /id="delete-dialog-confirm"/);
+    assert.match(html.text, />OK</);
+
+    const js = await request(app).get("/js/estimate-v1.js");
+    assert.equal(js.status, 200);
+    assert.match(js.text, /listCardDeleteBtnHtml/);
+    assert.match(js.text, /showDeleteConfirmDialog/);
+    assert.match(js.text, /を削除してもよろしいですか？/);
+    assert.match(js.text, /data-action="delete"/);
+  });
 });
 
 const TINY_PNG =
