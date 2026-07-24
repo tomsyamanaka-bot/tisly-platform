@@ -28,6 +28,10 @@ export interface EstimateProjectV1Summary {
   projectNo: string;
   customerName: string;
   title: string;
+  /** 件名（一覧カード表示用） */
+  subject: string;
+  /** 工事場所 / 現場（一覧カード表示用） */
+  workLocation: string;
   surveyProjectId: string | null;
   estimateId: string | null;
   estimateNo: string | null;

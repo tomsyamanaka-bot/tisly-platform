@@ -53,7 +53,7 @@ const COMPLETION_TITLE_SAVE_OK = "タイトルを保存しました";
 const MAX_COMPLETION_PHOTOS = 30;
 const IMAGE_EXT_RE = /\.(jpe?g|png|gif|webp|heic|heif)$/i;
 const COMPLETION_PHOTO_FAIL_MSG = "写真の形式か容量で失敗しました。別の写真で試してください";
-export const ESTIMATE_UI_VERSION = "estimate-ui-v14";
+export const ESTIMATE_UI_VERSION = "estimate-ui-v15";
 /** 一覧・初期化のタイムアウト（短めにして無限ローディングを防ぐ） */
 const INIT_LOAD_TIMEOUT_MS = 12_000;
 const BOOTSTRAP_WATCHDOG_MS = 10_000;
@@ -386,14 +386,21 @@ function createLocalDraftFromStandalone(mode, body) {
 }
 
 function localDraftAsProject(draft) {
+  const subject = draft.header?.subject || "";
+  const workLocation = draft.header?.workLocation || "";
   return {
     businessProjectId: draft.businessProjectId,
     customerName: draft.customerName || draft.header?.addressee,
     projectNo: draft.projectNo || draft.businessProjectId,
+    title: subject || draft.customerName || "",
+    subject,
+    workLocation,
     header: draft.header,
     estimate: draft.estimate,
     estimateNotes: draft.estimateNotes,
     invoice: draft.invoice,
+    total: draft.estimate?.total ?? null,
+    invoiceTotal: draft.estimate?.total ?? null,
     localOnly: true,
   };
 }
@@ -563,6 +570,30 @@ function projectListTitle(p) {
   });
 }
 
+/** 一覧カード用：件名・現場・金額（番号は出さない） */
+function listCardDetailHtml(p, amount) {
+  const subject = (p.subject || p.header?.subject || p.title || "").trim();
+  const workLocation = (p.workLocation || p.header?.workLocation || p.address || "").trim();
+  const lines = [
+    `<h2>${escapeHtml(projectListTitle(p))}</h2>`,
+    subject ? `<p class="list-card-meta">件名：${escapeHtml(subject)}</p>` : "",
+    workLocation ? `<p class="list-card-meta">現場：${escapeHtml(workLocation)}</p>` : "",
+    `<p class="list-card-amount">金額：${amount != null ? yen(amount) : "—"}</p>`,
+  ];
+  return lines.filter(Boolean).join("\n        ");
+}
+
+function estimateListStatusBadge(p) {
+  if (p.localOnly) return '<span class="status-badge orange">端末内</span>';
+  if (p.pdfPath) return '<span class="status-badge done">見積書の準備ができました</span>';
+  return '<span class="status-badge orange">下書き</span>';
+}
+
+function invoiceListStatusBadge(p) {
+  if (p.localOnly) return '<span class="status-badge orange">端末内</span>';
+  return '<span class="status-badge done">請求書の準備ができました</span>';
+}
+
 function showView(name) {
   currentView = name;
   $("view-list").classList.toggle("hidden", name !== "list");
@@ -645,9 +676,8 @@ function renderInvoiceList(projects) {
     <div class="friendly-card list-card${selectionMode ? " select-mode-card" : ""}${selectedIds.has(p.businessProjectId) ? " is-selected" : ""}" data-id="${escapeHtml(p.businessProjectId)}" data-local="${p.localOnly ? "1" : "0"}">
       ${selectionMode ? listSelectCheckboxHtml(p.businessProjectId) : ""}
       <div class="list-card-main">
-        <span class="status-badge done">${escapeHtml(p.localOnly ? "端末内" : p.invoiceNo || "請求書")}</span>
-        <h2>${escapeHtml(projectListTitle(p))}</h2>
-        <p>${escapeHtml(p.projectNo)} · ${p.invoiceTotal != null ? yen(p.invoiceTotal) : p.total != null ? yen(p.total) : "—"}</p>
+        ${invoiceListStatusBadge(p)}
+        ${listCardDetailHtml(p, p.invoiceTotal != null ? p.invoiceTotal : p.total)}
       </div>
     </div>`
     )
@@ -845,9 +875,8 @@ function renderProjectList(projects) {
     <div class="friendly-card list-card${selectionMode ? " select-mode-card" : ""}${selectedIds.has(p.businessProjectId) ? " is-selected" : ""}" data-id="${escapeHtml(p.businessProjectId)}" data-local="${p.localOnly ? "1" : "0"}">
       ${selectionMode ? listSelectCheckboxHtml(p.businessProjectId) : ""}
       <div class="list-card-main">
-        <span class="status-badge ${p.localOnly ? "orange" : p.pdfPath ? "done" : "orange"}">${p.localOnly ? "端末内" : p.pdfPath ? "見積書の準備ができました" : p.estimateNo || "下書き"}</span>
-        <h2>${escapeHtml(projectListTitle(p))}</h2>
-        <p>${escapeHtml(p.projectNo)} · ${p.total != null ? yen(p.total) : "—"}</p>
+        ${estimateListStatusBadge(p)}
+        ${listCardDetailHtml(p, p.total)}
       </div>
     </div>`
     )

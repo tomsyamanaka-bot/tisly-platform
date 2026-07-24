@@ -225,16 +225,20 @@ describe("見積PWA v1 API", () => {
     assert.ok(!res.text.includes("写真付き"));
     assert.ok(res.text.includes("工事場所"));
     assert.ok(!res.text.includes("現場名"));
-    assert.match(res.text, /estimate-ui-v14/);
+    assert.match(res.text, /estimate-ui-v15/);
   });
 
   it("estimate-v1 JS: 自動保存無効・ローディング強制解除・UI先バインド", () => {
     const js = fs.readFileSync(new URL("../public/js/estimate-v1.js", import.meta.url), "utf-8");
-    assert.match(js, /ESTIMATE_UI_VERSION = "estimate-ui-v14"/);
+    assert.match(js, /ESTIMATE_UI_VERSION = "estimate-ui-v15"/);
     assert.match(js, /ENABLE_HEADER_DATE_AUTOSAVE = false/);
     assert.match(js, /BOOTSTRAP_WATCHDOG_MS = 10_000/);
     assert.match(js, /データの取得に失敗しました/);
     assert.match(js, /UI ハンドラをすべてバインドする/);
+    assert.match(js, /listCardDetailHtml/);
+    assert.match(js, /件名：/);
+    assert.match(js, /現場：/);
+    assert.match(js, /金額：/);
     assert.doesNotMatch(js, /persistHeaderDatesQuietly/);
     assert.doesNotMatch(js, /addEventListener\("change", scheduleHeaderDateSave\)/);
   });
@@ -746,6 +750,18 @@ describe("見積PWA v1 API", () => {
     assert.ok(res.body.businessProjectId);
     assert.ok(res.body.estimate?.items?.length >= 1);
     assert.equal(res.body.header?.addressee, "単独見積テスト株式会社");
+
+    const list = await request(app)
+      .get("/api/estimate/v1/projects?customerCode=TOMS001")
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(list.status, 200);
+    const card = list.body.projects.find(
+      (p: { businessProjectId: string }) => p.businessProjectId === res.body.businessProjectId
+    );
+    assert.ok(card);
+    assert.equal(card.subject, "LAN配線工事");
+    assert.equal(card.workLocation, "大阪府大阪市");
+    assert.ok(card.customerName.includes("単独見積テスト"));
   });
 
   it("単独請求書をヘッダーのみで作成できる", async () => {

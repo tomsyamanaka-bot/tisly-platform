@@ -340,6 +340,21 @@
       pointer-events: none;
     }
     .list-card .list-card-main { flex: 1; min-width: 0; }
+    .list-card .list-card-main > .status-badge { margin-bottom: 0.35rem; }
+    .list-card .list-card-main h2 { margin: 0 0 0.25rem; }
+    .list-card .list-card-meta {
+      margin: 0.1rem 0;
+      color: #64748b;
+      font-size: 0.88rem;
+      line-height: 1.35;
+      word-break: break-word;
+    }
+    .list-card .list-card-amount {
+      margin: 0.4rem 0 0;
+      color: #0f172a;
+      font-size: 1rem;
+      font-weight: 700;
+    }
     .list-card.is-selected {
       outline: 2px solid #1d4ed8;
       background: #eff6ff;
@@ -735,6 +750,6 @@
       }, 5000);
     })();
   </script>
-  <script type="module" src="/js/estimate-v1.js?v=estimate-ui-v14"></script>
+  <script type="module" src="/js/estimate-v1.js?v=estimate-ui-v15"></script>
 </body>
 </html>

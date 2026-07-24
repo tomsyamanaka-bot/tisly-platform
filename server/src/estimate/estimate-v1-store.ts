@@ -26,6 +26,7 @@ import {
   formatTomsDateDisplay,
   formatTomsIssueDate,
   mergeEstimateHeader,
+  parseEstimateHeaderJson,
   type TomsEstimateHeader,
 } from "../business/toms-document-format.js";
 import { resolveProjectDisplayName } from "../business/pdf/pdf-text-sanitize.js";
@@ -297,10 +298,10 @@ export function listEstimateProjectsV1(opts?: { customerCode?: string }): Estima
   }
   const rows = getDatabase()
     .prepare(
-      `SELECT bp.id, bp.project_no, bp.customer_name, bp.title, bp.survey_project_id, bp.estimate_id,
+      `SELECT bp.id, bp.project_no, bp.customer_name, bp.title, bp.address, bp.survey_project_id, bp.estimate_id,
               bp.invoice_id, bp.standalone_doc_kind, bp.updated_at,
-              sp.workflow_status, sp.site_name AS survey_site_name,
-              be.estimate_no, be.subtotal, be.total, be.pdf_path,
+              sp.workflow_status, sp.site_name AS survey_site_name, sp.address AS survey_address,
+              be.estimate_no, be.subtotal, be.total, be.pdf_path, be.header_json,
               bi.invoice_no, bi.total AS invoice_total
        FROM business_projects bp
        LEFT JOIN survey_projects sp ON sp.project_id = bp.survey_project_id
@@ -313,31 +314,46 @@ export function listEstimateProjectsV1(opts?: { customerCode?: string }): Estima
     )
     .all(...params) as Record<string, unknown>[];
 
-  return rows.map((r) => ({
-    businessProjectId: String(r.id),
-    projectNo: String(r.project_no),
-    customerName: resolveProjectDisplayName({
-      customerName: String(r.customer_name),
-      siteName: r.survey_site_name != null ? String(r.survey_site_name) : null,
-      title: String(r.title),
-    }),
-    title: String(r.title),
-    surveyProjectId: r.survey_project_id != null ? String(r.survey_project_id) : null,
-    estimateId: r.estimate_id != null ? String(r.estimate_id) : null,
-    estimateNo: r.estimate_no != null ? String(r.estimate_no) : null,
-    invoiceId: r.invoice_id != null ? String(r.invoice_id) : null,
-    invoiceNo: r.invoice_no != null ? String(r.invoice_no) : null,
-    standaloneDocKind:
-      r.standalone_doc_kind === "estimate" || r.standalone_doc_kind === "invoice"
-        ? (r.standalone_doc_kind as "estimate" | "invoice")
-        : null,
-    subtotal: r.subtotal != null ? Number(r.subtotal) : null,
-    total: r.total != null ? Number(r.total) : null,
-    invoiceTotal: r.invoice_total != null ? Number(r.invoice_total) : null,
-    pdfPath: r.pdf_path != null ? String(r.pdf_path) : null,
-    surveyWorkflowStatus: r.workflow_status != null ? (String(r.workflow_status) as SurveyWorkflowStatus) : null,
-    updatedAt: String(r.updated_at),
-  }));
+  return rows.map((r) => {
+    const title = String(r.title);
+    const header = parseEstimateHeaderJson(r.header_json != null ? String(r.header_json) : null);
+    const projectAddress = r.address != null ? String(r.address) : "";
+    const surveyAddress = r.survey_address != null ? String(r.survey_address) : "";
+    const subject = (header?.subject || title || "").trim();
+    const workLocation = (
+      header?.workLocation ||
+      surveyAddress ||
+      projectAddress ||
+      ""
+    ).trim();
+    return {
+      businessProjectId: String(r.id),
+      projectNo: String(r.project_no),
+      customerName: resolveProjectDisplayName({
+        customerName: String(r.customer_name),
+        siteName: r.survey_site_name != null ? String(r.survey_site_name) : null,
+        title,
+      }),
+      title,
+      subject,
+      workLocation,
+      surveyProjectId: r.survey_project_id != null ? String(r.survey_project_id) : null,
+      estimateId: r.estimate_id != null ? String(r.estimate_id) : null,
+      estimateNo: r.estimate_no != null ? String(r.estimate_no) : null,
+      invoiceId: r.invoice_id != null ? String(r.invoice_id) : null,
+      invoiceNo: r.invoice_no != null ? String(r.invoice_no) : null,
+      standaloneDocKind:
+        r.standalone_doc_kind === "estimate" || r.standalone_doc_kind === "invoice"
+          ? (r.standalone_doc_kind as "estimate" | "invoice")
+          : null,
+      subtotal: r.subtotal != null ? Number(r.subtotal) : null,
+      total: r.total != null ? Number(r.total) : null,
+      invoiceTotal: r.invoice_total != null ? Number(r.invoice_total) : null,
+      pdfPath: r.pdf_path != null ? String(r.pdf_path) : null,
+      surveyWorkflowStatus: r.workflow_status != null ? (String(r.workflow_status) as SurveyWorkflowStatus) : null,
+      updatedAt: String(r.updated_at),
+    };
+  });
 }
 
 export function listInvoiceProjectsV1(opts?: { customerCode?: string }): EstimateProjectV1Summary[] {
