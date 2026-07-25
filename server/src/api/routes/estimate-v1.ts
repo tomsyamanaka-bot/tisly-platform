@@ -67,6 +67,7 @@ import {
 import { recordPdfShareLogV1, listPdfShareLogsForProjectV1 } from "../../projects/pdf-share-log-store.js";
 import { getMasterV1EstimateDraft } from "../../master/master-v1-draft-estimate-store.js";
 import { summarizeMasterPreviewPricing } from "../../master/master-v1-estimate-apply-service.js";
+import { parseEstimateLinesFromImageV1 } from "../../estimate/line-image-parse-v1.js";
 
 export const estimateV1Router = Router();
 
@@ -156,6 +157,32 @@ estimateV1Router.get("/line-templates/:id/items", ...estimateV1Auth, (req: Authe
   } catch (e) {
     const msg = e instanceof Error ? e.message : "template failed";
     res.status(msg === "template not found" ? 404 : 400).json({ error: msg });
+  }
+});
+
+/**
+ * LINEメモ・写真から見積明細を抽出（mock Vision / rule_based）。
+ * 既存明細はクライアント側で末尾 append する。
+ */
+estimateV1Router.post("/parse-line-image", ...estimateV1Auth, (req: AuthedRequest, res) => {
+  if (!assertEstimateV1Role(req, res)) return;
+  try {
+    const body = (req.body || {}) as {
+      ocrText?: string;
+      fileName?: string;
+      imageBase64?: string;
+      forceDemo?: boolean;
+    };
+    const result = parseEstimateLinesFromImageV1({
+      ocrText: body.ocrText,
+      fileName: body.fileName,
+      imageBase64: body.imageBase64,
+      forceDemo: body.forceDemo === true,
+    });
+    res.json(result);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "parse failed";
+    res.status(400).json({ error: msg });
   }
 });
 

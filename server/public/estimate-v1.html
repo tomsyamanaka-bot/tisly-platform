@@ -270,6 +270,35 @@
     .pdf-quick-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.35rem; }
     .pdf-quick-actions .btn-main, .pdf-quick-actions .btn-sub { flex: 1 1 7rem; min-height: 44px; }
     #pdf-quick-error.visible { display: block; margin-top: 0.5rem; }
+    /* LINEメモ画像 → 自動見積（高コントラスト CTA） */
+    .line-image-parse-panel {
+      margin: 0.35rem 0 0.85rem;
+    }
+    .line-image-parse-btn {
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 55%, #0ea5e9 100%) !important;
+      color: #fff !important;
+      box-shadow: 0 6px 20px rgba(14, 165, 233, 0.45) !important;
+      border: 3px solid #fbbf24 !important;
+      letter-spacing: 0.03em;
+      margin: 0.25rem 0 0.5rem !important;
+    }
+    .line-image-parse-btn:disabled {
+      opacity: 0.65;
+      cursor: wait;
+    }
+    .line-image-parse-actions {
+      display: grid;
+      gap: 0.4rem;
+      margin-bottom: 0.35rem;
+    }
+    .line-image-parse-actions[hidden] { display: none !important; }
+    .line-image-parse-status {
+      min-height: 1.2em;
+      margin: 0.15rem 0 0;
+      font-size: 0.85rem;
+      color: #0369a1;
+      font-weight: 600;
+    }
     .invoice-bank-display {
       margin: 0;
       padding: 0.65rem 0.75rem;
@@ -559,6 +588,21 @@
 
       <p class="section-label">🧾 お見積りの内訳</p>
       <p class="section-hint">項目を追加・並べ替え・削除できます</p>
+
+      <!-- LINEメモ画像 → AI見積明細（既存明細は末尾追記のみ） -->
+      <div class="line-image-parse-panel" id="line-image-parse-panel">
+        <input type="file" id="line-image-input-camera" accept="image/jpeg,image/png,image/heic,image/heif,image/webp,image/*" capture="environment" style="display:none" />
+        <input type="file" id="line-image-input-library" accept="image/*" style="display:none" />
+        <button type="button" class="btn-hero line-image-parse-btn" id="btn-line-image-parse">
+          📸 LINEメモ/写真から自動見積
+        </button>
+        <div class="line-image-parse-actions" id="line-image-parse-actions" hidden>
+          <button type="button" class="btn-sub blue" id="btn-line-image-camera">📷 カメラで撮る</button>
+          <button type="button" class="btn-sub blue" id="btn-line-image-library">🖼 ギャラリーから選ぶ</button>
+        </div>
+        <p id="line-image-parse-status" class="section-hint line-image-parse-status" aria-live="polite"></p>
+      </div>
+
       <div class="friendly-card" id="lines-card">
         <div class="line-template-row">
           <label class="friendly-label" style="margin:0;flex:1;">テンプレート
@@ -766,6 +810,6 @@
       }, 5000);
     })();
   </script>
-  <script type="module" src="/js/estimate-v1.js?v=estimate-ui-v15"></script>
+  <script type="module" src="/js/estimate-v1.js?v=estimate-ui-v16"></script>
 </body>
 </html>

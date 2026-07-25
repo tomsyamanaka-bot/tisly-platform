@@ -57,7 +57,7 @@ const COMPLETION_TITLE_SAVE_OK = "タイトルを保存しました";
 const MAX_COMPLETION_PHOTOS = 30;
 const IMAGE_EXT_RE = /\.(jpe?g|png|gif|webp|heic|heif)$/i;
 const COMPLETION_PHOTO_FAIL_MSG = "写真の形式か容量で失敗しました。別の写真で試してください";
-export const ESTIMATE_UI_VERSION = "estimate-ui-v15";
+export const ESTIMATE_UI_VERSION = "estimate-ui-v16";
 /** 一覧・初期化のタイムアウト（短めにして無限ローディングを防ぐ） */
 const INIT_LOAD_TIMEOUT_MS = 12_000;
 const BOOTSTRAP_WATCHDOG_MS = 10_000;
@@ -295,6 +295,122 @@ function newEmptyLine() {
     amount: 0,
     orderTarget: false,
   };
+}
+
+/**
+ * LINE画像解析結果を既存明細の末尾へ追記。
+ * 空の仮行だけなら置き換え、それ以外は append。
+ */
+function appendParsedEstimateItems(items) {
+  const incoming = (items || []).map((it) => ({
+    ...newEmptyLine(),
+    ...it,
+    id: it.id || `line-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    quantity: Number(it.quantity) || 1,
+    unitPrice: Number(it.unitPrice) || 0,
+    amount: Math.round((Number(it.quantity) || 1) * (Number(it.unitPrice) || 0)),
+    name: String(it.name || "").trim(),
+    unit: String(it.unit || "式"),
+    memo: it.memo || "[LINE画像解析]",
+    fromAiCandidate: true,
+  })).filter((it) => it.name);
+
+  if (!incoming.length) return 0;
+
+  const onlyEmptyPlaceholder =
+    currentLines.length === 1 &&
+    !String(currentLines[0]?.name || "").trim() &&
+    Number(currentLines[0]?.unitPrice || 0) === 0;
+
+  if (onlyEmptyPlaceholder) {
+    currentLines = incoming;
+  } else {
+    currentLines = [...currentLines, ...incoming];
+  }
+  renderLines(currentLines);
+  return incoming.length;
+}
+
+function setLineImageParseStatus(msg) {
+  const el = $("line-image-parse-status");
+  if (el) el.textContent = msg || "";
+}
+
+function toggleLineImageParseActions(show) {
+  const el = $("line-image-parse-actions");
+  if (!el) return;
+  if (show) el.removeAttribute("hidden");
+  else el.setAttribute("hidden", "");
+}
+
+/**
+ * 画像ファイルを API へ送り、明細を末尾追記する。
+ * Vision 未接続時はサーバー側 mock OCR を利用。
+ */
+async function parseLineImageAndAppend(file) {
+  if (!file) return;
+  const btn = $("btn-line-image-parse");
+  if (btn) btn.disabled = true;
+  setLineImageParseStatus("画像を解析中…");
+  toggleLineImageParseActions(false);
+  try {
+    let imageBase64 = "";
+    try {
+      imageBase64 = await fileToUploadBase64(file);
+    } catch {
+      imageBase64 = "";
+    }
+    const data = await api("/parse-line-image", {
+      method: "POST",
+      body: JSON.stringify({
+        imageBase64: imageBase64 || undefined,
+        fileName: file.name || "line-memo.jpg",
+      }),
+      label: "LINE画像見積解析",
+      timeoutMs: 20_000,
+    });
+    const count = appendParsedEstimateItems(data.estimateItems || data.items || []);
+    if (!count) {
+      setLineImageParseStatus("明細を抽出できませんでした");
+      toast("明細を抽出できませんでした");
+      return;
+    }
+    const warn = (data.warnings && data.warnings[0]) || "";
+    setLineImageParseStatus(`${count}件を明細に追加しました${warn ? `（${warn}）` : ""}`);
+    toast(`${count}件を明細に追加しました`);
+  } catch (e) {
+    setLineImageParseStatus("解析に失敗しました");
+    toastError(e, e.status);
+  } finally {
+    if (btn) btn.disabled = false;
+    const cam = $("line-image-input-camera");
+    const lib = $("line-image-input-library");
+    if (cam) cam.value = "";
+    if (lib) lib.value = "";
+  }
+}
+
+function bindLineImageParseUi() {
+  $("btn-line-image-parse")?.addEventListener("click", () => {
+    const actions = $("line-image-parse-actions");
+    const open = actions && !actions.hasAttribute("hidden");
+    toggleLineImageParseActions(!open);
+    if (!open) setLineImageParseStatus("カメラまたはギャラリーを選んでください");
+  });
+  $("btn-line-image-camera")?.addEventListener("click", () => {
+    $("line-image-input-camera")?.click();
+  });
+  $("btn-line-image-library")?.addEventListener("click", () => {
+    $("line-image-input-library")?.click();
+  });
+  $("line-image-input-camera")?.addEventListener("change", (ev) => {
+    const file = ev.target?.files?.[0];
+    if (file) parseLineImageAndAppend(file).catch(() => {});
+  });
+  $("line-image-input-library")?.addEventListener("change", (ev) => {
+    const file = ev.target?.files?.[0];
+    if (file) parseLineImageAndAppend(file).catch(() => {});
+  });
 }
 
 function isLocalProjectId(id) {
@@ -2754,6 +2870,8 @@ async function init() {
       toastError(e, e.status);
     }
   });
+
+  bindLineImageParseUi();
 
   $("btn-confirm-estimate")?.addEventListener("click", async () => {
     if (!pendingSurveyForEstimate) return;

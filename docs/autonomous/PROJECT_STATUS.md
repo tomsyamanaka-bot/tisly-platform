@@ -869,6 +869,20 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | テスト | `operational-phase24-v1.test.ts` · `operational-phase25-v1.test.ts` |
 | 確認 | `/customer/document/:shareId?docType=estimate` · `/customer-admin-v1` · `/route-health` |
 
+### AI画像見積解析 v1（完成済み — mock Vision）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | LINEトーク履歴スクショから品名・数量を読み取り、見積明細へ **末尾追記** |
+| UI | `/estimate-v1` 詳細 — 「📸 LINEメモ/写真から自動見積」高コントラストボタン |
+| 入力 | カメラ起動 / ギャラリー選択（既存明細は上書きしない） |
+| Parser | `line-image-parse-v1.ts` — rule_based + mock_vision（デモ OCR 文） |
+| 抽出例 | ポールライト用ベース加工 1台 · 防犯カメラ 3台 · VVF 41m · 取付ボックス 3個 |
+| 計算 | 追記後 `recalcLocal` で小計・税・税込合計を即時更新 |
+| API | `POST /api/estimate/v1/parse-line-image` |
+| テスト | `server/test/line-image-parse-v1.test.ts` |
+| 写真分離 | 変更なし（現調/完了報告書写真とは無関係） |
+
 ### 実運用 Phase22 — お客様UI iPhone Safari 最終確認（完成済み）
 
 | 領域 | 内容 |

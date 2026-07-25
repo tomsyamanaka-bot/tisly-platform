@@ -1,5 +1,16 @@
 # Phase 完了ログ
 
+## AI画像見積解析 v1（2026-07-25）
+
+### 完了
+
+- [x] 見積詳細に「LINEメモ/写真から自動見積」CTA
+- [x] カメラ / ギャラリー選択 UI
+- [x] `line-image-parse-v1` rule_based + mock Vision
+- [x] 明細は既存リスト末尾へ append のみ
+- [x] `POST /api/estimate/v1/parse-line-image`
+- [x] `line-image-parse-v1.test.ts` · estimate-ui-v16
+
 ## 実運用 Phase17 — PDF・図面・URL安定化（2026-06-24）
 
 ### 完了
