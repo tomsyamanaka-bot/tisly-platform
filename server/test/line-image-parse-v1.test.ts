@@ -130,19 +130,21 @@ describe("line-image-parse-v1 API + UI", () => {
     assert.equal(res.body.estimateItems[0].quantity, 2);
   });
 
-  it("見積UIに LINE画像見積ボタンと JS 追記がある", async () => {
+  it("見積UIに 写真で見積もり作成ボタンと JS 追記がある", async () => {
     const html = await request(app).get("/estimate-v1.html");
     assert.equal(html.status, 200);
     assert.match(html.text, /btn-line-image-parse/);
-    assert.match(html.text, /LINEメモ\/写真から自動見積/);
+    assert.match(html.text, /📷 写真で見積もり作成/);
     assert.match(html.text, /line-image-input-camera/);
     assert.match(html.text, /line-image-input-library/);
+    assert.match(html.text, /line-image-parse-btn/);
+    assert.match(html.text, /min-height:\s*68px/);
 
     const js = await request(app).get("/js/estimate-v1.js");
     assert.equal(js.status, 200);
     assert.match(js.text, /appendParsedEstimateItems/);
     assert.match(js.text, /parseLineImageAndAppend/);
     assert.match(js.text, /parse-line-image/);
-    assert.match(js.text, /estimate-ui-v16/);
+    assert.match(js.text, /estimate-ui-v17/);
   });
 });

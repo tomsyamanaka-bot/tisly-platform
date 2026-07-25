@@ -57,7 +57,7 @@ const COMPLETION_TITLE_SAVE_OK = "タイトルを保存しました";
 const MAX_COMPLETION_PHOTOS = 30;
 const IMAGE_EXT_RE = /\.(jpe?g|png|gif|webp|heic|heif)$/i;
 const COMPLETION_PHOTO_FAIL_MSG = "写真の形式か容量で失敗しました。別の写真で試してください";
-export const ESTIMATE_UI_VERSION = "estimate-ui-v16";
+export const ESTIMATE_UI_VERSION = "estimate-ui-v17";
 /** 一覧・初期化のタイムアウト（短めにして無限ローディングを防ぐ） */
 const INIT_LOAD_TIMEOUT_MS = 12_000;
 const BOOTSTRAP_WATCHDOG_MS = 10_000;
@@ -298,7 +298,7 @@ function newEmptyLine() {
 }
 
 /**
- * LINE画像解析結果を既存明細の末尾へ追記。
+ * 写真解析結果を既存明細の末尾へ追記。
  * 空の仮行だけなら置き換え、それ以外は append。
  */
 function appendParsedEstimateItems(items) {
@@ -311,7 +311,8 @@ function appendParsedEstimateItems(items) {
     amount: Math.round((Number(it.quantity) || 1) * (Number(it.unitPrice) || 0)),
     name: String(it.name || "").trim(),
     unit: String(it.unit || "式"),
-    memo: it.memo || "[LINE画像解析]",
+    // 既存メモ表記は互換維持
+    memo: it.memo || "[写真見積解析]",
     fromAiCandidate: true,
   })).filter((it) => it.name);
 
@@ -344,14 +345,14 @@ function toggleLineImageParseActions(show) {
 }
 
 /**
- * 画像ファイルを API へ送り、明細を末尾追記する。
+ * 画像を API へ送り、明細を末尾追記する。
  * Vision 未接続時はサーバー側 mock OCR を利用。
  */
 async function parseLineImageAndAppend(file) {
   if (!file) return;
   const btn = $("btn-line-image-parse");
   if (btn) btn.disabled = true;
-  setLineImageParseStatus("画像を解析中…");
+  setLineImageParseStatus("写真から見積もりを作成中…");
   toggleLineImageParseActions(false);
   try {
     let imageBase64 = "";
@@ -364,9 +365,9 @@ async function parseLineImageAndAppend(file) {
       method: "POST",
       body: JSON.stringify({
         imageBase64: imageBase64 || undefined,
-        fileName: file.name || "line-memo.jpg",
+        fileName: file.name || "estimate-photo.jpg",
       }),
-      label: "LINE画像見積解析",
+      label: "写真で見積もり作成",
       timeoutMs: 20_000,
     });
     const count = appendParsedEstimateItems(data.estimateItems || data.items || []);
@@ -391,11 +392,16 @@ async function parseLineImageAndAppend(file) {
 }
 
 function bindLineImageParseUi() {
+  // メインCTA → カメラ / ギャラリー選択を表示
   $("btn-line-image-parse")?.addEventListener("click", () => {
     const actions = $("line-image-parse-actions");
     const open = actions && !actions.hasAttribute("hidden");
     toggleLineImageParseActions(!open);
-    if (!open) setLineImageParseStatus("カメラまたはギャラリーを選んでください");
+    if (!open) {
+      setLineImageParseStatus(
+        "カメラまたはギャラリーを選んでください"
+      );
+    }
   });
   $("btn-line-image-camera")?.addEventListener("click", () => {
     $("line-image-input-camera")?.click();

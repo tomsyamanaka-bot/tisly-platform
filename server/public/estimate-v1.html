@@ -270,17 +270,33 @@
     .pdf-quick-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.35rem; }
     .pdf-quick-actions .btn-main, .pdf-quick-actions .btn-sub { flex: 1 1 7rem; min-height: 44px; }
     #pdf-quick-error.visible { display: block; margin-top: 0.5rem; }
-    /* LINEメモ画像 → 自動見積（高コントラスト CTA） */
+    /* 写真で見積もり作成（暗所・屋外向け高コントラスト CTA） */
     .line-image-parse-panel {
       margin: 0.35rem 0 0.85rem;
     }
     .line-image-parse-btn {
-      background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 55%, #0ea5e9 100%) !important;
+      /* 現場でも一目で押せる大ボタン */
+      background: linear-gradient(160deg, #020617 0%, #0c4a6e 42%, #0369a1 100%) !important;
       color: #fff !important;
-      box-shadow: 0 6px 20px rgba(14, 165, 233, 0.45) !important;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+      box-shadow:
+        0 8px 24px rgba(3, 105, 161, 0.55),
+        inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
       border: 3px solid #fbbf24 !important;
-      letter-spacing: 0.03em;
+      letter-spacing: 0.04em;
       margin: 0.25rem 0 0.5rem !important;
+      min-height: 68px !important;
+      font-size: 1.22rem !important;
+      font-weight: 800 !important;
+      padding: 1.15rem 1rem !important;
+      border-radius: 18px !important;
+      line-height: 1.25;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+    .line-image-parse-btn:active {
+      transform: scale(0.97);
+      filter: brightness(1.08);
     }
     .line-image-parse-btn:disabled {
       opacity: 0.65;
@@ -288,16 +304,25 @@
     }
     .line-image-parse-actions {
       display: grid;
-      gap: 0.4rem;
+      gap: 0.5rem;
       margin-bottom: 0.35rem;
+    }
+    .line-image-parse-actions .btn-sub {
+      /* サブ選択も屋外で押しやすい */
+      min-height: 52px;
+      font-size: 1.05rem;
+      font-weight: 700;
+      border: 2px solid #0ea5e9;
+      background: #f0f9ff;
+      color: #0c4a6e;
     }
     .line-image-parse-actions[hidden] { display: none !important; }
     .line-image-parse-status {
       min-height: 1.2em;
       margin: 0.15rem 0 0;
-      font-size: 0.85rem;
-      color: #0369a1;
-      font-weight: 600;
+      font-size: 0.9rem;
+      color: #0c4a6e;
+      font-weight: 700;
     }
     .invoice-bank-display {
       margin: 0;
@@ -589,12 +614,12 @@
       <p class="section-label">🧾 お見積りの内訳</p>
       <p class="section-hint">項目を追加・並べ替え・削除できます</p>
 
-      <!-- LINEメモ画像 → AI見積明細（既存明細は末尾追記のみ） -->
+      <!-- 写真で見積もり作成（既存明細は末尾追記のみ） -->
       <div class="line-image-parse-panel" id="line-image-parse-panel">
         <input type="file" id="line-image-input-camera" accept="image/jpeg,image/png,image/heic,image/heif,image/webp,image/*" capture="environment" style="display:none" />
         <input type="file" id="line-image-input-library" accept="image/*" style="display:none" />
-        <button type="button" class="btn-hero line-image-parse-btn" id="btn-line-image-parse">
-          📸 LINEメモ/写真から自動見積
+        <button type="button" class="btn-hero line-image-parse-btn" id="btn-line-image-parse" aria-label="写真で見積もり作成">
+          📷 写真で見積もり作成
         </button>
         <div class="line-image-parse-actions" id="line-image-parse-actions" hidden>
           <button type="button" class="btn-sub blue" id="btn-line-image-camera">📷 カメラで撮る</button>
@@ -810,6 +835,6 @@
       }, 5000);
     })();
   </script>
-  <script type="module" src="/js/estimate-v1.js?v=estimate-ui-v16"></script>
+  <script type="module" src="/js/estimate-v1.js?v=estimate-ui-v17"></script>
 </body>
 </html>
