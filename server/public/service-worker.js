@@ -2,10 +2,11 @@
  * 図面エディタ / 音声ナビ含む
  * フィールドオペ用アセットを優先キャッシュ */
 /* AI解析1500px送信ルール強制適用 */
-const SW_VERSION = "tisly-pwa-v2418-pdf-share-bust";
-const OFFLINE_CACHE = "tisly-pwa-shell-v2418-pdf-share-bust";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2418-pdf-share-bust";
-const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2418-pdf-share-bust";
+/* オフライン完全対応 + 音声入力 v1 */
+const SW_VERSION = "tisly-pwa-v2419-offline-voice";
+const OFFLINE_CACHE = "tisly-pwa-shell-v2419-offline-voice";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2419-offline-voice";
+const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2419-offline-voice";
 const ICON_V = "?v=2004";
 
 /** 図面エディタ v1 — ES module 群 */
@@ -35,6 +36,11 @@ const VOICE_NAV_URLS = [
 /** 現場ナビ・オフライン連携 */
 const FIELD_OPS_SUPPORT_URLS = [
   "/js/offline-resilience-v1.js",
+  "/js/tisly-offline-core-v1.js",
+  "/js/tisly-online-indicator-v1.js",
+  "/js/tisly-voice-input-v1.js",
+  "/css/tisly-online-indicator-v1.css",
+  "/css/tisly-voice-input-v1.css",
   "/js/tisly-navigation-stack-v1.js",
   "/js/tisly-navigation-stack-shared-v1.js",
   "/js/tisly-return-nav-v1.js",
@@ -42,6 +48,10 @@ const FIELD_OPS_SUPPORT_URLS = [
   "/js/pdf-share-v1.js",
   "/master-v1.html",
   "/js/master-v1.js",
+  "/knowledge-quick-v1.html",
+  "/js/knowledge-quick-v1.js",
+  "/knowledge-register-v1.html",
+  "/js/knowledge-register-v1.js",
 ];
 
 const SHELL_URLS = [
@@ -284,14 +294,21 @@ function isFieldOpsFastAsset(pathname) {
     "/js/features/drawing/",
     "/js/features/voice-nav/",
     "/js/offline-resilience",
+    "/js/tisly-offline-core",
+    "/js/tisly-online-indicator",
+    "/js/tisly-voice-input",
     "/js/tisly-navigation",
     "/js/tisly-return-nav",
     "/js/master-v1",
+    "/js/knowledge-",
+    "/knowledge-",
     "/css/survey-",
     "/css/features/drawing/",
     "/css/features/voice-nav/",
     "/css/field-ops",
     "/css/document-viewer",
+    "/css/tisly-online-indicator",
+    "/css/tisly-voice-input",
   ];
   return prefixes.some((p) => pathname === p || pathname.startsWith(p));
 }
@@ -403,7 +420,10 @@ self.addEventListener("fetch", (event) => {
 });
 
 self.addEventListener("sync", (event) => {
-  if (event.tag === "tisly-installer-sync") {
+  if (
+    event.tag === "tisly-installer-sync" ||
+    event.tag === "tisly-offline-core-sync"
+  ) {
     event.waitUntil(notifyClientsFlush());
   }
 });

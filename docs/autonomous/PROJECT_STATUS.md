@@ -901,6 +901,21 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | JS | `customer-v1-phase22` |
 | 確認 | `/customer` · `/customer/TOMS001` · `/route-health` · https://tisly.jp/api/health |
 
+### オフライン完全対応 + 音声入力 v1（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | **電波障害でも見積・ナレッジ・現調が止まらない** · ハンズフリー音声メモ |
+| SW | `tisly-pwa-v2419-offline-voice` — シェル/現場アセット Cache + Background Sync |
+| IndexedDB | `tisly_offline_core_v1` — `sync_queue` · `snapshots`（既存データは削除しない） |
+| 接続表示 | 実務ナビ上部 — `📡 オンライン` / `⚠️ オフライン作業中`（未同期件数） |
+| 同期 | オフライン保存 → オンライン復帰でバックグラウンド flush · SW `tisly-offline-core-sync` |
+| 音声入力 | Web Speech API · `/js/tisly-voice-input-v1.js` — 見積明細/備考 · ナレッジ · 現調メモ |
+| 見積 UX | 「🎙️ 音声で明細追加」— VVF/台数などを末尾追記（既存明細は上書きしない） |
+| コード | `tisly-offline-core-v1.js` · `tisly-online-indicator-v1.js` · `tisly-voice-input-v1.js` · `tisly-practical-nav.js` |
+| テスト | `server/test/offline-voice-v1.test.ts` |
+| 確認 | `/estimate-v1` · `/knowledge-quick-v1` · `/survey-v1` · https://tisly.jp/api/health |
+
 ---
 
 - [CURSOR_SELF_DRIVE_RULES.md](./CURSOR_SELF_DRIVE_RULES.md) — 自走時の行動規範

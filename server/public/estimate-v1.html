@@ -543,6 +543,7 @@
             </div>
           </div>
           <label class="friendly-label">備考 <textarea id="standalone-notes" rows="2" placeholder="帳票に記載する備考"></textarea></label>
+          <div id="estimate-voice-standalone-notes-mount"></div>
           <button type="button" class="btn-main blue" id="btn-standalone-submit" style="margin-top:0.5rem;">保存する</button>
           <button type="button" class="btn-sub" id="btn-standalone-cancel">やめる</button>
         </div>
@@ -594,6 +595,7 @@
         <label class="friendly-label">電話 <input type="tel" id="hdr-phone" inputmode="tel" /></label>
         <label class="friendly-label practical-hidden">メール <input type="email" id="hdr-email" inputmode="email" /></label>
         <label class="friendly-label">備考 <textarea id="hdr-notes" rows="2" placeholder="帳票備考（社内メモと共有可）"></textarea></label>
+        <div id="estimate-voice-hdr-notes-mount"></div>
         <div id="invoice-header-fields" class="hidden">
           <div class="line-qty-price doc-meta-underline-row">
             <label class="friendly-label doc-meta-underline-label">請求日 <span class="doc-meta-label-line" aria-hidden="true"></span><input type="date" id="hdr-invoice-date" /></label>
@@ -626,6 +628,14 @@
           <button type="button" class="btn-sub blue" id="btn-line-image-library">🖼 ギャラリーから選ぶ</button>
         </div>
         <p id="line-image-parse-status" class="section-hint line-image-parse-status" aria-live="polite"></p>
+      </div>
+
+      <!-- 音声で明細追記（既存明細は末尾追記のみ） -->
+      <div class="friendly-card" id="estimate-voice-panel" style="margin-bottom:0.65rem;">
+        <p class="section-label" style="margin:0 0 0.35rem;">🎙️ 音声で明細追加</p>
+        <p class="section-hint" style="margin:0 0 0.35rem;">例：「VVF2.0 3芯 50メートル」「エアコン本体 5台」</p>
+        <textarea id="estimate-voice-scratch" rows="2" placeholder="音声認識テキスト（自動入力）" aria-label="音声認識テキスト"></textarea>
+        <div id="estimate-voice-line-mount"></div>
       </div>
 
       <div class="friendly-card" id="lines-card">
@@ -681,6 +691,7 @@
       </div>
 
       <label class="friendly-label">備考 <textarea id="estimate-notes" rows="3" placeholder="見積書に記載する備考"></textarea></label>
+      <div id="estimate-voice-notes-mount"></div>
 
       <div class="doc-workflow-stack" aria-label="書類ワークフロー">
         <button type="button" class="btn-sub blue" id="btn-save-items">内訳を保存</button>

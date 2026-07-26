@@ -122,6 +122,13 @@ export function initPracticalNav(opts) {
     navigator.serviceWorker.register("/service-worker.js").catch(() => {});
   }
 
+  // 接続インジケータ + オフライン同期（追記）
+  import("./tisly-online-indicator-v1.js")
+    .then((m) => {
+      m.mountOnlineIndicatorV1({ mountAfter: topRoot });
+    })
+    .catch(() => {});
+
   return {
     setTitle(title) {
       if (titleEl) titleEl.textContent = title;

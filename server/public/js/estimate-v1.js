@@ -17,6 +17,14 @@ import {
   withTimeout,
 } from "./tisly-fetch-v1.js";
 import { cacheGet, cacheMeta, cacheSet } from "./tisly-data-cache-v1.js";
+import {
+  enqueueOfflineSyncV1,
+  isOnlineV1,
+} from "./tisly-offline-core-v1.js";
+import {
+  mountVoiceInputButtonV1,
+  parseEstimateSpeechLinesV1,
+} from "./tisly-voice-input-v1.js";
 
 let practicalNav = null;
 let currentView = "list";
@@ -417,6 +425,70 @@ function bindLineImageParseUi() {
     const file = ev.target?.files?.[0];
     if (file) parseLineImageAndAppend(file).catch(() => {});
   });
+}
+
+/**
+ * 🎙️ 音声入力 — 明細末尾追記 / 備考・メモへ流し込み
+ * 既存明細は上書きしない
+ */
+function appendSpeechLinesToEstimate(text) {
+  const parsed = parseEstimateSpeechLinesV1(text);
+  if (!parsed.length) return 0;
+  const incoming = parsed.map((p) => ({
+    ...newEmptyLine(),
+    name: p.unit ? `${p.name}${p.name ? " " : ""}${p.unit}`.trim() || p.raw : p.name || p.raw,
+    quantity: p.qty || 1,
+    unit: p.unit === "m" ? "m" : p.unit || "式",
+    memo: "[音声入力]",
+  }));
+  // 末尾が空行なら置換、そうでなければ追記
+  const last = currentLines[currentLines.length - 1];
+  const lastEmpty =
+    last &&
+    !String(last.name || "").trim() &&
+    !String(last.memo || "").trim() &&
+    Number(last.unitPrice || 0) === 0;
+  if (lastEmpty && currentLines.length) {
+    currentLines = [...currentLines.slice(0, -1), ...incoming];
+  } else {
+    currentLines = [...currentLines, ...incoming];
+  }
+  renderLines(currentLines);
+  recalcLocal();
+  return incoming.length;
+}
+
+function bindEstimateVoiceInputUi() {
+  const lineMount = $("estimate-voice-line-mount");
+  if (lineMount && !lineMount.querySelector(".tisly-voice-wrap")) {
+    mountVoiceInputButtonV1(lineMount, {
+      label: "🎙️ 音声で明細追加",
+      mode: "append",
+      target: $("estimate-voice-scratch"),
+      toast,
+      onTranscript: (text) => {
+        const n = appendSpeechLinesToEstimate(text);
+        if (n > 0) toast(`${n} 件を明細に追記しました`);
+      },
+    });
+  }
+
+  const noteSpecs = [
+    { mount: "estimate-voice-notes-mount", target: "estimate-notes" },
+    { mount: "estimate-voice-hdr-notes-mount", target: "hdr-notes" },
+    { mount: "estimate-voice-standalone-notes-mount", target: "standalone-notes" },
+  ];
+  for (const spec of noteSpecs) {
+    const mount = $(spec.mount);
+    const target = $(spec.target);
+    if (!mount || !target || mount.querySelector(".tisly-voice-wrap")) continue;
+    mountVoiceInputButtonV1(mount, {
+      target,
+      mode: "append",
+      label: "🎙️ 音声入力",
+      toast,
+    });
+  }
 }
 
 function isLocalProjectId(id) {
@@ -1995,6 +2067,25 @@ async function patchItems(body) {
       return { estimate: draft.estimate };
     }
   }
+
+  // オフライン時はローカル保持 + 同期キューへ追記
+  if (!isOnlineV1()) {
+    savePendingOverlay(currentProjectId, body);
+    await enqueueOfflineSyncV1({
+      kind: "estimate_items",
+      url: `${API}/projects/${currentProjectId}/items`,
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${getCustomerToken()}`,
+      },
+      body,
+      meta: { projectId: currentProjectId },
+    });
+    toast("オフライン保存しました（復帰後に同期）");
+    return { estimate: { items: body.items || currentLines, queued: true } };
+  }
+
   const res = await fetch(`${API}/projects/${currentProjectId}/items`, {
     method: "PATCH",
     headers: {
@@ -2005,6 +2096,23 @@ async function patchItems(body) {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
+    // 電波瞬断時も既存明細を壊さずキューへ退避
+    if (res.status === 0 || res.status >= 500) {
+      savePendingOverlay(currentProjectId, body);
+      await enqueueOfflineSyncV1({
+        kind: "estimate_items",
+        url: `${API}/projects/${currentProjectId}/items`,
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${getCustomerToken()}`,
+        },
+        body,
+        meta: { projectId: currentProjectId, httpStatus: res.status },
+      });
+      toast("通信失敗のため端末に退避しました");
+      return { estimate: { items: body.items || currentLines, queued: true } };
+    }
     const e = new Error(data.error || data.message || `HTTP ${res.status}`);
     e.status = res.status;
     e.manualLineIndices = data.manualLineIndices;
@@ -2878,6 +2986,7 @@ async function init() {
   });
 
   bindLineImageParseUi();
+  bindEstimateVoiceInputUi();
 
   $("btn-confirm-estimate")?.addEventListener("click", async () => {
     if (!pendingSurveyForEstimate) return;

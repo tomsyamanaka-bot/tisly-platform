@@ -7,6 +7,7 @@ import { initPracticalNav } from "./tisly-practical-nav.js";
 import { navigatePracticalReturn, navigateTo } from "./tisly-return-nav-v1.js";
 import { getDefaultNavFallbackV1, navigateBackOne } from "./tisly-navigation-stack-v1.js";
 import { friendlyHttpError, renderFriendlyErrorHtml } from "./tisly-friendly-errors.js";
+import { mountVoiceInputButtonV1 } from "./tisly-voice-input-v1.js";
 import {
   openSpecificationPreview,
   regenerateSpecificationPdf,
@@ -1478,6 +1479,17 @@ async function init() {
   renderMaterialPicker();
   renderWorkTypeGrid("form-work-types", []);
   loadWorkTemplates().then((tpls) => renderTemplateList("form-work-templates", tpls)).catch(console.error);
+
+  const memoMount = $("survey-voice-memo-mount");
+  if (memoMount) {
+    mountVoiceInputButtonV1(memoMount, {
+      target: $("detail-memo"),
+      mode: "append",
+      label: "🎙️ 音声入力",
+      toast,
+    });
+  }
+
   showView("list");
   await loadList();
 

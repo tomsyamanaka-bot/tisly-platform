@@ -1,0 +1,55 @@
+/* TiSLY 接続状態インジケータ v1 */
+
+:root {
+  --tisly-conn-h: 28px;
+}
+
+.tisly-conn-indicator {
+  position: fixed;
+  top: calc(var(--tisly-nav-h, 52px) + env(safe-area-inset-top, 0px));
+  left: 0;
+  right: 0;
+  z-index: 1195;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tisly-conn-h);
+  padding: 0.2rem 0.65rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-align: center;
+  line-height: 1.3;
+  pointer-events: none;
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.08);
+}
+
+.tisly-conn-indicator.is-online {
+  background: #ecfdf5;
+  color: #065f46;
+  border-bottom: 1px solid #a7f3d0;
+}
+
+.tisly-conn-indicator.is-offline {
+  background: #fff7ed;
+  color: #9a3412;
+  border-bottom: 1px solid #fdba74;
+}
+
+.tisly-conn-indicator.has-pending.is-online {
+  background: #eff6ff;
+  color: #1e40af;
+  border-bottom: 1px solid #bfdbfe;
+}
+
+body.has-practical-nav.has-tisly-conn-indicator {
+  padding-top: calc(
+    var(--tisly-nav-h, 52px) + var(--tisly-conn-h) +
+      env(safe-area-inset-top, 0px)
+  );
+}
+
+/* シェル status-bar がある画面向け補助 */
+#tisly-online-text {
+  font-weight: 600;
+}

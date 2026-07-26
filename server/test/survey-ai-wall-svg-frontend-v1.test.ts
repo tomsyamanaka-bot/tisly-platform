@@ -79,7 +79,7 @@ describe("survey aiWallSvg Phase3–5", () => {
     assert.doesNotMatch(autoDraw, /cannyEdgeDetect/);
     assert.match(wallJs, /DOMParser/);
     assert.match(wallJs, /mountSafeAiWallSvgV1/);
-    assert.ok(sw.includes("tisly-pwa-v2418-pdf-share-bust"));
+    assert.ok(sw.includes("tisly-pwa-v2419-offline-voice"));
     assert.ok(sw.includes("survey-ai-wall-svg-v1.js"));
   });
 });

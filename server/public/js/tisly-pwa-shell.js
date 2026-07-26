@@ -48,12 +48,15 @@ function wireOnlineStatus() {
     if (dot) {
       dot.className = on ? "dot online" : "dot offline";
     }
-    if (text) text.textContent = on ? "online" : "offline";
+    if (text) text.textContent = on ? "📡 オンライン" : "⚠️ オフライン作業中";
     if (sync) sync.textContent = on ? "同期: 待機" : "同期: オフライン";
   }
   window.addEventListener("online", update);
   window.addEventListener("offline", update);
   update();
+  import("./tisly-online-indicator-v1.js")
+    .then((m) => m.updateShellOnlineTextV1())
+    .catch(() => {});
 }
 
 function wireServiceWorkerUpdate() {
@@ -160,7 +163,7 @@ export function renderPwaTopbar(currentApp, title) {
     </div>
     <div class="tisly-pwa-status-bar" role="status">
       <span id="tisly-online-dot" class="dot online">●</span>
-      <span id="tisly-online-text">online</span>
+      <span id="tisly-online-text">📡 オンライン</span>
       <span id="tisly-sync-status">同期: —</span>
       <span id="tisly-connection-badges" class="tisly-connection-badges"></span>
       <button type="button" id="btn-hub-sync" class="btn-sync-touch" hidden>同期</button>

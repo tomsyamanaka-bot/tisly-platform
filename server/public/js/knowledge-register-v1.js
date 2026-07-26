@@ -1,5 +1,10 @@
 import { initPracticalNav } from "./tisly-practical-nav.js";
 import { requireCustomerLogin } from "./customer-auth.js";
+import {
+  enqueueOfflineSyncV1,
+  isOnlineV1,
+} from "./tisly-offline-core-v1.js";
+import { mountVoiceInputButtonV1 } from "./tisly-voice-input-v1.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -14,13 +19,36 @@ function toast(msg) {
 async function api(path, opts = {}) {
   const token =
     localStorage.getItem("tisly_admin_token") || sessionStorage.getItem("tisly_token") || "";
+  const headers = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+    ...(opts.headers || {}),
+  };
+  const method = (opts.method || "GET").toUpperCase();
+  const isMutate = method !== "GET" && method !== "HEAD";
+
+  if (!isOnlineV1() && isMutate) {
+    let body = opts.body;
+    if (typeof body === "string") {
+      try {
+        body = JSON.parse(body);
+      } catch {
+        /* keep */
+      }
+    }
+    await enqueueOfflineSyncV1({
+      kind: opts.offlineKind || "knowledge_card",
+      url: `/api/knowledge${path}`,
+      method,
+      headers,
+      body,
+    });
+    return { queued: true, offline: true, card: { id: body?.id || `OFFLINE-${Date.now()}` } };
+  }
+
   const res = await fetch(`/api/knowledge${path}`, {
     ...opts,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      ...(opts.headers || {}),
-    },
+    headers,
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
@@ -153,6 +181,16 @@ async function init() {
   await loadCategories();
   await loadCards();
 
+  const summaryMount = $("register-voice-summary-mount");
+  if (summaryMount) {
+    mountVoiceInputButtonV1(summaryMount, {
+      target: $("card-summary"),
+      mode: "append",
+      label: "🎙️ 音声入力",
+      toast,
+    });
+  }
+
   $("search-btn")?.addEventListener("click", runSearch);
   $("search-input")?.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
@@ -176,8 +214,16 @@ async function init() {
       files: parseFiles($("card-files")?.value),
     };
     try {
-      const { card } = await api("/cards", { method: "POST", body: JSON.stringify(body) });
-      toast(`✅ 保存: ${card.id}`);
+      const { card } = await api("/cards", {
+        method: "POST",
+        offlineKind: "knowledge_card",
+        body: JSON.stringify(body),
+      });
+      if (card?.queued || String(card?.id || "").startsWith("OFFLINE-")) {
+        toast("⚠️ オフライン保存（復帰後に同期）");
+      } else {
+        toast(`✅ 保存: ${card.id}`);
+      }
       await loadCards();
       await runSearch();
     } catch (err) {
