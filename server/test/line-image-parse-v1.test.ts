@@ -258,7 +258,7 @@ describe("line-image-parse-v1 API + UI", () => {
     assert.match(js.text, /appendParsedEstimateItems/);
     assert.match(js.text, /parseLineImageAndAppend/);
     assert.match(js.text, /parse-line-image/);
-    assert.match(js.text, /estimate-ui-v18/);
+    assert.match(js.text, /estimate-ui-v19/);
     assert.match(js.text, /60_000/);
     assert.doesNotMatch(js.text, /memo: it\.memo \|\| "\[写真見積解析\]"/);
   });

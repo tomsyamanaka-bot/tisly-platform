@@ -68,6 +68,19 @@ import { recordPdfShareLogV1, listPdfShareLogsForProjectV1 } from "../../project
 import { getMasterV1EstimateDraft } from "../../master/master-v1-draft-estimate-store.js";
 import { summarizeMasterPreviewPricing } from "../../master/master-v1-estimate-apply-service.js";
 import { parseEstimateLinesFromImageV1 } from "../../estimate/line-image-parse-v1.js";
+import {
+  applyTomsMasterPricesToItemsV1,
+  listTomsMasterItemsV1,
+  suggestTomsMasterPriceV1,
+} from "../../estimate/toms-master-data-v1.js";
+import {
+  buildTomsEstimateLineShareTextV1,
+  deleteTomsEstimateHistoryV1,
+  duplicateTomsEstimateHistoryV1,
+  getTomsEstimateHistoryByIdV1,
+  listTomsEstimateHistoryV1,
+  saveTomsEstimateHistoryV1,
+} from "../../estimate/toms-estimate-history-store-v1.js";
 
 export const estimateV1Router = Router();
 
@@ -187,6 +200,182 @@ estimateV1Router.post(
       const msg = e instanceof Error ? e.message : "parse failed";
       res.status(400).json({ error: msg });
     }
+  }
+);
+
+/** TOMS 標準単価マスター一覧 */
+estimateV1Router.get("/toms-master", ...estimateV1Auth, (req: AuthedRequest, res) => {
+  if (!assertEstimateV1Role(req, res)) return;
+  res.json({
+    schemaVersion: 1,
+    items: listTomsMasterItemsV1(),
+  });
+});
+
+/** 品名から TOMS マスター単価を提案 */
+estimateV1Router.post(
+  "/toms-master/suggest",
+  ...estimateV1Auth,
+  (req: AuthedRequest, res) => {
+    if (!assertEstimateV1Role(req, res)) return;
+    const body = (req.body || {}) as {
+      name?: string;
+      names?: string[];
+      items?: Array<{ name: string; unitPrice?: number; unit?: string; category?: string }>;
+    };
+    if (Array.isArray(body.items)) {
+      const applied = applyTomsMasterPricesToItemsV1(
+        body.items.map((it) => ({
+          name: String(it.name || ""),
+          unitPrice: Number(it.unitPrice) || 0,
+          unit: it.unit,
+          category: it.category,
+        }))
+      );
+      res.json(applied);
+      return;
+    }
+    const names = Array.isArray(body.names)
+      ? body.names.map((n) => String(n || ""))
+      : [String(body.name || "")];
+    res.json({
+      suggestions: names.map((name) => suggestTomsMasterPriceV1(name)),
+    });
+  }
+);
+
+/** TOMS 見積履歴一覧 */
+estimateV1Router.get(
+  "/toms-estimate-history",
+  ...estimateV1Auth,
+  (req: AuthedRequest, res) => {
+    if (!assertEstimateV1Role(req, res)) return;
+    const limit = Number(req.query.limit) || 50;
+    res.json({ records: listTomsEstimateHistoryV1({ limit }) });
+  }
+);
+
+/** TOMS 見積履歴をワンタップ保存 */
+estimateV1Router.post(
+  "/toms-estimate-history",
+  ...estimateV1Auth,
+  (req: AuthedRequest, res) => {
+    if (!assertEstimateV1Role(req, res)) return;
+    try {
+      const body = (req.body || {}) as {
+        customerName?: string;
+        subject?: string;
+        workLocation?: string;
+        notes?: string;
+        items?: Array<Record<string, unknown>>;
+        sourceProjectId?: string;
+      };
+      const record = saveTomsEstimateHistoryV1({
+        customerName: body.customerName,
+        subject: body.subject,
+        workLocation: body.workLocation,
+        notes: body.notes,
+        items: (body.items || []).map((it) => ({
+          name: String(it.name ?? ""),
+          unit: it.unit != null ? String(it.unit) : undefined,
+          quantity: it.quantity != null ? Number(it.quantity) : undefined,
+          unitPrice: it.unitPrice != null ? Number(it.unitPrice) : undefined,
+          amount: it.amount != null ? Number(it.amount) : undefined,
+          category: it.category != null ? String(it.category) : undefined,
+          memo: it.memo != null ? String(it.memo) : undefined,
+        })),
+        sourceProjectId: body.sourceProjectId,
+        createdBy: req.admin?.username ?? null,
+      });
+      res.status(201).json({ record });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "save failed";
+      res.status(400).json({ error: msg });
+    }
+  }
+);
+
+estimateV1Router.get(
+  "/toms-estimate-history/:id",
+  ...estimateV1Auth,
+  (req: AuthedRequest, res) => {
+    if (!assertEstimateV1Role(req, res)) return;
+    const record = getTomsEstimateHistoryByIdV1(String(req.params.id));
+    if (!record) {
+      res.status(404).json({ error: "history not found" });
+      return;
+    }
+    res.json({ record });
+  }
+);
+
+/** 履歴を複製して再利用 */
+estimateV1Router.post(
+  "/toms-estimate-history/:id/duplicate",
+  ...estimateV1Auth,
+  (req: AuthedRequest, res) => {
+    if (!assertEstimateV1Role(req, res)) return;
+    try {
+      const record = duplicateTomsEstimateHistoryV1(String(req.params.id), {
+        createdBy: req.admin?.username ?? null,
+      });
+      res.status(201).json({ record });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "duplicate failed";
+      res.status(msg === "history not found" ? 404 : 400).json({ error: msg });
+    }
+  }
+);
+
+estimateV1Router.delete(
+  "/toms-estimate-history/:id",
+  ...estimateV1Auth,
+  (req: AuthedRequest, res) => {
+    if (!assertEstimateV1Role(req, res)) return;
+    const ok = deleteTomsEstimateHistoryV1(String(req.params.id));
+    if (!ok) {
+      res.status(404).json({ error: "history not found" });
+      return;
+    }
+    res.json({ ok: true });
+  }
+);
+
+/** LINE 共有用テキスト生成 */
+estimateV1Router.post(
+  "/toms-estimate-share-text",
+  ...estimateV1Auth,
+  (req: AuthedRequest, res) => {
+    if (!assertEstimateV1Role(req, res)) return;
+    const body = (req.body || {}) as {
+      customerName?: string;
+      subject?: string;
+      items?: Array<{
+        name?: string;
+        unit?: string;
+        quantity?: number;
+        unitPrice?: number;
+        amount?: number;
+      }>;
+      subtotal?: number;
+      tax?: number;
+      total?: number;
+    };
+    const text = buildTomsEstimateLineShareTextV1({
+      customerName: body.customerName,
+      subject: body.subject,
+      items: (body.items || []).map((it) => ({
+        name: String(it.name || ""),
+        unit: String(it.unit || "式"),
+        quantity: Number(it.quantity) || 1,
+        unitPrice: Number(it.unitPrice) || 0,
+        amount: Number(it.amount) || 0,
+      })),
+      subtotal: body.subtotal,
+      tax: body.tax,
+      total: body.total,
+    });
+    res.json({ text });
   }
 );
 

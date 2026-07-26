@@ -244,6 +244,46 @@ export function runMigrations(database: Database.Database): void {
   migrateCustomerPortalPhase24V1(database);
   migrateCustomerPortalPhase26V1(database);
   migrateFieldCheckDrawingSyncV1(database);
+  migrateTomsEstimateHistoryV1(database);
+}
+
+/** TOMS 見積履歴ワンタップ保存 v1 */
+function migrateTomsEstimateHistoryV1(database: Database.Database): void {
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:toms_estimate_history_v1") as
+    | { value_json: string }
+    | undefined;
+  if (marker) return;
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS toms_estimate_history_v1 (
+      id TEXT PRIMARY KEY,
+      customer_name TEXT NOT NULL DEFAULT '',
+      subject TEXT NOT NULL DEFAULT '',
+      work_location TEXT NOT NULL DEFAULT '',
+      notes TEXT NOT NULL DEFAULT '',
+      items_json TEXT NOT NULL DEFAULT '[]',
+      subtotal INTEGER NOT NULL DEFAULT 0,
+      tax INTEGER NOT NULL DEFAULT 0,
+      total INTEGER NOT NULL DEFAULT 0,
+      source_project_id TEXT,
+      created_by TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_toms_estimate_history_v1_created
+      ON toms_estimate_history_v1(created_at DESC);
+  `);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
+    )
+    .run(
+      "migration:toms_estimate_history_v1",
+      JSON.stringify({ at: new Date().toISOString() })
+    );
 }
 
 /** 図面 ➔ 材料チェック自動同期 v1 */

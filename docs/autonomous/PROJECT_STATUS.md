@@ -932,6 +932,20 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | テスト | `server/test/offline-voice-v1.test.ts` |
 | 確認 | `/estimate-v1` · `/knowledge-quick-v1` · `/survey-v1` · https://tisly.jp/api/health |
 
+### TOMS 見積爆速化 v1（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | OCR結果へ TOMS 標準単価を自動補完 · 履歴ワンタップ保存 · LINE共有テキスト |
+| マスター | `toms-master-data-v1.ts` — VVF / PF管 / ボックス / LAN / カメラ / 配線工事 / 設定費 / 人工 |
+| 補完 | `unitPrice=0` のみ類似品名マッチで単価提案（明示単価は上書きしない） |
+| 履歴 | `toms_estimate_history_v1` + localStorage `tisly_toms_estimate_history_v1` |
+| UI | `/estimate-v1` — PDF出力 / LINE共有テキスト / 履歴保存 · TOMS履歴タブ · 再利用 |
+| API | `/api/estimate/v1/toms-master` · `/toms-master/suggest` · `/toms-estimate-history` · `/toms-estimate-share-text` |
+| 既存保護 | OCR解析・見積作成・モックは削除せず追記のみ |
+| テスト | `server/test/toms-master-history-v1.test.ts` |
+| 確認 | `/estimate-v1` · https://tisly.jp/api/health |
+
 ---
 
 - [CURSOR_SELF_DRIVE_RULES.md](./CURSOR_SELF_DRIVE_RULES.md) — 自走時の行動規範

@@ -324,6 +324,71 @@
       color: #0c4a6e;
       font-weight: 700;
     }
+    /* TOMS 爆速アクション（PDF / LINE / 履歴） */
+    .toms-blast-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+      margin: 0.65rem 0 0.85rem;
+    }
+    .toms-blast-actions .btn-blast {
+      min-height: 56px;
+      border: none;
+      border-radius: 12px;
+      font-weight: 800;
+      font-size: 0.98rem;
+      letter-spacing: 0.02em;
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+    .toms-blast-actions .btn-blast-pdf {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    }
+    .toms-blast-actions .btn-blast-line {
+      background: linear-gradient(135deg, #16a34a, #15803d);
+    }
+    .toms-blast-actions .btn-blast-save {
+      grid-column: 1 / -1;
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      color: #111827;
+    }
+    .toms-history-panel { margin: 0.75rem 0 1rem; }
+    .toms-history-card {
+      border: 1px solid rgba(148, 163, 184, 0.45);
+      border-radius: 12px;
+      padding: 0.75rem 0.85rem;
+      margin-bottom: 0.55rem;
+      background: #0f172a;
+      color: #e2e8f0;
+    }
+    .toms-history-card .hist-title {
+      font-weight: 800;
+      font-size: 1rem;
+      margin: 0 0 0.2rem;
+    }
+    .toms-history-card .hist-meta {
+      font-size: 0.82rem;
+      color: #94a3b8;
+      margin: 0 0 0.45rem;
+    }
+    .toms-history-card .hist-total {
+      font-weight: 800;
+      color: #fbbf24;
+      margin: 0 0 0.5rem;
+    }
+    .toms-history-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+    .toms-history-actions button {
+      min-height: 44px;
+      flex: 1 1 6.5rem;
+      border-radius: 10px;
+      font-weight: 700;
+    }
     .invoice-bank-display {
       margin: 0;
       padding: 0.65rem 0.75rem;
@@ -552,6 +617,7 @@
         <button type="button" class="tab-btn active" id="tab-pending">見積待ち一覧</button>
         <button type="button" class="tab-btn" id="tab-projects">確定した見積</button>
         <button type="button" class="tab-btn" id="tab-invoices">請求書一覧</button>
+        <button type="button" class="tab-btn" id="tab-toms-history">TOMS履歴</button>
       </div>
       <div class="list-toolbar" id="list-select-toolbar">
         <button type="button" class="btn-sub btn-select-mode" id="btn-select-mode" aria-pressed="false">選択</button>
@@ -566,6 +632,7 @@
       <div id="pending-list" class="empty-state">読み込み中…</div>
       <div id="project-list" class="empty-state hidden">読み込み中…</div>
       <div id="invoice-list" class="empty-state hidden">読み込み中…</div>
+      <div id="toms-history-list" class="toms-history-panel empty-state hidden">読み込み中…</div>
     </div>
 
     <div id="view-detail" class="hidden">
@@ -628,6 +695,13 @@
           <button type="button" class="btn-sub blue" id="btn-line-image-library">🖼 ギャラリーから選ぶ</button>
         </div>
         <p id="line-image-parse-status" class="section-hint line-image-parse-status" aria-live="polite"></p>
+      </div>
+
+      <!-- TOMS 現場爆速アクション（既存フローは維持） -->
+      <div class="toms-blast-actions" id="toms-blast-actions" aria-label="TOMS爆速アクション">
+        <button type="button" class="btn-blast btn-blast-pdf" id="btn-toms-blast-pdf">📄 PDF出力</button>
+        <button type="button" class="btn-blast btn-blast-line" id="btn-toms-blast-line">💬 LINE共有テキスト</button>
+        <button type="button" class="btn-blast btn-blast-save" id="btn-toms-blast-save">💾 履歴にワンタップ保存</button>
       </div>
 
       <!-- 音声で明細追記（既存明細は末尾追記のみ） -->
@@ -808,7 +882,7 @@
         var fail =
           '<div class="empty-icon">⚠️</div><p>データを読み込めませんでした</p>' +
           '<p class="section-hint">再読み込みするか、【新規見積】から作成できます。</p>';
-        ["pending-list", "project-list", "invoice-list"].forEach(function (id) {
+        ["pending-list", "project-list", "invoice-list", "toms-history-list"].forEach(function (id) {
           var el = document.getElementById(id);
           if (el && (el.textContent || "").indexOf("読み込み中") >= 0) el.innerHTML = fail;
         });
@@ -846,6 +920,6 @@
       }, 5000);
     })();
   </script>
-  <script type="module" src="/js/estimate-v1.js?v=estimate-ui-v17"></script>
+  <script type="module" src="/js/estimate-v1.js?v=estimate-ui-v19"></script>
 </body>
 </html>

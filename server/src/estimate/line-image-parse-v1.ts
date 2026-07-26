@@ -12,6 +12,7 @@ import {
   runLineImageGeminiVisionV1,
   type LineImageGeminiVisionItemV1,
 } from "./line-image-gemini-vision-v1.js";
+import { applyTomsMasterPricesToItemsV1 } from "./toms-master-data-v1.js";
 
 export const LINE_IMAGE_PARSE_V1_SCHEMA = 1 as const;
 export const LINE_IMAGE_PARSE_PROVIDER = "rule_based_v1" as const;
@@ -454,13 +455,22 @@ export async function parseEstimateLinesFromImageV1(
     );
   }
 
+  // TOMS マスターで単価0のみ自動補完（明示単価は維持）
+  const priced = applyTomsMasterPricesToItemsV1(items);
+  if (priced.appliedCount > 0) {
+    warnings.push(
+      `TOMSマスター単価を${priced.appliedCount}件補完しました`
+    );
+  }
+  const finalItems = priced.items;
+
   return {
     schemaVersion: LINE_IMAGE_PARSE_V1_SCHEMA,
     provider,
     source,
     rawText,
-    items,
-    estimateItems: items.map(toEstimateLineItem),
+    items: finalItems,
+    estimateItems: finalItems.map(toEstimateLineItem),
     warnings,
   };
 }

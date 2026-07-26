@@ -65,7 +65,7 @@ const COMPLETION_TITLE_SAVE_OK = "タイトルを保存しました";
 const MAX_COMPLETION_PHOTOS = 30;
 const IMAGE_EXT_RE = /\.(jpe?g|png|gif|webp|heic|heif)$/i;
 const COMPLETION_PHOTO_FAIL_MSG = "写真の形式か容量で失敗しました。別の写真で試してください";
-export const ESTIMATE_UI_VERSION = "estimate-ui-v18";
+export const ESTIMATE_UI_VERSION = "estimate-ui-v19";
 /** 一覧・初期化のタイムアウト（短めにして無限ローディングを防ぐ） */
 const INIT_LOAD_TIMEOUT_MS = 12_000;
 const BOOTSTRAP_WATCHDOG_MS = 10_000;
@@ -76,6 +76,8 @@ const BOOTSTRAP_WATCHDOG_MS = 10_000;
 const ENABLE_HEADER_DATE_AUTOSAVE = false;
 const LOCAL_DRAFTS_KEY = "tisly_estimate_local_drafts_v1";
 const PENDING_SAVE_PREFIX = "tisly_estimate_pending_v1:";
+/** TOMS 見積履歴の localStorage ミラー */
+const TOMS_HISTORY_LOCAL_KEY = "tisly_toms_estimate_history_v1";
 const TOMS_COMPANY_NAME = "株式会社TOMS";
 const TOMS_DEFAULT_BANK_INFO = "常陽銀行 越谷支店\n普通 1370414\nトムズ";
 const FETCH_FAIL_HINT = "データの取得に失敗しました。再読み込みするか、手動で新規作成できます。";
@@ -438,6 +440,363 @@ function bindLineImageParseUi() {
   $("line-image-input-library")?.addEventListener("change", (ev) => {
     const file = ev.target?.files?.[0];
     if (file) parseLineImageAndAppend(file).catch(() => {});
+  });
+}
+
+/**
+ * TOMS 履歴を localStorage にミラー保存。
+ * オフライン時の一覧表示用（追記のみ）。
+ */
+function readLocalTomsHistory() {
+  try {
+    const raw = localStorage.getItem(TOMS_HISTORY_LOCAL_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeLocalTomsHistory(records) {
+  try {
+    localStorage.setItem(
+      TOMS_HISTORY_LOCAL_KEY,
+      JSON.stringify((records || []).slice(0, 100))
+    );
+  } catch {
+    /* quota 等は無視 */
+  }
+}
+
+function upsertLocalTomsHistory(record) {
+  if (!record?.id) return;
+  const list = readLocalTomsHistory().filter((r) => r.id !== record.id);
+  list.unshift(record);
+  writeLocalTomsHistory(list);
+}
+
+function buildLocalShareText(payload) {
+  const items = (payload.items || []).filter((it) => String(it.name || "").trim());
+  const lineSub = items.reduce((s, it) => s + (Number(it.amount) || 0), 0);
+  const subtotal = payload.subtotal != null ? Number(payload.subtotal) : lineSub;
+  const tax = payload.tax != null ? Number(payload.tax) : Math.round(subtotal * 0.1);
+  const total = payload.total != null ? Number(payload.total) : subtotal + tax;
+  const customer = String(payload.customerName || "").trim() || "お客様";
+  const subject = String(payload.subject || "").trim() || "お見積り";
+  return [
+    "【TOMS お見積り】",
+    `宛名: ${customer}`,
+    `件名: ${subject}`,
+    "",
+    "■明細",
+    ...items.map(
+      (it, i) =>
+        `${i + 1}. ${it.name} ${it.quantity}${it.unit || "式"} × ¥${Number(it.unitPrice || 0).toLocaleString("ja-JP")} = ¥${Number(it.amount || 0).toLocaleString("ja-JP")}`
+    ),
+    "",
+    `小計: ¥${subtotal.toLocaleString("ja-JP")}`,
+    `消費税: ¥${tax.toLocaleString("ja-JP")}`,
+    `税込合計: ¥${total.toLocaleString("ja-JP")}`,
+    "",
+    TOMS_COMPANY_NAME,
+  ].join("\n");
+}
+
+function collectCurrentEstimateSnapshot() {
+  recalcLocal();
+  const header = readHeaderForm();
+  const items = currentLines
+    .filter((it) => String(it.name || "").trim())
+    .map((it) => ({
+      name: it.name,
+      unit: it.unit || "式",
+      quantity: Number(it.quantity) || 1,
+      unitPrice: Number(it.unitPrice) || 0,
+      amount: Number(it.amount) || 0,
+      category: it.category || "other",
+      memo: it.memo || "",
+    }));
+  const lineSubtotal = items.reduce((s, it) => s + (it.amount || 0), 0);
+  const discount = readShuseiDiscount();
+  const subtotal = Math.max(0, lineSubtotal - discount);
+  const tax = Math.round(subtotal * 0.1);
+  const total = subtotal + tax;
+  return {
+    customerName: header.addressee || currentCustomerName || "",
+    subject: header.subject || "",
+    workLocation: header.workLocation || "",
+    notes: $("estimate-notes")?.value?.trim() || "",
+    items,
+    subtotal,
+    tax,
+    total,
+    sourceProjectId: currentProjectId,
+  };
+}
+
+async function copyTextToClipboard(text) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.style.position = "fixed";
+  ta.style.left = "-9999px";
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand("copy");
+  ta.remove();
+}
+
+/**
+ * ワンタップ: LINE共有用テキストをコピー
+ */
+async function blastCopyLineShareText() {
+  const snap = collectCurrentEstimateSnapshot();
+  if (!snap.items.length) {
+    toast("明細がありません");
+    return;
+  }
+  try {
+    const data = await api("/toms-estimate-share-text", {
+      method: "POST",
+      body: JSON.stringify(snap),
+      label: "LINE共有テキスト",
+    });
+    const text = data.text || buildLocalShareText(snap);
+    await copyTextToClipboard(text);
+    toast("LINE共有テキストをコピーしました");
+  } catch {
+    const text = buildLocalShareText(snap);
+    try {
+      await copyTextToClipboard(text);
+      toast("LINE共有テキストをコピーしました（オフライン）");
+    } catch {
+      toast("コピーに失敗しました");
+    }
+  }
+}
+
+/**
+ * ワンタップ: 見積履歴へ保存（DB + localStorage）
+ */
+async function blastSaveTomsHistory() {
+  const snap = collectCurrentEstimateSnapshot();
+  if (!snap.items.length) {
+    toast("明細がありません");
+    return;
+  }
+  try {
+    const data = await api("/toms-estimate-history", {
+      method: "POST",
+      body: JSON.stringify(snap),
+      label: "履歴保存",
+    });
+    if (data.record) upsertLocalTomsHistory(data.record);
+    toast("履歴に保存しました");
+  } catch (e) {
+    const localRecord = {
+      id: `LOCAL-${Date.now()}`,
+      ...snap,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      sourceProjectId: snap.sourceProjectId || null,
+      createdBy: null,
+    };
+    upsertLocalTomsHistory(localRecord);
+    toast("端末に履歴保存しました（オフライン）");
+    console.warn("[estimate-v1] toms history API failed", e);
+  }
+}
+
+/**
+ * ワンタップ: 見積PDFを開く
+ */
+async function blastOpenEstimatePdf() {
+  if (!currentProjectId) {
+    toast("案件を開いてください");
+    return;
+  }
+  try {
+    await openDocumentViewer("estimate");
+  } catch (e) {
+    toastError(e, e.status);
+  }
+}
+
+function formatHistoryDate(iso) {
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return String(iso || "");
+    return d.toLocaleString("ja-JP", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return String(iso || "");
+  }
+}
+
+function renderTomsHistoryList(records) {
+  const el = $("toms-history-list");
+  if (!el) return;
+  if (!records.length) {
+    el.className = "toms-history-panel empty-state";
+    el.innerHTML =
+      '<div class="empty-icon">💾</div><p>まだTOMS履歴がありません</p><p class="section-hint">詳細画面の「履歴にワンタップ保存」から追加できます</p>';
+    return;
+  }
+  el.className = "toms-history-panel";
+  el.innerHTML = records
+    .map(
+      (r) => `
+    <div class="toms-history-card" data-hist-id="${escapeHtml(r.id)}">
+      <p class="hist-title">${escapeHtml(r.customerName || "（無名）")}</p>
+      <p class="hist-meta">${escapeHtml(r.subject || "件名なし")} · ${escapeHtml(formatHistoryDate(r.createdAt))}</p>
+      <p class="hist-total">${yen(r.total)}</p>
+      <div class="toms-history-actions">
+        <button type="button" class="btn-main blue" data-hist-action="reuse">再利用</button>
+        <button type="button" class="btn-sub blue" data-hist-action="duplicate">複製保存</button>
+      </div>
+    </div>`
+    )
+    .join("");
+  el.querySelectorAll(".toms-history-card").forEach((card) => {
+    const id = card.getAttribute("data-hist-id");
+    card.querySelector('[data-hist-action="reuse"]')?.addEventListener("click", () => {
+      reuseTomsHistoryRecord(id).catch(() => {});
+    });
+    card.querySelector('[data-hist-action="duplicate"]')?.addEventListener("click", () => {
+      duplicateTomsHistoryRecord(id).catch(() => {});
+    });
+  });
+}
+
+async function loadTomsHistoryList() {
+  const el = $("toms-history-list");
+  if (!el) return;
+  el.className = "toms-history-panel empty-state";
+  el.textContent = "読み込み中…";
+  const local = readLocalTomsHistory();
+  try {
+    const data = await api("/toms-estimate-history?limit=50", {
+      label: "TOMS履歴",
+    });
+    const records = data.records || [];
+    // サーバー優先、ローカルのみの件を末尾マージ
+    const serverIds = new Set(records.map((r) => r.id));
+    const merged = [
+      ...records,
+      ...local.filter((r) => r.id && !serverIds.has(r.id)),
+    ];
+    writeLocalTomsHistory(merged);
+    renderTomsHistoryList(merged);
+  } catch {
+    renderTomsHistoryList(local);
+  }
+}
+
+/**
+ * 履歴明細を現在の見積へ流し込み（新規スタンドアロン作成）。
+ * 既存案件明細は上書きせず、新規作成→追記。
+ */
+async function reuseTomsHistoryRecord(id) {
+  let record =
+    readLocalTomsHistory().find((r) => r.id === id) || null;
+  try {
+    const data = await api(`/toms-estimate-history/${encodeURIComponent(id)}`, {
+      label: "履歴取得",
+    });
+    if (data.record) record = data.record;
+  } catch {
+    /* local fallback */
+  }
+  if (!record?.items?.length) {
+    toast("履歴が見つかりません");
+    return;
+  }
+  try {
+    toast("履歴から新規見積を作成中…");
+    const detail = await api("/standalone-estimate", {
+      method: "POST",
+      body: JSON.stringify({
+        addressee: record.customerName || "（履歴再利用）",
+        subject: record.subject || "履歴から作成",
+        staffName: "",
+        workLocation: record.workLocation || "",
+        notes: record.notes || "",
+        items: record.items,
+      }),
+      label: "履歴再利用",
+    });
+    await loadProjects();
+    await openDetail(detail.businessProjectId);
+    // サーバーが items を反映済みならその明細、
+    // なければ履歴明細を末尾追記
+    if (detail.estimate?.items?.length) {
+      currentLines = detail.estimate.items;
+      renderLines(currentLines);
+      recalcLocal();
+    } else {
+      appendParsedEstimateItems(record.items);
+      recalcLocal();
+    }
+    toast("履歴から見積を作成しました");
+  } catch (e) {
+    // API失敗時: ローカル草稿へ流し込み
+    resetStandaloneForm("estimate");
+    if ($("standalone-addressee")) $("standalone-addressee").value = record.customerName || "";
+    if ($("standalone-subject")) $("standalone-subject").value = record.subject || "";
+    if ($("standalone-work-location")) {
+      $("standalone-work-location").value = record.workLocation || "";
+    }
+    if ($("standalone-notes")) $("standalone-notes").value = record.notes || "";
+    toast("オフラインのためフォームに反映しました。保存してください");
+    console.warn("[estimate-v1] reuse history failed", e);
+  }
+}
+
+async function duplicateTomsHistoryRecord(id) {
+  try {
+    const data = await api(
+      `/toms-estimate-history/${encodeURIComponent(id)}/duplicate`,
+      { method: "POST", label: "履歴複製" }
+    );
+    if (data.record) upsertLocalTomsHistory(data.record);
+    toast("履歴を複製しました");
+    await loadTomsHistoryList();
+  } catch (e) {
+    const src = readLocalTomsHistory().find((r) => r.id === id);
+    if (!src) {
+      toastError(e, e.status);
+      return;
+    }
+    const dup = {
+      ...src,
+      id: `LOCAL-${Date.now()}`,
+      subject: src.subject ? `${src.subject}（複製）` : "（複製）",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    upsertLocalTomsHistory(dup);
+    toast("端末内で履歴を複製しました");
+    renderTomsHistoryList(readLocalTomsHistory());
+  }
+}
+
+function bindTomsBlastActionsUi() {
+  $("btn-toms-blast-pdf")?.addEventListener("click", () => {
+    blastOpenEstimatePdf().catch(() => {});
+  });
+  $("btn-toms-blast-line")?.addEventListener("click", () => {
+    blastCopyLineShareText().catch(() => {});
+  });
+  $("btn-toms-blast-save")?.addEventListener("click", () => {
+    blastSaveTomsHistory().catch(() => {});
   });
 }
 
@@ -955,9 +1314,11 @@ async function loadInvoices() {
 function refreshListTabVisibility() {
   const pending = $("tab-pending")?.classList.contains("active");
   const invoices = $("tab-invoices")?.classList.contains("active");
+  const history = $("tab-toms-history")?.classList.contains("active");
   $("pending-list")?.classList.toggle("hidden", !pending);
-  $("project-list")?.classList.toggle("hidden", pending || invoices);
+  $("project-list")?.classList.toggle("hidden", pending || invoices || history);
   $("invoice-list")?.classList.toggle("hidden", !invoices);
+  $("toms-history-list")?.classList.toggle("hidden", !history);
   updateSelectToolbarVisibility();
   syncBulkBar();
 }
@@ -1003,6 +1364,7 @@ function toggleSelection(id, cardNode) {
 function currentListTab() {
   if ($("tab-invoices")?.classList.contains("active")) return "invoices";
   if ($("tab-projects")?.classList.contains("active")) return "projects";
+  if ($("tab-toms-history")?.classList.contains("active")) return "toms-history";
   return "pending";
 }
 
@@ -2875,9 +3237,11 @@ async function loadProjects() {
 function setListTab(tab) {
   const pending = tab === "pending";
   const invoices = tab === "invoices";
+  const history = tab === "toms-history";
   $("tab-pending").classList.toggle("active", pending);
   $("tab-projects").classList.toggle("active", tab === "projects");
   $("tab-invoices")?.classList.toggle("active", invoices);
+  $("tab-toms-history")?.classList.toggle("active", history);
   if (pending && selectionMode) {
     setSelectionMode(false, { reload: false });
   } else if (selectedIds.size) {
@@ -2890,6 +3254,7 @@ function setListTab(tab) {
   }
   refreshListTabVisibility();
   if (invoices && authSession) loadInvoices();
+  if (history) loadTomsHistoryList();
 }
 
 async function init() {
@@ -2947,6 +3312,7 @@ async function init() {
   $("tab-pending").addEventListener("click", () => setListTab("pending"));
   $("tab-projects").addEventListener("click", () => setListTab("projects"));
   $("tab-invoices")?.addEventListener("click", () => setListTab("invoices"));
+  $("tab-toms-history")?.addEventListener("click", () => setListTab("toms-history"));
 
   $("btn-select-mode")?.addEventListener("click", () => {
     if (currentListTab() === "pending") {
@@ -3000,6 +3366,7 @@ async function init() {
   });
 
   bindLineImageParseUi();
+  bindTomsBlastActionsUi();
   bindEstimateVoiceInputUi();
 
   $("btn-confirm-estimate")?.addEventListener("click", async () => {
