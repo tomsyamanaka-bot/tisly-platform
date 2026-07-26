@@ -92,7 +92,7 @@ export function resolveSurveySketchAiSvgProviderV1(): {
         apiKey,
         model: envTrim(
           "GEMINI_SKETCH_MODEL",
-          "gemini-2.0-flash"
+          "gemini-3.6-flash"
         ),
       }),
       resolvedId: "gemini",
@@ -114,7 +114,7 @@ export function resolveSurveySketchAiSvgProviderV1(): {
       apiKey,
       model: envTrim(
         "GEMINI_SKETCH_MODEL",
-        "gemini-2.0-flash"
+        "gemini-3.6-flash"
       ),
     }),
     resolvedId: "gemini",
@@ -164,14 +164,15 @@ export async function extractAiWallSvgFromBufferV1(
     return result;
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    // API 障害時もフロント検証を止めない
+    console.error("[survey-sketch-ai-svg] provider failed", msg);
+    // API 障害時もフロント検証を止めない（生ログは reason に載せない）
     return {
       schemaVersion: SURVEY_SKETCH_AI_SVG_SCHEMA,
       ok: true,
       aiWallSvg: buildMockAiWallSvgV1(canvasW, canvasH),
       provider: "mock",
       usedMock: true,
-      reason: `provider_error:${msg.slice(0, 120)}`,
+      reason: "provider_error",
       fileName: input.fileName ?? null,
     };
   }

@@ -197,8 +197,14 @@ estimateV1Router.post(
       });
       res.json(result);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "parse failed";
-      res.status(400).json({ error: msg });
+      console.error(
+        "[estimate-v1] parse-line-image failed",
+        e instanceof Error ? e.message : e
+      );
+      res.status(400).json({
+        error:
+          "解析エラーが発生しました。時間をおいて再試行してください。",
+      });
     }
   }
 );

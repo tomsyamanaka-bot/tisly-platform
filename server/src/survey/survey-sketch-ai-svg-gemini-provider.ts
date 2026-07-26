@@ -16,8 +16,8 @@ import { buildMockAiWallSvgV1 } from "./survey-sketch-ai-svg-mock-provider.js";
 /** 解析用最大辺（トークン・帯域節約） */
 const ANALYZE_MAX = 1500;
 
-/** 既定モデル（軽量 Vision） */
-const DEFAULT_MODEL = "gemini-2.0-flash";
+/** 既定モデル（軽量 Vision）— gemini-2.0-flash は 2026-06 で廃止 */
+const DEFAULT_MODEL = "gemini-3.6-flash";
 
 /**
  * 提案どおりの意味理解プロンプト

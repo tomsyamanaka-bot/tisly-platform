@@ -393,19 +393,28 @@ async function parseLineImageAndAppend(file) {
     });
     const count = appendParsedEstimateItems(data.estimateItems || data.items || []);
     if (!count) {
-      const warn0 = (data.warnings && data.warnings[0]) || "";
-      setLineImageParseStatus(
-        warn0 || "明細を抽出できませんでした"
-      );
-      toast(warn0 || "明細を抽出できませんでした");
+      const warn0 = String((data.warnings && data.warnings[0]) || "").trim();
+      // 生ログ・英語 JSON は出さず、日本語案内のみ
+      const looksRaw =
+        !warn0 ||
+        /[{}\[]|models\/|Gemini Vision エラー|\b(404|not found|Exception|FAILED_PRECONDITION)\b/i.test(
+          warn0
+        );
+      const friendly = looksRaw
+        ? "解析エラーが発生しました。時間をおいて再試行してください。"
+        : warn0;
+      setLineImageParseStatus(friendly);
+      toast(friendly);
       return;
     }
-    const warn = (data.warnings && data.warnings[0]) || "";
-    setLineImageParseStatus(`${count}件を明細に追加しました${warn ? `（${warn}）` : ""}`);
+    setLineImageParseStatus(`${count}件を明細に追加しました`);
     toast(`${count}件を明細に追加しました`);
   } catch (e) {
-    setLineImageParseStatus("解析に失敗しました");
-    toastError(e, e.status);
+    const friendly =
+      "解析エラーが発生しました。時間をおいて再試行してください。";
+    console.error("[estimate-v1] parse-line-image failed", e);
+    setLineImageParseStatus(friendly);
+    toast(friendly);
   } finally {
     if (btn) btn.disabled = false;
     const cam = $("line-image-input-camera");

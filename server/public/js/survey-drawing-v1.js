@@ -1151,12 +1151,15 @@ async function handleSurveyFileSelected(ev) {
       } catch (fallbackErr) {
         console.error(fallbackErr);
         photoImportBusy = false;
-        alert("解析中にエラーが発生しました。再度お試しください");
+        alert("解析エラーが発生しました。時間をおいて再試行してください。");
       }
     } else {
       // 実機で原因をすぐ追えるよう通知
-      alert("解析中にエラーが発生しました。再度お試しください");
-      notifySurveyPhotoLoadError(file.name, err?.message);
+      alert("解析エラーが発生しました。時間をおいて再試行してください。");
+      notifySurveyPhotoLoadError(
+        file.name,
+        "解析エラーが発生しました。時間をおいて再試行してください。"
+      );
       setTool("pen");
     }
   } finally {
@@ -2154,7 +2157,9 @@ async function runServerAutoDrawLines(file, fileName) {
         console.warn("[survey-drawing] auto-draw local skip", msg);
         return null;
       }
-      throw new Error(msg);
+      throw new Error(
+        "解析エラーが発生しました。時間をおいて再試行してください。"
+      );
     }
 
     // 旧 lineDetect.paths は無視（Gemini SVG のみ採用）

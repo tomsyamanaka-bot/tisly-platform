@@ -277,7 +277,7 @@ export const config = {
       return env("GEMINI_API_KEY");
     },
     get sketchModel() {
-      return env("GEMINI_SKETCH_MODEL", "gemini-2.0-flash");
+      return env("GEMINI_SKETCH_MODEL", "gemini-3.6-flash");
     },
     get sketchProvider() {
       const p = env(
@@ -291,7 +291,7 @@ export const config = {
     get estimateLineModel() {
       return env(
         "GEMINI_ESTIMATE_LINE_MODEL",
-        env("GEMINI_SKETCH_MODEL", "gemini-2.0-flash")
+        env("GEMINI_SKETCH_MODEL", "gemini-3.6-flash")
       );
     },
   },

@@ -115,7 +115,7 @@ normalizeAiWallSvgV1 → layers.aiWallSvg
 | 変数 | 意味 |
 |------|------|
 | `GEMINI_API_KEY` | Vision API キー |
-| `GEMINI_SKETCH_MODEL` | 既定 `gemini-2.0-flash` |
+| `GEMINI_SKETCH_MODEL` | 既定 `gemini-3.6-flash` |
 | `SURVEY_SKETCH_AI_SVG_PROVIDER` | `auto` / `mock` / `gemini` |
 
 `auto`: キー有り → gemini、無し → mock。

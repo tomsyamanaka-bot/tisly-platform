@@ -8,8 +8,8 @@ import sharp from "sharp";
 /** 解析用最大辺（トークン・帯域節約） */
 const ANALYZE_MAX = 1600;
 
-/** 既定モデル（軽量 Vision） */
-const DEFAULT_MODEL = "gemini-2.0-flash";
+/** 既定モデル（軽量 Vision）— gemini-2.0-flash は 2026-06 で廃止 */
+const DEFAULT_MODEL = "gemini-3.6-flash";
 
 export const LINE_IMAGE_GEMINI_PROMPT_V1 = [
   "あなたは電気・空調・防犯工事の見積明細OCRアシスタントです。",

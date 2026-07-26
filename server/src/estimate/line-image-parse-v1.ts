@@ -17,6 +17,28 @@ import { applyTomsMasterPricesToItemsV1 } from "./toms-master-data-v1.js";
 export const LINE_IMAGE_PARSE_V1_SCHEMA = 1 as const;
 export const LINE_IMAGE_PARSE_PROVIDER = "rule_based_v1" as const;
 
+/** UI 向け共通メッセージ（生 API / 英語ログは出さない） */
+export const LINE_IMAGE_PARSE_USER_ERROR_V1 =
+  "解析エラーが発生しました。時間をおいて再試行してください。";
+
+/**
+ * 内部 reason / 英語・JSON ログを UI 向け日本語に正規化
+ */
+export function toLineImageUserWarningV1(raw: string | null | undefined): string {
+  const text = String(raw || "").trim();
+  if (!text) return LINE_IMAGE_PARSE_USER_ERROR_V1;
+  // 既に日本語の運用メッセージはそのまま
+  if (
+    /^(画像から見積明細を抽出できませんでした|OCR失敗のためファイル名から仮明細を生成しました|GEMINI_API_KEY 未設定のため画像OCRを実行できません|forceDemo は廃止されました|Gemini Vision の解析に失敗しました|解析エラーが発生しました|TOMSマスター単価を)/.test(
+      text
+    )
+  ) {
+    return text;
+  }
+  // 内部 reason・API 生ログ・英語 JSON は伏せる
+  return LINE_IMAGE_PARSE_USER_ERROR_V1;
+}
+
 /**
  * テスト用サンプル OCR 文（本番フォールバックには使わない）
  */
@@ -374,7 +396,7 @@ export async function parseEstimateLinesFromImageV1(
       ? "gemini_vision_v1"
       : "gemini_plus_rule_v1";
     if (input.visionOverride.reason) {
-      warnings.push(String(input.visionOverride.reason));
+      warnings.push(toLineImageUserWarningV1(String(input.visionOverride.reason)));
     }
   } else if (imageBuf) {
     const apiKey = getLineImageGeminiApiKeyV1();
@@ -409,13 +431,16 @@ export async function parseEstimateLinesFromImageV1(
         provider = geminiItems.length
           ? "gemini_vision_v1"
           : "gemini_plus_rule_v1";
-        if (vision.reason) warnings.push(vision.reason);
-        if (!vision.ok) {
-          warnings.push("Gemini Vision の解析に失敗しました");
+        if (!vision.ok || (!items.length && vision.reason)) {
+          warnings.push(LINE_IMAGE_PARSE_USER_ERROR_V1);
         }
       } catch (e) {
-        const msg = e instanceof Error ? e.message : "vision failed";
-        warnings.push(`Gemini Vision エラー: ${msg}`);
+        // 生の Gemini / HTTP ログは UI に出さない（サーバログのみ）
+        console.error(
+          "[line-image-parse] Gemini Vision failed",
+          e instanceof Error ? e.message : e
+        );
+        warnings.push(LINE_IMAGE_PARSE_USER_ERROR_V1);
         if (ocrText) {
           items = parseEstimateLinesFromTextV1(ocrText);
           source = "ocrText";
@@ -471,6 +496,6 @@ export async function parseEstimateLinesFromImageV1(
     rawText,
     items: finalItems,
     estimateItems: finalItems.map(toEstimateLineItem),
-    warnings,
+    warnings: warnings.map((w) => toLineImageUserWarningV1(w)),
   };
 }
