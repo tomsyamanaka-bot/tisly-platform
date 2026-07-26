@@ -65,7 +65,7 @@ const COMPLETION_TITLE_SAVE_OK = "タイトルを保存しました";
 const MAX_COMPLETION_PHOTOS = 30;
 const IMAGE_EXT_RE = /\.(jpe?g|png|gif|webp|heic|heif)$/i;
 const COMPLETION_PHOTO_FAIL_MSG = "写真の形式か容量で失敗しました。別の写真で試してください";
-export const ESTIMATE_UI_VERSION = "estimate-ui-v17";
+export const ESTIMATE_UI_VERSION = "estimate-ui-v18";
 /** 一覧・初期化のタイムアウト（短めにして無限ローディングを防ぐ） */
 const INIT_LOAD_TIMEOUT_MS = 12_000;
 const BOOTSTRAP_WATCHDOG_MS = 10_000;
@@ -308,6 +308,7 @@ function newEmptyLine() {
 /**
  * 写真解析結果を既存明細の末尾へ追記。
  * 空の仮行だけなら置き換え、それ以外は append。
+ * 品名タグ・固定メモは付けない。
  */
 function appendParsedEstimateItems(items) {
   const incoming = (items || []).map((it) => ({
@@ -317,10 +318,15 @@ function appendParsedEstimateItems(items) {
     quantity: Number(it.quantity) || 1,
     unitPrice: Number(it.unitPrice) || 0,
     amount: Math.round((Number(it.quantity) || 1) * (Number(it.unitPrice) || 0)),
-    name: String(it.name || "").trim(),
+    name: String(it.name || "")
+      .replace(/\[LINE画像解析\]/gi, "")
+      .replace(/\[写真見積解析\]/gi, "")
+      .trim(),
     unit: String(it.unit || "式"),
-    // 既存メモ表記は互換維持
-    memo: it.memo || "[写真見積解析]",
+    memo: String(it.memo || "")
+      .replace(/\[LINE画像解析\]/gi, "")
+      .replace(/\[写真見積解析\]/gi, "")
+      .trim(),
     fromAiCandidate: true,
   })).filter((it) => it.name);
 
@@ -354,7 +360,7 @@ function toggleLineImageParseActions(show) {
 
 /**
  * 画像を API へ送り、明細を末尾追記する。
- * Vision 未接続時はサーバー側 mock OCR を利用。
+ * サーバー側 Gemini Vision OCR で実画像を解析する。
  */
 async function parseLineImageAndAppend(file) {
   if (!file) return;
@@ -369,19 +375,27 @@ async function parseLineImageAndAppend(file) {
     } catch {
       imageBase64 = "";
     }
+    if (!imageBase64) {
+      setLineImageParseStatus("画像の読み込みに失敗しました");
+      toast("画像の読み込みに失敗しました");
+      return;
+    }
     const data = await api("/parse-line-image", {
       method: "POST",
       body: JSON.stringify({
-        imageBase64: imageBase64 || undefined,
+        imageBase64,
         fileName: file.name || "estimate-photo.jpg",
       }),
       label: "写真で見積もり作成",
-      timeoutMs: 20_000,
+      timeoutMs: 60_000,
     });
     const count = appendParsedEstimateItems(data.estimateItems || data.items || []);
     if (!count) {
-      setLineImageParseStatus("明細を抽出できませんでした");
-      toast("明細を抽出できませんでした");
+      const warn0 = (data.warnings && data.warnings[0]) || "";
+      setLineImageParseStatus(
+        warn0 || "明細を抽出できませんでした"
+      );
+      toast(warn0 || "明細を抽出できませんでした");
       return;
     }
     const warn = (data.warnings && data.warnings[0]) || "";

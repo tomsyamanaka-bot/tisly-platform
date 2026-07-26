@@ -161,30 +161,34 @@ estimateV1Router.get("/line-templates/:id/items", ...estimateV1Auth, (req: Authe
 });
 
 /**
- * LINEメモ・写真から見積明細を抽出（mock Vision / rule_based）。
+ * LINEメモ・写真から見積明細を抽出（Gemini Vision + rule）。
  * 既存明細はクライアント側で末尾 append する。
  */
-estimateV1Router.post("/parse-line-image", ...estimateV1Auth, (req: AuthedRequest, res) => {
-  if (!assertEstimateV1Role(req, res)) return;
-  try {
-    const body = (req.body || {}) as {
-      ocrText?: string;
-      fileName?: string;
-      imageBase64?: string;
-      forceDemo?: boolean;
-    };
-    const result = parseEstimateLinesFromImageV1({
-      ocrText: body.ocrText,
-      fileName: body.fileName,
-      imageBase64: body.imageBase64,
-      forceDemo: body.forceDemo === true,
-    });
-    res.json(result);
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "parse failed";
-    res.status(400).json({ error: msg });
+estimateV1Router.post(
+  "/parse-line-image",
+  ...estimateV1Auth,
+  async (req: AuthedRequest, res) => {
+    if (!assertEstimateV1Role(req, res)) return;
+    try {
+      const body = (req.body || {}) as {
+        ocrText?: string;
+        fileName?: string;
+        imageBase64?: string;
+        forceDemo?: boolean;
+      };
+      const result = await parseEstimateLinesFromImageV1({
+        ocrText: body.ocrText,
+        fileName: body.fileName,
+        imageBase64: body.imageBase64,
+        forceDemo: body.forceDemo === true,
+      });
+      res.json(result);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "parse failed";
+      res.status(400).json({ error: msg });
+    }
   }
-});
+);
 
 estimateV1Router.post("/from-survey/:surveyProjectId", ...estimateV1Auth, async (req: AuthedRequest, res) => {
   if (!assertEstimateV1Role(req, res)) return;

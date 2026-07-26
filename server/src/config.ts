@@ -287,5 +287,12 @@ export const config = {
       if (p === "mock" || p === "gemini") return p;
       return "auto" as const;
     },
+    /** 見積 LINE 画像 OCR 用モデル（未設定時は sketch と同値） */
+    get estimateLineModel() {
+      return env(
+        "GEMINI_ESTIMATE_LINE_MODEL",
+        env("GEMINI_SKETCH_MODEL", "gemini-2.0-flash")
+      );
+    },
   },
 };

@@ -1,5 +1,16 @@
 # Phase 完了ログ
 
+## AI画像見積解析 v1.1 — Gemini Vision 本番化（2026-07-26）
+
+### 完了
+
+- [x] ポールライト / VVF 等の固定デモ明細返却を廃止
+- [x] `line-image-gemini-vision-v1.ts`（Gemini OCR + JSON）
+- [x] 円表記パーサ（`105,000円` / `×3台` / `施工費`）
+- [x] `[LINE画像解析]` 品名タグ・固定メモを削除
+- [x] estimate-ui-v18 · タイムアウト 60s
+- [x] `line-image-parse-v1.test.ts` 更新
+
 ## 写真で見積もり作成 UI 統合（2026-07-25）
 
 ### 完了
