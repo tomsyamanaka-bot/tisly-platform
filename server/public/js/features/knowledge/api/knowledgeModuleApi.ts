@@ -57,6 +57,8 @@ export async function uploadKnowledgeModulePdf(
   file: File
 ): Promise<{ pdf_url: string; fileName: string }> {
   const base64 = await readFileAsBase64(file);
+  // 互換エンドポイント名（PDF以外の
+  // メディアも同一 API で保存）
   return api("/module-v1/upload-pdf", {
     method: "POST",
     body: JSON.stringify({ fileName: file.name, fileBase64: base64 }),

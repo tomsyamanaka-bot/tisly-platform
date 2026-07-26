@@ -344,7 +344,7 @@
   color: var(--tisly-muted, #6a737d);
 }
 
-/* PDF添付 */
+/* PDF / メディア添付 */
 .kn-pdf-upload {
   margin-bottom: 0.55rem;
 }
@@ -370,7 +370,9 @@
 
 .kn-pdf-drop.has-file {
   flex-direction: row;
+  flex-wrap: wrap;
   justify-content: flex-start;
+  align-items: center;
   min-height: 3.5rem;
 }
 
@@ -419,6 +421,60 @@
   font-size: 0.85rem;
   color: #b91c1c;
   font-weight: 700;
+}
+
+/* 添付プレビュー（選択直後） */
+.kn-media-thumb {
+  width: 4.5rem;
+  height: 4.5rem;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  background: #e2e8f0;
+  flex: 0 0 auto;
+}
+
+.kn-media-thumb-video {
+  object-fit: contain;
+  background: #0f172a;
+}
+
+/* カード内メディア表示 */
+.kn-card-media-link,
+.kn-card-media-block {
+  position: relative;
+  display: block;
+  margin: 0 0 0.65rem;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--tisly-border, #e1e4e8);
+  background: #0f172a;
+}
+
+.kn-card-media-preview {
+  display: block;
+  width: 100%;
+  max-height: 14rem;
+  object-fit: cover;
+  vertical-align: middle;
+}
+
+.kn-card-media-video {
+  max-height: 16rem;
+  object-fit: contain;
+  background: #0f172a;
+}
+
+.kn-card-media-badge {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.78);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 800;
 }
 
 /* トースト */

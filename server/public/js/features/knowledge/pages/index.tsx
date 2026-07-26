@@ -68,7 +68,8 @@ function Toast({ message }: { message: string }) {
 
 /**
  * Knowledge メイン画面
- * ジャンル → タグの二段階絞り込み · PDF添付 · タグ入力
+ * ジャンル → タグ絞り込み ·
+ * メディア添付 · タグ入力
  */
 function KnowledgeModulePage() {
   const [items, setItems] = useState<KnowledgeItem[]>([]);
@@ -152,7 +153,7 @@ function KnowledgeModulePage() {
       return;
     }
     if (!summary && !draftPdf) {
-      showToast("メモを入力するか、PDFを添付してください");
+      showToast("メモを入力するか、ファイルを添付してください");
       return;
     }
 
@@ -184,7 +185,7 @@ function KnowledgeModulePage() {
       setDraftBody("");
       setDraftTags([]);
       setDraftPdf(null);
-      showToast(pdfUrl ? "PDF付きで追加しました" : "追加しました");
+      showToast(pdfUrl ? "添付付きで追加しました" : "追加しました");
     } catch (err) {
       showToast(err instanceof Error ? err.message : "保存に失敗しました");
     } finally {
@@ -196,7 +197,7 @@ function KnowledgeModulePage() {
     <>
       <div className="kn-hero">
         <h1>現場ナレッジ</h1>
-        <p>ジャンル · タグ · PDF添付 · すぐ追加</p>
+        <p>ジャンル · タグ · メディア添付 · すぐ追加</p>
       </div>
 
       <SearchBar query={query} onQueryChange={setQuery} onToast={showToast} />
@@ -251,7 +252,9 @@ function KnowledgeModulePage() {
 
       <section className="kn-quick-add">
         <h2 className="kn-quick-add-title">かんたん登録</h2>
-        <p className="kn-quick-add-hint">タイトル · メモ · タグ · PDFを添付して追加</p>
+        <p className="kn-quick-add-hint">
+          タイトル · メモ · タグ · PDF/写真/動画を添付して追加
+        </p>
         <input
           type="text"
           className="kn-field"
@@ -293,7 +296,9 @@ function KnowledgeModulePage() {
           onChange={setDraftTags}
           placeholder="タグ（例: IoT, 施工方法）"
         />
-        <label className="kn-field-label">PDF添付</label>
+        <label className="kn-field-label">
+          メディア・ファイル添付（PDF / 写真 / 動画）
+        </label>
         <PdfUpload file={draftPdf} onChange={setDraftPdf} disabled={saving} />
         <button
           type="button"

@@ -9,7 +9,11 @@ export interface KnowledgeItem {
   /** 大分類（ジャンルタブで絞り込み） */
   genre: string;
   tags: string[];
-  /** 添付PDF（サーバー保存後のURL） */
+  /**
+   * 添付メディア URL（互換のため
+   * フィールド名は pdf_url のまま）。
+   * PDF / 写真 / 動画を格納する。
+   */
   pdf_url?: string | null;
   createdAt: string;
 }

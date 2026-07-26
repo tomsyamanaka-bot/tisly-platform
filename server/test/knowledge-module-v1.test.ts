@@ -87,5 +87,38 @@ describe("knowledge-module-v1 PWA", () => {
     assert.match(src, /module-v1\/upload-pdf/);
     assert.match(src, /kn-card-pdf/);
     assert.match(src, /\.tags\.join\(/);
+    assert.match(
+      src,
+      /application\/pdf,image\/\*,video\/\*/
+    );
+    // esbuild は日本語を \uXXXX 化する
+    assert.match(src, /\\u30D5\\u30A1\\u30A4\\u30EB\\u3092\\u6DFB\\u4ED8/);
+    assert.match(src, /\\u30E1\\u30C7\\u30A3\\u30A2\\u30FB\\u30D5\\u30A1\\u30A4\\u30EB\\u6DFB\\u4ED8/);
+    assert.match(src, /kn-media-thumb/);
+  });
+
+  it("mediaAttachment util and PdfUpload accept media", () => {
+    const utilPath = path.join(
+      publicDir,
+      "js/features/knowledge/utils/mediaAttachment.ts"
+    );
+    assert.ok(fs.existsSync(utilPath));
+    const utilSrc = fs.readFileSync(utilPath, "utf8");
+    assert.match(utilSrc, /detectKnowledgeMediaKind/);
+    assert.match(utilSrc, /\.heic/);
+    assert.match(utilSrc, /\.mp4/);
+
+    const uploadSrc = fs.readFileSync(
+      path.join(publicDir, "js/features/knowledge/components/PdfUpload.tsx"),
+      "utf8"
+    );
+    assert.match(uploadSrc, /ファイルを添付（PDF・写真・動画）/);
+    assert.match(uploadSrc, /application\/pdf,image\/\*,video\/\*/);
+
+    const pageSrc = fs.readFileSync(
+      path.join(publicDir, "js/features/knowledge/pages/index.tsx"),
+      "utf8"
+    );
+    assert.match(pageSrc, /メディア・ファイル添付（PDF \/ 写真 \/ 動画）/);
   });
 });

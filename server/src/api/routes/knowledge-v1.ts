@@ -937,7 +937,7 @@ knowledgeV1Router.get("/mothership/project/:projectNo", ...auth, (req: AuthedReq
   res.json(getMothershipExplorerProjectLinksV1(String(req.params.projectNo)));
 });
 
-/** Knowledge Module v1 — 現場ナレッジ（PDF · タグ） */
+/** Knowledge Module v1 — 現場ナレッジ（PDF/写真/動画 · タグ） */
 knowledgeV1Router.get("/module-v1/items", ...auth, (req: AuthedRequest, res) => {
   if (!assertRole(req, res)) return;
   const items = listKnowledgeModuleItemsV1();
@@ -971,6 +971,6 @@ knowledgeV1Router.post("/module-v1/upload-pdf", ...auth, (req: AuthedRequest, re
     });
     res.status(201).json(result);
   } catch (e) {
-    res.status(400).json({ error: e instanceof Error ? e.message : "PDF upload failed" });
+    res.status(400).json({ error: e instanceof Error ? e.message : "Media upload failed" });
   }
 });

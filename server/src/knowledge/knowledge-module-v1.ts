@@ -1,4 +1,6 @@
-/** TiSLY Knowledge Module v1 — 現場ナレッジ（PDF添付 · タグ付け） */
+/** TiSLY Knowledge Module v1 —
+ * 現場ナレッジ（PDF/写真/動画添付 · タグ）
+ */
 
 import fs from "fs";
 import path from "path";
@@ -14,6 +16,8 @@ export interface KnowledgeModuleItemV1 {
   summary: string;
   genre: string;
   tags: string[];
+  /** 添付 URL（互換のため pdf_url）。
+   * PDF / 画像 / 動画いずれか */
   pdf_url: string | null;
   createdAt: string;
 }
@@ -27,7 +31,90 @@ export interface KnowledgeModuleItemInputV1 {
 }
 
 const MODULE_ITEMS_FILE = "module-items.json";
-const PDF_MAX_BYTES = 15 * 1024 * 1024;
+/** PDF・画像の上限 */
+const MEDIA_MAX_BYTES_DEFAULT = 15 * 1024 * 1024;
+/** 動画は現場撮影向けに大きめ */
+const MEDIA_MAX_BYTES_VIDEO = 80 * 1024 * 1024;
+
+const ALLOWED_EXTS = new Set([
+  ".pdf",
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".heic",
+  ".heif",
+  ".webp",
+  ".mp4",
+  ".mov",
+]);
+
+type MediaKind = "pdf" | "image" | "video";
+
+function mediaKindFromExt(ext: string): MediaKind | null {
+  if (ext === ".pdf") return "pdf";
+  if (
+    ext === ".jpg" ||
+    ext === ".jpeg" ||
+    ext === ".png" ||
+    ext === ".heic" ||
+    ext === ".heif" ||
+    ext === ".webp"
+  ) {
+    return "image";
+  }
+  if (ext === ".mp4" || ext === ".mov") return "video";
+  return null;
+}
+
+/**
+ * マジックバイトで実体を確認。
+ * HEIC/動画は ftyp ベースで緩和判定。
+ */
+function looksLikeAllowedMedia(
+  buffer: Buffer,
+  kind: MediaKind,
+  ext: string
+): boolean {
+  if (buffer.length < 12) return false;
+  if (kind === "pdf") {
+    return buffer.subarray(0, 5).toString("ascii").startsWith("%PDF-");
+  }
+  if (kind === "image") {
+    if (ext === ".jpg" || ext === ".jpeg") {
+      return buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+    }
+    if (ext === ".png") {
+      return (
+        buffer[0] === 0x89 &&
+        buffer[1] === 0x50 &&
+        buffer[2] === 0x4e &&
+        buffer[3] === 0x47
+      );
+    }
+    if (ext === ".webp") {
+      const riff = buffer.subarray(0, 4).toString("ascii");
+      const webp = buffer.subarray(8, 12).toString("ascii");
+      return riff === "RIFF" && webp === "WEBP";
+    }
+    if (ext === ".heic" || ext === ".heif") {
+      const brand = buffer.subarray(4, 8).toString("ascii");
+      const type = buffer.subarray(8, 12).toString("ascii").toLowerCase();
+      return (
+        brand === "ftyp" &&
+        (type.includes("hei") || type.includes("mif") || type.includes("hevc"))
+      );
+    }
+  }
+  if (kind === "video") {
+    // MP4 / MOV は ISO BMFF（ftyp）が多い
+    const brand = buffer.subarray(4, 8).toString("ascii");
+    if (brand === "ftyp") return true;
+    // 一部 MOV は moov から始まる
+    const head = buffer.subarray(4, 8).toString("ascii");
+    return head === "moov" || head === "mdat" || head === "free";
+  }
+  return false;
+}
 
 function getModuleDataPath(): string {
   return path.join(process.cwd(), "data", "knowledge", MODULE_ITEMS_FILE);
@@ -173,7 +260,9 @@ export function createKnowledgeModuleItemV1(
       : String(input.pdf_url).trim() || null;
 
   if (!title) throw new Error("title is required");
-  if (!summary && !pdfUrl) throw new Error("summary is required when no PDF is attached");
+  if (!summary && !pdfUrl) {
+    throw new Error("summary is required when no PDF is attached");
+  }
   if (!genre) throw new Error("genre is required");
 
   const item: KnowledgeModuleItemV1 = {
@@ -192,6 +281,10 @@ export function createKnowledgeModuleItemV1(
   return item;
 }
 
+/**
+ * PDF / 画像 / 動画を保存。
+ * 戻り値の pdf_url は互換フィールド名。
+ */
 export function saveKnowledgeModulePdfV1(input: {
   fileName?: string;
   fileBase64: string;
@@ -199,21 +292,32 @@ export function saveKnowledgeModulePdfV1(input: {
   const base64 = String(input.fileBase64 ?? "").trim();
   if (!base64) throw new Error("fileBase64 is required");
 
-  const originalName = String(input.fileName ?? "attachment.pdf").trim() || "attachment.pdf";
+  const originalName =
+    String(input.fileName ?? "attachment.pdf").trim() || "attachment.pdf";
   const ext = path.extname(originalName).toLowerCase();
-  if (ext !== ".pdf") {
-    throw new Error("Only PDF files are allowed");
+  if (!ALLOWED_EXTS.has(ext)) {
+    throw new Error(
+      "Unsupported file type (allowed: pdf, jpg, jpeg, png, heic, webp, mp4, mov)"
+    );
+  }
+  const kind = mediaKindFromExt(ext);
+  if (!kind) {
+    throw new Error("Unsupported file type");
   }
 
   const buffer = Buffer.from(base64, "base64");
-  if (buffer.length === 0) throw new Error("Invalid PDF data");
-  if (buffer.length > PDF_MAX_BYTES) {
-    throw new Error(`PDF exceeds ${PDF_MAX_BYTES / (1024 * 1024)}MB limit`);
+  if (buffer.length === 0) throw new Error("Invalid file data");
+
+  const maxBytes =
+    kind === "video" ? MEDIA_MAX_BYTES_VIDEO : MEDIA_MAX_BYTES_DEFAULT;
+  if (buffer.length > maxBytes) {
+    throw new Error(
+      `File exceeds ${Math.round(maxBytes / (1024 * 1024))}MB limit`
+    );
   }
 
-  const header = buffer.subarray(0, 5).toString("ascii");
-  if (!header.startsWith("%PDF-")) {
-    throw new Error("File is not a valid PDF");
+  if (!looksLikeAllowedMedia(buffer, kind, ext)) {
+    throw new Error(`File content does not match ${ext} type`);
   }
 
   ensureDirs();
@@ -227,7 +331,9 @@ export function saveKnowledgeModulePdfV1(input: {
   };
 }
 
-export function collectKnowledgeModuleTagsV1(items: KnowledgeModuleItemV1[]): string[] {
+export function collectKnowledgeModuleTagsV1(
+  items: KnowledgeModuleItemV1[]
+): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const item of items) {

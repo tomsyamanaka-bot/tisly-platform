@@ -105,19 +105,19 @@ describe("knowledge-module-v1 store", () => {
     );
   });
 
-  it("saveKnowledgeModulePdfV1 rejects non-PDF", () => {
+  it("saveKnowledgeModulePdfV1 rejects unsupported types", () => {
     assert.throws(
       () =>
         saveKnowledgeModulePdfV1({
           fileName: "note.txt",
           fileBase64: Buffer.from("hello").toString("base64"),
         }),
-      /Only PDF/
+      /Unsupported file type/
     );
   });
 
   it("saveKnowledgeModulePdfV1 stores valid PDF", () => {
-    const pdfBytes = Buffer.from("%PDF-1.4 test content");
+    const pdfBytes = Buffer.from("%PDF-1.4 test content!!");
     const result = saveKnowledgeModulePdfV1({
       fileName: "manual.pdf",
       fileBase64: pdfBytes.toString("base64"),
@@ -125,6 +125,28 @@ describe("knowledge-module-v1 store", () => {
     assert.match(result.pdf_url, /^\/uploads\/knowledge\/module\/.*\.pdf$/);
     const diskPath = path.join(process.cwd(), result.pdf_url.replace(/^\//, ""));
     assert.ok(fs.existsSync(diskPath));
+  });
+
+  it("saveKnowledgeModulePdfV1 stores JPEG and MP4", () => {
+    const jpeg = Buffer.from([
+      0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01,
+    ]);
+    const jpgResult = saveKnowledgeModulePdfV1({
+      fileName: "shot.jpg",
+      fileBase64: jpeg.toString("base64"),
+    });
+    assert.match(jpgResult.pdf_url, /\.jpg$/);
+
+    // ISO BMFF: size + ftyp + brand
+    const mp4 = Buffer.alloc(16, 0);
+    mp4.writeUInt32BE(16, 0);
+    mp4.write("ftyp", 4, "ascii");
+    mp4.write("isom", 8, "ascii");
+    const mp4Result = saveKnowledgeModulePdfV1({
+      fileName: "clip.mp4",
+      fileBase64: mp4.toString("base64"),
+    });
+    assert.match(mp4Result.pdf_url, /\.mp4$/);
   });
 
   it("listKnowledgeModuleItemsV1 includes fab-finish seed knowhow", () => {
@@ -252,7 +274,7 @@ describe("knowledge-module-v1 API", () => {
   });
 
   it("GET uploaded PDF is served statically", async () => {
-    const pdfBytes = Buffer.from("%PDF-1.4 static serve");
+    const pdfBytes = Buffer.from("%PDF-1.4 static serve!!");
     const upload = await request(app)
       .post("/api/knowledge/module-v1/upload-pdf")
       .set("Authorization", `Bearer ${token}`)
@@ -263,5 +285,20 @@ describe("knowledge-module-v1 API", () => {
     const res = await request(app).get(upload.body.pdf_url);
     assert.equal(res.status, 200);
     assert.match(String(res.headers["content-type"] ?? ""), /pdf|octet-stream/i);
+  });
+
+  it("POST /module-v1/upload-pdf accepts JPEG image", async () => {
+    const jpeg = Buffer.from([
+      0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01,
+    ]);
+    const upload = await request(app)
+      .post("/api/knowledge/module-v1/upload-pdf")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        fileName: "field.jpg",
+        fileBase64: jpeg.toString("base64"),
+      });
+    assert.equal(upload.status, 201);
+    assert.match(upload.body.pdf_url, /\.jpg$/);
   });
 });
