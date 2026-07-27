@@ -65,7 +65,7 @@ const COMPLETION_TITLE_SAVE_OK = "タイトルを保存しました";
 const MAX_COMPLETION_PHOTOS = 30;
 const IMAGE_EXT_RE = /\.(jpe?g|png|gif|webp|heic|heif)$/i;
 const COMPLETION_PHOTO_FAIL_MSG = "写真の形式か容量で失敗しました。別の写真で試してください";
-export const ESTIMATE_UI_VERSION = "estimate-ui-v19";
+export const ESTIMATE_UI_VERSION = "estimate-ui-v20";
 /** 一覧・初期化のタイムアウト（短めにして無限ローディングを防ぐ） */
 const INIT_LOAD_TIMEOUT_MS = 12_000;
 const BOOTSTRAP_WATCHDOG_MS = 10_000;
@@ -307,6 +307,17 @@ function newEmptyLine() {
   };
 }
 
+/** 写真解析由来の品名・備考から解析タグを除去（サーバ側でも除去済みの二重防御） */
+function stripEstimateParseTags(text) {
+  return String(text || "")
+    .replace(/\[[^\]]*(?:解析|分析|OCR|AI|Vision)[^\]]*\]/gi, "")
+    .replace(/\[LINE画像解析\]/gi, "")
+    .replace(/\[写真見積解析\]/gi, "")
+    .replace(/\[音声入力\]/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 /**
  * 写真解析結果を既存明細の末尾へ追記。
  * 空の仮行だけなら置き換え、それ以外は append。
@@ -320,15 +331,9 @@ function appendParsedEstimateItems(items) {
     quantity: Number(it.quantity) || 1,
     unitPrice: Number(it.unitPrice) || 0,
     amount: Math.round((Number(it.quantity) || 1) * (Number(it.unitPrice) || 0)),
-    name: String(it.name || "")
-      .replace(/\[LINE画像解析\]/gi, "")
-      .replace(/\[写真見積解析\]/gi, "")
-      .trim(),
+    name: stripEstimateParseTags(it.name || it.title || ""),
     unit: String(it.unit || "式"),
-    memo: String(it.memo || "")
-      .replace(/\[LINE画像解析\]/gi, "")
-      .replace(/\[写真見積解析\]/gi, "")
-      .trim(),
+    memo: stripEstimateParseTags(it.memo || ""),
     fromAiCandidate: true,
   })).filter((it) => it.name);
 

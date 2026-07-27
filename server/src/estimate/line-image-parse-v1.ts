@@ -122,16 +122,135 @@ function normalizeUnit(raw: string): string {
 }
 
 /**
- * 品名から不要タグ・ノイズを除去
+ * 品名・備考から不要タグ・ノイズを除去
+ * （[写真見積解析] [LINE画像解析] 等を生成・残存させない）
  */
 export function cleanEstimateLineNameV1(name: string): string {
   return String(name || "")
+    .replace(/\[[^\]]*(?:解析|分析|OCR|AI|Vision)[^\]]*\]/gi, "")
     .replace(/\[LINE画像解析\]/gi, "")
     .replace(/\[写真見積解析\]/gi, "")
     .replace(/\[音声入力\]/gi, "")
     .replace(/^[-・*●○]\s*/, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+/** 備考欄の解析タグ除去（品名と同じルール） */
+export function cleanEstimateLineMemoV1(memo: string): string {
+  return cleanEstimateLineNameV1(memo);
+}
+
+/** メーカー型番らしい英数字パターン（IHF-3609G / FY-6V-W / RAS-X28N 等） */
+const MODEL_NUMBER_RE =
+  /\b([A-Z]{1,8}-(?:[A-Z]{0,4}\d{1,5}[A-Z0-9]*(?:-[A-Z0-9]+){0,3}))\b/gi;
+
+/** 「型番: XXX」ラベル付き */
+const MODEL_LABEL_RE =
+  /(?:型番|品番|モデル|型式|MODEL(?:\s*NO\.?)?)[：:\s]*([A-Z0-9][A-Z0-9\-_/]{2,})/gi;
+
+/** 型番として採用しない語 */
+const MODEL_NUMBER_BLOCKLIST = new Set(
+  [
+    "LINE",
+    "JPEG",
+    "PNG",
+    "PDF",
+    "HTTP",
+    "HTTPS",
+    "WWW",
+    "SKU",
+    "ASIN",
+    "JAN",
+    "ISBN",
+    "LED",
+    "AC",
+    "DC",
+    "USB",
+    "LAN",
+    "WiFi",
+    "WIFI",
+    "VVF",
+  ].map((s) => s.toUpperCase())
+);
+
+function isPlausibleModelNumberV1(raw: string): boolean {
+  const s = String(raw || "").trim().toUpperCase();
+  if (s.length < 4 || s.length > 32) return false;
+  if (MODEL_NUMBER_BLOCKLIST.has(s)) return false;
+  // 電圧・容量のみは除外
+  if (/^\d+(V|KW|W|A|M|MM)$/i.test(s)) return false;
+  if (/^\d+V$/i.test(s)) return false;
+  // 英字と数字の両方を含むこと（ハイフン区切り含む）
+  if (!/[A-Z]/.test(s) || !/\d/.test(s)) return false;
+  // 数字のみの JAN 等を除外
+  if (/^\d+$/.test(s)) return false;
+  return true;
+}
+
+/**
+ * テキストからメーカー型番候補を抽出（優先順でユニーク）
+ */
+export function extractEstimateModelNumbersV1(text: string): string[] {
+  const found: string[] = [];
+  const src = String(text || "");
+  for (const m of src.matchAll(MODEL_LABEL_RE)) {
+    if (m[1] && isPlausibleModelNumberV1(m[1])) found.push(m[1].trim());
+  }
+  for (const m of src.matchAll(MODEL_NUMBER_RE)) {
+    if (m[1] && isPlausibleModelNumberV1(m[1])) found.push(m[1].trim());
+  }
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const n of found) {
+    const key = n.toUpperCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(n);
+  }
+  return out;
+}
+
+/**
+ * 品名に型番を優先反映する。
+ * 例: "1F書斎 100V 2.2kW" + "IHF-3609G" → "1F書斎 100V 2.2kW (IHF-3609G)"
+ * 例: "エアコン" + "IHF-3609G" → "エアコン IHF-3609G"
+ *
+ * ※ contextText は「同一明細の行」のみ渡すこと（複数明細の全文を渡すと他品の型番が混入する）
+ */
+export function formatEstimateNameWithModelV1(
+  name: string,
+  modelNumber?: string | null,
+  sameLineContext?: string | null
+): string {
+  let cleaned = cleanEstimateLineNameV1(name);
+  const fromField = String(modelNumber || "").trim();
+  const lineCtx = String(sameLineContext || "").trim();
+  const candidates = [
+    ...(fromField && isPlausibleModelNumberV1(fromField) ? [fromField] : []),
+    ...extractEstimateModelNumbersV1(cleaned),
+    // 同一行コンテキストのみ（他明細の型番混入を防ぐ）
+    ...(lineCtx ? extractEstimateModelNumbersV1(lineCtx) : []),
+  ];
+  const model = candidates[0] || "";
+  if (!cleaned && model) return model;
+  if (!model) return cleaned;
+  // 既に品名に型番が含まれていればそのまま
+  if (
+    new RegExp(model.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i").test(cleaned)
+  ) {
+    return cleaned;
+  }
+  // カテゴリ短名ならスペース連結、説明付きなら括弧
+  if (
+    /^(エアコン|空調|換気扇|照明|カメラ|NVR|コンセント|インターホン|配線|部材|商品)([\s　].*)?$/i.test(
+      cleaned
+    ) ||
+    cleaned.length <= 12
+  ) {
+    return cleanEstimateLineNameV1(`${cleaned} ${model}`);
+  }
+  return cleanEstimateLineNameV1(`${cleaned} (${model})`);
 }
 
 /**
@@ -163,8 +282,14 @@ function buildParsedItemV1(input: {
   unit: string;
   unitPrice: number;
   confidence?: number;
+  modelNumber?: string | null;
+  sameLineContext?: string | null;
 }): ParsedLineImageItemV1 | null {
-  const name = cleanEstimateLineNameV1(input.name);
+  const name = formatEstimateNameWithModelV1(
+    input.name,
+    input.modelNumber,
+    input.sameLineContext
+  );
   if (!name || name.length > 120) return null;
   const quantity = Number(input.quantity);
   if (!Number.isFinite(quantity) || quantity <= 0) return null;
@@ -304,7 +429,8 @@ export function parseEstimateLinesFromTextV1(
 }
 
 /**
- * Gemini 構造化 items を Parsed へ変換
+ * Gemini 構造化 items を Parsed へ変換。
+ * 型番は item.modelNumber および品名自身から取得（全文 rawText は使わない）。
  */
 export function mapGeminiItemsToParsedV1(
   items: LineImageGeminiVisionItemV1[]
@@ -317,6 +443,8 @@ export function mapGeminiItemsToParsedV1(
       quantity: it.quantity,
       unit: it.unit,
       unitPrice: it.unitPrice,
+      modelNumber: it.modelNumber,
+      sameLineContext: it.name,
       confidence: 0.95,
     });
     if (!parsed) continue;
@@ -339,7 +467,7 @@ function toEstimateLineItem(item: ParsedLineImageItemV1): EstimateLineItem {
     quantity,
     unitPrice,
     amount: Math.round(quantity * unitPrice),
-    memo: "",
+    memo: cleanEstimateLineMemoV1(""),
     fromAiCandidate: true,
     orderTarget: false,
   };

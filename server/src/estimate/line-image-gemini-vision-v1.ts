@@ -13,24 +13,37 @@ const DEFAULT_MODEL = "gemini-3.6-flash";
 
 export const LINE_IMAGE_GEMINI_PROMPT_V1 = [
   "あなたは電気・空調・防犯工事の見積明細OCRアシスタントです。",
-  "入力画像は LINE トークや手書きメモ、見積スクショです。",
+  "入力画像は LINE トーク・手書きメモ・見積スクショ・EC商品ページ（アイリスプラザ/楽天/Amazon等）のスクリーンショットです。",
   "",
   "【厳守】",
-  "・画像内の品名・数量・単価・金額を正確に読み取れ。",
+  "・画像内の品名・数量・単価・金額・メーカー型番を正確に読み取れ。",
   "・推測で存在しない品目を追加しない。",
   "・説明文や Markdown は出さず、JSON のみ返す。",
   "・出力形式:",
   '{ "rawText": "改行区切りの全文", "items": [',
-  '  { "name": "品名", "quantity": 1, "unit": "式", "unitPrice": 0 }',
+  '  { "name": "品名（型番含む）", "modelNumber": "型番または空文字", "quantity": 1, "unit": "式", "unitPrice": 0 }',
   "] }",
   "・円表記（例: 105,000円）は unitPrice に数値で入れる。",
   "・「×3台」「3台」は quantity / unit に反映する。",
   "・金額が総額で数量がある場合は単価=金額÷数量を優先。",
-  "・品名に [LINE画像解析] 等のタグを付けない。",
+  "・品名・備考・rawText に [LINE画像解析] [写真見積解析] 等のタグを一切付けない。",
+  "",
+  "【型番（最重要）】",
+  "・商品画像・商品ページではメーカー型番を必ず抽出せよ。",
+  "・型番例: IHF-3609G / IHF-4010G-W / FY-6V-W / FY-6V / RAS-X28N / CS-228CEX。",
+  "・name の書き方:",
+  "  - 設置場所・仕様がある場合: 「1F書斎 100V 2.2kW (IHF-3609G)」",
+  "  - 商品カテゴリのみの場合: 「エアコン IHF-3609G」",
+  "  - 型番しか読めない場合: 「IHF-3609G」",
+  "・modelNumber には型番のみを入れる（括弧や円金額は入れない）。",
+  "・JAN・ASIN・SKU・価格・レビュー数など数字のみのコードは型番にしない。",
+  "・サイト名・「ポイント還元」「送料無料」等の販促文言は品名に入れない。",
 ].join("\n");
 
 export interface LineImageGeminiVisionItemV1 {
   name: string;
+  /** メーカー型番（あれば）。品名整形で優先利用 */
+  modelNumber?: string;
   quantity: number;
   unit: string;
   unitPrice: number;
@@ -133,11 +146,32 @@ export function parseLineImageGeminiJsonV1(
       for (const row of parsed.items) {
         if (!row || typeof row !== "object") continue;
         const r = row as Record<string, unknown>;
-        const name = String(r.name ?? "")
-          .replace(/\[LINE画像解析\]/gi, "")
-          .replace(/\[写真見積解析\]/gi, "")
-          .trim();
+        const stripTags = (s: string) =>
+          s
+            .replace(/\[[^\]]*(?:解析|分析|OCR|AI|Vision)[^\]]*\]/gi, "")
+            .replace(/\[LINE画像解析\]/gi, "")
+            .replace(/\[写真見積解析\]/gi, "")
+            .replace(/\[音声入力\]/gi, "")
+            .trim();
+        const title = stripTags(String(r.title ?? ""));
+        let name = stripTags(String(r.name ?? title ?? ""));
+        const modelNumber = stripTags(
+          String(r.modelNumber ?? r.model ?? r.modelNo ?? "")
+        );
+        if (!name && modelNumber) name = modelNumber;
         if (!name) continue;
+        // 型番が別フィールドにあれば品名へ反映（重複は後段でも除去）
+        if (
+          modelNumber &&
+          !new RegExp(
+            modelNumber.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+            "i"
+          ).test(name)
+        ) {
+          name = /エアコン|換気扇|照明|カメラ|工事|施工/i.test(name)
+            ? `${name} ${modelNumber}`
+            : `${name} (${modelNumber})`;
+        }
         const quantity = Number(r.quantity);
         const unitPrice = Number(
           String(r.unitPrice ?? r.amount ?? "0").replace(/[,￥¥円\s]/g, "")
@@ -145,6 +179,7 @@ export function parseLineImageGeminiJsonV1(
         const unit = String(r.unit || "式").trim() || "式";
         items.push({
           name,
+          modelNumber: modelNumber || undefined,
           quantity:
             Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
           unit,

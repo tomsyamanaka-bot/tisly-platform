@@ -1,5 +1,15 @@
 # Phase 完了ログ
 
+## AI画像見積解析 v1.2 — 型番優先・タグ除去（2026-07-27）
+
+### 完了
+
+- [x] `[写真見積解析]` / `[LINE画像解析]` を品名・備考から完全除去
+- [x] Gemini プロンプトに EC 商品型番抽出（`modelNumber`）を追加
+- [x] `formatEstimateNameWithModelV1`（例: `1F書斎 100V 2.2kW (IHF-3609G)`）
+- [x] estimate-ui-v20 · `stripEstimateParseTags`
+- [x] `line-image-parse-v1.test.ts` 更新
+
 ## AI画像見積解析 v1.1 — Gemini Vision 本番化（2026-07-26）
 
 ### 完了

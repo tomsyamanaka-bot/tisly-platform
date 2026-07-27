@@ -220,11 +220,11 @@ describe("toms-master/history API + UI", () => {
     assert.match(html.text, /btn-toms-blast-save/);
     assert.match(html.text, /tab-toms-history/);
     assert.match(html.text, /toms-history-list/);
-    assert.match(html.text, /estimate-ui-v19/);
+    assert.match(html.text, /estimate-ui-v20/);
 
     const js = await request(app).get("/js/estimate-v1.js");
     assert.equal(js.status, 200);
-    assert.match(js.text, /estimate-ui-v19/);
+    assert.match(js.text, /estimate-ui-v20/);
     assert.match(js.text, /blastCopyLineShareText/);
     assert.match(js.text, /blastSaveTomsHistory/);
     assert.match(js.text, /TOMS_HISTORY_LOCAL_KEY/);

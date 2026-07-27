@@ -23,6 +23,8 @@ const {
   parseEstimateLinesFromTextV1,
   parseEstimateLinesFromImageV1,
   cleanEstimateLineNameV1,
+  extractEstimateModelNumbersV1,
+  formatEstimateNameWithModelV1,
 } = await import("../src/estimate/line-image-parse-v1.js");
 const {
   parseLineImageGeminiJsonV1,
@@ -105,6 +107,36 @@ describe("line-image-parse-v1 unit", () => {
       cleanEstimateLineNameV1("施工費 [LINE画像解析]"),
       "施工費"
     );
+    assert.equal(
+      cleanEstimateLineNameV1("[写真見積解析] エアコン IHF-3609G"),
+      "エアコン IHF-3609G"
+    );
+  });
+
+  it("EC商品の型番を品名へ優先反映する", () => {
+    assert.deepEqual(
+      extractEstimateModelNumbersV1(
+        "アイリスプラザ 型番: IHF-3609G 100V 2.2kW"
+      ),
+      ["IHF-3609G"]
+    );
+    assert.ok(
+      extractEstimateModelNumbersV1("IHF-4010G-W / FY-6V-W").includes(
+        "IHF-4010G-W"
+      )
+    );
+    assert.equal(
+      formatEstimateNameWithModelV1("1F書斎 100V 2.2kW", "IHF-3609G"),
+      "1F書斎 100V 2.2kW (IHF-3609G)"
+    );
+    assert.equal(
+      formatEstimateNameWithModelV1("エアコン", "IHF-3609G"),
+      "エアコン IHF-3609G"
+    );
+    assert.equal(
+      formatEstimateNameWithModelV1("エアコン IHF-3609G", "IHF-3609G"),
+      "エアコン IHF-3609G"
+    );
   });
 
   it("Gemini JSON レスポンスをパースできる", () => {
@@ -124,6 +156,27 @@ describe("line-image-parse-v1 unit", () => {
     assert.ok(parsed);
     assert.equal(parsed?.items[0]?.name, "施工費");
     assert.equal(parsed?.items[0]?.unitPrice, 20000);
+  });
+
+  it("Gemini JSON の modelNumber を品名へ反映する", () => {
+    const parsed = parseLineImageGeminiJsonV1(
+      JSON.stringify({
+        rawText: "1F書斎 100V 2.2kW IHF-3609G 89,800円",
+        items: [
+          {
+            name: "1F書斎 100V 2.2kW [写真見積解析]",
+            modelNumber: "IHF-3609G",
+            quantity: 1,
+            unit: "台",
+            unitPrice: 89800,
+          },
+        ],
+      })
+    );
+    assert.ok(parsed);
+    assert.equal(parsed?.items[0]?.name, "1F書斎 100V 2.2kW (IHF-3609G)");
+    assert.equal(parsed?.items[0]?.modelNumber, "IHF-3609G");
+    assert.doesNotMatch(parsed?.items[0]?.name || "", /写真見積解析|LINE画像解析/);
   });
 
   it("visionOverride（実画像相当）で明細化しタグなし", async () => {
@@ -177,12 +230,51 @@ describe("line-image-parse-v1 unit", () => {
     assert.equal(result.estimateItems[1].amount, 42000);
     assert.equal(result.estimateItems[2].name, "施工費");
     assert.ok(
-      result.estimateItems.every((it) => !/LINE画像解析/.test(it.name))
+      result.estimateItems.every(
+        (it) => !/LINE画像解析|写真見積解析/.test(it.name + it.memo)
+      )
     );
     assert.ok(result.estimateItems.every((it) => it.memo === ""));
     assert.ok(
       !result.rawText.includes("ポールライト用ベース加工")
     );
+  });
+
+  it("visionOverride で EC型番を品名へ入れる", async () => {
+    const png = await sharp({
+      create: {
+        width: 320,
+        height: 240,
+        channels: 3,
+        background: { r: 255, g: 255, b: 255 },
+      },
+    })
+      .png()
+      .toBuffer();
+
+    const result = await parseEstimateLinesFromImageV1({
+      imageBase64: png.toString("base64"),
+      fileName: "iris-plaza.png",
+      visionOverride: {
+        rawText: "1F書斎 100V 2.2kW 型番 IHF-3609G 89,800円",
+        items: [
+          {
+            name: "1F書斎 100V 2.2kW",
+            modelNumber: "IHF-3609G",
+            quantity: 1,
+            unit: "台",
+            unitPrice: 89800,
+          },
+        ],
+      },
+    });
+
+    assert.equal(result.estimateItems.length, 1);
+    assert.equal(
+      result.estimateItems[0].name,
+      "1F書斎 100V 2.2kW (IHF-3609G)"
+    );
+    assert.equal(result.estimateItems[0].memo, "");
   });
 });
 
@@ -258,8 +350,9 @@ describe("line-image-parse-v1 API + UI", () => {
     assert.match(js.text, /appendParsedEstimateItems/);
     assert.match(js.text, /parseLineImageAndAppend/);
     assert.match(js.text, /parse-line-image/);
-    assert.match(js.text, /estimate-ui-v19/);
+    assert.match(js.text, /estimate-ui-v20/);
     assert.match(js.text, /60_000/);
+    assert.match(js.text, /stripEstimateParseTags/);
     assert.doesNotMatch(js.text, /memo: it\.memo \|\| "\[写真見積解析\]"/);
   });
 });

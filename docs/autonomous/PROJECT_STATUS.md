@@ -893,11 +893,22 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | Parser | `line-image-parse-v1.ts` — 円表記（`105,000円` / `×3台`）+ 構造化 JSON |
 | 抽出例 | `1F リビング 200V 4.0kw 105,000円` · `FY-6V 14,000円 ×3台` · `施工費 20,000円` |
 | 廃止 | ポールライト / VVF 固定デモ返却 · `[LINE画像解析]` 品名タグ |
-| UI | `estimate-ui-v18` — タイムアウト 60s · メモタグ非付与 |
+| UI | `estimate-ui-v20` — タイムアウト 60s · メモタグ非付与 |
 | API | `POST /api/estimate/v1/parse-line-image`（async · imageBase64） |
 | ENV | `GEMINI_API_KEY` / `GEMINI_ESTIMATE_LINE_MODEL`（任意） |
 | テスト | `server/test/line-image-parse-v1.test.ts` |
 | 写真分離 | 変更なし（現調/完了報告書写真とは無関係） |
+
+### AI画像見積解析 v1.2（完成済み — 型番優先・タグ除去）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | EC商品画像からメーカー型番を品名へ正確反映 · 解析タグ完全除去 |
+| タグ | `[写真見積解析]` `[LINE画像解析]` 等を生成・品名・備考から除去 |
+| 型番 | Gemini `modelNumber` + 正規表現（`IHF-3609G` / `FY-6V-W` 等） |
+| 品名例 | `1F書斎 100V 2.2kW (IHF-3609G)` · `エアコン IHF-3609G` |
+| UI | `estimate-ui-v20` · `stripEstimateParseTags` |
+| テスト | `server/test/line-image-parse-v1.test.ts` |
 
 ### 実運用 Phase22 — お客様UI iPhone Safari 最終確認（完成済み）
 
