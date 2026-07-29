@@ -6,6 +6,9 @@
     "demo": "npm run demo --prefix server",
     "dev": "npm run dev --prefix server",
     "build": "npm run build --prefix server",
+    "build:android": "node scripts/build-android.mjs",
+    "android:keystore": "node scripts/android-keystore.mjs",
+    "android:sync-assetlinks": "node scripts/android-sync-assetlinks.mjs",
     "hash:admin-password": "npm run hash:admin-password --prefix server",
     "vapid:setup": "npm run vapid:setup --prefix server",
     "vapid:generate": "npm run vapid:generate --prefix server"

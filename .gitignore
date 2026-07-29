@@ -39,3 +39,24 @@ backup/
 tv-app/node_modules/
 tv-app/.expo/
 tv-app/dist/
+
+# Android TWA / Bubblewrap (generated + secrets)
+android/node_modules/
+android/local.properties
+android/app-release-bundle.aab
+android/.jdk/
+android/.android-sdk/
+android/android.keystore
+android/*.keystore
+android/app/
+android/gradle/
+android/gradlew
+android/gradlew.bat
+android/build.gradle
+android/settings.gradle
+android/gradle.properties
+android/store_icon.png
+android/*.aab
+android/*.apk
+android/.twa-manifest.build.json
+android/.bubblewrap*

@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.tisly.app",
+      "sha256_cert_fingerprints": [
+        "8A:15:8C:26:54:8B:9B:88:42:5F:20:72:CD:EE:D4:99:DA:7B:91:64:C2:D7:65:44:EF:51:D1:84:49:67:B8:D7"
+      ]
+    }
+  }
+]

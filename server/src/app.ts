@@ -801,6 +801,13 @@ export function createApp(): express.Application {
     res.sendFile(path.join(publicDir, "manifest.webmanifest"));
   });
 
+  // Digital Asset Links for Android TWA (Google Play) — explicit JSON + no-cache for verification
+  app.get("/.well-known/assetlinks.json", (_req, res) => {
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Cache-Control", "no-cache");
+    res.sendFile(path.join(publicDir, ".well-known", "assetlinks.json"));
+  });
+
   app.get("/service-worker.js", (_req, res) => {
     res.setHeader("Service-Worker-Allowed", "/");
     res.sendFile(path.join(publicDir, "service-worker.js"));

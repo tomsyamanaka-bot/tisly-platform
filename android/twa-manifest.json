@@ -1,0 +1,51 @@
+{
+  "packageId": "com.tisly.app",
+  "host": "tisly.jp",
+  "name": "TiSLY",
+  "launcherName": "TiSLY",
+  "display": "standalone",
+  "themeColor": "#1565C0",
+  "themeColorDark": "#0D1117",
+  "navigationColor": "#000000",
+  "navigationColorDark": "#000000",
+  "navigationDividerColor": "#000000",
+  "navigationDividerColorDark": "#000000",
+  "backgroundColor": "#0D1117",
+  "enableNotifications": true,
+  "startUrl": "/app",
+  "iconUrl": "https://tisly.jp/icons/icon-512.png",
+  "maskableIconUrl": "https://tisly.jp/icons/icon-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "tisly"
+  },
+  "appVersionCode": 1,
+  "appVersion": "1.0.0",
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://tisly.jp/manifest.webmanifest",
+  "fallbackType": "customtabs",
+  "features": {
+    "locationDelegation": {
+      "enabled": true
+    }
+  },
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://tisly.jp/",
+  "minSdkVersion": 21,
+  "orientation": "portrait-primary",
+  "fingerprints": [
+    {
+      "name": "upload",
+      "value": "8A:15:8C:26:54:8B:9B:88:42:5F:20:72:CD:EE:D4:99:DA:7B:91:64:C2:D7:65:44:EF:51:D1:84:49:67:B8:D7"
+    }
+  ],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": []
+}
