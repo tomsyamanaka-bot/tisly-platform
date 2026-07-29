@@ -46,6 +46,8 @@ android/local.properties
 android/app-release-bundle.aab
 android/.jdk/
 android/.android-sdk/
+android/.gradle/
+android/build/
 android/android.keystore
 android/*.keystore
 android/app/
