@@ -99,6 +99,7 @@ import { buildSurveyReportHtml } from "./survey/survey-report.js";
 import { remoteTestRouter } from "./api/routes/remote-test.js";
 import { pushRouter } from "./api/routes/push.js";
 import { storageSettingsV1Router } from "./api/routes/storage-settings-v1.js";
+import { tenantSaasV1Router } from "./api/routes/tenant-saas-v1.js";
 import { qnapStorageV1Router } from "./api/routes/qnap-storage-v1.js";
 import { documentsV1Router } from "./api/routes/documents-v1.js";
 import { projectAutomationV1Router } from "./api/routes/project-automation-v1.js";
@@ -172,6 +173,7 @@ export function createApp(): express.Application {
   app.use("/api/work-session/v1", workSessionV1Router);
   app.use("/api/field-checklist/v1", fieldChecklistV1Router);
   app.use("/api/storage/v1/settings", storageSettingsV1Router);
+  app.use("/api/tenant-saas/v1", tenantSaasV1Router);
   app.use("/api/storage/qnap", qnapStorageV1Router);
   app.use("/api/documents/v1", documentsV1Router);
   app.use("/api/master/v1", masterV1Router);

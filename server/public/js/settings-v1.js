@@ -20,14 +20,37 @@ function formatJaDateTime(iso) {
   }
 }
 
-async function api(path, opts = {}) {
+function authHeaders() {
   const token =
     localStorage.getItem("tisly_admin_token") || sessionStorage.getItem("tisly_token") || "";
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  };
+}
+
+async function api(path, opts = {}) {
   const res = await fetch(`/api/storage/v1/settings${path}`, {
     ...opts,
     headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
+      ...authHeaders(),
+      ...(opts.headers || {}),
+    },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err = new Error(data.error || data.message || `HTTP ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
+  return data;
+}
+
+async function tenantSaasApi(path = "", opts = {}) {
+  const res = await fetch(`/api/tenant-saas/v1${path}`, {
+    ...opts,
+    headers: {
+      ...authHeaders(),
       ...(opts.headers || {}),
     },
   });
@@ -54,9 +77,53 @@ function renderSummary(summary) {
   $("status-last-check").textContent = formatJaDateTime(summary.lastCheckedAt);
 }
 
+/**
+ * 月額契約・設定エリアカードを描画
+ * （ダーク高コントラスト UI）
+ */
+function renderTenantSaas(status) {
+  if (!status) return;
+
+  const planEl = $("tenant-saas-plan");
+  const regionEl = $("tenant-saas-region");
+  if (!planEl || !regionEl) return;
+
+  planEl.textContent = status.planStatusLabel || "—";
+  planEl.classList.remove("is-trial", "is-canceled");
+  if (status.plan_status === "trial") planEl.classList.add("is-trial");
+  if (status.plan_status === "canceled") planEl.classList.add("is-canceled");
+
+  regionEl.textContent = `設定エリア: ${status.regionLabel || "—"}`;
+
+  const setText = (id, value) => {
+    const el = $(id);
+    if (el) el.textContent = value ?? "—";
+  };
+  setText("tenant-saas-tenant-id", status.tenant_id || "—");
+  setText("tenant-saas-fee", status.monthlyFeeLabel || "—");
+  setText("tenant-saas-currency", status.currency || "—");
+  setText(
+    "tenant-saas-devices",
+    typeof status.connectedDeviceCount === "number"
+      ? `${status.connectedDeviceCount} 台`
+      : "—"
+  );
+  setText(
+    "tenant-saas-code",
+    status.customerCode
+      ? `${status.customerCode}${status.customerName ? ` · ${status.customerName}` : ""}`
+      : "—"
+  );
+}
+
 async function load() {
   const data = await api("");
   renderSummary(data.summary);
+}
+
+async function loadTenantSaas() {
+  const data = await tenantSaasApi("");
+  renderTenantSaas(data.status);
 }
 
 async function init() {
@@ -78,6 +145,14 @@ async function init() {
     await load();
   } catch (e) {
     toast(e.message || "読み込みに失敗しました");
+  }
+
+  try {
+    await loadTenantSaas();
+  } catch (e) {
+    const planEl = $("tenant-saas-plan");
+    if (planEl) planEl.textContent = "取得失敗";
+    toast(e.message || "契約ステータスの読込に失敗");
   }
 }
 

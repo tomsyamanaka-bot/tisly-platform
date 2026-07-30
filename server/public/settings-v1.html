@@ -28,6 +28,76 @@
       font-size:0.78rem; color:#64748b; font-weight:700;
       padding:0.65rem 0.85rem 0.15rem; margin-top:0.25rem;
     }
+    /* ダークモード・高コントラストの契約カード */
+    .tenant-saas-card {
+      background: linear-gradient(160deg, #0f172a 0%, #1e293b 55%, #0f172a 100%);
+      border: 2px solid #94a3b8;
+      color: #f8fafc;
+      box-shadow: 0 0 0 1px #334155 inset;
+    }
+    .tenant-saas-card h2 {
+      color: #f8fafc;
+      letter-spacing: 0.02em;
+    }
+    .tenant-saas-hint {
+      color: #cbd5e1;
+      font-size: 0.82rem;
+      margin: 0.15rem 0 0.75rem;
+    }
+    .tenant-saas-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+    }
+    .tenant-saas-badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 2.25rem;
+      padding: 0.35rem 0.85rem;
+      border-radius: 8px;
+      font-weight: 800;
+      font-size: 0.95rem;
+      border: 2px solid transparent;
+    }
+    .tenant-saas-badge--status {
+      background: #14532d;
+      color: #bbf7d0;
+      border-color: #4ade80;
+    }
+    .tenant-saas-badge--status.is-trial {
+      background: #713f12;
+      color: #fde68a;
+      border-color: #fbbf24;
+    }
+    .tenant-saas-badge--status.is-canceled {
+      background: #7f1d1d;
+      color: #fecaca;
+      border-color: #f87171;
+    }
+    .tenant-saas-badge--region {
+      background: #1e3a8a;
+      color: #bfdbfe;
+      border-color: #60a5fa;
+    }
+    .tenant-saas-grid {
+      display: grid;
+      grid-template-columns: minmax(7rem, auto) 1fr;
+      gap: 0.4rem 0.85rem;
+      font-size: 0.9rem;
+      margin: 0;
+    }
+    .tenant-saas-grid dt {
+      color: #94a3b8;
+      margin: 0;
+      font-weight: 600;
+    }
+    .tenant-saas-grid dd {
+      margin: 0;
+      color: #f1f5f9;
+      font-weight: 700;
+      word-break: break-all;
+    }
   </style>
 </head>
 <body class="tisly-friendly">
@@ -40,6 +110,23 @@
         <dt>ローカル保存</dt><dd id="status-local" class="status-ok">読み込み中…</dd>
         <dt>QNAP</dt><dd id="status-qnap" class="status-muted">読み込み中…</dd>
         <dt>最終確認</dt><dd id="status-last-check">—</dd>
+      </dl>
+    </div>
+
+    <!-- 組織 SaaS 契約ステータス（ダーク・高コントラスト） -->
+    <div class="friendly-card tenant-saas-card" id="tenant-saas-card" aria-labelledby="tenant-saas-title">
+      <h2 id="tenant-saas-title">月額契約・設定エリア</h2>
+      <p class="tenant-saas-hint">接続デバイスに紐づく組織契約（Tenant）</p>
+      <div class="tenant-saas-badges" id="tenant-saas-badges">
+        <span class="tenant-saas-badge tenant-saas-badge--status" id="tenant-saas-plan">読み込み中…</span>
+        <span class="tenant-saas-badge tenant-saas-badge--region" id="tenant-saas-region">—</span>
+      </div>
+      <dl class="tenant-saas-grid" id="tenant-saas-grid">
+        <dt>組織 ID</dt><dd id="tenant-saas-tenant-id">—</dd>
+        <dt>月額利用料</dt><dd id="tenant-saas-fee">—</dd>
+        <dt>通貨</dt><dd id="tenant-saas-currency">—</dd>
+        <dt>接続デバイス</dt><dd id="tenant-saas-devices">—</dd>
+        <dt>顧客コード</dt><dd id="tenant-saas-code">—</dd>
       </dl>
     </div>
 

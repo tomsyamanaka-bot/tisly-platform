@@ -245,6 +245,7 @@ export function runMigrations(database: Database.Database): void {
   migrateCustomerPortalPhase26V1(database);
   migrateFieldCheckDrawingSyncV1(database);
   migrateTomsEstimateHistoryV1(database);
+  migrateTenantSaasV1(database);
 }
 
 /** TOMS 見積履歴ワンタップ保存 v1 */
@@ -4962,4 +4963,135 @@ function migrateCustomerPortalPhase26V1(database: Database.Database): void {
       `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))`
     )
     .run("migration:customer_portal_phase26_v1", JSON.stringify({ at: now }));
+}
+
+/**
+ * Tenant SaaS v1 — 組織・マルチ通貨・契約状態。
+ * 既存データは削除せず、列追記と NULL 埋めのみ。
+ */
+function migrateTenantSaasV1(database: Database.Database): void {
+  const customerCols: Array<{ name: string; ddl: string }> = [
+    {
+      name: "country_code",
+      ddl: "ALTER TABLE customers ADD COLUMN country_code TEXT DEFAULT 'JP'",
+    },
+    {
+      name: "currency",
+      ddl: "ALTER TABLE customers ADD COLUMN currency TEXT DEFAULT 'JPY'",
+    },
+    {
+      name: "plan_status",
+      ddl: "ALTER TABLE customers ADD COLUMN plan_status TEXT DEFAULT 'active'",
+    },
+    {
+      name: "monthly_fee",
+      ddl: "ALTER TABLE customers ADD COLUMN monthly_fee REAL DEFAULT 0",
+    },
+  ];
+  addColumnsIfMissing(database, "customers", customerCols);
+
+  const deviceCols: Array<{ name: string; ddl: string }> = [
+    {
+      name: "tenant_id",
+      ddl: "ALTER TABLE devices ADD COLUMN tenant_id TEXT",
+    },
+    {
+      name: "country_code",
+      ddl: "ALTER TABLE devices ADD COLUMN country_code TEXT DEFAULT 'JP'",
+    },
+    {
+      name: "currency",
+      ddl: "ALTER TABLE devices ADD COLUMN currency TEXT DEFAULT 'JPY'",
+    },
+    {
+      name: "plan_status",
+      ddl: "ALTER TABLE devices ADD COLUMN plan_status TEXT DEFAULT 'active'",
+    },
+    {
+      name: "monthly_fee",
+      ddl: "ALTER TABLE devices ADD COLUMN monthly_fee REAL DEFAULT 0",
+    },
+  ];
+  addColumnsIfMissing(database, "devices", deviceCols);
+
+  // 既存行の NULL のみ既定値で埋める（上書きしない）
+  database.exec(`
+    UPDATE customers SET
+      country_code = COALESCE(country_code, 'JP'),
+      currency = COALESCE(currency, 'JPY'),
+      plan_status = COALESCE(plan_status, 'active'),
+      monthly_fee = COALESCE(monthly_fee, 0),
+      tenant_id = COALESCE(tenant_id, customer_id)
+    WHERE country_code IS NULL
+       OR currency IS NULL
+       OR plan_status IS NULL
+       OR monthly_fee IS NULL
+       OR tenant_id IS NULL;
+  `);
+
+  database.exec(`
+    UPDATE devices SET
+      tenant_id = COALESCE(
+        tenant_id,
+        (SELECT c.tenant_id FROM customers c WHERE c.customer_id = devices.customer_id),
+        customer_id
+      ),
+      country_code = COALESCE(
+        country_code,
+        (SELECT c.country_code FROM customers c WHERE c.customer_id = devices.customer_id),
+        'JP'
+      ),
+      currency = COALESCE(
+        currency,
+        (SELECT c.currency FROM customers c WHERE c.customer_id = devices.customer_id),
+        'JPY'
+      ),
+      plan_status = COALESCE(
+        plan_status,
+        (SELECT c.plan_status FROM customers c WHERE c.customer_id = devices.customer_id),
+        'active'
+      ),
+      monthly_fee = COALESCE(
+        monthly_fee,
+        (SELECT c.monthly_fee FROM customers c WHERE c.customer_id = devices.customer_id),
+        0
+      )
+    WHERE tenant_id IS NULL
+       OR country_code IS NULL
+       OR currency IS NULL
+       OR plan_status IS NULL
+       OR monthly_fee IS NULL;
+  `);
+
+  const marker = database
+    .prepare("SELECT value_json FROM platform_settings WHERE key = ?")
+    .get("migration:tenant_saas_v1") as { value_json: string } | undefined;
+  if (marker) return;
+
+  // 初回のみデモ顧客の表示用初期値を追記
+  database.exec(`
+    UPDATE customers SET
+      plan_status = 'active',
+      country_code = COALESCE(country_code, 'JP'),
+      currency = COALESCE(currency, 'JPY'),
+      monthly_fee = CASE WHEN COALESCE(monthly_fee, 0) = 0 THEN 9800 ELSE monthly_fee END
+    WHERE customer_code = 'TOMS001';
+
+    UPDATE customers SET
+      plan_status = 'trial',
+      country_code = COALESCE(country_code, 'JP'),
+      currency = COALESCE(currency, 'JPY'),
+      monthly_fee = COALESCE(monthly_fee, 0)
+    WHERE customer_code = 'DEMO001';
+  `);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at)
+       VALUES (?, ?, datetime('now'))`
+    )
+    .run(
+      "migration:tenant_saas_v1",
+      JSON.stringify({ at: new Date().toISOString(), version: "v1" })
+    );
 }

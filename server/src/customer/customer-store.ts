@@ -9,10 +9,20 @@ import type {
   DeviceTypePro,
 } from "./types.js";
 
+/** 顧客 SELECT — SaaS 列は COALESCE で既定値 */
+const CUSTOMER_SELECT_COLS = `
+  customer_id, customer_code, customer_name, plan, status, tenant_id,
+  COALESCE(country_code, 'JP') as country_code,
+  COALESCE(currency, 'JPY') as currency,
+  COALESCE(plan_status, 'active') as plan_status,
+  COALESCE(monthly_fee, 0) as monthly_fee,
+  created_at, updated_at
+`;
+
 export function getCustomerByCode(code: string): CustomerRow | undefined {
   return getDatabase()
     .prepare(
-      `SELECT customer_id, customer_code, customer_name, plan, status, tenant_id, created_at, updated_at
+      `SELECT ${CUSTOMER_SELECT_COLS}
        FROM customers WHERE customer_code = ? COLLATE NOCASE AND status != 'deleted'`
     )
     .get(code.toUpperCase()) as CustomerRow | undefined;
@@ -21,7 +31,7 @@ export function getCustomerByCode(code: string): CustomerRow | undefined {
 export function getCustomerById(id: string): CustomerRow | undefined {
   return getDatabase()
     .prepare(
-      `SELECT customer_id, customer_code, customer_name, plan, status, tenant_id, created_at, updated_at
+      `SELECT ${CUSTOMER_SELECT_COLS}
        FROM customers WHERE customer_id = ? AND status != 'deleted'`
     )
     .get(id) as CustomerRow | undefined;
@@ -29,9 +39,9 @@ export function getCustomerById(id: string): CustomerRow | undefined {
 
 export function listCustomers(activeOnly = true): CustomerRow[] {
   const sql = activeOnly
-    ? `SELECT customer_id, customer_code, customer_name, plan, status, tenant_id, created_at, updated_at
+    ? `SELECT ${CUSTOMER_SELECT_COLS}
        FROM customers WHERE status = 'active' ORDER BY customer_name`
-    : `SELECT customer_id, customer_code, customer_name, plan, status, tenant_id, created_at, updated_at
+    : `SELECT ${CUSTOMER_SELECT_COLS}
        FROM customers ORDER BY customer_name`;
   return getDatabase().prepare(sql).all() as CustomerRow[];
 }
@@ -68,6 +78,12 @@ export interface CustomerDeviceView {
   heartbeatStatus: string;
   deviceStatus?: string;
   online: boolean;
+  /** 組織 ID（バイアウト単位） */
+  tenantId?: string | null;
+  countryCode?: string | null;
+  currency?: string | null;
+  planStatus?: string | null;
+  monthlyFee?: number | null;
 }
 
 function isOnline(lastSeen: string | null, heartbeatStatus: string): boolean {
@@ -85,12 +101,18 @@ export function listDevicesForCustomer(customerId: string): CustomerDeviceView[]
     .prepare(
       `SELECT id, device_id, device_type, label, site_id, customer_id, serial_number,
               firmware_version, last_seen, last_heartbeat_at, first_seen, heartbeat_status,
-              device_status, metadata_json
+              device_status, metadata_json, tenant_id, country_code, currency,
+              plan_status, monthly_fee
        FROM devices
        WHERE customer_id = ? OR json_extract(metadata_json, '$.tenant_id') = ?
+          OR tenant_id = ?
        ORDER BY device_type, label`
     )
-    .all(customerId, customer.tenant_id ?? customerId) as Array<{
+    .all(
+      customerId,
+      customer.tenant_id ?? customerId,
+      customer.tenant_id ?? customerId
+    ) as Array<{
     id: string;
     device_id: string;
     device_type: string;
@@ -105,6 +127,11 @@ export function listDevicesForCustomer(customerId: string): CustomerDeviceView[]
     heartbeat_status: string;
     device_status: string | null;
     metadata_json: string | null;
+    tenant_id: string | null;
+    country_code: string | null;
+    currency: string | null;
+    plan_status: string | null;
+    monthly_fee: number | null;
   }>;
 
   return rows.map((r) => {
@@ -126,6 +153,11 @@ export function listDevicesForCustomer(customerId: string): CustomerDeviceView[]
       heartbeatStatus: r.heartbeat_status,
       deviceStatus,
       online,
+      tenantId: r.tenant_id ?? customer.tenant_id ?? customerId,
+      countryCode: r.country_code ?? customer.country_code ?? "JP",
+      currency: r.currency ?? customer.currency ?? "JPY",
+      planStatus: r.plan_status ?? customer.plan_status ?? "active",
+      monthlyFee: r.monthly_fee ?? customer.monthly_fee ?? 0,
     };
   });
 }
@@ -216,12 +248,24 @@ export function ensureDemoDevice(input: {
   const db = getDatabase();
   const now = new Date().toISOString();
   const status = input.online !== false ? "ok" : "offline";
+  const customer = getCustomerById(input.customerId);
+  const tenantId = customer?.tenant_id ?? input.customerId;
+  const countryCode = customer?.country_code ?? "JP";
+  const currency = customer?.currency ?? "JPY";
+  const planStatus = customer?.plan_status ?? "active";
+  const monthlyFee = customer?.monthly_fee ?? 0;
   const existing = db.prepare("SELECT id FROM devices WHERE id = ? OR device_id = ?").get(input.id, input.deviceId);
   if (existing) {
     db.prepare(
       `UPDATE devices SET customer_id = ?, site_id = ?, device_type = ?, label = ?,
         serial_number = ?, firmware_version = ?, last_seen = ?, last_heartbeat_at = ?,
-        heartbeat_status = ?, metadata_json = ?, updated_at = datetime('now')
+        heartbeat_status = ?, metadata_json = ?,
+        tenant_id = COALESCE(tenant_id, ?),
+        country_code = COALESCE(country_code, ?),
+        currency = COALESCE(currency, ?),
+        plan_status = COALESCE(plan_status, ?),
+        monthly_fee = COALESCE(monthly_fee, ?),
+        updated_at = datetime('now')
        WHERE id = ? OR device_id = ?`
     ).run(
       input.customerId,
@@ -233,7 +277,12 @@ export function ensureDemoDevice(input: {
       now,
       now,
       status,
-      JSON.stringify({ tenant_id: input.customerId, site_id: input.siteId }),
+      JSON.stringify({ tenant_id: tenantId, site_id: input.siteId }),
+      tenantId,
+      countryCode,
+      currency,
+      planStatus,
+      monthlyFee,
       input.id,
       input.deviceId
     );
@@ -241,8 +290,9 @@ export function ensureDemoDevice(input: {
   }
   db.prepare(
     `INSERT INTO devices (id, device_type, platform, device_id, label, customer_id, site_id,
-      serial_number, firmware_version, last_seen, last_heartbeat_at, heartbeat_status, metadata_json)
-     VALUES (?, ?, 'pro-remote', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      serial_number, firmware_version, last_seen, last_heartbeat_at, heartbeat_status, metadata_json,
+      tenant_id, country_code, currency, plan_status, monthly_fee)
+     VALUES (?, ?, 'pro-remote', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     input.id,
     input.deviceType,
@@ -255,7 +305,12 @@ export function ensureDemoDevice(input: {
     now,
     now,
     status,
-    JSON.stringify({ tenant_id: input.customerId, site_id: input.siteId })
+    JSON.stringify({ tenant_id: tenantId, site_id: input.siteId }),
+    tenantId,
+    countryCode,
+    currency,
+    planStatus,
+    monthlyFee
   );
 }
 
