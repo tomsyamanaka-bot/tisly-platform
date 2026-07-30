@@ -1,7 +1,7 @@
 /**
- * TiSLY Neon Dark Mode v1
+ * TiSLY Light UI regression v1
  * 既存DOM/データを消さず、
- * CSS追記と発光アニメのみ適用する。
+ * 白ベースCSSと軽いタップ演出のみ適用。
  */
 
 export const NEON_DARK_VERSION = "neon-dark-v1";
@@ -35,7 +35,7 @@ function ensureNeonStylesheet() {
   document.head.appendChild(link);
 }
 
-/** theme-color をネオン基調へ（追記上書き） */
+/** theme-color を白基調へ（追記上書き） */
 function applyThemeColorMeta() {
   let meta = document.querySelector('meta[name="theme-color"]');
   if (!meta) {
@@ -43,7 +43,7 @@ function applyThemeColorMeta() {
     meta.name = "theme-color";
     document.head.appendChild(meta);
   }
-  meta.setAttribute("content", "#0d0f12");
+  meta.setAttribute("content", "#ffffff");
 }
 
 /**
@@ -106,7 +106,8 @@ function observeDynamicControls() {
 }
 
 /**
- * ネオンダークUIを有効化（追記のみ）
+ * ライトUIを有効化（追記のみ）
+ * クラス名は互換のため維持する。
  * @returns {{ enabled: boolean; version: string }}
  */
 export function enableNeonDarkModeV1() {

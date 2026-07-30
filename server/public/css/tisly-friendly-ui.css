@@ -1,7 +1,7 @@
 /* TiSLY Friendly UI — 全 PWA 標準（一般客向けやさしいデザイン） */
 
 :root {
-  --tisly-bg: #f6f8fa;
+  --tisly-bg: #ffffff;
   --tisly-surface: #ffffff;
   --tisly-blue: #4a90d9;
   --tisly-blue-light: #e8f2fc;
@@ -13,9 +13,9 @@
   --tisly-red-light: #fce8e8;
   --tisly-border: #e1e4e8;
   --tisly-muted: #6a737d;
-  --tisly-text: #24292f;
+  --tisly-text: #333333;
   --tisly-radius: 12px;
-  --tisly-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --tisly-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   --tisly-btn-min-h: 48px;
 }
 
@@ -36,18 +36,19 @@ body.tisly-friendly {
   position: sticky;
   top: 0;
   z-index: 10;
-  /* Phase3: 共通ダークトーン */
-  background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
-  color: #e2e8f0;
+  /* 白ベース回帰 */
+  background: #ffffff;
+  color: #333333;
   padding: 0.85rem 1rem;
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.22);
+  border-bottom: 1px solid #e1e4e8;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
 }
 
 .tisly-friendly header.app-header.blue {
-  background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+  background: #ffffff;
 }
 
 .tisly-friendly header.app-header h1 {
@@ -55,12 +56,13 @@ body.tisly-friendly {
   font-size: 1.15rem;
   flex: 1;
   font-weight: 600;
+  color: #000000;
 }
 
 .tisly-friendly header.app-header .header-btn {
-  background: rgba(255, 255, 255, 0.25);
-  border: none;
-  color: #fff;
+  background: #f5f5f5;
+  border: 1px solid #cccccc;
+  color: #000000;
   padding: 0.45rem 0.75rem;
   border-radius: 8px;
   text-decoration: none;

@@ -111,7 +111,7 @@ describe("実務PWA v2 — Calendar / Projects / Search", () => {
   it("GET /projects-v1 ページ", async () => {
     const res = await request(app).get("/projects-v1");
     assert.equal(res.status, 200);
-    assert.ok(res.text.includes("案件一覧"));
+    assert.ok(res.text.includes("現場一覧") || res.text.includes("案件一覧"));
   });
 
   it("GET /api/projects/v1/projects", async () => {

@@ -1,14 +1,14 @@
 # Phase 完了ログ
 
-## AI画像見積解析 v1.2 — 型番優先・タグ除去（2026-07-27）
+## Light UI 回帰 — 白ベースUI完全復帰（2026-07-31）
 
 ### 完了
 
-- [x] `[写真見積解析]` / `[LINE画像解析]` を品名・備考から完全除去
-- [x] Gemini プロンプトに EC 商品型番抽出（`modelNumber`）を追加
-- [x] `formatEstimateNameWithModelV1`（例: `1F書斎 100V 2.2kW (IHF-3609G)`）
-- [x] estimate-ui-v20 · `stripEstimateParseTags`
-- [x] `line-image-parse-v1.test.ts` 更新
+- [x] ネオンダークを白ベースCSSへ回帰（機能・文言は不変）
+- [x] トップバー/戻る進むを白＋グレー枠へ
+- [x] ログインカード影・#ddd枠・青紫グラデ維持
+- [x] Deployment Summary / フッターを白基調へ
+- [x] SW `tisly-pwa-v2421-light-ui` · theme-color `#ffffff`
 
 ## AI画像見積解析 v1.1 — Gemini Vision 本番化（2026-07-26）
 

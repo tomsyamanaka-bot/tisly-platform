@@ -1,14 +1,14 @@
 /* TiSLY 実務 PWA 共通ナビ — 戻る/進む/アプリ一覧 + 下部タブ
-   Phase3: ディープネイビー×チャコールの共通ダークトーン */
+   白ベース回帰: トップバーもライト基調 */
 
 :root {
   --tisly-nav-h: 52px;
   --tisly-nav-bottom-h: 64px;
-  /* 共通ダーク基調 */
-  --tisly-nav-dark: #0f172a;
-  --tisly-nav-charcoal: #1e293b;
-  /* アクティブタブのハイライト（シアン系） */
-  --tisly-nav-accent: #38bdf8;
+  /* 共通ライト基調 */
+  --tisly-nav-dark: #ffffff;
+  --tisly-nav-charcoal: #f5f5f5;
+  /* アクティブタブのハイライト */
+  --tisly-nav-accent: #4a90d9;
 }
 
 body.has-practical-nav {
@@ -35,37 +35,26 @@ body.has-practical-nav #ops-panels-wrap {
   min-height: var(--tisly-nav-h);
   padding: 0.35rem 0.5rem;
   padding-top: calc(0.35rem + env(safe-area-inset-top, 0px));
-  /* 全画面共通 — ディープネイビー→チャコール */
-  background: linear-gradient(
-    180deg,
-    var(--tisly-nav-dark) 0%,
-    var(--tisly-nav-charcoal) 100%
-  );
-  color: #e2e8f0;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.28);
+  /* 全画面共通 — 白ベース */
+  background: #ffffff;
+  color: #333333;
+  border-bottom: 1px solid #e1e4e8;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
 }
 
-/* 旧テーマクラスはダーク基調に統一（将来ダークモード移行用） */
+/* 旧テーマクラスも白基調に統一 */
 .tisly-practical-topbar.theme-blue,
 .tisly-practical-topbar.theme-green,
 .tisly-practical-topbar.theme-orange {
-  background: linear-gradient(
-    180deg,
-    var(--tisly-nav-dark) 0%,
-    var(--tisly-nav-charcoal) 100%
-  );
-  color: #e2e8f0;
+  background: #ffffff;
+  color: #333333;
 }
 
 .tisly-practical-topbar.theme-hub {
-  background: linear-gradient(
-    180deg,
-    var(--tisly-nav-dark) 0%,
-    var(--tisly-nav-charcoal) 100%
-  );
-  color: #e2e8f0;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.28);
+  background: #ffffff;
+  color: #333333;
+  border-bottom: 1px solid #e1e4e8;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
 }
 
 .tisly-practical-topbar .nav-btn {
@@ -75,10 +64,10 @@ body.has-practical-nav #ops-panels-wrap {
   min-width: 44px;
   min-height: 44px;
   padding: 0.35rem 0.55rem;
-  border: none;
+  border: 1px solid #cccccc;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.12);
-  color: inherit;
+  background: #f5f5f5;
+  color: #000000;
   font-size: 0.88rem;
   font-weight: 600;
   cursor: pointer;
@@ -87,8 +76,9 @@ body.has-practical-nav #ops-panels-wrap {
 }
 
 .tisly-practical-topbar.theme-hub .nav-btn {
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: #f5f5f5;
+  border: 1px solid #cccccc;
+  color: #000000;
 }
 
 .tisly-practical-topbar .nav-btn:disabled,
