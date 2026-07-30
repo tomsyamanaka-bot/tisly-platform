@@ -69,6 +69,6 @@ describe("Operational Phase31 — camera nav footer zoom", () => {
 
   it("service worker bumped for phase31", () => {
     const sw = fs.readFileSync(path.join(publicDir, "service-worker.js"), "utf-8");
-    assert.ok(sw.includes("tisly-pwa-v2419-offline-voice"));
+    assert.ok(sw.includes("tisly-pwa-v2420-neon-dark"));
   });
 });

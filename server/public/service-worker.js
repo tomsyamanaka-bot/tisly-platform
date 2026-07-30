@@ -3,10 +3,11 @@
  * フィールドオペ用アセットを優先キャッシュ */
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
-const SW_VERSION = "tisly-pwa-v2419-offline-voice";
-const OFFLINE_CACHE = "tisly-pwa-shell-v2419-offline-voice";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2419-offline-voice";
-const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2419-offline-voice";
+/* ネオン・ダークUI v1 */
+const SW_VERSION = "tisly-pwa-v2420-neon-dark";
+const OFFLINE_CACHE = "tisly-pwa-shell-v2420-neon-dark";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2420-neon-dark";
+const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2420-neon-dark";
 const ICON_V = "?v=2004";
 
 /** 図面エディタ v1 — ES module 群 */
@@ -39,8 +40,10 @@ const FIELD_OPS_SUPPORT_URLS = [
   "/js/tisly-offline-core-v1.js",
   "/js/tisly-online-indicator-v1.js",
   "/js/tisly-voice-input-v1.js",
+  "/js/tisly-neon-dark-v1.js",
   "/css/tisly-online-indicator-v1.css",
   "/css/tisly-voice-input-v1.css",
+  "/css/tisly-neon-dark-v1.css",
   "/js/tisly-navigation-stack-v1.js",
   "/js/tisly-navigation-stack-shared-v1.js",
   "/js/tisly-return-nav-v1.js",
@@ -116,6 +119,7 @@ const SHELL_URLS = [
   "/css/tisly-friendly-ui.css",
   "/css/tisly-practical-nav.css",
   "/css/tisly-pwa-shell.css",
+  "/css/tisly-neon-dark-v1.css",
   "/survey-v1.html",
   "/estimate-v1.html",
   "/survey-drawing-v1.html",

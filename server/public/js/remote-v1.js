@@ -252,6 +252,13 @@ function init() {
   startPolling();
 
   $("refresh-btn")?.addEventListener("click", () => syncStatus());
+
+  // ネオン発光アニメ（追記・既存制御は維持）
+  import("./tisly-neon-dark-v1.js")
+    .then((m) => {
+      m.mountNeonDarkModeV1();
+    })
+    .catch(() => {});
 }
 
 init();

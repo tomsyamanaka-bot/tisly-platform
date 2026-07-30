@@ -1,0 +1,418 @@
+/* TiSLY Neon Dark Mode v1
+ * 既存CSSは削除せず、クラス追記で上書き適用 */
+
+:root {
+  /* ネオン・ダーク用トークン
+   * （既存 --tisly-* は上書きしない） */
+  --tisly-neon-cyan: #00f2fe;
+  --tisly-neon-blue: #4facfe;
+  --tisly-neon-purple: #a855f7;
+  --tisly-neon-alert: #ff007f;
+  --tisly-neon-off: #6b7280;
+  --tisly-neon-metal: #8b939e;
+  --tisly-neon-bg: #0d0f12;
+  --tisly-neon-bg2: #12151e;
+  --tisly-neon-surface: rgba(18, 21, 30, 0.78);
+  --tisly-neon-border: rgba(0, 242, 254, 0.3);
+  --tisly-neon-glow: 0 0 12px rgba(0, 242, 254, 0.45),
+    0 0 28px rgba(79, 172, 254, 0.28);
+  --tisly-neon-glow-alert: 0 0 12px rgba(255, 0, 127, 0.55),
+    0 0 28px rgba(255, 0, 127, 0.28);
+  --tisly-neon-tap-min: 48px;
+}
+
+/* 本体ダーク基調 — 漆黒〜深グレー */
+body.tisly-neon-dark {
+  --tisly-bg: var(--tisly-neon-bg);
+  --tisly-surface: var(--tisly-neon-surface);
+  --tisly-blue: var(--tisly-neon-blue);
+  --tisly-blue-light: rgba(79, 172, 254, 0.16);
+  --tisly-green: var(--tisly-neon-cyan);
+  --tisly-green-light: rgba(0, 242, 254, 0.14);
+  --tisly-orange: #fbbf24;
+  --tisly-orange-light: rgba(251, 191, 36, 0.14);
+  --tisly-red: var(--tisly-neon-alert);
+  --tisly-red-light: rgba(255, 0, 127, 0.14);
+  --tisly-border: var(--tisly-neon-border);
+  --tisly-muted: #94a3b8;
+  --tisly-text: #e8eef7;
+  --tisly-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
+  --tisly-btn-min-h: var(--tisly-neon-tap-min);
+  background:
+    radial-gradient(
+      ellipse 90% 55% at 50% -8%,
+      rgba(0, 242, 254, 0.1),
+      transparent 55%
+    ),
+    radial-gradient(
+      ellipse 70% 45% at 100% 100%,
+      rgba(79, 172, 254, 0.08),
+      transparent 50%
+    ),
+    linear-gradient(
+      180deg,
+      var(--tisly-neon-bg) 0%,
+      var(--tisly-neon-bg2) 100%
+    );
+  color: var(--tisly-text);
+  color-scheme: dark;
+}
+
+body.tisly-neon-dark.tisly-friendly,
+body.tisly-neon-dark.app-hub-body {
+  background:
+    radial-gradient(
+      ellipse 90% 55% at 50% -8%,
+      rgba(0, 242, 254, 0.1),
+      transparent 55%
+    ),
+    radial-gradient(
+      ellipse 70% 45% at 100% 100%,
+      rgba(79, 172, 254, 0.08),
+      transparent 50%
+    ),
+    linear-gradient(
+      180deg,
+      var(--tisly-neon-bg) 0%,
+      var(--tisly-neon-bg2) 100%
+    );
+  color: var(--tisly-text);
+}
+
+/* ガラスモーフィズム風カード */
+body.tisly-neon-dark .friendly-card,
+body.tisly-neon-dark .list-card,
+body.tisly-neon-dark .card,
+body.tisly-neon-dark .practical-card,
+body.tisly-neon-dark .login-card-friendly,
+body.tisly-neon-dark .hub-app-card,
+body.tisly-neon-dark .rehearsal-summary-card,
+body.tisly-neon-dark .deploy-center-card {
+  background: var(--tisly-neon-surface);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--tisly-neon-border);
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(0, 242, 254, 0.08);
+  color: var(--tisly-text);
+}
+
+body.tisly-neon-dark .friendly-card h2,
+body.tisly-neon-dark .list-card h2,
+body.tisly-neon-dark .practical-label,
+body.tisly-neon-dark .login-card-friendly h2,
+body.tisly-neon-dark .app-hub-header h1,
+body.tisly-neon-dark .practical-title {
+  color: #f1f5f9;
+}
+
+body.tisly-neon-dark .friendly-card p,
+body.tisly-neon-dark .list-card p,
+body.tisly-neon-dark .practical-sub,
+body.tisly-neon-dark .practical-subtitle,
+body.tisly-neon-dark .hint,
+body.tisly-neon-dark .login-hint,
+body.tisly-neon-dark .hub-role-friendly,
+body.tisly-neon-dark .section-hint,
+body.tisly-neon-dark .section-label {
+  color: var(--tisly-muted);
+}
+
+/* 入力欄 — ダーク面＋ネオン枠 */
+body.tisly-neon-dark input,
+body.tisly-neon-dark select,
+body.tisly-neon-dark textarea,
+body.tisly-neon-dark .photo-title-input,
+body.tisly-neon-dark .completion-title-input {
+  background: rgba(13, 15, 18, 0.85);
+  color: var(--tisly-text);
+  border: 1px solid var(--tisly-neon-border);
+  min-height: var(--tisly-neon-tap-min);
+}
+
+body.tisly-neon-dark input:focus,
+body.tisly-neon-dark select:focus,
+body.tisly-neon-dark textarea:focus {
+  outline: none;
+  border-color: var(--tisly-neon-cyan);
+  box-shadow: var(--tisly-neon-glow);
+}
+
+/* ボタン — 最低48px・発光 */
+body.tisly-neon-dark .btn-hero,
+body.tisly-neon-dark .btn-main,
+body.tisly-neon-dark .btn-sub,
+body.tisly-neon-dark .btn-login-friendly,
+body.tisly-neon-dark .btn,
+body.tisly-neon-dark .btn-doc-action,
+body.tisly-neon-dark button.nav-btn {
+  min-height: var(--tisly-neon-tap-min);
+  min-width: var(--tisly-neon-tap-min);
+  touch-action: manipulation;
+}
+
+body.tisly-neon-dark .btn-hero,
+body.tisly-neon-dark .btn-hero-neon,
+body.tisly-neon-dark .btn-login-friendly {
+  background: linear-gradient(
+    135deg,
+    var(--tisly-neon-cyan) 0%,
+    var(--tisly-neon-blue) 55%,
+    var(--tisly-neon-purple) 100%
+  );
+  color: #041018;
+  font-weight: 800;
+  border: 1px solid rgba(0, 242, 254, 0.55);
+  box-shadow: var(--tisly-neon-glow);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+body.tisly-neon-dark .btn-main,
+body.tisly-neon-dark .btn-main.blue,
+body.tisly-neon-dark .btn-decision {
+  background: linear-gradient(
+    180deg,
+    var(--tisly-neon-blue) 0%,
+    #2563eb 100%
+  );
+  color: #f8fafc;
+  border: 1px solid rgba(0, 242, 254, 0.4);
+  box-shadow: var(--tisly-neon-glow);
+}
+
+body.tisly-neon-dark .btn-sub,
+body.tisly-neon-dark .btn-sub.blue {
+  background: rgba(18, 21, 30, 0.65);
+  color: var(--tisly-neon-cyan);
+  border: 1px solid var(--tisly-neon-border);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+body.tisly-neon-dark .btn-hero:active,
+body.tisly-neon-dark .btn-main:active,
+body.tisly-neon-dark .btn-sub:active,
+body.tisly-neon-dark .btn-login-friendly:active,
+body.tisly-neon-dark .tisly-neon-pulse {
+  animation: tisly-neon-tap-glow 0.45s ease-out;
+}
+
+@keyframes tisly-neon-tap-glow {
+  0% {
+    box-shadow:
+      0 0 0 0 rgba(0, 242, 254, 0.75),
+      0 0 18px rgba(79, 172, 254, 0.55);
+  }
+  100% {
+    box-shadow: var(--tisly-neon-glow);
+  }
+}
+
+/* ON / 稼働 / アラート / OFF */
+body.tisly-neon-dark .status-badge.green,
+body.tisly-neon-dark .tisly-neon-on,
+body.tisly-neon-dark .is-on,
+body.tisly-neon-dark [data-neon-state="on"] {
+  background: rgba(0, 242, 254, 0.14);
+  color: var(--tisly-neon-cyan);
+  border: 1px solid rgba(0, 242, 254, 0.45);
+  box-shadow: var(--tisly-neon-glow);
+}
+
+body.tisly-neon-dark .status-badge.orange,
+body.tisly-neon-dark .status-badge.blue {
+  background: rgba(79, 172, 254, 0.14);
+  color: var(--tisly-neon-blue);
+  border: 1px solid rgba(79, 172, 254, 0.4);
+}
+
+body.tisly-neon-dark .tisly-neon-alert,
+body.tisly-neon-dark .error,
+body.tisly-neon-dark [data-neon-state="alert"] {
+  color: var(--tisly-neon-alert);
+  text-shadow: 0 0 10px rgba(255, 0, 127, 0.45);
+}
+
+body.tisly-neon-dark .tisly-neon-off,
+body.tisly-neon-dark .is-off,
+body.tisly-neon-dark [data-neon-state="off"] {
+  background: rgba(107, 114, 128, 0.22);
+  color: var(--tisly-neon-metal);
+  border: 1px solid rgba(139, 147, 158, 0.35);
+  box-shadow: none;
+}
+
+/* スイッチ・リレー制御の大型タップ面 */
+body.tisly-neon-dark .tisly-neon-switch,
+body.tisly-neon-dark .rv-toggle,
+body.tisly-neon-dark [data-neon-control="relay"],
+body.tisly-neon-dark [data-neon-control="switch"] {
+  min-height: var(--tisly-neon-tap-min);
+  min-width: var(--tisly-neon-tap-min);
+  border-radius: 999px;
+  border: 1px solid var(--tisly-neon-border);
+  background: rgba(107, 114, 128, 0.28);
+  color: var(--tisly-neon-metal);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition:
+    box-shadow 0.2s ease,
+    border-color 0.2s ease,
+    background 0.2s ease;
+}
+
+body.tisly-neon-dark .tisly-neon-switch.is-on,
+body.tisly-neon-dark .rv-device.is-on .rv-toggle,
+body.tisly-neon-dark [data-neon-control="relay"].is-on,
+body.tisly-neon-dark [data-neon-control="switch"].is-on {
+  background: linear-gradient(
+    135deg,
+    rgba(0, 242, 254, 0.35),
+    rgba(79, 172, 254, 0.45)
+  );
+  border-color: var(--tisly-neon-cyan);
+  color: #041018;
+  box-shadow: var(--tisly-neon-glow);
+}
+
+body.tisly-neon-dark .tisly-neon-switch.is-alert,
+body.tisly-neon-dark [data-neon-control="relay"].is-alert {
+  background: rgba(255, 0, 127, 0.22);
+  border-color: var(--tisly-neon-alert);
+  color: #fff;
+  box-shadow: var(--tisly-neon-glow-alert);
+}
+
+/* 共通ナビ — ダーク＋シアン発光 */
+body.tisly-neon-dark .tisly-practical-topbar,
+body.tisly-neon-dark .tisly-practical-topbar.theme-blue,
+body.tisly-neon-dark .tisly-practical-topbar.theme-green,
+body.tisly-neon-dark .tisly-practical-topbar.theme-orange,
+body.tisly-neon-dark .tisly-practical-topbar.theme-hub {
+  background: linear-gradient(
+    180deg,
+    #0d0f12 0%,
+    #12151e 100%
+  );
+  border-bottom: 1px solid var(--tisly-neon-border);
+  box-shadow: 0 2px 18px rgba(0, 242, 254, 0.12);
+  color: #e8eef7;
+}
+
+body.tisly-neon-dark .tisly-practical-topbar .nav-btn {
+  min-width: var(--tisly-neon-tap-min);
+  min-height: var(--tisly-neon-tap-min);
+  background: rgba(0, 242, 254, 0.08);
+  border: 1px solid rgba(0, 242, 254, 0.28);
+  color: #e8eef7;
+}
+
+body.tisly-neon-dark .tisly-practical-bottomnav {
+  background: rgba(13, 15, 18, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid var(--tisly-neon-border);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.4);
+}
+
+body.tisly-neon-dark .tisly-practical-bottomnav a,
+body.tisly-neon-dark .tisly-practical-bottomnav button {
+  color: var(--tisly-neon-metal);
+  min-height: var(--tisly-neon-tap-min);
+}
+
+body.tisly-neon-dark .tisly-practical-bottomnav a.active,
+body.tisly-neon-dark .tisly-practical-bottomnav button.active {
+  color: var(--tisly-neon-cyan);
+  text-shadow: 0 0 10px rgba(0, 242, 254, 0.55);
+}
+
+/* App Hub カード強調 */
+body.tisly-neon-dark .practical-card {
+  border-left-color: var(--tisly-neon-cyan);
+}
+
+body.tisly-neon-dark .practical-card:active,
+body.tisly-neon-dark .list-card:active {
+  box-shadow:
+    0 0 0 2px rgba(0, 242, 254, 0.55),
+    var(--tisly-neon-glow);
+}
+
+body.tisly-neon-dark .practical-tag.ready {
+  background: rgba(0, 242, 254, 0.14);
+  color: var(--tisly-neon-cyan);
+}
+
+body.tisly-neon-dark .practical-tag.soon {
+  background: rgba(139, 147, 158, 0.2);
+  color: var(--tisly-neon-metal);
+}
+
+body.tisly-neon-dark .practical-features li::before {
+  color: var(--tisly-neon-cyan);
+}
+
+/* Remote v1 — ガラスカード＋サイバーブルーON */
+body.tisly-neon-dark .rv-device {
+  background: var(--tisly-neon-surface);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--tisly-neon-border);
+  color: var(--tisly-text);
+  min-height: 72px;
+}
+
+body.tisly-neon-dark .rv-device.is-on {
+  --rv-neon-on: var(--tisly-neon-cyan);
+  --rv-neon-glow: rgba(0, 242, 254, 0.45);
+  border-color: var(--tisly-neon-cyan);
+  box-shadow: var(--tisly-neon-glow);
+}
+
+body.tisly-neon-dark .rv-device.is-off {
+  border-color: rgba(139, 147, 158, 0.35);
+  opacity: 0.88;
+}
+
+body.tisly-neon-dark .rv-device-body h2 {
+  color: #f1f5f9;
+}
+
+body.tisly-neon-dark .rv-device.is-on .rv-state-pill {
+  background: rgba(0, 242, 254, 0.16);
+  color: var(--tisly-neon-cyan);
+}
+
+body.tisly-neon-dark .rv-device.is-off .rv-state-pill {
+  background: rgba(107, 114, 128, 0.28);
+  color: var(--tisly-neon-metal);
+}
+
+/* 接続インジケータ整合 */
+body.tisly-neon-dark .tisly-conn-indicator {
+  background: rgba(13, 15, 18, 0.85);
+  border: 1px solid var(--tisly-neon-border);
+  color: var(--tisly-text);
+}
+
+body.tisly-neon-dark .tisly-conn-indicator.is-online {
+  border-color: var(--tisly-neon-cyan);
+  box-shadow: 0 0 12px rgba(0, 242, 254, 0.35);
+}
+
+body.tisly-neon-dark .tisly-conn-indicator.is-offline {
+  border-color: var(--tisly-neon-alert);
+  color: var(--tisly-neon-alert);
+}
+
+/* 軽減モーション配慮 */
+@media (prefers-reduced-motion: reduce) {
+  body.tisly-neon-dark .btn-hero:active,
+  body.tisly-neon-dark .btn-main:active,
+  body.tisly-neon-dark .btn-sub:active,
+  body.tisly-neon-dark .tisly-neon-pulse {
+    animation: none;
+  }
+}

@@ -129,6 +129,13 @@ export function initPracticalNav(opts) {
     })
     .catch(() => {});
 
+  // ネオン・ダークUI（追記のみ・既存DOM非破壊）
+  import("./tisly-neon-dark-v1.js")
+    .then((m) => {
+      m.mountNeonDarkModeV1();
+    })
+    .catch(() => {});
+
   return {
     setTitle(title) {
       if (titleEl) titleEl.textContent = title;

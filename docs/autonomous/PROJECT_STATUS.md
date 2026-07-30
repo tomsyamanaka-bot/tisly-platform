@@ -960,6 +960,20 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | テスト | `server/test/tenant-saas-v1.test.ts` |
 | 確認 | `/settings-v1` · https://tisly.jp/api/health |
 
+### Neon Dark Mode UI v1（完成済み — サイバーパンク高コントラスト）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | 現場PWAをネオン・ダーク（ガラス＋発光）へ刷新 — **既存データ/CSSは削除せず追記** |
+| CSS | `/css/tisly-neon-dark-v1.css` — `#0d0f12` 基調 · cyan `#00f2fe` · blue `#4facfe` · alert `#ff007f` |
+| JS | `/js/tisly-neon-dark-v1.js` — stylesheet注入 · タップ発光 · お客様向けパス除外 |
+| 注入 | `tisly-practical-nav.js` + 実務HTMLへ link 追記 · `/remote-v1` · `/app` |
+| タップ | 主要ボタン/スイッチ/リレー最低 48px · `tisly-neon-tap-glow` |
+| SW | `tisly-pwa-v2420-neon-dark` |
+| テスト | `server/test/neon-dark-ui-v1.test.ts` |
+| 非対象 | `/customer*` · knowledge-customer（白基調維持） |
+| 確認 | `/app` · `/survey-v1` · `/remote-v1` · https://tisly.jp/api/health |
+
 ---
 
 - [CURSOR_SELF_DRIVE_RULES.md](./CURSOR_SELF_DRIVE_RULES.md) — 自走時の行動規範

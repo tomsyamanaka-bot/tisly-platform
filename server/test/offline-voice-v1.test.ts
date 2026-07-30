@@ -75,7 +75,7 @@ describe("Offline + Voice Input v1", () => {
 
   it("service worker caches offline/voice assets and bumps version", () => {
     const sw = read("service-worker.js");
-    assert.match(sw, /tisly-pwa-v2419-offline-voice/);
+    assert.match(sw, /tisly-pwa-v2420-neon-dark/);
     assert.match(sw, /tisly-offline-core-v1\.js/);
     assert.match(sw, /tisly-voice-input-v1\.js/);
     assert.match(sw, /tisly-online-indicator-v1/);
