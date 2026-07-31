@@ -11,11 +11,12 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 
 | 項目 | 状態 |
 |------|------|
-| 実務 PWA テーマ | **白ベース（ライト）** — `tisly-neon-dark` クラス互換のまま CSS をライト回帰 |
-| 背景 | `#ffffff` |
-| テキスト | `#000000` / `#333333` |
+| 実務 PWA テーマ | **白ベース（ライト）× 紺色アクセント** — `tisly-neon-dark` クラス互換のまま CSS をライト回帰 + navy `#1E3A8A` 追記 |
+| 背景 | `#ffffff` 〜 `#F8FAFC` |
+| テキスト | `#0F172A` / `#333333` |
+| メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
 | ログインCTA | 青〜紫グラデ維持（`#4facfe` → `#a855f7`） |
-| SW | `tisly-pwa-v2421-light-ui` |
+| SW | `tisly-pwa-v2422-navy-light-ui` |
 
 ---
 
@@ -985,6 +986,21 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | テスト | `server/test/neon-dark-ui-v1.test.ts` |
 | 非対象 | `/customer*` · knowledge-customer（白基調維持） |
 | 確認 | `/app` · `/survey-v1` · `/remote-v1` · https://tisly.jp/api/health |
+
+### 白ベース×紺色 UI + 見積一覧 QNAP保存 v1（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | 実務PWAを清潔な白ベース×紺色へ統一 · 請求書作成済み案件の見積/請求 PDF を一覧から QNAP 保存 |
+| CSS | `tisly-neon-dark-v1.css` · `tisly-friendly-ui.css` · `tisly-practical-nav.css` に navy `#1E3A8A` 追記（既存削除なし） |
+| 一覧UI | `/estimate-v1` — ゴミ箱横に HardDrive 風「QNAP保存」ボタン（請求書作成済みのみ表示） |
+| API | `POST /api/estimate/v1/projects/:id/qnap-save-invoices-estimates` |
+| 保存先 | `TiSLY_Storage/Invoices_Estimates/YYYY-MM/`（MotherShip パス追記） |
+| フォールバック | 本番未接続/失敗時は mock ミラーへ保存 · 画面は止めない |
+| SW | `tisly-pwa-v2422-navy-light-ui` |
+| コード | `estimate-invoice-qnap-save-v1.ts` · `estimate-v1.js` `listCardActionsHtml` |
+| テスト | `server/test/navy-ui-qnap-list-v1.test.ts` |
+| 確認 | `/estimate-v1` · https://tisly.jp/api/health |
 
 ---
 

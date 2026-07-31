@@ -482,10 +482,16 @@
     .list-card.has-card-delete {
       padding-right: 2.85rem;
     }
+    .list-card.has-card-actions {
+      padding-right: 5.5rem;
+    }
     .list-card .list-card-actions {
       position: absolute;
       top: 0.55rem;
       right: 0.55rem;
+      display: flex;
+      gap: 0.35rem;
+      z-index: 2;
     }
     .list-card .list-card-action[data-action="delete"] {
       min-width: 40px;
@@ -494,6 +500,45 @@
       border-color: #fecaca;
       background: #fef2f2;
       color: #b91c1c;
+    }
+    .list-card .list-card-action[data-action="qnap-save"] {
+      min-width: 40px;
+      min-height: 40px;
+      border-color: #bfdbfe;
+      background: #eff6ff;
+      color: #1e3a8a;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.3rem;
+    }
+    .list-card .list-card-action[data-action="qnap-save"]:disabled,
+    .list-card .list-card-action[data-action="qnap-save"].is-disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      background: #f1f5f9;
+      border-color: #e2e8f0;
+      color: #94a3b8;
+    }
+    .list-card .list-card-action[data-action="qnap-save"] .qnap-save-icon {
+      width: 18px;
+      height: 18px;
+      display: block;
+    }
+    .list-card .list-card-action[data-action="qnap-save"].is-loading {
+      pointer-events: none;
+      opacity: 0.75;
+    }
+    .list-card .list-card-action .qnap-save-spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid #bfdbfe;
+      border-top-color: #1e3a8a;
+      border-radius: 50%;
+      animation: tisly-qnap-spin 0.7s linear infinite;
+    }
+    @keyframes tisly-qnap-spin {
+      to { transform: rotate(360deg); }
     }
     .estimate-bulk-bar {
       position: fixed;

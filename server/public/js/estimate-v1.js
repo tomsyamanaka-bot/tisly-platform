@@ -307,17 +307,6 @@ function newEmptyLine() {
   };
 }
 
-/** 写真解析由来の品名・備考から解析タグを除去（サーバ側でも除去済みの二重防御） */
-function stripEstimateParseTags(text) {
-  return String(text || "")
-    .replace(/\[[^\]]*(?:解析|分析|OCR|AI|Vision)[^\]]*\]/gi, "")
-    .replace(/\[LINE画像解析\]/gi, "")
-    .replace(/\[写真見積解析\]/gi, "")
-    .replace(/\[音声入力\]/gi, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 /**
  * 写真解析結果を既存明細の末尾へ追記。
  * 空の仮行だけなら置き換え、それ以外は append。
@@ -331,9 +320,15 @@ function appendParsedEstimateItems(items) {
     quantity: Number(it.quantity) || 1,
     unitPrice: Number(it.unitPrice) || 0,
     amount: Math.round((Number(it.quantity) || 1) * (Number(it.unitPrice) || 0)),
-    name: stripEstimateParseTags(it.name || it.title || ""),
+    name: String(it.name || "")
+      .replace(/\[LINE画像解析\]/gi, "")
+      .replace(/\[写真見積解析\]/gi, "")
+      .trim(),
     unit: String(it.unit || "式"),
-    memo: stripEstimateParseTags(it.memo || ""),
+    memo: String(it.memo || "")
+      .replace(/\[LINE画像解析\]/gi, "")
+      .replace(/\[写真見積解析\]/gi, "")
+      .trim(),
     fromAiCandidate: true,
   })).filter((it) => it.name);
 
@@ -1178,6 +1173,36 @@ function listCardDeleteBtnHtml() {
   return `<div class="list-card-actions"><button type="button" class="list-card-action" data-action="delete" title="削除" aria-label="削除">🗑</button></div>`;
 }
 
+/** Lucide HardDrive 風アイコン（インライン SVG） */
+function qnapSaveIconSvg() {
+  return `<svg class="qnap-save-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" x2="2" y1="12" y2="12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><line x1="6" x2="6.01" y1="16" y2="16"/><line x1="10" x2="10.01" y1="16" y2="16"/></svg>`;
+}
+
+/** 請求書作成済み（または請求一覧）か */
+function projectHasInvoiceCreated(p) {
+  if (!p) return false;
+  if (p.localOnly) return false;
+  if (p.invoiceId || p.invoiceNo) return true;
+  if (p.standaloneDocKind === "invoice") return true;
+  return false;
+}
+
+/**
+ * 一覧アクション — ゴミ箱の横に QNAP保存
+ * 請求書作成済みのみアクティブ表示
+ */
+function listCardActionsHtml(p, opts = {}) {
+  const forceQnap = opts.forceQnap === true;
+  const canQnap =
+    !p?.localOnly && (forceQnap || projectHasInvoiceCreated(p));
+  // 見積段階・端末内下書きは非表示
+  const showQnap = canQnap;
+  const actions = showQnap
+    ? `<button type="button" class="list-card-action" data-action="qnap-save" title="QNAPへ保存" aria-label="QNAPへ保存">${qnapSaveIconSvg()}</button><button type="button" class="list-card-action" data-action="delete" title="削除" aria-label="削除">🗑</button>`
+    : `<button type="button" class="list-card-action" data-action="delete" title="削除" aria-label="削除">🗑</button>`;
+  return `<div class="list-card-actions">${actions}</div>`;
+}
+
 /** 一覧カード用：件名・現場・金額（番号は出さない） */
 function listCardDetailHtml(p, amount) {
   const subject = projectSubject(p);
@@ -1282,8 +1307,8 @@ function renderInvoiceList(projects) {
   el.innerHTML = projects
     .map(
       (p) => `
-    <div class="friendly-card list-card${selectionMode ? " select-mode-card" : " has-card-delete"}${selectedIds.has(p.businessProjectId) ? " is-selected" : ""}" data-id="${escapeHtml(p.businessProjectId)}" data-local="${p.localOnly ? "1" : "0"}">
-      ${selectionMode ? listSelectCheckboxHtml(p.businessProjectId) : listCardDeleteBtnHtml()}
+    <div class="friendly-card list-card${selectionMode ? " select-mode-card" : p.localOnly ? " has-card-delete" : " has-card-actions"}${selectedIds.has(p.businessProjectId) ? " is-selected" : ""}" data-id="${escapeHtml(p.businessProjectId)}" data-local="${p.localOnly ? "1" : "0"}" data-has-invoice="${p.localOnly ? "0" : "1"}">
+      ${selectionMode ? listSelectCheckboxHtml(p.businessProjectId) : listCardActionsHtml(p, { forceQnap: !p.localOnly })}
       <div class="list-card-main">
         ${invoiceListStatusBadge(p)}
         ${listCardDetailHtml(p, p.invoiceTotal != null ? p.invoiceTotal : p.total)}
@@ -1362,7 +1387,51 @@ function bindSelectableListCards(container) {
       if (!id || bulkDeleteInProgress) return;
       showDeleteConfirmDialog([id]);
     });
+    node.querySelector('[data-action="qnap-save"]')?.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const id = node.dataset.id;
+      const btn = ev.currentTarget;
+      if (!id || btn?.disabled || btn?.classList.contains("is-loading")) return;
+      saveListProjectToQnap(id, btn);
+    });
   });
+}
+
+/** 一覧カードから見積・請求 PDF を QNAP 保存 */
+async function saveListProjectToQnap(projectId, btn) {
+  if (!projectId) return;
+  const originalHtml = btn?.innerHTML;
+  try {
+    if (btn) {
+      btn.classList.add("is-loading");
+      btn.disabled = true;
+      btn.innerHTML = '<span class="qnap-save-spinner" aria-hidden="true"></span>';
+    }
+    const result = await api(
+      `/projects/${encodeURIComponent(projectId)}/qnap-save-invoices-estimates`,
+      {
+        method: "POST",
+        body: "{}",
+        label: "QNAP保存",
+        timeoutMs: 90_000,
+      }
+    );
+    if (result?.ok) {
+      toast(result.message || "QNAPへ見積書・請求書を保存しました");
+    } else {
+      toast(result?.message || result?.error || "QNAP保存に失敗しました");
+    }
+  } catch (e) {
+    // 画面は止めずトーストのみ
+    toast(e?.message || "QNAP保存を完了できませんでした（後で再試行できます）");
+  } finally {
+    if (btn) {
+      btn.classList.remove("is-loading");
+      btn.disabled = false;
+      if (originalHtml != null) btn.innerHTML = originalHtml;
+    }
+  }
 }
 
 function toggleSelection(id, cardNode) {
@@ -1519,8 +1588,8 @@ function renderProjectList(projects) {
   el.innerHTML = projects
     .map(
       (p) => `
-    <div class="friendly-card list-card${selectionMode ? " select-mode-card" : " has-card-delete"}${selectedIds.has(p.businessProjectId) ? " is-selected" : ""}" data-id="${escapeHtml(p.businessProjectId)}" data-local="${p.localOnly ? "1" : "0"}">
-      ${selectionMode ? listSelectCheckboxHtml(p.businessProjectId) : listCardDeleteBtnHtml()}
+    <div class="friendly-card list-card${selectionMode ? " select-mode-card" : projectHasInvoiceCreated(p) ? " has-card-actions" : " has-card-delete"}${selectedIds.has(p.businessProjectId) ? " is-selected" : ""}" data-id="${escapeHtml(p.businessProjectId)}" data-local="${p.localOnly ? "1" : "0"}" data-has-invoice="${projectHasInvoiceCreated(p) ? "1" : "0"}">
+      ${selectionMode ? listSelectCheckboxHtml(p.businessProjectId) : listCardActionsHtml(p)}
       <div class="list-card-main">
         ${estimateListStatusBadge(p)}
         ${listCardDetailHtml(p, p.total)}

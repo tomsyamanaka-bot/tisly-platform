@@ -482,3 +482,55 @@ body.tisly-neon-dark header.app-header .header-btn {
     animation: none;
   }
 }
+
+/* ===== 白ベース × 紺色リニューアル v1（追記・既存トークンは残す） ===== */
+body.tisly-neon-dark {
+  --tisly-navy: #1e3a8a;
+  --tisly-navy-deep: #0f172a;
+  --tisly-navy-mid: #1e293b;
+  --tisly-navy-soft: #e8eef8;
+  --tisly-surface-alt: #f8fafc;
+  --tisly-neon-cyan: #1e3a8a;
+  --tisly-neon-blue: #1e3a8a;
+  --tisly-blue: #1e3a8a;
+  --tisly-blue-light: #e8eef8;
+  --tisly-border: #e2e8f0;
+  --tisly-neon-border: #e2e8f0;
+  background: #ffffff;
+  color: #0f172a;
+}
+
+body.tisly-neon-dark .friendly-card,
+body.tisly-neon-dark .card,
+body.tisly-neon-dark .rv-device {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+body.tisly-neon-dark .btn-main,
+body.tisly-neon-dark .btn-hero,
+body.tisly-neon-dark button.primary,
+body.tisly-neon-dark .btn-primary {
+  background: linear-gradient(180deg, #1e3a8a 0%, #1e293b 100%);
+  color: #ffffff;
+  border-color: #1e3a8a;
+}
+
+body.tisly-neon-dark header.app-header,
+body.tisly-neon-dark header.app-header.blue {
+  background: #ffffff;
+  color: #0f172a;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+body.tisly-neon-dark .status-badge.done {
+  background: #e8eef8;
+  color: #1e3a8a;
+}
+
+body.tisly-neon-dark .list-card-action[data-action="qnap-save"] {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1e3a8a;
+}

@@ -9,6 +9,10 @@
   --tisly-nav-charcoal: #f5f5f5;
   /* アクティブタブのハイライト */
   --tisly-nav-accent: #4a90d9;
+  /* 白ベース × 紺色リニューアル（追記） */
+  --tisly-nav-navy: #1e3a8a;
+  --tisly-nav-navy-mid: #1e293b;
+  --tisly-nav-surface: #f8fafc;
 }
 
 body.has-practical-nav {
@@ -209,4 +213,20 @@ body.has-practical-nav #ops-panels-wrap {
 
 body.has-practical-nav .toast {
   bottom: calc(var(--tisly-nav-bottom-h) + 1rem + env(safe-area-inset-bottom, 0px));
+}
+
+/* 白ベース × 紺色 — ナビ強調（追記） */
+.tisly-practical-topbar {
+  --tisly-nav-accent: var(--tisly-nav-navy, #1e3a8a);
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.tisly-practical-bottomnav a.is-active,
+.tisly-practical-bottomnav button.is-active {
+  color: var(--tisly-nav-navy, #1e3a8a);
+}
+
+.practical-card.featured.estimate {
+  border-left-color: #1e3a8a;
+  box-shadow: 0 4px 14px rgba(30, 58, 138, 0.15);
 }

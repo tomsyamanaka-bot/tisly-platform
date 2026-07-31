@@ -1045,3 +1045,99 @@ body.tisly-friendly {
   color: #1d4ed8;
   font-weight: 600;
 }
+
+/* ===== 白ベース × 紺色リニューアル v1（追記） ===== */
+:root {
+  --tisly-navy: #1e3a8a;
+  --tisly-navy-deep: #0f172a;
+  --tisly-navy-mid: #1e293b;
+  --tisly-navy-soft: #e8eef8;
+  --tisly-surface-alt: #f8fafc;
+}
+
+body.tisly-friendly {
+  --tisly-bg: #ffffff;
+  --tisly-surface: #ffffff;
+  --tisly-blue: #1e3a8a;
+  --tisly-blue-light: #e8eef8;
+  --tisly-border: #e2e8f0;
+  --tisly-text: #0f172a;
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.tisly-friendly header.app-header,
+.tisly-friendly header.app-header.blue {
+  background: #ffffff;
+  color: #0f172a;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.tisly-friendly .btn-main,
+.tisly-friendly .btn-hero,
+.tisly-friendly button.primary {
+  background: linear-gradient(180deg, #1e3a8a 0%, #1e293b 100%);
+  color: #ffffff;
+  border-color: #1e3a8a;
+}
+
+.tisly-friendly .friendly-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+}
+
+.tisly-friendly .list-card-action[data-action="qnap-save"] {
+  min-width: 40px;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1e3a8a;
+  padding: 0.35rem;
+}
+
+.tisly-friendly .list-card-action[data-action="qnap-save"]:disabled,
+.tisly-friendly .list-card-action[data-action="qnap-save"].is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  color: #94a3b8;
+}
+
+.tisly-friendly .list-card-action[data-action="qnap-save"] .qnap-save-icon {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+.tisly-friendly .list-card-action[data-action="qnap-save"].is-loading {
+  pointer-events: none;
+  opacity: 0.75;
+}
+
+.tisly-friendly .list-card-action .qnap-save-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #bfdbfe;
+  border-top-color: #1e3a8a;
+  border-radius: 50%;
+  animation: tisly-qnap-spin 0.7s linear infinite;
+}
+
+@keyframes tisly-qnap-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.tisly-friendly .list-card.has-card-actions {
+  padding-right: 5.5rem;
+}
+
+.tisly-friendly .status-badge.done {
+  background: #e8eef8;
+  color: #1e3a8a;
+}

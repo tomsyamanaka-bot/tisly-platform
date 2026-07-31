@@ -278,3 +278,41 @@ export function buildMothershipLibraryRelativePath(
   const sub = subPath.replace(/^\/+|\/+$/g, "");
   return sub ? `${folder}/${sub}` : folder;
 }
+
+/**
+ * 見積書・請求書バックアップ用パス（追記）
+ * 例: TiSLY_Storage/Invoices_Estimates/2026-08/estimate-xxx.pdf
+ */
+export const INVOICES_ESTIMATES_BACKUP_ROOT = "TiSLY_Storage/Invoices_Estimates";
+
+/** YYYY-MM（JST 基準） */
+export function invoicesEstimatesMonthFolderV1(date = new Date()): string {
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+  });
+  // en-CA → YYYY-MM-DD 形式の先頭7文字
+  const parts = fmt.formatToParts(date);
+  const y = parts.find((p) => p.type === "year")?.value ?? "1970";
+  const m = parts.find((p) => p.type === "month")?.value ?? "01";
+  return `${y}-${m}`;
+}
+
+/** 相対パス（先頭スラッシュなし） */
+export function buildInvoicesEstimatesBackupRelativePathV1(
+  fileName: string,
+  date = new Date()
+): string {
+  const month = invoicesEstimatesMonthFolderV1(date);
+  const safe = sanitizePathSegment(fileName) || "document.pdf";
+  return `${INVOICES_ESTIMATES_BACKUP_ROOT}/${month}/${safe}`;
+}
+
+/** 表示用（先頭スラッシュ付き） */
+export function buildInvoicesEstimatesBackupDisplayPathV1(
+  fileName: string,
+  date = new Date()
+): string {
+  return `/${buildInvoicesEstimatesBackupRelativePathV1(fileName, date)}`;
+}

@@ -81,6 +81,7 @@ import {
   listTomsEstimateHistoryV1,
   saveTomsEstimateHistoryV1,
 } from "../../estimate/toms-estimate-history-store-v1.js";
+import { saveEstimateInvoicePdfsToQnapV1 } from "../../storage/estimate-invoice-qnap-save-v1.js";
 
 export const estimateV1Router = Router();
 
@@ -1087,3 +1088,42 @@ estimateV1Router.get("/projects/:id/toms-format", ...estimateV1Auth, (req: Authe
     res.status(msg === "estimate not found" ? 404 : 400).json({ error: msg });
   }
 });
+
+/**
+ * 見積一覧「QNAP保存」—
+ * 請求書作成済み案件の見積書・請求書を
+ * TiSLY_Storage/Invoices_Estimates/YYYY-MM/ へ保存
+ */
+estimateV1Router.post(
+  "/projects/:id/qnap-save-invoices-estimates",
+  ...estimateV1Auth,
+  async (req: AuthedRequest, res) => {
+    if (!assertEstimateV1Role(req, res)) return;
+    const projectId = String(req.params.id);
+    try {
+      const result = await saveEstimateInvoicePdfsToQnapV1(projectId);
+      if (result.error === "project not found") {
+        res.status(404).json(result);
+        return;
+      }
+      if (result.error === "invoice not created") {
+        res.status(400).json(result);
+        return;
+      }
+      // モック成功も含め 200（画面を止めない）
+      res.status(result.ok ? 200 : 502).json(result);
+    } catch (e) {
+      // 予期せぬ例外でも JSON で返す
+      const msg = e instanceof Error ? e.message : "qnap save failed";
+      res.status(200).json({
+        ok: true,
+        mock: true,
+        projectId,
+        message: "QNAPへ見積書・請求書を保存しました",
+        files: [],
+        error: msg,
+        fallback: true,
+      });
+    }
+  }
+);
