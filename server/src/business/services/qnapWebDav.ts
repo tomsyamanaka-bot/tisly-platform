@@ -336,7 +336,11 @@ export class QnapWebDavClient {
 
     for (const f of files) {
 
-      if (!fs.existsSync(f.localPath)) continue;
+      if (!fs.existsSync(f.localPath)) {
+
+        throw new Error(`Local file missing for WebDAV PUT: ${f.localPath}`);
+
+      }
 
       await this.putFile(f.localPath, f.remotePath);
 

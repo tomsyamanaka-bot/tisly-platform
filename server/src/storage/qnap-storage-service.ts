@@ -37,7 +37,21 @@ export function settingsToWebDavConfig(settings: StorageSettingsV1): QnapUploadC
 export function isQnapStorageMockMode(settings: StorageSettingsV1): boolean {
   if (process.env.QNAP_STORAGE_FORCE_REAL === "true") return false;
   if (process.env.QNAP_STORAGE_MOCK === "true") return true;
-  if (process.env.NODE_ENV === "test") return true;
+  // dotenv override で NODE_ENV が上書きされても、テスト DB ならモック維持
+  const dbPath = (process.env.TISLY_DB_PATH || "").replace(/\\/g, "/");
+  if (process.env.NODE_ENV === "test" || /\/test[-_]|test[-_].*\.db$/i.test(dbPath)) {
+    return true;
+  }
+  // 本番 .env に WebDAV がある場合はモックミラー禁止（実機通信）
+  const envUrl = (process.env.QNAP_WEBDAV_URL || "").trim();
+  const envUser = (
+    process.env.QNAP_WEBDAV_USER ||
+    process.env.QNAP_USERNAME ||
+    ""
+  ).trim();
+  const envPass =
+    process.env.QNAP_WEBDAV_PASSWORD || process.env.QNAP_PASSWORD || "";
+  if (envUrl && envUser && envPass) return false;
   if (!settings.qnapBackupEnabled) return true;
   if (!settings.qnap.host.trim()) return true;
   if (!settings.qnap.username.trim() || !settings.qnap.password) return true;

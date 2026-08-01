@@ -1089,15 +1089,17 @@ body.tisly-friendly {
 .tisly-friendly .list-card-action[data-action="qnap-save"] {
   min-width: 40px;
   min-height: 40px;
-  display: inline-flex;
+  display: inline-flex !important;
   align-items: center;
   justify-content: center;
   border: 1.5px solid #1e3a8a;
   border-color: #1e3a8a;
   background: #eff6ff;
-  color: #1e3a8a;
+  color: #1e3a8a !important;
   padding: 0.35rem;
   order: -1;
+  visibility: visible !important;
+  opacity: 1;
 }
 
 .tisly-friendly .list-card-action[data-action="qnap-save"]:disabled,

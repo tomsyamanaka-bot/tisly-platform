@@ -532,5 +532,7 @@ body.tisly-neon-dark .status-badge.done {
 body.tisly-neon-dark .list-card-action[data-action="qnap-save"] {
   border-color: #1e3a8a;
   background: #eff6ff;
-  color: #1e3a8a;
+  color: #1e3a8a !important;
+  display: inline-flex !important;
+  visibility: visible !important;
 }

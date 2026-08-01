@@ -14,6 +14,7 @@ import {
   type StorageSettingsV1,
 } from "./storage-settings-store.js";
 import { isQnapStorageMockMode, settingsToWebDavConfig } from "./qnap-storage-service.js";
+import { resolveRealQnapWebDavForListSave } from "./estimate-invoice-qnap-save-v1.js";
 
 function mockMirrorRoot(): string {
   return path.join(process.cwd(), "uploads", "qnap-storage-mock");
@@ -56,16 +57,22 @@ async function realUploadPdf(
   localFile: string
 ): Promise<{ ok: true; displayPath: string } | { ok: false; error: string }> {
   try {
-    const cfg = settingsToWebDavConfig(settings);
+    const cfg = resolveRealQnapWebDavForListSave(settings) ?? settingsToWebDavConfig(settings);
     const client = new QnapWebDavClient(cfg);
     const remoteRel = buildQnapPdfRemotePath(row.projectId, row.fileName, row.kind);
-    await client.uploadLocalFiles([{ localPath: localFile, remotePath: remoteRel }]);
+    const count = await client.uploadLocalFiles([
+      { localPath: localFile, remotePath: remoteRel },
+    ]);
+    if (count < 1) {
+      return { ok: false, error: `WebDAV PUT が 0 件でした: ${remoteRel}` };
+    }
     const displayPath = buildQnapPdfDisplayPath(
-      settings.qnap.shareName,
+      settings.qnap.shareName || "TiSLY",
       row.projectId,
       row.fileName,
       row.kind
     );
+    console.log(`[QNAP REAL] PDF backup uploaded — ${remoteRel}`);
     return { ok: true, displayPath };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
@@ -88,7 +95,9 @@ export async function uploadProjectPdfMetaToQnap(row: ProjectPdfMetaRow): Promis
   const settings = getStorageSettingsV1();
   markQnapBackupUploading(row.id);
 
-  const result = isQnapStorageMockMode(settings)
+  // ENV WebDAV がある場合はモック不可。実機のみ。
+  const useMock = isQnapStorageMockMode(settings);
+  const result = useMock
     ? await mockUploadPdf(settings, row, localFile)
     : await realUploadPdf(settings, row, localFile);
 

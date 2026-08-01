@@ -4,6 +4,7 @@
  *
  * 保存先: TiSLY_Storage/Invoices_Estimates/YYYY-MM/
  * モックミラーへのフォールバックは行わない（実機通信のみ）
+ * 接続解決順: .env(QNAP_WEBDAV_*) → ストレージ設定 UI → .env(QNAP_HOST)
  */
 import fs from "fs";
 import path from "path";
@@ -61,18 +62,13 @@ function resolveLocalAbsolute(localPath: string): string | null {
 }
 
 /**
- * ストレージ設定 UI → .env(QNAP_WEBDAV_*) → .env(QNAP_HOST) の順で
- * 実機 WebDAV 設定を解決する。不足時は null（モックへは落とさない）。
+ * 実機 WebDAV 設定を解決する。
+ * 本番 VPS の .env(QNAP_WEBDAV_*) を最優先（ストレージ UI の古い LAN IP より優先）。
+ * 不足時は null（モックへは落とさない）。
  */
 export function resolveRealQnapWebDavForListSave(
   settings?: StorageSettingsV1
 ): QnapUploadConfig | null {
-  const current = settings ?? getStorageSettingsV1();
-  const q = current.qnap;
-  if (q.host.trim() && q.username.trim() && q.password) {
-    return settingsToWebDavConfig(current);
-  }
-
   const envWebDav = getQnapWebDavEnvConfig();
   if (envWebDav.configured) {
     return {
@@ -80,8 +76,14 @@ export function resolveRealQnapWebDavForListSave(
       webdavUrl: envWebDav.webdavUrl,
       username: envWebDav.username,
       password: envWebDav.password,
-      basePath: "/",
+      basePath: envWebDav.baseDir || "/",
     };
+  }
+
+  const current = settings ?? getStorageSettingsV1();
+  const q = current.qnap;
+  if (q.host.trim() && q.username.trim() && q.password) {
+    return settingsToWebDavConfig(current);
   }
 
   const host = (config.qnap.host || process.env.QNAP_HOST || "").trim();
@@ -137,11 +139,25 @@ async function uploadOneReal(
   localAbs: string,
   remoteRel: string
 ): Promise<{ ok: boolean; mock: boolean; error?: string }> {
+  if (!fs.existsSync(localAbs)) {
+    return {
+      ok: false,
+      mock: false,
+      error: `ローカル PDF が見つかりません: ${localAbs}`,
+    };
+  }
   try {
-    const client = new QnapWebDavClient(cfg);
-    await client.uploadLocalFiles([
+    const client = new QnapWebDavClient({ ...cfg, mode: "real" });
+    const count = await client.uploadLocalFiles([
       { localPath: localAbs, remotePath: remoteRel },
     ]);
+    if (count < 1) {
+      return {
+        ok: false,
+        mock: false,
+        error: `WebDAV PUT が 0 件でした: ${remoteRel}`,
+      };
+    }
     console.log(`[QNAP REAL] Invoices_Estimates uploaded — ${remoteRel}`);
     return { ok: true, mock: false };
   } catch (e) {

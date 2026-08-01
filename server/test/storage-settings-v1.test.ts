@@ -8,10 +8,32 @@ process.env.CUSTOMER_DEMO_PASSWORD = "demo-remote-2026";
 process.env.NODE_ENV = "test";
 process.env.TISLY_DB_PATH = "./data/test-storage-settings-v1.db";
 process.env.RATE_LIMIT_PROVIDER = "memory";
+process.env.STORAGE_PROVIDER = "mock";
+process.env.STORAGE_PROVIDER_MOCK = "true";
+delete process.env.QNAP_STORAGE_FORCE_REAL;
+delete process.env.QNAP_WEBDAV_URL;
+delete process.env.QNAP_WEBDAV_USER;
+delete process.env.QNAP_WEBDAV_PASSWORD;
+process.env.QNAP_STORAGE_MOCK = "true";
 
 const { default: request } = await import("supertest");
 const { createApp } = await import("../src/app.js");
 const { closeDatabase, getDatabase } = await import("../src/db/database.js");
+const {
+  STORAGE_SETTINGS_KEY,
+  DEFAULT_STORAGE_SETTINGS,
+} = await import("../src/storage/storage-settings-store.js");
+
+// dotenv override 対策 — createApp 後にテスト用パスを再適用
+process.env.NODE_ENV = "test";
+process.env.TISLY_DB_PATH = "./data/test-storage-settings-v1.db";
+process.env.STORAGE_PROVIDER = "mock";
+process.env.STORAGE_PROVIDER_MOCK = "true";
+process.env.QNAP_STORAGE_MOCK = "true";
+delete process.env.QNAP_STORAGE_FORCE_REAL;
+delete process.env.QNAP_WEBDAV_URL;
+delete process.env.QNAP_WEBDAV_USER;
+delete process.env.QNAP_WEBDAV_PASSWORD;
 
 const app = createApp();
 
@@ -27,10 +49,35 @@ async function surveyorLogin() {
     .send({ customerCode: "TOMS001", username: "toms001.surveyor", password: "demo-remote-2026" });
 }
 
+function resetStorageSettingsRow() {
+  getDatabase()
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at) VALUES (?, ?, datetime('now'))
+       ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at`
+    )
+    .run(
+      STORAGE_SETTINGS_KEY,
+      JSON.stringify({
+        ...DEFAULT_STORAGE_SETTINGS,
+        qnap: { host: "", port: 8080, shareName: "TiSLY", username: "", password: "" },
+        updatedAt: new Date().toISOString(),
+      })
+    );
+}
+
 describe("Storage settings v1 — QNAP 接続設定", () => {
   let ownerToken = "";
 
   before(async () => {
+    process.env.NODE_ENV = "test";
+    process.env.TISLY_DB_PATH = "./data/test-storage-settings-v1.db";
+    process.env.STORAGE_PROVIDER = "mock";
+    process.env.STORAGE_PROVIDER_MOCK = "true";
+    process.env.QNAP_STORAGE_MOCK = "true";
+    delete process.env.QNAP_STORAGE_FORCE_REAL;
+    delete process.env.QNAP_WEBDAV_URL;
+    delete process.env.QNAP_WEBDAV_USER;
+    delete process.env.QNAP_WEBDAV_PASSWORD;
     closeDatabase();
     const dbPath = process.env.TISLY_DB_PATH!;
     for (const p of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) {
@@ -41,6 +88,7 @@ describe("Storage settings v1 — QNAP 接続設定", () => {
       }
     }
     getDatabase();
+    resetStorageSettingsRow();
     const login = await ownerLogin();
     assert.equal(login.status, 200, login.body?.error);
     ownerToken = login.body.token;
