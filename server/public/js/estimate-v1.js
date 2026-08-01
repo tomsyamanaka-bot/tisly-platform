@@ -1187,15 +1187,29 @@ function projectHasInvoiceCreated(p) {
   return false;
 }
 
+/** 見積書の準備ができました（PDF / estimate あり） */
+function projectHasEstimateReady(p) {
+  if (!p) return false;
+  if (p.localOnly) return false;
+  if (p.pdfPath || p.estimateId || p.estimateNo) return true;
+  if (p.standaloneDocKind === "estimate") return true;
+  return false;
+}
+
+/** QNAP保存ボタン表示対象 — 見積準備済み or 請求作成済み */
+function projectHasQnapSaveEligible(p) {
+  if (!p || p.localOnly) return false;
+  return projectHasEstimateReady(p) || projectHasInvoiceCreated(p);
+}
+
 /**
- * 一覧アクション — ゴミ箱の横に QNAP保存
- * 請求書作成済みのみアクティブ表示
+ * 一覧アクション — ゴミ箱の左隣に紺色 QNAP保存
+ * 見積書準備済み / 請求書作成済みで表示
  */
 function listCardActionsHtml(p, opts = {}) {
   const forceQnap = opts.forceQnap === true;
   const canQnap =
-    !p?.localOnly && (forceQnap || projectHasInvoiceCreated(p));
-  // 見積段階・端末内下書きは非表示
+    !p?.localOnly && (forceQnap || projectHasQnapSaveEligible(p));
   const showQnap = canQnap;
   const actions = showQnap
     ? `<button type="button" class="list-card-action" data-action="qnap-save" title="QNAPへ保存" aria-label="QNAPへ保存">${qnapSaveIconSvg()}</button><button type="button" class="list-card-action" data-action="delete" title="削除" aria-label="削除">🗑</button>`
@@ -1588,7 +1602,7 @@ function renderProjectList(projects) {
   el.innerHTML = projects
     .map(
       (p) => `
-    <div class="friendly-card list-card${selectionMode ? " select-mode-card" : projectHasInvoiceCreated(p) ? " has-card-actions" : " has-card-delete"}${selectedIds.has(p.businessProjectId) ? " is-selected" : ""}" data-id="${escapeHtml(p.businessProjectId)}" data-local="${p.localOnly ? "1" : "0"}" data-has-invoice="${projectHasInvoiceCreated(p) ? "1" : "0"}">
+    <div class="friendly-card list-card${selectionMode ? " select-mode-card" : projectHasQnapSaveEligible(p) ? " has-card-actions" : " has-card-delete"}${selectedIds.has(p.businessProjectId) ? " is-selected" : ""}" data-id="${escapeHtml(p.businessProjectId)}" data-local="${p.localOnly ? "1" : "0"}" data-has-invoice="${projectHasInvoiceCreated(p) ? "1" : "0"}" data-qnap-eligible="${projectHasQnapSaveEligible(p) ? "1" : "0"}">
       ${selectionMode ? listSelectCheckboxHtml(p.businessProjectId) : listCardActionsHtml(p)}
       <div class="list-card-main">
         ${estimateListStatusBadge(p)}

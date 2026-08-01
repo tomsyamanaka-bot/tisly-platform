@@ -16,7 +16,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
 | ログインCTA | 青〜紫グラデ維持（`#4facfe` → `#a855f7`） |
-| SW | `tisly-pwa-v2422-navy-light-ui` |
+| SW | `tisly-pwa-v2423-qnap-real-save` |
 
 ---
 
@@ -993,11 +993,11 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 |------|------|
 | 目的 | 実務PWAを清潔な白ベース×紺色へ統一 · 請求書作成済み案件の見積/請求 PDF を一覧から QNAP 保存 |
 | CSS | `tisly-neon-dark-v1.css` · `tisly-friendly-ui.css` · `tisly-practical-nav.css` に navy `#1E3A8A` 追記（既存削除なし） |
-| 一覧UI | `/estimate-v1` — ゴミ箱横に HardDrive 風「QNAP保存」ボタン（請求書作成済みのみ表示） |
+| 一覧UI | `/estimate-v1` — ゴミ箱左隣に紺色 HardDrive「QNAP保存」（見積準備済み / 請求作成済み） |
 | API | `POST /api/estimate/v1/projects/:id/qnap-save-invoices-estimates` |
 | 保存先 | `TiSLY_Storage/Invoices_Estimates/YYYY-MM/`（MotherShip パス追記） |
-| フォールバック | 本番未接続/失敗時は mock ミラーへ保存 · 画面は止めない |
-| SW | `tisly-pwa-v2422-navy-light-ui` |
+| 通信 | **実機 WebDAV のみ** — モックミラーへフォールバックしない。設定 UI または `QNAP_WEBDAV_*` / `QNAP_HOST` |
+| SW | `tisly-pwa-v2423-qnap-real-save` |
 | コード | `estimate-invoice-qnap-save-v1.ts` · `estimate-v1.js` `listCardActionsHtml` |
 | テスト | `server/test/navy-ui-qnap-list-v1.test.ts` |
 | 確認 | `/estimate-v1` · https://tisly.jp/api/health |

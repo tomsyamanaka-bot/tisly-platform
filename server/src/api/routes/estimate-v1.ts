@@ -1091,8 +1091,8 @@ estimateV1Router.get("/projects/:id/toms-format", ...estimateV1Auth, (req: Authe
 
 /**
  * 見積一覧「QNAP保存」—
- * 請求書作成済み案件の見積書・請求書を
- * TiSLY_Storage/Invoices_Estimates/YYYY-MM/ へ保存
+ * 見積書準備済み / 請求書作成済み案件の PDF を
+ * TiSLY_Storage/Invoices_Estimates/YYYY-MM/ へ実機 WebDAV 保存（モック不可）
  */
 estimateV1Router.post(
   "/projects/:id/qnap-save-invoices-estimates",
@@ -1106,23 +1106,23 @@ estimateV1Router.post(
         res.status(404).json(result);
         return;
       }
-      if (result.error === "invoice not created") {
+      if (
+        result.error === "no documents" ||
+        result.error === "qnap not configured"
+      ) {
         res.status(400).json(result);
         return;
       }
-      // モック成功も含め 200（画面を止めない）
       res.status(result.ok ? 200 : 502).json(result);
     } catch (e) {
-      // 予期せぬ例外でも JSON で返す
       const msg = e instanceof Error ? e.message : "qnap save failed";
-      res.status(200).json({
-        ok: true,
-        mock: true,
+      res.status(502).json({
+        ok: false,
+        mock: false,
         projectId,
-        message: "QNAPへ見積書・請求書を保存しました",
+        message: msg,
         files: [],
         error: msg,
-        fallback: true,
       });
     }
   }

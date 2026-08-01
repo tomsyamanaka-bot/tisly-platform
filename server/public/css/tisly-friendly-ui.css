@@ -1092,10 +1092,12 @@ body.tisly-friendly {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-color: #bfdbfe;
+  border: 1.5px solid #1e3a8a;
+  border-color: #1e3a8a;
   background: #eff6ff;
   color: #1e3a8a;
   padding: 0.35rem;
+  order: -1;
 }
 
 .tisly-friendly .list-card-action[data-action="qnap-save"]:disabled,

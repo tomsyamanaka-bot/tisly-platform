@@ -1,5 +1,5 @@
 /**
- * 見積一覧 QNAP保存 + 白ベース×紺色 UI v1
+ * 見積一覧 QNAP保存（実機 WebDAV）+ 白ベース×紺色 UI v1
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -11,7 +11,12 @@ process.env.CUSTOMER_DEMO_PASSWORD = "demo-remote-2026";
 process.env.NODE_ENV = "test";
 process.env.TISLY_DB_PATH = "./data/test-navy-qnap-list-v1.db";
 process.env.RATE_LIMIT_PROVIDER = "memory";
-process.env.QNAP_STORAGE_MOCK = "true";
+// 一覧保存はモック不可 — テストでは未設定エラーを検証
+delete process.env.QNAP_STORAGE_MOCK;
+delete process.env.QNAP_WEBDAV_URL;
+delete process.env.QNAP_HOST;
+delete process.env.QNAP_USERNAME;
+delete process.env.QNAP_PASSWORD;
 
 const { default: request } = await import("supertest");
 const { createApp } = await import("../src/app.js");
@@ -38,7 +43,7 @@ async function surveyorLogin() {
     });
 }
 
-describe("白ベース×紺色 UI + 見積一覧 QNAP保存 v1", () => {
+describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
   let token = "";
 
   before(async () => {
@@ -65,17 +70,33 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP保存 v1", () => {
     const friendly = read("css/tisly-friendly-ui.css");
     assert.match(friendly, /--tisly-navy:\s*#1e3a8a/);
     assert.match(friendly, /data-action="qnap-save"/);
+    assert.match(friendly, /color:\s*#1e3a8a/);
   });
 
-  it("estimate list has QNAP save next to delete", () => {
+  it("estimate list shows QNAP for estimate-ready and invoice", () => {
     const js = read("js/estimate-v1.js");
     assert.match(js, /listCardActionsHtml/);
     assert.match(js, /data-action="qnap-save"/);
     assert.match(js, /saveListProjectToQnap/);
     assert.match(js, /qnap-save-invoices-estimates/);
     assert.match(js, /QNAPへ見積書・請求書を保存しました/);
-    assert.match(js, /projectHasInvoiceCreated/);
+    assert.match(js, /projectHasQnapSaveEligible/);
+    assert.match(js, /projectHasEstimateReady/);
+    assert.match(js, /見積書の準備ができました/);
     assert.doesNotMatch(js, /localStorage\.clear/);
+  });
+
+  it("save module has no mock mirror fallback", () => {
+    const src = fs.readFileSync(
+      path.join(process.cwd(), "src/storage/estimate-invoice-qnap-save-v1.ts"),
+      "utf-8"
+    );
+    assert.match(src, /resolveRealQnapWebDavForListSave/);
+    assert.match(src, /uploadOneReal/);
+    assert.doesNotMatch(src, /qnap-storage-mock/);
+    assert.doesNotMatch(src, /QNAP MOCK/);
+    assert.doesNotMatch(src, /QNAP FALLBACK/);
+    assert.match(src, /モックミラー/);
   });
 
   it("mothership path builds Invoices_Estimates/YYYY-MM", () => {
@@ -91,18 +112,19 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP保存 v1", () => {
     );
   });
 
-  it("qnap-save rejects projects without invoice", async () => {
+  it("qnap-save rejects missing project", async () => {
     const res = await request(app)
       .post("/api/estimate/v1/projects/nonexistent-id/qnap-save-invoices-estimates")
       .set("Authorization", `Bearer ${token}`)
       .send({});
     assert.equal(res.status, 404);
     assert.equal(res.body.ok, false);
+    assert.equal(res.body.mock, false);
   });
 
-  it("service worker bumps navy light cache", () => {
+  it("service worker bumps qnap real save cache", () => {
     const sw = read("service-worker.js");
-    assert.match(sw, /tisly-pwa-v2422-navy-light-ui/);
+    assert.match(sw, /tisly-pwa-v2423-qnap-real-save/);
   });
 
   it("css and estimate js are served", async () => {
@@ -113,5 +135,6 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP保存 v1", () => {
     const js = await request(app).get("/js/estimate-v1.js");
     assert.equal(js.status, 200);
     assert.match(js.text, /saveListProjectToQnap/);
+    assert.match(js.text, /projectHasQnapSaveEligible/);
   });
 });
