@@ -1449,7 +1449,19 @@ function qnapSaveSuccessToastMessage(resultOrHost) {
           }
           return null;
         })();
-  return documentNasSaveSuccessMessage(host, port);
+  const folderPath =
+    resultOrHost?.folderPath ||
+    resultOrHost?.saveDest ||
+    resultOrHost?.files?.find((f) => f?.remotePath)?.remotePath ||
+    resultOrHost?.files?.find((f) => f?.displayPath)?.displayPath ||
+    null;
+  const msg = documentNasSaveSuccessMessage(host, port, folderPath);
+  try {
+    console.info(`[QNAP save toast] ${msg}`);
+  } catch {
+    /* */
+  }
+  return msg;
 }
 
 async function saveListProjectToQnap(projectId, btn) {

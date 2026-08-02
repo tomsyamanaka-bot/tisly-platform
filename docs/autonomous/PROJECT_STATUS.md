@@ -16,7 +16,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
 | ログインCTA | 青〜紫グラデ維持（`#4facfe` → `#a855f7`） |
-| SW | `tisly-pwa-v2429-nastoms-smart-port` |
+| SW | `tisly-pwa-v2430-qnap-error-detail` |
 
 ---
 
@@ -997,7 +997,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | API | `POST /api/estimate/v1/projects/:id/qnap-save-invoices-estimates` |
 | 保存先 | `TiSLY_Storage/Invoices_Estimates/YYYY-MM/`（MotherShip パス追記） |
 | 通信 | **実機 WebDAV のみ** — モックミラー不可。接続解決は `QNAP_WEBDAV_*`（ENV）→ 設定 UI → `QNAP_HOST` |
-| SW | `tisly-pwa-v2429-nastoms-smart-port` |
+| SW | `tisly-pwa-v2430-qnap-error-detail` |
 | コード | `estimate-invoice-qnap-save-v1.ts` · `estimate-v1.js` `listCardActionsHtml` |
 | テスト | `server/test/navy-ui-qnap-list-v1.test.ts` |
 | 確認 | `/estimate-v1` · https://tisly.jp/api/health |
@@ -1010,8 +1010,9 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | システム用 | **TiSLYNAS** `192.168.1.10` — MotherShip・将来のシステムデータ（変更なし） |
 | 既定ポート | WebDAV `8080`（設定・`QNAP_LOCAL_PORT` で上書き可）・スマートフォールバック `5000→5006→8080→55222` |
 | UI | `/storage-settings-v1` — 役割ラベル明記 |
-| トースト | `nastoms (192.168.1.134:8080) へ見積書・請求書を保存しました` |
-| SW | `tisly-pwa-v2429-nastoms-smart-port` |
+| トースト | `nastoms (192.168.1.134:8080/TiSLY_Storage/Invoices_Estimates) へ見積書・請求書を保存しました` |
+| SW | `tisly-pwa-v2430-qnap-error-detail` |
+| エラー | PUT 401/403・404・CORS(TypeError/Failed to fetch) を現場向け文言で通知 |
 | コード | `qnap-nas-hosts-v1.ts` · `storage-settings-store.ts` · `qnap-client-direct-v1.js` |
 
 ---

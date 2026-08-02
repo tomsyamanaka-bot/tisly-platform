@@ -112,15 +112,50 @@ export function listDocumentNasPortCandidates(configuredPort) {
   return out;
 }
 
-/** 成功トースト — 保存先 NAS + ポートが分かる文言 */
-export function documentNasSaveSuccessMessage(host, port) {
+/** 既定の保存先フォルダ（MotherShip） */
+export const DOCUMENT_NAS_SAVE_FOLDER = "TiSLY_Storage/Invoices_Estimates";
+
+/**
+ * 成功トースト — ホスト:ポート/フォルダパスが分かる文言
+ * 例: nastoms (192.168.1.134:8080/TiSLY_Storage/Invoices_Estimates/...) へ…
+ */
+export function documentNasSaveSuccessMessage(host, port, folderPath) {
   const h =
     String(host || getStoredDocumentNasHost() || DOCUMENT_NAS_HOST).trim() ||
     DOCUMENT_NAS_HOST;
   const p = Number(port);
-  const hostPart =
-    Number.isFinite(p) && p > 0 ? `${h}:${p}` : `${h}:${getStoredDocumentNasPort()}`;
-  return `${DOCUMENT_NAS_NAME} (${hostPart}) へ見積書・請求書を保存しました`;
+  const portNum =
+    Number.isFinite(p) && p > 0 ? p : getStoredDocumentNasPort();
+  const folder = normalizeSaveFolderPath(folderPath);
+  const dest = `${h}:${portNum}/${folder}`;
+  return `${DOCUMENT_NAS_NAME} (${dest}) へ見積書・請求書を保存しました`;
+}
+
+/** remotePath / displayPath から保存先フォルダを抽出 */
+export function normalizeSaveFolderPath(folderPath) {
+  const raw = String(folderPath || DOCUMENT_NAS_SAVE_FOLDER)
+    .replace(/^\/+/, "")
+    .replace(/\\/g, "/");
+  if (!raw) return DOCUMENT_NAS_SAVE_FOLDER;
+  // ファイル名付きなら親ディレクトリまで
+  if (/\.[a-z0-9]+$/i.test(raw.split("/").pop() || "")) {
+    const parts = raw.split("/").filter(Boolean);
+    parts.pop();
+    const dir = parts.join("/");
+    return dir || DOCUMENT_NAS_SAVE_FOLDER;
+  }
+  return raw;
+}
+
+/** 成功ログ用の宛先文字列 */
+export function formatDocumentNasSaveDest(host, port, folderPath) {
+  const h =
+    String(host || getStoredDocumentNasHost() || DOCUMENT_NAS_HOST).trim() ||
+    DOCUMENT_NAS_HOST;
+  const p = Number(port);
+  const portNum =
+    Number.isFinite(p) && p > 0 ? p : getStoredDocumentNasPort();
+  return `${h}:${portNum}/${normalizeSaveFolderPath(folderPath)}`;
 }
 
 function basicAuthHeader(username, password) {
@@ -172,23 +207,70 @@ async function ensureWebDavCollection(url, authHeader) {
     if (res.ok || res.status === 405 || res.status === 409 || res.status === 301) {
       return { ok: true, status: res.status };
     }
-    return { ok: false, status: res.status, message: `MKCOL HTTP ${res.status}` };
+    const mapped = mapWebDavHttpStatus(res.status);
+    return {
+      ok: false,
+      status: res.status,
+      errorCode: mapped.errorCode,
+      message: mapped.message,
+    };
   } catch (e) {
+    const errorCode = classifyClientError(e, { forWrite: true });
     return {
       ok: false,
       status: null,
-      message: e?.message || "MKCOL failed",
-      errorCode: classifyClientError(e),
+      message: formatClientErrorMessage(errorCode, e?.message),
+      errorCode,
     };
   }
 }
 
-export function classifyClientError(err) {
+/**
+ * PUT/POST/MKCOL の HTTP ステータス → 現場向けメッセージ
+ */
+export function mapWebDavHttpStatus(status) {
+  const s = Number(status);
+  if (s === 401 || s === 403) {
+    return {
+      errorCode: s === 401 ? "401 Unauthorized" : "403 Forbidden",
+      message:
+        "QNAPのユーザー名またはパスワード、またはフォルダ書き込み権限を確認してください",
+    };
+  }
+  if (s === 404) {
+    return {
+      errorCode: "404 Not Found",
+      message:
+        "保存先の共有フォルダ（例: /Invoices_Estimates/）が存在しません",
+    };
+  }
+  return {
+    errorCode: `HTTP ${s}`,
+    message: `WebDAV 書き込み失敗 (HTTP ${s})`,
+  };
+}
+
+/**
+ * @param {unknown} err
+ * @param {{ forWrite?: boolean }} [opts] forWrite=true なら Failed to fetch / TypeError を CORS 扱い
+ */
+export function classifyClientError(err, opts = {}) {
   const msg = String(err?.message || err || "");
-  if (/Failed to fetch|NetworkError|Load failed/i.test(msg)) return "CLIENT_NETWORK";
-  if (/CORS|cross-origin/i.test(msg)) return "CORS";
+  const name = String(err?.name || "");
   if (/mixed content|insecure/i.test(msg)) return "MIXED_CONTENT";
-  if (/timeout|aborted/i.test(msg)) return "ETIMEDOUT";
+  if (/timeout|aborted/i.test(msg) || name === "AbortError") return "ETIMEDOUT";
+  if (/CORS|cross-origin/i.test(msg)) return "CORS";
+  // PUT/POST 時の TypeError / Failed to fetch は CORS・アクセス許可の可能性が高い
+  if (
+    opts.forWrite &&
+    (name === "TypeError" ||
+      err instanceof TypeError ||
+      /Failed to fetch|NetworkError|Load failed/i.test(msg))
+  ) {
+    return "CORS";
+  }
+  if (/Failed to fetch|NetworkError|Load failed/i.test(msg)) return "CLIENT_NETWORK";
+  if (name === "TypeError" || err instanceof TypeError) return "CORS";
   return "CLIENT_ERROR";
 }
 
@@ -197,7 +279,7 @@ export function formatClientErrorMessage(errorCode, detail) {
     return "HTTPS ページから HTTP の QNAP へ直接接続できません。QNAP 側 HTTPS(WebDAV) または QNAP_LOCAL_WEBDAV_URL を確認してください";
   }
   if (errorCode === "CORS") {
-    return "ブラウザの CORS 制限で QNAP に直接保存できません。QNAP WebDAV の CORS 設定、または VPS 経由保存を使用してください";
+    return "QNAP側のWebDAV許可設定（CORS/アクセス許可）を確認してください";
   }
   if (errorCode === "CLIENT_NETWORK") {
     return `ローカル QNAP に到達できません。同一 Wi-Fi・IP・ポート (${DOCUMENT_NAS_HOST}:${DOCUMENT_NAS_DEFAULT_PORT} 他) を確認してください`;
@@ -205,8 +287,16 @@ export function formatClientErrorMessage(errorCode, detail) {
   if (errorCode === "ETIMEDOUT") {
     return "ローカル QNAP への接続がタイムアウトしました";
   }
-  if (errorCode === "401 Unauthorized") {
-    return "認証に失敗しました（401）。ユーザー名／パスワードを確認してください";
+  if (
+    errorCode === "401 Unauthorized" ||
+    errorCode === "403 Forbidden" ||
+    errorCode === 401 ||
+    errorCode === 403
+  ) {
+    return "QNAPのユーザー名またはパスワード、またはフォルダ書き込み権限を確認してください";
+  }
+  if (errorCode === "404 Not Found" || errorCode === 404) {
+    return "保存先の共有フォルダ（例: /Invoices_Estimates/）が存在しません";
   }
   return detail || "ローカル直接保存に失敗しました";
 }
@@ -226,13 +316,14 @@ export async function pingLocalWebDav({ webdavUrl, username, password, timeoutMs
       signal: ctrl.signal,
     });
     const latencyMs = Date.now() - started;
-    if (res.status === 401) {
+    if (res.status === 401 || res.status === 403) {
+      const mapped = mapWebDavHttpStatus(res.status);
       return {
         ok: false,
         latencyMs,
-        httpStatus: 401,
-        errorCode: "401 Unauthorized",
-        message: formatClientErrorMessage("401 Unauthorized"),
+        httpStatus: res.status,
+        errorCode: mapped.errorCode,
+        message: mapped.message,
       };
     }
     const ok = res.ok || res.status === 405 || res.status === 207;
@@ -292,8 +383,12 @@ export async function resolveLocalWebDavWithPortFallback({
       message: ping.message,
       httpStatus: ping.httpStatus,
     });
-    // 401 はポート到達済み（認証のみ失敗）→ このポートを採用
-    if (ping.ok || ping.errorCode === "401 Unauthorized") {
+    // 401/403 はポート到達済み（認証・権限のみ失敗）→ このポートを採用
+    if (
+      ping.ok ||
+      ping.errorCode === "401 Unauthorized" ||
+      ping.errorCode === "403 Forbidden"
+    ) {
       setStoredDocumentNasHost(h);
       setStoredDocumentNasPort(port);
       return {
@@ -305,7 +400,9 @@ export async function resolveLocalWebDavWithPortFallback({
         shareName: share,
         ping,
         attempts,
-        authFailed: ping.errorCode === "401 Unauthorized",
+        authFailed:
+          ping.errorCode === "401 Unauthorized" ||
+          ping.errorCode === "403 Forbidden",
       };
     }
   }
@@ -339,31 +436,39 @@ export async function resolveLocalWebDavWithPortFallback({
 }
 
 async function putFile(fullUrl, authHeader, blob) {
-  const res = await fetch(fullUrl, {
-    method: "PUT",
-    headers: {
-      Authorization: authHeader,
-      "Content-Type": "application/pdf",
-    },
-    body: blob,
-    mode: "cors",
-  });
-  if (res.ok || res.status === 201 || res.status === 204) {
-    return { ok: true, status: res.status };
+  try {
+    const res = await fetch(fullUrl, {
+      method: "PUT",
+      headers: {
+        Authorization: authHeader,
+        "Content-Type": "application/pdf",
+      },
+      body: blob,
+      mode: "cors",
+    });
+    if (res.ok || res.status === 201 || res.status === 204) {
+      return { ok: true, status: res.status };
+    }
+    const mapped = mapWebDavHttpStatus(res.status);
+    return {
+      ok: false,
+      status: res.status,
+      errorCode: mapped.errorCode,
+      message: mapped.message,
+    };
+  } catch (e) {
+    const errorCode = classifyClientError(e, { forWrite: true });
+    return {
+      ok: false,
+      status: null,
+      errorCode,
+      message: formatClientErrorMessage(errorCode, e?.message),
+    };
   }
-  if (res.status === 401) {
-    return { ok: false, status: 401, errorCode: "401 Unauthorized", message: formatClientErrorMessage("401 Unauthorized") };
-  }
-  return {
-    ok: false,
-    status: res.status,
-    errorCode: `HTTP ${res.status}`,
-    message: `WebDAV PUT 失敗 (HTTP ${res.status})`,
-  };
 }
 
 /**
- * 親フォルダを順に MKCOL
+ * 親フォルダを順に MKCOL — 権限不足・不存在は即失敗
  */
 async function ensureParentDirs(webdavUrl, remotePath, authHeader) {
   const parts = String(remotePath).replace(/^\/+/, "").split("/").filter(Boolean);
@@ -372,8 +477,12 @@ async function ensureParentDirs(webdavUrl, remotePath, authHeader) {
   for (const part of parts) {
     acc = acc ? `${acc}/${part}` : part;
     const url = joinWebDavUrl(webdavUrl, acc);
-    await ensureWebDavCollection(url, authHeader);
+    const mk = await ensureWebDavCollection(url, authHeader);
+    if (!mk.ok) {
+      return mk;
+    }
   }
+  return { ok: true };
 }
 
 /**
@@ -431,6 +540,9 @@ export async function saveProjectPdfsViaLocalWebDav(opts) {
 
   if (!resolved.ok || !resolved.webdavUrl) {
     const tried = (resolved.attempts || []).map((a) => a.port).join(",");
+    const authCode = resolved.authFailed
+      ? resolved.ping?.errorCode || "401 Unauthorized"
+      : resolved.ping?.errorCode || "CLIENT_NETWORK";
     return {
       ok: false,
       route: "local_wifi",
@@ -438,9 +550,11 @@ export async function saveProjectPdfsViaLocalWebDav(opts) {
       port: resolved.port,
       message:
         resolved.authFailed
-          ? formatClientErrorMessage("401 Unauthorized")
+          ? formatClientErrorMessage(
+              resolved.ping?.errorCode || "401 Unauthorized"
+            )
           : `${resolved.ping?.message || "ローカル到達失敗"}（試行ポート: ${tried || "なし"}）`,
-      errorCode: resolved.ping?.errorCode || "CLIENT_NETWORK",
+      errorCode: authCode,
       latencyMs: resolved.ping?.latencyMs,
       files: [],
       portAttempts: resolved.attempts,
@@ -466,7 +580,18 @@ export async function saveProjectPdfsViaLocalWebDav(opts) {
         continue;
       }
       const blob = await pdfRes.blob();
-      await ensureParentDirs(webdavUrl, file.remotePath, authHeader);
+      const dirs = await ensureParentDirs(webdavUrl, file.remotePath, authHeader);
+      if (!dirs.ok) {
+        results.push({
+          kind: file.kind,
+          ok: false,
+          displayPath: file.displayPath,
+          remotePath: file.remotePath,
+          error: dirs.message || formatClientErrorMessage(dirs.errorCode),
+          errorCode: dirs.errorCode,
+        });
+        continue;
+      }
       const putUrl = joinWebDavUrl(webdavUrl, file.remotePath);
       const put = await putFile(putUrl, authHeader, blob);
       results.push({
@@ -478,7 +603,7 @@ export async function saveProjectPdfsViaLocalWebDav(opts) {
         errorCode: put.errorCode,
       });
     } catch (e) {
-      const errorCode = classifyClientError(e);
+      const errorCode = classifyClientError(e, { forWrite: true });
       results.push({
         kind: file.kind,
         ok: false,
@@ -492,14 +617,37 @@ export async function saveProjectPdfsViaLocalWebDav(opts) {
   const allOk = results.length > 0 && results.every((r) => r.ok);
   const savedHost = resolved.host || DOCUMENT_NAS_HOST;
   const savedPort = resolved.port;
+  const folderPath = normalizeSaveFolderPath(
+    results.find((r) => r.ok)?.remotePath ||
+      results.find((r) => r.ok)?.displayPath ||
+      (manifest.files || [])[0]?.remotePath ||
+      DOCUMENT_NAS_SAVE_FOLDER
+  );
+  const destLabel = formatDocumentNasSaveDest(savedHost, savedPort, folderPath);
+  if (allOk) {
+    console.info(`[QNAP local save] OK — ${destLabel}`);
+    try {
+      setStoredDocumentNasHost(savedHost);
+      setStoredDocumentNasPort(savedPort);
+    } catch {
+      /* */
+    }
+  } else {
+    const fail = results.find((r) => !r.ok);
+    console.error(
+      `[QNAP local save] FAIL — ${savedHost}:${savedPort} errorCode=${fail?.errorCode || "?"} message=${fail?.error || "?"}`
+    );
+  }
   return {
     ok: allOk,
     route: "local_wifi",
     host: savedHost,
     port: savedPort,
+    folderPath,
+    saveDest: destLabel,
     webdavUrl,
     message: allOk
-      ? documentNasSaveSuccessMessage(savedHost, savedPort)
+      ? documentNasSaveSuccessMessage(savedHost, savedPort, folderPath)
       : results.find((r) => !r.ok)?.error || "ローカル直接保存に失敗しました",
     errorCode: allOk ? null : results.find((r) => !r.ok)?.errorCode || null,
     latencyMs: resolved.ping?.latencyMs,

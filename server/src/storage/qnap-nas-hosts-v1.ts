@@ -31,18 +31,32 @@ export function webDavProtocolForPort(port: number): "http" | "https" {
   return "http";
 }
 
-/** 成功トースト用 — 保存先ホスト:ポートが分かる文言 */
+/** 書類保存先フォルダ（MotherShip） */
+export const DOCUMENT_NAS_SAVE_FOLDER = "TiSLY_Storage/Invoices_Estimates";
+
+/** 成功トースト用 — ホスト:ポート/フォルダが分かる文言 */
 export function documentNasSaveSuccessMessage(
   host = DOCUMENT_NAS_HOST,
-  port?: number | null
+  port?: number | null,
+  folderPath?: string | null
 ): string {
   const h = String(host || DOCUMENT_NAS_HOST).trim() || DOCUMENT_NAS_HOST;
   const p = Number(port);
-  const hostPart =
-    Number.isFinite(p) && p > 0
-      ? `${h}:${p}`
-      : `${h}:${DOCUMENT_NAS_DEFAULT_PORT}`;
-  return `${DOCUMENT_NAS_NAME} (${hostPart}) へ見積書・請求書を保存しました`;
+  const portNum =
+    Number.isFinite(p) && p > 0 ? p : DOCUMENT_NAS_DEFAULT_PORT;
+  const folder = String(folderPath || DOCUMENT_NAS_SAVE_FOLDER)
+    .replace(/^\/+/, "")
+    .replace(/\\/g, "/");
+  const folderClean = (() => {
+    if (!folder) return DOCUMENT_NAS_SAVE_FOLDER;
+    if (/\.[a-z0-9]+$/i.test(folder.split("/").pop() || "")) {
+      const parts = folder.split("/").filter(Boolean);
+      parts.pop();
+      return parts.join("/") || DOCUMENT_NAS_SAVE_FOLDER;
+    }
+    return folder;
+  })();
+  return `${DOCUMENT_NAS_NAME} (${h}:${portNum}/${folderClean}) へ見積書・請求書を保存しました`;
 }
 
 /**

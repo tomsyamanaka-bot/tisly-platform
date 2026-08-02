@@ -118,7 +118,22 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
       /IP・ポート \(\$\{DOCUMENT_NAS_HOST\}:\$\{DOCUMENT_NAS_DEFAULT_PORT\} 他\)/
     );
     assert.match(direct, /documentNasSaveSuccessMessage/);
-    assert.match(direct, /\$\{h\}:\$\{p\}/);
+    assert.match(direct, /\$\{h\}:\$\{portNum\}\/\$\{folder\}/);
+    assert.match(direct, /mapWebDavHttpStatus/);
+    assert.match(
+      direct,
+      /QNAPのユーザー名またはパスワード、またはフォルダ書き込み権限を確認してください/
+    );
+    assert.match(
+      direct,
+      /保存先の共有フォルダ（例: \/Invoices_Estimates\/）が存在しません/
+    );
+    assert.match(
+      direct,
+      /QNAP側のWebDAV許可設定（CORS\/アクセス許可）を確認してください/
+    );
+    assert.match(direct, /\[QNAP local save\] OK/);
+    assert.match(direct, /formatDocumentNasSaveDest/);
     assert.match(direct, /tisly_qnap_local_host_v1/);
     assert.match(direct, /tisly_qnap_local_port_v3/);
   });
@@ -198,9 +213,9 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
     assert.equal(res.body.mock, false);
   });
 
-  it("service worker bumps nastoms smart-port cache", () => {
+  it("service worker bumps qnap error-detail cache", () => {
     const sw = read("service-worker.js");
-    assert.match(sw, /tisly-pwa-v2429-nastoms-smart-port/);
+    assert.match(sw, /tisly-pwa-v2430-qnap-error-detail/);
   });
 
   it("css and estimate js are served", async () => {

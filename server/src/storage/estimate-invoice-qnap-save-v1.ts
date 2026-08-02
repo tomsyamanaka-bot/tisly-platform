@@ -60,6 +60,7 @@ export type EstimateInvoiceQnapSaveResultV1 = {
   error?: string;
   host?: string;
   port?: number;
+  folderPath?: string;
 };
 
 function resolveLocalAbsolute(localPath: string): string | null {
@@ -306,10 +307,17 @@ export async function saveEstimateInvoicePdfsToQnapV1(
       ok: true,
       mock: false,
       projectId,
-      message: documentNasSaveSuccessMessage(savedHost, savedPort),
+      message: documentNasSaveSuccessMessage(
+        savedHost,
+        savedPort,
+        files.find((f) => f.ok)?.remotePath || undefined
+      ),
       files,
       host: savedHost,
       port: savedPort ?? undefined,
+      folderPath:
+        files.find((f) => f.ok)?.remotePath ||
+        "TiSLY_Storage/Invoices_Estimates",
     };
   }
 
