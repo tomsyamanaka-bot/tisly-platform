@@ -103,7 +103,60 @@ export function resolveDocumentNasLocalPort(
 ): number {
   const n = Number(explicitPort);
   if (Number.isFinite(n) && n > 0) return n;
-  const fromEnv = Number(process.env.QNAP_LOCAL_PORT || "");
-  if (Number.isFinite(fromEnv) && fromEnv > 0) return fromEnv;
+  const fromLocal = Number(process.env.QNAP_LOCAL_PORT || "");
+  if (Number.isFinite(fromLocal) && fromLocal > 0) return fromLocal;
+  // 互換: QNAP_PORT（ユーザー指定・デプロイ用エイリアス）
+  const fromPort = Number(process.env.QNAP_PORT || "");
+  if (Number.isFinite(fromPort) && fromPort > 0) return fromPort;
   return DOCUMENT_NAS_DEFAULT_PORT;
+}
+
+/**
+ * VPS→QNAP プロキシ失敗時の現場向けメッセージ。
+ * スマホは CORS/Mixed Content を避けて VPS API のみ叩く前提。
+ */
+export function formatVpsToQnapProxyError(
+  host: string,
+  port: number | null | undefined,
+  errorCode: string,
+  detail?: string | null
+): string {
+  const h = String(host || DOCUMENT_NAS_HOST).trim() || DOCUMENT_NAS_HOST;
+  const p = Number(port);
+  const dest =
+    Number.isFinite(p) && p > 0 ? `${h}:${p}` : h;
+  const code = String(errorCode || "").trim();
+
+  if (code === "ETIMEDOUT" || /timeout/i.test(code)) {
+    return `VPSから${dest}へのネットワーク接続がタイムアウトしました。IP・VPN・QNAPのWebDAV有効化を確認してください`;
+  }
+  if (code === "ECONNREFUSED") {
+    return `VPSから${dest}への接続が拒否されました。QNAPのWebDAVサービス／ポートを確認してください`;
+  }
+  if (code === "EHOSTUNREACH" || code === "ENETUNREACH") {
+    return `VPSから${dest}へ到達できません。VPN（Tailscale）やルーティングを確認してください`;
+  }
+  if (code === "ENOTFOUND") {
+    return `VPSから${dest}のホスト名を解決できません。IP・DNSを確認してください`;
+  }
+  if (code === "401 Unauthorized" || code === "403 Forbidden") {
+    return "QNAPのユーザー名またはパスワード、またはフォルダ書き込み権限を確認してください";
+  }
+  if (code === "404 Not Found") {
+    return "保存先の共有フォルダ（例: /Invoices_Estimates/）が存在しません";
+  }
+  if (code === "TLS_CERT") {
+    return `VPSから${dest}へのTLS証明書検証に失敗しました。QNAP_WEBDAV_TLS_INSECURE を確認してください`;
+  }
+  if (code === "NOT_CONFIGURED") {
+    return "QNAP接続情報が未設定です。ストレージ設定または QNAP_WEBDAV_URL / QNAP_LOCAL_HOST を確認してください";
+  }
+  const extra = String(detail || "").trim();
+  if (extra && !extra.includes(`VPSから${dest}`)) {
+    return `VPSから${dest}へのQNAP保存に失敗しました（${code || "ERROR"}）: ${extra}`;
+  }
+  return (
+    extra ||
+    `VPSから${dest}へのQNAP保存に失敗しました。IP・VPN・QNAPのWebDAV有効化を確認してください`
+  );
 }

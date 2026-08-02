@@ -79,13 +79,17 @@ export const config = {
     password: env("QNAP_PASSWORD"),
     basePath: env("QNAP_BASE_PATH", "/TiSLY"),
   },
-  /** 見積書・請求書のローカル Wi-Fi 保存先（書類用 NAS nastoms） */
+  /** 見積書・請求書の VPS→QNAP プロキシ保存先（書類用 NAS nastoms） */
   qnapLocal: {
     get host() {
       return env("QNAP_LOCAL_HOST", "192.168.1.134");
     },
     get port() {
-      return Number(env("QNAP_LOCAL_PORT", "8080"));
+      const local = Number(env("QNAP_LOCAL_PORT", ""));
+      if (Number.isFinite(local) && local > 0) return local;
+      const alias = Number(env("QNAP_PORT", "8080"));
+      if (Number.isFinite(alias) && alias > 0) return alias;
+      return 8080;
     },
   },
   qnapWebDav: {

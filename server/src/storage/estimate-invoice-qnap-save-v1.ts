@@ -2,9 +2,12 @@
  * 見積一覧 — 見積書準備済み / 請求書作成済み案件の
  * 見積書・請求書 PDF を QNAP 実機へ WebDAV 保存（v1）
  *
+ * 保存経路: スマホ → VPS（https://tisly.jp/api/...）→ QNAP WebDAV
+ * ブラウザから QNAP への直接通信は行わない（CORS / Mixed Content 回避）
+ *
  * 保存先: TiSLY_Storage/Invoices_Estimates/YYYY-MM/
  * モックミラーへのフォールバックは行わない（実機通信のみ）
- * 接続解決順: .env(QNAP_WEBDAV_*) → ストレージ設定 UI → .env(QNAP_HOST)
+ * 接続解決順: .env(QNAP_WEBDAV_*) → ストレージ設定 UI → .env(QNAP_HOST / QNAP_LOCAL_*)
  */
 import fs from "fs";
 import path from "path";
@@ -35,11 +38,17 @@ import {
 import { getQnapWebDavEnvConfig } from "./qnap-storage-v1-config.js";
 import { config } from "../config.js";
 import {
+  DOCUMENT_NAS_DEFAULT_PORT,
   DOCUMENT_NAS_HOST,
   documentNasSaveSuccessMessage,
+  formatVpsToQnapProxyError,
   resolveDocumentNasLocalHost,
   resolveDocumentNasLocalPort,
 } from "./qnap-nas-hosts-v1.js";
+import { classifyQnapNetworkError } from "./qnap-network-diagnose-v1.js";
+
+const CONNECT_RETRY_COUNT = 2;
+const CONNECT_RETRY_DELAY_MS = 800;
 
 export type EstimateInvoiceQnapSaveFileV1 = {
   kind: "estimate" | "invoice";
@@ -58,9 +67,13 @@ export type EstimateInvoiceQnapSaveResultV1 = {
   message: string;
   files: EstimateInvoiceQnapSaveFileV1[];
   error?: string;
+  errorCode?: string | null;
   host?: string;
   port?: number;
   folderPath?: string;
+  /** 常に VPS プロキシ（ブラウザ直通信なし） */
+  proxyRoute?: "vps";
+  connectLatencyMs?: number | null;
 };
 
 function resolveLocalAbsolute(localPath: string): string | null {
@@ -68,6 +81,32 @@ function resolveLocalAbsolute(localPath: string): string | null {
   if (path.isAbsolute(localPath) && fs.existsSync(localPath)) return localPath;
   const full = path.join(process.cwd(), localPath.replace(/^\//, ""));
   return fs.existsSync(full) ? full : null;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function parseHostPortFromWebDavUrl(webdavUrl: string): {
+  host: string;
+  port: number;
+} {
+  try {
+    const u = new URL(webdavUrl);
+    const host = u.hostname || DOCUMENT_NAS_HOST;
+    const port =
+      Number(u.port) > 0
+        ? Number(u.port)
+        : u.protocol === "https:"
+          ? 443
+          : DOCUMENT_NAS_DEFAULT_PORT;
+    return { host, port };
+  } catch {
+    return {
+      host: DOCUMENT_NAS_HOST,
+      port: DOCUMENT_NAS_DEFAULT_PORT,
+    };
+  }
 }
 
 /**
@@ -111,7 +150,8 @@ export function resolveRealQnapWebDavForListSave(
     "";
   if (host && username && password) {
     const port = resolveDocumentNasLocalPort(
-      Number(process.env.QNAP_PORT || q.port || 0) || null
+      Number(process.env.QNAP_PORT || process.env.QNAP_LOCAL_PORT || q.port || 0) ||
+        null
     );
     const share =
       (config.qnap.share || process.env.QNAP_SHARE || q.shareName || "TiSLY").trim() ||
@@ -147,16 +187,86 @@ async function ensureKindPdf(
   return resolveProjectPdfFile(projectId, kind);
 }
 
+/**
+ * VPS→QNAP 接続テスト（タイムアウト／拒否を現場向け文言へ）
+ */
+export async function probeVpsToQnapConnection(
+  cfg: QnapUploadConfig
+): Promise<{
+  ok: boolean;
+  host: string;
+  port: number;
+  latencyMs: number;
+  errorCode: string | null;
+  message: string;
+}> {
+  const { host, port } = parseHostPortFromWebDavUrl(cfg.webdavUrl);
+  const started = Date.now();
+  let lastMsg = "";
+  let lastCode: string | null = null;
+
+  for (let attempt = 1; attempt <= CONNECT_RETRY_COUNT; attempt += 1) {
+    try {
+      const client = new QnapWebDavClient({ ...cfg, mode: "real" });
+      const result = await client.testConnection();
+      const latencyMs = Date.now() - started;
+      if (result.ok) {
+        return {
+          ok: true,
+          host,
+          port,
+          latencyMs,
+          errorCode: null,
+          message: result.message,
+        };
+      }
+      lastMsg = result.message;
+      const classified = classifyQnapNetworkError(result.message, null);
+      lastCode = classified.errorCode;
+      console.warn(
+        `[QNAP VPS proxy] connect probe fail attempt=${attempt}/${CONNECT_RETRY_COUNT} host=${host}:${port} code=${lastCode} msg=${lastMsg}`
+      );
+    } catch (e) {
+      lastMsg = e instanceof Error ? e.message : String(e);
+      const classified = classifyQnapNetworkError(lastMsg, null);
+      lastCode = classified.errorCode;
+      console.warn(
+        `[QNAP VPS proxy] connect probe exception attempt=${attempt} host=${host}:${port}`,
+        lastMsg
+      );
+    }
+    if (attempt < CONNECT_RETRY_COUNT) {
+      await sleep(CONNECT_RETRY_DELAY_MS);
+    }
+  }
+
+  const classified = classifyQnapNetworkError(lastMsg, null);
+  return {
+    ok: false,
+    host,
+    port,
+    latencyMs: Date.now() - started,
+    errorCode: lastCode || classified.errorCode,
+    message: formatVpsToQnapProxyError(
+      host,
+      port,
+      lastCode || classified.errorCode,
+      classified.errorReason || lastMsg
+    ),
+  };
+}
+
 async function uploadOneReal(
   cfg: QnapUploadConfig,
   localAbs: string,
   remoteRel: string
-): Promise<{ ok: boolean; mock: boolean; error?: string }> {
+): Promise<{ ok: boolean; mock: boolean; error?: string; errorCode?: string }> {
   if (!fs.existsSync(localAbs)) {
     return {
       ok: false,
       mock: false,
       error: `ローカル PDF が見つかりません: ${localAbs}`,
+      errorCode: "LOCAL_PDF_MISSING",
     };
   }
   try {
@@ -169,14 +279,21 @@ async function uploadOneReal(
         ok: false,
         mock: false,
         error: `WebDAV PUT が 0 件でした: ${remoteRel}`,
+        errorCode: "PUT_EMPTY",
       };
     }
     console.log(`[QNAP REAL] Invoices_Estimates uploaded — ${remoteRel}`);
     return { ok: true, mock: false };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
+    const classified = classifyQnapNetworkError(msg, null);
     console.error(`[QNAP REAL] WebDAV upload failed: ${remoteRel}`, msg);
-    return { ok: false, mock: false, error: msg };
+    return {
+      ok: false,
+      mock: false,
+      error: msg,
+      errorCode: classified.errorCode,
+    };
   }
 }
 
@@ -207,7 +324,7 @@ function buildRemoteFileName(
 
 /**
  * 見積書準備済み（および請求書があれば請求書も）を
- * QNAP 実機へ WebDAV 保存する。モックミラーは使わない。
+ * VPS から QNAP 実機へ WebDAV 保存する。モックミラーは使わない。
  */
 export async function saveEstimateInvoicePdfsToQnapV1(
   projectId: string
@@ -221,6 +338,8 @@ export async function saveEstimateInvoicePdfsToQnapV1(
       message: "案件が見つかりません",
       files: [],
       error: "project not found",
+      errorCode: "PROJECT_NOT_FOUND",
+      proxyRoute: "vps",
     };
   }
 
@@ -233,6 +352,8 @@ export async function saveEstimateInvoicePdfsToQnapV1(
       message: "見積書・請求書が未作成のため保存できません",
       files: [],
       error: "no documents",
+      errorCode: "NO_DOCUMENTS",
+      proxyRoute: "vps",
     };
   }
 
@@ -243,10 +364,34 @@ export async function saveEstimateInvoicePdfsToQnapV1(
       ok: false,
       mock: false,
       projectId,
-      message:
-        "QNAP接続情報が未設定です。ストレージ設定または QNAP_WEBDAV_URL / QNAP_HOST を確認してください",
+      message: formatVpsToQnapProxyError(
+        DOCUMENT_NAS_HOST,
+        DOCUMENT_NAS_DEFAULT_PORT,
+        "NOT_CONFIGURED"
+      ),
       files: [],
       error: "qnap not configured",
+      errorCode: "NOT_CONFIGURED",
+      proxyRoute: "vps",
+      host: DOCUMENT_NAS_HOST,
+      port: DOCUMENT_NAS_DEFAULT_PORT,
+    };
+  }
+
+  const probe = await probeVpsToQnapConnection(cfg);
+  if (!probe.ok) {
+    return {
+      ok: false,
+      mock: false,
+      projectId,
+      message: probe.message,
+      files: [],
+      error: probe.message,
+      errorCode: probe.errorCode,
+      host: probe.host,
+      port: probe.port,
+      proxyRoute: "vps",
+      connectLatencyMs: probe.latencyMs,
     };
   }
 
@@ -255,6 +400,7 @@ export async function saveEstimateInvoicePdfsToQnapV1(
   if (project.invoiceId) kinds.push("invoice");
 
   const files: EstimateInvoiceQnapSaveFileV1[] = [];
+  let lastUploadCode: string | null = null;
 
   for (const kind of kinds) {
     const localAbs = await ensureKindPdf(projectId, kind);
@@ -275,6 +421,9 @@ export async function saveEstimateInvoicePdfsToQnapV1(
     const remoteRel = buildInvoicesEstimatesBackupRelativePathV1(fileName);
     const displayPath = buildInvoicesEstimatesBackupDisplayPathV1(fileName);
     const uploaded = await uploadOneReal(cfg, abs, remoteRel);
+    if (!uploaded.ok && uploaded.errorCode) {
+      lastUploadCode = uploaded.errorCode;
+    }
     files.push({
       kind,
       localPath: localAbs,
@@ -282,47 +431,47 @@ export async function saveEstimateInvoicePdfsToQnapV1(
       displayPath,
       mock: false,
       ok: uploaded.ok,
-      error: uploaded.error,
+      error: uploaded.error
+        ? formatVpsToQnapProxyError(
+            probe.host,
+            probe.port,
+            uploaded.errorCode || "UPLOAD_FAILED",
+            uploaded.error
+          )
+        : undefined,
     });
   }
 
   const allOk = files.length > 0 && files.every((f) => f.ok);
   if (allOk) {
-    const savedUrl = (() => {
-      try {
-        return new URL(cfg.webdavUrl);
-      } catch {
-        return null;
-      }
-    })();
-    const savedHost =
-      savedUrl?.hostname || settings.qnap.host || DOCUMENT_NAS_HOST;
-    const savedPort =
-      Number(savedUrl?.port) > 0
-        ? Number(savedUrl!.port)
-        : Number(settings.qnap.port) > 0
-          ? Number(settings.qnap.port)
-          : null;
     return {
       ok: true,
       mock: false,
       projectId,
       message: documentNasSaveSuccessMessage(
-        savedHost,
-        savedPort,
+        probe.host,
+        probe.port,
         files.find((f) => f.ok)?.remotePath || undefined
       ),
       files,
-      host: savedHost,
-      port: savedPort ?? undefined,
+      host: probe.host,
+      port: probe.port,
       folderPath:
         files.find((f) => f.ok)?.remotePath ||
         "TiSLY_Storage/Invoices_Estimates",
+      proxyRoute: "vps",
+      connectLatencyMs: probe.latencyMs,
+      errorCode: null,
     };
   }
 
   const firstErr =
-    files.find((f) => !f.ok)?.error || "QNAP保存に失敗しました";
+    files.find((f) => !f.ok)?.error ||
+    formatVpsToQnapProxyError(
+      probe.host,
+      probe.port,
+      lastUploadCode || "UPLOAD_FAILED"
+    );
   return {
     ok: false,
     mock: false,
@@ -330,5 +479,10 @@ export async function saveEstimateInvoicePdfsToQnapV1(
     message: firstErr,
     files,
     error: firstErr,
+    errorCode: lastUploadCode || "UPLOAD_FAILED",
+    host: probe.host,
+    port: probe.port,
+    proxyRoute: "vps",
+    connectLatencyMs: probe.latencyMs,
   };
 }

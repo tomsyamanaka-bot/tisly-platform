@@ -117,8 +117,9 @@ export function classifyQnapNetworkError(raw: string, httpStatus?: number | null
   }
   if (/CORS|Failed to fetch|NetworkError|mixed content/i.test(msg)) {
     return {
-      errorCode: "CLIENT_NETWORK",
-      errorReason: "ブラウザから直接接続できません（CORS / Mixed Content / プライベートネットワーク制限）",
+      errorCode: "PROXY_NETWORK",
+      errorReason:
+        "VPSからQNAPへ到達できません（ネットワーク／VPN／WebDAV）。ブラウザ直通信は使いません",
     };
   }
   if (httpStatus && httpStatus >= 500) {

@@ -1208,8 +1208,8 @@ estimateV1Router.get(
 
 /**
  * 見積一覧「QNAP保存」—
- * 見積書準備済み / 請求書作成済み案件の PDF を
- * TiSLY_Storage/Invoices_Estimates/YYYY-MM/ へ実機 WebDAV 保存（モック不可）
+ * スマホ → VPS プロキシ → QNAP WebDAV（ブラウザ直通信なし）
+ * 失敗時は 500 + 具体的な JSON メッセージ（トースト表示用）
  */
 estimateV1Router.post(
   "/projects/:id/qnap-save-invoices-estimates",
@@ -1217,9 +1217,8 @@ estimateV1Router.post(
   async (req: AuthedRequest, res) => {
     if (!assertEstimateV1Role(req, res)) return;
     const projectId = String(req.params.id);
-    const saveRoute = getQnapSaveRouteV1();
+    const saveRoute = "vps" as const;
 
-    // 案件存在確認を先に（保存ルート判定より優先）
     const project = getBusinessProject(projectId);
     if (!project) {
       res.status(404).json({
@@ -1229,22 +1228,10 @@ estimateV1Router.post(
         message: "案件が見つかりません",
         files: [],
         error: "project not found",
+        errorCode: "PROJECT_NOT_FOUND",
         saveRoute,
-      });
-      return;
-    }
-
-    // local_wifi 専用モードでは VPS 経由保存をスキップし、クライアントへフォールバック指示
-    if (saveRoute === "local_wifi") {
-      res.status(503).json({
-        ok: false,
-        mock: false,
-        projectId,
-        message: "保存ルートが「ローカルWi-Fi経由」のため、ブラウザ直接保存を使用してください",
-        files: [],
-        error: "use_client_direct",
-        saveRoute,
-        clientDirectFallback: true,
+        proxyRoute: "vps",
+        clientDirectFallback: false,
       });
       return;
     }
@@ -1252,39 +1239,58 @@ estimateV1Router.post(
     try {
       const result = await saveEstimateInvoicePdfsToQnapV1(projectId);
       if (result.error === "project not found") {
-        res.status(404).json({ ...result, saveRoute });
+        res.status(404).json({
+          ...result,
+          saveRoute,
+          proxyRoute: "vps",
+          clientDirectFallback: false,
+        });
         return;
       }
       if (
         result.error === "no documents" ||
         result.error === "qnap not configured"
       ) {
-        res.status(400).json({ ...result, saveRoute });
-        return;
-      }
-      if (!result.ok && saveRoute === "auto") {
-        res.status(502).json({
+        res.status(400).json({
           ...result,
           saveRoute,
-          clientDirectFallback: true,
-          message:
-            result.message ||
-            "VPS経由のQNAP保存に失敗しました。ローカルWi-Fi経由へフォールバックできます",
+          proxyRoute: "vps",
+          clientDirectFallback: false,
         });
         return;
       }
-      res.status(result.ok ? 200 : 502).json({ ...result, saveRoute });
+      if (!result.ok) {
+        // 502 ではなく 500 — 現場トーストに具体メッセージを載せる
+        res.status(500).json({
+          ...result,
+          saveRoute,
+          proxyRoute: "vps",
+          clientDirectFallback: false,
+          message:
+            result.message ||
+            "VPSからQNAPへのネットワーク接続に失敗しました。IP・VPN・QNAPのWebDAV有効化を確認してください",
+        });
+        return;
+      }
+      res.status(200).json({
+        ...result,
+        saveRoute,
+        proxyRoute: "vps",
+        clientDirectFallback: false,
+      });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "qnap save failed";
-      res.status(502).json({
+      res.status(500).json({
         ok: false,
         mock: false,
         projectId,
         message: msg,
         files: [],
         error: msg,
+        errorCode: "PROXY_EXCEPTION",
         saveRoute,
-        clientDirectFallback: saveRoute === "auto",
+        proxyRoute: "vps",
+        clientDirectFallback: false,
       });
     }
   }

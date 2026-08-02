@@ -26,9 +26,6 @@ import {
   parseEstimateSpeechLinesV1,
 } from "./tisly-voice-input-v1.js";
 import {
-  saveProjectPdfsViaLocalWebDav,
-  shouldTryClientDirectFallback,
-  formatClientErrorMessage,
   documentNasSaveSuccessMessage,
   getStoredDocumentNasHost,
   DOCUMENT_NAS_HOST,
@@ -1420,7 +1417,7 @@ function bindSelectableListCards(container) {
   });
 }
 
-/** 一覧カードから見積・請求 PDF を QNAP 保存（VPS→失敗時はローカルWi-Fi直接） */
+/** 一覧カードから見積・請求 PDF を QNAP 保存（VPS プロキシのみ — ブラウザ直通信なし） */
 function qnapSaveSuccessToastMessage(resultOrHost) {
   const host =
     (typeof resultOrHost === "string" && resultOrHost) ||
@@ -1474,13 +1471,10 @@ async function saveListProjectToQnap(projectId, btn) {
       btn.innerHTML = '<span class="qnap-save-spinner" aria-hidden="true"></span>';
     }
 
-    let vpsResult = null;
-    let vpsStatus = 0;
-    let vpsNetworkError = null;
-
+    const token = getCustomerToken();
+    let res;
     try {
-      const token = getCustomerToken();
-      const res = await fetch(
+      res = await fetch(
         `/api/estimate/v1/projects/${encodeURIComponent(projectId)}/qnap-save-invoices-estimates`,
         {
           method: "POST",
@@ -1492,56 +1486,29 @@ async function saveListProjectToQnap(projectId, btn) {
           signal: AbortSignal.timeout(90_000),
         }
       );
-      vpsStatus = res.status;
-      vpsResult = await res.json().catch(() => ({
-        ok: false,
-        message: `HTTP ${res.status}`,
-        error: `HTTP ${res.status}`,
-      }));
-      if (res.ok && vpsResult?.ok) {
-        toast(vpsResult.message || qnapSaveSuccessToastMessage(vpsResult));
-        return;
-      }
     } catch (e) {
-      vpsNetworkError = e;
-      vpsResult = {
-        ok: false,
-        message: e?.message || "VPS経由のQNAP保存に失敗しました",
-        error: e?.message || "network",
-        clientDirectFallback: true,
-        saveRoute: "auto",
-      };
-    }
-
-    const saveRoute = vpsResult?.saveRoute || "auto";
-    const tryLocal =
-      shouldTryClientDirectFallback(vpsResult, saveRoute) ||
-      vpsStatus === 502 ||
-      vpsStatus === 503 ||
-      Boolean(vpsNetworkError);
-
-    if (tryLocal) {
-      toast("VPS経由に失敗 — ローカルWi-Fi経由で再試行します…");
-      const local = await saveProjectPdfsViaLocalWebDav({
-        token: getCustomerToken(),
-        projectId,
-      });
-      if (local.ok) {
-        toast(local.message || qnapSaveSuccessToastMessage(local));
-        return;
-      }
-      const detail =
-        local.errorCode
-          ? `${local.errorCode}: ${local.message}`
-          : local.message || formatClientErrorMessage(local.errorCode);
-      toast(
-        `QNAP保存失敗 — ${detail}` +
-          (vpsResult?.message ? `（VPS: ${vpsResult.message}）` : "")
-      );
+      const detail = e?.name === "TimeoutError" || e?.name === "AbortError"
+        ? "VPSへの接続がタイムアウトしました。通信環境を確認して再試行してください"
+        : e?.message || "VPSへの接続に失敗しました";
+      toast(`QNAP保存失敗 — ${detail}`);
       return;
     }
 
-    toast(vpsResult?.message || vpsResult?.error || "QNAP保存に失敗しました");
+    const body = await res.json().catch(() => ({
+      ok: false,
+      message: `HTTP ${res.status}`,
+      error: `HTTP ${res.status}`,
+    }));
+
+    if (res.ok && body?.ok) {
+      toast(body.message || qnapSaveSuccessToastMessage(body));
+      return;
+    }
+
+    const detail =
+      (body?.errorCode ? `${body.errorCode}: ` : "") +
+      (body?.message || body?.error || `HTTP ${res.status}`);
+    toast(`QNAP保存失敗 — ${detail}`);
   } catch (e) {
     toast(e?.message || "QNAP保存を完了できませんでした（後で再試行できます）");
   } finally {

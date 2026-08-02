@@ -83,9 +83,9 @@ function setPingIndicator(state, text) {
 }
 
 function saveRouteLabelJa(route) {
-  if (route === "local_wifi") return "ローカルWi-Fi経由";
-  if (route === "vps") return "VPS（Tailscale）経由";
-  return "自動（推奨）";
+  if (route === "vps") return "VPSプロキシ経由";
+  if (route === "local_wifi") return "ローカルWi-Fi（保存はVPSプロキシ）";
+  return "自動→VPSプロキシ";
 }
 
 function applyPingResultToUi(result, { routeLabel } = {}) {

@@ -112,12 +112,12 @@
       </label>
       <label style="display:block;margin:0.55rem 0 0.2rem;font-size:0.9rem;font-weight:600;">保存ルート切り替え
         <select id="qnap-save-route" class="route-select" aria-label="QNAP保存ルート">
-          <option value="auto">自動（推奨）— VPS優先 → 失敗時ローカルWi-Fi</option>
-          <option value="local_wifi">ローカルWi-Fi経由</option>
-          <option value="vps">VPS（Tailscale）経由</option>
+          <option value="vps">VPSプロキシ経由（推奨）— スマホ→VPS→QNAP</option>
+          <option value="auto">自動 → VPSプロキシ（ブラウザ直通信なし）</option>
+          <option value="local_wifi">互換: ローカルWi-Fi（保存はVPSプロキシ）</option>
         </select>
       </label>
-      <p class="hint-small">現場の同一Wi-Fi内では「ローカルWi-Fi経由」または「自動（推奨）」が安定します。</p>
+      <p class="hint-small">スマホからは常に VPS プロキシ経由で QNAP へ保存します（CORS / Mixed Content 回避）。VPS が Tailscale または LAN 経由で nastoms に到達できる必要があります。</p>
     </div>
 
     <div class="friendly-card storage-card" id="qnap-form-card">

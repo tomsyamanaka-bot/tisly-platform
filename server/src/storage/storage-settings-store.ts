@@ -53,7 +53,10 @@ export interface StorageQnapConfigV1 {
 export interface StorageSettingsV1 {
   localStorageEnabled: boolean;
   qnapBackupEnabled: boolean;
-  /** auto=VPS優先・失敗時ローカルWi-Fi / vps=VPSのみ / local_wifi=ブラウザ直接 */
+  /**
+   * 保存ルート（見積一覧 QNAP 保存は常に VPS プロキシ）。
+   * auto/vps=VPS経由 / local_wifi=互換残置（実保存は VPS プロキシに一本化）
+   */
   saveRoute: QnapSaveRouteV1;
   qnap: StorageQnapConfigV1;
   lastConnectionTest?: QnapConnectionTestResult;
@@ -78,14 +81,15 @@ const DEFAULT_QNAP: StorageQnapConfigV1 = {
 export const DEFAULT_STORAGE_SETTINGS: StorageSettingsV1 = {
   localStorageEnabled: true,
   qnapBackupEnabled: false,
-  saveRoute: "auto",
+  /** CORS/Mixed Content 回避のため既定は VPS プロキシ */
+  saveRoute: "vps",
   qnap: { ...DEFAULT_QNAP },
   updatedAt: new Date().toISOString(),
 };
 
 function parseSaveRoute(raw: unknown): QnapSaveRouteV1 {
   if (raw === "vps" || raw === "local_wifi" || raw === "auto") return raw;
-  return "auto";
+  return "vps";
 }
 
 function parseSettings(raw: string | undefined): StorageSettingsV1 {
@@ -136,9 +140,9 @@ export function toPublicStorageSettings(settings: StorageSettingsV1): StorageSet
 }
 
 function saveRouteLabel(route: QnapSaveRouteV1): string {
-  if (route === "vps") return "VPS（Tailscale）経由";
-  if (route === "local_wifi") return "ローカルWi-Fi経由";
-  return "自動（推奨）";
+  if (route === "vps") return "VPSプロキシ経由（推奨）";
+  if (route === "local_wifi") return "ローカルWi-Fi（非推奨・保存はVPSプロキシ）";
+  return "自動→VPSプロキシ";
 }
 
 export function getStorageStatusSummary(settings: StorageSettingsV1): {

@@ -137,14 +137,16 @@ describe("QNAP network diagnose v1", () => {
     assert.match(js, /runConnectPingFlow/);
   });
 
-  it("estimate-v1 uses client direct fallback module", () => {
+  it("estimate-v1 uses VPS proxy only (no client direct save fallback)", () => {
     const js = fs.readFileSync(
       new URL("../public/js/estimate-v1.js", import.meta.url),
       "utf8"
     );
     assert.match(js, /qnap-client-direct-v1/);
-    assert.match(js, /saveProjectPdfsViaLocalWebDav/);
-    assert.match(js, /shouldTryClientDirectFallback/);
+    assert.match(js, /documentNasSaveSuccessMessage/);
+    assert.match(js, /VPS プロキシのみ/);
+    assert.doesNotMatch(js, /saveProjectPdfsViaLocalWebDav/);
+    assert.doesNotMatch(js, /shouldTryClientDirectFallback/);
   });
 
   it("troubleshooting doc exists at repo root", () => {

@@ -92,7 +92,7 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
     assert.match(friendly, /color:\s*#1e3a8a/);
   });
 
-  it("estimate list shows QNAP for estimate-ready and invoice", () => {
+  it("estimate list uses VPS proxy only (no browser direct fallback)", () => {
     const js = read("js/estimate-v1.js");
     assert.match(js, /listCardActionsHtml/);
     assert.match(js, /data-action="qnap-save"/);
@@ -104,6 +104,10 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
     assert.match(js, /projectHasQnapSaveEligible/);
     assert.match(js, /projectHasEstimateReady/);
     assert.match(js, /見積書の準備ができました/);
+    assert.match(js, /VPS プロキシのみ/);
+    assert.doesNotMatch(js, /saveProjectPdfsViaLocalWebDav/);
+    assert.doesNotMatch(js, /shouldTryClientDirectFallback/);
+    assert.doesNotMatch(js, /ローカルWi-Fi経由で再試行/);
     assert.doesNotMatch(js, /localStorage\.clear/);
 
     const direct = read("js/qnap-client-direct-v1.js");
@@ -113,10 +117,9 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
     assert.match(direct, /DOCUMENT_NAS_FALLBACK_PORTS = \[5000, 5006, 8080, 55222\]/);
     assert.match(direct, /resolveLocalWebDavWithPortFallback/);
     assert.match(direct, /listDocumentNasPortCandidates/);
-    assert.match(
-      direct,
-      /IP・ポート \(\$\{DOCUMENT_NAS_HOST\}:\$\{DOCUMENT_NAS_DEFAULT_PORT\} 他\)/
-    );
+    assert.match(direct, /shouldTryClientDirectFallback/);
+    assert.match(direct, /return false/);
+    assert.match(direct, /VPS プロキシのみ/);
     assert.match(direct, /documentNasSaveSuccessMessage/);
     assert.match(direct, /\$\{h\}:\$\{portNum\}\/\$\{folder\}/);
     assert.match(direct, /mapWebDavHttpStatus/);
@@ -128,17 +131,12 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
       direct,
       /保存先の共有フォルダ（例: \/Invoices_Estimates\/）が存在しません/
     );
-    assert.match(
-      direct,
-      /QNAP側のWebDAV許可設定（CORS\/アクセス許可）を確認してください/
-    );
-    assert.match(direct, /\[QNAP local save\] OK/);
     assert.match(direct, /formatDocumentNasSaveDest/);
     assert.match(direct, /tisly_qnap_local_host_v1/);
     assert.match(direct, /tisly_qnap_local_port_v3/);
   });
 
-  it("save module has no mock mirror fallback", () => {
+  it("save module uses VPS proxy probe and detailed errors", () => {
     const src = fs.readFileSync(
       path.join(process.cwd(), "src/storage/estimate-invoice-qnap-save-v1.ts"),
       "utf-8"
@@ -147,6 +145,9 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
     assert.match(src, /uploadOneReal/);
     assert.match(src, /getQnapWebDavEnvConfig/);
     assert.match(src, /envWebDav\.configured/);
+    assert.match(src, /probeVpsToQnapConnection/);
+    assert.match(src, /formatVpsToQnapProxyError/);
+    assert.match(src, /proxyRoute/);
     assert.doesNotMatch(src, /qnap-storage-mock/);
     assert.doesNotMatch(src, /QNAP MOCK/);
     assert.doesNotMatch(src, /QNAP FALLBACK/);
@@ -213,9 +214,18 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
     assert.equal(res.body.mock, false);
   });
 
-  it("service worker bumps qnap error-detail cache", () => {
+  it("service worker bumps qnap vps-proxy cache", () => {
     const sw = read("service-worker.js");
-    assert.match(sw, /tisly-pwa-v2430-qnap-error-detail/);
+    assert.match(sw, /tisly-pwa-v2431-qnap-vps-proxy/);
+  });
+
+  it("formatVpsToQnapProxyError builds timeout message", async () => {
+    const { formatVpsToQnapProxyError } = await import(
+      "../src/storage/qnap-nas-hosts-v1.js"
+    );
+    const msg = formatVpsToQnapProxyError("192.168.1.134", 8080, "ETIMEDOUT");
+    assert.match(msg, /VPSから192\.168\.1\.134:8080へのネットワーク接続がタイムアウト/);
+    assert.match(msg, /WebDAV/);
   });
 
   it("css and estimate js are served", async () => {

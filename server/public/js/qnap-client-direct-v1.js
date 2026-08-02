@@ -1,7 +1,7 @@
 /**
- * QNAP クライアント直接 WebDAV 保存 v1
- * — 事務所 LAN（同一 Wi-Fi）からブラウザが QNAP へ直接 PUT
- * — VPS→Tailscale 失敗時のフォールバック用
+ * QNAP クライアント直接 WebDAV（診断・互換用）
+ * — 見積一覧の保存は VPS プロキシ一本化（本モジュールの PUT は使わない）
+ * — ストレージ設定のローカル Ping 等でホスト／ポートヘルパーを再利用
  * — 既定宛先: 書類保存用 NAS nastoms (192.168.1.134)
  * — スマートポートフォールバック: 設定値 → 5000 → 5006 → 8080 → 55222
  */
@@ -657,16 +657,8 @@ export async function saveProjectPdfsViaLocalWebDav(opts) {
 }
 
 /**
- * VPS 保存が失敗したとき、または local_wifi 指定時にフォールバック実行するか
+ * 見積一覧保存は VPS プロキシのみ — ブラウザ直通信フォールバックは無効
  */
-export function shouldTryClientDirectFallback(vpsResult, saveRoute) {
-  if (saveRoute === "local_wifi") return true;
-  if (saveRoute === "vps") return false;
-  if (!vpsResult) return true;
-  if (vpsResult.clientDirectFallback) return true;
-  if (vpsResult.ok) return false;
-  const err = String(vpsResult.error || vpsResult.message || "");
-  return /502|timeout|ETIMEDOUT|ECONNREFUSED|EHOSTUNREACH|fetch failed|接続|失敗|use_client_direct/i.test(
-    err
-  );
+export function shouldTryClientDirectFallback(_vpsResult, _saveRoute) {
+  return false;
 }

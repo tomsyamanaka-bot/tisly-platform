@@ -116,7 +116,7 @@ describe("Storage settings v1 — QNAP 接続設定", () => {
     assert.ok(res.text.includes("接続テスト（Ping）"));
     assert.ok(res.text.includes("VPS .env"));
     assert.ok(res.text.includes("btn-connect-ping"));
-    assert.ok(res.text.includes("自動（推奨）"));
+    assert.ok(res.text.includes("VPSプロキシ経由（推奨）"));
     assert.ok(res.text.includes("書類保存用NAS (nastoms)"));
     assert.ok(res.text.includes("システム用NAS (TiSLYNAS)"));
     assert.ok(res.text.includes("192.168.1.134"));
@@ -211,9 +211,9 @@ describe("Storage settings v1 — QNAP 接続設定", () => {
     assert.match(html, /btn-ping/);
     assert.match(html, /btn-connect-ping/);
     assert.match(html, /ping-indicator/);
-    assert.match(html, /自動（推奨）/);
-    assert.match(html, /ローカルWi-Fi経由/);
-    assert.match(html, /VPS（Tailscale）経由/);
+    assert.match(html, /VPSプロキシ経由（推奨）/);
+    assert.match(html, /互換: ローカルWi-Fi/);
+    assert.match(html, /自動 → VPSプロキシ/);
     assert.match(html, /書類保存用NAS \(nastoms\)/);
     assert.match(html, /システム用NAS \(TiSLYNAS\)/);
     assert.match(html, /192\.168\.1\.134/);
@@ -229,5 +229,6 @@ describe("Storage settings v1 — QNAP 接続設定", () => {
   it("DEFAULT_STORAGE_SETTINGS uses nastoms document NAS host", () => {
     assert.equal(DEFAULT_STORAGE_SETTINGS.qnap.host, "192.168.1.134");
     assert.equal(DEFAULT_STORAGE_SETTINGS.qnap.port, 8080);
+    assert.equal(DEFAULT_STORAGE_SETTINGS.saveRoute, "vps");
   });
 });
