@@ -27,6 +27,10 @@ import {
 } from "./storage-documents-v1-store.js";
 import { updateStorageSettingsV1 } from "./storage-settings-store.js";
 import { isCertificateFetchError } from "../business/services/qnap-webdav-fetch-v1.js";
+import {
+  classifyQnapNetworkError,
+  runQnapWebDavPingV1,
+} from "./qnap-network-diagnose-v1.js";
 
 export interface QnapStorageStatusV1 {
   projectId: string;
@@ -77,15 +81,40 @@ export async function runQnapStorageConnectionTestV1(): Promise<{
   mock?: boolean;
   testedAt: string;
   steps?: Array<{ step: number; label: string; ok: boolean; message: string }>;
+  latencyMs?: number | null;
+  errorCode?: string | null;
+  errorReason?: string | null;
+  logs?: string[];
+  ping?: Awaited<ReturnType<typeof runQnapWebDavPingV1>>;
 }> {
   const env = getQnapWebDavEnvConfig();
   const providerKind = resolveQnapStorageProviderKind();
+
+  // まず Reachability ping（応答時間・エラーコード）
+  const ping = await runQnapWebDavPingV1();
+
   const provider = getQnapStorageProvider();
   const result = await provider.testConnection();
 
+  const classified = result.ok
+    ? null
+    : classifyQnapNetworkError(result.message);
   const humanMessage = result.ok
     ? result.message
-    : translateQnapTestError(result.message);
+    : classified?.errorReason || translateQnapTestError(result.message);
+
+  const errorCode = result.ok
+    ? null
+    : ping.errorCode && ping.errorCode !== "UNKNOWN"
+      ? ping.errorCode
+      : classified?.errorCode ?? null;
+  const errorReason = result.ok ? null : classified?.errorReason ?? ping.errorReason;
+  const latencyMs = ping.latencyMs;
+  const logs = [
+    ...ping.logs,
+    `[test] provider=${providerKind} ok=${result.ok}`,
+    result.ok ? `[test] ${result.message}` : `[test] FAIL ${humanMessage}`,
+  ];
 
   const stored = updateStorageSettingsV1({
     lastConnectionTest: {
@@ -94,6 +123,10 @@ export async function runQnapStorageConnectionTestV1(): Promise<{
       testedAt: result.testedAt,
       mock: result.mock,
       steps: result.steps,
+      latencyMs,
+      errorCode,
+      errorReason,
+      logs,
     },
   });
 
@@ -107,6 +140,11 @@ export async function runQnapStorageConnectionTestV1(): Promise<{
     mock: result.mock,
     testedAt: result.testedAt,
     steps: result.steps,
+    latencyMs,
+    errorCode,
+    errorReason,
+    logs,
+    ping,
   };
 }
 

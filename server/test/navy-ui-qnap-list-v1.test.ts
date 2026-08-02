@@ -180,9 +180,9 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
     assert.equal(res.body.mock, false);
   });
 
-  it("service worker bumps qnap env-first cache", () => {
+  it("service worker bumps qnap local-fallback cache", () => {
     const sw = read("service-worker.js");
-    assert.match(sw, /tisly-pwa-v2424-qnap-env-first/);
+    assert.match(sw, /tisly-pwa-v2425-qnap-local-fallback/);
   });
 
   it("css and estimate js are served", async () => {

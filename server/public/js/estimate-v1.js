@@ -25,6 +25,11 @@ import {
   mountVoiceInputButtonV1,
   parseEstimateSpeechLinesV1,
 } from "./tisly-voice-input-v1.js";
+import {
+  saveProjectPdfsViaLocalWebDav,
+  shouldTryClientDirectFallback,
+  formatClientErrorMessage,
+} from "./qnap-client-direct-v1.js";
 
 let practicalNav = null;
 let currentView = "list";
@@ -1412,7 +1417,7 @@ function bindSelectableListCards(container) {
   });
 }
 
-/** 一覧カードから見積・請求 PDF を QNAP 保存 */
+/** 一覧カードから見積・請求 PDF を QNAP 保存（VPS→失敗時はローカルWi-Fi直接） */
 async function saveListProjectToQnap(projectId, btn) {
   if (!projectId) return;
   const originalHtml = btn?.innerHTML;
@@ -1422,22 +1427,76 @@ async function saveListProjectToQnap(projectId, btn) {
       btn.disabled = true;
       btn.innerHTML = '<span class="qnap-save-spinner" aria-hidden="true"></span>';
     }
-    const result = await api(
-      `/projects/${encodeURIComponent(projectId)}/qnap-save-invoices-estimates`,
-      {
-        method: "POST",
-        body: "{}",
-        label: "QNAP保存",
-        timeoutMs: 90_000,
+
+    let vpsResult = null;
+    let vpsStatus = 0;
+    let vpsNetworkError = null;
+
+    try {
+      const token = getCustomerToken();
+      const res = await fetch(
+        `/api/estimate/v1/projects/${encodeURIComponent(projectId)}/qnap-save-invoices-estimates`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: "{}",
+          signal: AbortSignal.timeout(90_000),
+        }
+      );
+      vpsStatus = res.status;
+      vpsResult = await res.json().catch(() => ({
+        ok: false,
+        message: `HTTP ${res.status}`,
+        error: `HTTP ${res.status}`,
+      }));
+      if (res.ok && vpsResult?.ok) {
+        toast(vpsResult.message || "QNAPへ見積書・請求書を保存しました");
+        return;
       }
-    );
-    if (result?.ok) {
-      toast(result.message || "QNAPへ見積書・請求書を保存しました");
-    } else {
-      toast(result?.message || result?.error || "QNAP保存に失敗しました");
+    } catch (e) {
+      vpsNetworkError = e;
+      vpsResult = {
+        ok: false,
+        message: e?.message || "VPS経由のQNAP保存に失敗しました",
+        error: e?.message || "network",
+        clientDirectFallback: true,
+        saveRoute: "auto",
+      };
     }
+
+    const saveRoute = vpsResult?.saveRoute || "auto";
+    const tryLocal =
+      shouldTryClientDirectFallback(vpsResult, saveRoute) ||
+      vpsStatus === 502 ||
+      vpsStatus === 503 ||
+      Boolean(vpsNetworkError);
+
+    if (tryLocal) {
+      toast("VPS経由に失敗 — ローカルWi-Fi経由で再試行します…");
+      const local = await saveProjectPdfsViaLocalWebDav({
+        token: getCustomerToken(),
+        projectId,
+      });
+      if (local.ok) {
+        toast(local.message || "ローカルWi-Fi経由でQNAPへ保存しました");
+        return;
+      }
+      const detail =
+        local.errorCode
+          ? `${local.errorCode}: ${local.message}`
+          : local.message || formatClientErrorMessage(local.errorCode);
+      toast(
+        `QNAP保存失敗 — ${detail}` +
+          (vpsResult?.message ? `（VPS: ${vpsResult.message}）` : "")
+      );
+      return;
+    }
+
+    toast(vpsResult?.message || vpsResult?.error || "QNAP保存に失敗しました");
   } catch (e) {
-    // 画面は止めずトーストのみ
     toast(e?.message || "QNAP保存を完了できませんでした（後で再試行できます）");
   } finally {
     if (btn) {

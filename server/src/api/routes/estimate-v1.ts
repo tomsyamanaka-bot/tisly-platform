@@ -82,6 +82,16 @@ import {
   saveTomsEstimateHistoryV1,
 } from "../../estimate/toms-estimate-history-store-v1.js";
 import { saveEstimateInvoicePdfsToQnapV1 } from "../../storage/estimate-invoice-qnap-save-v1.js";
+import {
+  getQnapClientDirectConfigV1,
+  getQnapSaveRouteV1,
+  runQnapWebDavPingV1,
+} from "../../storage/qnap-network-diagnose-v1.js";
+import { maskWebDavUrlPreview } from "../../storage/qnap-storage-v1-config.js";
+import {
+  buildInvoicesEstimatesBackupRelativePathV1,
+  buildInvoicesEstimatesBackupDisplayPathV1,
+} from "../../storage/mothership-paths-v1.js";
 
 export const estimateV1Router = Router();
 
@@ -1090,6 +1100,109 @@ estimateV1Router.get("/projects/:id/toms-format", ...estimateV1Auth, (req: Authe
 });
 
 /**
+ * QNAP WebDAV Reachability 診断
+ * — .env の QNAP_WEBDAV_URL への導通確認・応答時間・エラーコード
+ */
+estimateV1Router.get("/qnap/ping", ...estimateV1Auth, async (req: AuthedRequest, res) => {
+  if (!assertEstimateV1Role(req, res)) return;
+  const ping = await runQnapWebDavPingV1();
+  res.status(ping.ok ? 200 : 502).json(ping);
+});
+
+estimateV1Router.post("/qnap/ping", ...estimateV1Auth, async (req: AuthedRequest, res) => {
+  if (!assertEstimateV1Role(req, res)) return;
+  const ping = await runQnapWebDavPingV1();
+  res.status(ping.ok ? 200 : 502).json(ping);
+});
+
+/**
+ * ローカル Wi-Fi 直接保存用設定（事務所 LAN 内のブラウザ→QNAP）
+ * 認証済みユーザーのみ。パスワードを含むため HTTPS 必須。
+ */
+estimateV1Router.get("/qnap/client-direct-config", ...estimateV1Auth, (req: AuthedRequest, res) => {
+  if (!assertEstimateV1Role(req, res)) return;
+  const cfg = getQnapClientDirectConfigV1();
+  res.json({
+    available: cfg.available,
+    webdavUrl: cfg.webdavUrl,
+    webdavUrlPreview: cfg.webdavUrl ? maskWebDavUrlPreview(cfg.webdavUrl) : null,
+    username: cfg.username,
+    password: cfg.password,
+    shareName: cfg.shareName,
+    baseDir: cfg.baseDir,
+    saveRoute: cfg.saveRoute,
+    reason: cfg.reason ?? null,
+  });
+});
+
+/**
+ * クライアント直接保存用のリモートパス解決（VPS で PDF 確保後にブラウザが PUT）
+ */
+estimateV1Router.get(
+  "/projects/:id/qnap-direct-manifest",
+  ...estimateV1Auth,
+  async (req: AuthedRequest, res) => {
+    if (!assertEstimateV1Role(req, res)) return;
+    const projectId = String(req.params.id);
+    const project = getBusinessProject(projectId);
+    if (!project) {
+      res.status(404).json({ error: "project not found" });
+      return;
+    }
+    if (!project.estimateId && !project.invoiceId) {
+      res.status(400).json({ error: "no documents" });
+      return;
+    }
+
+    const files: Array<{
+      kind: "estimate" | "invoice";
+      downloadPath: string;
+      remotePath: string;
+      displayPath: string;
+      fileName: string;
+    }> = [];
+
+    const kinds: Array<"estimate" | "invoice"> = [];
+    if (project.estimateId) kinds.push("estimate");
+    if (project.invoiceId) kinds.push("invoice");
+
+    for (const kind of kinds) {
+      try {
+        await regenerateProjectPdfV1(projectId, kind);
+      } catch {
+        /* 既存ファイルがあれば続行 */
+      }
+      const localAbs = resolveProjectPdfFile(projectId, kind);
+      if (!localAbs || !fs.existsSync(localAbs)) continue;
+      const fileName = path.basename(localAbs);
+      const remotePath = buildInvoicesEstimatesBackupRelativePathV1(fileName);
+      const displayPath = buildInvoicesEstimatesBackupDisplayPathV1(fileName);
+      const downloadPath =
+        kind === "invoice"
+          ? `/api/estimate/v1/projects/${encodeURIComponent(projectId)}/invoice/pdf?includePhotos=false`
+          : `/api/estimate/v1/projects/${encodeURIComponent(projectId)}/pdf?includePhotos=false`;
+      files.push({ kind, downloadPath, remotePath, displayPath, fileName });
+    }
+
+    const cfg = getQnapClientDirectConfigV1();
+    res.json({
+      ok: files.length > 0,
+      projectId,
+      saveRoute: getQnapSaveRouteV1(),
+      clientDirect: {
+        available: cfg.available,
+        webdavUrl: cfg.webdavUrl,
+        username: cfg.username,
+        password: cfg.password,
+        baseDir: cfg.baseDir,
+        reason: cfg.reason ?? null,
+      },
+      files,
+    });
+  }
+);
+
+/**
  * 見積一覧「QNAP保存」—
  * 見積書準備済み / 請求書作成済み案件の PDF を
  * TiSLY_Storage/Invoices_Estimates/YYYY-MM/ へ実機 WebDAV 保存（モック不可）
@@ -1100,20 +1213,63 @@ estimateV1Router.post(
   async (req: AuthedRequest, res) => {
     if (!assertEstimateV1Role(req, res)) return;
     const projectId = String(req.params.id);
+    const saveRoute = getQnapSaveRouteV1();
+
+    // 案件存在確認を先に（保存ルート判定より優先）
+    const project = getBusinessProject(projectId);
+    if (!project) {
+      res.status(404).json({
+        ok: false,
+        mock: false,
+        projectId,
+        message: "案件が見つかりません",
+        files: [],
+        error: "project not found",
+        saveRoute,
+      });
+      return;
+    }
+
+    // local_wifi 専用モードでは VPS 経由保存をスキップし、クライアントへフォールバック指示
+    if (saveRoute === "local_wifi") {
+      res.status(503).json({
+        ok: false,
+        mock: false,
+        projectId,
+        message: "保存ルートが「ローカルWi-Fi経由」のため、ブラウザ直接保存を使用してください",
+        files: [],
+        error: "use_client_direct",
+        saveRoute,
+        clientDirectFallback: true,
+      });
+      return;
+    }
+
     try {
       const result = await saveEstimateInvoicePdfsToQnapV1(projectId);
       if (result.error === "project not found") {
-        res.status(404).json(result);
+        res.status(404).json({ ...result, saveRoute });
         return;
       }
       if (
         result.error === "no documents" ||
         result.error === "qnap not configured"
       ) {
-        res.status(400).json(result);
+        res.status(400).json({ ...result, saveRoute });
         return;
       }
-      res.status(result.ok ? 200 : 502).json(result);
+      if (!result.ok && saveRoute === "auto") {
+        res.status(502).json({
+          ...result,
+          saveRoute,
+          clientDirectFallback: true,
+          message:
+            result.message ||
+            "VPS経由のQNAP保存に失敗しました。ローカルWi-Fi経由へフォールバックできます",
+        });
+        return;
+      }
+      res.status(result.ok ? 200 : 502).json({ ...result, saveRoute });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "qnap save failed";
       res.status(502).json({
@@ -1123,6 +1279,8 @@ estimateV1Router.post(
         message: msg,
         files: [],
         error: msg,
+        saveRoute,
+        clientDirectFallback: saveRoute === "auto",
       });
     }
   }

@@ -189,7 +189,10 @@ describe("Storage settings v1 — QNAP 接続設定", () => {
     );
     assert.match(html, /btn-test-connection/);
     assert.match(html, /btn-test-pdf/);
+    assert.match(html, /qnap-save-route/);
+    assert.match(html, /btn-ping/);
     assert.match(js, /test-connection/);
     assert.match(js, /test-pdf/);
+    assert.match(js, /saveRoute/);
   });
 });

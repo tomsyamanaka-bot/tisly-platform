@@ -1,5 +1,9 @@
 import { initPracticalNav } from "./tisly-practical-nav.js";
 import { requireCustomerLogin, customerCodeFromPath } from "./customer-auth.js";
+import {
+  pingLocalWebDav,
+  formatClientErrorMessage,
+} from "./qnap-client-direct-v1.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -8,7 +12,7 @@ function toast(msg) {
   if (!el) return;
   el.textContent = msg;
   el.classList.add("show");
-  setTimeout(() => el.classList.remove("show"), 3500);
+  setTimeout(() => el.classList.remove("show"), 4500);
 }
 
 function formatJaDateTime(iso) {
@@ -32,11 +36,13 @@ async function api(path, opts = {}) {
     },
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
+  if (!res.ok && res.status !== 502) {
     const err = new Error(data.error || data.message || `HTTP ${res.status}`);
     err.status = res.status;
+    err.body = data;
     throw err;
   }
+  data.__httpStatus = res.status;
   return data;
 }
 
@@ -45,6 +51,17 @@ function showResult(el, ok, message) {
   el.classList.remove("hidden", "ok", "err");
   el.classList.add(ok ? "ok" : "err");
   el.textContent = `${ok ? "✅" : "❌"} ${message}`;
+}
+
+function showPingLogs(logs) {
+  const el = $("ping-logs");
+  if (!el) return;
+  if (!logs?.length) {
+    el.classList.add("hidden");
+    return;
+  }
+  el.classList.remove("hidden", "ok", "err");
+  el.textContent = logs.join("\n");
 }
 
 function renderEnvStatus(env) {
@@ -83,6 +100,9 @@ function renderSummary(summary) {
   else if (summary.qnapLabel === "未確認") qnapEl.className = "status-warn";
   else qnapEl.className = "status-muted";
 
+  if ($("status-save-route")) {
+    $("status-save-route").textContent = summary.saveRouteLabel || summary.saveRoute || "—";
+  }
   $("status-last-check").textContent = formatJaDateTime(summary.lastCheckedAt);
 }
 
@@ -98,6 +118,34 @@ function renderConnectionSteps(steps) {
   el.innerHTML = steps
     .map((s) => `<div>${s.ok ? "✅" : "❌"} ${s.step}. ${s.label} — ${s.message}</div>`)
     .join("");
+}
+
+function renderDiagFields(result) {
+  if ($("qnap-latency")) {
+    $("qnap-latency").textContent =
+      result?.latencyMs != null ? `${result.latencyMs} ms` : "—";
+  }
+  const codeEl = $("qnap-error-code");
+  if (codeEl) {
+    if (result?.errorCode) {
+      codeEl.textContent = result.errorCode;
+      codeEl.className = "status-err";
+    } else if (result?.ok) {
+      codeEl.textContent = "なし";
+      codeEl.className = "status-ok";
+    } else {
+      codeEl.textContent = "—";
+      codeEl.className = "status-muted";
+    }
+  }
+  if ($("qnap-save-route-status") && result?.saveRoute) {
+    const labels = {
+      auto: "自動（VPS→ローカル）",
+      vps: "VPS経由",
+      local_wifi: "ローカルWi-Fi経由",
+    };
+    $("qnap-save-route-status").textContent = labels[result.saveRoute] || result.saveRoute;
+  }
 }
 
 function renderQnapTestStatus(status) {
@@ -129,9 +177,17 @@ function renderQnapTestStatus(status) {
   }
   const errEl = $("qnap-last-error");
   if (errEl) {
-    errEl.textContent = status.qnapLastError || "—";
-    errEl.className = status.qnapLastError ? "status-err" : "status-muted";
+    const last = status.lastConnectionTest;
+    const errText =
+      (last &&
+        !last.ok &&
+        (last.errorCode ? `${last.errorCode}: ${last.errorReason || last.message}` : last.message)) ||
+      status.qnapLastError ||
+      "—";
+    errEl.textContent = errText;
+    errEl.className = errText !== "—" ? "status-err" : "status-muted";
   }
+  renderDiagFields(status.lastConnectionTest);
   if ($("qnap-test-filename") && status.testFileName) {
     $("qnap-test-filename").textContent = status.testFileName;
   }
@@ -143,11 +199,18 @@ function renderQnapTestStatus(status) {
     delEl.className = status.lastTestPdfDelete.ok ? "status-ok" : "status-err";
   }
   renderConnectionSteps(status.lastConnectionTest?.steps);
+  if (status.lastConnectionTest?.logs) showPingLogs(status.lastConnectionTest.logs);
+  if (status.summary?.saveRouteLabel && $("qnap-save-route-status")) {
+    $("qnap-save-route-status").textContent = status.summary.saveRouteLabel;
+  }
 }
 
 function fillForm(settings) {
   $("local-enabled").checked = settings.localStorageEnabled !== false;
   $("qnap-enabled").checked = Boolean(settings.qnapBackupEnabled);
+  if ($("qnap-save-route")) {
+    $("qnap-save-route").value = settings.saveRoute || "auto";
+  }
   $("qnap-host").value = settings.qnap?.host ?? "";
   $("qnap-port").value = settings.qnap?.port ?? 8080;
   $("qnap-share").value = settings.qnap?.shareName ?? "TiSLY";
@@ -162,6 +225,7 @@ function collectForm() {
   return {
     localStorageEnabled: $("local-enabled").checked,
     qnapBackupEnabled: $("qnap-enabled").checked,
+    saveRoute: $("qnap-save-route")?.value || "auto",
     qnap: {
       host: $("qnap-host").value.trim(),
       port: Number($("qnap-port").value) || 8080,
@@ -188,12 +252,12 @@ async function load() {
   renderSummary(data.summary);
   renderEnvStatus(data.qnapEnv);
   if (data.settings.lastConnectionTest) {
-    showResult(
-      $("connection-result"),
-      data.settings.lastConnectionTest.ok,
-      data.settings.lastConnectionTest.message
-    );
-    renderConnectionSteps(data.settings.lastConnectionTest.steps);
+    const t = data.settings.lastConnectionTest;
+    const msg = t.errorCode ? `${t.errorCode}: ${t.errorReason || t.message}` : t.message;
+    showResult($("connection-result"), t.ok, msg);
+    renderConnectionSteps(t.steps);
+    renderDiagFields(t);
+    if (t.logs) showPingLogs(t.logs);
   }
   if (data.settings.lastTestPdfSend) {
     showResult($("pdf-result"), data.settings.lastTestPdfSend.ok, data.settings.lastTestPdfSend.message);
@@ -229,6 +293,15 @@ async function loadIntegrity() {
   renderIntegrity(data);
 }
 
+function buildLocalWebDavUrlFromForm() {
+  const host = $("qnap-host").value.trim();
+  const port = Number($("qnap-port").value) || 8080;
+  const share = $("qnap-share").value.trim() || "TiSLY";
+  if (!host) return null;
+  const proto = port === 443 || port === 5001 ? "https" : "http";
+  return `${proto}://${host}:${port}/${share}`;
+}
+
 async function init() {
   initPracticalNav({ appId: "settings_v1", appName: "ストレージ", theme: "hub" });
 
@@ -261,15 +334,87 @@ async function init() {
     $("btn-test-connection").disabled = true;
     try {
       const data = await api("/qnap/test-connection", { method: "POST", body: "{}" });
-      showResult($("connection-result"), data.result.ok, data.result.message);
-      renderConnectionSteps(data.result.steps);
+      const r = data.result || {};
+      const msg = r.errorCode
+        ? `${r.errorCode}: ${r.errorReason || r.message}`
+        : r.message;
+      showResult($("connection-result"), r.ok, msg);
+      renderConnectionSteps(r.steps);
+      renderDiagFields(r);
+      if (r.logs) showPingLogs(r.logs);
       renderSummary(data.summary);
       renderEnvStatus(data.qnapEnv);
       await loadQnapStatus();
+      toast(r.ok ? `接続成功${r.latencyMs != null ? ` (${r.latencyMs}ms)` : ""}` : msg);
     } catch (e) {
-      showResult($("connection-result"), false, e.message || "接続テスト失敗");
+      const body = e.body || {};
+      const msg = body.errorCode
+        ? `${body.errorCode}: ${body.errorReason || e.message}`
+        : e.message || "接続テスト失敗";
+      showResult($("connection-result"), false, msg);
+      toast(msg);
     } finally {
       $("btn-test-connection").disabled = false;
+    }
+  });
+
+  $("btn-ping")?.addEventListener("click", async () => {
+    $("btn-ping").disabled = true;
+    try {
+      const data = await api("/qnap/ping", { method: "POST", body: "{}" });
+      const msg = data.errorCode
+        ? `${data.errorCode}: ${data.errorReason || data.message}`
+        : data.message;
+      showResult($("connection-result"), data.ok, msg);
+      renderDiagFields(data);
+      if (data.logs) showPingLogs(data.logs);
+      if (data.summary) renderSummary(data.summary);
+      toast(
+        data.ok
+          ? `Ping成功 ${data.latencyMs != null ? `(${data.latencyMs}ms)` : ""}`
+          : msg
+      );
+    } catch (e) {
+      const body = e.body || {};
+      const msg = body.message || e.message || "Ping失敗";
+      showResult($("connection-result"), false, msg);
+      if (body.logs) showPingLogs(body.logs);
+      toast(msg);
+    } finally {
+      $("btn-ping").disabled = false;
+    }
+  });
+
+  $("btn-local-ping")?.addEventListener("click", async () => {
+    $("btn-local-ping").disabled = true;
+    try {
+      await api("", { method: "PUT", body: JSON.stringify(collectForm()) });
+      const cfg = await api("/qnap/client-direct-config");
+      const url = cfg.webdavUrl || buildLocalWebDavUrlFromForm();
+      if (!url || !cfg.username || !cfg.password) {
+        const msg = cfg.reason || "ローカル直接用の接続情報が不足しています";
+        showResult($("connection-result"), false, msg);
+        toast(msg);
+        return;
+      }
+      const ping = await pingLocalWebDav({
+        webdavUrl: url,
+        username: cfg.username,
+        password: cfg.password,
+      });
+      const msg = ping.errorCode ? `${ping.errorCode}: ${ping.message}` : ping.message;
+      showResult($("connection-result"), ping.ok, msg);
+      renderDiagFields({
+        ok: ping.ok,
+        latencyMs: ping.latencyMs,
+        errorCode: ping.errorCode,
+        saveRoute: "local_wifi",
+      });
+      toast(ping.ok ? msg : formatClientErrorMessage(ping.errorCode, ping.message));
+    } catch (e) {
+      toast(e.message || "ローカル診断に失敗しました");
+    } finally {
+      $("btn-local-ping").disabled = false;
     }
   });
 
@@ -356,9 +501,14 @@ async function init() {
     if (!confirm("整合チェック後、未保存・失敗分を再同期しますか？")) return;
     $("btn-integrity-resync").disabled = true;
     try {
-      const data = await api("/qnap/integrity/resync", { method: "POST", body: JSON.stringify({ mode: "all" }) });
+      const data = await api("/qnap/integrity/resync", {
+        method: "POST",
+        body: JSON.stringify({ mode: "all" }),
+      });
       renderIntegrity(data.integrityAfter ?? data);
-      toast(`再同期: 書類成功 ${data.documents?.synced?.length ?? 0} / 失敗 ${data.documents?.failed?.length ?? 0}`);
+      toast(
+        `再同期: 書類成功 ${data.documents?.synced?.length ?? 0} / 失敗 ${data.documents?.failed?.length ?? 0}`
+      );
     } catch (e) {
       toast(e.message || "再同期に失敗しました");
     } finally {
@@ -368,7 +518,10 @@ async function init() {
 
   $("btn-integrity-pending")?.addEventListener("click", async () => {
     try {
-      const data = await api("/qnap/integrity/resync", { method: "POST", body: JSON.stringify({ mode: "pending" }) });
+      const data = await api("/qnap/integrity/resync", {
+        method: "POST",
+        body: JSON.stringify({ mode: "pending" }),
+      });
       renderIntegrity(data.integrityAfter ?? data);
       toast(`未保存同期: ${data.documents?.synced?.length ?? 0} 件`);
     } catch (e) {
@@ -378,7 +531,10 @@ async function init() {
 
   $("btn-integrity-failed")?.addEventListener("click", async () => {
     try {
-      const data = await api("/qnap/integrity/resync", { method: "POST", body: JSON.stringify({ mode: "failed" }) });
+      const data = await api("/qnap/integrity/resync", {
+        method: "POST",
+        body: JSON.stringify({ mode: "failed" }),
+      });
       renderIntegrity(data.integrityAfter ?? data);
       toast(`失敗再同期: ${data.documents?.synced?.length ?? 0} 件`);
     } catch (e) {

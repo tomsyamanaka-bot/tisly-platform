@@ -41,6 +41,7 @@
       <dl class="status-grid">
         <dt>ローカル保存</dt><dd id="status-local" class="status-ok">—</dd>
         <dt>QNAP</dt><dd id="status-qnap" class="status-muted">—</dd>
+        <dt>保存ルート</dt><dd id="status-save-route">—</dd>
         <dt>最終確認</dt><dd id="status-last-check">—</dd>
       </dl>
     </div>
@@ -68,13 +69,20 @@
         <input type="checkbox" id="qnap-enabled" />
         QNAPバックアップ有効
       </label>
-      <p class="hint-small">自動バックアップは次フェーズ。ここでは接続設定とテストのみ。</p>
+      <label style="display:block;margin:0.55rem 0 0.2rem;font-size:0.88rem;">QNAP保存ルート
+        <select id="qnap-save-route" style="width:100%;margin-top:0.25rem;padding:0.4rem;box-sizing:border-box;">
+          <option value="auto">自動（VPS経由 → 失敗時ローカルWi-Fi）</option>
+          <option value="vps">VPS経由のみ（Tailscale / .env）</option>
+          <option value="local_wifi">ローカルWi-Fi経由（ブラウザ直接）</option>
+        </select>
+      </label>
+      <p class="hint-small">事務所同一Wi-Fi内では「ローカルWi-Fi経由」または「自動」で VPS→Tailscale 障害を回避できます。下記 IP はローカル直接用です。</p>
     </div>
 
     <div class="friendly-card storage-card" id="qnap-form-card">
-      <h2>QNAP設定</h2>
+      <h2>QNAP設定（ローカルLAN / 直接保存用）</h2>
       <div class="form-grid">
-        <label>IPアドレス
+        <label>IPアドレス（LAN）
           <input id="qnap-host" type="text" inputmode="decimal" placeholder="192.168.1.100" autocomplete="off" />
         </label>
         <label>ポート（WebDAV）
@@ -90,7 +98,7 @@
           <input id="qnap-pass" type="password" placeholder="変更時のみ入力" autocomplete="new-password" />
         </label>
       </div>
-      <p class="hint-small">例: 192.168.1.100 / 8080 / TiSLY / admin</p>
+      <p class="hint-small">例: 192.168.1.100 / 8080 または 5006 / TiSLY — VPS側は .env の QNAP_WEBDAV_URL（Tailscale）を優先</p>
       <div class="storage-actions">
         <button type="button" class="btn-primary" id="btn-save">保存</button>
       </div>
@@ -101,13 +109,18 @@
       <dl class="status-grid" id="qnap-test-grid">
         <dt>モード</dt><dd id="qnap-mode" class="status-muted">—</dd>
         <dt>接続状態</dt><dd id="qnap-conn-status" class="status-muted">—</dd>
+        <dt>応答時間</dt><dd id="qnap-latency">—</dd>
+        <dt>エラーコード</dt><dd id="qnap-error-code" class="status-muted">—</dd>
         <dt>最終テスト</dt><dd id="qnap-last-test">—</dd>
         <dt>最終エラー</dt><dd id="qnap-last-error" class="status-muted">—</dd>
+        <dt>保存ルート</dt><dd id="qnap-save-route-status">—</dd>
         <dt>テストファイル</dt><dd id="qnap-test-filename">Test/tisly-test.pdf</dd>
         <dt>削除結果</dt><dd id="qnap-delete-result" class="status-muted">—</dd>
       </dl>
       <div class="storage-actions">
         <button type="button" class="btn-sub" id="btn-test-connection">接続テスト</button>
+        <button type="button" class="btn-sub" id="btn-ping">Ping診断</button>
+        <button type="button" class="btn-sub" id="btn-local-ping">ローカルWi-Fi診断</button>
         <button type="button" class="btn-sub" id="btn-test-pdf">テストファイル保存</button>
         <button type="button" class="btn-sub" id="btn-test-delete">テストファイル削除</button>
         <button type="button" class="btn-sub" id="btn-retry-failed">失敗分を再同期</button>
@@ -116,7 +129,9 @@
       </div>
       <div id="connection-steps" class="result-box hidden" role="status"></div>
       <div id="connection-result" class="result-box hidden" role="status"></div>
+      <div id="ping-logs" class="result-box hidden" role="status" style="white-space:pre-wrap;font-family:ui-monospace,monospace;font-size:0.75rem;"></div>
       <div id="pdf-result" class="result-box hidden" role="status"></div>
+      <p class="hint-small">トラブルシュート: リポジトリ直下 <code>QNAP_NETWORK_TROUBLESHOOTING.md</code></p>
     </div>
 
     <div class="friendly-card storage-card" id="integrity-card">

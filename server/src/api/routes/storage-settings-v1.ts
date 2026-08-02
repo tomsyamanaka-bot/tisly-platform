@@ -11,7 +11,7 @@ import {
   runQnapTestPdfDelete,
   runQnapTestPdfSend,
 } from "../../storage/qnap-storage-service.js";
-import { getQnapStorageHealthV1, getQnapWebDavEnvStatus } from "../../storage/qnap-storage-v1-config.js";
+import { getQnapStorageHealthV1, getQnapWebDavEnvStatus, maskWebDavUrlPreview } from "../../storage/qnap-storage-v1-config.js";
 import { retryFailedQnapStorageV1, runQnapStorageConnectionTestV1 } from "../../storage/qnap-storage-v1-service.js";
 import {
   resyncAllFailedQnapStorageV1,
@@ -19,6 +19,10 @@ import {
   runQnapStorageIntegrityCheckV1,
   runQnapStorageIntegrityResyncV1,
 } from "../../storage/qnap-storage-integrity-v1-service.js";
+import {
+  getQnapClientDirectConfigV1,
+  runQnapWebDavPingV1,
+} from "../../storage/qnap-network-diagnose-v1.js";
 
 export const storageSettingsV1Router = Router();
 
@@ -52,6 +56,7 @@ storageSettingsV1Router.put("/", ...adminAuth, (req: AuthedRequest, res) => {
   const next = updateStorageSettingsV1({
     localStorageEnabled: body.localStorageEnabled,
     qnapBackupEnabled: body.qnapBackupEnabled,
+    saveRoute: body.saveRoute,
     qnap: {
       host: qnapBody.host,
       port: qnapBody.port,
@@ -70,6 +75,34 @@ storageSettingsV1Router.put("/", ...adminAuth, (req: AuthedRequest, res) => {
   });
 });
 
+/** VPS→QNAP Reachability 診断（応答時間・エラーコード・詳細ログ） */
+storageSettingsV1Router.get("/qnap/ping", ...adminAuth, async (req: AuthedRequest, res) => {
+  if (!assertAdminRole(req, res)) return;
+  const ping = await runQnapWebDavPingV1();
+  res.status(ping.ok ? 200 : 502).json(ping);
+});
+
+storageSettingsV1Router.post("/qnap/ping", ...adminAuth, async (req: AuthedRequest, res) => {
+  if (!assertAdminRole(req, res)) return;
+  const ping = await runQnapWebDavPingV1();
+  updateStorageSettingsV1({
+    lastConnectionTest: {
+      ok: ping.ok,
+      message: ping.message,
+      testedAt: ping.testedAt,
+      latencyMs: ping.latencyMs,
+      errorCode: ping.errorCode,
+      errorReason: ping.errorReason,
+      logs: ping.logs,
+    },
+  });
+  const settings = getStorageSettingsV1();
+  res.status(ping.ok ? 200 : 502).json({
+    ...ping,
+    summary: getStorageStatusSummary(settings),
+  });
+});
+
 storageSettingsV1Router.post("/qnap/test-connection", ...adminAuth, async (req: AuthedRequest, res) => {
   if (!assertAdminRole(req, res)) return;
   const result = await runQnapStorageConnectionTestV1();
@@ -80,6 +113,23 @@ storageSettingsV1Router.post("/qnap/test-connection", ...adminAuth, async (req: 
     summary: getStorageStatusSummary(settings),
     qnapHealth: getQnapStorageHealthV1(),
     qnapEnv: getQnapWebDavEnvStatus(),
+  });
+});
+
+/** クライアント直接保存用の公開設定（パスワードは管理者のみ） */
+storageSettingsV1Router.get("/qnap/client-direct-config", ...adminAuth, (req: AuthedRequest, res) => {
+  if (!assertAdminRole(req, res)) return;
+  const cfg = getQnapClientDirectConfigV1();
+  res.json({
+    available: cfg.available,
+    webdavUrlPreview: cfg.webdavUrl ? maskWebDavUrlPreview(cfg.webdavUrl) : null,
+    webdavUrl: cfg.webdavUrl,
+    username: cfg.username,
+    password: cfg.password,
+    shareName: cfg.shareName,
+    baseDir: cfg.baseDir,
+    saveRoute: cfg.saveRoute,
+    reason: cfg.reason ?? null,
   });
 });
 

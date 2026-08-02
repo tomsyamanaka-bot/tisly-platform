@@ -4,12 +4,19 @@ import { getDatabase } from "../db/database.js";
 
 export const STORAGE_SETTINGS_KEY = "storage_settings_v1";
 
+/** QNAP 保存ルート: VPS経由 / ローカルWi-Fi直接 / 自動フォールバック */
+export type QnapSaveRouteV1 = "auto" | "vps" | "local_wifi";
+
 export interface QnapConnectionTestResult {
   ok: boolean;
   message: string;
   testedAt: string;
   mock?: boolean;
   steps?: Array<{ step: number; label: string; ok: boolean; message: string }>;
+  latencyMs?: number | null;
+  errorCode?: string | null;
+  errorReason?: string | null;
+  logs?: string[];
 }
 
 export interface QnapTestPdfSendResult {
@@ -39,6 +46,8 @@ export interface StorageQnapConfigV1 {
 export interface StorageSettingsV1 {
   localStorageEnabled: boolean;
   qnapBackupEnabled: boolean;
+  /** auto=VPS優先・失敗時ローカルWi-Fi / vps=VPSのみ / local_wifi=ブラウザ直接 */
+  saveRoute: QnapSaveRouteV1;
   qnap: StorageQnapConfigV1;
   lastConnectionTest?: QnapConnectionTestResult;
   lastTestPdfSend?: QnapTestPdfSendResult;
@@ -61,9 +70,15 @@ const DEFAULT_QNAP: StorageQnapConfigV1 = {
 export const DEFAULT_STORAGE_SETTINGS: StorageSettingsV1 = {
   localStorageEnabled: true,
   qnapBackupEnabled: false,
+  saveRoute: "auto",
   qnap: { ...DEFAULT_QNAP },
   updatedAt: new Date().toISOString(),
 };
+
+function parseSaveRoute(raw: unknown): QnapSaveRouteV1 {
+  if (raw === "vps" || raw === "local_wifi" || raw === "auto") return raw;
+  return "auto";
+}
 
 function parseSettings(raw: string | undefined): StorageSettingsV1 {
   if (!raw) return { ...DEFAULT_STORAGE_SETTINGS, qnap: { ...DEFAULT_QNAP } };
@@ -73,6 +88,7 @@ function parseSettings(raw: string | undefined): StorageSettingsV1 {
     return {
       localStorageEnabled: parsed.localStorageEnabled !== false,
       qnapBackupEnabled: Boolean(parsed.qnapBackupEnabled),
+      saveRoute: parseSaveRoute(parsed.saveRoute),
       qnap: {
         host: String(qnap.host ?? "").trim(),
         port: Number(qnap.port) > 0 ? Number(qnap.port) : 8080,
@@ -108,16 +124,25 @@ export function toPublicStorageSettings(settings: StorageSettingsV1): StorageSet
   };
 }
 
+function saveRouteLabel(route: QnapSaveRouteV1): string {
+  if (route === "vps") return "VPS経由";
+  if (route === "local_wifi") return "ローカルWi-Fi経由";
+  return "自動（VPS→ローカル）";
+}
+
 export function getStorageStatusSummary(settings: StorageSettingsV1): {
   localLabel: string;
   qnapLabel: string;
   qnapDetail: string;
   lastCheckedAt: string | null;
+  saveRoute: QnapSaveRouteV1;
+  saveRouteLabel: string;
 } {
   const localLabel = settings.localStorageEnabled ? "✅ 有効" : "—";
   let qnapLabel = "未設定";
   let qnapDetail = "QNAPバックアップが無効です";
   let lastCheckedAt: string | null = null;
+  const route = parseSaveRoute(settings.saveRoute);
 
   if (settings.qnapBackupEnabled) {
     const hasCreds =
@@ -134,7 +159,10 @@ export function getStorageStatusSummary(settings: StorageSettingsV1): {
       lastCheckedAt = settings.lastConnectionTest.testedAt;
     } else if (settings.lastConnectionTest && !settings.lastConnectionTest.ok) {
       qnapLabel = "接続失敗";
-      qnapDetail = settings.lastConnectionTest.message;
+      const code = settings.lastConnectionTest.errorCode;
+      qnapDetail = code
+        ? `${code}: ${settings.lastConnectionTest.errorReason || settings.lastConnectionTest.message}`
+        : settings.lastConnectionTest.message;
       lastCheckedAt = settings.lastConnectionTest.testedAt;
     } else {
       qnapLabel = "未確認";
@@ -142,12 +170,19 @@ export function getStorageStatusSummary(settings: StorageSettingsV1): {
     }
   }
 
-  return { localLabel, qnapLabel, qnapDetail, lastCheckedAt };
+  return {
+    localLabel,
+    qnapLabel,
+    qnapDetail,
+    lastCheckedAt,
+    saveRoute: route,
+    saveRouteLabel: saveRouteLabel(route),
+  };
 }
 
 export function updateStorageSettingsV1(
   patch: Partial<
-    Pick<StorageSettingsV1, "localStorageEnabled" | "qnapBackupEnabled" | "qnap"> & {
+    Pick<StorageSettingsV1, "localStorageEnabled" | "qnapBackupEnabled" | "saveRoute" | "qnap"> & {
       lastConnectionTest?: QnapConnectionTestResult | null;
       lastTestPdfSend?: QnapTestPdfSendResult | null;
       lastTestPdfDelete?: QnapTestPdfDeleteResult | null;
@@ -173,6 +208,8 @@ export function updateStorageSettingsV1(
       patch.qnapBackupEnabled !== undefined
         ? Boolean(patch.qnapBackupEnabled)
         : current.qnapBackupEnabled,
+    saveRoute:
+      patch.saveRoute !== undefined ? parseSaveRoute(patch.saveRoute) : current.saveRoute,
     qnap: {
       host:
         qnapPatch.host !== undefined ? String(qnapPatch.host).trim() : current.qnap.host,
