@@ -125,9 +125,9 @@ export function toPublicStorageSettings(settings: StorageSettingsV1): StorageSet
 }
 
 function saveRouteLabel(route: QnapSaveRouteV1): string {
-  if (route === "vps") return "VPS経由";
+  if (route === "vps") return "VPS（Tailscale）経由";
   if (route === "local_wifi") return "ローカルWi-Fi経由";
-  return "自動（VPS→ローカル）";
+  return "自動（推奨）";
 }
 
 export function getStorageStatusSummary(settings: StorageSettingsV1): {

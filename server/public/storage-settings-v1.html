@@ -30,6 +30,42 @@
     .result-box.err { background:#fee2e2; color:#b91c1c; }
     .result-box.hidden { display:none; }
     .hint-small { font-size:0.78rem; color:#64748b; margin:0.35rem 0 0; }
+    .route-select {
+      width:100%; margin-top:0.25rem; padding:0.55rem 0.65rem; box-sizing:border-box;
+      font-size:1rem; min-height:48px; border:1px solid #cbd5e1; border-radius:8px; background:#fff;
+    }
+    .lan-ip-field {
+      border:1px solid #bfdbfe; background:#f8fbff; border-radius:10px; padding:0.65rem 0.75rem; margin:0.5rem 0;
+    }
+    .lan-ip-field label { display:block; font-size:0.9rem; font-weight:600; color:#1e3a8a; }
+    .lan-ip-field input {
+      width:100%; box-sizing:border-box; margin-top:0.35rem; min-height:48px;
+      font-size:1.05rem; letter-spacing:0.02em; padding:0.5rem 0.65rem; border-radius:8px; border:1px solid #93c5fd;
+    }
+    .ping-primary-row { display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center; margin-top:0.75rem; }
+    .btn-ping-primary {
+      flex:1 1 12rem; min-height:52px; font-size:1.05rem; font-weight:700;
+      background:#1e3a8a; color:#fff; border:none; border-radius:10px; padding:0.7rem 1rem; cursor:pointer;
+    }
+    .btn-ping-primary:disabled { opacity:0.65; cursor:wait; }
+    .btn-ping-primary.is-running { background:#334155; }
+    .ping-indicator {
+      display:inline-flex; align-items:center; gap:0.4rem; min-height:44px; padding:0.4rem 0.75rem;
+      border-radius:999px; font-size:0.9rem; font-weight:600; background:#f1f5f9; color:#475569;
+    }
+    .ping-indicator.ok { background:#dcfce7; color:#166534; }
+    .ping-indicator.err { background:#fee2e2; color:#b91c1c; }
+    .ping-indicator.running { background:#e0e7ff; color:#3730a3; }
+    .ping-indicator .ping-dot {
+      width:0.65rem; height:0.65rem; border-radius:50%; background:currentColor; flex:0 0 auto;
+    }
+    .ping-indicator.running .ping-dot { animation: ping-pulse 1s ease-in-out infinite; }
+    @keyframes ping-pulse { 0%,100% { opacity:0.35; transform:scale(0.85); } 50% { opacity:1; transform:scale(1.15); } }
+    .advanced-actions-toggle {
+      margin-top:0.65rem; font-size:0.85rem; color:#1e3a8a; background:none; border:none;
+      text-decoration:underline; cursor:pointer; padding:0.35rem 0; min-height:44px;
+    }
+    .advanced-actions.hidden { display:none; }
   </style>
 </head>
 <body class="tisly-friendly tisly-neon-dark">
@@ -69,22 +105,24 @@
         <input type="checkbox" id="qnap-enabled" />
         QNAPバックアップ有効
       </label>
-      <label style="display:block;margin:0.55rem 0 0.2rem;font-size:0.88rem;">QNAP保存ルート
-        <select id="qnap-save-route" style="width:100%;margin-top:0.25rem;padding:0.4rem;box-sizing:border-box;">
-          <option value="auto">自動（VPS経由 → 失敗時ローカルWi-Fi）</option>
-          <option value="vps">VPS経由のみ（Tailscale / .env）</option>
-          <option value="local_wifi">ローカルWi-Fi経由（ブラウザ直接）</option>
+      <label style="display:block;margin:0.55rem 0 0.2rem;font-size:0.9rem;font-weight:600;">保存ルート切り替え
+        <select id="qnap-save-route" class="route-select" aria-label="QNAP保存ルート">
+          <option value="auto">自動（推奨）— VPS優先 → 失敗時ローカルWi-Fi</option>
+          <option value="local_wifi">ローカルWi-Fi経由</option>
+          <option value="vps">VPS（Tailscale）経由</option>
         </select>
       </label>
-      <p class="hint-small">事務所同一Wi-Fi内では「ローカルWi-Fi経由」または「自動」で VPS→Tailscale 障害を回避できます。下記 IP はローカル直接用です。</p>
+      <p class="hint-small">現場の同一Wi-Fi内では「ローカルWi-Fi経由」または「自動（推奨）」が安定します。</p>
     </div>
 
     <div class="friendly-card storage-card" id="qnap-form-card">
-      <h2>QNAP設定（ローカルLAN / 直接保存用）</h2>
+      <h2>QNAP設定（ローカルLAN）</h2>
+      <div class="lan-ip-field">
+        <label for="qnap-host">ローカルLAN IP</label>
+        <input id="qnap-host" type="text" inputmode="decimal" placeholder="例: 192.168.1.10" autocomplete="off" aria-describedby="qnap-host-hint" />
+        <p id="qnap-host-hint" class="hint-small">事務所LANの QNAP アドレス（例 192.168.x.x）。ローカルWi-Fi直接保存・Pingに使用します。</p>
+      </div>
       <div class="form-grid">
-        <label>IPアドレス（LAN）
-          <input id="qnap-host" type="text" inputmode="decimal" placeholder="192.168.1.100" autocomplete="off" />
-        </label>
         <label>ポート（WebDAV）
           <input id="qnap-port" type="number" value="8080" placeholder="8080" />
         </label>
@@ -98,15 +136,25 @@
           <input id="qnap-pass" type="password" placeholder="変更時のみ入力" autocomplete="new-password" />
         </label>
       </div>
-      <p class="hint-small">例: 192.168.1.100 / 8080 または 5006 / TiSLY — VPS側は .env の QNAP_WEBDAV_URL（Tailscale）を優先</p>
+      <p class="hint-small">例: 192.168.1.10 / 8080 または 5006 / TiSLY — VPS側は .env の QNAP_WEBDAV_URL（Tailscale）を優先</p>
       <div class="storage-actions">
-        <button type="button" class="btn-primary" id="btn-save">保存</button>
+        <button type="button" class="btn-primary" id="btn-save">設定を保存</button>
       </div>
     </div>
 
     <div class="friendly-card storage-card">
-      <h2>QNAP接続テスト</h2>
-      <dl class="status-grid" id="qnap-test-grid">
+      <h2>接続テスト（Ping）</h2>
+      <p class="hint-small" style="margin-top:0;">1タップで設定保存 → Ping診断まで実行します。応答速度（ms）またはエラーをすぐ表示します。</p>
+      <div class="ping-primary-row">
+        <button type="button" class="btn-ping-primary" id="btn-connect-ping" aria-describedby="ping-indicator">
+          接続テスト (Ping)
+        </button>
+        <div id="ping-indicator" class="ping-indicator" role="status" aria-live="polite">
+          <span class="ping-dot" aria-hidden="true"></span>
+          <span id="ping-indicator-text">未実行</span>
+        </div>
+      </div>
+      <dl class="status-grid" id="qnap-test-grid" style="margin-top:0.75rem;">
         <dt>モード</dt><dd id="qnap-mode" class="status-muted">—</dd>
         <dt>接続状態</dt><dd id="qnap-conn-status" class="status-muted">—</dd>
         <dt>応答時間</dt><dd id="qnap-latency">—</dd>
@@ -117,20 +165,23 @@
         <dt>テストファイル</dt><dd id="qnap-test-filename">Test/tisly-test.pdf</dd>
         <dt>削除結果</dt><dd id="qnap-delete-result" class="status-muted">—</dd>
       </dl>
-      <div class="storage-actions">
-        <button type="button" class="btn-sub" id="btn-test-connection">接続テスト</button>
-        <button type="button" class="btn-sub" id="btn-ping">Ping診断</button>
-        <button type="button" class="btn-sub" id="btn-local-ping">ローカルWi-Fi診断</button>
+      <div id="connection-steps" class="result-box hidden" role="status"></div>
+      <div id="connection-result" class="result-box hidden" role="status"></div>
+      <div id="ping-logs" class="result-box hidden" role="status" style="white-space:pre-wrap;font-family:ui-monospace,monospace;font-size:0.75rem;"></div>
+      <div id="pdf-result" class="result-box hidden" role="status"></div>
+      <button type="button" class="advanced-actions-toggle" id="btn-toggle-advanced" aria-expanded="false" aria-controls="advanced-qnap-actions">
+        詳細テスト・再同期を表示
+      </button>
+      <div id="advanced-qnap-actions" class="storage-actions advanced-actions hidden">
+        <button type="button" class="btn-sub" id="btn-test-connection">詳細接続テスト（7段階）</button>
+        <button type="button" class="btn-sub" id="btn-ping">VPS Pingのみ</button>
+        <button type="button" class="btn-sub" id="btn-local-ping">ローカルWi-Fi診断のみ</button>
         <button type="button" class="btn-sub" id="btn-test-pdf">テストファイル保存</button>
         <button type="button" class="btn-sub" id="btn-test-delete">テストファイル削除</button>
         <button type="button" class="btn-sub" id="btn-retry-failed">失敗分を再同期</button>
         <button type="button" class="btn-sub" id="btn-resync-pending">未保存だけ同期</button>
         <button type="button" class="btn-sub" id="btn-resync-failed">失敗だけ再同期</button>
       </div>
-      <div id="connection-steps" class="result-box hidden" role="status"></div>
-      <div id="connection-result" class="result-box hidden" role="status"></div>
-      <div id="ping-logs" class="result-box hidden" role="status" style="white-space:pre-wrap;font-family:ui-monospace,monospace;font-size:0.75rem;"></div>
-      <div id="pdf-result" class="result-box hidden" role="status"></div>
       <p class="hint-small">トラブルシュート: リポジトリ直下 <code>QNAP_NETWORK_TROUBLESHOOTING.md</code></p>
     </div>
 

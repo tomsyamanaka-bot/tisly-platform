@@ -64,6 +64,49 @@ function showPingLogs(logs) {
   el.textContent = logs.join("\n");
 }
 
+function setPingIndicator(state, text) {
+  const el = $("ping-indicator");
+  const textEl = $("ping-indicator-text");
+  if (!el || !textEl) return;
+  el.classList.remove("ok", "err", "running");
+  if (state === "ok" || state === "err" || state === "running") {
+    el.classList.add(state);
+  }
+  textEl.textContent = text || "未実行";
+}
+
+function saveRouteLabelJa(route) {
+  if (route === "local_wifi") return "ローカルWi-Fi経由";
+  if (route === "vps") return "VPS（Tailscale）経由";
+  return "自動（推奨）";
+}
+
+function applyPingResultToUi(result, { routeLabel } = {}) {
+  const ok = Boolean(result?.ok);
+  const ms = result?.latencyMs;
+  const errMsg = result?.errorCode
+    ? `${result.errorCode}: ${result.errorReason || result.message || ""}`
+    : result?.message || "接続失敗";
+  const label = routeLabel ? `（${routeLabel}）` : "";
+  if (ok) {
+    const msText = ms != null ? `${ms} ms` : "OK";
+    setPingIndicator("ok", `成功 ${msText}${label}`);
+    showResult(
+      $("connection-result"),
+      true,
+      `Ping成功 ${ms != null ? `(${ms}ms)` : ""}${label}`.trim()
+    );
+    toast(`接続OK ${ms != null ? `(${ms}ms)` : ""}${label}`.trim());
+  } else {
+    setPingIndicator("err", errMsg.slice(0, 48));
+    showResult($("connection-result"), false, errMsg);
+    toast(errMsg);
+  }
+  renderDiagFields(result || {});
+  if (result?.logs) showPingLogs(result.logs);
+  if (result?.steps) renderConnectionSteps(result.steps);
+}
+
 function renderEnvStatus(env) {
   if (!env) return;
   const readyEl = $("qnap-env-ready");
@@ -139,12 +182,19 @@ function renderDiagFields(result) {
     }
   }
   if ($("qnap-save-route-status") && result?.saveRoute) {
-    const labels = {
-      auto: "自動（VPS→ローカル）",
-      vps: "VPS経由",
-      local_wifi: "ローカルWi-Fi経由",
-    };
-    $("qnap-save-route-status").textContent = labels[result.saveRoute] || result.saveRoute;
+    $("qnap-save-route-status").textContent = saveRouteLabelJa(result.saveRoute);
+  }
+  if (result && (result.ok === true || result.ok === false) && result.latencyMs != null) {
+    setPingIndicator(
+      result.ok ? "ok" : "err",
+      result.ok
+        ? `成功 ${result.latencyMs} ms`
+        : (result.errorCode || result.message || "失敗").toString().slice(0, 48)
+    );
+  } else if (result?.ok === true) {
+    setPingIndicator("ok", "成功");
+  } else if (result?.ok === false) {
+    setPingIndicator("err", (result.errorCode || result.message || "失敗").toString().slice(0, 48));
   }
 }
 
@@ -302,6 +352,72 @@ function buildLocalWebDavUrlFromForm() {
   return `${proto}://${host}:${port}/${share}`;
 }
 
+/** 設定保存 → ルートに応じた Ping（1タップ診断） */
+async function runConnectPingFlow() {
+  const btn = $("btn-connect-ping");
+  if (btn) {
+    btn.disabled = true;
+    btn.classList.add("is-running");
+  }
+  setPingIndicator("running", "診断中…");
+  try {
+    const saved = await api("", { method: "PUT", body: JSON.stringify(collectForm()) });
+    fillForm(saved.settings);
+    renderSummary(saved.summary);
+    renderEnvStatus(saved.qnapEnv);
+
+    const route = saved.settings?.saveRoute || $("qnap-save-route")?.value || "auto";
+    const routeLabel = saveRouteLabelJa(route);
+
+    if (route === "local_wifi") {
+      const cfg = await api("/qnap/client-direct-config");
+      const url = cfg.webdavUrl || buildLocalWebDavUrlFromForm();
+      if (!url || !cfg.username || !cfg.password) {
+        const msg = cfg.reason || "ローカル直接用の接続情報が不足しています";
+        setPingIndicator("err", msg.slice(0, 48));
+        showResult($("connection-result"), false, msg);
+        toast(msg);
+        return;
+      }
+      const ping = await pingLocalWebDav({
+        webdavUrl: url,
+        username: cfg.username,
+        password: cfg.password,
+      });
+      applyPingResultToUi(
+        {
+          ok: ping.ok,
+          latencyMs: ping.latencyMs,
+          errorCode: ping.errorCode,
+          message: ping.ok ? ping.message : formatClientErrorMessage(ping.errorCode, ping.message),
+          saveRoute: "local_wifi",
+        },
+        { routeLabel }
+      );
+    } else {
+      const data = await api("/qnap/ping", { method: "POST", body: "{}" });
+      applyPingResultToUi(data, { routeLabel });
+      if (data.summary) renderSummary(data.summary);
+    }
+    await loadQnapStatus();
+  } catch (e) {
+    const body = e.body || {};
+    const msg =
+      body.errorCode
+        ? `${body.errorCode}: ${body.errorReason || body.message || e.message}`
+        : body.message || e.message || "Ping失敗";
+    setPingIndicator("err", msg.slice(0, 48));
+    showResult($("connection-result"), false, msg);
+    if (body.logs) showPingLogs(body.logs);
+    toast(msg);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.classList.remove("is-running");
+    }
+  }
+}
+
 async function init() {
   initPracticalNav({ appId: "settings_v1", appName: "ストレージ", theme: "hub" });
 
@@ -317,6 +433,19 @@ async function init() {
     return;
   }
 
+  $("btn-toggle-advanced")?.addEventListener("click", () => {
+    const panel = $("advanced-qnap-actions");
+    const toggle = $("btn-toggle-advanced");
+    if (!panel || !toggle) return;
+    const open = panel.classList.toggle("hidden") === false;
+    toggle.setAttribute("aria-expanded", open ? "true" : "false");
+    toggle.textContent = open ? "詳細テスト・再同期を隠す" : "詳細テスト・再同期を表示";
+  });
+
+  $("btn-connect-ping")?.addEventListener("click", () => {
+    runConnectPingFlow();
+  });
+
   $("btn-save")?.addEventListener("click", async () => {
     try {
       const data = await api("", { method: "PUT", body: JSON.stringify(collectForm()) });
@@ -324,7 +453,7 @@ async function init() {
       renderSummary(data.summary);
       renderEnvStatus(data.qnapEnv);
       await loadQnapStatus();
-      toast("保存しました");
+      toast(`保存しました（${saveRouteLabelJa(data.settings?.saveRoute || "auto")}）`);
     } catch (e) {
       toast(e.message || "保存に失敗しました");
     }
@@ -332,6 +461,7 @@ async function init() {
 
   $("btn-test-connection")?.addEventListener("click", async () => {
     $("btn-test-connection").disabled = true;
+    setPingIndicator("running", "詳細テスト中…");
     try {
       const data = await api("/qnap/test-connection", { method: "POST", body: "{}" });
       const r = data.result || {};
@@ -352,6 +482,7 @@ async function init() {
         ? `${body.errorCode}: ${body.errorReason || e.message}`
         : e.message || "接続テスト失敗";
       showResult($("connection-result"), false, msg);
+      setPingIndicator("err", msg.slice(0, 48));
       toast(msg);
     } finally {
       $("btn-test-connection").disabled = false;
@@ -360,24 +491,16 @@ async function init() {
 
   $("btn-ping")?.addEventListener("click", async () => {
     $("btn-ping").disabled = true;
+    setPingIndicator("running", "VPS Ping中…");
     try {
       const data = await api("/qnap/ping", { method: "POST", body: "{}" });
-      const msg = data.errorCode
-        ? `${data.errorCode}: ${data.errorReason || data.message}`
-        : data.message;
-      showResult($("connection-result"), data.ok, msg);
-      renderDiagFields(data);
-      if (data.logs) showPingLogs(data.logs);
+      applyPingResultToUi(data, { routeLabel: saveRouteLabelJa(data.saveRoute || "vps") });
       if (data.summary) renderSummary(data.summary);
-      toast(
-        data.ok
-          ? `Ping成功 ${data.latencyMs != null ? `(${data.latencyMs}ms)` : ""}`
-          : msg
-      );
     } catch (e) {
       const body = e.body || {};
       const msg = body.message || e.message || "Ping失敗";
       showResult($("connection-result"), false, msg);
+      setPingIndicator("err", msg.slice(0, 48));
       if (body.logs) showPingLogs(body.logs);
       toast(msg);
     } finally {
@@ -387,6 +510,7 @@ async function init() {
 
   $("btn-local-ping")?.addEventListener("click", async () => {
     $("btn-local-ping").disabled = true;
+    setPingIndicator("running", "ローカル診断中…");
     try {
       await api("", { method: "PUT", body: JSON.stringify(collectForm()) });
       const cfg = await api("/qnap/client-direct-config");
@@ -394,6 +518,7 @@ async function init() {
       if (!url || !cfg.username || !cfg.password) {
         const msg = cfg.reason || "ローカル直接用の接続情報が不足しています";
         showResult($("connection-result"), false, msg);
+        setPingIndicator("err", msg.slice(0, 48));
         toast(msg);
         return;
       }
@@ -402,17 +527,19 @@ async function init() {
         username: cfg.username,
         password: cfg.password,
       });
-      const msg = ping.errorCode ? `${ping.errorCode}: ${ping.message}` : ping.message;
-      showResult($("connection-result"), ping.ok, msg);
-      renderDiagFields({
-        ok: ping.ok,
-        latencyMs: ping.latencyMs,
-        errorCode: ping.errorCode,
-        saveRoute: "local_wifi",
-      });
-      toast(ping.ok ? msg : formatClientErrorMessage(ping.errorCode, ping.message));
+      applyPingResultToUi(
+        {
+          ok: ping.ok,
+          latencyMs: ping.latencyMs,
+          errorCode: ping.errorCode,
+          message: ping.ok ? ping.message : formatClientErrorMessage(ping.errorCode, ping.message),
+          saveRoute: "local_wifi",
+        },
+        { routeLabel: "ローカルWi-Fi経由" }
+      );
     } catch (e) {
       toast(e.message || "ローカル診断に失敗しました");
+      setPingIndicator("err", (e.message || "失敗").slice(0, 48));
     } finally {
       $("btn-local-ping").disabled = false;
     }

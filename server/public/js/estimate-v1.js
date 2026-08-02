@@ -1418,6 +1418,12 @@ function bindSelectableListCards(container) {
 }
 
 /** 一覧カードから見積・請求 PDF を QNAP 保存（VPS→失敗時はローカルWi-Fi直接） */
+function qnapSaveSuccessToastMessage(saveRoute, usedLocalWifi) {
+  const viaLocal = usedLocalWifi || saveRoute === "local_wifi";
+  const routeLabel = viaLocal ? "ローカルWi-Fi経由" : "VPS経由";
+  return `QNAPへ保存しました（${routeLabel}）`;
+}
+
 async function saveListProjectToQnap(projectId, btn) {
   if (!projectId) return;
   const originalHtml = btn?.innerHTML;
@@ -1453,7 +1459,7 @@ async function saveListProjectToQnap(projectId, btn) {
         error: `HTTP ${res.status}`,
       }));
       if (res.ok && vpsResult?.ok) {
-        toast(vpsResult.message || "QNAPへ見積書・請求書を保存しました");
+        toast(qnapSaveSuccessToastMessage(vpsResult.saveRoute || "vps", false));
         return;
       }
     } catch (e) {
@@ -1481,7 +1487,7 @@ async function saveListProjectToQnap(projectId, btn) {
         projectId,
       });
       if (local.ok) {
-        toast(local.message || "ローカルWi-Fi経由でQNAPへ保存しました");
+        toast(qnapSaveSuccessToastMessage("local_wifi", true));
         return;
       }
       const detail =

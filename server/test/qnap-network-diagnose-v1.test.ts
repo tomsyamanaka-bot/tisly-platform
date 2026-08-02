@@ -130,8 +130,11 @@ describe("QNAP network diagnose v1", () => {
     assert.match(html, /qnap-save-route/);
     assert.match(html, /btn-ping/);
     assert.match(html, /btn-local-ping/);
+    assert.match(html, /btn-connect-ping/);
+    assert.match(html, /接続テスト \(Ping\)/);
     assert.match(js, /qnap\/ping/);
     assert.match(js, /pingLocalWebDav/);
+    assert.match(js, /runConnectPingFlow/);
   });
 
   it("estimate-v1 uses client direct fallback module", () => {

@@ -105,8 +105,11 @@ describe("Storage settings v1 — QNAP 接続設定", () => {
   it("GET /storage-settings-v1 ページを配信", async () => {
     const res = await request(app).get("/storage-settings-v1");
     assert.equal(res.status, 200);
-    assert.ok(res.text.includes("QNAP接続テスト"));
+    assert.ok(res.text.includes("接続テスト（Ping）"));
     assert.ok(res.text.includes("VPS .env"));
+    assert.ok(res.text.includes("btn-connect-ping"));
+    assert.ok(res.text.includes("自動（推奨）"));
+    assert.ok(res.text.includes("ローカルLAN IP"));
   });
 
   it("GET /api/storage/v1/settings — owner", async () => {
@@ -191,8 +194,15 @@ describe("Storage settings v1 — QNAP 接続設定", () => {
     assert.match(html, /btn-test-pdf/);
     assert.match(html, /qnap-save-route/);
     assert.match(html, /btn-ping/);
+    assert.match(html, /btn-connect-ping/);
+    assert.match(html, /ping-indicator/);
+    assert.match(html, /自動（推奨）/);
+    assert.match(html, /ローカルWi-Fi経由/);
+    assert.match(html, /VPS（Tailscale）経由/);
     assert.match(js, /test-connection/);
     assert.match(js, /test-pdf/);
     assert.match(js, /saveRoute/);
+    assert.match(js, /runConnectPingFlow/);
+    assert.match(js, /setPingIndicator/);
   });
 });
