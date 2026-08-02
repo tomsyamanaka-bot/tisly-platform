@@ -20,6 +20,13 @@ import {
   getStorageSettingsV1,
   type QnapSaveRouteV1,
 } from "./storage-settings-store.js";
+import {
+  DOCUMENT_NAS_DEFAULT_PORT,
+  DOCUMENT_NAS_HOST,
+  DOCUMENT_NAS_SHARE,
+  resolveDocumentNasLocalHost,
+  resolveDocumentNasLocalPort,
+} from "./qnap-nas-hosts-v1.js";
 
 export type { QnapSaveRouteV1 };
 
@@ -238,18 +245,22 @@ export function getQnapClientDirectConfigV1(): {
   shareName: string;
   baseDir: string;
   saveRoute: QnapSaveRouteV1;
+  host: string;
   reason?: string;
 } {
   const saveRoute = getQnapSaveRouteV1();
   const settings = getStorageSettingsV1();
   const localEnv = (process.env.QNAP_LOCAL_WEBDAV_URL || "").trim();
   const q = settings.qnap;
+  const host = resolveDocumentNasLocalHost(q.host);
+  const port = resolveDocumentNasLocalPort(q.port || DOCUMENT_NAS_DEFAULT_PORT);
+  const shareName = q.shareName || DOCUMENT_NAS_SHARE;
 
   let webdavUrl = "";
   if (localEnv) {
     webdavUrl = localEnv.replace(/\/+$/, "");
-  } else if (q.host.trim()) {
-    webdavUrl = buildWebDavUrl(q.host, q.port || 8080, q.shareName || "TiSLY");
+  } else {
+    webdavUrl = buildWebDavUrl(host, port, shareName);
   }
 
   const username =
@@ -269,11 +280,12 @@ export function getQnapClientDirectConfigV1(): {
       webdavUrl: null,
       username: null,
       password: null,
-      shareName: q.shareName || "TiSLY",
+      shareName,
       baseDir: config.qnapWebDav.baseDir || "/TiSLY",
       saveRoute,
+      host: host || DOCUMENT_NAS_HOST,
       reason:
-        "ローカル Wi-Fi 用ホストが未設定です。ストレージ設定の IP、または QNAP_LOCAL_WEBDAV_URL を設定してください",
+        "ローカル Wi-Fi 用ホストが未設定です。ストレージ設定の IP、または QNAP_LOCAL_WEBDAV_URL / QNAP_LOCAL_HOST を設定してください",
     };
   }
   if (!username || !password) {
@@ -282,9 +294,10 @@ export function getQnapClientDirectConfigV1(): {
       webdavUrl,
       username: null,
       password: null,
-      shareName: q.shareName || "TiSLY",
+      shareName,
       baseDir: config.qnapWebDav.baseDir || "/TiSLY",
       saveRoute,
+      host,
       reason: "ローカル直接保存用のユーザー名／パスワードが不足しています",
     };
   }
@@ -294,9 +307,10 @@ export function getQnapClientDirectConfigV1(): {
     webdavUrl,
     username,
     password,
-    shareName: q.shareName || "TiSLY",
+    shareName,
     baseDir: config.qnapWebDav.baseDir || "/TiSLY",
     saveRoute,
+    host,
   };
 }
 

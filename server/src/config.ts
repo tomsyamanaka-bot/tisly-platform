@@ -79,6 +79,15 @@ export const config = {
     password: env("QNAP_PASSWORD"),
     basePath: env("QNAP_BASE_PATH", "/TiSLY"),
   },
+  /** 見積書・請求書のローカル Wi-Fi 保存先（書類用 NAS nastoms） */
+  qnapLocal: {
+    get host() {
+      return env("QNAP_LOCAL_HOST", "192.168.1.134");
+    },
+    get port() {
+      return Number(env("QNAP_LOCAL_PORT", "5000"));
+    },
+  },
   qnapWebDav: {
     get url() {
       return env("QNAP_WEBDAV_URL");

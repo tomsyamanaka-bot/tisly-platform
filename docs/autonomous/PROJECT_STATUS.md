@@ -16,7 +16,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
 | ログインCTA | 青〜紫グラデ維持（`#4facfe` → `#a855f7`） |
-| SW | `tisly-pwa-v2425-qnap-local-fallback` |
+| SW | `tisly-pwa-v2427-nastoms-doc-nas` |
 
 ---
 
@@ -368,7 +368,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 領域 | 内容 |
 |------|------|
 | 役割 | QNAP TS-464 = **本番サーバーではない** — AI知識庫・案件保管庫・バックアップ母艦 |
-| NAS | TiSLYNAS · `192.168.1.10` · `\\192.168.1.10\TiSLY` |
+| NAS | 書類: nastoms · `192.168.1.134`（見積・請求） / システム: TiSLYNAS · `192.168.1.10` · `\\192.168.1.10\TiSLY` |
 | リポジトリ同期 | `scripts/backup-qnap.ps1` — robocopy `/MIR` → `Backups/repo-mirror` |
 | 接続診断 | `scripts/qnap-diagnose.ps1` — 接続/書込/読込/速度/空き容量/フォルダ確認 |
 | 統合デプロイ | `scripts/deploy-all.ps1` — lint → test → build → commit → push → QNAP → health |
@@ -997,10 +997,22 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | API | `POST /api/estimate/v1/projects/:id/qnap-save-invoices-estimates` |
 | 保存先 | `TiSLY_Storage/Invoices_Estimates/YYYY-MM/`（MotherShip パス追記） |
 | 通信 | **実機 WebDAV のみ** — モックミラー不可。接続解決は `QNAP_WEBDAV_*`（ENV）→ 設定 UI → `QNAP_HOST` |
-| SW | `tisly-pwa-v2425-qnap-local-fallback` |
+| SW | `tisly-pwa-v2427-nastoms-doc-nas` |
 | コード | `estimate-invoice-qnap-save-v1.ts` · `estimate-v1.js` `listCardActionsHtml` |
 | テスト | `server/test/navy-ui-qnap-list-v1.test.ts` |
 | 確認 | `/estimate-v1` · https://tisly.jp/api/health |
+
+### マルチ NAS（書類 nastoms / システム TiSLYNAS）v1（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 書類保存用 | **nastoms** `192.168.1.134` — 見積書・請求書 PDF（`QNAP_LOCAL_HOST` 既定 / ストレージ UI） |
+| システム用 | **TiSLYNAS** `192.168.1.10` — MotherShip・将来のシステムデータ（変更なし） |
+| 既定ポート | WebDAV `5000`（設定・`QNAP_LOCAL_PORT` で上書き可） |
+| UI | `/storage-settings-v1` — 役割ラベル明記 |
+| トースト | `nastoms (192.168.1.134) へ見積書・請求書を保存しました` |
+| SW | `tisly-pwa-v2427-nastoms-doc-nas` |
+| コード | `qnap-nas-hosts-v1.ts` · `storage-settings-store.ts` · `qnap-client-direct-v1.js` |
 
 ---
 

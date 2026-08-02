@@ -42,6 +42,11 @@
       width:100%; box-sizing:border-box; margin-top:0.35rem; min-height:48px;
       font-size:1.05rem; letter-spacing:0.02em; padding:0.5rem 0.65rem; border-radius:8px; border:1px solid #93c5fd;
     }
+    .nas-role-box {
+      border:1px solid #e2e8f0; background:#f8fafc; border-radius:10px; padding:0.65rem 0.75rem; margin:0 0 0.65rem;
+    }
+    .nas-role-item { margin:0.2rem 0; font-size:0.86rem; color:#334155; line-height:1.45; }
+    .nas-role-item code { font-size:0.9em; color:#1e3a8a; font-weight:600; }
     .ping-primary-row { display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center; margin-top:0.75rem; }
     .btn-ping-primary {
       flex:1 1 12rem; min-height:52px; font-size:1.05rem; font-weight:700;
@@ -117,14 +122,18 @@
 
     <div class="friendly-card storage-card" id="qnap-form-card">
       <h2>QNAP設定（ローカルLAN）</h2>
+      <div class="nas-role-box" role="note" aria-label="社内 NAS の役割">
+        <p class="nas-role-item"><strong>書類保存用NAS (nastoms)</strong>: <code>192.168.1.134</code> — 見積書・請求書PDFの保存先</p>
+        <p class="nas-role-item"><strong>システム用NAS (TiSLYNAS)</strong>: <code>192.168.1.10</code> — 将来のTiSLYシステムデータ・ログ保管用</p>
+      </div>
       <div class="lan-ip-field">
-        <label for="qnap-host">ローカルLAN IP</label>
-        <input id="qnap-host" type="text" inputmode="decimal" placeholder="例: 192.168.1.10" autocomplete="off" aria-describedby="qnap-host-hint" />
-        <p id="qnap-host-hint" class="hint-small">事務所LANの QNAP アドレス（例 192.168.x.x）。ローカルWi-Fi直接保存・Pingに使用します。</p>
+        <label for="qnap-host">書類保存用NAS (nastoms) — ローカルLAN IP</label>
+        <input id="qnap-host" type="text" inputmode="decimal" placeholder="192.168.1.134" value="192.168.1.134" autocomplete="off" aria-describedby="qnap-host-hint" />
+        <p id="qnap-host-hint" class="hint-small">見積書・請求書の保存先（nastoms）。未入力時は自動で <code>192.168.1.134</code> へ接続します。システム用 TiSLYNAS（192.168.1.10）とは別です。</p>
       </div>
       <div class="form-grid">
         <label>ポート（WebDAV）
-          <input id="qnap-port" type="number" value="8080" placeholder="8080" />
+          <input id="qnap-port" type="number" value="5000" placeholder="5000" />
         </label>
         <label>共有フォルダ名
           <input id="qnap-share" type="text" value="TiSLY" placeholder="TiSLY" />
@@ -136,7 +145,7 @@
           <input id="qnap-pass" type="password" placeholder="変更時のみ入力" autocomplete="new-password" />
         </label>
       </div>
-      <p class="hint-small">例: 192.168.1.10 / 8080 または 5006 / TiSLY — VPS側は .env の QNAP_WEBDAV_URL（Tailscale）を優先</p>
+      <p class="hint-small">例: 192.168.1.134 / 5000 または 8080・5006 / TiSLY — VPS側は .env の QNAP_WEBDAV_URL（Tailscale）を優先。ローカルWi-Fi既定は QNAP_LOCAL_HOST=192.168.1.134</p>
       <div class="storage-actions">
         <button type="button" class="btn-primary" id="btn-save">設定を保存</button>
       </div>

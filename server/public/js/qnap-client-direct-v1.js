@@ -2,7 +2,64 @@
  * QNAP クライアント直接 WebDAV 保存 v1
  * — 事務所 LAN（同一 Wi-Fi）からブラウザが QNAP へ直接 PUT
  * — VPS→Tailscale 失敗時のフォールバック用
+ * — 既定宛先: 書類保存用 NAS nastoms (192.168.1.134)
  */
+
+export const DOCUMENT_NAS_NAME = "nastoms";
+export const DOCUMENT_NAS_HOST = "192.168.1.134";
+export const DOCUMENT_NAS_DEFAULT_PORT = 5000;
+export const SYSTEM_NAS_NAME = "TiSLYNAS";
+export const SYSTEM_NAS_HOST = "192.168.1.10";
+
+const LS_DOCUMENT_NAS_HOST = "tisly_qnap_local_host_v1";
+const LS_DOCUMENT_NAS_PORT = "tisly_qnap_local_port_v1";
+
+export function getStoredDocumentNasHost() {
+  try {
+    const v = localStorage.getItem(LS_DOCUMENT_NAS_HOST);
+    if (v != null && String(v).trim()) return String(v).trim();
+  } catch {
+    /* private mode 等 */
+  }
+  return DOCUMENT_NAS_HOST;
+}
+
+export function setStoredDocumentNasHost(host) {
+  const next = String(host || "").trim() || DOCUMENT_NAS_HOST;
+  try {
+    localStorage.setItem(LS_DOCUMENT_NAS_HOST, next);
+  } catch {
+    /* */
+  }
+  return next;
+}
+
+export function getStoredDocumentNasPort() {
+  try {
+    const n = Number(localStorage.getItem(LS_DOCUMENT_NAS_PORT));
+    if (Number.isFinite(n) && n > 0) return n;
+  } catch {
+    /* */
+  }
+  return DOCUMENT_NAS_DEFAULT_PORT;
+}
+
+export function setStoredDocumentNasPort(port) {
+  const n = Number(port);
+  const next = Number.isFinite(n) && n > 0 ? n : DOCUMENT_NAS_DEFAULT_PORT;
+  try {
+    localStorage.setItem(LS_DOCUMENT_NAS_PORT, String(next));
+  } catch {
+    /* */
+  }
+  return next;
+}
+
+/** 成功トースト — 保存先 NAS が分かる文言 */
+export function documentNasSaveSuccessMessage(host) {
+  const h = String(host || getStoredDocumentNasHost() || DOCUMENT_NAS_HOST).trim() || DOCUMENT_NAS_HOST;
+  return `${DOCUMENT_NAS_NAME} (${h}) へ見積書・請求書を保存しました`;
+}
 
 function basicAuthHeader(username, password) {
   const token = btoa(unescape(encodeURIComponent(`${username}:${password}`)));
@@ -252,11 +309,18 @@ export async function saveProjectPdfsViaLocalWebDav(opts) {
   }
 
   const allOk = results.length > 0 && results.every((r) => r.ok);
+  let savedHost = DOCUMENT_NAS_HOST;
+  try {
+    savedHost = new URL(direct.webdavUrl).hostname || getStoredDocumentNasHost();
+  } catch {
+    savedHost = getStoredDocumentNasHost();
+  }
   return {
     ok: allOk,
     route: "local_wifi",
+    host: savedHost,
     message: allOk
-      ? `ローカルWi-Fi経由で QNAP へ保存しました（${results.length}件）`
+      ? documentNasSaveSuccessMessage(savedHost)
       : results.find((r) => !r.ok)?.error || "ローカル直接保存に失敗しました",
     errorCode: allOk ? null : results.find((r) => !r.ok)?.errorCode || null,
     latencyMs: ping.latencyMs,

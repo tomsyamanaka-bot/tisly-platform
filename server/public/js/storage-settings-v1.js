@@ -3,6 +3,12 @@ import { requireCustomerLogin, customerCodeFromPath } from "./customer-auth.js";
 import {
   pingLocalWebDav,
   formatClientErrorMessage,
+  DOCUMENT_NAS_HOST,
+  DOCUMENT_NAS_DEFAULT_PORT,
+  getStoredDocumentNasHost,
+  setStoredDocumentNasHost,
+  getStoredDocumentNasPort,
+  setStoredDocumentNasPort,
 } from "./qnap-client-direct-v1.js";
 
 const $ = (id) => document.getElementById(id);
@@ -261,8 +267,12 @@ function fillForm(settings) {
   if ($("qnap-save-route")) {
     $("qnap-save-route").value = settings.saveRoute || "auto";
   }
-  $("qnap-host").value = settings.qnap?.host ?? "";
-  $("qnap-port").value = settings.qnap?.port ?? 8080;
+  const host =
+    (settings.qnap?.host || "").trim() || getStoredDocumentNasHost() || DOCUMENT_NAS_HOST;
+  $("qnap-host").value = host;
+  setStoredDocumentNasHost(host);
+  $("qnap-port").value = settings.qnap?.port ?? DOCUMENT_NAS_DEFAULT_PORT;
+  setStoredDocumentNasPort($("qnap-port").value);
   $("qnap-share").value = settings.qnap?.shareName ?? "TiSLY";
   $("qnap-user").value = settings.qnap?.username ?? "";
   $("qnap-pass").value = "";
@@ -272,13 +282,19 @@ function fillForm(settings) {
 }
 
 function collectForm() {
+  const host =
+    $("qnap-host").value.trim() || getStoredDocumentNasHost() || DOCUMENT_NAS_HOST;
+  const port =
+    Number($("qnap-port").value) || getStoredDocumentNasPort() || DOCUMENT_NAS_DEFAULT_PORT;
+  setStoredDocumentNasHost(host);
+  setStoredDocumentNasPort(port);
   return {
     localStorageEnabled: $("local-enabled").checked,
     qnapBackupEnabled: $("qnap-enabled").checked,
     saveRoute: $("qnap-save-route")?.value || "auto",
     qnap: {
-      host: $("qnap-host").value.trim(),
-      port: Number($("qnap-port").value) || 8080,
+      host,
+      port,
       shareName: $("qnap-share").value.trim() || "TiSLY",
       username: $("qnap-user").value.trim(),
       password: $("qnap-pass").value,
@@ -344,10 +360,13 @@ async function loadIntegrity() {
 }
 
 function buildLocalWebDavUrlFromForm() {
-  const host = $("qnap-host").value.trim();
-  const port = Number($("qnap-port").value) || 8080;
+  const host =
+    $("qnap-host").value.trim() || getStoredDocumentNasHost() || DOCUMENT_NAS_HOST;
+  const port =
+    Number($("qnap-port").value) || getStoredDocumentNasPort() || DOCUMENT_NAS_DEFAULT_PORT;
   const share = $("qnap-share").value.trim() || "TiSLY";
-  if (!host) return null;
+  setStoredDocumentNasHost(host);
+  setStoredDocumentNasPort(port);
   const proto = port === 443 || port === 5001 ? "https" : "http";
   return `${proto}://${host}:${port}/${share}`;
 }

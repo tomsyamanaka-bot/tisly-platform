@@ -58,8 +58,16 @@ function resetStorageSettingsRow() {
     .run(
       STORAGE_SETTINGS_KEY,
       JSON.stringify({
-        ...DEFAULT_STORAGE_SETTINGS,
-        qnap: { host: "", port: 8080, shareName: "TiSLY", username: "", password: "" },
+        localStorageEnabled: true,
+        qnapBackupEnabled: false,
+        saveRoute: "auto",
+        qnap: {
+          host: "",
+          port: 5000,
+          shareName: "TiSLY",
+          username: "",
+          password: "",
+        },
         updatedAt: new Date().toISOString(),
       })
     );
@@ -109,15 +117,22 @@ describe("Storage settings v1 — QNAP 接続設定", () => {
     assert.ok(res.text.includes("VPS .env"));
     assert.ok(res.text.includes("btn-connect-ping"));
     assert.ok(res.text.includes("自動（推奨）"));
-    assert.ok(res.text.includes("ローカルLAN IP"));
+    assert.ok(res.text.includes("書類保存用NAS (nastoms)"));
+    assert.ok(res.text.includes("システム用NAS (TiSLYNAS)"));
+    assert.ok(res.text.includes("192.168.1.134"));
+    assert.ok(res.text.includes("192.168.1.10"));
   });
 
   it("GET /api/storage/v1/settings — owner", async () => {
+    resetStorageSettingsRow();
     const res = await request(app)
       .get("/api/storage/v1/settings")
       .set("Authorization", `Bearer ${ownerToken}`);
     assert.equal(res.status, 200);
     assert.equal(res.body.settings.localStorageEnabled, true);
+    assert.equal(res.body.settings.qnapBackupEnabled, false);
+    assert.equal(res.body.settings.qnap.host, "192.168.1.134");
+    assert.equal(res.body.settings.qnap.port, 5000);
     assert.equal(res.body.summary.qnapLabel, "未設定");
     assert.equal(res.body.settings.qnap.hasPassword, false);
   });
@@ -199,10 +214,20 @@ describe("Storage settings v1 — QNAP 接続設定", () => {
     assert.match(html, /自動（推奨）/);
     assert.match(html, /ローカルWi-Fi経由/);
     assert.match(html, /VPS（Tailscale）経由/);
+    assert.match(html, /書類保存用NAS \(nastoms\)/);
+    assert.match(html, /システム用NAS \(TiSLYNAS\)/);
+    assert.match(html, /192\.168\.1\.134/);
     assert.match(js, /test-connection/);
     assert.match(js, /test-pdf/);
     assert.match(js, /saveRoute/);
     assert.match(js, /runConnectPingFlow/);
     assert.match(js, /setPingIndicator/);
+    assert.match(js, /DOCUMENT_NAS_HOST/);
+    assert.match(js, /getStoredDocumentNasHost/);
+  });
+
+  it("DEFAULT_STORAGE_SETTINGS uses nastoms document NAS host", () => {
+    assert.equal(DEFAULT_STORAGE_SETTINGS.qnap.host, "192.168.1.134");
+    assert.equal(DEFAULT_STORAGE_SETTINGS.qnap.port, 5000);
   });
 });

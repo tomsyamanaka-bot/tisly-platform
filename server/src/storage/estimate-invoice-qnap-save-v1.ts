@@ -34,6 +34,12 @@ import {
 } from "./qnap-storage-service.js";
 import { getQnapWebDavEnvConfig } from "./qnap-storage-v1-config.js";
 import { config } from "../config.js";
+import {
+  DOCUMENT_NAS_HOST,
+  documentNasSaveSuccessMessage,
+  resolveDocumentNasLocalHost,
+  resolveDocumentNasLocalPort,
+} from "./qnap-nas-hosts-v1.js";
 
 export type EstimateInvoiceQnapSaveFileV1 = {
   kind: "estimate" | "invoice";
@@ -86,7 +92,9 @@ export function resolveRealQnapWebDavForListSave(
     return settingsToWebDavConfig(current);
   }
 
-  const host = (config.qnap.host || process.env.QNAP_HOST || "").trim();
+  const host = resolveDocumentNasLocalHost(
+    config.qnap.host || process.env.QNAP_HOST || ""
+  );
   const username = (
     config.qnap.username ||
     process.env.QNAP_USERNAME ||
@@ -99,13 +107,15 @@ export function resolveRealQnapWebDavForListSave(
     process.env.QNAP_WEBDAV_PASSWORD ||
     "";
   if (host && username && password) {
-    const port = Number(process.env.QNAP_PORT || q.port || 8080);
+    const port = resolveDocumentNasLocalPort(
+      Number(process.env.QNAP_PORT || q.port || 0) || null
+    );
     const share =
       (config.qnap.share || process.env.QNAP_SHARE || q.shareName || "TiSLY").trim() ||
       "TiSLY";
     return {
       mode: "real",
-      webdavUrl: buildWebDavUrl(host, port > 0 ? port : 8080, share),
+      webdavUrl: buildWebDavUrl(host, port, share),
       username,
       password,
       basePath: "/",
@@ -275,11 +285,20 @@ export async function saveEstimateInvoicePdfsToQnapV1(
 
   const allOk = files.length > 0 && files.every((f) => f.ok);
   if (allOk) {
+    const savedHost =
+      (() => {
+        try {
+          const u = new URL(cfg.webdavUrl);
+          return u.hostname || DOCUMENT_NAS_HOST;
+        } catch {
+          return settings.qnap.host || DOCUMENT_NAS_HOST;
+        }
+      })();
     return {
       ok: true,
       mock: false,
       projectId,
-      message: "QNAPへ見積書・請求書を保存しました",
+      message: documentNasSaveSuccessMessage(savedHost),
       files,
     };
   }

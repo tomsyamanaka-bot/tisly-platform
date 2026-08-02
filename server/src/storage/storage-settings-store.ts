@@ -1,6 +1,13 @@
 /** TiSLY ストレージ設定 v1 — ローカル PDF + QNAP バックアップ（管理者専用） */
 
 import { getDatabase } from "../db/database.js";
+import {
+  DOCUMENT_NAS_DEFAULT_PORT,
+  DOCUMENT_NAS_HOST,
+  DOCUMENT_NAS_SHARE,
+  resolveDocumentNasLocalHost,
+  resolveDocumentNasLocalPort,
+} from "./qnap-nas-hosts-v1.js";
 
 export const STORAGE_SETTINGS_KEY = "storage_settings_v1";
 
@@ -60,9 +67,10 @@ export interface StorageSettingsPublicV1 extends Omit<StorageSettingsV1, "qnap">
 }
 
 const DEFAULT_QNAP: StorageQnapConfigV1 = {
-  host: "",
-  port: 8080,
-  shareName: "TiSLY",
+  /** 書類保存用 NAS (nastoms) — 未入力でもローカル Wi-Fi 保存の既定宛先 */
+  host: DOCUMENT_NAS_HOST,
+  port: DOCUMENT_NAS_DEFAULT_PORT,
+  shareName: DOCUMENT_NAS_SHARE,
   username: "",
   password: "",
 };
@@ -90,9 +98,12 @@ function parseSettings(raw: string | undefined): StorageSettingsV1 {
       qnapBackupEnabled: Boolean(parsed.qnapBackupEnabled),
       saveRoute: parseSaveRoute(parsed.saveRoute),
       qnap: {
-        host: String(qnap.host ?? "").trim(),
-        port: Number(qnap.port) > 0 ? Number(qnap.port) : 8080,
-        shareName: String(qnap.shareName ?? "TiSLY").trim() || "TiSLY",
+        host: resolveDocumentNasLocalHost(String(qnap.host ?? "").trim()),
+        port: resolveDocumentNasLocalPort(
+          Number(qnap.port) > 0 ? Number(qnap.port) : null
+        ),
+        shareName:
+          String(qnap.shareName ?? DOCUMENT_NAS_SHARE).trim() || DOCUMENT_NAS_SHARE,
         username: String(qnap.username ?? "").trim(),
         password: String(qnap.password ?? ""),
       },
@@ -219,7 +230,7 @@ export function updateStorageSettingsV1(
           : current.qnap.port,
       shareName:
         qnapPatch.shareName !== undefined
-          ? String(qnapPatch.shareName).trim() || "TiSLY"
+          ? String(qnapPatch.shareName).trim() || DOCUMENT_NAS_SHARE
           : current.qnap.shareName,
       username:
         qnapPatch.username !== undefined

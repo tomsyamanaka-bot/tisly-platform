@@ -29,6 +29,9 @@ import {
   saveProjectPdfsViaLocalWebDav,
   shouldTryClientDirectFallback,
   formatClientErrorMessage,
+  documentNasSaveSuccessMessage,
+  getStoredDocumentNasHost,
+  DOCUMENT_NAS_HOST,
 } from "./qnap-client-direct-v1.js";
 
 let practicalNav = null;
@@ -1418,10 +1421,21 @@ function bindSelectableListCards(container) {
 }
 
 /** 一覧カードから見積・請求 PDF を QNAP 保存（VPS→失敗時はローカルWi-Fi直接） */
-function qnapSaveSuccessToastMessage(saveRoute, usedLocalWifi) {
-  const viaLocal = usedLocalWifi || saveRoute === "local_wifi";
-  const routeLabel = viaLocal ? "ローカルWi-Fi経由" : "VPS経由";
-  return `QNAPへ保存しました（${routeLabel}）`;
+function qnapSaveSuccessToastMessage(resultOrHost) {
+  const host =
+    (typeof resultOrHost === "string" && resultOrHost) ||
+    resultOrHost?.host ||
+    (() => {
+      try {
+        if (resultOrHost?.webdavUrl) return new URL(resultOrHost.webdavUrl).hostname;
+      } catch {
+        /* */
+      }
+      return null;
+    })() ||
+    getStoredDocumentNasHost() ||
+    DOCUMENT_NAS_HOST;
+  return documentNasSaveSuccessMessage(host);
 }
 
 async function saveListProjectToQnap(projectId, btn) {
@@ -1459,7 +1473,7 @@ async function saveListProjectToQnap(projectId, btn) {
         error: `HTTP ${res.status}`,
       }));
       if (res.ok && vpsResult?.ok) {
-        toast(qnapSaveSuccessToastMessage(vpsResult.saveRoute || "vps", false));
+        toast(vpsResult.message || qnapSaveSuccessToastMessage(vpsResult));
         return;
       }
     } catch (e) {
@@ -1487,7 +1501,7 @@ async function saveListProjectToQnap(projectId, btn) {
         projectId,
       });
       if (local.ok) {
-        toast(qnapSaveSuccessToastMessage("local_wifi", true));
+        toast(local.message || qnapSaveSuccessToastMessage(local));
         return;
       }
       const detail =

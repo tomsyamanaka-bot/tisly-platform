@@ -1130,6 +1130,7 @@ estimateV1Router.get("/qnap/client-direct-config", ...estimateV1Auth, (req: Auth
     password: cfg.password,
     shareName: cfg.shareName,
     baseDir: cfg.baseDir,
+    host: cfg.host,
     saveRoute: cfg.saveRoute,
     reason: cfg.reason ?? null,
   });
@@ -1195,6 +1196,7 @@ estimateV1Router.get(
         username: cfg.username,
         password: cfg.password,
         baseDir: cfg.baseDir,
+        host: cfg.host,
         reason: cfg.reason ?? null,
       },
       files,

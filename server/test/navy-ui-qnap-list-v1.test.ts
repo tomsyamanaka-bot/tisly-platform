@@ -99,13 +99,18 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
     assert.match(js, /saveListProjectToQnap/);
     assert.match(js, /qnap-save-invoices-estimates/);
     assert.match(js, /qnapSaveSuccessToastMessage/);
-    assert.match(js, /QNAPへ保存しました（\$\{routeLabel\}）/);
-    assert.match(js, /ローカルWi-Fi経由/);
-    assert.match(js, /VPS経由/);
+    assert.match(js, /documentNasSaveSuccessMessage/);
+    assert.match(js, /DOCUMENT_NAS_HOST/);
     assert.match(js, /projectHasQnapSaveEligible/);
     assert.match(js, /projectHasEstimateReady/);
     assert.match(js, /見積書の準備ができました/);
     assert.doesNotMatch(js, /localStorage\.clear/);
+
+    const direct = read("js/qnap-client-direct-v1.js");
+    assert.match(direct, /DOCUMENT_NAS_NAME = "nastoms"/);
+    assert.match(direct, /DOCUMENT_NAS_HOST = "192\.168\.1\.134"/);
+    assert.match(direct, /documentNasSaveSuccessMessage/);
+    assert.match(direct, /tisly_qnap_local_host_v1/);
   });
 
   it("save module has no mock mirror fallback", () => {
@@ -183,9 +188,9 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
     assert.equal(res.body.mock, false);
   });
 
-  it("service worker bumps qnap ping-ui cache", () => {
+  it("service worker bumps nastoms document NAS cache", () => {
     const sw = read("service-worker.js");
-    assert.match(sw, /tisly-pwa-v2426-qnap-ping-ui/);
+    assert.match(sw, /tisly-pwa-v2427-nastoms-doc-nas/);
   });
 
   it("css and estimate js are served", async () => {
