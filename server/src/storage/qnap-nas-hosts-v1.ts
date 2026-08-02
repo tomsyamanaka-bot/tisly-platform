@@ -8,8 +8,8 @@
 /** 書類保存用 NAS（見積書・請求書 PDF） */
 export const DOCUMENT_NAS_NAME = "nastoms";
 export const DOCUMENT_NAS_HOST = "192.168.1.134";
-/** WebDAV 未設定時のデフォルトポート（設定値があればそちら優先） */
-export const DOCUMENT_NAS_DEFAULT_PORT = 5000;
+/** WebDAV 未設定時のデフォルトポート（nastoms 実機は 5522） */
+export const DOCUMENT_NAS_DEFAULT_PORT = 5522;
 export const DOCUMENT_NAS_SHARE = "TiSLY";
 
 /** システム用 NAS（MotherShip / 将来の TiSLY システムデータ） */
@@ -46,8 +46,15 @@ export function resolveDocumentNasLocalPort(
   explicitPort?: number | null
 ): number {
   const n = Number(explicitPort);
-  if (Number.isFinite(n) && n > 0) return n;
+  if (Number.isFinite(n) && n > 0) {
+    // 旧既定 5000 は nastoms 実機で到達不可 → 5522 へ寄せる
+    if (n === 5000) return DOCUMENT_NAS_DEFAULT_PORT;
+    return n;
+  }
   const fromEnv = Number(process.env.QNAP_LOCAL_PORT || "");
-  if (Number.isFinite(fromEnv) && fromEnv > 0) return fromEnv;
+  if (Number.isFinite(fromEnv) && fromEnv > 0) {
+    if (fromEnv === 5000) return DOCUMENT_NAS_DEFAULT_PORT;
+    return fromEnv;
+  }
   return DOCUMENT_NAS_DEFAULT_PORT;
 }

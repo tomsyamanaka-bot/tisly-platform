@@ -7,12 +7,13 @@
 
 export const DOCUMENT_NAS_NAME = "nastoms";
 export const DOCUMENT_NAS_HOST = "192.168.1.134";
-export const DOCUMENT_NAS_DEFAULT_PORT = 5000;
+export const DOCUMENT_NAS_DEFAULT_PORT = 5522;
 export const SYSTEM_NAS_NAME = "TiSLYNAS";
 export const SYSTEM_NAS_HOST = "192.168.1.10";
 
 const LS_DOCUMENT_NAS_HOST = "tisly_qnap_local_host_v1";
-const LS_DOCUMENT_NAS_PORT = "tisly_qnap_local_port_v1";
+/** v2: 旧既定 5000 を破棄し nastoms 実機ポート 5522 へ */
+const LS_DOCUMENT_NAS_PORT = "tisly_qnap_local_port_v2";
 
 export function getStoredDocumentNasHost() {
   try {
@@ -115,7 +116,7 @@ export function formatClientErrorMessage(errorCode, detail) {
     return "ブラウザの CORS 制限で QNAP に直接保存できません。QNAP WebDAV の CORS 設定、または VPS 経由保存を使用してください";
   }
   if (errorCode === "CLIENT_NETWORK") {
-    return "ローカル QNAP に到達できません。同一 Wi-Fi・IP・ポート(5006/8080)を確認してください";
+    return `ローカル QNAP に到達できません。同一 Wi-Fi・IP・ポート (${DOCUMENT_NAS_HOST}:${DOCUMENT_NAS_DEFAULT_PORT}) を確認してください`;
   }
   if (errorCode === "ETIMEDOUT") {
     return "ローカル QNAP への接続がタイムアウトしました";

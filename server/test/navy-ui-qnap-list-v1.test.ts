@@ -109,8 +109,14 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
     const direct = read("js/qnap-client-direct-v1.js");
     assert.match(direct, /DOCUMENT_NAS_NAME = "nastoms"/);
     assert.match(direct, /DOCUMENT_NAS_HOST = "192\.168\.1\.134"/);
+    assert.match(direct, /DOCUMENT_NAS_DEFAULT_PORT = 5522/);
+    assert.match(
+      direct,
+      /IP・ポート \(\$\{DOCUMENT_NAS_HOST\}:\$\{DOCUMENT_NAS_DEFAULT_PORT\}\)/
+    );
     assert.match(direct, /documentNasSaveSuccessMessage/);
     assert.match(direct, /tisly_qnap_local_host_v1/);
+    assert.match(direct, /tisly_qnap_local_port_v2/);
   });
 
   it("save module has no mock mirror fallback", () => {
@@ -190,7 +196,7 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
 
   it("service worker bumps nastoms document NAS cache", () => {
     const sw = read("service-worker.js");
-    assert.match(sw, /tisly-pwa-v2427-nastoms-doc-nas/);
+    assert.match(sw, /tisly-pwa-v2428-nastoms-port-5522/);
   });
 
   it("css and estimate js are served", async () => {

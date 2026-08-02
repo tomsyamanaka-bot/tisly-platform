@@ -63,7 +63,7 @@ function resetStorageSettingsRow() {
         saveRoute: "auto",
         qnap: {
           host: "",
-          port: 5000,
+          port: 5522,
           shareName: "TiSLY",
           username: "",
           password: "",
@@ -132,7 +132,7 @@ describe("Storage settings v1 — QNAP 接続設定", () => {
     assert.equal(res.body.settings.localStorageEnabled, true);
     assert.equal(res.body.settings.qnapBackupEnabled, false);
     assert.equal(res.body.settings.qnap.host, "192.168.1.134");
-    assert.equal(res.body.settings.qnap.port, 5000);
+    assert.equal(res.body.settings.qnap.port, 5522);
     assert.equal(res.body.summary.qnapLabel, "未設定");
     assert.equal(res.body.settings.qnap.hasPassword, false);
   });
@@ -228,6 +228,6 @@ describe("Storage settings v1 — QNAP 接続設定", () => {
 
   it("DEFAULT_STORAGE_SETTINGS uses nastoms document NAS host", () => {
     assert.equal(DEFAULT_STORAGE_SETTINGS.qnap.host, "192.168.1.134");
-    assert.equal(DEFAULT_STORAGE_SETTINGS.qnap.port, 5000);
+    assert.equal(DEFAULT_STORAGE_SETTINGS.qnap.port, 5522);
   });
 });

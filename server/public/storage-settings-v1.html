@@ -133,7 +133,7 @@
       </div>
       <div class="form-grid">
         <label>ポート（WebDAV）
-          <input id="qnap-port" type="number" value="5000" placeholder="5000" />
+          <input id="qnap-port" type="number" value="5522" placeholder="5522" />
         </label>
         <label>共有フォルダ名
           <input id="qnap-share" type="text" value="TiSLY" placeholder="TiSLY" />
@@ -145,7 +145,7 @@
           <input id="qnap-pass" type="password" placeholder="変更時のみ入力" autocomplete="new-password" />
         </label>
       </div>
-      <p class="hint-small">例: 192.168.1.134 / 5000 または 8080・5006 / TiSLY — VPS側は .env の QNAP_WEBDAV_URL（Tailscale）を優先。ローカルWi-Fi既定は QNAP_LOCAL_HOST=192.168.1.134</p>
+      <p class="hint-small">例: 192.168.1.134 / 5522 / TiSLY — VPS側は .env の QNAP_WEBDAV_URL（Tailscale）を優先。ローカルWi-Fi既定は QNAP_LOCAL_HOST=192.168.1.134・QNAP_LOCAL_PORT=5522</p>
       <div class="storage-actions">
         <button type="button" class="btn-primary" id="btn-save">設定を保存</button>
       </div>

@@ -264,6 +264,9 @@ jobs:
           if [ -n "${GOOGLE_MAPS_API_KEY:-}" ]; then
             sync_env_var "GOOGLE_MAPS_API_KEY" "${GOOGLE_MAPS_API_KEY}"
           fi
+          # 書類保存用 NAS (nastoms) 実機 WebDAV ポート
+          sync_env_var "QNAP_LOCAL_HOST" "192.168.1.134"
+          sync_env_var "QNAP_LOCAL_PORT" "5522"
 
           echo "========================================"
           echo "  TiSLY VPS Auto Deploy (inline)"

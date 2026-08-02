@@ -85,7 +85,7 @@ export const config = {
       return env("QNAP_LOCAL_HOST", "192.168.1.134");
     },
     get port() {
-      return Number(env("QNAP_LOCAL_PORT", "5000"));
+      return Number(env("QNAP_LOCAL_PORT", "5522"));
     },
   },
   qnapWebDav: {
