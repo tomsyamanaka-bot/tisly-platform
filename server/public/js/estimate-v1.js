@@ -1432,33 +1432,32 @@ function qnapSaveSuccessToastMessage(resultOrHost) {
     })() ||
     getStoredDocumentNasHost() ||
     DOCUMENT_NAS_HOST;
-  const port =
-    Number(resultOrHost?.port) > 0
-      ? Number(resultOrHost.port)
-      : (() => {
-          try {
-            if (resultOrHost?.webdavUrl) {
-              const p = Number(new URL(resultOrHost.webdavUrl).port);
-              return Number.isFinite(p) && p > 0 ? p : null;
-            }
-          } catch {
-            /* */
-          }
-          return null;
-        })();
-  const folderPath =
-    resultOrHost?.folderPath ||
-    resultOrHost?.saveDest ||
-    resultOrHost?.files?.find((f) => f?.remotePath)?.remotePath ||
-    resultOrHost?.files?.find((f) => f?.displayPath)?.displayPath ||
-    null;
-  const msg = documentNasSaveSuccessMessage(host, port, folderPath);
+  const msg = documentNasSaveSuccessMessage(host);
   try {
     console.info(`[QNAP save toast] ${msg}`);
   } catch {
     /* */
   }
   return msg;
+}
+
+/** API 応答から現場向けトースト文言を抽出（成功・失敗共通） */
+function qnapSaveFeedbackMessage(body, httpStatus) {
+  const raw = String(body?.message || body?.error || "").trim();
+  if (raw) return raw;
+  const code = String(body?.errorCode || "").trim();
+  if (code === "ETIMEDOUT" || /timeout/i.test(code)) {
+    return "VPSから nastoms への接続がタイムアウトしました。Tailscale / LAN接続状態を確認してください";
+  }
+  if (
+    code === "401 Unauthorized" ||
+    code === "403 Forbidden" ||
+    Number(httpStatus) === 401 ||
+    Number(httpStatus) === 403
+  ) {
+    return "QNAPのユーザー名またはパスワードが正しくありません";
+  }
+  return `QNAP保存に失敗しました（HTTP ${httpStatus || "?"}）`;
 }
 
 async function saveListProjectToQnap(projectId, btn) {
@@ -1490,7 +1489,7 @@ async function saveListProjectToQnap(projectId, btn) {
       const detail = e?.name === "TimeoutError" || e?.name === "AbortError"
         ? "VPSへの接続がタイムアウトしました。通信環境を確認して再試行してください"
         : e?.message || "VPSへの接続に失敗しました";
-      toast(`QNAP保存失敗 — ${detail}`);
+      toast(detail);
       return;
     }
 
@@ -1505,10 +1504,7 @@ async function saveListProjectToQnap(projectId, btn) {
       return;
     }
 
-    const detail =
-      (body?.errorCode ? `${body.errorCode}: ` : "") +
-      (body?.message || body?.error || `HTTP ${res.status}`);
-    toast(`QNAP保存失敗 — ${detail}`);
+    toast(qnapSaveFeedbackMessage(body, res.status));
   } catch (e) {
     toast(e?.message || "QNAP保存を完了できませんでした（後で再試行できます）");
   } finally {

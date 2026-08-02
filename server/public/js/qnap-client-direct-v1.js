@@ -116,19 +116,14 @@ export function listDocumentNasPortCandidates(configuredPort) {
 export const DOCUMENT_NAS_SAVE_FOLDER = "TiSLY_Storage/Invoices_Estimates";
 
 /**
- * 成功トースト — ホスト:ポート/フォルダパスが分かる文言
- * 例: nastoms (192.168.1.134:8080/TiSLY_Storage/Invoices_Estimates/...) へ…
+ * 成功トースト — NAS名・ホスト + VPSプロキシ経由
+ * 例: nastoms (192.168.1.134) へ見積書・請求書を保存しました（VPSプロキシ経由）
  */
-export function documentNasSaveSuccessMessage(host, port, folderPath) {
+export function documentNasSaveSuccessMessage(host, _port, _folderPath) {
   const h =
     String(host || getStoredDocumentNasHost() || DOCUMENT_NAS_HOST).trim() ||
     DOCUMENT_NAS_HOST;
-  const p = Number(port);
-  const portNum =
-    Number.isFinite(p) && p > 0 ? p : getStoredDocumentNasPort();
-  const folder = normalizeSaveFolderPath(folderPath);
-  const dest = `${h}:${portNum}/${folder}`;
-  return `${DOCUMENT_NAS_NAME} (${dest}) へ見積書・請求書を保存しました`;
+  return `${DOCUMENT_NAS_NAME} (${h}) へ見積書・請求書を保存しました（VPSプロキシ経由）`;
 }
 
 /** remotePath / displayPath から保存先フォルダを抽出 */
@@ -233,8 +228,7 @@ export function mapWebDavHttpStatus(status) {
   if (s === 401 || s === 403) {
     return {
       errorCode: s === 401 ? "401 Unauthorized" : "403 Forbidden",
-      message:
-        "QNAPのユーザー名またはパスワード、またはフォルダ書き込み権限を確認してください",
+      message: "QNAPのユーザー名またはパスワードが正しくありません",
     };
   }
   if (s === 404) {
@@ -293,7 +287,7 @@ export function formatClientErrorMessage(errorCode, detail) {
     errorCode === 401 ||
     errorCode === 403
   ) {
-    return "QNAPのユーザー名またはパスワード、またはフォルダ書き込み権限を確認してください";
+    return "QNAPのユーザー名またはパスワードが正しくありません";
   }
   if (errorCode === "404 Not Found" || errorCode === 404) {
     return "保存先の共有フォルダ（例: /Invoices_Estimates/）が存在しません";

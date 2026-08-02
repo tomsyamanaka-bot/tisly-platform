@@ -16,7 +16,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
 | ログインCTA | 青〜紫グラデ維持（`#4facfe` → `#a855f7`） |
-| SW | `tisly-pwa-v2431-qnap-vps-proxy` |
+| SW | `tisly-pwa-v2432-qnap-feedback` |
 
 ---
 
@@ -997,7 +997,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | API | `POST /api/estimate/v1/projects/:id/qnap-save-invoices-estimates` |
 | 保存先 | `TiSLY_Storage/Invoices_Estimates/YYYY-MM/`（MotherShip パス追記） |
 | 通信 | **VPS サーバーサイドプロキシのみ** — ブラウザ→QNAP 直通信は廃止（CORS/Mixed Content 回避）。接続解決は `QNAP_WEBDAV_*`（ENV）→ 設定 UI → `QNAP_HOST` / `QNAP_LOCAL_HOST` |
-| SW | `tisly-pwa-v2431-qnap-vps-proxy` |
+| SW | `tisly-pwa-v2432-qnap-feedback` |
 | コード | `estimate-invoice-qnap-save-v1.ts` · `estimate-v1.js` `listCardActionsHtml` |
 | テスト | `server/test/navy-ui-qnap-list-v1.test.ts` |
 | 確認 | `/estimate-v1` · https://tisly.jp/api/health |
@@ -1011,9 +1011,10 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 既定ポート | WebDAV `8080`（`QNAP_LOCAL_PORT` / `QNAP_PORT` で上書き可）・スマートフォールバック `5000→5006→8080→55222` |
 | 保存経路 | **VPS プロキシ一本化** — スマホ → `https://tisly.jp/api/...` → VPS が QNAP WebDAV へ代理転送（ブラウザ直通信なし） |
 | UI | `/storage-settings-v1` — 役割ラベル明記 · 保存ルート既定 `vps` |
-| トースト成功 | `nastoms (192.168.1.134:8080/TiSLY_Storage/Invoices_Estimates) へ見積書・請求書を保存しました` |
-| トースト失敗 | `500` JSON — 例: `VPSから192.168.1.134へのネットワーク接続がタイムアウトしました。IP・VPN・QNAPのWebDAV有効化を確認してください` |
-| SW | `tisly-pwa-v2431-qnap-vps-proxy` |
+| トースト成功 | `nastoms (192.168.1.134) へ見積書・請求書を保存しました（VPSプロキシ経由）` |
+| トースト失敗（タイムアウト） | `VPSから nastoms への接続がタイムアウトしました。Tailscale / LAN接続状態を確認してください` |
+| トースト失敗（認証） | `QNAPのユーザー名またはパスワードが正しくありません` |
+| SW | `tisly-pwa-v2432-qnap-feedback` |
 | コード | `estimate-invoice-qnap-save-v1.ts` · `qnap-nas-hosts-v1.ts` · `estimate-v1.js` · `qnap-client-direct-v1.js`（診断ヘルパーのみ） |
 
 ---

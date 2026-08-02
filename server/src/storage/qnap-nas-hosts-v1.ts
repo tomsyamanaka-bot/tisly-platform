@@ -34,29 +34,14 @@ export function webDavProtocolForPort(port: number): "http" | "https" {
 /** 書類保存先フォルダ（MotherShip） */
 export const DOCUMENT_NAS_SAVE_FOLDER = "TiSLY_Storage/Invoices_Estimates";
 
-/** 成功トースト用 — ホスト:ポート/フォルダが分かる文言 */
+/** 成功トースト用 — NAS名・ホスト + VPSプロキシ経由 */
 export function documentNasSaveSuccessMessage(
   host = DOCUMENT_NAS_HOST,
-  port?: number | null,
-  folderPath?: string | null
+  _port?: number | null,
+  _folderPath?: string | null
 ): string {
   const h = String(host || DOCUMENT_NAS_HOST).trim() || DOCUMENT_NAS_HOST;
-  const p = Number(port);
-  const portNum =
-    Number.isFinite(p) && p > 0 ? p : DOCUMENT_NAS_DEFAULT_PORT;
-  const folder = String(folderPath || DOCUMENT_NAS_SAVE_FOLDER)
-    .replace(/^\/+/, "")
-    .replace(/\\/g, "/");
-  const folderClean = (() => {
-    if (!folder) return DOCUMENT_NAS_SAVE_FOLDER;
-    if (/\.[a-z0-9]+$/i.test(folder.split("/").pop() || "")) {
-      const parts = folder.split("/").filter(Boolean);
-      parts.pop();
-      return parts.join("/") || DOCUMENT_NAS_SAVE_FOLDER;
-    }
-    return folder;
-  })();
-  return `${DOCUMENT_NAS_NAME} (${h}:${portNum}/${folderClean}) へ見積書・請求書を保存しました`;
+  return `${DOCUMENT_NAS_NAME} (${h}) へ見積書・請求書を保存しました（VPSプロキシ経由）`;
 }
 
 /**
@@ -128,7 +113,7 @@ export function formatVpsToQnapProxyError(
   const code = String(errorCode || "").trim();
 
   if (code === "ETIMEDOUT" || /timeout/i.test(code)) {
-    return `VPSから${dest}へのネットワーク接続がタイムアウトしました。IP・VPN・QNAPのWebDAV有効化を確認してください`;
+    return `VPSから ${DOCUMENT_NAS_NAME} への接続がタイムアウトしました。Tailscale / LAN接続状態を確認してください`;
   }
   if (code === "ECONNREFUSED") {
     return `VPSから${dest}への接続が拒否されました。QNAPのWebDAVサービス／ポートを確認してください`;
@@ -140,7 +125,7 @@ export function formatVpsToQnapProxyError(
     return `VPSから${dest}のホスト名を解決できません。IP・DNSを確認してください`;
   }
   if (code === "401 Unauthorized" || code === "403 Forbidden") {
-    return "QNAPのユーザー名またはパスワード、またはフォルダ書き込み権限を確認してください";
+    return "QNAPのユーザー名またはパスワードが正しくありません";
   }
   if (code === "404 Not Found") {
     return "保存先の共有フォルダ（例: /Invoices_Estimates/）が存在しません";

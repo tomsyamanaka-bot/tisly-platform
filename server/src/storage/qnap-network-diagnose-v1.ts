@@ -70,13 +70,13 @@ export function classifyQnapNetworkError(raw: string, httpStatus?: number | null
   if (httpStatus === 401 || /401|unauthorized/i.test(msg)) {
     return {
       errorCode: "401 Unauthorized",
-      errorReason: "認証に失敗しました。ユーザー名またはパスワードを確認してください",
+      errorReason: "QNAPのユーザー名またはパスワードが正しくありません",
     };
   }
   if (httpStatus === 403 || /403|forbidden/i.test(msg)) {
     return {
       errorCode: "403 Forbidden",
-      errorReason: "アクセスが拒否されました。権限・共有設定を確認してください",
+      errorReason: "QNAPのユーザー名またはパスワードが正しくありません",
     };
   }
   if (httpStatus === 404 || /404|not found/i.test(msg)) {
@@ -94,7 +94,8 @@ export function classifyQnapNetworkError(raw: string, httpStatus?: number | null
   if (/ETIMEDOUT|ESOCKETTIMEDOUT|timeout|timed out|code=ETIMEDOUT/i.test(msg)) {
     return {
       errorCode: "ETIMEDOUT",
-      errorReason: "接続がタイムアウトしました。Tailscale / ファイアウォール / 経路を確認してください",
+      errorReason:
+        "VPSから nastoms への接続がタイムアウトしました。Tailscale / LAN接続状態を確認してください",
     };
   }
   if (/ENOTFOUND|getaddrinfo|code=ENOTFOUND/i.test(msg)) {

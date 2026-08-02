@@ -99,12 +99,15 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
     assert.match(js, /saveListProjectToQnap/);
     assert.match(js, /qnap-save-invoices-estimates/);
     assert.match(js, /qnapSaveSuccessToastMessage/);
+    assert.match(js, /qnapSaveFeedbackMessage/);
     assert.match(js, /documentNasSaveSuccessMessage/);
     assert.match(js, /DOCUMENT_NAS_HOST/);
     assert.match(js, /projectHasQnapSaveEligible/);
     assert.match(js, /projectHasEstimateReady/);
     assert.match(js, /見積書の準備ができました/);
     assert.match(js, /VPS プロキシのみ/);
+    assert.match(js, /VPSから nastoms への接続がタイムアウトしました/);
+    assert.match(js, /QNAPのユーザー名またはパスワードが正しくありません/);
     assert.doesNotMatch(js, /saveProjectPdfsViaLocalWebDav/);
     assert.doesNotMatch(js, /shouldTryClientDirectFallback/);
     assert.doesNotMatch(js, /ローカルWi-Fi経由で再試行/);
@@ -121,11 +124,12 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
     assert.match(direct, /return false/);
     assert.match(direct, /VPS プロキシのみ/);
     assert.match(direct, /documentNasSaveSuccessMessage/);
-    assert.match(direct, /\$\{h\}:\$\{portNum\}\/\$\{folder\}/);
+    assert.match(direct, /VPSプロキシ経由/);
+    assert.match(direct, /\$\{DOCUMENT_NAS_NAME\} \(\$\{h\}\) へ見積書/);
     assert.match(direct, /mapWebDavHttpStatus/);
     assert.match(
       direct,
-      /QNAPのユーザー名またはパスワード、またはフォルダ書き込み権限を確認してください/
+      /QNAPのユーザー名またはパスワードが正しくありません/
     );
     assert.match(
       direct,
@@ -214,18 +218,36 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
     assert.equal(res.body.mock, false);
   });
 
-  it("service worker bumps qnap vps-proxy cache", () => {
+  it("service worker bumps qnap feedback cache", () => {
     const sw = read("service-worker.js");
-    assert.match(sw, /tisly-pwa-v2431-qnap-vps-proxy/);
+    assert.match(sw, /tisly-pwa-v2432-qnap-feedback/);
   });
 
-  it("formatVpsToQnapProxyError builds timeout message", async () => {
-    const { formatVpsToQnapProxyError } = await import(
-      "../src/storage/qnap-nas-hosts-v1.js"
+  it("formatVpsToQnapProxyError builds timeout and auth messages", async () => {
+    const { formatVpsToQnapProxyError, documentNasSaveSuccessMessage } =
+      await import("../src/storage/qnap-nas-hosts-v1.js");
+    const timeoutMsg = formatVpsToQnapProxyError(
+      "192.168.1.134",
+      8080,
+      "ETIMEDOUT"
     );
-    const msg = formatVpsToQnapProxyError("192.168.1.134", 8080, "ETIMEDOUT");
-    assert.match(msg, /VPSから192\.168\.1\.134:8080へのネットワーク接続がタイムアウト/);
-    assert.match(msg, /WebDAV/);
+    assert.equal(
+      timeoutMsg,
+      "VPSから nastoms への接続がタイムアウトしました。Tailscale / LAN接続状態を確認してください"
+    );
+    const authMsg = formatVpsToQnapProxyError(
+      "192.168.1.134",
+      8080,
+      "401 Unauthorized"
+    );
+    assert.equal(
+      authMsg,
+      "QNAPのユーザー名またはパスワードが正しくありません"
+    );
+    assert.equal(
+      documentNasSaveSuccessMessage("192.168.1.134", 8080, "TiSLY_Storage/Invoices_Estimates"),
+      "nastoms (192.168.1.134) へ見積書・請求書を保存しました（VPSプロキシ経由）"
+    );
   });
 
   it("css and estimate js are served", async () => {
