@@ -8,8 +8,10 @@
 /** 書類保存用 NAS（見積書・請求書 PDF） */
 export const DOCUMENT_NAS_NAME = "nastoms";
 export const DOCUMENT_NAS_HOST = "192.168.1.134";
-/** WebDAV 未設定時のデフォルトポート（nastoms 実機は 5522） */
-export const DOCUMENT_NAS_DEFAULT_PORT = 5522;
+/** WebDAV 未設定時のデフォルトポート（QNAP 標準 HTTP / Web 管理） */
+export const DOCUMENT_NAS_DEFAULT_PORT = 8080;
+/** スマートポートフォールバック候補（設定値の次） */
+export const DOCUMENT_NAS_FALLBACK_PORTS = [5000, 5006, 8080, 55222] as const;
 export const DOCUMENT_NAS_SHARE = "TiSLY";
 
 /** システム用 NAS（MotherShip / 将来の TiSLY システムデータ） */
@@ -22,10 +24,50 @@ export const DOCUMENT_NAS_LABEL =
 export const SYSTEM_NAS_LABEL =
   `システム用NAS (${SYSTEM_NAS_NAME}): ${SYSTEM_NAS_HOST}（将来のTiSLYシステムデータ・ログ保管用）`;
 
-/** 成功トースト用 — 保存先が分かる文言 */
-export function documentNasSaveSuccessMessage(host = DOCUMENT_NAS_HOST): string {
+/** 5006 / 5001 / 443 は HTTPS WebDAV */
+export function webDavProtocolForPort(port: number): "http" | "https" {
+  const p = Number(port);
+  if (p === 443 || p === 5001 || p === 5006) return "https";
+  return "http";
+}
+
+/** 成功トースト用 — 保存先ホスト:ポートが分かる文言 */
+export function documentNasSaveSuccessMessage(
+  host = DOCUMENT_NAS_HOST,
+  port?: number | null
+): string {
   const h = String(host || DOCUMENT_NAS_HOST).trim() || DOCUMENT_NAS_HOST;
-  return `${DOCUMENT_NAS_NAME} (${h}) へ見積書・請求書を保存しました`;
+  const p = Number(port);
+  const hostPart =
+    Number.isFinite(p) && p > 0
+      ? `${h}:${p}`
+      : `${h}:${DOCUMENT_NAS_DEFAULT_PORT}`;
+  return `${DOCUMENT_NAS_NAME} (${hostPart}) へ見積書・請求書を保存しました`;
+}
+
+/**
+ * ポート候補順: 設定値 → 5000 → 5006 → 8080 → 55222
+ */
+export function listDocumentNasPortCandidates(
+  configuredPort?: number | null
+): number[] {
+  const configured = Number(configuredPort);
+  const configuredOk =
+    Number.isFinite(configured) && configured > 0 ? configured : null;
+  const order = [
+    configuredOk,
+    DOCUMENT_NAS_DEFAULT_PORT,
+    ...DOCUMENT_NAS_FALLBACK_PORTS,
+  ];
+  const seen = new Set<number>();
+  const out: number[] = [];
+  for (const p of order) {
+    const n = Number(p);
+    if (!Number.isFinite(n) || n <= 0 || seen.has(n)) continue;
+    seen.add(n);
+    out.push(n);
+  }
+  return out;
 }
 
 /**
@@ -46,15 +88,8 @@ export function resolveDocumentNasLocalPort(
   explicitPort?: number | null
 ): number {
   const n = Number(explicitPort);
-  if (Number.isFinite(n) && n > 0) {
-    // 旧既定 5000 は nastoms 実機で到達不可 → 5522 へ寄せる
-    if (n === 5000) return DOCUMENT_NAS_DEFAULT_PORT;
-    return n;
-  }
+  if (Number.isFinite(n) && n > 0) return n;
   const fromEnv = Number(process.env.QNAP_LOCAL_PORT || "");
-  if (Number.isFinite(fromEnv) && fromEnv > 0) {
-    if (fromEnv === 5000) return DOCUMENT_NAS_DEFAULT_PORT;
-    return fromEnv;
-  }
+  if (Number.isFinite(fromEnv) && fromEnv > 0) return fromEnv;
   return DOCUMENT_NAS_DEFAULT_PORT;
 }

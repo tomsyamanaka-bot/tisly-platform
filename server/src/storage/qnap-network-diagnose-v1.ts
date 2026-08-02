@@ -246,6 +246,7 @@ export function getQnapClientDirectConfigV1(): {
   baseDir: string;
   saveRoute: QnapSaveRouteV1;
   host: string;
+  port: number;
   reason?: string;
 } {
   const saveRoute = getQnapSaveRouteV1();
@@ -284,6 +285,7 @@ export function getQnapClientDirectConfigV1(): {
       baseDir: config.qnapWebDav.baseDir || "/TiSLY",
       saveRoute,
       host: host || DOCUMENT_NAS_HOST,
+      port,
       reason:
         "ローカル Wi-Fi 用ホストが未設定です。ストレージ設定の IP、または QNAP_LOCAL_WEBDAV_URL / QNAP_LOCAL_HOST を設定してください",
     };
@@ -298,6 +300,7 @@ export function getQnapClientDirectConfigV1(): {
       baseDir: config.qnapWebDav.baseDir || "/TiSLY",
       saveRoute,
       host,
+      port,
       reason: "ローカル直接保存用のユーザー名／パスワードが不足しています",
     };
   }
@@ -311,6 +314,7 @@ export function getQnapClientDirectConfigV1(): {
     baseDir: config.qnapWebDav.baseDir || "/TiSLY",
     saveRoute,
     host,
+    port,
   };
 }
 

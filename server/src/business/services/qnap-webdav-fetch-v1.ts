@@ -56,7 +56,7 @@ export function isCertificateFetchError(message: string): boolean {
   );
 }
 
-/** HTTPS:5006 → HTTP:8080 / HTTPS:5001 などの候補 URL */
+/** 設定ポート → 5000 / 5006 / 8080 / 55222 などの候補 URL */
 export function listWebDavUrlCandidates(primary: string): string[] {
   const out: string[] = [primary.trim()];
   try {
@@ -71,14 +71,17 @@ export function listWebDavUrlCandidates(primary: string): string[] {
       next.pathname = path;
       out.push(next.toString());
     };
-    if (u.protocol === "https:") {
-      if (u.port !== "8080") add("http:", "8080");
-      if (u.port !== "5001") add("https:", "5001");
-      if (u.port !== "5006") add("https:", "5006");
-    } else if (u.protocol === "http:") {
-      if (u.port !== "5006") add("https:", "5006");
-      if (u.port !== "5001") add("https:", "5001");
-      if (u.port !== "8080") add("http:", "8080");
+    // nastoms スマートポートフォールバック順
+    const fallbacks: Array<{ protocol: string; port: string }> = [
+      { protocol: "http:", port: "5000" },
+      { protocol: "https:", port: "5006" },
+      { protocol: "http:", port: "8080" },
+      { protocol: "http:", port: "55222" },
+      { protocol: "https:", port: "5001" },
+    ];
+    for (const fb of fallbacks) {
+      if (u.port === fb.port && u.protocol === fb.protocol) continue;
+      add(fb.protocol, fb.port);
     }
   } catch {
     /* invalid URL */

@@ -1197,6 +1197,8 @@ estimateV1Router.get(
         password: cfg.password,
         baseDir: cfg.baseDir,
         host: cfg.host,
+        port: cfg.port,
+        shareName: cfg.shareName,
         reason: cfg.reason ?? null,
       },
       files,

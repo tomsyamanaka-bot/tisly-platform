@@ -1,7 +1,6 @@
 import { initPracticalNav } from "./tisly-practical-nav.js";
 import { requireCustomerLogin, customerCodeFromPath } from "./customer-auth.js";
 import {
-  pingLocalWebDav,
   formatClientErrorMessage,
   DOCUMENT_NAS_HOST,
   DOCUMENT_NAS_DEFAULT_PORT,
@@ -9,6 +8,8 @@ import {
   setStoredDocumentNasHost,
   getStoredDocumentNasPort,
   setStoredDocumentNasPort,
+  resolveLocalWebDavWithPortFallback,
+  buildDocumentNasWebDavUrl,
 } from "./qnap-client-direct-v1.js";
 
 const $ = (id) => document.getElementById(id);
@@ -367,8 +368,7 @@ function buildLocalWebDavUrlFromForm() {
   const share = $("qnap-share").value.trim() || "TiSLY";
   setStoredDocumentNasHost(host);
   setStoredDocumentNasPort(port);
-  const proto = port === 443 || port === 5001 ? "https" : "http";
-  return `${proto}://${host}:${port}/${share}`;
+  return buildDocumentNasWebDavUrl(host, port, share);
 }
 
 /** 設定保存 → ルートに応じた Ping（1タップ診断） */
@@ -390,25 +390,44 @@ async function runConnectPingFlow() {
 
     if (route === "local_wifi") {
       const cfg = await api("/qnap/client-direct-config");
-      const url = cfg.webdavUrl || buildLocalWebDavUrlFromForm();
-      if (!url || !cfg.username || !cfg.password) {
+      const host =
+        $("qnap-host").value.trim() ||
+        cfg.host ||
+        getStoredDocumentNasHost() ||
+        DOCUMENT_NAS_HOST;
+      const configuredPort =
+        Number($("qnap-port").value) ||
+        Number(cfg.port) ||
+        getStoredDocumentNasPort() ||
+        DOCUMENT_NAS_DEFAULT_PORT;
+      const share = $("qnap-share").value.trim() || cfg.shareName || "TiSLY";
+      if (!cfg.username || !cfg.password) {
         const msg = cfg.reason || "ローカル直接用の接続情報が不足しています";
         setPingIndicator("err", msg.slice(0, 48));
         showResult($("connection-result"), false, msg);
         toast(msg);
         return;
       }
-      const ping = await pingLocalWebDav({
-        webdavUrl: url,
+      const resolved = await resolveLocalWebDavWithPortFallback({
+        host,
+        configuredPort,
+        shareName: share,
         username: cfg.username,
         password: cfg.password,
       });
+      if (resolved.ok && resolved.port) {
+        $("qnap-port").value = String(resolved.port);
+        setStoredDocumentNasPort(resolved.port);
+      }
+      const tried = (resolved.attempts || []).map((a) => a.port).join(",");
       applyPingResultToUi(
         {
-          ok: ping.ok,
-          latencyMs: ping.latencyMs,
-          errorCode: ping.errorCode,
-          message: ping.ok ? ping.message : formatClientErrorMessage(ping.errorCode, ping.message),
+          ok: resolved.ok,
+          latencyMs: resolved.ping?.latencyMs,
+          errorCode: resolved.ping?.errorCode,
+          message: resolved.ok
+            ? `${resolved.ping.message}（ポート ${resolved.port}）`
+            : `${formatClientErrorMessage(resolved.ping?.errorCode, resolved.ping?.message)}（試行: ${tried}）`,
           saveRoute: "local_wifi",
         },
         { routeLabel }
@@ -533,25 +552,44 @@ async function init() {
     try {
       await api("", { method: "PUT", body: JSON.stringify(collectForm()) });
       const cfg = await api("/qnap/client-direct-config");
-      const url = cfg.webdavUrl || buildLocalWebDavUrlFromForm();
-      if (!url || !cfg.username || !cfg.password) {
+      const host =
+        $("qnap-host").value.trim() ||
+        cfg.host ||
+        getStoredDocumentNasHost() ||
+        DOCUMENT_NAS_HOST;
+      const configuredPort =
+        Number($("qnap-port").value) ||
+        Number(cfg.port) ||
+        getStoredDocumentNasPort() ||
+        DOCUMENT_NAS_DEFAULT_PORT;
+      const share = $("qnap-share").value.trim() || cfg.shareName || "TiSLY";
+      if (!cfg.username || !cfg.password) {
         const msg = cfg.reason || "ローカル直接用の接続情報が不足しています";
         showResult($("connection-result"), false, msg);
         setPingIndicator("err", msg.slice(0, 48));
         toast(msg);
         return;
       }
-      const ping = await pingLocalWebDav({
-        webdavUrl: url,
+      const resolved = await resolveLocalWebDavWithPortFallback({
+        host,
+        configuredPort,
+        shareName: share,
         username: cfg.username,
         password: cfg.password,
       });
+      if (resolved.ok && resolved.port) {
+        $("qnap-port").value = String(resolved.port);
+        setStoredDocumentNasPort(resolved.port);
+      }
+      const tried = (resolved.attempts || []).map((a) => a.port).join(",");
       applyPingResultToUi(
         {
-          ok: ping.ok,
-          latencyMs: ping.latencyMs,
-          errorCode: ping.errorCode,
-          message: ping.ok ? ping.message : formatClientErrorMessage(ping.errorCode, ping.message),
+          ok: resolved.ok,
+          latencyMs: resolved.ping?.latencyMs,
+          errorCode: resolved.ping?.errorCode,
+          message: resolved.ok
+            ? `${resolved.ping.message}（ポート ${resolved.port}）`
+            : `${formatClientErrorMessage(resolved.ping?.errorCode, resolved.ping?.message)}（試行: ${tried}）`,
           saveRoute: "local_wifi",
         },
         { routeLabel: "ローカルWi-Fi経由" }

@@ -4,10 +4,10 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2428-nastoms-port-5522";
-const OFFLINE_CACHE = "tisly-pwa-shell-v2428-nastoms-port-5522";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2428-nastoms-port-5522";
-const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2428-nastoms-port-5522";
+const SW_VERSION = "tisly-pwa-v2429-nastoms-smart-port";
+const OFFLINE_CACHE = "tisly-pwa-shell-v2429-nastoms-smart-port";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2429-nastoms-smart-port";
+const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2429-nastoms-smart-port";
 const ICON_V = "?v=2004";
 
 /** 図面エディタ v1 — ES module 群 */

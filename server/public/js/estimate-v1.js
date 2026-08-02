@@ -1435,7 +1435,21 @@ function qnapSaveSuccessToastMessage(resultOrHost) {
     })() ||
     getStoredDocumentNasHost() ||
     DOCUMENT_NAS_HOST;
-  return documentNasSaveSuccessMessage(host);
+  const port =
+    Number(resultOrHost?.port) > 0
+      ? Number(resultOrHost.port)
+      : (() => {
+          try {
+            if (resultOrHost?.webdavUrl) {
+              const p = Number(new URL(resultOrHost.webdavUrl).port);
+              return Number.isFinite(p) && p > 0 ? p : null;
+            }
+          } catch {
+            /* */
+          }
+          return null;
+        })();
+  return documentNasSaveSuccessMessage(host, port);
 }
 
 async function saveListProjectToQnap(projectId, btn) {

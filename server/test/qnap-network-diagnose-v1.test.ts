@@ -133,7 +133,7 @@ describe("QNAP network diagnose v1", () => {
     assert.match(html, /btn-connect-ping/);
     assert.match(html, /接続テスト \(Ping\)/);
     assert.match(js, /qnap\/ping/);
-    assert.match(js, /pingLocalWebDav/);
+    assert.match(js, /resolveLocalWebDavWithPortFallback/);
     assert.match(js, /runConnectPingFlow/);
   });
 

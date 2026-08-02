@@ -58,6 +58,8 @@ export type EstimateInvoiceQnapSaveResultV1 = {
   message: string;
   files: EstimateInvoiceQnapSaveFileV1[];
   error?: string;
+  host?: string;
+  port?: number;
 };
 
 function resolveLocalAbsolute(localPath: string): string | null {
@@ -285,21 +287,29 @@ export async function saveEstimateInvoicePdfsToQnapV1(
 
   const allOk = files.length > 0 && files.every((f) => f.ok);
   if (allOk) {
+    const savedUrl = (() => {
+      try {
+        return new URL(cfg.webdavUrl);
+      } catch {
+        return null;
+      }
+    })();
     const savedHost =
-      (() => {
-        try {
-          const u = new URL(cfg.webdavUrl);
-          return u.hostname || DOCUMENT_NAS_HOST;
-        } catch {
-          return settings.qnap.host || DOCUMENT_NAS_HOST;
-        }
-      })();
+      savedUrl?.hostname || settings.qnap.host || DOCUMENT_NAS_HOST;
+    const savedPort =
+      Number(savedUrl?.port) > 0
+        ? Number(savedUrl!.port)
+        : Number(settings.qnap.port) > 0
+          ? Number(settings.qnap.port)
+          : null;
     return {
       ok: true,
       mock: false,
       projectId,
-      message: documentNasSaveSuccessMessage(savedHost),
+      message: documentNasSaveSuccessMessage(savedHost, savedPort),
       files,
+      host: savedHost,
+      port: savedPort ?? undefined,
     };
   }
 
