@@ -28,6 +28,7 @@ import {
 import {
   documentNasSaveSuccessMessage,
   getStoredDocumentNasHost,
+  setStoredDocumentNasPort,
   DOCUMENT_NAS_HOST,
 } from "./qnap-client-direct-v1.js";
 
@@ -1432,8 +1433,24 @@ function qnapSaveSuccessToastMessage(resultOrHost) {
     })() ||
     getStoredDocumentNasHost() ||
     DOCUMENT_NAS_HOST;
-  const msg = documentNasSaveSuccessMessage(host);
+  const port =
+    (typeof resultOrHost === "object" && resultOrHost && Number(resultOrHost.port) > 0
+      ? Number(resultOrHost.port)
+      : null) ||
+    (() => {
+      try {
+        if (resultOrHost?.webdavUrl) {
+          const p = Number(new URL(resultOrHost.webdavUrl).port);
+          return Number.isFinite(p) && p > 0 ? p : null;
+        }
+      } catch {
+        /* */
+      }
+      return null;
+    })();
+  const msg = documentNasSaveSuccessMessage(host, port);
   try {
+    if (port) setStoredDocumentNasPort(port);
     console.info(`[QNAP save toast] ${msg}`);
   } catch {
     /* */
@@ -1448,6 +1465,10 @@ function qnapSaveFeedbackMessage(body, httpStatus) {
   const code = String(body?.errorCode || "").trim();
   if (code === "ETIMEDOUT" || /timeout/i.test(code)) {
     return "VPSから nastoms への接続がタイムアウトしました。Tailscale / LAN接続状態を確認してください";
+  }
+  if (code === "ECONNREFUSED" || code === "ALL_PORTS_REFUSED") {
+    const h = String(body?.host || "").trim() || "100.99.31.120";
+    return `QNAP (${h}) の WebDAV サービスが有効になっているか、QNAPコントロールパネルをご確認ください`;
   }
   if (
     code === "401 Unauthorized" ||

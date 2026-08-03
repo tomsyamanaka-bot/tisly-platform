@@ -116,16 +116,16 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
     const direct = read("js/qnap-client-direct-v1.js");
     assert.match(direct, /DOCUMENT_NAS_NAME = "nastoms"/);
     assert.match(direct, /DOCUMENT_NAS_HOST = "192\.168\.1\.134"/);
-    assert.match(direct, /DOCUMENT_NAS_DEFAULT_PORT = 8080/);
-    assert.match(direct, /DOCUMENT_NAS_FALLBACK_PORTS = \[5000, 5006, 8080, 55222\]/);
+    assert.match(direct, /DOCUMENT_NAS_DEFAULT_PORT = 5006/);
+    assert.match(direct, /DOCUMENT_NAS_FALLBACK_PORTS = \[5006, 5000, 8080, 80\]/);
     assert.match(direct, /resolveLocalWebDavWithPortFallback/);
     assert.match(direct, /listDocumentNasPortCandidates/);
     assert.match(direct, /shouldTryClientDirectFallback/);
     assert.match(direct, /return false/);
     assert.match(direct, /VPS プロキシのみ/);
     assert.match(direct, /documentNasSaveSuccessMessage/);
-    assert.match(direct, /VPSプロキシ経由/);
-    assert.match(direct, /\$\{DOCUMENT_NAS_NAME\} \(\$\{h\}\) へ見積書/);
+    assert.match(direct, /へ見積書・請求書を保存しました/);
+    assert.match(direct, /\$\{DOCUMENT_NAS_NAME\} \(\$\{h\}:\$\{p\}\) へ見積書/);
     assert.match(direct, /mapWebDavHttpStatus/);
     assert.match(
       direct,
@@ -246,7 +246,16 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
     );
     assert.equal(
       documentNasSaveSuccessMessage("192.168.1.134", 8080, "TiSLY_Storage/Invoices_Estimates"),
-      "nastoms (192.168.1.134) へ見積書・請求書を保存しました（VPSプロキシ経由）"
+      "nastoms (192.168.1.134:8080) へ見積書・請求書を保存しました"
+    );
+    const refusedMsg = formatVpsToQnapProxyError(
+      "100.99.31.120",
+      5006,
+      "ECONNREFUSED"
+    );
+    assert.equal(
+      refusedMsg,
+      "QNAP (100.99.31.120) の WebDAV サービスが有効になっているか、QNAPコントロールパネルをご確認ください"
     );
   });
 

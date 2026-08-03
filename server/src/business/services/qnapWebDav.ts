@@ -12,6 +12,8 @@ import {
 
   qnapWebDavFetch,
 
+  rememberDiscoveredWebDavUrl,
+
 } from "./qnap-webdav-fetch-v1.js";
 
 import {
@@ -82,7 +84,16 @@ export class QnapWebDavClient {
 
 
 
-  async testConnection(): Promise<{ ok: boolean; message: string }> {
+  /** ポート探索後に確定したベース URL（なければ設定値） */
+  getEffectiveWebDavUrl(): string {
+    return this.baseUrl();
+  }
+
+  async testConnection(): Promise<{
+    ok: boolean;
+    message: string;
+    webdavUrl?: string;
+  }> {
 
     if (!this.cfg.webdavUrl) {
 
@@ -98,6 +109,8 @@ export class QnapWebDavClient {
 
     let lastError = "WebDAV unreachable";
 
+    let allRefused = candidates.length > 0;
+
 
 
     for (const candidate of candidates) {
@@ -112,9 +125,13 @@ export class QnapWebDavClient {
 
         });
 
+        allRefused = false;
+
         if (res.ok || res.status === 401 || res.status === 405 || res.status === 207) {
 
           this.effectiveWebDavUrl = candidate.replace(/\/+$/, "");
+
+          rememberDiscoveredWebDavUrl(this.effectiveWebDavUrl);
 
           const via =
 
@@ -124,7 +141,11 @@ export class QnapWebDavClient {
 
               : "";
 
-          return { ok: true, message: `WebDAV reachable (${res.status})${via}` };
+          return {
+            ok: true,
+            message: `WebDAV reachable (${res.status})${via}`,
+            webdavUrl: this.effectiveWebDavUrl,
+          };
 
         }
 
@@ -138,6 +159,10 @@ export class QnapWebDavClient {
 
         attempts.push(`${candidate} → ${lastError}`);
 
+        if (!/ECONNREFUSED|ECONNRESET|ENOTFOUND|EHOSTUNREACH|ENETUNREACH/i.test(lastError)) {
+          allRefused = false;
+        }
+
       }
 
     }
@@ -148,6 +173,10 @@ export class QnapWebDavClient {
 
       lastError = `${lastError} — tried: ${attempts.join("; ")}`;
 
+    }
+
+    if (allRefused) {
+      lastError = `ECONNREFUSED ${lastError}`;
     }
 
 

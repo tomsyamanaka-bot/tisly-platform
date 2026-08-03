@@ -8,10 +8,13 @@
 /** 書類保存用 NAS（見積書・請求書 PDF） */
 export const DOCUMENT_NAS_NAME = "nastoms";
 export const DOCUMENT_NAS_HOST = "192.168.1.134";
-/** WebDAV 未設定時のデフォルトポート（QNAP 標準 HTTP / Web 管理） */
-export const DOCUMENT_NAS_DEFAULT_PORT = 8080;
-/** スマートポートフォールバック候補（設定値の次） */
-export const DOCUMENT_NAS_FALLBACK_PORTS = [5000, 5006, 8080, 55222] as const;
+/** WebDAV 未設定時のデフォルトポート（QNAP 標準 HTTPS WebDAV） */
+export const DOCUMENT_NAS_DEFAULT_PORT = 5006;
+/**
+ * スマートポートフォールバック候補（設定値の次）
+ * https:5006 → http:5000 → http:8080 → http:80
+ */
+export const DOCUMENT_NAS_FALLBACK_PORTS = [5006, 5000, 8080, 80] as const;
 export const DOCUMENT_NAS_SHARE = "TiSLY";
 
 /** システム用 NAS（MotherShip / 将来の TiSLY システムデータ） */
@@ -34,18 +37,22 @@ export function webDavProtocolForPort(port: number): "http" | "https" {
 /** 書類保存先フォルダ（MotherShip） */
 export const DOCUMENT_NAS_SAVE_FOLDER = "TiSLY_Storage/Invoices_Estimates";
 
-/** 成功トースト用 — NAS名・ホスト + VPSプロキシ経由 */
+/** 成功トースト用 — NAS名・ホスト:成功ポート */
 export function documentNasSaveSuccessMessage(
   host = DOCUMENT_NAS_HOST,
-  _port?: number | null,
+  port?: number | null,
   _folderPath?: string | null
 ): string {
   const h = String(host || DOCUMENT_NAS_HOST).trim() || DOCUMENT_NAS_HOST;
-  return `${DOCUMENT_NAS_NAME} (${h}) へ見積書・請求書を保存しました（VPSプロキシ経由）`;
+  const p = Number(port);
+  if (Number.isFinite(p) && p > 0) {
+    return `${DOCUMENT_NAS_NAME} (${h}:${p}) へ見積書・請求書を保存しました`;
+  }
+  return `${DOCUMENT_NAS_NAME} (${h}) へ見積書・請求書を保存しました`;
 }
 
 /**
- * ポート候補順: 設定値 → 5000 → 5006 → 8080 → 55222
+ * ポート候補順: 設定値 → 5006 → 5000 → 8080 → 80
  */
 export function listDocumentNasPortCandidates(
   configuredPort?: number | null
@@ -55,7 +62,6 @@ export function listDocumentNasPortCandidates(
     Number.isFinite(configured) && configured > 0 ? configured : null;
   const order = [
     configuredOk,
-    DOCUMENT_NAS_DEFAULT_PORT,
     ...DOCUMENT_NAS_FALLBACK_PORTS,
   ];
   const seen = new Set<number>();
@@ -115,8 +121,8 @@ export function formatVpsToQnapProxyError(
   if (code === "ETIMEDOUT" || /timeout/i.test(code)) {
     return `VPSから ${DOCUMENT_NAS_NAME} への接続がタイムアウトしました。Tailscale / LAN接続状態を確認してください`;
   }
-  if (code === "ECONNREFUSED") {
-    return `VPSから${dest}への接続が拒否されました。QNAPのWebDAVサービス／ポートを確認してください`;
+  if (code === "ECONNREFUSED" || code === "ALL_PORTS_REFUSED") {
+    return `QNAP (${h}) の WebDAV サービスが有効になっているか、QNAPコントロールパネルをご確認ください`;
   }
   if (code === "EHOSTUNREACH" || code === "ENETUNREACH") {
     return `VPSから${dest}へ到達できません。VPN（Tailscale）やルーティングを確認してください`;

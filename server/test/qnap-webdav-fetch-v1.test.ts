@@ -1,9 +1,11 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
+  clearDiscoveredWebDavUrlCache,
   isCertificateFetchError,
   isTailscaleOrPrivateHost,
   listWebDavUrlCandidates,
+  rememberDiscoveredWebDavUrl,
   shouldUseInsecureTls,
 } from "../src/business/services/qnap-webdav-fetch-v1.js";
 
@@ -29,12 +31,27 @@ describe("qnap-webdav-fetch-v1", () => {
   });
 
   it("lists smart port fallbacks for WebDAV URL", () => {
+    clearDiscoveredWebDavUrlCache();
     const candidates = listWebDavUrlCandidates("https://100.99.31.120:5006/TiSLY");
     assert.ok(candidates.includes("https://100.99.31.120:5006/TiSLY"));
     assert.ok(candidates.includes("http://100.99.31.120:5000/TiSLY"));
     assert.ok(candidates.includes("http://100.99.31.120:8080/TiSLY"));
-    assert.ok(candidates.includes("http://100.99.31.120:55222/TiSLY"));
-    assert.ok(candidates.includes("https://100.99.31.120:5001/TiSLY"));
+    assert.ok(candidates.includes("http://100.99.31.120:80/TiSLY"));
+    assert.equal(candidates[0], "https://100.99.31.120:5006/TiSLY");
+    const idx5000 = candidates.indexOf("http://100.99.31.120:5000/TiSLY");
+    const idx8080 = candidates.indexOf("http://100.99.31.120:8080/TiSLY");
+    const idx80 = candidates.indexOf("http://100.99.31.120:80/TiSLY");
+    assert.ok(idx5000 < idx8080);
+    assert.ok(idx8080 < idx80);
+  });
+
+  it("prioritizes remembered discovered port", () => {
+    clearDiscoveredWebDavUrlCache();
+    rememberDiscoveredWebDavUrl("http://100.99.31.120:8080/TiSLY");
+    const candidates = listWebDavUrlCandidates("https://100.99.31.120:5006/TiSLY");
+    assert.equal(candidates[0], "http://100.99.31.120:8080/TiSLY");
+    assert.equal(process.env.QNAP_WEBDAV_DISCOVERED_PORT, "8080");
+    clearDiscoveredWebDavUrlCache();
   });
 
   it("detects certificate-related fetch errors", () => {

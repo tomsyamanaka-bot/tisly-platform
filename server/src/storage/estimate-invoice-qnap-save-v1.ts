@@ -189,6 +189,7 @@ async function ensureKindPdf(
 
 /**
  * VPS→QNAP 接続テスト（タイムアウト／拒否を現場向け文言へ）
+ * スマートポート探索で応答した URL を webdavUrl として返す。
  */
 export async function probeVpsToQnapConnection(
   cfg: QnapUploadConfig
@@ -196,14 +197,16 @@ export async function probeVpsToQnapConnection(
   ok: boolean;
   host: string;
   port: number;
+  webdavUrl: string;
   latencyMs: number;
   errorCode: string | null;
   message: string;
 }> {
-  const { host, port } = parseHostPortFromWebDavUrl(cfg.webdavUrl);
   const started = Date.now();
   let lastMsg = "";
   let lastCode: string | null = null;
+  let lastHostPort = parseHostPortFromWebDavUrl(cfg.webdavUrl);
+  let lastWebDavUrl = cfg.webdavUrl;
 
   for (let attempt = 1; attempt <= CONNECT_RETRY_COUNT; attempt += 1) {
     try {
@@ -211,27 +214,33 @@ export async function probeVpsToQnapConnection(
       const result = await client.testConnection();
       const latencyMs = Date.now() - started;
       if (result.ok) {
+        const effectiveUrl =
+          result.webdavUrl || client.getEffectiveWebDavUrl() || cfg.webdavUrl;
+        const parsed = parseHostPortFromWebDavUrl(effectiveUrl);
         return {
           ok: true,
-          host,
-          port,
+          host: parsed.host,
+          port: parsed.port,
+          webdavUrl: effectiveUrl,
           latencyMs,
           errorCode: null,
           message: result.message,
         };
       }
       lastMsg = result.message;
+      lastWebDavUrl = client.getEffectiveWebDavUrl() || cfg.webdavUrl;
+      lastHostPort = parseHostPortFromWebDavUrl(lastWebDavUrl);
       const classified = classifyQnapNetworkError(result.message, null);
       lastCode = classified.errorCode;
       console.warn(
-        `[QNAP VPS proxy] connect probe fail attempt=${attempt}/${CONNECT_RETRY_COUNT} host=${host}:${port} code=${lastCode} msg=${lastMsg}`
+        `[QNAP VPS proxy] connect probe fail attempt=${attempt}/${CONNECT_RETRY_COUNT} host=${lastHostPort.host}:${lastHostPort.port} code=${lastCode} msg=${lastMsg}`
       );
     } catch (e) {
       lastMsg = e instanceof Error ? e.message : String(e);
       const classified = classifyQnapNetworkError(lastMsg, null);
       lastCode = classified.errorCode;
       console.warn(
-        `[QNAP VPS proxy] connect probe exception attempt=${attempt} host=${host}:${port}`,
+        `[QNAP VPS proxy] connect probe exception attempt=${attempt} host=${lastHostPort.host}:${lastHostPort.port}`,
         lastMsg
       );
     }
@@ -241,16 +250,23 @@ export async function probeVpsToQnapConnection(
   }
 
   const classified = classifyQnapNetworkError(lastMsg, null);
+  const errorCode = lastCode || classified.errorCode;
+  // 全ポート拒否時はコントロールパネル案内メッセージを優先
+  const allPortsRefused =
+    errorCode === "ECONNREFUSED" ||
+    /ECONNREFUSED/i.test(lastMsg) ||
+    /tried:/i.test(lastMsg);
   return {
     ok: false,
-    host,
-    port,
+    host: lastHostPort.host,
+    port: lastHostPort.port,
+    webdavUrl: lastWebDavUrl,
     latencyMs: Date.now() - started,
-    errorCode: lastCode || classified.errorCode,
+    errorCode: allPortsRefused ? "ECONNREFUSED" : errorCode,
     message: formatVpsToQnapProxyError(
-      host,
-      port,
-      lastCode || classified.errorCode,
+      lastHostPort.host,
+      lastHostPort.port,
+      allPortsRefused ? "ECONNREFUSED" : errorCode || classified.errorCode,
       classified.errorReason || lastMsg
     ),
   };
@@ -395,6 +411,12 @@ export async function saveEstimateInvoicePdfsToQnapV1(
     };
   }
 
+  // 探索で応答したポートを次回優先・PUT でも使用
+  const workingCfg: QnapUploadConfig = {
+    ...cfg,
+    webdavUrl: probe.webdavUrl || cfg.webdavUrl,
+  };
+
   const kinds: Array<"estimate" | "invoice"> = [];
   if (project.estimateId) kinds.push("estimate");
   if (project.invoiceId) kinds.push("invoice");
@@ -420,7 +442,7 @@ export async function saveEstimateInvoicePdfsToQnapV1(
     const fileName = buildRemoteFileName(projectId, kind, abs);
     const remoteRel = buildInvoicesEstimatesBackupRelativePathV1(fileName);
     const displayPath = buildInvoicesEstimatesBackupDisplayPathV1(fileName);
-    const uploaded = await uploadOneReal(cfg, abs, remoteRel);
+    const uploaded = await uploadOneReal(workingCfg, abs, remoteRel);
     if (!uploaded.ok && uploaded.errorCode) {
       lastUploadCode = uploaded.errorCode;
     }

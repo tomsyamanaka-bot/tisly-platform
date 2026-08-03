@@ -56,35 +56,124 @@ export function isCertificateFetchError(message: string): boolean {
   );
 }
 
-/** 設定ポート → 5000 / 5006 / 8080 / 55222 などの候補 URL */
-export function listWebDavUrlCandidates(primary: string): string[] {
-  const out: string[] = [primary.trim()];
+/**
+ * Tailscale / QNAP WebDAV スマートポート探索順
+ * 1. https:5006 → 2. http:5000 → 3. http:8080 → 4. http:80
+ */
+export const WEBDAV_PORT_FALLBACKS: ReadonlyArray<{
+  protocol: string;
+  port: string;
+}> = [
+  { protocol: "https:", port: "5006" },
+  { protocol: "http:", port: "5000" },
+  { protocol: "http:", port: "8080" },
+  { protocol: "http:", port: "80" },
+];
+
+/** ホスト別・成功した WebDAV ベース URL（プロセス内キャッシュ） */
+const discoveredWebDavByHost = new Map<string, string>();
+
+export function rememberDiscoveredWebDavUrl(url: string): void {
+  const raw = String(url || "").trim();
+  if (!raw) return;
   try {
-    const u = new URL(primary);
-    const path = `${u.pathname}${u.search}`;
+    const u = new URL(raw);
+    const base = raw.replace(/\/+$/, "");
+    discoveredWebDavByHost.set(u.hostname, base);
+    const port =
+      u.port ||
+      (u.protocol === "https:" ? "443" : u.protocol === "http:" ? "80" : "");
+    if (port) process.env.QNAP_WEBDAV_DISCOVERED_PORT = port;
+    process.env.QNAP_WEBDAV_DISCOVERED_URL = base;
+  } catch {
+    /* invalid URL */
+  }
+}
+
+export function getDiscoveredWebDavUrl(hostname?: string): string | null {
+  const host = String(hostname || "").trim();
+  if (host && discoveredWebDavByHost.has(host)) {
+    return discoveredWebDavByHost.get(host) || null;
+  }
+  const fromEnv = (process.env.QNAP_WEBDAV_DISCOVERED_URL || "").trim();
+  if (fromEnv) {
+    if (!host) return fromEnv;
+    try {
+      if (new URL(fromEnv).hostname === host) return fromEnv;
+    } catch {
+      /* */
+    }
+  }
+  return null;
+}
+
+export function clearDiscoveredWebDavUrlCache(): void {
+  discoveredWebDavByHost.clear();
+  delete process.env.QNAP_WEBDAV_DISCOVERED_PORT;
+  delete process.env.QNAP_WEBDAV_DISCOVERED_URL;
+}
+
+/** ポート番号を省略せずに候補 URL を組み立てる（:80 も明示） */
+function buildWebDavCandidateUrl(
+  protocol: string,
+  host: string,
+  port: string,
+  pathname: string,
+  search = ""
+): string {
+  const proto = protocol.endsWith(":") ? protocol : `${protocol}:`;
+  const path = pathname.startsWith("/") ? pathname : `/${pathname || ""}`;
+  return `${proto}//${host}:${port}${path}${search}`;
+}
+
+/** 設定 URL → キャッシュ優先 → 固定フォールバック候補 */
+export function listWebDavUrlCandidates(primary: string): string[] {
+  const out: string[] = [];
+  const primaryTrim = String(primary || "").trim();
+  try {
+    const u = new URL(primaryTrim);
     const host = u.hostname;
+    const pathname = u.pathname || "/";
+    const search = u.search || "";
     const add = (protocol: string, port: string) => {
-      const next = new URL(primary);
-      next.protocol = protocol;
-      next.hostname = host;
-      next.port = port;
-      next.pathname = path;
-      out.push(next.toString());
+      out.push(buildWebDavCandidateUrl(protocol, host, port, pathname, search));
     };
-    // nastoms スマートポートフォールバック順
-    const fallbacks: Array<{ protocol: string; port: string }> = [
-      { protocol: "http:", port: "5000" },
-      { protocol: "https:", port: "5006" },
-      { protocol: "http:", port: "8080" },
-      { protocol: "http:", port: "55222" },
-      { protocol: "https:", port: "5001" },
-    ];
-    for (const fb of fallbacks) {
-      if (u.port === fb.port && u.protocol === fb.protocol) continue;
+
+    // 1. 前回成功ポート（メモリ / env キャッシュ）を最優先
+    const cached = getDiscoveredWebDavUrl(host);
+    if (cached) {
+      try {
+        const c = new URL(cached);
+        const cachedPort =
+          c.port ||
+          (c.protocol === "https:" ? "443" : c.protocol === "http:" ? "80" : "");
+        if (cachedPort) {
+          add(c.protocol, cachedPort);
+        } else {
+          out.push(cached);
+        }
+      } catch {
+        out.push(cached);
+      }
+    }
+
+    // 2. 設定の primary URL（ポート明示）
+    const primaryPort =
+      u.port ||
+      (u.protocol === "https:" ? "443" : u.protocol === "http:" ? "80" : "");
+    if (primaryPort) {
+      add(u.protocol, primaryPort);
+    } else if (primaryTrim) {
+      out.push(primaryTrim);
+    }
+
+    // 3. 固定順フォールバック（5006 → 5000 → 8080 → 80）
+    for (const fb of WEBDAV_PORT_FALLBACKS) {
+      if (primaryPort === fb.port && u.protocol === fb.protocol) continue;
       add(fb.protocol, fb.port);
     }
   } catch {
-    /* invalid URL */
+    if (primaryTrim) out.push(primaryTrim);
   }
   return [...new Set(out.filter(Boolean))];
 }
