@@ -8,13 +8,13 @@
 /** 書類保存用 NAS（見積書・請求書 PDF） */
 export const DOCUMENT_NAS_NAME = "nastoms";
 export const DOCUMENT_NAS_HOST = "192.168.1.134";
-/** WebDAV 未設定時のデフォルトポート（QNAP 標準 HTTPS WebDAV） */
-export const DOCUMENT_NAS_DEFAULT_PORT = 5006;
+/** WebDAV 未設定時のデフォルトポート（nastoms HTTP WebDAV = 5005） */
+export const DOCUMENT_NAS_DEFAULT_PORT = 5005;
 /**
  * スマートポートフォールバック候補（設定値の次）
- * https:5006 → http:5000 → http:8080 → http:80
+ * http:5005 → https:5006 → http:5000 → http:8080 → http:80
  */
-export const DOCUMENT_NAS_FALLBACK_PORTS = [5006, 5000, 8080, 80] as const;
+export const DOCUMENT_NAS_FALLBACK_PORTS = [5005, 5006, 5000, 8080, 80] as const;
 export const DOCUMENT_NAS_SHARE = "TiSLY";
 
 /** システム用 NAS（MotherShip / 将来の TiSLY システムデータ） */
@@ -27,7 +27,7 @@ export const DOCUMENT_NAS_LABEL =
 export const SYSTEM_NAS_LABEL =
   `システム用NAS (${SYSTEM_NAS_NAME}): ${SYSTEM_NAS_HOST}（将来のTiSLYシステムデータ・ログ保管用）`;
 
-/** 5006 / 5001 / 443 は HTTPS WebDAV */
+/** 5006 / 5001 / 443 は HTTPS WebDAV（5005 は HTTP） */
 export function webDavProtocolForPort(port: number): "http" | "https" {
   const p = Number(port);
   if (p === 443 || p === 5001 || p === 5006) return "https";
@@ -37,22 +37,20 @@ export function webDavProtocolForPort(port: number): "http" | "https" {
 /** 書類保存先フォルダ（MotherShip） */
 export const DOCUMENT_NAS_SAVE_FOLDER = "TiSLY_Storage/Invoices_Estimates";
 
-/** 成功トースト用 — NAS名・ホスト:成功ポート */
+/** 成功トースト用 — nastoms (ポート N) */
 export function documentNasSaveSuccessMessage(
-  host = DOCUMENT_NAS_HOST,
+  _host = DOCUMENT_NAS_HOST,
   port?: number | null,
   _folderPath?: string | null
 ): string {
-  const h = String(host || DOCUMENT_NAS_HOST).trim() || DOCUMENT_NAS_HOST;
   const p = Number(port);
-  if (Number.isFinite(p) && p > 0) {
-    return `${DOCUMENT_NAS_NAME} (${h}:${p}) へ見積書・請求書を保存しました`;
-  }
-  return `${DOCUMENT_NAS_NAME} (${h}) へ見積書・請求書を保存しました`;
+  const portNum =
+    Number.isFinite(p) && p > 0 ? p : DOCUMENT_NAS_DEFAULT_PORT;
+  return `${DOCUMENT_NAS_NAME} (ポート ${portNum}) へ見積書・請求書を保存しました`;
 }
 
 /**
- * ポート候補順: 設定値 → 5006 → 5000 → 8080 → 80
+ * ポート候補順: 設定値 → 5005 → 5006 → 5000 → 8080 → 80
  */
 export function listDocumentNasPortCandidates(
   configuredPort?: number | null
@@ -61,6 +59,7 @@ export function listDocumentNasPortCandidates(
   const configuredOk =
     Number.isFinite(configured) && configured > 0 ? configured : null;
   const order = [
+    DOCUMENT_NAS_DEFAULT_PORT,
     configuredOk,
     ...DOCUMENT_NAS_FALLBACK_PORTS,
   ];

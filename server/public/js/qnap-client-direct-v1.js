@@ -3,18 +3,18 @@
  * — 見積一覧の保存は VPS プロキシ一本化（本モジュールの PUT は使わない）
  * — ストレージ設定のローカル Ping 等でホスト／ポートヘルパーを再利用
  * — 既定宛先: 書類保存用 NAS nastoms (192.168.1.134)
- * — スマートポートフォールバック: 設定値 → 5006 → 5000 → 8080 → 80
+ * — スマートポートフォールバック: 設定値 → 5005 → 5006 → 5000 → 8080 → 80
  */
 
 export const DOCUMENT_NAS_NAME = "nastoms";
 export const DOCUMENT_NAS_HOST = "192.168.1.134";
-/** 未設定時の既定ポート（QNAP WebDAV HTTPS） */
-export const DOCUMENT_NAS_DEFAULT_PORT = 5006;
+/** 未設定時の既定ポート（nastoms HTTP WebDAV = 5005） */
+export const DOCUMENT_NAS_DEFAULT_PORT = 5005;
 export const SYSTEM_NAS_NAME = "TiSLYNAS";
 export const SYSTEM_NAS_HOST = "192.168.1.10";
 
 /** 設定ポートの次に試す候補（重複は listDocumentNasPortCandidates で除去） */
-export const DOCUMENT_NAS_FALLBACK_PORTS = [5006, 5000, 8080, 80];
+export const DOCUMENT_NAS_FALLBACK_PORTS = [5005, 5006, 5000, 8080, 80];
 
 const LS_DOCUMENT_NAS_HOST = "tisly_qnap_local_host_v1";
 /** v3: スマートポート探索で発見したポートを優先 */
@@ -61,7 +61,7 @@ export function setStoredDocumentNasPort(port) {
   return next;
 }
 
-/** 5006 / 5001 / 443 は HTTPS WebDAV */
+/** 5006 / 5001 / 443 は HTTPS WebDAV（5005 は HTTP） */
 export function webDavProtocolForPort(port) {
   const p = Number(port);
   if (p === 443 || p === 5001 || p === 5006) return "https";
@@ -79,9 +79,10 @@ export function buildDocumentNasWebDavUrl(host, port, shareName = "TiSLY") {
 
 /**
  * ポート候補順:
- * 1. localStorage 既知ポート（前回成功）
- * 2. 設定値（引数）
- * 3. 5006 → 5000 → 8080 → 80
+ * 1. 5005（nastoms 実機 HTTP WebDAV）
+ * 2. localStorage 既知ポート（前回成功）
+ * 3. 設定値（引数）
+ * 4. 5006 → 5000 → 8080 → 80
  */
 export function listDocumentNasPortCandidates(configuredPort) {
   const stored = (() => {
@@ -96,6 +97,7 @@ export function listDocumentNasPortCandidates(configuredPort) {
   const configuredOk =
     Number.isFinite(configured) && configured > 0 ? configured : null;
   const order = [
+    DOCUMENT_NAS_DEFAULT_PORT,
     stored,
     configuredOk,
     ...DOCUMENT_NAS_FALLBACK_PORTS,
@@ -115,18 +117,14 @@ export function listDocumentNasPortCandidates(configuredPort) {
 export const DOCUMENT_NAS_SAVE_FOLDER = "TiSLY_Storage/Invoices_Estimates";
 
 /**
- * 成功トースト — NAS名・ホスト:成功ポート
- * 例: nastoms (100.99.31.120:5000) へ見積書・請求書を保存しました
+ * 成功トースト — nastoms (ポート N)
+ * 例: nastoms (ポート 5005) へ見積書・請求書を保存しました
  */
-export function documentNasSaveSuccessMessage(host, port, _folderPath) {
-  const h =
-    String(host || getStoredDocumentNasHost() || DOCUMENT_NAS_HOST).trim() ||
-    DOCUMENT_NAS_HOST;
+export function documentNasSaveSuccessMessage(_host, port, _folderPath) {
   const p = Number(port);
-  if (Number.isFinite(p) && p > 0) {
-    return `${DOCUMENT_NAS_NAME} (${h}:${p}) へ見積書・請求書を保存しました`;
-  }
-  return `${DOCUMENT_NAS_NAME} (${h}) へ見積書・請求書を保存しました`;
+  const portNum =
+    Number.isFinite(p) && p > 0 ? p : DOCUMENT_NAS_DEFAULT_PORT;
+  return `${DOCUMENT_NAS_NAME} (ポート ${portNum}) へ見積書・請求書を保存しました`;
 }
 
 /** remotePath / displayPath から保存先フォルダを抽出 */

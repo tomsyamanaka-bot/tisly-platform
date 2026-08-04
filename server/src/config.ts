@@ -87,9 +87,9 @@ export const config = {
     get port() {
       const local = Number(env("QNAP_LOCAL_PORT", ""));
       if (Number.isFinite(local) && local > 0) return local;
-      const alias = Number(env("QNAP_PORT", "8080"));
+      const alias = Number(env("QNAP_PORT", "5005"));
       if (Number.isFinite(alias) && alias > 0) return alias;
-      return 8080;
+      return 5005;
     },
   },
   qnapWebDav: {

@@ -15,7 +15,7 @@ export const QNAP_TEST_PDF_REMOTE = "Test/tisly-test.pdf";
 export const QNAP_TEST_PDF_LOCAL = path.join(process.cwd(), "data", "tisly-test.pdf");
 
 function webDavProtocol(port: number): "http" | "https" {
-  // 5006 = QNAP 標準 WebDAV HTTPS
+  // 5006/5001/443 = HTTPS WebDAV、5005 = nastoms HTTP WebDAV
   return port === 443 || port === 5001 || port === 5006 ? "https" : "http";
 }
 

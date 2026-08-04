@@ -228,7 +228,7 @@ describe("Storage settings v1 — QNAP 接続設定", () => {
 
   it("DEFAULT_STORAGE_SETTINGS uses nastoms document NAS host", () => {
     assert.equal(DEFAULT_STORAGE_SETTINGS.qnap.host, "192.168.1.134");
-    assert.equal(DEFAULT_STORAGE_SETTINGS.qnap.port, 8080);
+    assert.equal(DEFAULT_STORAGE_SETTINGS.qnap.port, 5005);
     assert.equal(DEFAULT_STORAGE_SETTINGS.saveRoute, "vps");
   });
 });
