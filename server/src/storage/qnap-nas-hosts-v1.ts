@@ -8,14 +8,16 @@
 /** 書類保存用 NAS（見積書・請求書 PDF） */
 export const DOCUMENT_NAS_NAME = "nastoms";
 export const DOCUMENT_NAS_HOST = "192.168.1.134";
-/** WebDAV 未設定時のデフォルトポート（nastoms HTTP WebDAV = 5005） */
-export const DOCUMENT_NAS_DEFAULT_PORT = 5005;
+/** WebDAV 未設定時のデフォルトポート（8080 管理/WebDAV 優先） */
+export const DOCUMENT_NAS_DEFAULT_PORT = 8080;
 /**
- * スマートポートフォールバック候補（設定値の次）
- * http:5005 → https:5006 → http:5000 → http:8080 → http:80
+ * スマートポートフォールバック候補
+ * http:8080（パス付き）→ http:5005 → https:5006 → http:5000
  */
-export const DOCUMENT_NAS_FALLBACK_PORTS = [5005, 5006, 5000, 8080, 80] as const;
+export const DOCUMENT_NAS_FALLBACK_PORTS = [8080, 5005, 5006, 5000] as const;
 export const DOCUMENT_NAS_SHARE = "TiSLY";
+/** 8080 向け WebDAV ルートパス候補 */
+export const DOCUMENT_NAS_WEBDAV_PATHS = ["/", "/Public/", "/TiSLY/"] as const;
 
 /** システム用 NAS（MotherShip / 将来の TiSLY システムデータ） */
 export const SYSTEM_NAS_NAME = "TiSLYNAS";
@@ -37,20 +39,27 @@ export function webDavProtocolForPort(port: number): "http" | "https" {
 /** 書類保存先フォルダ（MotherShip） */
 export const DOCUMENT_NAS_SAVE_FOLDER = "TiSLY_Storage/Invoices_Estimates";
 
-/** 成功トースト用 — nastoms (ポート N) */
+/** 接続成功トースト — nastoms への接続に成功しました（ポート N） */
+export function documentNasConnectSuccessMessage(
+  port?: number | null
+): string {
+  const p = Number(port);
+  const portNum =
+    Number.isFinite(p) && p > 0 ? p : DOCUMENT_NAS_DEFAULT_PORT;
+  return `${DOCUMENT_NAS_NAME} への接続に成功しました（ポート ${portNum}）`;
+}
+
+/** 成功トースト用（保存完了＝接続成功と同文） */
 export function documentNasSaveSuccessMessage(
   _host = DOCUMENT_NAS_HOST,
   port?: number | null,
   _folderPath?: string | null
 ): string {
-  const p = Number(port);
-  const portNum =
-    Number.isFinite(p) && p > 0 ? p : DOCUMENT_NAS_DEFAULT_PORT;
-  return `${DOCUMENT_NAS_NAME} (ポート ${portNum}) へ見積書・請求書を保存しました`;
+  return documentNasConnectSuccessMessage(port);
 }
 
 /**
- * ポート候補順: 設定値 → 5005 → 5006 → 5000 → 8080 → 80
+ * ポート候補順: 8080 → 5005 → 5006 → 5000（設定値は先頭付近に挿入）
  */
 export function listDocumentNasPortCandidates(
   configuredPort?: number | null
@@ -59,9 +68,8 @@ export function listDocumentNasPortCandidates(
   const configuredOk =
     Number.isFinite(configured) && configured > 0 ? configured : null;
   const order = [
-    DOCUMENT_NAS_DEFAULT_PORT,
-    configuredOk,
     ...DOCUMENT_NAS_FALLBACK_PORTS,
+    configuredOk,
   ];
   const seen = new Set<number>();
   const out: number[] = [];

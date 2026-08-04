@@ -6,7 +6,8 @@ import { config } from "../config.js";
 import {
   formatFetchError,
   listWebDavUrlCandidates,
-  qnapWebDavFetch,
+  probeWebDavEndpoint,
+  rememberDiscoveredWebDavUrl,
 } from "../business/services/qnap-webdav-fetch-v1.js";
 import {
   getQnapWebDavEnvConfig,
@@ -24,6 +25,7 @@ import {
   DOCUMENT_NAS_DEFAULT_PORT,
   DOCUMENT_NAS_HOST,
   DOCUMENT_NAS_SHARE,
+  documentNasConnectSuccessMessage,
   resolveDocumentNasLocalHost,
   resolveDocumentNasLocalPort,
 } from "./qnap-nas-hosts-v1.js";
@@ -126,6 +128,13 @@ export function classifyQnapNetworkError(raw: string, httpStatus?: number | null
         "VPSからQNAPへ到達できません（ネットワーク／VPN／WebDAV）。ブラウザ直通信は使いません",
     };
   }
+  if (httpStatus === 501 || /501|not implemented/i.test(msg)) {
+    return {
+      errorCode: "HTTP 501",
+      errorReason:
+        "HTTP 501 Not Implemented — WebDAV パス（/ /Public/ /TiSLY/）またはポート 5005/5006 を確認してください",
+    };
+  }
   if (httpStatus && httpStatus >= 500) {
     return {
       errorCode: `HTTP ${httpStatus}`,
@@ -179,6 +188,18 @@ function resolvePingTarget(): {
   return { webdavUrl: "", username: "", password: "", source: "none" };
 }
 
+function portFromWebDavUrl(url: string): number | null {
+  try {
+    const u = new URL(url);
+    const p = Number(
+      u.port || (u.protocol === "https:" ? "443" : u.protocol === "http:" ? "80" : "")
+    );
+    return Number.isFinite(p) && p > 0 ? p : null;
+  } catch {
+    return null;
+  }
+}
+
 async function probeOne(
   url: string,
   username: string,
@@ -187,13 +208,12 @@ async function probeOne(
   const started = Date.now();
   const urlPreview = maskWebDavUrlPreview(url) || url;
   try {
-    const res = await qnapWebDavFetch(url, {
-      method: "OPTIONS",
-      headers: qnapBasicAuthHeaders(username, password),
-    });
+    const probe = await probeWebDavEndpoint(
+      url,
+      qnapBasicAuthHeaders(username, password)
+    );
     const latencyMs = Date.now() - started;
-    const ok = res.ok || res.status === 401 || res.status === 405 || res.status === 207;
-    if (res.status === 401) {
+    if (probe.status === 401) {
       const classified = classifyQnapNetworkError("401", 401);
       return {
         urlPreview,
@@ -204,22 +224,27 @@ async function probeOne(
         message: classified.errorReason,
       };
     }
-    if (ok) {
+    if (probe.ok) {
+      rememberDiscoveredWebDavUrl(url);
+      const port = portFromWebDavUrl(url);
       return {
         urlPreview,
         ok: true,
         latencyMs,
-        httpStatus: res.status,
+        httpStatus: probe.status,
         errorCode: null,
-        message: `Reachable (HTTP ${res.status}, ${latencyMs}ms)`,
+        message: documentNasConnectSuccessMessage(port),
       };
     }
-    const classified = classifyQnapNetworkError(`HTTP ${res.status}`, res.status);
+    const classified = classifyQnapNetworkError(
+      probe.message || `HTTP ${probe.status}`,
+      probe.status || null
+    );
     return {
       urlPreview,
       ok: false,
       latencyMs,
-      httpStatus: res.status,
+      httpStatus: probe.status || null,
       errorCode: classified.errorCode,
       message: classified.errorReason,
     };
@@ -422,6 +447,8 @@ export async function runQnapWebDavPingV1(): Promise<QnapPingResultV1> {
     );
     if (one.ok) {
       logs.push(`[ping] success via ${one.urlPreview}`);
+      const successPort = portFromWebDavUrl(candidate);
+      const successMsg = documentNasConnectSuccessMessage(successPort);
       return {
         ok: true,
         reachable: true,
@@ -431,7 +458,7 @@ export async function runQnapWebDavPingV1(): Promise<QnapPingResultV1> {
         httpStatus: one.httpStatus,
         errorCode: null,
         errorReason: null,
-        message: `✅ 接続成功 — ${one.message}`,
+        message: successMsg,
         logs,
         candidates: results,
         testedAt,

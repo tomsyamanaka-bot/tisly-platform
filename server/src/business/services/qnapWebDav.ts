@@ -3,7 +3,9 @@ import path from "path";
 import type { QnapUploadConfig } from "./qnapBusinessArchive.js";
 import {
   formatFetchError,
+  isWebDavMethodAcceptedStatus,
   listWebDavUrlCandidates,
+  probeWebDavEndpoint,
   qnapWebDavFetch,
   rememberDiscoveredWebDavUrl,
 } from "./qnap-webdav-fetch-v1.js";
@@ -57,12 +59,10 @@ export class QnapWebDavClient {
 
     for (const candidate of candidates) {
       try {
-        const res = await qnapWebDavFetch(candidate, {
-          method: "OPTIONS",
-          headers: this.headers(),
-        });
+        // PUT 前と同様に OPTIONS → PROPFIND で WebDAV 対応を検証（501 回避）
+        const probe = await probeWebDavEndpoint(candidate, this.headers());
         allRefused = false;
-        if (res.ok || res.status === 401 || res.status === 405 || res.status === 207) {
+        if (probe.ok && isWebDavMethodAcceptedStatus(probe.status)) {
           this.effectiveWebDavUrl = candidate.replace(/\/+$/, "");
           rememberDiscoveredWebDavUrl(this.effectiveWebDavUrl);
           const via =
@@ -71,12 +71,15 @@ export class QnapWebDavClient {
               : "";
           return {
             ok: true,
-            message: `WebDAV reachable (${res.status})${via}`,
+            message: `WebDAV reachable via ${probe.method} (${probe.status})${via}`,
             webdavUrl: this.effectiveWebDavUrl,
           };
         }
-        lastError = `WebDAV OPTIONS failed: ${res.status}`;
-        attempts.push(`${candidate} → HTTP ${res.status}`);
+        lastError =
+          probe.status === 501
+            ? `WebDAV Not Implemented (HTTP 501) at ${candidate}`
+            : `WebDAV ${probe.method} failed: ${probe.status}`;
+        attempts.push(`${candidate} → ${probe.message}`);
       } catch (e) {
         lastError = formatFetchError(e);
         attempts.push(`${candidate} → ${lastError}`);
@@ -147,14 +150,34 @@ export class QnapWebDavClient {
 
   async putFile(localPath: string, remotePath: string, attempt = 1): Promise<void> {
     const normalized = this.normalizeRemotePath(remotePath);
-    const url = buildWebDavFullUrl(this.baseUrl(), normalized);
     const body = fs.readFileSync(localPath);
     const maxAttempts = 3;
-    console.log(
-      `[QNAP WebDAV PUT] fullUrl=${url} remotePath=${remotePath} bytes=${body.length} attempt=${attempt}`
-    );
     try {
-      const res = await qnapWebDavFetch(url, {
+      // PUT 前にエンドポイント検証（未探索時はポート/パス再発見）
+      if (!this.effectiveWebDavUrl) {
+        const conn = await this.testConnection();
+        if (!conn.ok) {
+          throw new Error(`WebDAV preflight failed: ${conn.message}`);
+        }
+      } else {
+        const preflight = await probeWebDavEndpoint(this.baseUrl(), this.headers());
+        if (!preflight.ok) {
+          // キャッシュ切れの可能性 — 再探索
+          this.effectiveWebDavUrl = null;
+          const conn = await this.testConnection();
+          if (!conn.ok) {
+            throw new Error(
+              `WebDAV preflight failed: ${preflight.message}; rediscover: ${conn.message}`
+            );
+          }
+        }
+      }
+
+      const putUrl = buildWebDavFullUrl(this.baseUrl(), normalized);
+      console.log(
+        `[QNAP WebDAV PUT] fullUrl=${putUrl} remotePath=${remotePath} bytes=${body.length} attempt=${attempt}`
+      );
+      const res = await qnapWebDavFetch(putUrl, {
         method: "PUT",
         headers: {
           ...this.headers({ "Content-Type": "application/octet-stream" }),

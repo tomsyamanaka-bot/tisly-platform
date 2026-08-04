@@ -40,6 +40,7 @@ import { config } from "../config.js";
 import {
   DOCUMENT_NAS_DEFAULT_PORT,
   DOCUMENT_NAS_HOST,
+  documentNasConnectSuccessMessage,
   documentNasSaveSuccessMessage,
   formatVpsToQnapProxyError,
   resolveDocumentNasLocalHost,
@@ -230,7 +231,7 @@ export async function probeVpsToQnapConnection(
           webdavUrl: effectiveUrl,
           latencyMs,
           errorCode: null,
-          message: result.message,
+          message: documentNasConnectSuccessMessage(parsed.port),
         };
       }
       lastMsg = result.message;

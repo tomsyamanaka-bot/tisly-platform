@@ -96,14 +96,17 @@ function applyPingResultToUi(result, { routeLabel } = {}) {
     : result?.message || "接続失敗";
   const label = routeLabel ? `（${routeLabel}）` : "";
   if (ok) {
+    const portMatch =
+      String(result?.message || "").match(/ポート\s*(\d+)/) ||
+      String(result?.urlPreview || "").match(/:(\d+)/);
+    const port = portMatch ? portMatch[1] : null;
+    const successMsg = port
+      ? `nastoms への接続に成功しました（ポート ${port}）`
+      : result?.message || `接続OK${ms != null ? ` (${ms}ms)` : ""}`;
     const msText = ms != null ? `${ms} ms` : "OK";
     setPingIndicator("ok", `成功 ${msText}${label}`);
-    showResult(
-      $("connection-result"),
-      true,
-      `Ping成功 ${ms != null ? `(${ms}ms)` : ""}${label}`.trim()
-    );
-    toast(`接続OK ${ms != null ? `(${ms}ms)` : ""}${label}`.trim());
+    showResult($("connection-result"), true, `${successMsg}${label}`.trim());
+    toast(successMsg);
   } else {
     setPingIndicator("err", errMsg.slice(0, 48));
     showResult($("connection-result"), false, errMsg);

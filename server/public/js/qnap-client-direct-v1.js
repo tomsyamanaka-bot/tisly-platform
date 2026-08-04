@@ -3,22 +3,74 @@
  * — 見積一覧の保存は VPS プロキシ一本化（本モジュールの PUT は使わない）
  * — ストレージ設定のローカル Ping 等でホスト／ポートヘルパーを再利用
  * — 既定宛先: 書類保存用 NAS nastoms (192.168.1.134)
- * — スマートポートフォールバック: 設定値 → 5005 → 5006 → 5000 → 8080 → 80
+ * — スマートポートフォールバック: 8080（パス付き）→ 5005 → 5006 → 5000
  */
 
 export const DOCUMENT_NAS_NAME = "nastoms";
 export const DOCUMENT_NAS_HOST = "192.168.1.134";
-/** 未設定時の既定ポート（nastoms HTTP WebDAV = 5005） */
-export const DOCUMENT_NAS_DEFAULT_PORT = 5005;
+/** 未設定時の既定ポート（8080 管理/WebDAV 優先） */
+export const DOCUMENT_NAS_DEFAULT_PORT = 8080;
 export const SYSTEM_NAS_NAME = "TiSLYNAS";
 export const SYSTEM_NAS_HOST = "192.168.1.10";
 
 /** 設定ポートの次に試す候補（重複は listDocumentNasPortCandidates で除去） */
-export const DOCUMENT_NAS_FALLBACK_PORTS = [5005, 5006, 5000, 8080, 80];
+export const DOCUMENT_NAS_FALLBACK_PORTS = [8080, 5005, 5006, 5000];
+/** 8080 向け WebDAV ルートパス候補 */
+export const DOCUMENT_NAS_WEBDAV_PATHS = ["/", "/Public/", "/TiSLY/"];
 
 const LS_DOCUMENT_NAS_HOST = "tisly_qnap_local_host_v1";
 /** v3: スマートポート探索で発見したポートを優先 */
 const LS_DOCUMENT_NAS_PORT = "tisly_qnap_local_port_v3";
+const LS_DOCUMENT_NAS_PATH = "tisly_qnap_local_webdav_path_v1";
+
+const QNAP_WEBDAV_USER_AGENT = "TiSLY-PWA";
+
+function withQnapWebDavHeaders(extra = {}) {
+  return {
+    "User-Agent": QNAP_WEBDAV_USER_AGENT,
+    Translate: "f",
+    ...extra,
+  };
+}
+
+function isWebDavMethodAcceptedStatus(status) {
+  const s = Number(status);
+  if (!Number.isFinite(s) || s <= 0 || s === 501) return false;
+  return (
+    s === 200 ||
+    s === 201 ||
+    s === 204 ||
+    s === 207 ||
+    s === 401 ||
+    s === 403 ||
+    s === 405
+  );
+}
+
+function normalizeWebDavRootPath(pathname) {
+  const raw = String(pathname || "").trim() || "/";
+  if (raw === "/") return "/";
+  const withSlash = raw.startsWith("/") ? raw : `/${raw}`;
+  return withSlash.endsWith("/") ? withSlash : `${withSlash}/`;
+}
+
+export function listWebDavRootPathCandidates(configuredPath, port) {
+  const configured = normalizeWebDavRootPath(configuredPath || "/TiSLY/");
+  const portNum = Number(port);
+  const preferProbe = !Number.isFinite(portNum) || portNum === 8080 || portNum === 80;
+  const ordered = preferProbe
+    ? [configured, ...DOCUMENT_NAS_WEBDAV_PATHS]
+    : [configured, "/TiSLY/", "/Public/", "/"];
+  const seen = new Set();
+  const out = [];
+  for (const p of ordered) {
+    const n = normalizeWebDavRootPath(p);
+    if (seen.has(n)) continue;
+    seen.add(n);
+    out.push(n);
+  }
+  return out;
+}
 
 export function getStoredDocumentNasHost() {
   try {
@@ -72,17 +124,19 @@ export function buildDocumentNasWebDavUrl(host, port, shareName = "TiSLY") {
   const h = String(host || DOCUMENT_NAS_HOST).trim() || DOCUMENT_NAS_HOST;
   const p = Number(port);
   const portNum = Number.isFinite(p) && p > 0 ? p : DOCUMENT_NAS_DEFAULT_PORT;
-  const share =
-    String(shareName || "TiSLY").replace(/^\/+|\/+$/g, "") || "TiSLY";
+  let share = String(shareName || "TiSLY").trim();
+  if (!share || share === "/") {
+    return `${webDavProtocolForPort(portNum)}://${h}:${portNum}/`;
+  }
+  share = share.replace(/^\/+|\/+$/g, "") || "TiSLY";
   return `${webDavProtocolForPort(portNum)}://${h}:${portNum}/${share}`;
 }
 
 /**
  * ポート候補順:
- * 1. 5005（nastoms 実機 HTTP WebDAV）
- * 2. localStorage 既知ポート（前回成功）
- * 3. 設定値（引数）
- * 4. 5006 → 5000 → 8080 → 80
+ * 1. 8080（パス付き WebDAV）
+ * 2. 5005 → 5006 → 5000
+ * 3. localStorage / 設定値
  */
 export function listDocumentNasPortCandidates(configuredPort) {
   const stored = (() => {
@@ -97,10 +151,9 @@ export function listDocumentNasPortCandidates(configuredPort) {
   const configuredOk =
     Number.isFinite(configured) && configured > 0 ? configured : null;
   const order = [
-    DOCUMENT_NAS_DEFAULT_PORT,
+    ...DOCUMENT_NAS_FALLBACK_PORTS,
     stored,
     configuredOk,
-    ...DOCUMENT_NAS_FALLBACK_PORTS,
   ];
   const seen = new Set();
   const out = [];
@@ -117,14 +170,20 @@ export function listDocumentNasPortCandidates(configuredPort) {
 export const DOCUMENT_NAS_SAVE_FOLDER = "TiSLY_Storage/Invoices_Estimates";
 
 /**
- * 成功トースト — nastoms (ポート N)
- * 例: nastoms (ポート 5005) へ見積書・請求書を保存しました
+ * 成功トースト — nastoms への接続に成功しました（ポート N）
  */
-export function documentNasSaveSuccessMessage(_host, port, _folderPath) {
+export function documentNasConnectSuccessMessage(port) {
   const p = Number(port);
   const portNum =
     Number.isFinite(p) && p > 0 ? p : DOCUMENT_NAS_DEFAULT_PORT;
-  return `${DOCUMENT_NAS_NAME} (ポート ${portNum}) へ見積書・請求書を保存しました`;
+  return `${DOCUMENT_NAS_NAME} への接続に成功しました（ポート ${portNum}）`;
+}
+
+/**
+ * 成功トースト（保存完了＝接続成功と同文）
+ */
+export function documentNasSaveSuccessMessage(_host, port, _folderPath) {
+  return documentNasConnectSuccessMessage(port);
 }
 
 /** remotePath / displayPath から保存先フォルダを抽出 */
@@ -197,7 +256,7 @@ async function ensureWebDavCollection(url, authHeader) {
   try {
     const res = await fetch(url, {
       method: "MKCOL",
-      headers: { Authorization: authHeader },
+      headers: withQnapWebDavHeaders({ Authorization: authHeader }),
       mode: "cors",
     });
     if (res.ok || res.status === 405 || res.status === 409 || res.status === 301) {
@@ -298,19 +357,34 @@ export function formatClientErrorMessage(errorCode, detail) {
 }
 
 /**
- * ブラウザから QNAP WebDAV へ OPTIONS で導通確認
+ * ブラウザから QNAP WebDAV へ OPTIONS → PROPFIND で導通確認
+ * （HTTP 501 は WebDAV 非対応として失敗）
  */
 export async function pingLocalWebDav({ webdavUrl, username, password, timeoutMs = 8000 }) {
   const started = Date.now();
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  const authHeader = basicAuthHeader(username, password);
+  const base = String(webdavUrl || "").replace(/\/+$/, "");
   try {
-    const res = await fetch(webdavUrl.replace(/\/+$/, ""), {
+    let res = await fetch(base || webdavUrl, {
       method: "OPTIONS",
-      headers: { Authorization: basicAuthHeader(username, password) },
+      headers: withQnapWebDavHeaders({ Authorization: authHeader }),
       mode: "cors",
       signal: ctrl.signal,
     });
+    if (!isWebDavMethodAcceptedStatus(res.status) && res.status !== 401 && res.status !== 403) {
+      res = await fetch(base || webdavUrl, {
+        method: "PROPFIND",
+        headers: withQnapWebDavHeaders({
+          Authorization: authHeader,
+          Depth: "0",
+          "Content-Type": "application/xml",
+        }),
+        mode: "cors",
+        signal: ctrl.signal,
+      });
+    }
     const latencyMs = Date.now() - started;
     if (res.status === 401 || res.status === 403) {
       const mapped = mapWebDavHttpStatus(res.status);
@@ -322,14 +396,32 @@ export async function pingLocalWebDav({ webdavUrl, username, password, timeoutMs
         message: mapped.message,
       };
     }
-    const ok = res.ok || res.status === 405 || res.status === 207;
+    if (res.status === 501) {
+      return {
+        ok: false,
+        latencyMs,
+        httpStatus: 501,
+        errorCode: "HTTP 501",
+        message:
+          "HTTP 501 Not Implemented — WebDAV パス（/ /Public/ /TiSLY/）を確認してください",
+      };
+    }
+    const ok = isWebDavMethodAcceptedStatus(res.status);
     return {
       ok,
       latencyMs,
       httpStatus: res.status,
       errorCode: ok ? null : `HTTP ${res.status}`,
       message: ok
-        ? `ローカル到達 OK (${latencyMs}ms, HTTP ${res.status})`
+        ? documentNasConnectSuccessMessage(
+            Number((() => {
+              try {
+                return new URL(base || webdavUrl).port;
+              } catch {
+                return DOCUMENT_NAS_DEFAULT_PORT;
+              }
+            })())
+          )
         : `ローカル応答 HTTP ${res.status}`,
     };
   } catch (e) {
@@ -347,7 +439,8 @@ export async function pingLocalWebDav({ webdavUrl, username, password, timeoutMs
 }
 
 /**
- * マルチポート自動試行 — 最初に応答したポートを localStorage に保存
+ * マルチポート＋パス自動試行 — 最初に応答したポート/パスを localStorage に保存
+ * 順序: 8080（/, /Public/, /TiSLY/）→ 5005 → 5006 → 5000
  */
 export async function resolveLocalWebDavWithPortFallback({
   host,
@@ -362,44 +455,65 @@ export async function resolveLocalWebDavWithPortFallback({
   const ports = listDocumentNasPortCandidates(configuredPort);
   const attempts = [];
 
+  let storedPath = null;
+  try {
+    storedPath = localStorage.getItem(LS_DOCUMENT_NAS_PATH);
+  } catch {
+    /* */
+  }
+
   for (const port of ports) {
-    const webdavUrl = buildDocumentNasWebDavUrl(h, port, share);
-    const ping = await pingLocalWebDav({
-      webdavUrl,
-      username,
-      password,
-      timeoutMs,
-    });
-    attempts.push({
-      port,
-      webdavUrl,
-      ok: ping.ok,
-      latencyMs: ping.latencyMs,
-      errorCode: ping.errorCode,
-      message: ping.message,
-      httpStatus: ping.httpStatus,
-    });
-    // 401/403 はポート到達済み（認証・権限のみ失敗）→ このポートを採用
-    if (
-      ping.ok ||
-      ping.errorCode === "401 Unauthorized" ||
-      ping.errorCode === "403 Forbidden"
-    ) {
-      setStoredDocumentNasHost(h);
-      setStoredDocumentNasPort(port);
-      return {
-        ok: ping.ok,
-        reachable: true,
-        host: h,
-        port,
+    const pathCandidates = listWebDavRootPathCandidates(
+      storedPath || `/${share}/`,
+      port
+    );
+    for (const rootPath of pathCandidates) {
+      const pathShare =
+        rootPath === "/" ? "/" : rootPath.replace(/^\/+|\/+$/g, "");
+      const webdavUrl = buildDocumentNasWebDavUrl(h, port, pathShare);
+      const ping = await pingLocalWebDav({
         webdavUrl,
-        shareName: share,
-        ping,
-        attempts,
-        authFailed:
-          ping.errorCode === "401 Unauthorized" ||
-          ping.errorCode === "403 Forbidden",
-      };
+        username,
+        password,
+        timeoutMs,
+      });
+      attempts.push({
+        port,
+        path: rootPath,
+        webdavUrl,
+        ok: ping.ok,
+        latencyMs: ping.latencyMs,
+        errorCode: ping.errorCode,
+        message: ping.message,
+        httpStatus: ping.httpStatus,
+      });
+      if (
+        ping.ok ||
+        ping.errorCode === "401 Unauthorized" ||
+        ping.errorCode === "403 Forbidden"
+      ) {
+        setStoredDocumentNasHost(h);
+        setStoredDocumentNasPort(port);
+        try {
+          localStorage.setItem(LS_DOCUMENT_NAS_PATH, rootPath);
+        } catch {
+          /* */
+        }
+        return {
+          ok: ping.ok,
+          reachable: true,
+          host: h,
+          port,
+          webdavUrl,
+          shareName: pathShare === "/" ? "" : pathShare,
+          path: rootPath,
+          ping,
+          attempts,
+          authFailed:
+            ping.errorCode === "401 Unauthorized" ||
+            ping.errorCode === "403 Forbidden",
+        };
+      }
     }
   }
 
@@ -435,10 +549,10 @@ async function putFile(fullUrl, authHeader, blob) {
   try {
     const res = await fetch(fullUrl, {
       method: "PUT",
-      headers: {
+      headers: withQnapWebDavHeaders({
         Authorization: authHeader,
         "Content-Type": "application/pdf",
-      },
+      }),
       body: blob,
       mode: "cors",
     });

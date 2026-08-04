@@ -57,19 +57,77 @@ export function isCertificateFetchError(message: string): boolean {
 }
 
 /**
- * Tailscale / QNAP WebDAV スマートポート探索順（nastoms 実機確認）
- * 1. http:5005 → 2. https:5006 → 3. http:5000 → 4. http:8080 → 5. http:80
+ * QNAP WebDAV ポート探索順（8080 管理/WebDAV 優先）
+ * 1. http:8080 → 2. http:5005 → 3. https:5006 → 4. http:5000
  */
 export const WEBDAV_PORT_FALLBACKS: ReadonlyArray<{
   protocol: string;
   port: string;
 }> = [
+  { protocol: "http:", port: "8080" },
   { protocol: "http:", port: "5005" },
   { protocol: "https:", port: "5006" },
   { protocol: "http:", port: "5000" },
-  { protocol: "http:", port: "8080" },
-  { protocol: "http:", port: "80" },
 ];
+
+/**
+ * 8080（Web 管理と WebDAV が同居し得る）向けパス候補。
+ * ルートが HTTP 501 の場合でも /Public/ や /TiSLY/ で WebDAV が応答することがある。
+ */
+export const WEBDAV_ROOT_PATH_CANDIDATES: readonly string[] = [
+  "/",
+  "/Public/",
+  "/TiSLY/",
+];
+
+export const QNAP_WEBDAV_USER_AGENT = "TiSLY-PWA";
+
+/** QNAP / IIS 系 WebDAV でファイル操作として扱うための標準ヘッダー */
+export function withQnapWebDavHeaders(
+  headers?: HeadersInit | Record<string, string> | null
+): Record<string, string> {
+  const merged: Record<string, string> = {
+    "User-Agent": QNAP_WEBDAV_USER_AGENT,
+    Translate: "f",
+  };
+  if (!headers) return merged;
+  if (headers instanceof Headers) {
+    headers.forEach((value, key) => {
+      merged[key] = value;
+    });
+    return merged;
+  }
+  if (Array.isArray(headers)) {
+    for (const [key, value] of headers) {
+      merged[key] = value;
+    }
+    return merged;
+  }
+  for (const [key, value] of Object.entries(headers)) {
+    if (value == null) continue;
+    merged[key] = String(value);
+  }
+  return merged;
+}
+
+/**
+ * OPTIONS / PROPFIND が WebDAV として扱える応答か。
+ * HTTP 501（Not Implemented）は管理 UI 等で WebDAV 未対応と判定。
+ */
+export function isWebDavMethodAcceptedStatus(status: number): boolean {
+  const s = Number(status);
+  if (!Number.isFinite(s) || s <= 0) return false;
+  if (s === 501) return false;
+  return (
+    s === 200 ||
+    s === 201 ||
+    s === 204 ||
+    s === 207 ||
+    s === 401 ||
+    s === 403 ||
+    s === 405
+  );
+}
 
 /** ホスト別・成功した WebDAV ベース URL（プロセス内キャッシュ） */
 const discoveredWebDavByHost = new Map<string, string>();
@@ -114,6 +172,37 @@ export function clearDiscoveredWebDavUrlCache(): void {
   delete process.env.QNAP_WEBDAV_DISCOVERED_URL;
 }
 
+/** pathname を正規化（末尾スラッシュ維持、空は /） */
+export function normalizeWebDavRootPath(pathname: string): string {
+  const raw = String(pathname || "").trim() || "/";
+  if (raw === "/") return "/";
+  const withSlash = raw.startsWith("/") ? raw : `/${raw}`;
+  return withSlash.endsWith("/") ? withSlash : `${withSlash}/`;
+}
+
+/** ポート向けのルートパス候補（設定パス + /, /Public/, /TiSLY/） */
+export function listWebDavRootPathCandidates(
+  configuredPathname?: string,
+  port?: string | number
+): string[] {
+  const configured = normalizeWebDavRootPath(configuredPathname || "/");
+  const portStr = String(port ?? "");
+  // 8080 は管理 UI 同居のためパス探索を必須化。他ポートも同様に候補を試す。
+  const preferPathProbe = !portStr || portStr === "8080" || portStr === "80";
+  const ordered = preferPathProbe
+    ? [configured, ...WEBDAV_ROOT_PATH_CANDIDATES]
+    : [configured, "/TiSLY/", "/Public/", "/"];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const p of ordered) {
+    const n = normalizeWebDavRootPath(p);
+    if (seen.has(n)) continue;
+    seen.add(n);
+    out.push(n);
+  }
+  return out;
+}
+
 /** ポート番号を省略せずに候補 URL を組み立てる（:80 も明示） */
 function buildWebDavCandidateUrl(
   protocol: string,
@@ -123,11 +212,29 @@ function buildWebDavCandidateUrl(
   search = ""
 ): string {
   const proto = protocol.endsWith(":") ? protocol : `${protocol}:`;
-  const path = pathname.startsWith("/") ? pathname : `/${pathname || ""}`;
-  return `${proto}//${host}:${port}${path}${search}`;
+  const path = normalizeWebDavRootPath(pathname).replace(/\/+$/, "") || "";
+  // ルートは /、共有名は /TiSLY（末尾スラッシュなしで保持。呼び出し側で調整可）
+  const pathPart = path === "" ? "/" : path.startsWith("/") ? path : `/${path}`;
+  return `${proto}//${host}:${port}${pathPart}${search}`;
 }
 
-/** http:5005 最優先 → キャッシュ → 設定 URL → 固定フォールバック */
+function pushPortPathCandidates(
+  out: string[],
+  protocol: string,
+  host: string,
+  port: string,
+  configuredPathname: string,
+  search = ""
+): void {
+  for (const pathname of listWebDavRootPathCandidates(configuredPathname, port)) {
+    out.push(buildWebDavCandidateUrl(protocol, host, port, pathname, search));
+  }
+}
+
+/**
+ * 接続試行順: 8080（パス付き）→ 5005 → 5006 → 5000
+ * 各ポートで /, /Public/, /TiSLY/（＋設定パス）を展開。
+ */
 export function listWebDavUrlCandidates(primary: string): string[] {
   const out: string[] = [];
   const primaryTrim = String(primary || "").trim();
@@ -136,46 +243,30 @@ export function listWebDavUrlCandidates(primary: string): string[] {
     const host = u.hostname;
     const pathname = u.pathname || "/";
     const search = u.search || "";
-    const add = (protocol: string, port: string) => {
-      out.push(buildWebDavCandidateUrl(protocol, host, port, pathname, search));
+    const addPort = (protocol: string, port: string) => {
+      pushPortPathCandidates(out, protocol, host, port, pathname, search);
     };
 
-    // 1. nastoms 実機 WebDAV HTTP 5005 を最優先
-    add("http:", "5005");
-
-    // 2. 前回成功ポート（メモリ / env キャッシュ）
+    // 1. 前回成功 URL（パス込み）を最優先近くに
     const cached = getDiscoveredWebDavUrl(host);
     if (cached) {
-      try {
-        const c = new URL(cached);
-        const cachedPort =
-          c.port ||
-          (c.protocol === "https:" ? "443" : c.protocol === "http:" ? "80" : "");
-        if (cachedPort && !(c.protocol === "http:" && cachedPort === "5005")) {
-          add(c.protocol, cachedPort);
-        } else if (!cachedPort) {
-          out.push(cached);
-        }
-      } catch {
-        out.push(cached);
-      }
+      out.push(cached.replace(/\/+$/, "") || cached);
     }
 
-    // 3. 設定の primary URL（ポート明示・5005 以外）
+    // 2. 固定順フォールバック（8080 → 5005 → 5006 → 5000）＋パス展開
+    for (const fb of WEBDAV_PORT_FALLBACKS) {
+      addPort(fb.protocol, fb.port);
+    }
+
+    // 3. 設定の primary（上記以外のポートの場合）
     const primaryPort =
       u.port ||
       (u.protocol === "https:" ? "443" : u.protocol === "http:" ? "80" : "");
-    if (primaryPort && !(u.protocol === "http:" && primaryPort === "5005")) {
-      add(u.protocol, primaryPort);
+    const known = new Set(WEBDAV_PORT_FALLBACKS.map((f) => `${f.protocol}${f.port}`));
+    if (primaryPort && !known.has(`${u.protocol}${primaryPort}`)) {
+      addPort(u.protocol, primaryPort);
     } else if (!primaryPort && primaryTrim) {
       out.push(primaryTrim);
-    }
-
-    // 4. 固定順フォールバック（5005 → 5006 → 5000 → 8080 → 80）
-    for (const fb of WEBDAV_PORT_FALLBACKS) {
-      if (fb.port === "5005" && fb.protocol === "http:") continue;
-      if (primaryPort === fb.port && u.protocol === fb.protocol) continue;
-      add(fb.protocol, fb.port);
     }
   } catch {
     if (primaryTrim) out.push(primaryTrim);
@@ -211,7 +302,9 @@ async function nodeFetchWithOptionalAgent(
   const parsed = new URL(url);
   const isHttps = parsed.protocol === "https:";
   const lib = isHttps ? https : http;
-  const headers = init.headers as Record<string, string> | undefined;
+  const headers = withQnapWebDavHeaders(
+    init.headers as Record<string, string> | undefined
+  );
 
   return new Promise((resolve, reject) => {
     const req = lib.request(
@@ -253,21 +346,91 @@ async function nodeFetchWithOptionalAgent(
   });
 }
 
-/** QNAP WebDAV 向け fetch — オレオレ証明書・Tailscale 経路を許容 */
+/** QNAP WebDAV 向け fetch — オレオレ証明書・Tailscale 経路を許容 + 標準ヘッダー */
 export async function qnapWebDavFetch(url: string, init: RequestInit = {}): Promise<Response> {
+  const nextInit: RequestInit = {
+    ...init,
+    headers: withQnapWebDavHeaders(init.headers as HeadersInit),
+  };
   const insecure = shouldUseInsecureTls(url);
   try {
     return await nodeFetchWithOptionalAgent(
       url,
-      init,
+      nextInit,
       insecure ? insecureHttpsAgent : undefined
     );
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     if (!insecure && isCertificateFetchError(msg)) {
-      return nodeFetchWithOptionalAgent(url, init, insecureHttpsAgent);
+      return nodeFetchWithOptionalAgent(url, nextInit, insecureHttpsAgent);
     }
     throw e;
+  }
+}
+
+/**
+ * PUT 前の接続検証 — OPTIONS → 失敗時 PROPFIND。
+ * HTTP 501 は WebDAV 非対応として失敗扱い。
+ */
+export async function probeWebDavEndpoint(
+  url: string,
+  headers?: Record<string, string>
+): Promise<{ ok: boolean; status: number; method: "OPTIONS" | "PROPFIND"; message: string }> {
+  const base = String(url || "").replace(/\/+$/, "") || url;
+  const hdrs = withQnapWebDavHeaders(headers);
+
+  try {
+    const opt = await qnapWebDavFetch(base, { method: "OPTIONS", headers: hdrs });
+    if (isWebDavMethodAcceptedStatus(opt.status)) {
+      return {
+        ok: true,
+        status: opt.status,
+        method: "OPTIONS",
+        message: `OPTIONS OK (HTTP ${opt.status})`,
+      };
+    }
+    if (opt.status === 501) {
+      // 501 のまま PROPFIND も試す（一部 QNAP は OPTIONS のみ未実装）
+    } else if (opt.status > 0 && opt.status < 500) {
+      // 他 4xx は PROPFIND で再確認
+    }
+  } catch {
+    /* fall through to PROPFIND */
+  }
+
+  try {
+    const prop = await qnapWebDavFetch(base, {
+      method: "PROPFIND",
+      headers: {
+        ...hdrs,
+        Depth: "0",
+        "Content-Type": "application/xml",
+      },
+    });
+    if (isWebDavMethodAcceptedStatus(prop.status)) {
+      return {
+        ok: true,
+        status: prop.status,
+        method: "PROPFIND",
+        message: `PROPFIND OK (HTTP ${prop.status})`,
+      };
+    }
+    return {
+      ok: false,
+      status: prop.status,
+      method: "PROPFIND",
+      message:
+        prop.status === 501
+          ? "HTTP 501 Not Implemented（WebDAV エンドポイントではありません）"
+          : `PROPFIND failed: HTTP ${prop.status}`,
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      status: 0,
+      method: "PROPFIND",
+      message: formatFetchError(e),
+    };
   }
 }
 
