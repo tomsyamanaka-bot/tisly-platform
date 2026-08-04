@@ -229,7 +229,8 @@ export function mapWebDavHttpStatus(status) {
   if (s === 401 || s === 403) {
     return {
       errorCode: s === 401 ? "401 Unauthorized" : "403 Forbidden",
-      message: "QNAPのユーザー名またはパスワードが正しくありません",
+      message:
+        "QNAP認証エラー: ストレージ設定画面で QNAP (nastoms) のログインパスワードを確認・入力してください",
     };
   }
   if (s === 404) {
@@ -288,7 +289,7 @@ export function formatClientErrorMessage(errorCode, detail) {
     errorCode === 401 ||
     errorCode === 403
   ) {
-    return "QNAPのユーザー名またはパスワードが正しくありません";
+    return "QNAP認証エラー: ストレージ設定画面で QNAP (nastoms) のログインパスワードを確認・入力してください";
   }
   if (errorCode === "404 Not Found" || errorCode === 404) {
     return "保存先の共有フォルダ（例: /Invoices_Estimates/）が存在しません";

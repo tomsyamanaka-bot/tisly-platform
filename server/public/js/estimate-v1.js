@@ -1476,7 +1476,7 @@ function qnapSaveFeedbackMessage(body, httpStatus) {
     Number(httpStatus) === 401 ||
     Number(httpStatus) === 403
   ) {
-    return "QNAPのユーザー名またはパスワードが正しくありません";
+    return "QNAP認証エラー: ストレージ設定画面で QNAP (nastoms) のログインパスワードを確認・入力してください";
   }
   return `QNAP保存に失敗しました（HTTP ${httpStatus || "?"}）`;
 }

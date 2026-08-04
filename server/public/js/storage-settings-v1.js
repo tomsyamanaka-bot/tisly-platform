@@ -275,11 +275,11 @@ function fillForm(settings) {
   $("qnap-port").value = settings.qnap?.port ?? DOCUMENT_NAS_DEFAULT_PORT;
   setStoredDocumentNasPort($("qnap-port").value);
   $("qnap-share").value = settings.qnap?.shareName ?? "TiSLY";
-  $("qnap-user").value = settings.qnap?.username ?? "";
+  $("qnap-user").value = settings.qnap?.username || "tomsadmin";
   $("qnap-pass").value = "";
   $("qnap-pass").placeholder = settings.qnap?.hasPassword
     ? "変更時のみ入力（保存済み）"
-    : "パスワード";
+    : "QNAP (nastoms) のログインパスワード";
 }
 
 function collectForm() {
@@ -297,7 +297,7 @@ function collectForm() {
       host,
       port,
       shareName: $("qnap-share").value.trim() || "TiSLY",
-      username: $("qnap-user").value.trim(),
+      username: $("qnap-user").value.trim() || "tomsadmin",
       password: $("qnap-pass").value,
     },
   };

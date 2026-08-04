@@ -130,7 +130,7 @@ export function formatVpsToQnapProxyError(
     return `VPSから${dest}のホスト名を解決できません。IP・DNSを確認してください`;
   }
   if (code === "401 Unauthorized" || code === "403 Forbidden") {
-    return "QNAPのユーザー名またはパスワードが正しくありません";
+    return "QNAP認証エラー: ストレージ設定画面で QNAP (nastoms) のログインパスワードを確認・入力してください";
   }
   if (code === "404 Not Found") {
     return "保存先の共有フォルダ（例: /Invoices_Estimates/）が存在しません";

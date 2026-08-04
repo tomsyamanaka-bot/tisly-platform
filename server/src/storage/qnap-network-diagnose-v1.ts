@@ -27,6 +27,11 @@ import {
   resolveDocumentNasLocalHost,
   resolveDocumentNasLocalPort,
 } from "./qnap-nas-hosts-v1.js";
+import {
+  QNAP_DEFAULT_BASIC_USER,
+  qnapBasicAuthHeaders,
+  resolveQnapBasicAuthCredentials,
+} from "./qnap-basic-auth-v1.js";
 
 export type { QnapSaveRouteV1 };
 
@@ -57,10 +62,6 @@ export interface QnapPingResultV1 {
   localDirectAvailable: boolean;
 }
 
-function basicAuthHeader(username: string, password: string): string {
-  return `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`;
-}
-
 /** ECONNREFUSED / ETIMEDOUT / 401 Unauthorized 等を正規化 */
 export function classifyQnapNetworkError(raw: string, httpStatus?: number | null): {
   errorCode: string;
@@ -70,13 +71,15 @@ export function classifyQnapNetworkError(raw: string, httpStatus?: number | null
   if (httpStatus === 401 || /401|unauthorized/i.test(msg)) {
     return {
       errorCode: "401 Unauthorized",
-      errorReason: "QNAPのユーザー名またはパスワードが正しくありません",
+      errorReason:
+        "QNAP認証エラー: ストレージ設定画面で QNAP (nastoms) のログインパスワードを確認・入力してください",
     };
   }
   if (httpStatus === 403 || /403|forbidden/i.test(msg)) {
     return {
       errorCode: "403 Forbidden",
-      errorReason: "QNAPのユーザー名またはパスワードが正しくありません",
+      errorReason:
+        "QNAP認証エラー: ストレージ設定画面で QNAP (nastoms) のログインパスワードを確認・入力してください",
     };
   }
   if (httpStatus === 404 || /404|not found/i.test(msg)) {
@@ -148,22 +151,28 @@ function resolvePingTarget(): {
   source: "env" | "settings" | "none";
 } {
   const env = getQnapWebDavEnvConfig();
-  if (env.configured) {
+  const settings = getStorageSettingsV1();
+  const q = settings.qnap;
+  const auth = resolveQnapBasicAuthCredentials({
+    settingsUsername: q.username,
+    settingsPassword: q.password,
+    allowDefaultUser: true,
+  });
+
+  if (env.webdavUrl.trim()) {
     return {
       webdavUrl: env.webdavUrl,
-      username: env.username,
-      password: env.password,
+      username: auth.username || env.username || QNAP_DEFAULT_BASIC_USER,
+      password: auth.password || env.password || "",
       source: "env",
     };
   }
-  const settings = getStorageSettingsV1();
-  const q = settings.qnap;
-  if (q.host.trim() && q.username.trim() && q.password) {
+  if (q.host.trim()) {
     const cfg = settingsToWebDavConfig(settings);
     return {
       webdavUrl: cfg.webdavUrl,
-      username: cfg.username,
-      password: cfg.password,
+      username: auth.username || QNAP_DEFAULT_BASIC_USER,
+      password: auth.password,
       source: "settings",
     };
   }
@@ -180,9 +189,7 @@ async function probeOne(
   try {
     const res = await qnapWebDavFetch(url, {
       method: "OPTIONS",
-      headers: {
-        Authorization: basicAuthHeader(username, password),
-      },
+      headers: qnapBasicAuthHeaders(username, password),
     });
     const latencyMs = Date.now() - started;
     const ok = res.ok || res.status === 401 || res.status === 405 || res.status === 207;

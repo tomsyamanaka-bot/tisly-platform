@@ -107,7 +107,7 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
     assert.match(js, /見積書の準備ができました/);
     assert.match(js, /VPS プロキシのみ/);
     assert.match(js, /VPSから nastoms への接続がタイムアウトしました/);
-    assert.match(js, /QNAPのユーザー名またはパスワードが正しくありません/);
+    assert.match(js, /QNAP認証エラー: ストレージ設定画面で QNAP \(nastoms\) のログインパスワードを確認・入力してください/);
     assert.doesNotMatch(js, /saveProjectPdfsViaLocalWebDav/);
     assert.doesNotMatch(js, /shouldTryClientDirectFallback/);
     assert.doesNotMatch(js, /ローカルWi-Fi経由で再試行/);
@@ -129,7 +129,7 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
     assert.match(direct, /mapWebDavHttpStatus/);
     assert.match(
       direct,
-      /QNAPのユーザー名またはパスワードが正しくありません/
+      /QNAP認証エラー: ストレージ設定画面で QNAP \(nastoms\) のログインパスワードを確認・入力してください/
     );
     assert.match(
       direct,
@@ -148,7 +148,9 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
     assert.match(src, /resolveRealQnapWebDavForListSave/);
     assert.match(src, /uploadOneReal/);
     assert.match(src, /getQnapWebDavEnvConfig/);
-    assert.match(src, /envWebDav\.configured/);
+    assert.match(src, /resolveQnapBasicAuthCredentials/);
+    assert.match(src, /envWebDav\.webdavUrl/);
+    assert.match(src, /QNAP_DEFAULT_BASIC_USER/);
     assert.match(src, /probeVpsToQnapConnection/);
     assert.match(src, /formatVpsToQnapProxyError/);
     assert.match(src, /proxyRoute/);
@@ -166,6 +168,7 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
     process.env.QNAP_WEBDAV_URL = "https://100.99.31.10:5006/TiSLY";
     process.env.QNAP_WEBDAV_USER = "tisly";
     process.env.QNAP_WEBDAV_PASSWORD = "secret";
+    delete process.env.QNAP_USER;
     try {
       const { resolveRealQnapWebDavForListSave } = await import(
         "../src/storage/estimate-invoice-qnap-save-v1.js"
@@ -220,7 +223,7 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
 
   it("service worker bumps qnap feedback cache", () => {
     const sw = read("service-worker.js");
-    assert.match(sw, /tisly-pwa-v2432-qnap-feedback/);
+    assert.match(sw, /tisly-pwa-v2433-qnap-basic-auth/);
   });
 
   it("formatVpsToQnapProxyError builds timeout and auth messages", async () => {
@@ -242,7 +245,7 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
     );
     assert.equal(
       authMsg,
-      "QNAPのユーザー名またはパスワードが正しくありません"
+      "QNAP認証エラー: ストレージ設定画面で QNAP (nastoms) のログインパスワードを確認・入力してください"
     );
     assert.equal(
       documentNasSaveSuccessMessage("192.168.1.134", 5005, "TiSLY_Storage/Invoices_Estimates"),

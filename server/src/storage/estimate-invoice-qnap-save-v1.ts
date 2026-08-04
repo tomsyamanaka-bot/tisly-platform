@@ -46,6 +46,10 @@ import {
   resolveDocumentNasLocalPort,
 } from "./qnap-nas-hosts-v1.js";
 import { classifyQnapNetworkError } from "./qnap-network-diagnose-v1.js";
+import {
+  QNAP_DEFAULT_BASIC_USER,
+  resolveQnapBasicAuthCredentials,
+} from "./qnap-basic-auth-v1.js";
 
 const CONNECT_RETRY_COUNT = 2;
 const CONNECT_RETRY_DELAY_MS = 800;
@@ -111,44 +115,46 @@ function parseHostPortFromWebDavUrl(webdavUrl: string): {
 
 /**
  * 実機 WebDAV 設定を解決する。
- * 本番 VPS の .env(QNAP_WEBDAV_*) を最優先（ストレージ UI の古い LAN IP より優先）。
+ * 接続解決順: .env(QNAP_WEBDAV_*) → ストレージ設定 UI → .env(QNAP_HOST / QNAP_LOCAL_*)
+ * Basic 認証: QNAP_USER / QNAP_PASSWORD → ストレージ設定 → 既定ユーザー tomsadmin
  * 不足時は null（モックへは落とさない）。
  */
 export function resolveRealQnapWebDavForListSave(
   settings?: StorageSettingsV1
 ): QnapUploadConfig | null {
+  const current = settings ?? getStorageSettingsV1();
+  const q = current.qnap;
+  const auth = resolveQnapBasicAuthCredentials({
+    settingsUsername: q.username,
+    settingsPassword: q.password,
+    allowDefaultUser: true,
+  });
+
   const envWebDav = getQnapWebDavEnvConfig();
-  if (envWebDav.configured) {
+  if (envWebDav.webdavUrl.trim()) {
+    // URL がある場合は常に Basic 認証を解決して付与（未設定時は tomsadmin）
     return {
       mode: "real",
       webdavUrl: envWebDav.webdavUrl,
-      username: envWebDav.username,
-      password: envWebDav.password,
+      username: auth.username || envWebDav.username || QNAP_DEFAULT_BASIC_USER,
+      password: auth.password || envWebDav.password || "",
       basePath: envWebDav.baseDir || "/",
     };
   }
 
-  const current = settings ?? getStorageSettingsV1();
-  const q = current.qnap;
-  if (q.host.trim() && q.username.trim() && q.password) {
-    return settingsToWebDavConfig(current);
+  if (q.host.trim()) {
+    const cfg = settingsToWebDavConfig(current);
+    return {
+      ...cfg,
+      username: auth.username || QNAP_DEFAULT_BASIC_USER,
+      password: auth.password,
+    };
   }
 
   const host = resolveDocumentNasLocalHost(
-    config.qnap.host || process.env.QNAP_HOST || ""
+    config.qnap.host || process.env.QNAP_HOST || process.env.QNAP_LOCAL_HOST || ""
   );
-  const username = (
-    config.qnap.username ||
-    process.env.QNAP_USERNAME ||
-    process.env.QNAP_WEBDAV_USER ||
-    ""
-  ).trim();
-  const password =
-    config.qnap.password ||
-    process.env.QNAP_PASSWORD ||
-    process.env.QNAP_WEBDAV_PASSWORD ||
-    "";
-  if (host && username && password) {
+  if (host) {
     const port = resolveDocumentNasLocalPort(
       Number(process.env.QNAP_PORT || process.env.QNAP_LOCAL_PORT || q.port || 0) ||
         null
@@ -159,8 +165,8 @@ export function resolveRealQnapWebDavForListSave(
     return {
       mode: "real",
       webdavUrl: buildWebDavUrl(host, port, share),
-      username,
-      password,
+      username: auth.username || QNAP_DEFAULT_BASIC_USER,
+      password: auth.password,
       basePath: "/",
     };
   }

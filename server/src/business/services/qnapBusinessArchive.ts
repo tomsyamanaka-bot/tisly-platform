@@ -24,14 +24,22 @@ export function getQnapUploadConfig(): QnapUploadConfig {
   const mode =
     process.env.QNAP_UPLOAD_MODE === "real" &&
     Boolean(process.env.QNAP_WEBDAV_URL) &&
-    Boolean(process.env.QNAP_USERNAME)
+    Boolean(
+      process.env.QNAP_USER ||
+        process.env.QNAP_USERNAME ||
+        process.env.QNAP_WEBDAV_USER
+    )
       ? "real"
       : "mock";
   return {
     mode,
     webdavUrl: process.env.QNAP_WEBDAV_URL ?? "",
-    username: process.env.QNAP_USERNAME ?? "",
-    password: process.env.QNAP_PASSWORD ?? "",
+    username:
+      process.env.QNAP_USER ||
+      process.env.QNAP_WEBDAV_USER ||
+      process.env.QNAP_USERNAME ||
+      "tomsadmin",
+    password: process.env.QNAP_PASSWORD || process.env.QNAP_WEBDAV_PASSWORD || "",
     basePath: process.env.QNAP_BASE_PATH ?? "/TOMS/business",
   };
 }

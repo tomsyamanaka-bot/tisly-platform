@@ -1,6 +1,7 @@
 import { config } from "../config.js";
 import type { StorageProviderConfig, StorageProviderKind } from "./storage-provider.js";
 import { getStorageSettingsV1 } from "./storage-settings-store.js";
+import { QNAP_DEFAULT_BASIC_USER } from "./qnap-basic-auth-v1.js";
 
 export type QnapStorageModeV1 = "mock" | "webdav";
 
@@ -62,7 +63,10 @@ export function maskBaseDirPreview(baseDir: string): string {
 
 export function getQnapWebDavEnvConfig(): QnapWebDavEnvConfig {
   const webdavUrl = config.qnapWebDav.url;
-  const username = config.qnapWebDav.username;
+  // QNAP_USER / QNAP_WEBDAV_USER / QNAP_USERNAME。URL があるのにユーザー未設定なら tomsadmin
+  const username =
+    (config.qnapWebDav.username || "").trim() ||
+    (webdavUrl.trim() ? QNAP_DEFAULT_BASIC_USER : "");
   const password = config.qnapWebDav.password;
   const baseDir = config.qnapWebDav.baseDir || "/TiSLY";
   const configured = Boolean(webdavUrl && username && password);

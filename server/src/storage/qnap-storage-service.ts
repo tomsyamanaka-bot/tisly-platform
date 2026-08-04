@@ -46,12 +46,13 @@ export function isQnapStorageMockMode(settings: StorageSettingsV1): boolean {
   // 本番 .env に WebDAV がある場合はモックミラー禁止（実機通信）
   const envUrl = (process.env.QNAP_WEBDAV_URL || "").trim();
   const envUser = (
+    process.env.QNAP_USER ||
     process.env.QNAP_WEBDAV_USER ||
     process.env.QNAP_USERNAME ||
     ""
   ).trim();
   const envPass =
-    process.env.QNAP_WEBDAV_PASSWORD || process.env.QNAP_PASSWORD || "";
+    process.env.QNAP_PASSWORD || process.env.QNAP_WEBDAV_PASSWORD || "";
   if (envUrl && envUser && envPass) return false;
   if (!settings.qnapBackupEnabled) return true;
   if (!settings.qnap.host.trim()) return true;

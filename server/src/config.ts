@@ -75,7 +75,9 @@ export const config = {
     },
     host: env("QNAP_HOST"),
     share: env("QNAP_SHARE", "TiSLY"),
-    username: env("QNAP_USERNAME"),
+    get username() {
+      return env("QNAP_USER") || env("QNAP_USERNAME");
+    },
     password: env("QNAP_PASSWORD"),
     basePath: env("QNAP_BASE_PATH", "/TiSLY"),
   },
@@ -97,10 +99,10 @@ export const config = {
       return env("QNAP_WEBDAV_URL");
     },
     get username() {
-      return env("QNAP_WEBDAV_USER") || env("QNAP_USERNAME");
+      return env("QNAP_USER") || env("QNAP_WEBDAV_USER") || env("QNAP_USERNAME");
     },
     get password() {
-      return env("QNAP_WEBDAV_PASSWORD") || env("QNAP_PASSWORD");
+      return env("QNAP_PASSWORD") || env("QNAP_WEBDAV_PASSWORD");
     },
     get baseDir() {
       return env("QNAP_BASE_DIR") || env("QNAP_BASE_PATH", "/TiSLY");

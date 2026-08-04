@@ -74,7 +74,8 @@ const DEFAULT_QNAP: StorageQnapConfigV1 = {
   host: DOCUMENT_NAS_HOST,
   port: DOCUMENT_NAS_DEFAULT_PORT,
   shareName: DOCUMENT_NAS_SHARE,
-  username: "",
+  /** WebDAV Basic 認証の既定ユーザー（nastoms / tomsadmin） */
+  username: "tomsadmin",
   password: "",
 };
 
@@ -108,7 +109,7 @@ function parseSettings(raw: string | undefined): StorageSettingsV1 {
         ),
         shareName:
           String(qnap.shareName ?? DOCUMENT_NAS_SHARE).trim() || DOCUMENT_NAS_SHARE,
-        username: String(qnap.username ?? "").trim(),
+        username: String(qnap.username ?? "tomsadmin").trim() || "tomsadmin",
         password: String(qnap.password ?? ""),
       },
       lastConnectionTest: parsed.lastConnectionTest,
@@ -238,7 +239,7 @@ export function updateStorageSettingsV1(
           : current.qnap.shareName,
       username:
         qnapPatch.username !== undefined
-          ? String(qnapPatch.username).trim()
+          ? String(qnapPatch.username).trim() || "tomsadmin"
           : current.qnap.username,
       password: nextPassword,
     },
