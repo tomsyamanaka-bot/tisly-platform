@@ -1208,8 +1208,8 @@ estimateV1Router.get(
 
 /**
  * 見積一覧「QNAP保存」—
- * スマホ → VPS プロキシ → QNAP WebDAV（ブラウザ直通信なし）
- * 失敗時は 500 + 具体的な JSON メッセージ（トースト表示用）
+ * スマホ → VPS プロキシ → QNAP（WebDAV / File Station 多重フォールバック）
+ * 全滅時もローカル一時保存で 200（pendingSync）— UX を落とさない
  */
 estimateV1Router.post(
   "/projects/:id/qnap-save-invoices-estimates",
@@ -1232,6 +1232,7 @@ estimateV1Router.post(
         saveRoute,
         proxyRoute: "vps",
         clientDirectFallback: false,
+        pendingSync: false,
       });
       return;
     }
@@ -1247,10 +1248,7 @@ estimateV1Router.post(
         });
         return;
       }
-      if (
-        result.error === "no documents" ||
-        result.error === "qnap not configured"
-      ) {
+      if (result.error === "no documents") {
         res.status(400).json({
           ...result,
           saveRoute,
@@ -1259,24 +1257,25 @@ estimateV1Router.post(
         });
         return;
       }
-      if (!result.ok) {
-        // 502 ではなく 500 — 現場トーストに具体メッセージを載せる
-        res.status(500).json({
+      // pendingSync / リモート成功とも 200（ok:true）
+      if (result.ok) {
+        res.status(200).json({
           ...result,
           saveRoute,
           proxyRoute: "vps",
           clientDirectFallback: false,
-          message:
-            result.message ||
-            "VPSからQNAPへのネットワーク接続に失敗しました。IP・VPN・QNAPのWebDAV有効化を確認してください",
         });
         return;
       }
-      res.status(200).json({
+      // PDF 生成失敗等のみ 500
+      res.status(500).json({
         ...result,
         saveRoute,
         proxyRoute: "vps",
         clientDirectFallback: false,
+        message:
+          result.message ||
+          "VPSからQNAPへのネットワーク接続に失敗しました。IP・VPN・QNAPのWebDAV有効化を確認してください",
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "qnap save failed";
@@ -1291,6 +1290,7 @@ estimateV1Router.post(
         saveRoute,
         proxyRoute: "vps",
         clientDirectFallback: false,
+        pendingSync: false,
       });
     }
   }

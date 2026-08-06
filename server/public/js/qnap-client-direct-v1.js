@@ -180,10 +180,14 @@ export function documentNasConnectSuccessMessage(port) {
 }
 
 /**
- * 成功トースト（保存完了＝接続成功と同文）
+ * 成功トースト（保存完了）
  */
-export function documentNasSaveSuccessMessage(_host, port, _folderPath) {
-  return documentNasConnectSuccessMessage(port);
+export function documentNasSaveSuccessMessage(_host, _port, _folderPath) {
+  return `${DOCUMENT_NAS_NAME} へ見積書・請求書を正常に保存しました`;
+}
+
+export function documentNasPdfSavePendingMessage() {
+  return "一時保存完了（QNAPへ自動同期待ち）";
 }
 
 /** remotePath / displayPath から保存先フォルダを抽出 */

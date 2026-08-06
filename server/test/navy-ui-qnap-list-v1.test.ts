@@ -143,7 +143,7 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
     assert.match(direct, /tisly_qnap_local_port_v3/);
   });
 
-  it("save module uses VPS proxy probe and detailed errors", () => {
+  it("save module uses multi-route fallback and pending sync", () => {
     const src = fs.readFileSync(
       path.join(process.cwd(), "src/storage/estimate-invoice-qnap-save-v1.ts"),
       "utf-8"
@@ -157,11 +157,77 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
     assert.match(src, /probeVpsToQnapConnection/);
     assert.match(src, /formatVpsToQnapProxyError/);
     assert.match(src, /proxyRoute/);
+    assert.match(src, /uploadEstimateInvoiceWithFallbackV1/);
+    assert.match(src, /enqueueEstimateInvoiceQnapPendingV1/);
+    assert.match(src, /pendingSync/);
+    assert.match(src, /documentNasPdfSaveSuccessMessage/);
+    assert.match(src, /documentNasPdfSavePendingMessage/);
     assert.doesNotMatch(src, /qnap-storage-mock/);
     assert.doesNotMatch(src, /QNAP MOCK/);
-    assert.doesNotMatch(src, /QNAP FALLBACK/);
     assert.doesNotMatch(src, /isQnapStorageMockMode/);
-    assert.match(src, /モックミラー/);
+  });
+
+  it("fallback routes include WebDAV 5005/5006 File Station and LAN", async () => {
+    const {
+      listQnapFallbackRoutesV1,
+      DOCUMENT_NAS_TAILSCALE_HOST_DEFAULT,
+    } = await import("../src/storage/estimate-invoice-qnap-fallback-routes-v1.js");
+    const routes = listQnapFallbackRoutesV1({
+      tailscaleHost: "100.99.31.120",
+      lanHost: "192.168.1.134",
+    });
+    assert.equal(DOCUMENT_NAS_TAILSCALE_HOST_DEFAULT, "100.99.31.120");
+    assert.equal(routes[0].kind, "webdav_http_5005");
+    assert.match(String(routes[0].webdavUrl), /100\.99\.31\.120:5005/);
+    assert.equal(routes[1].kind, "webdav_https_5006");
+    assert.match(String(routes[1].webdavUrl), /100\.99\.31\.120:5006/);
+    assert.equal(routes[2].kind, "file_station_8080");
+    assert.match(
+      String(routes[2].fileStationUrl),
+      /100\.99\.31\.120:8080\/cgi-bin\/filemanager\/utilRequest\.cgi/
+    );
+    assert.equal(routes[3].kind, "webdav_lan_8080");
+    assert.match(String(routes[3].webdavUrl), /192\.168\.1\.134:8080/);
+    assert.equal(routes[4].kind, "local_pending");
+  });
+
+  it("pending store enqueues and lists items", async () => {
+    const {
+      enqueueEstimateInvoiceQnapPendingV1,
+      listEstimateInvoiceQnapPendingV1,
+      markEstimateInvoiceQnapPendingV1,
+      countEstimateInvoiceQnapPendingV1,
+    } = await import("../src/storage/estimate-invoice-qnap-pending-store-v1.js");
+    const item = enqueueEstimateInvoiceQnapPendingV1({
+      projectId: "test-pending-proj-1",
+      files: [
+        {
+          kind: "estimate",
+          localPath: "/tmp/estimate.pdf",
+          remotePath: "TiSLY_Storage/Invoices_Estimates/2026-08/estimate.pdf",
+          displayPath: "Invoices_Estimates/2026-08/estimate.pdf",
+        },
+      ],
+      lastError: "all routes refused",
+    });
+    assert.ok(item.id);
+    assert.equal(item.status, "pending");
+    assert.ok(countEstimateInvoiceQnapPendingV1() >= 1);
+    const listed = listEstimateInvoiceQnapPendingV1(10);
+    assert.ok(listed.some((i) => i.id === item.id));
+    markEstimateInvoiceQnapPendingV1(item.id, { status: "success" });
+    assert.ok(!listEstimateInvoiceQnapPendingV1(50).some((i) => i.id === item.id));
+  });
+
+  it("estimate list toast messages cover success and pending sync", () => {
+    const js = read("js/estimate-v1.js");
+    const direct = read("js/qnap-client-direct-v1.js");
+    assert.match(js, /documentNasSaveSuccessMessage/);
+    assert.match(js, /documentNasPdfSavePendingMessage/);
+    assert.match(js, /pendingSync/);
+    assert.match(direct, /DOCUMENT_NAS_NAME\} へ見積書・請求書を正常に保存しました/);
+    assert.match(direct, /一時保存完了（QNAPへ自動同期待ち）/);
+    assert.match(direct, /documentNasPdfSavePendingMessage/);
   });
 
   it("resolve prefers QNAP_WEBDAV_URL over empty settings", async () => {
@@ -224,14 +290,18 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
     assert.equal(res.body.mock, false);
   });
 
-  it("service worker bumps qnap feedback cache", () => {
+  it("service worker bumps qnap fallback cache", () => {
     const sw = read("service-worker.js");
-    assert.match(sw, /tisly-pwa-v2433-qnap-basic-auth/);
+    assert.match(sw, /tisly-pwa-v2434-qnap-fallback/);
   });
 
   it("formatVpsToQnapProxyError builds timeout and auth messages", async () => {
-    const { formatVpsToQnapProxyError, documentNasSaveSuccessMessage } =
-      await import("../src/storage/qnap-nas-hosts-v1.js");
+    const {
+      formatVpsToQnapProxyError,
+      documentNasSaveSuccessMessage,
+      documentNasPdfSaveSuccessMessage,
+      documentNasPdfSavePendingMessage,
+    } = await import("../src/storage/qnap-nas-hosts-v1.js");
     const timeoutMsg = formatVpsToQnapProxyError(
       "192.168.1.134",
       8080,
@@ -252,7 +322,15 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
     );
     assert.equal(
       documentNasSaveSuccessMessage("192.168.1.134", 5005, "TiSLY_Storage/Invoices_Estimates"),
-      "nastoms への接続に成功しました（ポート 5005）"
+      "nastoms へ見積書・請求書を正常に保存しました"
+    );
+    assert.equal(
+      documentNasPdfSaveSuccessMessage(),
+      "nastoms へ見積書・請求書を正常に保存しました"
+    );
+    assert.equal(
+      documentNasPdfSavePendingMessage(),
+      "一時保存完了（QNAPへ自動同期待ち）"
     );
     const refusedMsg = formatVpsToQnapProxyError(
       "100.99.31.120",

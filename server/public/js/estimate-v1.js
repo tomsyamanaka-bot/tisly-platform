@@ -27,6 +27,7 @@ import {
 } from "./tisly-voice-input-v1.js";
 import {
   documentNasSaveSuccessMessage,
+  documentNasPdfSavePendingMessage,
   getStoredDocumentNasHost,
   setStoredDocumentNasPort,
   DOCUMENT_NAS_HOST,
@@ -1420,6 +1421,9 @@ function bindSelectableListCards(container) {
 
 /** 一覧カードから見積・請求 PDF を QNAP 保存（VPS プロキシのみ — ブラウザ直通信なし） */
 function qnapSaveSuccessToastMessage(resultOrHost) {
+  if (resultOrHost && typeof resultOrHost === "object" && resultOrHost.pendingSync) {
+    return documentNasPdfSavePendingMessage();
+  }
   const host =
     (typeof resultOrHost === "string" && resultOrHost) ||
     resultOrHost?.host ||
@@ -1448,7 +1452,11 @@ function qnapSaveSuccessToastMessage(resultOrHost) {
       }
       return null;
     })();
-  const msg = documentNasSaveSuccessMessage(host, port);
+  const msg =
+    (typeof resultOrHost === "object" &&
+      resultOrHost &&
+      String(resultOrHost.message || "").trim()) ||
+    documentNasSaveSuccessMessage(host, port);
   try {
     if (port) setStoredDocumentNasPort(port);
     console.info(`[QNAP save toast] ${msg}`);
@@ -1460,9 +1468,15 @@ function qnapSaveSuccessToastMessage(resultOrHost) {
 
 /** API 応答から現場向けトースト文言を抽出（成功・失敗共通） */
 function qnapSaveFeedbackMessage(body, httpStatus) {
+  if (body?.pendingSync || body?.fallbackRoute === "local_pending") {
+    return documentNasPdfSavePendingMessage();
+  }
   const raw = String(body?.message || body?.error || "").trim();
   if (raw) return raw;
   const code = String(body?.errorCode || "").trim();
+  if (code === "PENDING_SYNC") {
+    return documentNasPdfSavePendingMessage();
+  }
   if (code === "ETIMEDOUT" || /timeout/i.test(code)) {
     return "VPSから nastoms への接続がタイムアウトしました。Tailscale / LAN接続状態を確認してください";
   }

@@ -21,8 +21,22 @@ export { encodeWebDavPath, buildWebDavFullUrl, stripDuplicateWebDavSharePrefix }
 
 export class QnapWebDavClient {
   private effectiveWebDavUrl: string | null = null;
+  /** true のときポート再探索せず指定 URL のみ使用 */
+  private exactUrlOnly = false;
 
-  constructor(private readonly cfg: QnapUploadConfig) {}
+  constructor(
+    private readonly cfg: QnapUploadConfig & { exactUrlOnly?: boolean }
+  ) {
+    if (cfg.exactUrlOnly) this.exactUrlOnly = true;
+  }
+
+  /** 多重フォールバック用 — 指定 URL に固定（再探索なし） */
+  lockToExactUrl(url: string): void {
+    const base = String(url || "").replace(/\/+$/, "");
+    if (!base) return;
+    this.effectiveWebDavUrl = base;
+    this.exactUrlOnly = true;
+  }
 
   private baseUrl(): string {
     return (this.effectiveWebDavUrl ?? this.cfg.webdavUrl).replace(/\/+$/, "");
@@ -52,7 +66,9 @@ export class QnapWebDavClient {
       return { ok: false, message: "QNAP_WEBDAV_URL not set" };
     }
 
-    const candidates = listWebDavUrlCandidates(this.cfg.webdavUrl);
+    const candidates = this.exactUrlOnly
+      ? [this.baseUrl()]
+      : listWebDavUrlCandidates(this.cfg.webdavUrl);
     const attempts: string[] = [];
     let lastError = "WebDAV unreachable";
     let allRefused = candidates.length > 0;
@@ -162,6 +178,9 @@ export class QnapWebDavClient {
       } else {
         const preflight = await probeWebDavEndpoint(this.baseUrl(), this.headers());
         if (!preflight.ok) {
+          if (this.exactUrlOnly) {
+            throw new Error(`WebDAV preflight failed: ${preflight.message}`);
+          }
           // キャッシュ切れの可能性 — 再探索
           this.effectiveWebDavUrl = null;
           const conn = await this.testConnection();

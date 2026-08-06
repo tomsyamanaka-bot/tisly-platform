@@ -49,13 +49,26 @@ export function documentNasConnectSuccessMessage(
   return `${DOCUMENT_NAS_NAME} への接続に成功しました（ポート ${portNum}）`;
 }
 
-/** 成功トースト用（保存完了＝接続成功と同文） */
+/** 見積・請求 PDF の QNAP 保存成功トースト */
+export function documentNasPdfSaveSuccessMessage(): string {
+  return `${DOCUMENT_NAS_NAME} へ見積書・請求書を正常に保存しました`;
+}
+
+/** リモート全滅時のローカル一時保存トースト */
+export function documentNasPdfSavePendingMessage(): string {
+  return "一時保存完了（QNAPへ自動同期待ち）";
+}
+
+/**
+ * 成功トースト（保存完了）
+ * — 見積一覧 QNAP 保存は documentNasPdfSaveSuccessMessage を優先
+ */
 export function documentNasSaveSuccessMessage(
   _host = DOCUMENT_NAS_HOST,
-  port?: number | null,
+  _port?: number | null,
   _folderPath?: string | null
 ): string {
-  return documentNasConnectSuccessMessage(port);
+  return documentNasPdfSaveSuccessMessage();
 }
 
 /**

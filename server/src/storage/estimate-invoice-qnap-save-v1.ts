@@ -1,13 +1,18 @@
 /**
  * 見積一覧 — 見積書準備済み / 請求書作成済み案件の
- * 見積書・請求書 PDF を QNAP 実機へ WebDAV 保存（v1）
+ * 見積書・請求書 PDF を QNAP へ保存（v1 + 多重フォールバック）
  *
- * 保存経路: スマホ → VPS（https://tisly.jp/api/...）→ QNAP WebDAV
+ * 保存経路: スマホ → VPS（https://tisly.jp/api/...）→ QNAP
  * ブラウザから QNAP への直接通信は行わない（CORS / Mixed Content 回避）
  *
+ * フォールバック順:
+ * 1. http://{tailscale}:5005 WebDAV
+ * 2. https://{tailscale}:5006 WebDAV
+ * 3. File Station utilRequest.cgi (:8080)
+ * 4. http://{lan}:8080 WebDAV
+ * 5. VPS ローカル一時保持 → Worker 自動同期
+ *
  * 保存先: TiSLY_Storage/Invoices_Estimates/YYYY-MM/
- * モックミラーへのフォールバックは行わない（実機通信のみ）
- * 接続解決順: .env(QNAP_WEBDAV_*) → ストレージ設定 UI → .env(QNAP_HOST / QNAP_LOCAL_*)
  */
 import fs from "fs";
 import path from "path";
@@ -41,7 +46,8 @@ import {
   DOCUMENT_NAS_DEFAULT_PORT,
   DOCUMENT_NAS_HOST,
   documentNasConnectSuccessMessage,
-  documentNasSaveSuccessMessage,
+  documentNasPdfSavePendingMessage,
+  documentNasPdfSaveSuccessMessage,
   formatVpsToQnapProxyError,
   resolveDocumentNasLocalHost,
   resolveDocumentNasLocalPort,
@@ -51,6 +57,12 @@ import {
   QNAP_DEFAULT_BASIC_USER,
   resolveQnapBasicAuthCredentials,
 } from "./qnap-basic-auth-v1.js";
+import {
+  resolveDocumentNasTailscaleHost,
+  uploadEstimateInvoiceWithFallbackV1,
+  type QnapFallbackRouteKindV1,
+} from "./estimate-invoice-qnap-fallback-routes-v1.js";
+import { enqueueEstimateInvoiceQnapPendingV1 } from "./estimate-invoice-qnap-pending-store-v1.js";
 
 const CONNECT_RETRY_COUNT = 2;
 const CONNECT_RETRY_DELAY_MS = 800;
@@ -79,6 +91,10 @@ export type EstimateInvoiceQnapSaveResultV1 = {
   /** 常に VPS プロキシ（ブラウザ直通信なし） */
   proxyRoute?: "vps";
   connectLatencyMs?: number | null;
+  /** QNAP リモート未到達でローカル一時保持 */
+  pendingSync?: boolean;
+  /** 成功したフォールバックルート */
+  fallbackRoute?: QnapFallbackRouteKindV1 | null;
 };
 
 function resolveLocalAbsolute(localPath: string): string | null {
@@ -345,13 +361,32 @@ function buildRemoteFileName(
     : `invoice-${no}.pdf`;
 }
 
+function resolveAuthForFallback(cfg: QnapUploadConfig | null): {
+  username: string;
+  password: string;
+} {
+  if (cfg) {
+    return {
+      username: cfg.username || QNAP_DEFAULT_BASIC_USER,
+      password: cfg.password || "",
+    };
+  }
+  const auth = resolveQnapBasicAuthCredentials({ allowDefaultUser: true });
+  return {
+    username: auth.username || QNAP_DEFAULT_BASIC_USER,
+    password: auth.password || "",
+  };
+}
+
 /**
  * 見積書準備済み（および請求書があれば請求書も）を
- * VPS から QNAP 実機へ WebDAV 保存する。モックミラーは使わない。
+ * VPS から QNAP へ多重フォールバック保存する。
+ * 全滅時もローカル PDF を保持し pendingSync で 200 相当の成功扱い。
  */
 export async function saveEstimateInvoicePdfsToQnapV1(
   projectId: string
 ): Promise<EstimateInvoiceQnapSaveResultV1> {
+  const started = Date.now();
   const project = getBusinessProject(projectId);
   if (!project) {
     return {
@@ -363,6 +398,7 @@ export async function saveEstimateInvoicePdfsToQnapV1(
       error: "project not found",
       errorCode: "PROJECT_NOT_FOUND",
       proxyRoute: "vps",
+      pendingSync: false,
     };
   }
 
@@ -377,64 +413,23 @@ export async function saveEstimateInvoicePdfsToQnapV1(
       error: "no documents",
       errorCode: "NO_DOCUMENTS",
       proxyRoute: "vps",
+      pendingSync: false,
     };
   }
 
   const settings = getStorageSettingsV1();
   const cfg = resolveRealQnapWebDavForListSave(settings);
-  if (!cfg) {
-    return {
-      ok: false,
-      mock: false,
-      projectId,
-      message: formatVpsToQnapProxyError(
-        DOCUMENT_NAS_HOST,
-        DOCUMENT_NAS_DEFAULT_PORT,
-        "NOT_CONFIGURED"
-      ),
-      files: [],
-      error: "qnap not configured",
-      errorCode: "NOT_CONFIGURED",
-      proxyRoute: "vps",
-      host: DOCUMENT_NAS_HOST,
-      port: DOCUMENT_NAS_DEFAULT_PORT,
-    };
-  }
-
-  const probe = await probeVpsToQnapConnection(cfg);
-  if (!probe.ok) {
-    return {
-      ok: false,
-      mock: false,
-      projectId,
-      message: probe.message,
-      files: [],
-      error: probe.message,
-      errorCode: probe.errorCode,
-      host: probe.host,
-      port: probe.port,
-      proxyRoute: "vps",
-      connectLatencyMs: probe.latencyMs,
-    };
-  }
-
-  // 探索で応答したポートを次回優先・PUT でも使用
-  const workingCfg: QnapUploadConfig = {
-    ...cfg,
-    webdavUrl: probe.webdavUrl || cfg.webdavUrl,
-  };
+  const auth = resolveAuthForFallback(cfg);
 
   const kinds: Array<"estimate" | "invoice"> = [];
   if (project.estimateId) kinds.push("estimate");
   if (project.invoiceId) kinds.push("invoice");
 
-  const files: EstimateInvoiceQnapSaveFileV1[] = [];
-  let lastUploadCode: string | null = null;
-
+  const prepared: EstimateInvoiceQnapSaveFileV1[] = [];
   for (const kind of kinds) {
     const localAbs = await ensureKindPdf(projectId, kind);
     if (!localAbs) {
-      files.push({
+      prepared.push({
         kind,
         localPath: "",
         remotePath: "",
@@ -449,69 +444,189 @@ export async function saveEstimateInvoicePdfsToQnapV1(
     const fileName = buildRemoteFileName(projectId, kind, abs);
     const remoteRel = buildInvoicesEstimatesBackupRelativePathV1(fileName);
     const displayPath = buildInvoicesEstimatesBackupDisplayPathV1(fileName);
-    const uploaded = await uploadOneReal(workingCfg, abs, remoteRel);
-    if (!uploaded.ok && uploaded.errorCode) {
-      lastUploadCode = uploaded.errorCode;
-    }
-    files.push({
+    prepared.push({
       kind,
-      localPath: localAbs,
+      localPath: abs,
       remotePath: remoteRel,
       displayPath,
       mock: false,
-      ok: uploaded.ok,
-      error: uploaded.error
-        ? formatVpsToQnapProxyError(
-            probe.host,
-            probe.port,
-            uploaded.errorCode || "UPLOAD_FAILED",
-            uploaded.error
-          )
-        : undefined,
+      ok: true,
     });
   }
 
-  const allOk = files.length > 0 && files.every((f) => f.ok);
-  if (allOk) {
+  const uploadable = prepared.filter((f) => f.ok && f.localPath);
+  if (uploadable.length === 0) {
+    return {
+      ok: false,
+      mock: false,
+      projectId,
+      message: "見積書・請求書 PDF を用意できませんでした",
+      files: prepared,
+      error: "pdf generation failed",
+      errorCode: "PDF_GENERATION_FAILED",
+      proxyRoute: "vps",
+      pendingSync: false,
+      connectLatencyMs: Date.now() - started,
+    };
+  }
+
+  const tailscaleHost = resolveDocumentNasTailscaleHost(
+    cfg ? parseHostPortFromWebDavUrl(cfg.webdavUrl).host : null
+  );
+  const lanHost = resolveDocumentNasLocalHost(
+    settings.qnap.host || process.env.QNAP_LOCAL_HOST || DOCUMENT_NAS_HOST
+  );
+  const shareName =
+    (cfg &&
+      (() => {
+        try {
+          const p = new URL(cfg.webdavUrl).pathname.replace(/^\/+|\/+$/g, "");
+          return p.split("/")[0] || "TiSLY";
+        } catch {
+          return "TiSLY";
+        }
+      })()) ||
+    settings.qnap.shareName ||
+    "TiSLY";
+
+  const fallback = await uploadEstimateInvoiceWithFallbackV1({
+    username: auth.username,
+    password: auth.password,
+    files: uploadable.map((f) => ({
+      kind: f.kind,
+      localPath: f.localPath,
+      remotePath: f.remotePath,
+      displayPath: f.displayPath,
+    })),
+    tailscaleHost,
+    lanHost,
+    shareName,
+  });
+
+  const files: EstimateInvoiceQnapSaveFileV1[] = prepared.map((f) => {
+    if (!f.ok) return f;
+    const match = fallback.files.find((x) => x.kind === f.kind);
+    return {
+      ...f,
+      ok: match ? match.ok : fallback.ok,
+      error: match?.error,
+    };
+  });
+
+  if (fallback.remoteOk) {
     return {
       ok: true,
       mock: false,
       projectId,
-      message: documentNasSaveSuccessMessage(
-        probe.host,
-        probe.port,
-        files.find((f) => f.ok)?.remotePath || undefined
-      ),
+      message: documentNasPdfSaveSuccessMessage(),
       files,
-      host: probe.host,
-      port: probe.port,
+      host: fallback.host,
+      port: fallback.port,
       folderPath:
         files.find((f) => f.ok)?.remotePath ||
         "TiSLY_Storage/Invoices_Estimates",
       proxyRoute: "vps",
-      connectLatencyMs: probe.latencyMs,
+      connectLatencyMs: Date.now() - started,
       errorCode: null,
+      pendingSync: false,
+      fallbackRoute: fallback.route,
     };
   }
 
-  const firstErr =
-    files.find((f) => !f.ok)?.error ||
-    formatVpsToQnapProxyError(
-      probe.host,
-      probe.port,
-      lastUploadCode || "UPLOAD_FAILED"
-    );
+  // 全滅 → ローカル一時保持（ユーザー体験を落とさない）
+  enqueueEstimateInvoiceQnapPendingV1({
+    projectId,
+    files: uploadable.map((f) => ({
+      kind: f.kind,
+      localPath: f.localPath,
+      remotePath: f.remotePath,
+      displayPath: f.displayPath,
+    })),
+    lastError:
+      fallback.attempts
+        .filter((a) => !a.ok)
+        .map((a) => `${a.route}: ${a.error || "fail"}`)
+        .join("; ") || "all remote routes failed",
+  });
+
   return {
-    ok: false,
+    ok: true,
     mock: false,
     projectId,
-    message: firstErr,
-    files,
-    error: firstErr,
-    errorCode: lastUploadCode || "UPLOAD_FAILED",
-    host: probe.host,
-    port: probe.port,
+    message: documentNasPdfSavePendingMessage(),
+    files: files.map((f) =>
+      f.localPath
+        ? { ...f, ok: true, error: undefined }
+        : f
+    ),
+    host: fallback.host,
+    port: fallback.port,
+    folderPath:
+      files.find((f) => f.localPath)?.remotePath ||
+      "TiSLY_Storage/Invoices_Estimates",
     proxyRoute: "vps",
-    connectLatencyMs: probe.latencyMs,
+    connectLatencyMs: Date.now() - started,
+    errorCode: fallback.errorCode || "PENDING_SYNC",
+    pendingSync: true,
+    fallbackRoute: "local_pending",
   };
 }
+
+/** Worker 再送用 — 既に用意済みのローカル PDF を多重フォールバックで送信 */
+export async function retryPendingEstimateInvoiceUploadV1(input: {
+  projectId: string;
+  files: Array<{
+    kind: "estimate" | "invoice";
+    localPath: string;
+    remotePath: string;
+    displayPath: string;
+  }>;
+}): Promise<{ ok: boolean; remoteOk: boolean; message: string; error?: string }> {
+  const settings = getStorageSettingsV1();
+  const cfg = resolveRealQnapWebDavForListSave(settings);
+  const auth = resolveAuthForFallback(cfg);
+  const existing = input.files.filter(
+    (f) => f.localPath && fs.existsSync(f.localPath)
+  );
+  if (existing.length === 0) {
+    return {
+      ok: false,
+      remoteOk: false,
+      message: "ローカル PDF が消失しています",
+      error: "LOCAL_PDF_MISSING",
+    };
+  }
+  const fallback = await uploadEstimateInvoiceWithFallbackV1({
+    username: auth.username,
+    password: auth.password,
+    files: existing,
+    tailscaleHost: cfg
+      ? parseHostPortFromWebDavUrl(cfg.webdavUrl).host
+      : null,
+    lanHost: resolveDocumentNasLocalHost(
+      settings.qnap.host || process.env.QNAP_LOCAL_HOST || DOCUMENT_NAS_HOST
+    ),
+    skipLocalPending: true,
+  });
+  if (fallback.remoteOk) {
+    return {
+      ok: true,
+      remoteOk: true,
+      message: documentNasPdfSaveSuccessMessage(),
+    };
+  }
+  // pending ルートは再 enqueue しない（呼び出し側が attempts を管理）
+  return {
+    ok: false,
+    remoteOk: false,
+    message: documentNasPdfSavePendingMessage(),
+    error:
+      fallback.attempts
+        .filter((a) => a.route !== "local_pending" && !a.ok)
+        .map((a) => a.error)
+        .filter(Boolean)
+        .join("; ") || "remote still unreachable",
+  };
+}
+
+export { uploadOneReal };
