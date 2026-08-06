@@ -141,7 +141,7 @@ export async function uploadBusinessToQnapReal(
       const remotePath = `${remoteBase}/${path.basename(f.path)}`;
       uploads.push({ localPath, remotePath });
     }
-    const count = await client.uploadLocalFiles(uploads);
+    const { count } = await client.uploadLocalFiles(uploads);
     logBusinessIntegration({
       projectId: project.id,
       type: "qnap",

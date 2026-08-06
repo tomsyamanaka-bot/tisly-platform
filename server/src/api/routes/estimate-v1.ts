@@ -83,6 +83,11 @@ import {
 } from "../../estimate/toms-estimate-history-store-v1.js";
 import { saveEstimateInvoicePdfsToQnapV1 } from "../../storage/estimate-invoice-qnap-save-v1.js";
 import {
+  createEstimateInvoiceQnapJobV1,
+  getEstimateInvoiceQnapJobV1,
+  updateEstimateInvoiceQnapJobV1,
+} from "../../storage/estimate-invoice-qnap-job-store-v1.js";
+import {
   documentNasPdfSaveAcceptedMessage,
 } from "../../storage/qnap-nas-hosts-v1.js";
 import {
@@ -1213,6 +1218,7 @@ estimateV1Router.get(
  * 見積一覧「QNAP保存」—
  * スマホ → VPS プロキシ → QNAP（WebDAV / File Station 多重フォールバック）
  * 保存本体はバックグラウンド実行し、受付時点で即 200（Gateway Timeout 504 回避）
+ * 完了結果は jobId でポーリング（絶対パス・通信ログ付き）
  */
 estimateV1Router.post(
   "/projects/:id/qnap-save-invoices-estimates",
@@ -1261,18 +1267,25 @@ estimateV1Router.post(
       return;
     }
 
+    const job = createEstimateInvoiceQnapJobV1(projectId);
+
     // バックグラウンドで多重フォールバック保存（失敗時は pending キューへ）
-    void saveEstimateInvoicePdfsToQnapV1(projectId)
+    void saveEstimateInvoicePdfsToQnapV1(projectId, { jobId: job.id })
       .then((result) => {
         console.log(
-          `[QNAP save] background done project=${projectId} ok=${result.ok} pending=${Boolean(result.pendingSync)} route=${result.fallbackRoute || "n/a"}`
+          `[QNAP save] background done project=${projectId} job=${job.id} ok=${result.ok} pending=${Boolean(result.pendingSync)} route=${result.fallbackRoute || "n/a"} paths=${(result.savedAbsolutePaths || []).join(",")}`
         );
       })
       .catch((e) => {
         console.error(
-          `[QNAP save] background failed project=${projectId}`,
+          `[QNAP save] background failed project=${projectId} job=${job.id}`,
           e instanceof Error ? e.message : e
         );
+        updateEstimateInvoiceQnapJobV1(job.id, {
+          status: "failed",
+          message: "QNAP保存に失敗しました",
+          error: e instanceof Error ? e.message : String(e),
+        });
       });
 
     res.status(200).json({
@@ -1280,6 +1293,7 @@ estimateV1Router.post(
       success: true,
       mock: false,
       projectId,
+      jobId: job.id,
       message: documentNasPdfSaveAcceptedMessage(),
       files: [],
       error: null,
@@ -1290,6 +1304,38 @@ estimateV1Router.post(
       pendingSync: true,
       asyncStarted: true,
       queued: true,
+    });
+  }
+);
+
+/** 非同期 QNAP 保存ジョブの結果ポーリング */
+estimateV1Router.get(
+  "/qnap-save-jobs/:jobId",
+  ...estimateV1Auth,
+  async (req: AuthedRequest, res) => {
+    if (!assertEstimateV1Role(req, res)) return;
+    const job = getEstimateInvoiceQnapJobV1(String(req.params.jobId || ""));
+    if (!job) {
+      res.status(404).json({ ok: false, error: "job not found" });
+      return;
+    }
+    const done =
+      job.status === "success" ||
+      job.status === "pending_sync" ||
+      job.status === "failed";
+    res.json({
+      ok: true,
+      done,
+      jobId: job.id,
+      projectId: job.projectId,
+      status: job.status,
+      message: job.message,
+      savedAbsolutePaths: job.savedAbsolutePaths || [],
+      pendingSync: job.status === "pending_sync",
+      error: job.error || null,
+      result: job.result || null,
+      createdAt: job.createdAt,
+      updatedAt: job.updatedAt,
     });
   }
 );

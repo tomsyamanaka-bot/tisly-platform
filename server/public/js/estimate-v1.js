@@ -1537,12 +1537,15 @@ async function saveListProjectToQnap(projectId, btn) {
     }));
 
     if (res.ok && (body?.ok || body?.success)) {
-      // 非同期受付応答 → 即時フィードバック
+      // 非同期受付応答 → 即時フィードバック + 完了ポーリング（絶対パス表示）
       if (body?.asyncStarted || body?.queued) {
         toast(documentNasPdfSaveRequestSentMessage());
+        if (body?.jobId) {
+          void pollQnapSaveJobAndToast(body.jobId, token);
+        }
         return;
       }
-      toast(body.message || qnapSaveSuccessToastMessage(body));
+      toast(formatQnapSaveDoneToast(body));
       return;
     }
 
@@ -1556,6 +1559,51 @@ async function saveListProjectToQnap(projectId, btn) {
       if (originalHtml != null) btn.innerHTML = originalHtml;
     }
   }
+}
+
+/** 非同期ジョブ完了後に絶対パス付きトーストを出す */
+async function pollQnapSaveJobAndToast(jobId, token) {
+  const maxAttempts = 40;
+  const delayMs = 1500;
+  for (let i = 0; i < maxAttempts; i += 1) {
+    await new Promise((r) => setTimeout(r, delayMs));
+    try {
+      const res = await fetch(
+        `/api/estimate/v1/qnap-save-jobs/${encodeURIComponent(jobId)}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: AbortSignal.timeout(10_000),
+        }
+      );
+      if (!res.ok) continue;
+      const body = await res.json().catch(() => null);
+      if (!body?.done) continue;
+      toast(formatQnapSaveDoneToast(body));
+      return;
+    } catch {
+      /* ポーリング継続 */
+    }
+  }
+}
+
+function formatQnapSaveDoneToast(body) {
+  const paths = Array.isArray(body?.savedAbsolutePaths)
+    ? body.savedAbsolutePaths.filter(Boolean)
+    : [];
+  const pathHint = paths.length ? ` → ${paths.join(" / ")}` : "";
+  if (body?.pendingSync || body?.status === "pending_sync") {
+    return `${documentNasPdfSavePendingMessage()}${pathHint}`;
+  }
+  if (body?.status === "failed" || body?.ok === false) {
+    return qnapSaveFeedbackMessage(body?.result || body, 0) + pathHint;
+  }
+  const base =
+    String(body?.message || "").trim() ||
+    qnapSaveSuccessToastMessage(body?.result || body);
+  if (pathHint && !base.includes("/TiSLY/") && !base.includes("/Public/")) {
+    return `${base}${pathHint}`;
+  }
+  return base;
 }
 
 function toggleSelection(id, cardNode) {

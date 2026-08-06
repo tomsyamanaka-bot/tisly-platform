@@ -208,8 +208,8 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
         {
           kind: "estimate",
           localPath: "/tmp/estimate.pdf",
-          remotePath: "TiSLY_Storage/Invoices_Estimates/2026-08/estimate.pdf",
-          displayPath: "Invoices_Estimates/2026-08/estimate.pdf",
+          remotePath: "Invoices_Estimates/2026-08/estimate.pdf",
+          displayPath: "/TiSLY/Invoices_Estimates/2026-08/estimate.pdf",
         },
       ],
       lastError: "all routes refused",
@@ -271,7 +271,7 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
     }
   });
 
-  it("mothership path builds Invoices_Estimates/YYYY-MM", () => {
+  it("mothership path builds Invoices_Estimates/YYYY-MM under /TiSLY", () => {
     const month = invoicesEstimatesMonthFolderV1(new Date("2026-08-01T00:00:00+09:00"));
     assert.equal(month, "2026-08");
     const rel = buildInvoicesEstimatesBackupRelativePathV1(
@@ -280,8 +280,76 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
     );
     assert.equal(
       rel,
-      "TiSLY_Storage/Invoices_Estimates/2026-08/invoice-TEST.pdf"
+      "Invoices_Estimates/2026-08/invoice-TEST.pdf"
     );
+  });
+
+  it("path roots include /TiSLY and /Public/TiSLY absolute paths", async () => {
+    const {
+      listInvoiceEstimatePathCandidatesV1,
+      shouldFallbackToPublicTislyV1,
+      resolveRemoteRelForWebDavBaseV1,
+    } = await import("../src/storage/estimate-invoice-qnap-path-roots-v1.js");
+    const {
+      buildInvoicesEstimatesAbsolutePathV1,
+    } = await import("../src/storage/mothership-paths-v1.js");
+    const date = new Date("2026-08-01T00:00:00+09:00");
+    assert.equal(
+      buildInvoicesEstimatesAbsolutePathV1("見積書_ティーエス生コン.pdf", date),
+      "/TiSLY/Invoices_Estimates/2026-08/見積書_ティーエス生コン.pdf"
+    );
+    assert.equal(
+      buildInvoicesEstimatesAbsolutePathV1("見積書_ティーエス生コン.pdf", date, "public_tisly"),
+      "/Public/TiSLY/Invoices_Estimates/2026-08/見積書_ティーエス生コン.pdf"
+    );
+    const cands = listInvoiceEstimatePathCandidatesV1(
+      "invoice-TEST.pdf",
+      "http://100.99.31.120:5005/TiSLY",
+      date
+    );
+    assert.equal(cands[0].kind, "tisly");
+    assert.equal(cands[0].remoteRel, "Invoices_Estimates/2026-08/invoice-TEST.pdf");
+    assert.equal(cands[1].kind, "public_tisly");
+    assert.match(cands[1].remoteRel, /Public\/TiSLY\/Invoices_Estimates/);
+    assert.equal(
+      resolveRemoteRelForWebDavBaseV1(
+        "http://192.168.1.134:8080/",
+        "a.pdf",
+        "tisly",
+        date
+      ),
+      "TiSLY/Invoices_Estimates/2026-08/a.pdf"
+    );
+    assert.equal(shouldFallbackToPublicTislyV1(403), true);
+    assert.equal(shouldFallbackToPublicTislyV1(404), true);
+    assert.equal(shouldFallbackToPublicTislyV1("MKCOL x failed: HTTP 403"), true);
+    assert.equal(shouldFallbackToPublicTislyV1(500), false);
+    const { rewriteWebDavBaseForPublicTislyV1 } = await import(
+      "../src/storage/estimate-invoice-qnap-path-roots-v1.js"
+    );
+    assert.equal(
+      rewriteWebDavBaseForPublicTislyV1("http://100.99.31.120:5005/TiSLY"),
+      "http://100.99.31.120:5005/Public"
+    );
+  });
+
+  it("mkcol recursive and uploadLocalFiles return steps", async () => {
+    const src = fs.readFileSync(
+      path.join(process.cwd(), "src/business/services/qnapWebDav.ts"),
+      "utf-8"
+    );
+    assert.match(src, /async mkcol\(remoteDir/);
+    assert.match(src, /isWebDavMkcolSuccessStatus/);
+    assert.match(src, /mkcolSteps/);
+    assert.match(src, /steps\.push/);
+    const fallbackSrc = fs.readFileSync(
+      path.join(process.cwd(), "src/storage/estimate-invoice-qnap-fallback-routes-v1.ts"),
+      "utf-8"
+    );
+    assert.match(fallbackSrc, /shouldFallbackToPublicTislyV1/);
+    assert.match(fallbackSrc, /public_tisly/);
+    assert.match(fallbackSrc, /savedAbsolutePaths/);
+    assert.match(fallbackSrc, /MKCOL/);
   });
 
   it("qnap-save rejects missing project", async () => {
@@ -294,7 +362,7 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
     assert.equal(res.body.mock, false);
   });
 
-  it("qnap-save returns immediately with asyncStarted", async () => {
+  it("qnap-save returns immediately with asyncStarted and jobId", async () => {
     const {
       documentNasPdfSaveAcceptedMessage,
       documentNasPdfSaveRequestSentMessage,
@@ -321,12 +389,35 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
     );
     assert.match(routeSrc, /asyncStarted:\s*true/);
     assert.match(routeSrc, /documentNasPdfSaveAcceptedMessage/);
+    assert.match(routeSrc, /createEstimateInvoiceQnapJobV1/);
+    assert.match(routeSrc, /jobId: job\.id/);
+    assert.match(routeSrc, /qnap-save-jobs/);
     assert.match(routeSrc, /void saveEstimateInvoicePdfsToQnapV1/);
+
+    const js = read("js/estimate-v1.js");
+    assert.match(js, /pollQnapSaveJobAndToast/);
+    assert.match(js, /formatQnapSaveDoneToast/);
+    assert.match(js, /savedAbsolutePaths/);
   });
 
-  it("service worker bumps qnap fallback cache", () => {
+  it("service worker bumps qnap mkcol cache", () => {
     const sw = read("service-worker.js");
-    assert.match(sw, /tisly-pwa-v2434-qnap-fallback/);
+    assert.match(sw, /tisly-pwa-v2435-qnap-mkcol/);
+  });
+
+  it("storage settings exposes save debug logs UI and API", () => {
+    const html = read("storage-settings-v1.html");
+    assert.match(html, /qnap-save-debug-list/);
+    assert.match(html, /QNAP 保存デバッグログ/);
+    const js = read("js/storage-settings-v1.js");
+    assert.match(js, /loadSaveDebugLogs/);
+    assert.match(js, /save-debug-logs/);
+    const routeSrc = fs.readFileSync(
+      path.join(process.cwd(), "src/api/routes/storage-settings-v1.ts"),
+      "utf-8"
+    );
+    assert.match(routeSrc, /listQnapSaveDebugLogsV1/);
+    assert.match(routeSrc, /\/qnap\/save-debug-logs/);
   });
 
   it("formatVpsToQnapProxyError builds timeout and auth messages", async () => {
@@ -355,7 +446,7 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
       "QNAP認証エラー: ストレージ設定画面で QNAP (nastoms) のログインパスワードを確認・入力してください"
     );
     assert.equal(
-      documentNasSaveSuccessMessage("192.168.1.134", 5005, "TiSLY_Storage/Invoices_Estimates"),
+      documentNasSaveSuccessMessage("192.168.1.134", 5005, "Invoices_Estimates"),
       "nastoms へ見積書・請求書を正常に保存しました"
     );
     assert.equal(
@@ -378,6 +469,10 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
   });
 
   it("css and estimate js are served", async () => {
+    const jsBody = read("js/estimate-v1.js");
+    assert.match(jsBody, /saveListProjectToQnap/);
+    assert.match(jsBody, /projectHasQnapSaveEligible/);
+
     const css = await request(app).get("/css/tisly-neon-dark-v1.css");
     assert.equal(css.status, 200);
     assert.match(css.text, /#1e3a8a/);

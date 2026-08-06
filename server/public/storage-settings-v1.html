@@ -212,6 +212,16 @@
       </div>
     </div>
 
+    <div class="friendly-card storage-card" id="qnap-save-debug-card">
+      <h2>QNAP 保存デバッグログ</h2>
+      <p class="storage-meta">見積一覧からの保存 — MKCOL / PUT / File Station のステータスと実際の保存パス。</p>
+      <div class="storage-actions">
+        <button type="button" class="btn-sub" id="btn-refresh-save-logs">ログ更新</button>
+        <button type="button" class="btn-sub" id="btn-clear-save-logs">ログクリア</button>
+      </div>
+      <div id="qnap-save-debug-list" class="result-box" style="margin-top:0.6rem;max-height:22rem;overflow:auto;white-space:pre-wrap;font-family:ui-monospace,monospace;font-size:0.72rem;background:#f8fafc;color:#0f172a;" role="log" aria-live="polite">読み込み中…</div>
+    </div>
+
     <div class="friendly-card storage-card hidden" id="legacy-connection-card" aria-hidden="true">
       <h2>QNAP PDF 整合チェック（旧）</h2>
       <dl class="status-grid">

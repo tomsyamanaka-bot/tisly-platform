@@ -729,9 +729,62 @@ async function init() {
     }
   });
 
+  async function loadSaveDebugLogs() {
+    const el = $("qnap-save-debug-list");
+    if (!el) return;
+    try {
+      const data = await api("/qnap/save-debug-logs?limit=40");
+      const logs = Array.isArray(data?.logs) ? data.logs : [];
+      if (logs.length === 0) {
+        el.textContent = "ログはまだありません。見積一覧から QNAP 保存を実行するとここに表示されます。";
+        return;
+      }
+      el.textContent = logs
+        .map((log) => {
+          const paths = (log.savedAbsolutePaths || []).join(" | ") || "—";
+          const steps = (log.steps || [])
+            .slice(0, 12)
+            .map(
+              (s) =>
+                `  ${s.method} ${s.status ?? "-"} ${s.ok ? "OK" : "NG"} ${s.urlOrPath}${s.detail ? ` (${s.detail})` : ""}`
+            )
+            .join("\n");
+          return [
+            `[${formatJaDateTime(log.createdAt)}] ${log.ok ? "OK" : "NG"}${log.pendingSync ? " PENDING" : ""} project=${log.projectId}`,
+            `  route=${log.route || "—"} host=${log.host || "—"}:${log.port || "—"}`,
+            `  paths=${paths}`,
+            `  msg=${log.message || ""}`,
+            log.error ? `  error=${log.error}` : null,
+            steps || null,
+          ]
+            .filter(Boolean)
+            .join("\n");
+        })
+        .join("\n\n");
+    } catch (e) {
+      el.textContent = e.message || "ログ取得に失敗しました";
+    }
+  }
+
+  $("btn-refresh-save-logs")?.addEventListener("click", () => {
+    loadSaveDebugLogs().catch(console.error);
+  });
+
+  $("btn-clear-save-logs")?.addEventListener("click", async () => {
+    if (!confirm("QNAP 保存デバッグログをすべて削除しますか？")) return;
+    try {
+      await api("/qnap/save-debug-logs", { method: "DELETE" });
+      toast("ログをクリアしました");
+      await loadSaveDebugLogs();
+    } catch (e) {
+      toast(e.message || "クリアに失敗しました");
+    }
+  });
+
   try {
     await load();
     await loadIntegrity();
+    await loadSaveDebugLogs();
   } catch (e) {
     toast(e.message || "読み込みに失敗しました");
   }

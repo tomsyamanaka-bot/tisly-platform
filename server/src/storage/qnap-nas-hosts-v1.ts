@@ -36,8 +36,11 @@ export function webDavProtocolForPort(port: number): "http" | "https" {
   return "http";
 }
 
-/** 書類保存先フォルダ（MotherShip） */
-export const DOCUMENT_NAS_SAVE_FOLDER = "TiSLY_Storage/Invoices_Estimates";
+/** 書類保存先フォルダ（nastoms /TiSLY 共有上） */
+export const DOCUMENT_NAS_SAVE_FOLDER = "Invoices_Estimates";
+export const DOCUMENT_NAS_SAVE_ABSOLUTE_PREFIX = "/TiSLY/Invoices_Estimates";
+export const DOCUMENT_NAS_SAVE_PUBLIC_ABSOLUTE_PREFIX =
+  "/Public/TiSLY/Invoices_Estimates";
 
 /** 接続成功トースト — nastoms への接続に成功しました（ポート N） */
 export function documentNasConnectSuccessMessage(

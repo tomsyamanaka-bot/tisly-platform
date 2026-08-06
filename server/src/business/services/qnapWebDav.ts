@@ -143,10 +143,30 @@ export class QnapWebDavClient {
   /**
    * 親ディレクトリを最下層まで逐次 MKCOL。
    * 405/409（既存）・201（作成）は成功扱い。
+   * 戻り値に各セグメントの HTTP ステータスを含める（デバッグログ用）。
    */
-  async mkcol(remoteDir: string): Promise<void> {
+  async mkcol(remoteDir: string): Promise<{
+    ok: boolean;
+    steps: Array<{
+      method: "MKCOL";
+      url: string;
+      segment: string;
+      status: number;
+      ok: boolean;
+    }>;
+  }> {
     const normalized = this.normalizeRemotePath(remoteDir);
     const parts = normalized.split("/").filter(Boolean);
+    const steps: Array<{
+      method: "MKCOL";
+      url: string;
+      segment: string;
+      status: number;
+      ok: boolean;
+    }> = [];
+    if (parts.length === 0) {
+      return { ok: true, steps };
+    }
     for (let i = 0; i < parts.length; i += 1) {
       const partial = parts.slice(0, i + 1).join("/");
       const url = buildWebDavFullUrl(this.baseUrl(), partial);
@@ -158,13 +178,32 @@ export class QnapWebDavClient {
         method: "MKCOL",
         headers: this.headers(),
       });
-      if (!res.ok && !isWebDavMkcolSuccessStatus(res.status)) {
-        throw new Error(`MKCOL ${segment} failed: HTTP ${res.status}`);
+      const ok =
+        res.ok || isWebDavMkcolSuccessStatus(res.status);
+      steps.push({
+        method: "MKCOL",
+        url,
+        segment,
+        status: res.status,
+        ok,
+      });
+      if (!ok) {
+        const err = new Error(
+          `MKCOL ${segment} failed: HTTP ${res.status}`
+        ) as Error & { status?: number; mkcolSteps?: typeof steps };
+        err.status = res.status;
+        err.mkcolSteps = steps;
+        throw err;
       }
     }
+    return { ok: true, steps };
   }
 
-  async putFile(localPath: string, remotePath: string, attempt = 1): Promise<void> {
+  async putFile(
+    localPath: string,
+    remotePath: string,
+    attempt = 1
+  ): Promise<{ url: string; status: number }> {
     const normalized = this.normalizeRemotePath(remotePath);
     const body = fs.readFileSync(localPath);
     const maxAttempts = 3;
@@ -204,8 +243,14 @@ export class QnapWebDavClient {
         body,
       });
       if (!res.ok) {
-        throw new Error(`PUT ${remotePath} failed: HTTP ${res.status}`);
+        const err = new Error(
+          `PUT ${remotePath} failed: HTTP ${res.status}`
+        ) as Error & { status?: number; url?: string };
+        err.status = res.status;
+        err.url = putUrl;
+        throw err;
       }
+      return { url: putUrl, status: res.status };
     } catch (e) {
       if (attempt >= maxAttempts) throw e;
       const delayMs = 1500 * attempt;
@@ -216,24 +261,56 @@ export class QnapWebDavClient {
 
   async uploadLocalFiles(
     files: Array<{ localPath: string; remotePath: string }>
-  ): Promise<number> {
+  ): Promise<{
+    count: number;
+    steps: Array<{
+      method: string;
+      urlOrPath: string;
+      status?: number | null;
+      ok: boolean;
+      detail?: string;
+    }>;
+  }> {
+    const steps: Array<{
+      method: string;
+      urlOrPath: string;
+      status?: number | null;
+      ok: boolean;
+      detail?: string;
+    }> = [];
     const dirs = new Set<string>();
     for (const f of files) {
       const dir = path.posix.dirname(f.remotePath.replace(/\\/g, "/"));
       if (dir && dir !== ".") dirs.add(dir);
     }
     for (const d of dirs) {
-      await this.mkcol(d);
+      const mk = await this.mkcol(d);
+      for (const s of mk.steps) {
+        steps.push({
+          method: "MKCOL",
+          urlOrPath: s.url,
+          status: s.status,
+          ok: s.ok,
+          detail: `segment=${s.segment}`,
+        });
+      }
     }
     let count = 0;
     for (const f of files) {
       if (!fs.existsSync(f.localPath)) {
         throw new Error(`Local file missing for WebDAV PUT: ${f.localPath}`);
       }
-      await this.putFile(f.localPath, f.remotePath);
+      const put = await this.putFile(f.localPath, f.remotePath);
+      steps.push({
+        method: "PUT",
+        urlOrPath: put.url,
+        status: put.status,
+        ok: true,
+        detail: f.remotePath,
+      });
       count++;
     }
-    return count;
+    return { count, steps };
   }
 
   async deleteFile(remotePath: string): Promise<void> {

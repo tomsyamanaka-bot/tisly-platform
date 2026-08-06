@@ -23,6 +23,10 @@ import {
   getQnapClientDirectConfigV1,
   runQnapWebDavPingV1,
 } from "../../storage/qnap-network-diagnose-v1.js";
+import {
+  clearQnapSaveDebugLogsV1,
+  listQnapSaveDebugLogsV1,
+} from "../../storage/estimate-invoice-qnap-debug-log-v1.js";
 
 export const storageSettingsV1Router = Router();
 
@@ -218,4 +222,18 @@ storageSettingsV1Router.post("/qnap/resync/failed", ...adminAuth, async (req: Au
   } catch (e) {
     res.status(500).json({ error: e instanceof Error ? e.message : "resync failed" });
   }
+});
+
+/** 見積・請求 QNAP 保存の通信デバッグログ（MKCOL / PUT / 絶対パス） */
+storageSettingsV1Router.get("/qnap/save-debug-logs", ...adminAuth, (req: AuthedRequest, res) => {
+  if (!assertAdminRole(req, res)) return;
+  const limit = Number(req.query.limit) || 40;
+  const logs = listQnapSaveDebugLogsV1(limit);
+  res.json({ ok: true, logs, count: logs.length });
+});
+
+storageSettingsV1Router.delete("/qnap/save-debug-logs", ...adminAuth, (req: AuthedRequest, res) => {
+  if (!assertAdminRole(req, res)) return;
+  clearQnapSaveDebugLogsV1();
+  res.json({ ok: true, cleared: true });
 });

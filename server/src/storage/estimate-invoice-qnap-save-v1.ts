@@ -12,7 +12,7 @@
  * 4. http://{lan}:8080 WebDAV
  * 5. VPS ローカル一時保持 → Worker 自動同期
  *
- * 保存先: TiSLY_Storage/Invoices_Estimates/YYYY-MM/
+ * 保存先: /TiSLY/Invoices_Estimates/YYYY-MM/（403/404 時 /Public/TiSLY/...）
  */
 import fs from "fs";
 import path from "path";
@@ -31,7 +31,13 @@ import {
 import {
   buildInvoicesEstimatesBackupDisplayPathV1,
   buildInvoicesEstimatesBackupRelativePathV1,
+  buildInvoicesEstimatesAbsolutePathV1,
 } from "./mothership-paths-v1.js";
+import { appendQnapSaveDebugLogV1 } from "./estimate-invoice-qnap-debug-log-v1.js";
+import {
+  markJobFromSaveResultV1,
+  updateEstimateInvoiceQnapJobV1,
+} from "./estimate-invoice-qnap-job-store-v1.js";
 import {
   getStorageSettingsV1,
   type StorageSettingsV1,
@@ -72,6 +78,8 @@ export type EstimateInvoiceQnapSaveFileV1 = {
   localPath: string;
   remotePath: string;
   displayPath: string;
+  /** QNAP 上の絶対パス（例: /TiSLY/Invoices_Estimates/2026-08/見積書.pdf） */
+  absolutePath?: string;
   mock: boolean;
   ok: boolean;
   error?: string;
@@ -88,6 +96,17 @@ export type EstimateInvoiceQnapSaveResultV1 = {
   host?: string;
   port?: number;
   folderPath?: string;
+  /** 実際に保存された絶対パス一覧 */
+  savedAbsolutePaths?: string[];
+  /** 通信トレース（MKCOL / PUT 等） */
+  debugSteps?: Array<{
+    at: string;
+    method: string;
+    urlOrPath: string;
+    status?: number | null;
+    ok: boolean;
+    detail?: string;
+  }>;
   /** 常に VPS プロキシ（ブラウザ直通信なし） */
   proxyRoute?: "vps";
   connectLatencyMs?: number | null;
@@ -95,6 +114,7 @@ export type EstimateInvoiceQnapSaveResultV1 = {
   pendingSync?: boolean;
   /** 成功したフォールバックルート */
   fallbackRoute?: QnapFallbackRouteKindV1 | null;
+  jobId?: string | null;
 };
 
 function resolveLocalAbsolute(localPath: string): string | null {
@@ -310,10 +330,10 @@ async function uploadOneReal(
   }
   try {
     const client = new QnapWebDavClient({ ...cfg, mode: "real" });
-    const count = await client.uploadLocalFiles([
+    const uploaded = await client.uploadLocalFiles([
       { localPath: localAbs, remotePath: remoteRel },
     ]);
-    if (count < 1) {
+    if (uploaded.count < 1) {
       return {
         ok: false,
         mock: false,
@@ -382,14 +402,24 @@ function resolveAuthForFallback(cfg: QnapUploadConfig | null): {
  * 見積書準備済み（および請求書があれば請求書も）を
  * VPS から QNAP へ多重フォールバック保存する。
  * 全滅時もローカル PDF を保持し pendingSync で 200 相当の成功扱い。
+ * @param options.jobId 非同期ジョブ ID（ポーリング用）
  */
 export async function saveEstimateInvoicePdfsToQnapV1(
-  projectId: string
+  projectId: string,
+  options?: { jobId?: string | null }
 ): Promise<EstimateInvoiceQnapSaveResultV1> {
+  const jobId = options?.jobId || null;
+  if (jobId) {
+    updateEstimateInvoiceQnapJobV1(jobId, {
+      status: "running",
+      message: "QNAPへ保存中…",
+    });
+  }
+
   const started = Date.now();
   const project = getBusinessProject(projectId);
   if (!project) {
-    return {
+    const fail: EstimateInvoiceQnapSaveResultV1 = {
       ok: false,
       mock: false,
       projectId,
@@ -399,12 +429,16 @@ export async function saveEstimateInvoicePdfsToQnapV1(
       errorCode: "PROJECT_NOT_FOUND",
       proxyRoute: "vps",
       pendingSync: false,
+      jobId,
+      savedAbsolutePaths: [],
     };
+    if (jobId) markJobFromSaveResultV1(jobId, fail);
+    return fail;
   }
 
   // 見積も請求もない案件は対象外
   if (!project.estimateId && !project.invoiceId) {
-    return {
+    const fail: EstimateInvoiceQnapSaveResultV1 = {
       ok: false,
       mock: false,
       projectId,
@@ -414,7 +448,11 @@ export async function saveEstimateInvoicePdfsToQnapV1(
       errorCode: "NO_DOCUMENTS",
       proxyRoute: "vps",
       pendingSync: false,
+      jobId,
+      savedAbsolutePaths: [],
     };
+    if (jobId) markJobFromSaveResultV1(jobId, fail);
+    return fail;
   }
 
   const settings = getStorageSettingsV1();
@@ -434,6 +472,7 @@ export async function saveEstimateInvoicePdfsToQnapV1(
         localPath: "",
         remotePath: "",
         displayPath: "",
+        absolutePath: "",
         mock: false,
         ok: false,
         error: `${kind} PDF を生成できませんでした`,
@@ -444,11 +483,13 @@ export async function saveEstimateInvoicePdfsToQnapV1(
     const fileName = buildRemoteFileName(projectId, kind, abs);
     const remoteRel = buildInvoicesEstimatesBackupRelativePathV1(fileName);
     const displayPath = buildInvoicesEstimatesBackupDisplayPathV1(fileName);
+    const absolutePath = buildInvoicesEstimatesAbsolutePathV1(fileName);
     prepared.push({
       kind,
       localPath: abs,
       remotePath: remoteRel,
       displayPath,
+      absolutePath,
       mock: false,
       ok: true,
     });
@@ -456,7 +497,7 @@ export async function saveEstimateInvoicePdfsToQnapV1(
 
   const uploadable = prepared.filter((f) => f.ok && f.localPath);
   if (uploadable.length === 0) {
-    return {
+    const fail: EstimateInvoiceQnapSaveResultV1 = {
       ok: false,
       mock: false,
       projectId,
@@ -467,7 +508,20 @@ export async function saveEstimateInvoicePdfsToQnapV1(
       proxyRoute: "vps",
       pendingSync: false,
       connectLatencyMs: Date.now() - started,
+      jobId,
+      savedAbsolutePaths: [],
     };
+    if (jobId) markJobFromSaveResultV1(jobId, fail);
+    appendQnapSaveDebugLogV1({
+      projectId,
+      jobId,
+      ok: false,
+      message: fail.message,
+      savedAbsolutePaths: [],
+      steps: [],
+      error: fail.error,
+    });
+    return fail;
   }
 
   const tailscaleHost = resolveDocumentNasTailscaleHost(
@@ -497,6 +551,8 @@ export async function saveEstimateInvoicePdfsToQnapV1(
       localPath: f.localPath,
       remotePath: f.remotePath,
       displayPath: f.displayPath,
+      absolutePath: f.absolutePath,
+      fileName: path.basename(f.localPath),
     })),
     tailscaleHost,
     lanHost,
@@ -510,27 +566,64 @@ export async function saveEstimateInvoicePdfsToQnapV1(
       ...f,
       ok: match ? match.ok : fallback.ok,
       error: match?.error,
+      remotePath: match?.remotePath || f.remotePath,
+      displayPath: match?.absolutePath || match?.displayPath || f.displayPath,
+      absolutePath: match?.absolutePath || f.absolutePath,
     };
   });
 
+  const savedAbsolutePaths =
+    fallback.savedAbsolutePaths?.length > 0
+      ? fallback.savedAbsolutePaths
+      : files.filter((f) => f.ok && f.absolutePath).map((f) => f.absolutePath!);
+
   if (fallback.remoteOk) {
-    return {
+    const successMsg =
+      savedAbsolutePaths.length > 0
+        ? `${documentNasPdfSaveSuccessMessage()} → ${savedAbsolutePaths.join(" / ")}`
+        : documentNasPdfSaveSuccessMessage();
+    const result: EstimateInvoiceQnapSaveResultV1 = {
       ok: true,
       mock: false,
       projectId,
-      message: documentNasPdfSaveSuccessMessage(),
+      message: successMsg,
       files,
       host: fallback.host,
       port: fallback.port,
       folderPath:
-        files.find((f) => f.ok)?.remotePath ||
-        "TiSLY_Storage/Invoices_Estimates",
+        savedAbsolutePaths[0] ||
+        files.find((f) => f.ok)?.absolutePath ||
+        "/TiSLY/Invoices_Estimates",
+      savedAbsolutePaths,
+      debugSteps: fallback.steps,
       proxyRoute: "vps",
       connectLatencyMs: Date.now() - started,
       errorCode: null,
       pendingSync: false,
       fallbackRoute: fallback.route,
+      jobId,
     };
+    appendQnapSaveDebugLogV1({
+      projectId,
+      jobId,
+      ok: true,
+      pendingSync: false,
+      route: fallback.route,
+      host: fallback.host,
+      port: fallback.port,
+      savedAbsolutePaths,
+      message: successMsg,
+      steps: fallback.steps.map((s) => ({
+        at: s.at,
+        method: s.method,
+        urlOrPath: s.urlOrPath,
+        status: s.status ?? null,
+        ok: s.ok,
+        detail: s.detail,
+      })),
+    });
+    if (jobId) markJobFromSaveResultV1(jobId, result);
+    return result;
   }
 
   // 全滅 → ローカル一時保持（ユーザー体験を落とさない）
@@ -549,27 +642,55 @@ export async function saveEstimateInvoicePdfsToQnapV1(
         .join("; ") || "all remote routes failed",
   });
 
-  return {
+  const pendingMsg = documentNasPdfSavePendingMessage();
+  const result: EstimateInvoiceQnapSaveResultV1 = {
     ok: true,
     mock: false,
     projectId,
-    message: documentNasPdfSavePendingMessage(),
+    message: pendingMsg,
     files: files.map((f) =>
-      f.localPath
-        ? { ...f, ok: true, error: undefined }
-        : f
+      f.localPath ? { ...f, ok: true, error: undefined } : f
     ),
     host: fallback.host,
     port: fallback.port,
     folderPath:
-      files.find((f) => f.localPath)?.remotePath ||
-      "TiSLY_Storage/Invoices_Estimates",
+      files.find((f) => f.localPath)?.absolutePath ||
+      "/TiSLY/Invoices_Estimates",
+    savedAbsolutePaths: [],
+    debugSteps: fallback.steps,
     proxyRoute: "vps",
     connectLatencyMs: Date.now() - started,
     errorCode: fallback.errorCode || "PENDING_SYNC",
     pendingSync: true,
     fallbackRoute: "local_pending",
+    jobId,
   };
+  appendQnapSaveDebugLogV1({
+    projectId,
+    jobId,
+    ok: true,
+    pendingSync: true,
+    route: "local_pending",
+    host: fallback.host,
+    port: fallback.port,
+    savedAbsolutePaths: [],
+    message: pendingMsg,
+    steps: fallback.steps.map((s) => ({
+      at: s.at,
+      method: s.method,
+      urlOrPath: s.urlOrPath,
+      status: s.status ?? null,
+      ok: s.ok,
+      detail: s.detail,
+    })),
+    error:
+      fallback.attempts
+        .filter((a) => !a.ok)
+        .map((a) => `${a.route}: ${a.error || "fail"}`)
+        .join("; ") || null,
+  });
+  if (jobId) markJobFromSaveResultV1(jobId, result);
+  return result;
 }
 
 /** Worker 再送用 — 既に用意済みのローカル PDF を多重フォールバックで送信 */

@@ -4,7 +4,7 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2434-qnap-fallback";
+const SW_VERSION = "tisly-pwa-v2435-qnap-mkcol";
 const OFFLINE_CACHE = "tisly-pwa-shell-v2433-qnap-basic-auth";
 const PRIORITY_CACHE = "tisly-pwa-priority-v2433-qnap-basic-auth";
 const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2433-qnap-basic-auth";

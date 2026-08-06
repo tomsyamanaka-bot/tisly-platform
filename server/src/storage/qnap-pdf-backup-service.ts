@@ -60,7 +60,7 @@ async function realUploadPdf(
     const cfg = resolveRealQnapWebDavForListSave(settings) ?? settingsToWebDavConfig(settings);
     const client = new QnapWebDavClient(cfg);
     const remoteRel = buildQnapPdfRemotePath(row.projectId, row.fileName, row.kind);
-    const count = await client.uploadLocalFiles([
+    const { count } = await client.uploadLocalFiles([
       { localPath: localFile, remotePath: remoteRel },
     ]);
     if (count < 1) {

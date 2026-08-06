@@ -167,7 +167,10 @@ export function listDocumentNasPortCandidates(configuredPort) {
 }
 
 /** 既定の保存先フォルダ（MotherShip） */
-export const DOCUMENT_NAS_SAVE_FOLDER = "TiSLY_Storage/Invoices_Estimates";
+export const DOCUMENT_NAS_SAVE_FOLDER = "Invoices_Estimates";
+export const DOCUMENT_NAS_SAVE_ABSOLUTE_PREFIX = "/TiSLY/Invoices_Estimates";
+export const DOCUMENT_NAS_SAVE_PUBLIC_ABSOLUTE_PREFIX =
+  "/Public/TiSLY/Invoices_Estimates";
 
 /**
  * 成功トースト — nastoms への接続に成功しました（ポート N）

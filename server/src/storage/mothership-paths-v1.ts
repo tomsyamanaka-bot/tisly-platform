@@ -280,10 +280,17 @@ export function buildMothershipLibraryRelativePath(
 }
 
 /**
- * 見積書・請求書バックアップ用パス（追記）
- * 例: TiSLY_Storage/Invoices_Estimates/2026-08/estimate-xxx.pdf
+ * 見積書・請求書バックアップ用パス（nastoms / TiSLY 共有）
+ * 例: Invoices_Estimates/2026-08/estimate-xxx.pdf
+ * 絶対表示: /TiSLY/Invoices_Estimates/2026-08/estimate-xxx.pdf
+ * フォールバック: /Public/TiSLY/Invoices_Estimates/2026-08/estimate-xxx.pdf
  */
-export const INVOICES_ESTIMATES_BACKUP_ROOT = "TiSLY_Storage/Invoices_Estimates";
+export const INVOICES_ESTIMATES_BACKUP_ROOT = "Invoices_Estimates";
+/** 旧パス互換（pending キュー等） */
+export const INVOICES_ESTIMATES_BACKUP_ROOT_LEGACY = "TiSLY_Storage/Invoices_Estimates";
+export const INVOICES_ESTIMATES_ABSOLUTE_PREFIX = "/TiSLY/Invoices_Estimates";
+export const INVOICES_ESTIMATES_PUBLIC_ABSOLUTE_PREFIX =
+  "/Public/TiSLY/Invoices_Estimates";
 
 /** YYYY-MM（JST 基準） */
 export function invoicesEstimatesMonthFolderV1(date = new Date()): string {
@@ -299,7 +306,7 @@ export function invoicesEstimatesMonthFolderV1(date = new Date()): string {
   return `${y}-${m}`;
 }
 
-/** 相対パス（先頭スラッシュなし） */
+/** 相対パス（先頭スラッシュなし・WebDAV /TiSLY ベース向け） */
 export function buildInvoicesEstimatesBackupRelativePathV1(
   fileName: string,
   date = new Date()
@@ -309,10 +316,38 @@ export function buildInvoicesEstimatesBackupRelativePathV1(
   return `${INVOICES_ESTIMATES_BACKUP_ROOT}/${month}/${safe}`;
 }
 
-/** 表示用（先頭スラッシュ付き） */
+/**
+ * QNAP 上の絶対パス（共有名込み）
+ * 例: /TiSLY/Invoices_Estimates/2026-08/見積書.pdf
+ */
+export function buildInvoicesEstimatesAbsolutePathV1(
+  fileName: string,
+  date = new Date(),
+  root: "tisly" | "public_tisly" = "tisly"
+): string {
+  const month = invoicesEstimatesMonthFolderV1(date);
+  const safe = sanitizePathSegment(fileName) || "document.pdf";
+  const prefix =
+    root === "public_tisly"
+      ? INVOICES_ESTIMATES_PUBLIC_ABSOLUTE_PREFIX
+      : INVOICES_ESTIMATES_ABSOLUTE_PREFIX;
+  return `${prefix}/${month}/${safe}`;
+}
+
+/** Public フォールバック用の相対パス（WebDAV ルート `/` 向け） */
+export function buildInvoicesEstimatesPublicRelativePathV1(
+  fileName: string,
+  date = new Date()
+): string {
+  const month = invoicesEstimatesMonthFolderV1(date);
+  const safe = sanitizePathSegment(fileName) || "document.pdf";
+  return `Public/TiSLY/${INVOICES_ESTIMATES_BACKUP_ROOT}/${month}/${safe}`;
+}
+
+/** 表示用（先頭スラッシュ付き・絶対パス） */
 export function buildInvoicesEstimatesBackupDisplayPathV1(
   fileName: string,
   date = new Date()
 ): string {
-  return `/${buildInvoicesEstimatesBackupRelativePathV1(fileName, date)}`;
+  return buildInvoicesEstimatesAbsolutePathV1(fileName, date, "tisly");
 }
