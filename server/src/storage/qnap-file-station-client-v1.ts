@@ -5,11 +5,12 @@
 import fs from "fs";
 import path from "path";
 import {
+  DEFAULT_WEBDAV_TIMEOUT_MS,
   formatFetchError,
   qnapWebDavFetch,
 } from "../business/services/qnap-webdav-fetch-v1.js";
 
-const DEFAULT_TIMEOUT_HINT_MS = 45_000;
+const DEFAULT_TIMEOUT_HINT_MS = DEFAULT_WEBDAV_TIMEOUT_MS;
 
 export type FileStationUploadResultV1 = {
   ok: boolean;

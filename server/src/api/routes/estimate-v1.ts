@@ -83,6 +83,9 @@ import {
 } from "../../estimate/toms-estimate-history-store-v1.js";
 import { saveEstimateInvoicePdfsToQnapV1 } from "../../storage/estimate-invoice-qnap-save-v1.js";
 import {
+  documentNasPdfSaveAcceptedMessage,
+} from "../../storage/qnap-nas-hosts-v1.js";
+import {
   getQnapClientDirectConfigV1,
   getQnapSaveRouteV1,
   runQnapWebDavPingV1,
@@ -1209,7 +1212,7 @@ estimateV1Router.get(
 /**
  * 見積一覧「QNAP保存」—
  * スマホ → VPS プロキシ → QNAP（WebDAV / File Station 多重フォールバック）
- * 全滅時もローカル一時保存で 200（pendingSync）— UX を落とさない
+ * 保存本体はバックグラウンド実行し、受付時点で即 200（Gateway Timeout 504 回避）
  */
 estimateV1Router.post(
   "/projects/:id/qnap-save-invoices-estimates",
@@ -1223,6 +1226,7 @@ estimateV1Router.post(
     if (!project) {
       res.status(404).json({
         ok: false,
+        success: false,
         mock: false,
         projectId,
         message: "案件が見つかりません",
@@ -1233,65 +1237,59 @@ estimateV1Router.post(
         proxyRoute: "vps",
         clientDirectFallback: false,
         pendingSync: false,
+        asyncStarted: false,
       });
       return;
     }
 
-    try {
-      const result = await saveEstimateInvoicePdfsToQnapV1(projectId);
-      if (result.error === "project not found") {
-        res.status(404).json({
-          ...result,
-          saveRoute,
-          proxyRoute: "vps",
-          clientDirectFallback: false,
-        });
-        return;
-      }
-      if (result.error === "no documents") {
-        res.status(400).json({
-          ...result,
-          saveRoute,
-          proxyRoute: "vps",
-          clientDirectFallback: false,
-        });
-        return;
-      }
-      // pendingSync / リモート成功とも 200（ok:true）
-      if (result.ok) {
-        res.status(200).json({
-          ...result,
-          saveRoute,
-          proxyRoute: "vps",
-          clientDirectFallback: false,
-        });
-        return;
-      }
-      // PDF 生成失敗等のみ 500
-      res.status(500).json({
-        ...result,
-        saveRoute,
-        proxyRoute: "vps",
-        clientDirectFallback: false,
-        message:
-          result.message ||
-          "VPSからQNAPへのネットワーク接続に失敗しました。IP・VPN・QNAPのWebDAV有効化を確認してください",
-      });
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "qnap save failed";
-      res.status(500).json({
+    if (!project.estimateId && !project.invoiceId) {
+      res.status(400).json({
         ok: false,
+        success: false,
         mock: false,
         projectId,
-        message: msg,
+        message: "見積書・請求書が未作成のため保存できません",
         files: [],
-        error: msg,
-        errorCode: "PROXY_EXCEPTION",
+        error: "no documents",
+        errorCode: "NO_DOCUMENTS",
         saveRoute,
         proxyRoute: "vps",
         clientDirectFallback: false,
         pendingSync: false,
+        asyncStarted: false,
       });
+      return;
     }
+
+    // バックグラウンドで多重フォールバック保存（失敗時は pending キューへ）
+    void saveEstimateInvoicePdfsToQnapV1(projectId)
+      .then((result) => {
+        console.log(
+          `[QNAP save] background done project=${projectId} ok=${result.ok} pending=${Boolean(result.pendingSync)} route=${result.fallbackRoute || "n/a"}`
+        );
+      })
+      .catch((e) => {
+        console.error(
+          `[QNAP save] background failed project=${projectId}`,
+          e instanceof Error ? e.message : e
+        );
+      });
+
+    res.status(200).json({
+      ok: true,
+      success: true,
+      mock: false,
+      projectId,
+      message: documentNasPdfSaveAcceptedMessage(),
+      files: [],
+      error: null,
+      errorCode: null,
+      saveRoute,
+      proxyRoute: "vps",
+      clientDirectFallback: false,
+      pendingSync: true,
+      asyncStarted: true,
+      queued: true,
+    });
   }
 );

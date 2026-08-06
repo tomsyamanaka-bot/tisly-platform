@@ -106,6 +106,10 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
     assert.match(js, /projectHasEstimateReady/);
     assert.match(js, /見積書の準備ができました/);
     assert.match(js, /VPS プロキシのみ/);
+    assert.match(js, /documentNasPdfSaveRequestSentMessage/);
+    assert.match(js, /nastoms へ保存要求を送信しました|documentNasPdfSaveRequestSentMessage/);
+    assert.match(js, /asyncStarted/);
+    assert.match(js, /AbortSignal\.timeout\(15_000\)/);
     assert.match(js, /VPSから nastoms への接続がタイムアウトしました/);
     assert.match(js, /QNAP認証エラー: ストレージ設定画面で QNAP \(nastoms\) のログインパスワードを確認・入力してください/);
     assert.doesNotMatch(js, /saveProjectPdfsViaLocalWebDav/);
@@ -288,6 +292,36 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
     assert.equal(res.status, 404);
     assert.equal(res.body.ok, false);
     assert.equal(res.body.mock, false);
+  });
+
+  it("qnap-save returns immediately with asyncStarted", async () => {
+    const {
+      documentNasPdfSaveAcceptedMessage,
+      documentNasPdfSaveRequestSentMessage,
+    } = await import("../src/storage/qnap-nas-hosts-v1.js");
+    assert.equal(
+      documentNasPdfSaveAcceptedMessage(),
+      "QNAPへの保存処理を開始しました（キュー保存完了）"
+    );
+    assert.equal(
+      documentNasPdfSaveRequestSentMessage(),
+      "nastoms へ保存要求を送信しました"
+    );
+
+    const fetchSrc = fs.readFileSync(
+      path.join(process.cwd(), "src/business/services/qnap-webdav-fetch-v1.ts"),
+      "utf-8"
+    );
+    assert.match(fetchSrc, /QNAP_WEBDAV_TIMEOUT_MS \|\| "3000"/);
+    assert.match(fetchSrc, /AbortController/);
+
+    const routeSrc = fs.readFileSync(
+      path.join(process.cwd(), "src/api/routes/estimate-v1.ts"),
+      "utf-8"
+    );
+    assert.match(routeSrc, /asyncStarted:\s*true/);
+    assert.match(routeSrc, /documentNasPdfSaveAcceptedMessage/);
+    assert.match(routeSrc, /void saveEstimateInvoicePdfsToQnapV1/);
   });
 
   it("service worker bumps qnap fallback cache", () => {

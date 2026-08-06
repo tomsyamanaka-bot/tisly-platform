@@ -2,7 +2,10 @@ import http from "node:http";
 import https from "node:https";
 import { URL } from "node:url";
 
-const DEFAULT_WEBDAV_TIMEOUT_MS = Number(process.env.QNAP_WEBDAV_TIMEOUT_MS || "30000");
+/** 各接続試行の上限（VPS Gateway Timeout 504 回避） */
+export const DEFAULT_WEBDAV_TIMEOUT_MS = Number(
+  process.env.QNAP_WEBDAV_TIMEOUT_MS || "3000"
+);
 
 function formatFetchError(e: unknown): string {
   if (!(e instanceof Error)) return String(e);
@@ -294,6 +297,10 @@ function writeRequestBody(
   throw new Error("Unsupported WebDAV request body type");
 }
 
+function resolveRequestTimeoutMs(): number {
+  return DEFAULT_WEBDAV_TIMEOUT_MS;
+}
+
 async function nodeFetchWithOptionalAgent(
   url: string,
   init: RequestInit,
@@ -305,8 +312,52 @@ async function nodeFetchWithOptionalAgent(
   const headers = withQnapWebDavHeaders(
     init.headers as Record<string, string> | undefined
   );
+  const timeoutMs = resolveRequestTimeoutMs();
+  const externalSignal = init.signal ?? null;
 
   return new Promise((resolve, reject) => {
+    if (externalSignal?.aborted) {
+      reject(externalSignal.reason ?? new Error("WebDAV request aborted"));
+      return;
+    }
+
+    const controller = new AbortController();
+    let settled = false;
+    const timer =
+      timeoutMs > 0
+        ? setTimeout(() => {
+            controller.abort(
+              new Error(`WebDAV timeout after ${timeoutMs}ms`)
+            );
+          }, timeoutMs)
+        : null;
+
+    const onExternalAbort = () => {
+      controller.abort(
+        externalSignal?.reason ?? new Error("WebDAV request aborted")
+      );
+    };
+    externalSignal?.addEventListener("abort", onExternalAbort, { once: true });
+
+    const cleanup = () => {
+      if (timer) clearTimeout(timer);
+      externalSignal?.removeEventListener("abort", onExternalAbort);
+    };
+
+    const fail = (err: unknown) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(err instanceof Error ? err : new Error(String(err)));
+    };
+
+    const succeed = (res: Response) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(res);
+    };
+
     const req = lib.request(
       {
         hostname: parsed.hostname,
@@ -315,38 +366,60 @@ async function nodeFetchWithOptionalAgent(
         method: init.method ?? "GET",
         headers,
         agent: isHttps ? agent : undefined,
-        timeout: DEFAULT_WEBDAV_TIMEOUT_MS,
+        timeout: timeoutMs > 0 ? timeoutMs : undefined,
       },
       (res) => {
         const chunks: Buffer[] = [];
         res.on("data", (chunk) => chunks.push(chunk));
         res.on("end", () => {
           const buf = Buffer.concat(chunks);
-          resolve(
+          succeed(
             new Response(buf, {
               status: res.statusCode ?? 0,
               headers: res.headers as HeadersInit,
             })
           );
         });
+        res.on("error", fail);
       }
     );
+
+    const abortReq = () => {
+      const reason =
+        controller.signal.reason instanceof Error
+          ? controller.signal.reason
+          : new Error(`WebDAV timeout after ${timeoutMs}ms`);
+      req.destroy(reason);
+      fail(reason);
+    };
+
+    if (controller.signal.aborted) {
+      abortReq();
+      return;
+    }
+    controller.signal.addEventListener("abort", abortReq, { once: true });
+
     req.on("timeout", () => {
-      req.destroy(new Error(`WebDAV timeout after ${DEFAULT_WEBDAV_TIMEOUT_MS}ms`));
+      const err = new Error(`WebDAV timeout after ${timeoutMs}ms`);
+      req.destroy(err);
+      fail(err);
     });
-    req.on("error", reject);
+    req.on("error", fail);
     try {
       writeRequestBody(req, init.body);
     } catch (e) {
       req.destroy();
-      reject(e);
+      fail(e);
       return;
     }
     req.end();
   });
 }
 
-/** QNAP WebDAV 向け fetch — オレオレ証明書・Tailscale 経路を許容 + 標準ヘッダー */
+/**
+ * QNAP WebDAV / File Station 向け fetch。
+ * 各試行は AbortController により最大 DEFAULT_WEBDAV_TIMEOUT_MS（既定 3000ms）。
+ */
 export async function qnapWebDavFetch(url: string, init: RequestInit = {}): Promise<Response> {
   const nextInit: RequestInit = {
     ...init,

@@ -59,6 +59,16 @@ export function documentNasPdfSavePendingMessage(): string {
   return "一時保存完了（QNAPへ自動同期待ち）";
 }
 
+/** API が保存をバックグラウンド開始した直後の応答メッセージ */
+export function documentNasPdfSaveAcceptedMessage(): string {
+  return "QNAPへの保存処理を開始しました（キュー保存完了）";
+}
+
+/** PWA 即時フィードバック（保存要求受付） */
+export function documentNasPdfSaveRequestSentMessage(): string {
+  return `${DOCUMENT_NAS_NAME} へ保存要求を送信しました`;
+}
+
 /**
  * 成功トースト（保存完了）
  * — 見積一覧 QNAP 保存は documentNasPdfSaveSuccessMessage を優先

@@ -28,6 +28,7 @@ import {
 import {
   documentNasSaveSuccessMessage,
   documentNasPdfSavePendingMessage,
+  documentNasPdfSaveRequestSentMessage,
   getStoredDocumentNasHost,
   setStoredDocumentNasPort,
   DOCUMENT_NAS_HOST,
@@ -1517,7 +1518,8 @@ async function saveListProjectToQnap(projectId, btn) {
             Authorization: `Bearer ${token}`,
           },
           body: "{}",
-          signal: AbortSignal.timeout(90_000),
+          // サーバは即時 200 を返すため短め（旧 90s 待ちによる UX 劣化を解消）
+          signal: AbortSignal.timeout(15_000),
         }
       );
     } catch (e) {
@@ -1534,7 +1536,12 @@ async function saveListProjectToQnap(projectId, btn) {
       error: `HTTP ${res.status}`,
     }));
 
-    if (res.ok && body?.ok) {
+    if (res.ok && (body?.ok || body?.success)) {
+      // 非同期受付応答 → 即時フィードバック
+      if (body?.asyncStarted || body?.queued) {
+        toast(documentNasPdfSaveRequestSentMessage());
+        return;
+      }
       toast(body.message || qnapSaveSuccessToastMessage(body));
       return;
     }

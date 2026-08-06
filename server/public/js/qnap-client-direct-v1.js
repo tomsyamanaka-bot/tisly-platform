@@ -190,6 +190,16 @@ export function documentNasPdfSavePendingMessage() {
   return "一時保存完了（QNAPへ自動同期待ち）";
 }
 
+/** API 受付直後（非同期開始） */
+export function documentNasPdfSaveAcceptedMessage() {
+  return "QNAPへの保存処理を開始しました（キュー保存完了）";
+}
+
+/** PWA 即時フィードバック */
+export function documentNasPdfSaveRequestSentMessage() {
+  return `${DOCUMENT_NAS_NAME} へ保存要求を送信しました`;
+}
+
 /** remotePath / displayPath から保存先フォルダを抽出 */
 export function normalizeSaveFolderPath(folderPath) {
   const raw = String(folderPath || DOCUMENT_NAS_SAVE_FOLDER)
