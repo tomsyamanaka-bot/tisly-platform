@@ -24,7 +24,7 @@ import {
 } from "../storage/qnap-basic-auth-v1.js";
 import { probeFileStationAuthV1 } from "../storage/qnap-file-station-client-v1.js";
 import { buildWebDavUrl } from "../storage/qnap-storage-service.js";
-import { updateStorageSettingsV1 } from "../storage/storage-settings-store.js";
+import { getStorageSettingsV1, updateStorageSettingsV1 } from "../storage/storage-settings-store.js";
 import type { InfraStatus } from "./status.js";
 
 // Avoid circular import issues at runtime — InfraStatus is type-only.
@@ -514,6 +514,18 @@ export function resolveQnapInfraComponentStatusV1(): {
 export async function bootstrapQnapInfraHealthOnStartupV1(): Promise<QnapConnectTestResultV1 | null> {
   try {
     const platform = getPlatformSetting<QnapPlatformSettingV1>("qnap");
+    let storagePass = "";
+    let storageHost = "";
+    let storageUser = "";
+    try {
+      const s = getStorageSettingsV1();
+      storagePass = s.qnap.password || "";
+      storageHost = s.qnap.host || "";
+      storageUser = s.qnap.username || "";
+    } catch {
+      /* storage settings optional at boot */
+    }
+
     const envMode = String(process.env.QNAP_MODE || "").toLowerCase();
     const envPass = String(
       process.env.QNAP_PASSWORD || process.env.QNAP_WEBDAV_PASSWORD || ""
@@ -531,18 +543,27 @@ export async function bootstrapQnapInfraHealthOnStartupV1(): Promise<QnapConnect
         ""
     ).trim();
 
+    const password = envPass || platform?.password || storagePass || "";
+    const hasRealIntent =
+      platform?.mode === "real" ||
+      envMode === "real" ||
+      envMode === "webdav" ||
+      Boolean(password);
+
     const normalized = normalizeQnapPlatformSettingV1(
       {
-        mode:
-          platform?.mode === "real" ||
-          envMode === "real" ||
-          envMode === "webdav" ||
-          Boolean(envPass)
-            ? "real"
-            : "mock",
-        host: envHost || platform?.host || QNAP_PLATFORM_DEFAULT_HOST,
-        username: envUser || platform?.username || QNAP_PLATFORM_DEFAULT_USER,
-        password: envPass || platform?.password || "",
+        mode: hasRealIntent ? "real" : "mock",
+        host:
+          envHost ||
+          platform?.host ||
+          storageHost ||
+          QNAP_PLATFORM_DEFAULT_HOST,
+        username:
+          envUser ||
+          platform?.username ||
+          storageUser ||
+          QNAP_PLATFORM_DEFAULT_USER,
+        password,
         shareName: platform?.shareName || process.env.QNAP_SHARE || "TiSLY",
       },
       platform
