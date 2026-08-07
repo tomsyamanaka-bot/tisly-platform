@@ -507,3 +507,80 @@ export function resolveQnapInfraComponentStatusV1(): {
     detail: health.detail || "mock",
   };
 }
+
+/**
+ * 起動時 / デプロイ後 — .env または Platform Settings の資格情報で疎通し GREEN 化を試みる
+ */
+export async function bootstrapQnapInfraHealthOnStartupV1(): Promise<QnapConnectTestResultV1 | null> {
+  try {
+    const platform = getPlatformSetting<QnapPlatformSettingV1>("qnap");
+    const envMode = String(process.env.QNAP_MODE || "").toLowerCase();
+    const envPass = String(
+      process.env.QNAP_PASSWORD || process.env.QNAP_WEBDAV_PASSWORD || ""
+    );
+    const envHost = String(
+      process.env.QNAP_HOST ||
+        process.env.QNAP_TAILSCALE_HOST ||
+        process.env.QNAP_LOCAL_HOST ||
+        ""
+    ).trim();
+    const envUser = String(
+      process.env.QNAP_USER ||
+        process.env.QNAP_WEBDAV_USER ||
+        process.env.QNAP_USERNAME ||
+        ""
+    ).trim();
+
+    const normalized = normalizeQnapPlatformSettingV1(
+      {
+        mode:
+          platform?.mode === "real" ||
+          envMode === "real" ||
+          envMode === "webdav" ||
+          Boolean(envPass)
+            ? "real"
+            : "mock",
+        host: envHost || platform?.host || QNAP_PLATFORM_DEFAULT_HOST,
+        username: envUser || platform?.username || QNAP_PLATFORM_DEFAULT_USER,
+        password: envPass || platform?.password || "",
+        shareName: platform?.shareName || process.env.QNAP_SHARE || "TiSLY",
+      },
+      platform
+    );
+
+    if (normalized.mode !== "real" || !normalized.password) {
+      console.log("[QNAP infra] startup probe skipped (mock or no password)");
+      return null;
+    }
+
+    applyQnapPlatformRuntimeEnvV1(normalized);
+    const result = await runQnapPlatformConnectTestV1({
+      host: normalized.host,
+      username: normalized.username,
+      password: normalized.password,
+      shareName: normalized.shareName,
+    });
+    normalized.port = result.port;
+    normalized.lastConnectionTest = {
+      ok: result.ok,
+      message: result.message,
+      testedAt: result.testedAt,
+      port: result.port,
+      webdavUrl: result.webdavUrl,
+      method: result.method,
+      logs: result.logs,
+    };
+    normalized.healthStatus = result.status;
+    setPlatformSetting("qnap", normalized);
+    console.log(
+      `[QNAP infra] startup probe ${result.ok ? "GREEN" : "YELLOW"} port=${result.port} method=${result.method}`
+    );
+    return result;
+  } catch (e) {
+    console.warn(
+      "[QNAP infra] startup probe failed:",
+      e instanceof Error ? e.message : e
+    );
+    return null;
+  }
+}

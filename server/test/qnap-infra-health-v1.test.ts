@@ -125,5 +125,10 @@ describe("qnap-infra-health-v1", () => {
       "utf-8"
     );
     assert.match(save, /markQnapInfraGreenV1/);
+    const indexSrc = fs.readFileSync(
+      path.join(process.cwd(), "src/index.ts"),
+      "utf-8"
+    );
+    assert.match(indexSrc, /bootstrapQnapInfraHealthOnStartupV1/);
   });
 });
