@@ -69,7 +69,7 @@ import {
   type QnapFallbackRouteKindV1,
 } from "./estimate-invoice-qnap-fallback-routes-v1.js";
 import { enqueueEstimateInvoiceQnapPendingV1 } from "./estimate-invoice-qnap-pending-store-v1.js";
-import { markQnapInfraGreenV1 } from "../infrastructure/qnap-infra-health-v1.js";
+import { markQnapInfraGreenV1, resolveQnapSaveCredentialsV1 } from "../infrastructure/qnap-infra-health-v1.js";
 
 const CONNECT_RETRY_COUNT = 2;
 const CONNECT_RETRY_DELAY_MS = 800;
@@ -153,20 +153,32 @@ function parseHostPortFromWebDavUrl(webdavUrl: string): {
 
 /**
  * 実機 WebDAV 設定を解決する。
- * 接続解決順: .env(QNAP_WEBDAV_*) → ストレージ設定 UI → .env(QNAP_HOST / QNAP_LOCAL_*)
- * Basic 認証: QNAP_USER / QNAP_PASSWORD → ストレージ設定 → 既定ユーザー tomsadmin
- * 不足時は null（モックへは落とさない）。
+ * 接続解決順: .env(QNAP_WEBDAV_*) → ストレージ設定 UI → Platform Settings → .env(QNAP_HOST)
+ * Basic 認証: ENV → Platform Settings → ストレージ設定 → 既定ユーザー tomsadmin
+ * 不足時は null（モックへは落とさない）。保存直前は resolveQnapSaveCredentialsV1 で password を強制適用する。
  */
 export function resolveRealQnapWebDavForListSave(
   settings?: StorageSettingsV1
 ): QnapUploadConfig | null {
   const current = settings ?? getStorageSettingsV1();
   const q = current.qnap;
-  const auth = resolveQnapBasicAuthCredentials({
+  const creds = resolveQnapSaveCredentialsV1({
     settingsUsername: q.username,
     settingsPassword: q.password,
+    applyRuntime: true,
+  });
+  const auth = resolveQnapBasicAuthCredentials({
+    settingsUsername: creds.username || q.username,
+    settingsPassword: creds.password || q.password,
     allowDefaultUser: true,
   });
+  // Platform / storage から解決したパスワードを優先（ENV が空のとき）
+  if (creds.password && !String(process.env.QNAP_PASSWORD || "").trim()) {
+    auth.password = creds.password;
+  }
+  if (creds.username) {
+    auth.username = creds.username;
+  }
 
   const envWebDav = getQnapWebDavEnvConfig();
   if (envWebDav.webdavUrl.trim()) {
@@ -175,36 +187,58 @@ export function resolveRealQnapWebDavForListSave(
       mode: "real",
       webdavUrl: envWebDav.webdavUrl,
       username: auth.username || envWebDav.username || QNAP_DEFAULT_BASIC_USER,
-      password: auth.password || envWebDav.password || "",
+      password: auth.password || envWebDav.password || creds.password || "",
       basePath: envWebDav.baseDir || "/",
     };
   }
 
-  if (q.host.trim()) {
-    const cfg = settingsToWebDavConfig(current);
+  if (q.host.trim() || creds.host) {
+    const cfg = settingsToWebDavConfig({
+      ...current,
+      qnap: {
+        ...q,
+        host: q.host.trim() || creds.host,
+        username: auth.username || QNAP_DEFAULT_BASIC_USER,
+        password: auth.password || creds.password,
+        shareName: q.shareName || creds.shareName || "TiSLY",
+        port:
+          Number(q.port) > 0
+            ? Number(q.port)
+            : creds.port && creds.port > 0
+              ? creds.port
+              : 8080,
+      },
+    });
     return {
       ...cfg,
       username: auth.username || QNAP_DEFAULT_BASIC_USER,
-      password: auth.password,
+      password: auth.password || creds.password,
     };
   }
 
   const host = resolveDocumentNasLocalHost(
-    config.qnap.host || process.env.QNAP_HOST || process.env.QNAP_LOCAL_HOST || ""
+    creds.host ||
+      config.qnap.host ||
+      process.env.QNAP_HOST ||
+      process.env.QNAP_LOCAL_HOST ||
+      ""
   );
   if (host) {
     const port = resolveDocumentNasLocalPort(
-      Number(process.env.QNAP_PORT || process.env.QNAP_LOCAL_PORT || q.port || 0) ||
+      Number(process.env.QNAP_PORT || process.env.QNAP_LOCAL_PORT || q.port || creds.port || 0) ||
         null
     );
     const share =
-      (config.qnap.share || process.env.QNAP_SHARE || q.shareName || "TiSLY").trim() ||
-      "TiSLY";
+      (config.qnap.share ||
+        process.env.QNAP_SHARE ||
+        q.shareName ||
+        creds.shareName ||
+        "TiSLY").trim() || "TiSLY";
     return {
       mode: "real",
       webdavUrl: buildWebDavUrl(host, port, share),
       username: auth.username || QNAP_DEFAULT_BASIC_USER,
-      password: auth.password,
+      password: auth.password || creds.password,
       basePath: "/",
     };
   }
@@ -386,10 +420,21 @@ function resolveAuthForFallback(cfg: QnapUploadConfig | null): {
   username: string;
   password: string;
 } {
-  if (cfg) {
+  const creds = resolveQnapSaveCredentialsV1({
+    settingsUsername: cfg?.username,
+    settingsPassword: cfg?.password,
+    applyRuntime: true,
+  });
+  if (creds.password) {
+    return {
+      username: creds.username || QNAP_DEFAULT_BASIC_USER,
+      password: creds.password,
+    };
+  }
+  if (cfg?.password) {
     return {
       username: cfg.username || QNAP_DEFAULT_BASIC_USER,
-      password: cfg.password || "",
+      password: cfg.password,
     };
   }
   const auth = resolveQnapBasicAuthCredentials({ allowDefaultUser: true });
@@ -457,8 +502,46 @@ export async function saveEstimateInvoicePdfsToQnapV1(
   }
 
   const settings = getStorageSettingsV1();
+  // Platform Settings / ストレージ設定 / ENV から tomsadmin パスワードを即時解決し runtime へ適用
+  const saveCreds = resolveQnapSaveCredentialsV1({
+    settingsUsername: settings.qnap.username,
+    settingsPassword: settings.qnap.password,
+    applyRuntime: true,
+  });
+  if (!saveCreds.hasPassword) {
+    const fail: EstimateInvoiceQnapSaveResultV1 = {
+      ok: false,
+      mock: false,
+      projectId,
+      message:
+        "QNAPパスワードが未設定です。Platform Settings でパスワードを入力してください",
+      files: [],
+      error: "QNAP password not configured",
+      errorCode: "NOT_CONFIGURED",
+      proxyRoute: "vps",
+      pendingSync: false,
+      jobId,
+      savedAbsolutePaths: [],
+      host: saveCreds.host,
+    };
+    if (jobId) markJobFromSaveResultV1(jobId, fail);
+    appendQnapSaveDebugLogV1({
+      projectId,
+      jobId,
+      ok: false,
+      message: fail.message,
+      savedAbsolutePaths: [],
+      steps: [],
+      error: fail.error,
+    });
+    return fail;
+  }
+
   const cfg = resolveRealQnapWebDavForListSave(settings);
   const auth = resolveAuthForFallback(cfg);
+  // 解決済みパスワードを必ず渡す（空パスワードでの書込スキップを防ぐ）
+  auth.username = saveCreds.username || auth.username || QNAP_DEFAULT_BASIC_USER;
+  auth.password = saveCreds.password || auth.password;
 
   const kinds: Array<"estimate" | "invoice"> = [];
   if (project.estimateId) kinds.push("estimate");
@@ -526,12 +609,14 @@ export async function saveEstimateInvoicePdfsToQnapV1(
   }
 
   const tailscaleHost = resolveDocumentNasTailscaleHost(
-    cfg ? parseHostPortFromWebDavUrl(cfg.webdavUrl).host : null
+    saveCreds.host ||
+      (cfg ? parseHostPortFromWebDavUrl(cfg.webdavUrl).host : null)
   );
   const lanHost = resolveDocumentNasLocalHost(
     settings.qnap.host || process.env.QNAP_LOCAL_HOST || DOCUMENT_NAS_HOST
   );
   const shareName =
+    saveCreds.shareName ||
     (cfg &&
       (() => {
         try {
@@ -543,6 +628,10 @@ export async function saveEstimateInvoicePdfsToQnapV1(
       })()) ||
     settings.qnap.shareName ||
     "TiSLY";
+
+  console.log(
+    `[QNAP save] auth source=${saveCreds.source} user=${auth.username} host=${tailscaleHost} hasPassword=${Boolean(auth.password)}`
+  );
 
   const fallback = await uploadEstimateInvoiceWithFallbackV1({
     username: auth.username,
@@ -585,10 +674,7 @@ export async function saveEstimateInvoicePdfsToQnapV1(
       detail: "OK",
       method: "save",
     });
-    const successMsg =
-      savedAbsolutePaths.length > 0
-        ? `${documentNasPdfSaveSuccessMessage()} → ${savedAbsolutePaths.join(" / ")}`
-        : documentNasPdfSaveSuccessMessage();
+    const successMsg = documentNasPdfSaveSuccessMessage(savedAbsolutePaths);
     const result: EstimateInvoiceQnapSaveResultV1 = {
       ok: true,
       mock: false,
@@ -711,8 +797,24 @@ export async function retryPendingEstimateInvoiceUploadV1(input: {
   }>;
 }): Promise<{ ok: boolean; remoteOk: boolean; message: string; error?: string }> {
   const settings = getStorageSettingsV1();
+  const saveCreds = resolveQnapSaveCredentialsV1({
+    settingsUsername: settings.qnap.username,
+    settingsPassword: settings.qnap.password,
+    applyRuntime: true,
+  });
+  if (!saveCreds.hasPassword) {
+    return {
+      ok: false,
+      remoteOk: false,
+      message:
+        "QNAPパスワードが未設定です。Platform Settings でパスワードを入力してください",
+      error: "NOT_CONFIGURED",
+    };
+  }
   const cfg = resolveRealQnapWebDavForListSave(settings);
   const auth = resolveAuthForFallback(cfg);
+  auth.username = saveCreds.username || auth.username || QNAP_DEFAULT_BASIC_USER;
+  auth.password = saveCreds.password || auth.password;
   const existing = input.files.filter(
     (f) => f.localPath && fs.existsSync(f.localPath)
   );
@@ -728,12 +830,14 @@ export async function retryPendingEstimateInvoiceUploadV1(input: {
     username: auth.username,
     password: auth.password,
     files: existing,
-    tailscaleHost: cfg
-      ? parseHostPortFromWebDavUrl(cfg.webdavUrl).host
-      : null,
+    tailscaleHost: resolveDocumentNasTailscaleHost(
+      saveCreds.host ||
+        (cfg ? parseHostPortFromWebDavUrl(cfg.webdavUrl).host : null)
+    ),
     lanHost: resolveDocumentNasLocalHost(
       settings.qnap.host || process.env.QNAP_LOCAL_HOST || DOCUMENT_NAS_HOST
     ),
+    shareName: saveCreds.shareName || settings.qnap.shareName || "TiSLY",
     skipLocalPending: true,
   });
   if (fallback.remoteOk) {
@@ -746,7 +850,7 @@ export async function retryPendingEstimateInvoiceUploadV1(input: {
     return {
       ok: true,
       remoteOk: true,
-      message: documentNasPdfSaveSuccessMessage(),
+      message: documentNasPdfSaveSuccessMessage(fallback.savedAbsolutePaths),
     };
   }
   // pending ルートは再 enqueue しない（呼び出し側が attempts を管理）

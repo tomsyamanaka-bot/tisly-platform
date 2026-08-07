@@ -161,17 +161,19 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
     assert.match(src, /probeVpsToQnapConnection/);
     assert.match(src, /formatVpsToQnapProxyError/);
     assert.match(src, /proxyRoute/);
+    assert.match(src, /resolveQnapSaveCredentialsV1/);
     assert.match(src, /uploadEstimateInvoiceWithFallbackV1/);
     assert.match(src, /enqueueEstimateInvoiceQnapPendingV1/);
     assert.match(src, /pendingSync/);
     assert.match(src, /documentNasPdfSaveSuccessMessage/);
     assert.match(src, /documentNasPdfSavePendingMessage/);
+    assert.match(src, /NOT_CONFIGURED/);
     assert.doesNotMatch(src, /qnap-storage-mock/);
     assert.doesNotMatch(src, /QNAP MOCK/);
     assert.doesNotMatch(src, /isQnapStorageMockMode/);
   });
 
-  it("fallback routes include WebDAV 5005/5006 File Station and LAN", async () => {
+  it("fallback routes prefer 8080 then 5005/5006 File Station and LAN", async () => {
     const {
       listQnapFallbackRoutesV1,
       DOCUMENT_NAS_TAILSCALE_HOST_DEFAULT,
@@ -181,18 +183,20 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
       lanHost: "192.168.1.134",
     });
     assert.equal(DOCUMENT_NAS_TAILSCALE_HOST_DEFAULT, "100.99.31.120");
-    assert.equal(routes[0].kind, "webdav_http_5005");
-    assert.match(String(routes[0].webdavUrl), /100\.99\.31\.120:5005/);
-    assert.equal(routes[1].kind, "webdav_https_5006");
-    assert.match(String(routes[1].webdavUrl), /100\.99\.31\.120:5006/);
-    assert.equal(routes[2].kind, "file_station_8080");
+    assert.equal(routes[0].kind, "webdav_http_8080");
+    assert.match(String(routes[0].webdavUrl), /100\.99\.31\.120:8080/);
+    assert.equal(routes[1].kind, "file_station_8080");
     assert.match(
-      String(routes[2].fileStationUrl),
+      String(routes[1].fileStationUrl),
       /100\.99\.31\.120:8080\/cgi-bin\/filemanager\/utilRequest\.cgi/
     );
-    assert.equal(routes[3].kind, "webdav_lan_8080");
-    assert.match(String(routes[3].webdavUrl), /192\.168\.1\.134:8080/);
-    assert.equal(routes[4].kind, "local_pending");
+    assert.equal(routes[2].kind, "webdav_http_5005");
+    assert.match(String(routes[2].webdavUrl), /100\.99\.31\.120:5005/);
+    assert.equal(routes[3].kind, "webdav_https_5006");
+    assert.match(String(routes[3].webdavUrl), /100\.99\.31\.120:5006/);
+    assert.equal(routes[4].kind, "webdav_lan_8080");
+    assert.match(String(routes[4].webdavUrl), /192\.168\.1\.134:8080/);
+    assert.equal(routes[5].kind, "local_pending");
   });
 
   it("pending store enqueues and lists items", async () => {
@@ -229,7 +233,8 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
     assert.match(js, /documentNasSaveSuccessMessage/);
     assert.match(js, /documentNasPdfSavePendingMessage/);
     assert.match(js, /pendingSync/);
-    assert.match(direct, /DOCUMENT_NAS_NAME\} へ見積書・請求書を正常に保存しました/);
+    assert.match(js, /QNAP保存成功/);
+    assert.match(direct, /QNAP保存成功/);
     assert.match(direct, /一時保存完了（QNAPへ自動同期待ち）/);
     assert.match(direct, /documentNasPdfSavePendingMessage/);
   });
@@ -401,9 +406,9 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
     assert.match(js, /savedAbsolutePaths/);
   });
 
-  it("service worker bumps qnap mkcol cache", () => {
+  it("service worker bumps qnap cred save cache", () => {
     const sw = read("service-worker.js");
-    assert.match(sw, /tisly-pwa-v2435-qnap-mkcol/);
+    assert.match(sw, /tisly-pwa-v2436-qnap-cred-save/);
   });
 
   it("storage settings exposes save debug logs UI and API", () => {
@@ -448,11 +453,14 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
     );
     assert.equal(
       documentNasSaveSuccessMessage("192.168.1.134", 5005, "Invoices_Estimates"),
-      "nastoms へ見積書・請求書を正常に保存しました"
+      "QNAP保存成功: Invoices_Estimates"
     );
+    assert.equal(documentNasPdfSaveSuccessMessage(), "QNAP保存成功");
     assert.equal(
-      documentNasPdfSaveSuccessMessage(),
-      "nastoms へ見積書・請求書を正常に保存しました"
+      documentNasPdfSaveSuccessMessage([
+        "/Public/TiSLY/Invoices_Estimates/2026-08/見積書.pdf",
+      ]),
+      "QNAP保存成功: /Public/TiSLY/Invoices_Estimates/2026-08/見積書.pdf"
     );
     assert.equal(
       documentNasPdfSavePendingMessage(),

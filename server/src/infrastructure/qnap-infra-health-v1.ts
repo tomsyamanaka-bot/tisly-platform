@@ -509,62 +509,151 @@ export function resolveQnapInfraComponentStatusV1(): {
 }
 
 /**
+ * 見積/請求 QNAP 保存時 — 保存済み資格情報を即時解決し runtime へ適用する。
+ * 優先: ENV → Platform Settings(qnap) → ストレージ設定 → 既定ユーザー tomsadmin
+ */
+export function resolveQnapSaveCredentialsV1(options?: {
+  settingsUsername?: string | null;
+  settingsPassword?: string | null;
+  /** true のとき password があれば mode=real として env / storage へ反映 */
+  applyRuntime?: boolean;
+}): {
+  username: string;
+  password: string;
+  host: string;
+  shareName: string;
+  port: number | null;
+  hasPassword: boolean;
+  source: "env" | "platform" | "settings" | "none";
+} {
+  const platform = getPlatformSetting<QnapPlatformSettingV1>("qnap");
+  let storagePass = "";
+  let storageHost = "";
+  let storageUser = "";
+  let storageShare = "";
+  let storagePort: number | null = null;
+  try {
+    const s = getStorageSettingsV1();
+    storagePass = String(s.qnap.password || "");
+    storageHost = String(s.qnap.host || "").trim();
+    storageUser = String(s.qnap.username || "").trim();
+    storageShare = String(s.qnap.shareName || "").trim();
+    storagePort =
+      Number(s.qnap.port) > 0 ? Number(s.qnap.port) : null;
+  } catch {
+    /* storage settings optional */
+  }
+
+  const envPass = String(
+    process.env.QNAP_PASSWORD || process.env.QNAP_WEBDAV_PASSWORD || ""
+  ).trim();
+  const envUser = String(
+    process.env.QNAP_USER ||
+      process.env.QNAP_WEBDAV_USER ||
+      process.env.QNAP_USERNAME ||
+      ""
+  ).trim();
+  const envHost = String(
+    process.env.QNAP_HOST ||
+      process.env.QNAP_TAILSCALE_HOST ||
+      process.env.QNAP_LOCAL_HOST ||
+      ""
+  ).trim();
+  const envShare = String(process.env.QNAP_SHARE || "").trim();
+  const envPortRaw = Number(process.env.QNAP_PORT || process.env.QNAP_LOCAL_PORT || 0);
+  const envPort = Number.isFinite(envPortRaw) && envPortRaw > 0 ? envPortRaw : null;
+
+  const settingsPass = String(options?.settingsPassword ?? "").trim();
+  const settingsUser = String(options?.settingsUsername ?? "").trim();
+  const platformPass = String(platform?.password || "").trim();
+  const platformUser = String(platform?.username || "").trim();
+  const platformHost = String(platform?.host || "").trim();
+
+  let source: "env" | "platform" | "settings" | "none" = "none";
+  let password = "";
+  if (envPass) {
+    password = envPass;
+    source = "env";
+  } else if (platformPass) {
+    password = platformPass;
+    source = "platform";
+  } else if (settingsPass) {
+    password = settingsPass;
+    source = "settings";
+  } else if (storagePass) {
+    password = storagePass;
+    source = "settings";
+  }
+
+  const username =
+    envUser ||
+    platformUser ||
+    settingsUser ||
+    storageUser ||
+    QNAP_PLATFORM_DEFAULT_USER;
+  // VPS→QNAP は Tailscale(100.x) を優先。LAN 既定(192.168.x)より Platform Settings を優先する。
+  const hostCandidates = [envHost, platformHost, storageHost].filter(Boolean);
+  const host =
+    hostCandidates.find((h) => /^100\./.test(h)) ||
+    platformHost ||
+    envHost ||
+    QNAP_PLATFORM_DEFAULT_HOST;
+  const shareName =
+    envShare ||
+    String(platform?.shareName || "").trim() ||
+    storageShare ||
+    "TiSLY";
+  const port =
+    envPort ||
+    (platform?.port != null && Number(platform.port) > 0
+      ? Number(platform.port)
+      : null) ||
+    storagePort;
+
+  if (options?.applyRuntime !== false && password) {
+    applyQnapPlatformRuntimeEnvV1({
+      mode: "real",
+      host,
+      username,
+      password,
+      port,
+      shareName,
+    });
+  }
+
+  return {
+    username,
+    password,
+    host,
+    shareName,
+    port,
+    hasPassword: Boolean(password),
+    source,
+  };
+}
+
+/**
  * 起動時 / デプロイ後 — .env または Platform Settings の資格情報で疎通し GREEN 化を試みる
  */
 export async function bootstrapQnapInfraHealthOnStartupV1(): Promise<QnapConnectTestResultV1 | null> {
   try {
     const platform = getPlatformSetting<QnapPlatformSettingV1>("qnap");
-    let storagePass = "";
-    let storageHost = "";
-    let storageUser = "";
-    try {
-      const s = getStorageSettingsV1();
-      storagePass = s.qnap.password || "";
-      storageHost = s.qnap.host || "";
-      storageUser = s.qnap.username || "";
-    } catch {
-      /* storage settings optional at boot */
-    }
-
+    const creds = resolveQnapSaveCredentialsV1({ applyRuntime: false });
     const envMode = String(process.env.QNAP_MODE || "").toLowerCase();
-    const envPass = String(
-      process.env.QNAP_PASSWORD || process.env.QNAP_WEBDAV_PASSWORD || ""
-    );
-    const envHost = String(
-      process.env.QNAP_HOST ||
-        process.env.QNAP_TAILSCALE_HOST ||
-        process.env.QNAP_LOCAL_HOST ||
-        ""
-    ).trim();
-    const envUser = String(
-      process.env.QNAP_USER ||
-        process.env.QNAP_WEBDAV_USER ||
-        process.env.QNAP_USERNAME ||
-        ""
-    ).trim();
-
-    const password = envPass || platform?.password || storagePass || "";
     const hasRealIntent =
       platform?.mode === "real" ||
       envMode === "real" ||
       envMode === "webdav" ||
-      Boolean(password);
+      Boolean(creds.password);
 
     const normalized = normalizeQnapPlatformSettingV1(
       {
         mode: hasRealIntent ? "real" : "mock",
-        host:
-          envHost ||
-          platform?.host ||
-          storageHost ||
-          QNAP_PLATFORM_DEFAULT_HOST,
-        username:
-          envUser ||
-          platform?.username ||
-          storageUser ||
-          QNAP_PLATFORM_DEFAULT_USER,
-        password,
-        shareName: platform?.shareName || process.env.QNAP_SHARE || "TiSLY",
+        host: creds.host,
+        username: creds.username,
+        password: creds.password,
+        port: creds.port,
+        shareName: creds.shareName,
       },
       platform
     );

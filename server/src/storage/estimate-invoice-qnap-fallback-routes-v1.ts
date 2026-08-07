@@ -2,11 +2,12 @@
  * 見積・請求 PDF — QNAP 多重フォールバックルート v1
  *
  * 順序:
- * 1. http://{tailscale}:5005  WebDAV HTTP
- * 2. https://{tailscale}:5006 WebDAV HTTPS
- * 3. http://{tailscale}:8080/cgi-bin/filemanager/utilRequest.cgi  File Station
- * 4. http://{lan}:8080 WebDAV（ローカル LAN）
- * 5. VPS ローカル一時保持（pending キュー）
+ * 1. http://{tailscale}:8080 WebDAV
+ * 2. http://{tailscale}:8080/cgi-bin/filemanager/utilRequest.cgi  File Station
+ * 3. http://{tailscale}:5005  WebDAV HTTP
+ * 4. https://{tailscale}:5006 WebDAV HTTPS
+ * 5. http://{lan}:8080 WebDAV（ローカル LAN）
+ * 6. VPS ローカル一時保持（pending キュー）
  *
  * 各リモートルートで /TiSLY/Invoices_Estimates/ を MKCOL 作成し、
  * 403/404 時は /Public/TiSLY/Invoices_Estimates/ へフォールバック。
@@ -34,9 +35,10 @@ import {
 export const DOCUMENT_NAS_TAILSCALE_HOST_DEFAULT = "100.99.31.120";
 
 export type QnapFallbackRouteKindV1 =
+  | "webdav_http_8080"
+  | "file_station_8080"
   | "webdav_http_5005"
   | "webdav_https_5006"
-  | "file_station_8080"
   | "webdav_lan_8080"
   | "local_pending";
 
@@ -141,6 +143,16 @@ export function listQnapFallbackRoutesV1(options?: {
 
   return [
     {
+      kind: "webdav_http_8080",
+      label: `WebDAV HTTP ${ts}:8080`,
+      webdavUrl: buildWebDavUrl(ts, 8080, share),
+    },
+    {
+      kind: "file_station_8080",
+      label: `File Station ${ts}:8080`,
+      fileStationUrl: `http://${ts}:8080/cgi-bin/filemanager/utilRequest.cgi`,
+    },
+    {
       kind: "webdav_http_5005",
       label: `WebDAV HTTP ${ts}:5005`,
       webdavUrl: buildWebDavUrl(ts, 5005, share),
@@ -149,11 +161,6 @@ export function listQnapFallbackRoutesV1(options?: {
       kind: "webdav_https_5006",
       label: `WebDAV HTTPS ${ts}:5006`,
       webdavUrl: buildWebDavUrl(ts, 5006, share),
-    },
-    {
-      kind: "file_station_8080",
-      label: `File Station ${ts}:8080`,
-      fileStationUrl: `http://${ts}:8080/cgi-bin/filemanager/utilRequest.cgi`,
     },
     {
       kind: "webdav_lan_8080",
@@ -655,7 +662,7 @@ export async function uploadEstimateInvoiceWithFallbackV1(options: {
           route: route.kind,
           host: result.host,
           port: result.port,
-          message: "nastoms へ見積書・請求書を正常に保存しました",
+          message: "QNAP保存成功",
           attempts,
           files: result.files,
           errorCode: null,

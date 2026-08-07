@@ -52,9 +52,20 @@ export function documentNasConnectSuccessMessage(
   return `${DOCUMENT_NAS_NAME} への接続に成功しました（ポート ${portNum}）`;
 }
 
-/** 見積・請求 PDF の QNAP 保存成功トースト */
-export function documentNasPdfSaveSuccessMessage(): string {
-  return `${DOCUMENT_NAS_NAME} へ見積書・請求書を正常に保存しました`;
+/** 見積・請求 PDF の QNAP 保存成功トースト（絶対パス付き） */
+export function documentNasPdfSaveSuccessMessage(
+  absolutePaths?: string | string[] | null
+): string {
+  const paths = Array.isArray(absolutePaths)
+    ? absolutePaths.map((p) => String(p || "").trim()).filter(Boolean)
+    : String(absolutePaths || "")
+        .trim()
+        ? [String(absolutePaths).trim()]
+        : [];
+  if (paths.length > 0) {
+    return `QNAP保存成功: ${paths.join(" / ")}`;
+  }
+  return "QNAP保存成功";
 }
 
 /** リモート全滅時のローカル一時保存トースト */
@@ -79,9 +90,9 @@ export function documentNasPdfSaveRequestSentMessage(): string {
 export function documentNasSaveSuccessMessage(
   _host = DOCUMENT_NAS_HOST,
   _port?: number | null,
-  _folderPath?: string | null
+  folderPath?: string | null
 ): string {
-  return documentNasPdfSaveSuccessMessage();
+  return documentNasPdfSaveSuccessMessage(folderPath);
 }
 
 /**

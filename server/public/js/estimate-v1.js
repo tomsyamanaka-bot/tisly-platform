@@ -1589,21 +1589,21 @@ async function pollQnapSaveJobAndToast(jobId, token) {
 function formatQnapSaveDoneToast(body) {
   const paths = Array.isArray(body?.savedAbsolutePaths)
     ? body.savedAbsolutePaths.filter(Boolean)
-    : [];
-  const pathHint = paths.length ? ` → ${paths.join(" / ")}` : "";
+    : Array.isArray(body?.result?.savedAbsolutePaths)
+      ? body.result.savedAbsolutePaths.filter(Boolean)
+      : [];
   if (body?.pendingSync || body?.status === "pending_sync") {
-    return `${documentNasPdfSavePendingMessage()}${pathHint}`;
+    return documentNasPdfSavePendingMessage();
   }
   if (body?.status === "failed" || body?.ok === false) {
-    return qnapSaveFeedbackMessage(body?.result || body, 0) + pathHint;
+    return qnapSaveFeedbackMessage(body?.result || body, 0);
   }
-  const base =
-    String(body?.message || "").trim() ||
-    qnapSaveSuccessToastMessage(body?.result || body);
-  if (pathHint && !base.includes("/TiSLY/") && !base.includes("/Public/")) {
-    return `${base}${pathHint}`;
+  const msg = String(body?.message || body?.result?.message || "").trim();
+  if (msg.startsWith("QNAP保存成功")) return msg;
+  if (paths.length > 0) {
+    return `QNAP保存成功: ${paths.join(" / ")}`;
   }
-  return base;
+  return msg || "QNAP保存成功";
 }
 
 function toggleSelection(id, cardNode) {

@@ -98,6 +98,50 @@ describe("qnap-infra-health-v1", () => {
     assert.equal(shouldFallbackToPublicTislyV1(500), false);
   });
 
+  it("resolveQnapSaveCredentialsV1 prefers platform password over empty env", async () => {
+    const { setPlatformSetting } = await import("../src/db/database.js");
+    const {
+      resolveQnapSaveCredentialsV1,
+      QNAP_PLATFORM_DEFAULT_USER,
+    } = await import("../src/infrastructure/qnap-infra-health-v1.js");
+    const prevPass = process.env.QNAP_PASSWORD;
+    const prevWebPass = process.env.QNAP_WEBDAV_PASSWORD;
+    const prevHost = process.env.QNAP_HOST;
+    const prevTs = process.env.QNAP_TAILSCALE_HOST;
+    const prevLocal = process.env.QNAP_LOCAL_HOST;
+    delete process.env.QNAP_PASSWORD;
+    delete process.env.QNAP_WEBDAV_PASSWORD;
+    delete process.env.QNAP_HOST;
+    delete process.env.QNAP_TAILSCALE_HOST;
+    delete process.env.QNAP_LOCAL_HOST;
+    try {
+      setPlatformSetting("qnap", {
+        mode: "real",
+        host: "100.99.31.120",
+        username: "tomsadmin",
+        password: "platform-secret-v1",
+        shareName: "TiSLY",
+      });
+      const creds = resolveQnapSaveCredentialsV1({ applyRuntime: false });
+      assert.equal(creds.hasPassword, true);
+      assert.equal(creds.password, "platform-secret-v1");
+      assert.equal(creds.username, QNAP_PLATFORM_DEFAULT_USER);
+      assert.equal(creds.host, "100.99.31.120");
+      assert.equal(creds.source, "platform");
+    } finally {
+      if (prevPass === undefined) delete process.env.QNAP_PASSWORD;
+      else process.env.QNAP_PASSWORD = prevPass;
+      if (prevWebPass === undefined) delete process.env.QNAP_WEBDAV_PASSWORD;
+      else process.env.QNAP_WEBDAV_PASSWORD = prevWebPass;
+      if (prevHost === undefined) delete process.env.QNAP_HOST;
+      else process.env.QNAP_HOST = prevHost;
+      if (prevTs === undefined) delete process.env.QNAP_TAILSCALE_HOST;
+      else process.env.QNAP_TAILSCALE_HOST = prevTs;
+      if (prevLocal === undefined) delete process.env.QNAP_LOCAL_HOST;
+      else process.env.QNAP_LOCAL_HOST = prevLocal;
+    }
+  });
+
   it("settings page and API include QNAP host/user connect flow", () => {
     const page = fs.readFileSync(
       path.join(process.cwd(), "public/js/settings-page.js"),
@@ -125,6 +169,7 @@ describe("qnap-infra-health-v1", () => {
       "utf-8"
     );
     assert.match(save, /markQnapInfraGreenV1/);
+    assert.match(save, /resolveQnapSaveCredentialsV1/);
     const indexSrc = fs.readFileSync(
       path.join(process.cwd(), "src/index.ts"),
       "utf-8"

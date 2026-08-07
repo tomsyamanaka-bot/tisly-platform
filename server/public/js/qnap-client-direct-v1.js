@@ -185,8 +185,20 @@ export function documentNasConnectSuccessMessage(port) {
 /**
  * 成功トースト（保存完了）
  */
-export function documentNasSaveSuccessMessage(_host, _port, _folderPath) {
-  return `${DOCUMENT_NAS_NAME} へ見積書・請求書を正常に保存しました`;
+export function documentNasSaveSuccessMessage(_host, _port, folderPath) {
+  const path = String(folderPath || "").trim();
+  if (path) return `QNAP保存成功: ${path}`;
+  return "QNAP保存成功";
+}
+
+export function documentNasPdfSaveSuccessMessage(absolutePaths) {
+  const paths = Array.isArray(absolutePaths)
+    ? absolutePaths.map((p) => String(p || "").trim()).filter(Boolean)
+    : String(absolutePaths || "").trim()
+      ? [String(absolutePaths).trim()]
+      : [];
+  if (paths.length > 0) return `QNAP保存成功: ${paths.join(" / ")}`;
+  return "QNAP保存成功";
 }
 
 export function documentNasPdfSavePendingMessage() {

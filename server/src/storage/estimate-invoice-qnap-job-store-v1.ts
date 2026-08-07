@@ -132,9 +132,15 @@ export function markJobFromSaveResultV1(
   jobId: string,
   result: EstimateInvoiceQnapSaveResultV1
 ): EstimateInvoiceQnapJobV1 | null {
-  const paths = (result.files || [])
-    .filter((f) => f.ok && f.absolutePath)
-    .map((f) => f.absolutePath as string);
+  const paths =
+    result.pendingSync || !result.ok
+      ? []
+      : Array.isArray(result.savedAbsolutePaths) &&
+          result.savedAbsolutePaths.length > 0
+        ? result.savedAbsolutePaths.filter(Boolean)
+        : (result.files || [])
+            .filter((f) => f.ok && f.absolutePath)
+            .map((f) => f.absolutePath as string);
   const status: EstimateInvoiceQnapJobStatusV1 = !result.ok
     ? "failed"
     : result.pendingSync
@@ -143,11 +149,7 @@ export function markJobFromSaveResultV1(
   return updateEstimateInvoiceQnapJobV1(jobId, {
     status,
     message: result.message,
-    savedAbsolutePaths: paths.length
-      ? paths
-      : result.folderPath
-        ? [result.folderPath]
-        : [],
+    savedAbsolutePaths: paths,
     result,
     error: result.error || null,
   });
