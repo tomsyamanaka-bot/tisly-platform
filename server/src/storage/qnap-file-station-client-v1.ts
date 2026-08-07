@@ -74,6 +74,15 @@ export function resolveFileStationBaseUrl(explicit?: string | null): string {
   return `http://${host}:8080`;
 }
 
+/** Platform Settings 疎通テスト用 — File Station ログインのみ */
+export async function probeFileStationAuthV1(options: {
+  baseUrl: string;
+  username: string;
+  password: string;
+}): Promise<{ ok: boolean; sid?: string; error?: string }> {
+  return loginFileStation(options.baseUrl, options.username, options.password);
+}
+
 async function loginFileStation(
   baseUrl: string,
   username: string,

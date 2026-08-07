@@ -64,14 +64,33 @@ function renderForms() {
     field("月次", "backup-monthly", sched.includes("monthly"), "checkbox");
 
   const q = settings.qnap ?? { mode: "mock" };
+  const isGreen = q.healthStatus === "GREEN" || q.healthOk === true;
+  const statusLabel = isGreen
+    ? "GREEN (OK)"
+    : q.healthStatus === "RED"
+      ? "RED"
+      : "YELLOW";
   document.querySelector(".form-qnap").innerHTML = `
     <label>QNAP_MODE
       <select id="qnap-mode">
         <option value="mock" ${q.mode === "mock" ? "selected" : ""}>mock（ローカル）</option>
-        <option value="real" ${q.mode === "real" ? "selected" : ""}>real（SMB）</option>
+        <option value="real" ${q.mode === "real" ? "selected" : ""}>real（WebDAV / File Station）</option>
       </select>
     </label>
-    <p style="font-size:0.85rem;color:var(--tisly-muted)">本番は .env の QNAP_MODE と資格情報を設定</p>`;
+    ${field("ホスト (QNAP_HOST)", "qnap-host", q.host || "100.99.31.120")}
+    ${field("ユーザー (QNAP_USER)", "qnap-user", q.username || "tomsadmin")}
+    <label>パスワード (QNAP_PASSWORD)
+      <input type="password" id="qnap-password" value="" placeholder="${q.hasPassword ? "••••••••（変更時のみ入力）" : "パスワードを入力"}" autocomplete="new-password" />
+    </label>
+    <p style="font-size:0.85rem;color:var(--tisly-muted)">
+      保存時に 8080 → 5005 → 5006 → 5000 で疎通し、成功で Infrastructure Health を GREEN に更新します。
+    </p>
+    <p id="qnap-health-line" style="font-size:0.9rem">
+      状態: <strong class="badge ${isGreen ? "ok" : "warning"}">${statusLabel}</strong>
+      ${q.healthDetail ? ` — ${q.healthDetail}` : ""}
+      ${q.healthPort ? ` (port ${q.healthPort})` : ""}
+      ${q.healthMethod && q.healthMethod !== "none" ? ` [${q.healthMethod}]` : ""}
+    </p>`;
 }
 
 function collect(key) {
@@ -114,8 +133,16 @@ function collect(key) {
       if (chk("backup-monthly")) s.push("monthly");
       return { schedules: s, enabled: s.length > 0 };
     }
-    case "qnap":
-      return { mode: g("qnap-mode").value };
+    case "qnap": {
+      const password = g("qnap-password")?.value ?? "";
+      const body = {
+        mode: g("qnap-mode").value,
+        host: g("qnap-host")?.value?.trim() || "100.99.31.120",
+        username: g("qnap-user")?.value?.trim() || "tomsadmin",
+      };
+      if (password.trim()) body.password = password;
+      return body;
+    }
     default:
       return {};
   }
@@ -141,11 +168,32 @@ document.querySelectorAll("[data-save]").forEach((btn) => {
   btn.addEventListener("click", async () => {
     const key = btn.dataset.save;
     const body = collect(key);
-    await apiPut(`/api/settings/platform/${key}`, body);
-    settings[key] = body;
     const msg = document.getElementById("settings-msg");
-    msg.className = "msg ok";
-    msg.textContent = `${key} を保存しました`;
+    btn.disabled = true;
+    try {
+      const result = await apiPut(`/api/settings/platform/${key}`, body);
+      if (key === "qnap") {
+        settings.qnap = result.value ?? { ...body, ...result.value };
+        renderForms();
+        const connectOk = result.connect?.ok;
+        const status = result.infrastructureStatus || result.qnapHealth?.status;
+        msg.className = connectOk || body.mode === "mock" ? "msg ok" : "msg err";
+        msg.textContent = connectOk
+          ? `QNAP 接続成功 — ${result.connect?.message || "GREEN (OK)"}`
+          : body.mode === "mock"
+            ? "qnap を mock で保存しました"
+            : `QNAP 接続失敗 (${status || "YELLOW"}): ${result.connect?.message || "疎通できませんでした"}`;
+      } else {
+        settings[key] = body;
+        msg.className = "msg ok";
+        msg.textContent = `${key} を保存しました`;
+      }
+    } catch (e) {
+      msg.className = "msg err";
+      msg.textContent = e instanceof Error ? e.message : String(e);
+    } finally {
+      btn.disabled = false;
+    }
   });
 });
 

@@ -69,6 +69,7 @@ import {
   type QnapFallbackRouteKindV1,
 } from "./estimate-invoice-qnap-fallback-routes-v1.js";
 import { enqueueEstimateInvoiceQnapPendingV1 } from "./estimate-invoice-qnap-pending-store-v1.js";
+import { markQnapInfraGreenV1 } from "../infrastructure/qnap-infra-health-v1.js";
 
 const CONNECT_RETRY_COUNT = 2;
 const CONNECT_RETRY_DELAY_MS = 800;
@@ -578,6 +579,12 @@ export async function saveEstimateInvoicePdfsToQnapV1(
       : files.filter((f) => f.ok && f.absolutePath).map((f) => f.absolutePath!);
 
   if (fallback.remoteOk) {
+    markQnapInfraGreenV1({
+      host: fallback.host,
+      port: fallback.port,
+      detail: "OK",
+      method: "save",
+    });
     const successMsg =
       savedAbsolutePaths.length > 0
         ? `${documentNasPdfSaveSuccessMessage()} → ${savedAbsolutePaths.join(" / ")}`
@@ -730,6 +737,12 @@ export async function retryPendingEstimateInvoiceUploadV1(input: {
     skipLocalPending: true,
   });
   if (fallback.remoteOk) {
+    markQnapInfraGreenV1({
+      host: fallback.host,
+      port: fallback.port,
+      detail: "OK",
+      method: "save",
+    });
     return {
       ok: true,
       remoteOk: true,

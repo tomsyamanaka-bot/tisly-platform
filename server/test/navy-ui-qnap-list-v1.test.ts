@@ -323,6 +323,7 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
     assert.equal(shouldFallbackToPublicTislyV1(403), true);
     assert.equal(shouldFallbackToPublicTislyV1(404), true);
     assert.equal(shouldFallbackToPublicTislyV1("MKCOL x failed: HTTP 403"), true);
+    assert.equal(shouldFallbackToPublicTislyV1("書き込み権限エラー"), true);
     assert.equal(shouldFallbackToPublicTislyV1(500), false);
     const { rewriteWebDavBaseForPublicTislyV1 } = await import(
       "../src/storage/estimate-invoice-qnap-path-roots-v1.js"

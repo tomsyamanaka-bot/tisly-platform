@@ -7,7 +7,7 @@ import { billingPublicStatus } from "../billing/stripe-client.js";
 import { getWorkerStatus } from "../workers/worker-status.js";
 import { isPdfPuppeteerEnabled } from "../reports/pdf/pdf-options.js";
 import { pingRedis } from "../redis/redis-client.js";
-import { isQnapSmbConfigured, getQnapMode } from "../qnap/smb-client.js";
+import { resolveQnapInfraComponentStatusV1 } from "./qnap-infra-health-v1.js";
 
 export type InfraStatus = "GREEN" | "YELLOW" | "RED";
 
@@ -98,7 +98,7 @@ export async function getInfrastructureStatuses(): Promise<InfraComponentStatus[
     tvDetail = "tv_devices unavailable";
   }
 
-  const qnapReal = getQnapMode() === "real" && isQnapSmbConfigured();
+  const qnapCard = resolveQnapInfraComponentStatusV1();
   const memPct = (os.freemem() / os.totalmem()) * 100;
   let vpsStatus: InfraStatus = "GREEN";
   let vpsDetail = config.infrastructure.vpsLabel;
@@ -202,11 +202,7 @@ export async function getInfrastructureStatuses(): Promise<InfraComponentStatus[
       detail: config.infrastructure.nodeRedUrl || "ingest configured",
     },
     { name: "Google TV", status: tvStatus, detail: tvDetail },
-    {
-      name: "QNAP",
-      status: qnapReal ? "GREEN" : "YELLOW",
-      detail: qnapReal ? "SMB archive" : "mock",
-    },
+    qnapCard,
     plcGw,
     rpGw,
     {

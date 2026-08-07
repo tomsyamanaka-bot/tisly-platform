@@ -98,15 +98,19 @@ export function listInvoiceEstimatePathCandidatesV1(
   ];
 }
 
-/** 403/404 系で Public フォールバックへ進むべきか */
+/** 403/404/権限エラー系で Public フォールバックへ進むべきか */
 export function shouldFallbackToPublicTislyV1(
   statusOrMessage: number | string | null | undefined
 ): boolean {
   if (typeof statusOrMessage === "number") {
-    return statusOrMessage === 403 || statusOrMessage === 404;
+    return (
+      statusOrMessage === 403 ||
+      statusOrMessage === 404 ||
+      statusOrMessage === 401
+    );
   }
   const msg = String(statusOrMessage || "");
-  return /\bHTTP\s*403\b|\bHTTP\s*404\b|\b403\b|\b404\b|Forbidden|Not Found|共有フォルダ/i.test(
+  return /\bHTTP\s*403\b|\bHTTP\s*404\b|\bHTTP\s*401\b|\b403\b|\b404\b|\b401\b|Forbidden|Not Found|Unauthorized|permission|Access Denied|書き込み|権限|denied|Privilege|共有フォルダ/i.test(
     msg
   );
 }
