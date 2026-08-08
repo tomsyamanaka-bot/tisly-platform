@@ -1,13 +1,17 @@
 /**
  * 見積・請求 PDF — QNAP 多重フォールバックルート v1
  *
- * 順序:
+ * 事前に並行ホスト探索（Tailscale IP / MagicDNS / LAN）で最速ルートを採択し、
+ * 到達済みホストから順に保存を試行する。
+ *
+ * 候補:
  * 1. http://{tailscale}:8080 WebDAV
- * 2. http://{tailscale}:8080/cgi-bin/filemanager/utilRequest.cgi  File Station
- * 3. http://{tailscale}:5005  WebDAV HTTP
- * 4. https://{tailscale}:5006 WebDAV HTTPS
- * 5. http://{lan}:8080 WebDAV（ローカル LAN）
- * 6. VPS ローカル一時保持（pending キュー）
+ * 2. http://{tailscale}:8080 File Station
+ * 3. http://{tailscale}:5005 WebDAV
+ * 4. https://{tailscale}:5006 WebDAV
+ * 5. http://nastoms:8080 / http://nastoms.local:8080（MagicDNS）
+ * 6. http://{lan}:8080 WebDAV
+ * 7. VPS ローカル一時保持（pending キュー）
  *
  * 各リモートルートで /TiSLY/Invoices_Estimates/ を MKCOL 作成し、
  * 403/404 時は /Public/TiSLY/Invoices_Estimates/ へフォールバック。
@@ -21,9 +25,17 @@ import { qnapBasicAuthHeaders } from "./qnap-basic-auth-v1.js";
 import { uploadViaFileStationV1 } from "./qnap-file-station-client-v1.js";
 import {
   DOCUMENT_NAS_HOST,
+  DOCUMENT_NAS_NAME,
   DOCUMENT_NAS_SHARE,
 } from "./qnap-nas-hosts-v1.js";
 import { classifyQnapNetworkError } from "./qnap-network-diagnose-v1.js";
+import {
+  DOCUMENT_NAS_MAGIC_DNS_HOSTS,
+  formatQnapProbeResultSummaryV1,
+  probeQnapHostsInParallelV1,
+  QNAP_PARALLEL_PROBE_DEFAULT_TS,
+  type QnapParallelProbeResultV1,
+} from "./qnap-parallel-host-probe-v1.js";
 import { buildWebDavUrl } from "./qnap-storage-service.js";
 import {
   listInvoiceEstimatePathCandidatesV1,
@@ -32,13 +44,14 @@ import {
   type QnapInvoicePathRootKindV1,
 } from "./estimate-invoice-qnap-path-roots-v1.js";
 
-export const DOCUMENT_NAS_TAILSCALE_HOST_DEFAULT = "100.99.31.120";
+export const DOCUMENT_NAS_TAILSCALE_HOST_DEFAULT = QNAP_PARALLEL_PROBE_DEFAULT_TS;
 
 export type QnapFallbackRouteKindV1 =
   | "webdav_http_8080"
   | "file_station_8080"
   | "webdav_http_5005"
   | "webdav_https_5006"
+  | "webdav_magic_dns_8080"
   | "webdav_lan_8080"
   | "local_pending";
 
@@ -102,6 +115,9 @@ export type QnapFallbackUploadResultV1 = {
   steps: QnapCommStepV1[];
   /** 実際に書き込んだ絶対パス */
   savedAbsolutePaths: string[];
+  /** 並行ホスト探索サマリー（トースト／診断用） */
+  probeSummary?: string | null;
+  probe?: QnapParallelProbeResultV1 | null;
 };
 
 export function resolveDocumentNasTailscaleHost(
@@ -130,6 +146,7 @@ export function listQnapFallbackRoutesV1(options?: {
   tailscaleHost?: string | null;
   lanHost?: string | null;
   shareName?: string | null;
+  magicDnsHosts?: string[] | null;
 }): QnapFallbackRouteV1[] {
   const ts = resolveDocumentNasTailscaleHost(options?.tailscaleHost);
   const lan =
@@ -140,8 +157,12 @@ export function listQnapFallbackRoutesV1(options?: {
     String(options?.shareName || "").trim() ||
     String(process.env.QNAP_SHARE || "").trim() ||
     DOCUMENT_NAS_SHARE;
+  const magic =
+    Array.isArray(options?.magicDnsHosts) && options!.magicDnsHosts!.length > 0
+      ? options!.magicDnsHosts!.map((h) => String(h || "").trim()).filter(Boolean)
+      : [...DOCUMENT_NAS_MAGIC_DNS_HOSTS];
 
-  return [
+  const routes: QnapFallbackRouteV1[] = [
     {
       kind: "webdav_http_8080",
       label: `WebDAV HTTP ${ts}:8080`,
@@ -162,16 +183,76 @@ export function listQnapFallbackRoutesV1(options?: {
       label: `WebDAV HTTPS ${ts}:5006`,
       webdavUrl: buildWebDavUrl(ts, 5006, share),
     },
-    {
+  ];
+
+  for (const h of magic) {
+    if (!h || h === ts || h === lan) continue;
+    routes.push({
+      kind: "webdav_magic_dns_8080",
+      label: `WebDAV MagicDNS ${h}:8080`,
+      webdavUrl: buildWebDavUrl(h, 8080, share),
+    });
+  }
+
+  if (lan && lan !== ts) {
+    routes.push({
       kind: "webdav_lan_8080",
       label: `WebDAV LAN ${lan}:8080`,
       webdavUrl: buildWebDavUrl(lan, 8080, share),
-    },
-    {
-      kind: "local_pending",
-      label: "VPS ローカル一時保持",
-    },
-  ];
+    });
+  }
+
+  routes.push({
+    kind: "local_pending",
+    label: "VPS ローカル一時保持",
+  });
+  return routes;
+}
+
+/**
+ * 並行探索結果に基づき、到達ホストのルートを先頭へ並べ替える。
+ * File Station は同一ホスト:8080 が到達済みなら直後に置く。
+ */
+export function orderQnapFallbackRoutesByProbeV1(
+  routes: QnapFallbackRouteV1[],
+  probe: QnapParallelProbeResultV1 | null | undefined
+): QnapFallbackRouteV1[] {
+  if (!probe?.reachable?.length) return routes;
+  const pending = routes.filter((r) => r.kind === "local_pending");
+  const remote = routes.filter((r) => r.kind !== "local_pending");
+
+  const score = (route: QnapFallbackRouteV1): number => {
+    let host = "";
+    let port = 0;
+    try {
+      if (route.webdavUrl) {
+        const u = new URL(route.webdavUrl);
+        host = u.hostname;
+        port = Number(u.port) || (u.protocol === "https:" ? 443 : 80);
+      } else if (route.fileStationUrl) {
+        const u = new URL(route.fileStationUrl);
+        host = u.hostname;
+        port = Number(u.port) || 80;
+      }
+    } catch {
+      return 1_000_000;
+    }
+    const hit = probe.reachable.find(
+      (h) =>
+        h.target.host === host &&
+        (h.target.port === port ||
+          (route.kind === "file_station_8080" &&
+            h.target.port === 8080 &&
+            port === 8080))
+    );
+    if (!hit) return 900_000;
+    // File Station は同ホスト WebDAV の直後（+0.5）
+    const bias = route.kind === "file_station_8080" ? 0.5 : 0;
+    return hit.latencyMs + bias;
+  };
+
+  const ordered = [...remote].sort((a, b) => score(a) - score(b));
+  return [...ordered, ...pending];
 }
 
 function fileNameOf(f: QnapFallbackUploadFileV1): string {
@@ -552,6 +633,7 @@ function buildInvoicesEstimatesPublicRelForFileStation(fileName: string): string
 
 /**
  * 多重ルートで一括アップロード。全滅時は remoteOk=false / pendingSync 候補。
+ * 事前に並行ホスト探索で最速到達ルートを先頭化する。
  */
 export async function uploadEstimateInvoiceWithFallbackV1(options: {
   username: string;
@@ -562,12 +644,36 @@ export async function uploadEstimateInvoiceWithFallbackV1(options: {
   shareName?: string | null;
   /** Worker 再送時は local_pending をスキップしてリモートのみ試行 */
   skipLocalPending?: boolean;
+  /** 並行探索をスキップ（単体テスト用） */
+  skipParallelProbe?: boolean;
 }): Promise<QnapFallbackUploadResultV1> {
-  const routes = listQnapFallbackRoutesV1({
+  const authHeaders = qnapBasicAuthHeaders(options.username, options.password);
+  let probe: QnapParallelProbeResultV1 | null = null;
+  let probeSummary: string | null = null;
+
+  if (!options.skipParallelProbe) {
+    try {
+      probe = await probeQnapHostsInParallelV1({
+        tailscaleHost: options.tailscaleHost,
+        lanHost: options.lanHost,
+        shareName: options.shareName,
+        headers: authHeaders,
+      });
+      probeSummary = probe.summary;
+    } catch (e) {
+      probeSummary = `並行探索失敗: ${e instanceof Error ? e.message : String(e)}`;
+      console.warn(`[QNAP fallback] parallel probe error:`, probeSummary);
+    }
+  }
+
+  const listed = listQnapFallbackRoutesV1({
     tailscaleHost: options.tailscaleHost,
     lanHost: options.lanHost,
     shareName: options.shareName,
-  }).filter((r) => !(options.skipLocalPending && r.kind === "local_pending"));
+  });
+  const routes = orderQnapFallbackRoutesByProbeV1(listed, probe).filter(
+    (r) => !(options.skipLocalPending && r.kind === "local_pending")
+  );
   const share =
     String(options.shareName || "").trim() || DOCUMENT_NAS_SHARE;
   const attempts: QnapFallbackAttemptV1[] = [];
@@ -575,6 +681,95 @@ export async function uploadEstimateInvoiceWithFallbackV1(options: {
   let lastHost = resolveDocumentNasTailscaleHost(options.tailscaleHost);
   let lastPort = 5005;
   let lastCode: string | null = null;
+
+  if (probeSummary) {
+    allSteps.push({
+      at: nowIso(),
+      method: "PARALLEL_PROBE",
+      urlOrPath: "hosts+ports",
+      status: probe?.ok ? 200 : null,
+      ok: Boolean(probe?.ok),
+      detail: probeSummary,
+    });
+  }
+
+  // 最速到達ホストがあれば、まずその WebDAV URL で直接試行（ルート一覧と重複可）
+  if (probe?.fastest?.reachable) {
+    const fast = probe.fastest;
+    const directUrl = fast.target.webdavUrl;
+    try {
+      const result = await uploadBatchViaExactWebDav(
+        directUrl,
+        options.username,
+        options.password,
+        options.files
+      );
+      lastHost = result.host;
+      lastPort = result.port;
+      allSteps.push(...result.steps);
+      if (result.ok) {
+        attempts.push({
+          route: "webdav_http_8080",
+          label: `並行採択 ${fast.target.label}`,
+          ok: true,
+          host: result.host,
+          port: result.port,
+          pathRoot: result.pathRoot,
+          absolutePaths: result.absolutePaths,
+        });
+        console.log(
+          `[QNAP fallback] success via parallel-fastest ${result.host}:${result.port} paths=${result.absolutePaths.join(", ")}`
+        );
+        return {
+          ok: true,
+          remoteOk: true,
+          pendingSync: false,
+          route:
+            result.port === 5006
+              ? "webdav_https_5006"
+              : result.port === 5005
+                ? "webdav_http_5005"
+                : result.host === DOCUMENT_NAS_HOST
+                  ? "webdav_lan_8080"
+                  : result.host === DOCUMENT_NAS_NAME ||
+                      result.host.endsWith(".local")
+                    ? "webdav_magic_dns_8080"
+                    : "webdav_http_8080",
+          host: result.host,
+          port: result.port,
+          message: "QNAP保存成功",
+          attempts,
+          files: result.files,
+          errorCode: null,
+          steps: allSteps,
+          savedAbsolutePaths: result.absolutePaths,
+          probeSummary,
+          probe,
+        };
+      }
+      const classified = classifyQnapNetworkError(result.error || "", null);
+      lastCode = classified.errorCode;
+      attempts.push({
+        route: "webdav_http_8080",
+        label: `並行採択 ${fast.target.label}`,
+        ok: false,
+        error: result.error,
+        host: result.host,
+        port: result.port,
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      lastCode = classifyQnapNetworkError(msg, null).errorCode;
+      attempts.push({
+        route: "webdav_http_8080",
+        label: `並行採択 ${fast.target.label}`,
+        ok: false,
+        error: msg,
+        host: fast.target.host,
+        port: fast.target.port,
+      });
+    }
+  }
 
   for (const route of routes) {
     if (route.kind === "local_pending") {
@@ -585,6 +780,13 @@ export async function uploadEstimateInvoiceWithFallbackV1(options: {
         host: lastHost,
         port: lastPort,
       });
+      const summaryMsg =
+        probeSummary ||
+        formatQnapProbeResultSummaryV1({
+          ok: false,
+          fastest: null,
+          hits: [],
+        });
       return {
         ok: true,
         remoteOk: false,
@@ -592,7 +794,7 @@ export async function uploadEstimateInvoiceWithFallbackV1(options: {
         route: "local_pending",
         host: lastHost,
         port: lastPort,
-        message: "一時保存完了（QNAPへ自動同期待ち）",
+        message: `一時保存完了（QNAPへ自動同期待ち）｜${summaryMsg}`,
         attempts,
         files: options.files.map((f) => ({
           ...f,
@@ -602,7 +804,19 @@ export async function uploadEstimateInvoiceWithFallbackV1(options: {
         errorCode: lastCode,
         steps: allSteps,
         savedAbsolutePaths: [],
+        probeSummary: summaryMsg,
+        probe,
       };
+    }
+
+    // 並行採択で既に試した URL はスキップ
+    if (
+      probe?.fastest?.reachable &&
+      route.webdavUrl &&
+      route.webdavUrl.replace(/\/+$/, "") ===
+        probe.fastest.target.webdavUrl.replace(/\/+$/, "")
+    ) {
+      continue;
     }
 
     try {
@@ -668,6 +882,8 @@ export async function uploadEstimateInvoiceWithFallbackV1(options: {
           errorCode: null,
           steps: allSteps,
           savedAbsolutePaths: result.absolutePaths,
+          probeSummary,
+          probe,
         };
       }
 
@@ -708,6 +924,9 @@ export async function uploadEstimateInvoiceWithFallbackV1(options: {
     }
   }
 
+  const summaryMsg =
+    probeSummary ||
+    formatQnapProbeResultSummaryV1({ ok: false, fastest: null, hits: [] });
   return {
     ok: true,
     remoteOk: false,
@@ -715,11 +934,13 @@ export async function uploadEstimateInvoiceWithFallbackV1(options: {
     route: "local_pending",
     host: lastHost,
     port: lastPort,
-    message: "一時保存完了（QNAPへ自動同期待ち）",
+    message: `一時保存完了（QNAPへ自動同期待ち）｜${summaryMsg}`,
     attempts,
     files: options.files.map((f) => ({ ...f, ok: true })),
     errorCode: lastCode,
     steps: allSteps,
     savedAbsolutePaths: [],
+    probeSummary: summaryMsg,
+    probe,
   };
 }

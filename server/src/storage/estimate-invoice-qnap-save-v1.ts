@@ -115,6 +115,8 @@ export type EstimateInvoiceQnapSaveResultV1 = {
   pendingSync?: boolean;
   /** 成功したフォールバックルート */
   fallbackRoute?: QnapFallbackRouteKindV1 | null;
+  /** 並行ホスト探索サマリー（不通ホスト:ポート一覧） */
+  probeSummary?: string | null;
   jobId?: string | null;
 };
 
@@ -267,7 +269,7 @@ async function ensureKindPdf(
 
 /**
  * VPS→QNAP 接続テスト（タイムアウト／拒否を現場向け文言へ）
- * スマートポート探索で応答した URL を webdavUrl として返す。
+ * 並行ホスト探索で最速ルートを採択し、その URL を webdavUrl として返す。
  */
 export async function probeVpsToQnapConnection(
   cfg: QnapUploadConfig
@@ -279,12 +281,68 @@ export async function probeVpsToQnapConnection(
   latencyMs: number;
   errorCode: string | null;
   message: string;
+  probeSummary?: string | null;
 }> {
   const started = Date.now();
   let lastMsg = "";
   let lastCode: string | null = null;
   let lastHostPort = parseHostPortFromWebDavUrl(cfg.webdavUrl);
   let lastWebDavUrl = cfg.webdavUrl;
+  let probeSummary: string | null = null;
+
+  try {
+    const {
+      probeQnapHostsInParallelV1,
+    } = await import("./qnap-parallel-host-probe-v1.js");
+    const { qnapBasicAuthHeaders } = await import("./qnap-basic-auth-v1.js");
+    const parallel = await probeQnapHostsInParallelV1({
+      tailscaleHost: lastHostPort.host,
+      lanHost: resolveDocumentNasLocalHost(null),
+      shareName: (() => {
+        try {
+          return (
+            new URL(cfg.webdavUrl).pathname.replace(/^\/+|\/+$/g, "").split("/")[0] ||
+            "TiSLY"
+          );
+        } catch {
+          return "TiSLY";
+        }
+      })(),
+      headers: qnapBasicAuthHeaders(cfg.username, cfg.password),
+    });
+    probeSummary = parallel.summary;
+    if (parallel.fastest?.reachable) {
+      const f = parallel.fastest;
+      const client = new QnapWebDavClient({
+        ...cfg,
+        mode: "real",
+        webdavUrl: f.target.webdavUrl,
+      });
+      const result = await client.testConnection();
+      if (result.ok) {
+        const effectiveUrl =
+          result.webdavUrl || client.getEffectiveWebDavUrl() || f.target.webdavUrl;
+        const parsed = parseHostPortFromWebDavUrl(effectiveUrl);
+        return {
+          ok: true,
+          host: parsed.host,
+          port: parsed.port,
+          webdavUrl: effectiveUrl,
+          latencyMs: Date.now() - started,
+          errorCode: null,
+          message: documentNasConnectSuccessMessage(parsed.port),
+          probeSummary,
+        };
+      }
+      lastMsg = result.message;
+      lastWebDavUrl = f.target.webdavUrl;
+      lastHostPort = { host: f.target.host, port: f.target.port };
+      lastCode = classifyQnapNetworkError(result.message, null).errorCode;
+    }
+  } catch (e) {
+    lastMsg = e instanceof Error ? e.message : String(e);
+    lastCode = classifyQnapNetworkError(lastMsg, null).errorCode;
+  }
 
   for (let attempt = 1; attempt <= CONNECT_RETRY_COUNT; attempt += 1) {
     try {
@@ -303,6 +361,7 @@ export async function probeVpsToQnapConnection(
           latencyMs,
           errorCode: null,
           message: documentNasConnectSuccessMessage(parsed.port),
+          probeSummary,
         };
       }
       lastMsg = result.message;
@@ -329,7 +388,6 @@ export async function probeVpsToQnapConnection(
 
   const classified = classifyQnapNetworkError(lastMsg, null);
   const errorCode = lastCode || classified.errorCode;
-  // 全ポート拒否時はコントロールパネル案内メッセージを優先
   const allPortsRefused =
     errorCode === "ECONNREFUSED" ||
     /ECONNREFUSED/i.test(lastMsg) ||
@@ -345,8 +403,9 @@ export async function probeVpsToQnapConnection(
       lastHostPort.host,
       lastHostPort.port,
       allPortsRefused ? "ECONNREFUSED" : errorCode || classified.errorCode,
-      classified.errorReason || lastMsg
+      probeSummary || classified.errorReason || lastMsg
     ),
+    probeSummary,
   };
 }
 
@@ -694,6 +753,7 @@ export async function saveEstimateInvoicePdfsToQnapV1(
       errorCode: null,
       pendingSync: false,
       fallbackRoute: fallback.route,
+      probeSummary: fallback.probeSummary || null,
       jobId,
     };
     appendQnapSaveDebugLogV1({
@@ -720,6 +780,11 @@ export async function saveEstimateInvoicePdfsToQnapV1(
   }
 
   // 全滅 → ローカル一時保持（ユーザー体験を落とさない）
+  const attemptDetail =
+    fallback.attempts
+      .filter((a) => !a.ok)
+      .map((a) => `${a.route}: ${a.error || "fail"}`)
+      .join("; ") || "all remote routes failed";
   enqueueEstimateInvoiceQnapPendingV1({
     projectId,
     files: uploadable.map((f) => ({
@@ -728,14 +793,14 @@ export async function saveEstimateInvoicePdfsToQnapV1(
       remotePath: f.remotePath,
       displayPath: f.displayPath,
     })),
-    lastError:
-      fallback.attempts
-        .filter((a) => !a.ok)
-        .map((a) => `${a.route}: ${a.error || "fail"}`)
-        .join("; ") || "all remote routes failed",
+    lastError: [fallback.probeSummary, attemptDetail].filter(Boolean).join("｜"),
   });
 
-  const pendingMsg = documentNasPdfSavePendingMessage();
+  const pendingMsg =
+    fallback.message ||
+    (fallback.probeSummary
+      ? `${documentNasPdfSavePendingMessage()}｜${fallback.probeSummary}`
+      : documentNasPdfSavePendingMessage());
   const result: EstimateInvoiceQnapSaveResultV1 = {
     ok: true,
     mock: false,
@@ -756,6 +821,7 @@ export async function saveEstimateInvoicePdfsToQnapV1(
     errorCode: fallback.errorCode || "PENDING_SYNC",
     pendingSync: true,
     fallbackRoute: "local_pending",
+    probeSummary: fallback.probeSummary || null,
     jobId,
   };
   appendQnapSaveDebugLogV1({
@@ -776,11 +842,7 @@ export async function saveEstimateInvoicePdfsToQnapV1(
       ok: s.ok,
       detail: s.detail,
     })),
-    error:
-      fallback.attempts
-        .filter((a) => !a.ok)
-        .map((a) => `${a.route}: ${a.error || "fail"}`)
-        .join("; ") || null,
+    error: attemptDetail,
   });
   if (jobId) markJobFromSaveResultV1(jobId, result);
   return result;

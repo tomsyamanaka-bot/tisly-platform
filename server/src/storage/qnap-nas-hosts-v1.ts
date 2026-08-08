@@ -161,12 +161,17 @@ export function formatVpsToQnapProxyError(
   const dest =
     Number.isFinite(p) && p > 0 ? `${h}:${p}` : h;
   const code = String(errorCode || "").trim();
+  const extra = String(detail || "").trim();
 
   if (code === "ETIMEDOUT" || /timeout/i.test(code)) {
     return `VPSから ${DOCUMENT_NAS_NAME} への接続がタイムアウトしました。Tailscale / LAN接続状態を確認してください`;
   }
   if (code === "ECONNREFUSED" || code === "ALL_PORTS_REFUSED") {
-    return `QNAP (${h}) の WebDAV サービスが有効になっているか、QNAPコントロールパネルをご確認ください`;
+    const base = `QNAP (${h}) の WebDAV サービスが有効になっているか、QNAPコントロールパネルをご確認ください`;
+    if (extra && (extra.includes("=") || extra.includes("不通") || extra.includes(":"))) {
+      return `${base}｜${extra}`;
+    }
+    return base;
   }
   if (code === "EHOSTUNREACH" || code === "ENETUNREACH") {
     return `VPSから${dest}へ到達できません。VPN（Tailscale）やルーティングを確認してください`;
@@ -186,7 +191,6 @@ export function formatVpsToQnapProxyError(
   if (code === "NOT_CONFIGURED") {
     return "QNAP接続情報が未設定です。ストレージ設定または QNAP_WEBDAV_URL / QNAP_LOCAL_HOST を確認してください";
   }
-  const extra = String(detail || "").trim();
   if (extra && !extra.includes(`VPSから${dest}`)) {
     return `VPSから${dest}へのQNAP保存に失敗しました（${code || "ERROR"}）: ${extra}`;
   }

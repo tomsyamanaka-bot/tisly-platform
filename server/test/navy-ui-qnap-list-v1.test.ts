@@ -173,7 +173,7 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
     assert.doesNotMatch(src, /isQnapStorageMockMode/);
   });
 
-  it("fallback routes prefer 8080 then 5005/5006 File Station and LAN", async () => {
+  it("fallback routes prefer 8080 then 5005/5006 File Station MagicDNS and LAN", async () => {
     const {
       listQnapFallbackRoutesV1,
       DOCUMENT_NAS_TAILSCALE_HOST_DEFAULT,
@@ -194,9 +194,10 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
     assert.match(String(routes[2].webdavUrl), /100\.99\.31\.120:5005/);
     assert.equal(routes[3].kind, "webdav_https_5006");
     assert.match(String(routes[3].webdavUrl), /100\.99\.31\.120:5006/);
-    assert.equal(routes[4].kind, "webdav_lan_8080");
-    assert.match(String(routes[4].webdavUrl), /192\.168\.1\.134:8080/);
-    assert.equal(routes[5].kind, "local_pending");
+    assert.ok(routes.some((r) => r.kind === "webdav_magic_dns_8080"));
+    assert.equal(routes[routes.length - 2].kind, "webdav_lan_8080");
+    assert.match(String(routes[routes.length - 2].webdavUrl), /192\.168\.1\.134:8080/);
+    assert.equal(routes[routes.length - 1].kind, "local_pending");
   });
 
   it("pending store enqueues and lists items", async () => {

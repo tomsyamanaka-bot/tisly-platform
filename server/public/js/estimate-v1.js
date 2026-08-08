@@ -1470,20 +1470,27 @@ function qnapSaveSuccessToastMessage(resultOrHost) {
 /** API 応答から現場向けトースト文言を抽出（成功・失敗共通） */
 function qnapSaveFeedbackMessage(body, httpStatus) {
   if (body?.pendingSync || body?.fallbackRoute === "local_pending") {
-    return documentNasPdfSavePendingMessage();
+    const base = documentNasPdfSavePendingMessage();
+    const summary = String(body?.probeSummary || "").trim();
+    return summary ? `${base}｜${summary}` : base;
   }
   const raw = String(body?.message || body?.error || "").trim();
   if (raw) return raw;
   const code = String(body?.errorCode || "").trim();
+  const summary = String(body?.probeSummary || "").trim();
   if (code === "PENDING_SYNC") {
-    return documentNasPdfSavePendingMessage();
+    const base = documentNasPdfSavePendingMessage();
+    return summary ? `${base}｜${summary}` : base;
   }
   if (code === "ETIMEDOUT" || /timeout/i.test(code)) {
-    return "VPSから nastoms への接続がタイムアウトしました。Tailscale / LAN接続状態を確認してください";
+    const base =
+      "VPSから nastoms への接続がタイムアウトしました。Tailscale / LAN接続状態を確認してください";
+    return summary ? `${base}｜${summary}` : base;
   }
   if (code === "ECONNREFUSED" || code === "ALL_PORTS_REFUSED") {
     const h = String(body?.host || "").trim() || "100.99.31.120";
-    return `QNAP (${h}) の WebDAV サービスが有効になっているか、QNAPコントロールパネルをご確認ください`;
+    const base = `QNAP (${h}) の WebDAV サービスが有効になっているか、QNAPコントロールパネルをご確認ください`;
+    return summary ? `${base}｜${summary}` : base;
   }
   if (
     code === "401 Unauthorized" ||
@@ -1493,7 +1500,8 @@ function qnapSaveFeedbackMessage(body, httpStatus) {
   ) {
     return "QNAP認証エラー: ストレージ設定画面で QNAP (nastoms) のログインパスワードを確認・入力してください";
   }
-  return `QNAP保存に失敗しました（HTTP ${httpStatus || "?"}）`;
+  const fail = `QNAP保存に失敗しました（HTTP ${httpStatus || "?"}）`;
+  return summary ? `${fail}｜${summary}` : fail;
 }
 
 async function saveListProjectToQnap(projectId, btn) {
@@ -1593,7 +1601,14 @@ function formatQnapSaveDoneToast(body) {
       ? body.result.savedAbsolutePaths.filter(Boolean)
       : [];
   if (body?.pendingSync || body?.status === "pending_sync") {
-    return documentNasPdfSavePendingMessage();
+    const base = documentNasPdfSavePendingMessage();
+    const summary = String(
+      body?.probeSummary || body?.result?.probeSummary || body?.message || ""
+    ).trim();
+    if (summary.includes("不通") || summary.includes("=")) {
+      return summary.startsWith("一時保存") ? summary : `${base}｜${summary}`;
+    }
+    return base;
   }
   if (body?.status === "failed" || body?.ok === false) {
     return qnapSaveFeedbackMessage(body?.result || body, 0);
