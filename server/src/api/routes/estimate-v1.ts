@@ -1308,34 +1308,55 @@ estimateV1Router.post(
   }
 );
 
-/** 非同期 QNAP 保存ジョブの結果ポーリング */
+/** 非同期 QNAP 保存ジョブの結果ポーリング（PWA 1秒間隔・最大10秒） */
+function respondEstimateInvoiceQnapJobV1(
+  req: AuthedRequest,
+  res: Response
+): void {
+  if (!assertEstimateV1Role(req, res)) return;
+  const job = getEstimateInvoiceQnapJobV1(String(req.params.jobId || ""));
+  if (!job) {
+    res.status(404).json({ ok: false, error: "job not found" });
+    return;
+  }
+  const done =
+    job.status === "success" ||
+    job.status === "pending_sync" ||
+    job.status === "failed";
+  const probeSummary =
+    job.result?.probeSummary ||
+    (typeof job.result?.error === "string" &&
+    (job.result.error.includes("=") || job.result.error.includes("不通"))
+      ? job.result.error
+      : null);
+  res.json({
+    ok: job.status !== "failed",
+    done,
+    jobId: job.id,
+    projectId: job.projectId,
+    status: job.status,
+    message: job.message,
+    savedAbsolutePaths: job.savedAbsolutePaths || [],
+    pendingSync: job.status === "pending_sync",
+    error: job.error || null,
+    errorCode: job.result?.errorCode || null,
+    host: job.result?.host || null,
+    probeSummary: probeSummary || null,
+    result: job.result || null,
+    createdAt: job.createdAt,
+    updatedAt: job.updatedAt,
+  });
+}
+
+estimateV1Router.get(
+  "/projects/qnap-jobs/:jobId",
+  ...estimateV1Auth,
+  respondEstimateInvoiceQnapJobV1
+);
+
+/** 互換エイリアス（旧ポーリング URL） */
 estimateV1Router.get(
   "/qnap-save-jobs/:jobId",
   ...estimateV1Auth,
-  async (req: AuthedRequest, res) => {
-    if (!assertEstimateV1Role(req, res)) return;
-    const job = getEstimateInvoiceQnapJobV1(String(req.params.jobId || ""));
-    if (!job) {
-      res.status(404).json({ ok: false, error: "job not found" });
-      return;
-    }
-    const done =
-      job.status === "success" ||
-      job.status === "pending_sync" ||
-      job.status === "failed";
-    res.json({
-      ok: true,
-      done,
-      jobId: job.id,
-      projectId: job.projectId,
-      status: job.status,
-      message: job.message,
-      savedAbsolutePaths: job.savedAbsolutePaths || [],
-      pendingSync: job.status === "pending_sync",
-      error: job.error || null,
-      result: job.result || null,
-      createdAt: job.createdAt,
-      updatedAt: job.updatedAt,
-    });
-  }
+  respondEstimateInvoiceQnapJobV1
 );

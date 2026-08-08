@@ -63,9 +63,9 @@ export function documentNasPdfSaveSuccessMessage(
         ? [String(absolutePaths).trim()]
         : [];
   if (paths.length > 0) {
-    return `QNAP保存成功: ${paths.join(" / ")}`;
+    return `${DOCUMENT_NAS_NAME} への保存が完了しました（${paths.join(" / ")}）`;
   }
-  return "QNAP保存成功";
+  return `${DOCUMENT_NAS_NAME} への保存が完了しました`;
 }
 
 /** リモート全滅時のローカル一時保存トースト */

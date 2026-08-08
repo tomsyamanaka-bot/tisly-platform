@@ -27,6 +27,7 @@ import {
 } from "./tisly-voice-input-v1.js";
 import {
   documentNasSaveSuccessMessage,
+  documentNasPdfSaveSuccessMessage,
   documentNasPdfSavePendingMessage,
   documentNasPdfSaveRequestSentMessage,
   getStoredDocumentNasHost,
@@ -273,11 +274,20 @@ async function bootstrapEstimateData() {
   }
 }
 
-function toast(msg) {
+function toast(msg, opts = {}) {
   const el = $("toast");
+  if (!el) return;
+  const kind = String(opts.kind || "").trim();
+  const durationMs = Number(opts.durationMs) > 0 ? Number(opts.durationMs) : 2200;
   el.textContent = msg;
+  el.classList.remove("toast-success", "toast-error", "show");
+  if (kind === "success") el.classList.add("toast-success");
+  if (kind === "error") el.classList.add("toast-error");
   el.classList.add("show");
-  setTimeout(() => el.classList.remove("show"), 2200);
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => {
+    el.classList.remove("show", "toast-success", "toast-error");
+  }, durationMs);
 }
 
 function toastError(err, status) {
@@ -1553,13 +1563,19 @@ async function saveListProjectToQnap(projectId, btn) {
         }
         return;
       }
-      toast(formatQnapSaveDoneToast(body));
+      showQnapSaveDoneToast(body);
       return;
     }
 
-    toast(qnapSaveFeedbackMessage(body, res.status));
+    toast(qnapSaveFeedbackMessage(body, res.status), {
+      kind: "error",
+      durationMs: 5200,
+    });
   } catch (e) {
-    toast(e?.message || "QNAP保存を完了できませんでした（後で再試行できます）");
+    toast(e?.message || "QNAP保存を完了できませんでした（後で再試行できます）", {
+      kind: "error",
+      durationMs: 4200,
+    });
   } finally {
     if (btn) {
       btn.classList.remove("is-loading");
@@ -1569,29 +1585,33 @@ async function saveListProjectToQnap(projectId, btn) {
   }
 }
 
-/** 非同期ジョブ完了後に絶対パス付きトーストを出す */
+/** 非同期ジョブ完了後に絶対パス付きトーストを出す（1秒間隔・最大10秒） */
 async function pollQnapSaveJobAndToast(jobId, token) {
-  const maxAttempts = 40;
-  const delayMs = 1500;
+  const maxAttempts = 10;
+  const delayMs = 1000;
   for (let i = 0; i < maxAttempts; i += 1) {
     await new Promise((r) => setTimeout(r, delayMs));
     try {
       const res = await fetch(
-        `/api/estimate/v1/qnap-save-jobs/${encodeURIComponent(jobId)}`,
+        `/api/estimate/v1/projects/qnap-jobs/${encodeURIComponent(jobId)}`,
         {
           headers: { Authorization: `Bearer ${token}` },
-          signal: AbortSignal.timeout(10_000),
+          signal: AbortSignal.timeout(8_000),
         }
       );
       if (!res.ok) continue;
       const body = await res.json().catch(() => null);
       if (!body?.done) continue;
-      toast(formatQnapSaveDoneToast(body));
+      showQnapSaveDoneToast(body);
       return;
     } catch {
       /* ポーリング継続 */
     }
   }
+  toast("QNAP保存の完了確認がタイムアウトしました。ストレージ設定のデバッグログを確認してください", {
+    kind: "error",
+    durationMs: 4200,
+  });
 }
 
 function formatQnapSaveDoneToast(body) {
@@ -1611,14 +1631,42 @@ function formatQnapSaveDoneToast(body) {
     return base;
   }
   if (body?.status === "failed" || body?.ok === false) {
-    return qnapSaveFeedbackMessage(body?.result || body, 0);
+    return qnapSaveFeedbackMessage(
+      {
+        ...(body?.result || {}),
+        ...body,
+        probeSummary:
+          body?.probeSummary ||
+          body?.result?.probeSummary ||
+          body?.error ||
+          null,
+      },
+      0
+    );
   }
   const msg = String(body?.message || body?.result?.message || "").trim();
-  if (msg.startsWith("QNAP保存成功")) return msg;
-  if (paths.length > 0) {
-    return `QNAP保存成功: ${paths.join(" / ")}`;
+  if (msg.includes("への保存が完了しました") || msg.startsWith("QNAP保存成功")) {
+    return msg;
   }
-  return msg || "QNAP保存成功";
+  if (paths.length > 0) {
+    return documentNasPdfSaveSuccessMessage(paths);
+  }
+  return msg || documentNasPdfSaveSuccessMessage();
+}
+
+function showQnapSaveDoneToast(body) {
+  const text = formatQnapSaveDoneToast(body);
+  const failed = body?.status === "failed" || body?.ok === false;
+  const pending = body?.pendingSync || body?.status === "pending_sync";
+  if (failed) {
+    toast(text, { kind: "error", durationMs: 5200 });
+    return;
+  }
+  if (pending) {
+    toast(text, { durationMs: 4200 });
+    return;
+  }
+  toast(text, { kind: "success", durationMs: 4200 });
 }
 
 function toggleSelection(id, cardNode) {

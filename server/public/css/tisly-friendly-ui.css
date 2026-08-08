@@ -428,10 +428,23 @@ body.tisly-friendly {
   opacity: 0;
   transition: opacity 0.2s;
   pointer-events: none;
+  max-width: min(92vw, 36rem);
+  text-align: center;
+  line-height: 1.4;
 }
 
 .tisly-friendly .toast.show {
   opacity: 1;
+}
+
+.tisly-friendly .toast.toast-success {
+  background: #15803d;
+  color: #fff;
+}
+
+.tisly-friendly .toast.toast-error {
+  background: #b91c1c;
+  color: #fff;
 }
 
 .tisly-friendly .hidden {

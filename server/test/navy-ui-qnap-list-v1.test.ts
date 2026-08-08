@@ -90,6 +90,8 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
     assert.match(friendly, /--tisly-navy:\s*#1e3a8a/);
     assert.match(friendly, /data-action="qnap-save"/);
     assert.match(friendly, /color:\s*#1e3a8a/);
+    assert.match(friendly, /\.toast\.toast-success/);
+    assert.match(friendly, /background:\s*#15803d/);
   });
 
   it("estimate list uses VPS proxy only (no browser direct fallback)", () => {
@@ -232,10 +234,13 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
     const js = read("js/estimate-v1.js");
     const direct = read("js/qnap-client-direct-v1.js");
     assert.match(js, /documentNasSaveSuccessMessage/);
+    assert.match(js, /documentNasPdfSaveSuccessMessage/);
     assert.match(js, /documentNasPdfSavePendingMessage/);
     assert.match(js, /pendingSync/);
-    assert.match(js, /QNAP保存成功/);
-    assert.match(direct, /QNAP保存成功/);
+    assert.match(js, /への保存が完了しました/);
+    assert.match(js, /showQnapSaveDoneToast/);
+    assert.match(js, /toast-success/);
+    assert.match(direct, /への保存が完了しました/);
     assert.match(direct, /一時保存完了（QNAPへ自動同期待ち）/);
     assert.match(direct, /documentNasPdfSavePendingMessage/);
   });
@@ -398,18 +403,22 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
     assert.match(routeSrc, /documentNasPdfSaveAcceptedMessage/);
     assert.match(routeSrc, /createEstimateInvoiceQnapJobV1/);
     assert.match(routeSrc, /jobId: job\.id/);
+    assert.match(routeSrc, /projects\/qnap-jobs/);
     assert.match(routeSrc, /qnap-save-jobs/);
     assert.match(routeSrc, /void saveEstimateInvoicePdfsToQnapV1/);
 
     const js = read("js/estimate-v1.js");
     assert.match(js, /pollQnapSaveJobAndToast/);
     assert.match(js, /formatQnapSaveDoneToast/);
+    assert.match(js, /projects\/qnap-jobs/);
+    assert.match(js, /maxAttempts = 10/);
+    assert.match(js, /delayMs = 1000/);
     assert.match(js, /savedAbsolutePaths/);
   });
 
-  it("service worker bumps qnap cred save cache", () => {
+  it("service worker bumps qnap job poll toast cache", () => {
     const sw = read("service-worker.js");
-    assert.match(sw, /tisly-pwa-v2436-qnap-cred-save/);
+    assert.match(sw, /tisly-pwa-v2437-qnap-job-poll-toast/);
   });
 
   it("storage settings exposes save debug logs UI and API", () => {
@@ -454,14 +463,17 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
     );
     assert.equal(
       documentNasSaveSuccessMessage("192.168.1.134", 5005, "Invoices_Estimates"),
-      "QNAP保存成功: Invoices_Estimates"
+      "nastoms への保存が完了しました（Invoices_Estimates）"
     );
-    assert.equal(documentNasPdfSaveSuccessMessage(), "QNAP保存成功");
+    assert.equal(
+      documentNasPdfSaveSuccessMessage(),
+      "nastoms への保存が完了しました"
+    );
     assert.equal(
       documentNasPdfSaveSuccessMessage([
         "/Public/TiSLY/Invoices_Estimates/2026-08/見積書.pdf",
       ]),
-      "QNAP保存成功: /Public/TiSLY/Invoices_Estimates/2026-08/見積書.pdf"
+      "nastoms への保存が完了しました（/Public/TiSLY/Invoices_Estimates/2026-08/見積書.pdf）"
     );
     assert.equal(
       documentNasPdfSavePendingMessage(),

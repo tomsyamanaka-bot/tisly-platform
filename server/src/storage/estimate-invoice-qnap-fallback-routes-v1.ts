@@ -27,6 +27,7 @@ import {
   DOCUMENT_NAS_HOST,
   DOCUMENT_NAS_NAME,
   DOCUMENT_NAS_SHARE,
+  documentNasPdfSaveSuccessMessage,
 } from "./qnap-nas-hosts-v1.js";
 import { classifyQnapNetworkError } from "./qnap-network-diagnose-v1.js";
 import {
@@ -211,7 +212,7 @@ export function listQnapFallbackRoutesV1(options?: {
 
 /**
  * 並行探索結果に基づき、到達ホストのルートを先頭へ並べ替える。
- * File Station は同一ホスト:8080 が到達済みなら直後に置く。
+ * 100.x:8080（WebDAV / File Station）が到達済みなら常に最優先。
  */
 export function orderQnapFallbackRoutesByProbeV1(
   routes: QnapFallbackRouteV1[],
@@ -246,9 +247,21 @@ export function orderQnapFallbackRoutesByProbeV1(
             port === 8080))
     );
     if (!hit) return 900_000;
-    // File Station は同ホスト WebDAV の直後（+0.5）
-    const bias = route.kind === "file_station_8080" ? 0.5 : 0;
-    return hit.latencyMs + bias;
+    // 到達確認済み 8080（WebDAV → File Station）を他ポートより常に優先
+    const is8080 =
+      port === 8080 ||
+      route.kind === "webdav_http_8080" ||
+      route.kind === "file_station_8080" ||
+      route.kind === "webdav_magic_dns_8080" ||
+      route.kind === "webdav_lan_8080";
+    const portBias = is8080 ? 0 : 100_000;
+    const kindBias =
+      route.kind === "webdav_http_8080"
+        ? 0
+        : route.kind === "file_station_8080"
+          ? 0.5
+          : 1;
+    return portBias + hit.latencyMs + kindBias;
   };
 
   const ordered = [...remote].sort((a, b) => score(a) - score(b));
@@ -737,7 +750,7 @@ export async function uploadEstimateInvoiceWithFallbackV1(options: {
                     : "webdav_http_8080",
           host: result.host,
           port: result.port,
-          message: "QNAP保存成功",
+          message: documentNasPdfSaveSuccessMessage(result.absolutePaths),
           attempts,
           files: result.files,
           errorCode: null,
@@ -876,7 +889,7 @@ export async function uploadEstimateInvoiceWithFallbackV1(options: {
           route: route.kind,
           host: result.host,
           port: result.port,
-          message: "QNAP保存成功",
+          message: documentNasPdfSaveSuccessMessage(result.absolutePaths),
           attempts,
           files: result.files,
           errorCode: null,
