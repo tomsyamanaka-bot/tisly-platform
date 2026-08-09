@@ -43,6 +43,10 @@ export const PWA_ROUTE_CATALOG_V1: PwaRouteEntryV1[] = [
   { path: "/remote-v1", label: "Remote v1", group: "iot", kind: "page" },
   { path: "/knowledge-field-v1", label: "現場ナレッジ", group: "knowledge", kind: "page" },
   { path: "/knowledge-module-v1", label: "ナレッジモジュール", group: "knowledge", kind: "page" },
+  // TiSLY Eco-Water（追記）
+  { path: "/eco-water-v1", label: "Eco-Water 排水中和", group: "iot", kind: "page" },
+  { path: "/app/eco-water", label: "Eco-Water (App)", group: "iot", kind: "page" },
+  { path: "/customer/eco-water", label: "Eco-Water (Customer)", group: "iot", kind: "page" },
   { path: "/api/health", label: "Health API", group: "api", kind: "api" },
   { path: "/api/survey/v1/projects", label: "Survey API", group: "api", kind: "api" },
   { path: "/api/estimate/v1/projects", label: "Estimate API", group: "api", kind: "api" },

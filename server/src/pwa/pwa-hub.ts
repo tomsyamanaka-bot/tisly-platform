@@ -283,6 +283,17 @@ const PRACTICAL_PWA_DEFS: Array<
     themeColor: "#0ea5e9",
     readyRoles: ["surveyor", "manager", "owner", "admin", "super_admin"],
   },
+  // TiSLY Eco-Water — アルカリ排水自動中和デモ（追記）
+  {
+    id: "eco_water_v1",
+    label: "Eco-Water（排水中和）",
+    subtitle: "生コン・工場向けアルカリ排水の自動中和",
+    icon: "💧",
+    features: ["pHリアルタイム", "CO₂バルブ連動", "デモ中和", "放流証明書"],
+    href: "/eco-water-v1",
+    themeColor: "#1e3a8a",
+    readyRoles: ["surveyor", "manager", "owner", "admin", "super_admin", "viewer"],
+  },
 ];
 
 export function buildPracticalHubCards(role: string): PracticalPwaCard[] {

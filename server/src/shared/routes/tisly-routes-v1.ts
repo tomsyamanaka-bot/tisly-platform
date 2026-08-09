@@ -29,6 +29,8 @@ export const TISLY_INTERNAL_ROUTES_V1: TislyRouteEntryV1[] = [
   { path: "/project-mgmt-detail-v1", label: "案件詳細", zone: "internal" },
   { path: "/document-center-v1", label: "書類センター", zone: "internal" },
   { path: "/customer-admin-v1", label: "Customer Master管理", zone: "internal" },
+  { path: "/eco-water-v1", label: "Eco-Water 排水中和", zone: "internal" },
+  { path: "/app/eco-water", label: "Eco-Water (App)", zone: "internal" },
   { path: "/route-health", label: "Route Health", zone: "diagnostics" },
 ];
 
@@ -39,6 +41,7 @@ export const TISLY_CUSTOMER_ROUTES_V1: TislyRouteEntryV1[] = [
   { path: "/customer/project/:shareId", label: "お客様案件詳細", zone: "customer" },
   { path: "/customer/document/:shareId", label: "お客様資料閲覧", zone: "customer" },
   { path: "/customer/monitoring/:shareId", label: "お客様監視画面", zone: "customer" },
+  { path: "/customer/eco-water", label: "Eco-Water 水質", zone: "customer" },
 ];
 
 /** 旧 URL → 新 URL（301 永久リダイレクト） */
@@ -65,6 +68,7 @@ export const TISLY_CUSTOMER_RESERVED_SEGMENTS = new Set([
   "document",
   "monitoring",
   "new",
+  "eco-water",
 ]);
 
 export function isCustomerReservedSegmentV1(segment: string): boolean {

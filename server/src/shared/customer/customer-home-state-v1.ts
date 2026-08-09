@@ -24,6 +24,10 @@ function buildCardUrl(
   shareId: string,
   card: (typeof CUSTOMER_HOME_CARDS_V1)[number]
 ): string {
+  // Eco-Water など固定パスカード（追記分岐）
+  if ("path" in card && card.path) {
+    return card.path;
+  }
   if ("view" in card && card.view) {
     return `${buildCustomerMonitoringUrlV1(shareId)}?view=${card.view}`;
   }

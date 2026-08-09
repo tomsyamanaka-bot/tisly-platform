@@ -1002,6 +1002,25 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | テスト | `server/test/navy-ui-qnap-list-v1.test.ts` |
 | 確認 | `/estimate-v1` · https://tisly.jp/api/health |
 
+### TiSLY Eco-Water v1（完成済み — アルカリ排水自動中和デモ）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | 生コンプラント／工場向け **アルカリ排水自動中和** の営業・現場デモ UI |
+| 画面 | `/eco-water-v1` · `/app/eco-water` · `/customer/eco-water` |
+| Phase a | pH 特大表示 · 危険/安全バッジ · CO₂電磁弁インジケータ（開=点滅） |
+| Phase b | Chart.js 折れ線 · pH 8.5 中和開始 · 5.8〜8.6 安全ゾーン |
+| Phase c | デモ: アルカリ投入(pH12.3) · 自動中和(12.3→7.2) · バルブ連動 |
+| Phase d | 水質安全証明書モーダル · 改ざん防止ハッシュ · 印刷/PDF |
+| Phase e | 月額保守カード（校正合格・次回2026/09/01 · PoE/Modbus-RTU） |
+| App Hub | `practicalApps` に `eco_water_v1` カード追記 |
+| Customer | ホームカード「水質・排水」追記（既存6カードは非改変） |
+| UI | 白 `#FFFFFF/#F8FAFC` × ネイビー `#1E3A8A/#0F172A` |
+| SW | `tisly-pwa-v2438-eco-water` |
+| コード | `server/public/eco-water-v1.html` · `js/features/eco-water/*` · `src/eco-water/eco-water-sim-v1.ts` |
+| テスト | `server/test/eco-water-v1.test.ts` |
+| 確認 | `/eco-water-v1` · `/app` · `/customer` · https://tisly.jp/api/health |
+
 ### マルチ NAS（書類 nastoms / システム TiSLYNAS）v1（完成済み）
 
 | 領域 | 内容 |

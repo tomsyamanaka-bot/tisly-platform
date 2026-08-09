@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#FFFFFF" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="TiSLY Eco-Water" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2003" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <title>TiSLY Eco-Water — アルカリ排水自動中和</title>
+  <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
+  <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
+  <link rel="stylesheet" href="/css/features/eco-water/eco-water-v1.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+</head>
+<body class="ew-body tisly-friendly">
+  <!--
+    TiSLY Eco-Water ダッシュボード
+    生コンプラント／工場向けアルカリ排水自動中和デモ
+  -->
+  <header class="ew-header">
+    <a class="ew-back" href="/app" id="ew-back-link">← 戻る</a>
+    <div class="ew-brand">
+      <p class="ew-brand-name">TiSLY Eco-Water</p>
+      <h1 class="ew-title">アルカリ排水自動中和</h1>
+      <p class="ew-sub">CO₂中和 · pH監視 · 放流証明書</p>
+    </div>
+  </header>
+
+  <main class="ew-main">
+    <!-- a. pHリアルタイムステータス -->
+    <section class="ew-card ew-status-card" aria-live="polite">
+      <div class="ew-status-top">
+        <p class="ew-card-label">現在の pH</p>
+        <span id="ew-status-badge" class="ew-badge ew-badge-safe">
+          安全・放流適合
+        </span>
+      </div>
+      <p class="ew-ph-value">
+        <span id="ew-ph-display">7.2</span>
+        <span class="ew-ph-unit">pH</span>
+      </p>
+      <div class="ew-valve-row">
+        <span class="ew-valve-label">CO₂電磁弁</span>
+        <span id="ew-valve-indicator" class="ew-valve ew-valve-closed" aria-label="バルブ閉">
+          <span class="ew-valve-dot"></span>
+          <span id="ew-valve-text">バルブ閉</span>
+        </span>
+      </div>
+      <p class="ew-site-line" id="ew-site-line">
+        現場: 守谷生コンプラント / 排水ピット A
+      </p>
+    </section>
+
+    <!-- b. pH推移グラフ -->
+    <section class="ew-card ew-chart-card">
+      <p class="ew-card-label">pH リアルタイム推移（直近数分）</p>
+      <div class="ew-chart-wrap">
+        <canvas id="ew-ph-chart" aria-label="pH推移グラフ"></canvas>
+      </div>
+      <ul class="ew-legend">
+        <li><span class="ew-leg-line ew-leg-start"></span> pH 8.5 中和開始</li>
+        <li><span class="ew-leg-zone"></span> pH 5.8〜8.6 安全放流ゾーン</li>
+      </ul>
+    </section>
+
+    <!-- c. デモシミュレーション制御 -->
+    <section class="ew-card ew-demo-card">
+      <p class="ew-card-label">デモシミュレーション制御</p>
+      <p class="ew-demo-hint">
+        営業・現場説明用。実センサー未接続でも中和フローを再現します。
+      </p>
+      <div class="ew-demo-actions">
+        <button type="button" class="ew-btn ew-btn-danger" id="ew-btn-alkaline">
+          【デモ】アルカリ水投入（pH 12.3）
+        </button>
+        <button type="button" class="ew-btn ew-btn-primary" id="ew-btn-neutralize">
+          【デモ】自動中和スタート
+        </button>
+        <button type="button" class="ew-btn ew-btn-ghost" id="ew-btn-reset">
+          初期状態へ戻す
+        </button>
+      </div>
+      <p class="ew-demo-status" id="ew-demo-status" role="status">待機中</p>
+    </section>
+
+    <!-- d. 放流証明書 -->
+    <section class="ew-card ew-cert-card">
+      <p class="ew-card-label">改ざん不可・放流証明書</p>
+      <p class="ew-demo-hint">
+        中和前後の pH と校正情報をハッシュ付きで記録します。
+      </p>
+      <button type="button" class="ew-btn ew-btn-navy" id="ew-btn-cert">
+        水質安全証明書（PDF）を出力
+      </button>
+    </section>
+
+    <!-- e. 月額保守ステータス -->
+    <section class="ew-card ew-maint-card">
+      <p class="ew-card-label">月額保守ステータス</p>
+      <div class="ew-maint-row">
+        <span class="ew-maint-icon ew-ok">✓</span>
+        <div>
+          <p class="ew-maint-title">センサ定例校正ステータス：合格</p>
+          <p class="ew-maint-sub">次回校正日: 2026/09/01</p>
+        </div>
+      </div>
+      <div class="ew-maint-row">
+        <span class="ew-maint-icon ew-ok">✓</span>
+        <div>
+          <p class="ew-maint-title">通信ステータス：さくらVPS Cloud連動正常</p>
+          <p class="ew-maint-sub">PoE / Modbus-RTU</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- 証明書プレビューモーダル -->
+  <div id="ew-cert-modal" class="ew-modal" hidden role="dialog" aria-modal="true" aria-labelledby="ew-cert-title">
+    <div class="ew-modal-backdrop" id="ew-modal-backdrop"></div>
+    <div class="ew-modal-panel">
+      <div class="ew-modal-toolbar no-print">
+        <button type="button" class="ew-btn ew-btn-ghost" id="ew-modal-close">閉じる</button>
+        <button type="button" class="ew-btn ew-btn-navy" id="ew-modal-print">印刷 / PDF保存</button>
+      </div>
+      <article class="ew-certificate" id="ew-certificate">
+        <header class="ew-cert-head">
+          <p class="ew-cert-brand">TiSLY Eco-Water</p>
+          <h2 id="ew-cert-title">水質安全証明書</h2>
+          <p class="ew-cert-sub">改ざん防止ハッシュ付き · 放流適合記録</p>
+        </header>
+        <dl class="ew-cert-dl">
+          <div><dt>会社名</dt><dd id="ew-cert-company">株式会社TOMS</dd></div>
+          <div><dt>現場名</dt><dd id="ew-cert-site">守谷生コンプラント / 排水ピット A</dd></div>
+          <div><dt>計測日時</dt><dd id="ew-cert-measured">—</dd></div>
+          <div><dt>中和前 pH</dt><dd id="ew-cert-before">—</dd></div>
+          <div><dt>中和後 pH</dt><dd id="ew-cert-after">—</dd></div>
+          <div><dt>センサー最終校正日</dt><dd id="ew-cert-calib">2026/08/01</dd></div>
+          <div class="ew-cert-hash-row">
+            <dt>改ざん防止ハッシュID</dt>
+            <dd id="ew-cert-hash" class="ew-cert-hash">—</dd>
+          </div>
+        </dl>
+        <footer class="ew-cert-foot">
+          <p>本証明書は TiSLY OS により自動発行されています。</p>
+          <p>測定値の改ざん検知用ハッシュを付与しています。</p>
+        </footer>
+      </article>
+    </div>
+  </div>
+
+  <nav class="ew-footer-nav" aria-label="Eco-Water ナビ">
+    <a href="/app">アプリ一覧</a>
+    <a href="/customer">お客様</a>
+    <a href="/tisly-monitoring-plant-v1">工場監視</a>
+  </nav>
+
+  <script type="module" src="/js/features/eco-water/eco-water-v1.js"></script>
+</body>
+</html>

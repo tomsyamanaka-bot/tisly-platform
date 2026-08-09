@@ -4,10 +4,10 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2437-qnap-job-poll-toast";
-const OFFLINE_CACHE = "tisly-pwa-shell-v2433-qnap-basic-auth";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2433-qnap-basic-auth";
-const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2433-qnap-basic-auth";
+const SW_VERSION = "tisly-pwa-v2438-eco-water";
+const OFFLINE_CACHE = "tisly-pwa-shell-v2438-eco-water";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2438-eco-water";
+const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2438-eco-water";
 const ICON_V = "?v=2004";
 
 /** 図面エディタ v1 — ES module 群 */
@@ -190,6 +190,15 @@ const SHELL_URLS = [
   "/remote-v1",
   "/js/remote-v1.js",
   "/css/remote-v1.css",
+  // TiSLY Eco-Water（追記）
+  "/eco-water-v1",
+  "/eco-water-v1.html",
+  "/app/eco-water",
+  "/customer/eco-water",
+  "/js/features/eco-water/eco-water-v1.js",
+  "/js/features/eco-water/eco-water-sim-v1.js",
+  "/js/features/eco-water/eco-water-chart-v1.js",
+  "/css/features/eco-water/eco-water-v1.css",
   "/knowledge-v1",
   "/js/knowledge-v1.js",
   "/css/knowledge-v1.css",

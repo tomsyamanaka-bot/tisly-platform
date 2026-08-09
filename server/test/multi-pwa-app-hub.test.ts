@@ -100,6 +100,9 @@ describe("Phase 461-480 multi PWA app hub", () => {
     const printViewer = apps.find((a: { id: string }) => a.id === "print_model_viewer_v1");
     assert.equal(printViewer?.status, "ready");
     assert.equal(printViewer?.url, "/print-model-viewer");
+    const ecoWater = apps.find((a: { id: string }) => a.id === "eco_water_v1");
+    assert.equal(ecoWater?.status, "ready");
+    assert.equal(ecoWater?.url, "/eco-water-v1");
   });
 
   it("installer hub shows install only", async () => {
@@ -217,8 +220,13 @@ describe("Phase 461-480 multi PWA app hub", () => {
     assert.equal(off.status, 200);
     assert.ok(off.text.includes("オフライン"));
     const sw = await request(app).get("/service-worker.js");
-    assert.ok(sw.text.includes(`tisly-pwa-v${PWA_SHELL_VERSION}-production`));
+    // Eco-Water 以降は v2438-eco-water（旧 production タグも許容）
+    assert.ok(
+      sw.text.includes("tisly-pwa-v2438-eco-water") ||
+        sw.text.includes(`tisly-pwa-v${PWA_SHELL_VERSION}-production`)
+    );
     assert.ok(sw.text.includes("customer-portal.html"));
+    assert.ok(sw.text.includes("/eco-water-v1"));
   });
 
   it("unauthorized PWA access returns 403", async () => {

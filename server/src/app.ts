@@ -273,6 +273,10 @@ export function createApp(): express.Application {
   app.get("/customer/monitoring/:shareId", (_req, res) => {
     res.sendFile(path.join(publicDir, "customer-monitoring-v1.html"));
   });
+  // TiSLY Eco-Water — お客様向け入口（追記・既存ルート非改変）
+  app.get("/customer/eco-water", (_req, res) => {
+    res.sendFile(path.join(publicDir, "eco-water-v1.html"));
+  });
   app.get("/customer/:customerCode/portal", (_req, res) => {
     res.sendFile(customerPortalHtml);
   });
@@ -326,6 +330,16 @@ export function createApp(): express.Application {
   });
   app.get("/app", (_req, res) => {
     res.sendFile(path.join(publicDir, "app-hub.html"));
+  });
+  // TiSLY Eco-Water — App Hub 直下入口（追記）
+  app.get("/app/eco-water", (_req, res) => {
+    res.sendFile(path.join(publicDir, "eco-water-v1.html"));
+  });
+  app.get("/eco-water-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "eco-water-v1.html"));
+  });
+  app.get("/eco-water", (_req, res) => {
+    res.redirect(302, "/eco-water-v1");
   });
   app.get("/app/push", (_req, res) => {
     res.sendFile(path.join(publicDir, "app-push.html"));

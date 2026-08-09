@@ -28,6 +28,8 @@ export const CUSTOMER_HOME_CARDS_V1 = [
   { id: "documents", emoji: "📄", label: "書類を見る", section: "documents" },
   { id: "maintenance", emoji: "🔧", label: "点検・保守情報", section: "maintenance" },
   { id: "contact", emoji: "📞", label: CUSTOMER_CONTACT_LABEL_V1, section: "contact" },
+  // Eco-Water 水質（追記 — 既存6カードは変更しない）
+  { id: "eco_water", emoji: "💧", label: "水質・排水", path: "/customer/eco-water" },
 ] as const;
 
 /** /customer DOM・API に出してはいけない語（検査用） */
