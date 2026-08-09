@@ -78,6 +78,8 @@ export function applyAlkalineSpikeV1(state) {
 
 /**
  * 中和1ステップ（タイマーから呼ぶ）
+ * pH が目標 7.2 に達するまで
+ * CO₂バルブは開のまま維持する
  * @param {EcoWaterSimState} state
  * @param {number} [step]
  */
@@ -89,8 +91,9 @@ export function stepNeutralizeV1(state, step = 0.18) {
     ECO_WATER_DEFAULT_PH,
     Number((state.ph - step).toFixed(2))
   );
-  const valveOpen = nextPh > ECO_WATER_NEUTRALIZE_START;
+  // 7.2 到達までバルブ開（青色点滅）
   const done = nextPh <= ECO_WATER_DEFAULT_PH + 0.001;
+  const valveOpen = !done;
   return {
     ...state,
     ph: nextPh,
@@ -105,14 +108,16 @@ export function stepNeutralizeV1(state, step = 0.18) {
 
 /**
  * 自動中和開始
+ * アルカリ領域では即バルブ開
  * @param {EcoWaterSimState} state
  */
 export function startNeutralizeV1(state) {
   const ph = Math.max(state.ph, ECO_WATER_ALKALINE_PH);
+  const valveOpen = ph > ECO_WATER_DEFAULT_PH;
   return {
     ...state,
     ph,
-    valveOpen: ph > ECO_WATER_NEUTRALIZE_START,
+    valveOpen,
     phase: "neutralizing",
     phBefore: state.phBefore ?? ph,
     phAfter: null,

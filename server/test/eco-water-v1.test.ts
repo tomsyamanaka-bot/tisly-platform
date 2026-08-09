@@ -82,8 +82,13 @@ describe("TiSLY Eco-Water v1", () => {
     assert.match(html, /【デモ】アルカリ水投入（pH 12\.3）/);
     assert.match(html, /【デモ】自動中和スタート/);
     assert.match(html, /改ざん防止ハッシュID/);
+    assert.match(html, /ConoHa VPS Cloud連動正常/);
+    assert.doesNotMatch(html, /さくらVPS/);
     assert.match(css, /#1e3a8a/i);
     assert.match(css, /ew-valve-blink/);
+    assert.match(css, /#2563eb/);
+    assert.match(css, /@media print/);
+    assert.match(css, /break-all/);
     assert.match(js, /window\.print/);
     assert.match(sim, /ECO_WATER_ALKALINE_PH/);
   });
@@ -96,9 +101,16 @@ describe("TiSLY Eco-Water v1", () => {
     assert.equal(resolvePhStatusLabelV1(state.ph).label, "危険・アルカリ性");
     state = startNeutralizeV1(state);
     assert.equal(state.valveOpen, true);
+    let sawValveOpenNearTarget = false;
     for (let i = 0; i < 80 && state.phase !== "complete"; i += 1) {
       state = stepNeutralizeV1(state, 0.3);
+      // pH 8.0 付近でもバルブは開のまま（7.2到達まで）
+      if (state.ph <= 8.2 && state.ph > 7.2) {
+        assert.equal(state.valveOpen, true);
+        sawValveOpenNearTarget = true;
+      }
     }
+    assert.equal(sawValveOpenNearTarget, true);
     assert.equal(state.phase, "complete");
     assert.equal(state.ph, 7.2);
     assert.equal(state.valveOpen, false);

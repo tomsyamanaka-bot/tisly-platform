@@ -29,6 +29,10 @@ let chart = null;
 let tickTimer = null;
 /** @type {number | null} */
 let neutralizeTimer = null;
+/** @type {boolean} */
+let wasValveOpen = false;
+/** @type {number | null} */
+let valveCloseAnimTimer = null;
 
 const els = {
   phDisplay: document.getElementById("ew-ph-display"),
@@ -55,6 +59,41 @@ const els = {
   certHash: document.getElementById("ew-cert-hash"),
 };
 
+/**
+ * CO₂バルブ表示を更新
+ * 開→閉の瞬間は closing クラスで自然に切替
+ */
+function renderValve() {
+  if (!els.valve || !els.valveText) return;
+  const open = state.valveOpen;
+  const justClosed = wasValveOpen && !open;
+  if (valveCloseAnimTimer != null) {
+    clearTimeout(valveCloseAnimTimer);
+    valveCloseAnimTimer = null;
+  }
+  if (justClosed) {
+    els.valve.className = "ew-valve ew-valve-closed ew-valve-closing";
+    els.valveText.textContent = "バルブ閉";
+    els.valve.setAttribute("aria-label", "バルブ閉");
+    valveCloseAnimTimer = window.setTimeout(() => {
+      if (els.valve && !state.valveOpen) {
+        els.valve.className = "ew-valve ew-valve-closed";
+      }
+      valveCloseAnimTimer = null;
+    }, 380);
+  } else {
+    els.valve.className = open
+      ? "ew-valve ew-valve-open"
+      : "ew-valve ew-valve-closed";
+    els.valveText.textContent = open ? "バルブ開" : "バルブ閉";
+    els.valve.setAttribute(
+      "aria-label",
+      open ? "バルブ開" : "バルブ閉"
+    );
+  }
+  wasValveOpen = open;
+}
+
 function renderState() {
   if (els.phDisplay) {
     els.phDisplay.textContent = state.ph.toFixed(1);
@@ -71,16 +110,7 @@ function renderState() {
     els.statusCard.classList.toggle("is-safe", status.kind === "safe");
     els.statusCard.classList.toggle("is-danger", status.kind !== "safe");
   }
-  if (els.valve && els.valveText) {
-    els.valve.className = state.valveOpen
-      ? "ew-valve ew-valve-open"
-      : "ew-valve ew-valve-closed";
-    els.valveText.textContent = state.valveOpen ? "バルブ開" : "バルブ閉";
-    els.valve.setAttribute(
-      "aria-label",
-      state.valveOpen ? "バルブ開" : "バルブ閉"
-    );
-  }
+  renderValve();
   if (els.demoStatus) {
     els.demoStatus.textContent = state.statusMessage;
   }
@@ -112,18 +142,25 @@ function onNeutralize() {
   chart?.push(state.ph);
   renderState();
   clearNeutralizeTimer();
+  // 少し細かい刻みで pH 下降と
+  // バルブ青点滅の連動を滑らかにする
   neutralizeTimer = window.setInterval(() => {
-    state = stepNeutralizeV1(state, 0.22);
+    state = stepNeutralizeV1(state, 0.16);
     chart?.push(state.ph);
     renderState();
     if (state.phase === "complete") {
       clearNeutralizeTimer();
     }
-  }, 450);
+  }, 380);
 }
 
 function onReset() {
   clearNeutralizeTimer();
+  if (valveCloseAnimTimer != null) {
+    clearTimeout(valveCloseAnimTimer);
+    valveCloseAnimTimer = null;
+  }
+  wasValveOpen = false;
   state = createEcoWaterSimStateV1();
   chart?.push(state.ph);
   renderState();
@@ -232,5 +269,6 @@ boot();
 window.addEventListener("beforeunload", () => {
   clearNeutralizeTimer();
   if (tickTimer != null) clearInterval(tickTimer);
+  if (valveCloseAnimTimer != null) clearTimeout(valveCloseAnimTimer);
   chart?.destroy();
 });
