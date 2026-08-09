@@ -23,6 +23,21 @@ const {
   startNeutralizeV1,
   stepNeutralizeV1,
 } = await import("../src/eco-water/eco-water-sim-v1.js");
+const {
+  ECO_WATER_DEFAULT_SITE_ID_V1,
+  ECO_WATER_SITES_V1,
+  findEcoWaterSiteV1,
+  formatEcoWaterHashIdV1,
+  listEcoWaterSitesV1,
+} = await import("../src/eco-water/eco-water-sites-v1.js");
+const {
+  createNeutralizeHistoryEntryV1,
+  loadNeutralizeHistoryV1,
+  loadSelectedSiteIdV1,
+  prependNeutralizeHistoryV1,
+  saveNeutralizeHistoryV1,
+  saveSelectedSiteIdV1,
+} = await import("../src/eco-water/eco-water-history-v1.js");
 const { buildPracticalHubCards } = await import("../src/pwa/pwa-hub.js");
 const { buildCustomerHomeStateV1 } = await import(
   "../src/shared/customer/customer-home-state-v1.js"
@@ -83,14 +98,105 @@ describe("TiSLY Eco-Water v1", () => {
     assert.match(html, /【デモ】自動中和スタート/);
     assert.match(html, /改ざん防止ハッシュID/);
     assert.match(html, /ConoHa VPS Cloud連動正常/);
+    assert.match(html, /対象現場切替/);
+    assert.match(html, /筑波解体現場 \/ 水処理槽 B/);
+    assert.match(html, /土浦食品工場 \/ 苛性洗浄排水ピット/);
+    assert.match(html, /最近の自動中和実行ログ/);
+    assert.match(html, /ew-history-list/);
     assert.doesNotMatch(html, /さくらVPS/);
     assert.match(css, /#1e3a8a/i);
     assert.match(css, /ew-valve-blink/);
     assert.match(css, /#2563eb/);
     assert.match(css, /@media print/);
     assert.match(css, /break-all/);
+    assert.match(css, /ew-site-select/);
+    assert.match(css, /ew-history-item/);
     assert.match(js, /window\.print/);
+    assert.match(js, /prependNeutralizeHistoryV1/);
+    assert.match(js, /localStorage/);
+    assert.match(js, /formatEcoWaterHashIdV1/);
     assert.match(sim, /ECO_WATER_ALKALINE_PH/);
+    assert.ok(
+      fs.existsSync(
+        path.join(publicDir, "js/features/eco-water/eco-water-sites-v1.js")
+      )
+    );
+    assert.ok(
+      fs.existsSync(
+        path.join(publicDir, "js/features/eco-water/eco-water-history-v1.js")
+      )
+    );
+  });
+
+  it("lists three demo sites and switches meta fields", () => {
+    const sites = listEcoWaterSitesV1();
+    assert.equal(sites.length, 3);
+    assert.equal(sites[0].id, ECO_WATER_DEFAULT_SITE_ID_V1);
+    assert.match(sites[0].siteName, /守谷生コンプラント/);
+    assert.match(sites[1].siteName, /筑波解体現場/);
+    assert.match(sites[2].siteName, /土浦食品工場/);
+    assert.equal(ECO_WATER_SITES_V1.length, 3);
+
+    const tkb = findEcoWaterSiteV1("tsukuba-tank-b");
+    assert.equal(tkb.hashIdPrefix, "EW-TKB");
+    assert.match(tkb.calibrationDate, /2026/);
+    assert.equal(
+      formatEcoWaterHashIdV1("abcdef0123456789ffff", "EW-TKB"),
+      "EW-TKB-ABCDEF0123456789"
+    );
+    const fallback = findEcoWaterSiteV1("unknown-site");
+    assert.equal(fallback.id, ECO_WATER_DEFAULT_SITE_ID_V1);
+  });
+
+  it("prepends neutralize history and persists via storage buffer", () => {
+    /** @type {Record<string, string>} */
+    const mem: Record<string, string> = {};
+    const storage = {
+      getItem(key: string) {
+        return Object.prototype.hasOwnProperty.call(mem, key)
+          ? mem[key]
+          : null;
+      },
+      setItem(key: string, value: string) {
+        mem[key] = value;
+      },
+    };
+    const first = createNeutralizeHistoryEntryV1({
+      siteId: "moriya-pit-a",
+      siteName: "守谷生コンプラント / 排水ピット A",
+      companyName: "株式会社TOMS",
+      calibrationDate: "2026/08/01",
+      phBefore: 12.3,
+      phAfter: 7.2,
+      hashId: "EW-MRY-AAAA",
+      timestamp: "2026/08/09 10:00:00",
+      status: "放流適合",
+    });
+    const second = createNeutralizeHistoryEntryV1({
+      siteId: "tsukuba-tank-b",
+      siteName: "筑波解体現場 / 水処理槽 B",
+      companyName: "株式会社TOMS",
+      calibrationDate: "2026/07/28",
+      phBefore: 12.3,
+      phAfter: 7.2,
+      hashId: "EW-TKB-BBBB",
+      timestamp: "2026/08/09 11:00:00",
+      status: "完了",
+    });
+    let list = prependNeutralizeHistoryV1([], first);
+    list = prependNeutralizeHistoryV1(list, second);
+    assert.equal(list.length, 2);
+    assert.equal(list[0].hashId, "EW-TKB-BBBB");
+    assert.equal(list[1].hashId, "EW-MRY-AAAA");
+    saveNeutralizeHistoryV1(storage, list);
+    saveSelectedSiteIdV1(storage, "tsuchiura-caustic");
+    const loaded = loadNeutralizeHistoryV1(storage);
+    assert.equal(loaded.length, 2);
+    assert.equal(loaded[0].siteName, second.siteName);
+    assert.equal(
+      loadSelectedSiteIdV1(storage, ECO_WATER_DEFAULT_SITE_ID_V1),
+      "tsuchiura-caustic"
+    );
   });
 
   it("simulates alkaline spike then neutralize to safe discharge", () => {

@@ -30,6 +30,43 @@
   </header>
 
   <main class="ew-main">
+    <!-- 複数現場セレクター（既存カードは維持） -->
+    <section class="ew-card ew-site-select-card">
+      <p class="ew-card-label">対象現場切替</p>
+      <label class="ew-site-select-label" for="ew-site-select">
+        マルチ現場（テナント／サイト）
+      </label>
+      <select id="ew-site-select" class="ew-site-select" aria-label="対象現場切替">
+        <option value="moriya-pit-a" selected>
+          守谷生コンプラント / 排水ピット A
+        </option>
+        <option value="tsukuba-tank-b">
+          筑波解体現場 / 水処理槽 B
+        </option>
+        <option value="tsuchiura-caustic">
+          土浦食品工場 / 苛性洗浄排水ピット
+        </option>
+      </select>
+      <dl class="ew-site-meta">
+        <div>
+          <dt>現場名</dt>
+          <dd id="ew-meta-site-name">守谷生コンプラント / 排水ピット A</dd>
+        </div>
+        <div>
+          <dt>現在の pH 状態</dt>
+          <dd id="ew-meta-ph-status">安全・放流適合</dd>
+        </div>
+        <div>
+          <dt>直近校正日</dt>
+          <dd id="ew-meta-calib">2026/08/01</dd>
+        </div>
+        <div>
+          <dt>ハッシュID Prefix</dt>
+          <dd id="ew-meta-hash-prefix" class="ew-mono">EW-MRY</dd>
+        </div>
+      </dl>
+    </section>
+
     <!-- a. pHリアルタイムステータス -->
     <section class="ew-card ew-status-card" aria-live="polite">
       <div class="ew-status-top">
@@ -104,7 +141,7 @@
         <span class="ew-maint-icon ew-ok">✓</span>
         <div>
           <p class="ew-maint-title">センサ定例校正ステータス：合格</p>
-          <p class="ew-maint-sub">次回校正日: 2026/09/01</p>
+          <p class="ew-maint-sub" id="ew-maint-next-calib">次回校正日: 2026/09/01</p>
         </div>
       </div>
       <div class="ew-maint-row">
@@ -113,6 +150,19 @@
           <p class="ew-maint-title">通信ステータス：ConoHa VPS Cloud連動正常</p>
           <p class="ew-maint-sub">PoE / Modbus-RTU</p>
         </div>
+      </div>
+    </section>
+
+    <!-- 中和履歴（アクティビティログ）追記 -->
+    <section class="ew-card ew-history-card" aria-label="最近の自動中和実行ログ">
+      <p class="ew-card-label">最近の自動中和実行ログ</p>
+      <p class="ew-demo-hint">
+        デモ完了時に最上部へ新規追記。リロード後も LocalStorage に保持します。
+      </p>
+      <div id="ew-history-list" class="ew-history-list" role="list">
+        <p class="ew-history-empty" id="ew-history-empty">
+          まだ履歴がありません。自動中和を実行するとここに記録されます。
+        </p>
       </div>
     </section>
   </main>

@@ -550,9 +550,147 @@
 
   .ew-demo-card,
   .ew-cert-card,
-  .ew-maint-card {
+  .ew-maint-card,
+  .ew-site-select-card,
+  .ew-history-card {
     grid-column: span 2;
   }
+}
+
+/* --- 複数現場セレクター / 中和履歴（追記） --- */
+.ew-site-select-label {
+  display: block;
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ew-muted);
+}
+
+.ew-site-select {
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: #fff;
+  color: var(--ew-ink);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.ew-site-meta {
+  display: grid;
+  gap: 10px;
+  margin: 14px 0 0;
+  padding: 0;
+}
+
+.ew-site-meta > div {
+  display: grid;
+  grid-template-columns: minmax(7.5rem, 34%) 1fr;
+  gap: 8px;
+  align-items: baseline;
+  padding: 8px 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.ew-site-meta > div:last-child {
+  border-bottom: none;
+}
+
+.ew-site-meta dt {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--ew-navy);
+}
+
+.ew-site-meta dd {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ew-ink);
+  word-break: break-word;
+}
+
+.ew-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: 0.02em;
+}
+
+.ew-history-list {
+  display: grid;
+  gap: 10px;
+}
+
+.ew-history-empty {
+  margin: 0;
+  padding: 12px;
+  color: var(--ew-muted);
+  font-size: 0.92rem;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px dashed #cbd5e1;
+}
+
+.ew-history-item {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.ew-history-item-top {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+}
+
+.ew-history-time {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--ew-navy);
+}
+
+.ew-history-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  background: var(--ew-safe-bg);
+  color: var(--ew-safe);
+}
+
+.ew-history-ph {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--ew-ink);
+}
+
+.ew-history-site {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--ew-muted);
+}
+
+.ew-history-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.ew-history-actions .ew-btn {
+  min-height: 44px;
+  font-size: 0.9rem;
 }
 
 @media print {

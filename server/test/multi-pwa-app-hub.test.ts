@@ -220,9 +220,10 @@ describe("Phase 461-480 multi PWA app hub", () => {
     assert.equal(off.status, 200);
     assert.ok(off.text.includes("オフライン"));
     const sw = await request(app).get("/service-worker.js");
-    // Eco-Water 以降は v2438-eco-water（旧 production タグも許容）
+    // Eco-Water 複数現場以降は v2439（旧タグも許容）
     assert.ok(
-      sw.text.includes("tisly-pwa-v2438-eco-water") ||
+      sw.text.includes("tisly-pwa-v2439-eco-water-sites") ||
+        sw.text.includes("tisly-pwa-v2438-eco-water") ||
         sw.text.includes(`tisly-pwa-v${PWA_SHELL_VERSION}-production`)
     );
     assert.ok(sw.text.includes("customer-portal.html"));
