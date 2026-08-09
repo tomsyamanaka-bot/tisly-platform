@@ -65,9 +65,30 @@ export function findEcoWaterSiteV1(
   const id = String(siteId || "").trim();
   const found = ECO_WATER_SITES_V1.find((s) => s.id === id);
   if (found) return found;
+  // LIVE API 用: EW-TKB 等の Prefix も解決
+  const byPrefix = findEcoWaterSiteByPrefixV1(id);
+  if (byPrefix) return byPrefix;
   return (
     ECO_WATER_SITES_V1.find((s) => s.id === ECO_WATER_DEFAULT_SITE_ID_V1) ||
     ECO_WATER_SITES_V1[0]
+  );
+}
+
+/**
+ * ハッシュ Prefix（EW-TKB）から現場解決
+ * 見つからなければ null（既存フォールバックは触らない）
+ */
+export function findEcoWaterSiteByPrefixV1(
+  prefix: string | null | undefined
+): EcoWaterSiteV1 | null {
+  const key = String(prefix || "")
+    .trim()
+    .toUpperCase();
+  if (!key) return null;
+  return (
+    ECO_WATER_SITES_V1.find(
+      (s) => s.hashIdPrefix.toUpperCase() === key
+    ) || null
   );
 }
 

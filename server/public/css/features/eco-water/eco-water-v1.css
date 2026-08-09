@@ -613,6 +613,54 @@
   word-break: break-word;
 }
 
+/* LIVE モード切替（追記・既存セレクトは維持） */
+.ew-mode-row {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.ew-mode-label {
+  display: block;
+  margin: 0 0 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--ew-navy);
+}
+
+.ew-mode-toggle {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ew-mode-btn {
+  min-height: 44px;
+  min-width: 7.5rem;
+  padding: 8px 14px;
+  border: 2px solid #cbd5e1;
+  border-radius: 12px;
+  background: #fff;
+  color: var(--ew-ink);
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.ew-mode-btn.is-active {
+  border-color: var(--ew-navy);
+  background: #eff6ff;
+  color: var(--ew-navy);
+  box-shadow: 0 0 0 1px rgba(30, 58, 138, 0.15);
+}
+
+.ew-mode-hint {
+  margin: 10px 0 0;
+  font-size: 0.85rem;
+  color: var(--ew-muted);
+  line-height: 1.45;
+}
+
 .ew-mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   letter-spacing: 0.02em;

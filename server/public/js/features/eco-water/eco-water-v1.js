@@ -29,6 +29,11 @@ import {
   saveNeutralizeHistoryV1,
   saveSelectedSiteIdV1,
 } from "./eco-water-history-v1.js";
+import {
+  createEcoWaterLiveClientV1,
+  loadEcoWaterLiveModeV1,
+  saveEcoWaterLiveModeV1,
+} from "./eco-water-live-v1.js";
 
 /** @deprecated 互換用 — 現場カタログへ移行済み */
 const SITE = {
@@ -56,6 +61,12 @@ let valveCloseAnimTimer = null;
 let historyList = [];
 /** 中和完了時の二重追記防止 */
 let lastLoggedCompleteKey = "";
+/** LIVE（実機）接続モード — 既定はデモ */
+let liveMode = false;
+/** @type {ReturnType<typeof createEcoWaterLiveClientV1> | null} */
+let liveClient = null;
+/** LIVE 中和完了ハッシュの二重追記防止 */
+let lastLiveCompleteHash = "";
 
 const storage =
   typeof localStorage !== "undefined" ? localStorage : null;
@@ -92,6 +103,9 @@ const els = {
   maintNextCalib: document.getElementById("ew-maint-next-calib"),
   historyList: document.getElementById("ew-history-list"),
   historyEmpty: document.getElementById("ew-history-empty"),
+  modeDemo: document.getElementById("ew-mode-demo"),
+  modeLive: document.getElementById("ew-mode-live"),
+  modeHint: document.getElementById("ew-mode-hint"),
 };
 
 /**
@@ -181,9 +195,132 @@ function renderState() {
     els.demoStatus.textContent = state.statusMessage;
   }
   const busy = state.phase === "neutralizing";
-  if (els.btnAlkaline) els.btnAlkaline.disabled = busy;
-  if (els.btnNeutralize) els.btnNeutralize.disabled = busy;
+  // LIVE 中はデモ操作を無効化（UIは残す）
+  const demoLocked = liveMode;
+  if (els.btnAlkaline) els.btnAlkaline.disabled = busy || demoLocked;
+  if (els.btnNeutralize) els.btnNeutralize.disabled = busy || demoLocked;
+  if (els.btnReset) els.btnReset.disabled = demoLocked;
   if (els.siteSelect) els.siteSelect.disabled = busy;
+  renderModeToggle();
+}
+
+/**
+ * DEMO / LIVE トグル表示を同期
+ * 既存デモカードは非破壊
+ */
+function renderModeToggle() {
+  if (els.modeDemo) {
+    els.modeDemo.classList.toggle("is-active", !liveMode);
+    els.modeDemo.setAttribute("aria-pressed", liveMode ? "false" : "true");
+  }
+  if (els.modeLive) {
+    els.modeLive.classList.toggle("is-active", liveMode);
+    els.modeLive.setAttribute("aria-pressed", liveMode ? "true" : "false");
+  }
+  if (els.modeHint) {
+    els.modeHint.textContent = liveMode
+      ? `LIVE: ${currentSite.hashIdPrefix} を API 購読中（SSE/ポーリング）`
+      : "デモ: シミュレーション。LIVE: PLC/RP2350 計測を表示。";
+  }
+}
+
+/**
+ * API ステータスを UI へ反映
+ * LocalStorage 履歴バッファはマージ追記のみ
+ */
+function applyLiveStatus(apiStatus) {
+  if (!apiStatus || !liveMode) return;
+  const ph = Number(apiStatus.ph_value);
+  if (!Number.isFinite(ph)) return;
+  const valveOpen = String(apiStatus.valve_status) === "open";
+  state = {
+    ...state,
+    ph,
+    valveOpen,
+    phase: valveOpen
+      ? "neutralizing"
+      : apiStatus.neutralizeComplete
+        ? "complete"
+        : "idle",
+    phAfter: apiStatus.neutralizeComplete ? ph : state.phAfter,
+    statusMessage: apiStatus.neutralizeComplete
+      ? `LIVE 中和完了 — pH ${ph.toFixed(1)} · 放流適合`
+      : `LIVE 受信 — pH ${ph.toFixed(1)} · バルブ${valveOpen ? "開" : "閉"}`,
+  };
+  if (apiStatus.calibration_date) {
+    currentSite = {
+      ...currentSite,
+      calibrationDate: String(apiStatus.calibration_date).replace(
+        /-/g,
+        "/"
+      ),
+    };
+  }
+  chart?.push(state.ph);
+  renderState();
+
+  if (
+    apiStatus.neutralizeComplete &&
+    apiStatus.hashId &&
+    apiStatus.hashId !== lastLiveCompleteHash
+  ) {
+    lastLiveCompleteHash = apiStatus.hashId;
+    const entry = createNeutralizeHistoryEntryV1({
+      siteId: currentSite.id,
+      siteName: apiStatus.siteName || currentSite.siteName,
+      companyName: apiStatus.companyName || currentSite.companyName,
+      calibrationDate:
+        currentSite.calibrationDate || apiStatus.calibration_date,
+      phBefore: Number(
+        apiStatus.history?.[1]?.ph_value ?? state.phBefore ?? 12.3
+      ),
+      phAfter: ph,
+      hashId: apiStatus.hashId,
+      timestamp: new Date(
+        apiStatus.timestamp || Date.now()
+      ).toLocaleString("ja-JP", { hour12: false }),
+      status: "放流適合",
+    });
+    historyList = prependNeutralizeHistoryV1(historyList, entry);
+    persistBuffers();
+    renderHistoryList();
+  }
+}
+
+function ensureLiveClient() {
+  if (liveClient) return liveClient;
+  liveClient = createEcoWaterLiveClientV1({
+    getSiteKey: () => currentSite.hashIdPrefix,
+    onStatus: (status) => applyLiveStatus(status),
+    onError: () => {
+      if (els.demoStatus && liveMode) {
+        els.demoStatus.textContent =
+          "LIVE 再接続中…（API 一時不通）";
+      }
+    },
+    pollIntervalMs: 3000,
+  });
+  return liveClient;
+}
+
+/**
+ * DEMO ↔ LIVE 切替
+ * デモロジックは削除せず停止のみ
+ */
+function setLiveMode(nextLive) {
+  liveMode = !!nextLive;
+  saveEcoWaterLiveModeV1(storage, liveMode);
+  if (liveMode) {
+    clearNeutralizeTimer();
+    ensureLiveClient().restart();
+  } else {
+    liveClient?.stop();
+    lastLiveCompleteHash = "";
+    if (els.demoStatus) {
+      els.demoStatus.textContent = state.statusMessage || "待機中";
+    }
+  }
+  renderState();
 }
 
 /**
@@ -264,6 +401,7 @@ function clearNeutralizeTimer() {
 }
 
 function onAlkaline() {
+  if (liveMode) return;
   clearNeutralizeTimer();
   lastLoggedCompleteKey = "";
   state = applyAlkalineSpikeV1(state);
@@ -316,6 +454,7 @@ async function appendHistoryOnComplete() {
 }
 
 function onNeutralize() {
+  if (liveMode) return;
   if (state.phase === "neutralizing") return;
   if (state.ph < 8.6 && state.phase === "idle") {
     state = applyAlkalineSpikeV1(state);
@@ -342,6 +481,7 @@ function onNeutralize() {
 }
 
 function onReset() {
+  if (liveMode) return;
   clearNeutralizeTimer();
   if (valveCloseAnimTimer != null) {
     clearTimeout(valveCloseAnimTimer);
@@ -385,6 +525,9 @@ function onSiteChange(siteId) {
   };
   chart?.push(state.ph);
   renderState();
+  if (liveMode) {
+    ensureLiveClient().restart();
+  }
 }
 
 /**
@@ -459,6 +602,8 @@ function bindEvents() {
     const target = /** @type {HTMLSelectElement} */ (ev.target);
     onSiteChange(target.value);
   });
+  els.modeDemo?.addEventListener("click", () => setLiveMode(false));
+  els.modeLive?.addEventListener("click", () => setLiveMode(true));
   els.historyList?.addEventListener("click", (ev) => {
     const btn = /** @type {HTMLElement | null} */ (
       ev.target instanceof Element
@@ -539,6 +684,8 @@ function boot() {
   configureBackLink();
   syncSiteSelectOptions();
   restoreBuffers();
+  // LIVE 設定のみ復元（履歴バッファは触らない）
+  liveMode = loadEcoWaterLiveModeV1(storage);
   const canvas = document.getElementById("ew-ph-chart");
   const startChart = () => {
     if (canvas instanceof HTMLCanvasElement) {
@@ -553,8 +700,13 @@ function boot() {
   bindEvents();
   renderHistoryList();
   renderState();
+  if (liveMode) {
+    ensureLiveClient().start();
+  }
   // アイドル時もわずかに揺らぎを入れてライブ感を出す
+  // LIVE 中は実機値優先のため揺らぎ停止
   tickTimer = window.setInterval(() => {
+    if (liveMode) return;
     if (state.phase === "neutralizing") return;
     const drift =
       state.phase === "idle"
@@ -573,6 +725,7 @@ window.addEventListener("beforeunload", () => {
   clearNeutralizeTimer();
   if (tickTimer != null) clearInterval(tickTimer);
   if (valveCloseAnimTimer != null) clearTimeout(valveCloseAnimTimer);
+  liveClient?.stop();
   persistBuffers();
   chart?.destroy();
 });

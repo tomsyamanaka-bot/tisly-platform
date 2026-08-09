@@ -4,10 +4,10 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2439-eco-water-sites";
-const OFFLINE_CACHE = "tisly-pwa-shell-v2439-eco-water-sites";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2439-eco-water-sites";
-const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2439-eco-water-sites";
+const SW_VERSION = "tisly-pwa-v2440-eco-water-telemetry";
+const OFFLINE_CACHE = "tisly-pwa-shell-v2440-eco-water-telemetry";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2440-eco-water-telemetry";
+const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2440-eco-water-telemetry";
 const ICON_V = "?v=2004";
 
 /** 図面エディタ v1 — ES module 群 */
@@ -200,6 +200,7 @@ const SHELL_URLS = [
   "/js/features/eco-water/eco-water-chart-v1.js",
   "/js/features/eco-water/eco-water-sites-v1.js",
   "/js/features/eco-water/eco-water-history-v1.js",
+  "/js/features/eco-water/eco-water-live-v1.js",
   "/css/features/eco-water/eco-water-v1.css",
   "/knowledge-v1",
   "/js/knowledge-v1.js",

@@ -47,6 +47,19 @@
           土浦食品工場 / 苛性洗浄排水ピット
         </option>
       </select>
+      <!-- LIVE モード追記（デモUIは削除しない） -->
+      <div class="ew-mode-row" role="group" aria-label="接続モード">
+        <span class="ew-mode-label">接続モード</span>
+        <div class="ew-mode-toggle">
+          <button type="button" class="ew-mode-btn is-active" id="ew-mode-demo"
+            aria-pressed="true">デモ</button>
+          <button type="button" class="ew-mode-btn" id="ew-mode-live"
+            aria-pressed="false">LIVE（実機）</button>
+        </div>
+        <p class="ew-mode-hint" id="ew-mode-hint">
+          デモ: シミュレーション。LIVE: PLC/RP2350 計測を表示。
+        </p>
+      </div>
       <dl class="ew-site-meta">
         <div>
           <dt>現場名</dt>

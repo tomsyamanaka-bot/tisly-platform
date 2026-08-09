@@ -274,4 +274,114 @@ describe("TiSLY Eco-Water v1", () => {
     assert.ok(ids.includes("print_model_viewer_v1"));
     assert.ok(ids.includes("eco_water_v1"));
   });
+
+  it("receives telemetry and returns status with certificate hash on neutralize", async () => {
+    const {
+      resetEcoWaterTelemetryBufferForTestsV1,
+    } = await import("../src/eco-water/eco-water-telemetry-store-v1.js");
+    const {
+      generateEcoWaterCertificateHashV1,
+      isEcoWaterNeutralCompletePhV1,
+      buildEcoWaterCertCanonicalV1,
+    } = await import("../src/eco-water/eco-water-cert-hash-v1.js");
+
+    resetEcoWaterTelemetryBufferForTestsV1();
+
+    assert.equal(isEcoWaterNeutralCompletePhV1(7.2), true);
+    assert.equal(isEcoWaterNeutralCompletePhV1(7.25), true);
+    assert.equal(isEcoWaterNeutralCompletePhV1(8.0), false);
+
+    const canon = buildEcoWaterCertCanonicalV1({
+      sitePrefix: "EW-TKB",
+      timestamp: "2026-08-09T21:30:00Z",
+      salt: "abc123",
+    });
+    assert.equal(canon.canonical, "EW-TKB-2026-08-09T21:30:00Z-abc123");
+    assert.equal(canon.siteToken, "TKB");
+    assert.equal(canon.siteKey, "EW-TKB");
+
+    const cert = generateEcoWaterCertificateHashV1({
+      sitePrefix: "EW-TKB",
+      timestamp: "2026-08-09T21:30:00Z",
+      salt: "fixed-salt",
+      phBefore: 12.3,
+      phAfter: 7.2,
+    });
+    assert.match(cert.hashId, /^EW-TKB-[0-9A-F]{16}$/);
+    assert.equal(cert.certificateHash.length, 64);
+    assert.equal(
+      cert.canonical,
+      "EW-TKB-2026-08-09T21:30:00Z-fixed-salt"
+    );
+    assert.equal(cert.salt, "fixed-salt");
+
+    const alkaline = await request(app)
+      .post("/api/eco-water/telemetry")
+      .send({
+        site_id: "EW-TKB",
+        ph_value: 12.1,
+        valve_status: "open",
+        calibration_date: "2026-07-28",
+        timestamp: "2026-08-09T21:29:00Z",
+      });
+    assert.equal(alkaline.status, 200);
+    assert.equal(alkaline.body.ok, true);
+    assert.equal(alkaline.body.status.ph_value, 12.1);
+    assert.equal(alkaline.body.status.valve_status, "open");
+    assert.equal(alkaline.body.status.neutralizeComplete, false);
+
+    const done = await request(app)
+      .post("/api/eco-water/telemetry")
+      .send({
+        site_id: "EW-TKB",
+        ph_value: 7.2,
+        valve_status: "close",
+        calibration_date: "2026-07-28",
+        timestamp: "2026-08-09T21:30:00Z",
+      });
+    assert.equal(done.status, 200);
+    assert.equal(done.body.status.neutralizeComplete, true);
+    assert.ok(done.body.certificateHash);
+    assert.match(done.body.hashId, /^EW-TKB-/);
+
+    const status = await request(app).get(
+      "/api/eco-water/status?site_id=EW-TKB"
+    );
+    assert.equal(status.status, 200);
+    assert.equal(status.body.status.ph_value, 7.2);
+    assert.ok(status.body.status.history.length >= 2);
+    assert.equal(status.body.hashId, done.body.hashId);
+
+    const bad = await request(app)
+      .post("/api/eco-water/telemetry")
+      .send({ site_id: "EW-TKB", ph_value: 99 });
+    assert.equal(bad.status, 400);
+
+    const missing = await request(app).get("/api/eco-water/status");
+    assert.equal(missing.status, 400);
+
+    const html = fs.readFileSync(
+      path.join(publicDir, "eco-water-v1.html"),
+      "utf8"
+    );
+    const js = fs.readFileSync(
+      path.join(publicDir, "js/features/eco-water/eco-water-v1.js"),
+      "utf8"
+    );
+    assert.match(html, /ew-mode-live/);
+    assert.match(html, /LIVE（実機）/);
+    assert.match(js, /createEcoWaterLiveClientV1/);
+    assert.match(js, /setLiveMode/);
+    assert.ok(
+      fs.existsSync(
+        path.join(publicDir, "js/features/eco-water/eco-water-live-v1.js")
+      )
+    );
+    const liveJs = fs.readFileSync(
+      path.join(publicDir, "js/features/eco-water/eco-water-live-v1.js"),
+      "utf8"
+    );
+    assert.match(liveJs, /\/api\/eco-water\/status/);
+    assert.match(liveJs, /EventSource/);
+  });
 });

@@ -154,7 +154,7 @@ describe("Customer Portal V1 — assets", () => {
   it("service worker bumped to v2406-phase27", () => {
     const sw = fs.readFileSync(path.join(publicDir, "service-worker.js"), "utf-8");
     // Eco-Water 追記後の SW（旧 phase タグ互換チェックは緩和）
-    assert.match(sw, /tisly-pwa-v2439-eco-water-sites|tisly-pwa-v2438-eco-water|v2407-phase28/);
+    assert.match(sw, /tisly-pwa-v2440-eco-water-telemetry|tisly-pwa-v2439-eco-water-sites|tisly-pwa-v2438-eco-water|v2407-phase28/);
     assert.match(sw, /customer-cache-v1\.js/);
     assert.match(sw, /isCustomerFreshAsset/);
   });
