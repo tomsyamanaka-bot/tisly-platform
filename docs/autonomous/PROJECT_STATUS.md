@@ -16,7 +16,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
 | ログインCTA | 青〜紫グラデ維持（`#4facfe` → `#a855f7`） |
-| SW | `tisly-pwa-v2440-eco-water-telemetry` |
+| SW | `tisly-pwa-v2441-eco-water-print-fix` |
 
 ---
 
@@ -1019,10 +1019,11 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | Phase i | **IoT テレメトリ API** — `POST /api/eco-water/telemetry`（PLC/RP2350/Modbus JSON 受信）· `GET /api/eco-water/status?site_id=` · SSE `/status/stream` |
 | Phase j | **LIVE モード** — PWA で DEMO/LIVE 切替 · SSE 優先・ポーリング fallback · 既存デモ・LocalStorage は非破壊 |
 | Phase k | **証明書ハッシュ** — `EW-[SITE]-[TIMESTAMP]-[SALT]` → SHA-256 · 中和完了(pH≈7.2)時に API 応答へ付与 |
+| Phase l | **印刷1ページ固定** — `@media print` で max-height:100vh / overflow:hidden / page-break-after:avoid · 空白2枚目抑止 · 発行日と計測日時分離 |
 | App Hub | `practicalApps` に `eco_water_v1` カード追記 |
 | Customer | ホームカード「水質・排水」追記（既存6カードは非改変） |
 | UI | 白 `#FFFFFF/#F8FAFC` × ネイビー `#1E3A8A/#0F172A` |
-| SW | `tisly-pwa-v2440-eco-water-telemetry` |
+| SW | `tisly-pwa-v2441-eco-water-print-fix` |
 | コード | `server/public/eco-water-v1.html` · `js/features/eco-water/*` · `src/eco-water/eco-water-sim-v1.ts` · `eco-water-sites-v1.ts` · `eco-water-history-v1.ts` · `eco-water-telemetry-store-v1.ts` · `eco-water-cert-hash-v1.ts` · `api/routes/eco-water.ts` |
 | テスト | `server/test/eco-water-v1.test.ts` |
 | 確認 | `/eco-water-v1` · `/api/eco-water/status?site_id=EW-TKB` · `/app` · `/customer` · https://tisly.jp/api/health |

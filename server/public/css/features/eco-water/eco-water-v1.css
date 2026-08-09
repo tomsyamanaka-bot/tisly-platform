@@ -742,9 +742,10 @@
 }
 
 @media print {
+  /* A4 1枚に収める（空白2枚目を抑止） */
   @page {
-    size: A4;
-    margin: 12mm;
+    size: A4 portrait;
+    margin: 8mm;
   }
 
   html,
@@ -752,24 +753,29 @@
     background: #fff !important;
     padding: 0 !important;
     margin: 0 !important;
+    min-height: 0 !important;
     height: auto !important;
-    overflow: visible !important;
+    max-height: 100vh !important;
+    overflow: hidden !important;
   }
 
+  /* ダッシュボード本体・非表示領域を確実に隠す */
   .ew-header,
   .ew-main,
   .ew-footer-nav,
   .no-print,
   .ew-modal-backdrop,
-  .ew-modal-toolbar {
+  .ew-modal-toolbar,
+  body.ew-body > :not(#ew-cert-modal) {
     display: none !important;
   }
 
-  /* 開いているモーダルのみ印刷対象 */
+  /* 閉じたモーダルは印刷しない */
   .ew-modal[hidden] {
     display: none !important;
   }
 
+  /* 印刷用コンテナ: 1ページ固定 */
   .ew-modal:not([hidden]) {
     position: static !important;
     inset: auto !important;
@@ -778,10 +784,15 @@
     margin: 0 !important;
     z-index: auto !important;
     place-items: unset !important;
+    width: 100% !important;
     height: auto !important;
-    max-height: none !important;
-    overflow: visible !important;
+    max-height: 100vh !important;
+    overflow: hidden !important;
     background: transparent !important;
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
   }
 
   .ew-modal:not([hidden]) .ew-modal-panel {
@@ -789,35 +800,94 @@
     display: block !important;
     width: 100% !important;
     max-width: none !important;
-    max-height: none !important;
-    overflow: visible !important;
+    max-height: 100vh !important;
+    overflow: hidden !important;
     box-shadow: none !important;
     border-radius: 0 !important;
     padding: 0 !important;
     margin: 0 !important;
     background: #fff !important;
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
   }
 
+  /* 証明書カードをコンパクトに A4 1枚へ */
   .ew-certificate {
-    padding: 0 !important;
+    padding: 4mm 3mm !important;
+    margin: 0 !important;
     color: #000 !important;
-    break-inside: avoid;
-    page-break-inside: avoid;
+    max-height: 100vh !important;
+    overflow: hidden !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    break-after: avoid !important;
+    page-break-after: avoid !important;
   }
 
   .ew-cert-head {
     border-bottom-color: #1e3a8a !important;
+    padding-bottom: 8px !important;
+    margin-bottom: 10px !important;
+  }
+
+  .ew-cert-brand {
+    font-size: 0.95rem !important;
+  }
+
+  .ew-cert-head h2 {
+    margin: 4px 0 0 !important;
+    font-size: 1.35rem !important;
+  }
+
+  .ew-cert-sub {
+    margin: 4px 0 0 !important;
+    font-size: 0.82rem !important;
+  }
+
+  .ew-cert-dl {
+    gap: 6px !important;
   }
 
   .ew-cert-dl > div {
-    break-inside: avoid;
-    page-break-inside: avoid;
+    gap: 6px !important;
+    padding-bottom: 6px !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+  }
+
+  .ew-cert-dl dt {
+    font-size: 0.82rem !important;
+  }
+
+  .ew-cert-dl dd {
+    font-size: 0.95rem !important;
   }
 
   .ew-cert-hash {
+    font-size: 0.78rem !important;
+    line-height: 1.35 !important;
     overflow-wrap: anywhere !important;
     word-break: break-all !important;
     white-space: normal !important;
     max-width: 100% !important;
+  }
+
+  .ew-cert-foot {
+    margin-top: 10px !important;
+    padding-top: 8px !important;
+    font-size: 0.78rem !important;
+    line-height: 1.35 !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+  }
+
+  .ew-cert-foot p {
+    margin: 0 0 2px !important;
   }
 }

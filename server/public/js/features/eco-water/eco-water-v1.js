@@ -89,6 +89,7 @@ const els = {
   backLink: document.getElementById("ew-back-link"),
   certCompany: document.getElementById("ew-cert-company"),
   certSite: document.getElementById("ew-cert-site"),
+  certIssued: document.getElementById("ew-cert-issued"),
   certMeasured: document.getElementById("ew-cert-measured"),
   certBefore: document.getElementById("ew-cert-before"),
   certAfter: document.getElementById("ew-cert-after"),
@@ -531,14 +532,48 @@ function onSiteChange(siteId) {
 }
 
 /**
+ * 証明書用日時文字列（ja-JP・24時間）
+ * 発行日 / 計測日時で共通利用
+ */
+function formatEcoWaterDateTimeV1(date = new Date()) {
+  return date.toLocaleString("ja-JP", { hour12: false });
+}
+
+/**
+ * 計測日時を解決する
+ * 履歴 → 同一現場の最新履歴 → 現在時刻
+ * 既存履歴データは上書きしない
+ * @param {object | null} [fromHistory]
+ */
+function resolveCertificateMeasuredAtV1(fromHistory = null) {
+  if (fromHistory?.timestamp) return String(fromHistory.timestamp);
+  const latestForSite = historyList.find(
+    (h) => h && h.siteId === currentSite.id && h.timestamp
+  );
+  if (latestForSite?.timestamp) return String(latestForSite.timestamp);
+  return formatEcoWaterDateTimeV1();
+}
+
+/**
+ * 発行日表示を印刷直前に更新
+ * ハッシュ計算対象には含めない
+ */
+function refreshCertificateIssuedAtV1() {
+  if (els.certIssued) {
+    els.certIssued.textContent = formatEcoWaterDateTimeV1();
+  }
+}
+
+/**
  * 証明書モーダルを開く
  * 履歴再表示時は entry を渡す
  * @param {object | null} [fromHistory]
  */
 async function openCertificate(fromHistory = null) {
-  const measuredAt =
-    fromHistory?.timestamp ||
-    new Date().toLocaleString("ja-JP", { hour12: false });
+  // 計測日時は中和実績を優先（ハッシュ整合用）
+  const measuredAt = resolveCertificateMeasuredAtV1(fromHistory);
+  // 発行日は開いた時点（印刷時に再更新）
+  const issuedAt = formatEcoWaterDateTimeV1();
   const phBefore = fromHistory
     ? Number(fromHistory.phBefore)
     : state.phBefore ??
@@ -563,6 +598,7 @@ async function openCertificate(fromHistory = null) {
   };
   let hashId = fromHistory?.hashId || "";
   if (!hashId) {
+    // 発行日はハッシュ対象外（再印刷でIDが変わらない）
     const raw = buildCertificatePayloadV1(payload);
     const hash = await sha256HexV1(raw);
     const prefix =
@@ -574,6 +610,7 @@ async function openCertificate(fromHistory = null) {
 
   if (els.certCompany) els.certCompany.textContent = payload.companyName;
   if (els.certSite) els.certSite.textContent = payload.siteName;
+  if (els.certIssued) els.certIssued.textContent = issuedAt;
   if (els.certMeasured) els.certMeasured.textContent = payload.measuredAt;
   if (els.certBefore) els.certBefore.textContent = payload.phBefore;
   if (els.certAfter) els.certAfter.textContent = payload.phAfter;
@@ -596,6 +633,8 @@ function bindEvents() {
   els.modalClose?.addEventListener("click", closeCertificate);
   els.modalBackdrop?.addEventListener("click", closeCertificate);
   els.modalPrint?.addEventListener("click", () => {
+    // 印刷直前に発行日だけ更新する
+    refreshCertificateIssuedAtV1();
     window.print();
   });
   els.siteSelect?.addEventListener("change", (ev) => {

@@ -97,6 +97,8 @@ describe("TiSLY Eco-Water v1", () => {
     assert.match(html, /【デモ】アルカリ水投入（pH 12\.3）/);
     assert.match(html, /【デモ】自動中和スタート/);
     assert.match(html, /改ざん防止ハッシュID/);
+    assert.match(html, /発行日/);
+    assert.match(html, /ew-cert-issued/);
     assert.match(html, /ConoHa VPS Cloud連動正常/);
     assert.match(html, /対象現場切替/);
     assert.match(html, /筑波解体現場 \/ 水処理槽 B/);
@@ -108,10 +110,16 @@ describe("TiSLY Eco-Water v1", () => {
     assert.match(css, /ew-valve-blink/);
     assert.match(css, /#2563eb/);
     assert.match(css, /@media print/);
+    assert.match(css, /max-height:\s*100vh/);
+    assert.match(css, /overflow:\s*hidden/);
+    assert.match(css, /page-break-after:\s*avoid/);
+    assert.match(css, /break-after:\s*avoid/);
     assert.match(css, /break-all/);
     assert.match(css, /ew-site-select/);
     assert.match(css, /ew-history-item/);
     assert.match(js, /window\.print/);
+    assert.match(js, /refreshCertificateIssuedAtV1/);
+    assert.match(js, /resolveCertificateMeasuredAtV1/);
     assert.match(js, /prependNeutralizeHistoryV1/);
     assert.match(js, /localStorage/);
     assert.match(js, /formatEcoWaterHashIdV1/);
