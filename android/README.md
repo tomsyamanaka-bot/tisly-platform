@@ -16,10 +16,15 @@ From the repository root:
 npm run build:android
 ```
 
-Outputs (under `android/`):
+Outputs (local; `.aab` is gitignored):
 
-- `app-release-bundle.aab` — upload to Google Play
-- `app-release-unsigned.apk` / signed APK when keystore passwords are set
+- `android/app-release-bundle.aab`
+- `play-console-upload/TiSLY-com.tisly.app.aab` ← Play Console へこれ
+- `android/AAB_READY.txt` / `play-console-upload/AAB_READY.txt`（絶対パス・サイズ）
+
+```bash
+npm run android:open-aab   # Explorer で AAB を選択表示
+```
 
 ## Signing
 

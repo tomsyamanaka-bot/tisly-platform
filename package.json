@@ -7,8 +7,10 @@
     "dev": "npm run dev --prefix server",
     "build": "npm run build --prefix server",
     "build:android": "node scripts/build-android.mjs",
+    "build:android:unsigned": "node scripts/build-android.mjs --skip-signing",
     "android:keystore": "node scripts/android-keystore.mjs",
     "android:sync-assetlinks": "node scripts/android-sync-assetlinks.mjs",
+    "android:open-aab": "node scripts/android-open-aab.mjs",
     "hash:admin-password": "npm run hash:admin-password --prefix server",
     "vapid:setup": "npm run vapid:setup --prefix server",
     "vapid:generate": "npm run vapid:generate --prefix server"

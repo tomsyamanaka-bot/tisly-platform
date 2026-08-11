@@ -310,6 +310,41 @@ function copyAabArtifact() {
   return dest;
 }
 
+/** Copy AAB to Play Console upload folder + write IDE-visible marker. */
+function publishAabOutputs(aabPath) {
+  const st = fs.statSync(aabPath);
+  if (!st.isFile() || st.size < 100_000) {
+    fail(`AAB looks invalid: ${aabPath} size=${st.size}`);
+  }
+
+  const uploadDir = path.join(root, "play-console-upload");
+  fs.mkdirSync(uploadDir, { recursive: true });
+  const uploadAab = path.join(uploadDir, "TiSLY-com.tisly.app.aab");
+  fs.copyFileSync(aabPath, uploadAab);
+
+  const marker = [
+    "TiSLY Android TWA — AAB physical output (local only; *.aab is gitignored)",
+    "",
+    `generatedAt: ${new Date().toISOString()}`,
+    `packageId: com.tisly.app`,
+    `appName: TiSLY`,
+    `bytes: ${st.size}`,
+    `androidAab: ${path.resolve(aabPath)}`,
+    `playConsoleAab: ${path.resolve(uploadAab)}`,
+    "",
+    "Upload play-console-upload/TiSLY-com.tisly.app.aab to Google Play Console.",
+    "Regenerate anytime: npm run build:android",
+    "",
+  ].join("\n");
+  fs.writeFileSync(path.join(androidDir, "AAB_READY.txt"), marker, "utf8");
+  fs.writeFileSync(path.join(uploadDir, "AAB_READY.txt"), marker, "utf8");
+
+  log(`Verified physical AAB (${st.size} bytes)`);
+  log(`  → ${path.resolve(aabPath)}`);
+  log(`  → ${path.resolve(uploadAab)}`);
+  return { aabPath: path.resolve(aabPath), uploadAab: path.resolve(uploadAab), bytes: st.size };
+}
+
 async function main() {
   if (!fs.existsSync(manifestPath)) {
     fail(`Missing ${manifestPath}`);
@@ -374,7 +409,7 @@ async function main() {
     }
   }
 
-  const aab = skipSigning
+  let aab = skipSigning
     ? copyAabArtifact()
     : [
         path.join(androidDir, "app-release-bundle.aab"),
@@ -384,7 +419,16 @@ async function main() {
   if (!aab || !fs.existsSync(aab)) {
     fail("Build finished but AAB not found");
   }
-  log(`AAB ready: ${aab}`);
+  // Always also place canonical path under android/
+  const canonical = path.join(androidDir, "app-release-bundle.aab");
+  if (path.resolve(aab) !== path.resolve(canonical)) {
+    fs.copyFileSync(aab, canonical);
+    aab = canonical;
+  }
+
+  const published = publishAabOutputs(aab);
+  log(`AAB ready: ${published.aabPath}`);
+  log(`Play Console upload copy: ${published.uploadAab}`);
 }
 
 main().catch((e) => {

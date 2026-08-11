@@ -62,3 +62,8 @@ android/*.aab
 android/*.apk
 android/.twa-manifest.build.json
 android/.bubblewrap*
+android/AAB_READY.txt
+
+# Play Console local AAB export (binary; regenerate with npm run build:android)
+play-console-upload/*.aab
+play-console-upload/AAB_READY.txt
