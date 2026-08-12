@@ -11,6 +11,13 @@ import {
   cylinderPercentV1,
 } from "../src/gas-monitor/gas-monitor-sites-v1.js";
 import {
+  GAS_MONITOR_BUILDINGS_V1,
+} from "../src/gas-monitor/gas-monitor-buildings-v1.js";
+import {
+  buildLifeCareOverlayV1,
+  resolveLifeCareStatusV1,
+} from "../src/gas-monitor/gas-monitor-life-care-v1.js";
+import {
   buildGasCustomerDashboardV1,
   buildGasOperatorDashboardV1,
 } from "../src/gas-monitor/gas-monitor-dashboard-v1.js";
@@ -76,8 +83,13 @@ describe("gas-monitor-v1", () => {
     assert.ok(dash.deliveryAlertCount >= 1);
     assert.ok(dash.emergencyCount >= 1);
     assert.equal(dash.properties[0].emergencyShutoff, true);
-    const firstNonEmergency = dash.properties.find((p) => !p.emergencyShutoff);
-    assert.ok(firstNonEmergency?.needsDelivery);
+    const firstNonEmergency = dash.properties.find(
+      (p) => !p.emergencyShutoff
+    );
+    assert.ok(
+      firstNonEmergency?.needsDelivery ||
+        firstNonEmergency?.lifeCareAlertLevel !== "none"
+    );
   });
 
   it("appends gas card to hub and customer home without removing eco_water", async () => {
@@ -137,5 +149,103 @@ describe("gas-monitor-v1", () => {
     assert.equal(op.status, 200);
     assert.equal(op.body.ok, true);
     assert.ok(op.body.dashboard.properties.length >= 5);
+  });
+
+  // --- Life Care / 建物グループ拡張（追記） ---
+
+  it("keeps original 6 seed properties and appends rooms", () => {
+    const ids = GAS_MONITOR_PROPERTIES_V1.map((p) => p.id);
+    for (const id of [
+      "GAS-JP-HOME-001",
+      "GAS-JP-APT-201",
+      "GAS-JP-APT-305",
+      "GAS-JP-SHOP-001",
+      "GAS-JP-HOME-ALERT",
+      "GAS-AU-HOME-001",
+    ]) {
+      assert.ok(ids.includes(id), `missing seed ${id}`);
+    }
+    assert.ok(ids.includes("GAS-JP-APT-102"));
+    assert.ok(ids.includes("GAS-JP-APT-403"));
+    assert.ok(ids.includes("GAS-AU-APT-12A"));
+    assert.ok(GAS_MONITOR_PROPERTIES_V1.length >= 10);
+  });
+
+  it("groups Tsukuba apartments under one building", () => {
+    const corpo = GAS_MONITOR_BUILDINGS_V1.find(
+      (b) => b.buildingId === "BLD-JP-TSUKUBA-CORPO"
+    );
+    assert.ok(corpo);
+    assert.equal(corpo.buildingName, "つくばコーポ");
+    assert.ok(corpo.propertyIds.includes("GAS-JP-APT-201"));
+    assert.ok(corpo.propertyIds.includes("GAS-JP-APT-403"));
+    assert.ok(corpo.propertyIds.length >= 4);
+  });
+
+  it("exposes JP/AU currency on AU apartment building", () => {
+    const melb = GAS_MONITOR_BUILDINGS_V1.find(
+      (b) => b.buildingId === "BLD-AU-MELBOURNE-APT"
+    );
+    assert.ok(melb);
+    assert.equal(melb.countryCode, "AU");
+    assert.equal(melb.currency, "AUD");
+  });
+
+  it("resolves life care badges including bath dwell and quake", () => {
+    assert.equal(
+      resolveLifeCareStatusV1("GAS-JP-APT-201", false),
+      "no_gas_24h"
+    );
+    assert.equal(
+      resolveLifeCareStatusV1("GAS-JP-APT-403", false),
+      "bath_toilet_long"
+    );
+    const quake = buildLifeCareOverlayV1(
+      "GAS-JP-HOME-ALERT",
+      true
+    );
+    assert.equal(quake.status, "quake_shutoff");
+    assert.equal(quake.alertLevel, "critical");
+    assert.equal(quake.statusEmoji, "🚨");
+  });
+
+  it("operator dashboard returns building groups with life care", () => {
+    const dash = buildGasOperatorDashboardV1();
+    assert.ok(dash.buildings.length >= 4);
+    assert.ok(dash.lifeCareAlertCount >= 2);
+    const corpo = dash.buildings.find(
+      (b) => b.buildingId === "BLD-JP-TSUKUBA-CORPO"
+    );
+    assert.ok(corpo);
+    assert.equal(corpo.totalRooms, 4);
+    assert.ok(corpo.lifeCareAlertCount >= 1);
+    assert.ok(
+      corpo.rooms.every(
+        (r) => r.lifeCareEmoji && r.lifeCareLabel && r.lifeCareStatus
+      )
+    );
+    const customer = buildGasCustomerDashboardV1("GAS-JP-APT-403");
+    assert.equal(customer.lifeCare.status, "bath_toilet_long");
+    assert.equal(customer.buildingName, "つくばコーポ");
+  });
+
+  it("serves buildings API and operator HTML with accordion hooks", async () => {
+    const bld = await request(app).get(
+      "/api/gas-monitor/v1/buildings"
+    );
+    assert.equal(bld.status, 200);
+    assert.equal(bld.body.ok, true);
+    assert.ok(bld.body.buildings.length >= 4);
+
+    const page = await request(app).get("/gas-monitor-v1");
+    assert.equal(page.status, 200);
+    assert.ok(String(page.text).includes("gm-sum-lifecare"));
+    assert.ok(String(page.text).includes("建物グループ"));
+
+    const custPage = await request(app).get(
+      "/customer/gas-monitor"
+    );
+    assert.equal(custPage.status, 200);
+    assert.ok(String(custPage.text).includes("Life Care"));
   });
 });

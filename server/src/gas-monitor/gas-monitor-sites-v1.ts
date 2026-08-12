@@ -200,6 +200,105 @@ export const GAS_MONITOR_PROPERTIES_V1: readonly GasPropertyV1[] = [
       0.0, 0.0,
     ],
   },
+  // --- 以下 Life Care / 建物グループ拡張（追記のみ） ---
+  {
+    id: "GAS-JP-APT-102",
+    tenantId: "tenant_toms_jp",
+    countryCode: "JP",
+    currency: "JPY",
+    kind: "apartment",
+    displayName: "つくばコーポ 102号室",
+    addressLabel: "茨城県つくば市",
+    meterPulseTotal: 65420,
+    todayUsageM3: 0.72,
+    emergencyShutoff: false,
+    cylinders: [
+      { index: 1, capacityKg: 30, remainingKg: 22.0, active: true },
+      { index: 2, capacityKg: 30, remainingKg: 29.0, active: false },
+    ],
+    lifeWatchNotes: [
+      "今朝07:50にお湯の使用を確認",
+      "ミリ波: リビングで生活反応あり",
+    ],
+    hourlyUsageM3: [
+      0.0, 0.0, 0.0, 0.0, 0.0, 0.01, 0.1, 0.12, 0.06, 0.03, 0.02,
+      0.03, 0.05, 0.03, 0.02, 0.03, 0.06, 0.1, 0.07, 0.02, 0.01, 0.0,
+      0.0, 0.0,
+    ],
+  },
+  {
+    id: "GAS-JP-APT-403",
+    tenantId: "tenant_toms_jp",
+    countryCode: "JP",
+    currency: "JPY",
+    kind: "apartment",
+    displayName: "つくばコーポ 403号室",
+    addressLabel: "茨城県つくば市",
+    meterPulseTotal: 88110,
+    todayUsageM3: 0.18,
+    emergencyShutoff: false,
+    cylinders: [
+      { index: 1, capacityKg: 30, remainingKg: 14.5, active: true },
+      { index: 2, capacityKg: 30, remainingKg: 28.0, active: false },
+    ],
+    lifeWatchNotes: [
+      "浴室ゾーンに長時間滞留を検知",
+      "ご家族・事業者へ通知準備中（デモ）",
+    ],
+    hourlyUsageM3: [
+      0.0, 0.0, 0.0, 0.0, 0.0, 0.02, 0.06, 0.02, 0.01, 0.0, 0.0,
+      0.01, 0.01, 0.01, 0.0, 0.01, 0.01, 0.02, 0.01, 0.0, 0.0, 0.0,
+      0.0, 0.0,
+    ],
+  },
+  {
+    id: "GAS-AU-APT-12A",
+    tenantId: "tenant_demo_au",
+    countryCode: "AU",
+    currency: "AUD",
+    kind: "apartment",
+    displayName: "Melbourne Harbour 12A",
+    addressLabel: "VIC, Australia",
+    meterPulseTotal: 15480,
+    todayUsageM3: 0.0,
+    emergencyShutoff: false,
+    cylinders: [
+      { index: 1, capacityKg: 45, remainingKg: 30.0, active: true },
+      { index: 2, capacityKg: 45, remainingKg: 42.0, active: false },
+    ],
+    lifeWatchNotes: [
+      "No gas pulse detected for 24 hours",
+      "mmWave: no presence in unit",
+    ],
+    hourlyUsageM3: [
+      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+    ],
+  },
+  {
+    id: "GAS-AU-APT-12B",
+    tenantId: "tenant_demo_au",
+    countryCode: "AU",
+    currency: "AUD",
+    kind: "apartment",
+    displayName: "Melbourne Harbour 12B",
+    addressLabel: "VIC, Australia",
+    meterPulseTotal: 18920,
+    todayUsageM3: 0.64,
+    emergencyShutoff: false,
+    cylinders: [
+      { index: 1, capacityKg: 45, remainingKg: 18.0, active: true },
+      { index: 2, capacityKg: 45, remainingKg: 40.0, active: false },
+    ],
+    lifeWatchNotes: [
+      "Cooking gas confirmed at 08:15",
+    ],
+    hourlyUsageM3: [
+      0.0, 0.0, 0.0, 0.0, 0.0, 0.01, 0.08, 0.14, 0.06, 0.03, 0.02,
+      0.03, 0.04, 0.02, 0.02, 0.03, 0.05, 0.08, 0.05, 0.02, 0.01, 0.0,
+      0.0, 0.0,
+    ],
+  },
 ];
 
 export function findGasPropertyV1(

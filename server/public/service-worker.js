@@ -4,10 +4,10 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2443-demand-security";
-const OFFLINE_CACHE = "tisly-pwa-shell-v2443-demand-security";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2443-demand-security";
-const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2443-demand-security";
+const SW_VERSION = "tisly-pwa-v2444-gas-building-lifecare";
+const OFFLINE_CACHE = "tisly-pwa-shell-v2444-gas-building-lifecare";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2444-gas-building-lifecare";
+const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2444-gas-building-lifecare";
 const ICON_V = "?v=2004";
 
 /** 図面エディタ v1 — ES module 群 */

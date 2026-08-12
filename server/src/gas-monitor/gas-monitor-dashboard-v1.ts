@@ -1,8 +1,20 @@
 /**
  * ガス見守りダッシュボード組み立て
  * 顧客向け / 事業者向け
+ * 建物グループ化 · Life Care 追記
  */
 
+import {
+  findBuildingForPropertyV1,
+  listGasBuildingsV1,
+  type GasBuildingDefV1,
+} from "./gas-monitor-buildings-v1.js";
+import {
+  buildLifeCareOverlayV1,
+  isLifeCareAlertV1,
+  type GasLifeCareOverlayV1,
+  type GasLifeCareStatusV1,
+} from "./gas-monitor-life-care-v1.js";
 import {
   cylinderPercentV1,
   findGasPropertyV1,
@@ -27,6 +39,10 @@ export interface GasCustomerDashboardV1 {
   hourlyUsageM3: number[];
   lifeWatchNotes: string[];
   lastUpdatedAt: string;
+  /** Life Care（見守り）追記 */
+  lifeCare: GasLifeCareOverlayV1;
+  buildingId: string | null;
+  buildingName: string | null;
 }
 
 export interface GasOperatorPropertyRowV1 {
@@ -50,6 +66,33 @@ export interface GasOperatorPropertyRowV1 {
     active: boolean;
   }>;
   lifeWatchNotes: string[];
+  /** Life Care 追記 */
+  lifeCareStatus: GasLifeCareStatusV1;
+  lifeCareEmoji: string;
+  lifeCareLabel: string;
+  lifeCareAlertLevel: "none" | "warn" | "critical";
+  mmWaveDetected: boolean;
+  mmWaveZone: string;
+  mmWaveDwellMinutes: number;
+  buildingId: string | null;
+  roomLabel: string;
+}
+
+export interface GasBuildingGroupV1 {
+  buildingId: string;
+  buildingName: string;
+  addressLabel: string;
+  kind: string;
+  countryCode: string;
+  currency: string;
+  tenantId: string;
+  totalRooms: number;
+  deliveryAlertCount: number;
+  emergencyCount: number;
+  lifeCareAlertCount: number;
+  /** 親カードを開いた状態で優先表示するか */
+  hasPriorityAlert: boolean;
+  rooms: GasOperatorPropertyRowV1[];
 }
 
 export interface GasOperatorDashboardV1 {
@@ -57,14 +100,28 @@ export interface GasOperatorDashboardV1 {
   totalProperties: number;
   deliveryAlertCount: number;
   emergencyCount: number;
-  /** 要配送を先頭にソート */
+  /** Life Care 警報件数（黄・赤・地震） */
+  lifeCareAlertCount: number;
+  /** 要配送を先頭にソート（フラット互換） */
   properties: GasOperatorPropertyRowV1[];
+  /** 建物グループ（アパート等） */
+  buildings: GasBuildingGroupV1[];
+}
+
+function roomLabelFromDisplayName(displayName: string): string {
+  const m = displayName.match(
+    /(\d{2,4}号室|\d+[A-Za-z]|Unit\s*\d+|Apt\s*\d+)/i
+  );
+  if (m) return m[1];
+  return displayName;
 }
 
 function buildCustomerFromProperty(
   p: GasPropertyV1
 ): GasCustomerDashboardV1 {
   const emergency = p.emergencyShutoff;
+  const lifeCare = buildLifeCareOverlayV1(p.id, emergency);
+  const building = findBuildingForPropertyV1(p.id);
   return {
     propertyId: p.id,
     displayName: p.displayName,
@@ -79,6 +136,9 @@ function buildCustomerFromProperty(
     hourlyUsageM3: [...p.hourlyUsageM3],
     lifeWatchNotes: [...p.lifeWatchNotes],
     lastUpdatedAt: new Date().toISOString(),
+    lifeCare,
+    buildingId: building?.buildingId ?? null,
+    buildingName: building?.buildingName ?? null,
   };
 }
 
@@ -86,6 +146,11 @@ function buildOperatorRow(p: GasPropertyV1): GasOperatorPropertyRowV1 {
   const autoSwitchDetected = p.lifeWatchNotes.some((n) =>
     n.includes("自動切替")
   );
+  const lifeCare = buildLifeCareOverlayV1(
+    p.id,
+    p.emergencyShutoff
+  );
+  const building = findBuildingForPropertyV1(p.id);
   return {
     propertyId: p.id,
     displayName: p.displayName,
@@ -107,6 +172,72 @@ function buildOperatorRow(p: GasPropertyV1): GasOperatorPropertyRowV1 {
       active: c.active,
     })),
     lifeWatchNotes: [...p.lifeWatchNotes],
+    lifeCareStatus: lifeCare.status,
+    lifeCareEmoji: lifeCare.statusEmoji,
+    lifeCareLabel: lifeCare.statusLabel,
+    lifeCareAlertLevel: lifeCare.alertLevel,
+    mmWaveDetected: lifeCare.mmWave.detected,
+    mmWaveZone: lifeCare.mmWave.zone,
+    mmWaveDwellMinutes: lifeCare.mmWave.dwellMinutes,
+    buildingId: building?.buildingId ?? null,
+    roomLabel: roomLabelFromDisplayName(p.displayName),
+  };
+}
+
+function sortRooms(
+  a: GasOperatorPropertyRowV1,
+  b: GasOperatorPropertyRowV1
+): number {
+  if (a.emergencyShutoff !== b.emergencyShutoff) {
+    return a.emergencyShutoff ? -1 : 1;
+  }
+  const aCrit = a.lifeCareAlertLevel === "critical";
+  const bCrit = b.lifeCareAlertLevel === "critical";
+  if (aCrit !== bCrit) return aCrit ? -1 : 1;
+  const aWarn = a.lifeCareAlertLevel === "warn";
+  const bWarn = b.lifeCareAlertLevel === "warn";
+  if (aWarn !== bWarn) return aWarn ? -1 : 1;
+  if (a.needsDelivery !== b.needsDelivery) {
+    return a.needsDelivery ? -1 : 1;
+  }
+  return a.displayName.localeCompare(b.displayName, "ja");
+}
+
+function buildBuildingGroup(
+  def: GasBuildingDefV1,
+  byId: Map<string, GasOperatorPropertyRowV1>
+): GasBuildingGroupV1 | null {
+  const rooms = def.propertyIds
+    .map((id) => byId.get(id))
+    .filter((r): r is GasOperatorPropertyRowV1 => Boolean(r));
+  if (!rooms.length) return null;
+  rooms.sort(sortRooms);
+  const deliveryAlertCount = rooms.filter(
+    (r) => r.needsDelivery
+  ).length;
+  const emergencyCount = rooms.filter(
+    (r) => r.emergencyShutoff
+  ).length;
+  const lifeCareAlertCount = rooms.filter((r) =>
+    isLifeCareAlertV1(r.lifeCareStatus)
+  ).length;
+  return {
+    buildingId: def.buildingId,
+    buildingName: def.buildingName,
+    addressLabel: def.addressLabel,
+    kind: def.kind,
+    countryCode: def.countryCode,
+    currency: def.currency,
+    tenantId: def.tenantId,
+    totalRooms: rooms.length,
+    deliveryAlertCount,
+    emergencyCount,
+    lifeCareAlertCount,
+    hasPriorityAlert:
+      emergencyCount > 0 ||
+      lifeCareAlertCount > 0 ||
+      deliveryAlertCount > 0,
+    rooms,
   };
 }
 
@@ -122,24 +253,69 @@ export function buildGasCustomerDashboardV1(
 
 /**
  * 事業者ダッシュボード
- * 要配送・緊急を先頭ソート
+ * 要配送・緊急を先頭ソート + 建物グループ
  */
 export function buildGasOperatorDashboardV1(): GasOperatorDashboardV1 {
   const rows = listGasPropertiesV1().map(buildOperatorRow);
-  rows.sort((a, b) => {
-    if (a.emergencyShutoff !== b.emergencyShutoff) {
-      return a.emergencyShutoff ? -1 : 1;
+  rows.sort(sortRooms);
+
+  const byId = new Map(
+    rows.map((r) => [r.propertyId, r] as const)
+  );
+  const buildings = listGasBuildingsV1()
+    .map((def) => buildBuildingGroup(def, byId))
+    .filter((g): g is GasBuildingGroupV1 => Boolean(g));
+
+  buildings.sort((a, b) => {
+    if (a.emergencyCount !== b.emergencyCount) {
+      return b.emergencyCount - a.emergencyCount;
     }
-    if (a.needsDelivery !== b.needsDelivery) {
-      return a.needsDelivery ? -1 : 1;
+    if (a.lifeCareAlertCount !== b.lifeCareAlertCount) {
+      return b.lifeCareAlertCount - a.lifeCareAlertCount;
     }
-    return a.displayName.localeCompare(b.displayName, "ja");
+    if (a.deliveryAlertCount !== b.deliveryAlertCount) {
+      return b.deliveryAlertCount - a.deliveryAlertCount;
+    }
+    return a.buildingName.localeCompare(b.buildingName, "ja");
   });
+
+  // 建物未所属があれば単独グループとして末尾追記
+  const assigned = new Set(
+    buildings.flatMap((b) => b.rooms.map((r) => r.propertyId))
+  );
+  const orphans = rows.filter((r) => !assigned.has(r.propertyId));
+  for (const r of orphans) {
+    buildings.push({
+      buildingId: `BLD-ORPHAN-${r.propertyId}`,
+      buildingName: r.displayName,
+      addressLabel: r.addressLabel,
+      kind: r.kind,
+      countryCode: r.countryCode,
+      currency: r.currency,
+      tenantId: r.tenantId,
+      totalRooms: 1,
+      deliveryAlertCount: r.needsDelivery ? 1 : 0,
+      emergencyCount: r.emergencyShutoff ? 1 : 0,
+      lifeCareAlertCount: isLifeCareAlertV1(r.lifeCareStatus)
+        ? 1
+        : 0,
+      hasPriorityAlert:
+        r.emergencyShutoff ||
+        isLifeCareAlertV1(r.lifeCareStatus) ||
+        r.needsDelivery,
+      rooms: [r],
+    });
+  }
+
   return {
     generatedAt: new Date().toISOString(),
     totalProperties: rows.length,
     deliveryAlertCount: rows.filter((r) => r.needsDelivery).length,
     emergencyCount: rows.filter((r) => r.emergencyShutoff).length,
+    lifeCareAlertCount: rows.filter((r) =>
+      isLifeCareAlertV1(r.lifeCareStatus)
+    ).length,
     properties: rows,
+    buildings,
   };
 }

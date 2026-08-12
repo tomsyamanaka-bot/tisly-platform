@@ -44,9 +44,33 @@ function renderStatus(d) {
   label.textContent = d.statusLabel;
 }
 
+function renderLifeCare(d) {
+  const hero = document.getElementById("gm-lifecare-hero");
+  const emoji = document.getElementById("gm-lifecare-emoji");
+  const label = document.getElementById("gm-lifecare-label");
+  const mm = document.getElementById("gm-lifecare-mmwave");
+  if (!hero || !d.lifeCare) return;
+  const lc = d.lifeCare;
+  hero.classList.remove("is-warn", "is-critical");
+  if (lc.alertLevel === "warn") hero.classList.add("is-warn");
+  if (lc.alertLevel === "critical") {
+    hero.classList.add("is-critical");
+  }
+  emoji.textContent = lc.statusEmoji || "🟢";
+  label.textContent = lc.statusLabel || "正常生活反応";
+  const mw = lc.mmWave || {};
+  mm.textContent = `生活センサー: ${
+    mw.detected ? "反応あり" : "反応なし"
+  } · 滞留 ${Number(mw.dwellMinutes || 0)}分`;
+}
+
 function renderMeta(d) {
   document.getElementById("gm-meta-name").textContent = d.displayName;
   document.getElementById("gm-meta-addr").textContent = d.addressLabel;
+  const b = document.getElementById("gm-meta-building");
+  if (b) {
+    b.textContent = d.buildingName || "—";
+  }
   document.getElementById("gm-usage-m3").textContent =
     Number(d.todayUsageM3).toFixed(2);
 }
@@ -110,6 +134,7 @@ async function refresh() {
   const id = select?.value || "";
   const d = await loadCustomer(id || null);
   renderStatus(d);
+  renderLifeCare(d);
   renderMeta(d);
   renderNotes(d);
   renderChart(d);

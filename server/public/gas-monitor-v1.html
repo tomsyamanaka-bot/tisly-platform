@@ -24,14 +24,14 @@
     <div>
       <p class="gm-brand-name">TiSLY ガス事業者</p>
       <h1 class="gm-title">ボンベ残量＆自動検針</h1>
-      <p class="gm-sub">要配送を先頭に表示します</p>
+      <p class="gm-sub">建物ごとにグループ表示 · Life Care 見守り</p>
     </div>
   </header>
 
   <main class="gm-main gm-main-wide">
     <section class="gm-card">
       <p class="gm-card-label">本日の状況</p>
-      <div class="gm-summary-row">
+      <div class="gm-summary-row gm-summary-row-4">
         <div class="gm-summary-pill">
           <strong id="gm-sum-total">0</strong>
           <span>登録物件</span>
@@ -44,11 +44,15 @@
           <strong id="gm-sum-emergency">0</strong>
           <span>緊急遮断</span>
         </div>
+        <div class="gm-summary-pill is-lifecare">
+          <strong id="gm-sum-lifecare">0</strong>
+          <span>見守り警報</span>
+        </div>
       </div>
     </section>
 
     <section class="gm-card">
-      <p class="gm-card-label">物件一覧（要配送優先）</p>
+      <p class="gm-card-label">建物グループ一覧（警報優先）</p>
       <div class="gm-prop-list" id="gm-prop-list">
         <p class="gm-empty">読み込み中…</p>
       </div>

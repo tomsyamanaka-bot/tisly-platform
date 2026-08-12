@@ -1040,10 +1040,27 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | App Hub | `gas_monitor_v1` カード追記（既存カード非改変） |
 | Customer | ホームカード「ガス見守り」追記（既存カード非改変） |
 | UI | 白 `#FFFFFF/#F8FAFC` × ネイビー `#1E3A8A` · 大ボタン · カードUI |
-| SW | `tisly-pwa-v2442-gas-monitor` |
+| SW | `tisly-pwa-v2444-gas-building-lifecare` |
 | コード | `src/gas-monitor/*` · `api/routes/gas-monitor.ts` · `gas-monitor-v1.html` · `gas-monitor-customer-v1.html` · `js/features/gas-monitor/*` |
 | テスト | `server/test/gas-monitor-v1.test.ts` |
 | 確認 | `/customer/gas-monitor` · `/gas-monitor-v1` · `/app` · https://tisly.jp/api/health |
+
+### ガス見守り 建物グループ + Life Care v1.1（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | アパート等を建物親カードでグループ化 · Life Care 見守りバッジ |
+| 親カード | 建物名 · 所在地 · 総部屋数 · 要配送/警報/見守り件数バッジ · アコーディオン展開 |
+| 部屋カード | 積算パルス · ボンベ残量 · Life Care バッジ · ミリ波滞留 |
+| Life Care | 🟢正常生活反応 / 🟡24時間ガス未検知 / 🔴浴室・トイレ長滞留 / 🚨地震自動遮断 |
+| 警報UX | 黄・赤カード枠点滅 · 高コントラストバッジ |
+| 建物 | つくばコーポ（4室）· Melbourne Harbour（AU/AUD）等 |
+| データ | 既存物件は非破壊 · Life Care オーバーレイ · 末尾に部屋追記 |
+| API | `GET /api/gas-monitor/v1/operator`（buildings）· `/buildings` |
+| SW | `tisly-pwa-v2444-gas-building-lifecare` |
+| コード | `gas-monitor-buildings-v1.ts` · `gas-monitor-life-care-v1.ts` · operator/customer UI |
+| テスト | `server/test/gas-monitor-v1.test.ts`（建物・Life Care ケース追記） |
+| 確認 | `/gas-monitor-v1` · `/customer/gas-monitor` · https://tisly.jp/api/health |
 
 ### マルチ NAS（書類 nastoms / システム TiSLYNAS）v1（完成済み）
 
