@@ -1028,6 +1028,23 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | テスト | `server/test/eco-water-v1.test.ts` |
 | 確認 | `/eco-water-v1` · `/api/eco-water/status?site_id=EW-TKB` · `/app` · `/customer` · https://tisly.jp/api/health |
 
+### ガス見守り・ボンベ残量 v1（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | ガスメーター自動検針 · 高齢者見守り · 緊急遮断 · ガス屋向けボンベ重量管理 |
+| お客様 | `/customer/gas-monitor` — 🟢正常稼働中 / 🔴緊急遮断 · 当日使用量 m³ グラフ · 生活見守りテキスト |
+| 事業者 | `/gas-monitor-v1` · `/app/gas-monitor` — 積算パルス · 1/2本目 kg・%バー · 要配送ソート |
+| モック | 戸建て · アパート複数世帯 · 店舗 · AU サンプル（`tenant_id` / JP·AU / JPY·AUD）追記のみ |
+| API | `GET /api/gas-monitor/v1/customer` · `/operator` · `/properties` |
+| App Hub | `gas_monitor_v1` カード追記（既存カード非改変） |
+| Customer | ホームカード「ガス見守り」追記（既存カード非改変） |
+| UI | 白 `#FFFFFF/#F8FAFC` × ネイビー `#1E3A8A` · 大ボタン · カードUI |
+| SW | `tisly-pwa-v2442-gas-monitor` |
+| コード | `src/gas-monitor/*` · `api/routes/gas-monitor.ts` · `gas-monitor-v1.html` · `gas-monitor-customer-v1.html` · `js/features/gas-monitor/*` |
+| テスト | `server/test/gas-monitor-v1.test.ts` |
+| 確認 | `/customer/gas-monitor` · `/gas-monitor-v1` · `/app` · https://tisly.jp/api/health |
+
 ### マルチ NAS（書類 nastoms / システム TiSLYNAS）v1（完成済み）
 
 | 領域 | 内容 |
