@@ -1,52 +1,45 @@
 #!/usr/bin/env node
 /**
- * Sync SHA-256 fingerprint from android.keystore into assetlinks.json + twa-manifest fingerprints.
+ * リリース鍵の SHA-256 を assetlinks.json / twa-manifest へ反映
  */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  KEY_ALIAS,
+  findKeytool,
+  findJdkHome,
+  getSigningPassword,
+  legacyKeystorePath,
+  releaseKeystorePath,
+} from "./android-keystore-shared.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const androidDir = path.join(root, "android");
-const keystore = path.join(androidDir, "android.keystore");
+const releaseKs = releaseKeystorePath(androidDir);
+const legacyKs = legacyKeystorePath(androidDir);
+const keystore = fs.existsSync(releaseKs) ? releaseKs : legacyKs;
 const assetlinksPath = path.join(root, "server", "public", ".well-known", "assetlinks.json");
 const twaPath = path.join(androidDir, "twa-manifest.json");
-const alias = "tisly";
 
-function findKeytool() {
-  const candidates = [];
-  if (process.env.JAVA_HOME) {
-    candidates.push(path.join(process.env.JAVA_HOME, "bin", "keytool"));
-  }
-  const jdkRoot = path.join(androidDir, ".jdk");
-  if (fs.existsSync(jdkRoot)) {
-    for (const n of fs.readdirSync(jdkRoot)) {
-      candidates.push(path.join(jdkRoot, n, "bin", "keytool"));
-    }
-  }
-  candidates.push("keytool");
-  for (const c of candidates) {
-    if (c === "keytool") return c;
-    if (fs.existsSync(c + ".exe")) return c + ".exe";
-    if (fs.existsSync(c)) return c;
-  }
-  return null;
+if (!process.env.JAVA_HOME) {
+  const jdk = findJdkHome(androidDir);
+  if (jdk) process.env.JAVA_HOME = jdk;
 }
 
 if (!fs.existsSync(keystore)) {
-  console.error("[android:sync-assetlinks] Missing android/android.keystore — run npm run android:keystore");
+  console.error(
+    "[android:sync-assetlinks] Missing release keystore — run npm run android:keystore"
+  );
   process.exit(1);
 }
 
-const password =
-  process.env.TISLY_ANDROID_KEYSTORE_PASSWORD ||
-  process.env.BUBBLEWRAP_KEYSTORE_PASSWORD ||
-  "tisly-android-dev";
-const keytool = findKeytool();
+const password = getSigningPassword();
+const keytool = findKeytool(androidDir);
 const r = spawnSync(
   keytool,
-  ["-list", "-v", "-keystore", keystore, "-alias", alias, "-storepass", password],
+  ["-list", "-v", "-keystore", keystore, "-alias", KEY_ALIAS, "-storepass", password],
   { encoding: "utf8", shell: process.platform === "win32" }
 );
 if (r.status !== 0) {
@@ -80,10 +73,15 @@ const existing = Array.isArray(twa.fingerprints) ? twa.fingerprints : [];
 const withoutUpload = existing.filter((f) => f?.name !== "upload");
 withoutUpload.push({ name: "upload", value: colonForm });
 twa.fingerprints = withoutUpload;
+if (twa.signingKey) {
+  twa.signingKey.path = `./${path.basename(keystore)}`;
+  twa.signingKey.alias = KEY_ALIAS;
+}
 fs.writeFileSync(twaPath, JSON.stringify(twa, null, 2) + "\n");
 
+console.log(`[android:sync-assetlinks] Keystore: ${keystore}`);
 console.log(`[android:sync-assetlinks] Updated ${assetlinksPath}`);
 console.log(`[android:sync-assetlinks] Fingerprint: ${colonForm}`);
 console.log(
-  "[android:sync-assetlinks] After Play App Signing, also add the Play Console app-signing SHA-256."
+  "[android:sync-assetlinks] Play App Signing 利用時は Console の署名 SHA-256 も追加"
 );

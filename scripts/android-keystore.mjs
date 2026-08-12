@@ -1,44 +1,28 @@
 #!/usr/bin/env node
 /**
- * Create a local Android upload keystore for TiSLY TWA (gitignored).
+ * リリース用キーストア tisly-release-key.jks を生成（gitignore）
  */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  KEY_ALIAS,
+  findKeytool,
+  findJdkHome,
+  getSigningPassword,
+  legacyKeystorePath,
+  releaseKeystorePath,
+} from "./android-keystore-shared.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const androidDir = path.join(root, "android");
-const keystore = path.join(androidDir, "android.keystore");
-const alias = "tisly";
+const keystore = releaseKeystorePath(androidDir);
+const legacy = legacyKeystorePath(androidDir);
 
-function findKeytool() {
-  const candidates = [];
-  if (process.env.JAVA_HOME) {
-    candidates.push(path.join(process.env.JAVA_HOME, "bin", "keytool"));
-  }
-  const jdkRoot = path.join(androidDir, ".jdk");
-  if (fs.existsSync(jdkRoot)) {
-    for (const n of fs.readdirSync(jdkRoot)) {
-      candidates.push(path.join(jdkRoot, n, "bin", "keytool"));
-    }
-  }
-  for (const parent of [
-    "C:\\Program Files\\Microsoft",
-    "C:\\Program Files\\Eclipse Adoptium",
-    "C:\\Program Files\\Java",
-  ]) {
-    if (!fs.existsSync(parent)) continue;
-    for (const n of fs.readdirSync(parent)) {
-      if (!n.toLowerCase().includes("jdk")) continue;
-      candidates.push(path.join(parent, n, "bin", "keytool"));
-    }
-  }
-  for (const c of candidates) {
-    if (fs.existsSync(c + ".exe")) return c + ".exe";
-    if (fs.existsSync(c)) return c;
-  }
-  return null;
+if (!process.env.JAVA_HOME) {
+  const jdk = findJdkHome(androidDir);
+  if (jdk) process.env.JAVA_HOME = jdk;
 }
 
 if (fs.existsSync(keystore)) {
@@ -46,11 +30,15 @@ if (fs.existsSync(keystore)) {
   process.exit(0);
 }
 
-const password =
-  process.env.TISLY_ANDROID_KEYSTORE_PASSWORD ||
-  process.env.BUBBLEWRAP_KEYSTORE_PASSWORD ||
-  "tisly-android-dev";
-const keytool = findKeytool();
+// 既存 android.keystore があれば同一鍵をコピー（DAL指紋維持）
+if (fs.existsSync(legacy)) {
+  fs.copyFileSync(legacy, keystore);
+  console.log(`[android:keystore] Copied legacy key → ${keystore}`);
+  process.exit(0);
+}
+
+const password = getSigningPassword();
+const keytool = findKeytool(androidDir);
 if (!keytool) {
   console.error("[android:keystore] keytool not found. Install JDK 17 first.");
   process.exit(1);
@@ -59,10 +47,12 @@ if (!keytool) {
 const args = [
   "-genkeypair",
   "-v",
+  "-storetype",
+  "JKS",
   "-keystore",
   keystore,
   "-alias",
-  alias,
+  KEY_ALIAS,
   "-keyalg",
   "RSA",
   "-keysize",
@@ -80,5 +70,7 @@ const args = [
 console.log(`[android:keystore] Creating ${keystore}`);
 const r = spawnSync(keytool, args, { stdio: "inherit" });
 if (r.status !== 0) process.exit(r.status || 1);
-console.log("[android:keystore] Done. Keep the password safe; do not commit the keystore.");
-console.log(`[android:keystore] Default password used: ${password === "tisly-android-dev" ? "tisly-android-dev (change for production)" : "(from env)"}`);
+console.log("[android:keystore] Done. Do not commit the keystore file.");
+console.log(
+  `[android:keystore] Default password: ${password === "tisly-android-dev" ? "tisly-android-dev" : "(from env)"}`
+);

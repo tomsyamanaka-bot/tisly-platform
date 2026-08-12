@@ -9,6 +9,13 @@ import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
+import {
+  KEY_ALIAS,
+  RELEASE_KEYSTORE_FILE,
+  findJdkHome as findSharedJdkHome,
+  getSigningPassword,
+  releaseKeystorePath,
+} from "./android-keystore-shared.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
@@ -42,18 +49,8 @@ function findJdkHome() {
   if (process.env.JAVA_HOME && fs.existsSync(process.env.JAVA_HOME)) {
     return process.env.JAVA_HOME;
   }
-  const localJdkRoot = path.join(androidDir, ".jdk");
-  if (fs.existsSync(localJdkRoot)) {
-    const hit = fs
-      .readdirSync(localJdkRoot)
-      .map((n) => path.join(localJdkRoot, n))
-      .find(
-        (p) =>
-          fs.existsSync(path.join(p, "bin", "java.exe")) ||
-          fs.existsSync(path.join(p, "bin", "java"))
-      );
-    if (hit) return hit;
-  }
+  const hit = findSharedJdkHome(androidDir);
+  if (hit) return hit;
   const parents = [
     "C:\\Program Files\\Microsoft",
     "C:\\Program Files\\Eclipse Adoptium",
@@ -61,7 +58,7 @@ function findJdkHome() {
   ];
   for (const parent of parents) {
     if (!fs.existsSync(parent)) continue;
-    const hit = fs
+    const jdkHit = fs
       .readdirSync(parent)
       .filter((n) => /jdk-?17/i.test(n) || /^jdk/i.test(n))
       .map((n) => path.join(parent, n))
@@ -70,9 +67,120 @@ function findJdkHome() {
           fs.existsSync(path.join(p, "bin", "java.exe")) ||
           fs.existsSync(path.join(p, "bin", "java"))
       );
-    if (hit) return hit;
+    if (jdkHit) return jdkHit;
   }
   return null;
+}
+
+function ensureReleaseKeystore() {
+  const ks = releaseKeystorePath(androidDir);
+  if (fs.existsSync(ks)) return ks;
+  log("Creating release keystore (tisly-release-key.jks)...");
+  run("node", [path.join(root, "scripts", "android-keystore.mjs")], { cwd: root });
+  if (!fs.existsSync(ks)) fail(`Release keystore not found after create: ${ks}`);
+  return ks;
+}
+
+function writeKeystoreProperties() {
+  const propsPath = path.join(androidDir, "keystore.properties");
+  const password = getSigningPassword();
+  const body = [
+    `storeFile=${RELEASE_KEYSTORE_FILE}`,
+    `storePassword=${password}`,
+    `keyAlias=${KEY_ALIAS}`,
+    `keyPassword=${password}`,
+    "",
+  ].join("\n");
+  fs.writeFileSync(propsPath, body, "utf8");
+  log(`Wrote ${propsPath} (gitignored)`);
+}
+
+/**
+ * Bubblewrap 生成後の app/build.gradle に
+ * signingConfigs.release をマージする
+ */
+function applySigningToAppGradle() {
+  const gradlePath = path.join(androidDir, "app", "build.gradle");
+  if (!fs.existsSync(gradlePath)) {
+    fail(`Missing ${gradlePath} — run project generation first`);
+  }
+  let src = fs.readFileSync(gradlePath, "utf8");
+  if (src.includes("signingConfigs") && src.includes("signingConfig signingConfigs.release")) {
+    // 古い file() パスを rootProject.file() へ修正
+    if (src.includes("storeFile file(keystoreProperties")) {
+      src = src.replace(
+        /storeFile file\(keystoreProperties\['storeFile'\][^)]+\)/,
+        `storeFile rootProject.file(keystoreProperties['storeFile'] ?: '${RELEASE_KEYSTORE_FILE}')`
+      );
+      fs.writeFileSync(gradlePath, src, "utf8");
+      log("Fixed keystore path to rootProject.file in app/build.gradle");
+    } else {
+      log("app/build.gradle already has release signingConfig");
+    }
+    return;
+  }
+
+  const propsBlock = `
+    def keystorePropertiesFile = rootProject.file("keystore.properties")
+    def keystoreProperties = new Properties()
+    if (keystorePropertiesFile.exists()) {
+        keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+    }
+`;
+
+  if (!src.includes("keystorePropertiesFile")) {
+    src = src.replace(/^android \{\n/m, `android {\n${propsBlock}`);
+  }
+
+  const signingBlock = `
+    signingConfigs {
+        release {
+            storeFile rootProject.file(keystoreProperties['storeFile'] ?: '${RELEASE_KEYSTORE_FILE}')
+            storePassword keystoreProperties['storePassword']
+            keyAlias keystoreProperties['keyAlias']
+            keyPassword keystoreProperties['keyPassword']
+        }
+    }
+`;
+
+  if (!src.includes("signingConfigs")) {
+    src = src.replace(/\n    buildTypes \{/m, `${signingBlock}\n    buildTypes {`);
+  }
+
+  if (!src.includes("signingConfig signingConfigs.release")) {
+    src = src.replace(
+      /release \{\n(\s*)minifyEnabled true\n/m,
+      "release {\n$1minifyEnabled true\n$1signingConfig signingConfigs.release\n"
+    );
+  }
+
+  fs.writeFileSync(gradlePath, src, "utf8");
+  log("Applied signingConfigs.release to app/build.gradle");
+}
+
+function verifyAabSigned(aabPath) {
+  const jdk = process.env.JAVA_HOME;
+  const jarsigner =
+    jdk && fs.existsSync(path.join(jdk, "bin", "jarsigner.exe"))
+      ? path.join(jdk, "bin", "jarsigner.exe")
+      : jdk && fs.existsSync(path.join(jdk, "bin", "jarsigner"))
+        ? path.join(jdk, "bin", "jarsigner")
+        : "jarsigner";
+
+  const r = spawnSync(jarsigner, ["-verify", "-verbose", "-certs", aabPath], {
+    encoding: "utf8",
+    shell: process.platform === "win32",
+  });
+  const out = `${r.stdout || ""}\n${r.stderr || ""}`;
+  if (r.status !== 0) {
+    console.error(out);
+    fail("AAB signature verification failed (jarsigner)");
+  }
+  if (/jar is unsigned/i.test(out)) {
+    console.error(out);
+    fail("AAB is unsigned — Play Console will reject upload");
+  }
+  log("AAB signature verified (jarsigner)");
 }
 
 function ensureBubblewrapConfig(jdkPath, androidSdkPath) {
@@ -258,17 +366,6 @@ async function regenerateProject(localBase) {
   fs.rmSync(workPath, { force: true });
 }
 
-function npxBubblewrap(args) {
-  run("npx", ["--yes", "@bubblewrap/cli@1.24.1", ...args], {
-    cwd: androidDir,
-    env: {
-      JAVA_HOME: process.env.JAVA_HOME,
-      ANDROID_HOME: process.env.ANDROID_HOME,
-      ANDROID_SDK_ROOT: process.env.ANDROID_SDK_ROOT,
-    },
-  });
-}
-
 function runGradleBundle() {
   const gradlew =
     process.platform === "win32"
@@ -377,53 +474,23 @@ async function main() {
     server.close();
   }
 
-  const skipSigning =
-    process.argv.includes("--skip-signing") ||
-    (!process.env.BUBBLEWRAP_KEYSTORE_PASSWORD &&
-      !process.env.BUBBLEWRAP_KEY_PASSWORD);
+  const skipSigning = process.argv.includes("--skip-signing");
+
+  ensureReleaseKeystore();
+  writeKeystoreProperties();
+  applySigningToAppGradle();
 
   if (skipSigning) {
-    log("Building unsigned AAB via Gradle bundleRelease.");
+    log("Building unsigned AAB (--skip-signing). Not for Play Console upload.");
     runGradleBundle();
   } else {
-    log("Building signed AAB via Bubblewrap CLI...");
-    // Feed "n" so Bubblewrap does not prompt to regenerate.
-    const r = spawnSync(
-      "npx",
-      ["--yes", "@bubblewrap/cli@1.24.1", "build", "--skipPwaValidation"],
-      {
-        cwd: androidDir,
-        env: {
-          ...process.env,
-          JAVA_HOME: process.env.JAVA_HOME,
-          ANDROID_HOME: process.env.ANDROID_HOME,
-          ANDROID_SDK_ROOT: process.env.ANDROID_SDK_ROOT,
-        },
-        stdio: ["pipe", "inherit", "inherit"],
-        input: "n\n",
-        shell: true,
-      }
-    );
-    if (r.status !== 0) {
-      fail(`bubblewrap build exited with ${r.status}`);
-    }
+    log("Building signed release AAB (Gradle bundleRelease + signingConfigs.release).");
+    runGradleBundle();
   }
 
-  let aab = skipSigning
-    ? copyAabArtifact()
-    : [
-        path.join(androidDir, "app-release-bundle.aab"),
-        path.join(androidDir, "app", "build", "outputs", "bundle", "release", "app-release.aab"),
-      ].find((p) => fs.existsSync(p));
-
-  if (!aab || !fs.existsSync(aab)) {
-    fail("Build finished but AAB not found");
-  }
-  // Always also place canonical path under android/
-  const canonical = path.join(androidDir, "app-release-bundle.aab");
-  if (path.resolve(aab) !== path.resolve(canonical)) {
-    fs.copyFileSync(aab, canonical);
-    aab = canonical;
+  const aab = copyAabArtifact();
+  if (!skipSigning) {
+    verifyAabSigned(aab);
   }
 
   const published = publishAabOutputs(aab);

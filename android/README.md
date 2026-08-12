@@ -26,24 +26,23 @@ Outputs (local; `.aab` is gitignored):
 npm run android:open-aab   # Explorer で AAB を選択表示
 ```
 
-## Signing
+## Signing (required for Play Console)
 
-1. Create a local keystore (not committed):
-
-```bash
-npm run android:keystore
-```
-
-2. Set passwords before a signed build:
+Release keystore: `android/tisly-release-key.jks` (gitignored).
 
 ```bash
-# PowerShell
-$env:BUBBLEWRAP_KEYSTORE_PASSWORD = "..."
-$env:BUBBLEWRAP_KEY_PASSWORD = "..."
-npm run build:android
+npm run android:keystore   # 初回のみ（既存 android.keystore は自動コピー）
+npm run build:android      # 署名済み AAB を生成（デフォルト）
 ```
 
-Without passwords the build still produces an **unsigned** AAB (`--skipSigning`).
+Passwords default to `tisly-android-dev` unless you set:
+
+- `TISLY_ANDROID_KEYSTORE_PASSWORD`
+- `BUBBLEWRAP_KEYSTORE_PASSWORD`
+
+Gradle reads `android/keystore.properties` (auto-written each build).
+
+Unsigned builds (local only): `npm run build:android:unsigned`
 
 3. Sync Digital Asset Links after keystore / Play App Signing:
 

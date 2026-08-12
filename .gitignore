@@ -50,6 +50,9 @@ android/.gradle/
 android/build/
 android/android.keystore
 android/*.keystore
+android/tisly-release-key.jks
+android/*.jks
+android/keystore.properties
 android/app/
 android/gradle/
 android/gradlew

@@ -17,7 +17,7 @@
   "maskableIconUrl": "https://tisly.jp/icons/icon-512.png",
   "splashScreenFadeOutDuration": 300,
   "signingKey": {
-    "path": "./android.keystore",
+    "path": "./tisly-release-key.jks",
     "alias": "tisly"
   },
   "appVersionCode": 1,
