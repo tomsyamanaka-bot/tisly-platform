@@ -37,6 +37,13 @@ export const CUSTOMER_HOME_CARDS_V1 = [
     label: "ガス見守り",
     path: "/customer/gas-monitor",
   },
+  // 電気デマンド＆防犯（追記 — 既存カードは変更しない）
+  {
+    id: "demand_security",
+    emoji: "⚡",
+    label: "電気・防犯",
+    path: "/customer/demand-security",
+  },
 ] as const;
 
 /** /customer DOM・API に出してはいけない語（検査用） */

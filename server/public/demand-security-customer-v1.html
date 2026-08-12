@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#FFFFFF" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="TiSLY 電気・防犯" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2003" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <title>TiSLY 電気・防犯 — お客様</title>
+  <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
+  <link rel="stylesheet" href="/css/features/demand-security/demand-security-v1.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+</head>
+<body class="ds-body tisly-friendly">
+  <!--
+    お客様向け
+    電気使用量・デマンド警報・防犯状態
+  -->
+  <header class="ds-header">
+    <a class="ds-back" href="/customer" id="ds-back-link">← 戻る</a>
+    <div>
+      <p class="ds-brand-name">TiSLY 電気・防犯</p>
+      <h1 class="ds-title">いまの電気と防犯</h1>
+      <p class="ds-sub">使用量・ピーク・施錠を一目で</p>
+    </div>
+  </header>
+
+  <main class="ds-main">
+    <section class="ds-card">
+      <p class="ds-card-label">物件を選ぶ</p>
+      <select id="ds-site-select" class="ds-select" aria-label="物件選択">
+        <option value="DEMAND-JP-HOME-001">守谷 山田邸（戸建て）</option>
+      </select>
+    </section>
+
+    <section
+      class="ds-card ds-status-hero is-normal"
+      id="ds-status-hero"
+      aria-live="polite"
+    >
+      <span class="ds-status-emoji" id="ds-status-emoji">🟢</span>
+      <p class="ds-status-label" id="ds-status-label">正常です</p>
+    </section>
+
+    <section class="ds-card">
+      <p class="ds-card-label">電気のようす</p>
+      <div class="ds-kpi-row">
+        <div class="ds-kpi">
+          <strong id="ds-current-a">—</strong>
+          <span>いまの電流（A）</span>
+        </div>
+        <div class="ds-kpi">
+          <strong id="ds-demand-kw">—</strong>
+          <span>いまのデマンド（kW）</span>
+        </div>
+      </div>
+      <p class="ds-metrics" id="ds-peak-label" style="margin-top:12px">
+        自動セーブ待機
+      </p>
+      <div class="ds-chart-wrap" style="margin-top:12px">
+        <canvas id="ds-current-chart" aria-label="時間別電流グラフ"></canvas>
+      </div>
+    </section>
+
+    <section class="ds-card">
+      <p class="ds-card-label">防犯のようす</p>
+      <div class="ds-sec-grid">
+        <div class="ds-sec-item">
+          <span>玄関・扉</span>
+          <strong id="ds-door-label">—</strong>
+        </div>
+        <div class="ds-sec-item">
+          <span>人感</span>
+          <strong id="ds-motion-label">—</strong>
+        </div>
+      </div>
+    </section>
+
+    <section class="ds-card">
+      <p class="ds-card-label">お知らせ</p>
+      <ul class="ds-notes" id="ds-notes">
+        <li>読み込み中…</li>
+      </ul>
+    </section>
+  </main>
+
+  <script type="module" src="/js/features/demand-security/demand-security-customer-v1.js"></script>
+</body>
+</html>

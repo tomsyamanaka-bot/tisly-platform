@@ -1,0 +1,362 @@
+/* TiSLY 電気デマンド＆セキュリティ v1
+ * 白ベース × ネイビー · 大ボタン */
+
+:root {
+  --ds-bg: #f8fafc;
+  --ds-surface: #ffffff;
+  --ds-navy: #1e3a8a;
+  --ds-ink: #0f172a;
+  --ds-muted: #475569;
+  --ds-safe: #059669;
+  --ds-safe-bg: #ecfdf5;
+  --ds-danger: #dc2626;
+  --ds-danger-bg: #fef2f2;
+  --ds-warn: #d97706;
+  --ds-warn-bg: #fffbeb;
+  --ds-radius: 16px;
+  --ds-shadow: 0 8px 28px rgba(15, 23, 42, 0.08);
+}
+
+.ds-body {
+  margin: 0;
+  min-height: 100vh;
+  background: linear-gradient(
+    180deg,
+    #ffffff 0%,
+    var(--ds-bg) 45%,
+    #eef2ff 100%
+  );
+  color: var(--ds-ink);
+  font-family: "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+  padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+}
+
+.ds-header {
+  padding: calc(12px + env(safe-area-inset-top, 0px)) 16px 8px;
+}
+
+.ds-back {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--ds-navy);
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.ds-brand-name {
+  margin: 8px 0 0;
+  color: var(--ds-navy);
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+}
+
+.ds-title {
+  margin: 4px 0 0;
+  font-size: 1.55rem;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.ds-sub {
+  margin: 6px 0 0;
+  color: var(--ds-muted);
+  font-size: 0.95rem;
+}
+
+.ds-main {
+  padding: 8px 16px 24px;
+  display: grid;
+  gap: 14px;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.ds-main-wide {
+  max-width: 980px;
+}
+
+.ds-card {
+  background: var(--ds-surface);
+  border-radius: var(--ds-radius);
+  box-shadow: var(--ds-shadow);
+  padding: 18px 16px;
+  border: 1px solid rgba(30, 58, 138, 0.08);
+}
+
+.ds-card-label {
+  margin: 0 0 10px;
+  color: var(--ds-navy);
+  font-weight: 800;
+  font-size: 0.9rem;
+}
+
+.ds-select {
+  width: 100%;
+  min-height: 48px;
+  border-radius: 12px;
+  border: 2px solid rgba(30, 58, 138, 0.2);
+  padding: 10px 12px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--ds-ink);
+  background: #fff;
+}
+
+.ds-status-hero {
+  text-align: center;
+  padding: 28px 16px;
+}
+
+.ds-status-hero.is-normal {
+  background: var(--ds-safe-bg);
+}
+
+.ds-status-hero.is-peak_cut {
+  background: var(--ds-warn-bg);
+}
+
+.ds-status-hero.is-security_alert {
+  background: var(--ds-danger-bg);
+}
+
+.ds-status-emoji {
+  font-size: 3.2rem;
+  line-height: 1;
+  display: block;
+}
+
+.ds-status-label {
+  margin: 10px 0 0;
+  font-size: 1.45rem;
+  font-weight: 800;
+}
+
+.ds-kpi-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.ds-kpi {
+  background: #f8fafc;
+  border-radius: 14px;
+  padding: 14px 12px;
+  text-align: center;
+  border: 1px solid rgba(30, 58, 138, 0.08);
+}
+
+.ds-kpi strong {
+  display: block;
+  font-size: 1.55rem;
+  color: var(--ds-navy);
+  font-weight: 800;
+}
+
+.ds-kpi span {
+  color: var(--ds-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.ds-sec-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.ds-sec-item {
+  border-radius: 14px;
+  padding: 16px 12px;
+  text-align: center;
+  background: #f8fafc;
+  border: 1px solid rgba(30, 58, 138, 0.1);
+}
+
+.ds-sec-item strong {
+  display: block;
+  font-size: 1.2rem;
+  margin-top: 4px;
+}
+
+.ds-chart-wrap {
+  height: 200px;
+  position: relative;
+}
+
+.ds-notes {
+  margin: 0;
+  padding-left: 1.1rem;
+  line-height: 1.6;
+  font-size: 1.02rem;
+}
+
+.ds-summary-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.ds-summary-pill {
+  text-align: center;
+  background: #f8fafc;
+  border-radius: 14px;
+  padding: 12px 8px;
+  border: 1px solid rgba(30, 58, 138, 0.1);
+}
+
+.ds-summary-pill strong {
+  display: block;
+  font-size: 1.4rem;
+  color: var(--ds-navy);
+}
+
+.ds-summary-pill.is-alert strong {
+  color: var(--ds-warn);
+}
+
+.ds-summary-pill.is-danger strong {
+  color: var(--ds-danger);
+}
+
+.ds-site-list {
+  display: grid;
+  gap: 12px;
+}
+
+.ds-site-card {
+  border: 1px solid rgba(30, 58, 138, 0.12);
+  border-radius: 14px;
+  padding: 14px;
+  background: #fff;
+}
+
+.ds-site-card.is-peak {
+  border-color: rgba(217, 119, 6, 0.45);
+  background: #fffbeb;
+}
+
+.ds-site-card.is-security {
+  border-color: rgba(220, 38, 38, 0.4);
+  background: #fef2f2;
+}
+
+.ds-site-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.ds-site-name {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.ds-site-addr {
+  margin: 4px 0 0;
+  color: var(--ds-muted);
+  font-size: 0.88rem;
+}
+
+.ds-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.ds-badge-ok {
+  background: var(--ds-safe-bg);
+  color: var(--ds-safe);
+}
+
+.ds-badge-peak {
+  background: var(--ds-warn-bg);
+  color: var(--ds-warn);
+}
+
+.ds-badge-sec {
+  background: var(--ds-danger-bg);
+  color: var(--ds-danger);
+}
+
+.ds-metrics {
+  margin: 10px 0 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.ds-relay-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.ds-relay-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid rgba(30, 58, 138, 0.1);
+}
+
+.ds-relay-meta {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.ds-relay-meta small {
+  display: block;
+  color: var(--ds-muted);
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.ds-relay-btn {
+  min-height: 44px;
+  min-width: 88px;
+  border: none;
+  border-radius: 12px;
+  font-weight: 800;
+  font-size: 0.95rem;
+  cursor: pointer;
+  color: #fff;
+  background: var(--ds-navy);
+}
+
+.ds-relay-btn.is-on {
+  background: var(--ds-safe);
+}
+
+.ds-relay-btn.is-off {
+  background: #64748b;
+}
+
+.ds-empty {
+  color: var(--ds-muted);
+  margin: 0;
+}
+
+@media (max-width: 560px) {
+  .ds-summary-row {
+    grid-template-columns: 1fr;
+  }
+  .ds-relay-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .ds-relay-btn {
+    width: 100%;
+  }
+}

@@ -312,6 +312,29 @@ const PRACTICAL_PWA_DEFS: Array<
       "viewer",
     ],
   },
+  // 電気デマンド＆セキュリティ（追記）
+  {
+    id: "demand_security_v1",
+    label: "電気デマンド・防犯",
+    subtitle: "主幹電流・ピークカット・リレー遠隔",
+    icon: "⚡",
+    features: [
+      "主幹電流A",
+      "ピークカット",
+      "100V/200Vリレー",
+      "施錠・人感",
+    ],
+    href: "/demand-security-v1",
+    themeColor: "#1e3a8a",
+    readyRoles: [
+      "surveyor",
+      "manager",
+      "owner",
+      "admin",
+      "super_admin",
+      "viewer",
+    ],
+  },
 ];
 
 export function buildPracticalHubCards(role: string): PracticalPwaCard[] {

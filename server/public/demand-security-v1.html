@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#FFFFFF" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="TiSLY デマンド監視" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2003" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <title>TiSLY デマンド・リレー・防犯</title>
+  <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
+  <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
+  <link rel="stylesheet" href="/css/features/demand-security/demand-security-v1.css" />
+</head>
+<body class="ds-body tisly-friendly">
+  <!--
+    社内向け
+    主幹電流 · ピークカット · リレー遠隔 · 防犯
+  -->
+  <header class="ds-header">
+    <a class="ds-back" href="/app" id="ds-back-link">← 戻る</a>
+    <div>
+      <p class="ds-brand-name">TiSLY デマンド監視</p>
+      <h1 class="ds-title">電気・リレー・防犯</h1>
+      <p class="ds-sub">主幹電流と遠隔ON/OFFをまとめて確認</p>
+    </div>
+  </header>
+
+  <main class="ds-main ds-main-wide">
+    <section class="ds-card">
+      <p class="ds-card-label">本日の状況</p>
+      <div class="ds-summary-row">
+        <div class="ds-summary-pill">
+          <strong id="ds-sum-total">0</strong>
+          <span>登録物件</span>
+        </div>
+        <div class="ds-summary-pill is-alert">
+          <strong id="ds-sum-peak">0</strong>
+          <span>ピークカット</span>
+        </div>
+        <div class="ds-summary-pill is-danger">
+          <strong id="ds-sum-sec">0</strong>
+          <span>防犯要確認</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="ds-card">
+      <p class="ds-card-label">物件一覧（警報優先）</p>
+      <div class="ds-site-list" id="ds-site-list">
+        <p class="ds-empty">読み込み中…</p>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="/js/features/demand-security/demand-security-operator-v1.js"></script>
+</body>
+</html>

@@ -4,10 +4,10 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2442-gas-monitor";
-const OFFLINE_CACHE = "tisly-pwa-shell-v2442-gas-monitor";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2442-gas-monitor";
-const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2442-gas-monitor";
+const SW_VERSION = "tisly-pwa-v2443-demand-security";
+const OFFLINE_CACHE = "tisly-pwa-shell-v2443-demand-security";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2443-demand-security";
+const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2443-demand-security";
 const ICON_V = "?v=2004";
 
 /** 図面エディタ v1 — ES module 群 */
@@ -210,6 +210,15 @@ const SHELL_URLS = [
   "/js/features/gas-monitor/gas-monitor-customer-v1.js",
   "/js/features/gas-monitor/gas-monitor-operator-v1.js",
   "/css/features/gas-monitor/gas-monitor-v1.css",
+  // 電気デマンド＆セキュリティ（追記）
+  "/demand-security-v1",
+  "/demand-security-v1.html",
+  "/demand-security-customer-v1.html",
+  "/app/demand-security",
+  "/customer/demand-security",
+  "/js/features/demand-security/demand-security-customer-v1.js",
+  "/js/features/demand-security/demand-security-operator-v1.js",
+  "/css/features/demand-security/demand-security-v1.css",
   "/knowledge-v1",
   "/js/knowledge-v1.js",
   "/css/knowledge-v1.css",

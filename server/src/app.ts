@@ -102,6 +102,7 @@ import { storageSettingsV1Router } from "./api/routes/storage-settings-v1.js";
 import { tenantSaasV1Router } from "./api/routes/tenant-saas-v1.js";
 import { ecoWaterRouter } from "./api/routes/eco-water.js";
 import { gasMonitorRouter } from "./api/routes/gas-monitor.js";
+import { demandSecurityRouter } from "./api/routes/demand-security.js";
 import { qnapStorageV1Router } from "./api/routes/qnap-storage-v1.js";
 import { documentsV1Router } from "./api/routes/documents-v1.js";
 import { projectAutomationV1Router } from "./api/routes/project-automation-v1.js";
@@ -180,6 +181,8 @@ export function createApp(): express.Application {
   app.use("/api/eco-water", ecoWaterRouter);
   // ガス見守り（追記）
   app.use("/api/gas-monitor/v1", gasMonitorRouter);
+  // 電気デマンド＆セキュリティ（追記）
+  app.use("/api/demand-security/v1", demandSecurityRouter);
   app.use("/api/storage/qnap", qnapStorageV1Router);
   app.use("/api/documents/v1", documentsV1Router);
   app.use("/api/master/v1", masterV1Router);
@@ -287,6 +290,12 @@ export function createApp(): express.Application {
   app.get("/customer/gas-monitor", (_req, res) => {
     res.sendFile(path.join(publicDir, "gas-monitor-customer-v1.html"));
   });
+  // 電気デマンド＆セキュリティ — お客様向け（追記）
+  app.get("/customer/demand-security", (_req, res) => {
+    res.sendFile(
+      path.join(publicDir, "demand-security-customer-v1.html")
+    );
+  });
   app.get("/customer/:customerCode/portal", (_req, res) => {
     res.sendFile(customerPortalHtml);
   });
@@ -360,6 +369,16 @@ export function createApp(): express.Application {
   });
   app.get("/gas-monitor", (_req, res) => {
     res.redirect(302, "/gas-monitor-v1");
+  });
+  // 電気デマンド＆セキュリティ — 社内向け（追記）
+  app.get("/app/demand-security", (_req, res) => {
+    res.sendFile(path.join(publicDir, "demand-security-v1.html"));
+  });
+  app.get("/demand-security-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "demand-security-v1.html"));
+  });
+  app.get("/demand-security", (_req, res) => {
+    res.redirect(302, "/demand-security-v1");
   });
   app.get("/app/push", (_req, res) => {
     res.sendFile(path.join(publicDir, "app-push.html"));
