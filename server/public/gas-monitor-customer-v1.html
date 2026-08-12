@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#FFFFFF" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="TiSLY ガス見守り" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2003" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <title>TiSLY ガス見守り — お客様</title>
+  <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
+  <link rel="stylesheet" href="/css/features/gas-monitor/gas-monitor-v1.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+</head>
+<body class="gm-body tisly-friendly">
+  <!--
+    お客様向けガス見守り
+    ビッグステータス · 使用量 · 生活見守り
+  -->
+  <header class="gm-header">
+    <a class="gm-back" href="/customer" id="gm-back-link">← 戻る</a>
+    <div>
+      <p class="gm-brand-name">TiSLY ガス見守り</p>
+      <h1 class="gm-title">ガスのあんしん確認</h1>
+      <p class="gm-sub">使用量と生活の見守りを一目で</p>
+    </div>
+  </header>
+
+  <main class="gm-main">
+    <section class="gm-card">
+      <p class="gm-card-label">物件を選ぶ</p>
+      <select id="gm-property-select" class="gm-select" aria-label="物件選択">
+        <option value="GAS-JP-HOME-001">守谷 山田邸（戸建て）</option>
+      </select>
+    </section>
+
+    <section
+      class="gm-card gm-status-hero is-normal"
+      id="gm-status-hero"
+      aria-live="polite"
+    >
+      <span class="gm-status-emoji" id="gm-status-emoji">🟢</span>
+      <p class="gm-status-label" id="gm-status-label">正常稼働中</p>
+    </section>
+
+    <section class="gm-card">
+      <p class="gm-card-label">物件情報</p>
+      <dl class="gm-meta">
+        <div>
+          <dt>お名前・物件</dt>
+          <dd id="gm-meta-name">—</dd>
+        </div>
+        <div>
+          <dt>エリア</dt>
+          <dd id="gm-meta-addr">—</dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="gm-card">
+      <p class="gm-card-label">今日のガス使用量</p>
+      <p class="gm-usage-value">
+        <span id="gm-usage-m3">0.00</span>
+        <span class="gm-usage-unit">m³</span>
+      </p>
+      <div class="gm-chart-wrap">
+        <canvas id="gm-usage-chart" aria-label="時間別使用量グラフ"></canvas>
+      </div>
+    </section>
+
+    <section class="gm-card">
+      <p class="gm-card-label">生活見守りメッセージ</p>
+      <ul class="gm-notes" id="gm-notes">
+        <li>読み込み中…</li>
+      </ul>
+    </section>
+  </main>
+
+  <script type="module" src="/js/features/gas-monitor/gas-monitor-customer-v1.js"></script>
+</body>
+</html>

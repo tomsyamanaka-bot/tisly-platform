@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#FFFFFF" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="TiSLY ガス事業者" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2003" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <title>TiSLY ガス事業者 — ボンベ・検針</title>
+  <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
+  <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
+  <link rel="stylesheet" href="/css/features/gas-monitor/gas-monitor-v1.css" />
+</head>
+<body class="gm-body tisly-friendly">
+  <!--
+    ガス事業者向けダッシュボード
+    残量 · 積算パルス · 要配送ソート
+  -->
+  <header class="gm-header">
+    <a class="gm-back" href="/app" id="gm-back-link">← 戻る</a>
+    <div>
+      <p class="gm-brand-name">TiSLY ガス事業者</p>
+      <h1 class="gm-title">ボンベ残量＆自動検針</h1>
+      <p class="gm-sub">要配送を先頭に表示します</p>
+    </div>
+  </header>
+
+  <main class="gm-main gm-main-wide">
+    <section class="gm-card">
+      <p class="gm-card-label">本日の状況</p>
+      <div class="gm-summary-row">
+        <div class="gm-summary-pill">
+          <strong id="gm-sum-total">0</strong>
+          <span>登録物件</span>
+        </div>
+        <div class="gm-summary-pill is-alert">
+          <strong id="gm-sum-delivery">0</strong>
+          <span>要配送</span>
+        </div>
+        <div class="gm-summary-pill is-danger">
+          <strong id="gm-sum-emergency">0</strong>
+          <span>緊急遮断</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="gm-card">
+      <p class="gm-card-label">物件一覧（要配送優先）</p>
+      <div class="gm-prop-list" id="gm-prop-list">
+        <p class="gm-empty">読み込み中…</p>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="/js/features/gas-monitor/gas-monitor-operator-v1.js"></script>
+</body>
+</html>

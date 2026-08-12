@@ -4,10 +4,10 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2441-eco-water-print-fix";
-const OFFLINE_CACHE = "tisly-pwa-shell-v2441-eco-water-print-fix";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2441-eco-water-print-fix";
-const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2441-eco-water-print-fix";
+const SW_VERSION = "tisly-pwa-v2442-gas-monitor";
+const OFFLINE_CACHE = "tisly-pwa-shell-v2442-gas-monitor";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2442-gas-monitor";
+const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2442-gas-monitor";
 const ICON_V = "?v=2004";
 
 /** 図面エディタ v1 — ES module 群 */
@@ -202,6 +202,14 @@ const SHELL_URLS = [
   "/js/features/eco-water/eco-water-history-v1.js",
   "/js/features/eco-water/eco-water-live-v1.js",
   "/css/features/eco-water/eco-water-v1.css",
+  "/gas-monitor-v1",
+  "/gas-monitor-v1.html",
+  "/gas-monitor-customer-v1.html",
+  "/app/gas-monitor",
+  "/customer/gas-monitor",
+  "/js/features/gas-monitor/gas-monitor-customer-v1.js",
+  "/js/features/gas-monitor/gas-monitor-operator-v1.js",
+  "/css/features/gas-monitor/gas-monitor-v1.css",
   "/knowledge-v1",
   "/js/knowledge-v1.js",
   "/css/knowledge-v1.css",

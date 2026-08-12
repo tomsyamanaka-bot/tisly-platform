@@ -1,0 +1,363 @@
+/* TiSLY ガス見守り v1
+ * 白ベース × ネイビー · 大ボタン */
+
+:root {
+  --gm-bg: #f8fafc;
+  --gm-surface: #ffffff;
+  --gm-navy: #1e3a8a;
+  --gm-ink: #0f172a;
+  --gm-muted: #475569;
+  --gm-safe: #059669;
+  --gm-safe-bg: #ecfdf5;
+  --gm-danger: #dc2626;
+  --gm-danger-bg: #fef2f2;
+  --gm-warn: #d97706;
+  --gm-warn-bg: #fffbeb;
+  --gm-radius: 16px;
+  --gm-shadow: 0 8px 28px rgba(15, 23, 42, 0.08);
+}
+
+.gm-body {
+  margin: 0;
+  min-height: 100vh;
+  background: linear-gradient(180deg, #ffffff 0%, var(--gm-bg) 45%, #eef2ff 100%);
+  color: var(--gm-ink);
+  font-family: "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+  padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+}
+
+.gm-header {
+  padding: calc(12px + env(safe-area-inset-top, 0px)) 16px 8px;
+}
+
+.gm-back {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--gm-navy);
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.gm-brand-name {
+  margin: 8px 0 0;
+  color: var(--gm-navy);
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+}
+
+.gm-title {
+  margin: 4px 0 0;
+  font-size: 1.55rem;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.gm-sub {
+  margin: 6px 0 0;
+  color: var(--gm-muted);
+  font-size: 0.95rem;
+}
+
+.gm-main {
+  padding: 8px 16px 24px;
+  display: grid;
+  gap: 14px;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.gm-main-wide {
+  max-width: 960px;
+}
+
+.gm-card {
+  background: var(--gm-surface);
+  border-radius: var(--gm-radius);
+  box-shadow: var(--gm-shadow);
+  padding: 18px 16px;
+  border: 1px solid rgba(30, 58, 138, 0.08);
+}
+
+.gm-card-label {
+  margin: 0 0 10px;
+  color: var(--gm-navy);
+  font-weight: 800;
+  font-size: 0.9rem;
+}
+
+.gm-status-hero {
+  text-align: center;
+  padding: 28px 16px;
+}
+
+.gm-status-emoji {
+  font-size: 3.2rem;
+  line-height: 1;
+  display: block;
+}
+
+.gm-status-label {
+  margin: 12px 0 0;
+  font-size: 1.85rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+}
+
+.gm-status-hero.is-normal {
+  background: var(--gm-safe-bg);
+  border-color: rgba(5, 150, 105, 0.25);
+}
+
+.gm-status-hero.is-emergency {
+  background: var(--gm-danger-bg);
+  border-color: rgba(220, 38, 38, 0.3);
+}
+
+.gm-status-hero.is-emergency .gm-status-label {
+  color: var(--gm-danger);
+}
+
+.gm-status-hero.is-normal .gm-status-label {
+  color: var(--gm-safe);
+}
+
+.gm-meta {
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.gm-meta div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 1rem;
+}
+
+.gm-meta dt {
+  color: var(--gm-muted);
+  font-weight: 600;
+}
+
+.gm-meta dd {
+  margin: 0;
+  font-weight: 800;
+  text-align: right;
+}
+
+.gm-usage-value {
+  font-size: 2.2rem;
+  font-weight: 900;
+  color: var(--gm-navy);
+  margin: 0;
+}
+
+.gm-usage-unit {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--gm-muted);
+}
+
+.gm-chart-wrap {
+  position: relative;
+  height: 200px;
+  margin-top: 12px;
+}
+
+.gm-notes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.gm-notes li {
+  background: #f1f5f9;
+  border-radius: 12px;
+  padding: 14px 14px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.45;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+}
+
+.gm-select {
+  width: 100%;
+  min-height: 48px;
+  border-radius: 12px;
+  border: 2px solid rgba(30, 58, 138, 0.25);
+  padding: 10px 12px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--gm-ink);
+  background: #fff;
+}
+
+.gm-summary-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.gm-summary-pill {
+  background: #eff6ff;
+  border-radius: 12px;
+  padding: 12px 8px;
+  text-align: center;
+}
+
+.gm-summary-pill strong {
+  display: block;
+  font-size: 1.4rem;
+  color: var(--gm-navy);
+}
+
+.gm-summary-pill span {
+  font-size: 0.8rem;
+  color: var(--gm-muted);
+  font-weight: 700;
+}
+
+.gm-summary-pill.is-alert {
+  background: var(--gm-warn-bg);
+}
+
+.gm-summary-pill.is-alert strong {
+  color: var(--gm-warn);
+}
+
+.gm-summary-pill.is-danger {
+  background: var(--gm-danger-bg);
+}
+
+.gm-summary-pill.is-danger strong {
+  color: var(--gm-danger);
+}
+
+.gm-prop-list {
+  display: grid;
+  gap: 12px;
+}
+
+.gm-prop-card {
+  border: 1px solid rgba(30, 58, 138, 0.1);
+  border-radius: 14px;
+  padding: 14px;
+  background: #fff;
+}
+
+.gm-prop-card.is-delivery {
+  border-color: rgba(217, 119, 6, 0.45);
+  background: #fffbeb;
+}
+
+.gm-prop-card.is-emergency {
+  border-color: rgba(220, 38, 38, 0.45);
+  background: #fef2f2;
+}
+
+.gm-prop-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.gm-prop-name {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.gm-prop-addr {
+  margin: 4px 0 0;
+  color: var(--gm-muted);
+  font-size: 0.9rem;
+}
+
+.gm-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.gm-badge-delivery {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.gm-badge-emergency {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.gm-badge-ok {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.gm-pulse {
+  margin: 12px 0 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.gm-cyl {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.gm-cyl-row {
+  display: grid;
+  gap: 6px;
+}
+
+.gm-cyl-label {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.gm-bar {
+  height: 18px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+
+.gm-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #1e3a8a, #3b82f6);
+}
+
+.gm-bar.is-low > span {
+  background: linear-gradient(90deg, #dc2626, #f97316);
+}
+
+.gm-empty {
+  text-align: center;
+  color: var(--gm-muted);
+  font-weight: 700;
+  padding: 24px;
+}
+
+@media (max-width: 520px) {
+  .gm-summary-row {
+    grid-template-columns: 1fr;
+  }
+}

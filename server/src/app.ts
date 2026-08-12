@@ -101,6 +101,7 @@ import { pushRouter } from "./api/routes/push.js";
 import { storageSettingsV1Router } from "./api/routes/storage-settings-v1.js";
 import { tenantSaasV1Router } from "./api/routes/tenant-saas-v1.js";
 import { ecoWaterRouter } from "./api/routes/eco-water.js";
+import { gasMonitorRouter } from "./api/routes/gas-monitor.js";
 import { qnapStorageV1Router } from "./api/routes/qnap-storage-v1.js";
 import { documentsV1Router } from "./api/routes/documents-v1.js";
 import { projectAutomationV1Router } from "./api/routes/project-automation-v1.js";
@@ -177,6 +178,8 @@ export function createApp(): express.Application {
   app.use("/api/tenant-saas/v1", tenantSaasV1Router);
   // Eco-Water IoT テレメトリ（既存ルートは維持）
   app.use("/api/eco-water", ecoWaterRouter);
+  // ガス見守り（追記）
+  app.use("/api/gas-monitor/v1", gasMonitorRouter);
   app.use("/api/storage/qnap", qnapStorageV1Router);
   app.use("/api/documents/v1", documentsV1Router);
   app.use("/api/master/v1", masterV1Router);
@@ -280,6 +283,10 @@ export function createApp(): express.Application {
   app.get("/customer/eco-water", (_req, res) => {
     res.sendFile(path.join(publicDir, "eco-water-v1.html"));
   });
+  // ガス見守り — お客様向け（追記）
+  app.get("/customer/gas-monitor", (_req, res) => {
+    res.sendFile(path.join(publicDir, "gas-monitor-customer-v1.html"));
+  });
   app.get("/customer/:customerCode/portal", (_req, res) => {
     res.sendFile(customerPortalHtml);
   });
@@ -343,6 +350,16 @@ export function createApp(): express.Application {
   });
   app.get("/eco-water", (_req, res) => {
     res.redirect(302, "/eco-water-v1");
+  });
+  // ガス見守り — 社内・事業者向け（追記）
+  app.get("/app/gas-monitor", (_req, res) => {
+    res.sendFile(path.join(publicDir, "gas-monitor-v1.html"));
+  });
+  app.get("/gas-monitor-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "gas-monitor-v1.html"));
+  });
+  app.get("/gas-monitor", (_req, res) => {
+    res.redirect(302, "/gas-monitor-v1");
   });
   app.get("/app/push", (_req, res) => {
     res.sendFile(path.join(publicDir, "app-push.html"));

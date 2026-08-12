@@ -294,6 +294,24 @@ const PRACTICAL_PWA_DEFS: Array<
     themeColor: "#1e3a8a",
     readyRoles: ["surveyor", "manager", "owner", "admin", "super_admin", "viewer"],
   },
+  // ガス見守り・ボンベ配送（追記）
+  {
+    id: "gas_monitor_v1",
+    label: "ガス見守り・ボンベ",
+    subtitle: "自動検針・残量・要配送アラート",
+    icon: "🔥",
+    features: ["積算パルス", "ボンベ残量%", "要配送ソート", "緊急遮断"],
+    href: "/gas-monitor-v1",
+    themeColor: "#1e3a8a",
+    readyRoles: [
+      "surveyor",
+      "manager",
+      "owner",
+      "admin",
+      "super_admin",
+      "viewer",
+    ],
+  },
 ];
 
 export function buildPracticalHubCards(role: string): PracticalPwaCard[] {
