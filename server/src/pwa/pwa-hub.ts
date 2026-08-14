@@ -335,6 +335,29 @@ const PRACTICAL_PWA_DEFS: Array<
       "viewer",
     ],
   },
+  // RP2350 QR物件登録（追記）
+  {
+    id: "device_binding_v1",
+    label: "機器をQR登録",
+    subtitle: "物件を選び、カメラで1秒登録",
+    icon: "📷",
+    features: [
+      "物件を選ぶ",
+      "QRを読み取る",
+      "接続を即時確認",
+      "シール印刷",
+    ],
+    href: "/device-binding-v1",
+    themeColor: "#1e3a8a",
+    readyRoles: [
+      "installer",
+      "maintenance",
+      "manager",
+      "owner",
+      "admin",
+      "super_admin",
+    ],
+  },
 ];
 
 export function buildPracticalHubCards(role: string): PracticalPwaCard[] {

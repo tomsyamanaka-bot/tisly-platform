@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover"
+  />
+  <meta name="theme-color" content="#1e3a8a" />
+  <title>TiSLY 機器QR登録</title>
+  <link rel="stylesheet" href="/css/device-binding-v1.css" />
+  <script
+    src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"
+    defer
+  ></script>
+</head>
+<body>
+  <header class="page-header">
+    <a class="back-link" href="/app" aria-label="アプリ一覧へ戻る">
+      ← 戻る
+    </a>
+    <div>
+      <p class="eyebrow">TiSLY RP2350</p>
+      <h1>機器をQR登録</h1>
+    </div>
+  </header>
+
+  <main>
+    <section class="intro-card">
+      <div class="step-badge">1</div>
+      <div>
+        <h2>物件を選んでください</h2>
+        <p>青い「QRを読む」を1回押すだけです。</p>
+      </div>
+    </section>
+
+    <p id="page-status" class="page-status" role="status">
+      物件を読み込んでいます…
+    </p>
+    <section
+      id="property-list"
+      class="property-list"
+      aria-live="polite"
+    ></section>
+
+    <section class="label-section">
+      <div class="section-heading">
+        <div class="step-badge">2</div>
+        <div>
+          <h2>QRシールを作る</h2>
+          <p>RP2350の箱に貼るラベルです。</p>
+        </div>
+      </div>
+      <label class="device-id-label" for="label-device-id">
+        デバイスID
+      </label>
+      <input
+        id="label-device-id"
+        class="device-id-input"
+        value="TISLY-BOX-001"
+        inputmode="text"
+        autocomplete="off"
+        autocapitalize="characters"
+      />
+      <button id="btn-generate-label" class="primary-button">
+        QRシールを表示
+      </button>
+      <div id="known-device-list" class="known-device-list"></div>
+
+      <article id="print-label" class="print-label" hidden>
+        <p class="label-brand">TiSLY RP2350</p>
+        <img id="label-qr-image" alt="デバイスQRコード" />
+        <strong id="label-device-id-text"></strong>
+        <p class="label-note">物件登録用</p>
+      </article>
+      <button id="btn-print-label" class="secondary-button" hidden>
+        印刷プレビュー
+      </button>
+    </section>
+  </main>
+
+  <section
+    id="scanner-sheet"
+    class="scanner-sheet"
+    aria-label="QRコード読み取り"
+    hidden
+  >
+    <div id="scanner-panel" class="scanner-panel">
+      <div class="scanner-heading">
+        <div>
+          <p class="eyebrow">選択中の物件</p>
+          <h2 id="scanner-property-name">—</h2>
+        </div>
+        <button id="btn-close-scanner" class="close-button">
+          閉じる
+        </button>
+      </div>
+      <div id="qr-reader" class="qr-reader">
+        <video id="qr-video" playsinline muted></video>
+        <div class="scan-frame" aria-hidden="true"></div>
+      </div>
+      <p id="scanner-status" class="scanner-status" role="status">
+        カメラを準備しています…
+      </p>
+      <div id="manual-entry" class="manual-entry" hidden>
+        <label for="manual-device-id">デバイスIDを入力</label>
+        <input
+          id="manual-device-id"
+          placeholder="TISLY-BOX-001"
+          autocomplete="off"
+          autocapitalize="characters"
+        />
+        <button id="btn-bind-manual" class="primary-button">
+          このIDを登録
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <div id="success-flash" class="success-flash" hidden>
+    <span>✓</span>
+    <strong>登録完了</strong>
+    <small>接続済み（オンライン）</small>
+  </div>
+
+  <script type="module" src="/js/device-binding-v1.js"></script>
+</body>
+</html>

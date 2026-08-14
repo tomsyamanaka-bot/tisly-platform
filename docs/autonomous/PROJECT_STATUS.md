@@ -1084,3 +1084,19 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 - [checklists/REGRESSION_TEST.md](./checklists/REGRESSION_TEST.md) — 回帰テスト項目
 - [examples/EXAMPLE_INDEX.md](./examples/EXAMPLE_INDEX.md) — お手本カテゴリ索引
 - [templates/NEXT_CURSOR_PROMPT.md](./templates/NEXT_CURSOR_PROMPT.md) — 次回作業用プロンプト雛形
+
+### RP2350 QR物件1秒登録 v1（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | 物件選択 → RP2350 QR読取 → 接続済み表示を1操作で完了 |
+| 事業者UI | `/device-binding-v1` · `/app/device-binding` |
+| App Hub | 「機器をQR登録」カードを末尾追記 |
+| スキャン | 背面カメラ · BarcodeDetector · html5-qrcode fallback · 手入力fallback |
+| 完了通知 | 緑枠 · 振動 · 短い完了音 · 「接続済み（オンライン）」即時反映 |
+| API | `GET /api/device/properties` · `POST /api/device/bind` · `POST /api/device/qr` |
+| DB | `property_device_bindings_v1` — device_id一意 · 別物件への上書き禁止 |
+| QR印刷 | RP2350デバイスID付きPNG QR · テプラ/シール向け印刷CSS |
+| UI | 白 `#FFFFFF/#F8FAFC` × ネイビー `#1E3A8A` · 52px大ボタン |
+| テスト | `server/test/device-binding-v1.test.ts` |
+| 確認 | `/device-binding-v1` · `/api/device/properties` · https://tisly.jp/api/health |

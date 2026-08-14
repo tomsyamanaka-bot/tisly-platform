@@ -246,6 +246,7 @@ export function runMigrations(database: Database.Database): void {
   migrateFieldCheckDrawingSyncV1(database);
   migrateTomsEstimateHistoryV1(database);
   migrateTenantSaasV1(database);
+  migratePropertyDeviceBindingsV1(database);
 }
 
 /** TOMS 見積履歴ワンタップ保存 v1 */
@@ -5094,4 +5095,29 @@ function migrateTenantSaasV1(database: Database.Database): void {
       "migration:tenant_saas_v1",
       JSON.stringify({ at: new Date().toISOString(), version: "v1" })
     );
+}
+
+/**
+ * RP2350 物件紐付け v1。
+ * 既存テーブルは変更せず追記する。
+ */
+function migratePropertyDeviceBindingsV1(
+  database: Database.Database
+): void {
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS property_device_bindings_v1 (
+      id TEXT PRIMARY KEY,
+      customer_code TEXT NOT NULL,
+      property_id TEXT NOT NULL,
+      device_id TEXT NOT NULL UNIQUE,
+      device_type TEXT NOT NULL DEFAULT 'RP2350',
+      connection_status TEXT NOT NULL DEFAULT 'online',
+      bound_by TEXT,
+      bound_at TEXT NOT NULL,
+      FOREIGN KEY (property_id)
+        REFERENCES customer_portal_properties(property_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_property_device_bindings_property
+      ON property_device_bindings_v1(customer_code, property_id);
+  `);
 }

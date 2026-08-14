@@ -103,6 +103,7 @@ import { tenantSaasV1Router } from "./api/routes/tenant-saas-v1.js";
 import { ecoWaterRouter } from "./api/routes/eco-water.js";
 import { gasMonitorRouter } from "./api/routes/gas-monitor.js";
 import { demandSecurityRouter } from "./api/routes/demand-security.js";
+import { deviceBindingV1Router } from "./api/routes/device-binding-v1.js";
 import { qnapStorageV1Router } from "./api/routes/qnap-storage-v1.js";
 import { documentsV1Router } from "./api/routes/documents-v1.js";
 import { projectAutomationV1Router } from "./api/routes/project-automation-v1.js";
@@ -183,6 +184,8 @@ export function createApp(): express.Application {
   app.use("/api/gas-monitor/v1", gasMonitorRouter);
   // 電気デマンド＆セキュリティ（追記）
   app.use("/api/demand-security/v1", demandSecurityRouter);
+  // RP2350 QR物件登録（追記）
+  app.use("/api/device", deviceBindingV1Router);
   app.use("/api/storage/qnap", qnapStorageV1Router);
   app.use("/api/documents/v1", documentsV1Router);
   app.use("/api/master/v1", masterV1Router);
@@ -349,6 +352,13 @@ export function createApp(): express.Application {
   });
   app.get("/app", (_req, res) => {
     res.sendFile(path.join(publicDir, "app-hub.html"));
+  });
+  // RP2350 QR物件登録 — 社内向け（追記）
+  app.get("/app/device-binding", (_req, res) => {
+    res.sendFile(path.join(publicDir, "device-binding-v1.html"));
+  });
+  app.get("/device-binding-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "device-binding-v1.html"));
   });
   // TiSLY Eco-Water — App Hub 直下入口（追記）
   app.get("/app/eco-water", (_req, res) => {

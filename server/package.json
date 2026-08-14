@@ -45,7 +45,8 @@
     "test:phase2351": "tsx --test test/phase2351-2380.test.ts",
     "test:phase2381": "tsx --test test/phase2381-2400.test.ts",
     "test:phase9": "tsx --test test/pwa-phase9-iphone-v1.test.ts test/pwa-route-repair-v4.test.ts test/survey-drawing-v1.test.ts test/field-checklist-v1.test.ts",
-    "test:google-calendar": "tsx --test test/google-calendar-sync-v1.test.ts"
+    "test:google-calendar": "tsx --test test/google-calendar-sync-v1.test.ts",
+    "test:device-binding": "tsx --test test/device-binding-v1.test.ts"
   },
   "engines": {
     "node": ">=20"

@@ -43,6 +43,16 @@ export const TISLY_INTERNAL_ROUTES_V1: TislyRouteEntryV1[] = [
     label: "電気デマンド (App)",
     zone: "internal",
   },
+  {
+    path: "/device-binding-v1",
+    label: "RP2350 QR物件登録",
+    zone: "internal",
+  },
+  {
+    path: "/app/device-binding",
+    label: "RP2350 QR物件登録 (App)",
+    zone: "internal",
+  },
   { path: "/route-health", label: "Route Health", zone: "diagnostics" },
 ];
 
