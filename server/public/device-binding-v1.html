@@ -117,6 +117,93 @@
     </div>
   </section>
 
+  <section
+    id="port-config-sheet"
+    class="port-config-sheet"
+    aria-label="ポートマッピングと現場テスト"
+    hidden
+  >
+    <header class="config-header">
+      <button id="btn-close-config" class="config-back-button">
+        ← 物件一覧
+      </button>
+      <div>
+        <p class="eyebrow">RP2350 8DI / 8RO</p>
+        <h2>ポート設定・現場テスト</h2>
+        <p id="config-device-label" class="config-device-label">—</p>
+      </div>
+    </header>
+
+    <div class="config-body">
+      <aside class="debounce-notice">
+        <strong>チャタリング防止 50ms</strong>
+        <span>短い電気ノイズは入力として確定しません。</span>
+      </aside>
+
+      <p id="config-status" class="page-status" role="status">
+        設定を読み込んでいます…
+      </p>
+
+      <section class="config-section">
+        <div class="config-section-heading">
+          <div>
+            <p class="eyebrow navy-text">DIGITAL INPUT</p>
+            <h3>デジタル入力 DI1〜DI8</h3>
+          </div>
+          <span class="section-count">8点</span>
+        </div>
+        <div id="di-port-list" class="port-list"></div>
+      </section>
+
+      <section class="config-section">
+        <div class="config-section-heading">
+          <div>
+            <p class="eyebrow navy-text">RELAY OUTPUT</p>
+            <h3>リレー出力 RO1〜RO8</h3>
+          </div>
+          <span class="section-count">8点</span>
+        </div>
+        <div id="ro-port-list" class="port-list"></div>
+      </section>
+
+      <section class="config-section">
+        <div class="config-section-heading">
+          <div>
+            <p class="eyebrow navy-text">RS485 / MODBUS</p>
+            <h3>RS485 拡張機器</h3>
+          </div>
+        </div>
+        <p class="section-help">
+          Modbus A+/B- 接続機器をアドレス1〜32で登録します。
+        </p>
+        <div id="rs485-list" class="rs485-list"></div>
+        <button id="btn-add-rs485" class="secondary-button">
+          ＋ RS485機器を追加
+        </button>
+      </section>
+
+      <section class="config-section">
+        <label class="field-note-label" for="field-note">
+          盤内配線・現場メモ
+        </label>
+        <textarea
+          id="field-note"
+          class="field-note"
+          rows="5"
+          maxlength="4000"
+          placeholder="端子番号、配線色、注意事項など"
+        ></textarea>
+      </section>
+    </div>
+
+    <footer class="config-save-bar">
+      <p id="config-validation-summary" class="validation-summary"></p>
+      <button id="btn-save-config" class="primary-button" disabled>
+        設定を保存して監視へ反映
+      </button>
+    </footer>
+  </section>
+
   <div id="success-flash" class="success-flash" hidden>
     <span>✓</span>
     <strong>登録完了</strong>

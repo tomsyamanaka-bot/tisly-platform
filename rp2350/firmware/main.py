@@ -452,9 +452,11 @@ def read_di_state(di):
 
 def poll_inputs():
 
-    """DI1〜DI8 を読み取り input_states を更新。変化があれば True。"""
+    """DI1〜DI8を50msデバウンスして更新。"""
 
     changed = False
+
+    debounce_ms = int(getattr(config, "DI_DEBOUNCE_MS", 50))
 
     for di in sorted(DI_PINS.keys()):
 
@@ -463,6 +465,12 @@ def poll_inputs():
         key = str(di)
 
         if input_states[key] != state:
+
+            time.sleep_ms(debounce_ms)
+
+            if read_di_state(di) != state:
+
+                continue
 
             input_states[key] = state
 
@@ -514,6 +522,44 @@ def send_heartbeat():
 
     log("heartbeat sent")
 
+    mapping_device_id = getattr(
+
+        config, "PORT_MAPPING_DEVICE_ID", "TISLY-BOX-001"
+
+    )
+
+    if mapping_device_id:
+
+        mapping_payload = {
+
+            "deviceId": mapping_device_id,
+
+            "relayStates": dict(ch_states),
+
+            "inputStates": dict(input_states),
+
+            "debounceMs": int(
+
+                getattr(config, "DI_DEBOUNCE_MS", 50)
+
+            ),
+
+        }
+
+        _, mapping_status = http_post(
+
+            "/api/device/ports/telemetry", mapping_payload
+
+        )
+
+        if mapping_status != 200:
+
+            log_error(
+
+                "port telemetry HTTP {}".format(mapping_status)
+
+            )
+
     return True
 
 
@@ -558,6 +604,57 @@ def poll_command():
 
 
 
+
+
+def poll_port_mapping_command():
+
+    """現場テスト用RO命令を取得する。"""
+
+    mapping_device_id = getattr(
+
+        config, "PORT_MAPPING_DEVICE_ID", "TISLY-BOX-001"
+
+    )
+
+    if not mapping_device_id:
+
+        return None
+
+    path = (
+
+        "/api/device/ports/command?deviceId="
+
+        + mapping_device_id
+
+    )
+
+    body, status = http_get(path)
+
+    if status != 200:
+
+        return None
+
+    try:
+
+        data = json.loads(body)
+
+        command = data.get("command")
+
+        if not command:
+
+            return None
+
+        channel = int(command.get("portNumber"))
+
+        suffix = "on" if command.get("on") else "off"
+
+        return "ch{}_{}".format(channel, suffix)
+
+    except Exception as e:
+
+        log_error("port command parse: {}".format(e))
+
+        return None
 
 
 def _parse_channel_command(cmd):
@@ -739,6 +836,12 @@ def run():
         if cmd:
 
             exec_command(cmd)
+
+        mapping_cmd = poll_port_mapping_command()
+
+        if mapping_cmd:
+
+            exec_command(mapping_cmd)
 
 
 

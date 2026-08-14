@@ -11,6 +11,8 @@ import {
   buildGasOperatorDashboardV1,
 } from "../../gas-monitor/gas-monitor-dashboard-v1.js";
 import { listGasPropertiesV1 } from "../../gas-monitor/gas-monitor-sites-v1.js";
+import { listPropertyPortMappingsV1 } from "../../device/device-port-config-v1.js";
+import { getPropertyByIdV1 } from "../../shared/customer/customer-property-master-v1.js";
 
 export const gasMonitorRouter = Router();
 
@@ -23,6 +25,20 @@ gasMonitorRouter.get("/properties", (_req, res) => {
     countryCode: p.countryCode,
     currency: p.currency,
   }));
+  const knownIds = new Set(properties.map((property) => property.id));
+  for (const mapping of listPropertyPortMappingsV1()) {
+    if (knownIds.has(mapping.propertyId)) continue;
+    const property = getPropertyByIdV1(mapping.propertyId);
+    properties.push({
+      id: mapping.propertyId,
+      displayName: property?.propertyName ?? "登録済み物件",
+      kind: "apartment",
+      tenantId: "tenant_toms_jp",
+      countryCode: "JP",
+      currency: "JPY",
+    });
+    knownIds.add(mapping.propertyId);
+  }
   res.json({ ok: true, properties });
 });
 

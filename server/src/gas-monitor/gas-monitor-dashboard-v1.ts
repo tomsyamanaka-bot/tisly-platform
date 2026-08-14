@@ -23,6 +23,11 @@ import {
   needsDeliveryV1,
   type GasPropertyV1,
 } from "./gas-monitor-sites-v1.js";
+import {
+  listPropertyPortMappingsV1,
+  type DevicePortConfigV1,
+} from "../device/device-port-config-v1.js";
+import { getPropertyByIdV1 } from "../shared/customer/customer-property-master-v1.js";
 
 export interface GasCustomerDashboardV1 {
   propertyId: string;
@@ -43,6 +48,7 @@ export interface GasCustomerDashboardV1 {
   lifeCare: GasLifeCareOverlayV1;
   buildingId: string | null;
   buildingName: string | null;
+  mappedPorts: DevicePortConfigV1[];
 }
 
 export interface GasOperatorPropertyRowV1 {
@@ -106,6 +112,11 @@ export interface GasOperatorDashboardV1 {
   properties: GasOperatorPropertyRowV1[];
   /** 建物グループ（アパート等） */
   buildings: GasBuildingGroupV1[];
+  mappedDevices: Array<{
+    propertyId: string;
+    deviceId: string;
+    ports: DevicePortConfigV1[];
+  }>;
 }
 
 function roomLabelFromDisplayName(displayName: string): string {
@@ -139,6 +150,9 @@ function buildCustomerFromProperty(
     lifeCare,
     buildingId: building?.buildingId ?? null,
     buildingName: building?.buildingName ?? null,
+    mappedPorts: listPropertyPortMappingsV1(p.id).flatMap(
+      (mapping) => mapping.ports
+    ),
   };
 }
 
@@ -248,7 +262,20 @@ export function buildGasCustomerDashboardV1(
   const p = findGasPropertyV1(
     propertyId || GAS_MONITOR_DEFAULT_PROPERTY_ID_V1
   );
-  return buildCustomerFromProperty(p);
+  const dashboard = buildCustomerFromProperty(p);
+  if (!propertyId) return dashboard;
+  const mappedPorts = listPropertyPortMappingsV1(propertyId).flatMap(
+    (mapping) => mapping.ports
+  );
+  if (!mappedPorts.length) return dashboard;
+  const property = getPropertyByIdV1(propertyId);
+  return {
+    ...dashboard,
+    propertyId,
+    displayName: property?.propertyName ?? dashboard.displayName,
+    addressLabel: property?.address ?? dashboard.addressLabel,
+    mappedPorts,
+  };
 }
 
 /**
@@ -317,5 +344,12 @@ export function buildGasOperatorDashboardV1(): GasOperatorDashboardV1 {
     ).length,
     properties: rows,
     buildings,
+    mappedDevices: listPropertyPortMappingsV1().map(
+      ({ propertyId, ports }) => ({
+        propertyId,
+        deviceId: "接続機器",
+        ports,
+      })
+    ),
   };
 }

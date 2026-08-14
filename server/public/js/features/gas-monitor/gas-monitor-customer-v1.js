@@ -129,6 +129,29 @@ function renderChart(d) {
   });
 }
 
+function renderMappedPorts(d) {
+  const card = document.getElementById("gm-mapped-ports-card");
+  const root = document.getElementById("gm-mapped-port-list");
+  const ports = d.mappedPorts || [];
+  card.hidden = ports.length === 0;
+  root.innerHTML = ports
+    .map(
+      (port) => `
+        <article class="gm-mapped-port">
+          <b>${port.portType}${port.portNumber}</b>
+          <span>${escapeHtml(port.label)}</span>
+          <small>
+            ${
+              port.operationMode === "pulse"
+                ? `${port.initialMeterValue.toLocaleString("ja-JP")} m³`
+                : "状態を見守っています"
+            }
+          </small>
+        </article>`
+    )
+    .join("");
+}
+
 async function refresh() {
   const select = document.getElementById("gm-property-select");
   const id = select?.value || "";
@@ -138,6 +161,7 @@ async function refresh() {
   renderMeta(d);
   renderNotes(d);
   renderChart(d);
+  renderMappedPorts(d);
 }
 
 async function init() {

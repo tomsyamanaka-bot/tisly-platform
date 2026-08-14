@@ -23,7 +23,9 @@ body {
 }
 
 button,
-input {
+input,
+select,
+textarea {
   font: inherit;
 }
 
@@ -177,6 +179,17 @@ main {
   margin: 0 0 14px;
   color: #166534;
   font-weight: 800;
+}
+
+.device-config-link {
+  min-height: 46px;
+  padding: 10px 12px;
+  color: #166534;
+  font-weight: 900;
+  text-align: left;
+  background: var(--green-soft);
+  border: 1px solid #86efac;
+  border-radius: 12px;
 }
 
 .scan-button,
@@ -415,6 +428,355 @@ main {
   font-weight: 800;
 }
 
+.port-config-sheet {
+  position: fixed;
+  z-index: 120;
+  overflow: auto;
+  inset: 0;
+  background: #f8fafc;
+}
+
+.port-config-sheet[hidden] {
+  display: none;
+}
+
+.config-header {
+  position: sticky;
+  z-index: 5;
+  top: 0;
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding:
+    calc(12px + env(safe-area-inset-top))
+    16px 14px;
+  color: #fff;
+  background: var(--navy);
+  box-shadow: 0 5px 16px rgba(15, 23, 42, 0.18);
+}
+
+.config-header h2 {
+  margin: 2px 0;
+  font-size: 1.25rem;
+}
+
+.config-device-label {
+  margin: 0;
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.config-back-button {
+  flex: 0 0 auto;
+  min-height: 48px;
+  padding: 8px 12px;
+  color: #fff;
+  font-weight: 900;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.52);
+  border-radius: 12px;
+}
+
+.config-body {
+  width: min(100%, 860px);
+  margin: 0 auto;
+  padding: 16px 14px 150px;
+}
+
+.debounce-notice {
+  display: flex;
+  gap: 6px 14px;
+  flex-wrap: wrap;
+  padding: 13px 15px;
+  color: #1e3a8a;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 14px;
+}
+
+.debounce-notice strong {
+  font-weight: 900;
+}
+
+.config-section {
+  margin-top: 16px;
+  padding: 16px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.06);
+}
+
+.config-section-heading {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.config-section-heading h3 {
+  margin: 2px 0 0;
+  font-size: 1.18rem;
+}
+
+.navy-text {
+  color: var(--navy);
+}
+
+.section-count {
+  padding: 7px 11px;
+  color: var(--navy);
+  font-weight: 900;
+  background: #eff6ff;
+  border-radius: 999px;
+}
+
+.section-help {
+  margin: -4px 0 14px;
+  color: #64748b;
+}
+
+.port-list {
+  display: grid;
+  gap: 13px;
+}
+
+.port-card {
+  padding: 14px;
+  background: #f8fafc;
+  border: 2px solid #dbe3ef;
+  border-radius: 16px;
+}
+
+.port-card.is-enabled {
+  background: #fff;
+  border-color: #93c5fd;
+}
+
+.port-card.has-error {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+}
+
+.port-card-top,
+.port-identity,
+.toggle-label,
+.number-with-unit {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.port-card-top {
+  justify-content: space-between;
+}
+
+.port-identity strong {
+  min-width: 48px;
+  color: var(--navy);
+  font-size: 1.2rem;
+}
+
+.live-indicator {
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.live-indicator.is-on {
+  color: #15803d;
+}
+
+.toggle-label {
+  cursor: pointer;
+}
+
+.toggle-label input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.toggle-track {
+  position: relative;
+  width: 52px;
+  height: 30px;
+  background: #94a3b8;
+  border-radius: 999px;
+  transition: 150ms;
+}
+
+.toggle-track::after {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  content: "";
+  inset: 3px auto auto 3px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 5px rgba(15, 23, 42, 0.28);
+  transition: 150ms;
+}
+
+.toggle-label input:checked + .toggle-track {
+  background: var(--navy);
+}
+
+.toggle-label input:checked + .toggle-track::after {
+  transform: translateX(22px);
+}
+
+.toggle-label b {
+  min-width: 48px;
+  font-size: 0.8rem;
+}
+
+.port-fields {
+  display: grid;
+  gap: 11px;
+  margin-top: 13px;
+}
+
+.port-fields label > span,
+.rs485-row label > span,
+.field-note-label {
+  display: block;
+  margin-bottom: 5px;
+  color: #334155;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.port-fields em {
+  color: #b91c1c;
+  font-size: 0.72rem;
+  font-style: normal;
+}
+
+.port-fields input,
+.port-fields select,
+.rs485-row input,
+.field-note {
+  width: 100%;
+  min-height: 50px;
+  padding: 10px 12px;
+  color: #0f172a;
+  background: #fff;
+  border: 2px solid #cbd5e1;
+  border-radius: 11px;
+}
+
+.port-fields :disabled {
+  color: #64748b;
+  background: #e2e8f0;
+}
+
+.number-with-unit input {
+  flex: 1;
+}
+
+.number-with-unit b {
+  flex: 0 0 auto;
+}
+
+.field-error {
+  display: none;
+  margin-top: 5px;
+  color: #b91c1c;
+  font-weight: 900;
+}
+
+.has-error .field-error {
+  display: block;
+}
+
+.relay-test-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+  margin-top: 12px;
+}
+
+.relay-test-button {
+  min-height: 50px;
+  color: #fff;
+  font-weight: 900;
+  background: #15803d;
+  border: 0;
+  border-radius: 12px;
+}
+
+.relay-test-button.is-off {
+  background: #475569;
+}
+
+.rs485-list {
+  display: grid;
+  gap: 10px;
+}
+
+.rs485-row {
+  display: grid;
+  grid-template-columns: 120px 1fr auto;
+  gap: 9px;
+  align-items: end;
+  padding: 12px;
+  background: #f8fafc;
+  border: 1px solid #dbe3ef;
+  border-radius: 13px;
+}
+
+.remove-rs485 {
+  min-height: 50px;
+  padding: 8px 12px;
+  color: #b91c1c;
+  font-weight: 900;
+  background: #fee2e2;
+  border: 0;
+  border-radius: 11px;
+}
+
+.field-note {
+  min-height: 130px;
+  resize: vertical;
+}
+
+.config-save-bar {
+  position: fixed;
+  z-index: 8;
+  padding:
+    10px 14px
+    calc(10px + env(safe-area-inset-bottom));
+  inset: auto 0 0;
+  background: rgba(255, 255, 255, 0.97);
+  border-top: 1px solid #cbd5e1;
+  box-shadow: 0 -7px 24px rgba(15, 23, 42, 0.1);
+}
+
+.config-save-bar .primary-button {
+  width: min(100%, 830px);
+  display: block;
+  margin: 0 auto;
+}
+
+.primary-button:disabled {
+  cursor: not-allowed;
+  color: #64748b;
+  background: #cbd5e1;
+  box-shadow: none;
+}
+
+.validation-summary {
+  width: min(100%, 830px);
+  min-height: 20px;
+  margin: 0 auto 7px;
+  color: #b91c1c;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
 @media (min-width: 700px) {
   .scanner-sheet {
     place-items: center;
@@ -423,6 +785,34 @@ main {
   .scanner-panel {
     width: min(620px, 92vw);
     border-radius: 24px;
+  }
+
+  .port-fields {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .port-fields .wide-field {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 560px) {
+  .port-card-top,
+  .port-identity {
+    align-items: flex-start;
+  }
+
+  .port-identity {
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .rs485-row {
+    grid-template-columns: 95px 1fr;
+  }
+
+  .remove-rs485 {
+    grid-column: 1 / -1;
   }
 }
 

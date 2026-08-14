@@ -1100,3 +1100,22 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | UI | 白 `#FFFFFF/#F8FAFC` × ネイビー `#1E3A8A` · 52px大ボタン |
 | テスト | `server/test/device-binding-v1.test.ts` |
 | 確認 | `/device-binding-v1` · `/api/device/properties` · https://tisly.jp/api/health |
+
+### RP2350 8DI/8RO 現場マッピング v1（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | QR登録直後に16ポート設定・通通試験・監視反映まで完了 |
+| UI | `/device-binding-v1` — DI1〜DI8 · RO1〜RO8 · 白×ネイビー大カード |
+| 必須検証 | 使用中ポートの名称未入力時は保存無効 · 未使用は保存対象外 |
+| DI | 🟢検知中（ON）を1秒更新 · RP2350側50msデバウンス |
+| RO | 各ポートのテスト動作ON/OFF · デバイス別命令キュー |
+| 設定 | パルス重み/単位 · 初期指針値 · a/b接点 · 動作モード |
+| 拡張 | RS485 Modbusアドレス1〜32 · 機器名称 · 盤内現場メモ |
+| DB | `device_port_configs_v1` · `device_rs485_configs_v1` · `device_field_notes_v1` |
+| API | `GET /api/device/ports/config` · `POST /api/device/ports/save` · telemetry/status/relay-test/command |
+| 監視反映 | `/app/gas-monitor` · `/customer/gas-monitor` に使用中ポートを動的追記 |
+| ファーム | `rp2350/firmware/main.py` — telemetry · RO命令 · 50ms再読込 |
+| SW | `tisly-pwa-v2445-rp2350-port-mapping` |
+| テスト | `server/test/device-port-config-v1.test.ts` |
+| 確認 | `/device-binding-v1` · `/gas-monitor-v1` · `/customer/gas-monitor` · https://tisly.jp/api/health |

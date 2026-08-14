@@ -247,6 +247,7 @@ export function runMigrations(database: Database.Database): void {
   migrateTomsEstimateHistoryV1(database);
   migrateTenantSaasV1(database);
   migratePropertyDeviceBindingsV1(database);
+  migrateDevicePortConfigsV1(database);
 }
 
 /** TOMS 見積履歴ワンタップ保存 v1 */
@@ -5119,5 +5120,55 @@ function migratePropertyDeviceBindingsV1(
     );
     CREATE INDEX IF NOT EXISTS idx_property_device_bindings_property
       ON property_device_bindings_v1(customer_code, property_id);
+  `);
+}
+
+/**
+ * RP2350 8DI/8RO 現場マッピング v1。
+ * 既存テーブルと既存設定は変更しない。
+ */
+function migrateDevicePortConfigsV1(
+  database: Database.Database
+): void {
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS device_port_configs_v1 (
+      device_id TEXT NOT NULL,
+      port_type TEXT NOT NULL CHECK (port_type IN ('DI', 'RO')),
+      port_number INTEGER NOT NULL
+        CHECK (port_number BETWEEN 1 AND 8),
+      enabled INTEGER NOT NULL DEFAULT 0,
+      label TEXT NOT NULL DEFAULT '',
+      operation_mode TEXT NOT NULL DEFAULT 'pulse',
+      contact_polarity TEXT NOT NULL DEFAULT 'a',
+      pulse_weight REAL NOT NULL DEFAULT 0.01,
+      pulse_unit TEXT NOT NULL DEFAULT 'm³/P',
+      initial_meter_value REAL NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (device_id, port_type, port_number),
+      FOREIGN KEY (device_id)
+        REFERENCES property_device_bindings_v1(device_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS device_rs485_configs_v1 (
+      device_id TEXT NOT NULL,
+      modbus_address INTEGER NOT NULL
+        CHECK (modbus_address BETWEEN 1 AND 32),
+      equipment_name TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (device_id, modbus_address),
+      FOREIGN KEY (device_id)
+        REFERENCES property_device_bindings_v1(device_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS device_field_notes_v1 (
+      device_id TEXT PRIMARY KEY,
+      field_note TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (device_id)
+        REFERENCES property_device_bindings_v1(device_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_device_port_configs_enabled
+      ON device_port_configs_v1(device_id, enabled);
   `);
 }

@@ -187,10 +187,50 @@ function renderList(d) {
     .join("");
 }
 
+function renderMappedPorts(d) {
+  const root = document.getElementById("gm-mapped-port-list");
+  const devices = d.mappedDevices || [];
+  if (!devices.length) {
+    root.innerHTML =
+      `<p class="gm-empty">使用中の現場ポートはありません</p>`;
+    return;
+  }
+  root.innerHTML = devices
+    .map(
+      (device) => `
+        <article class="gm-mapped-device">
+          <div class="gm-mapped-device-head">
+            <strong>${escapeHtml(device.deviceId)}</strong>
+            <span>${escapeHtml(device.propertyId)}</span>
+          </div>
+          <div class="gm-mapped-port-grid">
+            ${(device.ports || [])
+              .map(
+                (port) => `
+                  <div class="gm-mapped-port">
+                    <b>${port.portType}${port.portNumber}</b>
+                    <span>${escapeHtml(port.label)}</span>
+                    <small>
+                      ${
+                        port.operationMode === "pulse"
+                          ? `${port.pulseWeight} ${escapeHtml(port.pulseUnit)}`
+                          : "状態・遮断監視"
+                      }
+                    </small>
+                  </div>`
+              )
+              .join("")}
+          </div>
+        </article>`
+    )
+    .join("");
+}
+
 async function refresh() {
   const d = await loadOperator();
   renderSummary(d);
   renderList(d);
+  renderMappedPorts(d);
 }
 
 document.addEventListener("DOMContentLoaded", () => {

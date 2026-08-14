@@ -553,6 +553,69 @@
   font-weight: 900;
 }
 
+.gm-mapped-port-list {
+  display: grid;
+  gap: 12px;
+}
+
+.gm-mapped-device {
+  padding: 14px;
+  background: #f8fafc;
+  border: 1px solid #dbe3ef;
+  border-radius: 14px;
+}
+
+.gm-mapped-device-head {
+  display: flex;
+  gap: 8px 14px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.gm-mapped-device-head strong {
+  color: #1e3a8a;
+}
+
+.gm-mapped-device-head span {
+  color: #64748b;
+  font-size: 0.82rem;
+}
+
+.gm-mapped-port-grid {
+  display: grid;
+  gap: 9px;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%, 210px), 1fr)
+  );
+}
+
+.gm-mapped-port {
+  display: grid;
+  gap: 3px;
+  min-height: 82px;
+  padding: 12px;
+  background: #fff;
+  border: 2px solid #bfdbfe;
+  border-radius: 12px;
+}
+
+.gm-mapped-port b {
+  color: #1e3a8a;
+}
+
+.gm-mapped-port span {
+  color: #0f172a;
+  font-weight: 900;
+}
+
+.gm-mapped-port small {
+  color: #64748b;
+  font-weight: 700;
+}
+
 @keyframes gm-border-blink {
   0%,
   100% {
