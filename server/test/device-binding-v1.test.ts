@@ -179,6 +179,131 @@ describe("RP2350 QR property binding v1", () => {
     assert.match(response.body.qrDataUrl, /^data:image\/png;base64,/);
   });
 
+  it("focuses RP2350 demo properties and can reveal all", async () => {
+    const demo = await request(app)
+      .get("/api/device/properties")
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(demo.status, 200, demo.body?.error);
+    assert.equal(demo.body.scope, "demo");
+    assert.ok(demo.body.properties.length >= 1);
+    assert.ok(
+      demo.body.properties.every(
+        (item: { devices: unknown[] }) => item.devices.length > 0
+      )
+    );
+    assert.ok(
+      demo.body.totalPropertyCount >= demo.body.properties.length
+    );
+
+    const all = await request(app)
+      .get("/api/device/properties?scope=all")
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(all.body.scope, "all");
+    assert.ok(
+      all.body.properties.length >= demo.body.properties.length
+    );
+    assert.equal(
+      all.body.properties.length,
+      all.body.totalPropertyCount
+    );
+  });
+
+  it("registers a typed property name without touching existing rows", async () => {
+    const before = getDatabase()
+      .prepare(
+        `SELECT property_name, updated_at
+         FROM customer_portal_properties
+         WHERE property_id = ?`
+      )
+      .get(propertyId) as {
+      property_name: string;
+      updated_at: string;
+    };
+    const beforeCount = getDatabase()
+      .prepare(
+        `SELECT COUNT(*) AS count FROM customer_portal_properties`
+      )
+      .get() as { count: number };
+
+    const reuse = await request(app)
+      .post("/api/device/properties/ensure")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ propertyName: before.property_name });
+    assert.equal(reuse.status, 200, reuse.body?.error);
+    assert.equal(reuse.body.created, false);
+    assert.equal(reuse.body.property.propertyId, propertyId);
+
+    const created = await request(app)
+      .post("/api/device/properties/ensure")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ propertyName: "取手 佐藤邸" });
+    assert.equal(created.status, 201, created.body?.error);
+    assert.equal(created.body.created, true);
+    const newPropertyId = created.body.property.propertyId;
+
+    // 全角空白の違いは同じ物件として扱う。
+    const again = await request(app)
+      .post("/api/device/properties/ensure")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ propertyName: "取手　佐藤邸" });
+    assert.equal(again.status, 200, again.body?.error);
+    assert.equal(again.body.property.propertyId, newPropertyId);
+
+    const afterCount = getDatabase()
+      .prepare(
+        `SELECT COUNT(*) AS count FROM customer_portal_properties`
+      )
+      .get() as { count: number };
+    assert.equal(afterCount.count, beforeCount.count + 1);
+
+    const after = getDatabase()
+      .prepare(
+        `SELECT property_name, updated_at
+         FROM customer_portal_properties
+         WHERE property_id = ?`
+      )
+      .get(propertyId) as {
+      property_name: string;
+      updated_at: string;
+    };
+    assert.deepEqual(after, before);
+
+    const bind = await request(app)
+      .post("/api/device/bind")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        property_name: "取手 佐藤邸",
+        device_id: "TOMS001-RP-01",
+      });
+    assert.equal(bind.status, 201, bind.body?.error);
+    assert.equal(bind.body.binding.propertyId, newPropertyId);
+    assert.equal(bind.body.binding.deviceId, "TOMS001-RP-01");
+
+    const configuration = await request(app)
+      .get("/api/device/ports/config?deviceId=TOMS001-RP-01")
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(configuration.status, 200, configuration.body?.error);
+    assert.equal(
+      configuration.body.property.propertyName,
+      "取手 佐藤邸"
+    );
+    assert.equal(configuration.body.configuration.ports.length, 16);
+  });
+
+  it("renders the one-screen property name and device ID form", async () => {
+    const page = await request(app).get("/device-binding-v1");
+    assert.equal(page.status, 200);
+    assert.match(page.text, /id="property-name-input"/);
+    assert.match(page.text, /id="btn-scan-now"/);
+    assert.match(page.text, /id="btn-open-config"/);
+    assert.match(page.text, /QRシールを表示（印刷）/);
+
+    const js = await request(app).get("/js/device-binding-v1.js");
+    assert.match(js.text, /property_name/);
+    assert.match(js.text, /機器登録・ポート変更/);
+    assert.match(js.text, /binding-preview/);
+  });
+
   it("appends the hub card and canonical routes", () => {
     const cards = buildPracticalHubCards("manager");
     const card = cards.find(

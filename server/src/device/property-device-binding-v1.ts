@@ -27,6 +27,19 @@ export class DeviceBindingConflictError extends Error {
 }
 
 const DEVICE_ID_PATTERN = /^TISLY-[A-Z0-9][A-Z0-9-]{2,63}$/;
+/**
+ * 現場で使う自由入力デバイスID。
+ * 例: TOMS001-RP-01 / TISLY-BOX-001。
+ * 英数と - _ のみで、英字を1文字以上含める。
+ */
+const DEVICE_ID_FREE_PATTERN_V1 = /^[A-Z0-9][A-Z0-9_-]{3,63}$/;
+
+function isAllowedDeviceIdV1(value: string): boolean {
+  if (DEVICE_ID_PATTERN.test(value)) return true;
+  return (
+    DEVICE_ID_FREE_PATTERN_V1.test(value) && /[A-Z]/.test(value)
+  );
+}
 
 export function normalizeDeviceIdV1(value: unknown): string {
   const raw = String(value ?? "").trim();
@@ -46,7 +59,7 @@ export function normalizeDeviceIdV1(value: unknown): string {
   }
 
   const normalized = candidate.trim().toUpperCase();
-  if (!DEVICE_ID_PATTERN.test(normalized)) {
+  if (!isAllowedDeviceIdV1(normalized)) {
     throw new Error("invalid device_id");
   }
   return normalized;

@@ -10,7 +10,28 @@ const state = {
   frameRequest: 0,
   activeConfiguration: null,
   statusTimer: 0,
+  scope: "demo",
+  totalPropertyCount: 0,
+  propertyNameTouched: false,
 };
+
+function propertyNameField() {
+  return document.getElementById("property-name-input");
+}
+
+function deviceIdField() {
+  return document.getElementById("label-device-id");
+}
+
+/** 画面で入力された物件名（前後空白は無視） */
+function currentPropertyName() {
+  return propertyNameField().value.trim();
+}
+
+/** 画面で入力されたデバイスID（大文字へそろえる） */
+function currentDeviceId() {
+  return deviceIdField().value.trim().toUpperCase();
+}
 
 function authHeaders(json = false) {
   const token = sessionStorage.getItem(TOKEN_KEY);
@@ -46,17 +67,19 @@ function renderProperties() {
   if (!state.properties.length) {
     list.innerHTML = `
       <article class="property-card">
-        <h3>登録できる物件がありません</h3>
+        <h3>登録済みの物件がありません</h3>
         <p class="property-address">
-          Customer Masterで物件を登録してください。
+          下の「物件名」を入力すれば新しく登録できます。
         </p>
       </article>`;
     return;
   }
 
+  const activeId = state.selectedProperty?.propertyId || "";
   list.innerHTML = state.properties
     .map((property) => {
       const online = property.connectionStatus === "online";
+      const active = property.propertyId === activeId;
       const devices = (property.devices || [])
         .map(
           (device) =>
@@ -70,7 +93,9 @@ function renderProperties() {
         .join("");
       return `
         <article
-          class="property-card${online ? " is-online" : ""}"
+          class="property-card${online ? " is-online" : ""}${
+            active ? " is-active" : ""
+          }"
           data-property-id="${escapeHtml(property.propertyId)}"
         >
           <div class="property-top">
@@ -84,49 +109,99 @@ function renderProperties() {
           </p>
           ${devices ? `<div class="device-list">${devices}</div>` : ""}
           <button
-            class="scan-button"
-            data-scan-property="${escapeHtml(property.propertyId)}"
+            class="property-use-button"
+            data-use-property="${escapeHtml(property.propertyId)}"
           >
-            📷 QRを読む
-          </button>
-          <button
-            class="property-device-button"
-            data-property-device="${escapeHtml(property.propertyId)}"
-            data-existing-device="${escapeHtml(
-              property.devices?.[0]?.deviceId || ""
-            )}"
-          >
-            🔧 機器登録・ポート変更
+            ${active ? "✓ この物件で入力中" : "この物件で入力する"}
           </button>
         </article>`;
     })
     .join("");
 
-  list.querySelectorAll("[data-scan-property]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const property = state.properties.find(
-        (item) => item.propertyId === button.dataset.scanProperty
-      );
-      if (property) void openScanner(property);
-    });
-  });
   list.querySelectorAll("[data-config-device]").forEach((button) => {
     button.addEventListener("click", () => {
       void openPortConfiguration(button.dataset.configDevice);
     });
   });
-  list.querySelectorAll("[data-property-device]").forEach((button) => {
+  list.querySelectorAll("[data-use-property]").forEach((button) => {
     button.addEventListener("click", () => {
-      if (button.dataset.existingDevice) {
-        void openPortConfiguration(button.dataset.existingDevice);
-        return;
-      }
       const property = state.properties.find(
-        (item) => item.propertyId === button.dataset.propertyDevice
+        (item) => item.propertyId === button.dataset.useProperty
       );
-      if (property) void openScanner(property);
+      if (property) applyPropertyToForm(property, true);
     });
   });
+}
+
+/** 物件カードの内容をフォームへ流し込む */
+function applyPropertyToForm(property, overwriteName = false) {
+  state.selectedProperty = property;
+  if (overwriteName || !currentPropertyName()) {
+    propertyNameField().value = property.propertyName;
+    state.propertyNameTouched = false;
+  }
+  const boundDeviceId = property.devices?.[0]?.deviceId || "";
+  if (boundDeviceId && overwriteName) {
+    deviceIdField().value = boundDeviceId;
+  }
+  renderProperties();
+  updateBindingPreview();
+}
+
+/**
+ * 入力中の物件名から、既存物件か新規登録かを判定する。
+ * 空白差は無視して比較する。
+ */
+function matchPropertyByName(name) {
+  const folded = String(name).replace(/[\s\u3000]+/g, "").toLowerCase();
+  if (!folded) return null;
+  return (
+    state.properties.find(
+      (property) =>
+        property.propertyName
+          .replace(/[\s\u3000]+/g, "")
+          .toLowerCase() === folded
+    ) || null
+  );
+}
+
+/** 物件名・デバイスIDの入力をリアルタイム反映する */
+function updateBindingPreview() {
+  const propertyName = currentPropertyName();
+  const deviceId = currentDeviceId();
+  const preview = document.getElementById("binding-preview");
+  const hint = document.getElementById("property-name-hint");
+  const matched = matchPropertyByName(propertyName);
+
+  if (matched) {
+    const changed =
+      state.selectedProperty?.propertyId !== matched.propertyId;
+    state.selectedProperty = matched;
+    if (changed) renderProperties();
+    hint.textContent =
+      matched.devices?.length > 0
+        ? `登録済み物件 · ${matched.devices[0].deviceId} が接続中`
+        : "登録済み物件 · 機器未登録";
+    hint.style.color = "#166534";
+  } else if (propertyName) {
+    hint.textContent = "新しい物件名として登録します";
+    hint.style.color = "#b45309";
+  } else {
+    hint.textContent = "物件名を入力してください";
+    hint.style.color = "#b91c1c";
+  }
+
+  preview.textContent = `${propertyName || "物件名未入力"} ／ ${
+    deviceId || "デバイスID未入力"
+  }`;
+
+  const ready = Boolean(propertyName && deviceId);
+  document.getElementById("btn-open-config").disabled = !ready;
+  document.getElementById("btn-generate-label").disabled = !deviceId;
+  const labelName = document.getElementById("label-property-name");
+  if (!document.getElementById("print-label").hidden) {
+    labelName.textContent = propertyName;
+  }
 }
 
 function renderKnownDevices() {
@@ -144,18 +219,19 @@ function renderKnownDevices() {
     .join("");
   list.querySelectorAll("[data-device-id]").forEach((button) => {
     button.addEventListener("click", () => {
-      document.getElementById("label-device-id").value =
-        button.dataset.deviceId;
-      void generateLabel();
+      deviceIdField().value = button.dataset.deviceId;
+      updateBindingPreview();
     });
   });
 }
 
 async function loadProperties() {
   try {
-    const response = await fetch("/api/device/properties", {
-      headers: authHeaders(),
-    });
+    const query = state.scope === "all" ? "?scope=all" : "";
+    const response = await fetch(
+      `/api/device/properties${query}`,
+      { headers: authHeaders() }
+    );
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
       throw new Error(
@@ -166,10 +242,40 @@ async function loadProperties() {
     }
     state.properties = body.properties || [];
     state.deviceIds = body.deviceIds || [];
-    renderProperties();
+    state.totalPropertyCount =
+      body.totalPropertyCount ?? state.properties.length;
+
+    const current = state.selectedProperty
+      ? state.properties.find(
+          (item) =>
+            item.propertyId === state.selectedProperty.propertyId
+        )
+      : null;
+    const nextProperty =
+      matchPropertyByName(currentPropertyName()) ||
+      current ||
+      state.properties[0] ||
+      null;
+    if (nextProperty) {
+      applyPropertyToForm(
+        nextProperty,
+        !state.propertyNameTouched && !currentPropertyName()
+      );
+    } else {
+      renderProperties();
+      updateBindingPreview();
+    }
+
     renderKnownDevices();
+    document.getElementById("btn-toggle-scope").textContent =
+      state.scope === "all"
+        ? "デモ物件だけ表示する"
+        : `すべての物件を表示（${state.totalPropertyCount}件）`;
     setPageStatus(
-      `${state.properties.length}件の物件から選べます`
+      state.scope === "all"
+        ? `全${state.properties.length}件を表示中`
+        : `デモ物件 ${state.properties.length}件を表示中` +
+            `（登録済み全${state.totalPropertyCount}件）`
     );
   } catch (error) {
     setPageStatus(error.message || String(error), true);
@@ -288,13 +394,19 @@ async function startHtml5Scanner() {
   setScannerStatus("QRコードを四角の中に入れてください");
 }
 
-async function openScanner(property) {
-  state.selectedProperty = property;
+async function openScanner() {
+  const propertyName = currentPropertyName();
+  if (!propertyName) {
+    setPageStatus("先に物件名を入力してください", true);
+    propertyNameField().focus();
+    return;
+  }
   state.scanLocked = false;
   document.getElementById("manual-entry").hidden = true;
-  document.getElementById("manual-device-id").value = "";
+  document.getElementById("manual-device-id").value =
+    currentDeviceId();
   document.getElementById("scanner-property-name").textContent =
-    property.propertyName;
+    propertyName;
   document.getElementById("scanner-sheet").hidden = false;
   resetReaderDom();
   setScannerStatus("カメラを準備しています…");
@@ -345,12 +457,16 @@ function playSuccessFeedback() {
 }
 
 async function bindDevice(rawValue) {
-  if (!state.selectedProperty) return;
+  const propertyName = currentPropertyName();
+  if (!propertyName) {
+    throw new Error("物件名を入力してください");
+  }
   const response = await fetch("/api/device/bind", {
     method: "POST",
     headers: authHeaders(true),
     body: JSON.stringify({
-      property_id: state.selectedProperty.propertyId,
+      property_id: state.selectedProperty?.propertyId || "",
+      property_name: propertyName,
       qrText: rawValue,
     }),
   });
@@ -379,13 +495,20 @@ async function handleDecoded(rawValue) {
     );
     playSuccessFeedback();
 
+    // 読み取ったIDと入力中の物件名をそのまま引き継ぐ。
+    deviceIdField().value = body.binding.deviceId;
+    const propertyName =
+      body.property?.propertyName || currentPropertyName();
     const flash = document.getElementById("success-flash");
     flash.hidden = false;
     await loadProperties();
     window.setTimeout(() => {
       flash.hidden = true;
       void closeScanner().then(() => {
-        void openPortConfiguration(body.binding.deviceId);
+        void openPortConfiguration(
+          body.binding.deviceId,
+          propertyName
+        );
       });
     }, 700);
   } catch (error) {
@@ -396,7 +519,7 @@ async function handleDecoded(rawValue) {
 }
 
 async function generateLabel() {
-  const input = document.getElementById("label-device-id");
+  const input = deviceIdField();
   const button = document.getElementById("btn-generate-label");
   button.disabled = true;
   try {
@@ -413,6 +536,8 @@ async function generateLabel() {
     document.getElementById("label-qr-image").src = body.qrDataUrl;
     document.getElementById("label-device-id-text").textContent =
       body.deviceId;
+    document.getElementById("label-property-name").textContent =
+      currentPropertyName();
     document.getElementById("print-label").hidden = false;
     document.getElementById("btn-print-label").hidden = false;
     setPageStatus("QRシールを作成しました");
@@ -420,6 +545,44 @@ async function generateLabel() {
     setPageStatus(error.message || String(error), true);
   } finally {
     button.disabled = false;
+    updateBindingPreview();
+  }
+}
+
+/**
+ * 入力したデバイスIDを物件へ登録し、
+ * そのまま機器登録・ポート変更画面を開く。
+ */
+async function registerAndOpenConfiguration() {
+  const propertyName = currentPropertyName();
+  const deviceId = currentDeviceId();
+  if (!propertyName) {
+    setPageStatus("先に物件名を入力してください", true);
+    propertyNameField().focus();
+    return;
+  }
+  if (!deviceId) {
+    setPageStatus("デバイスIDを入力してください", true);
+    deviceIdField().focus();
+    return;
+  }
+  const button = document.getElementById("btn-open-config");
+  button.disabled = true;
+  try {
+    const body = await bindDevice(deviceId);
+    setPageStatus(
+      `${deviceId} の機器登録・ポート変更を開きます`
+    );
+    await loadProperties();
+    await openPortConfiguration(
+      body.binding.deviceId,
+      body.property?.propertyName || propertyName
+    );
+  } catch (error) {
+    setPageStatus(error.message || String(error), true);
+  } finally {
+    button.disabled = false;
+    updateBindingPreview();
   }
 }
 
@@ -803,10 +966,13 @@ async function loadPortStatus() {
   }
 }
 
-async function openPortConfiguration(deviceId) {
+async function openPortConfiguration(deviceId, propertyName = "") {
   window.clearInterval(state.statusTimer);
+  const label = document.getElementById("config-device-label");
   document.getElementById("port-config-sheet").hidden = false;
-  document.getElementById("config-device-label").textContent = deviceId;
+  label.textContent = propertyName
+    ? `${propertyName} ／ ${deviceId}`
+    : deviceId;
   document.getElementById("config-status").textContent =
     "設定を読み込んでいます…";
   try {
@@ -819,6 +985,11 @@ async function openPortConfiguration(deviceId) {
       throw new Error(body.error || `HTTP ${response.status}`);
     }
     state.activeConfiguration = body.configuration;
+    const resolvedName =
+      body.property?.propertyName || propertyName;
+    if (resolvedName) {
+      label.textContent = `${resolvedName} ／ ${deviceId}`;
+    }
     renderPorts(body.configuration);
     renderRs485(body.configuration.rs485Devices || []);
     document.getElementById("field-note").value =
@@ -958,6 +1129,28 @@ document
   .addEventListener("click", () => void generateLabel());
 
 document
+  .getElementById("btn-scan-now")
+  .addEventListener("click", () => void openScanner());
+
+document
+  .getElementById("btn-open-config")
+  .addEventListener("click", () => void registerAndOpenConfiguration());
+
+document
+  .getElementById("btn-toggle-scope")
+  .addEventListener("click", () => {
+    state.scope = state.scope === "all" ? "demo" : "all";
+    void loadProperties();
+  });
+
+propertyNameField().addEventListener("input", () => {
+  state.propertyNameTouched = true;
+  updateBindingPreview();
+});
+
+deviceIdField().addEventListener("input", updateBindingPreview);
+
+document
   .getElementById("btn-print-label")
   .addEventListener("click", () => window.print());
 
@@ -994,4 +1187,5 @@ window.addEventListener("pagehide", () => {
   window.clearInterval(state.statusTimer);
 });
 
+updateBindingPreview();
 void loadProperties();

@@ -1137,3 +1137,24 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | SW | `tisly-pwa-v2446-rp2350-firmware` |
 | テスト | `server/test/device-binding-v1.test.ts` · `server/test/device-port-config-v1.test.ts` |
 | 確認 | `/app` · `/device-binding-v1` · https://tisly.jp/api/health |
+
+### 機器QR登録 物件名＆デバイスID 自由入力 v1（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | 23件の物件カードを RP2350 デモ1件へ整理し、物件名・デバイスIDを現場で自由入力 |
+| 物件フォーカス | `GET /api/device/properties` — 既定は「紐付け済み物件 → デモ物件 → 先頭1件」だけ返す |
+| 全件表示 | `?scope=all` + 画面の「すべての物件を表示」ボタン（既存物件は削除しない） |
+| デモ判定 | `PROP-DEMOHOME001` · `DEMO-HOME-001` · 取手 佐藤邸 / TOMS設備デモ / デモ戸建て防犯 |
+| 物件名入力 | 自由テキスト。既存名と一致（全角空白差は無視）→ その物件、未登録名 → **末尾に新規追記** |
+| 物件解決 API | `POST /api/device/properties/ensure` — 既存は 200 / 新規は 201（既存行は改名しない） |
+| デバイスID入力 | 自由テキスト + 既存IDクイックタグ維持。`TISLY-BOX-001` / `TOMS001-RP-01` 形式を許可 |
+| リアルタイム連動 | 物件名 ／ デバイスID プレビュー · QRシール印刷 · 機器登録・ポート変更へそのまま引継ぎ |
+| QR読取バインド | `POST /api/device/bind` に `property_name` を送信 — 読取IDと画面の物件名を紐付けて16ポート設定へ遷移 |
+| ポート設定ヘッダー | `GET /api/device/ports/config` が `property` を返し「物件名 ／ デバイスID」を表示 |
+| 1画面レイアウト | 物件カード（1件）→ 物件名 → デバイスID → QRを読む / 機器登録 / QRシール印刷 |
+| UI | 白 `#FFFFFF/#F8FAFC` × ネイビー `#1E3A8A` · 52px大ボタン · カードUI |
+| SW | `tisly-pwa-v2447-device-qr-form` |
+| コード | `server/src/device/device-property-focus-v1.ts` · `device-binding-v1.ts`（routes）· `device-binding-v1.html/js/css` |
+| テスト | `server/test/device-binding-v1.test.ts`（10ケース）· `server/test/device-port-config-v1.test.ts` |
+| 確認 | `/device-binding-v1` · `/api/device/properties` · https://tisly.jp/api/health |

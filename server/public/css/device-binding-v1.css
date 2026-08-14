@@ -885,3 +885,148 @@ main {
     width: 42mm;
   }
 }
+
+/* 機器QR登録 UI 刷新 v2 — 1画面完結フォーム（追記） */
+
+.focus-section {
+  padding: 16px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.07);
+}
+
+.focus-section .page-status {
+  margin: 12px 0 10px;
+  font-size: 0.9rem;
+}
+
+.focus-section .property-card {
+  padding: 14px;
+  border-width: 2px;
+}
+
+.focus-section .property-address {
+  margin: 4px 0 10px;
+  font-size: 0.88rem;
+}
+
+.property-use-button {
+  width: 100%;
+  min-height: 52px;
+  padding: 12px 16px;
+  color: #fff;
+  font-weight: 900;
+  background: var(--navy);
+  border: 0;
+  border-radius: 14px;
+  box-shadow: 0 5px 12px rgba(30, 58, 138, 0.24);
+}
+
+.property-card.is-active {
+  border-color: var(--navy);
+  box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.14);
+}
+
+.text-button {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 10px;
+  color: var(--navy);
+  font-size: 0.88rem;
+  font-weight: 800;
+  background: transparent;
+  border: 0;
+  border-radius: 12px;
+  text-decoration: underline;
+}
+
+.label-section {
+  margin-top: 16px;
+}
+
+.form-label {
+  display: block;
+  margin-top: 14px;
+  color: var(--navy-dark);
+  font-weight: 900;
+}
+
+.property-name-input {
+  width: 100%;
+  min-height: 54px;
+  margin: 7px 0 4px;
+  padding: 12px 14px;
+  color: var(--navy-dark);
+  font-size: 1.08rem;
+  font-weight: 800;
+  background: #fff;
+  border: 2px solid #94a3b8;
+  border-radius: 12px;
+}
+
+.property-name-input:focus,
+.device-id-input:focus {
+  outline: 3px solid rgba(30, 58, 138, 0.28);
+  border-color: var(--navy);
+}
+
+.field-hint {
+  margin: 0 0 4px;
+  min-height: 18px;
+  color: #475569;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.binding-preview {
+  margin: 12px 0 0;
+  padding: 12px 14px;
+  color: var(--navy);
+  font-size: 0.95rem;
+  font-weight: 900;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 14px;
+}
+
+.action-grid {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.outline-button {
+  width: 100%;
+  padding: 12px 16px;
+  color: var(--navy);
+  font-weight: 900;
+  background: #fff;
+  border: 2px solid var(--navy);
+  border-radius: 14px;
+}
+
+.outline-button:disabled,
+.property-use-button:disabled {
+  cursor: not-allowed;
+  color: #64748b;
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+  box-shadow: none;
+}
+
+.label-property-name {
+  margin: 6px 0 0;
+  font-size: 0.95rem;
+  font-weight: 900;
+}
+
+@media (min-width: 700px) {
+  .action-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .action-grid .primary-button {
+    grid-column: 1 / -1;
+  }
+}

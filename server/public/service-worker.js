@@ -4,10 +4,10 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2446-rp2350-firmware";
-const OFFLINE_CACHE = "tisly-pwa-shell-v2446-rp2350-firmware";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2446-rp2350-firmware";
-const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2446-rp2350-firmware";
+const SW_VERSION = "tisly-pwa-v2447-device-qr-form";
+const OFFLINE_CACHE = "tisly-pwa-shell-v2447-device-qr-form";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2447-device-qr-form";
+const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2447-device-qr-form";
 const ICON_V = "?v=2004";
 
 /** 図面エディタ v1 — ES module 群 */

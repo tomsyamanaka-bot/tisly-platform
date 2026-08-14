@@ -30,6 +30,11 @@ import {
   listPropertyDeviceStateV1,
   normalizeDeviceIdV1,
 } from "../../device/property-device-binding-v1.js";
+import {
+  resolveDevicePropertyByNameV1,
+  selectDeviceFocusPropertiesV1,
+} from "../../device/device-property-focus-v1.js";
+import { getPropertyByIdV1 } from "../../shared/customer/customer-property-master-v1.js";
 
 export const deviceBindingV1Router = Router();
 const DEVICE_OPERATOR_ROLES = new Set([
@@ -97,14 +102,60 @@ deviceBindingV1Router.get(
         req,
         req.query.customerCode
       );
+      const allProperties =
+        listPropertyDeviceStateV1(customerCode);
+      const showAll = String(req.query.scope ?? "") === "all";
+      const focusProperties =
+        selectDeviceFocusPropertiesV1(allProperties);
       res.json({
         ok: true,
         customerCode,
-        properties: listPropertyDeviceStateV1(customerCode),
+        // 既定は RP2350 デモ物件のみ。既存物件は削除しない。
+        properties: showAll ? allProperties : focusProperties,
+        scope: showAll ? "all" : "demo",
+        focusPropertyIds: focusProperties.map(
+          (property) => property.propertyId
+        ),
+        totalPropertyCount: allProperties.length,
         deviceIds: listDeviceIdsForLabelsV1(customerCode),
       });
     } catch (error) {
       res.status(403).json({ error: String((error as Error).message) });
+    }
+  }
+);
+
+deviceBindingV1Router.post(
+  "/properties/ensure",
+  ...requireDeviceOperator,
+  (req: AuthedRequest, res) => {
+    const body = req.body as {
+      customerCode?: unknown;
+      propertyName?: unknown;
+      property_name?: unknown;
+      propertyId?: unknown;
+      property_id?: unknown;
+    };
+    try {
+      const customerCode = resolveCustomerCode(
+        req,
+        body.customerCode
+      );
+      const { property, created } = resolveDevicePropertyByNameV1({
+        customerCode,
+        propertyName: body.propertyName ?? body.property_name,
+        propertyId: body.propertyId ?? body.property_id,
+      });
+      res.status(created ? 201 : 200).json({
+        ok: true,
+        created,
+        property,
+      });
+    } catch (error) {
+      const message = String((error as Error).message);
+      res.status(
+        message.includes("access denied") ? 403 : 400
+      ).json({ error: message });
     }
   }
 );
@@ -117,6 +168,8 @@ deviceBindingV1Router.post(
       customerCode?: unknown;
       property_id?: unknown;
       propertyId?: unknown;
+      property_name?: unknown;
+      propertyName?: unknown;
       device_id?: unknown;
       deviceId?: unknown;
       qrText?: unknown;
@@ -126,9 +179,20 @@ deviceBindingV1Router.post(
         req,
         body.customerCode
       );
-      const propertyId = String(
-        body.property_id ?? body.propertyId ?? ""
+      const requestedName = String(
+        body.property_name ?? body.propertyName ?? ""
       ).trim();
+      // 画面で入力した物件名を優先し、
+      // 一致する物件が無い時だけ新規追記する。
+      const propertyId = requestedName
+        ? resolveDevicePropertyByNameV1({
+            customerCode,
+            propertyName: requestedName,
+            propertyId: body.property_id ?? body.propertyId,
+          }).property.propertyId
+        : String(
+            body.property_id ?? body.propertyId ?? ""
+          ).trim();
       const binding = bindDeviceToPropertyV1({
         customerCode,
         propertyId,
@@ -205,7 +269,18 @@ deviceBindingV1Router.get(
         req.query.deviceId
       );
       assertConfigurationAccess(req, configuration.customerCode);
-      res.json({ ok: true, configuration });
+      const property = getPropertyByIdV1(configuration.propertyId);
+      res.json({
+        ok: true,
+        configuration,
+        property: property
+          ? {
+              propertyId: property.propertyId,
+              propertyName: property.propertyName,
+              address: property.address,
+            }
+          : null,
+      });
     } catch (error) {
       const message = String((error as Error).message);
       res.status(
