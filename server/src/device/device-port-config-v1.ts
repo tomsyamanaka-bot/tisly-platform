@@ -47,6 +47,18 @@ interface DeviceLiveStateV1 {
   inputStates: Record<string, IoStateV1>;
   relayStates: Record<string, IoStateV1>;
   lastSeenAt: string | null;
+  pulseCounts?: Record<string, number>;
+  meterValues?: Record<string, number>;
+  lastEmergency?: DeviceEmergencyEventV1;
+}
+
+export interface DeviceEmergencyEventV1 {
+  deviceId: string;
+  propertyId: string;
+  portNumber: number;
+  label: string;
+  active: boolean;
+  receivedAt: string;
 }
 
 export interface DeviceRelayCommandV1 {
@@ -407,6 +419,22 @@ function normalizeIoStates(
   return states;
 }
 
+function normalizeNumberMap(
+  value: unknown
+): Record<string, number> {
+  const input =
+    value && typeof value === "object"
+      ? (value as Record<string, unknown>)
+      : {};
+  const output: Record<string, number> = {};
+  for (let portNumber = 1; portNumber <= 8; portNumber += 1) {
+    const number = Number(input[String(portNumber)]);
+    output[String(portNumber)] =
+      Number.isFinite(number) && number >= 0 ? number : 0;
+  }
+  return output;
+}
+
 function emptyLiveState(): DeviceLiveStateV1 {
   return {
     inputStates: normalizeIoStates({}),
@@ -419,6 +447,8 @@ export function recordDevicePortTelemetryV1(input: {
   deviceId: unknown;
   inputStates?: unknown;
   relayStates?: unknown;
+  pulseCounts?: unknown;
+  meterValues?: unknown;
 }): DeviceLiveStateV1 {
   const deviceId = normalizeDeviceIdV1(input.deviceId);
   requireBinding(deviceId);
@@ -432,10 +462,60 @@ export function recordDevicePortTelemetryV1(input: {
       input.relayStates == null
         ? previous.relayStates
         : normalizeIoStates(input.relayStates),
+    pulseCounts:
+      input.pulseCounts == null
+        ? previous.pulseCounts
+        : normalizeNumberMap(input.pulseCounts),
+    meterValues:
+      input.meterValues == null
+        ? previous.meterValues
+        : normalizeNumberMap(input.meterValues),
+    lastEmergency: previous.lastEmergency,
     lastSeenAt: new Date().toISOString(),
   };
   liveStates.set(deviceId, next);
   return next;
+}
+
+export function recordDeviceEmergencyV1(input: {
+  deviceId: unknown;
+  propertyId?: unknown;
+  emergency?: {
+    port?: unknown;
+    label?: unknown;
+    active?: unknown;
+  };
+  inputStates?: unknown;
+  relayStates?: unknown;
+  pulseCounts?: unknown;
+  meterValues?: unknown;
+}): DeviceEmergencyEventV1 {
+  const deviceId = normalizeDeviceIdV1(input.deviceId);
+  const binding = requireBinding(deviceId);
+  const portNumber = Number(input.emergency?.port);
+  if (!isPortNumber(portNumber)) {
+    throw new Error("invalid emergency port");
+  }
+  if (
+    input.propertyId != null &&
+    String(input.propertyId) !== binding.propertyId
+  ) {
+    throw new Error("property binding mismatch");
+  }
+  const event: DeviceEmergencyEventV1 = {
+    deviceId,
+    propertyId: binding.propertyId,
+    portNumber,
+    label: String(input.emergency?.label ?? "").slice(0, 100),
+    active: input.emergency?.active === true,
+    receivedAt: new Date().toISOString(),
+  };
+  const state = recordDevicePortTelemetryV1(input);
+  liveStates.set(deviceId, {
+    ...state,
+    lastEmergency: event,
+  });
+  return event;
 }
 
 export function getDevicePortLiveStateV1(

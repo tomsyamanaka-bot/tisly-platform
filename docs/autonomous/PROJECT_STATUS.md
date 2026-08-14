@@ -1119,3 +1119,21 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | SW | `tisly-pwa-v2445-rp2350-port-mapping` |
 | テスト | `server/test/device-port-config-v1.test.ts` |
 | 確認 | `/device-binding-v1` · `/gas-monitor-v1` · `/customer/gas-monitor` · https://tisly.jp/api/health |
+
+### RP2350 実機配備ファームウェア v2（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | QR登録済み設定を Waveshare RP2350-POE-ETH-8DI-8RO へそのまま配備 |
+| App Hub | surveyor以上で「機器をQR登録」を緑の「使えます」表示 |
+| 物件導線 | 物件カード「機器登録・ポート変更」からQR登録または16ポート設定へ直行 |
+| ファーム | `firmware/rp2350/` — `main.py` · `network_manager.py` · `pulse_counter.py` · `config.json` |
+| Ethernet | PoE/LAN DHCP · `network.LAN` → W5500 SPI fallback |
+| DI | DI1〜DI8 · 50msデバウンス · パルス積算 · Flash保存 |
+| 緊急発報 | 感震/地震/遮断/警報/非常ラベルの状態監視DIを即時POST |
+| RO | RO1〜RO8 · 3秒ポーリング命令 · 実機状態telemetry |
+| ダウンロード | 管理画面から設定反映済み4ファイルを個別取得 |
+| API | `POST /api/device/ports/emergency` · `GET /api/device/ports/firmware/*` |
+| SW | `tisly-pwa-v2446-rp2350-firmware` |
+| テスト | `server/test/device-binding-v1.test.ts` · `server/test/device-port-config-v1.test.ts` |
+| 確認 | `/app` · `/device-binding-v1` · https://tisly.jp/api/health |

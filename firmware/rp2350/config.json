@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "device_id": "TISLY-BOX-001",
+  "property_id": "SET_FROM_TISLY",
+  "api_base": "https://tisly.jp",
+  "device_token": "SET_FROM_TISLY_DOWNLOAD",
+  "telemetry_path": "/api/device/ports/telemetry",
+  "emergency_path": "/api/device/ports/emergency",
+  "command_path": "/api/device/ports/command",
+  "poll_interval_ms": 3000,
+  "telemetry_interval_ms": 60000,
+  "debounce_ms": 50,
+  "flash_save_interval_ms": 5000,
+  "ethernet": {
+    "dhcp": true,
+    "spi_id": 0,
+    "sck": 34,
+    "mosi": 35,
+    "miso": 36,
+    "cs": 33,
+    "reset": 25
+  },
+  "digital_inputs": [
+    {
+      "port": 1,
+      "gpio": 9,
+      "enabled": false,
+      "label": "",
+      "active_low": true,
+      "mode": "pulse",
+      "pulse_weight": 0.01,
+      "pulse_unit": "m3/P",
+      "initial_meter_value": 0,
+      "emergency": false
+    }
+  ],
+  "relay_outputs": [
+    {
+      "port": 1,
+      "gpio": 17,
+      "enabled": false,
+      "label": "",
+      "active_low": false
+    }
+  ]
+}

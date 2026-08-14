@@ -185,6 +185,11 @@ describe("RP2350 QR property binding v1", () => {
       (item) => item.id === "device_binding_v1"
     );
     assert.equal(card?.url, "/device-binding-v1");
+    const surveyorCard = buildPracticalHubCards("surveyor").find(
+      (item) => item.id === "device_binding_v1"
+    );
+    assert.equal(surveyorCard?.statusLabel, "使えます");
+    assert.equal(surveyorCard?.url, "/device-binding-v1");
     assert.ok(
       cards.some((item) => item.id === "gas_monitor_v1")
     );

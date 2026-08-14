@@ -194,6 +194,49 @@
           placeholder="端子番号、配線色、注意事項など"
         ></textarea>
       </section>
+
+      <section class="config-section firmware-download-section">
+        <div class="config-section-heading">
+          <div>
+            <p class="eyebrow navy-text">MICROPYTHON</p>
+            <h3>この設定をRP2350へ配備</h3>
+          </div>
+        </div>
+        <p class="section-help">
+          保存済みの16ポート設定を反映したファイルです。
+          4ファイルをRP2350の直下へ書き込んでください。
+        </p>
+        <div class="firmware-download-grid">
+          <button
+            class="firmware-download-button"
+            data-firmware-file="config.json"
+          >
+            ⬇ config.json
+          </button>
+          <button
+            class="firmware-download-button"
+            data-firmware-file="main.py"
+          >
+            ⬇ main.py
+          </button>
+          <button
+            class="firmware-download-button"
+            data-firmware-file="network_manager.py"
+          >
+            ⬇ network_manager.py
+          </button>
+          <button
+            class="firmware-download-button"
+            data-firmware-file="pulse_counter.py"
+          >
+            ⬇ pulse_counter.py
+          </button>
+        </div>
+        <p class="firmware-secret-note">
+          config.jsonには実機認証情報が含まれます。
+          第三者へ共有しないでください。
+        </p>
+      </section>
     </div>
 
     <footer class="config-save-bar">

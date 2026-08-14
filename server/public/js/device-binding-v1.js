@@ -89,6 +89,15 @@ function renderProperties() {
           >
             📷 QRを読む
           </button>
+          <button
+            class="property-device-button"
+            data-property-device="${escapeHtml(property.propertyId)}"
+            data-existing-device="${escapeHtml(
+              property.devices?.[0]?.deviceId || ""
+            )}"
+          >
+            🔧 機器登録・ポート変更
+          </button>
         </article>`;
     })
     .join("");
@@ -104,6 +113,18 @@ function renderProperties() {
   list.querySelectorAll("[data-config-device]").forEach((button) => {
     button.addEventListener("click", () => {
       void openPortConfiguration(button.dataset.configDevice);
+    });
+  });
+  list.querySelectorAll("[data-property-device]").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (button.dataset.existingDevice) {
+        void openPortConfiguration(button.dataset.existingDevice);
+        return;
+      }
+      const property = state.properties.find(
+        (item) => item.propertyId === button.dataset.propertyDevice
+      );
+      if (property) void openScanner(property);
     });
   });
 }
@@ -881,6 +902,46 @@ async function testRelay(portNumber, on, button) {
   }
 }
 
+async function downloadFirmwareFile(fileName, button) {
+  if (!state.activeConfiguration) return;
+  const original = button.textContent;
+  button.disabled = true;
+  button.textContent = "ダウンロード中…";
+  try {
+    const deviceId = encodeURIComponent(
+      state.activeConfiguration.deviceId
+    );
+    const response = await fetch(
+      `/api/device/ports/firmware/${fileName}?deviceId=${deviceId}`,
+      { headers: authHeaders() }
+    );
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.error || `HTTP ${response.status}`);
+    }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download =
+      fileName === "config.json"
+        ? `${state.activeConfiguration.deviceId}-config.json`
+        : fileName;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    document.getElementById("config-status").textContent =
+      `${link.download} をダウンロードしました。`;
+  } catch (error) {
+    document.getElementById("config-status").textContent =
+      error.message || String(error);
+  } finally {
+    button.disabled = false;
+    button.textContent = original;
+  }
+}
+
 document
   .getElementById("btn-close-scanner")
   .addEventListener("click", () => void closeScanner());
@@ -918,6 +979,15 @@ document
     bindRs485Rows();
     validateConfiguration();
   });
+
+document.querySelectorAll("[data-firmware-file]").forEach((button) => {
+  button.addEventListener("click", () => {
+    void downloadFirmwareFile(
+      button.dataset.firmwareFile,
+      button
+    );
+  });
+});
 
 window.addEventListener("pagehide", () => {
   void stopScanner();

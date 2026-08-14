@@ -1,4 +1,8 @@
-import { Router } from "express";
+import {
+  Router,
+  type NextFunction,
+  type Response,
+} from "express";
 import QRCode from "qrcode";
 import { config } from "../../config.js";
 import {
@@ -11,9 +15,14 @@ import {
   getDevicePortLiveStateV1,
   listPropertyPortMappingsV1,
   queueDeviceRelayTestV1,
+  recordDeviceEmergencyV1,
   recordDevicePortTelemetryV1,
   saveDevicePortConfigurationV1,
 } from "../../device/device-port-config-v1.js";
+import {
+  buildRp2350ConfigV1,
+  getRp2350FirmwarePathV1,
+} from "../../device/device-rp2350-firmware-v1.js";
 import {
   bindDeviceToPropertyV1,
   DeviceBindingConflictError,
@@ -23,6 +32,32 @@ import {
 } from "../../device/property-device-binding-v1.js";
 
 export const deviceBindingV1Router = Router();
+const DEVICE_OPERATOR_ROLES = new Set([
+  "surveyor",
+  "installer",
+  "maintenance",
+  "manager",
+  "owner",
+  "admin",
+  "super_admin",
+]);
+
+function authorizeDeviceOperator(
+  req: AuthedRequest,
+  res: Response,
+  next: NextFunction
+): void {
+  if (!req.admin || !DEVICE_OPERATOR_ROLES.has(req.admin.role)) {
+    res.status(403).json({ error: "Insufficient device role" });
+    return;
+  }
+  next();
+}
+
+const requireDeviceOperator = [
+  requireAuth("viewer"),
+  authorizeDeviceOperator,
+] as const;
 
 function hasDeviceToken(req: AuthedRequest): boolean {
   const token =
@@ -55,7 +90,7 @@ function resolveCustomerCode(
 
 deviceBindingV1Router.get(
   "/properties",
-  requireAuth("installer"),
+  ...requireDeviceOperator,
   (req: AuthedRequest, res) => {
     try {
       const customerCode = resolveCustomerCode(
@@ -76,7 +111,7 @@ deviceBindingV1Router.get(
 
 deviceBindingV1Router.post(
   "/bind",
-  requireAuth("installer"),
+  ...requireDeviceOperator,
   (req: AuthedRequest, res) => {
     const body = req.body as {
       customerCode?: unknown;
@@ -129,7 +164,7 @@ deviceBindingV1Router.post(
 
 deviceBindingV1Router.post(
   "/qr",
-  requireAuth("installer"),
+  ...requireDeviceOperator,
   async (req: AuthedRequest, res) => {
     try {
       resolveCustomerCode(req, req.body?.customerCode);
@@ -163,7 +198,7 @@ deviceBindingV1Router.post(
 
 deviceBindingV1Router.get(
   "/ports/config",
-  requireAuth("installer"),
+  ...requireDeviceOperator,
   (req: AuthedRequest, res) => {
     try {
       const configuration = getDevicePortConfigurationV1(
@@ -186,7 +221,7 @@ deviceBindingV1Router.get(
 
 deviceBindingV1Router.post(
   "/ports/save",
-  requireAuth("installer"),
+  ...requireDeviceOperator,
   (req: AuthedRequest, res) => {
     try {
       const current = getDevicePortConfigurationV1(
@@ -221,7 +256,7 @@ deviceBindingV1Router.post(
 
 deviceBindingV1Router.get(
   "/ports/status",
-  requireAuth("installer"),
+  ...requireDeviceOperator,
   (req: AuthedRequest, res) => {
     try {
       const configuration = getDevicePortConfigurationV1(
@@ -244,7 +279,7 @@ deviceBindingV1Router.get(
 
 deviceBindingV1Router.post(
   "/ports/relay-test",
-  requireAuth("installer"),
+  ...requireDeviceOperator,
   (req: AuthedRequest, res) => {
     try {
       const configuration = getDevicePortConfigurationV1(
@@ -267,7 +302,7 @@ deviceBindingV1Router.post(
 
 deviceBindingV1Router.get(
   "/ports/property-mappings",
-  requireAuth("installer"),
+  ...requireDeviceOperator,
   (req: AuthedRequest, res) => {
     try {
       resolveCustomerCode(req, req.query.customerCode);
@@ -297,12 +332,96 @@ deviceBindingV1Router.post(
         deviceId: req.body?.deviceId,
         inputStates: req.body?.inputStates,
         relayStates: req.body?.relayStates ?? req.body?.chStates,
+        pulseCounts: req.body?.pulseCounts,
+        meterValues: req.body?.meterValues,
       });
       res.json({ ok: true, status });
     } catch (error) {
       res.status(400).json({
         error: String((error as Error).message),
       });
+    }
+  }
+);
+
+deviceBindingV1Router.post(
+  "/ports/emergency",
+  (req: AuthedRequest, res) => {
+    if (!hasDeviceToken(req)) {
+      res.status(403).json({ error: "Invalid device token" });
+      return;
+    }
+    try {
+      const event = recordDeviceEmergencyV1({
+        deviceId: req.body?.deviceId,
+        propertyId: req.body?.propertyId,
+        emergency: req.body?.emergency,
+        inputStates: req.body?.inputStates,
+        relayStates: req.body?.relayStates,
+        pulseCounts: req.body?.pulseCounts,
+        meterValues: req.body?.meterValues,
+      });
+      res.status(202).json({ ok: true, event });
+    } catch (error) {
+      res.status(400).json({
+        error: String((error as Error).message),
+      });
+    }
+  }
+);
+
+deviceBindingV1Router.get(
+  "/ports/firmware/config.json",
+  ...requireDeviceOperator,
+  (req: AuthedRequest, res) => {
+    try {
+      const configuration = getDevicePortConfigurationV1(
+        req.query.deviceId
+      );
+      assertConfigurationAccess(req, configuration.customerCode);
+      if (!config.remoteTest.token) {
+        throw new Error("device token is not configured");
+      }
+      const firmwareConfig = buildRp2350ConfigV1(
+        configuration,
+        config.remoteTest.token
+      );
+      res.setHeader("Cache-Control", "no-store");
+      res.attachment(`${configuration.deviceId}-config.json`);
+      res.type("application/json").send(
+        JSON.stringify(firmwareConfig, null, 2)
+      );
+    } catch (error) {
+      const message = String((error as Error).message);
+      res.status(
+        message.includes("access denied") ? 403 : 400
+      ).json({ error: message });
+    }
+  }
+);
+
+deviceBindingV1Router.get(
+  "/ports/firmware/:fileName",
+  ...requireDeviceOperator,
+  (req: AuthedRequest, res) => {
+    try {
+      const configuration = getDevicePortConfigurationV1(
+        req.query.deviceId
+      );
+      assertConfigurationAccess(req, configuration.customerCode);
+      const fileName = String(req.params.fileName);
+      const filePath = getRp2350FirmwarePathV1(fileName);
+      res.setHeader("Cache-Control", "no-store");
+      res.download(filePath, fileName);
+    } catch (error) {
+      const message = String((error as Error).message);
+      res.status(
+        message.includes("access denied")
+          ? 403
+          : message.includes("not found")
+            ? 404
+            : 400
+      ).json({ error: message });
     }
   }
 );

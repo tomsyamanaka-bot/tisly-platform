@@ -350,6 +350,7 @@ const PRACTICAL_PWA_DEFS: Array<
     href: "/device-binding-v1",
     themeColor: "#1e3a8a",
     readyRoles: [
+      "surveyor",
       "installer",
       "maintenance",
       "manager",

@@ -211,6 +211,56 @@ describe("RP2350 port mapping and field validation v1", () => {
     assert.equal(command.body.command.on, true);
   });
 
+  it("accepts emergency events and exports deployable firmware", async () => {
+    const emergency = await request(app)
+      .post("/api/device/ports/emergency")
+      .set("X-Remote-Test-Token", "device-port-test-token")
+      .send({
+        deviceId: "TISLY-BOX-PORT-001",
+        propertyId,
+        emergency: {
+          port: 1,
+          label: "感震遮断",
+          active: true,
+        },
+        pulseCounts: { "1": 42 },
+        meterValues: { "1": 128.87 },
+      });
+    assert.equal(emergency.status, 202, emergency.body?.error);
+    assert.equal(emergency.body.event.portNumber, 1);
+
+    const status = await request(app)
+      .get(
+        "/api/device/ports/status" +
+        "?deviceId=TISLY-BOX-PORT-001"
+      )
+      .set(auth());
+    assert.equal(status.body.status.pulseCounts["1"], 42);
+    assert.equal(status.body.status.lastEmergency.label, "感震遮断");
+
+    const firmwareConfig = await request(app)
+      .get(
+        "/api/device/ports/firmware/config.json" +
+        "?deviceId=TISLY-BOX-PORT-001"
+      )
+      .set(auth());
+    assert.equal(firmwareConfig.status, 200, firmwareConfig.body?.error);
+    const configJson = JSON.parse(firmwareConfig.text);
+    assert.equal(configJson.device_id, "TISLY-BOX-PORT-001");
+    assert.equal(configJson.digital_inputs.length, 8);
+    assert.equal(configJson.relay_outputs.length, 8);
+    assert.equal(configJson.device_token, "device-port-test-token");
+
+    const main = await request(app)
+      .get(
+        "/api/device/ports/firmware/main.py" +
+        "?deviceId=TISLY-BOX-PORT-001"
+      )
+      .set(auth());
+    assert.equal(main.status, 200, main.body?.error);
+    assert.match(main.body.toString(), /class|load_config/);
+  });
+
   it("renders mobile validation and field test controls", async () => {
     const page = await request(app).get("/device-binding-v1");
     assert.equal(page.status, 200);
@@ -218,14 +268,17 @@ describe("RP2350 port mapping and field validation v1", () => {
     assert.match(page.text, /id="ro-port-list"/);
     assert.match(page.text, /id="btn-save-config"/);
     assert.match(page.text, /チャタリング防止 50ms/);
+    assert.match(page.text, /data-firmware-file="config.json"/);
 
     const js = await request(app).get("/js/device-binding-v1.js");
     assert.match(js.text, /※名称を入力してください/);
     assert.match(js.text, /🟢 検知中（ON）/);
+    assert.match(js.text, /機器登録・ポート変更/);
     assert.match(js.text, /\/api\/device\/ports\/relay-test/);
+    assert.match(js.text, /\/api\/device\/ports\/firmware/);
 
     const worker = await request(app).get("/service-worker.js");
-    assert.match(worker.text, /v2445-rp2350-port-mapping/);
+    assert.match(worker.text, /v2446-rp2350-firmware/);
     assert.match(worker.text, /\/device-binding-v1\.html/);
   });
 });
