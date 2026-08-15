@@ -50,6 +50,7 @@ export function buildRp2350ConfigV1(
     customer_code: configuration.customerCode,
     api_base: "https://tisly.jp",
     device_token: deviceToken,
+    pulse_telemetry_path: "/api/meter/telemetry",
     telemetry_path: "/api/device/ports/telemetry",
     emergency_path: "/api/device/ports/emergency",
     command_path: "/api/device/ports/command",

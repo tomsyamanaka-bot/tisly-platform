@@ -4,6 +4,7 @@
   "property_id": "SET_FROM_TISLY",
   "api_base": "https://tisly.jp",
   "device_token": "SET_FROM_TISLY_DOWNLOAD",
+  "pulse_telemetry_path": "/api/meter/telemetry",
   "telemetry_path": "/api/device/ports/telemetry",
   "emergency_path": "/api/device/ports/emergency",
   "command_path": "/api/device/ports/command",

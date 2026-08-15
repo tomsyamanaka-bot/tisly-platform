@@ -295,6 +295,21 @@ function roomMmWaveText(p) {
   return `ミリ波: ${detected} · ${zone} · 滞留 ${dwell}分`;
 }
 
+function lastSeenText(lastSeenAt) {
+  if (!lastSeenAt) return "通信待ち";
+  const seconds = Math.max(
+    0,
+    Math.floor((Date.now() - new Date(lastSeenAt).getTime()) / 1000)
+  );
+  if (seconds < 60) return `${seconds}秒前`;
+  return `${Math.floor(seconds / 60)}分前`;
+}
+
+function roomOnlineText(p) {
+  const mark = p.deviceOnline ? "🟢 実機オンライン" : "⚪ 実機オフライン";
+  return `${mark}（最終通信: ${lastSeenText(p.lastSeenAt)}）`;
+}
+
 function roomCardHtml(p) {
   const badge = roomBadge(p);
   const hasMmWave = p.mmWaveDetected != null;
@@ -330,6 +345,9 @@ function roomCardHtml(p) {
           roomMeterText(p)
         )}</span>
       </p>
+      <p class="gm-device-online" data-gm-role="device-online">${escapeHtml(
+        roomOnlineText(p)
+      )}</p>
       <p class="gm-pulse" data-gm-role="switch"${
         p.autoSwitchDetected ? "" : " hidden"
       }>⚠ 自動切替を検知</p>
@@ -364,6 +382,10 @@ function patchRoomCard(el, p) {
   setText(lifeCareEl, lifeCareBadgeText(p));
   setText(el.querySelector('[data-gm-role="pulse"]'), roomPulseText(p));
   setText(el.querySelector('[data-gm-role="meter"]'), roomMeterText(p));
+  setText(
+    el.querySelector('[data-gm-role="device-online"]'),
+    roomOnlineText(p)
+  );
   setHidden(
     el.querySelector('[data-gm-role="switch"]'),
     !p.autoSwitchDetected
@@ -607,6 +629,10 @@ function patchMappedPort(el, port) {
 }
 
 function mappedDeviceHtml(device) {
+  const pulsePort = (device.ports || []).find(
+    (port) =>
+      port.portType === "DI" && port.operationMode === "pulse"
+  );
   return `
     <article class="gm-mapped-device" data-device-id="${escapeHtml(
       device.deviceId
@@ -624,6 +650,15 @@ function mappedDeviceHtml(device) {
       )
         .map(mappedPortHtml)
         .join("")}</div>
+      <button
+        class="gm-test-pulse-button"
+        type="button"
+        data-test-pulse
+        data-device-id="${escapeHtml(device.deviceId)}"
+        data-port="${pulsePort ? `DI${pulsePort.portNumber}` : ""}"
+        ${pulsePort ? "" : "hidden"}
+      >テストパルス+1送信</button>
+      <small class="gm-test-pulse-result" data-gm-role="test-result"></small>
     </article>`;
 }
 
@@ -636,6 +671,16 @@ function patchMappedDevice(el, device) {
     el.querySelector('[data-gm-role="device-property"]'),
     device.propertyId
   );
+  const pulsePort = (device.ports || []).find(
+    (port) =>
+      port.portType === "DI" && port.operationMode === "pulse"
+  );
+  const testButton = el.querySelector("[data-test-pulse]");
+  setHidden(testButton, !pulsePort);
+  if (testButton && pulsePort) {
+    testButton.dataset.deviceId = device.deviceId;
+    testButton.dataset.port = `DI${pulsePort.portNumber}`;
+  }
   syncKeyedChildren({
     parent: el.querySelector('[data-gm-role="ports"]'),
     items: device.ports || [],
@@ -645,6 +690,51 @@ function patchMappedDevice(el, device) {
     create: (port) => elFromHtml(mappedPortHtml(port)),
     patch: patchMappedPort,
   });
+}
+
+function operatorAuthHeaders() {
+  const token =
+    localStorage.getItem("tisly_admin_token") ||
+    sessionStorage.getItem("tisly_token") ||
+    "";
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
+/**
+ * 現場疎通用の単発パルスを送信し、
+ * 成功後に既存カードの数値だけ更新する。
+ */
+async function sendTestPulse(button) {
+  const card = button.closest("[data-device-id]");
+  const result = card?.querySelector('[data-gm-role="test-result"]');
+  button.disabled = true;
+  setText(result, "送信中…");
+  try {
+    const response = await fetch("/api/meter/telemetry", {
+      method: "POST",
+      headers: operatorAuthHeaders(),
+      body: JSON.stringify({
+        device_id: button.dataset.deviceId,
+        port: button.dataset.port,
+        pulse_increment: 1,
+        raw_state: 1,
+      }),
+    });
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.error || "送信失敗");
+    setText(
+      result,
+      `送信済み · ${Number(body.meter_value).toFixed(2)} m³`
+    );
+    await refresh();
+  } catch (error) {
+    setText(result, `送信失敗: ${error.message}`);
+  } finally {
+    button.disabled = false;
+  }
 }
 
 function renderMappedPorts(d) {
@@ -688,6 +778,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const back = document.getElementById("gm-back-link");
   if (back) back.href = "/app";
   accordion.track(document.getElementById("gm-prop-list"));
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-test-pulse]");
+    if (button) sendTestPulse(button);
+  });
   refresh().catch((err) => {
     console.error(err);
     const root = document.getElementById("gm-prop-list");

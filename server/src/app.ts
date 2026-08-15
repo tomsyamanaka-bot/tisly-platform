@@ -102,6 +102,7 @@ import { storageSettingsV1Router } from "./api/routes/storage-settings-v1.js";
 import { tenantSaasV1Router } from "./api/routes/tenant-saas-v1.js";
 import { ecoWaterRouter } from "./api/routes/eco-water.js";
 import { gasMonitorRouter } from "./api/routes/gas-monitor.js";
+import { meterTelemetryRouter } from "./api/routes/meter-telemetry.js";
 import { demandSecurityRouter } from "./api/routes/demand-security.js";
 import { deviceBindingV1Router } from "./api/routes/device-binding-v1.js";
 import { qnapStorageV1Router } from "./api/routes/qnap-storage-v1.js";
@@ -182,6 +183,8 @@ export function createApp(): express.Application {
   app.use("/api/eco-water", ecoWaterRouter);
   // ガス見守り（追記）
   app.use("/api/gas-monitor/v1", gasMonitorRouter);
+  // RP2350単発パルス受信API（追記）
+  app.use("/api/meter", meterTelemetryRouter);
   // 電気デマンド＆セキュリティ（追記）
   app.use("/api/demand-security/v1", demandSecurityRouter);
   // RP2350 QR物件登録（追記）

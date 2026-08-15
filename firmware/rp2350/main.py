@@ -2,6 +2,7 @@
 
 import json
 import time
+import micropython
 from machine import Pin
 
 from network_manager import NetworkManager
@@ -41,6 +42,16 @@ COUNTER = PulseCounter(
 )
 NETWORK = NetworkManager(CONFIG)
 RELAY_STATES = {str(port): "off" for port in range(1, 9)}
+PULSE_INPUTS = [
+    item for item in INPUT_CONFIG if item.get("mode") == "pulse"
+]
+IRQ_PENDING_AT = {
+    str(item["port"]): -1 for item in PULSE_INPUTS
+}
+IRQ_LAST_ACCEPTED_AT = {
+    str(item["port"]): -1000 for item in PULSE_INPUTS
+}
+micropython.alloc_emergency_exception_buf(100)
 
 
 def input_active(item):
@@ -77,6 +88,23 @@ def send_telemetry(reason):
     NETWORK.request_json("POST", path, telemetry_payload(reason))
 
 
+def send_pulse_increment(port):
+    path = CONFIG.get(
+        "pulse_telemetry_path",
+        "/api/meter/telemetry",
+    )
+    NETWORK.request_json(
+        "POST",
+        path,
+        {
+            "device_id": CONFIG["device_id"],
+            "port": "DI{}".format(port),
+            "pulse_increment": 1,
+            "raw_state": 1,
+        },
+    )
+
+
 def send_emergency(edge):
     payload = telemetry_payload("emergency")
     payload["emergency"] = {
@@ -96,6 +124,54 @@ def send_emergency(edge):
         "/api/device/ports/emergency",
     )
     NETWORK.request_json("POST", path, payload)
+
+
+def make_pulse_irq_handler(port):
+    key = str(port)
+
+    def on_falling(_pin):
+        IRQ_PENDING_AT[key] = time.ticks_ms()
+
+    return on_falling
+
+
+for pulse_input in PULSE_INPUTS:
+    pulse_port = str(pulse_input["port"])
+    INPUT_PINS[pulse_port].irq(
+        trigger=Pin.IRQ_FALLING,
+        handler=make_pulse_irq_handler(pulse_input["port"]),
+    )
+
+
+def process_pulse_irqs(now):
+    accepted = False
+    debounce_ms = max(50, int(CONFIG.get("debounce_ms", 50)))
+    for item in PULSE_INPUTS:
+        key = str(item["port"])
+        pending_at = IRQ_PENDING_AT[key]
+        if pending_at < 0:
+            continue
+        if time.ticks_diff(now, pending_at) < debounce_ms:
+            continue
+        IRQ_PENDING_AT[key] = -1
+        if not input_active(item):
+            continue
+        if (
+            time.ticks_diff(now, IRQ_LAST_ACCEPTED_AT[key])
+            < debounce_ms
+        ):
+            continue
+        IRQ_LAST_ACCEPTED_AT[key] = now
+        edge = COUNTER.increment_pulse(item["port"])
+        if edge is None:
+            continue
+        accepted = True
+        COUNTER.save(force=True)
+        try:
+            send_pulse_increment(edge["port"])
+        except Exception as exc:
+            print("[tisly] pulse telemetry:", exc)
+    return accepted
 
 
 def set_relay(port, on):
@@ -137,8 +213,10 @@ def run():
 
     while True:
         now = time.ticks_ms()
-        event_pending = False
+        event_pending = process_pulse_irqs(now)
         for item in INPUT_CONFIG:
+            if item.get("mode") == "pulse":
+                continue
             edge = COUNTER.sample(item["port"], input_active(item))
             if edge is None:
                 continue

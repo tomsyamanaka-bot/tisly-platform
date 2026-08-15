@@ -81,6 +81,17 @@ export interface PropertyGasLiveSnapshotV1 {
   lastUpdatedAt: string | null;
 }
 
+export interface MeterIncrementResultV1 {
+  deviceId: string;
+  port: string;
+  pulseIncrement: number;
+  pulseCount: number;
+  meterValue: number;
+  rawState: IoStateV1;
+  lastSeen: string;
+  emergencyStatus: string | null;
+}
+
 export interface DeviceRelayCommandV1 {
   command: string;
   portNumber: number;
@@ -596,6 +607,136 @@ export function recordDevicePortTelemetryV1(input: {
   liveStates.set(deviceId, next);
   persistTelemetrySnapshotV1(deviceId, next);
   return next;
+}
+
+/**
+ * 実機の単発パルスをDB内で加算し、
+ * 最新指針値と通信時刻を同時に確定する。
+ */
+export function recordMeterIncrementV1(input: {
+  deviceId: unknown;
+  port: unknown;
+  pulseIncrement?: unknown;
+  rawState: unknown;
+}): MeterIncrementResultV1 {
+  const deviceId = normalizeDeviceIdV1(input.deviceId);
+  requireBinding(deviceId);
+  const portMatch = String(input.port ?? "")
+    .trim()
+    .toUpperCase()
+    .match(/^DI([1-8])$/);
+  if (!portMatch) {
+    throw new Error("port must be DI1 to DI8");
+  }
+  const portNumber = Number(portMatch[1]);
+  const configuration = getDevicePortConfigurationV1(deviceId);
+  const port = configuration.ports.find(
+    (item) =>
+      item.portType === "DI" &&
+      item.portNumber === portNumber &&
+      item.enabled
+  );
+  if (!port) {
+    throw new Error(`DI${portNumber} is not enabled`);
+  }
+  const requestedIncrement = Number(input.pulseIncrement ?? 0);
+  if (
+    !Number.isInteger(requestedIncrement) ||
+    requestedIncrement < 0 ||
+    requestedIncrement > 10000
+  ) {
+    throw new Error("pulse_increment must be an integer from 0 to 10000");
+  }
+  const pulseIncrement =
+    port.operationMode === "pulse" ? requestedIncrement : 0;
+  const rawState: IoStateV1 =
+    input.rawState === true ||
+    input.rawState === 1 ||
+    input.rawState === "1" ||
+    String(input.rawState).toLowerCase() === "on"
+      ? "on"
+      : "off";
+  const receivedAt = new Date().toISOString();
+  const readingDate = readingDateJst(receivedAt);
+  let pulseCount = 0;
+  let meterValue = port.initialMeterValue;
+
+  /*
+   * 最新値の読取から追記までを同一処理にし、
+   * 同時受信でも積算パルスを欠落させない。
+   */
+  getDatabase().transaction(() => {
+    const previous = getDatabase()
+      .prepare(
+        `SELECT pulse_count
+         FROM device_port_telemetry_v1
+         WHERE device_id = ? AND port_number = ?
+         ORDER BY id DESC
+         LIMIT 1`
+      )
+      .get(deviceId, portNumber) as
+      | { pulse_count: number }
+      | undefined;
+    pulseCount = Number(previous?.pulse_count ?? 0) + pulseIncrement;
+    meterValue = Number(
+      (port.initialMeterValue + pulseCount * port.pulseWeight).toFixed(6)
+    );
+    getDatabase()
+      .prepare(
+        `INSERT INTO device_port_telemetry_v1
+         (device_id, port_number, input_state, pulse_count,
+          meter_value, reading_date, received_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(
+        deviceId,
+        portNumber,
+        rawState,
+        pulseCount,
+        meterValue,
+        readingDate,
+        receivedAt
+      );
+
+    // DI2は感震器入力として遮断状態を即時記録する。
+    if (portNumber === 2) {
+      getDatabase()
+        .prepare(
+          `INSERT INTO device_emergency_events_v1
+           (device_id, property_id, port_number, label,
+            active, received_at)
+           VALUES (?, ?, ?, ?, ?, ?)`
+        )
+        .run(
+          deviceId,
+          configuration.propertyId,
+          portNumber,
+          "地震自動遮断",
+          rawState === "on" ? 1 : 0,
+          receivedAt
+        );
+    }
+  })();
+
+  /*
+   * 追記済みDBをメモリ状態へ戻し、
+   * 既存監視APIにも同じ値を即時反映する。
+   */
+  const persisted = loadPersistedLiveStateV1(deviceId);
+  if (persisted) liveStates.set(deviceId, persisted);
+  return {
+    deviceId,
+    port: `DI${portNumber}`,
+    pulseIncrement,
+    pulseCount,
+    meterValue,
+    rawState,
+    lastSeen: receivedAt,
+    emergencyStatus:
+      portNumber === 2 && rawState === "on"
+        ? "🚨 地震自動遮断"
+        : null,
+  };
 }
 
 export function recordDeviceEmergencyV1(input: {

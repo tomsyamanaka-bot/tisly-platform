@@ -1237,3 +1237,18 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | コード | `gas-monitor-accordion-state-v1.js` · `gas-monitor-operator-v1.js` · `gas-monitor-customer-v1.js` · `gas-monitor-v1.css` |
 | テスト | `gas-monitor-v1.test.ts`（クラス連動・差分更新ケース更新） |
 | 確認 | `/app/gas-monitor` · `/customer/gas-monitor` · https://tisly.jp/api/health |
+
+### RP2350 実機パルス増分API + 即時加算 v1（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | RP2350のDI1単発パルスをSQLiteへ即時加算し、ガス監視画面へ3秒以内に反映 |
+| API | `POST /api/meter/telemetry` · `/api/meter/update` — device token / 社内ログイン必須 |
+| ペイロード | `device_id` · `port=DI1` · `pulse_increment` · `raw_state` |
+| 指針値 | ポート初期指針値 + 積算パルス × パルス重み（標準 `0.01 m³/P`） |
+| 遮断 | DI2 ONで `🚨 地震自動遮断` を緊急イベントへ即時記録 |
+| UI | 既存カード差分更新を維持 · 実機オンライン/最終通信 · テストパルス+1送信 |
+| ファーム | `firmware/rp2350/main.py` — `Pin.IRQ_FALLING` · 50msデバウンス · 即時POST |
+| SW | `tisly-pwa-v2453-meter-pulse-live` |
+| テスト | `device-port-config-v1.test.ts` · `gas-monitor-v1.test.ts` |
+| 確認 | `/app/gas-monitor` · `/customer/gas-monitor` · `/api/meter/telemetry` |

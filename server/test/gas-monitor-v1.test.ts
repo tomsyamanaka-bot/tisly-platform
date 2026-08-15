@@ -266,6 +266,9 @@ describe("gas-monitor-v1", () => {
       "/js/features/gas-monitor/gas-monitor-operator-v1.js"
     );
     assert.match(operatorJs.text, /＋ 機器を新規登録する/);
+    assert.match(operatorJs.text, /テストパルス\+1送信/);
+    assert.match(operatorJs.text, /\/api\/meter\/telemetry/);
+    assert.match(operatorJs.text, /実機オンライン/);
 
     const css = await request(app).get(
       "/css/features/gas-monitor/gas-monitor-v1.css"
@@ -342,7 +345,7 @@ describe("gas-monitor-v1", () => {
       sw.text,
       /gas-monitor-accordion-state-v1\.js/
     );
-    assert.match(sw.text, /tisly-pwa-v2452-gas-accordion-class/);
+    assert.match(sw.text, /tisly-pwa-v2453-meter-pulse-live/);
     // 旧JSがHTTPキャッシュから返らないようにする
     assert.match(sw.text, /function shouldBypassHttpCache/);
     assert.match(sw.text, /cache: "reload"/);
@@ -351,14 +354,15 @@ describe("gas-monitor-v1", () => {
     const operatorPage = await request(app).get("/app/gas-monitor");
     assert.match(
       operatorPage.text,
-      /gas-monitor-operator-v1\.js\?v=2452/
+      /gas-monitor-operator-v1\.js\?v=2453/
     );
     const customerPage = await request(app).get(
       "/customer/gas-monitor"
     );
     assert.match(
       customerPage.text,
-      /gas-monitor-customer-v1\.js\?v=2452/
+      /gas-monitor-customer-v1\.js\?v=2453/
     );
+    assert.match(customerPage.text, /gm-device-online/);
   });
 });

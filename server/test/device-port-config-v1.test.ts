@@ -110,6 +110,12 @@ describe("RP2350 port mapping and field validation v1", () => {
       pulseUnit: "m³/P",
       initialMeterValue: 128.45,
     };
+    ports[1] = {
+      ...ports[1],
+      enabled: true,
+      label: "地震自動遮断",
+      operationMode: "state_monitor",
+    };
     ports[8] = {
       ...ports[8],
       enabled: true,
@@ -144,7 +150,7 @@ describe("RP2350 port mapping and field validation v1", () => {
       7
     );
     assert.equal(response.body.propertyMappings.length, 1);
-    assert.equal(response.body.propertyMappings[0].ports.length, 2);
+    assert.equal(response.body.propertyMappings[0].ports.length, 3);
 
     const portCount = getDatabase()
       .prepare(
@@ -192,7 +198,7 @@ describe("RP2350 port mapping and field validation v1", () => {
       `/api/gas-monitor/v1/customer?propertyId=${propertyId}`
     );
     assert.equal(customer.body.empty, false);
-    assert.equal(customer.body.dashboard.mappedPorts.length, 2);
+    assert.equal(customer.body.dashboard.mappedPorts.length, 3);
     assert.equal(
       customer.body.dashboard.mappedPorts[0].label,
       "101号室 ガスメーター"
@@ -247,6 +253,64 @@ describe("RP2350 port mapping and field validation v1", () => {
     assert.equal(command.status, 200, command.body?.error);
     assert.equal(command.body.command.portNumber, 1);
     assert.equal(command.body.command.on, true);
+  });
+
+  it("atomically increments meter pulses and handles DI2 shutoff", async () => {
+    const first = await request(app)
+      .post("/api/meter/telemetry")
+      .set("X-Remote-Test-Token", "device-port-test-token")
+      .send({
+        device_id: "TISLY-BOX-PORT-001",
+        port: "DI1",
+        pulse_increment: 1,
+        raw_state: 1,
+      });
+    assert.equal(first.status, 200, first.body?.error);
+    assert.equal(first.body.pulse_count, 1);
+    assert.equal(first.body.meter_value, 128.46);
+    assert.ok(first.body.last_seen);
+
+    const second = await request(app)
+      .post("/api/meter/update")
+      .set(auth())
+      .send({
+        device_id: "TISLY-BOX-PORT-001",
+        port: "DI1",
+        pulse_increment: 2,
+        raw_state: 1,
+      });
+    assert.equal(second.status, 200, second.body?.error);
+    assert.equal(second.body.pulse_count, 3);
+    assert.equal(second.body.meter_value, 128.48);
+
+    const quake = await request(app)
+      .post("/api/meter/telemetry")
+      .set("X-Remote-Test-Token", "device-port-test-token")
+      .send({
+        device_id: "TISLY-BOX-PORT-001",
+        port: "DI2",
+        pulse_increment: 0,
+        raw_state: 1,
+      });
+    assert.equal(quake.status, 200, quake.body?.error);
+    assert.equal(quake.body.status, "🚨 地震自動遮断");
+
+    const customer = await request(app).get(
+      `/api/gas-monitor/v1/customer?propertyId=${propertyId}`
+    );
+    assert.equal(customer.body.dashboard.status, "emergency");
+    assert.equal(customer.body.dashboard.deviceOnline, true);
+    assert.ok(customer.body.dashboard.lastUpdatedAt);
+
+    const unauthorized = await request(app)
+      .post("/api/meter/telemetry")
+      .send({
+        device_id: "TISLY-BOX-PORT-001",
+        port: "DI1",
+        pulse_increment: 1,
+        raw_state: 1,
+      });
+    assert.equal(unauthorized.status, 403);
   });
 
   it("accepts emergency events and exports deployable firmware", async () => {
@@ -319,6 +383,10 @@ describe("RP2350 port mapping and field validation v1", () => {
     assert.equal(configJson.digital_inputs.length, 8);
     assert.equal(configJson.relay_outputs.length, 8);
     assert.equal(configJson.device_token, "device-port-test-token");
+    assert.equal(
+      configJson.pulse_telemetry_path,
+      "/api/meter/telemetry"
+    );
 
     const main = await request(app)
       .get(
@@ -328,6 +396,8 @@ describe("RP2350 port mapping and field validation v1", () => {
       .set(auth());
     assert.equal(main.status, 200, main.body?.error);
     assert.match(main.body.toString(), /class|load_config/);
+    assert.match(main.body.toString(), /Pin\.IRQ_FALLING/);
+    assert.match(main.body.toString(), /send_pulse_increment/);
   });
 
   it("renders mobile validation and field test controls", async () => {
@@ -351,7 +421,7 @@ describe("RP2350 port mapping and field validation v1", () => {
     const worker = await request(app).get("/service-worker.js");
     assert.match(
       worker.text,
-      /v2452-gas-accordion-class|v2451-gas-accordion-state/
+      /v2453-meter-pulse-live/
     );
     assert.match(worker.text, /\/device-binding-v1\.html/);
   });

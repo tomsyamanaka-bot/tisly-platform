@@ -72,6 +72,21 @@ class PulseCounter:
             "emergency": bool(item.get("emergency") and active),
         }
 
+    def increment_pulse(self, port):
+        """Increment one IRQ-confirmed pulse."""
+        key = str(port)
+        item = self.inputs[key]
+        if item.get("mode") != "pulse":
+            return None
+        self.counts[key] += 1
+        self.dirty = True
+        return {
+            "port": int(port),
+            "active": True,
+            "pulse_count": self.counts[key],
+            "emergency": False,
+        }
+
     def meter_values(self):
         values = {}
         for key, item in self.inputs.items():

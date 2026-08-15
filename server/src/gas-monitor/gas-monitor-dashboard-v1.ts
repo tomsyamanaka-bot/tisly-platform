@@ -37,7 +37,8 @@ export interface GasCustomerDashboardV1 {
   currentMeterValue: number | null;
   hourlyUsageM3: number[];
   lifeWatchNotes: string[];
-  lastUpdatedAt: string;
+  lastUpdatedAt: string | null;
+  deviceOnline: boolean;
   /** Life Care（見守り）追記 */
   lifeCare: GasLifeCareOverlayV1;
   buildingId: string | null;
@@ -77,6 +78,8 @@ export interface GasOperatorPropertyRowV1 {
   mmWaveDwellMinutes: number;
   buildingId: string | null;
   roomLabel: string;
+  lastSeenAt: string | null;
+  deviceOnline: boolean;
 }
 
 export interface GasBuildingGroupV1 {
@@ -120,6 +123,12 @@ function roomLabelFromDisplayName(displayName: string): string {
   );
   if (m) return m[1];
   return displayName;
+}
+
+function isDeviceOnline(lastSeenAt: string | null): boolean {
+  if (!lastSeenAt) return false;
+  const elapsed = Date.now() - new Date(lastSeenAt).getTime();
+  return Number.isFinite(elapsed) && elapsed >= 0 && elapsed <= 90000;
 }
 
 function buildRegisteredGasPropertyV1(
@@ -179,7 +188,8 @@ function buildCustomerFromProperty(
     currentMeterValue: live.currentMeterValue,
     hourlyUsageM3: [...p.hourlyUsageM3],
     lifeWatchNotes: [...p.lifeWatchNotes],
-    lastUpdatedAt: live.lastUpdatedAt ?? new Date().toISOString(),
+    lastUpdatedAt: live.lastUpdatedAt,
+    deviceOnline: isDeviceOnline(live.lastUpdatedAt),
     lifeCare,
     buildingId: null,
     buildingName: null,
@@ -231,6 +241,8 @@ function buildOperatorRow(p: GasPropertyV1): GasOperatorPropertyRowV1 {
     mmWaveDwellMinutes: lifeCare.mmWave.dwellMinutes,
     buildingId: null,
     roomLabel: roomLabelFromDisplayName(p.displayName),
+    lastSeenAt: live.lastUpdatedAt,
+    deviceOnline: isDeviceOnline(live.lastUpdatedAt),
   };
 }
 

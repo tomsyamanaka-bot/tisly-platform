@@ -122,6 +122,16 @@ async function loadProperties() {
   return data.properties || [];
 }
 
+function lastSeenText(lastSeenAt) {
+  if (!lastSeenAt) return "通信待ち";
+  const seconds = Math.max(
+    0,
+    Math.floor((Date.now() - new Date(lastSeenAt).getTime()) / 1000)
+  );
+  if (seconds < 60) return `${seconds}秒前`;
+  return `${Math.floor(seconds / 60)}分前`;
+}
+
 function renderStatus(d) {
   const hero = document.getElementById("gm-status-hero");
   const emoji = document.getElementById("gm-status-emoji");
@@ -130,6 +140,12 @@ function renderStatus(d) {
   hero.classList.toggle("is-emergency", d.status === "emergency");
   emoji.textContent = d.statusEmoji;
   label.textContent = d.statusLabel;
+  const online = document.getElementById("gm-device-online");
+  const mark = d.deviceOnline ? "🟢 実機オンライン" : "⚪ 実機オフライン";
+  setText(
+    online,
+    `${mark}（最終通信: ${lastSeenText(d.lastUpdatedAt)}）`
+  );
 }
 
 function renderLifeCare(d) {
