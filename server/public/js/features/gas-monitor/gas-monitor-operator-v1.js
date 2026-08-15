@@ -6,7 +6,7 @@
  * （開いた詳細カードは絶対に閉じない）
  */
 
-import { createAccordionStateV1 } from "./gas-monitor-accordion-state-v1.js";
+import { createAccordionStateV1 } from "./gas-monitor-accordion-state-v1.js?v=2452";
 
 function escapeHtml(s) {
   return String(s ?? "")

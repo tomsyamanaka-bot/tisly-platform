@@ -392,10 +392,34 @@ async function cacheFirstStaleWhileRevalidate(request, cacheName) {
   return shell || new Response("Offline", { status: 503 });
 }
 
+/** 更新を即時反映したいスクリプト・CSS */
+function shouldBypassHttpCache(pathname) {
+  return (
+    pathname.startsWith("/js/features/gas-monitor/") ||
+    pathname.startsWith("/js/customer-") ||
+    pathname === "/css/features/gas-monitor/gas-monitor-v1.css" ||
+    pathname === "/css/customer-v1.css"
+  );
+}
+
+/** ブラウザHTTPキャッシュを使わず取り直す */
+async function fetchFresh(request, pathname) {
+  if (!shouldBypassHttpCache(pathname)) return fetch(request);
+  try {
+    return await fetch(request, { cache: "reload" });
+  } catch {
+    // reload 非対応環境は通常取得へ
+    return fetch(request);
+  }
+}
+
 /** ネットワーク優先 — 成功時のみキャッシュ更新 */
 async function networkFirstWithCache(request) {
   try {
-    const res = await fetch(request);
+    const res = await fetchFresh(
+      request,
+      new URL(request.url).pathname
+    );
     if (res.ok && isShellPath(new URL(request.url).pathname)) {
       const clone = res.clone();
       caches.open(OFFLINE_CACHE).then((c) => c.put(request, clone));

@@ -343,5 +343,22 @@ describe("gas-monitor-v1", () => {
       /gas-monitor-accordion-state-v1\.js/
     );
     assert.match(sw.text, /tisly-pwa-v2452-gas-accordion-class/);
+    // 旧JSがHTTPキャッシュから返らないようにする
+    assert.match(sw.text, /function shouldBypassHttpCache/);
+    assert.match(sw.text, /cache: "reload"/);
+
+    // HTML 側もバージョン付きで即時適用
+    const operatorPage = await request(app).get("/app/gas-monitor");
+    assert.match(
+      operatorPage.text,
+      /gas-monitor-operator-v1\.js\?v=2452/
+    );
+    const customerPage = await request(app).get(
+      "/customer/gas-monitor"
+    );
+    assert.match(
+      customerPage.text,
+      /gas-monitor-customer-v1\.js\?v=2452/
+    );
   });
 });
