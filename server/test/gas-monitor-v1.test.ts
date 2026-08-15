@@ -281,8 +281,13 @@ describe("gas-monitor-v1", () => {
     assert.equal(stateJs.status, 200);
     // 開いている物件IDを Set で保持
     assert.match(stateJs.text, /openPropertyIds = new Set/);
-    assert.match(stateJs.text, /details\[data-accordion-id\]/);
-    assert.match(stateJs.text, /"toggle"/);
+    assert.match(stateJs.text, /\[data-accordion-id\]/);
+    // 開閉はクラスとインラインstyleで制御
+    assert.match(stateJs.text, /EXPANDED_CLASS = "is-expanded"/);
+    assert.match(stateJs.text, /style\.display = next/);
+    // ユーザー操作のみで開閉する
+    assert.match(stateJs.text, /"click"/);
+    assert.ok(!/"toggle"/.test(stateJs.text));
 
     const operatorJs = await request(app).get(
       "/js/features/gas-monitor/gas-monitor-operator-v1.js"
@@ -292,10 +297,20 @@ describe("gas-monitor-v1", () => {
       /gas-monitor-accordion-state-v1\.js/
     );
     assert.match(operatorJs.text, /data-accordion-id=/);
+    assert.match(operatorJs.text, /data-accordion-toggle/);
     // ポーリング時は差分更新（全消去しない）
     assert.match(operatorJs.text, /function patchBuildingCard/);
     assert.match(operatorJs.text, /function patchRoomCard/);
+    assert.match(operatorJs.text, /function syncKeyedChildren/);
     assert.match(operatorJs.text, /accordion\.restore/);
+    // 差分テキスト更新のフック
+    assert.match(operatorJs.text, /pulse-count-text/);
+    assert.match(operatorJs.text, /meter-value-text/);
+    assert.match(operatorJs.text, /status-badge/);
+    // details と一括再描画は廃止
+    assert.ok(!/<details/.test(operatorJs.text));
+    assert.ok(!/root\.innerHTML/.test(operatorJs.text));
+    assert.ok(!/roomsEl\.innerHTML/.test(operatorJs.text));
 
     const customerJs = await request(app).get(
       "/js/features/gas-monitor/gas-monitor-customer-v1.js"
@@ -308,11 +323,25 @@ describe("gas-monitor-v1", () => {
     assert.ok(!/usageChart\.destroy\(\)/.test(customerJs.text));
     assert.match(customerJs.text, /usageChart\.update\("none"\)/);
     assert.match(customerJs.text, /accordion\.restore/);
+    assert.match(customerJs.text, /function syncKeyedChildren/);
+    assert.match(customerJs.text, /meter-value-text/);
+    // 一覧の innerHTML 再代入は廃止
+    assert.ok(!/select\.innerHTML/.test(customerJs.text));
+    assert.ok(!/setHtmlCached/.test(customerJs.text));
+
+    const css = await request(app).get(
+      "/css/features/gas-monitor/gas-monitor-v1.css"
+    );
+    assert.match(
+      css.text,
+      /\.gm-building-card\.is-expanded \.gm-building-chevron/
+    );
 
     const sw = await request(app).get("/service-worker.js");
     assert.match(
       sw.text,
       /gas-monitor-accordion-state-v1\.js/
     );
+    assert.match(sw.text, /tisly-pwa-v2452-gas-accordion-class/);
   });
 });

@@ -1,10 +1,14 @@
 /**
  * ガス見守り アコーディオン状態保持 v1
- * 3秒ポーリングの再描画が走っても
- * 開いた詳細カードを閉じないための共通処理
+ * details 依存をやめてクラス（is-expanded）と
+ * インラインスタイル（display）で開閉を管理する
+ * ユーザーのタップ以外では絶対に閉じない
  */
 
 const STORAGE_KEY_PREFIX = "tisly_gas_open_accordion_v1:";
+const EXPANDED_CLASS = "is-expanded";
+const CARD_SELECTOR = "[data-accordion-id]";
+const TOGGLE_SELECTOR = "[data-accordion-toggle]";
 
 function readStoredIds(scopeKey) {
   try {
@@ -31,6 +35,11 @@ function writeStoredIds(scopeKey, ids) {
   }
 }
 
+/** 開いた時に戻す display 値（既定 block） */
+function openDisplayOf(body) {
+  return body.dataset.accordionDisplay || "block";
+}
+
 /**
  * 開いている物件IDを Set で保持する
  * scopeKey: operator / customer
@@ -46,31 +55,62 @@ export function createAccordionStateV1(scopeKey) {
     writeStoredIds(scopeKey, openPropertyIds);
   }
 
+  /** カード1枚へ開閉状態を反映（DOMは作り直さない） */
+  function applyCard(card) {
+    if (!card) return;
+    const id = card.dataset.accordionId;
+    const open = Boolean(id) && openPropertyIds.has(id);
+    if (card.classList.contains(EXPANDED_CLASS) !== open) {
+      card.classList.toggle(EXPANDED_CLASS, open);
+    }
+    const body = card.querySelector("[data-accordion-body]");
+    if (body) {
+      const next = open ? openDisplayOf(body) : "none";
+      if (body.style.display !== next) body.style.display = next;
+    }
+    const toggle = card.querySelector(TOGGLE_SELECTOR);
+    if (toggle) {
+      const expanded = open ? "true" : "false";
+      if (toggle.getAttribute("aria-expanded") !== expanded) {
+        toggle.setAttribute("aria-expanded", expanded);
+      }
+    }
+  }
+
+  function toggleCard(card) {
+    const id = card?.dataset.accordionId;
+    if (!id) return;
+    if (openPropertyIds.has(id)) openPropertyIds.delete(id);
+    else openPropertyIds.add(id);
+    // 手動操作後は初期展開を再適用しない
+    defaultAppliedIds.add(id);
+    persist();
+    applyCard(card);
+  }
+
   return {
     openPropertyIds,
 
-    /** details の開閉を Set へ反映する */
+    /** ユーザー操作（タップ／キー）だけで開閉する */
     track(root) {
       if (!root || trackedRoots.has(root)) return;
       trackedRoots.add(root);
-      // toggle はバブリングしないので capture で拾う
-      root.addEventListener(
-        "toggle",
-        (event) => {
-          const el = event.target;
-          if (!el || el.tagName !== "DETAILS") return;
-          const id = el.dataset.accordionId;
-          if (!id) return;
-          if (el.open) openPropertyIds.add(id);
-          else openPropertyIds.delete(id);
-          defaultAppliedIds.add(id);
-          persist();
-        },
-        true
-      );
+      root.addEventListener("click", (event) => {
+        const toggle = event.target?.closest?.(TOGGLE_SELECTOR);
+        if (!toggle || !root.contains(toggle)) return;
+        event.preventDefault();
+        toggleCard(toggle.closest(CARD_SELECTOR));
+      });
+      root.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        const toggle = event.target?.closest?.(TOGGLE_SELECTOR);
+        if (!toggle || !root.contains(toggle)) return;
+        event.preventDefault();
+        toggleCard(toggle.closest(CARD_SELECTOR));
+      });
     },
 
-    /** 描画時に open 属性を付けるか判定 */
+    /** 初回生成時に開くか判定 */
     shouldOpen(id, defaultOpen) {
       if (!id) return Boolean(defaultOpen);
       if (openPropertyIds.has(id)) return true;
@@ -83,18 +123,12 @@ export function createAccordionStateV1(scopeKey) {
       return true;
     },
 
-    /** 再描画後に開閉状態を復元する */
+    applyCard,
+
+    /** カード追加・並び替え後の状態確認用 */
     restore(root) {
       if (!root) return;
-      const list = root.querySelectorAll(
-        "details[data-accordion-id]"
-      );
-      list.forEach((el) => {
-        const id = el.dataset.accordionId;
-        if (!id) return;
-        const open = openPropertyIds.has(id);
-        if (el.open !== open) el.open = open;
-      });
+      root.querySelectorAll(CARD_SELECTOR).forEach(applyCard);
     },
   };
 }

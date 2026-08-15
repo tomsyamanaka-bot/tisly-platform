@@ -16,7 +16,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
 | ログインCTA | 青〜紫グラデ維持（`#4facfe` → `#a855f7`） |
-| SW | `tisly-pwa-v2451-gas-accordion-state` |
+| SW | `tisly-pwa-v2452-gas-accordion-class` |
 
 ---
 
@@ -1218,3 +1218,22 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | コード | `gas-monitor-accordion-state-v1.js` · `gas-monitor-operator-v1.js` · `gas-monitor-customer-v1.js` |
 | テスト | `gas-monitor-v1.test.ts`（アコーディオン保持ケース追記） |
 | 確認 | `/app/gas-monitor` · `/gas-monitor-v1` · `/customer/gas-monitor` · https://tisly.jp/api/health |
+
+### ガス監視 アコーディオン勝手閉じ 根本解消 v2（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | 3秒ポーリングで開いた詳細（▼/▲）が閉じる・チラつく問題を DOM 再生成の廃止で根絶 |
+| DOM 再生成廃止 | `/app/gas-monitor` · `/customer/gas-monitor` — ポーリング時の `container.innerHTML =` を全廃 |
+| 初回のみ生成 | カード DOM は初回ロード時に生成 · 以降は追加／削除／並び替えのみ |
+| 差分テキスト更新 | `.pulse-count-text` · `.meter-value-text` · `.status-badge` の `textContent` のみ更新 |
+| 開閉方式 | `<details>` 廃止 — `.is-expanded` クラス着脱 + `display: grid / none` の直接切替 |
+| 操作契機 | `[data-accordion-toggle]` の click / Enter / Space のみ（通信・再描画では変化しない） |
+| アイコン | ▼→▲ は `.gm-building-card.is-expanded .gm-building-chevron` でクラス連動 |
+| 状態保持 | `openPropertyIds`（Set）+ sessionStorage — 手動で閉じたら再展開しない |
+| バッジ | 警報／見守り／要配送／正常を固定要素化 · 表示切替と件数テキストのみ更新 |
+| UI | カード・バッジ・カラー・レイアウトは変更なし |
+| SW | `tisly-pwa-v2452-gas-accordion-class`（install で skipWaiting · activate で旧cache削除） |
+| コード | `gas-monitor-accordion-state-v1.js` · `gas-monitor-operator-v1.js` · `gas-monitor-customer-v1.js` · `gas-monitor-v1.css` |
+| テスト | `gas-monitor-v1.test.ts`（クラス連動・差分更新ケース更新） |
+| 確認 | `/app/gas-monitor` · `/customer/gas-monitor` · https://tisly.jp/api/health |

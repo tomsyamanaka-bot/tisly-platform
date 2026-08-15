@@ -444,6 +444,16 @@
   display: none;
 }
 
+/* 詳細トグルはボタン相当（見た目は従来どおり） */
+.gm-building-summary[role="button"] {
+  user-select: none;
+}
+
+.gm-building-summary:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: -3px;
+}
+
 .gm-building-summary-main {
   flex: 1 1 180px;
   min-width: 0;
@@ -479,7 +489,9 @@
   transition: transform 0.2s ease;
 }
 
-.gm-building-card[open] .gm-building-chevron {
+/* 開いた時の ▼→▲ 反転はクラス連動 */
+.gm-building-card[open] .gm-building-chevron,
+.gm-building-card.is-expanded .gm-building-chevron {
   transform: rotate(180deg);
 }
 

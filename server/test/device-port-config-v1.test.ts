@@ -351,7 +351,7 @@ describe("RP2350 port mapping and field validation v1", () => {
     const worker = await request(app).get("/service-worker.js");
     assert.match(
       worker.text,
-      /v2451-gas-accordion-state|v2450-gas-live-only/
+      /v2452-gas-accordion-class|v2451-gas-accordion-state/
     );
     assert.match(worker.text, /\/device-binding-v1\.html/);
   });
