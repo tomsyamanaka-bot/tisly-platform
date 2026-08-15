@@ -752,8 +752,8 @@ export function getPropertyGasLiveSnapshotV1(
       const isPulse =
         port.portType === "DI" && port.operationMode === "pulse";
       const pulseCount =
-        isPulse && state.pulseCounts
-          ? Number(state.pulseCounts[key] ?? 0)
+        isPulse
+          ? Number(state.pulseCounts?.[key] ?? 0)
           : null;
       const liveMeter =
         isPulse && state.meterValues

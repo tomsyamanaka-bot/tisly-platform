@@ -311,6 +311,9 @@ deviceBindingV1Router.post(
       });
       res.json({
         ok: true,
+        success: true,
+        property_id: configuration.propertyId,
+        device_id: configuration.deviceId,
         configuration,
         propertyMappings: listPropertyPortMappingsV1(
           configuration.propertyId

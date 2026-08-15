@@ -188,10 +188,12 @@ function renderList(d) {
     const rows = d.properties || [];
     if (!rows.length) {
       root.innerHTML = `
-        <p class="gm-empty">
-          登録されている物件はありません。<br>
-          「機器をQR登録」から新規登録してください
-        </p>`;
+        <div class="gm-empty">
+          <p>登録されている物件はありません。</p>
+          <a class="gm-register-button" href="/device-binding-v1">
+            ＋ 機器を新規登録する
+          </a>
+        </div>`;
       return;
     }
     root.innerHTML = rows.map(roomCardHtml).join("");

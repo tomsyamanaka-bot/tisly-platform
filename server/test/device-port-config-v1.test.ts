@@ -132,6 +132,9 @@ describe("RP2350 port mapping and field validation v1", () => {
         fieldNote: "青線はDI1、白線はCOMへ接続",
       });
     assert.equal(response.status, 200, response.body?.error);
+    assert.equal(response.body.success, true);
+    assert.equal(response.body.property_id, propertyId);
+    assert.equal(response.body.device_id, "TISLY-BOX-PORT-001");
     assert.equal(
       response.body.configuration.ports[0].label,
       "101号室 ガスメーター"
@@ -165,6 +168,14 @@ describe("RP2350 port mapping and field validation v1", () => {
     assert.equal(
       operator.body.dashboard.properties[0].propertyId,
       propertyId
+    );
+    assert.equal(
+      operator.body.dashboard.properties[0].meterPulseTotal,
+      0
+    );
+    assert.equal(
+      operator.body.dashboard.properties[0].currentMeterValue,
+      128.45
     );
     assert.equal(
       operator.body.dashboard.buildings[0].rooms[0].propertyId,
@@ -332,6 +343,8 @@ describe("RP2350 port mapping and field validation v1", () => {
     assert.match(js.text, /※名称を入力してください/);
     assert.match(js.text, /🟢 検知中（ON）/);
     assert.match(js.text, /ポート設定・現場登録/);
+    assert.match(js.text, /window\.location\.assign/);
+    assert.match(js.text, /\/app\/gas-monitor\?propertyId=/);
     assert.match(js.text, /\/api\/device\/ports\/relay-test/);
     assert.match(js.text, /\/api\/device\/ports\/firmware/);
 

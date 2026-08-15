@@ -312,6 +312,9 @@ describe("RP2350 QR property binding v1", () => {
         ports,
       });
     assert.equal(saved.status, 200, saved.body?.error);
+    assert.equal(saved.body.success, true);
+    assert.equal(saved.body.property_id, newPropertyId);
+    assert.equal(saved.body.device_id, "TOMS001-RP-01");
 
     const hub = await request(app)
       .get("/api/pwa/hub")
@@ -347,6 +350,92 @@ describe("RP2350 QR property binding v1", () => {
             (sensor) => sensor.sensorName === "玄関センサー"
           )
       )
+    );
+  });
+
+  it("opens a new property through gas monitoring immediately", async () => {
+    const bind = await request(app)
+      .post("/api/device/bind")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        property_name: "矢崎メーター実機現場",
+        device_id: "TISLY-BOX-YAZAKI-001",
+      });
+    assert.equal(bind.status, 201, bind.body?.error);
+    const newPropertyId = bind.body.binding.propertyId;
+
+    const ports = buildDefaultDevicePortsV1();
+    ports[0] = {
+      ...ports[0],
+      enabled: true,
+      label: "101号室 ガスメーター",
+      initialMeterValue: 321.45,
+    };
+    const saved = await request(app)
+      .post("/api/device/ports/save")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        deviceId: "TISLY-BOX-YAZAKI-001",
+        ports,
+      });
+    assert.equal(saved.status, 200, saved.body?.error);
+    assert.equal(saved.body.success, true);
+    assert.equal(saved.body.property_id, newPropertyId);
+    assert.equal(saved.body.device_id, "TISLY-BOX-YAZAKI-001");
+
+    const propertyCount = getDatabase()
+      .prepare(
+        `SELECT COUNT(*) AS count
+         FROM customer_portal_properties
+         WHERE property_id = ? AND property_name = ?`
+      )
+      .get(newPropertyId, "矢崎メーター実機現場") as {
+      count: number;
+    };
+    assert.equal(propertyCount.count, 1);
+
+    const bindingCount = getDatabase()
+      .prepare(
+        `SELECT COUNT(*) AS count
+         FROM property_device_bindings_v1
+         WHERE property_id = ? AND device_id = ?`
+      )
+      .get(newPropertyId, "TISLY-BOX-YAZAKI-001") as {
+      count: number;
+    };
+    assert.equal(bindingCount.count, 1);
+
+    const portCount = getDatabase()
+      .prepare(
+        `SELECT COUNT(*) AS count
+         FROM device_port_configs_v1
+         WHERE device_id = ?`
+      )
+      .get("TISLY-BOX-YAZAKI-001") as { count: number };
+    assert.equal(portCount.count, 16);
+
+    const operator = await request(app).get(
+      "/api/gas-monitor/v1/operator"
+    );
+    const property = operator.body.dashboard.properties.find(
+      (item: { propertyId: string }) =>
+        item.propertyId === newPropertyId
+    );
+    assert.ok(property);
+    assert.equal(property.meterPulseTotal, 0);
+    assert.equal(property.currentMeterValue, 321.45);
+
+    const customer = await request(app).get(
+      `/api/gas-monitor/v1/customer?propertyId=${newPropertyId}`
+    );
+    assert.equal(customer.body.empty, false);
+    assert.equal(
+      customer.body.dashboard.mappedPorts[0].label,
+      "101号室 ガスメーター"
+    );
+    assert.equal(
+      customer.body.dashboard.currentMeterValue,
+      321.45
     );
   });
 

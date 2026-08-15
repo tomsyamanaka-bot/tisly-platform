@@ -909,10 +909,19 @@ async function savePortConfiguration() {
     if (!response.ok) {
       throw new Error(body.error || `HTTP ${response.status}`);
     }
+    if (!body.success || !body.property_id || !body.device_id) {
+      throw new Error("保存結果を確認できませんでした");
+    }
     state.activeConfiguration = body.configuration;
     document.getElementById("config-status").textContent =
-      "保存しました。監視カードへ即時反映済みです。";
+      "保存しました。監視画面へ移動します…";
     navigator.vibrate?.(80);
+    window.clearInterval(state.statusTimer);
+    window.location.assign(
+      `/app/gas-monitor?propertyId=${encodeURIComponent(
+        body.property_id
+      )}`
+    );
   } catch (error) {
     document.getElementById("config-status").textContent =
       error.message || String(error);

@@ -259,5 +259,18 @@ describe("gas-monitor-v1", () => {
         "登録されている物件はありません"
       )
     );
+    assert.match(custPage.text, /＋ 機器を新規登録する/);
+    assert.match(custPage.text, /href="\/device-binding-v1"/);
+
+    const operatorJs = await request(app).get(
+      "/js/features/gas-monitor/gas-monitor-operator-v1.js"
+    );
+    assert.match(operatorJs.text, /＋ 機器を新規登録する/);
+
+    const css = await request(app).get(
+      "/css/features/gas-monitor/gas-monitor-v1.css"
+    );
+    assert.match(css.text, /\.gm-register-button/);
+    assert.match(css.text, /min-height: 52px/);
   });
 });
