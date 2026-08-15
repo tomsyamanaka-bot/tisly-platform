@@ -3,7 +3,9 @@
  */
 
 import { buildMonitoringDashboardV1 } from "../../monitoring/tisly-monitoring-dashboard-v1.js";
+import { listPropertyPortMappingsV1 } from "../../device/device-port-config-v1.js";
 import { buildCustomerContactTelHrefV1 } from "./customer-project-actions-v1.js";
+import { getPropertyByProjectRefV1 } from "./customer-property-master-v1.js";
 import type { CustomerContactActionV1 } from "./customer-contact-settings-v1.js";
 import type { CustomerContactV1 } from "./customer-view-model-v1.js";
 import { resolveMonitoringSiteIdV1 } from "../../monitoring/tisly-monitoring-layout-v1.js";
@@ -40,7 +42,16 @@ function mapSystemStatus(
 function formatLogWhat(content: string, deviceName: string): string {
   const c = String(content ?? "").trim();
   if (!c || c === "通知イベント") return `${deviceName}で検知`;
-  return c;
+  if (/通信断|通信遅延/.test(c)) {
+    return "機器の通信状態を確認しています";
+  }
+  if (/deviceId|sensorId|topic|mqtt|statusCode|JSON/i.test(c)) {
+    return "機器の状態を確認しています";
+  }
+  return c.replace(
+    /\s+[—-]\s+[A-Z0-9][A-Z0-9_-]{3,}$/i,
+    ""
+  );
 }
 
 export function buildCustomerMonitoringDetailV1(
@@ -66,11 +77,38 @@ export function buildCustomerMonitoringDetailV1(
       isCamera: d.deviceType === "camera",
     })),
   }));
+  const property = getPropertyByProjectRefV1(ref);
+  const mappedSensors = property
+    ? listPropertyPortMappingsV1(property.propertyId).flatMap(
+        (mapping) =>
+          mapping.ports.map((port) => ({
+            sensorId:
+              `${mapping.deviceId}-${port.portType}${port.portNumber}`,
+            sensorName: port.label,
+            status: CUSTOMER_SENSOR_STATUS_V1.normal,
+            statusKey: "normal" as const,
+            areaName: "登録機器",
+            isCamera: false,
+          }))
+      )
+    : [];
+  if (mappedSensors.length > 0) {
+    floors.push({
+      floorId: "registered-devices",
+      floorName: "現場機器",
+      sensors: mappedSensors,
+    });
+  }
 
   const hasAlert = floors.some((f) => f.sensors.some((s) => s.statusKey === "alert"));
   const hasWarning = floors.some((f) => f.sensors.some((s) => s.statusKey === "warning"));
   const systemKey = mapSystemStatus(hasAlert, hasWarning);
   const system = CUSTOMER_SYSTEM_STATUS_V1[systemKey];
+  const visibleSensorIds = new Set(
+    floors.flatMap((floor) =>
+      floor.sensors.map((sensor) => sensor.sensorId)
+    )
+  );
 
   let activeAlert: CustomerMonitoringAlertV1 | null = null;
   if (dash.activeAlert) {
@@ -83,7 +121,9 @@ export function buildCustomerMonitoringDetailV1(
       message: `${a.floorName}の${a.areaName}で警報を検知しました`,
       subMessage: "確認してください",
       timestamp: formatCustomerEventTimeV1(a.timestamp),
-      highlightSensorId: a.deviceId,
+      highlightSensorId: visibleSensorIds.has(a.deviceId)
+        ? a.deviceId
+        : "unknown-sensor",
     };
   }
 

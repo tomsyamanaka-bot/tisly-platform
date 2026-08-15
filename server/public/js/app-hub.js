@@ -12,6 +12,15 @@ const STATUS_LABELS = {
   not_ready: "未対応",
 };
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
 async function copyText(text) {
   try {
     await navigator.clipboard.writeText(text);
@@ -597,6 +606,36 @@ function renderPracticalApps(apps) {
     .join("");
 }
 
+function renderMonitoredProperties(properties) {
+  const section = document.getElementById(
+    "hub-monitoring-properties"
+  );
+  const grid = document.getElementById("hub-monitoring-grid");
+  if (!section || !grid) return;
+  if (!properties?.length) {
+    section.hidden = true;
+    grid.innerHTML = "";
+    return;
+  }
+  section.hidden = false;
+  grid.innerHTML = properties
+    .map(
+      (property) => `
+        <a
+          class="hub-monitoring-card"
+          href="${escapeHtml(property.monitoringUrl)}"
+        >
+          <span class="hub-monitoring-status">● 監視中</span>
+          <strong>${escapeHtml(property.propertyName)}</strong>
+          <small>
+            ${Number(property.deviceCount) || 0}台の機器・
+            ${Number(property.portCount) || 0}ポート
+          </small>
+        </a>`
+    )
+    .join("");
+}
+
 function toggleOpsPanels(show) {
   const wrap = document.getElementById("ops-panels-wrap");
   if (wrap) wrap.hidden = !show;
@@ -616,6 +655,7 @@ async function loadHubApps() {
   document.getElementById("hub-role-label").textContent =
     `${data.customerCode} でログイン中`;
   renderPracticalApps(data.practicalApps);
+  renderMonitoredProperties(data.monitoredProperties);
   const grid = document.getElementById("hub-app-grid");
   grid.innerHTML = (data.apps || [])
     .map(

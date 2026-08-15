@@ -1062,3 +1062,51 @@
   flex: 1;
   margin-top: 0;
 }
+
+/* 登録済み監視物件カード（追記） */
+.hub-monitoring-section {
+  margin: 24px 0;
+  padding: 18px;
+  background: #f8fafc;
+  border: 1px solid #dbe3ef;
+  border-radius: 18px;
+}
+
+.hub-monitoring-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.hub-monitoring-card {
+  display: grid;
+  gap: 7px;
+  min-height: 116px;
+  padding: 16px;
+  color: #0f172a;
+  text-decoration: none;
+  background: #fff;
+  border: 2px solid #1e3a8a;
+  border-radius: 16px;
+  box-shadow: 0 6px 18px rgba(30, 58, 138, 0.1);
+}
+
+.hub-monitoring-card strong {
+  font-size: 1.12rem;
+}
+
+.hub-monitoring-card small {
+  color: #475569;
+  font-weight: 700;
+}
+
+.hub-monitoring-status {
+  color: #15803d;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+@media (min-width: 700px) {
+  .hub-monitoring-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

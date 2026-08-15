@@ -1030,3 +1030,17 @@ main {
     grid-column: 1 / -1;
   }
 }
+
+/* 完全新規登録フォーム v3（追記） */
+.label-section:first-child {
+  margin-top: 0;
+}
+
+#btn-open-config {
+  min-height: 58px;
+  font-size: 1.05rem;
+}
+
+#btn-scan-now {
+  background: #eff6ff;
+}

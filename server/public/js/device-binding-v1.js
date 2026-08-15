@@ -10,9 +10,7 @@ const state = {
   frameRequest: 0,
   activeConfiguration: null,
   statusTimer: 0,
-  scope: "demo",
   totalPropertyCount: 0,
-  propertyNameTouched: false,
 };
 
 function propertyNameField() {
@@ -62,92 +60,6 @@ function setScannerStatus(message, isError = false) {
   element.style.color = isError ? "#b91c1c" : "#334155";
 }
 
-function renderProperties() {
-  const list = document.getElementById("property-list");
-  if (!state.properties.length) {
-    list.innerHTML = `
-      <article class="property-card">
-        <h3>登録済みの物件がありません</h3>
-        <p class="property-address">
-          下の「物件名」を入力すれば新しく登録できます。
-        </p>
-      </article>`;
-    return;
-  }
-
-  const activeId = state.selectedProperty?.propertyId || "";
-  list.innerHTML = state.properties
-    .map((property) => {
-      const online = property.connectionStatus === "online";
-      const active = property.propertyId === activeId;
-      const devices = (property.devices || [])
-        .map(
-          (device) =>
-            `<button
-              class="device-config-link"
-              data-config-device="${escapeHtml(device.deviceId)}"
-            >
-              ● ${escapeHtml(device.deviceId)} のポート設定
-            </button>`
-        )
-        .join("");
-      return `
-        <article
-          class="property-card${online ? " is-online" : ""}${
-            active ? " is-active" : ""
-          }"
-          data-property-id="${escapeHtml(property.propertyId)}"
-        >
-          <div class="property-top">
-            <h3>${escapeHtml(property.propertyName)}</h3>
-            <span class="status-badge">
-              ${escapeHtml(property.statusLabel)}
-            </span>
-          </div>
-          <p class="property-address">
-            ${escapeHtml(property.address || "住所未登録")}
-          </p>
-          ${devices ? `<div class="device-list">${devices}</div>` : ""}
-          <button
-            class="property-use-button"
-            data-use-property="${escapeHtml(property.propertyId)}"
-          >
-            ${active ? "✓ この物件で入力中" : "この物件で入力する"}
-          </button>
-        </article>`;
-    })
-    .join("");
-
-  list.querySelectorAll("[data-config-device]").forEach((button) => {
-    button.addEventListener("click", () => {
-      void openPortConfiguration(button.dataset.configDevice);
-    });
-  });
-  list.querySelectorAll("[data-use-property]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const property = state.properties.find(
-        (item) => item.propertyId === button.dataset.useProperty
-      );
-      if (property) applyPropertyToForm(property, true);
-    });
-  });
-}
-
-/** 物件カードの内容をフォームへ流し込む */
-function applyPropertyToForm(property, overwriteName = false) {
-  state.selectedProperty = property;
-  if (overwriteName || !currentPropertyName()) {
-    propertyNameField().value = property.propertyName;
-    state.propertyNameTouched = false;
-  }
-  const boundDeviceId = property.devices?.[0]?.deviceId || "";
-  if (boundDeviceId && overwriteName) {
-    deviceIdField().value = boundDeviceId;
-  }
-  renderProperties();
-  updateBindingPreview();
-}
-
 /**
  * 入力中の物件名から、既存物件か新規登録かを判定する。
  * 空白差は無視して比較する。
@@ -174,19 +86,18 @@ function updateBindingPreview() {
   const matched = matchPropertyByName(propertyName);
 
   if (matched) {
-    const changed =
-      state.selectedProperty?.propertyId !== matched.propertyId;
     state.selectedProperty = matched;
-    if (changed) renderProperties();
     hint.textContent =
       matched.devices?.length > 0
-        ? `登録済み物件 · ${matched.devices[0].deviceId} が接続中`
-        : "登録済み物件 · 機器未登録";
+        ? "同名の登録済み物件へ機器を追加します"
+        : "同名の登録済み物件を使用します";
     hint.style.color = "#166534";
   } else if (propertyName) {
+    state.selectedProperty = null;
     hint.textContent = "新しい物件名として登録します";
     hint.style.color = "#b45309";
   } else {
+    state.selectedProperty = null;
     hint.textContent = "物件名を入力してください";
     hint.style.color = "#b91c1c";
   }
@@ -227,9 +138,8 @@ function renderKnownDevices() {
 
 async function loadProperties() {
   try {
-    const query = state.scope === "all" ? "?scope=all" : "";
     const response = await fetch(
-      `/api/device/properties${query}`,
+      "/api/device/properties?scope=all",
       { headers: authHeaders() }
     );
     const body = await response.json().catch(() => ({}));
@@ -244,39 +154,9 @@ async function loadProperties() {
     state.deviceIds = body.deviceIds || [];
     state.totalPropertyCount =
       body.totalPropertyCount ?? state.properties.length;
-
-    const current = state.selectedProperty
-      ? state.properties.find(
-          (item) =>
-            item.propertyId === state.selectedProperty.propertyId
-        )
-      : null;
-    const nextProperty =
-      matchPropertyByName(currentPropertyName()) ||
-      current ||
-      state.properties[0] ||
-      null;
-    if (nextProperty) {
-      applyPropertyToForm(
-        nextProperty,
-        !state.propertyNameTouched && !currentPropertyName()
-      );
-    } else {
-      renderProperties();
-      updateBindingPreview();
-    }
-
     renderKnownDevices();
-    document.getElementById("btn-toggle-scope").textContent =
-      state.scope === "all"
-        ? "デモ物件だけ表示する"
-        : `すべての物件を表示（${state.totalPropertyCount}件）`;
-    setPageStatus(
-      state.scope === "all"
-        ? `全${state.properties.length}件を表示中`
-        : `デモ物件 ${state.properties.length}件を表示中` +
-            `（登録済み全${state.totalPropertyCount}件）`
-    );
+    updateBindingPreview();
+    setPageStatus("物件名とデバイスIDを入力してください。");
   } catch (error) {
     setPageStatus(error.message || String(error), true);
   }
@@ -318,7 +198,6 @@ async function stopScanner() {
 async function closeScanner() {
   await stopScanner();
   document.getElementById("scanner-sheet").hidden = true;
-  state.selectedProperty = null;
   resetReaderDom();
 }
 
@@ -396,17 +275,12 @@ async function startHtml5Scanner() {
 
 async function openScanner() {
   const propertyName = currentPropertyName();
-  if (!propertyName) {
-    setPageStatus("先に物件名を入力してください", true);
-    propertyNameField().focus();
-    return;
-  }
   state.scanLocked = false;
   document.getElementById("manual-entry").hidden = true;
   document.getElementById("manual-device-id").value =
     currentDeviceId();
   document.getElementById("scanner-property-name").textContent =
-    propertyName;
+    propertyName || "物件名は読取後に入力できます";
   document.getElementById("scanner-sheet").hidden = false;
   resetReaderDom();
   setScannerStatus("カメラを準備しています…");
@@ -482,35 +356,40 @@ async function bindDevice(rawValue) {
   return body;
 }
 
+function readDeviceIdFromQr(rawValue) {
+  const raw = String(rawValue ?? "").trim();
+  if (!raw) throw new Error("デバイスIDを読み取れませんでした");
+  if (!raw.startsWith("{")) return raw.toUpperCase();
+  try {
+    const parsed = JSON.parse(raw);
+    const deviceId = String(
+      parsed.device_id ?? parsed.deviceId ?? ""
+    ).trim();
+    if (!deviceId) throw new Error();
+    return deviceId.toUpperCase();
+  } catch {
+    throw new Error("デバイスIDを読み取れませんでした");
+  }
+}
+
 async function handleDecoded(rawValue) {
   if (state.scanLocked) return;
   state.scanLocked = true;
-  setScannerStatus("読み取りました。登録しています…");
+  setScannerStatus("読み取りました。入力欄へ反映します…");
   try {
-    const body = await bindDevice(rawValue);
+    const deviceId = readDeviceIdFromQr(rawValue);
     await stopScanner();
     document.getElementById("qr-reader").classList.add("is-success");
-    setScannerStatus(
-      `${body.binding.deviceId} を登録しました`
-    );
+    setScannerStatus(`${deviceId} を読み取りました`);
     playSuccessFeedback();
-
-    // 読み取ったIDと入力中の物件名をそのまま引き継ぐ。
-    deviceIdField().value = body.binding.deviceId;
-    const propertyName =
-      body.property?.propertyName || currentPropertyName();
-    const flash = document.getElementById("success-flash");
-    flash.hidden = false;
-    await loadProperties();
+    deviceIdField().value = deviceId;
+    updateBindingPreview();
     window.setTimeout(() => {
-      flash.hidden = true;
-      void closeScanner().then(() => {
-        void openPortConfiguration(
-          body.binding.deviceId,
-          propertyName
-        );
-      });
-    }, 700);
+      void closeScanner();
+      setPageStatus(
+        `${deviceId} を入力しました。物件名を確認して次へ進んでください。`
+      );
+    }, 450);
   } catch (error) {
     state.scanLocked = false;
     setScannerStatus(error.message || String(error), true);
@@ -571,7 +450,7 @@ async function registerAndOpenConfiguration() {
   try {
     const body = await bindDevice(deviceId);
     setPageStatus(
-      `${deviceId} の機器登録・ポート変更を開きます`
+      `${deviceId} のポート設定・現場登録を開きます`
     );
     await loadProperties();
     await openPortConfiguration(
@@ -1136,15 +1015,7 @@ document
   .getElementById("btn-open-config")
   .addEventListener("click", () => void registerAndOpenConfiguration());
 
-document
-  .getElementById("btn-toggle-scope")
-  .addEventListener("click", () => {
-    state.scope = state.scope === "all" ? "demo" : "all";
-    void loadProperties();
-  });
-
 propertyNameField().addEventListener("input", () => {
-  state.propertyNameTouched = true;
   updateBindingPreview();
 });
 

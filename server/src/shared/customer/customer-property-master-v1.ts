@@ -50,8 +50,14 @@ export function getPropertyByProjectRefV1(projectRef: string): PropertyMasterV1 
   const ref = String(projectRef ?? "").trim();
   if (!ref) return null;
   const row = getDatabase()
-    .prepare(`SELECT * FROM customer_portal_properties WHERE project_ref = ? COLLATE NOCASE`)
-    .get(ref) as Record<string, unknown> | undefined;
+    .prepare(
+      `SELECT * FROM customer_portal_properties
+       WHERE project_ref = ? COLLATE NOCASE
+          OR property_id = ? COLLATE NOCASE
+       ORDER BY CASE WHEN project_ref = ? COLLATE NOCASE THEN 0 ELSE 1 END
+       LIMIT 1`
+    )
+    .get(ref, ref, ref) as Record<string, unknown> | undefined;
   return row ? rowToProperty(row) : null;
 }
 

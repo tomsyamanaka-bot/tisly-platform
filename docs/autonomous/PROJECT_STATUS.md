@@ -1173,3 +1173,18 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | SW | `tisly-pwa-v2448-gas-meter-live` |
 | テスト | `server/test/device-port-config-v1.test.ts` · `server/test/gas-monitor-v1.test.ts` |
 | 確認 | `/gas-monitor-v1` · `/app/gas-monitor` · `/customer/gas-monitor` · https://tisly.jp/api/health |
+
+### 機器QR登録 完全新規登録UI v2（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | デモ物件選択を終了し、物件名とデバイスIDの2項目から新規登録 |
+| UI | `/device-binding-v1` — 新規物件名 · デバイスID · クイックタグ · QR読取 |
+| 導線 | 「次へ：ポート設定・現場登録」から16ポート設定へ直接遷移 |
+| QR | 読取時はID入力欄へ反映し、登録ボタンで物件作成・紐付け |
+| 既存保護 | 同名物件は再利用 · 新規物件と機器紐付けは末尾追記 · 上書き禁止維持 |
+| App連動 | `/app` に保存済み監視物件カードを自動追加 |
+| Customer連動 | `/customer` 物件カードと見守り画面へ保存済みポートを自動追加 |
+| SW | `tisly-pwa-v2449-device-new-registration` |
+| テスト | `server/test/device-binding-v1.test.ts` · `server/test/device-port-config-v1.test.ts` |
+| 確認 | `/device-binding-v1` · `/app` · `/customer` · https://tisly.jp/api/health |

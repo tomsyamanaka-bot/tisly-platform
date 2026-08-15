@@ -26,43 +26,25 @@
   </header>
 
   <main>
-    <section class="focus-section">
+    <section class="label-section">
       <div class="section-heading">
         <div class="step-badge">1</div>
         <div>
-          <h2>RP2350の物件</h2>
-          <p>デモ物件だけを表示しています。</p>
+          <h2>新しい物件と機器を登録</h2>
+          <p>2項目を入力して、すぐに現場設定へ進めます。</p>
         </div>
       </div>
       <p id="page-status" class="page-status" role="status">
-        物件を読み込んでいます…
+        物件名とデバイスIDを入力してください。
       </p>
-      <section
-        id="property-list"
-        class="property-list"
-        aria-live="polite"
-      ></section>
-      <button id="btn-toggle-scope" class="text-button">
-        すべての物件を表示
-      </button>
-    </section>
-
-    <section class="label-section">
-      <div class="section-heading">
-        <div class="step-badge">2</div>
-        <div>
-          <h2>QRシールを作る・機器を登録</h2>
-          <p>物件名とデバイスIDを入れて1タップ。</p>
-        </div>
-      </div>
 
       <label class="form-label" for="property-name-input">
-        物件名
+        新規 物件名
       </label>
       <input
         id="property-name-input"
         class="property-name-input"
-        placeholder="例：取手 佐藤邸 / つくばコーポ 102号室"
+        placeholder="例：〇〇邸 / 〇〇アパート 101号室"
         inputmode="text"
         autocomplete="off"
         maxlength="120"
@@ -75,7 +57,7 @@
       <input
         id="label-device-id"
         class="device-id-input"
-        value="TISLY-BOX-001"
+        placeholder="例：TISLY-BOX-001"
         inputmode="text"
         autocomplete="off"
         autocapitalize="characters"
@@ -87,11 +69,11 @@
       </p>
 
       <div class="action-grid">
-        <button id="btn-scan-now" class="primary-button">
-          📷 QRを読む
+        <button id="btn-scan-now" class="outline-button">
+          📷 QRでID読取
         </button>
-        <button id="btn-open-config" class="outline-button">
-          🔧 機器登録・ポート変更
+        <button id="btn-open-config" class="primary-button">
+          次へ：ポート設定・現場登録
         </button>
         <button id="btn-generate-label" class="outline-button">
           🖨 QRシールを表示（印刷）
@@ -120,7 +102,7 @@
     <div id="scanner-panel" class="scanner-panel">
       <div class="scanner-heading">
         <div>
-          <p class="eyebrow">選択中の物件</p>
+          <p class="eyebrow">新規登録する物件</p>
           <h2 id="scanner-property-name">—</h2>
         </div>
         <button id="btn-close-scanner" class="close-button">
@@ -143,7 +125,7 @@
           autocapitalize="characters"
         />
         <button id="btn-bind-manual" class="primary-button">
-          このIDを登録
+          このIDを使う
         </button>
       </div>
     </div>
@@ -157,7 +139,7 @@
   >
     <header class="config-header">
       <button id="btn-close-config" class="config-back-button">
-        ← 物件一覧
+        ← 新規登録
       </button>
       <div>
         <p class="eyebrow">RP2350 8DI / 8RO</p>

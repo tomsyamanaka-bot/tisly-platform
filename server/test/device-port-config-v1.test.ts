@@ -309,12 +309,12 @@ describe("RP2350 port mapping and field validation v1", () => {
     const js = await request(app).get("/js/device-binding-v1.js");
     assert.match(js.text, /※名称を入力してください/);
     assert.match(js.text, /🟢 検知中（ON）/);
-    assert.match(js.text, /機器登録・ポート変更/);
+    assert.match(js.text, /ポート設定・現場登録/);
     assert.match(js.text, /\/api\/device\/ports\/relay-test/);
     assert.match(js.text, /\/api\/device\/ports\/firmware/);
 
     const worker = await request(app).get("/service-worker.js");
-    assert.match(worker.text, /v2448-gas-meter-live/);
+    assert.match(worker.text, /v2449-device-new-registration/);
     assert.match(worker.text, /\/device-binding-v1\.html/);
   });
 });

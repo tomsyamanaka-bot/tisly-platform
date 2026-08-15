@@ -6,6 +6,8 @@ process.env.JWT_SECRET = "test-jwt-device-binding-v1";
 process.env.CUSTOMER_DEMO_PASSWORD = "demo-remote-2026";
 process.env.NODE_ENV = "test";
 process.env.TISLY_DB_PATH = "./data/test-device-binding-v1.db";
+process.env.DATABASE_URL =
+  "sqlite://./data/test-device-binding-v1.db";
 process.env.RATE_LIMIT_PROVIDER = "memory";
 
 const { default: request } = await import("supertest");
@@ -16,6 +18,12 @@ const { buildPracticalHubCards } =
   await import("../src/pwa/pwa-hub.js");
 const { TISLY_INTERNAL_ROUTES_V1 } =
   await import("../src/shared/routes/tisly-routes-v1.js");
+const { buildDefaultDevicePortsV1 } =
+  await import("../src/device/device-port-config-v1.js");
+
+process.env.TISLY_DB_PATH = "./data/test-device-binding-v1.db";
+process.env.DATABASE_URL =
+  "sqlite://./data/test-device-binding-v1.db";
 
 const app = createApp();
 let token = "";
@@ -288,6 +296,58 @@ describe("RP2350 QR property binding v1", () => {
       "取手 佐藤邸"
     );
     assert.equal(configuration.body.configuration.ports.length, 16);
+
+    const ports = buildDefaultDevicePortsV1();
+    ports[0] = {
+      ...ports[0],
+      enabled: true,
+      label: "玄関センサー",
+      operationMode: "state_monitor",
+    };
+    const saved = await request(app)
+      .post("/api/device/ports/save")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        deviceId: "TOMS001-RP-01",
+        ports,
+      });
+    assert.equal(saved.status, 200, saved.body?.error);
+
+    const hub = await request(app)
+      .get("/api/pwa/hub")
+      .set("Authorization", `Bearer ${token}`);
+    assert.ok(
+      hub.body.monitoredProperties.some(
+        (item: { propertyName: string }) =>
+          item.propertyName === "取手 佐藤邸"
+      )
+    );
+
+    const customerHome = await request(app).get(
+      "/api/customer-portal/v1/home/TOMS001"
+    );
+    const customerCard = customerHome.body.projects.find(
+      (item: { propertyName: string }) =>
+        item.propertyName === "取手 佐藤邸"
+    );
+    assert.ok(customerCard);
+    const monitoring = await request(app).get(
+      customerCard.monitoringPageUrl.replace(
+        "/customer/monitoring/",
+        "/api/customer-portal/v1/monitoring/"
+      )
+    );
+    assert.equal(monitoring.status, 200, monitoring.body?.error);
+    assert.ok(
+      monitoring.body.floors.some(
+        (floor: {
+          sensors: Array<{ sensorName: string }>;
+        }) =>
+          floor.sensors.some(
+            (sensor) => sensor.sensorName === "玄関センサー"
+          )
+      )
+    );
   });
 
   it("renders the one-screen property name and device ID form", async () => {
@@ -296,12 +356,17 @@ describe("RP2350 QR property binding v1", () => {
     assert.match(page.text, /id="property-name-input"/);
     assert.match(page.text, /id="btn-scan-now"/);
     assert.match(page.text, /id="btn-open-config"/);
+    assert.match(page.text, /次へ：ポート設定・現場登録/);
+    assert.match(page.text, /📷 QRでID読取/);
     assert.match(page.text, /QRシールを表示（印刷）/);
+    assert.doesNotMatch(page.text, /id="property-list"/);
+    assert.doesNotMatch(page.text, /デモ物件だけを表示/);
 
     const js = await request(app).get("/js/device-binding-v1.js");
     assert.match(js.text, /property_name/);
-    assert.match(js.text, /機器登録・ポート変更/);
+    assert.match(js.text, /ポート設定・現場登録/);
     assert.match(js.text, /binding-preview/);
+    assert.doesNotMatch(js.text, /btn-toggle-scope/);
   });
 
   it("appends the hub card and canonical routes", () => {

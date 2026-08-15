@@ -293,9 +293,13 @@ export function getDefaultCustomerLandingPropertyV1(): {
   ensureCustomerPortalMastersV1();
   const master = getCustomerMasterV1("TOMS001") ?? listCustomerMastersV1()[0];
   if (!master) return null;
-  const property = getPrimaryPropertyForCustomerV1(master.customerCode);
-  if (!property?.projectRef) return null;
-  const ref = property.projectRef;
+  const properties = listPropertiesForCustomerPortalV1(master.customerCode);
+  const property =
+    properties.find((item) => item.projectRef) ??
+    properties[0] ??
+    null;
+  if (!property) return null;
+  const ref = property.projectRef ?? property.propertyId;
   return {
     shareId: shareIdFromRef(ref),
     propertyName: property.propertyName,
