@@ -16,7 +16,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
 | ログインCTA | 青〜紫グラデ維持（`#4facfe` → `#a855f7`） |
-| SW | `tisly-pwa-v2441-eco-water-print-fix` |
+| SW | `tisly-pwa-v2450-gas-live-only` |
 
 ---
 
@@ -1188,3 +1188,17 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | SW | `tisly-pwa-v2449-device-new-registration` |
 | テスト | `server/test/device-binding-v1.test.ts` · `server/test/device-port-config-v1.test.ts` |
 | 確認 | `/device-binding-v1` · `/app` · `/customer` · https://tisly.jp/api/health |
+
+### ガス監視 実機物件限定表示 v1（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | 過去デモ10件を監視対象から除外し、QR登録済み実機だけ表示 |
+| 事業者 | `/gas-monitor-v1` · `/app/gas-monitor` — 実機件数連動サマリー |
+| お客様 | `/customer/gas-monitor` — 実機物件だけ選択・表示 |
+| 空状態 | 未登録時は機器QR登録を案内し、固定デモ値を表示しない |
+| 即時反映 | 有効ポート保存後、3秒ポーリングで監視カードと検針を開始 |
+| データ | `property_device_bindings_v1` + 有効な `device_port_configs_v1` のみ |
+| SW | `tisly-pwa-v2450-gas-live-only` · ガス画面は network-first |
+| テスト | `gas-monitor-v1.test.ts` · `device-port-config-v1.test.ts` |
+| 確認 | `/gas-monitor-v1` · `/app/gas-monitor` · `/customer/gas-monitor` |

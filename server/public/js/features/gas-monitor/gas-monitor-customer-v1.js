@@ -14,6 +14,27 @@ function escapeHtml(s) {
 let usageChart = null;
 let refreshInFlight = false;
 
+function setEmptyState(empty) {
+  const emptyState = document.getElementById("gm-empty-state");
+  if (emptyState) emptyState.hidden = !empty;
+  document.querySelectorAll(".gm-live-section").forEach((section) => {
+    section.hidden = empty;
+  });
+}
+
+function ensureSelectedProperty(d) {
+  const select = document.getElementById("gm-property-select");
+  if (!select || !d) return;
+  const exists = [...select.options].some(
+    (option) => option.value === d.propertyId
+  );
+  if (!exists) {
+    select.add(new Option(d.displayName, d.propertyId));
+  }
+  select.disabled = false;
+  select.value = d.propertyId;
+}
+
 async function loadCustomer(propertyId) {
   const q = propertyId
     ? `?propertyId=${encodeURIComponent(propertyId)}`
@@ -165,6 +186,12 @@ async function refresh() {
   const id = select?.value || "";
   try {
     const d = await loadCustomer(id || null);
+    if (!d) {
+      setEmptyState(true);
+      return;
+    }
+    ensureSelectedProperty(d);
+    setEmptyState(false);
     renderStatus(d);
     renderLifeCare(d);
     renderMeta(d);
@@ -182,17 +209,19 @@ async function init() {
 
   const select = document.getElementById("gm-property-select");
   const props = await loadProperties();
-  // お客様向けは JP 戸建て・アパートを優先表示
-  const customerProps = props.filter(
-    (p) => p.countryCode === "JP" && p.kind !== "shop"
-  );
-  const list = customerProps.length ? customerProps : props;
-  select.innerHTML = list
-    .map(
-      (p) =>
-        `<option value="${escapeHtml(p.id)}">${escapeHtml(p.displayName)}</option>`
-    )
-    .join("");
+  if (!props.length) {
+    select.innerHTML = `<option value="">登録物件なし</option>`;
+    select.disabled = true;
+    setEmptyState(true);
+  } else {
+    select.innerHTML = props
+      .map(
+        (p) =>
+          `<option value="${escapeHtml(p.id)}">${escapeHtml(p.displayName)}</option>`
+      )
+      .join("");
+    select.disabled = false;
+  }
   select.addEventListener("change", () => {
     refresh().catch(console.error);
   });

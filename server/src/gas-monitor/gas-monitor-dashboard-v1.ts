@@ -5,11 +5,6 @@
  */
 
 import {
-  findBuildingForPropertyV1,
-  listGasBuildingsV1,
-  type GasBuildingDefV1,
-} from "./gas-monitor-buildings-v1.js";
-import {
   buildLifeCareOverlayV1,
   isLifeCareAlertV1,
   type GasLifeCareOverlayV1,
@@ -17,9 +12,6 @@ import {
 } from "./gas-monitor-life-care-v1.js";
 import {
   cylinderPercentV1,
-  findGasPropertyV1,
-  GAS_MONITOR_DEFAULT_PROPERTY_ID_V1,
-  listGasPropertiesV1,
   needsDeliveryV1,
   type GasPropertyV1,
 } from "./gas-monitor-sites-v1.js";
@@ -130,6 +122,36 @@ function roomLabelFromDisplayName(displayName: string): string {
   return displayName;
 }
 
+function buildRegisteredGasPropertyV1(
+  propertyId: string
+): GasPropertyV1 {
+  const property = getPropertyByIdV1(propertyId);
+  const customerCode = property?.customerCode ?? "TOMS001";
+  return {
+    id: propertyId,
+    tenantId: `tenant_${customerCode.toLowerCase()}`,
+    countryCode: "JP",
+    currency: "JPY",
+    kind: "detached",
+    displayName: property?.propertyName ?? "登録済み物件",
+    addressLabel: property?.address || "所在地未登録",
+    meterPulseTotal: 0,
+    todayUsageM3: 0,
+    emergencyShutoff: false,
+    cylinders: [],
+    lifeWatchNotes: [],
+    hourlyUsageM3: Array.from({ length: 24 }, () => 0),
+  };
+}
+
+function listRegisteredGasPropertiesV1(): GasPropertyV1[] {
+  const propertyIds = new Set<string>();
+  for (const mapping of listPropertyPortMappingsV1()) {
+    propertyIds.add(mapping.propertyId);
+  }
+  return [...propertyIds].map(buildRegisteredGasPropertyV1);
+}
+
 function buildCustomerFromProperty(
   p: GasPropertyV1,
   requestedPropertyId = p.id
@@ -143,7 +165,6 @@ function buildCustomerFromProperty(
     requestedPropertyId,
     emergency
   );
-  const building = findBuildingForPropertyV1(requestedPropertyId);
   return {
     propertyId: requestedPropertyId,
     displayName: p.displayName,
@@ -160,8 +181,8 @@ function buildCustomerFromProperty(
     lifeWatchNotes: [...p.lifeWatchNotes],
     lastUpdatedAt: live.lastUpdatedAt ?? new Date().toISOString(),
     lifeCare,
-    buildingId: building?.buildingId ?? null,
-    buildingName: building?.buildingName ?? null,
+    buildingId: null,
+    buildingName: null,
     mappedPorts: live.ports,
   };
 }
@@ -179,7 +200,6 @@ function buildOperatorRow(p: GasPropertyV1): GasOperatorPropertyRowV1 {
     p.id,
     emergencyShutoff
   );
-  const building = findBuildingForPropertyV1(p.id);
   return {
     propertyId: p.id,
     displayName: p.displayName,
@@ -209,7 +229,7 @@ function buildOperatorRow(p: GasPropertyV1): GasOperatorPropertyRowV1 {
     mmWaveDetected: lifeCare.mmWave.detected,
     mmWaveZone: lifeCare.mmWave.zone,
     mmWaveDwellMinutes: lifeCare.mmWave.dwellMinutes,
-    buildingId: building?.buildingId ?? null,
+    buildingId: null,
     roomLabel: roomLabelFromDisplayName(p.displayName),
   };
 }
@@ -233,63 +253,16 @@ function sortRooms(
   return a.displayName.localeCompare(b.displayName, "ja");
 }
 
-function buildBuildingGroup(
-  def: GasBuildingDefV1,
-  byId: Map<string, GasOperatorPropertyRowV1>
-): GasBuildingGroupV1 | null {
-  const rooms = def.propertyIds
-    .map((id) => byId.get(id))
-    .filter((r): r is GasOperatorPropertyRowV1 => Boolean(r));
-  if (!rooms.length) return null;
-  rooms.sort(sortRooms);
-  const deliveryAlertCount = rooms.filter(
-    (r) => r.needsDelivery
-  ).length;
-  const emergencyCount = rooms.filter(
-    (r) => r.emergencyShutoff
-  ).length;
-  const lifeCareAlertCount = rooms.filter((r) =>
-    isLifeCareAlertV1(r.lifeCareStatus)
-  ).length;
-  return {
-    buildingId: def.buildingId,
-    buildingName: def.buildingName,
-    addressLabel: def.addressLabel,
-    kind: def.kind,
-    countryCode: def.countryCode,
-    currency: def.currency,
-    tenantId: def.tenantId,
-    totalRooms: rooms.length,
-    deliveryAlertCount,
-    emergencyCount,
-    lifeCareAlertCount,
-    hasPriorityAlert:
-      emergencyCount > 0 ||
-      lifeCareAlertCount > 0 ||
-      deliveryAlertCount > 0,
-    rooms,
-  };
-}
-
 /** お客様向けカード用データ */
 export function buildGasCustomerDashboardV1(
   propertyId?: string | null
-): GasCustomerDashboardV1 {
-  const requestedPropertyId =
-    propertyId || GAS_MONITOR_DEFAULT_PROPERTY_ID_V1;
-  const p = findGasPropertyV1(requestedPropertyId);
-  const dashboard = buildCustomerFromProperty(p, requestedPropertyId);
-  if (!propertyId) return dashboard;
-  const mappedPorts = dashboard.mappedPorts;
-  if (!mappedPorts.length) return dashboard;
-  const property = getPropertyByIdV1(propertyId);
-  return {
-    ...dashboard,
-    propertyId,
-    displayName: property?.propertyName ?? dashboard.displayName,
-    addressLabel: property?.address ?? dashboard.addressLabel,
-    mappedPorts,
-  };
+): GasCustomerDashboardV1 | null {
+  const registered = listRegisteredGasPropertiesV1();
+  const selected = propertyId
+    ? registered.find((item) => item.id === propertyId)
+    : registered[0];
+  if (!selected) return null;
+  return buildCustomerFromProperty(selected);
 }
 
 /**
@@ -297,58 +270,10 @@ export function buildGasCustomerDashboardV1(
  * 要配送・緊急を先頭ソート + 建物グループ
  */
 export function buildGasOperatorDashboardV1(): GasOperatorDashboardV1 {
-  const rows = listGasPropertiesV1().map(buildOperatorRow);
-  const knownPropertyIds = new Set(rows.map((row) => row.propertyId));
-  for (const mapping of listPropertyPortMappingsV1()) {
-    if (knownPropertyIds.has(mapping.propertyId)) continue;
-    const base = findGasPropertyV1(
-      GAS_MONITOR_DEFAULT_PROPERTY_ID_V1
-    );
-    const property = getPropertyByIdV1(mapping.propertyId);
-    rows.push(
-      buildOperatorRow({
-        ...base,
-        id: mapping.propertyId,
-        displayName: property?.propertyName ?? "登録済み物件",
-        addressLabel: property?.address ?? base.addressLabel,
-        emergencyShutoff: false,
-        meterPulseTotal: 0,
-        todayUsageM3: 0,
-        hourlyUsageM3: Array.from({ length: 24 }, () => 0),
-        lifeWatchNotes: [],
-      })
-    );
-    knownPropertyIds.add(mapping.propertyId);
-  }
+  const rows = listRegisteredGasPropertiesV1().map(buildOperatorRow);
   rows.sort(sortRooms);
 
-  const byId = new Map(
-    rows.map((r) => [r.propertyId, r] as const)
-  );
-  const buildings = listGasBuildingsV1()
-    .map((def) => buildBuildingGroup(def, byId))
-    .filter((g): g is GasBuildingGroupV1 => Boolean(g));
-
-  buildings.sort((a, b) => {
-    if (a.emergencyCount !== b.emergencyCount) {
-      return b.emergencyCount - a.emergencyCount;
-    }
-    if (a.lifeCareAlertCount !== b.lifeCareAlertCount) {
-      return b.lifeCareAlertCount - a.lifeCareAlertCount;
-    }
-    if (a.deliveryAlertCount !== b.deliveryAlertCount) {
-      return b.deliveryAlertCount - a.deliveryAlertCount;
-    }
-    return a.buildingName.localeCompare(b.buildingName, "ja");
-  });
-
-  // 建物未所属があれば単独グループとして末尾追記
-  const assigned = new Set(
-    buildings.flatMap((b) => b.rooms.map((r) => r.propertyId))
-  );
-  const orphans = rows.filter((r) => !assigned.has(r.propertyId));
-  for (const r of orphans) {
-    buildings.push({
+  const buildings = rows.map((r) => ({
       buildingId: `BLD-ORPHAN-${r.propertyId}`,
       buildingName: r.displayName,
       addressLabel: r.addressLabel,
@@ -367,8 +292,7 @@ export function buildGasOperatorDashboardV1(): GasOperatorDashboardV1 {
         isLifeCareAlertV1(r.lifeCareStatus) ||
         r.needsDelivery,
       rooms: [r],
-    });
-  }
+    }));
 
   return {
     generatedAt: new Date().toISOString(),

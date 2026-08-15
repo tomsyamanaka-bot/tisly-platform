@@ -161,15 +161,37 @@ describe("RP2350 port mapping and field validation v1", () => {
           item.propertyId === propertyId
       )
     );
+    assert.equal(operator.body.dashboard.totalProperties, 1);
+    assert.equal(
+      operator.body.dashboard.properties[0].propertyId,
+      propertyId
+    );
+    assert.equal(
+      operator.body.dashboard.buildings[0].rooms[0].propertyId,
+      propertyId
+    );
+    assert.ok(
+      operator.body.dashboard.properties.every(
+        (item: { propertyId: string }) =>
+          !item.propertyId.startsWith("GAS-")
+      )
+    );
 
     const customer = await request(app).get(
       `/api/gas-monitor/v1/customer?propertyId=${propertyId}`
     );
+    assert.equal(customer.body.empty, false);
     assert.equal(customer.body.dashboard.mappedPorts.length, 2);
     assert.equal(
       customer.body.dashboard.mappedPorts[0].label,
       "101号室 ガスメーター"
     );
+
+    const properties = await request(app).get(
+      "/api/gas-monitor/v1/properties"
+    );
+    assert.equal(properties.body.properties.length, 1);
+    assert.equal(properties.body.properties[0].id, propertyId);
   });
 
   it("shows debounced DI telemetry and queues RO tests", async () => {
@@ -314,7 +336,7 @@ describe("RP2350 port mapping and field validation v1", () => {
     assert.match(js.text, /\/api\/device\/ports\/firmware/);
 
     const worker = await request(app).get("/service-worker.js");
-    assert.match(worker.text, /v2449-device-new-registration/);
+    assert.match(worker.text, /v2450-gas-live-only/);
     assert.match(worker.text, /\/device-binding-v1\.html/);
   });
 });

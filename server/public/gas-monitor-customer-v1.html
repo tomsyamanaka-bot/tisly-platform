@@ -32,12 +32,19 @@
     <section class="gm-card">
       <p class="gm-card-label">物件を選ぶ</p>
       <select id="gm-property-select" class="gm-select" aria-label="物件選択">
-        <option value="GAS-JP-HOME-001">守谷 山田邸（戸建て）</option>
+        <option value="">読み込み中…</option>
       </select>
     </section>
 
+    <section class="gm-card" id="gm-empty-state" hidden>
+      <p class="gm-empty">
+        登録されている物件はありません。<br />
+        「機器をQR登録」から新規登録してください
+      </p>
+    </section>
+
     <section
-      class="gm-card gm-status-hero is-normal"
+      class="gm-card gm-status-hero is-normal gm-live-section"
       id="gm-status-hero"
       aria-live="polite"
     >
@@ -47,7 +54,7 @@
 
     <!-- Life Care（見守り）ステータス追記 -->
     <section
-      class="gm-card gm-lifecare-hero"
+      class="gm-card gm-lifecare-hero gm-live-section"
       id="gm-lifecare-hero"
       aria-live="polite"
     >
@@ -59,7 +66,7 @@
       <p class="gm-mmwave" id="gm-lifecare-mmwave">—</p>
     </section>
 
-    <section class="gm-card">
+    <section class="gm-card gm-live-section">
       <p class="gm-card-label">物件情報</p>
       <dl class="gm-meta">
         <div>
@@ -77,7 +84,7 @@
       </dl>
     </section>
 
-    <section class="gm-card">
+    <section class="gm-card gm-live-section">
       <p class="gm-card-label">今日のガス使用量</p>
       <p class="gm-usage-value">
         <span id="gm-usage-m3">0.00</span>
@@ -88,12 +95,12 @@
       </div>
     </section>
 
-    <section class="gm-card" id="gm-mapped-ports-card" hidden>
+    <section class="gm-card gm-live-section" id="gm-mapped-ports-card" hidden>
       <p class="gm-card-label">お部屋別メーター</p>
       <div class="gm-mapped-port-list" id="gm-mapped-port-list"></div>
     </section>
 
-    <section class="gm-card">
+    <section class="gm-card gm-live-section">
       <p class="gm-card-label">生活見守りメッセージ</p>
       <ul class="gm-notes" id="gm-notes">
         <li>読み込み中…</li>

@@ -62,33 +62,31 @@ describe("gas-monitor-v1", () => {
     assert.equal(needsDeliveryV1(shop), true);
   });
 
-  it("builds customer dashboard with big status fields", () => {
-    const normal = buildGasCustomerDashboardV1("GAS-JP-HOME-001");
-    assert.equal(normal.status, "normal");
-    assert.equal(normal.statusEmoji, "🟢");
-    assert.equal(normal.statusLabel, "正常稼働中");
-    assert.ok(normal.todayUsageM3 > 0);
-    assert.equal(normal.hourlyUsageM3.length, 24);
-    assert.ok(normal.lifeWatchNotes.length >= 1);
-
-    const emergency = buildGasCustomerDashboardV1("GAS-JP-HOME-ALERT");
-    assert.equal(emergency.status, "emergency");
-    assert.equal(emergency.statusEmoji, "🔴");
-    assert.equal(emergency.statusLabel, "緊急遮断");
+  it("does not expose mock properties in customer dashboard", () => {
+    assert.equal(
+      buildGasCustomerDashboardV1("GAS-JP-HOME-001"),
+      null
+    );
+    assert.equal(
+      buildGasCustomerDashboardV1("GAS-JP-HOME-ALERT"),
+      null
+    );
   });
 
-  it("sorts operator dashboard with delivery and emergency first", () => {
+  it("counts only registered live properties", () => {
     const dash = buildGasOperatorDashboardV1();
-    assert.ok(dash.totalProperties >= 5);
-    assert.ok(dash.deliveryAlertCount >= 1);
-    assert.ok(dash.emergencyCount >= 1);
-    assert.equal(dash.properties[0].emergencyShutoff, true);
-    const firstNonEmergency = dash.properties.find(
-      (p) => !p.emergencyShutoff
+    assert.equal(dash.totalProperties, dash.properties.length);
+    assert.equal(
+      dash.buildings.reduce(
+        (count, building) => count + building.totalRooms,
+        0
+      ),
+      dash.totalProperties
     );
     assert.ok(
-      firstNonEmergency?.needsDelivery ||
-        firstNonEmergency?.lifeCareAlertLevel !== "none"
+      dash.properties.every(
+        (property) => !property.propertyId.startsWith("GAS-")
+      )
     );
   });
 
@@ -143,12 +141,18 @@ describe("gas-monitor-v1", () => {
     );
     assert.equal(cust.status, 200);
     assert.equal(cust.body.ok, true);
-    assert.equal(cust.body.dashboard.status, "normal");
+    assert.equal(cust.body.empty, true);
+    assert.equal(cust.body.dashboard, null);
 
     const op = await request(app).get("/api/gas-monitor/v1/operator");
     assert.equal(op.status, 200);
     assert.equal(op.body.ok, true);
-    assert.ok(op.body.dashboard.properties.length >= 5);
+    assert.ok(
+      op.body.dashboard.properties.every(
+        (property: { propertyId: string }) =>
+          !property.propertyId.startsWith("GAS-")
+      )
+    );
   });
 
   // --- Life Care / 建物グループ拡張（追記） ---
@@ -209,24 +213,22 @@ describe("gas-monitor-v1", () => {
     assert.equal(quake.statusEmoji, "🚨");
   });
 
-  it("operator dashboard returns building groups with life care", () => {
+  it("operator dashboard excludes all demo building groups", () => {
     const dash = buildGasOperatorDashboardV1();
-    assert.ok(dash.buildings.length >= 4);
-    assert.ok(dash.lifeCareAlertCount >= 2);
-    const corpo = dash.buildings.find(
-      (b) => b.buildingId === "BLD-JP-TSUKUBA-CORPO"
-    );
-    assert.ok(corpo);
-    assert.equal(corpo.totalRooms, 4);
-    assert.ok(corpo.lifeCareAlertCount >= 1);
     assert.ok(
-      corpo.rooms.every(
-        (r) => r.lifeCareEmoji && r.lifeCareLabel && r.lifeCareStatus
+      dash.buildings.every(
+        (building) =>
+          building.buildingId.startsWith("BLD-ORPHAN-") &&
+          building.totalRooms === 1
       )
     );
-    const customer = buildGasCustomerDashboardV1("GAS-JP-APT-403");
-    assert.equal(customer.lifeCare.status, "bath_toilet_long");
-    assert.equal(customer.buildingName, "つくばコーポ");
+    assert.ok(
+      dash.buildings.every(
+        (building) =>
+          building.buildingName !== "つくばコーポ" &&
+          !building.buildingName.includes("Melbourne Harbour")
+      )
+    );
   });
 
   it("serves buildings API and operator HTML with accordion hooks", async () => {
@@ -235,7 +237,12 @@ describe("gas-monitor-v1", () => {
     );
     assert.equal(bld.status, 200);
     assert.equal(bld.body.ok, true);
-    assert.ok(bld.body.buildings.length >= 4);
+    assert.ok(
+      bld.body.buildings.every(
+        (building: { buildingName: string }) =>
+          building.buildingName !== "つくばコーポ"
+      )
+    );
 
     const page = await request(app).get("/gas-monitor-v1");
     assert.equal(page.status, 200);
@@ -247,5 +254,10 @@ describe("gas-monitor-v1", () => {
     );
     assert.equal(custPage.status, 200);
     assert.ok(String(custPage.text).includes("Life Care"));
+    assert.ok(
+      String(custPage.text).includes(
+        "登録されている物件はありません"
+      )
+    );
   });
 });

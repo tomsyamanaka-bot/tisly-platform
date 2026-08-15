@@ -4,10 +4,10 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2449-device-new-registration";
-const OFFLINE_CACHE = "tisly-pwa-shell-v2449-device-new-registration";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2449-device-new-registration";
-const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2449-device-new-registration";
+const SW_VERSION = "tisly-pwa-v2450-gas-live-only";
+const OFFLINE_CACHE = "tisly-pwa-shell-v2450-gas-live-only";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2450-gas-live-only";
+const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2450-gas-live-only";
 const ICON_V = "?v=2004";
 
 /** 図面エディタ v1 — ES module 群 */
@@ -298,6 +298,11 @@ function isCustomerFreshAsset(pathname) {
   return (
     pathname === "/customer" ||
     pathname.startsWith("/customer/") ||
+    pathname === "/gas-monitor-v1" ||
+    pathname === "/gas-monitor-v1.html" ||
+    pathname === "/app/gas-monitor" ||
+    pathname.startsWith("/js/features/gas-monitor/") ||
+    pathname === "/css/features/gas-monitor/gas-monitor-v1.css" ||
     pathname.startsWith("/js/customer-") ||
     pathname === "/css/customer-v1.css" ||
     pathname === "/manifest-customer-v1.webmanifest"

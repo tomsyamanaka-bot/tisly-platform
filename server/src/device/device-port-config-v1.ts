@@ -860,8 +860,8 @@ export function listPropertyPortMappingsV1(
        INNER JOIN property_device_bindings_v1 b
          ON b.device_id = p.device_id
        ${where}
-       ORDER BY b.property_id, p.device_id,
-         p.port_type, p.port_number`
+       ORDER BY b.bound_at DESC, b.property_id,
+         p.device_id, p.port_type, p.port_number`
     )
     .all(...params) as Array<Record<string, unknown>>;
   const grouped = new Map<

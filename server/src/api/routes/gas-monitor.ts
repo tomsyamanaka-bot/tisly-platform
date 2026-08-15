@@ -10,30 +10,30 @@ import {
   buildGasCustomerDashboardV1,
   buildGasOperatorDashboardV1,
 } from "../../gas-monitor/gas-monitor-dashboard-v1.js";
-import { listGasPropertiesV1 } from "../../gas-monitor/gas-monitor-sites-v1.js";
 import { listPropertyPortMappingsV1 } from "../../device/device-port-config-v1.js";
 import { getPropertyByIdV1 } from "../../shared/customer/customer-property-master-v1.js";
 
 export const gasMonitorRouter = Router();
 
 gasMonitorRouter.get("/properties", (_req, res) => {
-  const properties = listGasPropertiesV1().map((p) => ({
-    id: p.id,
-    displayName: p.displayName,
-    kind: p.kind,
-    tenantId: p.tenantId,
-    countryCode: p.countryCode,
-    currency: p.currency,
-  }));
-  const knownIds = new Set(properties.map((property) => property.id));
+  const properties: Array<{
+    id: string;
+    displayName: string;
+    kind: "detached";
+    tenantId: string;
+    countryCode: "JP";
+    currency: "JPY";
+  }> = [];
+  const knownIds = new Set<string>();
   for (const mapping of listPropertyPortMappingsV1()) {
     if (knownIds.has(mapping.propertyId)) continue;
     const property = getPropertyByIdV1(mapping.propertyId);
+    const customerCode = property?.customerCode ?? "TOMS001";
     properties.push({
       id: mapping.propertyId,
       displayName: property?.propertyName ?? "登録済み物件",
-      kind: "apartment",
-      tenantId: "tenant_toms_jp",
+      kind: "detached",
+      tenantId: `tenant_${customerCode.toLowerCase()}`,
       countryCode: "JP",
       currency: "JPY",
     });
@@ -62,7 +62,11 @@ gasMonitorRouter.get("/buildings", (_req, res) => {
 gasMonitorRouter.get("/customer", (req, res) => {
   const propertyId = String(req.query.propertyId ?? "").trim() || null;
   const dashboard = buildGasCustomerDashboardV1(propertyId);
-  res.json({ ok: true, dashboard });
+  res.json({
+    ok: true,
+    empty: dashboard === null,
+    dashboard,
+  });
 });
 
 /** ガス事業者向けダッシュボード */

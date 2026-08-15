@@ -187,7 +187,11 @@ function renderList(d) {
     // フォールバック: 旧フラット一覧
     const rows = d.properties || [];
     if (!rows.length) {
-      root.innerHTML = `<p class="gm-empty">登録物件がありません</p>`;
+      root.innerHTML = `
+        <p class="gm-empty">
+          登録されている物件はありません。<br>
+          「機器をQR登録」から新規登録してください
+        </p>`;
       return;
     }
     root.innerHTML = rows.map(roomCardHtml).join("");
