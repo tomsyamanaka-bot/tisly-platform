@@ -397,6 +397,21 @@ describe("RP2350 port mapping and field validation v1", () => {
       configJson.pulse_telemetry_path,
       "/api/meter/telemetry"
     );
+    assert.equal(
+      configJson.heartbeat_endpoint,
+      "https://tisly.jp/api/meter/telemetry"
+    );
+    assert.deepEqual(configJson.ethernet, {
+      dhcp: true,
+      spi_id: 0,
+      sck: 34,
+      mosi: 35,
+      miso: 36,
+      cs: 33,
+      reset: 25,
+      interrupt: 32,
+      baudrate: 20_000_000,
+    });
 
     const main = await request(app)
       .get(
@@ -408,6 +423,8 @@ describe("RP2350 port mapping and field validation v1", () => {
     assert.match(main.body.toString(), /class|load_config/);
     assert.match(main.body.toString(), /Pin\.IRQ_FALLING/);
     assert.match(main.body.toString(), /post_with_retry/);
+    assert.match(main.body.toString(), /pending_posts\.json/);
+    assert.match(main.body.toString(), /blink_success/);
 
     const firmwareZip = await request(app)
       .get(

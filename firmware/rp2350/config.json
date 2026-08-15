@@ -3,6 +3,7 @@
   "device_id": "TISLY-BOX-001",
   "property_id": "SET_FROM_TISLY",
   "api_base": "https://tisly.jp",
+  "api_endpoint": "https://tisly.jp/api/meter/telemetry",
   "device_token": "SET_FROM_TISLY_DOWNLOAD",
   "pulse_telemetry_path": "/api/meter/telemetry",
   "telemetry_path": "/api/device/ports/telemetry",
@@ -19,7 +20,9 @@
     "mosi": 35,
     "miso": 36,
     "cs": 33,
-    "reset": 25
+    "reset": 25,
+    "interrupt": 32,
+    "baudrate": 20000000
   },
   "digital_inputs": [
     {

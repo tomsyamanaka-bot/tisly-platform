@@ -56,7 +56,7 @@ export function buildRp2350ConfigV1(
     api_base: "https://tisly.jp",
     api_endpoint: "https://tisly.jp/api/meter/telemetry",
     heartbeat_endpoint:
-      "https://tisly.jp/api/device/ports/telemetry",
+      "https://tisly.jp/api/meter/telemetry",
     device_token: deviceToken,
     pulse_telemetry_path: "/api/meter/telemetry",
     telemetry_path: "/api/device/ports/telemetry",
@@ -74,6 +74,8 @@ export function buildRp2350ConfigV1(
       miso: 36,
       cs: 33,
       reset: 25,
+      interrupt: 32,
+      baudrate: 20_000_000,
     },
     digital_inputs: digitalInputs,
     relay_outputs: relayOutputs,
