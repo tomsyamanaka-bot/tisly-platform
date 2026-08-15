@@ -439,6 +439,61 @@ describe("RP2350 QR property binding v1", () => {
     );
   });
 
+  it("auto-binds a new property and device on ports/save", async () => {
+    // /bind を経由せず ports/save だけで
+    // 物件作成・機器紐付け・enabled=1 保存まで完了する。
+    const ports = buildDefaultDevicePortsV1();
+    ports[0] = {
+      ...ports[0],
+      enabled: true,
+      label: "ガスメーター",
+      initialMeterValue: 360.58,
+    };
+    const saved = await request(app)
+      .post("/api/device/ports/save")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        deviceId: "TISLY-BOX-AUTOBIND-001",
+        propertyName: "矢崎メーター実機現場B",
+        ports,
+      });
+    assert.equal(saved.status, 200, saved.body?.error);
+    assert.equal(saved.body.success, true);
+    assert.equal(saved.body.device_id, "TISLY-BOX-AUTOBIND-001");
+
+    const newPropertyId = saved.body.property_id;
+    const bindingCount = getDatabase()
+      .prepare(
+        `SELECT COUNT(*) AS count
+         FROM property_device_bindings_v1
+         WHERE property_id = ? AND device_id = ?`
+      )
+      .get(newPropertyId, "TISLY-BOX-AUTOBIND-001") as {
+      count: number;
+    };
+    assert.equal(bindingCount.count, 1);
+
+    const enabledPort = getDatabase()
+      .prepare(
+        `SELECT enabled
+         FROM device_port_configs_v1
+         WHERE device_id = ? AND port_type = 'DI'
+           AND port_number = 1`
+      )
+      .get("TISLY-BOX-AUTOBIND-001") as { enabled: number };
+    assert.equal(enabledPort.enabled, 1);
+
+    const operator = await request(app).get(
+      "/api/gas-monitor/v1/operator"
+    );
+    const property = operator.body.dashboard.properties.find(
+      (item: { propertyId: string }) =>
+        item.propertyId === newPropertyId
+    );
+    assert.ok(property);
+    assert.equal(property.currentMeterValue, 360.58);
+  });
+
   it("renders the one-screen property name and device ID form", async () => {
     const page = await request(app).get("/device-binding-v1");
     assert.equal(page.status, 200);

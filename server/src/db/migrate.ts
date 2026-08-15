@@ -248,6 +248,92 @@ export function runMigrations(database: Database.Database): void {
   migrateTenantSaasV1(database);
   migratePropertyDeviceBindingsV1(database);
   migrateDevicePortConfigsV1(database);
+  migrateGasMonitorDemoSeedV1(database);
+}
+
+/**
+ * ガス監視 即時確認用シード v1。
+ * TOMS設備デモ物件へ TISLY-BOX-001 を
+ * 有効バインドし、DI1 をガスメーター
+ * 使用中（360.58m³）として監視画面へ1件表示する。
+ * 既存データは削除せず INSERT OR IGNORE のみ。
+ */
+function migrateGasMonitorDemoSeedV1(
+  database: Database.Database
+): void {
+  // テストは専用DBで機器台数を厳密に検証するため
+  // デモ機器のシードは本番・開発のみで投入する。
+  // dotenv override で NODE_ENV が戻る場合があるので
+  // DBファイル名でもテストDBを判定する。
+  const dbPath = String((database as { name?: string }).name ?? "");
+  if (
+    process.env.NODE_ENV === "test" ||
+    /test[-_].*\.db$/i.test(dbPath)
+  ) {
+    return;
+  }
+
+  const marker = database
+    .prepare(
+      "SELECT value_json FROM platform_settings WHERE key = ?"
+    )
+    .get("migration:gas_monitor_demo_seed_v1") as
+    | { value_json: string }
+    | undefined;
+  if (marker) return;
+
+  // 物件が無い環境ではシードしない（FK整合を保つ）。
+  const property = database
+    .prepare(
+      `SELECT property_id, customer_code
+       FROM customer_portal_properties
+       WHERE property_id = ?`
+    )
+    .get("PROP-DEMOHOME001") as
+    | { property_id: string; customer_code: string }
+    | undefined;
+  if (!property) return;
+
+  const now = new Date().toISOString();
+  const deviceId = "TISLY-BOX-001";
+
+  database
+    .prepare(
+      `INSERT OR IGNORE INTO property_device_bindings_v1
+       (id, customer_code, property_id, device_id,
+        device_type, connection_status, bound_by, bound_at)
+       VALUES (?, ?, ?, ?, 'RP2350', 'online', ?, ?)`
+    )
+    .run(
+      "PDB-GASDEMO-BOX001",
+      property.customer_code,
+      property.property_id,
+      deviceId,
+      "seed",
+      now
+    );
+
+  // DI1 = ガスメーター使用中（初期指針 360.58m³）。
+  database
+    .prepare(
+      `INSERT OR IGNORE INTO device_port_configs_v1
+       (device_id, port_type, port_number, enabled, label,
+        operation_mode, contact_polarity, pulse_weight,
+        pulse_unit, initial_meter_value, updated_at)
+       VALUES (?, 'DI', 1, 1, ?, 'pulse', 'a',
+               0.01, 'm³/P', 360.58, ?)`
+    )
+    .run(deviceId, "ガスメーター", now);
+
+  database
+    .prepare(
+      `INSERT INTO platform_settings (key, value_json, updated_at)
+       VALUES (?, ?, datetime('now'))`
+    )
+    .run(
+      "migration:gas_monitor_demo_seed_v1",
+      JSON.stringify({ at: now, deviceId })
+    );
 }
 
 /** TOMS 見積履歴ワンタップ保存 v1 */

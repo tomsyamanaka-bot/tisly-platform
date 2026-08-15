@@ -4,6 +4,7 @@ import {
   getPropertyByIdV1,
   listPropertiesForCustomerV1,
 } from "../shared/customer/customer-property-master-v1.js";
+import { resolveDevicePropertyByNameV1 } from "./device-property-focus-v1.js";
 
 export interface PropertyDeviceBindingV1 {
   id: string;
@@ -133,6 +134,68 @@ export function bindDeviceToPropertyV1(input: {
       new Date().toISOString()
     );
   return getDeviceBindingV1(deviceId)!;
+}
+
+/**
+ * ポート保存などで使う自動バインド（UPSERT）。
+ * 未バインドの新規物件名・新規デバイスIDでも、
+ * 物件作成と機器紐付けを同時に完了させ、
+ * 409コンフリクトを起こさず必ずバインドを返す。
+ */
+export function ensureDevicePropertyBindingV1(input: {
+  customerCode: string;
+  deviceId: unknown;
+  propertyName?: unknown;
+  propertyId?: unknown;
+  boundBy?: string;
+}): {
+  binding: PropertyDeviceBindingV1;
+  bindingCreated: boolean;
+  propertyCreated: boolean;
+} {
+  const customerCode = input.customerCode.trim().toUpperCase();
+  const deviceId = normalizeDeviceIdV1(input.deviceId);
+  const existing = getDeviceBindingV1(deviceId);
+
+  const requestedName = String(input.propertyName ?? "").trim();
+  const requestedId = String(input.propertyId ?? "").trim();
+
+  // 物件名があれば解決（無い名前は末尾に新規追記）。
+  let propertyId = "";
+  let propertyCreated = false;
+  if (requestedName) {
+    const resolved = resolveDevicePropertyByNameV1({
+      customerCode,
+      propertyName: requestedName,
+      propertyId: requestedId,
+    });
+    propertyId = resolved.property.propertyId;
+    propertyCreated = resolved.created;
+  } else if (requestedId) {
+    propertyId = requestedId;
+  }
+
+  // 既にバインド済みなら 409 を避けて既存を優先する。
+  if (existing) {
+    return {
+      binding: existing,
+      bindingCreated: false,
+      propertyCreated,
+    };
+  }
+
+  // 物件名・IDが無い新規デバイスは解決できない。
+  if (!propertyId) {
+    throw new Error("物件名を入力してください");
+  }
+
+  const binding = bindDeviceToPropertyV1({
+    customerCode,
+    propertyId,
+    deviceId,
+    boundBy: input.boundBy,
+  });
+  return { binding, bindingCreated: true, propertyCreated };
 }
 
 export function listPropertyDeviceStateV1(customerCode: string) {

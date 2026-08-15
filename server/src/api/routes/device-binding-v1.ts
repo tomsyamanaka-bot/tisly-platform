@@ -26,6 +26,7 @@ import {
 import {
   bindDeviceToPropertyV1,
   DeviceBindingConflictError,
+  ensureDevicePropertyBindingV1,
   listDeviceIdsForLabelsV1,
   listPropertyDeviceStateV1,
   normalizeDeviceIdV1,
@@ -299,6 +300,19 @@ deviceBindingV1Router.post(
   ...requireDeviceOperator,
   (req: AuthedRequest, res) => {
     try {
+      const customerCode = resolveCustomerCode(
+        req,
+        req.body?.customerCode
+      );
+      // 未バインドでも物件作成＋紐付けを自動で完了させる。
+      ensureDevicePropertyBindingV1({
+        customerCode,
+        deviceId: req.body?.deviceId,
+        propertyName:
+          req.body?.propertyName ?? req.body?.property_name,
+        propertyId: req.body?.propertyId ?? req.body?.property_id,
+        boundBy: req.admin?.username,
+      });
       const current = getDevicePortConfigurationV1(
         req.body?.deviceId
       );
