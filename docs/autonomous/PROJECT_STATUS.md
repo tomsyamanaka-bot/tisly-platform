@@ -1158,3 +1158,18 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | コード | `server/src/device/device-property-focus-v1.ts` · `device-binding-v1.ts`（routes）· `device-binding-v1.html/js/css` |
 | テスト | `server/test/device-binding-v1.test.ts`（10ケース）· `server/test/device-port-config-v1.test.ts` |
 | 確認 | `/device-binding-v1` · `/api/device/properties` · https://tisly.jp/api/health |
+
+### ガスメーター実機リアルタイム監視 v1（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | RP2350 の DI1 パルス・DI2 遮断を `/app/gas-monitor` と `/customer/gas-monitor` へ実測反映 |
+| DB | `device_port_telemetry_v1` · `device_emergency_events_v1` — 既存設定を変更せず受信値を末尾追記 |
+| API | 既存 `POST /api/device/ports/telemetry` · `/emergency` を使用 · ガス監視 GET は実測優先・モック fallback |
+| 指標 | 積算パルス · JST日次使用量 · 初期指針+パルスまたは実機 `meterValues` の現在指針 |
+| 遮断 | 最新緊急イベントと入力状態を照合 · `🚨 地震自動遮断` + `緊急遮断` を3秒以内に反映 |
+| 物件 | QR紐付け済み実物件を事業者カードへ動的追記 · 既存ガスモック配列は非改変 |
+| UI | 既存カード/CSS/色/バッジを維持 · 3秒ポーリング · お客様画面は DI 表記を非表示 |
+| SW | `tisly-pwa-v2448-gas-meter-live` |
+| テスト | `server/test/device-port-config-v1.test.ts` · `server/test/gas-monitor-v1.test.ts` |
+| 確認 | `/gas-monitor-v1` · `/app/gas-monitor` · `/customer/gas-monitor` · https://tisly.jp/api/health |

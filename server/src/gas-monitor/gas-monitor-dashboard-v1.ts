@@ -24,8 +24,9 @@ import {
   type GasPropertyV1,
 } from "./gas-monitor-sites-v1.js";
 import {
+  getPropertyGasLiveSnapshotV1,
   listPropertyPortMappingsV1,
-  type DevicePortConfigV1,
+  type DeviceMappedPortLiveV1,
 } from "../device/device-port-config-v1.js";
 import { getPropertyByIdV1 } from "../shared/customer/customer-property-master-v1.js";
 
@@ -41,6 +42,7 @@ export interface GasCustomerDashboardV1 {
   statusEmoji: string;
   statusLabel: string;
   todayUsageM3: number;
+  currentMeterValue: number | null;
   hourlyUsageM3: number[];
   lifeWatchNotes: string[];
   lastUpdatedAt: string;
@@ -48,7 +50,7 @@ export interface GasCustomerDashboardV1 {
   lifeCare: GasLifeCareOverlayV1;
   buildingId: string | null;
   buildingName: string | null;
-  mappedPorts: DevicePortConfigV1[];
+  mappedPorts: DeviceMappedPortLiveV1[];
 }
 
 export interface GasOperatorPropertyRowV1 {
@@ -61,6 +63,7 @@ export interface GasOperatorPropertyRowV1 {
   currency: string;
   meterPulseTotal: number;
   todayUsageM3: number;
+  currentMeterValue: number | null;
   emergencyShutoff: boolean;
   needsDelivery: boolean;
   autoSwitchDetected: boolean;
@@ -115,7 +118,7 @@ export interface GasOperatorDashboardV1 {
   mappedDevices: Array<{
     propertyId: string;
     deviceId: string;
-    ports: DevicePortConfigV1[];
+    ports: DeviceMappedPortLiveV1[];
   }>;
 }
 
@@ -128,13 +131,21 @@ function roomLabelFromDisplayName(displayName: string): string {
 }
 
 function buildCustomerFromProperty(
-  p: GasPropertyV1
+  p: GasPropertyV1,
+  requestedPropertyId = p.id
 ): GasCustomerDashboardV1 {
-  const emergency = p.emergencyShutoff;
-  const lifeCare = buildLifeCareOverlayV1(p.id, emergency);
-  const building = findBuildingForPropertyV1(p.id);
+  const live = getPropertyGasLiveSnapshotV1(requestedPropertyId);
+  const hasLiveReading = Boolean(live.lastUpdatedAt);
+  const emergency = hasLiveReading
+    ? live.emergencyActive
+    : p.emergencyShutoff;
+  const lifeCare = buildLifeCareOverlayV1(
+    requestedPropertyId,
+    emergency
+  );
+  const building = findBuildingForPropertyV1(requestedPropertyId);
   return {
-    propertyId: p.id,
+    propertyId: requestedPropertyId,
     displayName: p.displayName,
     addressLabel: p.addressLabel,
     countryCode: p.countryCode,
@@ -143,26 +154,30 @@ function buildCustomerFromProperty(
     status: emergency ? "emergency" : "normal",
     statusEmoji: emergency ? "🔴" : "🟢",
     statusLabel: emergency ? "緊急遮断" : "正常稼働中",
-    todayUsageM3: p.todayUsageM3,
+    todayUsageM3: live.todayUsageM3 ?? p.todayUsageM3,
+    currentMeterValue: live.currentMeterValue,
     hourlyUsageM3: [...p.hourlyUsageM3],
     lifeWatchNotes: [...p.lifeWatchNotes],
-    lastUpdatedAt: new Date().toISOString(),
+    lastUpdatedAt: live.lastUpdatedAt ?? new Date().toISOString(),
     lifeCare,
     buildingId: building?.buildingId ?? null,
     buildingName: building?.buildingName ?? null,
-    mappedPorts: listPropertyPortMappingsV1(p.id).flatMap(
-      (mapping) => mapping.ports
-    ),
+    mappedPorts: live.ports,
   };
 }
 
 function buildOperatorRow(p: GasPropertyV1): GasOperatorPropertyRowV1 {
+  const live = getPropertyGasLiveSnapshotV1(p.id);
+  const hasLiveReading = Boolean(live.lastUpdatedAt);
+  const emergencyShutoff = hasLiveReading
+    ? live.emergencyActive
+    : p.emergencyShutoff;
   const autoSwitchDetected = p.lifeWatchNotes.some((n) =>
     n.includes("自動切替")
   );
   const lifeCare = buildLifeCareOverlayV1(
     p.id,
-    p.emergencyShutoff
+    emergencyShutoff
   );
   const building = findBuildingForPropertyV1(p.id);
   return {
@@ -173,9 +188,10 @@ function buildOperatorRow(p: GasPropertyV1): GasOperatorPropertyRowV1 {
     tenantId: p.tenantId,
     countryCode: p.countryCode,
     currency: p.currency,
-    meterPulseTotal: p.meterPulseTotal,
-    todayUsageM3: p.todayUsageM3,
-    emergencyShutoff: p.emergencyShutoff,
+    meterPulseTotal: live.meterPulseTotal ?? p.meterPulseTotal,
+    todayUsageM3: live.todayUsageM3 ?? p.todayUsageM3,
+    currentMeterValue: live.currentMeterValue,
+    emergencyShutoff,
     needsDelivery: needsDeliveryV1(p),
     autoSwitchDetected,
     cylinders: p.cylinders.map((c) => ({
@@ -259,14 +275,12 @@ function buildBuildingGroup(
 export function buildGasCustomerDashboardV1(
   propertyId?: string | null
 ): GasCustomerDashboardV1 {
-  const p = findGasPropertyV1(
-    propertyId || GAS_MONITOR_DEFAULT_PROPERTY_ID_V1
-  );
-  const dashboard = buildCustomerFromProperty(p);
+  const requestedPropertyId =
+    propertyId || GAS_MONITOR_DEFAULT_PROPERTY_ID_V1;
+  const p = findGasPropertyV1(requestedPropertyId);
+  const dashboard = buildCustomerFromProperty(p, requestedPropertyId);
   if (!propertyId) return dashboard;
-  const mappedPorts = listPropertyPortMappingsV1(propertyId).flatMap(
-    (mapping) => mapping.ports
-  );
+  const mappedPorts = dashboard.mappedPorts;
   if (!mappedPorts.length) return dashboard;
   const property = getPropertyByIdV1(propertyId);
   return {
@@ -284,6 +298,28 @@ export function buildGasCustomerDashboardV1(
  */
 export function buildGasOperatorDashboardV1(): GasOperatorDashboardV1 {
   const rows = listGasPropertiesV1().map(buildOperatorRow);
+  const knownPropertyIds = new Set(rows.map((row) => row.propertyId));
+  for (const mapping of listPropertyPortMappingsV1()) {
+    if (knownPropertyIds.has(mapping.propertyId)) continue;
+    const base = findGasPropertyV1(
+      GAS_MONITOR_DEFAULT_PROPERTY_ID_V1
+    );
+    const property = getPropertyByIdV1(mapping.propertyId);
+    rows.push(
+      buildOperatorRow({
+        ...base,
+        id: mapping.propertyId,
+        displayName: property?.propertyName ?? "登録済み物件",
+        addressLabel: property?.address ?? base.addressLabel,
+        emergencyShutoff: false,
+        meterPulseTotal: 0,
+        todayUsageM3: 0,
+        hourlyUsageM3: Array.from({ length: 24 }, () => 0),
+        lifeWatchNotes: [],
+      })
+    );
+    knownPropertyIds.add(mapping.propertyId);
+  }
   rows.sort(sortRooms);
 
   const byId = new Map(
@@ -345,10 +381,12 @@ export function buildGasOperatorDashboardV1(): GasOperatorDashboardV1 {
     properties: rows,
     buildings,
     mappedDevices: listPropertyPortMappingsV1().map(
-      ({ propertyId, ports }) => ({
+      ({ propertyId, deviceId }) => ({
         propertyId,
-        deviceId: "接続機器",
-        ports,
+        deviceId,
+        ports: getPropertyGasLiveSnapshotV1(propertyId).ports.filter(
+          (port) => port.deviceId === deviceId
+        ),
       })
     ),
   };

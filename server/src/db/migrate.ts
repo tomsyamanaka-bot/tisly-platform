@@ -5170,5 +5170,43 @@ function migrateDevicePortConfigsV1(
 
     CREATE INDEX IF NOT EXISTS idx_device_port_configs_enabled
       ON device_port_configs_v1(device_id, enabled);
+
+    CREATE TABLE IF NOT EXISTS device_port_telemetry_v1 (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      device_id TEXT NOT NULL,
+      port_number INTEGER NOT NULL
+        CHECK (port_number BETWEEN 1 AND 8),
+      input_state TEXT NOT NULL DEFAULT 'off',
+      pulse_count REAL NOT NULL DEFAULT 0,
+      meter_value REAL NOT NULL DEFAULT 0,
+      reading_date TEXT NOT NULL,
+      received_at TEXT NOT NULL,
+      FOREIGN KEY (device_id)
+        REFERENCES property_device_bindings_v1(device_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_device_port_telemetry_latest
+      ON device_port_telemetry_v1(device_id, port_number, id DESC);
+
+    CREATE INDEX IF NOT EXISTS idx_device_port_telemetry_daily
+      ON device_port_telemetry_v1(
+        device_id, port_number, reading_date, id
+      );
+
+    CREATE TABLE IF NOT EXISTS device_emergency_events_v1 (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      device_id TEXT NOT NULL,
+      property_id TEXT NOT NULL,
+      port_number INTEGER NOT NULL
+        CHECK (port_number BETWEEN 1 AND 8),
+      label TEXT NOT NULL DEFAULT '',
+      active INTEGER NOT NULL DEFAULT 0,
+      received_at TEXT NOT NULL,
+      FOREIGN KEY (device_id)
+        REFERENCES property_device_bindings_v1(device_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_device_emergency_events_latest
+      ON device_emergency_events_v1(device_id, id DESC);
   `);
 }

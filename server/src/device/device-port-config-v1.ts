@@ -43,7 +43,7 @@ export interface DevicePortConfigurationV1 {
 
 type IoStateV1 = "on" | "off";
 
-interface DeviceLiveStateV1 {
+export interface DeviceLiveStateV1 {
   inputStates: Record<string, IoStateV1>;
   relayStates: Record<string, IoStateV1>;
   lastSeenAt: string | null;
@@ -59,6 +59,26 @@ export interface DeviceEmergencyEventV1 {
   label: string;
   active: boolean;
   receivedAt: string;
+}
+
+export interface DeviceMappedPortLiveV1 extends DevicePortConfigV1 {
+  deviceId: string;
+  pulseCount: number | null;
+  currentMeterValue: number | null;
+  todayUsageM3: number;
+  live: boolean;
+  lastSeenAt: string | null;
+}
+
+export interface PropertyGasLiveSnapshotV1 {
+  ports: DeviceMappedPortLiveV1[];
+  deviceIds: string[];
+  meterPulseTotal: number | null;
+  currentMeterValue: number | null;
+  todayUsageM3: number | null;
+  emergencyActive: boolean;
+  lastEmergency: DeviceEmergencyEventV1 | null;
+  lastUpdatedAt: string | null;
 }
 
 export interface DeviceRelayCommandV1 {
@@ -443,6 +463,106 @@ function emptyLiveState(): DeviceLiveStateV1 {
   };
 }
 
+function readingDateJst(receivedAt: string): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(receivedAt));
+}
+
+function persistTelemetrySnapshotV1(
+  deviceId: string,
+  state: DeviceLiveStateV1
+): void {
+  const receivedAt = state.lastSeenAt ?? new Date().toISOString();
+  const readingDate = readingDateJst(receivedAt);
+  const enabledInputs = getDevicePortConfigurationV1(deviceId).ports.filter(
+    (port) => port.portType === "DI" && port.enabled
+  );
+  const insert = getDatabase().prepare(
+    `INSERT INTO device_port_telemetry_v1
+     (device_id, port_number, input_state, pulse_count,
+      meter_value, reading_date, received_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  );
+  getDatabase().transaction(() => {
+    for (const port of enabledInputs) {
+      const key = String(port.portNumber);
+      const pulseCount = Number(state.pulseCounts?.[key] ?? 0);
+      const meterValue = Number(
+        state.meterValues?.[key] ??
+          port.initialMeterValue + pulseCount * port.pulseWeight
+      );
+      insert.run(
+        deviceId,
+        port.portNumber,
+        state.inputStates[key] ?? "off",
+        pulseCount,
+        meterValue,
+        readingDate,
+        receivedAt
+      );
+    }
+  })();
+}
+
+function loadPersistedLiveStateV1(
+  deviceId: string
+): DeviceLiveStateV1 | null {
+  const rows = getDatabase()
+    .prepare(
+      `SELECT t.port_number, t.input_state, t.pulse_count,
+              t.meter_value, t.received_at
+       FROM device_port_telemetry_v1 t
+       INNER JOIN (
+         SELECT port_number, MAX(id) AS latest_id
+         FROM device_port_telemetry_v1
+         WHERE device_id = ?
+         GROUP BY port_number
+       ) latest ON latest.latest_id = t.id
+       ORDER BY t.port_number`
+    )
+    .all(deviceId) as Array<Record<string, unknown>>;
+  if (!rows.length) return null;
+  const state = emptyLiveState();
+  state.pulseCounts = normalizeNumberMap({});
+  state.meterValues = normalizeNumberMap({});
+  for (const row of rows) {
+    const key = String(Number(row.port_number));
+    state.inputStates[key] =
+      String(row.input_state) === "on" ? "on" : "off";
+    state.pulseCounts[key] = Number(row.pulse_count);
+    state.meterValues[key] = Number(row.meter_value);
+    const receivedAt = String(row.received_at);
+    if (!state.lastSeenAt || receivedAt > state.lastSeenAt) {
+      state.lastSeenAt = receivedAt;
+    }
+  }
+  const emergency = getDatabase()
+    .prepare(
+      `SELECT device_id, property_id, port_number, label,
+              active, received_at
+       FROM device_emergency_events_v1
+       WHERE device_id = ?
+       ORDER BY id DESC
+       LIMIT 1`
+    )
+    .get(deviceId) as Record<string, unknown> | undefined;
+  if (emergency) {
+    state.lastEmergency = {
+      deviceId: String(emergency.device_id),
+      propertyId: String(emergency.property_id),
+      portNumber: Number(emergency.port_number),
+      label: String(emergency.label),
+      active: Number(emergency.active) === 1,
+      receivedAt: String(emergency.received_at),
+    };
+  }
+  return state;
+}
+
 export function recordDevicePortTelemetryV1(input: {
   deviceId: unknown;
   inputStates?: unknown;
@@ -474,6 +594,7 @@ export function recordDevicePortTelemetryV1(input: {
     lastSeenAt: new Date().toISOString(),
   };
   liveStates.set(deviceId, next);
+  persistTelemetrySnapshotV1(deviceId, next);
   return next;
 }
 
@@ -515,6 +636,21 @@ export function recordDeviceEmergencyV1(input: {
     ...state,
     lastEmergency: event,
   });
+  getDatabase()
+    .prepare(
+      `INSERT INTO device_emergency_events_v1
+       (device_id, property_id, port_number, label,
+        active, received_at)
+       VALUES (?, ?, ?, ?, ?, ?)`
+    )
+    .run(
+      event.deviceId,
+      event.propertyId,
+      event.portNumber,
+      event.label,
+      event.active ? 1 : 0,
+      event.receivedAt
+    );
   return event;
 }
 
@@ -529,7 +665,141 @@ export function getDevicePortLiveStateV1(
   return {
     deviceId,
     debounceMs: DEVICE_INPUT_DEBOUNCE_MS_V1,
-    ...(liveStates.get(deviceId) ?? emptyLiveState()),
+    ...(liveStates.get(deviceId) ??
+      loadPersistedLiveStateV1(deviceId) ??
+      emptyLiveState()),
+  };
+}
+
+function dailyPulseUsageV1(
+  deviceId: string,
+  port: DevicePortConfigV1,
+  currentPulseCount: number
+): number {
+  const today = readingDateJst(new Date().toISOString());
+  const previous = getDatabase()
+    .prepare(
+      `SELECT pulse_count
+       FROM device_port_telemetry_v1
+       WHERE device_id = ? AND port_number = ?
+         AND reading_date < ?
+       ORDER BY id DESC
+       LIMIT 1`
+    )
+    .get(deviceId, port.portNumber, today) as
+    | { pulse_count: number }
+    | undefined;
+  const firstToday = getDatabase()
+    .prepare(
+      `SELECT pulse_count
+       FROM device_port_telemetry_v1
+       WHERE device_id = ? AND port_number = ?
+         AND reading_date = ?
+       ORDER BY id
+       LIMIT 1`
+    )
+    .get(deviceId, port.portNumber, today) as
+    | { pulse_count: number }
+    | undefined;
+  const baseline = Number(
+    previous?.pulse_count ?? firstToday?.pulse_count ?? currentPulseCount
+  );
+  return Math.max(
+    0,
+    Number(
+      ((currentPulseCount - baseline) * port.pulseWeight).toFixed(6)
+    )
+  );
+}
+
+/**
+ * 既存モックを保持したまま、
+ * 実機の最新値だけを画面へ重ねる。
+ */
+export function getPropertyGasLiveSnapshotV1(
+  propertyId: string
+): PropertyGasLiveSnapshotV1 {
+  const mappings = listPropertyPortMappingsV1(propertyId);
+  const ports: DeviceMappedPortLiveV1[] = [];
+  let emergencyActive = false;
+  let lastEmergency: DeviceEmergencyEventV1 | null = null;
+  let lastUpdatedAt: string | null = null;
+
+  for (const mapping of mappings) {
+    const state = getDevicePortLiveStateV1(mapping.deviceId);
+    if (
+      state.lastSeenAt &&
+      (!lastUpdatedAt || state.lastSeenAt > lastUpdatedAt)
+    ) {
+      lastUpdatedAt = state.lastSeenAt;
+    }
+    if (
+      state.lastEmergency &&
+      (!lastEmergency ||
+        state.lastEmergency.receivedAt > lastEmergency.receivedAt)
+    ) {
+      lastEmergency = state.lastEmergency;
+    }
+    if (state.lastEmergency?.active) {
+      const emergencyPort = String(state.lastEmergency.portNumber);
+      emergencyActive =
+        emergencyActive ||
+        state.inputStates[emergencyPort] === "on";
+    }
+
+    for (const port of mapping.ports) {
+      const key = String(port.portNumber);
+      const isPulse =
+        port.portType === "DI" && port.operationMode === "pulse";
+      const pulseCount =
+        isPulse && state.pulseCounts
+          ? Number(state.pulseCounts[key] ?? 0)
+          : null;
+      const liveMeter =
+        isPulse && state.meterValues
+          ? Number(state.meterValues[key])
+          : null;
+      const currentMeterValue =
+        isPulse && pulseCount != null
+          ? Number(
+              (
+                liveMeter != null && Number.isFinite(liveMeter)
+                  ? liveMeter
+                  : port.initialMeterValue +
+                    pulseCount * port.pulseWeight
+              ).toFixed(6)
+            )
+          : null;
+      ports.push({
+        ...port,
+        deviceId: mapping.deviceId,
+        pulseCount,
+        currentMeterValue,
+        todayUsageM3:
+          isPulse && pulseCount != null
+            ? dailyPulseUsageV1(mapping.deviceId, port, pulseCount)
+            : 0,
+        live: Boolean(state.lastSeenAt),
+        lastSeenAt: state.lastSeenAt,
+      });
+    }
+  }
+
+  const primaryPulse = ports.find(
+    (port) =>
+      port.portType === "DI" && port.operationMode === "pulse"
+  );
+  return {
+    ports,
+    deviceIds: mappings.map((mapping) => mapping.deviceId),
+    meterPulseTotal: primaryPulse?.pulseCount ?? null,
+    currentMeterValue: primaryPulse?.currentMeterValue ?? null,
+    todayUsageM3: primaryPulse?.live
+      ? primaryPulse.todayUsageM3
+      : null,
+    emergencyActive,
+    lastEmergency,
+    lastUpdatedAt,
   };
 }
 

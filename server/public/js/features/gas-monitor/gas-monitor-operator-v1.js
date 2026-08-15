@@ -11,6 +11,8 @@ function escapeHtml(s) {
     .replace(/"/g, "&quot;");
 }
 
+let refreshInFlight = false;
+
 function kindLabel(kind) {
   if (kind === "detached") return "戸建て";
   if (kind === "apartment") return "アパート";
@@ -96,6 +98,15 @@ function roomCardHtml(p) {
           · 滞留 ${Number(p.mmWaveDwellMinutes || 0)}分
         </p>`
       : "";
+  const currentMeter =
+    p.currentMeterValue == null
+      ? ""
+      : ` · 現在のメーター指針値 ${Number(
+          p.currentMeterValue
+        ).toLocaleString("ja-JP", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 3,
+        })} m³`;
   return `
     <article class="${cls}" data-property-id="${escapeHtml(p.propertyId)}">
       <div class="gm-prop-head">
@@ -111,7 +122,7 @@ function roomCardHtml(p) {
       <div class="gm-lifecare-row">${lifeCareBadge(p)}</div>
       <p class="gm-pulse">
         積算パルス: ${Number(p.meterPulseTotal).toLocaleString("ja-JP")}
-        · 今日 ${Number(p.todayUsageM3).toFixed(2)} m³
+        · 今日 ${Number(p.todayUsageM3).toFixed(2)} m³${currentMeter}
       </p>
       ${switchNote}
       ${mm}
@@ -213,7 +224,13 @@ function renderMappedPorts(d) {
                     <small>
                       ${
                         port.operationMode === "pulse"
-                          ? `${port.pulseWeight} ${escapeHtml(port.pulseUnit)}`
+                          ? `現在のメーター指針値 ${Number(
+                              port.currentMeterValue ??
+                                port.initialMeterValue
+                            ).toLocaleString("ja-JP", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 3,
+                            })} m³`
                           : "状態・遮断監視"
                       }
                     </small>
@@ -227,10 +244,16 @@ function renderMappedPorts(d) {
 }
 
 async function refresh() {
-  const d = await loadOperator();
-  renderSummary(d);
-  renderList(d);
-  renderMappedPorts(d);
+  if (refreshInFlight) return;
+  refreshInFlight = true;
+  try {
+    const d = await loadOperator();
+    renderSummary(d);
+    renderList(d);
+    renderMappedPorts(d);
+  } finally {
+    refreshInFlight = false;
+  }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -244,4 +267,9 @@ document.addEventListener("DOMContentLoaded", () => {
         `<p class="gm-empty">読み込みに失敗しました</p>`;
     }
   });
+  window.setInterval(() => {
+    if (document.visibilityState === "visible") {
+      refresh().catch(console.error);
+    }
+  }, 3000);
 });

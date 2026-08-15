@@ -7,6 +7,8 @@ process.env.CUSTOMER_DEMO_PASSWORD = "demo-remote-2026";
 process.env.REMOTE_TEST_TOKEN = "device-port-test-token";
 process.env.NODE_ENV = "test";
 process.env.TISLY_DB_PATH = "./data/test-device-port-config-v1.db";
+process.env.DATABASE_URL =
+  "sqlite://./data/test-device-port-config-v1.db";
 process.env.RATE_LIMIT_PROVIDER = "memory";
 
 const { default: request } = await import("supertest");
@@ -17,6 +19,9 @@ const { buildDefaultDevicePortsV1 } =
   await import("../src/device/device-port-config-v1.js");
 
 process.env.REMOTE_TEST_TOKEN = "device-port-test-token";
+process.env.TISLY_DB_PATH = "./data/test-device-port-config-v1.db";
+process.env.DATABASE_URL =
+  "sqlite://./data/test-device-port-config-v1.db";
 
 const app = createApp();
 let token = "";
@@ -238,6 +243,37 @@ describe("RP2350 port mapping and field validation v1", () => {
     assert.equal(status.body.status.pulseCounts["1"], 42);
     assert.equal(status.body.status.lastEmergency.label, "感震遮断");
 
+    const customer = await request(app).get(
+      `/api/gas-monitor/v1/customer?propertyId=${propertyId}`
+    );
+    assert.equal(customer.status, 200, customer.body?.error);
+    assert.equal(customer.body.dashboard.status, "emergency");
+    assert.equal(
+      customer.body.dashboard.lifeCare.statusLabel,
+      "地震自動遮断"
+    );
+    assert.equal(customer.body.dashboard.todayUsageM3, 0.42);
+    assert.equal(
+      customer.body.dashboard.mappedPorts[0].pulseCount,
+      42
+    );
+    assert.equal(
+      customer.body.dashboard.mappedPorts[0].currentMeterValue,
+      128.87
+    );
+
+    const operator = await request(app).get(
+      "/api/gas-monitor/v1/operator"
+    );
+    const liveProperty = operator.body.dashboard.properties.find(
+      (item: { propertyId: string }) =>
+        item.propertyId === propertyId
+    );
+    assert.ok(liveProperty);
+    assert.equal(liveProperty.emergencyShutoff, true);
+    assert.equal(liveProperty.meterPulseTotal, 42);
+    assert.equal(liveProperty.currentMeterValue, 128.87);
+
     const firmwareConfig = await request(app)
       .get(
         "/api/device/ports/firmware/config.json" +
@@ -278,7 +314,7 @@ describe("RP2350 port mapping and field validation v1", () => {
     assert.match(js.text, /\/api\/device\/ports\/firmware/);
 
     const worker = await request(app).get("/service-worker.js");
-    assert.match(worker.text, /v2447-device-qr-form/);
+    assert.match(worker.text, /v2448-gas-meter-live/);
     assert.match(worker.text, /\/device-binding-v1\.html/);
   });
 });

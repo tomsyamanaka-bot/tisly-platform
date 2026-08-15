@@ -12,6 +12,7 @@ function escapeHtml(s) {
 }
 
 let usageChart = null;
+let refreshInFlight = false;
 
 async function loadCustomer(propertyId) {
   const q = propertyId
@@ -138,12 +139,17 @@ function renderMappedPorts(d) {
     .map(
       (port) => `
         <article class="gm-mapped-port">
-          <b>${port.portType}${port.portNumber}</b>
+          <b>ガスメーター</b>
           <span>${escapeHtml(port.label)}</span>
           <small>
             ${
               port.operationMode === "pulse"
-                ? `${port.initialMeterValue.toLocaleString("ja-JP")} m³`
+                ? `現在のメーター指針値 ${Number(
+                    port.currentMeterValue ?? port.initialMeterValue
+                  ).toLocaleString("ja-JP", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 3,
+                  })} m³`
                 : "状態を見守っています"
             }
           </small>
@@ -153,15 +159,21 @@ function renderMappedPorts(d) {
 }
 
 async function refresh() {
+  if (refreshInFlight) return;
+  refreshInFlight = true;
   const select = document.getElementById("gm-property-select");
   const id = select?.value || "";
-  const d = await loadCustomer(id || null);
-  renderStatus(d);
-  renderLifeCare(d);
-  renderMeta(d);
-  renderNotes(d);
-  renderChart(d);
-  renderMappedPorts(d);
+  try {
+    const d = await loadCustomer(id || null);
+    renderStatus(d);
+    renderLifeCare(d);
+    renderMeta(d);
+    renderNotes(d);
+    renderChart(d);
+    renderMappedPorts(d);
+  } finally {
+    refreshInFlight = false;
+  }
 }
 
 async function init() {
@@ -185,6 +197,11 @@ async function init() {
     refresh().catch(console.error);
   });
   await refresh();
+  window.setInterval(() => {
+    if (document.visibilityState === "visible") {
+      refresh().catch(console.error);
+    }
+  }, 3000);
 }
 
 document.addEventListener("DOMContentLoaded", () => {
