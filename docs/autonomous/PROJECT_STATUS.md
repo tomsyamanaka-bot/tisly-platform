@@ -1252,3 +1252,20 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | SW | `tisly-pwa-v2453-meter-pulse-live` |
 | テスト | `device-port-config-v1.test.ts` · `gas-monitor-v1.test.ts` |
 | 確認 | `/app/gas-monitor` · `/customer/gas-monitor` · `/api/meter/telemetry` |
+
+### RP2350 実機配備ZIP v1（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | 現場ポート設定済みRP2350を1タップで実機配備 |
+| UI | `/app/gas-monitor` 現場ポートマッピング内に設定ZIPダウンロード |
+| ZIP | `tisly-rp2350-firmware.zip` — `config.json` · `main.py` · `readme.txt` の3ファイル |
+| GPIO | DI1〜DI8 = GPIO9〜16（Waveshare公式サンプル準拠） |
+| Ethernet | オンボードW5500自動初期化 · DHCP取得 · 再接続 |
+| DI1 | `Pin.IRQ_FALLING` · 50msデバウンス · パルス即時POST |
+| DI2 | 両エッジ接点変化 · 地震遮断状態を即時POST |
+| 通信 | 3段階リトライ · 未送信キュー · 60秒ハートビート |
+| API | `GET /api/device/ports/firmware/tisly-rp2350-firmware.zip?deviceId=` |
+| SW | `tisly-pwa-v2454-rp2350-firmware-zip` |
+| テスト | `device-port-config-v1.test.ts` · `gas-monitor-v1.test.ts` |
+| 確認 | `/app/gas-monitor` · `/api/meter/telemetry` · https://tisly.jp/api/health |

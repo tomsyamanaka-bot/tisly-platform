@@ -661,7 +661,8 @@
   font-weight: 800;
 }
 
-.gm-test-pulse-button {
+.gm-test-pulse-button,
+.gm-firmware-download-button {
   width: 100%;
   min-height: 52px;
   margin-top: 12px;
@@ -674,7 +675,12 @@
   cursor: pointer;
 }
 
-.gm-test-pulse-button:disabled {
+.gm-firmware-download-button {
+  background: #166534;
+}
+
+.gm-test-pulse-button:disabled,
+.gm-firmware-download-button:disabled {
   cursor: wait;
   opacity: 0.65;
 }

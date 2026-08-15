@@ -658,6 +658,12 @@ function mappedDeviceHtml(device) {
         data-port="${pulsePort ? `DI${pulsePort.portNumber}` : ""}"
         ${pulsePort ? "" : "hidden"}
       >テストパルス+1送信</button>
+      <button
+        class="gm-firmware-download-button"
+        type="button"
+        data-download-firmware
+        data-device-id="${escapeHtml(device.deviceId)}"
+      >📥 RP2350設定ファイルをダウンロード</button>
       <small class="gm-test-pulse-result" data-gm-role="test-result"></small>
     </article>`;
 }
@@ -680,6 +686,12 @@ function patchMappedDevice(el, device) {
   if (testButton && pulsePort) {
     testButton.dataset.deviceId = device.deviceId;
     testButton.dataset.port = `DI${pulsePort.portNumber}`;
+  }
+  const downloadButton = el.querySelector(
+    "[data-download-firmware]"
+  );
+  if (downloadButton) {
+    downloadButton.dataset.deviceId = device.deviceId;
   }
   syncKeyedChildren({
     parent: el.querySelector('[data-gm-role="ports"]'),
@@ -737,6 +749,46 @@ async function sendTestPulse(button) {
   }
 }
 
+/**
+ * 現在の機器設定を三ファイルのZIPへまとめ、
+ * ブラウザ標準ダウンロードとして保存する。
+ */
+async function downloadFirmware(button) {
+  const card = button.closest("[data-device-id]");
+  const result = card?.querySelector('[data-gm-role="test-result"]');
+  button.disabled = true;
+  setText(result, "設定ZIPを作成中…");
+  try {
+    const deviceId = String(button.dataset.deviceId || "");
+    const url =
+      "/api/device/ports/firmware/" +
+      "tisly-rp2350-firmware.zip?deviceId=" +
+      encodeURIComponent(deviceId);
+    const response = await fetch(url, {
+      headers: operatorAuthHeaders(),
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.error || "ダウンロード失敗");
+    }
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = objectUrl;
+    anchor.download = "tisly-rp2350-firmware.zip";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    setText(result, `${deviceId} 設定ZIPを保存しました`);
+  } catch (error) {
+    setText(result, `保存失敗: ${error.message}`);
+  } finally {
+    button.disabled = false;
+  }
+}
+
 function renderMappedPorts(d) {
   const root = document.getElementById("gm-mapped-port-list");
   if (!root) return;
@@ -779,8 +831,12 @@ document.addEventListener("DOMContentLoaded", () => {
   if (back) back.href = "/app";
   accordion.track(document.getElementById("gm-prop-list"));
   document.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-test-pulse]");
-    if (button) sendTestPulse(button);
+    const pulseButton = event.target.closest("[data-test-pulse]");
+    if (pulseButton) sendTestPulse(pulseButton);
+    const downloadButton = event.target.closest(
+      "[data-download-firmware]"
+    );
+    if (downloadButton) downloadFirmware(downloadButton);
   });
   refresh().catch((err) => {
     console.error(err);

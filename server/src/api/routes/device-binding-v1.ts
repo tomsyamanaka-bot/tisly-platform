@@ -3,6 +3,7 @@ import {
   type NextFunction,
   type Response,
 } from "express";
+import { ZipArchive } from "archiver";
 import QRCode from "qrcode";
 import { config } from "../../config.js";
 import {
@@ -21,6 +22,7 @@ import {
 } from "../../device/device-port-config-v1.js";
 import {
   buildRp2350ConfigV1,
+  getRp2350BundleFilePathV1,
   getRp2350FirmwarePathV1,
 } from "../../device/device-rp2350-firmware-v1.js";
 import {
@@ -488,6 +490,59 @@ deviceBindingV1Router.get(
       res.status(
         message.includes("access denied") ? 403 : 400
       ).json({ error: message });
+    }
+  }
+);
+
+deviceBindingV1Router.get(
+  "/ports/firmware/tisly-rp2350-firmware.zip",
+  ...requireDeviceOperator,
+  async (req: AuthedRequest, res) => {
+    try {
+      const configuration = getDevicePortConfigurationV1(
+        req.query.deviceId
+      );
+      assertConfigurationAccess(req, configuration.customerCode);
+      if (!config.remoteTest.token) {
+        throw new Error("device token is not configured");
+      }
+      const firmwareConfig = buildRp2350ConfigV1(
+        configuration,
+        config.remoteTest.token
+      );
+      res.setHeader("Cache-Control", "no-store");
+      res.attachment("tisly-rp2350-firmware.zip");
+      res.type("application/zip");
+
+      const archive = new ZipArchive({ zlib: { level: 9 } });
+      archive.on("warning", (error) => {
+        console.warn("[rp2350 zip]", error.message);
+      });
+      archive.on("error", (error) => {
+        if (!res.headersSent) {
+          res.status(500).json({ error: error.message });
+        } else {
+          res.destroy(error);
+        }
+      });
+      archive.pipe(res);
+      archive.append(JSON.stringify(firmwareConfig, null, 2), {
+        name: "config.json",
+      });
+      archive.file(getRp2350BundleFilePathV1("main.py"), {
+        name: "main.py",
+      });
+      archive.file(getRp2350BundleFilePathV1("readme.txt"), {
+        name: "readme.txt",
+      });
+      await archive.finalize();
+    } catch (error) {
+      const message = String((error as Error).message);
+      if (!res.headersSent) {
+        res.status(
+          message.includes("access denied") ? 403 : 400
+        ).json({ error: message });
+      }
     }
   }
 );

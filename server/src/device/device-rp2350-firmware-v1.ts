@@ -13,6 +13,11 @@ export const RP2350_FIRMWARE_FILES_V1 = [
   "pulse_counter.py",
 ] as const;
 
+export const RP2350_BUNDLE_FILES_V1 = [
+  "main.py",
+  "readme.txt",
+] as const;
+
 export function buildRp2350ConfigV1(
   configuration: DevicePortConfigurationV1,
   deviceToken: string
@@ -49,6 +54,9 @@ export function buildRp2350ConfigV1(
     property_id: configuration.propertyId,
     customer_code: configuration.customerCode,
     api_base: "https://tisly.jp",
+    api_endpoint: "https://tisly.jp/api/meter/telemetry",
+    heartbeat_endpoint:
+      "https://tisly.jp/api/device/ports/telemetry",
     device_token: deviceToken,
     pulse_telemetry_path: "/api/meter/telemetry",
     telemetry_path: "/api/device/ports/telemetry",
@@ -81,6 +89,24 @@ export function getRp2350FirmwarePathV1(fileName: string): string {
     )
   ) {
     throw new Error("firmware file not found");
+  }
+  const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+  return path.resolve(
+    moduleDir,
+    "../../../firmware/rp2350",
+    fileName
+  );
+}
+
+export function getRp2350BundleFilePathV1(
+  fileName: string
+): string {
+  if (
+    !RP2350_BUNDLE_FILES_V1.includes(
+      fileName as (typeof RP2350_BUNDLE_FILES_V1)[number]
+    )
+  ) {
+    throw new Error("firmware bundle file not found");
   }
   const moduleDir = path.dirname(fileURLToPath(import.meta.url));
   return path.resolve(

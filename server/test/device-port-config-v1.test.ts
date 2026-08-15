@@ -384,6 +384,16 @@ describe("RP2350 port mapping and field validation v1", () => {
     assert.equal(configJson.relay_outputs.length, 8);
     assert.equal(configJson.device_token, "device-port-test-token");
     assert.equal(
+      configJson.api_endpoint,
+      "https://tisly.jp/api/meter/telemetry"
+    );
+    assert.deepEqual(
+      configJson.digital_inputs.map(
+        (item: { gpio: number }) => item.gpio
+      ),
+      [9, 10, 11, 12, 13, 14, 15, 16]
+    );
+    assert.equal(
       configJson.pulse_telemetry_path,
       "/api/meter/telemetry"
     );
@@ -397,7 +407,40 @@ describe("RP2350 port mapping and field validation v1", () => {
     assert.equal(main.status, 200, main.body?.error);
     assert.match(main.body.toString(), /class|load_config/);
     assert.match(main.body.toString(), /Pin\.IRQ_FALLING/);
-    assert.match(main.body.toString(), /send_pulse_increment/);
+    assert.match(main.body.toString(), /post_with_retry/);
+
+    const firmwareZip = await request(app)
+      .get(
+        "/api/device/ports/firmware/" +
+        "tisly-rp2350-firmware.zip" +
+        "?deviceId=TISLY-BOX-PORT-001"
+      )
+      .set(auth())
+      .buffer(true)
+      .parse((response, callback) => {
+        const chunks: Buffer[] = [];
+        response.on("data", (chunk) => {
+          chunks.push(Buffer.from(chunk));
+        });
+        response.on("end", () => {
+          callback(null, Buffer.concat(chunks));
+        });
+      });
+    assert.equal(firmwareZip.status, 200, firmwareZip.body?.error);
+    assert.match(
+      String(firmwareZip.headers["content-type"]),
+      /application\/zip/
+    );
+    assert.match(
+      String(firmwareZip.headers["content-disposition"]),
+      /tisly-rp2350-firmware\.zip/
+    );
+    const zipBytes = Buffer.from(firmwareZip.body);
+    assert.ok(zipBytes.subarray(0, 2).equals(Buffer.from("PK")));
+    const zipText = zipBytes.toString("latin1");
+    assert.match(zipText, /config\.json/);
+    assert.match(zipText, /main\.py/);
+    assert.match(zipText, /readme\.txt/);
   });
 
   it("renders mobile validation and field test controls", async () => {
@@ -418,10 +461,22 @@ describe("RP2350 port mapping and field validation v1", () => {
     assert.match(js.text, /\/api\/device\/ports\/relay-test/);
     assert.match(js.text, /\/api\/device\/ports\/firmware/);
 
+    const operatorJs = await request(app).get(
+      "/js/features/gas-monitor/gas-monitor-operator-v1.js"
+    );
+    assert.match(
+      operatorJs.text,
+      /📥 RP2350設定ファイルをダウンロード/
+    );
+    assert.match(
+      operatorJs.text,
+      /tisly-rp2350-firmware\.zip/
+    );
+
     const worker = await request(app).get("/service-worker.js");
     assert.match(
       worker.text,
-      /v2453-meter-pulse-live/
+      /v2454-rp2350-firmware-zip/
     );
     assert.match(worker.text, /\/device-binding-v1\.html/);
   });

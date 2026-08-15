@@ -345,7 +345,7 @@ describe("gas-monitor-v1", () => {
       sw.text,
       /gas-monitor-accordion-state-v1\.js/
     );
-    assert.match(sw.text, /tisly-pwa-v2453-meter-pulse-live/);
+    assert.match(sw.text, /tisly-pwa-v2454-rp2350-firmware-zip/);
     // 旧JSがHTTPキャッシュから返らないようにする
     assert.match(sw.text, /function shouldBypassHttpCache/);
     assert.match(sw.text, /cache: "reload"/);
@@ -354,7 +354,7 @@ describe("gas-monitor-v1", () => {
     const operatorPage = await request(app).get("/app/gas-monitor");
     assert.match(
       operatorPage.text,
-      /gas-monitor-operator-v1\.js\?v=2453/
+      /gas-monitor-operator-v1\.js\?v=2454/
     );
     const customerPage = await request(app).get(
       "/customer/gas-monitor"
