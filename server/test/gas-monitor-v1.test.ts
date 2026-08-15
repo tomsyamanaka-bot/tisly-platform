@@ -273,4 +273,46 @@ describe("gas-monitor-v1", () => {
     assert.match(css.text, /\.gm-register-button/);
     assert.match(css.text, /min-height: 52px/);
   });
+
+  it("keeps accordion open state across 3s polling", async () => {
+    const stateJs = await request(app).get(
+      "/js/features/gas-monitor/gas-monitor-accordion-state-v1.js"
+    );
+    assert.equal(stateJs.status, 200);
+    // 開いている物件IDを Set で保持
+    assert.match(stateJs.text, /openPropertyIds = new Set/);
+    assert.match(stateJs.text, /details\[data-accordion-id\]/);
+    assert.match(stateJs.text, /"toggle"/);
+
+    const operatorJs = await request(app).get(
+      "/js/features/gas-monitor/gas-monitor-operator-v1.js"
+    );
+    assert.match(
+      operatorJs.text,
+      /gas-monitor-accordion-state-v1\.js/
+    );
+    assert.match(operatorJs.text, /data-accordion-id=/);
+    // ポーリング時は差分更新（全消去しない）
+    assert.match(operatorJs.text, /function patchBuildingCard/);
+    assert.match(operatorJs.text, /function patchRoomCard/);
+    assert.match(operatorJs.text, /accordion\.restore/);
+
+    const customerJs = await request(app).get(
+      "/js/features/gas-monitor/gas-monitor-customer-v1.js"
+    );
+    assert.match(
+      customerJs.text,
+      /gas-monitor-accordion-state-v1\.js/
+    );
+    // グラフは destroy せず数値のみ更新
+    assert.ok(!/usageChart\.destroy\(\)/.test(customerJs.text));
+    assert.match(customerJs.text, /usageChart\.update\("none"\)/);
+    assert.match(customerJs.text, /accordion\.restore/);
+
+    const sw = await request(app).get("/service-worker.js");
+    assert.match(
+      sw.text,
+      /gas-monitor-accordion-state-v1\.js/
+    );
+  });
 });

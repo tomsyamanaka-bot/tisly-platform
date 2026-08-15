@@ -4,10 +4,10 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2450-gas-live-only";
-const OFFLINE_CACHE = "tisly-pwa-shell-v2450-gas-live-only";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2450-gas-live-only";
-const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2450-gas-live-only";
+const SW_VERSION = "tisly-pwa-v2451-gas-accordion-state";
+const OFFLINE_CACHE = "tisly-pwa-shell-v2451-gas-accordion-state";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2451-gas-accordion-state";
+const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2451-gas-accordion-state";
 const ICON_V = "?v=2004";
 
 /** 図面エディタ v1 — ES module 群 */
@@ -209,6 +209,7 @@ const SHELL_URLS = [
   "/customer/gas-monitor",
   "/js/features/gas-monitor/gas-monitor-customer-v1.js",
   "/js/features/gas-monitor/gas-monitor-operator-v1.js",
+  "/js/features/gas-monitor/gas-monitor-accordion-state-v1.js",
   "/css/features/gas-monitor/gas-monitor-v1.css",
   // RP2350 QR登録・16ポート現場設定（追記）
   "/device-binding-v1",

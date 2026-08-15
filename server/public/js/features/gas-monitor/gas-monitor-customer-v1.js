@@ -1,7 +1,11 @@
 /**
  * お客様向けガス見守り UI
  * ビッグステータス · 使用量 · 見守り通知
+ * 3秒ポーリングは差分更新のみ
+ * （開いた詳細カードは閉じない）
  */
+
+import { createAccordionStateV1 } from "./gas-monitor-accordion-state-v1.js";
 
 function escapeHtml(s) {
   return String(s ?? "")
@@ -13,6 +17,24 @@ function escapeHtml(s) {
 
 let usageChart = null;
 let refreshInFlight = false;
+
+// 詳細カードの開閉状態（openPropertyIds）
+const accordion = createAccordionStateV1("customer");
+
+// innerHTML の再設定を最小化するキャッシュ
+const htmlCache = new WeakMap();
+
+function setText(el, text) {
+  if (!el) return;
+  if (el.textContent !== text) el.textContent = text;
+}
+
+function setHtmlCached(el, html) {
+  if (!el) return;
+  if (htmlCache.get(el) === html) return;
+  el.innerHTML = html;
+  htmlCache.set(el, html);
+}
 
 function setEmptyState(empty) {
   const emptyState = document.getElementById("gm-empty-state");
@@ -78,47 +100,45 @@ function renderLifeCare(d) {
   if (lc.alertLevel === "critical") {
     hero.classList.add("is-critical");
   }
-  emoji.textContent = lc.statusEmoji || "🟢";
-  label.textContent = lc.statusLabel || "正常生活反応";
+  setText(emoji, lc.statusEmoji || "🟢");
+  setText(label, lc.statusLabel || "正常生活反応");
   const mw = lc.mmWave || {};
-  mm.textContent = `生活センサー: ${
-    mw.detected ? "反応あり" : "反応なし"
-  } · 滞留 ${Number(mw.dwellMinutes || 0)}分`;
+  const detected = mw.detected ? "反応あり" : "反応なし";
+  const dwell = Number(mw.dwellMinutes || 0);
+  setText(mm, `生活センサー: ${detected} · 滞留 ${dwell}分`);
 }
 
 function renderMeta(d) {
-  document.getElementById("gm-meta-name").textContent = d.displayName;
-  document.getElementById("gm-meta-addr").textContent = d.addressLabel;
-  const b = document.getElementById("gm-meta-building");
-  if (b) {
-    b.textContent = d.buildingName || "—";
-  }
-  document.getElementById("gm-usage-m3").textContent =
-    Number(d.todayUsageM3).toFixed(2);
+  setText(document.getElementById("gm-meta-name"), d.displayName);
+  setText(document.getElementById("gm-meta-addr"), d.addressLabel);
+  setText(
+    document.getElementById("gm-meta-building"),
+    d.buildingName || "—"
+  );
+  setText(
+    document.getElementById("gm-usage-m3"),
+    Number(d.todayUsageM3).toFixed(2)
+  );
 }
 
 function renderNotes(d) {
   const ul = document.getElementById("gm-notes");
   const notes = d.lifeWatchNotes || [];
   if (!notes.length) {
-    ul.innerHTML = `<li>本日の見守り通知はまだありません</li>`;
+    setHtmlCached(ul, `<li>本日の見守り通知はまだありません</li>`);
     return;
   }
-  ul.innerHTML = notes
-    .map((n) => `<li>${escapeHtml(n)}</li>`)
-    .join("");
+  setHtmlCached(
+    ul,
+    notes.map((n) => `<li>${escapeHtml(n)}</li>`).join("")
+  );
 }
 
-function renderChart(d) {
-  const canvas = document.getElementById("gm-usage-chart");
-  if (!canvas || typeof Chart === "undefined") return;
-  const labels = Array.from({ length: 24 }, (_, i) => `${i}時`);
-  const values = d.hourlyUsageM3 || [];
-  if (usageChart) usageChart.destroy();
-  usageChart = new Chart(canvas, {
+function usageChartConfig(values) {
+  return {
     type: "bar",
     data: {
-      labels,
+      labels: Array.from({ length: 24 }, (_, i) => `${i}時`),
       datasets: [
         {
           label: "使用量 m³",
@@ -148,15 +168,38 @@ function renderChart(d) {
         },
       },
     },
-  });
+  };
+}
+
+function sameUsageValues(prev, next) {
+  if (!Array.isArray(prev) || prev.length !== next.length) {
+    return false;
+  }
+  return next.every((v, i) => Number(prev[i]) === Number(v));
+}
+
+function renderChart(d) {
+  const canvas = document.getElementById("gm-usage-chart");
+  if (!canvas || typeof Chart === "undefined") return;
+  const values = [...(d.hourlyUsageM3 || [])];
+  if (!usageChart) {
+    usageChart = new Chart(canvas, usageChartConfig(values));
+    return;
+  }
+  // グラフは作り直さず数値だけ差分更新
+  const dataset = usageChart.data.datasets[0];
+  if (sameUsageValues(dataset.data, values)) return;
+  dataset.data = values;
+  usageChart.update("none");
 }
 
 function renderMappedPorts(d) {
   const card = document.getElementById("gm-mapped-ports-card");
   const root = document.getElementById("gm-mapped-port-list");
   const ports = d.mappedPorts || [];
-  card.hidden = ports.length === 0;
-  root.innerHTML = ports
+  const hidden = ports.length === 0;
+  if (card && card.hidden !== hidden) card.hidden = hidden;
+  const html = ports
     .map(
       (port) => `
         <article class="gm-mapped-port">
@@ -177,6 +220,8 @@ function renderMappedPorts(d) {
         </article>`
     )
     .join("");
+  // 変化が無ければ DOM を触らない
+  setHtmlCached(root, html);
 }
 
 async function refresh() {
@@ -198,6 +243,8 @@ async function refresh() {
     renderNotes(d);
     renderChart(d);
     renderMappedPorts(d);
+    // 開いていた詳細カードを開いたまま維持
+    accordion.restore(document.querySelector(".gm-main"));
   } finally {
     refreshInFlight = false;
   }
@@ -206,6 +253,7 @@ async function refresh() {
 async function init() {
   const back = document.getElementById("gm-back-link");
   if (back) back.href = "/customer";
+  accordion.track(document.querySelector(".gm-main"));
 
   const select = document.getElementById("gm-property-select");
   const props = await loadProperties();

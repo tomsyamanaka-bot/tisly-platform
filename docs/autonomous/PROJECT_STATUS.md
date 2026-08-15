@@ -16,7 +16,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
 | ログインCTA | 青〜紫グラデ維持（`#4facfe` → `#a855f7`） |
-| SW | `tisly-pwa-v2450-gas-live-only` |
+| SW | `tisly-pwa-v2451-gas-accordion-state` |
 
 ---
 
@@ -1202,3 +1202,19 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | SW | `tisly-pwa-v2450-gas-live-only` · ガス画面は network-first |
 | テスト | `gas-monitor-v1.test.ts` · `device-port-config-v1.test.ts` |
 | 確認 | `/gas-monitor-v1` · `/app/gas-monitor` · `/customer/gas-monitor` |
+
+### ガス監視 アコーディオン状態保持 v1（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | 3秒ポーリングで開いた「詳細（▼/▲）」が勝手に閉じる・画面がチラつく問題の解消 |
+| 状態保持 | `openPropertyIds`（Set）+ sessionStorage — 建物IDごとに開閉を記録 |
+| 初期展開 | `hasPriorityAlert` は初回のみ自動展開 · 手動で閉じたら再展開しない |
+| 差分更新 | 建物・部屋カードは DOM を作り直さず、パルス／指針値／残量バー／ステータスのみ更新 |
+| 全再描画 | 建物ID・部屋IDの構成が変わった時だけ innerHTML を再構築 |
+| お客様画面 | Chart.js を destroy せず `update("none")` で数値のみ更新 · 見守りメッセージ／メーターは変化時のみ更新 |
+| UI | カード・バッジ・カラー・レイアウトは変更なし |
+| SW | `tisly-pwa-v2451-gas-accordion-state` |
+| コード | `gas-monitor-accordion-state-v1.js` · `gas-monitor-operator-v1.js` · `gas-monitor-customer-v1.js` |
+| テスト | `gas-monitor-v1.test.ts`（アコーディオン保持ケース追記） |
+| 確認 | `/app/gas-monitor` · `/gas-monitor-v1` · `/customer/gas-monitor` · https://tisly.jp/api/health |

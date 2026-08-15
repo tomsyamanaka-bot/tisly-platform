@@ -1,7 +1,11 @@
 /**
  * ガス事業者向け
  * 建物グループ · ボンベ残量 · Life Care
+ * 3秒ポーリングは差分更新のみ
+ * （開いた詳細カードは閉じない）
  */
+
+import { createAccordionStateV1 } from "./gas-monitor-accordion-state-v1.js";
 
 function escapeHtml(s) {
   return String(s ?? "")
@@ -12,6 +16,43 @@ function escapeHtml(s) {
 }
 
 let refreshInFlight = false;
+
+// 建物カードの開閉状態（openPropertyIds）
+const accordion = createAccordionStateV1("operator");
+
+// innerHTML の再設定を最小化するキャッシュ
+const htmlCache = new WeakMap();
+
+function setText(el, text) {
+  if (!el) return;
+  if (el.textContent !== text) el.textContent = text;
+}
+
+function setClassName(el, cls) {
+  if (!el) return;
+  if (el.className !== cls) el.className = cls;
+}
+
+function setHidden(el, hidden) {
+  if (!el) return;
+  if (el.hidden !== hidden) el.hidden = hidden;
+}
+
+function setHtmlCached(el, html) {
+  if (!el) return;
+  if (htmlCache.get(el) === html) return;
+  el.innerHTML = html;
+  htmlCache.set(el, html);
+}
+
+function collectByKey(root, selector, datasetKey) {
+  const map = new Map();
+  root.querySelectorAll(selector).forEach((el) => {
+    const key = el.dataset[datasetKey];
+    if (key) map.set(key, el);
+  });
+  return map;
+}
 
 function kindLabel(kind) {
   if (kind === "detached") return "戸建て";
@@ -30,104 +71,241 @@ async function loadOperator() {
 }
 
 function renderSummary(d) {
-  document.getElementById("gm-sum-total").textContent =
-    String(d.totalProperties);
-  document.getElementById("gm-sum-delivery").textContent =
-    String(d.deliveryAlertCount);
-  document.getElementById("gm-sum-emergency").textContent =
-    String(d.emergencyCount);
-  const lifeEl = document.getElementById("gm-sum-lifecare");
-  if (lifeEl) {
-    lifeEl.textContent = String(d.lifeCareAlertCount || 0);
-  }
+  setText(
+    document.getElementById("gm-sum-total"),
+    String(d.totalProperties)
+  );
+  setText(
+    document.getElementById("gm-sum-delivery"),
+    String(d.deliveryAlertCount)
+  );
+  setText(
+    document.getElementById("gm-sum-emergency"),
+    String(d.emergencyCount)
+  );
+  setText(
+    document.getElementById("gm-sum-lifecare"),
+    String(d.lifeCareAlertCount || 0)
+  );
+}
+
+function meterText(value) {
+  return Number(value).toLocaleString("ja-JP", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 3,
+  });
+}
+
+function cylinderSignature(cylinders) {
+  return (cylinders || []).map((c) => c.index).join("|");
+}
+
+function cylinderStateText(c) {
+  return `${c.index}本目（${c.active ? "使用中" : "待機"}）`;
+}
+
+function cylinderValueText(c) {
+  const remaining = Number(c.remainingKg).toFixed(1);
+  return `${remaining} / ${c.capacityKg} kg（${c.percent}%）`;
+}
+
+function cylinderBarClass(c) {
+  return `gm-bar${c.percent <= 20 ? " is-low" : ""}`;
+}
+
+function cylinderBarWidth(c) {
+  return `${Math.max(2, c.percent)}%`;
 }
 
 function cylinderBars(cylinders) {
   return (cylinders || [])
-    .map((c) => {
-      const low = c.percent <= 20;
-      const active = c.active ? "使用中" : "待機";
-      return `
+    .map(
+      (c) => `
         <div class="gm-cyl-row">
           <div class="gm-cyl-label">
-            <span>${c.index}本目（${active}）</span>
-            <span>${c.remainingKg.toFixed(1)} / ${c.capacityKg} kg（${c.percent}%）</span>
+            <span data-gm-role="cyl-state">${escapeHtml(
+              cylinderStateText(c)
+            )}</span>
+            <span data-gm-role="cyl-value">${escapeHtml(
+              cylinderValueText(c)
+            )}</span>
           </div>
-          <div class="gm-bar${low ? " is-low" : ""}" aria-hidden="true">
-            <span style="width:${Math.max(2, c.percent)}%"></span>
+          <div class="${cylinderBarClass(
+            c
+          )}" data-gm-role="cyl-bar" aria-hidden="true">
+            <span style="width:${cylinderBarWidth(c)}"></span>
           </div>
-        </div>`;
-    })
+        </div>`
+    )
     .join("");
 }
 
-function lifeCareBadge(p) {
+/** ボンベ残量は数値・バー幅のみ差分更新 */
+function patchCylinders(el, cylinders) {
+  if (!el) return;
+  const rows = cylinders || [];
+  const signature = cylinderSignature(rows);
+  if (el.dataset.cylSignature !== signature) {
+    el.innerHTML = cylinderBars(rows);
+    el.dataset.cylSignature = signature;
+    return;
+  }
+  const rowEls = el.querySelectorAll(".gm-cyl-row");
+  rows.forEach((c, i) => {
+    const rowEl = rowEls[i];
+    if (!rowEl) return;
+    setText(
+      rowEl.querySelector('[data-gm-role="cyl-state"]'),
+      cylinderStateText(c)
+    );
+    setText(
+      rowEl.querySelector('[data-gm-role="cyl-value"]'),
+      cylinderValueText(c)
+    );
+    const bar = rowEl.querySelector('[data-gm-role="cyl-bar"]');
+    setClassName(bar, cylinderBarClass(c));
+    const fill = bar ? bar.firstElementChild : null;
+    if (fill) {
+      const width = cylinderBarWidth(c);
+      if (fill.style.width !== width) fill.style.width = width;
+    }
+  });
+}
+
+function lifeCareBadgeClass(p) {
   const level = p.lifeCareAlertLevel || "none";
-  const emoji = escapeHtml(p.lifeCareEmoji || "🟢");
-  const label = escapeHtml(p.lifeCareLabel || "正常生活反応");
   let cls = "gm-lifecare-badge";
   if (level === "warn") cls += " is-warn";
   if (level === "critical") cls += " is-critical";
-  return `<span class="${cls}">${emoji} ${label}</span>`;
+  return cls;
+}
+
+function lifeCareBadgeText(p) {
+  const emoji = p.lifeCareEmoji || "🟢";
+  const label = p.lifeCareLabel || "正常生活反応";
+  return `${emoji} ${label}`;
+}
+
+function roomBadge(p) {
+  if (p.emergencyShutoff) {
+    return { cls: "gm-badge gm-badge-emergency", text: "緊急遮断" };
+  }
+  if (p.lifeCareAlertLevel === "critical") {
+    return { cls: "gm-badge gm-badge-emergency", text: "見守り警報" };
+  }
+  if (p.lifeCareAlertLevel === "warn") {
+    return { cls: "gm-badge gm-badge-delivery", text: "見守り注意" };
+  }
+  if (p.needsDelivery) {
+    return { cls: "gm-badge gm-badge-delivery", text: "要配送" };
+  }
+  return { cls: "gm-badge gm-badge-ok", text: "正常" };
+}
+
+function roomCardClass(p) {
+  let cls = "gm-prop-card gm-room-card";
+  if (p.emergencyShutoff) cls += " is-emergency";
+  else if (p.lifeCareAlertLevel === "critical") {
+    cls += " is-lifecare-critical";
+  } else if (p.lifeCareAlertLevel === "warn") {
+    cls += " is-lifecare-warn";
+  } else if (p.needsDelivery) cls += " is-delivery";
+  return cls;
+}
+
+function roomAddrText(p) {
+  return `${p.displayName} · ${p.countryCode}/${p.currency}`;
+}
+
+function roomPulseText(p) {
+  const pulse = Number(p.meterPulseTotal).toLocaleString("ja-JP");
+  const today = Number(p.todayUsageM3).toFixed(2);
+  const meter =
+    p.currentMeterValue == null
+      ? ""
+      : ` · 現在のメーター指針値 ${meterText(p.currentMeterValue)} m³`;
+  return `積算パルス: ${pulse} · 今日 ${today} m³${meter}`;
+}
+
+function roomMmWaveText(p) {
+  const detected = p.mmWaveDetected ? "反応あり" : "反応なし";
+  const zone = p.mmWaveZone || "unknown";
+  const dwell = Number(p.mmWaveDwellMinutes || 0);
+  return `ミリ波: ${detected} · ${zone} · 滞留 ${dwell}分`;
 }
 
 function roomCardHtml(p) {
-  let badge = `<span class="gm-badge gm-badge-ok">正常</span>`;
-  let cls = "gm-prop-card gm-room-card";
-  if (p.emergencyShutoff) {
-    badge = `<span class="gm-badge gm-badge-emergency">緊急遮断</span>`;
-    cls += " is-emergency";
-  } else if (p.lifeCareAlertLevel === "critical") {
-    badge = `<span class="gm-badge gm-badge-emergency">見守り警報</span>`;
-    cls += " is-lifecare-critical";
-  } else if (p.lifeCareAlertLevel === "warn") {
-    badge = `<span class="gm-badge gm-badge-delivery">見守り注意</span>`;
-    cls += " is-lifecare-warn";
-  } else if (p.needsDelivery) {
-    badge = `<span class="gm-badge gm-badge-delivery">要配送</span>`;
-    cls += " is-delivery";
-  }
-  const switchNote = p.autoSwitchDetected
-    ? `<p class="gm-pulse">⚠ 自動切替を検知</p>`
-    : "";
-  const mm =
-    p.mmWaveDetected != null
-      ? `<p class="gm-mmwave">
-          ミリ波: ${p.mmWaveDetected ? "反応あり" : "反応なし"}
-          · ${escapeHtml(p.mmWaveZone || "unknown")}
-          · 滞留 ${Number(p.mmWaveDwellMinutes || 0)}分
-        </p>`
-      : "";
-  const currentMeter =
-    p.currentMeterValue == null
-      ? ""
-      : ` · 現在のメーター指針値 ${Number(
-          p.currentMeterValue
-        ).toLocaleString("ja-JP", {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 3,
-        })} m³`;
+  const badge = roomBadge(p);
+  const hasMmWave = p.mmWaveDetected != null;
   return `
-    <article class="${cls}" data-property-id="${escapeHtml(p.propertyId)}">
+    <article class="${roomCardClass(p)}" data-property-id="${escapeHtml(
+      p.propertyId
+    )}">
       <div class="gm-prop-head">
         <div>
-          <h3 class="gm-prop-name">${escapeHtml(p.roomLabel || p.displayName)}</h3>
-          <p class="gm-prop-addr">
-            ${escapeHtml(p.displayName)}
-            · ${escapeHtml(p.countryCode)}/${escapeHtml(p.currency)}
-          </p>
+          <h3 class="gm-prop-name" data-gm-role="room-name">${escapeHtml(
+            p.roomLabel || p.displayName
+          )}</h3>
+          <p class="gm-prop-addr" data-gm-role="room-addr">${escapeHtml(
+            roomAddrText(p)
+          )}</p>
         </div>
-        ${badge}
+        <span class="${badge.cls}" data-gm-role="room-badge">${
+          badge.text
+        }</span>
       </div>
-      <div class="gm-lifecare-row">${lifeCareBadge(p)}</div>
-      <p class="gm-pulse">
-        積算パルス: ${Number(p.meterPulseTotal).toLocaleString("ja-JP")}
-        · 今日 ${Number(p.todayUsageM3).toFixed(2)} m³${currentMeter}
-      </p>
-      ${switchNote}
-      ${mm}
-      <div class="gm-cyl">${cylinderBars(p.cylinders)}</div>
+      <div class="gm-lifecare-row">
+        <span class="${lifeCareBadgeClass(
+          p
+        )}" data-gm-role="lifecare-badge">${escapeHtml(
+          lifeCareBadgeText(p)
+        )}</span>
+      </div>
+      <p class="gm-pulse" data-gm-role="pulse">${escapeHtml(
+        roomPulseText(p)
+      )}</p>
+      <p class="gm-pulse" data-gm-role="switch"${
+        p.autoSwitchDetected ? "" : " hidden"
+      }>⚠ 自動切替を検知</p>
+      <p class="gm-mmwave" data-gm-role="mmwave"${
+        hasMmWave ? "" : " hidden"
+      }>${hasMmWave ? escapeHtml(roomMmWaveText(p)) : ""}</p>
+      <div class="gm-cyl" data-gm-role="cyl" data-cyl-signature="${escapeHtml(
+        cylinderSignature(p.cylinders)
+      )}">${cylinderBars(p.cylinders)}</div>
     </article>`;
+}
+
+/** 部屋カードは数値・ステータスのみ差分更新 */
+function patchRoomCard(el, p) {
+  setClassName(el, roomCardClass(p));
+  setText(
+    el.querySelector('[data-gm-role="room-name"]'),
+    p.roomLabel || p.displayName
+  );
+  setText(
+    el.querySelector('[data-gm-role="room-addr"]'),
+    roomAddrText(p)
+  );
+  const badge = roomBadge(p);
+  const badgeEl = el.querySelector('[data-gm-role="room-badge"]');
+  setClassName(badgeEl, badge.cls);
+  setText(badgeEl, badge.text);
+  const lifeCareEl = el.querySelector(
+    '[data-gm-role="lifecare-badge"]'
+  );
+  setClassName(lifeCareEl, lifeCareBadgeClass(p));
+  setText(lifeCareEl, lifeCareBadgeText(p));
+  setText(el.querySelector('[data-gm-role="pulse"]'), roomPulseText(p));
+  setHidden(
+    el.querySelector('[data-gm-role="switch"]'),
+    !p.autoSwitchDetected
+  );
+  const mmWaveEl = el.querySelector('[data-gm-role="mmwave"]');
+  const hasMmWave = p.mmWaveDetected != null;
+  setHidden(mmWaveEl, !hasMmWave);
+  if (hasMmWave) setText(mmWaveEl, roomMmWaveText(p));
+  patchCylinders(el.querySelector('[data-gm-role="cyl"]'), p.cylinders);
 }
 
 function buildingBadges(b) {
@@ -153,66 +331,162 @@ function buildingBadges(b) {
   return parts.join("");
 }
 
-function buildingCardHtml(b, openDefault) {
-  const open = openDefault || b.hasPriorityAlert;
+function buildingCardClass(b) {
   let cls = "gm-building-card";
   if (b.emergencyCount > 0) cls += " is-emergency";
   else if (b.lifeCareAlertCount > 0) cls += " is-lifecare";
   else if (b.deliveryAlertCount > 0) cls += " is-delivery";
+  return cls;
+}
+
+function buildingMetaText(b) {
+  return [
+    b.addressLabel,
+    kindLabel(b.kind),
+    `${b.countryCode}/${b.currency}`,
+    `総部屋数 ${b.totalRooms}`,
+  ].join(" · ");
+}
+
+function roomSignature(rooms) {
+  return (rooms || []).map((r) => r.propertyId).join("|");
+}
+
+function buildingCardHtml(b, openDefault) {
+  // 保持中の開閉状態を優先し初期展開は一度だけ
+  const open = accordion.shouldOpen(
+    b.buildingId,
+    openDefault || b.hasPriorityAlert
+  );
+  const id = escapeHtml(b.buildingId);
   return `
-    <details class="${cls}" ${open ? "open" : ""} data-building-id="${escapeHtml(b.buildingId)}">
+    <details class="${buildingCardClass(b)}" ${
+      open ? "open" : ""
+    } data-building-id="${id}" data-accordion-id="${id}">
       <summary class="gm-building-summary">
         <div class="gm-building-summary-main">
-          <h2 class="gm-building-name">${escapeHtml(b.buildingName)}</h2>
-          <p class="gm-building-meta">
-            ${escapeHtml(b.addressLabel)}
-            · ${kindLabel(b.kind)}
-            · ${escapeHtml(b.countryCode)}/${escapeHtml(b.currency)}
-            · 総部屋数 ${b.totalRooms}
-          </p>
+          <h2 class="gm-building-name" data-gm-role="building-name">${escapeHtml(
+            b.buildingName
+          )}</h2>
+          <p class="gm-building-meta" data-gm-role="building-meta">${escapeHtml(
+            buildingMetaText(b)
+          )}</p>
         </div>
-        <div class="gm-building-badges">${buildingBadges(b)}</div>
+        <div class="gm-building-badges" data-gm-role="building-badges">${buildingBadges(
+          b
+        )}</div>
         <span class="gm-building-chevron" aria-hidden="true">▼</span>
       </summary>
-      <div class="gm-building-rooms">
+      <div class="gm-building-rooms" data-gm-role="rooms" data-room-signature="${escapeHtml(
+        roomSignature(b.rooms)
+      )}">
         ${(b.rooms || []).map(roomCardHtml).join("")}
       </div>
     </details>`;
 }
 
-function renderList(d) {
-  const root = document.getElementById("gm-prop-list");
-  const buildings = d.buildings || [];
-  if (!buildings.length) {
-    // フォールバック: 旧フラット一覧
-    const rows = d.properties || [];
-    if (!rows.length) {
-      root.innerHTML = `
+/** 建物カードは open 属性を触らず中身のみ更新 */
+function patchBuildingCard(el, b) {
+  setClassName(el, buildingCardClass(b));
+  setText(
+    el.querySelector('[data-gm-role="building-name"]'),
+    b.buildingName
+  );
+  setText(
+    el.querySelector('[data-gm-role="building-meta"]'),
+    buildingMetaText(b)
+  );
+  setHtmlCached(
+    el.querySelector('[data-gm-role="building-badges"]'),
+    buildingBadges(b)
+  );
+  const roomsEl = el.querySelector('[data-gm-role="rooms"]');
+  if (!roomsEl) return;
+  const rooms = b.rooms || [];
+  const signature = roomSignature(rooms);
+  if (roomsEl.dataset.roomSignature !== signature) {
+    roomsEl.innerHTML = rooms.map(roomCardHtml).join("");
+    roomsEl.dataset.roomSignature = signature;
+    return;
+  }
+  const cards = collectByKey(
+    roomsEl,
+    "article[data-property-id]",
+    "propertyId"
+  );
+  rooms.forEach((room) => {
+    const card = cards.get(room.propertyId);
+    if (card) patchRoomCard(card, room);
+  });
+}
+
+const EMPTY_LIST_HTML = `
         <div class="gm-empty">
           <p>登録されている物件はありません。</p>
           <a class="gm-register-button" href="/device-binding-v1">
             ＋ 機器を新規登録する
           </a>
         </div>`;
-      return;
+
+/** 建物グループが無い場合の旧フラット一覧 */
+function renderFlatList(root, rows) {
+  if (!rows.length) {
+    if (root.dataset.gmSignature !== "empty") {
+      root.innerHTML = EMPTY_LIST_HTML;
+      root.dataset.gmSignature = "empty";
     }
-    root.innerHTML = rows.map(roomCardHtml).join("");
     return;
   }
-  root.innerHTML = buildings
-    .map((b, i) => buildingCardHtml(b, i === 0 && b.hasPriorityAlert))
-    .join("");
+  const signature = `flat:${roomSignature(rows)}`;
+  if (root.dataset.gmSignature !== signature) {
+    root.innerHTML = rows.map(roomCardHtml).join("");
+    root.dataset.gmSignature = signature;
+    return;
+  }
+  const cards = collectByKey(
+    root,
+    "article[data-property-id]",
+    "propertyId"
+  );
+  rows.forEach((row) => {
+    const card = cards.get(row.propertyId);
+    if (card) patchRoomCard(card, row);
+  });
 }
 
-function renderMappedPorts(d) {
-  const root = document.getElementById("gm-mapped-port-list");
-  const devices = d.mappedDevices || [];
-  if (!devices.length) {
-    root.innerHTML =
-      `<p class="gm-empty">使用中の現場ポートはありません</p>`;
+function renderList(d) {
+  const root = document.getElementById("gm-prop-list");
+  if (!root) return;
+  const buildings = d.buildings || [];
+  if (!buildings.length) {
+    renderFlatList(root, d.properties || []);
     return;
   }
-  root.innerHTML = devices
+  const signature = `bld:${buildings
+    .map((b) => b.buildingId)
+    .join("|")}`;
+  if (root.dataset.gmSignature !== signature) {
+    root.innerHTML = buildings
+      .map((b, i) => buildingCardHtml(b, i === 0 && b.hasPriorityAlert))
+      .join("");
+    root.dataset.gmSignature = signature;
+    return;
+  }
+  const cards = collectByKey(
+    root,
+    "details[data-building-id]",
+    "buildingId"
+  );
+  buildings.forEach((b) => {
+    const card = cards.get(b.buildingId);
+    if (card) patchBuildingCard(card, b);
+  });
+  // 念のため開閉状態を復元
+  accordion.restore(root);
+}
+
+function mappedPortsHtml(devices) {
+  return devices
     .map(
       (device) => `
         <article class="gm-mapped-device">
@@ -230,13 +504,10 @@ function renderMappedPorts(d) {
                     <small>
                       ${
                         port.operationMode === "pulse"
-                          ? `現在のメーター指針値 ${Number(
+                          ? `現在のメーター指針値 ${meterText(
                               port.currentMeterValue ??
                                 port.initialMeterValue
-                            ).toLocaleString("ja-JP", {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 3,
-                            })} m³`
+                            )} m³`
                           : "状態・遮断監視"
                       }
                     </small>
@@ -247,6 +518,21 @@ function renderMappedPorts(d) {
         </article>`
     )
     .join("");
+}
+
+function renderMappedPorts(d) {
+  const root = document.getElementById("gm-mapped-port-list");
+  if (!root) return;
+  const devices = d.mappedDevices || [];
+  if (!devices.length) {
+    setHtmlCached(
+      root,
+      `<p class="gm-empty">使用中の現場ポートはありません</p>`
+    );
+    return;
+  }
+  // 変化が無ければ DOM を触らない
+  setHtmlCached(root, mappedPortsHtml(devices));
 }
 
 async function refresh() {
@@ -265,12 +551,14 @@ async function refresh() {
 document.addEventListener("DOMContentLoaded", () => {
   const back = document.getElementById("gm-back-link");
   if (back) back.href = "/app";
+  accordion.track(document.getElementById("gm-prop-list"));
   refresh().catch((err) => {
     console.error(err);
     const root = document.getElementById("gm-prop-list");
     if (root) {
       root.innerHTML =
         `<p class="gm-empty">読み込みに失敗しました</p>`;
+      root.dataset.gmSignature = "error";
     }
   });
   window.setInterval(() => {
