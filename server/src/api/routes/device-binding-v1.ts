@@ -34,6 +34,8 @@ import {
   listDeviceIdsForLabelsV1,
   listPropertyDeviceStateV1,
   normalizeDeviceIdV1,
+  registerGasPropertyDeviceV1,
+  suggestNextGasDeviceIdV1,
 } from "../../device/property-device-binding-v1.js";
 import {
   resolveDevicePropertyByNameV1,
@@ -162,6 +164,61 @@ deviceBindingV1Router.post(
         message.includes("access denied") ? 403 : 400
       ).json({ error: message });
     }
+  }
+);
+
+deviceBindingV1Router.post(
+  "/register",
+  ...requireDeviceOperator,
+  (req: AuthedRequest, res) => {
+    try {
+      const customerCode = resolveCustomerCode(
+        req,
+        req.body?.customerCode
+      );
+      const property = registerGasPropertyDeviceV1({
+        customerCode,
+        propertyName:
+          req.body?.propertyName ?? req.body?.property_name,
+        address:
+          req.body?.address ??
+          req.body?.installLocation ??
+          req.body?.installation_location,
+        deviceId: req.body?.deviceId ?? req.body?.device_id,
+        initialMeterValue:
+          req.body?.initialMeterValue ??
+          req.body?.initial_meter_value,
+        portMappings:
+          req.body?.portMappings ??
+          req.body?.port_mappings ??
+          req.body?.ports,
+        boundBy: req.admin?.username,
+      });
+      res.json({ success: true, property });
+    } catch (error) {
+      if (error instanceof DeviceBindingConflictError) {
+        res.status(409).json({
+          error: "この機器は別の物件に登録済みです",
+          currentPropertyId: error.currentPropertyId,
+        });
+        return;
+      }
+      const message = String((error as Error).message);
+      res.status(
+        message.includes("access denied") ? 403 : 400
+      ).json({ error: message });
+    }
+  }
+);
+
+deviceBindingV1Router.get(
+  "/next-id",
+  ...requireDeviceOperator,
+  (_req, res) => {
+    res.json({
+      success: true,
+      deviceId: suggestNextGasDeviceIdV1(),
+    });
   }
 );
 

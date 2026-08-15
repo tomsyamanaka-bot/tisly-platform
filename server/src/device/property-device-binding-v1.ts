@@ -4,7 +4,10 @@ import {
   getPropertyByIdV1,
   listPropertiesForCustomerV1,
 } from "../shared/customer/customer-property-master-v1.js";
-import { resolveDevicePropertyByNameV1 } from "./device-property-focus-v1.js";
+import {
+  normalizeDevicePropertyNameV1,
+  resolveDevicePropertyByNameV1,
+} from "./device-property-focus-v1.js";
 
 export interface PropertyDeviceBindingV1 {
   id: string;
@@ -248,6 +251,189 @@ export function listDeviceIdsForLabelsV1(
     )
     .all(code, code) as Array<{ device_id: string }>;
   return rows.map((row) => row.device_id);
+}
+
+export interface GasPropertyPortMappingV1 {
+  port: string;
+  label?: string;
+  operationMode?: "pulse" | "state_monitor";
+  contactPolarity?: "a" | "b";
+  pulseWeight?: number;
+}
+
+export interface RegisteredGasPropertyV1 {
+  propertyId: string;
+  customerCode: string;
+  propertyName: string;
+  address: string;
+  deviceId: string;
+  initialMeterValue: number;
+  ports: Array<{
+    port: string;
+    label: string;
+    operationMode: "pulse" | "state_monitor";
+  }>;
+}
+
+export function suggestNextGasDeviceIdV1(): string {
+  const rows = getDatabase()
+    .prepare(
+      `SELECT device_id FROM property_device_bindings_v1
+       WHERE device_id LIKE 'TISLY-BOX-%'`
+    )
+    .all() as Array<{ device_id: string }>;
+  const max = rows.reduce((current, row) => {
+    const match = row.device_id.match(/^TISLY-BOX-(\d+)$/);
+    return match ? Math.max(current, Number(match[1])) : current;
+  }, 0);
+  return `TISLY-BOX-${String(max + 1).padStart(3, "0")}`;
+}
+
+export function registerGasPropertyDeviceV1(input: {
+  customerCode: string;
+  propertyName: unknown;
+  address?: unknown;
+  deviceId: unknown;
+  initialMeterValue?: unknown;
+  portMappings?: unknown;
+  boundBy?: string;
+}): RegisteredGasPropertyV1 {
+  const customerCode = input.customerCode.trim().toUpperCase();
+  const propertyName = normalizeDevicePropertyNameV1(input.propertyName);
+  const address = String(input.address ?? "").trim();
+  if (address.length > 240) throw new Error("設置場所が長すぎます");
+  const deviceId = normalizeDeviceIdV1(input.deviceId);
+  const existing = getDeviceBindingV1(deviceId);
+  if (existing) throw new DeviceBindingConflictError(existing.propertyId);
+
+  const initialMeterValue = Number(input.initialMeterValue ?? 0);
+  if (!Number.isFinite(initialMeterValue) || initialMeterValue < 0) {
+    throw new Error("初期指針値は0以上で入力してください");
+  }
+  const supplied: GasPropertyPortMappingV1[] = Array.isArray(
+    input.portMappings
+  )
+    ? (input.portMappings as GasPropertyPortMappingV1[])
+    : [
+        { port: "DI1", label: "ガスメーター", operationMode: "pulse" },
+        { port: "DI2", label: "地震遮断", operationMode: "state_monitor" },
+      ];
+  if (!supplied.length) throw new Error("ポート種別を選択してください");
+
+  const seen = new Set<string>();
+  const ports = supplied.map((mapping) => {
+    const match = String(mapping.port ?? "")
+      .trim()
+      .toUpperCase()
+      .match(/^DI([1-8])$/);
+    if (!match) throw new Error("ポートはDI1〜DI8で指定してください");
+    const port = `DI${Number(match[1])}`;
+    if (seen.has(port)) throw new Error("同じポートが重複しています");
+    seen.add(port);
+    const operationMode: "pulse" | "state_monitor" =
+      mapping.operationMode ??
+      (port === "DI1" ? "pulse" : "state_monitor");
+    if (!["pulse", "state_monitor"].includes(operationMode)) {
+      throw new Error("ポート動作モードが不正です");
+    }
+    const label = String(
+      mapping.label ??
+        (port === "DI1" ? "ガスメーター" : "地震遮断")
+    ).trim();
+    if (!label || label.length > 100) {
+      throw new Error(`${port} の名称を入力してください`);
+    }
+    const contactPolarity = mapping.contactPolarity ?? "a";
+    if (contactPolarity !== "a" && contactPolarity !== "b") {
+      throw new Error("接点種別が不正です");
+    }
+    const pulseWeight = Number(mapping.pulseWeight ?? 0.01);
+    if (!Number.isFinite(pulseWeight) || pulseWeight <= 0) {
+      throw new Error("パルス重みが不正です");
+    }
+    return {
+      port,
+      portNumber: Number(match[1]),
+      label,
+      operationMode,
+      contactPolarity,
+      pulseWeight,
+    };
+  });
+
+  const propertyId = `PROP-${uuid()
+    .replace(/-/g, "")
+    .slice(0, 10)
+    .toUpperCase()}`;
+  const bindingId = `PDB-${uuid().slice(0, 12).toUpperCase()}`;
+  const now = new Date().toISOString();
+  const database = getDatabase();
+  database.transaction(() => {
+    database
+      .prepare(
+        `INSERT INTO customer_portal_properties
+         (property_id, customer_code, property_name, address,
+          project_ref, installed_date, next_inspection_date,
+          created_at, updated_at)
+         VALUES (?, ?, ?, ?, NULL, NULL, NULL, ?, ?)`
+      )
+      .run(
+        propertyId,
+        customerCode,
+        propertyName,
+        address,
+        now,
+        now
+      );
+    database
+      .prepare(
+        `INSERT INTO property_device_bindings_v1
+         (id, customer_code, property_id, device_id,
+          device_type, connection_status, bound_by, bound_at)
+         VALUES (?, ?, ?, ?, 'RP2350', 'online', ?, ?)`
+      )
+      .run(
+        bindingId,
+        customerCode,
+        propertyId,
+        deviceId,
+        input.boundBy?.trim() || null,
+        now
+      );
+    const insertPort = database.prepare(
+      `INSERT INTO device_port_configs_v1
+       (device_id, port_type, port_number, enabled, label,
+        operation_mode, contact_polarity, pulse_weight,
+        pulse_unit, initial_meter_value, updated_at)
+       VALUES (?, 'DI', ?, 1, ?, ?, ?, ?, 'm³/P', ?, ?)`
+    );
+    for (const port of ports) {
+      insertPort.run(
+        deviceId,
+        port.portNumber,
+        port.label,
+        port.operationMode,
+        port.contactPolarity,
+        port.pulseWeight,
+        port.operationMode === "pulse" ? initialMeterValue : 0,
+        now
+      );
+    }
+  })();
+
+  return {
+    propertyId,
+    customerCode,
+    propertyName,
+    address,
+    deviceId,
+    initialMeterValue,
+    ports: ports.map(({ port, label, operationMode }) => ({
+      port,
+      label,
+      operationMode,
+    })),
+  };
 }
 
 export interface DeletedPropertyBindingV1 {

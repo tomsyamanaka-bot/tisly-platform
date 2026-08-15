@@ -513,6 +513,101 @@ describe("RP2350 QR property binding v1", () => {
     assert.doesNotMatch(js.text, /btn-toggle-scope/);
   });
 
+  it("registers a gas property, device, and default ports atomically", async () => {
+    const suggested = await request(app)
+      .get("/api/device/next-id")
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(suggested.status, 200, suggested.body?.error);
+    assert.match(suggested.body.deviceId, /^TISLY-BOX-\d{3,}$/);
+
+    const registered = await request(app)
+      .post("/api/device/register")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        property_name: "TOMS第2デモ",
+        installation_location: "つくばみらい市・集合住宅",
+        device_id: "TISLY-BOX-REGISTER-001",
+        initial_meter_value: 48.25,
+        ports: [
+          {
+            port: "DI1",
+            label: "ガスメーター",
+            operationMode: "pulse",
+          },
+          {
+            port: "DI2",
+            label: "地震遮断",
+            operationMode: "state_monitor",
+          },
+        ],
+      });
+    assert.equal(registered.status, 200, registered.body?.error);
+    assert.equal(registered.body.success, true);
+    assert.equal(registered.body.property.propertyName, "TOMS第2デモ");
+    assert.equal(
+      registered.body.property.address,
+      "つくばみらい市・集合住宅"
+    );
+    const registeredPropertyId =
+      registered.body.property.propertyId;
+
+    const rows = getDatabase()
+      .prepare(
+        `SELECT port_number, label, operation_mode,
+                initial_meter_value
+         FROM device_port_configs_v1
+         WHERE device_id = ?
+         ORDER BY port_number`
+      )
+      .all("TISLY-BOX-REGISTER-001") as Array<{
+      port_number: number;
+      label: string;
+      operation_mode: string;
+      initial_meter_value: number;
+    }>;
+    assert.equal(rows.length, 2);
+    assert.deepEqual(
+      rows.map((row) => row.port_number),
+      [1, 2]
+    );
+    assert.equal(rows[0].initial_meter_value, 48.25);
+
+    const operator = await request(app).get(
+      "/api/gas-monitor/v1/operator"
+    );
+    const operatorProperty =
+      operator.body.dashboard.properties.find(
+        (item: { propertyId: string }) =>
+          item.propertyId === registeredPropertyId
+      );
+    assert.ok(operatorProperty);
+    assert.equal(operatorProperty.kind, "apartment");
+    assert.ok(
+      operator.body.dashboard.mappedDevices.some(
+        (item: { deviceId: string }) =>
+          item.deviceId === "TISLY-BOX-REGISTER-001"
+      )
+    );
+
+    const duplicate = await request(app)
+      .post("/api/device/register")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        propertyName: "重複テスト",
+        deviceId: "TISLY-BOX-REGISTER-001",
+        initialMeterValue: 0,
+      });
+    assert.equal(duplicate.status, 409);
+    const duplicateProperty = getDatabase()
+      .prepare(
+        `SELECT COUNT(*) AS count
+         FROM customer_portal_properties
+         WHERE property_name = ?`
+      )
+      .get("重複テスト") as { count: number };
+    assert.equal(duplicateProperty.count, 0);
+  });
+
   it("deletes a property with bindings, ports, and monitoring data", async () => {
     const ports = buildDefaultDevicePortsV1();
     ports[0] = {

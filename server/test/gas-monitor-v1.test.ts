@@ -248,6 +248,10 @@ describe("gas-monitor-v1", () => {
     assert.equal(page.status, 200);
     assert.ok(String(page.text).includes("gm-sum-lifecare"));
     assert.ok(String(page.text).includes("建物グループ"));
+    assert.match(page.text, /➕ 新規物件を追加/);
+    assert.match(page.text, /id="gm-register-dialog"/);
+    assert.match(page.text, /id="gm-register-form"/);
+    assert.match(page.text, /初期指針値（m³）/);
 
     const custPage = await request(app).get(
       "/customer/gas-monitor"
@@ -270,6 +274,10 @@ describe("gas-monitor-v1", () => {
     assert.match(operatorJs.text, /\/api\/meter\/telemetry/);
     assert.match(operatorJs.text, /実機オンライン/);
     assert.match(operatorJs.text, /\/api\/device\/unbind/);
+    assert.match(operatorJs.text, /\/api\/device\/register/);
+    assert.match(operatorJs.text, /\/api\/device\/next-id/);
+    assert.match(operatorJs.text, /data-select-property/);
+    assert.match(operatorJs.text, /selectedPropertyId/);
     assert.match(operatorJs.text, /data-delete-property/);
     assert.match(operatorJs.text, /監視データも消去されます/);
 
@@ -285,6 +293,8 @@ describe("gas-monitor-v1", () => {
       "/css/features/gas-monitor/gas-monitor-v1.css"
     );
     assert.match(css.text, /\.gm-register-button/);
+    assert.match(css.text, /\.gm-add-property-button/);
+    assert.match(css.text, /\.gm-register-dialog/);
     assert.match(css.text, /\.gm-delete-property-button/);
     assert.match(css.text, /min-height: 52px/);
   });
@@ -357,7 +367,7 @@ describe("gas-monitor-v1", () => {
       sw.text,
       /gas-monitor-accordion-state-v1\.js/
     );
-    assert.match(sw.text, /tisly-pwa-v2455-property-delete/);
+    assert.match(sw.text, /tisly-pwa-v2456-property-register/);
     // 旧JSがHTTPキャッシュから返らないようにする
     assert.match(sw.text, /function shouldBypassHttpCache/);
     assert.match(sw.text, /cache: "reload"/);
@@ -366,7 +376,7 @@ describe("gas-monitor-v1", () => {
     const operatorPage = await request(app).get("/app/gas-monitor");
     assert.match(
       operatorPage.text,
-      /gas-monitor-operator-v1\.js\?v=2455/
+      /gas-monitor-operator-v1\.js\?v=2456/
     );
     const customerPage = await request(app).get(
       "/customer/gas-monitor"

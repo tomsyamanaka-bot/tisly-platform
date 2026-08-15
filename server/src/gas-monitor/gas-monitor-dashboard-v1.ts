@@ -13,6 +13,7 @@ import {
 import {
   cylinderPercentV1,
   needsDeliveryV1,
+  type GasPropertyKindV1,
   type GasPropertyV1,
 } from "./gas-monitor-sites-v1.js";
 import {
@@ -131,6 +132,16 @@ function isDeviceOnline(lastSeenAt: string | null): boolean {
   return Number.isFinite(elapsed) && elapsed >= 0 && elapsed <= 90000;
 }
 
+function resolveRegisteredPropertyKindV1(
+  address: string
+): GasPropertyKindV1 {
+  if (/集合住宅|アパート|マンション/.test(address)) {
+    return "apartment";
+  }
+  if (/店舗|事務所/.test(address)) return "shop";
+  return "detached";
+}
+
 function buildRegisteredGasPropertyV1(
   propertyId: string
 ): GasPropertyV1 {
@@ -141,7 +152,7 @@ function buildRegisteredGasPropertyV1(
     tenantId: `tenant_${customerCode.toLowerCase()}`,
     countryCode: "JP",
     currency: "JPY",
-    kind: "detached",
+    kind: resolveRegisteredPropertyKindV1(property?.address ?? ""),
     displayName: property?.propertyName ?? "登録済み物件",
     addressLabel: property?.address || "所在地未登録",
     meterPulseTotal: 0,

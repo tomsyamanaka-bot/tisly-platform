@@ -16,7 +16,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
 | ログインCTA | 青〜紫グラデ維持（`#4facfe` → `#a855f7`） |
-| SW | `tisly-pwa-v2452-gas-accordion-class` |
+| SW | `tisly-pwa-v2456-property-register` |
 
 ---
 
@@ -1283,3 +1283,19 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | SW | `tisly-pwa-v2455-property-delete` |
 | テスト | `device-binding-v1.test.ts` · `gas-monitor-v1.test.ts` |
 | 確認 | `/app/gas-monitor` · `/customer/gas-monitor` · https://tisly.jp/api/health |
+
+### ガス監視 新規物件・デバイス登録 v1（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | ガス監視画面から物件・RP2350・初期ポートを一括登録 |
+| API | `POST /api/device/register` · `GET /api/device/next-id` |
+| DB | 物件 · バインド · DI1/DI2設定を単一SQLiteトランザクションで追加 |
+| UI | `/app/gas-monitor` — 見出し横の「➕ 新規物件を追加」· 白×ネイビーモーダル |
+| 入力 | 物件名 · 設置エリア/種別 · 連番デバイスID · 初期指針値 |
+| 初期ポート | DI1 ガスメーター（0.01m³/P）· DI2 地震遮断 |
+| 即時反映 | 登録物件数 · 建物カード · 選択物件の現場ポートマッピング |
+| ZIP | 選択デバイス専用 `config.json` 入りRP2350設定ZIP |
+| SW | `tisly-pwa-v2456-property-register` |
+| テスト | `device-binding-v1.test.ts` · `device-port-config-v1.test.ts` · `gas-monitor-v1.test.ts` |
+| 確認 | `/app/gas-monitor` · `/api/device/register` · https://tisly.jp/api/health |

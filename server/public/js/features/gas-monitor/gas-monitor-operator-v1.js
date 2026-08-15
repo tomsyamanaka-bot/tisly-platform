@@ -17,6 +17,9 @@ function escapeHtml(s) {
 }
 
 let refreshInFlight = false;
+let selectedPropertyId = "";
+let selectedPropertyName = "";
+let latestDashboard = null;
 
 // 建物カードの開閉状態（openPropertyIds）
 const accordion = createAccordionStateV1("operator");
@@ -268,6 +271,7 @@ function roomCardClass(p) {
   } else if (p.lifeCareAlertLevel === "warn") {
     cls += " is-lifecare-warn";
   } else if (p.needsDelivery) cls += " is-delivery";
+  if (selectedPropertyId === p.propertyId) cls += " is-selected";
   return cls;
 }
 
@@ -366,6 +370,13 @@ function roomCardHtml(p) {
       <div class="gm-cyl" data-gm-role="cyl">${(p.cylinders || [])
         .map(cylinderRowHtml)
         .join("")}</div>
+      <button
+        class="gm-select-property-button"
+        type="button"
+        data-select-property
+        data-property-id="${escapeHtml(p.propertyId)}"
+        data-property-name="${escapeHtml(p.displayName)}"
+      >この物件のポート設定を見る</button>
     </article>`;
 }
 
@@ -404,6 +415,11 @@ function patchRoomCard(el, p) {
   setHidden(mmWaveEl, !hasMmWave);
   if (hasMmWave) setText(mmWaveEl, roomMmWaveText(p));
   syncCylinders(el.querySelector('[data-gm-role="cyl"]'), p.cylinders);
+  const selectButton = el.querySelector("[data-select-property]");
+  if (selectButton) {
+    selectButton.dataset.propertyId = p.propertyId;
+    selectButton.dataset.propertyName = p.displayName;
+  }
 }
 
 const BUILDING_BADGES = [
@@ -858,12 +874,20 @@ async function downloadFirmware(button) {
 function renderMappedPorts(d) {
   const root = document.getElementById("gm-mapped-port-list");
   if (!root) return;
-  const devices = d.mappedDevices || [];
+  const devices = (d.mappedDevices || []).filter(
+    (device) =>
+      !selectedPropertyId ||
+      device.propertyId === selectedPropertyId
+  );
   if (!devices.length) {
     setPlaceholder(
       root,
       "empty",
-      `<p class="gm-empty">使用中の現場ポートはありません</p>`
+      `<p class="gm-empty">${
+        selectedPropertyId
+          ? "選択した物件に使用中ポートはありません"
+          : "使用中の現場ポートはありません"
+      }</p>`
     );
     return;
   }
@@ -879,14 +903,116 @@ function renderMappedPorts(d) {
   });
 }
 
+function updateMappingSelection() {
+  const label = document.getElementById("gm-mapping-selection");
+  setText(
+    label,
+    selectedPropertyId
+      ? `${selectedPropertyName || selectedPropertyId} を表示中`
+      : "すべての物件"
+  );
+}
+
+function selectProperty(propertyId, propertyName) {
+  selectedPropertyId = propertyId;
+  selectedPropertyName = propertyName;
+  updateMappingSelection();
+  if (latestDashboard) {
+    renderList(latestDashboard);
+    renderMappedPorts(latestDashboard);
+  }
+  document
+    .getElementById("gm-mapped-port-list")
+    ?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+async function suggestDeviceId() {
+  const response = await fetch("/api/device/next-id", {
+    headers: operatorAuthHeaders(),
+    cache: "no-store",
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(body.error || "連番取得失敗");
+  const input = document.getElementById("gm-device-id");
+  if (input && !input.value.trim()) input.value = body.deviceId || "";
+}
+
+function openRegisterDialog() {
+  const dialog = document.getElementById("gm-register-dialog");
+  const error = document.getElementById("gm-register-error");
+  setText(error, "");
+  if (dialog && !dialog.open) dialog.showModal();
+  suggestDeviceId().catch((err) => setText(error, err.message));
+  window.setTimeout(() => {
+    document.getElementById("gm-property-name")?.focus();
+  }, 0);
+}
+
+async function registerProperty(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  if (!form.reportValidity()) return;
+  const submit = document.getElementById("gm-register-submit");
+  const error = document.getElementById("gm-register-error");
+  submit.disabled = true;
+  setText(error, "");
+  try {
+    const formData = new FormData(form);
+    const response = await fetch("/api/device/register", {
+      method: "POST",
+      headers: operatorAuthHeaders(),
+      body: JSON.stringify({
+        propertyName: formData.get("propertyName"),
+        installLocation: formData.get("installLocation"),
+        deviceId: formData.get("deviceId"),
+        initialMeterValue: formData.get("initialMeterValue"),
+        portMappings: [
+          {
+            port: "DI1",
+            label: "ガスメーター",
+            operationMode: "pulse",
+            pulseWeight: 0.01,
+          },
+          {
+            port: "DI2",
+            label: "地震遮断",
+            operationMode: "state_monitor",
+          },
+        ],
+      }),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(body.error || "登録できませんでした");
+    }
+    const property = body.property;
+    const total = document.getElementById("gm-sum-total");
+    setText(total, String(Number(total?.textContent || 0) + 1));
+    selectedPropertyId = property.propertyId;
+    selectedPropertyName = property.propertyName;
+    accordion.openPropertyIds.add(`BLD-ORPHAN-${property.propertyId}`);
+    document.getElementById("gm-register-dialog")?.close();
+    form.reset();
+    document.getElementById("gm-initial-meter").value = "0.00";
+    updateMappingSelection();
+    await refresh();
+  } catch (err) {
+    setText(error, err.message);
+  } finally {
+    submit.disabled = false;
+  }
+}
+
 async function refresh() {
   if (refreshInFlight) return;
   refreshInFlight = true;
   try {
     const d = await loadOperator();
+    latestDashboard = d;
     renderSummary(d);
     renderList(d);
     renderMappedPorts(d);
+    updateMappingSelection();
   } finally {
     refreshInFlight = false;
   }
@@ -896,7 +1022,25 @@ document.addEventListener("DOMContentLoaded", () => {
   const back = document.getElementById("gm-back-link");
   if (back) back.href = "/app";
   accordion.track(document.getElementById("gm-prop-list"));
+  document
+    .getElementById("gm-open-register")
+    ?.addEventListener("click", openRegisterDialog);
+  document
+    .getElementById("gm-close-register")
+    ?.addEventListener("click", () => {
+      document.getElementById("gm-register-dialog")?.close();
+    });
+  document
+    .getElementById("gm-register-form")
+    ?.addEventListener("submit", registerProperty);
   document.addEventListener("click", (event) => {
+    const selectButton = event.target.closest("[data-select-property]");
+    if (selectButton) {
+      selectProperty(
+        String(selectButton.dataset.propertyId || ""),
+        String(selectButton.dataset.propertyName || "")
+      );
+    }
     const deleteButton = event.target.closest("[data-delete-property]");
     if (deleteButton) deleteProperty(deleteButton);
     const pulseButton = event.target.closest("[data-test-pulse]");

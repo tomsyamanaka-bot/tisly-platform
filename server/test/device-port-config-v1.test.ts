@@ -493,7 +493,7 @@ describe("RP2350 port mapping and field validation v1", () => {
     const worker = await request(app).get("/service-worker.js");
     assert.match(
       worker.text,
-      /v2454-rp2350-firmware-zip/
+      /v2456-property-register/
     );
     assert.match(worker.text, /\/device-binding-v1\.html/);
   });

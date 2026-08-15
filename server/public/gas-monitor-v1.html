@@ -12,7 +12,7 @@
   <title>TiSLY ガス事業者 — ボンベ・検針</title>
   <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
   <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
-  <link rel="stylesheet" href="/css/features/gas-monitor/gas-monitor-v1.css?v=2455" />
+  <link rel="stylesheet" href="/css/features/gas-monitor/gas-monitor-v1.css?v=2456" />
 </head>
 <body class="gm-body tisly-friendly">
   <!--
@@ -52,20 +52,68 @@
     </section>
 
     <section class="gm-card">
-      <p class="gm-card-label">建物グループ一覧（警報優先）</p>
+      <div class="gm-section-heading">
+        <p class="gm-card-label">建物グループ一覧（警報優先）</p>
+        <button class="gm-add-property-button" id="gm-open-register" type="button">
+          ➕ 新規物件を追加
+        </button>
+      </div>
       <div class="gm-prop-list" id="gm-prop-list">
         <p class="gm-empty">読み込み中…</p>
       </div>
     </section>
 
     <section class="gm-card">
-      <p class="gm-card-label">現場ポートマッピング</p>
+      <div class="gm-section-heading">
+        <p class="gm-card-label">現場ポートマッピング</p>
+        <span class="gm-mapping-selection" id="gm-mapping-selection">すべての物件</span>
+      </div>
       <div class="gm-mapped-port-list" id="gm-mapped-port-list">
         <p class="gm-empty">設定済みポートを読み込み中…</p>
       </div>
     </section>
   </main>
 
-  <script type="module" src="/js/features/gas-monitor/gas-monitor-operator-v1.js?v=2455"></script>
+  <dialog class="gm-register-dialog" id="gm-register-dialog">
+    <form class="gm-register-form" id="gm-register-form">
+      <div class="gm-dialog-head">
+        <div>
+          <p class="gm-card-label">ガス監視へ追加</p>
+          <h2>新規物件・デバイス登録</h2>
+        </div>
+        <button class="gm-dialog-close" id="gm-close-register" type="button" aria-label="閉じる">×</button>
+      </div>
+      <label class="gm-form-field">
+        <span>物件名 <b>必須</b></span>
+        <input id="gm-property-name" name="propertyName" maxlength="120" required placeholder="例: TOMS第2デモ" />
+      </label>
+      <label class="gm-form-field">
+        <span>設置エリア / 種別</span>
+        <input id="gm-property-location" name="installLocation" maxlength="240" list="gm-location-options" placeholder="例: つくばみらい市・戸建て" />
+        <datalist id="gm-location-options">
+          <option value="戸建て"></option>
+          <option value="集合住宅"></option>
+          <option value="店舗"></option>
+        </datalist>
+      </label>
+      <label class="gm-form-field">
+        <span>デバイスID <b>必須</b></span>
+        <input id="gm-device-id" name="deviceId" maxlength="64" required autocomplete="off" placeholder="TISLY-BOX-002" />
+        <small>連番を自動提案します。現場IDへ変更できます。</small>
+      </label>
+      <label class="gm-form-field">
+        <span>初期指針値（m³）</span>
+        <input id="gm-initial-meter" name="initialMeterValue" type="number" min="0" step="0.01" value="0.00" required inputmode="decimal" />
+      </label>
+      <div class="gm-default-ports" aria-label="初期ポート設定">
+        <span><b>DI1</b> ガスメーター</span>
+        <span><b>DI2</b> 地震遮断</span>
+      </div>
+      <p class="gm-register-error" id="gm-register-error" role="alert"></p>
+      <button class="gm-register-submit" id="gm-register-submit" type="submit">登録する</button>
+    </form>
+  </dialog>
+
+  <script type="module" src="/js/features/gas-monitor/gas-monitor-operator-v1.js?v=2456"></script>
 </body>
 </html>
