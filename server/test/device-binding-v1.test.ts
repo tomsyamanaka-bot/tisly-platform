@@ -513,6 +513,76 @@ describe("RP2350 QR property binding v1", () => {
     assert.doesNotMatch(js.text, /btn-toggle-scope/);
   });
 
+  it("deletes a property with bindings, ports, and monitoring data", async () => {
+    const ports = buildDefaultDevicePortsV1();
+    ports[0] = {
+      ...ports[0],
+      enabled: true,
+      label: "削除確認ガスメーター",
+    };
+    const saved = await request(app)
+      .post("/api/device/ports/save")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        deviceId: "TISLY-BOX-DELETE-001",
+        propertyName: "削除確認物件",
+        ports,
+        rs485Devices: [
+          { modbusAddress: 1, equipmentName: "削除確認機器" },
+        ],
+        fieldNote: "削除確認用メモ",
+      });
+    assert.equal(saved.status, 200, saved.body?.error);
+    const deletePropertyId = saved.body.property_id;
+    const now = new Date().toISOString();
+    getDatabase()
+      .prepare(
+        `INSERT INTO device_port_telemetry_v1
+         (device_id, port_number, input_state, pulse_count,
+          meter_value, reading_date, received_at)
+         VALUES (?, 1, 'off', 2, 0.02, '2026-08-16', ?)`
+      )
+      .run("TISLY-BOX-DELETE-001", now);
+    getDatabase()
+      .prepare(
+        `INSERT INTO device_emergency_events_v1
+         (device_id, property_id, port_number, label,
+          active, received_at)
+         VALUES (?, ?, 2, '削除確認', 0, ?)`
+      )
+      .run("TISLY-BOX-DELETE-001", deletePropertyId, now);
+
+    const unauthorized = await request(app)
+      .delete("/api/device/unbind")
+      .send({ property_id: deletePropertyId });
+    assert.equal(unauthorized.status, 401);
+
+    const deleted = await request(app)
+      .delete("/api/device/unbind")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ property_id: deletePropertyId });
+    assert.equal(deleted.status, 200, deleted.body?.error);
+    assert.deepEqual(deleted.body, {
+      success: true,
+      deleted_property_id: deletePropertyId,
+    });
+
+    for (const [table, column, value] of [
+      ["customer_portal_properties", "property_id", deletePropertyId],
+      ["property_device_bindings_v1", "property_id", deletePropertyId],
+      ["device_port_configs_v1", "device_id", "TISLY-BOX-DELETE-001"],
+      ["device_rs485_configs_v1", "device_id", "TISLY-BOX-DELETE-001"],
+      ["device_field_notes_v1", "device_id", "TISLY-BOX-DELETE-001"],
+      ["device_port_telemetry_v1", "device_id", "TISLY-BOX-DELETE-001"],
+      ["device_emergency_events_v1", "device_id", "TISLY-BOX-DELETE-001"],
+    ]) {
+      const row = getDatabase()
+        .prepare(`SELECT COUNT(*) AS count FROM ${table} WHERE ${column} = ?`)
+        .get(value) as { count: number };
+      assert.equal(row.count, 0, table);
+    }
+  });
+
   it("appends the hub card and canonical routes", () => {
     const cards = buildPracticalHubCards("manager");
     const card = cards.find(

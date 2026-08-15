@@ -18,6 +18,7 @@ function escapeHtml(s) {
 
 let usageChart = null;
 let refreshInFlight = false;
+let customerProperties = [];
 
 // 詳細カードの開閉状態（openPropertyIds）
 const accordion = createAccordionStateV1("customer");
@@ -86,6 +87,8 @@ function setEmptyState(empty) {
   document.querySelectorAll(".gm-live-section").forEach((section) => {
     section.hidden = empty;
   });
+  const deleteButton = document.getElementById("gm-delete-property");
+  if (deleteButton) deleteButton.hidden = empty;
 }
 
 function ensureSelectedProperty(d) {
@@ -120,6 +123,80 @@ async function loadProperties() {
   const data = await res.json();
   if (!data.ok) throw new Error(data.error || "物件一覧失敗");
   return data.properties || [];
+}
+
+function customerAuthHeaders() {
+  const token =
+    localStorage.getItem("tisly_admin_token") ||
+    sessionStorage.getItem("tisly_token") ||
+    "";
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
+function renderPropertyCount() {
+  setText(
+    document.getElementById("gm-property-count"),
+    String(customerProperties.length)
+  );
+}
+
+/**
+ * 選択中の物件を確認後に削除し、
+ * 次の物件または空状態へ即時切り替える。
+ */
+async function deleteSelectedProperty() {
+  const select = document.getElementById("gm-property-select");
+  const button = document.getElementById("gm-delete-property");
+  const propertyId = String(select?.value || "");
+  if (!propertyId || !button) return;
+  const propertyName =
+    select.options[select.selectedIndex]?.text || "この物件";
+  const confirmed = window.confirm(
+    `『${propertyName}』を削除しますか？監視データも消去されます`
+  );
+  if (!confirmed) return;
+
+  button.disabled = true;
+  try {
+    const response = await fetch("/api/device/unbind", {
+      method: "DELETE",
+      headers: customerAuthHeaders(),
+      body: JSON.stringify({ property_id: propertyId }),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(body.error || "物件を削除できませんでした");
+    }
+
+    button.classList.add("is-removing");
+    await new Promise((resolve) => window.setTimeout(resolve, 220));
+    customerProperties = customerProperties.filter(
+      (property) => property.id !== propertyId
+    );
+    select.options[select.selectedIndex]?.remove();
+    renderPropertyCount();
+    button.classList.remove("is-removing");
+    button.disabled = false;
+
+    if (!customerProperties.length) {
+      removeAllChildren(select);
+      select.add(new Option("登録物件なし", ""));
+      select.disabled = true;
+      setEmptyState(true);
+      renderMappedPorts({ mappedPorts: [] });
+      return;
+    }
+    select.disabled = false;
+    select.selectedIndex = 0;
+    await refresh();
+  } catch (error) {
+    button.disabled = false;
+    button.classList.remove("is-removing");
+    window.alert(error.message);
+  }
 }
 
 function lastSeenText(lastSeenAt) {
@@ -357,6 +434,8 @@ async function init() {
 
   const select = document.getElementById("gm-property-select");
   const props = await loadProperties();
+  customerProperties = props;
+  renderPropertyCount();
   // 物件リストは初回のみ組み立てる
   removeAllChildren(select);
   if (!props.length) {
@@ -372,6 +451,11 @@ async function init() {
   select.addEventListener("change", () => {
     refresh().catch(console.error);
   });
+  document
+    .getElementById("gm-delete-property")
+    ?.addEventListener("click", () => {
+      deleteSelectedProperty().catch(console.error);
+    });
   await refresh();
   window.setInterval(() => {
     if (document.visibilityState === "visible") {

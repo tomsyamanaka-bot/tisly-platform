@@ -11,6 +11,7 @@ import {
   type AuthedRequest,
 } from "../../auth/auth-middleware.js";
 import {
+  clearDeviceRuntimeStateV1,
   consumeDeviceRelayCommandV1,
   getDevicePortConfigurationV1,
   getDevicePortLiveStateV1,
@@ -27,6 +28,7 @@ import {
 } from "../../device/device-rp2350-firmware-v1.js";
 import {
   bindDeviceToPropertyV1,
+  deletePropertyBindingV1,
   DeviceBindingConflictError,
   ensureDevicePropertyBindingV1,
   listDeviceIdsForLabelsV1,
@@ -225,6 +227,37 @@ deviceBindingV1Router.post(
           ? 404
           : 400;
       res.status(status).json({ error: message });
+    }
+  }
+);
+
+deviceBindingV1Router.delete(
+  "/unbind",
+  ...requireDeviceOperator,
+  (req: AuthedRequest, res) => {
+    try {
+      const customerCode = resolveCustomerCode(
+        req,
+        req.body?.customerCode
+      );
+      const deleted = deletePropertyBindingV1({
+        customerCode,
+        propertyId: req.body?.property_id ?? req.body?.propertyId,
+      });
+      clearDeviceRuntimeStateV1(deleted.deviceIds);
+      res.json({
+        success: true,
+        deleted_property_id: deleted.propertyId,
+      });
+    } catch (error) {
+      const message = String((error as Error).message);
+      res.status(
+        message.includes("access denied")
+          ? 403
+          : message.includes("not found")
+            ? 404
+            : 400
+      ).json({ error: message });
     }
   }
 );

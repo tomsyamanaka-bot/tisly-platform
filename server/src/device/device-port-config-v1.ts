@@ -114,6 +114,17 @@ const PULSE_UNITS = new Set([
   "P",
 ]);
 
+/**
+ * 削除済み実機のメモリ状態と未実行命令を破棄し、
+ * 再登録時に古い監視値が混在する事故を防止する。
+ */
+export function clearDeviceRuntimeStateV1(deviceIds: string[]): void {
+  for (const deviceId of deviceIds) {
+    liveStates.delete(deviceId);
+    relayCommands.delete(deviceId);
+  }
+}
+
 function isPortNumber(value: number): boolean {
   return (
     Number.isInteger(value) &&

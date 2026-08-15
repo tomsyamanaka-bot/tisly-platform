@@ -11,7 +11,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
   <title>TiSLY ガス見守り — お客様</title>
   <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
-  <link rel="stylesheet" href="/css/features/gas-monitor/gas-monitor-v1.css?v=2453" />
+  <link rel="stylesheet" href="/css/features/gas-monitor/gas-monitor-v1.css?v=2455" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
 </head>
 <body class="gm-body tisly-friendly">
@@ -30,10 +30,18 @@
 
   <main class="gm-main">
     <section class="gm-card">
-      <p class="gm-card-label">物件を選ぶ</p>
+      <div class="gm-customer-property-heading">
+        <p class="gm-card-label">物件を選ぶ</p>
+        <span>登録物件数 <strong id="gm-property-count">0</strong></span>
+      </div>
       <select id="gm-property-select" class="gm-select" aria-label="物件選択">
         <option value="">読み込み中…</option>
       </select>
+      <button
+        class="gm-delete-property-button gm-customer-delete-button"
+        id="gm-delete-property"
+        type="button"
+      >🗑️ 物件を削除</button>
     </section>
 
     <section class="gm-card" id="gm-empty-state" hidden>
@@ -113,6 +121,6 @@
     </section>
   </main>
 
-  <script type="module" src="/js/features/gas-monitor/gas-monitor-customer-v1.js?v=2453"></script>
+  <script type="module" src="/js/features/gas-monitor/gas-monitor-customer-v1.js?v=2455"></script>
 </body>
 </html>

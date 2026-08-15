@@ -199,6 +199,29 @@
   background: #fff;
 }
 
+.gm-customer-property-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.gm-customer-property-heading > span {
+  color: var(--gm-muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.gm-customer-property-heading strong {
+  color: var(--gm-navy);
+  font-size: 1rem;
+}
+
+.gm-customer-delete-button {
+  width: 100%;
+  margin-top: 10px;
+}
+
 .gm-summary-row {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -267,6 +290,54 @@
   justify-content: space-between;
   gap: 8px;
   align-items: flex-start;
+}
+
+.gm-property-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.gm-delete-property-button {
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  background: #fff1f2;
+  color: #b91c1c;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 900;
+  cursor: pointer;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.gm-delete-property-button:hover {
+  background: #ffe4e6;
+}
+
+.gm-delete-property-button:focus-visible {
+  outline: 3px solid #fca5a5;
+  outline-offset: 2px;
+}
+
+.gm-delete-property-button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.gm-room-card,
+.gm-mapped-device,
+.gm-customer-delete-button {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.gm-room-card.is-removing,
+.gm-mapped-device.is-removing,
+.gm-customer-delete-button.is-removing {
+  opacity: 0;
+  transform: translateY(-8px);
 }
 
 .gm-prop-name {

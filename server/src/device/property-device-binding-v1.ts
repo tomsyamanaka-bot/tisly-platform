@@ -249,3 +249,78 @@ export function listDeviceIdsForLabelsV1(
     .all(code, code) as Array<{ device_id: string }>;
   return rows.map((row) => row.device_id);
 }
+
+export interface DeletedPropertyBindingV1 {
+  propertyId: string;
+  deviceIds: string[];
+}
+
+/**
+ * 物件と実機監視データを同一トランザクションで削除し、
+ * バインド・設定だけが残る不整合を防止する。
+ */
+export function deletePropertyBindingV1(input: {
+  customerCode: string;
+  propertyId: unknown;
+}): DeletedPropertyBindingV1 {
+  const customerCode = input.customerCode.trim().toUpperCase();
+  const propertyId = String(input.propertyId ?? "").trim();
+  if (!propertyId) throw new Error("property_id required");
+
+  const database = getDatabase();
+  const property = database
+    .prepare(
+      `SELECT property_id, customer_code
+       FROM customer_portal_properties
+       WHERE property_id = ?`
+    )
+    .get(propertyId) as
+    | { property_id: string; customer_code: string }
+    | undefined;
+  if (
+    !property ||
+    property.customer_code.trim().toUpperCase() !== customerCode
+  ) {
+    throw new Error("property not found");
+  }
+
+  const deviceIds = (
+    database
+      .prepare(
+        `SELECT device_id FROM property_device_bindings_v1
+         WHERE property_id = ? AND customer_code = ?`
+      )
+      .all(propertyId, customerCode) as Array<{ device_id: string }>
+  ).map((row) => row.device_id);
+
+  database.transaction(() => {
+    const childTables = [
+      "device_emergency_events_v1",
+      "device_port_telemetry_v1",
+      "device_field_notes_v1",
+      "device_rs485_configs_v1",
+      "device_port_configs_v1",
+    ];
+    for (const deviceId of deviceIds) {
+      for (const table of childTables) {
+        database
+          .prepare(`DELETE FROM ${table} WHERE device_id = ?`)
+          .run(deviceId);
+      }
+    }
+    database
+      .prepare(
+        `DELETE FROM property_device_bindings_v1
+         WHERE property_id = ? AND customer_code = ?`
+      )
+      .run(propertyId, customerCode);
+    database
+      .prepare(
+        `DELETE FROM customer_portal_properties
+         WHERE property_id = ? AND customer_code = ?`
+      )
+      .run(propertyId, customerCode);
+  })();
+
+  return { propertyId, deviceIds };
+}

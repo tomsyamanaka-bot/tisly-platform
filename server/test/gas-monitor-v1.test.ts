@@ -269,11 +269,23 @@ describe("gas-monitor-v1", () => {
     assert.match(operatorJs.text, /テストパルス\+1送信/);
     assert.match(operatorJs.text, /\/api\/meter\/telemetry/);
     assert.match(operatorJs.text, /実機オンライン/);
+    assert.match(operatorJs.text, /\/api\/device\/unbind/);
+    assert.match(operatorJs.text, /data-delete-property/);
+    assert.match(operatorJs.text, /監視データも消去されます/);
+
+    const customerJs = await request(app).get(
+      "/js/features/gas-monitor/gas-monitor-customer-v1.js"
+    );
+    assert.match(customerJs.text, /\/api\/device\/unbind/);
+    assert.match(customerJs.text, /deleteSelectedProperty/);
+    assert.match(custPage.text, /id="gm-property-count"/);
+    assert.match(custPage.text, /id="gm-delete-property"/);
 
     const css = await request(app).get(
       "/css/features/gas-monitor/gas-monitor-v1.css"
     );
     assert.match(css.text, /\.gm-register-button/);
+    assert.match(css.text, /\.gm-delete-property-button/);
     assert.match(css.text, /min-height: 52px/);
   });
 
@@ -345,7 +357,7 @@ describe("gas-monitor-v1", () => {
       sw.text,
       /gas-monitor-accordion-state-v1\.js/
     );
-    assert.match(sw.text, /tisly-pwa-v2454-rp2350-firmware-zip/);
+    assert.match(sw.text, /tisly-pwa-v2455-property-delete/);
     // 旧JSがHTTPキャッシュから返らないようにする
     assert.match(sw.text, /function shouldBypassHttpCache/);
     assert.match(sw.text, /cache: "reload"/);
@@ -354,14 +366,14 @@ describe("gas-monitor-v1", () => {
     const operatorPage = await request(app).get("/app/gas-monitor");
     assert.match(
       operatorPage.text,
-      /gas-monitor-operator-v1\.js\?v=2454/
+      /gas-monitor-operator-v1\.js\?v=2455/
     );
     const customerPage = await request(app).get(
       "/customer/gas-monitor"
     );
     assert.match(
       customerPage.text,
-      /gas-monitor-customer-v1\.js\?v=2453/
+      /gas-monitor-customer-v1\.js\?v=2455/
     );
     assert.match(customerPage.text, /gm-device-online/);
   });

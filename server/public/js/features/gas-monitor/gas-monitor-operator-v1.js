@@ -326,9 +326,18 @@ function roomCardHtml(p) {
             roomAddrText(p)
           )}</p>
         </div>
-        <span class="${badge.cls}" data-gm-role="room-badge">${
-          badge.text
-        }</span>
+        <div class="gm-property-actions">
+          <span class="${badge.cls}" data-gm-role="room-badge">${
+            badge.text
+          }</span>
+          <button
+            class="gm-delete-property-button"
+            type="button"
+            data-delete-property
+            data-property-id="${escapeHtml(p.propertyId)}"
+            data-property-name="${escapeHtml(p.displayName)}"
+          >🗑️ 物件を削除</button>
+        </div>
       </div>
       <div class="gm-lifecare-row">
         <span class="${lifeCareBadgeClass(
@@ -716,6 +725,63 @@ function operatorAuthHeaders() {
 }
 
 /**
+ * 確認後に物件と実機設定を削除し、
+ * 一覧・件数・現場ポートを即時同期する。
+ */
+async function deleteProperty(button) {
+  const propertyId = String(button.dataset.propertyId || "");
+  const propertyName = String(button.dataset.propertyName || "この物件");
+  const confirmed = window.confirm(
+    `『${propertyName}』を削除しますか？監視データも消去されます`
+  );
+  if (!confirmed) return;
+
+  button.disabled = true;
+  try {
+    const response = await fetch("/api/device/unbind", {
+      method: "DELETE",
+      headers: operatorAuthHeaders(),
+      body: JSON.stringify({ property_id: propertyId }),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(body.error || "物件を削除できませんでした");
+    }
+
+    const total = document.getElementById("gm-sum-total");
+    setText(total, String(Math.max(0, Number(total?.textContent || 0) - 1)));
+    const room = button.closest("article[data-property-id]");
+    const building = button.closest("article[data-building-id]");
+    if (room) room.classList.add("is-removing");
+    document
+      .querySelectorAll("#gm-mapped-port-list article[data-device-id]")
+      .forEach((device) => {
+        const mappedProperty = device.querySelector(
+          '[data-gm-role="device-property"]'
+        );
+        if (mappedProperty?.textContent === propertyId) {
+          device.classList.add("is-removing");
+        }
+      });
+    await new Promise((resolve) => window.setTimeout(resolve, 220));
+    room?.remove();
+    if (
+      building &&
+      !building.querySelector("article[data-property-id]")
+    ) {
+      building.remove();
+    }
+    document
+      .querySelectorAll("#gm-mapped-port-list .is-removing")
+      .forEach((device) => device.remove());
+    await refresh();
+  } catch (error) {
+    button.disabled = false;
+    window.alert(error.message);
+  }
+}
+
+/**
  * 現場疎通用の単発パルスを送信し、
  * 成功後に既存カードの数値だけ更新する。
  */
@@ -831,6 +897,8 @@ document.addEventListener("DOMContentLoaded", () => {
   if (back) back.href = "/app";
   accordion.track(document.getElementById("gm-prop-list"));
   document.addEventListener("click", (event) => {
+    const deleteButton = event.target.closest("[data-delete-property]");
+    if (deleteButton) deleteProperty(deleteButton);
     const pulseButton = event.target.closest("[data-test-pulse]");
     if (pulseButton) sendTestPulse(pulseButton);
     const downloadButton = event.target.closest(

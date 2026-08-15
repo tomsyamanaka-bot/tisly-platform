@@ -1269,3 +1269,17 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | SW | `tisly-pwa-v2454-rp2350-firmware-zip` |
 | テスト | `device-port-config-v1.test.ts` · `gas-monitor-v1.test.ts` |
 | 確認 | `/app/gas-monitor` · `/api/meter/telemetry` · https://tisly.jp/api/health |
+
+### ガス監視 物件・機器バインド削除 v1（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | ガス監視カードから物件・実機設定・監視データを整合性を保って削除 |
+| API | `DELETE /api/device/unbind` — 物件ID必須 · 事業者権限必須 |
+| 削除対象 | `customer_portal_properties` · `property_device_bindings_v1` · ポート/RS485/現場メモ/テレメトリ/緊急イベント |
+| 事業者UI | `/app/gas-monitor` — 物件詳細の赤系ゴミ箱 · 確認 · 件数/空状態/現場ポート即時同期 |
+| お客様UI | `/customer/gas-monitor` — 選択物件の赤系ゴミ箱 · 確認 · 次物件/空状態へ即時切替 |
+| セキュリティ | 削除APIはログイン済み事業者ロールのみ · 顧客コード越境削除を拒否 |
+| SW | `tisly-pwa-v2455-property-delete` |
+| テスト | `device-binding-v1.test.ts` · `gas-monitor-v1.test.ts` |
+| 確認 | `/app/gas-monitor` · `/customer/gas-monitor` · https://tisly.jp/api/health |
