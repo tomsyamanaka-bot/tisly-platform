@@ -249,6 +249,81 @@ export function runMigrations(database: Database.Database): void {
   migratePropertyDeviceBindingsV1(database);
   migrateDevicePortConfigsV1(database);
   migrateGasMonitorDemoSeedV1(database);
+  migrateTislyHomeV1(database);
+}
+
+/**
+ * TiSLY HOME 住設統合 v1。
+ * 月額課金 SaaS を見据えた
+ * テナント / 物件 / デバイス / ログの
+ * スケーラブルなスキーマを追加する。
+ * 既存テーブルは一切変更しない。
+ */
+function migrateTislyHomeV1(database: Database.Database): void {
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS home_sites_v1 (
+      site_id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL,
+      customer_code TEXT NOT NULL DEFAULT '',
+      country_code TEXT NOT NULL DEFAULT 'JP',
+      currency TEXT NOT NULL DEFAULT 'JPY',
+      kind TEXT NOT NULL DEFAULT 'detached',
+      display_name TEXT NOT NULL,
+      address_label TEXT NOT NULL DEFAULT '',
+      voltage_spec TEXT NOT NULL DEFAULT '',
+      hot_water_spec TEXT NOT NULL DEFAULT '',
+      plan_code TEXT NOT NULL DEFAULT 'home_basic',
+      plan_status TEXT NOT NULL DEFAULT 'active',
+      monthly_fee REAL NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS home_devices_v1 (
+      site_id TEXT NOT NULL,
+      device_kind TEXT NOT NULL
+        CHECK (device_kind IN
+          ('ct_panel', 'bath_remote', 'aircon', 'smart_lock')),
+      device_key TEXT NOT NULL,
+      label TEXT NOT NULL DEFAULT '',
+      control_channel TEXT NOT NULL DEFAULT '',
+      state_json TEXT NOT NULL DEFAULT '{}',
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (site_id, device_key)
+    );
+
+    CREATE TABLE IF NOT EXISTS home_control_logs_v1 (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      site_id TEXT NOT NULL,
+      tenant_id TEXT NOT NULL,
+      device_kind TEXT NOT NULL,
+      device_key TEXT NOT NULL DEFAULT '',
+      action TEXT NOT NULL,
+      value TEXT NOT NULL DEFAULT '',
+      actor TEXT NOT NULL DEFAULT 'app',
+      result TEXT NOT NULL DEFAULT 'ok',
+      created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS home_access_logs_v1 (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      site_id TEXT NOT NULL,
+      tenant_id TEXT NOT NULL,
+      credential_type TEXT NOT NULL DEFAULT 'app',
+      holder_name TEXT NOT NULL DEFAULT '',
+      action TEXT NOT NULL DEFAULT 'unlock',
+      occurred_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_home_devices_site
+      ON home_devices_v1(site_id, device_kind);
+    CREATE INDEX IF NOT EXISTS idx_home_control_logs_site
+      ON home_control_logs_v1(site_id, id DESC);
+    CREATE INDEX IF NOT EXISTS idx_home_access_logs_site
+      ON home_access_logs_v1(site_id, id DESC);
+    CREATE INDEX IF NOT EXISTS idx_home_sites_tenant
+      ON home_sites_v1(tenant_id, plan_status);
+  `);
 }
 
 /**

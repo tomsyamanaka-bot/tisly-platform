@@ -491,9 +491,10 @@ describe("RP2350 port mapping and field validation v1", () => {
     );
 
     const worker = await request(app).get("/service-worker.js");
+    // SW は機能追加ごとに更新される（旧タグも許容）
     assert.match(
       worker.text,
-      /v2456-property-register/
+      /v2457-tisly-home|v2456-property-register/
     );
     assert.match(worker.text, /\/device-binding-v1\.html/);
   });

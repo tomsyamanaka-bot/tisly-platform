@@ -104,6 +104,7 @@ import { ecoWaterRouter } from "./api/routes/eco-water.js";
 import { gasMonitorRouter } from "./api/routes/gas-monitor.js";
 import { meterTelemetryRouter } from "./api/routes/meter-telemetry.js";
 import { demandSecurityRouter } from "./api/routes/demand-security.js";
+import { homeRouter } from "./api/routes/home.js";
 import { deviceBindingV1Router } from "./api/routes/device-binding-v1.js";
 import { qnapStorageV1Router } from "./api/routes/qnap-storage-v1.js";
 import { documentsV1Router } from "./api/routes/documents-v1.js";
@@ -187,6 +188,8 @@ export function createApp(): express.Application {
   app.use("/api/meter", meterTelemetryRouter);
   // 電気デマンド＆セキュリティ（追記）
   app.use("/api/demand-security/v1", demandSecurityRouter);
+  // TiSLY HOME 住設・ホームIoT統合（追記）
+  app.use("/api/home/v1", homeRouter);
   // RP2350 QR物件登録（追記）
   app.use("/api/device", deviceBindingV1Router);
   app.use("/api/storage/qnap", qnapStorageV1Router);
@@ -302,6 +305,10 @@ export function createApp(): express.Application {
       path.join(publicDir, "demand-security-customer-v1.html")
     );
   });
+  // TiSLY HOME 住設統合 — お客様向け（追記）
+  app.get("/customer/home", (_req, res) => {
+    res.sendFile(path.join(publicDir, "home-customer-v1.html"));
+  });
   app.get("/customer/:customerCode/portal", (_req, res) => {
     res.sendFile(customerPortalHtml);
   });
@@ -392,6 +399,16 @@ export function createApp(): express.Application {
   });
   app.get("/demand-security", (_req, res) => {
     res.redirect(302, "/demand-security-v1");
+  });
+  // TiSLY HOME 住設統合 — 社内向け（追記）
+  app.get("/app/home", (_req, res) => {
+    res.sendFile(path.join(publicDir, "home-v1.html"));
+  });
+  app.get("/home-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "home-v1.html"));
+  });
+  app.get("/tisly-home", (_req, res) => {
+    res.redirect(302, "/home-v1");
   });
   app.get("/app/push", (_req, res) => {
     res.sendFile(path.join(publicDir, "app-push.html"));

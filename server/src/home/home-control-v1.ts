@@ -1,0 +1,437 @@
+/**
+ * TiSLY HOME — ワンタップ制御 v1
+ *
+ * 4大デバイスへの制御命令を1つの
+ * 入口（applyHomeControlV1）にまとめる。
+ * 既存の物件配列は削除せず対象値のみ更新。
+ */
+
+import {
+  findHomeSiteV1,
+  type HomeAirconFanV1,
+  type HomeAirconModeV1,
+  type HomeAirconSwingV1,
+  type HomeAccessEntryV1,
+  type HomeCredentialTypeV1,
+  type HomeSiteV1,
+} from "./home-sites-v1.js";
+
+/** 制御対象デバイス種別 */
+export type HomeControlTargetV1 =
+  | "circuit"
+  | "bath"
+  | "aircon"
+  | "lock";
+
+export interface HomeControlInputV1 {
+  siteId: string;
+  target: HomeControlTargetV1;
+  action: string;
+  /** 対象デバイス（回路ID / エアコンキー） */
+  deviceKey?: string | null;
+  /** 温度・ON/OFF 等の値 */
+  value?: unknown;
+  /** 操作者（ログ用） */
+  actor?: string | null;
+}
+
+export interface HomeControlResultV1 {
+  ok: boolean;
+  error?: string;
+  siteId?: string;
+  target?: HomeControlTargetV1;
+  action?: string;
+  deviceKey?: string | null;
+  /** 人間向けの結果メッセージ */
+  message?: string;
+  /** 制御後の状態スナップショット */
+  state?: unknown;
+}
+
+const AIRCON_MIN_TEMP_C = 16;
+const AIRCON_MAX_TEMP_C = 32;
+const BATH_MIN_TEMP_C = 32;
+const BATH_MAX_TEMP_C = 48;
+const ACCESS_LOG_MAX = 20;
+
+function clampNumber(
+  value: unknown,
+  min: number,
+  max: number,
+  fallback: number
+): number {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, Math.round(n)));
+}
+
+function toBool(value: unknown, fallback: boolean): boolean {
+  if (typeof value === "boolean") return value;
+  if (value === "true" || value === 1 || value === "1") return true;
+  if (value === "false" || value === 0 || value === "0") return false;
+  return fallback;
+}
+
+function nowIso(): string {
+  return new Date().toISOString();
+}
+
+/**
+ * 分岐回路のリレー ON/OFF
+ * 既存回路は削除せず対象のみ更新。
+ */
+export function setHomeCircuitStateV1(
+  siteId: string,
+  circuitId: string,
+  on: boolean
+): HomeSiteV1 | null {
+  const site = findHomeSiteV1(siteId);
+  if (!site || site.id !== siteId) return null;
+  const circuit = site.ct.circuits.find((c) => c.id === circuitId);
+  if (!circuit) return null;
+  circuit.on = Boolean(on);
+  // OFF は電流0、ON は代表値へ復帰
+  if (!circuit.on) {
+    circuit.currentA = 0;
+  } else if (circuit.currentA === 0) {
+    circuit.currentA = circuit.voltage >= 200 ? 8.0 : 4.0;
+  }
+  recomputeMainCurrentV1(site);
+  return site;
+}
+
+/**
+ * 分岐回路の合計から主幹電流・電力を再計算
+ * 主幹CT = 通電中回路の電流合計
+ * 消費電力 = 各回路の 電流 × 電圧
+ */
+export function recomputeMainCurrentV1(site: HomeSiteV1): void {
+  let totalA = 0;
+  let totalW = 0;
+  for (const c of site.ct.circuits) {
+    if (!c.on) continue;
+    totalA += c.currentA;
+    totalW += c.currentA * c.voltage;
+  }
+  site.ct.mainCurrentA = Math.round(totalA * 10) / 10;
+  site.ct.powerW = Math.round(totalW);
+  site.ct.peakCutActive =
+    site.ct.mainCurrentA >= site.ct.warnThresholdA;
+}
+
+/** 風呂リモコン制御 */
+export function applyHomeBathControlV1(
+  site: HomeSiteV1,
+  action: string,
+  value: unknown
+): HomeControlResultV1 {
+  const bath = site.bath;
+  switch (action) {
+    case "auto_fill": {
+      const next = toBool(value, !bath.autoFill);
+      bath.autoFill = next;
+      bath.fillState = next ? "filling" : "idle";
+      bath.fillPercent = next ? Math.max(bath.fillPercent, 5) : 0;
+      return {
+        ok: true,
+        message: next
+          ? "自動お湯はりを開始しました"
+          : "自動お湯はりを停止しました",
+        state: bath,
+      };
+    }
+    case "reheat": {
+      const next = toBool(value, !bath.reheating);
+      bath.reheating = next;
+      if (next) {
+        bath.currentTempC =
+          Math.round(
+            Math.min(bath.setTempC, bath.currentTempC + 1.5) * 10
+          ) / 10;
+      }
+      return {
+        ok: true,
+        message: next
+          ? "追いだきを開始しました"
+          : "追いだきを停止しました",
+        state: bath,
+      };
+    }
+    case "keep_warm": {
+      const next = toBool(value, !bath.keepWarm);
+      bath.keepWarm = next;
+      return {
+        ok: true,
+        message: next
+          ? "ふろ保温を ON にしました"
+          : "ふろ保温を OFF にしました",
+        state: bath,
+      };
+    }
+    case "set_temp": {
+      bath.setTempC = clampNumber(
+        value,
+        BATH_MIN_TEMP_C,
+        BATH_MAX_TEMP_C,
+        bath.setTempC
+      );
+      return {
+        ok: true,
+        message: `給湯温度を ${bath.setTempC}℃ に設定しました`,
+        state: bath,
+      };
+    }
+    case "temp_up":
+    case "temp_down": {
+      // ワンタップの ±1℃ 調整
+      const delta = action === "temp_up" ? 1 : -1;
+      bath.setTempC = clampNumber(
+        bath.setTempC + delta,
+        BATH_MIN_TEMP_C,
+        BATH_MAX_TEMP_C,
+        bath.setTempC
+      );
+      return {
+        ok: true,
+        message: `給湯温度を ${bath.setTempC}℃ に設定しました`,
+        state: bath,
+      };
+    }
+    default:
+      return { ok: false, error: "未対応の風呂操作です" };
+  }
+}
+
+/** エアコン制御 */
+export function applyHomeAirconControlV1(
+  site: HomeSiteV1,
+  deviceKey: string | null | undefined,
+  action: string,
+  value: unknown
+): HomeControlResultV1 {
+  const key = String(deviceKey || "").trim();
+  const ac =
+    site.aircons.find((a) => a.deviceKey === key) || site.aircons[0];
+  if (!ac) return { ok: false, error: "エアコンが見つかりません" };
+
+  switch (action) {
+    case "power": {
+      const next = toBool(value, !ac.power);
+      ac.power = next;
+      ac.powerW = next ? (ac.mode === "fan" ? 90 : 740) : 0;
+      return {
+        ok: true,
+        message: next
+          ? `${ac.label} を運転開始しました`
+          : `${ac.label} を停止しました`,
+        state: ac,
+      };
+    }
+    case "set_temp": {
+      ac.setTempC = clampNumber(
+        value,
+        AIRCON_MIN_TEMP_C,
+        AIRCON_MAX_TEMP_C,
+        ac.setTempC
+      );
+      return {
+        ok: true,
+        message: `設定温度を ${ac.setTempC}℃ にしました`,
+        state: ac,
+      };
+    }
+    case "temp_up":
+    case "temp_down": {
+      const delta = action === "temp_up" ? 1 : -1;
+      ac.setTempC = clampNumber(
+        ac.setTempC + delta,
+        AIRCON_MIN_TEMP_C,
+        AIRCON_MAX_TEMP_C,
+        ac.setTempC
+      );
+      return {
+        ok: true,
+        message: `設定温度を ${ac.setTempC}℃ にしました`,
+        state: ac,
+      };
+    }
+    case "mode": {
+      const modes: HomeAirconModeV1[] = [
+        "cool",
+        "heat",
+        "dry",
+        "fan",
+      ];
+      const next = String(value ?? "") as HomeAirconModeV1;
+      if (!modes.includes(next)) {
+        return { ok: false, error: "未対応の運転モードです" };
+      }
+      ac.mode = next;
+      if (ac.power) ac.powerW = next === "fan" ? 90 : 740;
+      return {
+        ok: true,
+        message: "運転モードを変更しました",
+        state: ac,
+      };
+    }
+    case "fan": {
+      const fans: HomeAirconFanV1[] = ["auto", "low", "mid", "high"];
+      const next = String(value ?? "") as HomeAirconFanV1;
+      if (!fans.includes(next)) {
+        return { ok: false, error: "未対応の風量です" };
+      }
+      ac.fan = next;
+      return { ok: true, message: "風量を変更しました", state: ac };
+    }
+    case "swing": {
+      const swings: HomeAirconSwingV1[] = [
+        "auto",
+        "up",
+        "middle",
+        "down",
+      ];
+      const next = String(value ?? "") as HomeAirconSwingV1;
+      if (!swings.includes(next)) {
+        return { ok: false, error: "未対応の風向です" };
+      }
+      ac.swing = next;
+      return { ok: true, message: "風向を変更しました", state: ac };
+    }
+    case "peak_save": {
+      const next = toBool(value, !ac.peakSaveActive);
+      ac.peakSaveActive = next;
+      if (next) {
+        // ピーク時は設定温度を1℃緩めて節電
+        ac.setTempC = clampNumber(
+          ac.mode === "heat" ? ac.setTempC - 1 : ac.setTempC + 1,
+          AIRCON_MIN_TEMP_C,
+          AIRCON_MAX_TEMP_C,
+          ac.setTempC
+        );
+      }
+      return {
+        ok: true,
+        message: next
+          ? "ピーク時自動セーブ運転を ON にしました"
+          : "ピーク時自動セーブ運転を OFF にしました",
+        state: ac,
+      };
+    }
+    default:
+      return { ok: false, error: "未対応のエアコン操作です" };
+  }
+}
+
+/** 玄関スマートロック制御 */
+export function applyHomeLockControlV1(
+  site: HomeSiteV1,
+  action: string,
+  value: unknown,
+  actor: string | null | undefined
+): HomeControlResultV1 {
+  const lock = site.lock;
+  if (action !== "toggle" && action !== "lock" && action !== "unlock") {
+    return { ok: false, error: "未対応の施錠操作です" };
+  }
+  const nextLocked =
+    action === "toggle" ? !lock.locked : action === "lock";
+  lock.locked = nextLocked;
+
+  const entry: HomeAccessEntryV1 = {
+    id: `acc-${Date.now()}`,
+    credentialType: normalizeCredentialV1(value),
+    holderName: String(actor || "TiSLY アプリ操作"),
+    action: nextLocked ? "lock" : "unlock",
+    occurredAt: nowIso(),
+  };
+  lock.accessLog = [entry, ...lock.accessLog].slice(0, ACCESS_LOG_MAX);
+
+  return {
+    ok: true,
+    message: nextLocked ? "施錠しました 🔒" : "解錠しました 🔓",
+    state: lock,
+  };
+}
+
+function normalizeCredentialV1(value: unknown): HomeCredentialTypeV1 {
+  const raw =
+    typeof value === "object" && value !== null
+      ? String((value as { credentialType?: string }).credentialType ?? "")
+      : "";
+  const allowed: HomeCredentialTypeV1[] = [
+    "nfc",
+    "rfid",
+    "pin",
+    "app",
+    "key",
+  ];
+  return allowed.includes(raw as HomeCredentialTypeV1)
+    ? (raw as HomeCredentialTypeV1)
+    : "app";
+}
+
+/**
+ * 統合制御エントリポイント
+ * PWA からの1タップ操作はここへ集約する。
+ */
+export function applyHomeControlV1(
+  input: HomeControlInputV1
+): HomeControlResultV1 {
+  const siteId = String(input.siteId || "").trim();
+  const site = findHomeSiteV1(siteId);
+  if (!site || site.id !== siteId) {
+    return { ok: false, error: "物件が見つかりません" };
+  }
+  const action = String(input.action || "").trim();
+  if (!action) {
+    return { ok: false, error: "action が必要です" };
+  }
+
+  let result: HomeControlResultV1;
+  switch (input.target) {
+    case "circuit": {
+      const circuitId = String(input.deviceKey || "").trim();
+      const on = toBool(input.value, true);
+      const updated = setHomeCircuitStateV1(site.id, circuitId, on);
+      result = updated
+        ? {
+            ok: true,
+            message: on
+              ? "回路を通電しました"
+              : "回路を遮断しました",
+            state: updated.ct,
+          }
+        : { ok: false, error: "回路が見つかりません" };
+      break;
+    }
+    case "bath":
+      result = applyHomeBathControlV1(site, action, input.value);
+      break;
+    case "aircon":
+      result = applyHomeAirconControlV1(
+        site,
+        input.deviceKey,
+        action,
+        input.value
+      );
+      break;
+    case "lock":
+      result = applyHomeLockControlV1(
+        site,
+        action,
+        input.value,
+        input.actor
+      );
+      break;
+    default:
+      result = { ok: false, error: "未対応の制御対象です" };
+  }
+
+  return {
+    ...result,
+    siteId: site.id,
+    target: input.target,
+    action,
+    deviceKey: input.deviceKey ?? null,
+  };
+}

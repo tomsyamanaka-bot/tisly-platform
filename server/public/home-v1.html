@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#070B11" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="TiSLY HOME" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2003" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <title>TiSLY HOME — 住設・ホームIoT統合</title>
+  <link rel="stylesheet" href="/css/features/home/home-v1.css?v=2457" />
+</head>
+<body class="hm-body" data-hqs-mode="internal">
+  <!--
+    社内・統合入口
+    分電盤CT · 風呂リモコン · エアコン · 玄関錠
+  -->
+  <header class="hm-header">
+    <a class="hm-back" href="/app" id="hm-back-link">← 戻る</a>
+    <div>
+      <p class="hm-brand-name">TiSLY HOME</p>
+      <h1 class="hm-title">住設・ホームIoT 一括統合</h1>
+      <p class="hm-sub">
+        分電盤CT · 給湯 · 空調 · 玄関錠をワンタップで
+      </p>
+    </div>
+  </header>
+
+  <main class="hm-main">
+    <section class="hm-card">
+      <p class="hm-card-label">物件を選ぶ</p>
+      <select class="hm-select" id="hm-site-select">
+        <option value="">読み込み中…</option>
+      </select>
+      <div class="hm-summary-row" style="margin-top: 14px">
+        <div class="hm-summary-pill">
+          <strong id="hm-sum-total">0</strong>
+          <span>登録物件</span>
+        </div>
+        <div class="hm-summary-pill is-warn">
+          <strong id="hm-sum-overload">0</strong>
+          <span>過負荷</span>
+        </div>
+        <div class="hm-summary-pill is-danger">
+          <strong id="hm-sum-security">0</strong>
+          <span>玄関要確認</span>
+        </div>
+        <div class="hm-summary-pill">
+          <strong id="hm-sum-aircon">0</strong>
+          <span>空調稼働</span>
+        </div>
+      </div>
+    </section>
+
+    <section
+      class="hm-card hm-status-hero is-normal"
+      id="hm-status-hero"
+    >
+      <span class="hm-status-emoji" id="hm-status-emoji">🟢</span>
+      <p class="hm-status-label" id="hm-status-label">読み込み中…</p>
+      <p class="hm-status-meta" id="hm-status-meta">—</p>
+    </section>
+
+    <div class="hm-grid-2">
+      <!-- 1. 分電盤用CT -->
+      <section class="hm-card" id="hm-ct-card">
+        <div class="hm-device-head">
+          <span class="hm-device-icon" aria-hidden="true">⚡</span>
+          <div>
+            <h2 class="hm-device-title">分電盤 CT（電力・デマンド）</h2>
+            <p class="hm-device-note" id="hm-ct-note">—</p>
+          </div>
+        </div>
+
+        <div class="hm-gauge">
+          <div>
+            <span class="hm-gauge-value" id="hm-ct-current">--</span
+            ><span class="hm-gauge-unit">A</span>
+          </div>
+          <p class="hm-gauge-sub" id="hm-ct-power">—</p>
+        </div>
+
+        <div class="hm-bar">
+          <div class="hm-bar-fill" id="hm-ct-bar" style="width: 0%"></div>
+        </div>
+        <div class="hm-threshold-row">
+          <span id="hm-ct-warn">警告 — A</span>
+          <span id="hm-ct-alert">遮断 — A</span>
+        </div>
+
+        <div class="hm-kpi-row">
+          <div class="hm-kpi">
+            <strong id="hm-ct-demand">—</strong>
+            <span>デマンド kW</span>
+          </div>
+          <div class="hm-kpi">
+            <strong id="hm-ct-load">—</strong>
+            <span>主幹負荷 %</span>
+          </div>
+          <div class="hm-kpi">
+            <strong id="hm-ct-peak">—</strong>
+            <span>ピークカット</span>
+          </div>
+        </div>
+
+        <div id="hm-ct-solar-wrap" hidden style="margin-top: 12px">
+          <span class="hm-badge hm-badge-info" id="hm-ct-solar"
+            >☀️ 太陽光 — W</span
+          >
+        </div>
+
+        <p class="hm-card-label" style="margin-top: 18px">分岐回路</p>
+        <div class="hm-circuit-list" id="hm-circuit-list">
+          <p class="hm-empty">読み込み中…</p>
+        </div>
+      </section>
+
+      <!-- 2. 風呂リモコン -->
+      <section class="hm-card" id="hm-bath-card">
+        <div class="hm-device-head">
+          <span class="hm-device-icon" aria-hidden="true">🛁</span>
+          <div>
+            <h2 class="hm-device-title">風呂リモコン（給湯・湯はり）</h2>
+            <p class="hm-device-note" id="hm-bath-note">—</p>
+          </div>
+        </div>
+
+        <div class="hm-temp-hero">
+          <span class="hm-temp-value" id="hm-bath-temp">--</span>
+          <span class="hm-temp-unit">℃ 設定</span>
+        </div>
+        <p class="hm-gauge-sub" id="hm-bath-state">—</p>
+
+        <div class="hm-bar hm-fill-bar">
+          <div
+            class="hm-bar-fill"
+            id="hm-bath-bar"
+            style="width: 0%"
+          ></div>
+        </div>
+        <div class="hm-threshold-row">
+          <span id="hm-bath-current">浴槽 — ℃</span>
+          <span id="hm-bath-percent">湯はり —%</span>
+        </div>
+
+        <div class="hm-btn-row">
+          <button
+            type="button"
+            class="hm-btn"
+            id="hm-bath-autofill"
+            data-target="bath"
+            data-action="auto_fill"
+          >
+            自動お湯はり
+          </button>
+          <button
+            type="button"
+            class="hm-btn"
+            id="hm-bath-reheat"
+            data-target="bath"
+            data-action="reheat"
+          >
+            追いだき
+          </button>
+          <button
+            type="button"
+            class="hm-btn"
+            id="hm-bath-keepwarm"
+            data-target="bath"
+            data-action="keep_warm"
+          >
+            ふろ保温
+          </button>
+        </div>
+
+        <div class="hm-btn-row hm-btn-row-2">
+          <button
+            type="button"
+            class="hm-btn is-off"
+            data-target="bath"
+            data-action="temp_down"
+          >
+            − 給湯温度
+          </button>
+          <button
+            type="button"
+            class="hm-btn is-off"
+            data-target="bath"
+            data-action="temp_up"
+          >
+            ＋ 給湯温度
+          </button>
+        </div>
+
+        <p class="hm-gauge-sub" id="hm-bath-link" style="margin-top: 14px">
+          —
+        </p>
+      </section>
+    </div>
+
+    <!-- 3. エアコン -->
+    <section class="hm-card" id="hm-aircon-card">
+      <div class="hm-device-head">
+        <span class="hm-device-icon" aria-hidden="true">❄️</span>
+        <div>
+          <h2 class="hm-device-title">エアコン（空調制御）</h2>
+          <p class="hm-device-note" id="hm-aircon-note">—</p>
+        </div>
+      </div>
+      <div id="hm-aircon-list">
+        <p class="hm-empty">読み込み中…</p>
+      </div>
+    </section>
+
+    <!-- 4. 玄関スマートロック -->
+    <section class="hm-card" id="hm-lock-card">
+      <div class="hm-device-head">
+        <span class="hm-device-icon" aria-hidden="true">🚪</span>
+        <div>
+          <h2 class="hm-device-title">玄関スマートロック（電子錠）</h2>
+          <p class="hm-device-note" id="hm-lock-note">—</p>
+        </div>
+      </div>
+
+      <div class="hm-lock-hero">
+        <span class="hm-lock-emoji" id="hm-lock-emoji">🔒</span>
+        <p class="hm-lock-state is-locked" id="hm-lock-state">
+          LOCKED
+        </p>
+        <p class="hm-gauge-sub" id="hm-lock-door">—</p>
+      </div>
+
+      <button
+        type="button"
+        class="hm-btn hm-btn-wide"
+        id="hm-lock-toggle"
+        data-target="lock"
+        data-action="toggle"
+      >
+        施錠・解錠を切り替える
+      </button>
+
+      <p class="hm-card-label" style="margin-top: 18px">
+        NFC / RFID 入退室ログ
+      </p>
+      <div class="hm-log-list" id="hm-lock-log">
+        <p class="hm-empty">読み込み中…</p>
+      </div>
+    </section>
+
+    <!-- 現場メモ -->
+    <section class="hm-card">
+      <p class="hm-card-label">現場メモ</p>
+      <ul class="hm-notes" id="hm-notes">
+        <li>読み込み中…</li>
+      </ul>
+    </section>
+
+    <!-- 全物件一覧 -->
+    <section class="hm-card">
+      <p class="hm-card-label">全物件（警報優先）</p>
+      <div class="hm-site-list" id="hm-site-list">
+        <p class="hm-empty">読み込み中…</p>
+      </div>
+    </section>
+  </main>
+
+  <div class="hm-toast" id="hm-toast" role="status" aria-live="polite"></div>
+
+  <script type="module" src="/js/features/home/home-operator-v1.js?v=2457"></script>
+  <script type="module" src="/js/features/home/home-quick-switch-v1.js?v=2457"></script>
+</body>
+</html>

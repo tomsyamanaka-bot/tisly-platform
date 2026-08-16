@@ -44,6 +44,13 @@ export const CUSTOMER_HOME_CARDS_V1 = [
     label: "電気・防犯",
     path: "/customer/demand-security",
   },
+  // TiSLY HOME 住設統合（追記 — 既存カードは変更しない）
+  {
+    id: "tisly_home",
+    emoji: "🏠",
+    label: "おうち設備",
+    path: "/customer/home",
+  },
 ] as const;
 
 /** /customer DOM・API に出してはいけない語（検査用） */

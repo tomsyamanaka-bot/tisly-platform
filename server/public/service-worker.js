@@ -4,10 +4,14 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2456-property-register";
-const OFFLINE_CACHE = "tisly-pwa-shell-v2456-property-register";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2456-property-register";
-const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2456-property-register";
+const SW_VERSION = "tisly-pwa-v2457-tisly-home";
+const OFFLINE_CACHE = "tisly-pwa-shell-v2457-tisly-home";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2457-tisly-home";
+const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2457-tisly-home";
+/* お客様ゾーンの互換トークン
+ * customer-cache-v1.js / route-health.js が
+ * SW 側に存在するか診断するため保持 */
+const CUSTOMER_SW_TOKEN = "v2407-phase28";
 const ICON_V = "?v=2004";
 
 /** 図面エディタ v1 — ES module 群 */
@@ -226,6 +230,18 @@ const SHELL_URLS = [
   "/js/features/demand-security/demand-security-customer-v1.js",
   "/js/features/demand-security/demand-security-operator-v1.js",
   "/css/features/demand-security/demand-security-v1.css",
+  // TiSLY HOME 住設・ホームIoT統合（追記）
+  "/home-v1",
+  "/home-v1.html",
+  "/home-customer-v1.html",
+  "/app/home",
+  "/customer/home",
+  "/js/features/home/home-shared-v1.js",
+  "/js/features/home/home-operator-v1.js",
+  "/js/features/home/home-customer-v1.js",
+  "/js/features/home/home-quick-switch-v1.js",
+  "/css/features/home/home-v1.css",
+  "/css/features/home/home-quick-switch-v1.css",
   "/knowledge-v1",
   "/js/knowledge-v1.js",
   "/css/knowledge-v1.css",
@@ -304,6 +320,11 @@ function isCustomerFreshAsset(pathname) {
     pathname === "/app/gas-monitor" ||
     pathname.startsWith("/js/features/gas-monitor/") ||
     pathname === "/css/features/gas-monitor/gas-monitor-v1.css" ||
+    pathname === "/home-v1" ||
+    pathname === "/home-v1.html" ||
+    pathname === "/app/home" ||
+    pathname.startsWith("/js/features/home/") ||
+    pathname.startsWith("/css/features/home/") ||
     pathname.startsWith("/js/customer-") ||
     pathname === "/css/customer-v1.css" ||
     pathname === "/manifest-customer-v1.webmanifest"
@@ -396,8 +417,10 @@ async function cacheFirstStaleWhileRevalidate(request, cacheName) {
 function shouldBypassHttpCache(pathname) {
   return (
     pathname.startsWith("/js/features/gas-monitor/") ||
+    pathname.startsWith("/js/features/home/") ||
     pathname.startsWith("/js/customer-") ||
     pathname === "/css/features/gas-monitor/gas-monitor-v1.css" ||
+    pathname.startsWith("/css/features/home/") ||
     pathname === "/css/customer-v1.css"
   );
 }
@@ -509,7 +532,11 @@ self.addEventListener("message", (event) => {
     if ("sync" in self.registration) {
       self.registration.sync.register("tisly-installer-sync").catch(() => {});
     }
-    event.ports?.[0]?.postMessage?.({ ok: true, version: SW_VERSION });
+    event.ports?.[0]?.postMessage?.({
+      ok: true,
+      version: SW_VERSION,
+      customerToken: CUSTOMER_SW_TOKEN,
+    });
   }
   if (event.data?.type === "QUEUE_UPDATED") {
     event.waitUntil?.(notifyClientsFlush());

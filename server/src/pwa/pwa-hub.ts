@@ -335,6 +335,31 @@ const PRACTICAL_PWA_DEFS: Array<
       "viewer",
     ],
   },
+  // TiSLY HOME 住設・ホームIoT統合（追記）
+  {
+    id: "tisly_home_v1",
+    label: "TiSLY HOME（住設統合）",
+    subtitle: "分電盤CT・給湯・空調・玄関錠を一元管理",
+    icon: "🏠",
+    features: [
+      "主幹CT・デマンド",
+      "湯はり・追いだき",
+      "エアコン制御",
+      "スマートロック",
+    ],
+    href: "/home-v1",
+    themeColor: "#0f172a",
+    readyRoles: [
+      "surveyor",
+      "installer",
+      "maintenance",
+      "manager",
+      "owner",
+      "admin",
+      "super_admin",
+      "viewer",
+    ],
+  },
   // RP2350 QR物件登録（追記）
   {
     id: "device_binding_v1",

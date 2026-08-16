@@ -1,0 +1,843 @@
+/* TiSLY HOME — 住設・ホームIoT統合 v1
+ * ダークモード × 高コントラスト
+ * 暗い現場・屋外の日差しでも視認できる
+ * 大きいタップ領域（52px 以上）を基本とする */
+
+:root {
+  --hm-bg: #070b11;
+  --hm-bg-2: #0d141d;
+  --hm-surface: #141d29;
+  --hm-surface-2: #1b2735;
+  --hm-line: rgba(148, 197, 255, 0.16);
+  --hm-ink: #f8fafc;
+  --hm-muted: #9fb3c8;
+  --hm-cyan: #00e5ff;
+  --hm-blue: #4facfe;
+  --hm-safe: #22e07a;
+  --hm-warn: #ffb020;
+  --hm-danger: #ff3b5c;
+  --hm-radius: 18px;
+  --hm-tap: 52px;
+  --hm-shadow: 0 10px 34px rgba(0, 0, 0, 0.55);
+}
+
+.hm-body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(
+      1100px 520px at 12% -8%,
+      rgba(0, 229, 255, 0.12),
+      transparent 60%
+    ),
+    radial-gradient(
+      900px 460px at 92% 4%,
+      rgba(79, 172, 254, 0.14),
+      transparent 62%
+    ),
+    linear-gradient(180deg, var(--hm-bg) 0%, var(--hm-bg-2) 100%);
+  background-attachment: fixed;
+  color: var(--hm-ink);
+  font-family: "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+  -webkit-text-size-adjust: 100%;
+  padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+}
+
+/* ---------- ヘッダー ---------- */
+
+.hm-header {
+  padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 6px;
+}
+
+.hm-back {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--hm-cyan);
+  text-decoration: none;
+  font-weight: 800;
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+}
+
+.hm-brand-name {
+  margin: 6px 0 0;
+  color: var(--hm-cyan);
+  font-weight: 900;
+  font-size: 0.9rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.hm-title {
+  margin: 4px 0 0;
+  font-size: 1.7rem;
+  font-weight: 900;
+  line-height: 1.25;
+  text-shadow: 0 0 22px rgba(0, 229, 255, 0.28);
+}
+
+.hm-sub {
+  margin: 6px 0 0;
+  color: var(--hm-muted);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+/* ---------- レイアウト ---------- */
+
+.hm-main {
+  padding: 10px 16px 28px;
+  display: grid;
+  gap: 14px;
+  max-width: 1040px;
+  margin: 0 auto;
+}
+
+.hm-card {
+  background: linear-gradient(
+    180deg,
+    var(--hm-surface) 0%,
+    var(--hm-surface-2) 100%
+  );
+  border: 1px solid var(--hm-line);
+  border-radius: var(--hm-radius);
+  box-shadow: var(--hm-shadow);
+  padding: 18px 16px;
+}
+
+.hm-card-label {
+  margin: 0 0 12px;
+  color: var(--hm-cyan);
+  font-weight: 900;
+  font-size: 0.86rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.hm-device-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 12px;
+}
+
+.hm-device-icon {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.hm-device-title {
+  margin: 0;
+  font-size: 1.16rem;
+  font-weight: 900;
+}
+
+.hm-device-note {
+  margin: 2px 0 0;
+  color: var(--hm-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+/* ---------- 物件セレクタ ---------- */
+
+.hm-select {
+  width: 100%;
+  min-height: var(--hm-tap);
+  border-radius: 14px;
+  border: 2px solid rgba(0, 229, 255, 0.34);
+  padding: 10px 14px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--hm-ink);
+  background: #0c141e;
+}
+
+.hm-select:focus {
+  outline: 3px solid rgba(0, 229, 255, 0.5);
+  outline-offset: 2px;
+}
+
+/* ---------- ステータスヒーロー ---------- */
+
+.hm-status-hero {
+  text-align: center;
+  padding: 24px 16px;
+  border-radius: var(--hm-radius);
+  border: 2px solid var(--hm-line);
+}
+
+.hm-status-hero.is-normal {
+  border-color: rgba(34, 224, 122, 0.55);
+  background: rgba(34, 224, 122, 0.1);
+}
+
+.hm-status-hero.is-peak_warning {
+  border-color: rgba(255, 176, 32, 0.6);
+  background: rgba(255, 176, 32, 0.12);
+}
+
+.hm-status-hero.is-security_alert {
+  border-color: rgba(255, 59, 92, 0.7);
+  background: rgba(255, 59, 92, 0.14);
+  animation: hm-alert-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes hm-alert-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 59, 92, 0.42);
+  }
+  50% {
+    box-shadow: 0 0 0 14px rgba(255, 59, 92, 0);
+  }
+}
+
+.hm-status-emoji {
+  font-size: 3.2rem;
+  line-height: 1;
+  display: block;
+}
+
+.hm-status-label {
+  margin: 10px 0 0;
+  font-size: 1.4rem;
+  font-weight: 900;
+}
+
+.hm-status-meta {
+  margin: 8px 0 0;
+  color: var(--hm-muted);
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+/* ---------- CT ゲージ ---------- */
+
+.hm-gauge {
+  text-align: center;
+  padding: 8px 0 4px;
+}
+
+.hm-gauge-value {
+  font-size: 3rem;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--hm-cyan);
+  text-shadow: 0 0 26px rgba(0, 229, 255, 0.4);
+  font-variant-numeric: tabular-nums;
+}
+
+.hm-gauge-value.is-warning {
+  color: var(--hm-warn);
+  text-shadow: 0 0 26px rgba(255, 176, 32, 0.45);
+}
+
+.hm-gauge-value.is-alert {
+  color: var(--hm-danger);
+  text-shadow: 0 0 26px rgba(255, 59, 92, 0.5);
+}
+
+.hm-gauge-unit {
+  font-size: 1.1rem;
+  font-weight: 900;
+  margin-left: 4px;
+  color: var(--hm-muted);
+}
+
+.hm-gauge-sub {
+  margin: 6px 0 0;
+  color: var(--hm-muted);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.hm-bar {
+  position: relative;
+  height: 16px;
+  border-radius: 999px;
+  background: #0a1119;
+  border: 1px solid var(--hm-line);
+  overflow: hidden;
+  margin-top: 14px;
+}
+
+.hm-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--hm-cyan), var(--hm-blue));
+  transition: width 0.35s ease;
+}
+
+.hm-bar-fill.is-warning {
+  background: linear-gradient(90deg, #ffd166, var(--hm-warn));
+}
+
+.hm-bar-fill.is-alert {
+  background: linear-gradient(90deg, #ff7a90, var(--hm-danger));
+}
+
+.hm-threshold-row {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  color: var(--hm-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.hm-kpi-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.hm-kpi {
+  background: #0c141e;
+  border: 1px solid var(--hm-line);
+  border-radius: 14px;
+  padding: 12px 8px;
+  text-align: center;
+}
+
+.hm-kpi strong {
+  display: block;
+  font-size: 1.25rem;
+  font-weight: 900;
+  color: var(--hm-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.hm-kpi span {
+  display: block;
+  margin-top: 4px;
+  color: var(--hm-muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+/* ---------- バッジ ---------- */
+
+.hm-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 30px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 900;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+.hm-badge-ok {
+  background: rgba(34, 224, 122, 0.16);
+  color: var(--hm-safe);
+  border-color: rgba(34, 224, 122, 0.4);
+}
+
+.hm-badge-warn {
+  background: rgba(255, 176, 32, 0.16);
+  color: var(--hm-warn);
+  border-color: rgba(255, 176, 32, 0.45);
+}
+
+.hm-badge-danger {
+  background: rgba(255, 59, 92, 0.16);
+  color: var(--hm-danger);
+  border-color: rgba(255, 59, 92, 0.5);
+}
+
+.hm-badge-info {
+  background: rgba(0, 229, 255, 0.14);
+  color: var(--hm-cyan);
+  border-color: rgba(0, 229, 255, 0.4);
+}
+
+.hm-badge-mute {
+  background: rgba(159, 179, 200, 0.12);
+  color: var(--hm-muted);
+  border-color: rgba(159, 179, 200, 0.28);
+}
+
+/* ---------- 分岐回路 ---------- */
+
+.hm-circuit-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.hm-circuit-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #0c141e;
+  border: 1px solid var(--hm-line);
+}
+
+.hm-circuit-row.is-off {
+  opacity: 0.62;
+}
+
+.hm-circuit-meta {
+  font-weight: 800;
+  font-size: 0.98rem;
+  min-width: 0;
+}
+
+.hm-circuit-meta small {
+  display: block;
+  color: var(--hm-muted);
+  font-weight: 700;
+  font-size: 0.78rem;
+  margin-top: 3px;
+}
+
+/* ---------- 操作ボタン ---------- */
+
+.hm-btn {
+  min-height: var(--hm-tap);
+  min-width: 92px;
+  border: none;
+  border-radius: 14px;
+  font-weight: 900;
+  font-size: 1rem;
+  cursor: pointer;
+  color: #04202b;
+  background: linear-gradient(180deg, #7ff3ff, var(--hm-cyan));
+  box-shadow: 0 6px 18px rgba(0, 229, 255, 0.28);
+  transition: transform 0.12s ease, filter 0.12s ease;
+}
+
+.hm-btn:active {
+  transform: scale(0.96);
+  filter: brightness(1.12);
+}
+
+.hm-btn:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+.hm-btn.is-on {
+  background: linear-gradient(180deg, #63f7a8, var(--hm-safe));
+  color: #04220f;
+  box-shadow: 0 6px 18px rgba(34, 224, 122, 0.3);
+}
+
+.hm-btn.is-off {
+  background: linear-gradient(180deg, #3b4a5c, #253141);
+  color: var(--hm-ink);
+  box-shadow: none;
+}
+
+.hm-btn.is-danger {
+  background: linear-gradient(180deg, #ff7a90, var(--hm-danger));
+  color: #2a0209;
+  box-shadow: 0 6px 18px rgba(255, 59, 92, 0.3);
+}
+
+.hm-btn-wide {
+  width: 100%;
+}
+
+.hm-btn-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.hm-btn-row-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+/* ---------- 風呂 ---------- */
+
+.hm-temp-hero {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+  padding: 6px 0 2px;
+}
+
+.hm-temp-value {
+  font-size: 2.9rem;
+  font-weight: 900;
+  color: #ffd9a8;
+  text-shadow: 0 0 24px rgba(255, 176, 32, 0.34);
+  font-variant-numeric: tabular-nums;
+}
+
+.hm-temp-unit {
+  font-size: 1.15rem;
+  font-weight: 900;
+  color: var(--hm-muted);
+}
+
+.hm-fill-bar .hm-bar-fill {
+  background: linear-gradient(90deg, #ffd166, #ff9f45);
+}
+
+/* ---------- エアコン ---------- */
+
+.hm-ac-block {
+  border: 1px solid var(--hm-line);
+  border-radius: 16px;
+  padding: 14px;
+  background: #0c141e;
+  margin-top: 10px;
+}
+
+.hm-ac-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.hm-ac-name {
+  margin: 0;
+  font-size: 1.04rem;
+  font-weight: 900;
+}
+
+.hm-ac-temp-row {
+  display: grid;
+  grid-template-columns: var(--hm-tap) 1fr var(--hm-tap);
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.hm-step-btn {
+  width: var(--hm-tap);
+  height: var(--hm-tap);
+  border-radius: 50%;
+  border: 2px solid rgba(0, 229, 255, 0.4);
+  background: #0a1119;
+  color: var(--hm-cyan);
+  font-size: 1.5rem;
+  font-weight: 900;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.hm-step-btn:active {
+  transform: scale(0.94);
+}
+
+.hm-ac-set-temp {
+  text-align: center;
+  font-size: 2.3rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  color: var(--hm-ink);
+}
+
+.hm-ac-set-temp small {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--hm-muted);
+  margin-top: 2px;
+}
+
+.hm-slider {
+  width: 100%;
+  margin-top: 12px;
+  accent-color: var(--hm-cyan);
+  height: 32px;
+}
+
+.hm-mode-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.hm-mode-btn {
+  min-height: 48px;
+  border-radius: 12px;
+  border: 2px solid var(--hm-line);
+  background: #0a1119;
+  color: var(--hm-muted);
+  font-weight: 900;
+  font-size: 0.92rem;
+  cursor: pointer;
+}
+
+.hm-mode-btn.is-active {
+  border-color: var(--hm-cyan);
+  color: #04202b;
+  background: linear-gradient(180deg, #7ff3ff, var(--hm-cyan));
+}
+
+/* ---------- スマートロック ---------- */
+
+.hm-lock-hero {
+  text-align: center;
+  padding: 18px 8px 8px;
+}
+
+.hm-lock-emoji {
+  font-size: 3.6rem;
+  line-height: 1;
+  display: block;
+}
+
+.hm-lock-state {
+  margin: 8px 0 0;
+  font-size: 1.7rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.hm-lock-state.is-locked {
+  color: var(--hm-safe);
+}
+
+.hm-lock-state.is-unlocked {
+  color: var(--hm-danger);
+}
+
+.hm-log-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.hm-log-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #0a1119;
+  border: 1px solid var(--hm-line);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.hm-log-time {
+  color: var(--hm-muted);
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+/* ---------- 事業者一覧 ---------- */
+
+.hm-summary-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.hm-summary-pill {
+  text-align: center;
+  background: #0c141e;
+  border-radius: 14px;
+  padding: 12px 6px;
+  border: 1px solid var(--hm-line);
+}
+
+.hm-summary-pill strong {
+  display: block;
+  font-size: 1.45rem;
+  font-weight: 900;
+  color: var(--hm-cyan);
+  font-variant-numeric: tabular-nums;
+}
+
+.hm-summary-pill span {
+  display: block;
+  margin-top: 4px;
+  color: var(--hm-muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.hm-summary-pill.is-warn strong {
+  color: var(--hm-warn);
+}
+
+.hm-summary-pill.is-danger strong {
+  color: var(--hm-danger);
+}
+
+.hm-site-list {
+  display: grid;
+  gap: 12px;
+}
+
+.hm-site-card {
+  border: 1px solid var(--hm-line);
+  border-radius: 16px;
+  padding: 14px;
+  background: #0c141e;
+}
+
+.hm-site-card.is-peak {
+  border-color: rgba(255, 176, 32, 0.5);
+}
+
+.hm-site-card.is-security {
+  border-color: rgba(255, 59, 92, 0.6);
+}
+
+.hm-site-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.hm-site-name {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 900;
+}
+
+.hm-site-addr {
+  margin: 4px 0 0;
+  color: var(--hm-muted);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.hm-site-metrics {
+  margin: 10px 0 0;
+  font-size: 0.94rem;
+  font-weight: 700;
+  line-height: 1.6;
+  color: #d8e6f5;
+}
+
+.hm-site-open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  margin-top: 12px;
+  width: 100%;
+  border-radius: 14px;
+  text-decoration: none;
+  font-weight: 900;
+  color: #04202b;
+  background: linear-gradient(180deg, #7ff3ff, var(--hm-cyan));
+}
+
+/* ---------- 注意メモ・空表示 ---------- */
+
+.hm-notes {
+  margin: 0;
+  padding-left: 1.15rem;
+  line-height: 1.7;
+  font-size: 0.98rem;
+  font-weight: 600;
+  color: #d8e6f5;
+}
+
+.hm-empty {
+  color: var(--hm-muted);
+  margin: 0;
+  font-weight: 700;
+}
+
+.hm-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%) translateY(16px);
+  background: rgba(8, 16, 24, 0.96);
+  border: 1px solid var(--hm-cyan);
+  color: var(--hm-ink);
+  padding: 12px 18px;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 0.95rem;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.6);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: 60;
+  max-width: 88vw;
+  text-align: center;
+}
+
+.hm-toast.is-visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ---------- お客様向け（やさしい表現） ---------- */
+
+.hm-body.hm-customer .hm-card-label {
+  letter-spacing: 0.06em;
+  text-transform: none;
+  font-size: 0.95rem;
+}
+
+.hm-body.hm-customer .hm-title {
+  font-size: 1.6rem;
+}
+
+.hm-plain-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 4px;
+  border-bottom: 1px solid var(--hm-line);
+  font-size: 1.02rem;
+  font-weight: 800;
+}
+
+.hm-plain-row:last-child {
+  border-bottom: none;
+}
+
+.hm-plain-row span {
+  color: var(--hm-muted);
+  font-weight: 700;
+}
+
+/* ---------- レスポンシブ ---------- */
+
+@media (max-width: 560px) {
+  .hm-summary-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .hm-kpi-row {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .hm-circuit-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .hm-btn {
+    width: 100%;
+  }
+  .hm-mode-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 900px) {
+  .hm-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    align-items: start;
+  }
+}

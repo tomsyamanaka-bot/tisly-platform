@@ -128,6 +128,8 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 案件詳細（実運用） | `/project-mgmt-detail-v1?projectId=` |
 | Route Health | `/route-health` |
 | 書類センター | `/document-center-v1`（別名 `/documents-v1`） |
+| TiSLY HOME 住設統合（社内） | `/home-v1` · `/app/home` |
+| TiSLY HOME 住まい（お客様） | `/customer/home` |
 
 ログイン例: `TOMS001` / `toms001.surveyor` / `.env` の `CUSTOMER_DEMO_PASSWORD`
 
@@ -1283,6 +1285,31 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | SW | `tisly-pwa-v2455-property-delete` |
 | テスト | `device-binding-v1.test.ts` · `gas-monitor-v1.test.ts` |
 | 確認 | `/app/gas-monitor` · `/customer/gas-monitor` · https://tisly.jp/api/health |
+
+### TiSLY HOME 住設・ホームIoT統合 v1（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | 分電盤CT・風呂リモコン・エアコン・玄関スマートロックを **1画面で一括統合** |
+| 社内/統合入口 | `/home-v1` · `/app/home` · `/tisly-home`（302） |
+| お客様/住まい入口 | `/customer/home` |
+| UI | **ダークモード × 高コントラスト** — `#070B11` 基調 · cyan `#00E5FF` · タップ領域 52px 以上 |
+| 1. 分電盤CT | 主幹電流A・消費電力W/kW のゲージ · 過負荷しきい値（警告/遮断）· ピークカット連動 · 分岐回路（エアコン/エコキュート/IH/一般負荷）稼働状態 |
+| 2. 風呂リモコン | 給湯温度・浴槽温度・湯はり進捗% · 「自動お湯はり」「追いだき」「ふろ保温」ワンタップ · JEMA/HA端子 + RP2350 リレー連携ステータス |
+| 3. エアコン | 室温・設定温度・運転モード（冷房/暖房/除湿/送風）・風量・風向 · 電源ON/OFF · 温度±スライダー · ピーク時自動セーブ運転バッジ |
+| 4. 玄関スマートロック | LOCKED 🔒 / UNLOCKED 🔓 · ドア開閉センサー · 施錠解錠トグル · NFC/RFID 入退室ログ（直近解錠者と時刻） |
+| モックデータ | **JP** `HOME-JP-TSUKUBA-001` つくばモデルハウス（100V-200V / エコキュート · JPY）· `HOME-JP-MORIYA-ALERT` 警報デモ · **AU** `HOME-AU-GOLDCOAST-001` Gold Coast Demo House（240V / Solar+CT · AUD） |
+| クイック切り替え | `home-quick-switch-v1.js` — 各画面右下の浮遊ボタン。`/app` · `/gas-monitor-v1` · `/demand-security-v1` · `/eco-water-v1` へ **追記のみ**で導入 |
+| SaaS スキーマ | `home_sites_v1`（tenant_id/country_code/currency/plan_code/plan_status/monthly_fee）· `home_devices_v1` · `home_control_logs_v1` · `home_access_logs_v1` — シードは INSERT OR IGNORE のみ |
+| API | `GET /api/home/v1/sites` · `/customer?siteId=` · `/operator` · `/quick-switch` · `/control-logs?siteId=` · `POST /control` |
+| 制御 | `POST /control` — target: `circuit` / `bath` / `aircon` / `lock`（回路ON/OFFは主幹電流を再計算） |
+| 制御 action | circuit: `relay` · bath: `auto_fill` / `reheat` / `keep_warm` / `set_temp` / `temp_up` / `temp_down` · aircon: `power` / `set_temp` / `temp_up` / `temp_down` / `mode` / `fan` / `swing` / `peak_save` · lock: `lock` / `unlock` / `toggle` |
+| App Hub | `tisly_home_v1` カード追記（既存カードは非改変） |
+| Customer | ホームカード「おうち設備」追記（既存カードは非改変） |
+| SW | `tisly-pwa-v2457-tisly-home` |
+| コード | `src/home/home-sites-v1.ts` · `home-control-v1.ts` · `home-dashboard-v1.ts` · `home-store-v1.ts` · `api/routes/home.ts` · `public/home-v1.html` · `home-customer-v1.html` · `js/features/home/*` · `css/features/home/*` |
+| テスト | `server/test/tisly-home-v1.test.ts`（14ケース） |
+| 確認 | `/home-v1` · `/customer/home` · `/api/home/v1/operator` · https://tisly.jp/api/health |
 
 ### ガス監視 新規物件・デバイス登録 v1（完成済み）
 

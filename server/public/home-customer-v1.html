@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#070B11" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="TiSLY HOME" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2003" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <title>TiSLY HOME — おうちの設備</title>
+  <link rel="stylesheet" href="/css/features/home/home-v1.css?v=2457" />
+</head>
+<body class="hm-body hm-customer" data-hqs-mode="customer">
+  <!--
+    お客様・住まい用入口
+    むずかしい言葉を出さず大きく表示する
+  -->
+  <header class="hm-header">
+    <a class="hm-back" href="/customer" id="hm-back-link">← 戻る</a>
+    <div>
+      <p class="hm-brand-name">TiSLY HOME</p>
+      <h1 class="hm-title">おうちの設備</h1>
+      <p class="hm-sub">
+        電気 · お風呂 · エアコン · 玄関をまとめて確認
+      </p>
+    </div>
+  </header>
+
+  <main class="hm-main">
+    <section class="hm-card">
+      <p class="hm-card-label">おうちを選ぶ</p>
+      <select class="hm-select" id="hm-site-select">
+        <option value="">読み込み中…</option>
+      </select>
+    </section>
+
+    <section
+      class="hm-card hm-status-hero is-normal"
+      id="hm-status-hero"
+    >
+      <span class="hm-status-emoji" id="hm-status-emoji">🟢</span>
+      <p class="hm-status-label" id="hm-status-label">読み込み中…</p>
+      <p class="hm-status-meta" id="hm-status-meta">—</p>
+    </section>
+
+    <!-- 電気の使用量 -->
+    <section class="hm-card">
+      <div class="hm-device-head">
+        <span class="hm-device-icon" aria-hidden="true">⚡</span>
+        <div>
+          <h2 class="hm-device-title">いまの電気の使用量</h2>
+          <p class="hm-device-note" id="hm-ct-note">—</p>
+        </div>
+      </div>
+
+      <div class="hm-gauge">
+        <div>
+          <span class="hm-gauge-value" id="hm-ct-current">--</span
+          ><span class="hm-gauge-unit">A</span>
+        </div>
+        <p class="hm-gauge-sub" id="hm-ct-power">—</p>
+      </div>
+
+      <div class="hm-bar">
+        <div class="hm-bar-fill" id="hm-ct-bar" style="width: 0%"></div>
+      </div>
+      <div class="hm-threshold-row">
+        <span id="hm-ct-warn">—</span>
+        <span id="hm-ct-alert">—</span>
+      </div>
+
+      <div class="hm-kpi-row">
+        <div class="hm-kpi">
+          <strong id="hm-ct-demand">—</strong>
+          <span>使用電力 kW</span>
+        </div>
+        <div class="hm-kpi">
+          <strong id="hm-ct-load">—</strong>
+          <span>余裕 %</span>
+        </div>
+        <div class="hm-kpi">
+          <strong id="hm-ct-peak">—</strong>
+          <span>自動セーブ</span>
+        </div>
+      </div>
+
+      <div id="hm-ct-solar-wrap" hidden style="margin-top: 12px">
+        <span class="hm-badge hm-badge-info" id="hm-ct-solar"
+          >☀️ 太陽光 — W</span
+        >
+      </div>
+
+      <p class="hm-card-label" style="margin-top: 18px">
+        どこで使っているか
+      </p>
+      <div class="hm-circuit-list" id="hm-circuit-list">
+        <p class="hm-empty">読み込み中…</p>
+      </div>
+    </section>
+
+    <!-- お風呂 -->
+    <section class="hm-card">
+      <div class="hm-device-head">
+        <span class="hm-device-icon" aria-hidden="true">🛁</span>
+        <div>
+          <h2 class="hm-device-title">お風呂</h2>
+          <p class="hm-device-note" id="hm-bath-note">—</p>
+        </div>
+      </div>
+
+      <div class="hm-temp-hero">
+        <span class="hm-temp-value" id="hm-bath-temp">--</span>
+        <span class="hm-temp-unit">℃ 設定</span>
+      </div>
+      <p class="hm-gauge-sub" id="hm-bath-state">—</p>
+
+      <div class="hm-bar hm-fill-bar">
+        <div class="hm-bar-fill" id="hm-bath-bar" style="width: 0%"></div>
+      </div>
+      <div class="hm-threshold-row">
+        <span id="hm-bath-current">—</span>
+        <span id="hm-bath-percent">—</span>
+      </div>
+
+      <div class="hm-btn-row">
+        <button
+          type="button"
+          class="hm-btn"
+          id="hm-bath-autofill"
+          data-target="bath"
+          data-action="auto_fill"
+        >
+          自動お湯はり
+        </button>
+        <button
+          type="button"
+          class="hm-btn"
+          id="hm-bath-reheat"
+          data-target="bath"
+          data-action="reheat"
+        >
+          追いだき
+        </button>
+        <button
+          type="button"
+          class="hm-btn"
+          id="hm-bath-keepwarm"
+          data-target="bath"
+          data-action="keep_warm"
+        >
+          ふろ保温
+        </button>
+      </div>
+    </section>
+
+    <!-- エアコン -->
+    <section class="hm-card">
+      <div class="hm-device-head">
+        <span class="hm-device-icon" aria-hidden="true">❄️</span>
+        <div>
+          <h2 class="hm-device-title">エアコン</h2>
+          <p class="hm-device-note" id="hm-aircon-note">—</p>
+        </div>
+      </div>
+      <div id="hm-aircon-list">
+        <p class="hm-empty">読み込み中…</p>
+      </div>
+    </section>
+
+    <!-- 玄関 -->
+    <section class="hm-card">
+      <div class="hm-device-head">
+        <span class="hm-device-icon" aria-hidden="true">🚪</span>
+        <div>
+          <h2 class="hm-device-title">玄関のかぎ</h2>
+          <p class="hm-device-note" id="hm-lock-note">—</p>
+        </div>
+      </div>
+
+      <div class="hm-lock-hero">
+        <span class="hm-lock-emoji" id="hm-lock-emoji">🔒</span>
+        <p class="hm-lock-state is-locked" id="hm-lock-state">
+          LOCKED
+        </p>
+        <p class="hm-gauge-sub" id="hm-lock-door">—</p>
+      </div>
+
+      <button
+        type="button"
+        class="hm-btn hm-btn-wide"
+        id="hm-lock-toggle"
+        data-target="lock"
+        data-action="toggle"
+      >
+        かぎを切り替える
+      </button>
+
+      <p class="hm-card-label" style="margin-top: 18px">
+        だれが開けたか
+      </p>
+      <div class="hm-log-list" id="hm-lock-log">
+        <p class="hm-empty">読み込み中…</p>
+      </div>
+    </section>
+
+    <!-- お知らせ -->
+    <section class="hm-card">
+      <p class="hm-card-label">おうちからのお知らせ</p>
+      <ul class="hm-notes" id="hm-notes">
+        <li>読み込み中…</li>
+      </ul>
+    </section>
+  </main>
+
+  <div class="hm-toast" id="hm-toast" role="status" aria-live="polite"></div>
+
+  <script type="module" src="/js/features/home/home-customer-v1.js?v=2457"></script>
+  <script type="module" src="/js/features/home/home-quick-switch-v1.js?v=2457"></script>
+</body>
+</html>

@@ -1,0 +1,147 @@
+/* TiSLY HOME クイック切り替え v1
+ * どの画面にも重ねられる浮遊コンポーネント。
+ * 既存ページの CSS は変更せず、
+ * hqs- 接頭辞のみを使う。 */
+
+.hqs-fab {
+  position: fixed;
+  right: 16px;
+  bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+  z-index: 70;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 0 18px;
+  border: 1px solid rgba(0, 229, 255, 0.55);
+  border-radius: 999px;
+  background: linear-gradient(180deg, #16222f, #0b131c);
+  color: #f8fafc;
+  font-weight: 900;
+  font-size: 0.95rem;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(0, 229, 255, 0.12);
+}
+
+.hqs-fab:active {
+  transform: scale(0.96);
+}
+
+.hqs-fab-emoji {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.hqs-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 71;
+  background: rgba(3, 7, 12, 0.72);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.hqs-overlay[hidden] {
+  display: none;
+}
+
+.hqs-sheet {
+  width: min(560px, 100%);
+  background: linear-gradient(180deg, #141d29, #0b131c);
+  border: 1px solid rgba(148, 197, 255, 0.2);
+  border-bottom: none;
+  border-radius: 20px 20px 0 0;
+  padding: 18px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.6);
+  color: #f8fafc;
+  font-family: inherit;
+  max-height: 82vh;
+  overflow-y: auto;
+}
+
+.hqs-sheet-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 900;
+  color: #00e5ff;
+  letter-spacing: 0.04em;
+}
+
+.hqs-sheet-sub {
+  margin: 6px 0 14px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #9fb3c8;
+}
+
+.hqs-list {
+  display: grid;
+  gap: 10px;
+}
+
+.hqs-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 60px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 197, 255, 0.18);
+  background: #0c141e;
+  color: #f8fafc;
+  text-decoration: none;
+  font-weight: 800;
+}
+
+.hqs-item:active {
+  transform: scale(0.98);
+}
+
+.hqs-item-name {
+  font-size: 1rem;
+}
+
+.hqs-item-meta {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #9fb3c8;
+}
+
+.hqs-item-status {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.hqs-close {
+  width: 100%;
+  min-height: 52px;
+  margin-top: 14px;
+  border: 1px solid rgba(148, 197, 255, 0.22);
+  border-radius: 14px;
+  background: #1b2735;
+  color: #f8fafc;
+  font-weight: 900;
+  font-size: 1rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.hqs-empty {
+  margin: 0;
+  color: #9fb3c8;
+  font-weight: 700;
+}
+
+@media print {
+  .hqs-fab,
+  .hqs-overlay {
+    display: none !important;
+  }
+}
