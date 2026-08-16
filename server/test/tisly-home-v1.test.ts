@@ -25,6 +25,16 @@ import {
   buildHomeQuickSwitchV1,
 } from "../src/home/home-dashboard-v1.js";
 import {
+  homeAirconFanToSwitchBotV1,
+  homeAirconModeToSwitchBotV1,
+  isSwitchBotAirconConfiguredV1,
+  isSwitchBotHomeConfiguredV1,
+  isSwitchBotLockConfiguredV1,
+  listSwitchBotDevicesV1,
+  sendSwitchBotLockCommandV1,
+} from "../src/home/switchbot_client.js";
+import { syncHomeLockFromSwitchBotV1 } from "../src/home/home-switchbot-sync-v1.js";
+import {
   TISLY_CUSTOMER_RESERVED_SEGMENTS,
   TISLY_CUSTOMER_ROUTES_V1,
   TISLY_INTERNAL_ROUTES_V1,
@@ -123,11 +133,11 @@ describe("tisly-home-v1", () => {
     assert.equal(jp.customerHref, `/customer/home?siteId=${JP_SITE}`);
   });
 
-  it("controls bath, aircon and lock without dropping devices", () => {
+  it("controls bath, aircon and lock without dropping devices", async () => {
     const site = findHomeSiteV1(JP_SITE);
 
     const bathBefore = site.bath.keepWarm;
-    const bath = applyHomeControlV1({
+    const bath = await applyHomeControlV1({
       siteId: JP_SITE,
       target: "bath",
       action: "keep_warm",
@@ -135,7 +145,7 @@ describe("tisly-home-v1", () => {
     });
     assert.equal(bath.ok, true);
     assert.equal(site.bath.keepWarm, !bathBefore);
-    applyHomeControlV1({
+    await applyHomeControlV1({
       siteId: JP_SITE,
       target: "bath",
       action: "keep_warm",
@@ -144,7 +154,7 @@ describe("tisly-home-v1", () => {
 
     const airconCount = site.aircons.length;
     const acTempBefore = site.aircons[0].setTempC;
-    const ac = applyHomeControlV1({
+    const ac = await applyHomeControlV1({
       siteId: JP_SITE,
       target: "aircon",
       action: "temp_up",
@@ -153,7 +163,7 @@ describe("tisly-home-v1", () => {
     assert.equal(ac.ok, true);
     assert.equal(site.aircons.length, airconCount);
     assert.equal(site.aircons[0].setTempC, acTempBefore + 1);
-    applyHomeControlV1({
+    await applyHomeControlV1({
       siteId: JP_SITE,
       target: "aircon",
       action: "set_temp",
@@ -163,7 +173,7 @@ describe("tisly-home-v1", () => {
 
     const logBefore = site.lock.accessLog.length;
     const lockedBefore = site.lock.locked;
-    const lock = applyHomeControlV1({
+    const lock = await applyHomeControlV1({
       siteId: JP_SITE,
       target: "lock",
       action: "toggle",
@@ -173,7 +183,7 @@ describe("tisly-home-v1", () => {
     assert.equal(site.lock.locked, !lockedBefore);
     assert.equal(site.lock.accessLog.length, logBefore + 1);
     assert.equal(site.lock.accessLog[0].holderName, "テスト");
-    applyHomeControlV1({
+    await applyHomeControlV1({
       siteId: JP_SITE,
       target: "lock",
       action: lockedBefore ? "lock" : "unlock",
@@ -182,11 +192,11 @@ describe("tisly-home-v1", () => {
     assert.equal(site.lock.locked, lockedBefore);
   });
 
-  it("accepts the bath temp_up / temp_down one-tap actions", () => {
+  it("accepts the bath temp_up / temp_down one-tap actions", async () => {
     const site = findHomeSiteV1(JP_SITE);
     const before = site.bath.setTempC;
 
-    const up = applyHomeControlV1({
+    const up = await applyHomeControlV1({
       siteId: JP_SITE,
       target: "bath",
       action: "temp_up",
@@ -194,7 +204,7 @@ describe("tisly-home-v1", () => {
     assert.equal(up.ok, true);
     assert.equal(site.bath.setTempC, before + 1);
 
-    const down = applyHomeControlV1({
+    const down = await applyHomeControlV1({
       siteId: JP_SITE,
       target: "bath",
       action: "temp_down",
@@ -220,15 +230,15 @@ describe("tisly-home-v1", () => {
       beforeCurrent;
   });
 
-  it("rejects unknown control targets and sites", () => {
-    const bad = applyHomeControlV1({
+  it("rejects unknown control targets and sites", async () => {
+    const bad = await applyHomeControlV1({
       siteId: "NOT-EXIST",
       target: "bath",
       action: "reheat",
     });
     assert.equal(bad.ok, false);
 
-    const badAction = applyHomeControlV1({
+    const badAction = await applyHomeControlV1({
       siteId: JP_SITE,
       target: "bath",
       action: "explode",
@@ -391,5 +401,72 @@ describe("tisly-home-v1", () => {
     );
     assert.match(sw, /tisly-pwa-v2457-tisly-home/);
     assert.match(sw, /\/css\/features\/home\/home-v1\.css/);
+  });
+
+  it("falls back to mock when SwitchBot credentials are unset", async () => {
+    const prev = {
+      token: process.env.SWITCHBOT_TOKEN,
+      secret: process.env.SWITCHBOT_SECRET,
+      lockId: process.env.SWITCHBOT_LOCK_DEVICE_ID,
+      acId: process.env.SWITCHBOT_AIR_CONDITIONER_DEVICE_ID,
+    };
+    try {
+      delete process.env.SWITCHBOT_TOKEN;
+      delete process.env.SWITCHBOT_SECRET;
+      delete process.env.SWITCHBOT_LOCK_DEVICE_ID;
+      delete process.env.SWITCHBOT_AIR_CONDITIONER_DEVICE_ID;
+
+      assert.equal(isSwitchBotHomeConfiguredV1(), false);
+      assert.equal(isSwitchBotLockConfiguredV1(), false);
+      assert.equal(isSwitchBotAirconConfiguredV1(), false);
+
+      const listed = await listSwitchBotDevicesV1();
+      assert.equal(listed.ok, false);
+      assert.equal(listed.skipped, true);
+
+      const cmd = await sendSwitchBotLockCommandV1("unlock");
+      assert.equal(cmd.ok, false);
+      assert.equal(cmd.skipped, true);
+
+      const sync = await syncHomeLockFromSwitchBotV1(JP_SITE);
+      assert.equal(sync.synced, false);
+      assert.equal(sync.skipped, true);
+
+      // モック制御は引き続き成功
+      const site = findHomeSiteV1(JP_SITE);
+      const before = site.lock.locked;
+      const lock = await applyHomeControlV1({
+        siteId: JP_SITE,
+        target: "lock",
+        action: "toggle",
+        actor: "mock-fallback",
+      });
+      assert.equal(lock.ok, true);
+      assert.equal(site.lock.locked, !before);
+      await applyHomeControlV1({
+        siteId: JP_SITE,
+        target: "lock",
+        action: before ? "lock" : "unlock",
+        actor: "mock-fallback-restore",
+      });
+
+      assert.equal(homeAirconModeToSwitchBotV1("cool"), 2);
+      assert.equal(homeAirconModeToSwitchBotV1("heat"), 5);
+      assert.equal(homeAirconModeToSwitchBotV1("dry"), 3);
+      assert.equal(homeAirconModeToSwitchBotV1("fan"), 4);
+      assert.equal(homeAirconFanToSwitchBotV1("auto"), 1);
+      assert.equal(homeAirconFanToSwitchBotV1("high"), 4);
+    } finally {
+      if (prev.token !== undefined) process.env.SWITCHBOT_TOKEN = prev.token;
+      else delete process.env.SWITCHBOT_TOKEN;
+      if (prev.secret !== undefined) process.env.SWITCHBOT_SECRET = prev.secret;
+      else delete process.env.SWITCHBOT_SECRET;
+      if (prev.lockId !== undefined)
+        process.env.SWITCHBOT_LOCK_DEVICE_ID = prev.lockId;
+      else delete process.env.SWITCHBOT_LOCK_DEVICE_ID;
+      if (prev.acId !== undefined)
+        process.env.SWITCHBOT_AIR_CONDITIONER_DEVICE_ID = prev.acId;
+      else delete process.env.SWITCHBOT_AIR_CONDITIONER_DEVICE_ID;
+    }
   });
 });

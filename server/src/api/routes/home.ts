@@ -29,6 +29,10 @@ import {
   recordHomeAccessLogV1,
   recordHomeControlLogV1,
 } from "../../home/home-store-v1.js";
+import {
+  syncHomeDefaultLockFromSwitchBotV1,
+  syncHomeLockFromSwitchBotV1,
+} from "../../home/home-switchbot-sync-v1.js";
 
 export const homeRouter = Router();
 
@@ -59,14 +63,24 @@ homeRouter.get("/sites", (_req, res) => {
 });
 
 /** お客様（住まい）向け */
-homeRouter.get("/customer", (req, res) => {
+homeRouter.get("/customer", async (req, res) => {
   const siteId = String(req.query.siteId ?? "").trim() || null;
+  try {
+    await syncHomeLockFromSwitchBotV1(siteId);
+  } catch {
+    // モック継続
+  }
   const dashboard = buildHomeCustomerDashboardV1(siteId);
   res.json({ ok: true, dashboard });
 });
 
 /** 社内・事業者向け */
-homeRouter.get("/operator", (_req, res) => {
+homeRouter.get("/operator", async (_req, res) => {
+  try {
+    await syncHomeDefaultLockFromSwitchBotV1();
+  } catch {
+    // モック継続
+  }
   const dashboard = buildHomeOperatorDashboardV1();
   res.json({ ok: true, dashboard });
 });
@@ -95,7 +109,7 @@ homeRouter.get("/control-logs", (req, res) => {
  * ワンタップ制御
  * body: { siteId, target, action, deviceKey?, value?, actor? }
  */
-homeRouter.post("/control", (req, res) => {
+homeRouter.post("/control", async (req, res) => {
   const siteId = String(req.body?.siteId ?? "").trim();
   const target = String(req.body?.target ?? "").trim();
   const action = String(req.body?.action ?? "").trim();
@@ -119,14 +133,22 @@ homeRouter.post("/control", (req, res) => {
     return;
   }
 
-  const result = applyHomeControlV1({
-    siteId,
-    target: target as HomeControlTargetV1,
-    action,
-    deviceKey,
-    value: req.body?.value,
-    actor,
-  });
+  let result;
+  try {
+    result = await applyHomeControlV1({
+      siteId,
+      target: target as HomeControlTargetV1,
+      action,
+      deviceKey,
+      value: req.body?.value,
+      actor,
+    });
+  } catch (err) {
+    const msg =
+      err instanceof Error ? err.message : "制御に失敗しました";
+    res.status(500).json({ ok: false, error: msg });
+    return;
+  }
 
   const site = findHomeSiteV1(siteId);
   recordHomeControlLogV1({

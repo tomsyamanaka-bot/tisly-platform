@@ -47,7 +47,8 @@
     "test:phase9": "tsx --test test/pwa-phase9-iphone-v1.test.ts test/pwa-route-repair-v4.test.ts test/survey-drawing-v1.test.ts test/field-checklist-v1.test.ts",
     "test:google-calendar": "tsx --test test/google-calendar-sync-v1.test.ts",
     "test:device-binding": "tsx --test test/device-binding-v1.test.ts",
-    "test:tisly-home": "tsx --test test/tisly-home-v1.test.ts"
+    "test:tisly-home": "tsx --test test/tisly-home-v1.test.ts",
+    "switchbot:list-devices": "tsx scripts/list_switchbot_devices.ts"
   },
   "engines": {
     "node": ">=20"

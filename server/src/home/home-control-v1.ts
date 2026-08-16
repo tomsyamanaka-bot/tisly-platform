@@ -4,6 +4,9 @@
  * 4大デバイスへの制御命令を1つの
  * 入口（applyHomeControlV1）にまとめる。
  * 既存の物件配列は削除せず対象値のみ更新。
+ *
+ * 玄関ロック / エアコンは SwitchBot Cloud API が設定されていれば
+ * 実機へコマンド送信し、未設定・失敗時はモック状態更新へフォールバック。
  */
 
 import {
@@ -12,9 +15,18 @@ import {
   type HomeAirconModeV1,
   type HomeAirconSwingV1,
   type HomeAccessEntryV1,
+  type HomeAirconV1,
   type HomeCredentialTypeV1,
   type HomeSiteV1,
 } from "./home-sites-v1.js";
+import {
+  getSwitchBotHomeEnvV1,
+  isSwitchBotAirconConfiguredV1,
+  isSwitchBotLockConfiguredV1,
+  sendSwitchBotAirconPowerV1,
+  sendSwitchBotAirconSetAllV1,
+  sendSwitchBotLockCommandV1,
+} from "./switchbot_client.js";
 
 /** 制御対象デバイス種別 */
 export type HomeControlTargetV1 =
@@ -202,7 +214,82 @@ export function applyHomeBathControlV1(
   }
 }
 
-/** エアコン制御 */
+function isPrimarySwitchBotAirconV1(ac: HomeAirconV1): boolean {
+  // リビング（先頭）エアコンのみ実機 IR に紐づける
+  return ac.deviceKey === "ac-living";
+}
+
+async function dispatchAirconToSwitchBotV1(
+  ac: HomeAirconV1,
+  action: string
+): Promise<{ used: boolean; note?: string }> {
+  if (!isPrimarySwitchBotAirconV1(ac)) {
+    return { used: false };
+  }
+  const env = getSwitchBotHomeEnvV1();
+  if (!isSwitchBotAirconConfiguredV1(env)) {
+    return { used: false };
+  }
+
+  // 電源のみは turnOn / turnOff、それ以外（温度・モード含む）は setAll
+  if (action === "power") {
+    const powerResult = await sendSwitchBotAirconPowerV1(
+      ac.power,
+      env.airConditionerDeviceId,
+      env
+    );
+    if (powerResult.skipped) return { used: false };
+    if (!powerResult.ok) {
+      // 失敗時は setAll へフォールバック試行
+      const setAll = await sendSwitchBotAirconSetAllV1({
+        deviceId: env.airConditionerDeviceId,
+        temperatureC: ac.setTempC,
+        mode: ac.mode,
+        fan: ac.fan,
+        power: ac.power,
+        env,
+      });
+      if (!setAll.ok) {
+        return {
+          used: true,
+          note: `（SwitchBot: ${powerResult.error || setAll.error} → モック反映）`,
+        };
+      }
+      return { used: true, note: "（SwitchBot 送信）" };
+    }
+    return { used: true, note: "（SwitchBot 送信）" };
+  }
+
+  if (
+    action === "set_temp" ||
+    action === "temp_up" ||
+    action === "temp_down" ||
+    action === "mode" ||
+    action === "fan" ||
+    action === "peak_save"
+  ) {
+    const setAll = await sendSwitchBotAirconSetAllV1({
+      deviceId: env.airConditionerDeviceId,
+      temperatureC: ac.setTempC,
+      mode: ac.mode,
+      fan: ac.fan,
+      power: ac.power,
+      env,
+    });
+    if (setAll.skipped) return { used: false };
+    if (!setAll.ok) {
+      return {
+        used: true,
+        note: `（SwitchBot: ${setAll.error} → モック反映）`,
+      };
+    }
+    return { used: true, note: "（SwitchBot 送信）" };
+  }
+
+  return { used: false };
+}
+
+/** エアコン制御（ローカル状態更新。実機送信は applyHomeControlV1 側） */
 export function applyHomeAirconControlV1(
   site: HomeSiteV1,
   deviceKey: string | null | undefined,
@@ -322,7 +409,7 @@ export function applyHomeAirconControlV1(
   }
 }
 
-/** 玄関スマートロック制御 */
+/** 玄関スマートロック制御（ローカル状態更新） */
 export function applyHomeLockControlV1(
   site: HomeSiteV1,
   action: string,
@@ -353,6 +440,29 @@ export function applyHomeLockControlV1(
   };
 }
 
+async function dispatchLockToSwitchBotV1(
+  nextLocked: boolean
+): Promise<{ used: boolean; note?: string }> {
+  const env = getSwitchBotHomeEnvV1();
+  if (!isSwitchBotLockConfiguredV1(env)) {
+    return { used: false };
+  }
+  const command = nextLocked ? "lock" : "unlock";
+  const result = await sendSwitchBotLockCommandV1(
+    command,
+    env.lockDeviceId,
+    env
+  );
+  if (result.skipped) return { used: false };
+  if (!result.ok) {
+    return {
+      used: true,
+      note: `（SwitchBot: ${result.error} → モック反映）`,
+    };
+  }
+  return { used: true, note: "（SwitchBot 送信）" };
+}
+
 function normalizeCredentialV1(value: unknown): HomeCredentialTypeV1 {
   const raw =
     typeof value === "object" && value !== null
@@ -373,10 +483,11 @@ function normalizeCredentialV1(value: unknown): HomeCredentialTypeV1 {
 /**
  * 統合制御エントリポイント
  * PWA からの1タップ操作はここへ集約する。
+ * ロック / エアコンは設定時に SwitchBot へ非同期送信する。
  */
-export function applyHomeControlV1(
+export async function applyHomeControlV1(
   input: HomeControlInputV1
-): HomeControlResultV1 {
+): Promise<HomeControlResultV1> {
   const siteId = String(input.siteId || "").trim();
   const site = findHomeSiteV1(siteId);
   if (!site || site.id !== siteId) {
@@ -407,22 +518,58 @@ export function applyHomeControlV1(
     case "bath":
       result = applyHomeBathControlV1(site, action, input.value);
       break;
-    case "aircon":
+    case "aircon": {
       result = applyHomeAirconControlV1(
         site,
         input.deviceKey,
         action,
         input.value
       );
+      if (result.ok && result.state) {
+        const ac = result.state as HomeAirconV1;
+        try {
+          const sb = await dispatchAirconToSwitchBotV1(ac, action);
+          if (sb.note && result.message) {
+            result = { ...result, message: `${result.message}${sb.note}` };
+          }
+        } catch {
+          // 実機失敗でもモック状態は維持（クラッシュ防止）
+          if (result.message) {
+            result = {
+              ...result,
+              message: `${result.message}（SwitchBot 通信エラー → モック反映）`,
+            };
+          }
+        }
+      }
       break;
-    case "lock":
+    }
+    case "lock": {
+      // 先に目標状態を決め、実機送信 → ローカル更新
+      if (action !== "toggle" && action !== "lock" && action !== "unlock") {
+        result = { ok: false, error: "未対応の施錠操作です" };
+        break;
+      }
+      const nextLocked =
+        action === "toggle" ? !site.lock.locked : action === "lock";
+      let sbNote = "";
+      try {
+        const sb = await dispatchLockToSwitchBotV1(nextLocked);
+        if (sb.note) sbNote = sb.note;
+      } catch {
+        sbNote = "（SwitchBot 通信エラー → モック反映）";
+      }
       result = applyHomeLockControlV1(
         site,
-        action,
+        nextLocked ? "lock" : "unlock",
         input.value,
         input.actor
       );
+      if (result.ok && sbNote && result.message) {
+        result = { ...result, message: `${result.message}${sbNote}` };
+      }
       break;
+    }
     default:
       result = { ok: false, error: "未対応の制御対象です" };
   }

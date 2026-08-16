@@ -252,6 +252,10 @@ export const config = {
     get lockDeviceId() {
       return env("SWITCHBOT_LOCK_DEVICE_ID");
     },
+    /** TiSLY HOME 赤外線エアコン（仮想リモコン）deviceId */
+    get airConditionerDeviceId() {
+      return env("SWITCHBOT_AIR_CONDITIONER_DEVICE_ID");
+    },
     get autoArmEnabled() {
       return env("SWITCHBOT_AUTO_ARM_ENABLED", "false") === "true";
     },

@@ -1304,10 +1304,13 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | API | `GET /api/home/v1/sites` · `/customer?siteId=` · `/operator` · `/quick-switch` · `/control-logs?siteId=` · `POST /control` |
 | 制御 | `POST /control` — target: `circuit` / `bath` / `aircon` / `lock`（回路ON/OFFは主幹電流を再計算） |
 | 制御 action | circuit: `relay` · bath: `auto_fill` / `reheat` / `keep_warm` / `set_temp` / `temp_up` / `temp_down` · aircon: `power` / `set_temp` / `temp_up` / `temp_down` / `mode` / `fan` / `swing` / `peak_save` · lock: `lock` / `unlock` / `toggle` |
+| SwitchBot 実機 | `switchbot_client.ts`（API v1.1 HMAC）· ロック解錠/施錠 · 赤外線エアコン `setAll`/`turnOn`/`turnOff` · トークン未設定時はモック継続 |
+| SwitchBot env | `SWITCHBOT_TOKEN` · `SWITCHBOT_SECRET` · `SWITCHBOT_LOCK_DEVICE_ID` · `SWITCHBOT_AIR_CONDITIONER_DEVICE_ID` |
+| デバイス一覧 | `npx tsx scripts/list_switchbot_devices.ts`（`npm run switchbot:list-devices`） |
 | App Hub | `tisly_home_v1` カード追記（既存カードは非改変） |
 | Customer | ホームカード「おうち設備」追記（既存カードは非改変） |
 | SW | `tisly-pwa-v2457-tisly-home` |
-| コード | `src/home/home-sites-v1.ts` · `home-control-v1.ts` · `home-dashboard-v1.ts` · `home-store-v1.ts` · `api/routes/home.ts` · `public/home-v1.html` · `home-customer-v1.html` · `js/features/home/*` · `css/features/home/*` |
+| コード | `src/home/home-sites-v1.ts` · `home-control-v1.ts` · `home-dashboard-v1.ts` · `home-store-v1.ts` · `switchbot_client.ts` · `home-switchbot-sync-v1.ts` · `api/routes/home.ts` · `public/home-v1.html` · `home-customer-v1.html` · `js/features/home/*` · `css/features/home/*` |
 | テスト | `server/test/tisly-home-v1.test.ts`（14ケース） |
 | 確認 | `/home-v1` · `/customer/home` · `/api/home/v1/operator` · https://tisly.jp/api/health |
 
