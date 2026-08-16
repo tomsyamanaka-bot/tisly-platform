@@ -32,7 +32,7 @@ export interface SwitchBotDryRunVerifyResult {
   message: string;
 }
 
-const SWITCHBOT_API = "https://openapi.api.switch-bot.com/v1.1";
+const SWITCHBOT_API = "https://api.switch-bot.com/v1.1";
 
 let mockLockState: "locked" | "unlocked" = "unlocked";
 let lastUnlockAt: string | null = null;

@@ -10,12 +10,23 @@
  * 任意: SWITCHBOT_LOCK_DEVICE_ID, SWITCHBOT_AIR_CONDITIONER_DEVICE_ID
  */
 
-import {
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import dotenv from "dotenv";
+
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.join(scriptDir, "..", ".env"), override: true });
+dotenv.config({
+  path: path.join(scriptDir, "..", "..", ".env"),
+  override: false,
+});
+
+const {
   getSwitchBotHomeEnvV1,
   getSwitchBotLockStatusV1,
   isSwitchBotHomeConfiguredV1,
   listSwitchBotDevicesV1,
-} from "../src/home/switchbot_client.js";
+} = await import("../src/home/switchbot_client.js");
 
 async function main(): Promise<void> {
   const env = getSwitchBotHomeEnvV1();

@@ -8,7 +8,7 @@
 
 import { createHmac, randomUUID } from "node:crypto";
 
-const SWITCHBOT_API_BASE = "https://openapi.api.switch-bot.com/v1.1";
+const SWITCHBOT_API_BASE = "https://api.switch-bot.com/v1.1";
 const REQUEST_TIMEOUT_MS = 8000;
 
 export interface SwitchBotHomeEnvV1 {

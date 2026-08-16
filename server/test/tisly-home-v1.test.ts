@@ -40,6 +40,12 @@ import {
   TISLY_INTERNAL_ROUTES_V1,
 } from "../src/shared/routes/tisly-routes-v1.js";
 
+// テストは実機 SwitchBot を呼ばない（.env に本番トークンがあっても密閉）
+delete process.env.SWITCHBOT_TOKEN;
+delete process.env.SWITCHBOT_SECRET;
+delete process.env.SWITCHBOT_LOCK_DEVICE_ID;
+delete process.env.SWITCHBOT_AIR_CONDITIONER_DEVICE_ID;
+
 const app = createApp();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(__dirname, "..", "public");
