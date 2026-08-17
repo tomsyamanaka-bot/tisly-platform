@@ -462,8 +462,105 @@ describe("tisly-home-v1", () => {
       path.join(publicDir, "service-worker.js"),
       "utf-8"
     );
-    assert.match(sw, /tisly-pwa-v2458-home-light-intercom/);
+    assert.match(sw, /tisly-pwa-v2459-home-tile-grid/);
     assert.match(sw, /\/css\/features\/home\/home-v1\.css/);
+    assert.match(sw, /\/css\/features\/home\/home-tiles-v1\.css/);
+    assert.match(sw, /\/js\/features\/home\/home-tiles-v1\.js/);
+  });
+
+  it("renders the device tile grid in工事屋 priority order", () => {
+    const tilesJs = fs.readFileSync(
+      path.join(publicDir, "js", "features", "home", "home-tiles-v1.js"),
+      "utf-8"
+    );
+    // 工事屋目線の並び: CT → ロック → インターホン → 風呂 → エアコン
+    assert.match(
+      tilesJs,
+      /HOME_TILE_ORDER_V1 = \[\s*"ct",\s*"lock",\s*"intercom",\s*"bath",\s*"aircon",?\s*\]/
+    );
+    // 機器名（社内表記）
+    assert.match(tilesJs, /分電盤CT（主幹）/);
+    assert.match(tilesJs, /玄関スマートロック/);
+    assert.match(tilesJs, /スマートインターホン/);
+    assert.match(tilesJs, /風呂 自動/);
+    // 状態テキスト
+    assert.match(tilesJs, /施錠済み/);
+    assert.match(tilesJs, /解錠中/);
+    assert.match(tilesJs, /自動お湯はり中/);
+    assert.match(tilesJs, /追いだきON/);
+    assert.match(tilesJs, /呼出あり！/);
+    assert.match(tilesJs, /停止中/);
+    // タイル右上のワンタップ操作
+    assert.match(tilesJs, /class="hm-tile-action/);
+    assert.match(tilesJs, /data-target="\$\{escapeHtml\(action\.target\)\}"/);
+    // 詳細パネル開閉
+    assert.match(tilesJs, /export function renderHomeTilesV1/);
+    assert.match(tilesJs, /export function bindHomeTileDetailsV1/);
+    assert.match(tilesJs, /export function openHomeDetailV1/);
+
+    const tilesCss = fs.readFileSync(
+      path.join(publicDir, "css", "features", "home", "home-tiles-v1.css"),
+      "utf-8"
+    );
+    // 2列グリッド（スマホ）＋ 可変グリッド（広い画面）
+    assert.match(
+      tilesCss,
+      /\.hm-tile-grid\s*\{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/
+    );
+    assert.match(tilesCss, /@media \(min-width: 760px\)/);
+    // タップ領域 44px 以上
+    assert.match(tilesCss, /\.hm-tile-action\s*\{[^}]*min-height:\s*44px/);
+    assert.match(tilesCss, /\.hm-tile-open\s*\{[^}]*min-height:\s*76px/);
+    assert.match(tilesCss, /\.hm-detail-close\s*\{[^}]*min-height:\s*44px/);
+    // 既存カード CSS は削除していない
+    const baseCss = fs.readFileSync(
+      path.join(publicDir, "css", "features", "home", "home-v1.css"),
+      "utf-8"
+    );
+    assert.match(baseCss, /\.hm-ac-temp-row/);
+    assert.match(baseCss, /\.hm-circuit-row/);
+
+    for (const page of ["home-v1.html", "home-customer-v1.html"]) {
+      const html = fs.readFileSync(path.join(publicDir, page), "utf-8");
+      assert.match(html, /home-tiles-v1\.css/, page);
+      assert.match(html, /id="hm-tile-grid"/, page);
+      assert.match(html, /id="hm-detail-stack"/, page);
+      // 5機器ぶんの詳細パネルがタイルから開く
+      for (const key of ["ct", "lock", "intercom", "bath", "aircon"]) {
+        assert.match(
+          html,
+          new RegExp(`data-detail="${key}"`),
+          `${page} ${key} パネル`
+        );
+        assert.match(
+          html,
+          new RegExp(`data-detail-close="${key}"`),
+          `${page} ${key} 閉じる`
+        );
+      }
+      // 既存の詳細操作（回路・湯はり・エアコン・施錠・インターホン）は残す
+      assert.match(html, /id="hm-circuit-list"/, page);
+      assert.match(html, /data-action="auto_fill"/, page);
+      assert.match(html, /id="hm-aircon-list"/, page);
+      assert.match(html, /id="hm-lock-toggle"/, page);
+      assert.match(html, /id="hm-intercom-visitors"/, page);
+    }
+
+    // お客様向けはやさしい表現（技術語を出さない）
+    assert.match(tilesJs, /plainName: "電気の使用量"/);
+    assert.match(tilesJs, /plainName: "玄関のかぎ"/);
+
+    for (const entry of [
+      "home-operator-v1.js",
+      "home-customer-v1.js",
+    ]) {
+      const js = fs.readFileSync(
+        path.join(publicDir, "js", "features", "home", entry),
+        "utf-8"
+      );
+      assert.match(js, /renderHomeTilesV1/, entry);
+      assert.match(js, /bindHomeTileDetailsV1/, entry);
+    }
   });
 
   it("adds smart intercom to every site and dashboard", () => {

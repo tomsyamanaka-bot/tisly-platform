@@ -57,7 +57,10 @@ describe("Light UI regression (neon class compat)", () => {
 
   it("service worker caches light ui assets", () => {
     const sw = read("service-worker.js");
-    assert.match(sw, /tisly-pwa-v2422-navy-light-ui/);
+    assert.match(
+      sw,
+      /tisly-pwa-v2459-home-tile-grid|tisly-pwa-v2422-navy-light-ui/
+    );
     assert.match(sw, /\/css\/tisly-neon-dark-v1\.css/);
     assert.match(sw, /\/js\/tisly-neon-dark-v1\.js/);
   });

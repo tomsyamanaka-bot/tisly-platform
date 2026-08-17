@@ -418,7 +418,10 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
 
   it("service worker bumps qnap job poll toast cache", () => {
     const sw = read("service-worker.js");
-    assert.match(sw, /tisly-pwa-v2437-qnap-job-poll-toast/);
+    assert.match(
+      sw,
+      /tisly-pwa-v2459-home-tile-grid|tisly-pwa-v2437-qnap-job-poll-toast/
+    );
   });
 
   it("storage settings exposes save debug logs UI and API", () => {

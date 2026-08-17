@@ -16,7 +16,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
 | ログインCTA | 青〜紫グラデ維持（`#4facfe` → `#a855f7`） |
-| SW | `tisly-pwa-v2456-property-register` |
+| SW | `tisly-pwa-v2459-home-tile-grid` |
 
 ---
 
@@ -1334,3 +1334,25 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | SW | `tisly-pwa-v2456-property-register` |
 | テスト | `device-binding-v1.test.ts` · `device-port-config-v1.test.ts` · `gas-monitor-v1.test.ts` |
 | 確認 | `/app/gas-monitor` · `/api/device/register` · https://tisly.jp/api/health |
+
+### TiSLY HOME 機器タイル・グリッド UI v1（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | 縦長リストの詳細カードをやめ、SwitchBot 風の **タイル・グリッド**を機器操作の入口にする |
+| 画面 | `/home-v1` · `/app/home`（社内）· `/customer/home`（お客様） |
+| グリッド | スマホ **2列固定** · 760px 以上で3列 · 1040px 以上で4列（可変） |
+| 並び順（工事屋目線） | ① 分電盤CT ② スマートロック ③ スマートインターホン ④ 風呂 自動 ⑤ エアコン（台数ぶん末尾） |
+| タイル構成 | アイコン · 機器名 · 状態テキスト（1〜2行）· 右上ワンタップ操作 · 「詳しく操作する ›」 |
+| 状態テキスト | CT `56.8A / 10.0kW` · ロック `施錠済み` / `解錠中` · 風呂 `自動お湯はり中` / `追いだきON` · エアコン `冷房 26℃` / `停止中` · インターホン `待機中` / `呼出あり！` |
+| 右上ボタン | ロック 施錠/解錠 · インターホン 応答/自動応答 · 風呂 `風呂 自動 ON/OFF` · エアコン 電源 · CT は状態バッジ（操作なし） |
+| 詳細パネル | 既存の詳細カードを `.hm-detail-panel` として折りたたみ保持 — タイルタップで1枚だけ開き「閉じる」で戻る（回路ON/OFF · 湯はり · 温度± · 施錠 · 来客履歴はすべて維持） |
+| お客様表記 | `plain` モードでやさしい言い方（`電気の使用量` · `玄関のかぎ` · `置き配`） |
+| タップ領域 | 操作ボタン・閉じる 44px 以上 · 詳細タップ領域 76px 以上 · 機器名は2列幅で1行 |
+| 差分更新 | 台数・並びが同じならタイル DOM を作り直さずテキスト/クラスのみ更新（ポーリングのチラつき防止） |
+| 浮遊ボタン | `.hqs-fab`（クイック切替）が最下段カードに被らないよう `.hm-main` 下余白 152px |
+| SW | `tisly-pwa-v2459-home-tile-grid` |
+| コード | `public/js/features/home/home-tiles-v1.js` · `public/css/features/home/home-tiles-v1.css` · `home-v1.html` · `home-customer-v1.html` · `home-operator-v1.js` · `home-customer-v1.js` |
+| 検証 | `scripts/capture-home-tiles-v1.mjs`（iPhone SE/14 · 列数 · 横スクロール · タップ領域 · ワンタップ施錠解錠）· `scripts/capture-home-tiles-zoom-v1.mjs`（目視用）· `scripts/check-home-html-balance.mjs` |
+| テスト | `server/test/tisly-home-v1.test.ts`（18ケース） |
+| 確認 | `/home-v1` · `/customer/home` · https://tisly.jp/api/health |

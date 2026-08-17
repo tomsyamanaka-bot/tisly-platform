@@ -24,6 +24,10 @@ import {
   showToast,
   updateRingPopup,
 } from "./home-shared-v1.js";
+import {
+  bindHomeTileDetailsV1,
+  renderHomeTilesV1,
+} from "./home-tiles-v1.js";
 
 const POLL_INTERVAL_MS = 20000;
 
@@ -61,6 +65,8 @@ async function loadSiteOptions() {
 function renderAll(dashboard) {
   currentSiteId = dashboard.siteId;
   renderStatusHero(dashboard);
+  // 2列グリッドのタイル（やさしい言い方）
+  renderHomeTilesV1(dashboard, { plain: true });
   // お客様向けは回路の遠隔ON/OFFを出さない
   renderCt(dashboard, { withControls: false });
   renderBath(dashboard);
@@ -160,6 +166,7 @@ async function refresh() {
 document.addEventListener("DOMContentLoaded", async () => {
   currentSiteId = readSiteIdFromUrl();
   bindControlDelegation();
+  bindHomeTileDetailsV1();
   await loadSiteOptions();
 
   const select = byId("hm-site-select");

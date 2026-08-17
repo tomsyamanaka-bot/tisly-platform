@@ -4,10 +4,10 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2458-home-light-intercom";
-const OFFLINE_CACHE = "tisly-pwa-shell-v2458-home-light-intercom";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2458-home-light-intercom";
-const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2458-home-light-intercom";
+const SW_VERSION = "tisly-pwa-v2459-home-tile-grid";
+const OFFLINE_CACHE = "tisly-pwa-shell-v2459-home-tile-grid";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2459-home-tile-grid";
+const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2459-home-tile-grid";
 /* お客様ゾーンの互換トークン
  * customer-cache-v1.js / route-health.js が
  * SW 側に存在するか診断するため保持 */
@@ -240,8 +240,10 @@ const SHELL_URLS = [
   "/js/features/home/home-operator-v1.js",
   "/js/features/home/home-customer-v1.js",
   "/js/features/home/home-quick-switch-v1.js",
+  "/js/features/home/home-tiles-v1.js",
   "/css/features/home/home-v1.css",
   "/css/features/home/home-quick-switch-v1.css",
+  "/css/features/home/home-tiles-v1.css",
   "/knowledge-v1",
   "/js/knowledge-v1.js",
   "/css/knowledge-v1.css",

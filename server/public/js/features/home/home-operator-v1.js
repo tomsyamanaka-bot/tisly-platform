@@ -27,6 +27,10 @@ import {
   showToast,
   updateRingPopup,
 } from "./home-shared-v1.js";
+import {
+  bindHomeTileDetailsV1,
+  renderHomeTilesV1,
+} from "./home-tiles-v1.js";
 
 const POLL_INTERVAL_MS = 15000;
 
@@ -122,6 +126,8 @@ function renderSiteList(operator) {
 
 function renderSiteDetail(dashboard) {
   renderStatusHero(dashboard);
+  // 2列グリッドのタイル（機器の入口）
+  renderHomeTilesV1(dashboard);
   renderCt(dashboard, { withControls: true });
   renderBath(dashboard);
   renderAircons(dashboard, { withControls: true });
@@ -209,6 +215,7 @@ async function refresh() {
 document.addEventListener("DOMContentLoaded", () => {
   currentSiteId = readSiteIdFromUrl();
   bindControlDelegation();
+  bindHomeTileDetailsV1();
   renderSwitchBotBadge();
 
   const select = byId("hm-site-select");

@@ -1,0 +1,316 @@
+/* TiSLY HOME — 機器タイル・グリッド v1
+ * SwitchBot 風の 2列（可変）タイル UI
+ * home-v1.css の変数（--hm-*）をそのまま使う。
+ * 既存カード CSS は削除せず、タイル用クラスのみ追記。 */
+
+/* ---------- タイル・グリッド ---------- */
+
+.hm-tile-section {
+  display: block;
+}
+
+/* 浮遊クイック切替ボタン（.hqs-fab は bottom 84px · 高さ 52px）が
+   最下段のカードに被らないよう下余白を確保する */
+.hm-body .hm-main {
+  padding-bottom: calc(152px + env(safe-area-inset-bottom, 0px));
+}
+
+.hm-tile-grid {
+  display: grid;
+  /* スマホは 2 列固定。押しやすさを優先する */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+/* 画面が広いときだけ列を増やす（可変グリッド） */
+@media (min-width: 760px) {
+  .hm-tile-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1040px) {
+  .hm-tile-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* 極小画面（iPhone SE 等）でも 2 列を保つため文字だけ縮める */
+@media (max-width: 340px) {
+  .hm-tile-state {
+    font-size: 1rem;
+  }
+  .hm-tile-action {
+    min-width: 60px;
+    font-size: 0.78rem;
+  }
+}
+
+/* ---------- タイル本体 ---------- */
+
+.hm-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 168px;
+  padding: 12px 12px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--hm-line);
+  background: var(--hm-surface);
+  box-shadow: var(--hm-shadow);
+}
+
+.hm-tile.is-on {
+  border-color: rgba(22, 163, 74, 0.45);
+  background: linear-gradient(180deg, #f6fefa 0%, #ffffff 62%);
+}
+
+.hm-tile.is-idle {
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 62%);
+}
+
+.hm-tile.is-warn {
+  border-color: rgba(234, 88, 12, 0.5);
+  background: linear-gradient(180deg, #fff7ed 0%, #ffffff 62%);
+}
+
+.hm-tile.is-alert {
+  border-color: rgba(220, 38, 38, 0.55);
+  background: linear-gradient(180deg, #fef2f2 0%, #ffffff 62%);
+  animation: hm-tile-alert-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes hm-tile-alert-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(220, 38, 38, 0);
+  }
+}
+
+.hm-tile-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.hm-tile-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: #eef2f9;
+  border: 1px solid var(--hm-line);
+  font-size: 1.5rem;
+  line-height: 1;
+  flex: 0 0 auto;
+}
+
+.hm-tile.is-on .hm-tile-icon {
+  background: #dcfce7;
+  border-color: rgba(22, 163, 74, 0.4);
+}
+
+.hm-tile.is-warn .hm-tile-icon {
+  background: #ffedd5;
+  border-color: rgba(234, 88, 12, 0.4);
+}
+
+.hm-tile.is-alert .hm-tile-icon {
+  background: #fee2e2;
+  border-color: rgba(220, 38, 38, 0.4);
+}
+
+/* 右上のワンタップ操作ボタン（電源 / 施錠解錠 / 風呂自動 など） */
+.hm-tile-action {
+  min-height: 44px;
+  min-width: 68px;
+  max-width: 62%;
+  padding: 0 10px;
+  border-radius: 14px;
+  border: 1px solid var(--hm-navy);
+  background: var(--hm-navy);
+  color: #ffffff;
+  font-weight: 900;
+  font-size: 0.85rem;
+  line-height: 1.15;
+  cursor: pointer;
+  transition: transform 0.12s ease, filter 0.12s ease;
+}
+
+.hm-tile-action:active {
+  transform: scale(0.95);
+  filter: brightness(1.08);
+}
+
+.hm-tile-action:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+.hm-tile-action.is-on {
+  background: var(--hm-safe);
+  border-color: var(--hm-safe);
+}
+
+.hm-tile-action.is-off {
+  background: #ffffff;
+  border-color: var(--hm-line-strong);
+  color: var(--hm-ink-2);
+}
+
+.hm-tile-action.is-danger {
+  background: var(--hm-danger);
+  border-color: var(--hm-danger);
+}
+
+/* 操作ボタンを持たない機器（CT）の状態バッジ */
+.hm-tile-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 900;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+.hm-tile-badge.is-ok {
+  background: #dcfce7;
+  color: #15803d;
+  border-color: rgba(22, 163, 74, 0.45);
+}
+
+.hm-tile-badge.is-warn {
+  background: #ffedd5;
+  color: #c2410c;
+  border-color: rgba(234, 88, 12, 0.45);
+}
+
+.hm-tile-badge.is-danger {
+  background: #fee2e2;
+  color: #b91c1c;
+  border-color: rgba(220, 38, 38, 0.45);
+}
+
+/* ---------- タイル文字（機器名・状態1〜2行） ---------- */
+
+.hm-tile-open {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 76px;
+  padding: 6px 2px 2px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.hm-tile-open:active {
+  opacity: 0.7;
+}
+
+/* 「スマートインターホン」まで 2列幅で1行に収まるサイズ */
+.hm-tile-name {
+  font-size: 0.82rem;
+  font-weight: 900;
+  color: var(--hm-ink-2);
+  line-height: 1.3;
+}
+
+.hm-tile-state {
+  font-size: 1.1rem;
+  font-weight: 900;
+  color: var(--hm-navy);
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+}
+
+.hm-tile.is-on .hm-tile-state {
+  color: #15803d;
+}
+
+.hm-tile.is-warn .hm-tile-state {
+  color: #c2410c;
+}
+
+.hm-tile.is-alert .hm-tile-state {
+  color: var(--hm-danger);
+}
+
+.hm-tile.is-idle .hm-tile-state {
+  color: var(--hm-muted);
+}
+
+.hm-tile-sub {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--hm-muted);
+  line-height: 1.4;
+}
+
+.hm-tile-more {
+  margin-top: auto;
+  font-size: 0.74rem;
+  font-weight: 800;
+  color: var(--hm-navy);
+}
+
+/* ---------- 詳細パネル（タイルから開く） ---------- */
+
+.hm-detail-stack {
+  display: grid;
+  gap: 14px;
+}
+
+.hm-detail-panel[hidden] {
+  display: none;
+}
+
+.hm-detail-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.hm-detail-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.hm-detail-bar-title {
+  font-size: 0.95rem;
+  font-weight: 900;
+  color: var(--hm-navy);
+}
+
+.hm-detail-close {
+  min-height: 44px;
+  min-width: 88px;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 1px solid var(--hm-line-strong);
+  background: #ffffff;
+  color: var(--hm-ink-2);
+  font-weight: 900;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.hm-detail-close:active {
+  transform: scale(0.96);
+}

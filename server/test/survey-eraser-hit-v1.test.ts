@@ -129,7 +129,10 @@ describe("survey eraser hit testing v1", () => {
     assert.match(js, /applyEraserPhysicalDelete/);
     assert.match(js, /SURVEY_DRAWING_UI_VERSION = "survey-drawing-ui-v38"/);
     assert.match(html, /survey-drawing-ui-v38/);
-    assert.ok(sw.includes("tisly-pwa-v2420-neon-dark"));
+    assert.ok(
+      sw.includes("tisly-pwa-v2459-home-tile-grid") ||
+        sw.includes("tisly-pwa-v2420-neon-dark")
+    );
     assert.ok(sw.includes("survey-eraser-hit-v1.js"));
     assert.ok(eraserSrc.includes("cleaned.splice(hitIndex, 1)"));
     assert.doesNotMatch(js, /destination-out/);

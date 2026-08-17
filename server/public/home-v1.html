@@ -12,7 +12,8 @@
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2003" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
   <title>TiSLY HOME — 住設・ホームIoT統合</title>
-  <link rel="stylesheet" href="/css/features/home/home-v1.css?v=2458" />
+  <link rel="stylesheet" href="/css/features/home/home-v1.css?v=2459" />
+  <link rel="stylesheet" href="/css/features/home/home-tiles-v1.css?v=2459" />
 </head>
 <body class="hm-body" data-hqs-mode="internal">
   <!--
@@ -113,7 +114,27 @@
       <p class="hm-status-meta" id="hm-status-meta">—</p>
     </section>
 
-    <div class="hm-grid-2">
+    <!-- 機器タイル（2列グリッド・工事屋目線の優先順） -->
+    <section class="hm-tile-section" id="hm-tile-section">
+      <p class="hm-card-label">機器操作（タップで詳細）</p>
+      <div class="hm-tile-grid" id="hm-tile-grid">
+        <p class="hm-empty">読み込み中…</p>
+      </div>
+    </section>
+
+    <!-- タイルから開く詳細操作パネル -->
+    <div class="hm-detail-stack" id="hm-detail-stack">
+      <div class="hm-detail-panel" data-detail="ct" hidden>
+      <div class="hm-detail-bar">
+        <span class="hm-detail-bar-title">分電盤CT の詳細</span>
+        <button
+          type="button"
+          class="hm-detail-close"
+          data-detail-close="ct"
+        >
+          閉じる
+        </button>
+      </div>
       <!-- 1. 分電盤用CT -->
       <section class="hm-card" id="hm-ct-card">
         <div class="hm-device-head">
@@ -166,7 +187,19 @@
           <p class="hm-empty">読み込み中…</p>
         </div>
       </section>
+      </div>
 
+      <div class="hm-detail-panel" data-detail="bath" hidden>
+      <div class="hm-detail-bar">
+        <span class="hm-detail-bar-title">風呂 自動 の詳細</span>
+        <button
+          type="button"
+          class="hm-detail-close"
+          data-detail-close="bath"
+        >
+          閉じる
+        </button>
+      </div>
       <!-- 2. 風呂リモコン -->
       <section class="hm-card" id="hm-bath-card">
         <div class="hm-device-head">
@@ -250,8 +283,19 @@
       </section>
     </div>
 
-    <!-- 3. エアコン -->
-    <section class="hm-card" id="hm-aircon-card">
+      <div class="hm-detail-panel" data-detail="aircon" hidden>
+      <div class="hm-detail-bar">
+        <span class="hm-detail-bar-title">エアコン の詳細</span>
+        <button
+          type="button"
+          class="hm-detail-close"
+          data-detail-close="aircon"
+        >
+          閉じる
+        </button>
+      </div>
+      <!-- 3. エアコン -->
+      <section class="hm-card" id="hm-aircon-card">
       <div class="hm-device-head">
         <span class="hm-device-icon" aria-hidden="true">❄️</span>
         <div>
@@ -262,10 +306,22 @@
       <div id="hm-aircon-list">
         <p class="hm-empty">読み込み中…</p>
       </div>
-    </section>
+      </section>
+      </div>
 
-    <!-- 4. 玄関スマートロック -->
-    <section class="hm-card" id="hm-lock-card">
+      <div class="hm-detail-panel" data-detail="lock" hidden>
+      <div class="hm-detail-bar">
+        <span class="hm-detail-bar-title">玄関スマートロック の詳細</span>
+        <button
+          type="button"
+          class="hm-detail-close"
+          data-detail-close="lock"
+        >
+          閉じる
+        </button>
+      </div>
+      <!-- 4. 玄関スマートロック -->
+      <section class="hm-card" id="hm-lock-card">
       <div class="hm-device-head">
         <span class="hm-device-icon" aria-hidden="true">🚪</span>
         <div>
@@ -298,10 +354,22 @@
       <div class="hm-log-list" id="hm-lock-log">
         <p class="hm-empty">読み込み中…</p>
       </div>
-    </section>
+      </section>
+      </div>
 
-    <!-- 5. スマートインターホン -->
-    <section class="hm-card hm-intercom-card" id="hm-intercom-card">
+      <div class="hm-detail-panel" data-detail="intercom" hidden>
+      <div class="hm-detail-bar">
+        <span class="hm-detail-bar-title">スマートインターホン の詳細</span>
+        <button
+          type="button"
+          class="hm-detail-close"
+          data-detail-close="intercom"
+        >
+          閉じる
+        </button>
+      </div>
+      <!-- 5. スマートインターホン -->
+      <section class="hm-card hm-intercom-card" id="hm-intercom-card">
       <div class="hm-device-head">
         <span class="hm-device-icon" aria-hidden="true">🔔</span>
         <div>
@@ -360,7 +428,9 @@
       <div class="hm-log-list" id="hm-intercom-visitors">
         <p class="hm-empty">読み込み中…</p>
       </div>
-    </section>
+      </section>
+      </div>
+    </div>
 
     <!-- 現場メモ -->
     <section class="hm-card">
@@ -381,7 +451,7 @@
 
   <div class="hm-toast" id="hm-toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="/js/features/home/home-operator-v1.js?v=2458"></script>
-  <script type="module" src="/js/features/home/home-quick-switch-v1.js?v=2458"></script>
+  <script type="module" src="/js/features/home/home-operator-v1.js?v=2459"></script>
+  <script type="module" src="/js/features/home/home-quick-switch-v1.js?v=2459"></script>
 </body>
 </html>

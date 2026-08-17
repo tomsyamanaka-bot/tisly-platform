@@ -494,7 +494,7 @@ describe("RP2350 port mapping and field validation v1", () => {
     // SW は機能追加ごとに更新される（旧タグも許容）
     assert.match(
       worker.text,
-      /v2458-home-light-intercom|v2457-tisly-home|v2456-property-register/
+      /v2459-home-tile-grid|v2458-home-light-intercom|v2457-tisly-home|v2456-property-register/
     );
     assert.match(worker.text, /\/device-binding-v1\.html/);
   });
