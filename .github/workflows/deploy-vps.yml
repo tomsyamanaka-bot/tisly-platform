@@ -173,6 +173,11 @@ jobs:
           VPS_PORT: ${{ secrets.VPS_PORT }}
           EXPECTED_SHORT: ${{ steps.commit.outputs.short }}
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+          # TiSLY HOME 実機連携（未登録なら本番はモックのまま）
+          SWITCHBOT_TOKEN: ${{ secrets.SWITCHBOT_TOKEN }}
+          SWITCHBOT_SECRET: ${{ secrets.SWITCHBOT_SECRET }}
+          SWITCHBOT_LOCK_DEVICE_ID: ${{ secrets.SWITCHBOT_LOCK_DEVICE_ID }}
+          SWITCHBOT_AIR_CONDITIONER_DEVICE_ID: ${{ secrets.SWITCHBOT_AIR_CONDITIONER_DEVICE_ID }}
         run: |
           set -euo pipefail
           PORT="${VPS_PORT:-55222}"
@@ -235,7 +240,13 @@ jobs:
           )
 
           echo "=== Remote deploy (inline, no VPS script required) ==="
-          ssh "${SSH_BASE[@]}" "${TARGET}" "GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY:-}" bash -s "${EXPECTED_SHORT}" <<'REMOTE'
+          ssh "${SSH_BASE[@]}" "${TARGET}" \
+            "GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY:-}" \
+            "SWITCHBOT_TOKEN=${SWITCHBOT_TOKEN:-}" \
+            "SWITCHBOT_SECRET=${SWITCHBOT_SECRET:-}" \
+            "SWITCHBOT_LOCK_DEVICE_ID=${SWITCHBOT_LOCK_DEVICE_ID:-}" \
+            "SWITCHBOT_AIR_CONDITIONER_DEVICE_ID=${SWITCHBOT_AIR_CONDITIONER_DEVICE_ID:-}" \
+            bash -s "${EXPECTED_SHORT}" <<'REMOTE'
           set -euo pipefail
           EXPECTED_SHORT="${1:-}"
           REPO_ROOT=/opt/tisly
@@ -264,6 +275,16 @@ jobs:
           if [ -n "${GOOGLE_MAPS_API_KEY:-}" ]; then
             sync_env_var "GOOGLE_MAPS_API_KEY" "${GOOGLE_MAPS_API_KEY}"
           fi
+          # TiSLY HOME — SwitchBot 実機連携。
+          # Secrets 未登録なら何も書かず本番はモックのまま動く。
+          for sb_key in \
+            SWITCHBOT_TOKEN \
+            SWITCHBOT_SECRET \
+            SWITCHBOT_LOCK_DEVICE_ID \
+            SWITCHBOT_AIR_CONDITIONER_DEVICE_ID
+          do
+            sync_env_var "${sb_key}" "${!sb_key:-}"
+          done
           # 書類保存用 NAS (nastoms) 実機 WebDAV ポート
           sync_env_var "QNAP_LOCAL_HOST" "192.168.1.134"
           sync_env_var "QNAP_LOCAL_PORT" "5522"

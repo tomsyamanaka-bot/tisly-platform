@@ -1310,6 +1310,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | SwitchBot 実機 | `switchbot_client.ts`（API v1.1 HMAC）· ロック解錠/施錠 · 赤外線エアコン `setAll`/`turnOn`/`turnOff` · インターホンの `unlock_door` も実機解錠へ連動 · トークン未設定時はモック継続 |
 | SwitchBot env | `SWITCHBOT_TOKEN` · `SWITCHBOT_SECRET` · `SWITCHBOT_LOCK_DEVICE_ID` · `SWITCHBOT_AIR_CONDITIONER_DEVICE_ID` |
 | 実機/モック判定 | `resolveSwitchBotHomeModeV1()` — TOKEN と SECRET が揃えば `real`、無ければ `mock`。`SWITCHBOT_MODE` に依存しないので **VPS 本番でも `.env` を入れるだけで自動切替**。`GET /api/home/v1/switchbot-status` で確認（トークン・シークレットは返さず deviceId は末尾4文字のみ） |
+| VPS 本番の実機化 | GitHub Secrets に `SWITCHBOT_TOKEN` · `SWITCHBOT_SECRET` · `SWITCHBOT_LOCK_DEVICE_ID` · `SWITCHBOT_AIR_CONDITIONER_DEVICE_ID` を登録すると、`deploy-vps.yml` が `/opt/tisly/server/.env` へ同期し次回デプロイで real になる。未登録ならモックのまま安全に動く |
 | デバイス一覧 | `npx tsx scripts/list_switchbot_devices.ts`（`npm run switchbot:list-devices`）· API は `GET /api/home/v1/switchbot-devices` |
 | App Hub | `tisly_home_v1` カード追記（既存カードは非改変） |
 | Customer | ホームカード「おうち設備」追記（既存カードは非改変） |
