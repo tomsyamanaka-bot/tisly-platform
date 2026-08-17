@@ -704,11 +704,29 @@ export const HOME_SITES_V1: HomeSiteV1[] = [
   },
 ];
 
+/** 手動登録・デバイス紐付けで追加されたランタイム物件 */
+const RUNTIME_HOME_SITES_V1: HomeSiteV1[] = [];
+
+/** ランタイム物件を末尾追記（既存 ID は上書きしない） */
+export function registerRuntimeHomeSiteV1(site: HomeSiteV1): void {
+  if (HOME_SITES_V1.some((s) => s.id === site.id)) return;
+  const idx = RUNTIME_HOME_SITES_V1.findIndex((s) => s.id === site.id);
+  if (idx >= 0) {
+    RUNTIME_HOME_SITES_V1[idx] = site;
+    return;
+  }
+  RUNTIME_HOME_SITES_V1.push(site);
+}
+
+function allHomeSitesV1(): HomeSiteV1[] {
+  return [...HOME_SITES_V1, ...RUNTIME_HOME_SITES_V1];
+}
+
 export function findHomeSiteV1(
   id: string | null | undefined
 ): HomeSiteV1 {
   const key = String(id || "").trim();
-  const found = HOME_SITES_V1.find((s) => s.id === key);
+  const found = allHomeSitesV1().find((s) => s.id === key);
   if (found) return found;
   return (
     HOME_SITES_V1.find((s) => s.id === HOME_DEFAULT_SITE_ID_V1) ||
@@ -717,7 +735,7 @@ export function findHomeSiteV1(
 }
 
 export function listHomeSitesV1(): HomeSiteV1[] {
-  return [...HOME_SITES_V1];
+  return allHomeSitesV1();
 }
 
 /** 主幹負荷率 %（容量に対する現在電流） */

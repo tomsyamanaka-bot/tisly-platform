@@ -24,6 +24,10 @@ import {
 } from "../../home/home-customer-facing-v1.js";
 import { buildHomeCustomerMgmtViewV1 } from "../../home/home-customer-mgmt-v1.js";
 import {
+  registerHomeSiteV1,
+  updateHomeSiteRegistryV1,
+} from "../../home/home-customer-registry-v1.js";
+import {
   applyHomeControlV1,
   type HomeControlTargetV1,
 } from "../../home/home-control-v1.js";
@@ -95,9 +99,58 @@ homeRouter.get("/customer", async (req, res) => {
   res.json({ ok: true, dashboard });
 });
 
-/** 社内「顧客を見る」 — 契約・施工・ログ集約 */
+/** 社内「顧客を見る」 — TiSLY HOME 契約物件のみ */
 homeRouter.get("/customer-mgmt", (_req, res) => {
   res.json({ ok: true, view: buildHomeCustomerMgmtViewV1() });
+});
+
+/** 社内「顧客を見る」 — 新規物件登録 */
+homeRouter.post("/customer-mgmt/sites", (req, res) => {
+  try {
+    const site = registerHomeSiteV1({
+      displayName: req.body?.displayName ?? req.body?.display_name,
+      addressLabel: req.body?.addressLabel ?? req.body?.address,
+      planCode: req.body?.planCode ?? req.body?.plan_code,
+      contactName: req.body?.contactName ?? req.body?.contact_name,
+      contactPhone: req.body?.contactPhone ?? req.body?.contact_phone,
+      contactEmail: req.body?.contactEmail ?? req.body?.contact_email,
+      customerCode: req.body?.customerCode ?? req.body?.customer_code,
+      registrationSource: "manual",
+    });
+    res.status(201).json({ ok: true, site, view: buildHomeCustomerMgmtViewV1() });
+  } catch (error) {
+    res.status(400).json({
+      ok: false,
+      error: String((error as Error).message),
+    });
+  }
+});
+
+/** 社内「顧客を見る」 — 物件更新 */
+homeRouter.patch("/customer-mgmt/sites/:siteId", (req, res) => {
+  const siteId = String(req.params.siteId ?? "").trim();
+  if (!siteId) {
+    res.status(400).json({ ok: false, error: "siteId が必要です" });
+    return;
+  }
+  try {
+    const site = updateHomeSiteRegistryV1(siteId, {
+      displayName: req.body?.displayName ?? req.body?.display_name,
+      addressLabel: req.body?.addressLabel ?? req.body?.address,
+      planCode: req.body?.planCode ?? req.body?.plan_code,
+      contactName: req.body?.contactName ?? req.body?.contact_name,
+      contactPhone: req.body?.contactPhone ?? req.body?.contact_phone,
+      contactEmail: req.body?.contactEmail ?? req.body?.contact_email,
+      planStatus: req.body?.planStatus ?? req.body?.plan_status,
+    });
+    res.json({ ok: true, site, view: buildHomeCustomerMgmtViewV1() });
+  } catch (error) {
+    const message = String((error as Error).message);
+    res.status(message.includes("見つかりません") ? 404 : 400).json({
+      ok: false,
+      error: message,
+    });
+  }
 });
 
 /** 社内・事業者向け */

@@ -153,22 +153,18 @@ describe("tisly-home-v1", () => {
     assert.match(sites[0].statusLabel, /正常|注意|確認/);
   });
 
-  it("builds internal customer-mgmt view with contract and hardware", () => {
+  it("builds internal customer-mgmt view with independent HOME sites only", () => {
     const view = buildHomeCustomerMgmtViewV1();
-    assert.ok(view.totalCustomers >= 1);
-    assert.ok(view.totalHomeSites >= 3);
-    const toms = view.customers.find((c) => c.customerCode === "TOMS001");
-    assert.ok(toms);
-    assert.ok(toms!.homeSites.length >= 1);
-    const site = toms!.homeSites.find((s) => s.siteId === JP_SITE);
+    assert.ok(view.totalSites >= 3);
+    assert.ok(Array.isArray(view.sites));
+    assert.equal(view.totalSites, view.sites.length);
+    const site = view.sites.find((s) => s.siteId === JP_SITE);
     assert.ok(site);
     assert.match(site!.monthlyFeeLabel, /3,800円|3800/);
     assert.equal(site!.planCode, "home_standard");
-    assert.ok(site!.hardware.devices.some((d) => d.kind === "bath_remote"));
-    assert.match(
-      site!.hardware.devices.find((d) => d.kind === "bath_remote")!.detail,
-      /HA端子/
-    );
+    assert.ok(site!.registrationSourceLabel);
+    // 旧構造（customers / portal properties）は廃止
+    assert.equal((view as { customers?: unknown }).customers, undefined);
   });
 
   it("sorts operator dashboard with alerts first", () => {
@@ -382,7 +378,8 @@ describe("tisly-home-v1", () => {
 
     const mgmt = await request(app).get("/api/home/v1/customer-mgmt");
     assert.equal(mgmt.status, 200);
-    assert.ok(mgmt.body.view.totalHomeSites >= 3);
+    assert.ok(mgmt.body.view.totalSites >= 3);
+    assert.ok(Array.isArray(mgmt.body.view.sites));
 
     for (const p of ["/customer-view-v1", "/app/customer-view"]) {
       const page = await request(app).get(p);
@@ -506,6 +503,8 @@ describe("tisly-home-v1", () => {
       "utf-8"
     );
     assert.match(customerViewHtml, /顧客を見る/);
+    assert.match(customerViewHtml, /cv-add-btn/);
+    assert.match(customerViewHtml, /新規登録/);
     assert.match(customerViewHtml, /customer-view-v1\.js/);
 
     const sharedJs = fs.readFileSync(
@@ -543,7 +542,7 @@ describe("tisly-home-v1", () => {
       path.join(publicDir, "service-worker.js"),
       "utf-8"
     );
-    assert.match(sw, /tisly-pwa-v2460-home-customer-split/);
+    assert.match(sw, /tisly-pwa-v2461-home-customer-independent/);
     assert.match(sw, /\/css\/features\/home\/home-v1\.css/);
     assert.match(sw, /\/css\/features\/home\/home-tiles-v1\.css/);
     assert.match(sw, /\/js\/features\/home\/home-tiles-v1\.js/);
@@ -560,17 +559,19 @@ describe("tisly-home-v1", () => {
       /HOME_TILE_ORDER_V1 = \[\s*"ct",\s*"lock",\s*"intercom",\s*"bath",\s*"aircon",?\s*\]/
     );
     // 機器名（社内表記）
-    assert.match(tilesJs, /分電盤CT（主幹）/);
-    assert.match(tilesJs, /玄関スマートロック/);
-    assert.match(tilesJs, /スマートインターホン/);
-    assert.match(tilesJs, /風呂 自動/);
-    // 状態テキスト
-    assert.match(tilesJs, /施錠済み/);
+    assert.match(tilesJs, /分電盤CT/);
+    assert.match(tilesJs, /スマートロック/);
+    assert.match(tilesJs, /インターホン/);
+    assert.match(tilesJs, /風呂/);
+    // 状態テキスト（v2 ミニマル）
+    assert.match(tilesJs, /施錠中/);
     assert.match(tilesJs, /解錠中/);
-    assert.match(tilesJs, /自動お湯はり中/);
-    assert.match(tilesJs, /追いだきON/);
-    assert.match(tilesJs, /呼出あり！/);
+    assert.match(tilesJs, /湯はり中/);
+    assert.match(tilesJs, /呼出中/);
+    assert.match(tilesJs, /待機中/);
     assert.match(tilesJs, /停止中/);
+    assert.match(tilesJs, /\$\{fixed1\(ct\.mainCurrentA\)\} A/);
+    assert.doesNotMatch(tilesJs, /詳しく操作する/);
     // タイル右上のワンタップ操作
     assert.match(tilesJs, /class="hm-tile-action/);
     assert.match(tilesJs, /data-target="\$\{escapeHtml\(action\.target\)\}"/);
@@ -591,7 +592,10 @@ describe("tisly-home-v1", () => {
     assert.match(tilesCss, /@media \(min-width: 760px\)/);
     // タップ領域 44px 以上
     assert.match(tilesCss, /\.hm-tile-action\s*\{[^}]*min-height:\s*44px/);
-    assert.match(tilesCss, /\.hm-tile-open\s*\{[^}]*min-height:\s*76px/);
+    assert.match(tilesCss, /\.hm-tile-open\s*\{[^}]*min-height:\s*64px/);
+    assert.match(tilesCss, /#e2e8f0/);
+    assert.match(tilesCss, /#16a34a/);
+    assert.match(tilesCss, /#dc2626/);
     assert.match(tilesCss, /\.hm-detail-close\s*\{[^}]*min-height:\s*44px/);
     // 既存カード CSS は削除していない
     const baseCss = fs.readFileSync(
@@ -628,7 +632,7 @@ describe("tisly-home-v1", () => {
     }
 
     // お客様向けはやさしい表現（技術語を出さない）
-    assert.match(tilesJs, /plainName: "電気の使用量"/);
+    assert.match(tilesJs, /plainName: "電気"/);
     assert.match(tilesJs, /plainName: "玄関のかぎ"/);
 
     for (const entry of [

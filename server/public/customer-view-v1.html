@@ -3,17 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#1E3A8A" />
+  <meta name="theme-color" content="#1e293b" />
   <meta name="color-scheme" content="light" />
   <title>顧客を見る — TiSLY HOME 社内管理</title>
   <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
-  <link rel="stylesheet" href="/css/features/home/customer-view-v1.css?v=2460" />
+  <link rel="stylesheet" href="/css/features/home/customer-view-v1.css?v=2461" />
 </head>
 <body class="cv-body">
   <header class="cv-header">
     <a class="cv-back" href="/app">← 業務アプリ</a>
     <h1>顧客を見る</h1>
-    <p class="cv-sub">TiSLY HOME 顧客 · 契約 · 施工 · 警報ログ（社内専用）</p>
+    <p class="cv-sub">TiSLY HOME 契約・導入済み物件のみ（社内専用）</p>
   </header>
 
   <main class="cv-main">
@@ -26,9 +26,10 @@
         type="search"
         id="cv-search"
         class="cv-search"
-        placeholder="顧客名 · コード · 物件名で検索"
+        placeholder="物件名 · 住所 · 連絡先で検索"
         autocomplete="off"
       />
+      <button type="button" id="cv-add-btn" class="cv-add-btn">＋ 新規登録</button>
     </section>
 
     <div id="cv-list" class="cv-list">
@@ -36,6 +37,48 @@
     </div>
   </main>
 
-  <script type="module" src="/js/features/home/customer-view-v1.js?v=2460"></script>
+  <div id="cv-modal" class="cv-modal" hidden>
+    <div class="cv-modal-panel" role="dialog" aria-labelledby="cv-modal-title">
+      <div class="cv-modal-head">
+        <h2 id="cv-modal-title">新規物件を登録</h2>
+        <button type="button" class="cv-modal-close" data-modal-close aria-label="閉じる">×</button>
+      </div>
+      <form id="cv-form" class="cv-form">
+        <label class="cv-field">
+          <span>物件名 <em>*</em></span>
+          <input name="displayName" required maxlength="80" placeholder="例: 守谷市 佐藤邸" />
+        </label>
+        <label class="cv-field">
+          <span>住所</span>
+          <input name="addressLabel" maxlength="120" placeholder="例: 茨城県守谷市..." />
+        </label>
+        <label class="cv-field">
+          <span>プラン</span>
+          <select name="planCode">
+            <option value="home_basic">ベーシック（1,980円/月）</option>
+            <option value="home_standard">スタンダード（3,800円/月）</option>
+          </select>
+        </label>
+        <label class="cv-field">
+          <span>担当者名</span>
+          <input name="contactName" maxlength="60" placeholder="例: 佐藤 太郎" />
+        </label>
+        <label class="cv-field">
+          <span>電話番号</span>
+          <input name="contactPhone" type="tel" maxlength="20" placeholder="例: 090-1234-5678" />
+        </label>
+        <label class="cv-field">
+          <span>メール</span>
+          <input name="contactEmail" type="email" maxlength="80" placeholder="例: example@mail.jp" />
+        </label>
+        <div class="cv-form-actions">
+          <button type="button" class="cv-btn-secondary" data-modal-close>キャンセル</button>
+          <button type="submit" class="cv-btn-primary">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module" src="/js/features/home/customer-view-v1.js?v=2461"></script>
 </body>
 </html>

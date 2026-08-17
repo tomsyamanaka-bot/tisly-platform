@@ -42,6 +42,7 @@ import {
   selectDeviceFocusPropertiesV1,
 } from "../../device/device-property-focus-v1.js";
 import { getPropertyByIdV1 } from "../../shared/customer/customer-property-master-v1.js";
+import { ensureHomeSiteFromDeviceBindingV1 } from "../../home/home-customer-registry-v1.js";
 
 export const deviceBindingV1Router = Router();
 const DEVICE_OPERATOR_ROLES = new Set([
@@ -194,7 +195,18 @@ deviceBindingV1Router.post(
           req.body?.ports,
         boundBy: req.admin?.username,
       });
-      res.json({ success: true, property });
+      let homeSite: { siteId: string; created: boolean } | null = null;
+      try {
+        homeSite = ensureHomeSiteFromDeviceBindingV1({
+          propertyName: property.propertyName,
+          customerCode,
+          deviceId: property.deviceId,
+          address: property.address,
+        });
+      } catch {
+        // HOME 登録失敗でもデバイス登録は成功とする
+      }
+      res.json({ success: true, property, homeSite });
     } catch (error) {
       if (error instanceof DeviceBindingConflictError) {
         res.status(409).json({
@@ -262,12 +274,26 @@ deviceBindingV1Router.post(
           body.device_id ?? body.deviceId ?? body.qrText,
         boundBy: req.admin?.username,
       });
+      const propertyRow = listPropertyDeviceStateV1(customerCode).find(
+        (item) => item.propertyId === propertyId
+      );
+      let homeSite: { siteId: string; created: boolean } | null = null;
+      try {
+        homeSite = ensureHomeSiteFromDeviceBindingV1({
+          propertyName:
+            requestedName || propertyRow?.propertyName || propertyId,
+          customerCode,
+          deviceId: binding.deviceId,
+          address: propertyRow?.address,
+        });
+      } catch {
+        // HOME 登録失敗でもバインドは成功とする
+      }
       res.status(201).json({
         ok: true,
         binding,
-        property: listPropertyDeviceStateV1(customerCode).find(
-          (item) => item.propertyId === propertyId
-        ),
+        property: propertyRow,
+        homeSite,
       });
     } catch (error) {
       if (error instanceof DeviceBindingConflictError) {

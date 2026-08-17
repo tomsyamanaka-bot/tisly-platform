@@ -1,5 +1,6 @@
 /**
- * TiSLY HOME — 社内「顧客を見る」 v1
+ * TiSLY HOME — 社内「顧客を見る」 v2
+ * TiSLY HOME 契約物件のみ（独立データ）
  */
 
 function escapeHtml(value) {
@@ -18,8 +19,7 @@ function renderStats(view) {
   const el = document.getElementById("cv-stats");
   if (!el) return;
   el.innerHTML = `
-    <div class="cv-stat"><strong>${view.totalCustomers}</strong><span>顧客</span></div>
-    <div class="cv-stat"><strong>${view.totalHomeSites}</strong><span>HOME物件</span></div>
+    <div class="cv-stat"><strong>${view.totalSites}</strong><span>HOME物件</span></div>
     <div class="cv-stat"><strong>${view.switchbot.mode === "real" ? "実機" : "モック"}</strong><span>SwitchBot</span></div>
   `;
 }
@@ -32,109 +32,56 @@ function renderSite(site) {
         ? "warn"
         : "ok";
 
-  const hwItems = (site.hardware?.devices ?? [])
-    .map(
-      (d) =>
-        `<li><strong>${escapeHtml(d.label)}</strong> — ${escapeHtml(d.channelLabel)} · ID ${escapeHtml(d.deviceKey)}<br /><small>${escapeHtml(d.detail)}</small></li>`
-    )
-    .join("");
+  const contactParts = [
+    site.contactName,
+    site.contactPhone
+      ? `<a href="tel:${escapeHtml(site.contactPhone)}">${escapeHtml(site.contactPhone)}</a>`
+      : "",
+    site.contactEmail,
+  ].filter(Boolean);
 
   const controlLogs = (site.controlLogs ?? [])
-    .slice(0, 6)
     .map(
       (l) =>
-        `<li>${escapeHtml(l.occurredAt)} · ${escapeHtml(l.deviceKind)} ${escapeHtml(l.action)} · ${escapeHtml(l.actor || "—")}</li>`
+        `<li>${escapeHtml(l.occurredAt)} · ${escapeHtml(l.deviceKind)} ${escapeHtml(l.action)}</li>`
     )
-    .join("");
-
-  const accessLogs = (site.accessLogs ?? [])
-    .slice(0, 4)
-    .map(
-      (l) =>
-        `<li>${escapeHtml(l.occurredAt)} · ${escapeHtml(l.holderName)}（${escapeHtml(l.credentialType)}） ${escapeHtml(l.action)}</li>`
-    )
-    .join("");
-
-  const notes = (site.fieldNotes ?? [])
-    .map((n) => `<li>${escapeHtml(n)}</li>`)
     .join("");
 
   return `
-    <article class="cv-site">
-      <p class="cv-site-name">${escapeHtml(site.displayName)}</p>
+    <article class="cv-site" data-site-id="${escapeHtml(site.siteId)}">
+      <div class="cv-site-head">
+        <p class="cv-site-name">${escapeHtml(site.displayName)}</p>
+        <button type="button" class="cv-edit-btn" data-edit-site="${escapeHtml(site.siteId)}" aria-label="編集">編集</button>
+      </div>
       <div class="cv-badge-row">
         ${badge(site.statusLabel, alertTone)}
         ${badge(site.monthlyFeeLabel, "mute")}
         ${badge(site.billingStatus, site.planStatus === "active" ? "ok" : "warn")}
+        ${badge(site.registrationSourceLabel, "mute")}
       </div>
-      <dl class="cv-dl" style="margin-top:8px">
-        <div><dt>住所</dt><dd>${escapeHtml(site.addressLabel)}</dd></div>
-        <div><dt>配線</dt><dd>${escapeHtml(site.hardware.wiringSpec)}</dd></div>
-        <div><dt>給湯</dt><dd>${escapeHtml(site.hardware.hotWaterSpec)}</dd></div>
-        <div><dt>プラン</dt><dd>${escapeHtml(site.planCode)} / ${escapeHtml(site.planStatus)}</dd></div>
-        <div><dt>通貨</dt><dd>${escapeHtml(site.countryCode)}/${escapeHtml(site.currency)}</dd></div>
+      <dl class="cv-dl">
+        <div><dt>住所</dt><dd>${escapeHtml(site.addressLabel || "—")}</dd></div>
+        <div><dt>プラン</dt><dd>${escapeHtml(site.planLabel)}</dd></div>
+        <div><dt>連絡先</dt><dd>${contactParts.length ? contactParts.join(" · ") : "—"}</dd></div>
+        ${
+          site.linkedDeviceId
+            ? `<div><dt>デバイス</dt><dd>${escapeHtml(site.linkedDeviceId)}</dd></div>`
+            : ""
+        }
       </dl>
       ${
         site.recentAlerts?.length
-          ? `<p class="cv-meta" style="margin-top:8px;color:#b91c1c">⚠ ${site.recentAlerts.map(escapeHtml).join(" · ")}</p>`
+          ? `<p class="cv-alert">⚠ ${site.recentAlerts.map(escapeHtml).join(" · ")}</p>`
           : ""
       }
-      <p style="margin:10px 0 4px;font-size:0.82rem;font-weight:600">施工・ハードウェア</p>
-      <ul class="cv-hw">${hwItems || "<li>—</li>"}</ul>
-      <p style="margin:10px 0 4px;font-size:0.82rem;font-weight:600">操作ログ</p>
-      <ul class="cv-log">${controlLogs || "<li>ログなし</li>"}</ul>
-      <p style="margin:10px 0 4px;font-size:0.82rem;font-weight:600">解錠・施錠ログ</p>
-      <ul class="cv-log">${accessLogs || "<li>履歴なし</li>"}</ul>
       ${
-        notes
-          ? `<p style="margin:10px 0 4px;font-size:0.82rem;font-weight:600">現場メモ</p><ul class="cv-log">${notes}</ul>`
+        controlLogs
+          ? `<ul class="cv-log">${controlLogs}</ul>`
           : ""
       }
-      <p style="margin-top:10px">
+      <p class="cv-site-actions">
         <a class="cv-link" href="/home-v1?siteId=${encodeURIComponent(site.siteId)}">TiSLY HOME で開く ›</a>
       </p>
-    </article>
-  `;
-}
-
-function renderCustomer(c) {
-  const props = (c.properties ?? [])
-    .map(
-      (p) =>
-        `<li>${escapeHtml(p.propertyName)} — ${escapeHtml(p.address || "—")}</li>`
-    )
-    .join("");
-
-  const sites = (c.homeSites ?? []).map(renderSite).join("");
-
-  return `
-    <article class="cv-card" data-search="${escapeHtml(
-      `${c.customerCode} ${c.customerName} ${c.address} ${(c.homeSites ?? [])
-        .map((s) => s.displayName)
-        .join(" ")}`
-    )}">
-      <div class="cv-card-head">
-        <h2>${escapeHtml(c.customerName)}</h2>
-        <p class="cv-meta">
-          コード ${escapeHtml(c.customerCode)} ·
-          ${escapeHtml(c.contactName || "—")} ·
-          <a href="tel:${escapeHtml(c.contactPhone)}">${escapeHtml(c.contactPhone || "—")}</a>
-          ${c.contactEmail ? ` · ${escapeHtml(c.contactEmail)}` : ""}
-        </p>
-        <div class="cv-badge-row">
-          ${badge(`ポータル ${c.portalPlan}`, "mute")}
-          ${badge(c.portalStatus, c.portalStatus === "active" ? "ok" : "warn")}
-        </div>
-      </div>
-      ${
-        props
-          ? `<div class="cv-section"><h3>設置物件（ポータル）</h3><ul class="cv-hw">${props}</ul></div>`
-          : ""
-      }
-      <div class="cv-section">
-        <h3>TiSLY HOME 物件（${(c.homeSites ?? []).length}件）</h3>
-        ${sites || '<p class="cv-empty">HOME 物件は未登録です</p>'}
-      </div>
     </article>
   `;
 }
@@ -145,16 +92,80 @@ function renderList(filter = "") {
   const root = document.getElementById("cv-list");
   if (!root || !viewCache) return;
   const q = filter.trim().toLowerCase();
-  const customers = viewCache.customers.filter((c) => {
+  const sites = viewCache.sites.filter((s) => {
     if (!q) return true;
-    const hay = `${c.customerCode} ${c.customerName} ${c.address} ${(c.homeSites ?? [])
-      .map((s) => `${s.displayName} ${s.addressLabel}`)
-      .join(" ")}`.toLowerCase();
+    const hay = `${s.displayName} ${s.addressLabel} ${s.contactName} ${s.contactPhone} ${s.planLabel}`.toLowerCase();
     return hay.includes(q);
   });
-  root.innerHTML = customers.length
-    ? customers.map(renderCustomer).join("")
-    : '<p class="cv-empty">該当する顧客がありません</p>';
+  root.innerHTML = sites.length
+    ? `<div class="cv-site-grid">${sites.map(renderSite).join("")}</div>`
+    : '<p class="cv-empty">TiSLY HOME 契約物件がありません。「＋ 新規登録」から追加してください。</p>';
+}
+
+function openModal(mode, site) {
+  const modal = document.getElementById("cv-modal");
+  const form = document.getElementById("cv-form");
+  const title = document.getElementById("cv-modal-title");
+  if (!modal || !form || !title) return;
+
+  form.dataset.mode = mode;
+  form.dataset.siteId = site?.siteId ?? "";
+
+  title.textContent = mode === "edit" ? "物件を編集" : "新規物件を登録";
+
+  form.displayName.value = site?.displayName ?? "";
+  form.addressLabel.value = site?.addressLabel ?? "";
+  form.planCode.value = site?.planCode ?? "home_basic";
+  form.contactName.value = site?.contactName ?? "";
+  form.contactPhone.value = site?.contactPhone ?? "";
+  form.contactEmail.value = site?.contactEmail ?? "";
+
+  modal.hidden = false;
+}
+
+function closeModal() {
+  const modal = document.getElementById("cv-modal");
+  if (modal) modal.hidden = true;
+}
+
+async function submitForm(event) {
+  event.preventDefault();
+  const form = event.target;
+  const mode = form.dataset.mode || "create";
+  const siteId = form.dataset.siteId || "";
+  const payload = {
+    displayName: form.displayName.value.trim(),
+    addressLabel: form.addressLabel.value.trim(),
+    planCode: form.planCode.value,
+    contactName: form.contactName.value.trim(),
+    contactPhone: form.contactPhone.value.trim(),
+    contactEmail: form.contactEmail.value.trim(),
+  };
+
+  const submitBtn = form.querySelector('[type="submit"]');
+  if (submitBtn) submitBtn.disabled = true;
+
+  try {
+    const url =
+      mode === "edit" && siteId
+        ? `/api/home/v1/customer-mgmt/sites/${encodeURIComponent(siteId)}`
+        : "/api/home/v1/customer-mgmt/sites";
+    const res = await fetch(url, {
+      method: mode === "edit" ? "PATCH" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || "保存に失敗しました");
+    viewCache = data.view;
+    renderStats(viewCache);
+    renderList(document.getElementById("cv-search")?.value ?? "");
+    closeModal();
+  } catch (err) {
+    alert(err.message || "保存に失敗しました");
+  } finally {
+    if (submitBtn) submitBtn.disabled = false;
+  }
 }
 
 async function load() {
@@ -171,6 +182,29 @@ document.addEventListener("DOMContentLoaded", () => {
   if (search) {
     search.addEventListener("input", () => renderList(search.value));
   }
+
+  document.getElementById("cv-add-btn")?.addEventListener("click", () => {
+    openModal("create");
+  });
+
+  document.getElementById("cv-list")?.addEventListener("click", (event) => {
+    const btn = event.target.closest("[data-edit-site]");
+    if (!btn || !viewCache) return;
+    const site = viewCache.sites.find((s) => s.siteId === btn.dataset.editSite);
+    if (site) openModal("edit", site);
+  });
+
+  document.getElementById("cv-form")?.addEventListener("submit", submitForm);
+
+  document.getElementById("cv-modal")?.addEventListener("click", (event) => {
+    if (
+      event.target.matches("[data-modal-close]") ||
+      event.target === event.currentTarget
+    ) {
+      closeModal();
+    }
+  });
+
   load().catch((err) => {
     console.error(err);
     const root = document.getElementById("cv-list");

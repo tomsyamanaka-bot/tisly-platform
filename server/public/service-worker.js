@@ -4,7 +4,7 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2460-home-customer-split";
+const SW_VERSION = "tisly-pwa-v2461-home-customer-independent";
 const OFFLINE_CACHE = "tisly-pwa-shell-v2459-home-tile-grid";
 const PRIORITY_CACHE = "tisly-pwa-priority-v2459-home-tile-grid";
 const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2459-home-tile-grid";

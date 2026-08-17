@@ -63,46 +63,204 @@
 }
 
 .cv-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
   margin-bottom: 14px;
+  align-items: stretch;
 }
 
 .cv-search {
-  width: 100%;
+  flex: 1 1 200px;
+  width: auto;
   box-sizing: border-box;
   padding: 12px 14px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #e2e8f0;
   border-radius: 12px;
   font-size: 1rem;
   background: #fff;
 }
 
+.cv-add-btn {
+  flex: 0 0 auto;
+  min-height: 48px;
+  padding: 0 18px;
+  border: none;
+  border-radius: 12px;
+  background: #1e293b;
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cv-add-btn:active {
+  opacity: 0.85;
+}
+
+.cv-site-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.cv-site-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cv-edit-btn {
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cv-alert {
+  margin: 8px 0 0;
+  font-size: 0.82rem;
+  color: #dc2626;
+}
+
+.cv-site-actions {
+  margin: 10px 0 0;
+}
+
+/* モーダル */
+.cv-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.cv-modal[hidden] {
+  display: none;
+}
+
+.cv-modal-panel {
+  width: 100%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow: auto;
+  background: #fff;
+  border-radius: 20px 20px 16px 16px;
+  padding: 18px 16px 20px;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.15);
+}
+
+.cv-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.cv-modal-head h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #1e293b;
+}
+
+.cv-modal-close {
+  width: 40px;
+  height: 40px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  font-size: 1.4rem;
+  line-height: 1;
+  color: #64748b;
+  cursor: pointer;
+}
+
+.cv-form {
+  display: grid;
+  gap: 12px;
+}
+
+.cv-field {
+  display: grid;
+  gap: 6px;
+}
+
+.cv-field span {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.cv-field em {
+  color: #dc2626;
+  font-style: normal;
+}
+
+.cv-field input,
+.cv-field select {
+  min-height: 48px;
+  padding: 0 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  font-size: 1rem;
+  background: #fff;
+}
+
+.cv-form-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.cv-btn-primary,
+.cv-btn-secondary {
+  flex: 1;
+  min-height: 48px;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cv-btn-primary {
+  border: none;
+  background: #1e293b;
+  color: #fff;
+}
+
+.cv-btn-secondary {
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #64748b;
+}
+
+.cv-site {
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 16px;
+  background: #ffffff;
+}
+
+.cv-site-name {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
 .cv-list {
   display: grid;
   gap: 14px;
-}
-
-.cv-card {
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  overflow: hidden;
-}
-
-.cv-card-head {
-  padding: 14px 16px;
-  border-bottom: 1px solid #f1f5f9;
-}
-
-.cv-card-head h2 {
-  margin: 0 0 6px;
-  font-size: 1.1rem;
-}
-
-.cv-meta {
-  margin: 0;
-  font-size: 0.85rem;
-  color: #475569;
-  line-height: 1.5;
 }
 
 .cv-badge-row {
@@ -148,25 +306,7 @@
 .cv-section h3 {
   margin: 0 0 8px;
   font-size: 0.92rem;
-  color: #1e3a8a;
-}
-
-.cv-site {
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 12px;
-  margin-bottom: 10px;
-  background: #fafbff;
-}
-
-.cv-site:last-child {
-  margin-bottom: 0;
-}
-
-.cv-site-name {
-  margin: 0 0 4px;
-  font-size: 1rem;
-  font-weight: 700;
+  color: #1e293b;
 }
 
 .cv-dl {

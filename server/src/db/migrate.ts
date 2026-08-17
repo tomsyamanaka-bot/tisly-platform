@@ -251,6 +251,32 @@ export function runMigrations(database: Database.Database): void {
   migrateGasMonitorDemoSeedV1(database);
   migrateTislyHomeV1(database);
   migrateTislyHomeIntercomV1(database);
+  migrateTislyHomeCustomerRegistryV1(database);
+}
+
+/**
+ * TiSLY HOME 顧客物件レジストリ v1。
+ * home_sites_v1 に連絡先・登録経路列を追記する。
+ */
+function migrateTislyHomeCustomerRegistryV1(
+  database: Database.Database
+): void {
+  const cols = database
+    .prepare(`PRAGMA table_info(home_sites_v1)`)
+    .all() as Array<{ name: string }>;
+  const names = new Set(cols.map((c) => c.name));
+  const additions: Array<[string, string]> = [
+    ["contact_name", "TEXT NOT NULL DEFAULT ''"],
+    ["contact_phone", "TEXT NOT NULL DEFAULT ''"],
+    ["contact_email", "TEXT NOT NULL DEFAULT ''"],
+    ["registration_source", "TEXT NOT NULL DEFAULT 'manual'"],
+    ["linked_device_id", "TEXT NOT NULL DEFAULT ''"],
+  ];
+  for (const [name, type] of additions) {
+    if (!names.has(name)) {
+      database.exec(`ALTER TABLE home_sites_v1 ADD COLUMN ${name} ${type}`);
+    }
+  }
 }
 
 /**
