@@ -596,6 +596,12 @@ export function createApp(): express.Application {
   app.get("/customer-admin-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "customer-admin-v1.html"));
   });
+  app.get("/customer-view-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "customer-view-v1.html"));
+  });
+  app.get("/app/customer-view", (_req, res) => {
+    res.sendFile(path.join(publicDir, "customer-view-v1.html"));
+  });
   app.get("/knowledge-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "knowledge-v1.html"));
   });

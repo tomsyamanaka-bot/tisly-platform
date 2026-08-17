@@ -25,6 +25,11 @@ import {
   buildHomeQuickSwitchV1,
 } from "../src/home/home-dashboard-v1.js";
 import {
+  buildHomeCustomerFacingDashboardV1,
+  buildHomeCustomerSiteOptionsV1,
+} from "../src/home/home-customer-facing-v1.js";
+import { buildHomeCustomerMgmtViewV1 } from "../src/home/home-customer-mgmt-v1.js";
+import {
   homeAirconFanToSwitchBotV1,
   homeAirconModeToSwitchBotV1,
   isSwitchBotAirconConfiguredV1,
@@ -121,6 +126,49 @@ describe("tisly-home-v1", () => {
     assert.equal(alert.status, "security_alert");
     assert.equal(alert.lock.lockLabel, "UNLOCKED");
     assert.equal(alert.lock.doorLabel, "ドア開");
+  });
+
+  it("sanitizes customer-facing dashboard without internal fields", () => {
+    const d = buildHomeCustomerFacingDashboardV1(JP_SITE);
+    assert.equal(d.siteId, JP_SITE);
+    assert.equal(d.lock.lockLabel, "施錠済み");
+    assert.match(d.lock.lastAccessLabel, /^直近の操作: /);
+    assert.equal(d.lock.accessLog[0].credentialLabel, "カード");
+    assert.equal(d.lock.accessLog[0].holderLabel, "山田 太郎");
+    assert.equal(
+      d.lock.accessLog.find((e) => e.holderLabel === "")?.credentialLabel,
+      "アプリ"
+    );
+    assert.equal((d as { planCode?: string }).planCode, undefined);
+    assert.equal((d as { countryCode?: string }).countryCode, undefined);
+    assert.equal((d as { voltageSpec?: string }).voltageSpec, undefined);
+    assert.equal((d.bath as { jemaTerminal?: string }).jemaTerminal, undefined);
+    assert.equal(d.ct.circuits[0].voltage, undefined);
+    assert.equal(d.aircons[0].powerW, undefined);
+    assert.equal(d.statusLabel, "正常");
+
+    const sites = buildHomeCustomerSiteOptionsV1();
+    assert.ok(sites.some((s) => s.id === JP_SITE));
+    assert.ok(sites.every((s) => !("planCode" in s)));
+    assert.match(sites[0].statusLabel, /正常|注意|確認/);
+  });
+
+  it("builds internal customer-mgmt view with contract and hardware", () => {
+    const view = buildHomeCustomerMgmtViewV1();
+    assert.ok(view.totalCustomers >= 1);
+    assert.ok(view.totalHomeSites >= 3);
+    const toms = view.customers.find((c) => c.customerCode === "TOMS001");
+    assert.ok(toms);
+    assert.ok(toms!.homeSites.length >= 1);
+    const site = toms!.homeSites.find((s) => s.siteId === JP_SITE);
+    assert.ok(site);
+    assert.match(site!.monthlyFeeLabel, /3,800円|3800/);
+    assert.equal(site!.planCode, "home_standard");
+    assert.ok(site!.hardware.devices.some((d) => d.kind === "bath_remote"));
+    assert.match(
+      site!.hardware.devices.find((d) => d.kind === "bath_remote")!.detail,
+      /HA端子/
+    );
   });
 
   it("sorts operator dashboard with alerts first", () => {
@@ -275,6 +323,11 @@ describe("tisly-home-v1", () => {
     assert.ok(home);
     assert.equal(home.url, "/home-v1");
 
+    const customerMgmt = cards.find((c) => c.id === "customer_mgmt");
+    assert.ok(customerMgmt);
+    assert.equal(customerMgmt.url, "/customer-view-v1");
+    assert.equal(customerMgmt.status, "ready");
+
     assert.ok(CUSTOMER_HOME_CARDS_V1.some((c) => c.id === "eco_water"));
     assert.ok(CUSTOMER_HOME_CARDS_V1.some((c) => c.id === "gas_monitor"));
     assert.ok(
@@ -317,6 +370,24 @@ describe("tisly-home-v1", () => {
     );
     assert.equal(customer.status, 200);
     assert.equal(customer.body.dashboard.siteId, JP_SITE);
+    assert.equal(customer.body.dashboard.lock.lockLabel, "施錠済み");
+    assert.equal(customer.body.dashboard.planCode, undefined);
+
+    const customerSites = await request(app).get(
+      "/api/home/v1/customer-sites"
+    );
+    assert.equal(customerSites.status, 200);
+    assert.ok(customerSites.body.sites.length >= 3);
+    assert.equal(customerSites.body.sites[0].planCode, undefined);
+
+    const mgmt = await request(app).get("/api/home/v1/customer-mgmt");
+    assert.equal(mgmt.status, 200);
+    assert.ok(mgmt.body.view.totalHomeSites >= 3);
+
+    for (const p of ["/customer-view-v1", "/app/customer-view"]) {
+      const page = await request(app).get(p);
+      assert.equal(page.status, 200, p);
+    }
 
     const operator = await request(app).get("/api/home/v1/operator");
     assert.equal(operator.status, 200);
@@ -426,6 +497,16 @@ describe("tisly-home-v1", () => {
     // お客様 UI に技術語を出さない
     assert.doesNotMatch(customerHtml, /SwitchBot/);
     assert.doesNotMatch(customerHtml, /RTSP/);
+    assert.doesNotMatch(customerHtml, /NFC\s*\/\s*RFID/);
+    assert.doesNotMatch(customerHtml, /LOCKED/);
+    assert.match(customerHtml, /カギの履歴/);
+
+    const customerViewHtml = fs.readFileSync(
+      path.join(publicDir, "customer-view-v1.html"),
+      "utf-8"
+    );
+    assert.match(customerViewHtml, /顧客を見る/);
+    assert.match(customerViewHtml, /customer-view-v1\.js/);
 
     const sharedJs = fs.readFileSync(
       path.join(
@@ -462,7 +543,7 @@ describe("tisly-home-v1", () => {
       path.join(publicDir, "service-worker.js"),
       "utf-8"
     );
-    assert.match(sw, /tisly-pwa-v2459-home-tile-grid/);
+    assert.match(sw, /tisly-pwa-v2460-home-customer-split/);
     assert.match(sw, /\/css\/features\/home\/home-v1\.css/);
     assert.match(sw, /\/css\/features\/home\/home-tiles-v1\.css/);
     assert.match(sw, /\/js\/features\/home\/home-tiles-v1\.js/);

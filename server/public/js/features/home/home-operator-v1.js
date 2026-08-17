@@ -9,7 +9,6 @@
 import {
   byId,
   escapeHtml,
-  fetchHomeCustomer,
   fetchHomeOperator,
   hideRingPopup,
   readSiteIdFromUrl,
@@ -38,6 +37,14 @@ let currentSiteId = "";
 let siteOptionsKey = "";
 /** 操作中は自動更新で画面を奪わない */
 let controlBusy = false;
+/** 社内向けフルダッシュボード（operator API から保持） */
+let operatorCache = null;
+
+function pickSiteDashboard(operator) {
+  if (!operator?.sites?.length) return null;
+  const found = operator.sites.find((s) => s.siteId === currentSiteId);
+  return found ?? operator.sites[0];
+}
 
 function renderSiteOptions(operator) {
   const select = byId("hm-site-select");
@@ -169,6 +176,7 @@ async function handleControl(el) {
     if (target === "intercom") hideRingPopup();
     renderSiteDetail(res.dashboard);
     const operator = await fetchHomeOperator();
+    operatorCache = operator;
     renderSummary(operator);
     renderSiteList(operator);
     renderSiteOptions(operator);
@@ -201,15 +209,18 @@ function bindControlDelegation() {
 
 async function refresh() {
   const operator = await fetchHomeOperator();
+  operatorCache = operator;
   if (!currentSiteId && operator.sites.length) {
     currentSiteId = operator.sites[0].siteId;
   }
   renderSummary(operator);
   renderSiteList(operator);
   renderSiteOptions(operator);
-  const dashboard = await fetchHomeCustomer(currentSiteId);
-  currentSiteId = dashboard.siteId;
-  renderSiteDetail(dashboard);
+  const dashboard = pickSiteDashboard(operator);
+  if (dashboard) {
+    currentSiteId = dashboard.siteId;
+    renderSiteDetail(dashboard);
+  }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -224,7 +235,12 @@ document.addEventListener("DOMContentLoaded", () => {
       currentSiteId = select.value;
       replaceSiteIdInUrl(currentSiteId);
       try {
-        renderSiteDetail(await fetchHomeCustomer(currentSiteId));
+        const dashboard = pickSiteDashboard(operatorCache);
+        if (dashboard && dashboard.siteId === currentSiteId) {
+          renderSiteDetail(dashboard);
+        } else {
+          await refresh();
+        }
       } catch (err) {
         console.error(err);
         showToast("読み込みに失敗しました");

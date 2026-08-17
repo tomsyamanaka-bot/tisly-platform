@@ -18,6 +18,12 @@ import {
   buildHomeQuickSwitchV1,
 } from "../../home/home-dashboard-v1.js";
 import {
+  buildHomeCustomerFacingDashboardV1,
+  buildHomeCustomerSiteOptionsV1,
+  sanitizeHomeCustomerDashboardV1,
+} from "../../home/home-customer-facing-v1.js";
+import { buildHomeCustomerMgmtViewV1 } from "../../home/home-customer-mgmt-v1.js";
+import {
   applyHomeControlV1,
   type HomeControlTargetV1,
 } from "../../home/home-control-v1.js";
@@ -72,7 +78,12 @@ homeRouter.get("/sites", (_req, res) => {
   res.json({ ok: true, sites, saasRows: listHomeSiteRowsV1() });
 });
 
-/** お客様（住まい）向け */
+/** お客様（住まい）向け — 物件選択（シンプル） */
+homeRouter.get("/customer-sites", (_req, res) => {
+  res.json({ ok: true, sites: buildHomeCustomerSiteOptionsV1() });
+});
+
+/** お客様（住まい）向け — 内部情報を除外したダッシュボード */
 homeRouter.get("/customer", async (req, res) => {
   const siteId = String(req.query.siteId ?? "").trim() || null;
   try {
@@ -80,8 +91,13 @@ homeRouter.get("/customer", async (req, res) => {
   } catch {
     // モック継続
   }
-  const dashboard = buildHomeCustomerDashboardV1(siteId);
+  const dashboard = buildHomeCustomerFacingDashboardV1(siteId);
   res.json({ ok: true, dashboard });
+});
+
+/** 社内「顧客を見る」 — 契約・施工・ログ集約 */
+homeRouter.get("/customer-mgmt", (_req, res) => {
+  res.json({ ok: true, view: buildHomeCustomerMgmtViewV1() });
 });
 
 /** 社内・事業者向け */
@@ -255,6 +271,13 @@ homeRouter.post("/control", async (req, res) => {
     }
   }
 
+  const audience = String(req.body?.audience ?? "").trim();
+  const fullDashboard = buildHomeCustomerDashboardV1(siteId);
+  const dashboard =
+    audience === "customer"
+      ? sanitizeHomeCustomerDashboardV1(fullDashboard)
+      : fullDashboard;
+
   res.json({
     ok: true,
     message: result.message,
@@ -262,6 +285,6 @@ homeRouter.post("/control", async (req, res) => {
     target,
     action,
     deviceKey,
-    dashboard: buildHomeCustomerDashboardV1(siteId),
+    dashboard,
   });
 });

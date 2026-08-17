@@ -57,6 +57,16 @@ export async function fetchHomeCustomer(siteId) {
   return data.dashboard;
 }
 
+/** お客様向け物件一覧（シンプル） */
+export async function fetchHomeCustomerSites() {
+  const res = await fetch(`${HOME_API_V1}/customer-sites`, {
+    cache: "no-store",
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || "読込に失敗しました");
+  return data.sites;
+}
+
 export async function fetchHomeOperator() {
   const res = await fetch(`${HOME_API_V1}/operator`, {
     cache: "no-store",
@@ -79,7 +89,8 @@ export async function sendHomeControl(payload) {
 
 /* ---------- 共通描画 ---------- */
 
-export function renderStatusHero(d) {
+export function renderStatusHero(d, options = {}) {
+  const plain = Boolean(options.plain);
   const hero = byId("hm-status-hero");
   if (hero) {
     hero.classList.remove(
@@ -93,7 +104,7 @@ export function renderStatusHero(d) {
   setText("hm-status-label", d.statusLabel);
   setText(
     "hm-status-meta",
-    `${d.displayName} · ${d.addressLabel}`
+    plain ? d.displayName : `${d.displayName} · ${d.addressLabel}`
   );
 }
 
@@ -108,6 +119,7 @@ function levelClass(level) {
  * withControls=true で回路のON/OFFを表示
  */
 export function renderCt(d, options = {}) {
+  const plain = Boolean(options.plain);
   const ct = d.ct;
   const value = byId("hm-ct-current");
   if (value) {
@@ -116,15 +128,23 @@ export function renderCt(d, options = {}) {
     const cls = levelClass(ct.level);
     if (cls) value.classList.add(cls);
   }
-  setText(
-    "hm-ct-power",
-    `${Number(ct.powerKw).toFixed(1)} kW / ${ct.powerW} W · ` +
-      `契約 ${ct.contractDemandKw} kW（${ct.demandPercent}%）`
-  );
-  setText(
-    "hm-ct-note",
-    `${d.voltageSpec} · 主幹 ${ct.mainCapacityA}A · ${ct.levelLabel}`
-  );
+  if (plain) {
+    setText(
+      "hm-ct-power",
+      `いま ${Number(ct.powerKw).toFixed(1)} kW つかっています`
+    );
+    setText("hm-ct-note", ct.levelLabel);
+  } else {
+    setText(
+      "hm-ct-power",
+      `${Number(ct.powerKw).toFixed(1)} kW / ${ct.powerW} W · ` +
+        `契約 ${ct.contractDemandKw} kW（${ct.demandPercent}%）`
+    );
+    setText(
+      "hm-ct-note",
+      `${d.voltageSpec} · 主幹 ${ct.mainCapacityA}A · ${ct.levelLabel}`
+    );
+  }
 
   const bar = byId("hm-ct-bar");
   if (bar) {
@@ -133,16 +153,40 @@ export function renderCt(d, options = {}) {
     const cls = levelClass(ct.level);
     if (cls) bar.classList.add(cls);
   }
-  setText("hm-ct-warn", `警告 ${ct.warnThresholdA} A`);
-  setText("hm-ct-alert", `遮断 ${ct.alertThresholdA} A`);
+  if (plain) {
+    setText("hm-ct-warn", `気をつける目安 ${ct.warnThresholdA} A`);
+    setText("hm-ct-alert", `止まる目安 ${ct.alertThresholdA} A`);
+  } else {
+    setText("hm-ct-warn", `警告 ${ct.warnThresholdA} A`);
+    setText("hm-ct-alert", `遮断 ${ct.alertThresholdA} A`);
+  }
   setText("hm-ct-demand", Number(ct.powerKw).toFixed(1));
-  setText("hm-ct-load", `${ct.loadPercent}`);
-  setText("hm-ct-peak", ct.peakCutActive ? "作動中" : "待機");
+  setText(
+    "hm-ct-load",
+    plain
+      ? Math.max(0, 100 - Math.round(ct.loadPercent))
+      : `${ct.loadPercent}`
+  );
+  setText(
+    "hm-ct-peak",
+    ct.peakCutActive
+      ? plain
+        ? "はたらき中"
+        : "作動中"
+      : plain
+        ? "おやすみ"
+        : "待機"
+  );
 
   const solarWrap = byId("hm-ct-solar-wrap");
   if (solarWrap) {
     solarWrap.hidden = !ct.hasSolar;
-    setText("hm-ct-solar", `☀️ 太陽光 ${ct.solarGenerationW} W`);
+    setText(
+      "hm-ct-solar",
+      plain
+        ? `☀️ 太陽光 ${ct.solarGenerationW} W`
+        : `☀️ 太陽光 ${ct.solarGenerationW} W`
+    );
   }
 
   const list = byId("hm-circuit-list");
@@ -155,11 +199,15 @@ export function renderCt(d, options = {}) {
     .map((c) => {
       const rowCls = c.on ? "hm-circuit-row" : "hm-circuit-row is-off";
       const badge = c.on
-        ? '<span class="hm-badge hm-badge-ok">稼働中</span>'
+        ? '<span class="hm-badge hm-badge-ok">使っています</span>'
         : '<span class="hm-badge hm-badge-mute">停止</span>';
-      const peak = c.peakCutTarget
-        ? ' · <span class="hm-peak-tag">ピーク対象</span>'
-        : "";
+      const peak =
+        !plain && c.peakCutTarget
+          ? ' · <span class="hm-peak-tag">ピーク対象</span>'
+          : "";
+      const meta = plain
+        ? `<small>${escapeHtml(c.statusLabel ?? (c.on ? "使っています" : "停止"))}</small>`
+        : `<small>${c.voltage}V · ${Number(c.currentA).toFixed(1)}A${peak}</small>`;
       const control = options.withControls
         ? `<button
              type="button"
@@ -174,9 +222,7 @@ export function renderCt(d, options = {}) {
         <div class="${rowCls}">
           <div class="hm-circuit-meta">
             ${escapeHtml(c.label)}
-            <small>
-              ${c.voltage}V · ${Number(c.currentA).toFixed(1)}A${peak}
-            </small>
+            ${meta}
           </div>
           ${control}
         </div>`;
@@ -185,7 +231,8 @@ export function renderCt(d, options = {}) {
 }
 
 /** 風呂リモコン */
-export function renderBath(d) {
+export function renderBath(d, options = {}) {
+  const plain = Boolean(options.plain);
   const b = d.bath;
   setText("hm-bath-temp", Number(b.setTempC).toFixed(0));
   setText(
@@ -193,16 +240,32 @@ export function renderBath(d) {
     `${b.fillStateLabel}${b.reheating ? " · 追いだき中" : ""}` +
       `${b.keepWarm ? " · 保温ON" : ""}`
   );
-  setText("hm-bath-current", `浴槽 ${Number(b.currentTempC).toFixed(1)} ℃`);
-  setText("hm-bath-percent", `湯はり ${b.fillPercent}%`);
+  setText(
+    "hm-bath-current",
+    plain
+      ? `いまの湯温 ${Number(b.currentTempC).toFixed(1)} ℃`
+      : `浴槽 ${Number(b.currentTempC).toFixed(1)} ℃`
+  );
+  setText(
+    "hm-bath-percent",
+    plain
+      ? `たまり具合 ${b.fillPercent}%`
+      : `湯はり ${b.fillPercent}%`
+  );
   setText(
     "hm-bath-note",
-    `${d.hotWaterSpec} · ${b.linkStateLabel}`
+    plain ? b.fillStateLabel : `${d.hotWaterSpec} · ${b.linkStateLabel}`
   );
-  setText(
-    "hm-bath-link",
-    `${b.jemaTerminal} / RP2350 ${b.relayPort} — ${b.linkStateLabel}`
-  );
+  const linkEl = byId("hm-bath-link");
+  if (linkEl) {
+    if (plain) {
+      linkEl.hidden = true;
+      linkEl.textContent = "";
+    } else {
+      linkEl.hidden = false;
+      linkEl.textContent = `${b.jemaTerminal} / RP2350 ${b.relayPort} — ${b.linkStateLabel}`;
+    }
+  }
 
   const bar = byId("hm-bath-bar");
   if (bar) bar.style.width = `${Math.min(100, b.fillPercent)}%`;
@@ -335,8 +398,11 @@ export function renderAircons(d, options = {}) {
                 室温 ${Number(ac.roomTempC).toFixed(1)}℃ ·
                 ${escapeHtml(ac.modeLabel)} ·
                 風量${escapeHtml(ac.fanLabel)} ·
-                風向${escapeHtml(ac.swingLabel)} ·
-                ${ac.powerW}W
+                風向${escapeHtml(ac.swingLabel)}${
+                  options.plain || ac.powerW == null
+                    ? ""
+                    : ` · ${ac.powerW}W`
+                }
               </p>
             </div>
             <div>${powerBadge}${peakBadge}</div>
@@ -348,7 +414,8 @@ export function renderAircons(d, options = {}) {
 }
 
 /** 玄関スマートロック */
-export function renderLock(d) {
+export function renderLock(d, options = {}) {
+  const plain = Boolean(options.plain);
   const l = d.lock;
   setText("hm-lock-emoji", l.lockEmoji);
   const state = byId("hm-lock-state");
@@ -359,15 +426,23 @@ export function renderLock(d) {
   }
   setText(
     "hm-lock-door",
-    `${l.doorLabel} · 電池 ${l.batteryPercent}%`
+    plain
+      ? `${l.doorLabel} · でんち ${l.batteryPercent}%`
+      : `${l.doorLabel} · 電池 ${l.batteryPercent}%`
   );
-  setText("hm-lock-note", `直近: ${l.lastAccessLabel}`);
+  setText("hm-lock-note", l.lastAccessLabel);
 
   const toggle = byId("hm-lock-toggle");
   if (toggle) {
     toggle.classList.remove("is-on", "is-danger");
     toggle.classList.add(l.locked ? "is-danger" : "is-on");
-    toggle.textContent = l.locked ? "🔓 解錠する" : "🔒 施錠する";
+    toggle.textContent = l.locked
+      ? plain
+        ? "🔓 あける"
+        : "🔓 解錠する"
+      : plain
+        ? "🔒 しめる"
+        : "🔒 施錠する";
   }
 
   const log = byId("hm-lock-log");
@@ -378,18 +453,22 @@ export function renderLock(d) {
   }
   log.innerHTML = l.accessLog
     .slice(0, 8)
-    .map(
-      (e) => `
+    .map((e) => {
+      const cred = escapeHtml(e.credentialLabel);
+      const holder = e.holderLabel
+        ? escapeHtml(e.holderLabel)
+        : plain
+          ? ""
+          : escapeHtml(e.holderName ?? "");
+      const who = holder
+        ? `${escapeHtml(e.actionLabel)} · ${holder}（${cred}）`
+        : `${escapeHtml(e.actionLabel)} · ${cred}`;
+      return `
       <div class="hm-log-row">
-        <span>
-          ${escapeHtml(e.actionLabel)} · ${escapeHtml(e.holderName)}
-          <small class="hm-log-cred"> (${escapeHtml(
-            e.credentialLabel
-          )})</small>
-        </span>
+        <span>${who}</span>
         <span class="hm-log-time">${escapeHtml(e.occurredAt)}</span>
-      </div>`
-    )
+      </div>`;
+    })
     .join("");
 }
 

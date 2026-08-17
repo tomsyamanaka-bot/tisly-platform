@@ -86,17 +86,14 @@ function ctTileV1(d, plain) {
       ? "is-warn"
       : "is-ok";
   const sub = plain
-    ? `${ct.levelLabel} · 余裕 ${Math.max(
-        0,
-        100 - Math.round(ct.loadPercent)
-      )}%`
+    ? ct.levelLabel
     : `主幹 ${ct.mainCapacityA}A · 負荷 ${ct.loadPercent}% · ${ct.levelLabel}`;
   return {
     key: "ct",
     detail: "ct",
     icon: TILE_META_V1.ct.icon,
     name: tileName("ct", plain),
-    state: `${fixed1(ct.mainCurrentA)}A / ${fixed1(ct.powerKw)}kW`,
+    state: plain ? ct.levelLabel : `${fixed1(ct.mainCurrentA)}A / ${fixed1(ct.powerKw)}kW`,
     sub,
     tone,
     badge: {
