@@ -1,41 +1,34 @@
 /* TiSLY HOME — 住設・ホームIoT統合 v1
- * ダークモード × 高コントラスト
- * 暗い現場・屋外の日差しでも視認できる
+ * ライトモード × 高コントラスト
+ * 屋外の日差しでもハッキリ見える白ベース
  * 大きいタップ領域（52px 以上）を基本とする */
 
 :root {
-  --hm-bg: #070b11;
-  --hm-bg-2: #0d141d;
-  --hm-surface: #141d29;
-  --hm-surface-2: #1b2735;
-  --hm-line: rgba(148, 197, 255, 0.16);
-  --hm-ink: #f8fafc;
-  --hm-muted: #9fb3c8;
-  --hm-cyan: #00e5ff;
-  --hm-blue: #4facfe;
-  --hm-safe: #22e07a;
-  --hm-warn: #ffb020;
-  --hm-danger: #ff3b5c;
+  --hm-bg: #ffffff;
+  --hm-bg-2: #f8fafc;
+  --hm-surface: #ffffff;
+  --hm-surface-2: #ffffff;
+  --hm-surface-sub: #f8fafc;
+  --hm-line: #e2e8f0;
+  --hm-line-strong: #cbd5e1;
+  --hm-ink: #0f172a;
+  --hm-ink-2: #1e293b;
+  --hm-muted: #475569;
+  --hm-navy: #1e3a8a;
+  --hm-blue: #2563eb;
+  --hm-safe: #16a34a;
+  --hm-warn: #ea580c;
+  --hm-danger: #dc2626;
   --hm-radius: 18px;
   --hm-tap: 52px;
-  --hm-shadow: 0 10px 34px rgba(0, 0, 0, 0.55);
+  --hm-shadow: 0 1px 2px rgba(15, 23, 42, 0.06),
+    0 6px 18px rgba(15, 23, 42, 0.07);
 }
 
 .hm-body {
   margin: 0;
   min-height: 100vh;
-  background:
-    radial-gradient(
-      1100px 520px at 12% -8%,
-      rgba(0, 229, 255, 0.12),
-      transparent 60%
-    ),
-    radial-gradient(
-      900px 460px at 92% 4%,
-      rgba(79, 172, 254, 0.14),
-      transparent 62%
-    ),
-    linear-gradient(180deg, var(--hm-bg) 0%, var(--hm-bg-2) 100%);
+  background: linear-gradient(180deg, var(--hm-bg) 0%, var(--hm-bg-2) 100%);
   background-attachment: fixed;
   color: var(--hm-ink);
   font-family: "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
@@ -53,7 +46,7 @@
   display: inline-flex;
   align-items: center;
   min-height: 44px;
-  color: var(--hm-cyan);
+  color: var(--hm-navy);
   text-decoration: none;
   font-weight: 800;
   font-size: 1rem;
@@ -62,7 +55,7 @@
 
 .hm-brand-name {
   margin: 6px 0 0;
-  color: var(--hm-cyan);
+  color: var(--hm-navy);
   font-weight: 900;
   font-size: 0.9rem;
   letter-spacing: 0.16em;
@@ -74,7 +67,7 @@
   font-size: 1.7rem;
   font-weight: 900;
   line-height: 1.25;
-  text-shadow: 0 0 22px rgba(0, 229, 255, 0.28);
+  color: var(--hm-ink);
 }
 
 .hm-sub {
@@ -95,11 +88,7 @@
 }
 
 .hm-card {
-  background: linear-gradient(
-    180deg,
-    var(--hm-surface) 0%,
-    var(--hm-surface-2) 100%
-  );
+  background: var(--hm-surface);
   border: 1px solid var(--hm-line);
   border-radius: var(--hm-radius);
   box-shadow: var(--hm-shadow);
@@ -108,7 +97,7 @@
 
 .hm-card-label {
   margin: 0 0 12px;
-  color: var(--hm-cyan);
+  color: var(--hm-navy);
   font-weight: 900;
   font-size: 0.86rem;
   letter-spacing: 0.12em;
@@ -131,6 +120,7 @@
   margin: 0;
   font-size: 1.16rem;
   font-weight: 900;
+  color: var(--hm-ink);
 }
 
 .hm-device-note {
@@ -146,17 +136,18 @@
   width: 100%;
   min-height: var(--hm-tap);
   border-radius: 14px;
-  border: 2px solid rgba(0, 229, 255, 0.34);
+  border: 2px solid var(--hm-line-strong);
   padding: 10px 14px;
   font-size: 1.05rem;
   font-weight: 800;
   color: var(--hm-ink);
-  background: #0c141e;
+  background: #ffffff;
 }
 
 .hm-select:focus {
-  outline: 3px solid rgba(0, 229, 255, 0.5);
+  outline: 3px solid rgba(30, 58, 138, 0.35);
   outline-offset: 2px;
+  border-color: var(--hm-navy);
 }
 
 /* ---------- ステータスヒーロー ---------- */
@@ -169,28 +160,28 @@
 }
 
 .hm-status-hero.is-normal {
-  border-color: rgba(34, 224, 122, 0.55);
-  background: rgba(34, 224, 122, 0.1);
+  border-color: rgba(22, 163, 74, 0.5);
+  background: #f0fdf4;
 }
 
 .hm-status-hero.is-peak_warning {
-  border-color: rgba(255, 176, 32, 0.6);
-  background: rgba(255, 176, 32, 0.12);
+  border-color: rgba(234, 88, 12, 0.55);
+  background: #fff7ed;
 }
 
 .hm-status-hero.is-security_alert {
-  border-color: rgba(255, 59, 92, 0.7);
-  background: rgba(255, 59, 92, 0.14);
+  border-color: rgba(220, 38, 38, 0.6);
+  background: #fef2f2;
   animation: hm-alert-pulse 1.6s ease-in-out infinite;
 }
 
 @keyframes hm-alert-pulse {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(255, 59, 92, 0.42);
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.32);
   }
   50% {
-    box-shadow: 0 0 0 14px rgba(255, 59, 92, 0);
+    box-shadow: 0 0 0 14px rgba(220, 38, 38, 0);
   }
 }
 
@@ -204,6 +195,7 @@
   margin: 10px 0 0;
   font-size: 1.4rem;
   font-weight: 900;
+  color: var(--hm-ink);
 }
 
 .hm-status-meta {
@@ -224,19 +216,16 @@
   font-size: 3rem;
   font-weight: 900;
   line-height: 1;
-  color: var(--hm-cyan);
-  text-shadow: 0 0 26px rgba(0, 229, 255, 0.4);
+  color: var(--hm-navy);
   font-variant-numeric: tabular-nums;
 }
 
 .hm-gauge-value.is-warning {
   color: var(--hm-warn);
-  text-shadow: 0 0 26px rgba(255, 176, 32, 0.45);
 }
 
 .hm-gauge-value.is-alert {
   color: var(--hm-danger);
-  text-shadow: 0 0 26px rgba(255, 59, 92, 0.5);
 }
 
 .hm-gauge-unit {
@@ -257,7 +246,7 @@
   position: relative;
   height: 16px;
   border-radius: 999px;
-  background: #0a1119;
+  background: #eef2f7;
   border: 1px solid var(--hm-line);
   overflow: hidden;
   margin-top: 14px;
@@ -266,16 +255,16 @@
 .hm-bar-fill {
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, var(--hm-cyan), var(--hm-blue));
+  background: linear-gradient(90deg, var(--hm-blue), var(--hm-navy));
   transition: width 0.35s ease;
 }
 
 .hm-bar-fill.is-warning {
-  background: linear-gradient(90deg, #ffd166, var(--hm-warn));
+  background: linear-gradient(90deg, #fb923c, var(--hm-warn));
 }
 
 .hm-bar-fill.is-alert {
-  background: linear-gradient(90deg, #ff7a90, var(--hm-danger));
+  background: linear-gradient(90deg, #f87171, var(--hm-danger));
 }
 
 .hm-threshold-row {
@@ -295,7 +284,7 @@
 }
 
 .hm-kpi {
-  background: #0c141e;
+  background: var(--hm-surface-sub);
   border: 1px solid var(--hm-line);
   border-radius: 14px;
   padding: 12px 8px;
@@ -334,33 +323,33 @@
 }
 
 .hm-badge-ok {
-  background: rgba(34, 224, 122, 0.16);
-  color: var(--hm-safe);
-  border-color: rgba(34, 224, 122, 0.4);
+  background: #dcfce7;
+  color: #15803d;
+  border-color: rgba(22, 163, 74, 0.45);
 }
 
 .hm-badge-warn {
-  background: rgba(255, 176, 32, 0.16);
-  color: var(--hm-warn);
-  border-color: rgba(255, 176, 32, 0.45);
+  background: #ffedd5;
+  color: #c2410c;
+  border-color: rgba(234, 88, 12, 0.45);
 }
 
 .hm-badge-danger {
-  background: rgba(255, 59, 92, 0.16);
-  color: var(--hm-danger);
-  border-color: rgba(255, 59, 92, 0.5);
+  background: #fee2e2;
+  color: #b91c1c;
+  border-color: rgba(220, 38, 38, 0.45);
 }
 
 .hm-badge-info {
-  background: rgba(0, 229, 255, 0.14);
-  color: var(--hm-cyan);
-  border-color: rgba(0, 229, 255, 0.4);
+  background: #dbeafe;
+  color: #1d4ed8;
+  border-color: rgba(37, 99, 235, 0.4);
 }
 
 .hm-badge-mute {
-  background: rgba(159, 179, 200, 0.12);
+  background: #f1f5f9;
   color: var(--hm-muted);
-  border-color: rgba(159, 179, 200, 0.28);
+  border-color: var(--hm-line-strong);
 }
 
 /* ---------- 分岐回路 ---------- */
@@ -378,18 +367,19 @@
   gap: 10px;
   padding: 12px 14px;
   border-radius: 14px;
-  background: #0c141e;
+  background: var(--hm-surface-sub);
   border: 1px solid var(--hm-line);
 }
 
 .hm-circuit-row.is-off {
-  opacity: 0.62;
+  opacity: 0.72;
 }
 
 .hm-circuit-meta {
   font-weight: 800;
   font-size: 0.98rem;
   min-width: 0;
+  color: var(--hm-ink-2);
 }
 
 .hm-circuit-meta small {
@@ -400,48 +390,56 @@
   margin-top: 3px;
 }
 
+.hm-peak-tag {
+  color: var(--hm-warn);
+  font-weight: 800;
+}
+
 /* ---------- 操作ボタン ---------- */
 
 .hm-btn {
   min-height: var(--hm-tap);
   min-width: 92px;
-  border: none;
+  border: 1px solid var(--hm-navy);
   border-radius: 14px;
   font-weight: 900;
   font-size: 1rem;
   cursor: pointer;
-  color: #04202b;
-  background: linear-gradient(180deg, #7ff3ff, var(--hm-cyan));
-  box-shadow: 0 6px 18px rgba(0, 229, 255, 0.28);
+  color: #ffffff;
+  background: var(--hm-navy);
+  box-shadow: 0 2px 6px rgba(30, 58, 138, 0.2);
   transition: transform 0.12s ease, filter 0.12s ease;
 }
 
 .hm-btn:active {
   transform: scale(0.96);
-  filter: brightness(1.12);
+  filter: brightness(1.08);
 }
 
 .hm-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.55;
   cursor: progress;
 }
 
 .hm-btn.is-on {
-  background: linear-gradient(180deg, #63f7a8, var(--hm-safe));
-  color: #04220f;
-  box-shadow: 0 6px 18px rgba(34, 224, 122, 0.3);
+  background: var(--hm-safe);
+  border-color: var(--hm-safe);
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(22, 163, 74, 0.24);
 }
 
 .hm-btn.is-off {
-  background: linear-gradient(180deg, #3b4a5c, #253141);
-  color: var(--hm-ink);
+  background: #ffffff;
+  border-color: var(--hm-line-strong);
+  color: var(--hm-ink-2);
   box-shadow: none;
 }
 
 .hm-btn.is-danger {
-  background: linear-gradient(180deg, #ff7a90, var(--hm-danger));
-  color: #2a0209;
-  box-shadow: 0 6px 18px rgba(255, 59, 92, 0.3);
+  background: var(--hm-danger);
+  border-color: var(--hm-danger);
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.24);
 }
 
 .hm-btn-wide {
@@ -472,8 +470,7 @@
 .hm-temp-value {
   font-size: 2.9rem;
   font-weight: 900;
-  color: #ffd9a8;
-  text-shadow: 0 0 24px rgba(255, 176, 32, 0.34);
+  color: #c2410c;
   font-variant-numeric: tabular-nums;
 }
 
@@ -484,7 +481,7 @@
 }
 
 .hm-fill-bar .hm-bar-fill {
-  background: linear-gradient(90deg, #ffd166, #ff9f45);
+  background: linear-gradient(90deg, #fb923c, var(--hm-warn));
 }
 
 /* ---------- エアコン ---------- */
@@ -493,7 +490,7 @@
   border: 1px solid var(--hm-line);
   border-radius: 16px;
   padding: 14px;
-  background: #0c141e;
+  background: var(--hm-surface-sub);
   margin-top: 10px;
 }
 
@@ -508,6 +505,7 @@
   margin: 0;
   font-size: 1.04rem;
   font-weight: 900;
+  color: var(--hm-ink);
 }
 
 .hm-ac-temp-row {
@@ -522,9 +520,9 @@
   width: var(--hm-tap);
   height: var(--hm-tap);
   border-radius: 50%;
-  border: 2px solid rgba(0, 229, 255, 0.4);
-  background: #0a1119;
-  color: var(--hm-cyan);
+  border: 2px solid var(--hm-navy);
+  background: #ffffff;
+  color: var(--hm-navy);
   font-size: 1.5rem;
   font-weight: 900;
   cursor: pointer;
@@ -554,7 +552,7 @@
 .hm-slider {
   width: 100%;
   margin-top: 12px;
-  accent-color: var(--hm-cyan);
+  accent-color: var(--hm-navy);
   height: 32px;
 }
 
@@ -568,18 +566,18 @@
 .hm-mode-btn {
   min-height: 48px;
   border-radius: 12px;
-  border: 2px solid var(--hm-line);
-  background: #0a1119;
-  color: var(--hm-muted);
+  border: 2px solid var(--hm-line-strong);
+  background: #ffffff;
+  color: var(--hm-ink-2);
   font-weight: 900;
   font-size: 0.92rem;
   cursor: pointer;
 }
 
 .hm-mode-btn.is-active {
-  border-color: var(--hm-cyan);
-  color: #04202b;
-  background: linear-gradient(180deg, #7ff3ff, var(--hm-cyan));
+  border-color: var(--hm-blue);
+  color: #ffffff;
+  background: var(--hm-blue);
 }
 
 /* ---------- スマートロック ---------- */
@@ -623,9 +621,15 @@
   gap: 10px;
   padding: 10px 12px;
   border-radius: 12px;
-  background: #0a1119;
+  background: var(--hm-surface-sub);
   border: 1px solid var(--hm-line);
   font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--hm-ink-2);
+}
+
+.hm-log-cred {
+  color: var(--hm-muted);
   font-weight: 700;
 }
 
@@ -633,6 +637,207 @@
   color: var(--hm-muted);
   font-size: 0.82rem;
   white-space: nowrap;
+}
+
+/* ---------- スマートインターホン ---------- */
+
+.hm-intercom-card.is-ringing {
+  border-color: rgba(220, 38, 38, 0.6);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12), var(--hm-shadow);
+}
+
+.hm-intercom-state {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.hm-intercom-state-label {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 900;
+  color: var(--hm-ink);
+}
+
+.hm-intercom-state-label.is-ringing {
+  color: var(--hm-danger);
+  animation: hm-ring-blink 1.1s ease-in-out infinite;
+}
+
+.hm-intercom-state-label.is-talking {
+  color: var(--hm-safe);
+}
+
+@keyframes hm-ring-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.hm-intercom-last {
+  margin: 0;
+  color: var(--hm-muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+/* カメラライブ枠（RTSP / WebRTC / モック） */
+.hm-cam-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--hm-line-strong);
+  background:
+    repeating-linear-gradient(
+      135deg,
+      #e2e8f0 0px,
+      #e2e8f0 12px,
+      #eef2f7 12px,
+      #eef2f7 24px
+    );
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hm-cam-frame.is-ringing {
+  border-color: var(--hm-danger);
+}
+
+.hm-cam-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.hm-cam-placeholder {
+  text-align: center;
+  color: var(--hm-muted);
+  font-weight: 800;
+  font-size: 0.95rem;
+  padding: 12px;
+}
+
+.hm-cam-placeholder strong {
+  display: block;
+  font-size: 2.2rem;
+  line-height: 1.2;
+}
+
+.hm-cam-tag {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.82);
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.hm-cam-live {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(220, 38, 38, 0.94);
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.hm-cam-live::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ffffff;
+  animation: hm-ring-blink 1.1s ease-in-out infinite;
+}
+
+.hm-visitor-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* 呼出ポップアップ（画面最上部） */
+.hm-ring-popup {
+  position: fixed;
+  left: 50%;
+  top: calc(10px + env(safe-area-inset-top, 0px));
+  transform: translateX(-50%) translateY(-140%);
+  width: min(560px, calc(100vw - 24px));
+  z-index: 90;
+  background: #ffffff;
+  border: 2px solid var(--hm-danger);
+  border-radius: 18px;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.24);
+  padding: 14px 16px;
+  transition: transform 0.28s ease, opacity 0.28s ease;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.hm-ring-popup.is-visible {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.hm-ring-popup-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hm-ring-popup-emoji {
+  font-size: 1.9rem;
+  line-height: 1;
+  animation: hm-ring-blink 1.1s ease-in-out infinite;
+}
+
+.hm-ring-popup-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 900;
+  color: var(--hm-danger);
+}
+
+.hm-ring-popup-sub {
+  margin: 2px 0 0;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--hm-muted);
+}
+
+.hm-ring-popup-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.hm-ring-popup-actions .hm-btn {
+  min-width: 0;
+  font-size: 0.9rem;
+  padding: 0 6px;
 }
 
 /* ---------- 事業者一覧 ---------- */
@@ -645,7 +850,7 @@
 
 .hm-summary-pill {
   text-align: center;
-  background: #0c141e;
+  background: var(--hm-surface-sub);
   border-radius: 14px;
   padding: 12px 6px;
   border: 1px solid var(--hm-line);
@@ -655,7 +860,7 @@
   display: block;
   font-size: 1.45rem;
   font-weight: 900;
-  color: var(--hm-cyan);
+  color: var(--hm-navy);
   font-variant-numeric: tabular-nums;
 }
 
@@ -684,15 +889,17 @@
   border: 1px solid var(--hm-line);
   border-radius: 16px;
   padding: 14px;
-  background: #0c141e;
+  background: var(--hm-surface-sub);
 }
 
 .hm-site-card.is-peak {
-  border-color: rgba(255, 176, 32, 0.5);
+  border-color: rgba(234, 88, 12, 0.5);
+  background: #fff7ed;
 }
 
 .hm-site-card.is-security {
-  border-color: rgba(255, 59, 92, 0.6);
+  border-color: rgba(220, 38, 38, 0.55);
+  background: #fef2f2;
 }
 
 .hm-site-head {
@@ -706,6 +913,7 @@
   margin: 0;
   font-size: 1.1rem;
   font-weight: 900;
+  color: var(--hm-ink);
 }
 
 .hm-site-addr {
@@ -720,7 +928,7 @@
   font-size: 0.94rem;
   font-weight: 700;
   line-height: 1.6;
-  color: #d8e6f5;
+  color: var(--hm-ink-2);
 }
 
 .hm-site-open {
@@ -733,8 +941,8 @@
   border-radius: 14px;
   text-decoration: none;
   font-weight: 900;
-  color: #04202b;
-  background: linear-gradient(180deg, #7ff3ff, var(--hm-cyan));
+  color: #ffffff;
+  background: var(--hm-navy);
 }
 
 /* ---------- 注意メモ・空表示 ---------- */
@@ -745,7 +953,7 @@
   line-height: 1.7;
   font-size: 0.98rem;
   font-weight: 600;
-  color: #d8e6f5;
+  color: var(--hm-ink-2);
 }
 
 .hm-empty {
@@ -759,14 +967,14 @@
   left: 50%;
   bottom: calc(96px + env(safe-area-inset-bottom, 0px));
   transform: translateX(-50%) translateY(16px);
-  background: rgba(8, 16, 24, 0.96);
-  border: 1px solid var(--hm-cyan);
-  color: var(--hm-ink);
+  background: var(--hm-ink);
+  border: 1px solid var(--hm-ink);
+  color: #ffffff;
   padding: 12px 18px;
   border-radius: 999px;
   font-weight: 800;
   font-size: 0.95rem;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.28);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s ease, transform 0.2s ease;
@@ -778,6 +986,16 @@
 .hm-toast.is-visible {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
+}
+
+/* ---------- 連携ステータス ---------- */
+
+.hm-link-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
 }
 
 /* ---------- お客様向け（やさしい表現） ---------- */
@@ -801,6 +1019,7 @@
   border-bottom: 1px solid var(--hm-line);
   font-size: 1.02rem;
   font-weight: 800;
+  color: var(--hm-ink);
 }
 
 .hm-plain-row:last-child {
@@ -830,6 +1049,9 @@
   }
   .hm-mode-row {
     grid-template-columns: repeat(2, 1fr);
+  }
+  .hm-ring-popup-actions {
+    grid-template-columns: 1fr;
   }
 }
 

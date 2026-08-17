@@ -10,6 +10,7 @@ import {
   findHomeSiteV1,
   homeActiveAirconCountV1,
   homeCtLevelV1,
+  homeIntercomRingingV1,
   homeLoadPercentV1,
   homePowerKwV1,
   homeSecurityAttentionV1,
@@ -103,6 +104,31 @@ export interface HomeLockViewV1 {
   }>;
 }
 
+export interface HomeIntercomViewV1 {
+  label: string;
+  state: string;
+  stateLabel: string;
+  stateEmoji: string;
+  ringing: boolean;
+  /** 「直近来客 14:20」形式 */
+  lastVisitLabel: string;
+  streamKind: string;
+  streamKindLabel: string;
+  streamUrl: string;
+  snapshotUrl: string;
+  /** 実映像が来ているか（false はモック枠） */
+  hasLiveStream: boolean;
+  autoResponseMessage: string;
+  unlockLinkEnabled: boolean;
+  visitors: Array<{
+    id: string;
+    label: string;
+    handledAs: string;
+    handledLabel: string;
+    occurredAt: string;
+  }>;
+}
+
 export interface HomeSiteDashboardV1 {
   siteId: string;
   displayName: string;
@@ -122,7 +148,9 @@ export interface HomeSiteDashboardV1 {
   bath: HomeBathViewV1;
   aircons: HomeAirconViewV1[];
   lock: HomeLockViewV1;
+  intercom: HomeIntercomViewV1;
   activeAirconCount: number;
+  intercomRinging: boolean;
   notes: string[];
   updatedAt: string;
 }
@@ -133,6 +161,7 @@ export interface HomeOperatorDashboardV1 {
   securityAlertCount: number;
   bathRunningCount: number;
   airconRunningCount: number;
+  intercomRingingCount: number;
   sites: HomeSiteDashboardV1[];
   updatedAt: string;
 }
@@ -174,6 +203,29 @@ const AIRCON_SWING_LABEL_V1: Record<string, string> = {
   up: "上",
   middle: "中央",
   down: "下",
+};
+
+const INTERCOM_STATE_META_V1: Record<
+  string,
+  { label: string; emoji: string }
+> = {
+  idle: { label: "待機中", emoji: "🏠" },
+  ringing: { label: "呼出中", emoji: "🔔" },
+  talking: { label: "通話中", emoji: "📞" },
+  auto_responded: { label: "自動応答済み", emoji: "🗣️" },
+};
+
+const INTERCOM_STREAM_LABEL_V1: Record<string, string> = {
+  rtsp: "RTSP カメラ",
+  webrtc: "WebRTC ライブ",
+  mock: "カメラ未接続（デモ表示）",
+};
+
+const INTERCOM_HANDLED_LABEL_V1: Record<string, string> = {
+  answered: "通話応答",
+  auto: "自動応答",
+  unlocked: "解錠",
+  missed: "未応答",
 };
 
 const CREDENTIAL_LABEL_V1: Record<string, string> = {
@@ -303,6 +355,39 @@ function buildLockViewV1(site: HomeSiteV1): HomeLockViewV1 {
   };
 }
 
+function buildIntercomViewV1(site: HomeSiteV1): HomeIntercomViewV1 {
+  const ic = site.intercom;
+  const meta =
+    INTERCOM_STATE_META_V1[ic.state] ?? INTERCOM_STATE_META_V1.idle;
+  const hasLiveStream = Boolean(ic.streamUrl || ic.snapshotUrl);
+  return {
+    label: ic.label,
+    state: ic.state,
+    stateLabel: meta.label,
+    stateEmoji: meta.emoji,
+    ringing: ic.state === "ringing",
+    lastVisitLabel: ic.lastVisitAt
+      ? `直近来客 ${formatAccessTimeV1(ic.lastVisitAt)}`
+      : "来客はまだありません",
+    streamKind: ic.streamKind,
+    streamKindLabel:
+      INTERCOM_STREAM_LABEL_V1[ic.streamKind] ?? ic.streamKind,
+    streamUrl: ic.streamUrl,
+    snapshotUrl: ic.snapshotUrl,
+    hasLiveStream,
+    autoResponseMessage: ic.autoResponseMessage,
+    unlockLinkEnabled: ic.unlockLinkEnabled,
+    visitors: ic.visitors.slice(0, 8).map((v) => ({
+      id: v.id,
+      label: v.label,
+      handledAs: v.handledAs,
+      handledLabel:
+        INTERCOM_HANDLED_LABEL_V1[v.handledAs] ?? v.handledAs,
+      occurredAt: formatAccessTimeV1(v.occurredAt),
+    })),
+  };
+}
+
 /** 物件の総合ステータス */
 export function resolveHomeStatusV1(
   site: HomeSiteV1
@@ -346,7 +431,9 @@ export function buildHomeSiteDashboardV1(
     bath: buildBathViewV1(site),
     aircons: buildAirconViewsV1(site),
     lock: buildLockViewV1(site),
+    intercom: buildIntercomViewV1(site),
     activeAirconCount: homeActiveAirconCountV1(site),
+    intercomRinging: homeIntercomRingingV1(site),
     notes: [...site.notes],
     updatedAt: new Date().toISOString(),
   };
@@ -384,6 +471,7 @@ export function buildHomeOperatorDashboardV1(): HomeOperatorDashboardV1 {
       (sum, s) => sum + s.activeAirconCount,
       0
     ),
+    intercomRingingCount: sites.filter((s) => s.intercomRinging).length,
     sites,
     updatedAt: new Date().toISOString(),
   };

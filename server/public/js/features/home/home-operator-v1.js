@@ -11,17 +11,21 @@ import {
   escapeHtml,
   fetchHomeCustomer,
   fetchHomeOperator,
+  hideRingPopup,
   readSiteIdFromUrl,
   renderAircons,
   renderBath,
   renderCt,
+  renderIntercom,
   renderLock,
   renderNotes,
   renderStatusHero,
+  renderSwitchBotBadge,
   replaceSiteIdInUrl,
   sendHomeControl,
   setText,
   showToast,
+  updateRingPopup,
 } from "./home-shared-v1.js";
 
 const POLL_INTERVAL_MS = 15000;
@@ -122,7 +126,9 @@ function renderSiteDetail(dashboard) {
   renderBath(dashboard);
   renderAircons(dashboard, { withControls: true });
   renderLock(dashboard);
+  renderIntercom(dashboard);
   renderNotes(dashboard);
+  updateRingPopup(dashboard);
 }
 
 /** 制御ボタン・スライダーの共通ハンドラ */
@@ -154,6 +160,7 @@ async function handleControl(el) {
       actor: "社内オペレーター",
     });
     showToast(res.message || "操作しました");
+    if (target === "intercom") hideRingPopup();
     renderSiteDetail(res.dashboard);
     const operator = await fetchHomeOperator();
     renderSummary(operator);
@@ -202,6 +209,7 @@ async function refresh() {
 document.addEventListener("DOMContentLoaded", () => {
   currentSiteId = readSiteIdFromUrl();
   bindControlDelegation();
+  renderSwitchBotBadge();
 
   const select = byId("hm-site-select");
   if (select) {

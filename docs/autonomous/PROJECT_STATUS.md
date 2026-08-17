@@ -1293,25 +1293,29 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 目的 | 分電盤CT・風呂リモコン・エアコン・玄関スマートロックを **1画面で一括統合** |
 | 社内/統合入口 | `/home-v1` · `/app/home` · `/tisly-home`（302） |
 | お客様/住まい入口 | `/customer/home` |
-| UI | **ダークモード × 高コントラスト** — `#070B11` 基調 · cyan `#00E5FF` · タップ領域 52px 以上 |
+| UI | **ライトモード × 高コントラスト**（旧ダークUIから移行）— 背景 `#FFFFFF` / `#F8FAFC` · カード純白 + 枠 `#E2E8F0` · 文字 `#0F172A` / `#1E293B` · アクセント紺 `#1E3A8A` · タップ領域 52px 以上 |
+| ステータス配色 | 稼働中/正常 `#16A34A` · 警報 `#DC2626` · ピークカット `#EA580C` · 空調/計測 `#2563EB` |
 | 1. 分電盤CT | 主幹電流A・消費電力W/kW のゲージ · 過負荷しきい値（警告/遮断）· ピークカット連動 · 分岐回路（エアコン/エコキュート/IH/一般負荷）稼働状態 |
 | 2. 風呂リモコン | 給湯温度・浴槽温度・湯はり進捗% · 「自動お湯はり」「追いだき」「ふろ保温」ワンタップ · JEMA/HA端子 + RP2350 リレー連携ステータス |
 | 3. エアコン | 室温・設定温度・運転モード（冷房/暖房/除湿/送風）・風量・風向 · 電源ON/OFF · 温度±スライダー · ピーク時自動セーブ運転バッジ |
 | 4. 玄関スマートロック | LOCKED 🔒 / UNLOCKED 🔓 · ドア開閉センサー · 施錠解錠トグル · NFC/RFID 入退室ログ（直近解錠者と時刻） |
+| 5. スマートインターホン | 待機中 / 呼出中 🔔 / 通話中 / 自動応答済み · 「直近来客 14:20」· ライブ枠（RTSP/WebRTC、未接続はモック枠）· 「通話応答」「自動応答（置き配お願いします）」「玄関鍵を開ける（スマートロック連動）」· 来客履歴 |
+| 呼出通知 | 呼出発生時に PWA 最上部ポップアップ（`#hm-ring-popup`）+ バイブレーション + Notification（許可時のみ）。同一呼出は重複表示しない |
 | モックデータ | **JP** `HOME-JP-TSUKUBA-001` つくばモデルハウス（100V-200V / エコキュート · JPY）· `HOME-JP-MORIYA-ALERT` 警報デモ · **AU** `HOME-AU-GOLDCOAST-001` Gold Coast Demo House（240V / Solar+CT · AUD） |
 | クイック切り替え | `home-quick-switch-v1.js` — 各画面右下の浮遊ボタン。`/app` · `/gas-monitor-v1` · `/demand-security-v1` · `/eco-water-v1` へ **追記のみ**で導入 |
-| SaaS スキーマ | `home_sites_v1`（tenant_id/country_code/currency/plan_code/plan_status/monthly_fee）· `home_devices_v1` · `home_control_logs_v1` · `home_access_logs_v1` — シードは INSERT OR IGNORE のみ |
-| API | `GET /api/home/v1/sites` · `/customer?siteId=` · `/operator` · `/quick-switch` · `/control-logs?siteId=` · `POST /control` |
-| 制御 | `POST /control` — target: `circuit` / `bath` / `aircon` / `lock`（回路ON/OFFは主幹電流を再計算） |
-| 制御 action | circuit: `relay` · bath: `auto_fill` / `reheat` / `keep_warm` / `set_temp` / `temp_up` / `temp_down` · aircon: `power` / `set_temp` / `temp_up` / `temp_down` / `mode` / `fan` / `swing` / `peak_save` · lock: `lock` / `unlock` / `toggle` |
-| SwitchBot 実機 | `switchbot_client.ts`（API v1.1 HMAC）· ロック解錠/施錠 · 赤外線エアコン `setAll`/`turnOn`/`turnOff` · トークン未設定時はモック継続 |
+| SaaS スキーマ | `home_sites_v1`（tenant_id/country_code/currency/plan_code/plan_status/monthly_fee）· `home_devices_v1`（`intercom` 種別を追加。既存行はコピーして引き継ぐ）· `home_control_logs_v1` · `home_access_logs_v1` · `home_intercom_events_v1` — シードは INSERT OR IGNORE のみ |
+| API | `GET /api/home/v1/sites` · `/customer?siteId=` · `/operator` · `/quick-switch` · `/control-logs?siteId=` · `/intercom-events?siteId=` · `/switchbot-status` · `/switchbot-devices` · `POST /control` |
+| 制御 | `POST /control` — target: `circuit` / `bath` / `aircon` / `lock` / `intercom`（回路ON/OFFは主幹電流を再計算） |
+| 制御 action | circuit: `relay` · bath: `auto_fill` / `reheat` / `keep_warm` / `set_temp` / `temp_up` / `temp_down` · aircon: `power` / `set_temp` / `temp_up` / `temp_down` / `mode` / `fan` / `swing` / `peak_save` · lock: `lock` / `unlock` / `toggle` · intercom: `ring` / `answer` / `auto_response` / `unlock_door` / `dismiss` / `set_auto_message` |
+| SwitchBot 実機 | `switchbot_client.ts`（API v1.1 HMAC）· ロック解錠/施錠 · 赤外線エアコン `setAll`/`turnOn`/`turnOff` · インターホンの `unlock_door` も実機解錠へ連動 · トークン未設定時はモック継続 |
 | SwitchBot env | `SWITCHBOT_TOKEN` · `SWITCHBOT_SECRET` · `SWITCHBOT_LOCK_DEVICE_ID` · `SWITCHBOT_AIR_CONDITIONER_DEVICE_ID` |
-| デバイス一覧 | `npx tsx scripts/list_switchbot_devices.ts`（`npm run switchbot:list-devices`） |
+| 実機/モック判定 | `resolveSwitchBotHomeModeV1()` — TOKEN と SECRET が揃えば `real`、無ければ `mock`。`SWITCHBOT_MODE` に依存しないので **VPS 本番でも `.env` を入れるだけで自動切替**。`GET /api/home/v1/switchbot-status` で確認（トークン・シークレットは返さず deviceId は末尾4文字のみ） |
+| デバイス一覧 | `npx tsx scripts/list_switchbot_devices.ts`（`npm run switchbot:list-devices`）· API は `GET /api/home/v1/switchbot-devices` |
 | App Hub | `tisly_home_v1` カード追記（既存カードは非改変） |
 | Customer | ホームカード「おうち設備」追記（既存カードは非改変） |
-| SW | `tisly-pwa-v2457-tisly-home` |
-| コード | `src/home/home-sites-v1.ts` · `home-control-v1.ts` · `home-dashboard-v1.ts` · `home-store-v1.ts` · `switchbot_client.ts` · `home-switchbot-sync-v1.ts` · `api/routes/home.ts` · `public/home-v1.html` · `home-customer-v1.html` · `js/features/home/*` · `css/features/home/*` |
-| テスト | `server/test/tisly-home-v1.test.ts`（14ケース） |
+| SW | `tisly-pwa-v2458-home-light-intercom` |
+| コード | `src/home/home-sites-v1.ts` · `home-control-v1.ts` · `home-dashboard-v1.ts` · `home-store-v1.ts` · `switchbot_client.ts` · `home-switchbot-sync-v1.ts` · `api/routes/home.ts` · `db/migrate.ts`（`migrateTislyHomeIntercomV1`）· `public/home-v1.html` · `home-customer-v1.html` · `js/features/home/*` · `css/features/home/*` |
+| テスト | `server/test/tisly-home-v1.test.ts`（17ケース） |
 | 確認 | `/home-v1` · `/customer/home` · `/api/home/v1/operator` · https://tisly.jp/api/health |
 
 ### ガス監視 新規物件・デバイス登録 v1（完成済み）

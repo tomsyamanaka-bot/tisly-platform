@@ -83,6 +83,74 @@ export function isSwitchBotAirconConfiguredV1(
   );
 }
 
+/** TiSLY HOME の実機/モック判定 */
+export type SwitchBotHomeModeV1 = "real" | "mock";
+
+export interface SwitchBotHomeStatusV1 {
+  /** 資格情報があれば real、無ければ mock（本番/ローカル共通の自動判定） */
+  mode: SwitchBotHomeModeV1;
+  credentialsConfigured: boolean;
+  lockConfigured: boolean;
+  airConditionerConfigured: boolean;
+  /** deviceId は末尾4文字のみ（トークン類は一切返さない） */
+  lockDeviceIdMask: string;
+  airConditionerDeviceIdMask: string;
+  /** 未設定の環境変数名 */
+  missing: string[];
+  message: string;
+}
+
+/**
+ * 環境変数の有無だけで実機/モックを決める。
+ * VPS 本番でも `.env` に値が入った時点で自動的に real へ切り替わる。
+ */
+export function resolveSwitchBotHomeModeV1(
+  env: SwitchBotHomeEnvV1 = getSwitchBotHomeEnvV1()
+): SwitchBotHomeModeV1 {
+  return isSwitchBotHomeConfiguredV1(env) ? "real" : "mock";
+}
+
+function maskDeviceId(id: string): string {
+  const v = String(id || "").trim();
+  if (!v) return "";
+  if (v.length <= 4) return `****${v}`;
+  return `****${v.slice(-4)}`;
+}
+
+export function buildSwitchBotHomeStatusV1(
+  env: SwitchBotHomeEnvV1 = getSwitchBotHomeEnvV1()
+): SwitchBotHomeStatusV1 {
+  const credentialsConfigured = isSwitchBotHomeConfiguredV1(env);
+  const lockConfigured = isSwitchBotLockConfiguredV1(env);
+  const airConditionerConfigured = isSwitchBotAirconConfiguredV1(env);
+  const missing: string[] = [];
+  if (!env.token) missing.push("SWITCHBOT_TOKEN");
+  if (!env.secret) missing.push("SWITCHBOT_SECRET");
+  if (!env.lockDeviceId) missing.push("SWITCHBOT_LOCK_DEVICE_ID");
+  if (!env.airConditionerDeviceId) {
+    missing.push("SWITCHBOT_AIR_CONDITIONER_DEVICE_ID");
+  }
+  const mode = resolveSwitchBotHomeModeV1(env);
+  let message: string;
+  if (mode === "mock") {
+    message = "SwitchBot 未設定 — モック動作中";
+  } else if (missing.length === 0) {
+    message = "SwitchBot 実機連携中（ロック・エアコン）";
+  } else {
+    message = `SwitchBot 実機連携中（未設定: ${missing.join(", ")}）`;
+  }
+  return {
+    mode,
+    credentialsConfigured,
+    lockConfigured,
+    airConditionerConfigured,
+    lockDeviceIdMask: maskDeviceId(env.lockDeviceId),
+    airConditionerDeviceIdMask: maskDeviceId(env.airConditionerDeviceId),
+    missing,
+    message,
+  };
+}
+
 function redactSecrets(text: string, env: SwitchBotHomeEnvV1): string {
   let out = text;
   if (env.token) out = out.split(env.token).join("[REDACTED_TOKEN]");

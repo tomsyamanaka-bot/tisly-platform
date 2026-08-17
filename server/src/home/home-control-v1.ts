@@ -17,6 +17,7 @@ import {
   type HomeAccessEntryV1,
   type HomeAirconV1,
   type HomeCredentialTypeV1,
+  type HomeIntercomVisitorV1,
   type HomeSiteV1,
 } from "./home-sites-v1.js";
 import {
@@ -33,7 +34,8 @@ export type HomeControlTargetV1 =
   | "circuit"
   | "bath"
   | "aircon"
-  | "lock";
+  | "lock"
+  | "intercom";
 
 export interface HomeControlInputV1 {
   siteId: string;
@@ -65,6 +67,7 @@ const AIRCON_MAX_TEMP_C = 32;
 const BATH_MIN_TEMP_C = 32;
 const BATH_MAX_TEMP_C = 48;
 const ACCESS_LOG_MAX = 20;
+const VISITOR_LOG_MAX = 20;
 
 function clampNumber(
   value: unknown,
@@ -440,6 +443,113 @@ export function applyHomeLockControlV1(
   };
 }
 
+/**
+ * スマートインターホン制御
+ * unlock_door は玄関錠と連動（解錠は呼び出し側で実機送信）
+ */
+export function applyHomeIntercomControlV1(
+  site: HomeSiteV1,
+  action: string,
+  value: unknown,
+  actor: string | null | undefined
+): HomeControlResultV1 {
+  const ic = site.intercom;
+  const at = nowIso();
+
+  const pushVisitor = (
+    label: string,
+    handledAs: HomeIntercomVisitorV1["handledAs"]
+  ): void => {
+    const entry: HomeIntercomVisitorV1 = {
+      id: `vis-${Date.now()}`,
+      label,
+      occurredAt: at,
+      handledAs,
+    };
+    ic.visitors = [entry, ...ic.visitors].slice(0, VISITOR_LOG_MAX);
+    ic.lastVisitAt = at;
+  };
+
+  switch (action) {
+    case "ring": {
+      // 実機 webhook / デモ操作からの呼出発生
+      ic.state = "ringing";
+      pushVisitor(
+        String(value || "来訪者") || "来訪者",
+        "missed"
+      );
+      return {
+        ok: true,
+        message: "インターホンが呼び出されています 🔔",
+        state: ic,
+      };
+    }
+    case "answer": {
+      if (ic.state === "ringing") {
+        const latest = ic.visitors[0];
+        if (latest) latest.handledAs = "answered";
+      }
+      ic.state = "talking";
+      return {
+        ok: true,
+        message: `通話を開始しました（${String(
+          actor || "TiSLY アプリ操作"
+        )}）`,
+        state: ic,
+      };
+    }
+    case "auto_response": {
+      if (ic.state === "ringing") {
+        const latest = ic.visitors[0];
+        if (latest) latest.handledAs = "auto";
+      } else {
+        pushVisitor("自動応答", "auto");
+      }
+      ic.state = "auto_responded";
+      return {
+        ok: true,
+        message: `自動応答しました：「${ic.autoResponseMessage}」`,
+        state: ic,
+      };
+    }
+    case "unlock_door": {
+      if (!ic.unlockLinkEnabled) {
+        return {
+          ok: false,
+          error: "この住まいはインターホンからの解錠を許可していません",
+        };
+      }
+      const latest = ic.visitors[0];
+      if (latest && ic.state === "ringing") latest.handledAs = "unlocked";
+      else pushVisitor("インターホンから解錠", "unlocked");
+      ic.state = "idle";
+      return {
+        ok: true,
+        message: "玄関を解錠しました 🔓",
+        state: ic,
+      };
+    }
+    case "dismiss": {
+      ic.state = "idle";
+      return { ok: true, message: "呼出を閉じました", state: ic };
+    }
+    case "set_auto_message": {
+      const next = String(value ?? "").trim();
+      if (!next) {
+        return { ok: false, error: "自動応答メッセージが空です" };
+      }
+      ic.autoResponseMessage = next.slice(0, 120);
+      return {
+        ok: true,
+        message: "自動応答メッセージを更新しました",
+        state: ic,
+      };
+    }
+    default:
+      return { ok: false, error: "未対応のインターホン操作です" };
+  }
+}
+
 async function dispatchLockToSwitchBotV1(
   nextLocked: boolean
 ): Promise<{ used: boolean; note?: string }> {
@@ -567,6 +677,34 @@ export async function applyHomeControlV1(
       );
       if (result.ok && sbNote && result.message) {
         result = { ...result, message: `${result.message}${sbNote}` };
+      }
+      break;
+    }
+    case "intercom": {
+      result = applyHomeIntercomControlV1(
+        site,
+        action,
+        input.value,
+        input.actor
+      );
+      // 「玄関鍵を開ける」はスマートロックへ連動
+      if (result.ok && action === "unlock_door") {
+        let sbNote = "";
+        try {
+          const sb = await dispatchLockToSwitchBotV1(false);
+          if (sb.note) sbNote = sb.note;
+        } catch {
+          sbNote = "（SwitchBot 通信エラー → モック反映）";
+        }
+        applyHomeLockControlV1(
+          site,
+          "unlock",
+          { credentialType: "app" },
+          input.actor || "インターホン応答"
+        );
+        if (sbNote && result.message) {
+          result = { ...result, message: `${result.message}${sbNote}` };
+        }
       }
       break;
     }

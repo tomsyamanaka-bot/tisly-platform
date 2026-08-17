@@ -250,6 +250,7 @@ export function runMigrations(database: Database.Database): void {
   migrateDevicePortConfigsV1(database);
   migrateGasMonitorDemoSeedV1(database);
   migrateTislyHomeV1(database);
+  migrateTislyHomeIntercomV1(database);
 }
 
 /**
@@ -283,7 +284,8 @@ function migrateTislyHomeV1(database: Database.Database): void {
       site_id TEXT NOT NULL,
       device_kind TEXT NOT NULL
         CHECK (device_kind IN
-          ('ct_panel', 'bath_remote', 'aircon', 'smart_lock')),
+          ('ct_panel', 'bath_remote', 'aircon',
+           'smart_lock', 'intercom')),
       device_key TEXT NOT NULL,
       label TEXT NOT NULL DEFAULT '',
       control_channel TEXT NOT NULL DEFAULT '',
@@ -323,6 +325,73 @@ function migrateTislyHomeV1(database: Database.Database): void {
       ON home_access_logs_v1(site_id, id DESC);
     CREATE INDEX IF NOT EXISTS idx_home_sites_tenant
       ON home_sites_v1(tenant_id, plan_status);
+  `);
+}
+
+/**
+ * TiSLY HOME スマートインターホン v1。
+ * home_devices_v1 の device_kind CHECK に 'intercom' を追加し、
+ * 来客イベント表を新設する。
+ * 既存行は削除せずコピーして引き継ぐ。
+ */
+function migrateTislyHomeIntercomV1(database: Database.Database): void {
+  const table = database
+    .prepare(
+      `SELECT sql FROM sqlite_master
+       WHERE type = 'table' AND name = 'home_devices_v1'`
+    )
+    .get() as { sql?: string } | undefined;
+
+  // SQLite は CHECK 制約を ALTER できないため
+  // 新テーブルへ全行コピーして差し替える。
+  if (table?.sql && !table.sql.includes("'intercom'")) {
+    const rebuild = database.transaction(() => {
+      database.exec(`
+        CREATE TABLE home_devices_v1__intercom (
+          site_id TEXT NOT NULL,
+          device_kind TEXT NOT NULL
+            CHECK (device_kind IN
+              ('ct_panel', 'bath_remote', 'aircon',
+               'smart_lock', 'intercom')),
+          device_key TEXT NOT NULL,
+          label TEXT NOT NULL DEFAULT '',
+          control_channel TEXT NOT NULL DEFAULT '',
+          state_json TEXT NOT NULL DEFAULT '{}',
+          updated_at TEXT NOT NULL,
+          PRIMARY KEY (site_id, device_key)
+        );
+        INSERT OR IGNORE INTO home_devices_v1__intercom (
+          site_id, device_kind, device_key, label,
+          control_channel, state_json, updated_at
+        )
+        SELECT site_id, device_kind, device_key, label,
+               control_channel, state_json, updated_at
+        FROM home_devices_v1;
+        DROP TABLE home_devices_v1;
+        ALTER TABLE home_devices_v1__intercom
+          RENAME TO home_devices_v1;
+        CREATE INDEX IF NOT EXISTS idx_home_devices_site
+          ON home_devices_v1(site_id, device_kind);
+      `);
+    });
+    rebuild();
+  }
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS home_intercom_events_v1 (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      site_id TEXT NOT NULL,
+      tenant_id TEXT NOT NULL,
+      device_key TEXT NOT NULL DEFAULT '',
+      event_type TEXT NOT NULL,
+      visitor_label TEXT NOT NULL DEFAULT '',
+      handled_as TEXT NOT NULL DEFAULT '',
+      actor TEXT NOT NULL DEFAULT 'app',
+      occurred_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_home_intercom_events_site
+      ON home_intercom_events_v1(site_id, id DESC);
   `);
 }
 

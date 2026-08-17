@@ -26,7 +26,8 @@ export type HomeControlChannelV1 =
   | "rp2350_relay" // RP2350 リレー出力
   | "jema_ha" // JEMA/HA端子（給湯・エコキュート）
   | "ir_bridge" // 学習リモコン（赤外線）
-  | "nfc_lock"; // NFC/RFID 電子錠
+  | "nfc_lock" // NFC/RFID 電子錠
+  | "intercom_sip"; // スマートインターホン（SIP/RTSP）
 
 /** 分岐回路 */
 export interface HomeCircuitV1 {
@@ -145,6 +146,48 @@ export interface HomeSmartLockV1 {
   accessLog: HomeAccessEntryV1[];
 }
 
+/** インターホンの状態 */
+export type HomeIntercomStateV1 =
+  | "idle" // 待機中
+  | "ringing" // 呼出中
+  | "talking" // 通話中
+  | "auto_responded"; // 自動応答済み
+
+/** 映像取得方式（実機は RTSP / WebRTC、未接続はモック枠） */
+export type HomeIntercomStreamKindV1 = "rtsp" | "webrtc" | "mock";
+
+/** 来客 1 件 */
+export interface HomeIntercomVisitorV1 {
+  id: string;
+  /** 来客の種別ラベル（宅配・来訪者 等） */
+  label: string;
+  occurredAt: string;
+  /** どう対応したか */
+  handledAs: "answered" | "auto" | "unlocked" | "missed";
+}
+
+/** スマートインターホン（呼出・カメラ・応答） */
+export interface HomeIntercomV1 {
+  deviceKey: string;
+  label: string;
+  controlChannel: HomeControlChannelV1;
+  state: HomeIntercomStateV1;
+  /** 直近の来客時刻（ISO / 未訪問は null） */
+  lastVisitAt: string | null;
+  /** 映像方式 */
+  streamKind: HomeIntercomStreamKindV1;
+  /** ライブ映像 URL（未接続は空） */
+  streamUrl: string;
+  /** スナップショット画像 URL（未接続は空） */
+  snapshotUrl: string;
+  /** 自動応答で流す音声メッセージ */
+  autoResponseMessage: string;
+  /** 呼出時に玄関錠の解錠を許可するか */
+  unlockLinkEnabled: boolean;
+  /** 来客履歴（新しい順） */
+  visitors: HomeIntercomVisitorV1[];
+}
+
 /** 住設統合物件 */
 export interface HomeSiteV1 {
   id: string;
@@ -168,6 +211,7 @@ export interface HomeSiteV1 {
   bath: HomeBathRemoteV1;
   aircons: HomeAirconV1[];
   lock: HomeSmartLockV1;
+  intercom: HomeIntercomV1;
   notes: string[];
 }
 
@@ -326,6 +370,33 @@ export const HOME_SITES_V1: HomeSiteV1[] = [
         },
       ],
     },
+    intercom: {
+      deviceKey: "intercom-entrance",
+      label: "玄関 スマートインターホン",
+      controlChannel: "intercom_sip",
+      state: "idle",
+      lastVisitAt: "2026-08-16T14:20:00+09:00",
+      streamKind: "mock",
+      streamUrl: "",
+      snapshotUrl: "",
+      autoResponseMessage:
+        "ただいま手が離せません。置き配でお願いします。",
+      unlockLinkEnabled: true,
+      visitors: [
+        {
+          id: "vis-jp-1",
+          label: "宅配便（置き配）",
+          occurredAt: "2026-08-16T14:20:00+09:00",
+          handledAs: "auto",
+        },
+        {
+          id: "vis-jp-2",
+          label: "来訪者",
+          occurredAt: "2026-08-15T11:05:00+09:00",
+          handledAs: "answered",
+        },
+      ],
+    },
     notes: [
       "主幹電流は契約内で安定しています",
       "自動お湯はりを実行中です",
@@ -447,6 +518,27 @@ export const HOME_SITES_V1: HomeSiteV1[] = [
           holderName: "配送業者",
           action: "unlock",
           occurredAt: "2026-08-16T07:31:00+09:00",
+        },
+      ],
+    },
+    intercom: {
+      deviceKey: "intercom-entrance",
+      label: "玄関 スマートインターホン",
+      controlChannel: "intercom_sip",
+      state: "ringing",
+      lastVisitAt: "2026-08-16T14:20:00+09:00",
+      streamKind: "mock",
+      streamUrl: "",
+      snapshotUrl: "",
+      autoResponseMessage:
+        "ただいま手が離せません。置き配でお願いします。",
+      unlockLinkEnabled: true,
+      visitors: [
+        {
+          id: "vis-al-1",
+          label: "来訪者（応答待ち）",
+          occurredAt: "2026-08-16T14:20:00+09:00",
+          handledAs: "missed",
         },
       ],
     },
@@ -584,6 +676,27 @@ export const HOME_SITES_V1: HomeSiteV1[] = [
         },
       ],
     },
+    intercom: {
+      deviceKey: "intercom-entrance",
+      label: "Front door smart intercom",
+      controlChannel: "intercom_sip",
+      state: "idle",
+      lastVisitAt: "2026-08-16T09:40:00+10:00",
+      streamKind: "mock",
+      streamUrl: "",
+      snapshotUrl: "",
+      autoResponseMessage:
+        "We are unavailable right now. Please leave the parcel at the door.",
+      unlockLinkEnabled: false,
+      visitors: [
+        {
+          id: "vis-au-1",
+          label: "Parcel delivery",
+          occurredAt: "2026-08-16T09:40:00+10:00",
+          handledAs: "auto",
+        },
+      ],
+    },
     notes: [
       "Solar generation is covering most of the load",
       "Front door is locked",
@@ -638,4 +751,9 @@ export function homePowerKwV1(site: HomeSiteV1): number {
 /** 稼働中エアコン台数 */
 export function homeActiveAirconCountV1(site: HomeSiteV1): number {
   return site.aircons.filter((a) => a.power).length;
+}
+
+/** インターホン呼出中 */
+export function homeIntercomRingingV1(site: HomeSiteV1): boolean {
+  return site.intercom.state === "ringing";
 }

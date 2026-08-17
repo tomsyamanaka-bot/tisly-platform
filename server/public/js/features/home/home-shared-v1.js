@@ -158,7 +158,7 @@ export function renderCt(d, options = {}) {
         ? '<span class="hm-badge hm-badge-ok">稼働中</span>'
         : '<span class="hm-badge hm-badge-mute">停止</span>';
       const peak = c.peakCutTarget
-        ? ' · <span style="color:#ffb020">ピーク対象</span>'
+        ? ' · <span class="hm-peak-tag">ピーク対象</span>'
         : "";
       const control = options.withControls
         ? `<button
@@ -383,7 +383,7 @@ export function renderLock(d) {
       <div class="hm-log-row">
         <span>
           ${escapeHtml(e.actionLabel)} · ${escapeHtml(e.holderName)}
-          <small style="color:#9fb3c8"> (${escapeHtml(
+          <small class="hm-log-cred"> (${escapeHtml(
             e.credentialLabel
           )})</small>
         </span>
@@ -391,6 +391,184 @@ export function renderLock(d) {
       </div>`
     )
     .join("");
+}
+
+/* ---------- スマートインターホン ---------- */
+
+/** ライブ枠（実映像が無い場合はモック枠を出す） */
+function intercomFrameHtml(ic) {
+  const tag = `<span class="hm-cam-tag">${escapeHtml(
+    ic.streamKindLabel
+  )}</span>`;
+  const live = ic.ringing
+    ? '<span class="hm-cam-live">LIVE</span>'
+    : "";
+  const inner = ic.hasLiveStream
+    ? `<img
+         class="hm-cam-img"
+         src="${escapeHtml(ic.snapshotUrl || ic.streamUrl)}"
+         alt="玄関カメラの映像"
+         loading="lazy"
+       />`
+    : `<div class="hm-cam-placeholder">
+         <strong>${ic.ringing ? "🔔" : "📷"}</strong>
+         ${
+           ic.ringing
+             ? "玄関カメラに来客が映っています"
+             : "カメラ映像はここに表示されます"
+         }
+       </div>`;
+  return `
+    <div class="hm-cam-frame ${ic.ringing ? "is-ringing" : ""}">
+      ${inner}${tag}${live}
+    </div>`;
+}
+
+/**
+ * スマートインターホン
+ * withUnlock=false で解錠ボタンを出さない
+ */
+export function renderIntercom(d, options = {}) {
+  const ic = d.intercom;
+  if (!ic) return;
+
+  const card = byId("hm-intercom-card");
+  if (card) card.classList.toggle("is-ringing", Boolean(ic.ringing));
+
+  const label = byId("hm-intercom-state");
+  if (label) {
+    label.textContent = `${ic.stateEmoji} ${ic.stateLabel}`;
+    label.classList.remove("is-ringing", "is-talking");
+    if (ic.ringing) label.classList.add("is-ringing");
+    else if (ic.state === "talking") label.classList.add("is-talking");
+  }
+  setText("hm-intercom-last", ic.lastVisitLabel);
+  setText("hm-intercom-note", ic.label);
+
+  const badge = byId("hm-intercom-badge");
+  if (badge) {
+    badge.className = ic.ringing
+      ? "hm-badge hm-badge-danger"
+      : "hm-badge hm-badge-ok";
+    badge.textContent = ic.ringing ? "呼出中" : "正常";
+  }
+
+  const frame = byId("hm-intercom-frame");
+  if (frame) frame.innerHTML = intercomFrameHtml(ic);
+
+  const unlockBtn = byId("hm-intercom-unlock");
+  if (unlockBtn) {
+    const allowUnlock =
+      ic.unlockLinkEnabled && options.withUnlock !== false;
+    unlockBtn.hidden = !allowUnlock;
+    unlockBtn.disabled = false;
+  }
+
+  const autoBtn = byId("hm-intercom-auto");
+  if (autoBtn) autoBtn.title = ic.autoResponseMessage;
+  setText("hm-intercom-auto-message", ic.autoResponseMessage);
+
+  const list = byId("hm-intercom-visitors");
+  if (!list) return;
+  if (!ic.visitors.length) {
+    list.innerHTML = '<p class="hm-empty">来客履歴はまだありません</p>';
+    return;
+  }
+  list.innerHTML = ic.visitors
+    .map(
+      (v) => `
+      <div class="hm-log-row">
+        <span>
+          ${escapeHtml(v.label)}
+          <small class="hm-log-cred"> (${escapeHtml(
+            v.handledLabel
+          )})</small>
+        </span>
+        <span class="hm-log-time">${escapeHtml(v.occurredAt)}</span>
+      </div>`
+    )
+    .join("");
+}
+
+/* 同じ呼出で何度もポップアップを出さない */
+let lastRingKey = "";
+
+/** 呼出発生時に画面最上部のポップアップを出す */
+export function updateRingPopup(d) {
+  const popup = byId("hm-ring-popup");
+  const ic = d.intercom;
+  if (!popup || !ic) return;
+
+  if (!ic.ringing) {
+    popup.classList.remove("is-visible");
+    lastRingKey = "";
+    return;
+  }
+
+  setText("hm-ring-popup-sub", `${d.displayName} · ${ic.lastVisitLabel}`);
+
+  const unlock = byId("hm-ring-popup-unlock");
+  if (unlock) unlock.hidden = !ic.unlockLinkEnabled;
+
+  const key = `${d.siteId}|${ic.lastVisitLabel}`;
+  if (key === lastRingKey) return;
+  lastRingKey = key;
+
+  popup.classList.add("is-visible");
+  notifyRing(d);
+}
+
+/** PWA 通知・バイブレーション（許可済みのときだけ） */
+function notifyRing(d) {
+  try {
+    if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+  } catch {
+    // 端末が非対応でも表示は継続
+  }
+  try {
+    if (
+      typeof Notification !== "undefined" &&
+      Notification.permission === "granted"
+    ) {
+      new Notification("玄関の呼び出し 🔔", {
+        body: `${d.displayName} のインターホンが鳴っています`,
+        tag: "tisly-home-intercom",
+      });
+    }
+  } catch {
+    // 通知不可でも画面ポップアップは出る
+  }
+}
+
+/** ポップアップを閉じる */
+export function hideRingPopup() {
+  const popup = byId("hm-ring-popup");
+  if (popup) popup.classList.remove("is-visible");
+}
+
+/* ---------- SwitchBot 連携ステータス ---------- */
+
+/** 実機モードかモックかをバッジ表示 */
+export async function renderSwitchBotBadge() {
+  const el = byId("hm-switchbot-badge");
+  if (!el) return;
+  try {
+    const res = await fetch(`${HOME_API_V1}/switchbot-status`, {
+      cache: "no-store",
+    });
+    const data = await res.json();
+    const sb = data.switchbot;
+    if (!sb) return;
+    el.className =
+      sb.mode === "real"
+        ? "hm-badge hm-badge-ok"
+        : "hm-badge hm-badge-mute";
+    el.textContent =
+      sb.mode === "real" ? "SwitchBot 実機連携中" : "デモ（モック）動作中";
+    el.title = sb.message;
+  } catch {
+    // 取得できない場合はバッジを触らない
+  }
 }
 
 /** 現場メモ */

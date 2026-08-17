@@ -3,16 +3,16 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#070B11" />
-  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#FFFFFF" />
+  <meta name="color-scheme" content="light" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="TiSLY HOME" />
   <meta name="mobile-web-app-capable" content="yes" />
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2003" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
   <title>TiSLY HOME — おうちの設備</title>
-  <link rel="stylesheet" href="/css/features/home/home-v1.css?v=2457" />
+  <link rel="stylesheet" href="/css/features/home/home-v1.css?v=2458" />
 </head>
 <body class="hm-body hm-customer" data-hqs-mode="customer">
   <!--
@@ -25,10 +25,53 @@
       <p class="hm-brand-name">TiSLY HOME</p>
       <h1 class="hm-title">おうちの設備</h1>
       <p class="hm-sub">
-        電気 · お風呂 · エアコン · 玄関をまとめて確認
+        電気 · お風呂 · エアコン · 玄関 · インターホンをまとめて確認
       </p>
     </div>
   </header>
+
+  <!-- 呼出ポップアップ（画面最上部） -->
+  <div
+    class="hm-ring-popup"
+    id="hm-ring-popup"
+    role="alert"
+    aria-live="assertive"
+  >
+    <div class="hm-ring-popup-head">
+      <span class="hm-ring-popup-emoji" aria-hidden="true">🔔</span>
+      <div>
+        <p class="hm-ring-popup-title">玄関でよばれています</p>
+        <p class="hm-ring-popup-sub" id="hm-ring-popup-sub">—</p>
+      </div>
+    </div>
+    <div class="hm-ring-popup-actions">
+      <button
+        type="button"
+        class="hm-btn"
+        data-target="intercom"
+        data-action="answer"
+      >
+        話す
+      </button>
+      <button
+        type="button"
+        class="hm-btn is-off"
+        data-target="intercom"
+        data-action="auto_response"
+      >
+        置き配でお願い
+      </button>
+      <button
+        type="button"
+        class="hm-btn is-danger"
+        id="hm-ring-popup-unlock"
+        data-target="intercom"
+        data-action="unlock_door"
+      >
+        玄関をあける
+      </button>
+    </div>
+  </div>
 
   <main class="hm-main">
     <section class="hm-card">
@@ -207,6 +250,70 @@
       </div>
     </section>
 
+    <!-- インターホン -->
+    <section class="hm-card hm-intercom-card" id="hm-intercom-card">
+      <div class="hm-device-head">
+        <span class="hm-device-icon" aria-hidden="true">🔔</span>
+        <div>
+          <h2 class="hm-device-title">玄関のインターホン</h2>
+          <p class="hm-device-note" id="hm-intercom-note">—</p>
+        </div>
+      </div>
+
+      <div class="hm-intercom-state">
+        <div>
+          <p class="hm-intercom-state-label" id="hm-intercom-state">
+            読み込み中…
+          </p>
+          <p class="hm-intercom-last" id="hm-intercom-last">—</p>
+        </div>
+        <span class="hm-badge hm-badge-mute" id="hm-intercom-badge"
+          >—</span
+        >
+      </div>
+
+      <div id="hm-intercom-frame"></div>
+
+      <div class="hm-btn-row">
+        <button
+          type="button"
+          class="hm-btn"
+          id="hm-intercom-answer"
+          data-target="intercom"
+          data-action="answer"
+        >
+          話す
+        </button>
+        <button
+          type="button"
+          class="hm-btn is-off"
+          id="hm-intercom-auto"
+          data-target="intercom"
+          data-action="auto_response"
+        >
+          置き配でお願い
+        </button>
+        <button
+          type="button"
+          class="hm-btn is-danger"
+          id="hm-intercom-unlock"
+          data-target="intercom"
+          data-action="unlock_door"
+        >
+          玄関をあける
+        </button>
+      </div>
+
+      <p class="hm-gauge-sub" id="hm-intercom-auto-message">—</p>
+
+      <p class="hm-card-label" style="margin-top: 18px">
+        だれが来たか
+      </p>
+      <div class="hm-log-list" id="hm-intercom-visitors">
+        <p class="hm-empty">読み込み中…</p>
+      </div>
+    </section>
+
     <!-- お知らせ -->
     <section class="hm-card">
       <p class="hm-card-label">おうちからのお知らせ</p>
@@ -218,7 +325,7 @@
 
   <div class="hm-toast" id="hm-toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="/js/features/home/home-customer-v1.js?v=2457"></script>
-  <script type="module" src="/js/features/home/home-quick-switch-v1.js?v=2457"></script>
+  <script type="module" src="/js/features/home/home-customer-v1.js?v=2458"></script>
+  <script type="module" src="/js/features/home/home-quick-switch-v1.js?v=2458"></script>
 </body>
 </html>

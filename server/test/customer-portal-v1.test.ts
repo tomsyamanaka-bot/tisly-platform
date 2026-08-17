@@ -154,7 +154,7 @@ describe("Customer Portal V1 — assets", () => {
   it("service worker bumped to v2406-phase27", () => {
     const sw = fs.readFileSync(path.join(publicDir, "service-worker.js"), "utf-8");
     // Eco-Water 追記後の SW（旧 phase タグ互換チェックは緩和）
-    assert.match(sw, /tisly-pwa-v2457-tisly-home|tisly-pwa-v2456-property-register|tisly-pwa-v2452-gas-accordion-class|tisly-pwa-v2451-gas-accordion-state|tisly-pwa-v2450-gas-live-only|tisly-pwa-v2449-device-new-registration|tisly-pwa-v2441-eco-water-print-fix|tisly-pwa-v2440-eco-water-telemetry|tisly-pwa-v2439-eco-water-sites|tisly-pwa-v2438-eco-water|v2407-phase28/);
+    assert.match(sw, /tisly-pwa-v2458-home-light-intercom|tisly-pwa-v2457-tisly-home|tisly-pwa-v2456-property-register|tisly-pwa-v2452-gas-accordion-class|tisly-pwa-v2451-gas-accordion-state|tisly-pwa-v2450-gas-live-only|tisly-pwa-v2449-device-new-registration|tisly-pwa-v2441-eco-water-print-fix|tisly-pwa-v2440-eco-water-telemetry|tisly-pwa-v2439-eco-water-sites|tisly-pwa-v2438-eco-water|v2407-phase28/);
     assert.match(sw, /customer-cache-v1\.js/);
     assert.match(sw, /isCustomerFreshAsset/);
   });

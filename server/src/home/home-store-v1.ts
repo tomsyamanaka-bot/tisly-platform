@@ -27,7 +27,8 @@ export type HomeDeviceKindV1 =
   | "ct_panel"
   | "bath_remote"
   | "aircon"
-  | "smart_lock";
+  | "smart_lock"
+  | "intercom";
 
 export interface HomeControlLogRowV1 {
   id: number;
@@ -133,6 +134,13 @@ export function ensureHomeSeedV1(): void {
             controlChannel: site.lock.controlChannel,
             state: site.lock,
           },
+          {
+            deviceKind: "intercom",
+            deviceKey: site.intercom.deviceKey,
+            label: site.intercom.label,
+            controlChannel: site.intercom.controlChannel,
+            state: site.intercom,
+          },
           ...site.aircons.map((ac) => ({
             deviceKind: "aircon" as HomeDeviceKindV1,
             deviceKey: ac.deviceKey,
@@ -222,6 +230,86 @@ export function recordHomeAccessLogV1(input: {
     );
   } catch {
     // ログ失敗で制御を止めない
+  }
+}
+
+/** インターホン来客イベントを追記 */
+export function recordHomeIntercomEventV1(input: {
+  siteId: string;
+  tenantId: string;
+  deviceKey: string;
+  eventType: string;
+  visitorLabel?: string | null;
+  handledAs?: string | null;
+  actor?: string | null;
+  occurredAt?: string;
+}): void {
+  try {
+    ensureHomeSeedV1();
+    const db = getDatabase();
+    db.prepare(
+      `INSERT INTO home_intercom_events_v1 (
+        site_id, tenant_id, device_key, event_type,
+        visitor_label, handled_as, actor, occurred_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      input.siteId,
+      input.tenantId,
+      input.deviceKey,
+      input.eventType,
+      String(input.visitorLabel ?? ""),
+      String(input.handledAs ?? ""),
+      String(input.actor ?? "app"),
+      input.occurredAt ?? nowIso()
+    );
+  } catch {
+    // ログ失敗で制御を止めない
+  }
+}
+
+export interface HomeIntercomEventRowV1 {
+  id: number;
+  siteId: string;
+  deviceKey: string;
+  eventType: string;
+  visitorLabel: string;
+  handledAs: string;
+  actor: string;
+  occurredAt: string;
+}
+
+/** インターホン来客履歴（新しい順） */
+export function listHomeIntercomEventsV1(
+  siteId: string,
+  limit = 20
+): HomeIntercomEventRowV1[] {
+  try {
+    ensureHomeSeedV1();
+    const db = getDatabase();
+    const rows = db
+      .prepare(
+        `SELECT id, site_id, device_key, event_type,
+                visitor_label, handled_as, actor, occurred_at
+         FROM home_intercom_events_v1
+         WHERE site_id = ?
+         ORDER BY id DESC
+         LIMIT ?`
+      )
+      .all(siteId, Math.max(1, Math.min(200, limit))) as Array<
+      Record<string, unknown>
+    >;
+    return rows.map((r) => ({
+      id: Number(r.id),
+      siteId: String(r.site_id),
+      deviceKey: String(r.device_key ?? ""),
+      eventType: String(r.event_type),
+      visitorLabel: String(r.visitor_label ?? ""),
+      handledAs: String(r.handled_as ?? ""),
+      actor: String(r.actor ?? ""),
+      occurredAt: String(r.occurred_at),
+    }));
+  } catch {
+    return [];
   }
 }
 

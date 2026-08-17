@@ -32,6 +32,8 @@ import {
   isSwitchBotLockConfiguredV1,
   listSwitchBotDevicesV1,
   sendSwitchBotLockCommandV1,
+  buildSwitchBotHomeStatusV1,
+  resolveSwitchBotHomeModeV1,
 } from "../src/home/switchbot_client.js";
 import { syncHomeLockFromSwitchBotV1 } from "../src/home/home-switchbot-sync-v1.js";
 import {
@@ -357,31 +359,86 @@ describe("tisly-home-v1", () => {
     });
   });
 
-  it("ships dark high-contrast PWA assets with big tap targets", () => {
+  it("ships white light-mode PWA assets with big tap targets", () => {
     const css = fs.readFileSync(
       path.join(publicDir, "css", "features", "home", "home-v1.css"),
       "utf-8"
     );
-    assert.match(css, /--hm-bg:\s*#070b11/);
+    // 白ベース（ライトモード）
+    assert.match(css, /--hm-bg:\s*#ffffff/);
+    assert.match(css, /--hm-bg-2:\s*#f8fafc/);
+    assert.match(css, /--hm-surface:\s*#ffffff/);
+    assert.match(css, /--hm-line:\s*#e2e8f0/);
+    assert.match(css, /--hm-ink:\s*#0f172a/);
+    assert.match(css, /--hm-ink-2:\s*#1e293b/);
+    // 高コントラストのステータス配色
+    assert.match(css, /--hm-safe:\s*#16a34a/);
+    assert.match(css, /--hm-danger:\s*#dc2626/);
+    assert.match(css, /--hm-warn:\s*#ea580c/);
+    assert.match(css, /--hm-blue:\s*#2563eb/);
+    // ダークネイビー背景は残っていない
+    assert.doesNotMatch(css, /#070b11/i);
     assert.match(css, /--hm-tap:\s*52px/);
+    // インターホン UI
+    assert.match(css, /\.hm-cam-frame/);
+    assert.match(css, /\.hm-ring-popup/);
+
+    const quickCss = fs.readFileSync(
+      path.join(
+        publicDir,
+        "css",
+        "features",
+        "home",
+        "home-quick-switch-v1.css"
+      ),
+      "utf-8"
+    );
+    assert.match(quickCss, /background:\s*#ffffff/);
 
     const operatorHtml = fs.readFileSync(
       path.join(publicDir, "home-v1.html"),
       "utf-8"
     );
-    assert.match(operatorHtml, /color-scheme"\s+content="dark"/);
+    assert.match(operatorHtml, /color-scheme"\s+content="light"/);
+    assert.match(operatorHtml, /theme-color"\s+content="#FFFFFF"/);
     assert.match(operatorHtml, /home-quick-switch-v1\.js/);
     assert.match(operatorHtml, /data-action="auto_fill"/);
     assert.match(operatorHtml, /data-action="reheat"/);
     assert.match(operatorHtml, /data-action="keep_warm"/);
     assert.match(operatorHtml, /data-target="lock"/);
+    // スマートインターホン
+    assert.match(operatorHtml, /id="hm-intercom-card"/);
+    assert.match(operatorHtml, /id="hm-ring-popup"/);
+    assert.match(operatorHtml, /data-action="answer"/);
+    assert.match(operatorHtml, /data-action="auto_response"/);
+    assert.match(operatorHtml, /data-action="unlock_door"/);
+    assert.match(operatorHtml, /id="hm-switchbot-badge"/);
 
     const customerHtml = fs.readFileSync(
       path.join(publicDir, "home-customer-v1.html"),
       "utf-8"
     );
+    assert.match(customerHtml, /color-scheme"\s+content="light"/);
     assert.match(customerHtml, /data-hqs-mode="customer"/);
     assert.match(customerHtml, /おうちの設備/);
+    assert.match(customerHtml, /id="hm-intercom-card"/);
+    assert.match(customerHtml, /id="hm-ring-popup"/);
+    // お客様 UI に技術語を出さない
+    assert.doesNotMatch(customerHtml, /SwitchBot/);
+    assert.doesNotMatch(customerHtml, /RTSP/);
+
+    const sharedJs = fs.readFileSync(
+      path.join(
+        publicDir,
+        "js",
+        "features",
+        "home",
+        "home-shared-v1.js"
+      ),
+      "utf-8"
+    );
+    assert.match(sharedJs, /export function renderIntercom/);
+    assert.match(sharedJs, /export function updateRingPopup/);
 
     // 各画面へのクイック切り替え追記（既存 script は維持）
     for (const page of [
@@ -405,8 +462,146 @@ describe("tisly-home-v1", () => {
       path.join(publicDir, "service-worker.js"),
       "utf-8"
     );
-    assert.match(sw, /tisly-pwa-v2457-tisly-home/);
+    assert.match(sw, /tisly-pwa-v2458-home-light-intercom/);
     assert.match(sw, /\/css\/features\/home\/home-v1\.css/);
+  });
+
+  it("adds smart intercom to every site and dashboard", () => {
+    for (const site of HOME_SITES_V1) {
+      assert.ok(site.intercom.deviceKey, `${site.id} intercom`);
+      assert.equal(site.intercom.controlChannel, "intercom_sip");
+      assert.ok(site.intercom.autoResponseMessage.length > 0, site.id);
+    }
+
+    const d = buildHomeCustomerDashboardV1(JP_SITE);
+    assert.equal(d.intercom.stateLabel, "待機中");
+    assert.equal(d.intercom.ringing, false);
+    assert.equal(d.intercomRinging, false);
+    assert.match(d.intercom.lastVisitLabel, /^直近来客 .*\d{1,2}:\d{2}$/);
+    // カメラ未接続はモック枠で表示する
+    assert.equal(d.intercom.hasLiveStream, false);
+    assert.equal(d.intercom.streamKind, "mock");
+    assert.ok(d.intercom.visitors.length >= 1);
+    assert.equal(d.intercom.visitors[0].handledLabel, "自動応答");
+
+    const alert = buildHomeCustomerDashboardV1(ALERT_SITE);
+    assert.equal(alert.intercom.ringing, true);
+    assert.equal(alert.intercom.stateLabel, "呼出中");
+    assert.equal(alert.intercom.stateEmoji, "🔔");
+    assert.equal(alert.intercomRinging, true);
+
+    const operator = buildHomeOperatorDashboardV1();
+    assert.ok(operator.intercomRingingCount >= 1);
+  });
+
+  it("answers, auto-responds and unlocks from the intercom", async () => {
+    const site = findHomeSiteV1(JP_SITE);
+    const stateBefore = site.intercom.state;
+    const lockedBefore = site.lock.locked;
+    const accessLogBefore = site.lock.accessLog.length;
+
+    const ring = await applyHomeControlV1({
+      siteId: JP_SITE,
+      target: "intercom",
+      action: "ring",
+      value: "宅配便",
+    });
+    assert.equal(ring.ok, true);
+    assert.equal(site.intercom.state, "ringing");
+    assert.equal(site.intercom.visitors[0].label, "宅配便");
+
+    const answer = await applyHomeControlV1({
+      siteId: JP_SITE,
+      target: "intercom",
+      action: "answer",
+      actor: "テスト応答",
+    });
+    assert.equal(answer.ok, true);
+    assert.equal(site.intercom.state, "talking");
+    assert.equal(site.intercom.visitors[0].handledAs, "answered");
+
+    const auto = await applyHomeControlV1({
+      siteId: JP_SITE,
+      target: "intercom",
+      action: "auto_response",
+    });
+    assert.equal(auto.ok, true);
+    assert.equal(site.intercom.state, "auto_responded");
+    assert.match(String(auto.message), /置き配/);
+
+    // 玄関鍵を開ける（スマートロック連動）
+    const unlock = await applyHomeControlV1({
+      siteId: JP_SITE,
+      target: "intercom",
+      action: "unlock_door",
+      actor: "インターホン応答",
+    });
+    assert.equal(unlock.ok, true);
+    assert.equal(site.lock.locked, false);
+    assert.equal(site.lock.accessLog.length, accessLogBefore + 1);
+    assert.equal(site.intercom.state, "idle");
+
+    const bad = await applyHomeControlV1({
+      siteId: JP_SITE,
+      target: "intercom",
+      action: "explode",
+    });
+    assert.equal(bad.ok, false);
+
+    // 解錠を許可していない物件では拒否する
+    const au = findHomeSiteV1(AU_SITE);
+    assert.equal(au.intercom.unlockLinkEnabled, false);
+    const denied = await applyHomeControlV1({
+      siteId: AU_SITE,
+      target: "intercom",
+      action: "unlock_door",
+    });
+    assert.equal(denied.ok, false);
+
+    // 後始末
+    await applyHomeControlV1({
+      siteId: JP_SITE,
+      target: "lock",
+      action: lockedBefore ? "lock" : "unlock",
+      actor: "テスト復帰",
+    });
+    site.intercom.state = stateBefore;
+  });
+
+  it("serves intercom control and switchbot status over the API", async () => {
+    const status = await request(app).get(
+      "/api/home/v1/switchbot-status"
+    );
+    assert.equal(status.status, 200);
+    assert.equal(status.body.ok, true);
+    assert.ok(["real", "mock"].includes(status.body.switchbot.mode));
+    assert.equal(status.body.switchbot.token, undefined);
+    assert.equal(status.body.switchbot.secret, undefined);
+
+    const res = await request(app)
+      .post("/api/home/v1/control")
+      .send({
+        siteId: JP_SITE,
+        target: "intercom",
+        action: "ring",
+        value: "テスト来客",
+      });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.ok, true);
+    assert.equal(res.body.dashboard.intercom.ringing, true);
+
+    const dismiss = await request(app)
+      .post("/api/home/v1/control")
+      .send({ siteId: JP_SITE, target: "intercom", action: "dismiss" });
+    assert.equal(dismiss.status, 200);
+    assert.equal(dismiss.body.dashboard.intercom.ringing, false);
+
+    const events = await request(app).get(
+      `/api/home/v1/intercom-events?siteId=${JP_SITE}`
+    );
+    assert.equal(events.status, 200);
+    assert.equal(events.body.ok, true);
+    assert.ok(Array.isArray(events.body.events));
   });
 
   it("falls back to mock when SwitchBot credentials are unset", async () => {
@@ -462,6 +657,30 @@ describe("tisly-home-v1", () => {
       assert.equal(homeAirconModeToSwitchBotV1("fan"), 4);
       assert.equal(homeAirconFanToSwitchBotV1("auto"), 1);
       assert.equal(homeAirconFanToSwitchBotV1("high"), 4);
+
+      // 資格情報なし → mock
+      assert.equal(resolveSwitchBotHomeModeV1(), "mock");
+      const mockStatus = buildSwitchBotHomeStatusV1();
+      assert.equal(mockStatus.mode, "mock");
+      assert.ok(mockStatus.missing.includes("SWITCHBOT_TOKEN"));
+      assert.match(mockStatus.message, /モック/);
+
+      // 資格情報あり → 本番 VPS でも自動で real
+      process.env.SWITCHBOT_TOKEN = "dummy-token-for-test";
+      process.env.SWITCHBOT_SECRET = "dummy-secret-for-test";
+      process.env.SWITCHBOT_LOCK_DEVICE_ID = "AA:BB:CC:DD:EE:FF";
+      process.env.SWITCHBOT_AIR_CONDITIONER_DEVICE_ID = "01-202508-12345678";
+      assert.equal(resolveSwitchBotHomeModeV1(), "real");
+      const realStatus = buildSwitchBotHomeStatusV1();
+      assert.equal(realStatus.mode, "real");
+      assert.equal(realStatus.lockConfigured, true);
+      assert.equal(realStatus.airConditionerConfigured, true);
+      assert.deepEqual(realStatus.missing, []);
+      // トークン・シークレット・完全な deviceId は返さない
+      const serialized = JSON.stringify(realStatus);
+      assert.doesNotMatch(serialized, /dummy-token-for-test/);
+      assert.doesNotMatch(serialized, /dummy-secret-for-test/);
+      assert.equal(realStatus.lockDeviceIdMask, "****E:FF");
     } finally {
       if (prev.token !== undefined) process.env.SWITCHBOT_TOKEN = prev.token;
       else delete process.env.SWITCHBOT_TOKEN;

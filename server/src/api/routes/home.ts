@@ -5,6 +5,9 @@
  * GET  /api/home/v1/operator
  * GET  /api/home/v1/quick-switch
  * GET  /api/home/v1/control-logs?siteId=
+ * GET  /api/home/v1/intercom-events?siteId=
+ * GET  /api/home/v1/switchbot-status
+ * GET  /api/home/v1/switchbot-devices
  * POST /api/home/v1/control
  */
 
@@ -25,14 +28,20 @@ import {
 import {
   ensureHomeSeedV1,
   listHomeControlLogsV1,
+  listHomeIntercomEventsV1,
   listHomeSiteRowsV1,
   recordHomeAccessLogV1,
   recordHomeControlLogV1,
+  recordHomeIntercomEventV1,
 } from "../../home/home-store-v1.js";
 import {
   syncHomeDefaultLockFromSwitchBotV1,
   syncHomeLockFromSwitchBotV1,
 } from "../../home/home-switchbot-sync-v1.js";
+import {
+  buildSwitchBotHomeStatusV1,
+  listSwitchBotDevicesV1,
+} from "../../home/switchbot_client.js";
 
 export const homeRouter = Router();
 
@@ -41,6 +50,7 @@ const CONTROL_TARGETS_V1: HomeControlTargetV1[] = [
   "bath",
   "aircon",
   "lock",
+  "intercom",
 ];
 
 /** 物件一覧（SaaS 契約情報つき） */
@@ -90,6 +100,39 @@ homeRouter.get("/quick-switch", (_req, res) => {
   res.json({ ok: true, items: buildHomeQuickSwitchV1() });
 });
 
+/**
+ * SwitchBot 連携ステータス
+ * `.env` に資格情報が入っていれば本番 VPS でも自動で real になる。
+ */
+homeRouter.get("/switchbot-status", (_req, res) => {
+  res.json({ ok: true, switchbot: buildSwitchBotHomeStatusV1() });
+});
+
+/** SwitchBot デバイス一覧（社内確認用・資格情報は返さない） */
+homeRouter.get("/switchbot-devices", async (_req, res) => {
+  const status = buildSwitchBotHomeStatusV1();
+  if (status.mode === "mock") {
+    res.json({ ok: true, switchbot: status, devices: [] });
+    return;
+  }
+  try {
+    const result = await listSwitchBotDevicesV1();
+    res.json({
+      ok: result.ok,
+      switchbot: status,
+      devices: result.data ?? [],
+      error: result.error,
+    });
+  } catch {
+    res.json({
+      ok: false,
+      switchbot: status,
+      devices: [],
+      error: "SwitchBot デバイス一覧の取得に失敗しました",
+    });
+  }
+});
+
 /** 操作ログ（社内確認用） */
 homeRouter.get("/control-logs", (req, res) => {
   const siteId = String(req.query.siteId ?? "").trim();
@@ -102,6 +145,21 @@ homeRouter.get("/control-logs", (req, res) => {
     ok: true,
     siteId,
     logs: listHomeControlLogsV1(siteId, limit),
+  });
+});
+
+/** インターホン来客履歴 */
+homeRouter.get("/intercom-events", (req, res) => {
+  const siteId = String(req.query.siteId ?? "").trim();
+  if (!siteId) {
+    res.status(400).json({ ok: false, error: "siteId が必要です" });
+    return;
+  }
+  const limit = Number(req.query.limit ?? 20);
+  res.json({
+    ok: true,
+    siteId,
+    events: listHomeIntercomEventsV1(siteId, limit),
   });
 });
 
@@ -167,8 +225,23 @@ homeRouter.post("/control", async (req, res) => {
     return;
   }
 
+  // インターホン操作は来客イベントに残す
+  if (target === "intercom") {
+    const latest = site.intercom.visitors[0];
+    recordHomeIntercomEventV1({
+      siteId,
+      tenantId: site.tenantId,
+      deviceKey: site.intercom.deviceKey,
+      eventType: action,
+      visitorLabel: latest?.label ?? "",
+      handledAs: latest?.handledAs ?? "",
+      actor,
+      occurredAt: latest?.occurredAt,
+    });
+  }
+
   // 施錠・解錠は入退室ログにも残す
-  if (target === "lock") {
+  if (target === "lock" || action === "unlock_door") {
     const latest = site.lock.accessLog[0];
     if (latest) {
       recordHomeAccessLogV1({

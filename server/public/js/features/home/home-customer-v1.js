@@ -9,10 +9,12 @@ import {
   byId,
   escapeHtml,
   fetchHomeCustomer,
+  hideRingPopup,
   readSiteIdFromUrl,
   renderAircons,
   renderBath,
   renderCt,
+  renderIntercom,
   renderLock,
   renderNotes,
   renderStatusHero,
@@ -20,6 +22,7 @@ import {
   sendHomeControl,
   setText,
   showToast,
+  updateRingPopup,
 } from "./home-shared-v1.js";
 
 const POLL_INTERVAL_MS = 20000;
@@ -63,7 +66,9 @@ function renderAll(dashboard) {
   renderBath(dashboard);
   renderAircons(dashboard, { withControls: true });
   renderLock(dashboard);
+  renderIntercom(dashboard);
   renderNotes(dashboard);
+  updateRingPopup(dashboard);
   // お客様向けの言い換え
   setText(
     "hm-ct-warn",
@@ -118,6 +123,7 @@ async function handleControl(el) {
       actor: "住まいのアプリ",
     });
     showToast(res.message || "操作しました");
+    if (target === "intercom") hideRingPopup();
     renderAll(res.dashboard);
   } catch (err) {
     console.error(err);
