@@ -233,6 +233,7 @@ async function loadCatalog() {
   });
   if (res.status === 401) {
     setStatus("ログインが必要です。App Hub から入り直してください。");
+    renderChips(UNIFIED_GENRES);
     document.getElementById("pcm-list").innerHTML =
       '<p class="pcm-empty">社内ログイン後に価格を表示します</p>';
     return;

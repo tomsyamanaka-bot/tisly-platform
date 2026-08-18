@@ -276,8 +276,9 @@ describe("Price & Cost Master v1", () => {
     assert.match(css, /#e2e8f0/i);
     assert.match(js, /粗利額 \/ 粗利率/);
     assert.match(js, /IOT関連/);
+    assert.match(js, /renderChips\(UNIFIED_GENRES\)/);
     assert.match(js, /電気工事/);
-    assert.match(sw, /tisly-pwa-v2463-unified-genres/);
+    assert.match(sw, /tisly-pwa-v2464-genre-chips/);
     assert.match(sw, /price-cost-master-v1/);
     assert.match(settings, /\/price-cost-master-v1/);
   });
