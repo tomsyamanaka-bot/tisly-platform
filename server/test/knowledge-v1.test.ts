@@ -90,6 +90,9 @@ describe("Knowledge Core v1 API", () => {
     assert.ok(res.body.categories.includes("PLC"));
     assert.ok(res.body.categories.includes("防犯カメラ"));
     assert.ok(res.body.categories.includes("Eco-Water"));
+    assert.ok(res.body.categories.includes("電気工事"));
+    assert.ok(res.body.categories.includes("IOT関連"));
+    assert.ok(res.body.categories.includes("音響"));
   });
 
   it("GET /api/knowledge/search finds sample card", async () => {

@@ -19,6 +19,7 @@ import {
   enqueueKnowledgeCardSyncV1,
   enqueueKnowledgeSearchIndexSyncV1,
 } from "./knowledge-qnap-enqueue-v1.js";
+import { TISLY_UNIFIED_GENRES_V1 } from "../shared/genres/tisly-genres-v1.js";
 
 const ID_RE = /^[A-Z0-9][A-Z0-9_-]{2,63}$/i;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -72,12 +73,24 @@ function normalizeFiles(files: unknown): string[] {
 }
 
 export function loadWorkCategoriesMaster(): WorkCategoriesMasterV1 {
-  const fromRepo = readJsonFile<WorkCategoriesMasterV1>(getWorkCategoriesMasterPath());
-  if (fromRepo?.categories?.length) return fromRepo;
+  const fromRepo = readJsonFile<WorkCategoriesMasterV1>(
+    getWorkCategoriesMasterPath()
+  );
+  const base = fromRepo?.categories?.length
+    ? fromRepo
+    : {
+        version: 1,
+        updatedAt: todayIsoDate(),
+        categories: ["その他"],
+      };
+  const categories = [...base.categories];
+  for (const genre of TISLY_UNIFIED_GENRES_V1) {
+    if (!categories.includes(genre)) categories.push(genre);
+  }
   return {
-    version: 1,
-    updatedAt: todayIsoDate(),
-    categories: ["その他"],
+    ...base,
+    categories,
+    unifiedGenres: [...TISLY_UNIFIED_GENRES_V1],
   };
 }
 

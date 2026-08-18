@@ -43,17 +43,57 @@
     <label class="pcm-search-wrap" for="pcm-search">
       <span class="pcm-search-label">検索</span>
       <input id="pcm-search" class="pcm-search" type="search"
-        placeholder="品名・タグ・カテゴリで検索"
+        placeholder="品名・タグ・ジャンルで検索"
         autocomplete="off" />
     </label>
 
     <div class="pcm-chips" id="pcm-chips" role="group"
-      aria-label="カテゴリフィルター"></div>
+      aria-label="ジャンルフィルター"></div>
+
+    <div class="pcm-toolbar" id="pcm-toolbar">
+      <button type="button" class="pcm-add-btn" id="pcm-add-btn">
+        ＋ 新規追加
+      </button>
+    </div>
 
     <section class="pcm-summary" id="pcm-summary" aria-live="polite"></section>
     <p class="pcm-status" id="pcm-status" role="status"></p>
     <div class="pcm-list" id="pcm-list"></div>
   </main>
+
+  <dialog class="pcm-dialog" id="pcm-dialog" aria-labelledby="pcm-dialog-title">
+    <form class="pcm-dialog-form" id="pcm-form">
+      <h2 class="pcm-dialog-title" id="pcm-dialog-title">項目を追加</h2>
+      <input type="hidden" id="pcm-edit-id" />
+      <label class="pcm-field-label" for="pcm-field-name">品名</label>
+      <input id="pcm-field-name" class="pcm-search" type="text"
+        required maxlength="120" placeholder="例：VVFケーブル 2.0-2C" />
+      <p class="pcm-field-label">ジャンル</p>
+      <div class="pcm-genre-pills" id="pcm-genre-pills" role="group"
+        aria-label="ジャンル選択"></div>
+      <label class="pcm-field-label" for="pcm-field-cost">仕入原価（円）</label>
+      <input id="pcm-field-cost" class="pcm-search" type="number"
+        min="0" step="1" placeholder="未設定可" />
+      <label class="pcm-field-label" for="pcm-field-sell">販売価格（円）</label>
+      <input id="pcm-field-sell" class="pcm-search" type="number"
+        min="0" step="1" required placeholder="必須" />
+      <label class="pcm-field-label" for="pcm-field-unit">単位</label>
+      <input id="pcm-field-unit" class="pcm-search" type="text"
+        maxlength="20" placeholder="台 / 巻 / 式" />
+      <label class="pcm-field-label" for="pcm-field-notes">メモ</label>
+      <textarea id="pcm-field-notes" class="pcm-search pcm-notes-area"
+        rows="3" maxlength="400" placeholder="現場向けの補足"></textarea>
+      <p class="pcm-dialog-error" id="pcm-dialog-error" role="alert"></p>
+      <div class="pcm-dialog-actions">
+        <button type="button" class="pcm-theme-btn" id="pcm-dialog-cancel">
+          キャンセル
+        </button>
+        <button type="submit" class="pcm-add-btn" id="pcm-dialog-save">
+          保存
+        </button>
+      </div>
+    </form>
+  </dialog>
 
   <script type="module" src="/js/features/price-cost-master/price-cost-master-v1.js"></script>
 </body>

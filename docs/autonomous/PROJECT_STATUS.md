@@ -1,6 +1,6 @@
 # プロジェクト標準仕様（完成状態）
 
-**最終更新:** 2026-07-31  
+**最終更新:** 2026-08-19  
 **対象:** TiSLY Practical PWA（現調 v1 / 見積 v1 / 日程 v1 / 持ち物 v1 / 発注 v1 / 到着・作業完了 v1 / 書類閲覧 UX v1 / Knowledge Acquisition v1）
 
 Cursor が長時間自走する際の **「壊してはいけない完成仕様」** の単一ソースです。新しい実装を始める前に必ず読んでください。
@@ -16,7 +16,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
 | ログインCTA | 青〜紫グラデ維持（`#4facfe` → `#a855f7`） |
-| SW | `tisly-pwa-v2462-price-cost-master` |
+| SW | `tisly-pwa-v2463-unified-genres` |
 
 ---
 
@@ -1405,3 +1405,20 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | コード | `src/price-cost-master/*` · `price-cost-master-v1.html` · `js/css/features/price-cost-master/` |
 | テスト | `server/test/price-cost-master-v1.test.ts` |
 | 確認 | `/price-cost-master-v1` · `/app` · https://tisly.jp/api/health |
+
+### 8統一ジャンル + 価格/ナレッジ連携 v1（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | 電気工事会社OSとして 8ジャンルを全モジュールで共通化 |
+| ジャンル | 電気工事 · 防犯カメラ · ネットワーク · TV工事 · エアコン · 空調 · 音響 · IOT関連 |
+| 定数 | `server/src/shared/genres/tisly-genres-v1.ts` — 別名マッピング付き |
+| 価格マスター | ジャンルピル絞り込み · 追加/編集モーダル · ダーク高コントラスト |
+| 初期追記 | VVF · IPカメラ · PoEスイッチ · 同軸 · エアコン配管 · 音響アンプ · ESP32/RP2350 等 |
+| 既存保護 | 旧シード9件の ID/価格は非改変 · ジャンルは enrich 時に付与 |
+| ナレッジ | 上部フィルタを8ジャンル化 · pH/RS485/配線へ IOT関連・電気工事タグ追記 |
+| 工事カテゴリ | `master/work-categories.json` へ不足ジャンルを末尾追記 |
+| API | `POST/PATCH /api/price-cost-master/v1/items` · catalog `genre` / `genres` |
+| SW | `tisly-pwa-v2463-unified-genres` |
+| テスト | `price-cost-master-v1.test.ts` · `knowledge-module-v1.test.ts` · `knowledge-module-api-v1.test.ts` |
+| 確認 | `/price-cost-master-v1` · `/knowledge-module-v1` · https://tisly.jp/api/health |

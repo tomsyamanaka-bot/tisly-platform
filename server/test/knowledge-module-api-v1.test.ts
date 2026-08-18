@@ -248,6 +248,7 @@ describe("knowledge-module-v1 store", () => {
     assert.match(life!.title, /pHセンサーの耐久性/);
     assert.ok(life!.tags.includes("Eco-Water"));
     assert.ok(life!.tags.includes("水質"));
+    assert.ok(life!.tags.includes("IOT関連"));
     assert.match(String(life!.body ?? ""), /3M KCl/);
     assert.match(String(life!.body ?? ""), /定期交換/);
 
@@ -290,6 +291,8 @@ describe("knowledge-module-v1 store", () => {
     assert.match(rs485!.title, /RS485・Modbus/);
     assert.ok(rs485!.tags.includes("通信"));
     assert.ok(rs485!.tags.includes("RS485"));
+    assert.ok(rs485!.tags.includes("IOT関連"));
+    assert.ok(rs485!.tags.includes("電気工事"));
     assert.match(String(rs485!.body ?? ""), /終端抵抗/);
     assert.match(String(rs485!.body ?? ""), /120Ω/);
 

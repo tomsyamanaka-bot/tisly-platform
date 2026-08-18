@@ -88,6 +88,8 @@ export interface WorkCategoriesMasterV1 {
   updatedAt: string;
   description?: string;
   categories: string[];
+  /** 8統一ジャンル（既存 categories は維持） */
+  unifiedGenres?: string[];
 }
 
 export type KnowledgeFolderName =

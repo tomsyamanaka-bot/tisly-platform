@@ -19,6 +19,8 @@ export interface PriceCostMasterItemSeedV1 {
   id: string;
   kind: PriceCostMasterKindV1;
   category: string;
+  /** 8統一ジャンル。既存行は enrich 時に付与 */
+  genre?: string;
   name: string;
   /** 仕入原価（円）。未設定は null */
   costPrice: number | null;
@@ -42,6 +44,7 @@ export interface PriceCostMasterQueryV1 {
   tab?: PriceCostMasterTabV1 | "all";
   q?: string;
   category?: string;
+  genre?: string;
 }
 
 export interface PriceCostMasterSummaryV1 {
@@ -59,6 +62,8 @@ export interface PriceCostMasterCatalogV1 {
     label: string;
   }>;
   categories: string[];
+  /** 8統一ジャンル（すべて除く） */
+  genres: string[];
   items: PriceCostMasterItemV1[];
   summary: PriceCostMasterSummaryV1;
 }

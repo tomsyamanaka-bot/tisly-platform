@@ -10,9 +10,13 @@ import {
 } from "../api/knowledgeModuleApi";
 import {
   KNOWLEDGE_GENRES,
+  UNIFIED_GENRE_FILTER_TABS,
   type KnowledgeGenre,
   type KnowledgeItem,
 } from "../data/mockKnowledge";
+import {
+  itemMatchesUnifiedGenreV1,
+} from "../../../../../src/shared/genres/tisly-genres-v1";
 import { SearchBar } from "../components/SearchBar";
 import {
   KnowledgeCardList,
@@ -42,6 +46,7 @@ function dtoToItem(dto: KnowledgeModuleItemDto): KnowledgeItem {
     file: dto.file,
     createdAt: dto.createdAt,
     body: dto.body,
+    unifiedGenre: dto.unifiedGenre,
   };
 }
 
@@ -61,6 +66,18 @@ function sortItems(items: KnowledgeItem[]): KnowledgeItem[] {
   );
 }
 
+/** 8統一ジャンルを先頭に、既存ジャンルは末尾維持 */
+function genreSelectOptions(): KnowledgeGenre[] {
+  const seen = new Set<string>();
+  const out: KnowledgeGenre[] = [];
+  for (const genre of [...UNIFIED_GENRE_FILTER_TABS, ...KNOWLEDGE_GENRES]) {
+    if (genre === "すべて" || seen.has(genre)) continue;
+    seen.add(genre);
+    out.push(genre as KnowledgeGenre);
+  }
+  return out;
+}
+
 /** タイトル・要約・タグのあいまい検索 */
 function matchesQuery(item: KnowledgeItem, q: string) {
   if (!q.trim()) return true;
@@ -73,7 +90,7 @@ function matchesQuery(item: KnowledgeItem, q: string) {
 /** ジャンルタブでの絞り込み（第1段階） */
 function matchesGenre(item: KnowledgeItem, genre: KnowledgeGenre) {
   if (genre === "すべて") return true;
-  return item.genre === genre;
+  return itemMatchesUnifiedGenreV1(item, genre);
 }
 
 /** タグボタンでの絞り込み（第2段階） */
@@ -110,7 +127,7 @@ function KnowledgeModulePage() {
 
   const [draftTitle, setDraftTitle] = useState("");
   const [draftBody, setDraftBody] = useState("");
-  const [draftGenre, setDraftGenre] = useState<KnowledgeGenre>("プラント");
+  const [draftGenre, setDraftGenre] = useState<KnowledgeGenre>("電気工事");
   const [draftTags, setDraftTags] = useState<string[]>([]);
   const [draftFiles, setDraftFiles] = useState<File[]>([]);
 
@@ -197,7 +214,7 @@ function KnowledgeModulePage() {
       const created = await createKnowledgeModuleItem({
         title,
         summary,
-        genre: draftGenre === "すべて" ? "プラント" : draftGenre,
+        genre: draftGenre === "すべて" ? "電気工事" : draftGenre,
         tags,
         pdf_url: pdfUrl,
         medias,
@@ -294,7 +311,7 @@ function KnowledgeModulePage() {
       <SearchBar query={query} onQueryChange={setQuery} onToast={showToast} />
 
       <div className="kn-genre-tabs" role="tablist" aria-label="ジャンル">
-        {KNOWLEDGE_GENRES.map((genre) => (
+        {UNIFIED_GENRE_FILTER_TABS.map((genre) => (
           <button
             key={genre}
             type="button"
@@ -302,7 +319,7 @@ function KnowledgeModulePage() {
             aria-selected={activeGenre === genre}
             className={`kn-genre-tab${activeGenre === genre ? " is-active" : ""}`}
             data-genre={genre}
-            onClick={() => handleGenreChange(genre)}
+            onClick={() => handleGenreChange(genre as KnowledgeGenre)}
           >
             {genre}
           </button>
@@ -379,7 +396,7 @@ function KnowledgeModulePage() {
           disabled={saving}
           onChange={(e) => setDraftGenre(e.target.value as KnowledgeGenre)}
         >
-          {KNOWLEDGE_GENRES.filter((g) => g !== "すべて").map((genre) => (
+          {genreSelectOptions().map((genre) => (
             <option key={genre} value={genre}>
               {genre}
             </option>
@@ -530,7 +547,7 @@ function KnowledgeEditDialog({
             patchDraft({ genre: event.target.value as KnowledgeGenre })
           }
         >
-          {KNOWLEDGE_GENRES.filter((genre) => genre !== "すべて").map((genre) => (
+          {genreSelectOptions().map((genre) => (
             <option key={genre} value={genre}>
               {genre}
             </option>

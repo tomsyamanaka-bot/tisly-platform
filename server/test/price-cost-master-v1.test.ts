@@ -10,6 +10,8 @@ process.env.NODE_ENV = "test";
 process.env.TISLY_DB_PATH = "./data/test-price-cost-master-v1.db";
 process.env.RATE_LIMIT_PROVIDER = "memory";
 process.env.REDIS_URL = "";
+process.env.PRICE_COST_MASTER_DATA_DIR =
+  "./data/test-price-cost-master-store-v1";
 
 const { default: request } = await import("supertest");
 const { createApp } = await import("../src/app.js");
@@ -26,6 +28,15 @@ const {
 } = await import(
   "../src/price-cost-master/price-cost-master-seed-v1.js"
 );
+const {
+  PRICE_COST_MASTER_GENRE_LABOR_SEED_V1,
+  PRICE_COST_MASTER_GENRE_PARTS_SEED_V1,
+} = await import(
+  "../src/price-cost-master/price-cost-master-genre-seed-v1.js"
+);
+const {
+  TISLY_UNIFIED_GENRES_V1,
+} = await import("../src/shared/genres/tisly-genres-v1.js");
 const {
   enrichPriceCostItemV1,
   queryPriceCostMasterV1,
@@ -45,6 +56,9 @@ async function surveyorLogin() {
 
 describe("Price & Cost Master v1", () => {
   let token = "";
+  const storeDir = path.resolve(
+    process.env.PRICE_COST_MASTER_DATA_DIR!
+  );
 
   before(async () => {
     closeDatabase();
@@ -56,6 +70,7 @@ describe("Price & Cost Master v1", () => {
         /* keep going */
       }
     }
+    fs.rmSync(storeDir, { recursive: true, force: true });
     resetRateLimitsForTests();
     getDatabase();
     const login = await surveyorLogin();
@@ -63,13 +78,18 @@ describe("Price & Cost Master v1", () => {
     token = login.body.token;
   });
 
-  after(() => closeDatabase());
+  after(() => {
+    closeDatabase();
+    fs.rmSync(storeDir, { recursive: true, force: true });
+  });
 
   it("keeps initial seed counts and prices", () => {
     assert.equal(PRICE_COST_MASTER_PARTS_SEED_V1.length, 4);
     assert.equal(PRICE_COST_MASTER_SUBS_SEED_V1.length, 2);
     assert.equal(PRICE_COST_MASTER_LABOR_SEED_V1.length, 3);
-    assert.equal(PRICE_COST_MASTER_SEED_V1.length, 9);
+    assert.ok(PRICE_COST_MASTER_SEED_V1.length >= 9);
+    assert.equal(PRICE_COST_MASTER_GENRE_PARTS_SEED_V1.length, 16);
+    assert.equal(PRICE_COST_MASTER_GENRE_LABOR_SEED_V1.length, 8);
     const tx = PRICE_COST_MASTER_PARTS_SEED_V1.find(
       (i) => i.id === "PCM-PART-PH-TX-001"
     );
@@ -103,7 +123,7 @@ describe("Price & Cost Master v1", () => {
 
   it("filters by tab, category, and search", () => {
     const parts = queryPriceCostMasterV1({ tab: "parts" });
-    assert.equal(parts.items.length, 4);
+    assert.ok(parts.items.length >= 4);
     const ph = queryPriceCostMasterV1({
       tab: "parts",
       category: "水質センサー",
@@ -111,12 +131,42 @@ describe("Price & Cost Master v1", () => {
     assert.equal(ph.items.length, 2);
     const search = queryPriceCostMasterV1({
       tab: "parts",
-      q: "RP2350",
+      q: "Waveshare RP2350",
     });
     assert.equal(search.items.length, 1);
     assert.equal(
       search.items[0].name,
       "Waveshare RP2350 RS485制御ボード"
+    );
+  });
+
+  it("filters by the 8 unified genres", () => {
+    assert.equal(TISLY_UNIFIED_GENRES_V1.length, 8);
+    assert.ok(TISLY_UNIFIED_GENRES_V1.includes("IOT関連"));
+    const iot = queryPriceCostMasterV1({
+      tab: "parts",
+      genre: "IOT関連",
+    });
+    assert.ok(iot.items.length >= 2);
+    assert.ok(
+      iot.items.some((i) => i.id === "PCM-PART-PH-TX-001")
+    );
+    assert.ok(
+      iot.items.some((i) => i.id === "PCM-PART-ESP32-DEV-001")
+    );
+    const elec = queryPriceCostMasterV1({
+      tab: "parts",
+      genre: "電気工事",
+    });
+    assert.ok(
+      elec.items.some((i) => i.id === "PCM-PART-VVF-2C-100-001")
+    );
+    const cam = queryPriceCostMasterV1({
+      tab: "labor",
+      genre: "防犯カメラ",
+    });
+    assert.ok(
+      cam.items.some((i) => i.id === "PCM-LAB-CAM-INSTALL-001")
     );
   });
 
@@ -139,7 +189,9 @@ describe("Price & Cost Master v1", () => {
       .set("Authorization", `Bearer ${token}`);
     assert.equal(res.status, 200);
     assert.equal(res.body.ok, true);
-    assert.equal(res.body.items.length, 4);
+    assert.ok(res.body.items.length >= 4);
+    assert.equal(res.body.genres.length, 8);
+    assert.ok(res.body.genres.includes("IOT関連"));
     const names = res.body.items.map((i: { name: string }) => i.name);
     assert.ok(names.includes("RS485出力 水質pHトランスミッター"));
     assert.ok(names.includes("屋外用IP65防水制御ボックス"));
@@ -167,7 +219,7 @@ describe("Price & Cost Master v1", () => {
       .get("/api/price-cost-master/v1/catalog?tab=labor")
       .set("Authorization", `Bearer ${token}`);
     assert.equal(res.status, 200);
-    assert.equal(res.body.items.length, 3);
+    assert.ok(res.body.items.length >= 3);
     const panel = res.body.items.find(
       (i: { id: string }) => i.id === "PCM-LAB-SENSOR-PANEL-001"
     );
@@ -216,11 +268,47 @@ describe("Price & Cost Master v1", () => {
     assert.match(html, /data-tab="parts"/);
     assert.match(html, /data-tab="subscription"/);
     assert.match(html, /data-tab="labor"/);
+    assert.match(html, /pcm-dialog/);
+    assert.match(html, /pcm-add-btn/);
     assert.match(css, /min-height:\s*52px/);
     assert.match(css, /#1e3a8a/i);
+    assert.match(css, /#ffffff/i);
+    assert.match(css, /#e2e8f0/i);
     assert.match(js, /粗利額 \/ 粗利率/);
-    assert.match(sw, /tisly-pwa-v2462-price-cost-master/);
+    assert.match(js, /IOT関連/);
+    assert.match(js, /電気工事/);
+    assert.match(sw, /tisly-pwa-v2463-unified-genres/);
     assert.match(sw, /price-cost-master-v1/);
     assert.match(settings, /\/price-cost-master-v1/);
+  });
+
+  it("creates a parts item with unified genre without dropping seeds", async () => {
+    const create = await request(app)
+      .post("/api/price-cost-master/v1/items")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        kind: "parts",
+        name: "テスト用VVF延長",
+        genre: "電気工事",
+        sellPrice: 1200,
+        costPrice: 400,
+        unitLabel: "本",
+      });
+    assert.equal(create.status, 201, create.body?.error);
+    assert.equal(create.body.item.genre, "電気工事");
+    const catalog = await request(app)
+      .get("/api/price-cost-master/v1/catalog?tab=parts&genre=電気工事")
+      .set("Authorization", `Bearer ${token}`);
+    assert.equal(catalog.status, 200);
+    const names = catalog.body.items.map(
+      (i: { name: string }) => i.name
+    );
+    assert.ok(names.includes("テスト用VVF延長"));
+    assert.ok(names.includes("VVFケーブル 2.0mm²-2C 100m巻"));
+    assert.ok(
+      catalog.body.items.some(
+        (i: { id: string }) => i.id === "PCM-PART-IP65-BOX-001"
+      )
+    );
   });
 });

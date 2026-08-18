@@ -17,6 +17,7 @@ import {
   ECO_WATER_FIELD_MODULE_SEED_IDS,
   getEcoWaterFieldModuleSeedItemsV1,
 } from "./knowledge-eco-water-field-seed-v1.js";
+import { bindUnifiedGenresToKnowledgeItemV1 } from "./knowledge-genre-map-v1.js";
 
 export interface KnowledgeModuleItemV1 {
   id: string;
@@ -37,6 +38,8 @@ export interface KnowledgeModuleItemV1 {
   createdAt: string;
   /** 本文詳細（任意・既存カードは未設定） */
   body?: string;
+  /** 8統一ジャンル（既存 genre は維持） */
+  unifiedGenre?: string;
   [key: string]: unknown;
 }
 
@@ -167,6 +170,24 @@ function getKnowledgeModuleUploadUrlPrefix(): string {
   return (customPrefix || "/uploads/knowledge/module").replace(/\/+$/, "");
 }
 
+function tagsContainAll(
+  existing: string[],
+  required: string[]
+): boolean {
+  return required.every((tag) => existing.includes(tag));
+}
+
+function mergeKeepExtraTags(
+  existing: string[],
+  seedTags: string[]
+): string[] {
+  const next = [...existing];
+  for (const tag of seedTags) {
+    if (!next.includes(tag)) next.push(tag);
+  }
+  return next;
+}
+
 function ensureDirs(): void {
   fs.mkdirSync(path.dirname(getModuleDataPath()), { recursive: true });
   fs.mkdirSync(getKnowledgeModulePdfUploadDir(), { recursive: true });
@@ -195,7 +216,7 @@ function mergeFabFinishSeed(
       existing.title === seed.title &&
       existing.summary === seed.summary &&
       existing.genre === seed.genre &&
-      JSON.stringify(existing.tags) === JSON.stringify(seed.tags);
+      tagsContainAll(existing.tags, seed.tags);
     if (!same) {
       byId.set(seed.id, {
         ...seed,
@@ -205,6 +226,8 @@ function mergeFabFinishSeed(
         files: existing.files,
         file: existing.file,
         media: existing.media,
+        tags: mergeKeepExtraTags(existing.tags, seed.tags),
+        unifiedGenre: existing.unifiedGenre,
       });
       changed = true;
     }
@@ -241,7 +264,7 @@ function mergeEcoWaterPhSeed(
       existing.summary === seed.summary &&
       existing.body === seed.body &&
       existing.genre === seed.genre &&
-      JSON.stringify(existing.tags) === JSON.stringify(seed.tags);
+      tagsContainAll(existing.tags, seed.tags);
     if (!same) {
       next[index] = {
         ...existing,
@@ -249,7 +272,7 @@ function mergeEcoWaterPhSeed(
         summary: seed.summary,
         body: seed.body,
         genre: seed.genre,
-        tags: [...seed.tags],
+        tags: mergeKeepExtraTags(existing.tags, seed.tags),
       };
       changed = true;
     }
@@ -284,7 +307,7 @@ function mergeEcoWaterFieldSeed(
       existing.summary === seed.summary &&
       existing.body === seed.body &&
       existing.genre === seed.genre &&
-      JSON.stringify(existing.tags) === JSON.stringify(seed.tags);
+      tagsContainAll(existing.tags, seed.tags);
     if (!same) {
       next[index] = {
         ...existing,
@@ -292,12 +315,24 @@ function mergeEcoWaterFieldSeed(
         summary: seed.summary,
         body: seed.body,
         genre: seed.genre,
-        tags: [...seed.tags],
+        tags: mergeKeepExtraTags(existing.tags, seed.tags),
       };
       changed = true;
     }
   }
 
+  return { items: next, changed };
+}
+
+function mergeUnifiedGenreBindings(
+  items: KnowledgeModuleItemV1[]
+): { items: KnowledgeModuleItemV1[]; changed: boolean } {
+  let changed = false;
+  const next = items.map((item) => {
+    const bound = bindUnifiedGenresToKnowledgeItemV1(item);
+    if (bound.changed) changed = true;
+    return bound.item;
+  });
   return { items: next, changed };
 }
 
@@ -325,10 +360,16 @@ function readAll(): KnowledgeModuleItemV1[] {
   const mergedFab = mergeFabFinishSeed(items);
   const mergedPh = mergeEcoWaterPhSeed(mergedFab.items);
   const mergedField = mergeEcoWaterFieldSeed(mergedPh.items);
-  if (mergedFab.changed || mergedPh.changed || mergedField.changed) {
-    writeAll(mergedField.items);
+  const mergedGenre = mergeUnifiedGenreBindings(mergedField.items);
+  if (
+    mergedFab.changed ||
+    mergedPh.changed ||
+    mergedField.changed ||
+    mergedGenre.changed
+  ) {
+    writeAll(mergedGenre.items);
   }
-  return mergedField.items;
+  return mergedGenre.items;
 }
 
 function writeAll(items: KnowledgeModuleItemV1[]): void {

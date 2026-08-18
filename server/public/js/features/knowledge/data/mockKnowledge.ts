@@ -28,6 +28,8 @@ export interface KnowledgeItem {
   createdAt: string;
   /** 本文詳細（任意・既存カードは未設定のまま） */
   body?: string;
+  /** 8統一ジャンル（既存 genre は維持） */
+  unifiedGenre?: string;
 }
 
 /** 画面上部のジャンルタブ・かんたん登録セレクト */
@@ -43,9 +45,25 @@ export const KNOWLEDGE_GENRES = [
   "防犯カメラ",
   "エアコン",
   "空調",
+  "電気工事",
+  "音響",
+  "IOT関連",
 ] as const;
 
 export type KnowledgeGenre = (typeof KNOWLEDGE_GENRES)[number];
+
+/** 一覧上部のワンタップジャンル（8統一） */
+export const UNIFIED_GENRE_FILTER_TABS = [
+  "すべて",
+  "電気工事",
+  "防犯カメラ",
+  "ネットワーク",
+  "TV工事",
+  "エアコン",
+  "空調",
+  "音響",
+  "IOT関連",
+] as const;
 
 /** 画面上部のクイックタグ（初期表示用 · 登録済みタグは API から動的生成） */
 export const QUICK_TAGS = [
@@ -61,6 +79,8 @@ export const QUICK_TAGS = [
   "通信",
   "RS485",
   "現場",
+  "IOT関連",
+  "電気工事",
 ] as const;
 
 export type QuickTag = (typeof QUICK_TAGS)[number];

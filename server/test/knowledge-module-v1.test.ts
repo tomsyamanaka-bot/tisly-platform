@@ -46,12 +46,18 @@ describe("knowledge-module-v1 PWA", () => {
     assert.match(src, /kn-genre-tab/);
     assert.match(src, /data-genre/);
     assert.match(src, /kn-genre-tabs/);
+    assert.match(src, /IOT\\u95a2\\u9023/i);
+    assert.match(src, /\\u96fb\\u6c17\\u5de5\\u4e8b/i);
     const mockPath = path.join(publicDir, "js/features/knowledge/data/mockKnowledge.ts");
     const mockSrc = fs.readFileSync(mockPath, "utf8");
     assert.match(mockSrc, /防犯カメラ/);
     assert.match(mockSrc, /セキュリティー/);
     assert.match(mockSrc, /TV工事/);
     assert.match(mockSrc, /空調/);
+    assert.match(mockSrc, /電気工事/);
+    assert.match(mockSrc, /IOT関連/);
+    assert.match(mockSrc, /音響/);
+    assert.match(mockSrc, /UNIFIED_GENRE_FILTER_TABS/);
     assert.match(mockSrc, /製作ノウハウ/);
     assert.match(mockSrc, /パテ盛り＋サンディング/);
     assert.match(mockSrc, /プラサフ/);
@@ -137,6 +143,8 @@ describe("knowledge-module-v1 PWA", () => {
     assert.match(pageSrc, /KnowledgeDetailDialog/);
     assert.match(pageSrc, /KnowledgeEditDialog/);
     assert.match(pageSrc, /kn-detail-body/);
+    assert.match(pageSrc, /UNIFIED_GENRE_FILTER_TABS/);
+    assert.match(pageSrc, /itemMatchesUnifiedGenreV1/);
 
     const cardSrc = fs.readFileSync(
       path.join(publicDir, "js/features/knowledge/components/KnowledgeCard.tsx"),

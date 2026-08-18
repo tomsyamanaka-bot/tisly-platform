@@ -6,6 +6,7 @@
 
 import { PRICE_COST_MASTER_SEED_V1 } from "./price-cost-master-seed-v1.js";
 import { PRICE_COST_MASTER_TAB_LABELS_V1 } from "./price-cost-master-seed-v1.js";
+import { PRICE_COST_MASTER_EXISTING_GENRE_MAP_V1 } from "./price-cost-master-genre-seed-v1.js";
 import type {
   PriceCostMasterCatalogV1,
   PriceCostMasterItemSeedV1,
@@ -15,6 +16,12 @@ import type {
   PriceCostMasterTabV1,
 } from "./price-cost-master-types-v1.js";
 import { PRICE_COST_MASTER_TABS_V1 } from "./price-cost-master-types-v1.js";
+import {
+  TISLY_UNIFIED_GENRES_V1,
+  inferUnifiedGenreV1,
+  itemMatchesUnifiedGenreV1,
+} from "../shared/genres/tisly-genres-v1.js";
+import { loadMergedPriceCostItemsV1 } from "./price-cost-master-store-v1.js";
 
 const ROUND_RATE = 10;
 
@@ -29,11 +36,23 @@ export function roundProfitRateV1(rate: number): number {
 export function enrichPriceCostItemV1(
   seed: PriceCostMasterItemSeedV1
 ): PriceCostMasterItemV1 {
+  const genre =
+    seed.genre ||
+    PRICE_COST_MASTER_EXISTING_GENRE_MAP_V1[seed.id] ||
+    inferUnifiedGenreV1({
+      genre: seed.genre,
+      category: seed.category,
+      tags: seed.tags,
+      name: seed.name,
+      notes: seed.notes,
+    }) ||
+    undefined;
   const costUnknown =
     seed.costPrice == null || !Number.isFinite(seed.costPrice);
   if (costUnknown) {
     return {
       ...seed,
+      genre,
       costPrice: null,
       profitAmount: null,
       profitRate: null,
@@ -49,6 +68,7 @@ export function enrichPriceCostItemV1(
   const rate = sell > 0 ? (profit / sell) * 100 : null;
   return {
     ...seed,
+    genre,
     costPrice: cost,
     profitAmount: profit,
     profitRate: rate == null ? null : roundProfitRateV1(rate),
@@ -69,6 +89,7 @@ export function itemMatchesQueryV1(
   const hay = [
     item.name,
     item.category,
+    item.genre ?? "",
     item.notes ?? "",
     ...(item.tags ?? []),
     item.id,
@@ -139,11 +160,12 @@ export function parsePriceCostTabV1(
 
 export function queryPriceCostMasterV1(
   query: PriceCostMasterQueryV1 = {},
-  seed: PriceCostMasterItemSeedV1[] = PRICE_COST_MASTER_SEED_V1
+  seed: PriceCostMasterItemSeedV1[] = loadMergedPriceCostItemsV1()
 ): PriceCostMasterCatalogV1 {
   const tab = query.tab ?? "all";
   const q = String(query.q ?? "");
   const category = String(query.category ?? "").trim();
+  const genre = String(query.genre ?? "").trim();
   const enriched = seed.map(enrichPriceCostItemV1);
   const byTab =
     tab === "all"
@@ -152,7 +174,12 @@ export function queryPriceCostMasterV1(
   const byCategory = category
     ? byTab.filter((item) => item.category === category)
     : byTab;
-  const items = byCategory.filter((item) =>
+  const byGenre = genre
+    ? byCategory.filter((item) =>
+        itemMatchesUnifiedGenreV1(item, genre)
+      )
+    : byCategory;
+  const items = byGenre.filter((item) =>
     itemMatchesQueryV1(item, q)
   );
   const categories = listPriceCostCategoriesV1(
@@ -165,6 +192,7 @@ export function queryPriceCostMasterV1(
       label: PRICE_COST_MASTER_TAB_LABELS_V1[id],
     })),
     categories,
+    genres: [...TISLY_UNIFIED_GENRES_V1],
     items,
     summary: summarizePriceCostItemsV1(items),
   };

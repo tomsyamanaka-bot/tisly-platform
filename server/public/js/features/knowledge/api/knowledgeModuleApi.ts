@@ -22,6 +22,7 @@ export interface KnowledgeModuleItemDto {
   createdAt: string;
   /** 本文詳細（任意） */
   body?: string;
+  unifiedGenre?: string;
 }
 
 async function api<T>(path: string, opts: RequestInit = {}): Promise<T> {

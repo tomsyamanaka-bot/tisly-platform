@@ -5,6 +5,10 @@
  */
 
 import type { PriceCostMasterItemSeedV1 } from "./price-cost-master-types-v1.js";
+import {
+  PRICE_COST_MASTER_GENRE_LABOR_SEED_V1,
+  PRICE_COST_MASTER_GENRE_PARTS_SEED_V1,
+} from "./price-cost-master-genre-seed-v1.js";
 
 export const PRICE_COST_MASTER_TAB_LABELS_V1 = {
   parts: "材料・パーツ原価",
@@ -135,4 +139,6 @@ export const PRICE_COST_MASTER_SEED_V1: PriceCostMasterItemSeedV1[] = [
   ...PRICE_COST_MASTER_PARTS_SEED_V1,
   ...PRICE_COST_MASTER_SUBS_SEED_V1,
   ...PRICE_COST_MASTER_LABOR_SEED_V1,
+  ...PRICE_COST_MASTER_GENRE_PARTS_SEED_V1,
+  ...PRICE_COST_MASTER_GENRE_LABOR_SEED_V1,
 ];
