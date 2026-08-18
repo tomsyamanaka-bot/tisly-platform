@@ -270,6 +270,7 @@ describe("Price & Cost Master v1", () => {
     assert.match(html, /data-tab="labor"/);
     assert.match(html, /pcm-dialog/);
     assert.match(html, /pcm-add-btn/);
+    assert.match(html, /price-cost-master-v1\.js\?v=2465/);
     assert.match(css, /min-height:\s*52px/);
     assert.match(css, /#1e3a8a/i);
     assert.match(css, /#ffffff/i);
@@ -278,7 +279,7 @@ describe("Price & Cost Master v1", () => {
     assert.match(js, /IOT関連/);
     assert.match(js, /renderChips\(UNIFIED_GENRES\)/);
     assert.match(js, /電気工事/);
-    assert.match(sw, /tisly-pwa-v2464-genre-chips/);
+    assert.match(sw, /tisly-pwa-v2465-genre-chips/);
     assert.match(sw, /price-cost-master-v1/);
     assert.match(settings, /\/price-cost-master-v1/);
   });

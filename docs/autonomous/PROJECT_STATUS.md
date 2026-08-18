@@ -16,7 +16,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
 | ログインCTA | 青〜紫グラデ維持（`#4facfe` → `#a855f7`） |
-| SW | `tisly-pwa-v2464-genre-chips` |
+| SW | `tisly-pwa-v2465-genre-chips` |
 
 ---
 
@@ -1419,6 +1419,6 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | ナレッジ | 上部フィルタを8ジャンル化 · pH/RS485/配線へ IOT関連・電気工事タグ追記 |
 | 工事カテゴリ | `master/work-categories.json` へ不足ジャンルを末尾追記 |
 | API | `POST/PATCH /api/price-cost-master/v1/items` · catalog `genre` / `genres` |
-| SW | `tisly-pwa-v2464-genre-chips` |
+| SW | `tisly-pwa-v2465-genre-chips` |
 | テスト | `price-cost-master-v1.test.ts` · `knowledge-module-v1.test.ts` · `knowledge-module-api-v1.test.ts` |
 | 確認 | `/price-cost-master-v1` · `/knowledge-module-v1` · https://tisly.jp/api/health |

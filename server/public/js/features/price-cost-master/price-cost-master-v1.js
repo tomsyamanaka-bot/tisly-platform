@@ -367,4 +367,5 @@ loadTheme();
 bind();
 syncTabs();
 syncAddButton();
+renderChips(UNIFIED_GENRES);
 loadCatalog();

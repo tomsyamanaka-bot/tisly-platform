@@ -4,10 +4,14 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2464-genre-chips";
-const OFFLINE_CACHE = "tisly-pwa-shell-v2459-home-tile-grid";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2459-home-tile-grid";
-const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2459-home-tile-grid";
+const SW_VERSION = "tisly-pwa-v2465-genre-chips";
+/* 旧世代名は activate で破棄する
+ * tisly-pwa-shell-v2459-home-tile-grid
+ * tisly-pwa-priority-v2459-home-tile-grid
+ * tisly-pwa-fieldops-v2459-home-tile-grid */
+const OFFLINE_CACHE = "tisly-pwa-shell-v2465-genre-chips";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2465-genre-chips";
+const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2465-genre-chips";
 /* お客様ゾーンの互換トークン
  * customer-cache-v1.js / route-health.js が
  * SW 側に存在するか診断するため保持 */
@@ -434,7 +438,9 @@ function shouldBypassHttpCache(pathname) {
     pathname.startsWith("/js/customer-") ||
     pathname === "/css/features/gas-monitor/gas-monitor-v1.css" ||
     pathname.startsWith("/css/features/home/") ||
-    pathname === "/css/customer-v1.css"
+    pathname === "/css/customer-v1.css" ||
+    pathname.startsWith("/js/features/price-cost-master/") ||
+    pathname.startsWith("/css/features/price-cost-master/")
   );
 }
 
