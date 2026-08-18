@@ -1,0 +1,299 @@
+/* 価格・原価マスター v1
+ * 暗い現場 / 屋外日差しの両対応。
+ * 既定は高コントラスト・ダーク。 */
+
+.pcm-body {
+  --pcm-bg: #0d0f12;
+  --pcm-surface: #161b22;
+  --pcm-ink: #f8fafc;
+  --pcm-muted: #cbd5e1;
+  --pcm-navy: #60a5fa;
+  --pcm-accent: #1e3a8a;
+  --pcm-line: #334155;
+  --pcm-profit: #4ade80;
+  --pcm-warn: #fbbf24;
+  --pcm-danger: #fb7185;
+  --pcm-chip: #1e293b;
+  margin: 0;
+  min-height: 100dvh;
+  background: radial-gradient(120% 80% at 0% 0%, #1e3a8a 0%, var(--pcm-bg) 48%);
+  color: var(--pcm-ink);
+  font-family: "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+  padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+}
+
+.pcm-body[data-theme="light"] {
+  --pcm-bg: #f8fafc;
+  --pcm-surface: #ffffff;
+  --pcm-ink: #0f172a;
+  --pcm-muted: #334155;
+  --pcm-navy: #1e3a8a;
+  --pcm-accent: #1e3a8a;
+  --pcm-line: #e2e8f0;
+  --pcm-profit: #15803d;
+  --pcm-warn: #b45309;
+  --pcm-danger: #b91c1c;
+  --pcm-chip: #eef2ff;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 42%, #eef2ff 100%);
+}
+
+.pcm-header {
+  padding: calc(10px + env(safe-area-inset-top, 0px)) 16px 8px;
+}
+
+.pcm-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pcm-back,
+.pcm-theme-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  min-width: 72px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid var(--pcm-line);
+  background: var(--pcm-surface);
+  color: var(--pcm-navy);
+  font-weight: 800;
+  font-size: 1rem;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.pcm-brand {
+  margin: 10px 0 0;
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--pcm-navy);
+}
+
+.pcm-title {
+  margin: 4px 0 0;
+  font-size: clamp(1.35rem, 4.4vw, 1.8rem);
+  font-weight: 800;
+  color: var(--pcm-ink);
+}
+
+.pcm-sub {
+  margin: 6px 0 0;
+  color: var(--pcm-muted);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.pcm-main {
+  display: grid;
+  gap: 12px;
+  padding: 8px 16px 24px;
+  max-width: 920px;
+  margin: 0 auto;
+}
+
+.pcm-tabs {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.pcm-tab {
+  min-height: 52px;
+  border-radius: 14px;
+  border: 2px solid var(--pcm-line);
+  background: var(--pcm-surface);
+  color: var(--pcm-ink);
+  font-size: 1.02rem;
+  font-weight: 800;
+  cursor: pointer;
+  padding: 8px 12px;
+}
+
+.pcm-tab.is-active {
+  background: #1e3a8a;
+  border-color: #1e3a8a;
+  color: #ffffff;
+}
+
+.pcm-search-wrap {
+  display: grid;
+  gap: 6px;
+}
+
+.pcm-search-label {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--pcm-muted);
+}
+
+.pcm-search {
+  min-height: 52px;
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 14px;
+  border: 2px solid var(--pcm-line);
+  background: var(--pcm-surface);
+  color: var(--pcm-ink);
+  font-size: 1.05rem;
+  font-weight: 700;
+  padding: 0 14px;
+}
+
+.pcm-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pcm-chip {
+  min-height: 44px;
+  border-radius: 999px;
+  border: 2px solid var(--pcm-line);
+  background: var(--pcm-chip);
+  color: var(--pcm-ink);
+  font-weight: 800;
+  padding: 0 14px;
+  cursor: pointer;
+}
+
+.pcm-chip.is-active {
+  background: #1e3a8a;
+  border-color: #1e3a8a;
+  color: #ffffff;
+}
+
+.pcm-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  background: var(--pcm-surface);
+  border: 1px solid var(--pcm-line);
+  border-radius: 16px;
+  padding: 12px;
+}
+
+.pcm-summary div {
+  display: grid;
+  gap: 2px;
+}
+
+.pcm-summary dt {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--pcm-muted);
+}
+
+.pcm-summary dd {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.pcm-status {
+  margin: 0;
+  min-height: 1.2em;
+  color: var(--pcm-muted);
+  font-weight: 700;
+}
+
+.pcm-list {
+  display: grid;
+  gap: 12px;
+}
+
+.pcm-card {
+  background: var(--pcm-surface);
+  border: 1px solid var(--pcm-line);
+  border-radius: 16px;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.18);
+  padding: 16px;
+  display: grid;
+  gap: 10px;
+}
+
+.pcm-card-kicker {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--pcm-navy);
+}
+
+.pcm-card h2 {
+  margin: 0;
+  font-size: 1.12rem;
+  line-height: 1.4;
+}
+
+.pcm-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.pcm-metric {
+  border-radius: 12px;
+  background: var(--pcm-chip);
+  padding: 10px;
+}
+
+.pcm-metric span {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--pcm-muted);
+}
+
+.pcm-metric strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 1.12rem;
+}
+
+.pcm-metric.is-sell strong {
+  color: var(--pcm-navy);
+}
+
+.pcm-metric.is-profit strong {
+  color: var(--pcm-profit);
+}
+
+.pcm-metric.is-warn strong {
+  color: var(--pcm-warn);
+}
+
+.pcm-metric.is-low strong {
+  color: var(--pcm-danger);
+}
+
+.pcm-notes {
+  margin: 0;
+  color: var(--pcm-muted);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.pcm-empty {
+  text-align: center;
+  padding: 28px 12px;
+  color: var(--pcm-muted);
+  font-weight: 700;
+}
+
+@media (min-width: 720px) {
+  .pcm-tabs {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .pcm-metrics {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .pcm-summary {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}

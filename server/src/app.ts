@@ -106,6 +106,7 @@ import { meterTelemetryRouter } from "./api/routes/meter-telemetry.js";
 import { demandSecurityRouter } from "./api/routes/demand-security.js";
 import { homeRouter } from "./api/routes/home.js";
 import { deviceBindingV1Router } from "./api/routes/device-binding-v1.js";
+import { priceCostMasterV1Router } from "./api/routes/price-cost-master-v1.js";
 import { qnapStorageV1Router } from "./api/routes/qnap-storage-v1.js";
 import { documentsV1Router } from "./api/routes/documents-v1.js";
 import { projectAutomationV1Router } from "./api/routes/project-automation-v1.js";
@@ -192,6 +193,7 @@ export function createApp(): express.Application {
   app.use("/api/home/v1", homeRouter);
   // RP2350 QR物件登録（追記）
   app.use("/api/device", deviceBindingV1Router);
+  app.use("/api/price-cost-master/v1", priceCostMasterV1Router);
   app.use("/api/storage/qnap", qnapStorageV1Router);
   app.use("/api/documents/v1", documentsV1Router);
   app.use("/api/master/v1", masterV1Router);
@@ -369,6 +371,16 @@ export function createApp(): express.Application {
   });
   app.get("/device-binding-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "device-binding-v1.html"));
+  });
+  // 価格・原価マスター — 社内向け（追記）
+  app.get("/app/price-cost-master", (_req, res) => {
+    res.sendFile(path.join(publicDir, "price-cost-master-v1.html"));
+  });
+  app.get("/price-cost-master-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "price-cost-master-v1.html"));
+  });
+  app.get("/price-cost-master", (_req, res) => {
+    res.redirect(302, "/price-cost-master-v1");
   });
   // TiSLY Eco-Water — App Hub 直下入口（追記）
   app.get("/app/eco-water", (_req, res) => {

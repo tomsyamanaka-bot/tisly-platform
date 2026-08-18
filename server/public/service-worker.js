@@ -4,7 +4,7 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2461-home-customer-independent";
+const SW_VERSION = "tisly-pwa-v2462-price-cost-master";
 const OFFLINE_CACHE = "tisly-pwa-shell-v2459-home-tile-grid";
 const PRIORITY_CACHE = "tisly-pwa-priority-v2459-home-tile-grid";
 const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2459-home-tile-grid";
@@ -59,6 +59,9 @@ const FIELD_OPS_SUPPORT_URLS = [
   "/js/knowledge-quick-v1.js",
   "/knowledge-register-v1.html",
   "/js/knowledge-register-v1.js",
+  "/price-cost-master-v1.html",
+  "/js/features/price-cost-master/price-cost-master-v1.js",
+  "/css/features/price-cost-master/price-cost-master-v1.css",
 ];
 
 const SHELL_URLS = [
@@ -358,6 +361,7 @@ function isFieldOpsFastAsset(pathname) {
     "/project-dashboard-v1",
     "/project-mgmt-detail-v1",
     "/master-v1",
+    "/price-cost-master",
     "/js/survey-",
     "/js/estimate-",
     "/js/schedule-",
@@ -373,6 +377,8 @@ function isFieldOpsFastAsset(pathname) {
     "/js/tisly-navigation",
     "/js/tisly-return-nav",
     "/js/master-v1",
+    "/js/features/price-cost-master/",
+    "/css/features/price-cost-master/",
     "/js/knowledge-",
     "/knowledge-",
     "/css/survey-",

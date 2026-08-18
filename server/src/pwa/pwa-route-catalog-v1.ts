@@ -43,6 +43,9 @@ export const PWA_ROUTE_CATALOG_V1: PwaRouteEntryV1[] = [
   { path: "/remote-v1", label: "Remote v1", group: "iot", kind: "page" },
   { path: "/knowledge-field-v1", label: "現場ナレッジ", group: "knowledge", kind: "page" },
   { path: "/knowledge-module-v1", label: "ナレッジモジュール", group: "knowledge", kind: "page" },
+  // 価格・原価マスター（追記）
+  { path: "/price-cost-master-v1", label: "価格・原価マスター", group: "practical", kind: "page" },
+  { path: "/app/price-cost-master", label: "価格・原価マスター (App)", group: "practical", kind: "page" },
   // TiSLY Eco-Water（追記）
   { path: "/eco-water-v1", label: "Eco-Water 排水中和", group: "iot", kind: "page" },
   { path: "/app/eco-water", label: "Eco-Water (App)", group: "iot", kind: "page" },

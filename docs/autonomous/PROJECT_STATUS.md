@@ -16,7 +16,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
 | ログインCTA | 青〜紫グラデ維持（`#4facfe` → `#a855f7`） |
-| SW | `tisly-pwa-v2459-home-tile-grid` |
+| SW | `tisly-pwa-v2462-price-cost-master` |
 
 ---
 
@@ -122,6 +122,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | ナレッジ使用ログ | `/knowledge-usage-dashboard-v1` |
 | ストレージ設定 | `/storage-settings-v1` |
 | 見積マスター | `/master-v1` |
+| 価格・原価マスター | `/price-cost-master-v1` |
 | AI見積エンジン基盤 | `/ai-estimate-engine-v1` → `/master-v1?tab=stats` |
 | 現調図面 | `/survey-drawing-v1` |
 | 案件ダッシュボード | `/project-dashboard-v1` |
@@ -1387,3 +1388,20 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | UI | `/knowledge-module-v1` 詳細ダイアログに本文（`body`）表示 |
 | テスト | `knowledge-module-v1.test.ts` · `knowledge-module-api-v1.test.ts` |
 | 確認 | `/knowledge-module-v1` · `/knowledge-search-v1?q=RS485` · https://tisly.jp/api/health |
+
+### 価格・原価マスター v1（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | 現場で仕入原価・販売価格・粗利を即確認 |
+| 画面 | `/price-cost-master-v1` · `/app/price-cost-master` |
+| タブ | 材料・パーツ原価 · 月額サブスクプラン · 標準工事・作業単価 |
+| 初期データ | pHトランスミッター ¥18,436/¥32,000 · 電極 ¥3,500/¥8,000 · RP2350 RS485 ¥4,500/¥12,000 · IP65ボックス ¥2,800/¥6,500 · Eco-Waterライト月額¥3,300粗利¥2,800 · 標準保守月額¥7,700粗利¥5,800 · 盤設置¥35,000 · VPスリーブ¥25,000 · 校正試運転¥15,000 |
+| 方針 | 既存見積マスター `/master-v1` は非改変 · 新規シード追記のみ |
+| UI | 検索 · カテゴリチップ · 粗利カード · ダーク/ライト切替 |
+| App Hub | `price_cost_master_v1` カード追記（既存カード非改変） |
+| API | `GET /api/price-cost-master/v1/catalog` |
+| SW | `tisly-pwa-v2462-price-cost-master` |
+| コード | `src/price-cost-master/*` · `price-cost-master-v1.html` · `js/css/features/price-cost-master/` |
+| テスト | `server/test/price-cost-master-v1.test.ts` |
+| 確認 | `/price-cost-master-v1` · `/app` · https://tisly.jp/api/health |

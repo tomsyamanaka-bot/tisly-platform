@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0F172A" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="TiSLY 価格原価" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2003" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <title>TiSLY — 価格・原価マスター</title>
+  <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
+  <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
+  <link rel="stylesheet" href="/css/features/price-cost-master/price-cost-master-v1.css" />
+</head>
+<body class="pcm-body tisly-friendly tisly-neon-dark" data-theme="dark">
+  <!--
+    価格・原価マスター
+    現場ワンタップ参照用カードUI
+  -->
+  <header class="pcm-header">
+    <div class="pcm-header-row">
+      <a class="pcm-back" href="/app" id="pcm-back-link">← 戻る</a>
+      <button type="button" class="pcm-theme-btn" id="pcm-theme-toggle"
+        aria-pressed="true">ライト</button>
+    </div>
+    <p class="pcm-brand">TiSLY Price &amp; Cost</p>
+    <h1 class="pcm-title">価格・原価マスター</h1>
+    <p class="pcm-sub">仕入・売価・粗利を一目で確認</p>
+  </header>
+
+  <main class="pcm-main">
+    <nav class="pcm-tabs" role="tablist" aria-label="マスター種別">
+      <button type="button" class="pcm-tab is-active" role="tab"
+        data-tab="parts" aria-selected="true">材料・パーツ原価</button>
+      <button type="button" class="pcm-tab" role="tab"
+        data-tab="subscription" aria-selected="false">月額サブスクプラン</button>
+      <button type="button" class="pcm-tab" role="tab"
+        data-tab="labor" aria-selected="false">標準工事・作業単価</button>
+    </nav>
+
+    <label class="pcm-search-wrap" for="pcm-search">
+      <span class="pcm-search-label">検索</span>
+      <input id="pcm-search" class="pcm-search" type="search"
+        placeholder="品名・タグ・カテゴリで検索"
+        autocomplete="off" />
+    </label>
+
+    <div class="pcm-chips" id="pcm-chips" role="group"
+      aria-label="カテゴリフィルター"></div>
+
+    <section class="pcm-summary" id="pcm-summary" aria-live="polite"></section>
+    <p class="pcm-status" id="pcm-status" role="status"></p>
+    <div class="pcm-list" id="pcm-list"></div>
+  </main>
+
+  <script type="module" src="/js/features/price-cost-master/price-cost-master-v1.js"></script>
+</body>
+</html>

@@ -64,6 +64,16 @@ export const TISLY_INTERNAL_ROUTES_V1: TislyRouteEntryV1[] = [
     label: "RP2350 QR物件登録 (App)",
     zone: "internal",
   },
+  {
+    path: "/price-cost-master-v1",
+    label: "価格・原価マスター",
+    zone: "internal",
+  },
+  {
+    path: "/app/price-cost-master",
+    label: "価格・原価マスター (App)",
+    zone: "internal",
+  },
   { path: "/route-health", label: "Route Health", zone: "diagnostics" },
 ];
 

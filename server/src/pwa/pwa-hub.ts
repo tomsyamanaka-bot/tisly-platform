@@ -391,6 +391,30 @@ const PRACTICAL_PWA_DEFS: Array<
       "super_admin",
     ],
   },
+  // 価格・原価マスター（追記）
+  {
+    id: "price_cost_master_v1",
+    label: "価格・原価マスター",
+    subtitle: "仕入・売価・粗利を現場で即確認",
+    icon: "💰",
+    features: [
+      "材料・パーツ原価",
+      "月額サブスク",
+      "標準工事単価",
+      "粗利率カード",
+    ],
+    href: "/price-cost-master-v1",
+    themeColor: "#1e3a8a",
+    readyRoles: [
+      "surveyor",
+      "installer",
+      "maintenance",
+      "manager",
+      "owner",
+      "admin",
+      "super_admin",
+    ],
+  },
 ];
 
 export function buildPracticalHubCards(role: string): PracticalPwaCard[] {
