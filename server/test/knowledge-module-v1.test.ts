@@ -59,6 +59,9 @@ describe("knowledge-module-v1 PWA", () => {
     assert.match(mockSrc, /Eco-Water/);
     assert.match(mockSrc, /工業用・水質pHセンサーの耐久性と寿命基準/);
     assert.match(mockSrc, /クエン酸洗浄/);
+    assert.match(mockSrc, /RS485・Modbus通信の結線と不通トラブルシューティング/);
+    assert.match(mockSrc, /pHセンサーの標準液校正/);
+    assert.match(mockSrc, /水質センサーの現場配管・浸漬設置基準/);
   });
 
   it("nav script requires login before loading bundle", () => {

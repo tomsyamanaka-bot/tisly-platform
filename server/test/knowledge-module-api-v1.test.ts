@@ -34,6 +34,11 @@ const {
   getEcoWaterPhModuleSeedItemsV1,
   seedEcoWaterPhKnowledgeCardsV1,
 } = await import("../src/knowledge/knowledge-eco-water-ph-seed-v1.js");
+const {
+  ECO_WATER_FIELD_MODULE_SEED_IDS,
+  getEcoWaterFieldModuleSeedItemsV1,
+  seedEcoWaterFieldKnowledgeCardsV1,
+} = await import("../src/knowledge/knowledge-eco-water-field-seed-v1.js");
 const { getKnowledgeCardV1 } = await import("../src/knowledge/knowledge-store-v1.js");
 
 const app = createApp();
@@ -56,6 +61,7 @@ function cleanupModuleData() {
     const seeds = [
       ...getFabFinishModuleSeedItemsV1(),
       ...getEcoWaterPhModuleSeedItemsV1(),
+      ...getEcoWaterFieldModuleSeedItemsV1(),
     ];
     fs.mkdirSync(path.dirname(moduleItemsPath), { recursive: true });
     fs.writeFileSync(moduleItemsPath, JSON.stringify(seeds, null, 2), "utf8");
@@ -268,6 +274,62 @@ describe("knowledge-module-v1 store", () => {
     assert.match(maint!.title, /クエン酸洗浄/);
     assert.ok(maint!.tags.includes("点検"));
     assert.match(String(maint!.body ?? ""), /クエン酸/);
+  });
+
+  it("listKnowledgeModuleItemsV1 appends Eco-Water field seed cards", () => {
+    cleanupModuleData();
+    const listed = listKnowledgeModuleItemsV1();
+    for (const id of ECO_WATER_FIELD_MODULE_SEED_IDS) {
+      assert.ok(
+        listed.some((x) => x.id === id),
+        `missing seed ${id}`
+      );
+    }
+    const rs485 = listed.find((x) => x.id === "kn-seed-ew-rs485-modbus-001");
+    assert.ok(rs485);
+    assert.match(rs485!.title, /RS485・Modbus/);
+    assert.ok(rs485!.tags.includes("通信"));
+    assert.ok(rs485!.tags.includes("RS485"));
+    assert.match(String(rs485!.body ?? ""), /終端抵抗/);
+    assert.match(String(rs485!.body ?? ""), /120Ω/);
+
+    const cal = listed.find((x) => x.id === "kn-seed-ew-ph-cal-001");
+    assert.ok(cal);
+    assert.match(cal!.title, /標準液校正/);
+    assert.ok(cal!.tags.includes("施工方法"));
+    assert.ok(cal!.tags.includes("点検"));
+    assert.match(String(cal!.body ?? ""), /ゼロ点/);
+    assert.match(String(cal!.body ?? ""), /スパン/);
+
+    const install = listed.find((x) => x.id === "kn-seed-ew-sensor-install-001");
+    assert.ok(install);
+    assert.match(install!.title, /浸漬設置基準/);
+    assert.ok(install!.tags.includes("現場"));
+    assert.ok(install!.tags.includes("Eco-Water"));
+    assert.match(String(install!.body ?? ""), /逆さ設置/);
+    assert.match(String(install!.body ?? ""), /VP 管/);
+  });
+
+  it("seedEcoWaterFieldKnowledgeCardsV1 upserts searchable cards", () => {
+    seedEcoWaterFieldKnowledgeCardsV1();
+    const rs485 = getKnowledgeCardV1("EW-RS485-MODBUS-001");
+    assert.ok(rs485);
+    assert.match(rs485!.title, /RS485・Modbus/);
+    assert.ok(rs485!.tags.includes("通信"));
+    assert.equal(rs485!.category, "Eco-Water");
+    assert.match(rs485!.summary, /極性逆接/);
+
+    const cal = getKnowledgeCardV1("EW-PH-CAL-001");
+    assert.ok(cal);
+    assert.match(cal!.title, /標準液校正/);
+    assert.ok(cal!.tags.includes("点検"));
+    assert.match(String(cal!.body ?? ""), /pH6.86/);
+
+    const install = getKnowledgeCardV1("EW-SENSOR-INSTALL-001");
+    assert.ok(install);
+    assert.match(install!.title, /浸漬設置基準/);
+    assert.ok(install!.tags.includes("現場"));
+    assert.match(String(install!.body ?? ""), /45 度/);
   });
 
   it("seedFabFinishKnowledgeCardsV1 upserts searchable cards", () => {

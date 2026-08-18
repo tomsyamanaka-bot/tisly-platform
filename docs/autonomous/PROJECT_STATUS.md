@@ -1371,3 +1371,19 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | UI | `/knowledge-module-v1` 詳細ダイアログに本文（`body`）表示 |
 | テスト | `knowledge-module-v1.test.ts` · `knowledge-module-api-v1.test.ts` |
 | 確認 | `/knowledge-module-v1` · `/knowledge-search-v1?q=pH` · https://tisly.jp/api/health |
+
+### Knowledge Module Eco-Water 現場カード追記（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | RS485 不通切り分け · pH 2 点校正 · 水質センサー浸漬設置を Knowledge へ追記 |
+| 方針 | 既存カード・配列は削除せず、末尾に 3 件 append |
+| カード1 | RS485・Modbus通信の結線と不通トラブルシューティング（A/B逆接・終端120Ω・片端接地） |
+| カード2 | pHセンサーの標準液校正（キャリブレーション）手順（6.86/4.01/9.18・ゼロ点/スパン） |
+| カード3 | 水質センサーの現場配管・浸漬設置基準（45度以上・VP管スリーブ・常時浸漬） |
+| タグ | `#IoT` `#通信` `#RS485` / `#施工方法` `#保守` `#Eco-Water` `#点検` / `#現場` |
+| Module | `module-items.json` 末尾追記 · `knowledge-eco-water-field-seed-v1.ts` |
+| Cards | `EW-RS485-MODBUS-001` · `EW-PH-CAL-001` · `EW-SENSOR-INSTALL-001` |
+| UI | `/knowledge-module-v1` 詳細ダイアログに本文（`body`）表示 |
+| テスト | `knowledge-module-v1.test.ts` · `knowledge-module-api-v1.test.ts` |
+| 確認 | `/knowledge-module-v1` · `/knowledge-search-v1?q=RS485` · https://tisly.jp/api/health |

@@ -13,6 +13,10 @@ import {
   ECO_WATER_PH_MODULE_SEED_IDS,
   getEcoWaterPhModuleSeedItemsV1,
 } from "./knowledge-eco-water-ph-seed-v1.js";
+import {
+  ECO_WATER_FIELD_MODULE_SEED_IDS,
+  getEcoWaterFieldModuleSeedItemsV1,
+} from "./knowledge-eco-water-field-seed-v1.js";
 
 export interface KnowledgeModuleItemV1 {
   id: string;
@@ -254,6 +258,49 @@ function mergeEcoWaterPhSeed(
   return { items: next, changed };
 }
 
+/**
+ * Eco-Water 現場ナレッジ 3 件を末尾追記。
+ * 既存行は削除せず、未登録 ID のみ append する。
+ */
+function mergeEcoWaterFieldSeed(
+  items: KnowledgeModuleItemV1[]
+): { items: KnowledgeModuleItemV1[]; changed: boolean } {
+  const seedIds = new Set<string>(ECO_WATER_FIELD_MODULE_SEED_IDS);
+  const seeds = getEcoWaterFieldModuleSeedItemsV1();
+  const next = [...items];
+  let changed = false;
+
+  for (const seed of seeds) {
+    if (!seedIds.has(seed.id)) continue;
+    const index = next.findIndex((item) => item.id === seed.id);
+    if (index < 0) {
+      next.push({ ...seed });
+      changed = true;
+      continue;
+    }
+    const existing = next[index];
+    const same =
+      existing.title === seed.title &&
+      existing.summary === seed.summary &&
+      existing.body === seed.body &&
+      existing.genre === seed.genre &&
+      JSON.stringify(existing.tags) === JSON.stringify(seed.tags);
+    if (!same) {
+      next[index] = {
+        ...existing,
+        title: seed.title,
+        summary: seed.summary,
+        body: seed.body,
+        genre: seed.genre,
+        tags: [...seed.tags],
+      };
+      changed = true;
+    }
+  }
+
+  return { items: next, changed };
+}
+
 function readAll(): KnowledgeModuleItemV1[] {
   ensureDirs();
   const filePath = getModuleDataPath();
@@ -277,10 +324,11 @@ function readAll(): KnowledgeModuleItemV1[] {
 
   const mergedFab = mergeFabFinishSeed(items);
   const mergedPh = mergeEcoWaterPhSeed(mergedFab.items);
-  if (mergedFab.changed || mergedPh.changed) {
-    writeAll(mergedPh.items);
+  const mergedField = mergeEcoWaterFieldSeed(mergedPh.items);
+  if (mergedFab.changed || mergedPh.changed || mergedField.changed) {
+    writeAll(mergedField.items);
   }
-  return mergedPh.items;
+  return mergedField.items;
 }
 
 function writeAll(items: KnowledgeModuleItemV1[]): void {
