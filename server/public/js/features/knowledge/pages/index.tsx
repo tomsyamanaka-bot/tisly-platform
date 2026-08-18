@@ -3,7 +3,9 @@ import { createRoot } from "react-dom/client";
 import {
   createKnowledgeModuleItem,
   fetchKnowledgeModuleItems,
-  uploadKnowledgeModulePdf,
+  updateKnowledgeModuleItem,
+  uploadKnowledgeModuleFiles,
+  type KnowledgeModuleMediaDto,
   type KnowledgeModuleItemDto,
 } from "../api/knowledgeModuleApi";
 import {
@@ -12,9 +14,16 @@ import {
   type KnowledgeItem,
 } from "../data/mockKnowledge";
 import { SearchBar } from "../components/SearchBar";
-import { KnowledgeCardList } from "../components/KnowledgeCard";
+import {
+  KnowledgeCardList,
+  KnowledgeMediaGallery,
+} from "../components/KnowledgeCard";
 import { TagInput } from "../components/TagInput";
 import { PdfUpload } from "../components/PdfUpload";
+import {
+  normalizeKnowledgeMediaAttachments,
+  type KnowledgeMediaAttachment,
+} from "../utils/mediaAttachment";
 
 /** 旧 localStorage キー（移行後は未使用） */
 const LEGACY_STORAGE_KEY = "tisly_knowledge_module_local_v1";
@@ -27,8 +36,23 @@ function dtoToItem(dto: KnowledgeModuleItemDto): KnowledgeItem {
     genre: dto.genre,
     tags: dto.tags ?? [],
     pdf_url: dto.pdf_url ?? null,
+    medias: dto.medias,
+    files: dto.files,
+    media: dto.media,
+    file: dto.file,
     createdAt: dto.createdAt,
+    body: dto.body,
   };
+}
+
+interface KnowledgeEditDraft {
+  item: KnowledgeItem;
+  title: string;
+  summary: string;
+  genre: KnowledgeGenre;
+  tags: string[];
+  existingMedias: KnowledgeMediaAttachment[];
+  newFiles: File[];
 }
 
 function sortItems(items: KnowledgeItem[]): KnowledgeItem[] {
@@ -41,7 +65,8 @@ function sortItems(items: KnowledgeItem[]): KnowledgeItem[] {
 function matchesQuery(item: KnowledgeItem, q: string) {
   if (!q.trim()) return true;
   const needle = q.trim().toLowerCase();
-  const haystack = `${item.title} ${item.summary} ${item.tags.join(" ")}`.toLowerCase();
+  const haystack =
+    `${item.title} ${item.summary} ${item.body ?? ""} ${item.tags.join(" ")}`.toLowerCase();
   return haystack.includes(needle);
 }
 
@@ -80,12 +105,14 @@ function KnowledgeModulePage() {
   const [activeTag, setActiveTag] = useState("すべて");
   const [toast, setToast] = useState("");
   const [saving, setSaving] = useState(false);
+  const [detailItem, setDetailItem] = useState<KnowledgeItem | null>(null);
+  const [editDraft, setEditDraft] = useState<KnowledgeEditDraft | null>(null);
 
   const [draftTitle, setDraftTitle] = useState("");
   const [draftBody, setDraftBody] = useState("");
   const [draftGenre, setDraftGenre] = useState<KnowledgeGenre>("プラント");
   const [draftTags, setDraftTags] = useState<string[]>([]);
-  const [draftPdf, setDraftPdf] = useState<File | null>(null);
+  const [draftFiles, setDraftFiles] = useState<File[]>([]);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -152,7 +179,7 @@ function KnowledgeModulePage() {
       showToast("タイトルを入力してください");
       return;
     }
-    if (!summary && !draftPdf) {
+    if (!summary && draftFiles.length === 0) {
       showToast("メモを入力するか、ファイルを添付してください");
       return;
     }
@@ -164,11 +191,8 @@ function KnowledgeModulePage() {
 
     setSaving(true);
     try {
-      let pdfUrl: string | null = null;
-      if (draftPdf) {
-        const uploaded = await uploadKnowledgeModulePdf(draftPdf);
-        pdfUrl = uploaded.pdf_url;
-      }
+      const medias = await uploadKnowledgeModuleFiles(draftFiles);
+      const pdfUrl = medias[0]?.url ?? null;
 
       const created = await createKnowledgeModuleItem({
         title,
@@ -176,6 +200,7 @@ function KnowledgeModulePage() {
         genre: draftGenre === "すべて" ? "プラント" : draftGenre,
         tags,
         pdf_url: pdfUrl,
+        medias,
       });
 
       setItems((prev) =>
@@ -184,14 +209,80 @@ function KnowledgeModulePage() {
       setDraftTitle("");
       setDraftBody("");
       setDraftTags([]);
-      setDraftPdf(null);
-      showToast(pdfUrl ? "添付付きで追加しました" : "追加しました");
+      setDraftFiles([]);
+      showToast(
+        medias.length > 0 ? `添付${medias.length}件付きで追加しました` : "追加しました"
+      );
     } catch (err) {
       showToast(err instanceof Error ? err.message : "保存に失敗しました");
     } finally {
       setSaving(false);
     }
-  }, [draftTitle, draftBody, draftGenre, draftTags, draftPdf, showToast]);
+  }, [draftTitle, draftBody, draftGenre, draftTags, draftFiles, showToast]);
+
+  const handleOpenEdit = useCallback((item: KnowledgeItem) => {
+    setEditDraft({
+      item,
+      title: item.title,
+      summary: item.summary,
+      genre: item.genre as KnowledgeGenre,
+      tags: [...item.tags],
+      existingMedias: normalizeKnowledgeMediaAttachments(
+        item as unknown as Record<string, unknown>
+      ),
+      newFiles: [],
+    });
+  }, []);
+
+  const handleUpdate = useCallback(async () => {
+    if (!editDraft) return;
+    const title = editDraft.title.trim();
+    const summary = editDraft.summary.trim();
+    if (!title) {
+      showToast("タイトルを入力してください");
+      return;
+    }
+    if (
+      !summary &&
+      editDraft.existingMedias.length === 0 &&
+      editDraft.newFiles.length === 0
+    ) {
+      showToast("メモを入力するか、ファイルを添付してください");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const uploaded = await uploadKnowledgeModuleFiles(editDraft.newFiles);
+      const medias: KnowledgeModuleMediaDto[] = [
+        ...editDraft.existingMedias.map((media) => ({
+          url: media.url,
+          fileName: media.fileName,
+          kind: media.kind,
+        })),
+        ...uploaded,
+      ];
+      const updated = await updateKnowledgeModuleItem(editDraft.item.id, {
+        title,
+        summary,
+        genre: editDraft.genre,
+        tags: editDraft.tags,
+        pdf_url: medias[0]?.url ?? null,
+        medias,
+      });
+      const nextItem = dtoToItem(updated);
+      setItems((prev) =>
+        sortItems(prev.map((item) => (item.id === nextItem.id ? nextItem : item)))
+      );
+      setDetailItem((current) => (current?.id === nextItem.id ? nextItem : current));
+      setEditDraft(null);
+      showToast("ナレッジを更新しました");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "更新に失敗しました");
+    } finally {
+      setSaving(false);
+    }
+  }, [editDraft, showToast]);
 
   return (
     <>
@@ -248,7 +339,11 @@ function KnowledgeModulePage() {
         </p>
       ) : null}
 
-      <KnowledgeCardList items={filtered} />
+      <KnowledgeCardList
+        items={filtered}
+        onOpen={setDetailItem}
+        onEdit={handleOpenEdit}
+      />
 
       <section className="kn-quick-add">
         <h2 className="kn-quick-add-title">かんたん登録</h2>
@@ -299,7 +394,7 @@ function KnowledgeModulePage() {
         <label className="kn-field-label">
           メディア・ファイル添付（PDF / 写真 / 動画）
         </label>
-        <PdfUpload file={draftPdf} onChange={setDraftPdf} disabled={saving} />
+        <PdfUpload files={draftFiles} onChange={setDraftFiles} disabled={saving} />
         <button
           type="button"
           className="kn-add-btn"
@@ -310,8 +405,212 @@ function KnowledgeModulePage() {
         </button>
       </section>
 
+      {detailItem ? (
+        <KnowledgeDetailDialog
+          item={detailItem}
+          onClose={() => setDetailItem(null)}
+          onEdit={() => handleOpenEdit(detailItem)}
+        />
+      ) : null}
+
+      {editDraft ? (
+        <KnowledgeEditDialog
+          draft={editDraft}
+          saving={saving}
+          onChange={setEditDraft}
+          onClose={() => setEditDraft(null)}
+          onSave={() => void handleUpdate()}
+        />
+      ) : null}
+
       <Toast message={toast} />
     </>
+  );
+}
+
+function KnowledgeDetailDialog({
+  item,
+  onClose,
+  onEdit,
+}: {
+  item: KnowledgeItem;
+  onClose: () => void;
+  onEdit: () => void;
+}) {
+  const medias = normalizeKnowledgeMediaAttachments(
+    item as unknown as Record<string, unknown>
+  );
+  return (
+    <div className="kn-dialog-backdrop" role="presentation" onMouseDown={onClose}>
+      <section
+        className="kn-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`${item.title} の詳細`}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="kn-dialog-head">
+          <h2>{item.title}</h2>
+          <button type="button" className="kn-dialog-close" onClick={onClose}>
+            ×
+          </button>
+        </div>
+        <KnowledgeMediaGallery medias={medias} title={item.title} />
+        <p className="kn-detail-summary">{item.summary || "メモはありません"}</p>
+        {item.body ? (
+          <div className="kn-detail-body">
+            {item.body}
+          </div>
+        ) : null}
+        <div className="kn-card-tags">
+          {item.tags.map((tag) => (
+            <span key={tag} className="kn-card-tag">
+              #{tag}
+            </span>
+          ))}
+        </div>
+        <div className="kn-dialog-actions">
+          <button type="button" className="kn-card-action" onClick={onClose}>
+            閉じる
+          </button>
+          <button type="button" className="kn-add-btn" onClick={onEdit}>
+            編集する
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function KnowledgeEditDialog({
+  draft,
+  saving,
+  onChange,
+  onClose,
+  onSave,
+}: {
+  draft: KnowledgeEditDraft;
+  saving: boolean;
+  onChange: (draft: KnowledgeEditDraft) => void;
+  onClose: () => void;
+  onSave: () => void;
+}) {
+  const patchDraft = (patch: Partial<KnowledgeEditDraft>) =>
+    onChange({ ...draft, ...patch });
+  return (
+    <div className="kn-dialog-backdrop" role="presentation">
+      <section className="kn-dialog" role="dialog" aria-modal="true" aria-label="ナレッジ編集">
+        <div className="kn-dialog-head">
+          <h2>ナレッジ編集</h2>
+          <button type="button" className="kn-dialog-close" onClick={onClose}>
+            ×
+          </button>
+        </div>
+        <label className="kn-field-label">タイトル</label>
+        <input
+          className="kn-field"
+          value={draft.title}
+          disabled={saving}
+          onChange={(event) => patchDraft({ title: event.target.value })}
+        />
+        <label className="kn-field-label">メモ</label>
+        <textarea
+          className="kn-field kn-field-area"
+          rows={4}
+          value={draft.summary}
+          disabled={saving}
+          onChange={(event) => patchDraft({ summary: event.target.value })}
+        />
+        <label className="kn-field-label">ジャンル</label>
+        <select
+          className="kn-field"
+          value={draft.genre}
+          disabled={saving}
+          onChange={(event) =>
+            patchDraft({ genre: event.target.value as KnowledgeGenre })
+          }
+        >
+          {KNOWLEDGE_GENRES.filter((genre) => genre !== "すべて").map((genre) => (
+            <option key={genre} value={genre}>
+              {genre}
+            </option>
+          ))}
+        </select>
+        <label className="kn-field-label">タグ</label>
+        <TagInput
+          tags={draft.tags}
+          onChange={(tags) => patchDraft({ tags })}
+          placeholder="タグ（例: IoT, 施工方法）"
+        />
+        <label className="kn-field-label">保存済み添付</label>
+        <ExistingMediaEditor
+          medias={draft.existingMedias}
+          disabled={saving}
+          onChange={(existingMedias) => patchDraft({ existingMedias })}
+        />
+        <label className="kn-field-label">追加ファイル</label>
+        <PdfUpload
+          files={draft.newFiles}
+          onChange={(newFiles) => patchDraft({ newFiles })}
+          disabled={saving}
+        />
+        <div className="kn-dialog-actions">
+          <button type="button" className="kn-card-action" disabled={saving} onClick={onClose}>
+            キャンセル
+          </button>
+          <button type="button" className="kn-add-btn" disabled={saving} onClick={onSave}>
+            {saving ? "保存中…" : "変更を保存"}
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function ExistingMediaEditor({
+  medias,
+  disabled,
+  onChange,
+}: {
+  medias: KnowledgeMediaAttachment[];
+  disabled: boolean;
+  onChange: (medias: KnowledgeMediaAttachment[]) => void;
+}) {
+  if (medias.length === 0) {
+    return <p className="kn-attachment-empty">保存済み添付はありません</p>;
+  }
+  return (
+    <div className="kn-attachment-grid">
+      {medias.map((media, index) => (
+        <div className="kn-attachment-item" key={`${media.url}:${index}`}>
+          {media.kind === "image" ? (
+            <img className="kn-media-thumb" src={media.url} alt="" loading="lazy" />
+          ) : media.kind === "video" ? (
+            <video
+              className="kn-media-thumb kn-media-thumb-video"
+              src={media.url}
+              muted
+              playsInline
+              preload="metadata"
+            />
+          ) : (
+            <span className="kn-pdf-icon" aria-hidden="true">
+              {media.kind === "pdf" ? "📄" : "📎"}
+            </span>
+          )}
+          <span className="kn-attachment-name">{media.fileName || media.url}</span>
+          <button
+            type="button"
+            className="kn-attachment-remove"
+            aria-label={`${media.fileName || "添付"} を削除`}
+            disabled={disabled}
+            onClick={() => onChange(medias.filter((_, mediaIndex) => mediaIndex !== index))}
+          >
+            ×
+          </button>
+        </div>
+      ))}
+    </div>
   );
 }
 

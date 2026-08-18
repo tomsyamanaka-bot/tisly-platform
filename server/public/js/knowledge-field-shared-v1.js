@@ -31,6 +31,8 @@ export const EXAMPLE_SEARCHES = [
   "DINレール",
   "換気扇",
   "VVF2.0",
+  "pHセンサー",
+  "クエン酸",
 ];
 
 export const KIND_LAUNCHERS = [
@@ -63,6 +65,7 @@ export const CATEGORY_LAUNCHERS = [
   "Factory",
   "RP2350",
   "ESP",
+  "Eco-Water",
 ];
 
 export const KIND_LABELS = {

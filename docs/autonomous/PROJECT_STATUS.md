@@ -1356,3 +1356,18 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 検証 | `scripts/capture-home-tiles-v1.mjs`（iPhone SE/14 · 列数 · 横スクロール · タップ領域 · ワンタップ施錠解錠）· `scripts/capture-home-tiles-zoom-v1.mjs`（目視用）· `scripts/check-home-html-balance.mjs` |
 | テスト | `server/test/tisly-home-v1.test.ts`（18ケース） |
 | 確認 | `/home-v1` · `/customer/home` · https://tisly.jp/api/health |
+
+### Knowledge Module Eco-Water pH 保守カード追記（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | Eco-Water 向け pH 電極の寿命基準とクエン酸洗浄手順を Knowledge へ追記 |
+| 方針 | 既存カード・配列は削除せず、末尾に 2 件 append |
+| カード1 | 工業用・水質pHセンサーの耐久性と寿命基準（寿命差・乾燥厳禁・定期交換サブスク） |
+| カード2 | pHセンサーの定期点検・現場メンテナンス手順（クエン酸洗浄・点検モード） |
+| タグ | `#IoT` `#水質` `#保守` `#Eco-Water` / `#施工方法` `#点検` |
+| Module | `module-items.json` 末尾追記 · `knowledge-eco-water-ph-seed-v1.ts` |
+| Cards | `EW-PH-LIFE-001` · `EW-PH-CITRIC-001` |
+| UI | `/knowledge-module-v1` 詳細ダイアログに本文（`body`）表示 |
+| テスト | `knowledge-module-v1.test.ts` · `knowledge-module-api-v1.test.ts` |
+| 確認 | `/knowledge-module-v1` · `/knowledge-search-v1?q=pH` · https://tisly.jp/api/health |

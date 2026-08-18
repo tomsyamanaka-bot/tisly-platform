@@ -56,6 +56,9 @@ describe("knowledge-module-v1 PWA", () => {
     assert.match(mockSrc, /パテ盛り＋サンディング/);
     assert.match(mockSrc, /プラサフ/);
     assert.match(mockSrc, /スカイブ接合/);
+    assert.match(mockSrc, /Eco-Water/);
+    assert.match(mockSrc, /工業用・水質pHセンサーの耐久性と寿命基準/);
+    assert.match(mockSrc, /クエン酸洗浄/);
   });
 
   it("nav script requires login before loading bundle", () => {
@@ -85,7 +88,7 @@ describe("knowledge-module-v1 PWA", () => {
     assert.match(src, /kn-pdf-drop/);
     assert.match(src, /module-v1\/items/);
     assert.match(src, /module-v1\/upload-pdf/);
-    assert.match(src, /kn-card-pdf/);
+    assert.match(src, /kn-media-gallery/);
     assert.match(src, /\.tags\.join\(/);
     assert.match(
       src,
@@ -95,6 +98,10 @@ describe("knowledge-module-v1 PWA", () => {
     assert.match(src, /\\u30D5\\u30A1\\u30A4\\u30EB\\u3092\\u6DFB\\u4ED8/);
     assert.match(src, /\\u30E1\\u30C7\\u30A3\\u30A2\\u30FB\\u30D5\\u30A1\\u30A4\\u30EB\\u6DFB\\u4ED8/);
     assert.match(src, /kn-media-thumb/);
+    assert.match(src, /kn-attachment-grid/);
+    assert.match(src, /kn-media-gallery/);
+    assert.match(src, /multiple:/);
+    assert.match(src, /module-v1\/items\//);
   });
 
   it("mediaAttachment util and PdfUpload accept media", () => {
@@ -114,11 +121,25 @@ describe("knowledge-module-v1 PWA", () => {
     );
     assert.match(uploadSrc, /ファイルを添付（PDF・写真・動画）/);
     assert.match(uploadSrc, /application\/pdf,image\/\*,video\/\*/);
+    assert.match(uploadSrc, /\bmultiple\b/);
+    assert.match(uploadSrc, /＋ ファイルを追加/);
+    assert.match(uploadSrc, /kn-attachment-remove/);
 
     const pageSrc = fs.readFileSync(
       path.join(publicDir, "js/features/knowledge/pages/index.tsx"),
       "utf8"
     );
     assert.match(pageSrc, /メディア・ファイル添付（PDF \/ 写真 \/ 動画）/);
+    assert.match(pageSrc, /updateKnowledgeModuleItem/);
+    assert.match(pageSrc, /KnowledgeDetailDialog/);
+    assert.match(pageSrc, /KnowledgeEditDialog/);
+    assert.match(pageSrc, /kn-detail-body/);
+
+    const cardSrc = fs.readFileSync(
+      path.join(publicDir, "js/features/knowledge/components/KnowledgeCard.tsx"),
+      "utf8"
+    );
+    assert.match(cardSrc, /KnowledgeMediaGallery/);
+    assert.match(cardSrc, /normalizeKnowledgeMediaAttachments/);
   });
 });

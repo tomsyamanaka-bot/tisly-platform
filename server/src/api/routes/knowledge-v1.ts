@@ -102,6 +102,7 @@ import {
   createKnowledgeModuleItemV1,
   listKnowledgeModuleItemsV1,
   saveKnowledgeModulePdfV1,
+  updateKnowledgeModuleItemV1,
 } from "../../knowledge/knowledge-module-v1.js";
 
 export const knowledgeV1Router = Router();
@@ -954,10 +955,36 @@ knowledgeV1Router.post("/module-v1/items", ...auth, (req: AuthedRequest, res) =>
       genre: String(body.genre ?? ""),
       tags: Array.isArray(body.tags) ? body.tags : undefined,
       pdf_url: body.pdf_url ?? null,
+      medias: Array.isArray(body.medias) ? body.medias : undefined,
+      files: Array.isArray(body.files) ? body.files : undefined,
+      file: body.file,
+      media: body.media,
     });
     res.status(201).json({ item });
   } catch (e) {
     res.status(400).json({ error: e instanceof Error ? e.message : "Invalid item" });
+  }
+});
+
+knowledgeV1Router.patch("/module-v1/items/:id", ...auth, (req: AuthedRequest, res) => {
+  if (!assertRole(req, res)) return;
+  try {
+    const body = req.body ?? {};
+    const item = updateKnowledgeModuleItemV1(String(req.params.id), {
+      title: String(body.title ?? ""),
+      summary: String(body.summary ?? ""),
+      genre: String(body.genre ?? ""),
+      tags: Array.isArray(body.tags) ? body.tags : undefined,
+      pdf_url: body.pdf_url ?? null,
+      medias: Array.isArray(body.medias) ? body.medias : [],
+      files: Array.isArray(body.files) ? body.files : [],
+      file: body.file ?? null,
+      media: body.media ?? null,
+    });
+    res.json({ item });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Invalid item";
+    res.status(message === "Knowledge item not found" ? 404 : 400).json({ error: message });
   }
 });
 

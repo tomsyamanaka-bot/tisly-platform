@@ -9,6 +9,10 @@ import {
   FAB_FINISH_MODULE_SEED_IDS,
   getFabFinishModuleSeedItemsV1,
 } from "./knowledge-fab-finish-seed-v1.js";
+import {
+  ECO_WATER_PH_MODULE_SEED_IDS,
+  getEcoWaterPhModuleSeedItemsV1,
+} from "./knowledge-eco-water-ph-seed-v1.js";
 
 export interface KnowledgeModuleItemV1 {
   id: string;
@@ -19,7 +23,23 @@ export interface KnowledgeModuleItemV1 {
   /** 添付 URL（互換のため pdf_url）。
    * PDF / 画像 / 動画いずれか */
   pdf_url: string | null;
+  /** 複数添付の正規化済み配列 */
+  medias?: KnowledgeModuleMediaV1[];
+  /** URL 配列を使う旧・外部データとの互換フィールド */
+  files?: Array<string | KnowledgeModuleMediaV1>;
+  /** 単一添付を使う旧データとの互換フィールド */
+  file?: string | KnowledgeModuleMediaV1 | null;
+  media?: string | KnowledgeModuleMediaV1 | null;
   createdAt: string;
+  /** 本文詳細（任意・既存カードは未設定） */
+  body?: string;
+  [key: string]: unknown;
+}
+
+export interface KnowledgeModuleMediaV1 {
+  url: string;
+  fileName?: string;
+  kind?: MediaKind | "unknown";
 }
 
 export interface KnowledgeModuleItemInputV1 {
@@ -27,7 +47,13 @@ export interface KnowledgeModuleItemInputV1 {
   summary: string;
   genre: string;
   tags?: string[];
+  /** 本文詳細（任意） */
+  body?: string;
   pdf_url?: string | null;
+  medias?: unknown[];
+  files?: unknown[];
+  file?: unknown;
+  media?: unknown;
 }
 
 const MODULE_ITEMS_FILE = "module-items.json";
@@ -117,11 +143,24 @@ function looksLikeAllowedMedia(
 }
 
 function getModuleDataPath(): string {
-  return path.join(process.cwd(), "data", "knowledge", MODULE_ITEMS_FILE);
+  const customDir = String(process.env.KNOWLEDGE_MODULE_DATA_DIR ?? "").trim();
+  return customDir
+    ? path.join(path.resolve(customDir), MODULE_ITEMS_FILE)
+    : path.join(process.cwd(), "data", "knowledge", MODULE_ITEMS_FILE);
 }
 
 export function getKnowledgeModulePdfUploadDir(): string {
-  return path.join(process.cwd(), "uploads", "knowledge", "module");
+  const customDir = String(process.env.KNOWLEDGE_MODULE_UPLOAD_DIR ?? "").trim();
+  return customDir
+    ? path.resolve(customDir)
+    : path.join(process.cwd(), "uploads", "knowledge", "module");
+}
+
+function getKnowledgeModuleUploadUrlPrefix(): string {
+  const customPrefix = String(
+    process.env.KNOWLEDGE_MODULE_UPLOAD_URL_PREFIX ?? ""
+  ).trim();
+  return (customPrefix || "/uploads/knowledge/module").replace(/\/+$/, "");
 }
 
 function ensureDirs(): void {
@@ -158,6 +197,10 @@ function mergeFabFinishSeed(
         ...seed,
         createdAt: existing.createdAt,
         pdf_url: existing.pdf_url ?? null,
+        medias: existing.medias,
+        files: existing.files,
+        file: existing.file,
+        media: existing.media,
       });
       changed = true;
     }
@@ -166,6 +209,49 @@ function mergeFabFinishSeed(
   const nonSeed = items.filter((item) => !seedIds.has(item.id));
   const seedItems = seeds.map((seed) => byId.get(seed.id)!);
   return { items: [...seedItems, ...nonSeed], changed };
+}
+
+/**
+ * Eco-Water pH 保守 2 件を末尾追記。
+ * 既存行は削除せず、未登録 ID のみ append する。
+ */
+function mergeEcoWaterPhSeed(
+  items: KnowledgeModuleItemV1[]
+): { items: KnowledgeModuleItemV1[]; changed: boolean } {
+  const seedIds = new Set<string>(ECO_WATER_PH_MODULE_SEED_IDS);
+  const seeds = getEcoWaterPhModuleSeedItemsV1();
+  const next = [...items];
+  let changed = false;
+
+  for (const seed of seeds) {
+    if (!seedIds.has(seed.id)) continue;
+    const index = next.findIndex((item) => item.id === seed.id);
+    if (index < 0) {
+      next.push({ ...seed });
+      changed = true;
+      continue;
+    }
+    const existing = next[index];
+    const same =
+      existing.title === seed.title &&
+      existing.summary === seed.summary &&
+      existing.body === seed.body &&
+      existing.genre === seed.genre &&
+      JSON.stringify(existing.tags) === JSON.stringify(seed.tags);
+    if (!same) {
+      next[index] = {
+        ...existing,
+        title: seed.title,
+        summary: seed.summary,
+        body: seed.body,
+        genre: seed.genre,
+        tags: [...seed.tags],
+      };
+      changed = true;
+    }
+  }
+
+  return { items: next, changed };
 }
 
 function readAll(): KnowledgeModuleItemV1[] {
@@ -177,22 +263,32 @@ function readAll(): KnowledgeModuleItemV1[] {
       const parsed = JSON.parse(fs.readFileSync(filePath, "utf8")) as unknown;
       if (Array.isArray(parsed)) {
         items = parsed.map(normalizeItem);
+      } else {
+        throw new Error("Knowledge module data must be an array");
       }
-    } catch {
-      items = [];
+    } catch (error) {
+      throw new Error(
+        `Knowledge module data could not be read; existing data was not overwritten: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
     }
   }
 
-  const merged = mergeFabFinishSeed(items);
-  if (merged.changed) {
-    writeAll(merged.items);
+  const mergedFab = mergeFabFinishSeed(items);
+  const mergedPh = mergeEcoWaterPhSeed(mergedFab.items);
+  if (mergedFab.changed || mergedPh.changed) {
+    writeAll(mergedPh.items);
   }
-  return merged.items;
+  return mergedPh.items;
 }
 
 function writeAll(items: KnowledgeModuleItemV1[]): void {
   ensureDirs();
-  fs.writeFileSync(getModuleDataPath(), JSON.stringify(items, null, 2), "utf8");
+  const filePath = getModuleDataPath();
+  const tempPath = `${filePath}.${process.pid}.tmp`;
+  fs.writeFileSync(tempPath, JSON.stringify(items, null, 2), "utf8");
+  fs.renameSync(tempPath, filePath);
 }
 
 export function parseKnowledgeModuleTags(raw: unknown): string[] {
@@ -222,23 +318,82 @@ export function parseKnowledgeModuleTagsFromText(text: string): string[] {
   );
 }
 
+function normalizeMediaEntry(raw: unknown): KnowledgeModuleMediaV1 | null {
+  if (typeof raw === "string") {
+    const url = raw.trim();
+    if (!url) return null;
+    return {
+      url,
+      fileName: path.basename(url.split("?")[0].split("#")[0]),
+      kind: mediaKindFromExt(path.extname(url.split("?")[0]).toLowerCase()) ?? "unknown",
+    };
+  }
+  if (!raw || typeof raw !== "object") return null;
+  const source = raw as Record<string, unknown>;
+  const url = String(
+    source.url ?? source.pdf_url ?? source.path ?? source.src ?? ""
+  ).trim();
+  if (!url) return null;
+  const fileName = String(source.fileName ?? source.name ?? "").trim();
+  const detected =
+    mediaKindFromExt(path.extname(fileName || url.split("?")[0]).toLowerCase()) ??
+    "unknown";
+  return {
+    ...source,
+    url,
+    ...(fileName ? { fileName } : {}),
+    kind:
+      source.kind === "pdf" || source.kind === "image" || source.kind === "video"
+        ? source.kind
+        : detected,
+  } as KnowledgeModuleMediaV1;
+}
+
+/** 配列を優先し、単一添付は不足分として末尾に統合する */
+export function normalizeKnowledgeModuleMediasV1(raw: unknown): KnowledgeModuleMediaV1[] {
+  const r =
+    raw && typeof raw === "object"
+      ? (raw as Record<string, unknown>)
+      : {};
+  const candidates: unknown[] = [];
+  if (Array.isArray(r.medias)) candidates.push(...r.medias);
+  if (Array.isArray(r.files)) candidates.push(...r.files);
+  if (r.media != null) candidates.push(r.media);
+  if (r.file != null) candidates.push(r.file);
+  if (r.pdf_url != null) candidates.push(r.pdf_url);
+
+  const byUrl = new Map<string, KnowledgeModuleMediaV1>();
+  for (const candidate of candidates) {
+    const media = normalizeMediaEntry(candidate);
+    if (!media || byUrl.has(media.url)) continue;
+    byUrl.set(media.url, media);
+  }
+  return [...byUrl.values()];
+}
+
 function normalizeItem(raw: unknown): KnowledgeModuleItemV1 {
-  const r = raw as Partial<KnowledgeModuleItemV1>;
+  const r =
+    raw && typeof raw === "object"
+      ? (raw as Partial<KnowledgeModuleItemV1>)
+      : {};
   const title = String(r.title ?? "").trim();
   const summary = String(r.summary ?? "").trim();
   const genre = String(r.genre ?? "プラント").trim() || "プラント";
-  const pdfUrl =
-    r.pdf_url === null || r.pdf_url === undefined
-      ? null
-      : String(r.pdf_url).trim() || null;
+  const medias = normalizeKnowledgeModuleMediasV1(r);
+  const pdfUrl = medias[0]?.url ?? null;
+  const body = String(r.body ?? "").trim();
   return {
+    ...r,
     id: String(r.id ?? `kn-${uuid()}`),
     title,
     summary,
     genre,
     tags: parseKnowledgeModuleTags(r.tags),
     pdf_url: pdfUrl,
+    medias,
+    files: medias.map((entry) => entry.url),
     createdAt: String(r.createdAt ?? new Date().toISOString()),
+    ...(body ? { body } : {}),
   };
 }
 
@@ -254,17 +409,16 @@ export function createKnowledgeModuleItemV1(
   const title = String(input.title ?? "").trim();
   const summary = String(input.summary ?? "").trim();
   const genre = String(input.genre ?? "").trim();
-  const pdfUrl =
-    input.pdf_url === null || input.pdf_url === undefined
-      ? null
-      : String(input.pdf_url).trim() || null;
+  const medias = normalizeKnowledgeModuleMediasV1(input);
+  const pdfUrl = medias[0]?.url ?? null;
 
   if (!title) throw new Error("title is required");
   if (!summary && !pdfUrl) {
-    throw new Error("summary is required when no PDF is attached");
+    throw new Error("summary is required when no media is attached");
   }
   if (!genre) throw new Error("genre is required");
 
+  const body = String(input.body ?? "").trim();
   const item: KnowledgeModuleItemV1 = {
     id: `kn-${Date.now()}-${uuid().slice(0, 8)}`,
     title,
@@ -272,13 +426,59 @@ export function createKnowledgeModuleItemV1(
     genre,
     tags: parseKnowledgeModuleTags(input.tags),
     pdf_url: pdfUrl,
+    medias,
+    files: medias.map((entry) => entry.url),
     createdAt: new Date().toISOString(),
+    ...(body ? { body } : {}),
   };
 
   const items = readAll();
   items.unshift(item);
   writeAll(items);
   return item;
+}
+
+export function updateKnowledgeModuleItemV1(
+  id: string,
+  input: KnowledgeModuleItemInputV1
+): KnowledgeModuleItemV1 {
+  const itemId = String(id ?? "").trim();
+  const items = readAll();
+  const index = items.findIndex((item) => item.id === itemId);
+  if (index < 0) throw new Error("Knowledge item not found");
+
+  const current = items[index];
+  const hasAttachmentUpdate =
+    Object.prototype.hasOwnProperty.call(input, "medias") ||
+    Object.prototype.hasOwnProperty.call(input, "files") ||
+    Object.prototype.hasOwnProperty.call(input, "media") ||
+    Object.prototype.hasOwnProperty.call(input, "file") ||
+    Object.prototype.hasOwnProperty.call(input, "pdf_url");
+  const attachmentUpdate = hasAttachmentUpdate
+    ? {
+        medias: input.medias ?? [],
+        files: input.files ?? [],
+        media: input.media ?? null,
+        file: input.file ?? null,
+        pdf_url: input.pdf_url ?? null,
+      }
+    : {};
+  const next = normalizeItem({
+    ...current,
+    ...input,
+    ...attachmentUpdate,
+    id: current.id,
+    createdAt: current.createdAt,
+  });
+  if (!next.title) throw new Error("title is required");
+  if (!next.summary && next.medias?.length === 0) {
+    throw new Error("summary is required when no media is attached");
+  }
+  if (!next.genre) throw new Error("genre is required");
+
+  items[index] = next;
+  writeAll(items);
+  return next;
 }
 
 /**
@@ -326,7 +526,7 @@ export function saveKnowledgeModulePdfV1(input: {
   fs.writeFileSync(fullPath, buffer);
 
   return {
-    pdf_url: `/uploads/knowledge/module/${safeName}`,
+    pdf_url: `${getKnowledgeModuleUploadUrlPrefix()}/${safeName}`,
     fileName: safeName,
   };
 }

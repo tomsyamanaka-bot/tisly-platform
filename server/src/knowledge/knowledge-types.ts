@@ -47,6 +47,8 @@ export interface KnowledgeCardV1 {
   photoMeta?: KnowledgePhotoMetaV1;
   pdfMeta?: KnowledgePdfMetaV1;
   qnapSyncStatus?: KnowledgeQnapSyncStatusV1;
+  /** 本文詳細（任意・既存カードは未設定） */
+  body?: string;
 }
 
 export interface KnowledgeSearchIndexEntryV1 {
@@ -196,6 +198,8 @@ export interface KnowledgeCardInputV1 {
   photoMeta?: KnowledgePhotoMetaV1;
   pdfMeta?: KnowledgePdfMetaV1;
   qnapSyncStatus?: KnowledgeQnapSyncStatusV1;
+  /** 本文詳細（任意・既存カードは未設定） */
+  body?: string;
 }
 
 export interface KnowledgeFromProjectResultV1 {

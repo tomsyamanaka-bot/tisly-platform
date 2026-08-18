@@ -11,6 +11,7 @@ import {
   type KnowledgeCardV1,
 } from "./knowledge-types.js";
 import { seedFabFinishKnowledgeCardsV1 } from "./knowledge-fab-finish-seed-v1.js";
+import { seedEcoWaterPhKnowledgeCardsV1 } from "./knowledge-eco-water-ph-seed-v1.js";
 
 function todayIsoDate(): string {
   return new Date().toISOString().slice(0, 10);
@@ -138,13 +139,16 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
   plcCreated: number;
   rpCreated: number;
   fabFinishCreated: number;
+  ecoWaterPhCreated: number;
 } {
   const plc = seedPlcKnowledgeTemplatesV1();
   const rp = seedRpKnowledgeTemplatesV1();
   const fab = seedFabFinishKnowledgeCardsV1();
+  const ecoWaterPh = seedEcoWaterPhKnowledgeCardsV1();
   return {
     plcCreated: plc.length,
     rpCreated: rp.length,
     fabFinishCreated: fab.length,
+    ecoWaterPhCreated: ecoWaterPh.length,
   };
 }

@@ -8,6 +8,9 @@ process.env.CUSTOMER_DEMO_PASSWORD = "demo-remote-2026";
 process.env.NODE_ENV = "test";
 process.env.TISLY_DB_PATH = "./data/test-knowledge-module-api-v1.db";
 process.env.RATE_LIMIT_PROVIDER = "memory";
+process.env.KNOWLEDGE_MODULE_DATA_DIR = "./data/test-knowledge-module-api-v1";
+process.env.KNOWLEDGE_MODULE_UPLOAD_DIR = "./uploads/knowledge/test-module-api-v1";
+process.env.KNOWLEDGE_MODULE_UPLOAD_URL_PREFIX = "/uploads/knowledge/test-module-api-v1";
 
 const { default: request } = await import("supertest");
 const { createApp } = await import("../src/app.js");
@@ -18,16 +21,28 @@ const {
   parseKnowledgeModuleTagsFromText,
   saveKnowledgeModulePdfV1,
   getKnowledgeModulePdfUploadDir,
+  normalizeKnowledgeModuleMediasV1,
+  updateKnowledgeModuleItemV1,
 } = await import("../src/knowledge/knowledge-module-v1.js");
 const {
   FAB_FINISH_MODULE_SEED_IDS,
   getFabFinishModuleSeedItemsV1,
   seedFabFinishKnowledgeCardsV1,
 } = await import("../src/knowledge/knowledge-fab-finish-seed-v1.js");
+const {
+  ECO_WATER_PH_MODULE_SEED_IDS,
+  getEcoWaterPhModuleSeedItemsV1,
+  seedEcoWaterPhKnowledgeCardsV1,
+} = await import("../src/knowledge/knowledge-eco-water-ph-seed-v1.js");
 const { getKnowledgeCardV1 } = await import("../src/knowledge/knowledge-store-v1.js");
 
 const app = createApp();
-const moduleItemsPath = path.join(process.cwd(), "data", "knowledge", "module-items.json");
+const moduleItemsPath = path.join(
+  process.cwd(),
+  "data",
+  "test-knowledge-module-api-v1",
+  "module-items.json"
+);
 
 async function surveyorLogin() {
   return request(app)
@@ -38,7 +53,10 @@ async function surveyorLogin() {
 /** 仕上げシード以外を消して初期状態に戻す */
 function cleanupModuleData() {
   try {
-    const seeds = getFabFinishModuleSeedItemsV1();
+    const seeds = [
+      ...getFabFinishModuleSeedItemsV1(),
+      ...getEcoWaterPhModuleSeedItemsV1(),
+    ];
     fs.mkdirSync(path.dirname(moduleItemsPath), { recursive: true });
     fs.writeFileSync(moduleItemsPath, JSON.stringify(seeds, null, 2), "utf8");
   } catch {
@@ -68,15 +86,24 @@ describe("knowledge-module-v1 store", () => {
     ]);
   });
 
-  it("createKnowledgeModuleItemV1 persists tags and pdf_url", () => {
+  it("createKnowledgeModuleItemV1 persists tags and multiple medias", () => {
     const item = createKnowledgeModuleItemV1({
       title: "テストPDF",
       summary: "概要テスト",
       genre: "IoT",
       tags: ["IoT", "施工方法"],
       pdf_url: "/uploads/knowledge/module/sample.pdf",
+      medias: [
+        { url: "/uploads/knowledge/module/sample.pdf", fileName: "sample.pdf" },
+        { url: "/uploads/knowledge/module/field.jpg", fileName: "field.jpg" },
+      ],
     });
     assert.equal(item.pdf_url, "/uploads/knowledge/module/sample.pdf");
+    assert.equal(item.medias?.length, 2);
+    assert.deepEqual(item.files, [
+      "/uploads/knowledge/module/sample.pdf",
+      "/uploads/knowledge/module/field.jpg",
+    ]);
     assert.deepEqual(item.tags, ["IoT", "施工方法"]);
     const listed = listKnowledgeModuleItemsV1();
     assert.ok(listed.some((x) => x.id === item.id));
@@ -101,8 +128,46 @@ describe("knowledge-module-v1 store", () => {
           summary: "",
           genre: "IoT",
         }),
-      /summary is required when no PDF is attached/
+      /summary is required when no media is attached/
     );
+  });
+
+  it("normalizes arrays first and falls back to legacy single fields", () => {
+    const medias = normalizeKnowledgeModuleMediasV1({
+      medias: [{ url: "/new/one.jpg", fileName: "one.jpg" }],
+      files: ["/new/two.pdf"],
+      media: "/legacy/video.mp4",
+      file: "/legacy/one.jpg",
+      pdf_url: "/new/two.pdf",
+    });
+    assert.deepEqual(
+      medias.map((entry) => entry.url),
+      ["/new/one.jpg", "/new/two.pdf", "/legacy/video.mp4", "/legacy/one.jpg"]
+    );
+  });
+
+  it("updateKnowledgeModuleItemV1 replaces attachments without changing identity", () => {
+    const created = createKnowledgeModuleItemV1({
+      title: "編集前",
+      summary: "既存データ",
+      genre: "IoT",
+      medias: [{ url: "/uploads/knowledge/module/old.jpg" }],
+    });
+    const updated = updateKnowledgeModuleItemV1(created.id, {
+      title: "編集後",
+      summary: "既存データを保持して更新",
+      genre: "IoT",
+      tags: ["編集"],
+      medias: [
+        { url: "/uploads/knowledge/module/old.jpg" },
+        { url: "/uploads/knowledge/module/new.pdf" },
+      ],
+      files: [],
+      pdf_url: null,
+    });
+    assert.equal(updated.id, created.id);
+    assert.equal(updated.createdAt, created.createdAt);
+    assert.equal(updated.medias?.length, 2);
   });
 
   it("saveKnowledgeModulePdfV1 rejects unsupported types", () => {
@@ -122,7 +187,7 @@ describe("knowledge-module-v1 store", () => {
       fileName: "manual.pdf",
       fileBase64: pdfBytes.toString("base64"),
     });
-    assert.match(result.pdf_url, /^\/uploads\/knowledge\/module\/.*\.pdf$/);
+    assert.match(result.pdf_url, /^\/uploads\/knowledge\/test-module-api-v1\/.*\.pdf$/);
     const diskPath = path.join(process.cwd(), result.pdf_url.replace(/^\//, ""));
     assert.ok(fs.existsSync(diskPath));
   });
@@ -163,6 +228,48 @@ describe("knowledge-module-v1 store", () => {
     assert.ok(listed.some((x) => x.title.includes("スカイブ")));
   });
 
+  it("listKnowledgeModuleItemsV1 appends Eco-Water pH seed cards", () => {
+    cleanupModuleData();
+    const listed = listKnowledgeModuleItemsV1();
+    for (const id of ECO_WATER_PH_MODULE_SEED_IDS) {
+      assert.ok(
+        listed.some((x) => x.id === id),
+        `missing seed ${id}`
+      );
+    }
+    const life = listed.find((x) => x.id === "kn-seed-ew-ph-life-001");
+    assert.ok(life);
+    assert.match(life!.title, /pHセンサーの耐久性/);
+    assert.ok(life!.tags.includes("Eco-Water"));
+    assert.ok(life!.tags.includes("水質"));
+    assert.match(String(life!.body ?? ""), /3M KCl/);
+    assert.match(String(life!.body ?? ""), /定期交換/);
+
+    const maint = listed.find((x) => x.id === "kn-seed-ew-ph-maint-001");
+    assert.ok(maint);
+    assert.match(maint!.title, /クエン酸洗浄/);
+    assert.ok(maint!.tags.includes("施工方法"));
+    assert.ok(maint!.tags.includes("点検"));
+    assert.match(String(maint!.body ?? ""), /点検モード/);
+    assert.match(String(maint!.body ?? ""), /電磁弁/);
+  });
+
+  it("seedEcoWaterPhKnowledgeCardsV1 upserts searchable cards", () => {
+    seedEcoWaterPhKnowledgeCardsV1();
+    const life = getKnowledgeCardV1("EW-PH-LIFE-001");
+    assert.ok(life);
+    assert.match(life!.title, /耐久性と寿命基準/);
+    assert.ok(life!.tags.includes("Eco-Water"));
+    assert.equal(life!.category, "Eco-Water");
+    assert.match(life!.summary, /先端電極/);
+
+    const maint = getKnowledgeCardV1("EW-PH-CITRIC-001");
+    assert.ok(maint);
+    assert.match(maint!.title, /クエン酸洗浄/);
+    assert.ok(maint!.tags.includes("点検"));
+    assert.match(String(maint!.body ?? ""), /クエン酸/);
+  });
+
   it("seedFabFinishKnowledgeCardsV1 upserts searchable cards", () => {
     seedFabFinishKnowledgeCardsV1();
     const card = getKnowledgeCardV1("FAB-PUTTY-SAND-001");
@@ -193,7 +300,11 @@ describe("knowledge-module-v1 API", () => {
     token = login.body.token;
   });
 
-  after(() => cleanupModuleData());
+  after(() => {
+    cleanupModuleData();
+    fs.rmSync(path.dirname(moduleItemsPath), { recursive: true, force: true });
+    fs.rmSync(getKnowledgeModulePdfUploadDir(), { recursive: true, force: true });
+  });
 
   it("POST /module-v1/items creates item with tags", async () => {
     const res = await request(app)
@@ -210,6 +321,39 @@ describe("knowledge-module-v1 API", () => {
     assert.equal(res.body.item.title, "APIテスト");
     assert.deepEqual(res.body.item.tags, ["PLC", "施工方法"]);
     assert.equal(res.body.item.pdf_url, null);
+  });
+
+  it("POST and PATCH preserve multiple attachments", async () => {
+    const create = await request(app)
+      .post("/api/knowledge/module-v1/items")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        title: "複数添付",
+        summary: "",
+        genre: "制御",
+        tags: ["複数"],
+        medias: [
+          { url: "/uploads/knowledge/module/a.jpg", fileName: "a.jpg" },
+          { url: "/uploads/knowledge/module/b.pdf", fileName: "b.pdf" },
+        ],
+      });
+    assert.equal(create.status, 201);
+    assert.equal(create.body.item.medias.length, 2);
+    assert.equal(create.body.item.pdf_url, "/uploads/knowledge/module/a.jpg");
+
+    const update = await request(app)
+      .patch(`/api/knowledge/module-v1/items/${create.body.item.id}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        title: "複数添付・編集済み",
+        summary: "",
+        genre: "制御",
+        tags: ["複数", "編集"],
+        medias: [{ url: "/uploads/knowledge/module/b.pdf", fileName: "b.pdf" }],
+      });
+    assert.equal(update.status, 200);
+    assert.equal(update.body.item.medias.length, 1);
+    assert.equal(update.body.item.pdf_url, "/uploads/knowledge/module/b.pdf");
   });
 
   it("POST /module-v1/items rejects empty summary without pdf_url", async () => {
@@ -236,7 +380,7 @@ describe("knowledge-module-v1 API", () => {
         fileBase64: pdfBytes.toString("base64"),
       });
     assert.equal(upload.status, 201);
-    assert.match(upload.body.pdf_url, /\/uploads\/knowledge\/module\//);
+    assert.match(upload.body.pdf_url, /\/uploads\/knowledge\/test-module-api-v1\//);
 
     const create = await request(app)
       .post("/api/knowledge/module-v1/items")

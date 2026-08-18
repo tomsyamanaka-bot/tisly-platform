@@ -368,12 +368,9 @@
   background: #eef6ff;
 }
 
-.kn-pdf-drop.has-file {
-  flex-direction: row;
-  flex-wrap: wrap;
-  justify-content: flex-start;
-  align-items: center;
-  min-height: 3.5rem;
+.kn-pdf-drop.has-files {
+  background: #f0f9ff;
+  border-color: #7dd3fc;
 }
 
 .kn-pdf-icon {
@@ -439,6 +436,65 @@
   background: #0f172a;
 }
 
+.kn-attachment-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+  gap: 0.55rem;
+  margin: 0.55rem 0;
+}
+
+.kn-attachment-item {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 7.5rem;
+  padding: 0.55rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.kn-attachment-name {
+  width: 100%;
+  overflow: hidden;
+  color: #475569;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kn-attachment-remove {
+  position: absolute;
+  top: 0.25rem;
+  right: 0.25rem;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: #b91c1c;
+  color: #fff;
+  font-size: 1.25rem;
+  font-weight: 900;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.kn-attachment-empty {
+  margin: 0 0 0.55rem;
+  padding: 0.75rem;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
 /* カード内メディア表示 */
 .kn-card-media-link,
 .kn-card-media-block {
@@ -475,6 +531,158 @@
   color: #fff;
   font-size: 0.78rem;
   font-weight: 800;
+}
+
+.kn-media-count {
+  flex: 0 0 auto;
+  padding: 0.3rem 0.55rem;
+  border-radius: 999px;
+  background: #e0f2fe;
+  color: #075985;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.kn-media-gallery {
+  display: flex;
+  gap: 0.65rem;
+  margin: 0 0 0.75rem;
+  padding: 0 0 0.35rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+.kn-gallery-item {
+  position: relative;
+  flex: 0 0 min(82vw, 28rem);
+  min-height: 10rem;
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: #0f172a;
+  scroll-snap-align: start;
+}
+
+.kn-media-gallery.is-compact .kn-gallery-item {
+  flex-basis: min(76vw, 22rem);
+}
+
+.kn-gallery-file {
+  display: flex;
+  min-height: 10rem;
+  padding: 1rem;
+  box-sizing: border-box;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  color: #fff;
+  font-weight: 800;
+  text-align: center;
+  text-decoration: none;
+  word-break: break-word;
+}
+
+.kn-card-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.kn-card-action {
+  flex: 1;
+  min-height: 2.75rem;
+  padding: 0.45rem 0.75rem;
+  border: 2px solid #4a90d9;
+  border-radius: 10px;
+  background: #fff;
+  color: #1a5a9e;
+  font-size: 0.9rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.kn-card-edit {
+  border-color: #94a3b8;
+  color: #475569;
+}
+
+.kn-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9990;
+  display: flex;
+  padding: 1rem;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.7);
+}
+
+.kn-dialog {
+  width: min(100%, 640px);
+  max-height: calc(100dvh - 2rem);
+  padding: 1rem;
+  box-sizing: border-box;
+  overflow-y: auto;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.35);
+}
+
+.kn-dialog-head {
+  display: flex;
+  margin-bottom: 0.75rem;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.kn-dialog-head h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.kn-dialog-close {
+  flex: 0 0 2.75rem;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: none;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #334155;
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+.kn-detail-summary {
+  margin: 0.5rem 0 0.75rem;
+  color: #334155;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.kn-detail-body {
+  margin: 0 0 0.85rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #0f172a;
+  line-height: 1.75;
+  white-space: pre-wrap;
+  font-size: 0.95rem;
+}
+
+.kn-dialog-actions {
+  display: flex;
+  gap: 0.55rem;
+  margin-top: 1rem;
+}
+
+.kn-dialog-actions .kn-add-btn {
+  flex: 1;
+  margin-top: 0;
 }
 
 /* トースト */

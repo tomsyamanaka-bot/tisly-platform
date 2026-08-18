@@ -56,6 +56,8 @@ function normalizeOptionalCardFields(input: KnowledgeCardInputV1): Partial<Knowl
   if (input.photoMeta?.photoId) out.photoMeta = input.photoMeta;
   if (input.pdfMeta?.localPath) out.pdfMeta = input.pdfMeta;
   if (input.qnapSyncStatus) out.qnapSyncStatus = input.qnapSyncStatus;
+  const body = String(input.body ?? "").trim();
+  if (body) out.body = body;
   return out;
 }
 

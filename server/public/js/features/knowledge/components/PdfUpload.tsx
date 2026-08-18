@@ -12,8 +12,8 @@ import {
 } from "../utils/mediaAttachment";
 
 export interface PdfUploadProps {
-  file: File | null;
-  onChange: (file: File | null) => void;
+  files: File[];
+  onChange: (files: File[]) => void;
   disabled?: boolean;
 }
 
@@ -23,59 +23,60 @@ const ACCEPT =
 /**
  * メディア・ファイル添付
  * （PDF / 写真 / 動画）
- * ボタン選択 + ドラッグ＆ドロップ
+ * 複数選択 + 追加選択 + ドラッグ＆ドロップ
  */
-export function PdfUpload({ file, onChange, disabled }: PdfUploadProps) {
+export function PdfUpload({ files, onChange, disabled }: PdfUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState("");
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!file) {
-      setPreviewUrl(null);
-      return;
-    }
-    const url = URL.createObjectURL(file);
-    setPreviewUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [file]);
-
-  const acceptMedia = useCallback(
-    (candidate: File | null) => {
-      if (!candidate) {
-        onChange(null);
-        setError("");
-        return;
-      }
-      if (!isAllowedKnowledgeMediaFile(candidate)) {
+  const appendMedia = useCallback(
+    (candidates: File[]) => {
+      const allowed = candidates.filter(isAllowedKnowledgeMediaFile);
+      const rejectedCount = candidates.length - allowed.length;
+      const seen = new Set(
+        files.map((file) => `${file.name}:${file.size}:${file.lastModified}`)
+      );
+      const additions = allowed.filter((file) => {
+        const key = `${file.name}:${file.size}:${file.lastModified}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      if (rejectedCount > 0) {
         setError(
-          "PDF・写真（jpg/png/heic/webp）・動画（mp4/mov）のみ添付できます"
+          `${rejectedCount}件は未対応です。PDF・写真・動画のみ添付できます`
         );
-        return;
+      } else {
+        setError("");
       }
-      setError("");
-      onChange(candidate);
+      if (additions.length > 0) onChange([...files, ...additions]);
+      if (inputRef.current) inputRef.current.value = "";
     },
-    [onChange]
+    [files, onChange]
+  );
+
+  const removeMedia = useCallback(
+    (index: number) => {
+      setError("");
+      onChange(files.filter((_, fileIndex) => fileIndex !== index));
+    },
+    [files, onChange]
   );
 
   const onDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setDragOver(false);
     if (disabled) return;
-    const dropped = e.dataTransfer.files?.[0] ?? null;
-    acceptMedia(dropped);
+    appendMedia(Array.from(e.dataTransfer.files ?? []));
   };
-
-  const kind: KnowledgeMediaKind | null = file
-    ? detectKnowledgeMediaKind(file.name, file.type)
-    : null;
 
   return (
     <div className="kn-pdf-upload">
       <div
-        className={`kn-pdf-drop${dragOver ? " is-dragover" : ""}${file ? " has-file" : ""}`}
+        className={`kn-pdf-drop${dragOver ? " is-dragover" : ""}${
+          files.length > 0 ? " has-files" : ""
+        }`}
         onDragOver={(e) => {
           e.preventDefault();
           if (!disabled) setDragOver(true);
@@ -83,51 +84,82 @@ export function PdfUpload({ file, onChange, disabled }: PdfUploadProps) {
         onDragLeave={() => setDragOver(false)}
         onDrop={onDrop}
       >
-        {file ? (
-          <>
-            <MediaPreview
-              kind={kind ?? "unknown"}
-              previewUrl={previewUrl}
-              fileName={file.name}
-            />
-            <span className="kn-pdf-name">{file.name}</span>
-            <button
-              type="button"
-              className="kn-pdf-clear"
-              disabled={disabled}
-              onClick={() => acceptMedia(null)}
-            >
-              削除
-            </button>
-          </>
-        ) : (
-          <>
-            <span className="kn-pdf-icon" aria-hidden="true">
-              📎
-            </span>
-            <p className="kn-pdf-hint">
-              PDF・写真・動画をドラッグ＆ドロップ
-            </p>
-            <button
-              type="button"
-              className="kn-pdf-select-btn"
-              disabled={disabled}
-              onClick={() => inputRef.current?.click()}
-            >
-              ファイルを添付（PDF・写真・動画）
-            </button>
-          </>
-        )}
+        <span className="kn-pdf-icon" aria-hidden="true">
+          📎
+        </span>
+        <p className="kn-pdf-hint">
+          PDF・写真・動画を複数選択、またはドラッグ＆ドロップ
+        </p>
+        <button
+          type="button"
+          className="kn-pdf-select-btn"
+          disabled={disabled}
+          onClick={() => inputRef.current?.click()}
+        >
+          {files.length > 0
+            ? "＋ ファイルを追加"
+            : "ファイルを添付（PDF・写真・動画）"}
+        </button>
         <input
           ref={inputRef}
           type="file"
+          multiple
           accept={ACCEPT}
           className="kn-pdf-file-input"
           disabled={disabled}
-          onChange={(e) => acceptMedia(e.target.files?.[0] ?? null)}
+          onChange={(e) => appendMedia(Array.from(e.target.files ?? []))}
         />
       </div>
+      {files.length > 0 ? (
+        <div className="kn-attachment-grid" aria-label={`添付中 ${files.length}件`}>
+          {files.map((file, index) => (
+            <FilePreview
+              key={`${file.name}:${file.size}:${file.lastModified}`}
+              file={file}
+              disabled={disabled}
+              onRemove={() => removeMedia(index)}
+            />
+          ))}
+        </div>
+      ) : null}
       {error ? <p className="kn-pdf-error">{error}</p> : null}
+    </div>
+  );
+}
+
+function FilePreview({
+  file,
+  disabled,
+  onRemove,
+}: {
+  file: File;
+  disabled?: boolean;
+  onRemove: () => void;
+}) {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const kind: KnowledgeMediaKind = detectKnowledgeMediaKind(file.name, file.type);
+
+  useEffect(() => {
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+
+  return (
+    <div className="kn-attachment-item">
+      <MediaPreview kind={kind} previewUrl={previewUrl} fileName={file.name} />
+      <span className="kn-attachment-name" title={file.name}>
+        {file.name}
+      </span>
+      <button
+        type="button"
+        className="kn-attachment-remove"
+        aria-label={`${file.name} を削除`}
+        disabled={disabled}
+        onClick={onRemove}
+      >
+        ×
+      </button>
     </div>
   );
 }

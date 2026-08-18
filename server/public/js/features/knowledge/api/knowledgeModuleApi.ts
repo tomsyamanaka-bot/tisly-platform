@@ -2,6 +2,12 @@
 
 import { getCustomerToken } from "../../../customer-auth.js";
 
+export interface KnowledgeModuleMediaDto {
+  url: string;
+  fileName?: string;
+  kind?: "pdf" | "image" | "video" | "unknown";
+}
+
 export interface KnowledgeModuleItemDto {
   id: string;
   title: string;
@@ -9,7 +15,13 @@ export interface KnowledgeModuleItemDto {
   genre: string;
   tags: string[];
   pdf_url: string | null;
+  medias?: Array<KnowledgeModuleMediaDto | string>;
+  files?: Array<KnowledgeModuleMediaDto | string>;
+  media?: KnowledgeModuleMediaDto | string | null;
+  file?: KnowledgeModuleMediaDto | string | null;
   createdAt: string;
+  /** 本文詳細（任意） */
+  body?: string;
 }
 
 async function api<T>(path: string, opts: RequestInit = {}): Promise<T> {
@@ -45,11 +57,33 @@ export async function createKnowledgeModuleItem(body: {
   genre: string;
   tags: string[];
   pdf_url: string | null;
+  medias: KnowledgeModuleMediaDto[];
 }): Promise<KnowledgeModuleItemDto> {
   const { item } = await api<{ item: KnowledgeModuleItemDto }>("/module-v1/items", {
     method: "POST",
     body: JSON.stringify(body),
   });
+  return item;
+}
+
+export async function updateKnowledgeModuleItem(
+  id: string,
+  body: {
+    title: string;
+    summary: string;
+    genre: string;
+    tags: string[];
+    pdf_url: string | null;
+    medias: KnowledgeModuleMediaDto[];
+  }
+): Promise<KnowledgeModuleItemDto> {
+  const { item } = await api<{ item: KnowledgeModuleItemDto }>(
+    `/module-v1/items/${encodeURIComponent(id)}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }
+  );
   return item;
 }
 
@@ -63,6 +97,20 @@ export async function uploadKnowledgeModulePdf(
     method: "POST",
     body: JSON.stringify({ fileName: file.name, fileBase64: base64 }),
   });
+}
+
+export async function uploadKnowledgeModuleFiles(
+  files: File[]
+): Promise<KnowledgeModuleMediaDto[]> {
+  return Promise.all(
+    files.map(async (file) => {
+      const uploaded = await uploadKnowledgeModulePdf(file);
+      return {
+        url: uploaded.pdf_url,
+        fileName: file.name,
+      };
+    })
+  );
 }
 
 function readFileAsBase64(file: File): Promise<string> {
