@@ -11,6 +11,10 @@ import {
   renderSocLayerButtons,
 } from "./security-floor-map-v1.js";
 import {
+  applySecurityOrbit,
+  bindSecurityOrbit,
+} from "./security-floor-orbit-v1.js";
+import {
   FALLBACK_DEFAULT_SITE_ID,
   applyLocalGuardMode,
   getFallbackCustomerDash,
@@ -105,6 +109,10 @@ function renderDash(dash) {
     const open = (dash.soc?.alarmLogs || []).filter(
       (l) => l.status !== "done"
     );
+    $("sf-alarm-panel")?.classList.toggle(
+      "is-live",
+      open.length > 0
+    );
     setHtml(
       "sf-alarm-list",
       open
@@ -136,6 +144,8 @@ function renderDash(dash) {
       state.cameraId = dash.soc?.selectedCameraId || null;
     }
     setLiveScene(state.cameraId, dash.soc);
+    bindSecurityOrbit();
+    applySecurityOrbit();
     markSecurityUiReady();
   } catch (err) {
     setText("sf-status-label", "表示を再構築しました");
@@ -232,6 +242,10 @@ function bind() {
         .querySelectorAll(".sf-mobile-tabs button")
         .forEach((b) => b.classList.toggle("is-on", b === btn));
       document.body.setAttribute("data-pane", state.pane);
+      const target = document.querySelector(
+        `.sf-soc-shell [data-pane="${state.pane}"]`
+      );
+      target?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   });
 }

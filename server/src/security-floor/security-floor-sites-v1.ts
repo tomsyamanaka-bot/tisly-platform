@@ -470,7 +470,7 @@ export const SECURITY_FLOOR_SITES_V1: SecuritySiteV1[] = [
       {
         id: "roof",
         label: "屋根/太陽光",
-        enabled: true,
+        enabled: false,
       },
     ],
     rooms: [
@@ -857,8 +857,10 @@ function enrichExistingSitesForSocV1(): void {
     appendIfMissing(jp.floors, {
       id: "roof",
       label: "屋根/太陽光",
-      enabled: true,
+      enabled: false,
     });
+    const jpRoof = jp.floors.find((f) => f.id === "roof");
+    if (jpRoof) jpRoof.enabled = false;
     appendIfMissing(jp.rooms, {
       id: "jp-roof-pv",
       floorId: "roof",
@@ -996,8 +998,10 @@ function enrichExistingSitesForSocV1(): void {
     appendIfMissing(au.floors, {
       id: "roof",
       label: "Roof / PV",
-      enabled: true,
+      enabled: false,
     });
+    const auRoof = au.floors.find((f) => f.id === "roof");
+    if (auRoof) auRoof.enabled = false;
     appendIfMissing(au.rooms, {
       id: "au-roof-pv",
       floorId: "roof",

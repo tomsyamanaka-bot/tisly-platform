@@ -107,7 +107,12 @@ function cameraScene(id: string): string {
   return "lobby";
 }
 
-function layerLabel(id: string, fallback: string): string {
+export function isVisibleSecurityFloorIdV1(id: string): boolean {
+  return id !== "roof";
+}
+
+export function layerLabel(id: string, fallback: string): string {
+  if (id === "all") return "全体俯瞰";
   if (id === "outdoor") return "外周・敷地";
   if (id === "1f") return "1F";
   if (id === "2f") return "2F";
@@ -270,12 +275,14 @@ export function pickLinkedCameraIdV1(
 export function buildSecuritySocOverlayV1(
   site: SecuritySiteV1
 ): SecuritySocOverlayV1 {
-  const layers = site.floors.map((f) => ({
-    id: f.id,
-    label: layerLabel(f.id, f.label),
-    enabled: f.enabled,
-    z: layerZ(f.id),
-  }));
+  const layers = site.floors
+    .filter((f) => isVisibleSecurityFloorIdV1(f.id))
+    .map((f) => ({
+      id: f.id,
+      label: layerLabel(f.id, f.label),
+      enabled: f.enabled,
+      z: layerZ(f.id),
+    }));
   return {
     layers,
     cameras: listSecurityCamerasV1(site),

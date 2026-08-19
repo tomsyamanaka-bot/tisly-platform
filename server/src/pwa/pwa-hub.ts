@@ -419,11 +419,11 @@ const PRACTICAL_PWA_DEFS: Array<
   {
     id: "security_floor_v1",
     label: "ホームセキュリティ俯瞰",
-    subtitle: "フロア切替・発報発光・警備モード",
+    subtitle: "3D俯瞰・発報発光・警備モード",
     icon: "🛡️",
     features: [
-      "1F/2F/屋外切替",
-      "ミリ波人感発光",
+      "全体/外周/2F/1F切替",
+      "スクロール360°回転",
       "在宅・外出・解除",
       "JP/AU物件",
     ],

@@ -87,9 +87,9 @@ export function renderFloorTabs(floors, activeId) {
 
 export function renderGuardModes(mode) {
   const items = [
-    { id: "home", label: "🟢 在宅警備" },
-    { id: "away", label: "🔵 外出警戒" },
-    { id: "disarmed", label: "⚪ 警戒解除" },
+    { id: "home", label: "🛡️ 在宅警備" },
+    { id: "away", label: "🛡️ 外出警戒" },
+    { id: "disarmed", label: "🛡️ 警戒解除" },
   ];
   return items
     .map((it) => {
@@ -114,9 +114,17 @@ export function socFloorLabel(id, fallback) {
   if (id === "outdoor") return "外周・敷地";
   if (id === "1f") return "1F";
   if (id === "2f") return "2F";
-  if (id === "roof") return "屋根/太陽光";
   if (id === "all") return "全体俯瞰";
   return fallback || id;
+}
+
+export function visibleFloors(floors) {
+  const order = { outdoor: 0, "2f": 1, "1f": 2 };
+  return (floors || [])
+    .filter((f) => f.id !== "roof")
+    .sort(
+      (a, b) => (order[a.id] ?? 9) - (order[b.id] ?? 9)
+    );
 }
 
 function furnitureHints(room) {
@@ -136,17 +144,6 @@ function layerDecorations(floorId, opts = {}) {
         <rect class="sf-car" x="14" y="38" width="16" height="9" rx="1.6"></rect>
         <rect class="sf-car" x="34" y="52" width="16" height="9" rx="1.6"></rect>
         <rect class="sf-garage" x="10" y="20" width="28" height="14" rx="1.2"></rect>
-      </g>`;
-  }
-  if (floorId === "roof") {
-    return `
-      <g class="sf-deco sf-deco-pv" pointer-events="none">
-        <rect class="sf-pv" x="16" y="26" width="22" height="12" rx="0.6"></rect>
-        <rect class="sf-pv" x="40" y="26" width="22" height="12" rx="0.6"></rect>
-        <rect class="sf-pv" x="64" y="26" width="18" height="12" rx="0.6"></rect>
-        <rect class="sf-pv" x="16" y="42" width="22" height="12" rx="0.6"></rect>
-        <rect class="sf-pv" x="40" y="42" width="22" height="12" rx="0.6"></rect>
-        <rect class="sf-pv" x="64" y="42" width="18" height="12" rx="0.6"></rect>
       </g>`;
   }
   if (opts.lightingOn > 0 && (floorId === "1f" || floorId === "2f")) {
@@ -236,8 +233,10 @@ export function renderIsoLayerSvg(
 }
 
 export function renderIsoStack(site, focusId, opts = {}) {
-  const floors = (site.floors || []).filter((f) => f.enabled);
-  const zOrder = { roof: 0, "2f": 1, "1f": 2, outdoor: 3 };
+  const floors = visibleFloors(site.floors).filter(
+    (f) => f.enabled
+  );
+  const zOrder = { outdoor: 0, "1f": 1, "2f": 2 };
   const layers = [...floors].sort(
     (a, b) => (zOrder[a.id] ?? 9) - (zOrder[b.id] ?? 9)
   );
@@ -270,13 +269,13 @@ export function renderIsoStack(site, focusId, opts = {}) {
         </article>`;
     })
     .join("");
-  return `<div class="sf-iso-stage" data-focus="${escapeHtml(focus)}">${cards}</div>`;
+  return `<div class="sf-iso-scene"><div class="sf-iso-orbit" id="sf-iso-orbit" data-focus="${escapeHtml(focus)}">${cards}</div></div>`;
 }
 
 export function renderSocLayerButtons(floors, activeId) {
   const items = [
     { id: "all", label: "全体俯瞰", enabled: true },
-    ...(floors || []).map((f) => ({
+    ...visibleFloors(floors).map((f) => ({
       id: f.id,
       label: socFloorLabel(f.id, f.label),
       enabled: f.enabled,

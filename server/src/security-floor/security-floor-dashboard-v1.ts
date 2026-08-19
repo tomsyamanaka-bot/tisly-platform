@@ -166,7 +166,9 @@ export function buildSecurityFloorCustomerDashboardV1(
       : "正常に動いています",
     guardMode: site.guardMode,
     guardModeLabel: guardModeLabelJaV1(site.guardMode),
-    floors: site.floors.map((f) => ({ ...f })),
+    floors: site.floors
+      .filter((f) => f.id !== "roof")
+      .map((f) => ({ ...f })),
     rooms: mapRooms(site, sensors),
     sensors,
     notes: [...site.notes],
@@ -194,7 +196,9 @@ function toOperatorRow(
     guardMode: site.guardMode,
     guardModeLabel: guardModeLabelJaV1(site.guardMode),
     hasAlert: securitySiteHasAlertV1(site),
-    floors: site.floors.map((f) => ({ ...f })),
+    floors: site.floors
+      .filter((f) => f.id !== "roof")
+      .map((f) => ({ ...f })),
     rooms: mapRooms(site, sensors),
     sensors,
     notes: [...site.notes],

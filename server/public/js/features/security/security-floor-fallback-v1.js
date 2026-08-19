@@ -29,16 +29,14 @@ function nowIso() {
 
 const MORIYA_FLOORS = [
   { id: "outdoor", label: "外周・敷地", enabled: true },
-  { id: "1f", label: "1F", enabled: true },
   { id: "2f", label: "2F", enabled: true },
-  { id: "roof", label: "屋根/太陽光", enabled: true },
+  { id: "1f", label: "1F", enabled: true },
 ];
 
 const TSUKUBA_FLOORS = [
-  { id: "outdoor", label: "屋外・ガレージ", enabled: true },
-  { id: "1f", label: "1F", enabled: true },
+  { id: "outdoor", label: "外周・敷地", enabled: true },
   { id: "2f", label: "2F", enabled: true },
-  { id: "roof", label: "屋根/太陽光", enabled: true },
+  { id: "1f", label: "1F", enabled: true },
 ];
 
 function moriyaSite() {
@@ -105,15 +103,6 @@ function moriyaSite() {
       y: 16,
       w: 34,
       h: 68,
-    }),
-    room({
-      id: "my-roof-pv",
-      floorId: "roof",
-      label: "太陽光パネル",
-      x: 10,
-      y: 18,
-      w: 80,
-      h: 64,
     }),
   ];
   const sensors = [

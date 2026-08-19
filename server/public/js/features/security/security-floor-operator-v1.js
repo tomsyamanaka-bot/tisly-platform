@@ -10,7 +10,12 @@ import {
   renderIsoStack,
   renderSocLayerButtons,
   socFloorLabel,
+  visibleFloors,
 } from "./security-floor-map-v1.js";
+import {
+  applySecurityOrbit,
+  bindSecurityOrbit,
+} from "./security-floor-orbit-v1.js";
 import {
   FALLBACK_DEFAULT_SITE_ID,
   applyLocalAck,
@@ -170,6 +175,10 @@ function renderKpi(site, dash) {
 function renderAlarms(site) {
   const soc = site.soc || {};
   const open = openAlarms(soc);
+  $("sf-alarm-panel")?.classList.toggle(
+    "is-live",
+    open.length > 0
+  );
   setText("sf-alarm-count", `${open.length}件発生中`);
   setText("sf-bell-count", String(open.length));
   setHtml(
@@ -233,13 +242,18 @@ function renderLogs(site) {
     )
     .join("");
   const fl = $("sf-log-floor");
-  if (fl && fl.options.length <= 1) {
-    (site.floors || []).forEach((f) => {
+  if (fl) {
+    const current = fl.value;
+    fl.innerHTML = '<option value="">フロアすべて</option>';
+    visibleFloors(site.floors).forEach((f) => {
       const op = document.createElement("option");
       op.value = f.id;
       op.textContent = socFloorLabel(f.id, f.label);
       fl.appendChild(op);
     });
+    if ([...fl.options].some((o) => o.value === current)) {
+      fl.value = current;
+    }
   }
 }
 
@@ -305,6 +319,8 @@ function renderSite(site, dash) {
     renderAlarms(site);
     renderLogs(site);
     renderThumbs(site);
+    bindSecurityOrbit();
+    applySecurityOrbit();
     markSecurityUiReady();
   } catch (err) {
     setText("sf-status-label", "表示を再構築しました");
@@ -525,6 +541,10 @@ function bind() {
         .querySelectorAll(".sf-mobile-tabs button")
         .forEach((b) => b.classList.toggle("is-on", b === btn));
       document.body.setAttribute("data-pane", state.pane);
+      const target = document.querySelector(
+        `.sf-soc-shell [data-pane="${state.pane}"]`
+      );
+      target?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   });
 }

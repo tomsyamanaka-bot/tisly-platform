@@ -42,7 +42,11 @@ describe("security-floor-v1", () => {
     assert.ok(au);
     assert.ok(moriya);
     assert.equal(moriya.addressLabel.includes("守谷"), true);
-    assert.ok(jp.floors.find((f) => f.id === "roof")?.enabled);
+    assert.ok(jp.floors.find((f) => f.id === "roof"));
+    assert.equal(
+      jp.floors.find((f) => f.id === "roof")?.enabled,
+      false
+    );
     assert.ok(jp.sensors.some((s) => s.kind === "camera"));
     assert.ok(moriya.sensors.some((s) => s.kind === "camera"));
     assert.equal(jp.countryCode, "JP");
@@ -186,8 +190,11 @@ describe("security-floor-v1", () => {
     assert.match(css, /pulse-alarm/);
     assert.match(css, /#ef4444/i);
     assert.match(css, /#1e3a8a/i);
-    assert.match(css, /#0B1120/i);
-    assert.match(css, /rgba\(15, 23, 42, 0.75\)/);
+    assert.match(css, /#f8fafc/i);
+    assert.match(css, /#2563eb/i);
+    assert.match(css, /rotateX\(55deg\)/);
+    assert.match(css, /touch-action: pan-y/);
+    assert.match(css, /pointer-events: auto/);
 
     const customer = await request(app).get(
       "/api/security-floor/v1/customer?siteId=SEC-JP-TSUKUBA-001"
@@ -254,7 +261,9 @@ describe("security-floor-v1", () => {
     assert.match(html, /sf-iso-wrap/);
     assert.match(html, /アラーム対応完了/);
     assert.match(html, /sf-map-loading/);
-    assert.match(html, /security-floor-operator-v1\.js\?v=2468/);
+    assert.match(html, /TiSLY Security/);
+    assert.match(html, /security-floor-operator-v1\.js\?v=2469/);
+    assert.doesNotMatch(html, /屋根\/太陽光/);
     const mapJs = fs.readFileSync(
       path.join(
         publicDir,
@@ -264,6 +273,17 @@ describe("security-floor-v1", () => {
     );
     assert.match(mapJs, /renderIsoStack/);
     assert.match(mapJs, /layerDecorations/);
+    assert.match(mapJs, /sf-iso-orbit/);
+    assert.doesNotMatch(mapJs, /屋根\/太陽光/);
+    const orbitJs = fs.readFileSync(
+      path.join(
+        publicDir,
+        "js/features/security/security-floor-orbit-v1.js"
+      ),
+      "utf8"
+    );
+    assert.match(orbitJs, /window\.scrollY/);
+    assert.match(orbitJs, /rotateZ/);
     const opJs = fs.readFileSync(
       path.join(
         publicDir,
@@ -273,6 +293,7 @@ describe("security-floor-v1", () => {
     );
     assert.match(opJs, /bootFallback/);
     assert.match(opJs, /applyLocalPrimaryAlert/);
+    assert.match(opJs, /bindSecurityOrbit/);
     assert.match(opJs, /try \{/);
     const fbJs = fs.readFileSync(
       path.join(
@@ -283,14 +304,25 @@ describe("security-floor-v1", () => {
     );
     assert.match(fbJs, /SEC-JP-MORIYA-001/);
     assert.match(fbJs, /つくばモデルハウス/);
-    assert.match(css, /touch-action: pan-y/);
-    assert.match(css, /pointer-events: auto/);
+    assert.doesNotMatch(fbJs, /屋根\/太陽光/);
     const customerHtml = fs.readFileSync(
       path.join(publicDir, "security-customer-v1.html"),
       "utf8"
     );
     assert.match(customerHtml, /sf-cam-expand/);
+    assert.match(customerHtml, /TiSLY Security/);
     assert.match(customerHtml, /data-hqs-direct="\/customer"/);
+
+    const dash = buildSecurityFloorCustomerDashboardV1(
+      "SEC-JP-TSUKUBA-001"
+    );
+    assert.equal(
+      dash.floors.some((f) => f.id === "roof"),
+      false
+    );
+    assert.ok(dash.floors.some((f) => f.id === "outdoor"));
+    assert.ok(dash.floors.some((f) => f.id === "1f"));
+    assert.ok(dash.floors.some((f) => f.id === "2f"));
 
     const notifyMoriya = await request(app)
       .post("/api/security-floor/v1/test-notify")

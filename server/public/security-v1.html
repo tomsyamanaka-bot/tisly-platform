@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0B1120" />
-  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#F8FAFC" />
+  <meta name="color-scheme" content="light" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-title" content="TiSLY 監視センター" />
+  <meta name="apple-mobile-web-app-title" content="TiSLY Security" />
   <meta name="mobile-web-app-capable" content="yes" />
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2003" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-  <title>TiSLY スマートモニタリングシステム</title>
-  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2468b" />
+  <title>TiSLY Security</title>
+  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2469" />
 </head>
 <body class="sf-body sf-soc" data-hqs-mode="internal" data-hqs-direct="/app">
   <header class="sf-soc-header">
@@ -20,10 +20,11 @@
       <span class="sf-crystal" aria-hidden="true"></span>
       <div>
         <p class="sf-brand-name">TiSLY</p>
-        <h1 class="sf-title">スマートモニタリングシステム</h1>
+        <h1 class="sf-title">TiSLY Security</h1>
       </div>
     </div>
     <div class="sf-soc-meta">
+      <select id="sf-site-select" class="sf-select sf-select-inline" aria-label="物件選択"></select>
       <span class="sf-online-pill" id="sf-online">● オンライン</span>
       <time id="sf-clock">—</time>
       <span class="sf-bell" aria-label="通知">🔔<b id="sf-bell-count">0</b></span>
@@ -38,25 +39,7 @@
   </nav>
 
   <div class="sf-soc-shell">
-    <aside class="sf-soc-nav">
-      <p class="sf-card-label">物件</p>
-      <select id="sf-site-select" class="sf-select" aria-label="物件選択"></select>
-      <div class="sf-property" id="sf-property">—</div>
-      <p class="sf-card-label">フロア切替</p>
-      <div class="sf-tabs sf-layer-tabs" id="sf-floor-tabs"></div>
-      <p class="sf-card-label">表示オプション</p>
-      <label class="sf-tog"><input type="checkbox" id="sf-opt-cam" checked /> カメラ</label>
-      <label class="sf-tog"><input type="checkbox" id="sf-opt-sens" checked /> センサー</label>
-      <label class="sf-tog"><input type="checkbox" id="sf-opt-zone" checked /> ゾーン</label>
-      <label class="sf-tog"><input type="checkbox" id="sf-opt-label" checked /> ラベル</label>
-      <p class="sf-card-label">天気</p>
-      <p id="sf-weather">—</p>
-      <p class="sf-card-label">月額プラン</p>
-      <p id="sf-plan">—</p>
-    </aside>
-
-    <section class="sf-soc-center" data-pane="map">
-      <div class="sf-kpi-row" id="sf-kpi"></div>
+    <section class="sf-soc-hero" data-pane="map">
       <div class="sf-status sf-status-hero" id="sf-status-hero">
         <span class="sf-status-emoji" id="sf-status-emoji">🟢</span>
         <p class="sf-status-label" id="sf-status-label">読み込み中…</p>
@@ -68,12 +51,21 @@
       <div class="sf-map-wrap sf-iso-wrap" id="sf-map-wrap">
         <p class="sf-map-loading">読み込み中…</p>
       </div>
+      <p class="sf-orbit-hint">縦スクロールで360°回転 · マップをドラッグして視点移動</p>
     </section>
 
-    <aside class="sf-soc-right" data-pane="alert">
-      <section class="sf-card sf-alarm-panel">
+    <section class="sf-soc-tools">
+      <p class="sf-card-label">フロア切替</p>
+      <div class="sf-tabs sf-layer-tabs" id="sf-floor-tabs"></div>
+      <div class="sf-kpi-row" id="sf-kpi"></div>
+    </section>
+
+    <section class="sf-soc-mid" data-pane="alert">
+      <section class="sf-card sf-alarm-panel" id="sf-alarm-panel">
         <p class="sf-card-label">アラーム発報 <span id="sf-alarm-count">0件発生中</span></p>
         <ul class="sf-alarm-list" id="sf-alarm-list"></ul>
+        <dl class="sf-detail" id="sf-alarm-detail"></dl>
+        <button type="button" class="sf-ack" id="sf-ack">アラーム対応完了</button>
       </section>
       <section class="sf-card">
         <p class="sf-card-label" id="sf-cam-title">ライブカメラ</p>
@@ -88,12 +80,30 @@
           <button type="button" class="sf-ghost" id="sf-cam-play">録画再生</button>
         </div>
       </section>
-      <section class="sf-card">
-        <p class="sf-card-label">アラーム詳細</p>
-        <dl class="sf-detail" id="sf-alarm-detail"></dl>
-        <button type="button" class="sf-ack" id="sf-ack">アラーム対応完了</button>
-      </section>
-    </aside>
+    </section>
+
+    <section class="sf-card sf-quick-card">
+      <p class="sf-card-label">クイック操作</p>
+      <div class="sf-quick">
+        <div class="sf-modes" id="sf-modes"></div>
+        <button type="button" id="sf-light-on">💡 照明を一括ON</button>
+        <button type="button" id="sf-light-off">💡 照明を一括OFF</button>
+        <button type="button" class="sf-demo-btn" id="sf-demo-alert">🔔 通知テスト</button>
+        <button type="button" id="sf-export">📄 レポート出力</button>
+      </div>
+      <details class="sf-opts">
+        <summary>表示オプション・物件情報</summary>
+        <div class="sf-opts-grid">
+          <label class="sf-tog"><input type="checkbox" id="sf-opt-cam" checked /> カメラ</label>
+          <label class="sf-tog"><input type="checkbox" id="sf-opt-sens" checked /> センサー</label>
+          <label class="sf-tog"><input type="checkbox" id="sf-opt-zone" checked /> ゾーン</label>
+          <label class="sf-tog"><input type="checkbox" id="sf-opt-label" checked /> ラベル</label>
+        </div>
+        <div class="sf-property" id="sf-property">—</div>
+        <p id="sf-weather">—</p>
+        <p id="sf-plan">—</p>
+      </details>
+    </section>
 
     <section class="sf-soc-bottom" data-pane="log">
       <div class="sf-log-head">
@@ -121,13 +131,6 @@
           <tbody id="sf-log-body"></tbody>
         </table>
       </div>
-      <div class="sf-quick">
-        <button type="button" id="sf-light-on">💡 照明を一括ON</button>
-        <button type="button" id="sf-light-off">💡 照明を一括OFF</button>
-        <div class="sf-modes" id="sf-modes"></div>
-        <button type="button" class="sf-demo-btn" id="sf-demo-alert">🔔 通知テスト（発報デモ切替）</button>
-        <button type="button" id="sf-export">📄 レポート出力</button>
-      </div>
       <ul class="sf-legend" id="sf-notes"></ul>
     </section>
   </div>
@@ -148,15 +151,15 @@
       setTimeout(function () {
         if (window.__TISLY_SF_READY) return;
         var wrap = document.getElementById("sf-map-wrap");
-        if (!wrap || wrap.querySelector(".sf-iso-stage")) return;
+        if (!wrap || wrap.querySelector(".sf-iso-orbit")) return;
         wrap.innerHTML =
-          '<div class="sf-iso-stage"><p class="sf-map-loading">3Dマップを再描画しています</p></div>';
+          '<div class="sf-iso-scene"><div class="sf-iso-orbit" id="sf-iso-orbit"><p class="sf-map-loading">3Dマップを再描画しています</p></div></div>';
         var status = document.getElementById("sf-status-label");
         if (status) status.textContent = "モック表示";
       }, 1200);
     });
   </script>
-  <script type="module" src="/js/features/security/security-floor-operator-v1.js?v=2468"></script>
-  <script type="module" src="/js/features/home/home-quick-switch-v1.js?v=2468"></script>
+  <script type="module" src="/js/features/security/security-floor-operator-v1.js?v=2469"></script>
+  <script type="module" src="/js/features/home/home-quick-switch-v1.js?v=2469"></script>
 </body>
 </html>
