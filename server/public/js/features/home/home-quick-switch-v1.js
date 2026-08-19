@@ -124,7 +124,19 @@ function renderItems(listEl, items, mode) {
     .join("");
 }
 
+function shouldSkip() {
+  if (document.body?.dataset?.hqsSkip === "1") return true;
+  const p = location.pathname || "";
+  return (
+    p === "/security-v1" ||
+    p === "/app/security" ||
+    p === "/app/security-v1" ||
+    p === "/customer/security"
+  );
+}
+
 function mount() {
+  if (shouldSkip()) return;
   if (document.querySelector(".hqs-fab")) return;
   ensureStylesheet();
 

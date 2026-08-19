@@ -199,6 +199,7 @@ function bind() {
     bootFallback();
     loadDash().catch(() => {});
   });
+  if (window.__TISLY_SF_CTRL_BOUND) return;
   $("sf-floor-tabs")?.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-floor]");
     if (!btn || btn.disabled) return;

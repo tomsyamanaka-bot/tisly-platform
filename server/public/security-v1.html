@@ -11,9 +11,9 @@
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2003" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
   <title>TiSLY Security</title>
-  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2469" />
+  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2470" />
 </head>
-<body class="sf-body sf-soc" data-hqs-mode="internal" data-hqs-direct="/app">
+<body class="sf-body sf-soc" data-hqs-skip="1">
   <header class="sf-soc-header">
     <a class="sf-back" href="/app">← 戻る</a>
     <div class="sf-soc-brand">
@@ -48,15 +48,78 @@
           <strong id="sf-sum-alert">0</strong>
         </span>
       </div>
-      <div class="sf-map-wrap sf-iso-wrap" id="sf-map-wrap">
-        <p class="sf-map-loading">読み込み中…</p>
+      <div class="sf-map-wrap sf-iso-wrap is-lights-on" id="sf-map-wrap">
+        <div class="sf-iso-scene">
+          <div class="sf-iso-orbit" id="sf-iso-orbit" data-focus="all">
+            <article class="sf-iso-layer" data-layer="outdoor" style="--z:0">
+              <p class="sf-iso-caption">外周・敷地</p>
+              <svg class="sf-map sf-iso-svg" viewBox="0 0 100 100" role="img" aria-label="外周・敷地">
+                <rect class="sf-iso-slab" x="1" y="1" width="98" height="98" rx="3"></rect>
+                <rect class="sf-room" data-room-id="my-out-park" x="6" y="16" width="50" height="68" rx="2"></rect>
+                <text class="sf-room-label" x="31" y="50" text-anchor="middle">ガレージ</text>
+                <rect class="sf-room" data-room-id="my-out-garden" x="60" y="16" width="34" height="68" rx="2"></rect>
+                <text class="sf-room-label" x="77" y="50" text-anchor="middle">庭・外周</text>
+                <rect class="sf-car" x="14" y="38" width="16" height="9" rx="1.6"></rect>
+                <g class="sf-pin is-cam" data-sensor-id="my-cam-park" data-camera="my-cam-park" transform="translate(30 50)">
+                  <circle class="sf-pin-pulse" r="9"></circle>
+                  <circle class="sf-pin-bg" r="5.6"></circle>
+                  <text class="sf-pin-icon" y="0.6">📷</text>
+                </g>
+              </svg>
+            </article>
+            <article class="sf-iso-layer" data-layer="1f" style="--z:1">
+              <p class="sf-iso-caption">1F</p>
+              <svg class="sf-map sf-iso-svg" viewBox="0 0 100 100" role="img" aria-label="1F">
+                <rect class="sf-iso-slab" x="1" y="1" width="98" height="98" rx="3"></rect>
+                <rect class="sf-room" data-room-id="my-1f-entry" x="4" y="58" width="24" height="38" rx="2"></rect>
+                <text class="sf-room-label" x="16" y="77" text-anchor="middle">玄関ホール</text>
+                <rect class="sf-room" data-room-id="my-1f-living" x="30" y="8" width="44" height="54" rx="2"></rect>
+                <text class="sf-room-label" x="52" y="35" text-anchor="middle">リビング</text>
+                <rect class="sf-room" data-room-id="my-1f-kitchen" x="76" y="8" width="20" height="40" rx="2"></rect>
+                <text class="sf-room-label" x="86" y="28" text-anchor="middle">キッチン</text>
+                <circle class="sf-light" cx="22" cy="22" r="2.2"></circle>
+                <circle class="sf-light" cx="52" cy="28" r="2.2"></circle>
+                <g class="sf-pin is-sens" data-sensor-id="my-door-front" data-camera="my-cam-entry" transform="translate(16 88)">
+                  <circle class="sf-pin-pulse" r="9"></circle>
+                  <circle class="sf-pin-bg" r="5.6"></circle>
+                  <text class="sf-pin-icon" y="0.6">🚪</text>
+                </g>
+                <g class="sf-pin is-cam" data-sensor-id="my-cam-entry" data-camera="my-cam-entry" transform="translate(10 62)">
+                  <circle class="sf-pin-pulse" r="9"></circle>
+                  <circle class="sf-pin-bg" r="5.6"></circle>
+                  <text class="sf-pin-icon" y="0.6">📷</text>
+                </g>
+              </svg>
+            </article>
+            <article class="sf-iso-layer" data-layer="2f" style="--z:2">
+              <p class="sf-iso-caption">2F</p>
+              <svg class="sf-map sf-iso-svg" viewBox="0 0 100 100" role="img" aria-label="2F">
+                <rect class="sf-iso-slab" x="1" y="1" width="98" height="98" rx="3"></rect>
+                <rect class="sf-room" data-room-id="my-2f-master" x="6" y="10" width="42" height="48" rx="2"></rect>
+                <text class="sf-room-label" x="27" y="34" text-anchor="middle">主寝室</text>
+                <rect class="sf-room" data-room-id="my-2f-child" x="52" y="10" width="42" height="48" rx="2"></rect>
+                <text class="sf-room-label" x="73" y="34" text-anchor="middle">子供部屋</text>
+                <g class="sf-pin is-sens" data-sensor-id="my-mmwave-2f" transform="translate(24 32)">
+                  <circle class="sf-pin-pulse" r="9"></circle>
+                  <circle class="sf-pin-bg" r="5.6"></circle>
+                  <text class="sf-pin-icon" y="0.6">📡</text>
+                </g>
+              </svg>
+            </article>
+          </div>
+        </div>
       </div>
       <p class="sf-orbit-hint">縦スクロールで360°回転 · マップをドラッグして視点移動</p>
     </section>
 
     <section class="sf-soc-tools">
       <p class="sf-card-label">フロア切替</p>
-      <div class="sf-tabs sf-layer-tabs" id="sf-floor-tabs"></div>
+      <div class="sf-tabs sf-layer-tabs" id="sf-floor-tabs">
+        <button type="button" class="sf-tab is-on" data-floor="all">全体俯瞰</button>
+        <button type="button" class="sf-tab" data-floor="outdoor">外周・敷地</button>
+        <button type="button" class="sf-tab" data-floor="2f">2F</button>
+        <button type="button" class="sf-tab" data-floor="1f">1F</button>
+      </div>
       <div class="sf-kpi-row" id="sf-kpi"></div>
     </section>
 
@@ -85,7 +148,11 @@
     <section class="sf-card sf-quick-card">
       <p class="sf-card-label">クイック操作</p>
       <div class="sf-quick">
-        <div class="sf-modes" id="sf-modes"></div>
+        <div class="sf-modes" id="sf-modes">
+          <button type="button" class="sf-mode" data-mode="home">🛡️ 在宅警備</button>
+          <button type="button" class="sf-mode is-on" data-mode="away">🛡️ 外出警戒</button>
+          <button type="button" class="sf-mode" data-mode="disarmed">🛡️ 警戒解除</button>
+        </div>
         <button type="button" id="sf-light-on">💡 照明を一括ON</button>
         <button type="button" id="sf-light-off">💡 照明を一括OFF</button>
         <button type="button" class="sf-demo-btn" id="sf-demo-alert">🔔 通知テスト</button>
@@ -146,20 +213,7 @@
     </form>
   </dialog>
 
-  <script>
-    window.addEventListener("DOMContentLoaded", function () {
-      setTimeout(function () {
-        if (window.__TISLY_SF_READY) return;
-        var wrap = document.getElementById("sf-map-wrap");
-        if (!wrap || wrap.querySelector(".sf-iso-orbit")) return;
-        wrap.innerHTML =
-          '<div class="sf-iso-scene"><div class="sf-iso-orbit" id="sf-iso-orbit"><p class="sf-map-loading">3Dマップを再描画しています</p></div></div>';
-        var status = document.getElementById("sf-status-label");
-        if (status) status.textContent = "モック表示";
-      }, 1200);
-    });
-  </script>
-  <script type="module" src="/js/features/security/security-floor-operator-v1.js?v=2469"></script>
-  <script type="module" src="/js/features/home/home-quick-switch-v1.js?v=2469"></script>
+  <script src="/js/features/security/security-floor-light-v1.js?v=2470"></script>
+  <script type="module" src="/js/features/security/security-floor-operator-v1.js?v=2470"></script>
 </body>
 </html>

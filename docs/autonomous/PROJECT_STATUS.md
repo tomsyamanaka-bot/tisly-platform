@@ -16,7 +16,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
 | ログインCTA | 青〜紫グラデ維持（`#4facfe` → `#a855f7`） |
-| SW | `tisly-pwa-v2469-security-light` |
+| SW | `tisly-pwa-v2470-security-svg` |
 
 ---
 
@@ -1470,8 +1470,8 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | タイトル | TiSLY Security |
 | テーマ | 背景 `#F8FAFC`/`#FFFFFF` · カード白+`#E2E8F0` · ネイビー/`#2563EB` · 発報 `#EF4444` pulse-alarm |
 | フロア | 全体俯瞰 · 外周・敷地 · 2F · 1F（屋根/太陽光タブ削除） |
-| 3D | `window.scrollY` → `rotateX(55deg) rotateZ()` · タッチドラッグ視点移動 |
+| 3D | インラインSVG即時描画 · `window.scrollY` → `rotateX(55deg) rotateZ()` · タッチドラッグ視点移動 |
 | 下部 | フロアタブ · アラーム+ライブカメラ · クイック操作 · リアルタイムログ |
-| SW | `tisly-pwa-v2469-security-light` |
+| SW | `tisly-pwa-v2470-security-svg` |
 | テスト | `server/test/security-floor-v1.test.ts` |
 | 確認 | `/security-v1` · `/customer/security` · https://tisly.jp/api/health |

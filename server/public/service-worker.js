@@ -4,14 +4,14 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2469-security-light";
+const SW_VERSION = "tisly-pwa-v2470-security-svg";
 /* 旧世代名は activate で破棄する
  * tisly-pwa-shell-v2459-home-tile-grid
  * tisly-pwa-priority-v2459-home-tile-grid
  * tisly-pwa-fieldops-v2459-home-tile-grid */
-const OFFLINE_CACHE = "tisly-pwa-shell-v2469-security-light";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2469-security-light";
-const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2469-security-light";
+const OFFLINE_CACHE = "tisly-pwa-shell-v2470-security-svg";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2470-security-svg";
+const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2470-security-svg";
 /* お客様ゾーンの互換トークン
  * customer-cache-v1.js / route-health.js が
  * SW 側に存在するか診断するため保持 */
@@ -258,6 +258,7 @@ const SHELL_URLS = [
   "/app/security",
   "/app/security-v1",
   "/customer/security",
+  "/js/features/security/security-floor-light-v1.js",
   "/js/features/security/security-floor-map-v1.js",
   "/js/features/security/security-floor-orbit-v1.js",
   "/js/features/security/security-floor-fallback-v1.js",

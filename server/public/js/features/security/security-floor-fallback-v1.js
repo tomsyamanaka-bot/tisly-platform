@@ -320,6 +320,9 @@ export function getFallbackCustomerDash(siteId) {
 
 export function applyLocalPrimaryAlert(site) {
   if (!site) return site;
+  if (site.hasAlert) {
+    return applyLocalAck(site);
+  }
   const target =
     (site.sensors || []).find(
       (s) =>

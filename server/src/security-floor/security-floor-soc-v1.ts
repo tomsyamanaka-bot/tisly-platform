@@ -327,7 +327,7 @@ export function demoTogglePrimaryAlertV1(
   const updated = setSecuritySensorStateV1(
     siteId,
     target.id,
-    "alert"
+    target.state === "alert" ? "normal" : "alert"
   );
   return updated || site;
 }

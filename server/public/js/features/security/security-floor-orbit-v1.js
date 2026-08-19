@@ -77,7 +77,7 @@ let bound = false;
 
 export function bindSecurityOrbit() {
   applySecurityOrbit();
-  if (bound) return;
+  if (bound || window.__TISLY_SF_ORBIT_BOUND) return;
   bound = true;
   window.addEventListener("scroll", applySecurityOrbit, {
     passive: true,

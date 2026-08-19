@@ -194,7 +194,7 @@ describe("security-floor-v1", () => {
     assert.match(css, /#2563eb/i);
     assert.match(css, /rotateX\(55deg\)/);
     assert.match(css, /touch-action: pan-y/);
-    assert.match(css, /pointer-events: auto/);
+    assert.match(css, /display: none !important/);
 
     const customer = await request(app).get(
       "/api/security-floor/v1/customer?siteId=SEC-JP-TSUKUBA-001"
@@ -259,10 +259,15 @@ describe("security-floor-v1", () => {
       "utf8"
     );
     assert.match(html, /sf-iso-wrap/);
+    assert.match(html, /sf-iso-orbit/);
+    assert.match(html, /data-room-id="my-1f-entry"/);
     assert.match(html, /アラーム対応完了/);
-    assert.match(html, /sf-map-loading/);
     assert.match(html, /TiSLY Security/);
-    assert.match(html, /security-floor-operator-v1\.js\?v=2469/);
+    assert.match(html, /security-floor-light-v1\.js\?v=2470/);
+    assert.match(html, /security-floor-operator-v1\.js\?v=2470/);
+    assert.match(html, /← 戻る/);
+    assert.doesNotMatch(html, /3Dマップを再描画しています/);
+    assert.doesNotMatch(html, /home-quick-switch/);
     assert.doesNotMatch(html, /屋根\/太陽光/);
     const mapJs = fs.readFileSync(
       path.join(
@@ -273,6 +278,7 @@ describe("security-floor-v1", () => {
     );
     assert.match(mapJs, /renderIsoStack/);
     assert.match(mapJs, /layerDecorations/);
+    assert.match(mapJs, /pulse-alarm/);
     assert.match(mapJs, /sf-iso-orbit/);
     assert.doesNotMatch(mapJs, /屋根\/太陽光/);
     const orbitJs = fs.readFileSync(
@@ -282,8 +288,19 @@ describe("security-floor-v1", () => {
       ),
       "utf8"
     );
+    const lightJs = fs.readFileSync(
+      path.join(
+        publicDir,
+        "js/features/security/security-floor-light-v1.js"
+      ),
+      "utf8"
+    );
+    assert.match(lightJs, /rotateX/);
+    assert.match(lightJs, /pulse-alarm/);
+    assert.match(lightJs, /sf-demo-alert/);
     assert.match(orbitJs, /window\.scrollY/);
     assert.match(orbitJs, /rotateZ/);
+    assert.match(orbitJs, /__TISLY_SF_ORBIT_BOUND/);
     const opJs = fs.readFileSync(
       path.join(
         publicDir,
@@ -311,7 +328,10 @@ describe("security-floor-v1", () => {
     );
     assert.match(customerHtml, /sf-cam-expand/);
     assert.match(customerHtml, /TiSLY Security/);
-    assert.match(customerHtml, /data-hqs-direct="\/customer"/);
+    assert.match(customerHtml, /href="\/customer"/);
+    assert.match(customerHtml, /security-floor-light-v1\.js/);
+    assert.match(customerHtml, /sf-demo-alert/);
+    assert.doesNotMatch(customerHtml, /home-quick-switch/);
 
     const dash = buildSecurityFloorCustomerDashboardV1(
       "SEC-JP-TSUKUBA-001"

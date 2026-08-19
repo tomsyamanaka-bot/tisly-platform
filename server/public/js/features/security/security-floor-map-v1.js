@@ -177,7 +177,7 @@ export function renderIsoLayerSvg(
     ? floorRooms
         .map((r) => {
           const cls = r.alertVisible
-            ? "sf-room is-alert"
+            ? "sf-room is-alert pulse-alarm"
             : "sf-room";
           const tx = r.x + r.w / 2;
           const ty = r.y + r.h / 2;
@@ -233,28 +233,32 @@ export function renderIsoLayerSvg(
 }
 
 export function renderIsoStack(site, focusId, opts = {}) {
-  const floors = visibleFloors(site.floors).filter(
-    (f) => f.enabled
-  );
-  const zOrder = { outdoor: 0, "1f": 1, "2f": 2 };
-  const layers = [...floors].sort(
-    (a, b) => (zOrder[a.id] ?? 9) - (zOrder[b.id] ?? 9)
-  );
-  const focus = focusId || "all";
-  const layerOpts = {
-    ...opts,
-    lightingOn: site.soc?.lightingOn ?? opts.lightingOn ?? 0,
-  };
-  const cards = layers
-    .map((f, i) => {
-      const alert = (site.rooms || []).some(
-        (r) => r.floorId === f.id && r.alertVisible
-      );
-      const dim =
-        focus !== "all" && focus !== f.id ? " is-dim" : "";
-      const on = focus === f.id ? " is-focus" : "";
-      const al = alert ? " is-alert" : "";
-      return `
+  try {
+    const floors = visibleFloors(site?.floors).filter(
+      (f) => f.enabled
+    );
+    if (!floors.length) {
+      throw new Error("no-floors");
+    }
+    const zOrder = { outdoor: 0, "1f": 1, "2f": 2 };
+    const layers = [...floors].sort(
+      (a, b) => (zOrder[a.id] ?? 9) - (zOrder[b.id] ?? 9)
+    );
+    const focus = focusId || "all";
+    const layerOpts = {
+      ...opts,
+      lightingOn: site.soc?.lightingOn ?? opts.lightingOn ?? 0,
+    };
+    const cards = layers
+      .map((f, i) => {
+        const alert = (site.rooms || []).some(
+          (r) => r.floorId === f.id && r.alertVisible
+        );
+        const dim =
+          focus !== "all" && focus !== f.id ? " is-dim" : "";
+        const on = focus === f.id ? " is-focus" : "";
+        const al = alert ? " is-alert" : "";
+        return `
         <article class="sf-iso-layer${dim}${on}${al}"
           data-layer="${escapeHtml(f.id)}" style="--z:${i}">
           <p class="sf-iso-caption">${escapeHtml(
@@ -267,10 +271,22 @@ export function renderIsoStack(site, focusId, opts = {}) {
             layerOpts
           )}
         </article>`;
-    })
-    .join("");
-  return `<div class="sf-iso-scene"><div class="sf-iso-orbit" id="sf-iso-orbit" data-focus="${escapeHtml(focus)}">${cards}</div></div>`;
+      })
+      .join("");
+    return `<div class="sf-iso-scene"><div class="sf-iso-orbit" id="sf-iso-orbit" data-focus="${escapeHtml(focus)}">${cards}</div></div>`;
+  } catch (err) {
+    console.warn("[security-floor] iso fallback", err);
+    if (typeof document !== "undefined") {
+      const wrap = document.getElementById("sf-map-wrap");
+      if (wrap?.querySelector(".sf-iso-layer")) {
+        return wrap.innerHTML;
+      }
+    }
+    return STATIC_ISO_HTML;
+  }
 }
+
+export const STATIC_ISO_HTML = `<div class="sf-iso-scene"><div class="sf-iso-orbit" id="sf-iso-orbit" data-focus="all"></div></div>`;
 
 export function renderSocLayerButtons(floors, activeId) {
   const items = [
