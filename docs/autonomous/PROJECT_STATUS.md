@@ -15,8 +15,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 背景 | `#ffffff` 〜 `#F8FAFC` |
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
-| ログインCTA | 青〜紫グラデ維持（`#4facfe` → `#a855f7`） |
-| SW | `tisly-pwa-v2470-security-svg` |
+| SW | `tisly-pwa-v2471-security-drum` |
 
 ---
 
@@ -1471,7 +1470,19 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | テーマ | 背景 `#F8FAFC`/`#FFFFFF` · カード白+`#E2E8F0` · ネイビー/`#2563EB` · 発報 `#EF4444` pulse-alarm |
 | フロア | 全体俯瞰 · 外周・敷地 · 2F · 1F（屋根/太陽光タブ削除） |
 | 3D | インラインSVG即時描画 · `window.scrollY` → `rotateX(55deg) rotateZ()` · タッチドラッグ視点移動 |
-| 下部 | フロアタブ · アラーム+ライブカメラ · クイック操作 · リアルタイムログ |
-| SW | `tisly-pwa-v2470-security-svg` |
+| 確認 | `/security-v1` · `/customer/security` · https://tisly.jp/api/health |
+
+### ホームセキュリティ 不透明ドラム式フロア切替 v1（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | 半透明積層の重なり解消 · **縦回転シリンダー**で 2F → 1F → 外周を切替 |
+| 画面 | `/security-v1` · `/customer/security` |
+| 3D | `perspective: 1000px` · `rotateX` + `translateZ` · 白 `#FFFFFF` 不透明カード · 枠 `#1E293B` · `backface-visibility: hidden` |
+| 操作 | マップ上下スワイプ/ホイール · タブ（2F / 1F / 外周）· `cubic-bezier(0.2, 0.8, 0.2, 1)` |
+| 発報 | 玄関・リビング `#EF4444` pulse-alarm 波紋 |
+| 初期化 | 「読み込み中…」なし · 守谷市 美園の家を即時展開 · ボタンは同期 JS で 0 秒反応 |
+| CSV | UTF-8 BOM `\uFEFF` 付き（Excel 文字化け防止） |
+| SW | `tisly-pwa-v2471-security-drum` |
 | テスト | `server/test/security-floor-v1.test.ts` |
 | 確認 | `/security-v1` · `/customer/security` · https://tisly.jp/api/health |

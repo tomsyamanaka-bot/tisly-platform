@@ -15,6 +15,7 @@ import {
 import {
   applySecurityOrbit,
   bindSecurityOrbit,
+  setSecurityDrumFloor,
 } from "./security-floor-orbit-v1.js";
 import {
   FALLBACK_DEFAULT_SITE_ID,
@@ -29,7 +30,7 @@ import {
 
 const state = {
   siteId: FALLBACK_DEFAULT_SITE_ID,
-  floorId: "all",
+  floorId: "2f",
   site: null,
   dash: null,
   cameraId: null,
@@ -321,6 +322,7 @@ function renderSite(site, dash) {
     renderThumbs(site);
     bindSecurityOrbit();
     applySecurityOrbit();
+    setSecurityDrumFloor(state.floorId);
     markSecurityUiReady();
   } catch (err) {
     setText("sf-status-label", "表示を再構築しました");
@@ -384,10 +386,13 @@ async function toggleLivingAlert() {
       body: JSON.stringify({ siteId: state.siteId }),
     });
     const site = data.operatorSite || applyLocalPrimaryAlert(state.site);
+    if (site?.hasAlert) state.floorId = "1f";
     state.cameraId = site.soc?.selectedCameraId || state.cameraId;
     renderSite(site, state.dash);
   } catch {
-    renderSite(applyLocalPrimaryAlert(state.site), state.dash);
+    const site = applyLocalPrimaryAlert(state.site);
+    if (site?.hasAlert) state.floorId = "1f";
+    renderSite(site, state.dash);
   }
 }
 
@@ -434,7 +439,7 @@ function exportReport() {
       ].join(",")
     ),
   ];
-  const blob = new Blob([lines.join("\n")], {
+  const blob = new Blob(["\uFEFF" + lines.join("\n")], {
     type: "text/csv;charset=utf-8",
   });
   const a = document.createElement("a");
@@ -444,6 +449,10 @@ function exportReport() {
 }
 
 function bind() {
+  document.addEventListener("tisly-sf-floor", (e) => {
+    const id = e.detail?.id;
+    if (id) state.floorId = id;
+  });
   $("sf-site-select")?.addEventListener("change", (e) => {
     state.siteId = e.target.value;
     state.cameraId = null;

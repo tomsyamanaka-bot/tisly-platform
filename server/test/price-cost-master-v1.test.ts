@@ -279,7 +279,7 @@ describe("Price & Cost Master v1", () => {
     assert.match(js, /IOT関連/);
     assert.match(js, /renderChips\(UNIFIED_GENRES\)/);
     assert.match(js, /電気工事/);
-    assert.match(sw, /tisly-pwa-v2470-security-svg|tisly-pwa-v2469-security-light|tisly-pwa-v2468-soc-failsafe|tisly-pwa-v2467-soc-iso|tisly-pwa-v2466-security-floor|tisly-pwa-v2465-genre-chips/);
+    assert.match(sw, /tisly-pwa-v2471-security-drum|tisly-pwa-v2470-security-svg|tisly-pwa-v2469-security-light|tisly-pwa-v2468-soc-failsafe|tisly-pwa-v2467-soc-iso|tisly-pwa-v2466-security-floor|tisly-pwa-v2465-genre-chips/);
     assert.match(sw, /price-cost-master-v1/);
     assert.match(settings, /\/price-cost-master-v1/);
   });

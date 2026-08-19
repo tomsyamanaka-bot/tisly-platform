@@ -119,7 +119,7 @@ export function socFloorLabel(id, fallback) {
 }
 
 export function visibleFloors(floors) {
-  const order = { outdoor: 0, "2f": 1, "1f": 2 };
+  const order = { "2f": 0, "1f": 1, outdoor: 2 };
   return (floors || [])
     .filter((f) => f.id !== "roof")
     .sort(
@@ -240,11 +240,12 @@ export function renderIsoStack(site, focusId, opts = {}) {
     if (!floors.length) {
       throw new Error("no-floors");
     }
-    const zOrder = { outdoor: 0, "1f": 1, "2f": 2 };
+    const zOrder = { "2f": 0, "1f": 1, outdoor: 2 };
     const layers = [...floors].sort(
       (a, b) => (zOrder[a.id] ?? 9) - (zOrder[b.id] ?? 9)
     );
-    const focus = focusId || "all";
+    const focus =
+      !focusId || focusId === "all" ? layers[0]?.id || "2f" : focusId;
     const layerOpts = {
       ...opts,
       lightingOn: site.soc?.lightingOn ?? opts.lightingOn ?? 0,
@@ -254,13 +255,12 @@ export function renderIsoStack(site, focusId, opts = {}) {
         const alert = (site.rooms || []).some(
           (r) => r.floorId === f.id && r.alertVisible
         );
-        const dim =
-          focus !== "all" && focus !== f.id ? " is-dim" : "";
+        const dim = focus !== f.id ? " is-dim" : "";
         const on = focus === f.id ? " is-focus" : "";
         const al = alert ? " is-alert" : "";
         return `
         <article class="sf-iso-layer${dim}${on}${al}"
-          data-layer="${escapeHtml(f.id)}" style="--z:${i}">
+          data-layer="${escapeHtml(f.id)}" style="--drum-i:${i}">
           <p class="sf-iso-caption">${escapeHtml(
             socFloorLabel(f.id, f.label)
           )}${alert ? "（発報中）" : ""}</p>
@@ -286,20 +286,24 @@ export function renderIsoStack(site, focusId, opts = {}) {
   }
 }
 
-export const STATIC_ISO_HTML = `<div class="sf-iso-scene"><div class="sf-iso-orbit" id="sf-iso-orbit" data-focus="all"></div></div>`;
+export const STATIC_ISO_HTML = `<div class="sf-iso-scene"><div class="sf-iso-orbit" id="sf-iso-orbit" data-focus="2f"></div></div>`;
 
 export function renderSocLayerButtons(floors, activeId) {
-  const items = [
-    { id: "all", label: "全体俯瞰", enabled: true },
-    ...visibleFloors(floors).map((f) => ({
+  const items = visibleFloors(floors)
+    .filter((f) => f.enabled)
+    .map((f) => ({
       id: f.id,
-      label: socFloorLabel(f.id, f.label),
+      label:
+        f.id === "outdoor" ? "外周" : socFloorLabel(f.id, f.label),
       enabled: f.enabled,
-    })),
-  ];
+    }));
+  const focus =
+    !activeId || activeId === "all"
+      ? items[0]?.id || "2f"
+      : activeId;
   return items
     .map((it) => {
-      const on = it.id === activeId ? " is-on" : "";
+      const on = it.id === focus ? " is-on" : "";
       const disabled = it.enabled ? "" : "disabled";
       return `<button type="button" class="sf-tab${on}"
         data-floor="${escapeHtml(it.id)}" ${disabled}>${escapeHtml(it.label)}</button>`;

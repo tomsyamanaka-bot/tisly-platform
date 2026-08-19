@@ -13,6 +13,7 @@ import {
 import {
   applySecurityOrbit,
   bindSecurityOrbit,
+  setSecurityDrumFloor,
 } from "./security-floor-orbit-v1.js";
 import {
   FALLBACK_DEFAULT_SITE_ID,
@@ -24,7 +25,7 @@ import {
 
 const state = {
   siteId: FALLBACK_DEFAULT_SITE_ID,
-  floorId: "all",
+  floorId: "2f",
   dash: null,
   cameraId: null,
   pane: "map",
@@ -146,6 +147,7 @@ function renderDash(dash) {
     setLiveScene(state.cameraId, dash.soc);
     bindSecurityOrbit();
     applySecurityOrbit();
+    setSecurityDrumFloor(state.floorId);
     markSecurityUiReady();
   } catch (err) {
     setText("sf-status-label", "表示を再構築しました");
@@ -193,6 +195,10 @@ async function setMode(mode) {
 }
 
 function bind() {
+  document.addEventListener("tisly-sf-floor", (e) => {
+    const id = e.detail?.id;
+    if (id) state.floorId = id;
+  });
   $("sf-site-select")?.addEventListener("change", (e) => {
     state.siteId = e.target.value;
     state.cameraId = null;

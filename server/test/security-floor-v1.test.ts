@@ -192,7 +192,11 @@ describe("security-floor-v1", () => {
     assert.match(css, /#1e3a8a/i);
     assert.match(css, /#f8fafc/i);
     assert.match(css, /#2563eb/i);
-    assert.match(css, /rotateX\(55deg\)/);
+    assert.match(css, /perspective:\s*1000px/);
+    assert.match(css, /backface-visibility:\s*hidden/);
+    assert.match(css, /cubic-bezier\(0\.2,\s*0\.8,\s*0\.2,\s*1\)/);
+    assert.match(css, /#ffffff/i);
+    assert.match(css, /#1e293b/i);
     assert.match(css, /touch-action: pan-y/);
     assert.match(css, /display: none !important/);
 
@@ -263,9 +267,10 @@ describe("security-floor-v1", () => {
     assert.match(html, /data-room-id="my-1f-entry"/);
     assert.match(html, /アラーム対応完了/);
     assert.match(html, /TiSLY Security/);
-    assert.match(html, /security-floor-light-v1\.js\?v=2470/);
-    assert.match(html, /security-floor-operator-v1\.js\?v=2470/);
+    assert.match(html, /security-floor-light-v1\.js\?v=2471/);
+    assert.match(html, /security-floor-operator-v1\.js\?v=2471/);
     assert.match(html, /← 戻る/);
+    assert.doesNotMatch(html, /読み込み中/);
     assert.doesNotMatch(html, /3Dマップを再描画しています/);
     assert.doesNotMatch(html, /home-quick-switch/);
     assert.doesNotMatch(html, /屋根\/太陽光/);
@@ -277,7 +282,7 @@ describe("security-floor-v1", () => {
       "utf8"
     );
     assert.match(mapJs, /renderIsoStack/);
-    assert.match(mapJs, /layerDecorations/);
+    assert.match(mapJs, /--drum-i/);
     assert.match(mapJs, /pulse-alarm/);
     assert.match(mapJs, /sf-iso-orbit/);
     assert.doesNotMatch(mapJs, /屋根\/太陽光/);
@@ -296,11 +301,14 @@ describe("security-floor-v1", () => {
       "utf8"
     );
     assert.match(lightJs, /rotateX/);
+    assert.match(lightJs, /translateZ|drum-r/);
     assert.match(lightJs, /pulse-alarm/);
     assert.match(lightJs, /sf-demo-alert/);
-    assert.match(orbitJs, /window\.scrollY/);
-    assert.match(orbitJs, /rotateZ/);
+    assert.match(lightJs, /\\uFEFF/);
+    assert.match(orbitJs, /rotateX/);
+    assert.match(orbitJs, /drum-r/);
     assert.match(orbitJs, /__TISLY_SF_ORBIT_BOUND/);
+    assert.doesNotMatch(orbitJs, /rotateZ/);
     const opJs = fs.readFileSync(
       path.join(
         publicDir,
@@ -311,7 +319,7 @@ describe("security-floor-v1", () => {
     assert.match(opJs, /bootFallback/);
     assert.match(opJs, /applyLocalPrimaryAlert/);
     assert.match(opJs, /bindSecurityOrbit/);
-    assert.match(opJs, /try \{/);
+    assert.match(opJs, /\\uFEFF/);
     const fbJs = fs.readFileSync(
       path.join(
         publicDir,
@@ -331,6 +339,7 @@ describe("security-floor-v1", () => {
     assert.match(customerHtml, /href="\/customer"/);
     assert.match(customerHtml, /security-floor-light-v1\.js/);
     assert.match(customerHtml, /sf-demo-alert/);
+    assert.doesNotMatch(customerHtml, /読み込み中/);
     assert.doesNotMatch(customerHtml, /home-quick-switch/);
 
     const dash = buildSecurityFloorCustomerDashboardV1(

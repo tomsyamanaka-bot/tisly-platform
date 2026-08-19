@@ -9,13 +9,12 @@
   window.__TISLY_SF_READY = true;
   window.__TISLY_SF_ORBIT_BOUND = true;
   window.__TISLY_SF_CTRL_BOUND = true;
+  window.__TISLY_SF_FLOOR = "2f";
 
-  var orbit = {
-    dragZ: 0,
-    pitch: 55,
+  var drum = {
     dragging: false,
-    lastX: 0,
     lastY: 0,
+    accY: 0,
     pointerId: null,
   };
   var cameraIndex = 0;
@@ -30,14 +29,73 @@
     return document.getElementById(id);
   }
 
+  function layersOf(el) {
+    return [].slice.call((el && el.querySelectorAll(".sf-iso-layer")) || []);
+  }
+
   function applyOrbit() {
     var el = $("sf-iso-orbit");
     if (!el) return;
-    var vh = Math.max(120, window.innerHeight * 0.85);
-    var scrollZ = ((window.scrollY || 0) / vh) * 360;
-    var z = ((scrollZ + orbit.dragZ) % 360 + 360) % 360;
-    el.style.transform =
-      "rotateX(" + orbit.pitch + "deg) rotateZ(" + z + "deg)";
+    var layers = layersOf(el);
+    var n = Math.max(layers.length, 1);
+    var step = 360 / n;
+    var h = el.offsetHeight || 360;
+    var tan = Math.tan(Math.PI / Math.max(n, 2));
+    var radius = Math.max(140, Math.round(h / (2 * tan)));
+    var focus = el.getAttribute("data-focus") || "2f";
+    var index = 0;
+    var i;
+    for (i = 0; i < layers.length; i++) {
+      if (layers[i].getAttribute("data-layer") === focus) index = i;
+    }
+    el.style.setProperty("--drum-step", step + "deg");
+    el.style.setProperty("--drum-r", radius + "px");
+    for (i = 0; i < layers.length; i++) {
+      layers[i].style.setProperty("--drum-i", String(i));
+      layers[i].classList.toggle("is-focus", i === index);
+      layers[i].classList.toggle("is-dim", i !== index);
+    }
+    el.style.transform = "rotateX(" + -index * step + "deg)";
+    window.__TISLY_SF_FLOOR =
+      (layers[index] && layers[index].getAttribute("data-layer")) || focus;
+  }
+
+  function setFloor(id) {
+    var orbitEl = $("sf-iso-orbit");
+    if (!orbitEl) return;
+    var layers = layersOf(orbitEl);
+    var next = id || "2f";
+    var found = false;
+    var i;
+    for (i = 0; i < layers.length; i++) {
+      if (layers[i].getAttribute("data-layer") === next) found = true;
+    }
+    if (!found && layers[0]) next = layers[0].getAttribute("data-layer") || "2f";
+    orbitEl.setAttribute("data-focus", next);
+    window.__TISLY_SF_FLOOR = next;
+    document.querySelectorAll("#sf-floor-tabs [data-floor]").forEach(function (btn) {
+      btn.classList.toggle("is-on", btn.getAttribute("data-floor") === next);
+    });
+    document.querySelectorAll(".sf-iso-layer").forEach(function (layer) {
+      var lid = layer.getAttribute("data-layer");
+      layer.classList.toggle("is-focus", lid === next);
+      layer.classList.toggle("is-dim", lid !== next);
+    });
+    applyOrbit();
+  }
+
+  function stepFloor(dir) {
+    var el = $("sf-iso-orbit");
+    var layers = layersOf(el);
+    if (!layers.length) return;
+    var focus = (el && el.getAttribute("data-focus")) || "2f";
+    var index = 0;
+    var i;
+    for (i = 0; i < layers.length; i++) {
+      if (layers[i].getAttribute("data-layer") === focus) index = i;
+    }
+    var next = layers[(index + dir + layers.length) % layers.length];
+    setFloor(next.getAttribute("data-layer"));
   }
 
   function setLive(index) {
@@ -63,38 +121,24 @@
     });
   }
 
-  function setFloor(id) {
-    var orbitEl = $("sf-iso-orbit");
-    if (orbitEl) orbitEl.setAttribute("data-focus", id || "all");
-    document.querySelectorAll("#sf-floor-tabs [data-floor]").forEach(function (btn) {
-      btn.classList.toggle("is-on", btn.getAttribute("data-floor") === id);
-    });
-    document.querySelectorAll(".sf-iso-layer").forEach(function (layer) {
-      var lid = layer.getAttribute("data-layer");
-      var on = id === "all" || lid === id;
-      layer.classList.toggle("is-focus", id !== "all" && lid === id);
-      layer.classList.toggle("is-dim", !on);
-    });
-  }
-
   function setAlertVisual(on) {
     alerting = !!on;
-    var room =
-      document.querySelector('[data-room-id="my-1f-entry"]') ||
-      document.querySelector('[data-room-id*="entry"]') ||
-      document.querySelector('[data-layer="1f"] .sf-room');
+    var rooms = document.querySelectorAll(
+      '[data-room-id="my-1f-entry"], [data-room-id="my-1f-living"], [data-room-id*="entry"], [data-room-id*="living"]'
+    );
     var layer = document.querySelector('[data-layer="1f"]');
-    var pin =
-      document.querySelector('[data-sensor-id="my-door-front"]') ||
-      document.querySelector('[data-sensor-id*="door-front"]') ||
-      document.querySelector('[data-layer="1f"] .sf-pin.is-sens');
+    var pins = document.querySelectorAll(
+      '[data-sensor-id="my-door-front"], [data-sensor-id*="door-front"], [data-layer="1f"] .sf-pin'
+    );
     var panel = $("sf-alarm-panel");
-    if (room) {
+    rooms.forEach(function (room) {
       room.classList.toggle("is-alert", alerting);
       room.classList.toggle("pulse-alarm", alerting);
-    }
+    });
     if (layer) layer.classList.toggle("is-alert", alerting);
-    if (pin) pin.classList.toggle("is-alert", alerting);
+    pins.forEach(function (pin) {
+      pin.classList.toggle("is-alert", alerting);
+    });
     if (panel) panel.classList.toggle("is-live", alerting);
     var status = $("sf-status-label");
     var emoji = $("sf-status-emoji");
@@ -142,17 +186,35 @@
     });
   }
 
+  function exportCsv() {
+    var rows = ["時刻,フロア,場所,種別,デバイス,ステータス,対応者"];
+    document.querySelectorAll("#sf-log-body tr").forEach(function (tr) {
+      var cells = [].slice.call(tr.querySelectorAll("td")).map(function (td) {
+        return '"' + String(td.textContent || "").replace(/"/g, '""') + '"';
+      });
+      if (cells.length) rows.push(cells.join(","));
+    });
+    if (rows.length === 1) {
+      rows.push('"デモ出力","1F","玄関ホール","侵入検知","玄関ドアセンサー","未対応",""');
+    }
+    var blob = new Blob(["\uFEFF" + rows.join("\n")], {
+      type: "text/csv;charset=utf-8",
+    });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "tisly-alarm-log.csv";
+    a.click();
+  }
+
   function bindOrbit() {
     applyOrbit();
-    window.addEventListener("scroll", applyOrbit, { passive: true });
-    window.addEventListener("resize", applyOrbit);
     var wrap = $("sf-map-wrap");
     if (!wrap) return;
     wrap.addEventListener("pointerdown", function (e) {
-      orbit.dragging = true;
-      orbit.lastX = e.clientX;
-      orbit.lastY = e.clientY;
-      orbit.pointerId = e.pointerId;
+      drum.dragging = true;
+      drum.lastY = e.clientY;
+      drum.accY = 0;
+      drum.pointerId = e.pointerId;
       wrap.classList.add("is-dragging");
       try {
         wrap.setPointerCapture(e.pointerId);
@@ -163,28 +225,35 @@
     wrap.addEventListener(
       "pointermove",
       function (e) {
-        if (!orbit.dragging) return;
-        if (orbit.pointerId != null && e.pointerId !== orbit.pointerId) return;
-        var dx = e.clientX - orbit.lastX;
-        var dy = e.clientY - orbit.lastY;
-        orbit.lastX = e.clientX;
-        orbit.lastY = e.clientY;
-        orbit.dragZ += dx * 0.45;
-        orbit.pitch = Math.min(72, Math.max(28, orbit.pitch - dy * 0.18));
+        if (!drum.dragging) return;
+        if (drum.pointerId != null && e.pointerId !== drum.pointerId) return;
+        drum.accY += e.clientY - drum.lastY;
+        drum.lastY = e.clientY;
         if (e.cancelable) e.preventDefault();
-        applyOrbit();
       },
       { passive: false }
     );
     function up(e) {
-      if (!orbit.dragging) return;
-      if (orbit.pointerId != null && e.pointerId !== orbit.pointerId) return;
-      orbit.dragging = false;
-      orbit.pointerId = null;
+      if (!drum.dragging) return;
+      if (drum.pointerId != null && e.pointerId !== drum.pointerId) return;
+      if (drum.accY > 42) stepFloor(1);
+      else if (drum.accY < -42) stepFloor(-1);
+      drum.dragging = false;
+      drum.pointerId = null;
+      drum.accY = 0;
       wrap.classList.remove("is-dragging");
     }
     wrap.addEventListener("pointerup", up);
     wrap.addEventListener("pointercancel", up);
+    wrap.addEventListener(
+      "wheel",
+      function (e) {
+        if (Math.abs(e.deltaY) < 8) return;
+        e.preventDefault();
+        stepFloor(e.deltaY > 0 ? 1 : -1);
+      },
+      { passive: false }
+    );
   }
 
   function bindControls() {
@@ -272,17 +341,7 @@
         if (note) note.hidden = false;
         $("sf-live-dialog") && $("sf-live-dialog").showModal && $("sf-live-dialog").showModal();
       });
-    $("sf-export") &&
-      $("sf-export").addEventListener("click", function () {
-        var blob = new Blob(
-          ["時刻,フロア,場所,種別,デバイス,ステータス\nデモ出力"],
-          { type: "text/csv;charset=utf-8" }
-        );
-        var a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = "tisly-alarm-log.csv";
-        a.click();
-      });
+    $("sf-export") && $("sf-export").addEventListener("click", exportCsv);
     document.querySelectorAll(".sf-mobile-tabs button").forEach(function (btn) {
       btn.addEventListener("click", function () {
         var pane = btn.getAttribute("data-pane");
@@ -308,9 +367,15 @@
 
   bindOrbit();
   bindControls();
-  setFloor("all");
+  setFloor("2f");
   setLive(0);
   $("sf-map-wrap") && $("sf-map-wrap").classList.add("is-lights-on");
+  var status = $("sf-status-label");
+  if (status && /読み込み中/.test(status.textContent || "")) {
+    status.textContent = document.body.classList.contains("sf-customer")
+      ? "正常に動いています"
+      : "正常です";
+  }
   hideHomeFab();
   setTimeout(hideHomeFab, 400);
 })();
