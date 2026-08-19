@@ -130,8 +130,17 @@ function mount() {
 
   const mode = resolveMode();
   const fab = buildFab();
-  const overlay = buildOverlay();
+  const direct = document.body?.dataset?.hqsDirect;
   document.body.appendChild(fab);
+
+  if (direct) {
+    fab.addEventListener("click", () => {
+      location.href = direct;
+    });
+    return;
+  }
+
+  const overlay = buildOverlay();
   document.body.appendChild(overlay);
 
   const listEl = overlay.querySelector("[data-hqs-list]");

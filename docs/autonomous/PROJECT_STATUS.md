@@ -16,7 +16,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
 | ログインCTA | 青〜紫グラデ維持（`#4facfe` → `#a855f7`） |
-| SW | `tisly-pwa-v2467-soc-iso` |
+| SW | `tisly-pwa-v2468-soc-failsafe` |
 
 ---
 
@@ -1440,7 +1440,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | SaaS | tenant_id · country_code · currency · plan_code · plan_status · monthly_fee |
 | Knowledge | ミリ波DI直結 · クリアイエロー塗装 · ガスパルス · 格安SIM を既存配列へ append |
 | API | `GET /api/security-floor/v1/customer` · `/operator` · `/sites` · `POST /guard-mode` · `/sensor-state` |
-| SW | `tisly-pwa-v2467-soc-iso` |
+| SW | `tisly-pwa-v2468-soc-failsafe` |
 | テスト | `server/test/security-floor-v1.test.ts` |
 | 確認 | `/security-v1` · `/customer/security` · https://tisly.jp/api/health |
 
@@ -1456,6 +1456,6 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 下部 | アラームログ（種別/フロア/キーワード）· 照明一括 · 警備セット · 通知テスト · CSV |
 | モック追記 | 守谷市 美園の家 · 屋根/太陽光 · カメラ/窓センサー · Sydney Roof/PV |
 | API追記 | `POST /alarm-ack` · `/lighting` · `/test-notify` · dashboard `soc` |
-| SW | `tisly-pwa-v2467-soc-iso` |
+| SW | `tisly-pwa-v2468-soc-failsafe` |
 | テスト | `server/test/security-floor-v1.test.ts` |
 | 確認 | `/security-v1` · `/customer/security` · https://tisly.jp/api/health |

@@ -253,6 +253,8 @@ describe("security-floor-v1", () => {
     );
     assert.match(html, /sf-iso-wrap/);
     assert.match(html, /アラーム対応完了/);
+    assert.match(html, /sf-map-loading/);
+    assert.match(html, /security-floor-operator-v1\.js\?v=2468/);
     const mapJs = fs.readFileSync(
       path.join(
         publicDir,
@@ -261,5 +263,47 @@ describe("security-floor-v1", () => {
       "utf8"
     );
     assert.match(mapJs, /renderIsoStack/);
+    assert.match(mapJs, /layerDecorations/);
+    const opJs = fs.readFileSync(
+      path.join(
+        publicDir,
+        "js/features/security/security-floor-operator-v1.js"
+      ),
+      "utf8"
+    );
+    assert.match(opJs, /bootFallback/);
+    assert.match(opJs, /applyLocalPrimaryAlert/);
+    assert.match(opJs, /try \{/);
+    const fbJs = fs.readFileSync(
+      path.join(
+        publicDir,
+        "js/features/security/security-floor-fallback-v1.js"
+      ),
+      "utf8"
+    );
+    assert.match(fbJs, /SEC-JP-MORIYA-001/);
+    assert.match(fbJs, /つくばモデルハウス/);
+    assert.match(css, /touch-action: pan-y/);
+    assert.match(css, /pointer-events: auto/);
+    const customerHtml = fs.readFileSync(
+      path.join(publicDir, "security-customer-v1.html"),
+      "utf8"
+    );
+    assert.match(customerHtml, /sf-cam-expand/);
+    assert.match(customerHtml, /data-hqs-direct="\/customer"/);
+
+    const notifyMoriya = await request(app)
+      .post("/api/security-floor/v1/test-notify")
+      .send({ siteId: "SEC-JP-MORIYA-001" });
+    assert.equal(notifyMoriya.status, 200);
+    const door = notifyMoriya.body.operatorSite.sensors.find(
+      (s: { id: string }) => s.id === "my-door-front"
+    );
+    assert.equal(door.alertVisible, true);
+    assert.equal(door.state, "alert");
+    const entryRoom = notifyMoriya.body.operatorSite.rooms.find(
+      (r: { id: string }) => r.id === "my-1f-entry"
+    );
+    assert.equal(entryRoom.alertVisible, true);
   });
 });

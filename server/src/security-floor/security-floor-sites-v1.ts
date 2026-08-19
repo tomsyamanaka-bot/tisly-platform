@@ -943,6 +943,31 @@ function enrichExistingSitesForSocV1(): void {
         deviceId: "CAM-JP-YARD-01",
         linkedCameraId: "jp-cam-yard",
       },
+      {
+        id: "jp-mmwave-2f",
+        floorId: "2f" as const,
+        roomId: "jp-2f-master",
+        kind: "mmwave" as const,
+        label: "2F寝室ミリ波",
+        customerLabel: "寝室の人感",
+        x: 28,
+        y: 36,
+        state: "normal" as const,
+        deviceId: "DEV-LD2410-JP-02",
+        linkedCameraId: "jp-cam-living",
+      },
+      {
+        id: "jp-window-2f",
+        floorId: "2f" as const,
+        roomId: "jp-2f-master",
+        kind: "window" as const,
+        label: "2F寝室窓センサー",
+        customerLabel: "寝室の窓",
+        x: 48,
+        y: 18,
+        state: "normal" as const,
+        deviceId: "DEV-WIN-JP-02",
+      },
     ];
     extraJp.forEach((s) => appendIfMissing(jp.sensors, s));
     const living = jp.sensors.find(
@@ -1055,6 +1080,52 @@ function enrichExistingSitesForSocV1(): void {
     au.energyKw ??= 0.94;
     au.energyMaxKw ??= 3.1;
     au.networkMs ??= 18;
+  }
+
+  const moriya = SECURITY_FLOOR_SITES_V1.find(
+    (s) => s.id === "SEC-JP-MORIYA-001"
+  );
+  if (moriya) {
+    [
+      {
+        id: "my-mmwave-2f",
+        floorId: "2f" as const,
+        roomId: "my-2f-master",
+        kind: "mmwave" as const,
+        label: "2F寝室ミリ波",
+        customerLabel: "寝室の人感",
+        x: 24,
+        y: 32,
+        state: "normal" as const,
+        deviceId: "DEV-LD2410-MY-02",
+        linkedCameraId: "my-cam-entry",
+      },
+      {
+        id: "my-window-2f",
+        floorId: "2f" as const,
+        roomId: "my-2f-master",
+        kind: "window" as const,
+        label: "2Fバルコニー窓",
+        customerLabel: "バルコニーの窓",
+        x: 40,
+        y: 16,
+        state: "normal" as const,
+        deviceId: "DEV-WIN-MY-02",
+      },
+      {
+        id: "my-cam-2f",
+        floorId: "2f" as const,
+        roomId: "my-2f-hall",
+        kind: "camera" as const,
+        label: "2Fホールカメラ",
+        customerLabel: "2階のカメラ",
+        x: 50,
+        y: 74,
+        state: "normal" as const,
+        deviceId: "CAM-MY-2F-01",
+        linkedCameraId: "my-cam-2f",
+      },
+    ].forEach((s) => appendIfMissing(moriya.sensors, s));
   }
 }
 

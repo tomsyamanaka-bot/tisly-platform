@@ -10,7 +10,6 @@ import {
   sensorKindIconV1,
   setSecuritySensorStateV1,
   setSecuritySocSensorListenerV1,
-  type SecuritySensorStateV1,
   type SecuritySensorV1,
   type SecuritySiteV1,
 } from "./security-floor-sites-v1.js";
@@ -297,21 +296,31 @@ export function sensorKindIconSocV1(kind: string): string {
   );
 }
 
+export function pickPrimaryAlertSensorV1(
+  site: SecuritySiteV1
+): SecuritySensorV1 | undefined {
+  return (
+    site.sensors.find(
+      (s) =>
+        s.id.includes("door-front") ||
+        s.label.includes("玄関ドア")
+    ) ||
+    site.sensors.find((s) => s.kind === "door") ||
+    site.sensors.find((s) => s.kind === "mmwave") ||
+    site.sensors[0]
+  );
+}
+
 export function demoTogglePrimaryAlertV1(
   siteId: string
 ): SecuritySiteV1 {
   const site = findSecuritySiteV1(siteId);
-  const target =
-    site.sensors.find((s) => s.kind === "door") ||
-    site.sensors.find((s) => s.kind === "mmwave") ||
-    site.sensors[0];
+  const target = pickPrimaryAlertSensorV1(site);
   if (!target) return site;
-  const next: SecuritySensorStateV1 =
-    target.state === "alert" ? "normal" : "alert";
   const updated = setSecuritySensorStateV1(
     siteId,
     target.id,
-    next
+    "alert"
   );
   return updated || site;
 }

@@ -329,6 +329,8 @@
 }
 
 .sf-soc-header {
+  position: relative;
+  z-index: 8;
   display: flex;
   flex-wrap: wrap;
   gap: 12px 20px;
@@ -481,7 +483,16 @@
 }
 
 .sf-iso-wrap {
-  min-height: 420px;
+  position: relative;
+  z-index: 1;
+  min-height: 360px;
+  max-height: min(78vh, 820px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  pointer-events: auto;
+  isolation: isolate;
   background:
     linear-gradient(180deg, rgba(15, 23, 42, 0.2), rgba(2, 6, 23, 0.55)),
     repeating-linear-gradient(
@@ -492,25 +503,47 @@
   border: 1px solid #334155;
 }
 
+.sf-map-loading {
+  margin: 0;
+  padding: 48px 16px;
+  text-align: center;
+  color: #94a3b8;
+  font-weight: 800;
+}
+
 .sf-iso-stage {
   position: relative;
-  height: 520px;
-  perspective: 1600px;
-  transform-style: preserve-3d;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  height: auto;
+  min-height: 280px;
+  padding: 16px 8px 28px;
+  pointer-events: auto;
 }
 
 .sf-iso-layer {
-  position: absolute;
-  left: 12%;
-  right: 12%;
-  top: 8%;
-  height: 58%;
-  transform:
-    rotateX(64deg)
-    rotateZ(-28deg)
-    translateZ(calc(var(--z) * 78px));
-  transform-style: preserve-3d;
+  position: relative;
+  left: auto;
+  right: auto;
+  top: auto;
+  width: min(94%, 560px);
+  height: auto;
+  margin: 0 auto;
+  transform: none;
+  isolation: isolate;
+  pointer-events: auto;
   transition: opacity 0.25s ease, filter 0.25s ease;
+}
+
+.sf-iso-svg {
+  display: block;
+  width: 100%;
+  height: 210px;
+  transform: perspective(900px) rotateX(54deg) rotateZ(-20deg);
+  transform-origin: center 80%;
+  filter: drop-shadow(0 16px 14px rgba(2, 6, 23, 0.55));
+  pointer-events: auto;
 }
 
 .sf-iso-layer.is-dim {
@@ -531,14 +564,15 @@
 }
 
 .sf-iso-caption {
-  position: absolute;
-  left: 0;
-  top: -22px;
-  margin: 0;
+  position: relative;
+  left: auto;
+  top: auto;
+  margin: 0 0 4px;
   font-size: 0.78rem;
   font-weight: 800;
   color: #e2e8f0;
   text-shadow: 0 0 8px #0b1120;
+  transform: none;
 }
 
 .sf-iso-layer.is-alert .sf-iso-caption {
@@ -594,6 +628,40 @@
   fill: #fff;
   font-size: 4.2px;
   font-weight: 800;
+}
+
+.sf-car {
+  fill: #38bdf8;
+  stroke: #0ea5e9;
+  stroke-width: 0.5;
+}
+
+.sf-garage {
+  fill: rgba(148, 163, 184, 0.22);
+  stroke: #94a3b8;
+  stroke-width: 0.6;
+}
+
+.sf-pv {
+  fill: rgba(15, 23, 42, 0.85);
+  stroke: #22d3ee;
+  stroke-width: 0.5;
+}
+
+.sf-light {
+  fill: #facc15;
+  stroke: #fde047;
+  filter: drop-shadow(0 0 2px #facc15);
+}
+
+.sf-soc-nav,
+.sf-soc-right,
+.sf-soc-bottom,
+.sf-quick,
+.sf-cam-actions {
+  position: relative;
+  z-index: 4;
+  pointer-events: auto;
 }
 
 .sf-alarm-panel {
@@ -877,7 +945,7 @@
     grid-column: 1 / span 2;
   }
   .sf-iso-stage {
-    height: 420px;
+    height: auto;
   }
 }
 
@@ -913,11 +981,29 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .sf-iso-stage {
-    height: 360px;
+    height: auto;
+    gap: 14px;
+    padding-top: 12px;
   }
   .sf-iso-layer {
-    left: 4%;
-    right: 4%;
+    left: auto;
+    right: auto;
+    width: 96%;
+    transform: none;
+  }
+  .sf-iso-svg {
+    height: 170px;
+    transform: perspective(800px) rotateX(50deg) rotateZ(-16deg);
+  }
+  .sf-mobile-tabs {
+    position: relative;
+    z-index: 9;
+    pointer-events: auto;
+  }
+  body.sf-soc {
+    padding-bottom: calc(
+      120px + env(safe-area-inset-bottom, 0px)
+    );
   }
   body.sf-soc[data-pane="map"] .sf-soc-right,
   body.sf-soc[data-pane="map"] .sf-soc-bottom {

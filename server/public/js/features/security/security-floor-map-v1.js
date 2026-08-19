@@ -129,6 +129,37 @@ function furnitureHints(room) {
     width="${fw}" height="${fh}" rx="0.8"></rect>`;
 }
 
+function layerDecorations(floorId, opts = {}) {
+  if (floorId === "outdoor") {
+    return `
+      <g class="sf-deco sf-deco-yard" pointer-events="none">
+        <rect class="sf-car" x="14" y="38" width="16" height="9" rx="1.6"></rect>
+        <rect class="sf-car" x="34" y="52" width="16" height="9" rx="1.6"></rect>
+        <rect class="sf-garage" x="10" y="20" width="28" height="14" rx="1.2"></rect>
+      </g>`;
+  }
+  if (floorId === "roof") {
+    return `
+      <g class="sf-deco sf-deco-pv" pointer-events="none">
+        <rect class="sf-pv" x="16" y="26" width="22" height="12" rx="0.6"></rect>
+        <rect class="sf-pv" x="40" y="26" width="22" height="12" rx="0.6"></rect>
+        <rect class="sf-pv" x="64" y="26" width="18" height="12" rx="0.6"></rect>
+        <rect class="sf-pv" x="16" y="42" width="22" height="12" rx="0.6"></rect>
+        <rect class="sf-pv" x="40" y="42" width="22" height="12" rx="0.6"></rect>
+        <rect class="sf-pv" x="64" y="42" width="18" height="12" rx="0.6"></rect>
+      </g>`;
+  }
+  if (opts.lightingOn > 0 && (floorId === "1f" || floorId === "2f")) {
+    return `
+      <g class="sf-deco sf-deco-lights is-on" pointer-events="none">
+        <circle class="sf-light" cx="22" cy="22" r="2.2"></circle>
+        <circle class="sf-light" cx="52" cy="28" r="2.2"></circle>
+        <circle class="sf-light" cx="78" cy="24" r="2.2"></circle>
+      </g>`;
+  }
+  return "";
+}
+
 export function renderIsoLayerSvg(
   rooms,
   sensors,
@@ -199,17 +230,22 @@ export function renderIsoLayerSvg(
       aria-label="${escapeHtml(socFloorLabel(floorId))}">
       <rect class="sf-iso-slab" x="1" y="1" width="98" height="98" rx="3"></rect>
       ${roomRects}
+      ${layerDecorations(floorId, opts)}
       ${pins}
     </svg>`;
 }
 
 export function renderIsoStack(site, focusId, opts = {}) {
   const floors = (site.floors || []).filter((f) => f.enabled);
-  const zOrder = { outdoor: 0, "1f": 1, "2f": 2, roof: 3 };
+  const zOrder = { roof: 0, "2f": 1, "1f": 2, outdoor: 3 };
   const layers = [...floors].sort(
-    (a, b) => (zOrder[a.id] || 0) - (zOrder[b.id] || 0)
+    (a, b) => (zOrder[a.id] ?? 9) - (zOrder[b.id] ?? 9)
   );
   const focus = focusId || "all";
+  const layerOpts = {
+    ...opts,
+    lightingOn: site.soc?.lightingOn ?? opts.lightingOn ?? 0,
+  };
   const cards = layers
     .map((f, i) => {
       const alert = (site.rooms || []).some(
@@ -229,7 +265,7 @@ export function renderIsoStack(site, focusId, opts = {}) {
             site.rooms,
             site.sensors,
             f.id,
-            opts
+            layerOpts
           )}
         </article>`;
     })

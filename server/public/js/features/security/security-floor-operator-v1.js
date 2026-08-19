@@ -1,6 +1,7 @@
 /**
  * 社内向けダークSOC
  * 3D俯瞰 · 発報連動 · ログ
+ * API 成否に関わらず即時描画する
  */
 
 import {
@@ -10,9 +11,19 @@ import {
   renderSocLayerButtons,
   socFloorLabel,
 } from "./security-floor-map-v1.js";
+import {
+  FALLBACK_DEFAULT_SITE_ID,
+  applyLocalAck,
+  applyLocalGuardMode,
+  applyLocalLights,
+  applyLocalPrimaryAlert,
+  getFallbackOperatorBundle,
+  listFallbackSites,
+  markSecurityUiReady,
+} from "./security-floor-fallback-v1.js";
 
 const state = {
-  siteId: "SEC-JP-TSUKUBA-001",
+  siteId: FALLBACK_DEFAULT_SITE_ID,
   floorId: "all",
   site: null,
   dash: null,
@@ -31,14 +42,30 @@ function $(id) {
   return document.getElementById(id);
 }
 
+function setText(id, text) {
+  const el = $(id);
+  if (el) el.textContent = text;
+}
+
+function setHtml(id, html) {
+  const el = $(id);
+  if (el) el.innerHTML = html;
+}
+
 async function fetchJson(url, opts) {
   const res = await fetch(url, {
     cache: "no-store",
     ...opts,
   });
-  const data = await res.json();
-  if (!data.ok) {
-    throw new Error(data.error || "読込失敗");
+  const text = await res.text();
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error("応答を解析できません");
+  }
+  if (!data?.ok) {
+    throw new Error(data?.error || "読込失敗");
   }
   return data;
 }
@@ -60,27 +87,24 @@ function tickClock() {
 function fillSiteSelect(sites) {
   const sel = $("sf-site-select");
   if (!sel) return;
-  sel.innerHTML = sites
-    .map(
-      (s) =>
-        `<option value="${s.id}">${s.displayName}（${s.countryCode}）</option>`
-    )
+  const list = sites?.length ? sites : listFallbackSites();
+  sel.innerHTML = list
+    .map((s) => {
+      const id = s.siteId || s.id;
+      return `<option value="${id}">${s.displayName}（${s.countryCode || "JP"}）</option>`;
+    })
     .join("");
   sel.value = state.siteId;
 }
 
 function openAlarms(soc) {
-  return (soc?.alarmLogs || []).filter(
-    (l) => l.status !== "done"
-  );
+  return (soc?.alarmLogs || []).filter((l) => l.status !== "done");
 }
 
 function setLiveScene(cameraId, soc) {
   const feed = $("sf-live-feed");
   const xl = $("sf-live-xl");
-  const cam = (soc?.cameras || []).find(
-    (c) => c.id === cameraId
-  );
+  const cam = (soc?.cameras || []).find((c) => c.id === cameraId);
   const scene = cam?.scene || "lobby";
   if (feed) {
     feed.className = `sf-live-feed scene-${scene}`;
@@ -90,27 +114,22 @@ function setLiveScene(cameraId, soc) {
   if (xl) {
     xl.className = `sf-live-feed is-xl scene-${scene}`;
   }
-  if ($("sf-cam-title")) {
-    $("sf-cam-title").textContent = cam
-      ? `ライブカメラ · ${cam.label}`
-      : "ライブカメラ";
-  }
+  setText(
+    "sf-cam-title",
+    cam ? `ライブカメラ · ${cam.label}` : "ライブカメラ"
+  );
 }
 
 function renderKpi(site, dash) {
   const soc = site.soc || {};
-  const cams = (site.sensors || []).filter(
-    (s) => s.kind === "camera"
-  );
-  const sens = (site.sensors || []).filter(
-    (s) => s.kind !== "camera"
-  );
+  const cams = (site.sensors || []).filter((s) => s.kind === "camera");
+  const sens = (site.sensors || []).filter((s) => s.kind !== "camera");
   const okSens = sens.filter((s) => !s.alertVisible).length;
   const html = [
     [
       "セキュリティ",
       site.hasAlert ? "発報" : "正常",
-      `アラーム ${dash.alertCount}件`,
+      `アラーム ${dash?.alertCount ?? 0}件`,
       site.hasAlert ? "alert" : "ok",
     ],
     [
@@ -128,7 +147,7 @@ function renderKpi(site, dash) {
     [
       "スマート照明",
       `${soc.lightingOn ?? 0} / ${soc.lightingTotal ?? 8} 台`,
-      "点灯中",
+      soc.lightingOn ? "点灯中" : "消灯",
       "info",
     ],
     [
@@ -137,12 +156,7 @@ function renderKpi(site, dash) {
       `日次最大 ${soc.energyMaxKw ?? 0} kW`,
       "info",
     ],
-    [
-      "ネットワーク",
-      "正常",
-      `遅延 ${soc.networkMs ?? 12} ms`,
-      "ok",
-    ],
+    ["ネットワーク", "正常", `遅延 ${soc.networkMs ?? 12} ms`, "ok"],
   ]
     .map(
       (row) => `<article class="sf-kpi ${row[3]}">
@@ -150,21 +164,17 @@ function renderKpi(site, dash) {
       </article>`
     )
     .join("");
-  if ($("sf-kpi")) $("sf-kpi").innerHTML = html;
+  setHtml("sf-kpi", html);
 }
 
 function renderAlarms(site) {
   const soc = site.soc || {};
   const open = openAlarms(soc);
-  if ($("sf-alarm-count")) {
-    $("sf-alarm-count").textContent =
-      `${open.length}件発生中`;
-  }
-  if ($("sf-bell-count")) {
-    $("sf-bell-count").textContent = String(open.length);
-  }
-  if ($("sf-alarm-list")) {
-    $("sf-alarm-list").innerHTML = open
+  setText("sf-alarm-count", `${open.length}件発生中`);
+  setText("sf-bell-count", String(open.length));
+  setHtml(
+    "sf-alarm-list",
+    open
       .slice(0, 6)
       .map(
         (a) => `<li data-sensor="${a.sensorId}" data-cam="${a.cameraId || ""}">
@@ -172,19 +182,20 @@ function renderAlarms(site) {
           <span>${a.kindLabel} · ${formatAlarmTime(a.at)}</span>
         </li>`
       )
-      .join("") || "<li>発報はありません</li>";
-  }
+      .join("") || "<li>発報はありません</li>"
+  );
   const top = open[0];
-  if ($("sf-alarm-detail")) {
-    $("sf-alarm-detail").innerHTML = top
+  setHtml(
+    "sf-alarm-detail",
+    top
       ? `<div><dt>時刻</dt><dd>${formatAlarmTime(top.at)}</dd></div>
          <div><dt>デバイス</dt><dd>${top.deviceLabel}</dd></div>
          <div><dt>種別</dt><dd>${top.kindLabel}</dd></div>
          <div><dt>ステータス</dt><dd><em class="st-open">未対応</em></dd></div>
          <div><dt>場所</dt><dd>${top.location}</dd></div>
          <div><dt>フロア</dt><dd>${socFloorLabel(top.floorId)}</dd></div>`
-      : "<p>選択中の警報はありません</p>";
-  }
+      : "<p>選択中の警報はありません</p>"
+  );
 }
 
 function renderLogs(site) {
@@ -197,19 +208,12 @@ function renderLogs(site) {
   const rows = logs.filter((l) => {
     if (kind && l.kindLabel !== kind) return false;
     if (floor && l.floorId !== floor) return false;
-    if (
-      q &&
-      !`${l.location}${l.deviceLabel}${l.kindLabel}`.includes(q)
-    ) {
+    if (q && !`${l.location}${l.deviceLabel}${l.kindLabel}`.includes(q)) {
       return false;
     }
     return true;
   });
-  const stClass = {
-    open: "st-open",
-    handling: "st-busy",
-    done: "st-done",
-  };
+  const stClass = { open: "st-open", handling: "st-busy", done: "st-done" };
   const stLabel = {
     open: "未対応",
     handling: "対応中",
@@ -241,7 +245,7 @@ function renderLogs(site) {
 
 function renderThumbs(site) {
   const wrap = $("sf-cam-thumbs");
-  if (!wrap) return;
+  if (!wrap || !site) return;
   const cams = site.soc?.cameras || [];
   wrap.innerHTML = cams
     .map(
@@ -253,122 +257,148 @@ function renderThumbs(site) {
 }
 
 function renderSite(site, dash) {
-  state.site = site;
-  state.dash = dash;
-  $("sf-status-emoji").textContent = site.hasAlert
-    ? "🔴"
-    : "🟢";
-  $("sf-status-label").textContent = site.hasAlert
-    ? "発報があります"
-    : "正常です";
-  if ($("sf-plan")) {
-    $("sf-plan").textContent =
-      `${site.planCode} / ${site.planStatus} / ${site.currency}`;
+  if (!site) return;
+  try {
+    state.site = site;
+    state.dash = dash || state.dash || { alertCount: 0 };
+    setText("sf-status-emoji", site.hasAlert ? "🔴" : "🟢");
+    setText(
+      "sf-status-label",
+      site.hasAlert ? "発報があります" : "正常です"
+    );
+    setText(
+      "sf-plan",
+      `${site.planCode || "home_security_std"} / ${site.planStatus || "active"} / ${site.currency || "JPY"}`
+    );
+    setHtml(
+      "sf-property",
+      `<strong>${site.displayName}</strong><br>${site.addressLabel || ""}`
+    );
+    const w = site.soc?.weather;
+    if (w) {
+      setText(
+        "sf-weather",
+        `${w.tempC}℃ · ${w.label} · 湿度 ${w.humidity}% · 風 ${w.windMs}m/s`
+      );
+    }
+    const floors = site.floors || [];
+    setHtml("sf-floor-tabs", renderSocLayerButtons(floors, state.floorId));
+    setHtml(
+      "sf-map-wrap",
+      renderIsoStack(site, state.floorId, {
+        showCameras: state.showCameras,
+        showSensors: state.showSensors,
+        showZones: state.showZones,
+        showLabels: state.showLabels,
+      })
+    );
+    setHtml("sf-modes", renderGuardModes(site.guardMode));
+    setHtml(
+      "sf-notes",
+      (site.notes || []).map((n) => `<li>${n}</li>`).join("")
+    );
+    if (!state.cameraId) {
+      state.cameraId = site.soc?.selectedCameraId || null;
+    }
+    setLiveScene(state.cameraId, site.soc);
+    renderKpi(site, state.dash);
+    renderAlarms(site);
+    renderLogs(site);
+    renderThumbs(site);
+    markSecurityUiReady();
+  } catch (err) {
+    setText("sf-status-label", "表示を再構築しました");
+    console.warn("[security-floor]", err);
   }
-  if ($("sf-property")) {
-    $("sf-property").innerHTML =
-      `<strong>${site.displayName}</strong><br>${site.addressLabel}`;
-  }
-  const w = site.soc?.weather;
-  if ($("sf-weather") && w) {
-    $("sf-weather").textContent =
-      `${w.tempC}℃ · ${w.label} · 湿度 ${w.humidity}% · 風 ${w.windMs}m/s`;
-  }
-  const floors = site.floors || [];
-  $("sf-floor-tabs").innerHTML = renderSocLayerButtons(
-    floors,
-    state.floorId
-  );
-  $("sf-map-wrap").innerHTML = renderIsoStack(site, state.floorId, {
-    showCameras: state.showCameras,
-    showSensors: state.showSensors,
-    showZones: state.showZones,
-    showLabels: state.showLabels,
-  });
-  $("sf-modes").innerHTML = renderGuardModes(site.guardMode);
-  $("sf-notes").innerHTML = (site.notes || [])
-    .map((n) => `<li>${n}</li>`)
-    .join("");
-  if (!state.cameraId) {
-    state.cameraId = site.soc?.selectedCameraId || null;
-  }
-  setLiveScene(state.cameraId, site.soc);
-  renderKpi(site, dash || { alertCount: 0 });
-  renderAlarms(site);
-  renderLogs(site);
-  renderThumbs(site);
+}
+
+function bootFallback() {
+  const bundle = getFallbackOperatorBundle(state.siteId);
+  fillSiteSelect(bundle.dashboard.sites);
+  setText("sf-sum-total", String(bundle.dashboard.totalSites));
+  setText("sf-sum-alert", String(bundle.dashboard.alertCount));
+  renderSite(bundle.site, bundle.dashboard);
 }
 
 async function loadOperator() {
-  const data = await fetchJson(
-    `/api/security-floor/v1/operator?siteId=${encodeURIComponent(state.siteId)}`
-  );
-  fillSiteSelect(
-    data.dashboard.sites.map((s) => ({
-      id: s.siteId,
+  try {
+    const data = await fetchJson(
+      `/api/security-floor/v1/operator?siteId=${encodeURIComponent(state.siteId)}`
+    );
+    const sites = (data.dashboard?.sites || []).map((s) => ({
+      id: s.siteId || s.id,
+      siteId: s.siteId || s.id,
       displayName: s.displayName,
       countryCode: s.countryCode,
-    }))
-  );
-  $("sf-sum-total").textContent = String(
-    data.dashboard.totalSites
-  );
-  $("sf-sum-alert").textContent = String(
-    data.dashboard.alertCount
-  );
-  renderSite(data.site, data.dashboard);
+    }));
+    fillSiteSelect(sites.length ? sites : listFallbackSites());
+    setText("sf-sum-total", String(data.dashboard?.totalSites ?? sites.length));
+    setText("sf-sum-alert", String(data.dashboard?.alertCount ?? 0));
+    if (data.site) {
+      renderSite(data.site, data.dashboard);
+    }
+  } catch (err) {
+    if (!state.site) bootFallback();
+    setText(
+      "sf-online",
+      "● オフライン（モック）"
+    );
+    console.warn("[security-floor] API fallback", err);
+  }
 }
 
 async function setMode(mode) {
-  const data = await fetchJson(
-    "/api/security-floor/v1/guard-mode",
-    {
+  try {
+    const data = await fetchJson("/api/security-floor/v1/guard-mode", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        siteId: state.siteId,
-        mode,
-      }),
-    }
-  );
-  renderSite(data.operatorSite, state.dash);
+      body: JSON.stringify({ siteId: state.siteId, mode }),
+    });
+    renderSite(data.operatorSite || applyLocalGuardMode(state.site, mode), state.dash);
+  } catch {
+    renderSite(applyLocalGuardMode(state.site, mode), state.dash);
+  }
 }
 
 async function toggleLivingAlert() {
-  const data = await fetchJson(
-    "/api/security-floor/v1/test-notify",
-    {
+  try {
+    const data = await fetchJson("/api/security-floor/v1/test-notify", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ siteId: state.siteId }),
-    }
-  );
-  state.cameraId = data.operatorSite.soc?.selectedCameraId;
-  renderSite(data.operatorSite, state.dash);
+    });
+    const site = data.operatorSite || applyLocalPrimaryAlert(state.site);
+    state.cameraId = site.soc?.selectedCameraId || state.cameraId;
+    renderSite(site, state.dash);
+  } catch {
+    renderSite(applyLocalPrimaryAlert(state.site), state.dash);
+  }
 }
 
 async function ackAlarms() {
-  const data = await fetchJson(
-    "/api/security-floor/v1/alarm-ack",
-    {
+  try {
+    const data = await fetchJson("/api/security-floor/v1/alarm-ack", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ siteId: state.siteId }),
-    }
-  );
-  renderSite(data.operatorSite, state.dash);
+    });
+    renderSite(data.operatorSite || applyLocalAck(state.site), state.dash);
+  } catch {
+    renderSite(applyLocalAck(state.site), state.dash);
+  }
 }
 
 async function setLights(on) {
-  const data = await fetchJson(
-    "/api/security-floor/v1/lighting",
-    {
+  try {
+    const data = await fetchJson("/api/security-floor/v1/lighting", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ siteId: state.siteId, on }),
-    }
-  );
-  renderSite(data.operatorSite, state.dash);
+    });
+    renderSite(data.operatorSite || applyLocalLights(state.site, on), state.dash);
+  } catch {
+    renderSite(applyLocalLights(state.site, on), state.dash);
+  }
 }
 
 function exportReport() {
@@ -393,7 +423,7 @@ function exportReport() {
   });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = `tisly-alarm-log-${site.siteId}.csv`;
+  a.download = `tisly-alarm-log-${site.siteId || site.id}.csv`;
   a.click();
 }
 
@@ -401,6 +431,7 @@ function bind() {
   $("sf-site-select")?.addEventListener("change", (e) => {
     state.siteId = e.target.value;
     state.cameraId = null;
+    bootFallback();
     loadOperator().catch(() => {});
   });
   $("sf-floor-tabs")?.addEventListener("click", (e) => {
@@ -478,12 +509,14 @@ function bind() {
     renderThumbs(state.site);
   });
   $("sf-cam-expand")?.addEventListener("click", () => {
-    $("sf-play-note").hidden = true;
-    $("sf-live-dialog")?.showModal();
+    const note = $("sf-play-note");
+    if (note) note.hidden = true;
+    $("sf-live-dialog")?.showModal?.();
   });
   $("sf-cam-play")?.addEventListener("click", () => {
-    $("sf-play-note").hidden = false;
-    $("sf-live-dialog")?.showModal();
+    const note = $("sf-play-note");
+    if (note) note.hidden = false;
+    $("sf-live-dialog")?.showModal?.();
   });
   document.querySelectorAll(".sf-mobile-tabs button").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -496,10 +529,13 @@ function bind() {
   });
 }
 
-bind();
-tickClock();
-setInterval(tickClock, 1000);
-loadOperator().catch((err) => {
-  $("sf-status-label").textContent =
-    err.message || "読み込めませんでした";
-});
+try {
+  bind();
+  tickClock();
+  setInterval(tickClock, 1000);
+  bootFallback();
+  loadOperator().catch(() => {});
+} catch (err) {
+  bootFallback();
+  console.warn("[security-floor] boot", err);
+}
