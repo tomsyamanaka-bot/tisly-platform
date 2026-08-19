@@ -16,7 +16,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
 | ログインCTA | 青〜紫グラデ維持（`#4facfe` → `#a855f7`） |
-| SW | `tisly-pwa-v2465-genre-chips` |
+| SW | `tisly-pwa-v2466-security-floor` |
 
 ---
 
@@ -131,6 +131,8 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 書類センター | `/document-center-v1`（別名 `/documents-v1`） |
 | TiSLY HOME 住設統合（社内） | `/home-v1` · `/app/home` |
 | TiSLY HOME 住まい（お客様） | `/customer/home` |
+| ホームセキュリティ俯瞰（社内） | `/security-v1` · `/app/security-v1` |
+| ホームセキュリティ俯瞰（お客様） | `/customer/security` |
 
 ログイン例: `TOMS001` / `toms001.surveyor` / `.env` の `CUSTOMER_DEMO_PASSWORD`
 
@@ -1419,6 +1421,25 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | ナレッジ | 上部フィルタを8ジャンル化 · pH/RS485/配線へ IOT関連・電気工事タグ追記 |
 | 工事カテゴリ | `master/work-categories.json` へ不足ジャンルを末尾追記 |
 | API | `POST/PATCH /api/price-cost-master/v1/items` · catalog `genre` / `genres` |
-| SW | `tisly-pwa-v2465-genre-chips` |
+| SW | `tisly-pwa-v2466-security-floor` |
 | テスト | `price-cost-master-v1.test.ts` · `knowledge-module-v1.test.ts` · `knowledge-module-api-v1.test.ts` |
 | 確認 | `/price-cost-master-v1` · `/knowledge-module-v1` · https://tisly.jp/api/health |
+
+### ホームセキュリティ フロア俯瞰＆発報発光 v1（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | 施主・管理者が間取り上で発報箇所を一目で把握 |
+| 社内 | `/security-v1` · `/app/security-v1` · `/app/security` |
+| お客様 | `/customer/security` |
+| UI | 白 `#FFFFFF/#F8FAFC` × ネイビー `#1E3A8A` · 発報 `#EF4444` pulse-glow |
+| フロア | 1F / 2F / 屋外・ガレージ タブ切替 |
+| センサー | 玄関ロック/ドア · リビングミリ波 · 勝手口 · ガスメーター · 分電盤 |
+| 警備 | 在宅警備 / 外出警戒 / 警戒解除 |
+| モック | JP つくばモデルハウス（2階建て）· AU Sydney Demo House（平屋）末尾追記 |
+| SaaS | tenant_id · country_code · currency · plan_code · plan_status · monthly_fee |
+| Knowledge | ミリ波DI直結 · クリアイエロー塗装 · ガスパルス · 格安SIM を既存配列へ append |
+| API | `GET /api/security-floor/v1/customer` · `/operator` · `/sites` · `POST /guard-mode` · `/sensor-state` |
+| SW | `tisly-pwa-v2466-security-floor` |
+| テスト | `server/test/security-floor-v1.test.ts` |
+| 確認 | `/security-v1` · `/customer/security` · https://tisly.jp/api/health |

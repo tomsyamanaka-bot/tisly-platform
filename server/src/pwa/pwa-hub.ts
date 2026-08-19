@@ -415,6 +415,31 @@ const PRACTICAL_PWA_DEFS: Array<
       "super_admin",
     ],
   },
+  // ホームセキュリティ フロア俯瞰（追記）
+  {
+    id: "security_floor_v1",
+    label: "ホームセキュリティ俯瞰",
+    subtitle: "フロア切替・発報発光・警備モード",
+    icon: "🛡️",
+    features: [
+      "1F/2F/屋外切替",
+      "ミリ波人感発光",
+      "在宅・外出・解除",
+      "JP/AU物件",
+    ],
+    href: "/security-v1",
+    themeColor: "#1e3a8a",
+    readyRoles: [
+      "surveyor",
+      "installer",
+      "maintenance",
+      "manager",
+      "owner",
+      "admin",
+      "super_admin",
+      "viewer",
+    ],
+  },
 ];
 
 export function buildPracticalHubCards(role: string): PracticalPwaCard[] {

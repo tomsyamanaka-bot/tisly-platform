@@ -39,6 +39,10 @@ const {
   getEcoWaterFieldModuleSeedItemsV1,
   seedEcoWaterFieldKnowledgeCardsV1,
 } = await import("../src/knowledge/knowledge-eco-water-field-seed-v1.js");
+const {
+  SECURITY_FLOOR_MODULE_SEED_IDS,
+  seedSecurityFloorKnowledgeCardsV1,
+} = await import("../src/knowledge/knowledge-security-floor-seed-v1.js");
 const { getKnowledgeCardV1 } = await import("../src/knowledge/knowledge-store-v1.js");
 
 const app = createApp();
@@ -333,6 +337,39 @@ describe("knowledge-module-v1 store", () => {
     assert.match(install!.title, /浸漬設置基準/);
     assert.ok(install!.tags.includes("現場"));
     assert.match(String(install!.body ?? ""), /45 度/);
+  });
+
+  it("listKnowledgeModuleItemsV1 appends security floor seed cards", () => {
+    cleanupModuleData();
+    const listed = listKnowledgeModuleItemsV1();
+    for (const id of SECURITY_FLOOR_MODULE_SEED_IDS) {
+      assert.ok(
+        listed.some((x) => x.id === id),
+        `missing seed ${id}`
+      );
+    }
+    const mmwave = listed.find(
+      (x) => x.id === "kn-seed-sec-floor-mmwave-001"
+    );
+    assert.ok(mmwave);
+    assert.match(mmwave!.title, /HLK-LD2410B/);
+    assert.match(String(mmwave!.summary ?? ""), /フロアマップ/);
+  });
+
+  it("seedSecurityFloorKnowledgeCardsV1 upserts searchable cards", () => {
+    seedSecurityFloorKnowledgeCardsV1();
+    const mmwave = getKnowledgeCardV1("SEC-FLOOR-MMWAVE-001");
+    assert.ok(mmwave);
+    assert.match(mmwave!.title, /ミリ波レーダー/);
+    const yellow = getKnowledgeCardV1("SEC-FLOOD-YELLOW-001");
+    assert.ok(yellow);
+    assert.match(yellow!.title, /クリアイエロー/);
+    const gas = getKnowledgeCardV1("SEC-GAS-PULSE-001");
+    assert.ok(gas);
+    assert.match(gas!.title, /DT\/SG/);
+    const sim = getKnowledgeCardV1("SEC-SIM-WATCH-001");
+    assert.ok(sim);
+    assert.match(sim!.title, /格安SIM/);
   });
 
   it("seedFabFinishKnowledgeCardsV1 upserts searchable cards", () => {

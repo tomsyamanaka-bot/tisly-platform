@@ -4,14 +4,14 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2465-genre-chips";
+const SW_VERSION = "tisly-pwa-v2466-security-floor";
 /* 旧世代名は activate で破棄する
  * tisly-pwa-shell-v2459-home-tile-grid
  * tisly-pwa-priority-v2459-home-tile-grid
  * tisly-pwa-fieldops-v2459-home-tile-grid */
-const OFFLINE_CACHE = "tisly-pwa-shell-v2465-genre-chips";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2465-genre-chips";
-const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2465-genre-chips";
+const OFFLINE_CACHE = "tisly-pwa-shell-v2466-security-floor";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2466-security-floor";
+const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2466-security-floor";
 /* お客様ゾーンの互換トークン
  * customer-cache-v1.js / route-health.js が
  * SW 側に存在するか診断するため保持 */
@@ -251,6 +251,17 @@ const SHELL_URLS = [
   "/css/features/home/home-v1.css",
   "/css/features/home/home-quick-switch-v1.css",
   "/css/features/home/home-tiles-v1.css",
+  // ホームセキュリティ フロア俯瞰（追記）
+  "/security-v1",
+  "/security-v1.html",
+  "/security-customer-v1.html",
+  "/app/security",
+  "/app/security-v1",
+  "/customer/security",
+  "/js/features/security/security-floor-map-v1.js",
+  "/js/features/security/security-floor-operator-v1.js",
+  "/js/features/security/security-floor-customer-v1.js",
+  "/css/features/security/security-floor-v1.css",
   "/customer-view-v1",
   "/customer-view-v1.html",
   "/app/customer-view",
@@ -339,6 +350,12 @@ function isCustomerFreshAsset(pathname) {
     pathname === "/app/home" ||
     pathname.startsWith("/js/features/home/") ||
     pathname.startsWith("/css/features/home/") ||
+    pathname === "/security-v1" ||
+    pathname === "/security-v1.html" ||
+    pathname === "/app/security" ||
+    pathname === "/app/security-v1" ||
+    pathname.startsWith("/js/features/security/") ||
+    pathname.startsWith("/css/features/security/") ||
     pathname.startsWith("/js/customer-") ||
     pathname === "/css/customer-v1.css" ||
     pathname === "/manifest-customer-v1.webmanifest"

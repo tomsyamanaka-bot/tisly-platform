@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#FFFFFF" />
+  <meta name="color-scheme" content="light" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="TiSLY ホームセキュリティ" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2003" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <title>TiSLY ホームセキュリティ</title>
+  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2466" />
+</head>
+<body class="sf-body" data-hqs-mode="customer">
+  <header class="sf-header">
+    <a class="sf-back" href="/customer">← 戻る</a>
+    <div>
+      <p class="sf-brand-name">TiSLY SECURITY</p>
+      <h1 class="sf-title">おうちの見守り</h1>
+      <p class="sf-sub">いまの警備とフロアのようす</p>
+    </div>
+  </header>
+
+  <main class="sf-main">
+    <section class="sf-card">
+      <p class="sf-card-label">物件を選ぶ</p>
+      <select id="sf-site-select" class="sf-select" aria-label="物件選択"></select>
+    </section>
+
+    <section class="sf-card sf-status">
+      <span class="sf-status-emoji" id="sf-status-emoji">🟢</span>
+      <div>
+        <p class="sf-status-label" id="sf-status-label">読み込み中…</p>
+        <p id="sf-guard-label">—</p>
+      </div>
+    </section>
+
+    <section class="sf-card">
+      <p class="sf-card-label">フロア</p>
+      <div class="sf-tabs" id="sf-floor-tabs"></div>
+      <div class="sf-map-wrap" id="sf-map-wrap" style="margin-top:12px"></div>
+    </section>
+
+    <section class="sf-card">
+      <p class="sf-card-label">警備モード</p>
+      <div class="sf-modes" id="sf-modes"></div>
+    </section>
+
+    <section class="sf-card">
+      <p class="sf-card-label">お知らせ</p>
+      <ul class="sf-legend" id="sf-notes"></ul>
+    </section>
+  </main>
+
+  <script type="module" src="/js/features/security/security-floor-customer-v1.js?v=2466"></script>
+</body>
+</html>

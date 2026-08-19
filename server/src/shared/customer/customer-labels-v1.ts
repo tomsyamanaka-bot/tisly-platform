@@ -51,6 +51,13 @@ export const CUSTOMER_HOME_CARDS_V1 = [
     label: "おうち設備",
     path: "/customer/home",
   },
+  // ホームセキュリティ俯瞰（追記 — 既存カードは変更しない）
+  {
+    id: "home_security",
+    emoji: "🛡️",
+    label: "ホームセキュリティ",
+    path: "/customer/security",
+  },
 ] as const;
 
 /** /customer DOM・API に出してはいけない語（検査用） */

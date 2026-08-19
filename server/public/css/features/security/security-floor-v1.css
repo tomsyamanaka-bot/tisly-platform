@@ -1,0 +1,266 @@
+/* TiSLY ホームセキュリティ
+ * フロア俯瞰図 × 発報発光
+ * 白ベース × ネイビー */
+
+:root {
+  --sf-bg: #ffffff;
+  --sf-bg-2: #f8fafc;
+  --sf-surface: #ffffff;
+  --sf-line: #e2e8f0;
+  --sf-navy: #1e3a8a;
+  --sf-ink: #0f172a;
+  --sf-muted: #475569;
+  --sf-alert: #ef4444;
+  --sf-home: #16a34a;
+  --sf-away: #2563eb;
+  --sf-off: #64748b;
+  --sf-tap: 52px;
+  --sf-radius: 18px;
+  --sf-shadow: 0 1px 2px rgba(15, 23, 42, 0.06),
+    0 6px 18px rgba(15, 23, 42, 0.07);
+}
+
+.sf-body {
+  margin: 0;
+  min-height: 100vh;
+  background: linear-gradient(
+    180deg,
+    var(--sf-bg) 0%,
+    var(--sf-bg-2) 100%
+  );
+  color: var(--sf-ink);
+  font-family: "Segoe UI", "Hiragino Sans",
+    "Noto Sans JP", sans-serif;
+  padding-bottom: calc(
+    96px + env(safe-area-inset-bottom, 0px)
+  );
+}
+
+.sf-header {
+  padding: calc(14px + env(safe-area-inset-top, 0px))
+    16px 8px;
+}
+
+.sf-back {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--sf-navy);
+  text-decoration: none;
+  font-weight: 800;
+}
+
+.sf-brand-name {
+  margin: 6px 0 0;
+  color: var(--sf-navy);
+  font-weight: 900;
+  font-size: 0.88rem;
+  letter-spacing: 0.14em;
+}
+
+.sf-title {
+  margin: 4px 0 0;
+  font-size: 1.55rem;
+  font-weight: 900;
+}
+
+.sf-sub {
+  margin: 6px 0 0;
+  color: var(--sf-muted);
+  font-weight: 600;
+}
+
+.sf-main {
+  padding: 10px 16px 28px;
+  display: grid;
+  gap: 14px;
+  max-width: 920px;
+  margin: 0 auto;
+}
+
+.sf-card {
+  background: var(--sf-surface);
+  border: 1.5px solid var(--sf-navy);
+  border-radius: var(--sf-radius);
+  box-shadow: var(--sf-shadow);
+  padding: 16px;
+}
+
+.sf-card-label {
+  margin: 0 0 10px;
+  color: var(--sf-navy);
+  font-weight: 900;
+  font-size: 0.82rem;
+  letter-spacing: 0.1em;
+}
+
+.sf-select {
+  width: 100%;
+  min-height: var(--sf-tap);
+  border: 1.5px solid var(--sf-navy);
+  border-radius: 12px;
+  padding: 0 12px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--sf-ink);
+  background: #fff;
+}
+
+.sf-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sf-status-emoji {
+  font-size: 2rem;
+}
+
+.sf-status-label {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 900;
+}
+
+.sf-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.sf-tab {
+  min-height: var(--sf-tap);
+  border: 1.5px solid var(--sf-navy);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--sf-navy);
+  font-weight: 800;
+  font-size: 0.95rem;
+}
+
+.sf-tab.is-on {
+  background: var(--sf-navy);
+  color: #fff;
+}
+
+.sf-tab:disabled {
+  opacity: 0.4;
+}
+
+.sf-map-wrap {
+  overflow: hidden;
+  border-radius: 14px;
+  background: #f1f5f9;
+  border: 1px solid var(--sf-line);
+}
+
+.sf-map {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.sf-room {
+  fill: #ffffff;
+  stroke: var(--sf-navy);
+  stroke-width: 1.4;
+}
+
+.sf-room.is-alert {
+  fill: rgba(239, 68, 68, 0.22);
+  stroke: var(--sf-alert);
+  animation: pulse-glow 1.1s ease-in-out infinite;
+}
+
+.sf-room-label {
+  fill: var(--sf-ink);
+  font-size: 5px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.sf-pin {
+  cursor: pointer;
+}
+
+.sf-pin-bg {
+  fill: #fff;
+  stroke: var(--sf-navy);
+  stroke-width: 1.2;
+}
+
+.sf-pin.is-alert .sf-pin-bg {
+  fill: var(--sf-alert);
+  stroke: #7f1d1d;
+  animation: pulse-glow 1.1s ease-in-out infinite;
+}
+
+.sf-pin-icon {
+  font-size: 6px;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+.sf-modes {
+  display: grid;
+  gap: 8px;
+}
+
+.sf-mode {
+  min-height: 56px;
+  border-radius: 14px;
+  border: 2px solid var(--sf-line);
+  background: #fff;
+  font-weight: 900;
+  font-size: 1.05rem;
+  color: var(--sf-ink);
+}
+
+.sf-mode[data-mode="home"].is-on {
+  border-color: var(--sf-home);
+  background: #dcfce7;
+  color: #14532d;
+}
+
+.sf-mode[data-mode="away"].is-on {
+  border-color: var(--sf-away);
+  background: #dbeafe;
+  color: #1e3a8a;
+}
+
+.sf-mode[data-mode="disarmed"].is-on {
+  border-color: var(--sf-off);
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.sf-legend {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+  font-weight: 600;
+  color: var(--sf-muted);
+}
+
+.sf-demo-btn {
+  min-height: var(--sf-tap);
+  width: 100%;
+  border: 1.5px solid var(--sf-alert);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--sf-alert);
+  font-weight: 800;
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 0 var(--sf-alert));
+    opacity: 1;
+  }
+  50% {
+    filter: drop-shadow(0 0 8px var(--sf-alert));
+    opacity: 0.72;
+  }
+}

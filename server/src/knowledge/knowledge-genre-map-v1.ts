@@ -5,6 +5,7 @@
 
 import { ECO_WATER_FIELD_MODULE_SEED_IDS } from "./knowledge-eco-water-field-seed-v1.js";
 import { ECO_WATER_PH_MODULE_SEED_IDS } from "./knowledge-eco-water-ph-seed-v1.js";
+import { SECURITY_FLOOR_MODULE_SEED_IDS } from "./knowledge-security-floor-seed-v1.js";
 import type { TislyUnifiedGenreV1 } from "../shared/genres/tisly-genres-v1.js";
 import {
   appendUnifiedGenreTagsV1,
@@ -14,6 +15,7 @@ import {
 const IOT_SEED_IDS = new Set<string>([
   ...ECO_WATER_PH_MODULE_SEED_IDS,
   ...ECO_WATER_FIELD_MODULE_SEED_IDS,
+  ...SECURITY_FLOOR_MODULE_SEED_IDS,
 ]);
 
 const WIRING_SEED_IDS = new Set<string>([

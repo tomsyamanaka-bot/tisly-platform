@@ -105,6 +105,7 @@ import { gasMonitorRouter } from "./api/routes/gas-monitor.js";
 import { meterTelemetryRouter } from "./api/routes/meter-telemetry.js";
 import { demandSecurityRouter } from "./api/routes/demand-security.js";
 import { homeRouter } from "./api/routes/home.js";
+import { securityFloorRouter } from "./api/routes/security-floor.js";
 import { deviceBindingV1Router } from "./api/routes/device-binding-v1.js";
 import { priceCostMasterV1Router } from "./api/routes/price-cost-master-v1.js";
 import { qnapStorageV1Router } from "./api/routes/qnap-storage-v1.js";
@@ -191,6 +192,8 @@ export function createApp(): express.Application {
   app.use("/api/demand-security/v1", demandSecurityRouter);
   // TiSLY HOME 住設・ホームIoT統合（追記）
   app.use("/api/home/v1", homeRouter);
+  // ホームセキュリティ フロア俯瞰（追記）
+  app.use("/api/security-floor/v1", securityFloorRouter);
   // RP2350 QR物件登録（追記）
   app.use("/api/device", deviceBindingV1Router);
   app.use("/api/price-cost-master/v1", priceCostMasterV1Router);
@@ -311,6 +314,12 @@ export function createApp(): express.Application {
   app.get("/customer/home", (_req, res) => {
     res.sendFile(path.join(publicDir, "home-customer-v1.html"));
   });
+  // ホームセキュリティ フロア俯瞰 — お客様（追記）
+  app.get("/customer/security", (_req, res) => {
+    res.sendFile(
+      path.join(publicDir, "security-customer-v1.html")
+    );
+  });
   app.get("/customer/:customerCode/portal", (_req, res) => {
     res.sendFile(customerPortalHtml);
   });
@@ -421,6 +430,16 @@ export function createApp(): express.Application {
   });
   app.get("/tisly-home", (_req, res) => {
     res.redirect(302, "/home-v1");
+  });
+  // ホームセキュリティ フロア俯瞰 — 社内（追記）
+  app.get("/app/security-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "security-v1.html"));
+  });
+  app.get("/app/security", (_req, res) => {
+    res.sendFile(path.join(publicDir, "security-v1.html"));
+  });
+  app.get("/security-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "security-v1.html"));
   });
   app.get("/app/push", (_req, res) => {
     res.sendFile(path.join(publicDir, "app-push.html"));

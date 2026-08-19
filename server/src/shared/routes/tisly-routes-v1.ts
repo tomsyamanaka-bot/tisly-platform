@@ -70,6 +70,16 @@ export const TISLY_INTERNAL_ROUTES_V1: TislyRouteEntryV1[] = [
     zone: "internal",
   },
   {
+    path: "/security-v1",
+    label: "ホームセキュリティ俯瞰",
+    zone: "internal",
+  },
+  {
+    path: "/app/security-v1",
+    label: "ホームセキュリティ俯瞰 (App)",
+    zone: "internal",
+  },
+  {
     path: "/app/price-cost-master",
     label: "価格・原価マスター (App)",
     zone: "internal",
@@ -98,6 +108,11 @@ export const TISLY_CUSTOMER_ROUTES_V1: TislyRouteEntryV1[] = [
   {
     path: "/customer/home",
     label: "TiSLY HOME 住まい",
+    zone: "customer",
+  },
+  {
+    path: "/customer/security",
+    label: "ホームセキュリティ",
     zone: "customer",
   },
 ];
@@ -130,6 +145,7 @@ export const TISLY_CUSTOMER_RESERVED_SEGMENTS = new Set([
   "gas-monitor",
   "demand-security",
   "home",
+  "security",
 ]);
 export function isCustomerReservedSegmentV1(segment: string): boolean {
   return TISLY_CUSTOMER_RESERVED_SEGMENTS.has(String(segment ?? "").toLowerCase());

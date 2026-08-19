@@ -13,6 +13,7 @@ import {
 import { seedFabFinishKnowledgeCardsV1 } from "./knowledge-fab-finish-seed-v1.js";
 import { seedEcoWaterPhKnowledgeCardsV1 } from "./knowledge-eco-water-ph-seed-v1.js";
 import { seedEcoWaterFieldKnowledgeCardsV1 } from "./knowledge-eco-water-field-seed-v1.js";
+import { seedSecurityFloorKnowledgeCardsV1 } from "./knowledge-security-floor-seed-v1.js";
 
 function todayIsoDate(): string {
   return new Date().toISOString().slice(0, 10);
@@ -142,17 +143,20 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
   fabFinishCreated: number;
   ecoWaterPhCreated: number;
   ecoWaterFieldCreated: number;
+  securityFloorCreated: number;
 } {
   const plc = seedPlcKnowledgeTemplatesV1();
   const rp = seedRpKnowledgeTemplatesV1();
   const fab = seedFabFinishKnowledgeCardsV1();
   const ecoWaterPh = seedEcoWaterPhKnowledgeCardsV1();
   const ecoWaterField = seedEcoWaterFieldKnowledgeCardsV1();
+  const securityFloor = seedSecurityFloorKnowledgeCardsV1();
   return {
     plcCreated: plc.length,
     rpCreated: rp.length,
     fabFinishCreated: fab.length,
     ecoWaterPhCreated: ecoWaterPh.length,
     ecoWaterFieldCreated: ecoWaterField.length,
+    securityFloorCreated: securityFloor.length,
   };
 }
