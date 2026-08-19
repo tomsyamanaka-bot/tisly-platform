@@ -20,6 +20,11 @@ import {
   type SecurityGuardModeV1,
   type SecuritySensorStateV1,
 } from "../../security-floor/security-floor-sites-v1.js";
+import {
+  ackSecurityAlarmsV1,
+  demoTogglePrimaryAlertV1,
+  setSecurityLightingV1,
+} from "../../security-floor/security-floor-soc-v1.js";
 
 export const securityFloorRouter = Router();
 
@@ -120,5 +125,66 @@ securityFloorRouter.post("/sensor-state", (req, res) => {
     ok: true,
     siteId: site.id,
     operatorSite: buildSecurityFloorOperatorSiteV1(site.id),
+  });
+});
+
+securityFloorRouter.post("/alarm-ack", (req, res) => {
+  const siteId = String(req.body?.siteId ?? "").trim();
+  if (!siteId) {
+    res.status(400).json({
+      ok: false,
+      error: "siteId が必要です",
+    });
+    return;
+  }
+  ackSecurityAlarmsV1(siteId);
+  res.json({
+    ok: true,
+    siteId,
+    dashboard: buildSecurityFloorCustomerDashboardV1(
+      siteId
+    ),
+    operatorSite: buildSecurityFloorOperatorSiteV1(siteId),
+  });
+});
+
+securityFloorRouter.post("/lighting", (req, res) => {
+  const siteId = String(req.body?.siteId ?? "").trim();
+  const on = Boolean(req.body?.on);
+  if (!siteId) {
+    res.status(400).json({
+      ok: false,
+      error: "siteId が必要です",
+    });
+    return;
+  }
+  setSecurityLightingV1(siteId, on);
+  res.json({
+    ok: true,
+    siteId,
+    operatorSite: buildSecurityFloorOperatorSiteV1(siteId),
+    dashboard: buildSecurityFloorCustomerDashboardV1(
+      siteId
+    ),
+  });
+});
+
+securityFloorRouter.post("/test-notify", (req, res) => {
+  const siteId = String(req.body?.siteId ?? "").trim();
+  if (!siteId) {
+    res.status(400).json({
+      ok: false,
+      error: "siteId が必要です",
+    });
+    return;
+  }
+  demoTogglePrimaryAlertV1(siteId);
+  res.json({
+    ok: true,
+    siteId,
+    operatorSite: buildSecurityFloorOperatorSiteV1(siteId),
+    dashboard: buildSecurityFloorCustomerDashboardV1(
+      siteId
+    ),
   });
 });

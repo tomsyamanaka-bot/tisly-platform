@@ -28,15 +28,23 @@ const publicDir = path.resolve("public");
 
 describe("security-floor-v1", () => {
   it("appends JP/AU floor sites without shrinking catalog", () => {
-    assert.ok(SECURITY_FLOOR_SITES_V1.length >= 2);
+    assert.ok(SECURITY_FLOOR_SITES_V1.length >= 3);
     const jp = SECURITY_FLOOR_SITES_V1.find(
       (s) => s.id === "SEC-JP-TSUKUBA-001"
     );
     const au = SECURITY_FLOOR_SITES_V1.find(
       (s) => s.id === "SEC-AU-SYDNEY-001"
     );
+    const moriya = SECURITY_FLOOR_SITES_V1.find(
+      (s) => s.id === "SEC-JP-MORIYA-001"
+    );
     assert.ok(jp);
     assert.ok(au);
+    assert.ok(moriya);
+    assert.equal(moriya.addressLabel.includes("守谷"), true);
+    assert.ok(jp.floors.find((f) => f.id === "roof")?.enabled);
+    assert.ok(jp.sensors.some((s) => s.kind === "camera"));
+    assert.ok(moriya.sensors.some((s) => s.kind === "camera"));
     assert.equal(jp.countryCode, "JP");
     assert.equal(au.countryCode, "AU");
     assert.equal(jp.currency, "JPY");
@@ -175,8 +183,11 @@ describe("security-floor-v1", () => {
       "utf8"
     );
     assert.match(css, /pulse-glow/);
+    assert.match(css, /pulse-alarm/);
     assert.match(css, /#ef4444/i);
     assert.match(css, /#1e3a8a/i);
+    assert.match(css, /#0B1120/i);
+    assert.match(css, /rgba\(15, 23, 42, 0.75\)/);
 
     const customer = await request(app).get(
       "/api/security-floor/v1/customer?siteId=SEC-JP-TSUKUBA-001"
@@ -192,7 +203,7 @@ describe("security-floor-v1", () => {
       "/api/security-floor/v1/operator"
     );
     assert.equal(operator.status, 200);
-    assert.ok(operator.body.dashboard.totalSites >= 2);
+    assert.ok(operator.body.dashboard.totalSites >= 3);
 
     const mode = await request(app)
       .post("/api/security-floor/v1/guard-mode")
@@ -208,5 +219,47 @@ describe("security-floor-v1", () => {
         siteId: "SEC-AU-SYDNEY-001",
         mode: "home",
       });
+
+    const notify = await request(app)
+      .post("/api/security-floor/v1/test-notify")
+      .send({ siteId: "SEC-AU-SYDNEY-001" });
+    assert.equal(notify.status, 200);
+    assert.ok(notify.body.operatorSite.soc);
+    assert.ok(
+      Array.isArray(notify.body.operatorSite.soc.alarmLogs)
+    );
+    await request(app)
+      .post("/api/security-floor/v1/test-notify")
+      .send({ siteId: "SEC-AU-SYDNEY-001" });
+
+    const light = await request(app)
+      .post("/api/security-floor/v1/lighting")
+      .send({ siteId: "SEC-JP-MORIYA-001", on: true });
+    assert.equal(light.status, 200);
+    assert.equal(
+      light.body.operatorSite.soc.lightingOn,
+      light.body.operatorSite.soc.lightingTotal
+    );
+
+    const ack = await request(app)
+      .post("/api/security-floor/v1/alarm-ack")
+      .send({ siteId: "SEC-JP-MORIYA-001" });
+    assert.equal(ack.status, 200);
+    assert.equal(ack.body.operatorSite.hasAlert, false);
+
+    const html = fs.readFileSync(
+      path.join(publicDir, "security-v1.html"),
+      "utf8"
+    );
+    assert.match(html, /sf-iso-wrap/);
+    assert.match(html, /アラーム対応完了/);
+    const mapJs = fs.readFileSync(
+      path.join(
+        publicDir,
+        "js/features/security/security-floor-map-v1.js"
+      ),
+      "utf8"
+    );
+    assert.match(mapJs, /renderIsoStack/);
   });
 });

@@ -14,6 +14,10 @@ import {
   type SecuritySensorV1,
   type SecuritySiteV1,
 } from "./security-floor-sites-v1.js";
+import {
+  buildSecuritySocOverlayV1,
+  type SecuritySocOverlayV1,
+} from "./security-floor-soc-v1.js";
 
 export interface SecurityFloorViewSensorV1 {
   id: string;
@@ -26,6 +30,7 @@ export interface SecurityFloorViewSensorV1 {
   y: number;
   state: string;
   alertVisible: boolean;
+  linkedCameraId: string | null;
 }
 
 export interface SecurityFloorViewRoomV1 {
@@ -59,6 +64,7 @@ export interface SecurityFloorCustomerDashboardV1 {
   sensors: SecurityFloorViewSensorV1[];
   notes: string[];
   lastUpdatedAt: string;
+  soc: SecuritySocOverlayV1;
 }
 
 export interface SecurityFloorOperatorSiteRowV1 {
@@ -82,6 +88,7 @@ export interface SecurityFloorOperatorSiteRowV1 {
   rooms: SecurityFloorViewRoomV1[];
   sensors: SecurityFloorViewSensorV1[];
   notes: string[];
+  soc: SecuritySocOverlayV1;
 }
 
 export interface SecurityFloorOperatorDashboardV1 {
@@ -113,6 +120,7 @@ function mapSensor(
     y: sensor.y,
     state: sensor.state,
     alertVisible,
+    linkedCameraId: sensor.linkedCameraId || null,
   };
 }
 
@@ -163,6 +171,7 @@ export function buildSecurityFloorCustomerDashboardV1(
     sensors,
     notes: [...site.notes],
     lastUpdatedAt: new Date().toISOString(),
+    soc: buildSecuritySocOverlayV1(site),
   };
 }
 
@@ -189,6 +198,7 @@ function toOperatorRow(
     rooms: mapRooms(site, sensors),
     sensors,
     notes: [...site.notes],
+    soc: buildSecuritySocOverlayV1(site),
   };
 }
 

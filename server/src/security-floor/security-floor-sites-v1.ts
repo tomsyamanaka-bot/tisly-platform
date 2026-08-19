@@ -6,14 +6,20 @@
 
 export type SecurityCountryCodeV1 = "JP" | "AU";
 export type SecurityCurrencyV1 = "JPY" | "AUD";
-export type SecurityFloorIdV1 = "1f" | "2f" | "outdoor";
+export type SecurityFloorIdV1 =
+  | "1f"
+  | "2f"
+  | "outdoor"
+  | "roof";
 export type SecurityGuardModeV1 = "home" | "away" | "disarmed";
 export type SecuritySensorKindV1 =
   | "lock"
   | "door"
   | "mmwave"
   | "gas"
-  | "panel";
+  | "panel"
+  | "camera"
+  | "window";
 export type SecuritySensorStateV1 = "normal" | "alert";
 export type SecurityPlanStatusV1 =
   | "active"
@@ -47,6 +53,7 @@ export interface SecuritySensorV1 {
   y: number;
   state: SecuritySensorStateV1;
   deviceId: string;
+  linkedCameraId?: string;
 }
 
 export interface SecuritySiteV1 {
@@ -65,6 +72,11 @@ export interface SecuritySiteV1 {
   sensors: SecuritySensorV1[];
   guardMode: SecurityGuardModeV1;
   notes: string[];
+  lightingOn?: number;
+  lightingTotal?: number;
+  energyKw?: number;
+  energyMaxKw?: number;
+  networkMs?: number;
 }
 
 export const SECURITY_FLOOR_DEFAULT_SITE_ID_V1 =
@@ -436,6 +448,290 @@ export const SECURITY_FLOOR_SITES_V1: SecuritySiteV1[] = [
       "Stay mode is on",
     ],
   },
+  {
+    id: "SEC-JP-MORIYA-001",
+    tenantId: "tenant_toms_jp",
+    countryCode: "JP",
+    currency: "JPY",
+    kind: "home",
+    displayName: "守谷市 美園の家",
+    addressLabel: "茨城県守谷市美園",
+    planCode: "home_security_std",
+    planStatus: "active",
+    monthlyFee: 4400,
+    floors: [
+      { id: "1f", label: "1F", enabled: true },
+      { id: "2f", label: "2F", enabled: true },
+      {
+        id: "outdoor",
+        label: "外周・敷地",
+        enabled: true,
+      },
+      {
+        id: "roof",
+        label: "屋根/太陽光",
+        enabled: true,
+      },
+    ],
+    rooms: [
+      {
+        id: "my-1f-entry",
+        floorId: "1f",
+        label: "玄関ホール",
+        x: 4,
+        y: 58,
+        w: 24,
+        h: 38,
+      },
+      {
+        id: "my-1f-living",
+        floorId: "1f",
+        label: "LDK",
+        x: 30,
+        y: 8,
+        w: 44,
+        h: 54,
+      },
+      {
+        id: "my-1f-kitchen",
+        floorId: "1f",
+        label: "キッチン",
+        x: 76,
+        y: 8,
+        w: 20,
+        h: 40,
+      },
+      {
+        id: "my-1f-deck",
+        floorId: "1f",
+        label: "ウッドデッキ",
+        x: 30,
+        y: 64,
+        w: 44,
+        h: 30,
+      },
+      {
+        id: "my-2f-master",
+        floorId: "2f",
+        label: "主寝室",
+        x: 6,
+        y: 10,
+        w: 42,
+        h: 48,
+      },
+      {
+        id: "my-2f-child",
+        floorId: "2f",
+        label: "子供部屋",
+        x: 52,
+        y: 10,
+        w: 42,
+        h: 48,
+      },
+      {
+        id: "my-2f-hall",
+        floorId: "2f",
+        label: "2Fホール",
+        x: 6,
+        y: 62,
+        w: 88,
+        h: 30,
+      },
+      {
+        id: "my-out-park",
+        floorId: "outdoor",
+        label: "駐車スペース",
+        x: 6,
+        y: 16,
+        w: 50,
+        h: 68,
+      },
+      {
+        id: "my-out-garden",
+        floorId: "outdoor",
+        label: "庭・外周",
+        x: 60,
+        y: 16,
+        w: 34,
+        h: 68,
+      },
+      {
+        id: "my-roof-pv",
+        floorId: "roof",
+        label: "太陽光パネル",
+        x: 10,
+        y: 18,
+        w: 80,
+        h: 64,
+      },
+    ],
+    sensors: [
+      {
+        id: "my-lock-front",
+        floorId: "1f",
+        roomId: "my-1f-entry",
+        kind: "lock",
+        label: "玄関スマートロック",
+        customerLabel: "玄関のかぎ",
+        x: 16,
+        y: 72,
+        state: "alert",
+        deviceId: "DEV-LOCK-MY-01",
+        linkedCameraId: "my-cam-entry",
+      },
+      {
+        id: "my-door-front",
+        floorId: "1f",
+        roomId: "my-1f-entry",
+        kind: "door",
+        label: "玄関ドアセンサー",
+        customerLabel: "玄関のドア",
+        x: 16,
+        y: 88,
+        state: "alert",
+        deviceId: "DEV-DOOR-MY-01",
+        linkedCameraId: "my-cam-entry",
+      },
+      {
+        id: "my-mmwave-living",
+        floorId: "1f",
+        roomId: "my-1f-living",
+        kind: "mmwave",
+        label: "LDKミリ波人感",
+        customerLabel: "リビングの人感",
+        x: 52,
+        y: 32,
+        state: "normal",
+        deviceId: "DEV-LD2410-MY-01",
+        linkedCameraId: "my-cam-living",
+      },
+      {
+        id: "my-window-deck",
+        floorId: "1f",
+        roomId: "my-1f-deck",
+        kind: "window",
+        label: "デッキ掃き出し窓",
+        customerLabel: "デッキの窓",
+        x: 52,
+        y: 78,
+        state: "normal",
+        deviceId: "DEV-WIN-MY-01",
+        linkedCameraId: "my-cam-garden",
+      },
+      {
+        id: "my-door-back",
+        floorId: "1f",
+        roomId: "my-1f-kitchen",
+        kind: "door",
+        label: "勝手口センサー",
+        customerLabel: "勝手口",
+        x: 86,
+        y: 36,
+        state: "normal",
+        deviceId: "DEV-DOOR-MY-02",
+        linkedCameraId: "my-cam-back",
+      },
+      {
+        id: "my-gas-meter",
+        floorId: "1f",
+        roomId: "my-1f-kitchen",
+        kind: "gas",
+        label: "ガスメーター接点",
+        customerLabel: "ガスメーター",
+        x: 86,
+        y: 18,
+        state: "normal",
+        deviceId: "DEV-GAS-MY-01",
+      },
+      {
+        id: "my-panel",
+        floorId: "outdoor",
+        roomId: "my-out-park",
+        kind: "panel",
+        label: "分電盤",
+        customerLabel: "電気の分電盤",
+        x: 18,
+        y: 28,
+        state: "normal",
+        deviceId: "DEV-PANEL-MY-01",
+      },
+      {
+        id: "my-cam-entry",
+        floorId: "1f",
+        roomId: "my-1f-entry",
+        kind: "camera",
+        label: "玄関カメラ 01",
+        customerLabel: "玄関のカメラ",
+        x: 10,
+        y: 62,
+        state: "normal",
+        deviceId: "CAM-MY-ENTRY-01",
+        linkedCameraId: "my-cam-entry",
+      },
+      {
+        id: "my-cam-garden",
+        floorId: "outdoor",
+        roomId: "my-out-garden",
+        kind: "camera",
+        label: "庭・テラスカメラ",
+        customerLabel: "お庭のカメラ",
+        x: 76,
+        y: 40,
+        state: "normal",
+        deviceId: "CAM-MY-GARDEN-01",
+        linkedCameraId: "my-cam-garden",
+      },
+      {
+        id: "my-cam-park",
+        floorId: "outdoor",
+        roomId: "my-out-park",
+        kind: "camera",
+        label: "駐車カメラ",
+        customerLabel: "駐車場のカメラ",
+        x: 30,
+        y: 50,
+        state: "normal",
+        deviceId: "CAM-MY-PARK-01",
+        linkedCameraId: "my-cam-park",
+      },
+      {
+        id: "my-cam-back",
+        floorId: "1f",
+        roomId: "my-1f-kitchen",
+        kind: "camera",
+        label: "勝手口カメラ",
+        customerLabel: "勝手口のカメラ",
+        x: 80,
+        y: 44,
+        state: "normal",
+        deviceId: "CAM-MY-BACK-01",
+        linkedCameraId: "my-cam-back",
+      },
+      {
+        id: "my-cam-living",
+        floorId: "1f",
+        roomId: "my-1f-living",
+        kind: "camera",
+        label: "LDKカメラ",
+        customerLabel: "リビングのカメラ",
+        x: 40,
+        y: 20,
+        state: "normal",
+        deviceId: "CAM-MY-LIVING-01",
+        linkedCameraId: "my-cam-living",
+      },
+    ],
+    guardMode: "away",
+    notes: [
+      "玄関ドアセンサーが発報しています",
+      "外出警戒モードです",
+    ],
+    lightingOn: 4,
+    lightingTotal: 8,
+    energyKw: 2.35,
+    energyMaxKw: 5.21,
+    networkMs: 12,
+  },
 ];
 
 export function findSecuritySiteV1(
@@ -472,6 +768,8 @@ export function sensorKindIconV1(
   if (kind === "door") return "🚪";
   if (kind === "mmwave") return "📡";
   if (kind === "gas") return "🔥";
+  if (kind === "camera") return "📷";
+  if (kind === "window") return "🪟";
   return "⚡";
 }
 
@@ -534,5 +832,255 @@ export function setSecuritySensorStateV1(
   );
   if (!sensor) return null;
   sensor.state = state;
+  notifySecuritySocSensorChangeV1(site, sensor, state);
   return site;
+}
+
+function appendIfMissing<T extends { id: string }>(
+  list: T[],
+  item: T
+): void {
+  if (!list.some((x) => x.id === item.id)) {
+    list.push(item);
+  }
+}
+
+/**
+ * SOC 用レイヤーとカメラを
+ * 既存物件へ差分追記する。
+ */
+function enrichExistingSitesForSocV1(): void {
+  const jp = SECURITY_FLOOR_SITES_V1.find(
+    (s) => s.id === "SEC-JP-TSUKUBA-001"
+  );
+  if (jp) {
+    appendIfMissing(jp.floors, {
+      id: "roof",
+      label: "屋根/太陽光",
+      enabled: true,
+    });
+    appendIfMissing(jp.rooms, {
+      id: "jp-roof-pv",
+      floorId: "roof",
+      label: "太陽光パネル",
+      x: 12,
+      y: 20,
+      w: 76,
+      h: 60,
+    });
+    appendIfMissing(jp.rooms, {
+      id: "jp-1f-window-living",
+      floorId: "1f",
+      label: "リビング窓",
+      x: 28,
+      y: 2,
+      w: 20,
+      h: 8,
+    });
+    const extraJp = [
+      {
+        id: "jp-window-living",
+        floorId: "1f" as const,
+        roomId: "jp-1f-living",
+        kind: "window" as const,
+        label: "リビング窓センサー",
+        customerLabel: "リビングの窓",
+        x: 36,
+        y: 12,
+        state: "normal" as const,
+        deviceId: "DEV-WIN-JP-01",
+        linkedCameraId: "jp-cam-living",
+      },
+      {
+        id: "jp-cam-entry",
+        floorId: "1f" as const,
+        roomId: "jp-1f-genkan",
+        kind: "camera" as const,
+        label: "玄関カメラ 01",
+        customerLabel: "玄関のカメラ",
+        x: 8,
+        y: 64,
+        state: "normal" as const,
+        deviceId: "CAM-JP-ENTRY-01",
+        linkedCameraId: "jp-cam-entry",
+      },
+      {
+        id: "jp-cam-living",
+        floorId: "1f" as const,
+        roomId: "jp-1f-living",
+        kind: "camera" as const,
+        label: "リビングカメラ",
+        customerLabel: "リビングのカメラ",
+        x: 38,
+        y: 22,
+        state: "normal" as const,
+        deviceId: "CAM-JP-LIVING-01",
+        linkedCameraId: "jp-cam-living",
+      },
+      {
+        id: "jp-cam-park",
+        floorId: "outdoor" as const,
+        roomId: "jp-out-garage",
+        kind: "camera" as const,
+        label: "ガレージカメラ",
+        customerLabel: "駐車場のカメラ",
+        x: 32,
+        y: 50,
+        state: "normal" as const,
+        deviceId: "CAM-JP-PARK-01",
+        linkedCameraId: "jp-cam-park",
+      },
+      {
+        id: "jp-cam-yard",
+        floorId: "outdoor" as const,
+        roomId: "jp-out-yard",
+        kind: "camera" as const,
+        label: "庭カメラ",
+        customerLabel: "お庭のカメラ",
+        x: 78,
+        y: 48,
+        state: "normal" as const,
+        deviceId: "CAM-JP-YARD-01",
+        linkedCameraId: "jp-cam-yard",
+      },
+    ];
+    extraJp.forEach((s) => appendIfMissing(jp.sensors, s));
+    const living = jp.sensors.find(
+      (s) => s.id === "jp-mmwave-living"
+    );
+    if (living && !living.linkedCameraId) {
+      living.linkedCameraId = "jp-cam-living";
+    }
+    const door = jp.sensors.find(
+      (s) => s.id === "jp-door-front"
+    );
+    if (door && !door.linkedCameraId) {
+      door.linkedCameraId = "jp-cam-entry";
+    }
+    jp.lightingOn ??= 4;
+    jp.lightingTotal ??= 8;
+    jp.energyKw ??= 1.82;
+    jp.energyMaxKw ??= 4.6;
+    jp.networkMs ??= 14;
+  }
+
+  const au = SECURITY_FLOOR_SITES_V1.find(
+    (s) => s.id === "SEC-AU-SYDNEY-001"
+  );
+  if (au) {
+    appendIfMissing(au.floors, {
+      id: "roof",
+      label: "Roof / PV",
+      enabled: true,
+    });
+    appendIfMissing(au.rooms, {
+      id: "au-roof-pv",
+      floorId: "roof",
+      label: "Solar array",
+      x: 12,
+      y: 18,
+      w: 76,
+      h: 64,
+    });
+    const extraAu = [
+      {
+        id: "au-window-living",
+        floorId: "1f" as const,
+        roomId: "au-1f-living",
+        kind: "window" as const,
+        label: "Living window",
+        customerLabel: "リビングの窓",
+        x: 36,
+        y: 12,
+        state: "normal" as const,
+        deviceId: "DEV-WIN-AU-01",
+        linkedCameraId: "au-cam-living",
+      },
+      {
+        id: "au-cam-entry",
+        floorId: "1f" as const,
+        roomId: "au-1f-entry",
+        kind: "camera" as const,
+        label: "Entry camera 01",
+        customerLabel: "玄関のカメラ",
+        x: 10,
+        y: 16,
+        state: "normal" as const,
+        deviceId: "CAM-AU-ENTRY-01",
+        linkedCameraId: "au-cam-entry",
+      },
+      {
+        id: "au-cam-living",
+        floorId: "1f" as const,
+        roomId: "au-1f-living",
+        kind: "camera" as const,
+        label: "Living camera",
+        customerLabel: "リビングのカメラ",
+        x: 40,
+        y: 22,
+        state: "normal" as const,
+        deviceId: "CAM-AU-LIVING-01",
+        linkedCameraId: "au-cam-living",
+      },
+      {
+        id: "au-cam-yard",
+        floorId: "outdoor" as const,
+        roomId: "au-out-yard",
+        kind: "camera" as const,
+        label: "Yard camera",
+        customerLabel: "お庭のカメラ",
+        x: 76,
+        y: 48,
+        state: "normal" as const,
+        deviceId: "CAM-AU-YARD-01",
+        linkedCameraId: "au-cam-yard",
+      },
+      {
+        id: "au-cam-garage",
+        floorId: "outdoor" as const,
+        roomId: "au-out-garage",
+        kind: "camera" as const,
+        label: "Garage camera",
+        customerLabel: "駐車場のカメラ",
+        x: 28,
+        y: 48,
+        state: "normal" as const,
+        deviceId: "CAM-AU-GARAGE-01",
+        linkedCameraId: "au-cam-garage",
+      },
+    ];
+    extraAu.forEach((s) => appendIfMissing(au.sensors, s));
+    au.lightingOn ??= 3;
+    au.lightingTotal ??= 6;
+    au.energyKw ??= 0.94;
+    au.energyMaxKw ??= 3.1;
+    au.networkMs ??= 18;
+  }
+}
+
+enrichExistingSitesForSocV1();
+
+type SocSensorListenerV1 = (
+  site: SecuritySiteV1,
+  sensor: SecuritySensorV1,
+  state: SecuritySensorStateV1
+) => void;
+
+let socSensorListenerV1: SocSensorListenerV1 | null =
+  null;
+
+export function setSecuritySocSensorListenerV1(
+  fn: SocSensorListenerV1 | null
+): void {
+  socSensorListenerV1 = fn;
+}
+
+function notifySecuritySocSensorChangeV1(
+  site: SecuritySiteV1,
+  sensor: SecuritySensorV1,
+  state: SecuritySensorStateV1
+): void {
+  if (socSensorListenerV1) {
+    socSensorListenerV1(site, sensor, state);
+  }
 }

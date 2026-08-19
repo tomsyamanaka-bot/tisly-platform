@@ -3,57 +3,92 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#FFFFFF" />
-  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#0B1120" />
+  <meta name="color-scheme" content="dark" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-title" content="TiSLY ホームセキュリティ" />
+  <meta name="apple-mobile-web-app-title" content="TiSLY おうち見守り" />
   <meta name="mobile-web-app-capable" content="yes" />
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2003" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-  <title>TiSLY ホームセキュリティ</title>
-  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2466" />
+  <title>TiSLY 戸建住宅モニタリングシステム</title>
+  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2467" />
 </head>
-<body class="sf-body" data-hqs-mode="customer">
-  <header class="sf-header">
+<body class="sf-body sf-soc sf-customer" data-hqs-mode="customer">
+  <header class="sf-soc-header">
     <a class="sf-back" href="/customer">← 戻る</a>
-    <div>
-      <p class="sf-brand-name">TiSLY SECURITY</p>
-      <h1 class="sf-title">おうちの見守り</h1>
-      <p class="sf-sub">いまの警備とフロアのようす</p>
+    <div class="sf-soc-brand">
+      <span class="sf-crystal" aria-hidden="true"></span>
+      <div>
+        <p class="sf-brand-name">TiSLY</p>
+        <h1 class="sf-title">戸建住宅モニタリングシステム</h1>
+      </div>
+    </div>
+    <div class="sf-soc-meta">
+      <span class="sf-online-pill" id="sf-online">● オンライン</span>
     </div>
   </header>
 
-  <main class="sf-main">
-    <section class="sf-card">
-      <p class="sf-card-label">物件を選ぶ</p>
+  <nav class="sf-mobile-tabs" aria-label="画面切替">
+    <button type="button" class="is-on" data-pane="map">家のようす</button>
+    <button type="button" data-pane="alert">お知らせ</button>
+    <button type="button" data-pane="log">履歴</button>
+  </nav>
+
+  <div class="sf-soc-shell">
+    <aside class="sf-soc-nav">
+      <p class="sf-card-label">おうちを選ぶ</p>
       <select id="sf-site-select" class="sf-select" aria-label="物件選択"></select>
+      <p class="sf-card-label">フロア切替</p>
+      <div class="sf-tabs sf-layer-tabs" id="sf-floor-tabs"></div>
+    </aside>
+
+    <section class="sf-soc-center" data-pane="map">
+      <section class="sf-card sf-status">
+        <span class="sf-status-emoji" id="sf-status-emoji">🟢</span>
+        <div>
+          <p class="sf-status-label" id="sf-status-label">読み込み中…</p>
+          <p id="sf-guard-label">—</p>
+        </div>
+      </section>
+      <div class="sf-map-wrap sf-iso-wrap" id="sf-map-wrap"></div>
     </section>
 
-    <section class="sf-card sf-status">
-      <span class="sf-status-emoji" id="sf-status-emoji">🟢</span>
-      <div>
-        <p class="sf-status-label" id="sf-status-label">読み込み中…</p>
-        <p id="sf-guard-label">—</p>
+    <aside class="sf-soc-right" data-pane="alert">
+      <section class="sf-card sf-alarm-panel">
+        <p class="sf-card-label">いまの警報</p>
+        <ul class="sf-alarm-list" id="sf-alarm-list"></ul>
+      </section>
+      <section class="sf-card">
+        <p class="sf-card-label" id="sf-cam-title">カメラ</p>
+        <div class="sf-live-feed" id="sf-live-feed">
+          <span class="sf-live-badge">LIVE</span>
+          <div class="sf-scan"></div>
+        </div>
+        <div class="sf-cam-thumbs" id="sf-cam-thumbs"></div>
+      </section>
+      <section class="sf-card">
+        <p class="sf-card-label">警備モード</p>
+        <div class="sf-modes" id="sf-modes"></div>
+      </section>
+    </aside>
+
+    <section class="sf-soc-bottom" data-pane="log">
+      <p class="sf-card-label">最近のできごと</p>
+      <div class="sf-log-table-wrap">
+        <table class="sf-log-table">
+          <thead>
+            <tr>
+              <th>時刻</th><th>場所</th><th>内容</th><th>状態</th>
+            </tr>
+          </thead>
+          <tbody id="sf-log-body"></tbody>
+        </table>
       </div>
-    </section>
-
-    <section class="sf-card">
-      <p class="sf-card-label">フロア</p>
-      <div class="sf-tabs" id="sf-floor-tabs"></div>
-      <div class="sf-map-wrap" id="sf-map-wrap" style="margin-top:12px"></div>
-    </section>
-
-    <section class="sf-card">
-      <p class="sf-card-label">警備モード</p>
-      <div class="sf-modes" id="sf-modes"></div>
-    </section>
-
-    <section class="sf-card">
       <p class="sf-card-label">お知らせ</p>
       <ul class="sf-legend" id="sf-notes"></ul>
     </section>
-  </main>
+  </div>
 
-  <script type="module" src="/js/features/security/security-floor-customer-v1.js?v=2466"></script>
+  <script type="module" src="/js/features/security/security-floor-customer-v1.js?v=2467"></script>
 </body>
 </html>
