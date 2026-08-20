@@ -95,7 +95,7 @@ export const FLOORPLAN_ACTIVE_KEY_V1 = "tisly_floorplan_active_id";
 export const DEFAULT_FLOORPLAN_RENDER_V1: FloorplanRenderV1 = {
   wallHeight: 2.7,
   roomOpacity: 0.55,
-  glowColor: "#00ff88",
-  glowColorAlt: "#00d4ff",
+  glowColor: "#059669",
+  glowColorAlt: "#0284c7",
   cameraElevationDeg: 45,
 };

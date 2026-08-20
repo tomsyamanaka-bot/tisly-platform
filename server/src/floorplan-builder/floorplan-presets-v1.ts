@@ -219,8 +219,8 @@ export function createTsukubaModelHousePresetV1(): FloorplanConfigV1 {
     render: {
       ...DEFAULT_FLOORPLAN_RENDER_V1,
       wallHeight: 2.8,
-      glowColor: "#39ff14",
-      glowColorAlt: "#00e5ff",
+      glowColor: "#059669",
+      glowColorAlt: "#0284c7",
     },
     security: buildSecurityBridge(id, floors),
     updatedAt: nowIso(),

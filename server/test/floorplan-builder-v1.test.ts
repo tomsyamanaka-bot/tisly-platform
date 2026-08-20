@@ -118,6 +118,59 @@ describe("floorplan-builder-v1", () => {
     assert.ok(bridge.body.security.rooms.length > 0);
   });
 
+  it("写真取り込みはカメラとアルバムを分離（captureはカメラのみ）", () => {
+    const html = fs.readFileSync(
+      path.join(publicDir, "tisly_3d_floorplan_builder.html"),
+      "utf8"
+    );
+    assert.match(html, /id="fpb-file-camera"[^>]*capture="environment"/);
+    assert.match(html, /id="fpb-file-library"/);
+    assert.match(html, /フォルダ\/アルバムから選ぶ/);
+    assert.match(html, /id="fpb-dropzone"/);
+    // アルバム側に capture が付いていないこと
+    const libraryBlock = html.match(
+      /id="fpb-file-library"[^>]*>/
+    )?.[0];
+    assert.ok(libraryBlock);
+    assert.equal(libraryBlock.includes("capture"), false);
+
+    const js = fs.readFileSync(
+      path.join(
+        publicDir,
+        "js/features/floorplan-builder/floorplan-builder-v1.js"
+      ),
+      "utf8"
+    );
+    assert.match(js, /fpb-file-camera/);
+    assert.match(js, /fpb-file-library/);
+    assert.match(js, /bindDropzone/);
+    assert.match(js, /dataTransfer/);
+  });
+
+  it("白基調テーマ（CSS / 3Dクリアカラー）", () => {
+    const css = fs.readFileSync(
+      path.join(
+        publicDir,
+        "css/features/floorplan-builder/floorplan-builder-v1.css"
+      ),
+      "utf8"
+    );
+    assert.match(css, /--fpb-bg0:\s*#f8fafc/i);
+    assert.match(css, /--fpb-card:\s*#ffffff/i);
+    assert.match(css, /--fpb-text:\s*#0f172a/i);
+    assert.match(css, /--fpb-line:\s*#e2e8f0/i);
+
+    const js = fs.readFileSync(
+      path.join(
+        publicDir,
+        "js/features/floorplan-builder/floorplan-builder-v1.js"
+      ),
+      "utf8"
+    );
+    assert.match(js, /setClearColor\(0xf8fafc/);
+    assert.match(js, /0xbae6fd/);
+  });
+
   it("ビルダー画面ルートが 200", async () => {
     const app = createApp();
     for (const p of [

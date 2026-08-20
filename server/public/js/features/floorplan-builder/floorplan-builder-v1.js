@@ -52,7 +52,7 @@ function drawGrid() {
   canvas.height = Math.floor(size * dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, size, size);
-  ctx.strokeStyle = "rgba(0, 212, 255, 0.35)";
+  ctx.strokeStyle = "rgba(2, 132, 199, 0.28)";
   ctx.lineWidth = 1;
   const step = size / cells;
   for (let i = 0; i <= cells; i++) {
@@ -66,7 +66,7 @@ function drawGrid() {
     ctx.lineTo(size, p);
     ctx.stroke();
   }
-  ctx.strokeStyle = "rgba(0, 255, 136, 0.55)";
+  ctx.strokeStyle = "rgba(5, 150, 105, 0.45)";
   ctx.lineWidth = 1.5;
   ctx.strokeRect(0.5, 0.5, size - 1, size - 1);
 }
@@ -136,7 +136,7 @@ function init3d() {
   if (!mount || renderer) return;
 
   scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x05080f, 0.035);
+  scene.fog = new THREE.Fog(0xf1f5f9, 28, 70);
 
   const w = mount.clientWidth || 320;
   const h = mount.clientHeight || 360;
@@ -148,7 +148,7 @@ function init3d() {
   renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.setSize(w, h, false);
-  renderer.setClearColor(0x000000, 0);
+  renderer.setClearColor(0xf8fafc, 1);
   mount.appendChild(renderer.domElement);
 
   controls = new OrbitControls(camera, renderer.domElement);
@@ -158,16 +158,19 @@ function init3d() {
   controls.minDistance = 8;
   controls.maxDistance = 48;
 
-  const ambient = new THREE.AmbientLight(0x88aacc, 0.55);
+  const ambient = new THREE.AmbientLight(0xffffff, 0.85);
   scene.add(ambient);
-  const key = new THREE.DirectionalLight(0x00ff88, 0.85);
+  const key = new THREE.DirectionalLight(0xffffff, 0.75);
   key.position.set(8, 16, 6);
   scene.add(key);
-  const fill = new THREE.DirectionalLight(0x00d4ff, 0.45);
+  const fill = new THREE.DirectionalLight(0xbae6fd, 0.45);
   fill.position.set(-10, 10, -8);
   scene.add(fill);
+  const rim = new THREE.DirectionalLight(0xa7f3d0, 0.35);
+  rim.position.set(0, 12, -14);
+  scene.add(rim);
 
-  const grid = new THREE.GridHelper(24, 24, 0x00d4ff, 0x14304a);
+  const grid = new THREE.GridHelper(24, 24, 0x7dd3fc, 0xcbd5e1);
   grid.position.y = 0;
   scene.add(grid);
 
@@ -217,35 +220,39 @@ function rebuild3d() {
 
   const wallH = state.render?.wallHeight ?? 2.7;
   const opacity = state.render?.roomOpacity ?? 0.55;
-  const glow = new THREE.Color(state.render?.glowColor || "#00ff88");
-  const glowAlt = new THREE.Color(state.render?.glowColorAlt || "#00d4ff");
+  // ライトテーマ: 半透明ライトブルー / エメラルドグリーン + くっきり枠線
+  const accent = new THREE.Color(state.render?.glowColor || "#059669");
+  const accentAlt = new THREE.Color(state.render?.glowColorAlt || "#0284c7");
 
   const slabMat = new THREE.MeshStandardMaterial({
-    color: 0x0c1a2e,
-    emissive: glowAlt,
-    emissiveIntensity: 0.08,
-    metalness: 0.35,
-    roughness: 0.55,
+    color: 0xffffff,
+    emissive: 0xe0f2fe,
+    emissiveIntensity: 0.12,
+    metalness: 0.05,
+    roughness: 0.85,
   });
   const slab = new THREE.Mesh(new THREE.BoxGeometry(22, 0.15, 22), slabMat);
   slab.position.y = 0.05;
   buildingGroup.add(slab);
 
   const roomMat = new THREE.MeshStandardMaterial({
-    color: 0x102438,
-    emissive: glow,
-    emissiveIntensity: 0.25,
+    color: 0xbae6fd,
+    emissive: accentAlt,
+    emissiveIntensity: 0.08,
     transparent: true,
-    opacity,
-    metalness: 0.2,
-    roughness: 0.4,
+    opacity: Math.min(Math.max(opacity, 0.25), 0.85),
+    metalness: 0.05,
+    roughness: 0.55,
+    depthWrite: false,
   });
   const wallMat = new THREE.MeshStandardMaterial({
-    color: 0x1a3048,
-    emissive: glowAlt,
-    emissiveIntensity: 0.35,
-    metalness: 0.45,
-    roughness: 0.3,
+    color: 0x86efac,
+    emissive: accent,
+    emissiveIntensity: 0.06,
+    metalness: 0.08,
+    roughness: 0.5,
+    transparent: true,
+    opacity: 0.78,
   });
 
   for (const r of floor.rooms || []) {
@@ -265,9 +272,9 @@ function rebuild3d() {
     const edge = new THREE.LineSegments(
       new THREE.EdgesGeometry(mesh.geometry),
       new THREE.LineBasicMaterial({
-        color: glow,
+        color: accentAlt,
         transparent: true,
-        opacity: 0.9,
+        opacity: 0.95,
       })
     );
     edge.position.copy(mesh.position);
@@ -287,15 +294,25 @@ function rebuild3d() {
     wall.position.set((x1 + x2) / 2, wallH / 2 + 0.12, (z1 + z2) / 2);
     wall.rotation.y = -Math.atan2(z2 - z1, x2 - x1);
     buildingGroup.add(wall);
+
+    const wallEdge = new THREE.LineSegments(
+      new THREE.EdgesGeometry(wall.geometry),
+      new THREE.LineBasicMaterial({ color: 0x047857, transparent: true, opacity: 0.85 })
+    );
+    wallEdge.position.copy(wall.position);
+    wallEdge.rotation.copy(wall.rotation);
+    buildingGroup.add(wallEdge);
   }
 
   for (const o of floor.openings || []) {
     const marker = new THREE.Mesh(
       new THREE.SphereGeometry(0.35, 16, 16),
       new THREE.MeshStandardMaterial({
-        color: 0x00d4ff,
-        emissive: 0x00d4ff,
-        emissiveIntensity: 0.9,
+        color: 0x059669,
+        emissive: 0x34d399,
+        emissiveIntensity: 0.35,
+        metalness: 0.15,
+        roughness: 0.4,
       })
     );
     marker.position.set(pctToWorld(o.x), wallH * 0.4, pctToWorld(o.y));
@@ -406,9 +423,12 @@ async function sendToSecurity() {
   window.location.href = "/security-v1?fromBuilder=1";
 }
 
-function onFileChange(ev) {
-  const file = ev.target?.files?.[0];
+function applyImageFile(file) {
   if (!file || !state) return;
+  if (!String(file.type || "").startsWith("image/")) {
+    setStatus("画像ファイルを選択してください");
+    return;
+  }
   const reader = new FileReader();
   reader.onload = () => {
     const floor = activeFloor();
@@ -417,7 +437,16 @@ function onFileChange(ev) {
     refresh2d();
     setStatus("方眼紙写真を取り込みました（グリッド重ね表示中）");
   };
+  reader.onerror = () => setStatus("画像の読み込みに失敗しました");
   reader.readAsDataURL(file);
+}
+
+function onFileChange(ev) {
+  const input = ev.target;
+  const file = input?.files?.[0];
+  applyImageFile(file);
+  // 同じファイルを再選択できるようリセット
+  if (input) input.value = "";
 }
 
 function clearBackground() {
@@ -428,6 +457,51 @@ function clearBackground() {
   setStatus("背景をクリアしました");
 }
 
+function bindDropzone() {
+  const zone = $("fpb-dropzone");
+  const library = $("fpb-file-library");
+  if (!zone) return;
+
+  const setDrag = (on) => zone.classList.toggle("is-dragover", on);
+
+  zone.addEventListener("click", () => library?.click());
+  zone.addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter" || ev.key === " ") {
+      ev.preventDefault();
+      library?.click();
+    }
+  });
+
+  ["dragenter", "dragover"].forEach((type) => {
+    zone.addEventListener(type, (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      setDrag(true);
+    });
+  });
+  ["dragleave", "dragend"].forEach((type) => {
+    zone.addEventListener(type, (ev) => {
+      ev.preventDefault();
+      setDrag(false);
+    });
+  });
+  zone.addEventListener("drop", (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    setDrag(false);
+    const file = ev.dataTransfer?.files?.[0];
+    applyImageFile(file);
+  });
+
+  // ページ全体への誤ナビ防止（PC）
+  ["dragover", "drop"].forEach((type) => {
+    document.addEventListener(type, (ev) => {
+      if (ev.target === zone || zone.contains(/** @type {Node} */ (ev.target))) return;
+      ev.preventDefault();
+    });
+  });
+}
+
 function bindUi() {
   $("fpb-preset-tsukuba")?.addEventListener("click", () =>
     loadPreset("tsukuba_model_house")
@@ -435,7 +509,11 @@ function bindUi() {
   $("fpb-preset-hiraya")?.addEventListener("click", () =>
     loadPreset("hiraya_demo")
   );
+  // カメラ（capture）とアルバム/ファイル（captureなし）を分離
+  $("fpb-file-camera")?.addEventListener("change", onFileChange);
+  $("fpb-file-library")?.addEventListener("change", onFileChange);
   $("fpb-file")?.addEventListener("change", onFileChange);
+  bindDropzone();
   $("fpb-clear-bg")?.addEventListener("click", clearBackground);
   $("fpb-save")?.addEventListener("click", saveAll);
   $("fpb-send-security")?.addEventListener("click", sendToSecurity);
@@ -472,6 +550,13 @@ async function boot() {
     const cached = localStorage.getItem(LS_KEY);
     if (cached) {
       state = JSON.parse(cached);
+      // 旧ネオン配色を白基調アクセントへ寄せる（Security連携データは維持）
+      if (state?.render) {
+        const g = String(state.render.glowColor || "");
+        const a = String(state.render.glowColorAlt || "");
+        if (/^#(00ff88|39ff14|00ff00)$/i.test(g)) state.render.glowColor = "#059669";
+        if (/^#(00d4ff|00e5ff|00ffff)$/i.test(a)) state.render.glowColorAlt = "#0284c7";
+      }
       refresh2d();
       setStatus(`復元: ${state.name}`);
       return;

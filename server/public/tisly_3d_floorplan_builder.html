@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0a1220" />
+  <meta name="theme-color" content="#F8FAFC" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="3D Floorplan Builder" />
   <meta name="mobile-web-app-capable" content="yes" />
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2003" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
   <title>TiSLY 3D Floorplan Builder</title>
-  <link rel="stylesheet" href="/css/features/floorplan-builder/floorplan-builder-v1.css?v=2474" />
+  <link rel="stylesheet" href="/css/features/floorplan-builder/floorplan-builder-v1.css?v=2476" />
 </head>
 <body class="fpb-body">
   <header class="fpb-header">
@@ -48,11 +48,24 @@
     <section class="fpb-card fpb-scan">
       <p class="fpb-label">方眼紙写真（1マス＝3尺など）</p>
       <div class="fpb-scan-actions">
-        <label class="fpb-btn fpb-btn-ghost fpb-file-label">
-          📷 写真を取り込む
-          <input type="file" id="fpb-file" accept="image/*" capture="environment" hidden />
+        <label class="fpb-btn fpb-btn-camera fpb-file-label" for="fpb-file-camera">
+          📷 カメラで撮影
+          <input type="file" id="fpb-file-camera" accept="image/*" capture="environment" />
+        </label>
+        <label class="fpb-btn fpb-btn-library fpb-file-label" for="fpb-file-library">
+          📁 フォルダ/アルバムから選ぶ
+          <input type="file" id="fpb-file-library" accept="image/*" />
         </label>
         <button type="button" class="fpb-btn fpb-btn-ghost" id="fpb-clear-bg">背景クリア</button>
+      </div>
+      <div
+        class="fpb-dropzone"
+        id="fpb-dropzone"
+        tabindex="0"
+        role="button"
+        aria-label="方眼紙写真をドロップまたはクリックして選択"
+      >
+        ここに画像をドロップ（PC）· タップでアルバムから選択
       </div>
       <div class="fpb-canvas-wrap" id="fpb-canvas-wrap">
         <img id="fpb-bg" class="fpb-bg" alt="方眼紙間取り" hidden />
@@ -98,6 +111,6 @@
     }
   }
   </script>
-  <script type="module" src="/js/features/floorplan-builder/floorplan-builder-v1.js?v=2474"></script>
+  <script type="module" src="/js/features/floorplan-builder/floorplan-builder-v1.js?v=2476"></script>
 </body>
 </html>
