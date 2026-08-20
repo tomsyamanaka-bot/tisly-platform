@@ -1,6 +1,7 @@
 /**
  * セキュリティ画面の即時描画用モック
  * API 成否に依存せず UI を起動する
+ * 平屋・手書き間取りデモ
  */
 
 export const FALLBACK_DEFAULT_SITE_ID = "SEC-JP-MORIYA-001";
@@ -28,9 +29,9 @@ function nowIso() {
 }
 
 const MORIYA_FLOORS = [
-  { id: "outdoor", label: "外周・敷地", enabled: true },
   { id: "2f", label: "2F", enabled: true },
   { id: "1f", label: "1F", enabled: true },
+  { id: "outdoor", label: "外周・敷地", enabled: true },
 ];
 
 const TSUKUBA_FLOORS = [
@@ -42,58 +43,148 @@ const TSUKUBA_FLOORS = [
 function moriyaSite() {
   const rooms = [
     room({
-      id: "my-1f-entry",
+      id: "my-1f-katte",
       floorId: "1f",
-      label: "玄関ホール",
+      label: "勝手口キッチン",
       x: 4,
-      y: 58,
-      w: 24,
-      h: 38,
+      y: 4,
+      w: 20,
+      h: 20,
+    }),
+    room({
+      id: "my-1f-daidokoro",
+      floorId: "1f",
+      label: "台所",
+      x: 24,
+      y: 4,
+      w: 20,
+      h: 20,
+    }),
+    room({
+      id: "my-1f-toilet",
+      floorId: "1f",
+      label: "トイレ",
+      x: 4,
+      y: 24,
+      w: 12,
+      h: 12,
+    }),
+    room({
+      id: "my-1f-bath",
+      floorId: "1f",
+      label: "風呂",
+      x: 46,
+      y: 4,
+      w: 16,
+      h: 12,
+    }),
+    room({
+      id: "my-1f-wc",
+      floorId: "1f",
+      label: "WC",
+      x: 46,
+      y: 16,
+      w: 16,
+      h: 10,
+    }),
+    room({
+      id: "my-1f-hall",
+      floorId: "1f",
+      label: "廊下",
+      x: 16,
+      y: 24,
+      w: 46,
+      h: 12,
     }),
     room({
       id: "my-1f-living",
       floorId: "1f",
-      label: "リビング",
-      x: 30,
-      y: 8,
-      w: 44,
-      h: 54,
+      label: "リビング洋",
+      x: 4,
+      y: 36,
+      w: 34,
+      h: 28,
     }),
     room({
-      id: "my-1f-kitchen",
+      id: "my-1f-yo6a",
       floorId: "1f",
-      label: "キッチン",
-      x: 76,
-      y: 8,
-      w: 20,
+      label: "洋6畳",
+      x: 4,
+      y: 64,
+      w: 22,
+      h: 16,
+    }),
+    room({
+      id: "my-1f-yo6b",
+      floorId: "1f",
+      label: "洋6畳",
+      x: 4,
+      y: 80,
+      w: 22,
+      h: 16,
+    }),
+    room({
+      id: "my-1f-oshiire",
+      floorId: "1f",
+      label: "押入",
+      x: 62,
+      y: 4,
+      w: 34,
+      h: 20,
+    }),
+    room({
+      id: "my-1f-doma",
+      floorId: "1f",
+      label: "土間",
+      x: 38,
+      y: 48,
+      w: 24,
+      h: 32,
+    }),
+    room({
+      id: "my-1f-wa10",
+      floorId: "1f",
+      label: "和10畳",
+      x: 62,
+      y: 36,
+      w: 22,
+      h: 32,
+    }),
+    room({
+      id: "my-1f-wa8",
+      floorId: "1f",
+      label: "和8畳",
+      x: 84,
+      y: 36,
+      w: 12,
+      h: 32,
+    }),
+    room({
+      id: "my-1f-hall3",
+      floorId: "1f",
+      label: "廊下（3尺）",
+      x: 62,
+      y: 80,
+      w: 34,
+      h: 16,
+    }),
+    room({
+      id: "my-2f-empty",
+      floorId: "2f",
+      label: "2F（なし）",
+      x: 20,
+      y: 30,
+      w: 60,
       h: 40,
-    }),
-    room({
-      id: "my-2f-master",
-      floorId: "2f",
-      label: "主寝室",
-      x: 6,
-      y: 10,
-      w: 42,
-      h: 48,
-    }),
-    room({
-      id: "my-2f-child",
-      floorId: "2f",
-      label: "子供部屋",
-      x: 52,
-      y: 10,
-      w: 42,
-      h: 48,
     }),
     room({
       id: "my-out-park",
       floorId: "outdoor",
-      label: "ガレージ",
-      x: 6,
+      label: "駐車スペース",
+      x: 8,
       y: 16,
-      w: 50,
-      h: 68,
+      w: 48,
+      h: 66,
     }),
     room({
       id: "my-out-garden",
@@ -101,65 +192,129 @@ function moriyaSite() {
       label: "庭・外周",
       x: 60,
       y: 16,
-      w: 34,
-      h: 68,
+      w: 32,
+      h: 66,
     }),
   ];
   const sensors = [
     sensor({
-      id: "my-door-front",
+      id: "my-door-katte",
       floorId: "1f",
-      roomId: "my-1f-entry",
+      roomId: "my-1f-katte",
       kind: "door",
-      label: "玄関ドアセンサー",
+      label: "勝手口ドアセンサー（20m）",
       icon: "🚪",
-      x: 16,
-      y: 88,
-      linkedCameraId: "my-cam-entry",
+      x: 8,
+      y: 14,
+      linkedCameraId: "my-cam-katte",
     }),
     sensor({
-      id: "my-lock-front",
+      id: "my-lock-katte",
       floorId: "1f",
-      roomId: "my-1f-entry",
+      roomId: "my-1f-katte",
       kind: "lock",
-      label: "玄関スマートロック",
+      label: "スマートロック",
       icon: "🔒",
       x: 16,
-      y: 72,
-      linkedCameraId: "my-cam-entry",
+      y: 10,
+      linkedCameraId: "my-cam-katte",
     }),
     sensor({
-      id: "my-mmwave-living",
+      id: "my-gas-katte",
       floorId: "1f",
-      roomId: "my-1f-living",
+      roomId: "my-1f-katte",
+      kind: "gas",
+      label: "ガス警報器",
+      icon: "🔥",
+      x: 18,
+      y: 18,
+    }),
+    sensor({
+      id: "my-panel-50a",
+      floorId: "1f",
+      roomId: "my-1f-katte",
+      kind: "panel",
+      label: "50A個別配",
+      icon: "⚡",
+      x: 22,
+      y: 8,
+    }),
+    sensor({
+      id: "my-mmwave-bath",
+      floorId: "1f",
+      roomId: "my-1f-hall",
       kind: "mmwave",
-      label: "LDKミリ波人感",
+      label: "風呂・WC付近人感",
       icon: "📡",
-      x: 52,
-      y: 32,
+      x: 54,
+      y: 22,
       linkedCameraId: "my-cam-living",
     }),
     sensor({
-      id: "my-cam-entry",
+      id: "my-door-living",
       floorId: "1f",
-      roomId: "my-1f-entry",
-      kind: "camera",
-      label: "玄関カメラ 01",
-      icon: "📷",
+      roomId: "my-1f-living",
+      kind: "door",
+      label: "リビング洋ドアセンサー",
+      icon: "🚪",
+      x: 6,
+      y: 48,
+      linkedCameraId: "my-cam-living",
+    }),
+    sensor({
+      id: "my-door-yo6",
+      floorId: "1f",
+      roomId: "my-1f-yo6b",
+      kind: "door",
+      label: "洋6畳ドアセンサー",
+      icon: "🚪",
       x: 10,
-      y: 62,
-      linkedCameraId: "my-cam-entry",
+      y: 92,
+      linkedCameraId: "my-cam-living",
+    }),
+    sensor({
+      id: "my-door-wa8",
+      floorId: "1f",
+      roomId: "my-1f-wa8",
+      kind: "door",
+      label: "和8畳ドアセンサー",
+      icon: "🚪",
+      x: 92,
+      y: 64,
+      linkedCameraId: "my-cam-garden",
+    }),
+    sensor({
+      id: "my-cam-katte",
+      floorId: "1f",
+      roomId: "my-1f-katte",
+      kind: "camera",
+      label: "勝手口カメラ 01",
+      icon: "📷",
+      x: 12,
+      y: 20,
+      linkedCameraId: "my-cam-katte",
     }),
     sensor({
       id: "my-cam-living",
       floorId: "1f",
       roomId: "my-1f-living",
       kind: "camera",
-      label: "LDKカメラ",
+      label: "リビング洋カメラ",
       icon: "📷",
-      x: 40,
-      y: 20,
+      x: 28,
+      y: 44,
       linkedCameraId: "my-cam-living",
+    }),
+    sensor({
+      id: "my-cam-garden",
+      floorId: "outdoor",
+      roomId: "my-out-garden",
+      kind: "camera",
+      label: "庭・外周カメラ",
+      icon: "📷",
+      x: 76,
+      y: 40,
+      linkedCameraId: "my-cam-garden",
     }),
     sensor({
       id: "my-cam-park",
@@ -172,32 +327,12 @@ function moriyaSite() {
       y: 50,
       linkedCameraId: "my-cam-park",
     }),
-    sensor({
-      id: "my-mmwave-2f",
-      floorId: "2f",
-      roomId: "my-2f-master",
-      kind: "mmwave",
-      label: "2F寝室ミリ波",
-      icon: "📡",
-      x: 24,
-      y: 32,
-    }),
-    sensor({
-      id: "my-window-2f",
-      floorId: "2f",
-      roomId: "my-2f-master",
-      kind: "window",
-      label: "2Fバルコニー窓",
-      icon: "🪟",
-      x: 40,
-      y: 16,
-    }),
   ];
   return {
     siteId: "SEC-JP-MORIYA-001",
     id: "SEC-JP-MORIYA-001",
-    displayName: "守谷市 美園の家",
-    addressLabel: "茨城県守谷市美園",
+    displayName: "平屋デモ宅（手書き間取り）",
+    addressLabel: "茨城県守谷市",
     countryCode: "JP",
     currency: "JPY",
     planCode: "home_security_std",
@@ -212,20 +347,20 @@ function moriyaSite() {
     rooms,
     sensors,
     notes: [
-      "モック表示（API未接続時も操作できます）",
+      "平屋・手書き間取りに基づくデモ物件です",
       "外出警戒モードです",
     ],
     soc: {
       cameras: [
         {
-          id: "my-cam-entry",
-          label: "玄関カメラ 01",
-          customerLabel: "玄関のカメラ",
-          scene: "entry",
+          id: "my-cam-katte",
+          label: "勝手口カメラ 01",
+          customerLabel: "勝手口のカメラ",
+          scene: "backdoor",
         },
         {
           id: "my-cam-living",
-          label: "LDKカメラ",
+          label: "リビング洋カメラ",
           customerLabel: "リビングのカメラ",
           scene: "lobby",
         },
@@ -248,7 +383,7 @@ function moriyaSite() {
         windMs: 2.1,
         label: "晴れ",
       },
-      selectedCameraId: "my-cam-entry",
+      selectedCameraId: "my-cam-katte",
     },
   };
 }
@@ -275,7 +410,7 @@ export function listFallbackSites() {
     {
       id: "SEC-JP-MORIYA-001",
       siteId: "SEC-JP-MORIYA-001",
-      displayName: "守谷市 美園の家",
+      displayName: "平屋デモ宅（手書き間取り）",
       countryCode: "JP",
     },
     {
@@ -326,8 +461,8 @@ export function applyLocalPrimaryAlert(site) {
   const target =
     (site.sensors || []).find(
       (s) =>
-        s.id === "my-door-front" ||
-        String(s.label || "").includes("玄関ドア")
+        s.id === "my-door-katte" ||
+        String(s.label || "").includes("勝手口ドア")
     ) ||
     (site.sensors || []).find((s) => s.kind === "door") ||
     (site.sensors || [])[0];
@@ -348,9 +483,10 @@ export function applyLocalPrimaryAlert(site) {
     id: `local-${Date.now()}`,
     at: nowIso(),
     floorId: target.floorId || "1f",
-    location: room?.label || "玄関ホール",
-    kindLabel: "侵入検知",
-    deviceLabel: target.label || "玄関ドアセンサー",
+    location: room?.label || "勝手口キッチン",
+    kind: target.kind || "door",
+    kindLabel: "開放検知",
+    deviceLabel: target.label || "勝手口ドアセンサー",
     sensorId: target.id,
     cameraId: target.linkedCameraId || null,
     status: "open",
@@ -359,7 +495,7 @@ export function applyLocalPrimaryAlert(site) {
   site.soc.selectedCameraId =
     target.linkedCameraId || site.soc.selectedCameraId;
   site.notes = [
-    "1F エントランス / 玄関ドアセンサーが発報しています",
+    "1F 勝手口キッチン / 勝手口ドアセンサーが発報しています",
     ...(site.notes || []).slice(0, 3),
   ];
   return site;
@@ -367,31 +503,25 @@ export function applyLocalPrimaryAlert(site) {
 
 export function applyLocalAck(site) {
   if (!site) return site;
-  for (const sensor of site.sensors || []) {
-    sensor.state = "normal";
-    sensor.alertVisible = false;
-  }
-  for (const room of site.rooms || []) {
-    room.alertVisible = false;
-  }
+  (site.sensors || []).forEach((s) => {
+    s.state = "normal";
+    s.alertVisible = false;
+  });
+  (site.rooms || []).forEach((r) => {
+    r.alertVisible = false;
+  });
   site.hasAlert = false;
   site.statusEmoji = "🟢";
   site.statusLabel = "正常です";
   site.status = "normal";
-  for (const log of site.soc?.alarmLogs || []) {
-    if (log.status !== "done") {
-      log.status = "done";
-      log.handler = "デモ管理者";
-    }
+  if (site.soc?.alarmLogs) {
+    site.soc.alarmLogs.forEach((l) => {
+      if (l.status !== "done") {
+        l.status = "done";
+        l.handler = "デモ管理者";
+      }
+    });
   }
-  return site;
-}
-
-export function applyLocalLights(site, on) {
-  if (!site) return site;
-  if (!site.soc) site.soc = {};
-  const total = site.soc.lightingTotal || 8;
-  site.soc.lightingOn = on ? total : 0;
   return site;
 }
 
@@ -404,12 +534,19 @@ export function applyLocalGuardMode(site, mode) {
       : mode === "away"
         ? "外出警戒"
         : "警戒解除";
-  if (mode === "disarmed") {
-    applyLocalAck(site);
-  }
+  if (mode === "disarmed") applyLocalAck(site);
+  return site;
+}
+
+export function applyLocalLights(site, on) {
+  if (!site) return site;
+  if (!site.soc) site.soc = {};
+  const total = site.soc.lightingTotal || 8;
+  site.soc.lightingOn = on ? total : 0;
   return site;
 }
 
 export function markSecurityUiReady() {
   window.__TISLY_SF_READY = true;
+  document.body?.setAttribute("data-sf-ready", "1");
 }

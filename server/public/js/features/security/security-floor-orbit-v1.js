@@ -34,7 +34,7 @@ export function applySecurityOrbit() {
     72,
     Math.round(h / (2 * Math.tan(Math.PI / Math.max(n, 2))))
   );
-  const focus = el.getAttribute("data-focus") || "2f";
+  const focus = el.getAttribute("data-focus") || "1f";
   let index = layers.findIndex((l) => l.getAttribute("data-layer") === focus);
   if (index < 0) index = 0;
   el.style.setProperty("--drum-step", `${step}deg`);
@@ -52,9 +52,13 @@ export function setSecurityDrumFloor(id) {
   const el = document.getElementById("sf-iso-orbit");
   if (!el) return;
   const layers = layersOf(el);
-  const next = layers.some((l) => l.getAttribute("data-layer") === id)
+    const next = layers.some((l) => l.getAttribute("data-layer") === id)
     ? id
-    : layers[0]?.getAttribute("data-layer") || "2f";
+    : layers.find((l) => l.getAttribute("data-layer") === "1f")?.getAttribute(
+        "data-layer"
+      ) ||
+      layers[0]?.getAttribute("data-layer") ||
+      "1f";
   el.setAttribute("data-focus", next);
   syncFloorTabs(next);
   applySecurityOrbit();
@@ -68,7 +72,7 @@ function stepFloor(dir) {
   if (!el) return;
   const layers = layersOf(el);
   if (!layers.length) return;
-  const focus = el.getAttribute("data-focus") || "2f";
+  const focus = el.getAttribute("data-focus") || "1f";
   let index = layers.findIndex((l) => l.getAttribute("data-layer") === focus);
   if (index < 0) {
     index = DRUM_ORDER.indexOf(focus);

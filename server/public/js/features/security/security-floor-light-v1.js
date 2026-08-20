@@ -9,7 +9,7 @@
   window.__TISLY_SF_READY = true;
   window.__TISLY_SF_ORBIT_BOUND = true;
   window.__TISLY_SF_CTRL_BOUND = true;
-  window.__TISLY_SF_FLOOR = "2f";
+  window.__TISLY_SF_FLOOR = "1f";
 
   var drum = {
     dragging: false,
@@ -19,8 +19,8 @@
   };
   var cameraIndex = 0;
   var cameras = [
-    { id: "my-cam-entry", label: "玄関カメラ 01", scene: "entry" },
-    { id: "my-cam-living", label: "LDKカメラ", scene: "lobby" },
+    { id: "my-cam-katte", label: "勝手口カメラ 01", scene: "backdoor" },
+    { id: "my-cam-living", label: "リビング洋カメラ", scene: "lobby" },
     { id: "my-cam-park", label: "駐車カメラ", scene: "parking" },
   ];
   var alerting = false;
@@ -42,7 +42,7 @@
     var h = el.offsetHeight || 320;
     var tan = Math.tan(Math.PI / Math.max(n, 2));
     var radius = Math.max(72, Math.round(h / (2 * tan)));
-    var focus = el.getAttribute("data-focus") || "2f";
+    var focus = el.getAttribute("data-focus") || "1f";
     var index = 0;
     var i;
     for (i = 0; i < layers.length; i++) {
@@ -64,13 +64,13 @@
     var orbitEl = $("sf-iso-orbit");
     if (!orbitEl) return;
     var layers = layersOf(orbitEl);
-    var next = id || "2f";
+    var next = id || "1f";
     var found = false;
     var i;
     for (i = 0; i < layers.length; i++) {
       if (layers[i].getAttribute("data-layer") === next) found = true;
     }
-    if (!found && layers[0]) next = layers[0].getAttribute("data-layer") || "2f";
+    if (!found && layers[0]) next = layers[0].getAttribute("data-layer") || "1f";
     orbitEl.setAttribute("data-focus", next);
     window.__TISLY_SF_FLOOR = next;
     document.querySelectorAll("#sf-floor-tabs [data-floor]").forEach(function (btn) {
@@ -124,20 +124,25 @@
   function setAlertVisual(on) {
     alerting = !!on;
     var rooms = document.querySelectorAll(
-      '[data-room-id="my-1f-entry"], [data-room-id="my-1f-living"], [data-room-id*="entry"], [data-room-id*="living"]'
+      '[data-room-id="my-1f-katte"], [data-room-id*="katte"]'
     );
     var layer = document.querySelector('[data-layer="1f"]');
     var pins = document.querySelectorAll(
-      '[data-sensor-id="my-door-front"], [data-sensor-id*="door-front"], [data-layer="1f"] .sf-pin'
+      '[data-sensor-id="my-door-katte"], [data-sensor-id="my-lock-katte"], [data-sensor-id="my-gas-katte"], [data-sensor-id="my-panel-50a"], [data-sensor-id="my-cam-katte"], [data-room-id="my-1f-katte"] ~ .sf-pin, [data-layer="1f"] [data-sensor-id*="katte"]'
     );
     var panel = $("sf-alarm-panel");
     rooms.forEach(function (room) {
       room.classList.toggle("is-alert", alerting);
       room.classList.toggle("pulse-alarm", alerting);
+      room.classList.toggle("alert-beacon", alerting);
     });
-    if (layer) layer.classList.toggle("is-alert", alerting);
+    if (layer) {
+      layer.classList.toggle("is-alert", alerting);
+      layer.classList.toggle("alert-beacon", alerting);
+    }
     pins.forEach(function (pin) {
       pin.classList.toggle("is-alert", alerting);
+      pin.classList.toggle("alert-beacon", alerting);
     });
     if (panel) panel.classList.toggle("is-live", alerting);
     var status = $("sf-status-label");
@@ -159,13 +164,13 @@
     var list = $("sf-alarm-list");
     if (list) {
       list.innerHTML = alerting
-        ? "<li><b>1F 玄関ホール</b><span>侵入検知 · エントランス</span></li>"
+        ? "<li><b>1F 勝手口キッチン</b><span>開放検知 · 勝手口ドア</span></li>"
         : "<li>発報はありません</li>";
     }
     var detail = $("sf-alarm-detail");
     if (detail) {
       detail.innerHTML = alerting
-        ? "<div><dt>場所</dt><dd>1F 玄関ホール</dd></div><div><dt>デバイス</dt><dd>玄関ドアセンサー</dd></div><div><dt>種別</dt><dd>侵入検知</dd></div><div><dt>ステータス</dt><dd><em class=\"st-open\">未対応</em></dd></div>"
+        ? "<div><dt>場所</dt><dd>1F 勝手口キッチン</dd></div><div><dt>デバイス</dt><dd>勝手口ドアセンサー（20m）</dd></div><div><dt>種別</dt><dd>開放検知</dd></div><div><dt>ステータス</dt><dd><em class=\"st-open\">未対応</em></dd></div>"
         : "<p>選択中の警報はありません</p>";
     }
   }
@@ -195,7 +200,7 @@
       if (cells.length) rows.push(cells.join(","));
     });
     if (rows.length === 1) {
-      rows.push('"デモ出力","1F","玄関ホール","侵入検知","玄関ドアセンサー","未対応",""');
+      rows.push('"デモ出力","1F","勝手口キッチン","開放検知","勝手口ドアセンサー（20m）","未対応",""');
     }
     var blob = new Blob(["\uFEFF" + rows.join("\n")], {
       type: "text/csv;charset=utf-8",

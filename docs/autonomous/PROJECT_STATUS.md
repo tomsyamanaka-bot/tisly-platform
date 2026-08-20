@@ -15,7 +15,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 背景 | `#ffffff` 〜 `#F8FAFC` |
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
-| SW | `tisly-pwa-v2472-security-floor-pad` |
+| SW | `tisly-pwa-v2473-security-handplan` |
 
 ---
 
@@ -1480,9 +1480,10 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 画面 | `/security-v1` · `/customer/security` |
 | 3D | `perspective: 1000px` · `rotateX` + `translateZ` · 白 `#FFFFFF` 不透明カード · 枠 `#1E293B` · `backface-visibility: hidden` |
 | 操作 | マップ上下スワイプ/ホイール · タブ（2F / 1F / 外周）· `cubic-bezier(0.2, 0.8, 0.2, 1)` |
-| 発報 | 玄関・リビング `#EF4444` pulse-alarm 波紋 |
-| 初期化 | 「読み込み中…」なし · 守谷市 美園の家を即時展開 · ボタンは同期 JS で 0 秒反応 |
+| 間取り | 手書き平屋図面準拠 · 勝手口キッチン / リビング洋 / 和10畳 / 和8畳 等 · 美園の家データ破棄 |
+| 発報 | 通知テスト → **勝手口キッチン** 全体・壁・センサーが `alert-beacon` 赤ネオングロー |
+| 初期化 | 「読み込み中…」なし · 平屋デモ宅を即時展開（1F中央固定）· ボタンは同期 JS で 0 秒反応 |
 | CSV | UTF-8 BOM `\uFEFF` 付き（Excel 文字化け防止） |
-| SW | `tisly-pwa-v2472-security-floor-pad` |
+| SW | `tisly-pwa-v2473-security-handplan` |
 | テスト | `server/test/security-floor-v1.test.ts` |
 | 確認 | `/security-v1` · `/customer/security` · https://tisly.jp/api/health |

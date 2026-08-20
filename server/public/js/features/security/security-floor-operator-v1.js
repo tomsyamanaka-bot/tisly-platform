@@ -30,7 +30,7 @@ import {
 
 const state = {
   siteId: FALLBACK_DEFAULT_SITE_ID,
-  floorId: "2f",
+  floorId: "1f",
   site: null,
   dash: null,
   cameraId: null,

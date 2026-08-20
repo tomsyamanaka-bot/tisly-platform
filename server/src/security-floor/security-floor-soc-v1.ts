@@ -94,6 +94,9 @@ function roomLabel(
 }
 
 function cameraScene(id: string): string {
+  if (id.includes("katte") || id.includes("back")) {
+    return "backdoor";
+  }
   if (id.includes("entry") || id.includes("front")) {
     return "entry";
   }
@@ -103,7 +106,6 @@ function cameraScene(id: string): string {
   if (id.includes("yard") || id.includes("garden")) {
     return "garden";
   }
-  if (id.includes("back")) return "backdoor";
   return "lobby";
 }
 
@@ -307,6 +309,12 @@ export function pickPrimaryAlertSensorV1(
   site: SecuritySiteV1
 ): SecuritySensorV1 | undefined {
   return (
+    site.sensors.find(
+      (s) =>
+        s.id === "my-door-katte" ||
+        s.id.includes("door-katte") ||
+        s.label.includes("勝手口ドア")
+    ) ||
     site.sensors.find(
       (s) =>
         s.id.includes("door-front") ||

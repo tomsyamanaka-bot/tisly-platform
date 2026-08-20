@@ -25,7 +25,7 @@ import {
 
 const state = {
   siteId: FALLBACK_DEFAULT_SITE_ID,
-  floorId: "2f",
+  floorId: "1f",
   dash: null,
   cameraId: null,
   pane: "map",

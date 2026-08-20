@@ -107,6 +107,8 @@ export function renderGuardModes(mode) {
 export function pickDefaultFloor(floors) {
   const list = floors || [];
   const enabled = list.filter((f) => f.enabled);
+  const oneF = enabled.find((f) => f.id === "1f");
+  if (oneF) return "1f";
   return (enabled[0] || list[0] || { id: "1f" }).id;
 }
 
@@ -177,7 +179,7 @@ export function renderIsoLayerSvg(
     ? floorRooms
         .map((r) => {
           const cls = r.alertVisible
-            ? "sf-room is-alert pulse-alarm"
+            ? "sf-room is-alert pulse-alarm alert-beacon"
             : "sf-room";
           const tx = r.x + r.w / 2;
           const ty = r.y + r.h / 2;
@@ -200,7 +202,7 @@ export function renderIsoLayerSvg(
     })
     .map((s) => {
       const cls = s.alertVisible
-        ? "sf-pin is-alert"
+        ? "sf-pin is-alert alert-beacon"
         : "sf-pin";
       const kindCls =
         s.kind === "camera" ? " is-cam" : " is-sens";
@@ -245,7 +247,11 @@ export function renderIsoStack(site, focusId, opts = {}) {
       (a, b) => (zOrder[a.id] ?? 9) - (zOrder[b.id] ?? 9)
     );
     const focus =
-      !focusId || focusId === "all" ? layers[0]?.id || "2f" : focusId;
+      !focusId || focusId === "all"
+        ? layers.find((f) => f.id === "1f")?.id ||
+          layers[0]?.id ||
+          "1f"
+        : focusId;
     const layerOpts = {
       ...opts,
       lightingOn: site.soc?.lightingOn ?? opts.lightingOn ?? 0,
@@ -257,7 +263,7 @@ export function renderIsoStack(site, focusId, opts = {}) {
         );
         const dim = focus !== f.id ? " is-dim" : "";
         const on = focus === f.id ? " is-focus" : "";
-        const al = alert ? " is-alert" : "";
+        const al = alert ? " is-alert alert-beacon" : "";
         return `
         <article class="sf-iso-layer${dim}${on}${al}"
           data-layer="${escapeHtml(f.id)}" style="--drum-i:${i}">
@@ -286,7 +292,7 @@ export function renderIsoStack(site, focusId, opts = {}) {
   }
 }
 
-export const STATIC_ISO_HTML = `<div class="sf-iso-scene"><div class="sf-iso-orbit" id="sf-iso-orbit" data-focus="2f"></div></div>`;
+export const STATIC_ISO_HTML = `<div class="sf-iso-scene"><div class="sf-iso-orbit" id="sf-iso-orbit" data-focus="1f"></div></div>`;
 
 export function renderSocLayerButtons(floors, activeId) {
   const items = visibleFloors(floors)
@@ -299,7 +305,9 @@ export function renderSocLayerButtons(floors, activeId) {
     }));
   const focus =
     !activeId || activeId === "all"
-      ? items[0]?.id || "2f"
+      ? items.find((it) => it.id === "1f")?.id ||
+        items[0]?.id ||
+        "1f"
       : activeId;
   return items
     .map((it) => {

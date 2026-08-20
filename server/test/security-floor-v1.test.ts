@@ -42,6 +42,15 @@ describe("security-floor-v1", () => {
     assert.ok(au);
     assert.ok(moriya);
     assert.equal(moriya.addressLabel.includes("守谷"), true);
+    assert.equal(moriya.displayName.includes("平屋"), true);
+    assert.ok(moriya.rooms.some((r) => r.label === "勝手口キッチン"));
+    assert.ok(moriya.rooms.some((r) => r.label === "リビング洋"));
+    assert.ok(moriya.rooms.some((r) => r.label === "和8畳"));
+    assert.ok(moriya.sensors.some((s) => s.id === "my-door-katte"));
+    assert.equal(
+      moriya.floors.find((f) => f.id === "1f")?.enabled,
+      true
+    );
     assert.ok(jp.floors.find((f) => f.id === "roof"));
     assert.equal(
       jp.floors.find((f) => f.id === "roof")?.enabled,
@@ -188,6 +197,7 @@ describe("security-floor-v1", () => {
     );
     assert.match(css, /pulse-glow/);
     assert.match(css, /pulse-alarm/);
+    assert.match(css, /alert-beacon/);
     assert.match(css, /#ef4444/i);
     assert.match(css, /#1e3a8a/i);
     assert.match(css, /#f8fafc/i);
@@ -267,17 +277,24 @@ describe("security-floor-v1", () => {
     );
     assert.match(html, /sf-iso-wrap/);
     assert.match(html, /sf-iso-orbit/);
-    assert.match(html, /data-room-id="my-1f-entry"/);
+    assert.match(html, /data-room-id="my-1f-katte"/);
+    assert.match(html, /勝手口キッチン/);
+    assert.match(html, /リビング洋/);
+    assert.match(html, /和10畳/);
+    assert.match(html, /廊下（3尺）/);
     assert.match(html, /アラーム対応完了/);
     assert.match(html, /TiSLY Security/);
-    assert.match(html, /security-floor-light-v1\.js\?v=2472/);
-    assert.match(html, /security-floor-operator-v1\.js\?v=2472/);
+    assert.match(html, /security-floor-light-v1\.js\?v=2473/);
+    assert.match(html, /security-floor-operator-v1\.js\?v=2473/);
     assert.match(html, /viewBox="-10 -12 120 124"/);
     assert.match(html, /← 戻る/);
+    assert.match(html, /data-focus="1f"/);
     assert.doesNotMatch(html, /読み込み中/);
     assert.doesNotMatch(html, /3Dマップを再描画しています/);
     assert.doesNotMatch(html, /home-quick-switch/);
     assert.doesNotMatch(html, /屋根\/太陽光/);
+    assert.doesNotMatch(html, /美園の家/);
+    assert.doesNotMatch(html, /玄関ホール/);
     const mapJs = fs.readFileSync(
       path.join(
         publicDir,
@@ -288,6 +305,7 @@ describe("security-floor-v1", () => {
     assert.match(mapJs, /renderIsoStack/);
     assert.match(mapJs, /--drum-i/);
     assert.match(mapJs, /pulse-alarm/);
+    assert.match(mapJs, /alert-beacon/);
     assert.match(mapJs, /sf-iso-orbit/);
     assert.doesNotMatch(mapJs, /屋根\/太陽光/);
     const orbitJs = fs.readFileSync(
@@ -307,6 +325,8 @@ describe("security-floor-v1", () => {
     assert.match(lightJs, /rotateX/);
     assert.match(lightJs, /translateZ|drum-r/);
     assert.match(lightJs, /pulse-alarm/);
+    assert.match(lightJs, /alert-beacon/);
+    assert.match(lightJs, /my-1f-katte/);
     assert.match(lightJs, /sf-demo-alert/);
     assert.match(lightJs, /\\uFEFF/);
     assert.match(orbitJs, /rotateX/);
@@ -332,8 +352,11 @@ describe("security-floor-v1", () => {
       "utf8"
     );
     assert.match(fbJs, /SEC-JP-MORIYA-001/);
+    assert.match(fbJs, /勝手口キッチン/);
+    assert.match(fbJs, /平屋デモ宅/);
     assert.match(fbJs, /つくばモデルハウス/);
     assert.doesNotMatch(fbJs, /屋根\/太陽光/);
+    assert.doesNotMatch(fbJs, /美園の家/);
     const customerHtml = fs.readFileSync(
       path.join(publicDir, "security-customer-v1.html"),
       "utf8"
@@ -343,6 +366,8 @@ describe("security-floor-v1", () => {
     assert.match(customerHtml, /href="\/customer"/);
     assert.match(customerHtml, /security-floor-light-v1\.js/);
     assert.match(customerHtml, /sf-demo-alert/);
+    assert.match(customerHtml, /data-room-id="my-1f-katte"/);
+    assert.match(customerHtml, /data-focus="1f"/);
     assert.doesNotMatch(customerHtml, /読み込み中/);
     assert.doesNotMatch(customerHtml, /home-quick-switch/);
 
@@ -362,13 +387,13 @@ describe("security-floor-v1", () => {
       .send({ siteId: "SEC-JP-MORIYA-001" });
     assert.equal(notifyMoriya.status, 200);
     const door = notifyMoriya.body.operatorSite.sensors.find(
-      (s: { id: string }) => s.id === "my-door-front"
+      (s: { id: string }) => s.id === "my-door-katte"
     );
     assert.equal(door.alertVisible, true);
     assert.equal(door.state, "alert");
-    const entryRoom = notifyMoriya.body.operatorSite.rooms.find(
-      (r: { id: string }) => r.id === "my-1f-entry"
+    const katteRoom = notifyMoriya.body.operatorSite.rooms.find(
+      (r: { id: string }) => r.id === "my-1f-katte"
     );
-    assert.equal(entryRoom.alertVisible, true);
+    assert.equal(katteRoom.alertVisible, true);
   });
 });
