@@ -28,8 +28,12 @@ export function applySecurityOrbit() {
   const layers = layersOf(el);
   const n = Math.max(layers.length, 1);
   const step = 360 / n;
-  const h = el.offsetHeight || 360;
-  const radius = Math.max(140, Math.round(h / (2 * Math.tan(Math.PI / Math.max(n, 2)))));
+  const h = el.offsetHeight || 320;
+  // 正多角形ドラム: 面の高さ H に対し r = H / (2·tan(π/n))
+  const radius = Math.max(
+    72,
+    Math.round(h / (2 * Math.tan(Math.PI / Math.max(n, 2))))
+  );
   const focus = el.getAttribute("data-focus") || "2f";
   let index = layers.findIndex((l) => l.getAttribute("data-layer") === focus);
   if (index < 0) index = 0;

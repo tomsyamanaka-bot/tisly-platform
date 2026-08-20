@@ -15,7 +15,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 背景 | `#ffffff` 〜 `#F8FAFC` |
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
-| SW | `tisly-pwa-v2471-security-drum` |
+| SW | `tisly-pwa-v2472-security-floor-pad` |
 
 ---
 
@@ -1483,6 +1483,6 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 発報 | 玄関・リビング `#EF4444` pulse-alarm 波紋 |
 | 初期化 | 「読み込み中…」なし · 守谷市 美園の家を即時展開 · ボタンは同期 JS で 0 秒反応 |
 | CSV | UTF-8 BOM `\uFEFF` 付き（Excel 文字化け防止） |
-| SW | `tisly-pwa-v2471-security-drum` |
+| SW | `tisly-pwa-v2472-security-floor-pad` |
 | テスト | `server/test/security-floor-v1.test.ts` |
 | 確認 | `/security-v1` · `/customer/security` · https://tisly.jp/api/health |

@@ -194,7 +194,10 @@ describe("security-floor-v1", () => {
     assert.match(css, /#2563eb/i);
     assert.match(css, /perspective:\s*1000px/);
     assert.match(css, /backface-visibility:\s*hidden/);
-    assert.match(css, /cubic-bezier\(0\.2,\s*0\.8,\s*0\.2,\s*1\)/);
+    assert.match(css, /transition:\s*transform\s+0\.35s\s+ease-out/);
+    assert.match(css, /max-width:\s*360px/);
+    assert.match(css, /height:\s*320px/);
+    assert.match(css, /padding:\s*16px/);
     assert.match(css, /#ffffff/i);
     assert.match(css, /#1e293b/i);
     assert.match(css, /touch-action: pan-y/);
@@ -267,8 +270,9 @@ describe("security-floor-v1", () => {
     assert.match(html, /data-room-id="my-1f-entry"/);
     assert.match(html, /アラーム対応完了/);
     assert.match(html, /TiSLY Security/);
-    assert.match(html, /security-floor-light-v1\.js\?v=2471/);
-    assert.match(html, /security-floor-operator-v1\.js\?v=2471/);
+    assert.match(html, /security-floor-light-v1\.js\?v=2472/);
+    assert.match(html, /security-floor-operator-v1\.js\?v=2472/);
+    assert.match(html, /viewBox="-10 -12 120 124"/);
     assert.match(html, /← 戻る/);
     assert.doesNotMatch(html, /読み込み中/);
     assert.doesNotMatch(html, /3Dマップを再描画しています/);

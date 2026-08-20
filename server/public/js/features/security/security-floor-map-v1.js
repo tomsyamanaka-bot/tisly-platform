@@ -60,7 +60,7 @@ export function renderFloorMapSvg(rooms, sensors, floorId) {
   return `
     <svg
       class="sf-map"
-      viewBox="0 0 100 100"
+      viewBox="-8 -8 116 116"
       role="img"
       aria-label="フロア俯瞰図"
     >
@@ -205,9 +205,9 @@ export function renderIsoLayerSvg(
       const kindCls =
         s.kind === "camera" ? " is-cam" : " is-sens";
       const badge = s.alertVisible
-        ? `<g class="sf-alert-pin" transform="translate(0 -11)">
-            <rect x="-16" y="-6" width="32" height="9" rx="1.5"></rect>
-            <text x="0" y="0.5" text-anchor="middle">発報地点</text>
+        ? `<g class="sf-alert-pin" transform="translate(0 -9)">
+            <rect x="-14" y="-5" width="28" height="8" rx="1.5"></rect>
+            <text x="0" y="0.8" text-anchor="middle">発報地点</text>
           </g>`
         : "";
       return `
@@ -215,7 +215,7 @@ export function renderIsoLayerSvg(
           data-kind="${escapeHtml(s.kind)}"
           data-camera="${escapeHtml(s.linkedCameraId || s.id)}"
           transform="translate(${s.x} ${s.y})">
-          <circle class="sf-pin-pulse" r="9"></circle>
+          <circle class="sf-pin-pulse" r="8"></circle>
           <circle class="sf-pin-bg" r="5.6"></circle>
           <text class="sf-pin-icon" y="0.6">${s.icon || "●"}</text>
           ${badge}
@@ -223,9 +223,9 @@ export function renderIsoLayerSvg(
     })
     .join("");
   return `
-    <svg class="sf-map sf-iso-svg" viewBox="0 0 100 100" role="img"
+    <svg class="sf-map sf-iso-svg" viewBox="-10 -12 120 124" role="img"
       aria-label="${escapeHtml(socFloorLabel(floorId))}">
-      <rect class="sf-iso-slab" x="1" y="1" width="98" height="98" rx="3"></rect>
+      <rect class="sf-iso-slab" x="2" y="2" width="96" height="96" rx="3"></rect>
       ${roomRects}
       ${layerDecorations(floorId, opts)}
       ${pins}

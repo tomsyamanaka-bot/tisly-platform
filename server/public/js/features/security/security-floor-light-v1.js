@@ -39,9 +39,9 @@
     var layers = layersOf(el);
     var n = Math.max(layers.length, 1);
     var step = 360 / n;
-    var h = el.offsetHeight || 360;
+    var h = el.offsetHeight || 320;
     var tan = Math.tan(Math.PI / Math.max(n, 2));
-    var radius = Math.max(140, Math.round(h / (2 * tan)));
+    var radius = Math.max(72, Math.round(h / (2 * tan)));
     var focus = el.getAttribute("data-focus") || "2f";
     var index = 0;
     var i;

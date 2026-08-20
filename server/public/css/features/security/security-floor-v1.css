@@ -158,6 +158,7 @@
   width: 100%;
   height: auto;
   display: block;
+  margin: 0 auto;
 }
 
 .sf-room {
@@ -332,7 +333,7 @@
   z-index: 8;
   display: flex;
   flex-wrap: wrap;
-  gap: 12px 20px;
+  gap: 10px 16px;
   align-items: center;
   justify-content: space-between;
   padding: calc(10px + env(safe-area-inset-top, 0px)) 16px 10px;
@@ -341,13 +342,22 @@
   backdrop-filter: blur(10px);
 }
 
+.sf-soc-header > .sf-back {
+  flex: 0 0 auto;
+  order: 0;
+}
+
 .sf-soc-brand {
   display: flex;
   gap: 10px;
   align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+  order: 1;
 }
 
 .sf-crystal {
+  flex: 0 0 auto;
   width: 28px;
   height: 28px;
   background: linear-gradient(135deg, #2563eb, #1e3a8a);
@@ -358,10 +368,13 @@
 .sf-soc-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px 14px;
+  gap: 8px 12px;
   align-items: center;
   font-weight: 700;
   color: #1e293b;
+  flex: 1 1 100%;
+  min-width: 0;
+  order: 2;
 }
 
 .sf-select-inline {
@@ -485,9 +498,11 @@
 .sf-iso-wrap {
   position: relative;
   z-index: 1;
-  min-height: min(68vh, 640px);
+  min-height: 400px;
   max-height: none;
   overflow: hidden;
+  padding: 28px 24px;
+  box-sizing: border-box;
   -webkit-overflow-scrolling: touch;
   touch-action: none;
   pointer-events: auto;
@@ -525,21 +540,25 @@
 .sf-iso-scene {
   perspective: 1000px;
   transform-style: preserve-3d;
-  min-height: min(68vh, 640px);
+  min-height: 320px;
   display: grid;
   place-items: center;
   overflow: visible;
+  padding: 8px;
+  box-sizing: border-box;
 }
 
 .sf-iso-orbit {
   position: relative;
-  width: min(88%, 440px);
-  height: min(52vh, 440px);
+  width: min(100%, 360px);
+  height: 320px;
+  margin: 0 auto;
   transform-style: preserve-3d;
   transform: rotateX(0deg);
-  transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform-origin: center center;
+  transition: transform 0.35s ease-out;
   --drum-step: 120deg;
-  --drum-r: 210px;
+  --drum-r: 92px;
 }
 
 .sf-body.sf-soc .hqs-fab,
@@ -554,32 +573,42 @@
 .sf-iso-layer {
   position: absolute;
   inset: 0;
-  height: 100%;
+  width: 100%;
+  max-width: 360px;
+  height: 320px;
+  margin: 0 auto;
   background: #ffffff;
   border: 2px solid #1e293b;
   border-radius: 14px;
-  padding: 8px 10px 10px;
+  padding: 16px;
   box-sizing: border-box;
   box-shadow: 0 14px 28px rgba(15, 23, 42, 0.22);
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   transform: rotateX(calc(var(--drum-i, 0) * var(--drum-step, 120deg)))
-    translateZ(var(--drum-r, 210px));
+    translateZ(var(--drum-r, 92px));
+  transform-origin: center center;
   transform-style: preserve-3d;
   isolation: isolate;
   pointer-events: auto;
   opacity: 1;
   overflow: hidden;
   z-index: calc(10 - var(--drum-i, 0));
+  display: flex;
+  flex-direction: column;
 }
 
 .sf-iso-svg {
   display: block;
   width: 100%;
-  height: calc(100% - 22px);
+  height: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0 auto;
   transform-origin: center center;
   pointer-events: auto;
   background: #ffffff;
+  overflow: visible;
 }
 
 .sf-iso-layer.is-dim {
@@ -596,18 +625,24 @@
 
 .sf-iso-layer.is-alert {
   animation: pulse-alarm 1.15s ease-in-out infinite;
-  outline: 3px solid #ef4444;
-  outline-offset: 2px;
+  box-shadow:
+    0 16px 32px rgba(15, 23, 42, 0.28),
+    0 0 0 3px #ef4444;
   border-color: #ef4444;
 }
 
 .sf-iso-caption {
   position: relative;
-  margin: 0 0 4px;
+  flex: 0 0 auto;
+  margin: 0 0 8px;
+  padding: 0 2px;
   font-size: 0.78rem;
   font-weight: 800;
   color: #0f172a;
   transform: none;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: visible;
 }
 
 .sf-iso-layer.is-alert .sf-iso-caption {
@@ -1010,6 +1045,47 @@
 }
 
 @media (max-width: 760px) {
+  .sf-soc-header {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 8px 12px;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  .sf-soc-header > .sf-back {
+    width: auto;
+  }
+  .sf-soc-brand {
+    flex: 1 1 calc(100% - 72px);
+    max-width: calc(100% - 72px);
+  }
+  .sf-soc-brand .sf-title {
+    font-size: 1.15rem;
+    line-height: 1.25;
+  }
+  .sf-soc-brand .sf-brand-name {
+    margin-top: 2px;
+  }
+  .sf-soc-meta {
+    flex: 1 1 100%;
+    width: 100%;
+    gap: 8px;
+    padding-top: 2px;
+  }
+  .sf-online-pill {
+    flex: 0 0 auto;
+  }
+  .sf-select-inline {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
+  }
+  .sf-soc-meta .sf-user,
+  .sf-soc-meta #sf-clock {
+    display: none;
+  }
   .sf-mobile-tabs {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -1018,6 +1094,7 @@
     position: relative;
     z-index: 9;
     pointer-events: auto;
+    clear: both;
   }
   .sf-mobile-tabs button {
     min-height: 44px;
@@ -1033,18 +1110,22 @@
     background: #eff6ff;
   }
   .sf-layer-tabs {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
   .sf-kpi-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .sf-iso-scene,
   .sf-iso-wrap {
-    min-height: 52vh;
+    min-height: 380px;
+    padding: 20px 16px;
   }
-  .sf-iso-orbit {
-    height: 46vh;
-    width: 96%;
+  .sf-iso-scene {
+    min-height: 320px;
+  }
+  .sf-iso-orbit,
+  .sf-iso-layer {
+    width: min(100%, 360px);
+    height: 320px;
   }
   body.sf-soc {
     padding-bottom: calc(
