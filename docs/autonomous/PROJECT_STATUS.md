@@ -15,7 +15,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 背景 | `#ffffff` 〜 `#F8FAFC` |
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
-| SW | `tisly-pwa-v2477-floorplan-502fix` |
+| SW | `tisly-pwa-v2478-floorplan-autodetect` |
 
 ---
 
@@ -1500,8 +1500,25 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 機能 | 方眼紙写真読込 · グリッド重ね · 1F/2F/外周タブ · Three.js アイソメ俯瞰 · 壁高/透過調整 |
 | プリセット | つくばモデルハウス（2階建て＋外周）· 平屋デモ住宅 |
 | 連携 | LocalStorage `tisly_floorplan_config` · API 保存 · 「TiSLY Securityに送信」→ `/security-v1?fromBuilder=1` |
-| API | `/api/floorplan-builder/v1/*`（presets · save · active · security-bridge · load-preset） |
-| SW | `tisly-pwa-v2477-floorplan-502fix` |
+| API | `/api/floorplan-builder/v1/*`（presets · save · active · security-bridge · load-preset · **detect**） |
+| SW | `tisly-pwa-v2478-floorplan-autodetect` |
 | コード | `src/floorplan-builder/*` · `public/tisly_3d_floorplan_builder.html` · `js/css/features/floorplan-builder/` · `src/app/builder/page.tsx`（RN/Next 流用スタブ） |
 | テスト | `server/test/floorplan-builder-v1.test.ts` |
 | 確認 | `/builder` · `/api/floorplan-builder/v1/presets` · https://tisly.jp/api/health |
+
+### 3D Floorplan Builder Auto-Detect & Editor v1.1（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | **方眼紙写真から間取りを自動認識**し、現場で部屋枠を微調整 · Security へ同期 |
+| Auto-Detect | `POST /api/floorplan-builder/v1/detect` — Gemini Vision → 失敗時 `rule_based_v1`（手書き平屋テンプレ） |
+| UI | 「⚡ 方眼紙をAI解析・間取り生成」· 写真取込後も自動解析 |
+| 部屋エディタ | 移動 · 四隅リサイズ · 追加 · 削除 · 名前タップ（プリセット/自由入力） |
+| 背景アライメント | ズーム/不透明度スライダー · ドラッグ位置合わせ · ピンチズーム |
+| 3D同期 | 部屋編集がアイソメ俯瞰へリアルタイム反映 |
+| Security | 保存後「TiSLY Securityに送信」で新間取りを反映（既存ブリッジ維持） |
+| 型 | `FloorplanBgTransformV1`（scale / offsetX / offsetY / opacity） |
+| コード | `floorplan-detect-v1.ts` · `floorplan-detect-gemini-v1.ts` · `floorplan-detect-rule-v1.ts` · builder JS/CSS/HTML |
+| テスト | `floorplan-builder-v1.test.ts`（detect / editor UI アサーション追記） |
+| SW | `tisly-pwa-v2478-floorplan-autodetect` |
+| 確認 | `/builder` · `/api/floorplan-builder/v1/detect` · https://tisly.jp/api/health |

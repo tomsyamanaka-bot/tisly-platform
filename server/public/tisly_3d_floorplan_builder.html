@@ -10,7 +10,7 @@
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2003" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
   <title>TiSLY 3D Floorplan Builder</title>
-  <link rel="stylesheet" href="/css/features/floorplan-builder/floorplan-builder-v1.css?v=2477" />
+  <link rel="stylesheet" href="/css/features/floorplan-builder/floorplan-builder-v1.css?v=2478" />
 </head>
 <body class="fpb-body">
   <header class="fpb-header">
@@ -18,7 +18,7 @@
     <div class="fpb-brand">
       <p class="fpb-brand-name">TiSLY</p>
       <h1 class="fpb-title">3D Floorplan Builder</h1>
-      <p class="fpb-sub">方眼紙スキャン · アイソメ俯瞰 · Security連携</p>
+      <p class="fpb-sub">方眼紙AI解析 · 部屋枠編集 · アイソメ俯瞰 · Security連携</p>
     </div>
   </header>
 
@@ -58,6 +58,9 @@
         </label>
         <button type="button" class="fpb-btn fpb-btn-ghost" id="fpb-clear-bg">背景クリア</button>
       </div>
+      <button type="button" class="fpb-btn fpb-btn-detect" id="fpb-detect">
+        ⚡ 方眼紙をAI解析・間取り生成
+      </button>
       <div
         class="fpb-dropzone"
         id="fpb-dropzone"
@@ -67,11 +70,33 @@
       >
         ここに画像をドロップ（PC）· タップでアルバムから選択
       </div>
+
+      <div class="fpb-align-panel">
+        <p class="fpb-label">背景写真の位置合わせ</p>
+        <div class="fpb-edit-row">
+          <label>拡大・縮小
+            <input type="range" id="fpb-bg-zoom" min="0.5" max="2.5" step="0.05" value="1" />
+            <span id="fpb-bg-zoom-val">100%</span>
+          </label>
+          <label>不透明度
+            <input type="range" id="fpb-bg-opacity" min="0.15" max="1" step="0.05" value="0.85" />
+            <span id="fpb-bg-opacity-val">85%</span>
+          </label>
+        </div>
+        <p class="fpb-hint">写真をドラッグで位置移動 · ピンチでズーム（タッチ）</p>
+      </div>
+
       <div class="fpb-canvas-wrap" id="fpb-canvas-wrap">
-        <img id="fpb-bg" class="fpb-bg" alt="方眼紙間取り" hidden />
+        <img id="fpb-bg" class="fpb-bg" alt="方眼紙間取り" draggable="false" hidden />
         <canvas id="fpb-grid" class="fpb-grid" width="400" height="400" aria-hidden="true"></canvas>
         <svg id="fpb-overlay" class="fpb-overlay" viewBox="0 0 100 100" aria-label="部屋オーバーレイ"></svg>
       </div>
+
+      <div class="fpb-room-toolbar">
+        <button type="button" class="fpb-btn fpb-btn-primary" id="fpb-add-room">＋ 部屋を追加</button>
+        <p class="fpb-hint fpb-hint-inline">枠をドラッグで移動 · 角でリサイズ · 名前タップで変更</p>
+      </div>
+
       <div class="fpb-edit-row">
         <label>壁の高さ
           <input type="range" id="fpb-wall-h" min="1.8" max="3.6" step="0.1" value="2.7" />
@@ -87,7 +112,7 @@
     <section class="fpb-card fpb-preview-card">
       <p class="fpb-label">3D斜め俯瞰（アイソメトリック）</p>
       <div class="fpb-preview" id="fpb-preview" aria-label="3Dプレビュー"></div>
-      <p class="fpb-hint">ドラッグで回転 · ピンチ/ホイールでズーム</p>
+      <p class="fpb-hint">ドラッグで回転 · ピンチ/ホイールでズーム · 部屋編集は即時反映</p>
     </section>
 
     <section class="fpb-card fpb-actions">
@@ -103,6 +128,23 @@
     </section>
   </main>
 
+  <!-- 部屋名変更シート -->
+  <div class="fpb-sheet" id="fpb-rename-sheet" hidden>
+    <div class="fpb-sheet-backdrop" data-close-sheet></div>
+    <div class="fpb-sheet-panel" role="dialog" aria-labelledby="fpb-rename-title">
+      <h2 class="fpb-sheet-title" id="fpb-rename-title">部屋名を変更</h2>
+      <div class="fpb-preset-chips" id="fpb-rename-presets"></div>
+      <label class="fpb-sheet-field">
+        自由入力
+        <input type="text" id="fpb-rename-input" maxlength="32" placeholder="例: リビング洋" />
+      </label>
+      <div class="fpb-sheet-actions">
+        <button type="button" class="fpb-btn fpb-btn-ghost" data-close-sheet>キャンセル</button>
+        <button type="button" class="fpb-btn fpb-btn-primary" id="fpb-rename-ok">決定</button>
+      </div>
+    </div>
+  </div>
+
   <script type="importmap">
   {
     "imports": {
@@ -111,6 +153,6 @@
     }
   }
   </script>
-  <script type="module" src="/js/features/floorplan-builder/floorplan-builder-v1.js?v=2477"></script>
+  <script type="module" src="/js/features/floorplan-builder/floorplan-builder-v1.js?v=2478"></script>
 </body>
 </html>

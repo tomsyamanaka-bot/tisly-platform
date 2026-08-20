@@ -7,10 +7,13 @@
  * POST /api/floorplan-builder/v1/save
  * POST /api/floorplan-builder/v1/activate
  * POST /api/floorplan-builder/v1/load-preset
+ * POST /api/floorplan-builder/v1/detect
  * GET  /api/floorplan-builder/v1/security-bridge
  */
 
 import { Router } from "express";
+import { detectFloorplanFromImageV1 } from "../../floorplan-builder/floorplan-detect-v1.js";
+import { FLOORPLAN_ROOM_PRESETS_V1 } from "../../floorplan-builder/floorplan-detect-rule-v1.js";
 import { listFloorplanPresetsV1 } from "../../floorplan-builder/floorplan-presets-v1.js";
 import {
   getActiveFloorplanConfigV1,
@@ -96,6 +99,30 @@ floorplanBuilderRouter.post("/load-preset", (req, res) => {
     return;
   }
   res.json({ ok: true, config });
+});
+
+/** 方眼紙写真から部屋枠を自動検出（Gemini → rule_based fallback） */
+floorplanBuilderRouter.post("/detect", async (req, res) => {
+  try {
+    const body = (req.body || {}) as {
+      imageBase64?: string;
+      forceRuleBased?: boolean;
+    };
+    const result = await detectFloorplanFromImageV1({
+      imageBase64: body.imageBase64,
+      forceRuleBased: Boolean(body.forceRuleBased),
+    });
+    res.json({
+      ...result,
+      roomPresets: [...FLOORPLAN_ROOM_PRESETS_V1],
+    });
+  } catch (err) {
+    console.error("[floorplan-builder] detect failed", err);
+    res.status(500).json({
+      ok: false,
+      error: "間取り解析に失敗しました",
+    });
+  }
 });
 
 /** Security 画面が背景立体マップとして読むブリッジ */

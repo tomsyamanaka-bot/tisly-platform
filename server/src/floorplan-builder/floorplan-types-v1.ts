@@ -35,11 +35,28 @@ export interface FloorplanOpeningV1 {
   y: number;
 }
 
+/** 方眼紙写真のグリッド合わせ（ズーム・位置・不透明度） */
+export interface FloorplanBgTransformV1 {
+  scale: number;
+  offsetX: number;
+  offsetY: number;
+  opacity: number;
+}
+
+export const DEFAULT_FLOORPLAN_BG_TRANSFORM_V1: FloorplanBgTransformV1 = {
+  scale: 1,
+  offsetX: 0,
+  offsetY: 0,
+  opacity: 0.85,
+};
+
 export interface FloorplanFloorLayerV1 {
   id: FloorplanFloorIdV1;
   label: string;
   enabled: boolean;
   backgroundImage: string | null;
+  /** 背景写真のアライメント（未設定時は DEFAULT） */
+  bgTransform?: FloorplanBgTransformV1;
   gridCells: number;
   walls: FloorplanWallV1[];
   rooms: FloorplanRoomV1[];

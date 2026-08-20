@@ -209,4 +209,85 @@ describe("floorplan-builder-v1", () => {
     assert.equal(res.body.ok, true);
     assert.equal(res.body.config.id, "FP-TEST-SAVE-001");
   });
+
+  it("detect API が rule_based で部屋を返す", async () => {
+    const app = createApp();
+    const res = await request(app)
+      .post("/api/floorplan-builder/v1/detect")
+      .send({ forceRuleBased: true });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.ok, true);
+    assert.equal(res.body.provider, "rule_based_v1");
+    assert.ok(Array.isArray(res.body.rooms));
+    assert.ok(res.body.rooms.length >= 8);
+    const living = res.body.rooms.find((r: { label: string }) =>
+      /リビング|和|洋|廊下|土間/.test(r.label)
+    );
+    assert.ok(living);
+    assert.ok(living.w >= 6 && living.h >= 6);
+    assert.ok(Array.isArray(res.body.roomPresets));
+    assert.ok(res.body.roomPresets.includes("玄関"));
+  });
+
+  it("detect rule / gemini JSON パーサ単体", async () => {
+    const { runFloorplanDetectRuleV1, normalizeDetectedRoomsV1 } =
+      await import("../src/floorplan-builder/floorplan-detect-rule-v1.js");
+    const rule = runFloorplanDetectRuleV1({
+      rawTextHint: "リビング洋\n和10畳\n廊下",
+    });
+    assert.equal(rule.ok, true);
+    assert.ok(rule.rooms.length > 5);
+    assert.ok(rule.labelsFound.length >= 1);
+
+    const norm = normalizeDetectedRoomsV1([
+      { label: "寝室", x: -5, y: 10, w: 200, h: 12 },
+      { label: "", x: 10, y: 10, w: 2, h: 2 },
+    ]);
+    assert.equal(norm.length, 2);
+    assert.ok(norm[0].x >= 0);
+    assert.ok(norm[0].w <= 96);
+    assert.ok(norm[0].w >= 6);
+
+    const { parseFloorplanDetectGeminiJsonV1 } = await import(
+      "../src/floorplan-builder/floorplan-detect-gemini-v1.js"
+    );
+    const parsed = parseFloorplanDetectGeminiJsonV1(
+      JSON.stringify({
+        rawText: "リビング",
+        rooms: [{ id: "r1", label: "リビング", x: 10, y: 10, w: 30, h: 20 }],
+        openings: [{ id: "o1", kind: "entrance", label: "玄関", x: 50, y: 90 }],
+      })
+    );
+    assert.ok(parsed);
+    assert.equal(parsed!.rooms.length, 1);
+    assert.equal(parsed!.openings.length, 1);
+  });
+
+  it("部屋エディタ / AI解析 / 背景アライメント UI が存在する", () => {
+    const html = fs.readFileSync(
+      path.join(publicDir, "tisly_3d_floorplan_builder.html"),
+      "utf8"
+    );
+    assert.match(html, /id="fpb-detect"/);
+    assert.match(html, /方眼紙をAI解析・間取り生成/);
+    assert.match(html, /id="fpb-add-room"/);
+    assert.match(html, /id="fpb-bg-zoom"/);
+    assert.match(html, /id="fpb-bg-opacity"/);
+    assert.match(html, /id="fpb-rename-sheet"/);
+
+    const js = fs.readFileSync(
+      path.join(
+        publicDir,
+        "js/features/floorplan-builder/floorplan-builder-v1.js"
+      ),
+      "utf8"
+    );
+    assert.match(js, /runAutoDetect/);
+    assert.match(js, /\/api\/floorplan-builder\/v1\/detect/);
+    assert.match(js, /addRoom/);
+    assert.match(js, /deleteRoom/);
+    assert.match(js, /openRenameSheet/);
+    assert.match(js, /ensureBgTransform/);
+    assert.match(js, /data-handle/);
+  });
 });
