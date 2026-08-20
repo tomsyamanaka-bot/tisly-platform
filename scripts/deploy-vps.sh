@@ -63,10 +63,31 @@ if [ "${MARKER_COMMIT}" != "${HEAD_FULL}" ]; then
 fi
 log "release-gate-last.json commit OK: ${HEAD_SHORT}"
 
+echo "=== apply systemd unit (Restart=always) ==="
+UNIT_SRC="${REPO_ROOT}/server/deploy/systemd/tisly-server.service"
+if [ -f "${UNIT_SRC}" ]; then
+  sudo cp "${UNIT_SRC}" /etc/systemd/system/tisly-server.service
+  sudo systemctl daemon-reload
+  log "systemd unit updated"
+fi
+
 echo "=== restart ==="
 sudo systemctl restart "${SERVICE_NAME}"
 
-echo "=== health check ==="
+echo "=== localhost health check ==="
+LOCAL_OK=false
+for attempt in $(seq 1 40); do
+  if curl -sf --max-time 5 "http://127.0.0.1:3080/api/health" | grep -q commitShort; then
+    LOCAL_OK=true
+    log "localhost health OK (${attempt})"
+    break
+  fi
+  log "localhost health 待機中 (${attempt}/40)..."
+  sleep 2
+done
+[ "${LOCAL_OK}" = "true" ] || fail "localhost:3080/api/health に到達できません"
+
+echo "=== public health check ==="
 HEALTH_BODY=""
 for attempt in $(seq 1 30); do
   if HEALTH_BODY="$(curl -sf --max-time 15 "${HEALTH_URL}" 2>/dev/null)"; then

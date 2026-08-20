@@ -4,7 +4,7 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2476-floorplan-white";
+const SW_VERSION = "tisly-pwa-v2477-floorplan-502fix";
 /* 旧世代名は activate で破棄する
  * tisly-pwa-shell-v2459-home-tile-grid
  * tisly-pwa-priority-v2459-home-tile-grid

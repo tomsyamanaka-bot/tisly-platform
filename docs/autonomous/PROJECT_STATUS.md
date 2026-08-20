@@ -15,7 +15,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 背景 | `#ffffff` 〜 `#F8FAFC` |
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
-| SW | `tisly-pwa-v2473-security-handplan` |
+| SW | `tisly-pwa-v2477-floorplan-502fix` |
 
 ---
 
@@ -23,7 +23,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 
 | 項目 | 状態 |
 |------|------|
-| VPS Auto Deploy | **成功済み**（GitHub Actions `deploy-vps.yml`） |
+| VPS Auto Deploy | **成功済み**（GitHub Actions `deploy-vps.yml` · `cancel-in-progress:false` · localhost health 先行） |
 | 通常の反映フロー | `master` へ commit/push → CI → VPS 自動更新 |
 | VPS 手動更新 | **基本不要**（Actions 失敗時のみ人間が介入） |
 | 成功確認 URL | https://tisly.jp/api/health の `commitShort` が push した commit の先頭 7 文字と一致 |
@@ -1501,7 +1501,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | プリセット | つくばモデルハウス（2階建て＋外周）· 平屋デモ住宅 |
 | 連携 | LocalStorage `tisly_floorplan_config` · API 保存 · 「TiSLY Securityに送信」→ `/security-v1?fromBuilder=1` |
 | API | `/api/floorplan-builder/v1/*`（presets · save · active · security-bridge · load-preset） |
-| SW | `tisly-pwa-v2476-floorplan-white` |
+| SW | `tisly-pwa-v2477-floorplan-502fix` |
 | コード | `src/floorplan-builder/*` · `public/tisly_3d_floorplan_builder.html` · `js/css/features/floorplan-builder/` · `src/app/builder/page.tsx`（RN/Next 流用スタブ） |
 | テスト | `server/test/floorplan-builder-v1.test.ts` |
 | 確認 | `/builder` · `/api/floorplan-builder/v1/presets` · https://tisly.jp/api/health |
