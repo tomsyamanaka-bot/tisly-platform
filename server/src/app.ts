@@ -106,6 +106,7 @@ import { meterTelemetryRouter } from "./api/routes/meter-telemetry.js";
 import { demandSecurityRouter } from "./api/routes/demand-security.js";
 import { homeRouter } from "./api/routes/home.js";
 import { securityFloorRouter } from "./api/routes/security-floor.js";
+import { floorplanBuilderRouter } from "./api/routes/floorplan-builder.js";
 import { deviceBindingV1Router } from "./api/routes/device-binding-v1.js";
 import { priceCostMasterV1Router } from "./api/routes/price-cost-master-v1.js";
 import { qnapStorageV1Router } from "./api/routes/qnap-storage-v1.js";
@@ -194,6 +195,8 @@ export function createApp(): express.Application {
   app.use("/api/home/v1", homeRouter);
   // ホームセキュリティ フロア俯瞰（追記）
   app.use("/api/security-floor/v1", securityFloorRouter);
+  // 3D Floorplan Builder（追記）
+  app.use("/api/floorplan-builder/v1", floorplanBuilderRouter);
   // RP2350 QR物件登録（追記）
   app.use("/api/device", deviceBindingV1Router);
   app.use("/api/price-cost-master/v1", priceCostMasterV1Router);
@@ -440,6 +443,25 @@ export function createApp(): express.Application {
   });
   app.get("/security-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "security-v1.html"));
+  });
+  // 3D Floorplan Builder（追記・既存 Security 非改変）
+  app.get("/builder", (_req, res) => {
+    res.sendFile(path.join(publicDir, "tisly_3d_floorplan_builder.html"));
+  });
+  app.get("/floorplan-builder", (_req, res) => {
+    res.sendFile(path.join(publicDir, "tisly_3d_floorplan_builder.html"));
+  });
+  app.get("/floorplan-builder-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "tisly_3d_floorplan_builder.html"));
+  });
+  app.get("/app/builder", (_req, res) => {
+    res.sendFile(path.join(publicDir, "tisly_3d_floorplan_builder.html"));
+  });
+  app.get("/app/floorplan-builder", (_req, res) => {
+    res.sendFile(path.join(publicDir, "tisly_3d_floorplan_builder.html"));
+  });
+  app.get("/tisly_3d_floorplan_builder.html", (_req, res) => {
+    res.sendFile(path.join(publicDir, "tisly_3d_floorplan_builder.html"));
   });
   app.get("/app/push", (_req, res) => {
     res.sendFile(path.join(publicDir, "app-push.html"));

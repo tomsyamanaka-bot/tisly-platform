@@ -1487,3 +1487,19 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | SW | `tisly-pwa-v2473-security-handplan` |
 | テスト | `server/test/security-floor-v1.test.ts` |
 | 確認 | `/security-v1` · `/customer/security` · https://tisly.jp/api/health |
+
+### 3D Floorplan Builder PWA v1（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | **方眼紙スキャン＆3D斜め俯瞰（アイソメ）ジェネレーター** — Security 俯瞰の背景マップ生成 |
+| 方針 | `/security-v1` · `/customer/security` は非破壊。独立ビルダーとして新規追加 |
+| 画面 | `/builder` · `/floorplan-builder` · `/app/builder` · `tisly_3d_floorplan_builder.html` |
+| 機能 | 方眼紙写真読込 · グリッド重ね · 1F/2F/外周タブ · Three.js アイソメ俯瞰 · 壁高/透過調整 |
+| プリセット | つくばモデルハウス（2階建て＋外周）· 平屋デモ住宅 |
+| 連携 | LocalStorage `tisly_floorplan_config` · API 保存 · 「TiSLY Securityに送信」→ `/security-v1?fromBuilder=1` |
+| API | `/api/floorplan-builder/v1/*`（presets · save · active · security-bridge · load-preset） |
+| SW | `tisly-pwa-v2474-floorplan-builder` |
+| コード | `src/floorplan-builder/*` · `public/tisly_3d_floorplan_builder.html` · `js/css/features/floorplan-builder/` · `src/app/builder/page.tsx`（RN/Next 流用スタブ） |
+| テスト | `server/test/floorplan-builder-v1.test.ts` |
+| 確認 | `/builder` · `/api/floorplan-builder/v1/presets` · https://tisly.jp/api/health |

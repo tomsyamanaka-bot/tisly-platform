@@ -440,6 +440,30 @@ const PRACTICAL_PWA_DEFS: Array<
       "viewer",
     ],
   },
+  // 3D Floorplan Builder（追記）
+  {
+    id: "floorplan_builder_v1",
+    label: "3Dフロアプランビルダー",
+    subtitle: "方眼紙スキャン・アイソメ俯瞰・Security送信",
+    icon: "📐",
+    features: [
+      "方眼紙写真読込",
+      "1F/2F/外周タブ",
+      "3D斜め俯瞰",
+      "Security連携",
+    ],
+    href: "/builder",
+    themeColor: "#0d1528",
+    readyRoles: [
+      "surveyor",
+      "installer",
+      "maintenance",
+      "manager",
+      "owner",
+      "admin",
+      "super_admin",
+    ],
+  },
 ];
 
 export function buildPracticalHubCards(role: string): PracticalPwaCard[] {

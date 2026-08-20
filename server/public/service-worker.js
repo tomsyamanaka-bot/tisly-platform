@@ -4,7 +4,7 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2473-security-handplan";
+const SW_VERSION = "tisly-pwa-v2474-floorplan-builder";
 /* 旧世代名は activate で破棄する
  * tisly-pwa-shell-v2459-home-tile-grid
  * tisly-pwa-priority-v2459-home-tile-grid
@@ -265,6 +265,17 @@ const SHELL_URLS = [
   "/js/features/security/security-floor-operator-v1.js",
   "/js/features/security/security-floor-customer-v1.js",
   "/css/features/security/security-floor-v1.css",
+  // 3D Floorplan Builder（追記）
+  "/builder",
+  "/floorplan-builder",
+  "/floorplan-builder-v1",
+  "/app/builder",
+  "/app/floorplan-builder",
+  "/tisly_3d_floorplan_builder.html",
+  "/js/features/floorplan-builder/floorplan-builder-v1.js",
+  "/js/features/floorplan-builder/floorplan-security-bridge-v1.js",
+  "/css/features/floorplan-builder/floorplan-builder-v1.css",
+  "/images/floorplan/handplan-demo.png",
   "/customer-view-v1",
   "/customer-view-v1.html",
   "/app/customer-view",

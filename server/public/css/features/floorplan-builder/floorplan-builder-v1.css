@@ -1,0 +1,272 @@
+/* TiSLY 3D Floorplan Builder — cyber isometric */
+:root {
+  --fpb-bg0: #070b14;
+  --fpb-bg1: #0d1528;
+  --fpb-card: rgba(12, 22, 40, 0.92);
+  --fpb-line: rgba(0, 229, 255, 0.28);
+  --fpb-text: #e8f4ff;
+  --fpb-muted: #8aa4c0;
+  --fpb-neon: #00ff88;
+  --fpb-cyan: #00d4ff;
+  --fpb-navy: #1e3a8a;
+  --fpb-tap: 52px;
+}
+
+* { box-sizing: border-box; }
+
+.fpb-body {
+  margin: 0;
+  min-height: 100dvh;
+  font-family: "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+  color: var(--fpb-text);
+  background:
+    radial-gradient(ellipse 80% 50% at 20% 0%, rgba(0, 212, 255, 0.12), transparent 55%),
+    radial-gradient(ellipse 70% 45% at 90% 10%, rgba(0, 255, 136, 0.1), transparent 50%),
+    linear-gradient(165deg, var(--fpb-bg0), var(--fpb-bg1) 55%, #0a1220);
+}
+
+.fpb-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: max(12px, env(safe-area-inset-top)) 16px 8px;
+}
+
+.fpb-back {
+  flex: 0 0 auto;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  color: var(--fpb-cyan);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.fpb-brand-name {
+  margin: 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.18em;
+  color: var(--fpb-neon);
+  text-transform: uppercase;
+}
+
+.fpb-title {
+  margin: 2px 0 4px;
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+
+.fpb-sub {
+  margin: 0;
+  color: var(--fpb-muted);
+  font-size: 0.85rem;
+}
+
+.fpb-main {
+  padding: 8px 16px max(28px, env(safe-area-inset-bottom));
+  display: grid;
+  gap: 14px;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.fpb-card {
+  background: var(--fpb-card);
+  border: 1px solid var(--fpb-line);
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 0 24px rgba(0, 212, 255, 0.06);
+}
+
+.fpb-label {
+  margin: 0 0 10px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--fpb-cyan);
+}
+
+.fpb-hint {
+  margin: 10px 0 0;
+  color: var(--fpb-muted);
+  font-size: 0.82rem;
+}
+
+.fpb-preset-row,
+.fpb-scan-actions,
+.fpb-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.fpb-btn {
+  min-height: var(--fpb-tap);
+  padding: 0 16px;
+  border-radius: 12px;
+  border: 1px solid var(--fpb-line);
+  background: rgba(30, 58, 138, 0.35);
+  color: var(--fpb-text);
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: box-shadow 0.15s, border-color 0.15s, transform 0.1s;
+}
+
+.fpb-btn:active { transform: scale(0.98); }
+
+.fpb-btn-primary {
+  border-color: rgba(0, 255, 136, 0.45);
+  box-shadow: 0 0 16px rgba(0, 255, 136, 0.15);
+}
+
+.fpb-btn-ghost {
+  background: transparent;
+}
+
+.fpb-btn-neon {
+  flex: 1 1 100%;
+  background: linear-gradient(135deg, rgba(0, 255, 136, 0.2), rgba(0, 212, 255, 0.15));
+  border-color: var(--fpb-neon);
+  box-shadow: 0 0 20px rgba(0, 255, 136, 0.25);
+}
+
+.fpb-btn-send {
+  flex: 1 1 100%;
+  background: linear-gradient(135deg, rgba(30, 58, 138, 0.9), rgba(0, 212, 255, 0.25));
+  border-color: var(--fpb-cyan);
+  box-shadow: 0 0 22px rgba(0, 212, 255, 0.28);
+}
+
+.fpb-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.fpb-tab {
+  min-height: var(--fpb-tap);
+  border-radius: 12px;
+  border: 1px solid var(--fpb-line);
+  background: rgba(8, 14, 28, 0.8);
+  color: var(--fpb-muted);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.fpb-tab.is-on {
+  color: #04120a;
+  background: linear-gradient(135deg, var(--fpb-neon), var(--fpb-cyan));
+  border-color: transparent;
+  box-shadow: 0 0 18px rgba(0, 255, 136, 0.35);
+}
+
+.fpb-tab:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.fpb-canvas-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--fpb-line);
+  background:
+    linear-gradient(90deg, rgba(0, 212, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(rgba(0, 212, 255, 0.06) 1px, transparent 1px),
+    #0a1220;
+  background-size: 20px 20px;
+}
+
+.fpb-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0.85;
+}
+
+.fpb-grid,
+.fpb-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.fpb-overlay .fpb-room {
+  fill: rgba(0, 255, 136, 0.12);
+  stroke: var(--fpb-neon);
+  stroke-width: 0.45;
+}
+
+.fpb-overlay .fpb-room-label {
+  fill: var(--fpb-text);
+  font-size: 3.2px;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
+
+.fpb-overlay .fpb-opening {
+  fill: var(--fpb-cyan);
+  stroke: #fff;
+  stroke-width: 0.3;
+}
+
+.fpb-edit-row {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.fpb-edit-row label {
+  display: grid;
+  grid-template-columns: 88px 1fr 48px;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--fpb-muted);
+}
+
+.fpb-edit-row input[type="range"] {
+  width: 100%;
+  accent-color: var(--fpb-neon);
+}
+
+.fpb-preview {
+  width: 100%;
+  height: min(52vh, 420px);
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--fpb-line);
+  background: radial-gradient(circle at 50% 30%, #122038, #05080f 70%);
+  box-shadow: inset 0 0 40px rgba(0, 255, 136, 0.08);
+}
+
+.fpb-preview canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+@media (min-width: 900px) {
+  .fpb-main {
+    grid-template-columns: 1fr 1fr;
+  }
+  .fpb-presets,
+  .fpb-actions {
+    grid-column: 1 / -1;
+  }
+  .fpb-preview {
+    height: 480px;
+  }
+}

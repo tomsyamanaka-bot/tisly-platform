@@ -1,0 +1,159 @@
+/**
+ * 3D Floorplan Builder v1 tests
+ */
+
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import request from "supertest";
+import { createApp } from "../src/app.js";
+import {
+  createHirayaDemoPresetV1,
+  createTsukubaModelHousePresetV1,
+  listFloorplanPresetsV1,
+} from "../src/floorplan-builder/floorplan-presets-v1.js";
+import {
+  getActiveFloorplanConfigV1,
+  saveFloorplanConfigV1,
+} from "../src/floorplan-builder/floorplan-store-v1.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const publicDir = path.join(__dirname, "../public");
+
+describe("floorplan-builder-v1", () => {
+  it("プリセットがつくばと平屋の2件", () => {
+    const presets = listFloorplanPresetsV1();
+    assert.equal(presets.length, 2);
+    assert.ok(presets.some((p) => p.presetId === "tsukuba_model_house"));
+    assert.ok(presets.some((p) => p.presetId === "hiraya_demo"));
+  });
+
+  it("つくばは2F有効・平屋は2F無効", () => {
+    const tkb = createTsukubaModelHousePresetV1();
+    const hiraya = createHirayaDemoPresetV1();
+    assert.equal(
+      tkb.floors.find((f) => f.id === "2f")?.enabled,
+      true
+    );
+    assert.equal(
+      hiraya.floors.find((f) => f.id === "2f")?.enabled,
+      false
+    );
+    assert.ok((tkb.security.rooms?.length || 0) > 5);
+    assert.ok((hiraya.security.rooms?.length || 0) > 5);
+  });
+
+  it("保存すると active と security bridge が更新される", () => {
+    const cfg = createHirayaDemoPresetV1();
+    cfg.name = "テスト平屋";
+    const saved = saveFloorplanConfigV1(cfg);
+    assert.equal(saved.name, "テスト平屋");
+    const active = getActiveFloorplanConfigV1();
+    assert.equal(active.id, saved.id);
+    assert.ok(saved.security.rooms.length > 0);
+  });
+
+  it("HTML / CSS / JS が存在する", () => {
+    assert.ok(
+      fs.existsSync(
+        path.join(publicDir, "tisly_3d_floorplan_builder.html")
+      )
+    );
+    assert.ok(
+      fs.existsSync(
+        path.join(
+          publicDir,
+          "js/features/floorplan-builder/floorplan-builder-v1.js"
+        )
+      )
+    );
+    assert.ok(
+      fs.existsSync(
+        path.join(
+          publicDir,
+          "js/features/floorplan-builder/floorplan-security-bridge-v1.js"
+        )
+      )
+    );
+    assert.ok(
+      fs.existsSync(
+        path.join(
+          publicDir,
+          "css/features/floorplan-builder/floorplan-builder-v1.css"
+        )
+      )
+    );
+  });
+
+  it("API presets / active / security-bridge / load-preset", async () => {
+    const app = createApp();
+    const presets = await request(app).get(
+      "/api/floorplan-builder/v1/presets"
+    );
+    assert.equal(presets.status, 200);
+    assert.equal(presets.body.ok, true);
+    assert.ok(presets.body.presets.length >= 2);
+
+    const loaded = await request(app)
+      .post("/api/floorplan-builder/v1/load-preset")
+      .send({ presetId: "tsukuba_model_house" });
+    assert.equal(loaded.status, 200);
+    assert.equal(loaded.body.ok, true);
+    assert.match(loaded.body.config.name, /つくば/);
+
+    const active = await request(app).get(
+      "/api/floorplan-builder/v1/active"
+    );
+    assert.equal(active.status, 200);
+    assert.equal(active.body.ok, true);
+    assert.ok(active.body.config.id);
+
+    const bridge = await request(app).get(
+      "/api/floorplan-builder/v1/security-bridge"
+    );
+    assert.equal(bridge.status, 200);
+    assert.equal(bridge.body.ok, true);
+    assert.ok(bridge.body.security.rooms.length > 0);
+  });
+
+  it("ビルダー画面ルートが 200", async () => {
+    const app = createApp();
+    for (const p of [
+      "/builder",
+      "/floorplan-builder",
+      "/app/builder",
+      "/tisly_3d_floorplan_builder.html",
+    ]) {
+      const res = await request(app).get(p);
+      assert.equal(res.status, 200, p);
+      assert.match(String(res.text), /3D Floorplan Builder/);
+      assert.match(String(res.text), /three/);
+    }
+  });
+
+  it("Security HTML にブリッジ script が追記されている", () => {
+    const html = fs.readFileSync(
+      path.join(publicDir, "security-v1.html"),
+      "utf8"
+    );
+    assert.match(html, /floorplan-security-bridge-v1\.js/);
+    // 既存スクリプトは残す
+    assert.match(html, /security-floor-light-v1\.js/);
+    assert.match(html, /security-floor-operator-v1\.js/);
+  });
+
+  it("save API が JSON を受け付ける", async () => {
+    const app = createApp();
+    const cfg = createTsukubaModelHousePresetV1();
+    cfg.id = "FP-TEST-SAVE-001";
+    cfg.name = "API保存テスト";
+    const res = await request(app)
+      .post("/api/floorplan-builder/v1/save")
+      .send(cfg);
+    assert.equal(res.status, 200);
+    assert.equal(res.body.ok, true);
+    assert.equal(res.body.config.id, "FP-TEST-SAVE-001");
+  });
+});

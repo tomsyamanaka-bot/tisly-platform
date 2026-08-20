@@ -80,6 +80,21 @@ export const TISLY_INTERNAL_ROUTES_V1: TislyRouteEntryV1[] = [
     zone: "internal",
   },
   {
+    path: "/builder",
+    label: "3D Floorplan Builder",
+    zone: "internal",
+  },
+  {
+    path: "/floorplan-builder",
+    label: "3D Floorplan Builder (alias)",
+    zone: "internal",
+  },
+  {
+    path: "/app/builder",
+    label: "3D Floorplan Builder (App)",
+    zone: "internal",
+  },
+  {
     path: "/app/price-cost-master",
     label: "価格・原価マスター (App)",
     zone: "internal",
