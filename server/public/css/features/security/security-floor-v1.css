@@ -498,24 +498,170 @@
 .sf-iso-wrap {
   position: relative;
   z-index: 1;
-  min-height: 400px;
+  min-height: 420px;
   max-height: none;
   overflow: hidden;
-  padding: 28px 24px;
+  padding: 12px 12px 48px;
   box-sizing: border-box;
   -webkit-overflow-scrolling: touch;
   touch-action: none;
   pointer-events: auto;
   isolation: isolate;
   background:
-    linear-gradient(180deg, #f8fafc, #eef2ff),
-    repeating-linear-gradient(
-      90deg,
-      rgba(226, 232, 240, 0.7) 0 1px,
-      transparent 1px 28px
-    );
+    radial-gradient(ellipse at 30% 20%, rgba(186, 230, 253, 0.55), transparent 55%),
+    radial-gradient(ellipse at 70% 80%, rgba(226, 232, 240, 0.9), transparent 50%),
+    linear-gradient(165deg, #ffffff 0%, #f8fafc 45%, #eef2ff 100%);
   border: 1px solid #e2e8f0;
   cursor: grab;
+}
+
+/* —— 3D アイソメ主ビュー —— */
+.sf-iso3d-scene {
+  position: relative;
+  width: 100%;
+  min-height: 380px;
+  height: min(62vh, 520px);
+}
+
+.sf-iso3d-mount {
+  position: absolute;
+  inset: 0;
+  border-radius: 14px;
+  overflow: hidden;
+  background: linear-gradient(160deg, #ffffff, #f1f5f9 55%, #e2e8f0);
+  box-shadow: inset 0 0 0 1px rgba(30, 58, 138, 0.08);
+}
+
+.sf-iso3d-canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  touch-action: none;
+}
+
+.sf-iso3d-labels {
+  position: absolute !important;
+  inset: 0 !important;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.sf-iso3d-labels .sf-iso3d-pin {
+  pointer-events: auto;
+}
+
+.sf-iso3d-hud {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 10px;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid #e2e8f0;
+  backdrop-filter: blur(8px);
+  pointer-events: none;
+}
+
+#sf-iso3d-floor-label {
+  font-weight: 800;
+  color: #1e3a8a;
+  letter-spacing: 0.04em;
+}
+
+.sf-iso3d-hint {
+  font-size: 0.72rem;
+  color: #64748b;
+}
+
+.sf-iso3d-room-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #0f172a;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(30, 58, 138, 0.18);
+  border-radius: 6px;
+  padding: 2px 6px;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.sf-iso3d-room-label.is-alert {
+  color: #fff;
+  background: rgba(239, 68, 68, 0.92);
+  border-color: #f87171;
+  box-shadow: 0 0 16px rgba(239, 68, 68, 0.65);
+}
+
+.sf-iso3d-pin {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: linear-gradient(160deg, #ffffff, #e0f2fe);
+  box-shadow:
+    0 0 0 2px rgba(30, 58, 138, 0.35),
+    0 6px 14px rgba(15, 23, 42, 0.18);
+  display: grid;
+  place-items: center;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  --sf-pin-pulse: 1;
+}
+
+.sf-iso3d-pin.is-cam {
+  background: linear-gradient(160deg, #ffffff, #dbeafe);
+}
+
+.sf-iso3d-pin-icon {
+  font-size: 16px;
+  line-height: 1;
+  z-index: 1;
+}
+
+.sf-iso3d-pin-pulse {
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 2px solid rgba(37, 99, 235, 0.35);
+  opacity: 0.55;
+}
+
+.sf-iso3d-pin.is-alert {
+  background: linear-gradient(160deg, #fee2e2, #ef4444);
+  box-shadow:
+    0 0 0 2px rgba(239, 68, 68, 0.9),
+    0 0 calc(18px * var(--sf-pin-pulse)) rgba(239, 68, 68, 0.85);
+  animation: alert-beacon 1.05s ease-in-out infinite;
+}
+
+.sf-iso3d-pin.is-alert .sf-iso3d-pin-pulse {
+  border-color: rgba(248, 113, 113, 0.95);
+  box-shadow: 0 0 18px rgba(239, 68, 68, 0.9);
+}
+
+/* SVG ドラムはデータ保持用（画面外） */
+.sf-iso-orbit--data {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+  padding: 0;
+  margin: -1px;
+  opacity: 0;
+  pointer-events: none;
+  transform: none !important;
 }
 
 .sf-iso-wrap.is-dragging {

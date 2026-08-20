@@ -15,7 +15,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 背景 | `#ffffff` 〜 `#F8FAFC` |
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
-| SW | `tisly-pwa-v2478-floorplan-autodetect` |
+| SW | `tisly-pwa-v2479-security-iso3d` |
 
 ---
 
@@ -1501,7 +1501,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | プリセット | つくばモデルハウス（2階建て＋外周）· 平屋デモ住宅 |
 | 連携 | LocalStorage `tisly_floorplan_config` · API 保存 · 「TiSLY Securityに送信」→ `/security-v1?fromBuilder=1` |
 | API | `/api/floorplan-builder/v1/*`（presets · save · active · security-bridge · load-preset · **detect**） |
-| SW | `tisly-pwa-v2478-floorplan-autodetect` |
+| SW | `tisly-pwa-v2479-security-iso3d` |
 | コード | `src/floorplan-builder/*` · `public/tisly_3d_floorplan_builder.html` · `js/css/features/floorplan-builder/` · `src/app/builder/page.tsx`（RN/Next 流用スタブ） |
 | テスト | `server/test/floorplan-builder-v1.test.ts` |
 | 確認 | `/builder` · `/api/floorplan-builder/v1/presets` · https://tisly.jp/api/health |
@@ -1520,5 +1520,21 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 型 | `FloorplanBgTransformV1`（scale / offsetX / offsetY / opacity） |
 | コード | `floorplan-detect-v1.ts` · `floorplan-detect-gemini-v1.ts` · `floorplan-detect-rule-v1.ts` · builder JS/CSS/HTML |
 | テスト | `floorplan-builder-v1.test.ts`（detect / editor UI アサーション追記） |
-| SW | `tisly-pwa-v2478-floorplan-autodetect` |
+| SW | `tisly-pwa-v2479-security-iso3d` |
 | 確認 | `/builder` · `/api/floorplan-builder/v1/detect` · https://tisly.jp/api/health |
+
+### TiSLY Security 3Dアイソメ俯瞰 v1（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | 監視マップを **ビルダー連携の3Dアイソメトリック（斜め立体俯瞰）** に全面刷新 |
+| 方針 | センサー監視・通知・警備モード API は維持。マップ描画のみ Three.js 置換 |
+| 画面 | `/security-v1` · `/customer/security` |
+| 3D | Three.js · OrbitControls · CSS2D センサーピン · ガラス調壁 · グラデーション床 |
+| 発報 | 部屋ブロック全体の赤ネオンパルス（`setAlert` / `alertVisible`） |
+| フロア | 1F / 2F / 外周タブ連動 · Shift+ホイールでも切替 |
+| 連携 | Floorplan Builder `tisly_floorplan_config` · `fromBuilder=1` ブリッジ |
+| SW | `tisly-pwa-v2479-security-iso3d` |
+| コード | `security-floor-iso3d-v1.js` · map/light/orbit/operator/customer · bridge |
+| テスト | `server/test/security-floor-v1.test.ts` |
+| 確認 | `/security-v1` · `/customer/security` · https://tisly.jp/api/health |

@@ -62,6 +62,11 @@ export function setSecurityDrumFloor(id) {
   el.setAttribute("data-focus", next);
   syncFloorTabs(next);
   applySecurityOrbit();
+  try {
+    window.TislySecurityIso3d?.setFloor?.(next);
+  } catch {
+    /* ignore */
+  }
   document.dispatchEvent(
     new CustomEvent("tisly-sf-floor", { detail: { id: next } })
   );
@@ -81,9 +86,22 @@ function stepFloor(dir) {
   setSecurityDrumFloor(next.getAttribute("data-layer"));
 }
 
+function isIso3dPointerTarget(t) {
+  return !!(
+    t &&
+    t.closest &&
+    (t.closest("#sf-iso3d-mount") ||
+      t.closest(".sf-iso3d-canvas") ||
+      t.closest(".sf-iso3d-labels") ||
+      t.closest(".sf-iso3d-pin"))
+  );
+}
+
 function onPointerDown(e) {
   const wrap = e.target.closest("#sf-map-wrap");
   if (!wrap) return;
+  /* 3Dキャンバス上は OrbitControls に委ね、ドラム縦スワイプは無効 */
+  if (isIso3dPointerTarget(e.target)) return;
   drum.dragging = true;
   drum.lastY = e.clientY;
   drum.accY = 0;
@@ -131,6 +149,8 @@ export function bindSecurityOrbit() {
   wrap?.addEventListener(
     "wheel",
     (e) => {
+      /* 3D上のホイールはズーム。フロア切替は Shift+ホイール or HUD 上 */
+      if (isIso3dPointerTarget(e.target) && !e.shiftKey) return;
       if (Math.abs(e.deltaY) < 8) return;
       e.preventDefault();
       stepFloor(e.deltaY > 0 ? 1 : -1);

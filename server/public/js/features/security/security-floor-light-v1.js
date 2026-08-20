@@ -82,6 +82,13 @@
       layer.classList.toggle("is-dim", lid !== next);
     });
     applyOrbit();
+    try {
+      if (window.TislySecurityIso3d && window.TislySecurityIso3d.setFloor) {
+        window.TislySecurityIso3d.setFloor(next);
+      }
+    } catch (_e) {
+      /* ignore */
+    }
   }
 
   function stepFloor(dir) {
@@ -173,6 +180,13 @@
         ? "<div><dt>場所</dt><dd>1F 勝手口キッチン</dd></div><div><dt>デバイス</dt><dd>勝手口ドアセンサー（20m）</dd></div><div><dt>種別</dt><dd>開放検知</dd></div><div><dt>ステータス</dt><dd><em class=\"st-open\">未対応</em></dd></div>"
         : "<p>選択中の警報はありません</p>";
     }
+    try {
+      if (window.TislySecurityIso3d && window.TislySecurityIso3d.setAlert) {
+        window.TislySecurityIso3d.setAlert(alerting);
+      }
+    } catch (_e) {
+      /* ignore */
+    }
   }
 
   function siteId() {
@@ -215,7 +229,18 @@
     applyOrbit();
     var wrap = $("sf-map-wrap");
     if (!wrap) return;
+    function is3dTarget(t) {
+      return !!(
+        t &&
+        t.closest &&
+        (t.closest("#sf-iso3d-mount") ||
+          t.closest(".sf-iso3d-canvas") ||
+          t.closest(".sf-iso3d-labels") ||
+          t.closest(".sf-iso3d-pin"))
+      );
+    }
     wrap.addEventListener("pointerdown", function (e) {
+      if (is3dTarget(e.target)) return;
       drum.dragging = true;
       drum.lastY = e.clientY;
       drum.accY = 0;
@@ -253,6 +278,7 @@
     wrap.addEventListener(
       "wheel",
       function (e) {
+        if (is3dTarget(e.target) && !e.shiftKey) return;
         if (Math.abs(e.deltaY) < 8) return;
         e.preventDefault();
         stepFloor(e.deltaY > 0 ? 1 : -1);
@@ -372,7 +398,7 @@
 
   bindOrbit();
   bindControls();
-  setFloor("2f");
+  setFloor("1f");
   setLive(0);
   $("sf-map-wrap") && $("sf-map-wrap").classList.add("is-lights-on");
   var status = $("sf-status-label");
@@ -383,4 +409,14 @@
   }
   hideHomeFab();
   setTimeout(hideHomeFab, 400);
+  setTimeout(function () {
+    try {
+      if (window.TislySecurityIso3d && window.TislySecurityIso3d.mount) {
+        window.TislySecurityIso3d.mount();
+        window.TislySecurityIso3d.setFloor(window.__TISLY_SF_FLOOR || "1f");
+      }
+    } catch (_e) {
+      /* ignore */
+    }
+  }, 0);
 })();

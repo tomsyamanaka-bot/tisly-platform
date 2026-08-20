@@ -22,6 +22,7 @@ import {
   listFallbackSites,
   markSecurityUiReady,
 } from "./security-floor-fallback-v1.js";
+import { updateSecurityIso3d } from "./security-floor-iso3d-v1.js";
 
 const state = {
   siteId: FALLBACK_DEFAULT_SITE_ID,
@@ -148,6 +149,9 @@ function renderDash(dash) {
     bindSecurityOrbit();
     applySecurityOrbit();
     setSecurityDrumFloor(state.floorId);
+    updateSecurityIso3d(dash, state.floorId, {}).catch((e) => {
+      console.warn("[security-customer] iso3d", e);
+    });
     markSecurityUiReady();
   } catch (err) {
     setText("sf-status-label", "表示を再構築しました");

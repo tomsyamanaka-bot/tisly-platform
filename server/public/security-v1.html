@@ -11,7 +11,15 @@
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2003" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
   <title>TiSLY Security</title>
-  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2473" />
+  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2479" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
 </head>
 <body class="sf-body sf-soc" data-hqs-skip="1">
   <header class="sf-soc-header">
@@ -49,8 +57,13 @@
         </span>
       </div>
       <div class="sf-map-wrap sf-iso-wrap is-lights-on" id="sf-map-wrap">
-        <div class="sf-iso-scene">
-          <div class="sf-iso-orbit" id="sf-iso-orbit" data-focus="1f">
+        <div class="sf-iso-scene sf-iso3d-scene">
+          <div id="sf-iso3d-mount" class="sf-iso3d-mount" role="img" aria-label="3Dアイソメ俯瞰"></div>
+          <div class="sf-iso3d-hud">
+            <span id="sf-iso3d-floor-label">1F</span>
+            <span class="sf-iso3d-hint">ドラッグで回転 · ピンチで拡大</span>
+          </div>
+          <div class="sf-iso-orbit sf-iso-orbit--data" id="sf-iso-orbit" data-focus="1f">
             <article class="sf-iso-layer" data-layer="2f" style="--drum-i:0">
               <p class="sf-iso-caption">2F</p>
               <svg class="sf-map sf-iso-svg" viewBox="-10 -12 120 124" role="img" aria-label="2F">
@@ -160,7 +173,7 @@
           </div>
         </div>
       </div>
-      <p class="sf-orbit-hint">上下スワイプでドラム回転 · 2F → 1F → 外周（平屋は1F中央）</p>
+      <p class="sf-orbit-hint">タブでフロア切替 · 3Dはドラッグ回転 / ピンチ拡大 · Shift+ホイールでフロア</p>
     </section>
 
     <section class="sf-soc-tools">
@@ -263,8 +276,9 @@
     </form>
   </dialog>
 
-  <script src="/js/features/security/security-floor-light-v1.js?v=2473"></script>
-  <script src="/js/features/floorplan-builder/floorplan-security-bridge-v1.js?v=2476"></script>
-  <script type="module" src="/js/features/security/security-floor-operator-v1.js?v=2473"></script>
+  <script src="/js/features/security/security-floor-light-v1.js?v=2479"></script>
+  <script src="/js/features/floorplan-builder/floorplan-security-bridge-v1.js?v=2479"></script>
+  <script type="module" src="/js/features/security/security-floor-iso3d-v1.js?v=2479"></script>
+  <script type="module" src="/js/features/security/security-floor-operator-v1.js?v=2479"></script>
 </body>
 </html>

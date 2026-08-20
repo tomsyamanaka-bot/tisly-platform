@@ -27,6 +27,7 @@ import {
   listFallbackSites,
   markSecurityUiReady,
 } from "./security-floor-fallback-v1.js";
+import { updateSecurityIso3d } from "./security-floor-iso3d-v1.js";
 
 const state = {
   siteId: FALLBACK_DEFAULT_SITE_ID,
@@ -298,14 +299,15 @@ function renderSite(site, dash) {
     }
     const floors = site.floors || [];
     setHtml("sf-floor-tabs", renderSocLayerButtons(floors, state.floorId));
+    const mapOpts = {
+      showCameras: state.showCameras,
+      showSensors: state.showSensors,
+      showZones: state.showZones,
+      showLabels: state.showLabels,
+    };
     setHtml(
       "sf-map-wrap",
-      renderIsoStack(site, state.floorId, {
-        showCameras: state.showCameras,
-        showSensors: state.showSensors,
-        showZones: state.showZones,
-        showLabels: state.showLabels,
-      })
+      renderIsoStack(site, state.floorId, mapOpts)
     );
     setHtml("sf-modes", renderGuardModes(site.guardMode));
     setHtml(
@@ -323,6 +325,9 @@ function renderSite(site, dash) {
     bindSecurityOrbit();
     applySecurityOrbit();
     setSecurityDrumFloor(state.floorId);
+    updateSecurityIso3d(site, state.floorId, mapOpts).catch((e) => {
+      console.warn("[security-floor] iso3d", e);
+    });
     markSecurityUiReady();
   } catch (err) {
     setText("sf-status-label", "表示を再構築しました");

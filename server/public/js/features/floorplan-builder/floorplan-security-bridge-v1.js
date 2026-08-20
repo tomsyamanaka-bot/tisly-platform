@@ -1,6 +1,6 @@
 /**
  * Builder → Security 非破壊ブリッジ
- * localStorage の tisly_floorplan_config を俯瞰 SVG に反映
+ * localStorage の tisly_floorplan_config を 3D アイソメ／俯瞰 SVG に反映
  * 既存 DOM / ロジックは壊さず追記のみ
  */
 (function () {
@@ -114,11 +114,34 @@
     hero.insertBefore(el, hero.firstChild);
   }
 
+  function applyConfig(config) {
+    banner(config.name);
+    document.querySelectorAll(".sf-iso-layer").forEach(function (layer) {
+      var id = layer.getAttribute("data-layer");
+      applyFloor(layer, id, config);
+    });
+    function push3d() {
+      try {
+        if (window.TislySecurityIso3d && window.TislySecurityIso3d.applyFloorplan) {
+          window.TislySecurityIso3d.applyFloorplan(config);
+          return true;
+        }
+      } catch (e) {}
+      return false;
+    }
+    if (!push3d()) {
+      var n = 0;
+      var t = setInterval(function () {
+        n += 1;
+        if (push3d() || n > 40) clearInterval(t);
+      }, 120);
+    }
+  }
+
   function run() {
     if (!wantsBuilderMap()) return;
     var config = loadConfig();
     if (!config || !config.floors) {
-      // サーバーからフォールバック
       fetch("/api/floorplan-builder/v1/active")
         .then(function (r) {
           return r.json();
@@ -135,14 +158,6 @@
       return;
     }
     applyConfig(config);
-  }
-
-  function applyConfig(config) {
-    banner(config.name);
-    document.querySelectorAll(".sf-iso-layer").forEach(function (layer) {
-      var id = layer.getAttribute("data-layer");
-      applyFloor(layer, id, config);
-    });
   }
 
   if (document.readyState === "loading") {

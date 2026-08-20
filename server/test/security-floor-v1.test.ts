@@ -277,6 +277,7 @@ describe("security-floor-v1", () => {
     );
     assert.match(html, /sf-iso-wrap/);
     assert.match(html, /sf-iso-orbit/);
+    assert.match(html, /sf-iso3d-mount/);
     assert.match(html, /data-room-id="my-1f-katte"/);
     assert.match(html, /勝手口キッチン/);
     assert.match(html, /リビング洋/);
@@ -284,8 +285,10 @@ describe("security-floor-v1", () => {
     assert.match(html, /廊下（3尺）/);
     assert.match(html, /アラーム対応完了/);
     assert.match(html, /TiSLY Security/);
-    assert.match(html, /security-floor-light-v1\.js\?v=2473/);
-    assert.match(html, /security-floor-operator-v1\.js\?v=2473/);
+    assert.match(html, /security-floor-light-v1\.js\?v=2479/);
+    assert.match(html, /security-floor-operator-v1\.js\?v=2479/);
+    assert.match(html, /security-floor-iso3d-v1\.js\?v=2479/);
+    assert.match(html, /importmap/);
     assert.match(html, /viewBox="-10 -12 120 124"/);
     assert.match(html, /← 戻る/);
     assert.match(html, /data-focus="1f"/);
@@ -307,7 +310,20 @@ describe("security-floor-v1", () => {
     assert.match(mapJs, /pulse-alarm/);
     assert.match(mapJs, /alert-beacon/);
     assert.match(mapJs, /sf-iso-orbit/);
+    assert.match(mapJs, /sf-iso3d-mount/);
     assert.doesNotMatch(mapJs, /屋根\/太陽光/);
+    const iso3dJs = fs.readFileSync(
+      path.join(
+        publicDir,
+        "js/features/security/security-floor-iso3d-v1.js"
+      ),
+      "utf8"
+    );
+    assert.match(iso3dJs, /OrbitControls/);
+    assert.match(iso3dJs, /CSS2DRenderer/);
+    assert.match(iso3dJs, /TislySecurityIso3d/);
+    assert.match(iso3dJs, /setAlert/);
+    assert.match(iso3dJs, /wallHeight/);
     const orbitJs = fs.readFileSync(
       path.join(
         publicDir,
@@ -329,9 +345,11 @@ describe("security-floor-v1", () => {
     assert.match(lightJs, /my-1f-katte/);
     assert.match(lightJs, /sf-demo-alert/);
     assert.match(lightJs, /\\uFEFF/);
+    assert.match(lightJs, /TislySecurityIso3d/);
     assert.match(orbitJs, /rotateX/);
     assert.match(orbitJs, /drum-r/);
     assert.match(orbitJs, /__TISLY_SF_ORBIT_BOUND/);
+    assert.match(orbitJs, /TislySecurityIso3d/);
     assert.doesNotMatch(orbitJs, /rotateZ/);
     const opJs = fs.readFileSync(
       path.join(
@@ -343,6 +361,7 @@ describe("security-floor-v1", () => {
     assert.match(opJs, /bootFallback/);
     assert.match(opJs, /applyLocalPrimaryAlert/);
     assert.match(opJs, /bindSecurityOrbit/);
+    assert.match(opJs, /updateSecurityIso3d/);
     assert.match(opJs, /\\uFEFF/);
     const fbJs = fs.readFileSync(
       path.join(
@@ -365,6 +384,8 @@ describe("security-floor-v1", () => {
     assert.match(customerHtml, /TiSLY Security/);
     assert.match(customerHtml, /href="\/customer"/);
     assert.match(customerHtml, /security-floor-light-v1\.js/);
+    assert.match(customerHtml, /security-floor-iso3d-v1\.js/);
+    assert.match(customerHtml, /sf-iso3d-mount/);
     assert.match(customerHtml, /sf-demo-alert/);
     assert.match(customerHtml, /data-room-id="my-1f-katte"/);
     assert.match(customerHtml, /data-focus="1f"/);
