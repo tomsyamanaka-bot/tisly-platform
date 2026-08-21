@@ -293,9 +293,9 @@ describe("security-floor-v1", () => {
     assert.match(html, /廊下（3尺）/);
     assert.match(html, /アラーム対応完了/);
     assert.match(html, /TiSLY Security/);
-    assert.match(html, /security-floor-light-v1\.js\?v=2481/);
-    assert.match(html, /security-floor-operator-v1\.js\?v=2481/);
-    assert.match(html, /security-floor-iso3d-v1\.js\?v=2481/);
+    assert.match(html, /security-floor-light-v1\.js\?v=2483/);
+    assert.match(html, /security-floor-operator-v1\.js\?v=2483/);
+    assert.match(html, /security-floor-iso3d-v1\.js\?v=2483/);
     assert.match(html, /importmap/);
     assert.match(html, /viewBox="-10 -12 120 124"/);
     assert.match(html, /← 戻る/);

@@ -24,46 +24,46 @@ export function devicePinSvgInner(kind) {
   const k = normalizeDeviceKind(kind);
   if (k === "camera") {
     return `<svg class="tisly-pin-svg" viewBox="0 0 24 24" aria-hidden="true">
-      <rect x="3" y="7" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/>
-      <path d="M17 10l4-2v8l-4-2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
-      <circle cx="10" cy="12" r="2.2" fill="currentColor"/>
+      <rect x="3" y="7" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2.4"/>
+      <path d="M17 10l4-2v8l-4-2z" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/>
+      <circle cx="10" cy="12" r="2.4" fill="currentColor"/>
     </svg>`;
   }
   if (k === "door") {
     return `<svg class="tisly-pin-svg" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M6 4h9a2 2 0 0 1 2 2v14H6V4z" fill="none" stroke="currentColor" stroke-width="1.8"/>
-      <path d="M17 6.5l3 1.2v11.6l-3 1.2" fill="none" stroke="currentColor" stroke-width="1.6" opacity="0.7"/>
-      <circle cx="13.2" cy="12" r="1.1" fill="currentColor"/>
+      <path d="M6 4h9a2 2 0 0 1 2 2v14H6V4z" fill="none" stroke="currentColor" stroke-width="2.4"/>
+      <path d="M17 6.5l3 1.2v11.6l-3 1.2" fill="none" stroke="currentColor" stroke-width="2.2" opacity="0.85"/>
+      <circle cx="13.2" cy="12" r="1.35" fill="currentColor"/>
     </svg>`;
   }
   if (k === "lock") {
     return `<svg class="tisly-pin-svg" viewBox="0 0 24 24" aria-hidden="true">
-      <rect x="5" y="11" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/>
-      <path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="1.8"/>
-      <circle cx="12" cy="15.5" r="1.3" fill="currentColor"/>
+      <rect x="5" y="11" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2.4"/>
+      <path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="2.4"/>
+      <circle cx="12" cy="15.5" r="1.5" fill="currentColor"/>
     </svg>`;
   }
   if (k === "panel" || k === "gas") {
     return `<svg class="tisly-pin-svg" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M13 2L5 13h6l-1 9 9-12h-6l0-8z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+      <path d="M13 2L5 13h6l-1 9 9-12h-6l0-8z" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/>
     </svg>`;
   }
   if (k === "mmwave") {
     return `<svg class="tisly-pin-svg" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M12 18v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-      <path d="M8 14a6 6 0 0 1 8 0" fill="none" stroke="currentColor" stroke-width="1.6"/>
-      <path d="M5.5 11a9.5 9.5 0 0 1 13 0" fill="none" stroke="currentColor" stroke-width="1.6" opacity="0.75"/>
-      <path d="M3 8a13 13 0 0 1 18 0" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.5"/>
+      <path d="M12 18v3" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M8 14a6 6 0 0 1 8 0" fill="none" stroke="currentColor" stroke-width="2.2"/>
+      <path d="M5.5 11a9.5 9.5 0 0 1 13 0" fill="none" stroke="currentColor" stroke-width="2.2" opacity="0.8"/>
+      <path d="M3 8a13 13 0 0 1 18 0" fill="none" stroke="currentColor" stroke-width="2" opacity="0.55"/>
     </svg>`;
   }
   if (k === "window") {
     return `<svg class="tisly-pin-svg" viewBox="0 0 24 24" aria-hidden="true">
-      <rect x="4" y="5" width="16" height="14" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
-      <path d="M12 5v14M4 12h16" stroke="currentColor" stroke-width="1.6"/>
+      <rect x="4" y="5" width="16" height="14" rx="1.5" fill="none" stroke="currentColor" stroke-width="2.4"/>
+      <path d="M12 5v14M4 12h16" stroke="currentColor" stroke-width="2.2"/>
     </svg>`;
   }
   return `<svg class="tisly-pin-svg" viewBox="0 0 24 24" aria-hidden="true">
-    <circle cx="12" cy="12" r="5" fill="none" stroke="currentColor" stroke-width="1.8"/>
+    <circle cx="12" cy="12" r="5" fill="none" stroke="currentColor" stroke-width="2.4"/>
   </svg>`;
 }
 

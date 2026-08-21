@@ -7,6 +7,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import {
   DEVICE_PALETTE_ITEMS_V1,
+  devicePinSvgInner,
   normalizeDeviceKind,
 } from "../shared/tisly-device-pin-icons-v1.js";
 import {
@@ -18,6 +19,10 @@ import {
 
 const LS_KEY = "tisly_floorplan_config";
 const LS_ACTIVE = "tisly_floorplan_active_id";
+/** 部屋名変更: ダブルタップ間隔上限（ms） */
+const ROOM_RENAME_DOUBLE_TAP_MS = 300;
+/** タップとドラッグの判定閾値（SVG viewBox 単位） */
+const ROOM_TAP_MOVE_THRESH = 1.8;
 
 const DEVICE_LABELS = {
   camera: "カメラ",
@@ -83,6 +88,8 @@ let placeKind = null;
 
 /** 部屋ドラッグ状態 */
 let drag = null;
+/** 部屋名変更用ダブルタップ追跡 */
+let roomRenameTap = null;
 /** 3Dピン ドラッグ状態 */
 let pin3dDrag = null;
 /** 背景パン状態 */
@@ -202,7 +209,7 @@ function drawOverlay() {
       return `<g class="fpb-room-g${selected}" data-room-id="${escapeXml(r.id)}">
         <rect class="fpb-room" data-room-id="${escapeXml(r.id)}" data-handle="move"
           x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" rx="1.2"></rect>
-        <text class="fpb-room-label" data-room-id="${escapeXml(r.id)}" data-handle="label"
+        <text class="fpb-room-label" data-room-id="${escapeXml(r.id)}" data-handle="move"
           x="${tx}" y="${ty}">${escapeXml(r.label)}</text>
         <circle class="fpb-handle" data-room-id="${escapeXml(r.id)}" data-handle="nw" cx="${r.x}" cy="${r.y}" r="1.6"></circle>
         <circle class="fpb-handle" data-room-id="${escapeXml(r.id)}" data-handle="ne" cx="${r.x + r.w}" cy="${r.y}" r="1.6"></circle>
@@ -470,7 +477,7 @@ function rebuild3d() {
       kind,
       label: d.label || DEVICE_LABELS[kind] || kind,
       selected: d.id === selectedDeviceId,
-      scale: 1.08,
+      scale: 1.15,
     });
     const pos = deviceToWorldPosV1(d, wallH);
     pin.position.set(pos.x, pos.y, pos.z);
@@ -779,10 +786,12 @@ function renderDevicePalette() {
   if (!el) return;
   el.innerHTML = DEVICE_PALETTE_ITEMS_V1.map(
     (it) =>
-      `<button type="button" class="fpb-palette-item${
+      `<button type="button" class="fpb-palette-item kind-${it.kind}${
         placeKind === it.kind ? " is-active" : ""
       }" data-kind="${it.kind}" title="${it.label}">
-        <span class="fpb-palette-icon" aria-hidden="true">${it.hint}</span>
+        <span class="fpb-palette-icon" aria-hidden="true">${devicePinSvgInner(
+          it.kind
+        )}</span>
         <span class="fpb-palette-label">${it.label}</span>
       </button>`
   ).join("");
@@ -1097,15 +1106,6 @@ function onOverlayPointerDown(ev) {
 
   const { handle, roomId } = hit;
 
-  if (handle === "label") {
-    ev.preventDefault();
-    ev.stopPropagation();
-    selectedRoomId = roomId;
-    drawOverlay();
-    openRenameSheet(roomId);
-    return;
-  }
-
   const room = findRoom(roomId);
   if (!room) return;
   ev.preventDefault();
@@ -1117,6 +1117,7 @@ function onOverlayPointerDown(ev) {
     startX: pt.x,
     startY: pt.y,
     orig: { x: room.x, y: room.y, w: room.w, h: room.h },
+    moved: false,
   };
   drawOverlay();
   try {
@@ -1138,6 +1139,11 @@ function onOverlayPointerMove(ev) {
   const pt = svgPointFromEvent(ev);
   const dx = pt.x - drag.startX;
   const dy = pt.y - drag.startY;
+  if (!drag.moved) {
+    if (Math.hypot(dx, dy) < ROOM_TAP_MOVE_THRESH) return;
+    drag.moved = true;
+    roomRenameTap = null;
+  }
   const o = drag.orig;
   if (drag.handle === "move") {
     room.x = o.x + dx;
@@ -1166,9 +1172,26 @@ function onOverlayPointerMove(ev) {
 
 function onOverlayPointerUp() {
   if (drag) {
+    const info = drag;
     drag = null;
     if (state) persistLocal(state);
     refresh2d();
+    /* シングルタップでは名前変更しない — 300ms以内のダブルタップのみ */
+    if (!info.moved && info.handle === "move" && info.roomId) {
+      const now = Date.now();
+      if (
+        roomRenameTap &&
+        roomRenameTap.roomId === info.roomId &&
+        now - roomRenameTap.at <= ROOM_RENAME_DOUBLE_TAP_MS
+      ) {
+        roomRenameTap = null;
+        openRenameSheet(info.roomId);
+      } else {
+        roomRenameTap = { roomId: info.roomId, at: now };
+      }
+    } else if (info.moved) {
+      roomRenameTap = null;
+    }
   }
   if (bgPan) {
     bgPan = null;

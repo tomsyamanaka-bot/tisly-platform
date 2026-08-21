@@ -295,6 +295,9 @@ describe("floorplan-builder-v1", () => {
     assert.match(js, /closest\(/);
     assert.match(js, /touchstart/);
     assert.match(js, /openRenameSheet/);
+    assert.match(js, /ROOM_RENAME_DOUBLE_TAP_MS/);
+    assert.match(js, /roomRenameTap/);
+    assert.match(js, /devicePinSvgInner/);
     assert.match(js, /ensureBgTransform/);
     assert.match(js, /data-handle/);
     assert.match(js, /addDeviceAt/);
@@ -306,6 +309,8 @@ describe("floorplan-builder-v1", () => {
     assert.match(js, /緑外壁フレーム/);
     assert.match(js, /worldX/);
     assert.doesNotMatch(js, /CSS2DObject/);
+    assert.doesNotMatch(js, /data-handle="label"/);
+    assert.match(html, /ダブルタップで名前変更/);
     const css = fs.readFileSync(
       path.join(
         publicDir,
@@ -316,13 +321,17 @@ describe("floorplan-builder-v1", () => {
     assert.match(css, /-webkit-user-select:\s*none/);
     assert.match(css, /touch-action:\s*manipulation/);
     assert.match(css, /\.fpb-del/);
+    assert.match(css, /\.fpb-palette--float \.fpb-palette-item/);
+    assert.match(css, /min-height:\s*64px/);
     const pinMesh = fs.readFileSync(
       path.join(publicDir, "js/features/shared/tisly-neon-pin-mesh-v1.js"),
       "utf8"
     );
     assert.match(pinMesh, /drawDeviceIconSvgV1/);
+    assert.match(pinMesh, /PIN_SPRITE_W/);
     assert.match(pinMesh, /0x22c55e/);
     assert.match(pinMesh, /0xa855f7/);
+    assert.match(pinMesh, /白フチ/);
   });
 
   it("デバイス配置が security bridge に 3D 座標付きで含まれる", () => {
