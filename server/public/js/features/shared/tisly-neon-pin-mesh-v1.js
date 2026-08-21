@@ -1,18 +1,22 @@
 /**
  * Three.js 空間内ネオンピン（Sprite + stem）
  * CSS2D / HTML オーバーレイは使わない — 回転・ズームに 100% 追従
+ * ヘッドはデバイス種別 SVG アイコン（絵文字非依存）
  */
 import { normalizeDeviceKind } from "./tisly-device-pin-icons-v1.js";
 
-/** @type {Record<string, { hex: number, emoji: string, label: string }>} */
+/**
+ * テーマカラー（カメラ:青 / ドア:緑 / 鍵:琥珀 / 電源:黄 / ミリ波:紫）
+ * @type {Record<string, { hex: number, label: string }>}
+ */
 export const NEON_PIN_STYLE_V1 = {
-  camera: { hex: 0x38bdf8, emoji: "📷", label: "カメラ" },
-  door: { hex: 0x60a5fa, emoji: "🚪", label: "ドア" },
-  lock: { hex: 0xa78bfa, emoji: "🔒", label: "鍵" },
-  panel: { hex: 0xfbbf24, emoji: "⚡", label: "電源" },
-  mmwave: { hex: 0x34d399, emoji: "📡", label: "ミリ波" },
-  gas: { hex: 0xfbbf24, emoji: "⚡", label: "ガス" },
-  window: { hex: 0x93c5fd, emoji: "🪟", label: "窓" },
+  camera: { hex: 0x3b82f6, label: "カメラ" },
+  door: { hex: 0x22c55e, label: "ドア" },
+  lock: { hex: 0xf59e0b, label: "鍵" },
+  panel: { hex: 0xeab308, label: "電源" },
+  mmwave: { hex: 0xa855f7, label: "ミリ波" },
+  gas: { hex: 0xeab308, label: "ガス" },
+  window: { hex: 0x38bdf8, label: "窓" },
 };
 
 /**
@@ -20,11 +24,134 @@ export const NEON_PIN_STYLE_V1 = {
  */
 export function neonPinStyle(kind) {
   const k = normalizeDeviceKind(kind);
-  return NEON_PIN_STYLE_V1[k] || { hex: 0x2563eb, emoji: "●", label: k };
+  return NEON_PIN_STYLE_V1[k] || { hex: 0x2563eb, label: k };
+}
+
+function hexToRgb(hex) {
+  const n = Number(hex) || 0;
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+
+function hexCss(hex) {
+  return `#${Number(hex).toString(16).padStart(6, "0")}`;
 }
 
 /**
- * Canvas テクスチャ（ネオン円 + 絵文字）
+ * 24x24 ビュー相当のデバイス SVG を Canvas に描画（絵文字非依存・視認性優先）
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {string} kind
+ * @param {number} cx
+ * @param {number} cy
+ * @param {number} scale 1 = 24px 相当
+ * @param {string} color
+ */
+export function drawDeviceIconSvgV1(ctx, kind, cx, cy, scale, color) {
+  const k = normalizeDeviceKind(kind);
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(scale, scale);
+  ctx.translate(-12, -12);
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = 1.85;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  if (k === "camera") {
+    roundRectStroke(ctx, 3, 7, 14, 10, 2);
+    ctx.beginPath();
+    ctx.moveTo(17, 10);
+    ctx.lineTo(21, 8);
+    ctx.lineTo(21, 16);
+    ctx.lineTo(17, 14);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(10, 12, 2.2, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (k === "door") {
+    roundRectStroke(ctx, 6, 4, 9, 16, 1.5);
+    ctx.beginPath();
+    ctx.moveTo(17, 6.5);
+    ctx.lineTo(20, 7.7);
+    ctx.lineTo(20, 19.3);
+    ctx.lineTo(17, 20.5);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(13.2, 12, 1.1, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (k === "lock") {
+    roundRectStroke(ctx, 5, 11, 14, 10, 2);
+    ctx.beginPath();
+    ctx.moveTo(8, 11);
+    ctx.lineTo(8, 8);
+    ctx.arc(12, 8, 4, Math.PI, 0, false);
+    ctx.lineTo(16, 11);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(12, 15.5, 1.3, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (k === "panel" || k === "gas") {
+    ctx.beginPath();
+    ctx.moveTo(13, 2);
+    ctx.lineTo(5, 13);
+    ctx.lineTo(11, 13);
+    ctx.lineTo(10, 22);
+    ctx.lineTo(19, 10);
+    ctx.lineTo(13, 10);
+    ctx.closePath();
+    ctx.stroke();
+  } else if (k === "mmwave") {
+    ctx.beginPath();
+    ctx.moveTo(12, 18);
+    ctx.lineTo(12, 21);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(12, 14, 4, Math.PI * 0.15, Math.PI * 0.85, true);
+    ctx.stroke();
+    ctx.globalAlpha = 0.75;
+    ctx.beginPath();
+    ctx.arc(12, 14, 7, Math.PI * 0.12, Math.PI * 0.88, true);
+    ctx.stroke();
+    ctx.globalAlpha = 0.5;
+    ctx.beginPath();
+    ctx.arc(12, 14, 10, Math.PI * 0.1, Math.PI * 0.9, true);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  } else if (k === "window") {
+    roundRectStroke(ctx, 4, 5, 16, 14, 1.5);
+    ctx.beginPath();
+    ctx.moveTo(12, 5);
+    ctx.lineTo(12, 19);
+    ctx.moveTo(4, 12);
+    ctx.lineTo(20, 12);
+    ctx.stroke();
+  } else {
+    ctx.beginPath();
+    ctx.arc(12, 12, 5, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function roundRectStroke(ctx, x, y, w, h, r) {
+  const rr = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + rr, y);
+  ctx.lineTo(x + w - rr, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + rr);
+  ctx.lineTo(x + w, y + h - rr);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - rr, y + h);
+  ctx.lineTo(x + rr, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - rr);
+  ctx.lineTo(x, y + rr);
+  ctx.quadraticCurveTo(x, y, x + rr, y);
+  ctx.closePath();
+  ctx.stroke();
+}
+
+/**
+ * Canvas テクスチャ（テーマ色グロー + SVG アイコンヘッド）
  * @param {typeof import('three')} THREE
  * @param {{ kind: string, alerting?: boolean, selected?: boolean }} opts
  */
@@ -43,18 +170,13 @@ export function makeNeonPinTexture(THREE, opts) {
   const cx = 64;
   const cy = 52;
   const r = 34;
+  const theme = alerting ? 0xef4444 : style.hex;
+  const rgb = hexToRgb(theme);
 
   const glow = ctx.createRadialGradient(cx, cy, 4, cx, cy, 58);
-  if (alerting) {
-    glow.addColorStop(0, "rgba(255,120,120,0.95)");
-    glow.addColorStop(0.45, "rgba(239,68,68,0.55)");
-    glow.addColorStop(1, "rgba(239,68,68,0)");
-  } else {
-    const rgb = hexToRgb(style.hex);
-    glow.addColorStop(0, `rgba(${rgb.r},${rgb.g},${rgb.b},0.85)`);
-    glow.addColorStop(0.5, `rgba(${rgb.r},${rgb.g},${rgb.b},0.35)`);
-    glow.addColorStop(1, `rgba(${rgb.r},${rgb.g},${rgb.b},0)`);
-  }
+  glow.addColorStop(0, `rgba(${rgb.r},${rgb.g},${rgb.b},0.95)`);
+  glow.addColorStop(0.45, `rgba(${rgb.r},${rgb.g},${rgb.b},0.45)`);
+  glow.addColorStop(1, `rgba(${rgb.r},${rgb.g},${rgb.b},0)`);
   ctx.fillStyle = glow;
   ctx.beginPath();
   ctx.arc(cx, cy, 58, 0, Math.PI * 2);
@@ -66,24 +188,19 @@ export function makeNeonPinTexture(THREE, opts) {
     body.addColorStop(1, "#ef4444");
   } else {
     body.addColorStop(0, "#ffffff");
-    body.addColorStop(1, "#e0f2fe");
+    body.addColorStop(1, "#f8fafc");
   }
   ctx.beginPath();
   ctx.arc(cx, cy, r, 0, Math.PI * 2);
   ctx.fillStyle = body;
   ctx.fill();
-  ctx.lineWidth = selected ? 6 : 3.5;
-  ctx.strokeStyle = alerting
-    ? "#f87171"
-    : selected
-      ? "#1e3a8a"
-      : `#${style.hex.toString(16).padStart(6, "0")}`;
+  ctx.lineWidth = selected ? 6 : 4;
+  ctx.strokeStyle = alerting ? "#f87171" : selected ? "#1e3a8a" : hexCss(theme);
   ctx.stroke();
 
-  ctx.font = "48px system-ui, Segoe UI Emoji, Apple Color Emoji, sans-serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(style.emoji, cx, cy + 2);
+  /* デバイス種別 SVG（絵文字ではなくクリアなベクター） */
+  const iconColor = alerting ? "#ffffff" : "#0f172a";
+  drawDeviceIconSvgV1(ctx, opts.kind, cx, cy + 1, 1.65, iconColor);
 
   /* 尖端 */
   ctx.beginPath();
@@ -91,9 +208,7 @@ export function makeNeonPinTexture(THREE, opts) {
   ctx.lineTo(cx + 12, cy + r - 4);
   ctx.lineTo(cx, cy + r + 22);
   ctx.closePath();
-  ctx.fillStyle = alerting
-    ? "#ef4444"
-    : `#${style.hex.toString(16).padStart(6, "0")}`;
+  ctx.fillStyle = alerting ? "#ef4444" : hexCss(theme);
   ctx.fill();
 
   const tex = new THREE.CanvasTexture(c);
@@ -104,11 +219,6 @@ export function makeNeonPinTexture(THREE, opts) {
     tex.encoding = THREE.sRGBEncoding;
   }
   return tex;
-}
-
-function hexToRgb(hex) {
-  const n = Number(hex) || 0;
-  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
 }
 
 /**
@@ -265,10 +375,12 @@ export function pulseNeonPinMesh3d(group, pulse) {
     group.userData.ring.scale.set(s, s, s);
   }
   if (group.userData.sprite) {
-    const base = group.userData.sprite.scale.x;
     const b = 1.15 * (group.scale?.x || 1);
-    group.userData.sprite.scale.set(b * (0.95 + pulse * 0.2), b * 1.15 * (0.95 + pulse * 0.2), 1);
-    void base;
+    group.userData.sprite.scale.set(
+      b * (0.95 + pulse * 0.2),
+      b * 1.15 * (0.95 + pulse * 0.2),
+      1
+    );
   }
 }
 
@@ -295,9 +407,7 @@ export function deviceToWorldPosV1(d, wallH = 2.7) {
   const wx = pctToWorldV1(d.x);
   const wz = pctToWorldV1(d.y);
   const wy =
-    Number.isFinite(d.z) && d.z != null
-      ? Number(d.z)
-      : wallH * 0.72;
+    Number.isFinite(d.z) && d.z != null ? Number(d.z) : wallH * 0.72;
   return { x: wx, y: wy, z: wz };
 }
 

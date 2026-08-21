@@ -336,8 +336,25 @@ describe("security-floor-v1", () => {
     assert.match(iso3dJs, /tisly-neon-pin-mesh/);
     assert.match(iso3dJs, /deviceToWorldPosV1|worldX/);
     assert.match(iso3dJs, /外壁フレーム/);
+    assert.match(iso3dJs, /labelRenderer\.domElement\.innerHTML\s*=\s*""/);
+    assert.match(iso3dJs, /isCSS2DObject/);
+    assert.match(iso3dJs, /children\.slice\(\)/);
     assert.doesNotMatch(iso3dJs, /buildDevicePinHtml/);
     assert.doesNotMatch(iso3dJs, /new CSS2DObject\(el\)/);
+    const pinMeshJs = fs.readFileSync(
+      path.join(
+        publicDir,
+        "js/features/shared/tisly-neon-pin-mesh-v1.js"
+      ),
+      "utf8"
+    );
+    assert.match(pinMeshJs, /drawDeviceIconSvgV1/);
+    assert.match(pinMeshJs, /0x3b82f6/);
+    assert.match(pinMeshJs, /0x22c55e/);
+    assert.match(pinMeshJs, /0xf59e0b/);
+    assert.match(pinMeshJs, /0xa855f7/);
+    assert.match(pinMeshJs, /0xeab308/);
+    assert.doesNotMatch(pinMeshJs, /emoji:\s*"/);
     const orbitJs = fs.readFileSync(
       path.join(
         publicDir,

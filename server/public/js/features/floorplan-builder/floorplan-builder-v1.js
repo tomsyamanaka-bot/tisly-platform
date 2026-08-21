@@ -209,9 +209,13 @@ function drawOverlay() {
         <circle class="fpb-handle" data-room-id="${escapeXml(r.id)}" data-handle="sw" cx="${r.x}" cy="${r.y + r.h}" r="1.6"></circle>
         <circle class="fpb-handle" data-room-id="${escapeXml(r.id)}" data-handle="se" cx="${r.x + r.w}" cy="${r.y + r.h}" r="1.6"></circle>
         <g class="fpb-del" data-room-id="${escapeXml(r.id)}" data-handle="delete"
-          transform="translate(${r.x + r.w - 3.2}, ${r.y + 3.2})">
-          <circle r="2.4" class="fpb-del-bg"></circle>
-          <text class="fpb-del-icon" text-anchor="middle" dominant-baseline="central">🗑</text>
+          transform="translate(${r.x + r.w - 3.2}, ${r.y + 3.2})"
+          role="button" aria-label="部屋を削除">
+          <circle r="3.2" class="fpb-del-hit" data-room-id="${escapeXml(r.id)}" data-handle="delete"></circle>
+          <circle r="2.4" class="fpb-del-bg" data-room-id="${escapeXml(r.id)}" data-handle="delete"></circle>
+          <path class="fpb-del-icon" data-room-id="${escapeXml(r.id)}" data-handle="delete"
+            d="M-1.1,-0.9 h2.2 M-0.7,-0.9 v-0.55 h1.4 v0.55 M-0.85,-0.35 v2.1 h1.7 v-2.1"
+            fill="none" stroke-linecap="round" stroke-linejoin="round"></path>
         </g>
       </g>`;
     })
@@ -1044,13 +1048,46 @@ function svgPointFromEvent(ev) {
   return { x: loc.x, y: loc.y };
 }
 
+/**
+ * SVG 子要素（text/circle）タップでも親の data-handle を拾う
+ * @param {EventTarget | null} target
+ */
+function resolveRoomHandle(target) {
+  if (!(target instanceof Element)) return null;
+  const el = target.closest("[data-handle][data-room-id]");
+  if (!el) return null;
+  return {
+    handle: el.getAttribute("data-handle"),
+    roomId: el.getAttribute("data-room-id"),
+    el,
+  };
+}
+
+/**
+ * ゴミ箱タップ — iOS Safari のテキスト選択メニューを抑止して削除
+ * @param {Event} ev
+ */
+function onDeleteRoomTap(ev) {
+  const hit = resolveRoomHandle(ev.target);
+  if (!hit || hit.handle !== "delete" || !hit.roomId) return false;
+  ev.preventDefault();
+  ev.stopPropagation();
+  if (typeof ev.stopImmediatePropagation === "function") {
+    ev.stopImmediatePropagation();
+  }
+  deleteRoom(hit.roomId);
+  return true;
+}
+
 function onOverlayPointerDown(ev) {
   const target = ev.target;
   if (!(target instanceof Element)) return;
 
-  const handle = target.getAttribute("data-handle");
-  const roomId = target.getAttribute("data-room-id");
-  if (!handle || !roomId) {
+  /* 削除は touchstart / pointerdown 双方で即発火 */
+  if (onDeleteRoomTap(ev)) return;
+
+  const hit = resolveRoomHandle(target);
+  if (!hit?.handle || !hit.roomId) {
     // 背景パン開始（部屋以外）
     if (ev.target === $("fpb-overlay") || target.classList.contains("fpb-opening")) {
       startBgPan(ev);
@@ -1058,12 +1095,8 @@ function onOverlayPointerDown(ev) {
     return;
   }
 
-  if (handle === "delete") {
-    ev.preventDefault();
-    ev.stopPropagation();
-    deleteRoom(roomId);
-    return;
-  }
+  const { handle, roomId } = hit;
+
   if (handle === "label") {
     ev.preventDefault();
     ev.stopPropagation();
@@ -1259,6 +1292,8 @@ function bindRoomEditor() {
   const svg = $("fpb-overlay");
   if (!svg) return;
   svg.style.pointerEvents = "auto";
+  /* iOS: touchstart で preventDefault しないと選択メニューが出て削除が潰れる */
+  svg.addEventListener("touchstart", onDeleteRoomTap, { passive: false });
   svg.addEventListener("pointerdown", onOverlayPointerDown);
   window.addEventListener("pointermove", onOverlayPointerMove);
   window.addEventListener("pointerup", onOverlayPointerUp);

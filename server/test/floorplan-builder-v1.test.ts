@@ -290,6 +290,10 @@ describe("floorplan-builder-v1", () => {
     assert.match(js, /\/api\/floorplan-builder\/v1\/detect/);
     assert.match(js, /addRoom/);
     assert.match(js, /deleteRoom/);
+    assert.match(js, /onDeleteRoomTap/);
+    assert.match(js, /resolveRoomHandle/);
+    assert.match(js, /closest\(/);
+    assert.match(js, /touchstart/);
     assert.match(js, /openRenameSheet/);
     assert.match(js, /ensureBgTransform/);
     assert.match(js, /data-handle/);
@@ -302,6 +306,23 @@ describe("floorplan-builder-v1", () => {
     assert.match(js, /緑外壁フレーム/);
     assert.match(js, /worldX/);
     assert.doesNotMatch(js, /CSS2DObject/);
+    const css = fs.readFileSync(
+      path.join(
+        publicDir,
+        "css/features/floorplan-builder/floorplan-builder-v1.css"
+      ),
+      "utf8"
+    );
+    assert.match(css, /-webkit-user-select:\s*none/);
+    assert.match(css, /touch-action:\s*manipulation/);
+    assert.match(css, /\.fpb-del/);
+    const pinMesh = fs.readFileSync(
+      path.join(publicDir, "js/features/shared/tisly-neon-pin-mesh-v1.js"),
+      "utf8"
+    );
+    assert.match(pinMesh, /drawDeviceIconSvgV1/);
+    assert.match(pinMesh, /0x22c55e/);
+    assert.match(pinMesh, /0xa855f7/);
   });
 
   it("デバイス配置が security bridge に 3D 座標付きで含まれる", () => {

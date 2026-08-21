@@ -70,6 +70,14 @@ const sensorPins = new Map();
 
 function disposeObject(obj) {
   obj.traverse((o) => {
+    /* CSS2D の DOM を必ず剥がす（孤児ラベル多重描画防止） */
+    if (o.isCSS2DObject && o.element) {
+      try {
+        o.element.remove();
+      } catch {
+        /* ignore */
+      }
+    }
     if (o.geometry) o.geometry.dispose();
     if (o.material) {
       if (Array.isArray(o.material)) {
@@ -85,15 +93,30 @@ function disposeObject(obj) {
   });
 }
 
+/**
+ * シーン内メッシュ／CSS2D／HTML オーバーレイを完全クリアしてから再描画する
+ */
 function clearGroup(group) {
   if (!group) return;
-  while (group.children.length) {
-    const c = group.children.pop();
-    disposeObject(c);
+  const kids = group.children.slice();
+  for (const c of kids) {
     group.remove(c);
+    disposeObject(c);
   }
   roomMeshes.clear();
   sensorPins.clear();
+  /* CSS2DRenderer 配下の孤児 DOM を強制全消去 */
+  if (labelRenderer?.domElement) {
+    labelRenderer.domElement.innerHTML = "";
+  }
+  /* 万一マウント直下に残った旧ピン／ラベル HTML も除去 */
+  if (mountEl) {
+    mountEl
+      .querySelectorAll(".sf-iso3d-room-label, .sf-iso3d-pin, .tisly-neon-pin")
+      .forEach((el) => {
+        if (!labelRenderer?.domElement?.contains(el)) el.remove();
+      });
+  }
 }
 
 function loadLocalFloorplan() {
@@ -414,7 +437,11 @@ function pinWorldFromSensor(s, wallH) {
 
 function rebuild() {
   if (!ensureScene() || !buildingGroup) return;
+  /* 再描画前に既存 CSS2D／ピン／メッシュを必ず全クリア */
   clearGroup(buildingGroup);
+  if (labelRenderer?.domElement) {
+    labelRenderer.domElement.innerHTML = "";
+  }
 
   const floorId = state.floorId || "1f";
   const opts = renderOpts();
