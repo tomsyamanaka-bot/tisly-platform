@@ -6,14 +6,15 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import {
-  CSS2DRenderer,
-  CSS2DObject,
-} from "three/addons/renderers/CSS2DRenderer.js";
-import {
-  buildDevicePinHtml,
   DEVICE_PALETTE_ITEMS_V1,
   normalizeDeviceKind,
 } from "../shared/tisly-device-pin-icons-v1.js";
+import {
+  createNeonPinMesh3d,
+  deviceToWorldPosV1,
+  pctToWorldV1,
+  worldToDevicePosV1,
+} from "../shared/tisly-neon-pin-mesh-v1.js";
 
 const LS_KEY = "tisly_floorplan_config";
 const LS_ACTIVE = "tisly_floorplan_active_id";
@@ -60,12 +61,16 @@ let scene = null;
 let camera = null;
 /** @type {THREE.WebGLRenderer | null} */
 let renderer = null;
-/** @type {CSS2DRenderer | null} */
-let labelRenderer = null;
 /** @type {OrbitControls | null} */
 let controls = null;
 /** @type {THREE.Group | null} */
 let buildingGroup = null;
+/** @type {Map<string, THREE.Group>} */
+const pinMeshes = new Map();
+const raycaster = new THREE.Raycaster();
+const pointerNdc = new THREE.Vector2();
+const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+const groundHit = new THREE.Vector3();
 
 /** @type {string | null} */
 let selectedRoomId = null;
@@ -74,16 +79,25 @@ let selectedDeviceId = null;
 /** @type {string | null} */
 let renameRoomId = null;
 /** @type {string | null} */
-let paletteDragKind = null;
+let placeKind = null;
 
 /** 部屋ドラッグ状態 */
 let drag = null;
-/** デバイスピン ドラッグ状態 */
-let deviceDrag = null;
+/** 3Dピン ドラッグ状態 */
+let pin3dDrag = null;
 /** 背景パン状態 */
 let bgPan = null;
 /** ピンチズーム状態 */
 let pinch = null;
+/** 3Dポインタ追跡 */
+let pointer3d = {
+  down: false,
+  moved: false,
+  x: 0,
+  y: 0,
+  id: null,
+  hitDeviceId: null,
+};
 
 let rebuild3dTimer = 0;
 
@@ -208,22 +222,8 @@ function drawOverlay() {
         `<circle class="fpb-opening" cx="${o.x}" cy="${o.y}" r="1.8"></circle>`
     )
     .join("");
-  const devices = ensureDevices(floor)
-    .map((d) => {
-      const kind = normalizeDeviceKind(d.kind);
-      const sel = d.id === selectedDeviceId ? " is-selected" : "";
-      return `<g class="fpb-device-pin${sel}" data-device-id="${escapeXml(d.id)}" data-kind="${escapeXml(kind)}"
-        transform="translate(${d.x} ${d.y})" data-handle="device">
-        <circle class="fpb-device-halo" r="4.2"></circle>
-        <circle class="fpb-device-core" r="2.6"></circle>
-        <text class="fpb-device-glyph" text-anchor="middle" dominant-baseline="central" y="-0.1">${escapeXml(
-          DEVICE_LABELS[kind]?.[0] || "●"
-        )}</text>
-        <title>${escapeXml(d.label || DEVICE_LABELS[kind] || kind)}</title>
-      </g>`;
-    })
-    .join("");
-  svg.innerHTML = rooms + openings + devices;
+  /* 2D固定デバイスピンは廃止 — 3Dメッシュのみ */
+  svg.innerHTML = rooms + openings;
 }
 
 function escapeXml(s) {
@@ -322,15 +322,8 @@ function init3d() {
   renderer.setSize(w, h, false);
   renderer.setClearColor(0xf8fafc, 1);
   mount.appendChild(renderer.domElement);
-
-  labelRenderer = new CSS2DRenderer();
-  labelRenderer.setSize(w, h);
-  labelRenderer.domElement.className = "fpb-3d-labels";
-  labelRenderer.domElement.style.position = "absolute";
-  labelRenderer.domElement.style.inset = "0";
-  labelRenderer.domElement.style.pointerEvents = "none";
-  mount.style.position = mount.style.position || "relative";
-  mount.appendChild(labelRenderer.domElement);
+  renderer.domElement.className = "fpb-3d-canvas";
+  renderer.domElement.style.touchAction = "none";
 
   controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
@@ -358,6 +351,7 @@ function init3d() {
   buildingGroup = new THREE.Group();
   scene.add(buildingGroup);
 
+  bind3dPinInteraction();
   window.addEventListener("resize", onResize);
   animate();
 }
@@ -370,7 +364,6 @@ function onResize() {
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
   renderer.setSize(w, h, false);
-  if (labelRenderer) labelRenderer.setSize(w, h);
   drawGrid();
 }
 
@@ -378,11 +371,10 @@ function animate() {
   requestAnimationFrame(animate);
   if (controls) controls.update();
   if (renderer && scene && camera) renderer.render(scene, camera);
-  if (labelRenderer && scene && camera) labelRenderer.render(scene, camera);
 }
 
 function pctToWorld(v) {
-  return (v - 50) * 0.2;
+  return pctToWorldV1(v);
 }
 
 function rebuild3d() {
@@ -392,12 +384,20 @@ function rebuild3d() {
     c.traverse((obj) => {
       if (obj.geometry) obj.geometry.dispose();
       if (obj.material) {
-        if (Array.isArray(obj.material)) obj.material.forEach((m) => m.dispose());
-        else obj.material.dispose();
+        if (Array.isArray(obj.material)) {
+          obj.material.forEach((m) => {
+            if (m.map) m.map.dispose();
+            m.dispose();
+          });
+        } else {
+          if (obj.material.map) obj.material.map.dispose();
+          obj.material.dispose();
+        }
       }
     });
     buildingGroup.remove(c);
   }
+  pinMeshes.clear();
 
   const floor = activeFloor();
   if (!floor) return;
@@ -415,6 +415,7 @@ function rebuild3d() {
   });
   const slab = new THREE.Mesh(new THREE.BoxGeometry(22, 0.15, 22), slabMat);
   slab.position.y = 0.05;
+  slab.userData = { kind: "slab" };
   buildingGroup.add(slab);
 
   const roomMat = new THREE.MeshStandardMaterial({
@@ -440,6 +441,7 @@ function rebuild3d() {
       wallH * 0.275 + 0.12,
       pctToWorld(r.y + r.h / 2)
     );
+    mesh.userData = { kind: "room", roomId: r.id };
     buildingGroup.add(mesh);
 
     const edge = new THREE.LineSegments(
@@ -457,18 +459,19 @@ function rebuild3d() {
   /* 緑外壁フレーム（walls）は描画しない */
 
   for (const d of ensureDevices(floor)) {
+    enrichDeviceWorld(d, wallH);
     const kind = normalizeDeviceKind(d.kind);
-    const el = document.createElement("div");
-    el.className =
-      "sf-iso3d-pin tisly-neon-pin fpb-3d-pin" +
-      (kind === "camera" ? " is-cam" : " is-sens") +
-      ` kind-${kind}` +
-      (d.id === selectedDeviceId ? " is-selected" : "");
-    el.innerHTML = buildDevicePinHtml({ kind, isCam: kind === "camera" });
-    el.title = d.label || DEVICE_LABELS[kind] || kind;
-    const obj = new CSS2DObject(el);
-    obj.position.set(pctToWorld(d.x), wallH * 0.7, pctToWorld(d.y));
-    buildingGroup.add(obj);
+    const pin = createNeonPinMesh3d(THREE, {
+      id: d.id,
+      kind,
+      label: d.label || DEVICE_LABELS[kind] || kind,
+      selected: d.id === selectedDeviceId,
+      scale: 1.08,
+    });
+    const pos = deviceToWorldPosV1(d, wallH);
+    pin.position.set(pos.x, pos.y, pos.z);
+    buildingGroup.add(pin);
+    pinMeshes.set(d.id, pin);
   }
 
   if (camera && controls) {
@@ -481,6 +484,16 @@ function rebuild3d() {
     );
     controls.update();
   }
+}
+
+function enrichDeviceWorld(d, wallH) {
+  const wh = wallH ?? state?.render?.wallHeight ?? 2.7;
+  if (!Number.isFinite(d.z)) d.z = wh * 0.72;
+  const w = deviceToWorldPosV1(d, wh);
+  d.worldX = w.x;
+  d.worldY = w.y;
+  d.worldZ = w.z;
+  return d;
 }
 
 function refreshSecurityBridge(cfg) {
@@ -506,14 +519,22 @@ function refreshSecurityBridge(cfg) {
     }))
   );
   const devices = cfg.floors.flatMap((f) =>
-    (f.devices || []).map((d) => ({
-      id: d.id,
-      floorId: f.id,
-      kind: d.kind,
-      label: d.label,
-      x: d.x,
-      y: d.y,
-    }))
+    (f.devices || []).map((d) => {
+      const wallH = cfg.render?.wallHeight ?? 2.7;
+      enrichDeviceWorld(d, wallH);
+      return {
+        id: d.id,
+        floorId: f.id,
+        kind: d.kind,
+        label: d.label,
+        x: d.x,
+        y: d.y,
+        z: d.z,
+        worldX: d.worldX,
+        worldY: d.worldY,
+        worldZ: d.worldZ,
+      };
+    })
   );
   cfg.security = { siteId: cfg.id, rooms, openings, devices };
   cfg.updatedAt = new Date().toISOString();
@@ -711,24 +732,31 @@ function findDevice(deviceId) {
   return ensureDevices(floor).find((d) => d.id === deviceId) || null;
 }
 
-function addDeviceAt(kind, x, y) {
+function addDeviceAt(kind, x, y, z) {
   const floor = activeFloor();
   if (!floor) return null;
   const k = normalizeDeviceKind(kind);
+  const wallH = state?.render?.wallHeight ?? 2.7;
   const id = `dev-${k}-${Date.now().toString(36)}`;
-  const device = {
-    id,
-    kind: k,
-    label: DEVICE_LABELS[k] || k,
-    x: Math.min(96, Math.max(4, Number(x) || 50)),
-    y: Math.min(96, Math.max(4, Number(y) || 50)),
-  };
+  const device = enrichDeviceWorld(
+    {
+      id,
+      kind: k,
+      label: DEVICE_LABELS[k] || k,
+      x: Math.min(96, Math.max(4, Number(x) || 50)),
+      y: Math.min(96, Math.max(4, Number(y) || 50)),
+      z: Number.isFinite(z) ? Number(z) : wallH * 0.72,
+    },
+    wallH
+  );
   ensureDevices(floor).push(device);
   selectedDeviceId = id;
   selectedRoomId = null;
+  placeKind = null;
+  syncPaletteActive();
   refresh2d();
   persistLocal(state);
-  setStatus(`${device.label} を配置しました`);
+  setStatus(`${device.label} を3D配置しました`);
   return device;
 }
 
@@ -747,69 +775,216 @@ function renderDevicePalette() {
   if (!el) return;
   el.innerHTML = DEVICE_PALETTE_ITEMS_V1.map(
     (it) =>
-      `<button type="button" class="fpb-palette-item" draggable="true"
-        data-kind="${it.kind}" title="${it.label}">
+      `<button type="button" class="fpb-palette-item${
+        placeKind === it.kind ? " is-active" : ""
+      }" data-kind="${it.kind}" title="${it.label}">
         <span class="fpb-palette-icon" aria-hidden="true">${it.hint}</span>
         <span class="fpb-palette-label">${it.label}</span>
       </button>`
   ).join("");
 }
 
+function syncPaletteActive() {
+  const el = $("fpb-device-palette");
+  if (!el) return;
+  el.querySelectorAll("[data-kind]").forEach((btn) => {
+    btn.classList.toggle(
+      "is-active",
+      btn.getAttribute("data-kind") === placeKind
+    );
+  });
+  const hint = $("fpb-place-hint");
+  if (hint) {
+    hint.textContent = placeKind
+      ? `「${DEVICE_LABELS[placeKind] || placeKind}」を選中 — 3D部屋をタップして配置`
+      : "種類を選んでから3D部屋をタップ";
+  }
+  $("fpb-preview-shell")?.classList.toggle("is-placing", !!placeKind);
+}
+
 function bindDevicePalette() {
   renderDevicePalette();
   const palette = $("fpb-device-palette");
-  const wrap = $("fpb-canvas-wrap");
-  const svg = $("fpb-overlay");
-  if (!palette || !wrap || !svg) return;
+  if (!palette) return;
 
-  palette.addEventListener("dragstart", (ev) => {
-    const btn = ev.target?.closest?.("[data-kind]");
-    if (!btn) return;
-    paletteDragKind = btn.getAttribute("data-kind");
-    try {
-      ev.dataTransfer.setData("text/tisly-device-kind", paletteDragKind);
-      ev.dataTransfer.effectAllowed = "copy";
-    } catch {
-      /* ignore */
-    }
-    btn.classList.add("is-dragging");
-  });
-  palette.addEventListener("dragend", () => {
-    paletteDragKind = null;
-    palette
-      .querySelectorAll(".is-dragging")
-      .forEach((n) => n.classList.remove("is-dragging"));
-  });
   palette.addEventListener("click", (ev) => {
     const btn = ev.target?.closest?.("[data-kind]");
     if (!btn || !state) return;
-    addDeviceAt(btn.getAttribute("data-kind"), 50, 50);
+    const kind = btn.getAttribute("data-kind");
+    placeKind = placeKind === kind ? null : kind;
+    selectedDeviceId = null;
+    syncPaletteActive();
+    scheduleRebuild3d();
+    if (placeKind) {
+      setStatus(
+        `${DEVICE_LABELS[placeKind] || placeKind} 配置モード — 3D図面をタップ`
+      );
+    } else {
+      setStatus("配置モード解除");
+    }
+  });
+}
+
+function setPointerFromEvent(ev) {
+  const canvas = renderer?.domElement;
+  if (!canvas) return false;
+  const rect = canvas.getBoundingClientRect();
+  const cx = ev.clientX ?? ev.touches?.[0]?.clientX;
+  const cy = ev.clientY ?? ev.touches?.[0]?.clientY;
+  if (cx == null || cy == null) return false;
+  pointerNdc.x = ((cx - rect.left) / rect.width) * 2 - 1;
+  pointerNdc.y = -((cy - rect.top) / rect.height) * 2 + 1;
+  return true;
+}
+
+function raycastPinOrGround() {
+  if (!camera || !buildingGroup) return { pinId: null, ground: null };
+  raycaster.setFromCamera(pointerNdc, camera);
+  const hits = raycaster.intersectObjects(buildingGroup.children, true);
+  for (const hit of hits) {
+    let obj = hit.object;
+    while (obj && obj.userData?.kind !== "devicePin") obj = obj.parent;
+    if (obj?.userData?.deviceId) {
+      return { pinId: obj.userData.deviceId, ground: hit.point.clone() };
+    }
+  }
+  if (raycaster.ray.intersectPlane(groundPlane, groundHit)) {
+    return { pinId: null, ground: groundHit.clone() };
+  }
+  return { pinId: null, ground: null };
+}
+
+function bind3dPinInteraction() {
+  const canvas = renderer?.domElement;
+  if (!canvas || canvas.dataset.pinBound === "1") return;
+  canvas.dataset.pinBound = "1";
+
+  canvas.addEventListener("pointerdown", (ev) => {
+    if (!state || !camera) return;
+    if (ev.button != null && ev.button !== 0) return;
+    if (!setPointerFromEvent(ev)) return;
+    const hit = raycastPinOrGround();
+    pointer3d = {
+      down: true,
+      moved: false,
+      x: ev.clientX,
+      y: ev.clientY,
+      id: ev.pointerId,
+      hitDeviceId: hit.pinId,
+    };
+
+    if (hit.pinId) {
+      selectedDeviceId = hit.pinId;
+      selectedRoomId = null;
+      placeKind = null;
+      syncPaletteActive();
+      const device = findDevice(hit.pinId);
+      pin3dDrag = {
+        id: hit.pinId,
+        startX: device?.x,
+        startY: device?.y,
+        startZ: device?.z,
+        moved: false,
+      };
+      if (controls) controls.enabled = false;
+      try {
+        canvas.setPointerCapture?.(ev.pointerId);
+      } catch {
+        /* ignore */
+      }
+      scheduleRebuild3d();
+      ev.preventDefault();
+      return;
+    }
+
+    if (placeKind && hit.ground) {
+      if (controls) controls.enabled = false;
+      pointer3d.placeAt = hit.ground;
+      try {
+        canvas.setPointerCapture?.(ev.pointerId);
+      } catch {
+        /* ignore */
+      }
+      ev.preventDefault();
+    }
   });
 
-  const onDragOver = (ev) => {
-    if (!paletteDragKind && !ev.dataTransfer?.types?.includes?.("text/tisly-device-kind"))
+  canvas.addEventListener("pointermove", (ev) => {
+    if (!pointer3d.down) return;
+    const dx = ev.clientX - pointer3d.x;
+    const dy = ev.clientY - pointer3d.y;
+    if (Math.hypot(dx, dy) > 6) pointer3d.moved = true;
+
+    if (pin3dDrag) {
+      if (!setPointerFromEvent(ev)) return;
+      const hit = raycastPinOrGround();
+      if (!hit.ground) return;
+      const device = findDevice(pin3dDrag.id);
+      if (!device) return;
+      const next = worldToDevicePosV1({
+        x: hit.ground.x,
+        y: device.z ?? state.render?.wallHeight * 0.72 ?? 1.9,
+        z: hit.ground.z,
+      });
+      device.x = next.x;
+      device.y = next.y;
+      enrichDeviceWorld(device);
+      pin3dDrag.moved = true;
+      const mesh = pinMeshes.get(device.id);
+      if (mesh) {
+        const pos = deviceToWorldPosV1(device);
+        mesh.position.set(pos.x, pos.y, pos.z);
+      } else {
+        scheduleRebuild3d();
+      }
+      ev.preventDefault();
+    }
+  });
+
+  const endPointer = (ev) => {
+    if (!pointer3d.down) return;
+    const dragInfo = pin3dDrag;
+    const tapEmpty =
+      !!placeKind && !pointer3d.moved && !pointer3d.hitDeviceId;
+    const tapPin = pointer3d.hitDeviceId && !pointer3d.moved;
+
+    pin3dDrag = null;
+    pointer3d.down = false;
+    pointer3d.placeAt = null;
+    if (controls) controls.enabled = true;
+
+    if (tapEmpty && placeKind) {
+      setPointerFromEvent(ev);
+      const hit = raycastPinOrGround();
+      const g = hit.ground;
+      if (g) {
+        const pos = worldToDevicePosV1({
+          x: g.x,
+          y: (state.render?.wallHeight ?? 2.7) * 0.72,
+          z: g.z,
+        });
+        addDeviceAt(placeKind, pos.x, pos.y, pos.z);
+      }
       return;
-    ev.preventDefault();
-    wrap.classList.add("is-device-drop");
+    }
+
+    if (dragInfo) {
+      if (tapPin && dragInfo.id && !dragInfo.moved) {
+        if (selectedDeviceId === dragInfo.id) {
+          if (confirm("このセンサー/デバイスを削除しますか？")) {
+            deleteDevice(dragInfo.id);
+            return;
+          }
+        }
+      }
+      if (state) persistLocal(state);
+      refreshSecurityBridge(state);
+      refresh2d();
+    }
   };
-  const onDragLeave = () => wrap.classList.remove("is-device-drop");
-  const onDrop = (ev) => {
-    ev.preventDefault();
-    wrap.classList.remove("is-device-drop");
-    const kind =
-      paletteDragKind ||
-      ev.dataTransfer?.getData("text/tisly-device-kind") ||
-      "";
-    if (!kind) return;
-    const pt = svgPointFromEvent(ev);
-    addDeviceAt(kind, pt.x, pt.y);
-    paletteDragKind = null;
-  };
-  wrap.addEventListener("dragover", onDragOver);
-  wrap.addEventListener("dragleave", onDragLeave);
-  wrap.addEventListener("drop", onDrop);
-  svg.addEventListener("dragover", onDragOver);
-  svg.addEventListener("drop", onDrop);
+
+  canvas.addEventListener("pointerup", endPointer);
+  canvas.addEventListener("pointercancel", endPointer);
 }
 
 function findRoom(roomId) {
@@ -873,33 +1048,6 @@ function onOverlayPointerDown(ev) {
   const target = ev.target;
   if (!(target instanceof Element)) return;
 
-  const deviceEl = target.closest?.("[data-device-id]");
-  if (deviceEl) {
-    ev.preventDefault();
-    ev.stopPropagation();
-    const deviceId = deviceEl.getAttribute("data-device-id");
-    const device = findDevice(deviceId);
-    if (!device) return;
-    selectedDeviceId = deviceId;
-    selectedRoomId = null;
-    /* タップで削除（短押し＋移動なし）は pointerup で判定 */
-    deviceDrag = {
-      id: deviceId,
-      startX: device.x,
-      startY: device.y,
-      origin: svgPointFromEvent(ev),
-      moved: false,
-      pointerId: ev.pointerId,
-    };
-    try {
-      $("fpb-overlay")?.setPointerCapture?.(ev.pointerId);
-    } catch {
-      /* ignore */
-    }
-    refresh2d({ skip3d: true });
-    return;
-  }
-
   const handle = target.getAttribute("data-handle");
   const roomId = target.getAttribute("data-room-id");
   if (!handle || !roomId) {
@@ -947,19 +1095,6 @@ function onOverlayPointerDown(ev) {
 
 function onOverlayPointerMove(ev) {
   if (pinch) return;
-  if (deviceDrag) {
-    const device = findDevice(deviceDrag.id);
-    if (!device) return;
-    const pt = svgPointFromEvent(ev);
-    const dx = pt.x - deviceDrag.origin.x;
-    const dy = pt.y - deviceDrag.origin.y;
-    if (Math.hypot(dx, dy) > 1.2) deviceDrag.moved = true;
-    device.x = Math.min(96, Math.max(4, deviceDrag.startX + dx));
-    device.y = Math.min(96, Math.max(4, deviceDrag.startY + dy));
-    drawOverlay();
-    scheduleRebuild3d();
-    return;
-  }
   if (bgPan) {
     moveBgPan(ev);
     return;
@@ -997,20 +1132,6 @@ function onOverlayPointerMove(ev) {
 }
 
 function onOverlayPointerUp() {
-  if (deviceDrag) {
-    const id = deviceDrag.id;
-    const moved = deviceDrag.moved;
-    deviceDrag = null;
-    if (!moved && id) {
-      if (confirm("このセンサー/デバイスを削除しますか？")) {
-        deleteDevice(id);
-        return;
-      }
-    }
-    if (state) persistLocal(state);
-    refresh2d();
-    return;
-  }
   if (drag) {
     drag = null;
     if (state) persistLocal(state);

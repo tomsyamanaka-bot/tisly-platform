@@ -15,7 +15,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 背景 | `#ffffff` 〜 `#F8FAFC` |
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
-| SW | `tisly-pwa-v2480-neon-device-pins` |
+| SW | `tisly-pwa-v2481-neon-3d-pins` |
 
 ---
 
@@ -1502,7 +1502,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | プリセット | つくばモデルハウス（2階建て＋外周）· 平屋デモ住宅 |
 | 連携 | LocalStorage `tisly_floorplan_config` · API 保存 · 「TiSLY Securityに送信」→ `/security-v1?fromBuilder=1` |
 | API | `/api/floorplan-builder/v1/*`（presets · save · active · security-bridge · load-preset · **detect**） |
-| SW | `tisly-pwa-v2480-neon-device-pins` |
+| SW | `tisly-pwa-v2481-neon-3d-pins` |
 | コード | `src/floorplan-builder/*` · `public/tisly_3d_floorplan_builder.html` · `js/css/features/floorplan-builder/` · `src/app/builder/page.tsx`（RN/Next 流用スタブ） |
 | テスト | `server/test/floorplan-builder-v1.test.ts` |
 | 確認 | `/builder` · `/api/floorplan-builder/v1/presets` · https://tisly.jp/api/health |
@@ -1521,7 +1521,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 型 | `FloorplanBgTransformV1`（scale / offsetX / offsetY / opacity） |
 | コード | `floorplan-detect-v1.ts` · `floorplan-detect-gemini-v1.ts` · `floorplan-detect-rule-v1.ts` · builder JS/CSS/HTML |
 | テスト | `floorplan-builder-v1.test.ts`（detect / editor UI アサーション追記） |
-| SW | `tisly-pwa-v2480-neon-device-pins` |
+| SW | `tisly-pwa-v2481-neon-3d-pins` |
 | 確認 | `/builder` · `/api/floorplan-builder/v1/detect` · https://tisly.jp/api/health |
 
 ### TiSLY Security 3Dアイソメ俯瞰 v1（完成済み）
@@ -1535,10 +1535,23 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 発報 | 部屋ブロック全体の赤ネオンパルス（`setAlert` / `alertVisible`） |
 | フロア | 1F / 2F / 外周タブ連動 · Shift+ホイールでも切替 |
 | 連携 | Floorplan Builder `tisly_floorplan_config` · `fromBuilder=1` ブリッジ |
-| SW | `tisly-pwa-v2480-neon-device-pins` |
+| SW | `tisly-pwa-v2481-neon-3d-pins` |
 | コード | `security-floor-iso3d-v1.js` · map/light/orbit/operator/customer · bridge |
 | テスト | `server/test/security-floor-v1.test.ts` |
 | 確認 | `/security-v1` · `/customer/security` · https://tisly.jp/api/health |
+
+### Floorplan / Security 3D ネオンピン完全同期 v1.3（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | **2D固定HTMLオーバーレイ廃止** · 3Dメッシュ/スプライトでピンを回転・ズームに100%追従 |
+| Builder | 3Dアイソメ上で Raycaster による配置・選択・ドラッグ · フロート配置パレット |
+| Security | CSS2Dセンサーピン撤去 · `createNeonPinMesh3d` · 発報時ピン/部屋パルス発光 |
+| JSON | `devices[].x/y/z` + `worldX/worldY/worldZ` + `kind` を Security へ引継ぎ |
+| SW | `tisly-pwa-v2481-neon-3d-pins` |
+| コード | `tisly-neon-pin-mesh-v1.js` · floorplan-builder · security-floor-iso3d · map-v1 |
+| テスト | `floorplan-builder-v1.test.ts` · `security-floor-v1.test.ts` |
+| 確認 | `/builder` · `/security-v1?fromBuilder=1` · https://tisly.jp/api/health |
 
 ### Floorplan / Security 3D ネオンピン & 外壁撤去 v1.2（完成済み）
 
@@ -1550,7 +1563,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | ピン | 半透明グラデーションのフローティング・ロケーションピン + ミニマル SVG |
 | Builder | 配置パレット（カメラ/ドア/鍵/電源/ミリ波）· DnD 配置 · ドラッグ移動 · タップ削除 |
 | JSON | `floors[].devices` → `security.devices` で TiSLY Security へ引継ぎ |
-| SW | `tisly-pwa-v2480-neon-device-pins` |
+| SW | `tisly-pwa-v2481-neon-3d-pins` |
 | コード | `tisly-device-pin-icons-v1.js` · floorplan-builder · security-floor-iso3d · map-v1 |
 | テスト | `floorplan-builder-v1.test.ts` · `security-floor-v1.test.ts` |
 | 確認 | `/builder` · `/security-v1` · https://tisly.jp/api/health |

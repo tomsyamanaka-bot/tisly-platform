@@ -10,8 +10,8 @@
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2003" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
   <title>TiSLY 3D Floorplan Builder</title>
-  <link rel="stylesheet" href="/css/features/floorplan-builder/floorplan-builder-v1.css?v=2480" />
-  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2480" />
+  <link rel="stylesheet" href="/css/features/floorplan-builder/floorplan-builder-v1.css?v=2481" />
+  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2481" />
 </head>
 <body class="fpb-body">
   <header class="fpb-header">
@@ -42,12 +42,6 @@
       <div class="fpb-tabs" id="fpb-floor-tabs" role="tablist">
         <button type="button" class="fpb-tab is-on" data-floor="1f">1階</button>
       </div>
-    </section>
-
-    <section class="fpb-card fpb-device-palette-card">
-      <p class="fpb-label">＋ センサー/デバイス配置パレット</p>
-      <div class="fpb-palette" id="fpb-device-palette" role="list"></div>
-      <p class="fpb-hint">パレットからマップへドラッグ＆ドロップ · ピンをドラッグで移動 · タップで削除</p>
     </section>
 
     <section class="fpb-card fpb-scan">
@@ -115,9 +109,16 @@
     </section>
 
     <section class="fpb-card fpb-preview-card">
-      <p class="fpb-label">3D斜め俯瞰（アイソメトリック）</p>
-      <div class="fpb-preview" id="fpb-preview" aria-label="3Dプレビュー"></div>
-      <p class="fpb-hint">ドラッグで回転 · ピンチ/ホイールでズーム · 部屋編集は即時反映</p>
+      <p class="fpb-label">3D斜め俯瞰（アイソメ）— タップでピン配置</p>
+      <div class="fpb-preview-shell" id="fpb-preview-shell">
+        <div class="fpb-3d-palette-float" id="fpb-3d-palette-float">
+          <p class="fpb-3d-palette-title">配置パレット</p>
+          <div class="fpb-palette fpb-palette--float" id="fpb-device-palette" role="list"></div>
+          <p class="fpb-hint fpb-hint-compact" id="fpb-place-hint">種類を選んでから3D部屋をタップ</p>
+        </div>
+        <div class="fpb-preview" id="fpb-preview" aria-label="3Dプレビュー"></div>
+      </div>
+      <p class="fpb-hint">パレット選択→3Dタップで配置 · ピンをドラッグで移動 · 選択後もう一度タップで削除 · 回転/ズーム連動</p>
     </section>
 
     <section class="fpb-card fpb-actions">
@@ -158,6 +159,6 @@
     }
   }
   </script>
-  <script type="module" src="/js/features/floorplan-builder/floorplan-builder-v1.js?v=2480"></script>
+  <script type="module" src="/js/features/floorplan-builder/floorplan-builder-v1.js?v=2481"></script>
 </body>
 </html>

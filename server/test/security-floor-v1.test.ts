@@ -293,9 +293,9 @@ describe("security-floor-v1", () => {
     assert.match(html, /廊下（3尺）/);
     assert.match(html, /アラーム対応完了/);
     assert.match(html, /TiSLY Security/);
-    assert.match(html, /security-floor-light-v1\.js\?v=2480/);
-    assert.match(html, /security-floor-operator-v1\.js\?v=2480/);
-    assert.match(html, /security-floor-iso3d-v1\.js\?v=2480/);
+    assert.match(html, /security-floor-light-v1\.js\?v=2481/);
+    assert.match(html, /security-floor-operator-v1\.js\?v=2481/);
+    assert.match(html, /security-floor-iso3d-v1\.js\?v=2481/);
     assert.match(html, /importmap/);
     assert.match(html, /viewBox="-10 -12 120 124"/);
     assert.match(html, /← 戻る/);
@@ -329,13 +329,15 @@ describe("security-floor-v1", () => {
       "utf8"
     );
     assert.match(iso3dJs, /OrbitControls/);
-    assert.match(iso3dJs, /CSS2DRenderer/);
+    assert.match(iso3dJs, /createNeonPinMesh3d/);
     assert.match(iso3dJs, /TislySecurityIso3d/);
     assert.match(iso3dJs, /setAlert/);
     assert.match(iso3dJs, /wallHeight/);
-    assert.match(iso3dJs, /buildDevicePinHtml/);
-    assert.match(iso3dJs, /tisly-neon-pin/);
+    assert.match(iso3dJs, /tisly-neon-pin-mesh/);
+    assert.match(iso3dJs, /deviceToWorldPosV1|worldX/);
     assert.match(iso3dJs, /外壁フレーム/);
+    assert.doesNotMatch(iso3dJs, /buildDevicePinHtml/);
+    assert.doesNotMatch(iso3dJs, /new CSS2DObject\(el\)/);
     const orbitJs = fs.readFileSync(
       path.join(
         publicDir,

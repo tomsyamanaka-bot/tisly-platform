@@ -1,6 +1,6 @@
 /**
  * TiSLY Security — ビルダー連携 3D アイソメトリック俯瞰
- * Three.js でガラス調の部屋ブロック＋ネオンピン＋発報発光
+ * Three.js 部屋ブロック＋3Dネオンピン（CSS2Dピン廃止）＋発報発光
  */
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
@@ -8,10 +8,13 @@ import {
   CSS2DRenderer,
   CSS2DObject,
 } from "three/addons/renderers/CSS2DRenderer.js";
+import { normalizeDeviceKind } from "../shared/tisly-device-pin-icons-v1.js";
 import {
-  buildDevicePinHtml,
-  normalizeDeviceKind,
-} from "../shared/tisly-device-pin-icons-v1.js";
+  createNeonPinMesh3d,
+  deviceToWorldPosV1,
+  pctToWorldV1,
+  pulseNeonPinMesh3d,
+} from "../shared/tisly-neon-pin-mesh-v1.js";
 
 const LS_KEY = "tisly_floorplan_config";
 const FLAG = "tisly_floorplan_for_security";
@@ -33,6 +36,9 @@ let mountEl = null;
 let animId = 0;
 let clock = new THREE.Clock();
 let alertPulse = 0;
+
+const raycaster = new THREE.Raycaster();
+const pointerNdc = new THREE.Vector2();
 
 /** @type {{
  *  site: any,
@@ -59,19 +65,22 @@ const state = {
 
 /** @type {Map<string, { mesh: THREE.Mesh, mat: THREE.MeshStandardMaterial, edge: THREE.LineSegments }>} */
 const roomMeshes = new Map();
-/** @type {Map<string, { obj: CSS2DObject, el: HTMLElement }>} */
+/** @type {Map<string, THREE.Group>} */
 const sensorPins = new Map();
-
-function pctToWorld(v) {
-  return (v - 50) * 0.2;
-}
 
 function disposeObject(obj) {
   obj.traverse((o) => {
     if (o.geometry) o.geometry.dispose();
     if (o.material) {
-      if (Array.isArray(o.material)) o.material.forEach((m) => m.dispose());
-      else o.material.dispose();
+      if (Array.isArray(o.material)) {
+        o.material.forEach((m) => {
+          if (m.map) m.map.dispose();
+          m.dispose();
+        });
+      } else {
+        if (o.material.map) o.material.map.dispose();
+        o.material.dispose();
+      }
     }
   });
 }
@@ -129,8 +138,7 @@ function roomsForFloor(floorId) {
     (r) => r.floorId === floorId
   );
   const layer = resolveFloorLayer(floorId);
-  const useBuilder =
-    wantsBuilderMap() && (layer?.rooms || []).length > 0;
+  const useBuilder = wantsBuilderMap() && (layer?.rooms || []).length > 0;
   const source = useBuilder
     ? layer.rooms
     : siteRooms.length
@@ -166,14 +174,16 @@ function sensorsForFloor(floorId) {
     label: d.label,
     x: d.x,
     y: d.y,
+    z: d.z,
+    worldX: d.worldX,
+    worldY: d.worldY,
+    worldZ: d.worldZ,
     alertVisible: state.alertSensorIds.has(d.id),
   }));
   const fromOpenings = (layer?.openings || []).map((o) => ({
     id: o.id,
     floorId,
-    kind: normalizeDeviceKind(
-      o.kind === "window" ? "window" : "door"
-    ),
+    kind: normalizeDeviceKind(o.kind === "window" ? "window" : "door"),
     label: o.label,
     x: o.x,
     y: o.y,
@@ -205,11 +215,43 @@ function renderOpts() {
   };
 }
 
+function onCanvasPointerUp(ev) {
+  if (!renderer || !camera || !buildingGroup) return;
+  const rect = renderer.domElement.getBoundingClientRect();
+  const x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
+  const y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
+  pointerNdc.set(x, y);
+  raycaster.setFromCamera(pointerNdc, camera);
+  const hits = raycaster.intersectObjects(buildingGroup.children, true);
+  for (const hit of hits) {
+    let obj = hit.object;
+    while (obj && obj.userData?.kind !== "devicePin") obj = obj.parent;
+    if (!obj?.userData?.deviceId) continue;
+    const camId = obj.userData.linkedCameraId;
+    const detail = {
+      sensorId: obj.userData.sensorId || obj.userData.deviceId,
+      cameraId: camId || null,
+      kind: obj.userData.pinKind,
+      label: obj.userData.label,
+    };
+    window.dispatchEvent(
+      new CustomEvent("tisly-security-pin-select", { detail })
+    );
+    if (camId) {
+      window.dispatchEvent(
+        new CustomEvent("tisly-security-camera-select", {
+          detail: { cameraId: camId },
+        })
+      );
+    }
+    break;
+  }
+}
+
 function ensureScene() {
   mountEl = document.getElementById("sf-iso3d-mount");
   if (!mountEl) return false;
 
-  /* operator が innerHTML 置換したあと canvas が消えている場合は再生成 */
   const live =
     renderer &&
     mountEl.contains(renderer.domElement) &&
@@ -251,7 +293,9 @@ function ensureScene() {
   renderer.domElement.className = "sf-iso3d-canvas";
   mountEl.innerHTML = "";
   mountEl.appendChild(renderer.domElement);
+  renderer.domElement.addEventListener("pointerup", onCanvasPointerUp);
 
+  /* 部屋名ラベルのみ CSS2D（ピンは WebGL メッシュ） */
   labelRenderer = new CSS2DRenderer();
   labelRenderer.setSize(w, h);
   labelRenderer.domElement.className = "sf-iso3d-labels";
@@ -321,8 +365,7 @@ function animate() {
     }
   }
   for (const [, pin] of sensorPins) {
-    if (!pin.el.classList.contains("is-alert")) continue;
-    pin.el.style.setProperty("--sf-pin-pulse", String(0.65 + pulse * 0.55));
+    pulseNeonPinMesh3d(pin, pulse);
   }
   if (renderer && scene && camera) renderer.render(scene, camera);
   if (labelRenderer && scene && camera) labelRenderer.render(scene, camera);
@@ -358,6 +401,17 @@ function makeFloorGradientTexture() {
   return tex;
 }
 
+function pinWorldFromSensor(s, wallH) {
+  if (
+    Number.isFinite(s.worldX) &&
+    Number.isFinite(s.worldY) &&
+    Number.isFinite(s.worldZ)
+  ) {
+    return { x: s.worldX, y: s.worldY, z: s.worldZ };
+  }
+  return deviceToWorldPosV1(s, wallH);
+}
+
 function rebuild() {
   if (!ensureScene() || !buildingGroup) return;
   clearGroup(buildingGroup);
@@ -379,6 +433,7 @@ function rebuild() {
   });
   const slab = new THREE.Mesh(new THREE.BoxGeometry(22, 0.14, 22), slabMat);
   slab.position.y = 0.05;
+  slab.userData = { kind: "slab" };
   buildingGroup.add(slab);
 
   for (const r of rooms) {
@@ -402,11 +457,11 @@ function rebuild() {
       mat
     );
     mesh.position.set(
-      pctToWorld(r.x + r.w / 2),
+      pctToWorldV1(r.x + r.w / 2),
       wallH * 0.29 + 0.12,
-      pctToWorld(r.y + r.h / 2)
+      pctToWorldV1(r.y + r.h / 2)
     );
-    mesh.userData = { roomId: r.id, kind: "room" };
+    mesh.userData = { roomId: r.id, kind: "room", alerting };
     buildingGroup.add(mesh);
 
     const edge = new THREE.LineSegments(
@@ -437,6 +492,7 @@ function rebuild() {
   }
 
   /* 外壁フレーム（walls）は描画しない — 部屋ブロックのみ */
+  /* HTML/CSS2D センサーピンは完全撤去 — 3Dメッシュのみ */
 
   for (const s of sensors) {
     const kind = normalizeDeviceKind(s.kind);
@@ -444,32 +500,18 @@ function rebuild() {
     if (isCam && !state.showCameras) continue;
     if (!isCam && !state.showSensors) continue;
     const alerting = !!s.alertVisible;
-    const el = document.createElement("button");
-    el.type = "button";
-    el.className =
-      "sf-iso3d-pin tisly-neon-pin" +
-      (isCam ? " is-cam" : " is-sens") +
-      (alerting ? " is-alert" : "") +
-      ` kind-${kind}`;
-    el.dataset.sensorId = s.id;
-    if (s.linkedCameraId || isCam) {
-      el.dataset.camera = s.linkedCameraId || s.id;
-    }
-    el.dataset.kind = kind;
-    el.title = s.label || s.customerLabel || s.id;
-    el.innerHTML = buildDevicePinHtml({
+    const pin = createNeonPinMesh3d(THREE, {
+      id: s.id,
       kind,
+      label: s.label || s.customerLabel || s.id,
       alerting,
-      isCam,
+      linkedCameraId: s.linkedCameraId || (isCam ? s.id : null),
+      scale: 1.05,
     });
-    const obj = new CSS2DObject(el);
-    obj.position.set(
-      pctToWorld(s.x),
-      wallH * (alerting ? 0.82 : 0.68),
-      pctToWorld(s.y)
-    );
-    buildingGroup.add(obj);
-    sensorPins.set(s.id, { obj, el });
+    const pos = pinWorldFromSensor(s, wallH);
+    pin.position.set(pos.x, pos.y, pos.z);
+    buildingGroup.add(pin);
+    sensorPins.set(s.id, pin);
   }
 
   const elev = (opts.cameraElevationDeg * Math.PI) / 180;
@@ -592,6 +634,7 @@ export function setSecurityIso3dAlert(on, roomIds, sensorIds) {
       s.alertVisible = state.alertSensorIds.has(s.id);
     }
   }
+  /* フル rebuild せず見た目だけ更新できる場合も rebuild で確実同期 */
   rebuild();
 }
 

@@ -233,6 +233,12 @@ function bind() {
     state.cameraId = pin.getAttribute("data-camera");
     setLiveScene(state.cameraId, state.dash?.soc);
   });
+  window.addEventListener("tisly-security-camera-select", (e) => {
+    const camId = e.detail?.cameraId;
+    if (!camId) return;
+    state.cameraId = camId;
+    setLiveScene(state.cameraId, state.dash?.soc);
+  });
   $("sf-cam-next")?.addEventListener("click", () => {
     const cams = state.dash?.soc?.cameras || [];
     if (!cams.length) return;

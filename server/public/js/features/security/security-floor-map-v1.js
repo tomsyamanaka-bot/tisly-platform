@@ -15,9 +15,7 @@ export function renderFloorMapSvg(rooms, sensors, floorId) {
   const floorRooms = (rooms || []).filter(
     (r) => r.floorId === floorId
   );
-  const floorSensors = (sensors || []).filter(
-    (s) => s.floorId === floorId
-  );
+  void sensors;
   const roomRects = floorRooms
     .map((r) => {
       const cls = r.alertVisible
@@ -40,23 +38,7 @@ export function renderFloorMapSvg(rooms, sensors, floorId) {
         >${escapeHtml(r.label)}</text>`;
     })
     .join("");
-  const pins = floorSensors
-    .map((s) => {
-      const cls = s.alertVisible
-        ? "sf-pin is-alert"
-        : "sf-pin";
-      return `
-        <g
-          class="${cls}"
-          data-sensor-id="${escapeHtml(s.id)}"
-          transform="translate(${s.x} ${s.y})"
-        >
-          <circle class="sf-pin-bg" r="5.6"></circle>
-          <text class="sf-pin-icon" y="0.6"
-          >${s.icon || "●"}</text>
-        </g>`;
-    })
-    .join("");
+  /* 旧2D固定ピン撤去 — センサーは Three.js 3D のみ */
   return `
     <svg
       class="sf-map"
@@ -65,7 +47,6 @@ export function renderFloorMapSvg(rooms, sensors, floorId) {
       aria-label="フロア俯瞰図"
     >
       ${roomRects}
-      ${pins}
     </svg>`;
 }
 
@@ -188,16 +169,14 @@ export function renderIsoLayerSvg(
   floorId,
   opts = {}
 ) {
-  const showCam = opts.showCameras !== false;
-  const showSens = opts.showSensors !== false;
   const showZones = opts.showZones !== false;
   const showLabels = opts.showLabels !== false;
   const floorRooms = (rooms || []).filter(
     (r) => r.floorId === floorId
   );
-  const floorSensors = (sensors || []).filter(
-    (s) => s.floorId === floorId
-  );
+  void sensors;
+  void opts.showCameras;
+  void opts.showSensors;
   const roomRects = showZones
     ? floorRooms
         .map((r) => {
@@ -218,42 +197,13 @@ export function renderIsoLayerSvg(
         })
         .join("")
     : "";
-  const pins = floorSensors
-    .filter((s) => {
-      if (s.kind === "camera") return showCam;
-      return showSens;
-    })
-    .map((s) => {
-      const cls = s.alertVisible
-        ? "sf-pin is-alert alert-beacon"
-        : "sf-pin";
-      const kindCls =
-        s.kind === "camera" ? " is-cam" : " is-sens";
-      const badge = s.alertVisible
-        ? `<g class="sf-alert-pin" transform="translate(0 -9)">
-            <rect x="-14" y="-5" width="28" height="8" rx="1.5"></rect>
-            <text x="0" y="0.8" text-anchor="middle">発報地点</text>
-          </g>`
-        : "";
-      return `
-        <g class="${cls}${kindCls}" data-sensor-id="${escapeHtml(s.id)}"
-          data-kind="${escapeHtml(s.kind)}"
-          data-camera="${escapeHtml(s.linkedCameraId || s.id)}"
-          transform="translate(${s.x} ${s.y})">
-          <circle class="sf-pin-pulse" r="8"></circle>
-          <circle class="sf-pin-bg" r="5.6"></circle>
-          <text class="sf-pin-icon" y="0.6">${s.icon || "●"}</text>
-          ${badge}
-        </g>`;
-    })
-    .join("");
+  /* 旧2D固定ピンは完全撤去 — 3Dメッシュのみ（sf-iso3d） */
   return `
     <svg class="sf-map sf-iso-svg" viewBox="-10 -12 120 124" role="img"
       aria-label="${escapeHtml(socFloorLabel(floorId))}">
       <rect class="sf-iso-slab" x="2" y="2" width="96" height="96" rx="3"></rect>
       ${roomRects}
       ${layerDecorations(floorId, opts)}
-      ${pins}
     </svg>`;
 }
 

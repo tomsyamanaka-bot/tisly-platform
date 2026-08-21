@@ -275,7 +275,9 @@ describe("floorplan-builder-v1", () => {
     assert.match(html, /id="fpb-bg-opacity"/);
     assert.match(html, /id="fpb-rename-sheet"/);
     assert.match(html, /id="fpb-device-palette"/);
-    assert.match(html, /センサー\/デバイス配置パレット/);
+    assert.match(html, /配置パレット/);
+    assert.match(html, /id="fpb-preview"/);
+    assert.match(html, /タップでピン配置/);
 
     const js = fs.readFileSync(
       path.join(
@@ -293,15 +295,29 @@ describe("floorplan-builder-v1", () => {
     assert.match(js, /data-handle/);
     assert.match(js, /addDeviceAt/);
     assert.match(js, /bindDevicePalette/);
+    assert.match(js, /bind3dPinInteraction/);
+    assert.match(js, /createNeonPinMesh3d/);
+    assert.match(js, /Raycaster/);
     assert.match(js, /floorHasContent/);
     assert.match(js, /緑外壁フレーム/);
+    assert.match(js, /worldX/);
+    assert.doesNotMatch(js, /CSS2DObject/);
   });
 
-  it("デバイス配置が security bridge に含まれる", () => {
+  it("デバイス配置が security bridge に 3D 座標付きで含まれる", () => {
     const hiraya = createHirayaDemoPresetV1();
     assert.ok((hiraya.security.devices?.length || 0) >= 3);
     const floor1 = hiraya.floors.find((f) => f.id === "1f");
     assert.ok((floor1?.devices?.length || 0) >= 3);
     assert.equal(hiraya.floors.find((f) => f.id === "2f")?.enabled, false);
+    const d0 = hiraya.security.devices?.[0];
+    assert.ok(d0);
+    assert.ok(typeof d0!.x === "number");
+    assert.ok(typeof d0!.y === "number");
+    assert.ok(typeof d0!.z === "number");
+    assert.ok(typeof d0!.worldX === "number");
+    assert.ok(typeof d0!.worldY === "number");
+    assert.ok(typeof d0!.worldZ === "number");
+    assert.ok(d0!.kind);
   });
 });

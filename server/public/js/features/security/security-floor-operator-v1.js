@@ -531,6 +531,13 @@ function bind() {
     setLiveScene(state.cameraId, state.site?.soc);
     renderThumbs(state.site);
   });
+  window.addEventListener("tisly-security-camera-select", (e) => {
+    const camId = e.detail?.cameraId;
+    if (!camId) return;
+    state.cameraId = camId;
+    setLiveScene(state.cameraId, state.site?.soc);
+    renderThumbs(state.site);
+  });
   $("sf-cam-next")?.addEventListener("click", () => {
     const cams = state.site?.soc?.cameras || [];
     if (!cams.length) return;

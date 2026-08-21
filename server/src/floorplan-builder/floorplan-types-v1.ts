@@ -47,8 +47,16 @@ export interface FloorplanDeviceV1 {
   id: string;
   kind: FloorplanDeviceKindV1;
   label: string;
+  /** 平面 %（0–100）X */
   x: number;
+  /** 平面 %（0–100）Y → Three.js Z */
   y: number;
+  /** 3D 高さ（ワールド Y・メートル相当） */
+  z?: number;
+  /** Security 連携用ワールド座標（任意・保存時に算出） */
+  worldX?: number;
+  worldY?: number;
+  worldZ?: number;
 }
 
 /** 方眼紙写真のグリッド合わせ（ズーム・位置・不透明度） */
@@ -115,6 +123,10 @@ export interface FloorplanSecurityBridgeV1 {
     label: string;
     x: number;
     y: number;
+    z?: number;
+    worldX?: number;
+    worldY?: number;
+    worldZ?: number;
   }>;
 }
 

@@ -12,9 +12,14 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
+function pctToWorld(v: number): number {
+  return (Number(v) - 50) * 0.2;
+}
+
 function buildSecurityBridge(
   id: string,
-  floors: FloorplanFloorLayerV1[]
+  floors: FloorplanFloorLayerV1[],
+  wallHeight = 2.7
 ): FloorplanConfigV1["security"] {
   const rooms = floors.flatMap((f) =>
     f.rooms.map((r) => ({
@@ -38,14 +43,24 @@ function buildSecurityBridge(
     }))
   );
   const devices = floors.flatMap((f) =>
-    (f.devices || []).map((d) => ({
-      id: d.id,
-      floorId: f.id,
-      kind: d.kind,
-      label: d.label,
-      x: d.x,
-      y: d.y,
-    }))
+    (f.devices || []).map((d) => {
+      const z = Number.isFinite(d.z) ? Number(d.z) : wallHeight * 0.72;
+      const worldX = pctToWorld(d.x);
+      const worldZ = pctToWorld(d.y);
+      const worldY = z;
+      return {
+        id: d.id,
+        floorId: f.id,
+        kind: d.kind,
+        label: d.label,
+        x: d.x,
+        y: d.y,
+        z,
+        worldX,
+        worldY,
+        worldZ,
+      };
+    })
   );
   return { siteId: id, rooms, openings, devices };
 }
@@ -236,7 +251,7 @@ export function createHirayaDemoPresetV1(): FloorplanConfigV1 {
     activeFloor: "1f",
     floors: structuredClone(floors),
     render: { ...DEFAULT_FLOORPLAN_RENDER_V1 },
-    security: buildSecurityBridge(id, floors),
+    security: buildSecurityBridge(id, floors, DEFAULT_FLOORPLAN_RENDER_V1.wallHeight),
     updatedAt: nowIso(),
   };
 }
@@ -259,7 +274,7 @@ export function createTsukubaModelHousePresetV1(): FloorplanConfigV1 {
       glowColor: "#059669",
       glowColorAlt: "#0284c7",
     },
-    security: buildSecurityBridge(id, floors),
+    security: buildSecurityBridge(id, floors, 2.8),
     updatedAt: nowIso(),
   };
 }
@@ -288,9 +303,10 @@ export function getFloorplanPresetByIdV1(
 export function refreshSecurityBridgeV1(
   config: FloorplanConfigV1
 ): FloorplanConfigV1 {
+  const wallH = config.render?.wallHeight ?? 2.7;
   return {
     ...config,
-    security: buildSecurityBridge(config.id, config.floors),
+    security: buildSecurityBridge(config.id, config.floors, wallH),
     updatedAt: nowIso(),
   };
 }
