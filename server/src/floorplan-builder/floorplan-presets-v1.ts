@@ -37,7 +37,17 @@ function buildSecurityBridge(
       y: o.y,
     }))
   );
-  return { siteId: id, rooms, openings };
+  const devices = floors.flatMap((f) =>
+    (f.devices || []).map((d) => ({
+      id: d.id,
+      floorId: f.id,
+      kind: d.kind,
+      label: d.label,
+      x: d.x,
+      y: d.y,
+    }))
+  );
+  return { siteId: id, rooms, openings, devices };
 }
 
 /** 手書き方眼紙に近い平屋レイアウト（1F + 外周） */
@@ -75,6 +85,13 @@ const HIRAYA_1F: FloorplanFloorLayerV1 = {
     { id: "hiraya-win-l", kind: "window", label: "窓（リビング）", x: 6, y: 48 },
     { id: "hiraya-win-w", kind: "window", label: "窓（和室）", x: 92, y: 64 },
   ],
+  devices: [
+    { id: "hiraya-dev-cam-ent", kind: "camera", label: "玄関カメラ", x: 48, y: 88 },
+    { id: "hiraya-dev-door-back", kind: "door", label: "勝手口センサー", x: 8, y: 14 },
+    { id: "hiraya-dev-lock", kind: "lock", label: "玄関スマートロック", x: 52, y: 90 },
+    { id: "hiraya-dev-panel", kind: "panel", label: "分電盤", x: 28, y: 28 },
+    { id: "hiraya-dev-mmwave", kind: "mmwave", label: "リビングミリ波", x: 20, y: 48 },
+  ],
 };
 
 const HIRAYA_OUTDOOR: FloorplanFloorLayerV1 = {
@@ -97,6 +114,10 @@ const HIRAYA_OUTDOOR: FloorplanFloorLayerV1 = {
     { id: "hiraya-gate", kind: "entrance", label: "門扉", x: 20, y: 88 },
     { id: "hiraya-meter", kind: "door", label: "メーター", x: 10, y: 40 },
   ],
+  devices: [
+    { id: "hiraya-out-cam", kind: "camera", label: "外周カメラ", x: 88, y: 24 },
+    { id: "hiraya-out-gate", kind: "door", label: "門扉センサー", x: 20, y: 88 },
+  ],
 };
 
 const HIRAYA_2F_DISABLED: FloorplanFloorLayerV1 = {
@@ -108,6 +129,7 @@ const HIRAYA_2F_DISABLED: FloorplanFloorLayerV1 = {
   walls: [],
   rooms: [],
   openings: [],
+  devices: [],
 };
 
 /** つくばモデルハウス（2階建て） */
@@ -136,6 +158,13 @@ const TSUKUBA_1F: FloorplanFloorLayerV1 = {
     { id: "tkb-back", kind: "backdoor", label: "勝手口", x: 92, y: 28 },
     { id: "tkb-win1", kind: "window", label: "窓（LDK）", x: 40, y: 8 },
   ],
+  devices: [
+    { id: "tkb-dev-cam-ent", kind: "camera", label: "玄関カメラ", x: 14, y: 86 },
+    { id: "tkb-dev-door", kind: "door", label: "玄関ドアセンサー", x: 12, y: 92 },
+    { id: "tkb-dev-lock", kind: "lock", label: "玄関ロック", x: 18, y: 90 },
+    { id: "tkb-dev-mmwave", kind: "mmwave", label: "リビングミリ波", x: 48, y: 32 },
+    { id: "tkb-dev-panel", kind: "panel", label: "分電盤", x: 78, y: 58 },
+  ],
 };
 
 const TSUKUBA_2F: FloorplanFloorLayerV1 = {
@@ -161,6 +190,10 @@ const TSUKUBA_2F: FloorplanFloorLayerV1 = {
     { id: "tkb-2f-win", kind: "window", label: "窓（主寝室）", x: 20, y: 14 },
     { id: "tkb-2f-balc", kind: "door", label: "バルコニー", x: 70, y: 14 },
   ],
+  devices: [
+    { id: "tkb-2f-cam", kind: "camera", label: "2F廊下カメラ", x: 50, y: 60 },
+    { id: "tkb-2f-mmwave", kind: "mmwave", label: "主寝室ミリ波", x: 30, y: 30 },
+  ],
 };
 
 const TSUKUBA_OUTDOOR: FloorplanFloorLayerV1 = {
@@ -183,6 +216,10 @@ const TSUKUBA_OUTDOOR: FloorplanFloorLayerV1 = {
   openings: [
     { id: "tkb-gate", kind: "entrance", label: "門", x: 28, y: 92 },
     { id: "tkb-cam", kind: "door", label: "外周カメラ位置", x: 88, y: 20 },
+  ],
+  devices: [
+    { id: "tkb-out-cam", kind: "camera", label: "外周カメラ", x: 88, y: 20 },
+    { id: "tkb-out-gate", kind: "door", label: "門センサー", x: 28, y: 92 },
   ],
 };
 

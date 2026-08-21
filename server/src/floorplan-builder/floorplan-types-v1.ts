@@ -35,6 +35,22 @@ export interface FloorplanOpeningV1 {
   y: number;
 }
 
+/** Builder 配置デバイス（Security センサーへ引き継ぎ） */
+export type FloorplanDeviceKindV1 =
+  | "camera"
+  | "door"
+  | "lock"
+  | "panel"
+  | "mmwave";
+
+export interface FloorplanDeviceV1 {
+  id: string;
+  kind: FloorplanDeviceKindV1;
+  label: string;
+  x: number;
+  y: number;
+}
+
 /** 方眼紙写真のグリッド合わせ（ズーム・位置・不透明度） */
 export interface FloorplanBgTransformV1 {
   scale: number;
@@ -61,6 +77,8 @@ export interface FloorplanFloorLayerV1 {
   walls: FloorplanWallV1[];
   rooms: FloorplanRoomV1[];
   openings: FloorplanOpeningV1[];
+  /** センサー/デバイス配置（任意・旧データは openings から補完可） */
+  devices?: FloorplanDeviceV1[];
 }
 
 export interface FloorplanRenderV1 {
@@ -90,6 +108,14 @@ export interface FloorplanSecurityBridgeV1 {
     x: number;
     y: number;
   }>;
+  devices?: Array<{
+    id: string;
+    floorId: FloorplanFloorIdV1;
+    kind: string;
+    label: string;
+    x: number;
+    y: number;
+  }>;
 }
 
 export interface FloorplanConfigV1 {
@@ -112,7 +138,7 @@ export const FLOORPLAN_ACTIVE_KEY_V1 = "tisly_floorplan_active_id";
 export const DEFAULT_FLOORPLAN_RENDER_V1: FloorplanRenderV1 = {
   wallHeight: 2.7,
   roomOpacity: 0.55,
-  glowColor: "#059669",
+  glowColor: "#2563EB",
   glowColorAlt: "#0284c7",
   cameraElevationDeg: 45,
 };

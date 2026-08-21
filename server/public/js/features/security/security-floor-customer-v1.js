@@ -101,7 +101,7 @@ function renderDash(dash) {
     );
     setText("sf-guard-label", dash.guardModeLabel || "—");
     const floors = dash.floors || [];
-    setHtml("sf-floor-tabs", renderSocLayerButtons(floors, state.floorId));
+    setHtml("sf-floor-tabs", renderSocLayerButtons(floors, state.floorId, site));
     setHtml("sf-map-wrap", renderIsoStack(dash, state.floorId, {}));
     setHtml("sf-modes", renderGuardModes(dash.guardMode));
     setHtml(

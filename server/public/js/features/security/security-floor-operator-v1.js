@@ -247,7 +247,7 @@ function renderLogs(site) {
   if (fl) {
     const current = fl.value;
     fl.innerHTML = '<option value="">フロアすべて</option>';
-    visibleFloors(site.floors).forEach((f) => {
+    visibleFloors(site.floors, site).forEach((f) => {
       const op = document.createElement("option");
       op.value = f.id;
       op.textContent = socFloorLabel(f.id, f.label);
@@ -298,7 +298,7 @@ function renderSite(site, dash) {
       );
     }
     const floors = site.floors || [];
-    setHtml("sf-floor-tabs", renderSocLayerButtons(floors, state.floorId));
+    setHtml("sf-floor-tabs", renderSocLayerButtons(floors, state.floorId, site));
     const mapOpts = {
       showCameras: state.showCameras,
       showSensors: state.showSensors,

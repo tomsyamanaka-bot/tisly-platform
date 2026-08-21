@@ -1,6 +1,6 @@
 /**
  * TiSLY Security — ビルダー連携 3D アイソメトリック俯瞰
- * Three.js でガラス調の部屋ブロック＋センサーCSS2Dピン＋発報ネオン発光
+ * Three.js でガラス調の部屋ブロック＋ネオンピン＋発報発光
  */
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
@@ -8,6 +8,10 @@ import {
   CSS2DRenderer,
   CSS2DObject,
 } from "three/addons/renderers/CSS2DRenderer.js";
+import {
+  buildDevicePinHtml,
+  normalizeDeviceKind,
+} from "../shared/tisly-device-pin-icons-v1.js";
 
 const LS_KEY = "tisly_floorplan_config";
 const FLAG = "tisly_floorplan_for_security";
@@ -103,25 +107,19 @@ function wantsBuilderMap() {
   }
 }
 
-function iconForKind(kind, fallback) {
-  if (fallback) return fallback;
-  const map = {
-    door: "🚪",
-    lock: "🔒",
-    mmwave: "📡",
-    camera: "📷",
-    gas: "🔥",
-    panel: "⚡",
-    window: "🪟",
-  };
-  return map[kind] || "●";
-}
-
 function resolveFloorLayer(floorId) {
   const fp = state.floorplan;
   if (fp?.floors?.length) {
     const layer = fp.floors.find((f) => f.id === floorId);
-    if (layer && (layer.enabled || (layer.rooms || []).length)) return layer;
+    if (
+      layer &&
+      layer.enabled !== false &&
+      ((layer.rooms || []).length > 0 ||
+        (layer.devices || []).length > 0 ||
+        (layer.openings || []).length > 0)
+    ) {
+      return layer;
+    }
   }
   return null;
 }
@@ -159,33 +157,43 @@ function roomsForFloor(floorId) {
   });
 }
 
-function wallsForFloor(floorId) {
-  const layer = resolveFloorLayer(floorId);
-  return layer?.walls || [];
-}
-
 function sensorsForFloor(floorId) {
+  const layer = resolveFloorLayer(floorId);
+  const fromDevices = (layer?.devices || []).map((d) => ({
+    id: d.id,
+    floorId,
+    kind: normalizeDeviceKind(d.kind),
+    label: d.label,
+    x: d.x,
+    y: d.y,
+    alertVisible: state.alertSensorIds.has(d.id),
+  }));
+  const fromOpenings = (layer?.openings || []).map((o) => ({
+    id: o.id,
+    floorId,
+    kind: normalizeDeviceKind(
+      o.kind === "window" ? "window" : "door"
+    ),
+    label: o.label,
+    x: o.x,
+    y: o.y,
+    alertVisible: state.alertSensorIds.has(o.id),
+  }));
+  if (wantsBuilderMap() && (fromDevices.length || fromOpenings.length)) {
+    return fromDevices.length ? fromDevices : fromOpenings;
+  }
   const siteSensors = (state.site?.sensors || []).filter(
     (s) => s.floorId === floorId
   );
   if (siteSensors.length) {
     return siteSensors.map((s) => ({
       ...s,
+      kind: normalizeDeviceKind(s.kind),
       alertVisible: s.alertVisible || state.alertSensorIds.has(s.id),
-      icon: iconForKind(s.kind, s.icon),
     }));
   }
-  const layer = resolveFloorLayer(floorId);
-  return (layer?.openings || []).map((o) => ({
-    id: o.id,
-    floorId,
-    kind: o.kind === "window" ? "window" : "door",
-    label: o.label,
-    x: o.x,
-    y: o.y,
-    alertVisible: state.alertSensorIds.has(o.id),
-    icon: iconForKind(o.kind === "window" ? "window" : "door"),
-  }));
+  if (fromDevices.length) return fromDevices;
+  return fromOpenings;
 }
 
 function renderOpts() {
@@ -359,7 +367,6 @@ function rebuild() {
   const wallH = opts.wallHeight;
   const opacity = Math.min(Math.max(opts.roomOpacity, 0.28), 0.82);
   const rooms = roomsForFloor(floorId);
-  const walls = wallsForFloor(floorId);
   const sensors = sensorsForFloor(floorId);
 
   const slabMat = new THREE.MeshStandardMaterial({
@@ -373,17 +380,6 @@ function rebuild() {
   const slab = new THREE.Mesh(new THREE.BoxGeometry(22, 0.14, 22), slabMat);
   slab.position.y = 0.05;
   buildingGroup.add(slab);
-
-  const glassWallMat = new THREE.MeshPhysicalMaterial({
-    color: 0xdbeafe,
-    metalness: 0.05,
-    roughness: 0.18,
-    transmission: 0.55,
-    thickness: 0.35,
-    transparent: true,
-    opacity: 0.72,
-    side: THREE.DoubleSide,
-  });
 
   for (const r of rooms) {
     if (!state.showZones) continue;
@@ -440,45 +436,36 @@ function rebuild() {
     }
   }
 
-  for (const w of walls) {
-    const x1 = pctToWorld(w.x1);
-    const z1 = pctToWorld(w.y1);
-    const x2 = pctToWorld(w.x2);
-    const z2 = pctToWorld(w.y2);
-    const len = Math.hypot(x2 - x1, z2 - z1) || 0.2;
-    const wall = new THREE.Mesh(
-      new THREE.BoxGeometry(len, wallH, 0.16),
-      glassWallMat.clone()
-    );
-    wall.position.set((x1 + x2) / 2, wallH / 2 + 0.12, (z1 + z2) / 2);
-    wall.rotation.y = -Math.atan2(z2 - z1, x2 - x1);
-    buildingGroup.add(wall);
-  }
+  /* 外壁フレーム（walls）は描画しない — 部屋ブロックのみ */
 
   for (const s of sensors) {
-    const isCam = s.kind === "camera";
+    const kind = normalizeDeviceKind(s.kind);
+    const isCam = kind === "camera";
     if (isCam && !state.showCameras) continue;
     if (!isCam && !state.showSensors) continue;
     const alerting = !!s.alertVisible;
     const el = document.createElement("button");
     el.type = "button";
     el.className =
-      "sf-iso3d-pin" +
+      "sf-iso3d-pin tisly-neon-pin" +
       (isCam ? " is-cam" : " is-sens") +
-      (alerting ? " is-alert" : "");
+      (alerting ? " is-alert" : "") +
+      ` kind-${kind}`;
     el.dataset.sensorId = s.id;
     if (s.linkedCameraId || isCam) {
       el.dataset.camera = s.linkedCameraId || s.id;
     }
-    el.dataset.kind = s.kind || "";
+    el.dataset.kind = kind;
     el.title = s.label || s.customerLabel || s.id;
-    el.innerHTML =
-      `<span class="sf-iso3d-pin-pulse" aria-hidden="true"></span>` +
-      `<span class="sf-iso3d-pin-icon">${iconForKind(s.kind, s.icon)}</span>`;
+    el.innerHTML = buildDevicePinHtml({
+      kind,
+      alerting,
+      isCam,
+    });
     const obj = new CSS2DObject(el);
     obj.position.set(
       pctToWorld(s.x),
-      wallH * (alerting ? 0.72 : 0.55),
+      wallH * (alerting ? 0.82 : 0.68),
       pctToWorld(s.y)
     );
     buildingGroup.add(obj);

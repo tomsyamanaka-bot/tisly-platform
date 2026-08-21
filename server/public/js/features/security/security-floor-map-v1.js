@@ -104,12 +104,26 @@ export function renderGuardModes(mode) {
     .join("");
 }
 
-export function pickDefaultFloor(floors) {
-  const list = floors || [];
-  const enabled = list.filter((f) => f.enabled);
-  const oneF = enabled.find((f) => f.id === "1f");
-  if (oneF) return "1f";
-  return (enabled[0] || list[0] || { id: "1f" }).id;
+export function isEmptyFloorPlaceholder(room) {
+  if (!room) return true;
+  const id = String(room.id || "");
+  const label = String(room.label || "");
+  return (
+    /empty/i.test(id) ||
+    /なし/.test(label) ||
+    /\(なし\)|（なし）/.test(label)
+  );
+}
+
+/** 部屋・センサーが実在するフロアだけ true */
+export function floorHasContent(site, floorId) {
+  const rooms = (site?.rooms || []).filter(
+    (r) => r.floorId === floorId && !isEmptyFloorPlaceholder(r)
+  );
+  const sensors = (site?.sensors || []).filter(
+    (s) => s.floorId === floorId
+  );
+  return rooms.length > 0 || sensors.length > 0;
 }
 
 export function socFloorLabel(id, fallback) {
@@ -120,13 +134,22 @@ export function socFloorLabel(id, fallback) {
   return fallback || id;
 }
 
-export function visibleFloors(floors) {
+export function visibleFloors(floors, site = null) {
   const order = { "2f": 0, "1f": 1, outdoor: 2 };
   return (floors || [])
     .filter((f) => f.id !== "roof")
+    .filter((f) => f.enabled !== false)
+    .filter((f) => (site ? floorHasContent(site, f.id) : true))
     .sort(
       (a, b) => (order[a.id] ?? 9) - (order[b.id] ?? 9)
     );
+}
+
+export function pickDefaultFloor(floors, site = null) {
+  const list = visibleFloors(floors, site);
+  const oneF = list.find((f) => f.id === "1f");
+  if (oneF) return "1f";
+  return (list[0] || { id: "1f" }).id;
 }
 
 function furnitureHints(room) {
@@ -236,9 +259,7 @@ export function renderIsoLayerSvg(
 
 export function renderIsoStack(site, focusId, opts = {}) {
   try {
-    const floors = visibleFloors(site?.floors).filter(
-      (f) => f.enabled
-    );
+    const floors = visibleFloors(site?.floors, site);
     if (!floors.length) {
       throw new Error("no-floors");
     }
@@ -303,15 +324,13 @@ export const STATIC_ISO_HTML = `<div class="sf-iso-scene sf-iso3d-scene">
   <div class="sf-iso-orbit sf-iso-orbit--data" id="sf-iso-orbit" data-focus="1f"></div>
 </div>`;
 
-export function renderSocLayerButtons(floors, activeId) {
-  const items = visibleFloors(floors)
-    .filter((f) => f.enabled)
-    .map((f) => ({
-      id: f.id,
-      label:
-        f.id === "outdoor" ? "外周" : socFloorLabel(f.id, f.label),
-      enabled: f.enabled,
-    }));
+export function renderSocLayerButtons(floors, activeId, site = null) {
+  const items = visibleFloors(floors, site).map((f) => ({
+    id: f.id,
+    label:
+      f.id === "outdoor" ? "外周" : socFloorLabel(f.id, f.label),
+    enabled: true,
+  }));
   const focus =
     !activeId || activeId === "all"
       ? items.find((it) => it.id === "1f")?.id ||
@@ -321,9 +340,8 @@ export function renderSocLayerButtons(floors, activeId) {
   return items
     .map((it) => {
       const on = it.id === focus ? " is-on" : "";
-      const disabled = it.enabled ? "" : "disabled";
       return `<button type="button" class="sf-tab${on}"
-        data-floor="${escapeHtml(it.id)}" ${disabled}>${escapeHtml(it.label)}</button>`;
+        data-floor="${escapeHtml(it.id)}">${escapeHtml(it.label)}</button>`;
     })
     .join("");
 }

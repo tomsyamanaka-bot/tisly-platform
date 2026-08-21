@@ -5,9 +5,26 @@
 
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import {
+  CSS2DRenderer,
+  CSS2DObject,
+} from "three/addons/renderers/CSS2DRenderer.js";
+import {
+  buildDevicePinHtml,
+  DEVICE_PALETTE_ITEMS_V1,
+  normalizeDeviceKind,
+} from "../shared/tisly-device-pin-icons-v1.js";
 
 const LS_KEY = "tisly_floorplan_config";
 const LS_ACTIVE = "tisly_floorplan_active_id";
+
+const DEVICE_LABELS = {
+  camera: "カメラ",
+  door: "ドアセンサー",
+  lock: "鍵",
+  panel: "電源/ブレーカー",
+  mmwave: "ミリ波",
+};
 
 const ROOM_PRESETS = [
   "玄関",
@@ -43,6 +60,8 @@ let scene = null;
 let camera = null;
 /** @type {THREE.WebGLRenderer | null} */
 let renderer = null;
+/** @type {CSS2DRenderer | null} */
+let labelRenderer = null;
 /** @type {OrbitControls | null} */
 let controls = null;
 /** @type {THREE.Group | null} */
@@ -51,10 +70,16 @@ let buildingGroup = null;
 /** @type {string | null} */
 let selectedRoomId = null;
 /** @type {string | null} */
+let selectedDeviceId = null;
+/** @type {string | null} */
 let renameRoomId = null;
+/** @type {string | null} */
+let paletteDragKind = null;
 
 /** 部屋ドラッグ状態 */
 let drag = null;
+/** デバイスピン ドラッグ状態 */
+let deviceDrag = null;
 /** 背景パン状態 */
 let bgPan = null;
 /** ピンチズーム状態 */
@@ -71,13 +96,32 @@ function setStatus(msg) {
   if (el) el.textContent = msg;
 }
 
+function floorHasContent(floor) {
+  if (!floor || floor.enabled === false) return false;
+  return (
+    (floor.rooms || []).length > 0 ||
+    (floor.devices || []).length > 0 ||
+    (floor.openings || []).length > 0 ||
+    !!floor.backgroundImage
+  );
+}
+
+function ensureDevices(floor) {
+  if (!floor) return [];
+  if (!Array.isArray(floor.devices)) floor.devices = [];
+  return floor.devices;
+}
+
 function activeFloor() {
   if (!state) return null;
-  return (
-    state.floors.find((f) => f.id === state.activeFloor) ||
-    state.floors.find((f) => f.enabled) ||
-    state.floors[0]
-  );
+  const cur = state.floors.find((f) => f.id === state.activeFloor);
+  if (cur && floorHasContent(cur)) return cur;
+  const first = state.floors.find((f) => floorHasContent(f));
+  if (first) {
+    state.activeFloor = first.id;
+    return first;
+  }
+  return state.floors.find((f) => f.enabled) || state.floors[0];
 }
 
 function ensureBgTransform(floor) {
@@ -127,7 +171,7 @@ function drawGrid() {
     ctx.lineTo(size, p);
     ctx.stroke();
   }
-  ctx.strokeStyle = "rgba(5, 150, 105, 0.45)";
+  ctx.strokeStyle = "rgba(37, 99, 235, 0.35)";
   ctx.lineWidth = 1.5;
   ctx.strokeRect(0.5, 0.5, size - 1, size - 1);
 }
@@ -164,7 +208,22 @@ function drawOverlay() {
         `<circle class="fpb-opening" cx="${o.x}" cy="${o.y}" r="1.8"></circle>`
     )
     .join("");
-  svg.innerHTML = rooms + openings;
+  const devices = ensureDevices(floor)
+    .map((d) => {
+      const kind = normalizeDeviceKind(d.kind);
+      const sel = d.id === selectedDeviceId ? " is-selected" : "";
+      return `<g class="fpb-device-pin${sel}" data-device-id="${escapeXml(d.id)}" data-kind="${escapeXml(kind)}"
+        transform="translate(${d.x} ${d.y})" data-handle="device">
+        <circle class="fpb-device-halo" r="4.2"></circle>
+        <circle class="fpb-device-core" r="2.6"></circle>
+        <text class="fpb-device-glyph" text-anchor="middle" dominant-baseline="central" y="-0.1">${escapeXml(
+          DEVICE_LABELS[kind]?.[0] || "●"
+        )}</text>
+        <title>${escapeXml(d.label || DEVICE_LABELS[kind] || kind)}</title>
+      </g>`;
+    })
+    .join("");
+  svg.innerHTML = rooms + openings + devices;
 }
 
 function escapeXml(s) {
@@ -203,11 +262,32 @@ function syncBackground() {
 
 function syncTabs() {
   if (!state) return;
-  document.querySelectorAll("#fpb-floor-tabs .fpb-tab").forEach((btn) => {
-    const id = btn.getAttribute("data-floor");
-    const floor = state.floors.find((f) => f.id === id);
-    btn.classList.toggle("is-on", id === state.activeFloor);
-    btn.disabled = floor ? !floor.enabled : true;
+  const tabs = $("fpb-floor-tabs");
+  if (!tabs) return;
+  const labels = { "1f": "1階", "2f": "2階", outdoor: "外周・敷地" };
+  const visible = (state.floors || []).filter((f) => floorHasContent(f));
+  if (
+    visible.length &&
+    !visible.some((f) => f.id === state.activeFloor)
+  ) {
+    state.activeFloor = visible[0].id;
+  }
+  tabs.innerHTML = visible
+    .map((f) => {
+      const on = f.id === state.activeFloor ? " is-on" : "";
+      return `<button type="button" class="fpb-tab${on}" data-floor="${f.id}">${
+        labels[f.id] || f.label || f.id
+      }</button>`;
+    })
+    .join("");
+  tabs.querySelectorAll(".fpb-tab").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (!state) return;
+      state.activeFloor = btn.getAttribute("data-floor") || "1f";
+      selectedRoomId = null;
+      selectedDeviceId = null;
+      refresh2d();
+    });
   });
 }
 
@@ -243,6 +323,15 @@ function init3d() {
   renderer.setClearColor(0xf8fafc, 1);
   mount.appendChild(renderer.domElement);
 
+  labelRenderer = new CSS2DRenderer();
+  labelRenderer.setSize(w, h);
+  labelRenderer.domElement.className = "fpb-3d-labels";
+  labelRenderer.domElement.style.position = "absolute";
+  labelRenderer.domElement.style.inset = "0";
+  labelRenderer.domElement.style.pointerEvents = "none";
+  mount.style.position = mount.style.position || "relative";
+  mount.appendChild(labelRenderer.domElement);
+
   controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.target.set(0, 1, 0);
@@ -258,7 +347,7 @@ function init3d() {
   const fill = new THREE.DirectionalLight(0xbae6fd, 0.45);
   fill.position.set(-10, 10, -8);
   scene.add(fill);
-  const rim = new THREE.DirectionalLight(0xa7f3d0, 0.35);
+  const rim = new THREE.DirectionalLight(0x93c5fd, 0.35);
   rim.position.set(0, 12, -14);
   scene.add(rim);
 
@@ -281,6 +370,7 @@ function onResize() {
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
   renderer.setSize(w, h, false);
+  if (labelRenderer) labelRenderer.setSize(w, h);
   drawGrid();
 }
 
@@ -288,6 +378,7 @@ function animate() {
   requestAnimationFrame(animate);
   if (controls) controls.update();
   if (renderer && scene && camera) renderer.render(scene, camera);
+  if (labelRenderer && scene && camera) labelRenderer.render(scene, camera);
 }
 
 function pctToWorld(v) {
@@ -313,7 +404,6 @@ function rebuild3d() {
 
   const wallH = state.render?.wallHeight ?? 2.7;
   const opacity = state.render?.roomOpacity ?? 0.55;
-  const accent = new THREE.Color(state.render?.glowColor || "#059669");
   const accentAlt = new THREE.Color(state.render?.glowColorAlt || "#0284c7");
 
   const slabMat = new THREE.MeshStandardMaterial({
@@ -336,15 +426,6 @@ function rebuild3d() {
     metalness: 0.05,
     roughness: 0.55,
     depthWrite: false,
-  });
-  const wallMat = new THREE.MeshStandardMaterial({
-    color: 0x86efac,
-    emissive: accent,
-    emissiveIntensity: 0.06,
-    metalness: 0.08,
-    roughness: 0.5,
-    transparent: true,
-    opacity: 0.78,
   });
 
   for (const r of floor.rooms || []) {
@@ -373,42 +454,21 @@ function rebuild3d() {
     buildingGroup.add(edge);
   }
 
-  for (const w of floor.walls || []) {
-    const x1 = pctToWorld(w.x1);
-    const z1 = pctToWorld(w.y1);
-    const x2 = pctToWorld(w.x2);
-    const z2 = pctToWorld(w.y2);
-    const len = Math.hypot(x2 - x1, z2 - z1) || 0.2;
-    const wall = new THREE.Mesh(
-      new THREE.BoxGeometry(len, wallH, 0.18),
-      wallMat
-    );
-    wall.position.set((x1 + x2) / 2, wallH / 2 + 0.12, (z1 + z2) / 2);
-    wall.rotation.y = -Math.atan2(z2 - z1, x2 - x1);
-    buildingGroup.add(wall);
+  /* 緑外壁フレーム（walls）は描画しない */
 
-    const wallEdge = new THREE.LineSegments(
-      new THREE.EdgesGeometry(wall.geometry),
-      new THREE.LineBasicMaterial({ color: 0x047857, transparent: true, opacity: 0.85 })
-    );
-    wallEdge.position.copy(wall.position);
-    wallEdge.rotation.copy(wall.rotation);
-    buildingGroup.add(wallEdge);
-  }
-
-  for (const o of floor.openings || []) {
-    const marker = new THREE.Mesh(
-      new THREE.SphereGeometry(0.35, 16, 16),
-      new THREE.MeshStandardMaterial({
-        color: 0x059669,
-        emissive: 0x34d399,
-        emissiveIntensity: 0.35,
-        metalness: 0.15,
-        roughness: 0.4,
-      })
-    );
-    marker.position.set(pctToWorld(o.x), wallH * 0.4, pctToWorld(o.y));
-    buildingGroup.add(marker);
+  for (const d of ensureDevices(floor)) {
+    const kind = normalizeDeviceKind(d.kind);
+    const el = document.createElement("div");
+    el.className =
+      "sf-iso3d-pin tisly-neon-pin fpb-3d-pin" +
+      (kind === "camera" ? " is-cam" : " is-sens") +
+      ` kind-${kind}` +
+      (d.id === selectedDeviceId ? " is-selected" : "");
+    el.innerHTML = buildDevicePinHtml({ kind, isCam: kind === "camera" });
+    el.title = d.label || DEVICE_LABELS[kind] || kind;
+    const obj = new CSS2DObject(el);
+    obj.position.set(pctToWorld(d.x), wallH * 0.7, pctToWorld(d.y));
+    buildingGroup.add(obj);
   }
 
   if (camera && controls) {
@@ -445,7 +505,17 @@ function refreshSecurityBridge(cfg) {
       y: o.y,
     }))
   );
-  cfg.security = { siteId: cfg.id, rooms, openings };
+  const devices = cfg.floors.flatMap((f) =>
+    (f.devices || []).map((d) => ({
+      id: d.id,
+      floorId: f.id,
+      kind: d.kind,
+      label: d.label,
+      x: d.x,
+      y: d.y,
+    }))
+  );
+  cfg.security = { siteId: cfg.id, rooms, openings, devices };
   cfg.updatedAt = new Date().toISOString();
   return cfg;
 }
@@ -589,21 +659,9 @@ async function runAutoDetect() {
     if (Array.isArray(data.openings) && data.openings.length) {
       floor.openings = data.openings;
     }
-    // 外周壁を部屋外接矩形で更新
-    const xs = floor.rooms.map((r) => r.x);
-    const ys = floor.rooms.map((r) => r.y);
-    const xe = floor.rooms.map((r) => r.x + r.w);
-    const ye = floor.rooms.map((r) => r.y + r.h);
-    const minX = Math.max(0, Math.min(...xs) - 1);
-    const minY = Math.max(0, Math.min(...ys) - 1);
-    const maxX = Math.min(100, Math.max(...xe) + 1);
-    const maxY = Math.min(100, Math.max(...ye) + 1);
-    floor.walls = [
-      { id: "aw1", x1: minX, y1: minY, x2: maxX, y2: minY },
-      { id: "aw2", x1: maxX, y1: minY, x2: maxX, y2: maxY },
-      { id: "aw3", x1: maxX, y1: maxY, x2: minX, y2: maxY },
-      { id: "aw4", x1: minX, y1: maxY, x2: minX, y2: minY },
-    ];
+    /* 緑外壁バウンディングは生成しない（部屋ブロックのみ） */
+    floor.walls = [];
+    ensureDevices(floor);
     selectedRoomId = floor.rooms[0]?.id || null;
     refreshSecurityBridge(state);
     persistLocal(state);
@@ -646,6 +704,112 @@ function deleteRoom(roomId) {
   if (selectedRoomId === roomId) selectedRoomId = null;
   refresh2d();
   setStatus("部屋を削除しました");
+}
+
+function findDevice(deviceId) {
+  const floor = activeFloor();
+  return ensureDevices(floor).find((d) => d.id === deviceId) || null;
+}
+
+function addDeviceAt(kind, x, y) {
+  const floor = activeFloor();
+  if (!floor) return null;
+  const k = normalizeDeviceKind(kind);
+  const id = `dev-${k}-${Date.now().toString(36)}`;
+  const device = {
+    id,
+    kind: k,
+    label: DEVICE_LABELS[k] || k,
+    x: Math.min(96, Math.max(4, Number(x) || 50)),
+    y: Math.min(96, Math.max(4, Number(y) || 50)),
+  };
+  ensureDevices(floor).push(device);
+  selectedDeviceId = id;
+  selectedRoomId = null;
+  refresh2d();
+  persistLocal(state);
+  setStatus(`${device.label} を配置しました`);
+  return device;
+}
+
+function deleteDevice(deviceId) {
+  const floor = activeFloor();
+  if (!floor) return;
+  floor.devices = ensureDevices(floor).filter((d) => d.id !== deviceId);
+  if (selectedDeviceId === deviceId) selectedDeviceId = null;
+  refresh2d();
+  persistLocal(state);
+  setStatus("デバイスを削除しました");
+}
+
+function renderDevicePalette() {
+  const el = $("fpb-device-palette");
+  if (!el) return;
+  el.innerHTML = DEVICE_PALETTE_ITEMS_V1.map(
+    (it) =>
+      `<button type="button" class="fpb-palette-item" draggable="true"
+        data-kind="${it.kind}" title="${it.label}">
+        <span class="fpb-palette-icon" aria-hidden="true">${it.hint}</span>
+        <span class="fpb-palette-label">${it.label}</span>
+      </button>`
+  ).join("");
+}
+
+function bindDevicePalette() {
+  renderDevicePalette();
+  const palette = $("fpb-device-palette");
+  const wrap = $("fpb-canvas-wrap");
+  const svg = $("fpb-overlay");
+  if (!palette || !wrap || !svg) return;
+
+  palette.addEventListener("dragstart", (ev) => {
+    const btn = ev.target?.closest?.("[data-kind]");
+    if (!btn) return;
+    paletteDragKind = btn.getAttribute("data-kind");
+    try {
+      ev.dataTransfer.setData("text/tisly-device-kind", paletteDragKind);
+      ev.dataTransfer.effectAllowed = "copy";
+    } catch {
+      /* ignore */
+    }
+    btn.classList.add("is-dragging");
+  });
+  palette.addEventListener("dragend", () => {
+    paletteDragKind = null;
+    palette
+      .querySelectorAll(".is-dragging")
+      .forEach((n) => n.classList.remove("is-dragging"));
+  });
+  palette.addEventListener("click", (ev) => {
+    const btn = ev.target?.closest?.("[data-kind]");
+    if (!btn || !state) return;
+    addDeviceAt(btn.getAttribute("data-kind"), 50, 50);
+  });
+
+  const onDragOver = (ev) => {
+    if (!paletteDragKind && !ev.dataTransfer?.types?.includes?.("text/tisly-device-kind"))
+      return;
+    ev.preventDefault();
+    wrap.classList.add("is-device-drop");
+  };
+  const onDragLeave = () => wrap.classList.remove("is-device-drop");
+  const onDrop = (ev) => {
+    ev.preventDefault();
+    wrap.classList.remove("is-device-drop");
+    const kind =
+      paletteDragKind ||
+      ev.dataTransfer?.getData("text/tisly-device-kind") ||
+      "";
+    if (!kind) return;
+    const pt = svgPointFromEvent(ev);
+    addDeviceAt(kind, pt.x, pt.y);
+    paletteDragKind = null;
+  };
+  wrap.addEventListener("dragover", onDragOver);
+  wrap.addEventListener("dragleave", onDragLeave);
+  wrap.addEventListener("drop", onDrop);
+  svg.addEventListener("dragover", onDragOver);
+  svg.addEventListener("drop", onDrop);
 }
 
 function findRoom(roomId) {
@@ -708,6 +872,34 @@ function svgPointFromEvent(ev) {
 function onOverlayPointerDown(ev) {
   const target = ev.target;
   if (!(target instanceof Element)) return;
+
+  const deviceEl = target.closest?.("[data-device-id]");
+  if (deviceEl) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const deviceId = deviceEl.getAttribute("data-device-id");
+    const device = findDevice(deviceId);
+    if (!device) return;
+    selectedDeviceId = deviceId;
+    selectedRoomId = null;
+    /* タップで削除（短押し＋移動なし）は pointerup で判定 */
+    deviceDrag = {
+      id: deviceId,
+      startX: device.x,
+      startY: device.y,
+      origin: svgPointFromEvent(ev),
+      moved: false,
+      pointerId: ev.pointerId,
+    };
+    try {
+      $("fpb-overlay")?.setPointerCapture?.(ev.pointerId);
+    } catch {
+      /* ignore */
+    }
+    refresh2d({ skip3d: true });
+    return;
+  }
+
   const handle = target.getAttribute("data-handle");
   const roomId = target.getAttribute("data-room-id");
   if (!handle || !roomId) {
@@ -755,6 +947,19 @@ function onOverlayPointerDown(ev) {
 
 function onOverlayPointerMove(ev) {
   if (pinch) return;
+  if (deviceDrag) {
+    const device = findDevice(deviceDrag.id);
+    if (!device) return;
+    const pt = svgPointFromEvent(ev);
+    const dx = pt.x - deviceDrag.origin.x;
+    const dy = pt.y - deviceDrag.origin.y;
+    if (Math.hypot(dx, dy) > 1.2) deviceDrag.moved = true;
+    device.x = Math.min(96, Math.max(4, deviceDrag.startX + dx));
+    device.y = Math.min(96, Math.max(4, deviceDrag.startY + dy));
+    drawOverlay();
+    scheduleRebuild3d();
+    return;
+  }
   if (bgPan) {
     moveBgPan(ev);
     return;
@@ -792,6 +997,20 @@ function onOverlayPointerMove(ev) {
 }
 
 function onOverlayPointerUp() {
+  if (deviceDrag) {
+    const id = deviceDrag.id;
+    const moved = deviceDrag.moved;
+    deviceDrag = null;
+    if (!moved && id) {
+      if (confirm("このセンサー/デバイスを削除しますか？")) {
+        deleteDevice(id);
+        return;
+      }
+    }
+    if (state) persistLocal(state);
+    refresh2d();
+    return;
+  }
   if (drag) {
     drag = null;
     if (state) persistLocal(state);
@@ -979,21 +1198,13 @@ function bindUi() {
   $("fpb-file")?.addEventListener("change", onFileChange);
   bindDropzone();
   bindRoomEditor();
+  bindDevicePalette();
   bindRenameSheet();
   $("fpb-clear-bg")?.addEventListener("click", clearBackground);
   $("fpb-detect")?.addEventListener("click", () => runAutoDetect());
   $("fpb-add-room")?.addEventListener("click", addRoom);
   $("fpb-save")?.addEventListener("click", saveAll);
   $("fpb-send-security")?.addEventListener("click", sendToSecurity);
-
-  document.querySelectorAll("#fpb-floor-tabs .fpb-tab").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      if (!state || btn.disabled) return;
-      state.activeFloor = btn.getAttribute("data-floor") || "1f";
-      selectedRoomId = null;
-      refresh2d();
-    });
-  });
 
   const wall = $("fpb-wall-h");
   const opacity = $("fpb-opacity");
@@ -1045,10 +1256,13 @@ async function boot() {
       if (state?.render) {
         const g = String(state.render.glowColor || "");
         const a = String(state.render.glowColorAlt || "");
-        if (/^#(00ff88|39ff14|00ff00)$/i.test(g)) state.render.glowColor = "#059669";
+        if (/^#(00ff88|39ff14|00ff00|059669)$/i.test(g)) state.render.glowColor = "#2563EB";
         if (/^#(00d4ff|00e5ff|00ffff)$/i.test(a)) state.render.glowColorAlt = "#0284c7";
       }
-      for (const f of state.floors || []) ensureBgTransform(f);
+      for (const f of state.floors || []) {
+        ensureBgTransform(f);
+        ensureDevices(f);
+      }
       refresh2d();
       setStatus(`復元: ${state.name}`);
       return;

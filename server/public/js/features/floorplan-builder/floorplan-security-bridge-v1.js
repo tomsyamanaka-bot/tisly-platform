@@ -85,18 +85,52 @@
       .join("");
   }
 
+  function devicesSvg(devices) {
+    return (devices || [])
+      .map(function (d) {
+        return (
+          '<g class="sf-pin is-sens" data-sensor-id="' +
+          escapeHtml(d.id) +
+          '" transform="translate(' +
+          d.x +
+          " " +
+          d.y +
+          ')">' +
+          '<circle class="sf-pin-pulse" r="8"></circle>' +
+          '<circle class="sf-pin-bg" r="5.6"></circle>' +
+          '<text class="sf-pin-icon" y="0.6">◆</text></g>'
+        );
+      })
+      .join("");
+  }
+
+  function floorHasContent(floor) {
+    if (!floor || floor.enabled === false) return false;
+    return (
+      (floor.rooms || []).length > 0 ||
+      (floor.devices || []).length > 0 ||
+      (floor.openings || []).length > 0
+    );
+  }
+
   function applyFloor(layerEl, floorId, config) {
     if (!layerEl || !config) return;
     var floor = (config.floors || []).find(function (f) {
       return f.id === floorId;
     });
-    if (!floor || !floor.enabled) return;
+    if (!floorHasContent(floor)) {
+      layerEl.remove();
+      return;
+    }
     var svg = layerEl.querySelector("svg.sf-map");
     if (!svg) return;
     var slab =
       '<rect class="sf-iso-slab" x="2" y="2" width="96" height="96" rx="3"></rect>';
     svg.innerHTML =
-      slab + roomsSvg(floor.rooms) + openingsSvg(floor.openings);
+      slab +
+      roomsSvg(floor.rooms) +
+      openingsSvg(floor.openings) +
+      devicesSvg(floor.devices);
   }
 
   function banner(name) {

@@ -29,8 +29,8 @@ function nowIso() {
 }
 
 const MORIYA_FLOORS = [
-  { id: "2f", label: "2F", enabled: true },
   { id: "1f", label: "1F", enabled: true },
+  { id: "2f", label: "2F", enabled: false },
   { id: "outdoor", label: "外周・敷地", enabled: true },
 ];
 
@@ -167,15 +167,6 @@ function moriyaSite() {
       y: 80,
       w: 34,
       h: 16,
-    }),
-    room({
-      id: "my-2f-empty",
-      floorId: "2f",
-      label: "2F（なし）",
-      x: 20,
-      y: 30,
-      w: 60,
-      h: 40,
     }),
     room({
       id: "my-out-park",

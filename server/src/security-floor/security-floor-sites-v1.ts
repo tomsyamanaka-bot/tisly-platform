@@ -461,7 +461,7 @@ export const SECURITY_FLOOR_SITES_V1: SecuritySiteV1[] = [
     monthlyFee: 4400,
     floors: [
       { id: "1f", label: "1F", enabled: true },
-      { id: "2f", label: "2F", enabled: true },
+      { id: "2f", label: "2F", enabled: false },
       {
         id: "outdoor",
         label: "外周・敷地",
@@ -602,16 +602,6 @@ export const SECURITY_FLOOR_SITES_V1: SecuritySiteV1[] = [
         y: 80,
         w: 34,
         h: 16,
-      },
-      // 2F は平屋のため空スラブのみ（ドラム面維持）
-      {
-        id: "my-2f-empty",
-        floorId: "2f",
-        label: "2F（なし）",
-        x: 20,
-        y: 30,
-        w: 60,
-        h: 40,
       },
       {
         id: "my-out-park",

@@ -51,6 +51,14 @@ describe("security-floor-v1", () => {
       moriya.floors.find((f) => f.id === "1f")?.enabled,
       true
     );
+    assert.equal(
+      moriya.floors.find((f) => f.id === "2f")?.enabled,
+      false
+    );
+    assert.equal(
+      moriya.rooms.some((r) => r.id === "my-2f-empty"),
+      false
+    );
     assert.ok(jp.floors.find((f) => f.id === "roof"));
     assert.equal(
       jp.floors.find((f) => f.id === "roof")?.enabled,
@@ -285,9 +293,9 @@ describe("security-floor-v1", () => {
     assert.match(html, /廊下（3尺）/);
     assert.match(html, /アラーム対応完了/);
     assert.match(html, /TiSLY Security/);
-    assert.match(html, /security-floor-light-v1\.js\?v=2479/);
-    assert.match(html, /security-floor-operator-v1\.js\?v=2479/);
-    assert.match(html, /security-floor-iso3d-v1\.js\?v=2479/);
+    assert.match(html, /security-floor-light-v1\.js\?v=2480/);
+    assert.match(html, /security-floor-operator-v1\.js\?v=2480/);
+    assert.match(html, /security-floor-iso3d-v1\.js\?v=2480/);
     assert.match(html, /importmap/);
     assert.match(html, /viewBox="-10 -12 120 124"/);
     assert.match(html, /← 戻る/);
@@ -311,6 +319,7 @@ describe("security-floor-v1", () => {
     assert.match(mapJs, /alert-beacon/);
     assert.match(mapJs, /sf-iso-orbit/);
     assert.match(mapJs, /sf-iso3d-mount/);
+    assert.match(mapJs, /floorHasContent/);
     assert.doesNotMatch(mapJs, /屋根\/太陽光/);
     const iso3dJs = fs.readFileSync(
       path.join(
@@ -324,6 +333,9 @@ describe("security-floor-v1", () => {
     assert.match(iso3dJs, /TislySecurityIso3d/);
     assert.match(iso3dJs, /setAlert/);
     assert.match(iso3dJs, /wallHeight/);
+    assert.match(iso3dJs, /buildDevicePinHtml/);
+    assert.match(iso3dJs, /tisly-neon-pin/);
+    assert.match(iso3dJs, /外壁フレーム/);
     const orbitJs = fs.readFileSync(
       path.join(
         publicDir,

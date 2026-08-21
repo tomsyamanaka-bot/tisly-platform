@@ -274,6 +274,8 @@ describe("floorplan-builder-v1", () => {
     assert.match(html, /id="fpb-bg-zoom"/);
     assert.match(html, /id="fpb-bg-opacity"/);
     assert.match(html, /id="fpb-rename-sheet"/);
+    assert.match(html, /id="fpb-device-palette"/);
+    assert.match(html, /センサー\/デバイス配置パレット/);
 
     const js = fs.readFileSync(
       path.join(
@@ -289,5 +291,17 @@ describe("floorplan-builder-v1", () => {
     assert.match(js, /openRenameSheet/);
     assert.match(js, /ensureBgTransform/);
     assert.match(js, /data-handle/);
+    assert.match(js, /addDeviceAt/);
+    assert.match(js, /bindDevicePalette/);
+    assert.match(js, /floorHasContent/);
+    assert.match(js, /緑外壁フレーム/);
+  });
+
+  it("デバイス配置が security bridge に含まれる", () => {
+    const hiraya = createHirayaDemoPresetV1();
+    assert.ok((hiraya.security.devices?.length || 0) >= 3);
+    const floor1 = hiraya.floors.find((f) => f.id === "1f");
+    assert.ok((floor1?.devices?.length || 0) >= 3);
+    assert.equal(hiraya.floors.find((f) => f.id === "2f")?.enabled, false);
   });
 });

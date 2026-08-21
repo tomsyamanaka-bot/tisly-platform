@@ -6,10 +6,10 @@
   --fpb-line: #e2e8f0;
   --fpb-text: #0f172a;
   --fpb-muted: #64748b;
-  --fpb-neon: #059669;
+  --fpb-neon: #2563eb;
   --fpb-cyan: #0284c7;
   --fpb-navy: #1e3a8a;
-  --fpb-accent-soft: #ecfdf5;
+  --fpb-accent-soft: #eff6ff;
   --fpb-cyan-soft: #e0f2fe;
   --fpb-shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 4px 16px rgba(15, 23, 42, 0.04);
   --fpb-tap: 52px;
@@ -24,7 +24,7 @@
   color: var(--fpb-text);
   background:
     radial-gradient(ellipse 70% 40% at 10% 0%, rgba(2, 132, 199, 0.06), transparent 55%),
-    radial-gradient(ellipse 60% 35% at 95% 5%, rgba(5, 150, 105, 0.05), transparent 50%),
+    radial-gradient(ellipse 60% 35% at 95% 5%, rgba(37, 99, 235, 0.06), transparent 50%),
     linear-gradient(180deg, var(--fpb-bg1), var(--fpb-bg0));
 }
 
@@ -358,10 +358,97 @@
 }
 
 .fpb-overlay .fpb-opening {
-  fill: #059669;
+  fill: #2563eb;
   stroke: #ffffff;
   stroke-width: 0.3;
   pointer-events: none;
+}
+
+.fpb-overlay .fpb-device-pin {
+  cursor: grab;
+  pointer-events: auto;
+}
+
+.fpb-overlay .fpb-device-pin.is-selected .fpb-device-halo {
+  stroke: #1e3a8a;
+  stroke-width: 0.45;
+}
+
+.fpb-overlay .fpb-device-halo {
+  fill: rgba(37, 99, 235, 0.18);
+  stroke: rgba(37, 99, 235, 0.55);
+  stroke-width: 0.3;
+}
+
+.fpb-overlay .fpb-device-core {
+  fill: url(#none);
+  fill: #eff6ff;
+  stroke: #2563eb;
+  stroke-width: 0.35;
+}
+
+.fpb-overlay .fpb-device-glyph {
+  font-size: 2.4px;
+  fill: #1e3a8a;
+  pointer-events: none;
+  font-weight: 700;
+}
+
+.fpb-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.fpb-palette-item {
+  flex: 1 1 120px;
+  min-height: var(--fpb-tap);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--fpb-line);
+  background: linear-gradient(160deg, #ffffff, #eff6ff);
+  color: var(--fpb-text);
+  font-weight: 700;
+  cursor: grab;
+  box-shadow: var(--fpb-shadow);
+}
+
+.fpb-palette-item.is-dragging {
+  opacity: 0.55;
+}
+
+.fpb-palette-icon {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.fpb-palette-label {
+  font-size: 0.82rem;
+}
+
+.fpb-canvas-wrap.is-device-drop {
+  outline: 2px dashed #2563eb;
+  outline-offset: 2px;
+}
+
+.fpb-preview {
+  position: relative;
+}
+
+.fpb-3d-labels {
+  position: absolute !important;
+  inset: 0 !important;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.fpb-3d-pin.is-selected .tisly-neon-pin-head {
+  box-shadow:
+    0 0 0 2px #1e3a8a,
+    0 0 16px rgba(37, 99, 235, 0.55);
 }
 
 .fpb-btn-detect {

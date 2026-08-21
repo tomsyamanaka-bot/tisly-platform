@@ -10,7 +10,8 @@
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2003" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
   <title>TiSLY 3D Floorplan Builder</title>
-  <link rel="stylesheet" href="/css/features/floorplan-builder/floorplan-builder-v1.css?v=2478" />
+  <link rel="stylesheet" href="/css/features/floorplan-builder/floorplan-builder-v1.css?v=2480" />
+  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2480" />
 </head>
 <body class="fpb-body">
   <header class="fpb-header">
@@ -18,7 +19,7 @@
     <div class="fpb-brand">
       <p class="fpb-brand-name">TiSLY</p>
       <h1 class="fpb-title">3D Floorplan Builder</h1>
-      <p class="fpb-sub">方眼紙AI解析 · 部屋枠編集 · アイソメ俯瞰 · Security連携</p>
+      <p class="fpb-sub">方眼紙AI解析 · 部屋枠編集 · センサー配置 · アイソメ俯瞰 · Security連携</p>
     </div>
   </header>
 
@@ -37,12 +38,16 @@
     </section>
 
     <section class="fpb-card">
-      <p class="fpb-label">フロア切替</p>
+      <p class="fpb-label">フロア切替（データがある階のみ）</p>
       <div class="fpb-tabs" id="fpb-floor-tabs" role="tablist">
         <button type="button" class="fpb-tab is-on" data-floor="1f">1階</button>
-        <button type="button" class="fpb-tab" data-floor="2f">2階</button>
-        <button type="button" class="fpb-tab" data-floor="outdoor">外周・敷地</button>
       </div>
+    </section>
+
+    <section class="fpb-card fpb-device-palette-card">
+      <p class="fpb-label">＋ センサー/デバイス配置パレット</p>
+      <div class="fpb-palette" id="fpb-device-palette" role="list"></div>
+      <p class="fpb-hint">パレットからマップへドラッグ＆ドロップ · ピンをドラッグで移動 · タップで削除</p>
     </section>
 
     <section class="fpb-card fpb-scan">
@@ -153,6 +158,6 @@
     }
   }
   </script>
-  <script type="module" src="/js/features/floorplan-builder/floorplan-builder-v1.js?v=2478"></script>
+  <script type="module" src="/js/features/floorplan-builder/floorplan-builder-v1.js?v=2480"></script>
 </body>
 </html>
