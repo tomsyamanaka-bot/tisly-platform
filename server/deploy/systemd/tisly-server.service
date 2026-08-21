@@ -2,6 +2,9 @@
 Description=TiSLY Notification Platform API and PWA
 After=network.target mosquitto.service
 Wants=mosquitto.service
+# Service 節ではなく Unit 節に置く（未知キー警告と無効化を防ぐ）
+StartLimitIntervalSec=120
+StartLimitBurst=15
 
 [Service]
 Type=simple
@@ -11,9 +14,9 @@ Environment=NODE_ENV=production
 ExecStart=/usr/bin/node dist/index.js
 # デプロイ中断・一時クラッシュ後も自動復帰（502 長期化を防ぐ）
 Restart=always
-RestartSec=3
-StartLimitIntervalSec=60
-StartLimitBurst=10
+RestartSec=1
+TimeoutStopSec=15
+TimeoutStartSec=90
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=tisly-server

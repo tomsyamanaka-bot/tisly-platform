@@ -178,6 +178,9 @@ sudo systemctl status tisly-server
 # 直近ログ
 journalctl -u tisly-server -n 80 --no-pager
 
+# 502 緊急復旧（nginx リトライ適用 + restart + health）
+bash /opt/tisly/scripts/vps-recover-502.sh
+
 # 手動デプロイ再試行
 cd /opt/tisly && bash scripts/deploy-vps.sh
 
@@ -189,6 +192,14 @@ cd /opt/tisly && git log -1 --oneline && git status -sb
 ```
 
 GitHub 側: リポジトリの **Actions** タブ → **VPS Auto Deploy** ワークフローのログを確認。
+
+### 502 Bad Gateway の典型原因
+
+| 症状 | 原因 | 対処 |
+|------|------|------|
+| nginx `connect() failed (111)` → `127.0.0.1:3080` | `tisly-server` 停止中 / 起動前 | `systemctl restart tisly-server` または `vps-recover-502.sh` |
+| デプロイ直後だけ数秒 502 | restart 窓（listen 前） | listen 先行 + nginx `proxy_next_upstream` で吸収 |
+| 長時間 502 | ビルド失敗後に Node が落ちたまま | `deploy-vps.sh` 再実行 · `journalctl -u tisly-server` |
 
 ---
 

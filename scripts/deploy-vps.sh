@@ -71,19 +71,32 @@ if [ -f "${UNIT_SRC}" ]; then
   log "systemd unit updated"
 fi
 
+echo "=== apply nginx (502 retry) ==="
+NGINX_SRC="${REPO_ROOT}/server/deploy/nginx/tisly.jp.conf"
+if [ -f "${NGINX_SRC}" ]; then
+  sudo cp "${NGINX_SRC}" /etc/nginx/sites-available/tisly.jp
+  sudo ln -sf /etc/nginx/sites-available/tisly.jp /etc/nginx/sites-enabled/tisly.jp
+  if sudo nginx -t; then
+    sudo systemctl reload nginx
+    log "nginx reloaded"
+  else
+    fail "nginx -t failed — conf not applied"
+  fi
+fi
+
 echo "=== restart ==="
 sudo systemctl restart "${SERVICE_NAME}"
 
 echo "=== localhost health check ==="
 LOCAL_OK=false
-for attempt in $(seq 1 40); do
-  if curl -sf --max-time 5 "http://127.0.0.1:3080/api/health" | grep -q commitShort; then
+for attempt in $(seq 1 60); do
+  if curl -sf --max-time 3 "http://127.0.0.1:3080/api/health" | grep -q commitShort; then
     LOCAL_OK=true
     log "localhost health OK (${attempt})"
     break
   fi
-  log "localhost health 待機中 (${attempt}/40)..."
-  sleep 2
+  log "localhost health 待機中 (${attempt}/60)..."
+  sleep 1
 done
 [ "${LOCAL_OK}" = "true" ] || fail "localhost:3080/api/health に到達できません"
 

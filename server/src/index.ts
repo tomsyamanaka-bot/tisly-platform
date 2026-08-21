@@ -23,6 +23,8 @@ import { ensureLockProviderSeed } from "./lock-provider/lock-provider-store.js";
 import { probePdfEngineHealth } from "./business/pdf/pdf-engine-status.js";
 import { bootstrapQnapInfraHealthOnStartupV1 } from "./infrastructure/qnap-infra-health-v1.js";
 
+// 再起動中の 502 窓を縮めるため、
+// listen を最優先し、重い Worker は後段で起動する。
 logProductionEnvWarnings();
 logGmailStartupStatus();
 initLockProvider();
@@ -31,27 +33,8 @@ getDatabase();
 ensureLockProviderSeed();
 ensureDemoKit();
 syncDemoResetFromEnv();
-startDemoResetCron();
-startBackupScheduler();
-startHealthMonitor();
-startWorkers();
-startSwitchBotBridgeWorker();
-
-void probePdfEngineHealth().catch((e) => {
-  console.warn("[pdf-engine] startup probe failed:", e instanceof Error ? e.message : e);
-});
-
-void bootstrapQnapInfraHealthOnStartupV1().catch((e) => {
-  console.warn("[QNAP infra] bootstrap failed:", e instanceof Error ? e.message : e);
-});
 
 const app = createApp();
-
-startRecoveryEngine();
-const service = getNotificationService();
-service.start();
-startMqttSubscriber();
-
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: "/ws" });
 
@@ -62,12 +45,48 @@ wss.on("connection", (socket) => {
   });
 });
 
-startLiveOperationsMockPush();
+function startBackgroundServices(): void {
+  startDemoResetCron();
+  startBackupScheduler();
+  startHealthMonitor();
+  startWorkers();
+  startSwitchBotBridgeWorker();
+
+  void probePdfEngineHealth().catch((e) => {
+    console.warn(
+      "[pdf-engine] startup probe failed:",
+      e instanceof Error ? e.message : e
+    );
+  });
+
+  void bootstrapQnapInfraHealthOnStartupV1().catch((e) => {
+    console.warn(
+      "[QNAP infra] bootstrap failed:",
+      e instanceof Error ? e.message : e
+    );
+  });
+
+  startRecoveryEngine();
+  getNotificationService().start();
+  startMqttSubscriber();
+  startLiveOperationsMockPush();
+}
+
+process.on("unhandledRejection", (reason) => {
+  console.error("[unhandledRejection]", reason);
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("[uncaughtException]", err);
+  // systemd Restart=always で復帰させる
+  process.exit(1);
+});
 
 server.listen(config.port, config.host, () => {
   console.log(
     `[TiSLY] ${config.publicUrl} — listening on http://${config.host}:${config.port} (ws: /ws) phase 1201-1240`
   );
+  startBackgroundServices();
   if (config.demoMode) {
     startDemoModeVirtualEspRunner();
     if (config.demoAutoStart) {

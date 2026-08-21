@@ -28,6 +28,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | VPS 手動更新 | **基本不要**（Actions 失敗時のみ人間が介入） |
 | 成功確認 URL | https://tisly.jp/api/health の `commitShort` が push した commit の先頭 7 文字と一致 |
 | 詳細手順 | [VPS_AUTO_DEPLOY.md](./VPS_AUTO_DEPLOY.md) |
+| 502 対策（2026-08-21） | listen 先行起動 · nginx `proxy_next_upstream` リトライ · systemd `StartLimit*` を `[Unit]` へ · `scripts/vps-recover-502.sh` |
 
 ---
 

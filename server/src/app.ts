@@ -1030,5 +1030,24 @@ export function createApp(): express.Application {
     res.status(404).sendFile(path.join(publicDir, "tisly-not-found.html"));
   });
 
+  // 不正 JSON は 400 で返し、プロセスを落とさない
+  // （body-parser SyntaxError の 502 連鎖防止）
+  app.use(
+    (
+      err: Error & { status?: number; type?: string },
+      _req: express.Request,
+      res: express.Response,
+      next: express.NextFunction
+    ) => {
+      const isJsonParse =
+        err instanceof SyntaxError || err.type === "entity.parse.failed";
+      if (isJsonParse) {
+        res.status(400).json({ error: "Invalid JSON body" });
+        return;
+      }
+      next(err);
+    }
+  );
+
   return app;
 }
