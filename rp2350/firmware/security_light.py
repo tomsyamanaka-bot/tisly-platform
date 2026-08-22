@@ -1,0 +1,247 @@
+"""
+DI赤外線センサー連動
+段階的防犯ライト制御（uasyncio）
+
+DI1=外周 / DI2=近接
+DO CH2=24V / DO CH3=100V
+サーバーから動的同期したルールで動作。
+"""
+
+import time
+
+try:
+    import uasyncio as asyncio
+except ImportError:
+    import asyncio
+
+# デフォルト（サーバー未同期時）
+_DEFAULT_DURATION_MS = 45_000
+_DEFAULT_PERIMETER_MS = 120_000
+_DEFAULT_STROBE_ON_MS = 250
+_DEFAULT_STROBE_OFF_MS = 250
+
+CH_24V = 2
+CH_100V = 3
+DI_OUTER = 1
+DI_INNER = 2
+
+
+class SecurityLightController:
+    """DI1/DI2 段階侵入に応じた防犯ライト制御。"""
+
+    def __init__(self, set_ch, send_heartbeat=None):
+        self._set_ch = set_ch
+        self._send_heartbeat = send_heartbeat
+        self._perimeter_until_ms = 0
+        self._seq_id = 0
+        self._active_task = None
+        self._rules_version = 0
+        self._guard_active = True
+        self._security_paused = False
+        self._di1_duration_ms = _DEFAULT_DURATION_MS
+        self._di2_duration_ms = _DEFAULT_DURATION_MS
+        self._di1_mode = "steady"
+        self._di2_mode = "fast_blink"
+        self._perimeter_flag_ms = _DEFAULT_PERIMETER_MS
+        self._strobe_on_ms = _DEFAULT_STROBE_ON_MS
+        self._strobe_off_ms = _DEFAULT_STROBE_OFF_MS
+
+    def apply_rules(self, rules):
+        """VPS から取得したルール JSON を反映。"""
+        if not rules or not isinstance(rules, dict):
+            return False
+        ver = int(rules.get("version", 0))
+        if ver <= self._rules_version and ver > 0:
+            return False
+        self._rules_version = ver if ver > 0 else self._rules_version + 1
+        self._guard_active = bool(rules.get("guardActive", True))
+        self._security_paused = bool(rules.get("securityPaused", False))
+        self._di1_duration_ms = int(
+            rules.get("di1DurationMs", _DEFAULT_DURATION_MS)
+        )
+        self._di2_duration_ms = int(
+            rules.get("di2AlertDurationMs", _DEFAULT_DURATION_MS)
+        )
+        self._di1_mode = str(rules.get("di1LightMode", "steady"))
+        self._di2_mode = str(rules.get("di2LightMode", "fast_blink"))
+        self._perimeter_flag_ms = int(
+            rules.get("perimeterFlagMs", _DEFAULT_PERIMETER_MS)
+        )
+        self._strobe_on_ms = int(
+            rules.get("strobeOnMs", _DEFAULT_STROBE_ON_MS)
+        )
+        self._strobe_off_ms = int(
+            rules.get("strobeOffMs", _DEFAULT_STROBE_OFF_MS)
+        )
+        self.log(
+            "rules synced v{} guard={} di1={}s mode={}".format(
+                self._rules_version,
+                self._guard_active,
+                self._di1_duration_ms // 1000,
+                self._di1_mode,
+            )
+        )
+        return True
+
+    def log(self, msg):
+        print("[tisly security]", msg)
+
+    def _can_run(self):
+        if self._security_paused:
+            self.log("security paused — skip")
+            return False
+        if not self._guard_active:
+            self.log("guard inactive — skip lights")
+            return False
+        return True
+
+    def on_di_edge(self, di, prev_state, new_state):
+        if new_state != "on" or prev_state == "on":
+            return
+        if di == DI_OUTER:
+            self._on_di1_detected()
+        elif di == DI_INNER:
+            self._on_di2_detected()
+
+    def _perimeter_active(self):
+        return time.ticks_diff(
+            self._perimeter_until_ms, time.ticks_ms()
+        ) > 0
+
+    def _set_perimeter_flag(self):
+        self._perimeter_until_ms = time.ticks_add(
+            time.ticks_ms(), self._perimeter_flag_ms
+        )
+
+    def _clear_perimeter_flag(self):
+        self._perimeter_until_ms = 0
+
+    def _notify_vps(self, message, pattern):
+        self.log(message)
+        if self._send_heartbeat:
+            try:
+                self._send_heartbeat()
+            except Exception as exc:
+                print("[tisly security] heartbeat err:", exc)
+
+    def _on_di1_detected(self):
+        self._set_perimeter_flag()
+        self.log("DI1 detected -> Pattern A")
+        self._notify_vps("security event DI1 pattern_a", "A")
+        if not self._can_run():
+            return
+        self._start_sequence("A")
+
+    def _on_di2_detected(self):
+        if self._perimeter_active():
+            self.log("DI2 within perimeter -> Pattern B")
+            self._notify_vps("security event DI2 pattern_b", "B")
+            if not self._can_run():
+                return
+            self._start_sequence("B")
+        else:
+            self.log("DI2 alone -> Pattern C")
+            self._notify_vps("security event DI2 pattern_c", "C")
+            if not self._can_run():
+                return
+            self._start_sequence("C")
+
+    def _start_sequence(self, pattern):
+        self._seq_id += 1
+        seq_id = self._seq_id
+        if self._active_task is not None:
+            try:
+                self._active_task.cancel()
+            except Exception:
+                pass
+        self._active_task = asyncio.create_task(
+            self._run_sequence(pattern, seq_id)
+        )
+
+    def _all_security_off(self):
+        self._set_ch(CH_24V, False)
+        self._set_ch(CH_100V, False)
+
+    async def _run_sequence(self, pattern, seq_id):
+        try:
+            if pattern == "A":
+                await self._pattern_a(seq_id)
+            elif pattern == "B":
+                await self._pattern_b(seq_id)
+            elif pattern == "C":
+                await self._pattern_c(seq_id)
+        except asyncio.CancelledError:
+            self._all_security_off()
+            raise
+        finally:
+            if self._seq_id == seq_id:
+                self._active_task = None
+
+    def _seq_alive(self, seq_id):
+        return self._seq_id == seq_id
+
+    async def _pattern_a(self, seq_id):
+        mode = self._di1_mode
+        duration_ms = self._di1_duration_ms
+        if mode == "strobe":
+            await self._strobe_24v(seq_id, duration_ms)
+        elif mode == "blink":
+            await self._blink_24v(seq_id, duration_ms, 500, 500)
+        else:
+            self._set_ch(CH_24V, True)
+            self.log("Pattern A: 24V steady ON")
+            await self._wait_duration(seq_id, duration_ms)
+            if self._seq_alive(seq_id):
+                self._set_ch(CH_24V, False)
+
+    async def _pattern_b(self, seq_id):
+        duration_ms = self._di2_duration_ms
+        self._set_ch(CH_100V, True)
+        if self._di2_mode == "steady":
+            self._set_ch(CH_24V, True)
+            await self._wait_duration(seq_id, duration_ms)
+        else:
+            await self._strobe_24v(seq_id, duration_ms)
+        if self._seq_alive(seq_id):
+            self._all_security_off()
+            self._clear_perimeter_flag()
+
+    async def _pattern_c(self, seq_id):
+        duration_ms = self._di2_duration_ms
+        self._set_ch(CH_100V, True)
+        self._set_ch(CH_24V, True)
+        await self._wait_duration(seq_id, duration_ms)
+        if self._seq_alive(seq_id):
+            self._all_security_off()
+
+    async def _strobe_24v(self, seq_id, duration_ms):
+        end_ms = time.ticks_add(time.ticks_ms(), duration_ms)
+        ch24_on = False
+        while self._seq_alive(seq_id):
+            if time.ticks_diff(end_ms, time.ticks_ms()) <= 0:
+                break
+            ch24_on = not ch24_on
+            self._set_ch(CH_24V, ch24_on)
+            await asyncio.sleep_ms(
+                self._strobe_on_ms if ch24_on else self._strobe_off_ms
+            )
+
+    async def _blink_24v(self, seq_id, duration_ms, on_ms, off_ms):
+        end_ms = time.ticks_add(time.ticks_ms(), duration_ms)
+        ch24_on = False
+        while self._seq_alive(seq_id):
+            if time.ticks_diff(end_ms, time.ticks_ms()) <= 0:
+                break
+            ch24_on = not ch24_on
+            self._set_ch(CH_24V, ch24_on)
+            await asyncio.sleep_ms(on_ms if ch24_on else off_ms)
+        if self._seq_alive(seq_id):
+            self._set_ch(CH_24V, False)
+
+    async def _wait_duration(self, seq_id, duration_ms=None):
+        ms = duration_ms if duration_ms else self._di1_duration_ms
+        end_ms = time.ticks_add(time.ticks_ms(), ms)
+        while self._seq_alive(seq_id):
+            if time.ticks_diff(end_ms, time.ticks_ms()) <= 0:
+                break
+            await asyncio.sleep_ms(100)

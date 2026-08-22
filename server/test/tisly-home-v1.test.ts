@@ -958,4 +958,90 @@ describe("tisly-home-v1", () => {
       else delete process.env.SWITCHBOT_AIR_CONDITIONER_DEVICE_ID;
     }
   });
+
+  it("security rules API get/put and firmware JSON", async () => {
+    const getRes = await request(app)
+      .get(`/api/home/v1/security-rules?siteId=${JP_SITE}`)
+      .expect(200);
+    assert.equal(getRes.body.ok, true);
+    assert.ok(getRes.body.rules.di1DurationSec >= 10);
+    assert.equal(typeof getRes.body.rules.notifyDi1SilentLogOnly, "boolean");
+
+    const putRes = await request(app)
+      .put("/api/home/v1/security-rules")
+      .send({
+        siteId: JP_SITE,
+        guardMode: "always",
+        di1DurationSec: 60,
+        di1LightMode: "blink",
+        notifyDi2InstantPush: true,
+      })
+      .expect(200);
+    assert.equal(putRes.body.rules.guardMode, "always");
+    assert.equal(putRes.body.rules.di1DurationSec, 60);
+    assert.equal(putRes.body.rules.di1LightMode, "blink");
+
+    const getAgain = await request(app)
+      .get(`/api/home/v1/security-rules?siteId=${JP_SITE}`)
+      .expect(200);
+    assert.equal(getAgain.body.rules.di1DurationSec, 60);
+
+    const fwRes = await request(app)
+      .get(
+        `/api/home/v1/security-rules/firmware?siteId=${JP_SITE}`
+      )
+      .expect(200);
+    assert.equal(fwRes.body.ok, true);
+    assert.equal(fwRes.body.rules.di1DurationMs, 60_000);
+    assert.equal(fwRes.body.rules.di1LightMode, "blink");
+  });
+
+  it("scene control away/welcome/goodnight", async () => {
+    const away = await request(app)
+      .post("/api/home/v1/scene")
+      .send({ siteId: JP_SITE, scene: "away", actor: "test" })
+      .expect(200);
+    assert.equal(away.body.ok, true);
+    assert.equal(away.body.scene, "away");
+    assert.ok(Array.isArray(away.body.actions));
+
+    const welcome = await request(app)
+      .post("/api/home/v1/scene")
+      .send({ siteId: ITABASHI_SITE, scene: "welcome", actor: "test" })
+      .expect(200);
+    assert.equal(welcome.body.ok, true);
+    assert.match(welcome.body.message, /ただいま/);
+
+    const night = await request(app)
+      .post("/api/home/v1/scene")
+      .send({ siteId: JP_SITE, scene: "goodnight", actor: "test" })
+      .expect(200);
+    assert.equal(night.body.ok, true);
+    assert.equal(night.body.scene, "goodnight");
+  });
+
+  it("security stats and activity timeline APIs", async () => {
+    const stats = await request(app)
+      .get(`/api/home/v1/security-stats?siteId=${JP_SITE}&days=7`)
+      .expect(200);
+    assert.equal(stats.body.ok, true);
+    assert.equal(stats.body.stats.heatmap.length, 24);
+    assert.equal(stats.body.stats.dailyCounts.length, 7);
+
+    const timeline = await request(app)
+      .get(`/api/home/v1/activity-timeline?siteId=${JP_SITE}&limit=10`)
+      .expect(200);
+    assert.equal(timeline.body.ok, true);
+    assert.ok(Array.isArray(timeline.body.timeline));
+  });
+
+  it("home customer HTML includes security scene UI", () => {
+    const html = fs.readFileSync(
+      path.join(publicDir, "home-customer-v1.html"),
+      "utf8"
+    );
+    assert.match(html, /hm-scene-row/);
+    assert.match(html, /hm-security-settings/);
+    assert.match(html, /hm-heatmap/);
+  });
 });

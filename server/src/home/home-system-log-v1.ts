@@ -14,7 +14,9 @@ export type HomeSystemLogCategoryV1 =
   | "delay_run"
   | "sensor_alert"
   | "rp2350_comm"
-  | "bath_state";
+  | "bath_state"
+  | "scene_run"
+  | "light_event";
 
 export interface HomeSystemLogRowV1 {
   id: number;

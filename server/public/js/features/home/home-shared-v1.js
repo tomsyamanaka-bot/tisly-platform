@@ -1046,3 +1046,237 @@ export function replaceSiteIdInUrl(siteId) {
     // 失敗しても表示は継続
   }
 }
+
+/* ---------- 防犯・シーン API ---------- */
+
+export async function fetchSecurityRules(siteId) {
+  const res = await fetch(
+    `${HOME_API_V1}/security-rules?siteId=${encodeURIComponent(siteId)}`,
+    { cache: "no-store" }
+  );
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || "設定取得に失敗");
+  return data.rules;
+}
+
+export async function saveSecurityRules(payload) {
+  const res = await fetch(`${HOME_API_V1}/security-rules`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || "保存に失敗しました");
+  return data.rules;
+}
+
+export async function runHomeScene(siteId, scene, actor = "customer") {
+  const res = await fetch(`${HOME_API_V1}/scene`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ siteId, scene, actor, audience: "customer" }),
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || data.message || "シーン失敗");
+  return data;
+}
+
+export async function fetchSecurityStats(siteId, days = 7) {
+  const res = await fetch(
+    `${HOME_API_V1}/security-stats?siteId=${encodeURIComponent(siteId)}&days=${days}`,
+    { cache: "no-store" }
+  );
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || "統計取得に失敗");
+  return data.stats;
+}
+
+export async function fetchActivityTimeline(siteId, limit = 40) {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (siteId) params.set("siteId", siteId);
+  const res = await fetch(
+    `${HOME_API_V1}/activity-timeline?${params.toString()}`,
+    { cache: "no-store" }
+  );
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || "タイムライン取得失敗");
+  return data.timeline || [];
+}
+
+/** 防犯ルール設定 UI を反映 */
+export function renderSecurityRulesForm(rules) {
+  const guard = byId("hm-guard-mode");
+  if (guard) guard.value = rules.guardMode || "night_only";
+  const di1Dur = byId("hm-di1-duration");
+  if (di1Dur) di1Dur.value = String(rules.di1DurationSec ?? 45);
+  setText("hm-di1-duration-val", rules.di1DurationSec ?? 45);
+  const di1Mode = byId("hm-di1-mode");
+  if (di1Mode) di1Mode.value = rules.di1LightMode || "steady";
+  const di2Mode = byId("hm-di2-mode");
+  if (di2Mode) di2Mode.value = rules.di2LightMode || "fast_blink";
+  const di2Dur = byId("hm-di2-duration");
+  if (di2Dur) di2Dur.value = String(rules.di2AlertDurationSec ?? 45);
+  setText("hm-di2-duration-val", rules.di2AlertDurationSec ?? 45);
+  const di1Silent = byId("hm-notify-di1-silent");
+  if (di1Silent) di1Silent.checked = rules.notifyDi1SilentLogOnly !== false;
+  const di2Push = byId("hm-notify-di2-push");
+  if (di2Push) di2Push.checked = rules.notifyDi2InstantPush !== false;
+}
+
+/** 防犯統計ダッシュボード描画 */
+export function renderSecurityDashboard(stats) {
+  if (!stats) return;
+  setText("hm-stats-di1", stats.totalDi1 ?? 0);
+  setText("hm-stats-di2", stats.totalDi2 ?? 0);
+  setText("hm-stats-total", stats.totalEvents ?? 0);
+
+  const heatRoot = byId("hm-heatmap");
+  if (heatRoot && stats.heatmap) {
+    const max = Math.max(
+      1,
+      ...stats.heatmap.map((c) => c.di1 + c.di2)
+    );
+    heatRoot.innerHTML = stats.heatmap
+      .map((cell) => {
+        const total = cell.di1 + cell.di2;
+        const pct = Math.round((total / max) * 100);
+        const level =
+          total === 0 ? 0 : pct < 34 ? 1 : pct < 67 ? 2 : 3;
+        return `<div class="hm-heat-cell is-l${level}" title="${cell.hour}時 DI1:${cell.di1} DI2:${cell.di2}">
+          <span>${cell.hour}</span>
+        </div>`;
+      })
+      .join("");
+  }
+
+  const chartRoot = byId("hm-daily-chart");
+  if (chartRoot && stats.dailyCounts) {
+    const maxDay = Math.max(
+      1,
+      ...stats.dailyCounts.map((d) => d.total)
+    );
+    chartRoot.innerHTML = stats.dailyCounts
+      .map((d) => {
+        const pct = Math.round((d.total / maxDay) * 100);
+        const label = d.date.slice(5);
+        return `<div class="hm-bar-row">
+          <span class="hm-bar-label">${escapeHtml(label)}</span>
+          <div class="hm-bar-track"><div class="hm-bar-fill" style="width:${pct}%"></div></div>
+          <span class="hm-bar-val">${d.total}</span>
+        </div>`;
+      })
+      .join("");
+  }
+}
+
+/** アクティビティタイムライン（カテゴリ付き） */
+export function renderActivityTimeline(rows, options = {}) {
+  const root = byId("hm-system-logs");
+  if (!root) return;
+  if (!rows?.length) {
+    root.innerHTML = '<p class="hm-empty">動作ログはまだありません</p>';
+    return;
+  }
+  root.innerHTML = rows
+    .map((row) => {
+      const t = row.createdAt
+        ? new Date(row.createdAt).toLocaleTimeString("ja-JP", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: false,
+            timeZone: "Asia/Tokyo",
+          })
+        : "";
+      const cat = row.categoryLabel || row.category || "";
+      return `<p class="hm-log-line"><span class="hm-log-cat">${escapeHtml(cat)}</span> [${escapeHtml(t)}] ${escapeHtml(row.message)}</p>`;
+    })
+    .join("");
+}
+
+/** 防犯 UI イベントを束ねる */
+export function bindHomeSecurityUiV1(getSiteId, getActor, onSceneDone) {
+  document.querySelectorAll("[data-scene]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const siteId = getSiteId();
+      const scene = btn.dataset.scene;
+      if (!siteId || !scene) return;
+      btn.disabled = true;
+      try {
+        const result = await runHomeScene(siteId, scene, getActor());
+        setText("hm-scene-status", result.message || "完了");
+        showToast(result.message);
+        if (typeof onSceneDone === "function") onSceneDone(result);
+      } catch (err) {
+        showToast(err.message || "シーン実行に失敗");
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  });
+
+  const di1Slider = byId("hm-di1-duration");
+  if (di1Slider) {
+    di1Slider.addEventListener("input", () => {
+      setText("hm-di1-duration-val", di1Slider.value);
+    });
+  }
+  const di2Slider = byId("hm-di2-duration");
+  if (di2Slider) {
+    di2Slider.addEventListener("input", () => {
+      setText("hm-di2-duration-val", di2Slider.value);
+    });
+  }
+
+  const saveBtn = byId("hm-security-save");
+  if (saveBtn) {
+    saveBtn.addEventListener("click", async () => {
+      const siteId = getSiteId();
+      if (!siteId) return;
+      saveBtn.disabled = true;
+      try {
+        await saveSecurityRules({
+          siteId,
+          actor: getActor(),
+          guardMode: byId("hm-guard-mode")?.value,
+          di1DurationSec: Number(byId("hm-di1-duration")?.value ?? 45),
+          di1LightMode: byId("hm-di1-mode")?.value,
+          di2LightMode: byId("hm-di2-mode")?.value,
+          di2AlertDurationSec: Number(byId("hm-di2-duration")?.value ?? 45),
+          notifyDi1SilentLogOnly: Boolean(
+            byId("hm-notify-di1-silent")?.checked
+          ),
+          notifyDi2InstantPush: Boolean(
+            byId("hm-notify-di2-push")?.checked
+          ),
+        });
+        showToast("防犯ルールを保存しました");
+      } catch (err) {
+        showToast(err.message || "保存に失敗しました");
+      } finally {
+        saveBtn.disabled = false;
+      }
+    });
+  }
+}
+
+/** 防犯パネルをまとめて更新 */
+export async function refreshHomeSecurityPanelsV1(siteId) {
+  if (!siteId) return;
+  try {
+    const rules = await fetchSecurityRules(siteId);
+    renderSecurityRulesForm(rules);
+  } catch {
+    /* 設定未取得 */
+  }
+  try {
+    renderSecurityDashboard(await fetchSecurityStats(siteId, 7));
+  } catch {
+    renderSecurityDashboard(null);
+  }
+  try {
+    renderActivityTimeline(await fetchActivityTimeline(siteId, 40));
+  } catch {
+    renderActivityTimeline([]);
+  }
+}

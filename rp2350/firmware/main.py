@@ -16,13 +16,15 @@ import json
 
 import time
 
-
+try:
+    import uasyncio as asyncio
+except ImportError:
+    import asyncio
 
 from machine import Pin
 
-
-
 import config
+from security_light import SecurityLightController
 
 
 
@@ -122,8 +124,7 @@ input_states = {
 
 _lan = None
 
-
-
+_security = None
 
 
 def log(msg):
@@ -456,6 +457,8 @@ def poll_inputs():
 
     changed = False
 
+    edges = []
+
     debounce_ms = int(getattr(config, "DI_DEBOUNCE_MS", 50))
 
     for di in sorted(DI_PINS.keys()):
@@ -472,13 +475,47 @@ def poll_inputs():
 
                 continue
 
+            prev = input_states[key]
+
             input_states[key] = state
 
             changed = True
 
+            edges.append((di, prev, state))
+
             log("DI{} {}".format(di, state.upper()))
 
-    return changed
+    return changed, edges
+
+
+def set_ch_output(channel, on):
+
+    """リレー出力と ch_states を同期更新。"""
+
+    if channel not in CH_PINS:
+
+        return
+
+    CH_PINS[channel].value(1 if on else 0)
+
+    ch_states[str(channel)] = "on" if on else "off"
+
+
+def handle_security_di_edges(edges):
+
+    """DI1/DI2 立上りで防犯ライト制御を起動。"""
+
+    global _security
+
+    if _security is None:
+
+        return
+
+    for di, prev, new in edges:
+
+        if di in (1, 2):
+
+            _security.on_di_edge(di, prev, new)
 
 
 
@@ -564,6 +601,32 @@ def send_heartbeat():
 
 
 
+
+
+def poll_security_rules():
+    """VPS から最新防犯ルール JSON を取得。"""
+    global _security
+    if _security is None:
+        return
+    site_id = getattr(config, "SITE_ID", "HOME-JP-ITABASHI-LIVE")
+    path = (
+        "/api/home/v1/security-rules/firmware?siteId="
+        + site_id
+    )
+    body, status = http_get(path)
+    if status != 200:
+        if status == 403:
+            log_error(
+                "security rules AUTH 403 — token mismatch"
+            )
+        return
+    try:
+        data = json.loads(body)
+        rules = data.get("rules")
+        if rules:
+            _security.apply_rules(rules)
+    except Exception as e:
+        log_error("security rules parse: {}".format(e))
 
 
 def poll_command():
@@ -750,7 +813,7 @@ def _parse_channel_command(cmd):
 
 
 
-def exec_command(cmd):
+async def exec_command(cmd):
 
     parsed = _parse_channel_command(cmd)
 
@@ -776,7 +839,7 @@ def exec_command(cmd):
 
             ))
 
-            time.sleep_ms(pulse_ms)
+            await asyncio.sleep_ms(pulse_ms)
 
             CH_PINS[channel].value(0)
 
@@ -814,7 +877,9 @@ def exec_command(cmd):
 
 
 
-def run():
+async def async_main():
+
+    global _security
 
     log("device: {}  fw: {}".format(config.DEVICE_ID, config.FIRMWARE_VERSION))
 
@@ -860,7 +925,22 @@ def run():
 
         return
 
+    _security = SecurityLightController(
 
+        set_ch_output,
+
+        send_heartbeat,
+
+    )
+
+    log("security light control enabled (DI1/DI2)")
+
+    rules_sync_every = int(
+        getattr(config, "SECURITY_RULES_SYNC_EVERY", 10)
+    )
+    poll_counter = 0
+
+    poll_security_rules()
 
     poll_interval_sec = int(config.POLL_INTERVAL_SEC)
 
@@ -906,21 +986,32 @@ def run():
 
     while True:
 
+        poll_counter += 1
+        if poll_counter >= rules_sync_every:
+            poll_counter = 0
+            poll_security_rules()
+
         cmd = poll_command()
 
         if cmd:
 
-            exec_command(cmd)
+            await exec_command(cmd)
 
         mapping_cmd = poll_port_mapping_command()
 
         if mapping_cmd:
 
-            exec_command(mapping_cmd)
+            await exec_command(mapping_cmd)
 
 
 
-        if poll_inputs():
+        changed, edges = poll_inputs()
+
+        if edges:
+
+            handle_security_di_edges(edges)
+
+        if changed:
 
             send_heartbeat()
 
@@ -936,10 +1027,12 @@ def run():
 
 
 
-        time.sleep(poll_interval_sec)
+        await asyncio.sleep(poll_interval_sec)
 
 
+def run():
 
+    asyncio.run(async_main())
 
 
 run()

@@ -50,6 +50,10 @@ import {
 
   bindBathScheduleUiV1,
 
+  bindHomeSecurityUiV1,
+
+  refreshHomeSecurityPanelsV1,
+
 } from "./home-shared-v1.js";
 
 import {
@@ -153,6 +157,12 @@ function renderAll(dashboard) {
     }
 
   );
+
+  refreshHomeSecurityPanelsV1(currentSiteId).catch(() => {
+
+    /* 防犯パネル取得失敗は無視 */
+
+  });
 
 }
 
@@ -365,6 +375,22 @@ document.addEventListener("DOMContentLoaded", async () => {
     () => currentSiteId,
 
     () => "お客様"
+
+  );
+
+  bindHomeSecurityUiV1(
+
+    () => currentSiteId,
+
+    () => "お客様",
+
+    (result) => {
+
+      if (result?.dashboard) renderAll(result.dashboard);
+
+      else refresh().catch(() => {});
+
+    }
 
   );
 

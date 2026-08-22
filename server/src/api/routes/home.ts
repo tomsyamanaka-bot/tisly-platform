@@ -58,6 +58,21 @@ import {
 } from "../../home/home-bath-schedule-v1.js";
 import { recordSystemLogV1 } from "../../home/home-system-log-v1.js";
 import {
+  applyHomeSceneV1,
+  listHomeScenesV1,
+  type HomeSceneIdV1,
+} from "../../home/home-scene-v1.js";
+import {
+  buildHomeActivityTimelineV1,
+  buildHomeSecurityStatsV1,
+} from "../../home/home-security-stats-v1.js";
+import {
+  buildHomeSecurityFirmwareRulesV1,
+  getHomeSecurityRulesV1,
+  homeGuardModeLabelJaV1,
+  updateHomeSecurityRulesV1,
+} from "../../home/home-security-rules-v1.js";
+import {
   buildSwitchBotHomeStatusV1,
   listSwitchBotDevicesV1,
 } from "../../home/switchbot_client.js";
@@ -441,4 +456,135 @@ homeRouter.post("/control", async (req, res) => {
     deviceKey,
     dashboard,
   });
+});
+
+const SCENE_IDS: HomeSceneIdV1[] = ["away", "welcome", "goodnight"];
+
+/** 防犯ルール取得 */
+homeRouter.get("/security-rules", (req, res) => {
+  const siteId = String(req.query.siteId ?? "").trim();
+  if (!siteId) {
+    res.status(400).json({ ok: false, error: "siteId required" });
+    return;
+  }
+  const site = findHomeSiteV1(siteId);
+  if (site.id !== siteId) {
+    res.status(404).json({ ok: false, error: "site not found" });
+    return;
+  }
+  const rules = getHomeSecurityRulesV1(siteId);
+  res.json({
+    ok: true,
+    rules: {
+      ...rules,
+      guardModeLabel: homeGuardModeLabelJaV1(rules.guardMode),
+    },
+  });
+});
+
+/** 防犯ルール更新（merge） */
+homeRouter.put("/security-rules", (req, res) => {
+  const siteId = String(req.body?.siteId ?? "").trim();
+  if (!siteId) {
+    res.status(400).json({ ok: false, error: "siteId required" });
+    return;
+  }
+  const site = findHomeSiteV1(siteId);
+  if (site.id !== siteId) {
+    res.status(404).json({ ok: false, error: "site not found" });
+    return;
+  }
+  const rules = updateHomeSecurityRulesV1(siteId, {
+    guardMode: req.body?.guardMode,
+    di1DurationSec: req.body?.di1DurationSec,
+    di1LightMode: req.body?.di1LightMode,
+    di2LightMode: req.body?.di2LightMode,
+    di2AlertDurationSec: req.body?.di2AlertDurationSec,
+    notifyDi1SilentLogOnly: req.body?.notifyDi1SilentLogOnly,
+    notifyDi2InstantPush: req.body?.notifyDi2InstantPush,
+  });
+  recordSystemLogV1({
+    siteId,
+    category: "manual_control",
+    message: "防犯ルール設定を更新",
+    detail: { guardMode: rules.guardMode },
+    actor: String(req.body?.actor ?? "app"),
+  });
+  res.json({
+    ok: true,
+    rules: {
+      ...rules,
+      guardModeLabel: homeGuardModeLabelJaV1(rules.guardMode),
+    },
+  });
+});
+
+/** RP2350 向け防犯ルール JSON（ポーリング同期） */
+homeRouter.get("/security-rules/firmware", (req, res) => {
+  const siteId =
+    String(req.query.siteId ?? "HOME-JP-ITABASHI-LIVE").trim();
+  const token = String(
+    req.headers["x-remote-test-token"] ?? ""
+  ).trim();
+  const expected = String(process.env.REMOTE_TEST_TOKEN ?? "").trim();
+  if (expected && token !== expected) {
+    res.status(403).json({ ok: false, error: "forbidden" });
+    return;
+  }
+  res.json({
+    ok: true,
+    rules: buildHomeSecurityFirmwareRulesV1(siteId),
+  });
+});
+
+/** ワンタップ一括シーン */
+homeRouter.post("/scene", async (req, res) => {
+  const siteId = String(req.body?.siteId ?? "").trim();
+  const scene = String(req.body?.scene ?? "").trim() as HomeSceneIdV1;
+  if (!siteId || !SCENE_IDS.includes(scene)) {
+    res.status(400).json({
+      ok: false,
+      error: "siteId and scene (away|welcome|goodnight) required",
+    });
+    return;
+  }
+  const result = await applyHomeSceneV1({
+    siteId,
+    scene,
+    actor: req.body?.actor,
+  });
+  if (!result.ok) {
+    res.status(400).json(result);
+    return;
+  }
+  const fullDashboard = buildHomeCustomerDashboardV1(siteId);
+  const dashboard = sanitizeHomeCustomerDashboardV1(fullDashboard);
+  res.json({ ...result, dashboard });
+});
+
+/** シーン一覧 */
+homeRouter.get("/scenes", (_req, res) => {
+  res.json({ ok: true, scenes: listHomeScenesV1() });
+});
+
+/** 防犯統計ダッシュボード */
+homeRouter.get("/security-stats", (req, res) => {
+  const siteId = String(req.query.siteId ?? "").trim();
+  if (!siteId) {
+    res.status(400).json({ ok: false, error: "siteId required" });
+    return;
+  }
+  const days = Number(req.query.days ?? 7);
+  res.json({
+    ok: true,
+    stats: buildHomeSecurityStatsV1({ siteId, days }),
+  });
+});
+
+/** アクティビティタイムライン */
+homeRouter.get("/activity-timeline", (req, res) => {
+  const siteId = String(req.query.siteId ?? "").trim() || null;
+  const limit = Number(req.query.limit ?? 50);
+  const timeline = buildHomeActivityTimelineV1({ siteId, limit });
+  res.json({ ok: true, timeline });
 });

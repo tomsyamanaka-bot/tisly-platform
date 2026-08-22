@@ -9,6 +9,8 @@ import {
   processSecurityInputChanges,
   notifySecurityModeChange,
 } from "../../remote-test/security-demo-notify.js";
+import { processHomeSecurityInputChangesV1 } from "../../home/home-security-notify-v1.js";
+import { HOME_ITABASHI_LIVE_SITE_ID_V1 } from "../../home/home-sites-v1.js";
 import {
   getSecurityDemoStatus,
   setSecurityMode,
@@ -388,6 +390,14 @@ async function handleDeviceHeartbeat(req: Request, res: Response): Promise<void>
   if (inputChanges.length > 0) {
     console.log("[remote-test] heartbeat: invoking processSecurityInputChanges", inputChanges);
     await processSecurityInputChanges(inputChanges);
+    await processHomeSecurityInputChangesV1(
+      HOME_ITABASHI_LIVE_SITE_ID_V1,
+      inputChanges.map((c) => ({
+        input: c.input,
+        from: c.from,
+        to: c.to,
+      }))
+    );
   }
   const status = getRemoteTestStatus();
   res.json({

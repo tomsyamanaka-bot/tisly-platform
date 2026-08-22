@@ -13,6 +13,12 @@ REMOTE_TEST_TOKEN = "tisly2026test"
 # デバイス識別子（将来拡張用・ログ表示）
 DEVICE_ID = "rp2350-remote-test-01"
 
+# HOME 防犯ルール同期用物件 ID
+SITE_ID = "HOME-JP-ITABASHI-LIVE"
+
+# 防犯ルール同期間隔（ポーリング回数）
+SECURITY_RULES_SYNC_EVERY = 10
+
 # 命令取得ポーリング間隔（秒）
 POLL_INTERVAL_SEC = 3
 
@@ -51,4 +57,4 @@ DI_GPIO = {
 DI_ACTIVE_LOW = True
 
 # ファームウェア版（PWA「RP2350接続時刻」画面に表示）
-FIRMWARE_VERSION = "1.4.0-remote-test-phase6"
+FIRMWARE_VERSION = "1.6.0-security-dynamic-v1"

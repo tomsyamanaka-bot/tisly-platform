@@ -253,6 +253,24 @@ export function runMigrations(database: Database.Database): void {
   migrateTislyHomeIntercomV1(database);
   migrateTislyHomeCustomerRegistryV1(database);
   migrateTislyHomeBathScheduleV1(database);
+  migrateTislyHomeSecurityV1(database);
+}
+
+/**
+ * TiSLY HOME 防犯ルール v1。
+ * 物件ごとの DI ライト設定・警戒モードを
+ * JSON で保持する（既存テーブルは変更しない）。
+ */
+function migrateTislyHomeSecurityV1(
+  database: Database.Database
+): void {
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS home_security_rules_v1 (
+      site_id TEXT PRIMARY KEY,
+      rules_json TEXT NOT NULL DEFAULT '{}',
+      updated_at TEXT NOT NULL
+    );
+  `);
 }
 
 /**

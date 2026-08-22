@@ -12,8 +12,8 @@
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2003" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
   <title>TiSLY HOME — おうちの設備</title>
-  <link rel="stylesheet" href="/css/features/home/home-v1.css?v=2459" />
-  <link rel="stylesheet" href="/css/features/home/home-tiles-v1.css?v=2459" />
+  <link rel="stylesheet" href="/css/features/home/home-v1.css?v=2460" />
+  <link rel="stylesheet" href="/css/features/home/home-tiles-v1.css?v=2460" />
 </head>
 <body class="hm-body hm-customer" data-hqs-mode="customer">
   <!--
@@ -89,6 +89,120 @@
       <span class="hm-status-emoji" id="hm-status-emoji">🟢</span>
       <p class="hm-status-label" id="hm-status-label">読み込み中…</p>
       <p class="hm-status-meta" id="hm-status-meta">—</p>
+    </section>
+
+    <!-- ワンタップ一括シーン -->
+    <section class="hm-card hm-scene-card">
+      <p class="hm-card-label">⚡ ワンタップシーン</p>
+      <div class="hm-scene-row" id="hm-scene-row">
+        <button type="button" class="hm-scene-btn" data-scene="away">
+          <span class="hm-scene-emoji">🏠</span>
+          <span class="hm-scene-label">おでかけ</span>
+        </button>
+        <button type="button" class="hm-scene-btn" data-scene="welcome">
+          <span class="hm-scene-emoji">🚶</span>
+          <span class="hm-scene-label">ただいま</span>
+        </button>
+        <button type="button" class="hm-scene-btn" data-scene="goodnight">
+          <span class="hm-scene-emoji">🌙</span>
+          <span class="hm-scene-label">おやすみ</span>
+        </button>
+      </div>
+      <p class="hm-gauge-sub" id="hm-scene-status">—</p>
+    </section>
+
+    <!-- 防犯ルール設定 -->
+    <section class="hm-card hm-security-settings" id="hm-security-settings">
+      <p class="hm-card-label">🛡️ 防犯ルール設定</p>
+      <div class="hm-field-row">
+        <label class="hm-field-label" for="hm-guard-mode">警戒モード</label>
+        <select class="hm-select" id="hm-guard-mode">
+          <option value="always">24時間常時警戒</option>
+          <option value="night_only">夜間のみ</option>
+          <option value="off">警戒OFF</option>
+        </select>
+      </div>
+      <div class="hm-field-row">
+        <label class="hm-field-label" for="hm-di1-duration">
+          外周 DI1 点灯時間
+          <strong id="hm-di1-duration-val">45</strong>秒
+        </label>
+        <input
+          type="range"
+          id="hm-di1-duration"
+          min="10"
+          max="300"
+          value="45"
+          step="5"
+        />
+      </div>
+      <div class="hm-field-row">
+        <label class="hm-field-label" for="hm-di1-mode">DI1 動作モード</label>
+        <select class="hm-select" id="hm-di1-mode">
+          <option value="steady">常時点灯</option>
+          <option value="blink">点滅</option>
+          <option value="strobe">ストロボ</option>
+        </select>
+      </div>
+      <div class="hm-field-row">
+        <label class="hm-field-label" for="hm-di2-mode">段階侵入 DI2 ライト</label>
+        <select class="hm-select" id="hm-di2-mode">
+          <option value="fast_blink">高速点滅</option>
+          <option value="steady">常時点灯</option>
+        </select>
+      </div>
+      <div class="hm-field-row">
+        <label class="hm-field-label" for="hm-di2-duration">
+          DI2 警報時間
+          <strong id="hm-di2-duration-val">45</strong>秒
+        </label>
+        <input
+          type="range"
+          id="hm-di2-duration"
+          min="10"
+          max="300"
+          value="45"
+          step="5"
+        />
+      </div>
+      <div class="hm-toggle-row">
+        <label class="hm-toggle-label">
+          <input type="checkbox" id="hm-notify-di1-silent" checked />
+          DI1 検知：サイレントログのみ
+        </label>
+      </div>
+      <div class="hm-toggle-row">
+        <label class="hm-toggle-label">
+          <input type="checkbox" id="hm-notify-di2-push" checked />
+          DI2 検知：即時 Web Push 緊急通知
+        </label>
+      </div>
+      <button type="button" class="hm-btn hm-btn-wide" id="hm-security-save">
+        防犯ルールを保存
+      </button>
+    </section>
+
+    <!-- 防犯統計ダッシュボード -->
+    <section class="hm-card hm-security-dashboard" id="hm-security-dashboard">
+      <p class="hm-card-label">📊 防犯統計（過去7日）</p>
+      <div class="hm-stats-summary" id="hm-stats-summary">
+        <div class="hm-kpi">
+          <strong id="hm-stats-di1">0</strong>
+          <span>DI1 外周</span>
+        </div>
+        <div class="hm-kpi">
+          <strong id="hm-stats-di2">0</strong>
+          <span>DI2 近接</span>
+        </div>
+        <div class="hm-kpi">
+          <strong id="hm-stats-total">0</strong>
+          <span>合計</span>
+        </div>
+      </div>
+      <p class="hm-card-label" style="margin-top: 14px">時間帯別ヒートマップ</p>
+      <div class="hm-heatmap" id="hm-heatmap"></div>
+      <p class="hm-card-label" style="margin-top: 14px">日別イベント件数</p>
+      <div class="hm-daily-chart" id="hm-daily-chart"></div>
     </section>
 
     <!-- 機器タイル（2列グリッド） -->
@@ -447,7 +561,7 @@
 
     <!-- 動作ログ -->
     <section class="hm-card">
-      <p class="hm-card-label">📜 動作ログ・履歴</p>
+      <p class="hm-card-label">📜 アクティビティタイムライン</p>
       <div class="hm-log-list" id="hm-system-logs">
         <p class="hm-empty">読み込み中…</p>
       </div>
@@ -464,7 +578,7 @@
 
   <div class="hm-toast" id="hm-toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="/js/features/home/home-customer-v1.js?v=2459"></script>
-  <script type="module" src="/js/features/home/home-quick-switch-v1.js?v=2459"></script>
+  <script type="module" src="/js/features/home/home-customer-v1.js?v=2460"></script>
+  <script type="module" src="/js/features/home/home-quick-switch-v1.js?v=2460"></script>
 </body>
 </html>
