@@ -136,7 +136,7 @@ function bathTileV1(d, plain) {
       detail: "bath",
       icon: TILE_META_V1.bath.icon,
       name: tileName("bath", plain),
-      state: done ? "湯はり指令完了" : "待機中",
+      state: done ? "湯はり指令送信完了" : "待機中",
       stateAlert: false,
       tone: done ? "on" : "idle",
       action: {

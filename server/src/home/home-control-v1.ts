@@ -167,10 +167,10 @@ export function applyHomeBathControlV1(
         bath.fillPercent = 0;
         bath.reheating = false;
         bath.keepWarm = false;
-        bath.lastPulseMessage = "湯はり指令完了";
+        bath.lastPulseMessage = "湯はり指令送信完了";
         return {
           ok: true,
-          message: "湯はり指令完了",
+          message: "湯はり指令送信完了",
           state: bath,
         };
       }

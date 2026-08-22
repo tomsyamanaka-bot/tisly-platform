@@ -183,7 +183,7 @@ async function handleControl(el) {
     pulseStatus.hidden = false;
     pulseStatus.classList.add("is-sending");
     pulseStatus.classList.remove("is-done");
-    pulseStatus.textContent = "お湯はり信号送信中...";
+    pulseStatus.textContent = "実機へ送信中...";
   }
   try {
     const res = await sendHomeControl({
@@ -198,7 +198,7 @@ async function handleControl(el) {
       pulseStatus.classList.remove("is-sending");
       pulseStatus.classList.add("is-done");
       pulseStatus.textContent =
-        res.message || "湯はり指令完了";
+        res.message || "湯はり指令送信完了";
     }
     showToast(res.message || "操作しました");
     if (target === "intercom") hideRingPopup();

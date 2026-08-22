@@ -226,7 +226,7 @@ async function handleControl(el) {
 
     pulseStatus.classList.remove("is-done");
 
-    pulseStatus.textContent = "お湯はり信号送信中...";
+    pulseStatus.textContent = "実機へ送信中...";
 
   }
 
@@ -256,7 +256,7 @@ async function handleControl(el) {
 
       pulseStatus.classList.add("is-done");
 
-      pulseStatus.textContent = res.message || "湯はり指令完了";
+      pulseStatus.textContent = res.message || "湯はり指令送信完了";
 
     }
 
