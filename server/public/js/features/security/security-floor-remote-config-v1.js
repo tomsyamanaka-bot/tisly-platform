@@ -93,7 +93,39 @@ function readSlider(id, fallback) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-function renderRules(rules) {
+function renderNotifyPolicy(notifyPolicy) {
+  if (!notifyPolicy?.rows?.length) return;
+  const hint = $("sf-notify-policy-hint");
+  if (hint) {
+    hint.textContent = `DI1 検知後 ${notifyPolicy.perimeterTimeoutSec ?? 120} 秒以内の DI2 で段階侵入`;
+  }
+  const list = $("sf-notify-policy");
+  if (!list) return;
+  for (const row of notifyPolicy.rows) {
+    const li = list.querySelector(`[data-notify-id="${row.id}"]`);
+    if (!li) continue;
+    const badge = li.querySelector(".sf-notify-badge");
+    const text = li.querySelector(".sf-notify-text");
+    if (text) text.textContent = row.label;
+    if (badge) {
+      if (row.severity === "critical") {
+        badge.textContent = "緊急";
+        badge.className = "sf-notify-badge is-critical";
+      } else if (row.enabled) {
+        badge.textContent = "ON";
+        badge.className = "sf-notify-badge is-on";
+      } else {
+        badge.textContent = "OFF";
+        badge.className = "sf-notify-badge is-off";
+      }
+    }
+    li.classList.toggle("is-on", row.id === "di1_alone");
+    li.classList.toggle("is-critical", row.id === "staged_intrusion");
+    li.classList.toggle("is-off", row.id === "di2_alone");
+  }
+}
+
+function renderRules(rules, notifyPolicy) {
   if (!rules) return;
   state.guardMode = rules.guardMode || "night_only";
   state.paused = Boolean(
@@ -143,6 +175,7 @@ function renderRules(rules) {
     "sf-di2solo-100v-seg",
     rules.di2Standalone100vMode || "steady"
   );
+  renderNotifyPolicy(notifyPolicy);
 }
 
 async function fetchRules(homeSiteId) {
@@ -152,7 +185,7 @@ async function fetchRules(homeSiteId) {
   );
   const data = await res.json();
   if (!data.ok) throw new Error(data.error || "設定取得に失敗");
-  return data.rules;
+  return { rules: data.rules, notifyPolicy: data.notifyPolicy };
 }
 
 function collectPayload(homeSiteId) {
@@ -192,9 +225,9 @@ async function applyToDevice(homeSiteId) {
     body: JSON.stringify(payload),
   });
   const data = await res.json();
-  if (!data.ok) throw new Error(data.error || "反映に失敗しました");
-  renderRules(data.rules);
-  return data;
+    if (!data.ok) throw new Error(data.error || "反映に失敗しました");
+    renderRules(data.rules, data.notifyPolicy);
+    return data;
 }
 
 function updateTargetLabel(homeSiteId) {
@@ -207,7 +240,8 @@ export async function refreshSecurityRemoteConfigV1(securitySiteId) {
   const homeSiteId = resolveHomeSiteId(securitySiteId);
   updateTargetLabel(homeSiteId);
   try {
-    renderRules(await fetchRules(homeSiteId));
+    const payload = await fetchRules(homeSiteId);
+    renderRules(payload.rules, payload.notifyPolicy);
   } catch {
     /* 未取得でも UI は操作可能 */
   }

@@ -78,6 +78,10 @@ import {
   type HomeGuardModeV1,
 } from "../../home/home-security-rules-v1.js";
 import {
+  buildHomeSecurityNotifyPolicyV1,
+  processHomeSecurityEventV1,
+} from "../../home/home-security-notify-v1.js";
+import {
   buildSwitchBotHomeStatusV1,
   listSwitchBotDevicesV1,
 } from "../../home/switchbot_client.js";
@@ -489,6 +493,7 @@ homeRouter.get("/security-rules", (req, res) => {
       ...rules,
       guardModeLabel: homeGuardModeLabelJaV1(rules.guardMode),
     },
+    notifyPolicy: buildHomeSecurityNotifyPolicyV1(rules),
   });
 });
 
@@ -556,7 +561,49 @@ homeRouter.put("/security-rules", (req, res) => {
       ...rules,
       guardModeLabel: homeGuardModeLabelJaV1(rules.guardMode),
     },
+    notifyPolicy: buildHomeSecurityNotifyPolicyV1(rules),
   });
+});
+
+/** RP2350 DI 検知イベント（heartbeat 以外の明示 POST） */
+homeRouter.post("/security/event", async (req, res) => {
+  const siteId = String(req.body?.siteId ?? "").trim();
+  if (!siteId) {
+    res.status(400).json({ ok: false, error: "siteId required" });
+    return;
+  }
+  const site = findHomeSiteV1(siteId);
+  if (site.id !== siteId) {
+    res.status(404).json({ ok: false, error: "site not found" });
+    return;
+  }
+  const di = Number(req.body?.di ?? req.body?.input);
+  if (di !== 1 && di !== 2) {
+    res.status(400).json({ ok: false, error: "di must be 1 or 2" });
+    return;
+  }
+  try {
+    const result = await processHomeSecurityEventV1({
+      siteId,
+      di,
+      pattern: req.body?.pattern as string | undefined,
+    });
+    res.json({
+      ok: true,
+      siteId,
+      di,
+      pattern: result.pattern,
+      pushSent: result.pushSent,
+      notifyPolicy: buildHomeSecurityNotifyPolicyV1(
+        getHomeSecurityRulesV1(siteId)
+      ),
+    });
+  } catch (err) {
+    res.status(400).json({
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 });
 
 /** TiSLY Security 遠隔設定反映（RP2350 ポーリング連動） */
@@ -583,6 +630,7 @@ homeRouter.post("/security/config", (req, res) => {
       ...rules,
       guardModeLabel: homeGuardModeLabelJaV1(rules.guardMode),
     },
+    notifyPolicy: buildHomeSecurityNotifyPolicyV1(rules),
     firmware: buildHomeSecurityFirmwareRulesV1(siteId),
   });
 });

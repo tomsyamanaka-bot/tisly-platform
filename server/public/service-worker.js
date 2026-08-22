@@ -600,12 +600,16 @@ self.addEventListener("push", (event) => {
   } catch {
     data.body = event.data?.text() ?? "";
   }
+  const icon = data.icon || `/icons/icon-192.png${ICON_V}`;
+  const badge = data.badge || data.icon || `/icons/icon-192.png${ICON_V}`;
+  const severity = data.data?.severity || data.severity;
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
-      icon: `/icons/icon-192.png${ICON_V}`,
-      badge: `/icons/icon-192.png${ICON_V}`,
-      data: { url: data.url },
+      icon,
+      badge,
+      requireInteraction: severity === "critical",
+      data: { url: data.url, severity },
     })
   );
 });

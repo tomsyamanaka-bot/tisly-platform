@@ -296,8 +296,10 @@ describe("security-floor-v1", () => {
     assert.match(html, /アラーム対応完了/);
     assert.match(html, /TiSLY Security/);
     assert.match(html, /sf-remote-config/);
+    assert.match(html, /sf-notify-policy/);
+    assert.match(html, /DI1単独：通知ON/);
     assert.match(html, /sf-remote-apply/);
-    assert.match(html, /security-floor-remote-config-v1\.js\?v=2485/);
+    assert.match(html, /security-floor-remote-config-v1\.js\?v=2487/);
     assert.match(html, /security-floor-light-v1\.js\?v=2485/);
     assert.match(html, /security-floor-operator-v1\.js\?v=2485/);
     assert.match(html, /security-floor-iso3d-v1\.js\?v=2485/);

@@ -1559,6 +1559,83 @@
   opacity: 0.55;
 }
 
+/* Web Push 通知条件ステータス */
+.sf-notify-policy {
+  border: 1px solid var(--sf-line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+}
+
+.sf-notify-policy-hint {
+  margin: 0 0 10px;
+  font-size: 0.78rem;
+  color: var(--sf-muted);
+}
+
+.sf-notify-policy-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sf-notify-policy-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--sf-line);
+  background: var(--sf-surface);
+}
+
+.sf-notify-badge {
+  flex-shrink: 0;
+  min-width: 44px;
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 999px;
+}
+
+.sf-notify-badge.is-on {
+  background: #dbeafe;
+  color: #1e3a8a;
+}
+
+.sf-notify-badge.is-critical {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.sf-notify-badge.is-off {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.sf-notify-text {
+  font-size: 0.88rem;
+  line-height: 1.35;
+  color: var(--sf-ink);
+}
+
+.sf-notify-policy-item.is-on {
+  border-color: #93c5fd;
+}
+
+.sf-notify-policy-item.is-critical {
+  border-color: #fca5a5;
+}
+
+.sf-notify-policy-item.is-off {
+  border-color: var(--sf-line);
+  opacity: 0.92;
+}
+
 /* 手動ライト遠隔操作 */
 .sf-manual-light {
   margin-bottom: 12px;

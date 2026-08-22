@@ -54,6 +54,8 @@ export async function sendWebPush(
     eventType: payload.eventType,
     deviceId: payload.deviceId,
     url: payload.url ?? "/app/notifications",
+    icon: payload.icon,
+    badge: payload.badge,
     data: payload.data,
   });
 

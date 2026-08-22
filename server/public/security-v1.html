@@ -275,6 +275,27 @@
           </div>
         </details>
 
+        <div class="sf-remote-block sf-notify-policy">
+          <p class="sf-remote-label">🔔 Web Push 通知条件</p>
+          <p class="sf-notify-policy-hint" id="sf-notify-policy-hint">
+            段階侵入判定時間に連動
+          </p>
+          <ul class="sf-notify-policy-list" id="sf-notify-policy" aria-label="通知条件">
+            <li class="sf-notify-policy-item is-on" data-notify-id="di1_alone">
+              <span class="sf-notify-badge is-on">ON</span>
+              <span class="sf-notify-text">DI1単独：通知ON（警戒）</span>
+            </li>
+            <li class="sf-notify-policy-item is-critical" data-notify-id="staged_intrusion">
+              <span class="sf-notify-badge is-critical">緊急</span>
+              <span class="sf-notify-text">DI1➔DI2段階侵入：緊急通知ON</span>
+            </li>
+            <li class="sf-notify-policy-item is-off" data-notify-id="di2_alone">
+              <span class="sf-notify-badge is-off">OFF</span>
+              <span class="sf-notify-text">DI2単独：通知OFF（サイレント）</span>
+            </li>
+          </ul>
+        </div>
+
         <button type="button" class="sf-remote-apply" id="sf-remote-apply">
           📡 実機へ設定を反映
         </button>

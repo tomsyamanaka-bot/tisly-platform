@@ -967,6 +967,8 @@ describe("tisly-home-v1", () => {
     assert.ok(getRes.body.rules.di1DurationSec >= 10);
     assert.equal(typeof getRes.body.rules.notifyDi1SilentLogOnly, "boolean");
     assert.ok(getRes.body.rules.perimeterTimeoutSec >= 30);
+    assert.ok(Array.isArray(getRes.body.notifyPolicy?.rows));
+    assert.equal(getRes.body.notifyPolicy.rows.length, 3);
 
     const putRes = await request(app)
       .put("/api/home/v1/security-rules")
@@ -1027,6 +1029,38 @@ describe("tisly-home-v1", () => {
     assert.equal(postRes.body.rules.di1DurationSec, 75);
     assert.equal(postRes.body.firmware.di2Standalone24vMode, "blink");
     assert.equal(postRes.body.firmware.di2StandaloneDurationMs, 40_000);
+  });
+
+  it("POST /api/home/v1/security/event handles DI patterns", async () => {
+    const { resetHomeSecurityNotifyStateV1 } = await import(
+      "../src/home/home-security-notify-v1.js"
+    );
+    resetHomeSecurityNotifyStateV1(ITABASHI_SITE);
+    await request(app)
+      .put("/api/home/v1/security-rules")
+      .send({ siteId: ITABASHI_SITE, guardMode: "always" })
+      .expect(200);
+
+    const di2solo = await request(app)
+      .post("/api/home/v1/security/event")
+      .send({ siteId: ITABASHI_SITE, di: 2 })
+      .expect(200);
+    assert.equal(di2solo.body.pattern, "pattern_c");
+    assert.equal(di2solo.body.pushSent, false);
+
+    resetHomeSecurityNotifyStateV1(ITABASHI_SITE);
+    const di1 = await request(app)
+      .post("/api/home/v1/security/event")
+      .send({ siteId: ITABASHI_SITE, di: 1 })
+      .expect(200);
+    assert.equal(di1.body.ok, true);
+    assert.equal(di1.body.pattern, "pattern_a");
+
+    const staged = await request(app)
+      .post("/api/home/v1/security/event")
+      .send({ siteId: ITABASHI_SITE, di: 2 })
+      .expect(200);
+    assert.equal(staged.body.pattern, "pattern_b");
   });
 
   it("POST /api/home/v1/control queues security light commands for live site", async () => {

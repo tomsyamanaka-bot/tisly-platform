@@ -23,6 +23,8 @@ export interface NotificationPayload {
   eventType: string;
   deviceId?: string;
   url?: string;
+  icon?: string;
+  badge?: string;
   data?: Record<string, unknown>;
 }
 
