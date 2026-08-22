@@ -418,13 +418,13 @@ const PRACTICAL_PWA_DEFS: Array<
   // ホームセキュリティ フロア俯瞰（追記）
   {
     id: "security_floor_v1",
-    label: "ホームセキュリティ俯瞰",
-    subtitle: "3D俯瞰・発報発光・警備モード",
+    label: "TiSLY Security",
+    subtitle: "3D俯瞰・実機センサー/ライト動的設定・発報発光・警備モード",
     icon: "🛡️",
     features: [
-      "全体/外周/2F/1F切替",
-      "スクロール360°回転",
-      "在宅・外出・解除",
+      "3D俯瞰・RP2350遠隔設定",
+      "センサー/ライト動的制御",
+      "発報発光・警備モード",
       "JP/AU物件",
     ],
     href: "/security-v1",

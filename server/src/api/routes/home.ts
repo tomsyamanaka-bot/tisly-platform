@@ -71,6 +71,11 @@ import {
   getHomeSecurityRulesV1,
   homeGuardModeLabelJaV1,
   updateHomeSecurityRulesV1,
+  type HomeDi1LightModeV1,
+  type HomeDi2Light100vModeV1,
+  type HomeDi2LightModeV1,
+  type HomeDi2StandaloneLightModeV1,
+  type HomeGuardModeV1,
 } from "../../home/home-security-rules-v1.js";
 import {
   buildSwitchBotHomeStatusV1,
@@ -482,6 +487,47 @@ homeRouter.get("/security-rules", (req, res) => {
   });
 });
 
+/** 防犯ルール PATCH 本体（PUT/POST 共通） */
+function applyHomeSecurityRulesPatchV1(
+  siteId: string,
+  body: Record<string, unknown>,
+  actor: string
+) {
+  const rules = updateHomeSecurityRulesV1(siteId, {
+    guardMode: body?.guardMode as HomeGuardModeV1 | undefined,
+    di1DurationSec: body?.di1DurationSec as number | undefined,
+    di1LightMode: body?.di1LightMode as HomeDi1LightModeV1 | undefined,
+    perimeterTimeoutSec: body?.perimeterTimeoutSec as number | undefined,
+    di2LightMode: body?.di2LightMode as HomeDi2LightModeV1 | undefined,
+    di2Light100vMode: body?.di2Light100vMode as
+      | HomeDi2Light100vModeV1
+      | undefined,
+    di2AlertDurationSec: body?.di2AlertDurationSec as number | undefined,
+    di2StandaloneDurationSec: body?.di2StandaloneDurationSec as
+      | number
+      | undefined,
+    di2Standalone24vMode: body?.di2Standalone24vMode as
+      | HomeDi2StandaloneLightModeV1
+      | undefined,
+    di2Standalone100vMode: body?.di2Standalone100vMode as
+      | HomeDi2StandaloneLightModeV1
+      | undefined,
+    notifyDi1SilentLogOnly: body?.notifyDi1SilentLogOnly as
+      | boolean
+      | undefined,
+    notifyDi2InstantPush: body?.notifyDi2InstantPush as boolean | undefined,
+    securityPausedUntil: body?.securityPausedUntil as string | null | undefined,
+  });
+  recordSystemLogV1({
+    siteId,
+    category: "manual_control",
+    message: "防犯ルール設定を更新",
+    detail: { guardMode: rules.guardMode },
+    actor,
+  });
+  return rules;
+}
+
 /** 防犯ルール更新（merge） */
 homeRouter.put("/security-rules", (req, res) => {
   const siteId = String(req.body?.siteId ?? "").trim();
@@ -494,28 +540,45 @@ homeRouter.put("/security-rules", (req, res) => {
     res.status(404).json({ ok: false, error: "site not found" });
     return;
   }
-  const rules = updateHomeSecurityRulesV1(siteId, {
-    guardMode: req.body?.guardMode,
-    di1DurationSec: req.body?.di1DurationSec,
-    di1LightMode: req.body?.di1LightMode,
-    di2LightMode: req.body?.di2LightMode,
-    di2AlertDurationSec: req.body?.di2AlertDurationSec,
-    notifyDi1SilentLogOnly: req.body?.notifyDi1SilentLogOnly,
-    notifyDi2InstantPush: req.body?.notifyDi2InstantPush,
-  });
-  recordSystemLogV1({
+  const rules = applyHomeSecurityRulesPatchV1(
     siteId,
-    category: "manual_control",
-    message: "防犯ルール設定を更新",
-    detail: { guardMode: rules.guardMode },
-    actor: String(req.body?.actor ?? "app"),
-  });
+    req.body ?? {},
+    String(req.body?.actor ?? "app")
+  );
   res.json({
     ok: true,
     rules: {
       ...rules,
       guardModeLabel: homeGuardModeLabelJaV1(rules.guardMode),
     },
+  });
+});
+
+/** TiSLY Security 遠隔設定反映（RP2350 ポーリング連動） */
+homeRouter.post("/security/config", (req, res) => {
+  const siteId = String(req.body?.siteId ?? "").trim();
+  if (!siteId) {
+    res.status(400).json({ ok: false, error: "siteId required" });
+    return;
+  }
+  const site = findHomeSiteV1(siteId);
+  if (site.id !== siteId) {
+    res.status(404).json({ ok: false, error: "site not found" });
+    return;
+  }
+  const rules = applyHomeSecurityRulesPatchV1(
+    siteId,
+    req.body ?? {},
+    String(req.body?.actor ?? "security-v1")
+  );
+  res.json({
+    ok: true,
+    message: "実機へ設定を反映しました",
+    rules: {
+      ...rules,
+      guardModeLabel: homeGuardModeLabelJaV1(rules.guardMode),
+    },
+    firmware: buildHomeSecurityFirmwareRulesV1(siteId),
   });
 });
 

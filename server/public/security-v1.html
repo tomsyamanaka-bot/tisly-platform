@@ -11,7 +11,7 @@
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2003" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
   <title>TiSLY Security</title>
-  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2483" />
+  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2485" />
   <script type="importmap">
   {
     "imports": {
@@ -169,6 +169,101 @@
     </section>
 
     <section class="sf-soc-tools">
+      <section class="sf-card sf-remote-config" id="sf-remote-config">
+        <p class="sf-card-label">🛡️ 遠隔防犯ルール設定（RP2350連動）</p>
+        <p class="sf-remote-target" id="sf-remote-target">実機: HOME-JP-ITABASHI-LIVE</p>
+
+        <div class="sf-remote-block">
+          <p class="sf-remote-label">警戒モード</p>
+          <div class="sf-seg-group" id="sf-guard-seg" role="group" aria-label="警戒モード">
+            <button type="button" class="sf-seg-btn" data-value="always">🛡️ 24時間警戒</button>
+            <button type="button" class="sf-seg-btn is-on" data-value="night_only">🌙 夜間のみ</button>
+            <button type="button" class="sf-seg-btn" data-value="paused">⏸️ 警戒一時解除</button>
+          </div>
+        </div>
+
+        <details class="sf-remote-details" open>
+          <summary>外周センサー（DI1: 遠いセンサー）</summary>
+          <div class="sf-remote-block">
+            <label class="sf-remote-label" for="sf-di1-duration">
+              点灯時間 <strong id="sf-di1-duration-val">45</strong>秒
+            </label>
+            <input type="range" id="sf-di1-duration" class="sf-range" min="10" max="180" step="1" value="45" />
+          </div>
+          <div class="sf-remote-block">
+            <p class="sf-remote-label">24Vライト動作</p>
+            <div class="sf-seg-group" id="sf-di1-24v-seg" role="group">
+              <button type="button" class="sf-seg-btn is-on" data-value="steady">常時点灯</button>
+              <button type="button" class="sf-seg-btn" data-value="blink">点滅</button>
+              <button type="button" class="sf-seg-btn" data-value="strobe">ストロボ</button>
+              <button type="button" class="sf-seg-btn" data-value="off">OFF</button>
+            </div>
+          </div>
+        </details>
+
+        <details class="sf-remote-details" open>
+          <summary>段階侵入判定（DI1 ➔ DI2）</summary>
+          <div class="sf-remote-block">
+            <label class="sf-remote-label" for="sf-perimeter-timeout">
+              接近判定制限時間 <strong id="sf-perimeter-timeout-val">120</strong>秒
+            </label>
+            <input type="range" id="sf-perimeter-timeout" class="sf-range" min="30" max="180" step="1" value="120" />
+          </div>
+          <div class="sf-remote-block">
+            <p class="sf-remote-label">24Vライト動作</p>
+            <div class="sf-seg-group" id="sf-di2-24v-seg" role="group">
+              <button type="button" class="sf-seg-btn is-on" data-value="fast_blink">高速点滅</button>
+              <button type="button" class="sf-seg-btn" data-value="steady">常時点灯</button>
+              <button type="button" class="sf-seg-btn" data-value="off">OFF</button>
+            </div>
+          </div>
+          <div class="sf-remote-block">
+            <p class="sf-remote-label">100Vライト動作</p>
+            <div class="sf-seg-group" id="sf-di2-100v-seg" role="group">
+              <button type="button" class="sf-seg-btn is-on" data-value="steady">常時点灯</button>
+              <button type="button" class="sf-seg-btn" data-value="blink">点滅</button>
+              <button type="button" class="sf-seg-btn" data-value="off">OFF</button>
+            </div>
+          </div>
+          <div class="sf-remote-block">
+            <label class="sf-remote-label" for="sf-di2-alert-duration">
+              威嚇発報時間 <strong id="sf-di2-alert-duration-val">45</strong>秒
+            </label>
+            <input type="range" id="sf-di2-alert-duration" class="sf-range" min="10" max="180" step="1" value="45" />
+          </div>
+        </details>
+
+        <details class="sf-remote-details">
+          <summary>近接センサー（DI2: 近いセンサー単独）</summary>
+          <div class="sf-remote-block">
+            <label class="sf-remote-label" for="sf-di2solo-duration">
+              点灯時間 <strong id="sf-di2solo-duration-val">45</strong>秒
+            </label>
+            <input type="range" id="sf-di2solo-duration" class="sf-range" min="10" max="180" step="1" value="45" />
+          </div>
+          <div class="sf-remote-block">
+            <p class="sf-remote-label">24Vライト動作</p>
+            <div class="sf-seg-group" id="sf-di2solo-24v-seg" role="group">
+              <button type="button" class="sf-seg-btn is-on" data-value="steady">常時点灯</button>
+              <button type="button" class="sf-seg-btn" data-value="blink">点滅</button>
+              <button type="button" class="sf-seg-btn" data-value="off">OFF</button>
+            </div>
+          </div>
+          <div class="sf-remote-block">
+            <p class="sf-remote-label">100Vライト動作</p>
+            <div class="sf-seg-group" id="sf-di2solo-100v-seg" role="group">
+              <button type="button" class="sf-seg-btn is-on" data-value="steady">常時点灯</button>
+              <button type="button" class="sf-seg-btn" data-value="blink">点滅</button>
+              <button type="button" class="sf-seg-btn" data-value="off">OFF</button>
+            </div>
+          </div>
+        </details>
+
+        <button type="button" class="sf-remote-apply" id="sf-remote-apply">
+          📡 実機へ設定を反映
+        </button>
+      </section>
+
       <p class="sf-card-label">フロア切替</p>
       <div class="sf-tabs sf-layer-tabs" id="sf-floor-tabs">
         <button type="button" class="sf-tab" data-floor="2f">2F</button>
@@ -268,9 +363,10 @@
     </form>
   </dialog>
 
-  <script src="/js/features/security/security-floor-light-v1.js?v=2483"></script>
-  <script src="/js/features/floorplan-builder/floorplan-security-bridge-v1.js?v=2483"></script>
-  <script type="module" src="/js/features/security/security-floor-iso3d-v1.js?v=2483"></script>
-  <script type="module" src="/js/features/security/security-floor-operator-v1.js?v=2483"></script>
+  <script src="/js/features/security/security-floor-light-v1.js?v=2485"></script>
+  <script src="/js/features/floorplan-builder/floorplan-security-bridge-v1.js?v=2485"></script>
+  <script type="module" src="/js/features/security/security-floor-iso3d-v1.js?v=2485"></script>
+  <script type="module" src="/js/features/security/security-floor-remote-config-v1.js?v=2485"></script>
+  <script type="module" src="/js/features/security/security-floor-operator-v1.js?v=2485"></script>
 </body>
 </html>

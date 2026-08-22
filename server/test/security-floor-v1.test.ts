@@ -149,6 +149,8 @@ describe("security-floor-v1", () => {
       (c) => c.id === "security_floor_v1"
     );
     assert.ok(sec);
+    assert.equal(sec.label, "TiSLY Security");
+    assert.match(sec.subtitle || "", /実機センサー/);
     assert.equal(sec.url, "/security-v1");
     assert.ok(
       CUSTOMER_HOME_CARDS_V1.some(
@@ -293,9 +295,12 @@ describe("security-floor-v1", () => {
     assert.match(html, /廊下（3尺）/);
     assert.match(html, /アラーム対応完了/);
     assert.match(html, /TiSLY Security/);
-    assert.match(html, /security-floor-light-v1\.js\?v=2483/);
-    assert.match(html, /security-floor-operator-v1\.js\?v=2483/);
-    assert.match(html, /security-floor-iso3d-v1\.js\?v=2483/);
+    assert.match(html, /sf-remote-config/);
+    assert.match(html, /sf-remote-apply/);
+    assert.match(html, /security-floor-remote-config-v1\.js\?v=2485/);
+    assert.match(html, /security-floor-light-v1\.js\?v=2485/);
+    assert.match(html, /security-floor-operator-v1\.js\?v=2485/);
+    assert.match(html, /security-floor-iso3d-v1\.js\?v=2485/);
     assert.match(html, /importmap/);
     assert.match(html, /viewBox="-10 -12 120 124"/);
     assert.match(html, /← 戻る/);

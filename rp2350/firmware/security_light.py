@@ -40,8 +40,12 @@ class SecurityLightController:
         self._security_paused = False
         self._di1_duration_ms = _DEFAULT_DURATION_MS
         self._di2_duration_ms = _DEFAULT_DURATION_MS
+        self._di2_standalone_ms = _DEFAULT_DURATION_MS
         self._di1_mode = "steady"
         self._di2_mode = "fast_blink"
+        self._di2_100v_mode = "steady"
+        self._di2_standalone_24v = "steady"
+        self._di2_standalone_100v = "steady"
         self._perimeter_flag_ms = _DEFAULT_PERIMETER_MS
         self._strobe_on_ms = _DEFAULT_STROBE_ON_MS
         self._strobe_off_ms = _DEFAULT_STROBE_OFF_MS
@@ -62,8 +66,23 @@ class SecurityLightController:
         self._di2_duration_ms = int(
             rules.get("di2AlertDurationMs", _DEFAULT_DURATION_MS)
         )
+        self._di2_standalone_ms = int(
+            rules.get(
+                "di2StandaloneDurationMs",
+                self._di2_duration_ms,
+            )
+        )
         self._di1_mode = str(rules.get("di1LightMode", "steady"))
         self._di2_mode = str(rules.get("di2LightMode", "fast_blink"))
+        self._di2_100v_mode = str(
+            rules.get("di2Light100vMode", "steady")
+        )
+        self._di2_standalone_24v = str(
+            rules.get("di2Standalone24vMode", "steady")
+        )
+        self._di2_standalone_100v = str(
+            rules.get("di2Standalone100vMode", "steady")
+        )
         self._perimeter_flag_ms = int(
             rules.get("perimeterFlagMs", _DEFAULT_PERIMETER_MS)
         )
@@ -183,10 +202,15 @@ class SecurityLightController:
     async def _pattern_a(self, seq_id):
         mode = self._di1_mode
         duration_ms = self._di1_duration_ms
+        if mode == "off":
+            self.log("Pattern A: lights OFF (config)")
+            return
         if mode == "strobe":
-            await self._strobe_24v(seq_id, duration_ms)
+            await self._strobe_channel(seq_id, CH_24V, duration_ms)
         elif mode == "blink":
-            await self._blink_24v(seq_id, duration_ms, 500, 500)
+            await self._blink_channel(
+                seq_id, CH_24V, duration_ms, 500, 500
+            )
         else:
             self._set_ch(CH_24V, True)
             self.log("Pattern A: 24V steady ON")
@@ -196,47 +220,94 @@ class SecurityLightController:
 
     async def _pattern_b(self, seq_id):
         duration_ms = self._di2_duration_ms
-        self._set_ch(CH_100V, True)
-        if self._di2_mode == "steady":
-            self._set_ch(CH_24V, True)
-            await self._wait_duration(seq_id, duration_ms)
-        else:
-            await self._strobe_24v(seq_id, duration_ms)
+        await self._run_dual_lights(
+            seq_id,
+            duration_ms,
+            self._di2_mode,
+            self._di2_100v_mode,
+        )
         if self._seq_alive(seq_id):
             self._all_security_off()
             self._clear_perimeter_flag()
 
     async def _pattern_c(self, seq_id):
-        duration_ms = self._di2_duration_ms
-        self._set_ch(CH_100V, True)
-        self._set_ch(CH_24V, True)
-        await self._wait_duration(seq_id, duration_ms)
+        duration_ms = self._di2_standalone_ms
+        await self._run_dual_lights(
+            seq_id,
+            duration_ms,
+            self._di2_standalone_24v,
+            self._di2_standalone_100v,
+        )
         if self._seq_alive(seq_id):
             self._all_security_off()
 
-    async def _strobe_24v(self, seq_id, duration_ms):
-        end_ms = time.ticks_add(time.ticks_ms(), duration_ms)
-        ch24_on = False
-        while self._seq_alive(seq_id):
-            if time.ticks_diff(end_ms, time.ticks_ms()) <= 0:
-                break
-            ch24_on = not ch24_on
-            self._set_ch(CH_24V, ch24_on)
-            await asyncio.sleep_ms(
-                self._strobe_on_ms if ch24_on else self._strobe_off_ms
+    async def _run_dual_lights(
+        self, seq_id, duration_ms, mode_24v, mode_100v
+    ):
+        """24V/100V を個別モードで同時駆動。"""
+        if mode_24v == "off" and mode_100v == "off":
+            self.log("dual lights OFF (config)")
+            return
+        tasks = []
+        if mode_24v != "off":
+            tasks.append(
+                self._drive_channel(
+                    seq_id, CH_24V, duration_ms, mode_24v
+                )
             )
+        if mode_100v != "off":
+            tasks.append(
+                self._drive_channel(
+                    seq_id, CH_100V, duration_ms, mode_100v
+                )
+            )
+        if tasks:
+            await asyncio.gather(*tasks)
 
-    async def _blink_24v(self, seq_id, duration_ms, on_ms, off_ms):
+    async def _drive_channel(
+        self, seq_id, channel, duration_ms, mode
+    ):
+        if mode == "off":
+            return
+        if mode in ("fast_blink", "strobe"):
+            await self._strobe_channel(seq_id, channel, duration_ms)
+        elif mode == "blink":
+            await self._blink_channel(
+                seq_id, channel, duration_ms, 500, 500
+            )
+        else:
+            self._set_ch(channel, True)
+            await self._wait_duration(seq_id, duration_ms)
+            if self._seq_alive(seq_id):
+                self._set_ch(channel, False)
+
+    async def _strobe_channel(self, seq_id, channel, duration_ms):
         end_ms = time.ticks_add(time.ticks_ms(), duration_ms)
-        ch24_on = False
+        ch_on = False
         while self._seq_alive(seq_id):
             if time.ticks_diff(end_ms, time.ticks_ms()) <= 0:
                 break
-            ch24_on = not ch24_on
-            self._set_ch(CH_24V, ch24_on)
-            await asyncio.sleep_ms(on_ms if ch24_on else off_ms)
+            ch_on = not ch_on
+            self._set_ch(channel, ch_on)
+            await asyncio.sleep_ms(
+                self._strobe_on_ms if ch_on else self._strobe_off_ms
+            )
         if self._seq_alive(seq_id):
-            self._set_ch(CH_24V, False)
+            self._set_ch(channel, False)
+
+    async def _blink_channel(
+        self, seq_id, channel, duration_ms, on_ms, off_ms
+    ):
+        end_ms = time.ticks_add(time.ticks_ms(), duration_ms)
+        ch_on = False
+        while self._seq_alive(seq_id):
+            if time.ticks_diff(end_ms, time.ticks_ms()) <= 0:
+                break
+            ch_on = not ch_on
+            self._set_ch(channel, ch_on)
+            await asyncio.sleep_ms(on_ms if ch_on else off_ms)
+        if self._seq_alive(seq_id):
+            self._set_ch(channel, False)
 
     async def _wait_duration(self, seq_id, duration_ms=None):
         ms = duration_ms if duration_ms else self._di1_duration_ms

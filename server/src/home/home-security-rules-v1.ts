@@ -13,22 +13,51 @@ import { findHomeSiteV1 } from "./home-sites-v1.js";
 export type HomeGuardModeV1 = "always" | "night_only" | "off";
 
 /** DI1 外周検知時の点灯モード */
-export type HomeDi1LightModeV1 = "steady" | "blink" | "strobe";
+export type HomeDi1LightModeV1 =
+  | "steady"
+  | "blink"
+  | "strobe"
+  | "off";
 
-/** 段階侵入 DI2 時のライトモード */
-export type HomeDi2LightModeV1 = "fast_blink" | "steady";
+/** 段階侵入 DI2 時の 24V ライトモード */
+export type HomeDi2LightModeV1 =
+  | "fast_blink"
+  | "steady"
+  | "off";
+
+/** 100V ライトモード（段階侵入・近接単独） */
+export type HomeDi2Light100vModeV1 =
+  | "steady"
+  | "blink"
+  | "off";
+
+/** 近接単独 DI2 の 24V/100V モード */
+export type HomeDi2StandaloneLightModeV1 =
+  | "steady"
+  | "blink"
+  | "off";
 
 export interface HomeSecurityRulesV1 {
   siteId: string;
   /** 24時間常時 / 夜間のみ / 警戒OFF */
   guardMode: HomeGuardModeV1;
-  /** DI1 点灯時間（秒）10〜300 */
+  /** DI1 点灯時間（秒）10〜180 */
   di1DurationSec: number;
   di1LightMode: HomeDi1LightModeV1;
-  /** DI2 段階侵入時のライト動作 */
+  /** 段階侵入 DI1→DI2 接近判定制限（秒）30〜180 */
+  perimeterTimeoutSec: number;
+  /** DI2 段階侵入時の 24V ライト動作 */
   di2LightMode: HomeDi2LightModeV1;
-  /** DI2 警報時間（秒）10〜300 */
+  /** DI2 段階侵入時の 100V ライト動作 */
+  di2Light100vMode: HomeDi2Light100vModeV1;
+  /** DI2 威嚇発報時間（秒）10〜180 */
   di2AlertDurationSec: number;
+  /** 近接単独 DI2 点灯時間（秒）10〜180 */
+  di2StandaloneDurationSec: number;
+  /** 近接単独 DI2 の 24V 動作 */
+  di2Standalone24vMode: HomeDi2StandaloneLightModeV1;
+  /** 近接単独 DI2 の 100V 動作 */
+  di2Standalone100vMode: HomeDi2StandaloneLightModeV1;
   /** DI1: サイレントログのみ（Push しない） */
   notifyDi1SilentLogOnly: boolean;
   /** DI2: 即時 Web Push 緊急通知 */
@@ -42,8 +71,13 @@ export interface HomeSecurityRulesPatchV1 {
   guardMode?: HomeGuardModeV1;
   di1DurationSec?: number;
   di1LightMode?: HomeDi1LightModeV1;
+  perimeterTimeoutSec?: number;
   di2LightMode?: HomeDi2LightModeV1;
+  di2Light100vMode?: HomeDi2Light100vModeV1;
   di2AlertDurationSec?: number;
+  di2StandaloneDurationSec?: number;
+  di2Standalone24vMode?: HomeDi2StandaloneLightModeV1;
+  di2Standalone100vMode?: HomeDi2StandaloneLightModeV1;
   notifyDi1SilentLogOnly?: boolean;
   notifyDi2InstantPush?: boolean;
   securityPausedUntil?: string | null;
@@ -59,22 +93,50 @@ export interface HomeSecurityFirmwareRulesV1 {
   di1DurationMs: number;
   di1LightMode: HomeDi1LightModeV1;
   di2LightMode: HomeDi2LightModeV1;
+  di2Light100vMode: HomeDi2Light100vModeV1;
   di2AlertDurationMs: number;
+  di2StandaloneDurationMs: number;
+  di2Standalone24vMode: HomeDi2StandaloneLightModeV1;
+  di2Standalone100vMode: HomeDi2StandaloneLightModeV1;
   perimeterFlagMs: number;
   strobeOnMs: number;
   strobeOffMs: number;
 }
 
 const GUARD_MODES: HomeGuardModeV1[] = ["always", "night_only", "off"];
-const DI1_MODES: HomeDi1LightModeV1[] = ["steady", "blink", "strobe"];
-const DI2_MODES: HomeDi2LightModeV1[] = ["fast_blink", "steady"];
+const DI1_MODES: HomeDi1LightModeV1[] = [
+  "steady",
+  "blink",
+  "strobe",
+  "off",
+];
+const DI2_MODES: HomeDi2LightModeV1[] = [
+  "fast_blink",
+  "steady",
+  "off",
+];
+const DI2_100V_MODES: HomeDi2Light100vModeV1[] = [
+  "steady",
+  "blink",
+  "off",
+];
+const DI2_STANDALONE_MODES: HomeDi2StandaloneLightModeV1[] = [
+  "steady",
+  "blink",
+  "off",
+];
 
 const DEFAULT_RULES: Omit<HomeSecurityRulesV1, "siteId" | "updatedAt"> = {
   guardMode: "night_only",
   di1DurationSec: 45,
   di1LightMode: "steady",
+  perimeterTimeoutSec: 120,
   di2LightMode: "fast_blink",
+  di2Light100vMode: "steady",
   di2AlertDurationSec: 45,
+  di2StandaloneDurationSec: 45,
+  di2Standalone24vMode: "steady",
+  di2Standalone100vMode: "steady",
   notifyDi1SilentLogOnly: true,
   notifyDi2InstantPush: true,
   securityPausedUntil: null,
@@ -87,10 +149,19 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
-function clampSec(value: unknown, fallback: number): number {
+function clampSec(
+  value: unknown,
+  fallback: number,
+  min = 10,
+  max = 180
+): number {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
-  return Math.max(10, Math.min(300, Math.round(n)));
+  return Math.max(min, Math.min(max, Math.round(n)));
+}
+
+function clampPerimeterSec(value: unknown, fallback: number): number {
+  return clampSec(value, fallback, 30, 180);
 }
 
 function ensureSecurityRulesTableV1(): void {
@@ -143,6 +214,29 @@ function parseRulesJson(
     ? (parsed.di2LightMode as HomeDi2LightModeV1)
     : DEFAULT_RULES.di2LightMode;
 
+  const di2Light100vMode = DI2_100V_MODES.includes(
+    parsed.di2Light100vMode as HomeDi2Light100vModeV1
+  )
+    ? (parsed.di2Light100vMode as HomeDi2Light100vModeV1)
+    : DEFAULT_RULES.di2Light100vMode;
+
+  const di2Standalone24vMode = DI2_STANDALONE_MODES.includes(
+    parsed.di2Standalone24vMode as HomeDi2StandaloneLightModeV1
+  )
+    ? (parsed.di2Standalone24vMode as HomeDi2StandaloneLightModeV1)
+    : DEFAULT_RULES.di2Standalone24vMode;
+
+  const di2Standalone100vMode = DI2_STANDALONE_MODES.includes(
+    parsed.di2Standalone100vMode as HomeDi2StandaloneLightModeV1
+  )
+    ? (parsed.di2Standalone100vMode as HomeDi2StandaloneLightModeV1)
+    : DEFAULT_RULES.di2Standalone100vMode;
+
+  const di2AlertDurationSec = clampSec(
+    parsed.di2AlertDurationSec,
+    DEFAULT_RULES.di2AlertDurationSec
+  );
+
   return {
     siteId,
     guardMode,
@@ -151,11 +245,19 @@ function parseRulesJson(
       DEFAULT_RULES.di1DurationSec
     ),
     di1LightMode,
-    di2LightMode,
-    di2AlertDurationSec: clampSec(
-      parsed.di2AlertDurationSec,
-      DEFAULT_RULES.di2AlertDurationSec
+    perimeterTimeoutSec: clampPerimeterSec(
+      parsed.perimeterTimeoutSec,
+      DEFAULT_RULES.perimeterTimeoutSec
     ),
+    di2LightMode,
+    di2Light100vMode,
+    di2AlertDurationSec,
+    di2StandaloneDurationSec: clampSec(
+      parsed.di2StandaloneDurationSec ?? parsed.di2AlertDurationSec,
+      di2AlertDurationSec
+    ),
+    di2Standalone24vMode,
+    di2Standalone100vMode,
     notifyDi1SilentLogOnly:
       parsed.notifyDi1SilentLogOnly !== undefined
         ? Boolean(parsed.notifyDi1SilentLogOnly)
@@ -257,6 +359,29 @@ export function updateHomeSecurityRulesV1(
       ? patch.di2LightMode
       : current.di2LightMode;
 
+  const di2Light100vMode =
+    patch.di2Light100vMode &&
+    DI2_100V_MODES.includes(patch.di2Light100vMode)
+      ? patch.di2Light100vMode
+      : current.di2Light100vMode;
+
+  const di2Standalone24vMode =
+    patch.di2Standalone24vMode &&
+    DI2_STANDALONE_MODES.includes(patch.di2Standalone24vMode)
+      ? patch.di2Standalone24vMode
+      : current.di2Standalone24vMode;
+
+  const di2Standalone100vMode =
+    patch.di2Standalone100vMode &&
+    DI2_STANDALONE_MODES.includes(patch.di2Standalone100vMode)
+      ? patch.di2Standalone100vMode
+      : current.di2Standalone100vMode;
+
+  const di2AlertDurationSec =
+    patch.di2AlertDurationSec !== undefined
+      ? clampSec(patch.di2AlertDurationSec, current.di2AlertDurationSec)
+      : current.di2AlertDurationSec;
+
   const rules: HomeSecurityRulesV1 = {
     siteId: sid,
     guardMode,
@@ -265,11 +390,25 @@ export function updateHomeSecurityRulesV1(
         ? clampSec(patch.di1DurationSec, current.di1DurationSec)
         : current.di1DurationSec,
     di1LightMode,
+    perimeterTimeoutSec:
+      patch.perimeterTimeoutSec !== undefined
+        ? clampPerimeterSec(
+            patch.perimeterTimeoutSec,
+            current.perimeterTimeoutSec
+          )
+        : current.perimeterTimeoutSec,
     di2LightMode,
-    di2AlertDurationSec:
-      patch.di2AlertDurationSec !== undefined
-        ? clampSec(patch.di2AlertDurationSec, current.di2AlertDurationSec)
-        : current.di2AlertDurationSec,
+    di2Light100vMode,
+    di2AlertDurationSec,
+    di2StandaloneDurationSec:
+      patch.di2StandaloneDurationSec !== undefined
+        ? clampSec(
+            patch.di2StandaloneDurationSec,
+            current.di2StandaloneDurationSec
+          )
+        : current.di2StandaloneDurationSec,
+    di2Standalone24vMode,
+    di2Standalone100vMode,
     notifyDi1SilentLogOnly:
       patch.notifyDi1SilentLogOnly !== undefined
         ? Boolean(patch.notifyDi1SilentLogOnly)
@@ -344,8 +483,12 @@ export function buildHomeSecurityFirmwareRulesV1(
     di1DurationMs: rules.di1DurationSec * 1000,
     di1LightMode: rules.di1LightMode,
     di2LightMode: rules.di2LightMode,
+    di2Light100vMode: rules.di2Light100vMode,
     di2AlertDurationMs: rules.di2AlertDurationSec * 1000,
-    perimeterFlagMs: 120_000,
+    di2StandaloneDurationMs: rules.di2StandaloneDurationSec * 1000,
+    di2Standalone24vMode: rules.di2Standalone24vMode,
+    di2Standalone100vMode: rules.di2Standalone100vMode,
+    perimeterFlagMs: rules.perimeterTimeoutSec * 1000,
     strobeOnMs: 250,
     strobeOffMs: 250,
   };

@@ -71,12 +71,12 @@ export const TISLY_INTERNAL_ROUTES_V1: TislyRouteEntryV1[] = [
   },
   {
     path: "/security-v1",
-    label: "ホームセキュリティ俯瞰",
+    label: "TiSLY Security",
     zone: "internal",
   },
   {
     path: "/app/security-v1",
-    label: "ホームセキュリティ俯瞰 (App)",
+    label: "TiSLY Security (App)",
     zone: "internal",
   },
   {

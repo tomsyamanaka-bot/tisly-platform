@@ -28,6 +28,7 @@ import {
   markSecurityUiReady,
 } from "./security-floor-fallback-v1.js";
 import { updateSecurityIso3d } from "./security-floor-iso3d-v1.js";
+import { refreshSecurityRemoteConfigV1 } from "./security-floor-remote-config-v1.js";
 
 const state = {
   siteId: FALLBACK_DEFAULT_SITE_ID,
@@ -463,6 +464,7 @@ function bind() {
     state.cameraId = null;
     bootFallback();
     loadOperator().catch(() => {});
+    refreshSecurityRemoteConfigV1(state.siteId).catch(() => {});
   });
   if (window.__TISLY_SF_CTRL_BOUND) return;
   $("sf-floor-tabs")?.addEventListener("click", (e) => {

@@ -966,6 +966,7 @@ describe("tisly-home-v1", () => {
     assert.equal(getRes.body.ok, true);
     assert.ok(getRes.body.rules.di1DurationSec >= 10);
     assert.equal(typeof getRes.body.rules.notifyDi1SilentLogOnly, "boolean");
+    assert.ok(getRes.body.rules.perimeterTimeoutSec >= 30);
 
     const putRes = await request(app)
       .put("/api/home/v1/security-rules")
@@ -974,12 +975,17 @@ describe("tisly-home-v1", () => {
         guardMode: "always",
         di1DurationSec: 60,
         di1LightMode: "blink",
+        perimeterTimeoutSec: 90,
+        di2Light100vMode: "blink",
+        di2StandaloneDurationSec: 30,
         notifyDi2InstantPush: true,
       })
       .expect(200);
     assert.equal(putRes.body.rules.guardMode, "always");
     assert.equal(putRes.body.rules.di1DurationSec, 60);
     assert.equal(putRes.body.rules.di1LightMode, "blink");
+    assert.equal(putRes.body.rules.perimeterTimeoutSec, 90);
+    assert.equal(putRes.body.rules.di2Light100vMode, "blink");
 
     const getAgain = await request(app)
       .get(`/api/home/v1/security-rules?siteId=${JP_SITE}`)
@@ -994,6 +1000,33 @@ describe("tisly-home-v1", () => {
     assert.equal(fwRes.body.ok, true);
     assert.equal(fwRes.body.rules.di1DurationMs, 60_000);
     assert.equal(fwRes.body.rules.di1LightMode, "blink");
+    assert.equal(fwRes.body.rules.perimeterFlagMs, 90_000);
+    assert.equal(fwRes.body.rules.di2Light100vMode, "blink");
+  });
+
+  it("POST /api/home/v1/security/config applies remote rules", async () => {
+    const postRes = await request(app)
+      .post("/api/home/v1/security/config")
+      .send({
+        siteId: ITABASHI_SITE,
+        guardMode: "night_only",
+        di1DurationSec: 75,
+        di1LightMode: "strobe",
+        perimeterTimeoutSec: 60,
+        di2LightMode: "steady",
+        di2Light100vMode: "steady",
+        di2AlertDurationSec: 55,
+        di2StandaloneDurationSec: 40,
+        di2Standalone24vMode: "blink",
+        di2Standalone100vMode: "off",
+        actor: "security-v1-test",
+      })
+      .expect(200);
+    assert.equal(postRes.body.ok, true);
+    assert.match(postRes.body.message, /反映/);
+    assert.equal(postRes.body.rules.di1DurationSec, 75);
+    assert.equal(postRes.body.firmware.di2Standalone24vMode, "blink");
+    assert.equal(postRes.body.firmware.di2StandaloneDurationMs, 40_000);
   });
 
   it("scene control away/welcome/goodnight", async () => {

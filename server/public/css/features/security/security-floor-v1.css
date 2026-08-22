@@ -1467,3 +1467,116 @@
     );
   }
 }
+
+/* 遠隔防犯ルール設定パネル */
+.sf-remote-config {
+  margin-bottom: 12px;
+}
+
+.sf-remote-target {
+  margin: 0 0 12px;
+  color: var(--sf-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.sf-remote-block {
+  margin: 0 0 14px;
+}
+
+.sf-remote-label {
+  display: block;
+  margin: 0 0 8px;
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: var(--sf-ink);
+}
+
+.sf-remote-details {
+  margin: 0 0 12px;
+  border: 1px solid var(--sf-line);
+  border-radius: 14px;
+  padding: 10px 12px;
+  background: var(--sf-bg-2);
+}
+
+.sf-remote-details summary {
+  cursor: pointer;
+  font-weight: 800;
+  color: var(--sf-navy);
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+
+.sf-range {
+  width: 100%;
+  accent-color: var(--sf-away);
+}
+
+.sf-seg-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sf-seg-btn {
+  min-height: var(--sf-tap);
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--sf-line);
+  background: var(--sf-surface);
+  color: var(--sf-ink);
+  font-weight: 700;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.sf-seg-btn.is-on {
+  background: var(--sf-away);
+  border-color: var(--sf-away);
+  color: #fff;
+}
+
+.sf-remote-apply {
+  width: 100%;
+  min-height: calc(var(--sf-tap) + 4px);
+  margin-top: 8px;
+  border: none;
+  border-radius: 14px;
+  background: linear-gradient(
+    135deg,
+    var(--sf-navy) 0%,
+    var(--sf-away) 100%
+  );
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.sf-remote-apply:disabled {
+  opacity: 0.55;
+}
+
+.sf-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%) translateY(120%);
+  z-index: 9999;
+  max-width: min(92vw, 420px);
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: var(--sf-navy);
+  color: #fff;
+  font-weight: 800;
+  text-align: center;
+  box-shadow: var(--sf-shadow);
+  transition: transform 0.28s ease;
+  pointer-events: none;
+}
+
+.sf-toast.is-visible {
+  transform: translateX(-50%) translateY(0);
+}
