@@ -838,23 +838,186 @@ export function renderNotes(d) {
     : "<li>特記事項はありません</li>";
 }
 
-/** 総合システムログ描画 */
+/** ログ行アイコン（防犯／ライト／湯はり／警戒） */
+function systemLogIconV1(row) {
+  const cat = String(row.category || "");
+  const msg = String(row.message || "");
+  if (cat === "sensor_alert" || /侵入|警報|DI[12]|センサー/.test(msg)) {
+    return "🚨";
+  }
+  if (cat === "light_event" || /ライト|照明|点灯|消灯/.test(msg)) {
+    return "💡";
+  }
+  if (cat === "bath_state" || /湯|風呂|浴槽/.test(msg)) {
+    return "♨️";
+  }
+  if (/警戒|警備|シーン|guard|モード/.test(msg) || cat === "scene_run") {
+    return "🛡️";
+  }
+  return "🛡️";
+}
+
+function systemLogBucketV1(row) {
+  const cat = String(row.category || "");
+  if (cat === "sensor_alert") return "security";
+  if (
+    cat === "bath_state" ||
+    cat === "light_event" ||
+    cat === "manual_control" ||
+    cat === "schedule_run" ||
+    cat === "delay_run"
+  ) {
+    return "home";
+  }
+  return "system";
+}
+
+let __hmSystemLogsCache = [];
+
+function filterSystemLogsV1(logs, filters = {}) {
+  const cat = String(filters.category || "").trim();
+  const q = String(filters.q || "").trim();
+  const date = String(filters.date || "").trim();
+  return logs.filter((row) => {
+    if (cat && systemLogBucketV1(row) !== cat) return false;
+    if (date) {
+      const day = String(row.createdAt || "").slice(0, 10);
+      if (day !== date) return false;
+    }
+    if (q) {
+      const hay = `${row.message || ""}${row.siteName || ""}${row.category || ""}`;
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function renderSystemLogRowsHtmlV1(logs) {
+  return logs
+    .map((row) => {
+      const t =
+        row.timeLabel ||
+        (row.createdAt
+          ? new Date(row.createdAt).toLocaleTimeString("ja-JP", {
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+              hour12: false,
+              timeZone: "Asia/Tokyo",
+            })
+          : "");
+      const title = row.message || row.displayLine || "";
+      return `<article class="hm-log-compact-row">
+        <span class="hm-log-ico" aria-hidden="true">${systemLogIconV1(row)}</span>
+        <div class="hm-log-main">
+          <p class="hm-log-title">${escapeHtml(title)}</p>
+          <p class="hm-log-sub">${escapeHtml(row.siteName || "")}</p>
+        </div>
+        <time class="hm-log-time">${escapeHtml(t)}</time>
+      </article>`;
+    })
+    .join("");
+}
+
+/** 総合システムログ描画（直近10件） */
 export function renderSystemLogs(logs, options = {}) {
   const root = byId("hm-system-logs");
   if (!root) return;
+  __hmSystemLogsCache = Array.isArray(logs) ? logs : [];
   const plain = Boolean(options.plain);
-  if (!logs?.length) {
+  if (!__hmSystemLogsCache.length) {
     root.innerHTML = '<p class="hm-empty">動作ログはまだありません</p>';
+    renderSystemLogDetailBodyV1([]);
     return;
   }
-  root.innerHTML = logs
+  const recent = __hmSystemLogsCache.slice(0, 10);
+  if (plain) {
+    root.innerHTML = recent
+      .map((row) => {
+        const line =
+          row.displayLine ||
+          `[${row.timeLabel || ""}] ${row.siteName}: ${row.message}`;
+        return `<p class="hm-log-line">${escapeHtml(line)}</p>`;
+      })
+      .join("");
+  } else {
+    root.innerHTML = renderSystemLogRowsHtmlV1(recent);
+  }
+  renderSystemLogDetailBodyV1(__hmSystemLogsCache);
+}
+
+function readSystemLogFiltersV1() {
+  return {
+    category: byId("hm-log-cat")?.value || "",
+    q: byId("hm-log-q")?.value || "",
+    date: byId("hm-log-date")?.value || "",
+  };
+}
+
+function renderSystemLogDetailBodyV1(logs) {
+  const body = byId("hm-log-detail-body");
+  if (!body) return;
+  const filtered = filterSystemLogsV1(logs, readSystemLogFiltersV1());
+  if (!filtered.length) {
+    body.innerHTML = '<p class="hm-empty">該当するログはありません</p>';
+    return;
+  }
+  body.innerHTML = filtered
     .map((row) => {
-      const line =
-        row.displayLine ||
-        `[${row.timeLabel || ""}] ${row.siteName}: ${row.message}`;
-      return `<p class="hm-log-line">${escapeHtml(line)}</p>`;
+      const t = row.timeLabel || row.createdAt || "";
+      const cat = row.categoryLabel || row.category || "";
+      return `<p class="hm-log-line"><span class="hm-log-cat">${escapeHtml(
+        systemLogIconV1(row) + " " + cat
+      )}</span> [${escapeHtml(t)}] ${escapeHtml(row.siteName || "")}: ${escapeHtml(
+        row.message || ""
+      )}</p>`;
     })
     .join("");
+}
+
+function exportSystemLogsCsvV1() {
+  const rows = filterSystemLogsV1(
+    __hmSystemLogsCache,
+    readSystemLogFiltersV1()
+  );
+  const lines = [
+    "時刻,物件,カテゴリ,メッセージ,操作者",
+    ...rows.map((r) =>
+      [
+        r.createdAt || r.timeLabel || "",
+        r.siteName || "",
+        r.category || "",
+        `"${String(r.message || "").replace(/"/g, '""')}"`,
+        r.actor || "",
+      ].join(",")
+    ),
+  ];
+  const blob = new Blob(["\uFEFF" + lines.join("\n")], {
+    type: "text/csv;charset=utf-8",
+  });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "tisly-home-system-logs.csv";
+  a.click();
+}
+
+/** 詳細ログモーダルのイベント束ね */
+export function bindSystemLogModalV1() {
+  if (window.__TISLY_HM_LOG_MODAL_BOUND) return;
+  window.__TISLY_HM_LOG_MODAL_BOUND = true;
+  byId("hm-log-open-detail")?.addEventListener("click", () => {
+    renderSystemLogDetailBodyV1(__hmSystemLogsCache);
+    byId("hm-log-dialog")?.showModal?.();
+  });
+  byId("hm-log-csv")?.addEventListener("click", exportSystemLogsCsvV1);
+  ["hm-log-cat", "hm-log-date"].forEach((id) => {
+    byId(id)?.addEventListener("change", () => {
+      renderSystemLogDetailBodyV1(__hmSystemLogsCache);
+    });
+  });
+  byId("hm-log-q")?.addEventListener("input", () => {
+    renderSystemLogDetailBodyV1(__hmSystemLogsCache);
+  });
 }
 
 /** 風呂予約パネル描画 */
@@ -900,7 +1063,7 @@ export async function refreshHomeExtrasV1(siteId, dashboard, options = {}) {
   const oneshot = dashboard?.bath?.uiProfile === "oneshot_autofill";
   setBathScheduleVisible(oneshot);
   try {
-    const logs = await fetchSystemLogs(siteId || null, options.logLimit || 30);
+    const logs = await fetchSystemLogs(siteId || null, options.logLimit || 200);
     renderSystemLogs(logs, options);
   } catch {
     renderSystemLogs([], options);

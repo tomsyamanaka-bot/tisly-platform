@@ -24,6 +24,7 @@ import {
   renderSystemLogs,
   refreshHomeExtrasV1,
   bindBathScheduleUiV1,
+  bindSystemLogModalV1,
   replaceSiteIdInUrl,
   sendHomeControl,
   setText,
@@ -271,6 +272,7 @@ document.addEventListener("DOMContentLoaded", () => {
     () => currentSiteId,
     () => "社内オペレーター"
   );
+  bindSystemLogModalV1();
   renderSwitchBotBadge();
 
   const select = byId("hm-site-select");

@@ -299,10 +299,14 @@ describe("security-floor-v1", () => {
     assert.match(html, /sf-notify-policy/);
     assert.match(html, /DI1単独：通知ON/);
     assert.match(html, /sf-remote-apply/);
-    assert.match(html, /security-floor-remote-config-v1\.js\?v=2487/);
-    assert.match(html, /security-floor-light-v1\.js\?v=2485/);
-    assert.match(html, /security-floor-operator-v1\.js\?v=2485/);
-    assert.match(html, /security-floor-iso3d-v1\.js\?v=2485/);
+    assert.match(html, /security-floor-remote-config-v1\.js\?v=2490/);
+    assert.match(html, /security-floor-light-v1\.js\?v=2490/);
+    assert.match(html, /security-floor-operator-v1\.js\?v=2490/);
+    assert.match(html, /security-floor-iso3d-v1\.js\?v=2490/);
+    assert.match(html, /sf-iso3d-stack/);
+    assert.match(html, /sf-log-compact/);
+    assert.match(html, /sf-log-dialog/);
+    assert.match(html, /詳細ログ・全履歴を見る/);
     assert.match(html, /importmap/);
     assert.match(html, /viewBox="-10 -12 120 124"/);
     assert.match(html, /← 戻る/);
@@ -343,6 +347,10 @@ describe("security-floor-v1", () => {
     assert.match(iso3dJs, /tisly-neon-pin-mesh/);
     assert.match(iso3dJs, /deviceToWorldPosV1|worldX/);
     assert.match(iso3dJs, /外壁フレーム/);
+    assert.match(iso3dJs, /stackExpand|STACK_GAP/);
+    assert.match(iso3dJs, /perimeter|critical/);
+    assert.match(iso3dJs, /発報地点/);
+    assert.match(iso3dJs, /0x0b101b|0b101b/);
     assert.match(iso3dJs, /labelRenderer\.domElement\.innerHTML\s*=\s*""/);
     assert.match(iso3dJs, /isCSS2DObject/);
     assert.match(iso3dJs, /children\.slice\(\)/);
@@ -400,6 +408,8 @@ describe("security-floor-v1", () => {
     assert.match(opJs, /applyLocalPrimaryAlert/);
     assert.match(opJs, /bindSecurityOrbit/);
     assert.match(opJs, /updateSecurityIso3d/);
+    assert.match(opJs, /sf-log-compact|logIconFor/);
+    assert.match(opJs, /sf-log-dialog|sf-log-open-detail/);
     assert.match(opJs, /\\uFEFF/);
     const fbJs = fs.readFileSync(
       path.join(
@@ -424,6 +434,8 @@ describe("security-floor-v1", () => {
     assert.match(customerHtml, /security-floor-light-v1\.js/);
     assert.match(customerHtml, /security-floor-iso3d-v1\.js/);
     assert.match(customerHtml, /sf-iso3d-mount/);
+    assert.match(customerHtml, /sf-iso3d-stack/);
+    assert.match(customerHtml, /sf-log-compact/);
     assert.match(customerHtml, /sf-demo-alert/);
     assert.match(customerHtml, /data-room-id="my-1f-katte"/);
     assert.match(customerHtml, /data-focus="1f"/);

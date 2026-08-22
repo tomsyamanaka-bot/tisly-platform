@@ -1369,6 +1369,115 @@
   font-weight: 800;
 }
 
+.hm-log-more {
+  width: 100%;
+  margin-top: 12px;
+  min-height: 48px;
+}
+
+.hm-log-compact-row {
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  min-height: 52px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--hm-line, #e2e8f0);
+  background: #fff;
+}
+
+.hm-log-ico {
+  font-size: 1.3rem;
+  text-align: center;
+}
+
+.hm-log-main {
+  min-width: 0;
+}
+
+.hm-log-title {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--hm-ink, #0f172a);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hm-log-sub {
+  margin: 2px 0 0;
+  font-size: 0.74rem;
+  color: var(--hm-muted, #64748b);
+  font-weight: 600;
+}
+
+.hm-log-dialog {
+  width: min(920px, 96vw);
+  max-height: min(92vh, 880px);
+  padding: 0;
+  border: 0;
+  border-radius: 16px;
+  background: #fff;
+  color: #0f172a;
+  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.28);
+}
+
+.hm-log-dialog::backdrop {
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.hm-log-dialog-inner {
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  max-height: min(92vh, 880px);
+}
+
+.hm-log-dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px 10px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.hm-log-dialog-head h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 900;
+  color: var(--hm-navy, #1e3a8a);
+}
+
+.hm-log-dialog-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 18px;
+}
+
+.hm-log-dialog-filters .hm-input {
+  min-height: 40px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 0 10px;
+}
+
+.hm-log-dialog-body {
+  overflow: auto;
+  padding: 0 18px 12px;
+  max-height: 52vh;
+}
+
+.hm-log-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 18px 16px;
+  border-top: 1px solid #e2e8f0;
+}
+
 /* ---------- 防犯ライト手動操作 ---------- */
 
 .hm-security-light-group {

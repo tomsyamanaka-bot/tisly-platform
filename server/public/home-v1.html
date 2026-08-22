@@ -12,7 +12,7 @@
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2003" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
   <title>TiSLY HOME — 住設・ホームIoT統合</title>
-  <link rel="stylesheet" href="/css/features/home/home-v1.css?v=2459" />
+  <link rel="stylesheet" href="/css/features/home/home-v1.css?v=2490" />
   <link rel="stylesheet" href="/css/features/home/home-tiles-v1.css?v=2459" />
 </head>
 <body class="hm-body" data-hqs-mode="internal">
@@ -543,11 +543,42 @@
 
     <!-- 動作ログ -->
     <section class="hm-card">
-      <p class="hm-card-label">📜 動作ログ・履歴</p>
+      <p class="hm-card-label">📜 動作ログ（直近10件）</p>
       <div class="hm-log-list" id="hm-system-logs">
         <p class="hm-empty">読み込み中…</p>
       </div>
+      <button type="button" class="hm-btn hm-log-more" id="hm-log-open-detail">
+        📜 詳細ログ・全履歴を見る
+      </button>
     </section>
+
+    <dialog class="hm-log-dialog" id="hm-log-dialog">
+      <div class="hm-log-dialog-inner">
+        <div class="hm-log-dialog-head">
+          <h2>📜 詳細ログ・全履歴</h2>
+          <form method="dialog">
+            <button type="submit" class="hm-btn is-off">閉じる</button>
+          </form>
+        </div>
+        <div class="hm-log-dialog-filters">
+          <input type="date" id="hm-log-date" class="hm-input" aria-label="日付" />
+          <select id="hm-log-cat" class="hm-input" aria-label="種別">
+            <option value="">種別すべて</option>
+            <option value="security">防犯</option>
+            <option value="home">住設</option>
+            <option value="system">システム</option>
+          </select>
+          <input id="hm-log-q" class="hm-input" placeholder="キーワード" />
+        </div>
+        <div class="hm-log-dialog-body" id="hm-log-detail-body"></div>
+        <div class="hm-log-dialog-actions">
+          <button type="button" class="hm-btn is-on" id="hm-log-csv">CSVエクスポート</button>
+          <form method="dialog">
+            <button type="submit" class="hm-btn is-off">閉じる</button>
+          </form>
+        </div>
+      </div>
+    </dialog>
 
     <!-- 現場メモ -->
     <section class="hm-card">
@@ -568,7 +599,7 @@
 
   <div class="hm-toast" id="hm-toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="/js/features/home/home-operator-v1.js?v=2459"></script>
-  <script type="module" src="/js/features/home/home-quick-switch-v1.js?v=2459"></script>
+  <script type="module" src="/js/features/home/home-operator-v1.js?v=2490"></script>
+  <script type="module" src="/js/features/home/home-quick-switch-v1.js?v=2490"></script>
 </body>
 </html>

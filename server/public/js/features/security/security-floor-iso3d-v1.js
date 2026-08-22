@@ -1,6 +1,7 @@
 /**
- * TiSLY Security — ビルダー連携 3D アイソメトリック俯瞰
- * Three.js 部屋ブロック＋3Dネオンピン（CSS2Dピン廃止）＋発報発光
+ * TiSLY Security — プレミアム・サイバーダーク 3D
+ * アイソメトリック俯瞰 · 階層スタック · DI発報発光
+ * 外壁フレーム＋エッジグローで立体感を出す
  */
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
@@ -18,6 +19,12 @@ import {
 
 const LS_KEY = "tisly_floorplan_config";
 const FLAG = "tisly_floorplan_for_security";
+
+/** 階層スタックの基準ギャップ（展開時） */
+const STACK_GAP = 4.2;
+const BG = 0x0b101b;
+const GRID_CYAN = 0x1e3a5f;
+const GRID_LINE = 0x243447;
 
 /** @type {import('three').Scene | null} */
 let scene = null;
@@ -37,6 +44,11 @@ let animId = 0;
 let clock = new THREE.Clock();
 let alertPulse = 0;
 
+/** @type {THREE.SpotLight | null} */
+let spotLight = null;
+/** @type {THREE.PointLight | null} */
+let alertPoint = null;
+
 const raycaster = new THREE.Raycaster();
 const pointerNdc = new THREE.Vector2();
 
@@ -48,8 +60,10 @@ const pointerNdc = new THREE.Vector2();
  *  showSensors: boolean,
  *  showZones: boolean,
  *  showLabels: boolean,
+ *  stackExpand: number,
  *  alertRoomIds: Set<string>,
  *  alertSensorIds: Set<string>,
+ *  alertTier: 'none' | 'perimeter' | 'critical',
  * }} */
 const state = {
   site: null,
@@ -59,14 +73,25 @@ const state = {
   showSensors: true,
   showZones: true,
   showLabels: true,
+  stackExpand: 0.72,
   alertRoomIds: new Set(),
   alertSensorIds: new Set(),
+  alertTier: "none",
 };
 
-/** @type {Map<string, { mesh: THREE.Mesh, mat: THREE.MeshStandardMaterial, edge: THREE.LineSegments }>} */
+/** @type {Map<string, {
+ *  mesh: THREE.Mesh,
+ *  mat: THREE.MeshStandardMaterial,
+ *  edge: THREE.LineSegments,
+ *  tier: string,
+ * }>} */
 const roomMeshes = new Map();
 /** @type {Map<string, THREE.Group>} */
 const sensorPins = new Map();
+/** @type {THREE.Mesh[]} */
+const perimeterGlowMeshes = [];
+/** @type {THREE.Object3D[]} */
+const floorShells = [];
 
 function disposeObject(obj) {
   obj.traverse((o) => {
@@ -105,6 +130,8 @@ function clearGroup(group) {
   }
   roomMeshes.clear();
   sensorPins.clear();
+  perimeterGlowMeshes.length = 0;
+  floorShells.length = 0;
   /* CSS2DRenderer 配下の孤児 DOM を強制全消去 */
   if (labelRenderer?.domElement) {
     labelRenderer.domElement.innerHTML = "";
@@ -112,7 +139,9 @@ function clearGroup(group) {
   /* 万一マウント直下に残った旧ピン／ラベル HTML も除去 */
   if (mountEl) {
     mountEl
-      .querySelectorAll(".sf-iso3d-room-label, .sf-iso3d-pin, .tisly-neon-pin")
+      .querySelectorAll(
+        ".sf-iso3d-room-label, .sf-iso3d-pin, .tisly-neon-pin, .sf-iso3d-alert-tip"
+      )
       .forEach((el) => {
         if (!labelRenderer?.domElement?.contains(el)) el.remove();
       });
@@ -184,6 +213,7 @@ function roomsForFloor(floorId) {
       w: r.w,
       h: r.h,
       alertVisible,
+      floorId,
     };
   });
 }
@@ -232,10 +262,58 @@ function sensorsForFloor(floorId) {
 function renderOpts() {
   const r = state.floorplan?.render || {};
   return {
-    wallHeight: r.wallHeight ?? 2.7,
-    roomOpacity: r.roomOpacity ?? 0.52,
-    cameraElevationDeg: r.cameraElevationDeg ?? 45,
+    wallHeight: r.wallHeight ?? 2.55,
+    roomOpacity: r.roomOpacity ?? 0.88,
+    cameraElevationDeg: r.cameraElevationDeg ?? 48,
   };
+}
+
+/** 有効フロアを下→上（外周→上層）で並べる */
+function orderedFloorIds() {
+  const floors = (state.site?.floors || []).filter((f) => f.enabled !== false);
+  const rank = (id) => {
+    if (id === "outdoor") return 0;
+    if (id === "1f") return 1;
+    if (id === "2f") return 2;
+    if (id === "3f") return 3;
+    if (id === "roof") return 4;
+    return 5;
+  };
+  const ids = floors.map((f) => f.id).sort((a, b) => rank(a) - rank(b));
+  if (!ids.length) return ["outdoor", "1f", "2f"];
+  return ids;
+}
+
+function floorHasContent(floorId) {
+  return (
+    roomsForFloor(floorId).length > 0 || sensorsForFloor(floorId).length > 0
+  );
+}
+
+function inferAlertTier() {
+  const outdoorAlert =
+    roomsForFloor("outdoor").some((r) => r.alertVisible) ||
+    sensorsForFloor("outdoor").some((s) => s.alertVisible) ||
+    (state.site?.sensors || []).some(
+      (s) => s.floorId === "outdoor" && (s.alertVisible || state.alertSensorIds.has(s.id))
+    );
+  const indoorAlert = (state.site?.rooms || []).some(
+    (r) =>
+      r.floorId !== "outdoor" &&
+      (r.alertVisible || state.alertRoomIds.has(r.id))
+  ) ||
+    (state.site?.sensors || []).some(
+      (s) =>
+        s.floorId !== "outdoor" &&
+        (s.alertVisible || state.alertSensorIds.has(s.id))
+    );
+  if (indoorAlert) return "critical";
+  if (outdoorAlert) return "perimeter";
+  if (state.alertRoomIds.size || state.alertSensorIds.size) {
+    const focus = state.floorId;
+    return focus === "outdoor" ? "perimeter" : "critical";
+  }
+  return "none";
 }
 
 function onCanvasPointerUp(ev) {
@@ -271,6 +349,45 @@ function onCanvasPointerUp(ev) {
   }
 }
 
+function makeCyberGridTexture() {
+  const c = document.createElement("canvas");
+  c.width = 512;
+  c.height = 512;
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = "#0d1524";
+  ctx.fillRect(0, 0, 512, 512);
+  ctx.strokeStyle = "rgba(56, 189, 248, 0.18)";
+  ctx.lineWidth = 1;
+  const step = 32;
+  for (let i = 0; i <= 512; i += step) {
+    ctx.beginPath();
+    ctx.moveTo(i, 0);
+    ctx.lineTo(i, 512);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0, i);
+    ctx.lineTo(512, i);
+    ctx.stroke();
+  }
+  ctx.strokeStyle = "rgba(34, 211, 238, 0.35)";
+  ctx.lineWidth = 1.5;
+  for (let i = 0; i <= 512; i += step * 4) {
+    ctx.beginPath();
+    ctx.moveTo(i, 0);
+    ctx.lineTo(i, 512);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0, i);
+    ctx.lineTo(512, i);
+    ctx.stroke();
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(2, 2);
+  tex.anisotropy = 4;
+  return tex;
+}
+
 function ensureScene() {
   mountEl = document.getElementById("sf-iso3d-mount");
   if (!mountEl) return false;
@@ -294,6 +411,8 @@ function ensureScene() {
     scene = null;
     camera = null;
     buildingGroup = null;
+    spotLight = null;
+    alertPoint = null;
     roomMeshes.clear();
     sensorPins.clear();
   }
@@ -302,17 +421,19 @@ function ensureScene() {
   const h = mountEl.clientHeight || 360;
 
   scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(0xf1f5f9, 32, 78);
-  scene.background = new THREE.Color(0xf8fafc);
+  scene.fog = new THREE.Fog(BG, 28, 72);
+  scene.background = new THREE.Color(BG);
 
   camera = new THREE.PerspectiveCamera(42, w / h, 0.1, 200);
-  camera.position.set(16, 16, 16);
-  camera.lookAt(0, 0.8, 0);
+  camera.position.set(18, 18, 18);
+  camera.lookAt(0, 2.2, 0);
 
-  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.setSize(w, h, false);
-  renderer.setClearColor(0xf8fafc, 1);
+  renderer.setClearColor(BG, 1);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.domElement.className = "sf-iso3d-canvas";
   mountEl.innerHTML = "";
   mountEl.appendChild(renderer.domElement);
@@ -327,29 +448,46 @@ function ensureScene() {
   controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
-  controls.target.set(0, 0.9, 0);
+  controls.target.set(0, 2.0, 0);
   controls.maxPolarAngle = Math.PI * 0.48;
-  controls.minDistance = 9;
-  controls.maxDistance = 42;
+  controls.minDistance = 10;
+  controls.maxDistance = 48;
   controls.enablePan = true;
   controls.touches = {
     ONE: THREE.TOUCH.ROTATE,
     TWO: THREE.TOUCH.DOLLY_PAN,
   };
 
-  scene.add(new THREE.AmbientLight(0xffffff, 0.88));
-  const key = new THREE.DirectionalLight(0xffffff, 0.78);
-  key.position.set(10, 18, 8);
+  /* 青系アンビエント＋スポットで立体感 */
+  scene.add(new THREE.AmbientLight(0x1e3a8a, 0.55));
+  scene.add(new THREE.HemisphereLight(0x38bdf8, 0x0b101b, 0.42));
+  const key = new THREE.DirectionalLight(0x93c5fd, 0.85);
+  key.position.set(12, 22, 10);
+  key.castShadow = true;
+  key.shadow.mapSize.set(1024, 1024);
+  key.shadow.camera.near = 2;
+  key.shadow.camera.far = 60;
+  key.shadow.camera.left = -20;
+  key.shadow.camera.right = 20;
+  key.shadow.camera.top = 20;
+  key.shadow.camera.bottom = -20;
   scene.add(key);
-  const fill = new THREE.DirectionalLight(0xbae6fd, 0.42);
-  fill.position.set(-12, 10, -8);
+  const fill = new THREE.DirectionalLight(0x0ea5e9, 0.35);
+  fill.position.set(-14, 12, -10);
   scene.add(fill);
-  const rim = new THREE.DirectionalLight(0xe0f2fe, 0.35);
-  rim.position.set(0, 14, -16);
-  scene.add(rim);
 
-  const grid = new THREE.GridHelper(24, 24, 0x93c5fd, 0xe2e8f0);
-  grid.position.y = 0;
+  spotLight = new THREE.SpotLight(0x38bdf8, 1.1, 55, Math.PI / 5, 0.45, 1);
+  spotLight.position.set(6, 24, 8);
+  spotLight.target.position.set(0, 0, 0);
+  scene.add(spotLight);
+  scene.add(spotLight.target);
+
+  alertPoint = new THREE.PointLight(0xef4444, 0, 18, 2);
+  alertPoint.position.set(0, 4, 0);
+  scene.add(alertPoint);
+
+  const grid = new THREE.GridHelper(28, 28, GRID_CYAN, GRID_LINE);
+  grid.position.y = -0.02;
   scene.add(grid);
 
   buildingGroup = new THREE.Group();
@@ -358,6 +496,16 @@ function ensureScene() {
   if (!window.__TISLY_SF_ISO3D_RESIZE) {
     window.__TISLY_SF_ISO3D_RESIZE = true;
     window.addEventListener("resize", onResize);
+  }
+  if (!window.__TISLY_SF_STACK_BOUND) {
+    window.__TISLY_SF_STACK_BOUND = true;
+    document.addEventListener("input", (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLInputElement)) return;
+      if (t.id !== "sf-iso3d-stack") return;
+      state.stackExpand = Number(t.value) / 100;
+      rebuild();
+    });
   }
   if (!animId) animate();
   return true;
@@ -377,51 +525,53 @@ function animate() {
   animId = requestAnimationFrame(animate);
   const dt = clock.getDelta();
   if (controls) controls.update();
-  alertPulse = (alertPulse + dt * 2.4) % (Math.PI * 2);
+  alertPulse = (alertPulse + dt * 2.6) % (Math.PI * 2);
   const pulse = 0.55 + Math.sin(alertPulse) * 0.45;
+
   for (const [, entry] of roomMeshes) {
     if (!entry.mat.userData?.alerting) continue;
-    entry.mat.emissiveIntensity = 0.35 + pulse * 0.85;
-    entry.mat.opacity = 0.45 + pulse * 0.35;
-    if (entry.edge?.material) {
-      entry.edge.material.opacity = 0.55 + pulse * 0.45;
+    const tier = entry.tier || "critical";
+    if (tier === "perimeter") {
+      entry.mat.emissiveIntensity = 0.45 + pulse * 0.95;
+      if (entry.edge?.material) {
+        entry.edge.material.opacity = 0.55 + pulse * 0.45;
+      }
+    } else {
+      entry.mat.emissiveIntensity = 0.55 + pulse * 1.15;
+      if (entry.edge?.material) {
+        entry.edge.material.opacity = 0.65 + pulse * 0.35;
+        entry.edge.material.color.setHex(
+          pulse > 0.7 ? 0xff1a1a : 0xf87171
+        );
+      }
     }
   }
+
+  for (const mesh of perimeterGlowMeshes) {
+    const mat = mesh.material;
+    if (!mat) continue;
+    mat.opacity = 0.22 + pulse * 0.42;
+    mat.emissiveIntensity = 0.4 + pulse * 0.9;
+  }
+
   for (const [, pin] of sensorPins) {
     pulseNeonPinMesh3d(pin, pulse);
   }
+
+  if (alertPoint) {
+    if (state.alertTier === "critical") {
+      alertPoint.color.setHex(0xff1744);
+      alertPoint.intensity = 0.6 + pulse * 1.8;
+    } else if (state.alertTier === "perimeter") {
+      alertPoint.color.setHex(0xf59e0b);
+      alertPoint.intensity = 0.35 + pulse * 1.1;
+    } else {
+      alertPoint.intensity = 0;
+    }
+  }
+
   if (renderer && scene && camera) renderer.render(scene, camera);
   if (labelRenderer && scene && camera) labelRenderer.render(scene, camera);
-}
-
-function makeFloorGradientTexture() {
-  const c = document.createElement("canvas");
-  c.width = 256;
-  c.height = 256;
-  const ctx = c.getContext("2d");
-  const g = ctx.createLinearGradient(0, 0, 256, 256);
-  g.addColorStop(0, "#ffffff");
-  g.addColorStop(0.45, "#f1f5f9");
-  g.addColorStop(1, "#e0f2fe");
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, 256, 256);
-  ctx.strokeStyle = "rgba(148,163,184,0.35)";
-  ctx.lineWidth = 1;
-  for (let i = 0; i <= 16; i++) {
-    const p = (i / 16) * 256;
-    ctx.beginPath();
-    ctx.moveTo(p, 0);
-    ctx.lineTo(p, 256);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(0, p);
-    ctx.lineTo(256, p);
-    ctx.stroke();
-  }
-  const tex = new THREE.CanvasTexture(c);
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.anisotropy = 4;
-  return tex;
 }
 
 function pinWorldFromSensor(s, wallH) {
@@ -435,49 +585,141 @@ function pinWorldFromSensor(s, wallH) {
   return deviceToWorldPosV1(s, wallH);
 }
 
-function rebuild() {
-  if (!ensureScene() || !buildingGroup) return;
-  /* 再描画前に既存 CSS2D／ピン／メッシュを必ず全クリア */
-  clearGroup(buildingGroup);
-  if (labelRenderer?.domElement) {
-    labelRenderer.domElement.innerHTML = "";
+function roomMaterials(alerting, floorId) {
+  const isOutdoor = floorId === "outdoor";
+  const tier = alerting
+    ? isOutdoor || state.alertTier === "perimeter"
+      ? "perimeter"
+      : "critical"
+    : "none";
+
+  if (tier === "critical") {
+    return {
+      tier,
+      mat: new THREE.MeshStandardMaterial({
+        color: 0x7f1d1d,
+        emissive: 0xff0040,
+        emissiveIntensity: 0.85,
+        metalness: 0.35,
+        roughness: 0.28,
+        transparent: true,
+        opacity: 0.92,
+      }),
+      edge: 0xff1a1a,
+    };
+  }
+  if (tier === "perimeter") {
+    return {
+      tier,
+      mat: new THREE.MeshStandardMaterial({
+        color: 0x78350f,
+        emissive: 0xf59e0b,
+        emissiveIntensity: 0.7,
+        metalness: 0.28,
+        roughness: 0.32,
+        transparent: true,
+        opacity: 0.9,
+      }),
+      edge: 0xfb923c,
+    };
+  }
+  return {
+    tier: "none",
+    mat: new THREE.MeshStandardMaterial({
+      color: isOutdoor ? 0x0f2744 : 0x152238,
+      emissive: isOutdoor ? 0x0ea5e9 : 0x1d4ed8,
+      emissiveIntensity: isOutdoor ? 0.22 : 0.14,
+      metalness: 0.42,
+      roughness: 0.38,
+      transparent: true,
+      opacity: Math.min(Math.max(renderOpts().roomOpacity, 0.72), 0.94),
+    }),
+    edge: isOutdoor ? 0x38bdf8 : 0x60a5fa,
+  };
+}
+
+/**
+ * 部屋ブロック＋外壁フレーム（厚み付き）を1フロア分追加
+ */
+function addFloorLayer(floorId, yBase, wallH, isFocus) {
+  const layer = new THREE.Group();
+  layer.position.y = yBase;
+  layer.userData = { floorId, kind: "floorLayer" };
+
+  const slabSize = floorId === "outdoor" ? 24 : 21.5;
+  const slabMat = new THREE.MeshStandardMaterial({
+    map: makeCyberGridTexture(),
+    color: 0xffffff,
+    metalness: 0.55,
+    roughness: 0.42,
+    emissive: floorId === "outdoor" ? 0x0ea5e9 : 0x1e3a8a,
+    emissiveIntensity: isFocus ? 0.18 : 0.08,
+  });
+  const slab = new THREE.Mesh(
+    new THREE.BoxGeometry(slabSize, 0.18, slabSize),
+    slabMat
+  );
+  slab.position.y = 0.09;
+  slab.receiveShadow = true;
+  slab.castShadow = true;
+  slab.userData = { kind: "slab", floorId };
+  layer.add(slab);
+
+  /* フロア外枠ワイヤー（発光エッジ） */
+  const shellGeo = new THREE.EdgesGeometry(
+    new THREE.BoxGeometry(slabSize + 0.15, wallH * 0.62, slabSize + 0.15)
+  );
+  const shellColor =
+    state.alertTier === "critical" && isFocus
+      ? 0xff1744
+      : state.alertTier === "perimeter" && floorId === "outdoor"
+        ? 0xf59e0b
+        : 0x38bdf8;
+  const shell = new THREE.LineSegments(
+    shellGeo,
+    new THREE.LineBasicMaterial({
+      color: shellColor,
+      transparent: true,
+      opacity: isFocus ? 0.85 : 0.35,
+    })
+  );
+  shell.position.y = wallH * 0.28;
+  layer.add(shell);
+  floorShells.push(shell);
+
+  /* DI1：外周パルスグローリング */
+  if (floorId === "outdoor" && state.alertTier !== "none") {
+    const ringMat = new THREE.MeshStandardMaterial({
+      color: 0xf59e0b,
+      emissive: 0xf97316,
+      emissiveIntensity: 0.8,
+      transparent: true,
+      opacity: 0.35,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(10.2, 11.4, 64),
+      ringMat
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = 0.22;
+    layer.add(ring);
+    perimeterGlowMeshes.push(ring);
   }
 
-  const floorId = state.floorId || "1f";
-  const opts = renderOpts();
-  const wallH = opts.wallHeight;
-  const opacity = Math.min(Math.max(opts.roomOpacity, 0.28), 0.82);
   const rooms = roomsForFloor(floorId);
-  const sensors = sensorsForFloor(floorId);
-
-  const slabMat = new THREE.MeshStandardMaterial({
-    map: makeFloorGradientTexture(),
-    color: 0xffffff,
-    metalness: 0.04,
-    roughness: 0.78,
-    emissive: 0xe2e8f0,
-    emissiveIntensity: 0.08,
-  });
-  const slab = new THREE.Mesh(new THREE.BoxGeometry(22, 0.14, 22), slabMat);
-  slab.position.y = 0.05;
-  slab.userData = { kind: "slab" };
-  buildingGroup.add(slab);
+  let firstAlertRoom = null;
 
   for (const r of rooms) {
     if (!state.showZones) continue;
     const alerting = !!r.alertVisible;
-    const ww = Math.max(r.w * 0.2, 0.45);
-    const dd = Math.max(r.h * 0.2, 0.45);
-    const mat = new THREE.MeshStandardMaterial({
-      color: alerting ? 0xf87171 : 0xbfdbfe,
-      emissive: alerting ? 0xef4444 : 0x0284c7,
-      emissiveIntensity: alerting ? 0.7 : 0.07,
-      transparent: true,
-      opacity: alerting ? 0.72 : opacity,
-      metalness: 0.12,
-      roughness: alerting ? 0.28 : 0.48,
-      depthWrite: false,
-    });
+    const ww = Math.max(r.w * 0.2, 0.5);
+    const dd = Math.max(r.h * 0.2, 0.5);
+    const { mat, edge: edgeColor, tier } = roomMaterials(
+      alerting,
+      floorId
+    );
     mat.userData = { alerting };
     const mesh = new THREE.Mesh(
       new THREE.BoxGeometry(ww, wallH * 0.58, dd),
@@ -485,23 +727,29 @@ function rebuild() {
     );
     mesh.position.set(
       pctToWorldV1(r.x + r.w / 2),
-      wallH * 0.29 + 0.12,
+      wallH * 0.29 + 0.18,
       pctToWorldV1(r.y + r.h / 2)
     );
-    mesh.userData = { roomId: r.id, kind: "room", alerting };
-    buildingGroup.add(mesh);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    mesh.userData = { roomId: r.id, kind: "room", alerting, floorId };
+    layer.add(mesh);
 
+    /* 外壁フレーム風エッジ */
     const edge = new THREE.LineSegments(
       new THREE.EdgesGeometry(mesh.geometry),
       new THREE.LineBasicMaterial({
-        color: alerting ? 0xf87171 : 0x1e3a8a,
+        color: edgeColor,
         transparent: true,
-        opacity: alerting ? 0.95 : 0.55,
+        opacity: alerting ? 0.98 : 0.55,
+        linewidth: 1,
       })
     );
     edge.position.copy(mesh.position);
-    buildingGroup.add(edge);
-    roomMeshes.set(r.id, { mesh, mat, edge });
+    layer.add(edge);
+    roomMeshes.set(`${floorId}:${r.id}`, { mesh, mat, edge, tier });
+
+    if (alerting && !firstAlertRoom) firstAlertRoom = { r, mesh };
 
     if (state.showLabels && r.label) {
       const labelEl = document.createElement("div");
@@ -514,13 +762,49 @@ function rebuild() {
         mesh.position.y + wallH * 0.22,
         mesh.position.z
       );
-      buildingGroup.add(labelObj);
+      layer.add(labelObj);
     }
   }
 
-  /* 外壁フレーム（walls）は描画しない — 部屋ブロックのみ */
-  /* HTML/CSS2D センサーピンは完全撤去 — 3Dメッシュのみ */
+  /* DI2：発報地点ピン＆ツールチップ */
+  if (
+    firstAlertRoom &&
+    floorId !== "outdoor" &&
+    (state.alertTier === "critical" || firstAlertRoom.r.alertVisible)
+  ) {
+    const tip = document.createElement("div");
+    tip.className = "sf-iso3d-alert-tip";
+    tip.innerHTML =
+      "<strong>🚨 発報地点</strong>" +
+      `<span>${firstAlertRoom.r.label || firstAlertRoom.r.id}</span>`;
+    const tipObj = new CSS2DObject(tip);
+    tipObj.position.set(
+      firstAlertRoom.mesh.position.x,
+      firstAlertRoom.mesh.position.y + wallH * 0.55,
+      firstAlertRoom.mesh.position.z
+    );
+    layer.add(tipObj);
 
+    const pinGeo = new THREE.ConeGeometry(0.28, 0.72, 5);
+    const pinMat = new THREE.MeshStandardMaterial({
+      color: 0xff1744,
+      emissive: 0xff0040,
+      emissiveIntensity: 1.2,
+      metalness: 0.4,
+      roughness: 0.25,
+    });
+    const alertPin = new THREE.Mesh(pinGeo, pinMat);
+    alertPin.position.set(
+      firstAlertRoom.mesh.position.x,
+      firstAlertRoom.mesh.position.y + wallH * 0.42,
+      firstAlertRoom.mesh.position.z
+    );
+    alertPin.rotation.x = Math.PI;
+    alertPin.castShadow = true;
+    layer.add(alertPin);
+  }
+
+  const sensors = sensorsForFloor(floorId);
   for (const s of sensors) {
     const kind = normalizeDeviceKind(s.kind);
     const isCam = kind === "camera";
@@ -537,30 +821,112 @@ function rebuild() {
     });
     const pos = pinWorldFromSensor(s, wallH);
     pin.position.set(pos.x, pos.y, pos.z);
-    buildingGroup.add(pin);
+    layer.add(pin);
     sensorPins.set(s.id, pin);
   }
 
-  const elev = (opts.cameraElevationDeg * Math.PI) / 180;
-  const dist = 20;
-  if (camera && controls) {
-    camera.position.set(
-      dist * Math.cos(elev) * 0.92,
-      dist * Math.sin(elev),
-      dist * Math.cos(elev) * 0.92
-    );
-    controls.target.set(0, 0.9, 0);
-    controls.update();
+  if (!isFocus) {
+    layer.traverse((o) => {
+      if (o.material && o.material.opacity != null && !o.userData?.alerting) {
+        o.material.transparent = true;
+        o.material.opacity = Math.min(o.material.opacity, 0.42);
+      }
+    });
   }
 
-  syncHud(floorId);
-  syncOrbitDataFocus(floorId);
+  buildingGroup.add(layer);
+}
+
+function rebuild() {
+  if (!ensureScene() || !buildingGroup) return;
+  /* 再描画前に既存 CSS2D／ピン／メッシュを必ず全クリア */
+  clearGroup(buildingGroup);
+  if (labelRenderer?.domElement) {
+    labelRenderer.domElement.innerHTML = "";
+  }
+
+  state.alertTier = inferAlertTier();
+  const opts = renderOpts();
+  const wallH = opts.wallHeight;
+  const expand = Math.min(1, Math.max(0, state.stackExpand));
+  const focusId = state.floorId || "1f";
+
+  let floorIds = orderedFloorIds().filter(
+    (id) => floorHasContent(id) || id === focusId
+  );
+  if (!floorIds.length) floorIds = [focusId];
+
+  /* 展開=0 ならフォーカス階のみ、展開時は全階スタック */
+  const drawIds =
+    expand < 0.08
+      ? [focusId]
+      : floorIds;
+
+  drawIds.forEach((fid, i) => {
+    const yBase = i * STACK_GAP * expand;
+    addFloorLayer(fid, yBase, wallH, fid === focusId);
+  });
+
+  const elev = (opts.cameraElevationDeg * Math.PI) / 180;
+  const dist = 18 + expand * 6;
+  const midY = ((drawIds.length - 1) * STACK_GAP * expand) / 2;
+  if (camera && controls) {
+    camera.position.set(
+      dist * Math.cos(elev) * 0.95,
+      dist * Math.sin(elev) + midY * 0.35,
+      dist * Math.cos(elev) * 0.95
+    );
+    controls.target.set(0, midY + 0.9, 0);
+    controls.update();
+  }
+  if (spotLight) {
+    spotLight.target.position.set(0, midY, 0);
+  }
+  if (alertPoint) {
+    alertPoint.position.set(0, midY + 3.5, 0);
+  }
+
+  syncHud(focusId);
+  syncOrbitDataFocus(focusId);
+  syncStackSlider();
+  syncAlertHud();
+}
+
+function syncStackSlider() {
+  const el = document.getElementById("sf-iso3d-stack");
+  if (!el) return;
+  const v = Math.round(state.stackExpand * 100);
+  if (Number(el.value) !== v) el.value = String(v);
+  const lab = document.getElementById("sf-iso3d-stack-val");
+  if (lab) lab.textContent = `${v}%`;
+}
+
+function syncAlertHud() {
+  const badge = document.getElementById("sf-iso3d-alert-badge");
+  if (!badge) return;
+  if (state.alertTier === "critical") {
+    badge.hidden = false;
+    badge.className = "sf-iso3d-alert-badge is-critical";
+    badge.textContent = "🚨 DI2 段階侵入・発報";
+  } else if (state.alertTier === "perimeter") {
+    badge.hidden = false;
+    badge.className = "sf-iso3d-alert-badge is-perimeter";
+    badge.textContent = "⚠️ DI1 外周センサー検知";
+  } else {
+    badge.hidden = true;
+    badge.textContent = "";
+  }
 }
 
 function syncHud(floorId) {
   const hud = document.getElementById("sf-iso3d-floor-label");
   if (!hud) return;
-  const labels = { "1f": "1F", "2f": "2F", outdoor: "外周・敷地" };
+  const labels = {
+    "1f": "1F",
+    "2f": "2F",
+    "3f": "3F",
+    outdoor: "外周・敷地",
+  };
   hud.textContent = labels[floorId] || floorId;
 }
 
@@ -617,6 +983,9 @@ export async function updateSecurityIso3d(site, floorId, opts = {}) {
   if (opts.showSensors != null) state.showSensors = !!opts.showSensors;
   if (opts.showZones != null) state.showZones = !!opts.showZones;
   if (opts.showLabels != null) state.showLabels = !!opts.showLabels;
+  if (opts.stackExpand != null) {
+    state.stackExpand = Math.min(1, Math.max(0, Number(opts.stackExpand)));
+  }
 
   state.alertRoomIds = new Set(
     (state.site?.rooms || []).filter((r) => r.alertVisible).map((r) => r.id)
@@ -634,6 +1003,11 @@ export async function updateSecurityIso3d(site, floorId, opts = {}) {
 export function setSecurityIso3dFloor(floorId) {
   if (!floorId) return;
   state.floorId = floorId;
+  rebuild();
+}
+
+export function setSecurityIso3dStack(expand01) {
+  state.stackExpand = Math.min(1, Math.max(0, Number(expand01) || 0));
   rebuild();
 }
 
@@ -686,6 +1060,7 @@ window.TislySecurityIso3d = {
   update: updateSecurityIso3d,
   setFloor: setSecurityIso3dFloor,
   setAlert: setSecurityIso3dAlert,
+  setStack: setSecurityIso3dStack,
   applyFloorplan: applyFloorplanConfigToIso3d,
   mount: mountSecurityIso3d,
   rebuild,

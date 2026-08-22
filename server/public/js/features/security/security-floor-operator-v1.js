@@ -43,6 +43,7 @@ const state = {
   logKind: "",
   logFloor: "",
   logQ: "",
+  logDate: "",
   pane: "map",
 };
 
@@ -210,30 +211,91 @@ function renderAlarms(site) {
   );
 }
 
-function renderLogs(site) {
-  const logs = [...(site.soc?.alarmLogs || [])];
-  const body = $("sf-log-body");
-  if (!body) return;
+function logIconFor(entry) {
+  const kind = String(entry.kindLabel || entry.kind || "");
+  const loc = `${entry.location || ""}${entry.deviceLabel || ""}${kind}`;
+  if (/湯|風呂|浴槽|bath/i.test(loc)) return "♨️";
+  if (/ライト|照明|light|点灯/i.test(loc)) return "💡";
+  if (/警戒|警備|guard|モード/i.test(loc)) return "🛡️";
+  if (/侵入|開放|人感|ガス|警報|アラーム/i.test(loc)) return "🚨";
+  if (entry.status === "open" || entry.status === "handling") return "🚨";
+  return "🛡️";
+}
+
+function logCategoryBucket(entry) {
+  const kind = String(entry.kindLabel || "");
+  if (/侵入|開放|人感|ガス|警報/.test(kind)) return "security";
+  if (/湯|風呂|空調|鍵|ライト|照明/.test(kind + (entry.location || ""))) {
+    return "home";
+  }
+  return "system";
+}
+
+function filterAlarmLogs(logs) {
   const kind = state.logKind;
   const floor = state.logFloor;
   const q = state.logQ.trim();
-  const rows = logs.filter((l) => {
-    if (kind && l.kindLabel !== kind) return false;
+  const date = state.logDate;
+  return logs.filter((l) => {
     if (floor && l.floorId !== floor) return false;
     if (q && !`${l.location}${l.deviceLabel}${l.kindLabel}`.includes(q)) {
       return false;
     }
-    return true;
+    if (date) {
+      const day = String(l.at || "").slice(0, 10);
+      if (day !== date) return false;
+    }
+    if (!kind) return true;
+    if (kind === "security" || kind === "home" || kind === "system") {
+      return logCategoryBucket(l) === kind;
+    }
+    return l.kindLabel === kind;
   });
-  const stClass = { open: "st-open", handling: "st-busy", done: "st-done" };
-  const stLabel = {
-    open: "未対応",
-    handling: "対応中",
-    done: "対応済み",
-  };
-  body.innerHTML = rows
-    .map(
-      (l) => `<tr>
+}
+
+function renderLogs(site) {
+  const logs = [...(site.soc?.alarmLogs || [])];
+  const compact = $("sf-log-compact");
+  const body = $("sf-log-body");
+  const recent = logs.slice(0, 10);
+
+  if (compact) {
+    if (!recent.length) {
+      compact.innerHTML =
+        '<p class="sf-log-empty">動作ログはまだありません</p>';
+    } else {
+      compact.innerHTML = recent
+        .map((l) => {
+          const alert =
+            l.status === "open" || /侵入|警報/.test(l.kindLabel || "");
+          return `<article class="sf-log-row${alert ? " is-alert" : ""}">
+            <span class="sf-log-ico" aria-hidden="true">${logIconFor(l)}</span>
+            <div class="sf-log-main">
+              <p class="sf-log-title">${l.kindLabel} · ${l.location}</p>
+              <p class="sf-log-sub">${socFloorLabel(l.floorId)} · ${l.deviceLabel}</p>
+            </div>
+            <time class="sf-log-time">${formatAlarmTime(l.at)}</time>
+          </article>`;
+        })
+        .join("");
+    }
+  }
+
+  if (body) {
+    const rows = filterAlarmLogs(logs);
+    const stClass = {
+      open: "st-open",
+      handling: "st-busy",
+      done: "st-done",
+    };
+    const stLabel = {
+      open: "未対応",
+      handling: "対応中",
+      done: "対応済み",
+    };
+    body.innerHTML = rows
+      .map(
+        (l) => `<tr>
         <td>${formatAlarmTime(l.at)}</td>
         <td>${socFloorLabel(l.floorId)}</td>
         <td>${l.location}</td>
@@ -242,8 +304,10 @@ function renderLogs(site) {
         <td><em class="${stClass[l.status] || "st-open"}">${stLabel[l.status] || l.status}</em></td>
         <td>${l.handler || "—"}</td>
       </tr>`
-    )
-    .join("");
+      )
+      .join("");
+  }
+
   const fl = $("sf-log-floor");
   if (fl) {
     const current = fl.value;
@@ -491,6 +555,10 @@ function bind() {
     setLights(false).catch(() => {});
   });
   $("sf-export")?.addEventListener("click", exportReport);
+  $("sf-log-csv")?.addEventListener("click", exportReport);
+  $("sf-log-open-detail")?.addEventListener("click", () => {
+    $("sf-log-dialog")?.showModal?.();
+  });
   $("sf-opt-cam")?.addEventListener("change", (e) => {
     state.showCameras = e.target.checked;
     if (state.site) renderSite(state.site, state.dash);
@@ -517,6 +585,10 @@ function bind() {
   });
   $("sf-log-q")?.addEventListener("input", (e) => {
     state.logQ = e.target.value;
+    if (state.site) renderLogs(state.site);
+  });
+  $("sf-log-date")?.addEventListener("change", (e) => {
+    state.logDate = e.target.value;
     if (state.site) renderLogs(state.site);
   });
   $("sf-cam-thumbs")?.addEventListener("click", (e) => {

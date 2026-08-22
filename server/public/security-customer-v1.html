@@ -11,7 +11,7 @@
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2003" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
   <title>TiSLY Security</title>
-  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2483" />
+  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2490" />
   <script type="importmap">
   {
     "imports": {
@@ -57,8 +57,25 @@
           <div id="sf-iso3d-mount" class="sf-iso3d-mount" role="img" aria-label="3Dアイソメ俯瞰"></div>
           <div class="sf-iso3d-hud">
             <span id="sf-iso3d-floor-label">1F</span>
+            <div class="sf-iso3d-hud-controls">
+              <label class="sf-iso3d-stack-label" for="sf-iso3d-stack">階層展開</label>
+              <input
+                type="range"
+                id="sf-iso3d-stack"
+                min="0"
+                max="100"
+                value="72"
+                aria-label="階層スタック展開"
+              />
+              <span id="sf-iso3d-stack-val">72%</span>
+            </div>
             <span class="sf-iso3d-hint">ドラッグで回転 · ピンチで拡大</span>
           </div>
+          <div
+            id="sf-iso3d-alert-badge"
+            class="sf-iso3d-alert-badge"
+            hidden
+          ></div>
           <div class="sf-iso-orbit sf-iso-orbit--data" id="sf-iso-orbit" data-focus="1f">
 <article class="sf-iso-layer is-focus" data-layer="1f" style="--drum-i:1">
               <p class="sf-iso-caption">1F</p>
@@ -206,7 +223,24 @@
     </section>
 
     <section class="sf-soc-bottom" data-pane="log">
-      <p class="sf-card-label">最近のできごと</p>
+      <p class="sf-card-label">最近のできごと（直近10件）</p>
+      <div class="sf-log-compact" id="sf-log-compact"></div>
+      <button type="button" class="sf-log-more" id="sf-log-open-detail">
+        📜 詳細ログ・全履歴を見る
+      </button>
+      <p class="sf-card-label">お知らせ</p>
+      <ul class="sf-legend" id="sf-notes"></ul>
+    </section>
+  </div>
+
+  <dialog class="sf-log-dialog" id="sf-log-dialog">
+    <div class="sf-log-dialog-inner">
+      <div class="sf-log-dialog-head">
+        <h2>📜 詳細ログ・全履歴</h2>
+        <form method="dialog">
+          <button type="submit" class="sf-ghost">閉じる</button>
+        </form>
+      </div>
       <div class="sf-log-table-wrap">
         <table class="sf-log-table">
           <thead>
@@ -217,10 +251,13 @@
           <tbody id="sf-log-body"></tbody>
         </table>
       </div>
-      <p class="sf-card-label">お知らせ</p>
-      <ul class="sf-legend" id="sf-notes"></ul>
-    </section>
-  </div>
+      <div class="sf-log-dialog-actions">
+        <form method="dialog">
+          <button type="submit" class="sf-ghost">閉じる</button>
+        </form>
+      </div>
+    </div>
+  </dialog>
 
   <dialog class="sf-live-dialog" id="sf-live-dialog">
     <form method="dialog">
@@ -232,9 +269,9 @@
     </form>
   </dialog>
 
-    <script src="/js/features/security/security-floor-light-v1.js?v=2483"></script>
-  <script src="/js/features/floorplan-builder/floorplan-security-bridge-v1.js?v=2483"></script>
-  <script type="module" src="/js/features/security/security-floor-iso3d-v1.js?v=2483"></script>
-  <script type="module" src="/js/features/security/security-floor-customer-v1.js?v=2483"></script>
+  <script src="/js/features/security/security-floor-light-v1.js?v=2490"></script>
+  <script src="/js/features/floorplan-builder/floorplan-security-bridge-v1.js?v=2490"></script>
+  <script type="module" src="/js/features/security/security-floor-iso3d-v1.js?v=2490"></script>
+  <script type="module" src="/js/features/security/security-floor-customer-v1.js?v=2490"></script>
 </body>
 </html>

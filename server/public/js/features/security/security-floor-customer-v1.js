@@ -123,10 +123,32 @@ function renderDash(dash) {
         )
         .join("") || "<li>異常はありません</li>"
     );
+    const logs = dash.soc?.alarmLogs || [];
+    const recent = logs.slice(0, 10);
+    setHtml(
+      "sf-log-compact",
+      recent
+        .map((l) => {
+          const ico = /侵入|警報|開放|人感/.test(l.kindLabel || "")
+            ? "🚨"
+            : /ライト|照明/.test(l.kindLabel || "")
+              ? "💡"
+              : "🛡️";
+          return `<article class="sf-log-row">
+            <span class="sf-log-ico">${ico}</span>
+            <div class="sf-log-main">
+              <p class="sf-log-title">${l.kindLabel} · ${l.location}</p>
+              <p class="sf-log-sub">${l.deviceLabel || ""}</p>
+            </div>
+            <time class="sf-log-time">${formatAlarmTime(l.at)}</time>
+          </article>`;
+        })
+        .join("") ||
+        '<p class="sf-log-empty">まだできごとはありません</p>'
+    );
     setHtml(
       "sf-log-body",
-      (dash.soc?.alarmLogs || [])
-        .slice(0, 12)
+      logs
         .map((l) => {
           const st = l.status === "done" ? "確認済み" : "お知らせ";
           return `<tr><td>${formatAlarmTime(l.at)}</td><td>${l.location}</td><td>${l.kindLabel}</td><td>${st}</td></tr>`;
@@ -251,6 +273,9 @@ function bind() {
   });
   $("sf-cam-play")?.addEventListener("click", () => {
     $("sf-live-dialog")?.showModal?.();
+  });
+  $("sf-log-open-detail")?.addEventListener("click", () => {
+    $("sf-log-dialog")?.showModal?.();
   });
   document.querySelectorAll(".sf-mobile-tabs button").forEach((btn) => {
     btn.addEventListener("click", () => {
