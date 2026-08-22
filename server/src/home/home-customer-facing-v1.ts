@@ -57,6 +57,8 @@ export interface HomeCustomerFacingDashboardV1 {
     autoFill: boolean;
     reheating: boolean;
     keepWarm: boolean;
+    uiProfile: string;
+    lastPulseMessage: string | null;
     linkStateLabel: string;
   };
   aircons: Array<Omit<HomeSiteDashboardV1["aircons"][number], "powerW">>;
@@ -178,6 +180,8 @@ export function sanitizeHomeCustomerDashboardV1(
       autoFill: dashboard.bath.autoFill,
       reheating: dashboard.bath.reheating,
       keepWarm: dashboard.bath.keepWarm,
+      uiProfile: dashboard.bath.uiProfile,
+      lastPulseMessage: dashboard.bath.lastPulseMessage,
       linkStateLabel: dashboard.bath.linkStateLabel,
     },
     aircons: dashboard.aircons.map(({ powerW: _pw, ...rest }) => rest),

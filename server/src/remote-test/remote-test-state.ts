@@ -12,8 +12,15 @@ export type RemoteTestCommand =
   | "ch5_on" | "ch5_off"
   | "ch6_on" | "ch6_off"
   | "ch7_on" | "ch7_off"
-  | "ch8_on" | "ch8_off";
+  | "ch8_on" | "ch8_off"
+  | string; // ch{N}_pulse_{ms} など拡張コマンド
 
+export interface RemoteTestPulseResult {
+  command: string;
+  channel: number;
+  durationMs: number;
+  queuedAt: string;
+}
 export type ChStates = Record<string, ChannelState>;
 export type InputStates = Record<string, ChannelState>;
 
@@ -275,6 +282,27 @@ export function queueChCommand(channel: number, on: boolean): void {
   state.lastCommand = command;
   state.lastCommandAt = new Date().toISOString();
   pushLog(command, `CH${channel} → ${on ? "ON" : "OFF"} (pending)`);
+}
+
+/**
+ * DO CHn ワンショットパルスをキューする。
+ * ファームが ON → sleep(ms) → OFF をローカル実行する。
+ */
+export function queueChPulseCommand(
+  channel: number,
+  durationMs: number
+): RemoteTestPulseResult {
+  if (!isValidChannel(channel)) {
+    throw new Error(`Invalid channel: ${channel}`);
+  }
+  const ms = Math.max(50, Math.min(5000, Math.round(durationMs)));
+  const command = `ch${channel}_pulse_${ms}`;
+  state.pendingCommand = command;
+  state.lastCommand = command;
+  const queuedAt = new Date().toISOString();
+  state.lastCommandAt = queuedAt;
+  pushLog(command, `CH${channel} PULSE ${ms}ms (pending)`);
+  return { command, channel, durationMs: ms, queuedAt };
 }
 
 /** @deprecated Use queueChCommand(1, on) */

@@ -64,6 +64,10 @@ export interface HomeBathViewV1 {
   keepWarm: boolean;
   jemaTerminal: string;
   relayPort: string;
+  relayChannel: number | null;
+  pulseDurationMs: number | null;
+  uiProfile: string;
+  lastPulseMessage: string | null;
   linkState: string;
   linkStateLabel: string;
 }
@@ -141,6 +145,8 @@ export interface HomeSiteDashboardV1 {
   planCode: string;
   planStatus: string;
   monthlyFee: number;
+  operationMode: string;
+  deviceBoardLabel: string | null;
   status: HomeOverallStatusV1;
   statusEmoji: string;
   statusLabel: string;
@@ -289,18 +295,27 @@ function buildCtViewV1(site: HomeSiteV1): HomeCtViewV1 {
 
 function buildBathViewV1(site: HomeSiteV1): HomeBathViewV1 {
   const b = site.bath;
+  const uiProfile = b.uiProfile || "full";
+  const fillLabel =
+    b.lastPulseMessage ||
+    FILL_STATE_LABEL_V1[b.fillState] ||
+    b.fillState;
   return {
     label: b.label,
     setTempC: b.setTempC,
     currentTempC: b.currentTempC,
     fillState: b.fillState,
-    fillStateLabel: FILL_STATE_LABEL_V1[b.fillState] ?? b.fillState,
+    fillStateLabel: fillLabel,
     fillPercent: b.fillPercent,
     autoFill: b.autoFill,
     reheating: b.reheating,
     keepWarm: b.keepWarm,
     jemaTerminal: b.jemaTerminal,
     relayPort: b.relayPort,
+    relayChannel: b.relayChannel ?? null,
+    pulseDurationMs: b.pulseDurationMs ?? null,
+    uiProfile,
+    lastPulseMessage: b.lastPulseMessage ?? null,
     linkState: b.linkState,
     linkStateLabel:
       LINK_STATE_LABEL_V1[b.linkState] ?? b.linkState,
@@ -424,6 +439,8 @@ export function buildHomeSiteDashboardV1(
     planCode: site.planCode,
     planStatus: site.planStatus,
     monthlyFee: site.monthlyFee,
+    operationMode: site.operationMode || "mock",
+    deviceBoardLabel: site.deviceBoardLabel || null,
     status,
     statusEmoji: meta.emoji,
     statusLabel: meta.label,

@@ -10,11 +10,17 @@ import { CUSTOMER_HOME_CARDS_V1 } from "../src/shared/customer/customer-labels-v
 import { buildCustomerHomeStateV1 } from "../src/shared/customer/customer-home-state-v1.js";
 import {
   HOME_SITES_V1,
+  assertHomeDemoSitesPreservedV1,
   findHomeSiteV1,
   homeCtLevelV1,
   homeLoadPercentV1,
   homeSecurityAttentionV1,
 } from "../src/home/home-sites-v1.js";
+import { queueRp2350RelayPulseV1 } from "../src/device/rp2350-relay-pulse-v1.js";
+import {
+  getRemoteTestStatus,
+  resetRemoteTestState,
+} from "../src/remote-test/remote-test-state.js";
 import {
   applyHomeControlV1,
   setHomeCircuitStateV1,
@@ -60,10 +66,12 @@ const publicDir = path.join(__dirname, "..", "public");
 const JP_SITE = "HOME-JP-TSUKUBA-001";
 const AU_SITE = "HOME-AU-GOLDCOAST-001";
 const ALERT_SITE = "HOME-JP-MORIYA-ALERT";
+const ITABASHI_SITE = "HOME-JP-ITABASHI-LIVE";
 
 describe("tisly-home-v1", () => {
   it("provides JP and AU mock sites with 4 device groups", () => {
     assert.ok(HOME_SITES_V1.length >= 3);
+    assert.ok(assertHomeDemoSitesPreservedV1(), "既存デモ物件は保護されている");
     assert.ok(HOME_SITES_V1.some((s) => s.countryCode === "JP"));
     assert.ok(HOME_SITES_V1.some((s) => s.countryCode === "AU"));
     assert.ok(HOME_SITES_V1.some((s) => s.currency === "JPY"));
@@ -88,6 +96,64 @@ describe("tisly-home-v1", () => {
     assert.equal(au.displayName, "Gold Coast Demo House");
     assert.match(au.voltageSpec, /240V/);
     assert.ok(au.ct.solarGenerationW > 0, "AU は Solar+CT");
+  });
+
+  it("appends Itabashi live site with oneshot bath profile", () => {
+    const live = findHomeSiteV1(ITABASHI_SITE);
+    assert.equal(live.id, ITABASHI_SITE);
+    assert.equal(live.displayName, "板橋自宅（実機稼働）");
+    assert.equal(live.addressLabel, "東京都板橋区");
+    assert.equal(live.operationMode, "live");
+    assert.equal(live.kind, "live_home");
+    assert.match(live.deviceBoardLabel || "", /RP2350-POE-ETH-8DI-8RO/);
+    assert.equal(live.bath.uiProfile, "oneshot_autofill");
+    assert.equal(live.bath.relayChannel, 1);
+    assert.equal(live.bath.pulseDurationMs, 500);
+    assert.equal(live.bath.controlChannel, "rp2350_relay");
+    assert.equal(live.bath.relayPort, "RO1");
+    // 既存デモは削除されていない
+    assert.ok(HOME_SITES_V1.some((s) => s.id === JP_SITE));
+    assert.ok(HOME_SITES_V1.some((s) => s.id === ALERT_SITE));
+    assert.ok(HOME_SITES_V1.some((s) => s.id === AU_SITE));
+  });
+
+  it("queues RP2350 DO CH1 oneshot pulse for Itabashi bath", async () => {
+    resetRemoteTestState();
+    const pulse = queueRp2350RelayPulseV1({
+      channel: 1,
+      durationMs: 500,
+      reason: "test",
+    });
+    assert.equal(pulse.ok, true);
+    assert.equal(pulse.command, "ch1_pulse_500");
+    assert.equal(getRemoteTestStatus().pendingCommand, "ch1_pulse_500");
+
+    const bath = await applyHomeControlV1({
+      siteId: ITABASHI_SITE,
+      target: "bath",
+      action: "auto_fill",
+      value: true,
+    });
+    assert.equal(bath.ok, true);
+    assert.match(bath.message || "", /湯はり指令完了/);
+    const site = findHomeSiteV1(ITABASHI_SITE);
+    assert.equal(site.bath.lastPulseMessage, "湯はり指令完了");
+    assert.equal(site.bath.reheating, false);
+    assert.equal(site.bath.keepWarm, false);
+
+    const blocked = await applyHomeControlV1({
+      siteId: ITABASHI_SITE,
+      target: "bath",
+      action: "reheat",
+    });
+    assert.equal(blocked.ok, false);
+
+    const api = await request(app)
+      .post("/api/devices/rp2350/relay/1/pulse")
+      .send({ durationMs: 500, reason: "api-test" });
+    assert.equal(api.status, 200);
+    assert.equal(api.body.ok, true);
+    assert.equal(api.body.command, "ch1_pulse_500");
   });
 
   it("computes CT thresholds and security attention", () => {
@@ -542,7 +608,7 @@ describe("tisly-home-v1", () => {
       path.join(publicDir, "service-worker.js"),
       "utf-8"
     );
-    assert.match(sw, /tisly-pwa-v2471-security-drum|tisly-pwa-v2470-security-svg|tisly-pwa-v2469-security-light|tisly-pwa-v2468-soc-failsafe|tisly-pwa-v2467-soc-iso|tisly-pwa-v2466-security-floor|tisly-pwa-v2465-genre-chips|tisly-pwa-v2464-genre-chips|tisly-pwa-v2463-unified-genres|tisly-pwa-v2462-price-cost-master|tisly-pwa-v2461-home-customer-independent/);
+    assert.match(sw, /tisly-pwa-v2484-itabashi-bath-pulse|tisly-pwa-v2483-floorplan-ux-pin|tisly-pwa-v2471-security-drum|tisly-pwa-v2470-security-svg|tisly-pwa-v2469-security-light|tisly-pwa-v2468-soc-failsafe|tisly-pwa-v2467-soc-iso|tisly-pwa-v2466-security-floor|tisly-pwa-v2465-genre-chips|tisly-pwa-v2464-genre-chips|tisly-pwa-v2463-unified-genres|tisly-pwa-v2462-price-cost-master|tisly-pwa-v2461-home-customer-independent/);
     assert.match(sw, /\/css\/features\/home\/home-v1\.css/);
     assert.match(sw, /\/css\/features\/home\/home-tiles-v1\.css/);
     assert.match(sw, /\/js\/features\/home\/home-tiles-v1\.js/);
@@ -626,6 +692,8 @@ describe("tisly-home-v1", () => {
       // 既存の詳細操作（回路・湯はり・エアコン・施錠・インターホン）は残す
       assert.match(html, /id="hm-circuit-list"/, page);
       assert.match(html, /data-action="auto_fill"/, page);
+      assert.match(html, /data-bath-demo-only/, page);
+      assert.match(html, /hm-bath-pulse-status/, page);
       assert.match(html, /id="hm-aircon-list"/, page);
       assert.match(html, /id="hm-lock-toggle"/, page);
       assert.match(html, /id="hm-intercom-visitors"/, page);

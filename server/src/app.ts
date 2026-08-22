@@ -105,6 +105,7 @@ import { gasMonitorRouter } from "./api/routes/gas-monitor.js";
 import { meterTelemetryRouter } from "./api/routes/meter-telemetry.js";
 import { demandSecurityRouter } from "./api/routes/demand-security.js";
 import { homeRouter } from "./api/routes/home.js";
+import { rp2350RelayV1Router } from "./api/routes/rp2350-relay-v1.js";
 import { securityFloorRouter } from "./api/routes/security-floor.js";
 import { floorplanBuilderRouter } from "./api/routes/floorplan-builder.js";
 import { deviceBindingV1Router } from "./api/routes/device-binding-v1.js";
@@ -193,6 +194,8 @@ export function createApp(): express.Application {
   app.use("/api/demand-security/v1", demandSecurityRouter);
   // TiSLY HOME 住設・ホームIoT統合（追記）
   app.use("/api/home/v1", homeRouter);
+  // RP2350 DO リレーワンショット（/api/devices より先にマウント）
+  app.use("/api/devices/rp2350", rp2350RelayV1Router);
   // ホームセキュリティ フロア俯瞰（追記）
   app.use("/api/security-floor/v1", securityFloorRouter);
   // 3D Floorplan Builder（追記）

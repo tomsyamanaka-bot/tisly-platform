@@ -25,6 +25,7 @@ import {
   normalizeDeviceChStates,
   normalizeDeviceInputStates,
   queueChCommand,
+  queueChPulseCommand,
   recordDeviceHeartbeat,
   recordHeartbeatDebug,
   recordWebAccess,
@@ -239,6 +240,32 @@ for (let ch = 1; ch <= CHANNEL_COUNT; ch++) {
       notificationHistory: status.notificationHistory,
       ...pushStatusExtras(),
     });
+  });
+
+  remoteTestRouter.post(`/ch${ch}/pulse`, (req, res) => {
+    trackWebAccess(req);
+    const durationMs = Number(req.body?.durationMs ?? 500);
+    try {
+      const pulsed = queueChPulseCommand(ch, durationMs);
+      const status = getRemoteTestStatus();
+      res.json({
+        ok: true,
+        ...pulsed,
+        pendingCommand: status.pendingCommand,
+        chStates: status.chStates,
+        ch1State: status.ch1State,
+        lastCommand: status.lastCommand,
+        lastCommandAt: status.lastCommandAt,
+        lastPollAt: status.lastPollAt,
+        logs: status.logs,
+        ...pushStatusExtras(),
+      });
+    } catch (err) {
+      res.status(400).json({
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
   });
 }
 

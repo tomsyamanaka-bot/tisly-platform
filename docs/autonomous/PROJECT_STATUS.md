@@ -15,7 +15,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 背景 | `#ffffff` 〜 `#F8FAFC` |
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
-| SW | `tisly-pwa-v2483-floorplan-ux-pin` |
+| SW | `tisly-pwa-v2484-itabashi-bath-pulse` |
 
 ---
 
@@ -1567,3 +1567,18 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | コード | `tisly-device-pin-icons-v1.js` · floorplan-builder · security-floor-iso3d · map-v1 |
 | テスト | `floorplan-builder-v1.test.ts` · `security-floor-v1.test.ts` |
 | 確認 | `/builder` · `/security-v1` · https://tisly.jp/api/health |
+
+### ������E���C�����V���b�g���͂� v1�i�����ς݁j
+
+| �̈� | ��e |
+|------|------|
+| �ړI | ���@�����u������v��ǋL���A���C�� DO CH1 �� 0.5 �b�����V���b�g��p UI |
+| ���� | HOME-JP-ITABASHI-LIVE �E �����s���� �E operationMode=live �E Waveshare RP2350-POE-ETH-8DI-8RO |
+| �����ی� | ���� / ��J / Gold Coast �͍폜���������ǋL�̂� �E ssertHomeDemoSitesPreservedV1 |
+| ���C UI | �ǂ������E�ۉ��E�������x �} ���\�� �E ���C���u?? �����͂�i�����{�^���j�v�E ���M��/�w�ߊ����t�B�[�h�o�b�N |
+| API | POST /api/devices/rp2350/relay/1/pulse �E POST /api/remote-test/ch1/pulse �E home uto_fill �A�� |
+| �R�}���h | ch1_pulse_500 ? �t�@�[���� ON��500ms��OFF ����[�J�����s |
+| SW | 	isly-pwa-v2484-itabashi-bath-pulse |
+| �R�[�h | home-sites-v1.ts �E home-control-v1.ts �E p2350-relay-pulse-v1.ts �E p2350-relay-v1.ts �E firmware main.py |
+| �e�X�g | server/test/tisly-home-v1.test.ts |
+| �m�F | /home-v1?siteId=HOME-JP-ITABASHI-LIVE �E https://tisly.jp/api/health |

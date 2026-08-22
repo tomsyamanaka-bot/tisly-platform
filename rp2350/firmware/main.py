@@ -659,7 +659,10 @@ def poll_port_mapping_command():
 
 def _parse_channel_command(cmd):
 
-    """ch{N}_on / ch{N}_off を (channel, on) に分解。無効なら None。"""
+    """ch{N}_on / ch{N}_off / ch{N}_pulse_{ms} を分解。
+
+    戻り値: (channel, on, pulse_ms|None) または None。
+    """
 
     if not cmd or not cmd.startswith("ch"):
 
@@ -668,6 +671,42 @@ def _parse_channel_command(cmd):
 
 
     rest = cmd[2:]
+
+    pulse_ms = None
+
+    if "_pulse_" in rest:
+
+        parts = rest.split("_pulse_", 1)
+
+        if len(parts) != 2:
+
+            return None
+
+        try:
+
+            channel = int(parts[0])
+
+            pulse_ms = int(parts[1])
+
+        except ValueError:
+
+            return None
+
+        if channel not in CH_PINS:
+
+            return None
+
+        if pulse_ms < 50:
+
+            pulse_ms = 50
+
+        if pulse_ms > 5000:
+
+            pulse_ms = 5000
+
+        return channel, True, pulse_ms
+
+
 
     if rest.endswith("_on"):
 
@@ -705,7 +744,7 @@ def _parse_channel_command(cmd):
 
 
 
-    return channel, on
+    return channel, on, None
 
 
 
@@ -717,21 +756,57 @@ def exec_command(cmd):
 
     if parsed:
 
-        channel, on = parsed
+        channel, on, pulse_ms = parsed
 
         gpio = config.CH_GPIO[channel]
 
         log("command received: {}".format(cmd))
 
-        CH_PINS[channel].value(1 if on else 0)
+        if pulse_ms is not None:
 
-        ch_states[str(channel)] = "on" if on else "off"
+            # ワンショット: ON → sleep → OFF（自動ボタン短絡）
 
-        log("EXEC CH{} {}".format(channel, "ON" if on else "OFF"))
+            CH_PINS[channel].value(1)
+
+            ch_states[str(channel)] = "on"
+
+            log("CH{} PULSE ON {}ms gpio={}".format(
+
+                channel, pulse_ms, gpio
+
+            ))
+
+            time.sleep_ms(pulse_ms)
+
+            CH_PINS[channel].value(0)
+
+            ch_states[str(channel)] = "off"
+
+            log("CH{} PULSE OFF gpio={}".format(channel, gpio))
+
+        else:
+
+            CH_PINS[channel].value(1 if on else 0)
+
+            ch_states[str(channel)] = "on" if on else "off"
+
+            log(
+
+                "CH{} {} gpio={}".format(
+
+                    channel, "ON" if on else "OFF", gpio
+
+                )
+
+            )
 
         send_heartbeat()
 
-    elif cmd:
+        return
+
+
+
+    if cmd:
 
         log_error("unknown command: {}".format(cmd))
 

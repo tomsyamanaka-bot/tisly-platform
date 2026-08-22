@@ -128,6 +128,27 @@ function intercomTileV1(d, plain) {
 
 function bathTileV1(d, plain) {
   const b = d.bath;
+  const oneshot = b.uiProfile === "oneshot_autofill";
+  if (oneshot) {
+    const done = Boolean(b.lastPulseMessage) || b.fillState === "done";
+    return {
+      key: "bath",
+      detail: "bath",
+      icon: TILE_META_V1.bath.icon,
+      name: tileName("bath", plain),
+      state: done ? "湯はり指令完了" : "待機中",
+      stateAlert: false,
+      tone: done ? "on" : "idle",
+      action: {
+        label: "♨️ お湯はり",
+        target: "bath",
+        action: "auto_fill",
+        value: "true",
+        style: "is-oneshot",
+        aria: "お湯はり自動ボタンを押す",
+      },
+    };
+  }
   const running = b.fillState === "filling" || b.reheating || b.keepWarm;
   return {
     key: "bath",

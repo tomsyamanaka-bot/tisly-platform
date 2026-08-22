@@ -210,13 +210,20 @@
           </div>
         </div>
 
-        <div class="hm-temp-hero">
+        <div class="hm-temp-hero" id="hm-bath-temp-hero">
           <span class="hm-temp-value" id="hm-bath-temp">--</span>
           <span class="hm-temp-unit">℃ 設定</span>
         </div>
         <p class="hm-gauge-sub" id="hm-bath-state">—</p>
+        <p
+          class="hm-bath-pulse-status"
+          id="hm-bath-pulse-status"
+          hidden
+        >
+          待機中（タップで湯はり指令）
+        </p>
 
-        <div class="hm-bar hm-fill-bar">
+        <div class="hm-bar hm-fill-bar" id="hm-bath-fill-wrap">
           <div
             class="hm-bar-fill"
             id="hm-bath-bar"
@@ -244,6 +251,7 @@
             id="hm-bath-reheat"
             data-target="bath"
             data-action="reheat"
+            data-bath-demo-only
           >
             追いだき
           </button>
@@ -253,12 +261,13 @@
             id="hm-bath-keepwarm"
             data-target="bath"
             data-action="keep_warm"
+            data-bath-demo-only
           >
             ふろ保温
           </button>
         </div>
 
-        <div class="hm-btn-row hm-btn-row-2">
+        <div class="hm-btn-row hm-btn-row-2" data-bath-demo-only>
           <button
             type="button"
             class="hm-btn is-off"

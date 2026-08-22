@@ -4,14 +4,14 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2483-floorplan-ux-pin";
+const SW_VERSION = "tisly-pwa-v2484-itabashi-bath-pulse";
 /* 旧世代名は activate で破棄する
  * tisly-pwa-shell-v2459-home-tile-grid
  * tisly-pwa-priority-v2459-home-tile-grid
  * tisly-pwa-fieldops-v2459-home-tile-grid */
-const OFFLINE_CACHE = "tisly-pwa-shell-v2483-floorplan-ux-pin";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2483-floorplan-ux-pin";
-const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2483-floorplan-ux-pin";
+const OFFLINE_CACHE = "tisly-pwa-shell-v2484-itabashi-bath-pulse";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2484-itabashi-bath-pulse";
+const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2484-itabashi-bath-pulse";
 /* お客様ゾーンの互換トークン
  * customer-cache-v1.js / route-health.js が
  * SW 側に存在するか診断するため保持 */

@@ -121,6 +121,22 @@ def _parse_channel_command(cmd):
     if not cmd or not cmd.startswith("ch"):
         return None
     rest = cmd[2:]
+    if "_pulse_" in rest:
+        parts = rest.split("_pulse_", 1)
+        if len(parts) != 2:
+            return None
+        try:
+            channel = int(parts[0])
+            pulse_ms = int(parts[1])
+        except ValueError:
+            return None
+        if channel not in CH_PINS:
+            return None
+        if pulse_ms < 50:
+            pulse_ms = 50
+        if pulse_ms > 5000:
+            pulse_ms = 5000
+        return channel, True, pulse_ms
     if rest.endswith("_on"):
         on = True
         ch_str = rest[:-3]
@@ -135,16 +151,25 @@ def _parse_channel_command(cmd):
         return None
     if channel not in CH_PINS:
         return None
-    return channel, on
+    return channel, on, None
 
 
 def apply_command(cmd):
     parsed = _parse_channel_command(cmd)
     if parsed:
-        channel, on = parsed
-        CH_PINS[channel].value(1 if on else 0)
-        ch_states[str(channel)] = "on" if on else "off"
-        log("EXEC CH{} {}".format(channel, "ON" if on else "OFF"))
+        channel, on, pulse_ms = parsed
+        if pulse_ms is not None:
+            CH_PINS[channel].value(1)
+            ch_states[str(channel)] = "on"
+            log("EXEC CH{} PULSE {}ms".format(channel, pulse_ms))
+            time.sleep_ms(pulse_ms)
+            CH_PINS[channel].value(0)
+            ch_states[str(channel)] = "off"
+            log("EXEC CH{} PULSE OFF".format(channel))
+        else:
+            CH_PINS[channel].value(1 if on else 0)
+            ch_states[str(channel)] = "on" if on else "off"
+            log("EXEC CH{} {}".format(channel, "ON" if on else "OFF"))
         send_heartbeat()
     elif cmd:
         log("unknown command: {}".format(cmd))

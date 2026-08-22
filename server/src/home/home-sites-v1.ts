@@ -18,7 +18,21 @@ export type HomeCurrencyV1 = "JPY" | "AUD";
 export type HomePlanStatusV1 = "active" | "trial" | "suspended";
 
 /** 物件種別 */
-export type HomeSiteKindV1 = "model_house" | "detached" | "demo_house";
+export type HomeSiteKindV1 =
+  | "model_house"
+  | "detached"
+  | "demo_house"
+  | "live_home"; // 実機稼働物件（追記）
+
+/** 運用モード（モック / 実機） */
+export type HomeOperationModeV1 = "mock" | "live";
+
+/**
+ * 風呂 UI プロファイル
+ * full = デモ全機能
+ * oneshot_autofill = 実機ワンショット湯はり専用
+ */
+export type HomeBathUiProfileV1 = "full" | "oneshot_autofill";
 
 /** 制御チャンネル（実機ハック方式） */
 export type HomeControlChannelV1 =
@@ -93,8 +107,16 @@ export interface HomeBathRemoteV1 {
   jemaTerminal: string;
   /** RP2350 リレー出力ポート */
   relayPort: string;
+  /** DO チャンネル番号（CH1=1） */
+  relayChannel?: number;
+  /** ワンショットパルス幅 ms */
+  pulseDurationMs?: number;
+  /** UI プロファイル（未指定は full） */
+  uiProfile?: HomeBathUiProfileV1;
   /** 端子連携状態 */
   linkState: "connected" | "standby" | "offline";
+  /** 直近の湯はり指令メッセージ */
+  lastPulseMessage?: string | null;
 }
 
 export type HomeAirconModeV1 = "cool" | "heat" | "dry" | "fan";
@@ -207,6 +229,10 @@ export interface HomeSiteV1 {
   planStatus: HomePlanStatusV1;
   /** 月額（currency 建て） */
   monthlyFee: number;
+  /** mock=デモ / live=実機（未指定は mock） */
+  operationMode?: HomeOperationModeV1;
+  /** 実機ボード型番など（任意） */
+  deviceBoardLabel?: string;
   ct: HomeCtPanelV1;
   bath: HomeBathRemoteV1;
   aircons: HomeAirconV1[];
@@ -214,6 +240,9 @@ export interface HomeSiteV1 {
   intercom: HomeIntercomV1;
   notes: string[];
 }
+
+/** 板橋自宅（実機）の固定 ID — 既存配列は改変しない */
+export const HOME_ITABASHI_LIVE_SITE_ID_V1 = "HOME-JP-ITABASHI-LIVE";
 
 export const HOME_DEFAULT_SITE_ID_V1 = "HOME-JP-TSUKUBA-001";
 
@@ -702,8 +731,152 @@ export const HOME_SITES_V1: HomeSiteV1[] = [
       "Front door is locked",
     ],
   },
+  // 実機物件（追記 — 既存デモ物件は変更しない）
+  {
+    id: "HOME-JP-ITABASHI-LIVE",
+    tenantId: "tenant_toms_jp",
+    customerCode: "TOMS001",
+    countryCode: "JP",
+    currency: "JPY",
+    kind: "live_home",
+    displayName: "板橋自宅（実機稼働）",
+    addressLabel: "東京都板橋区",
+    voltageSpec: "単相3線 100V / 200V",
+    hotWaterSpec: "風呂リモコン（RP2350 DO CH1 ワンショット）",
+    planCode: "home_live",
+    planStatus: "active",
+    monthlyFee: 0,
+    operationMode: "live",
+    deviceBoardLabel: "Waveshare RP2350-POE-ETH-8DI-8RO",
+    ct: {
+      deviceKey: "ct-main",
+      label: "分電盤 主幹CT",
+      controlChannel: "rp2350_ct",
+      mainCurrentA: 12.4,
+      mainCapacityA: 60,
+      powerW: 2100,
+      contractDemandKw: 6,
+      warnThresholdA: 45,
+      alertThresholdA: 54,
+      peakCutActive: false,
+      solarGenerationW: 0,
+      circuits: [
+        {
+          id: "c1",
+          label: "エアコン（リビング）",
+          voltage: 200,
+          currentA: 0,
+          on: false,
+          peakCutTarget: true,
+        },
+        {
+          id: "c2",
+          label: "一般負荷（照明・コンセント）",
+          voltage: 100,
+          currentA: 8.2,
+          on: true,
+          peakCutTarget: false,
+        },
+        {
+          id: "c3",
+          label: "風呂リモコン・RP2350",
+          voltage: 100,
+          currentA: 0.3,
+          on: true,
+          peakCutTarget: false,
+        },
+      ],
+      hourlyCurrentA: [
+        8, 7, 7, 7, 8, 10, 14, 18, 16, 14, 12, 11, 12, 11, 10,
+        12, 15, 18, 16, 14, 12, 10, 9, 8,
+      ],
+    },
+    bath: {
+      deviceKey: "bath-remote-live",
+      label: "風呂リモコン（実機・自動湯はり）",
+      controlChannel: "rp2350_relay",
+      setTempC: 42,
+      currentTempC: 0,
+      fillState: "idle",
+      fillPercent: 0,
+      autoFill: false,
+      reheating: false,
+      keepWarm: false,
+      jemaTerminal: "自動ボタン接点（短絡パルス）",
+      relayPort: "RO1",
+      relayChannel: 1,
+      pulseDurationMs: 500,
+      uiProfile: "oneshot_autofill",
+      linkState: "connected",
+      lastPulseMessage: null,
+    },
+    aircons: [
+      {
+        deviceKey: "ac-living",
+        label: "リビング エアコン",
+        controlChannel: "ir_bridge",
+        power: false,
+        roomTempC: 26.0,
+        setTempC: 26,
+        mode: "cool",
+        fan: "auto",
+        swing: "auto",
+        powerW: 0,
+        peakSaveActive: false,
+      },
+    ],
+    lock: {
+      deviceKey: "lock-entrance",
+      label: "玄関 スマートロック",
+      controlChannel: "nfc_lock",
+      locked: true,
+      doorOpen: false,
+      batteryPercent: 88,
+      accessLog: [
+        {
+          id: "acc-ita-1",
+          credentialType: "app",
+          holderName: "板橋 住人",
+          action: "unlock",
+          occurredAt: "2026-08-21T18:10:00+09:00",
+        },
+      ],
+    },
+    intercom: {
+      deviceKey: "intercom-entrance",
+      label: "玄関 スマートインターホン",
+      controlChannel: "intercom_sip",
+      state: "idle",
+      lastVisitAt: null,
+      streamKind: "mock",
+      streamUrl: "",
+      snapshotUrl: "",
+      autoResponseMessage:
+        "ただいま手が離せません。置き配でお願いします。",
+      unlockLinkEnabled: true,
+      visitors: [],
+    },
+    notes: [
+      "実機: Waveshare RP2350-POE-ETH-8DI-8RO",
+      "風呂は DO CH1 の 0.5 秒ワンショットのみ対応",
+    ],
+  },
 ];
 
+/** 既存デモ物件 ID を保護（上書き禁止の内部検証用） */
+export const HOME_PROTECTED_SITE_IDS_V1 = [
+  "HOME-JP-TSUKUBA-001",
+  "HOME-JP-MORIYA-ALERT",
+  "HOME-AU-GOLDCOAST-001",
+] as const;
+
+/** 既存デモ物件が残っていることを検証 */
+export function assertHomeDemoSitesPreservedV1(): boolean {
+  for (const id of HOME_PROTECTED_SITE_IDS_V1) {
+    if (!HOME_SITES_V1.some((s) => s.id === id)) return false;
+  }
+  return true;
+}
 /** 手動登録・デバイス紐付けで追加されたランタイム物件 */
 const RUNTIME_HOME_SITES_V1: HomeSiteV1[] = [];
 

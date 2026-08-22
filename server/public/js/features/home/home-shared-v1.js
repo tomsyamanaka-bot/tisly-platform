@@ -234,27 +234,58 @@ export function renderCt(d, options = {}) {
 export function renderBath(d, options = {}) {
   const plain = Boolean(options.plain);
   const b = d.bath;
-  setText("hm-bath-temp", Number(b.setTempC).toFixed(0));
+  const oneshot = b.uiProfile === "oneshot_autofill";
+  const bathCard = byId("hm-bath-card") || byId("hm-detail-stack");
+  if (bathCard) {
+    bathCard.classList.toggle("is-oneshot-bath", oneshot);
+  }
+  document
+    .querySelectorAll("[data-bath-demo-only]")
+    .forEach((el) => {
+      el.hidden = oneshot;
+    });
+
+  const tempHero = byId("hm-bath-temp-hero");
+  if (tempHero) tempHero.hidden = oneshot;
+  const fillBar = byId("hm-bath-fill-wrap");
+  if (fillBar) fillBar.hidden = oneshot;
+
+  setText(
+    "hm-bath-temp",
+    oneshot ? "—" : Number(b.setTempC).toFixed(0)
+  );
   setText(
     "hm-bath-state",
-    `${b.fillStateLabel}${b.reheating ? " · 追いだき中" : ""}` +
-      `${b.keepWarm ? " · 保温ON" : ""}`
+    oneshot
+      ? b.lastPulseMessage || b.fillStateLabel || "待機中"
+      : `${b.fillStateLabel}${b.reheating ? " · 追いだき中" : ""}` +
+          `${b.keepWarm ? " · 保温ON" : ""}`
   );
   setText(
     "hm-bath-current",
-    plain
-      ? `いまの湯温 ${Number(b.currentTempC).toFixed(1)} ℃`
-      : `浴槽 ${Number(b.currentTempC).toFixed(1)} ℃`
+    oneshot
+      ? "実機ワンショット制御"
+      : plain
+        ? `いまの湯温 ${Number(b.currentTempC).toFixed(1)} ℃`
+        : `浴槽 ${Number(b.currentTempC).toFixed(1)} ℃`
   );
   setText(
     "hm-bath-percent",
-    plain
-      ? `たまり具合 ${b.fillPercent}%`
-      : `湯はり ${b.fillPercent}%`
+    oneshot
+      ? `DO CH${b.relayChannel || 1} · ${b.pulseDurationMs || 500}ms`
+      : plain
+        ? `たまり具合 ${b.fillPercent}%`
+        : `湯はり ${b.fillPercent}%`
   );
   setText(
     "hm-bath-note",
-    plain ? b.fillStateLabel : `${d.hotWaterSpec} · ${b.linkStateLabel}`
+    oneshot
+      ? plain
+        ? "お湯はりの自動ボタン"
+        : `${d.deviceBoardLabel || "RP2350"} · DO CH${b.relayChannel || 1}`
+      : plain
+        ? b.fillStateLabel
+        : `${d.hotWaterSpec} · ${b.linkStateLabel}`
   );
   const linkEl = byId("hm-bath-link");
   if (linkEl) {
@@ -263,16 +294,49 @@ export function renderBath(d, options = {}) {
       linkEl.textContent = "";
     } else {
       linkEl.hidden = false;
-      linkEl.textContent = `${b.jemaTerminal} / RP2350 ${b.relayPort} — ${b.linkStateLabel}`;
+      linkEl.textContent = oneshot
+        ? `${b.jemaTerminal} / RP2350 ${b.relayPort} — ${b.linkStateLabel}`
+        : `${b.jemaTerminal} / RP2350 ${b.relayPort} — ${b.linkStateLabel}`;
     }
   }
 
   const bar = byId("hm-bath-bar");
-  if (bar) bar.style.width = `${Math.min(100, b.fillPercent)}%`;
+  if (bar) {
+    bar.style.width = oneshot
+      ? "0%"
+      : `${Math.min(100, b.fillPercent)}%`;
+  }
 
-  toggleStateBtn("hm-bath-autofill", b.autoFill, "自動お湯はり");
-  toggleStateBtn("hm-bath-reheat", b.reheating, "追いだき");
-  toggleStateBtn("hm-bath-keepwarm", b.keepWarm, "ふろ保温");
+  const autoBtn = byId("hm-bath-autofill");
+  if (autoBtn) {
+    if (oneshot) {
+      autoBtn.classList.remove("is-on", "is-off");
+      autoBtn.classList.add("is-oneshot");
+      autoBtn.textContent = "♨️ お湯はり（自動ボタン）";
+      autoBtn.dataset.value = "true";
+      autoBtn.removeAttribute("hidden");
+    } else {
+      autoBtn.classList.remove("is-oneshot");
+      toggleStateBtn("hm-bath-autofill", b.autoFill, "自動お湯はり");
+    }
+  }
+  if (!oneshot) {
+    toggleStateBtn("hm-bath-reheat", b.reheating, "追いだき");
+    toggleStateBtn("hm-bath-keepwarm", b.keepWarm, "ふろ保温");
+  }
+
+  const statusEl = byId("hm-bath-pulse-status");
+  if (statusEl) {
+    statusEl.hidden = !oneshot;
+    if (oneshot) {
+      statusEl.textContent =
+        b.lastPulseMessage || "待機中（タップで湯はり指令）";
+      statusEl.classList.toggle(
+        "is-done",
+        Boolean(b.lastPulseMessage)
+      );
+    }
+  }
 }
 
 function toggleStateBtn(id, active, label) {

@@ -28,7 +28,7 @@ import {
   sendSwitchBotAirconSetAllV1,
   sendSwitchBotLockCommandV1,
 } from "./switchbot_client.js";
-
+import { queueRp2350RelayPulseV1 } from "../device/rp2350-relay-pulse-v1.js";
 /** 制御対象デバイス種別 */
 export type HomeControlTargetV1 =
   | "circuit"
@@ -141,12 +141,44 @@ export function applyHomeBathControlV1(
   value: unknown
 ): HomeControlResultV1 {
   const bath = site.bath;
+  const oneshot =
+    bath.uiProfile === "oneshot_autofill" ||
+    site.operationMode === "live";
+
   switch (action) {
     case "auto_fill": {
+      // 実機ワンショット: トグルせず常にパルス送信
+      if (oneshot) {
+        const channel = Number(bath.relayChannel ?? 1);
+        const durationMs = Number(bath.pulseDurationMs ?? 500);
+        const pulse = queueRp2350RelayPulseV1({
+          channel,
+          durationMs,
+          reason: `home_bath_auto_fill:${site.id}`,
+        });
+        if (!pulse.ok) {
+          return {
+            ok: false,
+            error: pulse.error || "湯はりパルス送信に失敗しました",
+          };
+        }
+        bath.autoFill = false;
+        bath.fillState = "done";
+        bath.fillPercent = 0;
+        bath.reheating = false;
+        bath.keepWarm = false;
+        bath.lastPulseMessage = "湯はり指令完了";
+        return {
+          ok: true,
+          message: "湯はり指令完了",
+          state: bath,
+        };
+      }
       const next = toBool(value, !bath.autoFill);
       bath.autoFill = next;
       bath.fillState = next ? "filling" : "idle";
       bath.fillPercent = next ? Math.max(bath.fillPercent, 5) : 0;
+      bath.lastPulseMessage = null;
       return {
         ok: true,
         message: next
@@ -156,6 +188,12 @@ export function applyHomeBathControlV1(
       };
     }
     case "reheat": {
+      if (oneshot) {
+        return {
+          ok: false,
+          error: "この物件では追いだきは非対応です",
+        };
+      }
       const next = toBool(value, !bath.reheating);
       bath.reheating = next;
       if (next) {
@@ -173,6 +211,12 @@ export function applyHomeBathControlV1(
       };
     }
     case "keep_warm": {
+      if (oneshot) {
+        return {
+          ok: false,
+          error: "この物件ではふろ保温は非対応です",
+        };
+      }
       const next = toBool(value, !bath.keepWarm);
       bath.keepWarm = next;
       return {
@@ -184,6 +228,12 @@ export function applyHomeBathControlV1(
       };
     }
     case "set_temp": {
+      if (oneshot) {
+        return {
+          ok: false,
+          error: "この物件では給湯温度設定は非対応です",
+        };
+      }
       bath.setTempC = clampNumber(
         value,
         BATH_MIN_TEMP_C,
@@ -198,6 +248,12 @@ export function applyHomeBathControlV1(
     }
     case "temp_up":
     case "temp_down": {
+      if (oneshot) {
+        return {
+          ok: false,
+          error: "この物件では給湯温度設定は非対応です",
+        };
+      }
       // ワンタップの ±1℃ 調整
       const delta = action === "temp_up" ? 1 : -1;
       bath.setTempC = clampNumber(

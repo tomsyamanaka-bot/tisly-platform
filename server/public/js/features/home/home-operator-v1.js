@@ -56,13 +56,23 @@ function renderSiteOptions(operator) {
   }
   siteOptionsKey = key;
   select.innerHTML = operator.sites
-    .map(
-      (s) => `
+    .map((s) => {
+      const live =
+        s.operationMode === "live"
+          ? " · 実機"
+          : "";
+      const name =
+        s.operationMode === "live"
+          ? `🟢 ${s.displayName}`
+          : `${s.statusEmoji} ${s.displayName}`;
+      return `
       <option value="${escapeHtml(s.siteId)}">
-        ${escapeHtml(s.statusEmoji)} ${escapeHtml(s.displayName)}
-        （${escapeHtml(s.countryCode)}/${escapeHtml(s.currency)}）
-      </option>`
-    )
+        ${escapeHtml(name)}
+        （${escapeHtml(s.countryCode)}/${escapeHtml(s.currency)}${escapeHtml(
+        live
+      )}）
+      </option>`;
+    })
     .join("");
   select.value = currentSiteId;
 }
@@ -160,9 +170,21 @@ async function handleControl(el) {
 
   // 回路の relay は circuit ターゲットの ON/OFF
   const apiAction = target === "circuit" ? "relay" : action;
+  const isBathPulse =
+    target === "bath" &&
+    action === "auto_fill" &&
+    (el.classList.contains("is-oneshot") ||
+      el.textContent?.includes("お湯はり"));
 
   el.disabled = true;
   controlBusy = true;
+  const pulseStatus = byId("hm-bath-pulse-status");
+  if (isBathPulse && pulseStatus) {
+    pulseStatus.hidden = false;
+    pulseStatus.classList.add("is-sending");
+    pulseStatus.classList.remove("is-done");
+    pulseStatus.textContent = "お湯はり信号送信中...";
+  }
   try {
     const res = await sendHomeControl({
       siteId: currentSiteId,
@@ -172,6 +194,12 @@ async function handleControl(el) {
       value,
       actor: "社内オペレーター",
     });
+    if (isBathPulse && pulseStatus) {
+      pulseStatus.classList.remove("is-sending");
+      pulseStatus.classList.add("is-done");
+      pulseStatus.textContent =
+        res.message || "湯はり指令完了";
+    }
     showToast(res.message || "操作しました");
     if (target === "intercom") hideRingPopup();
     renderSiteDetail(res.dashboard);
@@ -182,6 +210,10 @@ async function handleControl(el) {
     renderSiteOptions(operator);
   } catch (err) {
     console.error(err);
+    if (isBathPulse && pulseStatus) {
+      pulseStatus.classList.remove("is-sending");
+      pulseStatus.textContent = "送信に失敗しました";
+    }
     showToast(err.message || "操作に失敗しました");
   } finally {
     el.disabled = false;
