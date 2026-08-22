@@ -20,6 +20,9 @@ import {
   renderNotes,
   renderStatusHero,
   renderSwitchBotBadge,
+  renderSystemLogs,
+  refreshHomeExtrasV1,
+  bindBathScheduleUiV1,
   replaceSiteIdInUrl,
   sendHomeControl,
   setText,
@@ -152,6 +155,9 @@ function renderSiteDetail(dashboard) {
   renderIntercom(dashboard);
   renderNotes(dashboard);
   updateRingPopup(dashboard);
+  refreshHomeExtrasV1(currentSiteId, dashboard).catch(() => {
+    /* ログ取得失敗は無視 */
+  });
 }
 
 /** 制御ボタン・スライダーの共通ハンドラ */
@@ -259,6 +265,10 @@ document.addEventListener("DOMContentLoaded", () => {
   currentSiteId = readSiteIdFromUrl();
   bindControlDelegation();
   bindHomeTileDetailsV1();
+  bindBathScheduleUiV1(
+    () => currentSiteId,
+    () => "社内オペレーター"
+  );
   renderSwitchBotBadge();
 
   const select = byId("hm-site-select");

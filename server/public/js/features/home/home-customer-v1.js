@@ -46,6 +46,10 @@ import {
 
   updateRingPopup,
 
+  refreshHomeExtrasV1,
+
+  bindBathScheduleUiV1,
+
 } from "./home-shared-v1.js";
 
 import {
@@ -139,6 +143,16 @@ function renderAll(dashboard) {
   renderIntercom(dashboard, { withUnlock: true });
 
   updateRingPopup(dashboard);
+
+  refreshHomeExtrasV1(currentSiteId, dashboard, { plain: true }).catch(
+
+    () => {
+
+      /* ログ取得失敗は無視 */
+
+    }
+
+  );
 
 }
 
@@ -345,6 +359,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   bindControlDelegation();
 
   bindHomeTileDetailsV1();
+
+  bindBathScheduleUiV1(
+
+    () => currentSiteId,
+
+    () => "お客様"
+
+  );
 
   await loadSiteOptions();
 

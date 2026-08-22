@@ -28,7 +28,11 @@ import {
   sendSwitchBotAirconSetAllV1,
   sendSwitchBotLockCommandV1,
 } from "./switchbot_client.js";
-import { queueRp2350RelayPulseV1 } from "../device/rp2350-relay-pulse-v1.js";
+import {
+  toggleOneshotBathFillV1,
+  hydrateHomeBathStateV1,
+  syncBathEstimationForSiteV1,
+} from "./home-bath-state-v1.js";
 /** 制御対象デバイス種別 */
 export type HomeControlTargetV1 =
   | "circuit"
@@ -147,31 +151,24 @@ export function applyHomeBathControlV1(
 
   switch (action) {
     case "auto_fill": {
-      // 実機ワンショット: トグルせず常にパルス送信
+      // 実機ワンショット: 推定30分タイマー付き
       if (oneshot) {
-        const channel = Number(bath.relayChannel ?? 1);
-        const durationMs = Number(bath.pulseDurationMs ?? 500);
-        const pulse = queueRp2350RelayPulseV1({
-          channel,
-          durationMs,
-          reason: `home_bath_auto_fill:${site.id}`,
+        syncBathEstimationForSiteV1(site);
+        hydrateHomeBathStateV1(site.id);
+        const toggled = toggleOneshotBathFillV1({
+          site,
+          actor: "app",
         });
-        if (!pulse.ok) {
+        if (!toggled.ok) {
           return {
             ok: false,
-            error: pulse.error || "湯はりパルス送信に失敗しました",
+            error: toggled.error || "湯はり操作に失敗しました",
           };
         }
-        bath.autoFill = false;
-        bath.fillState = "done";
-        bath.fillPercent = 0;
-        bath.reheating = false;
-        bath.keepWarm = false;
-        bath.lastPulseMessage = "湯はり指令送信完了";
         return {
           ok: true,
-          message: "湯はり指令送信完了",
-          state: bath,
+          message: toggled.message,
+          state: site.bath,
         };
       }
       const next = toBool(value, !bath.autoFill);

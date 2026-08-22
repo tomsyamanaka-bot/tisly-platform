@@ -201,6 +201,7 @@
       >
         待機中（タップで湯はり指令）
       </p>
+      <p class="hm-bath-countdown" id="hm-bath-countdown" hidden>—</p>
 
       <div class="hm-bar hm-fill-bar" id="hm-bath-fill-wrap">
         <div class="hm-bar-fill" id="hm-bath-bar" style="width: 0%"></div>
@@ -240,6 +241,55 @@
         >
           ふろ保温
         </button>
+      </div>
+
+      <div class="hm-bath-schedule" id="hm-bath-schedule-panel" hidden>
+        <p class="hm-card-label">⏱️ 予約 / 遅延実行</p>
+        <div class="hm-schedule-tabs">
+          <button type="button" class="hm-tab is-active" data-schedule-tab="delay">
+            遅延
+          </button>
+          <button type="button" class="hm-tab" data-schedule-tab="daily">
+            毎日
+          </button>
+          <button type="button" class="hm-tab" data-schedule-tab="once">
+            指定
+          </button>
+        </div>
+        <div class="hm-schedule-pane is-active" data-schedule-pane="delay">
+          <div class="hm-btn-row hm-btn-row-3">
+            <button type="button" class="hm-btn hm-schedule-delay" data-delay="30">
+              30分後
+            </button>
+            <button type="button" class="hm-btn hm-schedule-delay" data-delay="60">
+              60分後
+            </button>
+            <button type="button" class="hm-btn hm-schedule-delay" data-delay="90">
+              90分後
+            </button>
+          </div>
+        </div>
+        <div class="hm-schedule-pane" data-schedule-pane="daily" hidden>
+          <div class="hm-schedule-form">
+            <label class="hm-field-label" for="hm-bath-daily-time">毎日</label>
+            <input type="time" id="hm-bath-daily-time" class="hm-input" value="18:30" />
+            <button type="button" class="hm-btn" id="hm-bath-daily-submit">
+              予約する
+            </button>
+          </div>
+        </div>
+        <div class="hm-schedule-pane" data-schedule-pane="once" hidden>
+          <div class="hm-schedule-form">
+            <label class="hm-field-label" for="hm-bath-once-time">指定日時</label>
+            <input type="datetime-local" id="hm-bath-once-time" class="hm-input" />
+            <button type="button" class="hm-btn" id="hm-bath-once-submit">
+              予約する
+            </button>
+          </div>
+        </div>
+        <div class="hm-schedule-list" id="hm-bath-schedule-list">
+          <p class="hm-empty">予約はありません</p>
+        </div>
       </div>
       </section>
       </div>
@@ -394,6 +444,14 @@
       </section>
       </div>
     </div>
+
+    <!-- 動作ログ -->
+    <section class="hm-card">
+      <p class="hm-card-label">📜 動作ログ・履歴</p>
+      <div class="hm-log-list" id="hm-system-logs">
+        <p class="hm-empty">読み込み中…</p>
+      </div>
+    </section>
 
     <!-- お知らせ -->
     <section class="hm-card">

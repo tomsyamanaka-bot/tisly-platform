@@ -87,6 +87,98 @@ export async function sendHomeControl(payload) {
   return data;
 }
 
+/** 総合システムログ */
+export async function fetchSystemLogs(siteId, limit = 30) {
+  const params = new URLSearchParams();
+  if (siteId) params.set("siteId", siteId);
+  params.set("limit", String(limit));
+  const res = await fetch(`/api/logs?${params.toString()}`, {
+    cache: "no-store",
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || "ログ取得に失敗しました");
+  return data.logs || [];
+}
+
+/** 風呂予約一覧 */
+export async function fetchBathSchedules(siteId) {
+  const res = await fetch(
+    `${HOME_API_V1}/bath-schedules?siteId=${encodeURIComponent(siteId)}`,
+    { cache: "no-store" }
+  );
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || "予約取得に失敗しました");
+  return data;
+}
+
+/** 風呂予約作成 */
+export async function createBathSchedule(payload) {
+  const res = await fetch(`${HOME_API_V1}/bath-schedules`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || "予約に失敗しました");
+  return data.schedule;
+}
+
+/** 風呂予約キャンセル */
+export async function cancelBathSchedule(siteId, scheduleId, actor) {
+  const res = await fetch(
+    `${HOME_API_V1}/bath-schedules/${scheduleId}?siteId=${encodeURIComponent(siteId)}`,
+    {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ siteId, actor }),
+    }
+  );
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || "キャンセルに失敗しました");
+  return data;
+}
+
+let bathCountdownTimer = null;
+let bathCountdownEndMs = 0;
+
+function formatClientCountdown(totalSeconds) {
+  const sec = Math.max(0, Math.floor(totalSeconds));
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+function stopBathCountdownTimer() {
+  if (bathCountdownTimer) {
+    clearInterval(bathCountdownTimer);
+    bathCountdownTimer = null;
+  }
+  bathCountdownEndMs = 0;
+}
+
+function startBathCountdownTimer(endIso) {
+  stopBathCountdownTimer();
+  if (!endIso) return;
+  const endMs = Date.parse(endIso);
+  if (Number.isNaN(endMs)) return;
+  bathCountdownEndMs = endMs;
+
+  const tick = () => {
+    const remainSec = Math.max(0, Math.ceil((bathCountdownEndMs - Date.now()) / 1000));
+    const label = formatClientCountdown(remainSec);
+    setText("hm-bath-countdown", label);
+    setText("hm-bath-state", `湯はり中（残り ${label}）`);
+    const pulse = byId("hm-bath-pulse-status");
+    if (pulse && remainSec > 0) {
+      pulse.textContent = `湯はり中 · 残り ${label}`;
+      pulse.classList.add("is-filling");
+    }
+    if (remainSec <= 0) stopBathCountdownTimer();
+  };
+  tick();
+  bathCountdownTimer = setInterval(tick, 1000);
+}
+
 /* ---------- 共通描画 ---------- */
 
 export function renderStatusHero(d, options = {}) {
@@ -257,9 +349,17 @@ export function renderBath(d, options = {}) {
   setText(
     "hm-bath-state",
     oneshot
-      ? b.lastPulseMessage || b.fillStateLabel || "待機中"
+      ? b.fillState === "filling" && b.countdownLabel
+        ? `湯はり中（残り ${b.countdownLabel}）`
+        : b.lastPulseMessage || b.fillStateLabel || "待機中"
       : `${b.fillStateLabel}${b.reheating ? " · 追いだき中" : ""}` +
           `${b.keepWarm ? " · 保温ON" : ""}`
+  );
+  setText(
+    "hm-bath-countdown",
+    oneshot && b.fillState === "filling" && b.countdownLabel
+      ? b.countdownLabel
+      : "—"
   );
   setText(
     "hm-bath-current",
@@ -326,16 +426,30 @@ export function renderBath(d, options = {}) {
   }
 
   const statusEl = byId("hm-bath-pulse-status");
+  const countdownEl = byId("hm-bath-countdown");
+  if (countdownEl) {
+    countdownEl.hidden = !(oneshot && b.fillState === "filling");
+  }
   if (statusEl) {
     statusEl.hidden = !oneshot;
     if (oneshot) {
-      statusEl.textContent =
-        b.lastPulseMessage || "待機中（タップで湯はり指令）";
-      statusEl.classList.toggle(
-        "is-done",
-        Boolean(b.lastPulseMessage)
-      );
+      if (b.fillState === "filling" && b.countdownLabel) {
+        statusEl.textContent = `湯はり中 · 残り ${b.countdownLabel}`;
+        statusEl.classList.add("is-filling");
+        statusEl.classList.remove("is-done");
+      } else {
+        statusEl.textContent =
+          b.lastPulseMessage || "待機中（タップで湯はり指令）";
+        statusEl.classList.toggle("is-done", b.fillState === "done");
+        statusEl.classList.remove("is-filling");
+      }
     }
+  }
+
+  if (oneshot && b.fillState === "filling" && b.fillEstimatedEndAt) {
+    startBathCountdownTimer(b.fillEstimatedEndAt);
+  } else {
+    stopBathCountdownTimer();
   }
 }
 
@@ -722,6 +836,195 @@ export function renderNotes(d) {
   root.innerHTML = notes.length
     ? notes.map((n) => `<li>${escapeHtml(n)}</li>`).join("")
     : "<li>特記事項はありません</li>";
+}
+
+/** 総合システムログ描画 */
+export function renderSystemLogs(logs, options = {}) {
+  const root = byId("hm-system-logs");
+  if (!root) return;
+  const plain = Boolean(options.plain);
+  if (!logs?.length) {
+    root.innerHTML = '<p class="hm-empty">動作ログはまだありません</p>';
+    return;
+  }
+  root.innerHTML = logs
+    .map((row) => {
+      const line =
+        row.displayLine ||
+        `[${row.timeLabel || ""}] ${row.siteName}: ${row.message}`;
+      return `<p class="hm-log-line">${escapeHtml(line)}</p>`;
+    })
+    .join("");
+}
+
+/** 風呂予約パネル描画 */
+export function renderBathSchedulesPanel(data, options = {}) {
+  const root = byId("hm-bath-schedule-list");
+  if (!root) return;
+  const schedules = data?.schedules || [];
+  if (!schedules.length) {
+    root.innerHTML = '<p class="hm-empty">予約はありません</p>';
+    return;
+  }
+  root.innerHTML = schedules
+    .map((s) => {
+      const next = s.nextRunAt
+        ? new Date(s.nextRunAt).toLocaleString("ja-JP", {
+            timeZone: "Asia/Tokyo",
+          })
+        : "—";
+      return `
+        <div class="hm-schedule-row" data-schedule-id="${s.id}">
+          <div>
+            <strong>${escapeHtml(s.label)}</strong>
+            <p class="hm-gauge-sub">次回: ${escapeHtml(next)}</p>
+          </div>
+          <button
+            type="button"
+            class="hm-btn hm-btn-sm is-off hm-schedule-cancel"
+            data-schedule-id="${s.id}"
+          >取消</button>
+        </div>`;
+    })
+    .join("");
+}
+
+/** 風呂予約 UI の表示切替 */
+export function setBathScheduleVisible(visible) {
+  const panel = byId("hm-bath-schedule-panel");
+  if (panel) panel.hidden = !visible;
+}
+
+/** ログ・予約をまとめて更新 */
+export async function refreshHomeExtrasV1(siteId, dashboard, options = {}) {
+  const oneshot = dashboard?.bath?.uiProfile === "oneshot_autofill";
+  setBathScheduleVisible(oneshot);
+  try {
+    const logs = await fetchSystemLogs(siteId || null, options.logLimit || 30);
+    renderSystemLogs(logs, options);
+  } catch {
+    renderSystemLogs([], options);
+  }
+  if (!oneshot || !siteId) return;
+  try {
+    const scheduleData = await fetchBathSchedules(siteId);
+    renderBathSchedulesPanel(scheduleData, options);
+  } catch {
+    renderBathSchedulesPanel({ schedules: [] }, options);
+  }
+}
+
+/** 風呂予約 UI イベントを束ねる */
+export function bindBathScheduleUiV1(getSiteId, getActor) {
+  document.querySelectorAll("[data-schedule-tab]").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      const key = tab.dataset.scheduleTab;
+      document.querySelectorAll("[data-schedule-tab]").forEach((el) => {
+        el.classList.toggle("is-active", el.dataset.scheduleTab === key);
+      });
+      document.querySelectorAll("[data-schedule-pane]").forEach((pane) => {
+        const active = pane.dataset.schedulePane === key;
+        pane.classList.toggle("is-active", active);
+        pane.hidden = !active;
+      });
+    });
+  });
+
+  document.querySelectorAll(".hm-schedule-delay").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const siteId = getSiteId();
+      const delayMinutes = Number(btn.dataset.delay);
+      if (!siteId) return;
+      btn.disabled = true;
+      try {
+        await createBathSchedule({
+          siteId,
+          kind: "delay",
+          delayMinutes,
+          actor: getActor(),
+        });
+        showToast(`${delayMinutes}分後の湯はりを予約しました`);
+        const data = await fetchBathSchedules(siteId);
+        renderBathSchedulesPanel(data);
+        const logs = await fetchSystemLogs(siteId, 30);
+        renderSystemLogs(logs);
+      } catch (err) {
+        showToast(err.message || "予約に失敗しました");
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  });
+
+  const dailyBtn = byId("hm-bath-daily-submit");
+  if (dailyBtn) {
+    dailyBtn.addEventListener("click", async () => {
+      const siteId = getSiteId();
+      const timeInput = byId("hm-bath-daily-time");
+      if (!siteId || !timeInput?.value) return;
+      dailyBtn.disabled = true;
+      try {
+        await createBathSchedule({
+          siteId,
+          kind: "daily",
+          dailyTime: timeInput.value,
+          actor: getActor(),
+        });
+        showToast(`毎日 ${timeInput.value} の湯はりを予約しました`);
+        renderBathSchedulesPanel(await fetchBathSchedules(siteId));
+        renderSystemLogs(await fetchSystemLogs(siteId, 30));
+      } catch (err) {
+        showToast(err.message || "予約に失敗しました");
+      } finally {
+        dailyBtn.disabled = false;
+      }
+    });
+  }
+
+  const onceBtn = byId("hm-bath-once-submit");
+  if (onceBtn) {
+    onceBtn.addEventListener("click", async () => {
+      const siteId = getSiteId();
+      const timeInput = byId("hm-bath-once-time");
+      if (!siteId || !timeInput?.value) return;
+      onceBtn.disabled = true;
+      try {
+        const runAt = new Date(timeInput.value).toISOString();
+        await createBathSchedule({
+          siteId,
+          kind: "once",
+          runAt,
+          actor: getActor(),
+        });
+        showToast("指定日時の湯はりを予約しました");
+        renderBathSchedulesPanel(await fetchBathSchedules(siteId));
+        renderSystemLogs(await fetchSystemLogs(siteId, 30));
+      } catch (err) {
+        showToast(err.message || "予約に失敗しました");
+      } finally {
+        onceBtn.disabled = false;
+      }
+    });
+  }
+
+  document.addEventListener("click", async (event) => {
+    const btn = event.target.closest(".hm-schedule-cancel");
+    if (!btn) return;
+    const siteId = getSiteId();
+    const scheduleId = Number(btn.dataset.scheduleId);
+    if (!siteId || !Number.isFinite(scheduleId)) return;
+    btn.disabled = true;
+    try {
+      await cancelBathSchedule(siteId, scheduleId, getActor());
+      showToast("予約をキャンセルしました");
+      renderBathSchedulesPanel(await fetchBathSchedules(siteId));
+      renderSystemLogs(await fetchSystemLogs(siteId, 30));
+    } catch (err) {
+      showToast(err.message || "キャンセルに失敗しました");
+    } finally {
+      btn.disabled = false;
+    }
+  });
 }
 
 /** URL の siteId を読む */

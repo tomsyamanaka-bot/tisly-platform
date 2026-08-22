@@ -49,6 +49,15 @@ import {
   syncHomeLockFromSwitchBotV1,
 } from "../../home/home-switchbot-sync-v1.js";
 import {
+  cancelBathScheduleV1,
+  createBathDailyScheduleV1,
+  createBathDelayScheduleV1,
+  createBathOnceScheduleV1,
+  listBathSchedulesV1,
+  VALID_DELAY_MINUTES,
+} from "../../home/home-bath-schedule-v1.js";
+import { recordSystemLogV1 } from "../../home/home-system-log-v1.js";
+import {
   buildSwitchBotHomeStatusV1,
   listSwitchBotDevicesV1,
 } from "../../home/switchbot_client.js";
@@ -217,6 +226,86 @@ homeRouter.get("/control-logs", (req, res) => {
   });
 });
 
+/** 風呂予約・遅延実行一覧 */
+homeRouter.get("/bath-schedules", (req, res) => {
+  const siteId = String(req.query.siteId ?? "").trim();
+  if (!siteId) {
+    res.status(400).json({ ok: false, error: "siteId が必要です" });
+    return;
+  }
+  res.json({
+    ok: true,
+    siteId,
+    delayOptions: VALID_DELAY_MINUTES,
+    schedules: listBathSchedulesV1(siteId),
+  });
+});
+
+/** 風呂予約・遅延実行の作成 */
+homeRouter.post("/bath-schedules", (req, res) => {
+  const siteId = String(req.body?.siteId ?? "").trim();
+  const kind = String(req.body?.kind ?? "").trim();
+  const actor = req.body?.actor ? String(req.body.actor) : "app";
+  if (!siteId || !kind) {
+    res.status(400).json({
+      ok: false,
+      error: "siteId · kind が必要です",
+    });
+    return;
+  }
+  try {
+    let schedule;
+    if (kind === "delay") {
+      schedule = createBathDelayScheduleV1({
+        siteId,
+        delayMinutes: Number(req.body?.delayMinutes),
+        actor,
+      });
+    } else if (kind === "daily") {
+      schedule = createBathDailyScheduleV1({
+        siteId,
+        dailyTime: String(req.body?.dailyTime ?? ""),
+        actor,
+      });
+    } else if (kind === "once") {
+      schedule = createBathOnceScheduleV1({
+        siteId,
+        runAt: String(req.body?.runAt ?? ""),
+        actor,
+      });
+    } else {
+      res.status(400).json({ ok: false, error: "未対応の kind です" });
+      return;
+    }
+    res.status(201).json({ ok: true, schedule });
+  } catch (error) {
+    res.status(400).json({
+      ok: false,
+      error: String((error as Error).message),
+    });
+  }
+});
+
+/** 風呂予約キャンセル */
+homeRouter.delete("/bath-schedules/:scheduleId", (req, res) => {
+  const siteId = String(req.query.siteId ?? req.body?.siteId ?? "").trim();
+  const scheduleId = Number(req.params.scheduleId);
+  const actor = req.body?.actor ? String(req.body.actor) : "app";
+  if (!siteId || !Number.isFinite(scheduleId)) {
+    res.status(400).json({
+      ok: false,
+      error: "siteId · scheduleId が必要です",
+    });
+    return;
+  }
+  const cancelled = cancelBathScheduleV1({ siteId, scheduleId, actor });
+  if (!cancelled) {
+    res.status(404).json({ ok: false, error: "予約が見つかりません" });
+    return;
+  }
+  res.json({ ok: true, siteId, scheduleId });
+});
+
 /** インターホン来客履歴 */
 homeRouter.get("/intercom-events", (req, res) => {
   const siteId = String(req.query.siteId ?? "").trim();
@@ -292,6 +381,18 @@ homeRouter.post("/control", async (req, res) => {
   if (!result.ok) {
     res.status(400).json({ ok: false, error: result.error });
     return;
+  }
+
+  // 風呂 auto_fill は bath-state 側で記録済み
+  if (!(target === "bath" && action === "auto_fill")) {
+    recordSystemLogV1({
+      siteId,
+      tenantId: site.tenantId,
+      category: "manual_control",
+      message: `${site.displayName}: ${result.message ?? "操作しました"}`,
+      detail: { target, action, deviceKey },
+      actor: actor ?? "app",
+    });
   }
 
   // インターホン操作は来客イベントに残す

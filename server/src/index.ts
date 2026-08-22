@@ -23,6 +23,8 @@ import { ensureLockProviderSeed } from "./lock-provider/lock-provider-store.js";
 import { probePdfEngineHealth } from "./business/pdf/pdf-engine-status.js";
 import { bootstrapQnapInfraHealthOnStartupV1 } from "./infrastructure/qnap-infra-health-v1.js";
 
+import { bootstrapHomeBathRuntimeV1 } from "./home/home-bath-worker-v1.js";
+
 // 再起動中の 502 窓を縮めるため、
 // listen を最優先し、重い Worker は後段で起動する。
 logProductionEnvWarnings();
@@ -33,6 +35,7 @@ getDatabase();
 ensureLockProviderSeed();
 ensureDemoKit();
 syncDemoResetFromEnv();
+bootstrapHomeBathRuntimeV1();
 
 const app = createApp();
 const server = http.createServer(app);

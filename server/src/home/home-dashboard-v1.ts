@@ -18,6 +18,12 @@ import {
   type HomeCtLevelV1,
   type HomeSiteV1,
 } from "./home-sites-v1.js";
+import {
+  formatBathCountdownV1,
+  getBathRemainingSecondsV1,
+  hydrateHomeBathStateV1,
+  syncBathEstimationForSiteV1,
+} from "./home-bath-state-v1.js";
 
 export type HomeOverallStatusV1 =
   | "normal"
@@ -68,6 +74,10 @@ export interface HomeBathViewV1 {
   pulseDurationMs: number | null;
   uiProfile: string;
   lastPulseMessage: string | null;
+  fillStartedAt: string | null;
+  fillEstimatedEndAt: string | null;
+  remainingSeconds: number;
+  countdownLabel: string | null;
   linkState: string;
   linkStateLabel: string;
 }
@@ -181,7 +191,7 @@ const CT_LEVEL_LABEL_V1: Record<HomeCtLevelV1, string> = {
 const FILL_STATE_LABEL_V1: Record<string, string> = {
   idle: "停止中",
   filling: "湯はり中",
-  done: "湯はり完了",
+  done: "湯はり完了 / 待機中",
 };
 
 const LINK_STATE_LABEL_V1: Record<string, string> = {
@@ -294,12 +304,26 @@ function buildCtViewV1(site: HomeSiteV1): HomeCtViewV1 {
 }
 
 function buildBathViewV1(site: HomeSiteV1): HomeBathViewV1 {
+  syncBathEstimationForSiteV1(site);
+  hydrateHomeBathStateV1(site.id);
   const b = site.bath;
   const uiProfile = b.uiProfile || "full";
-  const fillLabel =
+  const oneshot =
+    uiProfile === "oneshot_autofill" || site.operationMode === "live";
+  const remainingSeconds = oneshot
+    ? getBathRemainingSecondsV1(site)
+    : 0;
+  const countdownLabel =
+    oneshot && b.fillState === "filling" && remainingSeconds > 0
+      ? formatBathCountdownV1(remainingSeconds)
+      : null;
+  let fillLabel =
     b.lastPulseMessage ||
     FILL_STATE_LABEL_V1[b.fillState] ||
     b.fillState;
+  if (countdownLabel) {
+    fillLabel = `湯はり中（残り ${countdownLabel}）`;
+  }
   return {
     label: b.label,
     setTempC: b.setTempC,
@@ -316,6 +340,10 @@ function buildBathViewV1(site: HomeSiteV1): HomeBathViewV1 {
     pulseDurationMs: b.pulseDurationMs ?? null,
     uiProfile,
     lastPulseMessage: b.lastPulseMessage ?? null,
+    fillStartedAt: b.fillStartedAt ?? null,
+    fillEstimatedEndAt: b.fillEstimatedEndAt ?? null,
+    remainingSeconds,
+    countdownLabel,
     linkState: b.linkState,
     linkStateLabel:
       LINK_STATE_LABEL_V1[b.linkState] ?? b.linkState,

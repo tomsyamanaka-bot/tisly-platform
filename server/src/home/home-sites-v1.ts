@@ -117,6 +117,10 @@ export interface HomeBathRemoteV1 {
   linkState: "connected" | "standby" | "offline";
   /** 直近の湯はり指令メッセージ */
   lastPulseMessage?: string | null;
+  /** 推定湯はり開始 ISO */
+  fillStartedAt?: string | null;
+  /** 推定湯はり完了 ISO */
+  fillEstimatedEndAt?: string | null;
 }
 
 export type HomeAirconModeV1 = "cool" | "heat" | "dry" | "fan";

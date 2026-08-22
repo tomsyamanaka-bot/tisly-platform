@@ -252,6 +252,7 @@ export function runMigrations(database: Database.Database): void {
   migrateTislyHomeV1(database);
   migrateTislyHomeIntercomV1(database);
   migrateTislyHomeCustomerRegistryV1(database);
+  migrateTislyHomeBathScheduleV1(database);
 }
 
 /**
@@ -418,6 +419,63 @@ function migrateTislyHomeIntercomV1(database: Database.Database): void {
 
     CREATE INDEX IF NOT EXISTS idx_home_intercom_events_site
       ON home_intercom_events_v1(site_id, id DESC);
+  `);
+}
+
+/**
+ * TiSLY HOME 風呂推定・予約・総合ログ v1。
+ * 既存テーブルは変更せず追記のみ。
+ */
+function migrateTislyHomeBathScheduleV1(
+  database: Database.Database
+): void {
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS home_bath_state_v1 (
+      site_id TEXT PRIMARY KEY,
+      fill_state TEXT NOT NULL DEFAULT 'idle',
+      started_at TEXT,
+      estimated_end_at TEXT,
+      last_message TEXT,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS home_bath_schedules_v1 (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      site_id TEXT NOT NULL,
+      kind TEXT NOT NULL
+        CHECK (kind IN ('delay', 'daily', 'once')),
+      delay_minutes INTEGER,
+      daily_time TEXT,
+      run_at TEXT,
+      next_run_at TEXT,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      label TEXT NOT NULL DEFAULT '',
+      actor TEXT NOT NULL DEFAULT 'app',
+      created_at TEXT NOT NULL,
+      last_run_at TEXT,
+      cancelled_at TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_home_bath_schedules_next
+      ON home_bath_schedules_v1(enabled, next_run_at);
+    CREATE INDEX IF NOT EXISTS idx_home_bath_schedules_site
+      ON home_bath_schedules_v1(site_id, id DESC);
+
+    CREATE TABLE IF NOT EXISTS home_system_logs_v1 (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      site_id TEXT NOT NULL DEFAULT '',
+      tenant_id TEXT NOT NULL DEFAULT '',
+      category TEXT NOT NULL DEFAULT 'manual_control',
+      message TEXT NOT NULL,
+      detail_json TEXT NOT NULL DEFAULT '{}',
+      actor TEXT NOT NULL DEFAULT 'system',
+      created_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_home_system_logs_site
+      ON home_system_logs_v1(site_id, id DESC);
+    CREATE INDEX IF NOT EXISTS idx_home_system_logs_created
+      ON home_system_logs_v1(created_at DESC);
   `);
 }
 

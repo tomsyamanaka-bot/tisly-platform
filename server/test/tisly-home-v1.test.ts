@@ -17,6 +17,7 @@ import {
   homeSecurityAttentionV1,
 } from "../src/home/home-sites-v1.js";
 import { queueRp2350RelayPulseV1 } from "../src/device/rp2350-relay-pulse-v1.js";
+import { getDatabase } from "../src/db/database.js";
 import {
   getRemoteTestStatus,
   resetRemoteTestState,
@@ -119,6 +120,19 @@ describe("tisly-home-v1", () => {
 
   it("queues RP2350 DO CH1 oneshot pulse for Itabashi bath", async () => {
     resetRemoteTestState();
+    const site = findHomeSiteV1(ITABASHI_SITE);
+    site.bath.fillState = "idle";
+    site.bath.fillStartedAt = null;
+    site.bath.fillEstimatedEndAt = null;
+    site.bath.lastPulseMessage = null;
+    try {
+      getDatabase()
+        .prepare(`DELETE FROM home_bath_state_v1 WHERE site_id = ?`)
+        .run(ITABASHI_SITE);
+    } catch {
+      /* テーブル未作成時は無視 */
+    }
+
     const pulse = queueRp2350RelayPulseV1({
       channel: 1,
       durationMs: 500,
@@ -135,9 +149,9 @@ describe("tisly-home-v1", () => {
       value: true,
     });
     assert.equal(bath.ok, true);
-    assert.match(bath.message || "", /湯はり指令送信完了/);
-    const site = findHomeSiteV1(ITABASHI_SITE);
-    assert.equal(site.bath.lastPulseMessage, "湯はり指令送信完了");
+    assert.match(bath.message || "", /湯はり/);
+    assert.equal(site.bath.fillState, "filling");
+    assert.ok(site.bath.fillEstimatedEndAt);
     assert.equal(site.bath.reheating, false);
     assert.equal(site.bath.keepWarm, false);
 
@@ -608,7 +622,7 @@ describe("tisly-home-v1", () => {
       path.join(publicDir, "service-worker.js"),
       "utf-8"
     );
-    assert.match(sw, /tisly-pwa-v2485-itabashi-bath-pulse-ux|tisly-pwa-v2484-itabashi-bath-pulse|tisly-pwa-v2483-floorplan-ux-pin|tisly-pwa-v2471-security-drum|tisly-pwa-v2470-security-svg|tisly-pwa-v2469-security-light|tisly-pwa-v2468-soc-failsafe|tisly-pwa-v2467-soc-iso|tisly-pwa-v2466-security-floor|tisly-pwa-v2465-genre-chips|tisly-pwa-v2464-genre-chips|tisly-pwa-v2463-unified-genres|tisly-pwa-v2462-price-cost-master|tisly-pwa-v2461-home-customer-independent/);
+    assert.match(sw, /tisly-pwa-v2486-home-bath-schedule-logs|tisly-pwa-v2485-itabashi-bath-pulse-ux|tisly-pwa-v2484-itabashi-bath-pulse|tisly-pwa-v2483-floorplan-ux-pin|tisly-pwa-v2471-security-drum|tisly-pwa-v2470-security-svg|tisly-pwa-v2469-security-light|tisly-pwa-v2468-soc-failsafe|tisly-pwa-v2467-soc-iso|tisly-pwa-v2466-security-floor|tisly-pwa-v2465-genre-chips|tisly-pwa-v2464-genre-chips|tisly-pwa-v2463-unified-genres|tisly-pwa-v2462-price-cost-master|tisly-pwa-v2461-home-customer-independent/);
     assert.match(sw, /\/css\/features\/home\/home-v1\.css/);
     assert.match(sw, /\/css\/features\/home\/home-tiles-v1\.css/);
     assert.match(sw, /\/js\/features\/home\/home-tiles-v1\.js/);
