@@ -622,7 +622,7 @@ describe("tisly-home-v1", () => {
       path.join(publicDir, "service-worker.js"),
       "utf-8"
     );
-    assert.match(sw, /tisly-pwa-v2486-home-bath-schedule-logs|tisly-pwa-v2485-itabashi-bath-pulse-ux|tisly-pwa-v2484-itabashi-bath-pulse|tisly-pwa-v2483-floorplan-ux-pin|tisly-pwa-v2471-security-drum|tisly-pwa-v2470-security-svg|tisly-pwa-v2469-security-light|tisly-pwa-v2468-soc-failsafe|tisly-pwa-v2467-soc-iso|tisly-pwa-v2466-security-floor|tisly-pwa-v2465-genre-chips|tisly-pwa-v2464-genre-chips|tisly-pwa-v2463-unified-genres|tisly-pwa-v2462-price-cost-master|tisly-pwa-v2461-home-customer-independent/);
+    assert.match(sw, /tisly-pwa-v2487-security-light-manual|tisly-pwa-v2486-home-bath-schedule-logs|tisly-pwa-v2485-itabashi-bath-pulse-ux|tisly-pwa-v2484-itabashi-bath-pulse|tisly-pwa-v2483-floorplan-ux-pin|tisly-pwa-v2471-security-drum|tisly-pwa-v2470-security-svg|tisly-pwa-v2469-security-light|tisly-pwa-v2468-soc-failsafe|tisly-pwa-v2467-soc-iso|tisly-pwa-v2466-security-floor|tisly-pwa-v2465-genre-chips|tisly-pwa-v2464-genre-chips|tisly-pwa-v2463-unified-genres|tisly-pwa-v2462-price-cost-master|tisly-pwa-v2461-home-customer-independent/);
     assert.match(sw, /\/css\/features\/home\/home-v1\.css/);
     assert.match(sw, /\/css\/features\/home\/home-tiles-v1\.css/);
     assert.match(sw, /\/js\/features\/home\/home-tiles-v1\.js/);
@@ -636,7 +636,7 @@ describe("tisly-home-v1", () => {
     // 工事屋目線の並び: CT → ロック → インターホン → 風呂 → エアコン
     assert.match(
       tilesJs,
-      /HOME_TILE_ORDER_V1 = \[\s*"ct",\s*"lock",\s*"intercom",\s*"bath",\s*"aircon",?\s*\]/
+      /HOME_TILE_ORDER_V1 = \[\s*"ct",\s*"lock",\s*"intercom",\s*"bath",\s*"security_light",\s*"aircon",?\s*\]/
     );
     // 機器名（社内表記）
     assert.match(tilesJs, /分電盤CT/);
@@ -1027,6 +1027,89 @@ describe("tisly-home-v1", () => {
     assert.equal(postRes.body.rules.di1DurationSec, 75);
     assert.equal(postRes.body.firmware.di2Standalone24vMode, "blink");
     assert.equal(postRes.body.firmware.di2StandaloneDurationMs, 40_000);
+  });
+
+  it("POST /api/home/v1/control queues security light commands for live site", async () => {
+    const { resetRemoteTestState, getRemoteTestStatus } = await import(
+      "../src/remote-test/remote-test-state.js"
+    );
+    resetRemoteTestState();
+
+    const res = await request(app)
+      .post("/api/home/v1/control")
+      .send({
+        siteId: ITABASHI_SITE,
+        target: "security_light",
+        action: "light_24v_strobe",
+        actor: "test",
+      })
+      .expect(200);
+    assert.equal(res.body.ok, true);
+    assert.match(res.body.message, /24V/);
+    assert.equal(getRemoteTestStatus().pendingCommand, "light_24v_strobe");
+
+    const allOn = await request(app)
+      .post("/api/home/v1/control")
+      .send({
+        siteId: ITABASHI_SITE,
+        target: "security_light",
+        action: "light_all_on",
+      })
+      .expect(200);
+    assert.equal(allOn.body.ok, true);
+    assert.equal(getRemoteTestStatus().pendingCommand, "light_all_on");
+
+    const mockSite = await request(app)
+      .post("/api/home/v1/control")
+      .send({
+        siteId: JP_SITE,
+        target: "security_light",
+        action: "light_24v_on",
+      })
+      .expect(400);
+    assert.equal(mockSite.body.ok, false);
+  });
+
+  it("ships manual security light UI assets", () => {
+    const securityHtml = fs.readFileSync(
+      path.join(publicDir, "security-v1.html"),
+      "utf-8"
+    );
+    assert.match(securityHtml, /sf-manual-light/);
+    assert.match(securityHtml, /security-floor-manual-light-v1\.js/);
+    assert.match(securityHtml, /sf-light-all-on/);
+
+    const operatorHtml = fs.readFileSync(
+      path.join(publicDir, "home-v1.html"),
+      "utf-8"
+    );
+    assert.match(operatorHtml, /hm-security-light-card/);
+    assert.match(operatorHtml, /data-action="light_all_on"/);
+
+    const sharedJs = fs.readFileSync(
+      path.join(
+        publicDir,
+        "js",
+        "features",
+        "home",
+        "home-shared-v1.js"
+      ),
+      "utf-8"
+    );
+    assert.match(sharedJs, /renderSecurityLights/);
+    assert.match(sharedJs, /data-action="light_24v_strobe"/);
+
+    const tilesJs = fs.readFileSync(
+      path.join(
+        publicDir,
+        "js",
+        "features",
+        "home",
+        "home-tiles-v1.js"
+      ),
+      "utf-8"
+    );
+    assert.match(tilesJs, /securityLightTileV1/);
   });
 
   it("scene control away/welcome/goodnight", async () => {

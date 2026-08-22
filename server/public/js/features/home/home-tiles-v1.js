@@ -10,6 +10,7 @@ export const HOME_TILE_ORDER_V1 = [
   "lock",
   "intercom",
   "bath",
+  "security_light",
   "aircon",
 ];
 
@@ -37,6 +38,12 @@ const TILE_META_V1 = {
     name: "風呂",
     plainName: "お風呂",
     detailTitle: "お風呂の詳細",
+  },
+  security_light: {
+    icon: "💡",
+    name: "防犯ライト",
+    plainName: "防犯ライト",
+    detailTitle: "防犯ライト の詳細",
   },
   aircon: {
     icon: "❄️",
@@ -126,6 +133,26 @@ function intercomTileV1(d, plain) {
   };
 }
 
+function securityLightTileV1(d, plain) {
+  if (d.operationMode !== "live" && d.kind !== "live_home") return null;
+  return {
+    key: "security_light",
+    detail: "security_light",
+    icon: TILE_META_V1.security_light.icon,
+    name: tileName("security_light", plain),
+    state: "RP2350 遠隔",
+    stateAlert: false,
+    tone: "on",
+    action: {
+      label: "全点灯",
+      target: "security_light",
+      action: "light_all_on",
+      style: "is-danger",
+      aria: "24Vと100Vを緊急全点灯する",
+    },
+  };
+}
+
 function bathTileV1(d, plain) {
   const b = d.bath;
   const oneshot = b.uiProfile === "oneshot_autofill";
@@ -200,6 +227,7 @@ export function buildHomeTilesV1(d, options = {}) {
     lockTileV1(d, plain),
     intercomTileV1(d, plain),
     bathTileV1(d, plain),
+    securityLightTileV1(d, plain),
     ...airconTilesV1(d),
   ];
   return tiles.filter(Boolean);

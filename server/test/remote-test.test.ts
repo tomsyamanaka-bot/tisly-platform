@@ -121,6 +121,32 @@ describe("Remote Test PoC API", () => {
     assert.equal(status.body.pendingCommand, null);
   });
 
+  it("POST /command queues security light manual commands", async () => {
+    resetRemoteTestState();
+    const res = await request(app)
+      .post("/api/remote-test/command")
+      .set("X-Remote-Test-Token", TEST_TOKEN)
+      .send({ command: "light_100v_on" });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.ok, true);
+    assert.equal(res.body.command, "light_100v_on");
+    assert.equal(res.body.pendingCommand, "light_100v_on");
+
+    const poll = await request(app)
+      .get("/api/remote-test/command")
+      .query({ token: TEST_TOKEN });
+    assert.equal(poll.body.command, "light_100v_on");
+  });
+
+  it("POST /command rejects unknown security light command", async () => {
+    const res = await request(app)
+      .post("/api/remote-test/command")
+      .set("X-Remote-Test-Token", TEST_TOKEN)
+      .send({ command: "light_unknown" });
+    assert.equal(res.status, 400);
+    assert.equal(res.body.ok, false);
+  });
+
   it("POST /ch3/on queues ch3_on without updating confirmedChStates", async () => {
     resetRemoteTestState();
     const res = await request(app)

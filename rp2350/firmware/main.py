@@ -26,6 +26,17 @@ from machine import Pin
 import config
 from security_light import SecurityLightController
 
+# VPS 手動防犯ライト命令（security_light.py と同期）
+SECURITY_LIGHT_COMMANDS = (
+    "light_24v_on",
+    "light_24v_off",
+    "light_24v_strobe",
+    "light_100v_on",
+    "light_100v_off",
+    "light_all_on",
+    "light_all_off",
+)
+
 
 
 try:
@@ -814,6 +825,20 @@ def _parse_channel_command(cmd):
 
 
 async def exec_command(cmd):
+
+    if _security and cmd in SECURITY_LIGHT_COMMANDS:
+
+        log("command received: {}".format(cmd))
+
+        handled = await _security.execute_manual_command(cmd)
+
+        if handled:
+
+            send_heartbeat()
+
+            return
+
+
 
     parsed = _parse_channel_command(cmd)
 

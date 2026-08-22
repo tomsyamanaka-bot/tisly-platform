@@ -18,6 +18,7 @@ import {
   renderIntercom,
   renderLock,
   renderNotes,
+  renderSecurityLights,
   renderStatusHero,
   renderSwitchBotBadge,
   renderSystemLogs,
@@ -153,6 +154,7 @@ function renderSiteDetail(dashboard) {
   renderAircons(dashboard, { withControls: true });
   renderLock(dashboard);
   renderIntercom(dashboard);
+  renderSecurityLights(dashboard);
   renderNotes(dashboard);
   updateRingPopup(dashboard);
   refreshHomeExtrasV1(currentSiteId, dashboard).catch(() => {

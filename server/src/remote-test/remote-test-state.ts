@@ -4,6 +4,15 @@ export const CHANNEL_COUNT = 8;
 
 export type ChannelState = "on" | "off";
 
+export type SecurityLightCommandV1 =
+  | "light_24v_on"
+  | "light_24v_off"
+  | "light_24v_strobe"
+  | "light_100v_on"
+  | "light_100v_off"
+  | "light_all_on"
+  | "light_all_off";
+
 export type RemoteTestCommand =
   | "ch1_on" | "ch1_off"
   | "ch2_on" | "ch2_off"
@@ -13,7 +22,18 @@ export type RemoteTestCommand =
   | "ch6_on" | "ch6_off"
   | "ch7_on" | "ch7_off"
   | "ch8_on" | "ch8_off"
+  | SecurityLightCommandV1
   | string; // ch{N}_pulse_{ms} など拡張コマンド
+
+export const SECURITY_LIGHT_COMMANDS_V1: SecurityLightCommandV1[] = [
+  "light_24v_on",
+  "light_24v_off",
+  "light_24v_strobe",
+  "light_100v_on",
+  "light_100v_off",
+  "light_all_on",
+  "light_all_off",
+];
 
 export interface RemoteTestPulseResult {
   command: string;
@@ -282,6 +302,21 @@ export function queueChCommand(channel: number, on: boolean): void {
   state.lastCommand = command;
   state.lastCommandAt = new Date().toISOString();
   pushLog(command, `CH${channel} → ${on ? "ON" : "OFF"} (pending)`);
+}
+
+/** 防犯ライト手動命令をキューする（RP2350 即時ポーリング） */
+export function queueSecurityLightCommandV1(
+  command: SecurityLightCommandV1
+): { ok: boolean; error?: string; command?: SecurityLightCommandV1; queuedAt?: string } {
+  if (!SECURITY_LIGHT_COMMANDS_V1.includes(command)) {
+    return { ok: false, error: "未対応のライト命令です" };
+  }
+  const queuedAt = new Date().toISOString();
+  state.pendingCommand = command;
+  state.lastCommand = command;
+  state.lastCommandAt = queuedAt;
+  pushLog(command, `security light ${command} (pending)`);
+  return { ok: true, command, queuedAt };
 }
 
 /**

@@ -169,6 +169,22 @@
     </section>
 
     <section class="sf-soc-tools">
+      <section class="sf-card sf-manual-light" id="sf-manual-light">
+        <p class="sf-card-label">💡 防犯ライト手動遠隔操作</p>
+        <p class="sf-remote-target" id="sf-manual-light-note">
+          RP2350 実機へ即時命令（板橋自宅）
+        </p>
+        <div id="sf-manual-light-actions"></div>
+        <div class="sf-manual-light-emergency">
+          <button type="button" class="sf-manual-light-emergency-btn" id="sf-light-all-on">
+            🚨 緊急全点灯
+          </button>
+          <button type="button" class="sf-manual-light-btn" id="sf-light-all-off">
+            全消灯
+          </button>
+        </div>
+      </section>
+
       <section class="sf-card sf-remote-config" id="sf-remote-config">
         <p class="sf-card-label">🛡️ 遠隔防犯ルール設定（RP2350連動）</p>
         <p class="sf-remote-target" id="sf-remote-target">実機: HOME-JP-ITABASHI-LIVE</p>
@@ -366,7 +382,8 @@
   <script src="/js/features/security/security-floor-light-v1.js?v=2485"></script>
   <script src="/js/features/floorplan-builder/floorplan-security-bridge-v1.js?v=2485"></script>
   <script type="module" src="/js/features/security/security-floor-iso3d-v1.js?v=2485"></script>
-  <script type="module" src="/js/features/security/security-floor-remote-config-v1.js?v=2485"></script>
+  <script type="module" src="/js/features/security/security-floor-manual-light-v1.js?v=2487"></script>
+  <script type="module" src="/js/features/security/security-floor-remote-config-v1.js?v=2487"></script>
   <script type="module" src="/js/features/security/security-floor-operator-v1.js?v=2485"></script>
 </body>
 </html>

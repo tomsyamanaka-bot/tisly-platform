@@ -28,9 +28,12 @@ import {
   normalizeDeviceInputStates,
   queueChCommand,
   queueChPulseCommand,
+  queueSecurityLightCommandV1,
   recordDeviceHeartbeat,
   recordHeartbeatDebug,
   recordWebAccess,
+  SECURITY_LIGHT_COMMANDS_V1,
+  type SecurityLightCommandV1,
 } from "../../remote-test/remote-test-state.js";
 
 export const remoteTestRouter = Router();
@@ -425,5 +428,30 @@ remoteTestRouter.get("/command", (req, res) => {
     chStates: status.chStates,
     ch1State: status.ch1State,
     polledAt: new Date().toISOString(),
+  });
+});
+
+/** 防犯ライト手動命令を即時キュー（PWA / 診断スクリプト用） */
+remoteTestRouter.post("/command", (req, res) => {
+  trackWebAccess(req);
+  const command = String(req.body?.command ?? "").trim() as SecurityLightCommandV1;
+  if (!SECURITY_LIGHT_COMMANDS_V1.includes(command)) {
+    res.status(400).json({
+      ok: false,
+      error:
+        "command は light_24v_on / light_24v_off / light_24v_strobe / " +
+        "light_100v_on / light_100v_off / light_all_on / light_all_off",
+    });
+    return;
+  }
+  const queued = queueSecurityLightCommandV1(command);
+  const status = getRemoteTestStatus();
+  res.json({
+    ok: true,
+    command: queued.command,
+    queuedAt: queued.queuedAt,
+    pendingCommand: status.pendingCommand,
+    lastCommand: status.lastCommand,
+    lastCommandAt: status.lastCommandAt,
   });
 });

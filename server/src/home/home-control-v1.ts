@@ -33,13 +33,16 @@ import {
   hydrateHomeBathStateV1,
   syncBathEstimationForSiteV1,
 } from "./home-bath-state-v1.js";
+import { applyHomeSecurityLightControlV1 } from "./home-security-light-v1.js";
+
 /** 制御対象デバイス種別 */
 export type HomeControlTargetV1 =
   | "circuit"
   | "bath"
   | "aircon"
   | "lock"
-  | "intercom";
+  | "intercom"
+  | "security_light";
 
 export interface HomeControlInputV1 {
   siteId: string;
@@ -731,6 +734,14 @@ export async function applyHomeControlV1(
       if (result.ok && sbNote && result.message) {
         result = { ...result, message: `${result.message}${sbNote}` };
       }
+      break;
+    }
+    case "security_light": {
+      result = applyHomeSecurityLightControlV1({
+        siteId: site.id,
+        action,
+        actor: input.actor,
+      });
       break;
     }
     case "intercom": {

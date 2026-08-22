@@ -1194,6 +1194,39 @@ export function renderActivityTimeline(rows, options = {}) {
     .join("");
 }
 
+/** 防犯ライト手動操作（実機物件のみ） */
+export function renderSecurityLights(d, options = {}) {
+  const card = byId("hm-security-light-card");
+  const groups = byId("hm-security-light-groups");
+  if (!card || !groups) return;
+
+  const isLive = d.operationMode === "live" || d.kind === "live_home";
+  card.hidden = !isLive;
+  if (!isLive) return;
+
+  setText(
+    "hm-security-light-note",
+    `${d.deviceBoardLabel || "RP2350"} · DO2(24V) · DO3(100V)`
+  );
+
+  groups.innerHTML = `
+    <div class="hm-security-light-group">
+      <p class="hm-card-label">💡 24V 防犯ライト (DO2 / GPIO18)</p>
+      <div class="hm-btn-row hm-btn-row-3">
+        <button type="button" class="hm-btn is-on" data-target="security_light" data-action="light_24v_on">点灯</button>
+        <button type="button" class="hm-btn is-off" data-target="security_light" data-action="light_24v_off">消灯</button>
+        <button type="button" class="hm-btn is-warn" data-target="security_light" data-action="light_24v_strobe">威嚇点滅</button>
+      </div>
+    </div>
+    <div class="hm-security-light-group">
+      <p class="hm-card-label">💡 100V 投光器ライト (DO3 / GPIO19)</p>
+      <div class="hm-btn-row hm-btn-row-2">
+        <button type="button" class="hm-btn is-on" data-target="security_light" data-action="light_100v_on">点灯</button>
+        <button type="button" class="hm-btn is-off" data-target="security_light" data-action="light_100v_off">消灯</button>
+      </div>
+    </div>`;
+}
+
 /** 防犯 UI イベントを束ねる */
 export function bindHomeSecurityUiV1(getSiteId, getActor, onSceneDone) {
   document.querySelectorAll("[data-scene]").forEach((btn) => {

@@ -90,6 +90,7 @@ const CONTROL_TARGETS_V1: HomeControlTargetV1[] = [
   "aircon",
   "lock",
   "intercom",
+  "security_light",
 ];
 
 /** 物件一覧（SaaS 契約情報つき） */
@@ -404,7 +405,11 @@ homeRouter.post("/control", async (req, res) => {
   }
 
   // 風呂 auto_fill は bath-state 側で記録済み
-  if (!(target === "bath" && action === "auto_fill")) {
+  // 防犯ライトは home-security-light 側で記録済み
+  if (
+    !(target === "bath" && action === "auto_fill") &&
+    target !== "security_light"
+  ) {
     recordSystemLogV1({
       siteId,
       tenantId: site.tenantId,

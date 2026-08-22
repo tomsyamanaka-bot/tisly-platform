@@ -35,6 +35,7 @@ class SecurityLightController:
         self._perimeter_until_ms = 0
         self._seq_id = 0
         self._active_task = None
+        self._manual_task = None
         self._rules_version = 0
         self._guard_active = True
         self._security_paused = False
@@ -316,3 +317,64 @@ class SecurityLightController:
             if time.ticks_diff(end_ms, time.ticks_ms()) <= 0:
                 break
             await asyncio.sleep_ms(100)
+
+    def _cancel_active(self):
+        """センサー序列・手動点滅を中断。"""
+        self._seq_id += 1
+        if self._active_task is not None:
+            try:
+                self._active_task.cancel()
+            except Exception:
+                pass
+            self._active_task = None
+        if self._manual_task is not None:
+            try:
+                self._manual_task.cancel()
+            except Exception:
+                pass
+            self._manual_task = None
+
+    async def execute_manual_command(self, cmd):
+        """VPS 手動命令 — タイマー動作を上書き即時制御。"""
+        self._cancel_active()
+        self.log("manual cmd: {}".format(cmd))
+
+        if cmd == "light_24v_on":
+            self._set_ch(CH_24V, True)
+        elif cmd == "light_24v_off":
+            self._set_ch(CH_24V, False)
+        elif cmd == "light_24v_strobe":
+            self._manual_task = asyncio.create_task(
+                self._manual_strobe_loop(CH_24V)
+            )
+        elif cmd == "light_100v_on":
+            self._set_ch(CH_100V, True)
+        elif cmd == "light_100v_off":
+            self._set_ch(CH_100V, False)
+        elif cmd == "light_all_on":
+            self._set_ch(CH_24V, True)
+            self._set_ch(CH_100V, True)
+        elif cmd == "light_all_off":
+            self._all_security_off()
+        else:
+            self.log("unknown manual cmd: {}".format(cmd))
+            return False
+        return True
+
+    async def _manual_strobe_loop(self, channel):
+        """手動威嚇 — 消灯命令まで高速点滅。"""
+        seq_id = self._seq_id
+        ch_on = False
+        try:
+            while self._seq_id == seq_id:
+                ch_on = not ch_on
+                self._set_ch(channel, ch_on)
+                await asyncio.sleep_ms(
+                    self._strobe_on_ms if ch_on else self._strobe_off_ms
+                )
+        except asyncio.CancelledError:
+            self._set_ch(channel, False)
+            raise
+        finally:
+            if self._seq_id == seq_id:
+                self._manual_task = None
