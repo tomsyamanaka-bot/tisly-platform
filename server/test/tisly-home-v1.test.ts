@@ -1137,6 +1137,46 @@ describe("tisly-home-v1", () => {
     assert.equal(postRes.body.firmware.di2StandaloneDurationMs, 40_000);
   });
 
+  it("POST /api/home/v1/security/config pauses guard immediately", async () => {
+    const pausedRes = await request(app)
+      .post("/api/home/v1/security/config")
+      .send({
+        siteId: ITABASHI_SITE,
+        guardMode: "night_only",
+        securityPausedUntil: new Date(Date.now() + 60 * 60_000).toISOString(),
+        actor: "security-v1-test",
+      })
+      .expect(200);
+    assert.equal(pausedRes.body.ok, true);
+    assert.equal(pausedRes.body.firmware.securityPaused, true);
+    assert.equal(pausedRes.body.firmware.guardActive, false);
+
+    const { resetHomeSecurityNotifyStateV1 } = await import(
+      "../src/home/home-security-notify-v1.js"
+    );
+    resetHomeSecurityNotifyStateV1(ITABASHI_SITE);
+    const event = await request(app)
+      .post("/api/home/v1/security/event")
+      .send({ siteId: ITABASHI_SITE, di: 1 })
+      .expect(200);
+    assert.equal(event.body.pushSent, false);
+  });
+
+  it("POST /api/home/v1/security/config sets always guard active", async () => {
+    const alwaysRes = await request(app)
+      .post("/api/home/v1/security/config")
+      .send({
+        siteId: ITABASHI_SITE,
+        guardMode: "always",
+        securityPausedUntil: null,
+        actor: "security-v1-test",
+      })
+      .expect(200);
+    assert.equal(alwaysRes.body.firmware.guardMode, "always");
+    assert.equal(alwaysRes.body.firmware.guardActive, true);
+    assert.equal(alwaysRes.body.firmware.securityPaused, false);
+  });
+
   it("POST /api/home/v1/security/event handles DI patterns", async () => {
     const { resetHomeSecurityNotifyStateV1 } = await import(
       "../src/home/home-security-notify-v1.js"

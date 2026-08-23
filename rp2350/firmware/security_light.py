@@ -24,6 +24,9 @@ _DEFAULT_STROBE_ON_MS = 250
 _DEFAULT_STROBE_OFF_MS = 250
 # DI 確定時間（継続 ON で 1 回トリガー）
 _DEFAULT_DI_CONFIRM_MS = 250
+# 夜間のみ（JST 20:00〜06:00 — VPS isHomeGuardActiveV1 と同期）
+_NIGHT_START_HOUR_JST = 20
+_NIGHT_END_HOUR_JST = 6
 
 CH_24V = 2
 CH_100V = 3
@@ -42,6 +45,7 @@ class SecurityLightController:
         self._active_task = None
         self._manual_task = None
         self._rules_version = 0
+        self._guard_mode = "night_only"
         self._guard_active = True
         self._security_paused = False
         self._di1_duration_ms = _DEFAULT_DURATION_MS
@@ -73,6 +77,9 @@ class SecurityLightController:
         if ver <= self._rules_version and ver > 0:
             return False
         self._rules_version = ver if ver > 0 else self._rules_version + 1
+        mode = str(rules.get("guardMode", "night_only"))
+        if mode in ("always", "night_only", "off"):
+            self._guard_mode = mode
         self._guard_active = bool(rules.get("guardActive", True))
         self._security_paused = bool(rules.get("securityPaused", False))
         self._di1_duration_ms = int(
@@ -113,11 +120,12 @@ class SecurityLightController:
         if 200 <= confirm <= 300:
             self._di_confirm_ms = confirm
         self.log(
-            "rules synced v{} guard={} di1={}s mode={} confirm={}ms".format(
+            "rules synced v{} mode={} active={} paused={} di1={}s confirm={}ms".format(
                 self._rules_version,
-                self._guard_active,
+                self._guard_mode,
+                self._is_guard_active_now(),
+                self._security_paused,
                 self._di1_duration_ms // 1000,
-                self._di1_mode,
                 self._di_confirm_ms,
             )
         )
@@ -126,12 +134,37 @@ class SecurityLightController:
     def log(self, msg):
         print("[tisly security]", msg)
 
-    def _can_run(self):
+    def _jst_hour(self):
+        """RTC を UTC 想定し JST 時（0-23）を返す。"""
+        utc_sec = int(time.time())
+        return ((utc_sec + 9 * 3600) // 3600) % 24
+
+    def _is_night_jst(self):
+        hour = self._jst_hour()
+        return hour >= _NIGHT_START_HOUR_JST or hour < _NIGHT_END_HOUR_JST
+
+    def _is_guard_active_now(self):
+        """DISARMED / NIGHT_ONLY / ALWAYS を実機で評価。"""
         if self._security_paused:
-            self.log("security paused — skip")
             return False
-        if not self._guard_active:
-            self.log("guard inactive — skip lights")
+        if self._guard_mode == "off":
+            return False
+        if self._guard_mode == "always":
+            return True
+        if self._guard_mode == "night_only":
+            return self._is_night_jst()
+        return self._guard_active
+
+    def _can_run(self):
+        if not self._is_guard_active_now():
+            if self._security_paused:
+                self.log("security paused — log only")
+            elif self._guard_mode == "off":
+                self.log("guard off (DISARMED) — log only")
+            elif self._guard_mode == "night_only":
+                self.log("daytime (NIGHT_ONLY) — log only")
+            else:
+                self.log("guard inactive — log only")
             return False
         return True
 
@@ -211,25 +244,23 @@ class SecurityLightController:
                 print("[tisly security] heartbeat err:", exc)
 
     def _on_di1_detected(self):
-        self._set_perimeter_flag()
         self.log("DI1 detected -> Pattern A")
-        self._notify_vps("security event DI1 pattern_a", "A")
         if not self._can_run():
             return
+        self._set_perimeter_flag()
+        self._notify_vps("security event DI1 pattern_a", "A")
         self._start_sequence("A")
 
     def _on_di2_detected(self):
+        if not self._can_run():
+            return
         if self._perimeter_active():
             self.log("DI2 within perimeter -> Pattern B")
             self._notify_vps("security event DI2 pattern_b", "B")
-            if not self._can_run():
-                return
             self._start_sequence("B")
         else:
             self.log("DI2 alone -> Pattern C")
             self._notify_vps("security event DI2 pattern_c", "C")
-            if not self._can_run():
-                return
             self._start_sequence("C")
 
     def _start_sequence(self, pattern):

@@ -336,8 +336,7 @@ function collectPayload(homeSiteId) {
   return payload;
 }
 
-async function applyToDevice(homeSiteId) {
-  const payload = collectPayload(homeSiteId);
+async function postSecurityConfig(homeSiteId, payload) {
   const res = await fetch(`${HOME_API}/security/config`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -346,6 +345,41 @@ async function applyToDevice(homeSiteId) {
   const data = await res.json();
   if (!data.ok) throw new Error(data.error || "反映に失敗しました");
   renderRules(data.rules, data.notifyPolicy);
+  return data;
+}
+
+async function applyToDevice(homeSiteId) {
+  const payload = collectPayload(homeSiteId);
+  return postSecurityConfig(homeSiteId, payload);
+}
+
+/** 警戒モード切替 — タップ直後にサーバー保存・実機同期 */
+async function applyGuardModeImmediate(value) {
+  const homeSiteId = state.homeSiteId;
+  const payload = {
+    siteId: homeSiteId,
+    actor: "security-v1",
+  };
+  if (value === "paused") {
+    payload.securityPausedUntil = new Date(Date.now() + 60 * 60_000).toISOString();
+    payload.guardMode = state.guardMode || "night_only";
+    state.paused = true;
+    setSegValue("sf-guard-seg", "paused");
+  } else {
+    payload.guardMode = value;
+    payload.securityPausedUntil = null;
+    state.guardMode = value;
+    state.paused = false;
+    setSegValue("sf-guard-seg", value);
+  }
+  const data = await postSecurityConfig(homeSiteId, payload);
+  const label =
+    value === "paused"
+      ? "警戒一時解除"
+      : value === "always"
+        ? "24時間警戒"
+        : "夜間のみ";
+  showToast(`${label} を反映しました`);
   return data;
 }
 
@@ -395,7 +429,12 @@ function bindRemoteConfigUi() {
   bindSlider("sf-di2solo-duration", "sf-di2solo-duration-val");
 
   bindSegGroup("sf-guard-seg", (value) => {
-    if (value !== "paused") state.guardMode = value;
+    applyGuardModeImmediate(value).catch((err) => {
+      showToast(err.message || "警戒モードの反映に失敗しました");
+      refreshSecurityRemoteConfigV1(
+        $("sf-site-select")?.value || "SEC-JP-MORIYA-001"
+      ).catch(() => {});
+    });
   });
   bindSegGroup("sf-di1-24v-seg");
   bindSegGroup("sf-di2-24v-seg");
