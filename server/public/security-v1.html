@@ -11,7 +11,7 @@
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2003" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
   <title>TiSLY Security</title>
-  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2490" />
+  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2492" />
   <script type="importmap">
   {
     "imports": {
@@ -359,6 +359,14 @@
         </div>
         <button type="button" id="sf-light-on">💡 照明を一括ON</button>
         <button type="button" id="sf-light-off">💡 照明を一括OFF</button>
+        <div class="sf-push-panel">
+          <button type="button" class="sf-push-btn" id="sf-push-reregister">
+            🔔 Push通知を再登録・購読
+          </button>
+          <p class="sf-push-diag" id="sf-push-diag" role="status">
+            permission: — / standalone: — / appleAPNs: —
+          </p>
+        </div>
         <button type="button" class="sf-demo-btn" id="sf-demo-alert">🔔 通知テスト</button>
         <button type="button" id="sf-export">📄 レポート出力</button>
       </div>
@@ -449,11 +457,12 @@
     </form>
   </dialog>
 
-  <script src="/js/features/security/security-floor-light-v1.js?v=2490"></script>
-  <script src="/js/features/floorplan-builder/floorplan-security-bridge-v1.js?v=2490"></script>
-  <script type="module" src="/js/features/security/security-floor-iso3d-v1.js?v=2490"></script>
-  <script type="module" src="/js/features/security/security-floor-manual-light-v1.js?v=2491"></script>
-  <script type="module" src="/js/features/security/security-floor-remote-config-v1.js?v=2490"></script>
-  <script type="module" src="/js/features/security/security-floor-operator-v1.js?v=2490"></script>
+  <script src="/js/features/security/security-floor-light-v1.js?v=2492"></script>
+  <script src="/js/features/floorplan-builder/floorplan-security-bridge-v1.js?v=2492"></script>
+  <script type="module" src="/js/features/security/security-floor-iso3d-v1.js?v=2492"></script>
+  <script type="module" src="/js/features/security/security-floor-manual-light-v1.js?v=2492"></script>
+  <script type="module" src="/js/features/security/security-floor-remote-config-v1.js?v=2492"></script>
+  <script type="module" src="/js/features/security/security-floor-push-v1.js?v=2492"></script>
+  <script type="module" src="/js/features/security/security-floor-operator-v1.js?v=2492"></script>
 </body>
 </html>

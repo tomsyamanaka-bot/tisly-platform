@@ -1155,6 +1155,43 @@ function enrichExistingSitesForSocV1(): void {
     moriya.energyMaxKw ??= 5.21;
     moriya.networkMs ??= 12;
   }
+
+  // 板橋自宅（RP2350 実機 HOME-JP-ITABASHI-LIVE）— 末尾追記のみ
+  ensureItabashiLiveSecuritySiteV1();
+}
+
+/** 板橋自宅をカタログ末尾に追記（既存物件は変更しない） */
+function ensureItabashiLiveSecuritySiteV1(): void {
+  if (
+    SECURITY_FLOOR_SITES_V1.some(
+      (s) => s.id === "SEC-JP-ITABASHI-LIVE"
+    )
+  ) {
+    return;
+  }
+  const template = SECURITY_FLOOR_SITES_V1.find(
+    (s) => s.id === "SEC-JP-MORIYA-001"
+  );
+  if (!template) return;
+  const site: SecuritySiteV1 = JSON.parse(
+    JSON.stringify(template)
+  ) as SecuritySiteV1;
+  site.id = "SEC-JP-ITABASHI-LIVE";
+  site.displayName = "板橋自宅";
+  site.addressLabel = "東京都板橋区";
+  site.planCode = "home_live";
+  site.monthlyFee = 0;
+  site.guardMode = "away";
+  site.notes = [
+    "RP2350 実機連動（HOME-JP-ITABASHI-LIVE）",
+    "DI/DO ステータスは板橋自宅ライブと同期します",
+  ];
+  site.lightingOn ??= 4;
+  site.lightingTotal ??= 8;
+  site.energyKw ??= 2.1;
+  site.energyMaxKw ??= 6;
+  site.networkMs ??= 8;
+  SECURITY_FLOOR_SITES_V1.push(site);
 }
 
 enrichExistingSitesForSocV1();

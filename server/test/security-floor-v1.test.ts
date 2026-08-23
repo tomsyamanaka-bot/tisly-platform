@@ -28,7 +28,7 @@ const publicDir = path.resolve("public");
 
 describe("security-floor-v1", () => {
   it("appends JP/AU floor sites without shrinking catalog", () => {
-    assert.ok(SECURITY_FLOOR_SITES_V1.length >= 3);
+    assert.ok(SECURITY_FLOOR_SITES_V1.length >= 4);
     const jp = SECURITY_FLOOR_SITES_V1.find(
       (s) => s.id === "SEC-JP-TSUKUBA-001"
     );
@@ -38,9 +38,16 @@ describe("security-floor-v1", () => {
     const moriya = SECURITY_FLOOR_SITES_V1.find(
       (s) => s.id === "SEC-JP-MORIYA-001"
     );
+    const itabashi = SECURITY_FLOOR_SITES_V1.find(
+      (s) => s.id === "SEC-JP-ITABASHI-LIVE"
+    );
     assert.ok(jp);
     assert.ok(au);
     assert.ok(moriya);
+    assert.ok(itabashi);
+    assert.equal(itabashi.displayName, "板橋自宅");
+    assert.equal(itabashi.addressLabel, "東京都板橋区");
+    assert.match(itabashi.notes.join(" "), /HOME-JP-ITABASHI-LIVE/);
     assert.equal(moriya.addressLabel.includes("守谷"), true);
     assert.equal(moriya.displayName.includes("平屋"), true);
     assert.ok(moriya.rooms.some((r) => r.label === "勝手口キッチン"));
@@ -303,10 +310,13 @@ describe("security-floor-v1", () => {
     assert.match(html, /sf-notify-policy/);
     assert.match(html, /DI1単独：通知ON/);
     assert.match(html, /sf-remote-apply/);
-    assert.match(html, /security-floor-remote-config-v1\.js\?v=2490/);
-    assert.match(html, /security-floor-light-v1\.js\?v=2490/);
-    assert.match(html, /security-floor-operator-v1\.js\?v=2490/);
-    assert.match(html, /security-floor-iso3d-v1\.js\?v=2490/);
+    assert.match(html, /security-floor-remote-config-v1\.js\?v=2492/);
+    assert.match(html, /security-floor-push-v1\.js\?v=2492/);
+    assert.match(html, /security-floor-light-v1\.js\?v=2492/);
+    assert.match(html, /security-floor-operator-v1\.js\?v=2492/);
+    assert.match(html, /security-floor-iso3d-v1\.js\?v=2492/);
+    assert.match(html, /sf-push-reregister/);
+    assert.match(html, /Push通知を再登録・購読/);
     assert.match(html, /sf-iso3d-stack/);
     assert.match(html, /sf-log-compact/);
     assert.match(html, /sf-log-dialog/);
@@ -423,9 +433,11 @@ describe("security-floor-v1", () => {
       "utf8"
     );
     assert.match(fbJs, /SEC-JP-MORIYA-001/);
+    assert.match(fbJs, /SEC-JP-ITABASHI-LIVE/);
     assert.match(fbJs, /勝手口キッチン/);
     assert.match(fbJs, /平屋デモ宅/);
     assert.match(fbJs, /つくばモデルハウス/);
+    assert.match(fbJs, /板橋自宅/);
     assert.doesNotMatch(fbJs, /屋根\/太陽光/);
     assert.doesNotMatch(fbJs, /美園の家/);
     const customerHtml = fs.readFileSync(
@@ -437,6 +449,10 @@ describe("security-floor-v1", () => {
     assert.match(customerHtml, /href="\/customer"/);
     assert.match(customerHtml, /security-floor-light-v1\.js/);
     assert.match(customerHtml, /security-floor-iso3d-v1\.js/);
+    assert.match(customerHtml, /security-floor-push-v1\.js/);
+    assert.match(customerHtml, /sf-push-reregister/);
+    assert.match(customerHtml, /sf-push-diag/);
+    assert.match(customerHtml, /Push通知を再登録・購読/);
     assert.match(customerHtml, /sf-iso3d-mount/);
     assert.match(customerHtml, /sf-iso3d-stack/);
     assert.match(customerHtml, /sf-log-compact/);
@@ -445,6 +461,37 @@ describe("security-floor-v1", () => {
     assert.match(customerHtml, /data-focus="1f"/);
     assert.doesNotMatch(customerHtml, /読み込み中/);
     assert.doesNotMatch(customerHtml, /home-quick-switch/);
+
+    const opHtml = fs.readFileSync(
+      path.join(publicDir, "security-v1.html"),
+      "utf8"
+    );
+    assert.match(opHtml, /sf-push-reregister/);
+    assert.match(opHtml, /sf-push-diag/);
+    assert.match(opHtml, /Push通知を再登録・購読/);
+    assert.match(opHtml, /security-floor-push-v1\.js/);
+    assert.match(opHtml, /permission: — \/ standalone: — \/ appleAPNs: —/);
+
+    const pushJs = fs.readFileSync(
+      path.join(
+        publicDir,
+        "js/features/security/security-floor-push-v1.js"
+      ),
+      "utf8"
+    );
+    assert.match(pushJs, /forceResubscribe/);
+    assert.match(pushJs, /\/api\/notifications\/subscribe/);
+    assert.match(pushJs, /appleAPNs/);
+
+    const remoteJs = fs.readFileSync(
+      path.join(
+        publicDir,
+        "js/features/security/security-floor-remote-config-v1.js"
+      ),
+      "utf8"
+    );
+    assert.match(remoteJs, /SEC-JP-ITABASHI-LIVE/);
+    assert.match(remoteJs, /HOME-JP-ITABASHI-LIVE/);
 
     const dash = buildSecurityFloorCustomerDashboardV1(
       "SEC-JP-TSUKUBA-001"

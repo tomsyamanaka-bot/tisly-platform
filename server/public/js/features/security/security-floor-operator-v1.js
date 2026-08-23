@@ -93,14 +93,36 @@ function tickClock() {
   });
 }
 
+function siteOptionLabel(s) {
+  const id = s.siteId || s.id;
+  if (id === "SEC-JP-ITABASHI-LIVE") {
+    return "板橋自宅 (HOME-JP-ITABASHI-LIVE)";
+  }
+  return `${s.displayName}（${s.countryCode || "JP"}）`;
+}
+
+function sortSitesForSelect(sites) {
+  const list = [...(sites || [])];
+  list.sort((a, b) => {
+    const aid = a.siteId || a.id;
+    const bid = b.siteId || b.id;
+    if (aid === "SEC-JP-ITABASHI-LIVE") return -1;
+    if (bid === "SEC-JP-ITABASHI-LIVE") return 1;
+    return 0;
+  });
+  return list;
+}
+
 function fillSiteSelect(sites) {
   const sel = $("sf-site-select");
   if (!sel) return;
-  const list = sites?.length ? sites : listFallbackSites();
+  const list = sortSitesForSelect(
+    sites?.length ? sites : listFallbackSites()
+  );
   sel.innerHTML = list
     .map((s) => {
       const id = s.siteId || s.id;
-      return `<option value="${id}">${s.displayName}（${s.countryCode || "JP"}）</option>`;
+      return `<option value="${id}">${siteOptionLabel(s)}</option>`;
     })
     .join("");
   sel.value = state.siteId;

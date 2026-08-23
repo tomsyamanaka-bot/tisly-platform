@@ -254,6 +254,45 @@
   font-weight: 800;
 }
 
+.sf-push-panel {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+}
+
+.sf-push-btn {
+  min-height: calc(var(--sf-tap) + 6px);
+  width: 100%;
+  border: 2px solid #1e3a8a;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #1e40af 0%, #1e3a8a 100%);
+  color: #fff;
+  font-weight: 900;
+  font-size: 1rem;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(30, 58, 138, 0.35);
+}
+
+.sf-push-btn:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.sf-push-diag {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.4;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
 @keyframes pulse-glow {
   0%,
   100% {

@@ -396,8 +396,31 @@ function tsukubaSite() {
   return site;
 }
 
+function itabashiSite() {
+  const site = moriyaSite();
+  site.siteId = "SEC-JP-ITABASHI-LIVE";
+  site.id = "SEC-JP-ITABASHI-LIVE";
+  site.displayName = "板橋自宅";
+  site.addressLabel = "東京都板橋区";
+  site.planCode = "home_live";
+  site.notes = [
+    "RP2350 実機連動（HOME-JP-ITABASHI-LIVE）",
+    "DI/DO ステータスは板橋自宅ライブと同期します",
+  ];
+  site.soc.energyKw = 2.1;
+  site.soc.energyMaxKw = 6;
+  site.soc.networkMs = 8;
+  return site;
+}
+
 export function listFallbackSites() {
   return [
+    {
+      id: "SEC-JP-ITABASHI-LIVE",
+      siteId: "SEC-JP-ITABASHI-LIVE",
+      displayName: "板橋自宅",
+      countryCode: "JP",
+    },
     {
       id: "SEC-JP-MORIYA-001",
       siteId: "SEC-JP-MORIYA-001",
@@ -415,6 +438,7 @@ export function listFallbackSites() {
 
 export function getFallbackSite(siteId) {
   const id = String(siteId || FALLBACK_DEFAULT_SITE_ID);
+  if (id === "SEC-JP-ITABASHI-LIVE") return clone(itabashiSite());
   const site =
     id === "SEC-JP-TSUKUBA-001" ? tsukubaSite() : moriyaSite();
   return clone(site);
@@ -422,12 +446,13 @@ export function getFallbackSite(siteId) {
 
 export function getFallbackOperatorBundle(siteId) {
   const site = getFallbackSite(siteId);
+  const sites = listFallbackSites();
   return {
     site,
     dashboard: {
-      totalSites: 2,
+      totalSites: sites.length,
       alertCount: site.hasAlert ? 1 : 0,
-      sites: listFallbackSites(),
+      sites,
     },
   };
 }
