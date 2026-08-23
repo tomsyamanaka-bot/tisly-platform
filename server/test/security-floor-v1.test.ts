@@ -313,12 +313,12 @@ describe("security-floor-v1", () => {
     assert.match(html, /DI2単独：即時Web Push/);
     assert.match(html, /data-notify-mode/);
     assert.match(html, /sf-remote-apply/);
-    assert.match(html, /security-floor-remote-config-v1\.js\?v=2494/);
-    assert.match(html, /security-floor-push-v1\.js\?v=2494/);
-    assert.match(html, /security-floor-light-v1\.js\?v=2494/);
-    assert.match(html, /security-floor-operator-v1\.js\?v=2494/);
-    assert.match(html, /security-floor-iso3d-v1\.js\?v=2494/);
-    assert.match(html, /security-floor-v1\.css\?v=2494/);
+    assert.match(html, /security-floor-remote-config-v1\.js\?v=2495/);
+    assert.match(html, /security-floor-push-v1\.js\?v=2495/);
+    assert.match(html, /security-floor-light-v1\.js\?v=2495/);
+    assert.match(html, /security-floor-operator-v1\.js\?v=2495/);
+    assert.match(html, /security-floor-iso3d-v1\.js\?v=2495/);
+    assert.match(html, /security-floor-v1\.css\?v=2495/);
     assert.match(html, /sf-push-reregister/);
     assert.match(html, /Push通知を再登録・購読/);
     assert.match(html, /sf-iso3d-stack/);

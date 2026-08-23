@@ -4,14 +4,15 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2493-home-security-split";
+const SW_VERSION = "tisly-pwa-v2495-security-cache-bust";
 /* 旧世代名は activate で破棄する
- * tisly-pwa-shell-v2459-home-tile-grid
- * tisly-pwa-priority-v2459-home-tile-grid
- * tisly-pwa-fieldops-v2459-home-tile-grid */
-const OFFLINE_CACHE = "tisly-pwa-shell-v2489-outer-100v-light-label";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2489-outer-100v-light-label";
-const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2489-outer-100v-light-label";
+ * tisly-pwa-v2493-home-security-split
+ * tisly-pwa-shell-v2489-outer-100v-light-label
+ * tisly-pwa-priority-v2489-outer-100v-light-label
+ * tisly-pwa-fieldops-v2489-outer-100v-light-label */
+const OFFLINE_CACHE = "tisly-pwa-shell-v2495-security-cache-bust";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2495-security-cache-bust";
+const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2495-security-cache-bust";
 /* お客様ゾーンの互換トークン
  * customer-cache-v1.js / route-health.js が
  * SW 側に存在するか診断するため保持 */
@@ -262,6 +263,10 @@ const SHELL_URLS = [
   "/js/features/security/security-floor-map-v1.js",
   "/js/features/security/security-floor-orbit-v1.js",
   "/js/features/security/security-floor-fallback-v1.js",
+  "/js/features/security/security-floor-iso3d-v1.js",
+  "/js/features/security/security-floor-remote-config-v1.js",
+  "/js/features/security/security-floor-push-v1.js",
+  "/js/features/security/security-floor-manual-light-v1.js",
   "/js/features/security/security-floor-operator-v1.js",
   "/js/features/security/security-floor-customer-v1.js",
   "/css/features/security/security-floor-v1.css",
@@ -466,12 +471,15 @@ function shouldBypassHttpCache(pathname) {
   return (
     pathname.startsWith("/js/features/gas-monitor/") ||
     pathname.startsWith("/js/features/home/") ||
+    pathname.startsWith("/js/features/security/") ||
     pathname.startsWith("/js/customer-") ||
     pathname === "/css/features/gas-monitor/gas-monitor-v1.css" ||
     pathname.startsWith("/css/features/home/") ||
+    pathname.startsWith("/css/features/security/") ||
     pathname === "/css/customer-v1.css" ||
     pathname.startsWith("/js/features/price-cost-master/") ||
-    pathname.startsWith("/css/features/price-cost-master/")
+    pathname.startsWith("/css/features/price-cost-master/") ||
+    pathname === "/js/features/floorplan-builder/floorplan-security-bridge-v1.js"
   );
 }
 
