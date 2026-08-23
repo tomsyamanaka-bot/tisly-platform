@@ -24,6 +24,7 @@ describe("home-security-notify-v1", () => {
       perimeterTimeoutSec: 120,
       notifyDi1SilentLogOnly: true,
       notifyDi2InstantPush: true,
+      notifyStagedMode: "critical",
     });
     const rules = getHomeSecurityRulesV1(SITE);
     const policy = buildHomeSecurityNotifyPolicyV1(rules);
@@ -31,11 +32,30 @@ describe("home-security-notify-v1", () => {
     assert.equal(policy.rows[0].id, "di1_alone");
     assert.equal(policy.rows[0].enabled, false);
     assert.equal(policy.rows[0].severity, "silent");
+    assert.equal(policy.rows[0].mode, "silent");
     assert.equal(policy.rows[1].id, "staged_intrusion");
     assert.equal(policy.rows[1].severity, "critical");
+    assert.equal(policy.rows[1].mode, "critical");
     assert.equal(policy.rows[2].id, "di2_alone");
     assert.equal(policy.rows[2].enabled, true);
+    assert.equal(policy.rows[2].mode, "critical");
     assert.match(policy.rows[1].description, /120/);
+  });
+
+  it("notify modes cycle can silence staged intrusion push", async () => {
+    resetHomeSecurityNotifyStateV1(SITE);
+    updateHomeSecurityRulesV1(SITE, {
+      guardMode: "always",
+      perimeterTimeoutSec: 120,
+      securityPausedUntil: null,
+      notifyDi1Mode: "critical",
+      notifyStagedMode: "silent",
+      notifyDi2Mode: "off",
+    });
+    await processHomeSecurityEventV1({ siteId: SITE, di: 1 });
+    const staged = await processHomeSecurityEventV1({ siteId: SITE, di: 2 });
+    assert.equal(staged.pattern, "pattern_b");
+    assert.equal(staged.pushSent, false);
   });
 
   it("DI1 alone triggers perimeter alert when silent flag off", async () => {
@@ -93,6 +113,8 @@ describe("home-security-notify-v1", () => {
       guardMode: "always",
       perimeterTimeoutSec: 120,
       notifyDi1SilentLogOnly: false,
+      notifyStagedMode: "critical",
+      notifyDi2Mode: "critical",
     });
 
     await processHomeSecurityEventV1({ siteId: SITE, di: 1 });

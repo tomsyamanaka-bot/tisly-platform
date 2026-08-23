@@ -37,6 +37,9 @@ export type HomeDi2StandaloneLightModeV1 =
   | "blink"
   | "off";
 
+/** Web Push 通知条件トグル（緊急 / サイレント / OFF） */
+export type HomeNotifyModeV1 = "critical" | "silent" | "off";
+
 export interface HomeSecurityRulesV1 {
   siteId: string;
   /** 24時間常時 / 夜間のみ / 警戒OFF */
@@ -58,10 +61,16 @@ export interface HomeSecurityRulesV1 {
   di2Standalone24vMode: HomeDi2StandaloneLightModeV1;
   /** 近接単独 DI2 の 100V 動作 */
   di2Standalone100vMode: HomeDi2StandaloneLightModeV1;
-  /** DI1: サイレントログのみ（Push しない） */
+  /** DI1: サイレントログのみ（Push しない）— notifyDi1Mode と同期 */
   notifyDi1SilentLogOnly: boolean;
-  /** DI2: 即時 Web Push 緊急通知 */
+  /** DI2: 即時 Web Push 緊急通知 — notifyDi2Mode と同期 */
   notifyDi2InstantPush: boolean;
+  /** DI1 単独の Push モード */
+  notifyDi1Mode: HomeNotifyModeV1;
+  /** DI1→DI2 段階侵入の Push モード */
+  notifyStagedMode: HomeNotifyModeV1;
+  /** DI2 単独の Push モード */
+  notifyDi2Mode: HomeNotifyModeV1;
   /** シーン「ただいま」等の一時停止期限 */
   securityPausedUntil: string | null;
   updatedAt: string;
@@ -80,6 +89,9 @@ export interface HomeSecurityRulesPatchV1 {
   di2Standalone100vMode?: HomeDi2StandaloneLightModeV1;
   notifyDi1SilentLogOnly?: boolean;
   notifyDi2InstantPush?: boolean;
+  notifyDi1Mode?: HomeNotifyModeV1;
+  notifyStagedMode?: HomeNotifyModeV1;
+  notifyDi2Mode?: HomeNotifyModeV1;
   securityPausedUntil?: string | null;
 }
 
@@ -125,6 +137,26 @@ const DI2_STANDALONE_MODES: HomeDi2StandaloneLightModeV1[] = [
   "blink",
   "off",
 ];
+const NOTIFY_MODES: HomeNotifyModeV1[] = ["critical", "silent", "off"];
+
+export function isHomeNotifyModeV1(value: unknown): value is HomeNotifyModeV1 {
+  return (
+    typeof value === "string" &&
+    NOTIFY_MODES.includes(value as HomeNotifyModeV1)
+  );
+}
+
+/** Push するモードか（critical のみ） */
+export function isHomeNotifyPushEnabledV1(mode: HomeNotifyModeV1): boolean {
+  return mode === "critical";
+}
+
+function parseNotifyMode(
+  value: unknown,
+  fallback: HomeNotifyModeV1
+): HomeNotifyModeV1 {
+  return isHomeNotifyModeV1(value) ? value : fallback;
+}
 
 const DEFAULT_RULES: Omit<HomeSecurityRulesV1, "siteId" | "updatedAt"> = {
   guardMode: "night_only",
@@ -139,6 +171,9 @@ const DEFAULT_RULES: Omit<HomeSecurityRulesV1, "siteId" | "updatedAt"> = {
   di2Standalone100vMode: "steady",
   notifyDi1SilentLogOnly: true,
   notifyDi2InstantPush: true,
+  notifyDi1Mode: "silent",
+  notifyStagedMode: "critical",
+  notifyDi2Mode: "critical",
   securityPausedUntil: null,
 };
 
@@ -237,6 +272,29 @@ function parseRulesJson(
     DEFAULT_RULES.di2AlertDurationSec
   );
 
+  const notifyDi1SilentLogOnly =
+    parsed.notifyDi1SilentLogOnly !== undefined
+      ? Boolean(parsed.notifyDi1SilentLogOnly)
+      : DEFAULT_RULES.notifyDi1SilentLogOnly;
+  const notifyDi2InstantPush =
+    parsed.notifyDi2InstantPush !== undefined
+      ? Boolean(parsed.notifyDi2InstantPush)
+      : DEFAULT_RULES.notifyDi2InstantPush;
+
+  /* 新モード優先。未設定時は旧 boolean から復元 */
+  const notifyDi1Mode = parseNotifyMode(
+    parsed.notifyDi1Mode,
+    notifyDi1SilentLogOnly ? "silent" : "critical"
+  );
+  const notifyStagedMode = parseNotifyMode(
+    parsed.notifyStagedMode,
+    DEFAULT_RULES.notifyStagedMode
+  );
+  const notifyDi2Mode = parseNotifyMode(
+    parsed.notifyDi2Mode,
+    notifyDi2InstantPush ? "critical" : "off"
+  );
+
   return {
     siteId,
     guardMode,
@@ -258,14 +316,11 @@ function parseRulesJson(
     ),
     di2Standalone24vMode,
     di2Standalone100vMode,
-    notifyDi1SilentLogOnly:
-      parsed.notifyDi1SilentLogOnly !== undefined
-        ? Boolean(parsed.notifyDi1SilentLogOnly)
-        : DEFAULT_RULES.notifyDi1SilentLogOnly,
-    notifyDi2InstantPush:
-      parsed.notifyDi2InstantPush !== undefined
-        ? Boolean(parsed.notifyDi2InstantPush)
-        : DEFAULT_RULES.notifyDi2InstantPush,
+    notifyDi1Mode,
+    notifyStagedMode,
+    notifyDi2Mode,
+    notifyDi1SilentLogOnly: !isHomeNotifyPushEnabledV1(notifyDi1Mode),
+    notifyDi2InstantPush: isHomeNotifyPushEnabledV1(notifyDi2Mode),
     securityPausedUntil:
       typeof parsed.securityPausedUntil === "string"
         ? parsed.securityPausedUntil
@@ -382,6 +437,27 @@ export function updateHomeSecurityRulesV1(
       ? clampSec(patch.di2AlertDurationSec, current.di2AlertDurationSec)
       : current.di2AlertDurationSec;
 
+  let notifyDi1Mode = current.notifyDi1Mode;
+  if (isHomeNotifyModeV1(patch.notifyDi1Mode)) {
+    notifyDi1Mode = patch.notifyDi1Mode;
+  } else if (patch.notifyDi1SilentLogOnly !== undefined) {
+    notifyDi1Mode = Boolean(patch.notifyDi1SilentLogOnly)
+      ? "silent"
+      : "critical";
+  }
+
+  let notifyStagedMode = current.notifyStagedMode;
+  if (isHomeNotifyModeV1(patch.notifyStagedMode)) {
+    notifyStagedMode = patch.notifyStagedMode;
+  }
+
+  let notifyDi2Mode = current.notifyDi2Mode;
+  if (isHomeNotifyModeV1(patch.notifyDi2Mode)) {
+    notifyDi2Mode = patch.notifyDi2Mode;
+  } else if (patch.notifyDi2InstantPush !== undefined) {
+    notifyDi2Mode = Boolean(patch.notifyDi2InstantPush) ? "critical" : "off";
+  }
+
   const rules: HomeSecurityRulesV1 = {
     siteId: sid,
     guardMode,
@@ -409,14 +485,11 @@ export function updateHomeSecurityRulesV1(
         : current.di2StandaloneDurationSec,
     di2Standalone24vMode,
     di2Standalone100vMode,
-    notifyDi1SilentLogOnly:
-      patch.notifyDi1SilentLogOnly !== undefined
-        ? Boolean(patch.notifyDi1SilentLogOnly)
-        : current.notifyDi1SilentLogOnly,
-    notifyDi2InstantPush:
-      patch.notifyDi2InstantPush !== undefined
-        ? Boolean(patch.notifyDi2InstantPush)
-        : current.notifyDi2InstantPush,
+    notifyDi1Mode,
+    notifyStagedMode,
+    notifyDi2Mode,
+    notifyDi1SilentLogOnly: !isHomeNotifyPushEnabledV1(notifyDi1Mode),
+    notifyDi2InstantPush: isHomeNotifyPushEnabledV1(notifyDi2Mode),
     securityPausedUntil:
       patch.securityPausedUntil !== undefined
         ? patch.securityPausedUntil

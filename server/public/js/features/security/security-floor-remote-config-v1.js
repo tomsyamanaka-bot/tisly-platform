@@ -13,10 +13,24 @@ const SF_HOME_SITE_MAP = {
   "SEC-JP-TSUKUBA-001": "HOME-JP-TSUKUBA-001",
 };
 
+/** Web Push 条件トグル：緊急 → サイレント → OFF → 緊急… */
+const NOTIFY_MODE_CYCLE = ["critical", "silent", "off"];
+
+const NOTIFY_ID_TO_FIELD = {
+  di1_alone: "notifyDi1Mode",
+  staged_intrusion: "notifyStagedMode",
+  di2_alone: "notifyDi2Mode",
+};
+
 const state = {
   homeSiteId: DEFAULT_HOME_SITE,
   guardMode: "night_only",
   paused: false,
+  notifyModes: {
+    notifyDi1Mode: "silent",
+    notifyStagedMode: "critical",
+    notifyDi2Mode: "critical",
+  },
 };
 
 function $(id) {
@@ -94,36 +108,129 @@ function readSlider(id, fallback) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function normalizeNotifyMode(mode) {
+  if (mode === "critical" || mode === "silent" || mode === "off") return mode;
+  return "off";
+}
+
+function nextNotifyMode(mode) {
+  const cur = normalizeNotifyMode(mode);
+  const idx = NOTIFY_MODE_CYCLE.indexOf(cur);
+  return NOTIFY_MODE_CYCLE[(idx + 1) % NOTIFY_MODE_CYCLE.length];
+}
+
+function notifyLabelFor(id, mode) {
+  const m = normalizeNotifyMode(mode);
+  if (id === "di1_alone") {
+    if (m === "critical") return "DI1単独：緊急通知ON";
+    if (m === "silent") return "DI1単独：サイレント";
+    return "DI1単独：OFF";
+  }
+  if (id === "staged_intrusion") {
+    if (m === "critical") return "DI1➔DI2段階侵入：緊急通知ON";
+    if (m === "silent") return "DI1➔DI2段階侵入：サイレント";
+    return "DI1➔DI2段階侵入：OFF";
+  }
+  if (m === "critical") return "DI2単独：即時Web Push";
+  if (m === "silent") return "DI2単独：サイレント";
+  return "DI2単独：OFF";
+}
+
+function applyNotifyRowUi(li, mode) {
+  const m = normalizeNotifyMode(mode);
+  const badge = li.querySelector(".sf-notify-badge");
+  const text = li.querySelector(".sf-notify-text");
+  const id = li.dataset.notifyId || "";
+  li.dataset.notifyMode = m;
+  li.classList.remove("is-critical", "is-silent", "is-off", "is-on");
+  if (m === "critical") {
+    li.classList.add("is-critical");
+    li.setAttribute("aria-pressed", "true");
+    if (badge) {
+      badge.textContent = "緊急";
+      badge.className = "sf-notify-badge is-critical";
+    }
+  } else if (m === "silent") {
+    li.classList.add("is-silent");
+    li.setAttribute("aria-pressed", "false");
+    if (badge) {
+      badge.textContent = "サイレント";
+      badge.className = "sf-notify-badge is-silent";
+    }
+  } else {
+    li.classList.add("is-off");
+    li.setAttribute("aria-pressed", "false");
+    if (badge) {
+      badge.textContent = "OFF";
+      badge.className = "sf-notify-badge is-off";
+    }
+  }
+  if (text) text.textContent = notifyLabelFor(id, m);
+}
+
+function syncNotifyModesFromRules(rules, notifyPolicy) {
+  if (rules?.notifyDi1Mode) {
+    state.notifyModes.notifyDi1Mode = normalizeNotifyMode(rules.notifyDi1Mode);
+  } else if (rules) {
+    state.notifyModes.notifyDi1Mode = rules.notifyDi1SilentLogOnly
+      ? "silent"
+      : "critical";
+  }
+  if (rules?.notifyStagedMode) {
+    state.notifyModes.notifyStagedMode = normalizeNotifyMode(
+      rules.notifyStagedMode
+    );
+  }
+  if (rules?.notifyDi2Mode) {
+    state.notifyModes.notifyDi2Mode = normalizeNotifyMode(rules.notifyDi2Mode);
+  } else if (rules) {
+    state.notifyModes.notifyDi2Mode = rules.notifyDi2InstantPush
+      ? "critical"
+      : "off";
+  }
+
+  /* policy.rows[].mode があれば優先 */
+  for (const row of notifyPolicy?.rows || []) {
+    const field = NOTIFY_ID_TO_FIELD[row.id];
+    if (field && row.mode) {
+      state.notifyModes[field] = normalizeNotifyMode(row.mode);
+    }
+  }
+}
+
 function renderNotifyPolicy(notifyPolicy) {
-  if (!notifyPolicy?.rows?.length) return;
-  const hint = $("sf-notify-policy-hint");
-  if (hint) {
-    hint.textContent = `駐車場センサー検知後 ${notifyPolicy.perimeterTimeoutSec ?? 120} 秒以内のガレージセンサーで段階侵入`;
+  if (notifyPolicy?.perimeterTimeoutSec != null) {
+    const hint = $("sf-notify-policy-hint");
+    if (hint) {
+      hint.textContent = `駐車場センサー検知後 ${notifyPolicy.perimeterTimeoutSec} 秒以内のガレージセンサーで段階侵入（タップで緊急/サイレント/OFF切替）`;
+    }
   }
   const list = $("sf-notify-policy");
   if (!list) return;
-  for (const row of notifyPolicy.rows) {
-    const li = list.querySelector(`[data-notify-id="${row.id}"]`);
+  for (const [id, field] of Object.entries(NOTIFY_ID_TO_FIELD)) {
+    const li = list.querySelector(`[data-notify-id="${id}"]`);
     if (!li) continue;
-    const badge = li.querySelector(".sf-notify-badge");
-    const text = li.querySelector(".sf-notify-text");
-    if (text) text.textContent = row.label;
-    if (badge) {
-      if (row.severity === "critical") {
-        badge.textContent = "緊急";
-        badge.className = "sf-notify-badge is-critical";
-      } else if (row.enabled) {
-        badge.textContent = "ON";
-        badge.className = "sf-notify-badge is-on";
-      } else {
-        badge.textContent = "OFF";
-        badge.className = "sf-notify-badge is-off";
-      }
-    }
-    li.classList.toggle("is-on", row.id === "di1_alone");
-    li.classList.toggle("is-critical", row.id === "staged_intrusion");
-    li.classList.toggle("is-off", row.id === "di2_alone");
+    applyNotifyRowUi(li, state.notifyModes[field]);
   }
+  if (notifyPolicy?.rows?.length) {
+    for (const row of notifyPolicy.rows) {
+      const li = list.querySelector(`[data-notify-id="${row.id}"]`);
+      if (!li) continue;
+      const mode = row.mode || state.notifyModes[NOTIFY_ID_TO_FIELD[row.id]];
+      applyNotifyRowUi(li, mode);
+      const text = li.querySelector(".sf-notify-text");
+      if (text && row.label) text.textContent = row.label;
+    }
+  }
+}
+
+function cycleNotifyRow(li) {
+  const id = li?.dataset?.notifyId;
+  const field = NOTIFY_ID_TO_FIELD[id];
+  if (!field) return;
+  const next = nextNotifyMode(state.notifyModes[field] || li.dataset.notifyMode);
+  state.notifyModes[field] = next;
+  applyNotifyRowUi(li, next);
 }
 
 function renderRules(rules, notifyPolicy) {
@@ -176,6 +283,7 @@ function renderRules(rules, notifyPolicy) {
     "sf-di2solo-100v-seg",
     rules.di2Standalone100vMode || "steady"
   );
+  syncNotifyModesFromRules(rules, notifyPolicy);
   renderNotifyPolicy(notifyPolicy);
 }
 
@@ -191,6 +299,11 @@ async function fetchRules(homeSiteId) {
 
 function collectPayload(homeSiteId) {
   const guardSeg = readSegValue("sf-guard-seg");
+  const notifyDi1Mode = normalizeNotifyMode(state.notifyModes.notifyDi1Mode);
+  const notifyStagedMode = normalizeNotifyMode(
+    state.notifyModes.notifyStagedMode
+  );
+  const notifyDi2Mode = normalizeNotifyMode(state.notifyModes.notifyDi2Mode);
   const payload = {
     siteId: homeSiteId,
     actor: "security-v1",
@@ -205,6 +318,11 @@ function collectPayload(homeSiteId) {
       readSegValue("sf-di2solo-24v-seg") || "steady",
     di2Standalone100vMode:
       readSegValue("sf-di2solo-100v-seg") || "steady",
+    notifyDi1Mode,
+    notifyStagedMode,
+    notifyDi2Mode,
+    notifyDi1SilentLogOnly: notifyDi1Mode !== "critical",
+    notifyDi2InstantPush: notifyDi2Mode === "critical",
   };
 
   if (guardSeg === "paused") {
@@ -226,9 +344,9 @@ async function applyToDevice(homeSiteId) {
     body: JSON.stringify(payload),
   });
   const data = await res.json();
-    if (!data.ok) throw new Error(data.error || "反映に失敗しました");
-    renderRules(data.rules, data.notifyPolicy);
-    return data;
+  if (!data.ok) throw new Error(data.error || "反映に失敗しました");
+  renderRules(data.rules, data.notifyPolicy);
+  return data;
 }
 
 function updateTargetLabel(homeSiteId) {
@@ -248,6 +366,25 @@ export async function refreshSecurityRemoteConfigV1(securitySiteId) {
   }
 }
 
+function bindNotifyPolicyToggles() {
+  const list = $("sf-notify-policy");
+  if (!list || list.dataset.toggleBound === "1") return;
+  list.dataset.toggleBound = "1";
+  list.addEventListener("click", (e) => {
+    const li = e.target.closest(".sf-notify-policy-item");
+    if (!li || !list.contains(li)) return;
+    e.preventDefault();
+    cycleNotifyRow(li);
+  });
+  list.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    const li = e.target.closest(".sf-notify-policy-item");
+    if (!li || !list.contains(li)) return;
+    e.preventDefault();
+    cycleNotifyRow(li);
+  });
+}
+
 function bindRemoteConfigUi() {
   if (window.__TISLY_SF_REMOTE_BOUND) return;
   window.__TISLY_SF_REMOTE_BOUND = true;
@@ -265,6 +402,7 @@ function bindRemoteConfigUi() {
   bindSegGroup("sf-di2-100v-seg");
   bindSegGroup("sf-di2solo-24v-seg");
   bindSegGroup("sf-di2solo-100v-seg");
+  bindNotifyPolicyToggles();
 
   $("sf-remote-apply")?.addEventListener("click", async () => {
     const btn = $("sf-remote-apply");

@@ -6,17 +6,18 @@
 import { normalizeDeviceKind } from "./tisly-device-pin-icons-v1.js";
 
 /**
- * テーマカラー（カメラ:青 / ドア:緑 / 鍵:琥珀 / 電源:黄 / ミリ波:紫）
+ * テーマカラー（カメラ:青 / ドア:緑 / 鍵:琥珀 / 電源:黄 / ミリ波:紫 / 警報:赤）
  * @type {Record<string, { hex: number, label: string }>}
  */
 export const NEON_PIN_STYLE_V1 = {
-  camera: { hex: 0x3b82f6, label: "カメラ" },
-  door: { hex: 0x22c55e, label: "ドア" },
-  lock: { hex: 0xf59e0b, label: "鍵" },
+  camera: { hex: 0x2563eb, label: "カメラ" },
+  door: { hex: 0x16a34a, label: "ドア" },
+  lock: { hex: 0xea580c, label: "鍵" },
   panel: { hex: 0xeab308, label: "電源" },
-  mmwave: { hex: 0xa855f7, label: "ミリ波" },
-  gas: { hex: 0xeab308, label: "ガス" },
-  window: { hex: 0x38bdf8, label: "窓" },
+  mmwave: { hex: 0x7c3aed, label: "ミリ波" },
+  gas: { hex: 0xf59e0b, label: "ガス" },
+  window: { hex: 0x0ea5e9, label: "窓" },
+  light: { hex: 0xf97316, label: "ライト" },
 };
 
 /**
@@ -173,24 +174,24 @@ export function makeNeonPinTexture(THREE, opts) {
   const theme = alerting ? 0xef4444 : style.hex;
   const rgb = hexToRgb(theme);
 
-  /* デバイス色ネオングロー（外周光彩） */
-  const glow = ctx.createRadialGradient(cx, cy, 6, cx, cy, 78);
-  glow.addColorStop(0, `rgba(${rgb.r},${rgb.g},${rgb.b},1)`);
-  glow.addColorStop(0.35, `rgba(${rgb.r},${rgb.g},${rgb.b},0.7)`);
-  glow.addColorStop(0.65, `rgba(${rgb.r},${rgb.g},${rgb.b},0.28)`);
-  glow.addColorStop(1, `rgba(${rgb.r},${rgb.g},${rgb.b},0)`);
+  /* デバイス色ネオングロー（外周光彩）＋ドロップシャドウ風 */
+  const glow = ctx.createRadialGradient(cx, cy + 6, 4, cx, cy + 10, 82);
+  glow.addColorStop(0, `rgba(${rgb.r},${rgb.g},${rgb.b},0.95)`);
+  glow.addColorStop(0.4, `rgba(${rgb.r},${rgb.g},${rgb.b},0.55)`);
+  glow.addColorStop(0.72, `rgba(15,23,42,0.18)`);
+  glow.addColorStop(1, `rgba(15,23,42,0)`);
   ctx.fillStyle = glow;
   ctx.beginPath();
-  ctx.arc(cx, cy, 78, 0, Math.PI * 2);
+  ctx.arc(cx, cy + 8, 80, 0, Math.PI * 2);
   ctx.fill();
 
   /* 白フチリング（屋外・暗所でも輪郭を確保） */
   ctx.beginPath();
   ctx.arc(cx, cy, r + 7, 0, Math.PI * 2);
-  ctx.fillStyle = "rgba(255,255,255,0.95)";
+  ctx.fillStyle = "rgba(255,255,255,0.98)";
   ctx.fill();
   ctx.lineWidth = 3.5;
-  ctx.strokeStyle = alerting ? "#fecaca" : `rgba(${rgb.r},${rgb.g},${rgb.b},0.95)`;
+  ctx.strokeStyle = alerting ? "#fecaca" : `rgba(${rgb.r},${rgb.g},${rgb.b},0.98)`;
   ctx.stroke();
 
   const body = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
@@ -199,7 +200,8 @@ export function makeNeonPinTexture(THREE, opts) {
     body.addColorStop(1, "#ef4444");
   } else {
     body.addColorStop(0, "#ffffff");
-    body.addColorStop(1, "#f1f5f9");
+    body.addColorStop(0.55, hexCss(theme));
+    body.addColorStop(1, hexCss(theme));
   }
   ctx.beginPath();
   ctx.arc(cx, cy, r, 0, Math.PI * 2);
@@ -280,23 +282,25 @@ export function createNeonPinMesh3d(THREE, opts) {
   const stemMat = new THREE.MeshStandardMaterial({
     color: opts.alerting ? 0xef4444 : style.hex,
     emissive: opts.alerting ? 0xef4444 : style.hex,
-    emissiveIntensity: opts.alerting ? 0.95 : 0.55,
-    metalness: 0.15,
-    roughness: 0.3,
+    emissiveIntensity: opts.alerting ? 0.85 : 0.35,
+    metalness: 0.2,
+    roughness: 0.35,
     transparent: true,
-    opacity: 0.95,
+    opacity: 0.98,
   });
   const stem = new THREE.Mesh(
     new THREE.CylinderGeometry(0.055 * scale, 0.085 * scale, 0.7 * scale, 12),
     stemMat
   );
   stem.position.y = 0.35 * scale;
+  stem.castShadow = true;
+  stem.receiveShadow = true;
   group.add(stem);
 
   const ringMat = new THREE.MeshBasicMaterial({
     color: opts.alerting ? 0xef4444 : style.hex,
     transparent: true,
-    opacity: opts.alerting ? 0.6 : 0.32,
+    opacity: opts.alerting ? 0.55 : 0.38,
     side: THREE.DoubleSide,
     depthWrite: false,
   });
@@ -307,6 +311,21 @@ export function createNeonPinMesh3d(THREE, opts) {
   ring.rotation.x = -Math.PI / 2;
   ring.position.y = 0.02;
   group.add(ring);
+
+  /* 地面へのソフトシャドウ円 */
+  const shadowMat = new THREE.MeshBasicMaterial({
+    color: 0x0f172a,
+    transparent: true,
+    opacity: 0.18,
+    depthWrite: false,
+  });
+  const shadowDisk = new THREE.Mesh(
+    new THREE.CircleGeometry(0.42 * scale, 24),
+    shadowMat
+  );
+  shadowDisk.rotation.x = -Math.PI / 2;
+  shadowDisk.position.y = 0.01;
+  group.add(shadowDisk);
 
   group.userData = {
     kind: "devicePin",

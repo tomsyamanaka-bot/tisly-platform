@@ -76,6 +76,7 @@ import {
   type HomeDi2LightModeV1,
   type HomeDi2StandaloneLightModeV1,
   type HomeGuardModeV1,
+  type HomeNotifyModeV1,
 } from "../../home/home-security-rules-v1.js";
 import {
   buildHomeSecurityNotifyPolicyV1,
@@ -533,6 +534,9 @@ function applyHomeSecurityRulesPatchV1(
       | boolean
       | undefined,
     notifyDi2InstantPush: body?.notifyDi2InstantPush as boolean | undefined,
+    notifyDi1Mode: body?.notifyDi1Mode as HomeNotifyModeV1 | undefined,
+    notifyStagedMode: body?.notifyStagedMode as HomeNotifyModeV1 | undefined,
+    notifyDi2Mode: body?.notifyDi2Mode as HomeNotifyModeV1 | undefined,
     securityPausedUntil: body?.securityPausedUntil as string | null | undefined,
   });
   recordSystemLogV1({

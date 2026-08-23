@@ -1,7 +1,7 @@
 /**
- * TiSLY Security — プレミアム・サイバーダーク 3D
+ * TiSLY Security — クリーン＆テック ライト 3D
  * アイソメトリック俯瞰 · 階層スタック · DI発報発光
- * 外壁フレーム＋エッジグローで立体感を出す
+ * ホワイト基調＋シャープなスレート輪郭
  */
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
@@ -22,9 +22,13 @@ const FLAG = "tisly_floorplan_for_security";
 
 /** 階層スタックの基準ギャップ（展開時） */
 const STACK_GAP = 4.2;
-const BG = 0x0b101b;
-const GRID_CYAN = 0x1e3a5f;
-const GRID_LINE = 0x243447;
+const BG = 0xf8fafc;
+const GRID_MAJOR = 0xcbd5e1;
+const GRID_LINE = 0xe2e8f0;
+const EDGE_SLATE = 0x94a3b8;
+const ROOM_FILL = 0xffffff;
+const ROOM_FILL_OUTDOOR = 0xf1f5f9;
+const SLAB_TINT = 0xf8fafc;
 
 /** @type {import('three').Scene | null} */
 let scene = null;
@@ -354,9 +358,9 @@ function makeCyberGridTexture() {
   c.width = 512;
   c.height = 512;
   const ctx = c.getContext("2d");
-  ctx.fillStyle = "#0d1524";
+  ctx.fillStyle = "#F8FAFC";
   ctx.fillRect(0, 0, 512, 512);
-  ctx.strokeStyle = "rgba(56, 189, 248, 0.18)";
+  ctx.strokeStyle = "rgba(148, 163, 184, 0.35)";
   ctx.lineWidth = 1;
   const step = 32;
   for (let i = 0; i <= 512; i += step) {
@@ -369,7 +373,7 @@ function makeCyberGridTexture() {
     ctx.lineTo(512, i);
     ctx.stroke();
   }
-  ctx.strokeStyle = "rgba(34, 211, 238, 0.35)";
+  ctx.strokeStyle = "rgba(100, 116, 139, 0.45)";
   ctx.lineWidth = 1.5;
   for (let i = 0; i <= 512; i += step * 4) {
     ctx.beginPath();
@@ -421,7 +425,7 @@ function ensureScene() {
   const h = mountEl.clientHeight || 360;
 
   scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(BG, 28, 72);
+  scene.fog = new THREE.Fog(BG, 42, 95);
   scene.background = new THREE.Color(BG);
 
   camera = new THREE.PerspectiveCamera(42, w / h, 0.1, 200);
@@ -458,10 +462,10 @@ function ensureScene() {
     TWO: THREE.TOUCH.DOLLY_PAN,
   };
 
-  /* 青系アンビエント＋スポットで立体感 */
-  scene.add(new THREE.AmbientLight(0x1e3a8a, 0.55));
-  scene.add(new THREE.HemisphereLight(0x38bdf8, 0x0b101b, 0.42));
-  const key = new THREE.DirectionalLight(0x93c5fd, 0.85);
+  /* 明るいスタジオ照明（クリーン＆テック） */
+  scene.add(new THREE.AmbientLight(0xffffff, 0.78));
+  scene.add(new THREE.HemisphereLight(0xffffff, 0xe2e8f0, 0.55));
+  const key = new THREE.DirectionalLight(0xffffff, 0.95);
   key.position.set(12, 22, 10);
   key.castShadow = true;
   key.shadow.mapSize.set(1024, 1024);
@@ -471,12 +475,13 @@ function ensureScene() {
   key.shadow.camera.right = 20;
   key.shadow.camera.top = 20;
   key.shadow.camera.bottom = -20;
+  key.shadow.bias = -0.0002;
   scene.add(key);
-  const fill = new THREE.DirectionalLight(0x0ea5e9, 0.35);
+  const fill = new THREE.DirectionalLight(0xcbd5e1, 0.42);
   fill.position.set(-14, 12, -10);
   scene.add(fill);
 
-  spotLight = new THREE.SpotLight(0x38bdf8, 1.1, 55, Math.PI / 5, 0.45, 1);
+  spotLight = new THREE.SpotLight(0xffffff, 0.55, 55, Math.PI / 5, 0.45, 1);
   spotLight.position.set(6, 24, 8);
   spotLight.target.position.set(0, 0, 0);
   scene.add(spotLight);
@@ -486,7 +491,7 @@ function ensureScene() {
   alertPoint.position.set(0, 4, 0);
   scene.add(alertPoint);
 
-  const grid = new THREE.GridHelper(28, 28, GRID_CYAN, GRID_LINE);
+  const grid = new THREE.GridHelper(28, 28, GRID_MAJOR, GRID_LINE);
   grid.position.y = -0.02;
   scene.add(grid);
 
@@ -597,44 +602,44 @@ function roomMaterials(alerting, floorId) {
     return {
       tier,
       mat: new THREE.MeshStandardMaterial({
-        color: 0x7f1d1d,
-        emissive: 0xff0040,
-        emissiveIntensity: 0.85,
-        metalness: 0.35,
-        roughness: 0.28,
+        color: 0xfef2f2,
+        emissive: 0xef4444,
+        emissiveIntensity: 0.35,
+        metalness: 0.08,
+        roughness: 0.55,
         transparent: true,
-        opacity: 0.92,
+        opacity: 0.94,
       }),
-      edge: 0xff1a1a,
+      edge: 0xef4444,
     };
   }
   if (tier === "perimeter") {
     return {
       tier,
       mat: new THREE.MeshStandardMaterial({
-        color: 0x78350f,
+        color: 0xfff7ed,
         emissive: 0xf59e0b,
-        emissiveIntensity: 0.7,
-        metalness: 0.28,
-        roughness: 0.32,
+        emissiveIntensity: 0.28,
+        metalness: 0.06,
+        roughness: 0.58,
         transparent: true,
-        opacity: 0.9,
+        opacity: 0.92,
       }),
-      edge: 0xfb923c,
+      edge: 0xf97316,
     };
   }
   return {
     tier: "none",
     mat: new THREE.MeshStandardMaterial({
-      color: isOutdoor ? 0x0f2744 : 0x152238,
-      emissive: isOutdoor ? 0x0ea5e9 : 0x1d4ed8,
-      emissiveIntensity: isOutdoor ? 0.22 : 0.14,
-      metalness: 0.42,
-      roughness: 0.38,
+      color: isOutdoor ? ROOM_FILL_OUTDOOR : ROOM_FILL,
+      emissive: 0xe2e8f0,
+      emissiveIntensity: 0.04,
+      metalness: 0.05,
+      roughness: 0.72,
       transparent: true,
-      opacity: Math.min(Math.max(renderOpts().roomOpacity, 0.72), 0.94),
+      opacity: Math.min(Math.max(renderOpts().roomOpacity, 0.82), 0.96),
     }),
-    edge: isOutdoor ? 0x38bdf8 : 0x60a5fa,
+    edge: EDGE_SLATE,
   };
 }
 
@@ -649,11 +654,11 @@ function addFloorLayer(floorId, yBase, wallH, isFocus) {
   const slabSize = floorId === "outdoor" ? 24 : 21.5;
   const slabMat = new THREE.MeshStandardMaterial({
     map: makeCyberGridTexture(),
-    color: 0xffffff,
-    metalness: 0.55,
-    roughness: 0.42,
-    emissive: floorId === "outdoor" ? 0x0ea5e9 : 0x1e3a8a,
-    emissiveIntensity: isFocus ? 0.18 : 0.08,
+    color: SLAB_TINT,
+    metalness: 0.08,
+    roughness: 0.78,
+    emissive: 0xffffff,
+    emissiveIntensity: isFocus ? 0.06 : 0.02,
   });
   const slab = new THREE.Mesh(
     new THREE.BoxGeometry(slabSize, 0.18, slabSize),
@@ -665,22 +670,22 @@ function addFloorLayer(floorId, yBase, wallH, isFocus) {
   slab.userData = { kind: "slab", floorId };
   layer.add(slab);
 
-  /* フロア外枠ワイヤー（発光エッジ） */
+  /* フロア外枠ワイヤー（スレート輪郭） */
   const shellGeo = new THREE.EdgesGeometry(
     new THREE.BoxGeometry(slabSize + 0.15, wallH * 0.62, slabSize + 0.15)
   );
   const shellColor =
     state.alertTier === "critical" && isFocus
-      ? 0xff1744
+      ? 0xef4444
       : state.alertTier === "perimeter" && floorId === "outdoor"
         ? 0xf59e0b
-        : 0x38bdf8;
+        : EDGE_SLATE;
   const shell = new THREE.LineSegments(
     shellGeo,
     new THREE.LineBasicMaterial({
       color: shellColor,
       transparent: true,
-      opacity: isFocus ? 0.85 : 0.35,
+      opacity: isFocus ? 0.92 : 0.45,
     })
   );
   shell.position.y = wallH * 0.28;
@@ -735,13 +740,13 @@ function addFloorLayer(floorId, yBase, wallH, isFocus) {
     mesh.userData = { roomId: r.id, kind: "room", alerting, floorId };
     layer.add(mesh);
 
-    /* 外壁フレーム風エッジ */
+    /* 外壁フレーム風エッジ（シャープなスレート） */
     const edge = new THREE.LineSegments(
       new THREE.EdgesGeometry(mesh.geometry),
       new THREE.LineBasicMaterial({
         color: edgeColor,
         transparent: true,
-        opacity: alerting ? 0.98 : 0.55,
+        opacity: alerting ? 0.98 : 0.88,
         linewidth: 1,
       })
     );
@@ -817,7 +822,8 @@ function addFloorLayer(floorId, yBase, wallH, isFocus) {
       label: s.label || s.customerLabel || s.id,
       alerting,
       linkedCameraId: s.linkedCameraId || (isCam ? s.id : null),
-      scale: 1.05,
+      scale: 1.12,
+      vivid: true,
     });
     const pos = pinWorldFromSensor(s, wallH);
     pin.position.set(pos.x, pos.y, pos.z);

@@ -11,7 +11,7 @@
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2003" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
   <title>TiSLY Security</title>
-  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2493" />
+  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2494" />
   <script type="importmap">
   {
     "imports": {
@@ -297,18 +297,42 @@
           <p class="sf-notify-policy-hint" id="sf-notify-policy-hint">
             段階侵入判定時間に連動
           </p>
-          <ul class="sf-notify-policy-list" id="sf-notify-policy" aria-label="通知条件">
-            <li class="sf-notify-policy-item is-on" data-notify-id="di1_alone">
-              <span class="sf-notify-badge is-on">ON</span>
-              <span class="sf-notify-text">DI1単独：通知ON（警戒）</span>
+          <ul class="sf-notify-policy-list" id="sf-notify-policy" aria-label="通知条件（タップで切替）">
+            <li
+              class="sf-notify-policy-item is-silent"
+              data-notify-id="di1_alone"
+              data-notify-mode="silent"
+              role="button"
+              tabindex="0"
+              aria-pressed="false"
+              title="タップで 緊急 → サイレント → OFF"
+            >
+              <span class="sf-notify-badge is-silent">サイレント</span>
+              <span class="sf-notify-text">DI1単独：サイレント</span>
             </li>
-            <li class="sf-notify-policy-item is-critical" data-notify-id="staged_intrusion">
+            <li
+              class="sf-notify-policy-item is-critical"
+              data-notify-id="staged_intrusion"
+              data-notify-mode="critical"
+              role="button"
+              tabindex="0"
+              aria-pressed="true"
+              title="タップで 緊急 → サイレント → OFF"
+            >
               <span class="sf-notify-badge is-critical">緊急</span>
               <span class="sf-notify-text">DI1➔DI2段階侵入：緊急通知ON</span>
             </li>
-            <li class="sf-notify-policy-item is-off" data-notify-id="di2_alone">
-              <span class="sf-notify-badge is-off">OFF</span>
-              <span class="sf-notify-text">DI2単独：通知OFF（サイレント）</span>
+            <li
+              class="sf-notify-policy-item is-critical"
+              data-notify-id="di2_alone"
+              data-notify-mode="critical"
+              role="button"
+              tabindex="0"
+              aria-pressed="true"
+              title="タップで 緊急 → サイレント → OFF"
+            >
+              <span class="sf-notify-badge is-critical">緊急</span>
+              <span class="sf-notify-text">DI2単独：即時Web Push</span>
             </li>
           </ul>
         </div>
@@ -457,12 +481,12 @@
     </form>
   </dialog>
 
-  <script src="/js/features/security/security-floor-light-v1.js?v=2493"></script>
-  <script src="/js/features/floorplan-builder/floorplan-security-bridge-v1.js?v=2493"></script>
-  <script type="module" src="/js/features/security/security-floor-iso3d-v1.js?v=2493"></script>
-  <script type="module" src="/js/features/security/security-floor-manual-light-v1.js?v=2493"></script>
-  <script type="module" src="/js/features/security/security-floor-remote-config-v1.js?v=2493"></script>
-  <script type="module" src="/js/features/security/security-floor-push-v1.js?v=2493"></script>
-  <script type="module" src="/js/features/security/security-floor-operator-v1.js?v=2493"></script>
+  <script src="/js/features/security/security-floor-light-v1.js?v=2494"></script>
+  <script src="/js/features/floorplan-builder/floorplan-security-bridge-v1.js?v=2494"></script>
+  <script type="module" src="/js/features/security/security-floor-iso3d-v1.js?v=2494"></script>
+  <script type="module" src="/js/features/security/security-floor-manual-light-v1.js?v=2494"></script>
+  <script type="module" src="/js/features/security/security-floor-remote-config-v1.js?v=2494"></script>
+  <script type="module" src="/js/features/security/security-floor-push-v1.js?v=2494"></script>
+  <script type="module" src="/js/features/security/security-floor-operator-v1.js?v=2494"></script>
 </body>
 </html>

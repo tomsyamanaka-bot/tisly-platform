@@ -557,7 +557,7 @@
   cursor: grab;
 }
 
-/* —— 3D アイソメ主ビュー（サイバーダーク） —— */
+/* —— 3D アイソメ主ビュー（クリーン＆テック ライト） —— */
 .sf-iso3d-scene {
   position: relative;
   width: 100%;
@@ -571,10 +571,10 @@
   border-radius: 14px;
   overflow: hidden;
   background:
-    radial-gradient(ellipse at 50% 30%, #132033 0%, #0b101b 70%);
+    radial-gradient(ellipse at 50% 28%, #ffffff 0%, #f8fafc 55%, #eef2f7 100%);
   box-shadow:
-    inset 0 0 0 1px rgba(56, 189, 248, 0.2),
-    inset 0 0 48px rgba(14, 165, 233, 0.12);
+    inset 0 0 0 1px rgba(148, 163, 184, 0.45),
+    0 10px 28px rgba(15, 23, 42, 0.08);
 }
 
 .sf-iso3d-canvas {
@@ -608,11 +608,12 @@
   gap: 8px;
   padding: 8px 12px;
   border-radius: 10px;
-  background: rgba(11, 16, 27, 0.82);
-  border: 1px solid rgba(56, 189, 248, 0.28);
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(148, 163, 184, 0.55);
   backdrop-filter: blur(10px);
   pointer-events: none;
-  color: #e2e8f0;
+  color: #0f172a;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
 }
 
 .sf-iso3d-hud-controls {
@@ -626,33 +627,32 @@
 .sf-iso3d-stack-label {
   font-size: 0.7rem;
   font-weight: 700;
-  color: #7dd3fc;
+  color: #1e3a8a;
   white-space: nowrap;
 }
 
 #sf-iso3d-stack {
   flex: 1;
-  accent-color: #38bdf8;
+  accent-color: #1e3a8a;
   min-height: 28px;
 }
 
 #sf-iso3d-stack-val {
   font-size: 0.7rem;
   font-weight: 800;
-  color: #bae6fd;
+  color: #0f172a;
   min-width: 2.4em;
 }
 
 #sf-iso3d-floor-label {
   font-weight: 800;
-  color: #7dd3fc;
+  color: #0f172a;
   letter-spacing: 0.04em;
-  text-shadow: 0 0 12px rgba(56, 189, 248, 0.55);
 }
 
 .sf-iso3d-hint {
   font-size: 0.72rem;
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .sf-iso3d-alert-badge {
@@ -672,16 +672,16 @@
 
 .sf-iso3d-alert-badge.is-perimeter {
   color: #fff7ed;
-  background: rgba(245, 158, 11, 0.88);
+  background: rgba(245, 158, 11, 0.92);
   border: 1px solid #fb923c;
-  box-shadow: 0 0 22px rgba(249, 115, 22, 0.75);
+  box-shadow: 0 8px 22px rgba(249, 115, 22, 0.35);
 }
 
 .sf-iso3d-alert-badge.is-critical {
   color: #fff;
-  background: rgba(220, 38, 38, 0.92);
+  background: rgba(220, 38, 38, 0.94);
   border: 1px solid #f87171;
-  box-shadow: 0 0 28px rgba(239, 68, 68, 0.9);
+  box-shadow: 0 8px 24px rgba(239, 68, 68, 0.4);
 }
 
 @keyframes sf-alert-badge-pulse {
@@ -698,23 +698,26 @@
 
 .sf-iso3d-room-label {
   font-size: 11px;
-  font-weight: 700;
-  color: #e0f2fe;
-  background: rgba(15, 23, 42, 0.78);
-  border: 1px solid rgba(56, 189, 248, 0.35);
-  border-radius: 6px;
-  padding: 2px 6px;
+  font-weight: 800;
+  color: #f8fafc;
+  background: linear-gradient(180deg, #1e3a8a 0%, #0f172a 100%);
+  border: 1px solid #1e293b;
+  border-radius: 7px;
+  padding: 3px 8px;
   white-space: nowrap;
   pointer-events: none;
   transform: translate(-50%, -50%);
-  text-shadow: 0 0 8px rgba(56, 189, 248, 0.4);
+  box-shadow:
+    0 2px 0 rgba(15, 23, 42, 0.25),
+    0 6px 14px rgba(15, 23, 42, 0.18);
+  letter-spacing: 0.02em;
 }
 
 .sf-iso3d-room-label.is-alert {
   color: #fff;
-  background: rgba(220, 38, 38, 0.92);
+  background: linear-gradient(180deg, #ef4444 0%, #b91c1c 100%);
   border-color: #f87171;
-  box-shadow: 0 0 18px rgba(239, 68, 68, 0.75);
+  box-shadow: 0 8px 18px rgba(239, 68, 68, 0.35);
 }
 
 .sf-iso3d-alert-tip {
@@ -1908,11 +1911,32 @@
   border-radius: 10px;
   border: 1px solid var(--sf-line);
   background: var(--sf-surface);
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.12s ease;
+}
+
+.sf-notify-policy-item:hover {
+  background: #f8fafc;
+}
+
+.sf-notify-policy-item:active {
+  transform: scale(0.985);
+}
+
+.sf-notify-policy-item:focus-visible {
+  outline: 2px solid #1e3a8a;
+  outline-offset: 2px;
 }
 
 .sf-notify-badge {
   flex-shrink: 0;
-  min-width: 44px;
+  min-width: 4.6em;
   text-align: center;
   font-size: 0.72rem;
   font-weight: 700;
@@ -1920,19 +1944,20 @@
   border-radius: 999px;
 }
 
-.sf-notify-badge.is-on {
-  background: #dbeafe;
-  color: #1e3a8a;
-}
-
+.sf-notify-badge.is-on,
 .sf-notify-badge.is-critical {
   background: #fee2e2;
   color: #991b1b;
 }
 
+.sf-notify-badge.is-silent {
+  background: #e2e8f0;
+  color: #475569;
+}
+
 .sf-notify-badge.is-off {
   background: #f1f5f9;
-  color: #64748b;
+  color: #94a3b8;
 }
 
 .sf-notify-text {
@@ -1941,17 +1966,21 @@
   color: var(--sf-ink);
 }
 
-.sf-notify-policy-item.is-on {
-  border-color: #93c5fd;
-}
-
+.sf-notify-policy-item.is-on,
 .sf-notify-policy-item.is-critical {
   border-color: #fca5a5;
+  background: linear-gradient(180deg, #fff5f5 0%, #ffffff 100%);
+  box-shadow: inset 0 0 0 1px rgba(248, 113, 113, 0.18);
+}
+
+.sf-notify-policy-item.is-silent {
+  border-color: #cbd5e1;
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
 }
 
 .sf-notify-policy-item.is-off {
   border-color: var(--sf-line);
-  opacity: 0.92;
+  opacity: 0.88;
 }
 
 /* 手動ライト遠隔操作 */

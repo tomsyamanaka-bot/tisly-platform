@@ -308,13 +308,17 @@ describe("security-floor-v1", () => {
     assert.match(html, /TiSLY Security/);
     assert.match(html, /sf-remote-config/);
     assert.match(html, /sf-notify-policy/);
-    assert.match(html, /DI1単独：通知ON/);
+    assert.match(html, /DI1単独：サイレント/);
+    assert.match(html, /DI1➔DI2段階侵入：緊急通知ON/);
+    assert.match(html, /DI2単独：即時Web Push/);
+    assert.match(html, /data-notify-mode/);
     assert.match(html, /sf-remote-apply/);
-    assert.match(html, /security-floor-remote-config-v1\.js\?v=2493/);
-    assert.match(html, /security-floor-push-v1\.js\?v=2493/);
-    assert.match(html, /security-floor-light-v1\.js\?v=2493/);
-    assert.match(html, /security-floor-operator-v1\.js\?v=2493/);
-    assert.match(html, /security-floor-iso3d-v1\.js\?v=2493/);
+    assert.match(html, /security-floor-remote-config-v1\.js\?v=2494/);
+    assert.match(html, /security-floor-push-v1\.js\?v=2494/);
+    assert.match(html, /security-floor-light-v1\.js\?v=2494/);
+    assert.match(html, /security-floor-operator-v1\.js\?v=2494/);
+    assert.match(html, /security-floor-iso3d-v1\.js\?v=2494/);
+    assert.match(html, /security-floor-v1\.css\?v=2494/);
     assert.match(html, /sf-push-reregister/);
     assert.match(html, /Push通知を再登録・購読/);
     assert.match(html, /sf-iso3d-stack/);
@@ -364,7 +368,8 @@ describe("security-floor-v1", () => {
     assert.match(iso3dJs, /stackExpand|STACK_GAP/);
     assert.match(iso3dJs, /perimeter|critical/);
     assert.match(iso3dJs, /発報地点/);
-    assert.match(iso3dJs, /0x0b101b|0b101b/);
+    assert.match(iso3dJs, /0xf8fafc|f8fafc/);
+    assert.match(iso3dJs, /0x94a3b8|94a3b8/);
     assert.match(iso3dJs, /labelRenderer\.domElement\.innerHTML\s*=\s*""/);
     assert.match(iso3dJs, /isCSS2DObject/);
     assert.match(iso3dJs, /children\.slice\(\)/);
@@ -378,11 +383,13 @@ describe("security-floor-v1", () => {
       "utf8"
     );
     assert.match(pinMeshJs, /drawDeviceIconSvgV1/);
-    assert.match(pinMeshJs, /0x3b82f6/);
-    assert.match(pinMeshJs, /0x22c55e/);
-    assert.match(pinMeshJs, /0xf59e0b/);
-    assert.match(pinMeshJs, /0xa855f7/);
+    assert.match(pinMeshJs, /0x2563eb/);
+    assert.match(pinMeshJs, /0x16a34a/);
+    assert.match(pinMeshJs, /0xea580c|0xf59e0b/);
+    assert.match(pinMeshJs, /0x7c3aed|0xa855f7/);
     assert.match(pinMeshJs, /0xeab308/);
+    assert.match(pinMeshJs, /castShadow/);
+    assert.match(pinMeshJs, /shadowDisk|CircleGeometry/);
     assert.doesNotMatch(pinMeshJs, /emoji:\s*"/);
     const orbitJs = fs.readFileSync(
       path.join(

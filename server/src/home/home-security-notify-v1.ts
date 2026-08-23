@@ -17,7 +17,9 @@ import { HOME_ITABASHI_LIVE_SITE_ID_V1 } from "./home-sites-v1.js";
 import {
   getHomeSecurityRulesV1,
   isHomeGuardActiveV1,
+  isHomeNotifyPushEnabledV1,
   isHomeSecurityPausedV1,
+  type HomeNotifyModeV1,
   type HomeSecurityRulesV1,
 } from "./home-security-rules-v1.js";
 import { recordSystemLogV1 } from "./home-system-log-v1.js";
@@ -40,7 +42,9 @@ export interface HomeSecurityNotifyPolicyRowV1 {
   id: "di1_alone" | "staged_intrusion" | "di2_alone";
   label: string;
   enabled: boolean;
-  severity: "warning" | "critical" | "silent";
+  /** critical=緊急 / silent=サイレント / off=OFF（旧 warning は critical 相当） */
+  severity: "warning" | "critical" | "silent" | "off";
+  mode: HomeNotifyModeV1;
   description: string;
 }
 
@@ -97,37 +101,80 @@ export function buildHomeSecurityNotifyPolicyV1(
   rules: HomeSecurityRulesV1
 ): HomeSecurityNotifyPolicyV1 {
   const sec = rules.perimeterTimeoutSec;
-  const di1Push = !rules.notifyDi1SilentLogOnly;
-  const di2Push = rules.notifyDi2InstantPush;
+  const di1Mode = rules.notifyDi1Mode;
+  const stagedMode = rules.notifyStagedMode;
+  const di2Mode = rules.notifyDi2Mode;
+
+  const modeMeta = (mode: HomeNotifyModeV1) => {
+    if (mode === "critical") {
+      return { enabled: true, severity: "critical" as const };
+    }
+    if (mode === "silent") {
+      return { enabled: false, severity: "silent" as const };
+    }
+    return { enabled: false, severity: "off" as const };
+  };
+
+  const di1 = modeMeta(di1Mode);
+  const staged = modeMeta(stagedMode);
+  const di2 = modeMeta(di2Mode);
+
   return {
     perimeterTimeoutSec: sec,
     rows: [
       {
         id: "di1_alone",
-        label: di1Push ? "DI1単独：通知ON" : "DI1単独：サイレント",
-        enabled: di1Push,
-        severity: di1Push ? "warning" : "silent",
-        description: di1Push
-          ? "駐車場センサー（DI1）のみ検知時に警戒 Web Push を送信"
-          : "駐車場センサー（DI1）はログとライトのみ（Push なし）",
+        label:
+          di1Mode === "critical"
+            ? "DI1単独：緊急通知ON"
+            : di1Mode === "silent"
+              ? "DI1単独：サイレント"
+              : "DI1単独：OFF",
+        enabled: di1.enabled,
+        severity: di1.severity,
+        mode: di1Mode,
+        description:
+          di1Mode === "critical"
+            ? "駐車場センサー（DI1）のみ検知時に緊急 Web Push を送信"
+            : di1Mode === "silent"
+              ? "駐車場センサー（DI1）はログとライトのみ（Push なし）"
+              : "駐車場センサー（DI1）の Web Push を完全に無効化",
       },
       {
         id: "staged_intrusion",
-        label: "DI1➔DI2段階侵入：緊急通知ON",
-        enabled: true,
-        severity: "critical",
-        description: `駐車場センサー検知後 ${sec} 秒以内のガレージセンサーで緊急 Push`,
+        label:
+          stagedMode === "critical"
+            ? "DI1➔DI2段階侵入：緊急通知ON"
+            : stagedMode === "silent"
+              ? "DI1➔DI2段階侵入：サイレント"
+              : "DI1➔DI2段階侵入：OFF",
+        enabled: staged.enabled,
+        severity: staged.severity,
+        mode: stagedMode,
+        description:
+          stagedMode === "critical"
+            ? `駐車場センサー検知後 ${sec} 秒以内のガレージセンサーで緊急 Push`
+            : stagedMode === "silent"
+              ? `段階侵入はログとライトのみ（${sec} 秒判定は継続）`
+              : "段階侵入の Web Push を完全に無効化",
       },
       {
         id: "di2_alone",
-        label: di2Push
-          ? "DI2単独：即時 Web Push"
-          : "DI2単独：通知OFF（サイレント）",
-        enabled: di2Push,
-        severity: di2Push ? "critical" : "silent",
-        description: di2Push
-          ? "ガレージセンサー（DI2）単独でも緊急 Web Push を送信"
-          : "ガレージセンサー単独はログとライトのみ（Push なし）",
+        label:
+          di2Mode === "critical"
+            ? "DI2単独：即時Web Push"
+            : di2Mode === "silent"
+              ? "DI2単独：サイレント"
+              : "DI2単独：OFF",
+        enabled: di2.enabled,
+        severity: di2.severity,
+        mode: di2Mode,
+        description:
+          di2Mode === "critical"
+            ? "ガレージセンサー（DI2）単独でも緊急 Web Push を送信"
+            : di2Mode === "silent"
+              ? "ガレージセンサー単独はログとライトのみ（Push なし）"
+              : "ガレージセンサー単独の Web Push を完全に無効化",
       },
     ],
   };
@@ -258,15 +305,15 @@ async function dispatchPatternPushV1(input: {
     return false;
   }
 
-  // DI1 単独：notifyDi1SilentLogOnly なら Push しない
+  // DI1 単独：critical 以外は Push しない
   if (pattern === "pattern_a") {
-    if (rules.notifyDi1SilentLogOnly) {
+    if (!isHomeNotifyPushEnabledV1(rules.notifyDi1Mode)) {
       console.log(
-        `[home-security] DI1 silent (notifyDi1SilentLogOnly) site=${siteId}`
+        `[home-security] DI1 ${rules.notifyDi1Mode} (no push) site=${siteId}`
       );
       return false;
     }
-    const title = "【TiSLY Security】駐車場センサーを検知";
+    const title = "🚨【緊急警報】駐車場センサーを検知";
     const body =
       "駐車場センサー (DI1) が反応しました。外側100V・投光器ライトを点灯中。";
     const result = await sendHomeSecurityPush({
@@ -274,8 +321,8 @@ async function dispatchPatternPushV1(input: {
       body,
       eventType: "home_security_di1_perimeter",
       url,
-      severity: "warning",
-      data: { di: 1, siteId, pattern, click_action: url },
+      severity: "critical",
+      data: { di: 1, siteId, pattern, urgency: "critical", click_action: url },
     });
     persistHomePushLog(
       "home_security_di1_perimeter",
@@ -291,11 +338,11 @@ async function dispatchPatternPushV1(input: {
     return true;
   }
 
-  // DI2 単独：notifyDi2InstantPush が OFF ならサイレント
+  // DI2 単独：critical 以外はサイレント / OFF
   if (pattern === "pattern_c") {
-    if (!rules.notifyDi2InstantPush) {
+    if (!isHomeNotifyPushEnabledV1(rules.notifyDi2Mode)) {
       console.log(
-        `[home-security] DI2 standalone silent site=${siteId}`
+        `[home-security] DI2 standalone ${rules.notifyDi2Mode} site=${siteId}`
       );
       return false;
     }
@@ -324,7 +371,13 @@ async function dispatchPatternPushV1(input: {
     return true;
   }
 
-  // DI1→DI2 段階侵入：常に緊急 Push
+  // DI1→DI2 段階侵入：モードが critical のときのみ緊急 Push
+  if (!isHomeNotifyPushEnabledV1(rules.notifyStagedMode)) {
+    console.log(
+      `[home-security] staged intrusion ${rules.notifyStagedMode} site=${siteId}`
+    );
+    return false;
+  }
   const title = "🚨【緊急警報】駐車場→ガレージの段階侵入を検知";
   const body =
     "駐車場センサーに続きガレージセンサー (DI2) が反応しました！" +
