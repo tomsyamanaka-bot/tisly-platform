@@ -11,6 +11,9 @@
   window.__TISLY_SF_CTRL_BOUND = true;
   window.__TISLY_SF_FLOOR = "1f";
 
+  var DRUM_SWIPE_DURING = 36;
+  var DRUM_SWIPE_RELEASE = 30;
+  var DRUM_MODE_LOCK = 10;
   var drum = {
     dragging: false,
     lastY: 0,
@@ -99,7 +102,7 @@
     var el = $("sf-iso-orbit");
     var layers = layersOf(el);
     if (!layers.length) return;
-    var focus = (el && el.getAttribute("data-focus")) || "2f";
+    var focus = (el && el.getAttribute("data-focus")) || "1f";
     var index = 0;
     var i;
     for (i = 0; i < layers.length; i++) {
@@ -283,7 +286,7 @@
         drum.accX += dx;
         if (drum.onIso3d) {
           if (!drum.mode) {
-            if (Math.abs(drum.accY) > 14 || Math.abs(drum.accX) > 14) {
+            if (Math.abs(drum.accY) > DRUM_MODE_LOCK || Math.abs(drum.accX) > DRUM_MODE_LOCK) {
               drum.mode =
                 Math.abs(drum.accY) > Math.abs(drum.accX) * 1.15
                   ? "floor"
@@ -296,10 +299,10 @@
           }
           if (drum.mode === "floor") {
             if (e.cancelable) e.preventDefault();
-            if (drum.accY > 48) {
+            if (drum.accY > DRUM_SWIPE_DURING) {
               stepFloor(1);
               drum.accY = 0;
-            } else if (drum.accY < -48) {
+            } else if (drum.accY < -DRUM_SWIPE_DURING) {
               stepFloor(-1);
               drum.accY = 0;
             }
@@ -314,8 +317,8 @@
       if (!drum.dragging) return;
       if (drum.pointerId != null && e.pointerId !== drum.pointerId) return;
       if (!drum.onIso3d || drum.mode === "floor") {
-        if (drum.accY > 42) stepFloor(1);
-        else if (drum.accY < -42) stepFloor(-1);
+        if (drum.accY > DRUM_SWIPE_RELEASE) stepFloor(1);
+        else if (drum.accY < -DRUM_SWIPE_RELEASE) stepFloor(-1);
       }
       setOrbitRotate(true);
       drum.dragging = false;

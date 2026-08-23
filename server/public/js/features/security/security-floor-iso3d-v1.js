@@ -22,6 +22,16 @@ const FLAG = "tisly_floorplan_for_security";
 
 /** 階層スタックの基準ギャップ（展開時・立体分離） */
 const STACK_GAP = 6.8;
+/** 外周スラブ上に 1F 屋内を浮かせるマージン */
+const INDOOR_LIFT = 1.15;
+/** フォーカス階をカメラ中央へ寄せる基準 Y */
+const FOCUS_CENTER_Y = 2.6;
+/** 非選択階の不透明度 */
+const NON_FOCUS_OPACITY = 0.35;
+/** 非選択階の追加 Y 分離（選択階を際立たせる） */
+const NON_FOCUS_Y_SEP = 0.32;
+const CAM_FOV = 48;
+const CAM_DIST_MIN = 30;
 const BG = 0xf8fafc;
 const GRID_MAJOR = 0x94a3b8;
 const GRID_LINE = 0xcbd5e1;
@@ -96,6 +106,12 @@ const focusAnim = {
   active: false,
   targetY: 2,
   camBaseY: 14,
+};
+/** 階層 Y スライドアニメ */
+const layerAnim = {
+  active: false,
+  /** @type {Map<string, number>} */
+  targets: new Map(),
 };
 
 /** @type {Map<string, {
@@ -315,6 +331,180 @@ function floorHasContent(floorId) {
   );
 }
 
+function drawFloorIds(focusId, expand) {
+  let floorIds = orderedFloorIds().filter(
+    (id) => floorHasContent(id) || id === focusId
+  );
+  if (!floorIds.length) floorIds = [focusId || "1f"];
+  return expand < 0.08 ? [focusId || floorIds[0]] : floorIds;
+}
+
+/**
+ * 敷地・外周を Y=0、屋内階をその上にマージン付きで積む基準高さ
+ */
+function structuralLayerBase(floorId, drawIds, wallH, expand) {
+  const gap = STACK_GAP * expand;
+  if (floorId === "outdoor") return 0;
+  const hasOutdoor = drawIds.includes("outdoor");
+  if (hasOutdoor) {
+    const indoorIds = drawIds.filter((id) => id !== "outdoor");
+    const indoorIdx = indoorIds.indexOf(floorId);
+    return wallH * 0.52 + INDOOR_LIFT + indoorIdx * gap;
+  }
+  const idx = drawIds.indexOf(floorId);
+  return Math.max(0, idx) * gap;
+}
+
+/**
+ * フォーカス階を中央へ、非選択階は半透明＋Y オフセットで分離
+ */
+function computeLayerLayout(drawIds, focusId, wallH, expand) {
+  const gap = STACK_GAP * expand;
+  const focusBase = structuralLayerBase(focusId, drawIds, wallH, expand);
+  const panY = FOCUS_CENTER_Y - focusBase;
+  const focusIdx = Math.max(0, drawIds.indexOf(focusId));
+  const positions = {};
+  for (let i = 0; i < drawIds.length; i++) {
+    const fid = drawIds[i];
+    const base = structuralLayerBase(fid, drawIds, wallH, expand) + panY;
+    const rel = i - focusIdx;
+    const sep =
+      fid === focusId ? 0 : rel * gap * NON_FOCUS_Y_SEP;
+    positions[fid] = base + sep;
+  }
+  return {
+    positions,
+    focusY: positions[focusId] ?? FOCUS_CENTER_Y,
+  };
+}
+
+function cameraDistanceForLayout(positions, wallH, expand) {
+  const ys = Object.values(positions);
+  const spanY =
+    (Math.max(...ys) - Math.min(...ys)) + wallH + INDOOR_LIFT + 4;
+  const siteSpan = 26;
+  const fit = Math.sqrt(siteSpan * siteSpan + spanY * spanY) * 0.78;
+  return Math.max(CAM_DIST_MIN, fit + expand * 4);
+}
+
+function findLayerGroup(floorId) {
+  if (!buildingGroup) return null;
+  for (const c of buildingGroup.children) {
+    if (c.userData?.floorId === floorId) return c;
+  }
+  return null;
+}
+
+function setLayerMaterialOpacity(obj, opacity, alerting) {
+  if (!obj || alerting) return;
+  if (obj.material) {
+    if (obj.material.opacity != null) {
+      obj.material.transparent = true;
+      obj.material.opacity = opacity;
+    }
+    if (Array.isArray(obj.material)) {
+      for (const m of obj.material) {
+        if (m && m.opacity != null) {
+          m.transparent = true;
+          m.opacity = opacity;
+        }
+      }
+    }
+  }
+}
+
+function applyLayerFocusVisual(floorId, isFocus) {
+  const layer = findLayerGroup(floorId);
+  if (!layer) return;
+  const roomDefault = renderOpts().roomOpacity;
+  layer.traverse((o) => {
+    if (o.isCSS2DObject && o.element) {
+      o.element.style.opacity = isFocus ? "1" : String(NON_FOCUS_OPACITY);
+      return;
+    }
+    const alerting = o.userData?.alerting;
+    if (!o.material) return;
+    let target;
+    if (isFocus) {
+      target =
+        o.userData?.baseOpacity ??
+        (o.userData?.kind === "slab" ? 1 : roomDefault);
+      if (alerting) target = Math.max(target, 0.92);
+    } else if (alerting) {
+      return;
+    } else {
+      target = NON_FOCUS_OPACITY;
+    }
+    setLayerMaterialOpacity(o, target, false);
+    if (o.material && !Array.isArray(o.material) && o.material.opacity != null) {
+      o.material.opacity = target;
+    }
+    if (Array.isArray(o.material)) {
+      for (const m of o.material) {
+        if (m) {
+          m.transparent = true;
+          m.opacity = target;
+        }
+      }
+    }
+  });
+}
+
+function applyAllLayerFocusVisual(drawIds, focusId) {
+  for (const fid of drawIds) {
+    applyLayerFocusVisual(fid, fid === focusId);
+  }
+}
+
+function setLayerTargets(positions) {
+  layerAnim.targets.clear();
+  for (const [fid, y] of Object.entries(positions)) {
+    layerAnim.targets.set(fid, y);
+  }
+  layerAnim.active = layerAnim.targets.size > 0;
+}
+
+function configureCameraForFocus(
+  positions,
+  focusY,
+  wallH,
+  expand,
+  elevDeg,
+  boot = false
+) {
+  if (!camera || !controls) return;
+  const elev = (elevDeg * Math.PI) / 180;
+  const dist = cameraDistanceForLayout(positions, wallH, expand);
+  const horiz = dist * Math.cos(elev);
+  const camY = dist * Math.sin(elev) + focusY * 0.38;
+  const desiredTargetY = focusY + 1.05;
+  controls.minPolarAngle = Math.PI / 2 - (CAM_ELEV_MAX * Math.PI) / 180;
+  controls.maxPolarAngle = Math.PI / 2 - (CAM_ELEV_MIN * Math.PI) / 180;
+  controls.minDistance = 12;
+  controls.maxDistance = 68;
+  if (boot) {
+    const k = Math.SQRT1_2;
+    camera.position.set(horiz * k, camY, horiz * k);
+    controls.target.set(0, desiredTargetY, 0);
+    cameraBootstrapped = true;
+    focusAnim.active = false;
+  } else {
+    focusAnim.targetY = desiredTargetY;
+    focusAnim.camBaseY = camY;
+    focusAnim.active = true;
+  }
+  controls.update();
+}
+
+function syncFloorTabs(floorId) {
+  document.querySelectorAll("#sf-floor-tabs [data-floor]").forEach((btn) => {
+    btn.classList.toggle(
+      "is-on",
+      btn.getAttribute("data-floor") === floorId
+    );
+  });
+}
+
 function inferAlertTier() {
   const outdoorAlert =
     roomsForFloor("outdoor").some((r) => r.alertVisible) ||
@@ -446,14 +636,14 @@ function ensureScene() {
   const h = mountEl.clientHeight || 360;
 
   scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(BG, 42, 95);
+  scene.fog = new THREE.Fog(BG, 48, 110);
   scene.background = new THREE.Color(BG);
 
-  camera = new THREE.PerspectiveCamera(42, w / h, 0.1, 200);
+  camera = new THREE.PerspectiveCamera(CAM_FOV, w / h, 0.1, 220);
   /* 上空斜め ~52° の仮置き（rebuild で正式配置） */
   {
     const elev0 = (CAM_ELEV_DEFAULT * Math.PI) / 180;
-    const d0 = 22;
+    const d0 = CAM_DIST_MIN;
     const h0 = d0 * Math.cos(elev0) * Math.SQRT1_2;
     camera.position.set(h0, d0 * Math.sin(elev0), h0);
   }
@@ -483,8 +673,8 @@ function ensureScene() {
   /* 仰角 45–55° 帯にロック（水平潰れ防止） */
   controls.minPolarAngle = Math.PI / 2 - (CAM_ELEV_MAX * Math.PI) / 180;
   controls.maxPolarAngle = Math.PI / 2 - (CAM_ELEV_MIN * Math.PI) / 180;
-  controls.minDistance = 10;
-  controls.maxDistance = 52;
+  controls.minDistance = 12;
+  controls.maxDistance = 68;
   controls.enablePan = true;
   /* ホイールは階層ドラムへ。ズームはピンチ（2本指） */
   controls.enableZoom = false;
@@ -579,6 +769,24 @@ function animate() {
       camera.position.y = desiredCamY;
       focusAnim.active = false;
     }
+  }
+
+  /* 階層 Y スライド追従 */
+  if (layerAnim.active && buildingGroup) {
+    let moving = false;
+    for (const child of buildingGroup.children) {
+      const fid = child.userData?.floorId;
+      const target = layerAnim.targets.get(fid);
+      if (target == null) continue;
+      const dy = target - child.position.y;
+      if (Math.abs(dy) > 0.025) {
+        child.position.y += dy * Math.min(1, dt * 6.2);
+        moving = true;
+      } else {
+        child.position.y = target;
+      }
+    }
+    layerAnim.active = moving;
   }
 
   if (controls) controls.update();
@@ -747,7 +955,7 @@ function addFloorLayer(floorId, yBase, wallH, isFocus) {
   slab.position.y = 0.09;
   slab.receiveShadow = true;
   slab.castShadow = true;
-  slab.userData = { kind: "slab", floorId };
+  slab.userData = { kind: "slab", floorId, baseOpacity: 1 };
   layer.add(slab);
 
   /* スラブ外周のダークアウトライン（マス目との境界を明確化） */
@@ -832,7 +1040,13 @@ function addFloorLayer(floorId, yBase, wallH, isFocus) {
     );
     mesh.castShadow = true;
     mesh.receiveShadow = true;
-    mesh.userData = { roomId: r.id, kind: "room", alerting, floorId };
+    mesh.userData = {
+      roomId: r.id,
+      kind: "room",
+      alerting,
+      floorId,
+      baseOpacity: mat.opacity,
+    };
     layer.add(mesh);
 
     /* 外壁フレーム風エッジ（シャープなダークスレート） */
@@ -928,22 +1142,18 @@ function addFloorLayer(floorId, yBase, wallH, isFocus) {
 
   if (!isFocus) {
     layer.traverse((o) => {
-      if (o.material && o.material.opacity != null && !o.userData?.alerting) {
-        o.material.transparent = true;
-        o.material.opacity = Math.min(o.material.opacity, 0.34);
-      }
-      if (Array.isArray(o.material)) {
-        for (const m of o.material) {
-          if (m && m.opacity != null && !o.userData?.alerting) {
-            m.transparent = true;
-            m.opacity = Math.min(m.opacity, 0.34);
-          }
-        }
+      if (o.userData?.alerting) return;
+      setLayerMaterialOpacity(o, NON_FOCUS_OPACITY, false);
+      if (o.isCSS2DObject && o.element) {
+        o.element.style.opacity = String(NON_FOCUS_OPACITY);
       }
     });
   } else {
-    /* フォーカス階をわずかに手前へ（立体分離の強調） */
-    layer.position.y = yBase + 0.12;
+    layer.traverse((o) => {
+      if (o.isCSS2DObject && o.element) {
+        o.element.style.opacity = "1";
+      }
+    });
   }
 
   buildingGroup.add(layer);
@@ -963,49 +1173,37 @@ function rebuild() {
   const expand = Math.min(1, Math.max(0, state.stackExpand));
   const focusId = state.floorId || "1f";
 
-  let floorIds = orderedFloorIds().filter(
-    (id) => floorHasContent(id) || id === focusId
+  const drawIds = drawFloorIds(focusId, expand);
+
+  const { positions, focusY } = computeLayerLayout(
+    drawIds,
+    focusId,
+    wallH,
+    expand
   );
-  if (!floorIds.length) floorIds = [focusId];
 
-  /* 展開=0 ならフォーカス階のみ、展開時は全階スタック */
-  const drawIds =
-    expand < 0.08
-      ? [focusId]
-      : floorIds;
-
-  drawIds.forEach((fid, i) => {
-    const yBase = i * STACK_GAP * expand;
-    addFloorLayer(fid, yBase, wallH, fid === focusId);
+  drawIds.forEach((fid) => {
+    addFloorLayer(fid, positions[fid] ?? 0, wallH, fid === focusId);
   });
 
   const elevDeg = opts.cameraElevationDeg;
-  const elev = (elevDeg * Math.PI) / 180;
-  const dist = 20 + expand * 8;
-  const focusIdx = Math.max(0, drawIds.indexOf(focusId));
-  const focusY = focusIdx * STACK_GAP * expand;
-  const midY = ((drawIds.length - 1) * STACK_GAP * expand) / 2;
-  /* 水平距離を正しく取り、45°アジマスの真の仰角を維持 */
-  const horiz = dist * Math.cos(elev);
-  const camY = dist * Math.sin(elev) + focusY * 0.42;
-  const desiredTargetY = focusY + 1.05;
+  const midY =
+    drawIds.length > 1
+      ? (Math.max(...Object.values(positions)) +
+          Math.min(...Object.values(positions))) /
+        2
+      : focusY;
 
-  if (camera && controls) {
-    controls.minPolarAngle = Math.PI / 2 - (CAM_ELEV_MAX * Math.PI) / 180;
-    controls.maxPolarAngle = Math.PI / 2 - (CAM_ELEV_MIN * Math.PI) / 180;
-    if (!cameraBootstrapped) {
-      const k = Math.SQRT1_2;
-      camera.position.set(horiz * k, camY, horiz * k);
-      controls.target.set(0, desiredTargetY, 0);
-      cameraBootstrapped = true;
-      focusAnim.active = false;
-    } else {
-      focusAnim.targetY = desiredTargetY;
-      focusAnim.camBaseY = camY;
-      focusAnim.active = true;
-    }
-    controls.update();
-  }
+  configureCameraForFocus(
+    positions,
+    focusY,
+    wallH,
+    expand,
+    elevDeg,
+    !cameraBootstrapped
+  );
+  setLayerTargets(positions);
+
   if (spotLight) {
     spotLight.target.position.set(0, midY, 0);
   }
@@ -1015,6 +1213,7 @@ function rebuild() {
 
   syncHud(focusId);
   syncOrbitDataFocus(focusId);
+  syncFloorTabs(focusId);
   syncStackSlider();
   syncAlertHud();
 }
@@ -1129,7 +1328,38 @@ export async function updateSecurityIso3d(site, floorId, opts = {}) {
 
 export function setSecurityIso3dFloor(floorId) {
   if (!floorId) return;
+  const prev = state.floorId;
   state.floorId = floorId;
+  const expand = Math.min(1, Math.max(0, state.stackExpand));
+  const drawIds = drawFloorIds(floorId, expand);
+  if (
+    buildingGroup?.children.length &&
+    drawIds.length &&
+    prev !== floorId
+  ) {
+    const opts = renderOpts();
+    const wallH = opts.wallHeight;
+    const { positions, focusY } = computeLayerLayout(
+      drawIds,
+      floorId,
+      wallH,
+      expand
+    );
+    setLayerTargets(positions);
+    applyAllLayerFocusVisual(drawIds, floorId);
+    configureCameraForFocus(
+      positions,
+      focusY,
+      wallH,
+      expand,
+      opts.cameraElevationDeg,
+      false
+    );
+    syncHud(floorId);
+    syncOrbitDataFocus(floorId);
+    syncFloorTabs(floorId);
+    return;
+  }
   rebuild();
 }
 

@@ -6,6 +6,10 @@
 
 const DRUM_ORDER = ["2f", "1f", "outdoor"];
 
+const DRUM_SWIPE_DURING = 36;
+const DRUM_SWIPE_RELEASE = 30;
+const DRUM_MODE_LOCK = 10;
+
 const drum = {
   dragging: false,
   lastY: 0,
@@ -143,7 +147,7 @@ function onPointerMove(e) {
 
   if (drum.onIso3d) {
     if (!drum.mode) {
-      if (Math.abs(drum.accY) > 14 || Math.abs(drum.accX) > 14) {
+      if (Math.abs(drum.accY) > DRUM_MODE_LOCK || Math.abs(drum.accX) > DRUM_MODE_LOCK) {
         drum.mode =
           Math.abs(drum.accY) > Math.abs(drum.accX) * 1.15 ? "floor" : "orbit";
         if (drum.mode === "floor") {
@@ -154,10 +158,10 @@ function onPointerMove(e) {
     }
     if (drum.mode === "floor") {
       if (e.cancelable) e.preventDefault();
-      if (drum.accY > 48) {
+      if (drum.accY > DRUM_SWIPE_DURING) {
         stepFloor(1);
         drum.accY = 0;
-      } else if (drum.accY < -48) {
+      } else if (drum.accY < -DRUM_SWIPE_DURING) {
         stepFloor(-1);
         drum.accY = 0;
       }
@@ -172,8 +176,8 @@ function onPointerUp(e) {
   if (!drum.dragging) return;
   if (drum.pointerId != null && e.pointerId !== drum.pointerId) return;
   if (!drum.onIso3d || drum.mode === "floor") {
-    if (drum.accY > 42) stepFloor(1);
-    else if (drum.accY < -42) stepFloor(-1);
+    if (drum.accY > DRUM_SWIPE_RELEASE) stepFloor(1);
+    else if (drum.accY < -DRUM_SWIPE_RELEASE) stepFloor(-1);
   }
   setOrbitRotate(true);
   drum.dragging = false;
