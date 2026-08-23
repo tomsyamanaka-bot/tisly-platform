@@ -214,6 +214,30 @@ export interface HomeIntercomV1 {
   visitors: HomeIntercomVisitorV1[];
 }
 
+/** SwitchBot 連動スイッチ系（照明・AV・プラグ等） */
+export type HomeIotSwitchKindV1 =
+  | "ceiling"
+  | "tv"
+  | "humidifier"
+  | "plug";
+
+export interface HomeIotSwitchV1 {
+  deviceKey: string;
+  label: string;
+  kind: HomeIotSwitchKindV1;
+  power: boolean;
+  updatedAt?: string | null;
+}
+
+/** SwitchBot 温湿度計 */
+export interface HomeMeterSensorV1 {
+  deviceKey: string;
+  label: string;
+  temperatureC: number | null;
+  humidityPercent: number | null;
+  syncedAt?: string | null;
+}
+
 /** 住設統合物件 */
 export interface HomeSiteV1 {
   id: string;
@@ -242,6 +266,10 @@ export interface HomeSiteV1 {
   aircons: HomeAirconV1[];
   lock: HomeSmartLockV1;
   intercom: HomeIntercomV1;
+  /** SwitchBot 照明・TV・加湿器・プラグ（未設定は空） */
+  iotSwitches?: HomeIotSwitchV1[];
+  /** SwitchBot 温湿度計（未設定は null） */
+  meter?: HomeMeterSensorV1 | null;
   notes: string[];
 }
 
@@ -860,9 +888,43 @@ export const HOME_SITES_V1: HomeSiteV1[] = [
       unlockLinkEnabled: true,
       visitors: [],
     },
+    iotSwitches: [
+      {
+        deviceKey: "ceiling-yoma",
+        label: "洋間 シーリング",
+        kind: "ceiling",
+        power: false,
+      },
+      {
+        deviceKey: "tv-1",
+        label: "テレビ1",
+        kind: "tv",
+        power: false,
+      },
+      {
+        deviceKey: "humidifier-yoma",
+        label: "加湿器",
+        kind: "humidifier",
+        power: false,
+      },
+      {
+        deviceKey: "plug-three",
+        label: "スリー電源",
+        kind: "plug",
+        power: false,
+      },
+    ],
+    meter: {
+      deviceKey: "meter-52",
+      label: "温湿度計 52",
+      temperatureC: null,
+      humidityPercent: null,
+      syncedAt: null,
+    },
     notes: [
       "実機: Waveshare RP2350-POE-ETH-8DI-8RO",
-      "風呂は DO CH1 の 0.5 秒ワンショットのみ対応",
+      "風呂は SwitchBot Bot「風呂 自動」press（失敗時は RP2350 DO CH1）",
+      "SwitchBot: ロック / エアコン / シーリング / 温湿度 / TV / 加湿器 / スリー電源",
     ],
   },
 ];

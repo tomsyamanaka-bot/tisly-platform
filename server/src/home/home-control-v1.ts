@@ -18,16 +18,19 @@ import {
   type HomeAirconV1,
   type HomeCredentialTypeV1,
   type HomeIntercomVisitorV1,
+  type HomeIotSwitchV1,
   type HomeSiteV1,
 } from "./home-sites-v1.js";
 import {
   getSwitchBotHomeEnvV1,
-  isSwitchBotAirconConfiguredV1,
-  isSwitchBotLockConfiguredV1,
+  isSwitchBotHomeConfiguredV1,
   sendSwitchBotAirconPowerV1,
   sendSwitchBotAirconSetAllV1,
+  sendSwitchBotBotPressV1,
   sendSwitchBotLockCommandV1,
+  sendSwitchBotPowerCommandV1,
 } from "./switchbot_client.js";
+import { resolveHomeSwitchBotMapV1 } from "./home-switchbot-map-v1.js";
 import {
   toggleOneshotBathFillV1,
   hydrateHomeBathStateV1,
@@ -42,7 +45,8 @@ export type HomeControlTargetV1 =
   | "aircon"
   | "lock"
   | "intercom"
-  | "security_light";
+  | "security_light"
+  | "iot";
 
 export interface HomeControlInputV1 {
   siteId: string;
@@ -278,6 +282,27 @@ function isPrimarySwitchBotAirconV1(ac: HomeAirconV1): boolean {
   return ac.deviceKey === "ac-living";
 }
 
+async function dispatchLockToSwitchBotV1(
+  nextLocked: boolean
+): Promise<{ used: boolean; note?: string }> {
+  const env = getSwitchBotHomeEnvV1();
+  const map = await resolveHomeSwitchBotMapV1({ env });
+  const lockId = map.lock || env.lockDeviceId;
+  if (!isSwitchBotHomeConfiguredV1(env) || !lockId) {
+    return { used: false };
+  }
+  const command = nextLocked ? "lock" : "unlock";
+  const result = await sendSwitchBotLockCommandV1(command, lockId, env);
+  if (result.skipped) return { used: false };
+  if (!result.ok) {
+    return {
+      used: true,
+      note: `（SwitchBot: ${result.error} → モック反映）`,
+    };
+  }
+  return { used: true, note: "（SwitchBot 送信）" };
+}
+
 async function dispatchAirconToSwitchBotV1(
   ac: HomeAirconV1,
   action: string
@@ -286,22 +311,22 @@ async function dispatchAirconToSwitchBotV1(
     return { used: false };
   }
   const env = getSwitchBotHomeEnvV1();
-  if (!isSwitchBotAirconConfiguredV1(env)) {
+  const map = await resolveHomeSwitchBotMapV1({ env });
+  const acId = map.aircon || env.airConditionerDeviceId;
+  if (!isSwitchBotHomeConfiguredV1(env) || !acId) {
     return { used: false };
   }
 
-  // 電源のみは turnOn / turnOff、それ以外（温度・モード含む）は setAll
   if (action === "power") {
     const powerResult = await sendSwitchBotAirconPowerV1(
       ac.power,
-      env.airConditionerDeviceId,
+      acId,
       env
     );
     if (powerResult.skipped) return { used: false };
     if (!powerResult.ok) {
-      // 失敗時は setAll へフォールバック試行
       const setAll = await sendSwitchBotAirconSetAllV1({
-        deviceId: env.airConditionerDeviceId,
+        deviceId: acId,
         temperatureC: ac.setTempC,
         mode: ac.mode,
         fan: ac.fan,
@@ -328,7 +353,7 @@ async function dispatchAirconToSwitchBotV1(
     action === "peak_save"
   ) {
     const setAll = await sendSwitchBotAirconSetAllV1({
-      deviceId: env.airConditionerDeviceId,
+      deviceId: acId,
       temperatureC: ac.setTempC,
       mode: ac.mode,
       fan: ac.fan,
@@ -346,6 +371,309 @@ async function dispatchAirconToSwitchBotV1(
   }
 
   return { used: false };
+}
+
+function findIotSwitchV1(
+  site: HomeSiteV1,
+  deviceKey: string | null | undefined
+): HomeIotSwitchV1 | null {
+  const key = String(deviceKey || "").trim();
+  if (!key || !site.iotSwitches?.length) return null;
+  return site.iotSwitches.find((s) => s.deviceKey === key) ?? null;
+}
+
+/** IoT スイッチ（シーリング / TV / 加湿器 / スリー電源）ローカル更新 */
+export function applyHomeIotControlV1(
+  site: HomeSiteV1,
+  deviceKey: string | null | undefined,
+  action: string,
+  value: unknown
+): HomeControlResultV1 {
+  const sw = findIotSwitchV1(site, deviceKey);
+  if (!sw) return { ok: false, error: "IoT デバイスが見つかりません" };
+  if (action !== "power" && action !== "toggle") {
+    return { ok: false, error: "未対応の IoT 操作です" };
+  }
+  const next =
+    action === "toggle" ? !sw.power : toBool(value, !sw.power);
+  sw.power = next;
+  sw.updatedAt = nowIso();
+  return {
+    ok: true,
+    message: next
+      ? `${sw.label} を ON にしました`
+      : `${sw.label} を OFF にしました`,
+    state: sw,
+  };
+}
+
+async function dispatchIotToSwitchBotV1(
+  sw: HomeIotSwitchV1
+): Promise<{ used: boolean; note?: string }> {
+  const env = getSwitchBotHomeEnvV1();
+  const map = await resolveHomeSwitchBotMapV1({ env });
+  const roleByKey: Record<string, "ceiling" | "tv" | "humidifier" | "plug"> =
+    {
+      "ceiling-yoma": "ceiling",
+      "tv-1": "tv",
+      "humidifier-yoma": "humidifier",
+      "plug-three": "plug",
+    };
+  const role = roleByKey[sw.deviceKey];
+  const deviceId = role ? String(map[role] || "").trim() : "";
+  if (!deviceId) return { used: false };
+  const result = await sendSwitchBotPowerCommandV1(deviceId, sw.power, env);
+  if (result.skipped) return { used: false };
+  if (!result.ok) {
+    return {
+      used: true,
+      note: `（SwitchBot: ${result.error} → モック反映）`,
+    };
+  }
+  return { used: true, note: "（SwitchBot 送信）" };
+}
+
+/**
+ * 風呂 oneshot: SwitchBot Bot press を優先。失敗時は RP2350 へフォールバック。
+ */
+async function dispatchBathBotOrRelayV1(
+  site: HomeSiteV1,
+  action: string,
+  value: unknown
+): Promise<HomeControlResultV1> {
+  const oneshot =
+    site.bath.uiProfile === "oneshot_autofill" ||
+    site.operationMode === "live";
+  if (!(oneshot && action === "auto_fill")) {
+    return applyHomeBathControlV1(site, action, value);
+  }
+
+  const env = getSwitchBotHomeEnvV1();
+  const map = await resolveHomeSwitchBotMapV1({ env });
+  const botId = String(map.bathBot || "").trim();
+  if (botId) {
+    const press = await sendSwitchBotBotPressV1(botId, env);
+    if (press.ok) {
+      // Bot 成功時は RP2350 を叩かず UI 状態のみ更新
+      syncBathEstimationForSiteV1(site);
+      hydrateHomeBathStateV1(site.id);
+      const filling =
+        site.bath.fillState === "filling" || site.bath.autoFill;
+      if (filling) {
+        site.bath.fillState = "idle";
+        site.bath.autoFill = false;
+        site.bath.fillPercent = 0;
+        site.bath.fillStartedAt = null;
+        site.bath.fillEstimatedEndAt = null;
+        site.bath.lastPulseMessage = "Bot 押下（停止）送信完了";
+      } else {
+        const startedAt = nowIso();
+        site.bath.fillState = "filling";
+        site.bath.autoFill = true;
+        site.bath.fillPercent = 5;
+        site.bath.fillStartedAt = startedAt;
+        site.bath.fillEstimatedEndAt = new Date(
+          Date.now() + 30 * 60 * 1000
+        ).toISOString();
+        site.bath.lastPulseMessage =
+          "湯はり指令送信完了（SwitchBot Bot）";
+      }
+      return {
+        ok: true,
+        message: `${site.bath.lastPulseMessage}（SwitchBot press）`,
+        state: site.bath,
+      };
+    }
+    // Bot 失敗 → RP2350 フォールバック
+    const fallback = applyHomeBathControlV1(site, action, value);
+    if (fallback.ok && fallback.message) {
+      return {
+        ...fallback,
+        message: `${fallback.message}（SwitchBot Bot 失敗 → RP2350）`,
+      };
+    }
+    return fallback;
+  }
+
+  return applyHomeBathControlV1(site, action, value);
+}
+
+function normalizeCredentialV1(value: unknown): HomeCredentialTypeV1 {
+  const raw =
+    typeof value === "object" && value !== null
+      ? String((value as { credentialType?: string }).credentialType ?? "")
+      : "";
+  const allowed: HomeCredentialTypeV1[] = [
+    "nfc",
+    "rfid",
+    "pin",
+    "app",
+    "key",
+  ];
+  return allowed.includes(raw as HomeCredentialTypeV1)
+    ? (raw as HomeCredentialTypeV1)
+    : "app";
+}
+
+/**
+ * 統合制御エントリポイント
+ * PWA からの1タップ操作はここへ集約する。
+ * ロック / エアコン / IoT は設定時に SwitchBot へ非同期送信する。
+ */
+export async function applyHomeControlV1(
+  input: HomeControlInputV1
+): Promise<HomeControlResultV1> {
+  const siteId = String(input.siteId || "").trim();
+  const site = findHomeSiteV1(siteId);
+  if (!site || site.id !== siteId) {
+    return { ok: false, error: "物件が見つかりません" };
+  }
+  const action = String(input.action || "").trim();
+  if (!action) {
+    return { ok: false, error: "action が必要です" };
+  }
+
+  let result: HomeControlResultV1;
+  switch (input.target) {
+    case "circuit": {
+      const circuitId = String(input.deviceKey || "").trim();
+      const on = toBool(input.value, true);
+      const updated = setHomeCircuitStateV1(site.id, circuitId, on);
+      result = updated
+        ? {
+            ok: true,
+            message: on
+              ? "回路を通電しました"
+              : "回路を遮断しました",
+            state: updated.ct,
+          }
+        : { ok: false, error: "回路が見つかりません" };
+      break;
+    }
+    case "bath":
+      result = await dispatchBathBotOrRelayV1(site, action, input.value);
+      break;
+    case "aircon": {
+      result = applyHomeAirconControlV1(
+        site,
+        input.deviceKey,
+        action,
+        input.value
+      );
+      if (result.ok && result.state) {
+        const ac = result.state as HomeAirconV1;
+        try {
+          const sb = await dispatchAirconToSwitchBotV1(ac, action);
+          if (sb.note && result.message) {
+            result = { ...result, message: `${result.message}${sb.note}` };
+          }
+        } catch {
+          if (result.message) {
+            result = {
+              ...result,
+              message: `${result.message}（SwitchBot 通信エラー → モック反映）`,
+            };
+          }
+        }
+      }
+      break;
+    }
+    case "iot": {
+      result = applyHomeIotControlV1(
+        site,
+        input.deviceKey,
+        action,
+        input.value
+      );
+      if (result.ok && result.state) {
+        const sw = result.state as HomeIotSwitchV1;
+        try {
+          const sb = await dispatchIotToSwitchBotV1(sw);
+          if (sb.note && result.message) {
+            result = { ...result, message: `${result.message}${sb.note}` };
+          }
+        } catch {
+          if (result.message) {
+            result = {
+              ...result,
+              message: `${result.message}（SwitchBot 通信エラー → モック反映）`,
+            };
+          }
+        }
+      }
+      break;
+    }
+    case "lock": {
+      if (action !== "toggle" && action !== "lock" && action !== "unlock") {
+        result = { ok: false, error: "未対応の施錠操作です" };
+        break;
+      }
+      const nextLocked =
+        action === "toggle" ? !site.lock.locked : action === "lock";
+      let sbNote = "";
+      try {
+        const sb = await dispatchLockToSwitchBotV1(nextLocked);
+        if (sb.note) sbNote = sb.note;
+      } catch {
+        sbNote = "（SwitchBot 通信エラー → モック反映）";
+      }
+      result = applyHomeLockControlV1(
+        site,
+        nextLocked ? "lock" : "unlock",
+        input.value,
+        input.actor
+      );
+      if (result.ok && sbNote && result.message) {
+        result = { ...result, message: `${result.message}${sbNote}` };
+      }
+      break;
+    }
+    case "security_light": {
+      result = applyHomeSecurityLightControlV1({
+        siteId: site.id,
+        action,
+        actor: input.actor,
+      });
+      break;
+    }
+    case "intercom": {
+      result = applyHomeIntercomControlV1(
+        site,
+        action,
+        input.value,
+        input.actor
+      );
+      if (result.ok && action === "unlock_door") {
+        let sbNote = "";
+        try {
+          const sb = await dispatchLockToSwitchBotV1(false);
+          if (sb.note) sbNote = sb.note;
+        } catch {
+          sbNote = "（SwitchBot 通信エラー → モック反映）";
+        }
+        applyHomeLockControlV1(
+          site,
+          "unlock",
+          { credentialType: "app" },
+          input.actor || "インターホン応答"
+        );
+        if (sbNote && result.message) {
+          result = { ...result, message: `${result.message}${sbNote}` };
+        }
+      }
+      break;
+    }
+    default:
+      result = { ok: false, error: "未対応の制御対象です" };
+  }
+
+  return {
+    ...result,
+    siteId: site.id,
+    target: input.target,
+    action,
+    deviceKey: input.deviceKey ?? null,
+  };
 }
 
 /** エアコン制御（ローカル状態更新。実機送信は applyHomeControlV1 側） */
@@ -604,183 +932,4 @@ export function applyHomeIntercomControlV1(
     default:
       return { ok: false, error: "未対応のインターホン操作です" };
   }
-}
-
-async function dispatchLockToSwitchBotV1(
-  nextLocked: boolean
-): Promise<{ used: boolean; note?: string }> {
-  const env = getSwitchBotHomeEnvV1();
-  if (!isSwitchBotLockConfiguredV1(env)) {
-    return { used: false };
-  }
-  const command = nextLocked ? "lock" : "unlock";
-  const result = await sendSwitchBotLockCommandV1(
-    command,
-    env.lockDeviceId,
-    env
-  );
-  if (result.skipped) return { used: false };
-  if (!result.ok) {
-    return {
-      used: true,
-      note: `（SwitchBot: ${result.error} → モック反映）`,
-    };
-  }
-  return { used: true, note: "（SwitchBot 送信）" };
-}
-
-function normalizeCredentialV1(value: unknown): HomeCredentialTypeV1 {
-  const raw =
-    typeof value === "object" && value !== null
-      ? String((value as { credentialType?: string }).credentialType ?? "")
-      : "";
-  const allowed: HomeCredentialTypeV1[] = [
-    "nfc",
-    "rfid",
-    "pin",
-    "app",
-    "key",
-  ];
-  return allowed.includes(raw as HomeCredentialTypeV1)
-    ? (raw as HomeCredentialTypeV1)
-    : "app";
-}
-
-/**
- * 統合制御エントリポイント
- * PWA からの1タップ操作はここへ集約する。
- * ロック / エアコンは設定時に SwitchBot へ非同期送信する。
- */
-export async function applyHomeControlV1(
-  input: HomeControlInputV1
-): Promise<HomeControlResultV1> {
-  const siteId = String(input.siteId || "").trim();
-  const site = findHomeSiteV1(siteId);
-  if (!site || site.id !== siteId) {
-    return { ok: false, error: "物件が見つかりません" };
-  }
-  const action = String(input.action || "").trim();
-  if (!action) {
-    return { ok: false, error: "action が必要です" };
-  }
-
-  let result: HomeControlResultV1;
-  switch (input.target) {
-    case "circuit": {
-      const circuitId = String(input.deviceKey || "").trim();
-      const on = toBool(input.value, true);
-      const updated = setHomeCircuitStateV1(site.id, circuitId, on);
-      result = updated
-        ? {
-            ok: true,
-            message: on
-              ? "回路を通電しました"
-              : "回路を遮断しました",
-            state: updated.ct,
-          }
-        : { ok: false, error: "回路が見つかりません" };
-      break;
-    }
-    case "bath":
-      result = applyHomeBathControlV1(site, action, input.value);
-      break;
-    case "aircon": {
-      result = applyHomeAirconControlV1(
-        site,
-        input.deviceKey,
-        action,
-        input.value
-      );
-      if (result.ok && result.state) {
-        const ac = result.state as HomeAirconV1;
-        try {
-          const sb = await dispatchAirconToSwitchBotV1(ac, action);
-          if (sb.note && result.message) {
-            result = { ...result, message: `${result.message}${sb.note}` };
-          }
-        } catch {
-          // 実機失敗でもモック状態は維持（クラッシュ防止）
-          if (result.message) {
-            result = {
-              ...result,
-              message: `${result.message}（SwitchBot 通信エラー → モック反映）`,
-            };
-          }
-        }
-      }
-      break;
-    }
-    case "lock": {
-      // 先に目標状態を決め、実機送信 → ローカル更新
-      if (action !== "toggle" && action !== "lock" && action !== "unlock") {
-        result = { ok: false, error: "未対応の施錠操作です" };
-        break;
-      }
-      const nextLocked =
-        action === "toggle" ? !site.lock.locked : action === "lock";
-      let sbNote = "";
-      try {
-        const sb = await dispatchLockToSwitchBotV1(nextLocked);
-        if (sb.note) sbNote = sb.note;
-      } catch {
-        sbNote = "（SwitchBot 通信エラー → モック反映）";
-      }
-      result = applyHomeLockControlV1(
-        site,
-        nextLocked ? "lock" : "unlock",
-        input.value,
-        input.actor
-      );
-      if (result.ok && sbNote && result.message) {
-        result = { ...result, message: `${result.message}${sbNote}` };
-      }
-      break;
-    }
-    case "security_light": {
-      result = applyHomeSecurityLightControlV1({
-        siteId: site.id,
-        action,
-        actor: input.actor,
-      });
-      break;
-    }
-    case "intercom": {
-      result = applyHomeIntercomControlV1(
-        site,
-        action,
-        input.value,
-        input.actor
-      );
-      // 「玄関鍵を開ける」はスマートロックへ連動
-      if (result.ok && action === "unlock_door") {
-        let sbNote = "";
-        try {
-          const sb = await dispatchLockToSwitchBotV1(false);
-          if (sb.note) sbNote = sb.note;
-        } catch {
-          sbNote = "（SwitchBot 通信エラー → モック反映）";
-        }
-        applyHomeLockControlV1(
-          site,
-          "unlock",
-          { credentialType: "app" },
-          input.actor || "インターホン応答"
-        );
-        if (sbNote && result.message) {
-          result = { ...result, message: `${result.message}${sbNote}` };
-        }
-      }
-      break;
-    }
-    default:
-      result = { ok: false, error: "未対応の制御対象です" };
-  }
-
-  return {
-    ...result,
-    siteId: site.id,
-    target: input.target,
-    action,
-    deviceKey: input.deviceKey ?? null,
-  };
 }

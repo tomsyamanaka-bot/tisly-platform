@@ -143,6 +143,25 @@ export interface HomeIntercomViewV1 {
   }>;
 }
 
+export interface HomeIotSwitchViewV1 {
+  deviceKey: string;
+  label: string;
+  kind: string;
+  power: boolean;
+  powerLabel: string;
+  updatedAt: string | null;
+}
+
+export interface HomeMeterViewV1 {
+  deviceKey: string;
+  label: string;
+  temperatureC: number | null;
+  humidityPercent: number | null;
+  tempLabel: string;
+  humidityLabel: string;
+  syncedAt: string | null;
+}
+
 export interface HomeSiteDashboardV1 {
   siteId: string;
   displayName: string;
@@ -165,6 +184,8 @@ export interface HomeSiteDashboardV1 {
   aircons: HomeAirconViewV1[];
   lock: HomeLockViewV1;
   intercom: HomeIntercomViewV1;
+  iotSwitches: HomeIotSwitchViewV1[];
+  meter: HomeMeterViewV1 | null;
   activeAirconCount: number;
   intercomRinging: boolean;
   notes: string[];
@@ -449,6 +470,33 @@ const STATUS_META_V1: Record<
   security_alert: { emoji: "🔴", label: "玄関を確認してください" },
 };
 
+function buildIotSwitchViewsV1(site: HomeSiteV1): HomeIotSwitchViewV1[] {
+  return (site.iotSwitches ?? []).map((sw) => ({
+    deviceKey: sw.deviceKey,
+    label: sw.label,
+    kind: sw.kind,
+    power: sw.power,
+    powerLabel: sw.power ? "ON" : "OFF",
+    updatedAt: sw.updatedAt ?? null,
+  }));
+}
+
+function buildMeterViewV1(site: HomeSiteV1): HomeMeterViewV1 | null {
+  if (!site.meter) return null;
+  const t = site.meter.temperatureC;
+  const h = site.meter.humidityPercent;
+  return {
+    deviceKey: site.meter.deviceKey,
+    label: site.meter.label,
+    temperatureC: t,
+    humidityPercent: h,
+    tempLabel: t === null || t === undefined ? "—" : `${t.toFixed(1)}℃`,
+    humidityLabel:
+      h === null || h === undefined ? "—" : `${Math.round(h)}%`,
+    syncedAt: site.meter.syncedAt ?? null,
+  };
+}
+
 /** 1物件分のダッシュボード */
 export function buildHomeSiteDashboardV1(
   site: HomeSiteV1
@@ -477,6 +525,8 @@ export function buildHomeSiteDashboardV1(
     aircons: buildAirconViewsV1(site),
     lock: buildLockViewV1(site),
     intercom: buildIntercomViewV1(site),
+    iotSwitches: buildIotSwitchViewsV1(site),
+    meter: buildMeterViewV1(site),
     activeAirconCount: homeActiveAirconCountV1(site),
     intercomRinging: homeIntercomRingingV1(site),
     notes: [...site.notes],

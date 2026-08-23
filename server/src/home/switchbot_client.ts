@@ -16,6 +16,12 @@ export interface SwitchBotHomeEnvV1 {
   secret: string;
   lockDeviceId: string;
   airConditionerDeviceId: string;
+  ceilingDeviceId: string;
+  bathBotDeviceId: string;
+  meterDeviceId: string;
+  tvDeviceId: string;
+  humidifierDeviceId: string;
+  plugDeviceId: string;
 }
 
 export interface SwitchBotDeviceV1 {
@@ -59,6 +65,12 @@ export function getSwitchBotHomeEnvV1(): SwitchBotHomeEnvV1 {
     airConditionerDeviceId: envTrim(
       "SWITCHBOT_AIR_CONDITIONER_DEVICE_ID"
     ),
+    ceilingDeviceId: envTrim("SWITCHBOT_CEILING_DEVICE_ID"),
+    bathBotDeviceId: envTrim("SWITCHBOT_BATH_BOT_DEVICE_ID"),
+    meterDeviceId: envTrim("SWITCHBOT_METER_DEVICE_ID"),
+    tvDeviceId: envTrim("SWITCHBOT_TV_DEVICE_ID"),
+    humidifierDeviceId: envTrim("SWITCHBOT_HUMIDIFIER_DEVICE_ID"),
+    plugDeviceId: envTrim("SWITCHBOT_PLUG_DEVICE_ID"),
   };
 }
 
@@ -95,6 +107,15 @@ export interface SwitchBotHomeStatusV1 {
   /** deviceId は末尾4文字のみ（トークン類は一切返さない） */
   lockDeviceIdMask: string;
   airConditionerDeviceIdMask: string;
+  /** 追加デバイス（env 明示 or 名前解決後に埋まる） */
+  extrasConfigured: {
+    ceiling: boolean;
+    bathBot: boolean;
+    meter: boolean;
+    tv: boolean;
+    humidifier: boolean;
+    plug: boolean;
+  };
   /** 未設定の環境変数名 */
   missing: string[];
   message: string;
@@ -130,12 +151,21 @@ export function buildSwitchBotHomeStatusV1(
   if (!env.airConditionerDeviceId) {
     missing.push("SWITCHBOT_AIR_CONDITIONER_DEVICE_ID");
   }
+  const extrasConfigured = {
+    ceiling: Boolean(env.ceilingDeviceId),
+    bathBot: Boolean(env.bathBotDeviceId),
+    meter: Boolean(env.meterDeviceId),
+    tv: Boolean(env.tvDeviceId),
+    humidifier: Boolean(env.humidifierDeviceId),
+    plug: Boolean(env.plugDeviceId),
+  };
   const mode = resolveSwitchBotHomeModeV1(env);
   let message: string;
   if (mode === "mock") {
     message = "SwitchBot 未設定 — モック動作中";
   } else if (missing.length === 0) {
-    message = "SwitchBot 実機連携中（ロック・エアコン）";
+    message =
+      "SwitchBot 実機連携中（ロック・エアコン・照明・Bot・温湿度・AV）";
   } else {
     message = `SwitchBot 実機連携中（未設定: ${missing.join(", ")}）`;
   }
@@ -146,6 +176,7 @@ export function buildSwitchBotHomeStatusV1(
     airConditionerConfigured,
     lockDeviceIdMask: maskDeviceId(env.lockDeviceId),
     airConditionerDeviceIdMask: maskDeviceId(env.airConditionerDeviceId),
+    extrasConfigured,
     missing,
     message,
   };
@@ -558,6 +589,140 @@ export async function sendSwitchBotAirconPowerV1(
       skipped: true,
       error: "SWITCHBOT_AIR_CONDITIONER_DEVICE_ID が未設定です",
     };
+  }
+  return sendSwitchBotCommandV1(
+    id,
+    {
+      command: powerOn ? "turnOn" : "turnOff",
+      parameter: "default",
+      commandType: "command",
+    },
+    env
+  );
+}
+
+export interface SwitchBotDeviceStatusV1 {
+  deviceId: string;
+  /** 電源系: true=ON / false=OFF / null=不明 */
+  power: boolean | null;
+  temperatureC: number | null;
+  humidityPercent: number | null;
+  raw?: Record<string, unknown>;
+}
+
+function parsePowerState(raw: Record<string, unknown>): boolean | null {
+  const candidates = [
+    raw.power,
+    raw.powerState,
+    raw.Power,
+    raw.PowerState,
+  ];
+  for (const c of candidates) {
+    if (typeof c === "boolean") return c;
+    const s = String(c ?? "")
+      .trim()
+      .toLowerCase();
+    if (s === "on" || s === "true" || s === "1") return true;
+    if (s === "off" || s === "false" || s === "0") return false;
+  }
+  return null;
+}
+
+function parseNumberOrNull(raw: unknown): number | null {
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * 任意デバイスの status 取得（温湿度・電源など）
+ */
+export async function getSwitchBotDeviceStatusV1(
+  deviceId: string,
+  env: SwitchBotHomeEnvV1 = getSwitchBotHomeEnvV1()
+): Promise<SwitchBotApiResultV1<SwitchBotDeviceStatusV1>> {
+  const id = String(deviceId || "").trim();
+  if (!isSwitchBotHomeConfiguredV1(env)) {
+    return {
+      ok: false,
+      skipped: true,
+      error: "SWITCHBOT_TOKEN / SWITCHBOT_SECRET が未設定です",
+    };
+  }
+  if (!id) {
+    return { ok: false, skipped: true, error: "deviceId が空です" };
+  }
+  try {
+    const res = await switchBotHomeFetchV1(
+      `/devices/${encodeURIComponent(id)}/status`,
+      undefined,
+      env
+    );
+    const body = await parseJsonSafe(res);
+    if (!res.ok) {
+      return {
+        ok: false,
+        statusCode: res.status,
+        error: `SwitchBot status error: HTTP ${res.status}`,
+      };
+    }
+    const statusBody = (body.body ?? {}) as Record<string, unknown>;
+    const temperatureC = parseNumberOrNull(
+      statusBody.temperature ?? statusBody.temp
+    );
+    const humidityPercent = parseNumberOrNull(
+      statusBody.humidity ?? statusBody.humid
+    );
+    return {
+      ok: true,
+      statusCode: res.status,
+      data: {
+        deviceId: id,
+        power: parsePowerState(statusBody),
+        temperatureC:
+          temperatureC === null
+            ? null
+            : Math.round(temperatureC * 10) / 10,
+        humidityPercent:
+          humidityPercent === null
+            ? null
+            : Math.max(0, Math.min(100, Math.round(humidityPercent))),
+        raw: statusBody,
+      },
+    };
+  } catch (err) {
+    const msg =
+      err instanceof Error
+        ? redactSecrets(err.message, env)
+        : "SwitchBot status failed";
+    return { ok: false, error: msg };
+  }
+}
+
+/** Bot の press（風呂自動ボタン等） */
+export async function sendSwitchBotBotPressV1(
+  deviceId: string,
+  env: SwitchBotHomeEnvV1 = getSwitchBotHomeEnvV1()
+): Promise<SwitchBotApiResultV1<{ message: string }>> {
+  const id = String(deviceId || "").trim();
+  if (!id) {
+    return { ok: false, skipped: true, error: "Bot deviceId が空です" };
+  }
+  return sendSwitchBotCommandV1(
+    id,
+    { command: "press", parameter: "default", commandType: "command" },
+    env
+  );
+}
+
+/** 照明・プラグ・加湿器・TV 等の ON/OFF */
+export async function sendSwitchBotPowerCommandV1(
+  deviceId: string,
+  powerOn: boolean,
+  env: SwitchBotHomeEnvV1 = getSwitchBotHomeEnvV1()
+): Promise<SwitchBotApiResultV1<{ message: string }>> {
+  const id = String(deviceId || "").trim();
+  if (!id) {
+    return { ok: false, skipped: true, error: "deviceId が空です" };
   }
   return sendSwitchBotCommandV1(
     id,

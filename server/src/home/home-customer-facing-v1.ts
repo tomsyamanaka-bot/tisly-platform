@@ -71,6 +71,8 @@ export interface HomeCustomerFacingDashboardV1 {
     HomeSiteDashboardV1["intercom"],
     "streamKind" | "streamKindLabel" | "streamUrl"
   >;
+  iotSwitches: HomeSiteDashboardV1["iotSwitches"];
+  meter: HomeSiteDashboardV1["meter"];
   activeAirconCount: number;
   intercomRinging: boolean;
   updatedAt: string;
@@ -218,6 +220,8 @@ export function sanitizeHomeCustomerDashboardV1(
       unlockLinkEnabled: intercom.unlockLinkEnabled,
       visitors: intercom.visitors,
     },
+    iotSwitches: dashboard.iotSwitches ?? [],
+    meter: dashboard.meter ?? null,
     activeAirconCount: dashboard.activeAirconCount,
     intercomRinging: dashboard.intercomRinging,
     updatedAt: dashboard.updatedAt,

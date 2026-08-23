@@ -27,6 +27,9 @@ const {
   isSwitchBotHomeConfiguredV1,
   listSwitchBotDevicesV1,
 } = await import("../src/home/switchbot_client.js");
+const { resolveHomeSwitchBotMapV1 } = await import(
+  "../src/home/home-switchbot-map-v1.js"
+);
 
 async function main(): Promise<void> {
   const env = getSwitchBotHomeEnvV1();
@@ -81,10 +84,29 @@ async function main(): Promise<void> {
     );
   }
 
-  if (env.lockDeviceId) {
+  const map = await resolveHomeSwitchBotMapV1({
+    forceRefresh: true,
+    env,
+    devices: listed.data,
+  });
+  console.log("");
+  console.log("--- HOME role map (env + name resolve) ---");
+  console.log(`  lock:        ${map.lock || "(none)"}`);
+  console.log(`  aircon:      ${map.aircon || "(none)"}`);
+  console.log(`  ceiling:     ${map.ceiling || "(none)"}`);
+  console.log(`  bathBot:     ${map.bathBot || "(none)"}`);
+  console.log(`  meter:       ${map.meter || "(none)"}`);
+  console.log(`  tv:          ${map.tv || "(none)"}`);
+  console.log(`  humidifier:  ${map.humidifier || "(none)"}`);
+  console.log(`  plug:        ${map.plug || "(none)"}`);
+
+  if (env.lockDeviceId || map.lock) {
     console.log("");
     console.log("--- Lock status probe ---");
-    const status = await getSwitchBotLockStatusV1(env.lockDeviceId, env);
+    const status = await getSwitchBotLockStatusV1(
+      env.lockDeviceId || map.lock,
+      env
+    );
     if (!status.ok || !status.data) {
       console.error("Lock status failed:", status.error);
     } else {

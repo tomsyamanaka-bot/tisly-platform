@@ -11,6 +11,11 @@ export const HOME_TILE_ORDER_V1 = [
   "intercom",
   "bath",
   "aircon",
+  "ceiling",
+  "meter",
+  "tv",
+  "humidifier",
+  "plug",
 ];
 
 const TILE_META_V1 = {
@@ -44,6 +49,36 @@ const TILE_META_V1 = {
     plainName: "エアコン",
     detailTitle: "エアコンの詳細",
   },
+  ceiling: {
+    icon: "💡",
+    name: "洋間 シーリング",
+    plainName: "洋間の照明",
+    detailTitle: "洋間シーリングの詳細",
+  },
+  meter: {
+    icon: "🌡️",
+    name: "温湿度計",
+    plainName: "室温・湿度",
+    detailTitle: "温湿度計の詳細",
+  },
+  tv: {
+    icon: "📺",
+    name: "テレビ1",
+    plainName: "テレビ",
+    detailTitle: "テレビの詳細",
+  },
+  humidifier: {
+    icon: "💧",
+    name: "加湿器",
+    plainName: "加湿器",
+    detailTitle: "加湿器の詳細",
+  },
+  plug: {
+    icon: "🔌",
+    name: "スリー電源",
+    plainName: "スリー電源",
+    detailTitle: "スリー電源の詳細",
+  },
 };
 
 function tileName(key, plain) {
@@ -54,6 +89,60 @@ function tileName(key, plain) {
 
 function fixed1(value) {
   return Number(value ?? 0).toFixed(1);
+}
+
+function findIot(d, kind) {
+  return (d.iotSwitches || []).find((s) => s.kind === kind) || null;
+}
+
+function iotPowerTileV1(d, kind, tileKey, plain) {
+  const sw = findIot(d, kind);
+  if (!sw) return null;
+  const on = Boolean(sw.power);
+  return {
+    key: tileKey,
+    detail: tileKey,
+    icon: TILE_META_V1[tileKey].icon,
+    name: plain ? tileName(tileKey, true) : sw.label,
+    state: on ? "ON" : "OFF",
+    stateAlert: false,
+    tone: on ? "on" : "idle",
+    action: {
+      label: on ? "OFF" : "ON",
+      target: "iot",
+      action: "power",
+      deviceKey: sw.deviceKey,
+      value: on ? "false" : "true",
+      style: on ? "is-on" : "is-neutral",
+      aria: `${sw.label} の電源を切り替える`,
+    },
+  };
+}
+
+function meterTileV1(d, plain) {
+  const m = d.meter;
+  if (!m) return null;
+  const temp =
+    m.temperatureC === null || m.temperatureC === undefined
+      ? "—"
+      : `${Number(m.temperatureC).toFixed(1)}℃`;
+  const hum =
+    m.humidityPercent === null || m.humidityPercent === undefined
+      ? "—"
+      : `${Math.round(m.humidityPercent)}%`;
+  return {
+    key: "meter",
+    detail: "meter",
+    icon: TILE_META_V1.meter.icon,
+    name: plain ? tileName("meter", true) : m.label || tileName("meter", false),
+    state: `${temp} / ${hum}`,
+    stateAlert: false,
+    tone: "on",
+    badge: {
+      label: m.syncedAt ? "同期" : "待機",
+      cls: "is-ok",
+    },
+  };
 }
 
 function ctTileV1(d, plain) {
@@ -201,8 +290,63 @@ export function buildHomeTilesV1(d, options = {}) {
     intercomTileV1(d, plain),
     bathTileV1(d, plain),
     ...airconTilesV1(d),
+    iotPowerTileV1(d, "ceiling", "ceiling", plain),
+    meterTileV1(d, plain),
+    iotPowerTileV1(d, "tv", "tv", plain),
+    iotPowerTileV1(d, "humidifier", "humidifier", plain),
+    iotPowerTileV1(d, "plug", "plug", plain),
   ];
   return tiles.filter(Boolean);
+}
+
+/**
+ * 楽観的 UI 更新 — タップ直後にローカル dashboard を反転
+ */
+export function applyOptimisticHomeControlV1(dashboard, input) {
+  if (!dashboard || !input?.target) return dashboard;
+  const next = structuredClone
+    ? structuredClone(dashboard)
+    : JSON.parse(JSON.stringify(dashboard));
+  const { target, action, deviceKey, value } = input;
+
+  const toBool = (v, fallback) => {
+    if (typeof v === "boolean") return v;
+    if (v === "true" || v === true) return true;
+    if (v === "false" || v === false) return false;
+    return fallback;
+  };
+
+  if (target === "lock" && next.lock) {
+    if (action === "lock") next.lock.locked = true;
+    else if (action === "unlock") next.lock.locked = false;
+    else if (action === "toggle") next.lock.locked = !next.lock.locked;
+    next.lock.lockLabel = next.lock.locked ? "施錠中" : "解錠中";
+    next.lock.lockEmoji = next.lock.locked ? "🔒" : "🔓";
+  }
+
+  if (target === "aircon" && Array.isArray(next.aircons)) {
+    const ac =
+      next.aircons.find((a) => a.deviceKey === deviceKey) || next.aircons[0];
+    if (ac && action === "power") {
+      ac.power = toBool(value, !ac.power);
+    }
+  }
+
+  if (target === "iot" && Array.isArray(next.iotSwitches)) {
+    const sw = next.iotSwitches.find((s) => s.deviceKey === deviceKey);
+    if (sw && (action === "power" || action === "toggle")) {
+      sw.power =
+        action === "toggle" ? !sw.power : toBool(value, !sw.power);
+      sw.powerLabel = sw.power ? "ON" : "OFF";
+    }
+  }
+
+  if (target === "bath" && next.bath && action === "auto_fill") {
+    next.bath.lastPulseMessage = "送信中...";
+    next.bath.fillState = "filling";
+  }
+
+  return next;
 }
 
 function actionHtml(action) {
@@ -275,19 +419,33 @@ function updateTileEl(el, tile) {
   if (btn && tile.action) {
     btn.className = `hm-tile-action ${tile.action.style || ""}`;
     btn.textContent = tile.action.label;
+    btn.dataset.target = tile.action.target;
     btn.dataset.action = tile.action.action;
+    if (tile.action.deviceKey) btn.dataset.device = tile.action.deviceKey;
+    else delete btn.dataset.device;
     if (tile.action.value === undefined) delete btn.dataset.value;
     else btn.dataset.value = String(tile.action.value);
     btn.setAttribute(
       "aria-label",
       tile.action.aria || tile.action.label
     );
+  } else if (!tile.action && btn) {
+    btn.remove();
   }
 
-  const badge = el.querySelector(".hm-tile-badge");
-  if (badge && tile.badge) {
-    badge.className = `hm-tile-badge ${tile.badge.cls || "is-ok"}`;
-    badge.textContent = tile.badge.label;
+  let badge = el.querySelector(".hm-tile-badge");
+  if (tile.badge) {
+    if (!badge) {
+      const top = el.querySelector(".hm-tile-top");
+      if (top) {
+        top.insertAdjacentHTML("beforeend", badgeHtml(tile.badge));
+        badge = el.querySelector(".hm-tile-badge");
+      }
+    }
+    if (badge) {
+      badge.className = `hm-tile-badge ${tile.badge.cls || "is-ok"}`;
+      badge.textContent = tile.badge.label;
+    }
   }
 }
 

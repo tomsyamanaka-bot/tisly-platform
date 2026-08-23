@@ -33,9 +33,10 @@ import {
 import {
   bindHomeTileDetailsV1,
   renderHomeTilesV1,
+  applyOptimisticHomeControlV1,
 } from "./home-tiles-v1.js";
 
-const POLL_INTERVAL_MS = 15000;
+const POLL_INTERVAL_MS = 30000;
 
 let currentSiteId = "";
 let siteOptionsKey = "";
@@ -185,6 +186,19 @@ async function handleControl(el) {
 
   el.disabled = true;
   controlBusy = true;
+
+  // 楽観的 UI: タップ直後にタイル表示を切り替え
+  const currentDash = pickSiteDashboard(operatorCache);
+  if (currentDash) {
+    const optimistic = applyOptimisticHomeControlV1(currentDash, {
+      target,
+      action: apiAction,
+      deviceKey,
+      value,
+    });
+    renderHomeTilesV1(optimistic);
+  }
+
   const pulseStatus = byId("hm-bath-pulse-status");
   if (isBathPulse && pulseStatus) {
     pulseStatus.hidden = false;
@@ -222,6 +236,12 @@ async function handleControl(el) {
       pulseStatus.textContent = "送信に失敗しました";
     }
     showToast(err.message || "操作に失敗しました");
+    // 失敗時はサーバー状態へ戻す
+    try {
+      await refresh();
+    } catch {
+      /* ignore */
+    }
   } finally {
     el.disabled = false;
     controlBusy = false;

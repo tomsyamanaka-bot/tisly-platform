@@ -46,7 +46,7 @@ import {
 } from "../../home/home-store-v1.js";
 import {
   syncHomeDefaultLockFromSwitchBotV1,
-  syncHomeLockFromSwitchBotV1,
+  syncHomeSwitchBotDevicesV1,
 } from "../../home/home-switchbot-sync-v1.js";
 import {
   cancelBathScheduleV1,
@@ -95,6 +95,7 @@ const CONTROL_TARGETS_V1: HomeControlTargetV1[] = [
   "lock",
   "intercom",
   "security_light",
+  "iot",
 ];
 
 /** 物件一覧（SaaS 契約情報つき） */
@@ -125,7 +126,7 @@ homeRouter.get("/customer-sites", (_req, res) => {
 homeRouter.get("/customer", async (req, res) => {
   const siteId = String(req.query.siteId ?? "").trim() || null;
   try {
-    await syncHomeLockFromSwitchBotV1(siteId);
+    await syncHomeSwitchBotDevicesV1(siteId);
   } catch {
     // モック継続
   }

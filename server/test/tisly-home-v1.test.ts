@@ -633,16 +633,22 @@ describe("tisly-home-v1", () => {
       path.join(publicDir, "js", "features", "home", "home-tiles-v1.js"),
       "utf-8"
     );
-    // 工事屋目線の並び: CT → ロック → インターホン → 風呂 → エアコン
+    // 工事屋目線の並び: CT → ロック → インターホン → 風呂 → エアコン → SwitchBot IoT
     assert.match(
       tilesJs,
-      /HOME_TILE_ORDER_V1 = \[\s*"ct",\s*"lock",\s*"intercom",\s*"bath",\s*"aircon",?\s*\]/
+      /HOME_TILE_ORDER_V1 = \[\s*"ct",\s*"lock",\s*"intercom",\s*"bath",\s*"aircon",\s*"ceiling",\s*"meter",\s*"tv",\s*"humidifier",\s*"plug",?\s*\]/
     );
     // 機器名（社内表記）
     assert.match(tilesJs, /分電盤CT/);
     assert.match(tilesJs, /スマートロック/);
     assert.match(tilesJs, /インターホン/);
     assert.match(tilesJs, /風呂/);
+    assert.match(tilesJs, /洋間 シーリング/);
+    assert.match(tilesJs, /温湿度計/);
+    assert.match(tilesJs, /テレビ1/);
+    assert.match(tilesJs, /加湿器/);
+    assert.match(tilesJs, /スリー電源/);
+    assert.match(tilesJs, /applyOptimisticHomeControlV1/);
     // 状態テキスト（v2 ミニマル）
     assert.match(tilesJs, /施錠中/);
     assert.match(tilesJs, /解錠中/);
@@ -957,6 +963,106 @@ describe("tisly-home-v1", () => {
         process.env.SWITCHBOT_AIR_CONDITIONER_DEVICE_ID = prev.acId;
       else delete process.env.SWITCHBOT_AIR_CONDITIONER_DEVICE_ID;
     }
+  });
+
+  it("maps Itabashi live IoT tiles and toggles iot power locally", async () => {
+    const { resolveHomeSwitchBotMapV1, clearHomeSwitchBotMapCacheV1 } =
+      await import("../src/home/home-switchbot-map-v1.js");
+    clearHomeSwitchBotMapCacheV1();
+    const map = await resolveHomeSwitchBotMapV1({
+      forceRefresh: true,
+      devices: [
+        {
+          deviceId: "LOCK1",
+          deviceName: "板橋　自宅",
+          deviceType: "Smart Lock Pro",
+          infrared: false,
+        },
+        {
+          deviceId: "CEIL1",
+          deviceName: "洋間　シーリング",
+          deviceType: "Ceiling Light",
+          infrared: false,
+        },
+        {
+          deviceId: "BOT1",
+          deviceName: "風呂　自動",
+          deviceType: "Bot",
+          infrared: false,
+        },
+        {
+          deviceId: "METER1",
+          deviceName: "温湿度計 52",
+          deviceType: "Meter",
+          infrared: false,
+        },
+        {
+          deviceId: "TV1",
+          deviceName: "テレビ1",
+          deviceType: "TV",
+          infrared: true,
+        },
+        {
+          deviceId: "HUM1",
+          deviceName: "洋間　加湿器",
+          deviceType: "Humidifier",
+          infrared: false,
+        },
+        {
+          deviceId: "PLUG1",
+          deviceName: "スリー電源",
+          deviceType: "Plug Mini (JP)",
+          infrared: false,
+        },
+        {
+          deviceId: "AC1",
+          deviceName: "エアコン　暖房",
+          deviceType: "Air Conditioner",
+          infrared: true,
+        },
+      ],
+    });
+    assert.equal(map.ceiling, "CEIL1");
+    assert.equal(map.bathBot, "BOT1");
+    assert.equal(map.meter, "METER1");
+    assert.equal(map.tv, "TV1");
+    assert.equal(map.humidifier, "HUM1");
+    assert.equal(map.plug, "PLUG1");
+
+    const live = findHomeSiteV1("HOME-JP-ITABASHI-LIVE");
+    assert.ok(live.iotSwitches?.length);
+    assert.ok(live.meter);
+    const dash = (
+      await import("../src/home/home-dashboard-v1.js")
+    ).buildHomeSiteDashboardV1(live);
+    assert.equal(dash.iotSwitches.length, 4);
+    assert.ok(dash.meter);
+
+    const before = live.iotSwitches!.find(
+      (s) => s.deviceKey === "ceiling-yoma"
+    )!.power;
+    const res = await applyHomeControlV1({
+      siteId: live.id,
+      target: "iot",
+      action: "power",
+      deviceKey: "ceiling-yoma",
+      value: !before,
+      actor: "test",
+    });
+    assert.equal(res.ok, true);
+    assert.equal(
+      live.iotSwitches!.find((s) => s.deviceKey === "ceiling-yoma")!.power,
+      !before
+    );
+    // restore
+    await applyHomeControlV1({
+      siteId: live.id,
+      target: "iot",
+      action: "power",
+      deviceKey: "ceiling-yoma",
+      value: before,
+      actor: "test-restore",
+    });
   });
 
   it("security rules API get/put and firmware JSON", async () => {

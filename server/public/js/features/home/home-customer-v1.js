@@ -64,11 +64,13 @@ import {
 
   renderHomeTilesV1,
 
+  applyOptimisticHomeControlV1,
+
 } from "./home-tiles-v1.js";
 
 
 
-const POLL_INTERVAL_MS = 20000;
+const POLL_INTERVAL_MS = 30000;
 
 const PLAIN_OPTS = { plain: true };
 
@@ -77,6 +79,10 @@ const PLAIN_OPTS = { plain: true };
 let currentSiteId = "";
 
 let controlBusy = false;
+
+/** 直近のダッシュボード（楽観的 UI 用） */
+
+let dashCache = null;
 
 
 
@@ -133,6 +139,8 @@ async function loadSiteOptions() {
 function renderAll(dashboard) {
 
   currentSiteId = dashboard.siteId;
+
+  dashCache = dashboard;
 
   renderStatusHeroPlain(dashboard);
 
@@ -244,6 +252,24 @@ async function handleControl(el) {
 
   controlBusy = true;
 
+  if (dashCache) {
+
+    const optimistic = applyOptimisticHomeControlV1(dashCache, {
+
+      target,
+
+      action,
+
+      deviceKey,
+
+      value,
+
+    });
+
+    renderHomeTilesV1(optimistic, PLAIN_OPTS);
+
+  }
+
   if (isBathPulse && pulseStatus) {
 
     pulseStatus.hidden = false;
@@ -305,6 +331,18 @@ async function handleControl(el) {
     }
 
     showToast(err.message || "操作できませんでした");
+
+    try {
+
+      const d = await fetchHomeCustomer(currentSiteId);
+
+      renderAll(d);
+
+    } catch {
+
+      /* ignore */
+
+    }
 
   } finally {
 
