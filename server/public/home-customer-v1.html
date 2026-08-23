@@ -111,125 +111,7 @@
       <p class="hm-gauge-sub" id="hm-scene-status">—</p>
     </section>
 
-    <!-- 防犯ルール設定 -->
-    <section class="hm-card hm-security-settings" id="hm-security-settings">
-      <p class="hm-card-label">🛡️ 防犯ルール設定</p>
-      <div class="hm-field-row">
-        <label class="hm-field-label" for="hm-guard-mode">警戒モード</label>
-        <select class="hm-select" id="hm-guard-mode">
-          <option value="always">24時間常時警戒</option>
-          <option value="night_only">夜間のみ</option>
-          <option value="off">警戒OFF</option>
-        </select>
-      </div>
-      <div class="hm-field-row">
-        <label class="hm-field-label" for="hm-di1-duration">
-          外周 DI1 点灯時間
-          <strong id="hm-di1-duration-val">45</strong>秒
-        </label>
-        <input
-          type="range"
-          id="hm-di1-duration"
-          min="10"
-          max="300"
-          value="45"
-          step="5"
-        />
-      </div>
-      <div class="hm-field-row">
-        <label class="hm-field-label" for="hm-di1-mode">DI1 動作モード</label>
-        <select class="hm-select" id="hm-di1-mode">
-          <option value="steady">常時点灯</option>
-          <option value="blink">点滅</option>
-          <option value="strobe">ストロボ</option>
-        </select>
-      </div>
-      <div class="hm-field-row">
-        <label class="hm-field-label" for="hm-di2-mode">段階侵入 DI2 ライト</label>
-        <select class="hm-select" id="hm-di2-mode">
-          <option value="fast_blink">高速点滅</option>
-          <option value="steady">常時点灯</option>
-        </select>
-      </div>
-      <div class="hm-field-row">
-        <label class="hm-field-label" for="hm-di2-duration">
-          DI2 警報時間
-          <strong id="hm-di2-duration-val">45</strong>秒
-        </label>
-        <input
-          type="range"
-          id="hm-di2-duration"
-          min="10"
-          max="300"
-          value="45"
-          step="5"
-        />
-      </div>
-      <div class="hm-toggle-row">
-        <label class="hm-toggle-label">
-          <input type="checkbox" id="hm-notify-di1-silent" checked />
-          DI1 検知：サイレントログのみ
-        </label>
-      </div>
-      <div class="hm-toggle-row">
-        <label class="hm-toggle-label">
-          <input type="checkbox" id="hm-notify-di2-push" checked />
-          DI2 検知：即時 Web Push 緊急通知
-        </label>
-      </div>
-      <div class="hm-field-row" style="flex-direction: column; gap: 8px; align-items: stretch">
-        <p class="hm-card-label" style="margin: 0">Web Push（この端末）</p>
-        <p id="hm-push-status" class="hm-muted" style="margin: 0; font-size: 0.85rem">
-          未確認
-        </p>
-        <p
-          id="hm-push-debug"
-          class="hm-muted"
-          style="margin: 0; font-size: 0.72rem; line-height: 1.35; word-break: break-all; opacity: 0.85"
-        >
-          debug: —
-        </p>
-        <div style="display: flex; gap: 8px; flex-wrap: wrap">
-          <button type="button" class="hm-btn" id="hm-push-register">
-            Push 登録
-          </button>
-          <button type="button" class="hm-btn hm-btn-secondary" id="hm-push-reregister">
-            🔔 Push通知を再登録・購読
-          </button>
-          <button type="button" class="hm-btn hm-btn-secondary" id="hm-push-test">
-            通知テスト
-          </button>
-        </div>
-      </div>
-      <button type="button" class="hm-btn hm-btn-wide" id="hm-security-save">
-        防犯ルールを保存
-      </button>
-    </section>
-
-    <!-- 防犯統計ダッシュボード -->
-    <section class="hm-card hm-security-dashboard" id="hm-security-dashboard">
-      <p class="hm-card-label">📊 防犯統計（過去7日）</p>
-      <div class="hm-stats-summary" id="hm-stats-summary">
-        <div class="hm-kpi">
-          <strong id="hm-stats-di1">0</strong>
-          <span>DI1 外周</span>
-        </div>
-        <div class="hm-kpi">
-          <strong id="hm-stats-di2">0</strong>
-          <span>DI2 近接</span>
-        </div>
-        <div class="hm-kpi">
-          <strong id="hm-stats-total">0</strong>
-          <span>合計</span>
-        </div>
-      </div>
-      <p class="hm-card-label" style="margin-top: 14px">時間帯別ヒートマップ</p>
-      <div class="hm-heatmap" id="hm-heatmap"></div>
-      <p class="hm-card-label" style="margin-top: 14px">日別イベント件数</p>
-      <div class="hm-daily-chart" id="hm-daily-chart"></div>
-    </section>
-
-    <!-- 機器タイル（2列グリッド） -->
+    <!-- 機器タイル（2列グリッド） — 家電・設備のみ（防犯は TiSLY Security） -->
     <section class="hm-tile-section" id="hm-tile-section">
       <p class="hm-card-label">タップしてつかう</p>
       <div class="hm-tile-grid" id="hm-tile-grid">
@@ -583,13 +465,44 @@
       </div>
     </div>
 
-    <!-- 動作ログ -->
+    <!-- 動作ログ（直近10件 + 詳細モーダル） -->
     <section class="hm-card">
-      <p class="hm-card-label">📜 アクティビティタイムライン</p>
+      <p class="hm-card-label">📜 アクティビティタイムライン（直近10件）</p>
       <div class="hm-log-list" id="hm-system-logs">
         <p class="hm-empty">読み込み中…</p>
       </div>
+      <button type="button" class="hm-btn hm-log-more" id="hm-log-open-detail">
+        詳細を見る（もっと見る）
+      </button>
     </section>
+
+    <dialog class="hm-log-dialog" id="hm-log-dialog">
+      <div class="hm-log-dialog-inner">
+        <div class="hm-log-dialog-head">
+          <h2>📜 詳細ログ・全履歴</h2>
+          <form method="dialog">
+            <button type="submit" class="hm-btn is-off">閉じる</button>
+          </form>
+        </div>
+        <div class="hm-log-dialog-filters">
+          <input type="date" id="hm-log-date" class="hm-input" aria-label="日付" />
+          <select id="hm-log-cat" class="hm-input" aria-label="種別">
+            <option value="">種別すべて</option>
+            <option value="security">防犯</option>
+            <option value="home">住設</option>
+            <option value="system">システム</option>
+          </select>
+          <input id="hm-log-q" class="hm-input" placeholder="キーワード" />
+        </div>
+        <div class="hm-log-dialog-body" id="hm-log-detail-body"></div>
+        <div class="hm-log-dialog-actions">
+          <button type="button" class="hm-btn is-on" id="hm-log-csv">CSVエクスポート</button>
+          <form method="dialog">
+            <button type="submit" class="hm-btn is-off">閉じる</button>
+          </form>
+        </div>
+      </div>
+    </dialog>
 
     <!-- お知らせ -->
     <section class="hm-card">
@@ -602,7 +515,7 @@
 
   <div class="hm-toast" id="hm-toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="/js/features/home/home-customer-v1.js?v=2461"></script>
-  <script type="module" src="/js/features/home/home-quick-switch-v1.js?v=2461"></script>
+  <script type="module" src="/js/features/home/home-customer-v1.js?v=2493"></script>
+  <script type="module" src="/js/features/home/home-quick-switch-v1.js?v=2493"></script>
 </body>
 </html>

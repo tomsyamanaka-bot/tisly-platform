@@ -1332,29 +1332,49 @@ export function renderSecurityDashboard(stats) {
   }
 }
 
-/** アクティビティタイムライン（カテゴリ付き） */
+/** アクティビティタイムライン（直近10件 + 詳細モーダルへ全件） */
 export function renderActivityTimeline(rows, options = {}) {
   const root = byId("hm-system-logs");
   if (!root) return;
-  if (!rows?.length) {
+  __hmSystemLogsCache = Array.isArray(rows)
+    ? rows.map((row) => ({
+        ...row,
+        message: row.message || "",
+        siteName: row.siteName || "",
+        category: row.category || "",
+        categoryLabel: row.categoryLabel || row.category || "",
+        createdAt: row.createdAt || "",
+        timeLabel: row.timeLabel || "",
+        actor: row.actor || "",
+      }))
+    : [];
+  if (!__hmSystemLogsCache.length) {
     root.innerHTML = '<p class="hm-empty">動作ログはまだありません</p>';
+    renderSystemLogDetailBodyV1([]);
     return;
   }
-  root.innerHTML = rows
-    .map((row) => {
-      const t = row.createdAt
-        ? new Date(row.createdAt).toLocaleTimeString("ja-JP", {
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit",
-            hour12: false,
-            timeZone: "Asia/Tokyo",
-          })
-        : "";
-      const cat = row.categoryLabel || row.category || "";
-      return `<p class="hm-log-line"><span class="hm-log-cat">${escapeHtml(cat)}</span> [${escapeHtml(t)}] ${escapeHtml(row.message)}</p>`;
-    })
-    .join("");
+  const recent = __hmSystemLogsCache.slice(0, 10);
+  const plain = Boolean(options.plain);
+  if (plain) {
+    root.innerHTML = recent
+      .map((row) => {
+        const t = row.createdAt
+          ? new Date(row.createdAt).toLocaleTimeString("ja-JP", {
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+              hour12: false,
+              timeZone: "Asia/Tokyo",
+            })
+          : row.timeLabel || "";
+        const cat = row.categoryLabel || row.category || "";
+        return `<p class="hm-log-line"><span class="hm-log-cat">${escapeHtml(cat)}</span> [${escapeHtml(t)}] ${escapeHtml(row.message)}</p>`;
+      })
+      .join("");
+  } else {
+    root.innerHTML = renderSystemLogRowsHtmlV1(recent);
+  }
+  renderSystemLogDetailBodyV1(__hmSystemLogsCache);
 }
 
 /** 防犯ライト手動操作（実機物件のみ） */
@@ -1675,22 +1695,27 @@ function bindHomeWebPushUiV1() {
   void refreshHomePushStatusV1();
 }
 
-/** 防犯パネルをまとめて更新 */
+/** 防犯パネルをまとめて更新（Security 画面側。HOME からはタイムラインのみ） */
 export async function refreshHomeSecurityPanelsV1(siteId) {
   if (!siteId) return;
-  try {
-    const rules = await fetchSecurityRules(siteId);
-    renderSecurityRulesForm(rules);
-  } catch {
-    /* 設定未取得 */
+  const hasSecurityForm = Boolean(byId("hm-security-settings"));
+  if (hasSecurityForm) {
+    try {
+      const rules = await fetchSecurityRules(siteId);
+      renderSecurityRulesForm(rules);
+    } catch {
+      /* 設定未取得 */
+    }
+    try {
+      renderSecurityDashboard(await fetchSecurityStats(siteId, 7));
+    } catch {
+      renderSecurityDashboard(null);
+    }
   }
   try {
-    renderSecurityDashboard(await fetchSecurityStats(siteId, 7));
-  } catch {
-    renderSecurityDashboard(null);
-  }
-  try {
-    renderActivityTimeline(await fetchActivityTimeline(siteId, 40));
+    renderActivityTimeline(await fetchActivityTimeline(siteId, 40), {
+      plain: true,
+    });
   } catch {
     renderActivityTimeline([]);
   }

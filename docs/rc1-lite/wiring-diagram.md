@@ -31,7 +31,7 @@ flowchart TB
     end
 
     subgraph Inputs["入力（センサー側）"]
-        S1["DI1 玄関ビーム"]
+        S1["DI1 駐車場センサー"]
         S2["DI2 リビング窓"]
         S3["DI3 勝手口"]
         S4["DI4 非常ボタン"]
@@ -66,7 +66,7 @@ flowchart TB
 
 | 論理 | モジュール端子 | GPIO | 極性 / 論理 | デモ用途 |
 |------|----------------|------|-------------|----------|
-| DI1 | DI1 | GP9 | active-low | 玄関ビーム |
+| DI1 | DI1 | GP9 | active-low | 駐車場センサー |
 | DI2 | DI2 | GP10 | active-low | リビング窓 |
 | DI3 | DI3 | GP11 | active-low | 勝手口 |
 | DI4 | DI4 | GP12 | active-low | 非常ボタン |
@@ -208,7 +208,7 @@ flowchart TB
 
 | DI | ラベル（security-demo.json） | イベント種別 |
 |----|------------------------------|--------------|
-| DI1 | 玄関ビーム | intrusion |
+| DI1 | 駐車場センサー | intrusion |
 | DI2 | リビング窓 | window |
 | DI3 | 勝手口 | intrusion |
 | DI4 | 非常ボタン | emergency |

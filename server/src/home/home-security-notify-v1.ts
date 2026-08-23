@@ -82,15 +82,15 @@ export function buildHomeSecurityNotifyPolicyV1(
         enabled: di1Push,
         severity: di1Push ? "warning" : "silent",
         description: di1Push
-          ? "外周センサー（DI1）のみ検知時に警戒 Web Push を送信"
-          : "外周センサー（DI1）はログとライトのみ（Push なし）",
+          ? "駐車場センサー（DI1）のみ検知時に警戒 Web Push を送信"
+          : "駐車場センサー（DI1）はログとライトのみ（Push なし）",
       },
       {
         id: "staged_intrusion",
         label: "DI1➔DI2段階侵入：緊急通知ON",
         enabled: true,
         severity: "critical",
-        description: `DI1 検知後 ${sec} 秒以内の DI2 で緊急 Push`,
+        description: `駐車場センサー検知後 ${sec} 秒以内のガレージセンサーで緊急 Push`,
       },
       {
         id: "di2_alone",
@@ -100,8 +100,8 @@ export function buildHomeSecurityNotifyPolicyV1(
         enabled: di2Push,
         severity: di2Push ? "critical" : "silent",
         description: di2Push
-          ? "近接センサー（DI2）単独でも緊急 Web Push を送信"
-          : "近接センサー単独はログとライトのみ（Push なし）",
+          ? "ガレージセンサー（DI2）単独でも緊急 Web Push を送信"
+          : "ガレージセンサー単独はログとライトのみ（Push なし）",
       },
     ],
   };
@@ -188,11 +188,11 @@ function patternLogMessage(
   pattern: HomeSecurityNotifyPatternV1,
   di: 1 | 2
 ): string {
-  if (di === 1) return "外周センサー DI1 検知";
+  if (di === 1) return "駐車場センサー (DI1) 検知";
   if (pattern === "pattern_b") {
-    return "段階侵入 DI2 検知（DI1 から接近）";
+    return "段階侵入 ガレージセンサー (DI2) 検知（駐車場から接近）";
   }
-  return "近接センサー DI2 単独検知（サイレント）";
+  return "ガレージセンサー (DI2) 単独検知（サイレント）";
 }
 
 function patternLightLogMessage(
@@ -215,7 +215,7 @@ async function dispatchPatternPushV1(input: {
   rules: HomeSecurityRulesV1;
 }): Promise<boolean> {
   const { siteId, pattern, guardActive, rules } = input;
-  const url = `/home-customer-v1.html?siteId=${encodeURIComponent(siteId)}`;
+  const url = `/security-v1.html?siteId=${encodeURIComponent(siteId)}`;
 
   if (!guardActive) {
     console.log(
@@ -232,22 +232,22 @@ async function dispatchPatternPushV1(input: {
       );
       return false;
     }
-    const title = "【TiSLY Security】外周接近を検知";
+    const title = "【TiSLY Security】駐車場センサーを検知";
     const body =
-      "遠距離センサー（DI1）が反応しました。外側100Vライトを点灯中。";
+      "駐車場センサー (DI1) が反応しました。外側100V・投光器ライトを点灯中。";
     const result = await sendHomeSecurityPush({
       title,
       body,
       eventType: "home_security_di1_perimeter",
       url,
       severity: "warning",
-      data: { di: 1, siteId, pattern },
+      data: { di: 1, siteId, pattern, click_action: url },
     });
     persistHomePushLog(
       "home_security_di1_perimeter",
       title,
       body,
-      { di: 1, siteId, pattern },
+      { di: 1, siteId, pattern, url, click_action: url },
       result
     );
     console.log(
@@ -264,22 +264,22 @@ async function dispatchPatternPushV1(input: {
       );
       return false;
     }
-    const title = "🚨【緊急警報】建物近接を検知";
+    const title = "🚨【緊急警報】ガレージセンサーを検知";
     const body =
-      "建物近接センサー（DI2）が反応しました。防犯ライト威嚇中。";
+      "ガレージセンサー (DI2) が反応しました。防犯ライト威嚇中。";
     const result = await sendHomeSecurityPush({
       title,
       body,
       eventType: "home_security_di2_instant",
       url,
       severity: "critical",
-      data: { di: 2, siteId, pattern, urgency: "critical" },
+      data: { di: 2, siteId, pattern, urgency: "critical", click_action: url },
     });
     persistHomePushLog(
       "home_security_di2_instant",
       title,
       body,
-      { di: 2, siteId, pattern, severity: "critical" },
+      { di: 2, siteId, pattern, severity: "critical", url, click_action: url },
       result
     );
     console.log(
@@ -289,23 +289,23 @@ async function dispatchPatternPushV1(input: {
   }
 
   // DI1→DI2 段階侵入：常に緊急 Push
-  const title = "🚨【緊急警報】建物への接近侵入を検知";
+  const title = "🚨【緊急警報】駐車場→ガレージの段階侵入を検知";
   const body =
-    "外周に続き建物近接センサー（DI2）が反応しました！" +
-    "外側100V点滅＋100Vライト威嚇中。";
+    "駐車場センサーに続きガレージセンサー (DI2) が反応しました！" +
+    "外側100V点滅＋100V投光器ライト威嚇中。";
   const result = await sendHomeSecurityPush({
     title,
     body,
     eventType: "home_security_di2_staged_intrusion",
     url,
     severity: "critical",
-    data: { di: 2, siteId, pattern, urgency: "critical" },
+    data: { di: 2, siteId, pattern, urgency: "critical", click_action: url },
   });
   persistHomePushLog(
     "home_security_di2_staged_intrusion",
     title,
     body,
-    { di: 2, siteId, pattern, severity: "critical" },
+    { di: 2, siteId, pattern, severity: "critical", url, click_action: url },
     result
   );
   console.log(

@@ -419,6 +419,16 @@ export function createApp(): express.Application {
   app.get("/gas-monitor", (_req, res) => {
     res.redirect(302, "/gas-monitor-v1");
   });
+  // ミリ波レーダー設定 — HLK-LD2410C BLE（追記）
+  app.get("/app/radar-settings", (_req, res) => {
+    res.sendFile(path.join(publicDir, "radar-settings-v1.html"));
+  });
+  app.get("/radar-settings-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "radar-settings-v1.html"));
+  });
+  app.get("/radar-settings", (_req, res) => {
+    res.redirect(302, "/radar-settings-v1");
+  });
   // 電気デマンド＆セキュリティ — 社内向け（追記）
   app.get("/app/demand-security", (_req, res) => {
     res.sendFile(path.join(publicDir, "demand-security-v1.html"));

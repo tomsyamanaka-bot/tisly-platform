@@ -34,6 +34,8 @@ export const TISLY_INTERNAL_ROUTES_V1: TislyRouteEntryV1[] = [
   { path: "/app/eco-water", label: "Eco-Water (App)", zone: "internal" },
   { path: "/gas-monitor-v1", label: "ガス見守り・ボンベ", zone: "internal" },
   { path: "/app/gas-monitor", label: "ガス見守り (App)", zone: "internal" },
+  { path: "/radar-settings-v1", label: "ミリ波レーダー設定", zone: "internal" },
+  { path: "/app/radar-settings", label: "ミリ波レーダー (App)", zone: "internal" },
   {
     path: "/demand-security-v1",
     label: "電気デマンド・防犯",

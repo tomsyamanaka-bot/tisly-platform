@@ -50,6 +50,9 @@ export const PWA_ROUTE_CATALOG_V1: PwaRouteEntryV1[] = [
   { path: "/eco-water-v1", label: "Eco-Water 排水中和", group: "iot", kind: "page" },
   { path: "/app/eco-water", label: "Eco-Water (App)", group: "iot", kind: "page" },
   { path: "/customer/eco-water", label: "Eco-Water (Customer)", group: "iot", kind: "page" },
+  // ミリ波レーダー BLE 設定（追記）
+  { path: "/radar-settings-v1", label: "ミリ波レーダー設定", group: "iot", kind: "page" },
+  { path: "/app/radar-settings", label: "ミリ波レーダー (App)", group: "iot", kind: "page" },
   { path: "/api/health", label: "Health API", group: "api", kind: "api" },
   { path: "/api/survey/v1/projects", label: "Survey API", group: "api", kind: "api" },
   { path: "/api/estimate/v1/projects", label: "Estimate API", group: "api", kind: "api" },

@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#FFFFFF" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="TiSLY レーダー設定" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2003" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <title>TiSLY — ミリ波レーダー設定</title>
+  <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
+  <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
+  <link rel="stylesheet" href="/css/features/radar/radar-settings-v1.css" />
+</head>
+<body class="rd-body tisly-friendly">
+  <!--
+    TiSLY ミリ波レーダー設定コーナー
+    HLK-LD2410C × 3（左 / 正面 / 右）BLE ワイヤレス調整
+  -->
+  <header class="rd-header">
+    <a class="rd-back" href="/settings-v1" id="rd-back-link">← 設定に戻る</a>
+    <div>
+      <p class="rd-brand-name">TiSLY FIELD IoT</p>
+      <h1 class="rd-title">ミリ波レーダー設定</h1>
+      <p class="rd-sub">HLK-LD2410C · 距離ゲート · 感度 · Flash 保存</p>
+    </div>
+  </header>
+
+  <main class="rd-main">
+    <div id="rd-ble-alert" class="rd-alert is-hidden" role="alert"></div>
+
+    <section class="rd-card" aria-label="デバイススキャン">
+      <p class="rd-card-label">デバイススキャン・接続</p>
+      <div class="rd-scan-row">
+        <button type="button" class="rd-btn rd-btn-primary" id="rd-scan-btn">
+          近くのレーダーをスキャン
+        </button>
+        <button type="button" class="rd-btn rd-btn-secondary" id="rd-load-auth-btn">
+          許可済みを表示
+        </button>
+      </div>
+      <p class="rd-hint">
+        Android Chrome / TiSLY アプリで BLE 接続。発見したデバイスを CH-A/B/C スロットへ割り当ててください。
+      </p>
+
+      <ul class="rd-device-list" id="rd-device-list" aria-label="発見デバイス一覧"></ul>
+
+      <p class="rd-card-label" style="margin-top:16px">スロット割り当て</p>
+      <div class="rd-slot-grid" id="rd-slot-grid">
+        <div class="rd-slot" data-slot="ch-a" id="rd-slot-ch-a">
+          <div class="rd-slot-label">左 (CH-A)</div>
+          <div class="rd-slot-name" id="rd-slot-name-ch-a">未割当</div>
+          <div class="rd-slot-actions" id="rd-slot-actions-ch-a"></div>
+        </div>
+        <div class="rd-slot" data-slot="ch-b" id="rd-slot-ch-b">
+          <div class="rd-slot-label">正面 (CH-B)</div>
+          <div class="rd-slot-name" id="rd-slot-name-ch-b">未割当</div>
+          <div class="rd-slot-actions" id="rd-slot-actions-ch-b"></div>
+        </div>
+        <div class="rd-slot" data-slot="ch-c" id="rd-slot-ch-c">
+          <div class="rd-slot-label">右 (CH-C)</div>
+          <div class="rd-slot-name" id="rd-slot-name-ch-c">未割当</div>
+          <div class="rd-slot-actions" id="rd-slot-actions-ch-c"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="rd-channel-cards" id="rd-channel-cards" aria-label="レーダーパラメータ">
+      <!-- CH-A -->
+      <article class="rd-channel-card" id="rd-card-ch-a" data-channel="ch-a">
+        <div class="rd-channel-header">
+          <h2 class="rd-channel-title">左 (CH-A)</h2>
+          <span class="rd-badge rd-badge-off" id="rd-status-ch-a">未接続</span>
+        </div>
+
+        <div class="rd-gauge-wrap" aria-label="リアルタイム距離">
+          <p class="rd-live-dist" id="rd-live-ch-a">— <span>m</span></p>
+          <div class="rd-gauge-bar">
+            <div class="rd-gauge-fill" id="rd-gauge-fill-ch-a"></div>
+            <div class="rd-gauge-marker" id="rd-gauge-marker-ch-a" style="left:0%"></div>
+          </div>
+          <div class="rd-gauge-labels"><span>0m</span><span>3m</span><span>6m</span></div>
+        </div>
+
+        <div class="rd-field">
+          <label class="rd-field-label" for="rd-gate-ch-a">
+            <span>最大検知距離ゲート</span>
+            <span class="rd-field-value" id="rd-gate-val-ch-a">Gate 8 · 6.0m</span>
+          </label>
+          <input type="range" class="rd-range" id="rd-gate-ch-a" min="0" max="8" step="1" value="8" />
+          <p class="rd-hint">Gate 0〜8（約 0.75m 刻み · 最大 6m）</p>
+        </div>
+
+        <div class="rd-field">
+          <label class="rd-field-label" for="rd-motion-ch-a">
+            <span>動体検知感度</span>
+            <span class="rd-field-value" id="rd-motion-val-ch-a">50%</span>
+          </label>
+          <input type="range" class="rd-range" id="rd-motion-ch-a" min="0" max="100" step="1" value="50" />
+        </div>
+
+        <div class="rd-field">
+          <label class="rd-field-label" for="rd-static-ch-a">
+            <span>静止検知感度</span>
+            <span class="rd-field-value" id="rd-static-val-ch-a">50%</span>
+          </label>
+          <input type="range" class="rd-range" id="rd-static-ch-a" min="0" max="100" step="1" value="50" />
+        </div>
+
+        <div class="rd-field">
+          <label class="rd-field-label" for="rd-none-ch-a">
+            <span>無人遅延時間</span>
+            <span class="rd-field-value" id="rd-none-val-ch-a">5秒</span>
+          </label>
+          <input type="range" class="rd-range" id="rd-none-ch-a" min="0" max="120" step="1" value="5" />
+          <p class="rd-hint">離脱後、この時間経過で「無人」判定（秒）</p>
+        </div>
+
+        <button type="button" class="rd-btn rd-btn-primary rd-btn-wide" id="rd-save-ch-a" disabled>
+          設定をモジュールに保存
+        </button>
+      </article>
+
+      <!-- CH-B -->
+      <article class="rd-channel-card" id="rd-card-ch-b" data-channel="ch-b">
+        <div class="rd-channel-header">
+          <h2 class="rd-channel-title">正面 (CH-B)</h2>
+          <span class="rd-badge rd-badge-off" id="rd-status-ch-b">未接続</span>
+        </div>
+
+        <div class="rd-gauge-wrap" aria-label="リアルタイム距離">
+          <p class="rd-live-dist" id="rd-live-ch-b">— <span>m</span></p>
+          <div class="rd-gauge-bar">
+            <div class="rd-gauge-fill" id="rd-gauge-fill-ch-b"></div>
+            <div class="rd-gauge-marker" id="rd-gauge-marker-ch-b" style="left:0%"></div>
+          </div>
+          <div class="rd-gauge-labels"><span>0m</span><span>3m</span><span>6m</span></div>
+        </div>
+
+        <div class="rd-field">
+          <label class="rd-field-label" for="rd-gate-ch-b">
+            <span>最大検知距離ゲート</span>
+            <span class="rd-field-value" id="rd-gate-val-ch-b">Gate 8 · 6.0m</span>
+          </label>
+          <input type="range" class="rd-range" id="rd-gate-ch-b" min="0" max="8" step="1" value="8" />
+          <p class="rd-hint">Gate 0〜8（約 0.75m 刻み · 最大 6m）</p>
+        </div>
+
+        <div class="rd-field">
+          <label class="rd-field-label" for="rd-motion-ch-b">
+            <span>動体検知感度</span>
+            <span class="rd-field-value" id="rd-motion-val-ch-b">50%</span>
+          </label>
+          <input type="range" class="rd-range" id="rd-motion-ch-b" min="0" max="100" step="1" value="50" />
+        </div>
+
+        <div class="rd-field">
+          <label class="rd-field-label" for="rd-static-ch-b">
+            <span>静止検知感度</span>
+            <span class="rd-field-value" id="rd-static-val-ch-b">50%</span>
+          </label>
+          <input type="range" class="rd-range" id="rd-static-ch-b" min="0" max="100" step="1" value="50" />
+        </div>
+
+        <div class="rd-field">
+          <label class="rd-field-label" for="rd-none-ch-b">
+            <span>無人遅延時間</span>
+            <span class="rd-field-value" id="rd-none-val-ch-b">5秒</span>
+          </label>
+          <input type="range" class="rd-range" id="rd-none-ch-b" min="0" max="120" step="1" value="5" />
+          <p class="rd-hint">離脱後、この時間経過で「無人」判定（秒）</p>
+        </div>
+
+        <button type="button" class="rd-btn rd-btn-primary rd-btn-wide" id="rd-save-ch-b" disabled>
+          設定をモジュールに保存
+        </button>
+      </article>
+
+      <!-- CH-C -->
+      <article class="rd-channel-card" id="rd-card-ch-c" data-channel="ch-c">
+        <div class="rd-channel-header">
+          <h2 class="rd-channel-title">右 (CH-C)</h2>
+          <span class="rd-badge rd-badge-off" id="rd-status-ch-c">未接続</span>
+        </div>
+
+        <div class="rd-gauge-wrap" aria-label="リアルタイム距離">
+          <p class="rd-live-dist" id="rd-live-ch-c">— <span>m</span></p>
+          <div class="rd-gauge-bar">
+            <div class="rd-gauge-fill" id="rd-gauge-fill-ch-c"></div>
+            <div class="rd-gauge-marker" id="rd-gauge-marker-ch-c" style="left:0%"></div>
+          </div>
+          <div class="rd-gauge-labels"><span>0m</span><span>3m</span><span>6m</span></div>
+        </div>
+
+        <div class="rd-field">
+          <label class="rd-field-label" for="rd-gate-ch-c">
+            <span>最大検知距離ゲート</span>
+            <span class="rd-field-value" id="rd-gate-val-ch-c">Gate 8 · 6.0m</span>
+          </label>
+          <input type="range" class="rd-range" id="rd-gate-ch-c" min="0" max="8" step="1" value="8" />
+          <p class="rd-hint">Gate 0〜8（約 0.75m 刻み · 最大 6m）</p>
+        </div>
+
+        <div class="rd-field">
+          <label class="rd-field-label" for="rd-motion-ch-c">
+            <span>動体検知感度</span>
+            <span class="rd-field-value" id="rd-motion-val-ch-c">50%</span>
+          </label>
+          <input type="range" class="rd-range" id="rd-motion-ch-c" min="0" max="100" step="1" value="50" />
+        </div>
+
+        <div class="rd-field">
+          <label class="rd-field-label" for="rd-static-ch-c">
+            <span>静止検知感度</span>
+            <span class="rd-field-value" id="rd-static-val-ch-c">50%</span>
+          </label>
+          <input type="range" class="rd-range" id="rd-static-ch-c" min="0" max="100" step="1" value="50" />
+        </div>
+
+        <div class="rd-field">
+          <label class="rd-field-label" for="rd-none-ch-c">
+            <span>無人遅延時間</span>
+            <span class="rd-field-value" id="rd-none-val-ch-c">5秒</span>
+          </label>
+          <input type="range" class="rd-range" id="rd-none-ch-c" min="0" max="120" step="1" value="5" />
+          <p class="rd-hint">離脱後、この時間経過で「無人」判定（秒）</p>
+        </div>
+
+        <button type="button" class="rd-btn rd-btn-primary rd-btn-wide" id="rd-save-ch-c" disabled>
+          設定をモジュールに保存
+        </button>
+      </article>
+    </section>
+  </main>
+
+  <div id="rd-toast" class="rd-toast" role="status"></div>
+  <script type="module" src="/js/features/radar/radar-settings-v1.js"></script>
+</body>
+</html>

@@ -2,9 +2,10 @@
 DI赤外線センサー連動
 段階的防犯ライト制御（uasyncio）
 
-DI1=外周 / DI2=近接
-DO CH2=24V / DO CH3=100V
+DI1=駐車場センサー / DI2=ガレージセンサー
+DO CH2=外側100V (GPIO18) / DO CH3=100V投光器 (GPIO19)
 サーバーから動的同期したルールで動作。
+DI1/DI2 検知時は DO2+DO3 を設定時間点灯し、タイマー後に消灯する。
 """
 
 import time
@@ -201,23 +202,22 @@ class SecurityLightController:
         return self._seq_id == seq_id
 
     async def _pattern_a(self, seq_id):
+        """駐車場センサー (DI1): DO2 + DO3 を同時点灯。"""
         mode = self._di1_mode
         duration_ms = self._di1_duration_ms
         if mode == "off":
             self.log("Pattern A: lights OFF (config)")
             return
-        if mode == "strobe":
-            await self._strobe_channel(seq_id, CH_24V, duration_ms)
-        elif mode == "blink":
-            await self._blink_channel(
-                seq_id, CH_24V, duration_ms, 500, 500
+        # DI1 でも外側100V(DO2) と投光器(DO3) を連動点灯
+        mode_100v = "steady" if mode == "strobe" else mode
+        self.log(
+            "Pattern A: DO2+DO3 on mode={} {}s".format(
+                mode, duration_ms // 1000
             )
-        else:
-            self._set_ch(CH_24V, True)
-            self.log("Pattern A: 24V steady ON")
-            await self._wait_duration(seq_id, duration_ms)
-            if self._seq_alive(seq_id):
-                self._set_ch(CH_24V, False)
+        )
+        await self._run_dual_lights(seq_id, duration_ms, mode, mode_100v)
+        if self._seq_alive(seq_id):
+            self._all_security_off()
 
     async def _pattern_b(self, seq_id):
         duration_ms = self._di2_duration_ms

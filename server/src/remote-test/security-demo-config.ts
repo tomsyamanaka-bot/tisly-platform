@@ -77,7 +77,7 @@ export function buildInputNotifyPayload(di: number, to: "on" | "off") {
     body,
     eventType: inputCfg.eventType,
     deviceId: demoCfg.deviceId,
-    url: "/remote-test",
+    url: "/security-v1",
     data: {
       kind: "security",
       input: di,
@@ -85,6 +85,7 @@ export function buildInputNotifyPayload(di: number, to: "on" | "off") {
       to,
       eventType: inputCfg.eventType,
       label: inputCfg.label,
+      click_action: "/security-v1",
     },
   };
 }

@@ -3,20 +3,20 @@
   "deviceName": "TiSLY Lite Demo",
   "inputs": {
     "1": {
-      "label": "玄関ビーム",
+      "label": "駐車場センサー (DI1)",
       "eventType": "intrusion",
       "notifyTitleOn": "侵入検知",
-      "notifyBodyOn": "玄関ビーム",
+      "notifyBodyOn": "駐車場センサー",
       "notifyTitleOff": "侵入検知（復帰）",
-      "notifyBodyOff": "玄関ビーム"
+      "notifyBodyOff": "駐車場センサー"
     },
     "2": {
-      "label": "リビング窓",
-      "eventType": "window",
-      "notifyTitleOn": "窓開放検知",
-      "notifyBodyOn": "リビング窓",
-      "notifyTitleOff": "窓開放検知（復帰）",
-      "notifyBodyOff": "リビング窓"
+      "label": "ガレージセンサー (DI2)",
+      "eventType": "intrusion",
+      "notifyTitleOn": "侵入検知",
+      "notifyBodyOn": "ガレージセンサー",
+      "notifyTitleOff": "侵入検知（復帰）",
+      "notifyBodyOff": "ガレージセンサー"
     },
     "3": {
       "label": "勝手口",

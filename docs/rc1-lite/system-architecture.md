@@ -126,11 +126,11 @@ sequenceDiagram
     alt 侵入シミュレーション（配線不要）
         PWA->>VPS: POST /demo/intrusion-simulation
         VPS->>VPS: DI1 ON 疑似 · eventHistory
-        VPS-->>PWA: Push「侵入検知 / 玄関ビーム」
+        VPS-->>PWA: Push「侵入検知 / 駐車場センサー」
     else 実機 DI1 接点 ON
         RP->>VPS: heartbeat { inputStates.1=on }
         VPS->>VPS: 差分 + ARM 中 → 通知
-        VPS-->>PWA: Push「侵入検知 / 玄関ビーム」
+        VPS-->>PWA: Push「侵入検知 / 駐車場センサー」
     end
 
     PWA->>VPS: POST /disarm

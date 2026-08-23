@@ -833,7 +833,7 @@ describe("Remote Test PoC API", () => {
       .get("/api/remote-test/status")
       .set("X-Remote-Test-Token", TEST_TOKEN);
     assert.equal(status.body.notificationHistory[0].kind, "security");
-    assert.equal(status.body.notificationHistory[0].body, "玄関ビーム");
+    assert.equal(status.body.notificationHistory[0].body, "駐車場センサー");
     assert.equal(status.body.notificationHistory[0].title, "侵入検知");
     assert.ok(status.body.eventHistory.length >= 1);
     assert.equal(status.body.eventHistory[0].type, "intrusion");
@@ -863,7 +863,7 @@ describe("Remote Test PoC API", () => {
     const status = await request(app)
       .get("/api/remote-test/status")
       .set("X-Remote-Test-Token", TEST_TOKEN);
-    assert.equal(status.body.notificationHistory[0].body, "玄関ビーム");
+    assert.equal(status.body.notificationHistory[0].body, "駐車場センサー");
     assert.equal(status.body.notificationHistory[0].kind, "security");
     assert.equal(status.body.notificationHistory[0].title, "侵入検知（復帰）");
   });

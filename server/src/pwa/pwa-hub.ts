@@ -319,6 +319,23 @@ const PRACTICAL_PWA_DEFS: Array<
       "viewer",
     ],
   },
+  // ミリ波レーダー BLE 設定（追記）
+  {
+    id: "radar_settings_v1",
+    label: "ミリ波レーダー設定",
+    subtitle: "HLK-LD2410C · 距離ゲート · 感度",
+    icon: "📡",
+    features: ["BLE接続", "3方向CH", "距離ゲート", "Flash保存"],
+    href: "/radar-settings-v1",
+    themeColor: "#1e3a8a",
+    readyRoles: [
+      "surveyor",
+      "manager",
+      "owner",
+      "admin",
+      "super_admin",
+    ],
+  },
   // 電気デマンド＆セキュリティ（追記）
   {
     id: "demand_security_v1",

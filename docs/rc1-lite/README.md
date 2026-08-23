@@ -33,7 +33,7 @@ TiSLY Lite は **RP2350 制御盤** と **iPhone PWA** で動くホームセキ�
 | 1 | 画面を開く | online · ファームウェア版 |
 | 2 | CH1 ON/OFF | リレー LED + Push |
 | 3 | **警戒ON** | Push「警戒ON」 |
-| 4 | **侵入シミュレーション** | Push「侵入検知 / 玄関ビーム」 |
+| 4 | **侵入シミュレーション** | Push「侵入検知 / 駐車場センサー」 |
 | 5 | **警戒OFF** | 以降は Push なしで履歴のみ |
 
 詳細台本: [sales-demo-procedure.md](./sales-demo-procedure.md)

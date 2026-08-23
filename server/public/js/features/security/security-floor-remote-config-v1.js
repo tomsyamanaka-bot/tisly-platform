@@ -98,7 +98,7 @@ function renderNotifyPolicy(notifyPolicy) {
   if (!notifyPolicy?.rows?.length) return;
   const hint = $("sf-notify-policy-hint");
   if (hint) {
-    hint.textContent = `DI1 検知後 ${notifyPolicy.perimeterTimeoutSec ?? 120} 秒以内の DI2 で段階侵入`;
+    hint.textContent = `駐車場センサー検知後 ${notifyPolicy.perimeterTimeoutSec ?? 120} 秒以内のガレージセンサーで段階侵入`;
   }
   const list = $("sf-notify-policy");
   if (!list) return;

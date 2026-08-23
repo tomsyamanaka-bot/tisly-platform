@@ -52,6 +52,8 @@ import {
 
   bindHomeSecurityUiV1,
 
+  bindSystemLogModalV1,
+
   refreshHomeSecurityPanelsV1,
 
 } from "./home-shared-v1.js";
@@ -393,6 +395,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
   );
+
+  bindSystemLogModalV1();
 
   await loadSiteOptions();
 

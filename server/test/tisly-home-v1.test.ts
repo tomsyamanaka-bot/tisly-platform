@@ -622,7 +622,7 @@ describe("tisly-home-v1", () => {
       path.join(publicDir, "service-worker.js"),
       "utf-8"
     );
-    assert.match(sw, /tisly-pwa-v2489-outer-100v-light-label|tisly-pwa-v2488-radar-settings-ble|tisly-pwa-v2487-security-light-manual|tisly-pwa-v2486-home-bath-schedule-logs|tisly-pwa-v2485-itabashi-bath-pulse-ux|tisly-pwa-v2484-itabashi-bath-pulse|tisly-pwa-v2483-floorplan-ux-pin|tisly-pwa-v2471-security-drum|tisly-pwa-v2470-security-svg|tisly-pwa-v2469-security-light|tisly-pwa-v2468-soc-failsafe|tisly-pwa-v2467-soc-iso|tisly-pwa-v2466-security-floor|tisly-pwa-v2465-genre-chips|tisly-pwa-v2464-genre-chips|tisly-pwa-v2463-unified-genres|tisly-pwa-v2462-price-cost-master|tisly-pwa-v2461-home-customer-independent/);
+    assert.match(sw, /tisly-pwa-v2493-home-security-split|tisly-pwa-v2489-outer-100v-light-label|tisly-pwa-v2488-radar-settings-ble|tisly-pwa-v2487-security-light-manual|tisly-pwa-v2486-home-bath-schedule-logs|tisly-pwa-v2485-itabashi-bath-pulse-ux|tisly-pwa-v2484-itabashi-bath-pulse|tisly-pwa-v2483-floorplan-ux-pin|tisly-pwa-v2471-security-drum|tisly-pwa-v2470-security-svg|tisly-pwa-v2469-security-light|tisly-pwa-v2468-soc-failsafe|tisly-pwa-v2467-soc-iso|tisly-pwa-v2466-security-floor|tisly-pwa-v2465-genre-chips|tisly-pwa-v2464-genre-chips|tisly-pwa-v2463-unified-genres|tisly-pwa-v2462-price-cost-master|tisly-pwa-v2461-home-customer-independent/);
     assert.match(sw, /\/css\/features\/home\/home-v1\.css/);
     assert.match(sw, /\/css\/features\/home\/home-tiles-v1\.css/);
     assert.match(sw, /\/js\/features\/home\/home-tiles-v1\.js/);
@@ -636,7 +636,7 @@ describe("tisly-home-v1", () => {
     // 工事屋目線の並び: CT → ロック → インターホン → 風呂 → エアコン
     assert.match(
       tilesJs,
-      /HOME_TILE_ORDER_V1 = \[\s*"ct",\s*"lock",\s*"intercom",\s*"bath",\s*"security_light",\s*"aircon",?\s*\]/
+      /HOME_TILE_ORDER_V1 = \[\s*"ct",\s*"lock",\s*"intercom",\s*"bath",\s*"aircon",?\s*\]/
     );
     // 機器名（社内表記）
     assert.match(tilesJs, /分電盤CT/);
@@ -1108,7 +1108,7 @@ describe("tisly-home-v1", () => {
     assert.equal(mockSite.body.ok, false);
   });
 
-  it("ships manual security light UI assets", () => {
+  it("ships manual security light UI assets on Security (not HOME)", () => {
     const securityHtml = fs.readFileSync(
       path.join(publicDir, "security-v1.html"),
       "utf-8"
@@ -1116,13 +1116,15 @@ describe("tisly-home-v1", () => {
     assert.match(securityHtml, /sf-manual-light/);
     assert.match(securityHtml, /security-floor-manual-light-v1\.js/);
     assert.match(securityHtml, /sf-light-all-on/);
+    assert.match(securityHtml, /駐車場センサー \(DI1\)/);
+    assert.match(securityHtml, /ガレージセンサー \(DI2/);
 
     const operatorHtml = fs.readFileSync(
       path.join(publicDir, "home-v1.html"),
       "utf-8"
     );
-    assert.match(operatorHtml, /hm-security-light-card/);
-    assert.match(operatorHtml, /data-action="light_all_on"/);
+    assert.doesNotMatch(operatorHtml, /hm-security-light-card/);
+    assert.doesNotMatch(operatorHtml, /data-detail="security_light"/);
 
     const sharedJs = fs.readFileSync(
       path.join(
@@ -1147,7 +1149,7 @@ describe("tisly-home-v1", () => {
       ),
       "utf-8"
     );
-    assert.match(tilesJs, /securityLightTileV1/);
+    assert.doesNotMatch(tilesJs, /security_light/);
   });
 
   it("scene control away/welcome/goodnight", async () => {
@@ -1189,16 +1191,16 @@ describe("tisly-home-v1", () => {
     assert.ok(Array.isArray(timeline.body.timeline));
   });
 
-  it("home customer HTML includes security scene UI", () => {
+  it("home customer HTML separates home appliances from security UI", () => {
     const html = fs.readFileSync(
       path.join(publicDir, "home-customer-v1.html"),
       "utf8"
     );
     assert.match(html, /hm-scene-row/);
-    assert.match(html, /hm-security-settings/);
-    assert.match(html, /hm-heatmap/);
-    assert.match(html, /hm-push-reregister/);
-    assert.match(html, /hm-push-debug/);
-    assert.match(html, /Push通知を再登録・購読/);
+    assert.doesNotMatch(html, /hm-security-settings/);
+    assert.doesNotMatch(html, /hm-heatmap/);
+    assert.match(html, /hm-log-open-detail/);
+    assert.match(html, /詳細を見る（もっと見る）/);
+    assert.match(html, /hm-log-dialog/);
   });
 });

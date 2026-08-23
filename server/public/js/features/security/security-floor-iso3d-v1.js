@@ -911,7 +911,7 @@ function syncAlertHud() {
   } else if (state.alertTier === "perimeter") {
     badge.hidden = false;
     badge.className = "sf-iso3d-alert-badge is-perimeter";
-    badge.textContent = "⚠️ DI1 外周センサー検知";
+    badge.textContent = "⚠️ 駐車場センサー (DI1) 検知";
   } else {
     badge.hidden = true;
     badge.textContent = "";
