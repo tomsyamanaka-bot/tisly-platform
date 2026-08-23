@@ -19,7 +19,7 @@ export type HomeDi1LightModeV1 =
   | "strobe"
   | "off";
 
-/** 段階侵入 DI2 時の 24V ライトモード */
+/** 段階侵入 DI2 時の外側100V（DO2）ライトモード */
 export type HomeDi2LightModeV1 =
   | "fast_blink"
   | "steady"
@@ -31,7 +31,7 @@ export type HomeDi2Light100vModeV1 =
   | "blink"
   | "off";
 
-/** 近接単独 DI2 の 24V/100V モード */
+/** 近接単独 DI2 の外側100V（DO2）/100V（DO3）モード */
 export type HomeDi2StandaloneLightModeV1 =
   | "steady"
   | "blink"
@@ -46,7 +46,7 @@ export interface HomeSecurityRulesV1 {
   di1LightMode: HomeDi1LightModeV1;
   /** 段階侵入 DI1→DI2 接近判定制限（秒）30〜180 */
   perimeterTimeoutSec: number;
-  /** DI2 段階侵入時の 24V ライト動作 */
+  /** DI2 段階侵入時の外側100V（DO2）ライト動作 */
   di2LightMode: HomeDi2LightModeV1;
   /** DI2 段階侵入時の 100V ライト動作 */
   di2Light100vMode: HomeDi2Light100vModeV1;
@@ -54,7 +54,7 @@ export interface HomeSecurityRulesV1 {
   di2AlertDurationSec: number;
   /** 近接単独 DI2 点灯時間（秒）10〜180 */
   di2StandaloneDurationSec: number;
-  /** 近接単独 DI2 の 24V 動作 */
+  /** 近接単独 DI2 の外側100V（DO2）動作 */
   di2Standalone24vMode: HomeDi2StandaloneLightModeV1;
   /** 近接単独 DI2 の 100V 動作 */
   di2Standalone100vMode: HomeDi2StandaloneLightModeV1;

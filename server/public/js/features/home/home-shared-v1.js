@@ -1369,12 +1369,12 @@ export function renderSecurityLights(d, options = {}) {
 
   setText(
     "hm-security-light-note",
-    `${d.deviceBoardLabel || "RP2350"} · DO2(24V) · DO3(100V)`
+    `${d.deviceBoardLabel || "RP2350"} · DO2(外側100V) · DO3(100V)`
   );
 
   groups.innerHTML = `
     <div class="hm-security-light-group">
-      <p class="hm-card-label">💡 24V 防犯ライト (DO2 / GPIO18)</p>
+      <p class="hm-card-label">💡 外側100V 防犯ライト (DO2 / GPIO18)</p>
       <div class="hm-btn-row hm-btn-row-3">
         <button type="button" class="hm-btn is-on" data-target="security_light" data-action="light_24v_on">点灯</button>
         <button type="button" class="hm-btn is-off" data-target="security_light" data-action="light_24v_off">消灯</button>

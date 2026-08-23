@@ -10,7 +10,7 @@ const HOME_API = "/api/home/v1";
 const LIGHT_ACTIONS = [
   {
     group: "24v",
-    label: "💡 24V 防犯ライト (DO2 / GPIO18)",
+    label: "💡 外側100V 防犯ライト (DO2 / GPIO18)",
     buttons: [
       { action: "light_24v_on", label: "点灯", style: "is-on" },
       { action: "light_24v_off", label: "消灯", style: "" },

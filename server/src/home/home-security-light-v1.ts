@@ -1,7 +1,7 @@
 /**
  * TiSLY HOME — 防犯ライト手動遠隔操作 v1
  *
- * 24V (DO2/CH2) · 100V (DO3/CH3) を
+ * 外側100V (DO2/CH2) · 100V (DO3/CH3) を
  * RP2350 ポーリングキューへ即時投入する。
  */
 
@@ -25,9 +25,9 @@ export const SECURITY_LIGHT_COMMANDS_V1: SecurityLightCommandV1[] = [
 ];
 
 const COMMAND_LABELS_JA_V1: Record<SecurityLightCommandV1, string> = {
-  light_24v_on: "24V防犯ライトを点灯",
-  light_24v_off: "24V防犯ライトを消灯",
-  light_24v_strobe: "24V防犯ライトを威嚇点滅",
+  light_24v_on: "外側100V防犯ライトを点灯",
+  light_24v_off: "外側100V防犯ライトを消灯",
+  light_24v_strobe: "外側100V防犯ライトを威嚇点滅",
   light_100v_on: "100V投光器を点灯",
   light_100v_off: "100V投光器を消灯",
   light_all_on: "緊急全点灯",

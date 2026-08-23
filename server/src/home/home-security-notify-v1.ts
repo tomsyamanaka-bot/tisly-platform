@@ -229,7 +229,7 @@ async function dispatchPatternPushV1(input: {
   if (pattern === "pattern_a") {
     const title = "【TiSLY Security】外周接近を検知";
     const body =
-      "遠距離センサー（DI1）が反応しました。24Vライトを点灯中。";
+      "遠距離センサー（DI1）が反応しました。外側100Vライトを点灯中。";
     const result = await sendHomeSecurityPush({
       title,
       body,
@@ -254,7 +254,7 @@ async function dispatchPatternPushV1(input: {
   const title = "🚨【緊急警報】建物への接近侵入を検知";
   const body =
     "外周に続き建物近接センサー（DI2）が反応しました！" +
-    "24V点滅＋100Vライト威嚇中。";
+    "外側100V点滅＋100Vライト威嚇中。";
   const result = await sendHomeSecurityPush({
     title,
     body,

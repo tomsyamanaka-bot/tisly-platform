@@ -148,7 +148,7 @@ function securityLightTileV1(d, plain) {
       target: "security_light",
       action: "light_all_on",
       style: "is-danger",
-      aria: "24Vと100Vを緊急全点灯する",
+      aria: "外側100Vと100Vを緊急全点灯する",
     },
   };
 }
