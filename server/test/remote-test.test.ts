@@ -406,11 +406,8 @@ describe("Remote Test PoC API", () => {
     const status = await request(app)
       .get("/api/remote-test/status")
       .set("X-Remote-Test-Token", TEST_TOKEN);
-    assert.equal(status.body.notificationHistory.length, 1);
-    assert.equal(status.body.notificationHistory[0].channel, 8);
-    assert.equal(status.body.notificationHistory[0].to, "on");
-    assert.equal(status.body.notificationHistory[0].body, "CH8 ON");
-    assert.match(status.body.notificationHistory[0].title, /TiSLY CH8 ON/);
+    // DO/CH Web Push は無効 — 通知履歴にも載せない
+    assert.equal(status.body.notificationHistory.length, 0);
   });
 
   it("repeated heartbeat with same chStates does not add notifications", async () => {
@@ -442,7 +439,7 @@ describe("Remote Test PoC API", () => {
     const status = await request(app)
       .get("/api/remote-test/status")
       .set("X-Remote-Test-Token", TEST_TOKEN);
-    assert.equal(status.body.notificationHistory.length, 1);
+    assert.equal(status.body.notificationHistory.length, 0);
   });
 
   it("heartbeat CH8 ON→OFF sends notification history entry", async () => {
@@ -477,11 +474,8 @@ describe("Remote Test PoC API", () => {
     const status = await request(app)
       .get("/api/remote-test/status")
       .set("X-Remote-Test-Token", TEST_TOKEN);
-    assert.equal(status.body.notificationHistory.length, 2);
-    assert.equal(status.body.notificationHistory[0].channel, 8);
-    assert.equal(status.body.notificationHistory[0].to, "off");
-    assert.equal(status.body.notificationHistory[0].body, "CH8 OFF");
-    assert.equal(status.body.notificationHistory[1].to, "on");
+    // DO/CH Web Push 無効
+    assert.equal(status.body.notificationHistory.length, 0);
   });
 
   it("optimistic web ON still triggers push when heartbeat confirms device", async () => {
@@ -521,8 +515,8 @@ describe("Remote Test PoC API", () => {
     const after = await request(app)
       .get("/api/remote-test/status")
       .set("X-Remote-Test-Token", TEST_TOKEN);
-    assert.equal(after.body.notificationHistory.length, 1);
-    assert.equal(after.body.notificationHistory[0].body, "CH8 ON");
+    // DO/CH Web Push 無効
+    assert.equal(after.body.notificationHistory.length, 0);
   });
 
   it("GET /remote-test serves HTML page", async () => {
@@ -601,7 +595,7 @@ describe("Remote Test PoC API", () => {
     assert.equal(status.body.notificationHistory.length, 0, "command登録だけでは通知しない");
   });
 
-  it("notification: heartbeatでch8 on到着 → 通知 TiSLY CH8 ON", async () => {
+  it("notification: heartbeatでch8 on到着 → DO Pushなし", async () => {
     await request(app)
       .post("/api/remote-test/heartbeat")
       .query({ token: TEST_TOKEN })
@@ -610,10 +604,7 @@ describe("Remote Test PoC API", () => {
       .get("/api/remote-test/status")
       .set("X-Remote-Test-Token", TEST_TOKEN);
     assert.equal(status.body.chStates["8"], "on");
-    assert.equal(status.body.notificationHistory.length, 1);
-    assert.equal(status.body.notificationHistory[0].channel, 8);
-    assert.equal(status.body.notificationHistory[0].to, "on");
-    assert.match(status.body.notificationHistory[0].title, /TiSLY CH8 ON/);
+    assert.equal(status.body.notificationHistory.length, 0);
   });
 
   it("notification: PWAでch8_off command登録 → chStatesはまだon", async () => {
@@ -625,10 +616,10 @@ describe("Remote Test PoC API", () => {
       .set("X-Remote-Test-Token", TEST_TOKEN);
     assert.equal(status.body.pendingCommand, "ch8_off");
     assert.equal(status.body.chStates["8"], "on", "heartbeat前はonのまま");
-    assert.equal(status.body.notificationHistory.length, 1, "command登録だけでは通知増えない");
+    assert.equal(status.body.notificationHistory.length, 0, "command登録だけでは通知増えない");
   });
 
-  it("notification: heartbeatでch8 off到着 → 通知 TiSLY CH8 OFF", async () => {
+  it("notification: heartbeatでch8 off到着 → DO Pushなし", async () => {
     await request(app)
       .post("/api/remote-test/heartbeat")
       .query({ token: TEST_TOKEN })
@@ -637,13 +628,10 @@ describe("Remote Test PoC API", () => {
       .get("/api/remote-test/status")
       .set("X-Remote-Test-Token", TEST_TOKEN);
     assert.equal(status.body.chStates["8"], "off");
-    assert.equal(status.body.notificationHistory.length, 2);
-    assert.equal(status.body.notificationHistory[0].channel, 8);
-    assert.equal(status.body.notificationHistory[0].to, "off");
-    assert.match(status.body.notificationHistory[0].title, /TiSLY CH8 OFF/);
+    assert.equal(status.body.notificationHistory.length, 0);
   });
 
-  it("notification: PWAでch4_on command登録してheartbeatでch4 on → 通知 TiSLY CH4 ON", async () => {
+  it("notification: PWAでch4_on command登録してheartbeatでch4 on → DO Pushなし", async () => {
     await request(app)
       .post("/api/remote-test/ch4/on")
       .set("X-Remote-Test-Token", TEST_TOKEN);
@@ -660,9 +648,7 @@ describe("Remote Test PoC API", () => {
       .get("/api/remote-test/status")
       .set("X-Remote-Test-Token", TEST_TOKEN);
     assert.equal(after.body.chStates["4"], "on");
-    assert.equal(after.body.notificationHistory[0].channel, 4);
-    assert.equal(after.body.notificationHistory[0].to, "on");
-    assert.match(after.body.notificationHistory[0].title, /TiSLY CH4 ON/);
+    assert.equal(after.body.notificationHistory.length, 0);
   });
 
   it("GET /debug returns heartbeat and state snapshot", async () => {
@@ -689,7 +675,7 @@ describe("Remote Test PoC API", () => {
     assert.equal(res.body.lastPushResult, null);
   });
 
-  it("notification: CH1 ON/OFF via heartbeat triggers notifications", async () => {
+  it("notification: CH1 ON/OFF via heartbeat does not push (DO disabled)", async () => {
     resetRemoteTestState();
     const allOff = { "1": "off", "2": "off", "3": "off", "4": "off", "5": "off", "6": "off", "7": "off", "8": "off" };
 
@@ -711,12 +697,7 @@ describe("Remote Test PoC API", () => {
     const status = await request(app)
       .get("/api/remote-test/status")
       .set("X-Remote-Test-Token", TEST_TOKEN);
-    assert.equal(status.body.notificationHistory.length, 2);
-    assert.equal(status.body.notificationHistory[0].channel, 1);
-    assert.equal(status.body.notificationHistory[0].to, "off");
-    assert.equal(status.body.notificationHistory[1].channel, 1);
-    assert.equal(status.body.notificationHistory[1].to, "on");
-    assert.ok(status.body.notificationHistory[0].timestamp);
+    assert.equal(status.body.notificationHistory.length, 0);
   });
 
   it("notification: 同じheartbeatが連続しても通知しない", async () => {
@@ -868,7 +849,7 @@ describe("Remote Test PoC API", () => {
     assert.equal(status.body.notificationHistory[0].title, "侵入検知（復帰）");
   });
 
-  it("heartbeat DI4 ON/OFF sends notifications when armed", async () => {
+  it("heartbeat DI4 ON/OFF records eventHistory only (no Push for non-DI1/2)", async () => {
     resetRemoteTestState();
     await request(app)
       .post("/api/remote-test/heartbeat")
@@ -890,13 +871,11 @@ describe("Remote Test PoC API", () => {
     const di4 = status.body.notificationHistory.filter(
       (h: { kind?: string; channel: number }) => h.kind === "security" && h.channel === 4
     );
-    assert.equal(di4.length, 2);
-    assert.equal(di4[0].body, "非常ボタン");
-    assert.equal(di4[1].body, "非常ボタン");
-    assert.equal(di4[1].title, "非常ボタン押下");
+    assert.equal(di4.length, 0);
+    assert.ok(status.body.eventHistory.length >= 2);
   });
 
-  it("heartbeat DI8 ON/OFF sends notifications when armed", async () => {
+  it("heartbeat DI8 ON/OFF records eventHistory only (no Push for non-DI1/2)", async () => {
     resetRemoteTestState();
     await request(app)
       .post("/api/remote-test/heartbeat")
@@ -918,9 +897,8 @@ describe("Remote Test PoC API", () => {
     const di8 = status.body.notificationHistory.filter(
       (h: { kind?: string; channel: number }) => h.kind === "security" && h.channel === 8
     );
-    assert.equal(di8.length, 2);
-    assert.equal(di8[0].body, "予備入力8");
-    assert.equal(di8[1].body, "予備入力8");
+    assert.equal(di8.length, 0);
+    assert.ok(status.body.eventHistory.length >= 2);
   });
 
   it("GET /device returns inputStates after heartbeat", async () => {
@@ -943,7 +921,7 @@ describe("Remote Test PoC API", () => {
     assert.match(res.text, /id="st-di8"/);
   });
 
-  it("CH and DI notifications coexist in notificationHistory when armed", async () => {
+  it("DI Push only — CH changes do not appear in notificationHistory when armed", async () => {
     resetRemoteTestState();
     await request(app)
       .post("/api/remote-test/heartbeat")
@@ -962,7 +940,7 @@ describe("Remote Test PoC API", () => {
       .filter((h: { kind: string }) => h.kind === "ch" || h.kind === "security")
       .map((h: { kind: string }) => h.kind)
       .sort();
-    assert.deepEqual(sensorKinds, ["ch", "security"]);
+    assert.deepEqual(sensorKinds, ["security"]);
   });
 
   // ---- Security Demo Mode ----

@@ -13,6 +13,9 @@ import {
 const REMOTE_TEST_USER_ID = "remote-test";
 const REMOTE_TEST_DEVICE_ID = "rp2350-remote-test-01";
 
+/** DO (CH) 連動 Web Push は完全停止 — センサー(DI)のみ Push 対象 */
+const CH_WEB_PUSH_ENABLED = false;
+
 function buildChStatePayload(change: ChStateChange) {
   const label = `CH${change.channel} ${change.to.toUpperCase()}`;
   return {
@@ -107,8 +110,18 @@ function persistInputNotificationLog(
   return logId;
 }
 
+/**
+ * DO/リレー (CH) 状態変化 — Web Push は送信しない。
+ * 診断用のコンソールログのみ（通知連打・CH2/CH3 ライト連動 Push を停止）。
+ */
 export async function notifyChStateChanges(changes: ChStateChange[]): Promise<void> {
   for (const change of changes) {
+    if (!CH_WEB_PUSH_ENABLED) {
+      console.log(
+        `[remote-test] CH${change.channel} ${change.from}→${change.to} — Web Push skipped (DO output disabled)`
+      );
+      continue;
+    }
     const payload = buildChStatePayload(change);
     console.log(
       `[remote-test] sendPushNotification start CH${change.channel} prev=${change.from} current=${change.to}`,
@@ -141,6 +154,13 @@ export async function notifyChStateChanges(changes: ChStateChange[]): Promise<vo
 
 export async function notifyInputStateChanges(changes: InputStateChange[]): Promise<void> {
   for (const change of changes) {
+    // Push 対象は DI1/DI2 センサーのみ
+    if (change.input !== 1 && change.input !== 2) {
+      console.log(
+        `[remote-test] DI${change.input} change logged only — Push limited to DI1/DI2`
+      );
+      continue;
+    }
     const payload = buildInputStatePayload(change);
     console.log(
       `[remote-test] sendPushNotification start DI${change.input} prev=${change.from} current=${change.to}`,

@@ -464,7 +464,7 @@ def read_di_state(di):
 
 def poll_inputs():
 
-    """DI1〜DI8を50msデバウンスして更新。"""
+    """DI1〜DI8をデバウンスして更新（既定 50ms・確定は security_light 側）。"""
 
     changed = False
 
@@ -514,7 +514,7 @@ def set_ch_output(channel, on):
 
 def handle_security_di_edges(edges):
 
-    """DI1/DI2 立上りで防犯ライト制御を起動。"""
+    """DI1/DI2 立上り — security_light 側で 250ms 継続 ON 確定。"""
 
     global _security
 
@@ -958,7 +958,13 @@ async def async_main():
 
     )
 
-    log("security light control enabled (DI1/DI2)")
+    def _read_di_for_confirm(di):
+
+        return read_di_state(di)
+
+    _security.set_di_reader(_read_di_for_confirm)
+
+    log("security light control enabled (DI1/DI2 confirm 250ms)")
 
     rules_sync_every = int(
         getattr(config, "SECURITY_RULES_SYNC_EVERY", 10)

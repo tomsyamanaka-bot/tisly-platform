@@ -56,5 +56,8 @@ DI_GPIO = {
 # 入力は active-low（接点 ON = GPIO LOW）
 DI_ACTIVE_LOW = True
 
+# DI ハードデバウンス（ms）。確定は security_light の 250ms 継続 ON
+DI_DEBOUNCE_MS = 50
+
 # ファームウェア版（PWA「RP2350接続時刻」画面に表示）
-FIRMWARE_VERSION = "1.6.0-security-dynamic-v1"
+FIRMWARE_VERSION = "1.6.1-di-confirm-250ms"

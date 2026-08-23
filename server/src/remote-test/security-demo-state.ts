@@ -28,6 +28,25 @@ interface PersistedSecurityDemoState {
 const MAX_EVENT_HISTORY = 100;
 const PWA_EVENT_DISPLAY = 20;
 
+/** 同一センサー Push クールダウン（ミリ秒） */
+export const SECURITY_DEMO_PUSH_COOLDOWN_MS = 45_000;
+
+const lastSensorPushAtMs = new Map<number, number>();
+
+export function isSecurityDemoPushInCooldown(input: number): boolean {
+  const last = lastSensorPushAtMs.get(input);
+  if (last == null) return false;
+  return Date.now() - last < SECURITY_DEMO_PUSH_COOLDOWN_MS;
+}
+
+export function markSecurityDemoPushSent(input: number): void {
+  lastSensorPushAtMs.set(input, Date.now());
+}
+
+export function resetSecurityDemoPushCooldown(): void {
+  lastSensorPushAtMs.clear();
+}
+
 let stateFileOverride: string | null = null;
 
 function stateFilePath(): string {
@@ -164,6 +183,7 @@ export function resetSecurityDemoState(): void {
   state.eventHistory = [];
   state.lastArmAt = null;
   state.lastDisarmAt = null;
+  resetSecurityDemoPushCooldown();
   try {
     const file = stateFilePath();
     if (fs.existsSync(file)) fs.unlinkSync(file);

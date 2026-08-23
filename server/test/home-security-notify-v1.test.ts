@@ -115,4 +115,18 @@ describe("home-security-notify-v1", () => {
     assert.equal(result.pattern, "pattern_c");
     assert.equal(result.pushSent, false);
   });
+
+  it("same DI within cooldown suppresses additional Push (log only)", async () => {
+    resetHomeSecurityNotifyStateV1(SITE);
+    updateHomeSecurityRulesV1(SITE, {
+      guardMode: "always",
+      securityPausedUntil: null,
+      notifyDi1SilentLogOnly: false,
+    });
+    const first = await processHomeSecurityEventV1({ siteId: SITE, di: 1 });
+    assert.equal(first.pushSent, true);
+    const second = await processHomeSecurityEventV1({ siteId: SITE, di: 1 });
+    assert.equal(second.pattern, "pattern_a");
+    assert.equal(second.pushSent, false);
+  });
 });

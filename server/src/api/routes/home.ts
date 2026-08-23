@@ -405,7 +405,13 @@ homeRouter.post("/control", async (req, res) => {
   });
 
   if (!result.ok) {
-    res.status(400).json({ ok: false, error: result.error });
+    res.status(400).json({
+      ok: false,
+      error: result.error,
+      statusCode: result.statusCode,
+      switchBotMessage: result.switchBotMessage,
+      message: result.error,
+    });
     return;
   }
 

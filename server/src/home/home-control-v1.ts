@@ -6,7 +6,8 @@
  * 既存の物件配列は削除せず対象値のみ更新。
  *
  * 玄関ロック / エアコンは SwitchBot Cloud API が設定されていれば
- * 実機へコマンド送信し、未設定・失敗時はモック状態更新へフォールバック。
+ * 実機へコマンド送信する。ロックは実機失敗時にモックへ落とさずエラー返却。
+ * 未設定時のみモック状態更新へフォールバック。
  */
 
 import {
@@ -31,6 +32,7 @@ import {
   sendSwitchBotPowerCommandV1,
 } from "./switchbot_client.js";
 import { resolveHomeSwitchBotMapV1 } from "./home-switchbot-map-v1.js";
+import { syncHomeLockFromSwitchBotV1 } from "./home-switchbot-sync-v1.js";
 import {
   toggleOneshotBathFillV1,
   hydrateHomeBathStateV1,
@@ -71,6 +73,10 @@ export interface HomeControlResultV1 {
   message?: string;
   /** 制御後の状態スナップショット */
   state?: unknown;
+  /** SwitchBot API の statusCode（失敗時に Toast 表示用） */
+  statusCode?: number;
+  /** SwitchBot API の message 原文 */
+  switchBotMessage?: string;
 }
 
 const AIRCON_MIN_TEMP_C = 16;
@@ -284,23 +290,35 @@ function isPrimarySwitchBotAirconV1(ac: HomeAirconV1): boolean {
 
 async function dispatchLockToSwitchBotV1(
   nextLocked: boolean
-): Promise<{ used: boolean; note?: string }> {
+): Promise<{
+  used: boolean;
+  ok: boolean;
+  skipped?: boolean;
+  error?: string;
+  statusCode?: number;
+  switchBotMessage?: string;
+  note?: string;
+}> {
   const env = getSwitchBotHomeEnvV1();
   const map = await resolveHomeSwitchBotMapV1({ env });
   const lockId = map.lock || env.lockDeviceId;
   if (!isSwitchBotHomeConfiguredV1(env) || !lockId) {
-    return { used: false };
+    return { used: false, ok: true, skipped: true };
   }
   const command = nextLocked ? "lock" : "unlock";
   const result = await sendSwitchBotLockCommandV1(command, lockId, env);
-  if (result.skipped) return { used: false };
+  if (result.skipped) return { used: false, ok: true, skipped: true };
   if (!result.ok) {
+    const switchBotMessage = result.error ?? "SwitchBot lock command failed";
     return {
       used: true,
-      note: `（SwitchBot: ${result.error} → モック反映）`,
+      ok: false,
+      error: switchBotMessage,
+      statusCode: result.statusCode,
+      switchBotMessage,
     };
   }
-  return { used: true, note: "（SwitchBot 送信）" };
+  return { used: true, ok: true, note: "（SwitchBot 送信）" };
 }
 
 async function dispatchAirconToSwitchBotV1(
@@ -613,9 +631,27 @@ export async function applyHomeControlV1(
       let sbNote = "";
       try {
         const sb = await dispatchLockToSwitchBotV1(nextLocked);
+        if (sb.used && !sb.ok) {
+          result = {
+            ok: false,
+            error:
+              sb.error ||
+              `SwitchBot ${nextLocked ? "lock" : "unlock"} に失敗しました`,
+            statusCode: sb.statusCode,
+            switchBotMessage: sb.switchBotMessage ?? sb.error,
+          };
+          break;
+        }
         if (sb.note) sbNote = sb.note;
-      } catch {
-        sbNote = "（SwitchBot 通信エラー → モック反映）";
+      } catch (err) {
+        const msg =
+          err instanceof Error ? err.message : "SwitchBot 通信エラー";
+        result = {
+          ok: false,
+          error: msg,
+          switchBotMessage: msg,
+        };
+        break;
       }
       result = applyHomeLockControlV1(
         site,
@@ -623,6 +659,12 @@ export async function applyHomeControlV1(
         input.value,
         input.actor
       );
+      // 実機ステータスと UI を完全同期
+      try {
+        await syncHomeLockFromSwitchBotV1(site.id);
+      } catch {
+        /* 同期失敗でもコマンド成功は維持 */
+      }
       if (result.ok && sbNote && result.message) {
         result = { ...result, message: `${result.message}${sbNote}` };
       }
@@ -647,9 +689,25 @@ export async function applyHomeControlV1(
         let sbNote = "";
         try {
           const sb = await dispatchLockToSwitchBotV1(false);
+          if (sb.used && !sb.ok) {
+            result = {
+              ok: false,
+              error: sb.error || "SwitchBot unlock に失敗しました",
+              statusCode: sb.statusCode,
+              switchBotMessage: sb.switchBotMessage ?? sb.error,
+            };
+            break;
+          }
           if (sb.note) sbNote = sb.note;
-        } catch {
-          sbNote = "（SwitchBot 通信エラー → モック反映）";
+        } catch (err) {
+          const msg =
+            err instanceof Error ? err.message : "SwitchBot 通信エラー";
+          result = {
+            ok: false,
+            error: msg,
+            switchBotMessage: msg,
+          };
+          break;
         }
         applyHomeLockControlV1(
           site,
@@ -657,6 +715,11 @@ export async function applyHomeControlV1(
           { credentialType: "app" },
           input.actor || "インターホン応答"
         );
+        try {
+          await syncHomeLockFromSwitchBotV1(site.id);
+        } catch {
+          /* ignore */
+        }
         if (sbNote && result.message) {
           result = { ...result, message: `${result.message}${sbNote}` };
         }

@@ -83,7 +83,20 @@ export async function sendHomeControl(payload) {
     body: JSON.stringify(payload),
   });
   const data = await res.json();
-  if (!data.ok) throw new Error(data.error || "操作に失敗しました");
+  if (!data.ok) {
+    const detail =
+      data.statusCode != null
+        ? `${data.error || "操作に失敗しました"} (statusCode=${data.statusCode}${
+            data.switchBotMessage && data.switchBotMessage !== data.error
+              ? ` / ${data.switchBotMessage}`
+              : ""
+          })`
+        : data.error || "操作に失敗しました";
+    const err = new Error(detail);
+    err.statusCode = data.statusCode;
+    err.switchBotMessage = data.switchBotMessage;
+    throw err;
+  }
   return data;
 }
 

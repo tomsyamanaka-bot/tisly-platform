@@ -6,6 +6,8 @@ DI1=駐車場センサー / DI2=ガレージセンサー
 DO CH2=外側100V (GPIO18) / DO CH3=100V投光器 (GPIO19)
 サーバーから動的同期したルールで動作。
 DI1/DI2 検知時は DO2+DO3 を設定時間点灯し、タイマー後に消灯する。
+
+検知確定: 200〜300ms 継続 ON で 1 回だけ確定（チャタリング／歩行ノイズ抑制）。
 """
 
 import time
@@ -20,6 +22,8 @@ _DEFAULT_DURATION_MS = 45_000
 _DEFAULT_PERIMETER_MS = 120_000
 _DEFAULT_STROBE_ON_MS = 250
 _DEFAULT_STROBE_OFF_MS = 250
+# DI 確定時間（継続 ON で 1 回トリガー）
+_DEFAULT_DI_CONFIRM_MS = 250
 
 CH_24V = 2
 CH_100V = 3
@@ -51,6 +55,15 @@ class SecurityLightController:
         self._perimeter_flag_ms = _DEFAULT_PERIMETER_MS
         self._strobe_on_ms = _DEFAULT_STROBE_ON_MS
         self._strobe_off_ms = _DEFAULT_STROBE_OFF_MS
+        # di -> ON 開始 ticks / 確定済みフラグ
+        self._di_confirm_ms = _DEFAULT_DI_CONFIRM_MS
+        self._di_confirmed = {}
+        self._confirm_gen = {}
+        self._get_di = None
+
+    def set_di_reader(self, get_di):
+        """現在の DI 状態を返す callable(di) -> 'on'|'off' を登録。"""
+        self._get_di = get_di
 
     def apply_rules(self, rules):
         """VPS から取得したルール JSON を反映。"""
@@ -94,12 +107,18 @@ class SecurityLightController:
         self._strobe_off_ms = int(
             rules.get("strobeOffMs", _DEFAULT_STROBE_OFF_MS)
         )
+        confirm = int(
+            rules.get("diConfirmMs", self._di_confirm_ms)
+        )
+        if 200 <= confirm <= 300:
+            self._di_confirm_ms = confirm
         self.log(
-            "rules synced v{} guard={} di1={}s mode={}".format(
+            "rules synced v{} guard={} di1={}s mode={} confirm={}ms".format(
                 self._rules_version,
                 self._guard_active,
                 self._di1_duration_ms // 1000,
                 self._di1_mode,
+                self._di_confirm_ms,
             )
         )
         return True
@@ -117,12 +136,58 @@ class SecurityLightController:
         return True
 
     def on_di_edge(self, di, prev_state, new_state):
-        if new_state != "on" or prev_state == "on":
+        """立上りで confirm_ms 待機後に確定。OFF でキャンセル。"""
+        if di not in (DI_OUTER, DI_INNER):
             return
+        if new_state == "on" and prev_state != "on":
+            gen = self._confirm_gen.get(di, 0) + 1
+            self._confirm_gen[di] = gen
+            self._di_confirmed[di] = False
+            try:
+                asyncio.create_task(self._confirm_rising(di, gen))
+            except Exception as exc:
+                self.log("confirm task err: {}".format(exc))
+                # フォールバック: 即確定
+                self._fire_di(di)
+        elif new_state != "on":
+            self._confirm_gen[di] = self._confirm_gen.get(di, 0) + 1
+            self._di_confirmed[di] = False
+
+    async def _confirm_rising(self, di, gen):
+        """confirm_ms 継続 ON なら 1 回だけパターン起動。"""
+        await asyncio.sleep_ms(self._di_confirm_ms)
+        if self._confirm_gen.get(di) != gen:
+            return
+        state = "on"
+        if self._get_di:
+            try:
+                state = self._get_di(di)
+            except Exception:
+                state = "off"
+        if state != "on":
+            self.log("DI{} chatter — confirm aborted".format(di))
+            return
+        if self._di_confirmed.get(di):
+            return
+        self._di_confirmed[di] = True
+        self.log(
+            "DI{} confirmed after {}ms hold".format(di, self._di_confirm_ms)
+        )
+        self._fire_di(di)
+
+    def _fire_di(self, di):
         if di == DI_OUTER:
             self._on_di1_detected()
         elif di == DI_INNER:
             self._on_di2_detected()
+
+    def tick_di(self, di, state, start_timer=False):
+        """互換スタブ（非同期確定へ移行済み）。"""
+        pass
+
+    def tick_from_states(self, input_states):
+        """互換スタブ（非同期確定へ移行済み）。"""
+        pass
 
     def _perimeter_active(self):
         return time.ticks_diff(

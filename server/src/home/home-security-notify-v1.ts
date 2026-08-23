@@ -52,6 +52,26 @@ export interface HomeSecurityNotifyPolicyV1 {
 /** サイト別 DI1 検知時刻（段階侵入判定用） */
 const di1DetectedAtMs = new Map<string, number>();
 
+/** 同一センサー Push クールダウン（ミリ秒）— 連打防止・DB ログは継続 */
+export const HOME_SECURITY_PUSH_COOLDOWN_MS = 45_000;
+
+/** siteId:di → 最終 Push 送信時刻 */
+const lastDiPushAtMs = new Map<string, number>();
+
+function pushCooldownKey(siteId: string, di: 1 | 2): string {
+  return `${siteId}:${di}`;
+}
+
+function isDiPushInCooldown(siteId: string, di: 1 | 2): boolean {
+  const last = lastDiPushAtMs.get(pushCooldownKey(siteId, di));
+  if (last == null) return false;
+  return Date.now() - last < HOME_SECURITY_PUSH_COOLDOWN_MS;
+}
+
+function markDiPushSent(siteId: string, di: 1 | 2): void {
+  lastDiPushAtMs.set(pushCooldownKey(siteId, di), Date.now());
+}
+
 /** テスト用：DI1 検知時刻を任意設定 */
 export function setHomeSecurityDi1DetectedAtForTestV1(
   siteId: string,
@@ -60,10 +80,16 @@ export function setHomeSecurityDi1DetectedAtForTestV1(
   di1DetectedAtMs.set(siteId, atMs);
 }
 
-/** テスト用：段階侵入状態をリセット */
+/** テスト用：段階侵入・クールダウン状態をリセット */
 export function resetHomeSecurityNotifyStateV1(siteId?: string): void {
-  if (siteId) di1DetectedAtMs.delete(siteId);
-  else di1DetectedAtMs.clear();
+  if (siteId) {
+    di1DetectedAtMs.delete(siteId);
+    lastDiPushAtMs.delete(pushCooldownKey(siteId, 1));
+    lastDiPushAtMs.delete(pushCooldownKey(siteId, 2));
+  } else {
+    di1DetectedAtMs.clear();
+    lastDiPushAtMs.clear();
+  }
 }
 
 /** UI 表示用：通知ポリシー（rules のフラグを反映） */
@@ -213,13 +239,21 @@ async function dispatchPatternPushV1(input: {
   pattern: HomeSecurityNotifyPatternV1;
   guardActive: boolean;
   rules: HomeSecurityRulesV1;
+  di: 1 | 2;
 }): Promise<boolean> {
-  const { siteId, pattern, guardActive, rules } = input;
+  const { siteId, pattern, guardActive, rules, di } = input;
   const url = `/security-v1.html?siteId=${encodeURIComponent(siteId)}`;
 
   if (!guardActive) {
     console.log(
       `[home-security] guard inactive — log only pattern=${pattern} site=${siteId}`
+    );
+    return false;
+  }
+
+  if (isDiPushInCooldown(siteId, di)) {
+    console.log(
+      `[home-security] DI${di} Push suppressed (cooldown ${HOME_SECURITY_PUSH_COOLDOWN_MS}ms) pattern=${pattern} site=${siteId}`
     );
     return false;
   }
@@ -250,6 +284,7 @@ async function dispatchPatternPushV1(input: {
       { di: 1, siteId, pattern, url, click_action: url },
       result
     );
+    markDiPushSent(siteId, 1);
     console.log(
       `[home-security] push DI1 alert success=${result.success} error=${result.error ?? ""}`
     );
@@ -282,6 +317,7 @@ async function dispatchPatternPushV1(input: {
       { di: 2, siteId, pattern, severity: "critical", url, click_action: url },
       result
     );
+    markDiPushSent(siteId, 2);
     console.log(
       `[home-security] push DI2 instant success=${result.success} error=${result.error ?? ""}`
     );
@@ -308,6 +344,7 @@ async function dispatchPatternPushV1(input: {
     { di: 2, siteId, pattern, severity: "critical", url, click_action: url },
     result
   );
+  markDiPushSent(siteId, 2);
   console.log(
     `[home-security] push DI2 critical success=${result.success} error=${result.error ?? ""}`
   );
@@ -364,6 +401,7 @@ async function handleDiRisingEdgeV1(
     pattern: di === 1 ? "pattern_a" : pattern,
     guardActive,
     rules,
+    di,
   });
   return { pattern: di === 1 ? "pattern_a" : pattern, pushSent };
 }

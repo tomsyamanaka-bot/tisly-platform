@@ -198,9 +198,11 @@ export function createSwitchBotHomeAuthHeadersV1(
   }
   const t = String(Date.now());
   const nonce = randomUUID();
+  // SwitchBot Open API v1.1: Base64(HMAC-SHA256) を大文字化して送る
   const sign = createHmac("sha256", env.secret)
     .update(env.token + t + nonce, "utf8")
-    .digest("base64");
+    .digest("base64")
+    .toUpperCase();
   return {
     Authorization: env.token,
     sign,
@@ -442,15 +444,15 @@ export async function sendSwitchBotCommandV1(
     const body = await parseJsonSafe(res);
     const statusCode =
       typeof body.statusCode === "number" ? body.statusCode : res.status;
+    const apiMessage =
+      typeof body.message === "string" ? body.message : undefined;
     // SwitchBot は HTTP 200 でも body.statusCode !== 100 のことがある
     if (!res.ok || (typeof body.statusCode === "number" && body.statusCode !== 100)) {
       const msg =
-        typeof body.message === "string"
-          ? body.message
-          : `SwitchBot command failed: HTTP ${res.status}`;
+        apiMessage ?? `SwitchBot command failed: HTTP ${res.status}`;
       return {
         ok: false,
-        statusCode: res.status,
+        statusCode,
         error: redactSecrets(
           `SwitchBot ${payload.command}: ${msg} (statusCode=${statusCode})`,
           env
@@ -459,7 +461,7 @@ export async function sendSwitchBotCommandV1(
     }
     return {
       ok: true,
-      statusCode: res.status,
+      statusCode,
       data: {
         message: `SwitchBot ${payload.command} sent to ${id}`,
       },

@@ -7,15 +7,20 @@ import {
   loadSecurityDemoConfig,
 } from "./security-demo-config.js";
 import { markPushResult, recordSecurityNotification } from "./remote-test-state.js";
-import type { InputStateChange } from "./security-demo-state.js";
 import {
   getSecurityMode,
   isArmed,
+  isSecurityDemoPushInCooldown,
+  markSecurityDemoPushSent,
   recordInputSecurityEvent,
+  SECURITY_DEMO_PUSH_COOLDOWN_MS,
   type SecurityMode,
 } from "./security-demo-state.js";
 
 const REMOTE_TEST_USER_ID = "remote-test";
+
+/** センサー検知 Push は DI1/DI2 のみ（DI3〜DI8・DO は対象外） */
+const PUSH_SENSOR_INPUTS = new Set([1, 2]);
 
 function persistSecurityLog(
   eventType: string,
@@ -74,7 +79,9 @@ async function sendSecurityPush(
   }
 }
 
-export async function processSecurityInputChanges(changes: InputStateChange[]): Promise<void> {
+export async function processSecurityInputChanges(
+  changes: import("./security-demo-state.js").InputStateChange[]
+): Promise<void> {
   for (const change of changes) {
     const event = recordInputSecurityEvent(change);
     console.log(
@@ -86,10 +93,44 @@ export async function processSecurityInputChanges(changes: InputStateChange[]): 
       continue;
     }
 
+    // Push は DI1/DI2 センサー検知のみ（DO・他 DI はログのみ）
+    if (!PUSH_SENSOR_INPUTS.has(change.input)) {
+      console.log(
+        `[security-demo] DI${change.input} — Push skipped (sensor Push limited to DI1/DI2)`
+      );
+      continue;
+    }
+
+    // クールダウンは検知（ON）連打のみ。OFF/復帰は抑止しない
+    if (change.to === "on" && isSecurityDemoPushInCooldown(change.input)) {
+      console.log(
+        `[security-demo] DI${change.input} — Push suppressed (cooldown ${SECURITY_DEMO_PUSH_COOLDOWN_MS}ms), log only`
+      );
+      continue;
+    }
+
     const payload = buildInputNotifyPayload(change.input, change.to);
-    console.log("[security-demo] sendPush", { title: payload.title, body: payload.body });
-    const result = await sendSecurityPush(payload);
-    const logId = persistSecurityLog(payload.eventType, payload.title, payload.body, payload, result);
+    // 実 Push は home-security-notify（パターン通知）が担当。
+    // ここでは remote-test 通知履歴のみ残し、Web Push 二重送信を防ぐ。
+    console.log(
+      "[security-demo] history only (Web Push via home-security)",
+      { title: payload.title, body: payload.body }
+    );
+    const result: DeliveryResult = {
+      channel: "web_push",
+      success: true,
+      error: undefined,
+    };
+    if (change.to === "on") {
+      markSecurityDemoPushSent(change.input);
+    }
+    const logId = persistSecurityLog(
+      payload.eventType,
+      payload.title,
+      payload.body,
+      { ...payload, pushDelegatedTo: "home_security" },
+      result
+    );
     recordSecurityNotification(
       {
         kind: "security",
@@ -103,7 +144,6 @@ export async function processSecurityInputChanges(changes: InputStateChange[]): 
       result,
       logId
     );
-    markPushResult(result.success, result.error);
   }
 }
 

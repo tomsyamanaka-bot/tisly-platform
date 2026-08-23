@@ -74,9 +74,11 @@ export function createSwitchBotAuthHeaders(): Record<string, string> {
   }
   const t = String(Date.now());
   const nonce = randomUUID();
+  // SwitchBot Open API v1.1: Base64(HMAC-SHA256) を大文字化して送る
   const sign = createHmac("sha256", secret)
     .update(token + t + nonce, "utf8")
-    .digest("base64");
+    .digest("base64")
+    .toUpperCase();
   return {
     Authorization: token,
     sign,

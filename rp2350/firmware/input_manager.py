@@ -1,5 +1,8 @@
 """Debounced digital input polling (50ms default)."""
 
+# センサー確定用の推奨値（security_light の 250ms 継続 ON と併用）
+DEFAULT_DI_CONFIRM_MS = 250
+
 
 class InputManager:
     def __init__(self, board, debounce_ms=50):
