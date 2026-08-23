@@ -14,8 +14,12 @@
   var drum = {
     dragging: false,
     lastY: 0,
+    lastX: 0,
     accY: 0,
+    accX: 0,
     pointerId: null,
+    onIso3d: false,
+    mode: null,
   };
   var cameraIndex = 0;
   var cameras = [
@@ -239,17 +243,31 @@
           t.closest(".sf-iso3d-pin"))
       );
     }
-    wrap.addEventListener("pointerdown", function (e) {
-      if (is3dTarget(e.target)) return;
-      drum.dragging = true;
-      drum.lastY = e.clientY;
-      drum.accY = 0;
-      drum.pointerId = e.pointerId;
-      wrap.classList.add("is-dragging");
+    function setOrbitRotate(on) {
       try {
-        wrap.setPointerCapture(e.pointerId);
-      } catch (_err) {
+        if (window.TislySecurityIso3d && window.TislySecurityIso3d.setOrbitEnabled) {
+          window.TislySecurityIso3d.setOrbitEnabled(on);
+        }
+      } catch (_e) {
         /* ignore */
+      }
+    }
+    wrap.addEventListener("pointerdown", function (e) {
+      drum.dragging = true;
+      drum.onIso3d = is3dTarget(e.target);
+      drum.lastY = e.clientY;
+      drum.lastX = e.clientX;
+      drum.accY = 0;
+      drum.accX = 0;
+      drum.mode = null;
+      drum.pointerId = e.pointerId;
+      if (!drum.onIso3d) {
+        wrap.classList.add("is-dragging");
+        try {
+          wrap.setPointerCapture(e.pointerId);
+        } catch (_err) {
+          /* ignore */
+        }
       }
     });
     wrap.addEventListener(
@@ -257,8 +275,37 @@
       function (e) {
         if (!drum.dragging) return;
         if (drum.pointerId != null && e.pointerId !== drum.pointerId) return;
-        drum.accY += e.clientY - drum.lastY;
+        var dy = e.clientY - drum.lastY;
+        var dx = e.clientX - drum.lastX;
         drum.lastY = e.clientY;
+        drum.lastX = e.clientX;
+        drum.accY += dy;
+        drum.accX += dx;
+        if (drum.onIso3d) {
+          if (!drum.mode) {
+            if (Math.abs(drum.accY) > 14 || Math.abs(drum.accX) > 14) {
+              drum.mode =
+                Math.abs(drum.accY) > Math.abs(drum.accX) * 1.15
+                  ? "floor"
+                  : "orbit";
+              if (drum.mode === "floor") {
+                setOrbitRotate(false);
+                wrap.classList.add("is-dragging");
+              }
+            }
+          }
+          if (drum.mode === "floor") {
+            if (e.cancelable) e.preventDefault();
+            if (drum.accY > 48) {
+              stepFloor(1);
+              drum.accY = 0;
+            } else if (drum.accY < -48) {
+              stepFloor(-1);
+              drum.accY = 0;
+            }
+          }
+          return;
+        }
         if (e.cancelable) e.preventDefault();
       },
       { passive: false }
@@ -266,11 +313,17 @@
     function up(e) {
       if (!drum.dragging) return;
       if (drum.pointerId != null && e.pointerId !== drum.pointerId) return;
-      if (drum.accY > 42) stepFloor(1);
-      else if (drum.accY < -42) stepFloor(-1);
+      if (!drum.onIso3d || drum.mode === "floor") {
+        if (drum.accY > 42) stepFloor(1);
+        else if (drum.accY < -42) stepFloor(-1);
+      }
+      setOrbitRotate(true);
       drum.dragging = false;
       drum.pointerId = null;
       drum.accY = 0;
+      drum.accX = 0;
+      drum.mode = null;
+      drum.onIso3d = false;
       wrap.classList.remove("is-dragging");
     }
     wrap.addEventListener("pointerup", up);
@@ -278,7 +331,7 @@
     wrap.addEventListener(
       "wheel",
       function (e) {
-        if (is3dTarget(e.target) && !e.shiftKey) return;
+        /* 3D上もホイールで階層切替（ズームはピンチ） */
         if (Math.abs(e.deltaY) < 8) return;
         e.preventDefault();
         stepFloor(e.deltaY > 0 ? 1 : -1);

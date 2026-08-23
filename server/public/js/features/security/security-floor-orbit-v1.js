@@ -1,6 +1,7 @@
 /**
  * 立体ドラム式フロア切替（rotateX + translateZ）
  * マップ上の縦スワイプ / ホイールで 2F → 1F → 外周 を回転
+ * 3Dキャンバス上も縦優勢ジェスチャ・ホイールで階層フォーカス連動
  */
 
 const DRUM_ORDER = ["2f", "1f", "outdoor"];
@@ -8,8 +9,12 @@ const DRUM_ORDER = ["2f", "1f", "outdoor"];
 const drum = {
   dragging: false,
   lastY: 0,
+  lastX: 0,
   accY: 0,
+  accX: 0,
   pointerId: null,
+  onIso3d: false,
+  mode: null, // 'floor' | 'orbit' | null
 };
 
 function layersOf(el) {
@@ -20,6 +25,14 @@ function syncFloorTabs(id) {
   document.querySelectorAll("#sf-floor-tabs [data-floor]").forEach((btn) => {
     btn.classList.toggle("is-on", btn.getAttribute("data-floor") === id);
   });
+}
+
+function setOrbitRotate(on) {
+  try {
+    window.TislySecurityIso3d?.setOrbitEnabled?.(on);
+  } catch {
+    /* ignore */
+  }
 }
 
 export function applySecurityOrbit() {
@@ -52,7 +65,7 @@ export function setSecurityDrumFloor(id) {
   const el = document.getElementById("sf-iso-orbit");
   if (!el) return;
   const layers = layersOf(el);
-    const next = layers.some((l) => l.getAttribute("data-layer") === id)
+  const next = layers.some((l) => l.getAttribute("data-layer") === id)
     ? id
     : layers.find((l) => l.getAttribute("data-layer") === "1f")?.getAttribute(
         "data-layer"
@@ -100,17 +113,21 @@ function isIso3dPointerTarget(t) {
 function onPointerDown(e) {
   const wrap = e.target.closest("#sf-map-wrap");
   if (!wrap) return;
-  /* 3Dキャンバス上は OrbitControls に委ね、ドラム縦スワイプは無効 */
-  if (isIso3dPointerTarget(e.target)) return;
   drum.dragging = true;
+  drum.onIso3d = isIso3dPointerTarget(e.target);
   drum.lastY = e.clientY;
+  drum.lastX = e.clientX;
   drum.accY = 0;
+  drum.accX = 0;
+  drum.mode = null;
   drum.pointerId = e.pointerId;
-  wrap.classList.add("is-dragging");
-  try {
-    wrap.setPointerCapture(e.pointerId);
-  } catch {
-    /* ignore */
+  if (!drum.onIso3d) {
+    wrap.classList.add("is-dragging");
+    try {
+      wrap.setPointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
   }
 }
 
@@ -118,19 +135,53 @@ function onPointerMove(e) {
   if (!drum.dragging) return;
   if (drum.pointerId != null && e.pointerId !== drum.pointerId) return;
   const dy = e.clientY - drum.lastY;
+  const dx = e.clientX - drum.lastX;
   drum.lastY = e.clientY;
+  drum.lastX = e.clientX;
   drum.accY += dy;
+  drum.accX += dx;
+
+  if (drum.onIso3d) {
+    if (!drum.mode) {
+      if (Math.abs(drum.accY) > 14 || Math.abs(drum.accX) > 14) {
+        drum.mode =
+          Math.abs(drum.accY) > Math.abs(drum.accX) * 1.15 ? "floor" : "orbit";
+        if (drum.mode === "floor") {
+          setOrbitRotate(false);
+          document.getElementById("sf-map-wrap")?.classList.add("is-dragging");
+        }
+      }
+    }
+    if (drum.mode === "floor") {
+      if (e.cancelable) e.preventDefault();
+      if (drum.accY > 48) {
+        stepFloor(1);
+        drum.accY = 0;
+      } else if (drum.accY < -48) {
+        stepFloor(-1);
+        drum.accY = 0;
+      }
+    }
+    return;
+  }
+
   if (e.cancelable) e.preventDefault();
 }
 
 function onPointerUp(e) {
   if (!drum.dragging) return;
   if (drum.pointerId != null && e.pointerId !== drum.pointerId) return;
-  if (drum.accY > 42) stepFloor(1);
-  else if (drum.accY < -42) stepFloor(-1);
+  if (!drum.onIso3d || drum.mode === "floor") {
+    if (drum.accY > 42) stepFloor(1);
+    else if (drum.accY < -42) stepFloor(-1);
+  }
+  setOrbitRotate(true);
   drum.dragging = false;
   drum.pointerId = null;
   drum.accY = 0;
+  drum.accX = 0;
+  drum.mode = null;
+  drum.onIso3d = false;
   document.getElementById("sf-map-wrap")?.classList.remove("is-dragging");
 }
 
@@ -149,8 +200,7 @@ export function bindSecurityOrbit() {
   wrap?.addEventListener(
     "wheel",
     (e) => {
-      /* 3D上のホイールはズーム。フロア切替は Shift+ホイール or HUD 上 */
-      if (isIso3dPointerTarget(e.target) && !e.shiftKey) return;
+      /* 3D上もホイールで階層切替（ズームはピンチ） */
       if (Math.abs(e.deltaY) < 8) return;
       e.preventDefault();
       stepFloor(e.deltaY > 0 ? 1 : -1);
