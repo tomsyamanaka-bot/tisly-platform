@@ -187,10 +187,17 @@ securityFloorRouter.post("/test-notify", async (req, res) => {
 
   const vapidConfigured = isVapidConfigured();
   const subscriptionCount = countPushSubscriptions();
+  console.log(
+    `[security-floor/test-notify] start site=${siteId} vapidConfigured=${vapidConfigured} subscriptionCount=${subscriptionCount}`
+  );
+
   let webPush: Awaited<ReturnType<typeof sendWebPush>> = {
     channel: "web_push",
     success: false,
     error: "not attempted",
+    sent: 0,
+    attempted: 0,
+    attempts: [],
   };
 
   try {
@@ -207,6 +214,9 @@ securityFloorRouter.post("/test-notify", async (req, res) => {
       channel: "web_push",
       success: false,
       error: err instanceof Error ? err.message : String(err),
+      sent: 0,
+      attempted: subscriptionCount,
+      attempts: [],
     };
     console.error("[security-floor/test-notify] push error:", webPush.error);
   }
@@ -215,16 +225,26 @@ securityFloorRouter.post("/test-notify", async (req, res) => {
   if (!webPush.success) {
     if (!vapidConfigured) {
       hint = "VAPID 未設定 — server で npm run vapid:setup を実行して再起動";
-    } else if (subscriptionCount === 0) {
+    } else if (subscriptionCount === 0 || webPush.error === "No active subscriptions found") {
       hint =
-        "Push 未登録 — /remote-test または /app/push で PWA から Push 登録してください";
+        "No active subscriptions found — PWA で「Push通知を再登録・購読」を実行してください";
     } else {
       hint = webPush.error ?? "Push 送信失敗";
     }
   }
 
+  const attemptSummary = (webPush.attempts ?? [])
+    .map(
+      (a) =>
+        `${a.success ? "ok" : "fail"}:${a.statusLabel}:…${a.endpointTail}`
+    )
+    .join("; ");
+
   console.log(
-    `[security-floor/test-notify] site=${siteId} push=${webPush.success} subs=${subscriptionCount}`
+    `[security-floor/test-notify] done site=${siteId} push=${webPush.success} ` +
+      `subs=${subscriptionCount} sent=${webPush.sent ?? 0}/${webPush.attempted ?? 0}` +
+      (webPush.error ? ` error=${webPush.error}` : "") +
+      (attemptSummary ? ` attempts=[${attemptSummary}]` : "")
   );
 
   res.json({

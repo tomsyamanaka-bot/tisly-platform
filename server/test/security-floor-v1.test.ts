@@ -262,6 +262,10 @@ describe("security-floor-v1", () => {
     assert.ok(
       Array.isArray(notify.body.operatorSite.soc.alarmLogs)
     );
+    assert.ok(notify.body.push);
+    assert.equal(typeof notify.body.push.success, "boolean");
+    assert.equal(typeof notify.body.push.subscriptionCount, "number");
+    assert.ok(Array.isArray(notify.body.push.attempts));
     await request(app)
       .post("/api/security-floor/v1/test-notify")
       .send({ siteId: "SEC-AU-SYDNEY-001" });

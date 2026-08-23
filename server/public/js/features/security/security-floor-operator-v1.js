@@ -459,6 +459,13 @@ async function toggleLivingAlert() {
     if (site?.hasAlert) state.floorId = "1f";
     state.cameraId = site.soc?.selectedCameraId || state.cameraId;
     renderSite(site, state.dash);
+    if (data.push && data.push.success === false) {
+      const msg =
+        data.push.hint ||
+        data.push.error ||
+        "Push 送信失敗";
+      window.alert(`通知テスト: ${msg}`);
+    }
   } catch {
     const site = applyLocalPrimaryAlert(state.site);
     if (site?.hasAlert) state.floorId = "1f";

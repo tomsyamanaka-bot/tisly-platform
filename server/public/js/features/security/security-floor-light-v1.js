@@ -333,7 +333,19 @@
       $("sf-demo-alert").addEventListener("click", function () {
         setAlertVisual(!alerting);
         if (alerting) setFloor("1f");
-        postJson("/api/security-floor/v1/test-notify", { siteId: siteId() });
+        postJson("/api/security-floor/v1/test-notify", { siteId: siteId() }).then(
+          function (res) {
+            if (!res || !res.ok) return;
+            return res.json().then(function (data) {
+              if (data && data.push && data.push.success === false) {
+                window.alert(
+                  "通知テスト: " +
+                    (data.push.hint || data.push.error || "Push 送信失敗")
+                );
+              }
+            });
+          }
+        );
       });
     $("sf-ack") &&
       $("sf-ack").addEventListener("click", function () {

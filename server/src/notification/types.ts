@@ -28,8 +28,25 @@ export interface NotificationPayload {
   data?: Record<string, unknown>;
 }
 
+/** Web Push 1 購読あたりの送信試行結果（デバッグ / test-notify 用） */
+export interface WebPushAttemptResult {
+  id: string;
+  endpointTail: string;
+  endpointHost: string;
+  success: boolean;
+  statusCode?: number;
+  statusLabel: string;
+  error?: string;
+}
+
 export interface DeliveryResult {
   channel: NotificationChannel;
   success: boolean;
   error?: string;
+  /** 送信成功件数（web_push） */
+  sent?: number;
+  /** 試行した購読数（web_push） */
+  attempted?: number;
+  /** 各購読への送信結果（web_push） */
+  attempts?: WebPushAttemptResult[];
 }

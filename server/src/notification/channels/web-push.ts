@@ -3,9 +3,38 @@ import { v4 as uuid } from "uuid";
 import { config } from "../../config.js";
 import { getDatabase } from "../../db/database.js";
 import type { NotificationPayload } from "../types.js";
-import type { DeliveryResult } from "../types.js";
+import type { DeliveryResult, WebPushAttemptResult } from "../types.js";
 
 let vapidConfiguredLogged = false;
+
+function endpointTail(endpoint: string, n = 48): string {
+  if (!endpoint) return "";
+  return endpoint.length <= n ? endpoint : endpoint.slice(-n);
+}
+
+function endpointHost(endpoint: string): string {
+  try {
+    return new URL(endpoint).host;
+  } catch {
+    return "unknown-host";
+  }
+}
+
+/** HTTP ステータスを人間可読ラベルへ（ログ / API 用） */
+export function webPushStatusLabel(statusCode?: number): string {
+  if (statusCode == null) return "unknown";
+  const known: Record<number, string> = {
+    201: "201 Created",
+    400: "400 Bad Request",
+    401: "401 Unauthorized",
+    403: "403 Forbidden",
+    404: "404 Not Found",
+    410: "410 Gone / Expired",
+    413: "413 Payload Too Large",
+    429: "429 Too Many Requests",
+  };
+  return known[statusCode] ?? String(statusCode);
+}
 
 function formatWebPushError(err: unknown): string {
   if (!err || typeof err !== "object") {
@@ -18,7 +47,7 @@ function formatWebPushError(err: unknown): string {
     endpoint?: string;
   };
   const parts: string[] = [];
-  if (e.statusCode != null) parts.push(`status=${e.statusCode}`);
+  if (e.statusCode != null) parts.push(webPushStatusLabel(e.statusCode));
   if (e.message) parts.push(e.message);
   if (e.body) {
     const body =
@@ -31,6 +60,16 @@ function formatWebPushError(err: unknown): string {
   }
   if (e.endpoint) parts.push(`endpoint=${e.endpoint.slice(0, 80)}`);
   return parts.length ? parts.join(" | ") : String(err);
+}
+
+function isVapidHeaderError(message: string): boolean {
+  const m = message.toLowerCase();
+  return (
+    m.includes("vapid") ||
+    m.includes("unauthorized") ||
+    m.includes("jwt") ||
+    m.includes("invalid authentication")
+  );
 }
 
 export function configureWebPush(): void {
@@ -74,7 +113,14 @@ export async function sendWebPush(
       hasPrivate: !!config.vapid.privateKey,
       subject: config.vapid.subject,
     });
-    return { channel: "web_push", success: false, error: "VAPID keys not configured" };
+    return {
+      channel: "web_push",
+      success: false,
+      error: "VAPID keys not configured",
+      sent: 0,
+      attempted: 0,
+      attempts: [],
+    };
   }
   configureWebPush();
   let db;
@@ -87,6 +133,9 @@ export async function sendWebPush(
       channel: "web_push",
       success: false,
       error: msg,
+      sent: 0,
+      attempted: 0,
+      attempts: [],
     };
   }
   const tokens = userId
@@ -103,10 +152,17 @@ export async function sendWebPush(
 
   if (!tokens.length) {
     console.warn(
-      `[web-push] No push subscriptions` +
+      `[web-push] No active subscriptions found` +
         (userId ? ` for user_id=${userId}` : " (all users)")
     );
-    return { channel: "web_push", success: false, error: "No push subscriptions" };
+    return {
+      channel: "web_push",
+      success: false,
+      error: "No active subscriptions found",
+      sent: 0,
+      attempted: 0,
+      attempts: [],
+    };
   }
 
   const message = JSON.stringify({
@@ -121,37 +177,65 @@ export async function sendWebPush(
   });
 
   console.log(
-    `[web-push] sending title="${payload.title}" targets=${tokens.length}` +
+    `[web-push] sending title="${payload.title}" subscriptionCount=${tokens.length}` +
       (userId ? ` userId=${userId}` : " (all active)")
   );
 
   let sent = 0;
   let lastError: string | undefined;
+  const attempts: WebPushAttemptResult[] = [];
+
   for (const row of tokens as Array<{
     id: string;
     endpoint: string;
     keys_json: string;
   }>) {
+    const host = endpointHost(row.endpoint);
+    const tail = endpointTail(row.endpoint);
     try {
       const keys = JSON.parse(row.keys_json);
       if (!keys?.p256dh || !keys?.auth) {
         throw new Error("subscription keys missing p256dh/auth");
       }
-      await webpush.sendNotification(
+      const response = await webpush.sendNotification(
         { endpoint: row.endpoint, keys },
         message
       );
+      const statusCode =
+        (response as { statusCode?: number } | undefined)?.statusCode ?? 201;
+      const statusLabel = webPushStatusLabel(statusCode);
       sent++;
+      attempts.push({
+        id: row.id,
+        endpointTail: tail,
+        endpointHost: host,
+        success: true,
+        statusCode,
+        statusLabel,
+      });
       console.log(
-        `[web-push] delivered endpoint=${row.endpoint.slice(0, 64)}…`
+        `[web-push] attempt ok id=${row.id} host=${host} status=${statusLabel} endpoint=…${tail}`
       );
     } catch (err) {
+      const statusCode = (err as { statusCode?: number })?.statusCode;
+      const statusLabel = webPushStatusLabel(statusCode);
       lastError = formatWebPushError(err);
+      if (isVapidHeaderError(lastError)) {
+        lastError = `VAPID header error: ${lastError}`;
+      }
+      attempts.push({
+        id: row.id,
+        endpointTail: tail,
+        endpointHost: host,
+        success: false,
+        statusCode,
+        statusLabel,
+        error: lastError,
+      });
       console.error(
-        `[web-push] sendNotification failed id=${row.id}:`,
+        `[web-push] attempt fail id=${row.id} host=${host} status=${statusLabel} endpoint=…${tail}:`,
         lastError
       );
-      const statusCode = (err as { statusCode?: number })?.statusCode;
       if (
         statusCode === 410 ||
         statusCode === 404 ||
@@ -165,15 +249,19 @@ export async function sendWebPush(
           "UPDATE pwa_subscriptions SET active = 0, updated_at = datetime('now') WHERE endpoint = ?"
         ).run(row.endpoint);
         console.warn(
-          `[web-push] deactivated expired subscription id=${row.id}`
+          `[web-push] deactivated expired subscription id=${row.id} (${statusLabel})`
         );
       }
     }
   }
+
   const result: DeliveryResult = {
     channel: "web_push",
     success: sent > 0,
     error: sent > 0 ? undefined : lastError ?? "All subscriptions failed",
+    sent,
+    attempted: tokens.length,
+    attempts,
   };
   console.log(
     `[web-push] result success=${result.success} sent=${sent}/${tokens.length}` +

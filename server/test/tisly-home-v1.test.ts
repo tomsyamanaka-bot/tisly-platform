@@ -1197,5 +1197,8 @@ describe("tisly-home-v1", () => {
     assert.match(html, /hm-scene-row/);
     assert.match(html, /hm-security-settings/);
     assert.match(html, /hm-heatmap/);
+    assert.match(html, /hm-push-reregister/);
+    assert.match(html, /hm-push-debug/);
+    assert.match(html, /Push通知を再登録・購読/);
   });
 });
