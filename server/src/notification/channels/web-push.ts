@@ -5,20 +5,75 @@ import { getDatabase } from "../../db/database.js";
 import type { NotificationPayload } from "../types.js";
 import type { DeliveryResult } from "../types.js";
 
+let vapidConfiguredLogged = false;
+
+function formatWebPushError(err: unknown): string {
+  if (!err || typeof err !== "object") {
+    return err instanceof Error ? err.message : String(err);
+  }
+  const e = err as {
+    message?: string;
+    statusCode?: number;
+    body?: string | Buffer;
+    endpoint?: string;
+  };
+  const parts: string[] = [];
+  if (e.statusCode != null) parts.push(`status=${e.statusCode}`);
+  if (e.message) parts.push(e.message);
+  if (e.body) {
+    const body =
+      typeof e.body === "string"
+        ? e.body
+        : Buffer.isBuffer(e.body)
+          ? e.body.toString("utf8")
+          : String(e.body);
+    if (body.trim()) parts.push(`body=${body.slice(0, 300)}`);
+  }
+  if (e.endpoint) parts.push(`endpoint=${e.endpoint.slice(0, 80)}`);
+  return parts.length ? parts.join(" | ") : String(err);
+}
+
 export function configureWebPush(): void {
-  if (!config.vapid.publicKey || !config.vapid.privateKey) return;
+  if (!config.vapid.publicKey || !config.vapid.privateKey) {
+    if (!vapidConfiguredLogged) {
+      console.warn(
+        "[web-push] VAPID keys not configured — set VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY"
+      );
+      vapidConfiguredLogged = true;
+    }
+    return;
+  }
   webpush.setVapidDetails(
     config.vapid.subject,
     config.vapid.publicKey,
     config.vapid.privateKey
   );
+  if (!vapidConfiguredLogged) {
+    console.log(
+      `[web-push] VAPID configured subject=${config.vapid.subject} publicKeyLen=${config.vapid.publicKey.length}`
+    );
+    vapidConfiguredLogged = true;
+  }
 }
 
+export function isVapidConfigured(): boolean {
+  return !!(config.vapid.publicKey && config.vapid.privateKey);
+}
+
+/**
+ * Web Push 送信。
+ * userId 省略時は全アクティブ端末へ配信（セキュリティ/通知テスト用）。
+ */
 export async function sendWebPush(
   payload: NotificationPayload,
   userId?: string
 ): Promise<DeliveryResult> {
   if (!config.vapid.publicKey || !config.vapid.privateKey) {
+    console.error("[web-push] send aborted: VAPID keys not configured", {
+      hasPublic: !!config.vapid.publicKey,
+      hasPrivate: !!config.vapid.privateKey,
+      subject: config.vapid.subject,
+    });
     return { channel: "web_push", success: false, error: "VAPID keys not configured" };
   }
   configureWebPush();
@@ -26,10 +81,12 @@ export async function sendWebPush(
   try {
     db = getDatabase();
   } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[web-push] database unavailable:", msg);
     return {
       channel: "web_push",
       success: false,
-      error: err instanceof Error ? err.message : String(err),
+      error: msg,
     };
   }
   const tokens = userId
@@ -45,6 +102,10 @@ export async function sendWebPush(
         .all();
 
   if (!tokens.length) {
+    console.warn(
+      `[web-push] No push subscriptions` +
+        (userId ? ` for user_id=${userId}` : " (all users)")
+    );
     return { channel: "web_push", success: false, error: "No push subscriptions" };
   }
 
@@ -59,6 +120,11 @@ export async function sendWebPush(
     data: payload.data,
   });
 
+  console.log(
+    `[web-push] sending title="${payload.title}" targets=${tokens.length}` +
+      (userId ? ` userId=${userId}` : " (all active)")
+  );
+
   let sent = 0;
   let lastError: string | undefined;
   for (const row of tokens as Array<{
@@ -68,23 +134,52 @@ export async function sendWebPush(
   }>) {
     try {
       const keys = JSON.parse(row.keys_json);
+      if (!keys?.p256dh || !keys?.auth) {
+        throw new Error("subscription keys missing p256dh/auth");
+      }
       await webpush.sendNotification(
         { endpoint: row.endpoint, keys },
         message
       );
       sent++;
+      console.log(
+        `[web-push] delivered endpoint=${row.endpoint.slice(0, 64)}…`
+      );
     } catch (err) {
-      lastError = err instanceof Error ? err.message : String(err);
-      if (String(lastError).includes("410") || String(lastError).includes("404")) {
-        db.prepare("UPDATE notification_tokens SET active = 0 WHERE id = ?").run(row.id);
+      lastError = formatWebPushError(err);
+      console.error(
+        `[web-push] sendNotification failed id=${row.id}:`,
+        lastError
+      );
+      const statusCode = (err as { statusCode?: number })?.statusCode;
+      if (
+        statusCode === 410 ||
+        statusCode === 404 ||
+        String(lastError).includes("410") ||
+        String(lastError).includes("404")
+      ) {
+        db.prepare(
+          "UPDATE notification_tokens SET active = 0, updated_at = datetime('now') WHERE id = ?"
+        ).run(row.id);
+        db.prepare(
+          "UPDATE pwa_subscriptions SET active = 0, updated_at = datetime('now') WHERE endpoint = ?"
+        ).run(row.endpoint);
+        console.warn(
+          `[web-push] deactivated expired subscription id=${row.id}`
+        );
       }
     }
   }
-  return {
+  const result: DeliveryResult = {
     channel: "web_push",
     success: sent > 0,
     error: sent > 0 ? undefined : lastError ?? "All subscriptions failed",
   };
+  console.log(
+    `[web-push] result success=${result.success} sent=${sent}/${tokens.length}` +
+      (result.error ? ` error=${result.error}` : "")
+  );
+  return result;
 }
 
 export function countPushSubscriptions(userId?: string): number {
@@ -120,6 +215,17 @@ function ensurePushUserExists(userId: string): void {
     ).run("remote-test", "remote-test@tisly.jp", "TiSLY Remote Test", "viewer");
     return;
   }
+  if (userId === "home-security") {
+    db.prepare(
+      `INSERT INTO users (id, email, display_name, role) VALUES (?, ?, ?, ?)`
+    ).run(
+      "home-security",
+      "home-security@tisly.jp",
+      "TiSLY Home Security",
+      "viewer"
+    );
+    return;
+  }
   if (userId === "admin-default") {
     db.prepare(
       `INSERT INTO users (id, email, display_name, role) VALUES (?, ?, ?, ?)`
@@ -127,32 +233,67 @@ function ensurePushUserExists(userId: string): void {
   }
 }
 
+/**
+ * PushSubscription を DB に保存（同一 endpoint は upsert）。
+ */
 export function savePushSubscription(
   userId: string,
   subscription: { endpoint: string; keys: { p256dh: string; auth: string } },
   deviceId?: string
 ): string {
-  const id = uuid();
+  if (!subscription?.endpoint) {
+    throw new Error("subscription.endpoint required");
+  }
+  if (!subscription?.keys?.p256dh || !subscription?.keys?.auth) {
+    throw new Error("subscription.keys.p256dh and auth required");
+  }
+
   const db = getDatabase();
   ensurePushUserExists(userId);
-  db.prepare(
-    `INSERT INTO notification_tokens (id, user_id, device_id, channel, token, endpoint, keys_json)
-     VALUES (?, ?, ?, 'web_push', ?, ?, ?)`
-  ).run(
-    id,
-    userId,
-    deviceId ?? null,
-    subscription.endpoint,
-    subscription.endpoint,
-    JSON.stringify(subscription.keys)
-  );
+  const keysJson = JSON.stringify(subscription.keys);
+
+  const existing = db
+    .prepare(
+      `SELECT id FROM notification_tokens WHERE channel = 'web_push' AND endpoint = ?`
+    )
+    .get(subscription.endpoint) as { id: string } | undefined;
+
+  let id: string;
+  if (existing?.id) {
+    id = existing.id;
+    db.prepare(
+      `UPDATE notification_tokens
+       SET user_id = ?, device_id = COALESCE(?, device_id), token = ?, keys_json = ?,
+           active = 1, updated_at = datetime('now')
+       WHERE id = ?`
+    ).run(userId, deviceId ?? null, subscription.endpoint, keysJson, id);
+  } else {
+    id = uuid();
+    db.prepare(
+      `INSERT INTO notification_tokens (id, user_id, device_id, channel, token, endpoint, keys_json, active)
+       VALUES (?, ?, ?, 'web_push', ?, ?, ?, 1)`
+    ).run(
+      id,
+      userId,
+      deviceId ?? null,
+      subscription.endpoint,
+      subscription.endpoint,
+      keysJson
+    );
+  }
+
   db.prepare(
     `INSERT INTO pwa_subscriptions (id, user_id, endpoint, keys_json, active)
      VALUES (?, ?, ?, ?, 1)
      ON CONFLICT(endpoint) DO UPDATE SET
+       user_id = excluded.user_id,
        keys_json = excluded.keys_json,
        active = 1,
        updated_at = datetime('now')`
-  ).run(id, userId, subscription.endpoint, JSON.stringify(subscription.keys));
+  ).run(id, userId, subscription.endpoint, keysJson);
+
+  console.log(
+    `[web-push] subscription saved userId=${userId} id=${id} endpoint=${subscription.endpoint.slice(0, 64)}…`
+  );
   return id;
 }

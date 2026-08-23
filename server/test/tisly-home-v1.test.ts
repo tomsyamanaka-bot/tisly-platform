@@ -1038,7 +1038,11 @@ describe("tisly-home-v1", () => {
     resetHomeSecurityNotifyStateV1(ITABASHI_SITE);
     await request(app)
       .put("/api/home/v1/security-rules")
-      .send({ siteId: ITABASHI_SITE, guardMode: "always" })
+      .send({
+        siteId: ITABASHI_SITE,
+        guardMode: "always",
+        notifyDi2InstantPush: false,
+      })
       .expect(200);
 
     const di2solo = await request(app)

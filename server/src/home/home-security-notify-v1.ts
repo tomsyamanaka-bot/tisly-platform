@@ -66,21 +66,24 @@ export function resetHomeSecurityNotifyStateV1(siteId?: string): void {
   else di1DetectedAtMs.clear();
 }
 
-/** UI 表示用：固定通知ポリシー */
+/** UI 表示用：通知ポリシー（rules のフラグを反映） */
 export function buildHomeSecurityNotifyPolicyV1(
   rules: HomeSecurityRulesV1
 ): HomeSecurityNotifyPolicyV1 {
   const sec = rules.perimeterTimeoutSec;
+  const di1Push = !rules.notifyDi1SilentLogOnly;
+  const di2Push = rules.notifyDi2InstantPush;
   return {
     perimeterTimeoutSec: sec,
     rows: [
       {
         id: "di1_alone",
-        label: "DI1単独：通知ON",
-        enabled: true,
-        severity: "warning",
-        description:
-          "外周センサー（DI1）のみ検知時に警戒 Web Push を送信",
+        label: di1Push ? "DI1単独：通知ON" : "DI1単独：サイレント",
+        enabled: di1Push,
+        severity: di1Push ? "warning" : "silent",
+        description: di1Push
+          ? "外周センサー（DI1）のみ検知時に警戒 Web Push を送信"
+          : "外周センサー（DI1）はログとライトのみ（Push なし）",
       },
       {
         id: "staged_intrusion",
@@ -91,11 +94,14 @@ export function buildHomeSecurityNotifyPolicyV1(
       },
       {
         id: "di2_alone",
-        label: "DI2単独：通知OFF（サイレント）",
-        enabled: false,
-        severity: "silent",
-        description:
-          "近接センサー単独はログとライトのみ（Push なし）",
+        label: di2Push
+          ? "DI2単独：即時 Web Push"
+          : "DI2単独：通知OFF（サイレント）",
+        enabled: di2Push,
+        severity: di2Push ? "critical" : "silent",
+        description: di2Push
+          ? "近接センサー（DI2）単独でも緊急 Web Push を送信"
+          : "近接センサー単独はログとライトのみ（Push なし）",
       },
     ],
   };
@@ -142,24 +148,22 @@ async function sendHomeSecurityPush(payload: {
   data?: Record<string, unknown>;
 }): Promise<DeliveryResult> {
   try {
-    return await sendWebPush(
-      {
-        title: payload.title,
-        body: payload.body,
-        eventType: payload.eventType,
-        deviceId: HOME_ITABASHI_LIVE_SITE_ID_V1,
-        url: payload.url,
+    // 登録端末は remote-test / admin-default 等に分かれるため全アクティブへ配信
+    return await sendWebPush({
+      title: payload.title,
+      body: payload.body,
+      eventType: payload.eventType,
+      deviceId: HOME_ITABASHI_LIVE_SITE_ID_V1,
+      url: payload.url,
+      icon: SECURITY_ALERT_ICON,
+      badge: SECURITY_ALERT_BADGE,
+      data: {
+        ...payload.data,
+        severity: payload.severity,
         icon: SECURITY_ALERT_ICON,
         badge: SECURITY_ALERT_BADGE,
-        data: {
-          ...payload.data,
-          severity: payload.severity,
-          icon: SECURITY_ALERT_ICON,
-          badge: SECURITY_ALERT_BADGE,
-        },
       },
-      HOME_PUSH_USER_ID
-    );
+    });
   } catch (err) {
     return {
       channel: "web_push",
@@ -208,25 +212,26 @@ async function dispatchPatternPushV1(input: {
   siteId: string;
   pattern: HomeSecurityNotifyPatternV1;
   guardActive: boolean;
+  rules: HomeSecurityRulesV1;
 }): Promise<boolean> {
-  const { siteId, pattern, guardActive } = input;
+  const { siteId, pattern, guardActive, rules } = input;
   const url = `/home-customer-v1.html?siteId=${encodeURIComponent(siteId)}`;
-
-  if (pattern === "pattern_c") {
-    console.log(
-      `[home-security] DI2 standalone silent site=${siteId}`
-    );
-    return false;
-  }
 
   if (!guardActive) {
     console.log(
-      `[home-security] guard inactive — log only pattern=${pattern}`
+      `[home-security] guard inactive — log only pattern=${pattern} site=${siteId}`
     );
     return false;
   }
 
+  // DI1 単独：notifyDi1SilentLogOnly なら Push しない
   if (pattern === "pattern_a") {
+    if (rules.notifyDi1SilentLogOnly) {
+      console.log(
+        `[home-security] DI1 silent (notifyDi1SilentLogOnly) site=${siteId}`
+      );
+      return false;
+    }
     const title = "【TiSLY Security】外周接近を検知";
     const body =
       "遠距離センサー（DI1）が反応しました。外側100Vライトを点灯中。";
@@ -246,11 +251,44 @@ async function dispatchPatternPushV1(input: {
       result
     );
     console.log(
-      `[home-security] push DI1 alert success=${result.success}`
+      `[home-security] push DI1 alert success=${result.success} error=${result.error ?? ""}`
     );
     return true;
   }
 
+  // DI2 単独：notifyDi2InstantPush が OFF ならサイレント
+  if (pattern === "pattern_c") {
+    if (!rules.notifyDi2InstantPush) {
+      console.log(
+        `[home-security] DI2 standalone silent site=${siteId}`
+      );
+      return false;
+    }
+    const title = "🚨【緊急警報】建物近接を検知";
+    const body =
+      "建物近接センサー（DI2）が反応しました。防犯ライト威嚇中。";
+    const result = await sendHomeSecurityPush({
+      title,
+      body,
+      eventType: "home_security_di2_instant",
+      url,
+      severity: "critical",
+      data: { di: 2, siteId, pattern, urgency: "critical" },
+    });
+    persistHomePushLog(
+      "home_security_di2_instant",
+      title,
+      body,
+      { di: 2, siteId, pattern, severity: "critical" },
+      result
+    );
+    console.log(
+      `[home-security] push DI2 instant success=${result.success} error=${result.error ?? ""}`
+    );
+    return true;
+  }
+
+  // DI1→DI2 段階侵入：常に緊急 Push
   const title = "🚨【緊急警報】建物への接近侵入を検知";
   const body =
     "外周に続き建物近接センサー（DI2）が反応しました！" +
@@ -271,7 +309,7 @@ async function dispatchPatternPushV1(input: {
     result
   );
   console.log(
-    `[home-security] push DI2 critical success=${result.success}`
+    `[home-security] push DI2 critical success=${result.success} error=${result.error ?? ""}`
   );
   return true;
 }
@@ -325,6 +363,7 @@ async function handleDiRisingEdgeV1(
     siteId,
     pattern: di === 1 ? "pattern_a" : pattern,
     guardActive,
+    rules,
   });
   return { pattern: di === 1 ? "pattern_a" : pattern, pushSent };
 }

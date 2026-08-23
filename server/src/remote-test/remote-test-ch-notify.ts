@@ -120,7 +120,7 @@ export async function notifyChStateChanges(changes: ChStateChange[]): Promise<vo
       error: "not attempted",
     };
     try {
-      result = await sendWebPush(payload, REMOTE_TEST_USER_ID);
+      result = await sendWebPush(payload);
     } catch (err) {
       result = {
         channel: "web_push",
@@ -152,7 +152,7 @@ export async function notifyInputStateChanges(changes: InputStateChange[]): Prom
       error: "not attempted",
     };
     try {
-      result = await sendWebPush(payload, REMOTE_TEST_USER_ID);
+      result = await sendWebPush(payload);
     } catch (err) {
       result = {
         channel: "web_push",

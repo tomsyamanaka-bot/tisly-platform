@@ -61,12 +61,15 @@ async function sendSecurityPush(
   }
 ): Promise<DeliveryResult> {
   try {
-    return await sendWebPush(payload, REMOTE_TEST_USER_ID);
+    // DI/警戒イベントは登録済みの全アクティブ端末へ
+    return await sendWebPush(payload);
   } catch (err) {
+    const error = err instanceof Error ? err.message : String(err);
+    console.error("[security-demo] sendWebPush failed:", error);
     return {
       channel: "web_push",
       success: false,
-      error: err instanceof Error ? err.message : String(err),
+      error,
     };
   }
 }

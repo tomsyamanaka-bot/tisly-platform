@@ -1454,6 +1454,122 @@ export function bindHomeSecurityUiV1(getSiteId, getActor, onSceneDone) {
       }
     });
   }
+
+  bindHomeWebPushUiV1();
+}
+
+function setHomePushStatus(text, ok) {
+  const el = byId("hm-push-status");
+  if (!el) return;
+  el.textContent = text;
+  el.style.color = ok === true ? "#166534" : ok === false ? "#b91c1c" : "";
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(base64);
+  const arr = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+  return arr;
+}
+
+async function refreshHomePushStatusV1() {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+    setHomePushStatus("この端末は Web Push 非対応（iOS はホーム画面追加が必要）", false);
+    return;
+  }
+  try {
+    const reg = await navigator.serviceWorker.getRegistration("/");
+    if (!reg?.pushManager) {
+      setHomePushStatus("Service Worker 未登録", false);
+      return;
+    }
+    const sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      setHomePushStatus("Push 未登録 — 「Push 登録」を押してください", false);
+      return;
+    }
+    const perm =
+      typeof Notification !== "undefined" ? Notification.permission : "unknown";
+    setHomePushStatus(
+      perm === "granted" ? "登録済み · 通知許可OK" : `登録済み · 許可=${perm}`,
+      perm === "granted"
+    );
+  } catch (err) {
+    setHomePushStatus(err.message || String(err), false);
+  }
+}
+
+async function registerHomeWebPushV1() {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+    throw new Error("Web Push 非対応（iOS はホーム画面に追加した PWA から）");
+  }
+  const vapidRes = await fetch("/api/notifications/vapid-public-key");
+  const vapidData = await vapidRes.json();
+  if (!vapidRes.ok || !vapidData.publicKey) {
+    throw new Error("VAPID 未設定 — サーバーで npm run vapid:setup");
+  }
+  const reg = await navigator.serviceWorker.register("/service-worker.js");
+  await navigator.serviceWorker.ready;
+  const permission = await Notification.requestPermission();
+  if (permission !== "granted") throw new Error("通知が許可されていません");
+  const sub = await reg.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(vapidData.publicKey),
+  });
+  const json = sub.toJSON();
+  const res = await fetch("/api/notifications/subscribe", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      userId: "home-security",
+      subscription: { endpoint: json.endpoint, keys: json.keys },
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `登録失敗 (${res.status})`);
+  return data;
+}
+
+async function testHomeWebPushV1() {
+  const siteId =
+    new URLSearchParams(location.search).get("siteId") ||
+    byId("hm-site-select")?.value ||
+    "";
+  const res = await fetch("/api/security-floor/v1/test-notify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ siteId: siteId || "HOME-JP-ITABASHI-LIVE" }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `送信失敗 (${res.status})`);
+  if (data.push && data.push.success === false) {
+    throw new Error(data.push.hint || data.push.error || "Push 送信失敗");
+  }
+  return data;
+}
+
+function bindHomeWebPushUiV1() {
+  byId("hm-push-register")?.addEventListener("click", async () => {
+    try {
+      await registerHomeWebPushV1();
+      showToast("Push 登録完了");
+      await refreshHomePushStatusV1();
+    } catch (err) {
+      showToast(err.message || String(err));
+      setHomePushStatus(err.message || String(err), false);
+    }
+  });
+  byId("hm-push-test")?.addEventListener("click", async () => {
+    try {
+      await testHomeWebPushV1();
+      showToast("通知テストを送信しました");
+    } catch (err) {
+      showToast(err.message || String(err));
+    }
+  });
+  void refreshHomePushStatusV1();
 }
 
 /** 防犯パネルをまとめて更新 */

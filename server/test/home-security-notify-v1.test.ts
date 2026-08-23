@@ -18,43 +18,73 @@ describe("home-security-notify-v1", () => {
     resetHomeSecurityNotifyStateV1();
   });
 
-  it("notifyPolicy exposes three fixed rows", () => {
+  it("notifyPolicy reflects rules flags", () => {
     updateHomeSecurityRulesV1(SITE, {
       guardMode: "always",
       perimeterTimeoutSec: 120,
+      notifyDi1SilentLogOnly: true,
+      notifyDi2InstantPush: true,
     });
     const rules = getHomeSecurityRulesV1(SITE);
     const policy = buildHomeSecurityNotifyPolicyV1(rules);
     assert.equal(policy.rows.length, 3);
     assert.equal(policy.rows[0].id, "di1_alone");
-    assert.equal(policy.rows[0].enabled, true);
+    assert.equal(policy.rows[0].enabled, false);
+    assert.equal(policy.rows[0].severity, "silent");
     assert.equal(policy.rows[1].id, "staged_intrusion");
     assert.equal(policy.rows[1].severity, "critical");
     assert.equal(policy.rows[2].id, "di2_alone");
-    assert.equal(policy.rows[2].enabled, false);
+    assert.equal(policy.rows[2].enabled, true);
     assert.match(policy.rows[1].description, /120/);
   });
 
-  it("DI1 alone triggers perimeter alert when guard active", async () => {
+  it("DI1 alone triggers perimeter alert when silent flag off", async () => {
     resetHomeSecurityNotifyStateV1(SITE);
     updateHomeSecurityRulesV1(SITE, {
       guardMode: "always",
       securityPausedUntil: null,
+      notifyDi1SilentLogOnly: false,
+      notifyDi2InstantPush: true,
     });
     const result = await processHomeSecurityEventV1({ siteId: SITE, di: 1 });
     assert.equal(result.pattern, "pattern_a");
     assert.equal(result.pushSent, true);
   });
 
-  it("DI2 alone is silent (no push)", async () => {
+  it("DI1 alone is silent when notifyDi1SilentLogOnly", async () => {
     resetHomeSecurityNotifyStateV1(SITE);
     updateHomeSecurityRulesV1(SITE, {
       guardMode: "always",
       securityPausedUntil: null,
+      notifyDi1SilentLogOnly: true,
+    });
+    const result = await processHomeSecurityEventV1({ siteId: SITE, di: 1 });
+    assert.equal(result.pattern, "pattern_a");
+    assert.equal(result.pushSent, false);
+  });
+
+  it("DI2 alone is silent when notifyDi2InstantPush off", async () => {
+    resetHomeSecurityNotifyStateV1(SITE);
+    updateHomeSecurityRulesV1(SITE, {
+      guardMode: "always",
+      securityPausedUntil: null,
+      notifyDi2InstantPush: false,
     });
     const result = await processHomeSecurityEventV1({ siteId: SITE, di: 2 });
     assert.equal(result.pattern, "pattern_c");
     assert.equal(result.pushSent, false);
+  });
+
+  it("DI2 alone sends push when notifyDi2InstantPush on", async () => {
+    resetHomeSecurityNotifyStateV1(SITE);
+    updateHomeSecurityRulesV1(SITE, {
+      guardMode: "always",
+      securityPausedUntil: null,
+      notifyDi2InstantPush: true,
+    });
+    const result = await processHomeSecurityEventV1({ siteId: SITE, di: 2 });
+    assert.equal(result.pattern, "pattern_c");
+    assert.equal(result.pushSent, true);
   });
 
   it("DI1 then DI2 within perimeter sends critical push", async () => {
@@ -62,6 +92,7 @@ describe("home-security-notify-v1", () => {
     updateHomeSecurityRulesV1(SITE, {
       guardMode: "always",
       perimeterTimeoutSec: 120,
+      notifyDi1SilentLogOnly: false,
     });
 
     await processHomeSecurityEventV1({ siteId: SITE, di: 1 });
@@ -70,17 +101,15 @@ describe("home-security-notify-v1", () => {
     assert.equal(staged.pushSent, true);
   });
 
-  it("DI2 after perimeter window is silent", async () => {
+  it("DI2 after perimeter window follows instant-push flag", async () => {
     resetHomeSecurityNotifyStateV1(SITE);
     updateHomeSecurityRulesV1(SITE, {
       guardMode: "always",
       perimeterTimeoutSec: 30,
       securityPausedUntil: null,
+      notifyDi2InstantPush: false,
     });
-    setHomeSecurityDi1DetectedAtForTestV1(
-      SITE,
-      Date.now() - 31_000
-    );
+    setHomeSecurityDi1DetectedAtForTestV1(SITE, Date.now() - 31_000);
 
     const result = await processHomeSecurityEventV1({ siteId: SITE, di: 2 });
     assert.equal(result.pattern, "pattern_c");

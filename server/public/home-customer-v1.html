@@ -177,6 +177,20 @@
           DI2 検知：即時 Web Push 緊急通知
         </label>
       </div>
+      <div class="hm-field-row" style="flex-direction: column; gap: 8px; align-items: stretch">
+        <p class="hm-card-label" style="margin: 0">Web Push（この端末）</p>
+        <p id="hm-push-status" class="hm-muted" style="margin: 0; font-size: 0.85rem">
+          未確認
+        </p>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap">
+          <button type="button" class="hm-btn" id="hm-push-register">
+            Push 登録
+          </button>
+          <button type="button" class="hm-btn hm-btn-secondary" id="hm-push-test">
+            通知テスト
+          </button>
+        </div>
+      </div>
       <button type="button" class="hm-btn hm-btn-wide" id="hm-security-save">
         防犯ルールを保存
       </button>
@@ -578,7 +592,7 @@
 
   <div class="hm-toast" id="hm-toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="/js/features/home/home-customer-v1.js?v=2460"></script>
-  <script type="module" src="/js/features/home/home-quick-switch-v1.js?v=2460"></script>
+  <script type="module" src="/js/features/home/home-customer-v1.js?v=2461"></script>
+  <script type="module" src="/js/features/home/home-quick-switch-v1.js?v=2461"></script>
 </body>
 </html>

@@ -91,7 +91,13 @@ function pushStatusExtras() {
   return {
     push: {
       vapidConfigured,
-      subscriptionCount: safeSubscriptionCount(),
+      subscriptionCount: (() => {
+        try {
+          return countPushSubscriptions();
+        } catch {
+          return safeSubscriptionCount();
+        }
+      })(),
     },
   };
 }
@@ -156,19 +162,27 @@ remoteTestRouter.post("/notify", async (req, res) => {
     error: "not attempted",
   };
   try {
-    webPush = await sendWebPush(payload, REMOTE_TEST_USER_ID);
+    // 全アクティブ端末へ（userId フィルタなし）
+    webPush = await sendWebPush(payload);
   } catch (err) {
     webPush = {
       channel: "web_push",
       success: false,
       error: err instanceof Error ? err.message : String(err),
     };
+    console.error("[remote-test/notify] push error:", webPush.error);
   }
 
   markPushResult(webPush.success, webPush.error);
 
   const vapidConfigured = !!(config.vapid.publicKey && config.vapid.privateKey);
-  const subscriptionCount = safeSubscriptionCount();
+  const subscriptionCount = (() => {
+    try {
+      return countPushSubscriptions();
+    } catch {
+      return safeSubscriptionCount();
+    }
+  })();
 
   let hint: string | undefined;
   if (!webPush.success) {

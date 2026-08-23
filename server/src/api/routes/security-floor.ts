@@ -25,6 +25,11 @@ import {
   demoTogglePrimaryAlertV1,
   setSecurityLightingV1,
 } from "../../security-floor/security-floor-soc-v1.js";
+import {
+  countPushSubscriptions,
+  isVapidConfigured,
+  sendWebPush,
+} from "../../notification/channels/web-push.js";
 
 export const securityFloorRouter = Router();
 
@@ -169,7 +174,7 @@ securityFloorRouter.post("/lighting", (req, res) => {
   });
 });
 
-securityFloorRouter.post("/test-notify", (req, res) => {
+securityFloorRouter.post("/test-notify", async (req, res) => {
   const siteId = String(req.body?.siteId ?? "").trim();
   if (!siteId) {
     res.status(400).json({
@@ -179,12 +184,59 @@ securityFloorRouter.post("/test-notify", (req, res) => {
     return;
   }
   demoTogglePrimaryAlertV1(siteId);
+
+  const vapidConfigured = isVapidConfigured();
+  const subscriptionCount = countPushSubscriptions();
+  let webPush: Awaited<ReturnType<typeof sendWebPush>> = {
+    channel: "web_push",
+    success: false,
+    error: "not attempted",
+  };
+
+  try {
+    webPush = await sendWebPush({
+      title: "TiSLY 通知テスト",
+      body: "Push通知が正常に届きました（フロア俯瞰）",
+      eventType: "security_floor_test_notify",
+      deviceId: siteId,
+      url: `/security-v1.html?siteId=${encodeURIComponent(siteId)}`,
+      data: { siteId, kind: "test_notify" },
+    });
+  } catch (err) {
+    webPush = {
+      channel: "web_push",
+      success: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
+    console.error("[security-floor/test-notify] push error:", webPush.error);
+  }
+
+  let hint: string | undefined;
+  if (!webPush.success) {
+    if (!vapidConfigured) {
+      hint = "VAPID 未設定 — server で npm run vapid:setup を実行して再起動";
+    } else if (subscriptionCount === 0) {
+      hint =
+        "Push 未登録 — /remote-test または /app/push で PWA から Push 登録してください";
+    } else {
+      hint = webPush.error ?? "Push 送信失敗";
+    }
+  }
+
+  console.log(
+    `[security-floor/test-notify] site=${siteId} push=${webPush.success} subs=${subscriptionCount}`
+  );
+
   res.json({
     ok: true,
     siteId,
     operatorSite: buildSecurityFloorOperatorSiteV1(siteId),
-    dashboard: buildSecurityFloorCustomerDashboardV1(
-      siteId
-    ),
+    dashboard: buildSecurityFloorCustomerDashboardV1(siteId),
+    push: {
+      ...webPush,
+      vapidConfigured,
+      subscriptionCount,
+      hint,
+    },
   });
 });

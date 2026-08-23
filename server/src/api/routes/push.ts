@@ -2,6 +2,7 @@ import { Router } from "express";
 import { config } from "../../config.js";
 import {
   countPushSubscriptions,
+  isVapidConfigured,
   savePushSubscription,
   sendWebPush,
 } from "../../notification/channels/web-push.js";
@@ -16,10 +17,6 @@ export const pushRouter = Router();
 const REMOTE_TEST_USER_ID = "remote-test";
 const TEST_TITLE = "TiSLY 通知テスト";
 const TEST_BODY = "Push通知が正常に届きました";
-
-function isVapidConfigured(): boolean {
-  return !!(config.vapid.publicKey && config.vapid.privateKey);
-}
 
 pushRouter.get("/vapid-public-key", (_req, res) => {
   if (!isVapidConfigured()) {
@@ -42,7 +39,8 @@ pushRouter.get("/status", (_req, res) => {
   res.json({
     ok: true,
     vapidConfigured: isVapidConfigured(),
-    subscriptionCount: countPushSubscriptions(REMOTE_TEST_USER_ID),
+    subscriptionCount: countPushSubscriptions(),
+    remoteTestSubscriptionCount: countPushSubscriptions(REMOTE_TEST_USER_ID),
     userId: REMOTE_TEST_USER_ID,
   });
 });
@@ -63,13 +61,19 @@ pushRouter.post("/subscribe", (req, res) => {
     return;
   }
 
-  const tokenId = savePushSubscription(REMOTE_TEST_USER_ID, subscription);
-  res.status(201).json({
-    ok: true,
-    tokenId,
-    userId: REMOTE_TEST_USER_ID,
-    subscriptionCount: countPushSubscriptions(REMOTE_TEST_USER_ID),
-  });
+  try {
+    const tokenId = savePushSubscription(REMOTE_TEST_USER_ID, subscription);
+    res.status(201).json({
+      ok: true,
+      tokenId,
+      userId: REMOTE_TEST_USER_ID,
+      subscriptionCount: countPushSubscriptions(),
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[api/push/subscribe] save failed:", message);
+    res.status(400).json({ ok: false, error: message });
+  }
 });
 
 pushRouter.post("/test", async (_req, res) => {
@@ -88,19 +92,21 @@ pushRouter.post("/test", async (_req, res) => {
   };
 
   try {
-    webPush = await sendWebPush(payload, REMOTE_TEST_USER_ID);
+    // 保存済みの全アクティブ端末へ送信
+    webPush = await sendWebPush(payload);
   } catch (err) {
     webPush = {
       channel: "web_push",
       success: false,
       error: err instanceof Error ? err.message : String(err),
     };
+    console.error("[api/push/test] unexpected error:", webPush.error);
   }
 
   markPushResult(webPush.success, webPush.error);
 
   const vapidConfigured = isVapidConfigured();
-  const subscriptionCount = countPushSubscriptions(REMOTE_TEST_USER_ID);
+  const subscriptionCount = countPushSubscriptions();
 
   let hint: string | undefined;
   if (!webPush.success) {
@@ -112,6 +118,10 @@ pushRouter.post("/test", async (_req, res) => {
       hint = webPush.error ?? "Push 送信失敗";
     }
   }
+
+  console.log(
+    `[api/push/test] ok=${webPush.success} subscriptions=${subscriptionCount} error=${webPush.error ?? ""}`
+  );
 
   res.json({
     ok: webPush.success,
