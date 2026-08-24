@@ -18,6 +18,7 @@ import {
   getHomeSecurityRulesV1,
   isHomeGuardActiveV1,
   isHomeNotifyPushEnabledV1,
+  isHomeSecurityArmedV1,
   isHomeSecurityPausedV1,
   type HomeNotifyModeV1,
   type HomeSecurityRulesV1,
@@ -271,8 +272,12 @@ function patternLogMessage(
 
 function patternLightLogMessage(
   pattern: HomeSecurityNotifyPatternV1,
-  rules: HomeSecurityRulesV1
+  rules: HomeSecurityRulesV1,
+  lightsActive: boolean
 ): string {
+  if (!lightsActive) {
+    return "防犯ライト点灯スキップ（日中 · 通知/ログのみ）";
+  }
   if (pattern === "pattern_a") {
     return `防犯ライト点灯（DI1 · ${rules.di1DurationSec}秒）`;
   }
@@ -285,16 +290,17 @@ function patternLightLogMessage(
 async function dispatchPatternPushV1(input: {
   siteId: string;
   pattern: HomeSecurityNotifyPatternV1;
-  guardActive: boolean;
+  armed: boolean;
+  lightsActive: boolean;
   rules: HomeSecurityRulesV1;
   di: 1 | 2;
 }): Promise<boolean> {
-  const { siteId, pattern, guardActive, rules, di } = input;
+  const { siteId, pattern, armed, lightsActive, rules, di } = input;
   const url = `/security-v1.html?siteId=${encodeURIComponent(siteId)}`;
 
-  if (!guardActive) {
+  if (!armed) {
     console.log(
-      `[home-security] guard inactive — log only pattern=${pattern} site=${siteId}`
+      `[home-security] security disarmed — log only pattern=${pattern} site=${siteId}`
     );
     return false;
   }
@@ -315,8 +321,9 @@ async function dispatchPatternPushV1(input: {
       return false;
     }
     const title = "🚨【緊急警報】駐車場センサーを検知";
-    const body =
-      "駐車場センサー (DI1) が反応しました。外側100V・投光器ライトを点灯中。";
+    const body = lightsActive
+      ? "駐車場センサー (DI1) が反応しました。外側100V・投光器ライトを点灯中。"
+      : "駐車場センサー (DI1) が反応しました（日中 · ライトは点灯しません）。";
     const result = await sendHomeSecurityPush({
       title,
       body,
@@ -348,8 +355,9 @@ async function dispatchPatternPushV1(input: {
       return false;
     }
     const title = "🚨【緊急警報】ガレージセンサーを検知";
-    const body =
-      "ガレージセンサー (DI2) が反応しました。防犯ライト威嚇中。";
+    const body = lightsActive
+      ? "ガレージセンサー (DI2) が反応しました。防犯ライト威嚇中。"
+      : "ガレージセンサー (DI2) が反応しました（日中 · ライトは点灯しません）。";
     const result = await sendHomeSecurityPush({
       title,
       body,
@@ -380,9 +388,11 @@ async function dispatchPatternPushV1(input: {
     return false;
   }
   const title = "🚨【緊急警報】駐車場→ガレージの段階侵入を検知";
-  const body =
-    "駐車場センサーに続きガレージセンサー (DI2) が反応しました！" +
-    "外側100V点滅＋100V投光器ライト威嚇中。";
+  const body = lightsActive
+    ? "駐車場センサーに続きガレージセンサー (DI2) が反応しました！" +
+      "外側100V点滅＋100V投光器ライト威嚇中。"
+    : "駐車場センサーに続きガレージセンサー (DI2) が反応しました！" +
+      "（日中 · ライトは点灯しません）";
   const result = await sendHomeSecurityPush({
     title,
     body,
@@ -409,7 +419,8 @@ async function handleDiRisingEdgeV1(
   siteId: string,
   di: 1 | 2,
   rules: HomeSecurityRulesV1,
-  guardActive: boolean
+  armed: boolean,
+  lightsActive: boolean
 ): Promise<{ pattern: HomeSecurityNotifyPatternV1; pushSent: boolean }> {
   let pattern: HomeSecurityNotifyPatternV1;
 
@@ -434,7 +445,8 @@ async function handleDiRisingEdgeV1(
       di,
       input: di,
       pattern: resolvedPattern,
-      guardActive,
+      armed,
+      lightsActive,
       guardMode: rules.guardMode,
     },
     actor: "rp2350",
@@ -443,10 +455,11 @@ async function handleDiRisingEdgeV1(
   recordSystemLogV1({
     siteId,
     category: "light_event",
-    message: patternLightLogMessage(resolvedPattern, rules),
+    message: patternLightLogMessage(resolvedPattern, rules, lightsActive),
     detail: {
       di,
       pattern: resolvedPattern,
+      lightsActive,
       di1LightMode: rules.di1LightMode,
       di2LightMode: rules.di2LightMode,
     },
@@ -470,7 +483,8 @@ async function handleDiRisingEdgeV1(
   const pushSent = await dispatchPatternPushV1({
     siteId,
     pattern: resolvedPattern,
-    guardActive,
+    armed,
+    lightsActive,
     rules,
     di,
   });
@@ -484,13 +498,13 @@ export async function processHomeSecurityInputChangesV1(
 ): Promise<void> {
   const sid = String(siteId ?? HOME_ITABASHI_LIVE_SITE_ID_V1).trim();
   const rules = getHomeSecurityRulesV1(sid);
-  const guardActive =
-    isHomeGuardActiveV1(rules) && !isHomeSecurityPausedV1(rules);
+  const armed = isHomeSecurityArmedV1(rules);
+  const lightsActive = isHomeGuardActiveV1(rules);
 
   for (const change of changes) {
     if (change.to !== "on" || change.from === "on") continue;
     if (change.input !== 1 && change.input !== 2) continue;
-    await handleDiRisingEdgeV1(sid, change.input as 1 | 2, rules, guardActive);
+    await handleDiRisingEdgeV1(sid, change.input as 1 | 2, rules, armed, lightsActive);
   }
 }
 
@@ -507,8 +521,8 @@ export async function processHomeSecurityEventV1(input: {
   }
 
   const rules = getHomeSecurityRulesV1(sid);
-  const guardActive =
-    isHomeGuardActiveV1(rules) && !isHomeSecurityPausedV1(rules);
+  const armed = isHomeSecurityArmedV1(rules);
+  const lightsActive = isHomeGuardActiveV1(rules);
 
-  return handleDiRisingEdgeV1(sid, di as 1 | 2, rules, guardActive);
+  return handleDiRisingEdgeV1(sid, di as 1 | 2, rules, armed, lightsActive);
 }

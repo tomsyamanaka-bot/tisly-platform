@@ -1070,7 +1070,7 @@ describe("tisly-home-v1", () => {
       .get(`/api/home/v1/security-rules?siteId=${JP_SITE}`)
       .expect(200);
     assert.equal(getRes.body.ok, true);
-    assert.ok(getRes.body.rules.di1DurationSec >= 10);
+    assert.ok(getRes.body.rules.di1DurationSec >= 5);
     assert.equal(typeof getRes.body.rules.notifyDi1SilentLogOnly, "boolean");
     assert.ok(getRes.body.rules.perimeterTimeoutSec >= 30);
     assert.ok(Array.isArray(getRes.body.notifyPolicy?.rows));
@@ -1107,6 +1107,7 @@ describe("tisly-home-v1", () => {
       .expect(200);
     assert.equal(fwRes.body.ok, true);
     assert.equal(fwRes.body.rules.di1DurationMs, 60_000);
+    assert.equal(fwRes.body.rules.lighting_duration_sec, 60);
     assert.equal(fwRes.body.rules.di1LightMode, "blink");
     assert.equal(fwRes.body.rules.perimeterFlagMs, 90_000);
     assert.equal(fwRes.body.rules.di2Light100vMode, "blink");

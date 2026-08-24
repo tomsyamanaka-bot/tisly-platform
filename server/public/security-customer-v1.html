@@ -55,22 +55,6 @@
       <div class="sf-map-wrap sf-iso-wrap is-lights-on" id="sf-map-wrap">
         <div class="sf-iso-scene sf-iso3d-scene">
           <div id="sf-iso3d-mount" class="sf-iso3d-mount" role="img" aria-label="3Dアイソメ俯瞰"></div>
-          <div class="sf-iso3d-hud">
-            <span id="sf-iso3d-floor-label">1F</span>
-            <div class="sf-iso3d-hud-controls">
-              <label class="sf-iso3d-stack-label" for="sf-iso3d-stack">階層展開</label>
-              <input
-                type="range"
-                id="sf-iso3d-stack"
-                min="0"
-                max="100"
-                value="88"
-                aria-label="階層スタック展開"
-              />
-              <span id="sf-iso3d-stack-val">88%</span>
-            </div>
-            <span class="sf-iso3d-hint">縦スワイプ/ホイールで階層 · 横ドラッグで回転 · ピンチで拡大 · ダブルタップでリセット</span>
-          </div>
           <div
             id="sf-iso3d-alert-badge"
             class="sf-iso3d-alert-badge"
@@ -176,6 +160,24 @@
               </svg>
             </article>
           </div>
+        </div>
+      </div>
+      <div class="sf-iso3d-toolbar" id="sf-iso3d-toolbar">
+        <div class="sf-iso3d-hud">
+          <span id="sf-iso3d-floor-label">1F</span>
+          <div class="sf-iso3d-hud-controls">
+            <label class="sf-iso3d-stack-label" for="sf-iso3d-stack">階層展開</label>
+            <input
+              type="range"
+              id="sf-iso3d-stack"
+              min="0"
+              max="100"
+              value="88"
+              aria-label="階層スタック展開"
+            />
+            <span id="sf-iso3d-stack-val">88%</span>
+          </div>
+          <span class="sf-iso3d-hint">縦スワイプ/ホイールで階層 · 横ドラッグで回転 · ピンチで拡大 · ダブルタップでリセット</span>
         </div>
       </div>
       <p class="sf-orbit-hint">タブでフロア切替 · 3Dはドラッグ回転 / ピンチ拡大 · Shift+ホイールでフロア</p>

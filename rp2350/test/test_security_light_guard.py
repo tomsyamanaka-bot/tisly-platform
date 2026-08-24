@@ -60,6 +60,28 @@ def test_night_only_night_active():
         assert ctrl._is_guard_active_now() is True
 
 
+def test_di1_daytime_logs_without_lights():
+    import security_light as sl
+
+    lights = []
+    ctrl = SecurityLightController(
+        lambda ch, on: lights.append((ch, on)),
+        send_heartbeat=lambda: None,
+    )
+    utc = 3 * 3600
+    sl.time.ticks_ms = lambda: 0
+    sl.time.ticks_add = lambda a, b: a + b
+    sl.time.ticks_diff = lambda a, b: a - b
+    with patch("security_light.time.time", return_value=utc):
+        ctrl.apply_rules(
+            {"version": 2, "guardMode": "night_only", "guardActive": False}
+        )
+        assert ctrl._is_armed_now() is True
+        assert ctrl._can_run_lights() is False
+        ctrl._on_di1_detected()
+    assert lights == []
+
+
 def test_di1_skips_lights_when_paused():
     lights = []
     ctrl = SecurityLightController(
@@ -77,11 +99,25 @@ def test_di1_skips_lights_when_paused():
     assert lights == []
 
 
+def test_lighting_duration_sec_applied():
+    ctrl = _ctrl(
+        {
+            "version": 3,
+            "guardMode": "always",
+            "lighting_duration_sec": 90,
+        }
+    )
+    assert ctrl._di1_duration_ms == 90_000
+    assert ctrl._di2_duration_ms == 90_000
+
+
 if __name__ == "__main__":
     test_always_guard_active()
     test_off_guard_inactive()
     test_paused_overrides_always()
     test_night_only_daytime_inactive()
     test_night_only_night_active()
+    test_di1_daytime_logs_without_lights()
     test_di1_skips_lights_when_paused()
+    test_lighting_duration_sec_applied()
     print("ok")

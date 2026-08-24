@@ -233,6 +233,22 @@ function cycleNotifyRow(li) {
   applyNotifyRowUi(li, next);
 }
 
+function syncLightingDurationSliders(sec) {
+  const val = String(sec);
+  const master = $("sf-lighting-duration");
+  if (master) master.value = val;
+  setText("sf-lighting-duration-val", val);
+  const di1 = $("sf-di1-duration");
+  if (di1) di1.value = val;
+  setText("sf-di1-duration-val", val);
+  const di2 = $("sf-di2-alert-duration");
+  if (di2) di2.value = val;
+  setText("sf-di2-alert-duration-val", val);
+  const solo = $("sf-di2solo-duration");
+  if (solo) solo.value = val;
+  setText("sf-di2solo-duration-val", val);
+}
+
 function renderRules(rules, notifyPolicy) {
   if (!rules) return;
   state.guardMode = rules.guardMode || "night_only";
@@ -247,11 +263,9 @@ function renderRules(rules, notifyPolicy) {
     setSegValue("sf-guard-seg", state.guardMode);
   }
 
-  const di1Dur = $("sf-di1-duration");
-  if (di1Dur) {
-    di1Dur.value = String(rules.di1DurationSec ?? 45);
-    setText("sf-di1-duration-val", di1Dur.value);
-  }
+  const lightingSec =
+    rules.lightingDurationSec ?? rules.di1DurationSec ?? 45;
+  syncLightingDurationSliders(lightingSec);
   setSegValue("sf-di1-24v-seg", rules.di1LightMode || "steady");
 
   const peri = $("sf-perimeter-timeout");
@@ -262,19 +276,6 @@ function renderRules(rules, notifyPolicy) {
   setSegValue("sf-di2-24v-seg", rules.di2LightMode || "fast_blink");
   setSegValue("sf-di2-100v-seg", rules.di2Light100vMode || "steady");
 
-  const di2Alert = $("sf-di2-alert-duration");
-  if (di2Alert) {
-    di2Alert.value = String(rules.di2AlertDurationSec ?? 45);
-    setText("sf-di2-alert-duration-val", di2Alert.value);
-  }
-
-  const di2solo = $("sf-di2solo-duration");
-  if (di2solo) {
-    di2solo.value = String(
-      rules.di2StandaloneDurationSec ?? rules.di2AlertDurationSec ?? 45
-    );
-    setText("sf-di2solo-duration-val", di2solo.value);
-  }
   setSegValue(
     "sf-di2solo-24v-seg",
     rules.di2Standalone24vMode || "steady"
@@ -307,6 +308,7 @@ function collectPayload(homeSiteId) {
   const payload = {
     siteId: homeSiteId,
     actor: "security-v1",
+    lightingDurationSec: readSlider("sf-lighting-duration", 45),
     di1DurationSec: readSlider("sf-di1-duration", 45),
     di1LightMode: readSegValue("sf-di1-24v-seg") || "steady",
     perimeterTimeoutSec: readSlider("sf-perimeter-timeout", 120),
@@ -419,14 +421,38 @@ function bindNotifyPolicyToggles() {
   });
 }
 
+let lightingDebounceTimer = null;
+
+function scheduleLightingDurationSync() {
+  clearTimeout(lightingDebounceTimer);
+  lightingDebounceTimer = setTimeout(() => {
+    const sec = readSlider("sf-lighting-duration", 45);
+    syncLightingDurationSliders(sec);
+    applyToDevice(state.homeSiteId)
+      .then((data) => {
+        showToast(data.message || "ライト点灯時間を実機へ反映しました");
+      })
+      .catch((err) => {
+        showToast(err.message || "点灯時間の反映に失敗しました");
+      });
+  }, 3000);
+}
+
 function bindRemoteConfigUi() {
   if (window.__TISLY_SF_REMOTE_BOUND) return;
   window.__TISLY_SF_REMOTE_BOUND = true;
 
+  bindSlider("sf-lighting-duration", "sf-lighting-duration-val");
   bindSlider("sf-di1-duration", "sf-di1-duration-val");
   bindSlider("sf-perimeter-timeout", "sf-perimeter-timeout-val");
   bindSlider("sf-di2-alert-duration", "sf-di2-alert-duration-val");
   bindSlider("sf-di2solo-duration", "sf-di2solo-duration-val");
+
+  $("sf-lighting-duration")?.addEventListener("input", () => {
+    const sec = readSlider("sf-lighting-duration", 45);
+    syncLightingDurationSliders(sec);
+    scheduleLightingDurationSync();
+  });
 
   bindSegGroup("sf-guard-seg", (value) => {
     applyGuardModeImmediate(value).catch((err) => {

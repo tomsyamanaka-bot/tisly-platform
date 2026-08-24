@@ -331,6 +331,8 @@ describe("security-floor-v1", () => {
     assert.match(html, /sf-push-reregister/);
     assert.match(html, /Push通知を再登録・購読/);
     assert.match(html, /sf-iso3d-stack/);
+    assert.match(html, /sf-iso3d-toolbar/);
+    assert.match(html, /sf-lighting-duration/);
     assert.match(html, /sf-log-compact/);
     assert.match(html, /sf-log-dialog/);
     assert.match(html, /詳細を見る（もっと見る）/);

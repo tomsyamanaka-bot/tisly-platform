@@ -24,8 +24,8 @@ _DEFAULT_STROBE_ON_MS = 250
 _DEFAULT_STROBE_OFF_MS = 250
 # DI 確定時間（継続 ON で 1 回トリガー）
 _DEFAULT_DI_CONFIRM_MS = 250
-# 夜間のみ（JST 20:00〜06:00 — VPS isHomeGuardActiveV1 と同期）
-_NIGHT_START_HOUR_JST = 20
+# 夜間のみ（JST 18:00〜06:00 — VPS isHomeGuardActiveV1 と同期）
+_NIGHT_START_HOUR_JST = 18
 _NIGHT_END_HOUR_JST = 6
 
 CH_24V = 2
@@ -114,6 +114,26 @@ class SecurityLightController:
         self._strobe_off_ms = int(
             rules.get("strobeOffMs", _DEFAULT_STROBE_OFF_MS)
         )
+        lighting_sec = int(
+            rules.get(
+                "lighting_duration_sec",
+                rules.get("di1DurationMs", _DEFAULT_DURATION_MS) // 1000,
+            )
+        )
+        if 5 <= lighting_sec <= 180:
+            lighting_ms = lighting_sec * 1000
+            self._di1_duration_ms = int(
+                rules.get("di1DurationMs", lighting_ms)
+            )
+            self._di2_duration_ms = int(
+                rules.get("di2AlertDurationMs", lighting_ms)
+            )
+            self._di2_standalone_ms = int(
+                rules.get(
+                    "di2StandaloneDurationMs",
+                    self._di2_duration_ms,
+                )
+            )
         confirm = int(
             rules.get("diConfirmMs", self._di_confirm_ms)
         )
@@ -155,18 +175,31 @@ class SecurityLightController:
             return self._is_night_jst()
         return self._guard_active
 
-    def _can_run(self):
-        if not self._is_guard_active_now():
-            if self._security_paused:
-                self.log("security paused — log only")
-            elif self._guard_mode == "off":
-                self.log("guard off (DISARMED) — log only")
-            elif self._guard_mode == "night_only":
-                self.log("daytime (NIGHT_ONLY) — log only")
-            else:
-                self.log("guard inactive — log only")
+    def _is_armed_now(self):
+        """OFF/一時停止以外なら監視・通知は継続。"""
+        if self._security_paused:
+            return False
+        if self._guard_mode == "off":
             return False
         return True
+
+    def _can_run_lights(self):
+        """夜間のみ DO リレー点灯を許可。"""
+        if not self._is_guard_active_now():
+            if self._security_paused:
+                self.log("security paused — lights off")
+            elif self._guard_mode == "off":
+                self.log("guard off (DISARMED) — lights off")
+            elif self._guard_mode == "night_only":
+                self.log("daytime (NIGHT_ONLY) — lights off")
+            else:
+                self.log("guard inactive — lights off")
+            return False
+        return True
+
+    def _can_run(self):
+        """互換: ライト連動可否。"""
+        return self._can_run_lights()
 
     def on_di_edge(self, di, prev_state, new_state):
         """立上りで confirm_ms 待機後に確定。OFF でキャンセル。"""
@@ -245,22 +278,30 @@ class SecurityLightController:
 
     def _on_di1_detected(self):
         self.log("DI1 detected -> Pattern A")
-        if not self._can_run():
+        if not self._is_armed_now():
+            self.log("disarmed — DI1 ignored")
             return
         self._set_perimeter_flag()
         self._notify_vps("security event DI1 pattern_a", "A")
+        if not self._can_run_lights():
+            return
         self._start_sequence("A")
 
     def _on_di2_detected(self):
-        if not self._can_run():
+        if not self._is_armed_now():
+            self.log("disarmed — DI2 ignored")
             return
         if self._perimeter_active():
             self.log("DI2 within perimeter -> Pattern B")
             self._notify_vps("security event DI2 pattern_b", "B")
+            if not self._can_run_lights():
+                return
             self._start_sequence("B")
         else:
             self.log("DI2 alone -> Pattern C")
             self._notify_vps("security event DI2 pattern_c", "C")
+            if not self._can_run_lights():
+                return
             self._start_sequence("C")
 
     def _start_sequence(self, pattern):

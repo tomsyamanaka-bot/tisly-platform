@@ -40,11 +40,18 @@ export type HomeDi2StandaloneLightModeV1 =
 /** Web Push 通知条件トグル（緊急 / サイレント / OFF） */
 export type HomeNotifyModeV1 = "critical" | "silent" | "off";
 
+/** JST 夜間開始（18:00）— 実機 security_light.py と同期 */
+export const HOME_GUARD_NIGHT_START_HOUR_JST_V1 = 18;
+/** JST 夜間終了（06:00） */
+export const HOME_GUARD_NIGHT_END_HOUR_JST_V1 = 6;
+
 export interface HomeSecurityRulesV1 {
   siteId: string;
   /** 24時間常時 / 夜間のみ / 警戒OFF */
   guardMode: HomeGuardModeV1;
-  /** DI1 点灯時間（秒）10〜180 */
+  /** 夜間ライト点灯維持時間（秒）5〜180 — 実機 lighting_duration_sec */
+  lightingDurationSec: number;
+  /** DI1 点灯時間（秒）5〜180 */
   di1DurationSec: number;
   di1LightMode: HomeDi1LightModeV1;
   /** 段階侵入 DI1→DI2 接近判定制限（秒）30〜180 */
@@ -53,9 +60,9 @@ export interface HomeSecurityRulesV1 {
   di2LightMode: HomeDi2LightModeV1;
   /** DI2 段階侵入時の 100V ライト動作 */
   di2Light100vMode: HomeDi2Light100vModeV1;
-  /** DI2 威嚇発報時間（秒）10〜180 */
+  /** DI2 威嚇発報時間（秒）5〜180 */
   di2AlertDurationSec: number;
-  /** 近接単独 DI2 点灯時間（秒）10〜180 */
+  /** 近接単独 DI2 点灯時間（秒）5〜180 */
   di2StandaloneDurationSec: number;
   /** 近接単独 DI2 の外側100V（DO2）動作 */
   di2Standalone24vMode: HomeDi2StandaloneLightModeV1;
@@ -78,6 +85,7 @@ export interface HomeSecurityRulesV1 {
 
 export interface HomeSecurityRulesPatchV1 {
   guardMode?: HomeGuardModeV1;
+  lightingDurationSec?: number;
   di1DurationSec?: number;
   di1LightMode?: HomeDi1LightModeV1;
   perimeterTimeoutSec?: number;
@@ -113,6 +121,8 @@ export interface HomeSecurityFirmwareRulesV1 {
   perimeterFlagMs: number;
   strobeOnMs: number;
   strobeOffMs: number;
+  /** 夜間ライト点灯維持（秒）— RP2350 実機キー */
+  lighting_duration_sec: number;
 }
 
 const GUARD_MODES: HomeGuardModeV1[] = ["always", "night_only", "off"];
@@ -160,6 +170,7 @@ function parseNotifyMode(
 
 const DEFAULT_RULES: Omit<HomeSecurityRulesV1, "siteId" | "updatedAt"> = {
   guardMode: "night_only",
+  lightingDurationSec: 45,
   di1DurationSec: 45,
   di1LightMode: "steady",
   perimeterTimeoutSec: 120,
@@ -187,7 +198,7 @@ function nowIso(): string {
 function clampSec(
   value: unknown,
   fallback: number,
-  min = 10,
+  min = 5,
   max = 180
 ): number {
   const n = Number(value);
@@ -272,6 +283,11 @@ function parseRulesJson(
     DEFAULT_RULES.di2AlertDurationSec
   );
 
+  const lightingDurationSec = clampSec(
+    parsed.lightingDurationSec ?? parsed.di1DurationSec,
+    DEFAULT_RULES.lightingDurationSec
+  );
+
   const notifyDi1SilentLogOnly =
     parsed.notifyDi1SilentLogOnly !== undefined
       ? Boolean(parsed.notifyDi1SilentLogOnly)
@@ -298,9 +314,10 @@ function parseRulesJson(
   return {
     siteId,
     guardMode,
+    lightingDurationSec,
     di1DurationSec: clampSec(
-      parsed.di1DurationSec,
-      DEFAULT_RULES.di1DurationSec
+      parsed.di1DurationSec ?? lightingDurationSec,
+      lightingDurationSec
     ),
     di1LightMode,
     perimeterTimeoutSec: clampPerimeterSec(
@@ -458,13 +475,42 @@ export function updateHomeSecurityRulesV1(
     notifyDi2Mode = Boolean(patch.notifyDi2InstantPush) ? "critical" : "off";
   }
 
+  const lightingDurationSec =
+    patch.lightingDurationSec !== undefined
+      ? clampSec(patch.lightingDurationSec, current.lightingDurationSec)
+      : patch.di1DurationSec !== undefined
+        ? clampSec(patch.di1DurationSec, current.lightingDurationSec)
+        : current.lightingDurationSec;
+
+  const di1DurationSec =
+    patch.di1DurationSec !== undefined
+      ? clampSec(patch.di1DurationSec, current.di1DurationSec)
+      : patch.lightingDurationSec !== undefined
+        ? lightingDurationSec
+        : current.di1DurationSec;
+
+  const di2AlertDurationSecResolved =
+    patch.di2AlertDurationSec !== undefined
+      ? clampSec(patch.di2AlertDurationSec, current.di2AlertDurationSec)
+      : patch.lightingDurationSec !== undefined
+        ? lightingDurationSec
+        : di2AlertDurationSec;
+
+  const di2StandaloneDurationSec =
+    patch.di2StandaloneDurationSec !== undefined
+      ? clampSec(
+          patch.di2StandaloneDurationSec,
+          current.di2StandaloneDurationSec
+        )
+      : patch.lightingDurationSec !== undefined
+        ? lightingDurationSec
+        : current.di2StandaloneDurationSec;
+
   const rules: HomeSecurityRulesV1 = {
     siteId: sid,
     guardMode,
-    di1DurationSec:
-      patch.di1DurationSec !== undefined
-        ? clampSec(patch.di1DurationSec, current.di1DurationSec)
-        : current.di1DurationSec,
+    lightingDurationSec,
+    di1DurationSec,
     di1LightMode,
     perimeterTimeoutSec:
       patch.perimeterTimeoutSec !== undefined
@@ -475,14 +521,8 @@ export function updateHomeSecurityRulesV1(
         : current.perimeterTimeoutSec,
     di2LightMode,
     di2Light100vMode,
-    di2AlertDurationSec,
-    di2StandaloneDurationSec:
-      patch.di2StandaloneDurationSec !== undefined
-        ? clampSec(
-            patch.di2StandaloneDurationSec,
-            current.di2StandaloneDurationSec
-          )
-        : current.di2StandaloneDurationSec,
+    di2AlertDurationSec: di2AlertDurationSecResolved,
+    di2StandaloneDurationSec,
     di2Standalone24vMode,
     di2Standalone100vMode,
     notifyDi1Mode,
@@ -512,12 +552,22 @@ export function homeGuardModeLabelJaV1(mode: HomeGuardModeV1): string {
   return map[mode] ?? mode;
 }
 
-/** 現在時刻で警戒が有効か（JST） */
-export function isHomeGuardActiveV1(
+/** 現在時刻で防犯監視が有効か（OFF/一時停止以外） */
+export function isHomeSecurityArmedV1(
   rules: HomeSecurityRulesV1,
   at: Date = new Date()
 ): boolean {
   if (rules.guardMode === "off") return false;
+  if (isHomeSecurityPausedV1(rules, at)) return false;
+  return true;
+}
+
+/** 現在時刻で防犯ライト（DO）連動が有効か（JST 18:00〜06:00） */
+export function isHomeGuardActiveV1(
+  rules: HomeSecurityRulesV1,
+  at: Date = new Date()
+): boolean {
+  if (!isHomeSecurityArmedV1(rules, at)) return false;
   if (rules.guardMode === "always") return true;
   const jstHour = Number(
     at.toLocaleString("en-US", {
@@ -526,7 +576,10 @@ export function isHomeGuardActiveV1(
       timeZone: "Asia/Tokyo",
     })
   );
-  return jstHour >= 20 || jstHour < 6;
+  return (
+    jstHour >= HOME_GUARD_NIGHT_START_HOUR_JST_V1 ||
+    jstHour < HOME_GUARD_NIGHT_END_HOUR_JST_V1
+  );
 }
 
 /** 防犯ライト一時停止中か */
@@ -545,8 +598,7 @@ export function buildHomeSecurityFirmwareRulesV1(
   siteId: string
 ): HomeSecurityFirmwareRulesV1 {
   const rules = getHomeSecurityRulesV1(siteId);
-  const guardActive =
-    isHomeGuardActiveV1(rules) && !isHomeSecurityPausedV1(rules);
+  const guardActive = isHomeGuardActiveV1(rules);
   return {
     version: 1,
     siteId: rules.siteId,
@@ -564,6 +616,7 @@ export function buildHomeSecurityFirmwareRulesV1(
     perimeterFlagMs: rules.perimeterTimeoutSec * 1000,
     strobeOnMs: 250,
     strobeOffMs: 250,
+    lighting_duration_sec: rules.lightingDurationSec,
   };
 }
 

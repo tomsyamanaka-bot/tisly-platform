@@ -151,4 +151,24 @@ describe("home-security-notify-v1", () => {
     assert.equal(second.pattern, "pattern_a");
     assert.equal(second.pushSent, false);
   });
+
+  it("night_only daytime still sends push when armed", async () => {
+    resetHomeSecurityNotifyStateV1(SITE);
+    updateHomeSecurityRulesV1(SITE, {
+      guardMode: "night_only",
+      securityPausedUntil: null,
+      notifyDi1SilentLogOnly: false,
+      notifyDi1Mode: "critical",
+    });
+    const { isHomeGuardActiveV1, isHomeSecurityArmedV1 } = await import(
+      "../src/home/home-security-rules-v1.js"
+    );
+    const rules = getHomeSecurityRulesV1(SITE);
+    const noon = new Date("2026-08-25T03:00:00.000Z");
+    assert.equal(isHomeSecurityArmedV1(rules, noon), true);
+    assert.equal(isHomeGuardActiveV1(rules, noon), false);
+    const result = await processHomeSecurityEventV1({ siteId: SITE, di: 1 });
+    assert.equal(result.pattern, "pattern_a");
+    assert.equal(result.pushSent, true);
+  });
 });
