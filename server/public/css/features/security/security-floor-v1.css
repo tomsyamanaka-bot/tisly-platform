@@ -602,13 +602,57 @@
   padding: 0 2px;
 }
 
+/* 3D枠直下の独立フロア切替ボタン */
+.sf-iso3d-floor-switch {
+  margin: 10px 0 4px;
+  padding: 0 2px;
+}
+
+.sf-iso3d-floor-switch .sf-tabs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 10px;
+}
+
+.sf-iso3d-floor-switch .sf-tab {
+  min-height: var(--sf-tap);
+  border: 2px solid var(--sf-navy);
+  border-radius: 12px;
+  background: #f8fafc;
+  color: var(--sf-navy);
+  font-weight: 800;
+  font-size: 1rem;
+  letter-spacing: 0.04em;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+.sf-iso3d-floor-switch .sf-tab.is-on {
+  background: var(--sf-navy);
+  color: #ffffff;
+  border-color: var(--sf-navy);
+  box-shadow: 0 4px 12px rgba(30, 58, 138, 0.28);
+}
+
+.sf-soc .sf-iso3d-floor-switch .sf-tab {
+  background: #f8fafc;
+  border-color: var(--sf-navy);
+  color: var(--sf-navy);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+.sf-soc .sf-iso3d-floor-switch .sf-tab.is-on {
+  background: var(--sf-navy);
+  color: #ffffff;
+  border-color: var(--sf-navy);
+}
+
 .sf-iso3d-hud {
   position: relative;
   z-index: 2;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 8px;
   padding: 10px 12px;
   border-radius: 12px;
@@ -648,14 +692,12 @@
 }
 
 #sf-iso3d-floor-label {
-  font-weight: 800;
-  color: #0f172a;
-  letter-spacing: 0.04em;
+  /* 枠内オーバーレイ廃止 · 互換用に残置 */
+  display: none;
 }
 
 .sf-iso3d-hint {
-  font-size: 0.72rem;
-  color: #64748b;
+  display: none;
 }
 
 .sf-iso3d-alert-badge {
@@ -979,10 +1021,11 @@
 }
 
 .sf-orbit-hint {
-  margin: 8px 0 0;
-  color: #64748b;
-  font-size: 0.82rem;
-  font-weight: 700;
+  /* 操作ガイド文は撤去 · クラス互換のため非表示 */
+  display: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0;
 }
 
 .sf-map-loading {

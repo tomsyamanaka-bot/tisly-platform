@@ -250,13 +250,12 @@ export function renderIsoStack(site, focusId, opts = {}) {
         </article>`;
       })
       .join("");
-    /* 3Dマウントを主表示 · SVGドラムはデータ/フォールバック用に保持 */
+    /* 3D枠内は部屋・部屋名・ピンのみ
+     * フロア切替UIは枠外ボタンへ分離 */
     return `<div class="sf-iso-scene sf-iso3d-scene">
       <div id="sf-iso3d-mount" class="sf-iso3d-mount" role="img" aria-label="3Dアイソメ俯瞰"></div>
+      <div id="sf-iso3d-alert-badge" class="sf-iso3d-alert-badge" hidden></div>
       <div class="sf-iso-orbit sf-iso-orbit--data" id="sf-iso-orbit" data-focus="${escapeHtml(focus)}">${cards}</div>
-    </div>
-    <div class="sf-iso3d-toolbar" id="sf-iso3d-toolbar">
-      <div class="sf-iso3d-hud"><span id="sf-iso3d-floor-label">${escapeHtml(socFloorLabel(focus))}</span><span class="sf-iso3d-hint">縦スワイプで階層 · 横ドラッグで回転 · ピンチで拡大 · ダブルタップでリセット</span></div>
     </div>`;
   } catch (err) {
     console.warn("[security-floor] iso fallback", err);
@@ -270,12 +269,11 @@ export function renderIsoStack(site, focusId, opts = {}) {
   }
 }
 
+/* 静的フォールバックも枠内オーバーレイ無し */
 export const STATIC_ISO_HTML = `<div class="sf-iso-scene sf-iso3d-scene">
   <div id="sf-iso3d-mount" class="sf-iso3d-mount" role="img" aria-label="3Dアイソメ俯瞰"></div>
+  <div id="sf-iso3d-alert-badge" class="sf-iso3d-alert-badge" hidden></div>
   <div class="sf-iso-orbit sf-iso-orbit--data" id="sf-iso-orbit" data-focus="1f"></div>
-</div>
-<div class="sf-iso3d-toolbar" id="sf-iso3d-toolbar">
-  <div class="sf-iso3d-hud"><span id="sf-iso3d-floor-label">1F</span><span class="sf-iso3d-hint">縦スワイプで階層 · 横ドラッグで回転 · ピンチで拡大 · ダブルタップでリセット</span></div>
 </div>`;
 
 export function renderSocLayerButtons(floors, activeId, site = null) {

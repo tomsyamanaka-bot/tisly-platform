@@ -320,18 +320,25 @@ describe("security-floor-v1", () => {
     assert.match(html, /DI2単独：即時Web Push/);
     assert.match(html, /data-notify-mode/);
     assert.match(html, /sf-remote-apply/);
-    assert.match(html, /security-floor-remote-config-v1\.js\?v=2500/);
-    assert.match(html, /security-floor-push-v1\.js\?v=2500/);
-    assert.match(html, /security-floor-light-v1\.js\?v=2500/);
-    assert.match(html, /security-floor-operator-v1\.js\?v=2500/);
-    assert.match(html, /security-floor-iso3d-v1\.js\?v=2500/);
-    assert.match(html, /security-floor-v1\.css\?v=2500/);
+    assert.match(html, /security-floor-remote-config-v1\.js\?v=2501/);
+    assert.match(html, /security-floor-push-v1\.js\?v=2501/);
+    assert.match(html, /security-floor-light-v1\.js\?v=2501/);
+    assert.match(html, /security-floor-operator-v1\.js\?v=2501/);
+    assert.match(html, /security-floor-iso3d-v1\.js\?v=2501/);
+    assert.match(html, /security-floor-v1\.css\?v=2501/);
     assert.doesNotMatch(html, /sf-live-feed|sf-cam-thumbs|sf-cam-expand|ライブカメラ/);
     assert.doesNotMatch(html, /勝手口カメラ 01/);
     assert.match(html, /sf-push-reregister/);
     assert.match(html, /Push通知を再登録・購読/);
     assert.match(html, /sf-iso3d-stack/);
     assert.match(html, /sf-iso3d-toolbar/);
+    assert.match(html, /sf-iso3d-floor-switch/);
+    assert.match(html, /id="sf-floor-tabs"/);
+    assert.doesNotMatch(html, /縦スワイプ/);
+    assert.doesNotMatch(html, /タブでフロア切替/);
+    assert.doesNotMatch(html, /sf-orbit-hint/);
+    assert.doesNotMatch(html, /sf-iso3d-hint/);
+    assert.doesNotMatch(html, /sf-iso3d-floor-label/);
     assert.match(html, /sf-lighting-duration/);
     assert.match(html, /sf-log-compact/);
     assert.match(html, /sf-log-dialog/);
@@ -360,6 +367,10 @@ describe("security-floor-v1", () => {
     assert.match(mapJs, /sf-iso-orbit/);
     assert.match(mapJs, /sf-iso3d-mount/);
     assert.match(mapJs, /floorHasContent/);
+    assert.match(mapJs, /sf-iso3d-alert-badge/);
+    assert.doesNotMatch(mapJs, /縦スワイプで階層/);
+    assert.doesNotMatch(mapJs, /sf-iso3d-hint/);
+    assert.doesNotMatch(mapJs, /sf-iso3d-floor-label/);
     assert.doesNotMatch(mapJs, /屋根\/太陽光/);
     const iso3dJs = fs.readFileSync(
       path.join(
@@ -502,6 +513,10 @@ describe("security-floor-v1", () => {
     assert.match(customerHtml, /Push通知を再登録・購読/);
     assert.match(customerHtml, /sf-iso3d-mount/);
     assert.match(customerHtml, /sf-iso3d-stack/);
+    assert.match(customerHtml, /sf-iso3d-floor-switch/);
+    assert.doesNotMatch(customerHtml, /縦スワイプ/);
+    assert.doesNotMatch(customerHtml, /タブでフロア切替/);
+    assert.doesNotMatch(customerHtml, /sf-orbit-hint/);
     assert.match(customerHtml, /sf-log-compact/);
     assert.match(customerHtml, /sf-demo-alert/);
     assert.match(customerHtml, /data-room-id="my-1f-katte"/);
