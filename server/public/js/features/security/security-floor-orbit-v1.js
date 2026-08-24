@@ -2,6 +2,7 @@
  * 立体ドラム式フロア切替（rotateX + translateZ）
  * マップ上の縦スワイプ / ホイールで 2F → 1F → 外周 を回転
  * 3Dキャンバス上も縦優勢ジェスチャ・ホイールで階層フォーカス連動
+ * 2本指ピンチはズームへ委譲（ドラムをキャンセル）
  */
 
 const DRUM_ORDER = ["2f", "1f", "outdoor"];
@@ -18,8 +19,11 @@ const drum = {
   accX: 0,
   pointerId: null,
   onIso3d: false,
-  mode: null, // 'floor' | 'orbit' | null
+  mode: null, // 'floor' | 'orbit' | 'pinch' | null
 };
+
+/** 同時ポインタ数（ピンチ判定） */
+const activePointers = new Set();
 
 function layersOf(el) {
   return [...(el?.querySelectorAll(".sf-iso-layer") || [])];
@@ -37,6 +41,15 @@ function setOrbitRotate(on) {
   } catch {
     /* ignore */
   }
+}
+
+/** 2本指ピンチ開始時: ドラムスワイプをキャンセルし OrbitControls へ委譲 */
+function cancelDrumForPinch() {
+  drum.mode = "pinch";
+  drum.accY = 0;
+  drum.accX = 0;
+  setOrbitRotate(true);
+  document.getElementById("sf-map-wrap")?.classList.remove("is-dragging");
 }
 
 export function applySecurityOrbit() {
@@ -117,6 +130,12 @@ function isIso3dPointerTarget(t) {
 function onPointerDown(e) {
   const wrap = e.target.closest("#sf-map-wrap");
   if (!wrap) return;
+  activePointers.add(e.pointerId);
+  /* 2本目以降 → ピンチ。ドラムをキャンセルしズームを OrbitControls へ */
+  if (activePointers.size >= 2 || drum.mode === "pinch") {
+    cancelDrumForPinch();
+    return;
+  }
   drum.dragging = true;
   drum.onIso3d = isIso3dPointerTarget(e.target);
   drum.lastY = e.clientY;
@@ -137,7 +156,12 @@ function onPointerDown(e) {
 
 function onPointerMove(e) {
   if (!drum.dragging) return;
+  if (drum.mode === "pinch") return;
   if (drum.pointerId != null && e.pointerId !== drum.pointerId) return;
+  if (activePointers.size >= 2) {
+    cancelDrumForPinch();
+    return;
+  }
   const dy = e.clientY - drum.lastY;
   const dx = e.clientX - drum.lastX;
   drum.lastY = e.clientY;
@@ -173,7 +197,21 @@ function onPointerMove(e) {
 }
 
 function onPointerUp(e) {
-  if (!drum.dragging) return;
+  activePointers.delete(e.pointerId);
+  if (!drum.dragging && drum.mode !== "pinch") return;
+  if (drum.mode === "pinch") {
+    if (activePointers.size === 0) {
+      setOrbitRotate(true);
+      drum.dragging = false;
+      drum.pointerId = null;
+      drum.accY = 0;
+      drum.accX = 0;
+      drum.mode = null;
+      drum.onIso3d = false;
+      document.getElementById("sf-map-wrap")?.classList.remove("is-dragging");
+    }
+    return;
+  }
   if (drum.pointerId != null && e.pointerId !== drum.pointerId) return;
   if (!drum.onIso3d || drum.mode === "floor") {
     if (drum.accY > DRUM_SWIPE_RELEASE) stepFloor(1);
@@ -189,6 +227,15 @@ function onPointerUp(e) {
   document.getElementById("sf-map-wrap")?.classList.remove("is-dragging");
 }
 
+/** touchstart / touchmove: touches.length === 2 でドラムをキャンセル */
+function onTouchStart(e) {
+  if (e.touches.length === 2) cancelDrumForPinch();
+}
+
+function onTouchMove(e) {
+  if (e.touches.length === 2) cancelDrumForPinch();
+}
+
 let bound = false;
 
 export function bindSecurityOrbit() {
@@ -201,14 +248,17 @@ export function bindSecurityOrbit() {
   wrap?.addEventListener("pointermove", onPointerMove, { passive: false });
   wrap?.addEventListener("pointerup", onPointerUp);
   wrap?.addEventListener("pointercancel", onPointerUp);
+  wrap?.addEventListener("touchstart", onTouchStart, { passive: true });
+  wrap?.addEventListener("touchmove", onTouchMove, { passive: true });
   wrap?.addEventListener(
     "wheel",
     (e) => {
-      /* 3D上もホイールで階層切替（ズームはピンチ） */
+      /* capture で OrbitControls より先に止め、階層切替（ズームはピンチ） */
       if (Math.abs(e.deltaY) < 8) return;
       e.preventDefault();
+      e.stopPropagation();
       stepFloor(e.deltaY > 0 ? 1 : -1);
     },
-    { passive: false }
+    { passive: false, capture: true }
   );
 }

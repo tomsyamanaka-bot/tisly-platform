@@ -24,6 +24,7 @@
     onIso3d: false,
     mode: null,
   };
+  var activePointers = new Set();
   var cameraIndex = 0;
   var cameras = [
     { id: "my-cam-katte", label: "勝手口カメラ 01", scene: "backdoor" },
@@ -255,7 +256,19 @@
         /* ignore */
       }
     }
+    function cancelDrumForPinch() {
+      drum.mode = "pinch";
+      drum.accY = 0;
+      drum.accX = 0;
+      setOrbitRotate(true);
+      wrap.classList.remove("is-dragging");
+    }
     wrap.addEventListener("pointerdown", function (e) {
+      activePointers.add(e.pointerId);
+      if (activePointers.size >= 2 || drum.mode === "pinch") {
+        cancelDrumForPinch();
+        return;
+      }
       drum.dragging = true;
       drum.onIso3d = is3dTarget(e.target);
       drum.lastY = e.clientY;
@@ -277,7 +290,12 @@
       "pointermove",
       function (e) {
         if (!drum.dragging) return;
+        if (drum.mode === "pinch") return;
         if (drum.pointerId != null && e.pointerId !== drum.pointerId) return;
+        if (activePointers.size >= 2) {
+          cancelDrumForPinch();
+          return;
+        }
         var dy = e.clientY - drum.lastY;
         var dx = e.clientX - drum.lastX;
         drum.lastY = e.clientY;
@@ -314,7 +332,21 @@
       { passive: false }
     );
     function up(e) {
-      if (!drum.dragging) return;
+      activePointers.delete(e.pointerId);
+      if (!drum.dragging && drum.mode !== "pinch") return;
+      if (drum.mode === "pinch") {
+        if (activePointers.size === 0) {
+          setOrbitRotate(true);
+          drum.dragging = false;
+          drum.pointerId = null;
+          drum.accY = 0;
+          drum.accX = 0;
+          drum.mode = null;
+          drum.onIso3d = false;
+          wrap.classList.remove("is-dragging");
+        }
+        return;
+      }
       if (drum.pointerId != null && e.pointerId !== drum.pointerId) return;
       if (!drum.onIso3d || drum.mode === "floor") {
         if (drum.accY > DRUM_SWIPE_RELEASE) stepFloor(1);
@@ -332,14 +364,29 @@
     wrap.addEventListener("pointerup", up);
     wrap.addEventListener("pointercancel", up);
     wrap.addEventListener(
+      "touchstart",
+      function (e) {
+        if (e.touches.length === 2) cancelDrumForPinch();
+      },
+      { passive: true }
+    );
+    wrap.addEventListener(
+      "touchmove",
+      function (e) {
+        if (e.touches.length === 2) cancelDrumForPinch();
+      },
+      { passive: true }
+    );
+    wrap.addEventListener(
       "wheel",
       function (e) {
-        /* 3D上もホイールで階層切替（ズームはピンチ） */
+        /* capture で OrbitControls より先に止め、階層切替（ズームはピンチ） */
         if (Math.abs(e.deltaY) < 8) return;
         e.preventDefault();
+        e.stopPropagation();
         stepFloor(e.deltaY > 0 ? 1 : -1);
       },
-      { passive: false }
+      { passive: false, capture: true }
     );
   }
 

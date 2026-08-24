@@ -253,7 +253,7 @@ export function renderIsoStack(site, focusId, opts = {}) {
     /* 3Dマウントを主表示 · SVGドラムはデータ/フォールバック用に保持 */
     return `<div class="sf-iso-scene sf-iso3d-scene">
       <div id="sf-iso3d-mount" class="sf-iso3d-mount" role="img" aria-label="3Dアイソメ俯瞰"></div>
-      <div class="sf-iso3d-hud"><span id="sf-iso3d-floor-label">${escapeHtml(socFloorLabel(focus))}</span><span class="sf-iso3d-hint">ドラッグで回転 · ピンチで拡大</span></div>
+      <div class="sf-iso3d-hud"><span id="sf-iso3d-floor-label">${escapeHtml(socFloorLabel(focus))}</span><span class="sf-iso3d-hint">縦スワイプで階層 · 横ドラッグで回転 · ピンチで拡大 · ダブルタップでリセット</span></div>
       <div class="sf-iso-orbit sf-iso-orbit--data" id="sf-iso-orbit" data-focus="${escapeHtml(focus)}">${cards}</div>
     </div>`;
   } catch (err) {
@@ -270,7 +270,7 @@ export function renderIsoStack(site, focusId, opts = {}) {
 
 export const STATIC_ISO_HTML = `<div class="sf-iso-scene sf-iso3d-scene">
   <div id="sf-iso3d-mount" class="sf-iso3d-mount" role="img" aria-label="3Dアイソメ俯瞰"></div>
-  <div class="sf-iso3d-hud"><span id="sf-iso3d-floor-label">1F</span><span class="sf-iso3d-hint">ドラッグで回転 · ピンチで拡大</span></div>
+  <div class="sf-iso3d-hud"><span id="sf-iso3d-floor-label">1F</span><span class="sf-iso3d-hint">縦スワイプで階層 · 横ドラッグで回転 · ピンチで拡大 · ダブルタップでリセット</span></div>
   <div class="sf-iso-orbit sf-iso-orbit--data" id="sf-iso-orbit" data-focus="1f"></div>
 </div>`;
 

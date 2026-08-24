@@ -32,6 +32,13 @@ const REEL_SLIDE = 10.5;
 const REEL_DURATION = 0.4;
 const CAM_FOV = 48;
 const CAM_DIST_MIN = 30;
+/** ピン詳細寄りの最短距離（ピンチズーム） */
+const CAM_ZOOM_MIN = 7;
+/** 間取り全体俯瞰の最長距離（ピンチズーム） */
+const CAM_ZOOM_MAX = 92;
+/** ダブルタップ判定（ms / px） */
+const DOUBLE_TAP_MS = 280;
+const DOUBLE_TAP_MAX_PX = 32;
 const BG = 0xf8fafc;
 const GRID_MAJOR = 0x94a3b8;
 const GRID_LINE = 0xcbd5e1;
@@ -103,6 +110,16 @@ const state = {
 
 /** 初回のみカメラをアイソメ位置へスナップ */
 let cameraBootstrapped = false;
+/** ダブルタップで戻すホーム視点 */
+const cameraHome = {
+  saved: false,
+  pos: new THREE.Vector3(),
+  target: new THREE.Vector3(),
+};
+/** ダブルタップ検出用 */
+let lastTapAt = 0;
+let lastTapX = 0;
+let lastTapY = 0;
 /** フォーカス階への滑らかな視点移動 */
 const focusAnim = {
   active: false,
@@ -558,20 +575,95 @@ function configureCameraForFocus(
   const desiredTargetY = focusY + 1.05;
   controls.minPolarAngle = Math.PI / 2 - (CAM_ELEV_MAX * Math.PI) / 180;
   controls.maxPolarAngle = Math.PI / 2 - (CAM_ELEV_MIN * Math.PI) / 180;
-  controls.minDistance = 12;
-  controls.maxDistance = 68;
+  controls.minDistance = CAM_ZOOM_MIN;
+  controls.maxDistance = CAM_ZOOM_MAX;
   if (boot) {
     const k = Math.SQRT1_2;
     camera.position.set(horiz * k, camY, horiz * k);
     controls.target.set(0, desiredTargetY, 0);
     cameraBootstrapped = true;
     focusAnim.active = false;
+    saveCameraHome();
   } else {
     focusAnim.targetY = desiredTargetY;
     focusAnim.camBaseY = camY;
     focusAnim.active = true;
   }
   controls.update();
+}
+
+function saveCameraHome() {
+  if (!camera || !controls) return;
+  cameraHome.pos.copy(camera.position);
+  cameraHome.target.copy(controls.target);
+  cameraHome.saved = true;
+}
+
+/** ダブルタップで初期倍率・位置へリセット */
+function resetCameraHome() {
+  if (!camera || !controls || !cameraHome.saved) return;
+  focusAnim.active = false;
+  camera.position.copy(cameraHome.pos);
+  controls.target.copy(cameraHome.target);
+  controls.minDistance = CAM_ZOOM_MIN;
+  controls.maxDistance = CAM_ZOOM_MAX;
+  controls.update();
+}
+
+function onCanvasPointerUp(ev) {
+  if (maybeHandleDoubleTap(ev)) return;
+  pickDevicePin(ev);
+}
+
+function maybeHandleDoubleTap(ev) {
+  if (ev.pointerType === "mouse" && ev.button !== 0) return false;
+  const now = performance.now();
+  const dx = ev.clientX - lastTapX;
+  const dy = ev.clientY - lastTapY;
+  const near =
+    dx * dx + dy * dy <= DOUBLE_TAP_MAX_PX * DOUBLE_TAP_MAX_PX;
+  if (near && now - lastTapAt <= DOUBLE_TAP_MS) {
+    resetCameraHome();
+    lastTapAt = 0;
+    return true;
+  }
+  lastTapAt = now;
+  lastTapX = ev.clientX;
+  lastTapY = ev.clientY;
+  return false;
+}
+
+function pickDevicePin(ev) {
+  if (!renderer || !camera || !buildingGroup) return;
+  const rect = renderer.domElement.getBoundingClientRect();
+  const x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
+  const y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
+  pointerNdc.set(x, y);
+  raycaster.setFromCamera(pointerNdc, camera);
+  const hits = raycaster.intersectObjects(buildingGroup.children, true);
+  for (const hit of hits) {
+    let obj = hit.object;
+    while (obj && obj.userData?.kind !== "devicePin") obj = obj.parent;
+    if (!obj?.userData?.deviceId) continue;
+    const camId = obj.userData.linkedCameraId;
+    const detail = {
+      sensorId: obj.userData.sensorId || obj.userData.deviceId,
+      cameraId: camId || null,
+      kind: obj.userData.pinKind,
+      label: obj.userData.label,
+    };
+    window.dispatchEvent(
+      new CustomEvent("tisly-security-pin-select", { detail })
+    );
+    if (camId) {
+      window.dispatchEvent(
+        new CustomEvent("tisly-security-camera-select", {
+          detail: { cameraId: camId },
+        })
+      );
+    }
+    break;
+  }
 }
 
 function syncFloorTabs(floorId) {
@@ -607,39 +699,6 @@ function inferAlertTier() {
     return focus === "outdoor" ? "perimeter" : "critical";
   }
   return "none";
-}
-
-function onCanvasPointerUp(ev) {
-  if (!renderer || !camera || !buildingGroup) return;
-  const rect = renderer.domElement.getBoundingClientRect();
-  const x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
-  const y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
-  pointerNdc.set(x, y);
-  raycaster.setFromCamera(pointerNdc, camera);
-  const hits = raycaster.intersectObjects(buildingGroup.children, true);
-  for (const hit of hits) {
-    let obj = hit.object;
-    while (obj && obj.userData?.kind !== "devicePin") obj = obj.parent;
-    if (!obj?.userData?.deviceId) continue;
-    const camId = obj.userData.linkedCameraId;
-    const detail = {
-      sensorId: obj.userData.sensorId || obj.userData.deviceId,
-      cameraId: camId || null,
-      kind: obj.userData.pinKind,
-      label: obj.userData.label,
-    };
-    window.dispatchEvent(
-      new CustomEvent("tisly-security-pin-select", { detail })
-    );
-    if (camId) {
-      window.dispatchEvent(
-        new CustomEvent("tisly-security-camera-select", {
-          detail: { cameraId: camId },
-        })
-      );
-    }
-    break;
-  }
 }
 
 function makeCyberGridTexture() {
@@ -751,16 +810,19 @@ function ensureScene() {
   /* 仰角 45–55° 帯にロック（水平潰れ防止） */
   controls.minPolarAngle = Math.PI / 2 - (CAM_ELEV_MAX * Math.PI) / 180;
   controls.maxPolarAngle = Math.PI / 2 - (CAM_ELEV_MIN * Math.PI) / 180;
-  controls.minDistance = 12;
-  controls.maxDistance = 68;
+  controls.minDistance = CAM_ZOOM_MIN;
+  controls.maxDistance = CAM_ZOOM_MAX;
   controls.enablePan = true;
-  /* ホイールは階層ドラムへ。ズームはピンチ（2本指） */
-  controls.enableZoom = false;
+  /* ピンチ（2本指）で Dolly ズーム。マウスホイールは親の capture で階層ドラムへ */
+  controls.enableZoom = true;
+  controls.zoomSpeed = 1.05;
   controls.touches = {
     ONE: THREE.TOUCH.ROTATE,
     TWO: THREE.TOUCH.DOLLY_PAN,
   };
   cameraBootstrapped = false;
+  cameraHome.saved = false;
+  lastTapAt = 0;
 
   /* 明るいスタジオ照明（上面ハイライト＋側面陰影） */
   scene.add(new THREE.AmbientLight(0xffffff, 0.62));
@@ -1489,6 +1551,12 @@ export function setSecurityIso3dOrbitEnabled(on) {
   if (!controls) return;
   controls.enableRotate = !!on;
   controls.enablePan = !!on;
+  /* ピンチズームはフロア切替中も常時有効 */
+  controls.enableZoom = true;
+}
+
+export function resetSecurityIso3dCamera() {
+  resetCameraHome();
 }
 
 export function applyFloorplanConfigToIso3d(config) {
@@ -1514,6 +1582,7 @@ window.TislySecurityIso3d = {
   setAlert: setSecurityIso3dAlert,
   setStack: setSecurityIso3dStack,
   setOrbitEnabled: setSecurityIso3dOrbitEnabled,
+  resetCamera: resetSecurityIso3dCamera,
   applyFloorplan: applyFloorplanConfigToIso3d,
   mount: mountSecurityIso3d,
   rebuild,
