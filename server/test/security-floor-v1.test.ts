@@ -232,8 +232,10 @@ describe("security-floor-v1", () => {
     assert.match(css, /padding:\s*16px/);
     assert.match(css, /#ffffff/i);
     assert.match(css, /#1e293b/i);
+    assert.match(css, /#334155/);
     assert.match(css, /touch-action: pan-y/);
     assert.match(css, /display: none !important/);
+    assert.match(css, /clamp\(260px|max-height:\s*300px|isometric-container/);
 
     const customer = await request(app).get(
       "/api/security-floor/v1/customer?siteId=SEC-JP-TSUKUBA-001"
@@ -318,12 +320,12 @@ describe("security-floor-v1", () => {
     assert.match(html, /DI2単独：即時Web Push/);
     assert.match(html, /data-notify-mode/);
     assert.match(html, /sf-remote-apply/);
-    assert.match(html, /security-floor-remote-config-v1\.js\?v=2499/);
-    assert.match(html, /security-floor-push-v1\.js\?v=2499/);
-    assert.match(html, /security-floor-light-v1\.js\?v=2499/);
-    assert.match(html, /security-floor-operator-v1\.js\?v=2499/);
-    assert.match(html, /security-floor-iso3d-v1\.js\?v=2499/);
-    assert.match(html, /security-floor-v1\.css\?v=2499/);
+    assert.match(html, /security-floor-remote-config-v1\.js\?v=2500/);
+    assert.match(html, /security-floor-push-v1\.js\?v=2500/);
+    assert.match(html, /security-floor-light-v1\.js\?v=2500/);
+    assert.match(html, /security-floor-operator-v1\.js\?v=2500/);
+    assert.match(html, /security-floor-iso3d-v1\.js\?v=2500/);
+    assert.match(html, /security-floor-v1\.css\?v=2500/);
     assert.doesNotMatch(html, /sf-live-feed|sf-cam-thumbs|sf-cam-expand|ライブカメラ/);
     assert.doesNotMatch(html, /勝手口カメラ 01/);
     assert.match(html, /sf-push-reregister/);
@@ -387,6 +389,8 @@ describe("security-floor-v1", () => {
     assert.match(iso3dJs, /shadeRoomMaterials/);
     assert.match(iso3dJs, /focusAnim/);
     assert.match(iso3dJs, /reelAnim|startReelTransition|REEL_SLIDE/);
+    assert.match(iso3dJs, /ResizeObserver|onResize/);
+    assert.match(iso3dJs, /EDGE_ASH|0x334155|334155/);
     assert.match(iso3dJs, /layer\.visible\s*=/);
     assert.match(iso3dJs, /SOLID_OPACITY|transparent:\s*false/);
     assert.match(iso3dJs, /labelRenderer\.domElement\.innerHTML\s*=\s*""/);
@@ -395,6 +399,7 @@ describe("security-floor-v1", () => {
     assert.doesNotMatch(iso3dJs, /NON_FOCUS_OPACITY/);
     assert.doesNotMatch(iso3dJs, /buildDevicePinHtml/);
     assert.doesNotMatch(iso3dJs, /new CSS2DObject\(el\)/);
+    assert.doesNotMatch(html, /sf-opt-cam/);
     const pinMeshJs = fs.readFileSync(
       path.join(
         publicDir,
@@ -461,6 +466,9 @@ describe("security-floor-v1", () => {
     assert.match(opJs, /発報中/);
     assert.match(opJs, /sf-demo-alert|toggleLivingAlert/);
     assert.match(opJs, /sf-ack|ackAlarms/);
+    assert.match(opJs, /ネットワーク遅延|稼働ステータス|最新ハートビート/);
+    assert.match(opJs, /formatHeartbeatAt|lastHeartbeatAt|deviceOnline/);
+    assert.doesNotMatch(opJs, /消費電力|スマート照明/);
     assert.doesNotMatch(opJs, /setLiveScene|renderThumbs|sf-cam-thumbs/);
     const fbJs = fs.readFileSync(
       path.join(
@@ -529,6 +537,16 @@ describe("security-floor-v1", () => {
     );
     assert.match(remoteJs, /SEC-JP-ITABASHI-LIVE/);
     assert.match(remoteJs, /HOME-JP-ITABASHI-LIVE/);
+    assert.match(remoteJs, /applyGuardModeImmediate/);
+    assert.match(remoteJs, /securityPausedUntil/);
+
+    const itabashi = buildSecurityFloorOperatorSiteV1("SEC-JP-ITABASHI-LIVE");
+    assert.ok(itabashi.soc);
+    assert.equal(typeof itabashi.soc.deviceOnline, "boolean");
+    assert.ok(
+      itabashi.soc.lastHeartbeatAt === null ||
+        typeof itabashi.soc.lastHeartbeatAt === "string"
+    );
 
     const dash = buildSecurityFloorCustomerDashboardV1(
       "SEC-JP-TSUKUBA-001"

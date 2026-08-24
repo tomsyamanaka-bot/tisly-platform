@@ -150,37 +150,45 @@ function applyStatusHero(site) {
   setText("sf-status-label", alerting ? "発報中" : "正常です");
 }
 
-function renderKpi(site, dash) {
+function formatHeartbeatAt(iso) {
+  if (!iso) return "未受信";
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return "未受信";
+  return new Date(t).toLocaleString("ja-JP", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
+function renderKpi(site, _dash) {
   const soc = site.soc || {};
-  const sens = (site.sensors || []).filter((s) => s.kind !== "camera");
-  const okSens = sens.filter((s) => !s.alertVisible).length;
-  const open = openAlarms(soc);
+  const online = !!soc.deviceOnline;
+  const ms =
+    typeof soc.networkMs === "number" && Number.isFinite(soc.networkMs)
+      ? Math.max(0, Math.round(soc.networkMs))
+      : null;
   const html = [
     [
-      "セキュリティ",
-      open.length > 0 || site.hasAlert ? "発報中" : "正常",
-      `アラーム ${open.length}件`,
-      open.length > 0 || site.hasAlert ? "alert" : "ok",
+      "ネットワーク遅延",
+      ms != null ? `${ms} ms` : "—",
+      "API 往復の実測",
+      online ? "ok" : "alert",
     ],
     [
-      "センサー",
-      `${okSens} / ${sens.length} 正常`,
-      "",
-      open.length > 0 || site.hasAlert ? "alert" : "ok",
+      "稼働ステータス",
+      online ? "オンライン" : "オフライン",
+      online ? "実機接続中" : "ハートビート待機",
+      online ? "ok" : "alert",
     ],
     [
-      "スマート照明",
-      `${soc.lightingOn ?? 0} / ${soc.lightingTotal ?? 8} 台`,
-      soc.lightingOn ? "点灯中" : "消灯",
-      "info",
+      "最新ハートビート",
+      formatHeartbeatAt(soc.lastHeartbeatAt),
+      "RP2350",
+      online ? "ok" : "info",
     ],
-    [
-      "消費電力",
-      `${soc.energyKw ?? 0} kW`,
-      `日次最大 ${soc.energyMaxKw ?? 0} kW`,
-      "info",
-    ],
-    ["ネットワーク", "正常", `遅延 ${soc.networkMs ?? 12} ms`, "ok"],
   ]
     .map(
       (row) => `<article class="sf-kpi ${row[3]}">
@@ -189,6 +197,7 @@ function renderKpi(site, dash) {
     )
     .join("");
   setHtml("sf-kpi", html);
+  setText("sf-online", online ? "● オンライン" : "● オフライン");
 }
 
 function renderAlarms(site) {
@@ -426,10 +435,12 @@ function bootFallback() {
 
 async function loadOperator(opts = {}) {
   const soft = !!opts.soft;
+  const t0 = performance.now();
   try {
     const data = await fetchJson(
       `/api/security-floor/v1/operator?siteId=${encodeURIComponent(state.siteId)}`
     );
+    const rttMs = Math.max(0, Math.round(performance.now() - t0));
     const sites = (data.dashboard?.sites || []).map((s) => ({
       id: s.siteId || s.id,
       siteId: s.siteId || s.id,
@@ -442,8 +453,13 @@ async function loadOperator(opts = {}) {
     }
     setText("sf-sum-alert", String(data.dashboard?.alertCount ?? 0));
     if (data.site) {
+      if (!data.site.soc) data.site.soc = {};
+      data.site.soc.networkMs = rttMs;
       const nextSig = alarmSignature(data.site);
       if (soft && state.site && nextSig === state.alarmSig) {
+        /* 発報変化なしでも遅延・ハートビートは更新 */
+        state.site.soc = { ...state.site.soc, ...data.site.soc, networkMs: rttMs };
+        renderKpi(state.site, data.dashboard || state.dash);
         return;
       }
       if (soft && state.site) {
@@ -610,10 +626,6 @@ function bind() {
   $("sf-log-csv")?.addEventListener("click", exportReport);
   $("sf-log-open-detail")?.addEventListener("click", () => {
     $("sf-log-dialog")?.showModal?.();
-  });
-  $("sf-opt-cam")?.addEventListener("change", (e) => {
-    /* ライブカメラ未搭載のためマップ上カメラ表示のみ切替 */
-    if (state.site) renderSite(state.site, state.dash);
   });
   $("sf-opt-sens")?.addEventListener("change", (e) => {
     state.showSensors = e.target.checked;

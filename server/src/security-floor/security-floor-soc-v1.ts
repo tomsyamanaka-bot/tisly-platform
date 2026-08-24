@@ -13,6 +13,10 @@ import {
   type SecuritySensorV1,
   type SecuritySiteV1,
 } from "./security-floor-sites-v1.js";
+import { getHeartbeatDebugSnapshot } from "../remote-test/remote-test-state.js";
+
+/** ハートビート受信後この秒数以内ならオンライン扱い */
+const DEVICE_ONLINE_WINDOW_MS = 90_000;
 
 export type SecurityAlarmStatusV1 =
   | "open"
@@ -57,6 +61,10 @@ export interface SecuritySocOverlayV1 {
   energyKw: number;
   energyMaxKw: number;
   networkMs: number;
+  /** RP2350 最新ハートビート時刻（ISO） */
+  lastHeartbeatAt: string | null;
+  /** ハートビート受信から一定時間内ならオンライン */
+  deviceOnline: boolean;
   weather: {
     tempC: number;
     humidity: number;
@@ -285,6 +293,13 @@ export function buildSecuritySocOverlayV1(
       enabled: f.enabled,
       z: layerZ(f.id),
     }));
+  const hb = getHeartbeatDebugSnapshot();
+  const lastHeartbeatAt = hb.lastHeartbeatAt || null;
+  const hbAgeMs = lastHeartbeatAt
+    ? Date.now() - Date.parse(lastHeartbeatAt)
+    : Number.POSITIVE_INFINITY;
+  const deviceOnline =
+    Number.isFinite(hbAgeMs) && hbAgeMs >= 0 && hbAgeMs < DEVICE_ONLINE_WINDOW_MS;
   return {
     layers,
     cameras: listSecurityCamerasV1(site),
@@ -294,6 +309,8 @@ export function buildSecuritySocOverlayV1(
     energyKw: site.energyKw ?? 0,
     energyMaxKw: site.energyMaxKw ?? 0,
     networkMs: site.networkMs ?? 12,
+    lastHeartbeatAt,
+    deviceOnline,
     weather: weatherFor(site),
     selectedCameraId: pickLinkedCameraIdV1(site),
   };

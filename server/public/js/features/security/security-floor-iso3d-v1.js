@@ -30,8 +30,8 @@ const FOCUS_CENTER_Y = 2.6;
 const REEL_SLIDE = 10.5;
 /** ドラムリール切替の所要秒 */
 const REEL_DURATION = 0.4;
-const CAM_FOV = 48;
-const CAM_DIST_MIN = 30;
+const CAM_FOV = 46;
+const CAM_DIST_MIN = 32;
 /** ピン詳細寄りの最短距離（ピンチズーム） */
 const CAM_ZOOM_MIN = 7;
 /** 間取り全体俯瞰の最長距離（ピンチズーム） */
@@ -769,8 +769,8 @@ function ensureScene() {
     sensorPins.clear();
   }
 
-  const w = mountEl.clientWidth || 360;
-  const h = mountEl.clientHeight || 360;
+  const w = mountEl.clientWidth || 280;
+  const h = mountEl.clientHeight || 280;
 
   scene = new THREE.Scene();
   scene.fog = new THREE.Fog(BG, 48, 110);
@@ -868,6 +868,11 @@ function ensureScene() {
     window.__TISLY_SF_ISO3D_RESIZE = true;
     window.addEventListener("resize", onResize);
   }
+  if (typeof ResizeObserver !== "undefined" && !mountEl.__tislySfRo) {
+    const ro = new ResizeObserver(() => onResize());
+    ro.observe(mountEl);
+    mountEl.__tislySfRo = ro;
+  }
   if (!window.__TISLY_SF_STACK_BOUND) {
     window.__TISLY_SF_STACK_BOUND = true;
     document.addEventListener("input", (e) => {
@@ -884,8 +889,8 @@ function ensureScene() {
 
 function onResize() {
   if (!mountEl || !camera || !renderer || !labelRenderer) return;
-  const w = mountEl.clientWidth || 360;
-  const h = mountEl.clientHeight || 360;
+  const w = Math.max(1, mountEl.clientWidth || 280);
+  const h = Math.max(1, mountEl.clientHeight || 280);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
   renderer.setSize(w, h, false);
@@ -1194,14 +1199,14 @@ function addFloorLayer(floorId, yBase, wallH, isFocus) {
     };
     layer.add(mesh);
 
-    /* 外壁フレーム風エッジ（シャープなダークスレート） */
+    /* 外壁フレーム風エッジ（シャープなダークスレート #334155） */
     const edge = new THREE.LineSegments(
       new THREE.EdgesGeometry(mesh.geometry),
       new THREE.LineBasicMaterial({
-        color: edgeColor,
+        color: tier === "none" ? EDGE_ASH : edgeColor,
         transparent: false,
         opacity: SOLID_OPACITY,
-        linewidth: 1,
+        linewidth: 2,
       })
     );
     edge.position.copy(mesh.position);

@@ -497,7 +497,7 @@
 
 .sf-kpi-row {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   margin-top: 12px;
 }
@@ -537,10 +537,10 @@
 .sf-iso-wrap {
   position: relative;
   z-index: 1;
-  min-height: 420px;
+  min-height: 0;
   max-height: none;
   overflow: hidden;
-  padding: 12px 12px 56px;
+  padding: 8px 8px 44px;
   box-sizing: border-box;
   -webkit-overflow-scrolling: touch;
   touch-action: none;
@@ -557,12 +557,14 @@
   cursor: grab;
 }
 
-/* —— 3D アイソメ主ビュー（クリーン＆テック ライト） —— */
-.sf-iso3d-scene {
+/* —— 3D アイソメ主ビュー（コンパクト：高さ 260–300px） —— */
+.sf-iso3d-scene,
+.isometric-container {
   position: relative;
   width: 100%;
-  min-height: 400px;
-  height: min(64vh, 560px);
+  min-height: 260px;
+  height: clamp(260px, 36vh, 300px);
+  max-height: 300px;
 }
 
 .sf-iso3d-mount {
@@ -1065,7 +1067,10 @@
 }
 
 .sf-iso-layer.is-dim {
-  pointer-events: none;
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 
 .sf-iso-layer.is-focus {
@@ -1104,13 +1109,14 @@
 
 .sf-iso-slab {
   fill: #ffffff;
-  stroke: #1e293b;
+  stroke: #334155;
   stroke-width: 1.6;
 }
 
 .sf-soc .sf-room {
   fill: #f8fafc;
-  stroke: #1e293b;
+  stroke: #334155;
+  stroke-width: 1.35;
 }
 
 .sf-soc .sf-room.is-alert,
@@ -1156,7 +1162,10 @@
 .sf-iso-orbit[data-focus="1f"] .sf-iso-layer:not([data-layer="1f"]),
 .sf-iso-orbit[data-focus="2f"] .sf-iso-layer:not([data-layer="2f"]),
 .sf-iso-orbit[data-focus="outdoor"] .sf-iso-layer:not([data-layer="outdoor"]) {
-  pointer-events: none;
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 
 .sf-iso-wrap.is-lights-on .sf-light {
@@ -1779,16 +1788,23 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .sf-iso-wrap {
-    min-height: 380px;
-    padding: 20px 16px;
+    min-height: 0;
+    padding: 8px 8px 40px;
   }
-  .sf-iso-scene {
-    min-height: 320px;
+  .sf-iso-scene,
+  .sf-iso3d-scene,
+  .isometric-container {
+    min-height: 260px;
+    height: clamp(260px, 55vw, 300px);
+    max-height: 300px;
+    aspect-ratio: 1 / 1;
+    max-width: min(100%, 300px);
+    margin-inline: auto;
   }
   .sf-iso-orbit,
   .sf-iso-layer {
-    width: min(100%, 360px);
-    height: 320px;
+    width: min(100%, 300px);
+    height: 280px;
   }
   body.sf-soc {
     padding-bottom: calc(

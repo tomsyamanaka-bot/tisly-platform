@@ -368,6 +368,8 @@ function moriyaSite() {
       energyKw: 2.35,
       energyMaxKw: 5.21,
       networkMs: 12,
+      lastHeartbeatAt: null,
+      deviceOnline: false,
       weather: {
         tempC: 12.5,
         humidity: 62,
